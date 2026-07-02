@@ -226,6 +226,13 @@
         const drawerFileManagerDocument = document.getElementById('drawer-file-manager-document');
         const btnBackFileManagerDocument = document.getElementById('btn-back-file-manager-document');
         const fileManagerNewFolderInput = document.getElementById('file-manager-new-folder-input');
+        // Folder Detail Drawer (Phase 2, MỚI — mục 1b/c, CHỐT 03/07/2026)
+        const drawerFileManagerFolderDetail = document.getElementById('drawer-file-manager-folder-detail');
+        const btnBackFileManagerFolderDetail = document.getElementById('btn-back-file-manager-folder-detail');
+        const fileManagerFolderDetailTitle = document.getElementById('file-manager-folder-detail-title');
+        const btnFileManagerFolderApplyToPlaylist = document.getElementById('btn-file-manager-folder-apply-to-playlist');
+        const fileManagerFolderDetailSongList = document.getElementById('file-manager-folder-detail-song-list');
+        const fileManagerFolderDetailEmpty = document.getElementById('file-manager-folder-detail-empty');
         const btnFileManagerCreateFolder = document.getElementById('btn-file-manager-create-folder');
         const fileManagerFolderList = document.getElementById('file-manager-folder-list');
         const fileManagerFolderEmpty = document.getElementById('file-manager-folder-empty');
