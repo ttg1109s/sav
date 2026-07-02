@@ -191,6 +191,7 @@
             // hệt About Drawer/Visualizer Settings Drawer — 2 drawer đó chưa từng cần appState
             // riêng cho "đang mở hay không", File Manager cũng vậy, không có lý do khác biệt.
             activePlayListFolder: 'nullable-string', // null/undefined = tất cả bài; có giá trị = đang scoping theo folderId
+            folderDetailSongCount: 'number', // MỚI (03/07/2026, đợt 4) — số bài đang hiển thị trong Folder Detail Drawer, cập nhật mỗi lần vẽ lại; dùng bởi Block gate (event/block.js) để chặn "Áp dụng" khi folder rỗng
             selectionMode: 'boolean',                // chế độ chọn nhiều (checkbox) trong Playlist
             selectedSongKeys: 'set',                 // tập songKey đang được chọn khi selectionMode = true
             activeBackgroundAlbum: 'nullable-string', // albumId đang dùng làm nền slideshow, null = không dùng
@@ -333,6 +334,7 @@
                 // readerConfig/slideshowConfig gán THẬT ở dưới sau khi CONST đã sẵn sàng (giống
                 // vizConfig) — đặt {} tạm ở đây để key tồn tại sẵn trong schema/state ngay từ đầu.
                 activePlayListFolder: null,
+                folderDetailSongCount: 0,
                 selectionMode: false,
                 selectedSongKeys: new Set(),
                 activeBackgroundAlbum: null,
