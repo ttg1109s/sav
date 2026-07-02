@@ -214,11 +214,17 @@
         // Ver 12 "Multi Media" — khung File Manager (THAY #drawer-storage/#btn-back-storage/
         // #setting-open-storage cũ, xem components/file-manager.js). Các id thống kê/dung lượng/
         // quét lỗi (stat-storage-*, btn-storage-*, storage-scan-*) GIỮ NGUYÊN bên dưới — không đổi.
-        const btnOpenFileManager = document.getElementById('btn-open-file-manager');
-        const fileManagerOverlay = document.getElementById('file-manager-overlay');
-        const btnCloseFileManager = document.getElementById('btn-close-file-manager');
-        const fileManagerTabBtns = Array.from(document.querySelectorAll('.file-manager-tab-btn'));
-        const fileManagerPanes = Array.from(document.querySelectorAll('.file-manager-pane'));
+        // Section "File Manager" trong Settings (3 hàng bấm vào) — CHỐT 03/07/2026, xem
+        // plan-v12-multimedia-decisions.md mục 1a/7. Không còn overlay/tab-bar cấp cao nữa.
+        const btnOpenFileManagerSong = document.getElementById('setting-open-file-manager-song');
+        const btnOpenFileManagerPhoto = document.getElementById('setting-open-file-manager-photo');
+        const btnOpenFileManagerDocument = document.getElementById('setting-open-file-manager-document');
+        const drawerFileManagerSong = document.getElementById('drawer-file-manager-song');
+        const btnBackFileManagerSong = document.getElementById('btn-back-file-manager-song');
+        const drawerFileManagerPhoto = document.getElementById('drawer-file-manager-photo');
+        const btnBackFileManagerPhoto = document.getElementById('btn-back-file-manager-photo');
+        const drawerFileManagerDocument = document.getElementById('drawer-file-manager-document');
+        const btnBackFileManagerDocument = document.getElementById('btn-back-file-manager-document');
         const fileManagerNewFolderInput = document.getElementById('file-manager-new-folder-input');
         const btnFileManagerCreateFolder = document.getElementById('btn-file-manager-create-folder');
         const fileManagerFolderList = document.getElementById('file-manager-folder-list');
