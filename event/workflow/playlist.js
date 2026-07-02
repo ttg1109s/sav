@@ -103,7 +103,14 @@ const workflowPlaylist = {
             { state: enabled, operation: '===', value: false, callback: () => disableSelectionMode() },
         ]);
         const selectedSongKeys = appState.get('selectedSongKeys'); // đọc LẠI sau khi core ghi xong (disableSelectionMode có thể vừa clear nó)
-        refreshAllSelectionVisuals(appState.get('domNodesByKey'), enabled, selectedSongKeys);
+        const domNodesByKey = appState.get('domNodesByKey');
+        // Vòng lặp + chọn showSelectionIndicator/hideSelectionIndicator theo `enabled` ĐẶT Ở ĐÂY
+        // (workflow), KHÔNG phải core — đây là ≥2 lời gọi core void nối tiếp nhau (đúng hình dạng
+        // Workflow theo Rule 3/event-bus-flow.md mục 4B), workflow được phép làm việc này tự do.
+        VirtualMachineState.run([
+            { state: enabled, operation: '===', value: true, callback: () => domNodesByKey.forEach((node, key) => showSelectionIndicator(node, key, selectedSongKeys)) },
+            { state: enabled, operation: '===', value: false, callback: () => domNodesByKey.forEach((node) => hideSelectionIndicator(node)) },
+        ]);
         updateSelectionActionBar(enabled, selectedSongKeys.size);
         applySelectionChrome(enabled);
     },
@@ -241,9 +248,27 @@ const workflowPlaylist = {
 
         let deletedCount = 0;
         await withLoadingShield(t('common.loading.deleting'), async () => {
-            const deletedKeys = await deleteSongsBatch(keys); // core có sẵn (core/playlist/bulk-actions.js)
+            // Vòng lặp xoá ĐẶT THẲNG ở đây (workflow), KHÔNG bọc qua 1 lớp "core" giả — mỗi bước
+            // (đọc record, cascade folder, xoá record, xoá stat) là 1 hàm core void nối tiếp nhau,
+            // đúng vai trò workflow (Rule 3: core không được làm việc này, workflow thì được).
+            const deletedKeys = [];
+            for (const key of keys) {
+                const record = await getSongRecord(key);
+                if (!record) continue; // guard: đã bị xoá từ trước (hiếm, race) — bỏ qua, không chặn cả lô
+                await removeSongFromAllFolders(record); // core có sẵn (core/file-manager/folder.js)
+                await deleteSongRecord(key); // core CRUD thô (core/db.js)
+                removeSongStats(key); // core có sẵn (core/listen-stats.js)
+                deletedKeys.push(key);
+            }
             deletedCount = deletedKeys.length;
-            removeKeysFromDisplay(deletedKeys); // core có sẵn — đồng bộ RAM + vẽ lại
+
+            // Đồng bộ appState (core THUẦN, xem core/playlist/bulk-actions.js) rồi vẽ lại — đọc
+            // playlistOrder/displayOrder hiện tại TRƯỚC khi gọi (Rule 2: core không tự đọc).
+            removeKeysFromDisplayState(deletedKeys, appState.get('playlistOrder'), appState.get('displayOrder'));
+            updateShuffleArray(); // core có sẵn (core/playlist/order.js)
+            recomputeRenderOrder(); // core có sẵn (core/playlist/order.js)
+            renderPlaylistDiff(); // core có sẵn (core/playlist/render.js)
+            updateEmptyState(); // core có sẵn (core/playlist/render.js)
         });
 
         this._exitSelectionMode();
