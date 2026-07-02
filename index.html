@@ -65,7 +65,7 @@
     <script src="lang/patch/patch-settings-misc.js?v=20260627v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260703v2"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260703v3"></script>
     <script src="lang/lang.js?v=20260702v1"></script>
 
     <!-- =====================================================================
@@ -168,7 +168,7 @@
     <!-- Ver 12 "Multi Media" — khung điều hướng File Manager + vẽ danh sách folder trong tab Song.
          CẦN core/dom-refs.js (đã nạp ngay trên, xem đầu nhóm CORE này). -->
     <script src="core/file-manager/nav.js?v=20260703v2"></script>
-    <script src="core/file-manager/folder-list-ui.js?v=20260703v1"></script>
+    <script src="core/file-manager/folder-list-ui.js?v=20260703v2"></script>
     <!-- Phase 2 (mục 1b/c, CHỐT 03/07/2026) — Folder Detail Drawer. CẦN core/file-manager/folder.js
          (getFolderSongKeys) + core/dom-refs.js (đã nạp ngay trên). -->
     <script src="core/file-manager/folder-detail-ui.js?v=20260703v1"></script>
@@ -334,14 +334,14 @@
          scope.js (loadAllSongs/loadSongsFromFolder) + core/db.js (setMeta) + core/playlist/order.js
          + core/playlist/render.js (đã nạp ở nhóm CORE, phía trên nhóm EVENT này). -->
     <script src="event/workflow/playlist-scope.js?v=20260703v1"></script>
-    <script src="event/workflow/file-manager-song.js?v=20260703v2"></script>
+    <script src="event/workflow/file-manager-song.js?v=20260703v3"></script>
     <script src="event/router/file-manager-song.js?v=20260703v2"></script>
     <script src="event/listener/file-manager-song.js?v=20260703v2"></script>
     <script src="event/router/file-manager-photo.js?v=20260703v1"></script>
     <script src="event/listener/file-manager-photo.js?v=20260703v1"></script>
     <script src="event/router/file-manager-document.js?v=20260703v1"></script>
     <script src="event/listener/file-manager-document.js?v=20260703v1"></script>
-    <script src="event/workflow/playlist.js?v=20260703v1"></script>
+    <script src="event/workflow/playlist.js?v=20260703v2"></script>
     <script src="event/router/playlist.js?v=20260703v1"></script>
     <script src="event/listener/playlist.js?v=20260703v1"></script>
     <!-- Cụm "playerControls" (ver 11, patch 3): KHÔNG có event/workflow/player-controls.js — toàn
