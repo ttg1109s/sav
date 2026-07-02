@@ -183,15 +183,13 @@
             _pendingResumeSnapshot: 'any',  // object | null
             dbReadyPromise: 'any',          // Promise — không validate sâu, chỉ tồn tại 1 lần lúc init
 
-            // ── file manager / v12 "Multi Media" (plan-v12-multimedia.md mục 2) ─────
-            // Key điều hướng khung File Manager (mở/đóng overlay + tab đang chọn) — thêm cùng lúc
-            // với cụm event `fileManager` (bước sau của mục 5, không thêm ở bước hạ tầng ban đầu
-            // vì lúc đó UI chưa tồn tại).
-            isFileManagerOpen: 'boolean',
-            fileManagerActiveTab: 'string', // 'song' | 'image' | 'album' | 'text' — mặc định 'song', 3 tab còn lại CHƯA code (b2/b4/b5), hiện placeholder
-            // Các key UI điều hướng riêng của từng cụm event (vd tab đang mở trong File
-            // Manager) CHƯA thêm ở bước hạ tầng này — sẽ thêm cùng lúc với cụm event
-            // tương ứng ở bước sau (mục 5 bước 2 của plan), tránh đoán trước UI chưa code.
+            // ── file manager / v12 "Multi Media" ─────────────────────────────────────
+            // CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): isFileManagerOpen/
+            // fileManagerActiveTab (2 key mở/đóng overlay + tab đang chọn của bản overlay cấp cao
+            // cũ) ĐÃ BỎ HẲN — không migrate, không giữ lại. File Manager giờ là 3 drawer con độc
+            // lập, mỗi drawer tự quản lý mở/đóng bằng DOM class thuần (translate-y-full), giống
+            // hệt About Drawer/Visualizer Settings Drawer — 2 drawer đó chưa từng cần appState
+            // riêng cho "đang mở hay không", File Manager cũng vậy, không có lý do khác biệt.
             activePlayListFolder: 'nullable-string', // null/undefined = tất cả bài; có giá trị = đang scoping theo folderId
             selectionMode: 'boolean',                // chế độ chọn nhiều (checkbox) trong Playlist
             selectedSongKeys: 'set',                 // tập songKey đang được chọn khi selectionMode = true
@@ -330,8 +328,8 @@
                 dbReadyPromise: null, // gán thật ở db.js bằng appState.set('dbReadyPromise', openDatabase())
 
                 // ── file manager / v12 "Multi Media" ────────────────────────────
-                isFileManagerOpen: false,
-                fileManagerActiveTab: 'song',
+                // (isFileManagerOpen/fileManagerActiveTab đã bỏ hẳn — xem comment ở khối schema
+                // phía trên, mục 1a/7 CHỐT 03/07/2026)
                 // readerConfig/slideshowConfig gán THẬT ở dưới sau khi CONST đã sẵn sàng (giống
                 // vizConfig) — đặt {} tạm ở đây để key tồn tại sẵn trong schema/state ngay từ đầu.
                 activePlayListFolder: null,
