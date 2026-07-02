@@ -211,6 +211,11 @@ const workflowPlaylist = {
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
                 await addSongsToFolder([key], folderId); // core có sẵn (core/file-manager/folder.js)
             });
+            // SỬA (03/07/2026, rà soát nhất quán) — nếu folder đích ĐANG là scope hiện tại của
+            // Playlist, thêm bài ở đây phải phản ánh NGAY vào Playlist đang hiển thị.
+            if (folderId === appState.get('activePlayListFolder')) {
+                await workflowPlaylistScope.applyFolderScope(folderId);
+            }
             await alertModal(tFormat('fileManager.folderPicker.addSuccess', { count: 1 }));
         };
 
@@ -240,6 +245,11 @@ const workflowPlaylist = {
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
                 await addSongsToFolder(keys, folderId); // core có sẵn (core/file-manager/folder.js)
             });
+            // SỬA (03/07/2026, rà soát nhất quán) — nếu folder đích ĐANG là scope hiện tại của
+            // Playlist, thêm bài ở đây phải phản ánh NGAY vào Playlist đang hiển thị.
+            if (folderId === appState.get('activePlayListFolder')) {
+                await workflowPlaylistScope.applyFolderScope(folderId);
+            }
             this._exitSelectionMode();
             await alertModal(tFormat('fileManager.folderPicker.addSuccess', { count: keys.length }));
         };

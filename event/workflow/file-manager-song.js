@@ -31,7 +31,7 @@ const workflowFileManagerSong = {
      * — gọi lúc mở drawer Song. */
     async refreshSongTab() {
         const folders = await listFolders(); // core có sẵn (core/file-manager/folder.js), CÓ return, DÙNG ngay dưới
-        renderFolderListUI(folders); // core có sẵn (core/file-manager/folder-list-ui.js)
+        renderFolderListUI(folders, appState.get('activePlayListFolder')); // core có sẵn (core/file-manager/folder-list-ui.js) — MỚI: truyền activeFolderId (sửa gap UX 03/07/2026)
         await renderStorageStats(); // core có sẵn (core/storage-manager.js)
         resetScanResultUI(); // core có sẵn (core/storage-manager.js)
     },
@@ -98,6 +98,12 @@ const workflowFileManagerSong = {
     async removeSongFromFolderById(folderId, songKey) {
         await removeSongFromFolder(songKey, folderId); // core có sẵn (core/file-manager/folder.js)
         await this.refreshFolderDetail(folderId);
+        // SỬA (03/07/2026, rà soát nhất quán) — nếu folder này ĐANG là scope hiện tại của
+        // Playlist, gỡ bài ở đây phải phản ánh NGAY vào Playlist đang hiển thị, không chờ người
+        // dùng tự bấm "Áp dụng" lại. Dùng lại workflowPlaylistScope — không viết logic riêng.
+        if (folderId === appState.get('activePlayListFolder')) {
+            await workflowPlaylistScope.applyFolderScope(folderId);
+        }
     },
 
     /** Ứng với 'fileManagerSong.folder.applyToPlaylist.click', nhánh folderId CÓ giá trị (đã tách
