@@ -14,10 +14,19 @@
  */
 const workflowFileManagerSong = {
 
+    // ===================== Mở/đóng drawer (CHỐT 03/07/2026, mục 1a/7 — Song giờ là drawer con
+    // độc lập mở thẳng từ Settings, không còn màn "File Manager" cha điều phối nữa) ============
+
+    /** Ứng với 'fileManagerSong.open'. >1 hàm core nối tiếp (patch DOM + refresh dữ liệu) -> workflow. */
+    async openDrawer() {
+        showFileManagerSongDrawer(); // core/file-manager/nav.js
+        await this.refreshSongTab();
+    },
+
     // ===================== Folder (mục 4.b1) =====================
 
     /** Vẽ lại toàn bộ nội dung tab Song: danh sách folder + thống kê dung lượng + reset UI quét lỗi
-     * — gọi lúc mở File Manager (mặc định tab Song) hoặc chuyển sang tab Song. */
+     * — gọi lúc mở drawer Song. */
     async refreshSongTab() {
         const folders = await listFolders(); // core có sẵn (core/file-manager/folder.js), CÓ return, DÙNG ngay dưới
         renderFolderListUI(folders); // core có sẵn (core/file-manager/folder-list-ui.js)
