@@ -186,6 +186,31 @@ async function removeSongFromAllFolders(songRecord) {
 }
 
 /**
+ * Gỡ ĐÚNG 1 bài khỏi 1 folder cụ thể — CHỈ gỡ khỏi danh sách, KHÔNG xoá bài (khác hẳn "Xoá bài
+ * khỏi Playlist", xem plan-v12-multimedia.md mục 6 "Đã chốt"). Đối xứng với addSongsToFolder() —
+ * cùng thuật toán tombstone (`list[position] = null`, `empty++`) đã CHỐT ở mục 4.b1.
+ * MỚI (Phase 2, CHỐT 03/07/2026) — dùng bởi icon X trong Folder Detail Drawer.
+ * @param {string} songKey
+ * @param {string} folderId
+ * @returns {Promise<{status: 'notFound'|'ok'}>}
+ */
+async function removeSongFromFolder(songKey, folderId) {
+    const record = await getSongRecord(songKey);
+    if (!record || !record.folder || !(folderId in record.folder)) return { status: 'notFound' };
+
+    const folderMap = await getFolderSongMap(folderId);
+    if (!folderMap) return { status: 'notFound' };
+
+    const position = record.folder[folderId];
+    if (folderMap.list[position] !== null) {
+        folderMap.list[position] = null;
+        folderMap.empty++;
+        await setFolderSongMap(folderId, folderMap);
+    }
+    return { status: 'ok' };
+}
+
+/**
  * Liệt kê toàn bộ folder hiện có (metadata), dùng cho picker/UI danh sách.
  * @returns {Promise<Array<{id: string, name: string}>>}
  */

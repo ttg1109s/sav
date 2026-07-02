@@ -17,7 +17,10 @@ function renderFolderListUI(folders) {
 
     folders.forEach((folder) => {
         const row = document.createElement('div');
-        row.className = 'flex items-center gap-2 px-4 py-3';
+        // MỚI (Phase 2, CHỐT 03/07/2026): cả hàng giờ bấm được (mở Folder Detail Drawer) — 2 nút
+        // rename/xoá vẫn giữ nguyên hành vi cũ, listener phân biệt qua e.target.closest() (xem
+        // event/listener/file-manager-song.js).
+        row.className = 'flex items-center gap-2 px-4 py-3 cursor-pointer hover:bg-white/5 transition-colors';
         row.dataset.folderId = folder.id;
 
         const nameEl = document.createElement('span');
@@ -36,6 +39,11 @@ function renderFolderListUI(folders) {
         deleteBtn.className = 'p-1.5 rounded-full hover:bg-rose-500/10 transition-colors text-slate-400 hover:text-rose-400 shrink-0';
         deleteBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>';
         row.appendChild(deleteBtn);
+
+        const chevronEl = document.createElement('span');
+        chevronEl.className = 'text-slate-500 shrink-0 pl-1';
+        chevronEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>';
+        row.appendChild(chevronEl);
 
         fileManagerFolderList.appendChild(row);
     });
