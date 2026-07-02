@@ -29,7 +29,14 @@ if (songActionOverlay) {
 if (songActionMenu) {
     songActionMenu.addEventListener('click', (e) => {
         const btn = e.target.closest('button[data-menu-action]');
-        if (!btn) return; // không bấm trúng 1 trong 4 nút hành động -> không gửi gì cả
+        if (!btn) return; // không bấm trúng 1 trong các nút hành động -> không gửi gì cả
+        // MỚI (mục 1d, CHỐT 03/07/2026): addToFolder đi message RIÊNG, KHÔNG qua
+        // 'playlist.actionMenu.select' (handleSongActionMenuSelect() cũ) — xem comment ở
+        // components/playlist-view.js chỗ khai báo nút này.
+        if (btn.dataset.menuAction === 'addToFolder') {
+            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.addToFolder', payload: {} });
+            return;
+        }
         eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.select', payload: { action: btn.dataset.menuAction } });
     });
 }

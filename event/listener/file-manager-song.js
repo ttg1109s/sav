@@ -32,11 +32,38 @@ if (btnFileManagerCreateFolder) {
 
 if (fileManagerFolderList) {
     fileManagerFolderList.addEventListener('click', (e) => {
+        const row = e.target.closest('[data-folder-id]');
+        if (!row) return; // không bấm trúng hàng folder nào -> không gửi gì cả
         const btn = e.target.closest('button[data-folder-action]');
-        if (!btn) return; // không bấm trúng nút đổi tên/xoá -> không gửi gì cả
-        const row = btn.closest('[data-folder-id]');
-        if (!row) return;
-        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.folder.actionClick', payload: { action: btn.dataset.folderAction, folderId: row.dataset.folderId } });
+        if (btn) {
+            eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.folder.actionClick', payload: { action: btn.dataset.folderAction, folderId: row.dataset.folderId } });
+            return;
+        }
+        // Bấm vào hàng (không trúng nút rename/xoá) -> mở Folder Detail Drawer (Phase 2, MỚI).
+        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.folder.openDetail', payload: { folderId: row.dataset.folderId } });
+    });
+}
+
+// ===================== Folder Detail Drawer (Phase 2, MỚI — mục 1b/c, CHỐT 03/07/2026) =====
+
+if (btnBackFileManagerFolderDetail) {
+    btnBackFileManagerFolderDetail.addEventListener('click', () => {
+        // Back ở đây chỉ ẩn Folder Detail — KHÔNG động vào drawer Song bên dưới (vẫn mở nguyên).
+        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.folder.closeDetail', payload: {} });
+    });
+}
+
+if (btnFileManagerFolderApplyToPlaylist) {
+    btnFileManagerFolderApplyToPlaylist.addEventListener('click', () => {
+        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.folder.applyToPlaylist.click', payload: {} });
+    });
+}
+
+if (fileManagerFolderDetailSongList) {
+    fileManagerFolderDetailSongList.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-remove-song-key]');
+        if (!btn) return; // không bấm trúng icon X -> không gửi gì cả
+        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.folder.removeSong', payload: { songKey: btn.dataset.removeSongKey } });
     });
 }
 
