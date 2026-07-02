@@ -83,8 +83,13 @@ const workflowFileManagerSong = {
         await this.refreshFolderDetail(folderId);
     },
 
-    /** Vẽ lại tiêu đề + danh sách bài của Folder Detail Drawer đang mở — dùng lúc mở lần đầu VÀ
-     * sau khi gỡ 1 bài (danh sách có thể đổi). */
+    /** Vẽ lại tiêu đề + danh sách bài + nút Áp dụng/Bỏ áp dụng của Folder Detail Drawer đang mở —
+     * dùng lúc mở lần đầu, sau khi gỡ 1 bài, và sau khi đổi scope (Áp dụng/Bỏ áp dụng).
+     * MỚI (03/07/2026, đợt 4): cũng ghi `folderDetailSongCount` vào appState (Block gate,
+     * event/block.js, dùng để chặn "Áp dụng" khi folder rỗng) + đổi nhãn/màu nút theo đúng trạng
+     * thái đang/không đang active. Trả về `folderMap` để nơi gọi tái dùng (tránh đọc DB 2 lần).
+     * @returns {Promise<Object>} folderMap vừa đọc
+     */
     async refreshFolderDetail(folderId) {
         const folderRecord = await getFolderRecord(folderId); // core có sẵn (core/db.js)
         setFolderDetailTitle(folderRecord ? folderRecord.name : ''); // core/file-manager/folder-detail-ui.js
@@ -92,35 +97,70 @@ const workflowFileManagerSong = {
         const folderMap = await getFolderSongMap(folderId); // core có sẵn (core/db.js)
         const songs = getFolderSongsForDisplay(folderMap, appState.get('playlistCache')); // core/file-manager/folder-detail-ui.js
         renderFolderDetailSongList(songs); // core/file-manager/folder-detail-ui.js
+
+        appState.set('folderDetailSongCount', songs.length);
+        console.log(`writer: "refreshFolderDetail", page: "folderDetailSongCount", content: "${songs.length}"`);
+
+        this._updateApplyButtonMode(folderId);
+        return folderMap;
+    },
+
+    /** DOM-patch thuần (không I/O) — đổi nhãn/màu/`data-mode` nút Áp dụng/Bỏ áp dụng theo đúng
+     * folder đang xem có phải activePlayListFolder hay không. Tách riêng vì gọi lại nhiều lần
+     * (refreshFolderDetail, applyFolderToPlaylist, unapplyFolderFromPlaylist). */
+    _updateApplyButtonMode(folderId) {
+        if (!btnFileManagerFolderApplyToPlaylist) return; // guard
+        const isActive = folderId === appState.get('activePlayListFolder');
+        btnFileManagerFolderApplyToPlaylist.textContent = isActive
+            ? t('fileManager.song.folderDetail.btnUnapply')
+            : t('fileManager.song.folderDetail.btnApply');
+        btnFileManagerFolderApplyToPlaylist.dataset.mode = isActive ? 'unapply' : 'apply';
+        btnFileManagerFolderApplyToPlaylist.classList.toggle('bg-sky-500', !isActive);
+        btnFileManagerFolderApplyToPlaylist.classList.toggle('hover:bg-sky-400', !isActive);
+        btnFileManagerFolderApplyToPlaylist.classList.toggle('bg-rose-600', isActive);
+        btnFileManagerFolderApplyToPlaylist.classList.toggle('hover:bg-rose-500', isActive);
     },
 
     /** Ứng với 'fileManagerSong.folder.removeSong'. CHỈ gỡ khỏi folder, KHÔNG xoá bài.
-     * SỬA 03/07/2026 (đợt 3): KHÔNG còn tự áp dụng ngay vào Playlist đang chạy nữa (bản trước gọi
-     * applyFolderScope() live-patch DOM ngay — SAI theo đúng góp ý mới: mọi thay đổi scope chỉ có
-     * hiệu lực qua reload, xem event/workflow/playlist-scope.js). Gỡ bài không đổi "folder nào
-     * đang active" (identity `activePlayListFolder` không đổi) nên cũng KHÔNG cần persistScopeChoice()
-     * — chỉ cần dữ liệu DB đúng, lần tải trang kế tiếp (hoặc lần bấm "Áp dụng" kế tiếp) sẽ tự đọc
-     * đúng danh sách mới. */
+     * MỚI (03/07/2026, đợt 4 — điểm 3): nếu gỡ xong folder RỖNG HOÀN TOÀN (isFolderEmpty()) VÀ
+     * folder này ĐANG là scope hiện tại -> TỰ ĐỘNG bỏ áp dụng (persistScopeChoice(null)) — scope
+     * theo 1 folder rỗng vô nghĩa, không chờ người dùng tự bấm "Bỏ áp dụng". Vẫn hỏi tải lại (cùng
+     * UX pattern với mọi thay đổi scope khác), chỉ có QUYẾT ĐỊNH bỏ scope là tự động, không phải
+     * việc "tải lại hay không". */
     async removeSongFromFolderById(folderId, songKey) {
         await removeSongFromFolder(songKey, folderId); // core có sẵn (core/file-manager/folder.js)
-        await this.refreshFolderDetail(folderId);
+        const folderMap = await this.refreshFolderDetail(folderId); // CÓ return, DÙNG ngay dưới
+
+        if (isFolderEmpty(folderMap) && folderId === appState.get('activePlayListFolder')) {
+            await workflowPlaylistScope.persistScopeChoice(null);
+            await this.refreshFolderDetail(folderId); // vẽ lại nút (giờ về "Áp dụng", không còn "Bỏ áp dụng")
+            workflowPlaylistScope.askReloadToApplyNow(t('fileManager.song.folderDetail.autoUnapplyReloadBody'));
+        }
     },
 
-    /** Ứng với 'fileManagerSong.folder.applyToPlaylist.click'. SỬA 03/07/2026 (đợt 3): KHÔNG còn
-     * live-apply ngay — chỉ lưu lựa chọn rồi hỏi có muốn tải lại để thấy ngay không (xem
-     * event/workflow/playlist-scope.js). */
+    /** Ứng với 'fileManagerSong.folder.applyToPlaylist.click' — CHỈ chạy khi KHÔNG bị Block gate
+     * chặn (folder rỗng, xem event/block.js). Lưu lựa chọn rồi hỏi có muốn tải lại để thấy ngay
+     * không (xem event/workflow/playlist-scope.js). */
     async applyFolderToPlaylist(folderId) {
         const folderRecord = await getFolderRecord(folderId); // core có sẵn (core/db.js)
         await workflowPlaylistScope.persistScopeChoice(folderId);
+        this._updateApplyButtonMode(folderId); // đổi nút sang "Bỏ áp dụng" ngay, không đợi reload
         workflowPlaylistScope.askReloadToApplyNow(tFormat('fileManager.song.folderDetail.applyReloadBody', { name: escapeHtml(folderRecord ? folderRecord.name : '') }));
     },
 
+    /** Ứng với 'fileManagerSong.folder.unapplyFromPlaylist.click' — MỚI (03/07/2026, đợt 4, điểm
+     * 2). KHÔNG bị Block gate chặn (bỏ scope luôn hợp lệ, kể cả folder rỗng). */
+    async unapplyFolderFromPlaylist(folderId) {
+        await workflowPlaylistScope.persistScopeChoice(null);
+        this._updateApplyButtonMode(folderId); // đổi nút về "Áp dụng" ngay
+        workflowPlaylistScope.askReloadToApplyNow(t('fileManager.song.folderDetail.unapplyReloadBody'));
+    },
+
     /** Ứng với 'fileManagerSong.folder.actionClick' (action='delete'), nhánh folder ĐANG là scope
-     * hiện tại (activePlayListFolder). SỬA 03/07/2026 (đợt 3) — ĐƠN GIẢN HOÁ HẲN so với bản trước:
-     * KHÔNG còn tự tay dừng audio/revoke object URL/đưa UI về Playlist/đóng 3 tầng drawer nữa —
-     * chỉ xoá folder (DB) + lưu scope mới = null + hỏi tải lại. Nếu người dùng chọn "Có", reload
-     * tự lo SẠCH toàn bộ phần dọn dẹp đó (trang tải mới hoàn toàn không có audio nào đang chạy,
-     * tự về đúng Playlist "Tất cả bài") — không có cách nào sót state nửa vời như cách làm tay cũ. */
+     * hiện tại (activePlayListFolder). ĐƠN GIẢN HOÁ so với bản đầu (đợt 2) — KHÔNG còn tự tay dừng
+     * audio/revoke object URL/đưa UI về Playlist/đóng 3 tầng drawer nữa — chỉ xoá folder (DB) +
+     * lưu scope mới = null + hỏi tải lại. Nếu người dùng chọn "Có", reload tự lo SẠCH toàn bộ phần
+     * dọn dẹp đó — không có cách nào sót state nửa vời như cách làm tay cũ. */
     deleteActiveFolderById(folderId) {
         const row = fileManagerFolderList.querySelector(`[data-folder-id="${folderId}"]`);
         const folderName = row ? row.querySelector('span').textContent : '';

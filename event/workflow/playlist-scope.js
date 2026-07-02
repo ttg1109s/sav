@@ -1,12 +1,14 @@
 /**
  * event/workflow/playlist-scope.js — "THẰNG THỰC THI CUỐI" cho scoping Playlist theo folder.
  *
- * SỬA LẠI 03/07/2026 (đợt 3 — theo đúng góp ý): tách bạch RÕ 2 việc trước đây gộp chung trong 1
- * lần gọi ("lưu lựa chọn" + "áp dụng ngay vào phiên đang chạy"):
- *   - `persistScopeChoice(folderId)` — CHỈ lưu bền vào `meta`, KHÔNG đụng RAM/DOM của phiên đang
- *     chạy. Scope mới chỉ thật sự "có hiệu lực" từ lần TẢI TRANG kế tiếp.
- *   - `applyFolderScope(folderId)` — áp NGAY vào phiên đang chạy (RAM + DOM). CHỈ còn 1 nơi gọi
- *     duy nhất: boot sequence (core/visualizer/draw-visualizer.js), NGAY SAU initPlaylistFromDB().
+ * SỬA LẠI 03/07/2026 (đợt 3, tinh chỉnh thêm ở đợt 4): tách bạch RÕ 2 việc trước đây gộp chung
+ * trong 1 lần gọi ("ghi nhận Ý ĐỊNH scope mới" + "áp dụng THẬT vào playlistOrder/DOM đang chạy"):
+ *   - `persistScopeChoice(folderId)` — cập nhật `appState.activePlayListFolder` (để badge/nút
+ *     trong UI phản ánh đúng NGAY LẬP TỨC) + lưu bền vào `meta` (để sống qua F5/reload) — nhưng
+ *     KHÔNG đụng `playlistOrder`/`displayOrder`/`renderOrder`/DOM danh sách bài — Playlist ĐANG
+ *     hiển thị vẫn giữ nguyên nội dung cũ cho tới khi thật sự tải lại trang.
+ *   - `applyFolderScope(folderId)` — áp THẬT vào `playlistOrder`/DOM. CHỈ còn 1 nơi gọi duy nhất:
+ *     boot sequence (core/visualizer/draw-visualizer.js), NGAY SAU initPlaylistFromDB().
  *   - `askReloadToApplyNow(bodyText)` — modal dùng CHUNG, hỏi "tải lại trang để áp dụng ngay
  *     không?" — "Có" = `location.reload()` (boot sequence tự áp dụng lại đúng scope MỚI đã lưu ở
  *     persistScopeChoice() — không cần tự tay dọn audio/object URL/DOM/đưa UI về Playlist nữa,
@@ -29,15 +31,18 @@
 const workflowPlaylistScope = {
 
     /**
-     * CHỈ lưu bền lựa chọn scope mới vào `meta` — KHÔNG áp dụng vào phiên đang chạy. Dùng ở MỌI
-     * nơi thay đổi `activePlayListFolder` NGOÀI boot (bấm "Áp dụng cho Playlist", xoá folder đang
-     * active) — luôn đi kèm `askReloadToApplyNow()` ngay sau, để người dùng tự quyết có muốn thấy
-     * kết quả ngay hay không.
+     * Lưu bền lựa chọn scope mới vào `meta` VÀ cập nhật `appState.activePlayListFolder` (bookkeeping
+     * "ý định hiện tại", để badge/nút trong UI phản ánh đúng NGAY — xem folder-list-ui.js/
+     * folder-detail-ui.js) — KHÔNG đụng `playlistOrder`/DOM Playlist thật (đó là việc RIÊNG của
+     * applyFolderScope(), chỉ chạy lúc boot). Dùng ở MỌI nơi thay đổi scope NGOÀI boot (bấm "Áp
+     * dụng"/"Bỏ áp dụng" cho Playlist, xoá folder đang active, folder tự trống) — luôn đi kèm
+     * `askReloadToApplyNow()` ngay sau, để người dùng tự quyết có muốn thấy kết quả ngay hay không.
      * @param {string|null} folderId - null = bỏ scope (về "Tất cả bài")
      */
     async persistScopeChoice(folderId) {
+        appState.set('activePlayListFolder', folderId ?? null);
+        console.log(`writer: "persistScopeChoice", page: "activePlayListFolder", content: "${folderId ?? 'null'}"`);
         await setMeta('activePlayListFolder', folderId ?? null);
-        console.log(`writer: "persistScopeChoice", page: "meta.activePlayListFolder", content: "${folderId ?? 'null'}"`);
     },
 
     /**
