@@ -99,6 +99,15 @@ const routerFileManagerSong = (() => {
                 break;
             }
 
+            // MỚI (03/07/2026, đợt 4, điểm 2) — "Bỏ áp dụng", nhánh còn lại của CÙNG 1 nút (đổi
+            // nhãn/msg.type theo data-mode, xem event/listener/file-manager-song.js). KHÔNG bị
+            // Block gate chặn (event/block.js chỉ đăng ký cho 'applyToPlaylist.click').
+            case 'fileManagerSong.folder.unapplyFromPlaylist.click': {
+                if (!currentFolderDetailId) return; // guard: cùng lý do ở trên
+                workflowFileManagerSong.unapplyFolderFromPlaylist(currentFolderDetailId); // >1 hàm core -> workflow
+                break;
+            }
+
             // ===================== Quản lý dung lượng (nguyên vẹn logic từ router "settingsMisc" cũ) =====================
 
             case 'fileManagerSong.deleteBroken.click': {
