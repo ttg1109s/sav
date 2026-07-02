@@ -20,9 +20,8 @@
  * GIỚI HẠN ĐÃ BIẾT: nếu buildSongNode() tạo NODE MỚI trong lúc selectionMode đang bật, node mới đó
  * CHƯA có chỉ báo cho tới lần refreshAllSelectionVisuals() kế tiếp — trade-off chấp nhận được.
  *
- * NẠP SAU: core/dom-refs.js (selectionActionBar...), event/virtual-machine-state.js
- * (refreshAllSelectionVisuals() dùng VirtualMachineState.run() — chỉ tham chiếu bên trong thân
- * hàm, an toàn dù nạp trước file này trong index.html thật, xem comment tương tự ở folder.js).
+ * NẠP SAU: core/dom-refs.js (selectionActionBar...). KHÔNG cần VirtualMachineState nữa — dispatch
+ * theo selectionMode đã dời hẳn sang workflow (xem SỬA LẦN 3 bên dưới).
  */
 
 // ===================== State — set/mutate thuần, KHÔNG rẽ nhánh tiến trình =====================
@@ -50,6 +49,18 @@ function deselectSong(key) {
 }
 
 // ===================== DOM-patch — hàm THUẦN, không I/O, không appState =====================
+
+/**
+ * SỬA LẦN 3 (sau trao đổi Rule 3): `refreshAllSelectionVisuals()` (đã BỎ khỏi file này) từng là 1
+ * hàm core GỌI showSelectionIndicator()/hideSelectionIndicator() (void, không return) trong vòng
+ * lặp — dù chọn hàm nào chạy qua VirtualMachineState (đúng Rule 1), bản thân việc "core gọi core
+ * void để side-effect" VẪN vi phạm Rule 3, bất kể cơ chế chọn hàm là gì. VMState chỉ giải quyết
+ * Rule 1, không "miễn" Rule 3. Sửa đúng: vòng lặp + VMState dispatch dời hẳn sang WORKFLOW
+ * (event/workflow/playlist.js, toggleSelectionMode()) — nơi ĐƯỢC PHÉP gọi nhiều hàm core void nối
+ * tiếp nhau (đúng vai trò "chân tay", không bị 4 rule ràng buộc). File này CHỈ còn giữ
+ * showSelectionIndicator()/hideSelectionIndicator() — 2 hàm LÁ thật sự (không gọi core nào khác,
+ * chỉ dùng DOM API của trình duyệt — KHÔNG tính là "core khác" theo Rule 3).
+ */
 
 /** Hiện chỉ báo đã/chưa chọn + ẩn menu 3 chấm cho 1 node. */
 function showSelectionIndicator(node, key, selectedSongKeys) {
@@ -79,21 +90,6 @@ function hideSelectionIndicator(node) {
     node.classList.remove('bg-sky-500/10');
     const indicator = node.querySelector('[data-role="selection-indicator"]');
     if (indicator) indicator.remove();
-}
-
-/**
- * Áp lại chỉ báo cho MỌI node hiện có, chọn showSelectionIndicator/hideSelectionIndicator theo
- * `selectionMode` qua VirtualMachineState (đơn đích, loại trừ nhau) thay vì if/else tay — nơi gọi
- * (workflow) tự đọc domNodesByKey/selectedSongKeys rồi truyền vào (Rule 2).
- * @param {Map<string, HTMLElement>} domNodesByKey
- * @param {boolean} selectionMode
- * @param {Set<string>} selectedSongKeys
- */
-function refreshAllSelectionVisuals(domNodesByKey, selectionMode, selectedSongKeys) {
-    VirtualMachineState.run([
-        { state: selectionMode, operation: '===', value: true, callback: () => domNodesByKey.forEach((node, key) => showSelectionIndicator(node, key, selectedSongKeys)) },
-        { state: selectionMode, operation: '===', value: false, callback: () => domNodesByKey.forEach((node) => hideSelectionIndicator(node)) },
-    ]);
 }
 
 /** Patch thanh hành động (số lượng, ẩn/hiện) — hàm THUẦN, nhận đủ qua tham số. */

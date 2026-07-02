@@ -1,55 +1,53 @@
 /**
  * core/playlist/bulk-actions.js — Hàm core cho hành động "Xoá hàng loạt" trong chế độ chọn nhiều
- * (ver 12 "Multi Media", plan-v12-multimedia.md mục 4.b1). Tách riêng khỏi selection.js vì đây là
- * nghiệp vụ XOÁ THẬT (đụng IndexedDB + cascade folder), khác nhóm "chọn nhiều thuần UI".
+ * (ver 12 "Multi Media", plan-v12-multimedia.md mục 4.b1).
  *
- * KHÔNG lo việc dừng phát/dọn player UI khi bài đang phát nằm trong tập bị xoá — đó là quyết định
- * UX (câu 4 mục 6 plan: ép dừng rồi xoá, không hỏi/không chặn) thuộc về WORKFLOW
- * (event/workflow/playlist.js, deleteSelectedSongs()), core ở đây chỉ THUẦN xoá dữ liệu.
+ * SỬA (sau trao đổi Rule 2/3/4): bản trước có `deleteSongsBatch()` (core) gọi
+ * `removeSongFromAllFolders()`/`removeSongStats()` (2 hàm VOID, không return — vi phạm Rule 3) và
+ * `removeKeysFromDisplay()` (core) tự `appState.get('playlistOrder'/'displayOrder')` (vi phạm
+ * Rule 2) rồi gọi tiếp 4 hàm void khác (`updateShuffleArray`/`recomputeRenderOrder`/
+ * `renderPlaylistDiff`/`updateEmptyState` — vi phạm Rule 3), lại KHÔNG có `console.log` nào cho 6
+ * lượt ghi appState (vi phạm Rule 4). Sửa đúng:
+ *   - Bỏ hẳn `deleteSongsBatch()` khỏi core — vòng lặp xoá (đọc record + gọi
+ *     `removeSongFromAllFolders`/`deleteSongRecord`/`removeSongStats` nối tiếp nhau) dời THẲNG vào
+ *     workflow (`event/workflow/playlist.js`, `deleteSelectedSongs()`) — đúng vai trò workflow
+ *     (được gọi nhiều hàm core void tự do), không cần bọc qua 1 lớp core giả.
+ *   - `removeKeysFromDisplay()` → `removeKeysFromDisplayState()`: CHỈ còn phần đồng bộ appState
+ *     thuần (set/mutate, không gọi hàm nào khác) — nhận `playlistOrder`/`displayOrder` hiện tại
+ *     qua THAM SỐ (Rule 2), đủ `console.log` cho mọi lượt ghi (Rule 4). 4 hàm vẽ lại
+ *     (`updateShuffleArray`/`recomputeRenderOrder`/`renderPlaylistDiff`/`updateEmptyState`) dời
+ *     sang gọi TRỰC TIẾP từ workflow, ngay sau khi gọi hàm này.
  *
- * NẠP SAU: core/db.js, core/file-manager/folder.js (removeSongFromAllFolders), core/listen-stats.js
- * (removeSongStats), core/playlist/order.js (recomputeRenderOrder), core/playlist/render.js
- * (renderPlaylistDiff/updateEmptyState).
+ * NẠP SAU: service/state.js (appState).
  */
 
 /**
- * Xoá THẬT nhiều bài khỏi store `songs` + cascade dọn khỏi mọi folder chúng từng thuộc (đúng thứ
- * tự CHỐT ở plan mục 6: cascade folder TRƯỚC, xoá record SAU). Guard clause thuần cho bài không
- * còn tồn tại (race hiếm) — vẫn ĐÚNG 1 tiến trình "xoá 1 lô bài", không rẽ nhánh tiến trình khác.
+ * Đồng bộ appState sau khi ĐÃ xoá xong 1 lô key khỏi DB (workflow tự lo phần I/O trước, xem
+ * event/workflow/playlist.js) — CHỈ set/mutate, không gọi hàm nào khác (Rule 3 N/A, không có core
+ * gọi core). Nhận `playlistOrder`/`displayOrder` hiện tại qua tham số — KHÔNG tự appState.get()
+ * (Rule 2).
  * @param {string[]} keys
- * @returns {Promise<string[]>} danh sách key ĐÃ xoá thành công (có thể ít hơn keys nếu có race)
+ * @param {string[]} playlistOrder - appState.get('playlistOrder') hiện tại, nơi gọi tự đọc trước
+ * @param {string[]} displayOrder - appState.get('displayOrder') hiện tại, nơi gọi tự đọc trước
  */
-async function deleteSongsBatch(keys) {
-    const deletedKeys = [];
-    for (const key of keys) {
-        const record = await getSongRecord(key);
-        if (!record) continue; // guard: đã bị xoá từ trước (hiếm, race) — bỏ qua, không chặn cả lô
-        await removeSongFromAllFolders(record);
-        await deleteSongRecord(key);
-        removeSongStats(key);
-        deletedKeys.push(key);
-    }
-    return deletedKeys;
-}
-
-/**
- * Dọn RAM/UI sau khi đã xoá xong 1 lô key khỏi DB — bản BATCH của removeKeyFromDisplay() (đơn lẻ,
- * playlist/actions.js), cùng hình dạng/vai trò, chỉ đổi 1 key -> N key cho hiệu quả (1 lượt
- * filter/render thay vì lặp lại N lần). Theo ĐÚNG idiom đã có sẵn của removeKeyFromDisplay() cho
- * nhóm hàm "đồng bộ RAM rồi vẽ lại ngay" trong CÙNG cụm playlist (xem lý do ở core/playlist/
- * selection.js đầu file) — không tách workflow riêng cho phần thuần đồng bộ RAM/vẽ lại này.
- * @param {string[]} keys
- */
-function removeKeysFromDisplay(keys) {
+function removeKeysFromDisplayState(keys, playlistOrder, displayOrder) {
     const keySet = new Set(keys);
-    appState.set('playlistOrder', appState.get('playlistOrder').filter(k => !keySet.has(k)));
-    appState.set('displayOrder', appState.get('displayOrder').filter(k => !keySet.has(k)));
+
+    appState.set('playlistOrder', playlistOrder.filter(k => !keySet.has(k)));
+    console.log(`writer: "removeKeysFromDisplayState", page: "playlistOrder", content: "gỡ ${keys.length} key vừa xoá"`);
+
+    appState.set('displayOrder', displayOrder.filter(k => !keySet.has(k)));
+    console.log(`writer: "removeKeysFromDisplayState", page: "displayOrder", content: "gỡ ${keys.length} key vừa xoá"`);
+
     appState.mutate('pendingResortKeys', s => keys.forEach(k => s.delete(k)));
+    console.log(`writer: "removeKeysFromDisplayState", page: "pendingResortKeys", content: "gỡ ${keys.length} key vừa xoá"`);
+
     appState.mutate('playlistCache', m => keys.forEach(k => m.delete(k)));
+    console.log(`writer: "removeKeysFromDisplayState", page: "playlistCache", content: "gỡ ${keys.length} key vừa xoá"`);
+
     appState.mutate('songNameIndex', m => keys.forEach(k => m.delete(k)));
+    console.log(`writer: "removeKeysFromDisplayState", page: "songNameIndex", content: "gỡ ${keys.length} key vừa xoá"`);
+
     appState.mutate('selectedSongKeys', s => keys.forEach(k => s.delete(k)));
-    updateShuffleArray();
-    recomputeRenderOrder();
-    renderPlaylistDiff();
-    updateEmptyState();
+    console.log(`writer: "removeKeysFromDisplayState", page: "selectedSongKeys", content: "gỡ ${keys.length} key vừa xoá"`);
 }
