@@ -49,9 +49,9 @@ const TPL_PLAYLIST_VIEW = `
                         <circle cx="12" cy="12" r="3"></circle>
                     </svg>
                 </button>
-                <button id="btn-open-file-manager" class="hover:text-sky-400 transition-colors" data-i18n-title="fileManager.openTitle" title="${t('fileManager.openTitle')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
-                </button>
+                <!-- #btn-open-file-manager ĐÃ XOÁ (CHỐT 03/07/2026, plan-v12-multimedia-decisions.md
+                     mục 1a) — File Manager giờ mở từ Settings (section mới), không còn icon riêng
+                     ở header Playlist nữa. -->
                 <button id="btn-toggle-selection" class="hover:text-sky-400 transition-colors" data-i18n-title="playlistView.selection.toggleTitle" title="${t('playlistView.selection.toggleTitle')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </button>

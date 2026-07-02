@@ -12,17 +12,22 @@
  *   - settings/subtitle-style.js            -> TPL_SETTINGS_SUBTITLE_STYLE  (Khung & Chữ Phụ đề)
  *   - settings/misc.js                      -> TPL_SETTINGS_MISC            (Khác)
  *
- * Batch i18n (mới): thêm section thứ 6 — settings/language.js -> TPL_SETTINGS_LANGUAGE (Ngôn
+ * Batch i18n: thêm section thứ 6 — settings/language.js -> TPL_SETTINGS_LANGUAGE (Ngôn
  * ngữ). Đặt SAU CÙNG (sau "Khác") vì là tính năng mới thêm, không xáo trộn vị trí 5 section gốc.
  *
+ * Ver 12 "Multi Media" (CHỐT 03/07/2026, xem plan-v12-multimedia-decisions.md mục 1a/7): thêm
+ * section thứ 7 — settings/file-manager-section.js -> TPL_SETTINGS_FILE_MANAGER (3 hàng Song/
+ * Photo & Album/Documents, push thẳng sang drawer con — KHÔNG phải overlay cấp cao riêng như patch
+ * 02/07/2026 trước đó). Đặt ngay sau "Hệ thống & Playlist" (liên quan trực tiếp thư viện nhạc).
+ *
  * File này (settings-drawer.js) KHÔNG còn chứa HTML trực tiếp — nó chỉ còn vai trò "lắp ráp":
- * object `SettingsDrawer.build()` nối khung ngoài (header + nút đóng + wrapper scroll) với 6
+ * object `SettingsDrawer.build()` nối khung ngoài (header + nút đóng + wrapper scroll) với 7
  * biến TPL_SETTINGS_* trên theo ĐÚNG thứ tự xuất hiện gốc, rồi gán kết quả vào biến toàn cục
  * `TPL_SETTINGS_DRAWER` — GIỮ NGUYÊN TÊN BIẾN này vì main.js (bootstrap) ghép thẳng
  * `TPL_SETTINGS_DRAWER` vào innerHTML của #app-root, không hề biết (và không cần biết) gì về
- * việc nó được build từ 6 mảnh nhỏ hơn.
+ * việc nó được build từ 7 mảnh nhỏ hơn.
  *
- * THỨ TỰ NẠP SCRIPT — quan trọng: 6 file trong settings/ PHẢI nạp TRƯỚC file này trong
+ * THỨ TỰ NẠP SCRIPT — quan trọng: 7 file trong settings/ PHẢI nạp TRƯỚC file này trong
  * index.html (các biến TPL_SETTINGS_* phải tồn tại trước khi SettingsDrawer.build() chạy).
  * SettingsDrawer.build() được gọi NGAY ở cuối file này (đồng bộ) — không phải lúc
  * DOMContentLoaded — vì main.js cần TPL_SETTINGS_DRAWER đã là string hoàn chỉnh ngay khi nó
@@ -61,6 +66,7 @@
             <div class="max-w-2xl mx-auto space-y-8">
                 ` +
                     TPL_SETTINGS_PLAYLIST_BG +
+                    TPL_SETTINGS_FILE_MANAGER +
                     TPL_SETTINGS_VISUALIZER +
                     TPL_SETTINGS_AUDIO_EQ +
                     TPL_SETTINGS_SUBTITLE_STYLE +
