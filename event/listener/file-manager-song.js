@@ -7,6 +7,21 @@
  * NẠP SAU CÙNG (sau bus, core, workflow, router, VÀ SAU dom-refs.js).
  */
 
+// ===================== Mở/đóng drawer (CHỐT 03/07/2026, mục 1a/7) =====================
+
+if (btnOpenFileManagerSong) {
+    btnOpenFileManagerSong.addEventListener('click', () => {
+        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.open', payload: {} });
+    });
+}
+
+if (btnBackFileManagerSong) {
+    btnBackFileManagerSong.addEventListener('click', () => {
+        // Back trong drawer Song chỉ ẩn drawer này — KHÔNG động vào #drawer-settings bên dưới.
+        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.close', payload: {} });
+    });
+}
+
 // ===================== Folder (mục 4.b1) =====================
 
 if (btnFileManagerCreateFolder) {
