@@ -55,7 +55,13 @@ if (btnBackFileManagerFolderDetail) {
 
 if (btnFileManagerFolderApplyToPlaylist) {
     btnFileManagerFolderApplyToPlaylist.addEventListener('click', () => {
-        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.folder.applyToPlaylist.click', payload: {} });
+        // MỚI (03/07/2026, đợt 4, điểm 2) — 1 nút, 2 msg.type tuỳ data-mode (workflow tự đổi
+        // data-mode mỗi lần refresh, xem event/workflow/file-manager-song.js _updateApplyButtonMode()).
+        // Listener CHỈ đọc dataset có sẵn, KHÔNG tự quyết định gì — vẫn đúng vai "người gửi thư".
+        const type = btnFileManagerFolderApplyToPlaylist.dataset.mode === 'unapply'
+            ? 'fileManagerSong.folder.unapplyFromPlaylist.click'
+            : 'fileManagerSong.folder.applyToPlaylist.click';
+        eventBus.send({ router: 'fileManagerSong', type, payload: {} });
     });
 }
 
