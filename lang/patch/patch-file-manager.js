@@ -16,15 +16,25 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.folderPicker.newNamePlaceholder': 'New folder name',
     'fileManager.folderPicker.btnCreate': 'Create',
     'fileManager.folderPicker.addSuccess': 'Added {count} song(s) to the folder.',
-    // ── Khung File Manager (ver 12 "Multi Media", plan-v12-multimedia.md mục 2) ─────────────
-    'fileManager.openTitle': 'File Manager',
-    'fileManager.title': 'File Manager',
-    'fileManager.close.title': 'Close',
-    'fileManager.tab.song': 'Song',
-    'fileManager.tab.image': 'Image',
-    'fileManager.tab.album': 'Album',
-    'fileManager.tab.text': 'Text',
+    // ── Section "File Manager" trong Settings (CHỐT 03/07/2026 — xem
+    // plan-v12-multimedia-decisions.md mục 1a/7): KHÔNG còn 1 overlay cấp cao riêng với tab bar
+    // nữa — đây giờ là 1 section thường trong Settings (giống "Hệ thống & Playlist"...), 3 hàng
+    // bấm vào push thẳng sang drawer con tương ứng (nav-stack, cùng pattern About/Visualizer
+    // Settings), KHÔNG qua màn trung gian nào.
+    'fileManager.sectionTitle': 'File Manager',
+    'fileManager.entry.song': 'Song',
+    'fileManager.entry.photo': 'Photo & Album',
+    'fileManager.entry.document': 'Documents',
     'fileManager.comingSoon': 'Coming soon.',
+    // ── Drawer con: Song ──────────────────────────────────────────────────────────────────
+    'fileManager.song.title': 'File Manager · Song',
+    'fileManager.song.back.title': 'Back to Settings',
+    // ── Drawer con: Photo & Album (placeholder, chưa code — b2/b3) ──────────────────────────
+    'fileManager.photo.title': 'File Manager · Photo & Album',
+    'fileManager.photo.back.title': 'Back to Settings',
+    // ── Drawer con: Documents (placeholder, chưa code — b4) ─────────────────────────────────
+    'fileManager.document.title': 'File Manager · Documents',
+    'fileManager.document.back.title': 'Back to Settings',
     // ── File Manager -> Song: Folder (mục 4.b1) ──────────────────────────────────────────────
     'fileManager.song.folderSectionTitle': 'Folders',
     'fileManager.song.newFolderPlaceholder': 'New folder name',
