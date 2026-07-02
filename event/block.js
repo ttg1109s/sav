@@ -29,3 +29,17 @@
  * autoSwitchVisualEnabled chặn cycleMode.click/visualizerType.change) cần rà soát phạm vi riêng
  * trước khi thêm vào đây, chưa làm trong patch này.]
  */
+
+// ===================== fileManagerSong — chặn "Áp dụng cho Playlist" khi folder rỗng =====================
+// MỚI (03/07/2026, đợt 4). `folderDetailSongCount` (service/state.js) được workflow
+// (event/workflow/file-manager-song.js, refreshFolderDetail()) cập nhật MỖI LẦN vẽ lại Folder
+// Detail Drawer — luôn khớp đúng số bài ĐANG hiển thị lúc người dùng có thể bấm nút, nên dùng được
+// trực tiếp qua Block gate (chỉ đọc appState, không cần biết I/O IndexedDB nào). CHỈ chặn chiều
+// "Áp dụng" (folder rỗng thì áp dụng vô nghĩa) — chiều "Bỏ áp dụng"
+// (fileManagerSong.folder.unapplyFromPlaylist.click) KHÔNG bị chặn, luôn cho phép bất kể rỗng hay
+// không (bỏ scope thì không có lý do gì cần chặn).
+eventBus.registerBlock('fileManagerSong.folder.applyToPlaylist.click', [
+    [
+        { field: 'folderDetailSongCount', operator: '===', value: 0 },
+    ],
+], { notify: t('fileManager.song.folderDetail.applyBlockedEmpty') });

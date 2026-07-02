@@ -37,13 +37,18 @@
  * cần chọn giữa ≥2 đích khác nhau tuỳ state, đó là việc của switch/if NGAY TRONG case router,
  * hoặc event/virtual-machine-state.js — bus không được phép "biết" business logic đó).
  *
- * Đăng ký qua `registerBlock(msgType, groups)`:
+ * Đăng ký qua `registerBlock(msgType, groups, options)`:
  *   - `groups` là mảng NHÓM — CHỈ CẦN 1 nhóm đúng là CHẶN (OR giữa các nhóm).
  *   - Mỗi nhóm là mảng điều kiện `{field, operator, value}` — TẤT CẢ điều kiện trong nhóm phải
  *     đúng thì nhóm đó mới tính (AND trong 1 nhóm).
  *   - `field` đọc qua `appState.get(rootKey)` rồi tự đào path lồng bất kỳ độ sâu (vd
  *     'vizConfig.autoSwitchVisualEnabled').
  *   - `operator` dùng chung bộ toán tử ở `service/operation.js` (===/!==/>/</>=/<=/in/notIn).
+ *   - `options.notify` (MỚI, 03/07/2026, tuỳ chọn) — chuỗi thông báo, tự bật `alertModal()` đúng
+ *     lúc chặn thật xảy ra (không phải lúc đăng ký) — dùng khi người dùng CẦN biết vì sao thao tác
+ *     vừa bấm không có phản ứng gì (khác hẳn phần lớn block hiện có, vốn chặn ÂM THẦM vì bản thân
+ *     hành vi bị chặn không cần giải thích, vd nút đang mờ/disabled sẵn). Không truyền -> chặn im
+ *     lặng như cũ.
  *
  * Đăng ký thực tế xem `event/block.js` (file DATA riêng, load ngay sau file này) — file bus.js
  * chỉ chứa CƠ CHẾ, không chứa danh sách đăng ký nào.
@@ -91,22 +96,32 @@ const eventBus = (() => {
 
     /**
      * Đăng ký điều kiện CHẶN cho 1 msg.type. Gọi 1 LẦN lúc nạp (xem event/block.js).
+     * MỚI (03/07/2026): tham số thứ 3 `options.notify` — nếu có (khác `null`/`undefined`), lúc
+     * CHẶN THẬT (isBlocked() trả true) tự bật `alertModal(options.notify)` báo cho người dùng biết
+     * VÌ SAO hành động vừa bấm không xảy ra, thay vì im lặng không phản hồi gì. Không truyền
+     * `options`/`notify` -> giữ nguyên hành vi cũ (chặn im lặng).
      * @param {string} msgType
      * @param {Array<Array<{field: string, operator: string, value: *}>>} groups - mảng nhóm,
      *        OR giữa nhóm, AND trong 1 nhóm (xem BLOCK GATE ở JSDoc đầu file).
+     * @param {{notify?: string}} [options]
      */
-    function registerBlock(msgType, groups) {
+    function registerBlock(msgType, groups, options) {
         if (blocks.has(msgType)) {
             console.warn(`[eventBus] registerBlock("${msgType}") ghi đè block đã đăng ký trước đó — kiểm tra lại có bị nạp trùng file không.`);
         }
-        blocks.set(msgType, groups);
+        blocks.set(msgType, { groups, notify: options?.notify ?? null });
     }
 
-    /** @param {string} msgType @returns {boolean} true nếu msgType này đang bị chặn ngay lúc gọi. */
+    /** @param {string} msgType @returns {boolean} true nếu msgType này đang bị chặn ngay lúc gọi.
+     * MỚI: tự bật notify (nếu đăng ký có) đúng lúc chặn thật xảy ra — xem registerBlock() ở trên. */
     function isBlocked(msgType) {
-        const groups = blocks.get(msgType);
-        if (!groups) return false;
-        return groups.some(group => group.every(evalCondition)); // OR giữa nhóm, AND trong nhóm
+        const entry = blocks.get(msgType);
+        if (!entry) return false;
+        const blocked = entry.groups.some(group => group.every(evalCondition)); // OR giữa nhóm, AND trong nhóm
+        if (blocked && entry.notify) {
+            alertModal(entry.notify); // KHÔNG await — isBlocked() phải trả boolean NGAY, không chờ modal đóng
+        }
+        return blocked;
     }
 
     /**
