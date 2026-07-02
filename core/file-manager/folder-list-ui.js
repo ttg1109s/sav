@@ -8,23 +8,35 @@
 
 /**
  * @param {Array<{id: string, name: string}>} folders
+ * @param {string|null} activeFolderId - MỚI (sửa gap UX 03/07/2026): folder đang là
+ *        activePlayListFolder (nếu có) — đánh dấu riêng để người dùng biết đang scope theo folder
+ *        nào, tránh quên/nhầm sau khi F5 (scope giờ lưu bền qua meta, không còn "hiển nhiên thấy
+ *        ngay" như trước).
  */
-function renderFolderListUI(folders) {
+function renderFolderListUI(folders, activeFolderId) {
     if (!fileManagerFolderList) return; // guard: DOM chưa sẵn sàng (hiếm, race lúc mount)
 
     fileManagerFolderList.innerHTML = '';
     if (fileManagerFolderEmpty) fileManagerFolderEmpty.classList.toggle('hidden', folders.length > 0);
 
     folders.forEach((folder) => {
+        const isActive = folder.id === activeFolderId;
         const row = document.createElement('div');
         // MỚI (Phase 2, CHỐT 03/07/2026): cả hàng giờ bấm được (mở Folder Detail Drawer) — 2 nút
         // rename/xoá vẫn giữ nguyên hành vi cũ, listener phân biệt qua e.target.closest() (xem
         // event/listener/file-manager-song.js).
-        row.className = 'flex items-center gap-2 px-4 py-3 cursor-pointer hover:bg-white/5 transition-colors';
+        row.className = `flex items-center gap-2 px-4 py-3 cursor-pointer hover:bg-white/5 transition-colors${isActive ? ' bg-sky-500/10' : ''}`;
         row.dataset.folderId = folder.id;
 
+        if (isActive) {
+            const dotEl = document.createElement('span');
+            dotEl.className = 'w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0';
+            dotEl.title = t('fileManager.song.activeFolderBadge');
+            row.appendChild(dotEl);
+        }
+
         const nameEl = document.createElement('span');
-        nameEl.className = 'flex-1 min-w-0 truncate text-sm font-medium text-slate-200';
+        nameEl.className = `flex-1 min-w-0 truncate text-sm font-medium${isActive ? ' text-sky-300' : ' text-slate-200'}`;
         nameEl.textContent = folder.name;
         row.appendChild(nameEl);
 
