@@ -22,10 +22,14 @@
     }
 
     // Thứ tự lắp ghép PHẢI giống thứ tự các block trong file HTML gốc.
-    // Ver 12 "Multi Media": TPL_STORAGE_DRAWER (About -> Storage cũ) THAY bằng TPL_FILE_MANAGER —
-    // nội dung "Quản lý dung lượng" đã dời sang File Manager -> Song (xem components/file-manager.js
-    // đầu file, mục 3 plan-v12-multimedia.md). File components/storage-drawer.js CŨ không còn được
-    // mount ở đây nữa (còn để lại trong project làm tư liệu, không tự xoá).
+    // Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7):
+    // TPL_FILE_MANAGER (overlay cấp cao + tab-bar, patch 02/07/2026) ĐÃ BỎ — thay bằng 3 drawer
+    // con độc lập (TPL_FILE_MANAGER_SONG_DRAWER/_PHOTO_DRAWER/_DOCUMENT_DRAWER, xem
+    // components/file-manager.js), mở trực tiếp từ 1 section trong chính TPL_SETTINGS_DRAWER
+    // (components/settings/file-manager-section.js) — cùng cấp nav-stack với TPL_ABOUT_DRAWER/
+    // TPL_VISUALIZER_SETTINGS_DRAWER, không cần màn trung gian nào. File
+    // components/storage-drawer.js CŨ không còn được mount ở đây nữa (còn để lại trong project
+    // làm tư liệu, không tự xoá).
     appRoot.innerHTML =
         TPL_LOADING_SHIELD +
         TPL_PLAYLIST_VIEW +
@@ -34,7 +38,9 @@
         TPL_BOTTOM_PLAYER +
         TPL_SETTINGS_DRAWER +
         TPL_ABOUT_DRAWER +
-        TPL_FILE_MANAGER +
+        TPL_FILE_MANAGER_SONG_DRAWER +
+        TPL_FILE_MANAGER_PHOTO_DRAWER +
+        TPL_FILE_MANAGER_DOCUMENT_DRAWER +
         TPL_VISUALIZER_SETTINGS_DRAWER +
         TPL_SUBTITLE_SETTINGS_DRAWER;
 })();
