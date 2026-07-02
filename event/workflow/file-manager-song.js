@@ -4,9 +4,11 @@
  * QUY TẮC: giống hệt event/workflow/playlist.js — chuỗi gọi hàm core thuần, withLoadingShield()/
  * alertModal()/modalChoice() CHỈ đặt ở tầng này.
  *
- * 2 nhóm method:
+ * 3 nhóm method:
  *   1. Folder (MỚI, mục 4.b1): refreshSongTab/createFolderFromInput/renameFolderById/deleteFolderById.
- *   2. Quản lý dung lượng (DỜI NGUYÊN VẸN từ event/workflow/settings-misc.js — nhánh storageDrawer
+ *   2. Folder Detail Drawer (Phase 2, MỚI mục 1b/c, CHỐT 03/07/2026): openFolderDetail/
+ *      refreshFolderDetail/removeSongFromFolderById/applyFolderToPlaylist/deleteActiveFolderById.
+ *   3. Quản lý dung lượng (DỜI NGUYÊN VẸN từ event/workflow/settings-misc.js — nhánh storageDrawer
  *      cũ, xem comment đầu components/file-manager.js) — askDeleteBroken/executeDeleteBroken/
  *      askDownloadThenClear/executeDownloadThenClear/askClearNoDownload/executeClearNoDownload/
  *      executeScanBroken. Thân hàm GIỮ NGUYÊN 100% so với bản gốc, chỉ đổi vị trí file + tên biến
@@ -67,6 +69,74 @@ const workflowFileManagerSong = {
                 { label: t('fileManager.song.btnDeleteFolder'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
                     await deleteFolder(folderId); // core có sẵn
                     await this.refreshSongTab();
+                } }
+            ],
+            { title: t('fileManager.song.deleteFolderTitle') }
+        );
+    },
+
+    // ===================== Folder Detail Drawer (Phase 2, MỚI — mục 1b/c, CHỐT 03/07/2026) =====
+
+    /** Ứng với 'fileManagerSong.folder.openDetail'. Mở + vẽ danh sách bài trong 1 folder cụ thể. */
+    async openFolderDetail(folderId) {
+        showFileManagerFolderDetailDrawer(); // core/file-manager/nav.js
+        await this.refreshFolderDetail(folderId);
+    },
+
+    /** Vẽ lại tiêu đề + danh sách bài của Folder Detail Drawer đang mở — dùng lúc mở lần đầu VÀ
+     * sau khi gỡ 1 bài (danh sách có thể đổi). */
+    async refreshFolderDetail(folderId) {
+        const folderRecord = await getFolderRecord(folderId); // core có sẵn (core/db.js)
+        setFolderDetailTitle(folderRecord ? folderRecord.name : ''); // core/file-manager/folder-detail-ui.js
+
+        const folderMap = await getFolderSongMap(folderId); // core có sẵn (core/db.js)
+        const songs = getFolderSongsForDisplay(folderMap, appState.get('playlistCache')); // core/file-manager/folder-detail-ui.js
+        renderFolderDetailSongList(songs); // core/file-manager/folder-detail-ui.js
+    },
+
+    /** Ứng với 'fileManagerSong.folder.removeSong'. CHỈ gỡ khỏi folder, KHÔNG xoá bài. */
+    async removeSongFromFolderById(folderId, songKey) {
+        await removeSongFromFolder(songKey, folderId); // core có sẵn (core/file-manager/folder.js)
+        await this.refreshFolderDetail(folderId);
+    },
+
+    /** Ứng với 'fileManagerSong.folder.applyToPlaylist.click', nhánh folderId CÓ giá trị (đã tách
+     * khỏi nhánh "bỏ scope" qua VirtualMachineState ở Router — xem
+     * event/router/file-manager-song.js). Dùng lại workflowPlaylistScope — 1 nơi duy nhất biết
+     * "đổi scope + giữ UI/DOM nhất quán", không viết lại logic ở đây. */
+    async applyFolderToPlaylist(folderId) {
+        const folderRecord = await getFolderRecord(folderId); // core có sẵn (core/db.js)
+        await workflowPlaylistScope.applyFolderScope(folderId); // event/workflow/playlist-scope.js
+        await alertModal(tFormat('fileManager.song.folderDetail.applySuccess', { name: escapeHtml(folderRecord ? folderRecord.name : '') }));
+    },
+
+    /** Ứng với 'fileManagerSong.folder.actionClick' (action='delete'), nhánh folder ĐANG là scope
+     * hiện tại (activePlayListFolder) — TÁCH KHỎI deleteFolderById() ở trên vì luồng khác hẳn: cần
+     * dừng phát + hoàn nguyên scope về "Tất cả bài" + đưa UI về hẳn màn Playlist (đóng cả 3 tầng
+     * drawer), không chỉ vẽ lại danh sách folder như trường hợp xoá 1 folder bình thường. */
+    deleteActiveFolderById(folderId) {
+        const row = fileManagerFolderList.querySelector(`[data-folder-id="${folderId}"]`);
+        const folderName = row ? row.querySelector('span').textContent : '';
+        modalChoice(
+            tFormat('fileManager.song.deleteActiveFolderConfirm', { name: escapeHtml(folderName) }),
+            [
+                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
+                { label: t('fileManager.song.btnDeleteFolder'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
+                    // Dừng phát nếu đang có bài (bài đang phát chắc chắn thuộc scope sắp mất, vì
+                    // scope hiện tại chính là folder này) — cùng idiom với clearAllStoredData()
+                    // ở core/storage-manager.js, KHÔNG sửa hàm đó, chỉ lặp lại đúng idiom tại đây.
+                    if (appState.get('currentKey')) {
+                        audioPlayer.pause(); audioPlayer.src = '';
+                        appState.set('currentKey', null);
+                        console.log(`writer: "deleteActiveFolderById", page: "currentKey", content: "null"`);
+                        if (appState.get('currentObjectURL')) { URL.revokeObjectURL(appState.get('currentObjectURL')); appState.set('currentObjectURL', null); }
+                        if (appState.get('currentCoverObjectURL')) { URL.revokeObjectURL(appState.get('currentCoverObjectURL')); appState.set('currentCoverObjectURL', null); }
+                        playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
+                    }
+                    await deleteFolder(folderId); // core có sẵn (core/file-manager/folder.js)
+                    await workflowPlaylistScope.clearScope(); // hoàn nguyên "Tất cả bài" — dùng chung, không viết lại
+                    hideFileManagerFolderDetailDrawer(); hideFileManagerSongDrawer(); closeSettingsDrawer();
+                    if (typeof forceBackToPlaylistUI === 'function') forceBackToPlaylistUI();
                 } }
             ],
             { title: t('fileManager.song.deleteFolderTitle') }

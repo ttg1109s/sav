@@ -192,6 +192,38 @@ const workflowPlaylist = {
     },
 
     /**
+     * MỚI (mục 1d, CHỐT 03/07/2026) — "Thêm vào thư mục" cho ĐÚNG 1 bài từ menu 3 chấm đơn lẻ.
+     * Song song với openAddToFolderPicker() ở trên (chọn nhiều) — KHÔNG gộp chung 1 method vì 2
+     * message trigger khác nhau (đơn lẻ đọc `songActionMenuKey` trong playlistStore, chọn nhiều
+     * đọc `selectedSongKeys` trong appState) và cần đóng đúng menu tương ứng (songActionMenu vs
+     * chế độ chọn nhiều) — viết chung sẽ phải rẽ nhánh theo "nguồn nào gọi tới", đúng thứ vi phạm
+     * Rule 1 nếu đặt trong core, và không cần thiết ở tầng workflow (workflow không bị Rule 1 ràng
+     * buộc, nhưng tách riêng vẫn rõ ràng hơn khi đọc).
+     */
+    async openAddToFolderPickerForSongMenu() {
+        const key = playlistStore.get('songActionMenuKey');
+        if (!key) return;
+        closeSongActionMenu();
+
+        const folders = await listFolders(); // core có sẵn, CÓ return, DÙNG ngay dưới
+
+        const finishAdd = async (folderId) => {
+            await withLoadingShield(t('common.loading.savingInfo'), async () => {
+                await addSongsToFolder([key], folderId); // core có sẵn (core/file-manager/folder.js)
+            });
+            await alertModal(tFormat('fileManager.folderPicker.addSuccess', { count: 1 }));
+        };
+
+        openFolderPickerModal(folders, {
+            onPickExisting: (folderId) => { finishAdd(folderId); },
+            onCreateNew: async (name) => {
+                const folderId = await createFolder(name); // core có sẵn, CÓ return, DÙNG ngay dưới
+                await finishAdd(folderId);
+            }
+        });
+    },
+
+    /**
      * "Thêm vào thư mục" — liệt kê folder có sẵn (listFolders(), core/file-manager/folder.js) rồi
      * mở picker (openFolderPickerModal(), core/file-manager/folder-picker-ui.js — hàm dựng UI
      * thuần, không phải core nghiệp vụ). 2 callback của picker (chọn folder có sẵn / tạo mới) đều
