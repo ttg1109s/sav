@@ -2,24 +2,30 @@
  * event/router/file-manager-song.js — Router tên "fileManagerSong", tự đăng ký với eventBus lúc
  * nạp. Ver 12 "Multi Media" (plan-v12-multimedia.md mục 3/4.b1).
  *
- * 2 nhánh:
+ * 3 nhánh:
  *   - Folder (MỚI, mục 4.b1) — CRUD folder nhạc.
+ *   - Folder Detail Drawer (Phase 2, MỚI mục 1b/c/e, CHỐT 03/07/2026) — xem/gỡ bài trong 1 folder,
+ *     "Áp dụng cho Playlist" (scoping thật), xoá folder đang là scope hiện tại.
  *   - Quản lý dung lượng (DỜI NGUYÊN VẸN từ event/router/settings-misc.js — nhánh storageDrawer cũ,
  *     chỉ đổi tiền tố msg.type 'settingsMisc.' -> 'fileManagerSong.', xem bảng đối chiếu cuối file).
  *     event/router/settings-misc.js đã BỎ nhánh này (chỉ còn aboutDrawer + appRecovery).
  *
- * STATE CONTEXT: `lastScanResults` (nhánh quét lỗi) sống Ở ĐÂY — GIỮ NGUYÊN cách router
- * "settingsMisc" cũ làm (closure `let`, không dùng EventStore).
+ * STATE CONTEXT: `lastScanResults` (nhánh quét lỗi) + `currentFolderDetailId` (Phase 2, folder
+ * đang mở trong Folder Detail Drawer) sống Ở ĐÂY — GIỮ NGUYÊN cách router "settingsMisc" cũ làm
+ * (closure `let`, không dùng EventStore).
  *
  * NẠP SAU: event/bus.js, core/file-manager/nav.js (showFileManagerSongDrawer/
- * hideFileManagerSongDrawer, CHỐT 03/07/2026 mục 1a/7), core/file-manager/folder.js,
- * core/file-manager/folder-list-ui.js, core/file-manager/folder-picker-ui.js,
+ * hideFileManagerSongDrawer/showFileManagerFolderDetailDrawer/hideFileManagerFolderDetailDrawer,
+ * CHỐT 03/07/2026 mục 1a/7), core/file-manager/folder.js, core/file-manager/folder-list-ui.js,
+ * core/file-manager/folder-detail-ui.js, core/file-manager/folder-picker-ui.js,
+ * core/playlist/scope.js, event/workflow/playlist-scope.js (workflowPlaylistScope),
  * core/storage-manager.js (cần các hàm core), event/workflow/file-manager-song.js (cần
  * workflowFileManagerSong tồn tại).
  * NẠP TRƯỚC: event/listener/file-manager-song.js.
  */
 const routerFileManagerSong = (() => {
     let lastScanResults = []; // context state CỦA RIÊNG nhánh quét lỗi — KHÔNG export ra ngoài
+    let currentFolderDetailId = null; // Phase 2, MỚI — folder đang mở trong Folder Detail Drawer
 
     function handle(msg) {
         switch (msg.type) {
@@ -49,8 +55,47 @@ const routerFileManagerSong = (() => {
                 // -> BẮT BUỘC qua VirtualMachineState.
                 VirtualMachineState.run([
                     { state: action, operation: '===', value: 'rename', callback: () => workflowFileManagerSong.renameFolderById(folderId) },
-                    { state: action, operation: '===', value: 'delete', callback: () => workflowFileManagerSong.deleteFolderById(folderId) },
+                    // Phase 2, MỚI (mục 1e, CHỐT 03/07/2026): nhánh 'delete' cần biết folder sắp
+                    // xoá có ĐANG là activePlayListFolder hay không — đọc appState KHÁC -> LỒNG
+                    // thêm 1 VirtualMachineState nữa NGAY TRONG callback này (callback là code
+                    // Router bình thường, được phép chứa VMState tiếp — xem event-bus-flow.md
+                    // mục 5: "callback là 1 arrow function router tự viết").
+                    { state: action, operation: '===', value: 'delete', callback: () => {
+                        const isActiveFolder = folderId === appState.get('activePlayListFolder');
+                        VirtualMachineState.run([
+                            { state: isActiveFolder, operation: '===', value: true, callback: () => workflowFileManagerSong.deleteActiveFolderById(folderId) },
+                            { state: isActiveFolder, operation: '===', value: false, callback: () => workflowFileManagerSong.deleteFolderById(folderId) },
+                        ]);
+                    } },
                 ]);
+                break;
+            }
+
+            // ===================== Folder Detail Drawer (Phase 2, MỚI — mục 1b/c, CHỐT 03/07/2026) =====================
+
+            case 'fileManagerSong.folder.openDetail': {
+                const { folderId } = msg.payload;
+                currentFolderDetailId = folderId; // context CỦA RIÊNG nhánh này — cùng pattern lastScanResults
+                workflowFileManagerSong.openFolderDetail(folderId); // >1 hàm core nối tiếp -> workflow
+                break;
+            }
+
+            case 'fileManagerSong.folder.closeDetail': {
+                hideFileManagerFolderDetailDrawer(); // CHỈ 1 hàm core (patch DOM thuần) -> gọi thẳng
+                currentFolderDetailId = null;
+                break;
+            }
+
+            case 'fileManagerSong.folder.removeSong': {
+                if (!currentFolderDetailId) return; // guard: không có context nào đang mở (không nên xảy ra)
+                const { songKey } = msg.payload;
+                workflowFileManagerSong.removeSongFromFolderById(currentFolderDetailId, songKey); // >1 hàm core -> workflow
+                break;
+            }
+
+            case 'fileManagerSong.folder.applyToPlaylist.click': {
+                if (!currentFolderDetailId) return; // guard: nút chỉ hiện trong drawer đã mở 1 folder cụ thể
+                workflowFileManagerSong.applyFolderToPlaylist(currentFolderDetailId); // >1 hàm core -> workflow
                 break;
             }
 

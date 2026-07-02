@@ -58,6 +58,15 @@ const routerPlaylist = (() => {
                 break;
             }
 
+            // MỚI (mục 1d, CHỐT 03/07/2026) — cần ≥2 lời gọi nối tiếp (đọc key + đóng menu + mở
+            // picker folder) -> workflow, KHÔNG nhét vào handleSongActionMenuSelect() cũ (đã có
+            // sẵn 4 nhánh if/else vi phạm Rule 1 — không mở rộng thêm, tránh phát sinh nghĩa vụ
+            // đưa nguyên hàm cũ về đủ 4 rule).
+            case 'playlist.actionMenu.addToFolder': {
+                workflowPlaylist.openAddToFolderPickerForSongMenu();
+                break;
+            }
+
             case 'playlist.item.menuClick': {
                 const { key, anchorBtn } = msg.payload;
                 openSongActionMenu(key, anchorBtn);
