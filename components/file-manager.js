@@ -132,7 +132,7 @@ const TPL_FILE_MANAGER_FOLDER_DETAIL_DRAWER = `
         <div class="flex-grow overflow-y-auto px-4 py-6 sm:px-8 pb-20">
             <div class="max-w-2xl mx-auto space-y-6">
 
-                <button id="btn-file-manager-folder-apply-to-playlist" class="w-full py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors shadow" data-i18n="fileManager.song.folderDetail.applyToPlaylist">${t('fileManager.song.folderDetail.applyToPlaylist')}</button>
+                <button id="btn-file-manager-folder-apply-to-playlist" data-mode="apply" class="w-full py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors shadow" data-i18n="fileManager.song.folderDetail.btnApply">${t('fileManager.song.folderDetail.btnApply')}</button>
 
                 <div>
                     <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2 ml-2" data-i18n="fileManager.song.folderDetail.songListTitle">${t('fileManager.song.folderDetail.songListTitle')}</h3>
