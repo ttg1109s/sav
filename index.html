@@ -156,7 +156,7 @@
          folder.js CẦN core/db.js (slugify + CRUD folders/folder_song/songs). folder-picker-ui.js
          CẦN t() (lang/lang.js, đã nạp từ rất sớm) — không phụ thuộc folder.js (chỉ dựng DOM +
          callback do nơi gọi truyền vào). -->
-    <script src="core/file-manager/folder.js?v=20260702v1"></script>
+    <script src="core/file-manager/folder.js?v=20260702v2"></script>
     <script src="core/file-manager/folder-picker-ui.js?v=20260702v1"></script>
     <!-- Ver 12 "Multi Media" — khung điều hướng File Manager + vẽ danh sách folder trong tab Song.
          CẦN core/dom-refs.js (đã nạp ngay trên, xem đầu nhóm CORE này). -->
@@ -198,16 +198,14 @@
     <script src="core/playlist/loader.js?v=20260625v10"></script>
     <script src="core/playlist/actions.js?v=20260625v8e"></script>
     <script src="core/playlist/main.js?v=20260625v10"></script>
-    <!-- Ver 12 "Multi Media" (plan-v12-multimedia.md mục 4.b1) — "Chọn nhiều". selection.js là hàm
-         THUẦN (không gọi buildSongNode/renderPlaylistFull/renderPlaylistDiff — xem comment đầu
-         file), chỉ cần core/dom-refs.js (selectionActionBar...). bulk-actions.js CẦN
-         core/playlist/order.js + render.js (cùng nhóm ngay trên, recomputeRenderOrder/
-         renderPlaylistDiff/updateEmptyState), core/listen-stats.js (removeSongStats, đã nạp ở
-         nhóm CORE phía trên), core/file-manager/folder.js (removeSongFromAllFolders, đã nạp ngay
-         sau db.js). Đặt cả 2 ở đây (cuối nhóm playlist) cho gọn, dù selection.js không bắt buộc
-         phải đứng sau render.js. -->
-    <script src="core/playlist/selection.js?v=20260702v2"></script>
-    <script src="core/playlist/bulk-actions.js?v=20260702v1"></script>
+    <!-- Ver 12 "Multi Media" (plan-v12-multimedia.md mục 4.b1) — "Chọn nhiều". selection.js/
+         bulk-actions.js đều là hàm THUẦN (không gọi buildSongNode/renderPlaylistFull/
+         renderPlaylistDiff/removeSongFromAllFolders... — các lời gọi core void nối tiếp đó đã dời
+         hết sang event/workflow/playlist.js sau đợt rà soát Rule 3, xem comment đầu 2 file), chỉ
+         cần core/dom-refs.js (selectionActionBar...)/service/state.js (appState). Đặt ở đây (cuối
+         nhóm playlist) cho gọn, không bắt buộc thứ tự nào khác trong nhóm CORE. -->
+    <script src="core/playlist/selection.js?v=20260702v3"></script>
+    <script src="core/playlist/bulk-actions.js?v=20260702v2"></script>
     <!-- core/player-controls.js (rút gọn ver 11): TÁCH RA khỏi đây phần "Settings hiệu ứng/màu/
          EQ/volume" — giờ ở visualizers/visualizer-display.js (khu VISUALIZERS dưới), vì đúng
          ranh giới nghiệp vụ là cấu hình Visualizer, không phải điều khiển phát nhạc. Xem comment
@@ -322,7 +320,7 @@
     <script src="event/workflow/file-manager.js?v=20260702v1"></script>
     <script src="event/router/file-manager.js?v=20260702v1"></script>
     <script src="event/listener/file-manager.js?v=20260702v1"></script>
-    <script src="event/workflow/playlist.js?v=20260702v1"></script>
+    <script src="event/workflow/playlist.js?v=20260702v2"></script>
     <script src="event/router/playlist.js?v=20260702v1"></script>
     <script src="event/listener/playlist.js?v=20260702v1"></script>
     <!-- Cụm "playerControls" (ver 11, patch 3): KHÔNG có event/workflow/player-controls.js — toàn
