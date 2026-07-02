@@ -65,7 +65,7 @@
     <script src="lang/patch/patch-settings-misc.js?v=20260627v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260703v4"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260703v5"></script>
     <script src="lang/lang.js?v=20260702v1"></script>
 
     <!-- =====================================================================
@@ -98,7 +98,7 @@
          3 drawer con (Song/Photo & Album/Documents) mở thẳng từ section "File Manager" vừa thêm
          ở settings/file-manager-section.js, cùng cấp nav-stack với About/Visualizer Settings
          Drawer bên dưới. THAY components/storage-drawer.js (About -> Storage cũ, không còn mount). -->
-    <script src="components/file-manager.js?v=20260703v2"></script>
+    <script src="components/file-manager.js?v=20260703v3"></script>
     <!-- Visualizer/Subtitle Settings Drawer (ver 8 refine, mục 3) — cùng pattern navigation
          stack với About/Storage Drawer, mở chồng lên #drawer-settings. -->
     <script src="components/visualizer-settings-drawer.js?v=20260626v1"></script>
@@ -137,7 +137,7 @@
          core/config.js (vizConfig khởi tạo bằng { ...CONST.DEFAULT_VIZ_CONFIG }) và trước toàn bộ
          core/ còn lại; PHẢI nạp SAU core/modal-choice.js (alertModal, dùng cho option notifyUI).
          Xem comment đầu file service/state.js. -->
-    <script src="service/state.js?v=20260703v1"></script>
+    <script src="service/state.js?v=20260703v2"></script>
     <script src="core/config.js?v=20260625v10"></script>
     <!-- event/store.js (class EventStore) — CHỈ riêng file NÀY trong toàn bộ /event/ được nạp SỚM
          ở đây, KHÔNG đợi xuống cuối cùng cùng bus/workflow/router/listener. Lý do: playlist/
@@ -314,8 +314,8 @@
            4. event/listener/*.js      — addEventListener cuối cùng, vì cần eventBus.send() (1) và
                                           router đã đăng ký xong (3) sẵn sàng nhận message.
     -->
-    <script src="event/bus.js?v=20260701v1"></script>
-    <script src="event/block.js?v=20260701v1"></script>
+    <script src="event/bus.js?v=20260703v1"></script>
+    <script src="event/block.js?v=20260703v1"></script>
     <script src="event/virtual-machine-state.js?v=20260701v1"></script>
     <!-- Cụm "settingsMisc" (ver 11, patch 5): gộp aboutDrawer + appRecovery — gộp vì mỗi nhánh quá
          nhỏ để xứng đáng 1 router/listener riêng. Ver 12 "Multi Media": nhánh storageDrawer đã DỜI
@@ -333,10 +333,10 @@
          (Áp dụng cho Playlist / boot khôi phục / xoá folder đang active) — CẦN core/playlist/
          scope.js (loadAllSongs/loadSongsFromFolder) + core/db.js (setMeta) + core/playlist/order.js
          + core/playlist/render.js (đã nạp ở nhóm CORE, phía trên nhóm EVENT này). -->
-    <script src="event/workflow/playlist-scope.js?v=20260703v2"></script>
-    <script src="event/workflow/file-manager-song.js?v=20260703v4"></script>
-    <script src="event/router/file-manager-song.js?v=20260703v2"></script>
-    <script src="event/listener/file-manager-song.js?v=20260703v2"></script>
+    <script src="event/workflow/playlist-scope.js?v=20260703v3"></script>
+    <script src="event/workflow/file-manager-song.js?v=20260703v5"></script>
+    <script src="event/router/file-manager-song.js?v=20260703v3"></script>
+    <script src="event/listener/file-manager-song.js?v=20260703v3"></script>
     <script src="event/router/file-manager-photo.js?v=20260703v1"></script>
     <script src="event/listener/file-manager-photo.js?v=20260703v1"></script>
     <script src="event/router/file-manager-document.js?v=20260703v1"></script>
