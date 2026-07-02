@@ -40,8 +40,18 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.newFolderPlaceholder': 'New folder name',
     'fileManager.song.btnCreateFolder': 'Create',
     'fileManager.song.folderEmpty': 'No folders yet.',
+    'fileManager.song.activeFolderBadge': 'Currently applied to Playlist',
     'fileManager.song.renameFolderTitle': 'Rename folder',
     'fileManager.song.deleteFolderTitle': 'Delete folder',
     'fileManager.song.deleteFolderConfirm': 'Delete folder "{name}"? Songs inside stay in your library, only the folder is removed.',
     'fileManager.song.btnDeleteFolder': 'Delete',
+    // ── File Manager -> Song -> Folder Detail Drawer (Phase 2, CHỐT 03/07/2026) ──────────────
+    'fileManager.song.folderDetail.back.title': 'Back to folders',
+    'fileManager.song.folderDetail.applyToPlaylist': 'Apply to Playlist',
+    'fileManager.song.folderDetail.songListTitle': 'Songs in this folder',
+    'fileManager.song.folderDetail.empty': 'No songs in this folder yet.',
+    'fileManager.song.folderDetail.removeSongTitle': 'Remove from folder',
+    'fileManager.song.folderDetail.applySuccess': 'Playlist is now showing songs from "{name}".',
+    'fileManager.song.folderDetail.clearSuccess': 'Playlist is now showing all songs.',
+    'fileManager.song.deleteActiveFolderConfirm': 'Delete folder "{name}"? Playback will stop and the Playlist will show all songs again.',
 };
