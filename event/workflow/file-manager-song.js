@@ -94,32 +94,33 @@ const workflowFileManagerSong = {
         renderFolderDetailSongList(songs); // core/file-manager/folder-detail-ui.js
     },
 
-    /** Ứng với 'fileManagerSong.folder.removeSong'. CHỈ gỡ khỏi folder, KHÔNG xoá bài. */
+    /** Ứng với 'fileManagerSong.folder.removeSong'. CHỈ gỡ khỏi folder, KHÔNG xoá bài.
+     * SỬA 03/07/2026 (đợt 3): KHÔNG còn tự áp dụng ngay vào Playlist đang chạy nữa (bản trước gọi
+     * applyFolderScope() live-patch DOM ngay — SAI theo đúng góp ý mới: mọi thay đổi scope chỉ có
+     * hiệu lực qua reload, xem event/workflow/playlist-scope.js). Gỡ bài không đổi "folder nào
+     * đang active" (identity `activePlayListFolder` không đổi) nên cũng KHÔNG cần persistScopeChoice()
+     * — chỉ cần dữ liệu DB đúng, lần tải trang kế tiếp (hoặc lần bấm "Áp dụng" kế tiếp) sẽ tự đọc
+     * đúng danh sách mới. */
     async removeSongFromFolderById(folderId, songKey) {
         await removeSongFromFolder(songKey, folderId); // core có sẵn (core/file-manager/folder.js)
         await this.refreshFolderDetail(folderId);
-        // SỬA (03/07/2026, rà soát nhất quán) — nếu folder này ĐANG là scope hiện tại của
-        // Playlist, gỡ bài ở đây phải phản ánh NGAY vào Playlist đang hiển thị, không chờ người
-        // dùng tự bấm "Áp dụng" lại. Dùng lại workflowPlaylistScope — không viết logic riêng.
-        if (folderId === appState.get('activePlayListFolder')) {
-            await workflowPlaylistScope.applyFolderScope(folderId);
-        }
     },
 
-    /** Ứng với 'fileManagerSong.folder.applyToPlaylist.click', nhánh folderId CÓ giá trị (đã tách
-     * khỏi nhánh "bỏ scope" qua VirtualMachineState ở Router — xem
-     * event/router/file-manager-song.js). Dùng lại workflowPlaylistScope — 1 nơi duy nhất biết
-     * "đổi scope + giữ UI/DOM nhất quán", không viết lại logic ở đây. */
+    /** Ứng với 'fileManagerSong.folder.applyToPlaylist.click'. SỬA 03/07/2026 (đợt 3): KHÔNG còn
+     * live-apply ngay — chỉ lưu lựa chọn rồi hỏi có muốn tải lại để thấy ngay không (xem
+     * event/workflow/playlist-scope.js). */
     async applyFolderToPlaylist(folderId) {
         const folderRecord = await getFolderRecord(folderId); // core có sẵn (core/db.js)
-        await workflowPlaylistScope.applyFolderScope(folderId); // event/workflow/playlist-scope.js
-        await alertModal(tFormat('fileManager.song.folderDetail.applySuccess', { name: escapeHtml(folderRecord ? folderRecord.name : '') }));
+        await workflowPlaylistScope.persistScopeChoice(folderId);
+        workflowPlaylistScope.askReloadToApplyNow(tFormat('fileManager.song.folderDetail.applyReloadBody', { name: escapeHtml(folderRecord ? folderRecord.name : '') }));
     },
 
     /** Ứng với 'fileManagerSong.folder.actionClick' (action='delete'), nhánh folder ĐANG là scope
-     * hiện tại (activePlayListFolder) — TÁCH KHỎI deleteFolderById() ở trên vì luồng khác hẳn: cần
-     * dừng phát + hoàn nguyên scope về "Tất cả bài" + đưa UI về hẳn màn Playlist (đóng cả 3 tầng
-     * drawer), không chỉ vẽ lại danh sách folder như trường hợp xoá 1 folder bình thường. */
+     * hiện tại (activePlayListFolder). SỬA 03/07/2026 (đợt 3) — ĐƠN GIẢN HOÁ HẲN so với bản trước:
+     * KHÔNG còn tự tay dừng audio/revoke object URL/đưa UI về Playlist/đóng 3 tầng drawer nữa —
+     * chỉ xoá folder (DB) + lưu scope mới = null + hỏi tải lại. Nếu người dùng chọn "Có", reload
+     * tự lo SẠCH toàn bộ phần dọn dẹp đó (trang tải mới hoàn toàn không có audio nào đang chạy,
+     * tự về đúng Playlist "Tất cả bài") — không có cách nào sót state nửa vời như cách làm tay cũ. */
     deleteActiveFolderById(folderId) {
         const row = fileManagerFolderList.querySelector(`[data-folder-id="${folderId}"]`);
         const folderName = row ? row.querySelector('span').textContent : '';
@@ -128,21 +129,9 @@ const workflowFileManagerSong = {
             [
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('fileManager.song.btnDeleteFolder'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
-                    // Dừng phát nếu đang có bài (bài đang phát chắc chắn thuộc scope sắp mất, vì
-                    // scope hiện tại chính là folder này) — cùng idiom với clearAllStoredData()
-                    // ở core/storage-manager.js, KHÔNG sửa hàm đó, chỉ lặp lại đúng idiom tại đây.
-                    if (appState.get('currentKey')) {
-                        audioPlayer.pause(); audioPlayer.src = '';
-                        appState.set('currentKey', null);
-                        console.log(`writer: "deleteActiveFolderById", page: "currentKey", content: "null"`);
-                        if (appState.get('currentObjectURL')) { URL.revokeObjectURL(appState.get('currentObjectURL')); appState.set('currentObjectURL', null); }
-                        if (appState.get('currentCoverObjectURL')) { URL.revokeObjectURL(appState.get('currentCoverObjectURL')); appState.set('currentCoverObjectURL', null); }
-                        playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
-                    }
                     await deleteFolder(folderId); // core có sẵn (core/file-manager/folder.js)
-                    await workflowPlaylistScope.clearScope(); // hoàn nguyên "Tất cả bài" — dùng chung, không viết lại
-                    hideFileManagerFolderDetailDrawer(); hideFileManagerSongDrawer(); closeSettingsDrawer();
-                    if (typeof forceBackToPlaylistUI === 'function') forceBackToPlaylistUI();
+                    await workflowPlaylistScope.persistScopeChoice(null); // folder đã mất -> scope mới LUÔN là null
+                    workflowPlaylistScope.askReloadToApplyNow(t('fileManager.song.folderDetail.deleteReloadBody'));
                 } }
             ],
             { title: t('fileManager.song.deleteFolderTitle') }
