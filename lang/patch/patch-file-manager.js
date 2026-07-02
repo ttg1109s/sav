@@ -47,7 +47,8 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.btnDeleteFolder': 'Delete',
     // ── File Manager -> Song -> Folder Detail Drawer (Phase 2, CHỐT 03/07/2026) ──────────────
     'fileManager.song.folderDetail.back.title': 'Back to folders',
-    'fileManager.song.folderDetail.applyToPlaylist': 'Apply to Playlist',
+    'fileManager.song.folderDetail.btnApply': 'Apply to Playlist',
+    'fileManager.song.folderDetail.btnUnapply': 'Remove from Playlist',
     'fileManager.song.folderDetail.songListTitle': 'Songs in this folder',
     'fileManager.song.folderDetail.empty': 'No songs in this folder yet.',
     'fileManager.song.folderDetail.removeSongTitle': 'Remove from folder',
@@ -55,6 +56,9 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.folderDetail.reloadBtnNo': 'Not now',
     'fileManager.song.folderDetail.reloadBtnNow': 'Reload now',
     'fileManager.song.folderDetail.applyReloadBody': 'Saved — the Playlist will show songs from "{name}" after reloading. Reload now?',
+    'fileManager.song.folderDetail.unapplyReloadBody': 'Saved — the Playlist will show all songs again after reloading. Reload now?',
+    'fileManager.song.folderDetail.autoUnapplyReloadBody': 'This folder is now empty, so it was removed as the Playlist source. The Playlist will show all songs again after reloading. Reload now?',
     'fileManager.song.folderDetail.deleteReloadBody': 'Folder deleted — the Playlist will show all songs again after reloading. Reload now?',
+    'fileManager.song.folderDetail.applyBlockedEmpty': 'This folder is empty — add songs to it before applying it to the Playlist.',
     'fileManager.song.deleteActiveFolderConfirm': 'Delete folder "{name}"? This folder is currently applied to the Playlist.',
 };
