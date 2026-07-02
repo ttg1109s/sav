@@ -100,6 +100,21 @@
             if (typeof checkPendingResumeStateOnBoot === 'function') checkPendingResumeStateOnBoot();
             if (typeof loadSongStats === 'function') await loadSongStats();
             await initPlaylistFromDB();
+            // MỚI (Phase 2, mục 2, CHỐT 03/07/2026) — khôi phục activePlayListFolder đã lưu bền
+            // (nếu có) NGAY SAU initPlaylistFromDB() (playlistCache đã đầy đủ) — KHÔNG sửa
+            // initPlaylistFromDB()/scanValidSongsFromDB() ở loader.js (code di sản, chưa qua 4
+            // rule — xem plan-v12-multimedia-decisions.md, trao đổi 03/07/2026). File này
+            // (draw-visualizer.js) được MIỄN audit hoàn toàn theo readme/core-legacy-audit.md
+            // (nhóm loại trừ hot-path) nên thêm dòng dưới đây KHÔNG phát sinh nghĩa vụ refactor.
+            // Gọi TRỰC TIẾP, KHÔNG qua eventBus — cùng quy ước với chính initPlaylistFromDB()/
+            // loadConfig() (lifecycle boot, đứng ngoài /event/, xem event-bus-flow.md mục 1).
+            if (typeof getMeta === 'function' && typeof workflowPlaylistScope !== 'undefined') {
+                const savedFolderId = await getMeta('activePlayListFolder');
+                VirtualMachineState.run([
+                    { state: savedFolderId, operation: 'in', value: [null, undefined], callback: () => {} }, // đã đúng "Tất cả bài" sẵn từ initPlaylistFromDB(), không cần làm gì thêm
+                    { state: savedFolderId, operation: 'notIn', value: [null, undefined], callback: () => workflowPlaylistScope.applyFolderScope(savedFolderId) },
+                ]);
+            }
             if (typeof appState !== 'undefined') appState.set('_isPlaylistReadyForResumeModal', true);
             if (typeof enableResumeModalButtonsWhenPlaylistReady === 'function') enableResumeModalButtonsWhenPlaylistReady();
         });
