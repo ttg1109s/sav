@@ -51,7 +51,10 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.folderDetail.songListTitle': 'Songs in this folder',
     'fileManager.song.folderDetail.empty': 'No songs in this folder yet.',
     'fileManager.song.folderDetail.removeSongTitle': 'Remove from folder',
-    'fileManager.song.folderDetail.applySuccess': 'Playlist is now showing songs from "{name}".',
-    'fileManager.song.folderDetail.clearSuccess': 'Playlist is now showing all songs.',
-    'fileManager.song.deleteActiveFolderConfirm': 'Delete folder "{name}"? Playback will stop and the Playlist will show all songs again.',
+    'fileManager.song.folderDetail.reloadTitle': 'Apply now?',
+    'fileManager.song.folderDetail.reloadBtnNo': 'Not now',
+    'fileManager.song.folderDetail.reloadBtnNow': 'Reload now',
+    'fileManager.song.folderDetail.applyReloadBody': 'Saved — the Playlist will show songs from "{name}" after reloading. Reload now?',
+    'fileManager.song.folderDetail.deleteReloadBody': 'Folder deleted — the Playlist will show all songs again after reloading. Reload now?',
+    'fileManager.song.deleteActiveFolderConfirm': 'Delete folder "{name}"? This folder is currently applied to the Playlist.',
 };
