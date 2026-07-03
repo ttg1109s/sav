@@ -65,7 +65,7 @@
     <script src="lang/patch/patch-settings-misc.js?v=20260627v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260703v7"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260703v9"></script>
     <script src="lang/lang.js?v=20260702v1"></script>
 
     <!-- =====================================================================
@@ -74,7 +74,7 @@
          ===================================================================== -->
     <script src="components/loading-shield.js?v=20260625v8e"></script>
     <script src="components/playlist-view.js?v=20260703v2"></script>
-    <script src="components/visualizer-overlay.js?v=20260626v1"></script>
+    <script src="components/visualizer-overlay.js?v=20260703v1"></script>
     <script src="components/subtitle-modal.js?v=20260626v1"></script>
     <script src="components/bottom-player.js?v=20260626v1"></script>
     <!-- Settings Drawer (ver 8): 7 "section" HTML nhỏ PHẢI nạp TRƯỚC settings-drawer.js — file
@@ -98,7 +98,7 @@
          3 drawer con (Song/Photo & Album/Documents) mở thẳng từ section "File Manager" vừa thêm
          ở settings/file-manager-section.js, cùng cấp nav-stack với About/Visualizer Settings
          Drawer bên dưới. THAY components/storage-drawer.js (About -> Storage cũ, không còn mount). -->
-    <script src="components/file-manager.js?v=20260703v5"></script>
+    <script src="components/file-manager.js?v=20260703v6"></script>
     <!-- Visualizer/Subtitle Settings Drawer (ver 8 refine, mục 3) — cùng pattern navigation
          stack với About/Storage Drawer, mở chồng lên #drawer-settings. -->
     <script src="components/visualizer-settings-drawer.js?v=20260626v1"></script>
@@ -137,7 +137,7 @@
          core/config.js (vizConfig khởi tạo bằng { ...CONST.DEFAULT_VIZ_CONFIG }) và trước toàn bộ
          core/ còn lại; PHẢI nạp SAU core/modal-choice.js (alertModal, dùng cho option notifyUI).
          Xem comment đầu file service/state.js. -->
-    <script src="service/state.js?v=20260703v2"></script>
+    <script src="service/state.js?v=20260703v3"></script>
     <script src="core/config.js?v=20260625v10"></script>
     <!-- event/store.js (class EventStore) — CHỈ riêng file NÀY trong toàn bộ /event/ được nạp SỚM
          ở đây, KHÔNG đợi xuống cuối cùng cùng bus/workflow/router/listener. Lý do: playlist/
@@ -150,7 +150,7 @@
          LẠI của /event/ (bus/workflow/router/listener vẫn nạp cuối cùng tuyệt đối như cũ, xem
          khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260703v3"></script>
+    <script src="core/dom-refs.js?v=20260703v4"></script>
     <!-- Logo "SAV" (cụm /event/ "savLogo") — cần biến `savLogo` vừa nạp từ dom-refs.js ngay trên. -->
     <script src="core/sav-logo.js?v=20260629v1"></script>
     <!-- TaskManager (Loop/TaskManager) — quản lý TẬP TRUNG mọi setInterval/setTimeout của app
@@ -179,7 +179,7 @@
          tiếp ở đây, nhưng gom nhóm cho dễ đọc). -->
     <script src="core/file-manager/image.js?v=20260703v1"></script>
     <script src="core/file-manager/album.js?v=20260703v1"></script>
-    <script src="core/file-manager/photo-ui.js?v=20260703v1"></script>
+    <script src="core/file-manager/photo-ui.js?v=20260703v2"></script>
     <!-- Resume State Storage (ver 10 refine #3) — lưu/đọc trạng thái phát qua localStorage khi tab
          bị ẩn, dùng để "reload trang thật" lúc quay lại tab thay cho cố giữ runtime cũ sống sót
          qua việc ẩn tab (xem comment đầu file). PHẢI nạp TRƯỚC wakelock.js (file đó gọi
@@ -211,7 +211,7 @@
          recomputeDisplayOrder/renderPlaylistDiff...). main.js (object-function) gọi PlaylistMain.init()
          ngay khi nạp — mọi #id đã có sẵn trong DOM vì js/main.js đã mount component trước nhóm core. -->
     <script src="core/playlist/state.js?v=20260625v8e"></script>
-    <script src="core/playlist/order.js?v=20260625v8e"></script>
+    <script src="core/playlist/order.js?v=20260703v1"></script>
     <script src="core/playlist/render.js?v=20260625v10"></script>
     <script src="core/playlist/loader.js?v=20260625v10"></script>
     <script src="core/playlist/actions.js?v=20260625v8e"></script>
@@ -232,7 +232,7 @@
          EQ/volume" — giờ ở visualizers/visualizer-display.js (khu VISUALIZERS dưới), vì đúng
          ranh giới nghiệp vụ là cấu hình Visualizer, không phải điều khiển phát nhạc. Xem comment
          đầu core/player-controls.js để biết đầy đủ lý do tách + đảm bảo thứ tự nạp an toàn. -->
-    <script src="core/player-controls.js?v=20260627v1"></script>
+    <script src="core/player-controls.js?v=20260703v1"></script>
     <script src="core/audio-engine.js?v=20260625v8e"></script>
     <script src="core/app-cleanup.js?v=20260630v1"></script>
     <!-- Toggle ẩn/hiện dải BPM/Pitch/Energy (ver 10 refine, bổ sung) — PHẢI nạp TRƯỚC
@@ -346,18 +346,20 @@
     <script src="event/router/file-manager-song.js?v=20260703v3"></script>
     <script src="event/listener/file-manager-song.js?v=20260703v3"></script>
     <!-- Batch 3 (03/07/2026) — workflowFileManagerPhoto CẦN tồn tại trước khi router gọi tới. -->
-    <script src="event/workflow/file-manager-photo.js?v=20260703v1"></script>
-    <script src="event/router/file-manager-photo.js?v=20260703v2"></script>
-    <script src="event/listener/file-manager-photo.js?v=20260703v2"></script>
+    <script src="event/workflow/file-manager-photo.js?v=20260703v2"></script>
+    <script src="event/router/file-manager-photo.js?v=20260703v3"></script>
+    <script src="event/listener/file-manager-photo.js?v=20260703v3"></script>
     <script src="event/router/file-manager-document.js?v=20260703v1"></script>
     <script src="event/listener/file-manager-document.js?v=20260703v1"></script>
-    <script src="event/workflow/playlist.js?v=20260703v4"></script>
+    <script src="event/workflow/playlist.js?v=20260703v5"></script>
     <script src="event/router/playlist.js?v=20260703v1"></script>
     <script src="event/listener/playlist.js?v=20260703v1"></script>
-    <!-- Cụm "playerControls" (ver 11, patch 3): KHÔNG có event/workflow/player-controls.js — toàn
-         bộ 17 msg.type của router này chỉ cần ĐÚNG 1 HÀM CORE (không shield/modal), router gọi
-         THẲNG hết (xem comment đầu event/router/player-controls.js). -->
-    <script src="event/router/player-controls.js?v=20260629v1"></script>
+    <!-- Cụm "playerControls" (ver 11, patch 3): 16/17 msg.type KHÔNG cần workflow (router gọi
+         THẲNG). MỚI (fix 03/07/2026, mục 3b): 'playerControls.shuffle.click' giờ cần
+         event/workflow/player-controls.js (2 hàm core nối tiếp, phụ thuộc thứ tự — xem comment đầu
+         file đó + event/router/player-controls.js). -->
+    <script src="event/workflow/player-controls.js?v=20260703v1"></script>
+    <script src="event/router/player-controls.js?v=20260703v1"></script>
     <script src="event/listener/player-controls.js?v=20260629v1"></script>
     <script src="event/workflow/visualizer-display.js?v=20260629v1"></script>
     <script src="event/router/visualizer-display.js?v=20260629v1"></script>
@@ -375,8 +377,12 @@
     <script src="event/workflow/language-settings.js?v=20260629v1"></script>
     <script src="event/router/language-settings.js?v=20260629v1"></script>
     <script src="event/listener/language-settings.js?v=20260629v1"></script>
-    <!-- Cụm "playlistEmptyState" (ver 11, patch 8) — KHÔNG có workflow. -->
-    <script src="event/router/playlist-empty-state.js?v=20260629v1"></script>
+    <!-- Cụm "playlistEmptyState" (ver 11, patch 8) — MỚI (fix 03/07/2026, mục 3a): giờ CÓ workflow
+         (xem comment đầu event/workflow/playlist-empty-state.js) — nhánh sectionQueueActive=true
+         cần chuỗi ≥2 bước phụ thuộc thứ tự (reset top-level RỒI MỚI phát), nhánh false vẫn gọi
+         thẳng như cũ (VirtualMachineState chọn nhánh trong router). -->
+    <script src="event/workflow/playlist-empty-state.js?v=20260703v1"></script>
+    <script src="event/router/playlist-empty-state.js?v=20260703v1"></script>
     <script src="event/listener/playlist-empty-state.js?v=20260629v1"></script>
     <!-- Cụm "subtitleModal" (ver 11, patch 9). -->
     <script src="event/workflow/subtitle-modal.js?v=20260629v1"></script>

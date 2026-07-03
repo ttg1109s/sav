@@ -56,6 +56,7 @@ bắt buộc khi 1 function trong danh sách đó bị đụng tới thật tron
 | Cách chạy / deploy ứng dụng + các lưu ý theo từng bản | [readme/usage.md](./readme/usage.md) |
 | Muốn sửa 1 tính năng cụ thể thì vào file nào (kể cả sửa qua kiến trúc `/event/`) | [readme/where-to-edit.md](./readme/where-to-edit.md) |
 | Quy ước bắt buộc khi viết/sửa 1 Visual mới | [readme/visual-conventions.md](./readme/visual-conventions.md) |
+| Quan hệ tham chiếu Ảnh bìa bài hát ↔ Ảnh nền Playlist ↔ Ảnh nền Visual (điều tra trước batch picker chung, mục 4.c/4.d) | [readme/song-cover-background-relations.md](./readme/song-cover-background-relations.md) |
 | Vì sao không dùng ES6 module | [readme/why-no-es6-module.md](./readme/why-no-es6-module.md) |
 
 ## Cách dùng nhanh
