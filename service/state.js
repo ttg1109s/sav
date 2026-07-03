@@ -194,6 +194,15 @@
             folderDetailSongCount: 'number', // MỚI (03/07/2026, đợt 4) — số bài đang hiển thị trong Folder Detail Drawer, cập nhật mỗi lần vẽ lại; dùng bởi Block gate (event/block.js) để chặn "Áp dụng" khi folder rỗng
             selectionMode: 'boolean',                // chế độ chọn nhiều (checkbox) trong Playlist
             selectedSongKeys: 'set',                 // tập songKey đang được chọn khi selectionMode = true
+            // MỚI (fix 03/07/2026, mục 3a/3b yêu cầu) — true = displayOrder hiện đang là 1 "section"
+            // (tập con vừa chọn-rồi-phát qua playSelectedSongs(), event/workflow/playlist.js), KHÁC
+            // hẳn displayOrder top-level (Tất cả bài/Theo folder). Dùng bởi 2 nút to "Phát"/"Trộn
+            // bài" (event/workflow/playlist-empty-state.js) để biết cần "chèn lại top-level" trước
+            // khi phát hay không, và bởi core/playlist/order.js::updateShuffleArrayFromQueue() (qua
+            // event/workflow/player-controls.js) để Shuffle ở Control Center chỉ trộn ĐÚNG "hiện
+            // hành" thay vì luôn nhảy về top-level. Tự về false bất kỳ khi nào recomputeDisplayOrder()
+            // chạy (displayOrder quay lại phản ánh top-level thật) — xem core/playlist/order.js.
+            sectionQueueActive: 'boolean',
             activeBackgroundAlbum: 'nullable-string', // albumId đang dùng làm nền slideshow, null = không dùng
             slideshowConfig: 'object',               // { mode, intervalSeconds, transitionType } — xem CONST.DEFAULT_SLIDESHOW_CONFIG
             readerConfig: 'object',                  // { fontFamily, fontSize, bgColor, textColor, opacity } — xem CONST.DEFAULT_READER_CONFIG
@@ -334,6 +343,7 @@
                 // readerConfig/slideshowConfig gán THẬT ở dưới sau khi CONST đã sẵn sàng (giống
                 // vizConfig) — đặt {} tạm ở đây để key tồn tại sẵn trong schema/state ngay từ đầu.
                 activePlayListFolder: null,
+                sectionQueueActive: false,
                 folderDetailSongCount: 0,
                 selectionMode: false,
                 selectedSongKeys: new Set(),
