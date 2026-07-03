@@ -1,13 +1,38 @@
         :root { --item-bg-opacity: 0.1; }
         body { margin: 0; overflow: hidden; background-color: #000000; transition: background-color 0.3s ease; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; touch-action: manipulation; }
-        
+        html,
+body {
+    margin: 0;
+    width: 100%;
+    min-height: 100%;
+}
+
+body {
+    min-height: 100dvh;
+    background: #000;
+}
+
+#app {
+    height: 100%;
+    padding:
+        env(safe-area-inset-top)
+        env(safe-area-inset-right)
+        env(safe-area-inset-bottom)
+        env(safe-area-inset-left);
+}
         #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
-        /* Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). Cùng vai trò
-           với #bg-video nhưng LÀ ẢNH TĨNH, đặt z-index THẤP HƠN (-1, video z-index 0) — nếu video
-           nền CŨNG đang bật, video tự nhiên che kín ảnh này, không cần rẽ nhánh loại trừ trong code
-           video nền (core/state-and-video-bg.js::handleVideoBackground(), code DI SẢN không đụng —
-           xem readme/core-legacy-audit.md). Xem core/state-and-video-bg.js (applyVisualBgImageToDOM). */
-        #visual-bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background-size: cover; background-position: center; z-index: -1; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
+        /* Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). CHỐT
+           03/07/2026 (Giang xác nhận): 4 lớp nền màn Visualizer ĐỀU BẬT SONG SONG được (không loại
+           trừ nhau) — thứ tự z-index thấp -> cao: nền màu Settings (bgColor, DOM body, mặc định)
+           < ẢNH TĨNH NÀY (#visual-bg-image, -2) < nền slideshow album (CHƯA code — CHỪA SẴN mốc -1
+           ngay dưới video, xem #visual-slideshow-RESERVED bên dưới) < video nền (#bg-video, 0) <
+           chính visualizer đang vẽ (#webgl-canvas z-index 1/#visualizer z-index 10, luôn trên
+           cùng, KHÔNG đổi). Xem core/state-and-video-bg.js (applyVisualBgImageToDOM) cho đầy đủ lý
+           do + lưu ý hiệu năng riêng cho slideshow (task lặp, KHÁC ảnh tĩnh DOM ở đây). */
+        #visual-bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background-size: cover; background-position: center; z-index: -2; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
+        /* MỐC z-index CHỪA SẴN cho slideshow album (CHƯA code) — id thật sẽ đặt lúc code batch đó,
+           ghi lại đây để không ai vô tình chiếm z-index -1 cho việc khác. */
+        /* #visual-slideshow-RESERVED { z-index: -1; } */
         
         canvas { display: block; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; pointer-events: none;}
         #webgl-canvas { z-index: 1; } 
