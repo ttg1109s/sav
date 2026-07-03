@@ -35,6 +35,7 @@ if (fileManagerAlbumManageBar) {
         if (!btn) return;
         const actionById = {
             'btn-file-manager-album-add-images': 'addImages',
+            'btn-file-manager-album-set-slideshow-bg': 'setSlideshowBg', // MỚI (Batch 8, slideshow)
             'btn-file-manager-album-rename': 'rename',
             'btn-file-manager-album-delete': 'delete',
         };
