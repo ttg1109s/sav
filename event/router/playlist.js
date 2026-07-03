@@ -114,6 +114,13 @@ const routerPlaylist = (() => {
                 break;
             }
 
+            // MỚI (batch 03/07/2026) — chọn ảnh có sẵn trong File Manager làm cover. >1 hàm core
+            // nối tiếp (đọc danh sách ảnh + mở picker) -> workflow.
+            case 'playlist.editCover.pickFromLibrary': {
+                workflowPlaylist.pickCoverFromLibrary();
+                break;
+            }
+
             case 'playlist.editCover.remove': {
                 // CHỈ CẦN ĐÚNG 1 HÀM CORE (không shield/modal) -> gọi THẲNG.
                 removeSongEditCover();
