@@ -21,6 +21,10 @@
  *   songs (field mới trên record có sẵn) : record.folder = { [folderId]: position (number) } —
  *                 sự TỒN TẠI của key folderId đã đủ biết "từng thêm vào folder này chưa"; trạng
  *                 thái đang-ở-trong hay đã-gỡ đọc thẳng từ folder_song[folderId].list[position].
+ *   meta.deletedFolderIds : string[] — MỚI (03/07/2026, đợt 5). Danh sách folderId ĐÃ TỪNG bị xoá,
+ *                 dùng để KHÔNG BAO GIỜ cấp lại (xem resolveFolderId()) — chặn bug tham chiếu cũ
+ *                 (record.folder[folderId] còn sót trên bài đã tombstone-rồi-folder-bị-xoá) đọc
+ *                 nhầm sang 1 folder MỚI trùng id.
  *
  * NẠP SAU: core/db.js (cần mọi hàm CRUD kể trên + slugify() dùng chung cho resolveFolderId),
  * event/virtual-machine-state.js (addSongsToFolder() dùng VirtualMachineState.run() để chọn đúng
@@ -32,17 +36,32 @@
 /**
  * Sinh folderId DUY NHẤT từ tên folder, tái dùng slugify() đã có ở db.js (cùng thuật toán với
  * resolveSongKey — KHÔNG trùng logic, chỉ đổi store kiểm tra tồn tại).
+ *
+ * SỬA 03/07/2026 (đợt 5) — THÊM điều kiện thứ 2: id ứng viên KHÔNG được nằm trong
+ * `meta.deletedFolderIds` (danh sách id đã TỪNG bị xoá, dù hiện không còn record `folders` nào).
+ * LÝ DO: `deleteFolder()` chỉ dọn được `record.folder[folderId]` cho bài ĐANG active trong folder
+ * lúc xoá (không thể biết bài nào đã bị TOMBSTONE trước đó — folder_song.list đã null hoá, mất
+ * dấu vết songKey). Nếu 1 folderId bị tái sử dụng (folder mới trùng tên -> trùng slug), bài từng
+ * bị tombstone-rồi-folder-bị-xoá vẫn còn `record.folder[folderId] = vị trí cũ` sống sót trên chính
+ * record của nó — đọc nhầm sang `folder_song` MỚI (rỗng) sẽ bị hiểu sai thành 'active' (vì
+ * `list[vị trí cũ]` ở mảng rỗng là `undefined`, không phải `null`) -> addSongsToFolder() coi như
+ * "đã có sẵn", bỏ qua, không thêm thật — đúng bug bác vừa phát hiện (TH1: báo thành công nhưng
+ * folder vẫn rỗng). Cách sửa AN TOÀN NHẤT (không đổi schema `folders`/`folder_song` hiện có, không
+ * cần quét toàn bộ thư viện bài — vẫn giữ deleteFolder() ở đúng O(số bài ĐANG có trong folder)):
+ * KHÔNG BAO GIỜ cấp lại 1 id đã từng tồn tại, kể cả sau khi xoá — folder tạo lại cùng tên sẽ nhận
+ * id khác (`...-2`, `...-3`...), y hệt cơ chế suffix có sẵn khi trùng tên với folder ĐANG SỐNG.
  * @param {string} name
  * @returns {Promise<string>}
  */
 async function resolveFolderId(name) {
     const baseSlug = slugify(name) || 'folder'; // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
     console.log(`[resolveFolderId] callTo: "slugify", request: "chuẩn hoá tên '${name}' thành slug làm base cho id"`);
+    const deletedIds = (await getMeta('deletedFolderIds')) || []; // data layer (core/db.js)
     let candidate = baseSlug;
     let suffix = 2;
     while (true) {
         const existing = await getFolderRecord(candidate);
-        if (!existing) return candidate;
+        if (!existing && !deletedIds.includes(candidate)) return candidate;
         candidate = `${baseSlug}-${suffix}`; suffix++;
     }
 }
@@ -96,7 +115,31 @@ async function deleteFolder(folderId) {
 
     await deleteFolderSongMap(folderId);
     await deleteFolderRecord(folderId);
+
+    // MỚI (03/07/2026, đợt 5) — ghi nhận id này ĐÃ TỪNG DÙNG, vĩnh viễn không cấp lại (xem giải
+    // thích đầy đủ ở resolveFolderId() phía trên).
+    const deletedIds = (await getMeta('deletedFolderIds')) || [];
+    if (!deletedIds.includes(folderId)) {
+        deletedIds.push(folderId);
+        await setMeta('deletedFolderIds', deletedIds);
+    }
+
     return { status: 'ok' };
+}
+
+/**
+ * Đặt lại TOÀN BỘ folder về rỗng (`list: [], empty: 0`) — dùng khi xoá sạch thư viện nhạc (mục 3,
+ * CHỐT 03/07/2026): lúc đó mọi bài đã mất, mọi `folder_song` còn lại chỉ là tham chiếu rác tới
+ * songKey không còn tồn tại. KHÔNG xoá record `folders` (giữ tên folder người dùng đã đặt) — chỉ
+ * dọn rỗng nội dung. Rule 1: đơn tuyến (1 tiến trình "dọn sạch mọi folder"), lặp qua từng folder là
+ * chi tiết triển khai, không phải rẽ nhánh nghiệp vụ khác nhau.
+ * @returns {Promise<void>}
+ */
+async function clearAllFolderSongData() {
+    const ids = await getAllFolderKeys(); // data layer (core/db.js)
+    for (const id of ids) {
+        await setFolderSongMap(id, { list: [], empty: 0 }); // data layer (core/db.js)
+    }
 }
 
 /**
