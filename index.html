@@ -25,7 +25,10 @@
          file local của project (CSS/JS riêng), KHÔNG đụng tới các thư viện CDN bên thứ 3 ở trên —
          những file đó đã tự có version riêng trong URL (@6, @4, r128, 3.9.5...) nên cache của
          chúng không liên quan tới cache "cứng đầu" của riêng project trên GitHub Pages. -->
-    <link rel="stylesheet" href="assets/css/style.css?v=20260703v2">
+    <link rel="stylesheet" href="assets/css/style.css?v=20260703v3">
+    <!-- Batch 8, ver 12 "Multi Media" — file CSS TÁCH RIÊNG THEO DOMAIN đầu tiên của project (xem
+         comment đầu file) — Slideshow nền Visual (2 lớp ảnh xen kẽ + 13 kiểu transition). -->
+    <link rel="stylesheet" href="assets/css/slideshow.css?v=20260703v1">
 </head>
 <body class="text-white h-screen flex flex-col relative overflow-hidden bg-[#000000]">
 
@@ -33,6 +36,14 @@
     <!-- Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). Xem
          assets/css/style.css (#visual-bg-image) + core/state-and-video-bg.js (applyVisualBgImageToDOM). -->
     <div id="visual-bg-image"></div>
+    <!-- Slideshow nền Visual (nguồn nền thứ 3, Batch 8, ver 12 "Multi Media") — 2 lớp ảnh xen kẽ,
+         JS điều khiển ở core/file-manager/slideshow.js (hàm thuần) + event/workflow/slideshow.js
+         (orchestration). CSS: assets/css/slideshow.css (z-index -1, giữa #visual-bg-image và
+         #bg-video — xem comment ở assets/css/style.css). -->
+    <div id="visual-slideshow-container" class="hidden">
+        <div id="visual-slideshow-layer-1" class="slideshow-layer"></div>
+        <div id="visual-slideshow-layer-2" class="slideshow-layer"></div>
+    </div>
 
     <!-- Canvas WebGL (Three.js - Vortex Engine) -->
     <canvas id="webgl-canvas" class="opacity-0 transition-opacity duration-700"></canvas>
@@ -66,11 +77,11 @@
     <script src="lang/patch/patch-common.js?v=20260627v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260703v2"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260627v1"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260703v1"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260703v2"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260627v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260703v11"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260703v12"></script>
     <script src="lang/lang.js?v=20260702v1"></script>
 
     <!-- =====================================================================
@@ -91,7 +102,7 @@
          plan-v12-multimedia-decisions.md mục 1a/7. -->
     <script src="components/settings/playlist-background.js?v=20260703v1"></script>
     <script src="components/settings/file-manager-section.js?v=20260703v1"></script>
-    <script src="components/settings/visualizer-geometry-color.js?v=20260626v1"></script>
+    <script src="components/settings/visualizer-geometry-color.js?v=20260703v1"></script>
     <script src="components/settings/audio-eq.js?v=20260626v1"></script>
     <script src="components/settings/subtitle-style.js?v=20260626v1"></script>
     <script src="components/settings/misc.js?v=20260626v1"></script>
@@ -103,18 +114,20 @@
          3 drawer con (Song/Photo & Album/Documents) mở thẳng từ section "File Manager" vừa thêm
          ở settings/file-manager-section.js, cùng cấp nav-stack với About/Visualizer Settings
          Drawer bên dưới. THAY components/storage-drawer.js (About -> Storage cũ, không còn mount). -->
-    <script src="components/file-manager.js?v=20260703v6"></script>
+    <script src="components/file-manager.js?v=20260703v7"></script>
     <!-- Visualizer/Subtitle Settings Drawer (ver 8 refine, mục 3) — cùng pattern navigation
          stack với About/Storage Drawer, mở chồng lên #drawer-settings. -->
     <script src="components/visualizer-settings-drawer.js?v=20260626v1"></script>
     <script src="components/subtitle-settings-drawer.js?v=20260626v1"></script>
+    <!-- Batch 8, ver 12 "Multi Media" — Slideshow Settings Drawer (nền Visual, nguồn thứ 3). -->
+    <script src="components/slideshow-settings-drawer.js?v=20260703v1"></script>
 
     <!-- =====================================================================
          2) MAIN (bootstrap): lắp toàn bộ component vào #app-root.
             Sau dòng này, mọi phần tử (id="...") trong các component đã tồn tại
             thật sự trong DOM và có thể dùng document.getElementById an toàn.
          ===================================================================== -->
-    <script src="main.js?v=20260703v2"></script>
+    <script src="main.js?v=20260703v3"></script>
 
     <!-- =====================================================================
          3) CORE: logic nghiệp vụ. PHẢI nạp sau bước (2).
@@ -155,7 +168,7 @@
          LẠI của /event/ (bus/workflow/router/listener vẫn nạp cuối cùng tuyệt đối như cũ, xem
          khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260703v7"></script>
+    <script src="core/dom-refs.js?v=20260703v8"></script>
     <!-- Logo "SAV" (cụm /event/ "savLogo") — cần biến `savLogo` vừa nạp từ dom-refs.js ngay trên. -->
     <script src="core/sav-logo.js?v=20260629v1"></script>
     <!-- TaskManager (Loop/TaskManager) — quản lý TẬP TRUNG mọi setInterval/setTimeout của app
@@ -184,7 +197,11 @@
          tiếp ở đây, nhưng gom nhóm cho dễ đọc). -->
     <script src="core/file-manager/image.js?v=20260703v1"></script>
     <script src="core/file-manager/album.js?v=20260703v1"></script>
-    <script src="core/file-manager/photo-ui.js?v=20260703v5"></script>
+    <script src="core/file-manager/photo-ui.js?v=20260703v6"></script>
+    <!-- Batch 8, ver 12 "Multi Media" — Slideshow nền Visual (hàm THUẦN, xem comment đầu file).
+         CẦN core/task-manager.js (đã nạp sớm, xem khối CORE phía trên) — không phụ thuộc gì khác
+         trong nhóm này (mọi phần tử DOM nhận qua tham số, không tự getElementById). -->
+    <script src="core/file-manager/slideshow.js?v=20260703v1"></script>
     <!-- Resume State Storage (ver 10 refine #3) — lưu/đọc trạng thái phát qua localStorage khi tab
          bị ẩn, dùng để "reload trang thật" lúc quay lại tab thay cho cố giữ runtime cũ sống sót
          qua việc ẩn tab (xem comment đầu file). PHẢI nạp TRƯỚC wakelock.js (file đó gọi
@@ -195,7 +212,7 @@
     <script src="core/listen-stats.js?v=20260625v10"></script>
     <script src="core/loading-shield-util.js?v=20260625v10"></script>
     <script src="core/three-vortex.js?v=20260625v8e"></script>
-    <script src="core/state-and-video-bg.js?v=20260703v3"></script>
+    <script src="core/state-and-video-bg.js?v=20260703v4"></script>
     <script src="core/subtitle/subtitles.js?v=20260625v10"></script>
     <!-- 3 file dưới đây TÁCH từ core/equalizer-settings.js (cũ, đã XOÁ — tên file gây nhầm, từng
          trộn EQ + Subtitle Style + misc settings Visualizer + saveConfig/loadConfig chung của
@@ -292,7 +309,7 @@
     <script src="core/visualizer/types/rain.js?v=20260625v8e"></script>
     <!-- draw-visualizer.js chứa điểm khởi động thực sự của app (DOMContentLoaded ->
          loadConfig() + initPlaylistFromDB()), giữ nguyên vị trí như các bản trước. -->
-    <script src="core/visualizer/draw-visualizer.js?v=20260703v3"></script>
+    <script src="core/visualizer/draw-visualizer.js?v=20260703v4"></script>
 
 
     <!-- =====================================================================
@@ -350,10 +367,16 @@
     <script src="event/workflow/file-manager-song.js?v=20260703v7"></script>
     <script src="event/router/file-manager-song.js?v=20260703v3"></script>
     <script src="event/listener/file-manager-song.js?v=20260703v3"></script>
+    <!-- Batch 8, ver 12 "Multi Media" — cụm "slideshowSettings" (Slideshow nền Visual). PHẢI nạp
+         TRƯỚC event/workflow/file-manager-photo.js (gọi workflowSlideshow.clearActiveAlbum() +
+         setAsSlideshowBackground() trong cascade/nút "Dùng làm nền Slideshow"). -->
+    <script src="event/workflow/slideshow.js?v=20260703v1"></script>
+    <script src="event/router/slideshow.js?v=20260703v1"></script>
+    <script src="event/listener/slideshow.js?v=20260703v1"></script>
     <!-- Batch 3 (03/07/2026) — workflowFileManagerPhoto CẦN tồn tại trước khi router gọi tới. -->
-    <script src="event/workflow/file-manager-photo.js?v=20260703v6"></script>
-    <script src="event/router/file-manager-photo.js?v=20260703v4"></script>
-    <script src="event/listener/file-manager-photo.js?v=20260703v3"></script>
+    <script src="event/workflow/file-manager-photo.js?v=20260703v7"></script>
+    <script src="event/router/file-manager-photo.js?v=20260703v5"></script>
+    <script src="event/listener/file-manager-photo.js?v=20260703v4"></script>
     <script src="event/router/file-manager-document.js?v=20260703v1"></script>
     <script src="event/listener/file-manager-document.js?v=20260703v1"></script>
     <script src="event/workflow/playlist.js?v=20260703v6"></script>
