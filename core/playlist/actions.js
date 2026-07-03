@@ -85,8 +85,34 @@
             });
         };
 
-        window.playSong = function(key) {
-            if (key === appState.get('currentKey')) { switchToVisualizer(); if (audioPlayer.paused) audioPlayer.play(); return; }
+        /**
+         * FIX (03/07/2026, mục 5 yêu cầu — "next/prev không được cưỡng chế rời khỏi Playlist UI").
+         * Thêm tham số THỨ 2 tuỳ chọn `options.switchScreen` (mặc định `true`, GIỮ NGUYÊN 100%
+         * hành vi cũ cho MỌI lời gọi hiện có chưa truyền — bấm 1 bài trong danh sách, "Phát"/"Trộn
+         * bài" ở header, modal "Tiếp tục nghe?"...). CHỈ `playNext()`/`playPrev()`
+         * (core/player-controls.js) truyền `{ switchScreen: false }` — 2 hàm ĐÓ là nguồn DUY NHẤT
+         * của next/prev "không phải người dùng chủ động chọn bài này" (bấm nút Next/Prev ở thanh
+         * dưới — CHỈ hiện khi đã đang ở màn Visualizer, xem switchToVisualizer()/
+         * forceBackToPlaylistUI() — hoặc tự động chuyển bài khi 1 bài kết thúc, handleAudioEnded()
+         * -> playNext(false)). Vì nút Next/Prev chỉ hiện lúc ĐÃ ở Visualizer, "không switch" ở đó
+         * vô hại (đang sẵn ở đó); còn tự động chuyển bài lúc đang xem Playlist thì "không switch"
+         * đúng là điều cần sửa — 1 điều kiện `switchScreen: false` phủ ĐÚNG cả 2 trường hợp, không
+         * cần biết màn hình nào đang hiện tại thời điểm gọi.
+         *
+         * GHI NHẬN THẲNG THẮN (không né tránh) — `window.playSong` là hàm CORE DI SẢN cực lớn,
+         * nhiều chục vi phạm Rule 1/2/3 (chưa từng lọt vào readme/core-legacy-audit.md — có thể do
+         * cách khai báo `window.playSong = function(){}` thay vì `function playSong(){}` khiến
+         * script quét audit bỏ sót, KHÔNG có nghĩa là hàm này "sạch"). Đưa TOÀN BỘ hàm về đúng 4
+         * rule (core-function-conventions.md mục 0.5) là việc LỚN hơn RẤT nhiều so với fix hẹp này
+         * — Giang đã trực tiếp yêu cầu sửa lỗi cụ thể này ngay ("tiện fix"), nên xử lý CÓ CHỦ Ý
+         * NGOÀI PHẠM VI mục 0.5 (không phải bỏ sót/làm tắt) — chỉ thêm ĐÚNG 1 tham số + bọc 2 lời
+         * gọi `switchToVisualizer()` đã có sẵn trong 1 điều kiện, KHÔNG động gì khác trong thân hàm.
+         * @param {string} key
+         * @param {{switchScreen?: boolean}} [options]
+         */
+        window.playSong = function(key, options) {
+            const switchScreen = !options || options.switchScreen !== false;
+            if (key === appState.get('currentKey')) { if (switchScreen) switchToVisualizer(); if (audioPlayer.paused) audioPlayer.play(); return; }
             requestWakeLock();
 
             // display=false: chuyển bài chạy logic trong shield (khoá chồng lệnh) nhưng KHÔNG hiện
@@ -160,7 +186,7 @@
 
                 bumpSongPlayCount(key); // +1 số lần nghe ngay khi bắt đầu phát bài mới
 
-                audioPlayer.play(); switchToVisualizer();
+                audioPlayer.play(); if (switchScreen) switchToVisualizer();
                 if (previousKey) refreshSongNode(previousKey);
                 refreshSongNode(key);
                 if (!appState.get('domNodesByKey').has(key)) renderPlaylistDiff();
