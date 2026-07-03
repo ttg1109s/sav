@@ -72,12 +72,17 @@ const routerFileManagerPhoto = (() => {
                 if (!activeAlbumId) break; // guard: không có album nào đang lọc thì thanh này vốn đang ẩn, không có đích để thao tác
                 const { action } = msg.payload;
                 const albumId = activeAlbumId;
-                // 3 giá trị LOẠI TRỪ NHAU (đúng data-album-manage-action khai báo ở components/file-manager.js) -> VirtualMachineState.
+                // 4 giá trị LOẠI TRỪ NHAU (đúng id nút khai báo ở components/file-manager.js, map
+                // qua actionById trong event/listener/file-manager-photo.js) -> VirtualMachineState.
                 VirtualMachineState.run([
                     { state: action, operation: '===', value: 'addImages', callback: () => {
                         imageSelectionMode = true;
                         selectedImageKeys = new Set();
                         workflowFileManagerPhoto.refresh(activeAlbumId, imageSelectionMode, selectedImageKeys);
+                    } },
+                    // MỚI (Batch 8, slideshow) — "Dùng làm nền Slideshow" cho album đang lọc.
+                    { state: action, operation: '===', value: 'setSlideshowBg', callback: () => {
+                        workflowFileManagerPhoto.setAsSlideshowBackground(albumId); // >1 hàm core -> workflow
                     } },
                     { state: action, operation: '===', value: 'rename', callback: () => {
                         workflowFileManagerPhoto.renameAlbumById(albumId); // >1 hàm core -> workflow
