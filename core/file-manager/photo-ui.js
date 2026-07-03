@@ -225,6 +225,65 @@ function openRenameAlbumModal(currentName, onConfirm) {
     inputEl.focus();
 }
 
+// ===================== Picker chọn 1 ảnh dùng chung (MỚI batch 03/07/2026) =====================
+// Dùng bởi tab "Ảnh bìa" (modal Sửa thông tin bài hát, components/playlist-view.js) — xem
+// readme/song-cover-background-relations.md mục 2/3. Lưới ảnh CHỈ ĐỌC (không xoá/không album),
+// bấm 1 ảnh là chọn luôn + đóng modal — khác hẳn masonry Photo & Album (xem/quản lý thư viện).
+/**
+ * @param {Array<{key: string, blob: Blob, filename: string}>} images
+ * @param {(imageKey: string) => void} onSelect
+ */
+function openImageLibraryPickerModal(images, onSelect) {
+    const stale = document.getElementById('image-library-picker-overlay');
+    if (stale) stale.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'image-library-picker-overlay';
+    overlay.className = 'fixed inset-0 z-[130] bg-black/85 backdrop-blur-sm flex flex-col';
+
+    function closeModal() { overlay.remove(); }
+
+    const header = document.createElement('div');
+    header.className = 'flex justify-between items-center px-4 py-3 shrink-0';
+    const titleEl = document.createElement('h3');
+    titleEl.className = 'text-base font-bold text-white';
+    titleEl.textContent = t('playlistView.songEdit.coverPickLibrary');
+    header.appendChild(titleEl);
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white';
+    closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
+    closeBtn.addEventListener('click', closeModal);
+    header.appendChild(closeBtn);
+    overlay.appendChild(header);
+
+    const grid = document.createElement('div');
+    grid.className = 'flex-1 overflow-y-auto px-3 pb-6 columns-2 sm:columns-3 gap-2';
+    if (images.length === 0) {
+        const emptyEl = document.createElement('p');
+        emptyEl.className = 'text-sm text-slate-400 text-center py-10';
+        emptyEl.textContent = t('fileManager.photo.image.empty');
+        overlay.appendChild(emptyEl);
+    } else {
+        images.forEach((image) => {
+            const tile = document.createElement('button');
+            tile.dataset.hasObjectUrl = '1';
+            tile.className = 'block w-full mb-2 break-inside-avoid rounded-xl overflow-hidden bg-white/5 border border-white/10';
+            const img = document.createElement('img');
+            img.className = 'w-full h-auto block';
+            img.alt = image.filename;
+            tile.appendChild(img);
+            _observeLazyThumbnail(tile, image.blob, img);
+            tile.addEventListener('click', () => { closeModal(); onSelect(image.key); });
+            grid.appendChild(tile);
+        });
+    }
+    overlay.appendChild(grid);
+
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+    document.body.appendChild(overlay);
+}
+
 // ===================== Tạo Album (modal) =====================
 // Cùng khuôn mẫu openRenameFolderModal() ở core/file-manager/folder-picker-ui.js — KHÔNG có sẵn
 // 1 "prompt modal" dùng chung nào trong project nên viết riêng, KHÔNG cố gộp (2 modal có
