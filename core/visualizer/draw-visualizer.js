@@ -122,6 +122,11 @@
                     }
                 }
             }
+            // MỚI (Batch 8, 03/07/2026, slideshow nền Visual) — đọc lại slideshowConfig/
+            // activeBackgroundAlbum đã lưu (meta) + tự khởi động engine nếu có album active. Gọi
+            // TRỰC TIẾP, KHÔNG qua eventBus — cùng quy ước lifecycle boot (event-bus-flow.md mục
+            // 1), NGAY SAU khối resolve visualBgImage ở trên (cùng nhóm "khôi phục nền lúc boot").
+            if (typeof workflowSlideshow !== 'undefined') await workflowSlideshow.loadPersistedSettingsOnBoot();
             updateSubToggleUI();
             if (typeof checkPendingResumeStateOnBoot === 'function') checkPendingResumeStateOnBoot();
             if (typeof loadSongStats === 'function') await loadSongStats();
