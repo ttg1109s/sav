@@ -15,9 +15,11 @@
  * 4 biến export: TPL_FILE_MANAGER_SONG_DRAWER (ĐẦY ĐỦ — Folder mục 4.b1 + Quản lý dung lượng dời
  * từ storage-drawer.js cũ, giữ NGUYÊN VẸN mọi id phần tử so với patch trước) /
  * TPL_FILE_MANAGER_FOLDER_DETAIL_DRAWER (Phase 2, MỚI — xem danh sách bài trong 1 folder + gỡ bài
- * + "Áp dụng cho Playlist", tầng nav-stack sâu hơn Song 1 cấp) / TPL_FILE_MANAGER_PHOTO_DRAWER /
- * TPL_FILE_MANAGER_DOCUMENT_DRAWER (2 cái sau CHƯA code — b2/b3/b4 — hiện placeholder "sắp ra
- * mắt", khung nav-stack vẫn đầy đủ để lắp nội dung thật sau mà không phải sửa lại cơ chế mở/đóng).
+ * + "Áp dụng cho Playlist", tầng nav-stack sâu hơn Song 1 cấp) / TPL_FILE_MANAGER_PHOTO_DRAWER
+ * (Batch 3, 03/07/2026 — story slider album + masonry ảnh, ĐÃ CODE THẬT, xem
+ * core/file-manager/photo-ui.js) / TPL_FILE_MANAGER_DOCUMENT_DRAWER (CHƯA code — b4 — hiện
+ * placeholder "sắp ra mắt", khung nav-stack vẫn đầy đủ để lắp nội dung thật sau mà không phải sửa
+ * lại cơ chế mở/đóng).
  *
  * components/storage-drawer.js + biến TPL_STORAGE_DRAWER KHÔNG còn được mount (xem main.js) —
  * file cũ ĐỂ LẠI trong project làm tư liệu đối chiếu, KHÔNG xoá tự động, bác xoá tay khi rảnh.
@@ -153,17 +155,25 @@ const TPL_FILE_MANAGER_FOLDER_DETAIL_DRAWER = `
 const TPL_FILE_MANAGER_PHOTO_DRAWER = `
     <div id="drawer-file-manager-photo" class="fixed inset-0 drawer-glass z-[90] transform translate-y-full transition-transform duration-500 ease-in-out flex flex-col">
         <div class="flex justify-between items-center px-4 py-3 sm:px-6 border-b border-white/10 shrink-0 bg-black/40">
-            <div class="flex items-center gap-2">
-                <button id="btn-back-file-manager-photo" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white" data-i18n-title="fileManager.photo.back.title" title="${t('fileManager.photo.back.title')}">
+            <div class="flex items-center gap-2 min-w-0">
+                <button id="btn-back-file-manager-photo" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0" data-i18n-title="fileManager.photo.back.title" title="${t('fileManager.photo.back.title')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
                 </button>
-                <h2 class="text-base sm:text-lg font-bold tracking-wider text-white uppercase" data-i18n="fileManager.photo.title">${t('fileManager.photo.title')}</h2>
+                <h2 class="text-base sm:text-lg font-bold tracking-wider text-white uppercase truncate" data-i18n="fileManager.photo.title">${t('fileManager.photo.title')}</h2>
             </div>
+            <button id="btn-file-manager-image-upload-trigger" class="w-8 h-8 flex items-center justify-center rounded-full bg-sky-500 hover:bg-sky-400 transition-colors text-white shrink-0" data-i18n-title="fileManager.photo.uploadTitle" title="${t('fileManager.photo.uploadTitle')}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+            </button>
+            <input type="file" id="file-manager-image-upload-input" accept="image/png,image/jpeg,image/webp" multiple class="hidden">
         </div>
-        <div class="flex-grow overflow-y-auto px-4 py-6 sm:px-8 pb-20">
-            <div class="max-w-2xl mx-auto">
-                <p class="text-sm text-slate-400 text-center py-10" data-i18n="fileManager.comingSoon">${t('fileManager.comingSoon')}</p>
-            </div>
+
+        <!-- Story slider Album (mục 3, lazy load qua IntersectionObserver — core/file-manager/photo-ui.js) -->
+        <div id="file-manager-album-story" class="flex gap-4 overflow-x-auto px-4 py-4 snap-x snap-mandatory shrink-0 border-b border-white/5"></div>
+
+        <!-- Masonry ảnh (CSS columns thuần — mục 3) -->
+        <div class="flex-grow overflow-y-auto px-3 py-3 pb-20">
+            <div id="file-manager-image-masonry" class="columns-2 sm:columns-3 gap-2"></div>
+            <p id="file-manager-image-empty" class="hidden text-sm text-slate-400 text-center py-10" data-i18n="fileManager.photo.image.empty">${t('fileManager.photo.image.empty')}</p>
         </div>
     </div>
 `;
