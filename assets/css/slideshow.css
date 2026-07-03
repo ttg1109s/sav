@@ -1,0 +1,130 @@
+/**
+ * assets/css/slideshow.css — Slideshow nền Visual (nguồn nền thứ 3, Batch 8, ver 12 "Multi Media").
+ *
+ * FILE CSS TÁCH RIÊNG THEO DOMAIN ĐẦU TIÊN của project (plan-v12-multimedia.md mục 2, "CSS: tách
+ * file mới theo domain, không gộp style.css nữa — bắt đầu assets/css/slideshow.css") — phá quy
+ * ước "1 file CSS duy nhất" giữ từ ver 5, CHỦ ĐỘNG, không phải sơ suất (xem
+ * readme/why-no-es6-module.md/readme/folder-structure.md, cập nhật theo khi domain tiếp theo tách
+ * ra). Nạp qua <link> RIÊNG trong index.html, SAU style.css.
+ *
+ * Mốc z-index -1 đã CHỪA SẴN ở style.css (giữa #visual-bg-image -2 và #bg-video 0, xem comment ở
+ * đó) — thực thi THẬT tại đây.
+ *
+ * DOM (index.html): #visual-slideshow-container > #visual-slideshow-layer-1 + -layer-2 (2 lớp
+ * ảnh xen kẽ). JS điều khiển ở core/file-manager/slideshow.js (hàm thuần, đổi class/style) +
+ * event/workflow/slideshow.js (orchestration — chọn ảnh kế tiếp, quản lý task lặp).
+ *
+ * CƠ CHẾ 2 LỚP: đúng 1 lớp mang class `.ss-current` (opacity 1, z-index 2, KHÔNG animate — trạng
+ * thái nghỉ). Lúc chuyển cảnh: lớp còn lại (đang ẩn) nhận ảnh mới rồi class `.ss-layer-enter`
+ * (z-index 3, chạy animation "enter" — xem beginSlideshowTransition(), core/file-manager/
+ * slideshow.js), lớp cũ nhận `.ss-layer-exit` (chạy animation "exit"). CSS bên dưới chọn ĐÚNG cặp
+ * animation theo [data-transition] gán trên #visual-slideshow-container.
+ *
+ * THỜI LƯỢNG 900ms — PHẢI khớp SLIDESHOW_TRANSITION_DURATION_MS (core/file-manager/slideshow.js).
+ * Đổi 1 chỗ phải đổi luôn chỗ kia.
+ */
+
+#visual-slideshow-container {
+    position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+    z-index: -1; pointer-events: none; overflow: hidden;
+    perspective: 1600px; /* dùng cho transition 'flip' (rotateY 3D) */
+}
+
+.slideshow-layer {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center;
+    opacity: 0; z-index: 1;
+    backface-visibility: hidden;
+}
+.slideshow-layer.ss-current { opacity: 1; z-index: 2; }
+.slideshow-layer.ss-layer-enter { z-index: 3; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
+.slideshow-layer.ss-layer-exit  { z-index: 2; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
+
+/* Ken Burns — pan/zoom chậm SUỐT thời gian hiển thị (KHÁC transition lúc đổi cảnh ở dưới), gắn
+   thêm lên layer vừa trở thành "current" khi slideshowConfig.transitionType === 'kenburns' (xem
+   applySlideshowKenBurns()). Thời lượng gán qua JS (style.animationDuration = intervalSeconds),
+   KHÔNG hardcode ở đây vì phụ thuộc cấu hình người dùng. */
+.slideshow-layer.ss-kenburns { animation-name: ss-kenburns-pan; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes ss-kenburns-pan { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.08) translate(-1.5%, -1.5%); } }
+
+/* ==================== 1. fade — mờ chồng ==================== */
+#visual-slideshow-container[data-transition="fade"] .ss-layer-enter { animation-name: ss-fade-in; }
+#visual-slideshow-container[data-transition="fade"] .ss-layer-exit  { animation-name: ss-fade-out; }
+@keyframes ss-fade-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ss-fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+/* ==================== 2/3. slideLeft / slideRight ==================== */
+#visual-slideshow-container[data-transition="slideLeft"] .ss-layer-enter  { animation-name: ss-slide-in-from-right; }
+#visual-slideshow-container[data-transition="slideLeft"] .ss-layer-exit   { animation-name: ss-slide-out-to-left; }
+#visual-slideshow-container[data-transition="slideRight"] .ss-layer-enter { animation-name: ss-slide-in-from-left; }
+#visual-slideshow-container[data-transition="slideRight"] .ss-layer-exit  { animation-name: ss-slide-out-to-right; }
+@keyframes ss-slide-in-from-right { from { transform: translateX(100%); opacity: 1; } to { transform: translateX(0); opacity: 1; } }
+@keyframes ss-slide-out-to-left   { from { transform: translateX(0); opacity: 1; } to { transform: translateX(-100%); opacity: 1; } }
+@keyframes ss-slide-in-from-left  { from { transform: translateX(-100%); opacity: 1; } to { transform: translateX(0); opacity: 1; } }
+@keyframes ss-slide-out-to-right  { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 1; } }
+
+/* ==================== 4/5. zoomIn / zoomOut ==================== */
+#visual-slideshow-container[data-transition="zoomIn"] .ss-layer-enter  { animation-name: ss-zoom-in-enter; }
+#visual-slideshow-container[data-transition="zoomIn"] .ss-layer-exit   { animation-name: ss-fade-out; }
+#visual-slideshow-container[data-transition="zoomOut"] .ss-layer-enter { animation-name: ss-zoom-out-enter; }
+#visual-slideshow-container[data-transition="zoomOut"] .ss-layer-exit  { animation-name: ss-fade-out; }
+@keyframes ss-zoom-in-enter  { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+@keyframes ss-zoom-out-enter { from { opacity: 0; transform: scale(1.6); } to { opacity: 1; transform: scale(1); } }
+
+/* ==================== 6. wipe — ảnh mới "kéo màn" che dần theo 1 hướng ngang ====================
+   Lớp mới LUÔN ở trên (z-index cao hơn) trong suốt hệ thống này — thay vì "ảnh cũ tách ra lộ ảnh
+   mới" (đòi hỏi đảo z-index riêng cho từng kiểu), mô phỏng cùng hiệu quả thị giác bằng clip-path
+   LỘ DẦN của chính lớp mới, phủ dần lên lớp cũ đang đứng yên bên dưới. */
+#visual-slideshow-container[data-transition="wipe"] .ss-layer-enter { animation-name: ss-wipe-enter; }
+#visual-slideshow-container[data-transition="wipe"] .ss-layer-exit  { animation: none; opacity: 1; }
+@keyframes ss-wipe-enter { from { clip-path: inset(0 100% 0 0); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+
+/* ==================== 7. flip — 3D quanh trục Y ==================== */
+#visual-slideshow-container[data-transition="flip"] .ss-layer-enter { animation-name: ss-flip-in; }
+#visual-slideshow-container[data-transition="flip"] .ss-layer-exit  { animation-name: ss-flip-out; }
+@keyframes ss-flip-in  { from { opacity: 0; transform: rotateY(-90deg); } 50% { opacity: 1; } to { opacity: 1; transform: rotateY(0deg); } }
+@keyframes ss-flip-out { from { opacity: 1; transform: rotateY(0deg); } 50% { opacity: 0; } to { opacity: 0; transform: rotateY(90deg); } }
+
+/* ==================== 8. kenburns — transition LÚC ĐỔI dùng lại fade thuần; hiệu ứng "sống" nằm
+   ở .ss-kenburns phía trên (áp SUỐT thời gian hiển thị, không chỉ lúc đổi) ==================== */
+#visual-slideshow-container[data-transition="kenburns"] .ss-layer-enter { animation-name: ss-fade-in; }
+#visual-slideshow-container[data-transition="kenburns"] .ss-layer-exit  { animation-name: ss-fade-out; }
+
+/* ==================== 9. blur — ảnh cũ mờ dần, ảnh mới nét dần ==================== */
+#visual-slideshow-container[data-transition="blur"] .ss-layer-enter { animation-name: ss-blur-in; }
+#visual-slideshow-container[data-transition="blur"] .ss-layer-exit  { animation-name: ss-blur-out; }
+@keyframes ss-blur-in  { from { opacity: 0; filter: blur(24px); } to { opacity: 1; filter: blur(0); } }
+@keyframes ss-blur-out { from { opacity: 1; filter: blur(0); } to { opacity: 0; filter: blur(24px); } }
+
+/* ==================== 10. rotateFade — ảnh mới xoay nhẹ vài độ + fade in cùng lúc ==================== */
+#visual-slideshow-container[data-transition="rotateFade"] .ss-layer-enter { animation-name: ss-rotate-fade-in; }
+#visual-slideshow-container[data-transition="rotateFade"] .ss-layer-exit  { animation-name: ss-fade-out; }
+@keyframes ss-rotate-fade-in { from { opacity: 0; transform: rotate(-4deg) scale(1.03); } to { opacity: 1; transform: rotate(0deg) scale(1); } }
+
+/* ==================== 11. curtain — lộ dần từ GIỮA ra 2 bên (khác wipe: wipe kéo 1 hướng,
+   curtain kéo 2 hướng đối xứng ra 2 mép) ==================== */
+#visual-slideshow-container[data-transition="curtain"] .ss-layer-enter { animation-name: ss-curtain-enter; }
+#visual-slideshow-container[data-transition="curtain"] .ss-layer-exit  { animation: none; opacity: 1; }
+@keyframes ss-curtain-enter { from { clip-path: inset(0 50% 0 50%); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+
+/* ==================== 12. circleReveal — ảnh mới lộ ra từ 1 vòng tròn phóng to dần từ tâm ==================== */
+#visual-slideshow-container[data-transition="circleReveal"] .ss-layer-enter { animation-name: ss-circle-reveal-enter; }
+#visual-slideshow-container[data-transition="circleReveal"] .ss-layer-exit  { animation: none; opacity: 1; }
+@keyframes ss-circle-reveal-enter { from { clip-path: circle(0% at 50% 50%); opacity: 1; } to { clip-path: circle(75% at 50% 50%); opacity: 1; } }
+
+/* ==================== 13. glitch — 1-2 khung hình dịch ngang ngẫu nhiên nhỏ + đổi màu nhẹ ngay
+   lúc chuyển, hợp nhạc điện tử/mạnh. Tần suất/độ mạnh giữ THẤP (chỉ 900ms lúc chuyển, không lặp
+   lại giữa chừng) — tránh gây rối mắt nếu lạm dụng, đúng lưu ý ở plan-v12-multimedia.md mục 4.b3. */
+#visual-slideshow-container[data-transition="glitch"] .ss-layer-enter { animation-name: ss-glitch-enter; }
+#visual-slideshow-container[data-transition="glitch"] .ss-layer-exit  { animation-name: ss-glitch-exit; }
+@keyframes ss-glitch-enter {
+    0%   { opacity: 0; transform: translateX(-3%); filter: hue-rotate(0deg); }
+    20%  { opacity: 1; transform: translateX(2%); filter: hue-rotate(60deg); }
+    40%  { transform: translateX(-1.5%); filter: hue-rotate(-40deg); }
+    60%  { transform: translateX(1%); filter: hue-rotate(20deg); }
+    100% { opacity: 1; transform: translateX(0); filter: hue-rotate(0deg); }
+}
+@keyframes ss-glitch-exit {
+    0%   { opacity: 1; filter: hue-rotate(0deg); }
+    100% { opacity: 0; filter: hue-rotate(0deg); }
+}
