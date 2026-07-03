@@ -65,7 +65,7 @@
     <script src="lang/patch/patch-settings-misc.js?v=20260627v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260703v6"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260703v7"></script>
     <script src="lang/lang.js?v=20260702v1"></script>
 
     <!-- =====================================================================
@@ -98,7 +98,7 @@
          3 drawer con (Song/Photo & Album/Documents) mở thẳng từ section "File Manager" vừa thêm
          ở settings/file-manager-section.js, cùng cấp nav-stack với About/Visualizer Settings
          Drawer bên dưới. THAY components/storage-drawer.js (About -> Storage cũ, không còn mount). -->
-    <script src="components/file-manager.js?v=20260703v4"></script>
+    <script src="components/file-manager.js?v=20260703v5"></script>
     <!-- Visualizer/Subtitle Settings Drawer (ver 8 refine, mục 3) — cùng pattern navigation
          stack với About/Storage Drawer, mở chồng lên #drawer-settings. -->
     <script src="components/visualizer-settings-drawer.js?v=20260626v1"></script>
@@ -150,7 +150,7 @@
          LẠI của /event/ (bus/workflow/router/listener vẫn nạp cuối cùng tuyệt đối như cũ, xem
          khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260703v2"></script>
+    <script src="core/dom-refs.js?v=20260703v3"></script>
     <!-- Logo "SAV" (cụm /event/ "savLogo") — cần biến `savLogo` vừa nạp từ dom-refs.js ngay trên. -->
     <script src="core/sav-logo.js?v=20260629v1"></script>
     <!-- TaskManager (Loop/TaskManager) — quản lý TẬP TRUNG mọi setInterval/setTimeout của app
@@ -172,6 +172,14 @@
     <!-- Phase 2 (mục 1b/c, CHỐT 03/07/2026) — Folder Detail Drawer. CẦN core/file-manager/folder.js
          (getFolderSongKeys) + core/dom-refs.js (đã nạp ngay trên). -->
     <script src="core/file-manager/folder-detail-ui.js?v=20260703v1"></script>
+    <!-- Batch 3 (03/07/2026) — Ảnh & Album. image.js/album.js độc lập với folder.js (không dùng
+         chung hàm nào ngoài slugify()/getMeta()/setMeta() ở core/db.js) — thứ tự giữa 2 file này
+         với nhau không quan trọng, chỉ cần SAU core/db.js. photo-ui.js CẦN dom-refs.js (đã nạp ở
+         block DOM refs phía trên) + image.js/album.js (dùng trong workflow, không tham chiếu trực
+         tiếp ở đây, nhưng gom nhóm cho dễ đọc). -->
+    <script src="core/file-manager/image.js?v=20260703v1"></script>
+    <script src="core/file-manager/album.js?v=20260703v1"></script>
+    <script src="core/file-manager/photo-ui.js?v=20260703v1"></script>
     <!-- Resume State Storage (ver 10 refine #3) — lưu/đọc trạng thái phát qua localStorage khi tab
          bị ẩn, dùng để "reload trang thật" lúc quay lại tab thay cho cố giữ runtime cũ sống sót
          qua việc ẩn tab (xem comment đầu file). PHẢI nạp TRƯỚC wakelock.js (file đó gọi
@@ -337,8 +345,10 @@
     <script src="event/workflow/file-manager-song.js?v=20260703v7"></script>
     <script src="event/router/file-manager-song.js?v=20260703v3"></script>
     <script src="event/listener/file-manager-song.js?v=20260703v3"></script>
-    <script src="event/router/file-manager-photo.js?v=20260703v1"></script>
-    <script src="event/listener/file-manager-photo.js?v=20260703v1"></script>
+    <!-- Batch 3 (03/07/2026) — workflowFileManagerPhoto CẦN tồn tại trước khi router gọi tới. -->
+    <script src="event/workflow/file-manager-photo.js?v=20260703v1"></script>
+    <script src="event/router/file-manager-photo.js?v=20260703v2"></script>
+    <script src="event/listener/file-manager-photo.js?v=20260703v2"></script>
     <script src="event/router/file-manager-document.js?v=20260703v1"></script>
     <script src="event/listener/file-manager-document.js?v=20260703v1"></script>
     <script src="event/workflow/playlist.js?v=20260703v4"></script>
