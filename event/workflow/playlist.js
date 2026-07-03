@@ -48,6 +48,31 @@ const workflowPlaylist = {
         }
     },
 
+    /** Ứng với msg.type = 'playlist.editCover.pickFromLibrary' — mở picker chọn 1 ảnh có sẵn
+     * trong File Manager làm cover (xem readme/song-cover-background-relations.md mục 2/3). Đọc
+     * danh sách ảnh RỒI mở picker -> ≥2 bước -> workflow. */
+    async pickCoverFromLibrary() {
+        const images = await listImages(); // core có sẵn (core/file-manager/image.js), CÓ return, DÙNG ngay dưới
+        openImageLibraryPickerModal(images, (imageKey) => { // core/file-manager/photo-ui.js
+            this.applyCoverFromLibrary(imageKey);
+        });
+    },
+
+    /** Callback của picker ở trên — bọc Blob đã có sẵn thành `File` rồi TÁI DÙNG NGUYÊN
+     * changeSongEditCover() (không sửa gì ở core/playlist/actions.js — File LÀ MỘT Blob, luồng lưu/
+     * export/hiển thị cover cũ chạy y nguyên, xem mục 2 tài liệu trên).
+     * @param {string} imageKey
+     */
+    async applyCoverFromLibrary(imageKey) {
+        const record = await getImageRecord(imageKey); // core có sẵn (core/db.js), CÓ return, DÙNG ngay dưới
+        if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
+        const file = new File([record.blob], record.filename, { type: record.blob.type });
+        const result = changeSongEditCover(file); // core có sẵn, CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
+        if (result.status === 'invalid') {
+            await alertModal(result.reason);
+        }
+    },
+
     /**
      * Ứng với msg.type = 'playlist.edit.save' — cần ĐỌC state form (key/newTag/pendingCover) rồi
      * PHỐI HỢP shield + hàm core lưu + (có thể) alertModal not-found + dọn dẹp UI sau khi lưu ->
