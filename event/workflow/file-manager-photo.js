@@ -11,6 +11,11 @@
  *
  * NẠP SAU: core/file-manager/image.js, core/file-manager/album.js, core/file-manager/photo-ui.js,
  * core/file-manager/nav.js.
+ *
+ * MỚI (Batch 8, 03/07/2026, slideshow nền Visual): `setAsSlideshowBackground()` (nút "Dùng làm nền
+ * Slideshow" ở thanh quản lý album) + cascade dọn `activeBackgroundAlbum` trong `deleteAlbumById()`
+ * khi album vừa xoá đang là nguồn nền active — cả 2 đều gọi `workflowSlideshow`
+ * (event/workflow/slideshow.js) — NẠP SAU file đó.
  */
 const workflowFileManagerPhoto = {
 
@@ -104,6 +109,13 @@ const workflowFileManagerPhoto = {
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('fileManager.photo.album.btnDelete'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
                     await deleteAlbum(albumId); // core có sẵn (core/file-manager/album.js) — KHÔNG đụng ảnh bên trong, chỉ mất liên kết
+                    // MỚI (Batch 8, slideshow) — cascade "xoá album đang dùng làm nguồn slideshow"
+                    // (mục 4 bước 2, plan-v12-multimedia-update-3.md): album vừa xoá đang là
+                    // activeBackgroundAlbum -> tắt engine + dọn tham chiếu. appState.get() trực
+                    // tiếp hợp lệ ở đây (WORKFLOW, không phải core function — Rule 2 không áp dụng).
+                    if (appState.get('activeBackgroundAlbum') === albumId && typeof workflowSlideshow !== 'undefined') {
+                        await workflowSlideshow.clearActiveAlbum();
+                    }
                     onDeleted();
                     await this.refresh(null, false, new Set());
                 } }
@@ -230,5 +242,18 @@ const workflowFileManagerPhoto = {
             await applyVisualBgImage(record.blob); // core có sẵn (core/state-and-video-bg.js)
         });
         await alertModal(t('fileManager.photo.image.setVisualBgSuccess'));
-    }
+    },
+
+    /** Ứng với nút "Dùng làm nền Slideshow" ở thanh quản lý album (MỚI, Batch 8) — KHÁC 2 hàm
+     * setAs*Background() ở trên (copy-blob): Album là quan hệ NHIỀU-NHIỀU thật (imageKeys: []), nên
+     * slideshow giữ THAM CHIẾU SỐNG (albumId), KHÔNG copy-blob — đúng nguyên tắc đã chốt ở mục 1.1
+     * plan-v12-multimedia-update-3.md ("mặc định copy-blob, CHỈ dùng tham chiếu thật khi bản chất
+     * đúng là quan hệ nhiều-nhiều như Album"). Giao hẳn cho workflowSlideshow (đã tự
+     * getAlbumRecord/persist/khởi động engine) — không lặp lại logic ở đây.
+     * @param {string} albumId
+     */
+    async setAsSlideshowBackground(albumId) {
+        await workflowSlideshow.setActiveAlbum(albumId);
+        await alertModal(t('fileManager.photo.album.setSlideshowBgSuccess'));
+    },
 };
