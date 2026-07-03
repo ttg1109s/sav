@@ -284,6 +284,43 @@ function openImageLibraryPickerModal(images, onSelect) {
     document.body.appendChild(overlay);
 }
 
+// ===================== Patch DOM surgical cho chế độ chọn nhiều (MỚI batch 03/07/2026, mục 3) ===
+// FIX nhấp nháy: renderImageMasonry() ở trên XÂY LẠI TOÀN BỘ DOM (revoke + tạo lại mọi object URL)
+// — hợp lý cho lần vẽ ĐẦU (vào chế độ chọn / thoát chế độ chọn), nhưng NẾU gọi lại mỗi lần CHỌN/BỎ
+// CHỌN 1 ảnh (workflow cũ làm vậy) thì mọi ảnh khác cũng bị revoke+load lại object URL dù không
+// đổi gì -> nhấp nháy toàn bộ lưới chỉ vì chạm 1 ô. 2 hàm THUẦN dưới đây chỉ đổi ĐÚNG 1 ô (badge)
+// hoặc 1 dòng text (số lượng đã chọn) — dùng SAU LẦN VẼ ĐẦU, không đụng DOM node nào khác. Cùng
+// tinh thần core/playlist/selection.js (showSelectionIndicator/hideSelectionIndicator) — 1 lớp
+// patch DOM tách riêng khỏi pipeline render chính.
+
+/**
+ * Đổi trạng thái chọn/bỏ chọn NGAY TRÊN 1 tile đã có sẵn trong DOM (không revoke/tạo lại object
+ * URL của tile đó hay bất kỳ tile nào khác).
+ * @param {string} imageKey
+ * @param {boolean} isSelected
+ */
+function toggleImageSelectionBadge(imageKey, isSelected) {
+    if (!fileManagerImageMasonry) return; // guard
+    const tile = fileManagerImageMasonry.querySelector(`[data-image-key="${imageKey}"]`);
+    if (!tile) return; // guard: hiếm, ảnh không còn trong DOM (race)
+
+    let badge = tile.querySelector('[data-role="selection-badge"]');
+    if (!badge) {
+        badge = document.createElement('span');
+        badge.dataset.role = 'selection-badge';
+        tile.appendChild(badge);
+    }
+    badge.className = `absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-colors ${isSelected ? 'bg-sky-500 border-sky-400' : 'bg-black/40 border-white/60'}`;
+    badge.innerHTML = isSelected
+        ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>'
+        : '';
+}
+
+/** Đổi text "N selected" mà không đụng DOM nào khác. @param {number} count */
+function updateImageSelectionCount(count) {
+    if (fileManagerImageSelectionCount) fileManagerImageSelectionCount.textContent = tFormat('fileManager.photo.album.selectedCount', { count });
+}
+
 // ===================== Tạo Album (modal) =====================
 // Cùng khuôn mẫu openRenameFolderModal() ở core/file-manager/folder-picker-ui.js — KHÔNG có sẵn
 // 1 "prompt modal" dùng chung nào trong project nên viết riêng, KHÔNG cố gộp (2 modal có
@@ -339,13 +376,15 @@ function openCreateAlbumModal(onConfirm) {
 // core/file-manager/folder-picker-ui.js) — KHÔNG thuộc phạm vi 4 rule core-function-conventions.md
 // (rule đó áp cho hàm NGHIỆP VỤ, không áp cho hàm dựng UI).
 //
-// MỚI (batch 03/07/2026, hạ tầng z-index nền Visual) — mục "đặt làm ảnh nền Playlist/Visual" (nối
-// nốt phần đã hoãn ở Batch 3, nay 2 field vizConfig liên quan — bgImageKey/visualBgImageKey — ĐÃ
-// tồn tại, xem service/state.js) — thêm 2 nút trong 1 hàng riêng dưới ảnh + 2 callback MỚI
-// onSetPlaylistBg/onSetVisualBg (event/workflow/file-manager-photo.js tự nối logic thật).
+// MỚI (batch 03/07/2026) — modal xem ảnh: 2 nút "Đặt làm nền" (Playlist/Visual, nối nốt phần đã
+// hoãn ở Batch 3) + nút "Gỡ khỏi album" (fix mục 4, CHỈ hiện khi đang xem ảnh TRONG 1 album cụ thể
+// — activeAlbumId != null, xem event/workflow/file-manager-photo.js::openImagePreview).
 /**
  * @param {{key: string, blob: Blob, filename: string}} image
- * @param {{onDelete: () => void, onSetPlaylistBg: () => void, onSetVisualBg: () => void}} callbacks
+ * @param {{onDelete: () => void, onSetPlaylistBg: () => void, onSetVisualBg: () => void, onRemoveFromAlbum?: () => void}} callbacks
+ *        onRemoveFromAlbum TUỲ CHỌN — chỉ truyền khi đang lọc theo 1 album cụ thể, nút "Gỡ khỏi
+ *        album" CHỈ hiện khi có callback này (không phải CSS ẩn/hiện, mà đơn giản KHÔNG TẠO nút
+ *        nếu không có callback — tránh nút bấm vào không làm gì).
  */
 function openImagePreviewModal(image, callbacks) {
     const stale = document.getElementById('image-preview-overlay');
@@ -363,17 +402,28 @@ function openImagePreviewModal(image, callbacks) {
     }
 
     const header = document.createElement('div');
-    header.className = 'flex justify-between items-center px-4 py-3 shrink-0';
+    header.className = 'flex justify-between items-center px-4 py-3 shrink-0 gap-2';
     const closeBtn = document.createElement('button');
-    closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white';
+    closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
     closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
     closeBtn.addEventListener('click', closeModal);
     header.appendChild(closeBtn);
+
+    const rightBtnGroup = document.createElement('div');
+    rightBtnGroup.className = 'flex items-center gap-2';
+    if (callbacks.onRemoveFromAlbum) {
+        const removeFromAlbumBtn = document.createElement('button');
+        removeFromAlbumBtn.className = 'px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white text-sm font-semibold';
+        removeFromAlbumBtn.textContent = t('fileManager.photo.image.btnRemoveFromAlbum');
+        removeFromAlbumBtn.addEventListener('click', () => { closeModal(); callbacks.onRemoveFromAlbum(); });
+        rightBtnGroup.appendChild(removeFromAlbumBtn);
+    }
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'px-4 py-2 rounded-full bg-rose-600/90 hover:bg-rose-500 transition-colors text-white text-sm font-semibold';
     deleteBtn.textContent = t('fileManager.photo.image.btnDelete');
     deleteBtn.addEventListener('click', () => { closeModal(); callbacks.onDelete(); });
-    header.appendChild(deleteBtn);
+    rightBtnGroup.appendChild(deleteBtn);
+    header.appendChild(rightBtnGroup);
     overlay.appendChild(header);
 
     const imgWrap = document.createElement('div');
