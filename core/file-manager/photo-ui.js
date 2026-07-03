@@ -278,12 +278,15 @@ function openCreateAlbumModal(onConfirm) {
 }
 // Hàm dựng UI thuần (giống openRenameFolderModal/openFolderPickerModal ở
 // core/file-manager/folder-picker-ui.js) — KHÔNG thuộc phạm vi 4 rule core-function-conventions.md
-// (rule đó áp cho hàm NGHIỆP VỤ, không áp cho hàm dựng UI). Mục "đặt làm ảnh nền Playlist/Visual"
-// (mục 5a plan-v12-multimedia-decisions.md) THUỘC BATCH 5 — CHƯA thêm ở modal này (2 field
-// vizConfig liên quan chưa tồn tại), chỉ có "Xoá khỏi thư viện" ở Batch 3 này.
+// (rule đó áp cho hàm NGHIỆP VỤ, không áp cho hàm dựng UI).
+//
+// MỚI (batch 03/07/2026, hạ tầng z-index nền Visual) — mục "đặt làm ảnh nền Playlist/Visual" (nối
+// nốt phần đã hoãn ở Batch 3, nay 2 field vizConfig liên quan — bgImageKey/visualBgImageKey — ĐÃ
+// tồn tại, xem service/state.js) — thêm 2 nút trong 1 hàng riêng dưới ảnh + 2 callback MỚI
+// onSetPlaylistBg/onSetVisualBg (event/workflow/file-manager-photo.js tự nối logic thật).
 /**
  * @param {{key: string, blob: Blob, filename: string}} image
- * @param {{onDelete: () => void}} callbacks
+ * @param {{onDelete: () => void, onSetPlaylistBg: () => void, onSetVisualBg: () => void}} callbacks
  */
 function openImagePreviewModal(image, callbacks) {
     const stale = document.getElementById('image-preview-overlay');
@@ -322,6 +325,21 @@ function openImagePreviewModal(image, callbacks) {
     img.className = 'max-w-full max-h-full object-contain rounded-lg';
     imgWrap.appendChild(img);
     overlay.appendChild(imgWrap);
+
+    // MỚI — hàng "Đặt làm nền", 2 nút ngang bằng nhau, dưới ảnh, trên safe-area đáy màn hình.
+    const setBgRow = document.createElement('div');
+    setBgRow.className = 'flex gap-3 px-4 pb-6 shrink-0';
+    const setPlaylistBgBtn = document.createElement('button');
+    setPlaylistBgBtn.className = 'flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-white text-sm font-semibold transition-colors';
+    setPlaylistBgBtn.textContent = t('fileManager.photo.image.btnSetPlaylistBg');
+    setPlaylistBgBtn.addEventListener('click', () => { closeModal(); callbacks.onSetPlaylistBg(); });
+    const setVisualBgBtn = document.createElement('button');
+    setVisualBgBtn.className = 'flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-white text-sm font-semibold transition-colors';
+    setVisualBgBtn.textContent = t('fileManager.photo.image.btnSetVisualBg');
+    setVisualBgBtn.addEventListener('click', () => { closeModal(); callbacks.onSetVisualBg(); });
+    setBgRow.appendChild(setPlaylistBgBtn);
+    setBgRow.appendChild(setVisualBgBtn);
+    overlay.appendChild(setBgRow);
 
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
