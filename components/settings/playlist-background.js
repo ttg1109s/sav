@@ -49,13 +49,37 @@ const TPL_SETTINGS_PLAYLIST_BG = `
                         </label>
                     </div>
                 </div>
+
+                <!-- MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer (KHÁC HẲN ảnh nền
+                     Playlist ở khối dưới đây — 2 field/2 cơ chế riêng biệt, xem
+                     readme/song-cover-background-relations.md). Cùng khuôn Video Background ở
+                     trên: toggle bật/tắt + nút "Chọn ảnh" mở picker (KHÔNG phải upload trực tiếp —
+                     tính năng này sinh ra sau khi đã có picker nên không có "kiểu cũ" nào để giữ
+                     tương thích). -->
+                <div class="flex flex-col border-b border-white/5">
+                    <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
+                        <span class="text-sm font-medium" data-i18n="settingsPlaylistBg.visualBgImage.label">${t('settingsPlaylistBg.visualBgImage.label')}</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="setting-visual-bg-image-enable" class="sr-only peer">
+                            <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                        </label>
+                    </div>
+                    <div class="flex justify-between items-center p-4 pt-0">
+                        <div><div class="text-xs text-slate-400" data-i18n="settingsPlaylistBg.visualBgImage.hint">${t('settingsPlaylistBg.visualBgImage.hint')}</div></div>
+                        <button id="setting-visual-bg-image-pick" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold transition-colors shadow">
+                            <span data-i18n="settingsPlaylistBg.visualBgImage.choose">${t('settingsPlaylistBg.visualBgImage.choose')}</span>
+                        </button>
+                    </div>
+                </div>
         
                 <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                     <div><div class="text-sm font-medium" data-i18n="settingsPlaylistBg.bgImage.label">${t('settingsPlaylistBg.bgImage.label')}</div></div>
-                    <label class="px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow">
+                    <!-- FIX (03/07/2026, mục 1) — bỏ hẳn <input type=file> upload trực tiếp, đổi
+                         sang nút mở picker chọn ảnh có sẵn trong File Manager (cùng cơ chế Photo &
+                         Album, xem readme/song-cover-background-relations.md). -->
+                    <button id="setting-bg-pick-library" class="px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-white rounded-lg text-xs font-bold transition-colors shadow">
                         <span data-i18n="settingsPlaylistBg.bgImage.choose">${t('settingsPlaylistBg.bgImage.choose')}</span>
-                        <input type="file" id="setting-bg-upload" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" class="hidden">
-                    </label>
+                    </button>
                 </div>
                 <div class="flex justify-between items-center p-4 border-b border-white/5">
                     <span class="text-sm font-medium" data-i18n="settingsPlaylistBg.bgImageEnable.label">${t('settingsPlaylistBg.bgImageEnable.label')}</span>
