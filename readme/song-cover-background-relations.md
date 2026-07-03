@@ -9,6 +9,19 @@
 > KHÔNG thay thế quyết định thật lúc code batch đó — chỉ liệt kê hiện trạng + đề xuất, còn nhiều câu
 > hỏi vẫn CẦN Giang chốt (mục 4 cuối file).
 
+> **CẬP NHẬT 03/07/2026 — ĐÃ TRIỂN KHAI 1 PHẦN** (batch "hạ tầng z-index nền Visual"): hướng field
+> mới `bgImageKey`/`visualBgImageKey` song song field cũ (mục 3.2) + cascade dọn mồ côi chủ động
+> (mục 3.1) đã code thật — xem `service/state.js` (`DEFAULT_VIZ_CONFIG`),
+> `core/state-and-video-bg.js` (`applyVisualBgImageToDOM`), `event/workflow/file-manager-photo.js`
+> (`setAsPlaylistBackground`/`setAsVisualBackground`, cascade trong `onDelete`),
+> `core/visualizer/draw-visualizer.js` (resolve lúc boot). Câu hỏi #1 (mục 4) coi như đã trả lời.
+> Câu hỏi #3 (loại trừ hay chồng giữa các nguồn nền) tạm xử lý 1 CHIỀU: đặt ảnh nền Visual chủ động
+> tắt video nền; chiều ngược lại (bật video không tự tắt ảnh nền Visual) CHƯA đối xứng — ghi nhận
+> nợ kỹ thuật, xử lý sau khi hoàn thành hết patch ver 12 (xem comment đầu
+> `core/state-and-video-bg.js`). Câu hỏi #2 và mục 3.3 (hàm resolve cover dùng chung cho
+> `id3-export.js`/Media Session/render) VẪN MỞ — batch này CHƯA đụng cover bài hát, chỉ mới làm 2
+> loại nền.
+
 ## 1. Hiện trạng — CẢ 3 tính năng đều CHƯA đụng tới store `images` mới
 
 | Tính năng | Field lưu | Cơ chế | Nơi set | Nơi đọc |

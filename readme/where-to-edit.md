@@ -60,6 +60,7 @@
 | Giữ màn hình sáng (wake lock) | `core/wakelock.js` (`requestWakeLock`/`releaseWakeLock`, gate theo `appState.get('vizConfig').keepScreenOn`); UI ở `components/settings/misc.js` |
 | Ẩn tab (reload + resume state) | `core/tab-hide-reload.js` (`triggerHideAndReload()`), `event/tab.js` (3 lifecycle listener), `core/app-cleanup.js` (dọn khi đóng tab thật) |
 | Video nền (bật/tắt, gán src, chống chớp trắng) | `core/state-and-video-bg.js` (`handleVideoBackground`) |
+| Ảnh nền tĩnh cho màn Visualizer (MỚI 03/07/2026, khác ảnh nền Playlist) | `core/state-and-video-bg.js` (`applyVisualBgImageToDOM`), `assets/css/style.css` (`#visual-bg-image`); đặt qua menu "Đặt làm nền Visual" trên ảnh — `core/file-manager/photo-ui.js` (modal) + `event/workflow/file-manager-photo.js` (`setAsVisualBackground`); resolve lúc boot ở `core/visualizer/draw-visualizer.js` (vùng miễn audit) |
 | Thống kê "Về trình phát" (About Drawer) | `core/about-stats.js`, `components/about-drawer.js`; listener/router qua cụm `settingsMisc` (nhánh `aboutDrawer`) |
 | Hiện/ẩn khối setting theo kiểu visualizer/bar đang chọn | `core/player-controls.js` (`updateTypeUI`, `updateBarStyleUI`) |
 | Equalizer | `core/equalizer.js`; UI ở `components/settings/audio-eq.js`; listener/router qua cụm `equalizerSettings` (patch 14, 1 listener delegation) |
