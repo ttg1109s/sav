@@ -30,6 +30,7 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.songEdit.fieldAlbum': 'Album',
     'playlistView.songEdit.coverAlt': 'Cover art',
     'playlistView.songEdit.coverChoose': 'Choose image',
+    'playlistView.songEdit.coverPickLibrary': 'Pick from photo library',
     'playlistView.songEdit.coverRemove': 'Remove cover',
     'playlistView.songEdit.coverHint': 'Accepts PNG, JPG or WEBP. The image is stored with the song in IndexedDB and written to the APIC tag on export.',
     'playlistView.songEdit.btnCancel': 'Cancel',
