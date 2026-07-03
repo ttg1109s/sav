@@ -67,28 +67,47 @@ async function resolveFolderId(name) {
 }
 
 /**
- * Tạo 1 folder mới rỗng. 1 tiến trình duy nhất: sinh id -> ghi metadata -> ghi mapping rỗng.
+ * Tạo 1 folder mới rỗng. 1 tiến trình duy nhất: kiểm tra trùng tên -> sinh id -> ghi metadata ->
+ * ghi mapping rỗng — nhánh "trùng tên -> dừng sớm" là guard clause (Rule 1 cho phép), KHÔNG phải
+ * rẽ nhánh 2 tiến trình khác nhau.
+ *
+ * SỬA 03/07/2026 (đợt 6, điểm 4) — TRƯỚC ĐÂY không hề kiểm tra trùng TÊN, chỉ tránh trùng ID kỹ
+ * thuật (2 folder có thể cùng hiển thị "Yêu thích" nhưng khác id ngầm — bị coi là 2 "không gian"
+ * riêng biệt, gây nhầm lẫn thật). Giờ CHẶN HẲN — so khớp CASE-SENSITIVE (phân biệt hoa/thường):
+ * "abc" / "ABC" / "Abc" được coi là 3 tên KHÁC NHAU, được phép cùng tồn tại; CHỈ chặn khi trùng
+ * tuyệt đối từng ký tự.
  * @param {string} name
- * @returns {Promise<string>} folderId vừa tạo
+ * @returns {Promise<{status: 'duplicateName'|'ok', folderId?: string}>}
  */
 async function createFolder(name) {
+    const existingFolders = await listFolders(); // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
+    console.log(`[createFolder] callTo: "listFolders", request: "kiểm tra tên '${name}' đã tồn tại chưa (case-sensitive)"`);
+    if (existingFolders.some(f => f.name === name)) return { status: 'duplicateName' };
+
     const folderId = await resolveFolderId(name); // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
     console.log(`[createFolder] callTo: "resolveFolderId", request: "sinh id duy nhất từ tên '${name}'"`);
     await setFolderRecord(folderId, { id: folderId, name });
     await setFolderSongMap(folderId, { list: [], empty: 0 });
-    return folderId;
+    return { status: 'ok', folderId };
 }
 
 /**
- * Đổi tên 1 folder đã có. Guard clause thuần (không tồn tại -> dừng sớm) — KHÔNG phải rẽ nhánh
- * tiến trình theo Rule 1.
+ * Đổi tên 1 folder đã có. Guard clause thuần (không tồn tại / trùng tên -> dừng sớm) — KHÔNG phải
+ * rẽ nhánh tiến trình theo Rule 1.
+ * SỬA 03/07/2026 (đợt 6, điểm 4) — thêm guard chặn trùng tên (case-sensitive), TRỪ chính folder
+ * đang đổi tên (đổi tên "về lại tên cũ y hệt" không tính là trùng với "chính nó").
  * @param {string} folderId
  * @param {string} newName
- * @returns {Promise<{status: 'notFound'|'ok'}>}
+ * @returns {Promise<{status: 'notFound'|'duplicateName'|'ok'}>}
  */
 async function renameFolder(folderId, newName) {
     const record = await getFolderRecord(folderId);
     if (!record) return { status: 'notFound' };
+
+    const existingFolders = await listFolders(); // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
+    console.log(`[renameFolder] callTo: "listFolders", request: "kiểm tra tên '${newName}' đã tồn tại ở folder khác chưa (case-sensitive)"`);
+    if (existingFolders.some(f => f.id !== folderId && f.name === newName)) return { status: 'duplicateName' };
+
     record.name = newName;
     await setFolderRecord(folderId, record);
     return { status: 'ok' };

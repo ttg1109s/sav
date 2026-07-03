@@ -36,6 +36,7 @@ function renderFolderListUI(folders, activeFolderId) {
         }
 
         const nameEl = document.createElement('span');
+        nameEl.dataset.role = 'name'; // MỚI (03/07/2026, đợt 6) — để querySelector không nhầm với chấm active (cũng là <span>)
         nameEl.className = `flex-1 min-w-0 truncate text-sm font-medium${isActive ? ' text-sky-300' : ' text-slate-200'}`;
         nameEl.textContent = folder.name;
         row.appendChild(nameEl);
