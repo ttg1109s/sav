@@ -23,6 +23,12 @@
  *
  * components/storage-drawer.js + biến TPL_STORAGE_DRAWER KHÔNG còn được mount (xem main.js) —
  * file cũ ĐỂ LẠI trong project làm tư liệu đối chiếu, KHÔNG xoá tự động, bác xoá tay khi rảnh.
+ *
+ * MỚI (batch tiếp theo 03/07/2026, mục 2.2/2.3 plan-v12-multimedia-update-2.md — nợ kỹ thuật đã
+ * xác nhận từ Batch 3) — TPL_FILE_MANAGER_PHOTO_DRAWER thêm 2 khối: `#file-manager-album-manage-bar`
+ * (Đổi tên/Xoá album đang lọc + mở chế độ "Thêm ảnh có sẵn") và `#file-manager-image-selection-bar`
+ * (thanh hành động khi đang chọn nhiều ảnh để thêm vào album). Xem core/file-manager/photo-ui.js
+ * (render + modal đổi tên) và event/workflow/file-manager-photo.js (logic).
  */
 
 // ===================== Drawer con: Song (ĐẦY ĐỦ — dời nguyên nội dung từ bản overlay cũ) =====================
@@ -170,10 +176,44 @@ const TPL_FILE_MANAGER_PHOTO_DRAWER = `
         <!-- Story slider Album (mục 3, lazy load qua IntersectionObserver — core/file-manager/photo-ui.js) -->
         <div id="file-manager-album-story" class="flex gap-4 overflow-x-auto px-4 py-4 snap-x snap-mandatory shrink-0 border-b border-white/5"></div>
 
-        <!-- Masonry ảnh (CSS columns thuần — mục 3) -->
+        <!-- MỚI (batch tiếp theo 03/07/2026 — mục 2.2/2.3 plan-v12-multimedia-update-2.md) — thanh
+             quản lý album đang lọc: chỉ hiện khi activeAlbumId != null (toggle 'hidden'/'flex' ở
+             workflow, xem event/workflow/file-manager-photo.js::refresh()). 3 nút: Thêm ảnh có sẵn
+             (mở chế độ chọn nhiều trong masonry) / Đổi tên / Xoá album — cùng khuôn icon-button với
+             renameBtn/deleteBtn của Folder (core/file-manager/folder-list-ui.js). -->
+        <div id="file-manager-album-manage-bar" class="hidden items-center justify-between gap-2 px-4 py-2 border-b border-white/5 shrink-0 bg-white/5">
+            <span id="file-manager-album-manage-name" class="text-sm font-semibold text-sky-300 truncate min-w-0"></span>
+            <div class="flex items-center gap-1 shrink-0">
+                <button id="btn-file-manager-album-add-images" class="p-1.5 rounded-full hover:bg-white/10 transition-colors text-slate-400 hover:text-sky-400" data-i18n-title="fileManager.photo.album.addImagesTitle" title="${t('fileManager.photo.album.addImagesTitle')}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v4m-2-2h4" /></svg>
+                </button>
+                <button id="btn-file-manager-album-rename" class="p-1.5 rounded-full hover:bg-white/10 transition-colors text-slate-400 hover:text-emerald-400" data-i18n-title="fileManager.photo.album.renameTitle" title="${t('fileManager.photo.album.renameTitle')}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                </button>
+                <button id="btn-file-manager-album-delete" class="p-1.5 rounded-full hover:bg-rose-500/10 transition-colors text-slate-400 hover:text-rose-400" data-i18n-title="fileManager.photo.album.deleteTitle" title="${t('fileManager.photo.album.deleteTitle')}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Masonry ảnh (CSS columns thuần — mục 3). -->
         <div class="flex-grow overflow-y-auto px-3 py-3 pb-20">
             <div id="file-manager-image-masonry" class="columns-2 sm:columns-3 gap-2"></div>
             <p id="file-manager-image-empty" class="hidden text-sm text-slate-400 text-center py-10" data-i18n="fileManager.photo.image.empty">${t('fileManager.photo.image.empty')}</p>
+        </div>
+
+        <!-- MỚI (batch tiếp theo 03/07/2026, mục 2.3) — thanh hành động khi đang chọn nhiều ảnh để
+             thêm vào album đang xem (bật qua nút "Thêm ảnh có sẵn" ở thanh quản lý album phía
+             trên) — cùng khuôn #selection-action-bar của Playlist (components/playlist-view.js).
+             "absolute bottom-0" neo theo #drawer-file-manager-photo (fixed inset-0, cha gần nhất
+             lập context định vị) — KHÔNG cần thêm "relative" ở div masonry ngay trên, giống hệt
+             cách #selection-action-bar neo theo #playlist-view (absolute inset-0). -->
+        <div id="file-manager-image-selection-bar" class="hidden absolute bottom-0 inset-x-0 z-20 bg-[#0f172a]/95 backdrop-blur-md border-t border-white/10 px-4 py-3 flex items-center justify-between gap-2">
+            <span id="file-manager-image-selection-count" class="text-sm font-semibold text-slate-200"></span>
+            <div class="flex items-center gap-2 shrink-0">
+                <button id="btn-file-manager-image-selection-cancel" class="px-3.5 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-sm font-semibold transition-colors" data-i18n="common.cancel">${t('common.cancel')}</button>
+                <button id="btn-file-manager-image-selection-confirm" class="px-3.5 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors" data-i18n="fileManager.photo.album.btnAddSelected">${t('fileManager.photo.album.btnAddSelected')}</button>
+            </div>
         </div>
     </div>
 `;

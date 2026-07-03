@@ -27,15 +27,20 @@
  * khi ẩn, KHÔNG tạm dừng toàn bộ updateStatsDashboard() (audio-analysis.js) vì hàm đó còn tính
  * rubikPitchAvg/currentCalculatedBpm dùng bởi visual Rubik — chỉ bỏ qua phần ghi DOM, giữ nguyên
  * phần tính toán logic.
+ *
+ * FIX (03/07/2026, mục 1 yêu cầu) — #stats-panel (BPM/Pitch/Energy) TRƯỚC ĐÂY là 1 khung
+ * `.glass-panel` ĐỘC LẬP, `w-full`, đứng NGOÀI/TRÊN khối `.flex-grow.relative` (chiếm hẳn 1 hàng
+ * riêng, đẩy phần còn lại của visualizer xuống + có nền/viền riêng). XOÁ HẲN khung độc lập đó —
+ * 3 ô số liệu giờ là 1 CỤM CON nằm CÙNG 1 hàng ngang DUY NHẤT (`#visualizer-top-bar`) với 2 nút
+ * `#btn-open-control-center` (trái) / `#btn-back-playlist` (phải), cùng `top-4`, không còn chiếm
+ * thêm chiều cao/nền riêng. `#stats-panel` vẫn giữ NGUYÊN id (chỉ đổi class bao ngoài) — nút ẩn/
+ * hiện (`toggleStatsPanelVisibility()`, core/stats-panel-toggle.js) chỉ `classList.toggle('hidden')`
+ * qua id, KHÔNG phụ thuộc vị trí/cấu trúc DOM cha, nên KHÔNG cần đổi gì ở file đó. Mất nền kính mờ
+ * nâng đỡ chữ số liệu -> thêm `.sub-text-glow` (class có sẵn, dùng cho phụ đề) để chữ vẫn đọc rõ
+ * trên mọi nền visual/video/ảnh.
  */
 const TPL_VISUALIZER_OVERLAY = `
     <div id="visualizer-ui" class="absolute inset-0 z-30 pointer-events-none fade-enter hidden flex flex-col">
-        <div id="stats-panel" class="w-full glass-panel !border-x-0 !border-t-0 border-b border-white/10 p-2 flex justify-around sm:justify-center sm:gap-16 items-center pointer-events-none select-none z-50 relative">
-            <div class="flex flex-col items-center"><span class="text-slate-400 font-semibold tracking-wider text-[9px] mb-0.5">EST. BPM</span><span id="stat-bpm" class="font-mono text-green-400 font-bold text-sm">---</span></div>
-            <div class="flex flex-col items-center"><span class="text-slate-400 font-semibold tracking-wider text-[9px] mb-0.5">PITCH (YIN)</span><span id="stat-note" class="font-mono text-yellow-400 font-bold text-sm">---</span></div>
-            <div class="flex flex-col items-center"><span class="text-slate-400 font-semibold tracking-wider text-[9px] mb-0.5">ENERGY</span><span id="stat-energy" class="font-mono text-rose-400 font-bold text-sm">0%</span></div>
-        </div>
-
         <div class="flex-grow relative">
             <div id="subtitle-display" class="absolute bottom-[20%] w-full px-4 sm:px-10 flex flex-col items-center justify-center pointer-events-none z-[60] hidden">
                 <div id="subtitle-frame" class="bg-black/40 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/10 text-center max-w-4xl shadow-2xl flex flex-col items-center gap-1.5">
@@ -43,17 +48,26 @@ const TPL_VISUALIZER_OVERLAY = `
                 </div>
             </div>
 
-            <!-- Nút "Quay lại Danh sách" — TÁCH RIÊNG, luôn hiện cố định góc phải trên (thao tác
-                 dùng rất thường xuyên, không gộp vào Control Center ẩn/hiện bên dưới). -->
-            <button id="btn-back-playlist" class="absolute top-4 right-3 sm:right-6 w-10 h-10 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors group shadow-lg pointer-events-auto z-40" data-i18n-title="visualizerOverlay.btnBackPlaylist.title" title="${t('visualizerOverlay.btnBackPlaylist.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-300 group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg></button>
+            <!-- Hàng trên cùng HỢP NHẤT (fix 03/07/2026, mục 1) — Control Center (trái) + BPM/
+                 Pitch/Energy (giữa, #stats-panel — vẫn toggle ẩn/hiện được như cũ) + Quay lại
+                 Danh sách (phải), cùng 1 hàng ngang, không còn khung/nền riêng cho số liệu. -->
+            <div id="visualizer-top-bar" class="absolute top-4 left-3 right-3 sm:left-6 sm:right-6 z-40 flex items-center justify-between gap-2 pointer-events-none">
+                <!-- Nút mở/đóng "Control Center" (ver 8 refine) — mũi tên xuống. Bấm vào mở panel
+                     #visualizer-control-center, gập lại khi bấm lần 2 hoặc bấm ra ngoài panel. -->
+                <button id="btn-open-control-center" class="w-10 h-10 shrink-0 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors group shadow-lg pointer-events-auto" data-i18n-title="visualizerOverlay.btnControlCenter.title" title="${t('visualizerOverlay.btnControlCenter.title')}">
+                    <svg id="icon-control-center-down" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-300 group-hover:text-white transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                </button>
 
-            <!-- Nút mở/đóng "Control Center" (ver 8 refine) — góc trái trên, mũi tên xuống. Thay
-                 cho dải dọc 6 nút chiếm nhiều chỗ trước đây: giờ chỉ 1 nút nhỏ, bấm vào mở panel
-                 #visualizer-control-center trượt từ trên xuống full chiều rộng (kiểu Control
-                 Center điện thoại), gập lại khi bấm lần 2 hoặc bấm ra ngoài panel. -->
-            <button id="btn-open-control-center" class="absolute top-4 left-3 sm:left-6 w-10 h-10 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors group shadow-lg pointer-events-auto z-40" data-i18n-title="visualizerOverlay.btnControlCenter.title" title="${t('visualizerOverlay.btnControlCenter.title')}">
-                <svg id="icon-control-center-down" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-300 group-hover:text-white transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-            </button>
+                <div id="stats-panel" class="flex-1 min-w-0 flex justify-center items-center gap-4 sm:gap-12 pointer-events-none select-none sub-text-glow">
+                    <div class="flex flex-col items-center"><span class="text-slate-300 font-semibold tracking-wider text-[8px] sm:text-[9px] mb-0.5 whitespace-nowrap">EST. BPM</span><span id="stat-bpm" class="font-mono text-green-400 font-bold text-xs sm:text-sm">---</span></div>
+                    <div class="flex flex-col items-center"><span class="text-slate-300 font-semibold tracking-wider text-[8px] sm:text-[9px] mb-0.5 whitespace-nowrap">PITCH (YIN)</span><span id="stat-note" class="font-mono text-yellow-400 font-bold text-xs sm:text-sm">---</span></div>
+                    <div class="flex flex-col items-center"><span class="text-slate-300 font-semibold tracking-wider text-[8px] sm:text-[9px] mb-0.5 whitespace-nowrap">ENERGY</span><span id="stat-energy" class="font-mono text-rose-400 font-bold text-xs sm:text-sm">0%</span></div>
+                </div>
+
+                <!-- Nút "Quay lại Danh sách" — thao tác dùng rất thường xuyên, không gộp vào
+                     Control Center ẩn/hiện bên dưới. -->
+                <button id="btn-back-playlist" class="w-10 h-10 shrink-0 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors group shadow-lg pointer-events-auto" data-i18n-title="visualizerOverlay.btnBackPlaylist.title" title="${t('visualizerOverlay.btnBackPlaylist.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-300 group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg></button>
+            </div>
 
             <!-- Panel "Control Center" — PHÓNG RA TỪ TRUNG TÂM (vị trí nút mở, góc trái trên) kiểu
                  iOS Control Center thật, KHÔNG còn trượt từ trên xuống full chiều rộng (ver 8
