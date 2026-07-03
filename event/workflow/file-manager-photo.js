@@ -3,6 +3,12 @@
  * Photo & Album. Mọi method nhận `activeAlbumId` qua THAM SỐ (context sống ở Router, xem
  * event/router/file-manager-photo.js) — workflow không tự giữ state UI riêng.
  *
+ * MỚI (batch tiếp theo 03/07/2026, mục 2.2/2.3 plan-v12-multimedia-update-2.md — nợ kỹ thuật đã
+ * xác nhận từ Batch 3): renameAlbumById/deleteAlbumById (Đổi tên/Xoá album đang lọc, cùng khuôn
+ * renameFolderById/deleteFolderById ở event/workflow/file-manager-song.js) +
+ * toggleImageSelectionInSet/confirmAddSelectedImages (chọn nhiều ảnh có sẵn -> thêm vào album đang
+ * lọc, core addImagesToAlbum() đã sẵn sàng nhận từ Batch 3).
+ *
  * NẠP SAU: core/file-manager/image.js, core/file-manager/album.js, core/file-manager/photo-ui.js,
  * core/file-manager/nav.js.
  */
@@ -11,14 +17,23 @@ const workflowFileManagerPhoto = {
     /** Ứng với 'fileManagerPhoto.open'. */
     async openDrawer() {
         showFileManagerPhotoDrawer(); // core/file-manager/nav.js
-        await this.refresh(null);
+        await this.refresh(null, false, new Set());
     },
 
-    /** Đọc lại toàn bộ album + ảnh, vẽ lại story slider + masonry (lọc theo activeAlbumId nếu có).
-     * Dùng lại ở MỌI nơi cần vẽ lại (mở drawer, chọn album, tạo album, upload xong, xoá ảnh xong).
+    /** Đọc lại toàn bộ album + ảnh, vẽ lại story slider + masonry + thanh quản lý album + thanh
+     * chọn nhiều (lọc theo activeAlbumId nếu có). Dùng lại ở MỌI nơi cần vẽ lại (mở drawer, chọn
+     * album, đổi tên/xoá album, tạo album, upload xong, xoá ảnh xong, bật/tắt/xác nhận chọn nhiều).
+     *
+     * MỚI (batch tiếp theo) — thêm 2 tham số imageSelectionMode/selectedImageKeys:
+     *   - Thanh quản lý album (#file-manager-album-manage-bar) CHỈ hiện khi có activeAlbum VÀ
+     *     KHÔNG đang chọn nhiều (2 thanh dưới masonry không bao giờ cùng hiện 1 lúc).
+     *   - Khi đang chọn nhiều: masonry hiện TOÀN BỘ thư viện (bỏ qua lọc activeAlbumId) — vì mục
+     *     đích lúc này là CHỌN ẢNH MỚI để thêm vào, không phải xem ảnh đã có sẵn trong album.
      * @param {string|null} activeAlbumId
+     * @param {boolean} [imageSelectionMode]
+     * @param {Set<string>} [selectedImageKeys]
      */
-    async refresh(activeAlbumId) {
+    async refresh(activeAlbumId, imageSelectionMode = false, selectedImageKeys = new Set()) {
         const albums = await listAlbums(); // core/file-manager/album.js
         const images = await listImages(); // core/file-manager/image.js
         const imageRecordsByKey = new Map(images.map((img) => [img.key, img]));
@@ -26,10 +41,22 @@ const workflowFileManagerPhoto = {
         renderAlbumStory(albums, activeAlbumId, imageRecordsByKey); // core/file-manager/photo-ui.js
 
         const activeAlbum = activeAlbumId ? albums.find((a) => a.id === activeAlbumId) : null;
-        const filteredImages = activeAlbum
-            ? images.filter((img) => activeAlbum.imageKeys.includes(img.key))
-            : images;
-        renderImageMasonry(filteredImages); // core/file-manager/photo-ui.js
+
+        if (fileManagerAlbumManageBar) {
+            const showManageBar = !!activeAlbum && !imageSelectionMode;
+            fileManagerAlbumManageBar.classList.toggle('hidden', !showManageBar);
+            fileManagerAlbumManageBar.classList.toggle('flex', showManageBar);
+            if (fileManagerAlbumManageName) fileManagerAlbumManageName.textContent = activeAlbum ? activeAlbum.name : '';
+        }
+        if (fileManagerImageSelectionBar) {
+            fileManagerImageSelectionBar.classList.toggle('hidden', !imageSelectionMode);
+            if (fileManagerImageSelectionCount) fileManagerImageSelectionCount.textContent = tFormat('fileManager.photo.album.selectedCount', { count: selectedImageKeys.size });
+        }
+
+        const displayedImages = imageSelectionMode
+            ? images
+            : (activeAlbum ? images.filter((img) => activeAlbum.imageKeys.includes(img.key)) : images);
+        renderImageMasonry(displayedImages, imageSelectionMode, selectedImageKeys); // core/file-manager/photo-ui.js
     },
 
     /** Ứng với storyClick action='create'. */
@@ -42,6 +69,82 @@ const workflowFileManagerPhoto = {
             }
             await this.refresh(activeAlbumId);
         });
+    },
+
+    // ===================== MỚI (batch tiếp theo, mục 2.2) — quản lý album đang lọc =============
+
+    /** Ứng với 'fileManagerPhoto.album.manageClick' action='rename'. Đọc tên hiện tại THẲNG từ DOM
+     * đã render sẵn (tránh round-trip đọc lại DB chỉ để lấy tên đang hiển thị) — cùng idiom
+     * renameFolderById() ở event/workflow/file-manager-song.js.
+     * @param {string} albumId
+     */
+    renameAlbumById(albumId) {
+        const currentName = fileManagerAlbumManageName ? fileManagerAlbumManageName.textContent : '';
+        openRenameAlbumModal(currentName, async (newName) => { // core/file-manager/photo-ui.js
+            const result = await renameAlbum(albumId, newName); // core có sẵn (core/file-manager/album.js)
+            if (result.status === 'duplicateName') {
+                await alertModal(tFormat('fileManager.folderPicker.duplicateName', { name: escapeHtml(newName) }));
+                return;
+            }
+            await this.refresh(albumId); // albumId KHÔNG đổi sau khi rename -> vẫn đang lọc đúng album này
+        });
+    },
+
+    /** Ứng với 'fileManagerPhoto.album.manageClick' action='delete'.
+     * @param {string} albumId
+     * @param {() => void} onDeleted - reset `activeAlbumId` về null Ở TẦNG ROUTER — workflow không
+     *        tự mutate được biến closure primitive của router (xem comment đầu event/router/file-
+     *        manager-photo.js), cùng idiom callback đã dùng ở openCreateAlbumModal/openFolderPickerModal.
+     */
+    deleteAlbumById(albumId, onDeleted) {
+        const albumName = fileManagerAlbumManageName ? fileManagerAlbumManageName.textContent : '';
+        modalChoice(
+            tFormat('fileManager.photo.album.deleteConfirm', { name: escapeHtml(albumName) }),
+            [
+                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
+                { label: t('fileManager.photo.album.btnDelete'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
+                    await deleteAlbum(albumId); // core có sẵn (core/file-manager/album.js) — KHÔNG đụng ảnh bên trong, chỉ mất liên kết
+                    onDeleted();
+                    await this.refresh(null, false, new Set());
+                } }
+            ],
+            { title: t('fileManager.photo.album.deleteTitle') }
+        );
+    },
+
+    // ===================== MỚI (batch tiếp theo, mục 2.3) — chọn nhiều ảnh có sẵn để thêm vào
+    // album đang lọc =============================================================================
+
+    /** Ứng với 'fileManagerPhoto.image.click' khi imageSelectionMode=true (xem router). Mutate
+     * TRỰC TIẾP `selectedImageKeys` (Set) qua tham chiếu — router giữ nguyên object đó, KHÔNG cần
+     * callback reset như `activeAlbumId` (primitive, xem deleteAlbumById() ở trên).
+     * @param {string} imageKey
+     * @param {Set<string>} selectedImageKeys
+     * @param {string|null} activeAlbumId
+     */
+    toggleImageSelectionInSet(imageKey, selectedImageKeys, activeAlbumId) {
+        if (selectedImageKeys.has(imageKey)) selectedImageKeys.delete(imageKey);
+        else selectedImageKeys.add(imageKey);
+        this.refresh(activeAlbumId, true, selectedImageKeys);
+    },
+
+    /** Ứng với 'fileManagerPhoto.imageSelection.confirm'. addImagesToAlbum() tự bỏ qua ảnh đã có
+     * sẵn trong album (không thêm trùng) — xem core/file-manager/album.js.
+     * @param {string} albumId
+     * @param {Set<string>} selectedImageKeys
+     * @param {string|null} activeAlbumId - dùng để refresh lại ĐÚNG lọc sau khi xong (luôn = albumId ở đây, nhưng nhận riêng cho rõ nghĩa tham số của refresh())
+     */
+    async confirmAddSelectedImages(albumId, selectedImageKeys, activeAlbumId) {
+        const keys = Array.from(selectedImageKeys);
+        if (keys.length === 0) return; // guard — chưa chọn gì thì không làm gì
+
+        let addedCount = 0;
+        await withLoadingShield(t('common.loading.savingInfo'), async () => {
+            const result = await addImagesToAlbum(keys, albumId); // core có sẵn, CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3 (nếu đây là core — đây là workflow, không bị ràng buộc, nhưng vẫn đúng tinh thần dùng giá trị trả về)
+            addedCount = result.addedCount;
+        });
+        await this.refresh(activeAlbumId, false, new Set());
+        await alertModal(tFormat('fileManager.photo.album.addImagesSuccess', { count: addedCount }));
     },
 
     /** Ứng với 'fileManagerPhoto.upload.change'.
@@ -62,7 +165,7 @@ const workflowFileManagerPhoto = {
         await alertModal(tFormat('fileManager.photo.image.uploadSuccess', { count: fileArray.length }));
     },
 
-    /** Ứng với 'fileManagerPhoto.image.click'.
+    /** Ứng với 'fileManagerPhoto.image.click' khi imageSelectionMode=false (xem router).
      * @param {string} imageKey
      * @param {string|null} activeAlbumId
      */

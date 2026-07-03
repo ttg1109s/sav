@@ -143,6 +143,15 @@ const workflowPlaylist = {
     /**
      * "Phát bài đã chọn" — áp displaySortMode hiện tại NHƯNG chỉ trong tập đã chọn (tái dùng
      * sortKeysByMode() có sẵn ở core/playlist/order.js, chỉ đổi input thành tập con).
+     *
+     * SỬA (fix 03/07/2026, mục 3a/3b yêu cầu) — đây chính là "section chọn bài -> phát" phải KHÁC
+     * "danh sách phát của playlist": trước đây chỉ ghi đè displayOrder, không đánh dấu gì, khiến
+     * app không còn cách nào biết "đang ở trong 1 section" để quay lại top-level. Giờ đặt
+     * sectionQueueActive=true (đọc bởi 2 nút to Phát/Trộn bài — event/workflow/playlist-empty-state.js
+     * — để biết cần chèn lại top-level trước khi phát) VÀ, nếu Shuffle đang BẬT sẵn từ trước khi
+     * vào section này, resync NGAY shuffleIndices theo section mới (updateShuffleArrayFromQueue) —
+     * tránh Next/Prev đầu tiên trong section "tràn" ngay sang top-level vì shuffleIndices cũ còn
+     * thuộc phạm vi khác.
      */
     playSelectedSongs() {
         const keys = Array.from(appState.get('selectedSongKeys'));
@@ -152,6 +161,12 @@ const workflowPlaylist = {
         appState.set('displayOrder', sorted);
         console.log(`writer: "playSelectedSongs", page: "displayOrder", content: "${sorted.length} bài đã chọn, sort theo displaySortMode hiện tại"`);
         appState.mutate('pendingResortKeys', s => s.clear());
+
+        appState.set('sectionQueueActive', true);
+        console.log(`writer: "playSelectedSongs", page: "sectionQueueActive", content: "true"`);
+        if (appState.get('isShuffle')) {
+            updateShuffleArrayFromQueue(sorted, appState.get('playlistOrder'), true); // core mới (order.js), CÓ tham số -> Rule 2 hợp lệ
+        }
 
         this._exitSelectionMode(); // thoát chế độ chọn trước khi chuyển màn hình phát
         window.playSong(sorted[0]);
