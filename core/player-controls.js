@@ -285,11 +285,31 @@
         }
 
         /**
-         * Toggle bật/tắt Shuffle + đồng bộ class màu nút + tính lại mảng phát ngẫu nhiên. Ứng với
-         * msg.type 'playerControls.shuffle.click'.
+         * Toggle bật/tắt Shuffle + đồng bộ class màu nút. Ứng với msg.type 'playerControls.shuffle.click'.
+         *
+         * SỬA (fix 03/07/2026, mục 3b) — bản trước tự appState.get('isShuffle') 3 lần (vi phạm
+         * Rule 2) RỒI tự gọi updateShuffleArray() (void, đồng bộ -> đúng hình dạng Workflow theo
+         * Rule 3, KHÔNG được giữ trong core) ngay bên trong — đây chính là NGUYÊN NHÂN gốc của bug
+         * "Shuffle ở Control Center luôn nhảy về playlist chính thay vì hiện hành": updateShuffleArray()
+         * (core/playlist/order.js) LUÔN đọc playlistOrder (top-level), không biết gì về 1 section
+         * đang active hay không. Sửa đúng: hàm NÀY chỉ còn ĐÚNG 1 việc (đơn tuyến) — đảo cờ + đồng
+         * bộ class nút, KHÔNG tự tính lại shuffleIndices nữa. Việc tính lại (dùng hàm MỚI
+         * updateShuffleArrayFromQueue(), theo ĐÚNG "hiện hành" thay vì luôn top-level) dời sang
+         * workflowPlayerControls.toggleShuffleAndReshuffle() (event/workflow/player-controls.js).
+         * Rule 2: nhận isShuffleCurrent qua tham số, KHÔNG tự appState.get().
+         * @param {boolean} isShuffleCurrent - appState.get('isShuffle') TRƯỚC khi đảo, nơi gọi
+         *        (workflow) tự đọc rồi truyền vào.
+         * @returns {boolean} giá trị isShuffle MỚI sau khi đảo — nơi gọi DÙNG để quyết định có cần
+         *          random lại shuffleIndices hay không (Rule 3: core-gọi-core hợp lệ vì workflow
+         *          THẬT SỰ dùng giá trị trả về).
          */
-        function toggleShuffle() {
-            appState.set('isShuffle', !appState.get('isShuffle')); btnShuffle.classList.toggle('!text-sky-400', appState.get('isShuffle')); btnShuffle.classList.toggle('text-slate-400', !appState.get('isShuffle')); updateShuffleArray();
+        function toggleShuffle(isShuffleCurrent) {
+            const next = !isShuffleCurrent;
+            appState.set('isShuffle', next);
+            console.log(`writer: "toggleShuffle", page: "isShuffle", content: "${next}"`);
+            btnShuffle.classList.toggle('!text-sky-400', next);
+            btnShuffle.classList.toggle('text-slate-400', !next);
+            return next;
         }
 
         /**

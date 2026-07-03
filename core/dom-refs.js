@@ -229,6 +229,17 @@
         const fileManagerAlbumStory = document.getElementById('file-manager-album-story');
         const fileManagerImageMasonry = document.getElementById('file-manager-image-masonry');
         const fileManagerImageEmpty = document.getElementById('file-manager-image-empty');
+        // Photo & Album — batch tiếp theo (03/07/2026, mục 2.2/2.3): quản lý album đang lọc + chọn
+        // nhiều ảnh để thêm vào album.
+        const fileManagerAlbumManageBar = document.getElementById('file-manager-album-manage-bar');
+        const fileManagerAlbumManageName = document.getElementById('file-manager-album-manage-name');
+        const btnFileManagerAlbumAddImages = document.getElementById('btn-file-manager-album-add-images');
+        const btnFileManagerAlbumRename = document.getElementById('btn-file-manager-album-rename');
+        const btnFileManagerAlbumDelete = document.getElementById('btn-file-manager-album-delete');
+        const fileManagerImageSelectionBar = document.getElementById('file-manager-image-selection-bar');
+        const fileManagerImageSelectionCount = document.getElementById('file-manager-image-selection-count');
+        const btnFileManagerImageSelectionCancel = document.getElementById('btn-file-manager-image-selection-cancel');
+        const btnFileManagerImageSelectionConfirm = document.getElementById('btn-file-manager-image-selection-confirm');
         const drawerFileManagerDocument = document.getElementById('drawer-file-manager-document');
         const btnBackFileManagerDocument = document.getElementById('btn-back-file-manager-document');
         const fileManagerNewFolderInput = document.getElementById('file-manager-new-folder-input');
