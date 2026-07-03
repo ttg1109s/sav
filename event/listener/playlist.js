@@ -91,6 +91,14 @@ if (songEditCoverUploadInput) {
     });
 }
 
+// MỚI (batch 03/07/2026) — chọn ảnh có sẵn trong File Manager làm cover (xem
+// readme/song-cover-background-relations.md mục 2/3).
+if (songEditCoverPickLibraryBtn) {
+    songEditCoverPickLibraryBtn.addEventListener('click', () => {
+        eventBus.send({ router: 'playlist', type: 'playlist.editCover.pickFromLibrary', payload: {} });
+    });
+}
+
 if (songEditCoverRemoveBtn) {
     songEditCoverRemoveBtn.addEventListener('click', () => {
         eventBus.send({ router: 'playlist', type: 'playlist.editCover.remove', payload: {} });
