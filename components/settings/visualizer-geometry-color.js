@@ -29,6 +29,11 @@
  * nhóm với Chất lượng Render/Hình học/Màu sắc, tất cả đều là tuỳ chỉnh chi tiết cho visualizer.
  * Toàn bộ id/JS xử lý (js/core/auto-switch-visual.js) giữ nguyên, không đổi gì — initAutoSwitchVisualUI()
  * chỉ cần các #id đó tồn tại trong DOM, không quan tâm chúng nằm ở template nào.
+ *
+ * MỚI (Batch 8, 03/07/2026, slideshow nền Visual) — thêm nút "#setting-open-slideshow-settings"
+ * NGAY DƯỚI toggle "Hiện Visual" (vị trí CHỐT ở plan-v12-multimedia-update-3.md mục 3), mở
+ * Slideshow Settings Drawer riêng (components/slideshow-settings-drawer.js, cụm router
+ * "slideshowSettings" — event/listener,router/slideshow.js).
  */
 const TPL_SETTINGS_VISUALIZER = `
 
@@ -54,7 +59,7 @@ const TPL_SETTINGS_VISUALIZER = `
                     </div>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </button>
-                <div class="flex justify-between items-center p-4">
+                <div class="flex justify-between items-center p-4 border-b border-white/5">
                     <div class="pr-3">
                         <div class="text-sm font-medium" data-i18n="settingsVisualizer.visualEnable.label">${t('settingsVisualizer.visualEnable.label')}</div>
                         <div class="text-xs text-slate-400 mt-0.5" data-i18n="settingsVisualizer.visualEnable.hint">${t('settingsVisualizer.visualEnable.hint')}</div>
@@ -64,6 +69,16 @@ const TPL_SETTINGS_VISUALIZER = `
                         <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                     </label>
                 </div>
+                <!-- MỚI (Batch 8, slideshow nền Visual) — vị trí CHỐT ở plan-v12-multimedia-update-3.md
+                     mục 3: ngay dưới "Hiện Visual". Mở Slideshow Settings Drawer riêng (components/
+                     slideshow-settings-drawer.js), cùng pattern nút "Tùy chỉnh Visualizer" phía trên. -->
+                <button id="setting-open-slideshow-settings" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
+                    <div>
+                        <div class="text-sm font-medium" data-i18n="settingsVisualizer.slideshowSetting.label">${t('settingsVisualizer.slideshowSetting.label')}</div>
+                        <div class="text-xs text-slate-400 mt-0.5" data-i18n="settingsVisualizer.slideshowSetting.hint">${t('settingsVisualizer.slideshowSetting.hint')}</div>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                </button>
             </div>
         </div>
 `;
