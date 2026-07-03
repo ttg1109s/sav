@@ -1,5 +1,7 @@
 /**
- * patch-subtitle-settings.js — patch default-language keys (tiếng Anh), phần subtitleModal + subtitleSettingsDrawer + settingsPlaylistBg + settingsVisualizer + settingsAudioEq + settingsSubtitleStyle.
+ * patch-subtitle-settings.js — patch default-language keys (tiếng Anh), phần subtitleModal + subtitleSettingsDrawer + slideshowSettingsDrawer + settingsPlaylistBg + settingsVisualizer + settingsAudioEq + settingsSubtitleStyle.
+ * MỚI (Batch 8, 03/07/2026): namespace `slideshowSettingsDrawer.*` (Slideshow Settings Drawer,
+ * ver 12 "Multi Media") + key `settingsVisualizer.slideshowSetting.*` (nút mở drawer đó).
  *
  * Đây KHÔNG phải file JSON: project chạy qua file://, không thể fetch() file tĩnh, nên các
  * "patch" default-language được viết thành .js gán vào 1 biến global, để core/../lang.js (nay đã
@@ -38,6 +40,38 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'subtitleSettingsDrawer.lineHeight.label': 'Line height',
     'subtitleSettingsDrawer.letterSpacing.label': 'Letter spacing (px)',
 
+    // MỚI (Batch 8, 03/07/2026, slideshow nền Visual) — Slideshow Settings Drawer, xem
+    // components/slideshow-settings-drawer.js.
+    'slideshowSettingsDrawer.backToSettings.title': 'Back to Settings',
+    'slideshowSettingsDrawer.title': 'Slideshow Background',
+    'slideshowSettingsDrawer.albumSectionTitle': 'Album',
+    'slideshowSettingsDrawer.album.none': 'No album selected',
+    'slideshowSettingsDrawer.btnPickAlbum': 'Choose album',
+    'slideshowSettingsDrawer.btnClearAlbum': 'Turn off',
+    'slideshowSettingsDrawer.albumPicker.title': 'Choose an album',
+    'slideshowSettingsDrawer.albumPicker.empty': 'No albums yet. Create one in Photo & Album first.',
+    'slideshowSettingsDrawer.albumPicker.imageCount': '{count} photo(s)',
+    'slideshowSettingsDrawer.playbackSectionTitle': 'Playback',
+    'slideshowSettingsDrawer.mode.label': 'Next photo order',
+    'slideshowSettingsDrawer.mode.sequential': 'Sequential',
+    'slideshowSettingsDrawer.mode.random': 'Random',
+    'slideshowSettingsDrawer.interval.label': 'Seconds per photo',
+    'slideshowSettingsDrawer.interval.hint': 'Minimum 5 seconds',
+    'slideshowSettingsDrawer.transition.label': 'Transition effect',
+    'slideshowSettingsDrawer.transition.fade': 'Fade',
+    'slideshowSettingsDrawer.transition.slideLeft': 'Slide left',
+    'slideshowSettingsDrawer.transition.slideRight': 'Slide right',
+    'slideshowSettingsDrawer.transition.zoomIn': 'Zoom in',
+    'slideshowSettingsDrawer.transition.zoomOut': 'Zoom out',
+    'slideshowSettingsDrawer.transition.wipe': 'Wipe',
+    'slideshowSettingsDrawer.transition.flip': 'Flip (3D)',
+    'slideshowSettingsDrawer.transition.kenburns': 'Ken Burns (slow pan/zoom)',
+    'slideshowSettingsDrawer.transition.blur': 'Blur cross-fade',
+    'slideshowSettingsDrawer.transition.rotateFade': 'Rotate + fade',
+    'slideshowSettingsDrawer.transition.curtain': 'Curtain',
+    'slideshowSettingsDrawer.transition.circleReveal': 'Circle reveal',
+    'slideshowSettingsDrawer.transition.glitch': 'Glitch',
+
     'settingsPlaylistBg.sectionTitle': 'Playlist & Background',
     'settingsPlaylistBg.viewMode.label': 'View',
     'settingsPlaylistBg.viewMode.list': 'List',
@@ -70,6 +104,9 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsVisualizer.openDrawer.hint': 'Render quality, per-effect geometry, colors, auto-switch effect',
     'settingsVisualizer.visualEnable.label': 'Show visual',
     'settingsVisualizer.visualEnable.hint': 'Turn off to show only the background (video/image/color), hiding the visualizer effect without touching Video Background.',
+    // MỚI (Batch 8, 03/07/2026, slideshow nền Visual) — nút mở Slideshow Settings Drawer.
+    'settingsVisualizer.slideshowSetting.label': 'Slideshow background',
+    'settingsVisualizer.slideshowSetting.hint': 'Cycle through an album as an animated background',
 
     'settingsAudioEq.sectionTitle': 'Audio & Equalizer',
     'settingsAudioEq.volume.label': 'Master volume',

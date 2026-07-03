@@ -55,6 +55,9 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.album.btnCreate': 'Create',
     // ── Batch tiếp theo (03/07/2026, mục 2.2/2.3) — Đổi tên/Xoá album + thêm ảnh có sẵn ──────
     'fileManager.photo.album.addImagesTitle': 'Add existing photos',
+    // MỚI (Batch 8, 03/07/2026, slideshow nền Visual).
+    'fileManager.photo.album.setSlideshowBgTitle': 'Use as Slideshow background',
+    'fileManager.photo.album.setSlideshowBgSuccess': 'Set as Slideshow background.',
     'fileManager.photo.album.renameTitle': 'Rename album',
     'fileManager.photo.album.deleteTitle': 'Delete album',
     'fileManager.photo.album.deleteConfirm': 'Delete album "{name}"? Photos inside stay in your library, only the album is removed.',
