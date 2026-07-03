@@ -221,6 +221,14 @@ const TPL_PLAYLIST_VIEW = `
                             <span data-i18n="playlistView.songEdit.coverChoose">${t('playlistView.songEdit.coverChoose')}</span>
                             <input type="file" id="song-edit-cover-upload" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" class="hidden">
                         </label>
+                        <!-- MỚI (batch 03/07/2026) — chọn ảnh có sẵn trong File Manager làm cover,
+                             thay vì chỉ upload file mới. Mở picker (core/file-manager/photo-ui.js),
+                             chọn xong tái dùng NGUYÊN changeSongEditCover() có sẵn (xem
+                             readme/song-cover-background-relations.md mục 2). -->
+                        <button id="song-edit-cover-pick-library" class="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-xl text-xs font-bold transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            <span data-i18n="playlistView.songEdit.coverPickLibrary">${t('playlistView.songEdit.coverPickLibrary')}</span>
+                        </button>
                         <button id="song-edit-cover-remove" class="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-white/5 hover:bg-rose-500/15 border border-white/10 hover:border-rose-500/40 text-slate-300 hover:text-rose-300 rounded-xl text-xs font-bold transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             <span data-i18n="playlistView.songEdit.coverRemove">${t('playlistView.songEdit.coverRemove')}</span>
