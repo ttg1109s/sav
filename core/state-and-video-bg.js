@@ -11,8 +11,9 @@
  * `/event/`.
  *
  * MỚI (batch 03/07/2026, hạ tầng z-index nền Visual) — thêm `applyVisualBgImageToDOM()` cuối file:
- * nền tĩnh (ảnh) cho màn Visualizer, tham chiếu qua `imageKey` vào store `images` (Batch 3). Xem
- * comment riêng ngay trước hàm đó để biết đầy đủ quan hệ loại trừ với video nền + hạn chế đã biết.
+ * nền tĩnh (ảnh) cho màn Visualizer, tham chiếu qua `imageKey` vào store `images` (Batch 3). CẢ 4
+ * lớp nền (màu/ảnh/slideshow-chưa-code/video) ĐỀU BẬT SONG SONG được, xếp lớp thuần qua CSS
+ * z-index — xem comment riêng ngay trước hàm đó để biết đầy đủ thứ tự + lưu ý hiệu năng slideshow.
  */
 
         // subtitles, isSubtitlesEnabled, activeSubIds, editingSubId, currentCalculatedBpm,
@@ -173,24 +174,35 @@
         // ===================== Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền
         // Visual, plan-v12-multimedia-update-2.md bước 2) =====================================
         //
-        // Cùng vai trò với video nền (#bg-video) nhưng LÀ ẢNH TĨNH lấy từ store `images` (Batch 3)
-        // qua `imageKey` — đặt ở z-index THẤP HƠN video (-1 so với 0, xem assets/css/style.css) nên
-        // nếu video nền CŨNG đang bật, video tự nhiên che kín ảnh này — KHÔNG cần rẽ nhánh loại trừ
-        // trong handleVideoBackground() (code DI SẢN nợ kỹ thuật NẶNG — R2(3)/R1-strong/R3 theo
-        // core-legacy-audit.md — cố tình KHÔNG đụng). Ở CHIỀU NGƯỢC LẠI, bật ảnh nền Visual (qua
-        // menu "Đặt làm nền" trên ảnh, event/workflow/file-manager-photo.js) sẽ CHỦ ĐỘNG gọi
-        // disableVideoBackgroundState() (có sẵn, không đụng thân hàm) nếu video đang bật — tránh
-        // video vẫn chạy ngầm (tốn pin/CPU) dù bị ảnh che khuất hoàn toàn.
+        // CHỐT 03/07/2026 (Giang xác nhận, ĐÈ LÊN giả định "loại trừ" ban đầu của batch trước — xem
+        // git blame/lịch sử patch nếu cần đối chiếu): CẢ 4 lớp nền màn Visualizer ĐỀU CÓ THỂ BẬT
+        // SONG SONG, không loại trừ nhau — thứ tự z-index (thấp -> cao, sau chồng trước):
+        //   nền màu Settings (bgColor, DOM body) < ẢNH TĨNH NÀY (#visual-bg-image) < nền slideshow
+        //   album (CHƯA code — chừa sẵn 1 mốc z-index ngay dưới video, xem assets/css/style.css) <
+        //   video nền (#bg-video) < chính visualizer đang vẽ (#webgl-canvas/#visualizer, luôn trên
+        //   cùng, KHÔNG đổi). Lớp NÀO có z-index cao hơn VÀ đang thực sự hiển thị (bật + có nội
+        //   dung) thì che lớp thấp hơn — KHÔNG cần bất kỳ hàm nào chủ động tắt hàm khác, thuần tuý
+        //   là hệ quả tự nhiên của CSS z-index (đặt đúng thứ tự 1 lần ở style.css, không cần rẽ
+        //   nhánh loại trừ trong handleVideoBackground()/applyVisualBgImageToDOM() — code liên quan
+        //   video là DI SẢN nợ kỹ thuật NẶNG, core-legacy-audit.md, cố tình KHÔNG đụng).
         //
-        // GHI NHẬN HẠN CHẾ ĐÃ BIẾT (Giang xác nhận 03/07/2026 — để làm nợ kỹ thuật, xử lý SAU khi
-        // hoàn thành hết các patch ver 12 còn lại): quan hệ loại trừ trên CHƯA đối xứng — bật LẠI
-        // video nền (qua toggle Settings, `enableVideoBackground()`/`applyUploadedVideoBg()` ở
-        // trên) KHÔNG tự tắt ảnh nền Visual đang bật, vì 2 hàm đó đã có nợ kỹ thuật Rule 3 sẵn
-        // (gọi void `handleVideoBackground()`) — muốn thêm nhánh tắt ảnh nền Visual vào đó phải đưa
-        // CẢ HÀM về đúng 4 rule trước (core-function-conventions.md mục 0.5), tốn công hơn nhiều so
-        // với phạm vi batch này. Hệ quả nếu người dùng bật lại video SAU khi đã đặt ảnh nền Visual:
-        // cả 2 cờ cùng "true" trong vizConfig, nhưng z-index vẫn đảm bảo hiển thị ĐÚNG (video che
-        // ảnh) — chỉ là ảnh nền Visual "âm thầm" vẫn bật dù không thấy, không phải bug hiển thị.
+        // VẤN ĐỀ HIỆU NĂNG (Giang lưu ý riêng, ÁP DỤNG CHO SLIDESHOW — CHƯA CODE, ghi lại đây làm
+        // THIẾT KẾ CHO BATCH SAU): ảnh tĩnh (#visual-bg-image, hàm applyVisualBgImageToDOM() ngay
+        // dưới đây) là DOM TĨNH — không có vòng lặp/timer nào chạy, bị video che thì đơn thuần
+        // "vẽ vô ích 1 lần" (không đáng kể) -> KHÔNG cần pause/resume gì cả. Slideshow album THÌ
+        // KHÁC — bản chất là 1 task lặp qua `taskManager` (đổi ảnh mỗi vài giây), nếu bị video che
+        // hoàn toàn mà vẫn chạy ngầm là lãng phí CPU/pin thật. THIẾT KẾ khi code slideshow: task đó
+        // PHẢI tự `taskManager.pause('slideshowTimer')` khi `vizConfig.videoBgEnabled` chuyển
+        // true, và `taskManager.resume('slideshowTimer')` khi chuyển về false. Vì
+        // `enableVideoBackground()`/`disableVideoBackgroundState()`/`applyUploadedVideoBg()` (nơi
+        // cờ `videoBgEnabled` thực sự đổi) đều là code DI SẢN đã có nợ Rule 3 sẵn (gọi void
+        // `handleVideoBackground()`) — KHÔNG nên thêm 1 lời gọi void nữa vào đó (sẽ buộc đưa CẢ HÀM
+        // về đúng 4 rule ngay lúc đó, core-function-conventions.md mục 0.5). ĐỀ XUẤT: để chính
+        // module slideshow (khi code) tự đọc `appState.get('vizConfig').videoBgEnabled` NGAY ĐẦU
+        // tick của nó (task lặp tự thấy trạng thái mới nhất mỗi lần chạy, không cần ai "báo" nó) —
+        // nếu true thì tự pause chính mình, không tick tiếp cho tới khi 1 tick SAU ĐÓ (do 1 timer
+        // "canh chừng" nhẹ khác, hoặc chính video-toggle gọi resume qua hàm MỚI/riêng — cần thiết
+        // kế cụ thể hơn lúc code thật batch đó) phát hiện `videoBgEnabled` đã về false.
 
         /** Core thuần: hiện/ẩn + set `background-image` DOM cho nền tĩnh Visual — KHÔNG biết gì về
          * IndexedDB/store `images` (nơi gọi tự resolve Blob -> objectUrl trước, xem
