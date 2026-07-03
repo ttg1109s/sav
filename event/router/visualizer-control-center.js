@@ -4,7 +4,8 @@
  * QUY TẮC RẼ NHÁNH:
  *   - returnToVisualizer/controlCenter.toggle/controlCenter.overlayClick/controlCenter.gridClick/
  *     visualEnable.change CHỈ CẦN 1 hàm core -> gọi THẲNG.
- *   - videoEnable.change/videoUpload.change CẦN shield/modal -> giao workflow.
+ *   - videoEnable.change/videoUpload.change/visualBgImageEnable.change/visualBgImagePick.click
+ *     (MỚI 03/07/2026, mục 2) CẦN shield/modal hoặc >1 hàm core -> giao workflow.
  * KHÔNG giữ state context riêng.
  */
 const routerVisualizerControlCenter = (() => {
@@ -43,6 +44,21 @@ const routerVisualizerControlCenter = (() => {
             case 'visualizerControlCenter.videoUpload.change':
                 workflowVisualizerControlCenter.uploadVideoBackground({ file: msg.payload.file });
                 break;
+
+            // MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer.
+            case 'visualizerControlCenter.visualBgImageEnable.change': {
+                if (msg.payload.checked) {
+                    workflowVisualizerControlCenter.pickVisualBgImageFromLibrary(); // >1 hàm core -> workflow
+                } else {
+                    workflowVisualizerControlCenter.disableVisualBgImage(); // đụng IndexedDB (delMeta) -> workflow
+                }
+                break;
+            }
+
+            case 'visualizerControlCenter.visualBgImagePick.click': {
+                workflowVisualizerControlCenter.pickVisualBgImageFromLibrary(); // >1 hàm core -> workflow
+                break;
+            }
 
             default:
                 console.warn(`[routerVisualizerControlCenter] msg.type không xác định: "${msg.type}"`, msg);

@@ -99,7 +99,7 @@ const routerFileManagerPhoto = (() => {
                 // thường) HAY toggle chọn/bỏ (đang chọn nhiều để thêm vào album) -> VirtualMachineState.
                 VirtualMachineState.run([
                     { state: imageSelectionMode, operation: '===', value: true, callback: () => {
-                        workflowFileManagerPhoto.toggleImageSelectionInSet(imageKey, selectedImageKeys, activeAlbumId); // mutate Set qua tham chiếu -> KHÔNG cần callback reset
+                        workflowFileManagerPhoto.toggleImageSelectionInSet(imageKey, selectedImageKeys); // mutate Set qua tham chiếu + patch DOM surgical -> KHÔNG cần activeAlbumId (fix mục 3, không còn refresh() toàn bộ)
                     } },
                     { state: imageSelectionMode, operation: '===', value: false, callback: () => {
                         workflowFileManagerPhoto.openImagePreview(imageKey, activeAlbumId); // >1 hàm core -> workflow
