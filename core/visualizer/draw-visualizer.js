@@ -96,6 +96,41 @@
         // còn đang mở) + sửa lại tiêu đề tạm (key) thành đúng tên bài thật.
         document.addEventListener('DOMContentLoaded', async () => {
             await loadConfig();
+            // MỚI (batch 03/07/2026, hạ tầng z-index nền Visual) — resolve `bgImageKey`/
+            // `visualBgImageKey` (CƠ CHẾ MỚI, tham chiếu store `images` — Batch 3) NGAY SAU
+            // loadConfig() (đã resolve xong CƠ CHẾ CŨ `meta.bgImage` Blob trực tiếp cho
+            // `bgImage`/`bgImageEnabled`, xem core/config.js::loadBackgroundAssets(), code DI SẢN
+            // KHÔNG đụng). Nếu có `bgImageKey`, cơ chế MỚI ưu tiên GHI ĐÈ kết quả cũ — đúng thứ tự
+            // ưu tiên đã chốt ở readme/song-cover-background-relations.md mục 3.2. File này
+            // (draw-visualizer.js) được MIỄN audit hoàn toàn theo readme/core-legacy-audit.md, thêm
+            // đoạn dưới đây KHÔNG phát sinh nghĩa vụ refactor cho loadConfig()/loadBackgroundAssets().
+            // Gọi TRỰC TIẾP, KHÔNG qua eventBus — cùng quy ước lifecycle boot (event-bus-flow.md mục 1).
+            if (typeof getImageRecord === 'function') {
+                const cfg = appState.get('vizConfig');
+                if (cfg.bgImageKey) {
+                    const bgRecord = await getImageRecord(cfg.bgImageKey);
+                    if (bgRecord) {
+                        const url = URL.createObjectURL(bgRecord.blob);
+                        appState.mutate('vizConfig', c => { c.bgImage = url; c.bgImageEnabled = true; });
+                        if (typeof bgImageEnableToggle !== 'undefined' && bgImageEnableToggle) bgImageEnableToggle.checked = true;
+                        if (typeof updatePlaylistBg === 'function') updatePlaylistBg();
+                    } else {
+                        // Ảnh đã bị xoá ở phiên khác (khác trình duyệt/thiết bị đồng bộ IndexedDB
+                        // riêng biệt là không có, nhưng phòng xa dữ liệu lệch) -> dọn tham chiếu mồ côi.
+                        appState.mutate('vizConfig', c => { c.bgImageKey = null; });
+                    }
+                }
+                if (cfg.visualBgImageEnabled && cfg.visualBgImageKey) {
+                    const visualBgRecord = await getImageRecord(cfg.visualBgImageKey);
+                    if (visualBgRecord) {
+                        const url = URL.createObjectURL(visualBgRecord.blob);
+                        appState.mutate('vizConfig', c => { c.visualBgImage = url; });
+                        if (typeof applyVisualBgImageToDOM === 'function') applyVisualBgImageToDOM(true, url);
+                    } else {
+                        appState.mutate('vizConfig', c => { c.visualBgImageEnabled = false; c.visualBgImageKey = null; });
+                    }
+                }
+            }
             updateSubToggleUI();
             if (typeof checkPendingResumeStateOnBoot === 'function') checkPendingResumeStateOnBoot();
             if (typeof loadSongStats === 'function') await loadSongStats();
