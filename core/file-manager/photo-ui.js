@@ -17,6 +17,9 @@
  * xác nhận từ Batch 3): `renderImageMasonry()` nhận thêm 2 tham số tuỳ chọn (selectionMode/
  * selectedImageKeys) để vẽ dấu tick chọn nhiều; `openRenameAlbumModal()` — đổi tên album, cùng
  * khuôn `openRenameFolderModal()`.
+ *
+ * MỚI (Batch 8, 03/07/2026, slideshow nền Visual): `openAlbumPickerModal()` — picker chọn 1 ALBUM
+ * (khác `openImageLibraryPickerModal()` chọn 1 ẢNH), dùng bởi Slideshow Settings Drawer.
  */
 
 // ===================== Story slider Album =====================
@@ -281,6 +284,66 @@ function openImageLibraryPickerModal(images, onSelect) {
 
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
+    document.body.appendChild(overlay);
+}
+
+// ===================== Picker chọn 1 ALBUM dùng chung (MỚI Batch 8, slideshow) =====================
+// Dùng bởi Slideshow Settings Drawer ("Chọn Album", event/workflow/slideshow.js::promptPickAlbum)
+// — KHÁC openImageLibraryPickerModal() (chọn 1 ẢNH). Danh sách phẳng, CHỈ ĐỌC (bấm 1 album là
+// chọn luôn + đóng modal) — cùng khuôn openImageLibraryPickerModal().
+/**
+ * @param {Array<{id: string, name: string, imageKeys: string[]}>} albums
+ * @param {(albumId: string) => void} onSelect
+ */
+function openAlbumPickerModal(albums, onSelect) {
+    const stale = document.getElementById('album-picker-overlay');
+    if (stale) stale.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'album-picker-overlay';
+    overlay.className = 'fixed inset-0 z-[130] bg-black/85 backdrop-blur-sm flex flex-col';
+
+    function closeModal() { overlay.remove(); }
+
+    const header = document.createElement('div');
+    header.className = 'flex justify-between items-center px-4 py-3 shrink-0';
+    const titleEl = document.createElement('h3');
+    titleEl.className = 'text-base font-bold text-white';
+    titleEl.textContent = t('slideshowSettingsDrawer.albumPicker.title');
+    header.appendChild(titleEl);
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white';
+    closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
+    closeBtn.addEventListener('click', closeModal);
+    header.appendChild(closeBtn);
+    overlay.appendChild(header);
+
+    const list = document.createElement('div');
+    list.className = 'flex-1 overflow-y-auto px-4 pb-6 flex flex-col gap-2';
+    if (albums.length === 0) {
+        const emptyEl = document.createElement('p');
+        emptyEl.className = 'text-sm text-slate-400 text-center py-10';
+        emptyEl.textContent = t('slideshowSettingsDrawer.albumPicker.empty');
+        list.appendChild(emptyEl);
+    } else {
+        albums.forEach((album) => {
+            const item = document.createElement('button');
+            item.className = 'flex justify-between items-center px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left transition-colors';
+            const nameEl = document.createElement('span');
+            nameEl.className = 'text-sm font-semibold text-white truncate';
+            nameEl.textContent = album.name;
+            item.appendChild(nameEl);
+            const countEl = document.createElement('span');
+            countEl.className = 'text-xs text-slate-400 shrink-0 ml-2';
+            countEl.textContent = tFormat('slideshowSettingsDrawer.albumPicker.imageCount', { count: album.imageKeys.length });
+            item.appendChild(countEl);
+            item.addEventListener('click', () => { closeModal(); onSelect(album.id); });
+            list.appendChild(item);
+        });
+    }
+    overlay.appendChild(list);
+
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
     document.body.appendChild(overlay);
 }
 
