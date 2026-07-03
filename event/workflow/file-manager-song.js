@@ -171,6 +171,12 @@ const workflowFileManagerSong = {
                 { label: t('fileManager.song.btnDeleteFolder'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
                     await deleteFolder(folderId); // core có sẵn (core/file-manager/folder.js)
                     await workflowPlaylistScope.persistScopeChoice(null); // folder đã mất -> scope mới LUÔN là null
+                    // SỬA 03/07/2026 (đợt 5, điểm 1) — refresh NGAY danh sách folder, KHÔNG đợi
+                    // reload: nếu người dùng chọn "Không" ở modal hỏi reload kế tiếp, dòng folder
+                    // vừa xoá vẫn còn nằm trong DOM (fileManagerFolderList) nếu không vẽ lại ngay
+                    // -> bấm được vào 1 folder đã KHÔNG CÒN TỒN TẠI trong DB (state đã xoá nhưng
+                    // DOM vẫn cho vào). Cùng idiom deleteFolderById() ở trên (nhánh không active).
+                    await this.refreshSongTab();
                     workflowPlaylistScope.askReloadToApplyNow(t('fileManager.song.folderDetail.deleteReloadBody'));
                 } }
             ],
@@ -232,6 +238,17 @@ const workflowFileManagerSong = {
             });
         });
 
+        // MỚI (03/07/2026, đợt 5, điểm 3) — xoá sạch thư viện thì MỌI folder cũng phải rỗng theo
+        // (bài đã mất hết, folder_song còn lại chỉ là tham chiếu rác) + bỏ scope nếu đang áp dụng
+        // 1 folder (không còn ý nghĩa gì để giữ). Hook ở TẦNG WORKFLOW này, KHÔNG sửa
+        // downloadAllSongsThenClear()/clearAllStoredData() (core di sản, chưa qua 4 rule) — cùng
+        // nguyên tắc đã áp dụng cho boot sequence (core/visualizer/draw-visualizer.js).
+        await clearAllFolderSongData(); // core/file-manager/folder.js
+        if (appState.get('activePlayListFolder')) {
+            await workflowPlaylistScope.persistScopeChoice(null);
+        }
+        await this.refreshSongTab(); // vẽ lại danh sách folder (rỗng hết, hết badge active) nếu Song drawer đang mở
+
         if (result.status === 'noSongs') {
             await alertModal(t('common.storage.noSongsToDownload'));
         } else if (result.status === 'zipError') {
@@ -259,6 +276,14 @@ const workflowFileManagerSong = {
         await withLoadingShield(t('common.storage.deletingData'), async () => {
             await clearAllSongsNoDownload();
         });
+
+        // MỚI (03/07/2026, đợt 5, điểm 3) — cùng lý do ở executeDownloadThenClear() phía trên.
+        await clearAllFolderSongData(); // core/file-manager/folder.js
+        if (appState.get('activePlayListFolder')) {
+            await workflowPlaylistScope.persistScopeChoice(null);
+        }
+        await this.refreshSongTab();
+
         await alertModal(t('common.storage.clearNoDownloadDone'));
     },
 
