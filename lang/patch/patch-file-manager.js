@@ -16,6 +16,7 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.folderPicker.newNamePlaceholder': 'New folder name',
     'fileManager.folderPicker.btnCreate': 'Create',
     'fileManager.folderPicker.addSuccess': 'Added {count} song(s) to the folder.',
+    'fileManager.folderPicker.duplicateName': 'A folder named "{name}" already exists (folder names are case-sensitive — different capitalization counts as a different name).',
     // ── Section "File Manager" trong Settings (CHỐT 03/07/2026 — xem
     // plan-v12-multimedia-decisions.md mục 1a/7): KHÔNG còn 1 overlay cấp cao riêng với tab bar
     // nữa — đây giờ là 1 section thường trong Settings (giống "Hệ thống & Playlist"...), 3 hàng
