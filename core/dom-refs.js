@@ -294,6 +294,7 @@
         const songEditAlbumInput = document.getElementById('song-edit-album');
         const songEditCoverPreview = document.getElementById('song-edit-cover-preview');
         const songEditCoverUploadInput = document.getElementById('song-edit-cover-upload');
+        const songEditCoverPickLibraryBtn = document.getElementById('song-edit-cover-pick-library');
         const songEditCoverRemoveBtn = document.getElementById('song-edit-cover-remove');
         const songEditTabButtons = document.querySelectorAll('.song-edit-tab-btn');
         const songEditTabInfo = document.getElementById('song-edit-tab-info');
