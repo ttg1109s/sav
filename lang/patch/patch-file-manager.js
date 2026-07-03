@@ -33,6 +33,16 @@ const LANG_PATCH_FILE_MANAGER = {
     // ── Drawer con: Photo & Album (placeholder, chưa code — b2/b3) ──────────────────────────
     'fileManager.photo.title': 'File Manager · Photo & Album',
     'fileManager.photo.back.title': 'Back to Settings',
+    // ── Batch 3 (03/07/2026) ──────────────────────────────────────────────────────────────
+    'fileManager.photo.uploadTitle': 'Add photos',
+    'fileManager.photo.image.empty': 'No photos yet. Tap the + button above to add some.',
+    'fileManager.photo.image.btnDelete': 'Remove from library',
+    'fileManager.photo.image.uploadSuccess': 'Added {count} photo(s).',
+    'fileManager.photo.album.all': 'All',
+    'fileManager.photo.album.new': 'New',
+    'fileManager.photo.album.createTitle': 'New album',
+    'fileManager.photo.album.namePlaceholder': 'Album name',
+    'fileManager.photo.album.btnCreate': 'Create',
     // ── Drawer con: Documents (placeholder, chưa code — b4) ─────────────────────────────────
     'fileManager.document.title': 'File Manager · Documents',
     'fileManager.document.back.title': 'Back to Settings',
