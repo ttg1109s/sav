@@ -63,7 +63,7 @@
                     } else { audioPlayer.pause(); return; }
                 } else nextKey = appState.get('displayOrder')[currentPos + 1];
             }
-            window.playSong(nextKey);
+            window.playSong(nextKey, { switchScreen: false }); // fix 03/07/2026 mục 5 — xem comment đầy đủ ở window.playSong (core/playlist/actions.js)
         }
 
         function playPrev() {
@@ -81,7 +81,7 @@
                     prevKey = appState.get('displayOrder')[appState.get('displayOrder').length - 1];
                 } else prevKey = appState.get('displayOrder')[currentPos - 1];
             }
-            window.playSong(prevKey);
+            window.playSong(prevKey, { switchScreen: false }); // fix 03/07/2026 mục 5 — xem comment đầy đủ ở window.playSong (core/playlist/actions.js)
         }
 
         /**

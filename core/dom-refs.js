@@ -99,7 +99,10 @@
         const elAutoSwitchSecondsRandom = document.getElementById('setting-auto-switch-seconds-random');
         const elAutoSwitchSecondsDuration = document.getElementById('setting-auto-switch-seconds-duration');
         const qualitySelect = document.getElementById('setting-quality'), bgColorPicker = document.getElementById('bg-color-picker');
-        const bgUploadInput = document.getElementById('setting-bg-upload'), bgBlurSlider = document.getElementById('setting-bg-blur'), valBgBlurDisplay = document.getElementById('val-bg-blur');
+        const btnSettingBgPickLibrary = document.getElementById('setting-bg-pick-library'), bgBlurSlider = document.getElementById('setting-bg-blur'), valBgBlurDisplay = document.getElementById('val-bg-blur');
+        // MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer.
+        const settingVisualBgImageEnableToggle = document.getElementById('setting-visual-bg-image-enable');
+        const btnSettingVisualBgImagePick = document.getElementById('setting-visual-bg-image-pick');
         const bgImageEnableToggle = document.getElementById('setting-bg-image-enable');
         const colorModeSelect = document.getElementById('setting-color-mode'), solidColorContainer = document.getElementById('solid-color-container'), solidColorPicker = document.getElementById('solid-color-picker'), solidColorText = document.getElementById('solid-color-text');
         const dynColorContainer = document.getElementById('dynamic-color-container'), dynColorA = document.getElementById('dyn-color-a'), dynColorB = document.getElementById('dyn-color-b');

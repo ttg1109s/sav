@@ -220,3 +220,45 @@
                 visualBgImageElement.style.opacity = '0';
             }
         }
+
+        /**
+         * MỚI (03/07/2026, mục 1/2 fix) — lưu Blob mới vào IndexedDB (`meta.visualBgImage`) + áp
+         * dụng làm nền tĩnh Visual hiện tại. CÙNG KHUÔN `applyBgImage()`
+         * (core/visualizer/visualizer-display.js, nền Playlist) — DÙNG CHUNG bởi CẢ 2 nơi đặt nền
+         * Visual (Settings -> nút "Chọn ảnh" MỚI, VÀ menu "Đặt làm nền Visual" trên ảnh ở Photo &
+         * Album), tránh lặp lại logic 2 chỗ. Core thuần, KHÔNG tự bọc shield (nơi gọi tự
+         * withLoadingShield() quanh lệnh gọi hàm async này).
+         * @param {Blob} blob
+         */
+        async function applyVisualBgImage(blob) {
+            await setMeta('visualBgImage', blob);
+            let objectUrl;
+            appState.mutate('vizConfig', cfg => {
+                if (cfg.visualBgImage && cfg.visualBgImage.startsWith('blob:')) URL.revokeObjectURL(cfg.visualBgImage);
+                objectUrl = URL.createObjectURL(blob);
+                cfg.visualBgImage = objectUrl;
+                cfg.visualBgImageEnabled = true;
+            });
+            if (typeof settingVisualBgImageEnableToggle !== 'undefined' && settingVisualBgImageEnableToggle) settingVisualBgImageEnableToggle.checked = true;
+            applyVisualBgImageToDOM(true, objectUrl);
+            saveConfig();
+        }
+
+        /**
+         * MỚI (03/07/2026, mục 2) — tắt nền tĩnh Visual, XOÁ LUÔN Blob đã lưu (`meta.visualBgImage`)
+         * — cùng hành vi `applyBgImageEnabled(false)` cho nền Playlist (core/visualizer/
+         * visualizer-display.js): "tắt" ở đây đồng nghĩa "bỏ hẳn", bật lại cần chọn ảnh mới qua
+         * picker (không có khái niệm "tạm tắt rồi bật lại y nguyên"). Core thuần, KHÔNG tự bọc
+         * shield (đụng IndexedDB qua delMeta — nơi gọi tự withLoadingShield()).
+         */
+        async function disableVisualBgImageState() {
+            await delMeta('visualBgImage');
+            appState.mutate('vizConfig', cfg => {
+                if (cfg.visualBgImage && cfg.visualBgImage.startsWith('blob:')) URL.revokeObjectURL(cfg.visualBgImage);
+                cfg.visualBgImageEnabled = false;
+                cfg.visualBgImage = '';
+            });
+            if (typeof settingVisualBgImageEnableToggle !== 'undefined' && settingVisualBgImageEnableToggle) settingVisualBgImageEnableToggle.checked = false;
+            applyVisualBgImageToDOM(false, '');
+            saveConfig();
+        }
