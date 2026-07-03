@@ -29,6 +29,11 @@
  * (Đổi tên/Xoá album đang lọc + mở chế độ "Thêm ảnh có sẵn") và `#file-manager-image-selection-bar`
  * (thanh hành động khi đang chọn nhiều ảnh để thêm vào album). Xem core/file-manager/photo-ui.js
  * (render + modal đổi tên) và event/workflow/file-manager-photo.js (logic).
+ *
+ * MỚI (Batch 8, 03/07/2026, slideshow nền Visual) — `#file-manager-album-manage-bar` thêm nút
+ * `#btn-file-manager-album-set-slideshow-bg` ("Dùng làm nền Slideshow" cho album đang lọc). Xem
+ * event/workflow/slideshow.js (engine) + components/slideshow-settings-drawer.js (Settings Drawer
+ * riêng, mở từ Settings chính — plan-v12-multimedia-update-3.md mục 3).
  */
 
 // ===================== Drawer con: Song (ĐẦY ĐỦ — dời nguyên nội dung từ bản overlay cũ) =====================
@@ -186,6 +191,11 @@ const TPL_FILE_MANAGER_PHOTO_DRAWER = `
             <div class="flex items-center gap-1 shrink-0">
                 <button id="btn-file-manager-album-add-images" class="p-1.5 rounded-full hover:bg-white/10 transition-colors text-slate-400 hover:text-sky-400" data-i18n-title="fileManager.photo.album.addImagesTitle" title="${t('fileManager.photo.album.addImagesTitle')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v4m-2-2h4" /></svg>
+                </button>
+                <!-- MỚI (Batch 8, slideshow) — "Dùng làm nền Slideshow" cho album đang lọc, xem
+                     event/workflow/file-manager-photo.js::setAsSlideshowBackground(). -->
+                <button id="btn-file-manager-album-set-slideshow-bg" class="p-1.5 rounded-full hover:bg-white/10 transition-colors text-slate-400 hover:text-fuchsia-400" data-i18n-title="fileManager.photo.album.setSlideshowBgTitle" title="${t('fileManager.photo.album.setSlideshowBgTitle')}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 22V12h6v10" /></svg>
                 </button>
                 <button id="btn-file-manager-album-rename" class="p-1.5 rounded-full hover:bg-white/10 transition-colors text-slate-400 hover:text-emerald-400" data-i18n-title="fileManager.photo.album.renameTitle" title="${t('fileManager.photo.album.renameTitle')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
