@@ -9,6 +9,10 @@
  * tại. `bgVideoElement.addEventListener('loadeddata'/'playing', fadeVideoIn, {once:true})` GIỮ
  * NGUYÊN ở setupVideoBgSource() — đây là listener nội bộ tự gỡ sau 1 lần (mục 2b.6), KHÔNG thuộc
  * `/event/`.
+ *
+ * MỚI (batch 03/07/2026, hạ tầng z-index nền Visual) — thêm `applyVisualBgImageToDOM()` cuối file:
+ * nền tĩnh (ảnh) cho màn Visualizer, tham chiếu qua `imageKey` vào store `images` (Batch 3). Xem
+ * comment riêng ngay trước hàm đó để biết đầy đủ quan hệ loại trừ với video nền + hạn chế đã biết.
  */
 
         // subtitles, isSubtitlesEnabled, activeSubIds, editingSubId, currentCalculatedBpm,
@@ -164,4 +168,43 @@
             videoEnableToggle.checked = true;
             handleVideoBackground(); saveConfig();
             return { status: 'ok' };
+        }
+
+        // ===================== Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền
+        // Visual, plan-v12-multimedia-update-2.md bước 2) =====================================
+        //
+        // Cùng vai trò với video nền (#bg-video) nhưng LÀ ẢNH TĨNH lấy từ store `images` (Batch 3)
+        // qua `imageKey` — đặt ở z-index THẤP HƠN video (-1 so với 0, xem assets/css/style.css) nên
+        // nếu video nền CŨNG đang bật, video tự nhiên che kín ảnh này — KHÔNG cần rẽ nhánh loại trừ
+        // trong handleVideoBackground() (code DI SẢN nợ kỹ thuật NẶNG — R2(3)/R1-strong/R3 theo
+        // core-legacy-audit.md — cố tình KHÔNG đụng). Ở CHIỀU NGƯỢC LẠI, bật ảnh nền Visual (qua
+        // menu "Đặt làm nền" trên ảnh, event/workflow/file-manager-photo.js) sẽ CHỦ ĐỘNG gọi
+        // disableVideoBackgroundState() (có sẵn, không đụng thân hàm) nếu video đang bật — tránh
+        // video vẫn chạy ngầm (tốn pin/CPU) dù bị ảnh che khuất hoàn toàn.
+        //
+        // GHI NHẬN HẠN CHẾ ĐÃ BIẾT (Giang xác nhận 03/07/2026 — để làm nợ kỹ thuật, xử lý SAU khi
+        // hoàn thành hết các patch ver 12 còn lại): quan hệ loại trừ trên CHƯA đối xứng — bật LẠI
+        // video nền (qua toggle Settings, `enableVideoBackground()`/`applyUploadedVideoBg()` ở
+        // trên) KHÔNG tự tắt ảnh nền Visual đang bật, vì 2 hàm đó đã có nợ kỹ thuật Rule 3 sẵn
+        // (gọi void `handleVideoBackground()`) — muốn thêm nhánh tắt ảnh nền Visual vào đó phải đưa
+        // CẢ HÀM về đúng 4 rule trước (core-function-conventions.md mục 0.5), tốn công hơn nhiều so
+        // với phạm vi batch này. Hệ quả nếu người dùng bật lại video SAU khi đã đặt ảnh nền Visual:
+        // cả 2 cờ cùng "true" trong vizConfig, nhưng z-index vẫn đảm bảo hiển thị ĐÚNG (video che
+        // ảnh) — chỉ là ảnh nền Visual "âm thầm" vẫn bật dù không thấy, không phải bug hiển thị.
+
+        /** Core thuần: hiện/ẩn + set `background-image` DOM cho nền tĩnh Visual — KHÔNG biết gì về
+         * IndexedDB/store `images` (nơi gọi tự resolve Blob -> objectUrl trước, xem
+         * event/workflow/file-manager-photo.js).
+         * Rule 2: nhận objectUrl qua tham số, KHÔNG tự appState.get().
+         * @param {boolean} enabled
+         * @param {string} objectUrl - '' hoặc URL không hợp lệ -> coi như ẩn (guard clause thuần)
+         */
+        function applyVisualBgImageToDOM(enabled, objectUrl) {
+            if (!visualBgImageElement) return; // guard: DOM chưa sẵn sàng (hiếm, race lúc mount)
+            if (enabled && objectUrl) {
+                visualBgImageElement.style.backgroundImage = `url(${objectUrl})`;
+                visualBgImageElement.style.opacity = '1';
+            } else {
+                visualBgImageElement.style.opacity = '0';
+            }
         }

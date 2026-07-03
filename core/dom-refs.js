@@ -115,6 +115,8 @@
         const eqSelect = document.getElementById('setting-eq'), eqSlidersWrapper = document.getElementById('eq-sliders-wrapper');
 
         const videoEnableToggle = document.getElementById('setting-video-enable'), videoUploadInput = document.getElementById('setting-video-upload'), bgVideoElement = document.getElementById('bg-video');
+        // Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual).
+        const visualBgImageElement = document.getElementById('visual-bg-image');
         // "Tắt Visual" (ver 8 refine) — ĐỘC LẬP khỏi nhóm Video Background, đặt thành mục cài đặt
         // riêng (xem js/components/settings/playlist-background.js). id mới `setting-visual-enable`.
         const visualEnabledToggle = document.getElementById('setting-visual-enable');
