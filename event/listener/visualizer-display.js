@@ -7,9 +7,9 @@
  *   - Mỗi handler CHỈ làm 1 việc: gom đúng data cần gửi rồi gửi 1 message qua eventBus.send().
  *   - "Địa chỉ nhà" (msg.router) LUÔN là 'visualizerDisplay' cho mọi listener trong file này.
  *
- * NGOẠI LỆ: listener #setting-bg-upload (bgUploadInput) đọc file + reset input.value NGAY trong
- * listener (giống quy ước ở listener/playlist.js cho input file) — hành vi gắn chặt với timing
- * của chính sự kiện DOM 'change', không thể dời ra ngoài.
+ * FIX (03/07/2026, mục 1) — #setting-bg-upload (input file upload trực tiếp) ĐÃ XOÁ, thay bằng nút
+ * #setting-bg-pick-library mở picker chọn ảnh có sẵn trong File Manager (cùng cụm
+ * 'visualizerDisplay', xem event/router,workflow/visualizer-display.js).
  *
  * KHÔNG tự document.getElementById trong file này — dùng lại biến đã có sẵn ở core/dom-refs.js.
  *
@@ -31,12 +31,11 @@ if (qualitySelect) {
 }
 
 // ===================== Ảnh nền =====================
-if (bgUploadInput) {
-    bgUploadInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        e.target.value = ''; // reset NGAY trong listener — giống quy ước input file ở listener/playlist.js
-        if (!file) return; // không chọn gì (bấm Cancel trên dialog chọn file) -> không gửi gì cả
-        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.bgImage.upload', payload: { file } });
+// FIX (03/07/2026, mục 1) — bỏ hẳn listener upload file trực tiếp (#setting-bg-upload đã xoá khỏi
+// HTML), đổi sang nút mở picker chọn ảnh có sẵn trong File Manager.
+if (btnSettingBgPickLibrary) {
+    btnSettingBgPickLibrary.addEventListener('click', () => {
+        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.bgImage.pickFromLibrary', payload: {} });
     });
 }
 

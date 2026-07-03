@@ -47,3 +47,17 @@ if (videoUploadInput) {
         eventBus.send({ router: 'visualizerControlCenter', type: 'visualizerControlCenter.videoUpload.change', payload: { file } });
     });
 }
+
+// MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer (toggle bật/tắt + nút mở picker),
+// cùng cụm với video nền (đúng vai trò "nền màn Visualizer").
+if (settingVisualBgImageEnableToggle) {
+    settingVisualBgImageEnableToggle.addEventListener('change', (e) => {
+        eventBus.send({ router: 'visualizerControlCenter', type: 'visualizerControlCenter.visualBgImageEnable.change', payload: { checked: e.target.checked } });
+    });
+}
+
+if (btnSettingVisualBgImagePick) {
+    btnSettingVisualBgImagePick.addEventListener('click', () => {
+        eventBus.send({ router: 'visualizerControlCenter', type: 'visualizerControlCenter.visualBgImagePick.click', payload: {} });
+    });
+}
