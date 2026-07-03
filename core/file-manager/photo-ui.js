@@ -12,6 +12,11 @@
  *
  * NẠP SAU: core/dom-refs.js (fileManagerAlbumStory/fileManagerImageMasonry/fileManagerImageEmpty),
  * lang/lang.js (t()).
+ *
+ * MỚI (batch tiếp theo 03/07/2026, mục 2.2/2.3 plan-v12-multimedia-update-2.md — nợ kỹ thuật đã
+ * xác nhận từ Batch 3): `renderImageMasonry()` nhận thêm 2 tham số tuỳ chọn (selectionMode/
+ * selectedImageKeys) để vẽ dấu tick chọn nhiều; `openRenameAlbumModal()` — đổi tên album, cùng
+ * khuôn `openRenameFolderModal()`.
  */
 
 // ===================== Story slider Album =====================
@@ -90,9 +95,16 @@ function renderAlbumStory(albums, activeAlbumId, imageRecordsByKey) {
 // ===================== Masonry ảnh =====================
 
 /**
+ * MỚI (batch tiếp theo 03/07/2026, mục 2.3) — thêm 2 tham số selectionMode/selectedImageKeys, hàm
+ * VẪN THUẦN (không I/O, không appState — Rule 2 N/A cho hàm dựng UI nhưng vẫn giữ đúng tinh thần
+ * "nhận qua tham số" cho nhất quán). Khi selectionMode=true, mỗi tile thêm 1 dấu tick tròn góc trên
+ * phải (đã chọn = nền sky-500, chưa chọn = viền trắng mờ) — click tile lúc này KHÔNG mở preview mà
+ * toggle chọn/bỏ (xem event/router/file-manager-photo.js).
  * @param {Array<{key: string, blob: Blob, filename: string}>} images
+ * @param {boolean} [selectionMode]
+ * @param {Set<string>} [selectedImageKeys]
  */
-function renderImageMasonry(images) {
+function renderImageMasonry(images, selectionMode, selectedImageKeys) {
     if (!fileManagerImageMasonry) return; // guard
 
     fileManagerImageMasonry.querySelectorAll('[data-has-object-url]').forEach((node) => {
@@ -106,12 +118,22 @@ function renderImageMasonry(images) {
         const tile = document.createElement('button');
         tile.dataset.imageKey = image.key;
         tile.dataset.hasObjectUrl = '1';
-        tile.className = 'block w-full mb-2 break-inside-avoid rounded-xl overflow-hidden bg-white/5 border border-white/10';
+        tile.className = 'relative block w-full mb-2 break-inside-avoid rounded-xl overflow-hidden bg-white/5 border border-white/10';
 
         const img = document.createElement('img');
         img.className = 'w-full h-auto block';
         img.alt = image.filename;
         tile.appendChild(img);
+
+        if (selectionMode) {
+            const isSelected = selectedImageKeys.has(image.key);
+            const badge = document.createElement('span');
+            badge.className = `absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-colors ${isSelected ? 'bg-sky-500 border-sky-400' : 'bg-black/40 border-white/60'}`;
+            if (isSelected) {
+                badge.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
+            }
+            tile.appendChild(badge);
+        }
 
         _observeLazyThumbnail(tile, image.blob, img);
         fileManagerImageMasonry.appendChild(tile);
@@ -145,6 +167,62 @@ function _observeLazyThumbnail(node, blob, imgEl) {
     node._pendingBlob = blob;
     if (imgEl) node._imgEl = imgEl;
     _thumbnailLazyObserver.observe(node);
+}
+
+// ===================== Đổi tên Album (modal) — batch tiếp theo 03/07/2026, mục 2.2 =====================
+// Cùng khuôn mẫu openRenameFolderModal() ở core/file-manager/folder-picker-ui.js — viết RIÊNG,
+// KHÔNG gộp với openCreateAlbumModal() (đúng lý do đã ghi ở comment openCreateAlbumModal phía
+// trên: 2 modal khác title/hành vi, gộp sẽ phải rẽ nhánh theo "loại nào gọi tới").
+/**
+ * @param {string} currentName
+ * @param {(newName: string) => void} onConfirm
+ */
+function openRenameAlbumModal(currentName, onConfirm) {
+    const stale = document.getElementById('rename-album-overlay');
+    if (stale) stale.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'rename-album-overlay';
+    overlay.className = 'fixed inset-0 z-[130] bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+
+    const card = document.createElement('div');
+    card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
+
+    const titleEl = document.createElement('h3');
+    titleEl.className = 'text-base font-bold text-white';
+    titleEl.textContent = t('fileManager.photo.album.renameTitle');
+    card.appendChild(titleEl);
+
+    function closeModal() { overlay.remove(); }
+
+    const inputEl = document.createElement('input');
+    inputEl.type = 'text';
+    inputEl.value = currentName;
+    inputEl.className = 'bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors';
+    card.appendChild(inputEl);
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'flex gap-3';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-sm font-semibold transition-colors';
+    cancelBtn.textContent = t('common.cancel');
+    cancelBtn.addEventListener('click', closeModal);
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'flex-1 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors';
+    saveBtn.textContent = t('common.ok');
+    saveBtn.addEventListener('click', () => {
+        const name = inputEl.value.trim();
+        if (!name) return; // guard clause thuần — chưa nhập tên thì không làm gì
+        closeModal();
+        onConfirm(name);
+    });
+    btnRow.appendChild(cancelBtn);
+    btnRow.appendChild(saveBtn);
+    card.appendChild(btnRow);
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    inputEl.focus();
 }
 
 // ===================== Tạo Album (modal) =====================
