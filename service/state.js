@@ -373,19 +373,20 @@
                 quality: 'high', type: 'bar', barStyle: 'mirror', vortexStyle: 'rings', rainStyle: 'glass', glassFlash: true, mode: 'solid',
                 bgColor: '#000000', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 minH: 4, maxH: 400, barWidth: 4, bgImage: '', bgBlur: 0, bgImageEnabled: false,
-                // MỚI (batch 03/07/2026, hạ tầng z-index nền Visual + menu "Đặt làm nền" trên ảnh)
-                // — bgImageKey: reference vào store `images` (Batch 3), CƠ CHẾ MỚI song song bgImage
-                // Blob cũ (readme/song-cover-background-relations.md mục 3.2: field mới, KHÔNG
-                // overload field cũ, để tương thích ngược với ảnh nền upload trực tiếp từ trước).
-                bgImageKey: null,
                 mirrorBarCount: 32,
                 volume: 100, eqMode: 'flat', manualEq: Object.freeze([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
                 videoBgEnabled: false, videoBgUrl: '',
                 // MỚI (batch 03/07/2026) — nền tĩnh CHO MÀN VISUALIZER (khác hẳn bgImage ở trên,
-                // vốn là nền cho màn Playlist/#playlist-bg). visualBgImage là blob: URL runtime
-                // (resolve lại mỗi session từ visualBgImageKey, cùng quy ước bgImage/videoBgUrl —
-                // KHÔNG lưu trực tiếp field này, xem core/config.js::flushConfigBackup()).
-                visualBgImageEnabled: false, visualBgImageKey: null, visualBgImage: '',
+                // vốn là nền cho màn Playlist/#playlist-bg). CÙNG CƠ CHẾ HỆT bgImage/videoBgUrl:
+                // Blob THẬT lưu ở `meta.visualBgImage` (core/db.js), visualBgImage ở đây CHỈ là
+                // blob: URL runtime resolve lại mỗi session (KHÔNG lưu trực tiếp field này, xem
+                // core/config.js::flushConfigBackup()). Đặt qua menu "Đặt làm nền" trên ảnh
+                // (event/workflow/file-manager-photo.js) chỉ đơn giản COPY Blob từ store `images`
+                // sang `meta.visualBgImage` — giống hệt thao tác "chọn file rồi upload", chỉ khác
+                // NGUỒN file (từ thư viện ảnh thay vì hộp thoại chọn file hệ điều hành). KHÔNG cần
+                // field "tham chiếu" (imageKey) riêng — xoá ảnh khỏi File Manager sau đó KHÔNG ảnh
+                // hưởng gì tới nền đã đặt (đã là 1 bản copy độc lập, giống ảnh bìa bài hát).
+                visualBgImageEnabled: false, visualBgImage: '',
                 visualEnabled: true,
                 keepScreenOn: true,
                 autoSwitchVisualEnabled: false,
