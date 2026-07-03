@@ -8,14 +8,18 @@
  * định (không phải listener nội bộ dùng-1-lần), VẪN đưa vào /event/ theo đúng nghĩa đen "DOM
  * listener cần tách" (quyết định của Giang, không áp dụng ngoại lệ 2b.6).
  *
- * QUY TẮC RẼ NHÁNH: TOÀN BỘ 17 msg.type ở đây chỉ cần ĐÚNG 1 HÀM CORE (không có shield/modal, không
- * cần phối hợp nhiều hàm) -> router gọi THẲNG hết, KHÔNG có event/workflow/player-controls.js.
+ * QUY TẮC RẼ NHÁNH: 16/17 msg.type ở đây chỉ cần ĐÚNG 1 HÀM CORE (không có shield/modal, không cần
+ * phối hợp nhiều hàm) -> router gọi THẲNG. RIÊNG 'playerControls.shuffle.click' (fix 03/07/2026,
+ * mục 3b) giờ cần 2 hàm core nối tiếp có phụ thuộc thứ tự (toggleShuffle() rồi
+ * updateShuffleArrayFromQueue() theo giá trị MỚI) -> giao event/workflow/player-controls.js (xem
+ * comment đầu file đó).
  *
  * STATE CONTEXT: không có — mọi msg.type độc lập, không có "hồ sơ vụ việc giữa 2 lượt" nào cần nhớ
  * ở tầng router/EventStore cho cụm này.
  *
- * NẠP SAU: event/bus.js, core/player-controls.js (cần toàn bộ hàm core ở trên), playlist/* (cần
- * playNext/playPrev/window.playSong — đã có từ trước). NẠP TRƯỚC: event/listener/player-controls.js.
+ * NẠP SAU: event/bus.js, event/workflow/player-controls.js, core/player-controls.js (cần toàn bộ
+ * hàm core ở trên), playlist/* (cần playNext/playPrev/window.playSong — đã có từ trước). NẠP
+ * TRƯỚC: event/listener/player-controls.js.
  */
 const routerPlayerControls = (() => {
 
@@ -45,7 +49,7 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.shuffle.click': {
-                toggleShuffle();
+                workflowPlayerControls.toggleShuffleAndReshuffle(); // 2 hàm core nối tiếp, phụ thuộc thứ tự -> workflow (fix mục 3b)
                 break;
             }
 
