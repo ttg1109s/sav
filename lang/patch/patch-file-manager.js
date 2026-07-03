@@ -28,10 +28,14 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.entry.document': 'Documents',
     'fileManager.comingSoon': 'Coming soon.',
     // ── Drawer con: Song ──────────────────────────────────────────────────────────────────
-    'fileManager.song.title': 'File Manager · Song',
+    // FIX (03/07/2026, mục 4 yêu cầu) — bỏ tiền tố "File Manager · " khỏi CẢ 3 tiêu đề drawer con
+    // (Song/Photo & Album/Documents): tiêu đề section cha "File Manager" đã hiện rõ ở hàng Settings
+    // trước khi push vào, lặp lại tiền tố trên thanh bar tiêu đề của chính drawer con là thừa —
+    // khớp đúng các key `fileManager.entry.*` (nhãn hàng trong Settings) vốn đã KHÔNG có tiền tố.
+    'fileManager.song.title': 'Song',
     'fileManager.song.back.title': 'Back to Settings',
     // ── Drawer con: Photo & Album (placeholder, chưa code — b2/b3) ──────────────────────────
-    'fileManager.photo.title': 'File Manager · Photo & Album',
+    'fileManager.photo.title': 'Photo & Album',
     'fileManager.photo.back.title': 'Back to Settings',
     // ── Batch 3 (03/07/2026) ──────────────────────────────────────────────────────────────
     'fileManager.photo.uploadTitle': 'Add photos',
@@ -43,8 +47,17 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.album.createTitle': 'New album',
     'fileManager.photo.album.namePlaceholder': 'Album name',
     'fileManager.photo.album.btnCreate': 'Create',
+    // ── Batch tiếp theo (03/07/2026, mục 2.2/2.3) — Đổi tên/Xoá album + thêm ảnh có sẵn ──────
+    'fileManager.photo.album.addImagesTitle': 'Add existing photos',
+    'fileManager.photo.album.renameTitle': 'Rename album',
+    'fileManager.photo.album.deleteTitle': 'Delete album',
+    'fileManager.photo.album.deleteConfirm': 'Delete album "{name}"? Photos inside stay in your library, only the album is removed.',
+    'fileManager.photo.album.btnDelete': 'Delete',
+    'fileManager.photo.album.selectedCount': '{count} selected',
+    'fileManager.photo.album.btnAddSelected': 'Add to album',
+    'fileManager.photo.album.addImagesSuccess': 'Added {count} photo(s) to the album.',
     // ── Drawer con: Documents (placeholder, chưa code — b4) ─────────────────────────────────
-    'fileManager.document.title': 'File Manager · Documents',
+    'fileManager.document.title': 'Documents',
     'fileManager.document.back.title': 'Back to Settings',
     // ── File Manager -> Song: Folder (mục 4.b1) ──────────────────────────────────────────────
     'fileManager.song.folderSectionTitle': 'Folders',
