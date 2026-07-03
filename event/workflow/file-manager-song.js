@@ -42,7 +42,14 @@ const workflowFileManagerSong = {
         const name = fileManagerNewFolderInput.value.trim();
         if (!name) return; // guard: chưa nhập tên thì không làm gì
 
-        await createFolder(name); // core có sẵn (core/file-manager/folder.js)
+        const result = await createFolder(name); // core có sẵn (core/file-manager/folder.js)
+        // MỚI (03/07/2026, đợt 6, điểm 4) — createFolder() giờ chặn trùng tên (case-sensitive) —
+        // báo lỗi rõ, GIỮ NGUYÊN nội dung input để người dùng sửa lại, KHÔNG clear/refresh (khác
+        // hẳn nhánh thành công bên dưới).
+        if (result.status === 'duplicateName') {
+            await alertModal(tFormat('fileManager.folderPicker.duplicateName', { name: escapeHtml(name) }));
+            return;
+        }
         fileManagerNewFolderInput.value = '';
         await this.refreshSongTab();
     },
@@ -51,9 +58,15 @@ const workflowFileManagerSong = {
      * DOM đã render sẵn (tránh round-trip đọc lại DB chỉ để lấy tên đang hiển thị). */
     renameFolderById(folderId) {
         const row = fileManagerFolderList.querySelector(`[data-folder-id="${folderId}"]`);
-        const currentName = row ? row.querySelector('span').textContent : '';
+        const currentName = row ? row.querySelector('[data-role="name"]').textContent : '';
         openRenameFolderModal(currentName, async (newName) => {
-            await renameFolder(folderId, newName); // core có sẵn
+            const result = await renameFolder(folderId, newName); // core có sẵn
+            // MỚI (03/07/2026, đợt 6, điểm 4) — renameFolder() giờ chặn trùng tên (case-sensitive,
+            // trừ chính nó) — báo lỗi rõ, KHÔNG refresh (tên chưa hề đổi trong DB).
+            if (result.status === 'duplicateName') {
+                await alertModal(tFormat('fileManager.folderPicker.duplicateName', { name: escapeHtml(newName) }));
+                return;
+            }
             await this.refreshSongTab();
         });
     },
@@ -61,7 +74,7 @@ const workflowFileManagerSong = {
     /** Ứng với 'fileManagerSong.folder.actionClick' (action='delete'). */
     deleteFolderById(folderId) {
         const row = fileManagerFolderList.querySelector(`[data-folder-id="${folderId}"]`);
-        const folderName = row ? row.querySelector('span').textContent : '';
+        const folderName = row ? row.querySelector('[data-role="name"]').textContent : '';
         modalChoice(
             tFormat('fileManager.song.deleteFolderConfirm', { name: escapeHtml(folderName) }),
             [
@@ -163,7 +176,7 @@ const workflowFileManagerSong = {
      * dọn dẹp đó — không có cách nào sót state nửa vời như cách làm tay cũ. */
     deleteActiveFolderById(folderId) {
         const row = fileManagerFolderList.querySelector(`[data-folder-id="${folderId}"]`);
-        const folderName = row ? row.querySelector('span').textContent : '';
+        const folderName = row ? row.querySelector('[data-role="name"]').textContent : '';
         modalChoice(
             tFormat('fileManager.song.deleteActiveFolderConfirm', { name: escapeHtml(folderName) }),
             [

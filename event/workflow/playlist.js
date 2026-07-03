@@ -221,8 +221,15 @@ const workflowPlaylist = {
         openFolderPickerModal(folders, {
             onPickExisting: (folderId) => { finishAdd(folderId); },
             onCreateNew: async (name) => {
-                const folderId = await createFolder(name); // core có sẵn, CÓ return, DÙNG ngay dưới
-                await finishAdd(folderId);
+                const result = await createFolder(name); // core có sẵn (core/file-manager/folder.js)
+                // MỚI (03/07/2026, đợt 6, điểm 4) — createFolder() giờ có thể trả 'duplicateName'
+                // (chặn tên trùng, case-sensitive) — báo lỗi rõ ràng thay vì âm thầm addSongsToFolder
+                // với folderId undefined (bug nếu bỏ qua check này).
+                if (result.status === 'duplicateName') {
+                    await alertModal(tFormat('fileManager.folderPicker.duplicateName', { name: escapeHtml(name) }));
+                    return;
+                }
+                await finishAdd(result.folderId);
             }
         });
     },
@@ -253,8 +260,13 @@ const workflowPlaylist = {
         openFolderPickerModal(folders, {
             onPickExisting: (folderId) => { finishAdd(folderId); },
             onCreateNew: async (name) => {
-                const folderId = await createFolder(name); // core có sẵn, CÓ return, DÙNG ngay dưới
-                await finishAdd(folderId);
+                const result = await createFolder(name); // core có sẵn (core/file-manager/folder.js)
+                // MỚI (03/07/2026, đợt 6, điểm 4) — xem giải thích ở openAddToFolderPickerForSongMenu() phía trên.
+                if (result.status === 'duplicateName') {
+                    await alertModal(tFormat('fileManager.folderPicker.duplicateName', { name: escapeHtml(name) }));
+                    return;
+                }
+                await finishAdd(result.folderId);
             }
         });
     },
