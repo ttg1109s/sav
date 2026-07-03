@@ -62,7 +62,7 @@
             hàm, chỉ lúc hàm thực sự được GỌI (luôn sau khi người dùng tương tác, lúc đó toàn bộ
             trang đã nạp xong từ lâu). Xem comment đầu file /lang/lang.js để biết đầy đủ kiến trúc. -->
     <script src="lang/patch/patch-common.js?v=20260627v1"></script>
-    <script src="lang/patch/patch-playlist.js?v=20260703v1"></script>
+    <script src="lang/patch/patch-playlist.js?v=20260703v2"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260627v1"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260627v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260627v1"></script>
@@ -76,7 +76,7 @@
             Chưa có gì được vẽ ra DOM ở bước này.
          ===================================================================== -->
     <script src="components/loading-shield.js?v=20260625v8e"></script>
-    <script src="components/playlist-view.js?v=20260703v2"></script>
+    <script src="components/playlist-view.js?v=20260703v3"></script>
     <script src="components/visualizer-overlay.js?v=20260703v1"></script>
     <script src="components/subtitle-modal.js?v=20260626v1"></script>
     <script src="components/bottom-player.js?v=20260626v1"></script>
@@ -140,7 +140,7 @@
          core/config.js (vizConfig khởi tạo bằng { ...CONST.DEFAULT_VIZ_CONFIG }) và trước toàn bộ
          core/ còn lại; PHẢI nạp SAU core/modal-choice.js (alertModal, dùng cho option notifyUI).
          Xem comment đầu file service/state.js. -->
-    <script src="service/state.js?v=20260703v4"></script>
+    <script src="service/state.js?v=20260703v5"></script>
     <script src="core/config.js?v=20260625v10"></script>
     <!-- event/store.js (class EventStore) — CHỈ riêng file NÀY trong toàn bộ /event/ được nạp SỚM
          ở đây, KHÔNG đợi xuống cuối cùng cùng bus/workflow/router/listener. Lý do: playlist/
@@ -153,7 +153,7 @@
          LẠI của /event/ (bus/workflow/router/listener vẫn nạp cuối cùng tuyệt đối như cũ, xem
          khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260703v5"></script>
+    <script src="core/dom-refs.js?v=20260703v6"></script>
     <!-- Logo "SAV" (cụm /event/ "savLogo") — cần biến `savLogo` vừa nạp từ dom-refs.js ngay trên. -->
     <script src="core/sav-logo.js?v=20260629v1"></script>
     <!-- TaskManager (Loop/TaskManager) — quản lý TẬP TRUNG mọi setInterval/setTimeout của app
@@ -182,7 +182,7 @@
          tiếp ở đây, nhưng gom nhóm cho dễ đọc). -->
     <script src="core/file-manager/image.js?v=20260703v1"></script>
     <script src="core/file-manager/album.js?v=20260703v1"></script>
-    <script src="core/file-manager/photo-ui.js?v=20260703v3"></script>
+    <script src="core/file-manager/photo-ui.js?v=20260703v4"></script>
     <!-- Resume State Storage (ver 10 refine #3) — lưu/đọc trạng thái phát qua localStorage khi tab
          bị ẩn, dùng để "reload trang thật" lúc quay lại tab thay cho cố giữ runtime cũ sống sót
          qua việc ẩn tab (xem comment đầu file). PHẢI nạp TRƯỚC wakelock.js (file đó gọi
@@ -290,7 +290,7 @@
     <script src="core/visualizer/types/rain.js?v=20260625v8e"></script>
     <!-- draw-visualizer.js chứa điểm khởi động thực sự của app (DOMContentLoaded ->
          loadConfig() + initPlaylistFromDB()), giữ nguyên vị trí như các bản trước. -->
-    <script src="core/visualizer/draw-visualizer.js?v=20260703v2"></script>
+    <script src="core/visualizer/draw-visualizer.js?v=20260703v3"></script>
 
 
     <!-- =====================================================================
@@ -349,14 +349,14 @@
     <script src="event/router/file-manager-song.js?v=20260703v3"></script>
     <script src="event/listener/file-manager-song.js?v=20260703v3"></script>
     <!-- Batch 3 (03/07/2026) — workflowFileManagerPhoto CẦN tồn tại trước khi router gọi tới. -->
-    <script src="event/workflow/file-manager-photo.js?v=20260703v4"></script>
+    <script src="event/workflow/file-manager-photo.js?v=20260703v5"></script>
     <script src="event/router/file-manager-photo.js?v=20260703v3"></script>
     <script src="event/listener/file-manager-photo.js?v=20260703v3"></script>
     <script src="event/router/file-manager-document.js?v=20260703v1"></script>
     <script src="event/listener/file-manager-document.js?v=20260703v1"></script>
-    <script src="event/workflow/playlist.js?v=20260703v5"></script>
-    <script src="event/router/playlist.js?v=20260703v1"></script>
-    <script src="event/listener/playlist.js?v=20260703v1"></script>
+    <script src="event/workflow/playlist.js?v=20260703v6"></script>
+    <script src="event/router/playlist.js?v=20260703v2"></script>
+    <script src="event/listener/playlist.js?v=20260703v2"></script>
     <!-- Cụm "playerControls" (ver 11, patch 3): 16/17 msg.type KHÔNG cần workflow (router gọi
          THẲNG). MỚI (fix 03/07/2026, mục 3b): 'playerControls.shuffle.click' giờ cần
          event/workflow/player-controls.js (2 hàm core nối tiếp, phụ thuộc thứ tự — xem comment đầu
