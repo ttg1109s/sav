@@ -2,6 +2,12 @@
         body { margin: 0; overflow: hidden; background-color: #000000; transition: background-color 0.3s ease; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; touch-action: manipulation; }
         
         #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
+        /* Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). Cùng vai trò
+           với #bg-video nhưng LÀ ẢNH TĨNH, đặt z-index THẤP HƠN (-1, video z-index 0) — nếu video
+           nền CŨNG đang bật, video tự nhiên che kín ảnh này, không cần rẽ nhánh loại trừ trong code
+           video nền (core/state-and-video-bg.js::handleVideoBackground(), code DI SẢN không đụng —
+           xem readme/core-legacy-audit.md). Xem core/state-and-video-bg.js (applyVisualBgImageToDOM). */
+        #visual-bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background-size: cover; background-position: center; z-index: -1; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
         
         canvas { display: block; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; pointer-events: none;}
         #webgl-canvas { z-index: 1; } 
