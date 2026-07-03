@@ -26,6 +26,24 @@ if (fileManagerAlbumStory) {
     });
 }
 
+// ===================== MỚI (batch tiếp theo 03/07/2026, mục 2.2) — thanh quản lý album đang lọc
+// (Đổi tên/Xoá/Thêm ảnh có sẵn) =============================================================
+
+if (fileManagerAlbumManageBar) {
+    fileManagerAlbumManageBar.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[id]');
+        if (!btn) return;
+        const actionById = {
+            'btn-file-manager-album-add-images': 'addImages',
+            'btn-file-manager-album-rename': 'rename',
+            'btn-file-manager-album-delete': 'delete',
+        };
+        const action = actionById[btn.id];
+        if (!action) return; // bấm trúng phần tử khác trong thanh (vd tên album) -> không gửi gì cả
+        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.album.manageClick', payload: { action } });
+    });
+}
+
 // ===================== Masonry ảnh =====================
 
 if (fileManagerImageMasonry) {
@@ -33,6 +51,21 @@ if (fileManagerImageMasonry) {
         const tile = e.target.closest('button[data-image-key]');
         if (!tile) return; // không bấm trúng ảnh nào -> không gửi gì cả
         eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.image.click', payload: { imageKey: tile.dataset.imageKey } });
+    });
+}
+
+// ===================== MỚI (batch tiếp theo 03/07/2026, mục 2.3) — thanh hành động chọn nhiều
+// ảnh (thêm vào album đang lọc) =============================================================
+
+if (btnFileManagerImageSelectionCancel) {
+    btnFileManagerImageSelectionCancel.addEventListener('click', () => {
+        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imageSelection.cancel', payload: {} });
+    });
+}
+
+if (btnFileManagerImageSelectionConfirm) {
+    btnFileManagerImageSelectionConfirm.addEventListener('click', () => {
+        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imageSelection.confirm', payload: {} });
     });
 }
 
