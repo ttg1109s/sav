@@ -42,6 +42,11 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.image.empty': 'No photos yet. Tap the + button above to add some.',
     'fileManager.photo.image.btnDelete': 'Remove from library',
     'fileManager.photo.image.uploadSuccess': 'Added {count} photo(s).',
+    // ── Batch tiếp theo (03/07/2026, hạ tầng z-index nền Visual) — "Đặt làm nền" trên ảnh ─────
+    'fileManager.photo.image.btnSetPlaylistBg': 'Set as Playlist background',
+    'fileManager.photo.image.btnSetVisualBg': 'Set as Visualizer background',
+    'fileManager.photo.image.setPlaylistBgSuccess': 'Set as Playlist background.',
+    'fileManager.photo.image.setVisualBgSuccess': 'Set as Visualizer background.',
     'fileManager.photo.album.all': 'All',
     'fileManager.photo.album.new': 'New',
     'fileManager.photo.album.createTitle': 'New album',
