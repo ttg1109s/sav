@@ -233,9 +233,12 @@ const workflowFileManagerPhoto = {
     },
 
     /** Ứng với nút "Đặt làm nền Visual" trong modal xem ảnh — ghi `vizConfig.visualBgImageKey`
-     * (tính năng MỚI HOÀN TOÀN, không có field cũ cần tương thích ngược). CHỦ ĐỘNG tắt video nền
-     * nếu đang bật (xem comment đầu core/state-and-video-bg.js — quan hệ loại trừ 1 CHIỀU, hạn chế
-     * đã biết, để làm nợ kỹ thuật xử lý sau).
+     * (tính năng MỚI HOÀN TOÀN, không có field cũ cần tương thích ngược).
+     *
+     * SỬA (03/07/2026, Giang chốt lại) — bản đầu batch này từng CHỦ ĐỘNG tắt video nền lúc đặt ảnh
+     * nền Visual (giả định 2 nguồn loại trừ nhau) — SAI, đã bỏ. CHỐT ĐÚNG: cả 4 lớp nền màn
+     * Visualizer (màu/ảnh/slideshow/video) ĐỀU BẬT SONG SONG được, xếp lớp thuần qua CSS z-index —
+     * xem comment đầy đủ ngay trước applyVisualBgImageToDOM() ở core/state-and-video-bg.js.
      * @param {string} imageKey
      */
     async setAsVisualBackground(imageKey) {
@@ -243,9 +246,6 @@ const workflowFileManagerPhoto = {
         if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
 
         await withLoadingShield(t('common.loading.savingInfo'), async () => {
-            if (appState.get('vizConfig').videoBgEnabled) {
-                disableVideoBackgroundState(); // core có sẵn (state-and-video-bg.js) — không đụng thân hàm, chỉ GỌI
-            }
             let objectUrl;
             appState.mutate('vizConfig', cfg => {
                 if (cfg.visualBgImage && cfg.visualBgImage.startsWith('blob:')) URL.revokeObjectURL(cfg.visualBgImage);
