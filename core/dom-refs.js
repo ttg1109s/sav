@@ -223,6 +223,12 @@
         const btnBackFileManagerSong = document.getElementById('btn-back-file-manager-song');
         const drawerFileManagerPhoto = document.getElementById('drawer-file-manager-photo');
         const btnBackFileManagerPhoto = document.getElementById('btn-back-file-manager-photo');
+        // Photo & Album — Batch 3 (03/07/2026)
+        const btnFileManagerImageUploadTrigger = document.getElementById('btn-file-manager-image-upload-trigger');
+        const fileManagerImageUploadInput = document.getElementById('file-manager-image-upload-input');
+        const fileManagerAlbumStory = document.getElementById('file-manager-album-story');
+        const fileManagerImageMasonry = document.getElementById('file-manager-image-masonry');
+        const fileManagerImageEmpty = document.getElementById('file-manager-image-empty');
         const drawerFileManagerDocument = document.getElementById('drawer-file-manager-document');
         const btnBackFileManagerDocument = document.getElementById('btn-back-file-manager-document');
         const fileManagerNewFolderInput = document.getElementById('file-manager-new-folder-input');
