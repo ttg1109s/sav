@@ -129,8 +129,9 @@
          * playPrev. Muốn CHẶN HẲN không cho tràn (ranh giới cứng, dừng lại ở cuối hiện hành thay vì
          * tràn) cần refactor playNext/playPrev tách nhánh shuffle riêng (đúng Rule 1) — CHI PHÍ đó
          * lớn hơn nhiều so với fix hiện tại (đúng tinh thần core-function-conventions.md mục 0.5:
-         * "tốn công hơn nhiều so với tính năng đang làm -> dừng lại hỏi trước khi sửa") — CHƯA làm,
-         * cần Giang chốt trước nếu muốn ranh giới cứng thật.
+         * "tốn công hơn nhiều so với tính năng đang làm -> dừng lại hỏi trước khi sửa"). **CHỐT
+         * 03/07/2026 (Giang xác nhận):** để đấy làm NỢ KỸ THUẬT — xử lý SAU KHI hoàn thành hết các
+         * patch còn lại của ver 12, KHÔNG làm ngay trong batch này.
          *
          * Rule 1: đơn tuyến — CHỈ tính lại shuffleIndices theo 2 nhóm ưu tiên, không rẽ nhánh tiến
          * trình nào khác.
