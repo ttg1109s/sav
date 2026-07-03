@@ -17,10 +17,12 @@
  * ÁP DỤNG /event/ (ver 11, patch 2): TOÀN BỘ 20 `addEventListener` cũ của file này đã CHUYỂN HẾT
  * sang event/listener/visualizer-display.js. Logic nghiệp vụ trước đây nằm thẳng trong callback
  * đã rút thành HÀM CORE THUẦN bên dưới — đối chiếu event/router/visualizer-display.js để biết
- * msg.type nào gọi hàm nào. `validateBgImageFile()` trả `{status, ...}` thuần để workflow tự
- * quyết định có cần alertModal hay không; `applyBgImage()`/`applyBgImageEnabled()` là core thuần
- * KHÔNG còn withLoadingShield/alertModal bên trong (2 thứ này dời ra
- * event/workflow/visualizer-display.js, đúng quy tắc "core không biết shield/modal tồn tại").
+ * msg.type nào gọi hàm nào. `applyBgImage()`/`applyBgImageEnabled()` là core thuần KHÔNG còn
+ * withLoadingShield/alertModal bên trong (2 thứ này dời ra event/workflow/visualizer-display.js,
+ * đúng quy tắc "core không biết shield/modal tồn tại"). FIX (03/07/2026, mục 1) — bỏ hẳn
+ * `validateBgImageFile()`/upload file trực tiếp — `applyBgImage()` giờ CHỈ được gọi từ picker
+ * (event/workflow/visualizer-display.js::pickBgImageFromLibrary, dùng Blob đã có sẵn trong store
+ * `images`, không cần validate lại định dạng file).
  * Cross-call (updateTypeUI có 3 nguồn: cycle button, select ở equalizer-settings.js, timer
  * auto-switch-visual.js) vẫn GIỮ NGUYÊN lệnh gọi hàm trực tiếp — KHÔNG thuộc phạm vi patch này
  * (xem plan.md, đã chốt lùi việc đưa cross-call qua bus tới khi 134 listener gốc tách xong hết).
@@ -119,24 +121,12 @@
         }
 
         /**
-         * Validate + chuẩn bị ảnh nền mới (KHÔNG lưu IndexedDB/applyu UI ở đây — đó là việc của
-         * applyBgImage(), tách riêng để workflow bọc shield quanh đúng phần cần shield). Trả
-         * {status: 'invalid', reason} nếu sai định dạng, hoặc {status: 'ok', file}.
-         * @param {File} file
-         */
-        function validateBgImageFile(file) {
-            // (3b) Chỉ chấp nhận PNG/JPG/WEBP — xem upload-validation.js. Chặn TRƯỚC khi đụng tới
-            // IndexedDB/blob URL, không đổi gì khác trong luồng cũ nếu file hợp lệ.
-            const check = validateImageFile(file);
-            if (!check.valid) return { status: 'invalid', reason: check.reason };
-            return { status: 'ok', file };
-        }
-
-        /**
          * Lưu ảnh nền mới vào IndexedDB + áp dụng vào vizConfig/UI. Core thuần, KHÔNG tự bọc
          * shield (workflow bọc withLoadingShield() quanh lệnh gọi hàm async này — xem quy tắc
          * "core không biết shield/modal tồn tại").
-         * @param {File} file - đã qua validateBgImageFile() ở workflow, status 'ok'
+         * @param {Blob} file - Blob ảnh (từ store `images` qua picker — xem
+         *        event/workflow/visualizer-display.js::pickBgImageFromLibrary; KHÔNG còn validate
+         *        định dạng ở đây, ảnh trong store `images` đã hợp lệ từ lúc upload vào đó)
          */
         async function applyBgImage(file) {
             await setMeta('bgImage', file);
