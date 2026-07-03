@@ -186,23 +186,14 @@
         //   nhánh loại trừ trong handleVideoBackground()/applyVisualBgImageToDOM() — code liên quan
         //   video là DI SẢN nợ kỹ thuật NẶNG, core-legacy-audit.md, cố tình KHÔNG đụng).
         //
-        // VẤN ĐỀ HIỆU NĂNG (Giang lưu ý riêng, ÁP DỤNG CHO SLIDESHOW — CHƯA CODE, ghi lại đây làm
-        // THIẾT KẾ CHO BATCH SAU): ảnh tĩnh (#visual-bg-image, hàm applyVisualBgImageToDOM() ngay
-        // dưới đây) là DOM TĨNH — không có vòng lặp/timer nào chạy, bị video che thì đơn thuần
-        // "vẽ vô ích 1 lần" (không đáng kể) -> KHÔNG cần pause/resume gì cả. Slideshow album THÌ
-        // KHÁC — bản chất là 1 task lặp qua `taskManager` (đổi ảnh mỗi vài giây), nếu bị video che
-        // hoàn toàn mà vẫn chạy ngầm là lãng phí CPU/pin thật. THIẾT KẾ khi code slideshow: task đó
-        // PHẢI tự `taskManager.pause('slideshowTimer')` khi `vizConfig.videoBgEnabled` chuyển
-        // true, và `taskManager.resume('slideshowTimer')` khi chuyển về false. Vì
-        // `enableVideoBackground()`/`disableVideoBackgroundState()`/`applyUploadedVideoBg()` (nơi
-        // cờ `videoBgEnabled` thực sự đổi) đều là code DI SẢN đã có nợ Rule 3 sẵn (gọi void
-        // `handleVideoBackground()`) — KHÔNG nên thêm 1 lời gọi void nữa vào đó (sẽ buộc đưa CẢ HÀM
-        // về đúng 4 rule ngay lúc đó, core-function-conventions.md mục 0.5). ĐỀ XUẤT: để chính
-        // module slideshow (khi code) tự đọc `appState.get('vizConfig').videoBgEnabled` NGAY ĐẦU
-        // tick của nó (task lặp tự thấy trạng thái mới nhất mỗi lần chạy, không cần ai "báo" nó) —
-        // nếu true thì tự pause chính mình, không tick tiếp cho tới khi 1 tick SAU ĐÓ (do 1 timer
-        // "canh chừng" nhẹ khác, hoặc chính video-toggle gọi resume qua hàm MỚI/riêng — cần thiết
-        // kế cụ thể hơn lúc code thật batch đó) phát hiện `videoBgEnabled` đã về false.
+        // VẤN ĐỀ HIỆU NĂNG (Giang lưu ý riêng, ÁP DỤNG CHO SLIDESHOW) — ĐÃ TRIỂN KHAI THẬT ở Batch
+        // 8 (03/07/2026, xem event/workflow/slideshow.js), ĐÚNG THIẾT KẾ đã ghi ở đây: task
+        // 'slideshowTimer' (`_tick()`) tự đọc `appState.get('vizConfig').videoBgEnabled` NGAY ĐẦU
+        // mỗi tick — true thì tự `taskManager.pause('slideshowTimer')`, không tick tiếp; 1 task
+        // "canh chừng" riêng (`slideshowWatchdog`, đọc mỗi 3s) tự `taskManager.resume(...)` khi
+        // phát hiện `videoBgEnabled` đã về false. KHÔNG đụng `enableVideoBackground()`/
+        // `disableVideoBackgroundState()`/`applyUploadedVideoBg()` (di sản, giữ nguyên như đề xuất
+        // ban đầu — không thêm lời gọi void nào vào các hàm đó).
 
         /** Core thuần: hiện/ẩn + set `background-image` DOM cho nền tĩnh Visual — KHÔNG biết gì về
          * IndexedDB/store `images` (nơi gọi tự resolve Blob -> objectUrl trước, xem

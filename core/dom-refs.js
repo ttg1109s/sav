@@ -120,6 +120,20 @@
         const videoEnableToggle = document.getElementById('setting-video-enable'), videoUploadInput = document.getElementById('setting-video-upload'), bgVideoElement = document.getElementById('bg-video');
         // Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual).
         const visualBgImageElement = document.getElementById('visual-bg-image');
+        // Slideshow nền Visual (nguồn nền thứ 3, Batch 8, ver 12 "Multi Media") — xem
+        // core/file-manager/slideshow.js / event/workflow/slideshow.js.
+        const slideshowContainer = document.getElementById('visual-slideshow-container');
+        const slideshowLayer1 = document.getElementById('visual-slideshow-layer-1');
+        const slideshowLayer2 = document.getElementById('visual-slideshow-layer-2');
+        const btnOpenSlideshowSettings = document.getElementById('setting-open-slideshow-settings');
+        const drawerSlideshowSettings = document.getElementById('drawer-slideshow-settings');
+        const btnBackSlideshowSettings = document.getElementById('btn-back-slideshow-settings');
+        const slideshowSettingsAlbumName = document.getElementById('slideshow-settings-album-name');
+        const btnSlideshowPickAlbum = document.getElementById('btn-slideshow-pick-album');
+        const btnSlideshowClearAlbum = document.getElementById('btn-slideshow-clear-album');
+        const slideshowModeSelect = document.getElementById('setting-slideshow-mode');
+        const slideshowIntervalInput = document.getElementById('setting-slideshow-interval');
+        const slideshowTransitionSelect = document.getElementById('setting-slideshow-transition');
         // "Tắt Visual" (ver 8 refine) — ĐỘC LẬP khỏi nhóm Video Background, đặt thành mục cài đặt
         // riêng (xem js/components/settings/playlist-background.js). id mới `setting-visual-enable`.
         const visualEnabledToggle = document.getElementById('setting-visual-enable');
@@ -239,6 +253,8 @@
         const fileManagerAlbumManageBar = document.getElementById('file-manager-album-manage-bar');
         const fileManagerAlbumManageName = document.getElementById('file-manager-album-manage-name');
         const btnFileManagerAlbumAddImages = document.getElementById('btn-file-manager-album-add-images');
+        // MỚI (Batch 8, slideshow) — "Dùng làm nền Slideshow" cho album đang lọc.
+        const btnFileManagerAlbumSetSlideshowBg = document.getElementById('btn-file-manager-album-set-slideshow-bg');
         const btnFileManagerAlbumRename = document.getElementById('btn-file-manager-album-rename');
         const btnFileManagerAlbumDelete = document.getElementById('btn-file-manager-album-delete');
         const fileManagerImageSelectionBar = document.getElementById('file-manager-image-selection-bar');
