@@ -132,12 +132,14 @@ event/virtual-machine-state.js      ← [ver 12] object VirtualMachineState.run(
 <mỗi cụm, theo đúng thứ tự trong index.html — xem bảng patch ở changelog/v11.md mục 2>
   event/workflow/settings-misc.js → event/router/settings-misc.js → event/listener/settings-misc.js
   event/workflow/playlist.js → event/router/playlist.js → event/listener/playlist.js
-  event/router/player-controls.js → event/listener/player-controls.js         (không có workflow)
+  event/workflow/player-controls.js → event/router/player-controls.js → event/listener/player-controls.js
+                                       (MỚI 03/07/2026, fix mục 3b — trước đây "không có workflow")
   event/workflow/visualizer-display.js → event/router/visualizer-display.js → event/listener/visualizer-display.js
   event/router/stats-panel.js → event/listener/stats-panel.js                 (không có workflow)
   event/router/sav-logo.js → event/listener/sav-logo.js                       (không có workflow)
   event/workflow/language-settings.js → event/router/language-settings.js → event/listener/language-settings.js
-  event/router/playlist-empty-state.js → event/listener/playlist-empty-state.js (không có workflow)
+  event/workflow/playlist-empty-state.js → event/router/playlist-empty-state.js → event/listener/playlist-empty-state.js
+                                       (MỚI 03/07/2026, fix mục 3a — trước đây "không có workflow")
   event/workflow/subtitle-modal.js → event/router/subtitle-modal.js → event/listener/subtitle-modal.js
   event/router/auto-switch-visual.js → event/listener/auto-switch-visual.js   (không có workflow)
   event/workflow/visualizer-control-center.js → event/router/visualizer-control-center.js → event/listener/visualizer-control-center.js

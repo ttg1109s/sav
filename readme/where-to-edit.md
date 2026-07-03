@@ -49,7 +49,7 @@
 | Điều khiển hiển thị Visualizer (màu/EQ mode/bar style...) | `core/visualizer/visualizer-display.js`; listener/router qua cụm `visualizerDisplay` (có workflow) |
 | Mở/đóng drawer Visualizer/Subtitle, đổi kiểu hiệu ứng, giữ màn hình sáng | `core/visualizer/visualizer-misc-settings.js`; listener/router qua cụm `visualizerMiscSettings` (patch 13) |
 | Control Center (panel 6 icon trên Visualizer) | `components/visualizer-overlay.js` (HTML), `core/state-and-video-bg.js` (mở/đóng panel); listener/router/workflow qua cụm `visualizerControlCenter` (patch 11) |
-| Logic phát nhạc, next/prev, shuffle | `core/playlist/actions.js` (`playSong`), `core/playlist/order.js` (hàng đợi/shuffle), `core/player-controls.js` (next/prev); listener/router qua cụm `playerControls` (patch 3, KHÔNG có workflow) |
+| Logic phát nhạc, next/prev, shuffle | `core/playlist/actions.js` (`playSong`), `core/playlist/order.js` (hàng đợi/shuffle), `core/player-controls.js` (next/prev/toggleShuffle); listener/router qua cụm `playerControls` (patch 3) — 16/17 msg.type KHÔNG có workflow, RIÊNG `shuffle.click` có `event/workflow/player-controls.js` (MỚI 03/07/2026, trộn theo "hiện hành" — xem comment đầu file) |
 | Lưu trữ IndexedDB (nhạc/tag/cover/sub/ảnh-video nền) | `core/db.js` |
 | Lưu/đọc state phát nhạc qua localStorage khi tab bị ẩn | `core/resume-state-storage.js` (bao gồm vị trí video nền `videoCurrentTime`) |
 | Validate định dạng file upload | `core/upload-validation.js` |
