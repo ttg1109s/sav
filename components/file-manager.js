@@ -125,7 +125,11 @@ const TPL_FILE_MANAGER_FOLDER_DETAIL_DRAWER = `
                 <button id="btn-back-file-manager-folder-detail" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0" data-i18n-title="fileManager.song.folderDetail.back.title" title="${t('fileManager.song.folderDetail.back.title')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
                 </button>
-                <h2 id="file-manager-folder-detail-title" class="text-base sm:text-lg font-bold tracking-wider text-white uppercase truncate">—</h2>
+                <!-- MỚI (03/07/2026, đợt 6, điểm 4): BỎ class "uppercase" — đây là chỗ hiển thị
+                     TÊN THẬT của folder (không phải tiêu đề cố định của app như "File Manager ·
+                     Song"), ép hoa toàn bộ sẽ khiến 2 folder khác tên chỉ do khác hoa/thường (vd
+                     "abc" vs "ABC") trông GIỐNG HỆT NHAU trên UI dù DB coi là 2 tên khác nhau. -->
+                <h2 id="file-manager-folder-detail-title" class="text-base sm:text-lg font-bold tracking-wider text-white truncate">—</h2>
             </div>
         </div>
 
