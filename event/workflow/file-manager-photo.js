@@ -118,14 +118,20 @@ const workflowFileManagerPhoto = {
     /** Ứng với 'fileManagerPhoto.image.click' khi imageSelectionMode=true (xem router). Mutate
      * TRỰC TIẾP `selectedImageKeys` (Set) qua tham chiếu — router giữ nguyên object đó, KHÔNG cần
      * callback reset như `activeAlbumId` (primitive, xem deleteAlbumById() ở trên).
+     *
+     * FIX (03/07/2026, mục 3 — nhấp nháy toàn bộ lưới mỗi lần chạm 1 ảnh): bản trước gọi
+     * `this.refresh(...)` ở đây -> xây lại TOÀN BỘ masonry (revoke + tạo lại object URL mọi ảnh)
+     * chỉ vì 1 ô đổi trạng thái. Đổi sang patch DOM SURGICAL — chỉ đổi badge của ĐÚNG ô vừa chạm
+     * (`toggleImageSelectionBadge`) + text số lượng đã chọn (`updateImageSelectionCount`), KHÔNG
+     * đụng DOM node nào khác, KHÔNG đọc lại DB.
      * @param {string} imageKey
      * @param {Set<string>} selectedImageKeys
-     * @param {string|null} activeAlbumId
      */
-    toggleImageSelectionInSet(imageKey, selectedImageKeys, activeAlbumId) {
+    toggleImageSelectionInSet(imageKey, selectedImageKeys) {
         if (selectedImageKeys.has(imageKey)) selectedImageKeys.delete(imageKey);
         else selectedImageKeys.add(imageKey);
-        this.refresh(activeAlbumId, true, selectedImageKeys);
+        toggleImageSelectionBadge(imageKey, selectedImageKeys.has(imageKey)); // core, patch DOM surgical (core/file-manager/photo-ui.js)
+        updateImageSelectionCount(selectedImageKeys.size); // core, patch DOM surgical
     },
 
     /** Ứng với 'fileManagerPhoto.imageSelection.confirm'. addImagesToAlbum() tự bỏ qua ảnh đã có
@@ -185,60 +191,43 @@ const workflowFileManagerPhoto = {
             // MỚI (batch 03/07/2026, hạ tầng z-index nền Visual — nối nốt phần đã hoãn ở Batch 3).
             onSetPlaylistBg: async () => { await this.setAsPlaylistBackground(imageKey); },
             onSetVisualBg: async () => { await this.setAsVisualBackground(imageKey); },
+            // MỚI (03/07/2026, mục 4) — "Gỡ khỏi album" (KHÁC "Xoá khỏi thư viện" — ảnh vẫn còn
+            // nguyên trong File Manager, chỉ mất liên kết với album NÀY). CHỈ truyền callback khi
+            // đang thật sự lọc theo 1 album cụ thể (activeAlbumId != null) — photo-ui.js chỉ TẠO
+            // nút khi có callback này, không phải ẩn/hiện bằng CSS.
+            onRemoveFromAlbum: activeAlbumId ? async () => {
+                await removeImageFromAlbum(imageKey, activeAlbumId); // core có sẵn (core/file-manager/album.js, Batch 3)
+                await this.refresh(activeAlbumId);
+            } : undefined,
         });
     },
 
-    /** Ứng với nút "Đặt làm nền Playlist" trong modal xem ảnh.
-     *
-     * SỬA (03/07/2026, Giang chỉnh lại — bản đầu batch này thêm hẳn field `bgImageKey` "tham
-     * chiếu" mới, thừa/phức tạp không cần thiết): CHỈ ĐỔI NGUỒN của Blob, TÁI DÙNG NGUYÊN VẸN cơ
-     * chế lưu trữ đã có sẵn cho "Ảnh nền Playlist" (`meta.bgImage` + `vizConfig.bgImage`/
-     * `bgImageEnabled`, xem core/visualizer/visualizer-display.js — luồng upload trực tiếp) —
-     * giống hệt việc người dùng tự upload 1 file, chỉ khác NGUỒN file là Blob đã có sẵn trong store
-     * `images` thay vì hộp thoại chọn file hệ điều hành. KHÔNG cần field tham chiếu riêng, KHÔNG
-     * cần cascade dọn gì khi ảnh gốc trong File Manager bị xoá sau này (đã là bản copy độc lập).
+    /** Ứng với nút "Đặt làm nền Playlist" trong modal xem ảnh — TÁI DÙNG NGUYÊN applyBgImage()
+     * (core/visualizer/visualizer-display.js, cùng hàm mà nút "Chọn ảnh" ở Settings dùng — xem
+     * event/workflow/visualizer-display.js::pickBgImageFromLibrary) — không lặp lại logic.
      * @param {string} imageKey
      */
     async setAsPlaylistBackground(imageKey) {
         const record = await getImageRecord(imageKey); // data layer (core/db.js)
         if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
 
-        await withLoadingShield(t('common.loading.savingInfo'), async () => {
-            await setMeta('bgImage', record.blob); // data layer (core/db.js) — CÙNG Ô LƯU với luồng upload trực tiếp cũ
-            appState.mutate('vizConfig', cfg => {
-                if (cfg.bgImage && cfg.bgImage.startsWith('blob:')) URL.revokeObjectURL(cfg.bgImage);
-                cfg.bgImage = URL.createObjectURL(record.blob);
-                cfg.bgImageEnabled = true;
-            });
-            console.log(`writer: "setAsPlaylistBackground", page: "vizConfig", content: "bgImage từ ảnh ${imageKey} (copy Blob)"`);
-            updatePlaylistBg(); // core có sẵn (color-utils.js)
-            if (typeof bgImageEnableToggle !== 'undefined' && bgImageEnableToggle) bgImageEnableToggle.checked = true;
-            saveConfig(); // core có sẵn (config.js)
+        await withLoadingShield(t('common.loading.savingImageBg'), async () => {
+            await applyBgImage(record.blob); // core có sẵn (core/visualizer/visualizer-display.js)
         });
         await alertModal(t('fileManager.photo.image.setPlaylistBgSuccess'));
     },
 
-    /** Ứng với nút "Đặt làm nền Visual" trong modal xem ảnh — CÙNG NGUYÊN TẮC với
-     * setAsPlaylistBackground() ở trên (copy Blob, tái dùng `meta.visualBgImage` — 1 key MỚI
-     * nhưng CÙNG DẠNG với `meta.bgImage`/`meta.videoBg` đã có, không phải cơ chế mới).
+    /** Ứng với nút "Đặt làm nền Visual" trong modal xem ảnh — TÁI DÙNG NGUYÊN applyVisualBgImage()
+     * (core/state-and-video-bg.js, cùng hàm mà nút "Chọn ảnh" ở Settings dùng — xem
+     * event/workflow/visualizer-control-center.js::pickVisualBgImageFromLibrary).
      * @param {string} imageKey
      */
     async setAsVisualBackground(imageKey) {
         const record = await getImageRecord(imageKey); // data layer (core/db.js)
         if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
 
-        await withLoadingShield(t('common.loading.savingInfo'), async () => {
-            await setMeta('visualBgImage', record.blob); // data layer (core/db.js)
-            let objectUrl;
-            appState.mutate('vizConfig', cfg => {
-                if (cfg.visualBgImage && cfg.visualBgImage.startsWith('blob:')) URL.revokeObjectURL(cfg.visualBgImage);
-                objectUrl = URL.createObjectURL(record.blob);
-                cfg.visualBgImage = objectUrl;
-                cfg.visualBgImageEnabled = true;
-            });
-            console.log(`writer: "setAsVisualBackground", page: "vizConfig", content: "visualBgImage từ ảnh ${imageKey} (copy Blob)"`);
-            applyVisualBgImageToDOM(true, objectUrl); // core có sẵn (state-and-video-bg.js)
-            saveConfig(); // core có sẵn (config.js)
+        await withLoadingShield(t('common.loading.savingImageBg'), async () => {
+            await applyVisualBgImage(record.blob); // core có sẵn (core/state-and-video-bg.js)
         });
         await alertModal(t('fileManager.photo.image.setVisualBgSuccess'));
     }

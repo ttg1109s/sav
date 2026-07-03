@@ -10,26 +10,26 @@
  *     withLoadingShield() — luôn gọi SAU KHI shield đã đóng hẳn.
  *
  * Chỉ 2 msg.type của router "visualizerDisplay" cần shield (đụng IndexedDB qua setMeta/delMeta)
- * -> được giao cho workflow xử lý ở đây: 'visualizerDisplay.bgImage.upload' và
+ * -> được giao cho workflow xử lý ở đây: 'visualizerDisplay.bgImage.pickFromLibrary' và
  * 'visualizerDisplay.bgImage.toggle'. Mọi msg.type còn lại router tự gọi thẳng 1 hàm core, KHÔNG
  * đi qua workflow (xem router/visualizer-display.js).
  */
 const workflowVisualizerDisplay = {
 
     /**
-     * Ứng với msg.type = 'visualizerDisplay.bgImage.upload' — cần VALIDATE (có thể fail ->
-     * alertModal) rồi PHỐI HỢP shield + hàm core lưu ảnh -> rõ ràng là workflow.
-     * @param {{file: File}} payload
+     * FIX (03/07/2026, mục 1) — thay 'visualizerDisplay.bgImage.upload' (upload file trực tiếp)
+     * bằng picker chọn ảnh có sẵn trong File Manager. Đọc danh sách ảnh RỒI mở picker -> ≥2 bước
+     * -> workflow. Callback chọn xong TÁI DÙNG NGUYÊN applyBgImage() có sẵn (Blob từ store `images`
+     * coi như 1 File vừa "upload" — xem readme/song-cover-background-relations.md).
      */
-    async uploadBgImage(payload) {
-        const { file } = payload;
-        const check = validateBgImageFile(file); // core thuần, trả {status, reason?}
-        if (check.status === 'invalid') {
-            await alertModal(check.reason);
-            return;
-        }
-        await withLoadingShield(t('common.loading.savingImageBg'), async () => {
-            await applyBgImage(check.file); // "tay" cần file -> đưa file
+    async pickBgImageFromLibrary() {
+        const images = await listImages(); // core có sẵn (core/file-manager/image.js), CÓ return, DÙNG ngay dưới
+        openImageLibraryPickerModal(images, async (imageKey) => { // core/file-manager/photo-ui.js
+            const record = await getImageRecord(imageKey); // core có sẵn (core/db.js)
+            if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
+            await withLoadingShield(t('common.loading.savingImageBg'), async () => {
+                await applyBgImage(record.blob); // core có sẵn (core/visualizer/visualizer-display.js) — Blob coi như File vừa chọn
+            });
         });
     },
 
