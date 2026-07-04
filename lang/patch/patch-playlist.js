@@ -29,8 +29,9 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.songEdit.fieldArtist': 'Artist',
     'playlistView.songEdit.fieldAlbum': 'Album',
     'playlistView.songEdit.coverAlt': 'Cover art',
-    'playlistView.songEdit.coverChoose': 'Choose image',
-    'playlistView.songEdit.coverPickLibrary': 'Pick from photo library',
+    // VIẾT LẠI (04/07/2026, mục 3 phản hồi Giang) — bỏ hẳn nút Upload riêng (key 'coverChoose' cũ
+    // đã xoá) — chỉ còn 1 nút DUY NHẤT, đổi tên "Choose photo".
+    'playlistView.songEdit.coverPickLibrary': 'Choose photo',
     'playlistView.songEdit.coverRemove': 'Remove cover',
     'playlistView.songEdit.coverHint': 'Accepts PNG, JPG or WEBP. The image is stored with the song in IndexedDB and written to the APIC tag on export.',
     'playlistView.songEdit.btnCancel': 'Cancel',

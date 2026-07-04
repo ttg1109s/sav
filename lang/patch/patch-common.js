@@ -103,6 +103,8 @@ const LANG_PATCH_COMMON = {
     'common.appRecovery.restoreDefaultsBody': 'Restore default settings? Colors, effects, EQ, and all other display customizations will return to their original defaults. Your uploaded music and playlist will NOT be deleted.',
     'common.appRecovery.restoreDefaultsConfirmBtn': 'Restore defaults',
     'common.cancel': 'Cancel',
+    // MỚI (04/07/2026, mục 2 phản hồi Giang).
+    'common.save': 'Save',
     'common.ok': 'OK',
     'common.btn.upload': 'Upload',
 

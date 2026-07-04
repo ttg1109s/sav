@@ -73,6 +73,9 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'slideshowSettingsDrawer.transition.curtain': 'Curtain',
     'slideshowSettingsDrawer.transition.circleReveal': 'Circle reveal',
     'slideshowSettingsDrawer.transition.glitch': 'Glitch',
+    // MỚI (04/07/2026, mục 2 phản hồi Giang).
+    'slideshowSettingsDrawer.showCaption.label': 'Show caption',
+    'slideshowSettingsDrawer.showCaption.hint': "Show each photo's caption as a TikTok-style overlay",
 
     'settingsPlaylistBg.sectionTitle': 'Playlist & Background',
     'settingsPlaylistBg.viewMode.label': 'View',
