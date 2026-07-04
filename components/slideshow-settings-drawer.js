@@ -1,17 +1,17 @@
 /**
- * Component: Slideshow Settings Drawer (ngăn kéo "Cài đặt nền Slideshow") — Batch 8, ver 12
- * "Multi Media" (plan-v12-multimedia.md mục 4.b3, vị trí nút mở CHỐT ở
- * plan-v12-multimedia-update-3.md mục 3: dưới toggle "Hiện Visual" trong Settings chính, xem
- * components/settings/visualizer-geometry-color.js).
- *
- * Cùng pattern navigation stack với Visualizer/Subtitle Settings Drawer (z-[90], transform
- * translate-y-full, nút Back chỉ ẩn drawer này, không động #drawer-settings bên dưới).
- *
- * 3 khối nội dung:
- *   - Album nền: tên album đang dùng (hoặc "Chưa chọn") + nút "Chọn Album" (mở picker,
- *     core/file-manager/photo-ui.js::openAlbumPickerModal) + nút "Tắt" (chỉ hiện khi có album).
- *   - Cách chọn ảnh kế tiếp: Tuần tự / Ngẫu nhiên.
- *   - Thời gian mỗi ảnh (giây, tối thiểu 5) + Hiệu ứng chuyển cảnh (13 kiểu).
+ * Component: Slideshow Settings Drawer ("Cài đặt nền Slideshow") — Batch 8 (03/07/2026), VIẾT LẠI
+ * Batch 9 (04/07/2026, mục 4 phản hồi Giang):
+ *   1. GỘP 2 section cũ ("Album" + "Cách chiếu") thành 1 section DUY NHẤT.
+ *   2. Bỏ 2 nút "Chọn Album"/"Tắt" — thay bằng 1 cần gạt DUY NHẤT "#setting-slideshow-enable": gạt
+ *      "On" TỰ mở panel chọn Album ngay (giống 3 toggle nền Video/Ảnh đã sửa ở mục 1 — cùng ngày);
+ *      huỷ/đóng panel không chọn gì -> tự gạt về "off". Khi ĐANG bật, hàng
+ *      "#slideshow-current-album-row" hiện ra (tên + avatar tròn album đang chạy) — BẤM VÀO hàng
+ *      này để MỞ LẠI panel đổi sang album khác bất kỳ lúc nào (không cần gạt tắt/bật lại).
+ *   3. Panel chọn Album ĐỔI HẲN sang kiểu "notify center" — TÁI DÙNG class `.glass-control-center`
+ *      + animation scale/opacity của `#visualizer-control-center` (xem assets/css/style.css) thay
+ *      cho modal tối toàn màn hình cũ (`openAlbumPickerModal`, ĐÃ XOÁ). Album hiển thị GRID hình
+ *      TRÒN (cùng shape avatar ở story slider Photo & Album). Album đang active có viền sáng +
+ *      vòng "đang chạy" quay quanh; các album khác bị blur mờ (chỉ khi CÓ 1 album đang active).
  *
  * Logic: event/workflow/slideshow.js (workflowSlideshow); listener/router: cụm "slideshowSettings"
  * (event/listener,router/slideshow.js).
@@ -30,24 +30,35 @@ const TPL_SLIDESHOW_SETTINGS_DRAWER = `
         <div class="flex-grow overflow-y-auto px-4 py-6 sm:px-8 pb-20">
             <div class="max-w-2xl mx-auto space-y-8">
 
-                <!-- SECTION: ALBUM NỀN -->
+                <!-- SECTION DUY NHẤT (Batch 9 — gộp 2 section cũ) -->
                 <div>
-                    <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2" data-i18n="slideshowSettingsDrawer.albumSectionTitle">${t('slideshowSettingsDrawer.albumSectionTitle')}</h3>
+                    <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2" data-i18n="slideshowSettingsDrawer.sectionTitle">${t('slideshowSettingsDrawer.sectionTitle')}</h3>
                     <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
-                        <div class="flex justify-between items-center p-4 gap-3">
-                            <span id="slideshow-settings-album-name" class="text-sm font-semibold text-white truncate min-w-0" data-i18n="slideshowSettingsDrawer.album.none">${t('slideshowSettingsDrawer.album.none')}</span>
-                            <div class="flex items-center gap-2 shrink-0">
-                                <button id="btn-slideshow-pick-album" class="px-3.5 py-2 rounded-lg bg-fuchsia-500 hover:bg-fuchsia-400 text-white text-sm font-bold transition-colors shadow" data-i18n="slideshowSettingsDrawer.btnPickAlbum">${t('slideshowSettingsDrawer.btnPickAlbum')}</button>
-                                <button id="btn-slideshow-clear-album" class="hidden px-3.5 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-sm font-semibold transition-colors" data-i18n="slideshowSettingsDrawer.btnClearAlbum">${t('slideshowSettingsDrawer.btnClearAlbum')}</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- SECTION: CÁCH CHIẾU -->
-                <div>
-                    <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2" data-i18n="slideshowSettingsDrawer.playbackSectionTitle">${t('slideshowSettingsDrawer.playbackSectionTitle')}</h3>
-                    <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
+                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
+                            <div class="pr-3">
+                                <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.enable.label">${t('slideshowSettingsDrawer.enable.label')}</div>
+                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="slideshowSettingsDrawer.enable.hint">${t('slideshowSettingsDrawer.enable.hint')}</div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="setting-slideshow-enable" class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-fuchsia-500 shadow-inner"></div>
+                            </label>
+                        </div>
+
+                        <!-- MỚI (Batch 9) — hàng hiện album đang chạy, CHỈ hiện khi đang bật (JS
+                             toggle class hidden). Bấm vào để MỞ LẠI panel đổi sang album khác. -->
+                        <button id="slideshow-current-album-row" class="hidden justify-between items-center gap-3 p-4 border-b border-white/5 hover:bg-white/5 transition-colors text-left w-full">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div id="slideshow-current-album-thumb" class="w-10 h-10 rounded-full overflow-hidden bg-white/10 shrink-0 bg-cover bg-center"></div>
+                                <div class="min-w-0">
+                                    <div class="text-xs text-slate-400" data-i18n="slideshowSettingsDrawer.album.label">${t('slideshowSettingsDrawer.album.label')}</div>
+                                    <div id="slideshow-settings-album-name" class="text-sm font-semibold text-white truncate" data-i18n="slideshowSettingsDrawer.album.none">${t('slideshowSettingsDrawer.album.none')}</div>
+                                </div>
+                            </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        </button>
+
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <span class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.mode.label">${t('slideshowSettingsDrawer.mode.label')}</span>
                             <select id="setting-slideshow-mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
@@ -85,5 +96,16 @@ const TPL_SLIDESHOW_SETTINGS_DRAWER = `
 
             </div>
         </div>
+    </div>
+
+    <!-- MỚI (Batch 9, mục 4) — Panel chọn Album kiểu "notify center" (TÁI DÙNG pattern
+         #visualizer-control-center: overlay mờ + panel .glass-control-center scale/opacity). Mount
+         Ở NGOÀI #drawer-slideshow-settings (z-index cao hơn hẳn, [130]/[131]) để không bị giới hạn
+         bởi overflow/transform của drawer cha. -->
+    <div id="slideshow-album-picker-overlay" class="hidden fixed inset-0 z-[130] pointer-events-auto bg-black/40"></div>
+    <div id="slideshow-album-picker-panel" class="fixed inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[440px] top-1/2 -translate-y-1/2 glass-control-center rounded-3xl shadow-2xl transform scale-0 opacity-0 transition-all duration-300 ease-out z-[131] pointer-events-auto p-5 max-h-[70vh] flex flex-col">
+        <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-4 text-center shrink-0" data-i18n="slideshowSettingsDrawer.albumPicker.title">${t('slideshowSettingsDrawer.albumPicker.title')}</h3>
+        <div id="slideshow-album-picker-grid" class="grid grid-cols-3 gap-x-2 gap-y-5 overflow-y-auto"></div>
+        <p id="slideshow-album-picker-empty" class="hidden text-sm text-slate-300 text-center py-8" data-i18n="slideshowSettingsDrawer.albumPicker.empty">${t('slideshowSettingsDrawer.albumPicker.empty')}</p>
     </div>
 `;
