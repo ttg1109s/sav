@@ -50,6 +50,22 @@ async function saveImage(file, filename) {
 }
 
 /**
+ * MỚI (04/07/2026, mục 2 phản hồi Giang) — đặt/xoá caption cho 1 ảnh (field MỚI trong record, ảnh
+ * cũ chưa từng có caption coi như '' — không cần migrate DB_VERSION vì idb-keyval lưu object tự do,
+ * thêm field mới không phá record cũ). Đọc lại record đầy đủ trước (giữ nguyên blob/filename/
+ * addedAt), chỉ ghi đè `caption`, lưu lại NGUYÊN record — 1 tiến trình duy nhất.
+ * @param {string} imageKey
+ * @param {string} caption - truyền '' để xoá caption.
+ * @returns {Promise<{status: 'notFound'|'ok'}>}
+ */
+async function setImageCaption(imageKey, caption) {
+    const record = await getImageRecord(imageKey); // data layer
+    if (!record) return { status: 'notFound' };
+    await setImageRecord(imageKey, { ...record, caption });
+    return { status: 'ok' };
+}
+
+/**
  * Xoá hẳn 1 ảnh khỏi thư viện — dọn cascade khỏi MỌI album đang chứa nó TRƯỚC khi xoá record.
  * Cascade viết TRỰC TIẾP trong thân hàm (không gọi ra 1 hàm core riêng ở album.js) — cùng nguyên
  * tắc deleteFolder() ở core/file-manager/folder.js: dọn cascade + xoá record CHÍNH là 1 tiến trình

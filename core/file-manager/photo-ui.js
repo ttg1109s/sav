@@ -122,6 +122,10 @@ function renderAlbumStory(albums, activeAlbumId, imageRecordsByKey) {
  *      nguyên trong tham số `images` (biến JS, không mất) — cuộn NGƯỢC lại gần 1 chunk đã thu gọn
  *      tự "khôi phục" lại tile thật NGAY (chỉ tạo lại object URL từ Blob có sẵn, KHÔNG đọc lại
  *      IndexedDB) qua observer riêng gắn trên tile đầu mỗi chunk.
+ * @param {HTMLElement} containerEl - MỚI (04/07/2026, mục 3 phản hồi Giang) — tham số hoá container
+ *      (trước đây hardcode `fileManagerImageMasonry`) để TÁI DÙNG ĐƯỢC toàn bộ hàm này (layout +
+ *      chunk load/collapse) cho modal khác — xem `openPhotoUiImagePickerModal()` (picker cover bài
+ *      hát, event/workflow/playlist.js).
  * @param {Array<{key: string, blob: Blob, filename: string}>} images
  * @param {boolean} [selectionMode]
  * @param {Set<string>} [selectedImageKeys]
@@ -131,6 +135,7 @@ const MASONRY_KEEP_CHUNKS = 3; // giữ tối đa 3 chunk (90 ảnh) "sống" (�
 
 // Bookkeeping của lần renderImageMasonry() gần nhất — reset mỗi lần gọi lại từ đầu (đổi album/thư
 // mục khác, hoặc bật/tắt chế độ chọn nhiều).
+let _masonryContainerEl = null;
 let _masonryImages = [];
 let _masonrySelectionMode = false;
 let _masonrySelectedKeys = null;
@@ -139,17 +144,18 @@ let _masonryHighestLoadedChunk = -1;
 let _masonryGrowObserver = null;
 let _masonryRestoreObservers = [];
 
-function renderImageMasonry(images, selectionMode, selectedImageKeys) {
-    if (!fileManagerImageMasonry) return; // guard
+function renderImageMasonry(containerEl, images, selectionMode, selectedImageKeys) {
+    if (!containerEl) return; // guard
 
     _teardownMasonryWatchers();
-    fileManagerImageMasonry.querySelectorAll('[data-has-object-url]').forEach((node) => {
+    containerEl.querySelectorAll('[data-has-object-url]').forEach((node) => {
         if (node._objectUrl) { try { URL.revokeObjectURL(node._objectUrl); } catch (e) {} }
     });
-    fileManagerImageMasonry.innerHTML = '';
+    containerEl.innerHTML = '';
 
-    if (fileManagerImageEmpty) fileManagerImageEmpty.classList.toggle('hidden', images.length > 0);
+    if (fileManagerImageEmpty && containerEl === fileManagerImageMasonry) fileManagerImageEmpty.classList.toggle('hidden', images.length > 0);
 
+    _masonryContainerEl = containerEl;
     _masonryImages = images;
     _masonrySelectionMode = selectionMode;
     _masonrySelectedKeys = selectedImageKeys;
@@ -159,9 +165,8 @@ function renderImageMasonry(images, selectionMode, selectedImageKeys) {
     if (images.length === 0) return;
 
     const sentinel = document.createElement('div');
-    sentinel.id = 'masonry-bottom-sentinel';
-    sentinel.className = 'col-span-full h-px';
-    fileManagerImageMasonry.appendChild(sentinel);
+    sentinel.className = 'masonry-bottom-sentinel col-span-full h-px';
+    containerEl.appendChild(sentinel);
 
     _loadNextMasonryChunk(); // chunk 0 — hiện ngay, không chờ cuộn
 
@@ -186,11 +191,11 @@ function _loadNextMasonryChunk() {
     }
     const start = nextIndex * MASONRY_CHUNK_SIZE;
     const end = Math.min(start + MASONRY_CHUNK_SIZE, _masonryImages.length);
-    const sentinel = document.getElementById('masonry-bottom-sentinel');
+    const sentinel = _masonryContainerEl.querySelector('.masonry-bottom-sentinel'); // SCOPED (04/07/2026, mục 3) — không còn getElementById toàn cục, tránh đụng độ id nếu 2 masonry cùng tồn tại (File Manager + picker cover bài hát)
     const tiles = [];
     for (let i = start; i < end; i++) {
         const tile = _buildMasonryTile(_masonryImages[i]);
-        fileManagerImageMasonry.insertBefore(tile, sentinel); // chèn TRƯỚC sentinel — sentinel luôn ở cuối cùng
+        _masonryContainerEl.insertBefore(tile, sentinel); // chèn TRƯỚC sentinel — sentinel luôn ở cuối cùng
         tiles.push(tile);
     }
     _masonryChunkTiles.set(nextIndex, tiles);
@@ -527,6 +532,71 @@ function openImageCarouselPickerModal(images, onSelect, onCancel) {
     document.body.appendChild(overlay);
 }
 
+// ===================== Picker cover bài hát — TÁI DÙNG view Photo UI mới (04/07/2026, mục 3) =====
+// THAY hẳn openImageLibraryPickerModal() (lưới columns cũ) cho RIÊNG chỗ "Chọn ảnh" ở tab Cover
+// (Edit song info, event/workflow/playlist.js) — dùng ĐÚNG `renderImageMasonry()` (grid ô vuông +
+// chunk load/collapse, xem comment hàm đó) vừa viết lại cho Photo & Album, tận dụng NGUYÊN layout/
+// hiệu năng đó thay vì duy trì 2 kiểu lưới ảnh khác nhau trong project.
+/**
+ * @param {Array<{key: string, blob: Blob, filename: string}>} images
+ * @param {(imageKey: string) => void} onSelect
+ * @param {() => void} [onCancel]
+ */
+function openPhotoUiImagePickerModal(images, onSelect, onCancel) {
+    const stale = document.getElementById('photo-ui-image-picker-overlay');
+    if (stale) stale.remove();
+
+    let hasSelected = false;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'photo-ui-image-picker-overlay';
+    overlay.className = 'fixed inset-0 z-[130] bg-black flex flex-col';
+
+    function closeModal() {
+        overlay.remove();
+        if (!hasSelected && typeof onCancel === 'function') onCancel();
+    }
+
+    const header = document.createElement('div');
+    header.className = 'flex justify-between items-center px-4 py-3 shrink-0';
+    const titleEl = document.createElement('h3');
+    titleEl.className = 'text-base font-bold text-white';
+    titleEl.textContent = t('playlistView.songEdit.coverPickLibrary');
+    header.appendChild(titleEl);
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white';
+    closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
+    closeBtn.addEventListener('click', closeModal);
+    header.appendChild(closeBtn);
+    overlay.appendChild(header);
+
+    if (images.length === 0) {
+        const emptyEl = document.createElement('p');
+        emptyEl.className = 'flex-1 flex items-center justify-center text-sm text-slate-400 text-center px-8';
+        emptyEl.textContent = t('fileManager.photo.image.empty');
+        overlay.appendChild(emptyEl);
+    } else {
+        const grid = document.createElement('div');
+        grid.className = 'flex-1 overflow-y-auto px-2 pb-4 grid grid-cols-3 sm:grid-cols-4 gap-1';
+        overlay.appendChild(grid);
+        renderImageMasonry(grid, images, false, null); // core/file-manager/photo-ui.js — TÁI DÙNG NGUYÊN layout + chunk load/collapse
+
+        // Click chọn — delegated riêng cho modal này (KHÁC listener của File Manager, đóng ngay +
+        // gọi onSelect thay vì mở preview), cùng chuẩn `data-image-key` mà renderImageMasonry() đặt
+        // trên mọi tile (kể cả sau khi 1 chunk được thu gọn/khôi phục).
+        grid.addEventListener('click', (e) => {
+            const tile = e.target.closest('button[data-image-key]');
+            if (!tile) return;
+            hasSelected = true;
+            const imageKey = tile.dataset.imageKey;
+            closeModal();
+            onSelect(imageKey);
+        });
+    }
+
+    document.body.appendChild(overlay);
+}
+
 // ===================== Picker chọn 1 ảnh dùng chung (MỚI batch 03/07/2026) =====================
 // Dùng bởi tab "Ảnh bìa" (modal Sửa thông tin bài hát, components/playlist-view.js) — xem
 // readme/song-cover-background-relations.md mục 2/3. Lưới ảnh CHỈ ĐỌC (không xoá/không album),
@@ -749,21 +819,23 @@ function openCreateAlbumModal(onConfirm) {
 // core/file-manager/folder-picker-ui.js) — KHÔNG thuộc phạm vi 4 rule core-function-conventions.md
 // (rule đó áp cho hàm NGHIỆP VỤ, không áp cho hàm dựng UI).
 //
-// MỚI (batch 03/07/2026) — modal xem ảnh: 2 nút "Đặt làm nền" (Playlist/Visual, nối nốt phần đã
-// hoãn ở Batch 3) + nút "Gỡ khỏi album" (fix mục 4, CHỈ hiện khi đang xem ảnh TRONG 1 album cụ thể
-// — activeAlbumId != null, xem event/workflow/file-manager-photo.js::openImagePreview).
+// VIẾT LẠI HOÀN TOÀN (04/07/2026, mục 2 phản hồi Giang):
+//   1. GOM tất cả nút (Gỡ khỏi album/Đặt làm nền Playlist/Đặt làm nền Visual/Xoá) vào 1 menu
+//      dropdown mở qua nút "..." — CHỈ còn X (đóng) đứng riêng như cũ.
+//   2. THÊM tính năng CAPTION — hiện caption hiện có (nếu có) dưới ảnh, bấm vào để sửa (input +
+//      Lưu/Huỷ), lưu qua `callbacks.onSaveCaption(caption)`.
 /**
- * @param {{key: string, blob: Blob, filename: string}} image
- * @param {{onDelete: () => void, onSetPlaylistBg: () => void, onSetVisualBg: () => void, onRemoveFromAlbum?: () => void}} callbacks
- *        onRemoveFromAlbum TUỲ CHỌN — chỉ truyền khi đang lọc theo 1 album cụ thể, nút "Gỡ khỏi
- *        album" CHỈ hiện khi có callback này (không phải CSS ẩn/hiện, mà đơn giản KHÔNG TẠO nút
- *        nếu không có callback — tránh nút bấm vào không làm gì).
+ * @param {{key: string, blob: Blob, filename: string, caption?: string}} image
+ * @param {{onDelete: () => void, onSetPlaylistBg: () => void, onSetVisualBg: () => void, onRemoveFromAlbum?: () => void, onSaveCaption: (caption: string) => void}} callbacks
+ *        onRemoveFromAlbum TUỲ CHỌN — chỉ truyền khi đang lọc theo 1 album cụ thể, mục "Gỡ khỏi
+ *        album" CHỈ hiện trong menu khi có callback này.
  */
 function openImagePreviewModal(image, callbacks) {
     const stale = document.getElementById('image-preview-overlay');
     if (stale) stale.remove();
 
     const objectUrl = URL.createObjectURL(image.blob);
+    let currentCaption = image.caption || '';
 
     const overlay = document.createElement('div');
     overlay.id = 'image-preview-overlay';
@@ -774,33 +846,41 @@ function openImagePreviewModal(image, callbacks) {
         overlay.remove();
     }
 
+    // ---- Header: X đóng (trái) + "..." menu (phải) ----
     const header = document.createElement('div');
-    header.className = 'flex justify-between items-center px-4 py-3 shrink-0 gap-2';
+    header.className = 'flex justify-between items-center px-4 py-3 shrink-0 gap-2 relative';
     const closeBtn = document.createElement('button');
     closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
     closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
     closeBtn.addEventListener('click', closeModal);
     header.appendChild(closeBtn);
 
-    const rightBtnGroup = document.createElement('div');
-    rightBtnGroup.className = 'flex items-center gap-2';
-    if (callbacks.onRemoveFromAlbum) {
-        const removeFromAlbumBtn = document.createElement('button');
-        removeFromAlbumBtn.className = 'px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white text-sm font-semibold';
-        removeFromAlbumBtn.textContent = t('fileManager.photo.image.btnRemoveFromAlbum');
-        removeFromAlbumBtn.addEventListener('click', () => { closeModal(); callbacks.onRemoveFromAlbum(); });
-        rightBtnGroup.appendChild(removeFromAlbumBtn);
+    const menuBtn = document.createElement('button');
+    menuBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
+    menuBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg>';
+    header.appendChild(menuBtn);
+
+    const menu = document.createElement('div');
+    menu.className = 'hidden absolute top-14 right-3 z-10 w-56 rounded-2xl bg-[#1a1a1e] border border-white/10 shadow-2xl overflow-hidden flex flex-col py-1';
+    function closeMenu() { menu.classList.add('hidden'); }
+    menuBtn.addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('hidden'); });
+
+    function addMenuItem(label, danger, onClick) {
+        const item = document.createElement('button');
+        item.className = `text-left px-4 py-3 text-sm font-medium hover:bg-white/10 transition-colors ${danger ? 'text-rose-400' : 'text-white'}`;
+        item.textContent = label;
+        item.addEventListener('click', () => { closeMenu(); closeModal(); onClick(); });
+        menu.appendChild(item);
     }
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'px-4 py-2 rounded-full bg-rose-600/90 hover:bg-rose-500 transition-colors text-white text-sm font-semibold';
-    deleteBtn.textContent = t('fileManager.photo.image.btnDelete');
-    deleteBtn.addEventListener('click', () => { closeModal(); callbacks.onDelete(); });
-    rightBtnGroup.appendChild(deleteBtn);
-    header.appendChild(rightBtnGroup);
+    addMenuItem(t('fileManager.photo.image.btnSetPlaylistBg'), false, callbacks.onSetPlaylistBg);
+    addMenuItem(t('fileManager.photo.image.btnSetVisualBg'), false, callbacks.onSetVisualBg);
+    if (callbacks.onRemoveFromAlbum) addMenuItem(t('fileManager.photo.image.btnRemoveFromAlbum'), false, callbacks.onRemoveFromAlbum);
+    addMenuItem(t('fileManager.photo.image.btnDelete'), true, callbacks.onDelete);
+    header.appendChild(menu);
     overlay.appendChild(header);
 
     const imgWrap = document.createElement('div');
-    imgWrap.className = 'flex-1 flex items-center justify-center px-4 pb-6 min-h-0';
+    imgWrap.className = 'flex-1 flex items-center justify-center px-4 pb-2 min-h-0';
     const img = document.createElement('img');
     img.src = objectUrl;
     img.alt = image.filename;
@@ -808,22 +888,63 @@ function openImagePreviewModal(image, callbacks) {
     imgWrap.appendChild(img);
     overlay.appendChild(imgWrap);
 
-    // MỚI — hàng "Đặt làm nền", 2 nút ngang bằng nhau, dưới ảnh, trên safe-area đáy màn hình.
-    const setBgRow = document.createElement('div');
-    setBgRow.className = 'flex gap-3 px-4 pb-6 shrink-0';
-    const setPlaylistBgBtn = document.createElement('button');
-    setPlaylistBgBtn.className = 'flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-white text-sm font-semibold transition-colors';
-    setPlaylistBgBtn.textContent = t('fileManager.photo.image.btnSetPlaylistBg');
-    setPlaylistBgBtn.addEventListener('click', () => { closeModal(); callbacks.onSetPlaylistBg(); });
-    const setVisualBgBtn = document.createElement('button');
-    setVisualBgBtn.className = 'flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-white text-sm font-semibold transition-colors';
-    setVisualBgBtn.textContent = t('fileManager.photo.image.btnSetVisualBg');
-    setVisualBgBtn.addEventListener('click', () => { closeModal(); callbacks.onSetVisualBg(); });
-    setBgRow.appendChild(setPlaylistBgBtn);
-    setBgRow.appendChild(setVisualBgBtn);
-    overlay.appendChild(setBgRow);
+    // ---- MỚI (mục 2) — hàng Caption: hiện caption hiện có (hoặc placeholder mời nhập), bấm vào
+    // để sửa (input + Lưu/Huỷ). ----
+    const captionRow = document.createElement('div');
+    captionRow.className = 'px-4 pb-4 shrink-0';
+    overlay.appendChild(captionRow);
 
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+    function renderCaptionDisplay() {
+        captionRow.replaceChildren();
+        const displayBtn = document.createElement('button');
+        displayBtn.className = 'w-full text-left px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors';
+        const label = document.createElement('div');
+        label.className = 'text-[11px] text-slate-400 uppercase tracking-wider mb-0.5';
+        label.textContent = t('fileManager.photo.image.captionLabel');
+        displayBtn.appendChild(label);
+        const textEl = document.createElement('div');
+        textEl.className = currentCaption ? 'text-sm text-white' : 'text-sm text-slate-500 italic';
+        textEl.textContent = currentCaption || t('fileManager.photo.image.captionPlaceholder');
+        displayBtn.appendChild(textEl);
+        displayBtn.addEventListener('click', renderCaptionEditor);
+        captionRow.appendChild(displayBtn);
+    }
+
+    function renderCaptionEditor() {
+        captionRow.replaceChildren();
+        const box = document.createElement('div');
+        box.className = 'px-4 py-3 rounded-xl bg-white/5 border border-sky-500/40 flex flex-col gap-2';
+        const inputEl = document.createElement('textarea');
+        inputEl.className = 'w-full bg-transparent text-sm text-white outline-none resize-none placeholder:text-slate-500';
+        inputEl.rows = 2;
+        inputEl.maxLength = 200;
+        inputEl.placeholder = t('fileManager.photo.image.captionPlaceholder');
+        inputEl.value = currentCaption;
+        box.appendChild(inputEl);
+        const btnRow = document.createElement('div');
+        btnRow.className = 'flex justify-end gap-2';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:bg-white/10 transition-colors';
+        cancelBtn.textContent = t('common.cancel');
+        cancelBtn.addEventListener('click', renderCaptionDisplay);
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'px-4 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-white transition-colors';
+        saveBtn.textContent = t('common.save');
+        saveBtn.addEventListener('click', () => {
+            currentCaption = inputEl.value.trim();
+            callbacks.onSaveCaption(currentCaption);
+            renderCaptionDisplay();
+        });
+        btnRow.appendChild(cancelBtn);
+        btnRow.appendChild(saveBtn);
+        box.appendChild(btnRow);
+        captionRow.appendChild(box);
+        inputEl.focus();
+    }
+
+    renderCaptionDisplay();
+
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); else closeMenu(); });
 
     document.body.appendChild(overlay);
 }
