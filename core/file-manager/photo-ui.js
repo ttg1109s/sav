@@ -106,18 +106,43 @@ function renderAlbumStory(albums, activeAlbumId, imageRecordsByKey) {
 // ===================== Masonry ảnh =====================
 
 /**
- * MỚI (batch tiếp theo 03/07/2026, mục 2.3) — thêm 2 tham số selectionMode/selectedImageKeys, hàm
- * VẪN THUẦN (không I/O, không appState — Rule 2 N/A cho hàm dựng UI nhưng vẫn giữ đúng tinh thần
- * "nhận qua tham số" cho nhất quán). Khi selectionMode=true, mỗi tile thêm 1 dấu tick tròn góc trên
- * phải (đã chọn = nền sky-500, chưa chọn = viền trắng mờ) — click tile lúc này KHÔNG mở preview mà
- * toggle chọn/bỏ (xem event/router/file-manager-photo.js).
+ * VIẾT LẠI HOÀN TOÀN (04/07/2026, mục 3 phản hồi Giang — "layout đang rất bullshit"):
+ *   1. Layout đổi từ CSS `columns` (masonry cột, thứ tự duyệt LỆCH theo cột — xem
+ *      components/file-manager.js) sang GRID Ô VUÔNG ĐỀU (`grid grid-cols-3 sm:grid-cols-4`,
+ *      mỗi tile `aspect-square` + `object-cover`) — kiểu Google Images đơn giản hoá (không cần
+ *      "justified rows" thật, vẫn thẳng hàng ngang dọc gọn gàng, KHÔNG cần biết trước tỉ lệ ảnh).
+ *   2. KHÔNG còn tạo TOÀN BỘ DOM node ngay từ đầu (trước đây `images.forEach` tạo hết mọi tile dù
+ *      chưa cuộn tới — hại DOM thật với thư viện lớn). Giờ chia CHUNK cố định
+ *      (`MASONRY_CHUNK_SIZE` ảnh/chunk), CHỈ render chunk 0 lúc mở; cuộn gần hết chunk đang có ->
+ *      tự thêm chunk kế tiếp (`_masonryGrowObserver`, sentinel cuối danh sách).
+ *   3. Chunk cuộn QUÁ XA (vượt `MASONRY_KEEP_CHUNKS` chunk gần vị trí đang tải nhất) tự "thu gọn"
+ *      — THAY tile ảnh thật bằng tile placeholder RỖNG CÙNG KÍCH THƯỚC Ô LƯỚI (nhờ layout đã đổi
+ *      sang Ô VUÔNG ĐỀU ở bước 1, placeholder trống luôn khớp y hệt kích thước tile thật -> KHÔNG
+ *      lệch layout/nhảy cuộn khi thu gọn, không cần đo `offsetHeight` gì cả). Blob GỐC vẫn còn
+ *      nguyên trong tham số `images` (biến JS, không mất) — cuộn NGƯỢC lại gần 1 chunk đã thu gọn
+ *      tự "khôi phục" lại tile thật NGAY (chỉ tạo lại object URL từ Blob có sẵn, KHÔNG đọc lại
+ *      IndexedDB) qua observer riêng gắn trên tile đầu mỗi chunk.
  * @param {Array<{key: string, blob: Blob, filename: string}>} images
  * @param {boolean} [selectionMode]
  * @param {Set<string>} [selectedImageKeys]
  */
+const MASONRY_CHUNK_SIZE = 30;
+const MASONRY_KEEP_CHUNKS = 3; // giữ tối đa 3 chunk (90 ảnh) "sống" (ảnh thật) quanh vị trí đang tải gần nhất
+
+// Bookkeeping của lần renderImageMasonry() gần nhất — reset mỗi lần gọi lại từ đầu (đổi album/thư
+// mục khác, hoặc bật/tắt chế độ chọn nhiều).
+let _masonryImages = [];
+let _masonrySelectionMode = false;
+let _masonrySelectedKeys = null;
+let _masonryChunkTiles = new Map(); // chunkIndex -> Array<tileEl> (đúng thứ tự trong chunk đó)
+let _masonryHighestLoadedChunk = -1;
+let _masonryGrowObserver = null;
+let _masonryRestoreObservers = [];
+
 function renderImageMasonry(images, selectionMode, selectedImageKeys) {
     if (!fileManagerImageMasonry) return; // guard
 
+    _teardownMasonryWatchers();
     fileManagerImageMasonry.querySelectorAll('[data-has-object-url]').forEach((node) => {
         if (node._objectUrl) { try { URL.revokeObjectURL(node._objectUrl); } catch (e) {} }
     });
@@ -125,30 +150,151 @@ function renderImageMasonry(images, selectionMode, selectedImageKeys) {
 
     if (fileManagerImageEmpty) fileManagerImageEmpty.classList.toggle('hidden', images.length > 0);
 
-    images.forEach((image) => {
-        const tile = document.createElement('button');
-        tile.dataset.imageKey = image.key;
-        tile.dataset.hasObjectUrl = '1';
-        tile.className = 'relative block w-full mb-2 break-inside-avoid rounded-xl overflow-hidden bg-white/5 border border-white/10';
+    _masonryImages = images;
+    _masonrySelectionMode = selectionMode;
+    _masonrySelectedKeys = selectedImageKeys;
+    _masonryChunkTiles = new Map();
+    _masonryHighestLoadedChunk = -1;
 
-        const img = document.createElement('img');
-        img.className = 'w-full h-auto block';
-        img.alt = image.filename;
-        tile.appendChild(img);
+    if (images.length === 0) return;
 
-        if (selectionMode) {
-            const isSelected = selectedImageKeys.has(image.key);
-            const badge = document.createElement('span');
-            badge.className = `absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-colors ${isSelected ? 'bg-sky-500 border-sky-400' : 'bg-black/40 border-white/60'}`;
-            if (isSelected) {
-                badge.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
-            }
-            tile.appendChild(badge);
+    const sentinel = document.createElement('div');
+    sentinel.id = 'masonry-bottom-sentinel';
+    sentinel.className = 'col-span-full h-px';
+    fileManagerImageMasonry.appendChild(sentinel);
+
+    _loadNextMasonryChunk(); // chunk 0 — hiện ngay, không chờ cuộn
+
+    _masonryGrowObserver = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) _loadNextMasonryChunk();
+    }, { root: null, rootMargin: '800px' });
+    _masonryGrowObserver.observe(sentinel);
+}
+
+/** Tổng số chunk của lần render hiện tại — tính lại mỗi lần gọi (rẻ, không cần cache riêng). */
+function _masonryTotalChunks() {
+    return Math.ceil(_masonryImages.length / MASONRY_CHUNK_SIZE);
+}
+
+/** Nạp chunk KẾ TIẾP (chưa từng tải) — gọi lúc mở lần đầu (chunk 0) VÀ mỗi khi sentinel cuối danh
+ * sách lọt vào viewport. Tự dừng hẳn (disconnect observer) khi đã tải hết toàn bộ chunk. */
+function _loadNextMasonryChunk() {
+    const nextIndex = _masonryHighestLoadedChunk + 1;
+    if (nextIndex >= _masonryTotalChunks()) {
+        if (_masonryGrowObserver) { _masonryGrowObserver.disconnect(); _masonryGrowObserver = null; }
+        return;
+    }
+    const start = nextIndex * MASONRY_CHUNK_SIZE;
+    const end = Math.min(start + MASONRY_CHUNK_SIZE, _masonryImages.length);
+    const sentinel = document.getElementById('masonry-bottom-sentinel');
+    const tiles = [];
+    for (let i = start; i < end; i++) {
+        const tile = _buildMasonryTile(_masonryImages[i]);
+        fileManagerImageMasonry.insertBefore(tile, sentinel); // chèn TRƯỚC sentinel — sentinel luôn ở cuối cùng
+        tiles.push(tile);
+    }
+    _masonryChunkTiles.set(nextIndex, tiles);
+    _masonryHighestLoadedChunk = nextIndex;
+
+    _collapseFarMasonryChunks();
+    _watchMasonryChunkForRestore(nextIndex);
+}
+
+/** Thu gọn MỌI chunk cũ hơn `MASONRY_KEEP_CHUNKS` chunk tính từ chunk mới nhất vừa tải. */
+function _collapseFarMasonryChunks() {
+    const oldestToKeep = _masonryHighestLoadedChunk - MASONRY_KEEP_CHUNKS + 1;
+    _masonryChunkTiles.forEach((tiles, chunkIndex) => {
+        if (chunkIndex < oldestToKeep && tiles[0] && tiles[0].dataset.collapsed !== '1') {
+            _collapseMasonryChunk(chunkIndex);
         }
-
-        _observeLazyThumbnail(tile, image.blob, img);
-        fileManagerImageMasonry.appendChild(tile);
     });
+}
+
+/** Thu gọn 1 chunk — thay từng tile ảnh thật bằng placeholder RỖNG CÙNG class kích thước ô lưới
+ * (`aspect-square`) nên KHÔNG lệch layout. Revoke hết object URL đang giữ (giải phóng bộ nhớ thật
+ * — đây chính là phần "để trong RAM cache tạm" mà Giang nhắc: Blob GỐC vẫn còn trong `_masonryImages`,
+ * chỉ object URL runtime bị dọn). */
+function _collapseMasonryChunk(chunkIndex) {
+    const tiles = _masonryChunkTiles.get(chunkIndex);
+    if (!tiles) return;
+    tiles.forEach((tile) => {
+        if (tile._objectUrl) { try { URL.revokeObjectURL(tile._objectUrl); } catch (e) {} tile._objectUrl = null; }
+        _thumbnailLazyObserver.unobserve(tile); // phòng tile đang chờ lazy-load dở dang lúc bị thu gọn
+        tile.replaceChildren();
+        tile.className = 'aspect-square rounded-xl bg-white/5 border border-white/5';
+        tile.removeAttribute('data-image-key'); // MẤU CHỐT: listener delegated lọc theo 'button[data-image-key]' — bỏ thuộc tính này để bấm vào placeholder không kích hoạt gì
+        tile.dataset.collapsed = '1';
+    });
+}
+
+/** Khôi phục 1 chunk đã bị thu gọn — dựng lại đúng nội dung tile thật từ `_masonryImages` (Blob
+ * vẫn còn nguyên trong RAM, KHÔNG đọc lại IndexedDB). */
+function _expandMasonryChunk(chunkIndex) {
+    const tiles = _masonryChunkTiles.get(chunkIndex);
+    if (!tiles) return;
+    const start = chunkIndex * MASONRY_CHUNK_SIZE;
+    tiles.forEach((tile, offset) => {
+        const image = _masonryImages[start + offset];
+        if (!image) return;
+        tile.className = 'relative block aspect-square rounded-xl overflow-hidden bg-white/5 border border-white/10';
+        delete tile.dataset.collapsed;
+        _fillMasonryTile(tile, image);
+    });
+}
+
+/** Dựng 1 tile MỚI (chunk vừa tải lần đầu) — khung ngoài + gọi `_fillMasonryTile()` để đổ nội dung. */
+function _buildMasonryTile(image) {
+    const tile = document.createElement('button');
+    tile.className = 'relative block aspect-square rounded-xl overflow-hidden bg-white/5 border border-white/10';
+    _fillMasonryTile(tile, image);
+    return tile;
+}
+
+/** Đổ nội dung THẬT (ảnh + badge chọn nhiều nếu có) vào 1 tile — dùng CHUNG bởi `_buildMasonryTile()`
+ * (tile mới) VÀ `_expandMasonryChunk()` (tile được khôi phục sau khi thu gọn). */
+function _fillMasonryTile(tile, image) {
+    tile.dataset.imageKey = image.key;
+    tile.dataset.hasObjectUrl = '1';
+    tile.replaceChildren();
+
+    const img = document.createElement('img');
+    img.className = 'w-full h-full object-cover block';
+    img.alt = image.filename;
+    tile.appendChild(img);
+
+    if (_masonrySelectionMode) {
+        const isSelected = _masonrySelectedKeys.has(image.key);
+        const badge = document.createElement('span');
+        badge.className = `absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-colors ${isSelected ? 'bg-sky-500 border-sky-400' : 'bg-black/40 border-white/60'}`;
+        if (isSelected) {
+            badge.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
+        }
+        tile.appendChild(badge);
+    }
+
+    _observeLazyThumbnail(tile, image.blob, img);
+}
+
+/** Gắn 1 observer "canh chừng" cho tile ĐẦU của 1 chunk vừa tải — phát hiện lúc cuộn NGƯỢC lại gần
+ * 1 chunk ĐÃ bị thu gọn (ở tương lai) thì tự khôi phục. Chỉ cần theo dõi 1 tile đại diện/chunk là đủ
+ * (cả chunk luôn cùng vào/ra viewport gần như đồng thời — không cần observer riêng cho từng tile). */
+function _watchMasonryChunkForRestore(chunkIndex) {
+    const tiles = _masonryChunkTiles.get(chunkIndex);
+    if (!tiles || tiles.length === 0) return;
+    const anchor = tiles[0];
+    const observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && anchor.dataset.collapsed === '1') _expandMasonryChunk(chunkIndex);
+    }, { root: null, rootMargin: '800px' });
+    observer.observe(anchor);
+    _masonryRestoreObservers.push(observer);
+}
+
+/** Dọn sạch MỌI observer của lần render trước — gọi ở ĐẦU `renderImageMasonry()` mỗi lần render
+ * lại từ đầu, tránh rò rỉ observer của danh sách ảnh cũ. */
+function _teardownMasonryWatchers() {
+    if (_masonryGrowObserver) { _masonryGrowObserver.disconnect(); _masonryGrowObserver = null; }
+    _masonryRestoreObservers.forEach((o) => o.disconnect());
+    _masonryRestoreObservers = [];
 }
 
 // ===================== Lazy-load thuần (IntersectionObserver) =====================
@@ -234,6 +380,151 @@ function openRenameAlbumModal(currentName, onConfirm) {
     overlay.appendChild(card);
     document.body.appendChild(overlay);
     inputEl.focus();
+}
+
+// ===================== Carousel chọn 1 ẢNH nền (Visual/Playlist) — MỚI 04/07/2026, mục 2 =========
+// THAY openImageLibraryPickerModal() (lưới ảnh, ngay dưới) CHO RIÊNG 2 chỗ "Use Visualizer/
+// Playlist background image" (event/workflow/visualizer-control-center.js,
+// event/workflow/visualizer-display.js) — hiện ĐÚNG 1 ảnh lớn/lúc, prev/next VÔ HẠN (ảnh cuối
+// next về ảnh đầu, vòng lặp qua modulo), CHỈ giữ tối đa 5 ảnh (current ± 2) trong DOM cùng lúc —
+// tránh quá tải DOM với thư viện ảnh lớn (yêu cầu Giang). KHÔNG đụng openImageLibraryPickerModal()
+// — vẫn dùng riêng cho picker chọn cover bài hát (event/workflow/playlist.js), ngữ cảnh đó hợp lý
+// hơn với dạng lưới để quét nhanh nhiều ảnh cùng lúc.
+const CAROUSEL_WINDOW_RADIUS = 2; // giữ current ± 2 = tối đa 5 ảnh trong DOM cùng lúc
+
+/**
+ * Tính tập index CẦN giữ trong DOM quanh `currentIndex` — vòng lặp vô hạn qua modulo, bán kính
+ * `radius` mỗi phía. Tự khử trùng lặp khi `totalLength` nhỏ hơn cả cửa sổ (vd chỉ có 3 ảnh,
+ * radius=2 vẫn chỉ trả tối đa 3 index duy nhất, không lặp lại).
+ * @param {number} currentIndex
+ * @param {number} totalLength
+ * @param {number} radius
+ * @returns {number[]}
+ */
+function computeCarouselWindowIndices(currentIndex, totalLength, radius) {
+    if (totalLength <= 0) return [];
+    const seen = new Set();
+    for (let offset = -radius; offset <= radius; offset++) {
+        seen.add(((currentIndex + offset) % totalLength + totalLength) % totalLength);
+    }
+    return [...seen];
+}
+
+/**
+ * @param {Array<{key: string, blob: Blob, filename: string}>} images
+ * @param {(imageKey: string) => void} onSelect
+ * @param {() => void} [onCancel] - gọi khi đóng modal MÀ CHƯA chọn ảnh nào (nút X/bấm ra ngoài) —
+ *   dùng để nơi gọi tự trả toggle "On" về "off" (cùng cơ chế đã thống nhất ở mục 1, 04/07/2026).
+ */
+function openImageCarouselPickerModal(images, onSelect, onCancel) {
+    const stale = document.getElementById('image-carousel-picker-overlay');
+    if (stale) stale.remove();
+
+    if (images.length === 0) {
+        if (typeof onCancel === 'function') onCancel();
+        alertModal(t('fileManager.photo.image.empty'));
+        return;
+    }
+
+    let currentIndex = 0;
+    let hasSelected = false;
+    const loadedSlides = new Map(); // index -> { el, objectUrl }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'image-carousel-picker-overlay';
+    overlay.className = 'fixed inset-0 z-[130] bg-black flex flex-col';
+
+    function closeModal() {
+        loadedSlides.forEach(({ objectUrl }) => { try { URL.revokeObjectURL(objectUrl); } catch (e) {} });
+        loadedSlides.clear();
+        overlay.remove();
+        if (!hasSelected && typeof onCancel === 'function') onCancel();
+    }
+
+    const header = document.createElement('div');
+    header.className = 'flex justify-between items-center px-4 py-3 shrink-0';
+    const counter = document.createElement('span');
+    counter.className = 'text-sm text-slate-300 font-mono';
+    header.appendChild(counter);
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white';
+    closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
+    closeBtn.addEventListener('click', closeModal);
+    header.appendChild(closeBtn);
+    overlay.appendChild(header);
+
+    const viewport = document.createElement('div');
+    viewport.className = 'flex-1 relative overflow-hidden';
+    overlay.appendChild(viewport);
+
+    const footer = document.createElement('div');
+    footer.className = 'flex items-center justify-between gap-3 p-4 shrink-0';
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0 disabled:opacity-30';
+    prevBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>';
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'flex-1 py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors shadow';
+    confirmBtn.textContent = t('fileManager.photo.carousel.confirmButton');
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0 disabled:opacity-30';
+    nextBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>';
+    footer.appendChild(prevBtn);
+    footer.appendChild(confirmBtn);
+    footer.appendChild(nextBtn);
+    overlay.appendChild(footer);
+
+    /** Đảm bảo slide tại `index` đã có trong DOM (tạo mới nếu chưa) — object URL CHỈ tạo lúc này. */
+    function ensureSlide(index) {
+        if (loadedSlides.has(index)) return;
+        const image = images[index];
+        const el = document.createElement('div');
+        el.className = 'absolute inset-0 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200';
+        const img = document.createElement('img');
+        img.className = 'max-w-full max-h-full object-contain';
+        img.alt = image.filename;
+        const objectUrl = URL.createObjectURL(image.blob);
+        img.src = objectUrl;
+        el.appendChild(img);
+        viewport.appendChild(el);
+        loadedSlides.set(index, { el, objectUrl });
+    }
+
+    /** Vẽ lại toàn bộ: đảm bảo đúng cửa sổ (current ± CAROUSEL_WINDOW_RADIUS) đang tồn tại trong
+     * DOM, dọn slide đã rớt khỏi cửa sổ (revoke object URL luôn), rồi hiện đúng slide active. */
+    function render() {
+        const total = images.length;
+        counter.textContent = `${currentIndex + 1} / ${total}`;
+        prevBtn.disabled = total <= 1;
+        nextBtn.disabled = total <= 1;
+
+        const windowIndices = computeCarouselWindowIndices(currentIndex, total, CAROUSEL_WINDOW_RADIUS);
+        windowIndices.forEach((idx) => ensureSlide(idx));
+
+        Array.from(loadedSlides.keys()).forEach((idx) => {
+            if (windowIndices.includes(idx)) return;
+            const { el, objectUrl } = loadedSlides.get(idx);
+            try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+            el.remove();
+            loadedSlides.delete(idx);
+        });
+
+        loadedSlides.forEach(({ el }, idx) => {
+            el.classList.toggle('opacity-100', idx === currentIndex);
+            el.classList.toggle('opacity-0', idx !== currentIndex);
+        });
+    }
+
+    prevBtn.addEventListener('click', () => { currentIndex = (currentIndex - 1 + images.length) % images.length; render(); });
+    nextBtn.addEventListener('click', () => { currentIndex = (currentIndex + 1) % images.length; render(); });
+    confirmBtn.addEventListener('click', () => {
+        hasSelected = true;
+        const key = images[currentIndex].key;
+        closeModal();
+        onSelect(key);
+    });
+
+    render();
+    document.body.appendChild(overlay);
 }
 
 // ===================== Picker chọn 1 ảnh dùng chung (MỚI batch 03/07/2026) =====================
