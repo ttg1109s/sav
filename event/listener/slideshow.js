@@ -24,12 +24,6 @@ if (settingSlideshowEnableToggle) {
     });
 }
 
-if (slideshowCurrentAlbumRow) {
-    slideshowCurrentAlbumRow.addEventListener('click', () => {
-        eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.currentAlbumRow.click', payload: {} });
-    });
-}
-
 if (slideshowAlbumPickerOverlay) {
     slideshowAlbumPickerOverlay.addEventListener('click', () => {
         eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.albumPicker.overlay.click', payload: {} });
@@ -39,6 +33,13 @@ if (slideshowAlbumPickerOverlay) {
 if (slideshowModeSelect) {
     slideshowModeSelect.addEventListener('change', () => {
         eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.mode.change', payload: { value: slideshowModeSelect.value } });
+    });
+}
+
+// MỚI (04/07/2026, mục 5) — toggle "Photo per song".
+if (settingSlideshowPhotoPerSongToggle) {
+    settingSlideshowPhotoPerSongToggle.addEventListener('change', (e) => {
+        eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.photoPerSong.change', payload: { checked: e.target.checked } });
     });
 }
 
