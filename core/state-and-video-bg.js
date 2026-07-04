@@ -138,8 +138,11 @@
             handleVideoBackground(); saveConfig();
         }
 
-        /** Core thuần: thực thi TẮT video nền + xoá blob/meta đã lưu (phần KHÔNG cần shield —
-         *  shield bọc quanh phần xoá IndexedDB ở workflow, core chỉ làm phần đồng bộ state/UI). */
+        /** Core thuần: thực thi TẮT video nền — CHỈ dọn object URL runtime + đồng bộ state/UI.
+         *  FIX (04/07/2026, mục 1 phản hồi Giang — ĐẢO NGƯỢC quyết định trước, xem lịch sử patch):
+         *  KHÔNG còn xoá `meta.videoBg` trong IndexedDB nữa — Blob GIỮ NGUYÊN để lần "gạt On" kế
+         *  tiếp kích hoạt lại NGAY qua `applyUploadedVideoBg()` (đọc lại chính blob này) mà KHÔNG
+         *  cần mở lại hộp thoại chọn file. */
         function disableVideoBackgroundState() {
             appState.mutate('vizConfig', cfg => {
                 cfg.videoBgEnabled = false;
@@ -213,12 +216,12 @@
         }
 
         /**
-         * MỚI (03/07/2026, mục 1/2 fix) — lưu Blob mới vào IndexedDB (`meta.visualBgImage`) + áp
-         * dụng làm nền tĩnh Visual hiện tại. CÙNG KHUÔN `applyBgImage()`
-         * (core/visualizer/visualizer-display.js, nền Playlist) — DÙNG CHUNG bởi CẢ 2 nơi đặt nền
-         * Visual (Settings -> nút "Chọn ảnh" MỚI, VÀ menu "Đặt làm nền Visual" trên ảnh ở Photo &
-         * Album), tránh lặp lại logic 2 chỗ. Core thuần, KHÔNG tự bọc shield (nơi gọi tự
-         * withLoadingShield() quanh lệnh gọi hàm async này).
+         * CÙNG KHUÔN `applyBgImage()` (core/visualizer/visualizer-display.js, nền Playlist) — DÙNG
+         * CHUNG bởi CẢ 2 nơi đặt nền Visual (Settings -> gạt "On" MỚI CHỌN LẦN ĐẦU, VÀ menu "Đặt
+         * làm nền Visual" trên ảnh ở Photo & Album), tránh lặp lại logic 2 chỗ. Core thuần, KHÔNG tự
+         * bọc shield (nơi gọi tự withLoadingShield() quanh lệnh gọi hàm async này). CŨNG dùng lại
+         * để "kích hoạt lại" 1 blob ĐÃ CÓ SẴN trong IndexedDB (setMeta ghi đè cùng giá trị — rẻ,
+         * không cần tách hàm riêng "chỉ áp dụng không ghi" — xem workflow gọi hàm này).
          * @param {Blob} blob
          */
         async function applyVisualBgImage(blob) {
@@ -236,14 +239,17 @@
         }
 
         /**
-         * MỚI (03/07/2026, mục 2) — tắt nền tĩnh Visual, XOÁ LUÔN Blob đã lưu (`meta.visualBgImage`)
-         * — cùng hành vi `applyBgImageEnabled(false)` cho nền Playlist (core/visualizer/
-         * visualizer-display.js): "tắt" ở đây đồng nghĩa "bỏ hẳn", bật lại cần chọn ảnh mới qua
-         * picker (không có khái niệm "tạm tắt rồi bật lại y nguyên"). Core thuần, KHÔNG tự bọc
-         * shield (đụng IndexedDB qua delMeta — nơi gọi tự withLoadingShield()).
+         * FIX (04/07/2026, mục 1 phản hồi Giang — ĐẢO NGƯỢC quyết định trước đó, xem lịch sử patch):
+         * "tắt" KHÔNG CÒN xoá Blob đã lưu trong IndexedDB nữa — chỉ dọn object URL runtime
+         * (`vizConfig.visualBgImage`) + ẩn DOM + tắt cờ `visualBgImageEnabled`. Blob thật
+         * (`meta.visualBgImage`) GIỮ NGUYÊN trong IndexedDB, để lần "gạt On" kế tiếp có thể kích
+         * hoạt lại NGAY LẬP TỨC qua `applyVisualBgImage()` (đọc lại chính blob này) mà KHÔNG cần mở
+         * lại picker — xem event/workflow/visualizer-control-center.js::onVisualBgImageEnableChange().
+         * Core thuần — KHÔNG tự bọc shield (không còn đụng IndexedDB nữa nên thực ra không còn cần
+         * shield thật sự, nhưng workflow vẫn giữ nguyên lệnh gọi qua withLoadingShield cho nhất
+         * quán — vô hại).
          */
-        async function disableVisualBgImageState() {
-            await delMeta('visualBgImage');
+        function disableVisualBgImageState() {
             appState.mutate('vizConfig', cfg => {
                 if (cfg.visualBgImage && cfg.visualBgImage.startsWith('blob:')) URL.revokeObjectURL(cfg.visualBgImage);
                 cfg.visualBgImageEnabled = false;
