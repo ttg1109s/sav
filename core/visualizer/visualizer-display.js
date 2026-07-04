@@ -69,7 +69,8 @@
             if (cfg.type === 'vortex') {
                 if(!appState.get('tInitialized')) initThreeJS();
                 updateVortexVisibility();
-                if (!playlistView.classList.contains('-translate-y-full')) {} else { document.getElementById('webgl-canvas').classList.remove('opacity-0'); }
+                // FIX (04/07/2026, mục 4) — 'playlist-hidden' THAY '-translate-y-full' (dọc -> ngang).
+                if (!playlistView.classList.contains('playlist-hidden')) {} else { document.getElementById('webgl-canvas').classList.remove('opacity-0'); }
             } else { document.getElementById('webgl-canvas').classList.add('opacity-0'); }
 
             if (cfg.type === 'vortex') { blockVortex.classList.remove('hidden'); blockVortex.classList.add('flex'); }
