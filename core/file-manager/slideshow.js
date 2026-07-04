@@ -88,18 +88,37 @@ function setSlideshowLayerImage(layerEl, objectUrl) {
     layerEl.style.backgroundImage = objectUrl ? `url(${objectUrl})` : '';
 }
 
+/** 4 biến thể hướng pan/zoom Ken Burns (mục 4 phản hồi Giang: bản cũ CHỈ 1 hướng cố định — luôn
+ * scale nhẹ + đẩy về góc trên-trái, linear, "đơ"/máy móc). Mỗi lần 1 ảnh trở thành "current", chọn
+ * NGẪU NHIÊN 1 trong 4 để cảm giác sống động, không lặp lại y hệt liên tục. CSS tương ứng ở
+ * assets/css/slideshow.css (`.ss-kenburns-1`..`.ss-kenburns-4`, `ease-in-out` thay vì `linear`). */
+const SLIDESHOW_KENBURNS_VARIANTS = ['ss-kenburns-1', 'ss-kenburns-2', 'ss-kenburns-3', 'ss-kenburns-4'];
+
+/**
+ * Core thuần: chọn NGẪU NHIÊN 1 trong 4 biến thể Ken Burns — TÁCH RIÊNG khỏi
+ * applySlideshowKenBurns() (Rule 1: "chọn biến thể" và "áp dụng" là 2 việc khác nhau; hàm áp dụng
+ * nhận biến thể qua tham số, không tự chọn bên trong).
+ * @returns {string} 1 trong 4 class ở SLIDESHOW_KENBURNS_VARIANTS.
+ */
+function pickRandomSlideshowKenBurnsVariant() {
+    return SLIDESHOW_KENBURNS_VARIANTS[Math.floor(Math.random() * SLIDESHOW_KENBURNS_VARIANTS.length)];
+}
+
 /**
  * Core thuần: bật/tắt hiệu ứng Ken Burns (pan/zoom chậm SUỐT thời gian hiển thị — khác transition
  * lúc đổi cảnh) trên 1 layer. `durationMs` khớp khoảng cách giữa 2 lần đổi
  * (slideshowConfig.intervalSeconds * 1000) để pan/zoom "vừa khít" đúng 1 chu kỳ hiển thị.
+ * `variant` (1 trong SLIDESHOW_KENBURNS_VARIANTS, do nơi gọi chọn qua
+ * pickRandomSlideshowKenBurnsVariant() — Rule 2: nhận qua tham số, không tự chọn ở đây).
  */
-function applySlideshowKenBurns(layerEl, active, durationMs) {
+function applySlideshowKenBurns(layerEl, active, durationMs, variant) {
     if (!layerEl) return;
     if (active) {
         layerEl.style.animationDuration = `${Math.max(1000, durationMs)}ms`;
-        layerEl.classList.add('ss-kenburns');
+        layerEl.classList.remove(...SLIDESHOW_KENBURNS_VARIANTS);
+        layerEl.classList.add('ss-kenburns', variant && SLIDESHOW_KENBURNS_VARIANTS.includes(variant) ? variant : SLIDESHOW_KENBURNS_VARIANTS[0]);
     } else {
-        layerEl.classList.remove('ss-kenburns');
+        layerEl.classList.remove('ss-kenburns', ...SLIDESHOW_KENBURNS_VARIANTS);
         layerEl.style.animationDuration = '';
     }
 }
@@ -128,6 +147,27 @@ function beginSlideshowTransition(outgoingLayerEl, incomingLayerEl, durationMs) 
         incomingLayerEl.classList.remove('ss-layer-enter');
         incomingLayerEl.classList.add('ss-current');
     }, durationMs, 'slideshowTransitionCleanup');
+}
+
+/**
+ * Core thuần: hiện/ẩn panel chọn Album (Batch 9, mục 4) — CÙNG kiểu animation với
+ * #visualizer-control-center (scale-0/opacity-0 <-> bỏ, xem core/state-and-video-bg.js::
+ * openControlCenter/closeControlCenter). 2 phần tử riêng (overlay mờ phía sau + panel nổi) vì
+ * panel này có thể mở TỪ Slideshow Settings Drawer (đã là 1 lớp overlay khác) — cần lớp overlay
+ * riêng để bắt sự kiện "bấm ra ngoài -> đóng" mà không đóng nhầm luôn cả Settings Drawer bên dưới.
+ * @param {HTMLElement} overlayEl
+ * @param {HTMLElement} panelEl
+ * @param {boolean} visible
+ */
+function setSlideshowAlbumPickerVisible(overlayEl, panelEl, visible) {
+    if (!overlayEl || !panelEl) return;
+    if (visible) {
+        overlayEl.classList.remove('hidden');
+        panelEl.classList.remove('scale-0', 'opacity-0');
+    } else {
+        overlayEl.classList.add('hidden');
+        panelEl.classList.add('scale-0', 'opacity-0');
+    }
 }
 
 /**

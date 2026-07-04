@@ -20,6 +20,14 @@
  *
  * MỚI (Batch 8, 03/07/2026, slideshow nền Visual): `openAlbumPickerModal()` — picker chọn 1 ALBUM
  * (khác `openImageLibraryPickerModal()` chọn 1 ẢNH), dùng bởi Slideshow Settings Drawer.
+ *
+ * VIẾT LẠI (Batch 9, 04/07/2026, mục 4 phản hồi Giang): `openAlbumPickerModal()` (modal tối toàn
+ * màn hình) ĐÃ XOÁ, thay bằng `renderSlideshowAlbumPickerGrid()` — chỉ vẽ GRID album hình TRÒN vào
+ * panel TĨNH kiểu "notify center" đã mount sẵn (components/slideshow-settings-drawer.js, TÁI DÙNG
+ * class `.glass-control-center`).
+ *
+ * FIX (04/07/2026, mục 1 phản hồi Giang): `openImageLibraryPickerModal()` thêm tham số `onCancel`
+ * (tuỳ chọn) — gọi khi đóng modal mà CHƯA chọn ảnh nào, để nơi gọi tự trả toggle "On" về "off".
  */
 
 // ===================== Story slider Album =====================
@@ -236,7 +244,18 @@ function openRenameAlbumModal(currentName, onConfirm) {
  * @param {Array<{key: string, blob: Blob, filename: string}>} images
  * @param {(imageKey: string) => void} onSelect
  */
-function openImageLibraryPickerModal(images, onSelect) {
+/**
+ * FIX (04/07/2026, mục 1 phản hồi Giang) — thêm tham số `onCancel` (tuỳ chọn): gọi khi modal bị
+ * đóng qua nút X hoặc bấm ra ngoài overlay MÀ CHƯA chọn ảnh nào — trước đây KHÔNG có, nên khi dùng
+ * picker này để mở TỪ 1 CÔNG TẮC (gạt On -> mở picker), đóng modal mà không chọn gì khiến công tắc
+ * kẹt ở "on" dù chưa thật sự có ảnh nào được set (bug đã báo). Nơi gọi (workflow) dùng `onCancel`
+ * để tự trả công tắc về "off". KHÔNG đổi hành vi cũ của các nơi gọi không cần `onCancel` (tham số
+ * tuỳ chọn, bỏ qua nếu không truyền).
+ * @param {Array<{key: string, blob: Blob, filename: string}>} images
+ * @param {(imageKey: string) => void} onSelect
+ * @param {() => void} [onCancel]
+ */
+function openImageLibraryPickerModal(images, onSelect, onCancel) {
     const stale = document.getElementById('image-library-picker-overlay');
     if (stale) stale.remove();
 
@@ -244,7 +263,11 @@ function openImageLibraryPickerModal(images, onSelect) {
     overlay.id = 'image-library-picker-overlay';
     overlay.className = 'fixed inset-0 z-[130] bg-black/85 backdrop-blur-sm flex flex-col';
 
-    function closeModal() { overlay.remove(); }
+    let hasSelected = false;
+    function closeModal() {
+        overlay.remove();
+        if (!hasSelected && typeof onCancel === 'function') onCancel();
+    }
 
     const header = document.createElement('div');
     header.className = 'flex justify-between items-center px-4 py-3 shrink-0';
@@ -276,7 +299,7 @@ function openImageLibraryPickerModal(images, onSelect) {
             img.alt = image.filename;
             tile.appendChild(img);
             _observeLazyThumbnail(tile, image.blob, img);
-            tile.addEventListener('click', () => { closeModal(); onSelect(image.key); });
+            tile.addEventListener('click', () => { hasSelected = true; overlay.remove(); onSelect(image.key); });
             grid.appendChild(tile);
         });
     }
@@ -287,64 +310,60 @@ function openImageLibraryPickerModal(images, onSelect) {
     document.body.appendChild(overlay);
 }
 
-// ===================== Picker chọn 1 ALBUM dùng chung (MỚI Batch 8, slideshow) =====================
-// Dùng bởi Slideshow Settings Drawer ("Chọn Album", event/workflow/slideshow.js::promptPickAlbum)
-// — KHÁC openImageLibraryPickerModal() (chọn 1 ẢNH). Danh sách phẳng, CHỈ ĐỌC (bấm 1 album là
-// chọn luôn + đóng modal) — cùng khuôn openImageLibraryPickerModal().
+// ===================== Grid chọn Album kiểu "notify center" (Batch 9, 04/07/2026, mục 4) ========
+// THAY openAlbumPickerModal() cũ (modal tối toàn màn hình, Batch 8) — panel container tĩnh
+// (#slideshow-album-picker-panel, components/slideshow-settings-drawer.js) đã mount sẵn, hàm này
+// CHỈ vẽ lại GRID bên trong mỗi lần mở (event/workflow/slideshow.js::openAlbumPicker). Album hình
+// TRÒN — cùng shape avatar ở renderAlbumStory() phía trên. Album ĐANG active có viền sáng + vòng
+// "đang chạy" quay quanh (.ss-picker-active, assets/css/slideshow.css); các album KHÁC bị blur mờ
+// (.ss-picker-blurred) — CHỈ áp dụng khi CÓ 1 album đang active (chưa chọn gì thì hiện bình thường
+// hết, không có gì để "làm nổi bật" so với phần còn lại).
 /**
+ * @param {HTMLElement} gridEl
  * @param {Array<{id: string, name: string, imageKeys: string[]}>} albums
+ * @param {string|null} activeAlbumId
+ * @param {Map<string, Object>} imageRecordsByKey - key -> {blob,...}, dùng lấy ảnh đại diện đầu
+ *        tiên của mỗi album mà KHÔNG cần đọc DB lại (cùng pattern renderAlbumStory()).
  * @param {(albumId: string) => void} onSelect
  */
-function openAlbumPickerModal(albums, onSelect) {
-    const stale = document.getElementById('album-picker-overlay');
-    if (stale) stale.remove();
+function renderSlideshowAlbumPickerGrid(gridEl, albums, activeAlbumId, imageRecordsByKey, onSelect) {
+    if (!gridEl) return;
 
-    const overlay = document.createElement('div');
-    overlay.id = 'album-picker-overlay';
-    overlay.className = 'fixed inset-0 z-[130] bg-black/85 backdrop-blur-sm flex flex-col';
+    gridEl.querySelectorAll('[data-has-object-url]').forEach((node) => {
+        if (node._objectUrl) { try { URL.revokeObjectURL(node._objectUrl); } catch (e) {} }
+    });
+    gridEl.innerHTML = '';
 
-    function closeModal() { overlay.remove(); }
+    albums.forEach((album) => {
+        const isActive = album.id === activeAlbumId;
+        const isBlurred = !!activeAlbumId && !isActive;
 
-    const header = document.createElement('div');
-    header.className = 'flex justify-between items-center px-4 py-3 shrink-0';
-    const titleEl = document.createElement('h3');
-    titleEl.className = 'text-base font-bold text-white';
-    titleEl.textContent = t('slideshowSettingsDrawer.albumPicker.title');
-    header.appendChild(titleEl);
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white';
-    closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
-    closeBtn.addEventListener('click', closeModal);
-    header.appendChild(closeBtn);
-    overlay.appendChild(header);
+        const tile = document.createElement('button');
+        tile.className = `ss-album-tile${isBlurred ? ' ss-picker-blurred' : ''}${isActive ? ' ss-picker-active' : ''}`;
 
-    const list = document.createElement('div');
-    list.className = 'flex-1 overflow-y-auto px-4 pb-6 flex flex-col gap-2';
-    if (albums.length === 0) {
-        const emptyEl = document.createElement('p');
-        emptyEl.className = 'text-sm text-slate-400 text-center py-10';
-        emptyEl.textContent = t('slideshowSettingsDrawer.albumPicker.empty');
-        list.appendChild(emptyEl);
-    } else {
-        albums.forEach((album) => {
-            const item = document.createElement('button');
-            item.className = 'flex justify-between items-center px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-left transition-colors';
-            const nameEl = document.createElement('span');
-            nameEl.className = 'text-sm font-semibold text-white truncate';
-            nameEl.textContent = album.name;
-            item.appendChild(nameEl);
-            const countEl = document.createElement('span');
-            countEl.className = 'text-xs text-slate-400 shrink-0 ml-2';
-            countEl.textContent = tFormat('slideshowSettingsDrawer.albumPicker.imageCount', { count: album.imageKeys.length });
-            item.appendChild(countEl);
-            item.addEventListener('click', () => { closeModal(); onSelect(album.id); });
-            list.appendChild(item);
-        });
-    }
-    overlay.appendChild(list);
+        const avatarWrap = document.createElement('div');
+        avatarWrap.className = 'ss-album-tile-avatar-wrap';
+        const ring = document.createElement('div');
+        ring.className = 'ss-album-running-ring';
+        avatarWrap.appendChild(ring);
 
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
-    document.body.appendChild(overlay);
+        const avatar = document.createElement('div');
+        avatar.dataset.hasObjectUrl = '1';
+        avatar.className = 'ss-album-tile-avatar flex items-center justify-center text-slate-500';
+        avatar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>';
+        const firstImageKey = album.imageKeys.find((k) => imageRecordsByKey.has(k));
+        if (firstImageKey) _observeLazyThumbnail(avatar, imageRecordsByKey.get(firstImageKey).blob);
+        avatarWrap.appendChild(avatar);
+        tile.appendChild(avatarWrap);
+
+        const label = document.createElement('span');
+        label.className = `text-xs truncate max-w-[4.5rem] text-center ${isActive ? 'text-sky-300 font-semibold' : 'text-slate-300'}`;
+        label.textContent = album.name;
+        tile.appendChild(label);
+
+        tile.addEventListener('click', () => onSelect(album.id));
+        gridEl.appendChild(tile);
+    });
 }
 
 // ===================== Patch DOM surgical cho chế độ chọn nhiều (MỚI batch 03/07/2026, mục 3) ===
