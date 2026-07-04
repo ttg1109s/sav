@@ -3,7 +3,7 @@
  * Toàn bộ function MỚI ở file này viết từ đầu theo plan-v12-multimedia.md mục 4.b1 — tuân 4 rule
  * ở core-function-conventions.md.
  *
- * GHI CHÚ THIẾT KẾ (đọc trước khi sửa file này): các hàm CRUD thô định nghĩa ở core/db.js
+ * GHI CHÚ THIẾT KẾ (đọc trước khi sửa file này): các hàm CRUD thô định nghĩa ở service/db.js
  * (getFolderRecord/setFolderRecord/deleteFolderRecord/getAllFolderKeys,
  * getFolderSongMap/setFolderSongMap/deleteFolderSongMap) được coi là TẦNG DỮ LIỆU thuần (tương
  * đương idbKeyval.get/set/del dùng trực tiếp khắp project) — KHÔNG tính là "core khác" theo Rule 3
@@ -26,7 +26,7 @@
  *                 (record.folder[folderId] còn sót trên bài đã tombstone-rồi-folder-bị-xoá) đọc
  *                 nhầm sang 1 folder MỚI trùng id.
  *
- * NẠP SAU: core/db.js (cần mọi hàm CRUD kể trên + slugify() dùng chung cho resolveFolderId),
+ * NẠP SAU: service/db.js (cần mọi hàm CRUD kể trên + slugify() dùng chung cho resolveFolderId),
  * event/virtual-machine-state.js (addSongsToFolder() dùng VirtualMachineState.run() để chọn đúng
  * hàm theo trạng thái thành viên — chỉ tham chiếu BÊN TRONG thân hàm, không chạy lúc parse, nên
  * an toàn dù event/virtual-machine-state.js nạp SAU file này trong index.html thật, giống cách
@@ -56,7 +56,7 @@
 async function resolveFolderId(name) {
     const baseSlug = slugify(name) || 'folder'; // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
     console.log(`[resolveFolderId] callTo: "slugify", request: "chuẩn hoá tên '${name}' thành slug làm base cho id"`);
-    const deletedIds = (await getMeta('deletedFolderIds')) || []; // data layer (core/db.js)
+    const deletedIds = (await getMeta('deletedFolderIds')) || []; // data layer (service/db.js)
     let candidate = baseSlug;
     let suffix = 2;
     while (true) {
@@ -155,9 +155,9 @@ async function deleteFolder(folderId) {
  * @returns {Promise<void>}
  */
 async function clearAllFolderSongData() {
-    const ids = await getAllFolderKeys(); // data layer (core/db.js)
+    const ids = await getAllFolderKeys(); // data layer (service/db.js)
     for (const id of ids) {
-        await setFolderSongMap(id, { list: [], empty: 0 }); // data layer (core/db.js)
+        await setFolderSongMap(id, { list: [], empty: 0 }); // data layer (service/db.js)
     }
 }
 

@@ -1,7 +1,7 @@
 /**
  * core/file-manager/image.js — Ảnh trong File Manager → Photo & Album, ver 12 "Multi Media",
  * Batch 3 (03/07/2026). Schema ĐÃ CHỐT từ hạ tầng DB trước đó (xem comment DB_VERSION ở
- * core/db.js): store 'images', key = imageKey, value = { blob, filename, addedAt }.
+ * service/db.js): store 'images', key = imageKey, value = { blob, filename, addedAt }.
  *
  * KHÔNG có store quan hệ riêng ảnh<->album (khác hẳn folder<->song) — quan hệ nằm ở field
  * `imageKeys` NGAY TRÊN record album (xem core/file-manager/album.js) — đơn giản hơn vì album
@@ -11,12 +11,12 @@
  * Trùng filename: ÁP DỤNG Y HỆT logic resolveSongKey() (mục 6 "Đã chốt" — ảnh/docs dùng chung công
  * thức với song). KHÔNG lặp lại thuật toán, gọi thẳng slugify() dùng chung.
  *
- * NẠP SAU: core/db.js (getImageRecord/setImageRecord/deleteImageRecord/getAllImageKeys/slugify,
+ * NẠP SAU: service/db.js (getImageRecord/setImageRecord/deleteImageRecord/getAllImageKeys/slugify,
  * getAllAlbumKeys/getAlbumRecord/setAlbumRecord — dùng cho cascade dọn album trong deleteImage()).
  */
 
 /**
- * Sinh imageKey DUY NHẤT từ tên file — CÙNG THUẬT TOÁN resolveSongKey (core/db.js): slug chưa tồn
+ * Sinh imageKey DUY NHẤT từ tên file — CÙNG THUẬT TOÁN resolveSongKey (service/db.js): slug chưa tồn
  * tại -> dùng luôn; slug đã tồn tại + filename TRÙNG -> ghi đè cùng key; slug đã tồn tại + filename
  * KHÁC -> thêm hậu tố số.
  * @param {string} filename
@@ -28,7 +28,7 @@ async function resolveImageKey(filename) {
     let candidate = baseSlug;
     let suffix = 2;
     while (true) {
-        const existing = await getImageRecord(candidate); // data layer (core/db.js)
+        const existing = await getImageRecord(candidate); // data layer (service/db.js)
         if (!existing) return candidate;
         if (existing.filename === filename) return candidate; // cùng file -> ghi đè đúng key này
         candidate = `${baseSlug}-${suffix}`; suffix++;
@@ -65,13 +65,13 @@ async function deleteImage(imageKey) {
     const record = await getImageRecord(imageKey);
     if (!record) return { status: 'notFound' };
 
-    const albumIds = await getAllAlbumKeys(); // data layer (core/db.js)
+    const albumIds = await getAllAlbumKeys(); // data layer (service/db.js)
     for (const albumId of albumIds) {
-        const albumRecord = await getAlbumRecord(albumId); // data layer (core/db.js)
+        const albumRecord = await getAlbumRecord(albumId); // data layer (service/db.js)
         if (!albumRecord || !Array.isArray(albumRecord.imageKeys)) continue; // guard: dữ liệu hỏng/thiếu — bỏ qua, không chặn xoá ảnh
         if (albumRecord.imageKeys.includes(imageKey)) {
             albumRecord.imageKeys = albumRecord.imageKeys.filter(k => k !== imageKey);
-            await setAlbumRecord(albumId, albumRecord); // data layer (core/db.js)
+            await setAlbumRecord(albumId, albumRecord); // data layer (service/db.js)
         }
     }
 

@@ -3,27 +3,33 @@
  * xem core/state-and-video-bg.js), Batch 8, ver 12 "Multi Media"
  * (plan-v12-multimedia.md mục 4.b3 + plan-v12-multimedia-update-3.md mục 1.2/2.4).
  *
- * CHỈ chứa hàm THUẦN, tuân đủ core-function-conventions.md Rule 1-4:
+ * CHỈ chứa hàm THUẦN, tuân đủ core-function-conventions.md Rule 1-4 (Rule 3 ĐÃ SIẾT CHẶT HƠN
+ * 04/07/2026 — xem chi tiết ở file đó):
  *   - Rule 1 (đơn tuyến): "chọn ảnh kế tiếp" theo sequential/random là 2 TIẾN TRÌNH khác nhau ->
  *     TÁCH RIÊNG 2 hàm (pickNextSlideshowIndexSequential/Random), KHÔNG gộp 1 hàm rồi if/else theo
  *     tham số `mode` (đúng ví dụ "SAI" handleUpload(file, isVideo) ở core-function-conventions.md).
- *   - Rule 2 (không tự đọc appState): mọi hàm nhận objectUrl/transitionType/durationMs/index qua
- *     THAM SỐ — nơi gọi (event/workflow/slideshow.js) tự appState.get() trước.
- *   - Rule 3 (core gọi core): beginSlideshowTransition() gọi taskManager.once() BẤT ĐỒNG BỘ và
- *     KHÔNG await -> ngoại lệ hợp lệ (không tạo phụ thuộc thứ tự), được giữ trong core.
+ *   - Rule 2 (không tự đọc appState): mọi hàm nhận objectUrl/transitionType/durationMs/index/
+ *     variant qua THAM SỐ — nơi gọi (event/workflow/slideshow.js) tự appState.get() trước.
+ *   - Rule 3 (CẤM TUYỆT ĐỐI core gọi core + CẤM TUYỆT ĐỐI taskManager trong core, VIẾT LẠI
+ *     04/07/2026): KHÔNG hàm nào trong file này gọi hàm khác trong CHÍNH file này hay dùng
+ *     `taskManager` — `startSlideshowTransitionVisuals()`/`finishSlideshowTransitionVisuals()` cố
+ *     tình tách rời (trước đây gộp `beginSlideshowTransition()` tự gọi `taskManager.once()` rồi
+ *     tự gọi `setSlideshowLayerImage()`/`applySlideshowKenBurns()` bên trong — VI PHẠM CẢ HAI theo
+ *     rule mới). Workflow (event/workflow/slideshow.js) tự `taskManager.once()` + tự gọi TỪNG hàm
+ *     core theo đúng thứ tự.
  *   - Rule 4: file này không tự appState.set()/mutate() (chỉ thao tác DOM thuần) -> N/A.
  *
  * ORCHESTRATION THẬT (đọc appState.slideshowConfig/activeBackgroundAlbum, đọc DB album/ảnh, quản
  * lý task lặp qua taskManager, pause/resume theo vizConfig.videoBgEnabled) sống ở
- * event/workflow/slideshow.js — KHÔNG đặt ở đây (workflow được phép đọc appState trực tiếp, core
- * thì không — xem comment đầu file đó).
+ * event/workflow/slideshow.js — KHÔNG đặt ở đây (workflow được phép đọc appState/dùng taskManager,
+ * core thì không — xem comment đầu file đó).
  *
  * DOM: 2 lớp ảnh xen kẽ #visual-slideshow-layer-1/2 (index.html) trong #visual-slideshow-container
  * (z-index -1, mốc đã chừa sẵn ở assets/css/style.css) — animation 13 kiểu transition ở
  * assets/css/slideshow.css, chọn qua thuộc tính [data-transition] gán trên container.
  *
- * NẠP SAU: core/task-manager.js (taskManager, dùng trong beginSlideshowTransition()). KHÔNG phụ
- * thuộc DOM refs cụ thể nào (mọi phần tử nhận qua tham số) nên không có ràng buộc thứ tự nào khác.
+ * NẠP SAU: không phụ thuộc gì (không còn dùng taskManager kể từ 04/07/2026) — mọi phần tử DOM
+ * nhận qua tham số, không tự getElementById, không có ràng buộc thứ tự nào.
  */
 
 /** Thời lượng 1 lượt chuyển cảnh (ms) — PHẢI khớp animation-duration ở assets/css/slideshow.css
@@ -94,6 +100,16 @@ function setSlideshowLayerImage(layerEl, objectUrl) {
  * assets/css/slideshow.css (`.ss-kenburns-1`..`.ss-kenburns-4`, `ease-in-out` thay vì `linear`). */
 const SLIDESHOW_KENBURNS_VARIANTS = ['ss-kenburns-1', 'ss-kenburns-2', 'ss-kenburns-3', 'ss-kenburns-4'];
 
+/** Giá trị `transform` ở đúng keyframe `to` của mỗi variant (assets/css/slideshow.css) — dùng bởi
+ * `freezeSlideshowKenBurnsEndState()` để "đóng băng" ĐÚNG vị trí cuối bằng inline style. Đổi 1 chỗ
+ * (CSS keyframe) PHẢI đổi luôn chỗ kia (bảng này) — 2 nơi phải khớp nhau tuyệt đối. */
+const SLIDESHOW_KENBURNS_END_TRANSFORMS = {
+    'ss-kenburns-1': 'scale(1.12) translate(-2.5%, -2.5%)',
+    'ss-kenburns-2': 'scale(1.12) translate(2.5%, 2.5%)',
+    'ss-kenburns-3': 'scale(1) translate(0, 0)',
+    'ss-kenburns-4': 'scale(1) translate(0, 0)',
+};
+
 /**
  * Core thuần: chọn NGẪU NHIÊN 1 trong 4 biến thể Ken Burns — TÁCH RIÊNG khỏi
  * applySlideshowKenBurns() (Rule 1: "chọn biến thể" và "áp dụng" là 2 việc khác nhau; hàm áp dụng
@@ -120,33 +136,72 @@ function applySlideshowKenBurns(layerEl, active, durationMs, variant) {
     } else {
         layerEl.classList.remove('ss-kenburns', ...SLIDESHOW_KENBURNS_VARIANTS);
         layerEl.style.animationDuration = '';
+        layerEl.style.transform = ''; // dọn luôn transform "đóng băng" nếu freezeSlideshowKenBurnsEndState() đã set trước đó
     }
 }
 
 /**
- * Core thuần: thực hiện 1 lượt chuyển cảnh — layer đang ẩn (`incomingLayerEl`, ĐÃ được set ảnh
- * mới qua setSlideshowLayerImage() TRƯỚC khi gọi hàm này) chuyển sang "current", layer đang hiện
- * (`outgoingLayerEl`) rời khỏi "current" rồi tự dọn sạch sau `durationMs`.
+ * Core thuần: "ĐÓNG BĂNG" trạng thái CUỐI của hiệu ứng Ken Burns bằng INLINE STYLE thay vì tiếp
+ * tục dựa vào CSS `animation-fill-mode: forwards` giữ hộ.
  *
- * Gọi taskManager.once() BẤT ĐỒNG BỘ và KHÔNG await — NGOẠI LỆ Rule 3
- * (core-function-conventions.md: "gọi bất đồng bộ và KHÔNG chờ" không tạo phụ thuộc thứ tự nên
- * KHÔNG tính là Workflow, được giữ trong core).
- * @param {HTMLElement} outgoingLayerEl - layer đang có class 'ss-current'.
- * @param {HTMLElement} incomingLayerEl - layer đang ẩn, ĐÃ được set ảnh mới.
- * @param {number} durationMs
+ * LÝ DO (fix bug 04/07/2026, mục 6 phản hồi Giang: "zoom pan đến xy nhưng khi kết thúc thì nó lại
+ * nhảy về xy gốc") — thay vì cố xác định CHÍNH XÁC vì sao `animation-fill-mode: forwards` không
+ * giữ được trạng thái cuối lúc animation tự hết `animation-duration` (nghi vấn hợp lý nhất:
+ * `.ss-kenburns` khai `animation-fill-mode`, còn `animation-name` khai riêng ở
+ * `.ss-kenburns-1..4` — 2 rule cùng specificity nhưng khác thuộc tính, VỀ LÝ THUYẾT vẫn phải hợp
+ * nhất đúng, nhưng thực tế observed lại nhảy — không đáng tin cậy 100% qua mọi trình duyệt/thiết
+ * bị), giải pháp CHẮC CHẮN ĐÚNG hơn: gọi hàm này NGAY KHI hết đúng `durationMs` (Workflow tự
+ * `taskManager.once()` lịch đúng thời điểm, xem event/workflow/slideshow.js) để tự tay set
+ * `transform` bằng INLINE STYLE (đè lên MỌI animation/class, không phụ thuộc `fill-mode` gì nữa)
+ * = ĐÚNG giá trị `to` của keyframe variant đó (tra `SLIDESHOW_KENBURNS_END_TRANSFORMS`) + gỡ hẳn
+ * animation (đổi classList) — từ thời điểm này layer đứng yên ở đúng vị trí cuối, không animation
+ * nào chạy nữa nên không còn gì có thể "nhảy" được nữa.
+ * @param {HTMLElement} layerEl
+ * @param {string} variant - ĐÚNG variant đã dùng lúc applySlideshowKenBurns(..., true, ..., variant)
  */
-function beginSlideshowTransition(outgoingLayerEl, incomingLayerEl, durationMs) {
+function freezeSlideshowKenBurnsEndState(layerEl, variant) {
+    if (!layerEl) return;
+    layerEl.classList.remove('ss-kenburns', ...SLIDESHOW_KENBURNS_VARIANTS);
+    layerEl.style.animationDuration = '';
+    const endTransform = SLIDESHOW_KENBURNS_END_TRANSFORMS[variant];
+    if (endTransform) layerEl.style.transform = endTransform;
+}
+
+/**
+ * Core thuần: bắt đầu 1 lượt chuyển cảnh — CHỈ phần tức thời (đổi class ngay lập tức).
+ *
+ * VIẾT LẠI (04/07/2026, phản hồi Giang mục 3 — Rule 3 siết chặt: CẤM TUYỆT ĐỐI `taskManager`
+ * trong core + CẤM TUYỆT ĐỐI core gọi core khác). Bản cũ `beginSlideshowTransition()` tự gọi
+ * `taskManager.once()` rồi bên trong callback tự gọi `setSlideshowLayerImage()`/
+ * `applySlideshowKenBurns()` — VI PHẠM CẢ HAI. Tách thành 2 hàm ĐỘC LẬP (hàm này + `finish...`
+ * dưới), KHÔNG hàm nào gọi hàm kia hay gọi taskManager — Workflow
+ * (event/workflow/slideshow.js::_tick()) tự `taskManager.once()` + tự gọi TỪNG hàm core cần thiết
+ * (kể cả `setSlideshowLayerImage()`/`applySlideshowKenBurns()` cho outgoing layer) theo đúng thứ
+ * tự, xem ví dụ ở core-function-conventions.md Rule 3.
+ * @param {HTMLElement} outgoingLayerEl - layer đang có class 'ss-current'.
+ * @param {HTMLElement} incomingLayerEl - layer đang ẩn, ĐÃ được set ảnh mới (Workflow tự gọi
+ *   `setSlideshowLayerImage()` TRƯỚC khi gọi hàm này).
+ */
+function startSlideshowTransitionVisuals(outgoingLayerEl, incomingLayerEl) {
     if (!outgoingLayerEl || !incomingLayerEl) return;
     incomingLayerEl.classList.add('ss-layer-enter');
     outgoingLayerEl.classList.remove('ss-current');
     outgoingLayerEl.classList.add('ss-layer-exit');
-    taskManager.once(() => {
-        outgoingLayerEl.classList.remove('ss-layer-exit');
-        setSlideshowLayerImage(outgoingLayerEl, '');
-        applySlideshowKenBurns(outgoingLayerEl, false, 0);
-        incomingLayerEl.classList.remove('ss-layer-enter');
-        incomingLayerEl.classList.add('ss-current');
-    }, durationMs, 'slideshowTransitionCleanup');
+}
+
+/**
+ * Core thuần: KẾT THÚC 1 lượt chuyển cảnh — dọn class 2 layer về trạng thái nghỉ mới.
+ * Workflow gọi hàm này SAU KHI đã tự gọi `setSlideshowLayerImage(outgoingLayerEl, '')` +
+ * `applySlideshowKenBurns(outgoingLayerEl, false, 0)` riêng (xem comment
+ * `startSlideshowTransitionVisuals()` ở trên) — hàm này KHÔNG tự gọi lại 2 hàm đó.
+ * @param {HTMLElement} outgoingLayerEl
+ * @param {HTMLElement} incomingLayerEl
+ */
+function finishSlideshowTransitionVisuals(outgoingLayerEl, incomingLayerEl) {
+    if (!outgoingLayerEl || !incomingLayerEl) return;
+    outgoingLayerEl.classList.remove('ss-layer-exit');
+    incomingLayerEl.classList.remove('ss-layer-enter');
+    incomingLayerEl.classList.add('ss-current');
 }
 
 /**
@@ -171,15 +226,12 @@ function setSlideshowAlbumPickerVisible(overlayEl, panelEl, visible) {
 }
 
 /**
- * Core thuần: dọn sạch DOM của 2 layer về trạng thái nghỉ hoàn toàn (dùng khi dừng hẳn engine —
- * đổi/tắt album, xem event/workflow/slideshow.js::stop()).
- * @param {HTMLElement[]} layerEls
+ * Core thuần: dọn class DOM của 1 layer về trạng thái nghỉ (KHÔNG đụng ảnh/Ken Burns — Workflow tự
+ * gọi riêng `setSlideshowLayerImage()`/`applySlideshowKenBurns()` cho từng layer, xem
+ * event/workflow/slideshow.js::stop() — Rule 3 CẤM hàm này tự gọi 2 hàm đó nội bộ).
+ * @param {HTMLElement} layerEl
  */
-function resetSlideshowLayers(layerEls) {
-    layerEls.forEach((layerEl) => {
-        if (!layerEl) return;
-        setSlideshowLayerImage(layerEl, '');
-        applySlideshowKenBurns(layerEl, false, 0);
-        layerEl.classList.remove('ss-current', 'ss-layer-enter', 'ss-layer-exit');
-    });
+function resetSlideshowLayerClasses(layerEl) {
+    if (!layerEl) return;
+    layerEl.classList.remove('ss-current', 'ss-layer-enter', 'ss-layer-exit');
 }

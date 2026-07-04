@@ -1,6 +1,6 @@
 /**
  * core/file-manager/album.js — Album ảnh trong File Manager → Photo & Album, ver 12 "Multi Media",
- * Batch 3 (03/07/2026). Schema ĐÃ CHỐT (xem comment DB_VERSION ở core/db.js): store 'albums',
+ * Batch 3 (03/07/2026). Schema ĐÃ CHỐT (xem comment DB_VERSION ở service/db.js): store 'albums',
  * key = albumId, value = { id, name, imageKeys: [...] } — quan hệ album<->ảnh nằm NGAY trên record
  * album (không có store quan hệ riêng như folder<->song — album không cần tombstone/position, xem
  * đầu core/file-manager/image.js).
@@ -13,7 +13,7 @@
  *      album mới trùng id" (dù ở đây rủi ro thấp hơn folder vì KHÔNG có field record.album[albumId]
  *      trên phía ảnh — nhưng vẫn chặn để nhất quán + phòng xa nếu sau này thêm field đó).
  *
- * NẠP SAU: core/db.js (getAlbumRecord/setAlbumRecord/deleteAlbumRecord/getAllAlbumKeys/
+ * NẠP SAU: service/db.js (getAlbumRecord/setAlbumRecord/deleteAlbumRecord/getAllAlbumKeys/
  * getMeta/setMeta/slugify).
  */
 
@@ -26,7 +26,7 @@
 async function resolveAlbumId(name) {
     const baseSlug = slugify(name) || 'album'; // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
     console.log(`[resolveAlbumId] callTo: "slugify", request: "chuẩn hoá tên '${name}' thành slug làm base cho id"`);
-    const deletedIds = (await getMeta('deletedAlbumIds')) || []; // data layer (core/db.js)
+    const deletedIds = (await getMeta('deletedAlbumIds')) || []; // data layer (service/db.js)
     let candidate = baseSlug;
     let suffix = 2;
     while (true) {
