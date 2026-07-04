@@ -10,7 +10,7 @@
  *
  * PHẢI nạp SAU: core/dom-refs.js (animationId, audioContext, currentObjectURL,
  *   currentCoverObjectURL), core/listen-stats.js (flushSongStats),
- *   core/player-controls.js (pendingListenSeconds), core/db.js (getMeta/setMeta),
+ *   core/player-controls.js (pendingListenSeconds), service/db.js (getMeta/setMeta),
  *   core/wakelock.js (releaseWakeLock).
  */
         function executeAppCleanup() {

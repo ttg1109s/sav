@@ -39,7 +39,7 @@
  * lõi của nhánh 1: không quan tâm bài nào đang phát).
  *
  * PHẢI nạp SAU: core/config.js (AUTO_SWITCH_VISUAL_MIN_SECONDS, MODES), core/dom-refs.js
- * (currentModeIndex, audioPlayer), core/task-manager.js (taskManager), core/equalizer-settings.js
+ * (currentModeIndex, audioPlayer), service/task-manager.js (taskManager), core/equalizer-settings.js
  * (saveConfig), core/visualizer/visualizer-display.js (updateTypeUI — ver 11: hàm này đã dời từ
  * player-controls.js sang đây, xem comment đầu file đó) — xem index.html.
  */

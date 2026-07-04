@@ -129,17 +129,17 @@
         const drawerSlideshowSettings = document.getElementById('drawer-slideshow-settings');
         const btnBackSlideshowSettings = document.getElementById('btn-back-slideshow-settings');
         // MỚI (Batch 9, 04/07/2026, mục 4) — toggle "Use slideshow" DUY NHẤT (THAY 2 nút "Chọn
-        // Album"/"Tắt" cũ), hàng "album đang chạy" (bấm để mở lại panel đổi album) + panel chọn
-        // Album kiểu "notify center" (xem components/slideshow-settings-drawer.js).
+        // Album"/"Tắt" cũ) + panel chọn Album kiểu "notify center". ĐƠN GIẢN HOÁ THÊM (04/07/2026,
+        // đợt 2, phản hồi Giang) — bỏ hẳn hàng "album đang chạy" (tên/thumbnail) khỏi drawer.
         const settingSlideshowEnableToggle = document.getElementById('setting-slideshow-enable');
-        const slideshowSettingsAlbumName = document.getElementById('slideshow-settings-album-name');
-        const slideshowCurrentAlbumRow = document.getElementById('slideshow-current-album-row');
-        const slideshowCurrentAlbumThumb = document.getElementById('slideshow-current-album-thumb');
         const slideshowAlbumPickerOverlay = document.getElementById('slideshow-album-picker-overlay');
         const slideshowAlbumPickerPanel = document.getElementById('slideshow-album-picker-panel');
         const slideshowAlbumPickerGrid = document.getElementById('slideshow-album-picker-grid');
         const slideshowAlbumPickerEmpty = document.getElementById('slideshow-album-picker-empty');
         const slideshowModeSelect = document.getElementById('setting-slideshow-mode');
+        // MỚI (04/07/2026, mục 5) — toggle "Photo per song" + wrapper hàng interval (ẩn khi bật).
+        const settingSlideshowPhotoPerSongToggle = document.getElementById('setting-slideshow-photo-per-song');
+        const slideshowIntervalRow = document.getElementById('slideshow-interval-row');
         const slideshowIntervalInput = document.getElementById('setting-slideshow-interval');
         const slideshowTransitionSelect = document.getElementById('setting-slideshow-transition');
         // "Tắt Visual" (ver 8 refine) — ĐỘC LẬP khỏi nhóm Video Background, đặt thành mục cài đặt
