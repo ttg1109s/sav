@@ -40,6 +40,8 @@ const LANG_PATCH_FILE_MANAGER = {
     // ── Batch 3 (03/07/2026) ──────────────────────────────────────────────────────────────
     'fileManager.photo.uploadTitle': 'Add photos',
     'fileManager.photo.image.empty': 'No photos yet. Tap the + button above to add some.',
+    // MỚI (04/07/2026, mục 2 phản hồi Giang) — carousel chọn ảnh nền (Visual/Playlist).
+    'fileManager.photo.carousel.confirmButton': 'Use this photo',
     'fileManager.photo.image.btnDelete': 'Remove from library',
     'fileManager.photo.image.btnRemoveFromAlbum': 'Remove from album',
     'fileManager.photo.image.uploadSuccess': 'Added {count} photo(s).',
