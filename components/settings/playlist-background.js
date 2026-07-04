@@ -33,6 +33,15 @@ const TPL_SETTINGS_PLAYLIST_BG = `
                         <option value="za" data-i18n="settingsPlaylistBg.sortMode.za">${t('settingsPlaylistBg.sortMode.za')}</option>
                     </select>
                 </div>
+                <!-- FIX (04/07/2026, mục 1 phản hồi Giang) — bỏ hẳn nút "Choose" riêng: gạt toggle
+                     lên "On" giờ TỰ mở hộp thoại chọn file video LUÔN (input ẩn, kích hoạt qua JS —
+                     xem event/workflow/visualizer-control-center.js::enableVideoBackgroundToggle).
+                     Huỷ hộp thoại không chọn gì -> tự trả toggle về "off" (sự kiện 'cancel', xem
+                     event/listener/visualizer-control-center.js). Tắt toggle chỉ ẩn hiển thị,
+                     KHÔNG xoá video đã lưu (đảo ngược quyết định cũ) — gạt lại "On" mở lại hộp
+                     thoại chọn file MỚI (không có khái niệm "khôi phục y nguyên không cần chọn
+                     lại" — mỗi lần "On" là 1 lượt chọn mới, xem plan-v12-multimedia-update-5.md
+                     mục 1 để biết lý do). -->
                 <div class="flex flex-col border-b border-sky-500/30 bg-sky-900/20">
                     <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
                         <span class="text-sm font-medium text-sky-300" data-i18n="settingsPlaylistBg.videoEnable.label">${t('settingsPlaylistBg.videoEnable.label')}</span>
@@ -41,21 +50,16 @@ const TPL_SETTINGS_PLAYLIST_BG = `
                             <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                         </label>
                     </div>
-                    <div class="flex justify-between items-center p-4 pt-0">
-                        <div><div class="text-xs text-slate-400" data-i18n="settingsPlaylistBg.videoEnable.hint">${t('settingsPlaylistBg.videoEnable.hint')}</div></div>
-                        <label class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow">
-                            <span data-i18n="settingsPlaylistBg.videoEnable.choose">${t('settingsPlaylistBg.videoEnable.choose')}</span>
-                            <input type="file" id="setting-video-upload" accept=".mp4,.webm,.ogv,.mov,video/mp4,video/webm,video/ogg,video/quicktime" class="hidden">
-                        </label>
+                    <div class="px-4 pb-4 -mt-2">
+                        <div class="text-xs text-slate-400" data-i18n="settingsPlaylistBg.videoEnable.hint">${t('settingsPlaylistBg.videoEnable.hint')}</div>
                     </div>
+                    <input type="file" id="setting-video-upload" accept=".mp4,.webm,.ogv,.mov,video/mp4,video/webm,video/ogg,video/quicktime" class="hidden">
                 </div>
 
                 <!-- MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer (KHÁC HẲN ảnh nền
                      Playlist ở khối dưới đây — 2 field/2 cơ chế riêng biệt, xem
-                     readme/song-cover-background-relations.md). Cùng khuôn Video Background ở
-                     trên: toggle bật/tắt + nút "Chọn ảnh" mở picker (KHÔNG phải upload trực tiếp —
-                     tính năng này sinh ra sau khi đã có picker nên không có "kiểu cũ" nào để giữ
-                     tương thích). -->
+                     readme/song-cover-background-relations.md). FIX (04/07/2026, mục 1) — cùng cơ
+                     chế Video ở trên: bỏ nút "Chọn ảnh" riêng, chỉ còn toggle tự mở picker. -->
                 <div class="flex flex-col border-b border-white/5">
                     <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
                         <span class="text-sm font-medium" data-i18n="settingsPlaylistBg.visualBgImage.label">${t('settingsPlaylistBg.visualBgImage.label')}</span>
@@ -64,29 +68,22 @@ const TPL_SETTINGS_PLAYLIST_BG = `
                             <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                         </label>
                     </div>
-                    <div class="flex justify-between items-center p-4 pt-0">
-                        <div><div class="text-xs text-slate-400" data-i18n="settingsPlaylistBg.visualBgImage.hint">${t('settingsPlaylistBg.visualBgImage.hint')}</div></div>
-                        <button id="setting-visual-bg-image-pick" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold transition-colors shadow">
-                            <span data-i18n="settingsPlaylistBg.visualBgImage.choose">${t('settingsPlaylistBg.visualBgImage.choose')}</span>
-                        </button>
+                    <div class="px-4 pb-4 -mt-2">
+                        <div class="text-xs text-slate-400" data-i18n="settingsPlaylistBg.visualBgImage.hint">${t('settingsPlaylistBg.visualBgImage.hint')}</div>
                     </div>
                 </div>
-        
-                <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <div><div class="text-sm font-medium" data-i18n="settingsPlaylistBg.bgImage.label">${t('settingsPlaylistBg.bgImage.label')}</div></div>
-                    <!-- FIX (03/07/2026, mục 1) — bỏ hẳn <input type=file> upload trực tiếp, đổi
-                         sang nút mở picker chọn ảnh có sẵn trong File Manager (cùng cơ chế Photo &
-                         Album, xem readme/song-cover-background-relations.md). -->
-                    <button id="setting-bg-pick-library" class="px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-white rounded-lg text-xs font-bold transition-colors shadow">
-                        <span data-i18n="settingsPlaylistBg.bgImage.choose">${t('settingsPlaylistBg.bgImage.choose')}</span>
-                    </button>
-                </div>
-                <div class="flex justify-between items-center p-4 border-b border-white/5">
-                    <span class="text-sm font-medium" data-i18n="settingsPlaylistBg.bgImageEnable.label">${t('settingsPlaylistBg.bgImageEnable.label')}</span>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="setting-bg-image-enable" class="sr-only peer">
-                        <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
-                    </label>
+
+                <!-- FIX (04/07/2026, mục 1) — GỘP 2 hàng cũ (nút "Chọn thư viện" riêng + toggle
+                     bật/tắt riêng) thành 1 hàng DUY NHẤT, cùng khuôn 2 khối trên — bỏ hẳn nút
+                     #setting-bg-pick-library. -->
+                <div class="flex flex-col border-b border-white/5">
+                    <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
+                        <span class="text-sm font-medium" data-i18n="settingsPlaylistBg.bgImageEnable.label">${t('settingsPlaylistBg.bgImageEnable.label')}</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="setting-bg-image-enable" class="sr-only peer">
+                            <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                        </label>
+                    </div>
                 </div>
                 <div class="flex flex-col p-4 hover:bg-white/5 transition-colors">
                     <div class="flex justify-between items-center mb-2">
