@@ -12,7 +12,7 @@
  * recomputeDisplayOrder/recomputeRenderOrder/renderPlaylistDiff/updateEmptyState) — đó là chuỗi
  * side-effect nối tiếp, thuộc về Workflow (event/workflow/playlist-scope.js), không phải core.
  *
- * NẠP SAU: core/file-manager/folder.js (getFolderSongKeys), core/db.js (getFolderSongMap).
+ * NẠP SAU: core/file-manager/folder.js (getFolderSongKeys), service/db.js (getFolderSongMap).
  */
 
 /**
@@ -33,7 +33,7 @@ function loadAllSongs(playlistCache) {
  * @param {Map} playlistCache
  */
 async function loadSongsFromFolder(folderId, playlistCache) {
-    const folderMap = await getFolderSongMap(folderId); // data layer thuần (core/db.js) — KHÔNG tính "core khác" theo Rule 3, xem đầu core/file-manager/folder.js
+    const folderMap = await getFolderSongMap(folderId); // data layer thuần (service/db.js) — KHÔNG tính "core khác" theo Rule 3, xem đầu core/file-manager/folder.js
     const folderKeys = getFolderSongKeys(folderMap); // CÓ return, DÙNG ngay dưới -> Rule 3 hợp lệ
     console.log(`[loadSongsFromFolder] callTo: "getFolderSongKeys", request: "lấy danh sách bài đang thật trong folder ${folderId} để scope playlist"`);
 
