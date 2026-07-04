@@ -31,7 +31,17 @@
             const dpr = appState.get('dpr');
             const smoothedEnergy = appState.get('smoothedEnergy');
             const vizDataArray = appState.get('vizDataArray');
-            if(!cfg.videoBgEnabled) { ctx.fillStyle = cfg.bgColor; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+            // FIX (04/07/2026, mục 5 phản hồi Giang) — bản cũ chỉ chừa video nền
+            // (`!cfg.videoBgEnabled`), nên khi bật ẢNH nền Visual hoặc SLIDESHOW (2 lớp nằm ở
+            // z-index THẤP HƠN canvas — xem assets/css/style.css) thì lớp phủ `cfg.bgColor` DƯỚI
+            // ĐÂY vẽ ĐÈ KÍN lên chúng, che mất hoàn toàn. `hasCustomBg` gộp CẢ 3 nguồn nền (video/
+            // ảnh Visual/slideshow) — có bất kỳ nguồn nào đang bật thì bỏ qua lớp phủ màu này, để
+            // nền thật hiện xuyên qua canvas (canvas trong suốt ở vùng không vẽ gì). Trăng + thành
+            // phố NGAY DƯỚI vẫn giữ nguyên điều kiện `!cfg.videoBgEnabled` (KHÔNG đổi) — vẫn vẽ
+            // bình thường khi dùng ảnh/slideshow, nên tự động nằm ĐÈ LÊN 2 nguồn nền đó (đúng yêu
+            // cầu "phải luôn đặt sau trăng + big city").
+            const hasCustomBg = cfg.videoBgEnabled || cfg.visualBgImageEnabled || !!appState.get('activeBackgroundAlbum');
+            if (!hasCustomBg) { ctx.fillStyle = cfg.bgColor; ctx.fillRect(0, 0, canvas.width, canvas.height); }
             let progress = 0; if (audioPlayer && isFinite(audioPlayer.duration) && audioPlayer.duration > 0) progress = audioPlayer.currentTime / audioPlayer.duration;
             let moonX = canvas.width * 0.70; let moonY = canvas.height * 0.35; let baseScale = 4 + Math.sin(progress * Math.PI) * 1; let baseMoonRadius = baseScale * 8 * dpr; 
             let dynamicMoonRadius = baseMoonRadius + (smoothedEnergy * 8 * dpr);
@@ -130,7 +140,12 @@
             // để visual luôn nhất quán với màu người dùng đã chọn ở Cài đặt.
             // Nền trời: chỉ tô khi KHÔNG bật video nền. Khi có video nền, để trống cho video
             // hiện xuyên qua (giống drawRainGlass) — cảnh công viên (đất, đèn, mưa) vẫn vẽ đè lên.
-            if (!cfg.videoBgEnabled) {
+            // FIX (04/07/2026, mục 5) — cùng lý do đã sửa ở drawRainGlass() phía trên: gộp CẢ 3
+            // nguồn nền (video/ảnh Visual/slideshow), không chỉ riêng video, khi quyết định có tô
+            // phủ `skyGrad` hay để trống cho nền thật hiện xuyên qua. Cảnh công viên (đất/đèn/mưa)
+            // vẫn vẽ đè lên như cũ — tự động nằm TRƯỚC (đè lên) nền ảnh/slideshow.
+            const hasCustomBg = cfg.videoBgEnabled || cfg.visualBgImageEnabled || !!appState.get('activeBackgroundAlbum');
+            if (!hasCustomBg) {
                 const nightColors = getComputedColor(0, 1, 60);
                 let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
                 if (cfg.mode === 'solid') {
