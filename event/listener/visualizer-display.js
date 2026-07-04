@@ -7,9 +7,10 @@
  *   - Mỗi handler CHỈ làm 1 việc: gom đúng data cần gửi rồi gửi 1 message qua eventBus.send().
  *   - "Địa chỉ nhà" (msg.router) LUÔN là 'visualizerDisplay' cho mọi listener trong file này.
  *
- * FIX (03/07/2026, mục 1) — #setting-bg-upload (input file upload trực tiếp) ĐÃ XOÁ, thay bằng nút
- * #setting-bg-pick-library mở picker chọn ảnh có sẵn trong File Manager (cùng cụm
- * 'visualizerDisplay', xem event/router,workflow/visualizer-display.js).
+ * FIX (04/07/2026, mục 1 phản hồi Giang) — bỏ hẳn nút riêng #setting-bg-pick-library (từng mở
+ * picker độc lập với toggle #setting-bg-image-enable, gây UX vô nghĩa: 2 control cùng làm 1 việc).
+ * Giờ CHỈ CÒN toggle — gạt "On" tự mở picker, huỷ/không chọn gì thì tự gạt về "off" (xem
+ * event/workflow/visualizer-display.js::toggleBgImage/pickBgImageFromLibrary).
  *
  * KHÔNG tự document.getElementById trong file này — dùng lại biến đã có sẵn ở core/dom-refs.js.
  *
@@ -31,14 +32,9 @@ if (qualitySelect) {
 }
 
 // ===================== Ảnh nền =====================
-// FIX (03/07/2026, mục 1) — bỏ hẳn listener upload file trực tiếp (#setting-bg-upload đã xoá khỏi
-// HTML), đổi sang nút mở picker chọn ảnh có sẵn trong File Manager.
-if (btnSettingBgPickLibrary) {
-    btnSettingBgPickLibrary.addEventListener('click', () => {
-        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.bgImage.pickFromLibrary', payload: {} });
-    });
-}
-
+// FIX (04/07/2026, mục 1 phản hồi Giang) — bỏ hẳn nút riêng #setting-bg-pick-library: gạt
+// #setting-bg-image-enable lên "On" giờ TỰ mở picker luôn (xem
+// event/workflow/visualizer-display.js::toggleBgImage) — không còn 2 control làm cùng 1 việc.
 if (bgImageEnableToggle) {
     bgImageEnableToggle.addEventListener('change', (e) => {
         eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.bgImage.toggle', payload: { enabled: e.target.checked } });
