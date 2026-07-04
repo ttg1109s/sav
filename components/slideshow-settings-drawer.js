@@ -46,18 +46,11 @@ const TPL_SLIDESHOW_SETTINGS_DRAWER = `
                             </label>
                         </div>
 
-                        <!-- MỚI (Batch 9) — hàng hiện album đang chạy, CHỈ hiện khi đang bật (JS
-                             toggle class hidden). Bấm vào để MỞ LẠI panel đổi sang album khác. -->
-                        <button id="slideshow-current-album-row" class="hidden justify-between items-center gap-3 p-4 border-b border-white/5 hover:bg-white/5 transition-colors text-left w-full">
-                            <div class="flex items-center gap-3 min-w-0">
-                                <div id="slideshow-current-album-thumb" class="w-10 h-10 rounded-full overflow-hidden bg-white/10 shrink-0 bg-cover bg-center"></div>
-                                <div class="min-w-0">
-                                    <div class="text-xs text-slate-400" data-i18n="slideshowSettingsDrawer.album.label">${t('slideshowSettingsDrawer.album.label')}</div>
-                                    <div id="slideshow-settings-album-name" class="text-sm font-semibold text-white truncate" data-i18n="slideshowSettingsDrawer.album.none">${t('slideshowSettingsDrawer.album.none')}</div>
-                                </div>
-                            </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                        </button>
+                        <!-- MỚI (Batch 9) — hàng hiện album đang chạy ĐÃ BỎ (phản hồi Giang
+                             04/07/2026, đợt 2: không cần hiện lại ảnh/tên album ở đây). Đổi album
+                             khi đang bật: gạt Off rồi gạt lại On (mỗi lần "On" luôn mở lại panel
+                             chọn, xem onEnableToggleChange() — event/workflow/slideshow.js). -->
+
 
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <span class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.mode.label">${t('slideshowSettingsDrawer.mode.label')}</span>
@@ -66,7 +59,21 @@ const TPL_SLIDESHOW_SETTINGS_DRAWER = `
                                 <option value="random" data-i18n="slideshowSettingsDrawer.mode.random">${t('slideshowSettingsDrawer.mode.random')}</option>
                             </select>
                         </div>
+                        <!-- MỚI (04/07/2026, mục 5 phản hồi Giang) — "Photo per song": bật thì đổi
+                             ảnh THEO bài hát (1 ảnh/1 bài, đổi đúng lúc bài hát đổi thật — kể cả
+                             next/prev — bỏ qua seek trong cùng bài) thay vì đếm giây cố định. Ẩn
+                             hẳn hàng "Thời gian mỗi ảnh" khi bật (không còn ý nghĩa gì lúc đó). -->
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
+                            <div class="pr-3">
+                                <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.photoPerSong.label">${t('slideshowSettingsDrawer.photoPerSong.label')}</div>
+                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="slideshowSettingsDrawer.photoPerSong.hint">${t('slideshowSettingsDrawer.photoPerSong.hint')}</div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="setting-slideshow-photo-per-song" class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-fuchsia-500 shadow-inner"></div>
+                            </label>
+                        </div>
+                        <div id="slideshow-interval-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <div>
                                 <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.interval.label">${t('slideshowSettingsDrawer.interval.label')}</div>
                                 <div class="text-xs text-slate-400 mt-0.5" data-i18n="slideshowSettingsDrawer.interval.hint">${t('slideshowSettingsDrawer.interval.hint')}</div>
