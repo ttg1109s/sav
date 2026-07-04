@@ -1,9 +1,22 @@
 /**
  * Component: Playlist View (màn hình danh sách bài hát)
  * Biến này chứa chuỗi HTML, được main.js chèn vào DOM lúc khởi động.
+ *
+ * FIX (04/07/2026, mục 1b/4 phản hồi Giang) — `position: absolute` -> `fixed`. Nguyên nhân bug
+ * "bàn phím trượt lên làm khuyết mất 1 phần Playlist UI" (Settings drawer KHÔNG bị, cùng bug):
+ * `#drawer-settings` vốn đã dùng `fixed` (containing block = viewport, KHÔNG đổi theo bàn phím);
+ * `#playlist-view` dùng `absolute` (containing block = `body`/`html`, mà chiều cao đó CÓ THỂ bị
+ * trình duyệt tính lại khi bàn phím ảo mở trên 1 số thiết bị/trình duyệt) — đổi sang `fixed` cho
+ * ĐÚNG BẰNG hành vi đã chứng minh ổn định của Settings drawer.
+ *
+ * VIẾT LẠI THÊM (04/07/2026, mục 4) — bỏ class Tailwind `transition-transform duration-500` khỏi
+ * template (chuyển hẳn qua CSS riêng `#playlist-view` ở assets/css/style.css, dùng chung 1 chỗ với
+ * `#visualizer-ui`/`#player-container` cho cơ chế slide NGANG mới — khác hẳn `-translate-y-full`
+ * dọc cũ). Responsive: mobile/tablet slide ngang (pager 2 trang); desktop (>=1024px) hiện SONG
+ * SONG vĩnh viễn, Playlist làm cột trái 420px cố định — xem chi tiết đầy đủ trong file CSS đó.
  */
 const TPL_PLAYLIST_VIEW = `
-    <div id="playlist-view" class="absolute inset-0 z-[60] flex flex-col bg-[#000000] transition-transform duration-500 overflow-hidden">
+    <div id="playlist-view" class="fixed inset-0 z-[60] flex flex-col bg-[#000000] overflow-hidden">
         <div id="playlist-bg" class="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none z-0 transition-all duration-300" style="filter: blur(0px); transform: scale(1.1);"></div>
         <div class="absolute inset-0 bg-black/40 pointer-events-none z-0"></div>
 
@@ -216,16 +229,11 @@ const TPL_PLAYLIST_VIEW = `
                         <img id="song-edit-cover-preview" src="" class="w-full h-full object-cover" data-i18n-title="playlistView.songEdit.coverAlt" alt="${t('playlistView.songEdit.coverAlt')}">
                     </div>
                     <div class="flex flex-col gap-2 flex-1">
-                        <label class="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3-3 3 3m-3-3v6" /></svg>
-                            <span data-i18n="playlistView.songEdit.coverChoose">${t('playlistView.songEdit.coverChoose')}</span>
-                            <input type="file" id="song-edit-cover-upload" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" class="hidden">
-                        </label>
-                        <!-- MỚI (batch 03/07/2026) — chọn ảnh có sẵn trong File Manager làm cover,
-                             thay vì chỉ upload file mới. Mở picker (core/file-manager/photo-ui.js),
-                             chọn xong tái dùng NGUYÊN changeSongEditCover() có sẵn (xem
-                             readme/song-cover-background-relations.md mục 2). -->
-                        <button id="song-edit-cover-pick-library" class="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-xl text-xs font-bold transition-colors">
+                        <!-- VIẾT LẠI (04/07/2026, mục 3 phản hồi Giang) — bỏ hẳn nút Upload (input
+                             file trực tiếp) — chỉ còn 1 nút DUY NHẤT "Choose photo", mở picker TÁI
+                             DÙNG view Photo UI mới (grid ô vuông + chunk load/collapse, xem
+                             core/file-manager/photo-ui.js::openPhotoUiImagePickerModal). -->
+                        <button id="song-edit-cover-pick-library" class="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl text-xs font-bold transition-colors shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                             <span data-i18n="playlistView.songEdit.coverPickLibrary">${t('playlistView.songEdit.coverPickLibrary')}</span>
                         </button>

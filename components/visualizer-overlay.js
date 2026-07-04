@@ -40,7 +40,7 @@
  * trên mọi nền visual/video/ảnh.
  */
 const TPL_VISUALIZER_OVERLAY = `
-    <div id="visualizer-ui" class="absolute inset-0 z-30 pointer-events-none fade-enter hidden flex flex-col">
+    <div id="visualizer-ui" class="fixed inset-0 z-30 pointer-events-none fade-enter hidden flex flex-col">
         <div class="flex-grow relative">
             <div id="subtitle-display" class="absolute bottom-[20%] w-full px-4 sm:px-10 flex flex-col items-center justify-center pointer-events-none z-[60] hidden">
                 <div id="subtitle-frame" class="bg-black/40 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/10 text-center max-w-4xl shadow-2xl flex flex-col items-center gap-1.5">

@@ -3,7 +3,18 @@
  * Biến này chứa chuỗi HTML, được main.js chèn vào DOM lúc khởi động.
  */
 const TPL_BOTTOM_PLAYER = `
-    <div id="player-container" class="bg-gradient-to-t from-black via-black/70 to-transparent absolute bottom-0 left-0 w-full z-[70] pointer-events-auto flex flex-col hidden">
+    <!-- FIX (04/07/2026, mục 4 phản hồi Giang) — z-index HẠ từ 70 xuống 40 (nằm GIỮA
+         #visualizer-ui z-30 và #control-center-overlay z-45, LUÔN THẤP HƠN #playlist-view z-60).
+         Trước đây z-70 CAO HƠN #playlist-view (60) — khi Playlist trượt vào che màn hình,
+         player-container vẫn nổi TRÊN nó cho tới khi bị ẩn CƯỠNG BỨC bằng JS đúng 300ms sau (xem
+         core/player-controls.js::forceBackToPlaylistUI) — LỆCH với thời lượng trượt thật
+         (duration-500 ở #playlist-view) nên biến mất ĐỘT NGỘT giữa chừng lúc còn đang trượt, nhìn
+         "rất cứng" (đúng mô tả bug). Hạ z-index xuống DƯỚI #playlist-view giải quyết TẬN GỐC: giờ
+         Playlist tự nhiên CHE KÍN player-container ngay từ khung hình đầu tiên của lúc trượt vào —
+         không còn khoảnh khắc "nổi rồi biến mất" nào để nhìn thấy nữa. Lệnh ẩn (classList.add
+         'hidden') ở JS vẫn giữ (dọn dẹp/accessibility), giờ chỉ là dọn "âm thầm" phía sau lớp phủ
+         đã che kín từ trước, không còn là cú thay đổi NHÌN THẤY ĐƯỢC. -->
+    <div id="player-container" class="bg-gradient-to-t from-black via-black/70 to-transparent fixed bottom-0 left-0 w-full z-40 pointer-events-auto flex flex-col hidden">
         <div class="w-full p-2"><input type="range" id="progress-bar" value="0" step="0.1" min="0" class="music-slider block"></div>
 
         <div class="w-full  pt-3 pb-3 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-6">

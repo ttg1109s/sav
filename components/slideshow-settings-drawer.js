@@ -80,7 +80,7 @@ const TPL_SLIDESHOW_SETTINGS_DRAWER = `
                             </div>
                             <input id="setting-slideshow-interval" type="number" min="5" step="1" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-20 text-right shrink-0">
                         </div>
-                        <div class="flex justify-between items-center p-4">
+                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <span class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.transition.label">${t('slideshowSettingsDrawer.transition.label')}</span>
                             <select id="setting-slideshow-transition" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-40 text-right">
                                 <option value="fade" data-i18n="slideshowSettingsDrawer.transition.fade">${t('slideshowSettingsDrawer.transition.fade')}</option>
@@ -97,6 +97,19 @@ const TPL_SLIDESHOW_SETTINGS_DRAWER = `
                                 <option value="circleReveal" data-i18n="slideshowSettingsDrawer.transition.circleReveal">${t('slideshowSettingsDrawer.transition.circleReveal')}</option>
                                 <option value="glitch" data-i18n="slideshowSettingsDrawer.transition.glitch">${t('slideshowSettingsDrawer.transition.glitch')}</option>
                             </select>
+                        </div>
+                        <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — "Show caption": hiện caption
+                             của ảnh đang chiếu (nếu ảnh đó CÓ caption, đặt ở Photo UI) dạng overlay
+                             top kiểu TikTok. Tự ẩn khi video nền bật. -->
+                        <div class="flex justify-between items-center p-4">
+                            <div class="pr-3">
+                                <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.showCaption.label">${t('slideshowSettingsDrawer.showCaption.label')}</div>
+                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="slideshowSettingsDrawer.showCaption.hint">${t('slideshowSettingsDrawer.showCaption.hint')}</div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="setting-slideshow-show-caption" class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-fuchsia-500 shadow-inner"></div>
+                            </label>
                         </div>
                     </div>
                 </div>
