@@ -2,6 +2,11 @@
  * event/router/slideshow.js — Router tên "slideshowSettings", tự đăng ký với eventBus lúc nạp.
  * Batch 8, ver 12 "Multi Media" — Slideshow nền Visual (nguồn nền thứ 3).
  *
+ * VIẾT LẠI (Batch 9, 04/07/2026, mục 4 phản hồi Giang) — 2 case cũ 'pickAlbum.click'/
+ * 'clearAlbum.click' (2 nút riêng) ĐÃ BỎ, thay bằng 'enable.change' (1 toggle DUY NHẤT, cùng cơ
+ * chế đã thống nhất cho Video/Ảnh nền ở mục 1) + 'currentAlbumRow.click' (mở lại panel đổi album)
+ * + 'albumPicker.overlay.click' (huỷ panel).
+ *
  * Toàn bộ msg.type ở đây chỉ cần gọi thẳng 1 hàm (đóng/mở drawer = DOM thuần, gọi thẳng; còn lại
  * đều ≥2 bước phụ thuộc thứ tự — đọc DB + set state + persist meta + đồng bộ UI — nên giao hết cho
  * `workflowSlideshow`, không có case nào cần VirtualMachineState (không có case nào rẽ nhánh theo
@@ -22,12 +27,19 @@ const routerSlideshowSettings = (() => {
                 drawerSlideshowSettings.classList.add('translate-y-full'); // CHỈ 1 thao tác DOM thuần -> gọi thẳng
                 break;
 
-            case 'slideshowSettings.pickAlbum.click':
-                workflowSlideshow.promptPickAlbum(); // >1 hàm core -> workflow
+            // MỚI (Batch 9, mục 4) — 1 toggle DUY NHẤT thay 2 nút Chọn/Tắt cũ.
+            case 'slideshowSettings.enable.change':
+                workflowSlideshow.onEnableToggleChange(msg.payload.checked); // >1 hàm core -> workflow
                 break;
 
-            case 'slideshowSettings.clearAlbum.click':
-                workflowSlideshow.disableFromDrawer(); // >1 hàm core -> workflow
+            // MỚI (Batch 9, mục 4) — bấm hàng "album đang chạy" -> mở lại panel để đổi album.
+            case 'slideshowSettings.currentAlbumRow.click':
+                workflowSlideshow.openAlbumPicker(); // >1 hàm core -> workflow
+                break;
+
+            // MỚI (Batch 9, mục 4) — bấm ra ngoài panel chọn Album (huỷ, không chọn gì).
+            case 'slideshowSettings.albumPicker.overlay.click':
+                workflowSlideshow.cancelAlbumPicker(); // >1 hàm core (đóng panel + có thể trả toggle) -> workflow
                 break;
 
             case 'slideshowSettings.mode.change':

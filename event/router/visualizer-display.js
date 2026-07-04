@@ -9,8 +9,9 @@
  * QUY TẮC RẼ NHÁNH (giống router/storage.js, router/playlist.js):
  *   - Nghiệp vụ chỉ cần ĐÚNG 1 HÀM CORE (không shield/modal) -> router gọi THẲNG, BỎ QUA workflow.
  *   - Nghiệp vụ cần shield/modal (đụng IndexedDB qua setMeta/delMeta, hoặc validate có thể fail)
- *     -> router giao cho workflowVisualizerDisplay (chỉ 'visualizerDisplay.bgImage.pickFromLibrary'
- *     và 'visualizerDisplay.bgImage.toggle' rơi vào nhánh này).
+ *     -> router giao cho workflowVisualizerDisplay (chỉ 'visualizerDisplay.bgImage.toggle' rơi vào
+ *     nhánh này — MỚI 04/07/2026, mục 1: nút riêng cũ 'bgImage.pickFromLibrary' đã bỏ, gộp thẳng
+ *     vào nhánh "bật" của 'bgImage.toggle', xem event/workflow/visualizer-display.js).
  *
  * STATE CONTEXT: không có — mọi msg.type đọc/ghi thẳng vizConfig (biến toàn cục đã có từ trước
  * /event/, NẰM NGOÀI phạm vi EventStore — xem event/store.js, "KHÔNG đưa các biến nghiệp vụ to
@@ -43,17 +44,11 @@ const routerVisualizerDisplay = (() => {
             }
 
             // ===================== Ảnh nền =====================
-            // FIX (03/07/2026, mục 1) — bỏ hẳn 'visualizerDisplay.bgImage.upload' (upload file trực
-            // tiếp) — thay bằng picker chọn ảnh có sẵn trong File Manager.
-            case 'visualizerDisplay.bgImage.pickFromLibrary': {
-                // >1 hàm core nối tiếp (đọc danh sách ảnh + mở picker) -> workflow.
-                workflowVisualizerDisplay.pickBgImageFromLibrary();
-                break;
-            }
-
+            // FIX (04/07/2026, mục 1) — bỏ hẳn 'visualizerDisplay.bgImage.pickFromLibrary' (nút
+            // riêng đã xoá) — bật toggle giờ TỰ mở picker (xem workflowVisualizerDisplay.toggleBgImage).
             case 'visualizerDisplay.bgImage.toggle': {
                 const { enabled } = msg.payload;
-                // CẦN shield (đụng IndexedDB) -> giao workflow.
+                // CẦN >1 bước (mở picker/áp dụng hoặc tắt) -> giao workflow.
                 workflowVisualizerDisplay.toggleBgImage({ enabled });
                 break;
             }

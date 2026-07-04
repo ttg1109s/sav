@@ -3,9 +3,9 @@
  *
  * QUY TẮC RẼ NHÁNH:
  *   - returnToVisualizer/controlCenter.toggle/controlCenter.overlayClick/controlCenter.gridClick/
- *     visualEnable.change CHỈ CẦN 1 hàm core -> gọi THẲNG.
- *   - videoEnable.change/videoUpload.change/visualBgImageEnable.change/visualBgImagePick.click
- *     (MỚI 03/07/2026, mục 2) CẦN shield/modal hoặc >1 hàm core -> giao workflow.
+ *     visualEnable.change/videoUpload.cancel CHỈ CẦN 1 hàm core (hoặc 1 DOM thuần) -> gọi THẲNG.
+ *   - videoEnable.change/videoUpload.change/visualBgImageEnable.change (MỚI 04/07/2026, mục 1: cả
+ *     3 giờ LUÔN qua workflow vì nhánh "bật" cần mở picker/file-dialog, >1 bước) -> giao workflow.
  * KHÔNG giữ state context riêng.
  */
 const routerVisualizerControlCenter = (() => {
@@ -29,8 +29,12 @@ const routerVisualizerControlCenter = (() => {
                 break;
 
             case 'visualizerControlCenter.videoEnable.change': {
+                // FIX (04/07/2026, mục 1) — checked=true KHÔNG còn gọi thẳng enableVideoBackground()
+                // nữa (giả định "đã biết chắc videoBgUrl có sẵn" SAI khi bật lần đầu -> "on ảo" tới
+                // lúc đóng Settings mới tự sửa, xem validateVideoBgOnClose()). Giờ LUÔN mở hộp thoại
+                // chọn file NGAY khi gạt On (>1 bước, có thể huỷ) -> workflow.
                 if (msg.payload.checked) {
-                    enableVideoBackground();
+                    workflowVisualizerControlCenter.enableVideoBackgroundToggle();
                 } else {
                     workflowVisualizerControlCenter.disableVideoBackground();
                 }
@@ -45,18 +49,22 @@ const routerVisualizerControlCenter = (() => {
                 workflowVisualizerControlCenter.uploadVideoBackground({ file: msg.payload.file });
                 break;
 
-            // MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer.
+            // MỚI (04/07/2026, mục 1) — huỷ hộp thoại chọn file (không chọn gì) -> trả toggle về
+            // "off". CHỈ 1 thao tác DOM thuần -> gọi thẳng, không cần workflow.
+            case 'visualizerControlCenter.videoUpload.cancel':
+                videoEnableToggle.checked = false;
+                break;
+
+            // MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer. FIX (04/07/2026, mục 1) —
+            // checked=false giờ CHỈ ẩn hiển thị (không còn đụng IndexedDB) nên KHÔNG cần workflow
+            // nữa, nhưng vẫn giữ 1 chỗ gọi (workflow) cho nhất quán interface — xem
+            // event/workflow/visualizer-control-center.js::disableVisualBgImage().
             case 'visualizerControlCenter.visualBgImageEnable.change': {
                 if (msg.payload.checked) {
                     workflowVisualizerControlCenter.pickVisualBgImageFromLibrary(); // >1 hàm core -> workflow
                 } else {
-                    workflowVisualizerControlCenter.disableVisualBgImage(); // đụng IndexedDB (delMeta) -> workflow
+                    workflowVisualizerControlCenter.disableVisualBgImage();
                 }
-                break;
-            }
-
-            case 'visualizerControlCenter.visualBgImagePick.click': {
-                workflowVisualizerControlCenter.pickVisualBgImageFromLibrary(); // >1 hàm core -> workflow
                 break;
             }
 
