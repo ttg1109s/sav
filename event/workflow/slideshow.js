@@ -14,13 +14,15 @@
  *      1-4. Workflow nói chung được phép đọc appState trực tiếp (không như core) — xem tiền lệ
  *      event/workflow/file-manager-song.js, event/workflow/playlist.js.
  *
- * PAUSE/RESUME theo `vizConfig.videoBgEnabled` — THIẾT KẾ ĐÃ GHI ở core/state-and-video-bg.js
- * (mục "Nền tĩnh Visual (ảnh)", đoạn "VẤN ĐỀ HIỆU NĂNG"): mỗi tick TỰ đọc `videoBgEnabled` — true
- * thì tự `taskManager.pause()` và KHÔNG tick tiếp (tránh chạy ngầm vô ích lúc bị video che kín);
- * 1 task "canh chừng" riêng (`_startWatchdog()`, đọc mỗi 3s) tự `resume()` khi phát hiện
- * `videoBgEnabled` đã về `false`. KHÔNG đụng `enableVideoBackground()`/
- * `disableVideoBackgroundState()`/`applyUploadedVideoBg()` (code DI SẢN đã có nợ Rule 3 sẵn — cùng
- * lý do đã ghi ở core/state-and-video-bg.js, KHÔNG thêm lời gọi void mới vào các hàm đó).
+ * PAUSE/RESUME theo `vizConfig.videoBgEnabled` — VIẾT LẠI (04/07/2026, mục 2 phản hồi Giang, BỎ
+ * watchdog poll 3s/lần): trước đây `_tick()` tự đọc `videoBgEnabled` MỖI LẦN CHẠY + có 1 task
+ * "canh chừng" riêng (`_startWatchdog()`) đọc mỗi 3s để tự resume — Giang chỉ ra ĐÚNG: đã có sẵn
+ * sự kiện click bật/tắt video (`event/workflow/visualizer-control-center.js`) để biết CHÍNH XÁC
+ * lúc nào cần pause/resume, poll lại appState mỗi 3s là THỪA. Giờ `pauseForVideoBg()`/
+ * `resumeFromVideoBg()` được GỌI TRỰC TIẾP từ đúng lúc video bật/tắt thành công (event-driven,
+ * KHÔNG còn polling nào cả). KHÔNG đụng `enableVideoBackground()`/`disableVideoBackgroundState()`/
+ * `applyUploadedVideoBg()` (code DI SẢN đã có nợ Rule 3 sẵn — cùng lý do đã ghi ở
+ * core/state-and-video-bg.js, KHÔNG thêm lời gọi void mới vào các hàm đó).
  *
  * PERSIST: `meta.slideshowConfig` + `meta.activeBackgroundAlbum` (service/db.js, getMeta/setMeta) —
  * đọc lại lúc boot qua `loadPersistedSettingsOnBoot()`, gọi từ core/visualizer/draw-visualizer.js
@@ -51,7 +53,6 @@
  * `workflowSlideshow.clearActiveAlbum()` trong cascade xoá album).
  */
 const SLIDESHOW_TASK = 'slideshowTimer';
-const SLIDESHOW_WATCHDOG_TASK = 'slideshowWatchdog';
 // MỚI (04/07/2026, mục 5 phản hồi Giang) — task "canh chừng" đổi bài hát cho chế độ "Photo per
 // song": poll appState.get('currentKey') (đúng field lưu songKey đang phát, xem
 // core/player-controls.js) mỗi 1s, phát hiện ĐỔI THẬT (next/prev/tự next hết bài/chọn bài khác)
@@ -113,6 +114,7 @@ const workflowSlideshow = {
                 if (typeof savedConfig.intervalSeconds === 'number' && savedConfig.intervalSeconds >= 5) cfg.intervalSeconds = savedConfig.intervalSeconds;
                 if (SLIDESHOW_TRANSITION_TYPES.includes(savedConfig.transitionType)) cfg.transitionType = savedConfig.transitionType;
                 if (typeof savedConfig.photoPerSong === 'boolean') cfg.photoPerSong = savedConfig.photoPerSong;
+                if (typeof savedConfig.showCaption === 'boolean') cfg.showCaption = savedConfig.showCaption;
             });
         }
         if (!savedAlbumId) return;
@@ -185,7 +187,7 @@ const workflowSlideshow = {
             taskManager.addNew(SLIDESHOW_TASK, { time: this._computeIntervalMs(), exe: () => this._tick(), mode: 'timeout', count: 0 });
             taskManager.operator(SLIDESHOW_TASK, 'enabled');
         }
-        this._startWatchdog(); // canh chừng videoBgEnabled để tự resume (mục 2.4 update-3)
+        this._refreshCaptionVisibility(); // core/UI — mục 2: hiện khung caption ngay nếu đang bật + có caption
     },
 
     /** Dừng hẳn engine — dọn task + ẩn container + revoke object URL.
@@ -194,11 +196,11 @@ const workflowSlideshow = {
      * qua 2 layer, tự gọi TỪNG hàm core cần thiết theo đúng thứ tự. */
     stop() {
         taskManager.kill(SLIDESHOW_TASK);
-        taskManager.kill(SLIDESHOW_WATCHDOG_TASK);
         taskManager.kill(SLIDESHOW_SONG_WATCH_TASK);
         taskManager.kill('slideshowKenBurnsFreeze1');
         taskManager.kill('slideshowKenBurnsFreeze2');
         setSlideshowContainerVisible(slideshowContainer, false); // core
+        setBgCaptionVisible(bgCaptionFrame, false); // core — mục 2
         [slideshowLayer1, slideshowLayer2].forEach((layerEl) => {
             setSlideshowLayerImage(layerEl, ''); // core
             applySlideshowKenBurns(layerEl, false, 0); // core
@@ -243,15 +245,12 @@ const workflowSlideshow = {
     },
 
     /** taskManager exe — đóng vai trò "Router" cho tick tự sinh (xem comment đầu file): tự đọc
-     * appState rồi gọi hàm THUẦN ở core/file-manager/slideshow.js. */
+     * appState rồi gọi hàm THUẦN ở core/file-manager/slideshow.js.
+     * ĐƠN GIẢN HOÁ (04/07/2026, mục 2 phản hồi Giang) — bỏ hẳn check `videoBgEnabled` + pause() ở
+     * đây: watchdog poll 3s/lần đã XOÁ (xem lý do ở `pauseForVideoBg()`/`resumeFromVideoBg()`
+     * dưới) — task này giờ CHỈ chạy khi thật sự KHÔNG bị pause từ bên ngoài, không cần tự kiểm tra
+     * lại nữa. */
     _tick() {
-        // MỚI (04/07/2026, mục 5) — pause CẢ 2 task khả dĩ (chỉ đúng 1 cái đang thật sự chạy tuỳ
-        // photoPerSong, cái còn lại pause() tự no-op an toàn — xem comment _startWatchdog() dưới).
-        if (appState.get('vizConfig').videoBgEnabled) {
-            taskManager.pause(SLIDESHOW_TASK);
-            taskManager.pause(SLIDESHOW_SONG_WATCH_TASK);
-            return;
-        } // watchdog sẽ resume khi video tắt lại
         if (this._images.length === 0) return; // album rỗng (ảnh vừa bị xoá hết) -> chờ, không lỗi
 
         const cfg = appState.get('slideshowConfig');
@@ -287,29 +286,56 @@ const workflowSlideshow = {
         this._currentObjectUrl = objectUrl;
         this._currentIndex = nextIndex;
         this._layerToggle = !this._layerToggle;
+        this._refreshCaptionVisibility(); // core/UI — mục 2: đổi ảnh -> đổi luôn caption tương ứng (nếu bật)
     },
 
-    /** Canh chừng nhẹ (3s/lần) — tự resume task chính khi phát hiện `videoBgEnabled` đã về false
-     * (mục 2.4 plan-v12-multimedia-update-3.md — KHÔNG đụng code video-toggle di sản).
-     *
-     * LƯU Ý (service/task-manager.js): `taskManager.isTaskRunning()` vẫn trả `true` NGAY CẢ KHI task
-     * đang `pause()` (chỉ đổi `Loop.isPaused`, KHÔNG đổi `Loop.isRunning`) — dùng nó để "phát hiện
-     * đang pause" là SAI. Thay vào đó gọi thẳng `taskManager.resume()` mỗi tick — hàm này tự guard
-     * nội bộ (`Loop.resume()`: `if (!this.isPaused) return;`), gọi khi KHÔNG paused là no-op an
-     * toàn tuyệt đối, không cần tự kiểm tra trạng thái paused ở đây. */
-    _startWatchdog() {
-        taskManager.kill(SLIDESHOW_WATCHDOG_TASK);
-        taskManager.addNew(SLIDESHOW_WATCHDOG_TASK, {
-            time: 3000,
-            exe: () => {
-                if (appState.get('activeBackgroundAlbum') && !appState.get('vizConfig').videoBgEnabled) {
-                    if (taskManager.plan[SLIDESHOW_TASK]) taskManager.resume(SLIDESHOW_TASK); // no-op an toàn nếu không tồn tại/không paused
-                    if (taskManager.plan[SLIDESHOW_SONG_WATCH_TASK]) taskManager.resume(SLIDESHOW_SONG_WATCH_TASK);
-                }
-            },
-            mode: 'timeout', count: 0,
-        });
-        taskManager.operator(SLIDESHOW_WATCHDOG_TASK, 'enabled');
+    /** MỚI (04/07/2026, mục 2 phản hồi Giang) — hiện/ẩn + đổi nội dung khung caption theo ẢNH ĐANG
+     * CHIẾU hiện tại, CHỈ khi `slideshowConfig.showCaption` bật + ảnh đó CÓ caption + video nền
+     * KHÔNG bật (video luôn che kín, hiện caption lúc đó vô nghĩa — cùng lý do
+     * `pauseForVideoBg()` chủ động ẩn hẳn). Gọi mỗi lần đổi ảnh (`_tick()`) + lúc bắt đầu
+     * (`start()`) + lúc video nền tắt lại (`resumeFromVideoBg()`). */
+    _refreshCaptionVisibility() {
+        const cfg = appState.get('slideshowConfig');
+        const image = this._images[this._currentIndex];
+        const shouldShow = !!cfg.showCaption && !!image && !!image.caption && !appState.get('vizConfig').videoBgEnabled;
+        setBgCaptionVisible(bgCaptionFrame, shouldShow); // core
+        if (shouldShow) setBgCaptionText(bgCaptionText, image.caption); // core
+    },
+
+    /** MỚI (04/07/2026, mục 2) — gọi từ event/workflow/file-manager-photo.js ngay lúc người dùng
+     * sửa caption 1 ảnh ở Photo UI: cập nhật CACHE RAM (`_images`, để lần hiện lại sau — vòng lặp
+     * quay lại — vẫn đúng, KHÔNG cần đọc lại DB) + đổi hiển thị NGAY nếu ảnh đó ĐANG là ảnh hiện
+     * tại của slideshow.
+     * @param {string} imageKey
+     * @param {string} caption
+     */
+    refreshCaptionIfCurrentImage(imageKey, caption) {
+        const idx = this._images.findIndex((img) => img.key === imageKey);
+        if (idx === -1) return;
+        this._images[idx].caption = caption;
+        if (idx === this._currentIndex) this._refreshCaptionVisibility();
+    },
+
+    /**
+     * MỚI (04/07/2026, mục 2 phản hồi Giang) — GỌI TRỰC TIẾP từ
+     * `workflowVisualizerControlCenter` NGAY LÚC video nền BẬT thành công (KHÔNG còn watchdog
+     * poll 3s/lần — Giang chỉ ra ĐÚNG: đã có sẵn sự kiện click bật/tắt video để biết, poll lại
+     * appState mỗi 3s là thừa). Ẩn luôn khung caption (nếu đang bật) — video nền có z-index CAO
+     * HƠN caption (xem assets/css/slideshow.css) nên video che mất caption dù có hiện cũng vô ích.
+     */
+    pauseForVideoBg() {
+        taskManager.pause(SLIDESHOW_TASK);
+        taskManager.pause(SLIDESHOW_SONG_WATCH_TASK);
+        setBgCaptionVisible(bgCaptionFrame, false); // core
+    },
+
+    /** MỚI (04/07/2026, mục 2) — GỌI TRỰC TIẾP từ `workflowVisualizerControlCenter` NGAY LÚC
+     * video nền TẮT thành công. */
+    resumeFromVideoBg() {
+        if (!appState.get('activeBackgroundAlbum')) return; // không có slideshow nào đang chạy -> không có gì để resume
+        if (taskManager.plan[SLIDESHOW_TASK]) taskManager.resume(SLIDESHOW_TASK); // no-op an toàn nếu không tồn tại/không paused
+        if (taskManager.plan[SLIDESHOW_SONG_WATCH_TASK]) taskManager.resume(SLIDESHOW_SONG_WATCH_TASK);
+        this._refreshCaptionVisibility(); // core/UI — hiện lại khung caption nếu đang bật + có ảnh đang chiếu
     },
 
     // ===================== Settings Drawer (cụm router "slideshowSettings") =====================
@@ -339,6 +365,8 @@ const workflowSlideshow = {
         if (slideshowIntervalRow) slideshowIntervalRow.classList.toggle('hidden', !!cfg.photoPerSong);
         if (slideshowIntervalInput) slideshowIntervalInput.value = cfg.intervalSeconds;
         if (slideshowTransitionSelect) slideshowTransitionSelect.value = cfg.transitionType;
+        // MỚI (04/07/2026, mục 2) — đồng bộ toggle "Show caption".
+        if (settingSlideshowShowCaptionToggle) settingSlideshowShowCaptionToggle.checked = !!cfg.showCaption;
     },
 
     /** MỚI (04/07/2026, mục 5) — ứng với gạt "Photo per song". Persist + nếu engine đang chạy, khởi
@@ -436,5 +464,15 @@ const workflowSlideshow = {
         console.log(`writer: "workflowSlideshow.changeTransitionType", page: "slideshowConfig", content: "transitionType=${type}"`);
         await setMeta('slideshowConfig', appState.get('slideshowConfig'));
         setSlideshowTransitionType(slideshowContainer, type); // core — áp ngay cho lần chuyển cảnh kế tiếp
+    },
+
+    /** MỚI (04/07/2026, mục 2 phản hồi Giang) — ứng với toggle "Show caption".
+     * @param {boolean} checked
+     */
+    async changeShowCaption(checked) {
+        appState.mutate('slideshowConfig', (cfg) => { cfg.showCaption = checked; });
+        console.log(`writer: "workflowSlideshow.changeShowCaption", page: "slideshowConfig", content: "showCaption=${checked}"`);
+        await setMeta('slideshowConfig', appState.get('slideshowConfig'));
+        this._refreshCaptionVisibility(); // core/UI — áp ngay, không cần đợi lượt đổi ảnh kế tiếp
     },
 };

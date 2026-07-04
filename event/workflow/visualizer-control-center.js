@@ -11,8 +11,20 @@
  *   3. Tắt toggle giờ CHỈ ẩn hiển thị — KHÔNG còn xoá Blob khỏi IndexedDB (2 core function
  *      `disableVideoBackgroundState()`/`disableVisualBgImageState()` đã sửa tương ứng, xem
  *      core/state-and-video-bg.js) — vì vậy 2 nhánh "tắt" dưới đây không còn cần shield nữa.
+ *
+ * MỚI (04/07/2026, mục 2 phản hồi Giang):
+ *   - Video nền BẬT/TẮT giờ GỌI TRỰC TIẾP `workflowSlideshow.pauseForVideoBg()`/
+ *     `resumeFromVideoBg()` NGAY tại đây — THAY watchdog poll 3s/lần đã XOÁ hẳn khỏi
+ *     event/workflow/slideshow.js (Giang chỉ ra ĐÚNG: đã có sẵn sự kiện click bật/tắt video để
+ *     biết, poll lại appState mỗi 3s là thừa).
+ *   - Caption cho Visual bg image (ảnh tĩnh, KHÁC slideshow — slideshow tự quản lý caption riêng ở
+ *     event/workflow/slideshow.js): `_currentImageKey` theo dõi ảnh đang đặt, hiện caption (nếu
+ *     ảnh đó CÓ) NGAY lúc đặt; `refreshCaptionIfVisualBgImage()` gọi từ
+ *     event/workflow/file-manager-photo.js khi người dùng sửa caption ở Photo UI.
  */
 const workflowVisualizerControlCenter = {
+
+    _currentImageKey: null, // MỚI (mục 2) — imageKey đang là Visual bg image, để refreshCaptionIfVisualBgImage() biết có cần cập nhật không
 
     /** MỚI (04/07/2026, mục 1) — ứng với gạt "#setting-video-enable" lên On: LUÔN mở hộp thoại
      * chọn file NGAY (input ẩn, kích hoạt qua .click()) — KHÔNG tự bật `videoBgEnabled` ở đây, chờ
@@ -26,6 +38,8 @@ const workflowVisualizerControlCenter = {
      *  nữa, nhưng vẫn giữ wrapper async cho nhất quán interface gọi từ router. */
     async disableVideoBackground() {
         disableVideoBackgroundState(); // core: dọn vizConfig.videoBgUrl (GIỮ NGUYÊN meta.videoBg) + đồng bộ UI
+        // MỚI (mục 2) — video tắt -> báo TRỰC TIẾP cho slideshow tự resume (THAY watchdog poll đã bỏ).
+        if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.resumeFromVideoBg();
     },
 
     /**
@@ -43,12 +57,15 @@ const workflowVisualizerControlCenter = {
             await setMeta('videoBg', file);
             applyUploadedVideoBg(file); // core: tạo blob URL + bật + đồng bộ UI (validate lại 1 lần nữa, vô hại)
         });
+        // MỚI (mục 2) — video bật thành công -> báo TRỰC TIẾP cho slideshow tự pause + ẩn caption.
+        if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.pauseForVideoBg();
     },
 
     /** MỚI (03/07/2026, mục 2; VIẾT LẠI 04/07/2026, mục 1) — ứng với gạt
      * "#setting-visual-bg-image-enable" lên On: LUÔN mở picker chọn 1 ảnh có sẵn trong File
      * Manager. Huỷ/đóng picker không chọn gì -> `onCancel` tự trả toggle về "off" (tham số của
-     * openImageCarouselPickerModal, core/file-manager/photo-ui.js — fix đúng bug đã báo). */
+     * openImageCarouselPickerModal, core/file-manager/photo-ui.js — fix đúng bug đã báo).
+     * MỚI (04/07/2026, mục 2) — lưu lại `_currentImageKey` + hiện caption của ảnh đó (nếu có). */
     async pickVisualBgImageFromLibrary() {
         const images = await listImages(); // core có sẵn (core/file-manager/image.js), CÓ return, DÙNG ngay dưới
         // FIX (04/07/2026, mục 2 phản hồi Giang) — đổi sang carousel (1 ảnh/lúc, windowed DOM)
@@ -59,6 +76,10 @@ const workflowVisualizerControlCenter = {
             await withLoadingShield(t('common.loading.savingImageBg'), async () => {
                 await applyVisualBgImage(record.blob); // core có sẵn (core/state-and-video-bg.js)
             });
+            this._currentImageKey = imageKey;
+            const shouldShow = !!record.caption && !appState.get('vizConfig').videoBgEnabled;
+            setBgCaptionVisible(bgCaptionFrame, shouldShow); // core
+            if (shouldShow) setBgCaptionText(bgCaptionText, record.caption); // core
         }, () => {
             settingVisualBgImageEnableToggle.checked = false; // MỚI — huỷ/đóng modal không chọn gì -> tự trả về "off"
         });
@@ -68,5 +89,20 @@ const workflowVisualizerControlCenter = {
      * core `disableVisualBgImageState()` không còn đụng IndexedDB -> không cần shield nữa. */
     async disableVisualBgImage() {
         disableVisualBgImageState(); // core có sẵn (core/state-and-video-bg.js)
-    }
+        // MỚI (mục 2) — tắt ảnh nền -> dọn tracking + ẩn caption CỦA ẢNH NÀY.
+        this._currentImageKey = null;
+        setBgCaptionVisible(bgCaptionFrame, false); // core
+    },
+
+    /** MỚI (04/07/2026, mục 2) — gọi từ event/workflow/file-manager-photo.js ngay lúc người dùng
+     * sửa caption 1 ảnh ở Photo UI: đổi hiển thị NGAY nếu ảnh đó ĐANG là Visual bg image hiện tại.
+     * @param {string} imageKey
+     * @param {string} caption
+     */
+    refreshCaptionIfVisualBgImage(imageKey, caption) {
+        if (this._currentImageKey !== imageKey) return;
+        const shouldShow = !!caption && !appState.get('vizConfig').videoBgEnabled;
+        setBgCaptionVisible(bgCaptionFrame, shouldShow); // core
+        if (shouldShow) setBgCaptionText(bgCaptionText, caption); // core
+    },
 };

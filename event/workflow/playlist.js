@@ -35,25 +35,14 @@ const workflowPlaylist = {
         // không tự thêm thông báo mới.
     },
 
-    /**
-     * Ứng với msg.type = 'playlist.editCover.change' — cần validate (có thể trả lỗi) rồi QUYẾT
-     * ĐỊNH có hiện alertModal hay không -> đủ phối hợp để là workflow, dù chỉ gọi 1 hàm core.
-     * @param {{file: File}} payload
-     */
-    async changeCover(payload) {
-        const { file } = payload;
-        const result = changeSongEditCover(file); // core thuần, trả {status, reason?}
-        if (result.status === 'invalid') {
-            await alertModal(result.reason);
-        }
-    },
-
-    /** Ứng với msg.type = 'playlist.editCover.pickFromLibrary' — mở picker chọn 1 ảnh có sẵn
-     * trong File Manager làm cover (xem readme/song-cover-background-relations.md mục 2/3). Đọc
+    /** MỚI (03/07/2026); VIẾT LẠI (04/07/2026, mục 3 phản hồi Giang — bỏ hẳn nút Upload, chỉ còn
+     * "Choose photo") — mở picker chọn 1 ảnh có sẵn trong File Manager làm cover, TÁI DÙNG NGUYÊN
+     * view Photo UI mới (`openPhotoUiImagePickerModal`, grid ô vuông + chunk load/collapse — xem
+     * core/file-manager/photo-ui.js) THAY `openImageLibraryPickerModal()` (lưới columns cũ). Đọc
      * danh sách ảnh RỒI mở picker -> ≥2 bước -> workflow. */
     async pickCoverFromLibrary() {
         const images = await listImages(); // core có sẵn (core/file-manager/image.js), CÓ return, DÙNG ngay dưới
-        openImageLibraryPickerModal(images, (imageKey) => { // core/file-manager/photo-ui.js
+        openPhotoUiImagePickerModal(images, (imageKey) => { // core/file-manager/photo-ui.js
             this.applyCoverFromLibrary(imageKey);
         });
     },

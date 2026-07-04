@@ -61,7 +61,7 @@ const workflowFileManagerPhoto = {
         const displayedImages = imageSelectionMode
             ? images
             : (activeAlbum ? images.filter((img) => activeAlbum.imageKeys.includes(img.key)) : images);
-        renderImageMasonry(displayedImages, imageSelectionMode, selectedImageKeys); // core/file-manager/photo-ui.js
+        renderImageMasonry(fileManagerImageMasonry, displayedImages, imageSelectionMode, selectedImageKeys); // core/file-manager/photo-ui.js
     },
 
     /** Ứng với storyClick action='create'. */
@@ -211,6 +211,14 @@ const workflowFileManagerPhoto = {
                 await removeImageFromAlbum(imageKey, activeAlbumId); // core có sẵn (core/file-manager/album.js, Batch 3)
                 await this.refresh(activeAlbumId);
             } : undefined,
+            // MỚI (04/07/2026, mục 2 phản hồi Giang) — lưu caption. Nếu ảnh này ĐANG là ảnh hiện
+            // tại của Slideshow/Visual bg image, tự cập nhật luôn khung caption trên Visualizer
+            // (không cần đợi vòng đổi ảnh kế tiếp mới thấy caption mới).
+            onSaveCaption: async (caption) => {
+                await setImageCaption(imageKey, caption); // core/file-manager/image.js
+                if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.refreshCaptionIfCurrentImage(imageKey, caption);
+                if (typeof workflowVisualizerControlCenter !== 'undefined') workflowVisualizerControlCenter.refreshCaptionIfVisualBgImage(imageKey, caption);
+            },
         });
     },
 
