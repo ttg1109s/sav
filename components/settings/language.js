@@ -5,7 +5,7 @@
  *
  * 3 phần:
  *   - <select id="setting-language-select">: liệt kê English (luôn có, cứng RAM) + mọi ngôn ngữ
- *     đã upload (đọc từ IndexedDB store `languages` — xem js/core/db.js, js/core/lang.js). Dựng
+ *     đã upload (đọc từ IndexedDB store `languages` — xem js/service/db.js, js/core/lang.js). Dựng
  *     <option> bằng JS (renderLanguageOptions() ở language-settings.js), không hard-code tĩnh ở
  *     đây vì danh sách phụ thuộc dữ liệu người dùng đã upload.
  *   - Nút "Tải lên ngôn ngữ mới (.json)" (label bọc input ẩn, đúng pattern setting-bg-upload/
