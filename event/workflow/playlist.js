@@ -64,7 +64,7 @@ const workflowPlaylist = {
      * @param {string} imageKey
      */
     async applyCoverFromLibrary(imageKey) {
-        const record = await getImageRecord(imageKey); // core có sẵn (core/db.js), CÓ return, DÙNG ngay dưới
+        const record = await getImageRecord(imageKey); // core có sẵn (service/db.js), CÓ return, DÙNG ngay dưới
         if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
         const file = new File([record.blob], record.filename, { type: record.blob.type });
         const result = changeSongEditCover(file); // core có sẵn, CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
@@ -346,7 +346,7 @@ const workflowPlaylist = {
                 const record = await getSongRecord(key);
                 if (!record) continue; // guard: đã bị xoá từ trước (hiếm, race) — bỏ qua, không chặn cả lô
                 await removeSongFromAllFolders(record); // core có sẵn (core/file-manager/folder.js)
-                await deleteSongRecord(key); // core CRUD thô (core/db.js)
+                await deleteSongRecord(key); // core CRUD thô (service/db.js)
                 removeSongStats(key); // core có sẵn (core/listen-stats.js)
                 deletedKeys.push(key);
             }

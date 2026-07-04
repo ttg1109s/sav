@@ -104,10 +104,10 @@ const workflowFileManagerSong = {
      * @returns {Promise<Object>} folderMap vừa đọc
      */
     async refreshFolderDetail(folderId) {
-        const folderRecord = await getFolderRecord(folderId); // core có sẵn (core/db.js)
+        const folderRecord = await getFolderRecord(folderId); // core có sẵn (service/db.js)
         setFolderDetailTitle(folderRecord ? folderRecord.name : ''); // core/file-manager/folder-detail-ui.js
 
-        const folderMap = await getFolderSongMap(folderId); // core có sẵn (core/db.js)
+        const folderMap = await getFolderSongMap(folderId); // core có sẵn (service/db.js)
         const songs = getFolderSongsForDisplay(folderMap, appState.get('playlistCache')); // core/file-manager/folder-detail-ui.js
         renderFolderDetailSongList(songs); // core/file-manager/folder-detail-ui.js
 
@@ -155,7 +155,7 @@ const workflowFileManagerSong = {
      * chặn (folder rỗng, xem event/block.js). Lưu lựa chọn rồi hỏi có muốn tải lại để thấy ngay
      * không (xem event/workflow/playlist-scope.js). */
     async applyFolderToPlaylist(folderId) {
-        const folderRecord = await getFolderRecord(folderId); // core có sẵn (core/db.js)
+        const folderRecord = await getFolderRecord(folderId); // core có sẵn (service/db.js)
         await workflowPlaylistScope.persistScopeChoice(folderId);
         this._updateApplyButtonMode(folderId); // đổi nút sang "Bỏ áp dụng" ngay, không đợi reload
         workflowPlaylistScope.askReloadToApplyNow(tFormat('fileManager.song.folderDetail.applyReloadBody', { name: escapeHtml(folderRecord ? folderRecord.name : '') }));

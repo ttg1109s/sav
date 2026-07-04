@@ -188,7 +188,7 @@ const workflowFileManagerPhoto = {
      * @param {string|null} activeAlbumId
      */
     async openImagePreview(imageKey, activeAlbumId) {
-        const record = await getImageRecord(imageKey); // data layer (core/db.js)
+        const record = await getImageRecord(imageKey); // data layer (service/db.js)
         if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
 
         openImagePreviewModal({ key: imageKey, ...record }, { // core/file-manager/photo-ui.js
@@ -220,7 +220,7 @@ const workflowFileManagerPhoto = {
      * @param {string} imageKey
      */
     async setAsPlaylistBackground(imageKey) {
-        const record = await getImageRecord(imageKey); // data layer (core/db.js)
+        const record = await getImageRecord(imageKey); // data layer (service/db.js)
         if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
 
         await withLoadingShield(t('common.loading.savingImageBg'), async () => {
@@ -235,7 +235,7 @@ const workflowFileManagerPhoto = {
      * @param {string} imageKey
      */
     async setAsVisualBackground(imageKey) {
-        const record = await getImageRecord(imageKey); // data layer (core/db.js)
+        const record = await getImageRecord(imageKey); // data layer (service/db.js)
         if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
 
         await withLoadingShield(t('common.loading.savingImageBg'), async () => {

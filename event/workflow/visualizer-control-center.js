@@ -52,7 +52,7 @@ const workflowVisualizerControlCenter = {
     async pickVisualBgImageFromLibrary() {
         const images = await listImages(); // core có sẵn (core/file-manager/image.js), CÓ return, DÙNG ngay dưới
         openImageLibraryPickerModal(images, async (imageKey) => { // core/file-manager/photo-ui.js
-            const record = await getImageRecord(imageKey); // core có sẵn (core/db.js)
+            const record = await getImageRecord(imageKey); // core có sẵn (service/db.js)
             if (!record) { settingVisualBgImageEnableToggle.checked = false; return; } // guard: ảnh vừa bị xoá -> coi như huỷ
             await withLoadingShield(t('common.loading.savingImageBg'), async () => {
                 await applyVisualBgImage(record.blob); // core có sẵn (core/state-and-video-bg.js)

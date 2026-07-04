@@ -24,7 +24,7 @@
  * chuyển sang persistScopeChoice(null) + askReloadToApplyNow() (xem
  * event/workflow/file-manager-song.js).
  *
- * NẠP SAU: core/playlist/scope.js (loadAllSongs/loadSongsFromFolder), core/db.js (setMeta),
+ * NẠP SAU: core/playlist/scope.js (loadAllSongs/loadSongsFromFolder), service/db.js (setMeta),
  * core/playlist/order.js (updateShuffleArray/recomputeDisplayOrder/recomputeRenderOrder),
  * core/playlist/render.js (renderPlaylistDiff/updateEmptyState), core/modal-choice.js (modalChoice).
  */

@@ -34,7 +34,7 @@ const workflowVisualizerDisplay = {
 
         const images = await listImages(); // core có sẵn (core/file-manager/image.js), CÓ return, DÙNG ngay dưới
         openImageLibraryPickerModal(images, async (imageKey) => { // core/file-manager/photo-ui.js
-            const record = await getImageRecord(imageKey); // core có sẵn (core/db.js)
+            const record = await getImageRecord(imageKey); // core có sẵn (service/db.js)
             if (!record) { bgImageEnableToggle.checked = false; return; } // guard: ảnh vừa bị xoá ở tab/thao tác khác -> coi như huỷ
             await withLoadingShield(t('common.loading.savingImageBg'), async () => {
                 await applyBgImage(record.blob); // core có sẵn — Blob coi như File vừa chọn

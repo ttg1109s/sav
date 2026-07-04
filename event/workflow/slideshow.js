@@ -22,7 +22,7 @@
  * `disableVideoBackgroundState()`/`applyUploadedVideoBg()` (code DI SẢN đã có nợ Rule 3 sẵn — cùng
  * lý do đã ghi ở core/state-and-video-bg.js, KHÔNG thêm lời gọi void mới vào các hàm đó).
  *
- * PERSIST: `meta.slideshowConfig` + `meta.activeBackgroundAlbum` (core/db.js, getMeta/setMeta) —
+ * PERSIST: `meta.slideshowConfig` + `meta.activeBackgroundAlbum` (service/db.js, getMeta/setMeta) —
  * đọc lại lúc boot qua `loadPersistedSettingsOnBoot()`, gọi từ core/visualizer/draw-visualizer.js
  * (DOMContentLoaded). KHÔNG dùng lớp localStorage như `vizConfig` (đổi hiếm — chỉ lúc mở Settings
  * Drawer, không cần đồng bộ nhanh kiểu kéo slider).
@@ -31,17 +31,33 @@
  * event/workflow/file-manager-photo.js::deleteAlbumById() khi album vừa xoá trùng
  * `activeBackgroundAlbum` (mục 4 bước 2, plan-v12-multimedia-update-3.md).
  *
+ * "PHOTO PER SONG" (MỚI 04/07/2026, mục 5 phản hồi Giang) — `slideshowConfig.photoPerSong=true`:
+ * THAY task đếm giờ cố định (`SLIDESHOW_TASK`) bằng task poll `appState.get('currentKey')` mỗi 1s
+ * (`SLIDESHOW_SONG_WATCH_TASK`, xem `_startSongWatcher()`) — đổi ảnh ĐÚNG LÚC bài hát đổi THẬT
+ * (next/prev/hết bài tự next/chọn bài khác), so sánh KEY (không phải currentTime) nên seek trong
+ * CÙNG bài không kích hoạt đổi ảnh ("bù trừ theo seek" theo đúng yêu cầu). `intervalSeconds` bị bỏ
+ * qua hoàn toàn ở chế độ này.
+ *
  * NẠP SAU: core/file-manager/slideshow.js (SLIDESHOW_TRANSITION_TYPES, SLIDESHOW_TRANSITION_DURATION_MS,
- * pickNextSlideshowIndex*, setSlideshow*, beginSlideshowTransition, resetSlideshowLayers),
- * core/file-manager/album.js (getAlbumRecord/listAlbums — qua core/db.js), core/file-manager/image.js
- * (getImageRecord), core/file-manager/photo-ui.js (openAlbumPickerModal), core/db.js
+ * pickNextSlideshowIndex*, setSlideshow*, startSlideshowTransitionVisuals,
+ * finishSlideshowTransitionVisuals, resetSlideshowLayerClasses, applySlideshowKenBurns,
+ * freezeSlideshowKenBurnsEndState, pickRandomSlideshowKenBurnsVariant),
+ * core/file-manager/album.js (getAlbumRecord/listAlbums — qua service/db.js), core/file-manager/image.js
+ * (getImageRecord), core/file-manager/photo-ui.js (renderSlideshowAlbumPickerGrid), service/db.js
  * (getMeta/setMeta), core/dom-refs.js (slideshowContainer/slideshowLayer1/slideshowLayer2/
- * drawerSlideshowSettings/...), core/task-manager.js (taskManager), service/state.js (appState).
+ * drawerSlideshowSettings/...), service/task-manager.js (taskManager — CHỈ Workflow này dùng, core
+ * không còn dùng kể từ 04/07/2026), service/state.js (appState).
  * NẠP TRƯỚC: event/router/slideshow.js, event/workflow/file-manager-photo.js (gọi
  * `workflowSlideshow.clearActiveAlbum()` trong cascade xoá album).
  */
 const SLIDESHOW_TASK = 'slideshowTimer';
 const SLIDESHOW_WATCHDOG_TASK = 'slideshowWatchdog';
+// MỚI (04/07/2026, mục 5 phản hồi Giang) — task "canh chừng" đổi bài hát cho chế độ "Photo per
+// song": poll appState.get('currentKey') (đúng field lưu songKey đang phát, xem
+// core/player-controls.js) mỗi 1s, phát hiện ĐỔI THẬT (next/prev/tự next hết bài/chọn bài khác)
+// thì mới đổi ảnh — so sánh KEY (không phải currentTime) nên seek trong CÙNG bài KHÔNG kích hoạt
+// đổi ảnh (đúng yêu cầu "bù trừ theo seek").
+const SLIDESHOW_SONG_WATCH_TASK = 'slideshowSongWatch';
 
 const workflowSlideshow = {
     // Context RUNTIME của riêng engine (KHÔNG phải appState nghiệp vụ — chỉ bookkeeping của chính
@@ -51,12 +67,35 @@ const workflowSlideshow = {
     _currentIndex: -1,     // index trong _images đang hiển thị ("current"), -1 = chưa có gì
     _currentObjectUrl: null,
     _layerToggle: false,   // false = layer1 đang 'current', true = layer2 đang 'current'
+    _lastSeenSongKey: null, // MỚI (mục 5) — bookkeeping riêng của _startSongWatcher(), xem hàm đó
 
     _currentLayer() { return this._layerToggle ? slideshowLayer2 : slideshowLayer1; },
     _idleLayer() { return this._layerToggle ? slideshowLayer1 : slideshowLayer2; },
 
     _computeIntervalMs() {
         return Math.max(5, appState.get('slideshowConfig').intervalSeconds) * 1000;
+    },
+
+    /** MỚI (04/07/2026, mục 5 phản hồi Giang) — chế độ "Photo per song": THAY task đếm giờ cố định
+     * bằng task poll `currentKey` mỗi 1s — CHỈ gọi `_tick()` (đổi ảnh) khi key ĐỔI THẬT so với lần
+     * đọc trước (next/prev/hết bài tự next/chọn bài khác đều đổi `currentKey` — xem
+     * core/player-controls.js), seek trong CÙNG bài KHÔNG đổi key nên KHÔNG kích hoạt đổi ảnh (đúng
+     * yêu cầu "bù trừ theo seek"). Baseline lúc bắt đầu = key hiện tại, KHÔNG tính là "vừa đổi bài"
+     * ngay lượt đọc đầu tiên. */
+    _startSongWatcher() {
+        this._lastSeenSongKey = appState.get('currentKey');
+        taskManager.kill(SLIDESHOW_SONG_WATCH_TASK);
+        taskManager.addNew(SLIDESHOW_SONG_WATCH_TASK, {
+            time: 1000,
+            exe: () => {
+                const key = appState.get('currentKey');
+                if (key === this._lastSeenSongKey) return; // chưa đổi bài (kể cả đang seek) -> bỏ qua
+                this._lastSeenSongKey = key;
+                this._tick(); // TÁI DÙNG NGUYÊN cơ chế đổi ảnh — không quan tâm lý do được gọi
+            },
+            mode: 'timeout', count: 0,
+        });
+        taskManager.operator(SLIDESHOW_SONG_WATCH_TASK, 'enabled');
     },
 
     // ===================== Boot / persist =====================
@@ -73,6 +112,7 @@ const workflowSlideshow = {
                 if (savedConfig.mode === 'sequential' || savedConfig.mode === 'random') cfg.mode = savedConfig.mode;
                 if (typeof savedConfig.intervalSeconds === 'number' && savedConfig.intervalSeconds >= 5) cfg.intervalSeconds = savedConfig.intervalSeconds;
                 if (SLIDESHOW_TRANSITION_TYPES.includes(savedConfig.transitionType)) cfg.transitionType = savedConfig.transitionType;
+                if (typeof savedConfig.photoPerSong === 'boolean') cfg.photoPerSong = savedConfig.photoPerSong;
             });
         }
         if (!savedAlbumId) return;
@@ -123,6 +163,8 @@ const workflowSlideshow = {
     },
 
     /** Bắt đầu (hoặc khởi động lại) engine cho 1 albumId.
+     * VIẾT LẠI (04/07/2026, mục 5 phản hồi Giang) — rẽ nhánh theo `slideshowConfig.photoPerSong`:
+     * true -> `_startSongWatcher()` (đổi ảnh theo bài hát); false -> task đếm giờ cố định như cũ.
      * @param {string} albumId
      */
     async start(albumId) {
@@ -136,18 +178,32 @@ const workflowSlideshow = {
         this._layerToggle = false;
         setSlideshowContainerVisible(slideshowContainer, true); // core
         this._showFirstImage();
-        taskManager.kill(SLIDESHOW_TASK);
-        taskManager.addNew(SLIDESHOW_TASK, { time: this._computeIntervalMs(), exe: () => this._tick(), mode: 'timeout', count: 0 });
-        taskManager.operator(SLIDESHOW_TASK, 'enabled');
+        if (appState.get('slideshowConfig').photoPerSong) {
+            this._startSongWatcher();
+        } else {
+            taskManager.kill(SLIDESHOW_TASK);
+            taskManager.addNew(SLIDESHOW_TASK, { time: this._computeIntervalMs(), exe: () => this._tick(), mode: 'timeout', count: 0 });
+            taskManager.operator(SLIDESHOW_TASK, 'enabled');
+        }
         this._startWatchdog(); // canh chừng videoBgEnabled để tự resume (mục 2.4 update-3)
     },
 
-    /** Dừng hẳn engine — dọn task + ẩn container + revoke object URL. */
+    /** Dừng hẳn engine — dọn task + ẩn container + revoke object URL.
+     * VIẾT LẠI (04/07/2026, mục 3 — Rule 3 siết chặt): core không còn hàm gộp
+     * `resetSlideshowLayers()` (từng tự gọi 2 hàm core khác bên trong, nay cấm) — Workflow tự lặp
+     * qua 2 layer, tự gọi TỪNG hàm core cần thiết theo đúng thứ tự. */
     stop() {
         taskManager.kill(SLIDESHOW_TASK);
         taskManager.kill(SLIDESHOW_WATCHDOG_TASK);
+        taskManager.kill(SLIDESHOW_SONG_WATCH_TASK);
+        taskManager.kill('slideshowKenBurnsFreeze1');
+        taskManager.kill('slideshowKenBurnsFreeze2');
         setSlideshowContainerVisible(slideshowContainer, false); // core
-        resetSlideshowLayers([slideshowLayer1, slideshowLayer2]); // core
+        [slideshowLayer1, slideshowLayer2].forEach((layerEl) => {
+            setSlideshowLayerImage(layerEl, ''); // core
+            applySlideshowKenBurns(layerEl, false, 0); // core
+            resetSlideshowLayerClasses(layerEl); // core
+        });
         if (this._currentObjectUrl) { try { URL.revokeObjectURL(this._currentObjectUrl); } catch (e) {} this._currentObjectUrl = null; }
         this._currentIndex = -1;
     },
@@ -165,13 +221,37 @@ const workflowSlideshow = {
         if (layerEl) layerEl.classList.add('ss-current');
         const cfg = appState.get('slideshowConfig');
         setSlideshowTransitionType(slideshowContainer, cfg.transitionType); // core
-        if (cfg.transitionType === 'kenburns') applySlideshowKenBurns(layerEl, true, this._computeIntervalMs(), pickRandomSlideshowKenBurnsVariant()); // core
+        if (cfg.transitionType === 'kenburns') this._activateKenBurns(layerEl);
+    },
+
+    /**
+     * MỚI (04/07/2026, mục 3 phản hồi Giang — Rule 3 siết chặt) + fix mục 6 (Ken Burns "nhảy về xy
+     * gốc" lúc kết thúc animation): Workflow (KHÔNG phải core) tự chọn variant + tự
+     * `taskManager.once()` lịch đúng lúc hết `durationMs` để "đóng băng" trạng thái cuối bằng
+     * inline style (freezeSlideshowKenBurnsEndState(), core/file-manager/slideshow.js) — KHÔNG
+     * còn phó mặc hoàn toàn cho CSS `animation-fill-mode: forwards` (không đáng tin cậy 100% qua
+     * mọi trình duyệt, xem comment hàm đó).
+     * @param {HTMLElement} layerEl
+     */
+    _activateKenBurns(layerEl) {
+        const variant = pickRandomSlideshowKenBurnsVariant(); // core
+        const durationMs = this._computeIntervalMs();
+        applySlideshowKenBurns(layerEl, true, durationMs, variant); // core
+        taskManager.once(() => {
+            freezeSlideshowKenBurnsEndState(layerEl, variant); // core
+        }, durationMs, layerEl === slideshowLayer1 ? 'slideshowKenBurnsFreeze1' : 'slideshowKenBurnsFreeze2');
     },
 
     /** taskManager exe — đóng vai trò "Router" cho tick tự sinh (xem comment đầu file): tự đọc
      * appState rồi gọi hàm THUẦN ở core/file-manager/slideshow.js. */
     _tick() {
-        if (appState.get('vizConfig').videoBgEnabled) { taskManager.pause(SLIDESHOW_TASK); return; } // watchdog sẽ resume khi video tắt lại
+        // MỚI (04/07/2026, mục 5) — pause CẢ 2 task khả dĩ (chỉ đúng 1 cái đang thật sự chạy tuỳ
+        // photoPerSong, cái còn lại pause() tự no-op an toàn — xem comment _startWatchdog() dưới).
+        if (appState.get('vizConfig').videoBgEnabled) {
+            taskManager.pause(SLIDESHOW_TASK);
+            taskManager.pause(SLIDESHOW_SONG_WATCH_TASK);
+            return;
+        } // watchdog sẽ resume khi video tắt lại
         if (this._images.length === 0) return; // album rỗng (ảnh vừa bị xoá hết) -> chờ, không lỗi
 
         const cfg = appState.get('slideshowConfig');
@@ -187,8 +267,18 @@ const workflowSlideshow = {
 
         setSlideshowTransitionType(slideshowContainer, cfg.transitionType); // core
         setSlideshowLayerImage(incomingLayer, objectUrl); // core
-        if (cfg.transitionType === 'kenburns') applySlideshowKenBurns(incomingLayer, true, this._computeIntervalMs(), pickRandomSlideshowKenBurnsVariant()); // core
-        beginSlideshowTransition(outgoingLayer, incomingLayer, SLIDESHOW_TRANSITION_DURATION_MS); // core, fire-and-forget taskManager.once bên trong
+        if (cfg.transitionType === 'kenburns') this._activateKenBurns(incomingLayer);
+
+        // VIẾT LẠI (04/07/2026, mục 3 — Rule 3 siết chặt): trước đây gọi 1 hàm core duy nhất
+        // (beginSlideshowTransition) TỰ taskManager.once() + TỰ gọi core khác bên trong — giờ CẤM.
+        // Workflow tự làm cả 2 việc đó: gọi core "bắt đầu" NGAY, rồi TỰ taskManager.once() lịch
+        // đúng lúc hết SLIDESHOW_TRANSITION_DURATION_MS để tự gọi TỪNG hàm core "kết thúc".
+        startSlideshowTransitionVisuals(outgoingLayer, incomingLayer); // core
+        taskManager.once(() => {
+            setSlideshowLayerImage(outgoingLayer, ''); // core
+            applySlideshowKenBurns(outgoingLayer, false, 0); // core
+            finishSlideshowTransitionVisuals(outgoingLayer, incomingLayer); // core
+        }, SLIDESHOW_TRANSITION_DURATION_MS, 'slideshowTransitionCleanup');
 
         if (this._currentObjectUrl) {
             const staleUrl = this._currentObjectUrl;
@@ -202,7 +292,7 @@ const workflowSlideshow = {
     /** Canh chừng nhẹ (3s/lần) — tự resume task chính khi phát hiện `videoBgEnabled` đã về false
      * (mục 2.4 plan-v12-multimedia-update-3.md — KHÔNG đụng code video-toggle di sản).
      *
-     * LƯU Ý (core/task-manager.js): `taskManager.isTaskRunning()` vẫn trả `true` NGAY CẢ KHI task
+     * LƯU Ý (service/task-manager.js): `taskManager.isTaskRunning()` vẫn trả `true` NGAY CẢ KHI task
      * đang `pause()` (chỉ đổi `Loop.isPaused`, KHÔNG đổi `Loop.isRunning`) — dùng nó để "phát hiện
      * đang pause" là SAI. Thay vào đó gọi thẳng `taskManager.resume()` mỗi tick — hàm này tự guard
      * nội bộ (`Loop.resume()`: `if (!this.isPaused) return;`), gọi khi KHÔNG paused là no-op an
@@ -212,10 +302,9 @@ const workflowSlideshow = {
         taskManager.addNew(SLIDESHOW_WATCHDOG_TASK, {
             time: 3000,
             exe: () => {
-                if (appState.get('activeBackgroundAlbum')
-                    && !appState.get('vizConfig').videoBgEnabled
-                    && taskManager.plan[SLIDESHOW_TASK]) {
-                    taskManager.resume(SLIDESHOW_TASK); // no-op an toàn nếu task không hề đang paused
+                if (appState.get('activeBackgroundAlbum') && !appState.get('vizConfig').videoBgEnabled) {
+                    if (taskManager.plan[SLIDESHOW_TASK]) taskManager.resume(SLIDESHOW_TASK); // no-op an toàn nếu không tồn tại/không paused
+                    if (taskManager.plan[SLIDESHOW_SONG_WATCH_TASK]) taskManager.resume(SLIDESHOW_SONG_WATCH_TASK);
                 }
             },
             mode: 'timeout', count: 0,
@@ -225,8 +314,6 @@ const workflowSlideshow = {
 
     // ===================== Settings Drawer (cụm router "slideshowSettings") =====================
 
-    _currentAlbumThumbUrl: null, // object URL của thumbnail hàng "album đang chạy" — revoke mỗi lần vẽ lại
-
     /** Ứng với 'slideshowSettings.open'. */
     async openDrawer() {
         drawerSlideshowSettings.classList.remove('translate-y-full');
@@ -235,41 +322,37 @@ const workflowSlideshow = {
 
     /** Vẽ lại toàn bộ UI Settings Drawer theo state hiện tại — gọi lúc mở drawer + sau mỗi lần
      * đổi album/mode/interval/transitionType.
-     * VIẾT LẠI (Batch 9, 04/07/2026, mục 4) — 2 hàng nút "Chọn Album"/"Tắt" cũ thay bằng 1 toggle
-     * (`setting-slideshow-enable`) + 1 hàng "album đang chạy" (`slideshow-current-album-row`, CHỈ
-     * hiện khi có albumId, bấm vào mở lại panel để đổi album). */
+     * VIẾT LẠI (Batch 9, 04/07/2026, mục 4; ĐƠN GIẢN HOÁ THÊM 04/07/2026 đợt 2 — bỏ hẳn hàng "album
+     * đang chạy" theo phản hồi Giang) — 2 nút "Chọn Album"/"Tắt" cũ giờ CHỈ còn 1 toggle
+     * (`setting-slideshow-enable`), phản ánh ĐÚNG BẰNG việc CÓ/KHÔNG có `activeBackgroundAlbum`.
+     * Đổi album khi đang bật: gạt Off (xoá album) rồi gạt lại On (mở lại panel từ đầu). */
     async refreshDrawerUI() {
         const albumId = appState.get('activeBackgroundAlbum');
         const cfg = appState.get('slideshowConfig');
-        let albumName = '';
-        let albumThumbBlob = null;
-        if (albumId) {
-            const record = await getAlbumRecord(albumId); // data layer
-            albumName = record ? record.name : '';
-            if (record && Array.isArray(record.imageKeys) && record.imageKeys[0]) {
-                const imgRecord = await getImageRecord(record.imageKeys[0]); // data layer
-                albumThumbBlob = imgRecord ? imgRecord.blob : null;
-            }
-        }
 
         if (settingSlideshowEnableToggle) settingSlideshowEnableToggle.checked = !!albumId;
 
-        if (slideshowCurrentAlbumRow) slideshowCurrentAlbumRow.classList.toggle('hidden', !albumId);
-        if (slideshowSettingsAlbumName) slideshowSettingsAlbumName.textContent = albumName || t('slideshowSettingsDrawer.album.none');
-
-        if (this._currentAlbumThumbUrl) { try { URL.revokeObjectURL(this._currentAlbumThumbUrl); } catch (e) {} this._currentAlbumThumbUrl = null; }
-        if (slideshowCurrentAlbumThumb) {
-            if (albumThumbBlob) {
-                this._currentAlbumThumbUrl = URL.createObjectURL(albumThumbBlob);
-                slideshowCurrentAlbumThumb.style.backgroundImage = `url(${this._currentAlbumThumbUrl})`;
-            } else {
-                slideshowCurrentAlbumThumb.style.backgroundImage = '';
-            }
-        }
-
         if (slideshowModeSelect) slideshowModeSelect.value = cfg.mode;
+        // MỚI (04/07/2026, mục 5) — đồng bộ toggle "Photo per song" + ẩn hàng "Thời gian mỗi ảnh"
+        // khi đang bật (không còn ý nghĩa gì lúc đó).
+        if (settingSlideshowPhotoPerSongToggle) settingSlideshowPhotoPerSongToggle.checked = !!cfg.photoPerSong;
+        if (slideshowIntervalRow) slideshowIntervalRow.classList.toggle('hidden', !!cfg.photoPerSong);
         if (slideshowIntervalInput) slideshowIntervalInput.value = cfg.intervalSeconds;
         if (slideshowTransitionSelect) slideshowTransitionSelect.value = cfg.transitionType;
+    },
+
+    /** MỚI (04/07/2026, mục 5) — ứng với gạt "Photo per song". Persist + nếu engine đang chạy, khởi
+     * động lại NGAY với cơ chế tick tương ứng (start() tự đọc lại `slideshowConfig.photoPerSong`
+     * để quyết định dùng task đếm giờ hay task theo dõi bài hát — xem start()).
+     * @param {boolean} checked
+     */
+    async changePhotoPerSong(checked) {
+        appState.mutate('slideshowConfig', (cfg) => { cfg.photoPerSong = checked; });
+        console.log(`writer: "workflowSlideshow.changePhotoPerSong", page: "slideshowConfig", content: "photoPerSong=${checked}"`);
+        await setMeta('slideshowConfig', appState.get('slideshowConfig'));
+        if (slideshowIntervalRow) slideshowIntervalRow.classList.toggle('hidden', checked);
+        const albumId = appState.get('activeBackgroundAlbum');
+        if (albumId) await this.start(albumId); // khởi động lại engine với cơ chế tick mới ngay lập tức
     },
 
     /** MỚI (Batch 9, mục 4) — ứng với gạt "#setting-slideshow-enable": On -> mở panel chọn Album
