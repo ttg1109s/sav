@@ -132,10 +132,14 @@ body {
 
         @media (min-width: 1024px) {
             #playlist-view, #visualizer-ui, #player-container { transition: none; }
-            #playlist-view { transform: none !important; left: 0; right: auto; width: 420px; border-right: 1px solid rgba(255,255,255,0.08); }
-            #visualizer-ui, #player-container { transform: none !important; left: 420px; }
-            /* Desktop KHÔNG còn khái niệm "chuyển màn" — Visualizer LUÔN hiện, bất kể state
-               fade-in/hidden cũ (chỉ còn ý nghĩa trên mobile/tablet). */
+            /* FIX (04/07/2026, phản hồi Giang) — 420px CỐ ĐỊNH -> `clamp(340px, 30vw, 460px)`: vẫn
+               giữ tinh thần "Playlist là danh sách text/ảnh nhỏ, không cần phình to vô hạn theo
+               màn hình" (khác Visualizer — canvas nên ăn hết khoảng trống dư ra), nhưng co giãn
+               NHẸ theo % ở khoảng giữa thay vì 1 số cứng — màn hình vừa qua mốc 1024px (co hẹp)
+               không còn bị chiếm gần nửa màn hình nữa (30vw ở 1024px ≈ 307px, kẹp lên tối thiểu
+               340px; màn hình cực rộng cũng bị chặn trần ở 460px, không phình vô lý). -->
+            #playlist-view { transform: none !important; left: 0; right: auto; width: clamp(340px, 30vw, 460px); border-right: 1px solid rgba(255,255,255,0.08); }
+            #visualizer-ui, #player-container { transform: none !important; left: clamp(340px, 30vw, 460px); }
             /* Desktop KHÔNG còn khái niệm "chuyển màn" — Visualizer LUÔN hiện, bất kể state
                fade-in/hidden cũ (chỉ còn ý nghĩa trên mobile/tablet). PHẢI ép cả `display` (không
                chỉ `opacity`) — `.hidden` (Tailwind, display:none) có thể vẫn đang gắn trên
