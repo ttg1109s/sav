@@ -165,7 +165,7 @@ const workflowSlideshow = {
         if (layerEl) layerEl.classList.add('ss-current');
         const cfg = appState.get('slideshowConfig');
         setSlideshowTransitionType(slideshowContainer, cfg.transitionType); // core
-        if (cfg.transitionType === 'kenburns') applySlideshowKenBurns(layerEl, true, this._computeIntervalMs()); // core
+        if (cfg.transitionType === 'kenburns') applySlideshowKenBurns(layerEl, true, this._computeIntervalMs(), pickRandomSlideshowKenBurnsVariant()); // core
     },
 
     /** taskManager exe — đóng vai trò "Router" cho tick tự sinh (xem comment đầu file): tự đọc
@@ -187,7 +187,7 @@ const workflowSlideshow = {
 
         setSlideshowTransitionType(slideshowContainer, cfg.transitionType); // core
         setSlideshowLayerImage(incomingLayer, objectUrl); // core
-        if (cfg.transitionType === 'kenburns') applySlideshowKenBurns(incomingLayer, true, this._computeIntervalMs()); // core
+        if (cfg.transitionType === 'kenburns') applySlideshowKenBurns(incomingLayer, true, this._computeIntervalMs(), pickRandomSlideshowKenBurnsVariant()); // core
         beginSlideshowTransition(outgoingLayer, incomingLayer, SLIDESHOW_TRANSITION_DURATION_MS); // core, fire-and-forget taskManager.once bên trong
 
         if (this._currentObjectUrl) {
@@ -225,6 +225,8 @@ const workflowSlideshow = {
 
     // ===================== Settings Drawer (cụm router "slideshowSettings") =====================
 
+    _currentAlbumThumbUrl: null, // object URL của thumbnail hàng "album đang chạy" — revoke mỗi lần vẽ lại
+
     /** Ứng với 'slideshowSettings.open'. */
     async openDrawer() {
         drawerSlideshowSettings.classList.remove('translate-y-full');
@@ -232,35 +234,85 @@ const workflowSlideshow = {
     },
 
     /** Vẽ lại toàn bộ UI Settings Drawer theo state hiện tại — gọi lúc mở drawer + sau mỗi lần
-     * đổi album/mode/interval/transitionType. */
+     * đổi album/mode/interval/transitionType.
+     * VIẾT LẠI (Batch 9, 04/07/2026, mục 4) — 2 hàng nút "Chọn Album"/"Tắt" cũ thay bằng 1 toggle
+     * (`setting-slideshow-enable`) + 1 hàng "album đang chạy" (`slideshow-current-album-row`, CHỈ
+     * hiện khi có albumId, bấm vào mở lại panel để đổi album). */
     async refreshDrawerUI() {
         const albumId = appState.get('activeBackgroundAlbum');
         const cfg = appState.get('slideshowConfig');
         let albumName = '';
+        let albumThumbBlob = null;
         if (albumId) {
             const record = await getAlbumRecord(albumId); // data layer
             albumName = record ? record.name : '';
+            if (record && Array.isArray(record.imageKeys) && record.imageKeys[0]) {
+                const imgRecord = await getImageRecord(record.imageKeys[0]); // data layer
+                albumThumbBlob = imgRecord ? imgRecord.blob : null;
+            }
         }
+
+        if (settingSlideshowEnableToggle) settingSlideshowEnableToggle.checked = !!albumId;
+
+        if (slideshowCurrentAlbumRow) slideshowCurrentAlbumRow.classList.toggle('hidden', !albumId);
         if (slideshowSettingsAlbumName) slideshowSettingsAlbumName.textContent = albumName || t('slideshowSettingsDrawer.album.none');
-        if (btnSlideshowClearAlbum) btnSlideshowClearAlbum.classList.toggle('hidden', !albumId);
+
+        if (this._currentAlbumThumbUrl) { try { URL.revokeObjectURL(this._currentAlbumThumbUrl); } catch (e) {} this._currentAlbumThumbUrl = null; }
+        if (slideshowCurrentAlbumThumb) {
+            if (albumThumbBlob) {
+                this._currentAlbumThumbUrl = URL.createObjectURL(albumThumbBlob);
+                slideshowCurrentAlbumThumb.style.backgroundImage = `url(${this._currentAlbumThumbUrl})`;
+            } else {
+                slideshowCurrentAlbumThumb.style.backgroundImage = '';
+            }
+        }
+
         if (slideshowModeSelect) slideshowModeSelect.value = cfg.mode;
         if (slideshowIntervalInput) slideshowIntervalInput.value = cfg.intervalSeconds;
         if (slideshowTransitionSelect) slideshowTransitionSelect.value = cfg.transitionType;
     },
 
-    /** Ứng với "Tắt" nền Slideshow trong Settings Drawer. */
-    async disableFromDrawer() {
-        await this.clearActiveAlbum();
-        await this.refreshDrawerUI();
+    /** MỚI (Batch 9, mục 4) — ứng với gạt "#setting-slideshow-enable": On -> mở panel chọn Album
+     * NGAY; Off -> tắt hẳn (clearActiveAlbum, xem cơ chế thống nhất đã áp dụng cho Video/Ảnh nền ở
+     * mục 1, cùng ngày).
+     * @param {boolean} checked
+     */
+    async onEnableToggleChange(checked) {
+        if (checked) {
+            await this.openAlbumPicker();
+        } else {
+            await this.clearActiveAlbum();
+            await this.refreshDrawerUI();
+        }
     },
 
-    /** Ứng với "Chọn Album" trong Settings Drawer — mở picker (danh sách album). */
-    async promptPickAlbum() {
-        const albums = await listAlbums(); // core/file-manager/album.js
-        openAlbumPickerModal(albums, async (albumId) => { // core/file-manager/photo-ui.js
+    /** MỚI (Batch 9, mục 4) — mở panel chọn Album kiểu "notify center" (vẽ lại GRID mỗi lần mở,
+     * panel TĨNH đã mount sẵn — components/slideshow-settings-drawer.js). Dùng CHUNG cho 2 ngữ
+     * cảnh: (a) vừa gạt "On" lần đầu (chưa có album), (b) bấm hàng "album đang chạy" để ĐỔI sang
+     * album khác (đã có album từ trước). */
+    async openAlbumPicker() {
+        const [albums, images] = await Promise.all([listAlbums(), listImages()]); // core có sẵn, CÓ return, DÙNG ngay dưới
+        const imageRecordsByKey = new Map(images.map((img) => [img.key, img]));
+        const activeAlbumId = appState.get('activeBackgroundAlbum');
+
+        renderSlideshowAlbumPickerGrid(slideshowAlbumPickerGrid, albums, activeAlbumId, imageRecordsByKey, async (albumId) => { // core/file-manager/photo-ui.js
+            setSlideshowAlbumPickerVisible(slideshowAlbumPickerOverlay, slideshowAlbumPickerPanel, false); // core
             await this.setActiveAlbum(albumId);
             await this.refreshDrawerUI();
         });
+        if (slideshowAlbumPickerEmpty) slideshowAlbumPickerEmpty.classList.toggle('hidden', albums.length > 0);
+        setSlideshowAlbumPickerVisible(slideshowAlbumPickerOverlay, slideshowAlbumPickerPanel, true); // core
+    },
+
+    /** MỚI (Batch 9, mục 4) — ứng với bấm ra ngoài panel (overlay) mà KHÔNG chọn album nào. Nếu
+     * lúc mở panel CHƯA có album active (vừa gạt "On" lần đầu) -> tự trả toggle về "off" (đúng cơ
+     * chế đã thống nhất ở mục 1: huỷ picker = huỷ luôn hành động "bật"). Nếu ĐÃ có album từ trước
+     * (đang đổi album, không phải bật mới) -> giữ nguyên mọi thứ, chỉ đóng panel. */
+    cancelAlbumPicker() {
+        setSlideshowAlbumPickerVisible(slideshowAlbumPickerOverlay, slideshowAlbumPickerPanel, false); // core
+        if (!appState.get('activeBackgroundAlbum') && settingSlideshowEnableToggle) {
+            settingSlideshowEnableToggle.checked = false;
+        }
     },
 
     /** Ứng với select "Cách chọn ảnh kế tiếp" (sequential/random).

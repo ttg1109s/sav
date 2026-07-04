@@ -9,41 +9,38 @@
  *   - QUY TẮC SHIELD/MODAL: alertModal() KHÔNG bao giờ gọi BÊN TRONG callback của
  *     withLoadingShield() — luôn gọi SAU KHI shield đã đóng hẳn.
  *
- * Chỉ 2 msg.type của router "visualizerDisplay" cần shield (đụng IndexedDB qua setMeta/delMeta)
- * -> được giao cho workflow xử lý ở đây: 'visualizerDisplay.bgImage.pickFromLibrary' và
- * 'visualizerDisplay.bgImage.toggle'. Mọi msg.type còn lại router tự gọi thẳng 1 hàm core, KHÔNG
- * đi qua workflow (xem router/visualizer-display.js).
+ * FIX (04/07/2026, mục 1 phản hồi Giang) — GỘP 'visualizerDisplay.bgImage.pickFromLibrary' (nút
+ * riêng đã xoá) vào thẳng 'visualizerDisplay.bgImage.toggle': bật toggle giờ tự mở picker, huỷ/
+ * không chọn gì thì tự trả toggle về "off" (onCancel). Tắt toggle CHỈ ẩn hiển thị, KHÔNG còn xoá
+ * Blob khỏi IndexedDB (đảo ngược quyết định cũ) — vì vậy `toggleBgImage({enabled:false})` không
+ * còn cần shield, gọi thẳng `applyBgImageEnabled(false)` (core giờ đồng bộ). CHỈ nhánh `enabled:true`
+ * (mở picker + `applyBgImage()`) còn ở workflow (>1 bước + cần shield lúc lưu).
  */
 const workflowVisualizerDisplay = {
 
     /**
-     * FIX (03/07/2026, mục 1) — thay 'visualizerDisplay.bgImage.upload' (upload file trực tiếp)
-     * bằng picker chọn ảnh có sẵn trong File Manager. Đọc danh sách ảnh RỒI mở picker -> ≥2 bước
-     * -> workflow. Callback chọn xong TÁI DÙNG NGUYÊN applyBgImage() có sẵn (Blob từ store `images`
-     * coi như 1 File vừa "upload" — xem readme/song-cover-background-relations.md).
-     */
-    async pickBgImageFromLibrary() {
-        const images = await listImages(); // core có sẵn (core/file-manager/image.js), CÓ return, DÙNG ngay dưới
-        openImageLibraryPickerModal(images, async (imageKey) => { // core/file-manager/photo-ui.js
-            const record = await getImageRecord(imageKey); // core có sẵn (core/db.js)
-            if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
-            await withLoadingShield(t('common.loading.savingImageBg'), async () => {
-                await applyBgImage(record.blob); // core có sẵn (core/visualizer/visualizer-display.js) — Blob coi như File vừa chọn
-            });
-        });
-    },
-
-    /**
-     * Ứng với msg.type = 'visualizerDisplay.bgImage.toggle' — cần PHỐI HỢP shield (đụng
-     * IndexedDB qua setMeta/delMeta bên trong applyBgImageEnabled) -> workflow, dù chỉ gọi 1 hàm
-     * core (tiêu chí shield, không phải tiêu chí "đếm số hàm core" — xem mục 2 quy tắc 4 của
-     * plan.md: bất kỳ msg.type cần shield/modal đều qua workflow).
+     * FIX (04/07/2026, mục 1 phản hồi Giang) — GỘP nút "Chọn thư viện" (đã xoá) VÀO ĐÂY: gạt toggle
+     * lên "On" giờ TỰ mở picker chọn ảnh có sẵn trong File Manager luôn, không cần 2 control tách
+     * rời (từng gây bug UX: gạt On xong đóng modal không chọn gì, toggle vẫn kẹt "on"). Huỷ/đóng
+     * modal không chọn ảnh -> `onCancel` tự trả toggle về "off" (tham số mới của
+     * openImageLibraryPickerModal, xem core/file-manager/photo-ui.js). Gạt về "off" thì chỉ tắt
+     * hiển thị — KHÔNG xoá Blob đã lưu trong IndexedDB nữa (đảo ngược quyết định cũ, xem
+     * applyBgImageEnabled() core/visualizer/visualizer-display.js).
      * @param {{enabled: boolean}} payload
      */
     async toggleBgImage(payload) {
         const { enabled } = payload;
-        await withLoadingShield(enabled ? t('common.loading.generic') : t('common.loading.deletingImageBg'), async () => {
-            await applyBgImageEnabled(enabled); // "tay" cần enabled -> đưa enabled
+        if (!enabled) { applyBgImageEnabled(false); return; } // core giờ đồng bộ (không còn đụng IndexedDB) -> gọi thẳng
+
+        const images = await listImages(); // core có sẵn (core/file-manager/image.js), CÓ return, DÙNG ngay dưới
+        openImageLibraryPickerModal(images, async (imageKey) => { // core/file-manager/photo-ui.js
+            const record = await getImageRecord(imageKey); // core có sẵn (core/db.js)
+            if (!record) { bgImageEnableToggle.checked = false; return; } // guard: ảnh vừa bị xoá ở tab/thao tác khác -> coi như huỷ
+            await withLoadingShield(t('common.loading.savingImageBg'), async () => {
+                await applyBgImage(record.blob); // core có sẵn — Blob coi như File vừa chọn
+            });
+        }, () => {
+            bgImageEnableToggle.checked = false; // MỚI — huỷ/đóng modal không chọn gì -> tự trả về "off"
         });
     }
 };
