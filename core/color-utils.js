@@ -15,10 +15,15 @@
             return `rgb(${result.r}, ${result.g}, ${result.b})`;
         }
 
+        /** FIX (04/07/2026, mục 1a phản hồi Giang) — tô màu vào `#visualizer-solid-bg` (element
+         * riêng của Visualizer UI) THAY `document.body` — `document.body`'s background từng bị
+         * nghi ngờ là 1 phần nguyên nhân màu Settings tràn vào status bar/tai thỏ OS (1 số trình
+         * duyệt tự suy màu vùng đó từ nền `<body>` bất kể có gì đè lên trên). `body` giờ giữ
+         * NGUYÊN #000000 tĩnh khai báo thuần trong CSS, không còn bị JS đụng vào nữa. */
         function updateDOMBackground() { 
             const cfg = appState.get('vizConfig');
-            if(!cfg.videoBgEnabled) document.body.style.backgroundColor = cfg.bgColor; 
-            else document.body.style.backgroundColor = '#000000';
+            if(!cfg.videoBgEnabled) visualizerSolidBg.style.backgroundColor = cfg.bgColor; 
+            else visualizerSolidBg.style.backgroundColor = '#000000';
         }
         
         function updatePlaylistBg() {

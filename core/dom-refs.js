@@ -119,9 +119,14 @@
 
         const videoEnableToggle = document.getElementById('setting-video-enable'), videoUploadInput = document.getElementById('setting-video-upload'), bgVideoElement = document.getElementById('bg-video');
         // Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual).
+        // FIX (04/07/2026, mục 1a) — nền màu Settings (bgColor), TÁCH khỏi document.body.
+        const visualizerSolidBg = document.getElementById('visualizer-solid-bg');
         const visualBgImageElement = document.getElementById('visual-bg-image');
         // Slideshow nền Visual (nguồn nền thứ 3, Batch 8, ver 12 "Multi Media") — xem
         // core/file-manager/slideshow.js / event/workflow/slideshow.js.
+        // MỚI (04/07/2026, mục 2 phản hồi Giang) — khung caption ảnh nền (Visual bg image/Slideshow).
+        const bgCaptionFrame = document.getElementById('bg-caption-frame');
+        const bgCaptionText = document.getElementById('bg-caption-text');
         const slideshowContainer = document.getElementById('visual-slideshow-container');
         const slideshowLayer1 = document.getElementById('visual-slideshow-layer-1');
         const slideshowLayer2 = document.getElementById('visual-slideshow-layer-2');
@@ -142,6 +147,8 @@
         const slideshowIntervalRow = document.getElementById('slideshow-interval-row');
         const slideshowIntervalInput = document.getElementById('setting-slideshow-interval');
         const slideshowTransitionSelect = document.getElementById('setting-slideshow-transition');
+        // MỚI (04/07/2026, mục 2) — toggle "Show caption".
+        const settingSlideshowShowCaptionToggle = document.getElementById('setting-slideshow-show-caption');
         // "Tắt Visual" (ver 8 refine) — ĐỘC LẬP khỏi nhóm Video Background, đặt thành mục cài đặt
         // riêng (xem js/components/settings/playlist-background.js). id mới `setting-visual-enable`.
         const visualEnabledToggle = document.getElementById('setting-visual-enable');
@@ -320,7 +327,6 @@
         const songEditArtistInput = document.getElementById('song-edit-artist');
         const songEditAlbumInput = document.getElementById('song-edit-album');
         const songEditCoverPreview = document.getElementById('song-edit-cover-preview');
-        const songEditCoverUploadInput = document.getElementById('song-edit-cover-upload');
         const songEditCoverPickLibraryBtn = document.getElementById('song-edit-cover-pick-library');
         const songEditCoverRemoveBtn = document.getElementById('song-edit-cover-remove');
         const songEditTabButtons = document.querySelectorAll('.song-edit-tab-btn');

@@ -116,7 +116,7 @@
             //  - Nền đen cưỡng chế phía sau video.
             const cfg = appState.get('vizConfig');
             if (cfg.videoBgEnabled && cfg.videoBgUrl) {
-                document.body.style.backgroundColor = '#000000'; // nền đen cưỡng chế sau video
+                visualizerSolidBg.style.backgroundColor = '#000000'; // FIX (04/07/2026, mục 1a) — nền đen cưỡng chế sau video, đổi target khỏi document.body
                 bgVideoElement.classList.remove('hidden');
                 setupVideoBgSource(); // nạp nguồn + fade nếu là URL mới; no-op nếu đã sẵn sàng
                 if (appState.get('_videoBgLoadedUrl') === cfg.videoBgUrl) bgVideoElement.style.opacity = '1'; // đã sẵn sàng -> hiện ngay
@@ -189,14 +189,29 @@
         //   nhánh loại trừ trong handleVideoBackground()/applyVisualBgImageToDOM() — code liên quan
         //   video là DI SẢN nợ kỹ thuật NẶNG, core-legacy-audit.md, cố tình KHÔNG đụng).
         //
-        // VẤN ĐỀ HIỆU NĂNG (Giang lưu ý riêng, ÁP DỤNG CHO SLIDESHOW) — ĐÃ TRIỂN KHAI THẬT ở Batch
-        // 8 (03/07/2026, xem event/workflow/slideshow.js), ĐÚNG THIẾT KẾ đã ghi ở đây: task
-        // 'slideshowTimer' (`_tick()`) tự đọc `appState.get('vizConfig').videoBgEnabled` NGAY ĐẦU
-        // mỗi tick — true thì tự `taskManager.pause('slideshowTimer')`, không tick tiếp; 1 task
-        // "canh chừng" riêng (`slideshowWatchdog`, đọc mỗi 3s) tự `taskManager.resume(...)` khi
-        // phát hiện `videoBgEnabled` đã về false. KHÔNG đụng `enableVideoBackground()`/
+        // VẤN ĐỀ HIỆU NĂNG (Giang lưu ý riêng, ÁP DỤNG CHO SLIDESHOW) — VIẾT LẠI (04/07/2026, mục 2
+        // phản hồi Giang, bỏ watchdog poll 3s/lần): task 'slideshowTimer' pause/resume giờ do
+        // event/workflow/visualizer-control-center.js GỌI TRỰC TIẾP (`workflowSlideshow.
+        // pauseForVideoBg()`/`resumeFromVideoBg()`) NGAY LÚC video nền bật/tắt thành công —
+        // KHÔNG còn tự poll `videoBgEnabled` lặp lại (đã có sẵn sự kiện click để biết, poll thêm
+        // là thừa — đúng góp ý Giang). KHÔNG đụng `enableVideoBackground()`/
         // `disableVideoBackgroundState()`/`applyUploadedVideoBg()` (di sản, giữ nguyên như đề xuất
         // ban đầu — không thêm lời gọi void nào vào các hàm đó).
+
+        /** Core thuần: hiện/ẩn khung caption ảnh nền (Visual bg image tĩnh HOẶC ảnh hiện tại của
+         * Slideshow) — MỚI (04/07/2026, mục 2 phản hồi Giang). Dùng CHUNG bởi
+         * event/workflow/visualizer-control-center.js (visualBgImage) VÀ event/workflow/slideshow.js
+         * (ảnh hiện tại của slideshow, nếu bật "Hiện caption"). */
+        function setBgCaptionVisible(frameEl, visible) {
+            if (!frameEl) return;
+            frameEl.classList.toggle('hidden', !visible);
+        }
+
+        /** Core thuần: đổi nội dung text đang hiện trong khung caption. */
+        function setBgCaptionText(textEl, caption) {
+            if (!textEl) return;
+            textEl.textContent = caption || '';
+        }
 
         /** Core thuần: hiện/ẩn + set `background-image` DOM cho nền tĩnh Visual — KHÔNG biết gì về
          * IndexedDB/store `images` (nơi gọi tự resolve Blob -> objectUrl trước, xem

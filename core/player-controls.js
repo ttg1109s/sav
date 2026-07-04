@@ -118,9 +118,16 @@
             canvas.classList.add('opacity-0');
             const webglCanvasEl = document.getElementById('webgl-canvas');
             if (webglCanvasEl) webglCanvasEl.classList.add('opacity-0');
-            playlistView.classList.remove('-translate-y-full');
+            // FIX (04/07/2026, mục 4) — 'playlist-hidden' THAY '-translate-y-full' (dọc -> ngang) +
+            // gỡ NGAY 'visualizer-active' khỏi CẢ 2 (visualizerUI/playerContainer) CÙNG LÚC với
+            // Playlist hiện lại — đúng yêu cầu "đẩy đồng thời cả hai", không chờ callback trễ.
+            playlistView.classList.remove('playlist-hidden');
+            visualizerUI.classList.remove('visualizer-active');
+            playerContainer.classList.remove('visualizer-active');
             if (typeof closeControlCenter === 'function') closeControlCenter(); // phòng panel còn mở sót
-            taskManager.once(() => { visualizerUI.classList.add('hidden'); playerContainer.classList.add('hidden'); renderPlaylistDiff(); }, 300, 'hideVisualizerUiAfterFade');
+            // 300 -> 500ms, khớp ĐÚNG duration của transition transform (0.5s, assets/css/style.css)
+            // — dọn hidden/renderPlaylistDiff() SAU KHI slide ngang chạy xong hẳn.
+            taskManager.once(() => { visualizerUI.classList.add('hidden'); playerContainer.classList.add('hidden'); renderPlaylistDiff(); }, 500, 'hideVisualizerUiAfterFade');
         }
 
         /**
@@ -251,7 +258,12 @@
         }
 
         function switchToVisualizer() {
-            playlistView.classList.add('-translate-y-full'); visualizerUI.classList.remove('hidden'); playerContainer.classList.remove('hidden');
+            // FIX (04/07/2026, mục 4) — 'playlist-hidden' THAY '-translate-y-full' (dọc -> ngang)
+            // + thêm 'visualizer-active' cho CẢ 2 (visualizerUI/playerContainer) NGAY LÚC NÀY
+            // (cùng lúc gỡ 'hidden') để slide ngang chạy đồng thời với Playlist thoát màn hình.
+            playlistView.classList.add('playlist-hidden');
+            visualizerUI.classList.remove('hidden'); playerContainer.classList.remove('hidden');
+            visualizerUI.classList.add('visualizer-active'); playerContainer.classList.add('visualizer-active');
             // KHÔNG gọi handleVideoBackground() ở đây nữa: chuyển màn hình KHÔNG được điều khiển video
             // (video chỉ bám theo trạng thái nhạc). Playlist đè z-[60] tự che video khi cần.
             taskManager.once(() => { 
