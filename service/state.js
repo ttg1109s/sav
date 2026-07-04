@@ -27,7 +27,11 @@
  *         đường đọc (get() vốn đã không validate gì, chỉ trả thẳng `this._state[key]`, nên
  *         không có chi phí kiểu-dữ-liệu nào để bỏ qua; mục tiêu BẮT BUỘC qua get() là để KHÔNG
  *         CÒN tồn tại bất kỳ truy cập `STATE.xxx` trần nào ngoài file này, không phải vì lý do
- *         hiệu năng).
+ *         hiệu năng). MỚI (04/07/2026, phản hồi Giang) — `get()` CŨNG nhận `key` dạng ARRAY
+ *         (`appState.get(['a', 'b'])` -> `{ a: ..., b: ... }`), gộp NHIỀU lần đọc vào 1 lệnh gọi
+ *         thay vì phải gọi get() liên tục rồi tự gộp tay — hành vi string CŨ giữ NGUYÊN 100%,
+ *         hoàn toàn tương thích ngược. Nhánh array uỷ quyền cho `_getMany()` (private) — xem
+ *         comment ngay tại get().
  *       • `appState.set(key, value, options)` — gán TOÀN BỘ giá trị mới cho 1 key (thay cả
  *         reference). SAI KIỂU sẽ:
  *           1. console.warn chi tiết (key, kiểu mong đợi, kiểu thực nhận, giá trị thực nhận)
@@ -204,7 +208,7 @@
             // chạy (displayOrder quay lại phản ánh top-level thật) — xem core/playlist/order.js.
             sectionQueueActive: 'boolean',
             activeBackgroundAlbum: 'nullable-string', // albumId đang dùng làm nền slideshow, null = không dùng
-            slideshowConfig: 'object',               // { mode, intervalSeconds, transitionType } — xem CONST.DEFAULT_SLIDESHOW_CONFIG
+            slideshowConfig: 'object',               // { mode, intervalSeconds, transitionType, photoPerSong } — xem CONST.DEFAULT_SLIDESHOW_CONFIG
             readerConfig: 'object',                  // { fontFamily, fontSize, bgColor, textColor, opacity } — xem CONST.DEFAULT_READER_CONFIG
         };
 
@@ -378,7 +382,7 @@
                 videoBgEnabled: false, videoBgUrl: '',
                 // MỚI (batch 03/07/2026) — nền tĩnh CHO MÀN VISUALIZER (khác hẳn bgImage ở trên,
                 // vốn là nền cho màn Playlist/#playlist-bg). CÙNG CƠ CHẾ HỆT bgImage/videoBgUrl:
-                // Blob THẬT lưu ở `meta.visualBgImage` (core/db.js), visualBgImage ở đây CHỈ là
+                // Blob THẬT lưu ở `meta.visualBgImage` (service/db.js), visualBgImage ở đây CHỈ là
                 // blob: URL runtime resolve lại mỗi session (KHÔNG lưu trực tiếp field này, xem
                 // core/config.js::flushConfigBackup()). Đặt qua menu "Đặt làm nền" trên ảnh
                 // (event/workflow/file-manager-photo.js) chỉ đơn giản COPY Blob từ store `images`
@@ -418,8 +422,11 @@
             // chung, đổi lại 1 chỗ này + bỏ key readerConfig riêng trong STATE_SCHEMA/STATE.
             DEFAULT_SLIDESHOW_CONFIG: Object.freeze({
                 mode: 'sequential', // 'sequential' | 'random'
-                intervalSeconds: 5, // tối thiểu 5s theo plan mục 4.b3
+                intervalSeconds: 5, // tối thiểu 5s theo plan mục 4.b3 — CHỈ dùng khi photoPerSong=false
                 transitionType: 'fade',
+                photoPerSong: false, // MỚI (04/07/2026, mục 5 phản hồi Giang) — true: đổi ảnh THEO
+                                      // bài hát (1 ảnh/1 bài, đổi đúng lúc bài hát đổi — kể cả seek
+                                      // KHÔNG tính, chỉ tính đổi BÀI thật), bỏ qua intervalSeconds.
             }),
             DEFAULT_READER_CONFIG: Object.freeze({
                 fontFamily: 'system-ui',
@@ -469,8 +476,29 @@
              * taskManager tần suất cao. Không validate gì (trả thẳng `this._state[key]`), nên
              * không có overhead kiểu-dữ-liệu để cân nhắc bỏ qua như set()/mutate().
              */
+            /**
+             * Đọc giá trị hiện tại của 1 KEY (string, hành vi CŨ — không đổi) HOẶC NHIỀU key cùng
+             * lúc (array, MỚI 04/07/2026 phản hồi Giang — tránh gọi get() liên tục nhiều lần rồi tự
+             * gộp tay ở nơi gọi). Rule 1 (core-function-conventions.md) áp DỤNG TƯƠNG TỰ ở đây dù
+             * đây không phải "hàm core": "đọc 1 key" và "đọc N key rồi gộp lại thành object" là 2
+             * TIẾN TRÌNH khác nhau -> KHÔNG rẽ nhánh if/else rồi viết vòng lặp NGAY TRONG get(),
+             * uỷ quyền hẳn nhánh array cho `_getMany()` riêng (private, dùng dấu `_` đầu tên theo
+             * quy ước file này — xem `_notifyUI()`/`_getSchema()` nếu có).
+             * @param {string|string[]} key
+             * @returns {*} giá trị của key đó nếu truyền string; hoặc `{ [key]: value, ... }` nếu
+             *   truyền array (key nào không tồn tại trong schema vẫn trả `undefined` cho key đó,
+             *   KHÔNG throw/bỏ qua — giữ đúng hành vi get() 1 key vốn có).
+             */
             get(key) {
+                if (Array.isArray(key)) return this._getMany(key);
                 return this._state[key];
+            }
+
+            /** Private: đọc NHIỀU key cùng lúc, dùng bởi get() khi nhận array — xem comment get(). */
+            _getMany(keys) {
+                const result = {};
+                keys.forEach((k) => { result[k] = this._state[k]; });
+                return result;
             }
 
             /** Snapshot toàn bộ state hiện tại (copy nông — dùng cho debug/log, KHÔNG dùng trong hot path). */
