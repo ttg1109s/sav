@@ -368,7 +368,8 @@
         function closeSongEditModal() {
             revokeSongEditPendingPreview();
             playlistStore.set({ songEditPendingCover: null });
-            songEditCoverUploadInput.value = '';
+            // FIX (04/07/2026, mục 3 phản hồi Giang) — bỏ dòng reset `songEditCoverUploadInput.value`
+            // (input file Upload đã XOÁ hẳn khỏi template — chỉ còn nút "Choose photo" mở picker).
             songEditModal.classList.add('hidden');
         }
 
