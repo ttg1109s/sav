@@ -208,7 +208,7 @@ const TPL_FILE_MANAGER_PHOTO_DRAWER = `
 
         <!-- Masonry ảnh (CSS columns thuần — mục 3). -->
         <div class="flex-grow overflow-y-auto px-3 py-3 pb-20">
-            <div id="file-manager-image-masonry" class="columns-2 sm:columns-3 gap-2"></div>
+            <div id="file-manager-image-masonry" class="grid grid-cols-3 sm:grid-cols-4 gap-1"></div>
             <p id="file-manager-image-empty" class="hidden text-sm text-slate-400 text-center py-10" data-i18n="fileManager.photo.image.empty">${t('fileManager.photo.image.empty')}</p>
         </div>
 
