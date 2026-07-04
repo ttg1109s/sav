@@ -54,3 +54,10 @@ if (slideshowTransitionSelect) {
         eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.transitionType.change', payload: { value: slideshowTransitionSelect.value } });
     });
 }
+
+// MỚI (04/07/2026, mục 2) — toggle "Show caption".
+if (settingSlideshowShowCaptionToggle) {
+    settingSlideshowShowCaptionToggle.addEventListener('change', (e) => {
+        eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.showCaption.change', payload: { checked: e.target.checked } });
+    });
+}

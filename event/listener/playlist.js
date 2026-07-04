@@ -82,17 +82,9 @@ if (songEditTabButtons) {
     });
 }
 
-if (songEditCoverUploadInput) {
-    songEditCoverUploadInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        e.target.value = '';
-        if (!file) return; // không chọn gì (bấm Cancel trên dialog chọn file) -> không gửi gì cả
-        eventBus.send({ router: 'playlist', type: 'playlist.editCover.change', payload: { file } });
-    });
-}
-
-// MỚI (batch 03/07/2026) — chọn ảnh có sẵn trong File Manager làm cover (xem
-// readme/song-cover-background-relations.md mục 2/3).
+// VIẾT LẠI (04/07/2026, mục 3 phản hồi Giang) — bỏ hẳn nút Upload (#song-edit-cover-upload) + input
+// file trực tiếp: chỉ còn nút "Choose photo" mở picker (xem
+// event/workflow/playlist.js::pickCoverFromLibrary).
 if (songEditCoverPickLibraryBtn) {
     songEditCoverPickLibraryBtn.addEventListener('click', () => {
         eventBus.send({ router: 'playlist', type: 'playlist.editCover.pickFromLibrary', payload: {} });
