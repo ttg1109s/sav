@@ -4,20 +4,41 @@
     <meta charset="UTF-8">
     <meta
   name="viewport"
-  content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-    <!-- FIX (04/07/2026, mục 7 phản hồi Giang) — KHÔNG có thẻ này trước đây: khi trình duyệt di
-         động (đặc biệt Android Chrome) không thấy `theme-color`, nó TỰ SUY màu thanh trạng thái/
-         vùng tai thỏ từ `document.body`'s background — mà `document.body.style.backgroundColor`
-         lại bị đổi trực tiếp theo `vizConfig.bgColor` (màu nền Settings do người dùng chọn, xem
-         core/color-utils.js) MỖI LẦN đổi màu -> vùng OS đó "ăn theo" màu nền app, thiếu liền mạch.
-         Cố định CỨNG #000000 tại đây (KHÔNG đồng bộ theo bgColor) để vùng OS luôn nhất quán, tách
-         hẳn khỏi màu nền nội dung app. `viewport-fit=cover` ở thẻ viewport trên (mới thêm) cho phép
-         nội dung web TRÀN thật sự vào vùng an toàn (notch/status bar/home-indicator) thay vì trình
-         duyệt tự chừa viền trắng/đen mặc định — ĐI KÈM BẮT BUỘC với việc tự padding lại đúng vùng
-         cần tránh bằng `env(safe-area-inset-*)` (xem assets/css/style.css, class `.safe-top`/
-         `.safe-bottom` — đã áp cho `#visualizer-top-bar`/`#player-container`; các drawer/header
-         khác CHƯA áp hết, xem plan-v12-multimedia-update-5.md mục 7 để biết phạm vi còn lại). -->
+  content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
+    <!-- FIX (04/07/2026, mục 7 phản hồi Giang) + HOÀN TÁC (04/07/2026, phản hồi đợt 2, mục 4 — bug
+         "lòi modal subtitle" + tiêu đề Photo & Album bị đẩy lệch trên iOS Safari):
+         - `viewport-fit=cover` đã THÊM rồi GỠ HẲN: Giang xác nhận nguyên nhân — khi bàn phím trượt
+           lên (ô nhập liệu trong Settings) hoặc thanh Safari tự thu/giãn lúc cuộn (dynamic
+           toolbar), trình duyệt tính lại chiều cao khả dụng; các drawer/modal `fixed inset-0` +
+           `transform: translateY(100%)` có thể "lệch" 1 nhịp trong lúc đó, lòi ra 1 dải mỏng ở
+           cạnh dưới/đẩy lệch phần top — chỉ tạm ổn định lại sau "Restart App" ở chế độ Add to Home
+           Screen, RẤT KHÔNG ổn định ở Safari tab thường. QUYẾT ĐỊNH: bỏ hẳn `viewport-fit=cover`,
+           để trình duyệt tự CHỪA vùng notch/status bar theo cơ chế mặc định (ổn định tuyệt đối,
+           không phụ thuộc dynamic-toolbar/bàn phím) — KHÔNG CÓ giải pháp CSS nào ổn định hơn cho
+           layout, vì bản chất trình duyệt đã tự lo liệu khi tắt cover. `.safe-top`/`.safe-bottom`/
+           override `#visualizer-top-bar`/`#player-container` (từng thêm ở assets/css/style.css)
+           ĐÃ DỌN SẠCH (không chỉ để inert) — không còn ý nghĩa gì khi không dùng cover.
+         - Vùng notch/status bar giờ do CHÍNH TRÌNH DUYỆT vẽ (không phải nội dung trang) — CSS
+           KHÔNG còn khả năng ảnh hưởng màu của nó. Đòn bẩy DUY NHẤT còn lại là `theme-color` dưới
+           đây — GIỮ NGUYÊN #000000, KHÔNG đồng bộ theo `vizConfig.bgColor`, để màu vùng đó ổn định
+           tuyệt đối, không đổi theo màu nền Settings. Nếu bác VẪN thấy đỏ sau khi đã thử lại: (1)
+           rất có thể `index.html` CHÍNH NÓ đang bị cache (khác các file `.js`/`.css` có `?v=` để
+           ép tải lại, bản thân `index.html` KHÔNG có cơ chế đó — trình duyệt/GitHub Pages có thể
+           phục vụ bản cache cũ CHƯA có thẻ `theme-color` này) — thử mở bằng tab ẩn danh/xoá cache
+           Safari để loại trừ; (2) nếu vẫn đỏ ở tab ẩn danh, khả năng Safari đang lấy màu từ
+           `favicon.png` (một số bản Safari tự suy màu thanh địa chỉ từ icon trang khi không chắc
+           theme-color) — cần xem lại màu chủ đạo của chính file đó. -->
     <meta name="theme-color" content="#000000">
+    <!-- Phòng thêm 1 lớp (một số bản Safari CHỈ áp dụng đúng theme-color khi có scope theo
+         color-scheme, bỏ qua thẻ không điều kiện ở trên trong 1 số trường hợp) — cùng giá trị
+         #000000 cho cả 2 scheme, không có ý nghĩa "đổi theo sáng/tối" ở đây, chỉ để tăng độ tin cậy
+         nhận diện của trình duyệt. -->
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    <!-- Phòng xa (KHÔNG ảnh hưởng gì tới chế độ Safari-tab thường, CHỈ áp dụng nếu bác từng "Thêm
+         vào MH chính" trang này) — đồng bộ luôn màu status bar cho chế độ standalone/PWA. -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <title>Simple Audio Visualizer</title>
     <link rel="icon" type="image/png" href="favicon.png">
 
@@ -90,7 +111,7 @@
     <script src="lang/patch/patch-common.js?v=20260627v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260703v2"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260627v1"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260703v3"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260704v2"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260627v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
@@ -133,7 +154,7 @@
     <script src="components/visualizer-settings-drawer.js?v=20260626v1"></script>
     <script src="components/subtitle-settings-drawer.js?v=20260626v1"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Slideshow Settings Drawer (nền Visual, nguồn thứ 3). -->
-    <script src="components/slideshow-settings-drawer.js?v=20260703v2"></script>
+    <script src="components/slideshow-settings-drawer.js?v=20260704v1"></script>
 
     <!-- =====================================================================
          2) MAIN (bootstrap): lắp toàn bộ component vào #app-root.
@@ -168,7 +189,7 @@
          core/config.js (vizConfig khởi tạo bằng { ...CONST.DEFAULT_VIZ_CONFIG }) và trước toàn bộ
          core/ còn lại; PHẢI nạp SAU core/modal-choice.js (alertModal, dùng cho option notifyUI).
          Xem comment đầu file service/state.js. -->
-    <script src="service/state.js?v=20260703v5"></script>
+    <script src="service/state.js?v=20260704v1"></script>
     <script src="core/config.js?v=20260625v10"></script>
     <!-- event/store.js (class EventStore) — CHỈ riêng file NÀY trong toàn bộ /event/ được nạp SỚM
          ở đây, KHÔNG đợi xuống cuối cùng cùng bus/workflow/router/listener. Lý do: playlist/
@@ -181,15 +202,19 @@
          LẠI của /event/ (bus/workflow/router/listener vẫn nạp cuối cùng tuyệt đối như cũ, xem
          khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260703v9"></script>
+    <script src="core/dom-refs.js?v=20260704v1"></script>
     <!-- Logo "SAV" (cụm /event/ "savLogo") — cần biến `savLogo` vừa nạp từ dom-refs.js ngay trên. -->
     <script src="core/sav-logo.js?v=20260629v1"></script>
     <!-- TaskManager (Loop/TaskManager) — quản lý TẬP TRUNG mọi setInterval/setTimeout của app
          (kể cả timeout bắn-1-lần). Nạp NGAY SAU dom-refs.js, TRƯỚC modal-choice.js/db.js và mọi
          file core khác — hầu hết chúng gọi taskManager.once()/addNew() ngay khi gắn listener lúc
-         parse, nên biến `taskManager` PHẢI tồn tại trước đó. Xem comment đầu file để biết cách dùng. -->
-    <script src="core/task-manager.js?v=20260625v10"></script>
-    <script src="core/db.js?v=20260702v1"></script>
+         parse, nên biến `taskManager` PHẢI tồn tại trước đó. Xem comment đầu file để biết cách dùng.
+         CHUYỂN (04/07/2026, phản hồi Giang mục 2) từ `core/task-manager.js` sang `service/` — dịch
+         vụ hạ tầng, không phải nghiệp vụ, cùng nhóm `service/state.js`/`operation.js`. Vị trí NẠP
+         trong file này KHÔNG đổi (vẫn ngay sau dom-refs.js, chỉ đổi đường dẫn). -->
+    <script src="service/task-manager.js?v=20260704v1"></script>
+    <!-- service/db.js — CHUYỂN từ `core/db.js` cùng lý do trên (dịch vụ hạ tầng IndexedDB thuần). -->
+    <script src="service/db.js?v=20260704v1"></script>
     <!-- Ver 12 "Multi Media" (plan-v12-multimedia.md mục 4.b1) — Folder nhạc (File Manager → Song).
          folder.js CẦN core/db.js (slugify + CRUD folders/folder_song/songs). folder-picker-ui.js
          CẦN t() (lang/lang.js, đã nạp từ rất sớm) — không phụ thuộc folder.js (chỉ dựng DOM +
@@ -212,9 +237,10 @@
     <script src="core/file-manager/album.js?v=20260703v1"></script>
     <script src="core/file-manager/photo-ui.js?v=20260703v7"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Slideshow nền Visual (hàm THUẦN, xem comment đầu file).
-         CẦN core/task-manager.js (đã nạp sớm, xem khối CORE phía trên) — không phụ thuộc gì khác
-         trong nhóm này (mọi phần tử DOM nhận qua tham số, không tự getElementById). -->
-    <script src="core/file-manager/slideshow.js?v=20260703v2"></script>
+         FIX (04/07/2026, Rule 3 siết chặt) — KHÔNG còn dùng service/task-manager.js nữa (taskManager
+         giờ CẤM trong core, chỉ Workflow dùng) — không phụ thuộc gì trong nhóm này (mọi phần tử DOM
+         nhận qua tham số, không tự getElementById). -->
+    <script src="core/file-manager/slideshow.js?v=20260704v1"></script>
     <!-- Resume State Storage (ver 10 refine #3) — lưu/đọc trạng thái phát qua localStorage khi tab
          bị ẩn, dùng để "reload trang thật" lúc quay lại tab thay cho cố giữ runtime cũ sống sót
          qua việc ẩn tab (xem comment đầu file). PHẢI nạp TRƯỚC wakelock.js (file đó gọi
@@ -383,9 +409,9 @@
     <!-- Batch 8, ver 12 "Multi Media" — cụm "slideshowSettings" (Slideshow nền Visual). PHẢI nạp
          TRƯỚC event/workflow/file-manager-photo.js (gọi workflowSlideshow.clearActiveAlbum() +
          setAsSlideshowBackground() trong cascade/nút "Dùng làm nền Slideshow"). -->
-    <script src="event/workflow/slideshow.js?v=20260703v2"></script>
-    <script src="event/router/slideshow.js?v=20260703v2"></script>
-    <script src="event/listener/slideshow.js?v=20260703v2"></script>
+    <script src="event/workflow/slideshow.js?v=20260704v1"></script>
+    <script src="event/router/slideshow.js?v=20260704v1"></script>
+    <script src="event/listener/slideshow.js?v=20260704v1"></script>
     <!-- Batch 3 (03/07/2026) — workflowFileManagerPhoto CẦN tồn tại trước khi router gọi tới. -->
     <script src="event/workflow/file-manager-photo.js?v=20260703v7"></script>
     <script src="event/router/file-manager-photo.js?v=20260703v5"></script>
