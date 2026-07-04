@@ -9,7 +9,7 @@
  * QUY TẮC RẼ NHÁNH (giống router/storage.js):
  *   - Nghiệp vụ chỉ cần ĐÚNG 1 HÀM CORE -> router tự gọi thẳng hàm đó, BỎ QUA workflow hoàn toàn.
  *   - Nghiệp vụ cần >1 hàm core (hoặc cần phối hợp shield/modal) -> router giao cho
- *     workflowPlaylist xử lý (chỉ 'playlist.playbackError.delete', 'playlist.editCover.change',
+ *     workflowPlaylist xử lý (chỉ 'playlist.playbackError.delete', 'playlist.editCover.pickFromLibrary',
  *     'playlist.edit.save' rơi vào nhánh này — xem workflow/playlist.js).
  *
  * NGOẠI LỆ ĐÃ CHỐT: handleFilePickerChange()/handleFolderPickerChange() (nạp nhạc mới) GIỮ
@@ -107,15 +107,9 @@ const routerPlaylist = (() => {
                 break;
             }
 
-            case 'playlist.editCover.change': {
-                const { file } = msg.payload;
-                // CẦN quyết định hiện alertModal hay không theo kết quả validate -> giao workflow.
-                workflowPlaylist.changeCover({ file });
-                break;
-            }
-
-            // MỚI (batch 03/07/2026) — chọn ảnh có sẵn trong File Manager làm cover. >1 hàm core
-            // nối tiếp (đọc danh sách ảnh + mở picker) -> workflow.
+            // MỚI (batch 03/07/2026); VIẾT LẠI (04/07/2026, mục 3 — bỏ hẳn nút Upload/case
+            // 'playlist.editCover.change', chỉ còn "Choose photo" mở picker). >1 hàm core nối
+            // tiếp (đọc danh sách ảnh + mở picker) -> workflow.
             case 'playlist.editCover.pickFromLibrary': {
                 workflowPlaylist.pickCoverFromLibrary();
                 break;
