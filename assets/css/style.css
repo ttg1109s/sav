@@ -14,14 +14,8 @@ body {
 
 /* FIX (04/07/2026, mục 7) — rule này trước đây nhắm `#app`, một id KHÔNG TỒN TẠI trong DOM thật
    (project dùng `#app-root`, xem index.html/main.js) -> hoàn toàn "chết", chưa từng có tác dụng.
-   Sửa lại đúng id. LƯU Ý: padding trên 1 element cha KHÔNG ảnh hưởng gì tới các con `position:
-   fixed`/`absolute` (đa số drawer/modal/top-bar trong app đều `fixed inset-0` hoặc tương đương) —
-   rule này chỉ có tác dụng với nội dung chảy tự nhiên (flow) trực tiếp bên trong `#app-root`, nếu
-   có. Để bảo vệ ĐÚNG các khối chrome cố định (top bar, player bar, header drawer...), dùng 2 class
-   `.safe-top`/`.safe-bottom` bên dưới, áp TRỰC TIẾP lên từng khối đó — mới áp cho
-   `#visualizer-top-bar`/`#player-container` (2 khối chạm mép màn hình thường trực nhất); các
-   drawer/header khác CHƯA áp hết (phạm vi lớn, nhiều file — xem plan-v12-multimedia-update-5.md
-   mục 7 phần "còn lại"). */
+   Sửa lại đúng id (padding này vô hại — env(safe-area-inset-*) đều trả 0 vì KHÔNG dùng
+   viewport-fit=cover, xem đoạn dưới). */
 #app-root {
     height: 100%;
     padding:
@@ -30,29 +24,31 @@ body {
         env(safe-area-inset-bottom)
         env(safe-area-inset-left);
 }
-/* Utility dùng chung cho MỌI khối chrome cố định chạm mép trên/dưới màn hình (top bar, player bar,
-   header của drawer toàn màn hình...) — cộng thêm (KHÔNG thay thế) padding Tailwind đã có sẵn của
-   khối đó, nên luôn dùng `padding-top`/`padding-bottom` (cộng dồn), không dùng `padding` (sẽ ghi
-   đè mất padding ngang có sẵn). */
-.safe-top { padding-top: calc(env(safe-area-inset-top) + var(--safe-top-extra, 0px)); }
-.safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + var(--safe-bottom-extra, 0px)); }
 
-/* Áp DÙNG THẬT (04/07/2026, mục 7) — 2 khối chrome chạm mép trên/dưới thường trực nhất của app.
-   Dùng override TRỰC TIẾP `top`/`padding-bottom` (id selector thắng class Tailwind cùng thuộc
-   tính, không cần !important) thay vì class `.safe-top`/`.safe-bottom` chung — vì đây là các
-   trường hợp cần CỘNG THÊM vào 1 giá trị offset đã có sẵn (top-4 = 1rem, padding đáy do
-   flow tự nhiên của #player-container), không phải padding từ 0. */
-#visualizer-top-bar { top: calc(1rem + env(safe-area-inset-top)); }
-#player-container { padding-bottom: env(safe-area-inset-bottom); }
+/* HOÀN TÁC (04/07/2026, phản hồi Giang đợt 2, mục 4) — ĐÃ TỪNG thêm `viewport-fit=cover` +
+   `.safe-top`/`.safe-bottom` áp cho #visualizer-top-bar/#player-container, RỒI GỠ HẲN vì gây bug
+   thật trên iOS Safari: khi bàn phím trượt lên (ô nhập liệu trong Settings) hoặc cuộn làm thanh
+   Safari tự thu/giãn, trình duyệt tính lại chiều cao khả dụng — phần top (header Playlist, hàng mở
+   rộng notify center, tiêu đề "Photo & Album") bị đẩy lệch/che mất, KHÔNG ổn định (chỉ tạm ổn định
+   lại sau "Restart App" ở chế độ Add to Home Screen, không phải Safari tab thường).
+   QUYẾT ĐỊNH: bỏ hẳn `viewport-fit=cover` (xem <meta name="viewport"> ở index.html — KHÔNG còn
+   `viewport-fit=cover`), để trình duyệt tự động CHỪA vùng notch/status bar/home-indicator theo cơ
+   chế mặc định (ổn định, không phụ thuộc dynamic-toolbar/bàn phím) — KHÔNG có giải pháp CSS nào ổn
+   định hơn thế cho vấn đề layout này, vì bản chất browser đã tự lo liệu khi KHÔNG bật cover.
+   Vùng đó giờ do CHÍNH TRÌNH DUYỆT vẽ (không phải nội dung trang), nên CSS không còn ảnh hưởng gì
+   tới màu của nó nữa — đòn bẩy DUY NHẤT còn lại là <meta name="theme-color"> (index.html, cố định
+   #000000, KHÔNG đồng bộ theo `vizConfig.bgColor`) để màu vùng đó KHÔNG đổi theo màu nền Settings. */
         #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
         /* Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). CHỐT
            03/07/2026 (Giang xác nhận): 4 lớp nền màn Visualizer ĐỀU BẬT SONG SONG được (không loại
-           trừ nhau) — thứ tự z-index thấp -> cao: nền màu Settings (bgColor, DOM body, mặc định)
+           trừ nhau) — thứ tự z-index thấp -> cao: nền màu Settings (bgColor, FIX 04/07/2026:
+           `#visualizer-solid-bg` riêng — KHÔNG còn là DOM body như trước, xem comment ngay trên)
            < ẢNH TĨNH NÀY (#visual-bg-image, -2) < nền slideshow album (-1, ĐÃ CODE — Batch 8, xem
            assets/css/slideshow.css) < video nền (#bg-video, 0) <
            chính visualizer đang vẽ (#webgl-canvas z-index 1/#visualizer z-index 10, luôn trên
            cùng, KHÔNG đổi). Xem core/state-and-video-bg.js (applyVisualBgImageToDOM) cho đầy đủ lý
            do + lưu ý hiệu năng riêng cho slideshow (task lặp, KHÁC ảnh tĩnh DOM ở đây). */
+        #visualizer-solid-bg { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -3; pointer-events: none; background-color: #000000; }
         #visual-bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background-size: cover; background-position: center; z-index: -2; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
         /* Slideshow album (nền thứ 3, z-index -1) — Batch 8, ver 12 "Multi Media": ĐÃ TRIỂN KHAI
            THẬT ở assets/css/slideshow.css (#visual-slideshow-container), file CSS TÁCH RIÊNG THEO
@@ -103,8 +99,52 @@ body {
            dùng cho Settings/About/Storage, cần đậm hơn để đọc rõ nhiều dòng cài đặt liền nhau). */
         .glass-control-center { background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(36px) saturate(1.6); -webkit-backdrop-filter: blur(36px) saturate(1.6); border: 1px solid rgba(255, 255, 255, 0.25); box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 25px 50px rgba(0,0,0,0.35); }
         
-        .fade-enter { opacity: 0; transform: scale(0.95); pointer-events: none; }
-        .fade-enter-active { opacity: 1; transform: scale(1); pointer-events: auto; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        /* FIX (04/07/2026, mục 4 phản hồi Giang) — BỎ `transform: scale(...)` khỏi 2 class này (giữ
+           lại opacity, vẫn đủ tạo cảm giác "hiện dần"). CSS chỉ áp dụng ĐÚNG 1 giá trị `transform`
+           cho 1 phần tử — 2 class khác nhau cùng khai báo `transform` KHÔNG cộng dồn được, mà
+           #visualizer-ui giờ CẦN `transform: translateX(...)` riêng cho slide ngang mới (xem khối
+           "Responsive Playlist <-> Visualizer" ngay dưới) — đánh đổi mất hiệu ứng "phóng to nhẹ"
+           trang trí, đổi lấy slide ngang hoạt động đúng. */
+        .fade-enter { opacity: 0; pointer-events: none; }
+        .fade-enter-active { opacity: 1; pointer-events: auto; transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        /* ==================== Responsive Playlist <-> Visualizer navigation (04/07/2026, mục 4) ====================
+           MOBILE/TABLET (< 1024px, mặc định): Playlist và Visualizer là 2 "trang" cạnh nhau THEO
+           CHIỀU NGANG (khác hẳn slide dọc `-translate-y-full` cũ) — đẩy ĐỒNG THỜI khi chuyển màn,
+           giống pager 2 trang: sang Visualizer thì cả 2 cùng dịch sang PHẢI (Playlist thoát ra
+           phải, Visualizer tiến vào từ trái); về lại Playlist thì cả 2 cùng dịch sang TRÁI (đúng
+           yêu cầu "đẩy từ trái qua phải"/"kéo từ phải qua trái"). Canvas/4 nguồn nền (màu/ảnh/
+           slideshow/video) GIỮ NGUYÊN toàn màn hình, KHÔNG di chuyển/đổi kích thước gì cả — chỉ 2
+           lớp UI CHROME (`#playlist-view` đục + `#visualizer-ui`/`#player-container`) trượt qua
+           lại, canvas hiện xuyên qua NGAY khi Playlist trượt khỏi màn hình.
+           DESKTOP (>= 1024px): CẢ HAI hiện SONG SONG VĨNH VIỄN — huỷ hẳn mọi transform slide,
+           Playlist làm cột trái CỐ ĐỊNH 420px, Visualizer chiếm phần còn lại bên phải. Canvas/nền
+           TIẾP TỤC giữ nguyên 100vw/100vh (KHÔNG đụng buffer render Canvas/WebGL, tránh rủi ro vỡ
+           hình khi resize) — chỉ bị panel Playlist đục bên trái CHE MẤT phần bên trái, tạo cảm
+           giác "2 cột" mà không cần resize bất kỳ pipeline render nào. */
+        #playlist-view, #visualizer-ui, #player-container { transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        #playlist-view { transform: translateX(0); }
+        #playlist-view.playlist-hidden { transform: translateX(100%); }
+        /* Trạng thái NGHỈ mặc định — chờ SẴN ngoài màn hình bên trái (khớp lúc mới boot, chưa từng
+           bấm bài nào, VÀ lúc đã quay lại Playlist). */
+        #visualizer-ui, #player-container { transform: translateX(-100%); }
+        #visualizer-ui.visualizer-active, #player-container.visualizer-active { transform: translateX(0); }
+
+        @media (min-width: 1024px) {
+            #playlist-view, #visualizer-ui, #player-container { transition: none; }
+            #playlist-view { transform: none !important; left: 0; right: auto; width: 420px; border-right: 1px solid rgba(255,255,255,0.08); }
+            #visualizer-ui, #player-container { transform: none !important; left: 420px; }
+            /* Desktop KHÔNG còn khái niệm "chuyển màn" — Visualizer LUÔN hiện, bất kể state
+               fade-in/hidden cũ (chỉ còn ý nghĩa trên mobile/tablet). */
+            /* Desktop KHÔNG còn khái niệm "chuyển màn" — Visualizer LUÔN hiện, bất kể state
+               fade-in/hidden cũ (chỉ còn ý nghĩa trên mobile/tablet). PHẢI ép cả `display` (không
+               chỉ `opacity`) — `.hidden` (Tailwind, display:none) có thể vẫn đang gắn trên
+               #visualizer-ui lúc mới boot (chưa từng phát bài nào), riêng `opacity` không đủ để
+               hiện lại 1 phần tử đang display:none. */
+            #visualizer-ui { display: flex !important; opacity: 1 !important; pointer-events: auto !important; }
+            #player-container { display: flex !important; }
+            #btn-back-playlist { display: none !important; }
+        }
         
         .sub-text-glow { text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.5); }
 
