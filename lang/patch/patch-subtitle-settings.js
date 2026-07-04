@@ -44,14 +44,15 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // components/slideshow-settings-drawer.js.
     'slideshowSettingsDrawer.backToSettings.title': 'Back to Settings',
     'slideshowSettingsDrawer.title': 'Slideshow Background',
-    'slideshowSettingsDrawer.albumSectionTitle': 'Album',
+    // VIẾT LẠI (Batch 9, 04/07/2026, mục 4) — gộp 2 section cũ ("Album"/"Playback") thành 1; 2 nút
+    // "Choose album"/"Turn off" thay bằng 1 toggle "enable" duy nhất + hàng "album đang chạy".
+    'slideshowSettingsDrawer.sectionTitle': 'Slideshow',
+    'slideshowSettingsDrawer.enable.label': 'Use slideshow',
+    'slideshowSettingsDrawer.enable.hint': 'Toggle on to pick an album; toggle off just stops it',
+    'slideshowSettingsDrawer.album.label': 'Album',
     'slideshowSettingsDrawer.album.none': 'No album selected',
-    'slideshowSettingsDrawer.btnPickAlbum': 'Choose album',
-    'slideshowSettingsDrawer.btnClearAlbum': 'Turn off',
     'slideshowSettingsDrawer.albumPicker.title': 'Choose an album',
     'slideshowSettingsDrawer.albumPicker.empty': 'No albums yet. Create one in Photo & Album first.',
-    'slideshowSettingsDrawer.albumPicker.imageCount': '{count} photo(s)',
-    'slideshowSettingsDrawer.playbackSectionTitle': 'Playback',
     'slideshowSettingsDrawer.mode.label': 'Next photo order',
     'slideshowSettingsDrawer.mode.sequential': 'Sequential',
     'slideshowSettingsDrawer.mode.random': 'Random',
@@ -81,14 +82,10 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsPlaylistBg.sortMode.az': 'Name A → Z',
     'settingsPlaylistBg.sortMode.za': 'Name Z → A',
     'settingsPlaylistBg.videoEnable.label': 'Use Video Background',
-    'settingsPlaylistBg.videoEnable.hint': 'Replace any background with a video',
-    'settingsPlaylistBg.videoEnable.choose': 'Choose video',
+    'settingsPlaylistBg.videoEnable.hint': 'Toggle on to pick a video; toggle off just hides it (kept for next time)',
     // MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer, KHÁC ảnh nền Playlist ngay dưới.
     'settingsPlaylistBg.visualBgImage.label': 'Use Visualizer background image',
-    'settingsPlaylistBg.visualBgImage.hint': 'Static image behind the Visualizer screen',
-    'settingsPlaylistBg.visualBgImage.choose': 'Choose image',
-    'settingsPlaylistBg.bgImage.label': 'Playlist background image',
-    'settingsPlaylistBg.bgImage.choose': 'Change image',
+    'settingsPlaylistBg.visualBgImage.hint': 'Toggle on to pick a photo; toggle off just hides it (kept for next time)',
     'settingsPlaylistBg.bgImageEnable.label': 'Use playlist background image',
     'settingsPlaylistBg.bgBlur.label': 'Background blur',
 
