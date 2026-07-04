@@ -12,7 +12,17 @@ body {
     background: #000;
 }
 
-#app {
+/* FIX (04/07/2026, mục 7) — rule này trước đây nhắm `#app`, một id KHÔNG TỒN TẠI trong DOM thật
+   (project dùng `#app-root`, xem index.html/main.js) -> hoàn toàn "chết", chưa từng có tác dụng.
+   Sửa lại đúng id. LƯU Ý: padding trên 1 element cha KHÔNG ảnh hưởng gì tới các con `position:
+   fixed`/`absolute` (đa số drawer/modal/top-bar trong app đều `fixed inset-0` hoặc tương đương) —
+   rule này chỉ có tác dụng với nội dung chảy tự nhiên (flow) trực tiếp bên trong `#app-root`, nếu
+   có. Để bảo vệ ĐÚNG các khối chrome cố định (top bar, player bar, header drawer...), dùng 2 class
+   `.safe-top`/`.safe-bottom` bên dưới, áp TRỰC TIẾP lên từng khối đó — mới áp cho
+   `#visualizer-top-bar`/`#player-container` (2 khối chạm mép màn hình thường trực nhất); các
+   drawer/header khác CHƯA áp hết (phạm vi lớn, nhiều file — xem plan-v12-multimedia-update-5.md
+   mục 7 phần "còn lại"). */
+#app-root {
     height: 100%;
     padding:
         env(safe-area-inset-top)
@@ -20,6 +30,20 @@ body {
         env(safe-area-inset-bottom)
         env(safe-area-inset-left);
 }
+/* Utility dùng chung cho MỌI khối chrome cố định chạm mép trên/dưới màn hình (top bar, player bar,
+   header của drawer toàn màn hình...) — cộng thêm (KHÔNG thay thế) padding Tailwind đã có sẵn của
+   khối đó, nên luôn dùng `padding-top`/`padding-bottom` (cộng dồn), không dùng `padding` (sẽ ghi
+   đè mất padding ngang có sẵn). */
+.safe-top { padding-top: calc(env(safe-area-inset-top) + var(--safe-top-extra, 0px)); }
+.safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + var(--safe-bottom-extra, 0px)); }
+
+/* Áp DÙNG THẬT (04/07/2026, mục 7) — 2 khối chrome chạm mép trên/dưới thường trực nhất của app.
+   Dùng override TRỰC TIẾP `top`/`padding-bottom` (id selector thắng class Tailwind cùng thuộc
+   tính, không cần !important) thay vì class `.safe-top`/`.safe-bottom` chung — vì đây là các
+   trường hợp cần CỘNG THÊM vào 1 giá trị offset đã có sẵn (top-4 = 1rem, padding đáy do
+   flow tự nhiên của #player-container), không phải padding từ 0. */
+#visualizer-top-bar { top: calc(1rem + env(safe-area-inset-top)); }
+#player-container { padding-bottom: env(safe-area-inset-bottom); }
         #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
         /* Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). CHỐT
            03/07/2026 (Giang xác nhận): 4 lớp nền màn Visualizer ĐỀU BẬT SONG SONG được (không loại

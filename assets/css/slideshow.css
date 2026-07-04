@@ -43,9 +43,22 @@
 /* Ken Burns — pan/zoom chậm SUỐT thời gian hiển thị (KHÁC transition lúc đổi cảnh ở dưới), gắn
    thêm lên layer vừa trở thành "current" khi slideshowConfig.transitionType === 'kenburns' (xem
    applySlideshowKenBurns()). Thời lượng gán qua JS (style.animationDuration = intervalSeconds),
-   KHÔNG hardcode ở đây vì phụ thuộc cấu hình người dùng. */
-.slideshow-layer.ss-kenburns { animation-name: ss-kenburns-pan; animation-timing-function: linear; animation-fill-mode: forwards; }
-@keyframes ss-kenburns-pan { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.08) translate(-1.5%, -1.5%); } }
+   KHÔNG hardcode ở đây vì phụ thuộc cấu hình người dùng.
+   FIX (04/07/2026, mục 4 phản hồi Giang) — bản cũ CHỈ 1 hướng cố định (luôn scale nhẹ + đẩy về
+   góc trên-trái, `linear`) nên cảm giác "đơ"/máy móc lặp lại y hệt mọi ảnh. Thay bằng 4 biến thể
+   hướng pan khác nhau (chọn ngẫu nhiên mỗi ảnh — pickRandomSlideshowKenBurnsVariant(),
+   core/file-manager/slideshow.js) + `ease-in-out` (mượt hơn hẳn `linear`, có "nhấn nhá" đầu/cuối
+   thay vì tốc độ đều tăm tắp) + biên độ zoom lớn hơn (1 -> 1.12, trước 1.08, rõ chuyển động hơn). */
+.slideshow-layer.ss-kenburns { animation-timing-function: ease-in-out; animation-fill-mode: forwards; }
+.slideshow-layer.ss-kenburns-1 { animation-name: ss-kenburns-pan-1; }
+.slideshow-layer.ss-kenburns-2 { animation-name: ss-kenburns-pan-2; }
+.slideshow-layer.ss-kenburns-3 { animation-name: ss-kenburns-pan-3; }
+.slideshow-layer.ss-kenburns-4 { animation-name: ss-kenburns-pan-4; }
+/* 4 hướng: zoom-in trôi về góc dưới-phải / zoom-in trôi về góc trên-trái / zoom-out từ góc dưới-phải / zoom-out từ góc trên-trái */
+@keyframes ss-kenburns-pan-1 { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.12) translate(-2.5%, -2.5%); } }
+@keyframes ss-kenburns-pan-2 { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.12) translate(2.5%, 2.5%); } }
+@keyframes ss-kenburns-pan-3 { from { transform: scale(1.12) translate(-2.5%, 1.5%); } to { transform: scale(1) translate(0, 0); } }
+@keyframes ss-kenburns-pan-4 { from { transform: scale(1.12) translate(2.5%, -1.5%); } to { transform: scale(1) translate(0, 0); } }
 
 /* ==================== 1. fade — mờ chồng ==================== */
 #visual-slideshow-container[data-transition="fade"] .ss-layer-enter { animation-name: ss-fade-in; }
@@ -128,3 +141,23 @@
     0%   { opacity: 1; filter: hue-rotate(0deg); }
     100% { opacity: 0; filter: hue-rotate(0deg); }
 }
+
+/* ==================== Panel chọn Album (Batch 9, 04/07/2026, mục 4 phản hồi Giang) ====================
+   Redesign THEO YÊU CẦU: khung mở giống "notify center" (TÁI DÙNG NGUYÊN class `.glass-control-center`
+   + kiểu animation scale/opacity của #visualizer-control-center, xem assets/css/style.css) thay cho
+   modal tối toàn màn hình cũ. Album hình TRÒN (cùng shape avatar đã dùng ở story slider Photo &
+   Album, core/file-manager/photo-ui.js::renderAlbumStory) xếp GRID thay vì danh sách dọc. */
+#slideshow-album-picker-panel { transform-origin: center; }
+.ss-album-tile { display: flex; flex-direction: column; align-items: center; gap: 0.375rem; }
+.ss-album-tile-avatar-wrap { position: relative; width: 4.5rem; height: 4.5rem; }
+.ss-album-tile-avatar { width: 100%; height: 100%; border-radius: 9999px; overflow: hidden; background-size: cover; background-position: center; border: 2px solid rgba(255,255,255,0.15); transition: filter 0.3s ease, opacity 0.3s ease, border-color 0.3s ease; }
+/* Album KHÔNG phải cái đang chạy, trong lúc CÓ 1 album khác đang active -> mờ/blur đi để mắt dồn
+   ngay vào cái đang chạy (yêu cầu Giang: "phát hiện album nào đang được chọn -> làm blur [những
+   cái còn lại]"). */
+.ss-album-tile.ss-picker-blurred .ss-album-tile-avatar { filter: blur(2.5px) brightness(0.7); opacity: 0.55; }
+/* Album ĐANG active — viền sáng + 1 vòng nét đứt quay tròn quanh avatar ("có animation để hiện
+   đang run", yêu cầu Giang). */
+.ss-album-tile.ss-picker-active .ss-album-tile-avatar { border-color: rgba(56, 189, 248, 0.95); }
+.ss-album-running-ring { position: absolute; inset: -5px; border-radius: 9999px; border: 2px dashed transparent; pointer-events: none; }
+.ss-album-tile.ss-picker-active .ss-album-running-ring { border-color: rgba(56, 189, 248, 0.85); animation: ss-album-running-spin 2.2s linear infinite; }
+@keyframes ss-album-running-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
