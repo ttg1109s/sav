@@ -51,9 +51,9 @@ core/config.js
 event/store.js                  ← EventStore, nạp SỚM vì core/playlist/actions.js cần `new EventStore(...)`
 core/dom-refs.js
 core/sav-logo.js
-core/task-manager.js            ← taskManager PHẢI có mặt sớm — hầu hết core/* gọi taskManager.once()/
+service/task-manager.js            ← taskManager PHẢI có mặt sớm — hầu hết core/* gọi taskManager.once()/
                                    addNew() ngay khi gắn listener lúc parse
-core/db.js
+service/db.js
 core/resume-state-storage.js
 core/upload-validation.js
 core/listen-stats.js

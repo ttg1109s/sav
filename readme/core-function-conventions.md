@@ -105,80 +105,77 @@ function saveConfig(cfg) {
 }
 ```
 
-## Rule 3 — Core gọi Core CHỈ hợp lệ khi dùng return value — mọi chuỗi side-effect nối tiếp là Workflow
+## Rule 3 — Core CẤM TUYỆT ĐỐI gọi Core khác — CHỈ được gọi API `service/` (data layer + set/mutate)
 
-**Tiêu chí duy nhất để 1 lời gọi function-khác được PHÉP nằm trong 1 core function:** hàm được
-gọi (B) **CÓ return value VÀ hàm gọi (A) DÙNG giá trị đó** vào phép tính ra kết quả của chính A.
-B có nhận tham số hay không KHÔNG liên quan tới tiêu chí này (B tự tạo return bằng cách nào là
-việc của B) — chỉ cần A THẬT SỰ dùng được cái B trả về.
+**VIẾT LẠI TOÀN BỘ (04/07/2026, phản hồi Giang) — HUỶ BỎ ngoại lệ "return value" và ngoại lệ "bất
+đồng bộ không chờ" từng có ở bản Rule 3 trước đây.** Chính sách MỚI, đơn giản hơn hẳn, không còn
+trường hợp nào cần cân nhắc:
 
-**Nếu B không có return (void) và A gọi B chỉ để B tự tạo side-effect** (set state, cập nhật UI,
-ghi log...) — KHÔNG được giữ trong core, **bất kể đơn giản hay phức tạp, bất kể có cần
-shield/modal hay không.** Bản chất của việc "A bọc lấy B rồi B rồi C... nối tiếp nhau, không cái
-nào trả giá trị cho A dùng" chính là Workflow — chỉ là code đang SAI VỊ TRÍ (nằm trong core thay
-vì `/event/workflow/`), không phải Workflow "cần thêm điều kiện gì" mới tính là Workflow. **Bỏ
-hẳn điều kiện "cần shield/modal" từng dùng để quyết định có cần Workflow hay không** (xem cập nhật
-tương ứng ở [event-bus-flow.md mục (B)](./event-bus-flow.md)) — giờ chỉ cần đúng hình dạng "≥2
-lời gọi side-effect nối tiếp, có thứ tự phụ thuộc nhau" là đủ, có `shield`/`modal` hay không không
-còn là điều kiện riêng, chỉ là 1 LÝ DO thường gặp khiến 1 chuỗi cần async (IndexedDB, network...).
+**1 function core TUYỆT ĐỐI KHÔNG được gọi bất kỳ function core/nghiệp vụ nào khác** — dù hàm kia
+có return value hay không, dù A có dùng giá trị trả về hay không, dù gọi đồng bộ hay bất đồng bộ,
+dù có `await` hay không. Không còn tiêu chí nào để "hợp lệ hoá" 1 lời gọi core→core nữa — **mọi
+lời gọi core→core, bất kể hình dạng gì, đều phải chuyển ra Workflow.**
 
-### Ngoại lệ — gọi BẤT ĐỒNG BỘ và KHÔNG chờ (fire-and-forget, không `await`)
+**NGOẠI LỆ DUY NHẤT — gọi API `service/` (hạ tầng, KHÔNG tính là "gọi hàm core khác"):**
+- `service/db.js` — mọi hàm data layer (`getMeta`/`setMeta`/`getSongRecord`/`getAlbumRecord`/
+  `getImageRecord`/`slugify`...).
+- `appState.set(key, value)` / `appState.mutate(key, fn)` — **chỉ 2 hàm GHI này**, kèm
+  `console.log` theo Rule 4 như cũ.
+- **KHÔNG bao gồm** `appState.get()` (vẫn cấm theo Rule 2, không đổi) và **KHÔNG bao gồm
+  `taskManager`** (xem lý do ngay dưới) — 2 thứ này KHÔNG nằm trong danh sách ngoại lệ.
 
-Nếu A gọi 1 hàm khác dưới dạng bất đồng bộ và **KHÔNG `await`/không chờ nó hoàn thành** trước khi
-code sau đó tiếp tục chạy — lời gọi đó **KHÔNG tính là Workflow**, được giữ trong core. Lý do:
-bản chất Workflow là "bước SAU chỉ chạy khi bước TRƯỚC đã hoàn thành" (có phụ thuộc thứ tự thực
-thi). Lời gọi async không chờ không tạo phụ thuộc thứ tự nào — nó chạy song song, độc lập hoàn
-toàn với phần còn lại của A, không giấu 1 "bước kế tiếp" nào cả.
+Lý do tách riêng nhóm này: `service/db.js`/`appState.set`/`mutate` là **dịch vụ hạ tầng phục vụ
+nghiệp vụ của core** (lưu trữ, ghi state) — bản thân chúng không chứa quyết định nghiệp vụ nào,
+chỉ là công cụ core dùng để hoàn thành nghiệp vụ CỦA CHÍNH NÓ. Khác hẳn việc gọi 1 function core
+KHÁC — nơi quyết định/nghiệp vụ nằm Ở BÊN TRONG hàm được gọi, không phải bên trong A.
 
-**Ngược lại — gọi ĐỒNG BỘ (dù chỉ set 1 state đơn giản) tạo ra thứ tự phụ thuộc → VẪN LÀ
-Workflow, không có ngoại lệ nào cho việc "đơn giản".** Khác biệt duy nhất giữa 1 chuỗi state-set
-đồng bộ nối tiếp và 1 Workflow "phức tạp" chỉ là quy mô, không phải bản chất.
+**`taskManager` CẤM HOÀN TOÀN trong core — CHỈ Workflow được dùng.** Trước đây core được phép dùng
+`taskManager.once()` cho lời gọi "bất đồng bộ không chờ" (ví dụ `beginSlideshowTransition()` cũ) —
+NGOẠI LỆ NÀY ĐÃ BỎ. Timer/interval/timeout là công cụ ĐIỀU PHỐI (orchestration) — đúng vai trò
+Workflow, không phải core thuần.
+
+### Hệ quả — Workflow giờ PHẢI làm nhiều việc hơn: chuẩn bị data + gọi core + (nếu cần) lặp qua taskManager
+
+Vì core không còn được tự gọi core khác hay tự đọc `appState`, **Workflow trở thành nơi DUY NHẤT
+điều phối**:
+1. **Chuẩn bị đầy đủ data mà core cần** trước khi gọi — nếu cần nhiều field `appState`, dùng
+   `appState.get([keyA, keyB, ...])` (dạng ARRAY MỚI, xem `service/state.js`) thay vì gọi
+   `appState.get()` nhiều lần rời rạc.
+2. **Nếu core B cần kết quả của core A** — Workflow tự gọi A trước, lấy kết quả, rồi truyền vào
+   làm tham số khi gọi B. Workflow đứng NGOÀI, gọi CẢ HAI, KHÔNG để A gọi B nội bộ.
+3. **Nếu cần lặp lại (task lặp, ví dụ slideshow/auto-switch-visual)** — Workflow tự đăng ký qua
+   `taskManager`, bên trong callback của task đó Workflow (không phải core) tự đọc `appState` +
+   gọi các hàm core cần thiết theo đúng thứ tự, TỪNG hàm core gọi riêng lẻ từ Workflow — xem ví dụ
+   dưới.
 
 ```js
-// ĐƯỢC — B có return, A DÙNG vào phép tính
-function computeSomething(x) {
-    const a = x;
-    const b = xxx(a); // xxx() CÓ return value
-    console.log(`[computeSomething] callTo: "xxx", request: "tính phần b từ a để cộng vào tổng"`);
-    const c = a + b; // A THẬT SỰ dùng b
-    return c;
+// SAI — core tự gọi core khác (dù dùng return value) VÀ tự dùng taskManager
+function beginTransition(outEl, inEl, durationMs) {
+    inEl.classList.add('enter');
+    taskManager.once(() => {           // SAI — taskManager cấm trong core
+        setImage(outEl, '');           // SAI — core gọi core khác
+        finishTransition(outEl, inEl); // SAI — core gọi core khác
+    }, durationMs, 'cleanup');
 }
 ```
-
 ```js
-// ĐƯỢC — gọi bất đồng bộ, KHÔNG await, không tạo phụ thuộc thứ tự -> ngoại lệ, không phải Workflow
-function doSomething(a, c) {
-    const A = a + c;
-    logListenEventAsync(A); // KHÔNG await — fire-and-forget, code dưới chạy ngay, không chờ kết quả
-    // ...code khác tiếp tục ngay lập tức, không phụ thuộc thời điểm logListenEventAsync() xong
-    return A;
-}
+// ĐÚNG — 3 hàm core ĐỘC LẬP, không hàm nào gọi hàm kia; Workflow tự taskManager + tự gọi từng hàm
+// core/....js (core thuần, KHÔNG hàm nào gọi hàm còn lại)
+function startTransitionVisuals(outEl, inEl) { inEl.classList.add('enter'); }
+function setImage(el, url) { el.style.backgroundImage = url ? `url(${url})` : ''; }
+function finishTransitionVisuals(outEl, inEl) { /* dọn class, KHÔNG gọi setImage() ở đây */ }
+
+// event/workflow/....js (Workflow — điều phối, ĐƯỢC dùng taskManager + appState.get())
+startTransitionVisuals(outEl, inEl); // core
+taskManager.once(() => {
+    setImage(outEl, '');               // core — Workflow tự gọi, KHÔNG để core khác gọi hộ
+    finishTransitionVisuals(outEl, inEl); // core
+}, durationMs, 'cleanup');
 ```
 
-```js
-// SAI — B không có return (void), A gọi B chỉ để side-effect -> đây LÀ Workflow, phải chuyển ra
-// /event/workflow/, KHÔNG được giữ trong core dù rất đơn giản, dù không cần shield/modal
-function applyModeChange(idx) {
-    appState.set('currentModeIndex', idx); // set state X
-    updateTypeUI();  // void, side-effect thuần — A không dùng gì từ nó
-    saveConfig();     // void, side-effect thuần — A không dùng gì từ nó, PHỤ THUỘC thứ tự (chạy
-                       // sau updateTypeUI(), sau khi state X đã set) -> đúng hình dạng Workflow
-}
-```
-Sửa đúng: tách 3 dòng trên thành `workflowX.applyModeChange(idx)` trong `/event/workflow/<cụm>.js`
-— `applyModeChange` không còn là core function nữa, mà là 1 method của Workflow.
+**Bỏ hẳn yêu cầu `console.log("... callTo: ...")` cho core-gọi-core** (không còn trường hợp hợp lệ
+nào để log) — Rule 4 (`console.log("writer: ...")` cho `set()`/`mutate()`) giữ NGUYÊN, không đổi.
 
-**Mọi lời gọi Core → Core hợp lệ (theo tiêu chí return-value ở trên) phải có `console.log` NGAY
-DƯỚI dòng gọi**, đúng format:
-```js
-console.log(`[<tên function gọi>] callTo: "<tên function được gọi>", request: "<mục đích ngắn gọn>"`);
-```
-
-**Ngoại lệ bắt buộc — KHÔNG log trong hot path 60fps** (vòng vẽ visualizer
-`core/visualizer/draw-visualizer.js`, `taskManager` tần suất cao): vẫn được gọi core khác bình
-thường trong các vòng lặp này (nếu thoả tiêu chí return-value), chỉ **miễn** yêu cầu `console.log`
-— log mỗi frame sẽ spam console và tốn hiệu năng thật (khác `appState.get()`, vốn rẻ — xem
-`service/state.js` — nhưng `console.log` có chi phí I/O thật, không miễn phí ở tần suất 60fps).
 
 ---
 
@@ -216,15 +213,15 @@ log từng lần sẽ spam console/tốn hiệu năng thật, KHÔNG áp dụng 
 
 ## Bảng tổng hợp
 
-| Câu hỏi | Đúng luật ver 12 |
+| Câu hỏi | Đúng luật ver 12 (cập nhật 04/07/2026) |
 |---|---|
 | Function có `if/else`/`switch` chọn giữa ≥2 TIẾN TRÌNH/logic nghiệp vụ khác nhau (bất kể điều kiện lấy từ `appState`, tham số, hay đâu khác)? | **KHÔNG được** — tách thành nhiều function đơn tuyến, để nơi gọi chọn |
 | Function có guard clause thuần (validate, early-return, vẫn chỉ 1 tiến trình)? | **ĐƯỢC** — không phải Rule 1 |
-| Function có tự `appState.get()` bên trong? | **KHÔNG được** — nhận qua tham số |
-| Function có tự `appState.set()`/`mutate()`? | **ĐƯỢC** — chỉ chặn đọc, không chặn ghi |
-| Function gọi function core khác CÓ return value VÀ dùng giá trị đó? | **ĐƯỢC** — phải `console.log` `sender/callTo/request` ngay dưới, TRỪ hot path 60fps |
-| Function gọi function core khác VOID (không return, chỉ side-effect), gọi ĐỒNG BỘ? | **KHÔNG được** — đây LÀ Workflow, chuyển ra `/event/workflow/`, bất kể đơn giản hay cần shield/modal |
-| Function gọi function khác BẤT ĐỒNG BỘ và KHÔNG `await`/không chờ? | **ĐƯỢC** — ngoại lệ, không tạo phụ thuộc thứ tự nên không phải Workflow |
+| Function có tự `appState.get()` bên trong (kể cả dạng `get([...])` mới)? | **KHÔNG được** — nhận qua tham số |
+| Function có tự `appState.set()`/`mutate()`? | **ĐƯỢC** — coi là API `service/`, không tính "gọi hàm core khác" |
+| Function có tự gọi `service/db.js` (getMeta/setMeta/...)? | **ĐƯỢC** — cùng lý do trên |
+| Function gọi 1 function core/nghiệp vụ KHÁC — bất kể có return value, có dùng giá trị đó, đồng bộ hay bất đồng bộ, có `await` hay không? | **CẤM TUYỆT ĐỐI** — mọi hình dạng đều chuyển ra Workflow, không còn ngoại lệ nào |
+| Function core có dùng `taskManager` (once/addNew/...)? | **CẤM TUYỆT ĐỐI** — `taskManager` CHỈ dùng ở Workflow |
 | Function có `appState.set()`/`mutate()`? | Bắt buộc `console.log` `writer/page/content` ngay dưới, TRỪ hot path 60fps |
 
 ← [Quay lại README](../README.md)

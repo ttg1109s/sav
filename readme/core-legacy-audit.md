@@ -12,6 +12,15 @@
 > top-level), KHÔNG phải liệt kê bằng mắt/suy đoán — nhưng Rule 1/3 vẫn cần xác nhận thủ
 > công ở mức độ ghi rõ dưới đây (script không thể phán đoán ngữ nghĩa "có phải 2 tiến trình
 > nghiệp vụ khác nhau" 100% chắc chắn).
+>
+> **[CẢNH BÁO 04/07/2026]** Rule 3 vừa được **VIẾT LẠI SIẾT CHẶT HƠN HẲN** (xem
+> [core-function-conventions.md Rule 3](./core-function-conventions.md)): trước đây core-gọi-core
+> HỢP LỆ nếu dùng return value (hoặc bất đồng bộ không chờ) — giờ **CẤM TUYỆT ĐỐI mọi hình thức**,
+> chỉ còn ngoại lệ gọi `service/db.js`/`appState.set`/`mutate`. Số liệu "vi phạm Rule 3" trong
+> bảng dưới đây **SINH RA TỪ TIÊU CHÍ CŨ (return-value)** — CHƯA quét lại theo tiêu chí mới, nên
+> chắc chắn ĐANG BỊ ĐẾM THIẾU (nhiều hàm trước đây "hợp lệ" vì dùng return value giờ VI PHẠM).
+> CHƯA re-scan toàn bộ — coi cột Rule 3 dưới đây là **CẬN DƯỚI** (số vi phạm thật ≥ số liệt kê),
+> chỉ xử lý đúng khi hàm đó bị đụng tới thật (đúng tinh thần nợ kỹ thuật, không cần quét lại ngay).
 
 ## Loại trừ hot-path (không đưa vào audit)
 
@@ -121,7 +130,7 @@ Và 3 hàm cụ thể (nằm trong file KHÔNG hoàn toàn hot-path, nhưng bả
 | `loadBackgroundAssets` | 146-170 | ✓ (2) | ✓ | `saveConfig`, `updatePlaylistBg` |
 | `loadConfig` | 179-274 | ✓ (26) | — | `updateDOMBackground` |
 
-### `core/db.js`
+### `service/db.js`
 
 | Hàm | Dòng | R2 (`appState.get` — số lần) | R1-strong (else/switch) | R3 (gọi void xác nhận) |
 |---|---|---|---|---|
@@ -376,7 +385,7 @@ không" (xem `core-function-conventions.md` Rule 1) trước khi kết luận.
 | `core/canvas-scene-setup.js` | `resizeCanvas` | 21-48 |
 | `core/color-utils.js` | `updateDOMBackground` | 18-22 |
 | `core/config.js` | `loadConfig` | 179-274 |
-| `core/db.js` | `makeStoreAccessor` | 116-127 |
+| `service/db.js` | `makeStoreAccessor` | 116-127 |
 | `core/equalizer.js` | `updateEQSlidersUI` | 26-30 |
 | `core/listen-stats.js` | `_ensureStats` | 37-41 |
 | `core/listen-stats.js` | `flushSongStats` | 80-87 |

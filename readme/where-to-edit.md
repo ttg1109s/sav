@@ -26,7 +26,7 @@
 | Menu "Chọn file nhạc / Chọn cả thư mục" | `components/playlist-view.js` (HTML `#upload-action-menu`), `core/playlist/loader.js` (`handleAudioFiles()`); listener/router qua cụm `playlist` |
 | Modal hỏi quyết định dùng chung | `core/modal-choice.js` (`modalChoice(text, buttons, options?)`) — hạ tầng dùng chung, KHÔNG qua bus (xem lý do ở [folder-structure.md](./folder-structure.md)) |
 | Modal "Tiếp tục nghe?" sau khi tab bị ẩn | `core/player-controls.js` (`showResumeChoiceModal()`), `core/resume-state-storage.js` (lưu/đọc qua localStorage, `checkPendingResumeStateOnBoot()`), `core/tab-hide-reload.js` (phát hiện ẩn tab thật vs F5) |
-| Mọi timer lặp/bắn-một-lần | `core/task-manager.js` (instance global `taskManager` — `addNew`/`once`/`pause`/`resume`/`kill`/`isTaskRunning`) |
+| Mọi timer lặp/bắn-một-lần | `service/task-manager.js` (instance global `taskManager` — `addNew`/`once`/`pause`/`resume`/`kill`/`isTaskRunning`) |
 | "Xoá hết dữ liệu" / tải nhạc về rồi xoá | `core/storage-manager.js` (`clearAllStoredData`); UI/listener/router qua cụm `settingsMisc` (patch 5, nhánh `storageDrawer`) |
 | Khởi động lại app / Khôi phục cài đặt mặc định | `core/app-recovery.js`; UI ở `components/settings/misc.js`; listener/router qua cụm `settingsMisc` (patch 5, nhánh `appRecovery`) |
 | Dọn tài nguyên khi tab đóng thật (F5/điều hướng) | `core/app-cleanup.js` (`executeAppCleanup()`), gọi từ `event/tab.js` |
@@ -34,7 +34,7 @@
 | Đa ngôn ngữ (i18n) — bộ điều phối, dịch text | `lang/lang.js` (`LANG_EN_KEYS` gộp từ `lang/patch/*.js`, English cứng RAM, gốc/fallback). Hàm `t(key, fallback?)`/`tFormat(key, vars)` |
 | Đa ngôn ngữ — thêm/sửa 1 key dịch | `lang/patch/*.js` (đúng file patch theo namespace — xem comment đầu `lang/lang.js`) |
 | Đa ngôn ngữ — UI chọn/upload/xóa ngôn ngữ | `components/settings/language.js` (HTML), `lang/language-settings.js` (`renderLanguageOptions()`); listener/router qua cụm `languageSettings` (patch 7) |
-| Đa ngôn ngữ — lưu trữ IndexedDB | `core/db.js` (store `languages`, `DB_VERSION` 3, CRUD `getLanguagePack`/`setLanguagePack`/`deleteLanguagePack`/`getAllLanguageCodes`) |
+| Đa ngôn ngữ — lưu trữ IndexedDB | `service/db.js` (store `languages`, `DB_VERSION` 3, CRUD `getLanguagePack`/`setLanguagePack`/`deleteLanguagePack`/`getAllLanguageCodes`) |
 | Kiểu xem (Danh sách/Lưới) + Sắp xếp Playlist | `components/settings/playlist-background.js` (HTML), `core/playlist/main.js` (`initViewMode()`/`initSortMenu()`); listener/router qua cụm `playlist` |
 | Tự động đổi hiệu ứng Visualizer theo thời gian | `core/auto-switch-visual.js`; UI ở `components/visualizer-settings-drawer.js`; listener/router qua cụm `autoSwitchVisual` (patch 10) |
 | Giao diện ngăn cài đặt — khung ngoài | `components/settings-drawer.js` (object `SettingsDrawer`) |
@@ -50,7 +50,7 @@
 | Mở/đóng drawer Visualizer/Subtitle, đổi kiểu hiệu ứng, giữ màn hình sáng | `core/visualizer/visualizer-misc-settings.js`; listener/router qua cụm `visualizerMiscSettings` (patch 13) |
 | Control Center (panel 6 icon trên Visualizer) | `components/visualizer-overlay.js` (HTML), `core/state-and-video-bg.js` (mở/đóng panel); listener/router/workflow qua cụm `visualizerControlCenter` (patch 11) |
 | Logic phát nhạc, next/prev, shuffle | `core/playlist/actions.js` (`playSong`), `core/playlist/order.js` (hàng đợi/shuffle), `core/player-controls.js` (next/prev/toggleShuffle); listener/router qua cụm `playerControls` (patch 3) — 16/17 msg.type KHÔNG có workflow, RIÊNG `shuffle.click` có `event/workflow/player-controls.js` (MỚI 03/07/2026, trộn theo "hiện hành" — xem comment đầu file) |
-| Lưu trữ IndexedDB (nhạc/tag/cover/sub/ảnh-video nền) | `core/db.js` |
+| Lưu trữ IndexedDB (nhạc/tag/cover/sub/ảnh-video nền) | `service/db.js` |
 | Lưu/đọc state phát nhạc qua localStorage khi tab bị ẩn | `core/resume-state-storage.js` (bao gồm vị trí video nền `videoCurrentTime`) |
 | Validate định dạng file upload | `core/upload-validation.js` |
 | Che màn hình khi xử lý | `core/loading-shield-util.js` (`withLoadingShield`) |

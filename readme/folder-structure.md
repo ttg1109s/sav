@@ -25,6 +25,8 @@ visual-master/
 │   ├── core-legacy-audit.md     — nợ kỹ thuật chính thức: 150/266 function core hiện có (đã loại
 │   │                              hot-path) vi phạm ≥1 rule ở core-function-conventions.md
 │   ├── script-load-order.md
+│   ├── task-manager-conventions.md — MỚI 04/07/2026: mọi setInterval/setTimeout PHẢI qua
+│   │                              `taskManager`, CHỈ Workflow được dùng (Core/Router/Listener cấm)
 │   ├── usage.md
 │   ├── visual-conventions.md
 │   ├── where-to-edit.md
@@ -84,9 +86,6 @@ visual-master/
 │   │                              qua CONST.xxx ở service/state.js, không định nghĩa ở đây)
 │   ├── dom-refs.js               — mọi document.getElementById(...), RUBIK_NOTE_TO_TURN
 │   ├── sav-logo.js               — setSavLogoExpanded(), gọi bởi event/router/sav-logo.js
-│   ├── task-manager.js           — class Loop/TaskManager, instance global taskManager
-│   ├── db.js                     — IndexedDB (idb-keyval), store songs/meta/languages, cơ chế tự
-│   │                              phát hiện + tự mở lại connection khi trình duyệt tự đóng
 │   ├── resume-state-storage.js   — lưu/đọc state phát nhạc (localStorage) khi tab ẩn, gồm cả vị
 │   │                              trí video nền (videoCurrentTime, khôi phục qua 'loadedmetadata')
 │   ├── upload-validation.js      — validateAudioFile/ImageFile/VideoFile
@@ -156,6 +155,11 @@ visual-master/
 │   │                              validate kiểu, skipCheck cho hot path) + CONST (16 hằng)
 │   ├── operation.js              — so sánh toán tử (===/!==/>/</>=/<=/in/notIn) DÙNG CHUNG cho
 │   │                              event/block.js và event/virtual-machine-state.js
+│   ├── task-manager.js           — class Loop/TaskManager, instance global taskManager (CHUYỂN từ
+│   │                              core/ ngày 04/07/2026 — dịch vụ hạ tầng, không phải nghiệp vụ)
+│   ├── db.js                     — IndexedDB (idb-keyval), store songs/meta/languages, cơ chế tự
+│   │                              phát hiện + tự mở lại connection khi trình duyệt tự đóng (CHUYỂN
+│   │                              từ core/ ngày 04/07/2026, cùng lý do trên)
 │   ├── adapter/                  — scaffolding TƯƠNG LAI cho native adapter bridge, CHƯA có code
 │   │   ├── android/                 thật, chỉ giữ chỗ thư mục
 │   │   ├── ios/
