@@ -47,11 +47,13 @@ const workflowVisualizerControlCenter = {
 
     /** MỚI (03/07/2026, mục 2; VIẾT LẠI 04/07/2026, mục 1) — ứng với gạt
      * "#setting-visual-bg-image-enable" lên On: LUÔN mở picker chọn 1 ảnh có sẵn trong File
-     * Manager. Huỷ/đóng picker không chọn gì -> `onCancel` tự trả toggle về "off" (tham số mới của
-     * openImageLibraryPickerModal, core/file-manager/photo-ui.js — fix đúng bug đã báo). */
+     * Manager. Huỷ/đóng picker không chọn gì -> `onCancel` tự trả toggle về "off" (tham số của
+     * openImageCarouselPickerModal, core/file-manager/photo-ui.js — fix đúng bug đã báo). */
     async pickVisualBgImageFromLibrary() {
         const images = await listImages(); // core có sẵn (core/file-manager/image.js), CÓ return, DÙNG ngay dưới
-        openImageLibraryPickerModal(images, async (imageKey) => { // core/file-manager/photo-ui.js
+        // FIX (04/07/2026, mục 2 phản hồi Giang) — đổi sang carousel (1 ảnh/lúc, windowed DOM)
+        // THAY lưới ảnh cũ, xem core/file-manager/photo-ui.js::openImageCarouselPickerModal.
+        openImageCarouselPickerModal(images, async (imageKey) => { // core/file-manager/photo-ui.js
             const record = await getImageRecord(imageKey); // core có sẵn (service/db.js)
             if (!record) { settingVisualBgImageEnableToggle.checked = false; return; } // guard: ảnh vừa bị xoá -> coi như huỷ
             await withLoadingShield(t('common.loading.savingImageBg'), async () => {

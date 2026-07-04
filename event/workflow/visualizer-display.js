@@ -22,8 +22,8 @@ const workflowVisualizerDisplay = {
      * FIX (04/07/2026, mục 1 phản hồi Giang) — GỘP nút "Chọn thư viện" (đã xoá) VÀO ĐÂY: gạt toggle
      * lên "On" giờ TỰ mở picker chọn ảnh có sẵn trong File Manager luôn, không cần 2 control tách
      * rời (từng gây bug UX: gạt On xong đóng modal không chọn gì, toggle vẫn kẹt "on"). Huỷ/đóng
-     * modal không chọn ảnh -> `onCancel` tự trả toggle về "off" (tham số mới của
-     * openImageLibraryPickerModal, xem core/file-manager/photo-ui.js). Gạt về "off" thì chỉ tắt
+     * modal không chọn ảnh -> `onCancel` tự trả toggle về "off" (tham số của
+     * openImageCarouselPickerModal, xem core/file-manager/photo-ui.js). Gạt về "off" thì chỉ tắt
      * hiển thị — KHÔNG xoá Blob đã lưu trong IndexedDB nữa (đảo ngược quyết định cũ, xem
      * applyBgImageEnabled() core/visualizer/visualizer-display.js).
      * @param {{enabled: boolean}} payload
@@ -33,7 +33,9 @@ const workflowVisualizerDisplay = {
         if (!enabled) { applyBgImageEnabled(false); return; } // core giờ đồng bộ (không còn đụng IndexedDB) -> gọi thẳng
 
         const images = await listImages(); // core có sẵn (core/file-manager/image.js), CÓ return, DÙNG ngay dưới
-        openImageLibraryPickerModal(images, async (imageKey) => { // core/file-manager/photo-ui.js
+        // FIX (04/07/2026, mục 2 phản hồi Giang) — đổi sang carousel (1 ảnh/lúc, windowed DOM)
+        // THAY lưới ảnh cũ, xem core/file-manager/photo-ui.js::openImageCarouselPickerModal.
+        openImageCarouselPickerModal(images, async (imageKey) => { // core/file-manager/photo-ui.js
             const record = await getImageRecord(imageKey); // core có sẵn (service/db.js)
             if (!record) { bgImageEnableToggle.checked = false; return; } // guard: ảnh vừa bị xoá ở tab/thao tác khác -> coi như huỷ
             await withLoadingShield(t('common.loading.savingImageBg'), async () => {
