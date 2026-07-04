@@ -114,12 +114,20 @@
                         const url = URL.createObjectURL(visualBgBlob);
                         appState.mutate('vizConfig', c => { c.visualBgImage = url; });
                         if (typeof applyVisualBgImageToDOM === 'function') applyVisualBgImageToDOM(true, url);
+                        // FIX (04/07/2026, mục 6 phản hồi Giang) — THIẾU DÒNG NÀY trước đây: khối
+                        // resolve lúc boot này set DOM/state trực tiếp thay vì gọi qua
+                        // applyVisualBgImage() (hàm ĐÓ mới có dòng đồng bộ toggle.checked), nên
+                        // toggle luôn hiện "off" sau reload dù ảnh vẫn hiển thị đúng — bug đã báo.
+                        if (typeof settingVisualBgImageEnableToggle !== 'undefined' && settingVisualBgImageEnableToggle) settingVisualBgImageEnableToggle.checked = true;
                     } else {
                         // Bật "on" nhưng không còn Blob (hiếm — xoá tay IndexedDB, hoặc dữ liệu
                         // lệch) -> tự sửa về "off ảo", cùng nguyên tắc loadBackgroundAssets() áp
                         // dụng cho bgImage/videoBgUrl.
                         appState.mutate('vizConfig', c => { c.visualBgImageEnabled = false; });
+                        if (typeof settingVisualBgImageEnableToggle !== 'undefined' && settingVisualBgImageEnableToggle) settingVisualBgImageEnableToggle.checked = false;
                     }
+                } else if (typeof settingVisualBgImageEnableToggle !== 'undefined' && settingVisualBgImageEnableToggle) {
+                    settingVisualBgImageEnableToggle.checked = false; // FIX (mục 6) — đồng bộ rõ ràng cả nhánh "off", tránh phụ thuộc checkbox HTML mặc định
                 }
             }
             // MỚI (Batch 8, 03/07/2026, slideshow nền Visual) — đọc lại slideshowConfig/

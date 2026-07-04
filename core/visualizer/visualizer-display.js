@@ -140,19 +140,21 @@
         }
 
         /**
-         * Bật/tắt dùng ảnh nền (checkbox). Core thuần xử lý phần IndexedDB/blob URL — KHÔNG tự bọc
-         * shield (workflow bọc quanh lệnh gọi hàm async này).
+         * Bật/tắt dùng ảnh nền (checkbox). Core thuần xử lý phần state/DOM — KHÔNG tự bọc shield.
+         * FIX (04/07/2026, mục 1 phản hồi Giang — ĐẢO NGƯỢC quyết định trước, xem lịch sử patch):
+         * TẮT KHÔNG CÒN xoá `meta.bgImage` trong IndexedDB nữa — chỉ dọn object URL runtime, GIỮ
+         * NGUYÊN Blob thật để lần "gạt On" kế tiếp kích hoạt lại NGAY qua `applyBgImage()` (đọc lại
+         * chính blob này) mà KHÔNG cần mở lại picker.
          * @param {boolean} enabled
          */
-        async function applyBgImageEnabled(enabled) {
-            appState.mutate('vizConfig', cfg => { cfg.bgImageEnabled = enabled; });
-            if (!enabled) {
-                await delMeta('bgImage');
-                appState.mutate('vizConfig', cfg => {
+        function applyBgImageEnabled(enabled) {
+            appState.mutate('vizConfig', cfg => {
+                cfg.bgImageEnabled = enabled;
+                if (!enabled) {
                     if (cfg.bgImage && cfg.bgImage.startsWith('blob:')) URL.revokeObjectURL(cfg.bgImage);
                     cfg.bgImage = '';
-                });
-            }
+                }
+            });
             updatePlaylistBg(); saveConfig();
         }
 
