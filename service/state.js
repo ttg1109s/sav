@@ -208,7 +208,7 @@
             // chạy (displayOrder quay lại phản ánh top-level thật) — xem core/playlist/order.js.
             sectionQueueActive: 'boolean',
             activeBackgroundAlbum: 'nullable-string', // albumId đang dùng làm nền slideshow, null = không dùng
-            slideshowConfig: 'object',               // { mode, intervalSeconds, transitionType, photoPerSong } — xem CONST.DEFAULT_SLIDESHOW_CONFIG
+            slideshowConfig: 'object',               // { mode, intervalSeconds, transitionType, photoPerSong, showCaption } — xem CONST.DEFAULT_SLIDESHOW_CONFIG
             readerConfig: 'object',                  // { fontFamily, fontSize, bgColor, textColor, opacity } — xem CONST.DEFAULT_READER_CONFIG
         };
 
@@ -427,6 +427,9 @@
                 photoPerSong: false, // MỚI (04/07/2026, mục 5 phản hồi Giang) — true: đổi ảnh THEO
                                       // bài hát (1 ảnh/1 bài, đổi đúng lúc bài hát đổi — kể cả seek
                                       // KHÔNG tính, chỉ tính đổi BÀI thật), bỏ qua intervalSeconds.
+                showCaption: false, // MỚI (04/07/2026, mục 2 phản hồi Giang) — hiện caption của ảnh
+                                     // đang chiếu (nếu ảnh đó CÓ caption) dạng overlay top kiểu
+                                     // TikTok — tự ẩn khi video nền bật (xem pauseForVideoBg()).
             }),
             DEFAULT_READER_CONFIG: Object.freeze({
                 fontFamily: 'system-ui',
