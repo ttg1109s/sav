@@ -25,9 +25,19 @@ const TPL_SETTINGS_FILE_MANAGER = `
                     <span class="text-sm font-medium" data-i18n="fileManager.entry.photo">${t('fileManager.entry.photo')}</span>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </button>
-                <button id="setting-open-file-manager-document" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
+                <button id="setting-open-file-manager-document" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
                     <span class="text-sm font-medium" data-i18n="fileManager.entry.document">${t('fileManager.entry.document')}</span>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                </button>
+                <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager,
+                     CỐ Ý đặt cuối cùng (sau mọi tính năng khác) — xem core/file-manager/cleanup.js
+                     (registry) + event/workflow/file-manager-cleanup.js. -->
+                <button id="btn-file-manager-cleanup-run" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
+                    <div>
+                        <div class="text-sm font-medium" data-i18n="fileManager.cleanup.label">${t('fileManager.cleanup.label')}</div>
+                        <div class="text-xs text-slate-400 mt-0.5" data-i18n="fileManager.cleanup.hint">${t('fileManager.cleanup.hint')}</div>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
             </div>
         </div>
