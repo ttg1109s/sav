@@ -190,6 +190,10 @@
         function getFolderSongMap(folderId) { return idbKeyval.get(folderId, folderSongStore); }
         function setFolderSongMap(folderId, map) { return idbKeyval.set(folderId, map, folderSongStore); }
         function deleteFolderSongMap(folderId) { return idbKeyval.del(folderId, folderSongStore); }
+        // MỚI (04/07/2026, tính năng dọn rác File Manager) — cần liệt kê ĐÚNG key của CHÍNH store
+        // 'folder_song' (khác getAllFolderKeys() — store 'folders') để phát hiện mục mồ côi (map
+        // còn sống nhưng 'folders' tương ứng đã bị xoá — xem core/file-manager/cleanup.js).
+        function getAllFolderSongKeys() { return idbKeyval.keys(folderSongStore); }
 
         function getImageRecord(imageKey) { return idbKeyval.get(imageKey, imagesStore); }
         function setImageRecord(imageKey, record) { return idbKeyval.set(imageKey, record, imagesStore); }
