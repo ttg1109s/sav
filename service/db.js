@@ -79,7 +79,11 @@
         //   - 'albums'      : album ảnh dùng cho slideshow nền, key = albumId, value =
         //                     { id, name, imageKeys: [...] }.
         //   - 'documents'   : văn bản (txt/docx upload hoặc tự tạo), key = documentKey, value =
-        //                     { blob hoặc content, filename, type, addedAt }.
+        //                     { filename, title, content: string[], format: 'txt'|'docx',
+        //                     createdBy: 'upload'|'user', addedAt } — CHỐT 04/07/2026 (phản hồi
+        //                     Giang): content LUÔN là MẢNG đoạn văn (không phải 1 chuỗi dài), tách
+        //                     lúc upload/tạo (xem core/file-manager/document.js). CHỈ createdBy=
+        //                     'user' được sửa nội dung trong Reader.
         // Field `folder: { [folderId]: position }` trên record của store 'songs' KHÔNG cần đổi
         // version DB (IndexedDB không ràng buộc schema trong value của 1 store) — chỉ cần các core
         // function đọc/ghi record 'songs' biết thêm field này khi cần (việc của bước sau, xem
