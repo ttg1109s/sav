@@ -127,30 +127,49 @@ function setDocumentReaderVisible(overlayEl, windowEl, visible) {
     windowEl.classList.toggle('hidden', !visible);
 }
 
+/** Core thuần: hiện/ẩn Document Picker Drawer — overlay dùng `classList.hidden`, drawer dùng
+ * `translateY` (trượt lên/xuống, khớp `transition-transform` đã khai báo sẵn trong template). */
+function setDocumentPickerVisible(overlayEl, drawerEl, visible) {
+    if (!overlayEl || !drawerEl) return;
+    overlayEl.classList.toggle('hidden', !visible);
+    if (visible) {
+        drawerEl.classList.remove('hidden');
+        // Ép reflow trước khi bỏ translate-y-full — đảm bảo transition CHẠY (thêm/bỏ 'hidden' và
+        // 'translate-y-full' cùng lúc trong 1 tick JS có thể bị trình duyệt gộp, bỏ qua animation).
+        void drawerEl.offsetHeight;
+        drawerEl.classList.remove('translate-y-full');
+    } else {
+        drawerEl.classList.add('translate-y-full');
+    }
+}
+
 /**
- * Vẽ dropdown chọn tài liệu trong Reader — đánh dấu tài liệu ĐANG mở (viền sáng).
- * @param {HTMLElement} dropdownEl
+ * Vẽ danh sách tài liệu trong Document Picker Drawer (components/document-picker-drawer.js) — CHỈ
+ * tap-để-chọn, KHÔNG có menu CRUD (đúng yêu cầu Giang: "..." Đổi tên/Xoá CHỈ có trong File Manager
+ * -> Documents, drawer picker này thuần tuý để CHỌN đọc). Đánh dấu tài liệu ĐANG mở (nếu có, viền
+ * sáng) — CHỮ ĐEN vì drawer nền TRẮNG (khác hẳn phần còn lại của app, đúng yêu cầu Giang).
+ * @param {HTMLElement} listEl
  * @param {Array<{key: string, title: string, format: string}>} documents
  * @param {string|null} activeDocumentKey
  * @param {(documentKey: string) => void} onSelect
  */
-function renderDocumentReaderListDropdown(dropdownEl, documents, activeDocumentKey, onSelect) {
-    if (!dropdownEl) return;
-    dropdownEl.replaceChildren();
-    if (documents.length === 0) {
-        const emptyEl = document.createElement('p');
-        emptyEl.className = 'text-sm text-slate-400 text-center py-6 px-4';
-        emptyEl.textContent = t('fileManager.document.empty');
-        dropdownEl.appendChild(emptyEl);
-        return;
-    }
+function renderDocumentPickerList(listEl, documents, activeDocumentKey, onSelect) {
+    if (!listEl) return;
+    listEl.replaceChildren();
     documents.forEach((doc) => {
         const isActive = doc.key === activeDocumentKey;
         const item = document.createElement('button');
-        item.className = `text-left px-4 py-3 text-sm font-medium transition-colors ${isActive ? 'bg-sky-500/15 text-sky-300' : 'text-white hover:bg-white/10'}`;
-        item.textContent = doc.title;
+        item.className = `w-full text-left px-4 py-3.5 rounded-xl mb-1.5 flex items-center gap-3 transition-colors ${isActive ? 'bg-sky-50 border border-sky-300' : 'hover:bg-slate-100 border border-transparent'}`;
+        const icon = document.createElement('div');
+        icon.className = `w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${doc.format === 'docx' ? 'bg-sky-100 text-sky-600' : 'bg-slate-100 text-slate-600'}`;
+        icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>';
+        item.appendChild(icon);
+        const titleEl = document.createElement('span');
+        titleEl.className = 'text-sm font-semibold text-slate-800 truncate';
+        titleEl.textContent = doc.title;
+        item.appendChild(titleEl);
         item.addEventListener('click', () => onSelect(doc.key));
-        dropdownEl.appendChild(item);
+        listEl.appendChild(item);
     });
 }
 
