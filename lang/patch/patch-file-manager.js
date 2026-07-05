@@ -100,9 +100,11 @@ const LANG_PATCH_FILE_MANAGER = {
     'documentReader.btnEdit': 'Edit',
     'documentReader.empty': 'This document is empty.',
     'documentReader.editTitle': 'Edit document',
-    'documentReader.noDocuments': 'No documents yet — add one in File Manager.',
     'documentReader.closeWhileEditingBody': 'Save your changes before closing?',
     'documentReader.discardChanges': 'Discard',
+    // ── Document Picker Drawer (chọn tài liệu, trắng, trượt từ dưới lên — mục 3 phản hồi Giang) ──
+    'documentPicker.title': 'Choose document',
+    'documentPicker.empty': 'No documents yet — add one in File Manager.',
     // ── File Manager -> Song: Folder (mục 4.b1) ──────────────────────────────────────────────
     'fileManager.song.folderSectionTitle': 'Folders',
     'fileManager.song.newFolderPlaceholder': 'New folder name',
