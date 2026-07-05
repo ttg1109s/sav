@@ -1,13 +1,11 @@
 /**
  * event/listener/document-reader.js — TẤT CẢ listener của cụm "documentReader". NẠP SAU CÙNG
  * (sau bus, core, router, VÀ SAU dom-refs.js).
+ *
+ * VIẾT LẠI (04/07/2026, mục 3 phản hồi Giang) — bỏ listener `btnOpenDocumentReader` (chuyển hẳn
+ * sang cụm "documentPicker" — event/listener/document-picker.js — nút "Reader" ở Control Center
+ * giờ mở drawer chọn tài liệu TRƯỚC, không mở thẳng Reader nữa).
  */
-
-if (btnOpenDocumentReader) {
-    btnOpenDocumentReader.addEventListener('click', () => {
-        eventBus.send({ router: 'documentReader', type: 'documentReader.openFromControlCenter.click', payload: {} });
-    });
-}
 
 if (btnDocumentReaderClose) {
     btnDocumentReaderClose.addEventListener('click', () => {
