@@ -16,6 +16,10 @@
  * (`#control-center-overlay` z-45/`#visualizer-control-center` z-46) — dùng z-39 (overlay)/z-40
  * (window). Cao hơn `#visualizer-ui` (z-30, chứa `#subtitle-display` z-60 NỘI BỘ — không ảnh hưởng
  * thứ tự toàn cục vì subtitle-display nằm LỒNG trong stacking context riêng của visualizer-ui).
+ *
+ * FIX (05/07/2026, mục 5 phản hồi Giang): chế độ Sửa đổi từ `<textarea>` thuần sang Toast UI Editor
+ * (WYSIWYG, mount vào `#document-reader-edit-mount` — xem event/workflow/document-reader.js) —
+ * content giờ là Markdown (`string`), không còn mảng đoạn văn.
  */
 const TPL_DOCUMENT_READER = `
     <div id="document-reader-overlay" class="hidden fixed inset-0 z-[39] bg-black/70 pointer-events-auto"></div>
@@ -54,12 +58,15 @@ const TPL_DOCUMENT_READER = `
                 </button>
             </div>
 
-            <!-- Chế độ Sửa (CHỈ tài liệu createdBy='user') — thay hẳn khung phân trang bằng textarea. -->
+            <!-- Chế độ Sửa (CHỈ tài liệu createdBy='user') — thay hẳn khung phân trang bằng Toast UI
+                 Editor (WYSIWYG, mục 5 phản hồi Giang 05/07/2026 — trước đây là <textarea> thuần).
+                 #document-reader-edit-mount là container RỖNG, mount/destroy Editor theo
+                 enterEditMode()/cancelEdit()/saveEdit() (event/workflow/document-reader.js). -->
             <div id="document-reader-edit-mode" class="hidden absolute inset-0 bg-[#16161a] flex flex-col">
                 <div class="flex justify-between items-center px-4 py-3 border-b border-white/10 shrink-0">
                     <h3 class="text-sm font-bold text-white" data-i18n="documentReader.editTitle">${t('documentReader.editTitle')}</h3>
                 </div>
-                <textarea id="document-reader-edit-textarea" class="flex-1 w-full bg-transparent text-slate-200 text-[15px] leading-relaxed px-6 py-5 outline-none resize-none"></textarea>
+                <div id="document-reader-edit-mount" class="flex-1 min-h-0"></div>
                 <div class="flex justify-end gap-2 px-4 py-3 border-t border-white/10 shrink-0">
                     <button id="btn-document-reader-edit-cancel" class="px-4 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:bg-white/10 transition-colors" data-i18n="common.cancel">${t('common.cancel')}</button>
                     <button id="btn-document-reader-edit-save" class="px-5 py-2 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-white transition-colors" data-i18n="common.save">${t('common.save')}</button>
