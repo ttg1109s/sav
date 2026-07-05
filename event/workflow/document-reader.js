@@ -120,8 +120,9 @@ const workflowDocumentReader = {
         if (this._currentDocumentKey === documentKey) this.close();
     },
 
-    /** Gọi từ workflowFileManagerDocument.promptRename() — cập nhật tiêu đề NGAY trên Reader nếu
-     * đang mở đúng tài liệu vừa đổi tên. */
+    /** Gọi từ workflowFileManagerDocument._renameFromDetail() (FIX 05/07/2026 — trước đây là
+     * promptRename(), đã xoá) — cập nhật tiêu đề NGAY trên Reader nếu đang mở đúng tài liệu vừa
+     * đổi tên. */
     refreshTitleIfOpen(documentKey, title) {
         if (this._currentDocumentKey === documentKey) documentReaderTitle.textContent = title;
     },

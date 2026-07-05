@@ -4,6 +4,16 @@
  * core/file-manager/nav.js) KHÔNG cần workflow — CHỈ những nghiệp vụ ≥2 bước (đọc DB + vẽ lại,
  * upload có xử lý mammoth.js + cảnh báo, tạo/xoá/đổi tên có modal xác nhận) mới ở đây.
  *
+ * FIX (05/07/2026, mục 1/2 phản hồi Giang — 2 lỗi UI Documents): menu "..." (Đổi tên/Xoá) bị chồng
+ * lấn layout trên hàng danh sách — BỎ HẲN; tài liệu tự tạo không có lối vào Sửa — bấm vào hàng giờ
+ * mở `openDocumentDetailModal()` (core/file-manager/document-ui.js) thay vì no-op như trước.
+ * `promptRename()` cũ (mở modal riêng) đã XOÁ, đổi tên giờ NGAY TẠI CHỖ trong modal chi tiết, xem
+ * `openDetail()`/`_renameFromDetail()` dưới đây. **Lưu ý z-index** — nút Sửa trong modal chi tiết
+ * mở `workflowDocumentReader` (`#document-reader-window` z-40), THẤP HƠN HẲN cả
+ * `#drawer-file-manager-document` (z-90) LẪN `#drawer-settings` (z-80) đang mở phía sau — PHẢI tự
+ * đóng cả 2 TRƯỚC khi mở Reader, nếu không Reader sẽ bị che khuất hoàn toàn (đúng lý do batch
+ * trước từng cố tình tắt hẳn "bấm hàng mở Reader", xem git blame `refresh()`).
+ *
  * UPLOAD (mục 1/2/3 phản hồi Giang — tính năng Documents):
  *   - 2 luồng TÁCH RIÊNG (KHÔNG dùng chung upload bài hát di sản — không đụng
  *     core/playlist/actions.js): `handleUploadFile()` (chọn .txt/.docx có sẵn) và
@@ -27,17 +37,48 @@ const workflowFileManagerDocument = {
     },
 
     /** Vẽ lại danh sách document — gọi lúc mở drawer + sau mỗi lần thêm/xoá/đổi tên.
-     * FIX (04/07/2026, mục 3 phản hồi Giang) — bấm vào hàng KHÔNG còn mở Reader nữa (File Manager
-     * -> Documents CHỈ có tác dụng CRUD — upload/tạo/đổi tên/xoá qua menu "...". Đọc tài liệu CHỈ
-     * qua nút "Reader" ở Control Center -> drawer picker riêng, xem
-     * event/workflow/document-picker.js). */
+     * FIX (05/07/2026, mục 1/2 phản hồi Giang) — bấm vào hàng giờ mở `openDetail()` (modal chi
+     * tiết: icon lớn + tên/dung lượng + Xoá/Sửa hoặc Tải về) — THAY HẲN no-op cũ (batch 04/07/2026
+     * từng cố tình tắt hẳn vì lý do z-index Reader, xem đầu file). Đọc tài liệu (phân trang, lật
+     * trang) vẫn CHỈ qua nút "Reader" ở Control Center -> drawer picker riêng
+     * (event/workflow/document-picker.js) — modal chi tiết này KHÔNG phải Reader. */
     async refresh() {
         const documents = await listDocuments(); // core (core/file-manager/document.js)
         if (fileManagerDocumentEmpty) fileManagerDocumentEmpty.classList.toggle('hidden', documents.length > 0);
-        renderDocumentList(fileManagerDocumentList, documents, () => {}, (documentKey, action) => { // core/file-manager/document-ui.js — onOpen = no-op (chỉ CRUD)
-            if (action === 'rename') this.promptRename(documentKey);
-            else if (action === 'delete') this.confirmDelete(documentKey);
+        renderDocumentList(fileManagerDocumentList, documents, (doc) => this.openDetail(doc)); // core/file-manager/document-ui.js
+    },
+
+    /**
+     * Mở modal "Chi tiết tài liệu" cho 1 hàng vừa bấm — `doc` là record ĐẦY ĐỦ đã có sẵn từ
+     * `listDocuments()` (kể cả `content`), KHÔNG cần đọc lại DB.
+     * @param {{key: string, title: string, format: string, createdBy: string, content: string[]}} doc
+     */
+    openDetail(doc) {
+        openDocumentDetailModal(doc, { // core/file-manager/document-ui.js
+            onRename: (title) => this._renameFromDetail(doc.key, title),
+            onDelete: () => this.confirmDelete(doc.key),
+            onEdit: () => this._openReaderForEdit(doc.key),
+            onDownload: () => downloadDocumentAsText(doc), // core/file-manager/document-ui.js
         });
+    },
+
+    /** Đổi tên NGAY từ modal chi tiết — thay `promptRename()` cũ (từng mở modal riêng, đọc lại
+     * `listDocuments()` để lấy title hiện tại; modal chi tiết giờ đã có sẵn `doc.title`, không cần
+     * đọc lại). */
+    async _renameFromDetail(documentKey, title) {
+        await renameDocumentTitle(documentKey, title); // core
+        await this.refresh();
+        if (typeof workflowDocumentReader !== 'undefined') workflowDocumentReader.refreshTitleIfOpen(documentKey, title);
+    },
+
+    /** Ứng với icon "Sửa" trong modal chi tiết (chỉ hiện khi `createdBy==='user'`) — PHẢI đóng cả
+     * `#drawer-file-manager-document` (z-90) LẪN `#drawer-settings` (z-80) TRƯỚC khi mở Reader
+     * (`#document-reader-window` z-40) — Reader thấp hơn hẳn 2 drawer này, mở Reader mà không đóng
+     * chúng sẽ khiến Reader bị che khuất hoàn toàn (xem comment z-index đầu file). */
+    _openReaderForEdit(documentKey) {
+        hideFileManagerDocumentDrawer(); // core (core/file-manager/nav.js)
+        closeSettingsDrawer(); // core (core/player-controls.js)
+        if (typeof workflowDocumentReader !== 'undefined') workflowDocumentReader.openDocument(documentKey, { startInEdit: true });
     },
 
     /**
@@ -119,20 +160,7 @@ const workflowFileManagerDocument = {
         });
     },
 
-    /** Ứng với "Đổi tên" ở menu "..." của 1 hàng. */
-    promptRename(documentKey) {
-        listDocuments().then((documents) => { // core — cần lấy title hiện tại làm giá trị input ban đầu
-            const doc = documents.find((d) => d.key === documentKey);
-            if (!doc) return;
-            openRenameDocumentModal(doc.title, async (title) => { // core/file-manager/document-ui.js
-                await renameDocumentTitle(documentKey, title); // core
-                await this.refresh();
-                if (typeof workflowDocumentReader !== 'undefined') workflowDocumentReader.refreshTitleIfOpen(documentKey, title);
-            });
-        });
-    },
-
-    /** Ứng với "Xoá" ở menu "..." của 1 hàng — xác nhận trước, đóng luôn Reader nếu đang mở đúng
+    /** Ứng với icon "Xoá" trong modal chi tiết — xác nhận trước, đóng luôn Reader nếu đang mở đúng
      * tài liệu đó. */
     confirmDelete(documentKey) {
         modalChoice(
