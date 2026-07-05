@@ -301,7 +301,7 @@
         const documentReaderPageIndicator = document.getElementById('document-reader-page-indicator');
         const btnDocumentReaderNext = document.getElementById('btn-document-reader-next');
         const documentReaderEditMode = document.getElementById('document-reader-edit-mode');
-        const documentReaderEditTextarea = document.getElementById('document-reader-edit-textarea');
+        const documentReaderEditMount = document.getElementById('document-reader-edit-mount'); // [05/07/2026] thay textarea cũ — mount Toast UI Editor (WYSIWYG) ở đây
         const btnDocumentReaderEditCancel = document.getElementById('btn-document-reader-edit-cancel');
         const btnDocumentReaderEditSave = document.getElementById('btn-document-reader-edit-save');
         // MỚI (04/07/2026, mục 3 phản hồi Giang) — Document Picker Drawer (trắng, trượt từ dưới
