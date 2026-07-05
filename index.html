@@ -53,9 +53,18 @@
     <script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@4/dist/browser-id3-writer.js"></script>
     <!-- Đóng gói nhiều file mp3 thành 1 file .zip lúc "Tải toàn bộ rồi xóa" (Quản lý dung lượng) -->
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <!-- MỚI (04/07/2026, tính năng Documents) — trích TEXT THUẦN từ .docx lúc upload (KHÔNG render
-         lại định dạng gốc — xem cảnh báo mất định dạng ở event/workflow/file-manager-document.js). -->
+    <!-- MỚI (04/07/2026, tính năng Documents) — .docx -> HTML lúc upload (mammoth.js). ĐỔI
+         05/07/2026, mục 5 phản hồi Giang: KHÔNG còn tự trích text thuần bỏ định dạng — HTML này
+         được chuyển tiếp qua Turndown (dưới) ra Markdown, GIỮ đậm/nghiêng/tiêu đề/danh sách. -->
     <script src="https://cdn.jsdelivr.net/npm/mammoth@1.7.2/mammoth.browser.min.js"></script>
+    <!-- MỚI (05/07/2026, mục 5 phản hồi Giang) — HTML (từ mammoth.js) -> Markdown lúc upload .docx,
+         xem event/workflow/file-manager-document.js::_processDocxUpload(). -->
+    <script src="https://unpkg.com/turndown@7.1.1/dist/turndown.js"></script>
+    <!-- MỚI (05/07/2026, mục 5 phản hồi Giang) — trình soạn thảo Documents (WYSIWYG, format ngay
+         khi gõ) + hiển thị Markdown trong Reader. Global: `toastui.Editor`. Xem
+         core/file-manager/document-ui.js (openDocumentEditorDrawer/renderReaderMarkdown). -->
+    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
+    <script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
 
     <!-- CSS tách riêng -->
     <!-- ?v=APP_VERSION (đặt cố định ngay dưới đây, đổi mỗi lần deploy): chỉ ÉP TRÌNH DUYỆT TẢI LẠI
