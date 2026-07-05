@@ -255,6 +255,8 @@
         const btnOpenFileManagerSong = document.getElementById('setting-open-file-manager-song');
         const btnOpenFileManagerPhoto = document.getElementById('setting-open-file-manager-photo');
         const btnOpenFileManagerDocument = document.getElementById('setting-open-file-manager-document');
+        // MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager.
+        const btnFileManagerCleanupRun = document.getElementById('btn-file-manager-cleanup-run');
         const drawerFileManagerSong = document.getElementById('drawer-file-manager-song');
         const btnBackFileManagerSong = document.getElementById('btn-back-file-manager-song');
         const drawerFileManagerPhoto = document.getElementById('drawer-file-manager-photo');
