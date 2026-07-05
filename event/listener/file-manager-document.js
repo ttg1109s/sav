@@ -15,3 +15,22 @@ if (btnBackFileManagerDocument) {
         eventBus.send({ router: 'fileManagerDocument', type: 'fileManagerDocument.close', payload: {} });
     });
 }
+
+// MỚI (04/07/2026, tính năng Documents) — 2 nút upload TÁCH RIÊNG (mục 1 phản hồi Giang).
+if (btnFileManagerDocumentUpload && fileManagerDocumentUploadInput) {
+    btnFileManagerDocumentUpload.addEventListener('click', () => {
+        fileManagerDocumentUploadInput.click();
+    });
+    fileManagerDocumentUploadInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        e.target.value = '';
+        if (!file) return; // huỷ hộp thoại chọn file -> không gửi gì cả
+        eventBus.send({ router: 'fileManagerDocument', type: 'fileManagerDocument.upload.change', payload: { file } });
+    });
+}
+
+if (btnFileManagerDocumentCreate) {
+    btnFileManagerDocumentCreate.addEventListener('click', () => {
+        eventBus.send({ router: 'fileManagerDocument', type: 'fileManagerDocument.create.click', payload: {} });
+    });
+}
