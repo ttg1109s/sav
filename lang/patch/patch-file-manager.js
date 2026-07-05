@@ -26,6 +26,12 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.entry.song': 'Song',
     'fileManager.entry.photo': 'Photo & Album',
     'fileManager.entry.document': 'Documents',
+    // MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager.
+    'fileManager.cleanup.label': 'Clean up data',
+    'fileManager.cleanup.hint': 'Scan and remove leftover orphaned data across File Manager',
+    'fileManager.cleanup.running': 'Scanning…',
+    'fileManager.cleanup.resultFound': 'Cleaned up {count} item(s).',
+    'fileManager.cleanup.resultClean': 'Everything is clean — nothing to remove.',
     'fileManager.comingSoon': 'Coming soon.',
     // ── Drawer con: Song ──────────────────────────────────────────────────────────────────
     // FIX (03/07/2026, mục 4 yêu cầu) — bỏ tiền tố "File Manager · " khỏi CẢ 3 tiêu đề drawer con
@@ -95,6 +101,8 @@ const LANG_PATCH_FILE_MANAGER = {
     'documentReader.empty': 'This document is empty.',
     'documentReader.editTitle': 'Edit document',
     'documentReader.noDocuments': 'No documents yet — add one in File Manager.',
+    'documentReader.closeWhileEditingBody': 'Save your changes before closing?',
+    'documentReader.discardChanges': 'Discard',
     // ── File Manager -> Song: Folder (mục 4.b1) ──────────────────────────────────────────────
     'fileManager.song.folderSectionTitle': 'Folders',
     'fileManager.song.newFolderPlaceholder': 'New folder name',
