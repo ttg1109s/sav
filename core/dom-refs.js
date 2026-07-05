@@ -304,7 +304,13 @@
         const documentReaderEditTextarea = document.getElementById('document-reader-edit-textarea');
         const btnDocumentReaderEditCancel = document.getElementById('btn-document-reader-edit-cancel');
         const btnDocumentReaderEditSave = document.getElementById('btn-document-reader-edit-save');
-        const documentReaderListDropdown = document.getElementById('document-reader-list-dropdown');
+        // MỚI (04/07/2026, mục 3 phản hồi Giang) — Document Picker Drawer (trắng, trượt từ dưới
+        // lên) THAY dropdown nhỏ cũ trong Reader — components/document-picker-drawer.js.
+        const documentPickerOverlay = document.getElementById('document-picker-overlay');
+        const documentPickerDrawer = document.getElementById('document-picker-drawer');
+        const btnDocumentPickerClose = document.getElementById('btn-document-picker-close');
+        const documentPickerList = document.getElementById('document-picker-list');
+        const documentPickerEmpty = document.getElementById('document-picker-empty');
         const btnBackFileManagerDocument = document.getElementById('btn-back-file-manager-document');
         const fileManagerNewFolderInput = document.getElementById('file-manager-new-folder-input');
         // Folder Detail Drawer (Phase 2, MỚI — mục 1b/c, CHỐT 03/07/2026)
