@@ -11,6 +11,15 @@
  * khác nhau": đổi cỡ chữ/resize/xoay màn hình chỉ cần đo lại `scrollWidth`, KHÔNG cần thuật toán đo
  * text riêng — trình duyệt tự dàn lại hoàn toàn.
  *
+ * FIX (05/07/2026, mục 1/2 phản hồi Giang — 2 lỗi UI Documents):
+ *   1. Menu "..." (Đổi tên/Xoá) trên mỗi hàng bị CHỒNG LẤN layout — BỎ HẲN, không vá CSS.
+ *   2. Tài liệu tự tạo (createdBy='user') không có lối vào Sửa (batch trước đã cố tình tắt "bấm
+ *      hàng mở Reader", xem comment cũ ở event/workflow/file-manager-document.js::refresh()).
+ * Thay bằng: bấm vào 1 hàng bất kỳ mở `openDocumentDetailModal()` — icon lớn (phân biệt txt/docx)
+ * + tên file đầy đủ (bấm để đổi tên, phần mở rộng CỐ ĐỊNH theo `format`) + dung lượng (KB/MB, tính
+ * từ `content` — xem `computeDocumentSizeBytes()`) + hàng icon Xoá (luôn có) và Sửa (`user`)/Tải về
+ * (`upload`). `renderDocumentList()` giờ CHỈ nhận 1 callback `onOpen(doc)`, không còn `onMenuAction`.
+ *
  * NẠP SAU: core/dom-refs.js.
  */
 
@@ -114,12 +123,6 @@ function openCreateDocumentModal(onConfirm) {
     _openDocumentTitleModal('fileManager.document.createTitle', 'fileManager.document.btnCreate', '', onConfirm);
 }
 
-/** @param {string} currentTitle
- *  @param {(title: string) => void} onConfirm */
-function openRenameDocumentModal(currentTitle, onConfirm) {
-    _openDocumentTitleModal('fileManager.document.renameTitle', 'common.save', currentTitle, onConfirm);
-}
-
 /** Core thuần: hiện/ẩn cửa sổ Reader (overlay + window cùng lúc). */
 function setDocumentReaderVisible(overlayEl, windowEl, visible) {
     if (!overlayEl || !windowEl) return;
@@ -175,28 +178,28 @@ function renderDocumentPickerList(listEl, documents, activeDocumentKey, onSelect
 
 /**
  * Vẽ lại danh sách document trong drawer File Manager. Mỗi hàng: icon theo `format`, title, badge
- * "Đã tạo"/"Đã tải lên" (createdBy), nút "..." (Đổi tên/Xoá).
+ * "Đã tạo"/"Đã tải lên" (createdBy) — CẢ HÀNG là 1 nút bấm mở `openDocumentDetailModal()` (FIX
+ * 05/07/2026 — THAY HẲN menu "..." cũ, từng bị chồng lấn layout trên hàng danh sách).
  * @param {HTMLElement} containerEl
- * @param {Array<{key: string, title: string, format: string, createdBy: string}>} documents
- * @param {(documentKey: string) => void} onOpen - bấm vào hàng (mở Reader).
- * @param {(documentKey: string, action: 'rename'|'delete') => void} onMenuAction
+ * @param {Array<{key: string, title: string, format: string, createdBy: string, content: string[]}>} documents
+ * @param {(doc: Object) => void} onOpen - bấm vào hàng, nhận NGUYÊN record (đã có sẵn `content` từ
+ *        `listDocuments()`, không cần đọc lại DB) — mở modal chi tiết.
  */
-function renderDocumentList(containerEl, documents, onOpen, onMenuAction) {
+function renderDocumentList(containerEl, documents, onOpen) {
     if (!containerEl) return;
     containerEl.replaceChildren();
 
     documents.forEach((doc) => {
-        const row = document.createElement('div');
-        row.className = 'flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors';
+        const row = document.createElement('button');
+        row.className = 'w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-left';
 
-        const openBtn = document.createElement('button');
-        openBtn.className = 'flex items-center gap-3 flex-1 min-w-0 text-left';
         const icon = document.createElement('div');
         icon.className = `w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${doc.format === 'docx' ? 'bg-sky-500/20 text-sky-300' : 'bg-slate-500/20 text-slate-300'}`;
         icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>';
-        openBtn.appendChild(icon);
+        row.appendChild(icon);
+
         const textWrap = document.createElement('div');
-        textWrap.className = 'min-w-0';
+        textWrap.className = 'min-w-0 flex-1';
         const titleEl = document.createElement('div');
         titleEl.className = 'text-sm font-semibold text-white truncate';
         titleEl.textContent = doc.title;
@@ -207,32 +210,203 @@ function renderDocumentList(containerEl, documents, onOpen, onMenuAction) {
             ? t('fileManager.document.badgeUser')
             : t('fileManager.document.badgeUpload');
         textWrap.appendChild(badgeEl);
-        openBtn.appendChild(textWrap);
-        openBtn.addEventListener('click', () => onOpen(doc.key));
-        row.appendChild(openBtn);
+        row.appendChild(textWrap);
 
-        const menuWrap = document.createElement('div');
-        menuWrap.className = 'relative shrink-0';
-        const menuBtn = document.createElement('button');
-        menuBtn.className = 'w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300';
-        menuBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg>';
-        const menu = document.createElement('div');
-        menu.className = 'hidden absolute top-9 right-0 z-10 w-40 rounded-xl bg-[#1a1a1e] border border-white/10 shadow-2xl overflow-hidden flex flex-col py-1';
-        const renameItem = document.createElement('button');
-        renameItem.className = 'text-left px-3.5 py-2.5 text-sm font-medium text-white hover:bg-white/10 transition-colors';
-        renameItem.textContent = t('fileManager.document.btnRename');
-        renameItem.addEventListener('click', () => { menu.classList.add('hidden'); onMenuAction(doc.key, 'rename'); });
-        const deleteItem = document.createElement('button');
-        deleteItem.className = 'text-left px-3.5 py-2.5 text-sm font-medium text-rose-400 hover:bg-white/10 transition-colors';
-        deleteItem.textContent = t('fileManager.document.btnDelete');
-        deleteItem.addEventListener('click', () => { menu.classList.add('hidden'); onMenuAction(doc.key, 'delete'); });
-        menu.appendChild(renameItem);
-        menu.appendChild(deleteItem);
-        menuBtn.addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('hidden'); });
-        menuWrap.appendChild(menuBtn);
-        menuWrap.appendChild(menu);
-        row.appendChild(menuWrap);
-
+        row.addEventListener('click', () => onOpen(doc));
         containerEl.appendChild(row);
     });
+}
+
+/**
+ * Tính dung lượng "file" (bytes) từ mảng đoạn văn — ước lượng theo ĐÚNG nội dung text đang lưu
+ * thật trong DB (app KHÔNG giữ byte gốc của file upload, kể cả .docx — xem comment đầu
+ * core/file-manager/document.js: `content` LUÔN là text thuần bất kể `format`). Nối các đoạn bằng
+ * 2 dòng xuống dòng — ĐÚNG NGƯỢC LẠI `splitPlainTextIntoParagraphs()`, cùng cách
+ * `enterEditMode()` (event/workflow/document-reader.js) đã nối để đưa vào textarea Sửa. Đo bằng
+ * `Blob` để ra ĐÚNG số byte UTF-8 thật (không phải `string.length` — sai với tiếng Việt có dấu, vốn
+ * nhiều ký tự chiếm 2-3 byte UTF-8 mỗi ký tự).
+ * @param {string[]} content
+ * @returns {number}
+ */
+function computeDocumentSizeBytes(content) {
+    return new Blob([content.join('\n\n')]).size;
+}
+
+/**
+ * Định dạng bytes -> "x.x KB"/"x.xx MB". KHÔNG dùng chung `formatBytes()` (core/about-stats.js) —
+ * hàm đó chỉ có bậc MB/GB (đúng cho thư viện nhạc, vài chục-trăm MB), trong khi tài liệu text
+ * thường chỉ vài KB — hiện "0.0 MB" sẽ vô nghĩa với người dùng.
+ * @param {number} bytes
+ * @returns {string}
+ */
+function formatDocumentSize(bytes) {
+    if (!bytes) return '0 KB';
+    const kb = bytes / 1024;
+    if (kb < 1024) return `${Math.max(kb, 0.1).toFixed(1)} KB`;
+    return `${(kb / 1024).toFixed(2)} MB`;
+}
+
+/**
+ * Tải 1 tài liệu về máy dạng `.txt` thuần. LUÔN `.txt` bất kể `format` gốc ('docx' hay 'txt') — app
+ * không giữ byte nhị phân gốc của `.docx` (chỉ có `content` text thuần, xem comment đầu
+ * core/file-manager/document.js), nên tải về với đuôi `.docx` nhưng nội dung là text thuần sẽ tạo
+ * ra 1 file HỎNG nếu mở lại bằng Word (không đúng định dạng zip/XML thật của .docx) — đặt đuôi
+ * `.txt` trung thực hơn với nội dung THẬT đang có. Nối đoạn văn bằng 2 dòng trống — đúng NGƯỢC LẠI
+ * `splitPlainTextIntoParagraphs()`.
+ * @param {{title: string, content: string[]}} doc
+ */
+function downloadDocumentAsText(doc) {
+    const blob = new Blob([doc.content.join('\n\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${doc.title}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
+
+/**
+ * Modal "Chi tiết tài liệu" — mở khi bấm vào 1 hàng trong danh sách Documents (FIX 05/07/2026, mục
+ * 1/2 phản hồi Giang). Layout: icon lớn (phân biệt txt/docx) → tên file đầy đủ (bấm để đổi tên,
+ * PHẦN MỞ RỘNG cố định theo `format`, không sửa được — chỉ đổi `title`, giống hệt
+ * `renameDocumentTitle()` vẫn dùng từ trước) → dung lượng (`computeDocumentSizeBytes`/
+ * `formatDocumentSize`) → hàng icon hành động: Xoá (luôn có) + Sửa (chỉ `createdBy==='user'`,
+ * đúng quy định "chỉ tài liệu tự tạo được sửa nội dung") HOẶC Tải về (chỉ `createdBy==='upload'`).
+ * @param {{key: string, title: string, format: 'txt'|'docx', createdBy: 'upload'|'user', content: string[]}} doc
+ * @param {{onRename: (newTitle: string) => void, onDelete: () => void, onEdit: () => void, onDownload: () => void}} callbacks
+ */
+function openDocumentDetailModal(doc, callbacks) {
+    const stale = document.getElementById('document-detail-modal-overlay');
+    if (stale) stale.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'document-detail-modal-overlay';
+    overlay.className = 'fixed inset-0 z-[130] bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+
+    function closeModal() { overlay.remove(); }
+
+    const card = document.createElement('div');
+    card.className = 'relative bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-6 shadow-2xl flex flex-col items-center gap-4';
+    overlay.appendChild(card);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300';
+    closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
+    closeBtn.addEventListener('click', closeModal);
+    card.appendChild(closeBtn);
+
+    // ---- Icon lớn (phân biệt txt/docx) ----
+    const iconWrap = document.createElement('div');
+    iconWrap.className = `w-20 h-20 rounded-2xl flex items-center justify-center shrink-0 mt-2 ${doc.format === 'docx' ? 'bg-sky-500/20 text-sky-300' : 'bg-slate-500/20 text-slate-300'}`;
+    iconWrap.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>';
+    card.appendChild(iconWrap);
+
+    // ---- Tên file đầy đủ (bấm để đổi tên) + dung lượng ----
+    const nameWrap = document.createElement('div');
+    nameWrap.className = 'w-full flex flex-col items-center gap-1 min-w-0';
+    card.appendChild(nameWrap);
+
+    function renderNameDisplay() {
+        nameWrap.replaceChildren();
+        const nameBtn = document.createElement('button');
+        nameBtn.className = 'max-w-full px-2 text-center text-sm font-semibold text-white hover:text-sky-300 transition-colors truncate';
+        nameBtn.textContent = `${doc.title}.${doc.format}`;
+        nameBtn.addEventListener('click', renderNameEditor);
+        nameWrap.appendChild(nameBtn);
+
+        const sizeEl = document.createElement('div');
+        sizeEl.className = 'text-xs text-slate-400';
+        sizeEl.textContent = formatDocumentSize(computeDocumentSizeBytes(doc.content));
+        nameWrap.appendChild(sizeEl);
+    }
+
+    // Sửa tên NGAY TẠI CHỖ (không mở modal riêng như trước) — input CHỈ chứa phần TÊN, phần mở
+    // rộng hiện cạnh dưới dạng text tĩnh (`extEl`), không nằm trong input -> không thể sửa được.
+    function renderNameEditor() {
+        nameWrap.replaceChildren();
+        const row = document.createElement('div');
+        row.className = 'w-full flex items-center gap-1 justify-center';
+        const inputEl = document.createElement('input');
+        inputEl.type = 'text';
+        inputEl.value = doc.title;
+        inputEl.className = 'min-w-0 flex-1 max-w-[160px] bg-black/50 border border-sky-500/40 rounded-lg px-2 py-1 text-sm text-white outline-none';
+        const extEl = document.createElement('span');
+        extEl.className = 'text-sm text-slate-400 shrink-0';
+        extEl.textContent = `.${doc.format}`;
+        row.appendChild(inputEl);
+        row.appendChild(extEl);
+        nameWrap.appendChild(row);
+
+        const btnRow = document.createElement('div');
+        btnRow.className = 'flex gap-2 mt-1';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'px-3 py-1 rounded-lg text-xs font-semibold text-slate-300 hover:bg-white/10 transition-colors';
+        cancelBtn.textContent = t('common.cancel');
+        cancelBtn.addEventListener('click', renderNameDisplay);
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'px-3 py-1 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-white transition-colors';
+        saveBtn.textContent = t('common.save');
+        saveBtn.addEventListener('click', () => {
+            const value = inputEl.value.trim();
+            if (value && value !== doc.title) {
+                doc.title = value; // cập nhật ngay tại chỗ để hiện đúng nếu đổi tên tiếp mà chưa đóng modal
+                callbacks.onRename(value);
+            }
+            renderNameDisplay();
+        });
+        btnRow.appendChild(cancelBtn);
+        btnRow.appendChild(saveBtn);
+        nameWrap.appendChild(btnRow);
+        inputEl.focus();
+        inputEl.select();
+    }
+
+    renderNameDisplay();
+
+    // ---- Hàng icon hành động: Xoá (luôn có) + Sửa ('user') hoặc Tải về ('upload') ----
+    const actionRow = document.createElement('div');
+    actionRow.className = 'w-full flex items-center justify-center gap-6 pt-3 border-t border-white/10';
+    card.appendChild(actionRow);
+
+    function addActionButton(label, svgInner, danger, onClick) {
+        const btn = document.createElement('button');
+        btn.className = `flex flex-col items-center gap-1 text-xs font-medium transition-colors ${danger ? 'text-rose-400 hover:text-rose-300' : 'text-slate-300 hover:text-white'}`;
+        const iconBox = document.createElement('div');
+        iconBox.className = `w-11 h-11 rounded-full flex items-center justify-center transition-colors ${danger ? 'bg-rose-500/10 hover:bg-rose-500/20' : 'bg-white/5 hover:bg-white/10'}`;
+        iconBox.innerHTML = svgInner;
+        btn.appendChild(iconBox);
+        const labelEl = document.createElement('span');
+        labelEl.textContent = label;
+        btn.appendChild(labelEl);
+        btn.addEventListener('click', () => { closeModal(); onClick(); });
+        actionRow.appendChild(btn);
+    }
+
+    addActionButton(
+        t('fileManager.document.btnDelete'),
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>',
+        true,
+        callbacks.onDelete,
+    );
+
+    if (doc.createdBy === 'user') {
+        addActionButton(
+            t('documentReader.btnEdit'),
+            '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>',
+            false,
+            callbacks.onEdit,
+        );
+    } else {
+        addActionButton(
+            t('fileManager.document.btnDownload'),
+            '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>',
+            false,
+            callbacks.onDownload,
+        );
+    }
+
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+    document.body.appendChild(overlay);
 }
