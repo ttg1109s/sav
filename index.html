@@ -136,7 +136,7 @@
     <script src="lang/patch/patch-settings-misc.js?v=20260627v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260704v3"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260704v4"></script>
     <script src="lang/lang.js?v=20260702v1"></script>
 
     <!-- =====================================================================
@@ -156,7 +156,7 @@
          "File Manager", 3 hàng Song/Photo & Album/Documents) — xem
          plan-v12-multimedia-decisions.md mục 1a/7. -->
     <script src="components/settings/playlist-background.js?v=20260703v2"></script>
-    <script src="components/settings/file-manager-section.js?v=20260703v1"></script>
+    <script src="components/settings/file-manager-section.js?v=20260704v1"></script>
     <script src="components/settings/visualizer-geometry-color.js?v=20260703v1"></script>
     <script src="components/settings/audio-eq.js?v=20260626v1"></script>
     <script src="components/settings/subtitle-style.js?v=20260626v1"></script>
@@ -225,7 +225,7 @@
          LẠI của /event/ (bus/workflow/router/listener vẫn nạp cuối cùng tuyệt đối như cũ, xem
          khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260704v3"></script>
+    <script src="core/dom-refs.js?v=20260704v4"></script>
     <!-- Logo "SAV" (cụm /event/ "savLogo") — cần biến `savLogo` vừa nạp từ dom-refs.js ngay trên. -->
     <script src="core/sav-logo.js?v=20260629v1"></script>
     <!-- TaskManager (Loop/TaskManager) — quản lý TẬP TRUNG mọi setInterval/setTimeout của app
@@ -237,7 +237,7 @@
          trong file này KHÔNG đổi (vẫn ngay sau dom-refs.js, chỉ đổi đường dẫn). -->
     <script src="service/task-manager.js?v=20260704v1"></script>
     <!-- service/db.js — CHUYỂN từ `core/db.js` cùng lý do trên (dịch vụ hạ tầng IndexedDB thuần). -->
-    <script src="service/db.js?v=20260704v2"></script>
+    <script src="service/db.js?v=20260704v3"></script>
     <!-- Ver 12 "Multi Media" (plan-v12-multimedia.md mục 4.b1) — Folder nhạc (File Manager → Song).
          folder.js CẦN core/db.js (slugify + CRUD folders/folder_song/songs). folder-picker-ui.js
          CẦN t() (lang/lang.js, đã nạp từ rất sớm) — không phụ thuộc folder.js (chỉ dựng DOM +
@@ -264,6 +264,10 @@
          2 file không quan trọng. -->
     <script src="core/file-manager/document.js?v=20260704v1"></script>
     <script src="core/file-manager/document-ui.js?v=20260704v1"></script>
+    <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager (registry) —
+         CỐ Ý đặt cuối cùng trong nhóm core/file-manager/ (mọi tính năng khác đã có mặt trước đó,
+         registry chỉ cần service/db.js). -->
+    <script src="core/file-manager/cleanup.js?v=20260704v1"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Slideshow nền Visual (hàm THUẦN, xem comment đầu file).
          FIX (04/07/2026, Rule 3 siết chặt) — KHÔNG còn dùng service/task-manager.js nữa (taskManager
          giờ CẤM trong core, chỉ Workflow dùng) — không phụ thuộc gì trong nhóm này (mọi phần tử DOM
@@ -449,12 +453,17 @@
     <script src="event/workflow/file-manager-document.js?v=20260704v1"></script>
     <script src="event/router/file-manager-document.js?v=20260704v1"></script>
     <script src="event/listener/file-manager-document.js?v=20260704v1"></script>
+    <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — cụm "fileManagerCleanup" (nút "Dọn dẹp dữ liệu",
+         section File Manager trong Settings). -->
+    <script src="event/workflow/file-manager-cleanup.js?v=20260704v1"></script>
+    <script src="event/router/file-manager-cleanup.js?v=20260704v1"></script>
+    <script src="event/listener/file-manager-cleanup.js?v=20260704v1"></script>
     <!-- MỚI (04/07/2026, tính năng Documents) — cụm "documentReader" (cửa sổ đọc tài liệu, mở từ
          Control Center). workflowFileManagerDocument.confirmDelete()/promptRename() ở trên gọi
          workflowDocumentReader.closeIfShowing()/refreshTitleIfOpen() — cả 2 hàm chỉ chạy khi THẬT
          SỰ có tương tác của người dùng (không chạy ngay lúc nạp file), nên thứ tự nạp giữa 2 cụm
          workflow này KHÔNG bắt buộc, nhưng vẫn đặt liền nhau cho dễ đọc. -->
-    <script src="event/workflow/document-reader.js?v=20260704v1"></script>
+    <script src="event/workflow/document-reader.js?v=20260704v2"></script>
     <script src="event/router/document-reader.js?v=20260704v1"></script>
     <script src="event/listener/document-reader.js?v=20260704v1"></script>
     <script src="event/workflow/playlist.js?v=20260704v1"></script>
