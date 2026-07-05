@@ -54,6 +54,7 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.songMenu.edit': 'Edit info',
     'playlistView.songMenu.export': 'Export file',
     'playlistView.songMenu.delete': 'Delete song',
+    'playlistView.songMenu.addToFolder': 'Add to Folder',
     'playlistView.songMenu.deleteBlockedPlaying': "Can't delete <b>{title}</b> while it's playing. Pause the song first, then try again.",
     'playlistView.songMenu.deleteSuccess': 'Deleted <b>{title}</b>.',
     // ── Chọn nhiều (ver 12 "Multi Media", plan-v12-multimedia.md mục 4.b1) ──────────────
