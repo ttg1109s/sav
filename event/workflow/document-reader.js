@@ -106,7 +106,27 @@ const workflowDocumentReader = {
         this._updateNavUI();
     },
 
+    /** FIX (04/07/2026, liên quan mục 1 phản hồi Giang — đảm bảo nội dung LUÔN được tách đoạn +
+     * lưu đúng cách, không bị mất giữa chừng) — nếu đang ở chế độ Sửa (đặc biệt sau "Tạo tài liệu
+     * mới", content vẫn đang RỖNG chờ lưu lần đầu), đóng thẳng theo cách cũ sẽ mất TOÀN BỘ nội dung
+     * vừa gõ mà không hỏi gì. Giờ hỏi Lưu/Huỷ trước khi đóng thật. */
     close() {
+        if (documentReaderEditMode && !documentReaderEditMode.classList.contains('hidden')) {
+            modalChoice(
+                t('documentReader.closeWhileEditingBody'),
+                [
+                    { label: t('documentReader.discardChanges'), className: 'flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-sm font-semibold transition-colors', onClick: () => this._closeNow() },
+                    { label: t('common.save'), className: 'flex-1 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors', onClick: async () => { await this.saveEdit(); this._closeNow(); } },
+                ],
+            );
+            return;
+        }
+        this._closeNow();
+    },
+
+    /** Phần đóng THẬT — tách riêng khỏi `close()` (Rule 1: "hỏi có cần lưu không" và "đóng thật" là
+     * 2 việc khác nhau — dùng chung bởi cả 2 nhánh Lưu/Huỷ ở trên). */
+    _closeNow() {
         setDocumentReaderVisible(documentReaderOverlay, documentReaderWindow, false); // core/UI
         this._stopResizeWatcher();
         this._currentDocumentKey = null;
