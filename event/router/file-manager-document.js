@@ -3,22 +3,33 @@
  * eventBus lúc nạp. CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/2/7) — drawer con
  * "Documents" (đổi tên từ "Văn bản"/Text, b4) mở thẳng từ section File Manager trong Settings.
  *
- * Hiện CHỈ có mở/đóng (nội dung thật của b4 CHƯA code, đang placeholder "sắp ra mắt") — cả 2 đều
- * CHỈ 1 hàm core patch DOM thuần (core/file-manager/nav.js), không cần workflow.
+ * ĐÃ CODE THẬT (04/07/2026) — 'close' vẫn CHỈ 1 hàm core patch DOM thuần (gọi thẳng); 'open'/
+ * 'upload.change'/'create.click' đều ≥2 bước (đọc DB/mammoth.js/modal xác nhận + vẽ lại) -> giao
+ * workflowFileManagerDocument.
  *
- * NẠP SAU: event/bus.js, core/file-manager/nav.js (showFileManagerDocumentDrawer/
- * hideFileManagerDocumentDrawer).
+ * NẠP SAU: event/bus.js, core/file-manager/nav.js (hideFileManagerDocumentDrawer),
+ * event/workflow/file-manager-document.js.
  * NẠP TRƯỚC: event/listener/file-manager-document.js.
  */
 const routerFileManagerDocument = (() => {
     function handle(msg) {
         switch (msg.type) {
             case 'fileManagerDocument.open': {
-                showFileManagerDocumentDrawer();
+                workflowFileManagerDocument.openDrawer(); // >1 hàm core nối tiếp (DOM + đọc DB + vẽ) -> workflow
                 break;
             }
             case 'fileManagerDocument.close': {
                 hideFileManagerDocumentDrawer();
+                break;
+            }
+            // MỚI (04/07/2026, tính năng Documents) — upload/tạo mới, cả 2 CẦN >1 bước (đọc file/
+            // mammoth.js/modal xác nhận + lưu DB + vẽ lại) -> workflow.
+            case 'fileManagerDocument.upload.change': {
+                workflowFileManagerDocument.handleUploadFile(msg.payload.file);
+                break;
+            }
+            case 'fileManagerDocument.create.click': {
+                workflowFileManagerDocument.createNewDocument();
                 break;
             }
             default:
