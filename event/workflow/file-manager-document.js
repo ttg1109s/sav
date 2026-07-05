@@ -4,25 +4,37 @@
  * core/file-manager/nav.js) KHÔNG cần workflow — CHỈ những nghiệp vụ ≥2 bước (đọc DB + vẽ lại,
  * upload có xử lý mammoth.js + cảnh báo, tạo/xoá/đổi tên có modal xác nhận) mới ở đây.
  *
- * FIX (05/07/2026, mục 1/2 phản hồi Giang — 2 lỗi UI Documents): menu "..." (Đổi tên/Xoá) bị chồng
- * lấn layout trên hàng danh sách — BỎ HẲN; tài liệu tự tạo không có lối vào Sửa — bấm vào hàng giờ
- * mở `openDocumentDetailModal()` (core/file-manager/document-ui.js) thay vì no-op như trước.
- * `promptRename()` cũ (mở modal riêng) đã XOÁ, đổi tên giờ NGAY TẠI CHỖ trong modal chi tiết, xem
- * `openDetail()`/`_renameFromDetail()` dưới đây. **Lưu ý z-index** — nút Sửa trong modal chi tiết
- * mở `workflowDocumentReader` (`#document-reader-window` z-40), THẤP HƠN HẲN cả
- * `#drawer-file-manager-document` (z-90) LẪN `#drawer-settings` (z-80) đang mở phía sau — PHẢI tự
- * đóng cả 2 TRƯỚC khi mở Reader, nếu không Reader sẽ bị che khuất hoàn toàn (đúng lý do batch
- * trước từng cố tình tắt hẳn "bấm hàng mở Reader", xem git blame `refresh()`).
+ * FIX (05/07/2026, mục 1/2/3/4 phản hồi Giang — sửa tiếp các lỗi UI Documents):
+ *   1. Menu "..." (Đổi tên/Xoá) bị chồng lấn layout trên hàng danh sách — BỎ HẲN.
+ *   2. Bấm hàng giờ mở `openDocumentDetailModal()` (core/file-manager/document-ui.js) — icon lớn +
+ *      tên/dung lượng + hàng icon Đổi tên/Tải về (CẢ 2 loại)/Sửa (chỉ 'user')/Xoá.
+ *   3. "Sửa" (chỉ `createdBy==='user'`) — **VIẾT LẠI HOÀN TOÀN** sau phản hồi Giang lần 2: bản đầu
+ *      (đóng Settings rồi mở `workflowDocumentReader`) SAI — gây mở chồng Reader + modal khác cùng
+ *      lúc. Giờ mở `openDocumentEditorDrawer()` — 1 drawer RIÊNG, full-view, trượt NGANG, nằm
+ *      TRÊN `#drawer-file-manager-document` theo đúng nav-stack sẵn có (z-[91] > z-[90], giống
+ *      Folder Detail), KHÔNG đụng Settings/Reader.
+ *   4. Thêm hẳn icon "Đổi tên" tường minh trong modal chi tiết (trước đó chỉ bấm vào tên, dễ bị bỏ
+ *      sót) — cả 2 cách đều mở cùng 1 editor tên tại chỗ.
+ * `promptRename()` cũ (mở modal riêng) đã XOÁ TỪ TRƯỚC, đổi tên NGAY TẠI CHỖ trong modal chi tiết,
+ * xem `_renameFromDetail()` dưới đây.
+ *
+ * CẬP NHẬT TIẾP (05/07/2026, mục 5 phản hồi Giang — đã chốt "Markdown + WYSIWYG format ngay khi
+ * gõ, dùng thư viện ngoài"): `openEditor()` mount THẬT **Toast UI Editor** qua
+ * `openDocumentEditorDrawer()` (CDN `toastui-editor-all.min.js`), bấm X trong drawer đó tự LƯU
+ * (đọc `editor.getMarkdown()`) rồi mới đóng — KHÔNG có nút Lưu riêng. `createNewDocument()` ĐỒNG BỘ
+ * dùng CHUNG `openEditor()` (trước đây mở `workflowDocumentReader`, dính đúng lỗi z-index y hệt mục
+ * 2/3 nhưng chưa ai bấm thử ra). Upload `.docx` đổi từ tự tách đoạn plaintext (MẤT hết định dạng)
+ * sang mammoth.js -> HTML -> **Turndown** (CDN `turndown.js`) -> Markdown (GIỮ đậm/nghiêng/tiêu
+ * đề/danh sách). Upload `.txt` dùng NGUYÊN VĂN làm Markdown (bỏ hẳn tách đoạn bằng regex).
  *
  * UPLOAD (mục 1/2/3 phản hồi Giang — tính năng Documents):
  *   - 2 luồng TÁCH RIÊNG (KHÔNG dùng chung upload bài hát di sản — không đụng
  *     core/playlist/actions.js): `handleUploadFile()` (chọn .txt/.docx có sẵn) và
- *     `createNewDocument()` (.txt rỗng, mở thẳng Reader ở chế độ Sửa).
- *   - `.docx`: LUÔN cảnh báo mất định dạng (modalChoice) TRƯỚC khi xử lý — đồng ý mới đọc file
- *     (mammoth.js -> HTML -> tách đoạn theo thẻ <p>, core/file-manager/document.js::
- *     extractParagraphsFromDocxHtml). `.txt`: đọc thẳng, tách đoạn theo dòng trống
- *     (splitPlainTextIntoParagraphs) — KHÔNG cảnh báo (vốn đã là text thuần, không mất gì).
- *   - `filename` LƯU NGUYÊN tên gốc (giữ đuôi .docx/.txt) dù `content` luôn là mảng text thuần.
+ *     `createNewDocument()` (.txt rỗng, mở thẳng Editor ở chế độ Sửa).
+ *   - `.docx`: LUÔN cảnh báo (modalChoice) TRƯỚC khi xử lý — đồng ý mới đọc file (mammoth.js -> HTML
+ *     -> Turndown -> Markdown, xem `_processDocxUpload()`). `.txt`: đọc thẳng, dùng nguyên văn làm
+ *     Markdown — KHÔNG cảnh báo (không mất gì).
+ *   - `filename` LƯU NGUYÊN tên gốc (giữ đuôi .docx/.txt) dù `content` luôn là 1 chuỗi Markdown.
  *
  * NẠP SAU: core/file-manager/document.js, core/file-manager/document-ui.js, core/dom-refs.js,
  * core/file-manager/nav.js (showFileManagerDocumentDrawer). NẠP TRƯỚC:
@@ -57,8 +69,8 @@ const workflowFileManagerDocument = {
         openDocumentDetailModal(doc, { // core/file-manager/document-ui.js
             onRename: (title) => this._renameFromDetail(doc.key, title),
             onDelete: () => this.confirmDelete(doc.key),
-            onEdit: () => this._openReaderForEdit(doc.key),
-            onDownload: () => downloadDocumentAsText(doc), // core/file-manager/document-ui.js
+            onEdit: () => this.openEditor(doc),
+            onDownload: () => downloadDocumentAsMarkdown(doc, resolveDocumentMarkdown(doc)), // core/file-manager/document-ui.js + document.js
         });
     },
 
@@ -71,14 +83,22 @@ const workflowFileManagerDocument = {
         if (typeof workflowDocumentReader !== 'undefined') workflowDocumentReader.refreshTitleIfOpen(documentKey, title);
     },
 
-    /** Ứng với icon "Sửa" trong modal chi tiết (chỉ hiện khi `createdBy==='user'`) — PHẢI đóng cả
-     * `#drawer-file-manager-document` (z-90) LẪN `#drawer-settings` (z-80) TRƯỚC khi mở Reader
-     * (`#document-reader-window` z-40) — Reader thấp hơn hẳn 2 drawer này, mở Reader mà không đóng
-     * chúng sẽ khiến Reader bị che khuất hoàn toàn (xem comment z-index đầu file). */
-    _openReaderForEdit(documentKey) {
-        hideFileManagerDocumentDrawer(); // core (core/file-manager/nav.js)
-        closeSettingsDrawer(); // core (core/player-controls.js)
-        if (typeof workflowDocumentReader !== 'undefined') workflowDocumentReader.openDocument(documentKey, { startInEdit: true });
+    /** Ứng với icon "Sửa" trong modal chi tiết (chỉ hiện khi `createdBy==='user'`) — mở
+     * `openDocumentEditorDrawer()` (core/file-manager/document-ui.js), KHÔNG đụng
+     * `workflowDocumentReader`/Settings (FIX 05/07/2026, mục 2/3 phản hồi Giang — bản trước SAI vì
+     * đóng hẳn Settings rồi mở Reader, gây mở chồng 2 thứ cùng lúc). Nhận thẳng `doc` (đã có sẵn từ
+     * `openDetail()`, không cần đọc lại DB). `onSave` ghi Markdown lấy từ `editor.getMarkdown()`
+     * (mục 5 phản hồi Giang — Toast UI Editor) — bấm X trong drawer đó tự lưu, KHÔNG có nút Lưu
+     * riêng (đúng yêu cầu Giang "chỉ tên file + nút đóng").
+     * @param {{key: string, title: string, format: string, content: string|string[]}} doc
+     */
+    openEditor(doc) {
+        openDocumentEditorDrawer(doc, { // core/file-manager/document-ui.js
+            onSave: async (markdown) => {
+                await updateDocumentContent(doc.key, markdown); // core
+                if (typeof workflowDocumentReader !== 'undefined') workflowDocumentReader.refreshContentIfOpen(doc.key, markdown);
+            },
+        });
     },
 
     /**
@@ -111,17 +131,22 @@ const workflowFileManagerDocument = {
     },
 
     /** Đọc + lưu THẬT (sau khi đã đồng ý cảnh báo) — tách riêng khỏi `_handleUploadDocx()` vì đây
-     * là "tiến trình xử lý file" (Rule 1), khác "tiến trình hỏi xác nhận" ở trên. */
+     * là "tiến trình xử lý file" (Rule 1), khác "tiến trình hỏi xác nhận" ở trên.
+     * FIX (05/07/2026, mục 5 phản hồi Giang) — mammoth.js -> HTML -> **Turndown** (HTML->Markdown,
+     * CDN `turndown.js`, xem index.html) THAY `extractParagraphsFromDocxHtml()` cũ (ĐÃ XOÁ) — giữ
+     * được đậm/nghiêng/tiêu đề/danh sách (trước đây mất HẾT định dạng). Gọi `TurndownService` TRỰC
+     * TIẾP ở đây, KHÔNG wrap qua core, giống hệt cách gọi `mammoth` — cả 2 đều là thư viện ngoài
+     * (dịch vụ), không phải "hàm core khác". */
     async _processDocxUpload(file) {
         await withLoadingShield(t('common.loading.generic'), async () => {
             const arrayBuffer = await file.arrayBuffer();
             const result = await mammoth.convertToHtml({ arrayBuffer });
-            const paragraphs = extractParagraphsFromDocxHtml(result.value); // core (core/file-manager/document.js)
+            const markdown = new TurndownService().turndown(result.value); // thư viện ngoài — HTML -> Markdown
             const documentKey = await resolveDocumentKey(file.name); // core
             await saveDocumentRecord(documentKey, { // core
                 filename: file.name,
                 title: file.name.replace(/\.docx$/i, ''),
-                content: paragraphs,
+                content: markdown,
                 format: 'docx',
                 createdBy: 'upload',
             });
@@ -129,16 +154,17 @@ const workflowFileManagerDocument = {
         await this.refresh();
     },
 
-    /** Nhánh .txt — đọc thẳng, KHÔNG cảnh báo (vốn đã là text thuần). */
+    /** Nhánh .txt — đọc thẳng, dùng NGUYÊN VĂN làm Markdown (FIX 05/07/2026, mục 5 phản hồi Giang —
+     * bỏ hẳn `splitPlainTextIntoParagraphs()`, text thuần vốn đã là Markdown hợp lệ — không cú
+     * pháp đặc biệt thì Toast UI Editor/Viewer hiển thị y hệt text thường, không cần tự tách đoạn). */
     async _handleUploadTxt(file) {
         await withLoadingShield(t('common.loading.generic'), async () => {
             const text = await file.text();
-            const paragraphs = splitPlainTextIntoParagraphs(text); // core
             const documentKey = await resolveDocumentKey(file.name); // core
             await saveDocumentRecord(documentKey, { // core
                 filename: file.name,
                 title: file.name.replace(/\.txt$/i, ''),
-                content: paragraphs,
+                content: text,
                 format: 'txt',
                 createdBy: 'upload',
             });
@@ -147,16 +173,21 @@ const workflowFileManagerDocument = {
     },
 
     /** Ứng với "Tạo tài liệu mới" — hỏi tiêu đề, tạo record RỖNG (createdBy='user'), mở THẲNG
-     * Reader ở chế độ Sửa (đúng yêu cầu Giang — không cần vào Reader rồi bấm Sửa thêm 1 bước). */
+     * `openEditor()` (drawer Sửa MỚI — đúng yêu cầu Giang, không cần vào rồi bấm Sửa thêm 1 bước).
+     * FIX (05/07/2026) — TRƯỚC ĐÂY mở `workflowDocumentReader` (Reader ở Control Center), dính
+     * ĐÚNG lỗi z-index y hệt mục 2/3 phản hồi Giang (Reader z-40 bị che sau Documents drawer z-90 —
+     * chưa từng lộ ra vì chưa ai bấm thử) — giờ đồng bộ dùng CHUNG `openEditor()`/
+     * `openDocumentEditorDrawer()` với nút "Sửa" trong modal chi tiết, không còn 2 đường khác nhau
+     * cho cùng 1 việc. `content: ''` (chuỗi rỗng — mục 5, KHÔNG còn `[]`). */
     async createNewDocument() {
         openCreateDocumentModal(async (title) => { // core/file-manager/document-ui.js
             const filename = `${title}.txt`;
             const documentKey = await resolveDocumentKey(filename); // core
             await saveDocumentRecord(documentKey, { // core
-                filename, title, content: [], format: 'txt', createdBy: 'user',
+                filename, title, content: '', format: 'txt', createdBy: 'user',
             });
             await this.refresh();
-            if (typeof workflowDocumentReader !== 'undefined') await workflowDocumentReader.openDocument(documentKey, { startInEdit: true });
+            this.openEditor({ key: documentKey, title, format: 'txt', content: '' });
         });
     },
 

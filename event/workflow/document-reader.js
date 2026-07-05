@@ -14,22 +14,30 @@
  * readme/task-manager-conventions.md). Đơn giản hoá CHỦ Ý: mỗi lần layout lại LUÔN về trang 1
  * (KHÔNG cố giữ đúng vị trí đọc cũ theo % nội dung — phức tạp không cần thiết cho tính năng này).
  *
+ * FIX (05/07/2026, mục 5 phản hồi Giang — Markdown + Toast UI Editor): `content` giờ là 1 chuỗi
+ * Markdown (không còn mảng đoạn) — `_currentMarkdown` thay `_currentParagraphs`. Chế độ Sửa (nút
+ * "Sửa" trong Reader) đổi từ `<textarea>` sang mount THẬT Toast UI Editor (WYSIWYG) vào
+ * `#document-reader-edit-mount` — ĐỒNG BỘ với `openDocumentEditorDrawer()`
+ * (event/workflow/file-manager-document.js), tránh 2 kiểu sửa khác nhau trong cùng 1 app.
+ *
  * NẠP SAU: core/file-manager/document.js, core/file-manager/document-ui.js, core/dom-refs.js,
  * service/task-manager.js. NẠP TRƯỚC: event/router/document-reader.js,
  * event/listener/document-reader.js. Cross-workflow: event/workflow/file-manager-document.js gọi
- * `workflowDocumentReader.closeIfShowing()`/`refreshTitleIfOpen()` (đóng/cập nhật tiêu đề khi
- * xoá/đổi tên); event/workflow/document-picker.js gọi `openDocument()` (chọn xong trong drawer) —
- * Workflow được phép gọi Workflow khác tự do (không bị Rule 3, rule đó CHỈ áp cho Core).
+ * `workflowDocumentReader.closeIfShowing()`/`refreshTitleIfOpen()`/`refreshContentIfOpen()` (đóng/
+ * cập nhật tiêu đề/nội dung khi xoá/đổi tên/sửa từ File Manager); event/workflow/document-picker.js
+ * gọi `openDocument()` (chọn xong trong drawer) — Workflow được phép gọi Workflow khác tự do (không
+ * bị Rule 3, rule đó CHỈ áp cho Core).
  */
 const DOCUMENT_READER_RELAYOUT_TASK = 'documentReaderRelayout';
 
 const workflowDocumentReader = {
     _currentDocumentKey: null,
-    _currentParagraphs: [],
+    _currentMarkdown: '',
     _currentPageIndex: 0,
     _totalPages: 1,
     _pageWidth: 0,
     _resizeObserver: null,
+    _editModeEditorInstance: null,
 
     /**
      * Mở 1 tài liệu vào Reader (từ danh sách File Manager HOẶC dropdown list ngay trong Reader).
@@ -42,7 +50,7 @@ const workflowDocumentReader = {
         if (!record) return;
 
         this._currentDocumentKey = documentKey;
-        this._currentParagraphs = record.content;
+        this._currentMarkdown = resolveDocumentMarkdown(record); // core (core/file-manager/document.js) — tương thích ngược record cũ
 
         documentReaderTitle.textContent = record.title;
         btnDocumentReaderEdit.classList.toggle('hidden', record.createdBy !== 'user'); // CHỈ 'user' được sửa (đúng yêu cầu Giang)
@@ -55,12 +63,12 @@ const workflowDocumentReader = {
         if (options && options.startInEdit) this.enterEditMode();
     },
 
-    /** Vẽ lại toàn bộ đoạn văn + tính lại phân trang — gọi lúc mở tài liệu MỚI, sửa xong lưu, và
-     * (debounce) mỗi khi khung đọc đổi kích thước. LUÔN về trang 1 (đơn giản hoá chủ ý, xem
-     * comment đầu file). */
+    /** Vẽ lại toàn bộ nội dung (render Markdown -> HTML) + tính lại phân trang — gọi lúc mở tài
+     * liệu MỚI, sửa xong lưu, và (debounce) mỗi khi khung đọc đổi kích thước. LUÔN về trang 1 (đơn
+     * giản hoá chủ ý, xem comment đầu file). */
     _layoutAndRenderCurrentPage() {
-        renderReaderParagraphs(documentReaderPages, this._currentParagraphs); // core/UI
-        if (documentReaderEmpty) documentReaderEmpty.classList.toggle('hidden', this._currentParagraphs.length > 0);
+        renderReaderMarkdown(documentReaderPages, this._currentMarkdown); // core/UI (Toast UI Viewer tạm, xem document-ui.js)
+        if (documentReaderEmpty) documentReaderEmpty.classList.toggle('hidden', this._currentMarkdown.trim().length > 0);
         const { pageWidth, totalPages } = applyReaderPagination(documentReaderBody, documentReaderPages); // core/UI
         this._pageWidth = pageWidth;
         this._totalPages = totalPages;
@@ -107,8 +115,10 @@ const workflowDocumentReader = {
     },
 
     /** Phần đóng THẬT — tách riêng khỏi `close()` (Rule 1: "hỏi có cần lưu không" và "đóng thật" là
-     * 2 việc khác nhau — dùng chung bởi cả 2 nhánh Lưu/Huỷ ở trên). */
+     * 2 việc khác nhau — dùng chung bởi cả 2 nhánh Lưu/Huỷ ở trên). Huỷ editor instance NẾU còn kẹt
+     * (nhánh "Huỷ" ở `close()` không tự lưu nhưng vẫn phải destroy để tránh rò rỉ). */
     _closeNow() {
+        if (this._editModeEditorInstance) { this._editModeEditorInstance.destroy(); this._editModeEditorInstance = null; }
         setDocumentReaderVisible(documentReaderOverlay, documentReaderWindow, false); // core/UI
         this._stopResizeWatcher();
         this._currentDocumentKey = null;
@@ -127,24 +137,46 @@ const workflowDocumentReader = {
         if (this._currentDocumentKey === documentKey) documentReaderTitle.textContent = title;
     },
 
-    /** Ứng với nút Sửa (CHỈ hiện khi createdBy='user') — thay khung phân trang bằng textarea, nối
-     * các đoạn văn lại bằng dòng trống (đúng NGƯỢC lại splitPlainTextIntoParagraphs()). */
-    enterEditMode() {
-        documentReaderEditTextarea.value = this._currentParagraphs.join('\n\n');
-        documentReaderEditMode.classList.remove('hidden');
-        documentReaderEditTextarea.focus();
+    /** MỚI (05/07/2026, mục 5 phản hồi Giang) — gọi từ workflowFileManagerDocument.openEditor()
+     * (drawer Sửa mới trong File Manager) sau khi lưu — nếu Reader ĐANG mở ĐÚNG tài liệu vừa sửa
+     * (2 nơi mở cùng lúc — hiếm nhưng có thể, xem comment đầu file), vẽ lại nội dung mới NGAY.
+     * KHÔNG làm gì nếu Reader đang ở chế độ Sửa CỦA CHÍNH NÓ (tránh ghi đè bản đang gõ dở). */
+    refreshContentIfOpen(documentKey, markdown) {
+        if (this._currentDocumentKey !== documentKey) return;
+        if (documentReaderEditMode && !documentReaderEditMode.classList.contains('hidden')) return;
+        this._currentMarkdown = markdown;
+        this._layoutAndRenderCurrentPage();
     },
 
+    /** Ứng với nút Sửa (CHỈ hiện khi createdBy='user') — mount THẬT Toast UI Editor (WYSIWYG) vào
+     * `#document-reader-edit-mount` (FIX 05/07/2026, mục 5 — thay `<textarea>` cũ, ĐỒNG BỘ với
+     * `openDocumentEditorDrawer()`). */
+    enterEditMode() {
+        documentReaderEditMode.classList.remove('hidden');
+        this._editModeEditorInstance = new toastui.Editor({
+            el: documentReaderEditMount,
+            height: '100%',
+            initialEditType: 'wysiwyg',
+            initialValue: this._currentMarkdown,
+            usageStatistics: false,
+        });
+    },
+
+    /** Huỷ editor instance KHÔNG lưu — quay lại chế độ đọc với nội dung CŨ (chưa sửa). */
     cancelEdit() {
+        if (this._editModeEditorInstance) { this._editModeEditorInstance.destroy(); this._editModeEditorInstance = null; }
         documentReaderEditMode.classList.add('hidden');
     },
 
-    /** Lưu nội dung Sửa — tách lại thành mảng đoạn văn, ghi DB, vẽ lại Reader + báo
+    /** Lưu nội dung Sửa — đọc Markdown từ editor instance, ghi DB, vẽ lại Reader + báo
      * workflowFileManagerDocument refresh (đề phòng drawer Documents đang mở phía sau). */
     async saveEdit() {
-        const paragraphs = splitPlainTextIntoParagraphs(documentReaderEditTextarea.value); // core
-        await updateDocumentContent(this._currentDocumentKey, paragraphs); // core
-        this._currentParagraphs = paragraphs;
+        if (!this._editModeEditorInstance) return;
+        const markdown = this._editModeEditorInstance.getMarkdown();
+        await updateDocumentContent(this._currentDocumentKey, markdown); // core
+        this._editModeEditorInstance.destroy();
+        this._editModeEditorInstance = null;
+        this._currentMarkdown = markdown;
         documentReaderEditMode.classList.add('hidden');
         this._layoutAndRenderCurrentPage();
         if (typeof workflowFileManagerDocument !== 'undefined') await workflowFileManagerDocument.refresh();
