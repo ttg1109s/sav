@@ -58,6 +58,8 @@
         // Toggle ẩn/hiện dải BPM/Pitch/Energy (ver 10 refine, bổ sung) — xem stats-panel-toggle.js.
         const statsPanel = document.getElementById('stats-panel');
         const btnToggleStatsPanel = document.getElementById('btn-toggle-stats-panel');
+        // MỚI (04/07/2026, tính năng Documents) — nút mở Reader trong Control Center.
+        const btnOpenDocumentReader = document.getElementById('btn-open-document-reader');
         const iconStatsPanelVisible = document.getElementById('icon-stats-panel-visible'), iconStatsPanelHidden = document.getElementById('icon-stats-panel-hidden');
         
         const drawerSettings = document.getElementById('drawer-settings'), btnSettings = document.getElementById('btn-settings'), btnSettingsPlaylist = document.getElementById('btn-settings-playlist'), closeDrawer = document.getElementById('close-drawer');
@@ -277,6 +279,30 @@
         const btnFileManagerImageSelectionCancel = document.getElementById('btn-file-manager-image-selection-cancel');
         const btnFileManagerImageSelectionConfirm = document.getElementById('btn-file-manager-image-selection-confirm');
         const drawerFileManagerDocument = document.getElementById('drawer-file-manager-document');
+        // MỚI (04/07/2026, tính năng Documents) — nội dung thật của drawer Documents.
+        const btnFileManagerDocumentUpload = document.getElementById('btn-file-manager-document-upload');
+        const fileManagerDocumentUploadInput = document.getElementById('file-manager-document-upload-input');
+        const btnFileManagerDocumentCreate = document.getElementById('btn-file-manager-document-create');
+        const fileManagerDocumentList = document.getElementById('file-manager-document-list');
+        const fileManagerDocumentEmpty = document.getElementById('file-manager-document-empty');
+        // MỚI (04/07/2026) — cửa sổ Document Reader (components/document-reader.js).
+        const documentReaderOverlay = document.getElementById('document-reader-overlay');
+        const documentReaderWindow = document.getElementById('document-reader-window');
+        const btnDocumentReaderListToggle = document.getElementById('btn-document-reader-list-toggle');
+        const documentReaderTitle = document.getElementById('document-reader-title');
+        const btnDocumentReaderEdit = document.getElementById('btn-document-reader-edit');
+        const btnDocumentReaderClose = document.getElementById('btn-document-reader-close');
+        const documentReaderBody = document.getElementById('document-reader-body');
+        const documentReaderPages = document.getElementById('document-reader-pages');
+        const documentReaderEmpty = document.getElementById('document-reader-empty');
+        const btnDocumentReaderPrev = document.getElementById('btn-document-reader-prev');
+        const documentReaderPageIndicator = document.getElementById('document-reader-page-indicator');
+        const btnDocumentReaderNext = document.getElementById('btn-document-reader-next');
+        const documentReaderEditMode = document.getElementById('document-reader-edit-mode');
+        const documentReaderEditTextarea = document.getElementById('document-reader-edit-textarea');
+        const btnDocumentReaderEditCancel = document.getElementById('btn-document-reader-edit-cancel');
+        const btnDocumentReaderEditSave = document.getElementById('btn-document-reader-edit-save');
+        const documentReaderListDropdown = document.getElementById('document-reader-list-dropdown');
         const btnBackFileManagerDocument = document.getElementById('btn-back-file-manager-document');
         const fileManagerNewFolderInput = document.getElementById('file-manager-new-folder-input');
         // Folder Detail Drawer (Phase 2, MỚI — mục 1b/c, CHỐT 03/07/2026)
