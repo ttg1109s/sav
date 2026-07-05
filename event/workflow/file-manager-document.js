@@ -26,13 +26,15 @@ const workflowFileManagerDocument = {
         await this.refresh();
     },
 
-    /** Vẽ lại danh sách document — gọi lúc mở drawer + sau mỗi lần thêm/xoá/đổi tên. */
+    /** Vẽ lại danh sách document — gọi lúc mở drawer + sau mỗi lần thêm/xoá/đổi tên.
+     * FIX (04/07/2026, mục 3 phản hồi Giang) — bấm vào hàng KHÔNG còn mở Reader nữa (File Manager
+     * -> Documents CHỈ có tác dụng CRUD — upload/tạo/đổi tên/xoá qua menu "...". Đọc tài liệu CHỈ
+     * qua nút "Reader" ở Control Center -> drawer picker riêng, xem
+     * event/workflow/document-picker.js). */
     async refresh() {
         const documents = await listDocuments(); // core (core/file-manager/document.js)
         if (fileManagerDocumentEmpty) fileManagerDocumentEmpty.classList.toggle('hidden', documents.length > 0);
-        renderDocumentList(fileManagerDocumentList, documents, (documentKey) => { // core/file-manager/document-ui.js
-            if (typeof workflowDocumentReader !== 'undefined') workflowDocumentReader.openDocument(documentKey);
-        }, (documentKey, action) => {
+        renderDocumentList(fileManagerDocumentList, documents, () => {}, (documentKey, action) => { // core/file-manager/document-ui.js — onOpen = no-op (chỉ CRUD)
             if (action === 'rename') this.promptRename(documentKey);
             else if (action === 'delete') this.confirmDelete(documentKey);
         });

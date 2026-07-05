@@ -1,6 +1,12 @@
 /**
- * event/workflow/document-reader.js — Workflow cụm "documentReader" (cửa sổ đọc tài liệu, mở từ
- * Control Center — components/document-reader.js).
+ * event/workflow/document-reader.js — Workflow cụm "documentReader" (cửa sổ đọc tài liệu — CHỈ
+ * hiện nội dung phân trang; KHÔNG còn tự quyết định "mở tài liệu nào lúc mới bấm Reader" — việc đó
+ * giờ thuộc về `workflowDocumentPicker`, xem components/document-picker-drawer.js).
+ *
+ * VIẾT LẠI LUỒNG (04/07/2026, mục 3 phản hồi Giang) — bỏ hẳn `openFromControlCenter()`: nút
+ * "Reader" ở Control Center giờ mở `workflowDocumentPicker` (drawer trắng chọn tài liệu) TRƯỚC,
+ * CHỌN XONG mới gọi `openDocument()` ở ĐÂY. File này chỉ còn lo hiển thị/phân trang/sửa 1 tài liệu
+ * ĐÃ ĐƯỢC CHỌN SẴN, không tự ý mở tài liệu nào theo mặc định nữa.
  *
  * PHÂN TRANG: dùng core/file-manager/document-ui.js::applyReaderPagination() (CSS multi-column) —
  * gọi lại mỗi khi mở tài liệu MỚI, sửa xong lưu, HOẶC khung đọc đổi kích thước (ResizeObserver,
@@ -11,9 +17,9 @@
  * NẠP SAU: core/file-manager/document.js, core/file-manager/document-ui.js, core/dom-refs.js,
  * service/task-manager.js. NẠP TRƯỚC: event/router/document-reader.js,
  * event/listener/document-reader.js. Cross-workflow: event/workflow/file-manager-document.js gọi
- * `workflowDocumentReader.openDocument()`/`closeIfShowing()`/`refreshTitleIfOpen()` (mở tài liệu từ
- * danh sách, đóng/cập nhật tiêu đề khi xoá/đổi tên) — Workflow được phép gọi Workflow khác tự do
- * (không bị Rule 3, rule đó CHỈ áp cho Core).
+ * `workflowDocumentReader.closeIfShowing()`/`refreshTitleIfOpen()` (đóng/cập nhật tiêu đề khi
+ * xoá/đổi tên); event/workflow/document-picker.js gọi `openDocument()` (chọn xong trong drawer) —
+ * Workflow được phép gọi Workflow khác tự do (không bị Rule 3, rule đó CHỈ áp cho Core).
  */
 const DOCUMENT_READER_RELAYOUT_TASK = 'documentReaderRelayout';
 
@@ -24,29 +30,6 @@ const workflowDocumentReader = {
     _totalPages: 1,
     _pageWidth: 0,
     _resizeObserver: null,
-
-    /** Ứng với bấm nút "Reader" trong Control Center (Visualizer) — entry point DUY NHẤT để mở
-     * Reader từ bên ngoài drawer Documents. Mặc định: còn tài liệu đang mở từ trước (cùng phiên)
-     * -> hiện lại đúng cái đó; chưa từng mở -> hiện tài liệu MỚI NHẤT (`listDocuments()` đã sort
-     * `addedAt` giảm dần); chưa có tài liệu nào -> hiện trạng thái rỗng + gợi ý vào File Manager. */
-    async openFromControlCenter() {
-        if (this._currentDocumentKey) {
-            setDocumentReaderVisible(documentReaderOverlay, documentReaderWindow, true); // core/UI
-            this._startResizeWatcher();
-            return;
-        }
-        const documents = await listDocuments(); // core
-        if (documents.length === 0) {
-            setDocumentReaderVisible(documentReaderOverlay, documentReaderWindow, true); // core/UI
-            documentReaderTitle.textContent = t('documentReader.noDocuments');
-            if (documentReaderEmpty) documentReaderEmpty.classList.remove('hidden');
-            btnDocumentReaderEdit.classList.add('hidden');
-            renderReaderParagraphs(documentReaderPages, []); // core/UI
-            this._updateNavUI();
-            return;
-        }
-        await this.openDocument(documents[0].key);
-    },
 
     /**
      * Mở 1 tài liệu vào Reader (từ danh sách File Manager HOẶC dropdown list ngay trong Reader).
@@ -64,7 +47,6 @@ const workflowDocumentReader = {
         documentReaderTitle.textContent = record.title;
         btnDocumentReaderEdit.classList.toggle('hidden', record.createdBy !== 'user'); // CHỈ 'user' được sửa (đúng yêu cầu Giang)
         documentReaderEditMode.classList.add('hidden'); // phòng còn kẹt chế độ Sửa từ lần mở trước
-        documentReaderListDropdown.classList.add('hidden');
 
         setDocumentReaderVisible(documentReaderOverlay, documentReaderWindow, true); // core/UI
         this._layoutAndRenderCurrentPage();
@@ -142,20 +124,6 @@ const workflowDocumentReader = {
      * đang mở đúng tài liệu vừa đổi tên. */
     refreshTitleIfOpen(documentKey, title) {
         if (this._currentDocumentKey === documentKey) documentReaderTitle.textContent = title;
-    },
-
-    /** Ứng với bấm nút mở/đóng dropdown chọn tài liệu ở header Reader. */
-    async toggleListDropdown() {
-        if (!documentReaderListDropdown.classList.contains('hidden')) {
-            documentReaderListDropdown.classList.add('hidden');
-            return;
-        }
-        const documents = await listDocuments(); // core
-        renderDocumentReaderListDropdown(documentReaderListDropdown, documents, this._currentDocumentKey, (documentKey) => { // core/UI
-            documentReaderListDropdown.classList.add('hidden');
-            this.openDocument(documentKey);
-        });
-        documentReaderListDropdown.classList.remove('hidden');
     },
 
     /** Ứng với nút Sửa (CHỈ hiện khi createdBy='user') — thay khung phân trang bằng textarea, nối
