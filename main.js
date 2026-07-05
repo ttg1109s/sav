@@ -44,5 +44,6 @@
         TPL_FILE_MANAGER_DOCUMENT_DRAWER +
         TPL_VISUALIZER_SETTINGS_DRAWER +
         TPL_SUBTITLE_SETTINGS_DRAWER +
-        TPL_SLIDESHOW_SETTINGS_DRAWER; // Batch 8, ver 12 "Multi Media" — Slideshow nền Visual.
+        TPL_SLIDESHOW_SETTINGS_DRAWER + // Batch 8, ver 12 "Multi Media" — Slideshow nền Visual.
+        TPL_DOCUMENT_READER; // MỚI (04/07/2026, tính năng Documents) — cửa sổ đọc tài liệu.
 })();

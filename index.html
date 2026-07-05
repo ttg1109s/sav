@@ -53,6 +53,9 @@
     <script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@4/dist/browser-id3-writer.js"></script>
     <!-- Đóng gói nhiều file mp3 thành 1 file .zip lúc "Tải toàn bộ rồi xóa" (Quản lý dung lượng) -->
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <!-- MỚI (04/07/2026, tính năng Documents) — trích TEXT THUẦN từ .docx lúc upload (KHÔNG render
+         lại định dạng gốc — xem cảnh báo mất định dạng ở event/workflow/file-manager-document.js). -->
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.7.2/mammoth.browser.min.js"></script>
 
     <!-- CSS tách riêng -->
     <!-- ?v=APP_VERSION (đặt cố định ngay dưới đây, đổi mỗi lần deploy): chỉ ÉP TRÌNH DUYỆT TẢI LẠI
@@ -128,12 +131,12 @@
             trang đã nạp xong từ lâu). Xem comment đầu file /lang/lang.js để biết đầy đủ kiến trúc. -->
     <script src="lang/patch/patch-common.js?v=20260704v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260704v1"></script>
-    <script src="lang/patch/patch-visualizer.js?v=20260627v1"></script>
+    <script src="lang/patch/patch-visualizer.js?v=20260704v1"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260704v3"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260627v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260704v2"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260704v3"></script>
     <script src="lang/lang.js?v=20260702v1"></script>
 
     <!-- =====================================================================
@@ -142,7 +145,7 @@
          ===================================================================== -->
     <script src="components/loading-shield.js?v=20260625v8e"></script>
     <script src="components/playlist-view.js?v=20260704v1"></script>
-    <script src="components/visualizer-overlay.js?v=20260704v1"></script>
+    <script src="components/visualizer-overlay.js?v=20260704v2"></script>
     <script src="components/subtitle-modal.js?v=20260626v1"></script>
     <script src="components/bottom-player.js?v=20260704v1"></script>
     <!-- Settings Drawer (ver 8): 7 "section" HTML nhỏ PHẢI nạp TRƯỚC settings-drawer.js — file
@@ -166,7 +169,9 @@
          3 drawer con (Song/Photo & Album/Documents) mở thẳng từ section "File Manager" vừa thêm
          ở settings/file-manager-section.js, cùng cấp nav-stack với About/Visualizer Settings
          Drawer bên dưới. THAY components/storage-drawer.js (About -> Storage cũ, không còn mount). -->
-    <script src="components/file-manager.js?v=20260704v1"></script>
+    <script src="components/file-manager.js?v=20260704v2"></script>
+    <!-- MỚI (04/07/2026, tính năng Documents) — cửa sổ đọc tài liệu, mở từ Control Center. -->
+    <script src="components/document-reader.js?v=20260704v1"></script>
     <!-- Visualizer/Subtitle Settings Drawer (ver 8 refine, mục 3) — cùng pattern navigation
          stack với About/Storage Drawer, mở chồng lên #drawer-settings. -->
     <script src="components/visualizer-settings-drawer.js?v=20260626v1"></script>
@@ -179,7 +184,7 @@
             Sau dòng này, mọi phần tử (id="...") trong các component đã tồn tại
             thật sự trong DOM và có thể dùng document.getElementById an toàn.
          ===================================================================== -->
-    <script src="main.js?v=20260703v3"></script>
+    <script src="main.js?v=20260704v1"></script>
 
     <!-- =====================================================================
          3) CORE: logic nghiệp vụ. PHẢI nạp sau bước (2).
@@ -220,7 +225,7 @@
          LẠI của /event/ (bus/workflow/router/listener vẫn nạp cuối cùng tuyệt đối như cũ, xem
          khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260704v2"></script>
+    <script src="core/dom-refs.js?v=20260704v3"></script>
     <!-- Logo "SAV" (cụm /event/ "savLogo") — cần biến `savLogo` vừa nạp từ dom-refs.js ngay trên. -->
     <script src="core/sav-logo.js?v=20260629v1"></script>
     <!-- TaskManager (Loop/TaskManager) — quản lý TẬP TRUNG mọi setInterval/setTimeout của app
@@ -232,7 +237,7 @@
          trong file này KHÔNG đổi (vẫn ngay sau dom-refs.js, chỉ đổi đường dẫn). -->
     <script src="service/task-manager.js?v=20260704v1"></script>
     <!-- service/db.js — CHUYỂN từ `core/db.js` cùng lý do trên (dịch vụ hạ tầng IndexedDB thuần). -->
-    <script src="service/db.js?v=20260704v1"></script>
+    <script src="service/db.js?v=20260704v2"></script>
     <!-- Ver 12 "Multi Media" (plan-v12-multimedia.md mục 4.b1) — Folder nhạc (File Manager → Song).
          folder.js CẦN core/db.js (slugify + CRUD folders/folder_song/songs). folder-picker-ui.js
          CẦN t() (lang/lang.js, đã nạp từ rất sớm) — không phụ thuộc folder.js (chỉ dựng DOM +
@@ -254,6 +259,11 @@
     <script src="core/file-manager/image.js?v=20260704v1"></script>
     <script src="core/file-manager/album.js?v=20260703v1"></script>
     <script src="core/file-manager/photo-ui.js?v=20260704v2"></script>
+    <!-- MỚI (04/07/2026, tính năng Documents) — CRUD + tách đoạn văn (document.js), hàm dựng UI +
+         engine phân trang CSS multi-column (document-ui.js). Không phụ thuộc lẫn nhau, thứ tự giữa
+         2 file không quan trọng. -->
+    <script src="core/file-manager/document.js?v=20260704v1"></script>
+    <script src="core/file-manager/document-ui.js?v=20260704v1"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Slideshow nền Visual (hàm THUẦN, xem comment đầu file).
          FIX (04/07/2026, Rule 3 siết chặt) — KHÔNG còn dùng service/task-manager.js nữa (taskManager
          giờ CẤM trong core, chỉ Workflow dùng) — không phụ thuộc gì trong nhóm này (mọi phần tử DOM
@@ -434,8 +444,19 @@
     <script src="event/workflow/file-manager-photo.js?v=20260704v1"></script>
     <script src="event/router/file-manager-photo.js?v=20260703v5"></script>
     <script src="event/listener/file-manager-photo.js?v=20260703v4"></script>
-    <script src="event/router/file-manager-document.js?v=20260703v1"></script>
-    <script src="event/listener/file-manager-document.js?v=20260703v1"></script>
+    <!-- MỚI (04/07/2026, tính năng Documents) — workflowFileManagerDocument CẦN tồn tại trước khi
+         router gọi tới. -->
+    <script src="event/workflow/file-manager-document.js?v=20260704v1"></script>
+    <script src="event/router/file-manager-document.js?v=20260704v1"></script>
+    <script src="event/listener/file-manager-document.js?v=20260704v1"></script>
+    <!-- MỚI (04/07/2026, tính năng Documents) — cụm "documentReader" (cửa sổ đọc tài liệu, mở từ
+         Control Center). workflowFileManagerDocument.confirmDelete()/promptRename() ở trên gọi
+         workflowDocumentReader.closeIfShowing()/refreshTitleIfOpen() — cả 2 hàm chỉ chạy khi THẬT
+         SỰ có tương tác của người dùng (không chạy ngay lúc nạp file), nên thứ tự nạp giữa 2 cụm
+         workflow này KHÔNG bắt buộc, nhưng vẫn đặt liền nhau cho dễ đọc. -->
+    <script src="event/workflow/document-reader.js?v=20260704v1"></script>
+    <script src="event/router/document-reader.js?v=20260704v1"></script>
+    <script src="event/listener/document-reader.js?v=20260704v1"></script>
     <script src="event/workflow/playlist.js?v=20260704v1"></script>
     <script src="event/router/playlist.js?v=20260704v1"></script>
     <script src="event/listener/playlist.js?v=20260704v1"></script>
