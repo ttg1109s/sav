@@ -20,7 +20,16 @@
  * từ `content` — xem `computeDocumentSizeBytes()`) + hàng icon Xoá (luôn có) và Sửa (`user`)/Tải về
  * (`upload`). `renderDocumentList()` giờ CHỈ nhận 1 callback `onOpen(doc)`, không còn `onMenuAction`.
  *
- * NẠP SAU: core/dom-refs.js.
+ * CẬP NHẬT TIẾP (05/07/2026, mục 5 phản hồi Giang — đã chốt "Markdown + WYSIWYG format ngay khi
+ * gõ, dùng thư viện ngoài"): tích hợp **Toast UI Editor** (CDN `toastui-editor-all.min.js`, xem
+ * index.html) — `openDocumentEditorDrawer()` mount Editor thật (`initialEditType: 'wysiwyg'`),
+ * `renderReaderMarkdown()` (thay `renderReaderParagraphs()` cũ) dùng `Editor.factory({viewer:true})`
+ * TẠM để render Markdown -> HTML rồi huỷ ngay. `content` trong toàn bộ file này giờ là 1 chuỗi
+ * Markdown (không còn mảng đoạn) — MỌI nơi đọc `doc.content` phải qua
+ * `resolveDocumentMarkdown()` (core/file-manager/document.js) trước để tương thích ngược record cũ.
+ *
+ * NẠP SAU: core/dom-refs.js, core/file-manager/document.js (resolveDocumentMarkdown), CDN
+ * `toastui-editor-all.min.js` (global `toastui.Editor`).
  */
 
 const READER_PAGE_GAP_PX = 48; // khoảng cách giữa 2 "trang" (2 cột CSS) — cố định, dùng cả lúc set CSS lẫn lúc tính offset JS
@@ -50,16 +59,31 @@ function setReaderPageIndex(pagesEl, pageIndex, pageWidth) {
     pagesEl.style.transform = `translateX(-${pageIndex * (pageWidth + READER_PAGE_GAP_PX)}px)`;
 }
 
-/** Đổ mảng đoạn văn (`content: string[]`) thành các thẻ `<p>` trong khung TRONG — mỗi đoạn 1 `<p>`
- * để CSS multi-column không cắt ngang giữa 2 đoạn (browser tự ưu tiên ngắt ở ranh giới block). */
-function renderReaderParagraphs(pagesEl, paragraphs) {
-    pagesEl.replaceChildren();
-    paragraphs.forEach((paragraph) => {
-        const p = document.createElement('p');
-        p.className = 'mb-4 leading-relaxed';
-        p.textContent = paragraph;
-        pagesEl.appendChild(p);
-    });
+/**
+ * FIX (05/07/2026, mục 5 phản hồi Giang) — THAY HẲN `renderReaderParagraphs()` cũ (nhận mảng đoạn
+ * văn, tự tạo `<p>`). `content` giờ là 1 chuỗi MARKDOWN (xem core/file-manager/document.js) — cần
+ * RENDER ra HTML trước khi nhét vào khung phân trang multi-column.
+ *
+ * Kỹ thuật: mount 1 Toast UI Viewer TẠM trên 1 `<div>` RỜI (không gắn vào DOM thật), gọi
+ * `.getHTML()` lấy chuỗi HTML đã render, `.destroy()` NGAY, rồi gán thẳng `pagesEl.innerHTML` —
+ * CHỦ Ý không giữ Viewer sống lâu dài trong `pagesEl` (khác cách dùng thông thường của thư viện)
+ * vì kỹ thuật phân trang CSS multi-column (`applyReaderPagination()`) cần `pagesEl` chứa HTML THUẦN
+ * không có wrapper/overflow riêng của Viewer can thiệp vào — đúng yêu cầu Giang "phải dùng thư viện"
+ * (mục 5) nhưng vẫn giữ nguyên cơ chế phân trang đã có, không viết lại toàn bộ Reader.
+ *
+ * **CHƯA TEST TRÊN BROWSER THẬT** — cần Giang xác nhận: (1) `Editor.factory({ viewer: true })` có
+ * render đồng bộ ngay khi gọi hay cần đợi 1 tick/callback nào đó trước khi `.getHTML()` cho kết quả
+ * đầy đủ; (2) HTML Viewer trả về (h1-h6/ul/ol/strong/em/blockquote...) có ngắt cột multi-column tự
+ * nhiên, đẹp mắt hay cần thêm CSS riêng (vd khoảng cách đầu đoạn, list-style trong cột hẹp).
+ * @param {HTMLElement} pagesEl
+ * @param {string} markdown
+ */
+function renderReaderMarkdown(pagesEl, markdown) {
+    const tempEl = document.createElement('div');
+    const tempViewer = toastui.Editor.factory({ el: tempEl, viewer: true, initialValue: markdown, usageStatistics: false });
+    const html = tempViewer.getHTML();
+    tempViewer.destroy();
+    pagesEl.innerHTML = html;
 }
 
 /** Modal nhập tiêu đề — dùng chung cho "Tạo tài liệu mới" và "Đổi tên", CÙNG KHUÔN
@@ -181,7 +205,7 @@ function renderDocumentPickerList(listEl, documents, activeDocumentKey, onSelect
  * "Đã tạo"/"Đã tải lên" (createdBy) — CẢ HÀNG là 1 nút bấm mở `openDocumentDetailModal()` (FIX
  * 05/07/2026 — THAY HẲN menu "..." cũ, từng bị chồng lấn layout trên hàng danh sách).
  * @param {HTMLElement} containerEl
- * @param {Array<{key: string, title: string, format: string, createdBy: string, content: string[]}>} documents
+ * @param {Array<{key: string, title: string, format: string, createdBy: string, content: string|string[]}>} documents
  * @param {(doc: Object) => void} onOpen - bấm vào hàng, nhận NGUYÊN record (đã có sẵn `content` từ
  *        `listDocuments()`, không cần đọc lại DB) — mở modal chi tiết.
  */
@@ -218,18 +242,17 @@ function renderDocumentList(containerEl, documents, onOpen) {
 }
 
 /**
- * Tính dung lượng "file" (bytes) từ mảng đoạn văn — ước lượng theo ĐÚNG nội dung text đang lưu
- * thật trong DB (app KHÔNG giữ byte gốc của file upload, kể cả .docx — xem comment đầu
- * core/file-manager/document.js: `content` LUÔN là text thuần bất kể `format`). Nối các đoạn bằng
- * 2 dòng xuống dòng — ĐÚNG NGƯỢC LẠI `splitPlainTextIntoParagraphs()`, cùng cách
- * `enterEditMode()` (event/workflow/document-reader.js) đã nối để đưa vào textarea Sửa. Đo bằng
- * `Blob` để ra ĐÚNG số byte UTF-8 thật (không phải `string.length` — sai với tiếng Việt có dấu, vốn
- * nhiều ký tự chiếm 2-3 byte UTF-8 mỗi ký tự).
- * @param {string[]} content
+ * Tính dung lượng "file" (bytes) từ Markdown — ước lượng theo ĐÚNG nội dung đang lưu thật trong DB
+ * (app KHÔNG giữ byte gốc của file upload, kể cả .docx — xem comment đầu
+ * core/file-manager/document.js). Nhận `content` đã QUA `resolveDocumentMarkdown()` (nơi gọi tự
+ * resolve, xem `openDocumentDetailModal()` — hàm này KHÔNG tự resolve để tránh phụ thuộc ngược vào
+ * document.js ở mọi hàm UI thuần). Đo bằng `Blob` để ra ĐÚNG số byte UTF-8 thật (không phải
+ * `string.length` — sai với tiếng Việt có dấu, vốn nhiều ký tự chiếm 2-3 byte UTF-8 mỗi ký tự).
+ * @param {string} markdown
  * @returns {number}
  */
-function computeDocumentSizeBytes(content) {
-    return new Blob([content.join('\n\n')]).size;
+function computeDocumentSizeBytes(markdown) {
+    return new Blob([markdown]).size;
 }
 
 /**
@@ -247,20 +270,19 @@ function formatDocumentSize(bytes) {
 }
 
 /**
- * Tải 1 tài liệu về máy dạng `.txt` thuần. LUÔN `.txt` bất kể `format` gốc ('docx' hay 'txt') — app
- * không giữ byte nhị phân gốc của `.docx` (chỉ có `content` text thuần, xem comment đầu
- * core/file-manager/document.js), nên tải về với đuôi `.docx` nhưng nội dung là text thuần sẽ tạo
- * ra 1 file HỎNG nếu mở lại bằng Word (không đúng định dạng zip/XML thật của .docx) — đặt đuôi
- * `.txt` trung thực hơn với nội dung THẬT đang có. Nối đoạn văn bằng 2 dòng trống — đúng NGƯỢC LẠI
- * `splitPlainTextIntoParagraphs()`.
- * @param {{title: string, content: string[]}} doc
+ * Tải 1 tài liệu về máy dạng `.md` (Markdown thuần). ĐỔI từ `.txt` (mục 5 phản hồi Giang 05/07/2026
+ * — content giờ LÀ Markdown thật, đặt đuôi `.md` trung thực hơn `.txt` với cú pháp `**đậm**`/`# tiêu
+ * đề` hiển thị nguyên văn nếu mở bằng trình đọc .txt thường). Nhận `content` ĐÃ resolve qua
+ * `resolveDocumentMarkdown()` ở nơi gọi (cùng lý do `computeDocumentSizeBytes()` ở trên).
+ * @param {{title: string}} doc
+ * @param {string} markdown
  */
-function downloadDocumentAsText(doc) {
-    const blob = new Blob([doc.content.join('\n\n')], { type: 'text/plain;charset=utf-8' });
+function downloadDocumentAsMarkdown(doc, markdown) {
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${doc.title}.txt`;
+    a.download = `${doc.title}.md`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -269,12 +291,13 @@ function downloadDocumentAsText(doc) {
 
 /**
  * Modal "Chi tiết tài liệu" — mở khi bấm vào 1 hàng trong danh sách Documents (FIX 05/07/2026, mục
- * 1/2 phản hồi Giang). Layout: icon lớn (phân biệt txt/docx) → tên file đầy đủ (bấm để đổi tên,
- * PHẦN MỞ RỘNG cố định theo `format`, không sửa được — chỉ đổi `title`, giống hệt
- * `renameDocumentTitle()` vẫn dùng từ trước) → dung lượng (`computeDocumentSizeBytes`/
- * `formatDocumentSize`) → hàng icon hành động: Xoá (luôn có) + Sửa (chỉ `createdBy==='user'`,
- * đúng quy định "chỉ tài liệu tự tạo được sửa nội dung") HOẶC Tải về (chỉ `createdBy==='upload'`).
- * @param {{key: string, title: string, format: 'txt'|'docx', createdBy: 'upload'|'user', content: string[]}} doc
+ * 1/2 phản hồi Giang, CẬP NHẬT thêm cùng ngày mục 1/4). Layout: icon lớn (phân biệt txt/docx) → tên
+ * file đầy đủ (bấm để đổi tên, PHẦN MỞ RỘNG cố định theo `format`, không sửa được — chỉ đổi
+ * `title`) → dung lượng (`computeDocumentSizeBytes`/`formatDocumentSize`) → hàng icon hành động:
+ * Đổi tên (luôn, mở editor tên NGAY TẠI CHỖ giống hệt bấm vào tên) + Tải về (luôn, CẢ 'user' lẫn
+ * 'upload') + Sửa (chỉ `createdBy==='user'`, mở `openDocumentEditorDrawer()` — KHÔNG phải Reader,
+ * xem hàm đó) + Xoá (luôn, đặt cuối).
+ * @param {{key: string, title: string, format: 'txt'|'docx', createdBy: 'upload'|'user', content: string|string[]}} doc
  * @param {{onRename: (newTitle: string) => void, onDelete: () => void, onEdit: () => void, onDownload: () => void}} callbacks
  */
 function openDocumentDetailModal(doc, callbacks) {
@@ -318,7 +341,7 @@ function openDocumentDetailModal(doc, callbacks) {
 
         const sizeEl = document.createElement('div');
         sizeEl.className = 'text-xs text-slate-400';
-        sizeEl.textContent = formatDocumentSize(computeDocumentSizeBytes(doc.content));
+        sizeEl.textContent = formatDocumentSize(computeDocumentSizeBytes(resolveDocumentMarkdown(doc))); // resolveDocumentMarkdown: core/file-manager/document.js — quy tương thích ngược mảng cũ/string mới
         nameWrap.appendChild(sizeEl);
     }
 
@@ -365,12 +388,16 @@ function openDocumentDetailModal(doc, callbacks) {
 
     renderNameDisplay();
 
-    // ---- Hàng icon hành động: Xoá (luôn có) + Sửa ('user') hoặc Tải về ('upload') ----
+    // ---- Hàng icon hành động: Đổi tên (luôn, KHÔNG đóng modal — mở editor tên tại chỗ) + Tải về
+    // (luôn, CẢ 'user' lẫn 'upload' — FIX 05/07/2026 mục 1 phản hồi Giang) + Sửa (chỉ 'user') +
+    // Xoá (luôn, đặt CUỐI vì là hành động phá huỷ) ----
     const actionRow = document.createElement('div');
-    actionRow.className = 'w-full flex items-center justify-center gap-6 pt-3 border-t border-white/10';
+    actionRow.className = 'w-full flex flex-wrap items-center justify-center gap-x-5 gap-y-3 pt-3 border-t border-white/10';
     card.appendChild(actionRow);
 
-    function addActionButton(label, svgInner, danger, onClick) {
+    /** @param {boolean} [closeOnClick] - mặc định true (đóng modal trước khi chạy onClick); Đổi tên
+     * truyền false vì cần GIỮ modal mở để hiện editor tên ngay tại chỗ (renderNameEditor()). */
+    function addActionButton(label, svgInner, danger, onClick, closeOnClick = true) {
         const btn = document.createElement('button');
         btn.className = `flex flex-col items-center gap-1 text-xs font-medium transition-colors ${danger ? 'text-rose-400 hover:text-rose-300' : 'text-slate-300 hover:text-white'}`;
         const iconBox = document.createElement('div');
@@ -380,15 +407,23 @@ function openDocumentDetailModal(doc, callbacks) {
         const labelEl = document.createElement('span');
         labelEl.textContent = label;
         btn.appendChild(labelEl);
-        btn.addEventListener('click', () => { closeModal(); onClick(); });
+        btn.addEventListener('click', () => { if (closeOnClick) closeModal(); onClick(); });
         actionRow.appendChild(btn);
     }
 
     addActionButton(
-        t('fileManager.document.btnDelete'),
-        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>',
-        true,
-        callbacks.onDelete,
+        t('fileManager.document.btnRename'),
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>',
+        false,
+        renderNameEditor,
+        false, // KHÔNG đóng modal — sửa tên ngay tại chỗ
+    );
+
+    addActionButton(
+        t('fileManager.document.btnDownload'),
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>',
+        false,
+        callbacks.onDownload,
     );
 
     if (doc.createdBy === 'user') {
@@ -398,15 +433,113 @@ function openDocumentDetailModal(doc, callbacks) {
             false,
             callbacks.onEdit,
         );
-    } else {
-        addActionButton(
-            t('fileManager.document.btnDownload'),
-            '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>',
-            false,
-            callbacks.onDownload,
-        );
     }
+
+    addActionButton(
+        t('fileManager.document.btnDelete'),
+        '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>',
+        true,
+        callbacks.onDelete,
+    );
 
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
     document.body.appendChild(overlay);
+}
+
+/**
+ * Drawer "Sửa tài liệu" — mở TỪ File Manager -> Documents (FIX 05/07/2026, mục 2/3 phản hồi Giang:
+ * "Edit file là hành vi khác nhau" — TRƯỚC ĐÓ sai vì tái dùng Reader ở Control Center + đóng hẳn
+ * Settings, gây mở chồng 2 thứ cùng lúc). Đây là 1 drawer HOÀN TOÀN RIÊNG, KHÔNG đụng
+ * `workflowDocumentReader`/Settings — nằm THEO ĐÚNG nav-stack đã có sẵn của File Manager (giống hệt
+ * Folder Detail z-[91] nằm TRÊN Song z-[90], xem components/file-manager.js) — z-[91], TRÊN
+ * `#drawer-file-manager-document` (z-[90]) mà KHÔNG cần đóng nó hay Settings phía dưới.
+ *
+ * Full-view (`fixed inset-0`), trượt NGANG (`translateX`, không phải `translate-y-full` như các
+ * drawer khác trong app) — phân biệt trực quan với nav-stack dọc đã có, đúng yêu cầu Giang. Tạo/gỡ
+ * hoàn toàn bằng JS (không phải node tĩnh trong 1 component template) — giống `openImagePreviewModal`/
+ * `openDocumentDetailModal`, dùng sự kiện `transitionend` để gỡ khỏi DOM SAU khi trượt ra hết
+ * (KHÔNG dùng `setTimeout` — cấm dùng timer thô ngoài Workflow, xem readme/task-manager-conventions.md).
+ *
+ * Header: CHỈ tên file (trái) + nút đóng X (phải) — ĐÚNG YÊU CẦU GIANG, không thêm nút Lưu riêng —
+ * bấm X = LƯU LUÔN rồi mới đóng (đọc `editor.getMarkdown()` trước khi `destroy()`).
+ *
+ * FIX (05/07/2026, mục 5 phản hồi Giang, CẬP NHẬT cùng ngày — đã chốt thư viện): mount THẬT
+ * **Toast UI Editor** (CDN `toastui-editor-all.min.js`, xem index.html) chế độ `wysiwyg` — format
+ * HIỆN NGAY trong lúc gõ (đậm/nghiêng/tiêu đề/danh sách...), lưu ra 1 chuỗi Markdown qua
+ * `editor.getMarkdown()`. **CHƯA TEST TRÊN BROWSER THẬT** — cần Giang xác nhận layout Editor bên
+ * trong `bodyEl` (`flex-grow`, không set `height` cố định — Editor cần `height` CSS rõ ràng để tính
+ * toolbar/khung soạn thảo, đã truyền `height: '100%'`, NHƯNG cha `bodyEl` phải thật sự có chiều cao
+ * > 0 lúc mount — đang mount NGAY sau khi gắn vào DOM, nếu lỗi layout thử đổi sang mount SAU 1
+ * `requestAnimationFrame`).
+ * @param {{key: string, title: string, format: string, content: string|string[]}} doc
+ * @param {{onSave?: (markdown: string) => void, onClose?: () => void}} [callbacks]
+ * @returns {{close: () => void}} `close()` — đóng drawer bằng code (tự lưu luôn, giống bấm X).
+ */
+function openDocumentEditorDrawer(doc, callbacks) {
+    const stale = document.getElementById('document-editor-drawer-overlay');
+    if (stale) stale.remove();
+
+    const initialMarkdown = resolveDocumentMarkdown(doc); // core/file-manager/document.js — quy tương thích ngược mảng cũ/string mới
+
+    const overlay = document.createElement('div');
+    overlay.id = 'document-editor-drawer-overlay';
+    overlay.className = 'fixed inset-0 z-[91] bg-[#0b0f1a] flex flex-col transition-transform duration-300 ease-in-out translate-x-full';
+
+    let editorInstance = null;
+    let closed = false;
+
+    /** Đọc markdown hiện tại + huỷ instance + báo `onSave` — TÁCH RIÊNG khỏi `closeNow()` (đóng
+     * KHÔNG lưu, dùng khi cần đóng thẳng bằng code mà nơi gọi tự lo việc lưu, hiện CHƯA có nơi nào
+     * dùng nhánh đó nhưng giữ 2 hàm riêng cho rõ ràng, đúng Rule 1 "1 hàm 1 việc"). */
+    function saveAndDestroyEditor() {
+        if (!editorInstance) return;
+        const markdown = editorInstance.getMarkdown();
+        editorInstance.destroy();
+        editorInstance = null;
+        if (callbacks && callbacks.onSave) callbacks.onSave(markdown);
+    }
+
+    function closeNow() {
+        if (closed) return;
+        closed = true;
+        saveAndDestroyEditor();
+        overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+        overlay.classList.add('translate-x-full');
+        if (callbacks && callbacks.onClose) callbacks.onClose();
+    }
+
+    const header = document.createElement('div');
+    header.className = 'flex items-center justify-between gap-2 px-4 py-3 sm:px-6 border-b border-white/10 shrink-0 bg-black/40';
+    const titleEl = document.createElement('h2');
+    titleEl.className = 'text-base sm:text-lg font-bold text-white truncate';
+    titleEl.textContent = `${doc.title}.${doc.format}`;
+    header.appendChild(titleEl);
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
+    closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
+    closeBtn.addEventListener('click', closeNow);
+    header.appendChild(closeBtn);
+    overlay.appendChild(header);
+
+    const bodyEl = document.createElement('div');
+    bodyEl.id = 'document-editor-drawer-body';
+    bodyEl.className = 'flex-grow min-h-0';
+    overlay.appendChild(bodyEl);
+
+    document.body.appendChild(overlay);
+    // Ép reflow trước khi bỏ translate-x-full — đảm bảo transition CHẠY (cùng lý do/kỹ thuật với
+    // setDocumentPickerVisible() ở trên: thêm node + bỏ class off-screen cùng lúc trong 1 tick JS
+    // có thể bị trình duyệt gộp, bỏ qua animation nếu không ép reflow ở giữa).
+    void overlay.offsetHeight;
+    overlay.classList.remove('translate-x-full');
+
+    editorInstance = new toastui.Editor({
+        el: bodyEl,
+        height: '100%',
+        initialEditType: 'wysiwyg',
+        initialValue: initialMarkdown,
+        usageStatistics: false,
+    });
+
+    return { close: closeNow };
 }
