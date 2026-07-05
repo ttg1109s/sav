@@ -23,6 +23,9 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerOverlay.repeat.label': 'Repeat',
     'visualizerOverlay.statsToggle.title': 'Show/hide BPM-Pitch-Energy',
     'visualizerOverlay.statsToggle.label': 'Stats',
+    // MỚI (04/07/2026, tính năng Documents) — nút mở Reader trong Control Center.
+    'visualizerOverlay.documentReader.title': 'Open document reader',
+    'visualizerOverlay.documentReader.label': 'Reader',
 
     'visualizerSettingsDrawer.backToSettings.title': 'Back to Settings',
     'visualizerSettingsDrawer.title': 'Customize Visualizer',
