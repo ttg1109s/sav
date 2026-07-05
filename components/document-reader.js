@@ -1,10 +1,16 @@
 /**
  * Component: Document Reader — cửa sổ đọc tài liệu (mục 4.b4/4.e plan-v12-multimedia.md, code
- * 04/07/2026). Mở từ nút trong Control Center (Visualizer).
+ * 04/07/2026).
  *
- * Layout theo đúng yêu cầu Giang: KHÔNG full width/height — cửa sổ nổi (card) giữa màn hình, có
- * backdrop mờ phía sau. Header: tiêu đề (trái) + nút đóng X (phải), `justify-between`. Dưới header
- * là khung body phân trang (CSS multi-column — xem core/file-manager/document-ui.js).
+ * VIẾT LẠI LUỒNG MỞ (04/07/2026, mục 3 phản hồi Giang) — KHÔNG còn mở trực tiếp từ nút "Reader" ở
+ * Control Center nữa. Luồng ĐÚNG: bấm "Reader" -> mở `#document-picker-drawer`
+ * (components/document-picker-drawer.js, trắng, trượt từ dưới lên, 70vh, liệt kê tài liệu) TRƯỚC
+ * -> chọn 1 tài liệu -> đóng picker drawer -> MỚI mở cửa sổ này. Nút "list" ở header (đổi tài liệu
+ * khi đang đọc) cũng mở LẠI CHÍNH picker drawer đó — KHÔNG còn dropdown nhỏ riêng (đã xoá).
+ *
+ * Layout: KHÔNG full width/height — cửa sổ nổi (card) giữa màn hình, có backdrop mờ phía sau.
+ * Header: tiêu đề (trái) + nút đóng X (phải), `justify-between`. Dưới header là khung body phân
+ * trang (CSS multi-column — xem core/file-manager/document-ui.js).
  *
  * Z-INDEX (CHỐT theo phản hồi Giang): Reader PHẢI THẤP HƠN Control Center
  * (`#control-center-overlay` z-45/`#visualizer-control-center` z-46) — dùng z-39 (overlay)/z-40
@@ -59,9 +65,6 @@ const TPL_DOCUMENT_READER = `
                     <button id="btn-document-reader-edit-save" class="px-5 py-2 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-white transition-colors" data-i18n="common.save">${t('common.save')}</button>
                 </div>
             </div>
-
-            <!-- Dropdown chọn tài liệu (mở qua nút list ở header) -->
-            <div id="document-reader-list-dropdown" class="hidden absolute top-14 left-4 right-4 z-10 max-h-[60%] overflow-y-auto rounded-xl bg-[#1a1a1e] border border-white/10 shadow-2xl flex flex-col py-1"></div>
         </div>
     </div>
 `;
