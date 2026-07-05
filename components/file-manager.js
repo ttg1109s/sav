@@ -17,9 +17,8 @@
  * TPL_FILE_MANAGER_FOLDER_DETAIL_DRAWER (Phase 2, MỚI — xem danh sách bài trong 1 folder + gỡ bài
  * + "Áp dụng cho Playlist", tầng nav-stack sâu hơn Song 1 cấp) / TPL_FILE_MANAGER_PHOTO_DRAWER
  * (Batch 3, 03/07/2026 — story slider album + masonry ảnh, ĐÃ CODE THẬT, xem
- * core/file-manager/photo-ui.js) / TPL_FILE_MANAGER_DOCUMENT_DRAWER (CHƯA code — b4 — hiện
- * placeholder "sắp ra mắt", khung nav-stack vẫn đầy đủ để lắp nội dung thật sau mà không phải sửa
- * lại cơ chế mở/đóng).
+ * core/file-manager/photo-ui.js) / TPL_FILE_MANAGER_DOCUMENT_DRAWER (mục 4.b4, ĐÃ CODE THẬT
+ * 04/07/2026 — 2 nút upload tách riêng + danh sách, xem core/file-manager/document-ui.js).
  *
  * components/storage-drawer.js + biến TPL_STORAGE_DRAWER KHÔNG còn được mount (xem main.js) —
  * file cũ ĐỂ LẠI trong project làm tư liệu đối chiếu, KHÔNG xoá tự động, bác xoá tay khi rảnh.
@@ -228,7 +227,11 @@ const TPL_FILE_MANAGER_PHOTO_DRAWER = `
     </div>
 `;
 
-// ===================== Drawer con: Documents (placeholder — b4 CHƯA code) =====================
+// ===================== Drawer con: Documents (04/07/2026 — code thật, thay placeholder) ========
+// 2 nút upload TÁCH RIÊNG (không dùng chung 1 cơ chế "tự phân loại", đúng yêu cầu Giang — "mỗi cái
+// một upload riêng cho dễ"): "Tải lên tài liệu" (chọn .txt/.docx có sẵn) và "Tạo tài liệu mới"
+// (.txt rỗng, mở thẳng vào Reader ở chế độ Sửa). Danh sách bên dưới — xem
+// core/file-manager/document-ui.js::renderDocumentList().
 const TPL_FILE_MANAGER_DOCUMENT_DRAWER = `
     <div id="drawer-file-manager-document" class="fixed inset-0 drawer-glass z-[90] transform translate-y-full transition-transform duration-500 ease-in-out flex flex-col">
         <div class="flex justify-between items-center px-4 py-3 sm:px-6 border-b border-white/10 shrink-0 bg-black/40">
@@ -240,8 +243,20 @@ const TPL_FILE_MANAGER_DOCUMENT_DRAWER = `
             </div>
         </div>
         <div class="flex-grow overflow-y-auto px-4 py-6 sm:px-8 pb-20">
-            <div class="max-w-2xl mx-auto">
-                <p class="text-sm text-slate-400 text-center py-10" data-i18n="fileManager.comingSoon">${t('fileManager.comingSoon')}</p>
+            <div class="max-w-2xl mx-auto space-y-6">
+                <div class="flex gap-3">
+                    <button id="btn-file-manager-document-upload" class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl text-xs font-bold transition-colors shadow">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3-3 3 3m-3-3v6" /></svg>
+                        <span data-i18n="fileManager.document.btnUpload">${t('fileManager.document.btnUpload')}</span>
+                        <input type="file" id="file-manager-document-upload-input" accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden">
+                    </button>
+                    <button id="btn-file-manager-document-create" class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-xl text-xs font-bold transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                        <span data-i18n="fileManager.document.btnCreate">${t('fileManager.document.btnCreate')}</span>
+                    </button>
+                </div>
+                <div id="file-manager-document-list" class="flex flex-col gap-2"></div>
+                <p id="file-manager-document-empty" class="hidden text-sm text-slate-400 text-center py-10" data-i18n="fileManager.document.empty">${t('fileManager.document.empty')}</p>
             </div>
         </div>
     </div>
