@@ -86,6 +86,7 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.document.badgeUpload': 'Uploaded',
     'fileManager.document.btnRename': 'Rename',
     'fileManager.document.btnDelete': 'Delete',
+    'fileManager.document.btnDownload': 'Download',
     'fileManager.document.titlePlaceholder': 'Document title',
     'fileManager.document.createTitle': 'New document',
     'fileManager.document.renameTitle': 'Rename document',
