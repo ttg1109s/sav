@@ -2,8 +2,9 @@
  * core/file-manager/nav.js — DOM-patch THUẦN cho các drawer con của File Manager (Song/Folder
  * Detail/Photo & Album/Documents). CHỐT LẠI 03/07/2026 (xem plan-v12-multimedia-decisions.md mục
  * 1a/7): trước đây file này chứa logic "tab-switch" cho 1 overlay chung — KHÔNG còn nữa, vì mỗi
- * loại tài sản giờ là 1 drawer ĐỘC LẬP, mở/đóng riêng theo đúng nav-stack pattern (giống
- * openAboutDrawerAndRenderStats()/closeAboutDrawer() ở core/about-stats.js).
+ * loại tài sản giờ là 1 drawer ĐỘC LẬP, mở/đóng riêng theo nav-stack pattern (mỗi drawer tự
+ * `classList` ẩn/hiện chính nó — CHƯA migrate sang core/settings-panel-stack.js như About đã làm
+ * ở Batch D1, dự kiến ở D4 theo plan-v12-batch-list.md).
  *
  * Mỗi hàm dưới đây đơn tuyến, chỉ patch DOM (classList), không đọc/ghi appState, không I/O —
  * đúng Rule 1/2 core-function-conventions.md. Việc mở Song/Folder Detail CẦN thêm refresh dữ liệu
