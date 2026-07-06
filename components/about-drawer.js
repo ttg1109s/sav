@@ -1,23 +1,26 @@
 /**
- * Component: About Drawer (ngăn kéo "Về trình phát" — thống kê, giới thiệu, cảnh báo IndexedDB)
- * Biến này chứa chuỗi HTML, được main.js chèn vào DOM lúc khởi động.
- * z-index cao hơn #drawer-settings (z-[80]) để mở chồng lên trên, đúng kiểu navigation stack
- * của Settings app trên điện thoại — Back ở đây chỉ ẩn About, không động vào Settings bên dưới.
+ * Component: About panel (thống kê, giới thiệu, cảnh báo IndexedDB) — nội dung của "Về trình
+ * phát" trong Settings.
+ *
+ * === Batch D1 (Settings restructure, phản hồi Giang 06/07/2026) ===
+ * TRƯỚC ĐÂY đây là 1 biến `TPL_ABOUT_DRAWER` (chuỗi HTML tĩnh, tự có khung `fixed inset-0
+ * drawer-glass z-[90]` + header riêng, mount 1 LẦN lúc boot qua main.js). GIỜ ĐÂY về BẢN CHẤT
+ * chỉ còn là NỘI DUNG BODY của 1 panel — khung ngoài + header (Back/title) đã chuyển về DÙNG
+ * CHUNG ở `#drawer-settings` (xem components/settings-drawer.js + core/settings-panel-stack.js).
+ * Đổi từ 1 CONST HTML dựng 1 lần lúc boot sang 1 HÀM `renderAboutPanelBody()` gọi MỖI LẦN About
+ * được mở (event/workflow/settings-misc.js::openAbout() gọi hàm này rồi `pushSettingsPanel()`) —
+ * lợi ích PHỤ (không phải mục tiêu chính): `t()` bên trong giờ LUÔN lấy đúng ngôn ngữ HIỆN TẠI
+ * mỗi lần mở, không còn bị "đông cứng" theo ngôn ngữ lúc boot như mọi TPL_* tĩnh khác.
+ *
+ * KHÔNG còn `id="drawer-about"`/`fixed inset-0`/header riêng — 3 id thống kê
+ * (`stat-about-total-songs`/`-total-duration`/`-listen-seconds`) GIỮ NGUYÊN tên, nhưng KHÔNG còn
+ * là DOM tĩnh trong dom-refs.js nữa (panel bị `.remove()` khỏi DOM mỗi lần đóng — xem
+ * core/settings-panel-stack.js) — nơi gọi (`openAbout()`) tự `querySelector` bên TRONG panel vừa
+ * push để điền giá trị, đúng quy ước Generic Drawer "component tĩnh + dom-refs, nội dung động thì
+ * Workflow tự querySelector sau khi gán".
  */
-const TPL_ABOUT_DRAWER = `
-    <div id="drawer-about" class="fixed inset-0 drawer-glass z-[90] transform translate-y-full transition-transform duration-500 ease-in-out flex flex-col">
-        <div class="flex justify-between items-center px-4 py-3 sm:px-6 border-b border-white/10 shrink-0 bg-black/40">
-            <div class="flex items-center gap-2">
-                <button id="btn-back-about" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white" data-i18n-title="aboutDrawer.backToSettings.title" title="${t('aboutDrawer.backToSettings.title')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 class="text-base sm:text-lg font-bold tracking-wider text-white uppercase" data-i18n="aboutDrawer.title">${t('aboutDrawer.title')}</h2>
-            </div>
-        </div>
-
-        <div class="flex-grow overflow-y-auto px-4 py-6 sm:px-8 pb-20">
-            <div class="max-w-2xl mx-auto space-y-8">
-
+function renderAboutPanelBody() {
+    return `
                 <!-- SECTION: THỐNG KÊ -->
                 <div>
                     <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="aboutDrawer.statsSectionTitle">${t('aboutDrawer.statsSectionTitle')}</h3>
@@ -69,8 +72,5 @@ const TPL_ABOUT_DRAWER = `
                         </p>
                     </div>
                 </div>
-
-            </div>
-        </div>
-    </div>
 `;
+}
