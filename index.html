@@ -142,7 +142,7 @@
     <script src="lang/patch/patch-playlist.js?v=20260704v1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260704v1"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260704v3"></script>
-    <script src="lang/patch/patch-settings-misc.js?v=20260627v1"></script>
+    <script src="lang/patch/patch-settings-misc.js?v=20260706v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
     <script src="lang/patch/patch-file-manager.js?v=20260704v5"></script>
@@ -171,8 +171,8 @@
     <script src="components/settings/subtitle-style.js?v=20260626v1"></script>
     <script src="components/settings/misc.js?v=20260626v1"></script>
     <script src="components/settings/language.js?v=20260626v1"></script>
-    <script src="components/settings-drawer.js?v=20260703v1"></script>
-    <script src="components/about-drawer.js?v=20260702v1"></script>
+    <script src="components/settings-drawer.js?v=20260706v1"></script>
+    <script src="components/about-drawer.js?v=20260706v1"></script>
     <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): File
          Manager KHÔNG còn là 1 overlay cấp cao mở từ Playlist nữa (bỏ patch 02/07/2026) — giờ là
          3 drawer con (Song/Photo & Album/Documents) mở thẳng từ section "File Manager" vừa thêm
@@ -236,7 +236,12 @@
          LẠI của /event/ (bus/workflow/router/listener vẫn nạp cuối cùng tuyệt đối như cũ, xem
          khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260704v5"></script>
+    <script src="core/dom-refs.js?v=20260704v6"></script>
+    <!-- Batch D1 (Settings restructure, 06/07/2026) — ngăn xếp panel Settings (core UI thuần,
+         push/pop/reset). CẦN core/dom-refs.js (settingsStackTitle/btnSettingsStackBack/
+         settingsStackBody/closeDrawer, đã nạp ngay trên) — KHÔNG cần t()/taskManager (nhận title
+         đã dịch sẵn qua tham số, không tự chờ animation — xem docstring đầu file). -->
+    <script src="core/settings-panel-stack.js?v=20260706v1"></script>
     <!-- Logo "SAV" (cụm /event/ "savLogo") — cần biến `savLogo` vừa nạp từ dom-refs.js ngay trên. -->
     <script src="core/sav-logo.js?v=20260629v1"></script>
     <!-- TaskManager (Loop/TaskManager) — quản lý TẬP TRUNG mọi setInterval/setTimeout của app
@@ -345,7 +350,7 @@
     <script src="core/stats-panel-toggle.js?v=20260625v10"></script>
     <script src="core/audio-analysis.js?v=20260625v8e"></script>
     <script src="core/rubik-math.js?v=20260625v8e"></script>
-    <script src="core/about-stats.js?v=20260625v8e"></script>
+    <script src="core/about-stats.js?v=20260706v1"></script>
     <!-- Khắc phục sự cố (ver 10 refine, bổ sung) — "Khởi động lại app"/"Khôi phục cài đặt mặc
          định" trong Settings. PHẢI nạp SAU dom-refs.js/main.js (cần btnRestartApp/btnRestoreDefaults
          đã có ref + HTML thật đã chèn), resume-state-storage.js, config.js (saveConfig/loadConfig
@@ -429,12 +434,21 @@
     <script src="event/bus.js?v=20260703v1"></script>
     <script src="event/block.js?v=20260703v1"></script>
     <script src="event/virtual-machine-state.js?v=20260701v1"></script>
+    <!-- Cụm "settingsStackNav" (Batch D1, Settings restructure, 06/07/2026) — nút Back DÙNG CHUNG
+         cho MỌI panel con Settings (About/Visualizer/.../File Manager, bất kể panel nào đang mở).
+         CẦN core/settings-panel-stack.js (đã nạp ở nhóm CORE phía trên). NẠP TRƯỚC settingsMisc
+         (settingsMisc.openAbout() gọi pushSettingsPanel() — không thật sự phụ thuộc thứ tự, nhưng
+         đặt Back trước Open cho xuôi mạch đọc). -->
+    <script src="event/workflow/settings-stack-nav.js?v=20260706v1"></script>
+    <script src="event/router/settings-stack-nav.js?v=20260706v1"></script>
+    <script src="event/listener/settings-stack-nav.js?v=20260706v1"></script>
     <!-- Cụm "settingsMisc" (ver 11, patch 5): gộp aboutDrawer + appRecovery — gộp vì mỗi nhánh quá
          nhỏ để xứng đáng 1 router/listener riêng. Ver 12 "Multi Media": nhánh storageDrawer đã DỜI
-         sang cụm "fileManagerSong" ngay dưới (plan-v12-multimedia.md mục 3). -->
-    <script src="event/workflow/settings-misc.js?v=20260702v1"></script>
-    <script src="event/router/settings-misc.js?v=20260702v1"></script>
-    <script src="event/listener/settings-misc.js?v=20260702v1"></script>
+         sang cụm "fileManagerSong" ngay dưới (plan-v12-multimedia.md mục 3). Batch D1: aboutDrawer
+         giờ CẦN workflow (push panel + tính thống kê), xem event/workflow/settings-misc.js. -->
+    <script src="event/workflow/settings-misc.js?v=20260706v1"></script>
+    <script src="event/router/settings-misc.js?v=20260706v1"></script>
+    <script src="event/listener/settings-misc.js?v=20260706v1"></script>
     <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): cụm
          "fileManager" (khung điều hướng cấp cao cũ) ĐÃ BỎ HẲN — thay bằng 3 cụm ĐỘC LẬP, mỗi cụm
          tự mở/đóng drawer con của mình (folder.js/nav.js nạp trước, xem thứ tự script core/ phía
@@ -490,8 +504,8 @@
          THẲNG). MỚI (fix 03/07/2026, mục 3b): 'playerControls.shuffle.click' giờ cần
          event/workflow/player-controls.js (2 hàm core nối tiếp, phụ thuộc thứ tự — xem comment đầu
          file đó + event/router/player-controls.js). -->
-    <script src="event/workflow/player-controls.js?v=20260703v1"></script>
-    <script src="event/router/player-controls.js?v=20260703v1"></script>
+    <script src="event/workflow/player-controls.js?v=20260706v1"></script>
+    <script src="event/router/player-controls.js?v=20260706v1"></script>
     <script src="event/listener/player-controls.js?v=20260629v1"></script>
     <script src="event/workflow/visualizer-display.js?v=20260704v1"></script>
     <script src="event/router/visualizer-display.js?v=20260703v2"></script>
