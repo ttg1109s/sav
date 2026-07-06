@@ -1,8 +1,12 @@
 /**
  * event/workflow/settings-misc.js — "THẰNG THỰC THI CUỐI" của router "settingsMisc".
  *
- * Chỉ còn nhánh `appRecovery` (Khởi động lại / Khôi phục mặc định) cần workflow. `aboutDrawer`
- * KHÔNG cần workflow (chỉ 1 hàm core mỗi msg.type, router gọi thẳng — xem router/settings-misc.js).
+ * Batch D1 (Settings restructure, 06/07/2026): `aboutDrawer` GIỜ CẦN workflow (TRƯỚC ĐÂY chỉ 1
+ * hàm core/msg.type, router gọi thẳng — nay `openAbout()` là push panel (core UI thuần) + tính
+ * thống kê bất đồng bộ + tự querySelector để điền giá trị, nhiều bước > 1 hàm core -> đúng hình
+ * dạng Workflow). Nhánh đóng About KHÔNG còn ở đây nữa — dùng CHUNG
+ * `settingsStackNav.back.click` cho MỌI panel (xem event/workflow/settings-stack-nav.js), không
+ * riêng About — xem router/settings-misc.js đã bỏ case `aboutDrawer.close`.
  *
  * Ver 12 "Multi Media": nhánh `storageDrawer` đã DỜI sang workflowFileManagerSong
  * (event/workflow/file-manager-song.js, plan-v12-multimedia.md mục 3).
@@ -15,6 +19,26 @@
  *     KHI shield đã đóng hẳn.
  */
 const workflowSettingsMisc = {
+
+    // ===================== aboutDrawer =====================
+
+    /**
+     * Ứng với msg.type = 'settingsMisc.aboutDrawer.open' — push panel About (nền tĩnh, hiện
+     * '...' ngay) rồi tính thống kê thật bất đồng bộ, điền vào ĐÚNG panel vừa push (tự
+     * `querySelector` bên trong `panelEl` trả về từ `pushSettingsPanel()` — KHÔNG dùng dom-refs.js
+     * tĩnh, vì panel này bị `.remove()` mỗi lần đóng, xem core/settings-panel-stack.js).
+     */
+    async openAbout() {
+        const panelEl = pushSettingsPanel({ title: t('aboutDrawer.title'), bodyHtml: renderAboutPanelBody() });
+        const statTotalSongsEl = panelEl.querySelector('#stat-about-total-songs');
+        const statTotalDurationEl = panelEl.querySelector('#stat-about-total-duration');
+        const statListenSecondsEl = panelEl.querySelector('#stat-about-listen-seconds');
+
+        const stats = await computeStats(); // core thuần, giữ nguyên (core/about-stats.js)
+        statTotalSongsEl.textContent = `${stats.totalSongs}`;
+        statTotalDurationEl.textContent = formatDurationLong(stats.totalDuration);
+        statListenSecondsEl.textContent = formatDurationLong(stats.totalListenSeconds);
+    },
 
     // ===================== appRecovery =====================
 

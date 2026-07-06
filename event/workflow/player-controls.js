@@ -32,4 +32,17 @@ const workflowPlayerControls = {
         const topLevelKeys = appState.get('playlistOrder');
         updateShuffleArrayFromQueue(activeQueueKeys, topLevelKeys, next); // core mới (order.js), Rule 2 nhận qua tham số
     },
+
+    /**
+     * Ứng với 'playerControls.settingsDrawer.close' (nút X, id="close-drawer") — THÊM ở Batch D1
+     * (Settings restructure, phản hồi Giang 06/07/2026): TRƯỚC ĐÂY chỉ 1 hàm core
+     * (closeSettingsDrawer()) nên router gọi thẳng, KHÔNG cần workflow. Từ Batch D1, cần thêm
+     * resetSettingsStackToMain() (core/settings-panel-stack.js) để ngăn xếp panel con LUÔN về Main
+     * trước khi khung ngoài ẩn — 2 hàm core nối tiếp, không phụ thuộc giá trị trả về của nhau ->
+     * đúng hình dạng Workflow (event-bus-flow.md mục 4B), không còn "gọi thẳng core" 1 bước nữa.
+     */
+    closeSettingsDrawerAndResetStack() {
+        resetSettingsStackToMain(t('settingsDrawer.title'));
+        closeSettingsDrawer();
+    },
 };
