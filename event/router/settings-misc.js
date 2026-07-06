@@ -4,7 +4,9 @@
  * Gộp 2 nhánh ĐIỀU HƯỚNG/CHỨC NĂNG nhỏ của Settings vào 1 router (không phải vì cùng nghiệp vụ, mà
  * vì mỗi nhánh quá nhỏ để xứng đáng 1 router/listener riêng — quyết định gom nhóm đã thống nhất,
  * xem plan.md):
- *   - `aboutDrawer`   — mở/đóng About Drawer + render thống kê.
+ *   - `aboutDrawer`   — MỞ panel About (push + render thống kê). Đóng KHÔNG còn ở đây (Batch D1,
+ *     06/07/2026) — dùng CHUNG `settingsStackNav.back.click` cho MỌI panel con Settings, xem
+ *     event/router,workflow/settings-stack-nav.js.
  *   - `appRecovery`   — Khởi động lại app / Khôi phục cài đặt mặc định.
  *
  * Ver 12 "Multi Media": nhánh `storageDrawer` (CON của aboutDrawer, "Quản lý dung lượng") đã DỜI
@@ -15,8 +17,9 @@
  *   - Nghiệp vụ CHỈ CẦN ĐÚNG 1 HÀM CORE -> router tự gọi thẳng, BỎ QUA workflow.
  *   - Cần >1 hàm core (hoặc modal/shield) -> router giao cho workflowSettingsMisc.
  *
- * NẠP SAU: event/bus.js, core/about-stats.js, core/app-recovery.js (cần các hàm core),
- * event/workflow/settings-misc.js (cần workflowSettingsMisc tồn tại).
+ * NẠP SAU: event/bus.js, core/about-stats.js, core/app-recovery.js, core/settings-panel-stack.js
+ * (cần pushSettingsPanel), components/about-drawer.js (cần renderAboutPanelBody), lang/lang.js
+ * (cần t()), event/workflow/settings-misc.js (cần workflowSettingsMisc tồn tại).
  * NẠP TRƯỚC: event/listener/settings-misc.js.
  */
 const routerSettingsMisc = (() => {
@@ -27,15 +30,13 @@ const routerSettingsMisc = (() => {
             // ===================== aboutDrawer =====================
 
             case 'settingsMisc.aboutDrawer.open': {
-                // CHỈ CẦN ĐÚNG 1 HÀM CORE (gộp mở drawer + render thống kê) -> gọi THẲNG.
-                openAboutDrawerAndRenderStats();
+                // Batch D1 — nay >1 hàm core (push panel + tính thống kê bất đồng bộ) -> workflow.
+                workflowSettingsMisc.openAbout();
                 break;
             }
 
-            case 'settingsMisc.aboutDrawer.close': {
-                closeAboutDrawer();
-                break;
-            }
+            // (aboutDrawer.close ĐÃ XOÁ — đóng About giờ dùng CHUNG 'settingsStackNav.back.click'
+            // cho MỌI panel, xem event/router,workflow/settings-stack-nav.js)
 
             // (storageDrawer đã dời sang cụm "fileManagerSong" — xem header comment ở trên)
 

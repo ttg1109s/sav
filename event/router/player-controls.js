@@ -64,7 +64,9 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.settingsDrawer.close': {
-                closeSettingsDrawer();
+                // Batch D1 (Settings restructure) — nay CẦN 2 hàm core (đóng khung + reset ngăn
+                // xếp panel con về Main), xem workflowPlayerControls.closeSettingsDrawerAndResetStack().
+                workflowPlayerControls.closeSettingsDrawerAndResetStack();
                 break;
             }
 
