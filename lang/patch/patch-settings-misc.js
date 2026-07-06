@@ -20,8 +20,11 @@ const LANG_PATCH_SETTINGS_MISC = {
     'settingsMisc.restoreDefaults.hint': 'Resets colors, effects, EQ, and other display customizations to defaults. Does NOT delete uploaded music/playlist.',
 
     'settingsDrawer.title': 'System Settings',
+    // Batch D1 (Settings restructure, 06/07/2026) — nút Back giờ DÙNG CHUNG cho mọi panel con
+    // (core/settings-panel-stack.js), thay 9 key `*.backToSettings.title` rời rạc trước đây bằng
+    // ĐÚNG 1 key ở đây. `aboutDrawer.backToSettings.title` XOÁ (không còn nơi nào dùng).
+    'settingsDrawer.back.title': 'Back to Settings',
 
-    'aboutDrawer.backToSettings.title': 'Back to Settings',
     'aboutDrawer.title': 'About the player',
     'aboutDrawer.statsSectionTitle': 'Statistics',
     'aboutDrawer.statTotalSongs': 'Total songs',
