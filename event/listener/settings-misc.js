@@ -22,12 +22,9 @@ if (btnOpenAbout) {
     });
 }
 
-if (btnBackAbout) {
-    btnBackAbout.addEventListener('click', () => {
-        // Back trong About chỉ ẩn About — KHÔNG động vào drawer-settings (vẫn mở nguyên bên dưới).
-        eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.aboutDrawer.close', payload: {} });
-    });
-}
+// (btnBackAbout ĐÃ XOÁ — Batch D1: About không còn header/nút Back riêng, `#drawer-about` cũ
+// không còn tồn tại. Back giờ dùng CHUNG `#btn-settings-stack-back`, xem
+// event/listener/settings-stack-nav.js — KHÔNG để lại `if (x)` rỗng cho biến đã xoá.)
 
 // ===================== storageDrawer — DỜI sang cụm "fileManagerSong" =====================
 // (event/listener/file-manager-song.js, ver 12 "Multi Media", plan-v12-multimedia.md mục 3).
