@@ -1,13 +1,16 @@
 /**
- * Tính & hiển thị thống kê trong About Drawer (mục 7 PLAN_INDEXEDDB.md).
+ * Tính thống kê cho panel About (mục 7 PLAN_INDEXEDDB.md).
  * computeStats() chỉ liệt kê store `songs` (qua getAllSongKeys/db.js), không lẫn key của
  * store `meta` (playlistOrder, bgImage, videoBg, totalListenSeconds) vì 2 store đã tách riêng.
  *
- * ÁP DỤNG /event/ (cụm "settingsNav"): `addEventListener` cũ của btnOpenAbout/btnBackAbout đã
- * CHUYỂN sang event/listener/settings-nav.js — xem event/router/settings-nav.js (gộp chung với
- * storageDrawer + appRecovery, vì cả 3 đều là ĐIỀU HƯỚNG Settings, không phải nghiệp vụ riêng).
- * DOM ref (drawerAbout, btnOpenAbout, btnBackAbout, stat*) đã dọn về core/dom-refs.js — file này
- * KHÔNG còn tự document.getElementById nào.
+ * Batch D1 (Settings restructure, 06/07/2026) — XOÁ `openAboutDrawerAndRenderStats()`/
+ * `closeAboutDrawer()` (thao tác `classList` trên `#drawer-about` tĩnh cũ, KHÔNG còn tồn tại —
+ * xem components/about-drawer.js/settings-drawer.js). Việc mở/render thống kê giờ ở
+ * event/workflow/settings-misc.js::openAbout() (push panel + tự querySelector bên trong để điền
+ * giá trị); việc đóng dùng CHUNG core/settings-panel-stack.js::popSettingsPanel() cho MỌI panel,
+ * không riêng About. 3 hàm THUẦN dưới đây (formatBytes/formatDurationLong/computeStats) GIỮ
+ * NGUYÊN — vẫn được dùng lại từ nơi gọi mới, và `formatBytes` còn dùng ở core/storage-manager.js +
+ * core/file-manager/document-ui.js (KHÔNG được xoá).
  */
         function formatBytes(bytes) {
             if (!bytes) return '0 MB';
@@ -37,19 +40,3 @@
             return { totalSongs, totalDuration, totalListenSeconds, totalBytes };
         }
 
-        /** Core thuần: mở About Drawer + render thống kê. Không biết gì về eventBus. */
-        async function openAboutDrawerAndRenderStats() {
-            drawerAbout.classList.remove('translate-y-full');
-            statAboutTotalSongs.textContent = '...'; statAboutTotalDuration.textContent = '...';
-            statAboutListenSeconds.textContent = '...';
-
-            const stats = await computeStats();
-            statAboutTotalSongs.textContent = `${stats.totalSongs}`;
-            statAboutTotalDuration.textContent = formatDurationLong(stats.totalDuration);
-            statAboutListenSeconds.textContent = formatDurationLong(stats.totalListenSeconds);
-        }
-
-        /** Core thuần: đóng About Drawer — Back ở đây chỉ ẩn About, KHÔNG động vào drawer-settings bên dưới. */
-        function closeAboutDrawer() {
-            drawerAbout.classList.add('translate-y-full');
-        }

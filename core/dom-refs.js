@@ -230,17 +230,26 @@
         // đều là STATE, xem service/state.js.
         // ==========================================
 
-        // ===================== About Drawer (Về trình phát) =====================
-        // FIX (kiến trúc /event/, cụm "settingsNav"): trước đây 3 biến này tự getElementById ngay
-        // trong about-stats.js — vi phạm quy ước CHUNG (dom-refs.js PHẢI là nơi DUY NHẤT gọi
-        // getElementById). Gom về đây, đúng style các khối khác. About là CHA của Storage trong
-        // cây điều hướng Settings -> About -> Storage (xem khối Storage ngay dưới).
-        const drawerAbout = document.getElementById('drawer-about');
+        // ===================== About (nay là 1 panel trong Settings Stack) =====================
+        // Batch D1 (Settings restructure, phản hồi Giang 06/07/2026) — `drawer-about`/`btn-back-
+        // about`/3 `stat-about-*` KHÔNG còn là DOM tĩnh nữa (About giờ là panel PUSH/POP động qua
+        // core/settings-panel-stack.js, xem components/settings-drawer.js + about-drawer.js MỚI) —
+        // BỎ HẲN 5 const cũ ở đây, vì lấy 1 lần lúc boot rồi sẽ tham chiếu tới DOM node đã bị
+        // `.remove()` sau lần đóng About đầu tiên. 3 `stat-about-*` giờ được `querySelector` bên
+        // TRONG panel vừa push, ngay tại nơi gọi (event/workflow/settings-misc.js::openAbout()) —
+        // đúng quy ước Generic Drawer: "component tĩnh + dom-refs, nội dung động thì Workflow tự
+        // querySelector sau khi gán". `btnOpenAbout` VẪN TĨNH (nút nằm trong Main, không bị xoá).
         const btnOpenAbout = document.getElementById('setting-open-about');
-        const btnBackAbout = document.getElementById('btn-back-about');
-        const statAboutTotalSongs = document.getElementById('stat-about-total-songs');
-        const statAboutTotalDuration = document.getElementById('stat-about-total-duration');
-        const statAboutListenSeconds = document.getElementById('stat-about-listen-seconds');
+
+        // ===================== Settings Stack (khung dùng CHUNG mọi panel con) =====================
+        // Batch D1 — SỬA GỐC thiết kế cũ (9 drawer con là sibling `fixed inset-0` riêng, phân biệt
+        // bằng z-index) sang 1 khung #drawer-settings DUY NHẤT + ngăn xếp panel bên trong (xem
+        // core/settings-panel-stack.js). `settingsStackBody` là điểm neo DUY NHẤT mà push/pop thao
+        // tác — panel con (About, Visualizer sau này...) không tự biết #drawer-settings tồn tại.
+        const settingsStackTitle = document.getElementById('settings-stack-title');
+        const btnSettingsStackBack = document.getElementById('btn-settings-stack-back');
+        const settingsStackBody = document.getElementById('settings-stack-body');
+        const settingsBg = document.getElementById('settings-bg'); // nền chung (mục "hợp nhất nền Playlist" phản hồi Giang) — chưa nối logic ở Batch D1, chỉ dựng sẵn element
 
         // ===================== Quản lý dung lượng (Storage Management) =====================
         // FIX (kiến trúc /event/): toàn bộ getElementById của cụm này TRƯỚC ĐÂY nằm rải rác ngay
