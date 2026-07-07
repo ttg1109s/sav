@@ -26,7 +26,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'subtitleModal.newLine.defaultText': 'New subtitle line...',
     'subtitleModal.autoTiming.defaultText': '(Enter text...)',
 
-    'subtitleSettingsDrawer.backToSettings.title': 'Back to Settings',
+    // Batch D2 (06/07/2026) — 'subtitleSettingsDrawer.backToSettings.title' XOÁ, dùng CHUNG
+    // 'settingsDrawer.back.title' (Batch D1, lang/patch/patch-settings-misc.js) cho mọi panel.
     'subtitleSettingsDrawer.title': 'Customize Subtitles',
     'subtitleSettingsDrawer.sectionTitle': 'Subtitle box & text',
     'subtitleSettingsDrawer.bgColor.label': 'Box background color',
@@ -42,7 +43,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
 
     // MỚI (Batch 8, 03/07/2026, slideshow nền Visual) — Slideshow Settings Drawer, xem
     // components/slideshow-settings-drawer.js.
-    'slideshowSettingsDrawer.backToSettings.title': 'Back to Settings',
+    // Batch D4 (06/07/2026) — 'slideshowSettingsDrawer.backToSettings.title' XOÁ, dùng CHUNG
+    // 'settingsDrawer.back.title' (Batch D1) cho mọi panel.
     'slideshowSettingsDrawer.title': 'Slideshow Background',
     // VIẾT LẠI (Batch 9, 04/07/2026, mục 4) — gộp 2 section cũ ("Album"/"Playback") thành 1; 2 nút
     // "Choose album"/"Turn off" thay bằng 1 toggle "enable" duy nhất + hàng "album đang chạy".
