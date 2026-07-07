@@ -172,7 +172,7 @@
         /**
          * Đồng bộ TOÀN BỘ UI Cài đặt theo vizConfig hiện tại (sau khi nạp/migrate xong) — ĐIỀU
          * PHỐI DUY NHẤT, gọi các hàm "init UI" của TỪNG MODULE CON qua guard `typeof === 'function'`
-         * (đúng pattern đã dùng với initAutoSwitchVisualUI() — xem core/visualizer/visualizer-misc-settings.js,
+         * (đúng pattern đã dùng với initAutoSwitchCycleButtonFromConfig() — xem core/auto-switch-visual.js,
          * core/subtitle/subtitle-style-settings.js, core/equalizer.js). KHÔNG tự đụng DOM ref của
          * module khác trực tiếp ở đây — mỗi module tự lo đồng bộ UI CỦA NÓ.
          */
@@ -269,6 +269,6 @@
             // style) — gọi qua guard vì thứ tự nạp các module này SAU config.js (xem index.html).
             if (typeof initEqualizerUIFromConfig === 'function') initEqualizerUIFromConfig();
             if (typeof initVisualizerMiscSettingsUIFromConfig === 'function') initVisualizerMiscSettingsUIFromConfig();
-            if (typeof initSubtitleStyleSettingsUIFromConfig === 'function') initSubtitleStyleSettingsUIFromConfig();
-            if (typeof initAutoSwitchVisualUI === 'function') initAutoSwitchVisualUI(); // đồng bộ toàn bộ UI auto-switch-visual (xem auto-switch-visual.js)
+            if (typeof initSubtitleToggleUIFromConfig === 'function') initSubtitleToggleUIFromConfig(); // ĐỔI TÊN Batch D2 (cũ: initSubtitleStyleSettingsUIFromConfig) — xem core/subtitle/subtitle-style-settings.js
+            if (typeof initAutoSwitchCycleButtonFromConfig === 'function') initAutoSwitchCycleButtonFromConfig(); // ĐỔI TÊN Batch D3 (cũ: initAutoSwitchVisualUI) — phần đồng bộ panel dời sang workflowVisualizerDisplay.openPanel()
         }

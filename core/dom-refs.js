@@ -67,11 +67,12 @@
         // navigation stack với About/Storage Drawer, mở chồng lên #drawer-settings.
         const drawerVisualizerSettings = document.getElementById('drawer-visualizer-settings');
         const btnOpenVisualizerSettings = document.getElementById('setting-open-visualizer-settings');
-        const btnBackVisualizerSettings = document.getElementById('btn-back-visualizer-settings');
+        // (btnBackVisualizerSettings ĐÃ XOÁ — Batch D3: Back dùng CHUNG btnSettingsStackBack.)
         const visualizerTypeSelect = document.getElementById('setting-visualizer-type');
-        const drawerSubtitleSettings = document.getElementById('drawer-subtitle-settings');
+        // (drawerSubtitleSettings/btnBackSubtitleSettings ĐÃ XOÁ — Batch D2: panel Subtitle giờ
+        // động (core/settings-panel-stack.js), không còn drawer tĩnh riêng; Back dùng CHUNG
+        // btnSettingsStackBack.) btnOpenSubtitleSettings GIỮ NGUYÊN — nút này vẫn tĩnh (Main).
         const btnOpenSubtitleSettings = document.getElementById('setting-open-subtitle-settings');
-        const btnBackSubtitleSettings = document.getElementById('btn-back-subtitle-settings');
         // Logo "SAV" góc trái Playlist (đối xứng với cụm icon góc phải).
         //
         // FIX (bug "bấm logo không ăn, có lúc bị zoom vào trang" — xem giải thích đầy đủ ở
@@ -90,31 +91,20 @@
         // "Tự động đổi hiệu ứng" (Settings, ver 10) — xem core/auto-switch-visual.js. FIX (kiến
         // trúc /event/, cụm "autoSwitchVisual"): 10 biến này TRƯỚC ĐÂY tự getElementById ngay
         // trong initAutoSwitchVisualUI() — vi phạm quy ước CHUNG. Gom về đây.
-        const elAutoSwitchEnable = document.getElementById('setting-auto-switch-enable');
-        const elAutoSwitchOptions = document.getElementById('auto-switch-options');
-        const elAutoSwitchMode = document.getElementById('setting-auto-switch-mode');
-        const elAutoSwitchTimeMode = document.getElementById('setting-auto-switch-time-mode');
-        const elAutoSwitchBlockFixed = document.getElementById('auto-switch-time-fixed-block');
-        const elAutoSwitchBlockRandom = document.getElementById('auto-switch-time-random-block');
-        const elAutoSwitchBlockDuration = document.getElementById('auto-switch-time-duration-block');
-        const elAutoSwitchSecondsFixed = document.getElementById('setting-auto-switch-seconds-fixed');
-        const elAutoSwitchSecondsRandom = document.getElementById('setting-auto-switch-seconds-random');
-        const elAutoSwitchSecondsDuration = document.getElementById('setting-auto-switch-seconds-duration');
-        const qualitySelect = document.getElementById('setting-quality'), bgColorPicker = document.getElementById('bg-color-picker');
+        // (10 const elAutoSwitch* ĐÃ XOÁ — Batch D3: section "Tự động đổi hiệu ứng" giờ sống động
+        // BÊN TRONG panel Visualizer Settings, không còn DOM tĩnh — event/listener/auto-switch-
+        // visual.js dùng delegation trên settingsStackBody thay vì đọc const ở đây.)
         const bgBlurSlider = document.getElementById('setting-bg-blur'), valBgBlurDisplay = document.getElementById('val-bg-blur');
         // MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer. FIX (04/07/2026, mục 1) — bỏ
         // ref nút "Chọn ảnh" riêng (đã xoá khỏi HTML, xem components/settings/playlist-background.js).
         const settingVisualBgImageEnableToggle = document.getElementById('setting-visual-bg-image-enable');
         const bgImageEnableToggle = document.getElementById('setting-bg-image-enable');
-        const colorModeSelect = document.getElementById('setting-color-mode'), solidColorContainer = document.getElementById('solid-color-container'), solidColorPicker = document.getElementById('solid-color-picker'), solidColorText = document.getElementById('solid-color-text');
-        const dynColorContainer = document.getElementById('dynamic-color-container'), dynColorA = document.getElementById('dyn-color-a'), dynColorB = document.getElementById('dyn-color-b');
-        const maxHeightSlider = document.getElementById('setting-max-height'), barWidthSlider = document.getElementById('setting-bar-width'), valMaxDisplay = document.getElementById('val-max'), valWidthDisplay = document.getElementById('val-width');
-        const blockMaxHeight = document.getElementById('block-max-height'), blockBarWidth = document.getElementById('block-bar-width');
-        const blockVortex = document.getElementById('block-vortex'), vortexStyleSelect = document.getElementById('setting-vortex-style');
-        const blockRain = document.getElementById('block-rain'), rainStyleSelect = document.getElementById('setting-rain-style'), glassFlashToggle = document.getElementById('setting-glass-flash');
-        const blockBarStyle = document.getElementById('block-bar-style'), barStyleSelect = document.getElementById('setting-bar-style');
-        const barMirrorOptions = document.getElementById('bar-mirror-options');
-        const mirrorCountSlider = document.getElementById('setting-mirror-count'), valMirrorCountDisplay = document.getElementById('val-mirror-count');
+        // (qualitySelect/bgColorPicker/colorModeSelect/solidColor*/dynColor*/maxHeightSlider/
+        // barWidthSlider/valMax.../blockMaxHeight/blockBarWidth/blockVortex/vortexStyleSelect/
+        // blockRain/rainStyleSelect/glassFlashToggle/blockBarStyle/barStyleSelect/barMirrorOptions/
+        // mirrorCountSlider/valMirrorCountDisplay ĐÃ XOÁ — Batch D3: toàn bộ panel Visualizer
+        // Settings giờ sống động BÊN TRONG ngăn xếp, không còn DOM tĩnh — event/listener/
+        // visualizer-display.js dùng delegation trên settingsStackBody thay vì đọc const ở đây.)
         
         const volumeSlider = document.getElementById('setting-volume'), valVolumeDisplay = document.getElementById('val-volume');
         const eqSelect = document.getElementById('setting-eq'), eqSlidersWrapper = document.getElementById('eq-sliders-wrapper');
@@ -179,14 +169,9 @@
         // Toggle "Hiện phụ đề" (ver 8 refine) — chuyển từ #btn-toggle-sub trong modal sub về đây,
         // lưu vào vizConfig.subtitlesEnabled (xem equalizer-settings.js).
         const settingSubtitlesEnabled = document.getElementById('setting-subtitles-enabled');
-        const settingSubBgColor = document.getElementById('setting-sub-bg-color'), settingSubBgOpacity = document.getElementById('setting-sub-bg-opacity'), valSubBgOpacity = document.getElementById('val-sub-bg-opacity');
-        const settingSubBorderColor = document.getElementById('setting-sub-border-color'), settingSubBorderOpacity = document.getElementById('setting-sub-border-opacity'), valSubBorderOpacity = document.getElementById('val-sub-border-opacity');
-        const settingSubBorderWidth = document.getElementById('setting-sub-border-width'), valSubBorderWidth = document.getElementById('val-sub-border-width');
-        const settingSubBorderRadius = document.getElementById('setting-sub-border-radius'), valSubBorderRadius = document.getElementById('val-sub-border-radius');
-        const settingSubTextColor = document.getElementById('setting-sub-text-color');
-        const settingSubFontSize = document.getElementById('setting-sub-font-size'), valSubFontSize = document.getElementById('val-sub-font-size');
-        const settingSubLineHeight = document.getElementById('setting-sub-line-height'), valSubLineHeight = document.getElementById('val-sub-line-height');
-        const settingSubLetterSpacing = document.getElementById('setting-sub-letter-spacing'), valSubLetterSpacing = document.getElementById('val-sub-letter-spacing');
+        // (8 const settingSub*/valSub* ĐÃ XOÁ — Batch D2: 8 input style Subtitle giờ sống động
+        // BÊN TRONG panel push/pop, không còn DOM tĩnh — event/listener/subtitle-style-
+        // settings.js dùng delegation trên settingsStackBody thay vì đọc const ở đây.)
 
         let source; // biến NỘI BỘ (không thuộc STATE) — chỉ dùng trong audio-engine.js
         // audioContext, analyser, analyserPitch, animationId, masterGainNode, eqBandNodes,

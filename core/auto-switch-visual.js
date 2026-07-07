@@ -42,6 +42,16 @@
  * (currentModeIndex, audioPlayer), service/task-manager.js (taskManager), core/equalizer-settings.js
  * (saveConfig), core/visualizer/visualizer-display.js (updateTypeUI — ver 11: hàm này đã dời từ
  * player-controls.js sang đây, xem comment đầu file đó) — xem index.html.
+ *
+ * === Batch D3 (Settings restructure, 06/07/2026) ===
+ * Panel Visualizer Settings (chứa cả section "Tự động đổi hiệu ứng") giờ PUSH/POP động — 4 hàm
+ * `set*`/`syncAutoSwitchTimeModeBlocks()` REFACTOR ĐẦY ĐỦ Rule 1-4 theo CHỐT của Giang (Batch D2):
+ * bỏ hẳn `saveConfig()`/`updateCycleModeButtonState()`/`startAutoSwitchVisualBranch()` nội bộ, dời
+ * ra `event/workflow/auto-switch-visual.js`. `initAutoSwitchVisualUI()` cũ TÁCH LÀM 2: phần Control
+ * Center (`#btn-cycle-mode`, KHÔNG di chuyển) đổi tên `initAutoSwitchCycleButtonFromConfig()`, vẫn
+ * gọi từ loadConfig(); phần đồng bộ panel (7 field) dời sang
+ * `workflowVisualizerDisplay.openPanel()` (core/visualizer/visualizer-display.js đảm nhiệm push
+ * panel, sync CẢ 2 section trong CÙNG 1 panel — xem file đó).
  */
         const AUTO_SWITCH_VISUAL_TASK_TIMER = 'autoSwitchVisualTimer';   // nhánh 1 (fixed/random) — đồng hồ độc lập
         const AUTO_SWITCH_VISUAL_TASK_MARKS = 'autoSwitchVisualMarks';  // nhánh 2 (duration) — tick theo mốc bài hát
@@ -310,74 +320,64 @@
         }
 
         /**
-         * Hiện ĐÚNG 1 trong 3 khối input theo elAutoSwitchTimeMode.value, ẩn 2 khối còn lại. Tách
-         * thành hàm core riêng (KHÔNG còn closure cục bộ trong initAutoSwitchVisualUI()) để router
-         * gọi lại được mỗi khi xử lý msg.type đổi timeMode (xem event/router/auto-switch-visual.js).
+         * Hiện ĐÚNG 1 trong 3 khối input theo `timeModeValue`, ẩn 2 khối còn lại.
+         *
+         * Batch D3 (Settings restructure, 06/07/2026) — panel Visualizer Settings giờ PUSH/POP
+         * động (core/settings-panel-stack.js), 3 khối `elAutoSwitchBlockFixed/Random/Duration` KHÔNG
+         * còn là dom-refs tĩnh hợp lệ (đã xoá khỏi core/dom-refs.js) — hàm giờ nhận CẢ 4 tham số
+         * (giá trị + 3 khối) từ nơi gọi, nơi gọi tự tìm phần tử BÊN TRONG panel đang mở (delegation,
+         * xem event/listener/auto-switch-visual.js) thay vì dựa vào biến toàn cục.
+         * @param {string} timeModeValue @param {HTMLElement} blockFixedEl @param {HTMLElement} blockRandomEl @param {HTMLElement} blockDurationEl
          */
-        function syncAutoSwitchTimeModeBlocks() {
-            if (!elAutoSwitchTimeMode) return;
-            const tm = elAutoSwitchTimeMode.value;
-            elAutoSwitchBlockFixed.classList.toggle('hidden', tm !== 'fixed');
-            elAutoSwitchBlockRandom.classList.toggle('hidden', tm !== 'random');
-            elAutoSwitchBlockDuration.classList.toggle('hidden', tm !== 'duration');
+        function syncAutoSwitchTimeModeBlocks(timeModeValue, blockFixedEl, blockRandomEl, blockDurationEl) {
+            if (!blockFixedEl) return;
+            blockFixedEl.classList.toggle('hidden', timeModeValue !== 'fixed');
+            blockRandomEl.classList.toggle('hidden', timeModeValue !== 'random');
+            blockDurationEl.classList.toggle('hidden', timeModeValue !== 'duration');
         }
 
         /**
-         * Đồng bộ TOÀN BỘ UI auto-switch-visual theo vizConfig hiện tại — KHÔNG còn tự gắn
-         * listener ở đây (đã CHUYỂN sang event/listener/auto-switch-visual.js, kiến trúc /event/)
-         * — gọi lại MỖI LẦN loadConfig() chạy để đồng bộ giá trị hiển thị đúng theo config mới nạp.
+         * Đồng bộ boot-time PHẦN KHÔNG PHỤ THUỘC PANEL — nút cycle Control Center (#btn-cycle-mode)
+         * theo `autoSwitchVisualEnabled` đã lưu. Batch D3 — ĐỔI TÊN từ `initAutoSwitchVisualUI()`
+         * (hàm cũ gộp cả phần Control Center lẫn phần đồng bộ panel; phần panel giờ tách sang
+         * `workflowVisualizerDisplay.openPanel()` vì panel không còn tồn tại lúc boot — gọi hàm cũ
+         * lúc boot sẽ luôn no-op do guard `if (!elAutoSwitchEnable...) return` ở đầu, khiến
+         * `updateCycleModeButtonState()` KHÔNG BAO GIỜ chạy được lúc boot nữa nếu để nguyên trong
+         * cùng 1 hàm — tách riêng để phần Control Center luôn chạy đúng bất kể panel đóng/mở).
+         * Gọi từ loadConfig() (core/config.js) qua guard `typeof === 'function'`.
          */
-        function initAutoSwitchVisualUI() {
-            if (!elAutoSwitchEnable || !elAutoSwitchOptions || !elAutoSwitchMode || !elAutoSwitchTimeMode) return; // DOM chưa sẵn sàng — an toàn bỏ qua
-
-            const cfg = appState.get('vizConfig');
-            elAutoSwitchEnable.checked = cfg.autoSwitchVisualEnabled === true;
-            elAutoSwitchOptions.classList.toggle('hidden', !elAutoSwitchEnable.checked);
-            elAutoSwitchMode.value = cfg.autoSwitchVisualMode;
-            elAutoSwitchTimeMode.value = cfg.autoSwitchVisualTimeMode;
-            // 3 field RIÊNG cho từng mode (xem config.js) — mỗi input đọc/ghi ĐÚNG field của
-            // riêng nó, KHÔNG dùng chung 1 field nữa (bug đã sửa: dùng chung sẽ ghi đè mất giá trị
-            // của mode khác mỗi khi đổi qua đổi lại giữa các mode).
-            if (elAutoSwitchSecondsFixed) elAutoSwitchSecondsFixed.value = cfg.autoSwitchVisualSecondsFixed;
-            if (elAutoSwitchSecondsRandom) elAutoSwitchSecondsRandom.value = cfg.autoSwitchVisualSecondsRandom;
-            if (elAutoSwitchSecondsDuration) elAutoSwitchSecondsDuration.value = cfg.autoSwitchVisualSecondsDuration;
-            syncAutoSwitchTimeModeBlocks();
-            updateCycleModeButtonState(); // đồng bộ khoá/mở #btn-cycle-mode ngay từ lúc loadConfig()
+        function initAutoSwitchCycleButtonFromConfig() {
+            updateCycleModeButtonState();
         }
 
-        /** Core thuần: ứng với toggle bật/tắt "Tự động đổi hiệu ứng". */
-        function setAutoSwitchVisualEnabled(checked) {
+        /** Core thuần: ứng với toggle bật/tắt "Tự động đổi hiệu ứng". Batch D3 — nhận `optionsEl`
+         * qua tham số (panel động, xem docstring syncAutoSwitchTimeModeBlocks ở trên); BỎ
+         * `saveConfig()`/`updateCycleModeButtonState()`/`startAutoSwitchVisualBranch()` nội bộ —
+         * dời ra `workflowVisualizerDisplay.setAutoSwitchEnabled()` (Rule 3).
+         * @param {boolean} checked @param {HTMLElement} [optionsEl] */
+        function setAutoSwitchVisualEnabled(checked, optionsEl) {
             appState.mutate('vizConfig', cfg => { cfg.autoSwitchVisualEnabled = checked; });
-            elAutoSwitchOptions.classList.toggle('hidden', !checked);
-            saveConfig();
-            updateCycleModeButtonState(); // khoá/mở #btn-cycle-mode NGAY khi người dùng bật/tắt
-            startAutoSwitchVisualBranch(); // bật -> khởi động đúng nhánh; tắt -> hàm tự kill hết vì shouldRun=false
+            if (optionsEl) optionsEl.classList.toggle('hidden', !checked);
         }
 
-        /** Core thuần: ứng với select "Cách chọn kiểu kế tiếp" (sequential/random). */
+        /** Core thuần: ứng với select "Cách chọn kiểu kế tiếp" (sequential/random). Batch D3 — BỎ `saveConfig()`. */
         function setAutoSwitchVisualMode(value) {
             appState.mutate('vizConfig', cfg => { cfg.autoSwitchVisualMode = value; });
-            saveConfig();
-            // KHÔNG cần khởi động lại gì — đổi cách CHỌN MỚI chỉ ảnh hưởng lần CHỌN MỚI kế tiếp
-            // (cả 2 nhánh đều gọi pickNextAutoSwitchVisualType() đúng lúc cần).
         }
 
-        /** Core thuần: ứng với select "Cách tính thời gian" (fixed/random/duration). */
+        /** Core thuần: ứng với select "Cách tính thời gian" (fixed/random/duration). Batch D3 — BỎ
+         * `syncAutoSwitchTimeModeBlocks()`/`saveConfig()`/`startAutoSwitchVisualBranch()` nội bộ. */
         function setAutoSwitchVisualTimeMode(value) {
             appState.mutate('vizConfig', cfg => { cfg.autoSwitchVisualTimeMode = value; });
-            syncAutoSwitchTimeModeBlocks();
-            saveConfig();
-            startAutoSwitchVisualBranch(); // đổi NHÁNH hẳn -> kill nhánh cũ, khởi động nhánh mới từ đầu
         }
 
-        /** Core thuần: ứng với 1 trong 3 input số giây (fieldName tương ứng đúng field vizConfig). */
+        /** Core thuần: ứng với 1 trong 3 input số giây (fieldName tương ứng đúng field vizConfig).
+         * Batch D3 — BỎ `saveConfig()`/`startAutoSwitchVisualBranch()` nội bộ. */
         function setAutoSwitchVisualSecondsField(fieldName, rawValue, inputEl) {
             let v = parseInt(rawValue, 10);
             if (!Number.isFinite(v) || v < AUTO_SWITCH_VISUAL_MIN_SECONDS) v = AUTO_SWITCH_VISUAL_MIN_SECONDS;
             if (inputEl) inputEl.value = v;
             appState.mutate('vizConfig', cfg => { cfg[fieldName] = v; });
-            saveConfig();
-            startAutoSwitchVisualBranch(); // đổi X giây -> áp dụng lại từ đầu cho nhánh đang chạy
         }
 
         // ===================== Liên kết với trạng thái phát nhạc =====================
