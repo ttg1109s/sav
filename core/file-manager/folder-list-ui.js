@@ -3,7 +3,12 @@
  * "Multi Media", plan-v12-multimedia.md mục 4.b1). Hàm THUẦN (không I/O, không appState) — nhận
  * mảng folder đã đọc sẵn qua tham số (Rule 2), nơi gọi (workflow) tự listFolders() rồi truyền vào.
  *
- * NẠP SAU: core/dom-refs.js (fileManagerFolderList/fileManagerFolderEmpty), lang/lang.js (t()).
+ * Batch D5 (Settings restructure, 06/07/2026) — panel Song giờ push/pop động (core/settings-
+ * panel-stack.js), `fileManagerFolderList`/`fileManagerFolderEmpty` KHÔNG còn dom-refs tĩnh hợp lệ
+ * (đã xoá khỏi core/dom-refs.js) — hàm giờ nhận CẢ 2 phần tử qua tham số, nơi gọi
+ * (event/workflow/file-manager-song.js) tự tìm bên trong panel đang mở.
+ *
+ * NẠP SAU: lang/lang.js (t()).
  */
 
 /**
@@ -12,12 +17,13 @@
  *        activePlayListFolder (nếu có) — đánh dấu riêng để người dùng biết đang scope theo folder
  *        nào, tránh quên/nhầm sau khi F5 (scope giờ lưu bền qua meta, không còn "hiển nhiên thấy
  *        ngay" như trước).
+ * @param {HTMLElement} listEl @param {HTMLElement} [emptyEl]
  */
-function renderFolderListUI(folders, activeFolderId) {
-    if (!fileManagerFolderList) return; // guard: DOM chưa sẵn sàng (hiếm, race lúc mount)
+function renderFolderListUI(folders, activeFolderId, listEl, emptyEl) {
+    if (!listEl) return; // guard: panel đang đóng/DOM chưa sẵn sàng
 
-    fileManagerFolderList.innerHTML = '';
-    if (fileManagerFolderEmpty) fileManagerFolderEmpty.classList.toggle('hidden', folders.length > 0);
+    listEl.innerHTML = '';
+    if (emptyEl) emptyEl.classList.toggle('hidden', folders.length > 0);
 
     folders.forEach((folder) => {
         const isActive = folder.id === activeFolderId;
@@ -58,6 +64,6 @@ function renderFolderListUI(folders, activeFolderId) {
         chevronEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>';
         row.appendChild(chevronEl);
 
-        fileManagerFolderList.appendChild(row);
+        listEl.appendChild(row);
     });
 }

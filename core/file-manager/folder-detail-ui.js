@@ -4,8 +4,11 @@
  * (không I/O, không appState), nhận dữ liệu đã đọc sẵn qua tham số (Rule 2), nơi gọi (workflow)
  * tự đọc IndexedDB/playlistCache rồi truyền vào.
  *
- * NẠP SAU: core/dom-refs.js (fileManagerFolderDetailSongList/fileManagerFolderDetailEmpty/
- * fileManagerFolderDetailTitle), lang/lang.js (t()).
+ * Batch D5 (Settings restructure, 06/07/2026) — panel Folder Detail giờ push/pop động (core/
+ * settings-panel-stack.js), 3 dom-refs tĩnh cũ (fileManagerFolderDetailSongList/Empty/Title) ĐÃ
+ * XOÁ khỏi core/dom-refs.js — 2 hàm dưới đây giờ nhận phần tử qua tham số.
+ *
+ * NẠP SAU: lang/lang.js (t()).
  */
 
 /**
@@ -33,12 +36,13 @@ function getFolderSongsForDisplay(folderMap, playlistCache) {
 
 /**
  * @param {Array<{key: string, title: string, artist: string}>} songs
+ * @param {HTMLElement} listEl @param {HTMLElement} [emptyEl]
  */
-function renderFolderDetailSongList(songs) {
-    if (!fileManagerFolderDetailSongList) return; // guard: DOM chưa sẵn sàng
+function renderFolderDetailSongList(songs, listEl, emptyEl) {
+    if (!listEl) return; // guard: panel đang đóng
 
-    fileManagerFolderDetailSongList.innerHTML = '';
-    if (fileManagerFolderDetailEmpty) fileManagerFolderDetailEmpty.classList.toggle('hidden', songs.length > 0);
+    listEl.innerHTML = '';
+    if (emptyEl) emptyEl.classList.toggle('hidden', songs.length > 0);
 
     songs.forEach((song) => {
         const row = document.createElement('div');
@@ -64,15 +68,15 @@ function renderFolderDetailSongList(songs) {
         removeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
         row.appendChild(removeBtn);
 
-        fileManagerFolderDetailSongList.appendChild(row);
+        listEl.appendChild(row);
     });
 }
 
 /**
  * Đặt tiêu đề drawer = tên folder đang xem. Hàm THUẦN, DOM-patch 1 dòng — không cần tách core
  * riêng theo Rule 1 (đây không phải "tiến trình nghiệp vụ", chỉ là 1 dòng patch UI đơn lẻ).
- * @param {string} name
+ * @param {string} name @param {HTMLElement} [titleEl]
  */
-function setFolderDetailTitle(name) {
-    if (fileManagerFolderDetailTitle) fileManagerFolderDetailTitle.textContent = name;
+function setFolderDetailTitle(name, titleEl) {
+    if (titleEl) titleEl.textContent = name;
 }
