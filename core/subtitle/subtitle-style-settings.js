@@ -7,13 +7,28 @@
  * (đã thống nhất, khác `core/subtitle/subtitles.js` — nội dung/sửa từng dòng sub, và
  * `core/subtitle/subtitle-display.js` — hiển thị realtime).
  *
- * ÁP DỤNG /event/ (cụm "subtitleStyleSettings"): `addEventListener` cũ đã CHUYỂN sang
- * event/listener/subtitle-style-settings.js. KHÔNG cần workflow — mỗi msg.type chỉ cần đúng 1
- * hàm core, không có shield/modal nào trong cụm này.
+ * === Batch D2 (Settings restructure, phản hồi Giang 06/07/2026) — REFACTOR ĐẦY ĐỦ Rule 1-4 ===
+ * TRƯỚC ĐÂY 8 hàm set*Style* tự gọi `applySubtitleStyle()`/`saveConfig()` bên trong (core gọi
+ * core, vi phạm Rule 3) VÀ tự ghi `valSubXxx.textContent` qua dom-refs TĨNH — panel Subtitle giờ
+ * bị tạo/xoá động (core/settings-panel-stack.js) nên dom-refs tĩnh không còn hợp lệ (sẽ trỏ vào
+ * DOM node đã bị `.remove()`, ghi vào đó không lỗi nhưng KHÔNG hiển thị gì — bug âm thầm).
+ * Giang CHỐT (06/07/2026): refactor ĐẦY ĐỦ, áp dụng CHUNG cho MỌI panel còn lại có hình dạng này
+ * (không hỏi lại từng batch) — xem plan-v12-batch-list.md.
  *
- * PHẢI nạp SAU: core/config.js (vizConfig/saveConfig), core/dom-refs.js (settingSubtitlesEnabled +
- * 8 settingSub*), core/subtitle/subtitle-display.js (applySubtitleStyle/updateSubToggleUI/
- * clearAllActiveSubBlocks).
+ * SỬA: 8 hàm giờ CHỈ làm ĐÚNG 1 việc (ghi state + đồng bộ DOM CỦA CHÍNH NÓ nếu có, nhận `displayEl`
+ * qua tham số thay vì dom-refs tĩnh) — KHÔNG còn tự gọi `applySubtitleStyle()`/`saveConfig()`.
+ * 2 lệnh gọi core đó giờ do event/workflow/subtitle-style-settings.js đảm nhiệm (Workflow gọi CẢ
+ * BA hàm core theo thứ tự, xem file đó) — đúng Rule 3 (core KHÔNG được gọi core khác).
+ * `initSubtitleStyleSettingsUIFromConfig()` (đồng bộ UI lúc mở) ĐÃ XOÁ — logic này giờ nằm ở
+ * `workflowSubtitleStyleSettings.openPanel()` (Workflow tự đọc `appState.get('vizConfig')` rồi
+ * `querySelector` bên TRONG panel vừa push để điền giá trị, không còn dom-refs tĩnh nào để gọi).
+ *
+ * `setSubtitlesEnabled()` GIỮ NGUYÊN KHÔNG ĐỔI — checkbox của nó sống ở Main (tĩnh, không di
+ * chuyển), không gặp vấn đề dom-refs nói trên nên KHÔNG thuộc phạm vi refactor batch này.
+ *
+ * PHẢI nạp SAU: core/config.js (vizConfig/saveConfig), core/subtitle/subtitle-display.js
+ * (applySubtitleStyle/updateSubToggleUI/clearAllActiveSubBlocks). KHÔNG còn cần core/dom-refs.js
+ * cho 8 hàm set*Style* (nhận displayEl qua tham số) — vẫn cần cho settingSubtitlesEnabled.
  */
         /** Core thuần: ứng với toggle "Hiện phụ đề". */
         function setSubtitlesEnabled(checked) {
@@ -27,96 +42,86 @@
         /** Core thuần: ứng với input màu nền phụ đề. */
         function setSubtitleStyleBgColor(value) {
             appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.bgColor = value; });
-            applySubtitleStyle(); saveConfig();
         }
 
-        /** Core thuần: ứng với input độ mờ nền (0-100, lưu dạng 0-1). */
-        function setSubtitleStyleBgOpacity(rawValue) {
+        /**
+         * Core thuần: ứng với input độ mờ nền (0-100, lưu dạng 0-1).
+         * @param {string} rawValue
+         * @param {HTMLElement} [displayEl] - span hiển thị "%", nơi gọi (Workflow) tự
+         *        `querySelector` bên trong panel đang mở rồi truyền vào — KHÔNG dùng dom-refs tĩnh
+         *        (panel bị xoá/tạo lại mỗi lần đóng/mở, xem docstring đầu file).
+         */
+        function setSubtitleStyleBgOpacity(rawValue, displayEl) {
             const v = parseInt(rawValue);
             appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.bgOpacity = v / 100; });
-            valSubBgOpacity.textContent = v + '%';
-            applySubtitleStyle(); saveConfig();
+            if (displayEl) displayEl.textContent = v + '%';
         }
 
         /** Core thuần: ứng với input màu viền. */
         function setSubtitleStyleBorderColor(value) {
             appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.borderColor = value; });
-            applySubtitleStyle(); saveConfig();
         }
 
-        /** Core thuần: ứng với input độ mờ viền (0-100, lưu dạng 0-1). */
-        function setSubtitleStyleBorderOpacity(rawValue) {
+        /** Core thuần: ứng với input độ mờ viền (0-100, lưu dạng 0-1). @param {HTMLElement} [displayEl] */
+        function setSubtitleStyleBorderOpacity(rawValue, displayEl) {
             const v = parseInt(rawValue);
             appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.borderOpacity = v / 100; });
-            valSubBorderOpacity.textContent = v + '%';
-            applySubtitleStyle(); saveConfig();
+            if (displayEl) displayEl.textContent = v + '%';
         }
 
-        /** Core thuần: ứng với input độ rộng viền (px). */
-        function setSubtitleStyleBorderWidth(rawValue) {
+        /** Core thuần: ứng với input độ rộng viền (px). @param {HTMLElement} [displayEl] */
+        function setSubtitleStyleBorderWidth(rawValue, displayEl) {
             const v = parseInt(rawValue);
             appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.borderWidth = v; });
-            valSubBorderWidth.textContent = v;
-            applySubtitleStyle(); saveConfig();
+            if (displayEl) displayEl.textContent = v;
         }
 
-        /** Core thuần: ứng với input bo góc viền (px). */
-        function setSubtitleStyleBorderRadius(rawValue) {
+        /** Core thuần: ứng với input bo góc viền (px). @param {HTMLElement} [displayEl] */
+        function setSubtitleStyleBorderRadius(rawValue, displayEl) {
             const v = parseInt(rawValue);
             appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.borderRadius = v; });
-            valSubBorderRadius.textContent = v;
-            applySubtitleStyle(); saveConfig();
+            if (displayEl) displayEl.textContent = v;
         }
 
         /** Core thuần: ứng với input màu chữ. */
         function setSubtitleStyleTextColor(value) {
             appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.textColor = value; });
-            applySubtitleStyle(); saveConfig();
         }
 
-        /** Core thuần: ứng với input cỡ chữ (px). */
-        function setSubtitleStyleFontSize(rawValue) {
+        /** Core thuần: ứng với input cỡ chữ (px). @param {HTMLElement} [displayEl] */
+        function setSubtitleStyleFontSize(rawValue, displayEl) {
             const v = parseInt(rawValue);
             appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.fontSize = v; });
-            valSubFontSize.textContent = v;
-            applySubtitleStyle(); saveConfig();
+            if (displayEl) displayEl.textContent = v;
         }
 
-        /** Core thuần: ứng với input khoảng cách dòng (line-height). */
-        function setSubtitleStyleLineHeight(rawValue) {
+        /** Core thuần: ứng với input khoảng cách dòng (line-height). @param {HTMLElement} [displayEl] */
+        function setSubtitleStyleLineHeight(rawValue, displayEl) {
             const v = parseFloat(rawValue);
             appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.lineHeight = v; });
-            valSubLineHeight.textContent = v;
-            applySubtitleStyle(); saveConfig();
+            if (displayEl) displayEl.textContent = v;
         }
 
-        /** Core thuần: ứng với input khoảng cách chữ (letter-spacing). */
-        function setSubtitleStyleLetterSpacing(rawValue) {
+        /** Core thuần: ứng với input khoảng cách chữ (letter-spacing). @param {HTMLElement} [displayEl] */
+        function setSubtitleStyleLetterSpacing(rawValue, displayEl) {
             const v = parseFloat(rawValue);
             appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.letterSpacing = v; });
-            valSubLetterSpacing.textContent = v;
-            applySubtitleStyle(); saveConfig();
+            if (displayEl) displayEl.textContent = v;
         }
 
         /**
-         * Đồng bộ TOÀN BỘ UI Subtitle Style theo vizConfig hiện tại — gọi từ loadConfig()
-         * (core/config.js) qua guard `typeof === 'function'`. Giữ ĐÚNG thứ tự gọi như loadConfig()
-         * cũ.
+         * Đồng bộ UI Subtitle ở MAIN list lúc boot — CHỈ phần TĨNH không di chuyển (checkbox
+         * "Hiện phụ đề" + badge `#sub-toggle-badge` ở Visualizer overlay), gọi từ loadConfig()
+         * (core/config.js) qua guard `typeof === 'function'`, ĐỔI TÊN từ
+         * `initSubtitleStyleSettingsUIFromConfig()` (Batch D2 — hàm cũ gộp cả phần Main lẫn phần
+         * panel 8 slider; phần panel giờ tách sang `workflowSubtitleStyleSettings.openPanel()`,
+         * xem docstring đầu file. `updateSubToggleUI()`/`applySubtitleStyle()` gọi thẳng ở đây vẫn
+         * GIỮ NGUYÊN — hàm này chạy lúc BOOT (không phải trong panel push/pop), không thuộc phạm
+         * vi refactor Rule 0.5 batch này).
          */
-        function initSubtitleStyleSettingsUIFromConfig() {
-            const ss = appState.get('vizConfig').subtitleStyle;
-            // Đồng bộ biến runtime + checkbox UI từ config đã lưu (ver 8 refine) — updateSubToggleUI()
-            // cập nhật luôn badge xanh #sub-toggle-badge ở overlay theo giá trị vừa nạp.
+        function initSubtitleToggleUIFromConfig() {
             appState.set('isSubtitlesEnabled', appState.get('vizConfig').subtitlesEnabled !== false);
             if (typeof settingSubtitlesEnabled !== 'undefined' && settingSubtitlesEnabled) settingSubtitlesEnabled.checked = appState.get('isSubtitlesEnabled');
             updateSubToggleUI();
-            settingSubBgColor.value = ss.bgColor; settingSubBgOpacity.value = Math.round(ss.bgOpacity * 100); valSubBgOpacity.textContent = Math.round(ss.bgOpacity * 100) + '%';
-            settingSubBorderColor.value = ss.borderColor; settingSubBorderOpacity.value = Math.round(ss.borderOpacity * 100); valSubBorderOpacity.textContent = Math.round(ss.borderOpacity * 100) + '%';
-            settingSubBorderWidth.value = ss.borderWidth; valSubBorderWidth.textContent = ss.borderWidth;
-            settingSubBorderRadius.value = ss.borderRadius; valSubBorderRadius.textContent = ss.borderRadius;
-            settingSubTextColor.value = ss.textColor;
-            settingSubFontSize.value = ss.fontSize; valSubFontSize.textContent = ss.fontSize;
-            settingSubLineHeight.value = ss.lineHeight; valSubLineHeight.textContent = ss.lineHeight;
-            settingSubLetterSpacing.value = ss.letterSpacing; valSubLetterSpacing.textContent = ss.letterSpacing;
             applySubtitleStyle();
         }
