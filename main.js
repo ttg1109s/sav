@@ -51,8 +51,12 @@
         TPL_SUBTITLE_MODAL +
         TPL_BOTTOM_PLAYER +
         TPL_SETTINGS_DRAWER +
-        TPL_FILE_MANAGER_SONG_DRAWER +
-        TPL_FILE_MANAGER_FOLDER_DETAIL_DRAWER +
+        // Batch D5 (Settings restructure, 06/07/2026) — TPL_FILE_MANAGER_SONG_DRAWER/
+        // _FOLDER_DETAIL_DRAWER ĐÃ BỎ khỏi mount tĩnh: nội dung giờ là 2 HÀM
+        // (components/file-manager.js::renderFileManagerSongPanelBody()/
+        // renderFileManagerFolderDetailPanelBody()), PUSH ĐỘNG vào ngăn xếp (2 cấp) — xem
+        // event/workflow/file-manager-song.js::openPanel()/openFolderDetail(). Photo/Document
+        // CHƯA đổi (dự kiến D6/D7), vẫn mount tĩnh như cũ.
         TPL_FILE_MANAGER_PHOTO_DRAWER +
         TPL_FILE_MANAGER_DOCUMENT_DRAWER +
         // Batch D4 (Settings restructure, 06/07/2026) — TPL_SLIDESHOW_SETTINGS_DRAWER ĐÃ BỎ khỏi

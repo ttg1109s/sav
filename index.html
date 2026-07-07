@@ -145,7 +145,7 @@
     <script src="lang/patch/patch-settings-misc.js?v=20260706v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260704v5"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260706v1"></script>
     <script src="lang/lang.js?v=20260702v1"></script>
 
     <!-- =====================================================================
@@ -165,7 +165,7 @@
          "File Manager", 3 hàng Song/Photo & Album/Documents) — xem
          plan-v12-multimedia-decisions.md mục 1a/7. -->
     <script src="components/settings/playlist-background.js?v=20260703v2"></script>
-    <script src="components/settings/file-manager-section.js?v=20260704v1"></script>
+    <script src="components/settings/file-manager-section.js?v=20260706v1"></script>
     <script src="components/settings/visualizer-geometry-color.js?v=20260706v1"></script>
     <script src="components/settings/audio-eq.js?v=20260626v1"></script>
     <script src="components/settings/subtitle-style.js?v=20260626v1"></script>
@@ -178,7 +178,7 @@
          3 drawer con (Song/Photo & Album/Documents) mở thẳng từ section "File Manager" vừa thêm
          ở settings/file-manager-section.js, cùng cấp nav-stack với About/Visualizer Settings
          Drawer bên dưới. THAY components/storage-drawer.js (About -> Storage cũ, không còn mount). -->
-    <script src="components/file-manager.js?v=20260704v2"></script>
+    <script src="components/file-manager.js?v=20260706v1"></script>
     <!-- MỚI (04/07/2026, tính năng Documents) — cửa sổ đọc tài liệu, mở từ Control Center. -->
     <script src="components/document-reader.js?v=20260704v2"></script>
     <!-- MỚI (04/07/2026, mục 3 phản hồi Giang) — drawer chọn tài liệu (trắng, trượt từ dưới lên). -->
@@ -236,7 +236,7 @@
          LẠI của /event/ (bus/workflow/router/listener vẫn nạp cuối cùng tuyệt đối như cũ, xem
          khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260706v4"></script>
+    <script src="core/dom-refs.js?v=20260706v5"></script>
     <!-- Batch D1 (Settings restructure, 06/07/2026) — ngăn xếp panel Settings (core UI thuần,
          push/pop/reset). CẦN core/dom-refs.js (settingsStackTitle/btnSettingsStackBack/
          settingsStackBody/closeDrawer, đã nạp ngay trên) — KHÔNG cần t()/taskManager (nhận title
@@ -262,11 +262,11 @@
     <script src="core/file-manager/folder-picker-ui.js?v=20260702v1"></script>
     <!-- Ver 12 "Multi Media" — khung điều hướng File Manager + vẽ danh sách folder trong tab Song.
          CẦN core/dom-refs.js (đã nạp ngay trên, xem đầu nhóm CORE này). -->
-    <script src="core/file-manager/nav.js?v=20260703v2"></script>
-    <script src="core/file-manager/folder-list-ui.js?v=20260703v3"></script>
+    <script src="core/file-manager/nav.js?v=20260706v1"></script>
+    <script src="core/file-manager/folder-list-ui.js?v=20260706v1"></script>
     <!-- Phase 2 (mục 1b/c, CHỐT 03/07/2026) — Folder Detail Drawer. CẦN core/file-manager/folder.js
          (getFolderSongKeys) + core/dom-refs.js (đã nạp ngay trên). -->
-    <script src="core/file-manager/folder-detail-ui.js?v=20260703v1"></script>
+    <script src="core/file-manager/folder-detail-ui.js?v=20260706v1"></script>
     <!-- Batch 3 (03/07/2026) — Ảnh & Album. image.js/album.js độc lập với folder.js (không dùng
          chung hàm nào ngoài slugify()/getMeta()/setMeta() ở core/db.js) — thứ tự giữa 2 file này
          với nhau không quan trọng, chỉ cần SAU core/db.js. photo-ui.js CẦN dom-refs.js (đã nạp ở
@@ -365,7 +365,7 @@
          modalChoice() hỏi xác nhận trước khi xóa). Xem comment đầu file lang/language-settings.js. -->
     <script src="lang/language-settings.js?v=20260627v1"></script>
     <script src="core/id3-export.js?v=20260625v8e"></script>
-    <script src="core/storage-manager.js?v=20260625v10"></script>
+    <script src="core/storage-manager.js?v=20260706v1"></script>
 
     <!-- =====================================================================
          4) VISUALIZERS: hàm vẽ canvas dùng chung (draw-helpers.js), từng visual riêng theo
@@ -460,9 +460,13 @@
          scope.js (loadAllSongs/loadSongsFromFolder) + core/db.js (setMeta) + core/playlist/order.js
          + core/playlist/render.js (đã nạp ở nhóm CORE, phía trên nhóm EVENT này). -->
     <script src="event/workflow/playlist-scope.js?v=20260703v3"></script>
-    <script src="event/workflow/file-manager-song.js?v=20260703v7"></script>
-    <script src="event/router/file-manager-song.js?v=20260703v3"></script>
-    <script src="event/listener/file-manager-song.js?v=20260703v3"></script>
+    <!-- Batch D5 (Settings restructure, 06/07/2026) — Song + Folder Detail nay 2 cấp push/pop
+         động TRONG CÙNG 1 ngăn xếp (core/settings-panel-stack.js, đã nạp ở nhóm CORE) — CẦN
+         core/file-manager/folder-list-ui.js/folder-detail-ui.js/core/storage-manager.js (đã đổi
+         sang nhận phần tử qua tham số, đã nạp ở nhóm CORE). -->
+    <script src="event/workflow/file-manager-song.js?v=20260706v1"></script>
+    <script src="event/router/file-manager-song.js?v=20260706v1"></script>
+    <script src="event/listener/file-manager-song.js?v=20260706v1"></script>
     <!-- Batch 8, ver 12 "Multi Media" — cụm "slideshowSettings" (Slideshow nền Visual). PHẢI nạp
          TRƯỚC event/workflow/file-manager-photo.js (gọi workflowSlideshow.clearActiveAlbum() +
          setAsSlideshowBackground() trong cascade/nút "Dùng làm nền Slideshow"). Batch D4 (Settings
