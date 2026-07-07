@@ -3,10 +3,11 @@
  *
  * Ver 8 refine (mục 3): toàn bộ "Hình học Visualizer" + "Màu sắc Visualizer" (Chất lượng Render,
  * độ cao/độ dày thanh, kiểu Vortex/Bar/Rain, màu nền/màu sóng âm — rất nhiều control) ĐÃ CHUYỂN
- * sang drawer riêng `js/components/visualizer-settings-drawer.js` (biến TPL_VISUALIZER_SETTINGS_
- * DRAWER), đúng pattern navigation stack ở About/Storage Drawer. File này (vẫn giữ tên cũ +
- * biến TPL_SETTINGS_VISUALIZER để không phải sửa object điều phối SettingsDrawer ở
- * settings-drawer.js) giờ chỉ còn 1 card:
+ * sang `components/visualizer-settings-drawer.js` — Batch D3 (06/07/2026) đổi tiếp file đó từ
+ * template tĩnh (`TPL_VISUALIZER_SETTINGS_DRAWER`) sang hàm `renderVisualizerPanelBody()`, PUSH
+ * ĐỘNG vào Settings Stack (core/settings-panel-stack.js) thay vì mount 1 lần lúc boot. File này
+ * (vẫn giữ tên cũ + biến TPL_SETTINGS_VISUALIZER để không phải sửa object điều phối SettingsDrawer
+ * ở settings-drawer.js) giờ chỉ còn 1 card:
  *
  * CARD — "Visualizer" (kiểu hiệu ứng):
  *   - select "Kiểu hiệu ứng" (#setting-visualizer-type) — chọn TRỰC TIẾP 1 trong 6 visual,
@@ -27,8 +28,11 @@
  * ngay khi mở Settings. Đã CHUYỂN HẲN sang `js/components/visualizer-settings-drawer.js` (drawer
  * "Tùy chỉnh Visualizer", mở qua nút #setting-open-visualizer-settings ở card trên) — đúng đúng
  * nhóm với Chất lượng Render/Hình học/Màu sắc, tất cả đều là tuỳ chỉnh chi tiết cho visualizer.
- * Toàn bộ id/JS xử lý (js/core/auto-switch-visual.js) giữ nguyên, không đổi gì — initAutoSwitchVisualUI()
- * chỉ cần các #id đó tồn tại trong DOM, không quan tâm chúng nằm ở template nào.
+ * Toàn bộ id/JS xử lý (js/core/auto-switch-visual.js) giữ nguyên, không đổi gì. Batch D3
+ * (06/07/2026): section "Tự động đổi hiệu ứng" giờ push/pop động cùng panel Visualizer Settings
+ * (core/settings-panel-stack.js) — đồng bộ giá trị lúc mở nằm ở
+ * `workflowVisualizerDisplay.openPanel()`, KHÔNG còn `initAutoSwitchVisualUI()` (đổi tên/tách nhỏ,
+ * xem core/auto-switch-visual.js).
  *
  * MỚI (Batch 8, 03/07/2026, slideshow nền Visual) — thêm nút "#setting-open-slideshow-settings"
  * NGAY DƯỚI toggle "Hiện Visual" (vị trí CHỐT ở plan-v12-multimedia-update-3.md mục 3), mở
