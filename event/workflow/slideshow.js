@@ -47,11 +47,33 @@
  * core/file-manager/album.js (getAlbumRecord/listAlbums — qua service/db.js), core/file-manager/image.js
  * (getImageRecord), core/file-manager/photo-ui.js (renderSlideshowAlbumPickerGrid), service/db.js
  * (getMeta/setMeta), core/dom-refs.js (slideshowContainer/slideshowLayer1/slideshowLayer2/
- * drawerSlideshowSettings/...), service/task-manager.js (taskManager — CHỈ Workflow này dùng, core
+ * slideshowAlbumPicker.../bgCaptionFrame — panel chọn Album + caption VẪN tĩnh, xem Batch D4 dưới),
+ * core/settings-panel-stack.js (pushSettingsPanel), components/slideshow-settings-drawer.js
+ * (renderSlideshowPanelBody), service/task-manager.js (taskManager — CHỈ Workflow này dùng, core
  * không còn dùng kể từ 04/07/2026), service/state.js (appState).
  * NẠP TRƯỚC: event/router/slideshow.js, event/workflow/file-manager-photo.js (gọi
  * `workflowSlideshow.clearActiveAlbum()` trong cascade xoá album).
+ *
+ * === Batch D4 (Settings restructure, 06/07/2026) ===
+ * Panel Settings (6 input enable/mode/photoPerSong/interval/transition/showCaption) giờ PUSH/POP
+ * động (core/settings-panel-stack.js) — KHÔNG còn `drawerSlideshowSettings`/6 dom-refs tĩnh (xem
+ * core/dom-refs.js). File này KHÔNG cần refactor Rule 0.5 (mọi hàm ở đây ĐÃ LÀ Workflow — được
+ * phép appState.get()/taskManager sẵn, core/file-manager/slideshow.js vốn ĐÃ Rule 1-4 đầy đủ từ
+ * trước — không có core-gọi-core nào cần dời). CHỈ cần đổi CÁCH lấy tham chiếu DOM: dùng
+ * `slideshowSettingsPanelEl` (biến module bên dưới, gán lúc `openPanel()`) thay vì dom-refs tĩnh —
+ * các method (`refreshDrawerUI`/`changeInterval`/`changePhotoPerSong`/`onEnableToggleChange`/
+ * `cancelAlbumPicker`) tự `.querySelector()` bên trong biến này. KHÔNG chủ động null-hoá biến này
+ * lúc đóng panel (Back dùng CHUNG `settingsStackNav.back.click`, không biết gì về Slideshow) —
+ * biến trỏ vào DOM node đã `.remove()` là VÔ HẠI vì không listener nào còn bắn sự kiện tới các
+ * method đọc biến này khi panel đã đóng (delegation chỉ khớp id khi phần tử thật sự tồn tại/đang
+ * hiển thị) — `openPanel()` GÁN LẠI biến này mỗi lần mở, luôn trỏ đúng panel MỚI NHẤT.
+ *
+ * `TPL_SLIDESHOW_ALBUM_PICKER` (panel chọn Album kiểu "notify center") VẪN TĨNH, KHÔNG di chuyển
+ * — đây là 1 overlay ĐỘC LẬP với Settings Stack (ngang hàng kiến trúc, giống Modal Subtitle Giang
+ * đã chỉ ra), không phải 1 tầng lồng trong ngăn xếp — `slideshowAlbumPicker*` dom-refs GIỮ NGUYÊN.
  */
+let slideshowSettingsPanelEl = null; // panel Settings Slideshow đang mở — null nếu đang đóng (Batch D4)
+
 const SLIDESHOW_TASK = 'slideshowTimer';
 // MỚI (04/07/2026, mục 5 phản hồi Giang) — task "canh chừng" đổi bài hát cho chế độ "Photo per
 // song": poll appState.get('currentKey') (đúng field lưu songKey đang phát, xem
@@ -340,9 +362,9 @@ const workflowSlideshow = {
 
     // ===================== Settings Drawer (cụm router "slideshowSettings") =====================
 
-    /** Ứng với 'slideshowSettings.open'. */
-    async openDrawer() {
-        drawerSlideshowSettings.classList.remove('translate-y-full');
+    /** Ứng với 'slideshowSettings.openPanel.click' — push panel + vẽ lại UI. */
+    async openPanel() {
+        slideshowSettingsPanelEl = pushSettingsPanel({ title: t('slideshowSettingsDrawer.title'), bodyHtml: renderSlideshowPanelBody() });
         await this.refreshDrawerUI();
     },
 
@@ -353,20 +375,28 @@ const workflowSlideshow = {
      * (`setting-slideshow-enable`), phản ánh ĐÚNG BẰNG việc CÓ/KHÔNG có `activeBackgroundAlbum`.
      * Đổi album khi đang bật: gạt Off (xoá album) rồi gạt lại On (mở lại panel từ đầu). */
     async refreshDrawerUI() {
+        if (!slideshowSettingsPanelEl) return; // panel đã đóng — an toàn bỏ qua (Batch D4)
         const albumId = appState.get('activeBackgroundAlbum');
         const cfg = appState.get('slideshowConfig');
 
-        if (settingSlideshowEnableToggle) settingSlideshowEnableToggle.checked = !!albumId;
+        const enableToggle = slideshowSettingsPanelEl.querySelector('#setting-slideshow-enable');
+        const modeSelect = slideshowSettingsPanelEl.querySelector('#setting-slideshow-mode');
+        const photoPerSongToggle = slideshowSettingsPanelEl.querySelector('#setting-slideshow-photo-per-song');
+        const intervalRow = slideshowSettingsPanelEl.querySelector('#slideshow-interval-row');
+        const intervalInput = slideshowSettingsPanelEl.querySelector('#setting-slideshow-interval');
+        const transitionSelect = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition');
+        const showCaptionToggle = slideshowSettingsPanelEl.querySelector('#setting-slideshow-show-caption');
 
-        if (slideshowModeSelect) slideshowModeSelect.value = cfg.mode;
+        if (enableToggle) enableToggle.checked = !!albumId;
+        if (modeSelect) modeSelect.value = cfg.mode;
         // MỚI (04/07/2026, mục 5) — đồng bộ toggle "Photo per song" + ẩn hàng "Thời gian mỗi ảnh"
         // khi đang bật (không còn ý nghĩa gì lúc đó).
-        if (settingSlideshowPhotoPerSongToggle) settingSlideshowPhotoPerSongToggle.checked = !!cfg.photoPerSong;
-        if (slideshowIntervalRow) slideshowIntervalRow.classList.toggle('hidden', !!cfg.photoPerSong);
-        if (slideshowIntervalInput) slideshowIntervalInput.value = cfg.intervalSeconds;
-        if (slideshowTransitionSelect) slideshowTransitionSelect.value = cfg.transitionType;
+        if (photoPerSongToggle) photoPerSongToggle.checked = !!cfg.photoPerSong;
+        if (intervalRow) intervalRow.classList.toggle('hidden', !!cfg.photoPerSong);
+        if (intervalInput) intervalInput.value = cfg.intervalSeconds;
+        if (transitionSelect) transitionSelect.value = cfg.transitionType;
         // MỚI (04/07/2026, mục 2) — đồng bộ toggle "Show caption".
-        if (settingSlideshowShowCaptionToggle) settingSlideshowShowCaptionToggle.checked = !!cfg.showCaption;
+        if (showCaptionToggle) showCaptionToggle.checked = !!cfg.showCaption;
     },
 
     /** MỚI (04/07/2026, mục 5) — ứng với gạt "Photo per song". Persist + nếu engine đang chạy, khởi
@@ -378,7 +408,10 @@ const workflowSlideshow = {
         appState.mutate('slideshowConfig', (cfg) => { cfg.photoPerSong = checked; });
         console.log(`writer: "workflowSlideshow.changePhotoPerSong", page: "slideshowConfig", content: "photoPerSong=${checked}"`);
         await setMeta('slideshowConfig', appState.get('slideshowConfig'));
-        if (slideshowIntervalRow) slideshowIntervalRow.classList.toggle('hidden', checked);
+        if (slideshowSettingsPanelEl) {
+            const intervalRow = slideshowSettingsPanelEl.querySelector('#slideshow-interval-row');
+            if (intervalRow) intervalRow.classList.toggle('hidden', checked);
+        }
         const albumId = appState.get('activeBackgroundAlbum');
         if (albumId) await this.start(albumId); // khởi động lại engine với cơ chế tick mới ngay lập tức
     },
@@ -421,8 +454,9 @@ const workflowSlideshow = {
      * (đang đổi album, không phải bật mới) -> giữ nguyên mọi thứ, chỉ đóng panel. */
     cancelAlbumPicker() {
         setSlideshowAlbumPickerVisible(slideshowAlbumPickerOverlay, slideshowAlbumPickerPanel, false); // core
-        if (!appState.get('activeBackgroundAlbum') && settingSlideshowEnableToggle) {
-            settingSlideshowEnableToggle.checked = false;
+        const enableToggle = slideshowSettingsPanelEl ? slideshowSettingsPanelEl.querySelector('#setting-slideshow-enable') : null;
+        if (!appState.get('activeBackgroundAlbum') && enableToggle) {
+            enableToggle.checked = false;
         }
     },
 
@@ -444,7 +478,10 @@ const workflowSlideshow = {
         appState.mutate('slideshowConfig', (cfg) => { cfg.intervalSeconds = v; });
         console.log(`writer: "workflowSlideshow.changeInterval", page: "slideshowConfig", content: "intervalSeconds=${v}"`);
         await setMeta('slideshowConfig', appState.get('slideshowConfig'));
-        if (slideshowIntervalInput) slideshowIntervalInput.value = v; // đồng bộ lại nếu giá trị bị kẹp
+        if (slideshowSettingsPanelEl) {
+            const intervalInput = slideshowSettingsPanelEl.querySelector('#setting-slideshow-interval');
+            if (intervalInput) intervalInput.value = v; // đồng bộ lại nếu giá trị bị kẹp
+        }
         // Loop (task-manager.js) KHÔNG hỗ trợ đổi `time` giữa chừng của task count vô hạn — tự
         // kill + addNew lại với time mới, CÙNG lý do scheduleNextAutoSwitchVisualTimer() làm ở
         // core/auto-switch-visual.js.
