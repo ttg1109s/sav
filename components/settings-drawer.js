@@ -67,8 +67,8 @@
                     <h2 class="text-base sm:text-lg font-bold tracking-wider text-white uppercase" data-i18n="settingsDrawer.title">${t('settingsDrawer.title')}</h2>
                     <button id="close-drawer" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-rose-500 transition-colors text-white shrink-0"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
                 </div>
-                <div class="flex-grow overflow-y-auto px-4 py-6 sm:px-8 pb-20">
-                    <div class="max-w-2xl mx-auto space-y-8">
+                <div class="flex-grow overflow-y-auto px-4 py-4 sm:px-8 pb-20">
+                    <div class="max-w-2xl mx-auto space-y-5">
                         ` +
                     TPL_SETTINGS_PLAYLIST_BG +
                     TPL_SETTINGS_FILE_MANAGER +
