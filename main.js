@@ -55,13 +55,16 @@
         // _FOLDER_DETAIL_DRAWER ĐÃ BỎ khỏi mount tĩnh: nội dung giờ là 2 HÀM
         // (components/file-manager.js::renderFileManagerSongPanelBody()/
         // renderFileManagerFolderDetailPanelBody()), PUSH ĐỘNG vào ngăn xếp (2 cấp) — xem
-        // event/workflow/file-manager-song.js::openPanel()/openFolderDetail(). Photo/Document
-        // CHƯA đổi (dự kiến D6/D7), vẫn mount tĩnh như cũ.
+        // event/workflow/file-manager-song.js::openPanel()/openFolderDetail().
         // Batch D6 (Settings restructure, 06/07/2026) — TPL_FILE_MANAGER_PHOTO_DRAWER ĐÃ BỎ khỏi
         // mount tĩnh: nội dung giờ là 1 HÀM (components/file-manager.js::
         // renderFileManagerPhotoPanelBody()), PUSH ĐỘNG (fullBleed) — xem event/workflow/file-
-        // manager-photo.js::openPanel(). Document CHƯA đổi (dự kiến D7), vẫn mount tĩnh như cũ.
-        TPL_FILE_MANAGER_DOCUMENT_DRAWER +
+        // manager-photo.js::openPanel().
+        // Batch D7 (06/07/2026, BATCH CUỐI Nhóm D restructure) — TPL_FILE_MANAGER_DOCUMENT_DRAWER
+        // ĐÃ BỎ khỏi mount tĩnh: nội dung giờ là 1 HÀM (components/file-manager.js::
+        // renderFileManagerDocumentPanelBody()), PUSH ĐỘNG — xem event/workflow/file-manager-
+        // document.js::openPanel(). CẢ 4 khu vực File Manager (Song/Folder Detail/Photo/Documents)
+        // giờ ĐỀU là panel động — KHÔNG còn TPL_FILE_MANAGER_* nào mount tĩnh ở đây nữa.
         // Batch D4 (Settings restructure, 06/07/2026) — TPL_SLIDESHOW_SETTINGS_DRAWER ĐÃ BỎ khỏi
         // mount tĩnh (nội dung giờ là renderSlideshowPanelBody(), push động — xem event/workflow/
         // slideshow.js::openPanel()); THAY bằng TPL_SLIDESHOW_ALBUM_PICKER (panel chọn Album kiểu
