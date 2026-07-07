@@ -15,8 +15,140 @@
  * Blob khỏi IndexedDB (đảo ngược quyết định cũ) — vì vậy `toggleBgImage({enabled:false})` không
  * còn cần shield, gọi thẳng `applyBgImageEnabled(false)` (core giờ đồng bộ). CHỈ nhánh `enabled:true`
  * (mở picker + `applyBgImage()`) còn ở workflow (>1 bước + cần shield lúc lưu).
+ *
+ * === Batch D3 (Settings restructure, 06/07/2026) ===
+ * THÊM `openPanel()` (push panel Visualizer Settings + đồng bộ TOÀN BỘ giá trị hiện tại — GỘP CẢ
+ * phần "Chất lượng/Hình học/Màu sắc" (file này) LẪN phần "Tự động đổi hiệu ứng" (core/auto-switch-
+ * visual.js), vì cả 2 SECTION cùng sống trong 1 panel — xem components/visualizer-settings-
+ * drawer.js). THÊM 13 method `set*` — mỗi method GỘP core setter (Rule 1-4 đầy đủ, không tự gọi
+ * core khác) + các lệnh core PHỤ (update.../resizeCanvas...) + `saveConfig()` theo ĐÚNG thứ tự hàm
+ * cũ làm trước khi tách (xem lịch sử core/visualizer/visualizer-display.js).
+ * LƯU Ý ĐẶT TÊN: nhiều method dưới đây TRÙNG TÊN với hàm core cùng chức năng (vd
+ * `workflowVisualizerDisplay.setBgColor()` gọi hàm core toàn cục `setBgColor()`) — đây KHÔNG phải
+ * đệ quy: gọi trần `setBgColor(...)` bên trong 1 method object-literal luôn phân giải theo scope
+ * TỪ VỰNG (tìm thấy hàm global cùng tên ở core/), KHÔNG tự trỏ vào chính method đang chạy (khác
+ * named function expression) — không có ES6 module nên không cần import, nhưng cũng vì vậy CHỈ
+ * ĐƯỢC set 1 hàm global 1 tên duy nhất, không được định nghĩa lại `function setBgColor` ở file nào
+ * khác ngoài core/visualizer/visualizer-display.js.
  */
 const workflowVisualizerDisplay = {
+
+    /**
+     * Ứng với msg.type = 'visualizerDisplay.openPanel.click' — push panel + đồng bộ mọi input
+     * (thay `initAutoSwitchVisualUI()` cũ cho phần auto-switch — xem core/auto-switch-visual.js).
+     */
+    openPanel() {
+        const panelEl = pushSettingsPanel({ title: t('visualizerSettingsDrawer.title'), bodyHtml: renderVisualizerPanelBody() });
+        const cfg = appState.get('vizConfig');
+
+        panelEl.querySelector('#setting-quality').value = cfg.quality;
+        panelEl.querySelector('#bg-color-picker').value = cfg.bgColor;
+        panelEl.querySelector('#setting-color-mode').value = cfg.mode;
+        panelEl.querySelector('#solid-color-text').value = cfg.solidColor;
+        panelEl.querySelector('#solid-color-picker').value = cfg.solidColor;
+        panelEl.querySelector('#dyn-color-a').value = cfg.dynA;
+        panelEl.querySelector('#dyn-color-b').value = cfg.dynB;
+        panelEl.querySelector('#setting-vortex-style').value = cfg.vortexStyle;
+        panelEl.querySelector('#setting-bar-style').value = cfg.barStyle;
+        panelEl.querySelector('#setting-rain-style').value = cfg.rainStyle;
+        panelEl.querySelector('#setting-glass-flash').checked = cfg.glassFlash === true;
+        panelEl.querySelector('#setting-max-height').value = cfg.maxH;
+        panelEl.querySelector('#val-max').textContent = cfg.maxH;
+        panelEl.querySelector('#setting-bar-width').value = cfg.barWidth;
+        panelEl.querySelector('#val-width').textContent = cfg.barWidth;
+        panelEl.querySelector('#setting-mirror-count').value = cfg.mirrorBarCount;
+        panelEl.querySelector('#val-mirror-count').textContent = cfg.mirrorBarCount;
+
+        // Hiện/ẩn đúng khối theo kiểu hiệu ứng/mode màu/kiểu bar hiện tại — 3 hàm này giờ đã có
+        // guard (Batch D3), panel vừa push nên chắc chắn tìm thấy phần tử, chạy đúng như mong đợi.
+        updateTypeUI();
+        updateColorMenuUI();
+        updateBarStyleUI();
+
+        // ===== Section "Tự động đổi hiệu ứng" (core/auto-switch-visual.js) =====
+        const elEnable = panelEl.querySelector('#setting-auto-switch-enable');
+        const elOptions = panelEl.querySelector('#auto-switch-options');
+        elEnable.checked = cfg.autoSwitchVisualEnabled === true;
+        elOptions.classList.toggle('hidden', !elEnable.checked);
+        panelEl.querySelector('#setting-auto-switch-mode').value = cfg.autoSwitchVisualMode;
+        panelEl.querySelector('#setting-auto-switch-time-mode').value = cfg.autoSwitchVisualTimeMode;
+        panelEl.querySelector('#setting-auto-switch-seconds-fixed').value = cfg.autoSwitchVisualSecondsFixed;
+        panelEl.querySelector('#setting-auto-switch-seconds-random').value = cfg.autoSwitchVisualSecondsRandom;
+        panelEl.querySelector('#setting-auto-switch-seconds-duration').value = cfg.autoSwitchVisualSecondsDuration;
+        syncAutoSwitchTimeModeBlocks(
+            cfg.autoSwitchVisualTimeMode,
+            panelEl.querySelector('#auto-switch-time-fixed-block'),
+            panelEl.querySelector('#auto-switch-time-random-block'),
+            panelEl.querySelector('#auto-switch-time-duration-block')
+        );
+    },
+
+    setQuality(value) {
+        setVisualizerQuality(value);
+        resizeCanvas();
+        saveConfig();
+    },
+    setBgColor(value) {
+        setBgColor(value);
+        updateDOMBackground();
+        saveConfig();
+    },
+    setColorMode(value) {
+        setColorMode(value);
+        updateColorMenuUI();
+        saveConfig();
+    },
+    setSolidColorFromPicker(value, crossEl) {
+        setSolidColorFromPicker(value, crossEl);
+        updateProgressBarCSS();
+        saveConfig();
+    },
+    setSolidColorFromText(value, crossEl) {
+        const applied = setSolidColorFromText(value, crossEl); // core trả về false nếu sai định dạng hex -> bỏ qua im lặng, giữ đúng hành vi gốc
+        if (!applied) return;
+        updateProgressBarCSS();
+        saveConfig();
+    },
+    setDynColorA(value) {
+        setDynColorA(value);
+        saveConfig();
+    },
+    setDynColorB(value) {
+        setDynColorB(value);
+        updateProgressBarCSS();
+        saveConfig();
+    },
+    setVortexStyle(value) {
+        setVortexStyle(value);
+        updateVortexVisibility();
+        saveConfig();
+    },
+    setBarStyle(value) {
+        setBarStyle(value);
+        updateBarStyleUI();
+        saveConfig();
+    },
+    setRainStyle(value) {
+        setRainStyle(value);
+        resizeCanvas();
+        saveConfig();
+    },
+    setGlassFlash(checked) {
+        setGlassFlash(checked);
+        saveConfig();
+    },
+    setMaxHeight(value, displayEl) {
+        setMaxHeight(value, displayEl);
+        saveConfig();
+    },
+    setBarWidth(value, displayEl) {
+        setBarWidth(value, displayEl);
+        saveConfig();
+    },
+    setMirrorCount(value, displayEl) {
+        setMirrorCount(value, displayEl);
+        saveConfig();
+    },
 
     /**
      * FIX (04/07/2026, mục 1 phản hồi Giang) — GỘP nút "Chọn thư viện" (đã xoá) VÀO ĐÂY: gạt toggle
