@@ -224,6 +224,9 @@ const workflowFileManagerPhoto = {
     },
 
     /** Ứng với nút "Đặt làm nền Playlist" trong modal xem ảnh — TÁI DÙNG NGUYÊN applyBgImage().
+     * Batch "nền chung" (07/07/2026) — applyBgImage() nay Rule 1-4 đầy đủ (không tự
+     * updatePlaylistBg/saveConfig nội bộ nữa) — nơi gọi (ở đây) tự lo, giống hệt event/workflow/
+     * visualizer-display.js::toggleBgImage().
      * @param {string} imageKey
      */
     async setAsPlaylistBackground(imageKey) {
@@ -233,6 +236,9 @@ const workflowFileManagerPhoto = {
         await withLoadingShield(t('common.loading.savingImageBg'), async () => {
             await applyBgImage(record.blob); // core có sẵn (core/visualizer/visualizer-display.js)
         });
+        updatePlaylistBg();
+        updateSettingsBg(appState.get('vizConfig')); // MỚI, batch "nền chung" 07/07/2026
+        saveConfig();
         await alertModal(t('fileManager.photo.image.setPlaylistBgSuccess'));
     },
 

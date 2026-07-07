@@ -162,7 +162,13 @@ const workflowVisualizerDisplay = {
      */
     async toggleBgImage(payload) {
         const { enabled } = payload;
-        if (!enabled) { applyBgImageEnabled(false); return; } // core giờ đồng bộ (không còn đụng IndexedDB) -> gọi thẳng
+        if (!enabled) {
+            applyBgImageEnabled(false); // core giờ đồng bộ (không còn đụng IndexedDB)
+            updatePlaylistBg();
+            updateSettingsBg(appState.get('vizConfig')); // MỚI, batch "nền chung" 07/07/2026
+            saveConfig();
+            return;
+        }
 
         const images = await listImages(); // core có sẵn (core/file-manager/image.js), CÓ return, DÙNG ngay dưới
         // FIX (04/07/2026, mục 2 phản hồi Giang) — đổi sang carousel (1 ảnh/lúc, windowed DOM)
@@ -173,8 +179,21 @@ const workflowVisualizerDisplay = {
             await withLoadingShield(t('common.loading.savingImageBg'), async () => {
                 await applyBgImage(record.blob); // core có sẵn — Blob coi như File vừa chọn
             });
+            updatePlaylistBg();
+            updateSettingsBg(appState.get('vizConfig')); // MỚI, batch "nền chung" 07/07/2026
+            saveConfig();
         }, () => {
             bgImageEnableToggle.checked = false; // MỚI — huỷ/đóng modal không chọn gì -> tự trả về "off"
         });
-    }
+    },
+
+    /** Ứng với 'visualizerDisplay.bgBlur.input' — batch "nền chung" (07/07/2026): trước đây router
+     * gọi thẳng `setBgBlur()` (1 hàm core). Core giờ Rule 1-4 đầy đủ (bỏ updatePlaylistBg/
+     * saveConfig nội bộ) nên chuyển qua đây. @param {string} value */
+    setBgBlur(value) {
+        setBgBlur(value); // core cùng tên, gọi trần phân giải theo scope từ vựng (xem lưu ý đặt tên đầu file)
+        updatePlaylistBg();
+        updateSettingsBg(appState.get('vizConfig')); // MỚI, batch "nền chung" 07/07/2026
+        saveConfig();
+    },
 };
