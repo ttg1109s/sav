@@ -239,7 +239,6 @@
                 cfg.subtitleStyle.fontSize = Math.min(16, Math.max(8, cfg.subtitleStyle.fontSize));
             });
 
-            qualitySelect.value = appState.get('vizConfig').quality; bgColorPicker.value = appState.get('vizConfig').bgColor;
             bgBlurSlider.value = appState.get('vizConfig').bgBlur; valBgBlurDisplay.textContent = appState.get('vizConfig').bgBlur + 'px';
 
             // bgImage/videoBgUrl giờ là blob: URL runtime, tạo lại mỗi session từ IndexedDB — KHÔNG
@@ -248,16 +247,24 @@
             appState.mutate('vizConfig', cfg => { cfg.bgImage = ''; cfg.videoBgUrl = ''; });
             await loadBackgroundAssets();
 
-            colorModeSelect.value = appState.get('vizConfig').mode;
-            solidColorPicker.value = appState.get('vizConfig').solidColor; solidColorText.value = appState.get('vizConfig').solidColor;
-            dynColorA.value = appState.get('vizConfig').dynA; dynColorB.value = appState.get('vizConfig').dynB;
-            maxHeightSlider.value = appState.get('vizConfig').maxH; valMaxDisplay.textContent = appState.get('vizConfig').maxH;
-            barWidthSlider.value = appState.get('vizConfig').barWidth; valWidthDisplay.textContent = appState.get('vizConfig').barWidth;
-            mirrorCountSlider.value = appState.get('vizConfig').mirrorBarCount; valMirrorCountDisplay.textContent = appState.get('vizConfig').mirrorBarCount;
-            vortexStyleSelect.value = appState.get('vizConfig').vortexStyle;
-            barStyleSelect.value = appState.get('vizConfig').barStyle;
-            rainStyleSelect.value = appState.get('vizConfig').rainStyle;
-            glassFlashToggle.checked = appState.get('vizConfig').glassFlash;
+            // HOTFIX (07/07/2026 — bug do Giang báo, đã xác nhận): 9 dòng đồng bộ UI panel
+            // Visualizer Settings (quality/bgColor/colorMode/solidColor*/dynColor*/maxHeight/
+            // barWidth/mirrorCount/vortexStyle/barStyle/rainStyle/glassFlash) ĐÃ XOÁ HẲN khỏi đây
+            // — sót từ Batch D3 (06/07/2026): panel Visualizer Settings đã chuyển sang push/pop
+            // động (core/settings-panel-stack.js), 15 dom-refs tương ứng (qualitySelect/
+            // bgColorPicker/colorModeSelect/solidColor*/dynColor*/maxHeightSlider/barWidthSlider/
+            // valMax.../mirrorCountSlider/valMirrorCountDisplay/vortexStyleSelect/barStyleSelect/
+            // rainStyleSelect/glassFlashToggle) ĐÃ XOÁ khỏi core/dom-refs.js — nhưng 9 dòng NÀY ở
+            // loadConfig() (hàm boot, KHÔNG có try/catch) vẫn gọi thẳng, không qua guard
+            // `typeof === 'function'` như các module khác — ném `ReferenceError` NGAY LẬP TỨC,
+            // CHẶN ĐỨNG toàn bộ phần còn lại của `loadConfig()` (kể cả `initEqualizerUIFromConfig()`
+            // phía dưới — giải thích "EQ không hiển thị") VÀ toàn bộ chuỗi boot phía SAU
+            // `await loadConfig()` (core/visualizer/draw-visualizer.js, DOMContentLoaded — không có
+            // try/catch bọc ngoài) — bao gồm `initPlaylistFromDB()` (giải thích "mất dữ liệu song/
+            // ảnh sau reload": dữ liệu VẪN CÒN trong IndexedDB, chỉ là không bao giờ được ĐỌC LẠI
+            // vào UI vì boot bị crash giữa chừng). KHÔNG cần thay thế bằng gì — giá trị các input
+            // này giờ đồng bộ MỖI LẦN panel mở, xem event/workflow/visualizer-display.js::
+            // openPanel() (đã tự đọc appState.get('vizConfig') + querySelector bên trong panel).
 
             volumeSlider.value = appState.get('vizConfig').volume; valVolumeDisplay.textContent = appState.get('vizConfig').volume + '%';
             if(appState.get('masterGainNode')) appState.get('masterGainNode').gain.value = appState.get('vizConfig').volume / 100;
