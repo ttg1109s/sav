@@ -123,24 +123,21 @@
         const slideshowLayer1 = document.getElementById('visual-slideshow-layer-1');
         const slideshowLayer2 = document.getElementById('visual-slideshow-layer-2');
         const btnOpenSlideshowSettings = document.getElementById('setting-open-slideshow-settings');
-        const drawerSlideshowSettings = document.getElementById('drawer-slideshow-settings');
-        const btnBackSlideshowSettings = document.getElementById('btn-back-slideshow-settings');
-        // MỚI (Batch 9, 04/07/2026, mục 4) — toggle "Use slideshow" DUY NHẤT (THAY 2 nút "Chọn
-        // Album"/"Tắt" cũ) + panel chọn Album kiểu "notify center". ĐƠN GIẢN HOÁ THÊM (04/07/2026,
-        // đợt 2, phản hồi Giang) — bỏ hẳn hàng "album đang chạy" (tên/thumbnail) khỏi drawer.
-        const settingSlideshowEnableToggle = document.getElementById('setting-slideshow-enable');
+        // (drawerSlideshowSettings/btnBackSlideshowSettings ĐÃ XOÁ — Batch D4: panel Slideshow
+        // Settings giờ động, không còn drawer tĩnh riêng; Back dùng CHUNG btnSettingsStackBack.)
+        //
+        // MỚI (Batch 9, 04/07/2026, mục 4) — panel chọn Album kiểu "notify center" — ĐỘC LẬP với
+        // Settings Stack (KHÔNG di chuyển, xem components/slideshow-settings-drawer.js), 4 const
+        // dưới đây GIỮ NGUYÊN tĩnh.
         const slideshowAlbumPickerOverlay = document.getElementById('slideshow-album-picker-overlay');
         const slideshowAlbumPickerPanel = document.getElementById('slideshow-album-picker-panel');
         const slideshowAlbumPickerGrid = document.getElementById('slideshow-album-picker-grid');
         const slideshowAlbumPickerEmpty = document.getElementById('slideshow-album-picker-empty');
-        const slideshowModeSelect = document.getElementById('setting-slideshow-mode');
-        // MỚI (04/07/2026, mục 5) — toggle "Photo per song" + wrapper hàng interval (ẩn khi bật).
-        const settingSlideshowPhotoPerSongToggle = document.getElementById('setting-slideshow-photo-per-song');
-        const slideshowIntervalRow = document.getElementById('slideshow-interval-row');
-        const slideshowIntervalInput = document.getElementById('setting-slideshow-interval');
-        const slideshowTransitionSelect = document.getElementById('setting-slideshow-transition');
-        // MỚI (04/07/2026, mục 2) — toggle "Show caption".
-        const settingSlideshowShowCaptionToggle = document.getElementById('setting-slideshow-show-caption');
+        // (settingSlideshowEnableToggle/slideshowModeSelect/settingSlideshowPhotoPerSongToggle/
+        // slideshowIntervalRow/slideshowIntervalInput/slideshowTransitionSelect/
+        // settingSlideshowShowCaptionToggle ĐÃ XOÁ — Batch D4: 6 input Settings giờ sống động BÊN
+        // TRONG panel, không còn DOM tĩnh — event/listener/slideshow.js dùng delegation trên
+        // settingsStackBody thay vì đọc const ở đây.)
         // "Tắt Visual" (ver 8 refine) — ĐỘC LẬP khỏi nhóm Video Background, đặt thành mục cài đặt
         // riêng (xem js/components/settings/playlist-background.js). id mới `setting-visual-enable`.
         const visualEnabledToggle = document.getElementById('setting-visual-enable');
