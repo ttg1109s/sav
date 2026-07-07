@@ -43,7 +43,8 @@ const LANG_PATCH_FILE_MANAGER = {
     // 'settingsDrawer.back.title' (Batch D1) cho mọi panel.
     // ── Drawer con: Photo & Album (placeholder, chưa code — b2/b3) ──────────────────────────
     'fileManager.photo.title': 'Photo & Album',
-    'fileManager.photo.back.title': 'Back to Settings',
+    // Batch D6 (06/07/2026) — 'fileManager.photo.back.title' XOÁ, dùng CHUNG
+    // 'settingsDrawer.back.title' (Batch D1).
     // ── Batch 3 (03/07/2026) ──────────────────────────────────────────────────────────────
     'fileManager.photo.uploadTitle': 'Add photos',
     'fileManager.photo.image.empty': 'No photos yet. Tap the + button above to add some.',
