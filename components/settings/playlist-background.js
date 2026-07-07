@@ -16,7 +16,7 @@ const TPL_SETTINGS_BACKGROUND = `
         <!-- SECTION: BACKGROUND -->
         <div>
             <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="settingsBackground.sectionTitle">${t('settingsBackground.sectionTitle')}</h3>
-            <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
+            <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                 <!-- FIX (04/07/2026, mục 1 phản hồi Giang) — bỏ hẳn nút "Choose" riêng: gạt toggle
                      lên "On" giờ TỰ mở hộp thoại chọn file video LUÔN (input ẩn, kích hoạt qua JS —
                      xem event/workflow/visualizer-control-center.js::enableVideoBackgroundToggle).

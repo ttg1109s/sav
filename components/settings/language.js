@@ -19,7 +19,7 @@ const TPL_SETTINGS_LANGUAGE = `
         <!-- SECTION: NGÔN NGỮ (mới, batch i18n) -->
         <div>
             <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-2 ml-2" data-i18n="settingsLanguage.sectionTitle">${t('settingsLanguage.sectionTitle')}</h3>
-            <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
+            <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                 <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                     <span class="text-sm font-medium flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.6 9h16.8M3.6 15h16.8M11.5 3a17 17 0 000 18M12.5 3a17 17 0 010 18M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>

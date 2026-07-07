@@ -17,7 +17,7 @@ const TPL_SETTINGS_FILE_MANAGER = `
         <!-- SECTION: FILE MANAGER -->
         <div>
             <h3 class="text-xs font-bold text-teal-400 uppercase tracking-widest mb-2 ml-2" data-i18n="fileManager.sectionTitle">${t('fileManager.sectionTitle')}</h3>
-            <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
+            <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                 <button id="setting-open-file-manager-song" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
                     <div class="flex items-center gap-3 min-w-0">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-2v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>

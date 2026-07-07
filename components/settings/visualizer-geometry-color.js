@@ -42,9 +42,13 @@
 const TPL_SETTINGS_VISUALIZER = `
 
         <!-- SECTION: KIỂU HIỆU ỨNG (rút gọn, ver 8 refine) -->
+        <!-- Tái tổ chức (07/07/2026, phản hồi Giang mục 1) — ĐÚNG khuôn "Tiêu đề -> Sub setting ->
+             Action": 2 sub setting (Kiểu hiệu ứng select + Hiện Visual toggle) đứng TRƯỚC, 2 nút
+             điều hướng (Tùy chỉnh Visualizer + Slideshow background) đứng SAU — trước đây xen kẽ
+             (select -> nav -> toggle -> nav), sai khuôn. -->
         <div>
             <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2 ml-2" data-i18n="settingsVisualizer.sectionTitle">${t('settingsVisualizer.sectionTitle')}</h3>
-            <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
+            <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                 <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                     <span class="text-sm font-medium truncate" data-i18n="settingsVisualizer.type.label">${t('settingsVisualizer.type.label')}</span>
                     <select id="setting-visualizer-type" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
@@ -56,16 +60,6 @@ const TPL_SETTINGS_VISUALIZER = `
                         <option value="rain" data-i18n="settingsVisualizer.type.rain">${t('settingsVisualizer.type.rain')}</option>
                     </select>
                 </div>
-                <button id="setting-open-visualizer-settings" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
-                        <div class="min-w-0">
-                            <div class="text-sm font-medium truncate" data-i18n="settingsVisualizer.openDrawer.label">${t('settingsVisualizer.openDrawer.label')}</div>
-                            <div class="text-xs text-slate-400 mt-0.5 truncate" data-i18n="settingsVisualizer.openDrawer.hint">${t('settingsVisualizer.openDrawer.hint')}</div>
-                        </div>
-                    </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                </button>
                 <div class="flex justify-between items-center p-4 border-b border-white/5">
                     <div class="pr-3">
                         <div class="text-sm font-medium truncate" data-i18n="settingsVisualizer.visualEnable.label">${t('settingsVisualizer.visualEnable.label')}</div>
@@ -76,9 +70,18 @@ const TPL_SETTINGS_VISUALIZER = `
                         <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                     </label>
                 </div>
-                <!-- MỚI (Batch 8, slideshow nền Visual) — vị trí CHỐT ở plan-v12-multimedia-update-3.md
-                     mục 3: ngay dưới "Hiện Visual". Mở Slideshow Settings Drawer riêng (components/
-                     slideshow-settings-drawer.js), cùng pattern nút "Tùy chỉnh Visualizer" phía trên. -->
+                <button id="setting-open-visualizer-settings" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+                        <div class="min-w-0">
+                            <div class="text-sm font-medium truncate" data-i18n="settingsVisualizer.openDrawer.label">${t('settingsVisualizer.openDrawer.label')}</div>
+                            <div class="text-xs text-slate-400 mt-0.5 truncate" data-i18n="settingsVisualizer.openDrawer.hint">${t('settingsVisualizer.openDrawer.hint')}</div>
+                        </div>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                </button>
+                <!-- MỚI (Batch 8, slideshow nền Visual) — nút điều hướng thứ 2, đứng NGAY SAU nút
+                     điều hướng đầu (cùng nhóm "Action" — xem docstring tái tổ chức ở trên). -->
                 <button id="setting-open-slideshow-settings" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
                     <div class="flex items-center gap-3 min-w-0">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-fuchsia-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4h10a2 2 0 012 2v10M4 8v10a2 2 0 002 2h10a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2z" /></svg>

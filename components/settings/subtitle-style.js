@@ -16,7 +16,7 @@ const TPL_SETTINGS_SUBTITLE_STYLE = `
         <!-- SECTION: PHỤ ĐỀ (rút gọn, ver 8 refine) -->
         <div>
             <h3 class="text-xs font-bold text-yellow-400 uppercase tracking-widest mb-2 ml-2" data-i18n="settingsSubtitleStyle.sectionTitle">${t('settingsSubtitleStyle.sectionTitle')}</h3>
-            <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
+            <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                 <div class="flex justify-between items-center p-4 border-b border-white/5">
                     <div class="pr-3">
                         <div class="text-sm font-medium truncate" data-i18n="settingsSubtitleStyle.enable.label">${t('settingsSubtitleStyle.enable.label')}</div>
