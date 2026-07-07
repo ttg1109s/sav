@@ -1,28 +1,24 @@
 /**
  * event/listener/slideshow.js — TẤT CẢ listener của cụm "slideshowSettings" (Batch 8, ver 12
  * "Multi Media"; VIẾT LẠI Batch 9, 04/07/2026, mục 4 — toggle DUY NHẤT thay 2 nút Chọn/Tắt cũ +
- * panel chọn Album kiểu "notify center"). NẠP SAU CÙNG (sau bus, core, router, VÀ SAU dom-refs.js).
+ * panel chọn Album kiểu "notify center").
+ *
+ * === Batch D4 (Settings restructure, 06/07/2026) ===
+ * 6 input (enable/mode/photoPerSong/interval/transition/showCaption) sống BÊN TRONG panel Settings
+ * (push/pop động, core/settings-panel-stack.js) — ĐỔI sang delegation trên `settingsStackBody`,
+ * CHUẨN đã dùng từ Batch D2/D3. `btnBackSlideshowSettings` ĐÃ XOÁ (Back dùng CHUNG
+ * `btnSettingsStackBack`). `btnOpenSlideshowSettings` (Main, tĩnh) + `slideshowAlbumPickerOverlay`
+ * (panel chọn Album, ĐỘC LẬP với Settings Stack — xem docstring components/slideshow-settings-
+ * drawer.js) GIỮ NGUYÊN kiểu listener trực tiếp, KHÔNG cần delegation.
  */
 
 if (btnOpenSlideshowSettings) {
     btnOpenSlideshowSettings.addEventListener('click', () => {
-        eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.open', payload: {} });
+        eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.openPanel.click', payload: {} });
     });
 }
 
-if (btnBackSlideshowSettings) {
-    btnBackSlideshowSettings.addEventListener('click', () => {
-        // Back trong drawer Slideshow chỉ ẩn drawer này — KHÔNG động vào #drawer-settings bên dưới.
-        eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.close', payload: {} });
-    });
-}
-
-// MỚI (Batch 9, mục 4) — toggle "Use slideshow" DUY NHẤT (THAY 2 nút "Chọn Album"/"Tắt" cũ).
-if (settingSlideshowEnableToggle) {
-    settingSlideshowEnableToggle.addEventListener('change', (e) => {
-        eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.enable.change', payload: { checked: e.target.checked } });
-    });
-}
+// (btnBackSlideshowSettings ĐÃ XOÁ — Batch D4: Back dùng CHUNG btnSettingsStackBack.)
 
 if (slideshowAlbumPickerOverlay) {
     slideshowAlbumPickerOverlay.addEventListener('click', () => {
@@ -30,34 +26,24 @@ if (slideshowAlbumPickerOverlay) {
     });
 }
 
-if (slideshowModeSelect) {
-    slideshowModeSelect.addEventListener('change', () => {
-        eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.mode.change', payload: { value: slideshowModeSelect.value } });
-    });
+// ===================== 6 input BÊN TRONG panel Settings (delegate) =====================
+const SLIDESHOW_SETTINGS_INPUT_MAP = {
+    'setting-slideshow-enable': { type: 'slideshowSettings.enable.change', event: 'change', checkbox: true },
+    'setting-slideshow-mode': { type: 'slideshowSettings.mode.change', event: 'change' },
+    'setting-slideshow-photo-per-song': { type: 'slideshowSettings.photoPerSong.change', event: 'change', checkbox: true },
+    'setting-slideshow-interval': { type: 'slideshowSettings.interval.change', event: 'change' },
+    'setting-slideshow-transition': { type: 'slideshowSettings.transitionType.change', event: 'change' },
+    'setting-slideshow-show-caption': { type: 'slideshowSettings.showCaption.change', event: 'change', checkbox: true },
+};
+
+function handleSlideshowSettingsDelegatedChange(e) {
+    const entry = SLIDESHOW_SETTINGS_INPUT_MAP[e.target.id];
+    if (!entry || entry.event !== e.type) return; // không phải input cụm này
+
+    const payload = entry.checkbox ? { checked: e.target.checked } : { value: e.target.value };
+    eventBus.send({ router: 'slideshowSettings', type: entry.type, payload });
 }
 
-// MỚI (04/07/2026, mục 5) — toggle "Photo per song".
-if (settingSlideshowPhotoPerSongToggle) {
-    settingSlideshowPhotoPerSongToggle.addEventListener('change', (e) => {
-        eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.photoPerSong.change', payload: { checked: e.target.checked } });
-    });
-}
-
-if (slideshowIntervalInput) {
-    slideshowIntervalInput.addEventListener('change', () => {
-        eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.interval.change', payload: { value: slideshowIntervalInput.value } });
-    });
-}
-
-if (slideshowTransitionSelect) {
-    slideshowTransitionSelect.addEventListener('change', () => {
-        eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.transitionType.change', payload: { value: slideshowTransitionSelect.value } });
-    });
-}
-
-// MỚI (04/07/2026, mục 2) — toggle "Show caption".
-if (settingSlideshowShowCaptionToggle) {
-    settingSlideshowShowCaptionToggle.addEventListener('change', (e) => {
-        eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.showCaption.change', payload: { checked: e.target.checked } });
-    });
+if (settingsStackBody) {
+    settingsStackBody.addEventListener('change', handleSlideshowSettingsDelegatedChange);
 }
