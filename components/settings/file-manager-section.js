@@ -3,10 +3,13 @@
  * CHỐT 03/07/2026 (xem plan-v12-multimedia-decisions.md mục 1a/7): File Manager KHÔNG còn là 1
  * overlay/drawer cấp cao riêng (khác hẳn patch 02/07/2026 trước đó) — giờ chỉ là 1 section BÌNH
  * THƯỜNG trong Settings, cùng dạng card với "Hệ thống & Playlist"/"Kiểu hiệu ứng"... 3 hàng bên
- * dưới (Song / Photo & Album / Documents) bấm vào PUSH THẲNG sang drawer con tương ứng (xem
- * components/file-manager.js — TPL_FILE_MANAGER_SONG_DRAWER/_PHOTO_DRAWER/_DOCUMENT_DRAWER),
- * đúng pattern nav-stack `#setting-open-about` -> `#drawer-about` đã có sẵn — KHÔNG có màn "File
- * Manager" trung gian nào nằm giữa.
+ * dưới (Song / Photo & Album / Documents) bấm vào PUSH THẲNG sang khu vực con tương ứng (xem
+ * components/file-manager.js — Batch D5 (06/07/2026): Song/Folder Detail giờ 2 HÀM
+ * `renderFileManagerSongPanelBody()`/`renderFileManagerFolderDetailPanelBody()`, push động vào
+ * Settings Stack; Photo/Document CHƯA đổi, vẫn `TPL_FILE_MANAGER_PHOTO_DRAWER`/
+ * `TPL_FILE_MANAGER_DOCUMENT_DRAWER` tĩnh — dự kiến D6/D7), đúng pattern nav-stack
+ * `#setting-open-about` -> panel About (core/settings-panel-stack.js) đã có sẵn — KHÔNG có màn
+ * "File Manager" trung gian nào nằm giữa.
  *
  * Đặt ngay sau section "Hệ thống & Playlist" (TPL_SETTINGS_PLAYLIST_BG) vì liên quan trực tiếp
  * tới nhạc/thư viện — xem thứ tự ghép ở components/settings-drawer.js.
