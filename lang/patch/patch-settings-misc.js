@@ -23,7 +23,10 @@ const LANG_PATCH_SETTINGS_MISC = {
     // Batch D1 (Settings restructure, 06/07/2026) — nút Back giờ DÙNG CHUNG cho mọi panel con
     // (core/settings-panel-stack.js), thay 9 key `*.backToSettings.title` rời rạc trước đây bằng
     // ĐÚNG 1 key ở đây. `aboutDrawer.backToSettings.title` XOÁ (không còn nơi nào dùng).
-    'settingsDrawer.back.title': 'Back to Settings',
+    // VIẾT LẠI (06/07/2026, slider thật — header nhét vào từng panel): `settingsDrawer.back.title`
+    // ĐÃ XOÁ — nút Back giờ dùng `aria-label="Back"` cố định (không dịch) thay vì `title` qua t(),
+    // vì core/settings-panel-stack.js (core UI thuần) không được biết gì về `lang/` — xem
+    // _buildPanelInnerHtml().
 
     'aboutDrawer.title': 'About the player',
     'aboutDrawer.statsSectionTitle': 'Statistics',
