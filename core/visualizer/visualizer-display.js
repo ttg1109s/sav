@@ -177,9 +177,53 @@
             appState.mutate('vizConfig', cfg => { cfg.quality = value; });
         }
 
-        /** Độ mờ ảnh nền. msg.type 'visualizerDisplay.bgBlur.input'. @param {string} value */
+        /**
+         * HOTFIX 3 (07/07/2026) — `applyBgImage()`/`applyBgImageEnabled()` bị XOÁ NHẦM hoàn toàn
+         * khỏi file này ở Batch D3 (lỗi thao tác `str_replace` — `old_str` vô tình bao trùm luôn 2
+         * hàm này dù không định đổi gì, `new_str` không viết lại nên mất trắng). Toggle "Ảnh nền"
+         * ở Main list gọi 2 hàm này qua event/workflow/visualizer-display.js — bấm vào sẽ ném
+         * `ReferenceError` từ lúc Batch D3 tới giờ. Khôi phục lại NGUYÊN VẸN logic gốc, ĐỒNG THỜI
+         * áp refactor Rule 0.5 luôn (batch "nền chung" — Giang đã CHỐT làm đầy đủ từ D1): BỎ
+         * `updatePlaylistBg()`/`saveConfig()` nội bộ, dời ra Workflow (xem event/workflow/
+         * visualizer-display.js::toggleBgImage()). `bgImageEnableToggle.checked = true` GIỮ
+         * NGUYÊN — ghi DOM tĩnh đơn giản, không phải core-gọi-core, không thuộc phạm vi Rule 3.
+         *
+         * @param {Blob} file - Blob ảnh (từ store `images` qua picker — xem event/workflow/
+         *        visualizer-display.js::toggleBgImage; KHÔNG validate định dạng ở đây, ảnh trong
+         *        store `images` đã hợp lệ từ lúc upload vào đó)
+         */
+        async function applyBgImage(file) {
+            await setMeta('bgImage', file);
+            appState.mutate('vizConfig', cfg => {
+                if (cfg.bgImage && cfg.bgImage.startsWith('blob:')) URL.revokeObjectURL(cfg.bgImage);
+                cfg.bgImage = URL.createObjectURL(file);
+                cfg.bgImageEnabled = true;
+            });
+            bgImageEnableToggle.checked = true;
+        }
+
+        /**
+         * HOTFIX 3 — khôi phục (xem docstring applyBgImage() ngay trên) + refactor Rule 0.5.
+         * FIX (04/07/2026, mục 1 phản hồi Giang) — TẮT KHÔNG xoá `meta.bgImage` trong IndexedDB,
+         * chỉ dọn object URL runtime, GIỮ Blob thật để lần "gạt On" kế tiếp kích hoạt lại NGAY qua
+         * `applyBgImage()` mà KHÔNG cần mở lại picker.
+         * @param {boolean} enabled
+         */
+        function applyBgImageEnabled(enabled) {
+            appState.mutate('vizConfig', cfg => {
+                cfg.bgImageEnabled = enabled;
+                if (!enabled) {
+                    if (cfg.bgImage && cfg.bgImage.startsWith('blob:')) URL.revokeObjectURL(cfg.bgImage);
+                    cfg.bgImage = '';
+                }
+            });
+        }
+
+        /** Độ mờ ảnh nền. msg.type 'visualizerDisplay.bgBlur.input'. Batch "nền chung" — BỎ
+         * `updatePlaylistBg()`/`saveConfig()` nội bộ, dời ra Workflow. @param {string} value */
         function setBgBlur(value) {
-            appState.mutate('vizConfig', cfg => { cfg.bgBlur = value; }); valBgBlurDisplay.textContent = value + 'px'; updatePlaylistBg(); saveConfig();
+            appState.mutate('vizConfig', cfg => { cfg.bgBlur = value; });
+            valBgBlurDisplay.textContent = value + 'px';
         }
 
         /**
