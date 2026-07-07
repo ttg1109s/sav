@@ -138,15 +138,16 @@ function renderFileManagerFolderDetailPanelBody() {
 `;
 }
 
-const TPL_FILE_MANAGER_PHOTO_DRAWER = `
-    <div id="drawer-file-manager-photo" class="fixed inset-0 drawer-glass z-[90] transform translate-y-full transition-transform duration-500 ease-in-out flex flex-col">
-        <div class="flex justify-between items-center px-4 py-3 sm:px-6 border-b border-white/10 shrink-0 bg-black/40">
-            <div class="flex items-center gap-2 min-w-0">
-                <button id="btn-back-file-manager-photo" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0" data-i18n-title="fileManager.photo.back.title" title="${t('fileManager.photo.back.title')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 class="text-base sm:text-lg font-bold tracking-wider text-white uppercase truncate" data-i18n="fileManager.photo.title">${t('fileManager.photo.title')}</h2>
-            </div>
+// ===================== Khu vực: Photo & Album (Batch 3, 03/07/2026 — code thật) =====================
+// Batch D6 (Settings restructure, 06/07/2026): TPL_FILE_MANAGER_PHOTO_DRAWER (khung `fixed
+// inset-0 drawer-glass z-[90]` + header riêng) THAY bằng hàm `renderFileManagerPhotoPanelBody()`,
+// PUSH ĐỘNG với `fullBleed: true` (masonry/story slider tràn viền, không dùng khung "max-w-2xl"
+// mặc định — xem event/workflow/file-manager-photo.js::openPanel()). Nút upload
+// (`#btn-file-manager-image-upload-trigger`) TRƯỚC ĐÂY nằm trong header bar riêng (cạnh title) —
+// header giờ dùng CHUNG (chỉ title + Back), nút upload dời xuống 1 THANH NHỎ ngay đầu body.
+function renderFileManagerPhotoPanelBody() {
+    return `
+        <div class="flex justify-end items-center px-4 py-2 border-b border-white/5 shrink-0">
             <button id="btn-file-manager-image-upload-trigger" class="w-8 h-8 flex items-center justify-center rounded-full bg-sky-500 hover:bg-sky-400 transition-colors text-white shrink-0" data-i18n-title="fileManager.photo.uploadTitle" title="${t('fileManager.photo.uploadTitle')}">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
             </button>
@@ -156,11 +157,9 @@ const TPL_FILE_MANAGER_PHOTO_DRAWER = `
         <!-- Story slider Album (mục 3, lazy load qua IntersectionObserver — core/file-manager/photo-ui.js) -->
         <div id="file-manager-album-story" class="flex gap-4 overflow-x-auto px-4 py-4 snap-x snap-mandatory shrink-0 border-b border-white/5"></div>
 
-        <!-- MỚI (batch tiếp theo 03/07/2026 — mục 2.2/2.3 plan-v12-multimedia-update-2.md) — thanh
-             quản lý album đang lọc: chỉ hiện khi activeAlbumId != null (toggle 'hidden'/'flex' ở
-             workflow, xem event/workflow/file-manager-photo.js::refresh()). 3 nút: Thêm ảnh có sẵn
-             (mở chế độ chọn nhiều trong masonry) / Đổi tên / Xoá album — cùng khuôn icon-button với
-             renameBtn/deleteBtn của Folder (core/file-manager/folder-list-ui.js). -->
+        <!-- Thanh quản lý album đang lọc: chỉ hiện khi activeAlbumId != null (toggle 'hidden'/
+             'flex' ở workflow, xem event/workflow/file-manager-photo.js::refresh()). 3 nút: Thêm
+             ảnh có sẵn (mở chế độ chọn nhiều trong masonry) / Đổi tên / Xoá album. -->
         <div id="file-manager-album-manage-bar" class="hidden items-center justify-between gap-2 px-4 py-2 border-b border-white/5 shrink-0 bg-white/5">
             <span id="file-manager-album-manage-name" class="text-sm font-semibold text-sky-300 truncate min-w-0"></span>
             <div class="flex items-center gap-1 shrink-0">
@@ -181,18 +180,18 @@ const TPL_FILE_MANAGER_PHOTO_DRAWER = `
             </div>
         </div>
 
-        <!-- Masonry ảnh (CSS columns thuần — mục 3). -->
-        <div class="flex-grow overflow-y-auto px-3 py-3 pb-20">
+        <!-- Masonry ảnh (grid ô vuông đều — mục 3, VIẾT LẠI 04/07/2026). -->
+        <div class="flex-grow overflow-y-auto px-3 py-3 pb-20 relative">
             <div id="file-manager-image-masonry" class="grid grid-cols-3 sm:grid-cols-4 gap-1"></div>
             <p id="file-manager-image-empty" class="hidden text-sm text-slate-400 text-center py-10" data-i18n="fileManager.photo.image.empty">${t('fileManager.photo.image.empty')}</p>
         </div>
 
-        <!-- MỚI (batch tiếp theo 03/07/2026, mục 2.3) — thanh hành động khi đang chọn nhiều ảnh để
-             thêm vào album đang xem (bật qua nút "Thêm ảnh có sẵn" ở thanh quản lý album phía
-             trên) — cùng khuôn #selection-action-bar của Playlist (components/playlist-view.js).
-             "absolute bottom-0" neo theo #drawer-file-manager-photo (fixed inset-0, cha gần nhất
-             lập context định vị) — KHÔNG cần thêm "relative" ở div masonry ngay trên, giống hệt
-             cách #selection-action-bar neo theo #playlist-view (absolute inset-0). -->
+        <!-- Thanh hành động khi đang chọn nhiều ảnh để thêm vào album đang xem (bật qua nút "Thêm
+             ảnh có sẵn" ở thanh quản lý album phía trên). "absolute bottom-0" neo theo chính panel
+             (fullBleed panel là position:absolute + flex flex-col, cha gần nhất lập context
+             định vị) — cần "relative" ở div masonry ngay trên để "absolute" ở đây neo đúng theo
+             panel tổng thể chứ không theo riêng div masonry (khác bản gốc dùng #drawer cha làm
+             mốc — panel giờ đã tự là mốc đó). -->
         <div id="file-manager-image-selection-bar" class="hidden absolute bottom-0 inset-x-0 z-20 bg-[#0f172a]/95 backdrop-blur-md border-t border-white/10 px-4 py-3 flex items-center justify-between gap-2">
             <span id="file-manager-image-selection-count" class="text-sm font-semibold text-slate-200"></span>
             <div class="flex items-center gap-2 shrink-0">
@@ -200,8 +199,8 @@ const TPL_FILE_MANAGER_PHOTO_DRAWER = `
                 <button id="btn-file-manager-image-selection-confirm" class="px-3.5 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors" data-i18n="fileManager.photo.album.btnAddSelected">${t('fileManager.photo.album.btnAddSelected')}</button>
             </div>
         </div>
-    </div>
 `;
+}
 
 // ===================== Drawer con: Documents (04/07/2026 — code thật, thay placeholder) ========
 // 2 nút upload TÁCH RIÊNG (không dùng chung 1 cơ chế "tự phân loại", đúng yêu cầu Giang — "mỗi cái
