@@ -86,23 +86,33 @@ Và 3 hàm cụ thể (nằm trong file KHÔNG hoàn toàn hot-path, nhưng bả
 
 ### `core/auto-switch-visual.js`
 
-| Hàm | Dòng | R2 (`appState.get` — số lần) | R1-strong (else/switch) | R3 (gọi void xác nhận) |
+> **[CẬP NHẬT Batch D3, 06/07/2026]** 4 hàm `set*`/`syncAutoSwitchTimeModeBlocks` ĐÃ REFACTOR đầy
+> đủ Rule 1-4 (bỏ hẳn `saveConfig`/`updateCycleModeButtonState`/`startAutoSwitchVisualBranch` nội
+> bộ — dời ra `event/workflow/auto-switch-visual.js`) — KHÔNG còn vi phạm Rule 3, cột "R3" cập
+> nhật lại "—". `initAutoSwitchVisualUI` ĐỔI TÊN `initAutoSwitchCycleButtonFromConfig` + THU HẸP
+> phạm vi (chỉ còn `updateCycleModeButtonState()`, phần đồng bộ panel dời sang
+> `workflowVisualizerDisplay.openPanel()`) — VẪN nợ kỹ thuật phần còn lại (gọi
+> `updateCycleModeButtonState`), ngoài phạm vi Batch D3 (không gắn với panel di chuyển). Số dòng
+> KHÔNG re-scan bằng script — coi là gần đúng.
+
+| Hàm | Dòng (gần đúng) | R2 (`appState.get` — số lần) | R1-strong (else/switch) | R3 (gọi void xác nhận) |
 |---|---|---|---|---|
-| `pickNextAutoSwitchVisualType` | 50-58 | ✓ (2) | — | — |
-| `applyAutoSwitchVisualType` | 61-67 | ✓ (1) | — | `saveConfig`, `updateTypeUI` |
-| `computeAutoSwitchVisualTimerDelayMs` | 75-83 | ✓ (1) | — | — |
-| `scheduleNextAutoSwitchVisualTimer` | 90-108 | ✓ (2) | — | `applyAutoSwitchVisualType` |
-| `buildAutoSwitchVisualMarks` | 125-139 | ✓ (2) | — | — |
-| `autoSwitchVisualMarksTick` | 146-172 | ✓ (1) | ✓ | `applyAutoSwitchVisualType` |
-| `startAutoSwitchVisualBranch` | 210-231 | ✓ (2) | ✓ | `buildAutoSwitchVisualMarks`, `killAllAutoSwitchVisualTasks`, `scheduleNextAutoSwitchVisualTimer` |
-| `onAutoSwitchVisualSongChanged` | 255-262 | ✓ (3) | — | — |
-| `syncAutoSwitchVisualPlayState` | 269-276 | ✓ (2) | — | — |
-| `updateCycleModeButtonState` | 301-310 | ✓ (1) | — | — |
-| `initAutoSwitchVisualUI` | 330-346 | ✓ (1) | — | `syncAutoSwitchTimeModeBlocks`, `updateCycleModeButtonState` |
-| `setAutoSwitchVisualEnabled` | 349-355 | — | — | `saveConfig`, `startAutoSwitchVisualBranch`, `updateCycleModeButtonState` |
-| `setAutoSwitchVisualMode` | 358-363 | — | — | `saveConfig` |
-| `setAutoSwitchVisualTimeMode` | 366-371 | — | — | `saveConfig`, `startAutoSwitchVisualBranch`, `syncAutoSwitchTimeModeBlocks` |
-| `setAutoSwitchVisualSecondsField` | 374-381 | — | — | `saveConfig`, `startAutoSwitchVisualBranch` |
+| `pickNextAutoSwitchVisualType` | ~50-58 | ✓ (2) | — | — |
+| `applyAutoSwitchVisualType` | ~61-67 | ✓ (1) | — | `saveConfig`, `updateTypeUI` |
+| `computeAutoSwitchVisualTimerDelayMs` | ~75-83 | ✓ (1) | — | — |
+| `scheduleNextAutoSwitchVisualTimer` | ~90-108 | ✓ (2) | — | `applyAutoSwitchVisualType` |
+| `buildAutoSwitchVisualMarks` | ~125-139 | ✓ (2) | — | — |
+| `autoSwitchVisualMarksTick` | ~146-172 | ✓ (1) | ✓ | `applyAutoSwitchVisualType` |
+| `startAutoSwitchVisualBranch` | ~210-231 | ✓ (2) | ✓ | `buildAutoSwitchVisualMarks`, `killAllAutoSwitchVisualTasks`, `scheduleNextAutoSwitchVisualTimer` |
+| `onAutoSwitchVisualSongChanged` | ~255-262 | ✓ (3) | — | — |
+| `syncAutoSwitchVisualPlayState` | ~269-276 | ✓ (2) | — | — |
+| `updateCycleModeButtonState` | ~301-310 | ✓ (1) | — | — |
+| `syncAutoSwitchTimeModeBlocks` | ~317-322 | — | — | — (Batch D3: nhận tham số, không còn đọc dom-refs tĩnh) |
+| `initAutoSwitchCycleButtonFromConfig` (đổi tên Batch D3, cũ: `initAutoSwitchVisualUI`) | ~330-333 | — | — | `updateCycleModeButtonState` (nợ kỹ thuật còn lại, ngoài phạm vi batch) |
+| `setAutoSwitchVisualEnabled` | ~339-342 | — | — | — (Batch D3: đã dời ra Workflow) |
+| `setAutoSwitchVisualMode` | ~345-347 | — | — | — (Batch D3: đã dời ra Workflow) |
+| `setAutoSwitchVisualTimeMode` | ~350-352 | — | — | — (Batch D3: đã dời ra Workflow) |
+| `setAutoSwitchVisualSecondsField` | ~355-360 | — | — | — (Batch D3: đã dời ra Workflow) |
 
 ### `core/canvas-scene-setup.js`
 
@@ -294,20 +304,29 @@ Và 3 hàm cụ thể (nằm trong file KHÔNG hoàn toàn hot-path, nhưng bả
 
 ### `core/subtitle/subtitle-style-settings.js`
 
-| Hàm | Dòng | R2 (`appState.get` — số lần) | R1-strong (else/switch) | R3 (gọi void xác nhận) |
+> **[CẬP NHẬT Batch D2, 06/07/2026]** 10 hàm `set*` dưới đây ĐÃ REFACTOR đầy đủ Rule 1-4 (bỏ hẳn
+> `applySubtitleStyle()`/`saveConfig()` nội bộ — dời ra `event/workflow/subtitle-style-
+> settings.js`) — KHÔNG còn vi phạm Rule 3, cột "R3" cập nhật lại "—". `initSubtitleStyleSettings-
+> UIFromConfig` ĐỔI TÊN thành `initSubtitleToggleUIFromConfig` + THU HẸP phạm vi (chỉ còn đồng bộ
+> checkbox Main + badge, phần 8 field style dời sang `workflowSubtitleStyleSettings.openPanel()`),
+> VẪN CÒN nợ kỹ thuật (gọi `updateSubToggleUI`/`applySubtitleStyle`) — chưa refactor vì ngoài phạm
+> vi Batch D2 (không phải hàm gắn với panel di chuyển). Số dòng bên dưới KHÔNG re-scan bằng script
+> (đã đổi cấu trúc file thật) — coi là gần đúng, cần script quét lại nếu cần chính xác tuyệt đối.
+
+| Hàm | Dòng (gần đúng, chưa re-scan) | R2 (`appState.get` — số lần) | R1-strong (else/switch) | R3 (gọi void xác nhận) |
 |---|---|---|---|---|
-| `setSubtitlesEnabled` | 19-25 | ✓ (2) | — | `saveConfig`, `updateSubToggleUI` |
-| `setSubtitleStyleBgColor` | 28-31 | — | — | `applySubtitleStyle` |
-| `setSubtitleStyleBgOpacity` | 34-39 | — | — | `applySubtitleStyle` |
-| `setSubtitleStyleBorderColor` | 42-45 | — | — | `applySubtitleStyle` |
-| `setSubtitleStyleBorderOpacity` | 48-53 | — | — | `applySubtitleStyle` |
-| `setSubtitleStyleBorderWidth` | 56-61 | — | — | `applySubtitleStyle` |
-| `setSubtitleStyleBorderRadius` | 64-69 | — | — | `applySubtitleStyle` |
-| `setSubtitleStyleTextColor` | 72-75 | — | — | `applySubtitleStyle` |
-| `setSubtitleStyleFontSize` | 78-83 | — | — | `applySubtitleStyle` |
-| `setSubtitleStyleLineHeight` | 86-91 | — | — | `applySubtitleStyle` |
-| `setSubtitleStyleLetterSpacing` | 94-99 | — | — | `applySubtitleStyle` |
-| `initSubtitleStyleSettingsUIFromConfig` | 106-122 | ✓ (3) | — | `applySubtitleStyle`, `updateSubToggleUI` |
+| `setSubtitlesEnabled` | ~19-25 | ✓ (2) | — | `saveConfig`, `updateSubToggleUI` |
+| `setSubtitleStyleBgColor` | ~28-30 | — | — | — (Batch D2: đã dời ra Workflow) |
+| `setSubtitleStyleBgOpacity` | ~33-38 | — | — | — (Batch D2: đã dời ra Workflow) |
+| `setSubtitleStyleBorderColor` | ~41-43 | — | — | — (Batch D2: đã dời ra Workflow) |
+| `setSubtitleStyleBorderOpacity` | ~46-51 | — | — | — (Batch D2: đã dời ra Workflow) |
+| `setSubtitleStyleBorderWidth` | ~54-59 | — | — | — (Batch D2: đã dời ra Workflow) |
+| `setSubtitleStyleBorderRadius` | ~62-67 | — | — | — (Batch D2: đã dời ra Workflow) |
+| `setSubtitleStyleTextColor` | ~70-72 | — | — | — (Batch D2: đã dời ra Workflow) |
+| `setSubtitleStyleFontSize` | ~75-80 | — | — | — (Batch D2: đã dời ra Workflow) |
+| `setSubtitleStyleLineHeight` | ~83-88 | — | — | — (Batch D2: đã dời ra Workflow) |
+| `setSubtitleStyleLetterSpacing` | ~91-96 | — | — | — (Batch D2: đã dời ra Workflow) |
+| `initSubtitleToggleUIFromConfig` (đổi tên, cũ: `initSubtitleStyleSettingsUIFromConfig`) | ~103-109 | ✓ (1) | — | `applySubtitleStyle`, `updateSubToggleUI` |
 
 ### `core/subtitle/subtitles.js`
 
@@ -331,20 +350,43 @@ Và 3 hàm cụ thể (nằm trong file KHÔNG hoàn toàn hot-path, nhưng bả
 
 ### `core/visualizer/visualizer-display.js`
 
-| Hàm | Dòng | R2 (`appState.get` — số lần) | R1-strong (else/switch) | R3 (gọi void xác nhận) |
+> **[CẬP NHẬT Batch D3, 06/07/2026]** `updateTypeUI`/`updateBarStyleUI`/`updateColorMenuUI` THÊM
+> guard đầu hàm (panel Visualizer Settings nay push/pop động, có thể đang đóng — xem
+> core/settings-panel-stack.js) — R3 giữ NGUYÊN như cũ (guard không đổi bản chất core-gọi-core,
+> ngoài phạm vi Rule 0.5 batch này). 14 hàm `set*` (quality/bgColor/colorMode/solidColor.../
+> dynColor.../vortexStyle/barStyle/rainStyle/glassFlash/maxHeight/barWidth/mirrorCount) ĐÃ
+> REFACTOR ĐẦY ĐỦ Rule 1-4 — bỏ hẳn `resizeCanvas`/`updateDOMBackground`/`updateColorMenuUI`/
+> `updateProgressBarCSS`/`updateVortexVisibility`/`updateBarStyleUI`/`saveConfig` nội bộ (dời ra
+> `event/workflow/visualizer-display.js`) — KHÔNG còn vi phạm Rule 3. `setMaxHeight`/`setBarWidth`/
+> `setMirrorCount` R2 giảm từ ✓(1) xuống "—" (không còn tự `appState.get()` lại để đọc display —
+> nhận `displayEl` qua tham số, ghi thẳng giá trị local `v`). Số dòng dưới đây KHÔNG re-scan bằng
+> script (đã đổi cấu trúc file thật) — coi là gần đúng.
+
+| Hàm | Dòng (gần đúng) | R2 (`appState.get` — số lần) | R1-strong (else/switch) | R3 (gọi void xác nhận) |
 |---|---|---|---|---|
-| `updateProgressBarCSS` | 28-33 | ✓ (1) | — | — |
-| `cycleVisualizerType` | 50-53 | ✓ (2) | — | — |
-| `updateTypeUI` | 55-93 | ✓ (5) | ✓ | `updateBarStyleUI`, `updateVortexVisibility` |
-| `updateBarStyleUI` | 95-99 | ✓ (1) | — | — |
-| `updateColorMenuUI` | 101-107 | ✓ (1) | ✓ | `updateProgressBarCSS` |
-| `applyEQPreset` | 109-114 | ✓ (2) | — | — |
-| `applyBgImage` | 141-150 | — | — | `updatePlaylistBg` |
-| `applyBgImageEnabled` | 157-167 | — | — | `updatePlaylistBg` |
-| `setMaxHeight` | 231-233 | ✓ (1) | — | — |
-| `setBarWidth` | 236-238 | ✓ (1) | — | — |
-| `setMirrorCount` | 241-243 | ✓ (1) | — | — |
-| `setVolume` | 246-251 | ✓ (3) | — | — |
+| `updateProgressBarCSS` | ~28-33 | ✓ (1) | — | — |
+| `cycleVisualizerType` | ~50-53 | ✓ (2) | — | — |
+| `updateTypeUI` | ~63-107 | ✓ (5) | ✓ | `updateBarStyleUI`, `updateVortexVisibility` (KHÔNG đổi — chỉ thêm guard, xem ghi chú trên) |
+| `updateBarStyleUI` | ~112-117 | ✓ (1) | — | — (đã thêm guard, không đổi vi phạm) |
+| `updateColorMenuUI` | ~120-128 | ✓ (1) | ✓ | `updateProgressBarCSS` (KHÔNG đổi — chỉ thêm guard) |
+| `applyEQPreset` | ~130-135 | ✓ (2) | — | — |
+| `setVisualizerQuality` | ~138-140 | — | — | — (Batch D3: đã dời ra Workflow) |
+| `applyBgImage` | ~148-158 | — | — | `updatePlaylistBg` (Main, KHÔNG di chuyển batch này) |
+| `applyBgImageEnabled` | ~165-176 | — | — | `updatePlaylistBg` (Main, KHÔNG di chuyển batch này) |
+| `setBgColor` | ~183-185 | — | — | — (Batch D3: đã dời ra Workflow) |
+| `setColorMode` | ~191-193 | — | — | — (Batch D3: đã dời ra Workflow) |
+| `setSolidColorFromPicker` | ~199-202 | — | — | — (Batch D3: đã dời ra Workflow) |
+| `setSolidColorFromText` | ~209-214 | — | — | — (Batch D3: đã dời ra Workflow) |
+| `setDynColorA` | ~217-219 | — | — | — (Batch D3: đã dời ra Workflow) |
+| `setDynColorB` | ~222-224 | — | — | — (Batch D3: đã dời ra Workflow) |
+| `setVortexStyle` | ~227-229 | — | — | — (Batch D3: đã dời ra Workflow) |
+| `setBarStyle` | ~232-234 | — | — | — (Batch D3: đã dời ra Workflow) |
+| `setRainStyle` | ~237-239 | — | — | — (Batch D3: đã dời ra Workflow) |
+| `setGlassFlash` | ~242-244 | — | — | — (Batch D3: đã dời ra Workflow) |
+| `setMaxHeight` | ~247-251 | — | — | — (Batch D3: R2 giảm từ ✓(1), đã dời saveConfig ra Workflow) |
+| `setBarWidth` | ~254-258 | — | — | — (Batch D3: R2 giảm từ ✓(1), đã dời saveConfig ra Workflow) |
+| `setMirrorCount` | ~261-265 | — | — | — (Batch D3: R2 giảm từ ✓(1), đã dời saveConfig ra Workflow) |
+| `setVolume` | ~268-273 | ✓ (3) | — | — |
 
 ### `core/visualizer/visualizer-misc-settings.js`
 
@@ -380,7 +422,7 @@ không" (xem `core-function-conventions.md` Rule 1) trước khi kết luận.
 | `core/auto-switch-visual.js` | `onAutoSwitchVisualSongChanged` | 255-262 |
 | `core/auto-switch-visual.js` | `syncAutoSwitchVisualPlayState` | 269-276 |
 | `core/auto-switch-visual.js` | `updateCycleModeButtonState` | 301-310 |
-| `core/auto-switch-visual.js` | `initAutoSwitchVisualUI` | 330-346 |
+| `core/auto-switch-visual.js` | `initAutoSwitchCycleButtonFromConfig` (đổi tên Batch D3, cũ: `initAutoSwitchVisualUI`) | ~330-333 |
 | `core/canvas-scene-setup.js` | `allocateBuffers` | 5-10 |
 | `core/canvas-scene-setup.js` | `resizeCanvas` | 21-48 |
 | `core/color-utils.js` | `updateDOMBackground` | 18-22 |
@@ -421,7 +463,7 @@ không" (xem `core-function-conventions.md` Rule 1) trước khi kết luận.
 | `core/subtitle/subtitle-display.js` | `processSubtitles` | 44-84 |
 | `core/subtitle/subtitle-display.js` | `clearAllActiveSubBlocks` | 111-116 |
 | `core/subtitle/subtitle-style-settings.js` | `setSubtitlesEnabled` | 19-25 |
-| `core/subtitle/subtitle-style-settings.js` | `initSubtitleStyleSettingsUIFromConfig` | 106-122 |
+| `core/subtitle/subtitle-style-settings.js` | `initSubtitleToggleUIFromConfig` (đổi tên Batch D2, cũ: `initSubtitleStyleSettingsUIFromConfig`) | ~103-109 |
 | `core/subtitle/subtitles.js` | `exportSubtitlesAsSrt` | 139-147 |
 | `core/subtitle/subtitles.js` | `applySubtitlesAndClose` | 156-185 |
 | `core/tab-hide-reload.js` | `triggerHideAndReload` | 28-50 |
