@@ -36,28 +36,34 @@
  *     Markdown — KHÔNG cảnh báo (không mất gì).
  *   - `filename` LƯU NGUYÊN tên gốc (giữ đuôi .docx/.txt) dù `content` luôn là 1 chuỗi Markdown.
  *
- * NẠP SAU: core/file-manager/document.js, core/file-manager/document-ui.js, core/dom-refs.js,
- * core/file-manager/nav.js (showFileManagerDocumentDrawer). NẠP TRƯỚC:
- * event/router/file-manager-document.js, event/listener/file-manager-document.js.
+ * NẠP SAU: core/file-manager/document.js, core/file-manager/document-ui.js, core/settings-panel-
+ * stack.js (pushSettingsPanel).
+ *
+ * === Batch D7 (Settings restructure, 06/07/2026 — batch CUỐI của Nhóm D) ===
+ * Panel Document giờ push/pop động — `fileManagerDocumentPanelEl` (biến module, cùng pattern đã
+ * dùng ở Song/Photo/Slideshow) lưu panel đang mở. `core/file-manager/document-ui.js` KHÔNG cần
+ * đổi GÌ CẢ — `renderDocumentList()` đã nhận `containerEl` qua tham số từ trước;
+ * `openDocumentDetailModal()`/`openDocumentEditorDrawer()`/`openCreateDocumentModal()` đều tự dựng
+ * overlay ĐỘC LẬP (`document.body.appendChild`), không phụ thuộc panel — giống hệt các modal ở
+ * Photo (Batch D6).
  */
+let fileManagerDocumentPanelEl = null; // panel Document đang mở — null nếu đang đóng (Batch D7)
+
 const workflowFileManagerDocument = {
 
-    /** Ứng với 'fileManagerDocument.open' — mở drawer + vẽ lại danh sách. */
-    async openDrawer() {
-        showFileManagerDocumentDrawer(); // core (core/file-manager/nav.js)
+    /** Ứng với 'fileManagerDocument.openPanel.click' — push panel + vẽ lại danh sách. */
+    async openPanel() {
+        fileManagerDocumentPanelEl = pushSettingsPanel({ title: t('fileManager.document.title'), bodyHtml: renderFileManagerDocumentPanelBody() });
         await this.refresh();
     },
 
-    /** Vẽ lại danh sách document — gọi lúc mở drawer + sau mỗi lần thêm/xoá/đổi tên.
-     * FIX (05/07/2026, mục 1/2 phản hồi Giang) — bấm vào hàng giờ mở `openDetail()` (modal chi
-     * tiết: icon lớn + tên/dung lượng + Xoá/Sửa hoặc Tải về) — THAY HẲN no-op cũ (batch 04/07/2026
-     * từng cố tình tắt hẳn vì lý do z-index Reader, xem đầu file). Đọc tài liệu (phân trang, lật
-     * trang) vẫn CHỈ qua nút "Reader" ở Control Center -> drawer picker riêng
-     * (event/workflow/document-picker.js) — modal chi tiết này KHÔNG phải Reader. */
+    /** Vẽ lại danh sách document — gọi lúc mở panel + sau mỗi lần thêm/xoá/đổi tên. */
     async refresh() {
+        if (!fileManagerDocumentPanelEl) return; // guard: panel đã đóng
         const documents = await listDocuments(); // core (core/file-manager/document.js)
-        if (fileManagerDocumentEmpty) fileManagerDocumentEmpty.classList.toggle('hidden', documents.length > 0);
-        renderDocumentList(fileManagerDocumentList, documents, (doc) => this.openDetail(doc)); // core/file-manager/document-ui.js
+        const emptyEl = fileManagerDocumentPanelEl.querySelector('#file-manager-document-empty');
+        if (emptyEl) emptyEl.classList.toggle('hidden', documents.length > 0);
+        renderDocumentList(fileManagerDocumentPanelEl.querySelector('#file-manager-document-list'), documents, (doc) => this.openDetail(doc)); // core/file-manager/document-ui.js
     },
 
     /**
