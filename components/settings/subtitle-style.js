@@ -19,7 +19,7 @@ const TPL_SETTINGS_SUBTITLE_STYLE = `
             <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
                 <div class="flex justify-between items-center p-4 border-b border-white/5">
                     <div class="pr-3">
-                        <div class="text-sm font-medium" data-i18n="settingsSubtitleStyle.enable.label">${t('settingsSubtitleStyle.enable.label')}</div>
+                        <div class="text-sm font-medium truncate" data-i18n="settingsSubtitleStyle.enable.label">${t('settingsSubtitleStyle.enable.label')}</div>
                         <div class="text-xs text-slate-400 mt-0.5" data-i18n="settingsSubtitleStyle.enable.hint">${t('settingsSubtitleStyle.enable.hint')}</div>
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer shrink-0">
@@ -28,9 +28,12 @@ const TPL_SETTINGS_SUBTITLE_STYLE = `
                     </label>
                 </div>
                 <button id="setting-open-subtitle-settings" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
-                    <div>
-                        <div class="text-sm font-medium" data-i18n="settingsSubtitleStyle.openDrawer.label">${t('settingsSubtitleStyle.openDrawer.label')}</div>
-                        <div class="text-xs text-slate-400 mt-0.5" data-i18n="settingsSubtitleStyle.openDrawer.hint">${t('settingsSubtitleStyle.openDrawer.hint')}</div>
+                    <div class="flex items-center gap-3 min-w-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
+                        <div class="min-w-0">
+                            <div class="text-sm font-medium truncate" data-i18n="settingsSubtitleStyle.openDrawer.label">${t('settingsSubtitleStyle.openDrawer.label')}</div>
+                            <div class="text-xs text-slate-400 mt-0.5 truncate" data-i18n="settingsSubtitleStyle.openDrawer.hint">${t('settingsSubtitleStyle.openDrawer.hint')}</div>
+                        </div>
                     </div>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </button>

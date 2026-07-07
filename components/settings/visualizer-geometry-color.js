@@ -46,7 +46,7 @@ const TPL_SETTINGS_VISUALIZER = `
             <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2 ml-2" data-i18n="settingsVisualizer.sectionTitle">${t('settingsVisualizer.sectionTitle')}</h3>
             <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
                 <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <span class="text-sm font-medium" data-i18n="settingsVisualizer.type.label">${t('settingsVisualizer.type.label')}</span>
+                    <span class="text-sm font-medium truncate" data-i18n="settingsVisualizer.type.label">${t('settingsVisualizer.type.label')}</span>
                     <select id="setting-visualizer-type" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
                         <option value="bar" data-i18n="settingsVisualizer.type.bar">${t('settingsVisualizer.type.bar')}</option>
                         <option value="lightning" data-i18n="settingsVisualizer.type.lightning">${t('settingsVisualizer.type.lightning')}</option>
@@ -57,15 +57,18 @@ const TPL_SETTINGS_VISUALIZER = `
                     </select>
                 </div>
                 <button id="setting-open-visualizer-settings" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
-                    <div>
-                        <div class="text-sm font-medium" data-i18n="settingsVisualizer.openDrawer.label">${t('settingsVisualizer.openDrawer.label')}</div>
-                        <div class="text-xs text-slate-400 mt-0.5" data-i18n="settingsVisualizer.openDrawer.hint">${t('settingsVisualizer.openDrawer.hint')}</div>
+                    <div class="flex items-center gap-3 min-w-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+                        <div class="min-w-0">
+                            <div class="text-sm font-medium truncate" data-i18n="settingsVisualizer.openDrawer.label">${t('settingsVisualizer.openDrawer.label')}</div>
+                            <div class="text-xs text-slate-400 mt-0.5 truncate" data-i18n="settingsVisualizer.openDrawer.hint">${t('settingsVisualizer.openDrawer.hint')}</div>
+                        </div>
                     </div>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </button>
                 <div class="flex justify-between items-center p-4 border-b border-white/5">
                     <div class="pr-3">
-                        <div class="text-sm font-medium" data-i18n="settingsVisualizer.visualEnable.label">${t('settingsVisualizer.visualEnable.label')}</div>
+                        <div class="text-sm font-medium truncate" data-i18n="settingsVisualizer.visualEnable.label">${t('settingsVisualizer.visualEnable.label')}</div>
                         <div class="text-xs text-slate-400 mt-0.5" data-i18n="settingsVisualizer.visualEnable.hint">${t('settingsVisualizer.visualEnable.hint')}</div>
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer shrink-0">
@@ -77,9 +80,12 @@ const TPL_SETTINGS_VISUALIZER = `
                      mục 3: ngay dưới "Hiện Visual". Mở Slideshow Settings Drawer riêng (components/
                      slideshow-settings-drawer.js), cùng pattern nút "Tùy chỉnh Visualizer" phía trên. -->
                 <button id="setting-open-slideshow-settings" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
-                    <div>
-                        <div class="text-sm font-medium" data-i18n="settingsVisualizer.slideshowSetting.label">${t('settingsVisualizer.slideshowSetting.label')}</div>
-                        <div class="text-xs text-slate-400 mt-0.5" data-i18n="settingsVisualizer.slideshowSetting.hint">${t('settingsVisualizer.slideshowSetting.hint')}</div>
+                    <div class="flex items-center gap-3 min-w-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-fuchsia-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4h10a2 2 0 012 2v10M4 8v10a2 2 0 002 2h10a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2z" /></svg>
+                        <div class="min-w-0">
+                            <div class="text-sm font-medium truncate" data-i18n="settingsVisualizer.slideshowSetting.label">${t('settingsVisualizer.slideshowSetting.label')}</div>
+                            <div class="text-xs text-slate-400 mt-0.5 truncate" data-i18n="settingsVisualizer.slideshowSetting.hint">${t('settingsVisualizer.slideshowSetting.hint')}</div>
+                        </div>
                     </div>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </button>

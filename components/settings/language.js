@@ -30,7 +30,7 @@ const TPL_SETTINGS_LANGUAGE = `
                     </select>
                 </div>
                 <div class="flex justify-between items-center p-4 border-b border-white/5">
-                    <span class="text-sm font-medium" data-i18n="settingsLanguage.upload.label">${t('settingsLanguage.upload.label')}</span>
+                    <span class="text-sm font-medium truncate" data-i18n="settingsLanguage.upload.label">${t('settingsLanguage.upload.label')}</span>
                     <label class="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors shadow">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline -mt-0.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3-3 3 3m-3-3v6" /></svg>
                         <span data-i18n="common.btn.upload">${t('common.btn.upload')}</span>

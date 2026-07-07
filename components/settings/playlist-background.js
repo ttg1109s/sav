@@ -19,14 +19,14 @@ const TPL_SETTINGS_PLAYLIST_BG = `
             <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="settingsPlaylistBg.sectionTitle">${t('settingsPlaylistBg.sectionTitle')}</h3>
             <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
                 <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <span class="text-sm font-medium" data-i18n="settingsPlaylistBg.viewMode.label">${t('settingsPlaylistBg.viewMode.label')}</span>
+                    <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.viewMode.label">${t('settingsPlaylistBg.viewMode.label')}</span>
                     <select id="setting-playlist-view-mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
                         <option value="list" data-i18n="settingsPlaylistBg.viewMode.list">${t('settingsPlaylistBg.viewMode.list')}</option>
                         <option value="grid" data-i18n="settingsPlaylistBg.viewMode.grid">${t('settingsPlaylistBg.viewMode.grid')}</option>
                     </select>
                 </div>
                 <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <span class="text-sm font-medium" data-i18n="settingsPlaylistBg.sortMode.label">${t('settingsPlaylistBg.sortMode.label')}</span>
+                    <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.sortMode.label">${t('settingsPlaylistBg.sortMode.label')}</span>
                     <select id="setting-playlist-sort-mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
                         <option value="default" data-i18n="settingsPlaylistBg.sortMode.default">${t('settingsPlaylistBg.sortMode.default')}</option>
                         <option value="az" data-i18n="settingsPlaylistBg.sortMode.az">${t('settingsPlaylistBg.sortMode.az')}</option>
@@ -62,7 +62,7 @@ const TPL_SETTINGS_PLAYLIST_BG = `
                      chế Video ở trên: bỏ nút "Chọn ảnh" riêng, chỉ còn toggle tự mở picker. -->
                 <div class="flex flex-col border-b border-white/5">
                     <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
-                        <span class="text-sm font-medium" data-i18n="settingsPlaylistBg.visualBgImage.label">${t('settingsPlaylistBg.visualBgImage.label')}</span>
+                        <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.visualBgImage.label">${t('settingsPlaylistBg.visualBgImage.label')}</span>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" id="setting-visual-bg-image-enable" class="sr-only peer">
                             <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
@@ -78,7 +78,7 @@ const TPL_SETTINGS_PLAYLIST_BG = `
                      #setting-bg-pick-library. -->
                 <div class="flex flex-col border-b border-white/5">
                     <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
-                        <span class="text-sm font-medium" data-i18n="settingsPlaylistBg.bgImageEnable.label">${t('settingsPlaylistBg.bgImageEnable.label')}</span>
+                        <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.bgImageEnable.label">${t('settingsPlaylistBg.bgImageEnable.label')}</span>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" id="setting-bg-image-enable" class="sr-only peer">
                             <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
@@ -87,7 +87,7 @@ const TPL_SETTINGS_PLAYLIST_BG = `
                 </div>
                 <div class="flex flex-col p-4 hover:bg-white/5 transition-colors">
                     <div class="flex justify-between items-center mb-2">
-                        <span class="text-sm font-medium" data-i18n="settingsPlaylistBg.bgBlur.label">${t('settingsPlaylistBg.bgBlur.label')}</span>
+                        <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.bgBlur.label">${t('settingsPlaylistBg.bgBlur.label')}</span>
                         <span id="val-bg-blur" class="text-xs text-sky-400 font-mono">0px</span>
                     </div>
                     <input type="range" id="setting-bg-blur" min="0" max="20" step="1" class="setting-slider">

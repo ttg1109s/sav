@@ -17,7 +17,7 @@ const TPL_SETTINGS_AUDIO_EQ = `
                     <input type="range" id="setting-volume" min="0" max="100" step="1" value="100" class="setting-slider">
                 </div>
                 <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <div><div class="text-sm font-medium" data-i18n="settingsAudioEq.mode.label">${t('settingsAudioEq.mode.label')}</div></div>
+                    <div><div class="text-sm font-medium truncate" data-i18n="settingsAudioEq.mode.label">${t('settingsAudioEq.mode.label')}</div></div>
                     <select id="setting-eq" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
                         <option value="flat" data-i18n="settingsAudioEq.mode.flat">${t('settingsAudioEq.mode.flat')}</option>
                         <option value="bass_boost" data-i18n="settingsAudioEq.mode.bassBoost">${t('settingsAudioEq.mode.bassBoost')}</option>
