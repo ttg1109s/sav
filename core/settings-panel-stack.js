@@ -61,14 +61,14 @@ let settingsPanelStackEntries = [{ panelEl: settingsStackPanelMain }];
  * riêng trong components/settings-drawer.js vì có nút Close thay vì Back, không gọi hàm này).
  * @param {string} title - ĐÃ dịch sẵn qua t() (nơi gọi tự lo i18n, file này không biết `lang/`).
  * @param {string} bodyHtml
- * @param {boolean} fullBleed - bỏ qua wrapper "max-w-2xl mx-auto space-y-8" + padding mặc định,
+ * @param {boolean} fullBleed - bỏ qua wrapper "max-w-2xl mx-auto space-y-5" + padding mặc định,
  *        dùng cho nội dung cố tình tràn viền (vd Photo — masonry ảnh, xem Batch D6).
  */
 function _buildPanelInnerHtml(title, bodyHtml, fullBleed) {
     const bodyWrapperClass = fullBleed
         ? 'flex-grow overflow-y-auto'
-        : 'flex-grow overflow-y-auto px-4 py-6 sm:px-8 pb-20';
-    const bodyInner = fullBleed ? bodyHtml : `<div class="max-w-2xl mx-auto space-y-8">${bodyHtml}</div>`;
+        : 'flex-grow overflow-y-auto px-4 py-4 sm:px-8 pb-20';
+    const bodyInner = fullBleed ? bodyHtml : `<div class="max-w-2xl mx-auto space-y-5">${bodyHtml}</div>`;
     return `
         <div class="flex justify-between items-center px-4 py-3 sm:px-6 border-b border-white/10 shrink-0 bg-black/40">
             <div class="flex items-center gap-2 min-w-0">
