@@ -141,7 +141,7 @@
     <script src="lang/patch/patch-common.js?v=20260704v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260704v1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260704v1"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260706v1"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260706v2"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260706v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
@@ -188,7 +188,7 @@
     <script src="components/visualizer-settings-drawer.js?v=20260706v1"></script>
     <script src="components/subtitle-settings-drawer.js?v=20260706v1"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Slideshow Settings Drawer (nền Visual, nguồn thứ 3). -->
-    <script src="components/slideshow-settings-drawer.js?v=20260704v2"></script>
+    <script src="components/slideshow-settings-drawer.js?v=20260706v1"></script>
 
     <!-- =====================================================================
          2) MAIN (bootstrap): lắp toàn bộ component vào #app-root.
@@ -236,7 +236,7 @@
          LẠI của /event/ (bus/workflow/router/listener vẫn nạp cuối cùng tuyệt đối như cũ, xem
          khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260706v3"></script>
+    <script src="core/dom-refs.js?v=20260706v4"></script>
     <!-- Batch D1 (Settings restructure, 06/07/2026) — ngăn xếp panel Settings (core UI thuần,
          push/pop/reset). CẦN core/dom-refs.js (settingsStackTitle/btnSettingsStackBack/
          settingsStackBody/closeDrawer, đã nạp ngay trên) — KHÔNG cần t()/taskManager (nhận title
@@ -465,10 +465,13 @@
     <script src="event/listener/file-manager-song.js?v=20260703v3"></script>
     <!-- Batch 8, ver 12 "Multi Media" — cụm "slideshowSettings" (Slideshow nền Visual). PHẢI nạp
          TRƯỚC event/workflow/file-manager-photo.js (gọi workflowSlideshow.clearActiveAlbum() +
-         setAsSlideshowBackground() trong cascade/nút "Dùng làm nền Slideshow"). -->
-    <script src="event/workflow/slideshow.js?v=20260704v2"></script>
-    <script src="event/router/slideshow.js?v=20260704v2"></script>
-    <script src="event/listener/slideshow.js?v=20260704v2"></script>
+         setAsSlideshowBackground() trong cascade/nút "Dùng làm nền Slideshow"). Batch D4 (Settings
+         restructure, 06/07/2026): panel Settings (6 input) nay push/pop động — CẦN core/settings-
+         panel-stack.js (đã nạp ở nhóm CORE). Panel chọn Album ("notify center") KHÔNG đổi, vẫn
+         tĩnh, độc lập Settings Stack. -->
+    <script src="event/workflow/slideshow.js?v=20260706v1"></script>
+    <script src="event/router/slideshow.js?v=20260706v1"></script>
+    <script src="event/listener/slideshow.js?v=20260706v1"></script>
     <!-- Batch 3 (03/07/2026) — workflowFileManagerPhoto CẦN tồn tại trước khi router gọi tới. -->
     <script src="event/workflow/file-manager-photo.js?v=20260704v1"></script>
     <script src="event/router/file-manager-photo.js?v=20260703v5"></script>

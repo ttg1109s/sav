@@ -55,7 +55,11 @@
         TPL_FILE_MANAGER_FOLDER_DETAIL_DRAWER +
         TPL_FILE_MANAGER_PHOTO_DRAWER +
         TPL_FILE_MANAGER_DOCUMENT_DRAWER +
-        TPL_SLIDESHOW_SETTINGS_DRAWER + // Batch 8, ver 12 "Multi Media" — Slideshow nền Visual.
+        // Batch D4 (Settings restructure, 06/07/2026) — TPL_SLIDESHOW_SETTINGS_DRAWER ĐÃ BỎ khỏi
+        // mount tĩnh (nội dung giờ là renderSlideshowPanelBody(), push động — xem event/workflow/
+        // slideshow.js::openPanel()); THAY bằng TPL_SLIDESHOW_ALBUM_PICKER (panel chọn Album kiểu
+        // "notify center" — ĐỘC LẬP với Settings Stack, vẫn mount tĩnh như trước, KHÔNG di chuyển).
+        TPL_SLIDESHOW_ALBUM_PICKER + // Batch 8, ver 12 "Multi Media" — Slideshow nền Visual.
         TPL_DOCUMENT_READER + // MỚI (04/07/2026, tính năng Documents) — cửa sổ đọc tài liệu.
         TPL_DOCUMENT_PICKER_DRAWER; // MỚI (04/07/2026, mục 3 phản hồi Giang) — drawer chọn tài liệu.
 })();
