@@ -96,7 +96,10 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer, KHÁC ảnh nền Playlist ngay dưới.
     'settingsPlaylistBg.visualBgImage.label': 'Use Visualizer background image',
     'settingsPlaylistBg.visualBgImage.hint': 'Toggle on to pick a photo; toggle off just hides it (kept for next time)',
-    'settingsPlaylistBg.bgImageEnable.label': 'Use playlist background image',
+    // Đổi tên (07/07/2026, phản hồi Giang mục 3) — tên cũ "Use playlist background image" không
+    // còn đúng bản chất từ sau batch "nền chung" (06/07/2026): ảnh này giờ hiện CẢ Playlist LẪN
+    // Settings, không riêng Playlist nữa.
+    'settingsPlaylistBg.bgImageEnable.label': 'App background image',
     'settingsPlaylistBg.bgBlur.label': 'Background blur',
 
     'settingsVisualizer.sectionTitle': 'Visualizer',
