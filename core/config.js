@@ -142,6 +142,11 @@
          * Đọc lại ảnh nền & video nền từ IndexedDB (meta.bgImage / meta.videoBg), tự sửa trạng thái
          * "on ảo" nếu config nói đang bật nhưng IndexedDB không còn Blob tương ứng (mục 6 plan).
          * Áp dụng đồng nhất cho CẢ ảnh và video.
+         *
+         * Batch "nền chung" (07/07/2026) — BỎ `saveConfig()`/`updatePlaylistBg()`/
+         * `handleVideoBackground()` nội bộ (Rule 3) — dời ra caller (`loadConfig()` ngay dưới,
+         * chỗ DUY NHẤT gọi hàm này — legacy code, KHÔNG thuộc diện phải refactor toàn bộ, chỉ dời
+         * đúng phần liên quan tới hàm này).
          */
         async function loadBackgroundAssets() {
             const [imgBlob, videoBlob] = await Promise.all([
@@ -163,10 +168,8 @@
                 }
             });
 
-            saveConfig();
             bgImageEnableToggle.checked = appState.get('vizConfig').bgImageEnabled;
             videoEnableToggle.checked = appState.get('vizConfig').videoBgEnabled;
-            updatePlaylistBg(); handleVideoBackground();
         }
 
         /**
@@ -246,6 +249,10 @@
             // lại Blob thật và tự sửa trạng thái "on ảo" nếu cần (mục 6).
             appState.mutate('vizConfig', cfg => { cfg.bgImage = ''; cfg.videoBgUrl = ''; });
             await loadBackgroundAssets();
+            saveConfig();
+            updatePlaylistBg();
+            updateSettingsBg(appState.get('vizConfig')); // MỚI, batch "nền chung" 07/07/2026
+            handleVideoBackground();
 
             // HOTFIX (07/07/2026 — bug do Giang báo, đã xác nhận): 9 dòng đồng bộ UI panel
             // Visualizer Settings (quality/bgColor/colorMode/solidColor*/dynColor*/maxHeight/

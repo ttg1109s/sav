@@ -1,5 +1,6 @@
 /**
- * Hàm tiện ích màu sắc & cập nhật nền (hexToRgb, interpolateColor, updateDOMBackground, updatePlaylistBg).
+ * Hàm tiện ích màu sắc & cập nhật nền (hexToRgb, interpolateColor, updateDOMBackground,
+ * updatePlaylistBg, updateSettingsBg — MỚI, batch "nền chung" 07/07/2026).
  * (Trích từ file gốc, dòng 553-575 trong khối <script>)
  */
         function hexToRgb(hex) {
@@ -30,5 +31,21 @@
             const cfg = appState.get('vizConfig');
             if (cfg.bgImage) { playlistBg.style.backgroundImage = `url(${cfg.bgImage})`; playlistBg.style.filter = `blur(${cfg.bgBlur}px)`; } 
             else { playlistBg.style.backgroundImage = 'none'; playlistBg.style.filter = `blur(0px)`;}
+        }
+
+        /**
+         * Batch "nền chung" (07/07/2026, phản hồi Giang từ Batch D1 — hợp nhất nền Playlist vào
+         * Settings) — áp CÙNG `cfg.bgImage`/`cfg.bgBlur` vào `#settings-bg` (dựng sẵn từ D1, chưa
+         * nối logic tới giờ). SONG SONG với `updatePlaylistBg()` ở trên (không gộp chung 1 hàm —
+         * 2 phần tử DOM khác nhau, `playlistBg`/`settingsBg`), NHƯNG viết MỚI đúng chuẩn ver12+
+         * (Rule 2: nhận `cfg` qua tham số, KHÔNG tự `appState.get()`) — KHÁC `updatePlaylistBg()`
+         * (code DI SẢN trước Rule 3 siết chặt, KHÔNG đụng — xem draw-visualizer.js: "làm việc gần
+         * đó KHÔNG phát sinh nghĩa vụ refactor cho hàm này").
+         * @param {Object} cfg - vizConfig hiện tại, nơi gọi tự appState.get('vizConfig') truyền vào.
+         */
+        function updateSettingsBg(cfg) {
+            if (!settingsBg) return; // guard: DOM chưa sẵn sàng (hiếm, race lúc boot)
+            if (cfg.bgImage) { settingsBg.style.backgroundImage = `url(${cfg.bgImage})`; settingsBg.style.filter = `blur(${cfg.bgBlur}px)`; }
+            else { settingsBg.style.backgroundImage = 'none'; settingsBg.style.filter = 'blur(0px)'; }
         }
         
