@@ -40,9 +40,11 @@ const workflowPlayerControls = {
      * resetSettingsStackToMain() (core/settings-panel-stack.js) để ngăn xếp panel con LUÔN về Main
      * trước khi khung ngoài ẩn — 2 hàm core nối tiếp, không phụ thuộc giá trị trả về của nhau ->
      * đúng hình dạng Workflow (event-bus-flow.md mục 4B), không còn "gọi thẳng core" 1 bước nữa.
+     * VIẾT LẠI (06/07/2026, slider thật) — `resetSettingsStackToMain()` không còn cần tham số
+     * title (header đã nằm sẵn trong chính panel Main, không cần "khôi phục" gì cả).
      */
     closeSettingsDrawerAndResetStack() {
-        resetSettingsStackToMain(t('settingsDrawer.title'));
+        resetSettingsStackToMain();
         closeSettingsDrawer();
     },
 };
