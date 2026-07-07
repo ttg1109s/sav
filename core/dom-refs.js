@@ -260,13 +260,10 @@
         // fileManagerImageSelectionCount/btnFileManagerImageSelectionCancel/
         // btnFileManagerImageSelectionConfirm ĐÃ XOÁ — Batch D6: toàn bộ panel-interior của Photo,
         // delegation trên settingsStackBody thay thế — xem event/listener/file-manager-photo.js.)
-        const drawerFileManagerDocument = document.getElementById('drawer-file-manager-document');
-        // MỚI (04/07/2026, tính năng Documents) — nội dung thật của drawer Documents.
-        const btnFileManagerDocumentUpload = document.getElementById('btn-file-manager-document-upload');
-        const fileManagerDocumentUploadInput = document.getElementById('file-manager-document-upload-input');
-        const btnFileManagerDocumentCreate = document.getElementById('btn-file-manager-document-create');
-        const fileManagerDocumentList = document.getElementById('file-manager-document-list');
-        const fileManagerDocumentEmpty = document.getElementById('file-manager-document-empty');
+        // (drawerFileManagerDocument/btnFileManagerDocumentUpload/fileManagerDocumentUploadInput/
+        // btnFileManagerDocumentCreate/fileManagerDocumentList/fileManagerDocumentEmpty ĐÃ XOÁ —
+        // Batch D7 (batch CUỐI Nhóm D): panel Document giờ động, delegation trên settingsStackBody
+        // thay thế — xem event/listener/file-manager-document.js.)
         // MỚI (04/07/2026) — cửa sổ Document Reader (components/document-reader.js).
         const documentReaderOverlay = document.getElementById('document-reader-overlay');
         const documentReaderWindow = document.getElementById('document-reader-window');
@@ -291,7 +288,7 @@
         const btnDocumentPickerClose = document.getElementById('btn-document-picker-close');
         const documentPickerList = document.getElementById('document-picker-list');
         const documentPickerEmpty = document.getElementById('document-picker-empty');
-        const btnBackFileManagerDocument = document.getElementById('btn-back-file-manager-document');
+        // (btnBackFileManagerDocument ĐÃ XOÁ — Batch D7: Back dùng CHUNG btnSettingsStackBack.)
         // (fileManagerNewFolderInput ĐÃ XOÁ — Batch D5: panel Song giờ động.)
         //
         // (drawerFileManagerFolderDetail/btnBackFileManagerFolderDetail/fileManagerFolderDetailTitle/
