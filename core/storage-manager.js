@@ -13,16 +13,27 @@
  *     lý nghiệp vụ (downloadAllSongsThenClear, clearAllSongsNoDownload, scanAllSongsForCorruption,
  *     deleteCorruptedSongs) trả kết quả CÓ CỜ rõ ràng để workflow tự quyết định hiện modal gì.
  *
+ * Batch D5 (Settings restructure, 06/07/2026) — panel Song giờ push/pop động (core/settings-
+ * panel-stack.js), 6 dom-refs tĩnh cũ (statStorageTotalSongs/Bytes, storageScanResult/Summary/
+ * List, btnDeleteBroken) ĐÃ XOÁ khỏi core/dom-refs.js — `renderStorageStats`/`resetScanResultUI`/
+ * `renderScanResultUI` giờ nhận phần tử qua tham số. `downloadAllSongsThenClear()`/
+ * `clearAllSongsNoDownload()` BỎ HẲN lệnh gọi `renderStorageStats()` nội bộ (core-gọi-core, Rule
+ * 3) — vốn dĩ ĐÃ THỪA từ trước (event/workflow/file-manager-song.js luôn gọi lại
+ * `this.refreshSongTab()` — cũng tự vẽ lại stats — ngay sau 2 hàm này, nên bỏ dòng thừa không đổi
+ * hành vi quan sát được, chỉ dọn sạch 1 lần gọi trùng).
+ *
  * PHẢI nạp SAU: db.js (CRUD, isQuickValidMime), about-stats.js (computeStats/formatBytes),
  * id3-export.js (triggerDownload), playlist.js (readAudioDuration, playlistOrder,
  * renderPlaylistDiff, removeKeyFromDisplay, songNameIndex, playlistCache, confirmedBrokenKeys).
  */
 
-        async function renderStorageStats() {
-            statStorageTotalSongs.textContent = '...'; statStorageTotalBytes.textContent = '...';
+        /** @param {HTMLElement} totalSongsEl @param {HTMLElement} totalBytesEl */
+        async function renderStorageStats(totalSongsEl, totalBytesEl) {
+            if (!totalSongsEl) return; // guard: panel Song đang đóng
+            totalSongsEl.textContent = '...'; totalBytesEl.textContent = '...';
             const stats = await computeStats();
-            statStorageTotalSongs.textContent = `${stats.totalSongs}`;
-            statStorageTotalBytes.textContent = formatBytes(stats.totalBytes);
+            totalSongsEl.textContent = `${stats.totalSongs}`;
+            totalBytesEl.textContent = formatBytes(stats.totalBytes);
         }
 
         // ===================== Giải phóng bộ nhớ =====================
@@ -136,17 +147,18 @@
             triggerDownload(zipBlob, `nhac-da-luu-${dateStr}.zip`);
 
             await clearAllStoredData();
-            renderStorageStats();
+            // (renderStorageStats() nội bộ ĐÃ XOÁ — Batch D5: thừa, workflow luôn gọi lại
+            // this.refreshSongTab() ngay sau, tự vẽ lại stats với đúng phần tử panel đang mở.)
             return { status: 'ok' };
         }
 
         /**
-         * NGHIỆP VỤ THUẦN: "Xoá tất cả, không tải" — chỉ gọi clearAllStoredData() + renderStorageStats().
+         * NGHIỆP VỤ THUẦN: "Xoá tất cả, không tải" — chỉ gọi clearAllStoredData().
          * @returns {Promise<void>}
          */
         async function clearAllSongsNoDownload() {
             await clearAllStoredData();
-            renderStorageStats();
+            // (renderStorageStats() nội bộ ĐÃ XOÁ — Batch D5: cùng lý do ở downloadAllSongsThenClear().)
         }
 
         // ===================== Quét & dọn file lỗi =====================
@@ -204,24 +216,31 @@
             }
         }
 
-        function resetScanResultUI() {
-            storageScanResult.classList.add('hidden');
-            storageScanList.innerHTML = '';
+        /** @param {HTMLElement} resultEl @param {HTMLElement} listEl */
+        function resetScanResultUI(resultEl, listEl) {
+            if (!resultEl) return; // guard: panel đang đóng
+            resultEl.classList.add('hidden');
+            listEl.innerHTML = '';
         }
 
-        function renderScanResultUI(results) {
-            storageScanResult.classList.remove('hidden');
+        /**
+         * @param {Array<{key:string,filename:string,reason:string}>} results
+         * @param {HTMLElement} resultEl @param {HTMLElement} summaryEl @param {HTMLElement} listEl @param {HTMLElement} deleteBtnEl
+         */
+        function renderScanResultUI(results, resultEl, summaryEl, listEl, deleteBtnEl) {
+            if (!resultEl) return; // guard: panel đang đóng
+            resultEl.classList.remove('hidden');
             if (results.length === 0) {
-                storageScanSummary.textContent = t('common.storage.scanNoneFound');
-                storageScanList.innerHTML = '';
-                btnDeleteBroken.classList.add('hidden');
+                summaryEl.textContent = t('common.storage.scanNoneFound');
+                listEl.innerHTML = '';
+                deleteBtnEl.classList.add('hidden');
             } else {
-                storageScanSummary.textContent = tFormat('common.storage.scanFoundCount', { n: results.length });
+                summaryEl.textContent = tFormat('common.storage.scanFoundCount', { n: results.length });
                 // FIX: r.filename là tên file NGƯỜI DÙNG TỰ ĐẶT (không phải dữ liệu app tự dựng),
                 // r.reason có thể chứa mime type đọc thẳng từ file (record.blob.type) — cả 2 đều
                 // KHÔNG đáng tin cậy, PHẢI escapeHtml() trước khi nhúng vào innerHTML, cùng nguyên
                 // tắc đã áp dụng cho mọi chỗ tương tự ở patch alert->alertModal trước đó.
-                storageScanList.innerHTML = results.map(r => `<div class="truncate"><span class="text-amber-400">●</span> ${escapeHtml(r.filename)} — ${escapeHtml(r.reason)}</div>`).join('');
-                btnDeleteBroken.classList.remove('hidden');
+                listEl.innerHTML = results.map(r => `<div class="truncate"><span class="text-amber-400">●</span> ${escapeHtml(r.filename)} — ${escapeHtml(r.reason)}</div>`).join('');
+                deleteBtnEl.classList.remove('hidden');
             }
         }

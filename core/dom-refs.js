@@ -248,8 +248,8 @@
         const btnOpenFileManagerDocument = document.getElementById('setting-open-file-manager-document');
         // MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager.
         const btnFileManagerCleanupRun = document.getElementById('btn-file-manager-cleanup-run');
-        const drawerFileManagerSong = document.getElementById('drawer-file-manager-song');
-        const btnBackFileManagerSong = document.getElementById('btn-back-file-manager-song');
+        // (drawerFileManagerSong/btnBackFileManagerSong ĐÃ XOÁ — Batch D5: panel Song giờ động,
+        // Back dùng CHUNG btnSettingsStackBack.)
         const drawerFileManagerPhoto = document.getElementById('drawer-file-manager-photo');
         const btnBackFileManagerPhoto = document.getElementById('btn-back-file-manager-photo');
         // Photo & Album — Batch 3 (03/07/2026)
@@ -303,27 +303,20 @@
         const documentPickerList = document.getElementById('document-picker-list');
         const documentPickerEmpty = document.getElementById('document-picker-empty');
         const btnBackFileManagerDocument = document.getElementById('btn-back-file-manager-document');
-        const fileManagerNewFolderInput = document.getElementById('file-manager-new-folder-input');
-        // Folder Detail Drawer (Phase 2, MỚI — mục 1b/c, CHỐT 03/07/2026)
-        const drawerFileManagerFolderDetail = document.getElementById('drawer-file-manager-folder-detail');
-        const btnBackFileManagerFolderDetail = document.getElementById('btn-back-file-manager-folder-detail');
-        const fileManagerFolderDetailTitle = document.getElementById('file-manager-folder-detail-title');
-        const btnFileManagerFolderApplyToPlaylist = document.getElementById('btn-file-manager-folder-apply-to-playlist');
-        const fileManagerFolderDetailSongList = document.getElementById('file-manager-folder-detail-song-list');
-        const fileManagerFolderDetailEmpty = document.getElementById('file-manager-folder-detail-empty');
-        const btnFileManagerCreateFolder = document.getElementById('btn-file-manager-create-folder');
-        const fileManagerFolderList = document.getElementById('file-manager-folder-list');
-        const fileManagerFolderEmpty = document.getElementById('file-manager-folder-empty');
-        const statStorageTotalSongs = document.getElementById('stat-storage-total-songs');
-        const statStorageTotalBytes = document.getElementById('stat-storage-total-bytes');
-        const btnDownloadThenClear = document.getElementById('btn-storage-download-then-clear');
-        const btnClearNoDownload = document.getElementById('btn-storage-clear-no-download');
-        const btnScanBroken = document.getElementById('btn-storage-scan-broken');
-        const btnDeleteBroken = document.getElementById('btn-storage-delete-broken');
-        const btnDismissScan = document.getElementById('btn-storage-dismiss-scan');
-        const storageScanResult = document.getElementById('storage-scan-result');
-        const storageScanSummary = document.getElementById('storage-scan-summary');
-        const storageScanList = document.getElementById('storage-scan-list');
+        // (fileManagerNewFolderInput ĐÃ XOÁ — Batch D5: panel Song giờ động.)
+        //
+        // (drawerFileManagerFolderDetail/btnBackFileManagerFolderDetail/fileManagerFolderDetailTitle/
+        // btnFileManagerFolderApplyToPlaylist/fileManagerFolderDetailSongList/
+        // fileManagerFolderDetailEmpty ĐÃ XOÁ — Batch D5: panel Folder Detail giờ động, Back dùng
+        // CHUNG. `#file-manager-folder-detail-title` giờ nằm TRONG body panel — xem
+        // event/workflow/file-manager-song.js::refreshFolderDetail().)
+        //
+        // (btnFileManagerCreateFolder/fileManagerFolderList/fileManagerFolderEmpty/
+        // statStorageTotalSongs/statStorageTotalBytes/btnDownloadThenClear/btnClearNoDownload/
+        // btnScanBroken/btnDeleteBroken/btnDismissScan/storageScanResult/storageScanSummary/
+        // storageScanList ĐÃ XOÁ — Batch D5: tất cả panel-interior của Song, delegation trên
+        // settingsStackBody thay thế — xem event/listener/file-manager-song.js.)
+
 
         // ===================== Playlist actions (menu 3 chấm, modal lỗi phát / sửa thông tin / thông tin chi tiết) =====================
         // FIX (kiến trúc /event/): toàn bộ getElementById của cụm này TRƯỚC ĐÂY nằm rải rác ngay
