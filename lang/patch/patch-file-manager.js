@@ -80,7 +80,8 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.album.addImagesSuccess': 'Added {count} photo(s) to the album.',
     // ── Drawer con: Documents (mục 4.b4, ĐÃ CODE THẬT 04/07/2026) ────────────────────────────
     'fileManager.document.title': 'Documents',
-    'fileManager.document.back.title': 'Back to Settings',
+    // Batch D7 (06/07/2026, batch cuối Nhóm D) — 'fileManager.document.back.title' XOÁ, dùng
+    // CHUNG 'settingsDrawer.back.title' (Batch D1).
     'fileManager.document.btnUpload': 'Upload document',
     'fileManager.document.btnCreate': 'Create new',
     'fileManager.document.empty': 'No documents yet.',
