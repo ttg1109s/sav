@@ -250,27 +250,16 @@
         const btnFileManagerCleanupRun = document.getElementById('btn-file-manager-cleanup-run');
         // (drawerFileManagerSong/btnBackFileManagerSong ĐÃ XOÁ — Batch D5: panel Song giờ động,
         // Back dùng CHUNG btnSettingsStackBack.)
-        const drawerFileManagerPhoto = document.getElementById('drawer-file-manager-photo');
-        const btnBackFileManagerPhoto = document.getElementById('btn-back-file-manager-photo');
-        // Photo & Album — Batch 3 (03/07/2026)
-        const btnFileManagerImageUploadTrigger = document.getElementById('btn-file-manager-image-upload-trigger');
-        const fileManagerImageUploadInput = document.getElementById('file-manager-image-upload-input');
-        const fileManagerAlbumStory = document.getElementById('file-manager-album-story');
-        const fileManagerImageMasonry = document.getElementById('file-manager-image-masonry');
-        const fileManagerImageEmpty = document.getElementById('file-manager-image-empty');
-        // Photo & Album — batch tiếp theo (03/07/2026, mục 2.2/2.3): quản lý album đang lọc + chọn
-        // nhiều ảnh để thêm vào album.
-        const fileManagerAlbumManageBar = document.getElementById('file-manager-album-manage-bar');
-        const fileManagerAlbumManageName = document.getElementById('file-manager-album-manage-name');
-        const btnFileManagerAlbumAddImages = document.getElementById('btn-file-manager-album-add-images');
-        // MỚI (Batch 8, slideshow) — "Dùng làm nền Slideshow" cho album đang lọc.
-        const btnFileManagerAlbumSetSlideshowBg = document.getElementById('btn-file-manager-album-set-slideshow-bg');
-        const btnFileManagerAlbumRename = document.getElementById('btn-file-manager-album-rename');
-        const btnFileManagerAlbumDelete = document.getElementById('btn-file-manager-album-delete');
-        const fileManagerImageSelectionBar = document.getElementById('file-manager-image-selection-bar');
-        const fileManagerImageSelectionCount = document.getElementById('file-manager-image-selection-count');
-        const btnFileManagerImageSelectionCancel = document.getElementById('btn-file-manager-image-selection-cancel');
-        const btnFileManagerImageSelectionConfirm = document.getElementById('btn-file-manager-image-selection-confirm');
+        // (drawerFileManagerPhoto/btnBackFileManagerPhoto ĐÃ XOÁ — Batch D6: panel Photo giờ
+        // động, Back dùng CHUNG btnSettingsStackBack.)
+        //
+        // (btnFileManagerImageUploadTrigger/fileManagerImageUploadInput/fileManagerAlbumStory/
+        // fileManagerImageMasonry/fileManagerImageEmpty/fileManagerAlbumManageBar/
+        // fileManagerAlbumManageName/btnFileManagerAlbumAddImages/btnFileManagerAlbumSetSlideshowBg/
+        // btnFileManagerAlbumRename/btnFileManagerAlbumDelete/fileManagerImageSelectionBar/
+        // fileManagerImageSelectionCount/btnFileManagerImageSelectionCancel/
+        // btnFileManagerImageSelectionConfirm ĐÃ XOÁ — Batch D6: toàn bộ panel-interior của Photo,
+        // delegation trên settingsStackBody thay thế — xem event/listener/file-manager-photo.js.)
         const drawerFileManagerDocument = document.getElementById('drawer-file-manager-document');
         // MỚI (04/07/2026, tính năng Documents) — nội dung thật của drawer Documents.
         const btnFileManagerDocumentUpload = document.getElementById('btn-file-manager-document-upload');

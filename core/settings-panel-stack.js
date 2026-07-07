@@ -44,15 +44,25 @@ let settingsPanelStackEntries = [];
  * @returns {HTMLElement} panel vừa tạo — nơi gọi (Workflow) tự `querySelector` bên trong để wire
  *          event riêng của panel đó (đúng quy ước Generic Drawer: "component tĩnh + dom-refs").
  */
-function pushSettingsPanel({ title, bodyHtml }) {
+/**
+ * @param {{title: string, bodyHtml: string, fullBleed?: boolean}} params - `fullBleed` (Batch D6,
+ *        06/07/2026, MỚI) — bỏ qua wrapper "max-w-2xl mx-auto space-y-8" mặc định + padding
+ *        `px-4 py-6 sm:px-8` của chính panel, dùng cho nội dung cố tình tràn viền (edge-to-edge) —
+ *        vd panel Photo (masonry ảnh + story slider vốn thiết kế full-width, không phải form dạng
+ *        card như Settings thường). Mặc định `false` (giữ nguyên hành vi mọi panel trước đó).
+ */
+function pushSettingsPanel({ title, bodyHtml, fullBleed = false }) {
     const panelEl = document.createElement('div');
-    panelEl.className = 'settings-stack-panel absolute top-0 left-0 w-full h-full overflow-y-auto px-4 py-6 sm:px-8 pb-20';
+    panelEl.className = fullBleed
+        ? 'settings-stack-panel absolute top-0 left-0 w-full h-full overflow-y-auto flex flex-col'
+        : 'settings-stack-panel absolute top-0 left-0 w-full h-full overflow-y-auto px-4 py-6 sm:px-8 pb-20';
     panelEl.style.left = '100%';
     panelEl.style.transition = `left ${SETTINGS_STACK_TRANSITION_MS}ms ease-in-out`;
     // Bọc sẵn 1 lớp wrapper GIỐNG HỆT Main (xem components/settings-drawer.js::build()) — mọi
     // panel con chỉ cần trả về HTML các <section>, KHÔNG cần tự lặp lại "max-w-2xl mx-auto
-    // space-y-8" ở từng file component riêng (About, Visualizer... sau này).
-    panelEl.innerHTML = `<div class="max-w-2xl mx-auto space-y-8">${bodyHtml}</div>`;
+    // space-y-8" ở từng file component riêng (About, Visualizer... sau này). `fullBleed` bỏ qua
+    // lớp bọc này — bodyHtml tự lo layout của chính nó.
+    panelEl.innerHTML = fullBleed ? bodyHtml : `<div class="max-w-2xl mx-auto space-y-8">${bodyHtml}</div>`;
     settingsStackBody.appendChild(panelEl);
     void panelEl.offsetHeight; // ép reflow — bắt buộc để transition chạy đúng từ 100% -> 0, không bị gộp frame
     panelEl.style.left = '0';
