@@ -1,44 +1,51 @@
 /**
  * event/router/subtitle-style-settings.js — Router tên "subtitleStyleSettings".
  *
- * Cả 9 msg.type đều chỉ cần ĐÚNG 1 hàm core (xem core/subtitle/subtitle-style-settings.js) ->
- * gọi THẲNG, KHÔNG có event/workflow/subtitle-style-settings.js. KHÔNG giữ state context riêng.
+ * Batch D2 (Settings restructure, 06/07/2026) — 8/9 msg.type giờ CẦN workflow (Rule 1-4 đầy đủ đã
+ * tách applySubtitleStyle()/saveConfig() ra khỏi core, xem event/workflow/subtitle-style-
+ * settings.js). CHỈ `enable.change` còn gọi thẳng core (`setSubtitlesEnabled()` không đổi, checkbox
+ * Main không di chuyển). Thêm case MỚI `openPanel.click` (push panel — trước đây thuộc router
+ * "visualizerMiscSettings", dời VỀ ĐÚNG router của chính nó cho gọn, xem event/router/visualizer-
+ * misc-settings.js đã bỏ case này).
  */
 const routerSubtitleStyleSettings = (() => {
     function handle(msg) {
         switch (msg.type) {
+            case 'subtitleStyleSettings.openPanel.click':
+                workflowSubtitleStyleSettings.openPanel();
+                break;
             case 'subtitleStyleSettings.enable.change':
                 setSubtitlesEnabled(msg.payload.checked);
                 break;
             case 'subtitleStyleSettings.bgColor.input':
-                setSubtitleStyleBgColor(msg.payload.value);
+                workflowSubtitleStyleSettings.setBgColor(msg.payload.value);
                 break;
             case 'subtitleStyleSettings.bgOpacity.input':
-                setSubtitleStyleBgOpacity(msg.payload.rawValue);
+                workflowSubtitleStyleSettings.setBgOpacity(msg.payload.rawValue, msg.payload.displayEl);
                 break;
             case 'subtitleStyleSettings.borderColor.input':
-                setSubtitleStyleBorderColor(msg.payload.value);
+                workflowSubtitleStyleSettings.setBorderColor(msg.payload.value);
                 break;
             case 'subtitleStyleSettings.borderOpacity.input':
-                setSubtitleStyleBorderOpacity(msg.payload.rawValue);
+                workflowSubtitleStyleSettings.setBorderOpacity(msg.payload.rawValue, msg.payload.displayEl);
                 break;
             case 'subtitleStyleSettings.borderWidth.input':
-                setSubtitleStyleBorderWidth(msg.payload.rawValue);
+                workflowSubtitleStyleSettings.setBorderWidth(msg.payload.rawValue, msg.payload.displayEl);
                 break;
             case 'subtitleStyleSettings.borderRadius.input':
-                setSubtitleStyleBorderRadius(msg.payload.rawValue);
+                workflowSubtitleStyleSettings.setBorderRadius(msg.payload.rawValue, msg.payload.displayEl);
                 break;
             case 'subtitleStyleSettings.textColor.input':
-                setSubtitleStyleTextColor(msg.payload.value);
+                workflowSubtitleStyleSettings.setTextColor(msg.payload.value);
                 break;
             case 'subtitleStyleSettings.fontSize.input':
-                setSubtitleStyleFontSize(msg.payload.rawValue);
+                workflowSubtitleStyleSettings.setFontSize(msg.payload.rawValue, msg.payload.displayEl);
                 break;
             case 'subtitleStyleSettings.lineHeight.input':
-                setSubtitleStyleLineHeight(msg.payload.rawValue);
+                workflowSubtitleStyleSettings.setLineHeight(msg.payload.rawValue, msg.payload.displayEl);
                 break;
             case 'subtitleStyleSettings.letterSpacing.input':
-                setSubtitleStyleLetterSpacing(msg.payload.rawValue);
+                workflowSubtitleStyleSettings.setLetterSpacing(msg.payload.rawValue, msg.payload.displayEl);
                 break;
             default:
                 console.warn(`[routerSubtitleStyleSettings] msg.type không xác định: "${msg.type}"`, msg);
