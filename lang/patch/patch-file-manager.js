@@ -39,7 +39,8 @@ const LANG_PATCH_FILE_MANAGER = {
     // trước khi push vào, lặp lại tiền tố trên thanh bar tiêu đề của chính drawer con là thừa —
     // khớp đúng các key `fileManager.entry.*` (nhãn hàng trong Settings) vốn đã KHÔNG có tiền tố.
     'fileManager.song.title': 'Song',
-    'fileManager.song.back.title': 'Back to Settings',
+    // Batch D5 (06/07/2026) — 'fileManager.song.back.title' XOÁ, dùng CHUNG
+    // 'settingsDrawer.back.title' (Batch D1) cho mọi panel.
     // ── Drawer con: Photo & Album (placeholder, chưa code — b2/b3) ──────────────────────────
     'fileManager.photo.title': 'Photo & Album',
     'fileManager.photo.back.title': 'Back to Settings',
@@ -117,7 +118,11 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.deleteFolderConfirm': 'Delete folder "{name}"? Songs inside stay in your library, only the folder is removed.',
     'fileManager.song.btnDeleteFolder': 'Delete',
     // ── File Manager -> Song -> Folder Detail Drawer (Phase 2, CHỐT 03/07/2026) ──────────────
-    'fileManager.song.folderDetail.back.title': 'Back to folders',
+    // Batch D5 (06/07/2026) — 'fileManager.song.folderDetail.back.title' XOÁ, dùng CHUNG
+    // 'settingsDrawer.back.title'. THÊM 'headerTitle' — header dùng chung chỉ nhận title CỐ ĐỊNH
+    // lúc push (không tự cập nhật lại được sau khi biết tên folder thật) — tên folder thật giờ
+    // hiển thị bằng 1 heading NGAY TRONG BODY panel (xem components/file-manager.js).
+    'fileManager.song.folderDetail.headerTitle': 'Folder Detail',
     'fileManager.song.folderDetail.btnApply': 'Apply to Playlist',
     'fileManager.song.folderDetail.btnUnapply': 'Remove from Playlist',
     'fileManager.song.folderDetail.songListTitle': 'Songs in this folder',
