@@ -1,35 +1,30 @@
 /**
- * Component: Slideshow Settings Drawer ("Cài đặt nền Slideshow") — Batch 8 (03/07/2026), VIẾT LẠI
- * Batch 9 (04/07/2026, mục 4 phản hồi Giang):
+ * Component: Slideshow Settings panel body ("Cài đặt nền Slideshow") — Batch 8 (03/07/2026), VIẾT
+ * LẠI Batch 9 (04/07/2026, mục 4 phản hồi Giang):
  *   1. GỘP 2 section cũ ("Album" + "Cách chiếu") thành 1 section DUY NHẤT.
  *   2. Bỏ 2 nút "Chọn Album"/"Tắt" — thay bằng 1 cần gạt DUY NHẤT "#setting-slideshow-enable": gạt
  *      "On" TỰ mở panel chọn Album ngay (giống 3 toggle nền Video/Ảnh đã sửa ở mục 1 — cùng ngày);
- *      huỷ/đóng panel không chọn gì -> tự gạt về "off". Khi ĐANG bật, hàng
- *      "#slideshow-current-album-row" hiện ra (tên + avatar tròn album đang chạy) — BẤM VÀO hàng
- *      này để MỞ LẠI panel đổi sang album khác bất kỳ lúc nào (không cần gạt tắt/bật lại).
+ *      huỷ/đóng panel không chọn gì -> tự gạt về "off".
  *   3. Panel chọn Album ĐỔI HẲN sang kiểu "notify center" — TÁI DÙNG class `.glass-control-center`
- *      + animation scale/opacity của `#visualizer-control-center` (xem assets/css/style.css) thay
- *      cho modal tối toàn màn hình cũ (`openAlbumPickerModal`, ĐÃ XOÁ). Album hiển thị GRID hình
- *      TRÒN (cùng shape avatar ở story slider Photo & Album). Album đang active có viền sáng +
- *      vòng "đang chạy" quay quanh; các album khác bị blur mờ (chỉ khi CÓ 1 album đang active).
+ *      (xem `TPL_SLIDESHOW_ALBUM_PICKER` bên dưới, ĐỘC LẬP với panel Settings).
+ *
+ * === Batch D4 (Settings restructure, tiếp D1/D2/D3) ===
+ * TRƯỚC ĐÂY `TPL_SLIDESHOW_SETTINGS_DRAWER` gộp CẢ khung `fixed inset-0 drawer-glass z-[90]` LẪN
+ * panel chọn Album (2 phần tử ĐỘC LẬP mount ở z-[130]/[131], không lồng trong khung trên — xem
+ * comment gốc). Tách làm 2:
+ *   - `renderSlideshowPanelBody()` — 6 input (enable/mode/photoPerSong/interval/transition/
+ *     showCaption), PUSH ĐỘNG vào Settings Stack (core/settings-panel-stack.js), giống About/
+ *     Subtitle/Visualizer.
+ *   - `TPL_SLIDESHOW_ALBUM_PICKER` — panel chọn Album kiểu "notify center", GIỮ NGUYÊN TĨNH (mount
+ *     1 lần lúc boot, KHÔNG di chuyển) — đây là 1 overlay ĐỘC LẬP với Settings Stack (ngang hàng
+ *     kiến trúc, giống Modal Subtitle Giang đã chỉ ra 06/07/2026), không phải 1 tầng lồng trong
+ *     ngăn xếp Settings — không cần push/pop gì cả, chỉ toggle hidden/scale như trước giờ.
  *
  * Logic: event/workflow/slideshow.js (workflowSlideshow); listener/router: cụm "slideshowSettings"
  * (event/listener,router/slideshow.js).
  */
-const TPL_SLIDESHOW_SETTINGS_DRAWER = `
-    <div id="drawer-slideshow-settings" class="fixed inset-0 drawer-glass z-[90] transform translate-y-full transition-transform duration-500 ease-in-out flex flex-col">
-        <div class="flex justify-between items-center px-4 py-3 sm:px-6 border-b border-white/10 shrink-0 bg-black/40">
-            <div class="flex items-center gap-2">
-                <button id="btn-back-slideshow-settings" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white" data-i18n-title="slideshowSettingsDrawer.backToSettings.title" title="${t('slideshowSettingsDrawer.backToSettings.title')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 class="text-base sm:text-lg font-bold tracking-wider text-white uppercase" data-i18n="slideshowSettingsDrawer.title">${t('slideshowSettingsDrawer.title')}</h2>
-            </div>
-        </div>
-
-        <div class="flex-grow overflow-y-auto px-4 py-6 sm:px-8 pb-20">
-            <div class="max-w-2xl mx-auto space-y-8">
-
+function renderSlideshowPanelBody() {
+    return `
                 <!-- SECTION DUY NHẤT (Batch 9 — gộp 2 section cũ) -->
                 <div>
                     <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2" data-i18n="slideshowSettingsDrawer.sectionTitle">${t('slideshowSettingsDrawer.sectionTitle')}</h3>
@@ -46,12 +41,6 @@ const TPL_SLIDESHOW_SETTINGS_DRAWER = `
                             </label>
                         </div>
 
-                        <!-- MỚI (Batch 9) — hàng hiện album đang chạy ĐÃ BỎ (phản hồi Giang
-                             04/07/2026, đợt 2: không cần hiện lại ảnh/tên album ở đây). Đổi album
-                             khi đang bật: gạt Off rồi gạt lại On (mỗi lần "On" luôn mở lại panel
-                             chọn, xem onEnableToggleChange() — event/workflow/slideshow.js). -->
-
-
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <span class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.mode.label">${t('slideshowSettingsDrawer.mode.label')}</span>
                             <select id="setting-slideshow-mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
@@ -59,10 +48,6 @@ const TPL_SLIDESHOW_SETTINGS_DRAWER = `
                                 <option value="random" data-i18n="slideshowSettingsDrawer.mode.random">${t('slideshowSettingsDrawer.mode.random')}</option>
                             </select>
                         </div>
-                        <!-- MỚI (04/07/2026, mục 5 phản hồi Giang) — "Photo per song": bật thì đổi
-                             ảnh THEO bài hát (1 ảnh/1 bài, đổi đúng lúc bài hát đổi thật — kể cả
-                             next/prev — bỏ qua seek trong cùng bài) thay vì đếm giây cố định. Ẩn
-                             hẳn hàng "Thời gian mỗi ảnh" khi bật (không còn ý nghĩa gì lúc đó). -->
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <div class="pr-3">
                                 <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.photoPerSong.label">${t('slideshowSettingsDrawer.photoPerSong.label')}</div>
@@ -98,9 +83,6 @@ const TPL_SLIDESHOW_SETTINGS_DRAWER = `
                                 <option value="glitch" data-i18n="slideshowSettingsDrawer.transition.glitch">${t('slideshowSettingsDrawer.transition.glitch')}</option>
                             </select>
                         </div>
-                        <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — "Show caption": hiện caption
-                             của ảnh đang chiếu (nếu ảnh đó CÓ caption, đặt ở Photo UI) dạng overlay
-                             top kiểu TikTok. Tự ẩn khi video nền bật. -->
                         <div class="flex justify-between items-center p-4">
                             <div class="pr-3">
                                 <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.showCaption.label">${t('slideshowSettingsDrawer.showCaption.label')}</div>
@@ -113,15 +95,16 @@ const TPL_SLIDESHOW_SETTINGS_DRAWER = `
                         </div>
                     </div>
                 </div>
+`;
+}
 
-            </div>
-        </div>
-    </div>
-
-    <!-- MỚI (Batch 9, mục 4) — Panel chọn Album kiểu "notify center" (TÁI DÙNG pattern
-         #visualizer-control-center: overlay mờ + panel .glass-control-center scale/opacity). Mount
-         Ở NGOÀI #drawer-slideshow-settings (z-index cao hơn hẳn, [130]/[131]) để không bị giới hạn
-         bởi overflow/transform của drawer cha. -->
+/**
+ * Panel chọn Album kiểu "notify center" (TÁI DÙNG pattern #visualizer-control-center: overlay mờ +
+ * panel .glass-control-center scale/opacity) — ĐỘC LẬP với Settings Stack, KHÔNG di chuyển (xem
+ * docstring đầu file). Mount TĨNH 1 lần lúc boot (main.js), z-index cao hơn hẳn [130]/[131] để
+ * không bị giới hạn bởi overflow/transform của bất kỳ drawer nào (kể cả #drawer-settings).
+ */
+const TPL_SLIDESHOW_ALBUM_PICKER = `
     <div id="slideshow-album-picker-overlay" class="hidden fixed inset-0 z-[130] pointer-events-auto bg-black/40"></div>
     <div id="slideshow-album-picker-panel" class="fixed inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[440px] top-1/2 -translate-y-1/2 glass-control-center rounded-3xl shadow-2xl transform scale-0 opacity-0 transition-all duration-300 ease-out z-[131] pointer-events-auto p-5 max-h-[70vh] flex flex-col">
         <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-4 text-center shrink-0" data-i18n="slideshowSettingsDrawer.albumPicker.title">${t('slideshowSettingsDrawer.albumPicker.title')}</h3>
