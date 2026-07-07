@@ -79,7 +79,11 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'slideshowSettingsDrawer.showCaption.label': 'Show caption',
     'slideshowSettingsDrawer.showCaption.hint': "Show each photo's caption as a TikTok-style overlay",
 
-    'settingsPlaylistBg.sectionTitle': 'Playlist & Background',
+    // Tái tổ chức (07/07/2026, phản hồi Giang mục 4) — section cũ "Playlist & Background" TÁCH
+    // làm 2: "Playlist" (file này, chỉ còn view/sort) + "Background" (KEY MỚI, xem
+    // components/settings/playlist-background.js — nay CHỈ chứa phần Nền).
+    'settingsPlaylistBg.sectionTitle': 'Playlist',
+    'settingsBackground.sectionTitle': 'Background',
     'settingsPlaylistBg.viewMode.label': 'View',
     'settingsPlaylistBg.viewMode.list': 'List',
     'settingsPlaylistBg.viewMode.grid': 'Grid',
