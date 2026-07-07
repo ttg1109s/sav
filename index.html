@@ -141,7 +141,7 @@
     <script src="lang/patch/patch-common.js?v=20260704v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260704v1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260704v1"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260707v1"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260707v2"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260706v2"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
@@ -155,7 +155,7 @@
     <script src="components/loading-shield.js?v=20260625v8e"></script>
     <script src="components/playlist-view.js?v=20260704v1"></script>
     <script src="components/visualizer-overlay.js?v=20260704v2"></script>
-    <script src="components/subtitle-modal.js?v=20260626v1"></script>
+    <script src="components/subtitle-modal.js?v=20260707v1"></script>
     <script src="components/bottom-player.js?v=20260704v1"></script>
     <!-- Settings Drawer (ver 8): 8 "section" HTML nhỏ PHẢI nạp TRƯỚC settings-drawer.js — file
          đó chỉ còn là bộ điều phối (object SettingsDrawer) ghép 8 biến TPL_SETTINGS_* dưới đây
@@ -167,32 +167,32 @@
          Tái tổ chức (07/07/2026, phản hồi Giang mục 4): THÊM settings/playlist-view.js
          (TPL_SETTINGS_PLAYLIST_VIEW — Kiểu xem/Sắp xếp, TÁCH khỏi playlist-background.js cũ) —
          playlist-background.js ĐỔI biến xuất ra thành TPL_SETTINGS_BACKGROUND (chỉ còn Nền). -->
-    <script src="components/settings/playlist-view.js?v=20260707v1"></script>
-    <script src="components/settings/playlist-background.js?v=20260707v2"></script>
-    <script src="components/settings/file-manager-section.js?v=20260707v2"></script>
-    <script src="components/settings/visualizer-geometry-color.js?v=20260707v1"></script>
-    <script src="components/settings/audio-eq.js?v=20260707v1"></script>
-    <script src="components/settings/subtitle-style.js?v=20260707v1"></script>
-    <script src="components/settings/misc.js?v=20260707v1"></script>
-    <script src="components/settings/language.js?v=20260707v1"></script>
-    <script src="components/settings-drawer.js?v=20260707v2"></script>
-    <script src="components/about-drawer.js?v=20260706v1"></script>
+    <script src="components/settings/playlist-view.js?v=20260707v2"></script>
+    <script src="components/settings/playlist-background.js?v=20260707v3"></script>
+    <script src="components/settings/file-manager-section.js?v=20260707v3"></script>
+    <script src="components/settings/visualizer-geometry-color.js?v=20260707v2"></script>
+    <script src="components/settings/audio-eq.js?v=20260707v2"></script>
+    <script src="components/settings/subtitle-style.js?v=20260707v2"></script>
+    <script src="components/settings/misc.js?v=20260707v2"></script>
+    <script src="components/settings/language.js?v=20260707v2"></script>
+    <script src="components/settings-drawer.js?v=20260707v3"></script>
+    <script src="components/about-drawer.js?v=20260707v1"></script>
     <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): File
          Manager KHÔNG còn là 1 overlay cấp cao mở từ Playlist nữa (bỏ patch 02/07/2026) — giờ là
          3 drawer con (Song/Photo & Album/Documents) mở thẳng từ section "File Manager" vừa thêm
          ở settings/file-manager-section.js, cùng cấp nav-stack với About/Visualizer Settings
          Drawer bên dưới. THAY components/storage-drawer.js (About -> Storage cũ, không còn mount). -->
-    <script src="components/file-manager.js?v=20260706v3"></script>
+    <script src="components/file-manager.js?v=20260707v1"></script>
     <!-- MỚI (04/07/2026, tính năng Documents) — cửa sổ đọc tài liệu, mở từ Control Center. -->
     <script src="components/document-reader.js?v=20260704v2"></script>
     <!-- MỚI (04/07/2026, mục 3 phản hồi Giang) — drawer chọn tài liệu (trắng, trượt từ dưới lên). -->
     <script src="components/document-picker-drawer.js?v=20260704v1"></script>
     <!-- Visualizer/Subtitle Settings Drawer (ver 8 refine, mục 3) — cùng pattern navigation
          stack với About/Storage Drawer, mở chồng lên #drawer-settings. -->
-    <script src="components/visualizer-settings-drawer.js?v=20260706v1"></script>
-    <script src="components/subtitle-settings-drawer.js?v=20260707v2"></script>
+    <script src="components/visualizer-settings-drawer.js?v=20260707v1"></script>
+    <script src="components/subtitle-settings-drawer.js?v=20260707v3"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Slideshow Settings Drawer (nền Visual, nguồn thứ 3). -->
-    <script src="components/slideshow-settings-drawer.js?v=20260706v1"></script>
+    <script src="components/slideshow-settings-drawer.js?v=20260707v1"></script>
 
     <!-- =====================================================================
          2) MAIN (bootstrap): lắp toàn bộ component vào #app-root.
@@ -246,7 +246,7 @@
          core/dom-refs.js (settingsStackBody/settingsStackPanelMain/closeDrawer, đã nạp ngay trên)
          — KHÔNG cần t()/taskManager (nhận title đã dịch sẵn qua tham số, không tự chờ animation —
          xem docstring đầu file). -->
-    <script src="core/settings-panel-stack.js?v=20260707v1"></script>
+    <script src="core/settings-panel-stack.js?v=20260707v2"></script>
     <!-- Logo "SAV" (cụm /event/ "savLogo") — cần biến `savLogo` vừa nạp từ dom-refs.js ngay trên. -->
     <script src="core/sav-logo.js?v=20260629v1"></script>
     <!-- TaskManager (Loop/TaskManager) — quản lý TẬP TRUNG mọi setInterval/setTimeout của app
