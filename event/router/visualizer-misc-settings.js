@@ -1,12 +1,14 @@
 /**
  * event/router/visualizer-misc-settings.js — Router tên "visualizerMiscSettings".
  *
- * Xử lý 6 listener từ core/visualizer/visualizer-misc-settings.js (đã dọn sạch):
- *   - 4 nút mở/đóng drawer Visualizer Settings / Subtitle Settings
- *   - visualizerTypeSelect.change (đổi kiểu hiệu ứng)
- *   - keepScreenOnToggle.change (bật/tắt giữ màn hình sáng)
+ * Batch D2: 2 msg.type mở/đóng Subtitle Drawer ĐÃ DỜI sang router "subtitleStyleSettings".
+ * Batch D3 (06/07/2026): 2 msg.type mở/đóng Visualizer Drawer ĐÃ DỜI sang router
+ * "visualizerDisplay" (gọn hơn — cùng router với 14 input style của chính nó, xem
+ * event/router/visualizer-display.js). File này giờ CHỈ còn 2 msg.type:
+ *   - visualizerTypeSelect.change (đổi kiểu hiệu ứng, Main)
+ *   - keepScreenOnToggle.change (bật/tắt giữ màn hình sáng, Main)
  *
- * Toàn bộ 6 msg.type chỉ cần gọi thẳng hàm core — KHÔNG có shield/modal — không cần workflow.
+ * Cả 2 msg.type chỉ cần gọi thẳng hàm core — KHÔNG có shield/modal — không cần workflow.
  *
  * NẠP SAU: event/bus.js, core/visualizer/visualizer-display.js (updateTypeUI),
  *           core/config.js (saveConfig, vizConfig, MODES, currentModeIndex),
@@ -18,23 +20,14 @@ const routerVisualizerMiscSettings = (() => {
     function handle(msg) {
         switch (msg.type) {
 
-            // ── Drawer Visualizer Settings ───────────────────────────────────
-            case 'visualizerMiscSettings.openVisualizerDrawer.click':
-                drawerVisualizerSettings.classList.remove('translate-y-full');
-                break;
+            // (Drawer Visualizer Settings ĐÃ DỜI — Batch D3 — sang router "visualizerDisplay":
+            // mở là 'visualizerDisplay.openPanel.click', đóng dùng CHUNG
+            // 'settingsStackNav.back.click' cho MỌI panel.)
 
-            case 'visualizerMiscSettings.closeVisualizerDrawer.click':
-                drawerVisualizerSettings.classList.add('translate-y-full');
-                break;
-
-            // ── Drawer Subtitle Settings ─────────────────────────────────────
-            case 'visualizerMiscSettings.openSubtitleDrawer.click':
-                drawerSubtitleSettings.classList.remove('translate-y-full');
-                break;
-
-            case 'visualizerMiscSettings.closeSubtitleDrawer.click':
-                drawerSubtitleSettings.classList.add('translate-y-full');
-                break;
+            // ── Drawer Subtitle Settings — DỜI sang router "subtitleStyleSettings" (Batch D2,
+            // Settings restructure, 06/07/2026): mở giờ là 'subtitleStyleSettings.openPanel.click'
+            // (push panel), đóng dùng CHUNG 'settingsStackNav.back.click' cho MỌI panel — xem
+            // event/router/subtitle-style-settings.js + event/router/settings-stack-nav.js. -->
 
             // ── Đổi kiểu hiệu ứng ───────────────────────────────────────────
             case 'visualizerMiscSettings.visualizerType.change': {

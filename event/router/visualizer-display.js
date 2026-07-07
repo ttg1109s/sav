@@ -6,12 +6,18 @@
  * (cycle button), chất lượng canvas, ảnh nền (upload/toggle/blur), màu sắc (mode/solid/dynamic),
  * style con (vortex/bar/rain), glass flash, kích thước bar/mirror, volume, EQ mode.
  *
+ * === Batch D3 (Settings restructure, 06/07/2026) ===
+ * 14/20 msg.type (panel Visualizer Settings, nay push/pop động) ĐỔI sang gọi workflow — core đã
+ * refactor Rule 1-4 đầy đủ (Batch D2 CHỐT áp dụng chung), không còn tự gọi core khác nội bộ. THÊM
+ * case MỚI 'openPanel.click' (push panel — trước đây thuộc router "visualizerMiscSettings", dời
+ * VỀ ĐÚNG router của chính nó, cùng cách đã làm với Subtitle ở Batch D2).
+ * 6 msg.type còn lại (bgImage toggle/bgBlur/quality... — SAI, quality ĐÃ dời) — 5 msg.type còn lại
+ * (bgImage.toggle/bgBlur.input/volume.input/eqMode.change/cycleMode.click) KHÔNG đổi — vẫn Main/
+ * Control Center tĩnh, gọi thẳng core hoặc workflow như cũ.
+ *
  * QUY TẮC RẼ NHÁNH (giống router/storage.js, router/playlist.js):
  *   - Nghiệp vụ chỉ cần ĐÚNG 1 HÀM CORE (không shield/modal) -> router gọi THẲNG, BỎ QUA workflow.
- *   - Nghiệp vụ cần shield/modal (đụng IndexedDB qua setMeta/delMeta, hoặc validate có thể fail)
- *     -> router giao cho workflowVisualizerDisplay (chỉ 'visualizerDisplay.bgImage.toggle' rơi vào
- *     nhánh này — MỚI 04/07/2026, mục 1: nút riêng cũ 'bgImage.pickFromLibrary' đã bỏ, gộp thẳng
- *     vào nhánh "bật" của 'bgImage.toggle', xem event/workflow/visualizer-display.js).
+ *   - Nghiệp vụ cần shield/modal, HOẶC >1 hàm core nối tiếp -> router giao cho workflowVisualizerDisplay.
  *
  * STATE CONTEXT: không có — mọi msg.type đọc/ghi thẳng vizConfig (biến toàn cục đã có từ trước
  * /event/, NẰM NGOÀI phạm vi EventStore — xem event/store.js, "KHÔNG đưa các biến nghiệp vụ to
@@ -23,14 +29,19 @@
  * bus tới khi 134 listener gốc tách xong hết).
  *
  * NẠP SAU: event/bus.js, core/visualizer/visualizer-display.js (cần toàn bộ hàm core ở trên),
- * event/workflow/visualizer-display.js (cần workflowVisualizerDisplay tồn tại). NẠP TRƯỚC:
- * event/listener/visualizer-display.js.
+ * core/settings-panel-stack.js (pushSettingsPanel), event/workflow/visualizer-display.js (cần
+ * workflowVisualizerDisplay tồn tại). NẠP TRƯỚC: event/listener/visualizer-display.js.
  */
 const routerVisualizerDisplay = (() => {
 
     /** @param {import('../bus.js').EventMessage} msg */
     function handle(msg) {
         switch (msg.type) {
+
+            case 'visualizerDisplay.openPanel.click': {
+                workflowVisualizerDisplay.openPanel();
+                break;
+            }
 
             case 'visualizerDisplay.cycleMode.click': {
                 cycleVisualizerType(); // tự kiểm tra autoSwitchVisualEnabled bên trong
@@ -39,16 +50,13 @@ const routerVisualizerDisplay = (() => {
 
             case 'visualizerDisplay.quality.change': {
                 const { value } = msg.payload;
-                setVisualizerQuality(value);
+                workflowVisualizerDisplay.setQuality(value);
                 break;
             }
 
-            // ===================== Ảnh nền =====================
-            // FIX (04/07/2026, mục 1) — bỏ hẳn 'visualizerDisplay.bgImage.pickFromLibrary' (nút
-            // riêng đã xoá) — bật toggle giờ TỰ mở picker (xem workflowVisualizerDisplay.toggleBgImage).
+            // ===================== Ảnh nền (Main, KHÔNG di chuyển) =====================
             case 'visualizerDisplay.bgImage.toggle': {
                 const { enabled } = msg.payload;
-                // CẦN >1 bước (mở picker/áp dụng hoặc tắt) -> giao workflow.
                 workflowVisualizerDisplay.toggleBgImage({ enabled });
                 break;
             }
@@ -62,85 +70,85 @@ const routerVisualizerDisplay = (() => {
             // ===================== Màu sắc =====================
             case 'visualizerDisplay.bgColor.input': {
                 const { value } = msg.payload;
-                setBgColor(value);
+                workflowVisualizerDisplay.setBgColor(value);
                 break;
             }
 
             case 'visualizerDisplay.colorMode.change': {
                 const { value } = msg.payload;
-                setColorMode(value);
+                workflowVisualizerDisplay.setColorMode(value);
                 break;
             }
 
             case 'visualizerDisplay.solidColor.pickerInput': {
-                const { value } = msg.payload;
-                setSolidColorFromPicker(value);
+                const { value, crossEl } = msg.payload;
+                workflowVisualizerDisplay.setSolidColorFromPicker(value, crossEl);
                 break;
             }
 
             case 'visualizerDisplay.solidColor.textInput': {
-                const { value } = msg.payload;
-                setSolidColorFromText(value); // tự validate format hex bên trong, no-op nếu sai
+                const { value, crossEl } = msg.payload;
+                workflowVisualizerDisplay.setSolidColorFromText(value, crossEl); // tự validate format hex bên trong, no-op nếu sai
                 break;
             }
 
             case 'visualizerDisplay.dynColorA.input': {
                 const { value } = msg.payload;
-                setDynColorA(value);
+                workflowVisualizerDisplay.setDynColorA(value);
                 break;
             }
 
             case 'visualizerDisplay.dynColorB.input': {
                 const { value } = msg.payload;
-                setDynColorB(value);
+                workflowVisualizerDisplay.setDynColorB(value);
                 break;
             }
 
             // ===================== Style con theo từng kiểu hiệu ứng =====================
             case 'visualizerDisplay.vortexStyle.change': {
                 const { value } = msg.payload;
-                setVortexStyle(value);
+                workflowVisualizerDisplay.setVortexStyle(value);
                 break;
             }
 
             case 'visualizerDisplay.barStyle.change': {
                 const { value } = msg.payload;
-                setBarStyle(value);
+                workflowVisualizerDisplay.setBarStyle(value);
                 break;
             }
 
             case 'visualizerDisplay.rainStyle.change': {
                 const { value } = msg.payload;
-                setRainStyle(value);
+                workflowVisualizerDisplay.setRainStyle(value);
                 break;
             }
 
             case 'visualizerDisplay.glassFlash.change': {
                 const { checked } = msg.payload;
-                setGlassFlash(checked);
+                workflowVisualizerDisplay.setGlassFlash(checked);
                 break;
             }
 
             // ===================== Kích thước bar/mirror =====================
             case 'visualizerDisplay.maxHeight.input': {
-                const { value } = msg.payload;
-                setMaxHeight(value);
+                const { value, displayEl } = msg.payload;
+                workflowVisualizerDisplay.setMaxHeight(value, displayEl);
                 break;
             }
 
             case 'visualizerDisplay.barWidth.input': {
-                const { value } = msg.payload;
-                setBarWidth(value);
+                const { value, displayEl } = msg.payload;
+                workflowVisualizerDisplay.setBarWidth(value, displayEl);
                 break;
             }
 
             case 'visualizerDisplay.mirrorCount.input': {
-                const { value } = msg.payload;
-                setMirrorCount(value);
+                const { value, displayEl } = msg.payload;
+                workflowVisualizerDisplay.setMirrorCount(value, displayEl);
                 break;
             }
 
-            // ===================== Volume / EQ =====================
+            // ===================== Volume / EQ (Main, KHÔNG di chuyển) =====================
             case 'visualizerDisplay.volume.input': {
                 const { value } = msg.payload;
                 setVolume(value);
