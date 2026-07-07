@@ -285,11 +285,17 @@ Và 3 hàm cụ thể (nằm trong file KHÔNG hoàn toàn hot-path, nhưng bả
 
 ### `core/storage-manager.js`
 
+> **[CẬP NHẬT Batch D5, 06/07/2026]** `downloadAllSongsThenClear`/`clearAllSongsNoDownload` ĐÃ BỎ
+> lệnh gọi `renderStorageStats()` nội bộ (vốn THỪA — workflow luôn gọi lại `refreshSongTab()` sau
+> 2 hàm này, tự vẽ lại stats đúng phần tử panel đang mở) — cột R3 cập nhật lại. `renderStorageStats`/
+> `resetScanResultUI`/`renderScanResultUI` (không nằm trong bảng vì vốn không vi phạm rule nào)
+> giờ nhận phần tử DOM qua tham số thay vì dom-refs tĩnh (panel Song nay push/pop động).
+
 | Hàm | Dòng | R2 (`appState.get` — số lần) | R1-strong (else/switch) | R3 (gọi void xác nhận) |
 |---|---|---|---|---|
 | `clearAllStoredData` | 78-109 | ✓ (5) | — | `renderPlaylistFull`, `saveConfig`, `updateShuffleArray` |
-| `downloadAllSongsThenClear` | 120-141 | — | — | `renderStorageStats`, `triggerDownload` |
-| `clearAllSongsNoDownload` | 147-150 | — | — | `renderStorageStats` |
+| `downloadAllSongsThenClear` | ~120-139 | — | — | `triggerDownload` (Batch D5: bỏ `renderStorageStats`, thừa) |
+| `clearAllSongsNoDownload` | ~145-147 | — | — | — (Batch D5: bỏ `renderStorageStats`, thừa) |
 | `scanAllSongsForCorruption` | 171-188 | ✓ (1) | — | — |
 | `deleteCorruptedSongs` | 198-205 | — | — | `removeKeyFromDisplay` |
 
