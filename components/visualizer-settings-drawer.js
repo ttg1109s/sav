@@ -16,7 +16,7 @@ function renderVisualizerPanelBody() {
                 <!-- SECTION: VISUALIZER (Chất lượng Render + Hình học theo từng kiểu) -->
                 <div>
                     <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2 ml-2" data-i18n="visualizerSettingsDrawer.geometrySectionTitle">${t('visualizerSettingsDrawer.geometrySectionTitle')}</h3>
-                    <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden mb-6">
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden mb-6">
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <span class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.quality.label">${t('visualizerSettingsDrawer.quality.label')}</span>
                             <select id="setting-quality" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
@@ -79,7 +79,7 @@ function renderVisualizerPanelBody() {
                     </div>
         
                     <h3 class="text-xs font-bold text-rose-400 uppercase tracking-widest mb-2 ml-2" data-i18n="visualizerSettingsDrawer.colorSectionTitle">${t('visualizerSettingsDrawer.colorSectionTitle')}</h3>
-                    <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <span class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.bgColor.label">${t('visualizerSettingsDrawer.bgColor.label')}</span>
                             <div class="w-8 h-8 rounded-full border border-white/20 overflow-hidden shrink-0"><input type="color" id="bg-color-picker" class="w-10 h-10 -m-1 cursor-pointer"></div>
@@ -113,7 +113,7 @@ function renderVisualizerPanelBody() {
                      nằm ở template nào — ĐÃ có null-guard sẵn từ trước, xem initAutoSwitchVisualUI()). -->
                 <div>
                     <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2" data-i18n="visualizerSettingsDrawer.autoSwitchSectionTitle">${t('visualizerSettingsDrawer.autoSwitchSectionTitle')}</h3>
-                    <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                         <div class="flex justify-between items-center p-4">
                             <div class="pr-3">
                                 <div class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.autoSwitchEnable.label">${t('visualizerSettingsDrawer.autoSwitchEnable.label')}</div>

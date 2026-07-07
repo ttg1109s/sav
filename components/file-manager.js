@@ -45,7 +45,7 @@ function renderFileManagerSongPanelBody() {
                 <!-- SECTION: FOLDER (mục 4.b1) -->
                 <div>
                     <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2 ml-2" data-i18n="fileManager.song.folderSectionTitle">${t('fileManager.song.folderSectionTitle')}</h3>
-                    <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                         <div class="flex gap-2 p-3 border-b border-white/5">
                             <input id="file-manager-new-folder-input" type="text" placeholder="${t('fileManager.song.newFolderPlaceholder')}" class="flex-1 min-w-0 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sky-500 transition-colors">
                             <button id="btn-file-manager-create-folder" class="px-3.5 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors shrink-0" data-i18n="fileManager.song.btnCreateFolder">${t('fileManager.song.btnCreateFolder')}</button>
@@ -58,7 +58,7 @@ function renderFileManagerSongPanelBody() {
                 <!-- SECTION: THỐNG KÊ DUNG LƯỢNG (dời từ storage-drawer.js, id giữ nguyên) -->
                 <div>
                     <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="storageDrawer.statsSectionTitle">${t('storageDrawer.statsSectionTitle')}</h3>
-                    <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                         <div class="flex justify-between items-center p-4 border-b border-white/5">
                             <span class="text-sm font-medium text-slate-300" data-i18n="storageDrawer.statTotalSongs">${t('storageDrawer.statTotalSongs')}</span>
                             <span id="stat-storage-total-songs" class="text-sm font-mono text-sky-300">—</span>
@@ -73,7 +73,7 @@ function renderFileManagerSongPanelBody() {
                 <!-- SECTION: GIẢI PHÓNG BỘ NHỚ (dời từ storage-drawer.js, id giữ nguyên) -->
                 <div>
                     <h3 class="text-xs font-bold text-rose-400 uppercase tracking-widest mb-2 ml-2" data-i18n="storageDrawer.freeSpaceSectionTitle">${t('storageDrawer.freeSpaceSectionTitle')}</h3>
-                    <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                         <button id="btn-storage-download-then-clear" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
                             <div>
                                 <div class="text-sm font-medium text-emerald-300" data-i18n="storageDrawer.downloadThenClear.label">${t('storageDrawer.downloadThenClear.label')}</div>
@@ -94,7 +94,7 @@ function renderFileManagerSongPanelBody() {
                 <!-- SECTION: DỌN FILE LỖI (dời từ storage-drawer.js, id giữ nguyên) -->
                 <div>
                     <h3 class="text-xs font-bold text-amber-400 uppercase tracking-widest mb-2 ml-2" data-i18n="storageDrawer.brokenSectionTitle">${t('storageDrawer.brokenSectionTitle')}</h3>
-                    <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                         <button id="btn-storage-scan-broken" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
                             <div>
                                 <div class="text-sm font-medium" data-i18n="storageDrawer.scanBroken.label">${t('storageDrawer.scanBroken.label')}</div>
@@ -134,7 +134,7 @@ function renderFileManagerFolderDetailPanelBody() {
 
                 <div>
                     <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2 ml-2" data-i18n="fileManager.song.folderDetail.songListTitle">${t('fileManager.song.folderDetail.songListTitle')}</h3>
-                    <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                         <div id="file-manager-folder-detail-song-list" class="flex flex-col divide-y divide-white/5"></div>
                         <p id="file-manager-folder-detail-empty" class="hidden text-sm text-slate-400 p-4 text-center" data-i18n="fileManager.song.folderDetail.empty">${t('fileManager.song.folderDetail.empty')}</p>
                     </div>

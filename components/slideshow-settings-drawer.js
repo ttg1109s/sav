@@ -28,7 +28,7 @@ function renderSlideshowPanelBody() {
                 <!-- SECTION DUY NHẤT (Batch 9 — gộp 2 section cũ) -->
                 <div>
                     <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2" data-i18n="slideshowSettingsDrawer.sectionTitle">${t('slideshowSettingsDrawer.sectionTitle')}</h3>
-                    <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
 
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <div class="pr-3">

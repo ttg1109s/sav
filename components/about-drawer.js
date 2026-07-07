@@ -24,7 +24,7 @@ function renderAboutPanelBody() {
                 <!-- SECTION: THỐNG KÊ -->
                 <div>
                     <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="aboutDrawer.statsSectionTitle">${t('aboutDrawer.statsSectionTitle')}</h3>
-                    <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                         <div class="flex justify-between items-center p-4 border-b border-white/5">
                             <span class="text-sm font-medium text-slate-300" data-i18n="aboutDrawer.statTotalSongs">${t('aboutDrawer.statTotalSongs')}</span>
                             <span id="stat-about-total-songs" class="text-sm font-mono text-sky-300">—</span>
@@ -47,7 +47,7 @@ function renderAboutPanelBody() {
                 <!-- SECTION: GIỚI THIỆU -->
                 <div>
                     <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2 ml-2" data-i18n="aboutDrawer.introSectionTitle">${t('aboutDrawer.introSectionTitle')}</h3>
-                    <div class="bg-white/5 rounded-2xl border border-white/10 p-4">
+                    <div class="glass-modal rounded-2xl p-4">
                         <p class="text-sm text-slate-300 leading-relaxed" data-i18n="aboutDrawer.introBody">
                             ${t('aboutDrawer.introBody')}
                         </p>

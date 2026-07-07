@@ -10,7 +10,7 @@ function renderSubtitlePanelBody() {
     return `
                 <div>
                     <h3 class="text-xs font-bold text-yellow-400 uppercase tracking-widest mb-2 ml-2" data-i18n="subtitleSettingsDrawer.sectionTitle">${t('subtitleSettingsDrawer.sectionTitle')}</h3>
-                    <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <span class="text-sm font-medium truncate" data-i18n="subtitleSettingsDrawer.bgColor.label">${t('subtitleSettingsDrawer.bgColor.label')}</span>
                             <div class="w-8 h-8 rounded-full border border-white/20 overflow-hidden shrink-0"><input type="color" id="setting-sub-bg-color" class="w-10 h-10 -m-1 cursor-pointer"></div>
