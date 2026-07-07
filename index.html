@@ -141,7 +141,7 @@
     <script src="lang/patch/patch-common.js?v=20260704v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260704v1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260704v1"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260704v3"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260706v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260706v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
@@ -166,7 +166,7 @@
          plan-v12-multimedia-decisions.md mục 1a/7. -->
     <script src="components/settings/playlist-background.js?v=20260703v2"></script>
     <script src="components/settings/file-manager-section.js?v=20260704v1"></script>
-    <script src="components/settings/visualizer-geometry-color.js?v=20260703v1"></script>
+    <script src="components/settings/visualizer-geometry-color.js?v=20260706v1"></script>
     <script src="components/settings/audio-eq.js?v=20260626v1"></script>
     <script src="components/settings/subtitle-style.js?v=20260626v1"></script>
     <script src="components/settings/misc.js?v=20260626v1"></script>
@@ -185,8 +185,8 @@
     <script src="components/document-picker-drawer.js?v=20260704v1"></script>
     <!-- Visualizer/Subtitle Settings Drawer (ver 8 refine, mục 3) — cùng pattern navigation
          stack với About/Storage Drawer, mở chồng lên #drawer-settings. -->
-    <script src="components/visualizer-settings-drawer.js?v=20260626v1"></script>
-    <script src="components/subtitle-settings-drawer.js?v=20260626v1"></script>
+    <script src="components/visualizer-settings-drawer.js?v=20260706v1"></script>
+    <script src="components/subtitle-settings-drawer.js?v=20260706v1"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Slideshow Settings Drawer (nền Visual, nguồn thứ 3). -->
     <script src="components/slideshow-settings-drawer.js?v=20260704v2"></script>
 
@@ -224,7 +224,7 @@
          core/ còn lại; PHẢI nạp SAU core/modal-choice.js (alertModal, dùng cho option notifyUI).
          Xem comment đầu file service/state.js. -->
     <script src="service/state.js?v=20260704v2"></script>
-    <script src="core/config.js?v=20260625v10"></script>
+    <script src="core/config.js?v=20260706v2"></script>
     <!-- event/store.js (class EventStore) — CHỈ riêng file NÀY trong toàn bộ /event/ được nạp SỚM
          ở đây, KHÔNG đợi xuống cuối cùng cùng bus/workflow/router/listener. Lý do: playlist/
          actions.js (core, dòng dưới) cần khai báo `const playlistStore = new EventStore(...)`
@@ -236,7 +236,7 @@
          LẠI của /event/ (bus/workflow/router/listener vẫn nạp cuối cùng tuyệt đối như cũ, xem
          khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260704v6"></script>
+    <script src="core/dom-refs.js?v=20260706v3"></script>
     <!-- Batch D1 (Settings restructure, 06/07/2026) — ngăn xếp panel Settings (core UI thuần,
          push/pop/reset). CẦN core/dom-refs.js (settingsStackTitle/btnSettingsStackBack/
          settingsStackBody/closeDrawer, đã nạp ngay trên) — KHÔNG cần t()/taskManager (nhận title
@@ -308,7 +308,7 @@
          toàn vì các hàm bên trong chỉ chạy lúc DOMContentLoaded/user tương tác, không chạy ngay
          lúc parse — applyEQPreset/updateTypeUI dù định nghĩa ở file nạp SAU vẫn gọi được đúng). -->
     <script src="core/equalizer.js?v=20260629v1"></script>
-    <script src="core/subtitle/subtitle-style-settings.js?v=20260629v1"></script>
+    <script src="core/subtitle/subtitle-style-settings.js?v=20260706v1"></script>
     <script src="core/visualizer/visualizer-misc-settings.js?v=20260629v1"></script>
     <script src="core/subtitle/subtitle-display.js?v=20260625v10"></script>
     <script src="core/tab-hide-reload.js?v=20260630v1"></script>
@@ -381,12 +381,12 @@
          resizeCanvas), core/upload-validation.js, core/loading-shield-util.js, core/modal-choice.js,
          core/color-utils.js (updatePlaylistBg, updateDOMBackground) — TẤT CẢ đã nạp từ khu CORE
          ở trên, nên an toàn đặt ở đây. Xem comment đầu file để biết đầy đủ. -->
-    <script src="core/visualizer/visualizer-display.js?v=20260704v2"></script>
+    <script src="core/visualizer/visualizer-display.js?v=20260706v1"></script>
     <!-- Tự động đổi hiệu ứng Visualizer theo thời gian (ver 10, ĐỔI vị trí ver 11: trước đây nạp
          ngay sau player-controls.js ở khu CORE — giờ PHẢI nạp SAU visualizer-display.js vì file
          đó định nghĩa updateTypeUI/saveConfig mà auto-switch-visual.js cần, xem comment đầu file
          auto-switch-visual.js) và sau task-manager.js (cần taskManager, đã nạp từ khu CORE). -->
-    <script src="core/auto-switch-visual.js?v=20260625v10"></script>
+    <script src="core/auto-switch-visual.js?v=20260706v1"></script>
     <script src="core/visualizer/draw-helpers.js?v=20260625v10"></script>
     <script src="core/visualizer/types/bar.js?v=20260625v8e"></script>
     <script src="core/visualizer/types/lightning.js?v=20260625v8e"></script>
@@ -507,9 +507,13 @@
     <script src="event/workflow/player-controls.js?v=20260706v1"></script>
     <script src="event/router/player-controls.js?v=20260706v1"></script>
     <script src="event/listener/player-controls.js?v=20260629v1"></script>
-    <script src="event/workflow/visualizer-display.js?v=20260704v1"></script>
-    <script src="event/router/visualizer-display.js?v=20260703v2"></script>
-    <script src="event/listener/visualizer-display.js?v=20260703v2"></script>
+    <!-- Cụm "visualizerDisplay" — Batch D3 (Settings restructure, 06/07/2026): 14/20 msg.type
+         (panel Visualizer Settings, nay push/pop động) ĐỔI sang gọi workflow — xem
+         event/workflow/visualizer-display.js. THÊM case 'openPanel.click' (dời từ
+         "visualizerMiscSettings"). -->
+    <script src="event/workflow/visualizer-display.js?v=20260706v1"></script>
+    <script src="event/router/visualizer-display.js?v=20260706v1"></script>
+    <script src="event/listener/visualizer-display.js?v=20260706v1"></script>
     <!-- Cụm "statsPanel" (ver 11, patch 4): KHÔNG có event/workflow/stats-panel.js — chỉ 1
          msg.type, chỉ cần ĐÚNG 1 HÀM CORE (toggleStatsPanelVisibility), router gọi THẲNG (xem
          comment đầu event/router/stats-panel.js). -->
@@ -534,20 +538,27 @@
     <script src="event/workflow/subtitle-modal.js?v=20260629v1"></script>
     <script src="event/router/subtitle-modal.js?v=20260629v1"></script>
     <script src="event/listener/subtitle-modal.js?v=20260629v1"></script>
-    <!-- Cụm "autoSwitchVisual" (ver 11, patch 10) — KHÔNG có workflow. -->
-    <script src="event/router/auto-switch-visual.js?v=20260629v1"></script>
-    <script src="event/listener/auto-switch-visual.js?v=20260629v1"></script>
+    <!-- Cụm "autoSwitchVisual" — Batch D3 (06/07/2026): core đã refactor Rule 1-4 đầy đủ, GIỜ CẦN
+         workflow (event/workflow/auto-switch-visual.js) — không còn gọi thẳng core như trước. -->
+    <script src="event/workflow/auto-switch-visual.js?v=20260706v1"></script>
+    <script src="event/router/auto-switch-visual.js?v=20260706v1"></script>
+    <script src="event/listener/auto-switch-visual.js?v=20260706v1"></script>
     <!-- Cụm "visualizerControlCenter" (ver 11, patch 11). -->
     <script src="event/workflow/visualizer-control-center.js?v=20260704v2"></script>
     <script src="event/router/visualizer-control-center.js?v=20260703v2"></script>
     <script src="event/listener/visualizer-control-center.js?v=20260703v2"></script>
-    <!-- Cụm "subtitleStyleSettings" (ver 11, patch 12) — KHÔNG có workflow. -->
-    <script src="event/router/subtitle-style-settings.js?v=20260629v1"></script>
-    <script src="event/listener/subtitle-style-settings.js?v=20260629v1"></script>
-    <!-- Cụm "visualizerMiscSettings" (ver 11, patch 13): KHÔNG có workflow — 4 nút mở/đóng
-         drawer + select kiểu hiệu ứng + toggle giữ màn hình sáng. Tất cả gọi thẳng hàm core. -->
-    <script src="event/router/visualizer-misc-settings.js?v=20260630v1"></script>
-    <script src="event/listener/visualizer-misc-settings.js?v=20260630v1"></script>
+    <!-- Cụm "subtitleStyleSettings" — Batch D2 (Settings restructure, 06/07/2026): GIỜ CẦN
+         workflow (openPanel() push động + 8 hàm set* nay Rule 1-4 đầy đủ, không còn tự gọi core
+         khác — xem event/workflow/subtitle-style-settings.js). CẦN core/settings-panel-stack.js,
+         components/subtitle-settings-drawer.js (đã nạp ở nhóm components phía trên). -->
+    <script src="event/workflow/subtitle-style-settings.js?v=20260706v1"></script>
+    <script src="event/router/subtitle-style-settings.js?v=20260706v1"></script>
+    <script src="event/listener/subtitle-style-settings.js?v=20260706v1"></script>
+    <!-- Cụm "visualizerMiscSettings" (ver 11, patch 13): Batch D2 — 2 msg.type Subtitle Drawer đã
+         dời sang cụm "subtitleStyleSettings" ở trên. Còn lại 4 msg.type (2 nút Visualizer Drawer +
+         select kiểu hiệu ứng + toggle giữ màn hình sáng), vẫn KHÔNG có workflow, gọi thẳng core. -->
+    <script src="event/router/visualizer-misc-settings.js?v=20260706v2"></script>
+    <script src="event/listener/visualizer-misc-settings.js?v=20260706v2"></script>
     <!-- Cụm "equalizerSettings" (ver 11, patch 14): KHÔNG có workflow — 1 delegation listener
          trên eqSlidersWrapper thay cho 10 listener riêng lẻ trong vòng lặp initEQSliders(). -->
     <script src="event/router/equalizer-settings.js?v=20260630v1"></script>

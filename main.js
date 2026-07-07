@@ -26,8 +26,8 @@
     // TPL_FILE_MANAGER (overlay cấp cao + tab-bar, patch 02/07/2026) ĐÃ BỎ — thay bằng 3 drawer
     // con độc lập (TPL_FILE_MANAGER_SONG_DRAWER/_PHOTO_DRAWER/_DOCUMENT_DRAWER, xem
     // components/file-manager.js), mở trực tiếp từ 1 section trong chính TPL_SETTINGS_DRAWER
-    // (components/settings/file-manager-section.js) — cùng cấp nav-stack với
-    // TPL_VISUALIZER_SETTINGS_DRAWER, không cần màn trung gian nào. File
+    // (components/settings/file-manager-section.js) — cùng cấp nav-stack với Visualizer Settings
+    // (nay panel động, xem Batch D3 dưới), không cần màn trung gian nào. File
     // components/storage-drawer.js CŨ không còn được mount ở đây nữa (còn để lại trong project
     // làm tư liệu, không tự xoá).
     //
@@ -36,6 +36,14 @@
     // (components/about-drawer.js::renderAboutPanelBody()), được PUSH ĐỘNG vào ngăn xếp bên trong
     // #drawer-settings (đã có sẵn trong TPL_SETTINGS_DRAWER) mỗi lần người dùng mở About — xem
     // core/settings-panel-stack.js + event/workflow/settings-misc.js::openAbout().
+    // Batch D2 (Settings restructure, 06/07/2026) — TPL_SUBTITLE_SETTINGS_DRAWER ĐÃ BỎ khỏi mount
+    // tĩnh, cùng lý do TPL_ABOUT_DRAWER ở Batch D1: nội dung giờ là 1 HÀM
+    // (components/subtitle-settings-drawer.js::renderSubtitlePanelBody()), PUSH ĐỘNG vào ngăn
+    // xếp — xem event/workflow/subtitle-style-settings.js::openPanel().
+    // Batch D3 (Settings restructure, 06/07/2026) — TPL_VISUALIZER_SETTINGS_DRAWER ĐÃ BỎ khỏi
+    // mount tĩnh, cùng lý do TPL_ABOUT_DRAWER/TPL_SUBTITLE_SETTINGS_DRAWER ở D1/D2: nội dung giờ
+    // là 1 HÀM (components/visualizer-settings-drawer.js::renderVisualizerPanelBody()), PUSH ĐỘNG
+    // vào ngăn xếp — xem event/workflow/visualizer-display.js::openPanel().
     appRoot.innerHTML =
         TPL_LOADING_SHIELD +
         TPL_PLAYLIST_VIEW +
@@ -47,8 +55,6 @@
         TPL_FILE_MANAGER_FOLDER_DETAIL_DRAWER +
         TPL_FILE_MANAGER_PHOTO_DRAWER +
         TPL_FILE_MANAGER_DOCUMENT_DRAWER +
-        TPL_VISUALIZER_SETTINGS_DRAWER +
-        TPL_SUBTITLE_SETTINGS_DRAWER +
         TPL_SLIDESHOW_SETTINGS_DRAWER + // Batch 8, ver 12 "Multi Media" — Slideshow nền Visual.
         TPL_DOCUMENT_READER + // MỚI (04/07/2026, tính năng Documents) — cửa sổ đọc tài liệu.
         TPL_DOCUMENT_PICKER_DRAWER; // MỚI (04/07/2026, mục 3 phản hồi Giang) — drawer chọn tài liệu.
