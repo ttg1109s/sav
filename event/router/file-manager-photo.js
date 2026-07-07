@@ -1,6 +1,6 @@
 /**
  * event/router/file-manager-photo.js — Router tên "fileManagerPhoto", tự đăng ký với eventBus lúc
- * nạp. CHỐT 03/07/2026 (mục 1a/3/7) — drawer con "Photo & Album" (gộp UI Ảnh + Album).
+ * nạp. CHỐT 03/07/2026 (mục 1a/3/7) — panel "Photo & Album" (gộp UI Ảnh + Album).
  *
  * Batch 3 (03/07/2026) — nội dung thật: story slider album + masonry ảnh, xem
  * core/file-manager/photo-ui.js + event/workflow/file-manager-photo.js.
@@ -9,35 +9,31 @@
  * xác nhận từ Batch 3): Đổi tên/Xoá album đang lọc (`fileManagerPhoto.album.manageClick`) + chế độ
  * chọn nhiều ảnh để thêm vào album đang lọc (`fileManagerPhoto.imageSelection.*`).
  *
- * STATE CONTEXT: `activeAlbumId` (album đang lọc masonry, null = "Tất cả"), `imageSelectionMode`/
- * `selectedImageKeys` (MỚI — chế độ chọn nhiều ảnh có sẵn để thêm vào `activeAlbumId`) sống Ở ĐÂY —
- * cùng cách router "fileManagerSong" giữ `currentFolderDetailId`/`lastScanResults` (closure `let`,
- * không dùng EventStore, không phải appState vì đây chỉ là ngữ cảnh hiển thị tạm thời của riêng
- * drawer này, không cần sống qua reload). `selectedImageKeys` là 1 `Set` — workflow được phép mutate
- * TRỰC TIẾP qua tham chiếu (không cần callback reset như `activeAlbumId`/`imageSelectionMode`, vốn
- * là primitive — reassign primitive chỉ làm được TẠI ĐÂY, không truyền ngược được từ workflow).
+ * === Batch D6 (Settings restructure, 06/07/2026) ===
+ * 'open' ĐỔI TÊN 'openPanel.click'. Case 'close' ĐÃ XOÁ — đóng dùng CHUNG
+ * 'settingsStackNav.back.click'. Case 'upload.click' ĐÃ XOÁ — nút trigger giờ click thẳng input
+ * file panel-scoped NGAY TRONG listener (DOM proxy thuần, không cần round-trip qua router — xem
+ * event/listener/file-manager-photo.js).
  *
- * NẠP SAU: event/bus.js, core/file-manager/nav.js (showFileManagerPhotoDrawer/
- * hideFileManagerPhotoDrawer), event/workflow/file-manager-photo.js (workflowFileManagerPhoto).
+ * STATE CONTEXT: `activeAlbumId` (album đang lọc masonry, null = "Tất cả"), `imageSelectionMode`/
+ * `selectedImageKeys` sống Ở ĐÂY — cùng cách router "fileManagerSong" giữ `currentFolderDetailId`.
+ *
+ * NẠP SAU: event/bus.js, event/workflow/file-manager-photo.js (workflowFileManagerPhoto),
+ * core/settings-panel-stack.js (pushSettingsPanel).
  * NẠP TRƯỚC: event/listener/file-manager-photo.js.
  */
 const routerFileManagerPhoto = (() => {
-    let activeAlbumId = null; // context state CỦA RIÊNG drawer Photo — reset về null mỗi lần mở lại
+    let activeAlbumId = null; // context state CỦA RIÊNG panel Photo — reset về null mỗi lần mở lại
     let imageSelectionMode = false; // MỚI — true = đang chọn nhiều ảnh để thêm vào activeAlbumId
     let selectedImageKeys = new Set(); // MỚI — tập imageKey đang được chọn khi imageSelectionMode=true
 
     function handle(msg) {
         switch (msg.type) {
-            case 'fileManagerPhoto.open': {
+            case 'fileManagerPhoto.openPanel.click': {
                 activeAlbumId = null; // luôn mở lại từ "Tất cả", không nhớ lọc phiên trước
                 imageSelectionMode = false;
                 selectedImageKeys = new Set();
-                workflowFileManagerPhoto.openDrawer(); // >1 hàm core nối tiếp (patch DOM + đọc DB + vẽ) -> workflow
-                break;
-            }
-
-            case 'fileManagerPhoto.close': {
-                hideFileManagerPhotoDrawer(); // CHỈ 1 hàm core (patch DOM thuần) -> gọi thẳng
+                workflowFileManagerPhoto.openPanel(); // >1 hàm core nối tiếp (push + đọc DB + vẽ) -> workflow
                 break;
             }
 
@@ -134,10 +130,7 @@ const routerFileManagerPhoto = (() => {
             // ===================== Upload (Batch 3 — nút riêng của Photo drawer, CHƯA phải bộ
             // phân loại thông minh dùng chung với upload nhạc — đó là Batch 8 theo kế hoạch) =====
 
-            case 'fileManagerPhoto.upload.click': {
-                fileManagerImageUploadInput.click(); // core DOM API thuần, gọi thẳng
-                break;
-            }
+            // (case 'upload.click' ĐÃ XOÁ — Batch D6, xem docstring đầu file)
 
             case 'fileManagerPhoto.upload.change': {
                 const { files } = msg.payload;
