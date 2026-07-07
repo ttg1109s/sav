@@ -10,8 +10,11 @@
  * (`node._objectUrl`), REVOKE khi node bị gỡ khỏi DOM (vẽ lại toàn bộ list) — cùng pattern
  * `_coverObjectUrl` đã dùng ở core/playlist/render.js.
  *
- * NẠP SAU: core/dom-refs.js (fileManagerAlbumStory/fileManagerImageMasonry/fileManagerImageEmpty),
- * lang/lang.js (t()).
+ * NẠP SAU: lang/lang.js (t()). Batch D6 (06/07/2026): panel Photo giờ push/pop động (core/
+ * settings-panel-stack.js) — `renderAlbumStory`/`renderImageMasonry`/`updateImageSelectionCount`
+ * KHÔNG còn phụ thuộc core/dom-refs.js (fileManagerAlbumStory/fileManagerImageMasonry/
+ * fileManagerImageEmpty/fileManagerImageSelectionCount ĐÃ XOÁ khỏi file đó) — nhận phần tử DOM qua
+ * tham số. `toggleImageSelectionBadge()` dùng `_masonryContainerEl` (bookkeeping nội bộ có sẵn).
  *
  * MỚI (batch tiếp theo 03/07/2026, mục 2.2/2.3 plan-v12-multimedia-update-2.md — nợ kỹ thuật đã
  * xác nhận từ Batch 3): `renderImageMasonry()` nhận thêm 2 tham số tuỳ chọn (selectionMode/
@@ -37,15 +40,17 @@
  * @param {string|null} activeAlbumId - album đang lọc (null = "Tất cả")
  * @param {Map<string, Object>} imageRecordsByKey - key -> {blob,...}, dùng lấy ảnh đại diện đầu
  *        tiên của mỗi album mà KHÔNG cần đọc DB lại (workflow đã có sẵn từ listImages()).
+ * @param {HTMLElement} storyEl - Batch D6 (06/07/2026): panel Photo giờ push/pop động (core/
+ *        settings-panel-stack.js) — nhận qua tham số thay vì dom-refs tĩnh `fileManagerAlbumStory`.
  */
-function renderAlbumStory(albums, activeAlbumId, imageRecordsByKey) {
-    if (!fileManagerAlbumStory) return; // guard
+function renderAlbumStory(albums, activeAlbumId, imageRecordsByKey, storyEl) {
+    if (!storyEl) return; // guard
 
     // Revoke toàn bộ object URL cũ trước khi xoá DOM (tránh rò rỉ bộ nhớ — cùng pattern renderPlaylistDiff)
-    fileManagerAlbumStory.querySelectorAll('[data-has-object-url]').forEach((node) => {
+    storyEl.querySelectorAll('[data-has-object-url]').forEach((node) => {
         if (node._objectUrl) { try { URL.revokeObjectURL(node._objectUrl); } catch (e) {} }
     });
-    fileManagerAlbumStory.innerHTML = '';
+    storyEl.innerHTML = '';
 
     // ── "Tất cả" (bỏ lọc) ──────────────────────────────────────────────────────────────────
     const allItem = document.createElement('button');
@@ -59,7 +64,7 @@ function renderAlbumStory(albums, activeAlbumId, imageRecordsByKey) {
     allLabel.className = `text-[11px] truncate w-full text-center ${activeAlbumId === null ? 'text-sky-300 font-semibold' : 'text-slate-400'}`;
     allLabel.textContent = t('fileManager.photo.album.all');
     allItem.appendChild(allLabel);
-    fileManagerAlbumStory.appendChild(allItem);
+    storyEl.appendChild(allItem);
 
     // ── Từng album ─────────────────────────────────────────────────────────────────────────
     albums.forEach((album) => {
@@ -85,7 +90,7 @@ function renderAlbumStory(albums, activeAlbumId, imageRecordsByKey) {
         label.textContent = album.name;
         item.appendChild(label);
 
-        fileManagerAlbumStory.appendChild(item);
+        storyEl.appendChild(item);
     });
 
     // ── "+" tạo album mới ──────────────────────────────────────────────────────────────────
@@ -100,7 +105,7 @@ function renderAlbumStory(albums, activeAlbumId, imageRecordsByKey) {
     newLabel.className = 'text-[11px] text-slate-400 truncate w-full text-center';
     newLabel.textContent = t('fileManager.photo.album.new');
     newItem.appendChild(newLabel);
-    fileManagerAlbumStory.appendChild(newItem);
+    storyEl.appendChild(newItem);
 }
 
 // ===================== Masonry ảnh =====================
@@ -129,6 +134,10 @@ function renderAlbumStory(albums, activeAlbumId, imageRecordsByKey) {
  * @param {Array<{key: string, blob: Blob, filename: string}>} images
  * @param {boolean} [selectionMode]
  * @param {Set<string>} [selectedImageKeys]
+ * @param {HTMLElement} [emptyEl] - Batch D6 (06/07/2026): panel Photo giờ push/pop động — nhận
+ *      phần tử "rỗng" qua tham số THAY vì so sánh `containerEl === fileManagerImageMasonry` (biến
+ *      toàn cục đó không còn hợp lệ nữa). Modal khác (cover picker) không có khái niệm "rỗng" nên
+ *      đơn giản bỏ qua tham số này (undefined -> không toggle gì).
  */
 const MASONRY_CHUNK_SIZE = 30;
 const MASONRY_KEEP_CHUNKS = 3; // giữ tối đa 3 chunk (90 ảnh) "sống" (ảnh thật) quanh vị trí đang tải gần nhất
@@ -144,7 +153,7 @@ let _masonryHighestLoadedChunk = -1;
 let _masonryGrowObserver = null;
 let _masonryRestoreObservers = [];
 
-function renderImageMasonry(containerEl, images, selectionMode, selectedImageKeys) {
+function renderImageMasonry(containerEl, images, selectionMode, selectedImageKeys, emptyEl) {
     if (!containerEl) return; // guard
 
     _teardownMasonryWatchers();
@@ -153,7 +162,7 @@ function renderImageMasonry(containerEl, images, selectionMode, selectedImageKey
     });
     containerEl.innerHTML = '';
 
-    if (fileManagerImageEmpty && containerEl === fileManagerImageMasonry) fileManagerImageEmpty.classList.toggle('hidden', images.length > 0);
+    if (emptyEl) emptyEl.classList.toggle('hidden', images.length > 0);
 
     _masonryContainerEl = containerEl;
     _masonryImages = images;
@@ -742,9 +751,12 @@ function renderSlideshowAlbumPickerGrid(gridEl, albums, activeAlbumId, imageReco
  * @param {string} imageKey
  * @param {boolean} isSelected
  */
+/** Batch D6 (06/07/2026) — dùng `_masonryContainerEl` (biến bookkeeping nội bộ, luôn trỏ đúng
+ * container của lần renderImageMasonry() gần nhất) THAY vì dom-ref tĩnh `fileManagerImageMasonry`
+ * — panel Photo giờ push/pop động, biến toàn cục đó không còn hợp lệ. */
 function toggleImageSelectionBadge(imageKey, isSelected) {
-    if (!fileManagerImageMasonry) return; // guard
-    const tile = fileManagerImageMasonry.querySelector(`[data-image-key="${imageKey}"]`);
+    if (!_masonryContainerEl) return; // guard
+    const tile = _masonryContainerEl.querySelector(`[data-image-key="${imageKey}"]`);
     if (!tile) return; // guard: hiếm, ảnh không còn trong DOM (race)
 
     let badge = tile.querySelector('[data-role="selection-badge"]');
@@ -759,9 +771,10 @@ function toggleImageSelectionBadge(imageKey, isSelected) {
         : '';
 }
 
-/** Đổi text "N selected" mà không đụng DOM nào khác. @param {number} count */
-function updateImageSelectionCount(count) {
-    if (fileManagerImageSelectionCount) fileManagerImageSelectionCount.textContent = tFormat('fileManager.photo.album.selectedCount', { count });
+/** Đổi text "N selected" mà không đụng DOM nào khác. Batch D6 — nhận `countEl` qua tham số.
+ * @param {number} count @param {HTMLElement} [countEl] */
+function updateImageSelectionCount(count, countEl) {
+    if (countEl) countEl.textContent = tFormat('fileManager.photo.album.selectedCount', { count });
 }
 
 // ===================== Tạo Album (modal) =====================
