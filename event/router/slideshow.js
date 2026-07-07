@@ -8,25 +8,30 @@
  * HOÁ THÊM (04/07/2026, đợt 2) — bỏ hẳn case 'currentAlbumRow.click' (hàng "album đang chạy" đã bỏ
  * theo phản hồi Giang) — đổi album khi đang bật: gạt Off rồi gạt lại On.
  *
+ * Batch D4 (Settings restructure, 06/07/2026) — 'open' ĐỔI TÊN 'openPanel.click' (khớp quy ước
+ * push panel dùng CHUNG mọi cụm Settings khác — About/Subtitle/Visualizer). Case 'close' ĐÃ XOÁ —
+ * đóng dùng CHUNG 'settingsStackNav.back.click' cho MỌI panel (xem event/router/settings-stack-
+ * nav.js) — panel chọn Album ('albumPicker.overlay.click') KHÔNG đổi, vẫn của riêng cụm này (đó
+ * là 1 overlay ĐỘC LẬP, không phải panel Settings Stack — xem docstring components/slideshow-
+ * settings-drawer.js).
+ *
  * Toàn bộ msg.type ở đây chỉ cần gọi thẳng 1 hàm (đóng/mở drawer = DOM thuần, gọi thẳng; còn lại
  * đều ≥2 bước phụ thuộc thứ tự — đọc DB + set state + persist meta + đồng bộ UI — nên giao hết cho
  * `workflowSlideshow`, không có case nào cần VirtualMachineState (không có case nào rẽ nhánh theo
  * appState KHÁC ngoài chính msg.payload của nó).
  *
- * NẠP SAU: event/bus.js, event/workflow/slideshow.js (workflowSlideshow), core/dom-refs.js
- * (drawerSlideshowSettings). NẠP TRƯỚC: event/listener/slideshow.js.
+ * NẠP SAU: event/bus.js, event/workflow/slideshow.js (workflowSlideshow), core/settings-panel-
+ * stack.js (pushSettingsPanel). NẠP TRƯỚC: event/listener/slideshow.js.
  */
 const routerSlideshowSettings = (() => {
     /** @param {import('../bus.js').EventMessage} msg */
     function handle(msg) {
         switch (msg.type) {
-            case 'slideshowSettings.open':
-                workflowSlideshow.openDrawer(); // >1 hàm core nối tiếp (DOM + đọc DB + vẽ) -> workflow
+            case 'slideshowSettings.openPanel.click':
+                workflowSlideshow.openPanel(); // >1 hàm core nối tiếp (push + đọc DB + vẽ) -> workflow
                 break;
 
-            case 'slideshowSettings.close':
-                drawerSlideshowSettings.classList.add('translate-y-full'); // CHỈ 1 thao tác DOM thuần -> gọi thẳng
-                break;
+            // (case 'close' ĐÃ XOÁ — Batch D4, dùng CHUNG 'settingsStackNav.back.click')
 
             // MỚI (Batch 9, mục 4) — 1 toggle DUY NHẤT thay 2 nút Chọn/Tắt cũ.
             case 'slideshowSettings.enable.change':
