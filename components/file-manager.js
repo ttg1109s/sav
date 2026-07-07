@@ -17,14 +17,18 @@
  * NGAY TRONG BODY panel (`#file-manager-folder-detail-title`, cập nhật qua setFolderDetailTitle()
  * sau khi đọc DB xong — xem event/workflow/file-manager-song.js::refreshFolderDetail()).
  *
- * `TPL_FILE_MANAGER_PHOTO_DRAWER`/`TPL_FILE_MANAGER_DOCUMENT_DRAWER` CHƯA đổi (dự kiến D6/D7,
- * xem plan-v12-batch-list.md) — vẫn mount tĩnh như cũ, xem main.js.
+ * `TPL_FILE_MANAGER_PHOTO_DRAWER` ĐÃ đổi ở Batch D6 (06/07/2026) — `renderFileManagerPhotoPanelBody()`,
+ * push động `fullBleed: true` (masonry/story slider tràn viền, xem core/settings-panel-stack.js).
+ * `TPL_FILE_MANAGER_DOCUMENT_DRAWER` ĐÃ đổi ở Batch D7 (06/07/2026, BATCH CUỐI Nhóm D restructure)
+ * — `renderFileManagerDocumentPanelBody()`, push động bình thường (không fullBleed). CẢ 4 khu vực
+ * (Song/Folder Detail/Photo/Documents) giờ ĐỀU là hàm push động — file này KHÔNG còn biến
+ * `TPL_FILE_MANAGER_*` nào cả.
  *
  * components/storage-drawer.js + biến TPL_STORAGE_DRAWER KHÔNG còn được mount (xem main.js) —
  * file cũ ĐỂ LẠI trong project làm tư liệu đối chiếu, KHÔNG xoá tự động, bác xoá tay khi rảnh.
  *
  * MỚI (batch tiếp theo 03/07/2026, mục 2.2/2.3 plan-v12-multimedia-update-2.md — nợ kỹ thuật đã
- * xác nhận từ Batch 3) — TPL_FILE_MANAGER_PHOTO_DRAWER thêm 2 khối: `#file-manager-album-manage-bar`
+ * xác nhận từ Batch 3) — panel Photo thêm 2 khối: `#file-manager-album-manage-bar`
  * (Đổi tên/Xoá album đang lọc + mở chế độ "Thêm ảnh có sẵn") và `#file-manager-image-selection-bar`
  * (thanh hành động khi đang chọn nhiều ảnh để thêm vào album). Xem core/file-manager/photo-ui.js
  * (render + modal đổi tên) và event/workflow/file-manager-photo.js (logic).
@@ -202,23 +206,18 @@ function renderFileManagerPhotoPanelBody() {
 `;
 }
 
-// ===================== Drawer con: Documents (04/07/2026 — code thật, thay placeholder) ========
+// ===================== Khu vực: Documents (04/07/2026 — code thật, thay placeholder) ========
 // 2 nút upload TÁCH RIÊNG (không dùng chung 1 cơ chế "tự phân loại", đúng yêu cầu Giang — "mỗi cái
 // một upload riêng cho dễ"): "Tải lên tài liệu" (chọn .txt/.docx có sẵn) và "Tạo tài liệu mới"
 // (.txt rỗng, mở thẳng vào Reader ở chế độ Sửa). Danh sách bên dưới — xem
 // core/file-manager/document-ui.js::renderDocumentList().
-const TPL_FILE_MANAGER_DOCUMENT_DRAWER = `
-    <div id="drawer-file-manager-document" class="fixed inset-0 drawer-glass z-[90] transform translate-y-full transition-transform duration-500 ease-in-out flex flex-col">
-        <div class="flex justify-between items-center px-4 py-3 sm:px-6 border-b border-white/10 shrink-0 bg-black/40">
-            <div class="flex items-center gap-2">
-                <button id="btn-back-file-manager-document" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white" data-i18n-title="fileManager.document.back.title" title="${t('fileManager.document.back.title')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 class="text-base sm:text-lg font-bold tracking-wider text-white uppercase" data-i18n="fileManager.document.title">${t('fileManager.document.title')}</h2>
-            </div>
-        </div>
-        <div class="flex-grow overflow-y-auto px-4 py-6 sm:px-8 pb-20">
-            <div class="max-w-2xl mx-auto space-y-6">
+//
+// Batch D7 (Settings restructure, 06/07/2026 — BATCH CUỐI Nhóm D): TPL_FILE_MANAGER_DOCUMENT_DRAWER
+// (khung `fixed inset-0 drawer-glass z-[90]` + header riêng) THAY bằng hàm
+// `renderFileManagerDocumentPanelBody()`, PUSH ĐỘNG vào Settings Stack — header dùng CHUNG (title +
+// Back), không còn header riêng.
+function renderFileManagerDocumentPanelBody() {
+    return `
                 <div class="flex gap-3">
                     <button id="btn-file-manager-document-upload" class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl text-xs font-bold transition-colors shadow">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3-3 3 3m-3-3v6" /></svg>
@@ -232,7 +231,5 @@ const TPL_FILE_MANAGER_DOCUMENT_DRAWER = `
                 </div>
                 <div id="file-manager-document-list" class="flex flex-col gap-2"></div>
                 <p id="file-manager-document-empty" class="hidden text-sm text-slate-400 text-center py-10" data-i18n="fileManager.document.empty">${t('fileManager.document.empty')}</p>
-            </div>
-        </div>
-    </div>
 `;
+}
