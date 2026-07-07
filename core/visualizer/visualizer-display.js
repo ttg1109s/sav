@@ -76,11 +76,15 @@
         }
 
         /**
-         * Batch D3 — THÊM guard `if (blockMaxHeight)` bao quanh TOÀN BỘ phần đồng bộ UI panel
-         * Visualizer Settings (6 block ẩn/hiện theo kiểu hiệu ứng) — hàm này bị gọi từ NHIỀU nguồn
-         * NGOÀI panel (select Main, cycle button, timer auto-switch) nên panel có thể đang ĐÓNG
-         * (đã bị `.remove()` khỏi DOM, mọi block bên trong là `null`). Phần KHÔNG phụ thuộc panel
-         * (badge, three.js, canvas, fftSize) vẫn chạy bình thường ở NGOÀI guard.
+         * HOTFIX 2 (07/07/2026, bug do Giang báo qua screenshot lỗi thật khi phát nhạc — SỬA LẠI
+         * cách guard batch trước, cách đó VẪN SAI): Batch D3 viết `if (blockMaxHeight) {...}` với
+         * suy nghĩ "biến này = null khi panel đóng" — SAI HOÀN TOÀN: `const blockMaxHeight = ...`
+         * đã bị XOÁ KHỎI core/dom-refs.js (không tồn tại nữa, không phải = null) — tham chiếu 1
+         * biến CHƯA TỪNG KHAI BÁO ném `ReferenceError: Can't find variable` NGAY LẬP TỨC (khác hẳn
+         * `if (null)`, vốn chỉ đơn giản là false, không ném gì). SỬA ĐÚNG: dùng
+         * `document.getElementById()` TRUY VẤN TƯƠI mỗi lần gọi (an toàn tuyệt đối, trả `null` nếu
+         * không tìm thấy, KHÔNG BAO GIỜ ném ReferenceError) THAY vì dựa vào biến toàn cục — đúng
+         * bản chất "phần tử này sống động, có thể không tồn tại tại thời điểm gọi".
          */
         function updateTypeUI() {
             const currentModeIndex = appState.get('currentModeIndex');
@@ -99,54 +103,61 @@
                 if (!playlistView.classList.contains('playlist-hidden')) {} else { document.getElementById('webgl-canvas').classList.remove('opacity-0'); }
             } else { document.getElementById('webgl-canvas').classList.add('opacity-0'); }
 
-            // GUARD (Batch D3) — mọi block dưới đây sống BÊN TRONG panel Visualizer Settings, panel
-            // có thể đang đóng (null) nếu hàm này bị gọi từ select Main/cycle button/timer auto-switch.
-            if (blockMaxHeight) {
-                blockMaxHeight.classList.add('hidden'); blockBarWidth.classList.add('hidden');
-                blockVortex.classList.add('hidden'); blockRain.classList.add('hidden'); blockBarStyle.classList.add('hidden');
+            // HOTFIX 2 — truy vấn TƯƠI, KHÔNG dựa vào biến toàn cục (xem docstring hàm ngay trên).
+            const blockMaxHeightEl = document.getElementById('block-max-height');
+            if (blockMaxHeightEl) {
+                const blockBarWidthEl = document.getElementById('block-bar-width');
+                const blockVortexEl = document.getElementById('block-vortex');
+                const blockRainEl = document.getElementById('block-rain');
+                const blockBarStyleEl = document.getElementById('block-bar-style');
 
-                if (cfg.type === 'vortex') { blockVortex.classList.remove('hidden'); blockVortex.classList.add('flex'); }
-                else if (cfg.type === 'rain') { blockRain.classList.remove('hidden'); blockRain.classList.add('flex'); }
+                blockMaxHeightEl.classList.add('hidden'); blockBarWidthEl.classList.add('hidden');
+                blockVortexEl.classList.add('hidden'); blockRainEl.classList.add('hidden'); blockBarStyleEl.classList.add('hidden');
+
+                if (cfg.type === 'vortex') { blockVortexEl.classList.remove('hidden'); blockVortexEl.classList.add('flex'); }
+                else if (cfg.type === 'rain') { blockRainEl.classList.remove('hidden'); blockRainEl.classList.add('flex'); }
                 else if (cfg.type === 'bar') {
                     // "Độ cao tối đa" vẫn dùng chung cho Bar (cả mirror/cascade); "Độ dày thanh" KHÔNG
                     // áp dụng cho Bar nữa (chỉ Black Hole) — xem updateBarStyleUI cho 2 setting riêng
                     // của kiểu Phản chiếu (số lượng thanh, độ to vòng tròn).
-                    blockMaxHeight.classList.remove('hidden'); blockMaxHeight.classList.add('flex');
-                    blockBarStyle.classList.remove('hidden'); blockBarStyle.classList.add('flex');
+                    blockMaxHeightEl.classList.remove('hidden'); blockMaxHeightEl.classList.add('flex');
+                    blockBarStyleEl.classList.remove('hidden'); blockBarStyleEl.classList.add('flex');
                     updateBarStyleUI();
                 }
                 else if (cfg.type === 'black hole') {
                     // Black Hole là visual DUY NHẤT còn dùng "Độ dày thanh".
-                    blockMaxHeight.classList.remove('hidden'); blockMaxHeight.classList.add('flex');
-                    blockBarWidth.classList.remove('hidden'); blockBarWidth.classList.add('flex');
+                    blockMaxHeightEl.classList.remove('hidden'); blockMaxHeightEl.classList.add('flex');
+                    blockBarWidthEl.classList.remove('hidden'); blockBarWidthEl.classList.add('flex');
                 }
                 else if (cfg.type !== 'rubik' && cfg.type !== 'lightning') {
-                    blockMaxHeight.classList.remove('hidden'); blockMaxHeight.classList.add('flex');
+                    blockMaxHeightEl.classList.remove('hidden'); blockMaxHeightEl.classList.add('flex');
                 }
             }
 
             if(appState.get('analyser')) { appState.get('analyser').fftSize = (cfg.type === 'vortex' || cfg.type === 'lightning') ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard; allocateBuffers(); }
         }
 
-        /** Batch D3 — thêm guard (xem updateTypeUI ở trên); `updateBarStyleUI()` cũng bị gọi từ
-         * BÊN TRONG updateTypeUI() (khi panel CHẮC CHẮN đang mở, đã qua guard ngoài) NHƯNG cũng có
-         * thể gọi trực tiếp từ Router lúc user đổi `setting-bar-style` — panel chắc chắn mở lúc đó
-         * (event bắn ra từ input BÊN TRONG panel) nên guard ở đây chủ yếu phòng vệ cho nguồn gọi từ
-         * updateTypeUI() khi type đổi thành 'bar' trong lúc panel đóng (nguồn: select Main/cycle). */
+        /** HOTFIX 2 (07/07/2026) — cùng sửa như updateTypeUI() ở trên: `barMirrorOptions` KHÔNG
+         * tồn tại nữa (đã xoá khỏi dom-refs.js), `if (!barMirrorOptions)` ném ReferenceError chứ
+         * không an toàn như tưởng — đổi sang `document.getElementById()` truy vấn tươi. */
         function updateBarStyleUI() {
-            if (!barMirrorOptions) return;
+            const barMirrorOptionsEl = document.getElementById('bar-mirror-options');
+            if (!barMirrorOptionsEl) return;
             const isMirror = appState.get('vizConfig').barStyle === 'mirror';
-            barMirrorOptions.classList.toggle('hidden', !isMirror);
-            barMirrorOptions.classList.toggle('flex', isMirror);
+            barMirrorOptionsEl.classList.toggle('hidden', !isMirror);
+            barMirrorOptionsEl.classList.toggle('flex', isMirror);
         }
 
-        /** Batch D3 — thêm guard (cùng lý do updateTypeUI). */
+        /** HOTFIX 2 (07/07/2026) — cùng sửa như updateTypeUI()/updateBarStyleUI(): `solidColorContainer`/
+         * `dynColorContainer` KHÔNG tồn tại nữa — đổi sang `document.getElementById()` truy vấn tươi. */
         function updateColorMenuUI() {
             const mode = appState.get('vizConfig').mode;
-            if (solidColorContainer) {
-                if (mode === 'solid') { solidColorContainer.classList.remove('hidden'); dynColorContainer.classList.add('hidden'); dynColorContainer.classList.remove('flex'); }
-                else if (mode === 'dynamic') { solidColorContainer.classList.add('hidden'); dynColorContainer.classList.remove('hidden'); dynColorContainer.classList.add('flex'); }
-                else { solidColorContainer.classList.add('hidden'); dynColorContainer.classList.add('hidden'); dynColorContainer.classList.remove('flex'); }
+            const solidColorContainerEl = document.getElementById('solid-color-container');
+            if (solidColorContainerEl) {
+                const dynColorContainerEl = document.getElementById('dynamic-color-container');
+                if (mode === 'solid') { solidColorContainerEl.classList.remove('hidden'); dynColorContainerEl.classList.add('hidden'); dynColorContainerEl.classList.remove('flex'); }
+                else if (mode === 'dynamic') { solidColorContainerEl.classList.add('hidden'); dynColorContainerEl.classList.remove('hidden'); dynColorContainerEl.classList.add('flex'); }
+                else { solidColorContainerEl.classList.add('hidden'); dynColorContainerEl.classList.add('hidden'); dynColorContainerEl.classList.remove('flex'); }
             }
             updateProgressBarCSS();
         }
