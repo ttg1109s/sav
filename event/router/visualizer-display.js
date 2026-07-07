@@ -11,9 +11,11 @@
  * refactor Rule 1-4 đầy đủ (Batch D2 CHỐT áp dụng chung), không còn tự gọi core khác nội bộ. THÊM
  * case MỚI 'openPanel.click' (push panel — trước đây thuộc router "visualizerMiscSettings", dời
  * VỀ ĐÚNG router của chính nó, cùng cách đã làm với Subtitle ở Batch D2).
- * 6 msg.type còn lại (bgImage toggle/bgBlur/quality... — SAI, quality ĐÃ dời) — 5 msg.type còn lại
- * (bgImage.toggle/bgBlur.input/volume.input/eqMode.change/cycleMode.click) KHÔNG đổi — vẫn Main/
- * Control Center tĩnh, gọi thẳng core hoặc workflow như cũ.
+ * 6 msg.type còn lại (bgImage toggle/bgBlur/quality... — SAI, quality ĐÃ dời) — Main/Control
+ * Center tĩnh: bgImage.toggle (đã qua workflow từ trước), volume.input/eqMode.change/
+ * cycleMode.click (gọi thẳng core, không đổi). Batch "nền chung" (07/07/2026) — bgBlur.input ĐỔI
+ * sang workflow (core setBgBlur() nay Rule 1-4 đầy đủ, không còn tự gọi updatePlaylistBg()/
+ * saveConfig() nội bộ).
  *
  * QUY TẮC RẼ NHÁNH (giống router/storage.js, router/playlist.js):
  *   - Nghiệp vụ chỉ cần ĐÚNG 1 HÀM CORE (không shield/modal) -> router gọi THẲNG, BỎ QUA workflow.
@@ -62,8 +64,10 @@ const routerVisualizerDisplay = (() => {
             }
 
             case 'visualizerDisplay.bgBlur.input': {
+                // Batch "nền chung" (07/07/2026) — core setBgBlur() giờ Rule 1-4 đầy đủ (bỏ
+                // updatePlaylistBg/saveConfig nội bộ) -> >1 hàm core -> workflow.
                 const { value } = msg.payload;
-                setBgBlur(value);
+                workflowVisualizerDisplay.setBgBlur(value);
                 break;
             }
 
