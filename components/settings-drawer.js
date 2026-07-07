@@ -18,14 +18,25 @@
  * stack"):
  *   1. `#settings-bg` — nền chung (mục "hợp nhất nền Playlist" phản hồi Giang) — ĐÃ dựng element,
  *      CHƯA nối logic áp ảnh/blur (cần refactor Rule 0.5 riêng cho 4 hàm core cũ đang gọi
- *      updatePlaylistBg() — vẫn đang treo, xem báo cáo cuối Batch D1).
+ *      updatePlaylistBg() — đã xong ở batch "nền chung" 07/07/2026, xem core/color-utils.js).
  *   2. `#settings-stack-body` — khung neo (`relative overflow-hidden`) mà push/pop thao tác —
  *      chứa `#settings-stack-panel-main` (Main, TĨNH, KHÔNG BAO GIỜ bị push/pop hay xoá — đáy
  *      ngăn xếp) TỰ MANG header riêng (title + nút Close X, KHÁC panel con — panel con dùng nút
- *      Back, xem core/settings-panel-stack.js::_buildPanelInnerHtml()) + body gồm 7 section
- *      TPL_SETTINGS_* CŨ, giữ NGUYÊN thứ tự/nội dung như trước.
+ *      Back, xem core/settings-panel-stack.js::_buildPanelInnerHtml()) + body gồm 8 section
+ *      TPL_SETTINGS_* (TÁI TỔ CHỨC 07/07/2026, phản hồi Giang mục 2/4 — xem ngay dưới).
  *
- * THỨ TỰ NẠP SCRIPT — không đổi so với trước: 7 file trong settings/ PHẢI nạp TRƯỚC file này.
+ * === Tái tổ chức section (07/07/2026, phản hồi Giang) ===
+ * Mục 4 — section cũ "Playlist & Background" (1 file, gộp lẫn 2 chủ đề) TÁCH làm 2:
+ * `TPL_SETTINGS_PLAYLIST_VIEW` (components/settings/playlist-view.js — Kiểu xem/Sắp xếp) +
+ * `TPL_SETTINGS_BACKGROUND` (components/settings/playlist-background.js, ĐỔI TÊN biến xuất ra từ
+ * `TPL_SETTINGS_PLAYLIST_BG` — Video/Ảnh nền Visual/Ảnh nền Playlist/Độ mờ).
+ * Mục 2 — thứ tự 8 section SẮP LẠI theo nghiên cứu UX settings mobile (mục dùng thường xuyên lên
+ * đầu, mục "quản trị/nguy hiểm" — khởi động lại, khôi phục mặc định, thông tin app — xuống CUỐI
+ * CÙNG, đúng quy ước phổ biến): Playlist -> Background -> Visualizer -> Audio & EQ -> Subtitle ->
+ * File Manager -> Language -> Misc (TRƯỚC ĐÂY: Playlist & Background -> File Manager ->
+ * Visualizer -> Audio & EQ -> Subtitle -> Misc -> Language).
+ *
+ * THỨ TỰ NẠP SCRIPT — 8 file trong settings/ PHẢI nạp TRƯỚC file này (playlist-view.js MỚI THÊM).
  * core/settings-panel-stack.js PHẢI nạp SAU core/dom-refs.js (cần settingsStackBody,
  * settingsStackPanelMain) — xem index.html. `closeDrawer`/`settingsStackBody`/
  * `settingsStackPanelMain` (dom-refs.js) vẫn cần — `settingsStackTitle`/`btnSettingsStackBack` CŨ
@@ -63,20 +74,21 @@
             renderMainPanel() {
                 return `
             <div id="settings-stack-panel-main" class="settings-stack-panel absolute top-0 left-0 w-full h-full flex flex-col" style="transition: left 500ms ease-in-out;">
-                <div class="flex justify-between items-center px-4 py-3 sm:px-6 border-b border-white/10 shrink-0 bg-black/40">
-                    <h2 class="text-base sm:text-lg font-bold tracking-wider text-white uppercase" data-i18n="settingsDrawer.title">${t('settingsDrawer.title')}</h2>
-                    <button id="close-drawer" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-rose-500 transition-colors text-white shrink-0"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                <div class="relative flex items-center justify-center px-14 py-3 sm:px-16 h-14 border-b border-white/10 shrink-0 bg-black/40">
+                    <h2 class="text-base sm:text-lg font-bold tracking-wider text-white uppercase truncate text-center" data-i18n="settingsDrawer.title">${t('settingsDrawer.title')}</h2>
+                    <button id="close-drawer" class="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-rose-500 transition-colors text-white shrink-0"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
                 </div>
                 <div class="flex-grow overflow-y-auto px-4 py-4 sm:px-8 pb-20">
                     <div class="max-w-2xl mx-auto space-y-5">
                         ` +
-                    TPL_SETTINGS_PLAYLIST_BG +
-                    TPL_SETTINGS_FILE_MANAGER +
+                    TPL_SETTINGS_PLAYLIST_VIEW +
+                    TPL_SETTINGS_BACKGROUND +
                     TPL_SETTINGS_VISUALIZER +
                     TPL_SETTINGS_AUDIO_EQ +
                     TPL_SETTINGS_SUBTITLE_STYLE +
-                    TPL_SETTINGS_MISC +
+                    TPL_SETTINGS_FILE_MANAGER +
                     TPL_SETTINGS_LANGUAGE +
+                    TPL_SETTINGS_MISC +
                     `
                     </div>
                 </div>
