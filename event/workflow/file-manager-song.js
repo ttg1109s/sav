@@ -13,33 +13,63 @@
  *      askDownloadThenClear/executeDownloadThenClear/askClearNoDownload/executeClearNoDownload/
  *      executeScanBroken. Thân hàm GIỮ NGUYÊN 100% so với bản gốc, chỉ đổi vị trí file + tên biến
  *      workflow (workflowSettingsMisc -> workflowFileManagerSong).
+ *
+ * === Batch D5 (Settings restructure, 06/07/2026) ===
+ * Song + Folder Detail giờ 2 CẤP push/pop động TRONG CÙNG 1 ngăn xếp (core/settings-panel-
+ * stack.js hỗ trợ sẵn độ sâu tuỳ ý) — Song ở cấp 1, Folder Detail ở cấp 2 (mở đè lên Song, Back 1
+ * lần chỉ lùi về Song, KHÔNG đóng cả 2). 2 biến module bên dưới lưu panel đang mở của MỖI cấp
+ * (giống pattern đã dùng ở Slideshow, event/workflow/slideshow.js::slideshowSettingsPanelEl) —
+ * KHÔNG chủ động null-hoá lúc đóng (Back dùng CHUNG, không biết gì về File Manager) — vô hại vì
+ * không listener nào bắn sự kiện tới khi panel đã đóng (delegation chỉ khớp khi phần tử thật sự
+ * hiển thị). `renderFolderListUI`/`renderFolderDetailSongList`/`setFolderDetailTitle`/
+ * `renderStorageStats`/`resetScanResultUI`/`renderScanResultUI` (core) ĐÃ đổi sang nhận phần tử
+ * qua tham số — mọi method dưới đây tự `querySelector` bên trong panel tương ứng rồi truyền vào.
+ *
+ * `fileManagerSong.close`/`fileManagerSong.folder.closeDetail` (router) ĐÃ XOÁ — đóng dùng CHUNG
+ * 'settingsStackNav.back.click' cho MỌI panel/cấp.
  */
+let fileManagerSongPanelEl = null; // panel Song đang mở — null nếu đang đóng (Batch D5)
+let fileManagerFolderDetailPanelEl = null; // panel Folder Detail đang mở (cấp 2, lồng trong Song)
+
 const workflowFileManagerSong = {
 
     // ===================== Mở/đóng drawer (CHỐT 03/07/2026, mục 1a/7 — Song giờ là drawer con
     // độc lập mở thẳng từ Settings, không còn màn "File Manager" cha điều phối nữa) ============
 
-    /** Ứng với 'fileManagerSong.open'. >1 hàm core nối tiếp (patch DOM + refresh dữ liệu) -> workflow. */
-    async openDrawer() {
-        showFileManagerSongDrawer(); // core/file-manager/nav.js
+    /** Ứng với 'fileManagerSong.openPanel.click'. Push panel Song (cấp 1). */
+    async openPanel() {
+        fileManagerSongPanelEl = pushSettingsPanel({ title: t('fileManager.song.title'), bodyHtml: renderFileManagerSongPanelBody() });
         await this.refreshSongTab();
     },
 
     // ===================== Folder (mục 4.b1) =====================
 
-    /** Vẽ lại toàn bộ nội dung tab Song: danh sách folder + thống kê dung lượng + reset UI quét lỗi
-     * — gọi lúc mở drawer Song. */
+    /** Vẽ lại toàn bộ nội dung panel Song: danh sách folder + thống kê dung lượng + reset UI quét
+     * lỗi — gọi lúc mở panel. */
     async refreshSongTab() {
+        if (!fileManagerSongPanelEl) return; // panel đã đóng — an toàn bỏ qua
         const folders = await listFolders(); // core có sẵn (core/file-manager/folder.js), CÓ return, DÙNG ngay dưới
-        renderFolderListUI(folders, appState.get('activePlayListFolder')); // core có sẵn (core/file-manager/folder-list-ui.js) — MỚI: truyền activeFolderId (sửa gap UX 03/07/2026)
-        await renderStorageStats(); // core có sẵn (core/storage-manager.js)
-        resetScanResultUI(); // core có sẵn (core/storage-manager.js)
+        renderFolderListUI(
+            folders, appState.get('activePlayListFolder'),
+            fileManagerSongPanelEl.querySelector('#file-manager-folder-list'),
+            fileManagerSongPanelEl.querySelector('#file-manager-folder-empty')
+        );
+        await renderStorageStats( // core có sẵn (core/storage-manager.js)
+            fileManagerSongPanelEl.querySelector('#stat-storage-total-songs'),
+            fileManagerSongPanelEl.querySelector('#stat-storage-total-bytes')
+        );
+        resetScanResultUI( // core có sẵn (core/storage-manager.js)
+            fileManagerSongPanelEl.querySelector('#storage-scan-result'),
+            fileManagerSongPanelEl.querySelector('#storage-scan-list')
+        );
     },
 
     /** Ứng với 'fileManagerSong.folder.create'. */
     async createFolderFromInput() {
-        if (!fileManagerNewFolderInput) return; // guard
-        const name = fileManagerNewFolderInput.value.trim();
+        if (!fileManagerSongPanelEl) return; // guard
+        const input = fileManagerSongPanelEl.querySelector('#file-manager-new-folder-input');
+        if (!input) return;
+        const name = input.value.trim();
         if (!name) return; // guard: chưa nhập tên thì không làm gì
 
         const result = await createFolder(name); // core có sẵn (core/file-manager/folder.js)
@@ -50,14 +80,16 @@ const workflowFileManagerSong = {
             await alertModal(tFormat('fileManager.folderPicker.duplicateName', { name: escapeHtml(name) }));
             return;
         }
-        fileManagerNewFolderInput.value = '';
+        input.value = '';
         await this.refreshSongTab();
     },
 
     /** Ứng với 'fileManagerSong.folder.actionClick' (action='rename'). Đọc tên hiện tại THẲNG từ
      * DOM đã render sẵn (tránh round-trip đọc lại DB chỉ để lấy tên đang hiển thị). */
     renameFolderById(folderId) {
-        const row = fileManagerFolderList.querySelector(`[data-folder-id="${folderId}"]`);
+        if (!fileManagerSongPanelEl) return;
+        const list = fileManagerSongPanelEl.querySelector('#file-manager-folder-list');
+        const row = list ? list.querySelector(`[data-folder-id="${folderId}"]`) : null;
         const currentName = row ? row.querySelector('[data-role="name"]').textContent : '';
         openRenameFolderModal(currentName, async (newName) => {
             const result = await renameFolder(folderId, newName); // core có sẵn
@@ -73,7 +105,9 @@ const workflowFileManagerSong = {
 
     /** Ứng với 'fileManagerSong.folder.actionClick' (action='delete'). */
     deleteFolderById(folderId) {
-        const row = fileManagerFolderList.querySelector(`[data-folder-id="${folderId}"]`);
+        if (!fileManagerSongPanelEl) return;
+        const list = fileManagerSongPanelEl.querySelector('#file-manager-folder-list');
+        const row = list ? list.querySelector(`[data-folder-id="${folderId}"]`) : null;
         const folderName = row ? row.querySelector('[data-role="name"]').textContent : '';
         modalChoice(
             tFormat('fileManager.song.deleteFolderConfirm', { name: escapeHtml(folderName) }),
@@ -90,26 +124,31 @@ const workflowFileManagerSong = {
 
     // ===================== Folder Detail Drawer (Phase 2, MỚI — mục 1b/c, CHỐT 03/07/2026) =====
 
-    /** Ứng với 'fileManagerSong.folder.openDetail'. Mở + vẽ danh sách bài trong 1 folder cụ thể. */
+    /** Ứng với 'fileManagerSong.folder.openDetail'. Push panel Folder Detail (cấp 2, đè lên Song).
+     * Header dùng CHUNG chỉ nhận title CỐ ĐỊNH lúc push (không tự cập nhật lại được sau) — tên
+     * folder THẬT (chỉ biết sau khi đọc DB xong) hiển thị bằng 1 heading NGAY TRONG BODY panel
+     * (`#file-manager-folder-detail-title`, xem components/file-manager.js), không phải ở header. */
     async openFolderDetail(folderId) {
-        showFileManagerFolderDetailDrawer(); // core/file-manager/nav.js
+        fileManagerFolderDetailPanelEl = pushSettingsPanel({ title: t('fileManager.song.folderDetail.headerTitle'), bodyHtml: renderFileManagerFolderDetailPanelBody() });
         await this.refreshFolderDetail(folderId);
     },
 
     /** Vẽ lại tiêu đề + danh sách bài + nút Áp dụng/Bỏ áp dụng của Folder Detail Drawer đang mở —
      * dùng lúc mở lần đầu, sau khi gỡ 1 bài, và sau khi đổi scope (Áp dụng/Bỏ áp dụng).
-     * MỚI (03/07/2026, đợt 4): cũng ghi `folderDetailSongCount` vào appState (Block gate,
-     * event/block.js, dùng để chặn "Áp dụng" khi folder rỗng) + đổi nhãn/màu nút theo đúng trạng
-     * thái đang/không đang active. Trả về `folderMap` để nơi gọi tái dùng (tránh đọc DB 2 lần).
      * @returns {Promise<Object>} folderMap vừa đọc
      */
     async refreshFolderDetail(folderId) {
+        if (!fileManagerFolderDetailPanelEl) return; // guard: panel đã đóng
         const folderRecord = await getFolderRecord(folderId); // core có sẵn (service/db.js)
-        setFolderDetailTitle(folderRecord ? folderRecord.name : ''); // core/file-manager/folder-detail-ui.js
+        setFolderDetailTitle(folderRecord ? folderRecord.name : '', fileManagerFolderDetailPanelEl.querySelector('#file-manager-folder-detail-title'));
 
         const folderMap = await getFolderSongMap(folderId); // core có sẵn (service/db.js)
         const songs = getFolderSongsForDisplay(folderMap, appState.get('playlistCache')); // core/file-manager/folder-detail-ui.js
-        renderFolderDetailSongList(songs); // core/file-manager/folder-detail-ui.js
+        renderFolderDetailSongList(
+            songs,
+            fileManagerFolderDetailPanelEl.querySelector('#file-manager-folder-detail-song-list'),
+            fileManagerFolderDetailPanelEl.querySelector('#file-manager-folder-detail-empty')
+        );
 
         appState.set('folderDetailSongCount', songs.length);
         console.log(`writer: "refreshFolderDetail", page: "folderDetailSongCount", content: "${songs.length}"`);
@@ -122,24 +161,23 @@ const workflowFileManagerSong = {
      * folder đang xem có phải activePlayListFolder hay không. Tách riêng vì gọi lại nhiều lần
      * (refreshFolderDetail, applyFolderToPlaylist, unapplyFolderFromPlaylist). */
     _updateApplyButtonMode(folderId) {
-        if (!btnFileManagerFolderApplyToPlaylist) return; // guard
+        if (!fileManagerFolderDetailPanelEl) return; // guard
+        const btn = fileManagerFolderDetailPanelEl.querySelector('#btn-file-manager-folder-apply-to-playlist');
+        if (!btn) return;
         const isActive = folderId === appState.get('activePlayListFolder');
-        btnFileManagerFolderApplyToPlaylist.textContent = isActive
+        btn.textContent = isActive
             ? t('fileManager.song.folderDetail.btnUnapply')
             : t('fileManager.song.folderDetail.btnApply');
-        btnFileManagerFolderApplyToPlaylist.dataset.mode = isActive ? 'unapply' : 'apply';
-        btnFileManagerFolderApplyToPlaylist.classList.toggle('bg-sky-500', !isActive);
-        btnFileManagerFolderApplyToPlaylist.classList.toggle('hover:bg-sky-400', !isActive);
-        btnFileManagerFolderApplyToPlaylist.classList.toggle('bg-rose-600', isActive);
-        btnFileManagerFolderApplyToPlaylist.classList.toggle('hover:bg-rose-500', isActive);
+        btn.dataset.mode = isActive ? 'unapply' : 'apply';
+        btn.classList.toggle('bg-sky-500', !isActive);
+        btn.classList.toggle('hover:bg-sky-400', !isActive);
+        btn.classList.toggle('bg-rose-600', isActive);
+        btn.classList.toggle('hover:bg-rose-500', isActive);
     },
 
     /** Ứng với 'fileManagerSong.folder.removeSong'. CHỈ gỡ khỏi folder, KHÔNG xoá bài.
      * MỚI (03/07/2026, đợt 4 — điểm 3): nếu gỡ xong folder RỖNG HOÀN TOÀN (isFolderEmpty()) VÀ
-     * folder này ĐANG là scope hiện tại -> TỰ ĐỘNG bỏ áp dụng (persistScopeChoice(null)) — scope
-     * theo 1 folder rỗng vô nghĩa, không chờ người dùng tự bấm "Bỏ áp dụng". Vẫn hỏi tải lại (cùng
-     * UX pattern với mọi thay đổi scope khác), chỉ có QUYẾT ĐỊNH bỏ scope là tự động, không phải
-     * việc "tải lại hay không". */
+     * folder này ĐANG là scope hiện tại -> TỰ ĐỘNG bỏ áp dụng (persistScopeChoice(null)). */
     async removeSongFromFolderById(folderId, songKey) {
         await removeSongFromFolder(songKey, folderId); // core có sẵn (core/file-manager/folder.js)
         const folderMap = await this.refreshFolderDetail(folderId); // CÓ return, DÙNG ngay dưới
@@ -151,9 +189,7 @@ const workflowFileManagerSong = {
         }
     },
 
-    /** Ứng với 'fileManagerSong.folder.applyToPlaylist.click' — CHỈ chạy khi KHÔNG bị Block gate
-     * chặn (folder rỗng, xem event/block.js). Lưu lựa chọn rồi hỏi có muốn tải lại để thấy ngay
-     * không (xem event/workflow/playlist-scope.js). */
+    /** Ứng với 'fileManagerSong.folder.applyToPlaylist.click'. */
     async applyFolderToPlaylist(folderId) {
         const folderRecord = await getFolderRecord(folderId); // core có sẵn (service/db.js)
         await workflowPlaylistScope.persistScopeChoice(folderId);
@@ -161,8 +197,7 @@ const workflowFileManagerSong = {
         workflowPlaylistScope.askReloadToApplyNow(tFormat('fileManager.song.folderDetail.applyReloadBody', { name: escapeHtml(folderRecord ? folderRecord.name : '') }));
     },
 
-    /** Ứng với 'fileManagerSong.folder.unapplyFromPlaylist.click' — MỚI (03/07/2026, đợt 4, điểm
-     * 2). KHÔNG bị Block gate chặn (bỏ scope luôn hợp lệ, kể cả folder rỗng). */
+    /** Ứng với 'fileManagerSong.folder.unapplyFromPlaylist.click'. */
     async unapplyFolderFromPlaylist(folderId) {
         await workflowPlaylistScope.persistScopeChoice(null);
         this._updateApplyButtonMode(folderId); // đổi nút về "Áp dụng" ngay
@@ -170,12 +205,11 @@ const workflowFileManagerSong = {
     },
 
     /** Ứng với 'fileManagerSong.folder.actionClick' (action='delete'), nhánh folder ĐANG là scope
-     * hiện tại (activePlayListFolder). ĐƠN GIẢN HOÁ so với bản đầu (đợt 2) — KHÔNG còn tự tay dừng
-     * audio/revoke object URL/đưa UI về Playlist/đóng 3 tầng drawer nữa — chỉ xoá folder (DB) +
-     * lưu scope mới = null + hỏi tải lại. Nếu người dùng chọn "Có", reload tự lo SẠCH toàn bộ phần
-     * dọn dẹp đó — không có cách nào sót state nửa vời như cách làm tay cũ. */
+     * hiện tại (activePlayListFolder). */
     deleteActiveFolderById(folderId) {
-        const row = fileManagerFolderList.querySelector(`[data-folder-id="${folderId}"]`);
+        if (!fileManagerSongPanelEl) return;
+        const list = fileManagerSongPanelEl.querySelector('#file-manager-folder-list');
+        const row = list ? list.querySelector(`[data-folder-id="${folderId}"]`) : null;
         const folderName = row ? row.querySelector('[data-role="name"]').textContent : '';
         modalChoice(
             tFormat('fileManager.song.deleteActiveFolderConfirm', { name: escapeHtml(folderName) }),
@@ -184,11 +218,6 @@ const workflowFileManagerSong = {
                 { label: t('fileManager.song.btnDeleteFolder'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
                     await deleteFolder(folderId); // core có sẵn (core/file-manager/folder.js)
                     await workflowPlaylistScope.persistScopeChoice(null); // folder đã mất -> scope mới LUÔN là null
-                    // SỬA 03/07/2026 (đợt 5, điểm 1) — refresh NGAY danh sách folder, KHÔNG đợi
-                    // reload: nếu người dùng chọn "Không" ở modal hỏi reload kế tiếp, dòng folder
-                    // vừa xoá vẫn còn nằm trong DOM (fileManagerFolderList) nếu không vẽ lại ngay
-                    // -> bấm được vào 1 folder đã KHÔNG CÒN TỒN TẠI trong DB (state đã xoá nhưng
-                    // DOM vẫn cho vào). Cùng idiom deleteFolderById() ở trên (nhánh không active).
                     await this.refreshSongTab();
                     workflowPlaylistScope.askReloadToApplyNow(t('fileManager.song.folderDetail.deleteReloadBody'));
                 } }
@@ -222,8 +251,16 @@ const workflowFileManagerSong = {
 
         await withLoadingShield(t('common.storage.deletingBroken'), async () => {
             await deleteCorruptedSongs(scanResults, currentKey);
-            resetScanResultUI();
-            renderStorageStats();
+            if (fileManagerSongPanelEl) {
+                resetScanResultUI(
+                    fileManagerSongPanelEl.querySelector('#storage-scan-result'),
+                    fileManagerSongPanelEl.querySelector('#storage-scan-list')
+                );
+                await renderStorageStats(
+                    fileManagerSongPanelEl.querySelector('#stat-storage-total-songs'),
+                    fileManagerSongPanelEl.querySelector('#stat-storage-total-bytes')
+                );
+            }
         });
 
         await alertModal(t('common.storage.deleteBrokenDone'));
@@ -252,15 +289,12 @@ const workflowFileManagerSong = {
         });
 
         // MỚI (03/07/2026, đợt 5, điểm 3) — xoá sạch thư viện thì MỌI folder cũng phải rỗng theo
-        // (bài đã mất hết, folder_song còn lại chỉ là tham chiếu rác) + bỏ scope nếu đang áp dụng
-        // 1 folder (không còn ý nghĩa gì để giữ). Hook ở TẦNG WORKFLOW này, KHÔNG sửa
-        // downloadAllSongsThenClear()/clearAllStoredData() (core di sản, chưa qua 4 rule) — cùng
-        // nguyên tắc đã áp dụng cho boot sequence (core/visualizer/draw-visualizer.js).
+        // + bỏ scope nếu đang áp dụng 1 folder (không còn ý nghĩa gì để giữ).
         await clearAllFolderSongData(); // core/file-manager/folder.js
         if (appState.get('activePlayListFolder')) {
             await workflowPlaylistScope.persistScopeChoice(null);
         }
-        await this.refreshSongTab(); // vẽ lại danh sách folder (rỗng hết, hết badge active) nếu Song drawer đang mở
+        await this.refreshSongTab(); // vẽ lại danh sách folder (rỗng hết, hết badge active) nếu Song panel đang mở
 
         if (result.status === 'noSongs') {
             await alertModal(t('common.storage.noSongsToDownload'));
@@ -290,7 +324,6 @@ const workflowFileManagerSong = {
             await clearAllSongsNoDownload();
         });
 
-        // MỚI (03/07/2026, đợt 5, điểm 3) — cùng lý do ở executeDownloadThenClear() phía trên.
         await clearAllFolderSongData(); // core/file-manager/folder.js
         if (appState.get('activePlayListFolder')) {
             await workflowPlaylistScope.persistScopeChoice(null);
@@ -310,8 +343,25 @@ const workflowFileManagerSong = {
             results = await scanAllSongsForCorruption((current, total) => {
                 loadingText.textContent = tFormat('common.storage.scanningProgress', { n: current, total });
             });
-            renderScanResultUI(results);
+            if (fileManagerSongPanelEl) {
+                renderScanResultUI(
+                    results,
+                    fileManagerSongPanelEl.querySelector('#storage-scan-result'),
+                    fileManagerSongPanelEl.querySelector('#storage-scan-summary'),
+                    fileManagerSongPanelEl.querySelector('#storage-scan-list'),
+                    fileManagerSongPanelEl.querySelector('#btn-storage-delete-broken')
+                );
+            }
         });
         if (onScanComplete) onScanComplete(results);
+    },
+
+    /** Ứng với msg.type = 'fileManagerSong.dismissScan.click'. */
+    dismissScan() {
+        if (!fileManagerSongPanelEl) return;
+        resetScanResultUI(
+            fileManagerSongPanelEl.querySelector('#storage-scan-result'),
+            fileManagerSongPanelEl.querySelector('#storage-scan-list')
+        );
     }
 };
