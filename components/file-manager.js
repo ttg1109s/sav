@@ -6,19 +6,19 @@
  * KHÔNG còn 1 overlay "File Manager" cấp cao với tab-bar 4 mục nữa. File Manager giờ chỉ là 1
  * SECTION bình thường trong Settings (xem components/settings/file-manager-section.js —
  * TPL_SETTINGS_FILE_MANAGER, 3 hàng Song/Photo & Album/Documents), mỗi hàng bấm vào PUSH THẲNG
- * sang 1 trong 3 drawer con định nghĩa ở file này — đúng pattern navigation stack đã có sẵn cho
- * About Drawer (components/about-drawer.js) / Visualizer Settings Drawer
- * (components/visualizer-settings-drawer.js): z-[90], transform translate-y-full, nút Back (mũi
- * tên trái) chỉ ẩn drawer con, không động tới #drawer-settings bên dưới. KHÔNG có màn "File
- * Manager" trung gian nào nằm giữa Settings và 3 drawer này.
+ * sang 1 trong 3 khu vực định nghĩa ở file này.
  *
- * 4 biến export: TPL_FILE_MANAGER_SONG_DRAWER (ĐẦY ĐỦ — Folder mục 4.b1 + Quản lý dung lượng dời
- * từ storage-drawer.js cũ, giữ NGUYÊN VẸN mọi id phần tử so với patch trước) /
- * TPL_FILE_MANAGER_FOLDER_DETAIL_DRAWER (Phase 2, MỚI — xem danh sách bài trong 1 folder + gỡ bài
- * + "Áp dụng cho Playlist", tầng nav-stack sâu hơn Song 1 cấp) / TPL_FILE_MANAGER_PHOTO_DRAWER
- * (Batch 3, 03/07/2026 — story slider album + masonry ảnh, ĐÃ CODE THẬT, xem
- * core/file-manager/photo-ui.js) / TPL_FILE_MANAGER_DOCUMENT_DRAWER (mục 4.b4, ĐÃ CODE THẬT
- * 04/07/2026 — 2 nút upload tách riêng + danh sách, xem core/file-manager/document-ui.js).
+ * === Batch D5 (Settings restructure, 06/07/2026) — Song + Folder Detail ===
+ * 2 hàm `renderFileManagerSongPanelBody()`/`renderFileManagerFolderDetailPanelBody()` THAY 2 biến
+ * `TPL_FILE_MANAGER_SONG_DRAWER`/`TPL_FILE_MANAGER_FOLDER_DETAIL_DRAWER` cũ — PUSH ĐỘNG vào Settings
+ * Stack (core/settings-panel-stack.js), Song ở cấp 1, Folder Detail ở cấp 2 (đè lên Song, ngăn xếp
+ * hỗ trợ sẵn độ sâu tuỳ ý). Folder Detail KHÔNG còn header bar riêng (title động = tên folder) —
+ * header dùng CHUNG chỉ nhận title CỐ ĐỊNH lúc push, tên folder THẬT giờ hiển thị bằng 1 heading
+ * NGAY TRONG BODY panel (`#file-manager-folder-detail-title`, cập nhật qua setFolderDetailTitle()
+ * sau khi đọc DB xong — xem event/workflow/file-manager-song.js::refreshFolderDetail()).
+ *
+ * `TPL_FILE_MANAGER_PHOTO_DRAWER`/`TPL_FILE_MANAGER_DOCUMENT_DRAWER` CHƯA đổi (dự kiến D6/D7,
+ * xem plan-v12-batch-list.md) — vẫn mount tĩnh như cũ, xem main.js.
  *
  * components/storage-drawer.js + biến TPL_STORAGE_DRAWER KHÔNG còn được mount (xem main.js) —
  * file cũ ĐỂ LẠI trong project làm tư liệu đối chiếu, KHÔNG xoá tự động, bác xoá tay khi rảnh.
@@ -35,21 +35,9 @@
  * riêng, mở từ Settings chính — plan-v12-multimedia-update-3.md mục 3).
  */
 
-// ===================== Drawer con: Song (ĐẦY ĐỦ — dời nguyên nội dung từ bản overlay cũ) =====================
-const TPL_FILE_MANAGER_SONG_DRAWER = `
-    <div id="drawer-file-manager-song" class="fixed inset-0 drawer-glass z-[90] transform translate-y-full transition-transform duration-500 ease-in-out flex flex-col">
-        <div class="flex justify-between items-center px-4 py-3 sm:px-6 border-b border-white/10 shrink-0 bg-black/40">
-            <div class="flex items-center gap-2">
-                <button id="btn-back-file-manager-song" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white" data-i18n-title="fileManager.song.back.title" title="${t('fileManager.song.back.title')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 class="text-base sm:text-lg font-bold tracking-wider text-white uppercase" data-i18n="fileManager.song.title">${t('fileManager.song.title')}</h2>
-            </div>
-        </div>
-
-        <div class="flex-grow overflow-y-auto px-4 py-6 sm:px-8 pb-20">
-            <div class="max-w-2xl mx-auto space-y-8">
-
+// ===================== Khu vực: Song (ĐẦY ĐỦ — dời nguyên nội dung từ bản overlay cũ) =====================
+function renderFileManagerSongPanelBody() {
+    return `
                 <!-- SECTION: FOLDER (mục 4.b1) -->
                 <div>
                     <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2 ml-2" data-i18n="fileManager.song.folderSectionTitle">${t('fileManager.song.folderSectionTitle')}</h3>
@@ -121,32 +109,22 @@ const TPL_FILE_MANAGER_SONG_DRAWER = `
                     </div>
                 </div>
 
-            </div>
-        </div>
-    </div>
 `;
+}
 
-// ===================== Drawer con: Folder Detail (Phase 2, MỚI — mục 1b/c) =====================
-// Tầng nav-stack SÂU HƠN drawer Song 1 cấp (z-[91] > z-[90]) — mở khi bấm vào 1 hàng folder trong
-// TPL_FILE_MANAGER_SONG_DRAWER ở trên. Back chỉ ẩn drawer NÀY, KHÔNG động tới drawer Song bên dưới
-// (vẫn mở nguyên) — đúng nav-stack pattern.
-const TPL_FILE_MANAGER_FOLDER_DETAIL_DRAWER = `
-    <div id="drawer-file-manager-folder-detail" class="fixed inset-0 drawer-glass z-[91] transform translate-y-full transition-transform duration-500 ease-in-out flex flex-col">
-        <div class="flex justify-between items-center px-4 py-3 sm:px-6 border-b border-white/10 shrink-0 bg-black/40">
-            <div class="flex items-center gap-2 min-w-0">
-                <button id="btn-back-file-manager-folder-detail" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0" data-i18n-title="fileManager.song.folderDetail.back.title" title="${t('fileManager.song.folderDetail.back.title')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                </button>
+// ===================== Khu vực: Folder Detail (Phase 2, MỚI — mục 1b/c) =====================
+// Cấp 2 trong ngăn xếp (đè lên panel Song) — mở khi bấm vào 1 hàng folder trong
+// renderFileManagerSongPanelBody() ở trên. Back (dùng chung) chỉ lùi về panel Song, KHÔNG đóng
+// cả 2 — core/settings-panel-stack.js tự quản lý thứ tự pop đúng theo ngăn xếp.
+function renderFileManagerFolderDetailPanelBody() {
+    return `
                 <!-- MỚI (03/07/2026, đợt 6, điểm 4): BỎ class "uppercase" — đây là chỗ hiển thị
-                     TÊN THẬT của folder (không phải tiêu đề cố định của app như "File Manager ·
-                     Song"), ép hoa toàn bộ sẽ khiến 2 folder khác tên chỉ do khác hoa/thường (vd
-                     "abc" vs "ABC") trông GIỐNG HỆT NHAU trên UI dù DB coi là 2 tên khác nhau. -->
-                <h2 id="file-manager-folder-detail-title" class="text-base sm:text-lg font-bold tracking-wider text-white truncate">—</h2>
-            </div>
-        </div>
-
-        <div class="flex-grow overflow-y-auto px-4 py-6 sm:px-8 pb-20">
-            <div class="max-w-2xl mx-auto space-y-6">
+                     TÊN THẬT của folder, ép hoa toàn bộ sẽ khiến 2 folder khác tên chỉ do khác
+                     hoa/thường (vd "abc" vs "ABC") trông GIỐNG HỆT NHAU trên UI dù DB coi là 2 tên
+                     khác nhau. Batch D5: dời từ header bar riêng (đã bỏ) vào NGAY ĐẦU body — header
+                     dùng CHUNG chỉ nhận title cố định lúc push, không tự cập nhật lại được sau khi
+                     biết tên thật (xem event/workflow/file-manager-song.js::refreshFolderDetail()). -->
+                <h2 id="file-manager-folder-detail-title" class="text-lg font-bold tracking-wider text-white truncate -mt-2">—</h2>
 
                 <button id="btn-file-manager-folder-apply-to-playlist" data-mode="apply" class="w-full py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors shadow" data-i18n="fileManager.song.folderDetail.btnApply">${t('fileManager.song.folderDetail.btnApply')}</button>
 
@@ -157,11 +135,9 @@ const TPL_FILE_MANAGER_FOLDER_DETAIL_DRAWER = `
                         <p id="file-manager-folder-detail-empty" class="hidden text-sm text-slate-400 p-4 text-center" data-i18n="fileManager.song.folderDetail.empty">${t('fileManager.song.folderDetail.empty')}</p>
                     </div>
                 </div>
-
-            </div>
-        </div>
-    </div>
 `;
+}
+
 const TPL_FILE_MANAGER_PHOTO_DRAWER = `
     <div id="drawer-file-manager-photo" class="fixed inset-0 drawer-glass z-[90] transform translate-y-full transition-transform duration-500 ease-in-out flex flex-col">
         <div class="flex justify-between items-center px-4 py-3 sm:px-6 border-b border-white/10 shrink-0 bg-black/40">
