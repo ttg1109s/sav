@@ -228,9 +228,18 @@
         // bằng z-index) sang 1 khung #drawer-settings DUY NHẤT + ngăn xếp panel bên trong (xem
         // core/settings-panel-stack.js). `settingsStackBody` là điểm neo DUY NHẤT mà push/pop thao
         // tác — panel con (About, Visualizer sau này...) không tự biết #drawer-settings tồn tại.
-        const settingsStackTitle = document.getElementById('settings-stack-title');
-        const btnSettingsStackBack = document.getElementById('btn-settings-stack-back');
+        //
+        // VIẾT LẠI (06/07/2026, phản hồi Giang — slider thật, header nhét vào từng panel):
+        // `settingsStackTitle`/`btnSettingsStackBack` ĐÃ XOÁ — mỗi panel (kể cả Main) giờ TỰ MANG
+        // header riêng (title + nút Back/Close NGAY TRONG THÂN panel), không còn 1 khối tiêu đề
+        // TĨNH dùng chung nữa. Nút Back giờ là class `.settings-panel-back-btn` lặp lại ở MỌI
+        // panel con (tạo/xoá theo từng lần push/pop) — nhận diện qua DELEGATION trên
+        // `settingsStackBody`, xem event/listener/settings-stack-nav.js — KHÔNG còn 1 id tĩnh duy
+        // nhất để gọi document.getElementById() ở đây được nữa.
         const settingsStackBody = document.getElementById('settings-stack-body');
+        // `settingsStackPanelMain` — panel ĐÁY ngăn xếp (Main), TĨNH, KHÔNG BAO GIỜ bị xoá — core/
+        // settings-panel-stack.js dùng làm phần tử KHỞI TẠO đầu tiên của `settingsPanelStackEntries`.
+        const settingsStackPanelMain = document.getElementById('settings-stack-panel-main');
         const settingsBg = document.getElementById('settings-bg'); // nền chung (mục "hợp nhất nền Playlist" phản hồi Giang) — chưa nối logic ở Batch D1, chỉ dựng sẵn element
 
         // ===================== Quản lý dung lượng (Storage Management) =====================
