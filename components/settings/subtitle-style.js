@@ -3,10 +3,10 @@
  *
  * Ver 8 refine (mục 3): toàn bộ slider style khung/chữ phụ đề (màu/độ trong suốt nền, màu/độ
  * trong suốt/độ dày/độ uốn viền, màu chữ, cỡ chữ, line-height, letter-spacing) ĐÃ CHUYỂN sang
- * drawer riêng `js/components/subtitle-settings-drawer.js` (biến TPL_SUBTITLE_SETTINGS_DRAWER),
- * đúng pattern navigation stack ở About/Storage/Visualizer Settings Drawer. File này (vẫn giữ
- * tên cũ + biến TPL_SETTINGS_SUBTITLE_STYLE để không phải sửa object điều phối SettingsDrawer
- * ở settings-drawer.js) giờ CHỈ còn:
+ * `components/subtitle-settings-drawer.js` — Batch D2 (06/07/2026) đổi tiếp file đó từ template
+ * tĩnh (`TPL_SUBTITLE_SETTINGS_DRAWER`) sang hàm `renderSubtitlePanelBody()`, PUSH ĐỘNG vào Settings
+ * Stack (core/settings-panel-stack.js) thay vì mount 1 lần lúc boot. File NÀY (Main list) giờ CHỈ
+ * còn:
  *   - toggle "Hiện phụ đề" (#setting-subtitles-enabled, chuyển từ modal sub về Settings ở 1 lượt
  *     refine trước) — vẫn ngay trong giao diện, không cần mở drawer.
  *   - nút "Tùy chỉnh" mở drawer chứa toàn bộ slider style chi tiết.
