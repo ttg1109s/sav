@@ -141,7 +141,7 @@
     <script src="lang/patch/patch-common.js?v=20260704v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260704v1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260704v1"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260706v2"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260707v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260706v2"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
@@ -157,21 +157,25 @@
     <script src="components/visualizer-overlay.js?v=20260704v2"></script>
     <script src="components/subtitle-modal.js?v=20260626v1"></script>
     <script src="components/bottom-player.js?v=20260704v1"></script>
-    <!-- Settings Drawer (ver 8): 7 "section" HTML nhỏ PHẢI nạp TRƯỚC settings-drawer.js — file
-         đó chỉ còn là bộ điều phối (object SettingsDrawer) ghép 7 biến TPL_SETTINGS_* dưới đây
-         lại thành TPL_SETTINGS_DRAWER, không tự chứa HTML nào. Batch i18n: thêm settings/
-         language.js (TPL_SETTINGS_LANGUAGE — section "Ngôn ngữ"). Ver 12 "Multi Media" (CHỐT
-         03/07/2026): thêm settings/file-manager-section.js (TPL_SETTINGS_FILE_MANAGER — section
-         "File Manager", 3 hàng Song/Photo & Album/Documents) — xem
-         plan-v12-multimedia-decisions.md mục 1a/7. -->
-    <script src="components/settings/playlist-background.js?v=20260707v1"></script>
-    <script src="components/settings/file-manager-section.js?v=20260707v1"></script>
+    <!-- Settings Drawer (ver 8): 8 "section" HTML nhỏ PHẢI nạp TRƯỚC settings-drawer.js — file
+         đó chỉ còn là bộ điều phối (object SettingsDrawer) ghép 8 biến TPL_SETTINGS_* dưới đây
+         lại thành TPL_SETTINGS_DRAWER, không tự chứa HTML nào (thứ tự NẠP SCRIPT ở đây KHÔNG cần
+         khớp thứ tự HIỂN THỊ — settings-drawer.js tự sắp theo đúng thứ tự UX, xem file đó). Batch
+         i18n: thêm settings/language.js (TPL_SETTINGS_LANGUAGE — section "Ngôn ngữ"). Ver 12
+         "Multi Media" (CHỐT 03/07/2026): thêm settings/file-manager-section.js
+         (TPL_SETTINGS_FILE_MANAGER — section "File Manager", 3 hàng Song/Photo & Album/Documents).
+         Tái tổ chức (07/07/2026, phản hồi Giang mục 4): THÊM settings/playlist-view.js
+         (TPL_SETTINGS_PLAYLIST_VIEW — Kiểu xem/Sắp xếp, TÁCH khỏi playlist-background.js cũ) —
+         playlist-background.js ĐỔI biến xuất ra thành TPL_SETTINGS_BACKGROUND (chỉ còn Nền). -->
+    <script src="components/settings/playlist-view.js?v=20260707v1"></script>
+    <script src="components/settings/playlist-background.js?v=20260707v2"></script>
+    <script src="components/settings/file-manager-section.js?v=20260707v2"></script>
     <script src="components/settings/visualizer-geometry-color.js?v=20260707v1"></script>
     <script src="components/settings/audio-eq.js?v=20260707v1"></script>
     <script src="components/settings/subtitle-style.js?v=20260707v1"></script>
     <script src="components/settings/misc.js?v=20260707v1"></script>
     <script src="components/settings/language.js?v=20260707v1"></script>
-    <script src="components/settings-drawer.js?v=20260707v1"></script>
+    <script src="components/settings-drawer.js?v=20260707v2"></script>
     <script src="components/about-drawer.js?v=20260706v1"></script>
     <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): File
          Manager KHÔNG còn là 1 overlay cấp cao mở từ Playlist nữa (bỏ patch 02/07/2026) — giờ là
