@@ -1,50 +1,32 @@
 /**
- * Component (sub-template): Settings Drawer — Section "Danh sách phát & Nền".
- * Tách từ js/components/settings-drawer.js (ver 8) — xem object điều phối SettingsDrawer
- * trong settings-drawer.js để biết thứ tự ghép các section này lại thành TPL_SETTINGS_DRAWER.
- * Toggle Video Background, ảnh nền Playlist + độ mờ nhòe (blur).
+ * Component (sub-template): Settings Drawer — Section "Background" (Nền).
  *
- * Ver 10 refine: 2 dòng "Kiểu xem" (Grid/List) + "Sắp xếp" (Mặc định/A→Z/Z→A) CHUYỂN VÀO ĐÂY,
- * thay cho 2 icon riêng ở header Playlist (#btn-toggle-view, #btn-sort-display + dropdown nổi) —
- * dọn header gọn lại, JS điều khiển ở js/playlist/main.js (PlaylistMain.initSortMenu/initViewMode).
+ * TÁCH (07/07/2026, phản hồi Giang mục 4 — "Tổ chức lại section PLAYLIST & BACKGROUND"): section
+ * cũ "Hệ thống & Playlist" gộp lẫn 2 chủ đề không liên quan — phần "Kiểu xem"/"Sắp xếp" đã DỜI
+ * sang components/settings/playlist-view.js (TPL_SETTINGS_PLAYLIST_VIEW). File NÀY giờ CHỈ còn 4
+ * mục cùng 1 chủ đề "Nền": Video nền, Ảnh nền Visual, Ảnh nền Playlist, Độ mờ — biến xuất ra ĐỔI
+ * TÊN thành `TPL_SETTINGS_BACKGROUND` (KHÁC `TPL_SETTINGS_PLAYLIST_BG` cũ — xem components/
+ * settings-drawer.js đã cập nhật theo).
  *
- * Ver 8 refine: toggle "Tắt Visual" ĐÃ CHUYỂN sang section "Visualizer" chính (xem
- * js/components/settings/visualizer-geometry-color.js) — không còn section "Hiệu ứng Visualizer"
- * riêng ở đây nữa (ver 10 refine), để mọi setting liên quan tới hiển thị hiệu ứng nằm 1 nơi.
+ * Đặt NGAY SAU section "Playlist" (xem components/settings-drawer.js) — Nền là thứ hay NHÌN THẤY
+ * (theo nguyên tắc "mục hay dùng/hay thấy lên đầu" — xem báo cáo tái tổ chức 07/07/2026).
  */
-const TPL_SETTINGS_PLAYLIST_BG = `
+const TPL_SETTINGS_BACKGROUND = `
 
-        <!-- SECTION: HỆ THỐNG & PLAYLIST -->
+        <!-- SECTION: BACKGROUND -->
         <div>
-            <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="settingsPlaylistBg.sectionTitle">${t('settingsPlaylistBg.sectionTitle')}</h3>
+            <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="settingsBackground.sectionTitle">${t('settingsBackground.sectionTitle')}</h3>
             <div class="bg-white/5 rounded-2xl border border-white/10 flex flex-col overflow-hidden">
-                <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.viewMode.label">${t('settingsPlaylistBg.viewMode.label')}</span>
-                    <select id="setting-playlist-view-mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
-                        <option value="list" data-i18n="settingsPlaylistBg.viewMode.list">${t('settingsPlaylistBg.viewMode.list')}</option>
-                        <option value="grid" data-i18n="settingsPlaylistBg.viewMode.grid">${t('settingsPlaylistBg.viewMode.grid')}</option>
-                    </select>
-                </div>
-                <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.sortMode.label">${t('settingsPlaylistBg.sortMode.label')}</span>
-                    <select id="setting-playlist-sort-mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
-                        <option value="default" data-i18n="settingsPlaylistBg.sortMode.default">${t('settingsPlaylistBg.sortMode.default')}</option>
-                        <option value="az" data-i18n="settingsPlaylistBg.sortMode.az">${t('settingsPlaylistBg.sortMode.az')}</option>
-                        <option value="za" data-i18n="settingsPlaylistBg.sortMode.za">${t('settingsPlaylistBg.sortMode.za')}</option>
-                    </select>
-                </div>
                 <!-- FIX (04/07/2026, mục 1 phản hồi Giang) — bỏ hẳn nút "Choose" riêng: gạt toggle
                      lên "On" giờ TỰ mở hộp thoại chọn file video LUÔN (input ẩn, kích hoạt qua JS —
                      xem event/workflow/visualizer-control-center.js::enableVideoBackgroundToggle).
                      Huỷ hộp thoại không chọn gì -> tự trả toggle về "off" (sự kiện 'cancel', xem
                      event/listener/visualizer-control-center.js). Tắt toggle chỉ ẩn hiển thị,
                      KHÔNG xoá video đã lưu (đảo ngược quyết định cũ) — gạt lại "On" mở lại hộp
-                     thoại chọn file MỚI (không có khái niệm "khôi phục y nguyên không cần chọn
-                     lại" — mỗi lần "On" là 1 lượt chọn mới, xem plan-v12-multimedia-update-5.md
-                     mục 1 để biết lý do). -->
+                     thoại chọn file MỚI. -->
                 <div class="flex flex-col border-b border-sky-500/30 bg-sky-900/20">
                     <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
-                        <span class="text-sm font-medium text-sky-300" data-i18n="settingsPlaylistBg.videoEnable.label">${t('settingsPlaylistBg.videoEnable.label')}</span>
+                        <span class="text-sm font-medium text-sky-300 truncate" data-i18n="settingsPlaylistBg.videoEnable.label">${t('settingsPlaylistBg.videoEnable.label')}</span>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" id="setting-video-enable" class="sr-only peer">
                             <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
@@ -58,8 +40,7 @@ const TPL_SETTINGS_PLAYLIST_BG = `
 
                 <!-- MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer (KHÁC HẲN ảnh nền
                      Playlist ở khối dưới đây — 2 field/2 cơ chế riêng biệt, xem
-                     readme/song-cover-background-relations.md). FIX (04/07/2026, mục 1) — cùng cơ
-                     chế Video ở trên: bỏ nút "Chọn ảnh" riêng, chỉ còn toggle tự mở picker. -->
+                     readme/song-cover-background-relations.md). -->
                 <div class="flex flex-col border-b border-white/5">
                     <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
                         <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.visualBgImage.label">${t('settingsPlaylistBg.visualBgImage.label')}</span>
@@ -73,9 +54,6 @@ const TPL_SETTINGS_PLAYLIST_BG = `
                     </div>
                 </div>
 
-                <!-- FIX (04/07/2026, mục 1) — GỘP 2 hàng cũ (nút "Chọn thư viện" riêng + toggle
-                     bật/tắt riêng) thành 1 hàng DUY NHẤT, cùng khuôn 2 khối trên — bỏ hẳn nút
-                     #setting-bg-pick-library. -->
                 <div class="flex flex-col border-b border-white/5">
                     <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
                         <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.bgImageEnable.label">${t('settingsPlaylistBg.bgImageEnable.label')}</span>
@@ -95,4 +73,3 @@ const TPL_SETTINGS_PLAYLIST_BG = `
             </div>
         </div>
 `;
-

@@ -8,8 +8,9 @@
  * đúng pattern nav-stack `#setting-open-about` -> `#drawer-about` đã có sẵn — KHÔNG có màn "File
  * Manager" trung gian nào nằm giữa.
  *
- * Đặt ngay sau section "Hệ thống & Playlist" (TPL_SETTINGS_PLAYLIST_BG) vì liên quan trực tiếp
- * tới nhạc/thư viện — xem thứ tự ghép ở components/settings-drawer.js.
+ * Tái tổ chức (07/07/2026, phản hồi Giang mục 2) — đặt SAU "Phụ đề" (không còn ngay sau "Playlist"
+ * như trước) — thứ tự 8 section giờ theo mức độ dùng thường xuyên, xem components/settings-
+ * drawer.js để biết thứ tự đầy đủ + lý do.
  */
 const TPL_SETTINGS_FILE_MANAGER = `
 
