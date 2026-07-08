@@ -19,8 +19,9 @@
  * "trang" cuộn ngang bên trong `#side-left-container` (components/app-view-stack.js, MỚI), dùng
  * CHUNG `#playlist-bg` với Playlist thật sự (đúng nghĩa "1 ảnh nền, 1 container", không phải 2
  * hàm/2 phần tử riêng áp y hệt nhau như batch "nền chung" 07/07/2026 làm tạm trước đó — xem
- * core/player-controls.js::openSettingsDrawer()/closeSettingsDrawer() dùng `scrollTo()` thay
- * `classList` cũ).
+ * core/player-controls.js::scrollSideLeftToSettingsSmooth()/scrollSideLeftToPlaylistSmooth()
+ * dùng `scrollTo()` thay `classList` cũ (VIẾT LẠI 08/07/2026, HOTFIX 8 — trước đó tên
+ * openSettingsDrawer()/closeSettingsDrawer()).
  *
  * Cấu trúc MỚI của `#drawer-settings` — CHỈ 1 con trực tiếp (đúng yêu cầu "chỉ giữ lại body
  * stack"): `#settings-stack-body` — khung neo (`relative overflow-hidden`) mà push/pop thao tác —

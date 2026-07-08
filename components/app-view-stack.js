@@ -14,8 +14,10 @@
  *   BÊN TRONG `#side-left-container`: 2 "trang" CẠNH NHAU cuộn qua lại — `#playlist-view` (màn
  *   Playlist thật, components/playlist-view.js — ĐÃ bỏ hết tự định vị/nền riêng) và
  *   `#drawer-settings` (Settings, components/settings-drawer.js — ĐÃ bỏ hết tự định vị/nền riêng).
- *   Chuyển qua lại bằng `side-left-container.scrollTo({left, behavior:'smooth'})` — xem
- *   core/player-controls.js::openSettingsDrawer()/closeSettingsDrawer().
+ *   Chuyển qua lại bằng `side-left-container.scrollTo({left, behavior:'smooth'})` (nhánh "đang ở
+ *   Playlist") — xem core/player-controls.js::scrollSideLeftToSettingsSmooth()/
+ *   scrollSideLeftToPlaylistSmooth() (VIẾT LẠI 08/07/2026, HOTFIX 8 — trước đó tên
+ *   openSettingsDrawer()/closeSettingsDrawer()).
  *
  *   Nền DÙNG CHUNG cho CẢ 2 trang: `#playlist-bg` (ảnh, JS điều khiển qua updatePlaylistBg() —
  *   core/color-utils.js, KHÔNG đổi gì) + 1 lớp phủ đen 40% cố định — CẢ 2 đặt `position: absolute`
