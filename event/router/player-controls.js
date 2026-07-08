@@ -8,18 +8,24 @@
  * định (không phải listener nội bộ dùng-1-lần), VẪN đưa vào /event/ theo đúng nghĩa đen "DOM
  * listener cần tách" (quyết định của Giang, không áp dụng ngoại lệ 2b.6).
  *
- * QUY TẮC RẼ NHÁNH: 16/17 msg.type ở đây chỉ cần ĐÚNG 1 HÀM CORE (không có shield/modal, không cần
- * phối hợp nhiều hàm) -> router gọi THẲNG. RIÊNG 'playerControls.shuffle.click' (fix 03/07/2026,
- * mục 3b) giờ cần 2 hàm core nối tiếp có phụ thuộc thứ tự (toggleShuffle() rồi
- * updateShuffleArrayFromQueue() theo giá trị MỚI) -> giao event/workflow/player-controls.js (xem
- * comment đầu file đó).
+ * QUY TẮC RẼ NHÁNH: 14/17 msg.type ở đây chỉ cần ĐÚNG 1 HÀM CORE (không có shield/modal, không cần
+ * phối hợp nhiều hàm, không cần đọc appState nào khác) -> router gọi THẲNG. 'playerControls.
+ * shuffle.click' (fix 03/07/2026, mục 3b) cần 2 hàm core nối tiếp có phụ thuộc thứ tự
+ * (toggleShuffle() rồi updateShuffleArrayFromQueue() theo giá trị MỚI) -> giao event/workflow/
+ * player-controls.js. 'playerControls.settingsDrawer.open'/'.close' (VIẾT LẠI 08/07/2026, HOTFIX
+ * 8) cần đọc `appState.get('isVisualizerActive')` để rẽ nhánh -> LUÔN qua VirtualMachineState
+ * (Rule 2/3, xem readme/event-bus-flow.md mục 4C); nhánh "đang ở Visualizer" của cả 2 msg.type này
+ * cần ≥2 hàm core nối tiếp -> giao Workflow, nhánh "đang ở Playlist" chỉ 1 hàm core -> gọi thẳng
+ * ngay trong callback của VirtualMachineState (xem comment đầu file đó).
  *
  * STATE CONTEXT: không có — mọi msg.type độc lập, không có "hồ sơ vụ việc giữa 2 lượt" nào cần nhớ
  * ở tầng router/EventStore cho cụm này.
  *
  * NẠP SAU: event/bus.js, event/workflow/player-controls.js, core/player-controls.js (cần toàn bộ
- * hàm core ở trên), playlist/* (cần playNext/playPrev/window.playSong — đã có từ trước). NẠP
- * TRƯỚC: event/listener/player-controls.js.
+ * hàm core ở trên, gồm scrollSideLeftToSettingsSmooth/scrollSideLeftToPlaylistSmooth — HOTFIX 8),
+ * event/virtual-machine-state.js (VirtualMachineState — dùng trực tiếp trong 2 case Settings),
+ * playlist/* (cần playNext/playPrev/window.playSong — đã có từ trước). NẠP TRƯỚC:
+ * event/listener/player-controls.js.
  */
 const routerPlayerControls = (() => {
 
@@ -59,16 +65,30 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.settingsDrawer.open': {
-                // Batch 07/07/2026 (phản hồi Giang mục 1) — CẦN rẽ nhánh theo isVisualizerActive
-                // (VirtualMachineState), không còn "1 hàm core, gọi thẳng" nữa.
-                workflowPlayerControls.openSettingsDrawer();
+                // VIẾT LẠI (08/07/2026, HOTFIX 8, đúng quy trình Giang chốt) — Router tự
+                // `appState.get('isVisualizerActive')` MỘT LẦN rồi rẽ nhánh bằng VirtualMachineState
+                // (Rule 2/3: rẽ nhánh theo appState KHÁC luôn qua VMState, không if/else tay):
+                // đang ở Visualizer -> giao Workflow (2 bước phụ thuộc thứ tự, xem
+                // workflowPlayerControls.openSettingsDrawerFromVisualizer()); đang ở Playlist ->
+                // gọi THẲNG core (chỉ 1 hàm, không có bước 2 phụ thuộc — đúng (A) event-bus-flow.md).
+                const isVisualizerActive = appState.get('isVisualizerActive');
+                VirtualMachineState.run([
+                    { state: isVisualizerActive, operation: '===', value: true, callback: () => workflowPlayerControls.openSettingsDrawerFromVisualizer() },
+                    { state: isVisualizerActive, operation: '===', value: false, callback: () => scrollSideLeftToSettingsSmooth() },
+                ]);
                 break;
             }
 
             case 'playerControls.settingsDrawer.close': {
-                // Batch D1 (Settings restructure) — nay CẦN 2 hàm core (đóng khung + reset ngăn
-                // xếp panel con về Main), xem workflowPlayerControls.closeSettingsDrawerAndResetStack().
-                workflowPlayerControls.closeSettingsDrawerAndResetStack();
+                // VIẾT LẠI (08/07/2026, HOTFIX 8) — CÙNG lý do ở trên, cả 2 nhánh giờ đi qua
+                // Workflow (mỗi nhánh đều cần ≥2 hàm core nối tiếp: validate video nền + reset
+                // ngăn xếp panel con + cuộn/trượt — xem workflowPlayerControls.
+                // closeSettingsDrawerToPlaylist()/closeSettingsDrawerToVisualizer()).
+                const isVisualizerActive = appState.get('isVisualizerActive');
+                VirtualMachineState.run([
+                    { state: isVisualizerActive, operation: '===', value: true, callback: () => workflowPlayerControls.closeSettingsDrawerToVisualizer() },
+                    { state: isVisualizerActive, operation: '===', value: false, callback: () => workflowPlayerControls.closeSettingsDrawerToPlaylist() },
+                ]);
                 break;
             }
 
