@@ -360,6 +360,19 @@
         }
 
         /**
+         * ===================== HOTFIX 9 (08/07/2026) — Giang chỉ ra: đóng Settings về Visualizer
+         * KHÔNG cần viết hàm mới ("hideSideLeftContainer"/"resetSideLeftScrollToPlaylist" ở bản
+         * trước) — `switchToVisualizer()` (dùng khi bấm bài hát, NGAY DƯỚI file này) đã làm ĐÚNG
+         * y hệt việc "trượt cả khối #side-left-container ra + trở về Visualizer", tái dùng THẲNG
+         * thay vì viết lại. Việc nó tiện thể set lại `isVisualizerActive = true` là VÔ HẠI TUYỆT
+         * ĐỐI trong trường hợp này — giá trị đã LÀ `true` từ trước (đó chính là điều kiện để nhánh
+         * này được chọn), ghi đè cùng giá trị không tạo tác dụng phụ gì. Xem
+         * `workflowPlayerControls.closeSettingsDrawerToVisualizer()` (event/workflow/player-
+         * controls.js) để biết đầy đủ luồng tái dùng.
+         * =====================================================================================
+         */
+
+        /**
          * ===================== HOTFIX 8 (08/07/2026) — VIẾT LẠI TOÀN BỘ cụm mở/đóng Settings =====================
          * Giang chỉ ra đúng: bản 07/07/2026 (Nhóm D, "gộp container") vi phạm Rule 3 ở CHÍNH
          * cụm hàm này — `closeSettingsDrawer()` (cũ) tự gọi `validateVideoBgOnClose()` (core khác)
@@ -368,12 +381,14 @@
          * controls.js) dựa vào 1 core và 1 method Workflow TRÙNG TÊN, gọi bằng tên trần, tự phân
          * giải theo scope — chạy đúng nhưng không tự giải thích được, phải viết script Node ra mới
          * dám chắc không đệ quy. VIẾT LẠI đúng quy trình Giang chốt: mỗi hàm dưới đây làm ĐÚNG 1
-         * việc, KHÔNG hàm nào gọi hàm khác (kể cả hàm core khác) — 2 hàm "bước 1" (jump/hide) TRẢ
-         * VỀ boolean để Workflow tự đọc rồi quyết định có chạy "bước 2" hay không (Rule 3: đây là
-         * WORKFLOW đọc kết quả CORE trả về, không phải core gọi core). Toàn bộ phối hợp (validate
-         * video, reset ngăn xếp panel con, chờ đúng animation bằng taskManager, gọi bước 1 rồi bước
-         * 2) chuyển hẳn sang `workflowPlayerControls` (event/workflow/player-controls.js) — xem
-         * `openSettingsDrawerFromVisualizer()`/`closeSettingsDrawerToPlaylist()`/
+         * việc, KHÔNG hàm nào gọi hàm khác (kể cả hàm core khác) — `jumpSideLeftScrollToSettings()`
+         * (bước 1 lúc MỞ từ Visualizer) TRẢ VỀ boolean để Workflow tự đọc rồi quyết định có chạy
+         * `revealSideLeftContainer()` (bước 2) hay không (Rule 3: đây là WORKFLOW đọc kết quả CORE
+         * trả về, không phải core gọi core). Chiều ĐÓNG về Visualizer KHÔNG cần cặp bước
+         * tương tự — xem HOTFIX 9 ngay trên (tái dùng thẳng `switchToVisualizer()` có sẵn). Toàn bộ
+         * phối hợp (validate video, reset ngăn xếp panel con, chờ đúng animation bằng taskManager,
+         * gọi bước 1 rồi bước 2) chuyển hẳn sang `workflowPlayerControls` (event/workflow/player-
+         * controls.js) — xem `openSettingsDrawerFromVisualizer()`/`closeSettingsDrawerToPlaylist()`/
          * `closeSettingsDrawerToVisualizer()` ở đó.
          *
          * Ứng với `playerControls.settingsDrawer.open`/`.close` — Router (event/router/player-
@@ -415,28 +430,6 @@
          * xác nhận `true`, để lúc trượt vào bên trong đã sẵn đúng trang Settings. */
         function revealSideLeftContainer() {
             sideLeftContainer.classList.remove('playlist-hidden');
-        }
-
-        /**
-         * Core — BƯỚC 1 của nhánh "đang ở Visualizer" khi ĐÓNG Settings: thêm lại `playlist-
-         * hidden`, trượt CẢ KHỐI `#side-left-container` ra khỏi màn hình (về Visualizer — animation
-         * transform có sẵn, CÙNG hướng đã dùng để vào Visualizer, tái dùng nguyên vẹn). Trả về
-         * boolean báo đã trượt ra — Workflow tự đọc giá trị này để quyết định có xếp lịch
-         * `resetSideLeftScrollToPlaylist()` (bước 2, qua taskManager) hay không.
-         * @returns {boolean}
-         */
-        function hideSideLeftContainer() {
-            if (!sideLeftContainer) return false;
-            sideLeftContainer.classList.add('playlist-hidden');
-            return true;
-        }
-
-        /** Core — BƯỚC 2 của nhánh "đang ở Visualizer" khi ĐÓNG Settings: nhảy thẳng cuộn nội bộ
-         * VỀ Playlist (left:0), KHÔNG animation — CHỈ an toàn gọi SAU KHI `#side-left-container`
-         * đã trượt ra ngoài màn hình HẲN (người dùng không còn nhìn thấy bước nhảy) — Workflow tự
-         * canh đúng thời điểm này bằng `taskManager` (Rule 3: taskManager cấm trong core). */
-        function resetSideLeftScrollToPlaylist() {
-            sideLeftContainer.scrollLeft = 0;
         }
 
 
