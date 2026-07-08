@@ -42,65 +42,89 @@
     <title>Simple Audio Visualizer</title>
     <link rel="icon" type="image/png" href="favicon.png">
 
-    <!-- Thư viện bên thứ 3 (CDN) - giữ nguyên như bản gốc -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/nosleep/0.12.0/NoSleep.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- Lưu trữ IndexedDB cho nhạc/tag/cover/sub/ảnh-video nền (xem PLAN_INDEXEDDB.md) -->
-    <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
-    <!-- Ghi ID3 tag mới vào blob lúc Export/Restore (jsmediatags chỉ đọc, không viết) -->
-    <script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@4/dist/browser-id3-writer.js"></script>
-    <!-- Đóng gói nhiều file mp3 thành 1 file .zip lúc "Tải toàn bộ rồi xóa" (Quản lý dung lượng) -->
-    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <!-- MỚI (04/07/2026, tính năng Documents) — .docx -> HTML lúc upload (mammoth.js). ĐỔI
-         05/07/2026, mục 5 phản hồi Giang: KHÔNG còn tự trích text thuần bỏ định dạng — HTML này
-         được chuyển tiếp qua Turndown (dưới) ra Markdown, GIỮ đậm/nghiêng/tiêu đề/danh sách. -->
-    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.7.2/mammoth.browser.min.js"></script>
-    <!-- MỚI (05/07/2026, mục 5 phản hồi Giang) — HTML (từ mammoth.js) -> Markdown lúc upload .docx,
-         xem event/workflow/file-manager-document.js::_processDocxUpload(). -->
-    <script src="https://unpkg.com/turndown@7.1.1/dist/turndown.js"></script>
-    <!-- MỚI (05/07/2026, mục 5 phản hồi Giang) — trình soạn thảo Documents (WYSIWYG, format ngay
-         khi gõ) + hiển thị Markdown trong Reader. Global: `toastui.Editor`. Xem
-         core/file-manager/document-ui.js (openDocumentEditorDrawer/renderReaderMarkdown). -->
-    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
-    <script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
-
-    <!-- CSS tách riêng -->
-    <!-- ?v=APP_VERSION (đặt cố định ngay dưới đây, đổi mỗi lần deploy): chỉ ÉP TRÌNH DUYỆT TẢI LẠI
-         file local của project (CSS/JS riêng), KHÔNG đụng tới các thư viện CDN bên thứ 3 ở trên —
-         những file đó đã tự có version riêng trong URL (@6, @4, r128, 3.9.5...) nên cache của
-         chúng không liên quan tới cache "cứng đầu" của riêng project trên GitHub Pages. -->
-    <link rel="stylesheet" href="assets/css/style.css?v=20260707v1">
-    <!-- Batch 8, ver 12 "Multi Media" — file CSS TÁCH RIÊNG THEO DOMAIN đầu tiên của project (xem
-         comment đầu file) — Slideshow nền Visual (2 lớp ảnh xen kẽ + 13 kiểu transition). -->
-    <link rel="stylesheet" href="assets/css/slideshow.css?v=20260703v2">
+    <!-- (07/07/2026, HOTFIX 5 — Preloader làm lại, mục 2 phản hồi Giang) — TOÀN BỘ <script> CDN +
+         3 <link rel="stylesheet"> TRƯỚC ĐÂY nằm ở đây ĐÃ DỜI xuống <body>, NGAY SAU khối Preloader
+         — xem comment đầy đủ ở đó để biết lý do. KHÔNG còn <script>/<link> nặng nào ở <head> nữa —
+         <head> giờ chỉ còn meta/title/favicon (nhẹ, không chờ mạng), để trình duyệt chạm tới
+         <body> và vẽ Preloader ra màn hình CÀNG SỚM CÀNG TỐT. -->
 </head>
 <body class="text-white h-screen flex flex-col relative overflow-hidden bg-[#000000]">
 
     <!-- ===================================================================
-         PRELOADER (MỚI 07/07/2026, phản hồi Giang mục 2) — HTML/CSS/JS THUẦN, ĐẶT NGAY ĐẦU
-         <body>, TRƯỚC MỌI THỨ KHÁC — hiện ra NGAY LẬP TỨC lúc trình duyệt bắt đầu parse HTML
-         (không chờ CSS ngoài/component JS nạp xong), che toàn bộ màn hình trong lúc 176 file
-         script tuần tự nạp (app này KHÔNG build/bundle, chạy trực tiếp qua file://).
-         % THẬT (không phải animation giả định thời gian cố định): đếm số thẻ <script src> đã THỰC
-         SỰ tải xong qua Resource Timing API (`performance.getEntriesByType('resource')`) so với
-         TỔNG số thẻ `<script src>` hiện có trong DOM tại mỗi lần poll — vì mọi script ở app này
-         đều nạp TUẦN TỰ (không `defer`/`async`), trình duyệt PARSE tới đâu thêm thẻ `<script>` vào
-         `document` tới đó (kể cả chưa chạy xong) nên tổng số này tự hội tụ đúng về 176 khi parser
-         đi hết trang — không cần hardcode số cụ thể (dễ lệch nếu sau này thêm/bớt file).
-         Tự ẩn (fade-out) khi `window.load` bắn (mọi resource, kể cả ảnh/CSS, đã tải xong) — đủ để
-         che hết giai đoạn nạp file, KHÔNG cố đợi thêm các bước async sau đó (đọc IndexedDB...) vì
-         những bước đó đã có #loading-shield riêng lo (components/loading-shield.js). -->
+         PRELOADER (07/07/2026, phản hồi Giang mục 2 — LÀM LẠI, HOTFIX 5) — HTML/CSS/JS THUẦN, ĐẶT
+         NGAY ĐẦU <body>, TRƯỚC MỌI THỨ KHÁC (kể cả CDN) — hiện ra NGAY LẬP TỨC lúc trình duyệt bắt
+         đầu parse <body>, che toàn bộ màn hình trong lúc 176 file script tuần tự nạp (app này
+         KHÔNG build/bundle, chạy trực tiếp qua file://).
+
+         BUG bản trước (đã sửa): 11 thẻ <script src> CDN (Tailwind/jsmediatags/NoSleep/Three.js/
+         idb-keyval/browser-id3-writer/JSZip/mammoth/turndown/toastui-editor) + 3 <link
+         rel="stylesheet"> TỪNG nằm ở <head>, PHÍA TRƯỚC preloader trong thứ tự tài liệu. Vì đây là
+         <script> ĐỒNG BỘ (không `async`/`defer`), trình duyệt BẮT BUỘC tải + chạy xong TOÀN BỘ 11
+         thẻ đó trước khi được phép rời khỏi `<head>` để bắt đầu parse `<body>` — nghĩa là Preloader
+         (nằm trong `<body>`) KHÔNG hề "hiện ra ngay lập tức" như docstring cũ mô tả: mạng chậm/CDN
+         chậm phản hồi bao lâu, màn hình đen trơn (không có gì, kể cả Preloader) hiện y NGẦN đó lâu
+         — đúng như Giang phản hồi. SỬA: dời NGUYÊN VẸN 11 <script>/3 <link> đó xuống ngay DƯỚI khối
+         Preloader này (xem ngay sau `</script>` của Preloader) — thứ tự thực thi giữa chúng với
+         nhau và với mọi file phía sau KHÔNG đổi (browser chỉ quan tâm thứ tự XUẤT HIỆN trong
+         document, không quan tâm nằm trong `<head>` hay `<body>`) — CHỈ khác duy nhất: giờ Preloader
+         (HTML/CSS/JS thuần, 100% inline, KHÔNG chờ mạng) đứng TRƯỚC 11 thẻ đó, nên được vẽ ra màn
+         hình xong xuôi TRƯỚC KHI trình duyệt chạm vào bất kỳ request mạng nào. `<head>` giờ chỉ còn
+         meta/title/favicon (không thẻ nào chặn parser).
+
+         % THẬT (không phải animation giả định thời gian cố định) — GIỮ NGUYÊN cơ chế cũ: đếm số
+         thẻ <script src> đã THỰC SỰ tải xong qua Resource Timing API
+         (`performance.getEntriesByType('resource')`) so với TỔNG số thẻ `<script src>` hiện có
+         trong DOM tại mỗi lần poll — vì mọi script ở app này đều nạp TUẦN TỰ, trình duyệt PARSE tới
+         đâu thêm thẻ `<script>` vào `document` tới đó nên tổng số này tự hội tụ đúng khi parser đi
+         hết trang — không cần hardcode số cụ thể. Tự ẩn (fade-out) khi `window.load` bắn.
+
+         PHẦN ANIMATION MỚI (mục 2 phản hồi Giang — "thêm animation, xem style rồi tách/thêm mới,
+         dùng thẻ style trực tiếp"): mọi animation định nghĩa NGAY TRONG <style> này (không tách
+         file .css riêng — Preloader phải tự đứng độc lập, không được phép chờ assets/css/style.css
+         qua mạng/cache mới hiển thị đúng). Mượn Ý TƯỞNG (không copy nguyên khối) từ 2 chỗ ĐÃ CÓ ở
+         assets/css/style.css: (1) `.eq-1/.eq-2/.eq-3` (mini cột nhạc nhảy khi bài đang phát, xem
+         core/playlist/render.js) — dựng lại thành logo 5 cột "EQ" nhảy lệch nhịp, cùng tông màu
+         sky-400→violet-500 với thanh tiến trình bên dưới, đúng bản sắc 1 app nghe nhạc/visualizer;
+         (2) `.animate-spin-slow` — không dùng xoay tròn, thay bằng 1 quầng sáng (`glow`) phập phồng
+         phía sau logo cho có chiều sâu. Thêm hiệu ứng "chạy sáng" (shimmer) quét ngang thanh tiến
+         trình cho đỡ khô, và tên app fade-in nhẹ lúc xuất hiện. Có `prefers-reduced-motion` tắt hết
+         phần TRANG TRÍ (giữ lại animation CHỨC NĂNG — width thanh tiến trình vẫn chạy bình thường,
+         chỉ do JS set trực tiếp, không phải `@keyframes`, nên không bị tắt theo). -->
     <style>
-        #app-preloader { position: fixed; inset: 0; z-index: 9999; background: #000000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; transition: opacity 0.4s ease-out; }
+        #app-preloader { position: fixed; inset: 0; z-index: 9999; background: #000000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; transition: opacity 0.4s ease-out; }
         #app-preloader.app-preloader-hidden { opacity: 0; pointer-events: none; }
-        #app-preloader-name { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 26px; font-weight: 800; letter-spacing: 0.02em; color: #fff; text-align: center; padding: 0 24px; }
+
+        #app-preloader-logo { position: relative; width: 84px; height: 52px; display: flex; align-items: flex-end; justify-content: center; gap: 6px; }
+        #app-preloader-glow { position: absolute; inset: -28px; border-radius: 999px; background: radial-gradient(circle, rgba(56,189,248,0.35) 0%, rgba(139,92,246,0.16) 45%, transparent 72%); animation: app-preloader-glow-pulse 2.6s ease-in-out infinite; }
+        .app-preloader-bar { position: relative; width: 8px; height: 22%; border-radius: 4px; background: linear-gradient(180deg, #38bdf8, #8b5cf6); box-shadow: 0 0 10px rgba(56,189,248,0.55); animation-name: app-preloader-eq; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+
+        #app-preloader-name { position: relative; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 26px; font-weight: 800; letter-spacing: 0.02em; color: #fff; text-align: center; padding: 0 24px; animation: app-preloader-fade-in 0.6s ease-out both; }
         #app-preloader-bar-track { width: min(260px, 70vw); height: 4px; border-radius: 999px; background: rgba(255,255,255,0.12); overflow: hidden; }
-        #app-preloader-bar-fill { height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, #38bdf8, #8b5cf6); transition: width 0.15s ease-out; }
+        #app-preloader-bar-fill { position: relative; height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, #38bdf8, #8b5cf6); transition: width 0.15s ease-out; overflow: hidden; }
+        #app-preloader-bar-fill::after { content: ''; position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.65), transparent); animation: app-preloader-shimmer 1.3s linear infinite; }
         #app-preloader-percent { font-family: ui-monospace, monospace; font-size: 12px; color: rgba(255,255,255,0.5); }
+
+        @keyframes app-preloader-eq { 0%, 100% { height: 22%; } 50% { height: 100%; } }
+        @keyframes app-preloader-glow-pulse { 0%, 100% { transform: scale(1); opacity: 0.55; } 50% { transform: scale(1.12); opacity: 0.9; } }
+        @keyframes app-preloader-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes app-preloader-shimmer { from { transform: translateX(-130%); } to { transform: translateX(230%); } }
+
+        /* Tôn trọng lựa chọn hệ thống "giảm hiệu ứng chuyển động" — chỉ tắt phần TRANG TRÍ thuần
+           tuý, KHÔNG đụng #app-preloader-bar-fill (width do JS set trực tiếp mỗi 80ms, là animation
+           CHỨC NĂNG thể hiện % thật, không phải @keyframes trang trí). */
+        @media (prefers-reduced-motion: reduce) {
+            #app-preloader-glow, .app-preloader-bar, #app-preloader-name, #app-preloader-bar-fill::after { animation: none !important; }
+        }
     </style>
     <div id="app-preloader">
+        <div id="app-preloader-logo">
+            <div id="app-preloader-glow"></div>
+            <span class="app-preloader-bar" style="animation-duration:0.8s; animation-delay:0s;"></span>
+            <span class="app-preloader-bar" style="animation-duration:0.65s; animation-delay:0.12s;"></span>
+            <span class="app-preloader-bar" style="animation-duration:0.9s; animation-delay:0.04s;"></span>
+            <span class="app-preloader-bar" style="animation-duration:0.7s; animation-delay:0.18s;"></span>
+            <span class="app-preloader-bar" style="animation-duration:0.85s; animation-delay:0.08s;"></span>
+        </div>
         <div id="app-preloader-name">Simple Audio Visualizer</div>
         <div id="app-preloader-bar-track"><div id="app-preloader-bar-fill"></div></div>
         <div id="app-preloader-percent">0%</div>
@@ -137,6 +161,42 @@
             window.addEventListener('load', hidePreloader);
         })();
     </script>
+
+    <!-- Thư viện bên thứ 3 (CDN) — DỜI TỪ <head> XUỐNG ĐÂY (xem giải thích đầy đủ ở comment đầu
+         khối Preloader phía trên) — giữ NGUYÊN THỨ TỰ TƯƠNG ĐỐI với nhau như bản gốc, chỉ đổi vị
+         trí vật lý trong tài liệu. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nosleep/0.12.0/NoSleep.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Lưu trữ IndexedDB cho nhạc/tag/cover/sub/ảnh-video nền (xem PLAN_INDEXEDDB.md) -->
+    <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
+    <!-- Ghi ID3 tag mới vào blob lúc Export/Restore (jsmediatags chỉ đọc, không viết) -->
+    <script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@4/dist/browser-id3-writer.js"></script>
+    <!-- Đóng gói nhiều file mp3 thành 1 file .zip lúc "Tải toàn bộ rồi xóa" (Quản lý dung lượng) -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <!-- MỚI (04/07/2026, tính năng Documents) — .docx -> HTML lúc upload (mammoth.js). ĐỔI
+         05/07/2026, mục 5 phản hồi Giang: KHÔNG còn tự trích text thuần bỏ định dạng — HTML này
+         được chuyển tiếp qua Turndown (dưới) ra Markdown, GIỮ đậm/nghiêng/tiêu đề/danh sách. -->
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.7.2/mammoth.browser.min.js"></script>
+    <!-- MỚI (05/07/2026, mục 5 phản hồi Giang) — HTML (từ mammoth.js) -> Markdown lúc upload .docx,
+         xem event/workflow/file-manager-document.js::_processDocxUpload(). -->
+    <script src="https://unpkg.com/turndown@7.1.1/dist/turndown.js"></script>
+    <!-- MỚI (05/07/2026, mục 5 phản hồi Giang) — trình soạn thảo Documents (WYSIWYG, format ngay
+         khi gõ) + hiển thị Markdown trong Reader. Global: `toastui.Editor`. Xem
+         core/file-manager/document-ui.js (openDocumentEditorDrawer/renderReaderMarkdown). -->
+    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
+    <script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+
+    <!-- CSS tách riêng — DỜI TỪ <head> XUỐNG ĐÂY (cùng lý do). -->
+    <!-- ?v=APP_VERSION (đặt cố định ngay dưới đây, đổi mỗi lần deploy): chỉ ÉP TRÌNH DUYỆT TẢI LẠI
+         file local của project (CSS/JS riêng), KHÔNG đụng tới các thư viện CDN bên thứ 3 ở trên —
+         những file đó đã tự có version riêng trong URL (@6, @4, r128, 3.9.5...) nên cache của
+         chúng không liên quan tới cache "cứng đầu" của riêng project trên GitHub Pages. -->
+    <link rel="stylesheet" href="assets/css/style.css?v=20260707v1">
+    <!-- Batch 8, ver 12 "Multi Media" — file CSS TÁCH RIÊNG THEO DOMAIN đầu tiên của project (xem
+         comment đầu file) — Slideshow nền Visual (2 lớp ảnh xen kẽ + 13 kiểu transition). -->
+    <link rel="stylesheet" href="assets/css/slideshow.css?v=20260703v2">
 
     <video id="bg-video" loop muted playsinline></video>
     <!-- FIX (04/07/2026, mục 1a phản hồi Giang) — nền màu Settings (bgColor) tách hẳn khỏi
@@ -294,7 +354,7 @@
          core/ còn lại; PHẢI nạp SAU core/modal-choice.js (alertModal, dùng cho option notifyUI).
          Xem comment đầu file service/state.js. -->
     <script src="service/state.js?v=20260707v1"></script>
-    <script src="core/config.js?v=20260707v3"></script>
+    <script src="core/config.js?v=20260708v1"></script>
     <!-- event/store.js (class EventStore) — CHỈ riêng file NÀY trong toàn bộ /event/ được nạp SỚM
          ở đây, KHÔNG đợi xuống cuối cùng cùng bus/workflow/router/listener. Lý do: playlist/
          actions.js (core, dòng dưới) cần khai báo `const playlistStore = new EventStore(...)`
@@ -598,7 +658,7 @@
          "visualizerMiscSettings"). -->
     <script src="event/workflow/visualizer-display.js?v=20260707v2"></script>
     <script src="event/router/visualizer-display.js?v=20260707v1"></script>
-    <script src="event/listener/visualizer-display.js?v=20260706v1"></script>
+    <script src="event/listener/visualizer-display.js?v=20260708v1"></script>
     <!-- MỞ ĐẦU THEME THẬT (07/07/2026, phản hồi Giang mục 3) — cụm "theme" (3 card Sáng/Tối/
          Background, Main list TĨNH). CẦN workflowVisualizerDisplay.toggleBgImage() (đã nạp ngay
          trên) + applyBgImageEnabled()/updatePlaylistBg() (đã nạp ở nhóm CORE). -->
