@@ -339,7 +339,9 @@
                 // core/player-controls.js::switchToVisualizer()/forceBackToPlaylistUI() — đọc qua
                 // VirtualMachineState ở event/workflow/player-controls.js để biết mở/đóng Settings
                 // kiểu nào (cuộn mượt nếu đang ở Playlist, nhảy thẳng + trượt cả khối nếu đang ở
-                // Visualizer — xem docstring workflowPlayerControls.openSettingsDrawer()).
+                // Visualizer — xem docstring workflowPlayerControls.openSettingsDrawerFromVisualizer()
+                // + core/player-controls.js::scrollSideLeftToSettingsSmooth() cho nhánh Playlist,
+                // VIẾT LẠI 08/07/2026 HOTFIX 8).
                 isVisualizerActive: false,
                 isStatsPanelVisible: true,
                 savLogoExpanded: false,
