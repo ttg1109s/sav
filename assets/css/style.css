@@ -86,13 +86,22 @@ body {
         input[type=range].music-slider::-moz-range-thumb { width: 8px; height: 12px; border: none; border-radius: 4px; background: #fff; cursor: pointer; box-shadow: 0 0 10px rgba(0,0,0,0.8); transition: height 0.1s ease, background-color 0.2s; }
         input[type=range].music-slider:hover::-moz-range-thumb, input[type=range].music-slider:active::-moz-range-thumb { height: 14px; background: #38bdf8; }
 
-        .glass-panel { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .drawer-glass { background: rgba(10, 10, 15, 0.95); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px); }
-        /* Kính mờ "nét" dùng riêng cho card modal (Sửa thông tin / Thông tin chi tiết bài hát):
-           nền đậm hơn .glass-panel (ít trong suốt -> chữ/control nổi rõ trên mọi ảnh nền playlist)
-           + viền sáng nhẹ + glow rất mờ phía trong để card tách khỏi nền mà vẫn giữ chất kính mờ
-           (backdrop-filter blur) chứ không phải nền đặc như trước ver 8. */
-        .glass-modal { background: rgba(15, 23, 42, 0.82); backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px); border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 0 0 1px rgba(255,255,255,0.04) inset, 0 20px 60px rgba(0,0,0,0.5); }
+        .glass-panel { background: rgba(15, 23, 42, 0.35); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
+        /* VIẾT LẠI (07/07/2026, phản hồi Giang — "solid thế này thì background để làm gì?"):
+           82-95% opacity KHÔNG PHẢI glass thật — đã tra cứu (NN/g, IxDF, Clay 2026 — chuẩn Apple
+           Liquid Glass iOS 26): opacity đúng chuẩn cho glassmorphism là 20-30% (tối đa 40%), PHỐI
+           HỢP với backdrop-blur + `text-shadow` nhẹ trên chữ để bù lại độ tương phản mất đi — KHÔNG
+           tăng opacity lên để "cho chắc ăn" (đó chính là lỗi biến glass thành solid). */
+        /* KHÔNG CÒN ĐƯỢC GÁN Ở ĐÂU (07/07/2026, sau batch gộp Playlist+Settings chung container)
+           — `#drawer-settings` đã bỏ class này (giờ dùng chung nền `#playlist-bg` với Playlist,
+           xem components/app-view-stack.js). GIỮ LẠI rule (không xoá) phòng trường hợp cần dùng
+           lại cho 1 overlay solid-đậm nào đó sau này — không gây hại gì khi không dùng tới. */
+        .drawer-glass { background: rgba(10, 10, 15, 0.35); backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px); text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+        /* Kính mờ "nét" dùng cho card modal (Sửa thông tin / Thông tin chi tiết bài hát / mọi card
+           Settings) — text-shadow bù tương phản THAY VÌ tăng opacity nền (đúng khuyến nghị "pair
+           blur with modest tint + text-shadow", không phải "tăng opacity cho an toàn" — sai lầm cũ
+           đã sửa 07/07/2026). */
+        .glass-modal { background: rgba(15, 23, 42, 0.25); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 0 0 1px rgba(255,255,255,0.06) inset, 0 8px 32px rgba(0,0,0,0.3); text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
         /* Kính mờ "Control Center" kiểu iPhone (ver 8 refine) — nhạt hơn HẲN mọi class glass khác
            trong app: gần trong suốt, chỉ làm mờ-đục (frosted) cảnh phía sau thay vì che kín bằng
            1 lớp nền đậm. Dùng riêng cho #visualizer-control-center — KHÔNG đổi .drawer-glass (vẫn
@@ -109,36 +118,44 @@ body {
         .fade-enter-active { opacity: 1; pointer-events: auto; transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
 
         /* ==================== Responsive Playlist <-> Visualizer navigation (04/07/2026, mục 4) ====================
-           MOBILE/TABLET (< 1024px, mặc định): Playlist và Visualizer là 2 "trang" cạnh nhau THEO
-           CHIỀU NGANG (khác hẳn slide dọc `-translate-y-full` cũ) — đẩy ĐỒNG THỜI khi chuyển màn,
-           giống pager 2 trang: sang Visualizer thì cả 2 cùng dịch sang PHẢI (Playlist thoát ra
-           phải, Visualizer tiến vào từ trái); về lại Playlist thì cả 2 cùng dịch sang TRÁI (đúng
-           yêu cầu "đẩy từ trái qua phải"/"kéo từ phải qua trái"). Canvas/4 nguồn nền (màu/ảnh/
-           slideshow/video) GIỮ NGUYÊN toàn màn hình, KHÔNG di chuyển/đổi kích thước gì cả — chỉ 2
-           lớp UI CHROME (`#playlist-view` đục + `#visualizer-ui`/`#player-container`) trượt qua
-           lại, canvas hiện xuyên qua NGAY khi Playlist trượt khỏi màn hình.
+           MOBILE/TABLET (< 1024px, mặc định): #side-left-container (MỚI 07/07/2026 — xem ngay
+           dưới) và Visualizer là 2 "trang" cạnh nhau THEO CHIỀU NGANG (khác hẳn slide dọc
+           `-translate-y-full` cũ) — đẩy ĐỒNG THỜI khi chuyển màn, giống pager 2 trang: sang
+           Visualizer thì cả 2 cùng dịch sang PHẢI (side-left-container thoát ra phải, Visualizer
+           tiến vào từ trái); về lại Playlist thì cả 2 cùng dịch sang TRÁI. Canvas/4 nguồn nền
+           (màu/ảnh/slideshow/video) GIỮ NGUYÊN toàn màn hình, KHÔNG di chuyển/đổi kích thước gì cả
+           — chỉ 2 lớp UI CHROME (`#side-left-container` đục + `#visualizer-ui`/`#player-container`)
+           trượt qua lại, canvas hiện xuyên qua NGAY khi side-left-container trượt khỏi màn hình.
            DESKTOP (>= 1024px): CẢ HAI hiện SONG SONG VĨNH VIỄN — huỷ hẳn mọi transform slide,
-           Playlist làm cột trái CỐ ĐỊNH 420px, Visualizer chiếm phần còn lại bên phải. Canvas/nền
-           TIẾP TỤC giữ nguyên 100vw/100vh (KHÔNG đụng buffer render Canvas/WebGL, tránh rủi ro vỡ
-           hình khi resize) — chỉ bị panel Playlist đục bên trái CHE MẤT phần bên trái, tạo cảm
-           giác "2 cột" mà không cần resize bất kỳ pipeline render nào. */
-        #playlist-view, #visualizer-ui, #player-container { transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
-        #playlist-view { transform: translateX(0); }
-        #playlist-view.playlist-hidden { transform: translateX(100%); }
+           #side-left-container làm cột trái CỐ ĐỊNH, Visualizer chiếm phần còn lại bên phải.
+           Canvas/nền TIẾP TỤC giữ nguyên 100vw/100vh (KHÔNG đụng buffer render Canvas/WebGL, tránh
+           rủi ro vỡ hình khi resize) — chỉ bị panel bên trái đục che mất phần bên trái, tạo cảm
+           giác "2 cột" mà không cần resize bất kỳ pipeline render nào.
+           VIẾT LẠI (07/07/2026, phản hồi Giang — gộp Playlist+Settings chung 1 container cuộn
+           ngang) — TRƯỚC ĐÂY khối này gắn TRỰC TIẾP vào `#playlist-view` (transform/left riêng của
+           chính nó). GIỜ tách wrapper MỚI `#side-left-container` NHẬN NGUYÊN VẸN mọi rule vị trí
+           (transform mobile/left+width desktop) THAY CHO `#playlist-view` — bên trong nó,
+           `#playlist-view`/`#drawer-settings` giờ chỉ là 2 "trang" cuộn ngang NGANG HÀNG nhau
+           (xem khối "Playlist <-> Settings (cuộn ngang)" phía dưới), KHÔNG còn tự định vị gì nữa —
+           tách bạch hoàn toàn 2 tầng điều hướng (Playlist<->Visualizer ở tầng wrapper, KHÔNG đổi
+           logic gì; Playlist<->Settings ở tầng bên trong, cuộn ngang MỚI) — không đụng độ nhau. */
+        #side-left-container, #visualizer-ui, #player-container { transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        #side-left-container { transform: translateX(0); }
+        #side-left-container.playlist-hidden { transform: translateX(100%); }
         /* Trạng thái NGHỈ mặc định — chờ SẴN ngoài màn hình bên trái (khớp lúc mới boot, chưa từng
            bấm bài nào, VÀ lúc đã quay lại Playlist). */
         #visualizer-ui, #player-container { transform: translateX(-100%); }
         #visualizer-ui.visualizer-active, #player-container.visualizer-active { transform: translateX(0); }
 
         @media (min-width: 1024px) {
-            #playlist-view, #visualizer-ui, #player-container { transition: none; }
+            #side-left-container, #visualizer-ui, #player-container { transition: none; }
             /* FIX (04/07/2026, phản hồi Giang) — 420px CỐ ĐỊNH -> `clamp(340px, 30vw, 460px)`: vẫn
                giữ tinh thần "Playlist là danh sách text/ảnh nhỏ, không cần phình to vô hạn theo
                màn hình" (khác Visualizer — canvas nên ăn hết khoảng trống dư ra), nhưng co giãn
                NHẸ theo % ở khoảng giữa thay vì 1 số cứng — màn hình vừa qua mốc 1024px (co hẹp)
                không còn bị chiếm gần nửa màn hình nữa (30vw ở 1024px ≈ 307px, kẹp lên tối thiểu
                340px; màn hình cực rộng cũng bị chặn trần ở 460px, không phình vô lý). -->
-            #playlist-view { transform: none !important; left: 0; right: auto; width: clamp(340px, 30vw, 460px); border-right: 1px solid rgba(255,255,255,0.08); }
+            #side-left-container { transform: none !important; left: 0; right: auto; width: clamp(340px, 30vw, 460px); border-right: 1px solid rgba(255,255,255,0.08); }
             #visualizer-ui, #player-container { transform: none !important; left: clamp(340px, 30vw, 460px); }
             /* Desktop KHÔNG còn khái niệm "chuyển màn" — Visualizer LUÔN hiện, bất kể state
                fade-in/hidden cũ (chỉ còn ý nghĩa trên mobile/tablet). PHẢI ép cả `display` (không
@@ -149,7 +166,26 @@ body {
             #player-container { display: flex !important; }
             #btn-back-playlist { display: none !important; }
         }
-        
+
+        /* ==================== Playlist <-> Settings (cuộn ngang, MỚI 07/07/2026) ====================
+           #side-left-container giờ là 1 khung cuộn NGANG THẬT (overflow-x, KHÔNG dùng transform/
+           `left` tự animate) — 2 "trang" con `#playlist-view`/`#drawer-settings` nằm CẠNH NHAU
+           (flex, mỗi trang rộng đúng 100% container), chuyển qua lại bằng `scrollTo({left, behavior:
+           'smooth'})` (xem core/player-controls.js::openSettingsDrawer()/closeSettingsDrawer()) —
+           trình duyệt tự lo easing/animation, không cần tự tay viết transition cho việc này.
+           `scroll-snap` đảm bảo LUÔN dừng đúng khớp 1 trong 2 trang, không bao giờ dừng nửa vời dù
+           người dùng tự vuốt tay (bonus so với chỉ gọi scrollTo() bằng code — vuốt tay cũng chuẩn
+           khớp trang). Nền chung `#playlist-bg` giờ `position: fixed` NGOÀI khung cuộn (không phải
+           con của nó) — để cuộn ngang KHÔNG kéo nền theo, ảnh nền đứng yên xuyên suốt lúc chuyển
+           trang, đúng cảm giác "1 tấm ảnh nền chung cho cả 2". */
+        #side-left-container { display: flex; overflow-x: hidden; overflow-y: hidden; scroll-behavior: smooth; scroll-snap-type: x mandatory; }
+        /* `overflow-x: hidden` (KHÔNG phải `auto`) — CỐ Ý: chặn người dùng tự vuốt/cuộn tay giữa
+           Playlist/Settings (chỉ chuyển qua nút bấm tường minh, đúng pattern điều hướng có kiểm
+           soát của app này) — `scrollTo()`/`scrollLeft` bằng JS VẪN hoạt động bình thường dù
+           `overflow: hidden` (kỹ thuật carousel phổ biến: ẩn thanh cuộn + chặn cuộn tay, chỉ cuộn
+           bằng code). */
+        #playlist-view, #drawer-settings { width: 100%; height: 100%; flex-shrink: 0; scroll-snap-align: start; overflow-y: auto; position: relative; }
+
         .sub-text-glow { text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.5); }
 
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
