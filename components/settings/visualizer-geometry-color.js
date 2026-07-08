@@ -38,6 +38,12 @@
  * NGAY DƯỚI toggle "Hiện Visual" (vị trí CHỐT ở plan-v12-multimedia-update-3.md mục 3), mở
  * Slideshow Settings Drawer riêng (components/slideshow-settings-drawer.js, cụm router
  * "slideshowSettings" — event/listener,router/slideshow.js).
+ *
+ * MỚI (07/07/2026, phản hồi Giang mục 3) — "Video nền"/"Ảnh nền Visual" DỜI VÀO ĐÂY từ section
+ * "Background" cũ (nay đã thành "Theme", xem components/settings/theme.js) — cùng nhóm "hiển thị
+ * Visualizer" với "Hiện Visual". "Video nền" BỎ màu xanh đặc biệt (border-sky-500/30 bg-sky-
+ * 900/20) — dùng NGUYÊN style chung như mọi hàng khác (phản hồi Giang: "khác với các setting
+ * khác"). id/JS xử lý (event/workflow/visualizer-control-center.js) GIỮ NGUYÊN, không đổi gì.
  */
 const TPL_SETTINGS_VISUALIZER = `
 
@@ -69,6 +75,46 @@ const TPL_SETTINGS_VISUALIZER = `
                         <input type="checkbox" id="setting-visual-enable" class="sr-only peer" checked>
                         <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                     </label>
+                </div>
+                <!-- DỜI VÀO ĐÂY (07/07/2026, phản hồi Giang mục 3 — "chuyển vào section visualizer")
+                     từ section "Background" cũ (nay đã thành Theme, xem components/settings/
+                     theme.js) — cùng nhóm "hiển thị Visualizer" với "Hiện Visual" ngay trên. BỎ màu
+                     xanh đặc biệt (border-sky-500/30 bg-sky-900/20 text-sky-300) khỏi "Video nền" —
+                     đúng phản hồi Giang "khác với các setting khác", giờ dùng NGUYÊN style chung
+                     như mọi hàng khác trong app. FIX (04/07/2026, mục 1 phản hồi Giang) — bỏ hẳn
+                     nút "Choose" riêng: gạt toggle lên "On" giờ TỰ mở hộp thoại chọn file video
+                     LUÔN (input ẩn, kích hoạt qua JS — xem event/workflow/visualizer-control-
+                     center.js::enableVideoBackgroundToggle). Huỷ hộp thoại không chọn gì -> tự trả
+                     toggle về "off" (sự kiện 'cancel', xem event/listener/visualizer-control-
+                     center.js). Tắt toggle chỉ ẩn hiển thị, KHÔNG xoá video đã lưu — gạt lại "On"
+                     mở lại hộp thoại chọn file MỚI. -->
+                <div class="flex flex-col border-b border-white/5">
+                    <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
+                        <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.videoEnable.label">${t('settingsPlaylistBg.videoEnable.label')}</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="setting-video-enable" class="sr-only peer">
+                            <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                        </label>
+                    </div>
+                    <div class="px-4 pb-4 -mt-2">
+                        <div class="text-xs text-slate-400" data-i18n="settingsPlaylistBg.videoEnable.hint">${t('settingsPlaylistBg.videoEnable.hint')}</div>
+                    </div>
+                    <input type="file" id="setting-video-upload" accept=".mp4,.webm,.ogv,.mov,video/mp4,video/webm,video/ogg,video/quicktime" class="hidden">
+                </div>
+                <!-- DỜI VÀO ĐÂY (07/07/2026, mục 3) — Ảnh nền tĩnh cho màn Visualizer (KHÁC HẲN
+                     Ảnh nền Playlist/App ở section Theme — 2 field/2 cơ chế riêng biệt, xem
+                     readme/song-cover-background-relations.md). -->
+                <div class="flex flex-col border-b border-white/5">
+                    <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
+                        <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.visualBgImage.label">${t('settingsPlaylistBg.visualBgImage.label')}</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="setting-visual-bg-image-enable" class="sr-only peer">
+                            <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                        </label>
+                    </div>
+                    <div class="px-4 pb-4 -mt-2">
+                        <div class="text-xs text-slate-400" data-i18n="settingsPlaylistBg.visualBgImage.hint">${t('settingsPlaylistBg.visualBgImage.hint')}</div>
+                    </div>
                 </div>
                 <button id="setting-open-visualizer-settings" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
                     <div class="flex items-center gap-3 min-w-0">

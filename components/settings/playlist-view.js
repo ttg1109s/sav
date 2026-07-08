@@ -5,8 +5,10 @@
  * cũ "Hệ thống & Playlist" (components/settings/playlist-background.js) gộp lẫn 2 chủ đề KHÔNG
  * liên quan — "Kiểu xem"/"Sắp xếp" (cách hiển thị DANH SÁCH) và "Video/Ảnh nền" (chủ đề NỀN). Tách
  * làm 2 file riêng cho đúng tinh thần "1 section = 1 chủ đề": file NÀY chỉ còn 2 dòng
- * view/sort mode — phần Nền dời sang components/settings/playlist-background.js (ĐỔI biến xuất ra
- * thành `TPL_SETTINGS_BACKGROUND`, xem file đó).
+ * view/sort mode — phần "Video nền"/"Ảnh nền Visual" đã dời tiếp sang components/settings/
+ * visualizer-geometry-color.js (mục 3, 07/07/2026); "Ảnh nền App"/"Độ mờ" đã gộp vào section
+ * "Theme" (components/settings/theme.js, mục 3, MỞ ĐẦU THEME THẬT) — components/settings/
+ * playlist-background.js (TPL_SETTINGS_BACKGROUND) KHÔNG còn mount, để lại làm tư liệu.
  *
  * Đặt Ở ĐẦU danh sách section (xem components/settings-drawer.js) — "Kiểu xem"/"Sắp xếp" là thao
  * tác dùng THƯỜNG XUYÊN NHẤT khi duyệt thư viện nhạc hàng ngày (theo nguyên tắc "mục dùng thường
