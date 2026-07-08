@@ -13,10 +13,9 @@
  *
  * NẠP SAU: core/player-controls.js (toggleShuffle, scrollSideLeftToSettingsSmooth/
  * scrollSideLeftToPlaylistSmooth/jumpSideLeftScrollToSettings/revealSideLeftContainer/
- * hideSideLeftContainer/resetSideLeftScrollToPlaylist/validateVideoBgOnClose — VIẾT LẠI
- * 08/07/2026, HOTFIX 8), core/playlist/order.js (updateShuffleArrayFromQueue),
- * core/settings-panel-stack.js (resetSettingsStackToMain), event/virtual-machine-state.js
- * (VirtualMachineState).
+ * validateVideoBgOnClose/switchToVisualizer — VIẾT LẠI 08/07/2026, HOTFIX 8+9), core/playlist/
+ * order.js (updateShuffleArrayFromQueue), core/settings-panel-stack.js (resetSettingsStackToMain),
+ * event/virtual-machine-state.js (VirtualMachineState).
  * NẠP TRƯỚC: event/router/player-controls.js.
  */
 const workflowPlayerControls = {
@@ -78,24 +77,34 @@ const workflowPlayerControls = {
     },
 
     /**
-     * Ứng với 'playerControls.settingsDrawer.close', NHÁNH "đang ở Visualizer" — NGƯỢC LẠI đúng
-     * quy trình của `openSettingsDrawerFromVisualizer()`:
+     * Ứng với 'playerControls.settingsDrawer.close', NHÁNH "đang ở Visualizer".
+     *
+     * VIẾT LẠI (08/07/2026, HOTFIX 9, Giang chỉ ra bản HOTFIX 8 tự vẽ thêm việc) — KHÔNG viết hàm
+     * "hide + trả boolean" mới nữa. Tái dùng THẲNG 2 core CÓ SẴN, dùng cho đúng mục đích gốc của
+     * chúng:
      *   1. `validateVideoBgOnClose()` + `resetSettingsStackToMain()` (core, như nhánh Playlist).
-     *   2. `hideSideLeftContainer()` (core) — thêm lại `playlist-hidden`, trượt CẢ KHỐI ra (về
-     *      Visualizer) — TRẢ VỀ boolean.
-     *   3. CHỈ KHI bước 2 trả `true` -> xếp lịch qua `taskManager` (Rule 3: taskManager CHỈ được
-     *      dùng ở Workflow) đợi ĐÚNG thời lượng animation transform (500ms, khớp 0.5s ở assets/css/
-     *      style.css) rồi mới gọi `resetSideLeftScrollToPlaylist()` (core) — an toàn vì lúc này
-     *      container đã trượt ra ngoài màn hình hẳn, không ai nhìn thấy bước nhảy cuộn.
+     *   2. `scrollSideLeftToPlaylistSmooth()` (core CÓ SẴN — chính hàm nhánh "đang ở Playlist" của
+     *      msg.type này cũng dùng) — cuộn MƯỢT `#side-left-container` (lúc này vẫn đang HIỂN THỊ)
+     *      về lại trang Playlist. Người dùng sẽ thấy Playlist thoáng qua đúng 1 nhịp trước khi cả
+     *      khối trượt ra — CHỦ Ý, không phải bug, để bước 3 dưới đây luôn xuất phát từ đúng trạng
+     *      thái "Playlist đang hiện" mà nó vốn được viết ra để xử lý.
+     *   3. Đợi cuộn mượt chạy xong (native `scrollTo({behavior:'smooth'})` không có CSS duration cố
+     *      định để canh chính xác như animation transform 0.5s — 400ms là ước lượng đủ an toàn cho
+     *      quãng cuộn 1 màn hình, có thể chỉnh nếu đo thực tế lệch nhiều) rồi gọi
+     *      `switchToVisualizer()` (core CÓ SẴN, dùng khi bấm bài hát ở core/playlist/actions.js) —
+     *      TÁI DÙNG NGUYÊN VẸN, không bóc tách gì thêm. Hàm này tiện thể set lại
+     *      `isVisualizerActive = true` — VÔ HẠI TUYỆT ĐỐI ở đây vì giá trị ĐÃ LÀ `true` từ trước
+     *      (đúng điều kiện để nhánh này được chọn) — và tiện thể re-add `visualizer-active`/gỡ
+     *      `hidden` trên visualizerUI/playerContainer — CŨNG VÔ HẠI vì suốt lúc Settings che lên,
+     *      Visualizer chưa từng bị gỡ 2 class đó (canvas vẫn chạy ngầm nguyên vẹn) — mọi thao tác
+     *      classList ở đây đều là ghi đè ĐÚNG giá trị đã có, không phải trạng thái mới.
      */
     closeSettingsDrawerToVisualizer() {
         validateVideoBgOnClose(); // core
         resetSettingsStackToMain(); // core
-        const hidden = hideSideLeftContainer(); // core — trả boolean
-        if (hidden) {
-            taskManager.once(() => {
-                resetSideLeftScrollToPlaylist(); // core — gọi SAU khi animation transform chạy xong hẳn
-            }, 500, 'resetSideLeftScrollAfterSettingsToVisualizer');
-        }
+        scrollSideLeftToPlaylistSmooth(); // core CÓ SẴN — tái dùng, KHÔNG viết core "hide" riêng
+        taskManager.once(() => {
+            switchToVisualizer(); // core CÓ SẴN — tái dùng NGUYÊN VẸN, trượt cả khối ra + về Visualizer
+        }, 400, 'switchToVisualizerAfterSettingsScrollBack');
     },
 };
