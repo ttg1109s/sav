@@ -44,13 +44,27 @@
     // mount tĩnh, cùng lý do TPL_ABOUT_DRAWER/TPL_SUBTITLE_SETTINGS_DRAWER ở D1/D2: nội dung giờ
     // là 1 HÀM (components/visualizer-settings-drawer.js::renderVisualizerPanelBody()), PUSH ĐỘNG
     // vào ngăn xếp — xem event/workflow/visualizer-display.js::openPanel().
+    // HOTFIX 6 (08/07/2026, bug do Giang báo qua ảnh lỗi thật — "TypeError: null is not an object
+    // (evaluating 'sideLeftContainer.classList')" lúc bấm Play): components/app-view-stack.js định
+    // nghĩa TPL_APP_VIEW_STACK_OPEN/_CLOSE (khung #side-left-container bọc chung Playlist+Settings,
+    // xem docstring đầu file đó) NHƯNG danh sách mount dưới đây CHƯA BAO GIỜ được cập nhật để thực
+    // sự chèn 2 biến này — #side-left-container do đó KHÔNG TỒN TẠI trong DOM, mọi nơi gọi
+    // sideLeftContainer.classList (core/player-controls.js, core/visualizer/visualizer-display.js)
+    // ném ReferenceError/TypeError ngay khi được gọi. SỬA: bọc TPL_APP_VIEW_STACK_OPEN/_CLOSE quanh
+    // ĐÚNG 2 trang cạnh nhau bên trong nó — TPL_PLAYLIST_VIEW rồi TPL_SETTINGS_DRAWER, KHÔNG có gì
+    // chen giữa 2 template này (đúng yêu cầu "2 trang cạnh nhau cuộn qua lại" trong 1 flex container)
+    // — dời TPL_SETTINGS_DRAWER từ vị trí cũ (sau TPL_BOTTOM_PLAYER) lên ngay sau TPL_PLAYLIST_VIEW.
+    // Vị trí TPL_APP_VIEW_STACK_OPEN/_CLOSE trong chuỗi tổng không quan trọng cho stacking (container
+    // là `fixed` + `z-[60]` tự quyết định lớp hiển thị, không phụ thuộc thứ tự DOM).
     appRoot.innerHTML =
         TPL_LOADING_SHIELD +
+        TPL_APP_VIEW_STACK_OPEN +
         TPL_PLAYLIST_VIEW +
+        TPL_SETTINGS_DRAWER +
+        TPL_APP_VIEW_STACK_CLOSE +
         TPL_VISUALIZER_OVERLAY +
         TPL_SUBTITLE_MODAL +
         TPL_BOTTOM_PLAYER +
-        TPL_SETTINGS_DRAWER +
         // Batch D5 (Settings restructure, 06/07/2026) — TPL_FILE_MANAGER_SONG_DRAWER/
         // _FOLDER_DETAIL_DRAWER ĐÃ BỎ khỏi mount tĩnh: nội dung giờ là 2 HÀM
         // (components/file-manager.js::renderFileManagerSongPanelBody()/
