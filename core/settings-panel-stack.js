@@ -70,11 +70,11 @@ function _buildPanelInnerHtml(title, bodyHtml, fullBleed) {
         : 'flex-grow overflow-y-auto px-4 py-4 sm:px-8 pb-20';
     const bodyInner = fullBleed ? bodyHtml : `<div class="max-w-2xl mx-auto space-y-5">${bodyHtml}</div>`;
     return `
-        <div class="relative flex items-center justify-center px-14 py-3 sm:px-16 h-14 shrink-0 glass-modal">
+        <div class="relative flex items-center justify-center px-14 py-3 sm:px-16 h-14 shrink-0">
             <button class="settings-panel-back-btn absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0" aria-label="Back">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
             </button>
-            <h2 class="text-base sm:text-lg font-bold tracking-wider text-white uppercase truncate text-center">${title}</h2>
+            <h2 class="text-base sm:text-lg font-semibold text-white truncate text-center">${title}</h2>
         </div>
         <div class="${bodyWrapperClass}">${bodyInner}</div>
     `;
