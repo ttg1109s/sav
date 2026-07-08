@@ -33,8 +33,20 @@
  */
 const TPL_APP_VIEW_STACK_OPEN = `
     <div id="side-left-container" class="fixed inset-0 z-[60] bg-black">
-        <div id="playlist-bg" class="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none transition-all duration-300" style="filter: blur(0px); transform: scale(1.1);"></div>
-        <div class="absolute inset-0 bg-black/40 pointer-events-none"></div>
+        <!-- HOTFIX 14 (08/07/2026, Giang chỉ đúng hướng) — 'position: absolute' (bản cũ) ĐỔI
+             thành 'fixed': '#side-left-container' (cha) là khung CUỘN NGANG thật (overflow-x) giữa
+             Playlist/Settings — 1 phần tử con 'absolute' vẫn nằm TRONG vùng nội dung cuộn của cha
+             (dù containing block tính theo padding box của cha), nên bị kéo lệch theo đúng
+             scrollLeft mỗi lần cuộn sang Settings, để lộ khoảng trống không ảnh — đúng lỗi Giang
+             báo ("ảnh nền lỗi khi cuộn sang Settings"). '#side-left-container' đã có sẵn
+             'transform' (dùng cho toggle .playlist-hidden, xem assets/css/style.css) — 1 phần tử
+             có 'transform' TỰ trở thành containing block cho hậu duệ 'position: fixed', nên
+             'fixed inset-0' ở đây vẫn phủ đúng khung '#side-left-container' (không nhảy ra full
+             viewport thật) — NHƯNG khác 'absolute', phần tử 'fixed' KHÔNG bị cuộn NỘI BỘ
+             (scrollLeft) của cha kéo theo — đứng yên xuyên suốt lúc chuyển trang, đúng ý "1 ảnh
+             nền dùng chung cho cả Playlist lẫn Settings". -->
+        <div id="playlist-bg" class="fixed inset-0 bg-cover bg-center bg-no-repeat pointer-events-none transition-all duration-300" style="filter: blur(0px); transform: scale(1.1);"></div>
+        <div class="fixed inset-0 bg-black/40 pointer-events-none"></div>
 `;
 
 const TPL_APP_VIEW_STACK_CLOSE = `
