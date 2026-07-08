@@ -112,6 +112,7 @@
                 renderPlaylistFull();
                 saveConfig();
                 if (typeof forceBackToPlaylistUI === 'function') forceBackToPlaylistUI();
+                if (typeof setVisualizerActiveFalse === 'function') setVisualizerActiveFalse(); // MỚI (08/07/2026, HOTFIX 10) — forceBackToPlaylistUI() không còn tự set nữa
 
                 await delMeta('clearingInProgress'); // chỉ xoá cờ SAU KHI mọi bước trên đã xong hoàn toàn
             } finally {
