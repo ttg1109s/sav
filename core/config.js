@@ -177,7 +177,12 @@
                 }
             });
 
-            bgImageEnableToggle.checked = appState.get('vizConfig').bgImageEnabled;
+            // (07/07/2026 — HOTFIX 4: dòng `bgImageEnableToggle.checked = ...` ĐÃ XOÁ — checkbox
+            // "App background image" cũ không còn tồn tại trong DOM (thay bằng 3 card Theme), tham
+            // chiếu thẳng biến CHƯA TỪNG KHAI BÁO ném `ReferenceError` NGAY LẬP TỨC, chặn đứng toàn
+            // bộ phần còn lại của loadConfig() — CÙNG PATTERN đã xảy ra với 9 dòng Visualizer Settings
+            // (xem HOTFIX ngay dưới). UI Theme (3 card) đã được đồng bộ riêng bởi
+            // `workflowTheme.refreshThemeCardUI()` gọi ở cuối loadConfig() — không cần thay thế gì.
             videoEnableToggle.checked = appState.get('vizConfig').videoBgEnabled;
         }
 
