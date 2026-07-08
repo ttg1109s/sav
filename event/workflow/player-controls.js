@@ -11,10 +11,12 @@
  * Workflow (event-bus-flow.md mục 4B), không còn "gọi thẳng core" 1 bước như 16 msg.type còn lại
  * của cụm này.
  *
- * NẠP SAU: core/player-controls.js (toggleShuffle, openSettingsDrawer/openSettingsDrawerInstant/
- * closeSettingsDrawer/closeSettingsDrawerToVisualizer/resetSideLeftScrollPosition — MỚI
- * 07/07/2026), core/playlist/order.js (updateShuffleArrayFromQueue), core/settings-panel-stack.js
- * (resetSettingsStackToMain), event/virtual-machine-state.js (VirtualMachineState).
+ * NẠP SAU: core/player-controls.js (toggleShuffle, scrollSideLeftToSettingsSmooth/
+ * scrollSideLeftToPlaylistSmooth/jumpSideLeftScrollToSettings/revealSideLeftContainer/
+ * hideSideLeftContainer/resetSideLeftScrollToPlaylist/validateVideoBgOnClose — VIẾT LẠI
+ * 08/07/2026, HOTFIX 8), core/playlist/order.js (updateShuffleArrayFromQueue),
+ * core/settings-panel-stack.js (resetSettingsStackToMain), event/virtual-machine-state.js
+ * (VirtualMachineState).
  * NẠP TRƯỚC: event/router/player-controls.js.
  */
 const workflowPlayerControls = {
@@ -37,52 +39,63 @@ const workflowPlayerControls = {
     },
 
     /**
-     * Ứng với 'playerControls.settingsDrawer.open' (nút mở Settings, cả 2 nguồn: #btn-settings ở
-     * Visualizer / #btn-settings-playlist ở Playlist) — THÊM ở batch 07/07/2026 (phản hồi Giang
-     * mục 1 — "Sử dụng vmstate để phân nhánh trong workflow"): TRƯỚC ĐÂY router gọi thẳng
-     * `openSettingsDrawer()` (core, 1 hàm). Giờ CẦN rẽ nhánh theo `appState.get('isVisualizerActive')`
-     * — đang ở Playlist thì cuộn mượt bình thường; đang ở Visualizer thì phải nhảy thẳng (không
-     * animation, vì `#side-left-container` đang ẩn ngoài màn hình) RỒI MỚI trượt cả khối vào (2
-     * bước nối tiếp, phụ thuộc thứ tự — đúng hình dạng Workflow, không còn "gọi thẳng core" nữa).
-     * Dùng VirtualMachineState (KHÔNG if/else trần) vì 2 nhánh LOẠI TRỪ NHAU dựa trên 1 giá trị
-     * appState — đúng khuôn mọi router/workflow khác trong app đã dùng.
+     * Ứng với 'playerControls.settingsDrawer.open', NHÁNH "đang ở Visualizer" — Router (event/
+     * router/player-controls.js) đã tự đọc `appState.get('isVisualizerActive')` MỘT LẦN và chỉ gọi
+     * method này khi giá trị đó `=== true` (nhánh "đang ở Playlist" Router gọi THẲNG core
+     * `scrollSideLeftToSettingsSmooth()`, không qua Workflow — chỉ 1 hàm, không có bước 2 phụ
+     * thuộc).
+     *
+     * VIẾT LẠI HOÀN TOÀN (08/07/2026, HOTFIX 8, theo đúng quy trình Giang chốt) — 2 BƯỚC NỐI TIẾP,
+     * PHỤ THUỘC THỨ TỰ THẬT (bước 2 chỉ chạy nếu bước 1 xác nhận xong bằng giá trị trả về, không
+     * phải core tự gọi core):
+     *   1. `jumpSideLeftScrollToSettings()` (core) — nhảy cuộn nội bộ sang Settings NGAY (không
+     *      animation, vì `#side-left-container` đang ẩn ngoài màn hình, không ai nhìn thấy) — TRẢ
+     *      VỀ boolean.
+     *   2. CHỈ KHI bước 1 trả `true` -> `revealSideLeftContainer()` (core) — gỡ `playlist-hidden`,
+     *      trượt CẢ KHỐI vào lại (animation transform có sẵn) — lúc này bên trong đã sẵn Settings.
+     * `isVisualizerActive` GIỮ NGUYÊN `true` suốt quá trình này (KHÔNG đổi ở đây) — chỉ đổi `false`
+     * khi thật sự rời Visualizer hẳn qua nút Back riêng (core/player-controls.js::
+     * forceBackToPlaylistUI(), không liên quan gì tới Settings).
      */
-    openSettingsDrawer() {
-        VirtualMachineState.run([
-            { state: appState.get('isVisualizerActive'), operation: '===', value: true, callback: () => {
-                openSettingsDrawerInstant(); // core — nhảy thẳng + trượt cả khối vào
-            } },
-            { state: appState.get('isVisualizerActive'), operation: '===', value: false, callback: () => {
-                openSettingsDrawer(); // core cùng tên, gọi trần phân giải theo scope từ vựng (xem lưu ý đặt tên đầu file)
-            } },
-        ]);
+    openSettingsDrawerFromVisualizer() {
+        const jumped = jumpSideLeftScrollToSettings(); // core — trả boolean
+        if (jumped) {
+            revealSideLeftContainer(); // core — CHỈ chạy khi bước 1 xác nhận xong
+        }
     },
 
     /**
-     * Ứng với 'playerControls.settingsDrawer.close' (nút X, id="close-drawer") — THÊM ở Batch D1
-     * (Settings restructure, phản hồi Giang 06/07/2026): TRƯỚC ĐÂY chỉ 1 hàm core
-     * (closeSettingsDrawer()) nên router gọi thẳng, KHÔNG cần workflow. Từ Batch D1, cần thêm
-     * resetSettingsStackToMain() (core/settings-panel-stack.js) để ngăn xếp panel con LUÔN về Main
-     * trước khi khung ngoài ẩn — 2 hàm core nối tiếp, không phụ thuộc giá trị trả về của nhau ->
-     * đúng hình dạng Workflow (event-bus-flow.md mục 4B), không còn "gọi thẳng core" 1 bước nữa.
-     * VIẾT LẠI (06/07/2026, slider thật) — `resetSettingsStackToMain()` không còn cần tham số
-     * title (header đã nằm sẵn trong chính panel Main, không cần "khôi phục" gì cả).
-     *
-     * VIẾT LẠI TIẾP (07/07/2026, phản hồi Giang mục 1) — rẽ nhánh theo `isVisualizerActive` GIỐNG
-     * `openSettingsDrawer()` ở trên: đang ở Visualizer thì trượt cả khối `#side-left-container` ra
-     * lại (về Visualizer) RỒI MỚI reset cuộn nội bộ về Playlist SAU KHI animation transform chạy
-     * xong hẳn (taskManager — Rule 3 CHỈ Workflow được dùng, core không tự chờ được).
+     * Ứng với 'playerControls.settingsDrawer.close', NHÁNH "đang ở Playlist" — `#side-left-
+     * container` vẫn đang HIỂN THỊ SẴN suốt lúc đóng (không cần trượt cả khối ra/vào, chỉ cuộn nội
+     * bộ về lại trang Playlist). 3 hàm core side-effect nối tiếp (validate video nền + reset ngăn
+     * xếp panel con + cuộn về Playlist) — dù không phụ thuộc DỮ LIỆU lẫn nhau, vẫn đúng hình dạng
+     * Workflow theo event-bus-flow.md mục 4B ("≥2 lời gọi side-effect nối tiếp... LUÔN Workflow").
      */
-    closeSettingsDrawerAndResetStack() {
-        resetSettingsStackToMain();
-        VirtualMachineState.run([
-            { state: appState.get('isVisualizerActive'), operation: '===', value: true, callback: () => {
-                closeSettingsDrawerToVisualizer(); // core — trượt cả khối ra lại (về Visualizer)
-                taskManager.once(() => { resetSideLeftScrollPosition(); }, 500, 'resetSideLeftScrollAfterSettingsToVisualizer'); // core, gọi SAU khi animation transform (0.5s, assets/css/style.css) chạy xong hẳn
-            } },
-            { state: appState.get('isVisualizerActive'), operation: '===', value: false, callback: () => {
-                closeSettingsDrawer(); // core cùng tên, gọi trần phân giải theo scope từ vựng
-            } },
-        ]);
+    closeSettingsDrawerToPlaylist() {
+        validateVideoBgOnClose(); // core
+        resetSettingsStackToMain(); // core
+        scrollSideLeftToPlaylistSmooth(); // core
+    },
+
+    /**
+     * Ứng với 'playerControls.settingsDrawer.close', NHÁNH "đang ở Visualizer" — NGƯỢC LẠI đúng
+     * quy trình của `openSettingsDrawerFromVisualizer()`:
+     *   1. `validateVideoBgOnClose()` + `resetSettingsStackToMain()` (core, như nhánh Playlist).
+     *   2. `hideSideLeftContainer()` (core) — thêm lại `playlist-hidden`, trượt CẢ KHỐI ra (về
+     *      Visualizer) — TRẢ VỀ boolean.
+     *   3. CHỈ KHI bước 2 trả `true` -> xếp lịch qua `taskManager` (Rule 3: taskManager CHỈ được
+     *      dùng ở Workflow) đợi ĐÚNG thời lượng animation transform (500ms, khớp 0.5s ở assets/css/
+     *      style.css) rồi mới gọi `resetSideLeftScrollToPlaylist()` (core) — an toàn vì lúc này
+     *      container đã trượt ra ngoài màn hình hẳn, không ai nhìn thấy bước nhảy cuộn.
+     */
+    closeSettingsDrawerToVisualizer() {
+        validateVideoBgOnClose(); // core
+        resetSettingsStackToMain(); // core
+        const hidden = hideSideLeftContainer(); // core — trả boolean
+        if (hidden) {
+            taskManager.once(() => {
+                resetSideLeftScrollToPlaylist(); // core — gọi SAU khi animation transform chạy xong hẳn
+            }, 500, 'resetSideLeftScrollAfterSettingsToVisualizer');
+        }
     },
 };
