@@ -334,14 +334,14 @@
 
                 // ── app/ui misc ─────────────────────────────────────────────────
                 isGridView: false,
-                // MỚI (07/07/2026, phản hồi Giang mục 1 — mở/đóng Settings đúng theo màn hiện tại)
-                // — true = đang ở màn Visualizer (không phải Playlist) lúc này. Set ở
-                // core/player-controls.js::switchToVisualizer()/forceBackToPlaylistUI() — đọc qua
-                // VirtualMachineState ở event/workflow/player-controls.js để biết mở/đóng Settings
-                // kiểu nào (cuộn mượt nếu đang ở Playlist, nhảy thẳng + trượt cả khối nếu đang ở
-                // Visualizer — xem docstring workflowPlayerControls.openSettingsDrawerFromVisualizer()
-                // + core/player-controls.js::scrollSideLeftToSettingsSmooth() cho nhánh Playlist,
-                // VIẾT LẠI 08/07/2026 HOTFIX 8).
+                // MỚI (07/07/2026) — true = đang ở màn Visualizer (không phải Playlist) lúc này.
+                // Set ở core/player-controls.js::switchToVisualizer() (true)/
+                // forceBackToPlaylistUI()+setVisualizerActiveFalse() (false, HOTFIX 10 —
+                // forceBackToPlaylistUI() tự nó không còn set field này nữa, nơi gọi phải tự thêm
+                // setVisualizerActiveFalse()). Từng còn được Settings đọc để quyết định mở/đóng
+                // kiểu nào (cuộn mượt hay nhảy thẳng + trượt cả khối) — HOTFIX 11 (08/07/2026) bỏ
+                // hẳn nhánh đó (xem event/router/player-controls.js), field này giờ CHỈ còn phục
+                // vụ đúng mục đích gốc: theo dõi đang ở màn nào.
                 isVisualizerActive: false,
                 isStatsPanelVisible: true,
                 savLogoExpanded: false,
