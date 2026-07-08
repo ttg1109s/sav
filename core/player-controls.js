@@ -289,16 +289,23 @@
             // SỬA (07/07/2026, batch gộp container) — class dời sang `#side-left-container` (xem
             // components/app-view-stack.js), KHÔNG còn trên `#playlist-view` nữa.
             sideLeftContainer.classList.add('playlist-hidden');
-            // HOTFIX 8 (08/07/2026, dọn lại theo đúng Rule 3 — Giang chỉ ra bản vá trước
-            // (HOTFIX 7) tự vi phạm "core gọi core" bằng resetSettingsStackToMain() ở đây. Việc
-            // dọn ngăn xếp Settings giờ là trách nhiệm DUY NHẤT của
-            // workflowPlayerControls.closeSettingsDrawer() (event/workflow/player-controls.js,
-            // đổi tên ở HOTFIX 11 khi bỏ nhánh Visualizer) — hàm NÀY không gọi core nào khác nữa,
-            // chỉ còn 1 dòng ghi thuộc tính DOM thuần (KHÔNG tính là "gọi core", giống các dòng
-            // classList ngay trên) — giữ lại vì rẻ và vô hại, đảm bảo lần vào Visualizer kế tiếp
-            // luôn thấy cuộn nội bộ ở vị trí Playlist dù đường nào đó (vd clearAllStoredData(),
-            // legacy, ngoài phạm vi batch này) từng bỏ sót việc reset.
-            sideLeftContainer.scrollLeft = 0;
+            // HOTFIX 12 (08/07/2026, Giang truy đúng gốc) — ĐÃ XOÁ dòng `sideLeftContainer.
+            // scrollLeft = 0;` từng nằm ở đây (thêm HOTFIX 7/8, tưởng "phòng thủ rẻ, vô hại" —
+            // SAI). `#side-left-container` có CSS `scroll-behavior: smooth` (assets/css/
+            // style.css) — theo đúng đặc tả CSSOM View, gán TRỰC TIẾP `.scrollLeft = x` dùng
+            // "auto" behavior, và "auto" LUÔN phân giải theo `scroll-behavior` tính toán của phần
+            // tử: đã khai `smooth` thì gán thẳng `scrollLeft` KHÔNG hề nhảy tức thời như tưởng —
+            // nó tự ANIMATE, chạy CÙNG LÚC với transition `transform` 0.5s (do vừa thêm class
+            // `playlist-hidden` ngay trên) trên CHÍNH 1 phần tử — 2 animation khác cơ chế
+            // (transform-transition CSS thuần vs scroll smooth-animation) chồng lên nhau, đúng
+            // nguồn gây hiện tượng "giật đi giật lại" Giang báo, dù bug chỉ LỘ RA muộn hơn (lúc
+            // quay lại Playlist rồi mở Settings) vì đó là lần đầu người dùng THẤY lại
+            // #side-left-container sau khi trạng thái cuộn nội bộ của nó bị animation này làm
+            // lệch. Dòng đó cũng CHƯA BAO GIỜ thật sự cần: cả 3 nơi gọi switchToVisualizer()
+            // (tap bài hát trong Playlist, core/playlist/actions.js x2; nút "Quay lại Visualizer"
+            // #btn-return-visual, core/state-and-video-bg.js::returnToVisualizer()) ĐỀU chỉ có
+            // thể bấm được lúc trang Playlist đang hiện — tức `scrollLeft` LUÔN đã ≈0 sẵn từ
+            // trước, gán lại 0 chưa từng có tác dụng thật, chỉ có tác dụng PHỤ (bug) như trên.
             appState.set('isVisualizerActive', true); // MỚI (07/07/2026, phản hồi Giang mục 1)
             visualizerUI.classList.remove('hidden'); playerContainer.classList.remove('hidden');
             visualizerUI.classList.add('visualizer-active'); playerContainer.classList.add('visualizer-active');
