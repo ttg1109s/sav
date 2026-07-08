@@ -100,7 +100,11 @@
                 if(!appState.get('tInitialized')) initThreeJS();
                 updateVortexVisibility();
                 // FIX (04/07/2026, mục 4) — 'playlist-hidden' THAY '-translate-y-full' (dọc -> ngang).
-                if (!playlistView.classList.contains('playlist-hidden')) {} else { document.getElementById('webgl-canvas').classList.remove('opacity-0'); }
+                // SỬA (07/07/2026, batch gộp container) — class `playlist-hidden` đã DỜI từ
+                // `#playlist-view` sang `#side-left-container` (xem components/app-view-stack.js) —
+                // kiểm tra SAI phần tử ở đây sẽ luôn trả về false (playlistView không còn bao giờ
+                // mang class này nữa), làm webgl-canvas không bao giờ hiện lại đúng lúc.
+                if (!sideLeftContainer.classList.contains('playlist-hidden')) {} else { document.getElementById('webgl-canvas').classList.remove('opacity-0'); }
             } else { document.getElementById('webgl-canvas').classList.add('opacity-0'); }
 
             // HOTFIX 2 — truy vấn TƯƠI, KHÔNG dựa vào biến toàn cục (xem docstring hàm ngay trên).
@@ -199,7 +203,9 @@
                 cfg.bgImage = URL.createObjectURL(file);
                 cfg.bgImageEnabled = true;
             });
-            bgImageEnableToggle.checked = true;
+            // (07/07/2026: dòng `bgImageEnableToggle.checked = true` ĐÃ XOÁ — checkbox không còn
+            // tồn tại, thay bằng 3 card Theme — event/workflow/theme.js tự vẽ lại UI card sau khi
+            // gọi hàm này, xem selectThemeMode().)
         }
 
         /**
