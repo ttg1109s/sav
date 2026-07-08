@@ -121,7 +121,9 @@
             // FIX (04/07/2026, mục 4) — 'playlist-hidden' THAY '-translate-y-full' (dọc -> ngang) +
             // gỡ NGAY 'visualizer-active' khỏi CẢ 2 (visualizerUI/playerContainer) CÙNG LÚC với
             // Playlist hiện lại — đúng yêu cầu "đẩy đồng thời cả hai", không chờ callback trễ.
-            playlistView.classList.remove('playlist-hidden');
+            // SỬA (07/07/2026, batch gộp container) — class dời sang `#side-left-container` (xem
+            // components/app-view-stack.js), KHÔNG còn trên `#playlist-view` nữa.
+            sideLeftContainer.classList.remove('playlist-hidden');
             visualizerUI.classList.remove('visualizer-active');
             playerContainer.classList.remove('visualizer-active');
             if (typeof closeControlCenter === 'function') closeControlCenter(); // phòng panel còn mở sót
@@ -261,7 +263,9 @@
             // FIX (04/07/2026, mục 4) — 'playlist-hidden' THAY '-translate-y-full' (dọc -> ngang)
             // + thêm 'visualizer-active' cho CẢ 2 (visualizerUI/playerContainer) NGAY LÚC NÀY
             // (cùng lúc gỡ 'hidden') để slide ngang chạy đồng thời với Playlist thoát màn hình.
-            playlistView.classList.add('playlist-hidden');
+            // SỬA (07/07/2026, batch gộp container) — class dời sang `#side-left-container` (xem
+            // components/app-view-stack.js), KHÔNG còn trên `#playlist-view` nữa.
+            sideLeftContainer.classList.add('playlist-hidden');
             visualizerUI.classList.remove('hidden'); playerContainer.classList.remove('hidden');
             visualizerUI.classList.add('visualizer-active'); playerContainer.classList.add('visualizer-active');
             // KHÔNG gọi handleVideoBackground() ở đây nữa: chuyển màn hình KHÔNG được điều khiển video
@@ -338,17 +342,35 @@
         /**
          * Mở drawer Settings — dùng chung cho cả 2 nút mở (#btn-settings ở Visualizer,
          * #btn-settings-playlist ở Playlist). Ứng với msg.type 'playerControls.settingsDrawer.open'.
+         *
+         * VIẾT LẠI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings chung 1 container
+         * cuộn ngang): TRƯỚC ĐÂY `drawerSettings.classList.remove('-translate-y-full')` (slide dọc
+         * độc lập, luôn nổi lên trên bất kể đang ở Playlist hay Visualizer). GIỜ `#drawer-settings`
+         * là 1 "trang" cuộn ngang bên trong `#side-left-container` (components/app-view-stack.js)
+         * — mở từ Visualizer (mobile) CẦN thêm bỏ class `playlist-hidden` để chính
+         * `#side-left-container` hiện ra trước (nếu không, cuộn nội dung bên trong nó cũng vô
+         * nghĩa vì bản thân nó đang trượt ra ngoài màn hình). ĐÁNH ĐỔI ĐƠN GIẢN HOÁ: đóng Settings
+         * (bất kể mở từ đâu) LUÔN về lại Playlist — KHÔNG tự nhớ "mở từ Visualizer thì đóng phải về
+         * lại Visualizer" (edge case hiếm, thêm state theo dõi không đáng — chấp nhận thay đổi hành
+         * vi nhỏ này). Trình duyệt tự animate cuộn ngang (CSS `scroll-behavior: smooth`, xem
+         * assets/css/style.css) — KHÔNG cần tự tay viết transition/easing cho việc này.
          */
         function openSettingsDrawer() {
-            drawerSettings.classList.remove('-translate-y-full');
+            sideLeftContainer.classList.remove('playlist-hidden'); // đảm bảo hiện ra nếu đang ở Visualizer (mobile)
+            sideLeftContainer.scrollTo({ left: sideLeftContainer.clientWidth, behavior: 'smooth' });
         }
 
         /**
          * Đóng drawer Settings — kèm validateVideoBgOnClose() (kiểm tra lại video nền lúc đóng,
          * giữ đúng hành vi gốc). Ứng với msg.type 'playerControls.settingsDrawer.close'.
+         *
+         * VIẾT LẠI (07/07/2026, phản hồi Giang mục 2) — cuộn NGANG về lại trang Playlist (left:0)
+         * thay vì `classList.add('-translate-y-full')` cũ (xem docstring openSettingsDrawer() ở
+         * trên về đánh đổi "luôn về Playlist" đã chấp nhận).
          */
         function closeSettingsDrawer() {
-            validateVideoBgOnClose(); drawerSettings.classList.add('-translate-y-full');
+            validateVideoBgOnClose();
+            sideLeftContainer.scrollTo({ left: 0, behavior: 'smooth' });
         }
 
         // Ver 8 refine (mục 2 — loại bỏ can thiệp điều khiển từ ngoài app): KHÔNG còn

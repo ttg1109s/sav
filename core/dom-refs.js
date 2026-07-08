@@ -30,6 +30,9 @@
                 if (!el) console.error(`[dom-refs] KHÔNG tìm thấy #${id} trong DOM (biến ${varName} = null) — chức năng nạp nhạc sẽ lỗi ngay khi loader.js gắn event listener.`);
             });
         const canvas = document.getElementById('visualizer'), ctx = canvas.getContext('2d');
+        // MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings) — khung cuộn ngang bọc
+        // chung Playlist+Settings, xem components/app-view-stack.js.
+        const sideLeftContainer = document.getElementById('side-left-container');
         const playlistView = document.getElementById('playlist-view'), visualizerUI = document.getElementById('visualizer-ui'), playerContainer = document.getElementById('player-container');
         const playlistBg = document.getElementById('playlist-bg');
         const playlistEmpty = document.getElementById('playlist-empty'), playlistContainer = document.getElementById('playlist-container');
@@ -98,7 +101,12 @@
         // MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer. FIX (04/07/2026, mục 1) — bỏ
         // ref nút "Chọn ảnh" riêng (đã xoá khỏi HTML, xem components/settings/playlist-background.js).
         const settingVisualBgImageEnableToggle = document.getElementById('setting-visual-bg-image-enable');
-        const bgImageEnableToggle = document.getElementById('setting-bg-image-enable');
+        // (bgImageEnableToggle ĐÃ XOÁ — 07/07/2026: checkbox "App background image" cũ không còn,
+        // thay bằng 3 card Theme loại trừ nhau — xem components/settings/theme.js.)
+        const themeModeCardLight = document.getElementById('theme-mode-card-light');
+        const themeModeCardDark = document.getElementById('theme-mode-card-dark');
+        const themeModeCardBackground = document.getElementById('theme-mode-card-background');
+        const themeBgBlurRow = document.getElementById('theme-bg-blur-row');
         // (qualitySelect/bgColorPicker/colorModeSelect/solidColor*/dynColor*/maxHeightSlider/
         // barWidthSlider/valMax.../blockMaxHeight/blockBarWidth/blockVortex/vortexStyleSelect/
         // blockRain/rainStyleSelect/glassFlashToggle/blockBarStyle/barStyleSelect/barMirrorOptions/
@@ -240,7 +248,8 @@
         // `settingsStackPanelMain` — panel ĐÁY ngăn xếp (Main), TĨNH, KHÔNG BAO GIỜ bị xoá — core/
         // settings-panel-stack.js dùng làm phần tử KHỞI TẠO đầu tiên của `settingsPanelStackEntries`.
         const settingsStackPanelMain = document.getElementById('settings-stack-panel-main');
-        const settingsBg = document.getElementById('settings-bg'); // nền chung (mục "hợp nhất nền Playlist" phản hồi Giang) — chưa nối logic ở Batch D1, chỉ dựng sẵn element
+        // (settingsBg ĐÃ XOÁ — 07/07/2026: dùng CHUNG playlistBg với Playlist, xem components/
+        // app-view-stack.js — không còn 2 phần tử nền riêng biệt cho 2 màn.)
 
         // ===================== Quản lý dung lượng (Storage Management) =====================
         // FIX (kiến trúc /event/): toàn bộ getElementById của cụm này TRƯỚC ĐÂY nằm rải rác ngay

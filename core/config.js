@@ -63,6 +63,15 @@
             quality: 'high', type: 'bar', barStyle: 'mirror', vortexStyle: 'rings', rainStyle: 'glass', glassFlash: true, mode: 'solid', 
             bgColor: '#000000', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', 
             minH: 4, maxH: 400, barWidth: 4, bgImage: '', bgBlur: 0, bgImageEnabled: false,
+            // MỚI (07/07/2026, phản hồi Giang — mở đầu Theme thật) — 3 chế độ LOẠI TRỪ NHAU:
+            // 'light' | 'dark' | 'background' (dùng ảnh nền tuỳ chỉnh, tái dùng bgImage/bgBlur/
+            // bgImageEnabled đã có sẵn — 'background' TỰ kéo theo bgImageEnabled=true, xem
+            // event/workflow/theme.js::selectThemeMode()). MẶC ĐỊNH 'dark' — app hiện tại LUÔN
+            // tối, đúng hành vi cũ trước khi có lựa chọn này. 'light' CHƯA áp dụng lại giao diện
+            // sáng thật (chỉ mới lưu lựa chọn + UI chọn — việc tô lại màu TOÀN APP theo 'light' là
+            // việc RIÊNG, làm theo từng đợt Settings -> Playlist -> phần còn lại, xem báo cáo cuối
+            // batch này).
+            themeMode: 'dark',
             mirrorBarCount: 32,
             volume: 100, eqMode: 'flat', manualEq: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             videoBgEnabled: false, videoBgUrl: '',
@@ -207,6 +216,10 @@
                 if (!cfg.barStyle) cfg.barStyle = 'mirror';
                 if (cfg.mirrorBarCount == null) cfg.mirrorBarCount = 32;
                 if (cfg.bgImageEnabled == null) cfg.bgImageEnabled = false;
+                // MỚI (07/07/2026) — người dùng CŨ đã bật sẵn ảnh nền trước khi có khái niệm Theme
+                // này -> suy luận themeMode='background' luôn (không mặc định 'dark' rồi lại vẫn
+                // hiện ảnh nền mâu thuẫn nhau).
+                if (cfg.themeMode == null) cfg.themeMode = cfg.bgImageEnabled ? 'background' : 'dark';
                 if (cfg.keepScreenOn == null) cfg.keepScreenOn = true;
                 if (cfg.subtitlesEnabled == null) cfg.subtitlesEnabled = true;
                 if (cfg.visualEnabled == null) cfg.visualEnabled = true;
@@ -250,8 +263,7 @@
             appState.mutate('vizConfig', cfg => { cfg.bgImage = ''; cfg.videoBgUrl = ''; });
             await loadBackgroundAssets();
             saveConfig();
-            updatePlaylistBg();
-            updateSettingsBg(appState.get('vizConfig')); // MỚI, batch "nền chung" 07/07/2026
+            updatePlaylistBg(); // dùng chung cho CẢ Playlist lẫn Settings (playlist-bg giờ vật lý dùng chung — xem components/app-view-stack.js)
             handleVideoBackground();
 
             // HOTFIX (07/07/2026 — bug do Giang báo, đã xác nhận): 9 dòng đồng bộ UI panel
