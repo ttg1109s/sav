@@ -50,11 +50,9 @@ if (btnRepeat) {
     });
 }
 
-if (btnSettings) {
-    btnSettings.addEventListener('click', () => {
-        eventBus.send({ router: 'playerControls', type: 'playerControls.settingsDrawer.open', payload: {} });
-    });
-}
+// (btnSettings listener ĐÃ BỎ — HOTFIX 11, 08/07/2026: nút "Cài đặt" trong Control Center của
+// Visualizer đã xoá hẳn khỏi DOM, xem components/visualizer-overlay.js. Settings giờ CHỈ mở được
+// từ Playlist qua btnSettingsPlaylist ngay dưới.)
 
 if (btnSettingsPlaylist) {
     btnSettingsPlaylist.addEventListener('click', () => {
