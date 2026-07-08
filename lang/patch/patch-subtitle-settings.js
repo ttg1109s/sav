@@ -82,8 +82,16 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // Tái tổ chức (07/07/2026, phản hồi Giang mục 4) — section cũ "Playlist & Background" TÁCH
     // làm 2: "Playlist" (file này, chỉ còn view/sort) + "Background" (KEY MỚI, xem
     // components/settings/playlist-background.js — nay CHỈ chứa phần Nền).
+    // Tái tổ chức (07/07/2026, phản hồi Giang mục 4) — section cũ "Playlist & Background" TÁCH
+    // làm 2: "Playlist" (file này, chỉ còn view/sort) + "Background" (components/settings/
+    // playlist-background.js — nay CHỈ chứa phần Nền). Mục 3 (MỞ ĐẦU THEME THẬT) — "Background"
+    // ĐỔI HẲN thành "Theme" (components/settings/theme.js), 'settingsBackground.sectionTitle' XOÁ
+    // (thay bằng 4 key `settingsTheme.*` dưới đây).
     'settingsPlaylistBg.sectionTitle': 'Playlist',
-    'settingsBackground.sectionTitle': 'Background',
+    'settingsTheme.sectionTitle': 'Theme',
+    'settingsTheme.light': 'Light',
+    'settingsTheme.dark': 'Dark',
+    'settingsTheme.background': 'Background',
     'settingsPlaylistBg.viewMode.label': 'View',
     'settingsPlaylistBg.viewMode.list': 'List',
     'settingsPlaylistBg.viewMode.grid': 'Grid',
