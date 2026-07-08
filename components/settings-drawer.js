@@ -32,15 +32,22 @@
  * === Tái tổ chức section (07/07/2026, phản hồi Giang) ===
  * Mục 4 — section cũ "Playlist & Background" (1 file, gộp lẫn 2 chủ đề) TÁCH làm 2:
  * `TPL_SETTINGS_PLAYLIST_VIEW` (components/settings/playlist-view.js — Kiểu xem/Sắp xếp) +
- * `TPL_SETTINGS_BACKGROUND` (components/settings/playlist-background.js, ĐỔI TÊN biến xuất ra từ
- * `TPL_SETTINGS_PLAYLIST_BG` — Video/Ảnh nền Visual/Ảnh nền Playlist/Độ mờ).
+ * section "Background" (components/settings/playlist-background.js, TPL_SETTINGS_BACKGROUND —
+ * Video/Ảnh nền Visual/Ảnh nền Playlist/Độ mờ).
+ * Mục 3 (07/07/2026, MỞ ĐẦU THEME THẬT) — section "Background" ĐỔI HẲN thành section "Theme"
+ * (`TPL_SETTINGS_THEME`, components/settings/theme.js) — 3 card LOẠI TRỪ NHAU Sáng/Tối/Background,
+ * "Background" TÁI DÙNG nguyên hệ thống bgImage/bgBlur cũ (Video nền + Ảnh nền Visual dời hẳn
+ * sang section Visualizer — xem components/settings/visualizer-geometry-color.js). File
+ * `components/settings/playlist-background.js` (TPL_SETTINGS_BACKGROUND) KHÔNG còn mount ở đây —
+ * ĐỂ LẠI không xoá (tư liệu đối chiếu, giống components/storage-drawer.js cũ).
  * Mục 2 — thứ tự 8 section SẮP LẠI theo nghiên cứu UX settings mobile (mục dùng thường xuyên lên
  * đầu, mục "quản trị/nguy hiểm" — khởi động lại, khôi phục mặc định, thông tin app — xuống CUỐI
- * CÙNG, đúng quy ước phổ biến): Playlist -> Background -> Visualizer -> Audio & EQ -> Subtitle ->
+ * CÙNG, đúng quy ước phổ biến): Playlist -> Theme -> Visualizer -> Audio & EQ -> Subtitle ->
  * File Manager -> Language -> Misc (TRƯỚC ĐÂY: Playlist & Background -> File Manager ->
  * Visualizer -> Audio & EQ -> Subtitle -> Misc -> Language).
  *
- * THỨ TỰ NẠP SCRIPT — 8 file trong settings/ PHẢI nạp TRƯỚC file này (playlist-view.js MỚI THÊM).
+ * THỨ TỰ NẠP SCRIPT — 8 file trong settings/ PHẢI nạp TRƯỚC file này (playlist-view.js/theme.js
+ * MỚI THÊM — theme.js THAY playlist-background.js trong danh sách nạp thật, xem index.html).
  * core/settings-panel-stack.js PHẢI nạp SAU core/dom-refs.js (cần settingsStackBody,
  * settingsStackPanelMain) — xem index.html. `closeDrawer`/`settingsStackBody`/
  * `settingsStackPanelMain` (dom-refs.js) vẫn cần — `settingsStackTitle`/`btnSettingsStackBack` CŨ
@@ -87,7 +94,7 @@
                     <div class="max-w-2xl mx-auto space-y-5">
                         ` +
                     TPL_SETTINGS_PLAYLIST_VIEW +
-                    TPL_SETTINGS_BACKGROUND +
+                    TPL_SETTINGS_THEME +
                     TPL_SETTINGS_VISUALIZER +
                     TPL_SETTINGS_AUDIO_EQ +
                     TPL_SETTINGS_SUBTITLE_STYLE +
