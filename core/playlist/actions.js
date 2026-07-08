@@ -77,6 +77,7 @@
                     playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
                     if (typeof killAllAutoSwitchVisualTasks === 'function') killAllAutoSwitchVisualTasks();
                     if (typeof forceBackToPlaylistUI === 'function') forceBackToPlaylistUI();
+                    if (typeof setVisualizerActiveFalse === 'function') setVisualizerActiveFalse(); // MỚI (08/07/2026, HOTFIX 10) — forceBackToPlaylistUI() không còn tự set nữa
                 }
             }).then(() => {
                 // Shield đã đóng hẳn tới đây (cùng lý do đã giải thích ở window.playSong) — an toàn
