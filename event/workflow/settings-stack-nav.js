@@ -9,8 +9,8 @@
  *
  * Nút Close (X, id="close-drawer") KHÔNG có message riêng ở cụm này — nó đã có sẵn dây nối
  * 'playerControls.settingsDrawer.close' từ trước (event/listener,router/player-controls.js), giữ
- * NGUYÊN — xem workflowPlayerControls.closeSettingsDrawerToPlaylist()/closeSettingsDrawerToVisualizer()
- * (VIẾT LẠI 08/07/2026, HOTFIX 8 — trước đó gộp chung 1 hàm closeSettingsDrawerAndResetStack()).
+ * NGUYÊN — xem workflowPlayerControls.closeSettingsDrawer() (event/workflow/player-controls.js,
+ * đổi tên ở HOTFIX 11 08/07/2026 khi bỏ nhánh "mở Settings từ Visualizer").
  *
  * VIẾT LẠI (06/07/2026, phản hồi Giang — slider thật): `popSettingsPanel()` KHÔNG còn cần tham số
  * `mainTitle` nữa — header giờ NẰM SẴN TRONG panel liền trước (chưa hề bị xoá lúc push, chỉ trượt
