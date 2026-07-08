@@ -59,7 +59,9 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.settingsDrawer.open': {
-                openSettingsDrawer();
+                // Batch 07/07/2026 (phản hồi Giang mục 1) — CẦN rẽ nhánh theo isVisualizerActive
+                // (VirtualMachineState), không còn "1 hàm core, gọi thẳng" nữa.
+                workflowPlayerControls.openSettingsDrawer();
                 break;
             }
 
