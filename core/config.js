@@ -264,6 +264,7 @@
             await loadBackgroundAssets();
             saveConfig();
             updatePlaylistBg(); // dùng chung cho CẢ Playlist lẫn Settings (playlist-bg giờ vật lý dùng chung — xem components/app-view-stack.js)
+            workflowTheme.refreshThemeCardUI(); // MỚI (07/07/2026, mở đầu Theme thật) — đồng bộ 3 card + hàng blur lúc boot
             handleVideoBackground();
 
             // HOTFIX (07/07/2026 — bug do Giang báo, đã xác nhận): 9 dòng đồng bộ UI panel
