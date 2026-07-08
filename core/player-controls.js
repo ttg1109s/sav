@@ -124,6 +124,21 @@
             // SỬA (07/07/2026, batch gộp container) — class dời sang `#side-left-container` (xem
             // components/app-view-stack.js), KHÔNG còn trên `#playlist-view` nữa.
             sideLeftContainer.classList.remove('playlist-hidden');
+            // HOTFIX 7 (08/07/2026, bug do Giang báo — Settings "không hiển thị"/"giật giật" khi
+            // bấm từ Visualizer rồi bấm nút Back thường thay vì nút Close-X của Settings): đây là
+            // con đường THỨ HAI để rời Visualizer (khác hẳn closeSettingsDrawerAndResetStack() ở
+            // event/workflow/player-controls.js) — nếu Settings đang mở/đang mở dở lúc bấm Back
+            // (openSettingsDrawerInstant() đã nhảy scrollLeft sang trang Settings VÀ/HOẶC đã push
+            // panel con), con đường này TRƯỚC ĐÂY không hề dọn lại 2 thứ đó — sideLeftContainer,
+            // dù trượt vào đúng, vẫn "kẹt" cuộn nội bộ ở trang Settings (không phải Playlist), và
+            // ngăn xếp panel con vẫn còn panel đã push — lần mở Settings KẾ TIẾP từ Playlist do đó
+            // xuất phát từ trạng thái sai lệch, gây hiện tượng giật/trả về ngay. Reset THẲNG cả 2
+            // ở đây, VÔ HẠI nếu Settings vốn không hề mở (resetSettingsStackToMain() tự no-op khi
+            // ngăn xếp chỉ có Main; gán lại scrollLeft=0 khi đã là 0 cũng không có tác dụng phụ) —
+            // đảm bảo MỌI đường rời Visualizer (không chỉ đường Đóng Settings) đều trả
+            // #side-left-container về đúng "trang Playlist, ngăn xếp Settings về Main".
+            sideLeftContainer.scrollLeft = 0;
+            resetSettingsStackToMain();
             appState.set('isVisualizerActive', false); // MỚI (07/07/2026, phản hồi Giang mục 1)
             visualizerUI.classList.remove('visualizer-active');
             playerContainer.classList.remove('visualizer-active');
@@ -267,6 +282,14 @@
             // SỬA (07/07/2026, batch gộp container) — class dời sang `#side-left-container` (xem
             // components/app-view-stack.js), KHÔNG còn trên `#playlist-view` nữa.
             sideLeftContainer.classList.add('playlist-hidden');
+            // HOTFIX 7 (08/07/2026) — cùng lý do đã ghi ở forceBackToPlaylistUI(): đảm bảo MỌI lần
+            // vào Visualizer đều xuất phát từ trạng thái sạch (side-left-container ẩn NGOÀI màn
+            // hình, nhưng cuộn nội bộ của nó luôn là trang Playlist, ngăn xếp Settings luôn ở
+            // Main) — phòng trường hợp lần trước rời Visualizer/Settings theo 1 đường nào đó chưa
+            // kịp dọn (dù đã vá forceBackToPlaylistUI(), vẫn giữ thêm lớp phòng thủ Ở CẢ 2 ĐẦU cho
+            // chắc — vô hại nếu đã sạch từ trước).
+            sideLeftContainer.scrollLeft = 0;
+            resetSettingsStackToMain();
             appState.set('isVisualizerActive', true); // MỚI (07/07/2026, phản hồi Giang mục 1)
             visualizerUI.classList.remove('hidden'); playerContainer.classList.remove('hidden');
             visualizerUI.classList.add('visualizer-active'); playerContainer.classList.add('visualizer-active');
