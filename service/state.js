@@ -334,6 +334,13 @@
 
                 // ── app/ui misc ─────────────────────────────────────────────────
                 isGridView: false,
+                // MỚI (07/07/2026, phản hồi Giang mục 1 — mở/đóng Settings đúng theo màn hiện tại)
+                // — true = đang ở màn Visualizer (không phải Playlist) lúc này. Set ở
+                // core/player-controls.js::switchToVisualizer()/forceBackToPlaylistUI() — đọc qua
+                // VirtualMachineState ở event/workflow/player-controls.js để biết mở/đóng Settings
+                // kiểu nào (cuộn mượt nếu đang ở Playlist, nhảy thẳng + trượt cả khối nếu đang ở
+                // Visualizer — xem docstring workflowPlayerControls.openSettingsDrawer()).
+                isVisualizerActive: false,
                 isStatsPanelVisible: true,
                 savLogoExpanded: false,
                 isShieldBusy: false,
