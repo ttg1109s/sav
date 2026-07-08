@@ -171,20 +171,35 @@ body {
            #side-left-container giờ là 1 khung cuộn NGANG THẬT (overflow-x, KHÔNG dùng transform/
            `left` tự animate) — 2 "trang" con `#playlist-view`/`#drawer-settings` nằm CẠNH NHAU
            (flex, mỗi trang rộng đúng 100% container), chuyển qua lại bằng `scrollTo({left, behavior:
-           'smooth'})` (xem core/player-controls.js::openSettingsDrawer()/closeSettingsDrawer()) —
-           trình duyệt tự lo easing/animation, không cần tự tay viết transition cho việc này.
-           `scroll-snap` đảm bảo LUÔN dừng đúng khớp 1 trong 2 trang, không bao giờ dừng nửa vời dù
-           người dùng tự vuốt tay (bonus so với chỉ gọi scrollTo() bằng code — vuốt tay cũng chuẩn
-           khớp trang). Nền chung `#playlist-bg` giờ `position: fixed` NGOÀI khung cuộn (không phải
-           con của nó) — để cuộn ngang KHÔNG kéo nền theo, ảnh nền đứng yên xuyên suốt lúc chuyển
-           trang, đúng cảm giác "1 tấm ảnh nền chung cho cả 2". */
-        #side-left-container { display: flex; overflow-x: hidden; overflow-y: hidden; scroll-behavior: smooth; scroll-snap-type: x mandatory; }
+           'smooth'})` (xem core/player-controls.js::scrollSideLeftToSettingsSmooth()/
+           scrollSideLeftToPlaylistSmooth(), HOTFIX 8+11) — trình duyệt tự lo easing/animation,
+           không cần tự tay viết transition cho việc này. Nền chung `#playlist-bg` giờ
+           `position: fixed` NGOÀI khung cuộn (không phải con của nó) — để cuộn ngang KHÔNG kéo nền
+           theo, ảnh nền đứng yên xuyên suốt lúc chuyển trang, đúng cảm giác "1 tấm ảnh nền chung
+           cho cả 2".
+           (HOTFIX 13, 08/07/2026 — bản gốc ở đây từng có thêm `scroll-snap-type`/`scroll-snap-align`
+           với lý do "đảm bảo luôn dừng đúng khớp trang dù người dùng tự vuốt tay" — lý do đó vốn đã
+           MÂU THUẪN với chính dòng `overflow-x: hidden` ngay dưới, vì đã CHẶN HẲN vuốt tay từ đầu
+           (không có cử chỉ nào để mà "khớp lại"). Đã bỏ — xem giải thích đầy đủ ngay dưới dòng
+           #side-left-container.) */
+        #side-left-container { display: flex; overflow-x: hidden; overflow-y: hidden; scroll-behavior: smooth; }
+        /* HOTFIX 13 (08/07/2026, Giang truy đúng gốc) — ĐÃ BỎ `scroll-snap-type: x mandatory` khỏi
+           dòng trên (và `scroll-snap-align: start` khỏi dòng #playlist-view/#drawer-settings ngay
+           dưới). Lý do: scroll-snap-type sinh ra để trình duyệt tự CHỈNH LẠI vị trí dừng SAU KHI
+           người dùng buông 1 CỬ CHỈ cuộn thật (vuốt tay/lăn chuột, có quán tính) — nhưng dòng
+           `overflow-x: hidden` ngay bên cạnh đã CHẶN HẲN cử chỉ đó từ đầu (cố ý, xem comment gốc
+           dưới), 100% việc cuộn ở đây là `scrollTo({left, behavior:'smooth'})` gọi thẳng tới ĐÚNG
+           toạ độ pixel (0 hoặc clientWidth) — không có cử chỉ nào để snap "cho khớp" cả. Giữ
+           scroll-snap-type không mang lại lợi ích gì trong thiết lập này, nhưng có thể khiến trình
+           duyệt (đặc biệt Safari iOS) tự ý coi animation JS đang chạy là "chưa đủ điều kiện" một cú
+           cuộn hợp lệ và kéo ngược về điểm snap gần nhất (0) giữa chừng — đúng hiện tượng "cuộn đi
+           rồi bị kéo về 0" Giang báo. */
         /* `overflow-x: hidden` (KHÔNG phải `auto`) — CỐ Ý: chặn người dùng tự vuốt/cuộn tay giữa
            Playlist/Settings (chỉ chuyển qua nút bấm tường minh, đúng pattern điều hướng có kiểm
            soát của app này) — `scrollTo()`/`scrollLeft` bằng JS VẪN hoạt động bình thường dù
            `overflow: hidden` (kỹ thuật carousel phổ biến: ẩn thanh cuộn + chặn cuộn tay, chỉ cuộn
            bằng code). */
-        #playlist-view, #drawer-settings { width: 100%; height: 100%; flex-shrink: 0; scroll-snap-align: start; overflow-y: auto; position: relative; }
+        #playlist-view, #drawer-settings { width: 100%; height: 100%; flex-shrink: 0; overflow-y: auto; position: relative; }
 
         .sub-text-glow { text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.5); }
 
