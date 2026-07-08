@@ -12,10 +12,10 @@
  * của cụm này.
  *
  * NẠP SAU: core/player-controls.js (toggleShuffle, scrollSideLeftToSettingsSmooth/
- * scrollSideLeftToPlaylistSmooth/jumpSideLeftScrollToSettings/revealSideLeftContainer/
- * validateVideoBgOnClose/switchToVisualizer — VIẾT LẠI 08/07/2026, HOTFIX 8+9), core/playlist/
- * order.js (updateShuffleArrayFromQueue), core/settings-panel-stack.js (resetSettingsStackToMain),
- * event/virtual-machine-state.js (VirtualMachineState).
+ * scrollSideLeftToPlaylistSmooth/jumpSideLeftScrollToSettings/validateVideoBgOnClose/
+ * switchToVisualizer/forceBackToPlaylistUI/setVisualizerActiveFalse — VIẾT LẠI 08/07/2026,
+ * HOTFIX 8+9+10), core/playlist/order.js (updateShuffleArrayFromQueue), core/settings-panel-
+ * stack.js (resetSettingsStackToMain), event/virtual-machine-state.js (VirtualMachineState).
  * NẠP TRƯỚC: event/router/player-controls.js.
  */
 const workflowPlayerControls = {
@@ -44,22 +44,27 @@ const workflowPlayerControls = {
      * `scrollSideLeftToSettingsSmooth()`, không qua Workflow — chỉ 1 hàm, không có bước 2 phụ
      * thuộc).
      *
-     * VIẾT LẠI HOÀN TOÀN (08/07/2026, HOTFIX 8, theo đúng quy trình Giang chốt) — 2 BƯỚC NỐI TIẾP,
-     * PHỤ THUỘC THỨ TỰ THẬT (bước 2 chỉ chạy nếu bước 1 xác nhận xong bằng giá trị trả về, không
-     * phải core tự gọi core):
+     * VIẾT LẠI (08/07/2026, HOTFIX 10, Giang chỉ ra) — KHÔNG còn `revealSideLeftContainer()` riêng
+     * nữa. Từ khi `forceBackToPlaylistUI()` được tách sạch khỏi việc set state (xem docstring đầy
+     * đủ ở core/player-controls.js), nó trở thành "trượt cả khối #side-left-container vào + tắt UI
+     * Visualizer" THUẦN TUÝ, KHÔNG quan tâm cuộn nội bộ đang là trang nào — TÁI DÙNG được nguyên
+     * vẹn ở đây, chỉ khác duy nhất: KHÔNG gọi thêm `setVisualizerActiveFalse()` sau nó (giữ
+     * `isVisualizerActive = true` suốt phiên Settings che lên Visualizer — đây chính là lý do
+     * DUY NHẤT còn cần method riêng này thay vì Router gọi thẳng `forceBackToPlaylistUI()`).
+     *
+     * 2 BƯỚC NỐI TIẾP, PHỤ THUỘC THỨ TỰ THẬT (bước 2 chỉ chạy nếu bước 1 xác nhận xong bằng giá
+     * trị trả về, không phải core tự gọi core):
      *   1. `jumpSideLeftScrollToSettings()` (core) — nhảy cuộn nội bộ sang Settings NGAY (không
      *      animation, vì `#side-left-container` đang ẩn ngoài màn hình, không ai nhìn thấy) — TRẢ
      *      VỀ boolean.
-     *   2. CHỈ KHI bước 1 trả `true` -> `revealSideLeftContainer()` (core) — gỡ `playlist-hidden`,
-     *      trượt CẢ KHỐI vào lại (animation transform có sẵn) — lúc này bên trong đã sẵn Settings.
-     * `isVisualizerActive` GIỮ NGUYÊN `true` suốt quá trình này (KHÔNG đổi ở đây) — chỉ đổi `false`
-     * khi thật sự rời Visualizer hẳn qua nút Back riêng (core/player-controls.js::
-     * forceBackToPlaylistUI(), không liên quan gì tới Settings).
+     *   2. CHỈ KHI bước 1 trả `true` -> `forceBackToPlaylistUI()` (core, TÁI DÙNG) — trượt CẢ KHỐI
+     *      vào lại (animation transform có sẵn) — lúc này bên trong đã sẵn Settings, không phải
+     *      Playlist.
      */
     openSettingsDrawerFromVisualizer() {
         const jumped = jumpSideLeftScrollToSettings(); // core — trả boolean
         if (jumped) {
-            revealSideLeftContainer(); // core — CHỈ chạy khi bước 1 xác nhận xong
+            forceBackToPlaylistUI(); // core CÓ SẴN, tái dùng — KHÔNG gọi setVisualizerActiveFalse() theo sau
         }
     },
 

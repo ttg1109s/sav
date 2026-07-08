@@ -323,6 +323,7 @@ const workflowPlaylist = {
             playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
             if (typeof killAllAutoSwitchVisualTasks === 'function') killAllAutoSwitchVisualTasks();
             forceBackToPlaylistUI(); // "về playui" — ép UI về màn Playlist ngay, TRƯỚC khi hiện shield
+            setVisualizerActiveFalse(); // MỚI (08/07/2026, HOTFIX 10) — forceBackToPlaylistUI() không còn tự set nữa
         }
 
         let deletedCount = 0;
