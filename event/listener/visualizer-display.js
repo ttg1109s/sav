@@ -15,8 +15,9 @@
  * visualizer-misc-settings.js — cùng router với 14 input của chính nó, xem event/router/
  * visualizer-display.js).
  *
- * 5 input KHÔNG di chuyển (Main/Control Center, vẫn tĩnh, giữ NGUYÊN): btnCycleMode,
- * bgImageEnableToggle, bgBlurSlider, volumeSlider, eqSelect.
+ * 4 input KHÔNG di chuyển (Main/Control Center, vẫn tĩnh, giữ NGUYÊN): btnCycleMode, bgBlurSlider,
+ * volumeSlider, eqSelect. (bgImageEnableToggle ĐÃ XOÁ khỏi danh sách này — 07/07/2026, HOTFIX 4:
+ * checkbox không còn tồn tại, xem comment "Ảnh nền" bên dưới đã bị xoá.)
  *
  * KHÔNG tự document.getElementById trong file này — dùng lại biến đã có sẵn ở core/dom-refs.js.
  *
@@ -36,15 +37,14 @@ if (btnCycleMode) {
     });
 }
 
-// ===================== Ảnh nền (Main, KHÔNG di chuyển) =====================
-// FIX (04/07/2026, mục 1 phản hồi Giang) — bỏ hẳn nút riêng #setting-bg-pick-library: gạt
-// #setting-bg-image-enable lên "On" giờ TỰ mở picker luôn (xem
-// event/workflow/visualizer-display.js::toggleBgImage) — không còn 2 control làm cùng 1 việc.
-if (bgImageEnableToggle) {
-    bgImageEnableToggle.addEventListener('change', (e) => {
-        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.bgImage.toggle', payload: { enabled: e.target.checked } });
-    });
-}
+// (07/07/2026, HOTFIX 4 — khối listener "Ảnh nền" cho #setting-bg-image-enable ĐÃ XOÁ HẲN: checkbox
+// đó không còn tồn tại trong DOM từ khi Theme 3-card thay thế section Background cũ (xem
+// components/settings/theme.js) — `if (bgImageEnableToggle)` tham chiếu 1 biến CHƯA TỪNG KHAI BÁO
+// (không phải `null`) nên ném `ReferenceError` ngay khi file này chạy, làm HỎNG mọi listener khai
+// báo PHÍA SAU trong CÙNG file (bgBlurSlider/volumeSlider/eqSelect/14 input delegate bên dưới đều
+// không được gắn). Luồng bật/tắt ảnh nền giờ đi qua card "Background" (event/listener/theme.js ->
+// event/workflow/theme.js::selectThemeMode() -> workflowVisualizerDisplay.toggleBgImage()) — không
+// cần thay thế gì ở đây.
 
 if (bgBlurSlider) {
     bgBlurSlider.addEventListener('input', (e) => {
