@@ -14,12 +14,18 @@
  * `#visualizer-ui`/`#player-container` cho cơ chế slide NGANG mới — khác hẳn `-translate-y-full`
  * dọc cũ). Responsive: mobile/tablet slide ngang (pager 2 trang); desktop (>=1024px) hiện SONG
  * SONG vĩnh viễn, Playlist làm cột trái 420px cố định — xem chi tiết đầy đủ trong file CSS đó.
+ *
+ * === VIẾT LẠI (07/07/2026, phản hồi Giang — gộp Playlist+Settings chung 1 container cuộn ngang) ===
+ * `#playlist-view` KHÔNG còn tự định vị (`fixed inset-0 z-[60] bg-[#000000]` ĐÃ BỎ) — giờ chỉ là 1
+ * "trang" bên trong `#side-left-container` (component MỚI, xem components/app-view-stack.js),
+ * cuộn ngang qua lại với `#drawer-settings` bằng `scrollTo()` (core/player-controls.js). 2 div nền
+ * (`#playlist-bg` + lớp phủ đen 40%) ĐÃ DỜI ra `#side-left-container` (dùng CHUNG cho cả Playlist
+ * lẫn Settings — đúng yêu cầu "ảnh set chung cho container") — `updatePlaylistBg()`
+ * (core/color-utils.js) KHÔNG cần sửa gì (vẫn `document.getElementById('playlist-bg')`, chỉ khác
+ * vị trí vật lý trong DOM, ID giữ nguyên).
  */
 const TPL_PLAYLIST_VIEW = `
-    <div id="playlist-view" class="fixed inset-0 z-[60] flex flex-col bg-[#000000] overflow-hidden">
-        <div id="playlist-bg" class="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none z-0 transition-all duration-300" style="filter: blur(0px); transform: scale(1.1);"></div>
-        <div class="absolute inset-0 bg-black/40 pointer-events-none z-0"></div>
-
+    <div id="playlist-view" class="flex flex-col overflow-hidden">
         <div class="px-5 pt-4 pb-3 z-20 relative shrink-0">
             <!-- Hàng 1: logo SAV bên trái (hover trượt ra thành tên đầy đủ) + cụm icon góc phải
                  (Thêm nhạc + Cài đặt + Đổi giao diện). -->

@@ -14,16 +14,20 @@
  * NHỊP với nội dung panel đó, xem core/settings-panel-stack.js (docstring đầu file, phần "THIẾT KẾ
  * MỚI — SLIDER THẬT").
  *
- * Cấu trúc MỚI của `#drawer-settings` — CHỈ 2 con trực tiếp (đúng yêu cầu "chỉ giữ lại body
- * stack"):
- *   1. `#settings-bg` — nền chung (mục "hợp nhất nền Playlist" phản hồi Giang) — ĐÃ dựng element,
- *      CHƯA nối logic áp ảnh/blur (cần refactor Rule 0.5 riêng cho 4 hàm core cũ đang gọi
- *      updatePlaylistBg() — đã xong ở batch "nền chung" 07/07/2026, xem core/color-utils.js).
- *   2. `#settings-stack-body` — khung neo (`relative overflow-hidden`) mà push/pop thao tác —
- *      chứa `#settings-stack-panel-main` (Main, TĨNH, KHÔNG BAO GIỜ bị push/pop hay xoá — đáy
- *      ngăn xếp) TỰ MANG header riêng (title + nút Close X, KHÁC panel con — panel con dùng nút
- *      Back, xem core/settings-panel-stack.js::_buildPanelInnerHtml()) + body gồm 8 section
- *      TPL_SETTINGS_* (TÁI TỔ CHỨC 07/07/2026, phản hồi Giang mục 2/4 — xem ngay dưới).
+ * === VIẾT LẠI TIẾP (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings chung 1 container) ===
+ * `#drawer-settings` KHÔNG còn `fixed inset-0`/nền riêng (`#settings-bg` ĐÃ XOÁ) — giờ chỉ là 1
+ * "trang" cuộn ngang bên trong `#side-left-container` (components/app-view-stack.js, MỚI), dùng
+ * CHUNG `#playlist-bg` với Playlist thật sự (đúng nghĩa "1 ảnh nền, 1 container", không phải 2
+ * hàm/2 phần tử riêng áp y hệt nhau như batch "nền chung" 07/07/2026 làm tạm trước đó — xem
+ * core/player-controls.js::openSettingsDrawer()/closeSettingsDrawer() dùng `scrollTo()` thay
+ * `classList` cũ).
+ *
+ * Cấu trúc MỚI của `#drawer-settings` — CHỈ 1 con trực tiếp (đúng yêu cầu "chỉ giữ lại body
+ * stack"): `#settings-stack-body` — khung neo (`relative overflow-hidden`) mà push/pop thao tác —
+ * chứa `#settings-stack-panel-main` (Main, TĨNH, KHÔNG BAO GIỜ bị push/pop hay xoá — đáy ngăn xếp)
+ * TỰ MANG header riêng (title + nút Close X, KHÁC panel con — panel con dùng nút Back, xem
+ * core/settings-panel-stack.js::_buildPanelInnerHtml()) + body gồm 8 section TPL_SETTINGS_* (TÁI
+ * TỔ CHỨC 07/07/2026, phản hồi Giang mục 2/4 — xem ngay dưới).
  *
  * === Tái tổ chức section (07/07/2026, phản hồi Giang) ===
  * Mục 4 — section cũ "Playlist & Background" (1 file, gộp lẫn 2 chủ đề) TÁCH làm 2:
@@ -45,12 +49,13 @@
  */
         const SettingsDrawer = {
 
-            /** Khung ngoài: CHỈ nền chung + mở thẻ #settings-stack-body — KHÔNG còn header dùng
-             * chung (đã nhét vào từng panel, xem docstring đầu file). */
+            /** Khung ngoài: CHỈ mở thẻ #settings-stack-body — KHÔNG còn header dùng chung (đã nhét
+             * vào từng panel), KHÔNG còn tự định vị/nền riêng (07/07/2026: #drawer-settings giờ là
+             * 1 "trang" bên trong #side-left-container, dùng CHUNG #playlist-bg với Playlist —
+             * xem components/app-view-stack.js + docstring đầu file). */
             renderHeader() {
                 return `
-    <div id="drawer-settings" class="fixed inset-0 drawer-glass z-[80] transform -translate-y-full transition-transform duration-500 ease-in-out flex flex-col">
-        <div id="settings-bg" class="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none" style="filter: blur(0px);"></div>
+    <div id="drawer-settings" class="flex flex-col">
         <div id="settings-stack-body" class="relative z-10 flex-grow overflow-hidden">
         `;
             },
