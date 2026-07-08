@@ -15,8 +15,6 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerOverlay.cycleMode.label': 'Effect',
     'visualizerOverlay.subtitle.title': 'Subtitles',
     'visualizerOverlay.subtitle.label': 'Subtitles',
-    'visualizerOverlay.settings.title': 'Settings',
-    'visualizerOverlay.settings.label': 'Settings',
     'visualizerOverlay.shuffle.title': 'Shuffle',
     'visualizerOverlay.shuffle.label': 'Shuffle',
     'visualizerOverlay.repeat.title': 'Repeat',
