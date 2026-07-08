@@ -165,7 +165,6 @@ const workflowVisualizerDisplay = {
         if (!enabled) {
             applyBgImageEnabled(false); // core giờ đồng bộ (không còn đụng IndexedDB)
             updatePlaylistBg();
-            updateSettingsBg(appState.get('vizConfig')); // MỚI, batch "nền chung" 07/07/2026
             saveConfig();
             return;
         }
@@ -175,15 +174,15 @@ const workflowVisualizerDisplay = {
         // THAY lưới ảnh cũ, xem core/file-manager/photo-ui.js::openImageCarouselPickerModal.
         openImageCarouselPickerModal(images, async (imageKey) => { // core/file-manager/photo-ui.js
             const record = await getImageRecord(imageKey); // core có sẵn (service/db.js)
-            if (!record) { bgImageEnableToggle.checked = false; return; } // guard: ảnh vừa bị xoá ở tab/thao tác khác -> coi như huỷ
+            if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác -> coi như huỷ (07/07/2026: KHÔNG còn checkbox để trả về "off" — event/workflow/theme.js tự kiểm tra lại bgImage rỗng để biết đã huỷ)
             await withLoadingShield(t('common.loading.savingImageBg'), async () => {
                 await applyBgImage(record.blob); // core có sẵn — Blob coi như File vừa chọn
             });
             updatePlaylistBg();
-            updateSettingsBg(appState.get('vizConfig')); // MỚI, batch "nền chung" 07/07/2026
             saveConfig();
         }, () => {
-            bgImageEnableToggle.checked = false; // MỚI — huỷ/đóng modal không chọn gì -> tự trả về "off"
+            // (07/07/2026: KHÔNG còn checkbox để trả về "off" — huỷ picker, bgImage vẫn rỗng,
+            // event/workflow/theme.js::selectThemeMode() tự phát hiện qua đó, không cần làm gì ở đây)
         });
     },
 
@@ -193,7 +192,6 @@ const workflowVisualizerDisplay = {
     setBgBlur(value) {
         setBgBlur(value); // core cùng tên, gọi trần phân giải theo scope từ vựng (xem lưu ý đặt tên đầu file)
         updatePlaylistBg();
-        updateSettingsBg(appState.get('vizConfig')); // MỚI, batch "nền chung" 07/07/2026
         saveConfig();
     },
 };

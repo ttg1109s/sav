@@ -237,7 +237,6 @@ const workflowFileManagerPhoto = {
             await applyBgImage(record.blob); // core có sẵn (core/visualizer/visualizer-display.js)
         });
         updatePlaylistBg();
-        updateSettingsBg(appState.get('vizConfig')); // MỚI, batch "nền chung" 07/07/2026
         saveConfig();
         await alertModal(t('fileManager.photo.image.setPlaylistBgSuccess'));
     },
