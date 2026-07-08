@@ -8,22 +8,27 @@
  * định (không phải listener nội bộ dùng-1-lần), VẪN đưa vào /event/ theo đúng nghĩa đen "DOM
  * listener cần tách" (quyết định của Giang, không áp dụng ngoại lệ 2b.6).
  *
- * QUY TẮC RẼ NHÁNH: 14/17 msg.type ở đây chỉ cần ĐÚNG 1 HÀM CORE (không có shield/modal, không cần
+ * QUY TẮC RẼ NHÁNH: 15/17 msg.type ở đây chỉ cần ĐÚNG 1 HÀM CORE (không có shield/modal, không cần
  * phối hợp nhiều hàm, không cần đọc appState nào khác) -> router gọi THẲNG. 'playerControls.
  * shuffle.click' (fix 03/07/2026, mục 3b) cần 2 hàm core nối tiếp có phụ thuộc thứ tự
  * (toggleShuffle() rồi updateShuffleArrayFromQueue() theo giá trị MỚI) -> giao event/workflow/
- * player-controls.js. 'playerControls.settingsDrawer.open'/'.close' (VIẾT LẠI 08/07/2026, HOTFIX
- * 8) cần đọc `appState.get('isVisualizerActive')` để rẽ nhánh -> LUÔN qua VirtualMachineState
- * (Rule 2/3, xem readme/event-bus-flow.md mục 4C); nhánh "đang ở Visualizer" của cả 2 msg.type này
- * cần ≥2 hàm core nối tiếp -> giao Workflow, nhánh "đang ở Playlist" chỉ 1 hàm core -> gọi thẳng
- * ngay trong callback của VirtualMachineState (xem comment đầu file đó).
+ * player-controls.js. 'playerControls.settingsDrawer.close' cần ≥2 hàm core nối tiếp (validate
+ * video nền + reset ngăn xếp panel con + cuộn) -> giao Workflow — xem
+ * workflowPlayerControls.closeSettingsDrawer().
+ *
+ * LỊCH SỬ (không còn áp dụng, giữ lại để tra cứu nếu cần) — batch 07-08/07/2026 (HOTFIX 7-10) đã
+ * từng cho phép mở Settings NGAY TỪ Visualizer (nút #btn-settings trong Control Center), khiến cả
+ * 2 msg.type này phải đọc `appState.get('isVisualizerActive')` + VirtualMachineState để rẽ nhánh
+ * "đang ở Playlist" / "đang ở Visualizer". HOTFIX 11 (08/07/2026, Giang chốt) BỎ HẲN nút đó (xem
+ * components/visualizer-overlay.js) sau khi nhiều lần vá vẫn không ổn định trên thiết bị thật —
+ * Settings giờ LUÔN mở từ Playlist, không còn nhánh nào để rẽ, dọn sạch VirtualMachineState khỏi
+ * cả 2 case.
  *
  * STATE CONTEXT: không có — mọi msg.type độc lập, không có "hồ sơ vụ việc giữa 2 lượt" nào cần nhớ
  * ở tầng router/EventStore cho cụm này.
  *
  * NẠP SAU: event/bus.js, event/workflow/player-controls.js, core/player-controls.js (cần toàn bộ
  * hàm core ở trên, gồm scrollSideLeftToSettingsSmooth/scrollSideLeftToPlaylistSmooth — HOTFIX 8),
- * event/virtual-machine-state.js (VirtualMachineState — dùng trực tiếp trong 2 case Settings),
  * playlist/* (cần playNext/playPrev/window.playSong — đã có từ trước). NẠP TRƯỚC:
  * event/listener/player-controls.js.
  */
@@ -65,30 +70,21 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.settingsDrawer.open': {
-                // VIẾT LẠI (08/07/2026, HOTFIX 8, đúng quy trình Giang chốt) — Router tự
-                // `appState.get('isVisualizerActive')` MỘT LẦN rồi rẽ nhánh bằng VirtualMachineState
-                // (Rule 2/3: rẽ nhánh theo appState KHÁC luôn qua VMState, không if/else tay):
-                // đang ở Visualizer -> giao Workflow (2 bước phụ thuộc thứ tự, xem
-                // workflowPlayerControls.openSettingsDrawerFromVisualizer()); đang ở Playlist ->
-                // gọi THẲNG core (chỉ 1 hàm, không có bước 2 phụ thuộc — đúng (A) event-bus-flow.md).
-                const isVisualizerActive = appState.get('isVisualizerActive');
-                VirtualMachineState.run([
-                    { state: isVisualizerActive, operation: '===', value: true, callback: () => workflowPlayerControls.openSettingsDrawerFromVisualizer() },
-                    { state: isVisualizerActive, operation: '===', value: false, callback: () => scrollSideLeftToSettingsSmooth() },
-                ]);
+                // VIẾT LẠI (08/07/2026, HOTFIX 11) — nút mở Settings từ Visualizer (#btn-settings,
+                // Control Center) ĐÃ BỎ HẲN (xem components/visualizer-overlay.js) — msg.type này
+                // giờ CHỈ có thể tới từ #btn-settings-playlist (đang ở Playlist), không còn cần
+                // đọc `isVisualizerActive`/VirtualMachineState để rẽ nhánh nữa — gọi THẲNG core,
+                // đúng (A) event-bus-flow.md (chỉ 1 hàm, message tự đủ nghĩa).
+                scrollSideLeftToSettingsSmooth();
                 break;
             }
 
             case 'playerControls.settingsDrawer.close': {
-                // VIẾT LẠI (08/07/2026, HOTFIX 8) — CÙNG lý do ở trên, cả 2 nhánh giờ đi qua
-                // Workflow (mỗi nhánh đều cần ≥2 hàm core nối tiếp: validate video nền + reset
-                // ngăn xếp panel con + cuộn/trượt — xem workflowPlayerControls.
-                // closeSettingsDrawerToPlaylist()/closeSettingsDrawerToVisualizer()).
-                const isVisualizerActive = appState.get('isVisualizerActive');
-                VirtualMachineState.run([
-                    { state: isVisualizerActive, operation: '===', value: true, callback: () => workflowPlayerControls.closeSettingsDrawerToVisualizer() },
-                    { state: isVisualizerActive, operation: '===', value: false, callback: () => workflowPlayerControls.closeSettingsDrawerToPlaylist() },
-                ]);
+                // VIẾT LẠI (08/07/2026, HOTFIX 11) — cùng lý do ở trên: Settings giờ LUÔN mở từ
+                // Playlist nên đóng cũng LUÔN về Playlist — không còn nhánh "về Visualizer" nào để
+                // rẽ. Vẫn giao Workflow (không gọi thẳng core) vì cần ≥2 hàm core nối tiếp (validate
+                // video nền + reset ngăn xếp panel con + cuộn) — đúng (B) event-bus-flow.md.
+                workflowPlayerControls.closeSettingsDrawer();
                 break;
             }
 
