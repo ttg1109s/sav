@@ -65,7 +65,10 @@
         const btnOpenDocumentReader = document.getElementById('btn-open-document-reader');
         const iconStatsPanelVisible = document.getElementById('icon-stats-panel-visible'), iconStatsPanelHidden = document.getElementById('icon-stats-panel-hidden');
         
-        const drawerSettings = document.getElementById('drawer-settings'), btnSettings = document.getElementById('btn-settings'), btnSettingsPlaylist = document.getElementById('btn-settings-playlist'), closeDrawer = document.getElementById('close-drawer');
+        const drawerSettings = document.getElementById('drawer-settings'), btnSettingsPlaylist = document.getElementById('btn-settings-playlist'), closeDrawer = document.getElementById('close-drawer');
+        // (btnSettings ĐÃ XOÁ — HOTFIX 11, 08/07/2026: nút "Cài đặt" trong Control Center của
+        // Visualizer đã bỏ hẳn, xem components/visualizer-overlay.js. Settings giờ CHỈ mở được từ
+        // Playlist qua btnSettingsPlaylist.)
         // Drawer "Tùy chỉnh Visualizer" + "Tùy chỉnh Phụ đề" (ver 8 refine, mục 3) — cùng pattern
         // navigation stack với About/Storage Drawer, mở chồng lên #drawer-settings.
         const drawerVisualizerSettings = document.getElementById('drawer-visualizer-settings');

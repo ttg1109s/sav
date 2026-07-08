@@ -110,22 +110,19 @@
          *
          * HOTFIX 10 (08/07/2026, Giang chỉ ra — "sao cứ nghĩ hàm này BẮT BUỘC phải set state, bỏ
          * dòng đó ra rồi tái dùng") — ĐÃ BỎ `appState.set('isVisualizerActive', false)` VÀ dòng
-         * `scrollLeft = 0` (phòng thủ thêm ở HOTFIX 7/8, cũng bỏ luôn — mâu thuẫn với việc tái
-         * dùng dưới đây, vì nơi gọi có thể MUỐN cuộn nội bộ dừng ở Settings chứ không phải Playlist).
-         * Hàm giờ THUẦN 1 việc — "trượt cả khối #side-left-container vào + tắt hẳn UI Visualizer
-         * (fade-out canvas, gỡ visualizer-active, ẩn sau khi fade xong)" — KHÔNG quan tâm cuộn nội
-         * bộ bên trong đang là trang nào, KHÔNG tự set cờ gì. Nhờ vậy TÁI DÙNG được nguyên vẹn cho
-         * CẢ "về Playlist thật" LẪN "mở Settings từ Visualizer" (chỉ khác: nơi gọi có nhảy
-         * `jumpSideLeftScrollToSettings()` trước đó hay không, và có gọi thêm
-         * `setVisualizerActiveFalse()` (core mới, ngay dưới) hay không — xem từng nơi gọi).
+         * `scrollLeft = 0` (phòng thủ thêm trước đó) khỏi hàm. Hàm giờ THUẦN 1 việc — "trượt cả
+         * khối #side-left-container vào + tắt hẳn UI Visualizer (fade-out canvas, gỡ
+         * visualizer-active, ẩn sau khi fade xong)" — KHÔNG tự set cờ gì (đúng Rule 1: 1 hàm =
+         * 1 việc). Tách riêng `setVisualizerActiveFalse()` (core mới, ngay dưới) — NƠI GỌI PHẢI TỰ
+         * THÊM hàm đó nếu muốn state đổi thành `false` (4 nơi hiện tại ĐANG cần:
+         * handleBackToPlaylistClick() ngay dưới, clearAllStoredData() storage-manager.js,
+         * window.removeSong()/xoá hàng loạt core/playlist/actions.js + event/workflow/playlist.js
+         * — đã cập nhật đủ cả 4).
          *
-         * NƠI GỌI PHẢI TỰ THÊM `setVisualizerActiveFalse()` NẾU MUỐN state đổi thành false (4 nơi
-         * hiện tại ĐANG cần: handleBackToPlaylistClick() ngay dưới, clearAllStoredData()
-         * storage-manager.js, window.removeSong()/xoá hàng loạt core/playlist/actions.js +
-         * event/workflow/playlist.js — đã cập nhật đủ cả 4). Nhánh "mở Settings từ Visualizer"
-         * (workflowPlayerControls.openSettingsDrawerFromVisualizer(), event/workflow/player-
-         * controls.js) CỐ Ý KHÔNG gọi `setVisualizerActiveFalse()` — giữ nguyên `true` suốt phiên
-         * Settings che lên Visualizer.
+         * (HOTFIX 11, 08/07/2026 — batch này TỪNG có thêm 1 nơi gọi nữa, tái dùng hàm này cho "mở
+         * Settings từ Visualizer" mà CỐ Ý không gọi setVisualizerActiveFalse(); nút đó đã bị BỎ
+         * HẲN, xem components/visualizer-overlay.js — không còn liên quan tới hàm này nữa, nhưng
+         * việc tách state ra khỏi hàm ở HOTFIX 10 vẫn giữ nguyên vì tự nó đã đúng Rule 1.)
          */
         function forceBackToPlaylistUI() {
             visualizerUI.classList.remove('fade-enter-active');
@@ -294,13 +291,13 @@
             sideLeftContainer.classList.add('playlist-hidden');
             // HOTFIX 8 (08/07/2026, dọn lại theo đúng Rule 3 — Giang chỉ ra bản vá trước
             // (HOTFIX 7) tự vi phạm "core gọi core" bằng resetSettingsStackToMain() ở đây. Việc
-            // dọn ngăn xếp Settings giờ là trách nhiệm DUY NHẤT của workflowPlayerControls::
-            // closeSettingsDrawerToPlaylist()/closeSettingsDrawerToVisualizer() (xem event/
-            // workflow/player-controls.js) — hàm NÀY không gọi core nào khác nữa, chỉ còn 1 dòng
-            // ghi thuộc tính DOM thuần (KHÔNG tính là "gọi core", giống các dòng classList ngay
-            // trên) — giữ lại vì rẻ và vô hại, đảm bảo lần vào Visualizer kế tiếp luôn thấy cuộn
-            // nội bộ ở vị trí Playlist dù đường nào đó (vd clearAllStoredData(), legacy, ngoài
-            // phạm vi batch này) từng bỏ sót việc reset.
+            // dọn ngăn xếp Settings giờ là trách nhiệm DUY NHẤT của
+            // workflowPlayerControls.closeSettingsDrawer() (event/workflow/player-controls.js,
+            // đổi tên ở HOTFIX 11 khi bỏ nhánh Visualizer) — hàm NÀY không gọi core nào khác nữa,
+            // chỉ còn 1 dòng ghi thuộc tính DOM thuần (KHÔNG tính là "gọi core", giống các dòng
+            // classList ngay trên) — giữ lại vì rẻ và vô hại, đảm bảo lần vào Visualizer kế tiếp
+            // luôn thấy cuộn nội bộ ở vị trí Playlist dù đường nào đó (vd clearAllStoredData(),
+            // legacy, ngoài phạm vi batch này) từng bỏ sót việc reset.
             sideLeftContainer.scrollLeft = 0;
             appState.set('isVisualizerActive', true); // MỚI (07/07/2026, phản hồi Giang mục 1)
             visualizerUI.classList.remove('hidden'); playerContainer.classList.remove('hidden');
@@ -378,70 +375,30 @@
         }
 
         /**
-         * ===================== HOTFIX 9 (08/07/2026) — Giang chỉ ra: đóng Settings về Visualizer
-         * KHÔNG cần viết hàm mới ("hideSideLeftContainer"/"resetSideLeftScrollToPlaylist" ở bản
-         * trước) — `switchToVisualizer()` (dùng khi bấm bài hát, NGAY DƯỚI file này) đã làm ĐÚNG
-         * y hệt việc "trượt cả khối #side-left-container ra + trở về Visualizer", tái dùng THẲNG
-         * thay vì viết lại. Việc nó tiện thể set lại `isVisualizerActive = true` là VÔ HẠI TUYỆT
-         * ĐỐI trong trường hợp này — giá trị đã LÀ `true` từ trước (đó chính là điều kiện để nhánh
-         * này được chọn), ghi đè cùng giá trị không tạo tác dụng phụ gì. Xem
-         * `workflowPlayerControls.closeSettingsDrawerToVisualizer()` (event/workflow/player-
-         * controls.js) để biết đầy đủ luồng tái dùng.
-         * =====================================================================================
+         * ===================== HOTFIX 11 (08/07/2026) — BỎ HẲN nhánh "mở Settings từ Visualizer" =====================
+         * Lịch sử ngắn gọn (chi tiết đầy đủ từng bước xem lịch sử chat/changelog nếu cần tra cứu):
+         * batch 07/07/2026 (Nhóm D, "gộp container") thêm khả năng mở Settings NGAY TỪ Visualizer
+         * (nút #btn-settings trong Control Center), kéo theo 1 chuỗi hotfix (7/8/9/10) chỉnh lại
+         * kiến trúc mở/đóng cho đúng Rule 1-3 (core đơn tuyến, không core-gọi-core, Workflow điều
+         * phối). Dù kiến trúc cuối cùng ĐÃ ĐÚNG theo mọi rule, thực tế trên thiết bị thật VẪN không
+         * ổn định — Giang quyết định BỎ HẲN nút đó (xem components/visualizer-overlay.js) thay vì
+         * tiếp tục vá. Settings giờ CHỈ mở được từ Playlist (#btn-settings-playlist) — 2 hàm
+         * "smooth" ngay dưới đây là TOÀN BỘ những gì còn lại của cụm core Settings, không còn
+         * nhánh/rẽ nhánh/boolean-trả-về nào nữa. Router (event/router/player-controls.js) gọi
+         * THẲNG core cho mở, giao Workflow (event/workflow/player-controls.js::
+         * closeSettingsDrawer()) cho đóng — không còn đọc `isVisualizerActive`/VirtualMachineState
+         * ở đây nữa.
          */
 
-        /**
-         * ===================== HOTFIX 8 (08/07/2026) — VIẾT LẠI TOÀN BỘ cụm mở/đóng Settings =====================
-         * Giang chỉ ra đúng: bản 07/07/2026 (Nhóm D, "gộp container") vi phạm Rule 3 ở CHÍNH
-         * cụm hàm này — `closeSettingsDrawer()` (cũ) tự gọi `validateVideoBgOnClose()` (core khác)
-         * bên trong; `closeSettingsDrawerToVisualizer()` (cũ) cũng vậy; `workflowPlayerControls.
-         * openSettingsDrawer()`/`closeSettingsDrawerAndResetStack()` (event/workflow/player-
-         * controls.js) dựa vào 1 core và 1 method Workflow TRÙNG TÊN, gọi bằng tên trần, tự phân
-         * giải theo scope — chạy đúng nhưng không tự giải thích được, phải viết script Node ra mới
-         * dám chắc không đệ quy. VIẾT LẠI đúng quy trình Giang chốt: mỗi hàm dưới đây làm ĐÚNG 1
-         * việc, KHÔNG hàm nào gọi hàm khác (kể cả hàm core khác) — `jumpSideLeftScrollToSettings()`
-         * (bước 1 lúc MỞ từ Visualizer) TRẢ VỀ boolean để Workflow tự đọc rồi quyết định có chạy
-         * `forceBackToPlaylistUI()` (bước 2, TÁI DÙNG — xem HOTFIX 10 ngay dưới, KHÔNG còn hàm
-         * "reveal" riêng nữa) hay không (Rule 3: đây là WORKFLOW đọc kết quả CORE trả về, không
-         * phải core gọi core). Chiều ĐÓNG về Visualizer KHÔNG cần cặp bước
-         * tương tự — xem HOTFIX 9 ngay trên (tái dùng thẳng `switchToVisualizer()` có sẵn). Toàn bộ
-         * phối hợp (validate video, reset ngăn xếp panel con, chờ đúng animation bằng taskManager,
-         * gọi bước 1 rồi bước 2) chuyển hẳn sang `workflowPlayerControls` (event/workflow/player-
-         * controls.js) — xem `openSettingsDrawerFromVisualizer()`/`closeSettingsDrawerToPlaylist()`/
-         * `closeSettingsDrawerToVisualizer()` ở đó.
-         *
-         * Ứng với `playerControls.settingsDrawer.open`/`.close` — Router (event/router/player-
-         * controls.js) tự đọc `appState.get('isVisualizerActive')` MỘT LẦN, rẽ nhánh bằng
-         * VirtualMachineState: đang ở Playlist -> gọi THẲNG 1 trong 2 hàm core "smooth" dưới đây
-         * (đúng 1 hàm, không cần Workflow); đang ở Visualizer -> giao `workflowPlayerControls`.
-         */
 
-        /** Core: cuộn MƯỢT `#side-left-container` sang trang Settings — dùng khi container ĐANG
-         * HIỂN THỊ SẴN (nhánh "đang ở Playlist"). */
+        /** Core: cuộn MƯỢT `#side-left-container` sang trang Settings. */
         function scrollSideLeftToSettingsSmooth() {
             sideLeftContainer.scrollTo({ left: sideLeftContainer.clientWidth, behavior: 'smooth' });
         }
 
-        /** Core: cuộn MƯỢT `#side-left-container` VỀ trang Playlist — dùng khi container ĐANG
-         * HIỂN THỊ SẴN (nhánh "đang ở Playlist"). */
+        /** Core: cuộn MƯỢT `#side-left-container` VỀ trang Playlist. */
         function scrollSideLeftToPlaylistSmooth() {
             sideLeftContainer.scrollTo({ left: 0, behavior: 'smooth' });
-        }
-
-        /**
-         * Core — BƯỚC 1 của nhánh "đang ở Visualizer" khi MỞ Settings: `#side-left-container`
-         * đang trượt ra ngoài màn hình (`playlist-hidden`) nên nhảy cuộn nội bộ sang Settings NGAY
-         * LẬP TỨC, không animation (không ai nhìn thấy lúc này). Trả về boolean báo đã nhảy xong —
-         * Workflow tự đọc giá trị này để quyết định có gọi `forceBackToPlaylistUI()` (bước 2, TÁI
-         * DÙNG — xem docstring đầy đủ ở đó VÀ ở workflowPlayerControls.
-         * openSettingsDrawerFromVisualizer()) hay không (guard: container chưa từng tồn tại thì
-         * KHÔNG được trượt vào, tránh lộ màn hình rỗng).
-         * @returns {boolean}
-         */
-        function jumpSideLeftScrollToSettings() {
-            if (!sideLeftContainer) return false;
-            sideLeftContainer.scrollLeft = sideLeftContainer.clientWidth;
-            return true;
         }
 
 
