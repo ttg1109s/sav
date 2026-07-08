@@ -11,8 +11,11 @@
  * Workflow (event-bus-flow.md mục 4B), không còn "gọi thẳng core" 1 bước như 16 msg.type còn lại
  * của cụm này.
  *
- * NẠP SAU: core/player-controls.js (toggleShuffle), core/playlist/order.js
- * (updateShuffleArrayFromQueue). NẠP TRƯỚC: event/router/player-controls.js.
+ * NẠP SAU: core/player-controls.js (toggleShuffle, openSettingsDrawer/openSettingsDrawerInstant/
+ * closeSettingsDrawer/closeSettingsDrawerToVisualizer/resetSideLeftScrollPosition — MỚI
+ * 07/07/2026), core/playlist/order.js (updateShuffleArrayFromQueue), core/settings-panel-stack.js
+ * (resetSettingsStackToMain), event/virtual-machine-state.js (VirtualMachineState).
+ * NẠP TRƯỚC: event/router/player-controls.js.
  */
 const workflowPlayerControls = {
 
@@ -34,6 +37,28 @@ const workflowPlayerControls = {
     },
 
     /**
+     * Ứng với 'playerControls.settingsDrawer.open' (nút mở Settings, cả 2 nguồn: #btn-settings ở
+     * Visualizer / #btn-settings-playlist ở Playlist) — THÊM ở batch 07/07/2026 (phản hồi Giang
+     * mục 1 — "Sử dụng vmstate để phân nhánh trong workflow"): TRƯỚC ĐÂY router gọi thẳng
+     * `openSettingsDrawer()` (core, 1 hàm). Giờ CẦN rẽ nhánh theo `appState.get('isVisualizerActive')`
+     * — đang ở Playlist thì cuộn mượt bình thường; đang ở Visualizer thì phải nhảy thẳng (không
+     * animation, vì `#side-left-container` đang ẩn ngoài màn hình) RỒI MỚI trượt cả khối vào (2
+     * bước nối tiếp, phụ thuộc thứ tự — đúng hình dạng Workflow, không còn "gọi thẳng core" nữa).
+     * Dùng VirtualMachineState (KHÔNG if/else trần) vì 2 nhánh LOẠI TRỪ NHAU dựa trên 1 giá trị
+     * appState — đúng khuôn mọi router/workflow khác trong app đã dùng.
+     */
+    openSettingsDrawer() {
+        VirtualMachineState.run([
+            { state: appState.get('isVisualizerActive'), operation: '===', value: true, callback: () => {
+                openSettingsDrawerInstant(); // core — nhảy thẳng + trượt cả khối vào
+            } },
+            { state: appState.get('isVisualizerActive'), operation: '===', value: false, callback: () => {
+                openSettingsDrawer(); // core cùng tên, gọi trần phân giải theo scope từ vựng (xem lưu ý đặt tên đầu file)
+            } },
+        ]);
+    },
+
+    /**
      * Ứng với 'playerControls.settingsDrawer.close' (nút X, id="close-drawer") — THÊM ở Batch D1
      * (Settings restructure, phản hồi Giang 06/07/2026): TRƯỚC ĐÂY chỉ 1 hàm core
      * (closeSettingsDrawer()) nên router gọi thẳng, KHÔNG cần workflow. Từ Batch D1, cần thêm
@@ -42,9 +67,22 @@ const workflowPlayerControls = {
      * đúng hình dạng Workflow (event-bus-flow.md mục 4B), không còn "gọi thẳng core" 1 bước nữa.
      * VIẾT LẠI (06/07/2026, slider thật) — `resetSettingsStackToMain()` không còn cần tham số
      * title (header đã nằm sẵn trong chính panel Main, không cần "khôi phục" gì cả).
+     *
+     * VIẾT LẠI TIẾP (07/07/2026, phản hồi Giang mục 1) — rẽ nhánh theo `isVisualizerActive` GIỐNG
+     * `openSettingsDrawer()` ở trên: đang ở Visualizer thì trượt cả khối `#side-left-container` ra
+     * lại (về Visualizer) RỒI MỚI reset cuộn nội bộ về Playlist SAU KHI animation transform chạy
+     * xong hẳn (taskManager — Rule 3 CHỈ Workflow được dùng, core không tự chờ được).
      */
     closeSettingsDrawerAndResetStack() {
         resetSettingsStackToMain();
-        closeSettingsDrawer();
+        VirtualMachineState.run([
+            { state: appState.get('isVisualizerActive'), operation: '===', value: true, callback: () => {
+                closeSettingsDrawerToVisualizer(); // core — trượt cả khối ra lại (về Visualizer)
+                taskManager.once(() => { resetSideLeftScrollPosition(); }, 500, 'resetSideLeftScrollAfterSettingsToVisualizer'); // core, gọi SAU khi animation transform (0.5s, assets/css/style.css) chạy xong hẳn
+            } },
+            { state: appState.get('isVisualizerActive'), operation: '===', value: false, callback: () => {
+                closeSettingsDrawer(); // core cùng tên, gọi trần phân giải theo scope từ vựng
+            } },
+        ]);
     },
 };
