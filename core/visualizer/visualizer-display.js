@@ -283,6 +283,18 @@
             appState.mutate('vizConfig', cfg => { cfg.dynB = value; });
         }
 
+        /** Core thuần: màu bắt đầu (from) của Theme mode "Gradient" (MỚI 09/07/2026) — KHÁC
+         * `dynA`/`dynB` ở trên (đó là màu thanh Visualizer, đây là màu nền app) — xem docstring
+         * DEFAULT_VIZ_CONFIG.gradientFrom, core/config.js. */
+        function setThemeGradientFrom(value) {
+            appState.mutate('vizConfig', cfg => { cfg.gradientFrom = value; });
+        }
+
+        /** Core thuần: màu kết thúc (to) của Theme mode "Gradient" (MỚI 09/07/2026). */
+        function setThemeGradientTo(value) {
+            appState.mutate('vizConfig', cfg => { cfg.gradientTo = value; });
+        }
+
         /** Core thuần: kiểu hiệu ứng Vortex con. Batch D3 — BỎ `updateVortexVisibility()`/`saveConfig()`. */
         function setVortexStyle(value) {
             appState.mutate('vizConfig', cfg => { cfg.vortexStyle = value; });
