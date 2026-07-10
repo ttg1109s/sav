@@ -84,6 +84,9 @@
         // slideshow.js::openPanel()); THAY bằng TPL_SLIDESHOW_ALBUM_PICKER (panel chọn Album kiểu
         // "notify center" — ĐỘC LẬP với Settings Stack, vẫn mount tĩnh như trước, KHÔNG di chuyển).
         TPL_SLIDESHOW_ALBUM_PICKER + // Batch 8, ver 12 "Multi Media" — Slideshow nền Visual.
-        TPL_DOCUMENT_READER + // MỚI (04/07/2026, tính năng Documents) — cửa sổ đọc tài liệu.
-        TPL_DOCUMENT_PICKER_DRAWER; // MỚI (04/07/2026, mục 3 phản hồi Giang) — drawer chọn tài liệu.
+        // Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — TPL_DOCUMENT_READER/
+        // TPL_DOCUMENT_PICKER_DRAWER CŨ ĐÃ BỎ (components/document-reader.js/
+        // document-picker-drawer.js đã xoá) — THAY bằng 1 khung TRẮNG dùng CHUNG duy nhất cho cả
+        // Document List+Reader, xem components/generic-drawer.js.
+        TPL_GENERIC_DRAWER;
 })();
