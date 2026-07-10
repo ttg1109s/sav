@@ -307,17 +307,10 @@
         // CHUNG cho Document List+Reader, THAY document-reader-*/document-picker-* cũ — xem
         // core/generic-drawer.js/components/generic-drawer.js). Header/Body RỖNG lúc boot —
         // Workflow (event/workflow/document-reader.js) tự gán nội dung + querySelector bên trong
-        // để wire event MỖI LẦN render lại (KHÔNG có dom-refs tĩnh cho các phần tử BÊN TRONG
-        // header/body — nội dung đổi hoàn toàn giữa List/Read, xem docstring đầu
-        // core/generic-drawer.js). (documentReaderOverlay/documentReaderWindow/
-        // btnDocumentReaderListToggle/documentReaderTitle/btnDocumentReaderEdit/
-        // btnDocumentReaderClose/documentReaderBody/documentReaderPages/documentReaderEmpty/
-        // btnDocumentReaderPrev/documentReaderPageIndicator/btnDocumentReaderNext/
-        // documentReaderEditMode/documentReaderEditMount/btnDocumentReaderEditCancel/
-        // btnDocumentReaderEditSave/documentPickerOverlay/documentPickerDrawer/
-        // btnDocumentPickerClose/documentPickerList/documentPickerEmpty ĐÃ XOÁ — thay bằng 4 dòng
-        // dưới đây.)
-        const genericDrawerOverlay = document.getElementById('generic-drawer-overlay');
+        // để wire event MỖI LẦN render lại. SỬA (10/07/2026, phản hồi Giang): BỎ HẲN
+        // `genericDrawerOverlay` (nền mờ che màn hình) — bản đầu có bug đóng drawer không xoá lại
+        // `hidden` cho overlay, khiến nó che chắn UI mãi mãi sau lần đóng đầu tiên; Giang xác nhận
+        // lớp này không cần thiết, bỏ hẳn khỏi component luôn (components/generic-drawer.js).
         const genericDrawerPanel = document.getElementById('generic-drawer-panel');
         const genericDrawerHeader = document.getElementById('generic-drawer-header');
         const genericDrawerBody = document.getElementById('generic-drawer-body');
