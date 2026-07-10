@@ -11,6 +11,12 @@ const routerTheme = (() => {
             case 'theme.selectMode.click':
                 workflowTheme.selectThemeMode(msg.payload.mode); // >1 hàm core (đọc/ghi ảnh + đồng bộ UI) -> workflow
                 break;
+            case 'theme.gradientFrom.input':
+                workflowTheme.setGradientFrom(msg.payload.value);
+                break;
+            case 'theme.gradientTo.input':
+                workflowTheme.setGradientTo(msg.payload.value);
+                break;
             default:
                 console.warn(`[routerTheme] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`, msg);
         }
