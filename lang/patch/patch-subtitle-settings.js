@@ -92,6 +92,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsTheme.light': 'Light',
     'settingsTheme.dark': 'Dark',
     'settingsTheme.background': 'Background',
+    'settingsTheme.gradient': 'Gradient',
+    'settingsTheme.gradient.label': 'Colors',
     'settingsPlaylistBg.viewMode.label': 'View',
     'settingsPlaylistBg.viewMode.list': 'List',
     'settingsPlaylistBg.viewMode.grid': 'Grid',
