@@ -59,12 +59,16 @@
 
             /** Khung ngoài: CHỈ mở thẻ #settings-stack-body — KHÔNG còn header dùng chung (đã nhét
              * vào từng panel), KHÔNG còn tự định vị/nền riêng (07/07/2026: #drawer-settings giờ là
-             * 1 "trang" bên trong #side-left-container, dùng CHUNG #playlist-bg với Playlist —
-             * xem components/app-view-stack.js + docstring đầu file). */
+             * 1 "trang" bên trong #side-left-container, dùng CHUNG #app-bg với Playlist — xem
+             * components/app-view-stack.js + docstring đầu file).
+             * HOTFIX 17 (08/07/2026) — `#settings-stack-body` đổi thành khung CUỘN NGANG thật
+             * (`display:flex; overflow-x:hidden;`), thay cho `relative overflow-hidden` cũ (từng
+             * chứa các panel `position:absolute` tự animate `left`) — xem core/settings-panel-
+             * stack.js để biết đầy đủ lý do đổi. */
             renderHeader() {
                 return `
     <div id="drawer-settings" class="flex flex-col">
-        <div id="settings-stack-body" class="relative z-10 flex-grow overflow-hidden">
+        <div id="settings-stack-body" class="flex overflow-x-hidden overflow-y-hidden flex-grow">
         `;
             },
 
@@ -80,13 +84,16 @@
              * riêng (title + nút Close X) NGAY TRONG THÂN panel, giống mọi panel con (xem
              * core/settings-panel-stack.js::_buildPanelInnerHtml()) nhưng KHÁC ở chỗ dùng nút
              * Close (đóng hẳn Settings) thay vì Back (lùi 1 cấp) — Main là đáy, không có gì để
-             * lùi về. `style="transition: left ...ms"` gắn INLINE ngay từ đầu (không đợi JS gán
-             * lúc push đầu tiên) — cần sẵn để lần push ĐẦU TIÊN trượt Main sang trái mượt mà, khớp
-             * đúng SETTINGS_STACK_TRANSITION_MS ở core/settings-panel-stack.js.
+             * lùi về.
+             * HOTFIX 17 (08/07/2026) — bỏ hẳn `position:absolute`/`style="transition: left..."` —
+             * Main giờ chỉ là "trang" ĐẦU TIÊN (index 0) trong khung cuộn ngang
+             * `#settings-stack-body` (`flex-shrink-0`, nằm cạnh các panel con được push sau, xem
+             * core/settings-panel-stack.js::pushSettingsPanel()) — không tự animate gì cả, trình
+             * duyệt lo cuộn.
              */
             renderMainPanel() {
                 return `
-            <div id="settings-stack-panel-main" class="settings-stack-panel absolute top-0 left-0 w-full h-full flex flex-col" style="transition: left 500ms ease-in-out;">
+            <div id="settings-stack-panel-main" class="settings-stack-panel w-full h-full flex-shrink-0 flex flex-col">
                 <div class="relative flex items-center justify-center px-14 py-3 sm:px-16 h-14 shrink-0">
                     <h2 class="text-base sm:text-lg font-semibold text-white truncate text-center" data-i18n="settingsDrawer.title">${t('settingsDrawer.title')}</h2>
                     <button id="close-drawer" class="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-rose-500 transition-colors text-white shrink-0"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
