@@ -294,3 +294,17 @@ body {
 .document-html-content blockquote { border-left: 3px solid rgba(100, 116, 139, 0.4); padding-left: 0.9em; margin: 0 0 0.75em 0; font-style: italic; opacity: 0.85; }
 .document-html-content a { color: #0284c7; text-decoration: underline; }
 .document-html-content > *:first-child { margin-top: 0; }
+
+/* ============================================================================================
+   FIX (10/07/2026, phản hồi Giang — mục 1.2 Nhóm A): Reader trước đây gán innerHTML tức thời,
+   KHÔNG có hiệu ứng trượt trang nào. `.document-reader-slide-layer` — 2 lớp tuyệt đối chồng lên
+   nhau bên trong `#document-reader-pages` (position:relative, xem event/workflow/
+   document-reader.js::_slideToNewPage()), transition transform để tạo hiệu ứng trượt ngang
+   next/prev — JS chỉ đổi `transform`, KHÔNG đổi gì khác, animation mượt do trình duyệt tự nội suy.
+   ============================================================================================ */
+.document-reader-slide-layer {
+    position: absolute;
+    inset: 0;
+    transition: transform 220ms ease-out;
+    will-change: transform;
+}
