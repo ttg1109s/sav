@@ -5,6 +5,12 @@
  * này: CHỈ Document List+Reader dùng (xem event/workflow/document-reader.js) — Settings/File
  * Manager Song/Photo/Folder Detail GIỮ NGUYÊN nav-stack riêng, KHÔNG migrate.
  *
+ * SỬA (10/07/2026, phản hồi Giang): BỎ HẲN lớp overlay (nền mờ `bg-black/50` che toàn màn hình) —
+ * bản đầu có bug đóng drawer không xoá lại `hidden` cho overlay (chỉ trượt panel xuống), khiến
+ * overlay còn `pointer-events-auto` che chắn TOÀN BỘ UI phía sau mãi mãi sau lần đóng đầu tiên.
+ * Giang xác nhận lớp này KHÔNG CẦN THIẾT cho tính năng Document List/Reader — bỏ hẳn, không chỉ
+ * sửa bug timing, loại trừ luôn cả lớp gây bug.
+ *
  * Header/Body RỖNG lúc mount tĩnh — core/generic-drawer.js (openGenericDrawer()/
  * updateGenericDrawer()) tự gán nội dung mỗi lần mở/chuyển cấu hình, Workflow tự querySelector
  * bên trong SAU khi gán để wire event (component KHÔNG biết nội dung là gì, đúng quy ước
@@ -19,14 +25,13 @@
  * `#visualizer-control-center` đang neo, xem components/visualizer-overlay.js) — set qua
  * style.height inline lúc gọi openGenericDrawer()/updateGenericDrawer(), KHÔNG cố định ở đây.
  *
- * `z-[39]`/`z-40` ở đây CHỈ là giá trị KHỞI TẠO tĩnh (khớp mặc định của core/generic-drawer.js) —
- * bị ghi đè NGAY bằng style.zIndex inline mỗi lần openGenericDrawer()/updateGenericDrawer() chạy.
+ * `z-40` ở đây CHỈ là giá trị KHỞI TẠO tĩnh (khớp mặc định của core/generic-drawer.js) — bị ghi đè
+ * NGAY bằng style.zIndex inline mỗi lần openGenericDrawer()/updateGenericDrawer() chạy.
  *
  * Mục 7 plan-v12-extended.md (Theme Light/Dark/System, KHÔNG code ở Nhóm A): Generic Drawer thuộc
  * vùng LOẠI TRỪ theme — giữ nền TRẮNG cố định, không đổi theo Light/Dark/System.
  */
 const TPL_GENERIC_DRAWER = `
-    <div id="generic-drawer-overlay" class="hidden fixed inset-0 z-[39] bg-black/50 pointer-events-auto"></div>
     <div id="generic-drawer-panel" class="hidden fixed inset-x-0 bottom-0 z-40 h-[70vh] bg-white rounded-t-3xl shadow-2xl flex flex-col transform translate-y-full transition-transform duration-300 ease-out pointer-events-auto">
         <div class="flex justify-center pt-3 pb-1 shrink-0">
             <div class="w-10 h-1.5 rounded-full bg-slate-300"></div>
