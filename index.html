@@ -413,14 +413,14 @@
     <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer (core UI thuần), CẦN
          core/dom-refs.js (đã nạp ngay trên: genericDrawerOverlay/Panel/Header/Body). Đặt cạnh
          nhóm Documents cho dễ đọc dù bản thân KHÔNG phụ thuộc gì từ document.js/document-ui.js. -->
-    <script src="core/generic-drawer.js?v=20260710v1"></script>
+    <script src="core/generic-drawer.js?v=20260710v2"></script>
     <!-- Documents — CRUD + lọc HTML whitelist (document.js, VIẾT LẠI 10/07/2026 Nhóm A — bỏ
          Markdown/Turndown), hàm dựng UI + surface Sửa dùng chung (document-ui.js, VIẾT LẠI cùng
          đợt — bỏ Toast UI Editor/kỹ thuật CSS multi-column cũ). document-pagination.js (MỚI, core
          nghiệp vụ RIÊNG — cắt HTML thành slot cho Reader, xem readme Nhóm A). Không phụ thuộc lẫn
          nhau, thứ tự giữa 3 file không quan trọng. -->
-    <script src="core/file-manager/document.js?v=20260710v1"></script>
-    <script src="core/file-manager/document-ui.js?v=20260710v1"></script>
+    <script src="core/file-manager/document.js?v=20260710v2"></script>
+    <script src="core/file-manager/document-ui.js?v=20260710v2"></script>
     <script src="core/file-manager/document-pagination.js?v=20260710v1"></script>
     <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager (registry) —
          CỐ Ý đặt cuối cùng trong nhóm core/file-manager/ (mọi tính năng khác đã có mặt trước đó,
@@ -628,9 +628,11 @@
     <script src="event/listener/file-manager-photo.js?v=20260706v1"></script>
     <!-- workflowFileManagerDocument CẦN tồn tại trước khi router gọi tới. Batch D7 (06/07/2026):
          panel Document push/pop động — CẦN core/settings-panel-stack.js (đã nạp ở nhóm CORE).
-         VIẾT LẠI (10/07/2026, Nhóm A) — content giờ là HTML (sanitizeDocumentHtml()/
-         buildDocumentHtmlFromPlainText()), KHÔNG còn Markdown/Turndown. -->
-    <script src="event/workflow/file-manager-document.js?v=20260710v1"></script>
+         VIẾT LẠI (10/07/2026, Nhóm A, CẬP NHẬT cùng ngày sau phản hồi Giang) — .txt upload lưu
+         string[] (splitPlainTextIntoParagraphs()), .docx/user-edited lưu HTML
+         (sanitizeDocumentHtml()), KHÔNG còn Markdown/Turndown. Toàn bộ mount+wire modal/drawer
+         Documents giờ ở workflow này (core/file-manager/document-ui.js chỉ dựng DOM tĩnh). -->
+    <script src="event/workflow/file-manager-document.js?v=20260710v2"></script>
     <script src="event/router/file-manager-document.js?v=20260706v1"></script>
     <script src="event/listener/file-manager-document.js?v=20260706v1"></script>
     <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — cụm "fileManagerCleanup" (nút "Dọn dẹp dữ liệu",
@@ -646,7 +648,7 @@
          (KHÔNG qua eventBus), xem docstring đầu core/generic-drawer.js. router/listener
          "documentPicker" CHỈ còn 1 msg.type ('open.click', nút "Reader" ở Control Center) — PHẢI
          nạp TRƯỚC vì router gọi thẳng workflowDocumentReader.openPicker(). -->
-    <script src="event/workflow/document-reader.js?v=20260710v1"></script>
+    <script src="event/workflow/document-reader.js?v=20260710v2"></script>
     <script src="event/router/document-picker.js?v=20260710v1"></script>
     <script src="event/listener/document-picker.js?v=20260710v1"></script>
     <script src="event/workflow/playlist.js?v=20260708v1"></script>
