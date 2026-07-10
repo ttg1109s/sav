@@ -401,14 +401,19 @@
          */
 
 
-        /** Core: cuộn MƯỢT `#side-left-container` sang trang Settings. */
+        /** Core: cuộn MƯỢT `#side-left-container` sang trang Settings.
+         * (09/07/2026: đổi sang gọi thẳng getPositionStart()/scrollSliderTo() dùng chung —
+         * core/slider-panel-scroll.js — thay vì tự viết scrollTo({left: clientWidth}) riêng, TRÙNG
+         * logic với core/settings-panel-stack.js. Dùng getPositionStart(drawerSettings) thay vì
+         * đoán bằng clientWidth: đúng vị trí layout THẬT của trang Settings, không phụ thuộc giả
+         * định "mỗi trang đúng 100% chiều rộng khung cha".) */
         function scrollSideLeftToSettingsSmooth() {
-            sideLeftContainer.scrollTo({ left: sideLeftContainer.clientWidth, behavior: 'smooth' });
+            scrollSliderTo(sideLeftContainer, getPositionStart(drawerSettings), true);
         }
 
         /** Core: cuộn MƯỢT `#side-left-container` VỀ trang Playlist. */
         function scrollSideLeftToPlaylistSmooth() {
-            sideLeftContainer.scrollTo({ left: 0, behavior: 'smooth' });
+            scrollSliderTo(sideLeftContainer, getPositionStart(playlistView), true);
         }
 
 

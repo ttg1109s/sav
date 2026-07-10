@@ -17,18 +17,19 @@
  *   - `#settings-stack-body` giờ là khung cuộn ngang (`display:flex; overflow-x:hidden;`) — MỌI
  *     panel (kể cả Main) là 1 "trang" NẰM CẠNH NHAU theo thứ tự DOM (`flex-shrink:0; width:100%`),
  *     KHÔNG còn `position:absolute`/`left` tự animate nữa.
- *   - PUSH: panel mới APPEND vào CUỐI (index kế tiếp trong `settingsPanelStackEntries`), rồi
- *     `scrollTo({left: clientWidth * index, behavior:'smooth'})` — trình duyệt tự animate cuộn,
- *     không tự tay viết easing/transition gì cả.
- *   - POP: `scrollTo({left: clientWidth * (index liền trước), behavior:'smooth'})` — Workflow vẫn
- *     tự chờ `SETTINGS_STACK_TRANSITION_MS` (taskManager, Rule 3) rồi mới xoá DOM panel vừa trượt
- *     ra (KHÔNG đổi luồng workflow — event/workflow/settings-stack-nav.js).
- *   - `resetSettingsStackToMain()`: dùng `scrollTo({left:0, behavior:'instant'})` TƯỜNG MINH —
- *     TUYỆT ĐỐI KHÔNG gán trực tiếp `settingsStackBody.scrollLeft = 0` (đúng bài học HOTFIX 12:
- *     nếu phần tử có CSS `scroll-behavior: smooth`, gán thẳng `.scrollLeft` KHÔNG nhảy tức thời mà
- *     tự animate — dù ở đây `settingsStackBody` KHÔNG khai `scroll-behavior:smooth` trong CSS, vẫn
- *     giữ thói quen dùng `scrollTo()` tường minh cho MỌI trường hợp, không phụ thuộc CSS mặc định,
- *     tránh lặp lại đúng lớp bug đã tốn nhiều vòng vá mới tìm ra).
+ *   - PUSH: panel mới APPEND vào CUỐI, rồi cuộn mượt sang nó.
+ *   - POP: cuộn ngược về panel liền trước — Workflow vẫn tự chờ `SLIDER_PANEL_SCROLL_ESTIMATED_MS`
+ *     (taskManager, Rule 3) rồi mới xoá DOM panel vừa trượt ra (KHÔNG đổi luồng workflow — xem
+ *     event/workflow/settings-stack-nav.js).
+ *   - `resetSettingsStackToMain()`: cuộn thẳng về vị trí 0, KHÔNG animation.
+ *
+ * === RÚT HÀM DÙNG CHUNG (09/07/2026, theo kế hoạch đã thống nhất) === Bản HOTFIX 17 ở trên tự viết
+ * `scrollTo({left: clientWidth * index, behavior})` NGAY TRONG file này — TRÙNG logic với
+ * `core/player-controls.js` (cũng tự viết `scrollTo()` riêng cho `#side-left-container`) — 2 bộ
+ * logic song song làm cùng 1 việc. Rút đúng 2 hàm dùng chung ra `core/slider-panel-scroll.js`
+ * (`getPositionStart(el)`/`scrollSliderTo(containerEl, position, animate)`), file này VÀ
+ * `core/player-controls.js` giờ gọi THẲNG 2 hàm đó — không còn tính `clientWidth * index` tay (dùng
+ * `getPositionStart(panelEl)` — vị trí layout THẬT của panel, không đoán qua index).
  *
  * THIẾT KẾ SLIDER (2 panel luôn cùng di chuyển 1 lúc, GIỮ NGUYÊN tinh thần bản 06/07 — chỉ đổi CƠ
  * CHẾ animate, không đổi CẢM GIÁC):
@@ -56,12 +57,11 @@
  * fullBleed})` GIỮ NGUYÊN chữ ký y hệt — chỉ phần TRIỂN KHAI BÊN TRONG file này đổi (cuộn ngang
  * thay vì animate `left`).
  *
- * NẠP SAU: core/dom-refs.js (settingsStackBody, settingsStackPanelMain).
+ * NẠP SAU: core/dom-refs.js (settingsStackBody, settingsStackPanelMain), core/slider-panel-
+ * scroll.js (getPositionStart, scrollSliderTo, SLIDER_PANEL_SCROLL_ESTIMATED_MS — hằng số ước
+ * lượng thời gian cuộn giờ SỐNG Ở FILE ĐÓ, dùng chung cho mọi nơi cuộn, không còn hằng số riêng ở
+ * file này nữa).
  */
-
-const SETTINGS_STACK_TRANSITION_MS = 500; // ước lượng đủ an toàn cho quãng cuộn 1 trang (native
-// scrollTo smooth không có CSS duration cố định để canh chính xác — cùng cách tiếp cận đã dùng cho
-// #side-left-container, xem core/player-controls.js).
 
 /** Ngăn xếp panel — index 0 LUÔN là Main (KHÔNG BAO GIỜ bị pop, chỉ reset() mới xoá phần còn lại).
  * Gán giá trị khởi tạo NGAY khi file này chạy (nạp SAU dom-refs.js nên `settingsStackPanelMain` đã
@@ -107,7 +107,8 @@ function pushSettingsPanel({ title, bodyHtml, fullBleed = false }) {
     settingsStackBody.appendChild(panelEl);
     settingsPanelStackEntries.push({ panelEl });
 
-    settingsStackBody.scrollTo({ left: settingsStackBody.clientWidth * (settingsPanelStackEntries.length - 1), behavior: 'smooth' });
+    void panelEl.offsetWidth; // ép reflow — đảm bảo panel vừa append đã có layout thật trước khi đọc offsetLeft
+    scrollSliderTo(settingsStackBody, getPositionStart(panelEl), true);
     return panelEl;
 }
 
@@ -121,8 +122,9 @@ function pushSettingsPanel({ title, bodyHtml, fullBleed = false }) {
 function popSettingsPanel() {
     if (settingsPanelStackEntries.length <= 1) return null; // đã ở Main
     const top = settingsPanelStackEntries.pop();
+    const prev = settingsPanelStackEntries[settingsPanelStackEntries.length - 1]; // panel liền trước, luôn tồn tại (tối thiểu là Main)
 
-    settingsStackBody.scrollTo({ left: settingsStackBody.clientWidth * (settingsPanelStackEntries.length - 1), behavior: 'smooth' });
+    scrollSliderTo(settingsStackBody, getPositionStart(prev.panelEl), true);
 
     return top.panelEl;
 }
@@ -139,5 +141,5 @@ function resetSettingsStackToMain() {
         settingsPanelStackEntries[i].panelEl.remove();
     }
     settingsPanelStackEntries.length = 1; // giữ lại đúng Main (index 0)
-    settingsStackBody.scrollTo({ left: 0, behavior: 'instant' });
+    scrollSliderTo(settingsStackBody, 0, false);
 }
