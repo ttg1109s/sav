@@ -386,6 +386,14 @@
                 quality: 'high', type: 'bar', barStyle: 'mirror', vortexStyle: 'rings', rainStyle: 'glass', glassFlash: true, mode: 'solid',
                 bgColor: '#000000', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 minH: 4, maxH: 400, barWidth: 4, bgImage: '', bgBlur: 0, bgImageEnabled: false,
+                // MỚI (09/07/2026) — `themeMode`/`gradientFrom`/`gradientTo` BỊ SÓT khỏi bản
+                // DEFAULT_VIZ_CONFIG RIÊNG này từ batch Theme gốc (07/07/2026, chỉ thêm bên
+                // core/config.js) — 2 nơi cùng tên nhưng KHÔNG dùng chung 1 object (xem comment ở
+                // core/config.js::DEFAULT_VIZ_CONFIG), lẽ ra phải thêm CẢ 2 chỗ. Vô hại thực tế
+                // (vizConfig luôn được `loadConfig()` merge/migrate lại default đúng ngay khi boot,
+                // trước khi UI kịp render) nhưng ĐIỀN ĐỦ ở đây cho khớp schema/tránh field thiếu ở
+                // bản khởi tạo thật đầu tiên (trước khi loadConfig() async kịp chạy xong).
+                themeMode: 'dark', gradientFrom: '#6366f1', gradientTo: '#ec4899',
                 mirrorBarCount: 32,
                 volume: 100, eqMode: 'flat', manualEq: Object.freeze([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
                 videoBgEnabled: false, videoBgUrl: '',
