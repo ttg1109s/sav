@@ -124,38 +124,50 @@ body {
            Visualizer thì cả 2 cùng dịch sang PHẢI (side-left-container thoát ra phải, Visualizer
            tiến vào từ trái); về lại Playlist thì cả 2 cùng dịch sang TRÁI. Canvas/4 nguồn nền
            (màu/ảnh/slideshow/video) GIỮ NGUYÊN toàn màn hình, KHÔNG di chuyển/đổi kích thước gì cả
-           — chỉ 2 lớp UI CHROME (`#side-left-container` đục + `#visualizer-ui`/`#player-container`)
-           trượt qua lại, canvas hiện xuyên qua NGAY khi side-left-container trượt khỏi màn hình.
+           — chỉ 2 lớp UI CHROME (`#app-stack` đục + `#visualizer-ui`/`#player-container`)
+           trượt qua lại, canvas hiện xuyên qua NGAY khi app-stack trượt khỏi màn hình.
            DESKTOP (>= 1024px): CẢ HAI hiện SONG SONG VĨNH VIỄN — huỷ hẳn mọi transform slide,
-           #side-left-container làm cột trái CỐ ĐỊNH, Visualizer chiếm phần còn lại bên phải.
+           #app-stack làm cột trái CỐ ĐỊNH, Visualizer chiếm phần còn lại bên phải.
            Canvas/nền TIẾP TỤC giữ nguyên 100vw/100vh (KHÔNG đụng buffer render Canvas/WebGL, tránh
            rủi ro vỡ hình khi resize) — chỉ bị panel bên trái đục che mất phần bên trái, tạo cảm
            giác "2 cột" mà không cần resize bất kỳ pipeline render nào.
            VIẾT LẠI (07/07/2026, phản hồi Giang — gộp Playlist+Settings chung 1 container cuộn
            ngang) — TRƯỚC ĐÂY khối này gắn TRỰC TIẾP vào `#playlist-view` (transform/left riêng của
-           chính nó). GIỜ tách wrapper MỚI `#side-left-container` NHẬN NGUYÊN VẸN mọi rule vị trí
-           (transform mobile/left+width desktop) THAY CHO `#playlist-view` — bên trong nó,
-           `#playlist-view`/`#drawer-settings` giờ chỉ là 2 "trang" cuộn ngang NGANG HÀNG nhau
-           (xem khối "Playlist <-> Settings (cuộn ngang)" phía dưới), KHÔNG còn tự định vị gì nữa —
-           tách bạch hoàn toàn 2 tầng điều hướng (Playlist<->Visualizer ở tầng wrapper, KHÔNG đổi
-           logic gì; Playlist<->Settings ở tầng bên trong, cuộn ngang MỚI) — không đụng độ nhau. */
-        #side-left-container, #visualizer-ui, #player-container { transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
-        #side-left-container { transform: translateX(0); }
-        #side-left-container.playlist-hidden { transform: translateX(100%); }
+           chính nó). SAU ĐÓ (batch gộp container) tách wrapper `#side-left-container` nhận mọi
+           rule vị trí THAY CHO `#playlist-view`.
+           VIẾT LẠI TIẾP (08/07/2026, HOTFIX 16, Giang chốt) — tách thêm 1 tầng `#app-stack` bọc
+           NGOÀI `#side-left-container` — `#app-stack` mới là nơi nhận NGUYÊN VẸN mọi rule vị trí
+           (transform mobile/left+width desktop) ở đây; `#side-left-container` giờ CHỈ còn lo cuộn
+           ngang giữa `#playlist-view`/`#drawer-settings` (xem khối "Playlist <-> Settings (cuộn
+           ngang)" phía dưới), không tự định vị gì nữa — tách bạch hoàn toàn 3 tầng: Playlist<-
+           >Visualizer (tầng `#app-stack`), Playlist<->Settings (tầng `#side-left-container`, cuộn
+           ngang), và nền thuần (`#app-bg`, anh em với `#side-left-container`, xem components/
+           app-view-stack.js) — không đụng độ nhau. */
+        #app-stack, #visualizer-ui, #player-container { transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        #app-stack { transform: translateX(0); }
+        #app-stack.playlist-hidden { transform: translateX(100%); }
+        /* HOTFIX 16 (08/07/2026) — `#app-stack` (MỚI, components/app-view-stack.js) nhận lại toàn
+           bộ rule vị trí/transform ở đây (trước là `#side-left-container` tự làm) — `#app-bg`/
+           `#side-left-container` giờ chỉ còn việc lấp đầy đúng khung `#app-stack`
+           (`position: absolute; inset: 0;`), không tự định vị/transform gì nữa. */
+        #app-bg, #side-left-container { position: absolute; inset: 0; }
         /* Trạng thái NGHỈ mặc định — chờ SẴN ngoài màn hình bên trái (khớp lúc mới boot, chưa từng
            bấm bài nào, VÀ lúc đã quay lại Playlist). */
         #visualizer-ui, #player-container { transform: translateX(-100%); }
         #visualizer-ui.visualizer-active, #player-container.visualizer-active { transform: translateX(0); }
 
         @media (min-width: 1024px) {
-            #side-left-container, #visualizer-ui, #player-container { transition: none; }
+            #app-stack, #visualizer-ui, #player-container { transition: none; }
             /* FIX (04/07/2026, phản hồi Giang) — 420px CỐ ĐỊNH -> `clamp(340px, 30vw, 460px)`: vẫn
                giữ tinh thần "Playlist là danh sách text/ảnh nhỏ, không cần phình to vô hạn theo
                màn hình" (khác Visualizer — canvas nên ăn hết khoảng trống dư ra), nhưng co giãn
                NHẸ theo % ở khoảng giữa thay vì 1 số cứng — màn hình vừa qua mốc 1024px (co hẹp)
                không còn bị chiếm gần nửa màn hình nữa (30vw ở 1024px ≈ 307px, kẹp lên tối thiểu
-               340px; màn hình cực rộng cũng bị chặn trần ở 460px, không phình vô lý). -->
-            #side-left-container { transform: none !important; left: 0; right: auto; width: clamp(340px, 30vw, 460px); border-right: 1px solid rgba(255,255,255,0.08); }
+               340px; màn hình cực rộng cũng bị chặn trần ở 460px, không phình vô lý). HOTFIX 16 —
+               `#app-stack` (không phải `#side-left-container` nữa) làm cột trái cố định; 2 con của
+               nó (`#app-bg`/`#side-left-container`) tự lấp đầy đúng khung này qua rule
+               `position:absolute; inset:0` ở trên, không cần đổi gì thêm ở đây. */
+            #app-stack { transform: none !important; left: 0; right: auto; width: clamp(340px, 30vw, 460px); border-right: 1px solid rgba(255,255,255,0.08); }
             #visualizer-ui, #player-container { transform: none !important; left: clamp(340px, 30vw, 460px); }
             /* Desktop KHÔNG còn khái niệm "chuyển màn" — Visualizer LUÔN hiện, bất kể state
                fade-in/hidden cũ (chỉ còn ý nghĩa trên mobile/tablet). PHẢI ép cả `display` (không
@@ -173,15 +185,15 @@ body {
            (flex, mỗi trang rộng đúng 100% container), chuyển qua lại bằng `scrollTo({left, behavior:
            'smooth'})` (xem core/player-controls.js::scrollSideLeftToSettingsSmooth()/
            scrollSideLeftToPlaylistSmooth(), HOTFIX 8+11) — trình duyệt tự lo easing/animation,
-           không cần tự tay viết transition cho việc này. Nền chung `#playlist-bg` giờ
-           `position: fixed` NGOÀI khung cuộn (không phải con của nó) — để cuộn ngang KHÔNG kéo nền
-           theo, ảnh nền đứng yên xuyên suốt lúc chuyển trang, đúng cảm giác "1 tấm ảnh nền chung
-           cho cả 2".
-           (HOTFIX 13, 08/07/2026 — bản gốc ở đây từng có thêm `scroll-snap-type`/`scroll-snap-align`
-           với lý do "đảm bảo luôn dừng đúng khớp trang dù người dùng tự vuốt tay" — lý do đó vốn đã
-           MÂU THUẪN với chính dòng `overflow-x: hidden` ngay dưới, vì đã CHẶN HẲN vuốt tay từ đầu
-           (không có cử chỉ nào để mà "khớp lại"). Đã bỏ — xem giải thích đầy đủ ngay dưới dòng
-           #side-left-container.) */
+           không cần tự tay viết transition cho việc này.
+           (HOTFIX 16, 08/07/2026 — đoạn này TỪNG mô tả `#playlist-bg` là 1 div `position: fixed`
+           NẰM BÊN TRONG `#side-left-container` để "không bị cuộn ngang kéo theo" — SAI, đã xác
+           nhận qua thực tế (HOTFIX 14/15 đều thất bại): dù `absolute` hay `fixed`, 1 phần tử CON
+           của khung cuộn ngang luôn bị coi là nội dung nằm trong vùng cuộn của nó. SỬA TẬN GỐC:
+           nền chung giờ là `#app-bg` — phần tử ANH EM với `#side-left-container` (không phải con),
+           cùng nằm trong `#app-stack` (xem components/app-view-stack.js) — đứng yên tuyệt đối,
+           không thể nào bị `scrollLeft` của `#side-left-container` ảnh hưởng, và `filter: blur()`
+           trên nó không lem sang chữ/nội dung vì 2 phần tử độc lập, không lồng nhau.) */
         #side-left-container { display: flex; overflow-x: hidden; overflow-y: hidden; scroll-behavior: smooth; }
         /* HOTFIX 13 (08/07/2026, Giang truy đúng gốc) — ĐÃ BỎ `scroll-snap-type: x mandatory` khỏi
            dòng trên (và `scroll-snap-align: start` khỏi dòng #playlist-view/#drawer-settings ngay
