@@ -1,90 +1,33 @@
 /**
- * core/file-manager/document-ui.js — Hàm dựng UI THUẦN cho Documents (danh sách trong File
- * Manager + engine phân trang của Reader) — CÙNG NHÓM với core/file-manager/photo-ui.js (hàm dựng
- * UI, KHÔNG thuộc phạm vi Rule 1-4 core-function-conventions.md — rule đó áp cho hàm NGHIỆP VỤ).
+ * core/file-manager/document-ui.js — Hàm dựng UI THUẦN cho Documents (danh sách CRUD trong File
+ * Manager + modal chi tiết + surface Sửa dùng chung) — CÙNG NHÓM với core/file-manager/photo-ui.js
+ * (hàm dựng UI, KHÔNG thuộc phạm vi Rule 1-4 core-function-conventions.md — rule đó áp cho hàm
+ * NGHIỆP VỤ).
  *
- * PHÂN TRANG READER — kỹ thuật CSS multi-column (đã tra cứu, cùng cách epub.js và phần lớn trình
- * đọc ebook JS dùng): đặt `column-width` = đúng bề rộng khung đọc, `height` cố định theo chiều cao
- * khung, `overflow: hidden` ở khung NGOÀI — trình duyệt TỰ chia nội dung theo cột (mỗi cột = 1
- * "trang"), không cần JS tự đo từng dòng chữ. Next/Prev = dịch `transform: translateX()` đúng
- * 1 (bề rộng trang + khoảng cách cột) mỗi lần. Ưu điểm ĐÚNG yêu cầu "tự căn lại nếu kích thước
- * khác nhau": đổi cỡ chữ/resize/xoay màn hình chỉ cần đo lại `scrollWidth`, KHÔNG cần thuật toán đo
- * text riêng — trình duyệt tự dàn lại hoàn toàn.
+ * VIẾT LẠI (10/07/2026, Nhóm A — mục 1.3/2/4 plan-v12-extended.md): BỎ HẲN
+ * `applyReaderPagination()`/`setReaderPageIndex()`/`renderReaderMarkdown()` (kỹ thuật CSS
+ * multi-column + Toast UI Viewer cũ) — phân trang Reader giờ ở core/file-manager/
+ * document-pagination.js (core nghiệp vụ RIÊNG, thuật toán khác hẳn: cắt theo khối + đo DOM tạm),
+ * điều phối ở event/workflow/document-reader.js. BỎ `setDocumentReaderVisible()`/
+ * `setDocumentPickerVisible()`/`renderDocumentPickerList()` (drawer/window tĩnh cũ) — thay bằng
+ * Generic Drawer (core/generic-drawer.js) + items.js (renderItemList/itemTemplateDocumentRow).
  *
- * FIX (05/07/2026, mục 1/2 phản hồi Giang — 2 lỗi UI Documents):
- *   1. Menu "..." (Đổi tên/Xoá) trên mỗi hàng bị CHỒNG LẤN layout — BỎ HẲN, không vá CSS.
- *   2. Tài liệu tự tạo (createdBy='user') không có lối vào Sửa (batch trước đã cố tình tắt "bấm
- *      hàng mở Reader", xem comment cũ ở event/workflow/file-manager-document.js::refresh()).
- * Thay bằng: bấm vào 1 hàng bất kỳ mở `openDocumentDetailModal()` — icon lớn (phân biệt txt/docx)
- * + tên file đầy đủ (bấm để đổi tên, phần mở rộng CỐ ĐỊNH theo `format`) + dung lượng (KB/MB, tính
- * từ `content` — xem `computeDocumentSizeBytes()`) + hàng icon Xoá (luôn có) và Sửa (`user`)/Tải về
- * (`upload`). `renderDocumentList()` giờ CHỈ nhận 1 callback `onOpen(doc)`, không còn `onMenuAction`.
+ * MỚI (10/07/2026, Nhóm A — mục 1.3 plan-v12-extended.md): `buildDocumentEditorSurface()` — 1 khối
+ * toolbar + `contentEditable` DÙNG CHUNG cho CẢ 2 nơi cần Sửa trong app: Editor Drawer (File
+ * Manager -> Documents -> Sửa, `openDocumentEditorDrawer()` dưới đây) VÀ Reader (nút Sửa nội bộ,
+ * xem event/workflow/document-reader.js::enterEditMode()) — THAY Toast UI Editor (đã gỡ khỏi
+ * index.html, xem readme Nhóm A). Toolbar qua `document.execCommand()` trên Selection/Range hiện
+ * tại — KHÔNG tự parse cú pháp lúc gõ (né đúng bài toán khó nhất đã phân tích: WYSIWYG-markdown-
+ * live rất dễ vỡ với IME tiếng Việt; contentEditable thao tác trực tiếp DOM theo lệnh toolbar thì
+ * không có bài toán đó).
  *
- * CẬP NHẬT TIẾP (05/07/2026, mục 5 phản hồi Giang — đã chốt "Markdown + WYSIWYG format ngay khi
- * gõ, dùng thư viện ngoài"): tích hợp **Toast UI Editor** (CDN `toastui-editor-all.min.js`, xem
- * index.html) — `openDocumentEditorDrawer()` mount Editor thật (`initialEditType: 'wysiwyg'`),
- * `renderReaderMarkdown()` (thay `renderReaderParagraphs()` cũ) dùng `Editor.factory({viewer:true})`
- * TẠM để render Markdown -> HTML rồi huỷ ngay. `content` trong toàn bộ file này giờ là 1 chuỗi
- * Markdown (không còn mảng đoạn) — MỌI nơi đọc `doc.content` phải qua
- * `resolveDocumentMarkdown()` (core/file-manager/document.js) trước để tương thích ngược record cũ.
+ * `content` trong toàn bộ file này giờ là 1 chuỗi HTML ĐÃ LỌC WHITELIST (không còn Markdown) —
+ * MỌI nơi đọc `doc.content` phải qua `resolveDocumentHtml()` (core/file-manager/document.js)
+ * trước để tương thích ngược record cũ.
  *
- * NẠP SAU: core/dom-refs.js, core/file-manager/document.js (resolveDocumentMarkdown), CDN
- * `toastui-editor-all.min.js` (global `toastui.Editor`).
+ * NẠP SAU: core/dom-refs.js, core/file-manager/document.js (resolveDocumentHtml/
+ * sanitizeDocumentHtml), core/modal-choice.js (dùng chung escapeHtml()), lang/lang.js (t()).
  */
-
-const READER_PAGE_GAP_PX = 48; // khoảng cách giữa 2 "trang" (2 cột CSS) — cố định, dùng cả lúc set CSS lẫn lúc tính offset JS
-
-/**
- * Đo khung đọc + áp layout multi-column + trả về TỔNG số trang hiện có. Gọi lúc mở Reader/đổi
- * tài liệu/đổi cỡ chữ/resize cửa sổ — nơi gọi (event/workflow/document-reader.js) tự quyết định
- * khi nào cần gọi lại.
- * @param {HTMLElement} bodyEl - khung NGOÀI (overflow hidden, đo kích thước thật).
- * @param {HTMLElement} pagesEl - khung TRONG (nhận column-width/height, chứa các <p> đoạn văn).
- * @returns {{pageWidth: number, totalPages: number}}
- */
-function applyReaderPagination(bodyEl, pagesEl) {
-    const pageWidth = bodyEl.clientWidth;
-    const pageHeight = bodyEl.clientHeight;
-    pagesEl.style.columnWidth = `${pageWidth}px`;
-    pagesEl.style.columnGap = `${READER_PAGE_GAP_PX}px`;
-    pagesEl.style.columnFill = 'auto'; // "auto" (không phải "balance") — lấp ĐẦY cột trước khi qua cột kế, đúng cảm giác lật trang
-    pagesEl.style.height = `${pageHeight}px`;
-    pagesEl.style.transform = 'translateX(0)'; // về trang 1 mỗi lần layout lại (đổi tài liệu/resize)
-    const totalPages = Math.max(1, Math.round((pagesEl.scrollWidth + READER_PAGE_GAP_PX) / (pageWidth + READER_PAGE_GAP_PX)));
-    return { pageWidth, totalPages };
-}
-
-/** Dịch khung TRONG tới đúng trang `pageIndex` (0-based). */
-function setReaderPageIndex(pagesEl, pageIndex, pageWidth) {
-    pagesEl.style.transform = `translateX(-${pageIndex * (pageWidth + READER_PAGE_GAP_PX)}px)`;
-}
-
-/**
- * FIX (05/07/2026, mục 5 phản hồi Giang) — THAY HẲN `renderReaderParagraphs()` cũ (nhận mảng đoạn
- * văn, tự tạo `<p>`). `content` giờ là 1 chuỗi MARKDOWN (xem core/file-manager/document.js) — cần
- * RENDER ra HTML trước khi nhét vào khung phân trang multi-column.
- *
- * Kỹ thuật: mount 1 Toast UI Viewer TẠM trên 1 `<div>` RỜI (không gắn vào DOM thật), gọi
- * `.getHTML()` lấy chuỗi HTML đã render, `.destroy()` NGAY, rồi gán thẳng `pagesEl.innerHTML` —
- * CHỦ Ý không giữ Viewer sống lâu dài trong `pagesEl` (khác cách dùng thông thường của thư viện)
- * vì kỹ thuật phân trang CSS multi-column (`applyReaderPagination()`) cần `pagesEl` chứa HTML THUẦN
- * không có wrapper/overflow riêng của Viewer can thiệp vào — đúng yêu cầu Giang "phải dùng thư viện"
- * (mục 5) nhưng vẫn giữ nguyên cơ chế phân trang đã có, không viết lại toàn bộ Reader.
- *
- * **CHƯA TEST TRÊN BROWSER THẬT** — cần Giang xác nhận: (1) `Editor.factory({ viewer: true })` có
- * render đồng bộ ngay khi gọi hay cần đợi 1 tick/callback nào đó trước khi `.getHTML()` cho kết quả
- * đầy đủ; (2) HTML Viewer trả về (h1-h6/ul/ol/strong/em/blockquote...) có ngắt cột multi-column tự
- * nhiên, đẹp mắt hay cần thêm CSS riêng (vd khoảng cách đầu đoạn, list-style trong cột hẹp).
- * @param {HTMLElement} pagesEl
- * @param {string} markdown
- */
-function renderReaderMarkdown(pagesEl, markdown) {
-    const tempEl = document.createElement('div');
-    const tempViewer = toastui.Editor.factory({ el: tempEl, viewer: true, initialValue: markdown, usageStatistics: false });
-    const html = tempViewer.getHTML();
-    tempViewer.destroy();
-    pagesEl.innerHTML = html;
-}
 
 /** Modal nhập tiêu đề — dùng chung cho "Tạo tài liệu mới" và "Đổi tên", CÙNG KHUÔN
  * openCreateAlbumModal() (core/file-manager/photo-ui.js).
@@ -147,63 +90,12 @@ function openCreateDocumentModal(onConfirm) {
     _openDocumentTitleModal('fileManager.document.createTitle', 'fileManager.document.btnCreate', '', onConfirm);
 }
 
-/** Core thuần: hiện/ẩn cửa sổ Reader (overlay + window cùng lúc). */
-function setDocumentReaderVisible(overlayEl, windowEl, visible) {
-    if (!overlayEl || !windowEl) return;
-    overlayEl.classList.toggle('hidden', !visible);
-    windowEl.classList.toggle('hidden', !visible);
-}
-
-/** Core thuần: hiện/ẩn Document Picker Drawer — overlay dùng `classList.hidden`, drawer dùng
- * `translateY` (trượt lên/xuống, khớp `transition-transform` đã khai báo sẵn trong template). */
-function setDocumentPickerVisible(overlayEl, drawerEl, visible) {
-    if (!overlayEl || !drawerEl) return;
-    overlayEl.classList.toggle('hidden', !visible);
-    if (visible) {
-        drawerEl.classList.remove('hidden');
-        // Ép reflow trước khi bỏ translate-y-full — đảm bảo transition CHẠY (thêm/bỏ 'hidden' và
-        // 'translate-y-full' cùng lúc trong 1 tick JS có thể bị trình duyệt gộp, bỏ qua animation).
-        void drawerEl.offsetHeight;
-        drawerEl.classList.remove('translate-y-full');
-    } else {
-        drawerEl.classList.add('translate-y-full');
-    }
-}
-
-/**
- * Vẽ danh sách tài liệu trong Document Picker Drawer (components/document-picker-drawer.js) — CHỈ
- * tap-để-chọn, KHÔNG có menu CRUD (đúng yêu cầu Giang: "..." Đổi tên/Xoá CHỈ có trong File Manager
- * -> Documents, drawer picker này thuần tuý để CHỌN đọc). Đánh dấu tài liệu ĐANG mở (nếu có, viền
- * sáng) — CHỮ ĐEN vì drawer nền TRẮNG (khác hẳn phần còn lại của app, đúng yêu cầu Giang).
- * @param {HTMLElement} listEl
- * @param {Array<{key: string, title: string, format: string}>} documents
- * @param {string|null} activeDocumentKey
- * @param {(documentKey: string) => void} onSelect
- */
-function renderDocumentPickerList(listEl, documents, activeDocumentKey, onSelect) {
-    if (!listEl) return;
-    listEl.replaceChildren();
-    documents.forEach((doc) => {
-        const isActive = doc.key === activeDocumentKey;
-        const item = document.createElement('button');
-        item.className = `w-full text-left px-4 py-3.5 rounded-xl mb-1.5 flex items-center gap-3 transition-colors ${isActive ? 'bg-sky-50 border border-sky-300' : 'hover:bg-slate-100 border border-transparent'}`;
-        const icon = document.createElement('div');
-        icon.className = `w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${doc.format === 'docx' ? 'bg-sky-100 text-sky-600' : 'bg-slate-100 text-slate-600'}`;
-        icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>';
-        item.appendChild(icon);
-        const titleEl = document.createElement('span');
-        titleEl.className = 'text-sm font-semibold text-slate-800 truncate';
-        titleEl.textContent = doc.title;
-        item.appendChild(titleEl);
-        item.addEventListener('click', () => onSelect(doc.key));
-        listEl.appendChild(item);
-    });
-}
-
 /**
  * Vẽ lại danh sách document trong drawer File Manager. Mỗi hàng: icon theo `format`, title, badge
- * "Đã tạo"/"Đã tải lên" (createdBy) — CẢ HÀNG là 1 nút bấm mở `openDocumentDetailModal()` (FIX
- * 05/07/2026 — THAY HẲN menu "..." cũ, từng bị chồng lấn layout trên hàng danh sách).
+ * "Đã tạo"/"Đã tải lên" (createdBy) — CẢ HÀNG là 1 nút bấm mở `openDocumentDetailModal()`.
+ * KHÔNG dùng renderItemList()/itemTemplateDocumentRow() (components/items.js) — danh sách này có
+ * badge + mở modal chi tiết, khác hẳn Document Picker (chỉ tap-để-chọn) mà items.js phục vụ, xem
+ * docstring đầu components/items.js.
  * @param {HTMLElement} containerEl
  * @param {Array<{key: string, title: string, format: string, createdBy: string, content: string|string[]}>} documents
  * @param {(doc: Object) => void} onOpen - bấm vào hàng, nhận NGUYÊN record (đã có sẵn `content` từ
@@ -242,17 +134,17 @@ function renderDocumentList(containerEl, documents, onOpen) {
 }
 
 /**
- * Tính dung lượng "file" (bytes) từ Markdown — ước lượng theo ĐÚNG nội dung đang lưu thật trong DB
- * (app KHÔNG giữ byte gốc của file upload, kể cả .docx — xem comment đầu
- * core/file-manager/document.js). Nhận `content` đã QUA `resolveDocumentMarkdown()` (nơi gọi tự
- * resolve, xem `openDocumentDetailModal()` — hàm này KHÔNG tự resolve để tránh phụ thuộc ngược vào
+ * Tính dung lượng "file" (bytes) từ HTML đã sanitize — ước lượng theo ĐÚNG nội dung đang lưu thật
+ * trong DB (app KHÔNG giữ byte gốc của file upload, kể cả .docx — xem comment đầu
+ * core/file-manager/document.js). Nhận `html` đã QUA `resolveDocumentHtml()` (nơi gọi tự resolve,
+ * xem `openDocumentDetailModal()` — hàm này KHÔNG tự resolve để tránh phụ thuộc ngược vào
  * document.js ở mọi hàm UI thuần). Đo bằng `Blob` để ra ĐÚNG số byte UTF-8 thật (không phải
  * `string.length` — sai với tiếng Việt có dấu, vốn nhiều ký tự chiếm 2-3 byte UTF-8 mỗi ký tự).
- * @param {string} markdown
+ * @param {string} html
  * @returns {number}
  */
-function computeDocumentSizeBytes(markdown) {
-    return new Blob([markdown]).size;
+function computeDocumentSizeBytes(html) {
+    return new Blob([html]).size;
 }
 
 /**
@@ -270,19 +162,20 @@ function formatDocumentSize(bytes) {
 }
 
 /**
- * Tải 1 tài liệu về máy dạng `.md` (Markdown thuần). ĐỔI từ `.txt` (mục 5 phản hồi Giang 05/07/2026
- * — content giờ LÀ Markdown thật, đặt đuôi `.md` trung thực hơn `.txt` với cú pháp `**đậm**`/`# tiêu
- * đề` hiển thị nguyên văn nếu mở bằng trình đọc .txt thường). Nhận `content` ĐÃ resolve qua
- * `resolveDocumentMarkdown()` ở nơi gọi (cùng lý do `computeDocumentSizeBytes()` ở trên).
+ * Tải 1 tài liệu về máy dạng `.html` (VIẾT LẠI 10/07/2026, Nhóm A — content giờ LÀ HTML thật,
+ * KHÔNG còn Markdown, xem core/file-manager/document.js). Bọc trong 1 khung HTML tối thiểu hợp lệ
+ * để file tải về mở được độc lập bằng trình duyệt bất kỳ (không chỉ trong app). Nhận `html` ĐÃ
+ * resolve qua `resolveDocumentHtml()` ở nơi gọi (cùng lý do `computeDocumentSizeBytes()` ở trên).
  * @param {{title: string}} doc
- * @param {string} markdown
+ * @param {string} html
  */
-function downloadDocumentAsMarkdown(doc, markdown) {
-    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+function downloadDocumentAsHtml(doc, html) {
+    const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${doc.title}</title></head><body>${html}</body></html>`;
+    const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${doc.title}.md`;
+    a.download = `${doc.title}.html`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -290,13 +183,12 @@ function downloadDocumentAsMarkdown(doc, markdown) {
 }
 
 /**
- * Modal "Chi tiết tài liệu" — mở khi bấm vào 1 hàng trong danh sách Documents (FIX 05/07/2026, mục
- * 1/2 phản hồi Giang, CẬP NHẬT thêm cùng ngày mục 1/4). Layout: icon lớn (phân biệt txt/docx) → tên
- * file đầy đủ (bấm để đổi tên, PHẦN MỞ RỘNG cố định theo `format`, không sửa được — chỉ đổi
- * `title`) → dung lượng (`computeDocumentSizeBytes`/`formatDocumentSize`) → hàng icon hành động:
- * Đổi tên (luôn, mở editor tên NGAY TẠI CHỖ giống hệt bấm vào tên) + Tải về (luôn, CẢ 'user' lẫn
- * 'upload') + Sửa (chỉ `createdBy==='user'`, mở `openDocumentEditorDrawer()` — KHÔNG phải Reader,
- * xem hàm đó) + Xoá (luôn, đặt cuối).
+ * Modal "Chi tiết tài liệu" — mở khi bấm vào 1 hàng trong danh sách Documents. Layout: icon lớn
+ * (phân biệt txt/docx) → tên file đầy đủ (bấm để đổi tên, PHẦN MỞ RỘNG cố định theo `format`,
+ * không sửa được — chỉ đổi `title`) → dung lượng (`computeDocumentSizeBytes`/`formatDocumentSize`)
+ * → hàng icon hành động: Đổi tên (luôn, mở editor tên NGAY TẠI CHỖ giống hệt bấm vào tên) + Tải về
+ * (luôn, CẢ 'user' lẫn 'upload') + Sửa (chỉ `createdBy==='user'`, mở `openDocumentEditorDrawer()`
+ * — KHÔNG phải Reader, xem hàm đó) + Xoá (luôn, đặt cuối).
  * @param {{key: string, title: string, format: 'txt'|'docx', createdBy: 'upload'|'user', content: string|string[]}} doc
  * @param {{onRename: (newTitle: string) => void, onDelete: () => void, onEdit: () => void, onDownload: () => void}} callbacks
  */
@@ -341,7 +233,7 @@ function openDocumentDetailModal(doc, callbacks) {
 
         const sizeEl = document.createElement('div');
         sizeEl.className = 'text-xs text-slate-400';
-        sizeEl.textContent = formatDocumentSize(computeDocumentSizeBytes(resolveDocumentMarkdown(doc))); // resolveDocumentMarkdown: core/file-manager/document.js — quy tương thích ngược mảng cũ/string mới
+        sizeEl.textContent = formatDocumentSize(computeDocumentSizeBytes(resolveDocumentHtml(doc))); // resolveDocumentHtml: core/file-manager/document.js — quy tương thích ngược mảng cũ/string mới
         nameWrap.appendChild(sizeEl);
     }
 
@@ -389,8 +281,8 @@ function openDocumentDetailModal(doc, callbacks) {
     renderNameDisplay();
 
     // ---- Hàng icon hành động: Đổi tên (luôn, KHÔNG đóng modal — mở editor tên tại chỗ) + Tải về
-    // (luôn, CẢ 'user' lẫn 'upload' — FIX 05/07/2026 mục 1 phản hồi Giang) + Sửa (chỉ 'user') +
-    // Xoá (luôn, đặt CUỐI vì là hành động phá huỷ) ----
+    // (luôn, CẢ 'user' lẫn 'upload') + Sửa (chỉ 'user') + Xoá (luôn, đặt CUỐI vì là hành động
+    // phá huỷ) ----
     const actionRow = document.createElement('div');
     actionRow.className = 'w-full flex flex-wrap items-center justify-center gap-x-5 gap-y-3 pt-3 border-t border-white/10';
     card.appendChild(actionRow);
@@ -447,56 +339,122 @@ function openDocumentDetailModal(doc, callbacks) {
 }
 
 /**
- * Drawer "Sửa tài liệu" — mở TỪ File Manager -> Documents (FIX 05/07/2026, mục 2/3 phản hồi Giang:
- * "Edit file là hành vi khác nhau" — TRƯỚC ĐÓ sai vì tái dùng Reader ở Control Center + đóng hẳn
- * Settings, gây mở chồng 2 thứ cùng lúc). Đây là 1 drawer HOÀN TOÀN RIÊNG, KHÔNG đụng
- * `workflowDocumentReader`/Settings — nằm THEO ĐÚNG nav-stack đã có sẵn của File Manager (giống hệt
- * Folder Detail z-[91] nằm TRÊN Song z-[90], xem components/file-manager.js) — z-[91], TRÊN
- * `#drawer-file-manager-document` (z-[90]) mà KHÔNG cần đóng nó hay Settings phía dưới.
+ * MỚI (10/07/2026, Nhóm A — mục 1.3 plan-v12-extended.md) — Dựng 1 khối "toolbar + vùng
+ * contentEditable" HOÀN CHỈNH, DÙNG CHUNG cho CẢ Editor Drawer (File Manager) lẫn Reader (nút Sửa
+ * nội bộ) — THAY Toast UI Editor (đã gỡ khỏi index.html). Toolbar tối thiểu: Heading (bấm xoay
+ * vòng p -> h2 -> h3 -> p), Bold, Italic, Underline, Quote (blockquote), Bullet list, Numbered
+ * list, Link — tất cả qua `document.execCommand()` trên Selection/Range hiện tại.
+ *
+ * Core UI THUẦN (giống mọi hàm khác trong file này) — KHÔNG tự đọc/ghi DB. `getHtml()` tự
+ * `sanitizeDocumentHtml()` lại (core/file-manager/document.js) TRƯỚC khi trả — trình duyệt hay tự
+ * chèn `<div>`/`<span style="...">` lộn xộn vào nội dung contentEditable, phải lọc lại trước khi
+ * ghi DB (mục 1.3 plan-v12-extended.md).
+ * @param {string} initialHtml - HTML ban đầu (đã sanitize từ trước, xem resolveDocumentHtml()).
+ * @returns {{el: HTMLElement, getHtml: () => string, focus: () => void}}
+ */
+function buildDocumentEditorSurface(initialHtml) {
+    const wrap = document.createElement('div');
+    wrap.className = 'flex flex-col h-full min-h-0';
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'flex flex-wrap items-center gap-1 px-3 py-2 border-b border-white/10 shrink-0 bg-black/20';
+    wrap.appendChild(toolbar);
+
+    const surfaceEl = document.createElement('div');
+    surfaceEl.contentEditable = 'true';
+    surfaceEl.className = 'document-html-content document-editor-surface flex-1 min-h-0 overflow-y-auto px-4 py-3 text-sm text-slate-100 outline-none';
+    surfaceEl.innerHTML = initialHtml || '';
+    wrap.appendChild(surfaceEl);
+
+    /** @param {string} label @param {string} titleKey @param {() => void} onClick */
+    function addToolbarButton(label, titleKey, onClick) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'min-w-[2rem] px-2 py-1.5 rounded-lg text-xs font-bold bg-white/5 hover:bg-white/15 text-slate-200 transition-colors';
+        btn.textContent = label;
+        btn.title = t(titleKey);
+        // mousedown + preventDefault: giữ nguyên Selection hiện tại trong contentEditable (click
+        // thường làm mất focus/selection TRƯỚC khi execCommand kịp chạy).
+        btn.addEventListener('mousedown', (e) => e.preventDefault());
+        btn.addEventListener('click', onClick);
+        toolbar.appendChild(btn);
+    }
+
+    addToolbarButton('B', 'documentEditor.toolbar.bold', () => document.execCommand('bold'));
+    addToolbarButton('I', 'documentEditor.toolbar.italic', () => document.execCommand('italic'));
+    addToolbarButton('U', 'documentEditor.toolbar.underline', () => document.execCommand('underline'));
+    addToolbarButton('H', 'documentEditor.toolbar.heading', () => _cycleHeadingAtSelection(surfaceEl));
+    addToolbarButton('❝', 'documentEditor.toolbar.quote', () => document.execCommand('formatBlock', false, 'blockquote'));
+    addToolbarButton('•', 'documentEditor.toolbar.bulletList', () => document.execCommand('insertUnorderedList'));
+    addToolbarButton('1.', 'documentEditor.toolbar.numberedList', () => document.execCommand('insertOrderedList'));
+    addToolbarButton(t('documentEditor.toolbar.link'), 'documentEditor.toolbar.link', () => {
+        const url = window.prompt(t('documentEditor.linkPrompt'));
+        if (url) document.execCommand('createLink', false, url);
+    });
+
+    return {
+        el: wrap,
+        getHtml() { return sanitizeDocumentHtml(surfaceEl.innerHTML); }, // core/file-manager/document.js
+        focus() { surfaceEl.focus(); },
+    };
+}
+
+/** Helper RIÊNG của buildDocumentEditorSurface() (private, không dùng nơi khác) — xoay vòng khối
+ * chứa con trỏ hiện tại qua p -> h2 -> h3 -> p mỗi lần bấm nút "H". */
+function _cycleHeadingAtSelection(surfaceEl) {
+    const selection = window.getSelection();
+    if (!selection.rangeCount) { surfaceEl.focus(); return; }
+    let node = selection.anchorNode;
+    while (node && node !== surfaceEl && node.parentNode !== surfaceEl) node = node.parentNode;
+    const currentTag = node && node.nodeType === Node.ELEMENT_NODE ? node.tagName : 'P';
+    const nextTag = currentTag === 'P' ? 'H2' : currentTag === 'H2' ? 'H3' : 'P';
+    document.execCommand('formatBlock', false, nextTag);
+}
+
+/**
+ * Drawer "Sửa tài liệu" — mở TỪ File Manager -> Documents. Đây là 1 drawer HOÀN TOÀN RIÊNG, KHÔNG
+ * đụng `workflowDocumentReader`/Settings — nằm THEO ĐÚNG nav-stack đã có sẵn của File Manager
+ * (giống hệt Folder Detail z-[91] nằm TRÊN Song z-[90], xem components/file-manager.js) — z-[91],
+ * TRÊN `#drawer-file-manager-document` (z-[90]) mà KHÔNG cần đóng nó hay Settings phía dưới.
  *
  * Full-view (`fixed inset-0`), trượt NGANG (`translateX`, không phải `translate-y-full` như các
- * drawer khác trong app) — phân biệt trực quan với nav-stack dọc đã có, đúng yêu cầu Giang. Tạo/gỡ
- * hoàn toàn bằng JS (không phải node tĩnh trong 1 component template) — giống `openImagePreviewModal`/
+ * drawer khác trong app) — phân biệt trực quan với nav-stack dọc đã có. Tạo/gỡ hoàn toàn bằng JS
+ * (không phải node tĩnh trong 1 component template) — giống `openImagePreviewModal`/
  * `openDocumentDetailModal`, dùng sự kiện `transitionend` để gỡ khỏi DOM SAU khi trượt ra hết
  * (KHÔNG dùng `setTimeout` — cấm dùng timer thô ngoài Workflow, xem readme/task-manager-conventions.md).
  *
- * Header: CHỈ tên file (trái) + nút đóng X (phải) — ĐÚNG YÊU CẦU GIANG, không thêm nút Lưu riêng —
- * bấm X = LƯU LUÔN rồi mới đóng (đọc `editor.getMarkdown()` trước khi `destroy()`).
+ * Header: CHỈ tên file (trái) + nút đóng X (phải), KHÔNG có nút Lưu riêng — bấm X = LƯU LUÔN rồi
+ * mới đóng (đọc `editorSurface.getHtml()` trước khi gỡ).
  *
- * FIX (05/07/2026, mục 5 phản hồi Giang, CẬP NHẬT cùng ngày — đã chốt thư viện): mount THẬT
- * **Toast UI Editor** (CDN `toastui-editor-all.min.js`, xem index.html) chế độ `wysiwyg` — format
- * HIỆN NGAY trong lúc gõ (đậm/nghiêng/tiêu đề/danh sách...), lưu ra 1 chuỗi Markdown qua
- * `editor.getMarkdown()`. **CHƯA TEST TRÊN BROWSER THẬT** — cần Giang xác nhận layout Editor bên
- * trong `bodyEl` (`flex-grow`, không set `height` cố định — Editor cần `height` CSS rõ ràng để tính
- * toolbar/khung soạn thảo, đã truyền `height: '100%'`, NHƯNG cha `bodyEl` phải thật sự có chiều cao
- * > 0 lúc mount — đang mount NGAY sau khi gắn vào DOM, nếu lỗi layout thử đổi sang mount SAU 1
- * `requestAnimationFrame`).
+ * VIẾT LẠI (10/07/2026, Nhóm A — mục 1.3/5 plan-v12-extended.md): mount
+ * `buildDocumentEditorSurface()` (contentEditable + toolbar tự viết) THAY Toast UI Editor — dùng
+ * CHUNG chính xác 1 hàm với event/workflow/document-reader.js::enterEditMode() (mục 1.3, "toolbar+
+ * surface dùng chung cho cả 2 nơi cần Sửa").
  * @param {{key: string, title: string, format: string, content: string|string[]}} doc
- * @param {{onSave?: (markdown: string) => void, onClose?: () => void}} [callbacks]
+ * @param {{onSave?: (html: string) => void, onClose?: () => void}} [callbacks]
  * @returns {{close: () => void}} `close()` — đóng drawer bằng code (tự lưu luôn, giống bấm X).
  */
 function openDocumentEditorDrawer(doc, callbacks) {
     const stale = document.getElementById('document-editor-drawer-overlay');
     if (stale) stale.remove();
 
-    const initialMarkdown = resolveDocumentMarkdown(doc); // core/file-manager/document.js — quy tương thích ngược mảng cũ/string mới
+    const initialHtml = resolveDocumentHtml(doc); // core/file-manager/document.js — quy tương thích ngược mảng cũ/string mới
 
     const overlay = document.createElement('div');
     overlay.id = 'document-editor-drawer-overlay';
     overlay.className = 'fixed inset-0 z-[91] bg-[#0b0f1a] flex flex-col transition-transform duration-300 ease-in-out translate-x-full';
 
-    let editorInstance = null;
+    let editorSurface = null;
     let closed = false;
 
-    /** Đọc markdown hiện tại + huỷ instance + báo `onSave` — TÁCH RIÊNG khỏi `closeNow()` (đóng
-     * KHÔNG lưu, dùng khi cần đóng thẳng bằng code mà nơi gọi tự lo việc lưu, hiện CHƯA có nơi nào
-     * dùng nhánh đó nhưng giữ 2 hàm riêng cho rõ ràng, đúng Rule 1 "1 hàm 1 việc"). */
+    /** Đọc HTML hiện tại + gỡ instance + báo `onSave` — TÁCH RIÊNG khỏi `closeNow()` (đóng KHÔNG
+     * lưu, dùng khi cần đóng thẳng bằng code mà nơi gọi tự lo việc lưu, hiện CHƯA có nơi nào dùng
+     * nhánh đó nhưng giữ 2 hàm riêng cho rõ ràng, đúng Rule 1 "1 hàm 1 việc"). */
     function saveAndDestroyEditor() {
-        if (!editorInstance) return;
-        const markdown = editorInstance.getMarkdown();
-        editorInstance.destroy();
-        editorInstance = null;
-        if (callbacks && callbacks.onSave) callbacks.onSave(markdown);
+        if (!editorSurface) return;
+        const html = editorSurface.getHtml(); // core/file-manager/document-ui.js — đã sanitizeDocumentHtml() lại bên trong
+        editorSurface = null;
+        if (callbacks && callbacks.onSave) callbacks.onSave(html);
     }
 
     function closeNow() {
@@ -523,23 +481,19 @@ function openDocumentEditorDrawer(doc, callbacks) {
 
     const bodyEl = document.createElement('div');
     bodyEl.id = 'document-editor-drawer-body';
-    bodyEl.className = 'flex-grow min-h-0';
+    bodyEl.className = 'flex-grow min-h-0 flex flex-col';
     overlay.appendChild(bodyEl);
 
     document.body.appendChild(overlay);
     // Ép reflow trước khi bỏ translate-x-full — đảm bảo transition CHẠY (cùng lý do/kỹ thuật với
-    // setDocumentPickerVisible() ở trên: thêm node + bỏ class off-screen cùng lúc trong 1 tick JS
-    // có thể bị trình duyệt gộp, bỏ qua animation nếu không ép reflow ở giữa).
+    // openGenericDrawer() — thêm node + bỏ class off-screen cùng lúc trong 1 tick JS có thể bị
+    // trình duyệt gộp, bỏ qua animation nếu không ép reflow ở giữa).
     void overlay.offsetHeight;
     overlay.classList.remove('translate-x-full');
 
-    editorInstance = new toastui.Editor({
-        el: bodyEl,
-        height: '100%',
-        initialEditType: 'wysiwyg',
-        initialValue: initialMarkdown,
-        usageStatistics: false,
-    });
+    editorSurface = buildDocumentEditorSurface(initialHtml); // core/file-manager/document-ui.js — hàm KHÁC trong CÙNG file, core UI thuần nên không bị Rule 3
+    bodyEl.appendChild(editorSurface.el);
+    editorSurface.focus();
 
     return { close: closeNow };
 }
