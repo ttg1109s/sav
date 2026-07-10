@@ -95,7 +95,11 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.document.renameTitle': 'Rename document',
     'fileManager.document.invalidType': 'Only .txt or .docx files are supported.',
     'fileManager.document.docxWarningTitle': 'Some formatting may not carry over',
-    'fileManager.document.docxWarningBody': 'Uploading a .docx file converts it to Markdown: bold, italic, headings, and lists are kept, but images, tables, and other complex formatting will be discarded. Continue?',
+    // VIẾT LẠI (10/07/2026, Nhóm A — mục 1.2 plan-v12-extended.md): mammoth.js -> HTML ->
+    // sanitizeDocumentHtml() TRỰC TIẾP (KHÔNG còn qua Markdown/Turndown) — nội dung cảnh báo vẫn
+    // ĐÚNG Ý NGHĨA cũ (giữ đậm/nghiêng/tiêu đề/danh sách, mất ảnh/bảng/định dạng phức tạp khác),
+    // chỉ đổi từ "Markdown" sang "formatted text" cho khớp cơ chế mới.
+    'fileManager.document.docxWarningBody': 'Uploading a .docx file converts it to formatted text: bold, italic, headings, and lists are kept, but images, tables, and other complex formatting will be discarded. Continue?',
     'fileManager.document.docxWarningConfirm': 'Continue',
     'fileManager.document.deleteConfirmTitle': 'Delete this document?',
     'fileManager.document.deleteConfirmBody': 'This cannot be undone.',
@@ -106,9 +110,21 @@ const LANG_PATCH_FILE_MANAGER = {
     'documentReader.editTitle': 'Edit document',
     'documentReader.closeWhileEditingBody': 'Save your changes before closing?',
     'documentReader.discardChanges': 'Discard',
-    // ── Document Picker Drawer (chọn tài liệu, trắng, trượt từ dưới lên — mục 3 phản hồi Giang) ──
+    // ── Document Picker (danh sách chọn tài liệu, trong Generic Drawer trắng) ─────────────────
     'documentPicker.title': 'Choose document',
     'documentPicker.empty': 'No documents yet — add one in File Manager.',
+    // ── Document Editor Surface — toolbar contentEditable dùng CHUNG (MỚI 10/07/2026, Nhóm A —
+    // mục 1.3 plan-v12-extended.md, THAY Toast UI Editor). Xem
+    // core/file-manager/document-ui.js::buildDocumentEditorSurface(). ──────────────────────────
+    'documentEditor.toolbar.bold': 'Bold',
+    'documentEditor.toolbar.italic': 'Italic',
+    'documentEditor.toolbar.underline': 'Underline',
+    'documentEditor.toolbar.heading': 'Heading (tap to cycle)',
+    'documentEditor.toolbar.quote': 'Quote',
+    'documentEditor.toolbar.bulletList': 'Bullet list',
+    'documentEditor.toolbar.numberedList': 'Numbered list',
+    'documentEditor.toolbar.link': 'Link',
+    'documentEditor.linkPrompt': 'Enter the link URL',
     // ── File Manager -> Song: Folder (mục 4.b1) ──────────────────────────────────────────────
     'fileManager.song.folderSectionTitle': 'Folders',
     'fileManager.song.newFolderPlaceholder': 'New folder name',
