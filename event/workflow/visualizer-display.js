@@ -165,6 +165,7 @@ const workflowVisualizerDisplay = {
         if (!enabled) {
             applyBgImageEnabled(false); // core giờ đồng bộ (không còn đụng IndexedDB)
             updatePlaylistBg();
+            forceGlassRepaint(); // fix bug 09/07/2026 (mục 3) — ép WebKit vẽ lại lớp kính, xem docstring core/color-utils.js
             saveConfig();
             return;
         }
@@ -199,6 +200,7 @@ const workflowVisualizerDisplay = {
                     await applyBgImage(record.blob); // core có sẵn — Blob coi như File vừa chọn
                 });
                 updatePlaylistBg();
+                forceGlassRepaint(); // fix bug 09/07/2026 (mục 3)
                 saveConfig();
                 resolve();
             }, () => {
@@ -215,6 +217,7 @@ const workflowVisualizerDisplay = {
     setBgBlur(value) {
         setBgBlur(value); // core cùng tên, gọi trần phân giải theo scope từ vựng (xem lưu ý đặt tên đầu file)
         updatePlaylistBg();
+        forceGlassRepaint(); // fix bug 09/07/2026 (mục 3)
         saveConfig();
     },
 };

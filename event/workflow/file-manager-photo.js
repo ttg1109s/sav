@@ -237,6 +237,7 @@ const workflowFileManagerPhoto = {
             await applyBgImage(record.blob); // core có sẵn (core/visualizer/visualizer-display.js)
         });
         updatePlaylistBg();
+        forceGlassRepaint(); // fix bug 09/07/2026 (mục 3, xem docstring core/color-utils.js)
         saveConfig();
         await alertModal(t('fileManager.photo.image.setPlaylistBgSuccess'));
     },
