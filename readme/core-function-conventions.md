@@ -296,6 +296,30 @@ Sửa đúng: tách `openXPanel(panelEl)`/`closeXPanel(panelEl)` riêng, để n
 `classList.contains(...)` RỒI chọn gọi đúng hàm — cùng khuôn "rẽ nhánh theo tham số" ở Rule 1, chỉ
 khác nguồn đọc là DOM thay vì `appState`.
 
+### 5c — File core chuyên dựng UI PHẢI có hậu tố `-ui` trong TÊN FILE
+
+**[MỚI, 10/07/2026]** Core file mà TOÀN BỘ (hoặc phần lớn) hàm bên trong là hàm dựng UI theo nghĩa
+Rule 5a (tạo cụm DOM MỚI bằng `createElement`, KHÔNG phải chỉ đọc/ghi `classList`/`style` lên phần
+tử TĨNH có sẵn từ `core/dom-refs.js`) **PHẢI đặt tên file kết thúc bằng `-ui.js`** — vd
+`document-ui.js`, `photo-ui.js`, `folder-picker-ui.js`, `folder-list-ui.js`, `folder-detail-ui.js`.
+Mục đích: nhìn TÊN FILE là biết ngay Rule 5a/5b áp dụng cho file đó, không cần mở ra đọc mới biết.
+
+**KHÔNG đặt hậu tố `-ui`** cho file chỉ thao tác trên DOM TĨNH có sẵn (đọc/ghi `classList`/`style`/
+`innerHTML` của phần tử ĐÃ TỒN TẠI SẴN từ `core/dom-refs.js`, KHÔNG tự `createElement` cụm DOM mới)
+— ví dụ `core/generic-drawer.js` (chỉ gán `innerHTML`/`style` lên `genericDrawerPanel` đã có sẵn,
+không tự tạo phần tử mới) KHÔNG cần hậu tố này.
+
+**Nếu 1 file VỪA có hàm nghiệp vụ thuần VỪA có hàm dựng UI (trộn lẫn)** — tách thành 2 file riêng
+(1 file thường + 1 file `-ui.js`), KHÔNG giữ chung 1 file không có hậu tố mà bên trong lại có hàm
+`createElement` dựng modal/drawer.
+
+> **Ghi nhận nợ kỹ thuật phát hiện khi thêm rule này:** `core/modal-choice.js` tự `createElement`
+> dựng modal (đúng định nghĩa Rule 5a) nhưng KHÔNG có hậu tố `-ui` trong tên — vi phạm Rule 5c.
+> File này thuộc diện ngoại lệ đã audit ở Rule 5a/event-bus-flow.md (miễn `addEventListener`), NHƯNG
+> đó là miễn Rule 5a, KHÔNG miễn Rule 5c (2 rule độc lập) — tên file vẫn sai quy ước. Theo Rule 0.5
+> (`core-legacy-audit.md`): không bắt buộc đổi tên ngay, chỉ bắt buộc khi file đó bị đụng/sửa thật
+> lần tới (đổi tên + cập nhật mọi nơi `<script src="core/modal-choice.js">` tham chiếu tới).
+
 ---
 
 ## Bảng tổng hợp
@@ -313,5 +337,6 @@ khác nguồn đọc là DOM thay vì `appState`.
 | Function dựng UI (modal/drawer/toolbar) có được coi là "core UI thuần, ngoài phạm vi rule"? | **KHÔNG** — dựng UI VẪN là hàm nghiệp vụ, chịu ĐẦY ĐỦ Rule 1-4 + Rule 5 (xem Rule 5) |
 | Function có `addEventListener`? | **CẤM**, TRỪ hàm dựng ra cụm DOM MỚI (không tĩnh) — khi đó ĐƯỢC, nhưng callback chỉ gọi tham số (không gọi core khác) VÀ phải gom hết ở CUỐI hàm (Rule 5a) |
 | Function dùng `classList`/`dataset`/`querySelector(...)` tồn tại hay không làm điều kiện chọn giữa ≥2 tiến trình khác nhau? | **KHÔNG được** — cùng vi phạm Rule 1, chỉ khác nguồn đọc là DOM thay vì `appState` (Rule 5b) |
+| File core có hàm tự `createElement` dựng cụm DOM mới (modal/drawer/toolbar) — tên file cần gì? | **PHẢI kết thúc bằng `-ui.js`** (vd `document-ui.js`) — file chỉ thao tác DOM tĩnh có sẵn (`dom-refs.js`) thì KHÔNG cần (Rule 5c) |
 
 ← [Quay lại README](../README.md)
