@@ -57,8 +57,12 @@ const workflowTheme = {
             if (!card) return; // guard: DOM chưa sẵn sàng (hiếm, race lúc boot)
             const radio = card.querySelector('.theme-mode-radio');
             const isSelected = m === mode;
-            card.classList.toggle('ring-2', isSelected);
-            card.classList.toggle('ring-sky-400', isSelected);
+            // 09/07/2026 (phản hồi Giang mục 4): bỏ viền ring-2 ring-sky-400 cũ, đổi sang nền
+            // gradient phủ lên card đang chọn (rounded-2xl/p-2 tĩnh đã có sẵn trong template — xem
+            // components/settings/theme.js).
+            card.classList.toggle('bg-gradient-to-b', isSelected);
+            card.classList.toggle('from-sky-500/25', isSelected);
+            card.classList.toggle('to-sky-500/5', isSelected);
             if (radio) {
                 radio.classList.toggle('bg-sky-500', isSelected);
                 radio.classList.toggle('border-sky-400', isSelected);
