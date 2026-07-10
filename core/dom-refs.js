@@ -303,30 +303,24 @@
         // btnFileManagerDocumentCreate/fileManagerDocumentList/fileManagerDocumentEmpty ĐÃ XOÁ —
         // Batch D7 (batch CUỐI Nhóm D): panel Document giờ động, delegation trên settingsStackBody
         // thay thế — xem event/listener/file-manager-document.js.)
-        // MỚI (04/07/2026) — cửa sổ Document Reader (components/document-reader.js).
-        const documentReaderOverlay = document.getElementById('document-reader-overlay');
-        const documentReaderWindow = document.getElementById('document-reader-window');
-        const btnDocumentReaderListToggle = document.getElementById('btn-document-reader-list-toggle');
-        const documentReaderTitle = document.getElementById('document-reader-title');
-        const btnDocumentReaderEdit = document.getElementById('btn-document-reader-edit');
-        const btnDocumentReaderClose = document.getElementById('btn-document-reader-close');
-        const documentReaderBody = document.getElementById('document-reader-body');
-        const documentReaderPages = document.getElementById('document-reader-pages');
-        const documentReaderEmpty = document.getElementById('document-reader-empty');
-        const btnDocumentReaderPrev = document.getElementById('btn-document-reader-prev');
-        const documentReaderPageIndicator = document.getElementById('document-reader-page-indicator');
-        const btnDocumentReaderNext = document.getElementById('btn-document-reader-next');
-        const documentReaderEditMode = document.getElementById('document-reader-edit-mode');
-        const documentReaderEditMount = document.getElementById('document-reader-edit-mount'); // [05/07/2026] thay textarea cũ — mount Toast UI Editor (WYSIWYG) ở đây
-        const btnDocumentReaderEditCancel = document.getElementById('btn-document-reader-edit-cancel');
-        const btnDocumentReaderEditSave = document.getElementById('btn-document-reader-edit-save');
-        // MỚI (04/07/2026, mục 3 phản hồi Giang) — Document Picker Drawer (trắng, trượt từ dưới
-        // lên) THAY dropdown nhỏ cũ trong Reader — components/document-picker-drawer.js.
-        const documentPickerOverlay = document.getElementById('document-picker-overlay');
-        const documentPickerDrawer = document.getElementById('document-picker-drawer');
-        const btnDocumentPickerClose = document.getElementById('btn-document-picker-close');
-        const documentPickerList = document.getElementById('document-picker-list');
-        const documentPickerEmpty = document.getElementById('document-picker-empty');
+        // Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer (khung TRẮNG dùng
+        // CHUNG cho Document List+Reader, THAY document-reader-*/document-picker-* cũ — xem
+        // core/generic-drawer.js/components/generic-drawer.js). Header/Body RỖNG lúc boot —
+        // Workflow (event/workflow/document-reader.js) tự gán nội dung + querySelector bên trong
+        // để wire event MỖI LẦN render lại (KHÔNG có dom-refs tĩnh cho các phần tử BÊN TRONG
+        // header/body — nội dung đổi hoàn toàn giữa List/Read, xem docstring đầu
+        // core/generic-drawer.js). (documentReaderOverlay/documentReaderWindow/
+        // btnDocumentReaderListToggle/documentReaderTitle/btnDocumentReaderEdit/
+        // btnDocumentReaderClose/documentReaderBody/documentReaderPages/documentReaderEmpty/
+        // btnDocumentReaderPrev/documentReaderPageIndicator/btnDocumentReaderNext/
+        // documentReaderEditMode/documentReaderEditMount/btnDocumentReaderEditCancel/
+        // btnDocumentReaderEditSave/documentPickerOverlay/documentPickerDrawer/
+        // btnDocumentPickerClose/documentPickerList/documentPickerEmpty ĐÃ XOÁ — thay bằng 4 dòng
+        // dưới đây.)
+        const genericDrawerOverlay = document.getElementById('generic-drawer-overlay');
+        const genericDrawerPanel = document.getElementById('generic-drawer-panel');
+        const genericDrawerHeader = document.getElementById('generic-drawer-header');
+        const genericDrawerBody = document.getElementById('generic-drawer-body');
         // (btnBackFileManagerDocument ĐÃ XOÁ — Batch D7: Back dùng CHUNG btnSettingsStackBack.)
         // (fileManagerNewFolderInput ĐÃ XOÁ — Batch D5: panel Song giờ động.)
         //
