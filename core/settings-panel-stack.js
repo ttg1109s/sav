@@ -4,30 +4,41 @@
  * === VIẾT LẠI (06/07/2026, phản hồi Giang sau khi xem UI thật — sửa lại thiết kế Batch D1) ===
  * Thiết kế CŨ (Batch D1): panel mới trượt CHE LÊN panel cũ (panel cũ đứng yên `left:0`, bị che
  * khuất chứ không di chuyển) + header DÙNG CHUNG 1 khối ngoài panel, đổi text NGAY LẬP TỨC lúc
- * push/pop trong khi panel còn đang trượt — Giang chỉ ra 2 vấn đề:
- *   1. Panel cũ vẫn nằm-nguyên-dưới (chỉ bị che) => vẫn phải tự lo nền/ảnh CHO TỪNG panel riêng
- *      nếu muốn nền chung hiện đúng (về bản chất nhiều lớp đè lên nhau, không phải slider thật).
- *   2. Header đổi chữ TỨC THÌ trong khi body còn đang chạy animation kéo — 2 thứ lệch nhịp nhau,
- *      UX kém (khác hẳn Cài đặt iOS thật — search screenshot Giang gửi 06/07/2026: header luôn
- *      trượt CÙNG NHỊP với nội dung, vì header là 1 phần của MÀN HÌNH đang trượt, không phải 1
- *      thanh cố định đứng ngoài đổi rời rạc).
+ * push/pop trong khi panel còn đang trượt — Giang chỉ ra 2 vấn đề đã sửa lúc đó (panel cũ tự lo
+ * nền riêng; header lệch nhịp animation).
  *
- * THIẾT KẾ MỚI — SLIDER THẬT (2 panel luôn cùng di chuyển 1 lúc):
- *   - Mỗi panel (kể cả Main) giờ TỰ MANG header CỦA CHÍNH NÓ (title + nút Back/Close) NGAY TRONG
- *     thân panel — xem `_buildPanelInnerHtml()` — nên header luôn trượt ĐÚNG NHỊP với nội dung
- *     (header là 1 phần của cùng khối DOM đang animate `left`, không tách rời nữa). Mục 3 phản hồi
- *     Giang: "Header được nhét vào luôn body."
- *   - PUSH (mở panel con): panel HIỆN TẠI (đang ở `left:0`) trượt SANG TRÁI (`left:-100%`) —
- *     KHÔNG xoá, vẫn nằm chờ ngoài màn hình bên trái. Panel MỚI tạo ở `left:100%` (ngoài màn hình
- *     phải), tiêm HTML, ép reflow, rồi trượt vào `left:0` — CÙNG LÚC với panel hiện tại trượt trái
- *     (2 panel di chuyển ĐỒNG THỜI, đúng cảm giác "chuyển sang slide kế tiếp", KHÔNG phải "che
- *     lên"). Mục 2 phản hồi Giang: "trượt từ panel x sang y".
- *   - POP (bấm Back): panel ĐANG HIỆN (`left:0`) trượt PHẢI (`left:100%`) — panel LIỀN TRƯỚC (đang
- *     chờ sẵn ở `left:-100%` từ lúc push) trượt vào lại `left:0` — CÙNG LÚC. Sau khi animation
- *     xong, panel vừa rời đi (đang ở `left:100%`) mới bị XOÁ HẲN khỏi DOM (Workflow tự
- *     `taskManager.once()` — core UI thuần này KHÔNG tự taskManager, xem Rule 3). Mục 2 phản hồi
- *     Giang: "khi back thì trượt về slider trước -> xoá panel" — CHỈ xoá panel rời đi, panel liền
- *     trước KHÔNG bị dựng lại từ đầu (đã nằm sẵn đó, chỉ trượt vào).
+ * === VIẾT LẠI TIẾP (08/07/2026, HOTFIX 17, Giang chốt: "Áp dụng scrollLeft cho setting > sub-
+ * setting thay vì move left position") ===
+ * Bản 06/07/2026 tự animate `left` (`position: absolute`, CSS `transition: left 500ms`) — ĐÚNG
+ * pattern gây hàng loạt bug đã dò ra ở HOTFIX 12-16 (cuộn Playlist<->Settings): tự tay animate 1
+ * thuộc tính vị trí luôn tiềm ẩn xung đột với animation/rendering khác, không tận dụng được cơ chế
+ * cuộn NATIVE của trình duyệt. Đổi hẳn sang CÙNG pattern đã chứng minh ổn định cho
+ * `#side-left-container` (Playlist<->Settings) — cuộn ngang THẬT (`overflow-x`, `scrollTo()`):
+ *   - `#settings-stack-body` giờ là khung cuộn ngang (`display:flex; overflow-x:hidden;`) — MỌI
+ *     panel (kể cả Main) là 1 "trang" NẰM CẠNH NHAU theo thứ tự DOM (`flex-shrink:0; width:100%`),
+ *     KHÔNG còn `position:absolute`/`left` tự animate nữa.
+ *   - PUSH: panel mới APPEND vào CUỐI (index kế tiếp trong `settingsPanelStackEntries`), rồi
+ *     `scrollTo({left: clientWidth * index, behavior:'smooth'})` — trình duyệt tự animate cuộn,
+ *     không tự tay viết easing/transition gì cả.
+ *   - POP: `scrollTo({left: clientWidth * (index liền trước), behavior:'smooth'})` — Workflow vẫn
+ *     tự chờ `SETTINGS_STACK_TRANSITION_MS` (taskManager, Rule 3) rồi mới xoá DOM panel vừa trượt
+ *     ra (KHÔNG đổi luồng workflow — event/workflow/settings-stack-nav.js).
+ *   - `resetSettingsStackToMain()`: dùng `scrollTo({left:0, behavior:'instant'})` TƯỜNG MINH —
+ *     TUYỆT ĐỐI KHÔNG gán trực tiếp `settingsStackBody.scrollLeft = 0` (đúng bài học HOTFIX 12:
+ *     nếu phần tử có CSS `scroll-behavior: smooth`, gán thẳng `.scrollLeft` KHÔNG nhảy tức thời mà
+ *     tự animate — dù ở đây `settingsStackBody` KHÔNG khai `scroll-behavior:smooth` trong CSS, vẫn
+ *     giữ thói quen dùng `scrollTo()` tường minh cho MỌI trường hợp, không phụ thuộc CSS mặc định,
+ *     tránh lặp lại đúng lớp bug đã tốn nhiều vòng vá mới tìm ra).
+ *
+ * THIẾT KẾ SLIDER (2 panel luôn cùng di chuyển 1 lúc, GIỮ NGUYÊN tinh thần bản 06/07 — chỉ đổi CƠ
+ * CHẾ animate, không đổi CẢM GIÁC):
+ *   - Mỗi panel (kể cả Main) TỰ MANG header CỦA CHÍNH NÓ (title + nút Back/Close) NGAY TRONG thân
+ *     panel — xem `_buildPanelInnerHtml()` — header luôn trượt ĐÚNG NHỊP với nội dung (cùng 1 khối
+ *     DOM cuộn theo cha, không tách rời).
+ *   - PUSH (mở panel con): panel HIỆN TẠI vẫn nằm nguyên trong DOM (không xoá) — chỉ đơn giản là
+ *     "trang" TRƯỚC panel mới trong khung cuộn ngang — cuộn sang phải 1 trang.
+ *   - POP (bấm Back): cuộn ngược lại 1 trang — panel liền trước hiện lại ĐÚNG vị trí cũ, KHÔNG cần
+ *     "khôi phục" gì (chưa hề bị xoá lúc push).
  *   - Main (panel gốc, index 0 trong `settingsPanelStackEntries`) KHÔNG BAO GIỜ bị pop/xoá — chỉ
  *     `resetSettingsStackToMain()` (đóng hẳn Settings) mới xoá MỌI panel phía trên Main.
  *
@@ -42,13 +53,15 @@
  *
  * QUAN TRỌNG — 8 khu vực ĐÃ migrate trước batch này (About/Subtitle/Visualizer/Slideshow/Song/
  * Folder Detail/Photo/Documents) KHÔNG cần sửa GÌ CẢ: `pushSettingsPanel({title, bodyHtml,
- * fullBleed})` GIỮ NGUYÊN chữ ký y hệt — chỉ phần TRIỂN KHAI BÊN TRONG file này đổi (header giờ
- * nhét vào panel thay vì đọc/ghi 1 khối chung bên ngoài).
+ * fullBleed})` GIỮ NGUYÊN chữ ký y hệt — chỉ phần TRIỂN KHAI BÊN TRONG file này đổi (cuộn ngang
+ * thay vì animate `left`).
  *
  * NẠP SAU: core/dom-refs.js (settingsStackBody, settingsStackPanelMain).
  */
 
-const SETTINGS_STACK_TRANSITION_MS = 500; // khớp duration-500 CSS đang dùng thống nhất toàn app
+const SETTINGS_STACK_TRANSITION_MS = 500; // ước lượng đủ an toàn cho quãng cuộn 1 trang (native
+// scrollTo smooth không có CSS duration cố định để canh chính xác — cùng cách tiếp cận đã dùng cho
+// #side-left-container, xem core/player-controls.js).
 
 /** Ngăn xếp panel — index 0 LUÔN là Main (KHÔNG BAO GIỜ bị pop, chỉ reset() mới xoá phần còn lại).
  * Gán giá trị khởi tạo NGAY khi file này chạy (nạp SAU dom-refs.js nên `settingsStackPanelMain` đã
@@ -81,45 +94,35 @@ function _buildPanelInnerHtml(title, bodyHtml, fullBleed) {
 }
 
 /**
- * Mở 1 panel mới — panel HIỆN TẠI trượt trái (chờ sẵn, không xoá), panel MỚI trượt vào từ phải,
- * CÙNG LÚC (xem docstring đầu file).
+ * Mở 1 panel mới — panel MỚI append vào CUỐI khung cuộn ngang, rồi cuộn mượt sang nó (xem docstring
+ * đầu file).
  * @param {{title: string, bodyHtml: string, fullBleed?: boolean}} params
  * @returns {HTMLElement} panel vừa tạo — nơi gọi (Workflow) tự `querySelector` bên trong để wire
  *          event riêng của panel đó (đúng quy ước Generic Drawer: "component tĩnh + dom-refs").
  */
 function pushSettingsPanel({ title, bodyHtml, fullBleed = false }) {
-    const currentTop = settingsPanelStackEntries[settingsPanelStackEntries.length - 1];
-
     const panelEl = document.createElement('div');
-    panelEl.className = 'settings-stack-panel absolute top-0 left-0 w-full h-full flex flex-col';
-    panelEl.style.left = '100%';
-    panelEl.style.transition = `left ${SETTINGS_STACK_TRANSITION_MS}ms ease-in-out`;
+    panelEl.className = 'settings-stack-panel w-full h-full flex-shrink-0 flex flex-col';
     panelEl.innerHTML = _buildPanelInnerHtml(title, bodyHtml, fullBleed);
     settingsStackBody.appendChild(panelEl);
-    void panelEl.offsetHeight; // ép reflow — bắt buộc để transition chạy đúng từ 100% -> 0, không bị gộp frame
-
-    // 2 panel cùng trượt 1 lúc — panel hiện tại sang trái, panel mới vào từ phải.
-    currentTop.panelEl.style.left = '-100%';
-    panelEl.style.left = '0';
-
     settingsPanelStackEntries.push({ panelEl });
+
+    settingsStackBody.scrollTo({ left: settingsStackBody.clientWidth * (settingsPanelStackEntries.length - 1), behavior: 'smooth' });
     return panelEl;
 }
 
 /**
- * Đóng panel trên cùng (bấm Back) — panel đang hiện trượt phải, panel liền trước (đang chờ sẵn ở
- * `left:-100%`) trượt vào lại, CÙNG LÚC. KHÔNG tự xoá DOM ở đây (Rule 3 cấm taskManager trong core)
- * — trả panel vừa trượt ra cho Workflow tự lên lịch xoá SAU khi animation xong.
- * @returns {HTMLElement|null} panel vừa trượt ra (để Workflow lên lịch `.remove()`), `null` nếu
- *          đang ở Main (không có gì để pop).
+ * Đóng panel trên cùng (bấm Back) — cuộn mượt VỀ panel liền trước (đang nằm sẵn trong DOM, chưa hề
+ * bị xoá lúc push). KHÔNG tự xoá DOM ở đây (Rule 3 cấm taskManager trong core) — trả panel vừa rời
+ * đi cho Workflow tự lên lịch xoá SAU khi animation xong.
+ * @returns {HTMLElement|null} panel vừa rời đi (để Workflow lên lịch `.remove()`), `null` nếu đang
+ *          ở Main (không có gì để pop).
  */
 function popSettingsPanel() {
     if (settingsPanelStackEntries.length <= 1) return null; // đã ở Main
     const top = settingsPanelStackEntries.pop();
-    const prev = settingsPanelStackEntries[settingsPanelStackEntries.length - 1];
 
-    top.panelEl.style.left = '100%';
-    prev.panelEl.style.left = '0';
+    settingsStackBody.scrollTo({ left: settingsStackBody.clientWidth * (settingsPanelStackEntries.length - 1), behavior: 'smooth' });
 
     return top.panelEl;
 }
@@ -128,12 +131,13 @@ function popSettingsPanel() {
  * Đưa ngăn xếp về đáy (Main) NGAY LẬP TỨC, không animation — dùng lúc đóng hẳn Settings (nút
  * Close) để lần mở SAU LUÔN bắt đầu tại Main, không kẹt giữa chừng 1 panel con nào. Xoá DOM THẲNG
  * mọi panel phía trên Main (không cần chờ animation vì bản thân #drawer-settings cũng đang trượt
- * ẩn cùng lúc) + đảm bảo Main về đúng `left:0` (phòng trường hợp đang dở dang ở `-100%`).
+ * ẩn cùng lúc) + `scrollTo({left:0, behavior:'instant'})` TƯỜNG MINH (KHÔNG gán thẳng `.scrollLeft`
+ * — xem cảnh báo HOTFIX 12 ở docstring đầu file) để đảm bảo về đúng trang Main.
  */
 function resetSettingsStackToMain() {
     for (let i = 1; i < settingsPanelStackEntries.length; i++) {
         settingsPanelStackEntries[i].panelEl.remove();
     }
     settingsPanelStackEntries.length = 1; // giữ lại đúng Main (index 0)
-    settingsPanelStackEntries[0].panelEl.style.left = '0';
+    settingsStackBody.scrollTo({ left: 0, behavior: 'instant' });
 }
