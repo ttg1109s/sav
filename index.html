@@ -294,7 +294,7 @@
     <!-- MỞ ĐẦU THEME THẬT (07/07/2026, phản hồi Giang mục 3) — THAY components/settings/
          playlist-background.js (TPL_SETTINGS_BACKGROUND, KHÔNG còn mount) bằng theme.js
          (TPL_SETTINGS_THEME) — 3 card Sáng/Tối/Background loại trừ nhau. -->
-    <script src="components/settings/theme.js?v=20260707v1"></script>
+    <script src="components/settings/theme.js?v=20260709v1"></script>
     <script src="components/settings/file-manager-section.js?v=20260707v3"></script>
     <script src="components/settings/visualizer-geometry-color.js?v=20260707v3"></script>
     <script src="components/settings/audio-eq.js?v=20260707v2"></script>
@@ -367,12 +367,19 @@
          khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
     <script src="event/store.js?v=20260627v1"></script>
     <script src="core/dom-refs.js?v=20260708v3"></script>
+    <!-- core/slider-panel-scroll.js (MỚI, 09/07/2026) — 2 hàm dùng CHUNG (getPositionStart/
+         scrollSliderTo) + hằng số SLIDER_PANEL_SCROLL_ESTIMATED_MS cho MỌI khung cuộn ngang kiểu
+         "slider panel" — core/settings-panel-stack.js (ngay dưới) VÀ core/player-controls.js (xa
+         hơn) đều cần 2 hàm này tồn tại sẵn. Core UI thuần, không phụ thuộc gì (không cần
+         dom-refs.js, đặt ngay sau chỉ vì đây là vị trí nhóm CORE bắt đầu). -->
+    <script src="core/slider-panel-scroll.js?v=20260709v1"></script>
     <!-- Batch D1 (Settings restructure, 06/07/2026) — ngăn xếp panel Settings (core UI thuần,
-         push/pop/reset). VIẾT LẠI 06/07/2026 (slider thật, header nhét vào từng panel) — CẦN
-         core/dom-refs.js (settingsStackBody/settingsStackPanelMain/closeDrawer, đã nạp ngay trên)
-         — KHÔNG cần t()/taskManager (nhận title đã dịch sẵn qua tham số, không tự chờ animation —
-         xem docstring đầu file). -->
-    <script src="core/settings-panel-stack.js?v=20260708v2"></script>
+         push/pop/reset). VIẾT LẠI 06/07/2026 (slider thật, header nhét vào từng panel). VIẾT LẠI
+         TIẾP 09/07/2026 (rút getPositionStart/scrollSliderTo dùng chung) — CẦN core/dom-refs.js
+         (settingsStackBody/settingsStackPanelMain/closeDrawer, đã nạp ngay trên) + core/slider-
+         panel-scroll.js (đã nạp ngay trên) — KHÔNG cần t()/taskManager (nhận title đã dịch sẵn qua
+         tham số, không tự chờ animation — xem docstring đầu file). -->
+    <script src="core/settings-panel-stack.js?v=20260709v1"></script>
     <!-- Logo "SAV" (cụm /event/ "savLogo") — cần biến `savLogo` vừa nạp từ dom-refs.js ngay trên. -->
     <script src="core/sav-logo.js?v=20260629v1"></script>
     <!-- TaskManager (Loop/TaskManager) — quản lý TẬP TRUNG mọi setInterval/setTimeout của app
@@ -472,7 +479,7 @@
          EQ/volume" — giờ ở visualizers/visualizer-display.js (khu VISUALIZERS dưới), vì đúng
          ranh giới nghiệp vụ là cấu hình Visualizer, không phải điều khiển phát nhạc. Xem comment
          đầu core/player-controls.js để biết đầy đủ lý do tách + đảm bảo thứ tự nạp an toàn. -->
-    <script src="core/player-controls.js?v=20260708v7"></script>
+    <script src="core/player-controls.js?v=20260709v1"></script>
     <script src="core/audio-engine.js?v=20260625v8e"></script>
     <script src="core/app-cleanup.js?v=20260630v1"></script>
     <!-- Toggle ẩn/hiện dải BPM/Pitch/Energy (ver 10 refine, bổ sung) — PHẢI nạp TRƯỚC
@@ -570,7 +577,7 @@
          CẦN core/settings-panel-stack.js (đã nạp ở nhóm CORE phía trên). NẠP TRƯỚC settingsMisc
          (settingsMisc.openAbout() gọi pushSettingsPanel() — không thật sự phụ thuộc thứ tự, nhưng
          đặt Back trước Open cho xuôi mạch đọc). -->
-    <script src="event/workflow/settings-stack-nav.js?v=20260708v1"></script>
+    <script src="event/workflow/settings-stack-nav.js?v=20260709v1"></script>
     <script src="event/router/settings-stack-nav.js?v=20260706v1"></script>
     <script src="event/listener/settings-stack-nav.js?v=20260706v2"></script>
     <!-- Cụm "settingsMisc" (ver 11, patch 5): gộp aboutDrawer + appRecovery — gộp vì mỗi nhánh quá
@@ -656,13 +663,13 @@
          (panel Visualizer Settings, nay push/pop động) ĐỔI sang gọi workflow — xem
          event/workflow/visualizer-display.js. THÊM case 'openPanel.click' (dời từ
          "visualizerMiscSettings"). -->
-    <script src="event/workflow/visualizer-display.js?v=20260707v2"></script>
+    <script src="event/workflow/visualizer-display.js?v=20260709v1"></script>
     <script src="event/router/visualizer-display.js?v=20260707v1"></script>
     <script src="event/listener/visualizer-display.js?v=20260708v1"></script>
     <!-- MỞ ĐẦU THEME THẬT (07/07/2026, phản hồi Giang mục 3) — cụm "theme" (3 card Sáng/Tối/
          Background, Main list TĨNH). CẦN workflowVisualizerDisplay.toggleBgImage() (đã nạp ngay
          trên) + applyBgImageEnabled()/updatePlaylistBg() (đã nạp ở nhóm CORE). -->
-    <script src="event/workflow/theme.js?v=20260707v1"></script>
+    <script src="event/workflow/theme.js?v=20260709v1"></script>
     <script src="event/router/theme.js?v=20260707v1"></script>
     <script src="event/listener/theme.js?v=20260707v1"></script>
     <!-- Cụm "statsPanel" (ver 11, patch 4): KHÔNG có event/workflow/stats-panel.js — chỉ 1
