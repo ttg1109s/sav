@@ -43,6 +43,49 @@
 const DOCUMENT_READER_RELAYOUT_TASK = 'documentReaderRelayout';
 const DOCUMENT_READER_PRELOAD_SLOT_COUNT = 5; // mục 4.1 plan-v12-extended.md
 
+/**
+ * Wire TOÀN BỘ toolbar của 1 surface soạn thảo (`buildDocumentEditorSurface()`, core/file-manager/
+ * document-ui.js — trả về CHƯA gắn sự kiện) — DÙNG CHUNG bởi CẢ Editor Drawer (File Manager, xem
+ * event/workflow/file-manager-document.js::openEditor()) LẪN Reader (enterEditMode() dưới đây).
+ * Đặt ở ĐÂY (không phải core) vì đây LÀ việc gắn addEventListener — SIẾT LẠI 10/07/2026 sau phản
+ * hồi Giang, xem docstring đầu core/file-manager/document-ui.js.
+ *
+ * Đọc `data-command` trên mỗi nút toolbar: lệnh đơn giản (bold/italic/underline/
+ * insertUnorderedList/insertOrderedList) map THẲNG tên qua `document.execCommand()`; 3 lệnh đặc
+ * biệt (heading/quote/link) xử lý riêng.
+ *
+ * HÀM PLAIN (KHÔNG phải method của workflowDocumentReader) — cả object workflow này LẪN
+ * workflowFileManagerDocument đều gọi thẳng được (Workflow gọi Workflow khác tự do, không bị
+ * Rule 3 — rule đó CHỈ áp cho Core).
+ * @param {HTMLElement} rootEl - element trả về từ buildDocumentEditorSurface().
+ * @returns {{getHtml: () => string, focus: () => void}}
+ */
+function wireDocumentEditorToolbar(rootEl) {
+    const surfaceEl = rootEl.querySelector('.document-editor-surface');
+
+    rootEl.querySelectorAll('[data-command]').forEach((btn) => {
+        // mousedown + preventDefault: giữ nguyên Selection hiện tại trong contentEditable (click
+        // thường làm mất focus/selection TRƯỚC khi execCommand kịp chạy).
+        btn.addEventListener('mousedown', (e) => e.preventDefault());
+        btn.addEventListener('click', () => {
+            const command = btn.dataset.command;
+            if (command === 'heading') { cycleHeadingAtSelection(surfaceEl); return; } // core/file-manager/document-ui.js
+            if (command === 'quote') { document.execCommand('formatBlock', false, 'blockquote'); return; }
+            if (command === 'link') {
+                const url = window.prompt(t('documentEditor.linkPrompt'));
+                if (url) document.execCommand('createLink', false, url);
+                return;
+            }
+            document.execCommand(command);
+        });
+    });
+
+    return {
+        getHtml() { return sanitizeDocumentHtml(surfaceEl.innerHTML); }, // core/file-manager/document.js
+        focus() { surfaceEl.focus(); },
+    };
+}
+
 const workflowDocumentReader = {
     _mode: null, // 'list' | 'read' | null (đóng hẳn)
     _currentDocumentKey: null,
@@ -54,7 +97,7 @@ const workflowDocumentReader = {
     _isLastSlotReached: false,
     _pageSize: null, // {width, height, className} — đo lần gần nhất, xem _measurePageSize()
     _resizeObserver: null,
-    _editorSurface: null, // {el, getHtml, focus} đang mở (Reader edit mode), null nếu KHÔNG đang sửa
+    _editorApi: null, // {getHtml, focus} đang mở (Reader edit mode) — trả về từ wireDocumentEditorToolbar(), null nếu KHÔNG đang sửa
     // Tham chiếu DOM ĐỘNG (KHÔNG nằm trong core/dom-refs.js — body Generic Drawer bị thay HOÀN
     // TOÀN mỗi lần openPicker()/openDocument(), querySelector lại SAU MỖI lần đó, xem _wireReadEvents()).
     _pagesEl: null,
@@ -160,7 +203,7 @@ const workflowDocumentReader = {
         this._stopResizeWatcher();
         this._mode = null;
         this._currentDocumentKey = null;
-        this._editorSurface = null;
+        this._editorApi = null;
         closeGenericDrawer(); // core/generic-drawer.js
     },
 
@@ -343,32 +386,34 @@ const workflowDocumentReader = {
     // ============================== SỬA (dùng chung buildDocumentEditorSurface) ==============================
 
     /** Ứng với nút Sửa (CHỈ hiện khi createdBy='user') — mount `buildDocumentEditorSurface()`
-     * (core/file-manager/document-ui.js) vào `#document-reader-edit-mount`. */
+     * (core, chưa gắn sự kiện) vào `#document-reader-edit-mount`, rồi `wireDocumentEditorToolbar()`
+     * (hàm dùng chung ở trên) gắn toàn bộ hành vi. */
     enterEditMode() {
         if (!this._editModeEl) return;
         this._editModeEl.classList.remove('hidden');
-        this._editorSurface = buildDocumentEditorSurface(this._currentContentHtml); // core/file-manager/document-ui.js
+        const surfaceEl = buildDocumentEditorSurface(this._currentContentHtml); // core/file-manager/document-ui.js
         this._editMountEl.innerHTML = '';
-        this._editMountEl.appendChild(this._editorSurface.el);
-        this._editorSurface.focus();
+        this._editMountEl.appendChild(surfaceEl);
+        this._editorApi = wireDocumentEditorToolbar(surfaceEl); // hàm dùng chung, định nghĩa ở trên
+        this._editorApi.focus();
     },
 
     /** Huỷ surface KHÔNG lưu — quay lại chế độ đọc với nội dung CŨ (chưa sửa). */
     cancelEdit() {
         this._editModeEl.classList.add('hidden');
-        this._editorSurface = null;
+        this._editorApi = null;
     },
 
-    /** Lưu nội dung Sửa — đọc HTML từ surface (đã tự sanitizeDocumentHtml() lại bên trong), ghi
-     * DB, vẽ lại Reader + báo workflowFileManagerDocument refresh (đề phòng drawer Documents đang
-     * mở phía sau). */
+    /** Lưu nội dung Sửa — đọc HTML qua editorApi.getHtml() (đã tự sanitizeDocumentHtml() lại bên
+     * trong), ghi DB, vẽ lại Reader + báo workflowFileManagerDocument refresh (đề phòng drawer
+     * Documents đang mở phía sau). */
     async saveEdit() {
-        if (!this._editorSurface) return;
-        const html = this._editorSurface.getHtml(); // core/file-manager/document-ui.js
+        if (!this._editorApi) return;
+        const html = this._editorApi.getHtml();
         await updateDocumentContent(this._currentDocumentKey, html); // core
         this._currentContentHtml = html;
         this._editModeEl.classList.add('hidden');
-        this._editorSurface = null;
+        this._editorApi = null;
         this._rebuildPagesFromScratch();
         if (typeof workflowFileManagerDocument !== 'undefined') await workflowFileManagerDocument.refresh();
     },
