@@ -63,15 +63,24 @@
             quality: 'high', type: 'bar', barStyle: 'mirror', vortexStyle: 'rings', rainStyle: 'glass', glassFlash: true, mode: 'solid', 
             bgColor: '#000000', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', 
             minH: 4, maxH: 400, barWidth: 4, bgImage: '', bgBlur: 0, bgImageEnabled: false,
-            // MỚI (07/07/2026, phản hồi Giang — mở đầu Theme thật) — 3 chế độ LOẠI TRỪ NHAU:
+            // MỚI (07/07/2026, phản hồi Giang — mở đầu Theme thật) — LOẠI TRỪ NHAU:
             // 'light' | 'dark' | 'background' (dùng ảnh nền tuỳ chỉnh, tái dùng bgImage/bgBlur/
-            // bgImageEnabled đã có sẵn — 'background' TỰ kéo theo bgImageEnabled=true, xem
-            // event/workflow/theme.js::selectThemeMode()). MẶC ĐỊNH 'dark' — app hiện tại LUÔN
+            // bgImageEnabled đã có sẵn — 'background' TỰ kéo theo bgImageEnabled=true) |
+            // 'gradient' (MỚI 09/07/2026, phản hồi Giang mục 1 — mode RIÊNG, KHÔNG chung với
+            // 'background', dùng 2 màu gradientFrom/gradientTo ngay dưới) — xem
+            // event/workflow/theme.js::selectThemeMode(). MẶC ĐỊNH 'dark' — app hiện tại LUÔN
             // tối, đúng hành vi cũ trước khi có lựa chọn này. 'light' CHƯA áp dụng lại giao diện
             // sáng thật (chỉ mới lưu lựa chọn + UI chọn — việc tô lại màu TOÀN APP theo 'light' là
             // việc RIÊNG, làm theo từng đợt Settings -> Playlist -> phần còn lại, xem báo cáo cuối
             // batch này).
             themeMode: 'dark',
+            // 2 màu cho mode 'gradient' (MỚI 09/07/2026) — áp `linear-gradient(135deg, from, to)`
+            // lên `#app-bg`, xem core/color-utils.js::updatePlaylistBg(). Mặc định 1 cặp tím-hồng
+            // trung tính, không phụ thuộc màu Visualizer (dynA/dynB) — 2 field RIÊNG, cố ý KHÔNG
+            // dùng chung với dynA/dynB dù cùng khái niệm "2 màu gradient": dynA/dynB là màu thanh
+            // Visualizer, đổi vì lý do khác hẳn (gu nhạc/hiệu ứng) — gộp chung sẽ khiến đổi 1 cái
+            // vô tình ảnh hưởng cái kia, không phải hành vi Giang yêu cầu.
+            gradientFrom: '#6366f1', gradientTo: '#ec4899',
             mirrorBarCount: 32,
             volume: 100, eqMode: 'flat', manualEq: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             videoBgEnabled: false, videoBgUrl: '',
@@ -225,6 +234,10 @@
                 // này -> suy luận themeMode='background' luôn (không mặc định 'dark' rồi lại vẫn
                 // hiện ảnh nền mâu thuẫn nhau).
                 if (cfg.themeMode == null) cfg.themeMode = cfg.bgImageEnabled ? 'background' : 'dark';
+                // MỚI (09/07/2026) — cấu hình cũ (trước khi có mode 'gradient') không có 2 field
+                // này -> điền mặc định, tránh 'undefined' lọt vào chuỗi CSS linear-gradient().
+                if (!cfg.gradientFrom) cfg.gradientFrom = DEFAULT_VIZ_CONFIG.gradientFrom;
+                if (!cfg.gradientTo) cfg.gradientTo = DEFAULT_VIZ_CONFIG.gradientTo;
                 if (cfg.keepScreenOn == null) cfg.keepScreenOn = true;
                 if (cfg.subtitlesEnabled == null) cfg.subtitlesEnabled = true;
                 if (cfg.visualEnabled == null) cfg.visualEnabled = true;

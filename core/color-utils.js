@@ -40,6 +40,18 @@
          *
          * Overlay đen 40% (trước là 1 div riêng, rồi gộp vào background-image ở HOTFIX 15) vẫn giữ
          * nguyên kỹ thuật gộp lớp gradient — chỉ đổi phần tử đích.
+         *
+         * MỞ RỘNG (09/07/2026, Theme mode "Gradient" mới, phản hồi Giang mục 1) — thêm nhánh thứ 2:
+         * `cfg.themeMode === 'gradient'` -> vẽ `linear-gradient(135deg, gradientFrom, gradientTo)`
+         * thẳng lên `appBg` (không overlay đen, không blur — gradient tự nó đã đủ tương phản, khác
+         * ảnh thật cần overlay để chữ dễ đọc). THỨ TỰ ƯU TIÊN CỐ Ý: kiểm tra `cfg.bgImage` TRƯỚC —
+         * hàm này gọi được từ NHIỀU nơi (theme.js/visualizer-display.js/file-manager-photo.js), có
+         * những thời điểm `cfg.themeMode` chưa kịp cập nhật đồng bộ (vd đang giữa luồng mở picker
+         * ảnh) nhưng `cfg.bgImage` đã có Blob thật — ưu tiên hiển thị ĐÚNG NỘI DUNG THẬT đang có,
+         * không phụ thuộc `themeMode` có đồng bộ kịp hay chưa. `themeMode==='gradient'` chỉ đúng ý
+         * nghĩa khi CHẮC CHẮN không có ảnh nào đang áp (bgImage rỗng — bất biến này do
+         * `applyBgImageEnabled(false)` đảm bảo mỗi khi chuyển sang mode khác 'background', xem
+         * event/workflow/theme.js::selectThemeMode()).
          */
         function updatePlaylistBg() {
             const cfg = appState.get('vizConfig');
@@ -47,10 +59,50 @@
                 appBg.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url(${cfg.bgImage})`;
                 appBg.style.filter = `blur(${cfg.bgBlur}px)`;
             }
+            else if (cfg.themeMode === 'gradient') {
+                appBg.style.backgroundImage = `linear-gradient(135deg, ${cfg.gradientFrom}, ${cfg.gradientTo})`;
+                appBg.style.filter = `blur(0px)`;
+            }
             else {
                 appBg.style.backgroundImage = 'none';
                 appBg.style.filter = `blur(0px)`;
             }
+        }
+
+        /**
+         * FIX (09/07/2026, phản hồi Giang mục 3 — "chọn background image thì bên các element vẫn
+         * bị background cũ, khi thao tác bất kỳ thì mới thấy sự trong suốt") — bug KHÔNG nằm ở
+         * logic app: `updatePlaylistBg()` ở trên ĐÃ ghi đúng giá trị mới NGAY LẬP TỨC. Đây là bug
+         * đã biết của WebKit/iOS Safari với `backdrop-filter` (`.glass-panel`/`.glass-modal`/
+         * `.drawer-glass`/`.glass-control-center`, xem assets/css/style.css) — compositor "chụp"
+         * lại NHỮNG GÌ NẰM PHÍA SAU 1 phần tử `backdrop-filter` tại thời điểm layer được tạo, và
+         * không PHẢI LÚC NÀO cũng tự chụp lại khi nội dung phía sau đổi qua đường JS thuần (đổi
+         * `background-image` không tự kích hoạt recomposite) — ảnh/gradient MỚI đã có ở `appBg`
+         * nhưng lớp kính mờ phía trên vẫn hiển thị "ảnh chụp" CŨ, cho tới khi có 1 tác động khác ép
+         * trình duyệt vẽ lại layer đó (cuộn, mở drawer khác...).
+         *
+         * Core thuần — CHỈ ép trình duyệt tính lại `backdrop-filter`, không đọc/ghi `appState`, KHÔNG
+         * đụng `transform` (nhiều phần tử kính trong app dùng `transform` qua class Tailwind để
+         * trượt/ẩn hiện — vd `-translate-y-full` — ghi đè `style.transform` ở đây sẽ PHÁ animation
+         * của chúng). Kỹ thuật: đổi TẠM `backdrop-filter` sang `blur(0px)` rồi trả về giá trị CSS
+         * gốc (qua class, không phải inline) ngay khung hình kế tiếp — ép compositor tính lại đúng
+         * lúc đó, chớp mắt không kịp thấy (dưới 1 frame ~16ms).
+         *
+         * Rule 3: hàm này KHÔNG tự gọi sau `updatePlaylistBg()` (2 core không được gọi nhau) — mọi
+         * Workflow đổi nền (theme.js/visualizer-display.js/file-manager-photo.js) tự gọi CẢ 2 hàm
+         * theo đúng thứ tự (updatePlaylistBg() trước, forceGlassRepaint() ngay sau).
+         */
+        function forceGlassRepaint() {
+            const glassEls = document.querySelectorAll('.glass-panel, .glass-modal, .drawer-glass, .glass-control-center');
+            glassEls.forEach((el) => {
+                el.style.webkitBackdropFilter = 'blur(0px)';
+                el.style.backdropFilter = 'blur(0px)';
+                void el.offsetHeight; // ép reflow — áp giá trị TẠM này ngay, không gộp batch với dòng dưới
+                requestAnimationFrame(() => {
+                    el.style.webkitBackdropFilter = '';
+                    el.style.backdropFilter = ''; // xoá inline -> quay lại đúng giá trị từ class CSS gốc
+                });
+            });
         }
 
         // (updateSettingsBg() ĐÃ XOÁ — 07/07/2026, batch gộp Playlist+Settings chung container:

@@ -118,6 +118,16 @@
         const themeModeCardDark = document.getElementById('theme-mode-card-dark');
         const themeModeCardBackground = document.getElementById('theme-mode-card-background');
         const themeBgBlurRow = document.getElementById('theme-bg-blur-row');
+        // MỚI (09/07/2026, mode "Gradient" riêng, phản hồi Giang mục 1) — card thứ 4, ĐỘC LẬP với
+        // Background (ảnh) — xem components/settings/theme.js.
+        const themeModeCardGradient = document.getElementById('theme-mode-card-gradient');
+        const themeGradientRow = document.getElementById('theme-gradient-row');
+        const themeGradientFromPicker = document.getElementById('setting-theme-gradient-from'), themeGradientToPicker = document.getElementById('setting-theme-gradient-to');
+        // MỚI (09/07/2026, mục 2 — "card phản ánh ảnh/gradient được chọn") — 3 ref để
+        // event/workflow/theme.js::refreshThemeCardUI() ghi trực tiếp background-image/gradient
+        // THẬT vào mockup, thay vì mockup tĩnh cố định.
+        const themeMockupBackground = document.getElementById('theme-mockup-background'), themeMockupBackgroundIcon = document.getElementById('theme-mockup-background-icon');
+        const themeMockupGradient = document.getElementById('theme-mockup-gradient');
         // (qualitySelect/bgColorPicker/colorModeSelect/solidColor*/dynColor*/maxHeightSlider/
         // barWidthSlider/valMax.../blockMaxHeight/blockBarWidth/blockVortex/vortexStyleSelect/
         // blockRain/rainStyleSelect/glassFlashToggle/blockBarStyle/barStyleSelect/barMirrorOptions/
