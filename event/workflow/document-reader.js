@@ -26,10 +26,13 @@
  * liệu rất dài, có thể bọc `_computeMoreSlots()` qua `withLoadingShield()` lúc đó).
  *
  * SỬA: `enterEditMode()` dùng CHUNG `buildDocumentEditorSurface()` (core/file-manager/
- * document-ui.js) với `openDocumentEditorDrawer()` (File Manager -> Documents -> Sửa) — đúng mục
- * 1.3 "toolbar+surface dùng chung cho cả 2 nơi cần Sửa". Đây là 2 DRAWER RIÊNG (Editor Drawer của
- * File Manager KHÔNG dùng Generic Drawer — ngoài phạm vi batch này, xem mục 2 plan-v12-extended.md
+ * document-ui.js, TỰ wire toolbar bên trong — Rule 5a core-function-conventions.md) với
+ * `workflowFileManagerDocument.openEditor()` (File Manager -> Documents -> Sửa) — đúng mục 1.3
+ * "toolbar+surface dùng chung cho cả 2 nơi cần Sửa". Đây là 2 DRAWER RIÊNG (Editor Drawer của File
+ * Manager KHÔNG dùng Generic Drawer — ngoài phạm vi batch này, xem mục 2 plan-v12-extended.md
  * "CHỈ Document List+Reader dùng") — chỉ CHIA SẺ hàm dựng surface, không chia sẻ khung drawer.
+ * `editorApi.getHtml()` trả về HTML THÔ (chưa sanitize) — MỖI Workflow (đây và
+ * file-manager-document.js) TỰ `sanitizeDocumentHtml()` sau khi nhận lại, trước khi ghi DB.
  *
  * NẠP SAU: core/file-manager/document.js (listDocuments/resolveDocumentHtml/updateDocumentContent),
  * core/file-manager/document-ui.js (buildDocumentEditorSurface), core/file-manager/
@@ -43,49 +46,6 @@
 const DOCUMENT_READER_RELAYOUT_TASK = 'documentReaderRelayout';
 const DOCUMENT_READER_PRELOAD_SLOT_COUNT = 5; // mục 4.1 plan-v12-extended.md
 
-/**
- * Wire TOÀN BỘ toolbar của 1 surface soạn thảo (`buildDocumentEditorSurface()`, core/file-manager/
- * document-ui.js — trả về CHƯA gắn sự kiện) — DÙNG CHUNG bởi CẢ Editor Drawer (File Manager, xem
- * event/workflow/file-manager-document.js::openEditor()) LẪN Reader (enterEditMode() dưới đây).
- * Đặt ở ĐÂY (không phải core) vì đây LÀ việc gắn addEventListener — SIẾT LẠI 10/07/2026 sau phản
- * hồi Giang, xem docstring đầu core/file-manager/document-ui.js.
- *
- * Đọc `data-command` trên mỗi nút toolbar: lệnh đơn giản (bold/italic/underline/
- * insertUnorderedList/insertOrderedList) map THẲNG tên qua `document.execCommand()`; 3 lệnh đặc
- * biệt (heading/quote/link) xử lý riêng.
- *
- * HÀM PLAIN (KHÔNG phải method của workflowDocumentReader) — cả object workflow này LẪN
- * workflowFileManagerDocument đều gọi thẳng được (Workflow gọi Workflow khác tự do, không bị
- * Rule 3 — rule đó CHỈ áp cho Core).
- * @param {HTMLElement} rootEl - element trả về từ buildDocumentEditorSurface().
- * @returns {{getHtml: () => string, focus: () => void}}
- */
-function wireDocumentEditorToolbar(rootEl) {
-    const surfaceEl = rootEl.querySelector('.document-editor-surface');
-
-    rootEl.querySelectorAll('[data-command]').forEach((btn) => {
-        // mousedown + preventDefault: giữ nguyên Selection hiện tại trong contentEditable (click
-        // thường làm mất focus/selection TRƯỚC khi execCommand kịp chạy).
-        btn.addEventListener('mousedown', (e) => e.preventDefault());
-        btn.addEventListener('click', () => {
-            const command = btn.dataset.command;
-            if (command === 'heading') { cycleHeadingAtSelection(surfaceEl); return; } // core/file-manager/document-ui.js
-            if (command === 'quote') { document.execCommand('formatBlock', false, 'blockquote'); return; }
-            if (command === 'link') {
-                const url = window.prompt(t('documentEditor.linkPrompt'));
-                if (url) document.execCommand('createLink', false, url);
-                return;
-            }
-            document.execCommand(command);
-        });
-    });
-
-    return {
-        getHtml() { return sanitizeDocumentHtml(surfaceEl.innerHTML); }, // core/file-manager/document.js
-        focus() { surfaceEl.focus(); },
-    };
-}
-
 const workflowDocumentReader = {
     _mode: null, // 'list' | 'read' | null (đóng hẳn)
     _currentDocumentKey: null,
@@ -97,7 +57,7 @@ const workflowDocumentReader = {
     _isLastSlotReached: false,
     _pageSize: null, // {width, height, className} — đo lần gần nhất, xem _measurePageSize()
     _resizeObserver: null,
-    _editorApi: null, // {getHtml, focus} đang mở (Reader edit mode) — trả về từ wireDocumentEditorToolbar(), null nếu KHÔNG đang sửa
+    _editorApi: null, // {el, getHtml, focus} đang mở (Reader edit mode) — trả về từ buildDocumentEditorSurface(), null nếu KHÔNG đang sửa
     // Tham chiếu DOM ĐỘNG (KHÔNG nằm trong core/dom-refs.js — body Generic Drawer bị thay HOÀN
     // TOÀN mỗi lần openPicker()/openDocument(), querySelector lại SAU MỖI lần đó, xem _wireReadEvents()).
     _pagesEl: null,
@@ -131,7 +91,7 @@ const workflowDocumentReader = {
 
     closePicker() {
         this._mode = null;
-        closeGenericDrawer(); // core/generic-drawer.js
+        this._closeGenericDrawerFully();
     },
 
     _buildListHeaderHtml() {
@@ -162,8 +122,8 @@ const workflowDocumentReader = {
      * @param {string} documentKey
      * @param {{startInEdit?: boolean}} [options] - startInEdit=true: mở thẳng chế độ Sửa ngay khi
      *   vào Read. Giữ lại làm API dự phòng (kế thừa từ bản trước Nhóm A) — HIỆN KHÔNG nơi nào gọi
-     *   với option này ("Tạo tài liệu mới" ở File Manager dùng `openEditor()`/
-     *   `openDocumentEditorDrawer()` riêng, KHÔNG đi qua `openDocument()` ở đây, xem
+     *   với option này ("Tạo tài liệu mới" ở File Manager dùng `openEditor()` riêng (dựng
+     *   `buildDocumentEditorDrawer()`), KHÔNG đi qua `openDocument()` ở đây, xem
      *   event/workflow/file-manager-document.js::createNewDocument()).
      */
     async openDocument(documentKey, options) {
@@ -204,7 +164,21 @@ const workflowDocumentReader = {
         this._mode = null;
         this._currentDocumentKey = null;
         this._editorApi = null;
-        closeGenericDrawer(); // core/generic-drawer.js
+        this._closeGenericDrawerFully();
+    },
+
+    /** FIX (10/07/2026, phản hồi Giang — bug "đóng Generic Drawer không xoá overlay, che chắn UI
+     * mãi mãi"): `closeGenericDrawer()` (core) CHỈ trượt panel xuống, KHÔNG tự thêm lại `hidden`
+     * (core/generic-drawer.js không được tự `addEventListener` cho DOM tĩnh — Rule 5a). Workflow
+     * NÀY tự nghe `transitionend` rồi gọi `hideGenericDrawerImmediately()` (core) để ẩn hẳn — dùng
+     * CHUNG bởi cả `closePicker()` VÀ `_closeNow()`. (Lớp overlay riêng đã BỎ HẲN theo yêu cầu
+     * Giang — xem components/generic-drawer.js — nên giờ chỉ còn panel cần xử lý.) */
+    _closeGenericDrawerFully() {
+        closeGenericDrawer(); // core/generic-drawer.js — trượt xuống
+        genericDrawerPanel.addEventListener('transitionend', function onTransitionEnd() {
+            genericDrawerPanel.removeEventListener('transitionend', onTransitionEnd);
+            hideGenericDrawerImmediately(); // core/generic-drawer.js — ẩn hẳn
+        }, { once: true });
     },
 
     /** Chạy `onProceed` NGAY nếu KHÔNG đang dở chế độ Sửa; nếu ĐANG dở, hỏi Lưu/Huỷ TRƯỚC (dùng
@@ -277,7 +251,7 @@ const workflowDocumentReader = {
 
     _buildReadBodyHtml() {
         return `
-            <div id="document-reader-pages" class="document-html-content h-full overflow-hidden text-slate-800 text-[15px] leading-relaxed"></div>
+            <div id="document-reader-pages" class="document-html-content relative h-full overflow-hidden text-slate-800 text-[15px] leading-relaxed"></div>
             <p id="document-reader-empty" class="hidden text-sm text-slate-400 text-center py-10">${t('documentReader.empty')}</p>
             <div id="document-reader-nav" class="absolute bottom-0 inset-x-0 h-16 flex items-center justify-between px-4 border-t border-slate-200 bg-white">
                 <button id="btn-document-reader-prev" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-600 disabled:opacity-30" disabled>
@@ -341,6 +315,17 @@ const workflowDocumentReader = {
         }
     },
 
+    /** FIX (10/07/2026, phản hồi Giang — mục 1.2): đảm bảo LUÔN có ÍT NHẤT `count` trang cache SẴN
+     * phía TRƯỚC (chưa đọc tới) tính từ trang hiện tại — gọi SAU MỖI lần next/prev (không chỉ lúc
+     * mở tài liệu), để giữ đúng "tạo trước 5 trang mỗi lần prev/next" theo yêu cầu, không phải chỉ
+     * tính thêm +1 khi cache cạn. */
+    _ensureLookahead(count) {
+        const aheadAvailable = this._pages.length - 1 - this._currentPageIndex;
+        if (aheadAvailable < count && !this._isLastSlotReached) {
+            this._computeMoreSlots(count - aheadAvailable);
+        }
+    },
+
     /** Đo lại khung đọc + xoá cache + tính lại từ slot 1 — gọi lúc mở tài liệu MỚI, sửa xong lưu,
      * và (debounce) mỗi khi khung đọc đổi kích thước. LUÔN về trang 1 (đơn giản hoá CHỦ Ý, giữ
      * nguyên triết lý đã áp dụng từ bản CSS multi-column cũ — không cố giữ đúng % vị trí đọc cũ). */
@@ -350,15 +335,56 @@ const workflowDocumentReader = {
         this._isLastSlotReached = false;
         this._computeMoreSlots(DOCUMENT_READER_PRELOAD_SLOT_COUNT); // mục 4.1 — preload 5 slot lúc mở tài liệu
         this._currentPageIndex = 0;
-        this._renderCurrentPage();
+        this._renderCurrentPage(); // không truyền direction -> hiện tức thời, không trượt (mở tài liệu mới/resize, không phải điều hướng)
     },
 
-    _renderCurrentPage() {
+    /**
+     * Vẽ trang hiện tại. `direction` truyền vào CHỈ khi gọi từ `nextPage()`/`prevPage()` (điều
+     * hướng thật của người dùng) — trượt ngang có hiệu ứng (FIX 10/07/2026, phản hồi Giang — mục
+     * 1.2, trước đây gán `innerHTML` tức thời, KHÔNG có hiệu ứng slide nào). Gọi KHÔNG truyền
+     * `direction` (mở tài liệu mới/resize/sửa xong lưu) -> hiện tức thời, không hoạt náo gì.
+     * @param {'next'|'prev'} [direction]
+     */
+    _renderCurrentPage(direction) {
         const page = this._pages[this._currentPageIndex];
-        this._pagesEl.innerHTML = page ? page.html : '';
+        const html = page ? page.html : '';
+        if (direction) {
+            this._slideToNewPage(html, direction);
+        } else {
+            this._pagesEl.innerHTML = html;
+        }
         const isEmpty = this._currentContentHtml.replace(/<[^>]+>/g, '').trim().length === 0;
         this._emptyEl.classList.toggle('hidden', !isEmpty);
         this._updateNavUI();
+    },
+
+    /** Trượt nội dung CŨ ra + nội dung MỚI vào theo hướng `direction` — 2 lớp tuyệt đối chồng lên
+     * nhau bên trong `#document-reader-pages` (đã có `relative` trong class tĩnh, xem
+     * `_buildReadBodyHtml()`), dùng CSS transition (`.document-reader-slide-layer`,
+     * assets/css/style.css) thay vì `taskManager`/`setTimeout` — dọn dẹp qua `transitionend`
+     * (tự huỷ, không cần theo dõi thời gian thủ công). */
+    _slideToNewPage(newHtml, direction) {
+        const outgoing = document.createElement('div');
+        outgoing.className = 'document-reader-slide-layer';
+        outgoing.innerHTML = this._pagesEl.innerHTML;
+
+        const incoming = document.createElement('div');
+        incoming.className = 'document-reader-slide-layer';
+        incoming.innerHTML = newHtml;
+        incoming.style.transform = direction === 'next' ? 'translateX(100%)' : 'translateX(-100%)';
+
+        this._pagesEl.innerHTML = '';
+        this._pagesEl.appendChild(outgoing);
+        this._pagesEl.appendChild(incoming);
+
+        void incoming.offsetHeight; // ép reflow trước khi đổi transform — đảm bảo transition CHẠY
+
+        outgoing.style.transform = direction === 'next' ? 'translateX(-100%)' : 'translateX(100%)';
+        incoming.style.transform = 'translateX(0)';
+
+        incoming.addEventListener('transitionend', () => {
+            this._pagesEl.innerHTML = newHtml; // dọn về 1 lớp đơn giản sau khi trượt xong
+        }, { once: true });
     },
 
     _updateNavUI() {
@@ -374,27 +400,27 @@ const workflowDocumentReader = {
             if (this._currentPageIndex >= this._pages.length - 1) return; // vẫn không có trang mới (hết thật)
         }
         this._currentPageIndex++;
-        this._renderCurrentPage();
+        this._renderCurrentPage('next');
+        this._ensureLookahead(DOCUMENT_READER_PRELOAD_SLOT_COUNT); // giữ luôn 5 trang cache phía trước
     },
 
     prevPage() {
         if (this._currentPageIndex <= 0) return;
         this._currentPageIndex--;
-        this._renderCurrentPage();
+        this._renderCurrentPage('prev');
+        this._ensureLookahead(DOCUMENT_READER_PRELOAD_SLOT_COUNT); // giữ luôn 5 trang cache phía trước
     },
 
     // ============================== SỬA (dùng chung buildDocumentEditorSurface) ==============================
 
     /** Ứng với nút Sửa (CHỈ hiện khi createdBy='user') — mount `buildDocumentEditorSurface()`
-     * (core, chưa gắn sự kiện) vào `#document-reader-edit-mount`, rồi `wireDocumentEditorToolbar()`
-     * (hàm dùng chung ở trên) gắn toàn bộ hành vi. */
+     * (core, tự wire toolbar bên trong — Rule 5a) vào `#document-reader-edit-mount`. */
     enterEditMode() {
         if (!this._editModeEl) return;
         this._editModeEl.classList.remove('hidden');
-        const surfaceEl = buildDocumentEditorSurface(this._currentContentHtml); // core/file-manager/document-ui.js
+        this._editorApi = buildDocumentEditorSurface(this._currentContentHtml); // core/file-manager/document-ui.js — tự wire toolbar
         this._editMountEl.innerHTML = '';
-        this._editMountEl.appendChild(surfaceEl);
-        this._editorApi = wireDocumentEditorToolbar(surfaceEl); // hàm dùng chung, định nghĩa ở trên
+        this._editMountEl.appendChild(this._editorApi.el);
         this._editorApi.focus();
     },
 
@@ -404,12 +430,14 @@ const workflowDocumentReader = {
         this._editorApi = null;
     },
 
-    /** Lưu nội dung Sửa — đọc HTML qua editorApi.getHtml() (đã tự sanitizeDocumentHtml() lại bên
-     * trong), ghi DB, vẽ lại Reader + báo workflowFileManagerDocument refresh (đề phòng drawer
-     * Documents đang mở phía sau). */
+    /** Lưu nội dung Sửa — `editorApi.getHtml()` trả về HTML THÔ (chưa sanitize, xem docstring đầu
+     * core/file-manager/document-ui.js) — Workflow này TỰ `sanitizeDocumentHtml()` (core/file-
+     * manager/document.js) trước khi ghi DB (file dựng UI không được gọi document.js, Rule 3). Vẽ
+     * lại Reader + báo workflowFileManagerDocument refresh (đề phòng drawer Documents đang mở
+     * phía sau). */
     async saveEdit() {
         if (!this._editorApi) return;
-        const html = this._editorApi.getHtml();
+        const html = sanitizeDocumentHtml(this._editorApi.getHtml()); // core/file-manager/document.js
         await updateDocumentContent(this._currentDocumentKey, html); // core
         this._currentContentHtml = html;
         this._editModeEl.classList.add('hidden');
