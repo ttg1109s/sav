@@ -132,9 +132,11 @@
             // FIX (04/07/2026, mục 4) — 'playlist-hidden' THAY '-translate-y-full' (dọc -> ngang) +
             // gỡ NGAY 'visualizer-active' khỏi CẢ 2 (visualizerUI/playerContainer) CÙNG LÚC với
             // Playlist hiện lại — đúng yêu cầu "đẩy đồng thời cả hai", không chờ callback trễ.
-            // SỬA (07/07/2026, batch gộp container) — class dời sang `#side-left-container` (xem
-            // components/app-view-stack.js), KHÔNG còn trên `#playlist-view` nữa.
-            sideLeftContainer.classList.remove('playlist-hidden');
+            // SỬA (07/07/2026, batch gộp container) — class dời sang `#side-left-container`.
+            // HOTFIX 16 (08/07/2026) — dời TIẾP sang `#app-stack` (khung ngoài cùng MỚI, xem
+            // components/app-view-stack.js) — `#side-left-container` giờ CHỈ còn lo cuộn ngang,
+            // không tự transform/định vị gì nữa.
+            appStack.classList.remove('playlist-hidden');
             visualizerUI.classList.remove('visualizer-active');
             playerContainer.classList.remove('visualizer-active');
             if (typeof closeControlCenter === 'function') closeControlCenter(); // phòng panel còn mở sót
@@ -286,9 +288,10 @@
             // FIX (04/07/2026, mục 4) — 'playlist-hidden' THAY '-translate-y-full' (dọc -> ngang)
             // + thêm 'visualizer-active' cho CẢ 2 (visualizerUI/playerContainer) NGAY LÚC NÀY
             // (cùng lúc gỡ 'hidden') để slide ngang chạy đồng thời với Playlist thoát màn hình.
-            // SỬA (07/07/2026, batch gộp container) — class dời sang `#side-left-container` (xem
-            // components/app-view-stack.js), KHÔNG còn trên `#playlist-view` nữa.
-            sideLeftContainer.classList.add('playlist-hidden');
+            // SỬA (07/07/2026, batch gộp container) — class dời sang `#side-left-container`.
+            // HOTFIX 16 (08/07/2026) — dời TIẾP sang `#app-stack` (xem forceBackToPlaylistUI() ở
+            // trên, cùng lý do).
+            appStack.classList.add('playlist-hidden');
             // HOTFIX 12 (08/07/2026, Giang truy đúng gốc) — ĐÃ XOÁ dòng `sideLeftContainer.
             // scrollLeft = 0;` từng nằm ở đây (thêm HOTFIX 7/8, tưởng "phòng thủ rẻ, vô hại" —
             // SAI). `#side-left-container` có CSS `scroll-behavior: smooth` (assets/css/

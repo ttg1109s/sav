@@ -32,9 +32,17 @@
         const canvas = document.getElementById('visualizer'), ctx = canvas.getContext('2d');
         // MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings) — khung cuộn ngang bọc
         // chung Playlist+Settings, xem components/app-view-stack.js.
+        // HOTFIX 16 (08/07/2026) — thêm `appStack` (khung ngoài cùng, nhận lại toàn bộ transform/
+        // vị trí responsive — xem assets/css/style.css) + `appBg` (lớp nền thuần, anh em với
+        // `sideLeftContainer`, KHÔNG còn là hậu duệ của khung cuộn ngang nữa — xem docstring đầy
+        // đủ ở components/app-view-stack.js). `sideLeftContainer` giờ CHỈ còn lo cuộn ngang.
+        const appStack = document.getElementById('app-stack'), appBg = document.getElementById('app-bg');
         const sideLeftContainer = document.getElementById('side-left-container');
         const playlistView = document.getElementById('playlist-view'), visualizerUI = document.getElementById('visualizer-ui'), playerContainer = document.getElementById('player-container');
-        const playlistBg = document.getElementById('playlist-bg');
+        // (playlistBg ĐÃ XOÁ — HOTFIX 15, 08/07/2026: div `#playlist-bg` riêng đã bỏ hẳn.
+        // HOTFIX 16: background-image giờ set lên `appBg` (khai báo ngay trên, KHÔNG phải
+        // `sideLeftContainer` như bản HOTFIX 15 ban đầu) — xem core/color-utils.js::
+        // updatePlaylistBg().)
         const playlistEmpty = document.getElementById('playlist-empty'), playlistContainer = document.getElementById('playlist-container');
         // 2 nút "Phát"/"Trộn bài" của empty-state (ver 11, cụm /event/ "playlistEmptyState") —
         // TRƯỚC ĐÂY dùng onclick="..." inline trong components/playlist-view.js (xem plan.md mục

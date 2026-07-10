@@ -28,10 +28,29 @@
             else visualizerSolidBg.style.backgroundColor = '#000000';
         }
         
+        /**
+         * HOTFIX 16 (08/07/2026, Giang chốt) — SỬA TIẾP bản HOTFIX 15: bản đó set thẳng lên
+         * `#side-left-container`, đúng hướng "thoát khỏi vùng cuộn" nhưng lộ ra vấn đề MỚI —
+         * `#side-left-container` cũng chính là phần tử chứa nội dung thật (Playlist/Settings), nên
+         * `filter: blur()` (tính năng "Độ mờ nền") lem sang cả chữ/nút. SỬA: set lên `appBg` —
+         * phần tử MỚI (components/app-view-stack.js), ANH EM với `sideLeftContainer` (cùng nằm
+         * trong `#app-stack`, không phải hậu duệ của khung cuộn ngang) — vừa không bị `scrollLeft`
+         * của `sideLeftContainer` kéo theo (đúng lý do HOTFIX 15 đã đúng), vừa KHÔNG chứa chữ/nội
+         * dung gì nên `filter: blur()` giờ an toàn tuyệt đối, không lem sang đâu cả.
+         *
+         * Overlay đen 40% (trước là 1 div riêng, rồi gộp vào background-image ở HOTFIX 15) vẫn giữ
+         * nguyên kỹ thuật gộp lớp gradient — chỉ đổi phần tử đích.
+         */
         function updatePlaylistBg() {
             const cfg = appState.get('vizConfig');
-            if (cfg.bgImage) { playlistBg.style.backgroundImage = `url(${cfg.bgImage})`; playlistBg.style.filter = `blur(${cfg.bgBlur}px)`; } 
-            else { playlistBg.style.backgroundImage = 'none'; playlistBg.style.filter = `blur(0px)`;}
+            if (cfg.bgImage) {
+                appBg.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url(${cfg.bgImage})`;
+                appBg.style.filter = `blur(${cfg.bgBlur}px)`;
+            }
+            else {
+                appBg.style.backgroundImage = 'none';
+                appBg.style.filter = `blur(0px)`;
+            }
         }
 
         // (updateSettingsBg() ĐÃ XOÁ — 07/07/2026, batch gộp Playlist+Settings chung container:
