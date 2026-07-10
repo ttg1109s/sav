@@ -1,46 +1,53 @@
 /**
  * core/file-manager/document.js — Documents (mục 4.b4 plan-v12-multimedia.md, code 04/07/2026).
  *
- * VIẾT LẠI HOÀN TOÀN (10/07/2026, Nhóm A — mục 1 plan-v12-extended.md) — ĐỔI HƯỚNG LƯU TRỮ, bỏ
- * hẳn Markdown/Toast UI Editor/Turndown (đã dùng tạm 05/07-09/07/2026): `content` giờ là **1 chuỗi
- * HTML ĐÃ LỌC WHITELIST** (KHÔNG còn là Markdown). Lý do đổi hướng (mục 0 plan-v12-extended.md):
- * Giang quyết định tự viết engine định dạng cơ bản (contentEditable + toolbar qua
- * document.execCommand(), xem core/file-manager/document-ui.js::buildDocumentEditorSurface())
- * thay vì phụ thuộc thư viện ngoài cho phần soạn thảo/hiển thị — CHỈ còn mammoth.js (đọc .docx) là
- * thư viện ngoài bắt buộc duy nhất, Toast UI Editor + Turndown ĐÃ GỠ KHỎI index.html.
+ * VIẾT LẠI (10/07/2026, Nhóm A — mục 1 plan-v12-extended.md, CẬP NHẬT sau phản hồi Giang cùng
+ * ngày): ĐỔI HƯỚNG LƯU TRỮ, bỏ hẳn Markdown/Toast UI Editor/Turndown. Sửa lại phiên bản ĐẦU của
+ * Nhóm A (từng eager-convert MỌI thứ, kể cả .txt thuần, sang 1 chuỗi HTML ngay lúc lưu — SAI):
+ *
+ *   - **`string[]` (mảng đoạn văn text thuần) VẪN LÀ ĐỊNH DẠNG LƯU CHÍNH THỨC, ĐANG DÙNG** cho
+ *     tài liệu `.txt` upload KHÔNG có markup gì — KHÔNG chỉ còn là "tương thích ngược" của record
+ *     cũ như bản đầu Nhóm A hiểu sai. Giữ NGUYÊN VĂN dạng mảng đoạn — CHỈ bọc `<p>` LÚC ĐỌC (Reader
+ *     load), xem `resolveDocumentHtml()`.
+ *   - `.docx` (qua mammoth.js) và tài liệu do NGƯỜI DÙNG tự gõ/sửa (`createdBy === 'user'`, qua
+ *     contentEditable) MỚI lưu dạng `string` HTML đã lọc whitelist — 2 trường hợp DUY NHẤT tạo ra
+ *     HTML thật ở bước LƯU.
+ *   - Markdown thô (`string`, 05/07-09/07/2026, chưa có người dùng thật nào lưu dạng này) vẫn được
+ *     `resolveDocumentHtml()` dung nạp NHƯ CŨ (dùng thẳng, không parse cú pháp).
  *
  * Schema record (store 'documents', service/db.js):
- *   { filename, title, content: string, format: 'txt'|'docx', createdBy: 'upload'|'user', addedAt }
+ *   { filename, title, content: string|string[], format: 'txt'|'docx', createdBy: 'upload'|'user', addedAt }
  *   - filename: tên file GỐC lúc upload (giữ NGUYÊN đuôi .docx/.txt). Với tài liệu 'user' tạo mới,
  *     filename = title + '.txt' (LUÔN .txt — không có khái niệm "tạo mới .docx").
  *   - title: tên HIỂN THỊ, tách riêng khỏi filename để sửa được độc lập (không đụng identity/key).
- *   - content: 1 chuỗi HTML đã lọc whitelist — CHỈ giữ `h1 h2 h3 h4 h5 h6 p b strong i em u
- *     blockquote ul ol li a` (xem sanitizeDocumentHtml() dưới đây), thẻ `<a>` chỉ giữ attribute
- *     `href`, mọi tag khác xoá SẠCH attribute — chặn onclick/style/class chèn bậy từ
- *     contentEditable hoặc HTML dán vào.
- *   - **Tương thích ngược** — record CŨ có thể ở 1 trong 3 dạng đã từng tồn tại (xem
- *     resolveDocumentHtml() dưới đây, dùng ở MỌI nơi ĐỌC `content`):
- *     (a) `string[]` (trước 05/07/2026) — mảng đoạn văn text thuần.
- *     (b) `string` Markdown thô (05/07-09/07/2026, CHƯA có người dùng thật nào lưu dạng này —
- *         không đáng đầu tư xử lý riêng, xem resolveDocumentHtml()).
- *     (c) `string` HTML đã lọc whitelist (dạng CHUẨN từ nay, 10/07/2026 trở đi).
+ *   - content:
+ *     (a) `string[]` — tài liệu `.txt` upload, tách đoạn theo dòng trống
+ *         (`splitPlainTextIntoParagraphs()`) — ĐỊNH DẠNG LƯU CHÍNH THỨC cho trường hợp này (KHÔNG
+ *         convert sang HTML lúc lưu — chỉ convert LÚC ĐỌC, xem `resolveDocumentHtml()`).
+ *     (b) `string` HTML đã lọc whitelist — CHỈ giữ `h1 h2 h3 h4 h5 h6 p b strong i em u blockquote
+ *         ul ol li a` (xem `sanitizeDocumentHtml()`), dùng cho `.docx` (mammoth.js -> HTML ->
+ *         sanitizeDocumentHtml() ngay lúc lưu) VÀ tài liệu `createdBy==='user'` (mọi lần Sửa qua
+ *         contentEditable, xem `buildDocumentEditorSurface()` ở document-ui.js).
+ *     (c) `string` Markdown thô — record hiếm/cũ (05/07-09/07/2026), dung nạp qua
+ *         `resolveDocumentHtml()` như text thường, không đầu tư xử lý riêng.
  *   - format: 'txt' | 'docx' — CHỈ để hiện icon/nhãn đúng loại gốc, KHÔNG ảnh hưởng cách đọc.
  *   - createdBy: 'upload' (tải lên máy) | 'user' (tự tạo trong app) — CHỈ 'user' được phép SỬA nội
  *     dung (đúng yêu cầu Giang — tài liệu upload là read-only).
  *
  * Core THUẦN — tuân Rule 1-4 (core-function-conventions.md): KHÔNG tự gọi hàm core khác (kể cả
  * hàm KHÁC trong CÙNG FILE này — Rule 3 không phân biệt cùng file/khác file), KHÔNG tự
- * appState.get(), KHÔNG dùng taskManager. `sanitizeDocumentHtml()`/`resolveDocumentHtml()`/
- * `buildDocumentHtmlFromPlainText()` vì vậy đều TỰ CHỨA (chỉ dùng API DOM có sẵn của trình duyệt
- * để escape/dựng cây tạm — KHÔNG gọi lẫn nhau, KHÔNG gọi escapeHtml() của core/modal-choice.js).
- * Orchestration (đọc file, gọi mammoth.js, hiện cảnh báo, gọi sanitizeDocumentHtml() TRƯỚC khi lưu)
- * sống ở event/workflow/file-manager-document.js.
+ * appState.get(), KHÔNG dùng taskManager, KHÔNG addEventListener (đó là việc của Workflow — SIẾT
+ * LẠI 10/07/2026 sau phản hồi Giang, xem core/file-manager/document-ui.js để biết chi tiết đầy đủ
+ * lý do). Mọi hàm trong file này TỰ CHỨA (chỉ dùng API DOM có sẵn của trình duyệt) — KHÔNG gọi lẫn
+ * nhau, KHÔNG gọi escapeHtml() của core/modal-choice.js. Orchestration (đọc file, gọi mammoth.js,
+ * hiện cảnh báo, gọi sanitizeDocumentHtml()/resolveDocumentHtml()/convertDocumentHtmlToPlainText()
+ * theo đúng thứ tự) sống ở event/workflow/file-manager-document.js.
  *
  * NẠP SAU: service/db.js (getDocumentRecord/setDocumentRecord/deleteDocumentRecord/getAllDocumentKeys).
  */
 
 /**
- * DOCUMENT_HTML_ALLOWED_TAGS — whitelist thẻ HTML được GIỮ trong `content` Documents (mục 1.1
+ * DOCUMENT_HTML_ALLOWED_TAGS — whitelist thẻ HTML được GIỮ trong `content` dạng HTML (mục 1.1
  * plan-v12-extended.md). Thẻ NGOÀI danh sách này bị sanitizeDocumentHtml() BÓC (unwrap, giữ
  * nguyên nội dung con) — KHÔNG xoá mất nội dung, chỉ xoá lớp bọc lạ.
  */
@@ -54,8 +61,8 @@ const DOCUMENT_HTML_ALLOWED_TAGS = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 
  * attribute thừa — RIÊNG `<a>` giữ lại `href`.
  *
  * Dùng ở: (1) event/workflow/file-manager-document.js SAU mammoth.js (upload .docx), (2)
- * core/file-manager/document-ui.js::buildDocumentEditorSurface().getHtml() (lọc lại HTML
- * contentEditable trước khi lưu — trình duyệt hay tự chèn div/span style lộn xộn, mục 1.3).
+ * event/workflow/document-reader.js SAU khi đọc contentEditable (lọc lại HTML trước khi lưu —
+ * trình duyệt hay tự chèn div/span style lộn xộn, mục 1.3).
  * @param {string} html
  * @returns {string}
  */
@@ -88,12 +95,12 @@ function sanitizeDocumentHtml(html) {
 
 /**
  * Quy `content` của 1 record VỀ 1 chuỗi HTML sẵn sàng hiển thị, bất kể record đó ở dạng nào trong
- * 3 dạng đã từng tồn tại (xem "Tương thích ngược" ở docstring đầu file):
- *   (a) `string[]` -> escape từng phần tử (DOM tự escape qua `span.textContent`, KHÔNG gọi
- *       escapeHtml() của core/modal-choice.js — Rule 3) + bọc `<p>`, nối lại.
- *   (b)/(c) `string` -> dùng THẲNG. (b) Markdown thô hiếm gặp sẽ hiện ra như text thường (không có
- *       thẻ HTML thật nào để hiểu nhầm là nội dung nguy hiểm — không đáng đầu tư xử lý riêng cho 1
- *       dạng dữ liệu chưa từng thật sự tồn tại, xem docstring đầu file); (c) đã là HTML lọc sẵn.
+ * 3 dạng hợp lệ (xem "Tương thích" ở docstring đầu file):
+ *   (a) `string[]` (ĐỊNH DẠNG LƯU CHÍNH THỨC của .txt upload, KHÔNG phải chỉ "record cũ") -> escape
+ *       từng phần tử (DOM tự escape qua `span.textContent`, KHÔNG gọi escapeHtml() của
+ *       core/modal-choice.js — Rule 3) + bọc `<p>`, nối lại — ĐÂY LÀ NƠI DUY NHẤT bọc `<p>` cho
+ *       .txt, CHỦ Ý làm LÚC ĐỌC (không làm lúc lưu).
+ *   (b)/(c) `string` (HTML đã lọc HOẶC Markdown thô hiếm gặp) -> dùng THẲNG.
  * @param {{content: string|string[]}} record
  * @returns {string}
  */
@@ -109,19 +116,64 @@ function resolveDocumentHtml(record) {
 }
 
 /**
- * Chuyển 1 chuỗi text thuần (.txt) THÀNH 1 chuỗi HTML hợp lệ theo whitelist — tách đoạn theo DÒNG
- * TRỐNG (mục 1.2 plan-v12-extended.md, thuật toán CŨ hồi sinh lại từ trước 05/07/2026), escape
- * từng đoạn (DOM tự escape, KHÔNG gọi hàm core khác — Rule 3), bọc `<p>`, nối lại thành 1 chuỗi.
+ * Tách 1 chuỗi text thuần (.txt) THÀNH mảng đoạn văn — tách theo DÒNG TRỐNG (thuật toán CŨ, mục
+ * 1.2 plan-v12-extended.md, hồi sinh lại từ trước 05/07/2026). ĐÂY LÀ ĐỊNH DẠNG LƯU THẲNG cho
+ * .txt upload (KHÔNG convert sang HTML ở bước này — xem docstring đầu file, SỬA lại sau phản hồi
+ * Giang 10/07/2026: bản đầu Nhóm A từng convert sang HTML ngay ở đây, SAI).
  * @param {string} text
+ * @returns {string[]}
+ */
+function splitPlainTextIntoParagraphs(text) {
+    return String(text || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+}
+
+/**
+ * MỚI (10/07/2026, sau phản hồi Giang — mục "download vẫn phải ra text đúng nghĩa") — Quy 1
+ * chuỗi HTML (ĐÃ resolveDocumentHtml()) VỀ LẠI 1 chuỗi TEXT dùng cú pháp kiểu-Markdown tương ứng
+ * (vd `<h3>abc</h3>` -> `### abc`, `<b>x</b>` -> `**x**`) — dùng cho nút Tải về (luôn ra `.txt`,
+ * xem event/workflow/file-manager-document.js::downloadDocumentAsText() và
+ * core/file-manager/document-ui.js). Với tài liệu .txt thuần không có thẻ gì ngoài `<p>` (đường đi
+ * PHỔ BIẾN NHẤT — mọi .txt upload không markup), hàm này trả lại ĐÚNG NGUYÊN VĂN text gốc (round-
+ * trip qua resolveDocumentHtml() -> convertDocumentHtmlToPlainText() không đổi nội dung).
+ *
+ * Core THUẦN, TỰ CHỨA — CHỈ dùng closure lồng bên trong 1 hàm (KHÔNG phải 2 hàm top-level riêng
+ * gọi nhau — vẫn đúng Rule 3, xem cách làm giống hệt `walk()` trong sanitizeDocumentHtml() ở trên).
+ * @param {string} html
  * @returns {string}
  */
-function buildDocumentHtmlFromPlainText(text) {
-    const paragraphs = String(text || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
-    return paragraphs.map((paragraph) => {
-        const span = document.createElement('span'); // DOM tự escape, KHÔNG gọi hàm core khác (Rule 3)
-        span.textContent = paragraph;
-        return `<p>${span.innerHTML}</p>`;
-    }).join('');
+function convertDocumentHtmlToPlainText(html) {
+    const container = document.createElement('div');
+    container.innerHTML = html || '';
+
+    function inlineText(node) {
+        if (node.nodeType === Node.TEXT_NODE) return node.textContent;
+        if (node.nodeType !== Node.ELEMENT_NODE) return '';
+        const inner = Array.from(node.childNodes).map(inlineText).join('');
+        switch (node.tagName) {
+            case 'B': case 'STRONG': return `**${inner}**`;
+            case 'I': case 'EM': return `*${inner}*`;
+            case 'U': return `_${inner}_`;
+            case 'A': { const href = node.getAttribute('href'); return href ? `${inner} (${href})` : inner; }
+            default: return inner;
+        }
+    }
+
+    function blockToLines(el) {
+        switch (el.tagName) {
+            case 'H1': return [`# ${inlineText(el)}`];
+            case 'H2': return [`## ${inlineText(el)}`];
+            case 'H3': return [`### ${inlineText(el)}`];
+            case 'H4': return [`#### ${inlineText(el)}`];
+            case 'H5': return [`##### ${inlineText(el)}`];
+            case 'H6': return [`###### ${inlineText(el)}`];
+            case 'BLOCKQUOTE': return [`> ${inlineText(el)}`];
+            case 'UL': return Array.from(el.children).map((li) => `- ${inlineText(li)}`);
+            case 'OL': return Array.from(el.children).map((li, i) => `${i + 1}. ${inlineText(li)}`);
+            default: return [inlineText(el)]; // P và mọi block khác -> 1 dòng thuần, không tiền tố
+        }
+    }
+
+    return Array.from(container.children).map((el) => blockToLines(el).join('\n')).join('\n\n');
 }
 
 /**
@@ -147,10 +199,10 @@ async function resolveDocumentKey(filename) {
 
 /**
  * Lưu 1 tài liệu MỚI (upload HOẶC tự tạo) — record đã CHUẨN BỊ ĐẦY ĐỦ từ nơi gọi (workflow tự đọc
- * file/gọi mammoth.js/sanitizeDocumentHtml()/hiện cảnh báo trước khi tới đây — hàm này chỉ lưu
- * NGUYÊN VẸN, 1 tiến trình).
+ * file/gọi mammoth.js/splitPlainTextIntoParagraphs()/sanitizeDocumentHtml()/hiện cảnh báo trước
+ * khi tới đây — hàm này chỉ lưu NGUYÊN VẸN, 1 tiến trình).
  * @param {string} documentKey
- * @param {{filename: string, title: string, content: string, format: 'txt'|'docx', createdBy: 'upload'|'user'}} record
+ * @param {{filename: string, title: string, content: string|string[], format: 'txt'|'docx', createdBy: 'upload'|'user'}} record
  */
 async function saveDocumentRecord(documentKey, record) {
     await setDocumentRecord(documentKey, { ...record, addedAt: Date.now() }); // data layer
@@ -158,9 +210,9 @@ async function saveDocumentRecord(documentKey, record) {
 
 /**
  * Đổi nội dung 1 tài liệu 'user' đã có — đọc lại record trước (giữ nguyên các field khác), CHỈ ghi
- * đè `content` (chuỗi HTML ĐÃ sanitizeDocumentHtml() từ nơi gọi, xem
- * buildDocumentEditorSurface().getHtml()). KHÔNG tự kiểm tra `createdBy === 'user'` ở đây (Rule 1:
- * đó là 1 QUYẾT ĐỊNH nghiệp vụ khác, thuộc về nơi gọi — workflow tự kiểm tra trước khi gọi hàm này).
+ * đè `content` (chuỗi HTML ĐÃ sanitizeDocumentHtml() từ nơi gọi). KHÔNG tự kiểm tra
+ * `createdBy === 'user'` ở đây (Rule 1: đó là 1 QUYẾT ĐỊNH nghiệp vụ khác, thuộc về nơi gọi —
+ * workflow tự kiểm tra trước khi gọi hàm này).
  * @param {string} documentKey
  * @param {string} content
  * @returns {Promise<{status: 'notFound'|'ok'}>}
@@ -193,8 +245,8 @@ async function deleteDocument(documentKey) {
 
 /**
  * Liệt kê TOÀN BỘ document, kèm key — sắp xếp mới nhất trước (addedAt giảm dần). LƯU Ý: `content`
- * trả về CÓ THỂ vẫn ở dạng CŨ (string[] hoặc Markdown thô) với record CŨ — dùng
- * `resolveDocumentHtml(doc)` ở nơi ĐỌC để quy về HTML sẵn sàng hiển thị, KHÔNG tự dùng thẳng ở đây.
+ * trả về CÓ THỂ là `string[]` (.txt) HOẶC `string` (.docx/user) — dùng `resolveDocumentHtml(doc)`
+ * ở nơi ĐỌC để quy về HTML sẵn sàng hiển thị, KHÔNG tự dùng thẳng ở đây.
  * @returns {Promise<Array<{key: string, filename: string, title: string, content: string|string[], format: string, createdBy: string, addedAt: number}>>}
  */
 async function listDocuments() {
