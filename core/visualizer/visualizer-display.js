@@ -101,10 +101,11 @@
                 updateVortexVisibility();
                 // FIX (04/07/2026, mục 4) — 'playlist-hidden' THAY '-translate-y-full' (dọc -> ngang).
                 // SỬA (07/07/2026, batch gộp container) — class `playlist-hidden` đã DỜI từ
-                // `#playlist-view` sang `#side-left-container` (xem components/app-view-stack.js) —
-                // kiểm tra SAI phần tử ở đây sẽ luôn trả về false (playlistView không còn bao giờ
-                // mang class này nữa), làm webgl-canvas không bao giờ hiện lại đúng lúc.
-                if (!sideLeftContainer.classList.contains('playlist-hidden')) {} else { document.getElementById('webgl-canvas').classList.remove('opacity-0'); }
+                // `#playlist-view` sang `#side-left-container`. HOTFIX 16 (08/07/2026) — dời TIẾP
+                // sang `#app-stack` (components/app-view-stack.js) — `#side-left-container` giờ
+                // KHÔNG BAO GIỜ còn mang class này nữa (chỉ lo cuộn ngang) — kiểm tra SAI phần tử ở
+                // đây sẽ luôn trả về false, làm webgl-canvas không bao giờ hiện lại đúng lúc.
+                if (!appStack.classList.contains('playlist-hidden')) {} else { document.getElementById('webgl-canvas').classList.remove('opacity-0'); }
             } else { document.getElementById('webgl-canvas').classList.add('opacity-0'); }
 
             // HOTFIX 2 — truy vấn TƯƠI, KHÔNG dựa vào biến toàn cục (xem docstring hàm ngay trên).
