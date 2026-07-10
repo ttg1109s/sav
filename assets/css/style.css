@@ -145,15 +145,27 @@ body {
            app-view-stack.js) — không đụng độ nhau. */
         #app-stack, #visualizer-ui, #player-container { transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
         #app-stack { transform: translateX(0); }
-        #app-stack.playlist-hidden { transform: translateX(100%); }
+        /* FIX (09/07/2026, phản hồi Giang — "rìa phải bị nhem ảnh background của playlist/setting")
+           — trước đây `translateX(100%)` ĐÚNG VỀ MẶT TOÁN HỌC (100% chiều rộng CHÍNH `#app-stack`,
+           lẽ ra đủ để trượt hẳn ra ngoài) nhưng trên thực tế thiết bị thật vẫn để lọt 1 lát mỏng ở
+           rìa — nguyên nhân: `%` trong transform tính theo bounding box đã LÀM TRÒN (rounded) của
+           trình duyệt, trong khi viewport thật có thể lệch vài phần mười pixel (subpixel) do
+           tỷ lệ device-pixel-ratio hoặc hiệu ứng rubber-band cuộn của iOS Safari — sai số nhỏ này
+           đủ để lộ 1-2px nội dung phía dưới ở đúng cạnh. SỬA: cộng thêm biên an toàn CỐ ĐỊNH
+           (không phụ thuộc %) bằng `calc()` — phần tử đã ở NGOÀI màn hình nên overshoot thêm vài px
+           không có tác dụng phụ gì (không ai nhìn thấy phần overshoot đó), chỉ đảm bảo chắc chắn
+           trượt QUA khỏi mép màn hình dù có sai số làm tròn cỡ nào. */
+        #app-stack.playlist-hidden { transform: translateX(calc(100% + 4px)); }
         /* HOTFIX 16 (08/07/2026) — `#app-stack` (MỚI, components/app-view-stack.js) nhận lại toàn
            bộ rule vị trí/transform ở đây (trước là `#side-left-container` tự làm) — `#app-bg`/
            `#side-left-container` giờ chỉ còn việc lấp đầy đúng khung `#app-stack`
            (`position: absolute; inset: 0;`), không tự định vị/transform gì nữa. */
         #app-bg, #side-left-container { position: absolute; inset: 0; }
         /* Trạng thái NGHỈ mặc định — chờ SẴN ngoài màn hình bên trái (khớp lúc mới boot, chưa từng
-           bấm bài nào, VÀ lúc đã quay lại Playlist). */
-        #visualizer-ui, #player-container { transform: translateX(-100%); }
+           bấm bài nào, VÀ lúc đã quay lại Playlist). CÙNG FIX overshoot 4px như trên (mục đích
+           giống hệt — #app-bg/nội dung Playlist không được lộ ra bên dưới #visualizer-ui khi
+           #visualizer-ui đang ở trạng thái "nghỉ", chờ trượt vào). */
+        #visualizer-ui, #player-container { transform: translateX(calc(-100% - 4px)); }
         #visualizer-ui.visualizer-active, #player-container.visualizer-active { transform: translateX(0); }
 
         @media (min-width: 1024px) {
@@ -194,7 +206,26 @@ body {
            cùng nằm trong `#app-stack` (xem components/app-view-stack.js) — đứng yên tuyệt đối,
            không thể nào bị `scrollLeft` của `#side-left-container` ảnh hưởng, và `filter: blur()`
            trên nó không lem sang chữ/nội dung vì 2 phần tử độc lập, không lồng nhau.) */
-        #side-left-container { display: flex; overflow-x: hidden; overflow-y: hidden; scroll-behavior: smooth; }
+        #side-left-container { display: flex; overflow-x: hidden; overflow-y: hidden; scroll-behavior: smooth; will-change: scroll-position; }
+        /* FIX (09/07/2026, phản hồi Giang — "giật/lag khi cuộn lúc bật Black Hole") — nguyên nhân:
+           `drawBlackHole()` (core/visualizer/types/black-hole.js) vẽ Canvas2D NẶNG mỗi frame (hàng
+           trăm "sao" + shadowBlur từng ngôi sao/vệt sáng, tự thân shadowBlur đã tốn CPU/GPU đáng kể
+           trên Canvas2D) CHẠY LIÊN TỤC trên MAIN THREAD kể cả khi đang bị `#app-stack` che phủ
+           (canvas không dừng vẽ chỉ vì đang bị che, xem docstring "Canvas/nền GIỮ NGUYÊN toàn màn
+           hình" ở khối Responsive Playlist<->Visualizer bên dưới) — main thread bận vẽ black hole
+           khiến `scrollTo({behavior:'smooth'})` (native, không phải tự tay animate) bị tranh chấp
+           tài nguyên, một số engine/thiết bị hạ ưu tiên compositor cho việc cuộn xuống ngang hàng
+           main thread thay vì cuộn độc lập mượt như thiết kế — cuộn vẫn "đến đích" (không hỏng chức
+           năng) nhưng giật khung hình giữa chừng.
+           SỬA: `will-change: scroll-position` — hint CHUẨN (MDN/web.dev) báo trước cho trình duyệt
+           "phần tử này sẽ cuộn" NGAY TỪ ĐẦU, ép nó lên 1 compositor layer RIÊNG BIỆT — cuộn khi đó
+           do compositor thread xử lý độc lập, không còn phải tranh giành lượt thực thi với main
+           thread (nơi black hole đang vẽ) mỗi frame. KHÔNG đụng bất kỳ dòng nào trong core/
+           visualizer/ — hiệu ứng Black Hole giữ nguyên 100% pixel-for-pixel, chỉ đổi CÁCH trình
+           duyệt XỬ LÝ việc cuộn ở tầng compositor. Cùng lý do áp cho `#settings-stack-body`
+           (component tĩnh, xem components/settings-drawer.js) — không có rule CSS riêng từ trước
+           (chỉ có class Tailwind inline), thêm 1 rule MỚI ngay dưới. */
+        #settings-stack-body { will-change: scroll-position; }
         /* HOTFIX 13 (08/07/2026, Giang truy đúng gốc) — ĐÃ BỎ `scroll-snap-type: x mandatory` khỏi
            dòng trên (và `scroll-snap-align: start` khỏi dòng #playlist-view/#drawer-settings ngay
            dưới). Lý do: scroll-snap-type sinh ra để trình duyệt tự CHỈNH LẠI vị trí dừng SAU KHI
