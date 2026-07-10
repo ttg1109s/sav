@@ -3,22 +3,16 @@
  * trong File Manager). Mở/đóng drawer thuần (`showFileManagerDocumentDrawer`/`hide...`,
  * core/file-manager/nav.js) KHÔNG cần workflow — CHỈ những nghiệp vụ ≥2 bước mới ở đây.
  *
- * SIẾT LẠI HOÀN TOÀN (10/07/2026, sau phản hồi Giang — xem docstring đầu core/file-manager/
- * document-ui.js để biết lý do đầy đủ): mọi modal/drawer của Documents giờ ĐƯỢC MOUNT + WIRE Ở
- * ĐÂY, KHÔNG còn ở core/file-manager/document-ui.js nữa (file đó giờ CHỈ dựng cây DOM tĩnh, trả
- * về CHƯA mount/CHƯA gắn sự kiện). Workflow này CŨNG là nơi DUY NHẤT phối hợp gọi
- * core/file-manager/document.js (resolveDocumentHtml/sanitizeDocumentHtml/
- * convertDocumentHtmlToPlainText/splitPlainTextIntoParagraphs) VỚI core/file-manager/
- * document-ui.js (buildDocumentXxx) — 2 core file đó KHÔNG được gọi lẫn nhau (Rule 3), nên việc
- * phối hợp thứ tự luôn thuộc về Workflow.
+ * SIẾT LẠI LẦN 2 (10/07/2026, sau khi Rule 5 chính thức hoá — xem docstring đầu core/file-manager/
+ * document-ui.js): các hàm `buildDocumentXxx()` giờ TỰ mount + TỰ gắn sự kiện (Rule 5a), Workflow
+ * này CHỈ còn việc CHUẨN BỊ data (gọi document.js) + truyền callback nghiệp vụ vào — KHÔNG còn phải
+ * tự `document.body.appendChild()`/`querySelector()`/`addEventListener()` thủ công cho từng nút
+ * như bản SIẾT LẦN 1 (quá tay, đã sửa).
  *
- * CONTENT MODEL (SỬA lại sau phản hồi Giang — bản đầu Nhóm A hiểu sai): `.txt` upload KHÔNG
- * markup -> lưu THẲNG `string[]` (splitPlainTextIntoParagraphs(), KHÔNG convert sang HTML lúc
- * lưu). `.docx` (mammoth.js) VÀ tài liệu `createdBy==='user'` (mọi lần Sửa) -> lưu `string` HTML
- * đã sanitizeDocumentHtml(). Tải về LUÔN ra `.txt` (downloadDocumentAsText(), KHÔNG phải .html) —
- * convertDocumentHtmlToPlainText() quy HTML về lại cú pháp kiểu-Markdown tương ứng
- * (`<h3>` -> "### ", `<b>` -> "**x**"...), round-trip với .txt thuần (không thẻ gì ngoài `<p>`)
- * cho lại ĐÚNG NGUYÊN VĂN.
+ * CONTENT MODEL: `.txt` upload KHÔNG markup -> lưu THẲNG `string[]` (splitPlainTextIntoParagraphs(),
+ * KHÔNG convert sang HTML lúc lưu). `.docx` (mammoth.js) VÀ tài liệu `createdBy==='user'` (mọi lần
+ * Sửa) -> lưu `string` HTML đã sanitizeDocumentHtml(). Tải về LUÔN ra `.txt` — 
+ * convertDocumentHtmlToPlainText() quy HTML về lại cú pháp kiểu-Markdown tương ứng.
  *
  * NẠP SAU: core/file-manager/document.js, core/file-manager/document-ui.js, core/settings-panel-
  * stack.js (pushSettingsPanel).
@@ -36,78 +30,32 @@ const workflowFileManagerDocument = {
         await this.refresh();
     },
 
-    /** Vẽ lại danh sách document — gọi lúc mở panel + sau mỗi lần thêm/xoá/đổi tên. Render (core,
-     * thuần) rồi TỰ wire click từng hàng ở đây (core không còn addEventListener nữa). */
+    /** Vẽ lại danh sách document — gọi lúc mở panel + sau mỗi lần thêm/xoá/đổi tên. */
     async refresh() {
         if (!fileManagerDocumentPanelEl) return; // guard: panel đã đóng
         const documents = await listDocuments(); // core
         const emptyEl = fileManagerDocumentPanelEl.querySelector('#file-manager-document-empty');
         if (emptyEl) emptyEl.classList.toggle('hidden', documents.length > 0);
         const listEl = fileManagerDocumentPanelEl.querySelector('#file-manager-document-list');
-        renderDocumentList(listEl, documents); // core/file-manager/document-ui.js — render thuần, không gắn sự kiện
-        listEl.querySelectorAll('.file-manager-document-row').forEach((rowEl) => {
-            const doc = documents.find((d) => d.key === rowEl.dataset.documentKey);
-            if (doc) rowEl.addEventListener('click', () => this.openDetail(doc));
-        });
+        renderDocumentList(listEl, documents, (doc) => this.openDetail(doc)); // core — tự wire click từng hàng (Rule 5a)
     },
 
     /**
-     * Mở modal "Chi tiết tài liệu" — dựng qua core, mount + wire TOÀN BỘ ở đây. `doc` là record
-     * ĐẦY ĐỦ đã có sẵn từ `listDocuments()` (kể cả `content`), KHÔNG cần đọc lại DB.
+     * Mở modal "Chi tiết tài liệu" — chuẩn bị data (resolve/tính size) rồi truyền callback nghiệp
+     * vụ vào `buildDocumentDetailModal()` (core, tự mount + tự wire). `doc` là record ĐẦY ĐỦ đã có
+     * sẵn từ `listDocuments()` (kể cả `content`), KHÔNG cần đọc lại DB.
      * @param {{key: string, title: string, format: string, createdBy: string, content: string|string[]}} doc
      */
     openDetail(doc) {
         const html = resolveDocumentHtml(doc); // core/file-manager/document.js
         const sizeText = formatDocumentSize(computeDocumentSizeBytes(html)); // core/file-manager/document-ui.js x2
 
-        const stale = document.getElementById('document-detail-modal-overlay');
-        if (stale) stale.remove();
-        const overlay = buildDocumentDetailModal(doc, sizeText); // core/file-manager/document-ui.js
-        document.body.appendChild(overlay);
-
-        const closeModal = () => overlay.remove();
-        overlay.querySelector('#document-detail-modal-close').addEventListener('click', closeModal);
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
-
-        const nameDisplay = overlay.querySelector('#document-detail-name-display');
-        const nameEditor = overlay.querySelector('#document-detail-name-editor');
-        const nameBtn = overlay.querySelector('#document-detail-name-btn');
-        const nameInput = overlay.querySelector('#document-detail-name-input');
-
-        const showNameEditor = () => {
-            nameDisplay.classList.add('hidden');
-            nameEditor.classList.remove('hidden');
-            nameInput.value = doc.title;
-            nameInput.focus();
-            nameInput.select();
-        };
-        const showNameDisplay = () => {
-            nameEditor.classList.add('hidden');
-            nameDisplay.classList.remove('hidden');
-        };
-
-        nameBtn.addEventListener('click', showNameEditor);
-        overlay.querySelector('#document-detail-btn-rename').addEventListener('click', showNameEditor);
-        overlay.querySelector('#document-detail-name-cancel').addEventListener('click', showNameDisplay);
-        overlay.querySelector('#document-detail-name-save').addEventListener('click', () => {
-            const value = nameInput.value.trim();
-            if (value && value !== doc.title) {
-                doc.title = value;
-                nameBtn.textContent = `${doc.title}.${doc.format}`;
-                this._renameFromDetail(doc.key, value);
-            }
-            showNameDisplay();
+        buildDocumentDetailModal(doc, sizeText, { // core/file-manager/document-ui.js — tự mount + tự wire (Rule 5a)
+            onRename: (title) => this._renameFromDetail(doc.key, title),
+            onDownload: () => downloadDocumentAsText(doc, convertDocumentHtmlToPlainText(html)), // core/file-manager/document-ui.js + document.js
+            onEdit: () => this.openEditor(doc),
+            onDelete: () => this.confirmDelete(doc.key),
         });
-
-        overlay.querySelector('#document-detail-btn-download').addEventListener('click', () => {
-            closeModal();
-            downloadDocumentAsText(doc, convertDocumentHtmlToPlainText(html)); // document-ui.js + document.js
-        });
-
-        const editBtn = overlay.querySelector('#document-detail-btn-edit');
-        if (editBtn) editBtn.addEventListener('click', () => { closeModal(); this.openEditor(doc); });
-
-        overlay.querySelector('#document-detail-btn-delete').addEventListener('click', () => { closeModal(); this.confirmDelete(doc.key); });
     },
 
     /** Đổi tên NGAY từ modal chi tiết — cập nhật DB + vẽ lại danh sách + báo Reader nếu đang mở
@@ -120,37 +68,28 @@ const workflowFileManagerDocument = {
 
     /**
      * Ứng với icon "Sửa" trong modal chi tiết (chỉ hiện khi `createdBy==='user'`) — dựng khung
-     * Drawer Sửa + surface soạn thảo qua core, mount + wire TOÀN BỘ ở đây (bấm X = LƯU LUÔN rồi
-     * mới đóng, KHÔNG có nút Lưu riêng).
+     * Drawer + surface soạn thảo (2 hàm core RIÊNG, Workflow tự compose vì core không được gọi core
+     * khác) — bấm X trong drawer = LƯU LUÔN rồi mới đóng (đọc `editorApi.getHtml()`, TỰ
+     * `sanitizeDocumentHtml()` ở ĐÂY — file dựng UI KHÔNG được gọi document.js, Rule 3).
      * @param {{key: string, title: string, format: string, content: string|string[]}} doc
      */
     openEditor(doc) {
         const initialHtml = resolveDocumentHtml(doc); // core/file-manager/document.js
 
-        const stale = document.getElementById('document-editor-drawer-overlay');
-        if (stale) stale.remove();
-        const overlay = buildDocumentEditorDrawer(doc); // core/file-manager/document-ui.js
-        document.body.appendChild(overlay);
-        void overlay.offsetHeight; // ép reflow trước khi bỏ translate-x-full — đảm bảo transition chạy
-        overlay.classList.remove('translate-x-full');
-
-        const bodyEl = overlay.querySelector('#document-editor-drawer-body');
-        const surfaceEl = buildDocumentEditorSurface(initialHtml); // core/file-manager/document-ui.js
-        bodyEl.appendChild(surfaceEl);
-        const editorApi = wireDocumentEditorToolbar(surfaceEl); // event/workflow/document-reader.js — helper dùng chung
-        editorApi.focus();
-
         let closed = false;
         const closeAndSave = async () => {
             if (closed) return;
             closed = true;
-            const html = editorApi.getHtml();
-            overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
-            overlay.classList.add('translate-x-full');
+            const html = sanitizeDocumentHtml(editorApi.getHtml()); // core/file-manager/document.js — getHtml() trả về THÔ, sanitize ở đây
+            drawer.slideOutAndRemove(); // core/file-manager/document-ui.js
             await updateDocumentContent(doc.key, html); // core
             if (typeof workflowDocumentReader !== 'undefined') workflowDocumentReader.refreshContentIfOpen(doc.key, html);
         };
-        overlay.querySelector('#document-editor-drawer-close').addEventListener('click', closeAndSave);
+
+        const drawer = buildDocumentEditorDrawer(doc, closeAndSave); // core/file-manager/document-ui.js — tự mount + trượt vào + tự wire nút X
+        const editorApi = buildDocumentEditorSurface(initialHtml); // core/file-manager/document-ui.js — tự wire toolbar (Rule 5a)
+        drawer.bodyEl.appendChild(editorApi.el); // compose 2 core UNIT riêng — CHỈ Workflow được làm việc này (Rule 3)
+        editorApi.focus();
     },
 
     /**
@@ -182,9 +121,8 @@ const workflowFileManagerDocument = {
     },
 
     /** Đọc + lưu THẬT (sau khi đã đồng ý cảnh báo) — mammoth.js -> HTML -> sanitizeDocumentHtml()
-     * (core/file-manager/document.js) TRỰC TIẾP, LƯU DẠNG HTML (`.docx` là 1 trong 2 trường hợp
-     * DUY NHẤT tạo HTML lúc lưu, xem docstring đầu file). Gọi `mammoth` TRỰC TIẾP ở đây — thư viện
-     * ngoài, không phải core. */
+     * (core/file-manager/document.js) TRỰC TIẾP, LƯU DẠNG HTML. Gọi `mammoth` TRỰC TIẾP ở đây —
+     * thư viện ngoài, không phải core. */
     async _processDocxUpload(file) {
         await withLoadingShield(t('common.loading.generic'), async () => {
             const arrayBuffer = await file.arrayBuffer();
@@ -203,8 +141,7 @@ const workflowFileManagerDocument = {
     },
 
     /** Nhánh .txt — đọc thẳng, tách đoạn qua `splitPlainTextIntoParagraphs()`
-     * (core/file-manager/document.js) -> LƯU THẲNG `string[]` (KHÔNG convert sang HTML ở bước
-     * này — xem docstring đầu file, SỬA lại sau phản hồi Giang). */
+     * (core/file-manager/document.js) -> LƯU THẲNG `string[]`. */
     async _handleUploadTxt(file) {
         await withLoadingShield(t('common.loading.generic'), async () => {
             const text = await file.text();
@@ -223,7 +160,7 @@ const workflowFileManagerDocument = {
     /** Ứng với "Tạo tài liệu mới" — hỏi tiêu đề, tạo record RỖNG (createdBy='user'), mở THẲNG
      * `openEditor()` (drawer Sửa MỚI). */
     async createNewDocument() {
-        this._openTitleModal('fileManager.document.createTitle', 'fileManager.document.btnCreate', '', async (title) => {
+        buildDocumentTitleModal('fileManager.document.createTitle', 'fileManager.document.btnCreate', '', async (title) => { // core/file-manager/document-ui.js — tự mount + tự wire
             const filename = `${title}.txt`;
             const documentKey = await resolveDocumentKey(filename); // core
             await saveDocumentRecord(documentKey, { // core
@@ -232,26 +169,6 @@ const workflowFileManagerDocument = {
             await this.refresh();
             this.openEditor({ key: documentKey, title, format: 'txt', content: '' });
         });
-    },
-
-    /** Dựng modal nhập tiêu đề qua core, mount + wire TOÀN BỘ ở đây — dùng chung cho
-     * `createNewDocument()` (bên trên). */
-    _openTitleModal(titleKey, confirmLabelKey, initialValue, onConfirm) {
-        const stale = document.getElementById('document-title-modal-overlay');
-        if (stale) stale.remove();
-        const overlay = buildDocumentTitleModal(titleKey, confirmLabelKey, initialValue); // core/file-manager/document-ui.js
-        document.body.appendChild(overlay);
-
-        const closeModal = () => overlay.remove();
-        const inputEl = overlay.querySelector('#document-title-modal-input');
-        overlay.querySelector('#document-title-modal-cancel').addEventListener('click', closeModal);
-        overlay.querySelector('#document-title-modal-save').addEventListener('click', () => {
-            const value = inputEl.value.trim();
-            closeModal();
-            if (value) onConfirm(value);
-        });
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
-        inputEl.focus();
     },
 
     /** Ứng với icon "Xoá" trong modal chi tiết — xác nhận trước, đóng luôn Reader nếu đang mở đúng
