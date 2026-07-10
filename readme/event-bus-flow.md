@@ -51,9 +51,33 @@ DOM (`click`/`change`/`input`...), `tab`/`window` lifecycle (`visibilitychange`/
 + gọi `eventBus.send({ router, type, payload })`. KHÔNG chứa logic nghiệp vụ, KHÔNG đọc `appState`
 để quyết định gì (đó là việc của Block/Router/VirtualMachineState phía sau).
 
-Ngoại lệ đã chốt từ trước (rule 2b.7): browser lifecycle events gắn thẳng trên `window`/`document`
-đứng NGOÀI `/event/` (`core/tab-hide-reload.js`, `core/wakelock.js`, `core/app-cleanup.js`,
-`event/tab.js`) — không đổi ở ver 12.
+Ngoại lệ đã chốt từ trước (rule 2b.7 + audit đầy đủ ở [changelog/v11.md mục
+2](./changelog/v11.md), 18/18 `addEventListener` ngoài `/event/` được liệt kê tên + lý do): browser
+lifecycle events gắn thẳng trên `window`/`document` đứng NGOÀI `/event/` (`core/tab-hide-reload.js`,
+`core/wakelock.js`, `core/app-cleanup.js`, `event/tab.js`) — không đổi ở ver 12. CỘNG THÊM (cùng
+danh sách 18, hay bị bỏ sót khi chỉ đọc lướt): `core/modal-choice.js` (2 — click nút/overlay của
+MỌI modal động) và vài chỗ dò `duration`/seek media 1 lần (`core/playlist/loader.js`/`render.js`,
+`core/resume-state-storage.js`, `core/state-and-video-bg.js`).
+
+**Vì sao `core/modal-choice.js` được miễn — PHẢI ĐỦ CẢ 3 điều kiện, không phải "là UI nên miễn"**
+(xem thêm [core-function-conventions.md Rule 5](./core-function-conventions.md)):
+
+1. **Hạ tầng dùng CHUNG toàn app** — không tách riêng theo 1 nghiệp vụ cụ thể nào (Song/Photo/
+   Document...). Nếu 1 file `addEventListener` chỉ phục vụ ĐÚNG 1 tính năng (như
+   `core/file-manager/document-ui.js`/`photo-ui.js`) thì KHÔNG đạt điều kiện này, dù viết kỹ thuật
+   y hệt.
+2. **Callback bên trong `addEventListener` CHỈ gọi tham số nhận từ nơi gọi** — đọc thẳng code:
+   `btnEl.addEventListener('click', () => { closeModal(); if (typeof btnDef.onClick ===
+   'function') btnDef.onClick(); })` — `modalChoice()` KHÔNG hề gọi tên bất kỳ hàm core cụ thể nào
+   khác, `onClick` là 1 tham số MỜ (opaque) do nơi gọi tự truyền vào; bản thân hàm không biết và
+   không cần biết `onClick` làm gì. Nếu 1 hàm VỪA `addEventListener` VỪA gọi thẳng tên 1 core file
+   khác trong callback (như `document-ui.js` bản đầu Nhóm A gọi `resolveDocumentHtml()`) thì VẪN
+   vi phạm Rule 3 dù đạt điều kiện 1.
+3. **Đã qua audit chính thức, có tên, có số liệu** — `changelog/v11.md` mục 2, không phải tự nhận
+   trong docstring của chính file đó. Một số file sau này (`folder-picker-ui.js`) từng tự ghi
+   "cùng pattern với `modalChoice()`" để suy ra miễn trừ tương tự — **KHÔNG hợp lệ**, vì chưa từng
+   qua audit, và (thường) không đạt điều kiện 1 (gắn với 1 nghiệp vụ cụ thể, không phải hạ tầng
+   chung).
 
 ## 2. Block gate — chặn TRƯỚC khi vào Router
 

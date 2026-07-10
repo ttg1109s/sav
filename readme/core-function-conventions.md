@@ -3,12 +3,14 @@
 > **Áp dụng cho function MỚI viết hoặc được SỬA kể từ ver 12** — **[Đã chốt]** core di sản (~110
 > file hiện có, phần lớn đang tự `appState.get()` trực tiếp, đúng theo quy ước cũ ở
 > `service/state.js`) **giữ nguyên, KHÔNG rewrite/audit hồi tố**. Chỉ code mới viết hoặc bị đụng
-> tới (sửa thật, không phải chỉ đọc lướt qua) từ ver 12 trở đi mới bắt buộc theo 3 rule dưới đây.
+> tới (sửa thật, không phải chỉ đọc lướt qua) từ ver 12 trở đi mới bắt buộc theo 5 rule dưới đây —
+> **BAO GỒM hàm dựng UI (modal/drawer/toolbar)**, xem Rule 5 — KHÔNG có ngoại lệ "core UI thuần"
+> nào đứng ngoài phạm vi 5 rule này.
 
 Đọc cùng [event-bus-flow.md](./event-bus-flow.md) — tài liệu đó quy định luồng
 `listener → router → core/workflow/VirtualMachineState`; tài liệu NÀY quy định riêng bên TRONG 1
 function Core/nghiệp vụ được viết ra sao. Xem [core-legacy-audit.md](./core-legacy-audit.md) —
-danh sách **nợ kỹ thuật chính thức**: function core di sản đang vi phạm 4 rule dưới đây (không bắt
+danh sách **nợ kỹ thuật chính thức**: function core di sản đang vi phạm 5 rule dưới đây (không bắt
 buộc sửa ngay, chỉ bắt buộc khi function đó bị đụng tới thật — xem đầu file đó).
 
 ---
@@ -211,6 +213,91 @@ visualizer (`core/visualizer/draw-visualizer.js`) gọi `appState.set(..., { ski
 rất nhiều lần MỖI FRAME (`frameCounter`, `beatScale`, `smoothedEnergy`, `globalHueOffset`...) —
 log từng lần sẽ spam console/tốn hiệu năng thật, KHÔNG áp dụng Rule 4 cho các lời gọi này.
 
+## Rule 5 — Hàm dựng UI VẪN là hàm nghiệp vụ; `addEventListener` được phép NHƯNG phải gom cuối hàm; KHÔNG dùng DOM để rẽ nhánh
+
+**[MỚI, 10/07/2026, phản hồi Giang]** Một số file trước đây (`core/file-manager/photo-ui.js`,
+`core/file-manager/folder-picker-ui.js`, bản đầu `core/file-manager/document-ui.js`) tự ghi trong
+docstring "hàm dựng UI thuần, không thuộc phạm vi 4 rule core-function-conventions.md" —
+**TUYÊN BỐ NÀY KHÔNG CÓ CĂN CỨ trong tài liệu này, SAI, cần sửa khi file đó bị đụng tới lại (đúng
+tinh thần nợ kỹ thuật — xem [core-legacy-audit.md](./core-legacy-audit.md)).** KHÔNG có khái niệm
+"core UI thuần đứng ngoài rule" — dựng DOM/modal/drawer VẪN là 1 nhiệm vụ nghiệp vụ, chịu ĐẦY ĐỦ
+Rule 1-4 ở trên, CỘNG THÊM 2 rule riêng dưới đây (đặc thù cho việc dựng UI có tương tác — Rule 1-4
+gốc không lường tới DOM).
+
+### 5a — `addEventListener`: cấm rải rác; cho phép NẾU dựng UI động — nhưng PHẢI gom cuối hàm
+
+Core nói chung KHÔNG được tự `addEventListener` — đúng tinh thần "core không tự quyết định điều gì
+xảy ra khi người dùng tương tác", việc đó thuộc Router/Workflow (xem
+[event-bus-flow.md](./event-bus-flow.md)).
+
+**Ngoại lệ:** hàm dựng ra 1 cụm DOM MỚI (modal/drawer/toolbar tự tạo bằng `createElement`, KHÔNG
+phải phần tử tĩnh có sẵn từ `core/dom-refs.js`) — phần tử đó KHÔNG TỒN TẠI trước khi hàm chạy, nên
+KHÔNG THỂ wire qua `event/listener/*.js` (không có gì để `document.getElementById` trước đó).
+Trường hợp NÀY được phép `addEventListener` ngay trong hàm dựng UI, với 2 điều kiện BẮT BUỘC ĐỦ CẢ:
+
+1. **Callback CHỈ được gọi tham số nhận từ nơi gọi** (đúng khuôn `modalChoice()` —
+   `btnDef.onClick()`) — **TUYỆT ĐỐI KHÔNG gọi thẳng tên 1 hàm core/nghiệp vụ khác bên trong
+   callback**, vẫn là Rule 3, KHÔNG có ngoại lệ thêm ở đây chỉ vì nằm trong `addEventListener`.
+2. **Toàn bộ `addEventListener` phải gom lại 1 khối, đặt Ở CUỐI hàm** (sau khi cây DOM đã dựng
+   xong hoàn toàn) — KHÔNG xen kẽ giữa các đoạn `createElement`/`appendChild`, để chỉ cần nhìn
+   xuống cuối hàm là thấy NGAY toàn bộ hành vi tương tác, không phải dò từng dòng.
+
+```js
+// SAI — addEventListener xen kẽ rải rác giữa các đoạn dựng DOM
+function buildXModal(data, onSave) {
+    const overlay = document.createElement('div');
+    const saveBtn = document.createElement('button');
+    saveBtn.addEventListener('click', () => onSave(saveBtn.value)); // rải giữa chừng — khó rà soát
+    overlay.appendChild(saveBtn);
+    const cancelBtn = document.createElement('button');
+    cancelBtn.addEventListener('click', () => overlay.remove()); // lại 1 chỗ khác nữa
+    overlay.appendChild(cancelBtn);
+    return overlay;
+}
+```
+```js
+// ĐÚNG — dựng DOM xong hoàn toàn TRƯỚC, addEventListener gom 1 khối Ở CUỐI
+function buildXModal(data, onSave) {
+    const overlay = document.createElement('div');
+    const saveBtn = document.createElement('button');
+    const cancelBtn = document.createElement('button');
+    overlay.appendChild(saveBtn);
+    overlay.appendChild(cancelBtn);
+
+    // --- addEventListener: gom cuối hàm (Rule 5a) ---
+    saveBtn.addEventListener('click', () => onSave(saveBtn.value)); // CHỈ gọi tham số, không gọi core khác
+    cancelBtn.addEventListener('click', () => overlay.remove());
+
+    return overlay;
+}
+```
+
+### 5b — KHÔNG dùng trạng thái DOM làm điều kiện rẽ nhánh nghiệp vụ (lách Rule 1)
+
+Rule 1 đã nói "không phân biệt điều kiện rẽ nhánh lấy từ đâu" — nhắc lại RÕ ở đây vì đây là lối
+lách MỚI phát sinh khi core được phép đụng DOM (Rule 5a): **`classList.contains(...)`,
+`dataset.xxx`, `querySelector(...)` có tồn tại hay không, `getComputedStyle(...)`... là 1 dạng
+STATE giống hệt `appState` — dùng chúng làm điều kiện `if/else` để chọn giữa ≥2 tiến trình nghiệp
+vụ khác nhau VẪN VI PHẠM Rule 1**, dù không hề đụng `appState.get()` nào (Rule 2 KHÔNG bắt được lỗi
+này qua grep vì không có `appState.get(` để tìm — PHẢI tự rà bằng mắt).
+
+```js
+// SAI — dùng DOM (classList) làm điều kiện rẽ nhánh 2 tiến trình khác nhau — lách Rule 1
+function toggleXPanel(panelEl) {
+    if (panelEl.classList.contains('hidden')) {
+        panelEl.classList.remove('hidden'); // tiến trình 1: mở
+        panelEl.focus();
+    } else {
+        panelEl.classList.add('hidden'); // tiến trình 2: đóng — KHÁC HẲN tiến trình 1
+    }
+}
+```
+Sửa đúng: tách `openXPanel(panelEl)`/`closeXPanel(panelEl)` riêng, để nơi gọi (Workflow) tự đọc
+`classList.contains(...)` RỒI chọn gọi đúng hàm — cùng khuôn "rẽ nhánh theo tham số" ở Rule 1, chỉ
+khác nguồn đọc là DOM thay vì `appState`.
+
+---
+
 ## Bảng tổng hợp
 
 | Câu hỏi | Đúng luật ver 12 (cập nhật 04/07/2026) |
@@ -221,7 +308,10 @@ log từng lần sẽ spam console/tốn hiệu năng thật, KHÔNG áp dụng 
 | Function có tự `appState.set()`/`mutate()`? | **ĐƯỢC** — coi là API `service/`, không tính "gọi hàm core khác" |
 | Function có tự gọi `service/db.js` (getMeta/setMeta/...)? | **ĐƯỢC** — cùng lý do trên |
 | Function gọi 1 function core/nghiệp vụ KHÁC — bất kể có return value, có dùng giá trị đó, đồng bộ hay bất đồng bộ, có `await` hay không? | **CẤM TUYỆT ĐỐI** — mọi hình dạng đều chuyển ra Workflow, không còn ngoại lệ nào |
-| Function core có dùng `taskManager` (once/addNew/...)? | **CẤM TUYỆT ĐỐI** — `taskManager` CHỈ dùng ở Workflow |
+| Function core có `taskManager` (once/addNew/...)? | **CẤM TUYỆT ĐỐI** — `taskManager` CHỈ dùng ở Workflow |
 | Function có `appState.set()`/`mutate()`? | Bắt buộc `console.log` `writer/page/content` ngay dưới, TRỪ hot path 60fps |
+| Function dựng UI (modal/drawer/toolbar) có được coi là "core UI thuần, ngoài phạm vi rule"? | **KHÔNG** — dựng UI VẪN là hàm nghiệp vụ, chịu ĐẦY ĐỦ Rule 1-4 + Rule 5 (xem Rule 5) |
+| Function có `addEventListener`? | **CẤM**, TRỪ hàm dựng ra cụm DOM MỚI (không tĩnh) — khi đó ĐƯỢC, nhưng callback chỉ gọi tham số (không gọi core khác) VÀ phải gom hết ở CUỐI hàm (Rule 5a) |
+| Function dùng `classList`/`dataset`/`querySelector(...)` tồn tại hay không làm điều kiện chọn giữa ≥2 tiến trình khác nhau? | **KHÔNG được** — cùng vi phạm Rule 1, chỉ khác nguồn đọc là DOM thay vì `appState` (Rule 5b) |
 
 ← [Quay lại README](../README.md)
