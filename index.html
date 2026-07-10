@@ -188,7 +188,7 @@
          file local của project (CSS/JS riêng), KHÔNG đụng tới các thư viện CDN bên thứ 3 ở trên —
          những file đó đã tự có version riêng trong URL (@6, @4, r128, 3.9.5...) nên cache của
          chúng không liên quan tới cache "cứng đầu" của riêng project trên GitHub Pages. -->
-    <link rel="stylesheet" href="assets/css/style.css?v=20260710v1">
+    <link rel="stylesheet" href="assets/css/style.css?v=20260710v2">
     <!-- Batch 8, ver 12 "Multi Media" — file CSS TÁCH RIÊNG THEO DOMAIN đầu tiên của project (xem
          comment đầu file) — Slideshow nền Visual (2 lớp ảnh xen kẽ + 13 kiểu transition). -->
     <link rel="stylesheet" href="assets/css/slideshow.css?v=20260703v2">
@@ -308,7 +308,7 @@
          cho Document List+Reader — THAY components/document-reader.js/document-picker-drawer.js
          CŨ (ĐÃ XOÁ — xoá tay nếu còn sót trên máy). items.js (mục 3) ĐỘC LẬP với Generic Drawer
          (xem docstring đầu file) nhưng đặt cạnh nhau cho dễ đọc. -->
-    <script src="components/generic-drawer.js?v=20260710v1"></script>
+    <script src="components/generic-drawer.js?v=20260710v2"></script>
     <script src="components/items.js?v=20260710v1"></script>
     <!-- Visualizer/Subtitle Settings Drawer (ver 8 refine, mục 3) — cùng pattern navigation
          stack với About/Storage Drawer, mở chồng lên #drawer-settings. -->
@@ -363,7 +363,7 @@
          LẠI của /event/ (bus/workflow/router/listener vẫn nạp cuối cùng tuyệt đối như cũ, xem
          khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260710v1"></script>
+    <script src="core/dom-refs.js?v=20260710v2"></script>
     <!-- core/slider-panel-scroll.js (MỚI, 09/07/2026) — 2 hàm dùng CHUNG (getPositionStart/
          scrollSliderTo) + hằng số SLIDER_PANEL_SCROLL_ESTIMATED_MS cho MỌI khung cuộn ngang kiểu
          "slider panel" — core/settings-panel-stack.js (ngay dưới) VÀ core/player-controls.js (xa
@@ -413,15 +413,15 @@
     <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer (core UI thuần), CẦN
          core/dom-refs.js (đã nạp ngay trên: genericDrawerOverlay/Panel/Header/Body). Đặt cạnh
          nhóm Documents cho dễ đọc dù bản thân KHÔNG phụ thuộc gì từ document.js/document-ui.js. -->
-    <script src="core/generic-drawer.js?v=20260710v2"></script>
+    <script src="core/generic-drawer.js?v=20260710v3"></script>
     <!-- Documents — CRUD + lọc HTML whitelist (document.js, VIẾT LẠI 10/07/2026 Nhóm A — bỏ
          Markdown/Turndown), hàm dựng UI + surface Sửa dùng chung (document-ui.js, VIẾT LẠI cùng
          đợt — bỏ Toast UI Editor/kỹ thuật CSS multi-column cũ). document-pagination.js (MỚI, core
          nghiệp vụ RIÊNG — cắt HTML thành slot cho Reader, xem readme Nhóm A). Không phụ thuộc lẫn
          nhau, thứ tự giữa 3 file không quan trọng. -->
     <script src="core/file-manager/document.js?v=20260710v2"></script>
-    <script src="core/file-manager/document-ui.js?v=20260710v2"></script>
-    <script src="core/file-manager/document-pagination.js?v=20260710v1"></script>
+    <script src="core/file-manager/document-ui.js?v=20260710v4"></script>
+    <script src="core/file-manager/document-pagination.js?v=20260710v2"></script>
     <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager (registry) —
          CỐ Ý đặt cuối cùng trong nhóm core/file-manager/ (mọi tính năng khác đã có mặt trước đó,
          registry chỉ cần service/db.js). -->
@@ -632,7 +632,7 @@
          string[] (splitPlainTextIntoParagraphs()), .docx/user-edited lưu HTML
          (sanitizeDocumentHtml()), KHÔNG còn Markdown/Turndown. Toàn bộ mount+wire modal/drawer
          Documents giờ ở workflow này (core/file-manager/document-ui.js chỉ dựng DOM tĩnh). -->
-    <script src="event/workflow/file-manager-document.js?v=20260710v2"></script>
+    <script src="event/workflow/file-manager-document.js?v=20260710v3"></script>
     <script src="event/router/file-manager-document.js?v=20260706v1"></script>
     <script src="event/listener/file-manager-document.js?v=20260706v1"></script>
     <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — cụm "fileManagerCleanup" (nút "Dọn dẹp dữ liệu",
@@ -648,7 +648,7 @@
          (KHÔNG qua eventBus), xem docstring đầu core/generic-drawer.js. router/listener
          "documentPicker" CHỈ còn 1 msg.type ('open.click', nút "Reader" ở Control Center) — PHẢI
          nạp TRƯỚC vì router gọi thẳng workflowDocumentReader.openPicker(). -->
-    <script src="event/workflow/document-reader.js?v=20260710v2"></script>
+    <script src="event/workflow/document-reader.js?v=20260710v4"></script>
     <script src="event/router/document-picker.js?v=20260710v1"></script>
     <script src="event/listener/document-picker.js?v=20260710v1"></script>
     <script src="event/workflow/playlist.js?v=20260708v1"></script>
