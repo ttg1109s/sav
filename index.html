@@ -166,6 +166,24 @@
          khối Preloader phía trên) — giữ NGUYÊN THỨ TỰ TƯƠNG ĐỐI với nhau như bản gốc, chỉ đổi vị
          trí vật lý trong tài liệu. -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FIX (10/07/2026, phản hồi Giang) — trên mobile/touch, bấm 1 nút có class `hover:*` (rất
+         nhiều nút trong app dùng, vd `hover:bg-white/10`) làm class đó "kẹt" lại y như đang hover
+         thật, tới khi chạm ra chỗ khác mới hết — vì Tailwind mặc định áp `hover:` qua `:hover`
+         thuần, mà thiết bị cảm ứng không có khái niệm hover thật (trình duyệt giả lập hover ngay
+         khi chạm, không tự gỡ cho tới lần chạm KẾ TIẾP ở đâu đó khác). `hoverOnlyWhenSupported`
+         (cờ chính thức của Tailwind, mặc định BẬT từ Tailwind v3.4 khi build qua config file —
+         CDN Play KHÔNG tự bật, phải khai báo tay) đổi `hover:` sang chạy trong
+         `@media (hover: hover) and (pointer: fine)` — CHỈ áp dụng cho thiết bị có chuột/trackpad
+         THẬT SỰ hỗ trợ hover, thiết bị cảm ứng sẽ KHÔNG BAO GIờ thấy trạng thái hover "kẹt" nữa vì
+         media query không khớp trên thiết bị đó. Sửa 1 LẦN Ở ĐÂY áp dụng cho MỌI class `hover:*`
+         trong toàn bộ project (hàng trăm chỗ), không cần sửa từng file riêng lẻ. -->
+    <script>
+        tailwind.config = {
+            future: {
+                hoverOnlyWhenSupported: true,
+            },
+        };
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nosleep/0.12.0/NoSleep.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
