@@ -64,6 +64,14 @@ function computeNextDocumentReaderSlot(contentHtml, cursor, pageSize) {
     measureEl.style.left = '-9999px';
     measureEl.style.top = '0';
     measureEl.style.width = `${pageSize.width}px`;
+    // FIX (10/07/2026 — bug "1 đoạn = 1 trang"): `pageSize.className` copy NGUYÊN class của khung
+    // đọc thật, trong đó có `h-full` (height:100%) — với `position:fixed` như measureEl này,
+    // `height:100%` phân giải theo VIEWPORT (không phải theo pageSize.height mong muốn), làm
+    // `scrollHeight` LUÔN LUÔN bị "phồng" lên bằng cỡ viewport bất kể nội dung thật dài hay ngắn
+    // -> mọi khối SAU khối đầu tiên đều bị coi là "tràn" (scrollHeight phồng > pageSize.height thật)
+    // -> mỗi trang chỉ còn đúng 1 khối. Ép `height: auto` NGAY SAU khi gán className (inline style
+    // thắng class) để measureEl co theo ĐÚNG nội dung thật, scrollHeight mới phản ánh đúng.
+    measureEl.style.height = 'auto';
     document.body.appendChild(measureEl);
 
     let endIndex = cursor;
