@@ -37,6 +37,12 @@ if (songActionMenu) {
             eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.addToFolder', payload: {} });
             return;
         }
+        // MỚI (10/07/2026) — "Sửa phụ đề": CÙNG PRECEDENT với addToFolder ở trên (message riêng,
+        // không qua handleSongActionMenuSelect() cũ — xem comment router/playlist.js).
+        if (btn.dataset.menuAction === 'editSubtitles') {
+            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.editSubtitles', payload: {} });
+            return;
+        }
         eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.select', payload: { action: btn.dataset.menuAction } });
     });
 }
@@ -106,19 +112,6 @@ if (btnSongEditCancel) {
 if (btnSongEditSave) {
     btnSongEditSave.addEventListener('click', () => {
         eventBus.send({ router: 'playlist', type: 'playlist.edit.save', payload: {} });
-    });
-}
-
-// ===================== Modal: Thông tin chi tiết bài hát =====================
-if (btnSongInfoClose) {
-    btnSongInfoClose.addEventListener('click', () => {
-        eventBus.send({ router: 'playlist', type: 'playlist.info.close', payload: {} });
-    });
-}
-
-if (btnSongInfoExport) {
-    btnSongInfoExport.addEventListener('click', () => {
-        eventBus.send({ router: 'playlist', type: 'playlist.info.export', payload: {} });
     });
 }
 
