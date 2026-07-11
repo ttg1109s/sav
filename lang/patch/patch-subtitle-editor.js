@@ -33,4 +33,8 @@ const LANG_PATCH_SUBTITLE_EDITOR = {
     // xem console.log/warn/error trực tiếp trên màn hình (không cần devtools).
     'subtitleEditor.btnDebugLog.title': 'View debug log',
     'subtitleEditor.debugLogEmpty': 'No log entries yet.',
+    // MỚI (11/07/2026, yêu cầu Giang) — 2 nút mũi tên cuộn thanh công cụ (KHÔNG có nền riêng, chỉ
+    // đổi màu icon — xem subtitle-editor.html #btn-toolbar-scroll-left/right).
+    'subtitleEditor.btnToolbarScrollLeft.title': 'Scroll tools left',
+    'subtitleEditor.btnToolbarScrollRight.title': 'Scroll tools right',
 };
