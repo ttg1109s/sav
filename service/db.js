@@ -90,6 +90,36 @@
         // plan-v12 mục 5 bước 2-3), KHÔNG thuộc phạm vi hạ tầng DB ở bước này.
         const DB_VERSION = 4;
 
+        // FIX (11/07/2026, phát hiện qua bảng debug log MỚI trên subtitle-editor.html — xem
+        // ReferenceError "Can't find variable: appState" + "Cannot access 'songsStore' before
+        // initialization") — NGUYÊN NHÂN GỐC của toàn bộ vụ "subtitle editor không nạp được blob"
+        // điều tra trước đây: cơ chế cache `dbReadyPromise` (xem comment gốc phía dưới, mục "iOS
+        // Safari tự đóng connection") dùng THẲNG `appState.set()/get()` (service/state.js) — file
+        // service/db.js NÀY dùng CHUNG cho CẢ index.html (CÓ nạp service/state.js) LẪN
+        // subtitle-editor.html (CHỦ Ý KHÔNG nạp service/state.js, xem đầu event/workflow/subtitle-
+        // editor.js). Trên trang sau, `appState` không tồn tại -> `appState.set(...)` ở dòng ngay
+        // dưới (chạy Ở TOP-LEVEL của file, KHÔNG phải trong callback) ném ReferenceError NGAY LẬP
+        // TỨC lúc file này được nạp — cắt đứt hẳn phần CÒN LẠI của file phía sau nó (mọi
+        // `const xStore = makeStoreAccessor(...)` KHÔNG BAO GIỜ chạy tới), nên `songsStore` vĩnh
+        // viễn kẹt ở trạng thái "khai báo nhưng chưa gán" (temporal dead zone) — bất kỳ hàm nào gọi
+        // tới nó sau đó (getSongRecord, setSongRecord...) đều throw "Cannot access 'songsStore'
+        // before initialization", đúng y hệt lỗi quan sát được.
+        //
+        // 2 hàm nhỏ dưới đây THAY THẾ trực tiếp mọi lời gọi appState.set('dbReadyPromise', ...)/
+        // appState.get('dbReadyPromise') — dùng appState NẾU CÓ (index.html, giữ NGUYÊN hành vi cũ
+        // hệt, không đổi gì), fallback về 1 biến module-scope RIÊNG nếu không có (subtitle-
+        // editor.html) — cơ chế "tự mở lại connection khi bị đóng ngoài ý muốn" vẫn hoạt động đúng
+        // ở CẢ 2 trang, chỉ khác chỗ lưu tạm.
+        let _dbReadyPromiseLocalFallback = null;
+        function _setDbReadyPromise(promise) {
+            if (typeof appState !== 'undefined') { appState.set('dbReadyPromise', promise); return; }
+            _dbReadyPromiseLocalFallback = promise;
+        }
+        function _getDbReadyPromise() {
+            if (typeof appState !== 'undefined') return appState.get('dbReadyPromise');
+            return _dbReadyPromiseLocalFallback;
+        }
+
         /** Mở 1 connection IndexedDB mới — tách hàm riêng để có thể gọi lại khi connection cũ chết. */
         function openDatabase() {
             return new Promise((resolve, reject) => {
@@ -119,7 +149,7 @@
                     // luôn, không phải đợi tới khi truy vấn đó thất bại rồi mới biết để mở lại.
                     db.onclose = () => {
                         console.warn('[db] Connection IndexedDB bị đóng ngoài ý muốn (có thể do tab/app vừa bị ẩn lâu) — tự mở lại connection mới.');
-                        appState.set('dbReadyPromise', openDatabase());
+                        _setDbReadyPromise(openDatabase());
                     };
                     resolve(db);
                 };
@@ -128,7 +158,7 @@
             });
         }
 
-        appState.set('dbReadyPromise', openDatabase()); // STATE — xem service/state.js
+        _setDbReadyPromise(openDatabase());
 
         /** true nếu lỗi rõ ràng là do connection IndexedDB đã chết (không phải lỗi dữ liệu/quyền khác). */
         function isDeadConnectionError(err) {
@@ -147,14 +177,14 @@
          * đúng 1 lần trên đó trước khi để lỗi bay ra ngoài.
          */
         function makeStoreAccessor(storeName) {
-            return (txMode, callback) => appState.get('dbReadyPromise').then((db) => {
+            return (txMode, callback) => _getDbReadyPromise().then((db) => {
                 try {
                     return callback(db.transaction(storeName, txMode).objectStore(storeName));
                 } catch (err) {
                     if (!isDeadConnectionError(err)) throw err; // lỗi khác (không liên quan connection chết) — không retry, để nguyên lỗi gốc
                     console.warn(`[db] Connection IndexedDB đã chết lúc mở transaction (store "${storeName}") — tự mở connection mới và thử lại 1 lần.`, err);
-                    appState.set('dbReadyPromise', openDatabase());
-                    return appState.get('dbReadyPromise').then((freshDb) => callback(freshDb.transaction(storeName, txMode).objectStore(storeName)));
+                    _setDbReadyPromise(openDatabase());
+                    return _getDbReadyPromise().then((freshDb) => callback(freshDb.transaction(storeName, txMode).objectStore(storeName)));
                 }
             });
         }
