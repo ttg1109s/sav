@@ -85,3 +85,25 @@ function computeUpdatedSubtitles(subtitles, id, changes) {
 function computeRemovedSubtitles(subtitles, id) {
     return subtitles.filter((sub) => sub.id !== id);
 }
+
+/**
+ * MỚI (yêu cầu Giang, tool "Shift") — cộng `amountSec` (có thể ÂM, lùi giờ) vào start/end (hoặc cả
+ * 2, theo `target`) của MỌI dòng có id nằm trong `ids` — hàm THUẦN (Rule 1/2), trả mảng MỚI, không
+ * sửa mảng gốc. Clamp kết quả về 0 nếu ra âm (không cho giờ âm). Nếu kết quả khiến end <= start
+ * (vd lùi "end" quá tay), BỎ QUA dòng đó (giữ nguyên, không áp) — tránh tạo dòng vô nghĩa hàng loạt
+ * mà không ai kiểm tra kịp.
+ * @param {Array<Object>} subtitles @param {Set<string>} ids @param {number} amountSec
+ * @param {'start'|'end'|'both'} target
+ * @returns {Array<Object>}
+ */
+function shiftSubtitleTimes(subtitles, ids, amountSec, target) {
+    return subtitles.map((sub) => {
+        if (!ids.has(sub.id)) return sub;
+        let newStart = sub.start;
+        let newEnd = sub.end;
+        if (target === 'start' || target === 'both') newStart = Math.max(0, sub.start + amountSec);
+        if (target === 'end' || target === 'both') newEnd = Math.max(0, sub.end + amountSec);
+        if (newEnd <= newStart) return sub; // kết quả vô nghĩa -> bỏ qua, giữ nguyên dòng này
+        return { ...sub, start: newStart, end: newEnd, startStr: secToStr(newStart), endStr: secToStr(newEnd) };
+    });
+}
