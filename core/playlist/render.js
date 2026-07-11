@@ -11,7 +11,14 @@
  */
 
         function songActionMenuButtonHtml(key) {
-            return `<button data-action="menu" data-key="${key}" class="p-2 text-slate-400 hover:text-white transition-colors z-10" title="${t('playlistView.songMenu.title')}">
+            // FIX (11/07/2026, phản hồi Giang — "thiếu dấu ba chấm như trước đây mỗi song item"):
+            // ĐÃ RÀ SOÁT — file này KHÔNG bị đụng ở bất kỳ đợt sửa Subtitle Editor nào gần đây, HTML
+            // sinh ra vẫn y hệt cũ. Nghi vấn nhiều khả năng nhất: 3 chấm màu `text-slate-400` (xám)
+            // KHÔNG có nền riêng, dễ chìm mất trên ảnh nền bìa sáng/nhiều chi tiết phía sau (đúng
+            // như ảnh Giang gửi — nền là ảnh chụp người, rất sáng) — dù đây là suy đoán, chưa chắc
+            // đúng NGUYÊN NHÂN gốc. Thêm nền tròn mờ CỐ ĐỊNH phía sau icon để LUÔN thấy được bất kể
+            // nền phía sau là gì — không có rủi ro nếu suy đoán sai, chỉ tăng độ tương phản.
+            return `<button data-action="menu" data-key="${key}" class="p-2 rounded-full bg-black/30 text-slate-200 hover:text-white hover:bg-black/50 transition-colors z-10" title="${t('playlistView.songMenu.title')}">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg>
             </button>`;
         }
