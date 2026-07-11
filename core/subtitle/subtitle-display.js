@@ -79,7 +79,10 @@
 
             if (changed) {
                 updateSubtitleFrameVisibility();
-                if (!subtitleModal.classList.contains('translate-y-full') && appState.get('editingSubId') === null) renderSubList();
+                // SỬA (10/07/2026, Subtitle Editor chuyển sang trang riêng): dòng cũ ở đây từng
+                // "nếu modal soạn phụ đề đang mở, vẽ lại danh sách để cập nhật dòng đang active" —
+                // subtitleModal (DOM)/renderSubList() ĐÃ XOÁ cùng modal, không còn gì ở TRANG
+                // CHÍNH cần vẽ lại nữa (soạn thảo giờ ở subtitle-editor.html, trang RIÊNG).
             }
         }
 
