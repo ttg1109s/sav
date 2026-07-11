@@ -34,6 +34,12 @@ const routerSubtitleEditor = (() => {
                 break;
             }
 
+            // MỚI (yêu cầu Giang) — mở modal hỏi số dòng muốn chia this._region hiện tại thành.
+            case 'subtitleEditor.split.click': {
+                workflowSubtitleEditor.openSplitModal();
+                break;
+            }
+
             case 'subtitleEditor.playSelection.click': {
                 workflowSubtitleEditor.playSelection();
                 break;
