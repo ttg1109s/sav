@@ -410,6 +410,9 @@
     <script src="service/task-manager.js?v=20260704v1"></script>
     <!-- service/db.js — CHUYỂN từ `core/db.js` cùng lý do trên (dịch vụ hạ tầng IndexedDB thuần). -->
     <script src="service/db.js?v=20260704v3"></script>
+    <!-- MỚI (10/07/2026) — TÁCH RIÊNG khỏi service/db.js (phản hồi Giang: db.js chỉ nên thuần
+         IndexedDB, cipher không phải I/O). Dùng ở CẢ index.html LẪN subtitle-editor.html. -->
+    <script src="service/song-key-cipher.js?v=20260710v1"></script>
     <!-- Ver 12 "Multi Media" (plan-v12-multimedia.md mục 4.b1) — Folder nhạc (File Manager → Song).
          folder.js CẦN core/db.js (slugify + CRUD folders/folder_song/songs). folder-picker-ui.js
          CẦN t() (lang/lang.js, đã nạp từ rất sớm) — không phụ thuộc folder.js (chỉ dựng DOM +
