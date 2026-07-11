@@ -49,9 +49,21 @@
         </button>
     </div>
 
-    <!-- TOP — dải âm thanh cuộn ngang, 1 region (2 tay kéo) DUY NHẤT sống suốt vòng đời trang. -->
+    <!-- TOP — dải âm thanh cuộn ngang, 1 region (2 tay kéo) DUY NHẤT sống suốt vòng đời trang.
+         FIX (11/07/2026, phản hồi Giang) — trước đây `#waveform-container` KHÔNG có chiều cao cố
+         định: trống rỗng (0px) tới khi WaveSurfer render xong, nên lúc CDN/decode lỗi (im lặng,
+         không exception nào ném ra ngoài) khung waveform biến mất hẳn, trông như không có gì ở đó.
+         Giờ `#waveform-frame` LUÔN có chiều cao cố định (h-24) — `#waveform-container` (canvas
+         WaveSurfer vẽ vào) và `#waveform-error` (ẩn mặc định, hiện khi lỗi — xem
+         event/workflow/subtitle-editor.js::_showWaveformError()) xếp CHỒNG lên nhau bên trong. -->
     <div class="shrink-0 bg-black/30 border-b border-white/10 px-2 py-3">
-        <div id="waveform-container" class="w-full overflow-x-auto"></div>
+        <div id="waveform-frame" class="relative w-full h-24">
+            <div id="waveform-container" class="w-full h-full overflow-x-auto"></div>
+            <div id="waveform-error" class="hidden absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-slate-500 pointer-events-none">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+                <span id="waveform-error-label" class="text-xs text-center px-6"></span>
+            </div>
+        </div>
     </div>
 
     <!-- CENTER — danh sách dòng phụ đề, LUÔN sửa được tại chỗ (xem core/subtitle/subtitles-ui.js). -->
@@ -118,7 +130,7 @@
     <script src="lang/patch/patch-subtitle-settings.js?v=20260709v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260706v2"></script>
     <script src="lang/patch/patch-file-manager.js?v=20260710v1"></script>
-    <script src="lang/patch/patch-subtitle-editor.js?v=20260710v1"></script>
+    <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
     <!-- lang.js hardcode Object.assign() cả 7 biến LANG_PATCH_* trên — THIẾU BẤT KỲ FILE NÀO Ở
          TRÊN đều làm lang.js ReferenceError ngay khi parse (chạy TRÊN CẢ index.html LẪN trang này,
          xem lang/lang.js) — KHÔNG được bớt file nào dù trang này chỉ thật sự DÙNG patch-common/
@@ -131,10 +143,10 @@
     <script src="service/song-key-cipher.js?v=20260710v1"></script>
     <script src="core/subtitle/subtitles.js?v=20260710v1"></script>
     <script src="core/subtitle/subtitles-ui.js?v=20260710v1"></script>
-    <script src="event/workflow/subtitle-editor.js?v=20260710v1"></script>
+    <script src="event/workflow/subtitle-editor.js?v=20260711v1"></script>
     <script src="event/router/subtitle-editor.js?v=20260710v1"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowSubtitleEditor.init() ngay khi chạy. -->
-    <script src="event/listener/subtitle-editor.js?v=20260710v1"></script>
+    <script src="event/listener/subtitle-editor.js?v=20260711v1"></script>
     <script>
         // i18n text tĩnh KHÔNG qua template literal ${t(...)} lúc parse (component của trang này
         // không phải TPL_* string — HTML viết tay ở trên) — gán SAU khi lang.js đã nạp xong.
@@ -147,6 +159,7 @@
         document.getElementById('btn-create-from-selection-label').textContent = t('subtitleEditor.btnCreateFromSelection.title');
         document.getElementById('btn-play-selection-label').textContent = t('subtitleEditor.btnPlaySelection.title');
         document.getElementById('btn-export-srt-label').textContent = t('subtitleEditor.btnExportSrt');
+        document.getElementById('waveform-error-label').textContent = t('subtitleEditor.waveformError');
     </script>
 </body>
 </html>
