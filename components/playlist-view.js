@@ -183,14 +183,18 @@ const TPL_PLAYLIST_VIEW = `
                 <h3 class="text-base font-bold text-white" data-i18n="playlistView.songEdit.title">${t('playlistView.songEdit.title')}</h3>
             </div>
 
-            <!-- Tab switcher: "Thông tin" / "Ảnh bìa" — kiểu pill bên trong 1 rãnh nền tối, tab
-                 active nổi lên nền sáng + chữ trắng, tab inactive chữ mờ — rõ ràng dễ phân biệt
-                 hơn 2 nút viền màu riêng lẻ trước đây. -->
+            <!-- SỬA (10/07/2026, gộp #song-info-modal cũ vào làm tab ĐẦU — phản hồi Giang): 3 tab
+                 "Chi tiết" (đọc-thôi, MẶC ĐỊNH/đầu tiên) / "Sửa" (title/artist/album, SỬA được) /
+                 "Ảnh bìa" — pill switcher như cũ, chỉ thêm 1 nút. -->
             <div class="flex gap-1 px-5 pt-4">
                 <div class="flex w-full p-1 rounded-xl bg-black/30 border border-white/10 gap-1">
-                    <button data-edit-tab="info" class="song-edit-tab-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-white/10 text-white shadow">
+                    <button data-edit-tab="details" class="song-edit-tab-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-white/10 text-white shadow">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        <span data-i18n="playlistView.songEdit.tabInfo">${t('playlistView.songEdit.tabInfo')}</span>
+                        <span data-i18n="playlistView.songEdit.tabDetails">${t('playlistView.songEdit.tabDetails')}</span>
+                    </button>
+                    <button data-edit-tab="fields" class="song-edit-tab-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                        <span data-i18n="playlistView.songEdit.tabFields">${t('playlistView.songEdit.tabFields')}</span>
                     </button>
                     <button data-edit-tab="cover" class="song-edit-tab-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M4 8h.01M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z" /></svg>
@@ -199,10 +203,14 @@ const TPL_PLAYLIST_VIEW = `
                 </div>
             </div>
 
-            <!-- Tab 1: Thông tin (title/artist/album) — mỗi input có icon trái nhỏ để dễ nhận
-                 diện trường ngay từ ánh nhìn đầu (tên/nghệ sĩ/album), nền tối hơn input cũ để nổi
-                 trên card kính mờ sáng hơn ver trước. -->
-            <div id="song-edit-tab-info" class="flex flex-col gap-3 p-5">
+            <!-- Tab 1 (MẶC ĐỊNH/đầu): Chi tiết — gộp từ #song-info-modal cũ (title/artist/album/
+                 duration/lượt nghe/thời gian đã nghe, đọc-thôi) — populate qua JS
+                 (core/playlist/actions.js::openSongEditModal(), dùng songInfoRowHtml()). -->
+            <div id="song-edit-tab-details" class="flex flex-col gap-2 p-5"></div>
+
+            <!-- Tab 2: Sửa (title/artist/album, SỬA được) — ĐỔI TÊN từ "Thông tin" (tab đầu cũ) —
+                 mỗi input có icon trái nhỏ để dễ nhận diện trường ngay từ ánh nhìn đầu. -->
+            <div id="song-edit-tab-fields" class="hidden flex-col gap-3 p-5">
                 <div class="flex flex-col gap-1.5">
                     <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide ml-0.5" data-i18n="playlistView.songEdit.fieldTitle">${t('playlistView.songEdit.fieldTitle')}</label>
                     <div class="relative">
@@ -226,19 +234,13 @@ const TPL_PLAYLIST_VIEW = `
                 </div>
             </div>
 
-            <!-- Tab 2: Ảnh bìa — preview lớn hơn (96px), khung viền sáng + glow, nút hành động rõ
-                 ràng kiểu icon + chữ. Input file ẩn, nhãn (label) đóng vai trò nút bấm theo đúng
-                 pattern input[type=file] đã dùng ở settings-drawer. -->
+            <!-- Tab 3: Ảnh bìa — không đổi. -->
             <div id="song-edit-tab-cover" class="hidden flex-col gap-4 p-5">
                 <div class="flex items-center gap-4">
                     <div class="w-24 h-24 rounded-2xl overflow-hidden border border-white/15 shrink-0 bg-black/40 shadow-lg ring-1 ring-white/5">
                         <img id="song-edit-cover-preview" src="" class="w-full h-full object-cover" data-i18n-title="playlistView.songEdit.coverAlt" alt="${t('playlistView.songEdit.coverAlt')}">
                     </div>
                     <div class="flex flex-col gap-2 flex-1">
-                        <!-- VIẾT LẠI (04/07/2026, mục 3 phản hồi Giang) — bỏ hẳn nút Upload (input
-                             file trực tiếp) — chỉ còn 1 nút DUY NHẤT "Choose photo", mở picker TÁI
-                             DÙNG view Photo UI mới (grid ô vuông + chunk load/collapse, xem
-                             core/file-manager/photo-ui.js::openPhotoUiImagePickerModal). -->
                         <button id="song-edit-cover-pick-library" class="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl text-xs font-bold transition-colors shadow">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                             <span data-i18n="playlistView.songEdit.coverPickLibrary">${t('playlistView.songEdit.coverPickLibrary')}</span>
@@ -262,27 +264,6 @@ const TPL_PLAYLIST_VIEW = `
         </div>
     </div>
 
-    <!-- Modal: Thông tin chi tiết bài hát — mỗi dòng dữ liệu trình bày dạng "card" nhỏ có icon
-         riêng (giống nhóm cài đặt kiểu iOS), thay cho list flex justify-between trần trước đây —
-         dễ quét mắt hơn khi có 6 dòng thông tin. -->
-    <div id="song-info-modal" class="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm hidden flex items-center justify-center px-5">
-        <div class="glass-modal rounded-2xl w-full max-w-sm shadow-2xl flex flex-col overflow-hidden">
-            <div class="flex items-center gap-2.5 px-5 pt-5 pb-3 border-b border-white/10">
-                <div class="w-8 h-8 rounded-full bg-sky-500/15 border border-sky-500/30 flex items-center justify-center shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                </div>
-                <h3 class="text-base font-bold text-white" data-i18n="playlistView.songInfo.title">${t('playlistView.songInfo.title')}</h3>
-            </div>
-            <div id="song-info-body" class="flex flex-col gap-2 p-5 text-sm text-slate-300"></div>
-            <div class="flex gap-3 p-5 pt-2 border-t border-white/10">
-                <button id="song-info-export" class="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition-colors shadow">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-8-4V4m0 0L8 8m4-4l4 4" /></svg>
-                    <span data-i18n="playlistView.songInfo.btnExport">${t('playlistView.songInfo.btnExport')}</span>
-                </button>
-                <button id="song-info-close" class="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-sm font-semibold transition-colors" data-i18n="playlistView.songInfo.btnClose">${t('playlistView.songInfo.btnClose')}</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Menu nhỏ cho nút "Thêm nhạc" (góc phải Playlist) — 2 lựa chọn: chọn từng file rời, hoặc
          chọn cả 1 thư mục (toàn bộ nhạc trong thư mục đó + thư mục con được nạp 1 lượt). Cùng
@@ -314,13 +295,19 @@ const TPL_PLAYLIST_VIEW = `
          khi danh sách dài). Đóng khi bấm ra ngoài hoặc chọn 1 hành động. -->
     <div id="song-action-overlay" class="hidden fixed inset-0 z-[110]"></div>
     <div id="song-action-menu" class="hidden fixed z-[115] w-48 bg-[#171c2b] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
-        <button data-menu-action="info" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            <span data-i18n="playlistView.songMenu.info">${t('playlistView.songMenu.info')}</span>
-        </button>
-        <button data-menu-action="edit" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 border-t border-white/5">
+        <!-- SỬA (10/07/2026, phản hồi Giang): nút "info" riêng ĐÃ XOÁ — gộp vào tab đầu
+             "Chi tiết" của #song-edit-modal (mở qua nút "edit" bên dưới, mặc định hiện tab đó). -->
+        <button data-menu-action="edit" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
             <span data-i18n="playlistView.songMenu.edit">${t('playlistView.songMenu.edit')}</span>
+        </button>
+        <!-- MỚI (10/07/2026) — mở Subtitle Editor (trang riêng, subtitle-editor.html?song=<mã hoá>)
+             — message RIÊNG (data-menu-action="editSubtitles"), CÙNG PRECEDENT với addToFolder bên
+             dưới, xem event/listener/playlist.js + event/workflow/playlist.js::
+             openSubtitleEditorForSongMenu(). -->
+        <button data-menu-action="editSubtitles" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 border-t border-white/5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" /></svg>
+            <span data-i18n="playlistView.songMenu.editSubtitles">${t('playlistView.songMenu.editSubtitles')}</span>
         </button>
         <button data-menu-action="restore" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 border-t border-white/5">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-8-4V4m0 0L8 8m4-4l4 4" /></svg>
