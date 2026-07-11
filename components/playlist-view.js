@@ -174,11 +174,21 @@ const TPL_PLAYLIST_VIEW = `
          "Thông tin" (text fields cũ) và "Ảnh bìa" (upload/xem trước/xóa cover, mới ở ver 8).
          Card dùng .glass-modal (kính mờ "nét" — nền đậm hơn .glass-panel để chữ/control nổi rõ
          trên mọi ảnh nền playlist, viền sáng + glow nhẹ) thay cho nền đặc bg-[#0f172a] trước đây. -->
-    <div id="song-edit-modal" class="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm hidden flex items-center justify-center px-5">
+    <!-- Modal: Chi tiết bài hát (đổi tên từ "Sửa thông tin", yêu cầu Giang 11/07/2026 — modal vẫn
+         giữ NGUYÊN 3 tab Chi tiết/Sửa/Ảnh bìa, chỉ đổi tên hiển thị ngoài + tiêu đề cho khớp đúng ý
+         nghĩa "xem chi tiết" là chính, sửa chỉ là 1 trong các việc có thể làm bên trong).
+         FIX (11/07/2026, yêu cầu Giang) — ĐỔI items-center -> items-start + pt-16: modal cũ
+         canh GIỮA màn hình theo chiều dọc — 3 tab (Chi tiết/Sửa/Ảnh bìa) có chiều cao nội dung
+         KHÁC NHAU, mỗi lần đổi tab modal đổi cao/thấp làm card "nhảy" CẢ 2 HƯỚNG trên/dưới (canh
+         giữa co giãn đối xứng quanh tâm) — UX giật, khó theo dõi. Neo modal theo mép TRÊN cố định:
+         đổi tab chỉ làm mép DƯỚI di chuyển, mép trên luôn đứng yên tại 1 vị trí — cảm giác ổn định
+         hơn hẳn. overflow-y-auto phòng khi nội dung + khoảng đệm trên vượt quá chiều cao màn hình
+         thấp. -->
+    <div id="song-edit-modal" class="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm hidden flex items-start justify-center px-5 pt-16 pb-8 overflow-y-auto">
         <div class="glass-modal rounded-2xl w-full max-w-sm shadow-2xl flex flex-col overflow-hidden">
             <div class="flex items-center gap-2.5 px-5 pt-5 pb-3 border-b border-white/10">
                 <div class="w-8 h-8 rounded-full bg-sky-500/15 border border-sky-500/30 flex items-center justify-center shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
                 <h3 class="text-base font-bold text-white" data-i18n="playlistView.songEdit.title">${t('playlistView.songEdit.title')}</h3>
             </div>
@@ -295,10 +305,12 @@ const TPL_PLAYLIST_VIEW = `
          khi danh sách dài). Đóng khi bấm ra ngoài hoặc chọn 1 hành động. -->
     <div id="song-action-overlay" class="hidden fixed inset-0 z-[110]"></div>
     <div id="song-action-menu" class="hidden fixed z-[115] w-48 bg-[#171c2b] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
-        <!-- SỬA (10/07/2026, phản hồi Giang): nút "info" riêng ĐÃ XOÁ — gộp vào tab đầu
-             "Chi tiết" của #song-edit-modal (mở qua nút "edit" bên dưới, mặc định hiện tab đó). -->
+        <!-- SỬA (11/07/2026, yêu cầu Giang): đổi tên "Edit info" -> "Details" (menu này giờ mở
+             thẳng modal Chi tiết, mặc định tab đọc-thôi trước — xem song-edit-modal) — đổi luôn
+             icon bút sửa -> icon info-circle cho khớp ý nghĩa mới, ĐỒNG BỘ với icon header modal +
+             icon tab "Chi tiết" bên trong (cùng path). -->
         <button data-menu-action="edit" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             <span data-i18n="playlistView.songMenu.edit">${t('playlistView.songMenu.edit')}</span>
         </button>
         <!-- MỚI (10/07/2026) — mở Subtitle Editor (trang riêng, subtitle-editor.html?song=<mã hoá>)
