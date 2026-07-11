@@ -13,7 +13,9 @@ const LANG_PATCH_SUBTITLE_EDITOR = {
     'subtitleEditor.autoTiming.defaultText': 'New subtitle',
     'subtitleEditor.newLine.defaultText': 'New subtitle',
     'subtitleEditor.line.placeholder': 'Subtitle text...',
-    'subtitleEditor.line.btnApply': 'Apply changes',
+    // XOÁ (yêu cầu Giang, mục 4) — 'subtitleEditor.line.btnApply' không còn dùng, nút ✓ "Áp dụng"
+    // đã bỏ hẳn (auto-commit khi rời ô/blur cho text, commit ngay lúc bấm "Xong" trong modal bánh
+    // xe cho giờ — xem core/subtitle/subtitles-ui.js + event/workflow/subtitle-editor.js).
     'subtitleEditor.line.btnRemove': 'Remove line',
     // MỚI (yêu cầu Giang) — nút ▶ mỗi dòng, phát đúng [start,end] của dòng đó rồi dừng.
     'subtitleEditor.line.btnPlayRange': 'Play this line',
@@ -33,8 +35,29 @@ const LANG_PATCH_SUBTITLE_EDITOR = {
     // xem console.log/warn/error trực tiếp trên màn hình (không cần devtools).
     'subtitleEditor.btnDebugLog.title': 'View debug log',
     'subtitleEditor.debugLogEmpty': 'No log entries yet.',
+    // MỚI (yêu cầu Giang, mục 3) — nút Copy all + đóng NGAY TRONG bảng debug log.
+    'subtitleEditor.debugCopyAll': 'Copy all',
+    'subtitleEditor.debugClose.title': 'Close',
     // MỚI (11/07/2026, yêu cầu Giang) — 2 nút mũi tên cuộn thanh công cụ (KHÔNG có nền riêng, chỉ
     // đổi màu icon — xem subtitle-editor.html #btn-toolbar-scroll-left/right).
     'subtitleEditor.btnToolbarScrollLeft.title': 'Scroll tools left',
     'subtitleEditor.btnToolbarScrollRight.title': 'Scroll tools right',
+    // MỚI (yêu cầu Giang, mục 2) — 2 nút chốt start/end vùng chọn = vị trí phát hiện tại.
+    'subtitleEditor.btnRegionSetStart.title': 'Set start to current time',
+    'subtitleEditor.btnRegionSetEnd.title': 'Set end to current time',
+    // MỚI (yêu cầu Giang, mục 4) — modal "bánh xe cuộn số" chọn giờ start/end 1 dòng.
+    'subtitleEditor.timePicker.titleStart': 'Set start time',
+    'subtitleEditor.timePicker.titleEnd': 'Set end time',
+    // MỚI (yêu cầu Giang, mục 5) — tool "Shift": chọn dòng rồi dịch giờ hàng loạt.
+    'subtitleEditor.btnShift.title': 'Shift',
+    'subtitleEditor.shift.selectedCount': '{n} selected',
+    'subtitleEditor.shift.continueBtn': 'Continue',
+    'subtitleEditor.shift.modalTitle': 'Shift time',
+    'subtitleEditor.shift.modalDesc': 'Shift the timing of {n} selected line(s).',
+    'subtitleEditor.shift.amountLabel': 'Shift amount (seconds, use − for earlier)',
+    'subtitleEditor.shift.targetLabel': 'Apply to',
+    'subtitleEditor.shift.targetBoth': 'Start & end',
+    'subtitleEditor.shift.targetStart': 'Start only',
+    'subtitleEditor.shift.targetEnd': 'End only',
+    'subtitleEditor.shift.applyBtn': 'Apply',
 };
