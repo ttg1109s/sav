@@ -36,6 +36,19 @@ const waveformRegionEndEl = document.getElementById('waveform-region-end');
 const btnWaveformDebug = document.getElementById('btn-waveform-debug');
 const waveformDebugPanelEl = document.getElementById('waveform-debug-panel');
 const waveformDebugLogEl = document.getElementById('waveform-debug-log');
+// MỚI (yêu cầu Giang, mục 2) — chốt start/end vùng chọn = vị trí phát hiện tại.
+const btnRegionSetStart = document.getElementById('btn-region-set-start');
+const btnRegionSetEnd = document.getElementById('btn-region-set-end');
+// MỚI (yêu cầu Giang, mục 3) — FIX nút cảnh báo bị bảng debug che khuất: đóng/copy-all giờ nằm HẲN
+// TRONG bảng (cùng z-index, luôn bấm được).
+const btnDebugCopyAll = document.getElementById('btn-debug-copy-all');
+const btnDebugClose = document.getElementById('btn-debug-close');
+// MỚI (yêu cầu Giang, mục 5) — tool "Shift".
+const btnShift = document.getElementById('btn-shift');
+const shiftSelectionBarEl = document.getElementById('shift-selection-bar');
+const shiftSelectionCountEl = document.getElementById('shift-selection-count');
+const btnShiftCancel = document.getElementById('btn-shift-cancel');
+const btnShiftContinue = document.getElementById('btn-shift-continue');
 
 // MỚI (11/07/2026, yêu cầu Giang) — thanh công cụ cuộn ngang (thay grid-cols-7 cố định cũ, xem
 // subtitle-editor.html) + 2 nút mũi tên cuộn qua lại, dùng chung scrollSliderTo()
@@ -112,6 +125,47 @@ if (btnWaveformPlayPause) {
 if (btnWaveformDebug) {
     btnWaveformDebug.addEventListener('click', () => {
         eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.toggleDebugPanel.click', payload: {} });
+    });
+}
+
+// MỚI (yêu cầu Giang, mục 3) — X + Copy all NGAY TRONG bảng debug (fix bug bị nút cảnh báo ngoài che khuất).
+if (btnDebugClose) {
+    btnDebugClose.addEventListener('click', () => {
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.toggleDebugPanel.click', payload: {} });
+    });
+}
+if (btnDebugCopyAll) {
+    btnDebugCopyAll.addEventListener('click', () => {
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.copyDebugLog.click', payload: {} });
+    });
+}
+
+// MỚI (yêu cầu Giang, mục 2) — chốt start/end vùng chọn = vị trí phát hiện tại.
+if (btnRegionSetStart) {
+    btnRegionSetStart.addEventListener('click', () => {
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.regionSetStart.click', payload: {} });
+    });
+}
+if (btnRegionSetEnd) {
+    btnRegionSetEnd.addEventListener('click', () => {
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.regionSetEnd.click', payload: {} });
+    });
+}
+
+// MỚI (yêu cầu Giang, mục 5) — tool "Shift".
+if (btnShift) {
+    btnShift.addEventListener('click', () => {
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.shift.click', payload: {} });
+    });
+}
+if (btnShiftCancel) {
+    btnShiftCancel.addEventListener('click', () => {
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.shift.click', payload: {} }); // toggle — đang bật -> tắt, đúng nghĩa "Huỷ"
+    });
+}
+if (btnShiftContinue) {
+    btnShiftContinue.addEventListener('click', () => {
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.shiftContinue.click', payload: {} });
     });
 }
 
