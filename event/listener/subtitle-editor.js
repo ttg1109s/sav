@@ -20,6 +20,7 @@ const btnAddSub = document.getElementById('btn-add-sub');
 const btnExportSrt = document.getElementById('btn-export-srt');
 const srtUpload = document.getElementById('srt-upload');
 const btnCreateLineFromSelection = document.getElementById('btn-create-line-from-selection');
+const btnSplit = document.getElementById('btn-split'); // MỚI (yêu cầu Giang)
 const btnPlaySelection = document.getElementById('btn-play-selection');
 const btnSaveSubtitles = document.getElementById('btn-save-subtitles');
 const btnBackToPlaylist = document.getElementById('btn-back-to-playlist');
@@ -57,6 +58,13 @@ if (btnAddSub) {
 if (btnCreateLineFromSelection) {
     btnCreateLineFromSelection.addEventListener('click', () => {
         eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.createLineFromSelection.click', payload: {} });
+    });
+}
+
+// MỚI (yêu cầu Giang) — "Split": chia vùng chọn hiện tại thành x dòng đều nhau.
+if (btnSplit) {
+    btnSplit.addEventListener('click', () => {
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.split.click', payload: {} });
     });
 }
 
