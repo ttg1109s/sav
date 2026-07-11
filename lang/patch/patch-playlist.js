@@ -22,7 +22,7 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.empty.noSearchResults': 'No matching songs found.',
     'playlistView.loading.generic': 'Loading data...',
     'playlistView.loading.withCount': 'Loading {done} / {total} songs...',
-    'playlistView.songEdit.title': 'Edit song info',
+    'playlistView.songEdit.title': 'Details',
     // SỬA (10/07/2026, gộp #song-info-modal cũ vào tab đầu): 'tabInfo' cũ ĐỔI TÊN 'tabFields'
     // (tab title/artist/album SỬA được) — 'tabDetails' MỚI là tab đầu/mặc định, đọc-thôi.
     'playlistView.songEdit.tabDetails': 'Details',
@@ -53,7 +53,7 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.uploadMenu.pickFiles': 'Choose music files',
     'playlistView.uploadMenu.pickFolder': 'Choose a folder',
     'playlistView.songMenu.title': 'Options',
-    'playlistView.songMenu.edit': 'Edit info',
+    'playlistView.songMenu.edit': 'Details',
     // MỚI (10/07/2026) — mở Subtitle Editor (trang riêng).
     'playlistView.songMenu.editSubtitles': 'Edit subtitles',
     'playlistView.songMenu.export': 'Export file',
