@@ -23,7 +23,10 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.loading.generic': 'Loading data...',
     'playlistView.loading.withCount': 'Loading {done} / {total} songs...',
     'playlistView.songEdit.title': 'Edit song info',
-    'playlistView.songEdit.tabInfo': 'Info',
+    // SỬA (10/07/2026, gộp #song-info-modal cũ vào tab đầu): 'tabInfo' cũ ĐỔI TÊN 'tabFields'
+    // (tab title/artist/album SỬA được) — 'tabDetails' MỚI là tab đầu/mặc định, đọc-thôi.
+    'playlistView.songEdit.tabDetails': 'Details',
+    'playlistView.songEdit.tabFields': 'Edit',
     'playlistView.songEdit.tabCover': 'Cover',
     'playlistView.songEdit.fieldTitle': 'Title',
     'playlistView.songEdit.fieldArtist': 'Artist',
@@ -36,7 +39,9 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.songEdit.coverHint': 'Accepts PNG, JPG or WEBP. The image is stored with the song in IndexedDB and written to the APIC tag on export.',
     'playlistView.songEdit.btnCancel': 'Cancel',
     'playlistView.songEdit.btnSave': 'Save',
-    'playlistView.songInfo.title': 'Song info',
+    // SỬA (10/07/2026): 'songInfo.title'/'btnExport'/'btnClose' ĐÃ XOÁ — #song-info-modal không
+    // còn là modal riêng (gộp vào tab "Details" ở trên, dùng chung nút Cancel/Save của
+    // song-edit-modal). Các field bên dưới VẪN DÙNG (songInfoRowHtml() trong tab Details).
     'playlistView.songInfo.fieldTitle': 'Title',
     'playlistView.songInfo.fieldArtist': 'Artist',
     'playlistView.songInfo.fieldAlbum': 'Album',
@@ -44,14 +49,13 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.songInfo.fieldPlayCount': 'Play count',
     'playlistView.songInfo.fieldPlayCountValue': '{n} times',
     'playlistView.songInfo.fieldListened': 'Listened',
-    'playlistView.songInfo.btnExport': 'Export file',
-    'playlistView.songInfo.btnClose': 'Close',
     'playlistView.songInfo.empty': '—',
     'playlistView.uploadMenu.pickFiles': 'Choose music files',
     'playlistView.uploadMenu.pickFolder': 'Choose a folder',
     'playlistView.songMenu.title': 'Options',
-    'playlistView.songMenu.info': 'Info',
     'playlistView.songMenu.edit': 'Edit info',
+    // MỚI (10/07/2026) — mở Subtitle Editor (trang riêng).
+    'playlistView.songMenu.editSubtitles': 'Edit subtitles',
     'playlistView.songMenu.export': 'Export file',
     'playlistView.songMenu.delete': 'Delete song',
     'playlistView.songMenu.addToFolder': 'Add to Folder',

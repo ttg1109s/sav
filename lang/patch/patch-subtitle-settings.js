@@ -11,20 +11,12 @@
  * Nạp TRƯỚC /lang/lang.js (xem index.html, khối nạp /lang/patch/*.js đứng trước /lang/lang.js).
  */
 const LANG_PATCH_SUBTITLE_SETTINGS = {
-    'subtitleModal.title': 'Manage Subtitles',
-    'subtitleModal.btnClose': 'Close',
-    'subtitleModal.btnUpload.title': 'Upload a (.srt) file',
-    'subtitleModal.btnAutoTiming.title': 'Auto Timing',
-    'subtitleModal.btnAddSub.title': 'Add subtitle line',
-    'subtitleModal.btnApplySub.title': 'Apply & replay',
-    'subtitleModal.listHeading': 'Lines:',
-    'subtitleModal.btnExportSrt': 'Export .SRT file',
-    'subtitleModal.listEmpty': 'No subtitles yet',
-    'subtitleModal.editor.placeholder': 'Enter subtitle text...',
-    'subtitleModal.editor.btnSave': 'Save',
-    'subtitleModal.editor.btnDelete': 'Delete',
-    'subtitleModal.newLine.defaultText': 'New subtitle line...',
-    'subtitleModal.autoTiming.defaultText': '(Enter text...)',
+    // SỬA (10/07/2026, Subtitle Editor chuyển sang trang riêng): TOÀN BỘ key soạn thảo cũ
+    // (title/btnClose/btnUpload/btnAutoTiming/btnAddSub/btnApplySub/listHeading/btnExportSrt/
+    // listEmpty/editor.*/newLine.defaultText/autoTiming.defaultText) ĐÃ XOÁ — tương ứng bên
+    // `subtitleEditor.*` (lang/patch/patch-subtitle-editor.js, dùng ở subtitle-editor.html). CHỈ
+    // còn 1 key cho nút "Sub" ở Control Center (trang chính, mở trang riêng cho bài đang phát).
+    'subtitleModal.noSongPlaying': 'Play a song first to edit its subtitles.',
 
     // Batch D2 (06/07/2026) — 'subtitleSettingsDrawer.backToSettings.title' XOÁ, dùng CHUNG
     // 'settingsDrawer.back.title' (Batch D1, lang/patch/patch-settings-misc.js) cho mọi panel.
