@@ -201,7 +201,12 @@
                 setupAudioContext(); updateTypeUI();
 
                 appState.set('subtitles', record.subtitles ? record.subtitles.slice() : []);
-                clearAllActiveSubBlocks(); resetAutoSub(); renderSubList();
+                // SỬA (10/07/2026, Subtitle Editor chuyển sang trang riêng): resetAutoSub()/
+                // renderSubList() ĐÃ XOÁ cùng modal cũ — không còn UI soạn phụ đề nào ở trang
+                // chính để "reset trạng thái ghi âm timing"/"vẽ lại danh sách" nữa.
+                // clearAllActiveSubBlocks() GIỮ NGUYÊN (core/subtitle/subtitle-display.js — hiển
+                // thị phụ đề lúc phát, KHÔNG liên quan gì tới việc soạn nội dung).
+                clearAllActiveSubBlocks();
             }, false).then(async () => {
                 // Shield đã đóng HẲN (isShieldBusy = false) tới đây — an toàn để hiện modal, không
                 // còn lớp che z-[200] nào đè lên modalChoice() (z-[130]) nữa.
