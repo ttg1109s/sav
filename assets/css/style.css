@@ -263,6 +263,13 @@ body {
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
 
+        /* MỚI (yêu cầu Giang, subtitle-editor.html — modal "bánh xe cuộn số" chọn giờ start/end,
+           xem event/workflow/subtitle-editor.js::openTimePickerModal()) — ẩn hẳn scrollbar 4px mặc
+           định ở trên CHO RIÊNG mấy cột này — thanh cuộn mảnh trông lạc quẻ với 1 "bánh xe" số kiểu
+           native, chỉ ẩn ở đây, KHÔNG đổi quy ước scrollbar chung toàn app. */
+        .time-picker-col { scrollbar-width: none; -ms-overflow-style: none; }
+        .time-picker-col::-webkit-scrollbar { display: none; }
+
         @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .playlist-item { animation: slideIn 0.3s ease-out forwards; }
         
