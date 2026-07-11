@@ -34,6 +34,6 @@ const workflowSubtitleModal = {
      * @param {string} songKey
      */
     navigateToEditor(songKey) {
-        window.location.href = `subtitle-editor.html?song=${encodeSongKeyForUrl(songKey)}`; // service/db.js
+        window.location.href = `subtitle-editor.html?song=${encodeSongKeyForUrl(songKey)}`; // service/song-key-cipher.js
     },
 };

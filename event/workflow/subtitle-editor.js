@@ -36,7 +36,7 @@ const workflowSubtitleEditor = {
     /** Chạy 1 LẦN lúc trang load xong (xem event/listener/subtitle-editor.js). */
     async init() {
         const encoded = new URLSearchParams(window.location.search).get('song');
-        const songKey = encoded ? decodeSongKeyFromUrl(encoded) : null; // service/db.js
+        const songKey = encoded ? decodeSongKeyFromUrl(encoded) : null; // service/song-key-cipher.js
         if (!songKey) { this._showFatalError(t('subtitleEditor.invalidLink')); return; }
 
         const record = await getSongRecord(songKey); // service/db.js
