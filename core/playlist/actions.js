@@ -357,6 +357,11 @@
                 btn.classList.toggle('shadow', active);
                 btn.classList.toggle('text-slate-400', !active);
             });
+            // MỚI (11/07/2026, yêu cầu Giang) — nút "Lưu" CHỈ có ý nghĩa ở 2 tab thật sự SỬA được
+            // (Sửa/fields + Ảnh bìa/cover) — tab "Chi tiết" (details) đọc-thôi, hiện nút Lưu ở đó
+            // gây hiểu lầm "bấm Lưu để lưu xem chi tiết" (vô nghĩa). Ẩn hẳn nút, KHÔNG chỉ disable
+            // (disable vẫn chiếm chỗ + có thể gây thắc mắc "sao không bấm được").
+            btnSongEditSave.classList.toggle('hidden', tab === 'details');
         }
 
         async function openSongEditModal(key) {
