@@ -241,10 +241,14 @@
         }
 
         /**
-         * Xử lý 1 lựa chọn trong menu 3 chấm (Xoá/Thông tin/Sửa/Khôi phục). Đọc key đang mở từ
+         * Xử lý 1 lựa chọn trong menu 3 chấm (Xoá/Sửa/Khôi phục). Đọc key đang mở từ
          * playlistStore (KHÔNG nhận key qua tham số — menu chỉ có thể mở cho ĐÚNG 1 bài tại 1
          * thời điểm, state context này đã được openSongActionMenu() ghi lúc mở).
-         * @param {string} action - 'delete' | 'info' | 'edit' | 'restore'
+         * SỬA (10/07/2026): nhánh 'info' ĐÃ XOÁ — openSongInfoModal() không còn tồn tại (gộp vào
+         * tab đầu của song-edit-modal, xem openSongEditModal()) — nút "info" cũng đã xoá khỏi
+         * template nên nhánh đó vốn không còn cách nào để kích hoạt, chỉ dọn cho khỏi gọi nhầm 1
+         * hàm không tồn tại nếu sau này có ai lỡ thêm lại nút cũ.
+         * @param {string} action - 'delete' | 'edit' | 'restore'
          * @returns {{status: string}} 'noop' nếu không có menu nào đang mở, 'ok' nếu đã xử lý
          */
         function handleSongActionMenuSelect(action) {
@@ -252,7 +256,6 @@
             if (!key) return { status: 'noop' };
             closeSongActionMenu();
             if (action === 'delete') window.removeSong(key);
-            else if (action === 'info') openSongInfoModal(key);
             else if (action === 'edit') openSongEditModal(key);
             else if (action === 'restore') exportSongWithTag(key);
             return { status: 'ok' };
@@ -332,16 +335,18 @@
             if (url) { URL.revokeObjectURL(url); playlistStore.set({ songEditPendingCoverPreviewUrl: null }); }
         }
 
+        /** MỚI (10/07/2026, gộp song-info-modal vào làm tab đầu — phản hồi Giang): tổng quát hoá
+         * từ 2 tab (boolean isCover) sang 3 tab bằng map, dễ mở rộng thêm tab sau này hơn hẳn
+         * boolean lồng nhau cũ. */
         function setSongEditTab(tab) {
-            const isCover = tab === 'cover';
-            songEditTabInfo.classList.toggle('hidden', isCover);
-            songEditTabCover.classList.toggle('hidden', !isCover);
-            songEditTabCover.classList.toggle('flex', isCover);
+            const panels = { details: songEditTabDetails, fields: songEditTabFields, cover: songEditTabCover };
+            Object.keys(panels).forEach(name => {
+                const isActive = name === tab;
+                panels[name].classList.toggle('hidden', !isActive);
+                panels[name].classList.toggle('flex', isActive && name === 'cover'); // CHỈ tab cover cần flex (ảnh + nút cạnh nhau), 2 tab còn lại flex-col mặc định trong class tĩnh
+            });
             songEditTabButtons.forEach(btn => {
                 const active = btn.dataset.editTab === tab;
-                // Pill style (ver 8 refine): tab active nổi lên nền sáng + chữ trắng + shadow nhẹ;
-                // tab inactive chỉ còn chữ mờ, không nền/viền riêng (rãnh nền tối bao quanh đã đủ
-                // tạo ngữ cảnh "đây là switcher", không cần viền màu trên từng nút như bản trước).
                 btn.classList.toggle('bg-white/10', active);
                 btn.classList.toggle('text-white', active);
                 btn.classList.toggle('shadow', active);
@@ -362,7 +367,20 @@
             // gán vào songEditPendingCoverPreviewUrl để được revoke đồng bộ lúc đóng modal/đổi ảnh.
             if (cached.cover) playlistStore.set({ songEditPendingCoverPreviewUrl: songEditCoverPreview.src });
 
-            setSongEditTab('info');
+            // MỚI (10/07/2026) — nội dung tab "Chi tiết" (gộp từ song-info-modal cũ, xem
+            // songInfoRowHtml() bên dưới) — giờ populate NGAY tại đây thay vì openSongInfoModal()
+            // riêng (đã xoá).
+            const stats = getSongStats(key); // { count, totalTime }
+            const emptyVal = t('playlistView.songInfo.empty');
+            songEditTabDetails.innerHTML =
+                songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0', 'bg-sky-500/15 text-sky-400', t('playlistView.songInfo.fieldTitle'), cached.tag.title || emptyVal) +
+                songInfoRowHtml('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', 'bg-violet-500/15 text-violet-400', t('playlistView.songInfo.fieldArtist'), cached.tag.artist || emptyVal) +
+                songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0', 'bg-emerald-500/15 text-emerald-400', t('playlistView.songInfo.fieldAlbum'), cached.tag.album || emptyVal) +
+                songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-amber-500/15 text-amber-400', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration)) +
+                songInfoRowHtml('M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', 'bg-rose-500/15 text-rose-400', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count })) +
+                songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-indigo-500/15 text-indigo-400', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime));
+
+            setSongEditTab('details'); // MẶC ĐỊNH mở tab "Chi tiết" trước (đúng yêu cầu Giang — Info là tab đầu)
             songEditModal.classList.remove('hidden');
         }
 
@@ -484,15 +502,17 @@
             renderPlaylistDiff();
         }
 
-        // ===================== Modal: Thông tin chi tiết bài hát =====================
-        // songInfoModal/songInfoBody: dùng lại biến từ core/dom-refs.js.
-        // songInfoCurrentKey: state context "modal đang hiện thông tin bài nào" — sống trong
-        // playlistStore.
+        // ===================== Chi tiết bài hát (gộp vào tab đầu của song-edit-modal, 10/07/2026) =====================
+        // SỬA (phản hồi Giang): #song-info-modal cũ ĐÃ XOÁ — nội dung giờ populate thẳng vào
+        // `songEditTabDetails` bên trong openSongEditModal() (xem phía trên). `songInfoRowHtml()`
+        // GIỮ NGUYÊN (vẫn được dùng, chỉ đổi NƠI GỌI). `openSongInfoModal()`/`closeSongInfoModal()`/
+        // `exportCurrentSongInfo()` ĐÃ XOÁ — không còn modal riêng nên không còn "đóng"/"xuất file
+        // riêng từ modal thông tin" (xuất file vẫn làm được qua "Khôi phục" trong menu 3 chấm,
+        // exportSongWithTag() — không mất tính năng, chỉ gộp điểm vào).
 
         /**
-         * Dựng 1 dòng thông tin dạng "card" nhỏ (icon tròn màu + label + giá trị) — thay cho
-         * <div class="flex justify-between"> trần trước đây, để 6 dòng dữ liệu dễ quét mắt hơn,
-         * đồng bộ phong cách icon-tròn-màu đã dùng ở header 2 modal (Sửa thông tin/Thông tin).
+         * Dựng 1 dòng thông tin dạng "card" nhỏ (icon tròn màu + label + giá trị) — dùng trong tab
+         * "Chi tiết" (đầu) của song-edit-modal.
          */
         function songInfoRowHtml(iconPath, accentClass, label, value) {
             return `
@@ -504,37 +524,3 @@
                     <span class="text-sm text-white text-right flex-1 break-all">${value}</span>
                 </div>`;
         }
-
-        function openSongInfoModal(key) {
-            const cached = appState.get('playlistCache').get(key); if (!cached) return;
-            playlistStore.set({ songInfoCurrentKey: key });
-            const stats = getSongStats(key); // { count, totalTime }
-            const emptyVal = t('playlistView.songInfo.empty');
-            songInfoBody.innerHTML =
-                songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0', 'bg-sky-500/15 text-sky-400', t('playlistView.songInfo.fieldTitle'), cached.tag.title || emptyVal) +
-                songInfoRowHtml('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', 'bg-violet-500/15 text-violet-400', t('playlistView.songInfo.fieldArtist'), cached.tag.artist || emptyVal) +
-                songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0', 'bg-emerald-500/15 text-emerald-400', t('playlistView.songInfo.fieldAlbum'), cached.tag.album || emptyVal) +
-                songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-amber-500/15 text-amber-400', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration)) +
-                songInfoRowHtml('M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', 'bg-rose-500/15 text-rose-400', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count })) +
-                songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-indigo-500/15 text-indigo-400', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime));
-            songInfoModal.classList.remove('hidden');
-        }
-
-        /** Ứng với nút đóng modal thông tin — thuần UI, không cần shield/modal. */
-        function closeSongInfoModal() {
-            songInfoModal.classList.add('hidden');
-            playlistStore.set({ songInfoCurrentKey: null });
-        }
-
-        /**
-         * Ứng với nút "Xuất tệp" trong modal thông tin — đọc key đang hiện từ playlistStore, gọi
-         * exportSongWithTag() (đã là hàm core thuần có sẵn ở id3-export.js), rồi đóng modal.
-         * @returns {{status: string}}
-         */
-        function exportCurrentSongInfo() {
-            const key = playlistStore.get('songInfoCurrentKey');
-            if (key) exportSongWithTag(key);
-            closeSongInfoModal();
-            return { status: key ? 'ok' : 'noop' };
-        }
-
