@@ -1,15 +1,16 @@
 /**
  * event/router/subtitle-modal.js — Router tên "subtitleModal", tự đăng ký với eventBus.
  *
- * VIẾT LẠI (10/07/2026) — CHỈ còn 1 msg.type (nút "Sub" ở Control Center mở Subtitle Editor cho
- * bài đang phát) — mọi msg.type khác (editSub/saveSub/deleteSub/autoTiming/addLine/exportSrt/
- * importSrt/apply) ĐÃ CHUYỂN sang router "subtitleEditor" (trang riêng).
+ * SỬA (10/07/2026) — nút "Sub" ở Control Center giờ CHỈ toggle `isSubtitlesEnabled` (gọi thẳng
+ * `setSubtitlesEnabled()`, core/subtitle/subtitle-style-settings.js — ĐÃ CÓ SẴN, dùng chung với
+ * checkbox trong Settings) — KHÔNG còn điều hướng sang Subtitle Editor nữa (lối vào editor DUY
+ * NHẤT giờ là menu 3 chấm mỗi bài hát trong Playlist, xem event/workflow/playlist.js).
  */
 const routerSubtitleModal = (() => {
     function handle(msg) {
         switch (msg.type) {
-            case 'subtitleModal.openEditor.click': {
-                workflowSubtitleModal.openEditor(); // >1 bước (đọc currentKey, mã hoá, điều hướng/cảnh báo) -> workflow
+            case 'subtitleModal.toggleEnabled.click': {
+                setSubtitlesEnabled(!appState.get('isSubtitlesEnabled')); // core/subtitle/subtitle-style-settings.js
                 break;
             }
 
