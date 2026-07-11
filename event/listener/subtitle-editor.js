@@ -12,6 +12,7 @@ const editorTitleEl = document.getElementById('subtitle-editor-title');
 const linesContainerEl = document.getElementById('sub-list-container');
 const subEmptyStateEl = document.getElementById('sub-empty-state');
 const waveformContainerEl = document.getElementById('waveform-container');
+const waveformErrorEl = document.getElementById('waveform-error');
 const btnAutoTiming = document.getElementById('btn-auto-timing');
 const iconAutoTimingIdle = document.getElementById('icon-auto-timing-idle');
 const iconAutoTimingRecording = document.getElementById('icon-auto-timing-recording');
