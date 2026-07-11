@@ -33,8 +33,12 @@
 </head>
 <body class="bg-[#0b0f1a] text-white min-h-screen flex flex-col overflow-hidden">
 
-    <!-- Header — trượt cố định trên cùng, glassmorphism GIỐNG Settings (yêu cầu Giang). -->
-    <div class="glass-modal flex items-center gap-3 px-4 py-3 shrink-0 z-10">
+    <!-- Header — SỬA (10/07/2026, phản hồi Giang): `.glass-modal` (border 4 CẠNH + bo góc — xem
+         MỌI nơi khác dùng class này trong app, luôn là card NỔI rounded-2xl, KHÔNG BAO GIỜ dùng
+         cho thanh full-width) từng bị áp NHẦM vào đây, tạo cảm giác "khung viền đóng hộp" sai chỗ.
+         Thanh ngang full-width chỉ cần nền mờ + 1 viền cạnh DƯỚI (phân tách với nội dung), KHÔNG bo
+         góc, KHÔNG viền 4 cạnh. -->
+    <div class="flex items-center gap-3 px-4 py-3 shrink-0 bg-[#0f172a]/70 backdrop-blur-xl border-b border-white/10">
         <button id="btn-back-to-playlist" class="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors shrink-0" title="">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
         </button>
@@ -58,9 +62,10 @@
         </div>
     </div>
 
-    <!-- BOTTOM — dải công cụ, glassmorphism GIỐNG Settings. 4 tool CŨ (giữ nguyên hành vi) + 2 tool
-         MỚI (Lấy giờ vùng chọn / Phát vùng, yêu cầu Giang). -->
-    <div class="glass-modal shrink-0 px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+    <!-- BOTTOM — dải công cụ, CÙNG SỬA như header (nền mờ + viền cạnh TRÊN, KHÔNG dùng
+         `.glass-modal` — xem lý do đầy đủ ở comment header phía trên). 4 tool CŨ (giữ nguyên hành
+         vi) + 2 tool MỚI (Lấy giờ vùng chọn / Phát vùng, yêu cầu Giang). -->
+    <div class="shrink-0 px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-[#0f172a]/70 backdrop-blur-xl border-t border-white/10">
         <div class="grid grid-cols-6 gap-2">
             <label class="flex flex-col items-center gap-1 cursor-pointer group">
                 <div class="w-full aspect-square bg-blue-600 group-hover:bg-blue-500 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
@@ -98,7 +103,7 @@
             </button>
             <button id="btn-export-srt" class="flex flex-col items-center gap-1">
                 <div class="w-full aspect-square bg-white/10 hover:bg-white/15 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l-4 4m4-4v12"></path></svg>
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 </div>
                 <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-export-srt-label"></span>
             </button>
