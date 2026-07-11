@@ -58,7 +58,7 @@
         // đủ ở đó, không lặp lại.
         tailwind.config = { future: { hoverOnlyWhenSupported: true } };
     </script>
-    <link rel="stylesheet" href="assets/css/style.css?v=20260710v2">
+    <link rel="stylesheet" href="assets/css/style.css?v=20260711v3">
     <!-- WaveSurfer.js v7 (UMD, global `WaveSurfer`) + Regions plugin (global `WaveSurfer.Regions`) —
          xem plan-subtitle-editor-page.md mục 1.3 (đã xác nhận API qua tài liệu chính thức trước
          khi dùng). -->
@@ -106,16 +106,27 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
             </button>
 
-            <!-- Bảng debug log — ẩn mặc định, che cả khung khi mở (đủ chỗ đọc nhiều dòng). Bấm lại
-                 CHÍNH nút cảnh báo ở trên để đóng (xem workflowSubtitleEditor.toggleDebugPanel()). -->
-            <div id="waveform-debug-panel" class="hidden absolute inset-0 z-40 bg-black/95 text-[10px] font-mono overflow-y-auto p-2 pt-9">
+            <!-- FIX (yêu cầu Giang, mục 3) — bảng debug log CŨ (z-40) đè LÊN TRÊN nút cảnh báo
+                 (z-30) lúc mở — nút vẫn "ở đó" về mặt DOM nhưng bị bảng che khuất hoàn toàn, không
+                 cách nào bấm lại để đóng. Giờ có HẲN 1 nút đóng (X) + nút "Copy all" RIÊNG NGAY
+                 TRONG bảng (cùng z-40, luôn ở trên cùng, không lệ thuộc nút cảnh báo bên ngoài nữa). -->
+            <div id="waveform-debug-panel" class="hidden absolute inset-0 z-40 bg-black/95 text-[10px] font-mono overflow-y-auto p-2">
+                <div class="flex items-center justify-end gap-2 sticky top-0 bg-black/95 pb-1.5 mb-1.5 border-b border-white/10">
+                    <button id="btn-debug-copy-all" type="button" class="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white text-[9px] font-semibold transition-colors"></button>
+                    <button id="btn-debug-close" type="button" class="w-5 h-5 shrink-0 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors" title="">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
                 <div id="waveform-debug-log" class="space-y-0.5"></div>
             </div>
 
             <!-- MỚI (11/07/2026, yêu cầu Giang, mục 2) — Play/Pause + giờ start/end của vùng chọn
                  (this._region) — CHỈ hiện khi waveform nạp thành công (xem sự kiện 'ready' trong
                  _initWaveform()). Giờ hiển thị cùng định dạng "HH:MM:SS,mmm" như mọi ô giờ dòng
-                 phụ đề khác (secToStr(), core/subtitle/subtitles.js) cho nhất quán toàn trang. -->
+                 phụ đề khác (secToStr(), core/subtitle/subtitles.js) cho nhất quán toàn trang.
+                 MỚI (yêu cầu Giang, mục 2 — đợt 2) — 2 nút nhỏ canh PHẢI: chốt start/end của vùng
+                 chọn = ĐÚNG vị trí phát hiện tại (getCurrentTime()) — cách "chốt mốc" thay thế kéo
+                 tay cầm, tua/nghe tới đúng chỗ rồi bấm là xong. -->
             <div id="waveform-controls" class="hidden absolute bottom-0 inset-x-0 z-20 flex items-center gap-2 px-2 py-1 bg-black/50">
                 <button id="btn-waveform-playpause" type="button" class="w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-sky-500 hover:bg-sky-400 transition-colors">
                     <svg id="icon-waveform-play" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
@@ -124,6 +135,14 @@
                 <span class="text-[10px] font-mono text-slate-300 truncate">
                     <span id="waveform-region-start">00:00:00,000</span> — <span id="waveform-region-end">00:00:00,000</span>
                 </span>
+                <div class="flex items-center gap-1 ml-auto shrink-0">
+                    <button id="btn-region-set-start" type="button" class="w-6 h-6 flex items-center justify-center rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 transition-colors" title="">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v9m0 0l-3-3m3 3l3-3M4 20h16" /></svg>
+                    </button>
+                    <button id="btn-region-set-end" type="button" class="w-6 h-6 flex items-center justify-center rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 transition-colors" title="">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v9m0 0l-3-3m3 3l3-3M4 20h16" /></svg>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -133,6 +152,16 @@
         <div class="flex flex-col items-center justify-center h-full text-slate-500 gap-3 opacity-60 py-16" id="sub-empty-state">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             <span class="font-medium text-sm px-8 text-center" id="sub-empty-state-label"></span>
+        </div>
+    </div>
+
+    <!-- MỚI (yêu cầu Giang, mục 5) — thanh hiện khi đang ở "chế độ chọn dòng để Shift giờ hàng
+         loạt" (workflowSubtitleEditor.toggleShiftSelectionMode()) — ẩn mặc định. -->
+    <div id="shift-selection-bar" class="hidden shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 bg-cyan-950/60 border-t border-cyan-500/30">
+        <span id="shift-selection-count" class="text-xs font-semibold text-cyan-200"></span>
+        <div class="flex gap-2">
+            <button id="btn-shift-cancel" type="button" class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold transition-colors"></button>
+            <button id="btn-shift-continue" type="button" class="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-xs font-bold transition-colors disabled:opacity-40"></button>
         </div>
     </div>
 
@@ -182,6 +211,12 @@
                     <svg class="w-6 h-6 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7.848 8.25l1.536.887M7.848 8.25a3 3 0 11-5.196-3 3 3 0 015.196 3zm1.536.887a2.165 2.165 0 011.083 1.839c.005.351.054.695.14 1.024m-1.223-2.863l7.104 4.101M7.848 15.75l1.536-.887m-1.536.887a3 3 0 11-5.196 3 3 3 0 015.196-3zm1.536-.887a2.165 2.165 0 001.083-1.838c.005-.352.054-.695.14-1.025m-1.223 2.863l7.104-4.101m0-4.899L19.5 3.75M12.75 12l6.75 6.75" /></svg>
                     <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-split-label"></span>
                 </button>
+                <!-- MỚI (yêu cầu Giang, mục 5) — "Shift": bật chế độ chọn dòng để dịch giờ hàng
+                     loạt (xem workflowSubtitleEditor.toggleShiftSelectionMode()). -->
+                <button id="btn-shift" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
+                    <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4"></path></svg>
+                    <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-shift-label"></span>
+                </button>
                 <!-- MỚI (yêu cầu Giang) — phát ĐÚNG vùng chọn (WaveSurfer Region tự lo, không cần tự viết timer). -->
                 <button id="btn-play-selection" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
                     <svg class="w-6 h-6 text-emerald-400" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
@@ -208,7 +243,7 @@
     <script src="lang/patch/patch-subtitle-settings.js?v=20260709v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260706v2"></script>
     <script src="lang/patch/patch-file-manager.js?v=20260710v1"></script>
-    <script src="lang/patch/patch-subtitle-editor.js?v=20260711v4"></script>
+    <script src="lang/patch/patch-subtitle-editor.js?v=20260711v5"></script>
     <!-- lang.js hardcode Object.assign() cả 7 biến LANG_PATCH_* trên — THIẾU BẤT KỲ FILE NÀO Ở
          TRÊN đều làm lang.js ReferenceError ngay khi parse (chạy TRÊN CẢ index.html LẪN trang này,
          xem lang/lang.js) — KHÔNG được bớt file nào dù trang này chỉ thật sự DÙNG patch-common/
@@ -219,17 +254,17 @@
     <script src="service/db.js?v=20260711v1"></script>
     <!-- MỚI (10/07/2026) — TÁCH RIÊNG khỏi service/db.js, dùng ở CẢ 2 trang. -->
     <script src="service/song-key-cipher.js?v=20260710v1"></script>
-    <script src="core/subtitle/subtitles.js?v=20260710v1"></script>
-    <script src="core/subtitle/subtitles-ui.js?v=20260711v2"></script>
+    <script src="core/subtitle/subtitles.js?v=20260711v1"></script>
+    <script src="core/subtitle/subtitles-ui.js?v=20260711v3"></script>
     <!-- MỚI (11/07/2026, yêu cầu Giang) — tái dùng ĐÚNG hàm cuộn ngang chung của app (đã tách ra
          cho #side-left-container/#settings-stack-body, xem sav12-handoff-plan.md Phần 1 mục 1) cho
          thanh công cụ cuộn ngang MỚI ở dưới (#toolbar-scroll-container) — không viết lại 1 bản
          `scrollTo()` riêng thứ 3. File này THUẦN, không phụ thuộc gì, an toàn nạp ở trang độc lập. -->
     <script src="core/slider-panel-scroll.js?v=20260711v1"></script>
-    <script src="event/workflow/subtitle-editor.js?v=20260711v3"></script>
-    <script src="event/router/subtitle-editor.js?v=20260711v3"></script>
+    <script src="event/workflow/subtitle-editor.js?v=20260711v4"></script>
+    <script src="event/router/subtitle-editor.js?v=20260711v4"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowSubtitleEditor.init() ngay khi chạy. -->
-    <script src="event/listener/subtitle-editor.js?v=20260711v4"></script>
+    <script src="event/listener/subtitle-editor.js?v=20260711v5"></script>
     <script>
         // i18n text tĩnh KHÔNG qua template literal ${t(...)} lúc parse (component của trang này
         // không phải TPL_* string — HTML viết tay ở trên) — gán SAU khi lang.js đã nạp xong.
@@ -247,6 +282,13 @@
         document.getElementById('btn-waveform-debug').title = t('subtitleEditor.btnDebugLog.title');
         document.getElementById('btn-toolbar-scroll-left').title = t('subtitleEditor.btnToolbarScrollLeft.title');
         document.getElementById('btn-toolbar-scroll-right').title = t('subtitleEditor.btnToolbarScrollRight.title');
+        document.getElementById('btn-region-set-start').title = t('subtitleEditor.btnRegionSetStart.title');
+        document.getElementById('btn-region-set-end').title = t('subtitleEditor.btnRegionSetEnd.title');
+        document.getElementById('btn-debug-copy-all').textContent = t('subtitleEditor.debugCopyAll');
+        document.getElementById('btn-debug-close').title = t('subtitleEditor.debugClose.title');
+        document.getElementById('btn-shift-label').textContent = t('subtitleEditor.btnShift.title');
+        document.getElementById('btn-shift-cancel').textContent = t('common.cancel');
+        document.getElementById('btn-shift-continue').textContent = t('subtitleEditor.shift.continueBtn');
     </script>
 </body>
 </html>
