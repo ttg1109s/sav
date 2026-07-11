@@ -229,6 +229,20 @@ const workflowPlaylist = {
      * Rule 1 nếu đặt trong core, và không cần thiết ở tầng workflow (workflow không bị Rule 1 ràng
      * buộc, nhưng tách riêng vẫn rõ ràng hơn khi đọc).
      */
+    /**
+     * MỚI (10/07/2026) — "Sửa phụ đề" trong menu 3 chấm: đọc key bài đang mở menu, đóng menu, rồi
+     * TÁI DÙNG `workflowSubtitleModal.navigateToEditor()` (miền KHÁC — "subtitleModal" — nhưng
+     * CÙNG logic điều hướng với nút Sub ở Control Center, xem giải thích đầy đủ ở đó VÀ
+     * readme/event-bus-flow.md) — Workflow gọi Workflow khác MIỀN tự do, không bị Rule 3 (rule đó
+     * CHỈ áp cho Core).
+     */
+    openSubtitleEditorForSongMenu() {
+        const key = playlistStore.get('songActionMenuKey');
+        if (!key) return;
+        closeSongActionMenu();
+        workflowSubtitleModal.navigateToEditor(key);
+    },
+
     async openAddToFolderPickerForSongMenu() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return;
