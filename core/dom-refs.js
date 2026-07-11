@@ -360,14 +360,16 @@
         const songEditCoverPickLibraryBtn = document.getElementById('song-edit-cover-pick-library');
         const songEditCoverRemoveBtn = document.getElementById('song-edit-cover-remove');
         const songEditTabButtons = document.querySelectorAll('.song-edit-tab-btn');
-        const songEditTabInfo = document.getElementById('song-edit-tab-info');
+        // SỬA (10/07/2026, gộp song-info-modal vào làm tab đầu — phản hồi Giang): `songEditTabInfo`
+        // (tab title/artist/album SỬA được) ĐỔI TÊN `songEditTabFields` — tên "info" giờ dành cho
+        // tab MỚI (`songEditTabDetails`, đọc-thôi, gộp từ #song-info-modal cũ, ĐẶT ĐẦU/mặc định).
+        // `songInfoModal`/`songInfoBody`/`btnSongInfoClose`/`btnSongInfoExport` ĐÃ XOÁ — không còn
+        // modal riêng, nội dung populate thẳng vào `songEditTabDetails` trong openSongEditModal().
+        const songEditTabDetails = document.getElementById('song-edit-tab-details');
+        const songEditTabFields = document.getElementById('song-edit-tab-fields');
         const songEditTabCover = document.getElementById('song-edit-tab-cover');
         const btnSongEditCancel = document.getElementById('song-edit-cancel');
         const btnSongEditSave = document.getElementById('song-edit-save');
-        const songInfoModal = document.getElementById('song-info-modal');
-        const songInfoBody = document.getElementById('song-info-body');
-        const btnSongInfoClose = document.getElementById('song-info-close');
-        const btnSongInfoExport = document.getElementById('song-info-export');
 
         // ===================== Playlist main (sắp xếp, kiểu xem, ô tìm kiếm) =====================
         // FIX (kiến trúc /event/): toàn bộ getElementById của cụm này TRƯỚC ĐÂY nằm rải rác ngay
