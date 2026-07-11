@@ -44,6 +44,17 @@ const routerSubtitleEditor = (() => {
                 break;
             }
 
+            // MỚI (11/07/2026, yêu cầu Giang, mục 2).
+            case 'subtitleEditor.waveformPlayPause.click': {
+                workflowSubtitleEditor.togglePlayPause();
+                break;
+            }
+
+            case 'subtitleEditor.toggleDebugPanel.click': {
+                workflowSubtitleEditor.toggleDebugPanel();
+                break;
+            }
+
             case 'subtitleEditor.back.click': {
                 workflowSubtitleEditor.back(); // CHỈ history.back() -> gọi thẳng cũng được, nhưng
                 // gọi qua workflow cho ĐỒNG NHẤT với mọi hành động khác của trang này.
