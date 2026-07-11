@@ -141,70 +141,60 @@
          màn hình hẹp (bằng chứng: label 2 dòng bị cắt/đè, xem ảnh chụp Giang gửi). Đổi hẳn sang
          DẢI CUỘN NGANG — mỗi tool giữ kích thước cố định (không co nữa), kèm 2 nút mũi tên trái/
          phải để cuộn qua các tool bị tràn ra ngoài khung nhìn, dùng ĐÚNG hàm cuộn chung
-         `scrollSliderTo()` (core/slider-panel-scroll.js) — không viết `scrollTo()` riêng thứ 3
-         trong app. 2 nút mũi tên CAO BẰNG NGUYÊN HÀNG tool (align-stretch, không phải icon lửng ở
-         giữa) và KHÔNG có nền riêng (bỏ hẳn ô vuông/bo góc như các nút tool) — chỉ đổi màu icon
-         (slate-500 mờ khi đã hết cuộn theo hướng đó, trắng/sáng khi vẫn còn cuộn được) để tương
-         phản với nền `#0f172a` chung của cả thanh, xem event/listener/subtitle-editor.js. -->
+         scrollSliderTo() (core/slider-panel-scroll.js) — không viết scrollTo() riêng thứ 3 trong
+         app. 2 nút mũi tên CAO BẰNG NGUYÊN HÀNG tool (items-stretch, không phải icon lửng ở giữa).
+         SỬA (11/07/2026, đính chính — "bỏ nền, dùng màu tương phản" áp cho NÚT TOOL, KHÔNG PHẢI nút
+         mũi tên): 7 nút tool giờ bỏ hẳn ô vuông màu bo góc cũ, chỉ còn icon với màu riêng từng tool
+         (giữ đúng bảng màu cũ để dễ phân biệt) làm nền tương phản trực tiếp trên nền tối chung của
+         thanh. Nút mũi tên NGƯỢC LẠI — có nền riêng (nhạt, phủ trọn chiều cao, bo góc phía ngoài) để
+         rõ ràng là 1 nút bấm được, không lẫn với nội dung cuộn bên trong. -->
     <div class="shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-[#0f172a]/70 backdrop-blur-xl border-t border-white/10 flex items-stretch">
-        <button id="btn-toolbar-scroll-left" type="button" class="shrink-0 w-6 flex items-center justify-center text-slate-500 hover:text-white transition-colors" title="">
+        <button id="btn-toolbar-scroll-left" type="button" class="shrink-0 w-8 rounded-r-2xl flex items-center justify-center bg-white/5 hover:bg-white/10 text-white transition-colors" title="">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" /></svg>
         </button>
 
-        <div id="toolbar-scroll-container" class="flex-1 min-w-0 overflow-x-auto py-3">
-            <div class="flex gap-2 w-max px-1">
-                <label class="w-[70px] shrink-0 flex flex-col items-center gap-1 cursor-pointer group">
-                    <div class="w-full aspect-square bg-blue-600 group-hover:bg-blue-500 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
-                        <input type="file" id="srt-upload" accept=".srt" class="hidden">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                    </div>
+        <div id="toolbar-scroll-container" class="flex-1 min-w-0 overflow-x-auto py-2.5">
+            <div class="flex gap-1 w-max px-1">
+                <label class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 cursor-pointer active:opacity-50 transition-opacity">
+                    <input type="file" id="srt-upload" accept=".srt" class="hidden">
+                    <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                     <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-upload-label"></span>
                 </label>
-                <button id="btn-auto-timing" class="w-[70px] shrink-0 flex flex-col items-center gap-1">
-                    <div class="w-full aspect-square bg-rose-600 hover:bg-rose-500 rounded-2xl shadow-lg flex items-center justify-center transition-colors relative">
-                        <svg id="icon-auto-timing-idle" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <svg id="icon-auto-timing-recording" class="w-5 h-5 text-white hidden" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" class="animate-pulse"></circle></svg>
-                    </div>
+                <button id="btn-auto-timing" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
+                    <span class="relative w-6 h-6">
+                        <svg id="icon-auto-timing-idle" class="w-6 h-6 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <svg id="icon-auto-timing-recording" class="w-6 h-6 text-red-500 hidden" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" class="animate-pulse"></circle></svg>
+                    </span>
                     <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-auto-timing-label"></span>
                 </button>
-                <button id="btn-add-sub" class="w-[70px] shrink-0 flex flex-col items-center gap-1">
-                    <div class="w-full aspect-square bg-indigo-500 hover:bg-indigo-400 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                    </div>
+                <button id="btn-add-sub" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
+                    <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                     <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-add-sub-label"></span>
                 </button>
                 <!-- MỚI (yêu cầu Giang) — tạo dòng từ vùng chọn waveform hiện tại. -->
-                <button id="btn-create-line-from-selection" class="w-[70px] shrink-0 flex flex-col items-center gap-1">
-                    <div class="w-full aspect-square bg-amber-500 hover:bg-amber-400 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                    </div>
+                <button id="btn-create-line-from-selection" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
+                    <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                     <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-create-from-selection-label"></span>
                 </button>
                 <!-- MỚI (yêu cầu Giang) — "Split": chia vùng chọn hiện tại (this._region) thành x dòng
                      đều nhau, mở modal hỏi số dòng (xem workflowSubtitleEditor.openSplitModal()). -->
-                <button id="btn-split" class="w-[70px] shrink-0 flex flex-col items-center gap-1">
-                    <div class="w-full aspect-square bg-violet-500 hover:bg-violet-400 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7.848 8.25l1.536.887M7.848 8.25a3 3 0 11-5.196-3 3 3 0 015.196 3zm1.536.887a2.165 2.165 0 011.083 1.839c.005.351.054.695.14 1.024m-1.223-2.863l7.104 4.101M7.848 15.75l1.536-.887m-1.536.887a3 3 0 11-5.196 3 3 3 0 015.196-3zm1.536-.887a2.165 2.165 0 001.083-1.838c.005-.352.054-.695.14-1.025m-1.223 2.863l7.104-4.101m0-4.899L19.5 3.75M12.75 12l6.75 6.75" /></svg>
-                    </div>
+                <button id="btn-split" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
+                    <svg class="w-6 h-6 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7.848 8.25l1.536.887M7.848 8.25a3 3 0 11-5.196-3 3 3 0 015.196 3zm1.536.887a2.165 2.165 0 011.083 1.839c.005.351.054.695.14 1.024m-1.223-2.863l7.104 4.101M7.848 15.75l1.536-.887m-1.536.887a3 3 0 11-5.196 3 3 3 0 015.196-3zm1.536-.887a2.165 2.165 0 001.083-1.838c.005-.352.054-.695.14-1.025m-1.223 2.863l7.104-4.101m0-4.899L19.5 3.75M12.75 12l6.75 6.75" /></svg>
                     <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-split-label"></span>
                 </button>
                 <!-- MỚI (yêu cầu Giang) — phát ĐÚNG vùng chọn (WaveSurfer Region tự lo, không cần tự viết timer). -->
-                <button id="btn-play-selection" class="w-[70px] shrink-0 flex flex-col items-center gap-1">
-                    <div class="w-full aspect-square bg-emerald-500 hover:bg-emerald-400 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
-                        <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
-                    </div>
+                <button id="btn-play-selection" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
+                    <svg class="w-6 h-6 text-emerald-400" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
                     <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-play-selection-label"></span>
                 </button>
-                <button id="btn-export-srt" class="w-[70px] shrink-0 flex flex-col items-center gap-1">
-                    <div class="w-full aspect-square bg-white/10 hover:bg-white/15 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                    </div>
+                <button id="btn-export-srt" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
+                    <svg class="w-6 h-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                     <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-export-srt-label"></span>
                 </button>
             </div>
         </div>
 
-        <button id="btn-toolbar-scroll-right" type="button" class="shrink-0 w-6 flex items-center justify-center text-slate-500 hover:text-white transition-colors" title="">
+        <button id="btn-toolbar-scroll-right" type="button" class="shrink-0 w-8 rounded-l-2xl flex items-center justify-center bg-white/5 hover:bg-white/10 text-white transition-colors" title="">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" /></svg>
         </button>
     </div>
