@@ -252,7 +252,7 @@
         /**
          * FIX (lỗi decode khi nghe lại 1 bài NGAY SAU KHI sửa info/lưu phụ đề, không cần reload mới
          * hết — phát hiện tại applySongEditAndSave() ở playlist/actions.js, cùng gốc với
-         * applySubtitlesAndClose() ở subtitle/subtitles.js):
+         * saveToDatabase() ở event/workflow/subtitle-editor.js, trang riêng):
          *
          * Cả 2 chỗ trên đều theo đúng pattern "đọc nguyên record (gồm cả `blob` audio) qua
          * getSongRecord() -> chỉ sửa field KHÁC (tag/subtitles) -> setSongRecord() ghi LẠI NGUYÊN
