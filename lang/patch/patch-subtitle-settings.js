@@ -14,9 +14,9 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // SỬA (10/07/2026, Subtitle Editor chuyển sang trang riêng): TOÀN BỘ key soạn thảo cũ
     // (title/btnClose/btnUpload/btnAutoTiming/btnAddSub/btnApplySub/listHeading/btnExportSrt/
     // listEmpty/editor.*/newLine.defaultText/autoTiming.defaultText) ĐÃ XOÁ — tương ứng bên
-    // `subtitleEditor.*` (lang/patch/patch-subtitle-editor.js, dùng ở subtitle-editor.html). CHỈ
-    // còn 1 key cho nút "Sub" ở Control Center (trang chính, mở trang riêng cho bài đang phát).
-    'subtitleModal.noSongPlaying': 'Play a song first to edit its subtitles.',
+    // `subtitleEditor.*` (lang/patch/patch-subtitle-editor.js, dùng ở subtitle-editor.html).
+    // `subtitleModal.noSongPlaying` CŨNG ĐÃ XOÁ (10/07/2026, lần 2) — nút "Sub" giờ CHỈ toggle
+    // bật/tắt (không cần bài đang phát), không còn cảnh báo "chưa phát bài nào" nữa.
 
     // Batch D2 (06/07/2026) — 'subtitleSettingsDrawer.backToSettings.title' XOÁ, dùng CHUNG
     // 'settingsDrawer.back.title' (Batch D1, lang/patch/patch-settings-misc.js) cho mọi panel.
