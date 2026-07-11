@@ -141,23 +141,17 @@ khác), Workflow-gọi-Workflow là tự do, không bị Rule 3 (rule đó CHỈ
 "riêng của workflowA" thành "dùng chung" khi phát hiện ≥2 nơi cần y hệt — KHÔNG cần đoán trước, viết
 trùng lặp trước rồi gộp lại lúc phát hiện trùng vẫn ổn hơn tách sai chỗ từ đầu.
 
-Ví dụ THẬT (Subtitle Editor, `event/workflow/subtitle-modal.js` + `event/workflow/playlist.js`):
-nút "Sub" ở Control Center (miền `subtitleModal`, sửa phụ đề bài ĐANG PHÁT) và nút "Sửa phụ đề"
-trong menu 3 chấm mỗi bài hát (miền `playlist`, sửa phụ đề 1 bài BẤT KỲ trong danh sách) đều cần
-đúng 1 việc: mã hoá `songKey` rồi điều hướng sang `subtitle-editor.html?song=...`. Thay vì viết 2
-lần, `workflowPlaylist.openSubtitleEditorForSongMenu()` gọi thẳng
-`workflowSubtitleModal.navigateToEditor(key)` — CHỈ 2 miền tự lo phần KHÁC nhau của mình (đọc
-`songKey` từ đâu: `appState.get('currentKey')` hay `playlistStore.get('songActionMenuKey')`), phần
-CHUNG (điều hướng) sống Ở ĐÚNG 1 CHỖ.
+Ví dụ THẬT (Subtitle Editor, `event/workflow/subtitle-modal.js` + `event/workflow/playlist.js`) —
+**CẬP NHẬT 10/07/2026 lần 2:** nút "Sub" ở Control Center (miền `subtitleModal`) đã đổi thành TOGGLE
+bật/tắt thuần (không còn điều hướng, xem router — gọi thẳng core, không cần workflow cho việc đó
+nữa), nhưng `navigateToEditor()` VẪN sống trong `workflowSubtitleModal` vì lối vào Subtitle Editor
+DUY NHẤT còn lại (menu 3 chấm mỗi bài hát, miền `playlist`) vẫn cần nó — CHỈ CÒN 1 nơi gọi, nhưng ví
+dụ này vẫn hữu ích để minh hoạ: hàm dùng chung có thể "sống ký gửi" trong 1 workflow file mà CHÍNH
+router của file đó không còn dùng tới nữa, miễn còn ÍT NHẤT 1 miền khác cần nó.
 
 ```js
 // event/workflow/subtitle-modal.js (miền "subtitleModal")
 const workflowSubtitleModal = {
-    openEditor() {
-        const currentKey = appState.get('currentKey');
-        if (!currentKey) { alertModal(t('subtitleModal.noSongPlaying')); return; }
-        this.navigateToEditor(currentKey);
-    },
     navigateToEditor(songKey) { // DÙNG CHUNG — miền khác gọi thẳng được
         window.location.href = `subtitle-editor.html?song=${encodeSongKeyForUrl(songKey)}`;
     },
