@@ -14,23 +14,25 @@
  * trong Cài đặt) GIỮ NGUYÊN 100% — không liên quan gì tới việc SOẠN nội dung, đã phân định rõ từ
  * trước (xem docstring cũ, nay xoá vì file cũ không còn).
  */
+/**
+ * event/workflow/subtitle-modal.js — Workflow cụm "subtitleModal".
+ *
+ * SỬA (10/07/2026, phản hồi Giang — "nút Sub ở Control Center giờ CHỈ bật/tắt phụ đề, KHÔNG mở gì
+ * nữa"): `openEditor()` (từng điều hướng sang Subtitle Editor) ĐÃ XOÁ — nút `#btn-subtitle` giờ
+ * TOGGLE THẲNG `isSubtitlesEnabled` qua `setSubtitlesEnabled()` (core/subtitle/
+ * subtitle-style-settings.js, ĐÃ CÓ SẴN — dùng chung với checkbox trong Settings), xem router (chỉ
+ * cần gọi thẳng core, không cần workflow cho việc này nữa).
+ *
+ * `navigateToEditor()` GIỮ NGUYÊN — vẫn dùng chung bởi `workflowPlaylist.
+ * openSubtitleEditorForSongMenu()` (menu 3 chấm mỗi bài hát, miền KHÁC) — xem
+ * readme/event-bus-flow.md mục "Tái dùng Workflow giữa các miền khác nhau".
+ */
 const workflowSubtitleModal = {
-    /** Ứng với msg.type = 'subtitleModal.openEditor.click'. */
-    openEditor() {
-        const currentKey = appState.get('currentKey');
-        if (!currentKey) {
-            alertModal(t('subtitleModal.noSongPlaying'));
-            return;
-        }
-        this.navigateToEditor(currentKey);
-    },
-
     /**
-     * Điều hướng sang Subtitle Editor cho 1 `songKey` bất kỳ — DÙNG CHUNG bởi CẢ
+     * Điều hướng sang Subtitle Editor cho 1 `songKey` bất kỳ — DÙNG CHUNG bởi
      * `workflowPlaylist.openSubtitleEditorForSongMenu()` (miền "playlist", menu 3 chấm mỗi bài
-     * hát) LẪN `openEditor()` ở trên (miền "subtitleModal", nút Sub ở Control Center) — 2 router
-     * KHÁC MIỀN nhau (2 nguồn listener khác nhau) nhưng CÙNG 1 logic điều hướng — xem
-     * readme/event-bus-flow.md mục "Tái dùng Workflow giữa các miền khác nhau".
+     * hát) — ĐÂY là LỐI VÀO DUY NHẤT còn lại của Subtitle Editor (nút Sub Control Center KHÔNG
+     * còn mở nó nữa, xem docstring đầu file).
      * @param {string} songKey
      */
     navigateToEditor(songKey) {
