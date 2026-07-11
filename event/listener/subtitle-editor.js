@@ -24,6 +24,18 @@ const btnPlaySelection = document.getElementById('btn-play-selection');
 const btnSaveSubtitles = document.getElementById('btn-save-subtitles');
 const btnBackToPlaylist = document.getElementById('btn-back-to-playlist');
 
+// MỚI (11/07/2026, yêu cầu Giang, mục 2) — Play/Pause + giờ start/end vùng chọn, và nút cảnh báo
+// mở bảng debug log (xem subtitle-editor.html, khung #waveform-frame).
+const waveformControlsEl = document.getElementById('waveform-controls');
+const btnWaveformPlayPause = document.getElementById('btn-waveform-playpause');
+const iconWaveformPlay = document.getElementById('icon-waveform-play');
+const iconWaveformPause = document.getElementById('icon-waveform-pause');
+const waveformRegionStartEl = document.getElementById('waveform-region-start');
+const waveformRegionEndEl = document.getElementById('waveform-region-end');
+const btnWaveformDebug = document.getElementById('btn-waveform-debug');
+const waveformDebugPanelEl = document.getElementById('waveform-debug-panel');
+const waveformDebugLogEl = document.getElementById('waveform-debug-log');
+
 if (btnBackToPlaylist) {
     btnBackToPlaylist.addEventListener('click', () => {
         eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.back.click', payload: {} });
@@ -70,6 +82,21 @@ if (srtUpload) {
 if (btnSaveSubtitles) {
     btnSaveSubtitles.addEventListener('click', () => {
         eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.save.click', payload: {} });
+    });
+}
+
+// MỚI (11/07/2026, yêu cầu Giang, mục 2) — Play/Pause của waveform (KHÁC "Phát vùng chọn" ở
+// thanh công cụ dưới — nút đó luôn phát ĐÚNG this._region, nút này play/pause TOÀN BỘ waveform
+// tại vị trí con trỏ hiện tại, theo đúng nghĩa nút play/pause chuẩn của 1 trình phát).
+if (btnWaveformPlayPause) {
+    btnWaveformPlayPause.addEventListener('click', () => {
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.waveformPlayPause.click', payload: {} });
+    });
+}
+
+if (btnWaveformDebug) {
+    btnWaveformDebug.addEventListener('click', () => {
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.toggleDebugPanel.click', payload: {} });
     });
 }
 
