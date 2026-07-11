@@ -136,61 +136,79 @@
         </div>
     </div>
 
-    <!-- BOTTOM — dải công cụ, CÙNG SỬA như header (nền mờ + viền cạnh TRÊN, KHÔNG dùng
-         `.glass-modal` — xem lý do đầy đủ ở comment header phía trên). 4 tool CŨ (giữ nguyên hành
-         vi) + 2 tool MỚI (Lấy giờ vùng chọn / Phát vùng, yêu cầu Giang). -->
-    <div class="shrink-0 px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-[#0f172a]/70 backdrop-blur-xl border-t border-white/10">
-        <div class="grid grid-cols-7 gap-2">
-            <label class="flex flex-col items-center gap-1 cursor-pointer group">
-                <div class="w-full aspect-square bg-blue-600 group-hover:bg-blue-500 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
-                    <input type="file" id="srt-upload" accept=".srt" class="hidden">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                </div>
-                <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-upload-label"></span>
-            </label>
-            <button id="btn-auto-timing" class="flex flex-col items-center gap-1">
-                <div class="w-full aspect-square bg-rose-600 hover:bg-rose-500 rounded-2xl shadow-lg flex items-center justify-center transition-colors relative">
-                    <svg id="icon-auto-timing-idle" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <svg id="icon-auto-timing-recording" class="w-5 h-5 text-white hidden" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" class="animate-pulse"></circle></svg>
-                </div>
-                <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-auto-timing-label"></span>
-            </button>
-            <button id="btn-add-sub" class="flex flex-col items-center gap-1">
-                <div class="w-full aspect-square bg-indigo-500 hover:bg-indigo-400 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                </div>
-                <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-add-sub-label"></span>
-            </button>
-            <!-- MỚI (yêu cầu Giang) — tạo dòng từ vùng chọn waveform hiện tại. -->
-            <button id="btn-create-line-from-selection" class="flex flex-col items-center gap-1">
-                <div class="w-full aspect-square bg-amber-500 hover:bg-amber-400 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                </div>
-                <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-create-from-selection-label"></span>
-            </button>
-            <!-- MỚI (yêu cầu Giang) — "Split": chia vùng chọn hiện tại (this._region) thành x dòng
-                 đều nhau, mở modal hỏi số dòng (xem workflowSubtitleEditor.openSplitModal()). -->
-            <button id="btn-split" class="flex flex-col items-center gap-1">
-                <div class="w-full aspect-square bg-violet-500 hover:bg-violet-400 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7.848 8.25l1.536.887M7.848 8.25a3 3 0 11-5.196-3 3 3 0 015.196 3zm1.536.887a2.165 2.165 0 011.083 1.839c.005.351.054.695.14 1.024m-1.223-2.863l7.104 4.101M7.848 15.75l1.536-.887m-1.536.887a3 3 0 11-5.196 3 3 3 0 015.196-3zm1.536-.887a2.165 2.165 0 001.083-1.838c.005-.352.054-.695.14-1.025m-1.223 2.863l7.104-4.101m0-4.899L19.5 3.75M12.75 12l6.75 6.75" /></svg>
-                </div>
-                <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-split-label"></span>
-            </button>
-            <!-- MỚI (yêu cầu Giang) — phát ĐÚNG vùng chọn (WaveSurfer Region tự lo, không cần tự viết timer). -->
-            <button id="btn-play-selection" class="flex flex-col items-center gap-1">
-                <div class="w-full aspect-square bg-emerald-500 hover:bg-emerald-400 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
-                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
-                </div>
-                <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-play-selection-label"></span>
-            </button>
-            <button id="btn-export-srt" class="flex flex-col items-center gap-1">
-                <div class="w-full aspect-square bg-white/10 hover:bg-white/15 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                </div>
-                <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-export-srt-label"></span>
-            </button>
+    <!-- BOTTOM — dải công cụ. FIX (11/07/2026, yêu cầu Giang) — trước đây `grid-cols-7` cố định co
+         hẹp dần mỗi khi thêm tool mới (đã 7 tool), tới ngưỡng nào đó vỡ layout/đè chữ lên nhau trên
+         màn hình hẹp (bằng chứng: label 2 dòng bị cắt/đè, xem ảnh chụp Giang gửi). Đổi hẳn sang
+         DẢI CUỘN NGANG — mỗi tool giữ kích thước cố định (không co nữa), kèm 2 nút mũi tên trái/
+         phải để cuộn qua các tool bị tràn ra ngoài khung nhìn, dùng ĐÚNG hàm cuộn chung
+         `scrollSliderTo()` (core/slider-panel-scroll.js) — không viết `scrollTo()` riêng thứ 3
+         trong app. 2 nút mũi tên CAO BẰNG NGUYÊN HÀNG tool (align-stretch, không phải icon lửng ở
+         giữa) và KHÔNG có nền riêng (bỏ hẳn ô vuông/bo góc như các nút tool) — chỉ đổi màu icon
+         (slate-500 mờ khi đã hết cuộn theo hướng đó, trắng/sáng khi vẫn còn cuộn được) để tương
+         phản với nền `#0f172a` chung của cả thanh, xem event/listener/subtitle-editor.js. -->
+    <div class="shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-[#0f172a]/70 backdrop-blur-xl border-t border-white/10 flex items-stretch">
+        <button id="btn-toolbar-scroll-left" type="button" class="shrink-0 w-6 flex items-center justify-center text-slate-500 hover:text-white transition-colors" title="">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" /></svg>
+        </button>
+
+        <div id="toolbar-scroll-container" class="flex-1 min-w-0 overflow-x-auto py-3">
+            <div class="flex gap-2 w-max px-1">
+                <label class="w-[70px] shrink-0 flex flex-col items-center gap-1 cursor-pointer group">
+                    <div class="w-full aspect-square bg-blue-600 group-hover:bg-blue-500 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
+                        <input type="file" id="srt-upload" accept=".srt" class="hidden">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    </div>
+                    <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-upload-label"></span>
+                </label>
+                <button id="btn-auto-timing" class="w-[70px] shrink-0 flex flex-col items-center gap-1">
+                    <div class="w-full aspect-square bg-rose-600 hover:bg-rose-500 rounded-2xl shadow-lg flex items-center justify-center transition-colors relative">
+                        <svg id="icon-auto-timing-idle" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <svg id="icon-auto-timing-recording" class="w-5 h-5 text-white hidden" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" class="animate-pulse"></circle></svg>
+                    </div>
+                    <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-auto-timing-label"></span>
+                </button>
+                <button id="btn-add-sub" class="w-[70px] shrink-0 flex flex-col items-center gap-1">
+                    <div class="w-full aspect-square bg-indigo-500 hover:bg-indigo-400 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    </div>
+                    <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-add-sub-label"></span>
+                </button>
+                <!-- MỚI (yêu cầu Giang) — tạo dòng từ vùng chọn waveform hiện tại. -->
+                <button id="btn-create-line-from-selection" class="w-[70px] shrink-0 flex flex-col items-center gap-1">
+                    <div class="w-full aspect-square bg-amber-500 hover:bg-amber-400 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-create-from-selection-label"></span>
+                </button>
+                <!-- MỚI (yêu cầu Giang) — "Split": chia vùng chọn hiện tại (this._region) thành x dòng
+                     đều nhau, mở modal hỏi số dòng (xem workflowSubtitleEditor.openSplitModal()). -->
+                <button id="btn-split" class="w-[70px] shrink-0 flex flex-col items-center gap-1">
+                    <div class="w-full aspect-square bg-violet-500 hover:bg-violet-400 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7.848 8.25l1.536.887M7.848 8.25a3 3 0 11-5.196-3 3 3 0 015.196 3zm1.536.887a2.165 2.165 0 011.083 1.839c.005.351.054.695.14 1.024m-1.223-2.863l7.104 4.101M7.848 15.75l1.536-.887m-1.536.887a3 3 0 11-5.196 3 3 3 0 015.196-3zm1.536-.887a2.165 2.165 0 001.083-1.838c.005-.352.054-.695.14-1.025m-1.223 2.863l7.104-4.101m0-4.899L19.5 3.75M12.75 12l6.75 6.75" /></svg>
+                    </div>
+                    <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-split-label"></span>
+                </button>
+                <!-- MỚI (yêu cầu Giang) — phát ĐÚNG vùng chọn (WaveSurfer Region tự lo, không cần tự viết timer). -->
+                <button id="btn-play-selection" class="w-[70px] shrink-0 flex flex-col items-center gap-1">
+                    <div class="w-full aspect-square bg-emerald-500 hover:bg-emerald-400 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
+                        <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+                    </div>
+                    <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-play-selection-label"></span>
+                </button>
+                <button id="btn-export-srt" class="w-[70px] shrink-0 flex flex-col items-center gap-1">
+                    <div class="w-full aspect-square bg-white/10 hover:bg-white/15 rounded-2xl shadow-lg flex items-center justify-center transition-colors">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    </div>
+                    <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-export-srt-label"></span>
+                </button>
+            </div>
         </div>
+
+        <button id="btn-toolbar-scroll-right" type="button" class="shrink-0 w-6 flex items-center justify-center text-slate-500 hover:text-white transition-colors" title="">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" /></svg>
+        </button>
     </div>
+
 
     <!-- ===================== SCRIPT ===================== -->
     <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
@@ -200,7 +218,7 @@
     <script src="lang/patch/patch-subtitle-settings.js?v=20260709v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260706v2"></script>
     <script src="lang/patch/patch-file-manager.js?v=20260710v1"></script>
-    <script src="lang/patch/patch-subtitle-editor.js?v=20260711v3"></script>
+    <script src="lang/patch/patch-subtitle-editor.js?v=20260711v4"></script>
     <!-- lang.js hardcode Object.assign() cả 7 biến LANG_PATCH_* trên — THIẾU BẤT KỲ FILE NÀO Ở
          TRÊN đều làm lang.js ReferenceError ngay khi parse (chạy TRÊN CẢ index.html LẪN trang này,
          xem lang/lang.js) — KHÔNG được bớt file nào dù trang này chỉ thật sự DÙNG patch-common/
@@ -208,15 +226,20 @@
     <script src="lang/lang.js?v=20260710v1"></script>
     <script src="core/modal-choice.js?v=20260625v9"></script>
     <script src="event/bus.js?v=20260625v10"></script>
-    <script src="service/db.js?v=20260710v1"></script>
+    <script src="service/db.js?v=20260711v1"></script>
     <!-- MỚI (10/07/2026) — TÁCH RIÊNG khỏi service/db.js, dùng ở CẢ 2 trang. -->
     <script src="service/song-key-cipher.js?v=20260710v1"></script>
     <script src="core/subtitle/subtitles.js?v=20260710v1"></script>
     <script src="core/subtitle/subtitles-ui.js?v=20260711v2"></script>
+    <!-- MỚI (11/07/2026, yêu cầu Giang) — tái dùng ĐÚNG hàm cuộn ngang chung của app (đã tách ra
+         cho #side-left-container/#settings-stack-body, xem sav12-handoff-plan.md Phần 1 mục 1) cho
+         thanh công cụ cuộn ngang MỚI ở dưới (#toolbar-scroll-container) — không viết lại 1 bản
+         `scrollTo()` riêng thứ 3. File này THUẦN, không phụ thuộc gì, an toàn nạp ở trang độc lập. -->
+    <script src="core/slider-panel-scroll.js?v=20260711v1"></script>
     <script src="event/workflow/subtitle-editor.js?v=20260711v3"></script>
     <script src="event/router/subtitle-editor.js?v=20260711v3"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowSubtitleEditor.init() ngay khi chạy. -->
-    <script src="event/listener/subtitle-editor.js?v=20260711v3"></script>
+    <script src="event/listener/subtitle-editor.js?v=20260711v4"></script>
     <script>
         // i18n text tĩnh KHÔNG qua template literal ${t(...)} lúc parse (component của trang này
         // không phải TPL_* string — HTML viết tay ở trên) — gán SAU khi lang.js đã nạp xong.
@@ -232,6 +255,8 @@
         document.getElementById('btn-export-srt-label').textContent = t('subtitleEditor.btnExportSrt');
         document.getElementById('waveform-error-label').textContent = t('subtitleEditor.waveformError');
         document.getElementById('btn-waveform-debug').title = t('subtitleEditor.btnDebugLog.title');
+        document.getElementById('btn-toolbar-scroll-left').title = t('subtitleEditor.btnToolbarScrollLeft.title');
+        document.getElementById('btn-toolbar-scroll-right').title = t('subtitleEditor.btnToolbarScrollRight.title');
     </script>
 </body>
 </html>
