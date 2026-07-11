@@ -287,6 +287,46 @@
         function getMeta(key) { return idbKeyval.get(key, metaStore); }
         function setMeta(key, value) { return idbKeyval.set(key, value, metaStore); }
         function delMeta(key) { return idbKeyval.del(key, metaStore); }
+
+        /**
+         * MỚI (10/07/2026, Subtitle Editor trang riêng) — "Mã hoá" (thực chất là NGUỴ TRANG, không
+         * phải bảo mật thật — app không có server giữ khoá bí mật, ai đọc được JS đều đọc được
+         * SONG_KEY_CIPHER_SALT) `songKey` để nhét vào `?song=` khi mở `subtitle-editor.html` —
+         * tránh lộ trần tên file gốc trên URL. XOR từng ký tự với salt (lặp vòng) rồi base64url
+         * (URL-safe, không cần `encodeURIComponent` thêm lần nữa).
+         *
+         * ĐỔI `SONG_KEY_CIPHER_SALT` SẼ LÀM HỎNG MỌI LINK CŨ ĐÃ TẠO TRƯỚC ĐÓ — chỉ đổi nếu chắc
+         * chắn cần, không có link nào đang lưu/chia sẻ dở.
+         */
+        const SONG_KEY_CIPHER_SALT = 'sav12-subtitle-editor';
+
+        function _xorWithSalt(str) {
+            let out = '';
+            for (let i = 0; i < str.length; i++) {
+                out += String.fromCharCode(str.charCodeAt(i) ^ SONG_KEY_CIPHER_SALT.charCodeAt(i % SONG_KEY_CIPHER_SALT.length));
+            }
+            return out;
+        }
+
+        /** @param {string} songKey @returns {string} chuỗi URL-safe, dùng làm giá trị `?song=`. */
+        function encodeSongKeyForUrl(songKey) {
+            const xored = _xorWithSalt(songKey);
+            const base64 = btoa(unescape(encodeURIComponent(xored))); // hỗ trợ songKey ngoài phạm vi Latin1 (hiếm, nhưng an toàn)
+            return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); // base64 -> base64url
+        }
+
+        /** @param {string} encoded - giá trị đọc từ `?song=`. @returns {string|null} songKey gốc, `null` nếu chuỗi hỏng. */
+        function decodeSongKeyFromUrl(encoded) {
+            try {
+                let base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
+                while (base64.length % 4) base64 += '=';
+                const xored = decodeURIComponent(escape(atob(base64)));
+                return _xorWithSalt(xored); // XOR tự đối xứng — áp lại lần 2 trả về nguyên bản gốc
+            } catch (e) {
+                return null;
+            }
+        }
+
         // KHÔNG còn getPlaylistOrder/setPlaylistOrder: playlist không lưu thứ tự riêng trong
         // store `meta` nữa — store `songs` là chân lý duy nhất. Mỗi lần cần danh sách (khởi động,
         // sau khi thêm/xoá bài), quét lại toàn bộ key qua getAllSongKeys() + lọc hợp lệ ngay trong
