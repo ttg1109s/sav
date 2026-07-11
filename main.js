@@ -9,7 +9,7 @@
  * Cơ chế: mỗi component là một chuỗi HTML (TPL_...) được "lắp" (mount) vào đúng vị
  * trí của nó trong <div id="app-root"> bằng innerHTML, theo đúng thứ tự xuất hiện
  * trong file gốc ban đầu (loading-shield, playlist-view, visualizer-overlay,
- * subtitle-modal, bottom-player, settings-drawer).
+ * bottom-player, settings-drawer).
  *
  * Không dùng fetch()/import vì ứng dụng được thiết kế để chạy trực tiếp qua
  * file:// (mở file index.html bằng double-click), không qua server.
@@ -63,7 +63,8 @@
         TPL_SETTINGS_DRAWER +
         TPL_APP_VIEW_STACK_CLOSE +
         TPL_VISUALIZER_OVERLAY +
-        TPL_SUBTITLE_MODAL +
+        // TPL_SUBTITLE_MODAL ĐÃ BỎ (10/07/2026) — Subtitle Editor chuyển sang trang riêng
+        // (subtitle-editor.html), không còn modal ở trang chính.
         TPL_BOTTOM_PLAYER +
         // Batch D5 (Settings restructure, 06/07/2026) — TPL_FILE_MANAGER_SONG_DRAWER/
         // _FOLDER_DETAIL_DRAWER ĐÃ BỎ khỏi mount tĩnh: nội dung giờ là 2 HÀM

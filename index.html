@@ -279,6 +279,8 @@
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
     <script src="lang/patch/patch-file-manager.js?v=20260710v1"></script>
+    <!-- MỚI (10/07/2026) — dùng ở CẢ index.html LẪN subtitle-editor.html, xem lang/lang.js. -->
+    <script src="lang/patch/patch-subtitle-editor.js?v=20260710v1"></script>
     <script src="lang/lang.js?v=20260702v1"></script>
 
     <!-- =====================================================================
@@ -289,9 +291,10 @@
     <!-- MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings chung 1 container cuộn
          ngang) — chỉ định nghĩa 2 biến chuỗi mở/đóng khung bọc, xem components/app-view-stack.js. -->
     <script src="components/app-view-stack.js?v=20260708v3"></script>
-    <script src="components/playlist-view.js?v=20260707v1"></script>
+    <script src="components/playlist-view.js?v=20260710v1"></script>
     <script src="components/visualizer-overlay.js?v=20260708v1"></script>
-    <script src="components/subtitle-modal.js?v=20260707v1"></script>
+    <!-- components/subtitle-modal.js ĐÃ XOÁ (10/07/2026) — Subtitle Editor chuyển sang trang riêng
+         (subtitle-editor.html), KHÔNG còn modal ở trang chính. -->
     <script src="components/bottom-player.js?v=20260704v1"></script>
     <!-- Settings Drawer (ver 8): 8 "section" HTML nhỏ PHẢI nạp TRƯỚC settings-drawer.js — file
          đó chỉ còn là bộ điều phối (object SettingsDrawer) ghép 8 biến TPL_SETTINGS_* dưới đây
@@ -460,7 +463,10 @@
     <script src="core/loading-shield-util.js?v=20260625v10"></script>
     <script src="core/three-vortex.js?v=20260625v8e"></script>
     <script src="core/state-and-video-bg.js?v=20260704v2"></script>
-    <script src="core/subtitle/subtitles.js?v=20260625v10"></script>
+    <!-- core/subtitle/subtitles.js ĐÃ CHUYỂN (10/07/2026) — CHỈ nạp ở subtitle-editor.html giờ
+         (soạn phụ đề chuyển sang trang riêng). core/subtitle/subtitle-display.js (hiển thị phụ đề
+         lúc phát, đọc appState.get('subtitles')) và subtitle-style-settings.js (toggle nhanh)
+         GIỮ NGUYÊN Ở ĐÂY — không liên quan gì tới việc SOẠN nội dung.
     <!-- 3 file dưới đây TÁCH từ core/equalizer-settings.js (cũ, đã XOÁ — tên file gây nhầm, từng
          trộn EQ + Subtitle Style + misc settings Visualizer + saveConfig/loadConfig chung của
          TOÀN BỘ vizConfig). saveConfig/loadConfig đã CHUYỂN vào core/config.js (cùng nhà với
@@ -713,9 +719,9 @@
     <script src="event/router/playlist-empty-state.js?v=20260703v1"></script>
     <script src="event/listener/playlist-empty-state.js?v=20260629v1"></script>
     <!-- Cụm "subtitleModal" (ver 11, patch 9). -->
-    <script src="event/workflow/subtitle-modal.js?v=20260629v1"></script>
-    <script src="event/router/subtitle-modal.js?v=20260629v1"></script>
-    <script src="event/listener/subtitle-modal.js?v=20260629v1"></script>
+    <script src="event/workflow/subtitle-modal.js?v=20260710v1"></script>
+    <script src="event/router/subtitle-modal.js?v=20260710v1"></script>
+    <script src="event/listener/subtitle-modal.js?v=20260710v1"></script>
     <!-- Cụm "autoSwitchVisual" — Batch D3 (06/07/2026): core đã refactor Rule 1-4 đầy đủ, GIỜ CẦN
          workflow (event/workflow/auto-switch-visual.js) — không còn gọi thẳng core như trước. -->
     <script src="event/workflow/auto-switch-visual.js?v=20260706v1"></script>
