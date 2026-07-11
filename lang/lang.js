@@ -9,7 +9,7 @@
  *
  * KIẾN TRÚC (đã chốt lại sau khi review batch đầu, cập nhật khi tách /lang/):
  *   - `en` (tiếng Anh) là NGÔN NGỮ GỐC/DEFAULT — nằm CỨNG trong RAM, GHÉP LẠI ngay khi file này
- *     chạy, từ 5 biến global LANG_PATCH_* (xem /lang/patch/*.js, mỗi file 1 biến, nạp TRƯỚC file
+ *     chạy, từ 7 biến global LANG_PATCH_* (xem /lang/patch/*.js, mỗi file 1 biến, nạp TRƯỚC file
  *     này). KHÔNG fetch, KHÔNG qua IndexedDB — luôn có sẵn ngay từ dòng đầu tiên app chạy, làm
  *     điểm tựa/fallback cuối cùng, và là NGUỒN KEY CHUẨN để validate mọi ngôn ngữ khác (diff: key
  *     thừa bị cắt, key thiếu lấy từ đây, value không phải string cũng coi là thiếu).
@@ -45,8 +45,9 @@
  *
  * THỨ TỰ NẠP (xem index.html):
  *   /lang/patch/patch-common.js, patch-playlist.js, patch-visualizer.js, patch-subtitle-settings.js,
- *   patch-settings-misc.js, patch-file-manager.js (thứ tự nội bộ giữa 6 file KHÔNG quan trọng —
- *   key không trùng nhau giữa các patch, Object.assign chỉ cần cả 6 biến đã tồn tại) ->
+ *   patch-settings-misc.js, patch-file-manager.js, patch-subtitle-editor.js (MỚI 10/07/2026, dùng
+ *   ở CẢ index.html LẪN subtitle-editor.html) (thứ tự nội bộ giữa 7 file KHÔNG quan trọng — key
+ *   không trùng nhau giữa các patch, Object.assign chỉ cần cả 7 biến đã tồn tại) ->
  *   /lang/lang.js (file này, gộp lại) -> /lang/language-settings.js (UI Settings ngôn ngữ, cần
  *   t/tFormat/saveLanguagePack/...).
  *   Khối /lang/ NÓI CHUNG vẫn giữ đúng vị trí nạp như lang.js cũ trước đây: NGAY SAU config.js,
@@ -59,8 +60,9 @@
 
 /**
  * LANG_EN_KEYS — NGÔN NGỮ GỐC, NẰM CỨNG TRONG RAM. Đây là nguồn key chuẩn duy nhất của toàn app —
- * mọi ngôn ngữ khác được validate (diff) dựa trên chính object này. Gộp từ 5 biến LANG_PATCH_*
- * (mỗi biến do 1 file /lang/patch/*.js nạp trước tạo ra) — bản thân file này không tự khai báo
+ * mọi ngôn ngữ khác được validate (diff) dựa trên chính object này. Gộp từ 7 biến LANG_PATCH_*
+ * (mỗi biến do 1 file /lang/patch/*.js nạp trước tạo ra — MỚI 10/07/2026: thêm
+ * LANG_PATCH_SUBTITLE_EDITOR cho trang subtitle-editor.html) — bản thân file này không tự khai báo
  * key nào, chỉ Object.assign lại.
  */
 const LANG_EN_KEYS = Object.assign(
@@ -70,7 +72,8 @@ const LANG_EN_KEYS = Object.assign(
     LANG_PATCH_VISUALIZER,
     LANG_PATCH_SUBTITLE_SETTINGS,
     LANG_PATCH_SETTINGS_MISC,
-    LANG_PATCH_FILE_MANAGER
+    LANG_PATCH_FILE_MANAGER,
+    LANG_PATCH_SUBTITLE_EDITOR
 );
 
 /**
