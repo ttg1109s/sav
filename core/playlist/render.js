@@ -12,12 +12,15 @@
 
         function songActionMenuButtonHtml(key) {
             // FIX (11/07/2026, phản hồi Giang — "thiếu dấu ba chấm như trước đây mỗi song item"):
-            // ĐÃ RÀ SOÁT — file này KHÔNG bị đụng ở bất kỳ đợt sửa Subtitle Editor nào gần đây, HTML
-            // sinh ra vẫn y hệt cũ. Nghi vấn nhiều khả năng nhất: 3 chấm màu `text-slate-400` (xám)
-            // KHÔNG có nền riêng, dễ chìm mất trên ảnh nền bìa sáng/nhiều chi tiết phía sau (đúng
-            // như ảnh Giang gửi — nền là ảnh chụp người, rất sáng) — dù đây là suy đoán, chưa chắc
-            // đúng NGUYÊN NHÂN gốc. Thêm nền tròn mờ CỐ ĐỊNH phía sau icon để LUÔN thấy được bất kể
-            // nền phía sau là gì — không có rủi ro nếu suy đoán sai, chỉ tăng độ tương phản.
+            // NGUYÊN NHÂN THẬT (đợt trước đoán SAI là do màu/nền — Giang xác nhận không liên quan):
+            // 2 chỗ GỌI hàm này (dòng ~104/118 bên dưới) bọc nút trong
+            // `opacity-0 group-hover:opacity-100` — CHỈ hiện khi HOVER CHUỘT THẬT. Cảm ứng KHÔNG
+            // CÓ hover thật — trước đây WebKit "giả lập" hover khi chạm (đúng bug "hover kẹt" đã
+            // sửa ở index.html qua `tailwind.config.future.hoverOnlyWhenSupported`), nên NÚT NÀY
+            // TỪNG hiện ra được là NHỜ chính cái bug đó — sửa xong bug hover kẹt (đúng), tác dụng
+            // phụ là nút này mất luôn khả năng hiện trên cảm ứng (chưa từng có cách hiện HỢP LỆ).
+            // Đã xoá `opacity-0 group-hover:opacity-100` ở 2 nơi gọi — LUÔN hiện, không phụ thuộc
+            // hover (nền tròn mờ thêm ở đây chỉ là tăng tương phản, không phải fix chính).
             return `<button data-action="menu" data-key="${key}" class="p-2 rounded-full bg-black/30 text-slate-200 hover:text-white hover:bg-black/50 transition-colors z-10" title="${t('playlistView.songMenu.title')}">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg>
             </button>`;
@@ -101,7 +104,7 @@
                         <img src="${coverUrl}" class="w-full h-full rounded-2xl object-cover shadow-lg">
                         ${isPlaying ? `<div class="absolute inset-0 bg-black/30 rounded-2xl flex items-center justify-center backdrop-blur-[2px]">${eqIconHtml}</div>` : ''}
                         ${selectionMode ? `<div class="absolute top-2 left-2">${selectionIndicatorHtml(isSelected)}</div>` : ''}
-                        <div class="absolute top-2 right-2 flex opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded-full">${menuBtnHtml}</div>
+                        <div class="absolute top-2 right-2 flex bg-black/40 rounded-full">${menuBtnHtml}</div>
                     </div>
                     <h3 class="text-white text-[15px] font-semibold leading-tight line-clamp-1 px-1">${title}</h3>
                     <p class="text-slate-400 text-[13px] font-medium line-clamp-1 px-1 mt-0.5">${artist}</p>`;
@@ -115,7 +118,7 @@
                         <div class="flex items-center gap-2"><h3 class="text-[16px] leading-tight font-semibold truncate ${isPlaying ? 'text-sky-300' : 'text-slate-100'}">${title}</h3>${isPlaying ? eqIconHtml : ''}</div>
                         <p class="text-[13px] text-slate-400 truncate font-medium">${artist}</p>
                     </div>
-                    <div class="flex opacity-0 group-hover:opacity-100 transition-opacity">${menuBtnHtml}</div>`;
+                    <div class="flex">${menuBtnHtml}</div>`;
             }
             attachCoverFallback(wrapper.querySelector('img'));
             return wrapper;
