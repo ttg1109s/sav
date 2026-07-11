@@ -133,6 +133,45 @@ case 'cluster.action.change':
     break;
 ```
 
+**Tái dùng Workflow giữa các miền khác nhau** [MỚI, 10/07/2026] — nếu 2 router KHÁC MIỀN (2 nguồn
+listener khác nhau, vd `playlist` và `subtitleModal`) cần chạy **CÙNG 1 logic điều phối** (không
+phải trùng hợp bề ngoài — thật sự cùng các bước, cùng thứ tự), KHÔNG bắt buộc mỗi miền phải tự viết
+1 bản Workflow RIÊNG của chính nó — router miền A có thể gọi THẲNG method của `workflowB` (miền
+khác), Workflow-gọi-Workflow là tự do, không bị Rule 3 (rule đó CHỈ áp cho Core). Chuyển 1 hàm từ
+"riêng của workflowA" thành "dùng chung" khi phát hiện ≥2 nơi cần y hệt — KHÔNG cần đoán trước, viết
+trùng lặp trước rồi gộp lại lúc phát hiện trùng vẫn ổn hơn tách sai chỗ từ đầu.
+
+Ví dụ THẬT (Subtitle Editor, `event/workflow/subtitle-modal.js` + `event/workflow/playlist.js`):
+nút "Sub" ở Control Center (miền `subtitleModal`, sửa phụ đề bài ĐANG PHÁT) và nút "Sửa phụ đề"
+trong menu 3 chấm mỗi bài hát (miền `playlist`, sửa phụ đề 1 bài BẤT KỲ trong danh sách) đều cần
+đúng 1 việc: mã hoá `songKey` rồi điều hướng sang `subtitle-editor.html?song=...`. Thay vì viết 2
+lần, `workflowPlaylist.openSubtitleEditorForSongMenu()` gọi thẳng
+`workflowSubtitleModal.navigateToEditor(key)` — CHỈ 2 miền tự lo phần KHÁC nhau của mình (đọc
+`songKey` từ đâu: `appState.get('currentKey')` hay `playlistStore.get('songActionMenuKey')`), phần
+CHUNG (điều hướng) sống Ở ĐÚNG 1 CHỖ.
+
+```js
+// event/workflow/subtitle-modal.js (miền "subtitleModal")
+const workflowSubtitleModal = {
+    openEditor() {
+        const currentKey = appState.get('currentKey');
+        if (!currentKey) { alertModal(t('subtitleModal.noSongPlaying')); return; }
+        this.navigateToEditor(currentKey);
+    },
+    navigateToEditor(songKey) { // DÙNG CHUNG — miền khác gọi thẳng được
+        window.location.href = `subtitle-editor.html?song=${encodeSongKeyForUrl(songKey)}`;
+    },
+};
+
+// event/workflow/playlist.js (miền "playlist" — KHÁC router hoàn toàn)
+openSubtitleEditorForSongMenu() {
+    const key = playlistStore.get('songActionMenuKey');
+    if (!key) return;
+    closeSongActionMenu();
+    workflowSubtitleModal.navigateToEditor(key); // tái dùng THẲNG, không viết lại
+},
+```
+
 ### (C) `VirtualMachineState.run([...])` — MỌI rẽ nhánh theo state, kể cả đơn đích lẫn đa đích
 
 Dùng khi 1 case cần đọc **1 hoặc nhiều field `appState` KHÁC** (không phải `msg.payload` của
