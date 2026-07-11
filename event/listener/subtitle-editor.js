@@ -37,6 +37,13 @@ const btnWaveformDebug = document.getElementById('btn-waveform-debug');
 const waveformDebugPanelEl = document.getElementById('waveform-debug-panel');
 const waveformDebugLogEl = document.getElementById('waveform-debug-log');
 
+// MỚI (11/07/2026, yêu cầu Giang) — thanh công cụ cuộn ngang (thay grid-cols-7 cố định cũ, xem
+// subtitle-editor.html) + 2 nút mũi tên cuộn qua lại, dùng chung scrollSliderTo()
+// (core/slider-panel-scroll.js) với #side-left-container/#settings-stack-body ở index.html.
+const toolbarScrollContainerEl = document.getElementById('toolbar-scroll-container');
+const btnToolbarScrollLeft = document.getElementById('btn-toolbar-scroll-left');
+const btnToolbarScrollRight = document.getElementById('btn-toolbar-scroll-right');
+
 if (btnBackToPlaylist) {
     btnBackToPlaylist.addEventListener('click', () => {
         eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.back.click', payload: {} });
@@ -106,6 +113,36 @@ if (btnWaveformDebug) {
     btnWaveformDebug.addEventListener('click', () => {
         eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.toggleDebugPanel.click', payload: {} });
     });
+}
+
+// MỚI (11/07/2026, yêu cầu Giang) — 2 nút mũi tên cuộn thanh công cụ. Đây là bookkeeping UI THUẦN
+// (chỉ đổi opacity/scroll theo layout thật của #toolbar-scroll-container, KHÔNG đụng gì tới state
+// nghiệp vụ của trang — this._subtitles/this._wavesurfer) — viết THẲNG ở đây, KHÔNG qua eventBus/
+// Workflow, CÙNG TINH THẦN updateActiveSubtitleLineHighlight() (core/subtitle/subtitles-ui.js): 1
+// hàm classList/opacity thuần, không gọi core khác.
+function _updateToolbarArrowState() {
+    if (!toolbarScrollContainerEl) return;
+    const maxScroll = toolbarScrollContainerEl.scrollWidth - toolbarScrollContainerEl.clientWidth;
+    if (btnToolbarScrollLeft) btnToolbarScrollLeft.classList.toggle('opacity-30', toolbarScrollContainerEl.scrollLeft <= 4);
+    if (btnToolbarScrollRight) btnToolbarScrollRight.classList.toggle('opacity-30', toolbarScrollContainerEl.scrollLeft >= maxScroll - 4);
+}
+
+if (btnToolbarScrollLeft && toolbarScrollContainerEl) {
+    btnToolbarScrollLeft.addEventListener('click', () => {
+        const target = Math.max(0, toolbarScrollContainerEl.scrollLeft - toolbarScrollContainerEl.clientWidth * 0.8);
+        scrollSliderTo(toolbarScrollContainerEl, target, true); // core/slider-panel-scroll.js
+    });
+}
+if (btnToolbarScrollRight && toolbarScrollContainerEl) {
+    btnToolbarScrollRight.addEventListener('click', () => {
+        const maxScroll = toolbarScrollContainerEl.scrollWidth - toolbarScrollContainerEl.clientWidth;
+        const target = Math.min(maxScroll, toolbarScrollContainerEl.scrollLeft + toolbarScrollContainerEl.clientWidth * 0.8);
+        scrollSliderTo(toolbarScrollContainerEl, target, true); // core/slider-panel-scroll.js
+    });
+}
+if (toolbarScrollContainerEl) {
+    toolbarScrollContainerEl.addEventListener('scroll', _updateToolbarArrowState);
+    _updateToolbarArrowState(); // trạng thái ban đầu — mờ sẵn mũi tên trái vì đang ở đầu dải, mũi tên phải mờ nếu dải KHÔNG tràn (vừa đủ 7 tool trên màn hình rộng)
 }
 
 // Khởi động trang — SAU khi mọi listener/router đã đăng ký xong.
