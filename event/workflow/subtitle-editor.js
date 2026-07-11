@@ -57,30 +57,60 @@ const workflowSubtitleEditor = {
     },
 
     async _initWaveform(blob) {
-        const url = URL.createObjectURL(blob);
-        this._regionsPlugin = WaveSurfer.Regions.create();
-        this._wavesurfer = WaveSurfer.create({
-            container: waveformContainerEl,
-            height: 88,
-            waveColor: '#475569',
-            progressColor: '#0ea5e9',
-            cursorColor: '#f8fafc',
-            minPxPerSec: 70, // cuộn ngang — bài dài hơn khung nhìn sẽ tự cuộn được (mục "dải âm thanh cuộn ngang")
-            normalize: true,
-            plugins: [this._regionsPlugin],
-        });
-        this._wavesurfer.load(url);
+        // FIX (11/07/2026, phản hồi Giang) — trước đây KHÔNG có try/catch/kiểm tra gì quanh
+        // WaveSurfer — nếu CDN chặn/lỗi (`WaveSurfer`/`WaveSurfer.Regions` undefined) hay
+        // `load()`/decode thất bại, khung waveform biến mất im lặng, KHÔNG có gì báo cho người
+        // dùng biết. Giờ LUÔN hiện `#waveform-frame` (chiều cao cố định, xem subtitle-editor.html)
+        // — lỗi ở BẤT KỲ bước nào đều hiện `#waveform-error` NGAY TRONG khung đó, không biến mất.
+        if (typeof WaveSurfer === 'undefined' || typeof WaveSurfer.Regions === 'undefined') {
+            console.error('[subtitle-editor] WaveSurfer.js không tải được (CDN chặn/lỗi mạng?).');
+            this._showWaveformError();
+            return;
+        }
 
-        this._wavesurfer.on('decode', () => {
-            const duration = this._wavesurfer.getDuration();
-            this._region = this._regionsPlugin.addRegion({
-                start: 0,
-                end: Math.min(2, duration),
-                color: 'rgba(56, 189, 248, 0.25)',
-                drag: true,
-                resize: true,
+        try {
+            const url = URL.createObjectURL(blob);
+            this._regionsPlugin = WaveSurfer.Regions.create();
+            this._wavesurfer = WaveSurfer.create({
+                container: waveformContainerEl,
+                height: 88,
+                waveColor: '#475569',
+                progressColor: '#0ea5e9',
+                cursorColor: '#f8fafc',
+                minPxPerSec: 70, // cuộn ngang — bài dài hơn khung nhìn sẽ tự cuộn được (mục "dải âm thanh cuộn ngang")
+                normalize: true,
+                plugins: [this._regionsPlugin],
             });
-        });
+
+            this._wavesurfer.on('error', (err) => {
+                console.error('[subtitle-editor] WaveSurfer lỗi tải/giải mã audio:', err);
+                this._showWaveformError();
+            });
+
+            this._wavesurfer.on('decode', () => {
+                const duration = this._wavesurfer.getDuration();
+                this._region = this._regionsPlugin.addRegion({
+                    start: 0,
+                    end: Math.min(2, duration),
+                    color: 'rgba(56, 189, 248, 0.25)',
+                    drag: true,
+                    resize: true,
+                });
+            });
+
+            this._wavesurfer.load(url);
+        } catch (err) {
+            console.error('[subtitle-editor] Lỗi khởi tạo WaveSurfer:', err);
+            this._showWaveformError();
+        }
+    },
+
+    /** Hiện thông báo lỗi NGAY TRONG khung waveform cố định (KHÔNG để khung biến mất/trống rỗng) —
+     * các tool cần vùng chọn (Lấy giờ từ vùng chọn/Phát vùng) sẽ không hoạt động (this._region vẫn
+     * `null`) nhưng Auto-timing/Thêm dòng/Upload/Xuất .srt (không phụ thuộc waveform) vẫn dùng
+     * được bình thường. */
+    _showWaveformError() {
+        waveformErrorEl.classList.remove('hidden');
     },
 
     // ============================== Danh sách dòng sub ==============================
