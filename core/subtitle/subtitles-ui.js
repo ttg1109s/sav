@@ -9,7 +9,7 @@
  * -----------------
  * Line content (textarea, luôn sửa được)
  * -----------------
- * 🕐 Time range   |   ✓ áp dụng   ✕ xoá
+ * 🕐 Time range   |   ▶ nghe thử   ✓ áp dụng   ✕ xoá
  * ```
  * `renderSubtitleLines()` tự gắn TOÀN BỘ sự kiện (Rule 5a — gom cuối hàm), callback CHỈ nhận tham
  * số (`onApply`/`onRemove`/`onPullTime`) — KHÔNG gọi core khác (không gọi
@@ -21,7 +21,7 @@
 /**
  * @param {HTMLElement} containerEl
  * @param {Array<{id: string, text: string, startStr: string, endStr: string}>} subtitles
- * @param {{onApply: (id: string, changes: {text: string, startStr: string, endStr: string}) => void, onRemove: (id: string) => void}} callbacks
+ * @param {{onApply: (id: string, changes: {text: string, startStr: string, endStr: string}) => void, onRemove: (id: string) => void, onPlayRange: (startStr: string, endStr: string) => void}} callbacks
  */
 function renderSubtitleLines(containerEl, subtitles, callbacks) {
     containerEl.replaceChildren();
@@ -69,6 +69,16 @@ function renderSubtitleLines(containerEl, subtitles, callbacks) {
         actionsWrap.className = 'flex items-center gap-1.5 shrink-0';
         footer.appendChild(actionsWrap);
 
+        // MỚI (yêu cầu Giang) — ▶ phát ĐÚNG [start, end] của dòng này rồi tự dừng lại (KHÔNG chạy
+        // tiếp qua dòng sau). Đọc TRỰC TIẾP giá trị 2 ô giờ đang hiển thị NGAY LÚC BẤM (không phải
+        // sub.start/sub.end cũ) — cho nghe thử ngay cả khi đang gõ giờ mới, CHƯA bấm "Áp dụng".
+        const playRangeBtn = document.createElement('button');
+        playRangeBtn.type = 'button';
+        playRangeBtn.title = t('subtitleEditor.line.btnPlayRange');
+        playRangeBtn.className = 'w-7 h-7 flex items-center justify-center rounded-full bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 transition-colors';
+        playRangeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>';
+        actionsWrap.appendChild(playRangeBtn);
+
         const applyBtn = document.createElement('button');
         applyBtn.type = 'button';
         applyBtn.title = t('subtitleEditor.line.btnApply');
@@ -84,11 +94,14 @@ function renderSubtitleLines(containerEl, subtitles, callbacks) {
         actionsWrap.appendChild(removeBtn);
 
         containerEl.appendChild(card);
-        return { sub, card, textArea, startInput, endInput, applyBtn, removeBtn };
+        return { sub, card, textArea, startInput, endInput, playRangeBtn, applyBtn, removeBtn };
     });
 
     // --- addEventListener: gom cuối hàm (Rule 5a) — callback CHỈ nhận tham số, không gọi core khác ---
-    cards.forEach(({ sub, textArea, startInput, endInput, applyBtn, removeBtn }) => {
+    cards.forEach(({ sub, textArea, startInput, endInput, playRangeBtn, applyBtn, removeBtn }) => {
+        // Đọc startInput/endInput.value TẠI THỜI ĐIỂM BẤM (không phải sub.startStr/endStr cũ) —
+        // callback nhận chuỗi thô "HH:MM:SS,mmm", Workflow tự strToSec() (CÙNG PATTERN onApply).
+        playRangeBtn.addEventListener('click', () => callbacks.onPlayRange(startInput.value, endInput.value));
         applyBtn.addEventListener('click', () => callbacks.onApply(sub.id, { text: textArea.value, startStr: startInput.value, endStr: endInput.value }));
         removeBtn.addEventListener('click', () => callbacks.onRemove(sub.id));
     });
