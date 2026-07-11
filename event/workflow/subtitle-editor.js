@@ -32,6 +32,8 @@ const workflowSubtitleEditor = {
     _wavesurfer: null,
     _regionsPlugin: null,
     _region: null, // Region DUY NHẤT, sống suốt vòng đời trang — mọi tool "vùng chọn" thao tác lên nó
+    _isDebugPanelOpen: false, // MỚI (11/07/2026) — bảng debug log đang mở hay không
+    _debugLogInterval: null, // MỚI (11/07/2026) — id setInterval refresh bảng debug log lúc đang mở
 
     /** Chạy 1 LẦN lúc trang load xong (xem event/listener/subtitle-editor.js). */
     async init() {
@@ -68,8 +70,23 @@ const workflowSubtitleEditor = {
             return;
         }
 
+        // ĐIỀU TRA 11/07/2026 (mục 1, yêu cầu Giang) — record.blob CÓ THỂ rỗng/undefined (bản ghi
+        // hỏng, hoặc field bị đổi tên ở đâu đó) — không phải lỗi WaveSurfer, nhưng biểu hiện GIỐNG
+        // HỆT lỗi waveform (khung trống/báo lỗi), nên kiểm tra riêng để log rõ đúng nguyên nhân.
+        if (!blob) {
+            console.error('[subtitle-editor] record.blob rỗng — bản ghi bài hát không có dữ liệu âm thanh.');
+            this._showWaveformError();
+            return;
+        }
+
         try {
-            const url = URL.createObjectURL(blob);
+            // FIX MỚI (11/07/2026, điều tra mục 1) — record.blob ở đây LUÔN tới từ 1 lượt
+            // getSongRecord() (xem init()), tức ĐÚNG điều kiện cần rematerializeBlob() (xem comment
+            // đầy đủ ở service/db.js::rematerializeBlob()) để né lỗi "Blob round-trip qua
+            // IndexedDB" đã biết của Chromium — trước đây _initWaveform() dùng THẲNG record.blob,
+            // bỏ sót đúng bước này (saveToDatabase() ở dưới ĐÃ áp dụng đúng, nơi đây thì chưa).
+            const freshBlob = await rematerializeBlob(blob); // service/db.js
+            const url = URL.createObjectURL(freshBlob);
             this._regionsPlugin = WaveSurfer.Regions.create();
             this._wavesurfer = WaveSurfer.create({
                 container: waveformContainerEl,
@@ -96,9 +113,43 @@ const workflowSubtitleEditor = {
                     drag: true,
                     resize: true,
                 });
+                // MỚI (11/07/2026, mục 2) — thanh giờ start/end sống theo ĐÚNG region này suốt
+                // vòng đời trang, tự cập nhật mỗi lần kéo tay cầm (không cần đợi 'update-end').
+                this._region.on('update', () => this._updateRegionTimeDisplay());
+                this._updateRegionTimeDisplay();
             });
 
-            this._wavesurfer.load(url);
+            // MỚI (11/07/2026, mục 2) — chỉ hiện thanh Play/Pause + giờ start/end SAU KHI waveform
+            // thật sự sẵn sàng (decode xong + đã vẽ xong), tránh hiện điều khiển cho 1 waveform
+            // chưa có gì để play/pause.
+            this._wavesurfer.on('ready', () => {
+                waveformControlsEl.classList.remove('hidden');
+                this._updateRegionTimeDisplay();
+            });
+            this._wavesurfer.on('play', () => {
+                iconWaveformPlay.classList.add('hidden');
+                iconWaveformPause.classList.remove('hidden');
+            });
+            this._wavesurfer.on('pause', () => {
+                iconWaveformPause.classList.add('hidden');
+                iconWaveformPlay.classList.remove('hidden');
+            });
+
+            // FIX MỚI (11/07/2026, điều tra mục 1 — NGUYÊN NHÂN CHÍNH nghi vấn) — `load()` trả về
+            // 1 Promise; bản cũ gọi "buông tay" (không await, không .catch()). WaveSurfer.js v7 có
+            // bug đã biết (dangling/unawaited promise trong Decoder#decode/WaveSurfer#load, GitHub
+            // issue #3126, katspaugh/wavesurfer.js) khiến lỗi giải mã audio ("Uncaught (in promise)
+            // DOMException: Unable to decode audio data") CÓ THỂ không đi qua sự kiện 'error' phía
+            // trên — tức khung waveform vẫn treo/trống mà KHÔNG hiện #waveform-error, lỗi thật chỉ
+            // nằm im trong console (mà Giang không xem được trên di động/WebView). Thêm .catch()
+            // đảm bảo LUÔN hiện lỗi + log rõ thông điệp thật, dù wavesurfer có bắn 'error' hay
+            // không. Đây cũng chính là lý do bảng debug log (mục 2) bắt thêm cả
+            // `window.onunhandledrejection` ở subtitle-editor.html — phòng khi lỗi vẫn lọt qua cả
+            // 2 lớp trên.
+            this._wavesurfer.load(url).catch((err) => {
+                console.error('[subtitle-editor] wavesurfer.load() bị reject (lỗi tải/giải mã audio):', err);
+                this._showWaveformError();
+            });
         } catch (err) {
             console.error('[subtitle-editor] Lỗi khởi tạo WaveSurfer:', err);
             this._showWaveformError();
@@ -111,6 +162,55 @@ const workflowSubtitleEditor = {
      * được bình thường. */
     _showWaveformError() {
         waveformErrorEl.classList.remove('hidden');
+    },
+
+    /** MỚI (11/07/2026, mục 2) — cập nhật 2 nhãn giờ start/end theo ĐÚNG this._region hiện tại,
+     * cùng định dạng "HH:MM:SS,mmm" như ô giờ mỗi dòng phụ đề (secToStr(), core/subtitle/
+     * subtitles.js) cho nhất quán. Gọi lại mỗi lần region 'update' (kéo tay cầm) + lúc 'ready'. */
+    _updateRegionTimeDisplay() {
+        if (!this._region) return;
+        waveformRegionStartEl.textContent = secToStr(this._region.start); // core
+        waveformRegionEndEl.textContent = secToStr(this._region.end); // core
+    },
+
+    /** MỚI (11/07/2026, mục 2) — bật/tắt bảng xem console.log/warn/error + lỗi promise không ai
+     * bắt (window.__sedLog, thu từ đầu <head> subtitle-editor.html — xem comment ở đó) NGAY TRÊN
+     * MÀN HÌNH, phục vụ điều tra bug waveform trên thiết bị không có devtools. Panel TỰ LÀM MỚI
+     * (setInterval 500ms) trong lúc đang mở — dừng hẳn lúc đóng, không có trang này thì không nạp
+     * `service/task-manager.js` nên KHÔNG dùng taskManager (không có trên trang này), setInterval
+     * thuần là lựa chọn đúng duy nhất ở đây. */
+    toggleDebugPanel() {
+        this._isDebugPanelOpen = !this._isDebugPanelOpen;
+        waveformDebugPanelEl.classList.toggle('hidden', !this._isDebugPanelOpen);
+        if (this._isDebugPanelOpen) {
+            this._renderDebugLog();
+            this._debugLogInterval = setInterval(() => this._renderDebugLog(), 500);
+        } else if (this._debugLogInterval) {
+            clearInterval(this._debugLogInterval);
+            this._debugLogInterval = null;
+        }
+    },
+
+    /** Vẽ lại toàn bộ window.__sedLog vào #waveform-debug-log — dùng createElement/textContent
+     * (KHÔNG innerHTML) vì nội dung log có thể chứa bất kỳ ký tự nào từ message lỗi thật, tự bọc
+     * an toàn khỏi HTML injection. */
+    _renderDebugLog() {
+        const lines = window.__sedLog || [];
+        waveformDebugLogEl.replaceChildren();
+        if (lines.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'text-slate-500';
+            empty.textContent = t('subtitleEditor.debugLogEmpty');
+            waveformDebugLogEl.appendChild(empty);
+        } else {
+            lines.forEach((line) => {
+                const row = document.createElement('div');
+                row.className = line.level === 'error' ? 'text-rose-400' : line.level === 'warn' ? 'text-amber-400' : 'text-slate-300';
+                row.textContent = `[${line.time}] ${line.msg}`;
+                waveformDebugLogEl.appendChild(row);
+            });
+        }
+        waveformDebugPanelEl.scrollTop = waveformDebugPanelEl.scrollHeight;
     },
 
     // ============================== Danh sách dòng sub ==============================
@@ -208,6 +308,13 @@ const workflowSubtitleEditor = {
         if (this._region) this._region.play();
     },
 
+    /** MỚI (11/07/2026, mục 2) — Play/Pause CHUẨN của waveform tại vị trí con trỏ hiện tại, KHÁC
+     * "Phát vùng chọn" ở trên (nút đó luôn phát đúng this._region). Icon tự đổi qua sự kiện
+     * 'play'/'pause' đăng ký ở _initWaveform(), không tự lật class ở đây. */
+    togglePlayPause() {
+        if (this._wavesurfer) this._wavesurfer.playPause();
+    },
+
     // ============================== Lưu / điều hướng ==============================
 
     /** Nút "Lưu" — ghi xuống IndexedDB NGAY (KHÔNG tự điều hướng đi đâu — tách biệt "lưu" và
@@ -226,6 +333,7 @@ const workflowSubtitleEditor = {
      * (window.location.href, KHÔNG mở tab mới — xem workflowPlaylist.openSubtitleEditorForSongMenu()/
      * workflowSubtitleModal.openEditor()), nên lịch sử trình duyệt LUÔN có index.html ngay trước đó. */
     back() {
+        if (this._debugLogInterval) clearInterval(this._debugLogInterval); // dọn tay, dù rời trang cũng huỷ JS context
         history.back();
     },
 };
