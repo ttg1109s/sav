@@ -1,0 +1,61 @@
+/**
+ * event/router/subtitle-editor.js — Router tên "subtitleEditor", tự đăng ký với eventBus. Trang
+ * `subtitle-editor.html` DUY NHẤT dùng router này (KHÔNG nạp ở `index.html`).
+ */
+const routerSubtitleEditor = (() => {
+    function handle(msg) {
+        switch (msg.type) {
+            // Sửa/xoá từng dòng (nút ✓/✕ render động trong renderSubtitleLines()) KHÔNG đi qua
+            // đây — Workflow tự truyền callback trực tiếp lúc gọi renderSubtitleLines() (CÙNG
+            // PATTERN Document Picker, core/generic-drawer.js) vì nội dung/số lượng dòng đổi liên
+            // tục, không phải DOM tĩnh phù hợp cho listener→bus→router.
+            case 'subtitleEditor.autoTiming.click': {
+                workflowSubtitleEditor.handleAutoTimingClick();
+                break;
+            }
+
+            case 'subtitleEditor.addLine.click': {
+                workflowSubtitleEditor.addNewLine();
+                break;
+            }
+
+            case 'subtitleEditor.importSrt.change': {
+                workflowSubtitleEditor.importSrtFile(msg.payload.file);
+                break;
+            }
+
+            case 'subtitleEditor.exportSrt.click': {
+                workflowSubtitleEditor.exportSrt();
+                break;
+            }
+
+            case 'subtitleEditor.createLineFromSelection.click': {
+                workflowSubtitleEditor.createLineFromSelection();
+                break;
+            }
+
+            case 'subtitleEditor.playSelection.click': {
+                workflowSubtitleEditor.playSelection();
+                break;
+            }
+
+            case 'subtitleEditor.save.click': {
+                workflowSubtitleEditor.saveToDatabase();
+                break;
+            }
+
+            case 'subtitleEditor.back.click': {
+                workflowSubtitleEditor.back(); // CHỈ history.back() -> gọi thẳng cũng được, nhưng
+                // gọi qua workflow cho ĐỒNG NHẤT với mọi hành động khác của trang này.
+                break;
+            }
+
+            default:
+                console.warn(`[routerSubtitleEditor] msg.type không xác định: "${msg.type}"`, msg);
+        }
+    }
+
+    return { handle };
+})();
+
+eventBus.register('subtitleEditor', routerSubtitleEditor);

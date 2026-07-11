@@ -25,8 +25,9 @@
  * lý nghiệp vụ" thành "router xử lý sự kiện DOM thô".
  *
  * STATE CONTEXT: TRƯỚC ĐÂY (mẫu storage) state context sống Ở ROUTER. Ở cụm playlist này, sau khi
- * cân nhắc, đã CHỐT khác đi: 6 field state của các modal (songActionMenuKey, playbackErrorKey,
- * songEditCurrentKey, songEditPendingCover, songEditPendingCoverPreviewUrl, songInfoCurrentKey)
+ * cân nhắc, đã CHỐT khác đi: 5 field state của các modal (songActionMenuKey, playbackErrorKey,
+ * songEditCurrentKey, songEditPendingCover, songEditPendingCoverPreviewUrl — `songInfoCurrentKey`
+ * ĐÃ XOÁ cùng #song-info-modal, 10/07/2026, gộp vào tab đầu song-edit-modal)
  * SỐNG TRONG `playlistStore` (event/store.js), được CÁC HÀM CORE trong core/playlist/actions.js trực
  * tiếp đọc/ghi — KHÔNG sống ở đây. Lý do: đây là state "modal nào đang mở, đang hiện bài gì" —
  * gắn chặt với vòng đời UI của modal (mở/đóng/đổi tab/đổi preview), không phải "hồ sơ vụ việc
@@ -132,14 +133,14 @@ const routerPlaylist = (() => {
                 break;
             }
 
-            // ===================== Modal: Thông tin chi tiết bài hát =====================
-            case 'playlist.info.close': {
-                closeSongInfoModal(); // CHỈ 1 hàm core -> gọi thẳng
-                break;
-            }
-
-            case 'playlist.info.export': {
-                exportCurrentSongInfo(); // CHỈ 1 hàm core (tự đọc songInfoCurrentKey + gọi exportSongWithTag) -> gọi thẳng
+            // ===================== "Sửa phụ đề" (menu 3 chấm) — MỚI (10/07/2026) =====================
+            // #song-info-modal cũ ĐÃ XOÁ (gộp vào tab đầu song-edit-modal) — 'playlist.info.close'/
+            // 'playlist.info.export' KHÔNG còn ý nghĩa gì, xoá luôn 2 case đó.
+            // CẦN ≥2 lời gọi nối tiếp (đọc key + đóng menu + mã hoá key + điều hướng trang) ->
+            // workflow, CÙNG PRECEDENT với 'playlist.actionMenu.addToFolder' phía trên — KHÔNG
+            // nhét vào handleSongActionMenuSelect() cũ (lý do y hệt comment ở case addToFolder).
+            case 'playlist.actionMenu.editSubtitles': {
+                workflowPlaylist.openSubtitleEditorForSongMenu();
                 break;
             }
 
