@@ -34,6 +34,7 @@ const workflowSubtitleEditor = {
     _region: null, // Region DUY NHẤT, sống suốt vòng đời trang — mọi tool "vùng chọn" thao tác lên nó
     _isDebugPanelOpen: false, // MỚI (11/07/2026) — bảng debug log đang mở hay không
     _debugLogInterval: null, // MỚI (11/07/2026) — id setInterval refresh bảng debug log lúc đang mở
+    _lineRangeStopHandler: null, // MỚI (yêu cầu Giang) — handler 'timeupdate' đang canh dừng phát 1 dòng, null nếu không có dòng nào đang phát preview
 
     /** Chạy 1 LẦN lúc trang load xong (xem event/listener/subtitle-editor.js). */
     async init() {
@@ -219,6 +220,7 @@ const workflowSubtitleEditor = {
         renderSubtitleLines(linesContainerEl, this._subtitles, { // core/subtitle/subtitles-ui.js
             onApply: (id, changes) => this._applyLine(id, changes),
             onRemove: (id) => this._removeLine(id),
+            onPlayRange: (startStr, endStr) => this.playLineRange(startStr, endStr), // MỚI (yêu cầu Giang)
         });
         subEmptyStateEl.classList.toggle('hidden', this._subtitles.length > 0);
     },
@@ -308,11 +310,131 @@ const workflowSubtitleEditor = {
         if (this._region) this._region.play();
     },
 
+    /** MỚI (yêu cầu Giang) — "Split": mở modal hỏi số dòng (x) muốn chia this._region hiện tại
+     * thành. KHÔNG dùng modalChoice() có sẵn (core/modal-choice.js) vì modal đó chỉ hỗ trợ CHỌN 1
+     * trong N nút có sẵn, không có ô nhập số — dựng modal RIÊNG ở đây nhưng giữ CÙNG khuôn hình
+     * (overlay/card/nút) để đồng bộ giao diện với modalChoice()/alertModal(). Cần this._region tồn
+     * tại (luôn có sau khi waveform decode xong, xem _initWaveform()) — nếu waveform lỗi/chưa nạp
+     * xong (this._region null), im lặng không mở gì (giống playSelection()/createLineFromSelection()). */
+    openSplitModal() {
+        if (!this._region) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'split-modal-overlay';
+        overlay.className = 'fixed inset-0 z-[130] bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+
+        const card = document.createElement('div');
+        card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
+
+        const titleEl = document.createElement('h3');
+        titleEl.className = 'text-base font-bold text-white';
+        titleEl.textContent = t('subtitleEditor.split.title');
+        card.appendChild(titleEl);
+
+        const descEl = document.createElement('p');
+        descEl.className = 'text-sm text-slate-300 leading-relaxed';
+        descEl.textContent = tFormat('subtitleEditor.split.desc', { start: secToStr(this._region.start), end: secToStr(this._region.end) }); // core secToStr
+        card.appendChild(descEl);
+
+        const countInput = document.createElement('input');
+        countInput.type = 'number';
+        countInput.min = '2';
+        countInput.max = '50';
+        countInput.value = '2';
+        countInput.inputMode = 'numeric';
+        countInput.className = 'w-full text-center text-lg font-mono bg-black/40 border border-white/10 rounded-xl px-3 py-2 outline-none focus:border-sky-500 text-white';
+        card.appendChild(countInput);
+
+        const buttonRow = document.createElement('div');
+        buttonRow.className = 'flex gap-3 mt-1';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors';
+        cancelBtn.textContent = t('common.cancel');
+        buttonRow.appendChild(cancelBtn);
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold transition-colors';
+        confirmBtn.textContent = t('subtitleEditor.split.confirm');
+        buttonRow.appendChild(confirmBtn);
+
+        card.appendChild(buttonRow);
+        overlay.appendChild(card);
+
+        // --- addEventListener: gom cuối hàm (Rule 5a) — callback CHỈ gọi tham số/hàm workflow khác qua this ---
+        function closeModal() { overlay.remove(); }
+        cancelBtn.addEventListener('click', closeModal);
+        confirmBtn.addEventListener('click', () => {
+            const count = parseInt(countInput.value, 10);
+            closeModal();
+            if (!Number.isFinite(count) || count < 2) return; // số không hợp lệ -> bỏ qua im lặng
+            this._splitRegionIntoLines(count);
+        });
+
+        document.body.appendChild(overlay);
+    },
+
+    /** Chia ĐỀU this._region hiện tại thành `count` dòng phụ đề LIỀN NHAU (dòng sau nối đúng mốc
+     * dòng trước, không hở/không đè) — text để RỖNG, placeholder có sẵn của textarea tự hiện (xem
+     * core/subtitle/subtitles-ui.js), Giang tự gõ lời vào từng dòng sau khi chia. Dòng CUỐI lấy
+     * ĐÚNG this._region.end (không tính bằng cộng dồn perLine) để né sai số cộng dồn số thực. */
+    _splitRegionIntoLines(count) {
+        if (!this._region) return;
+        const totalStart = this._region.start;
+        const totalEnd = this._region.end;
+        const perLine = (totalEnd - totalStart) / count;
+        const newLines = [];
+        for (let i = 0; i < count; i++) {
+            const start = totalStart + perLine * i;
+            const end = i === count - 1 ? totalEnd : totalStart + perLine * (i + 1);
+            newLines.push(createSubtitleLine('', start, end)); // core — text rỗng, placeholder tự hiện
+        }
+        this._subtitles = sortSubtitlesByStart([...this._subtitles, ...newLines]); // core
+        this._renderLines();
+    },
+
     /** MỚI (11/07/2026, mục 2) — Play/Pause CHUẨN của waveform tại vị trí con trỏ hiện tại, KHÁC
      * "Phát vùng chọn" ở trên (nút đó luôn phát đúng this._region). Icon tự đổi qua sự kiện
      * 'play'/'pause' đăng ký ở _initWaveform(), không tự lật class ở đây. */
     togglePlayPause() {
         if (this._wavesurfer) this._wavesurfer.playPause();
+    },
+
+    /** MỚI (yêu cầu Giang) — nút ▶ mỗi dòng phụ đề: phát ĐÚNG [start, end] của dòng đó rồi tự
+     * dừng lại (KHÔNG chạy tiếp qua dòng sau). Nhận startStr/endStr thô "HH:MM:SS,mmm" (đọc trực
+     * tiếp từ 2 ô giờ đang hiển thị NGAY LÚC BẤM, xem core/subtitle/subtitles-ui.js) — CÙNG PATTERN
+     * _applyLine() tự strToSec() ở phía Workflow, core UI không tự parse giờ. */
+    playLineRange(startStr, endStr) {
+        if (!this._wavesurfer) return;
+        const start = strToSec(startStr); // core
+        const end = strToSec(endStr); // core
+        if (end <= start) return; // giờ dòng không hợp lệ (end <= start) -> không phát gì, tránh phát ngược/vô hạn
+        this._playRangeAndStop(start, end);
+    },
+
+    /** Lõi DÙNG CHUNG cho mọi chỗ cần "phát đúng [start,end] rồi tự dừng" (hiện dùng cho nút ▶ mỗi
+     * dòng phụ đề). Gắn LƯỚI AN TOÀN qua sự kiện 'timeupdate' tự pause() khi currentTime >= end —
+     * KHÔNG chỉ tin tưởng tham số (start,end) của wavesurfer.play() tự dừng đúng 100% (vài phiên
+     * bản/bản dựng WaveSurfer.js từng có báo cáo không dừng đúng khi dùng backend mặc định dựa
+     * trên thẻ <audio>, xem GitHub issue #3011/#348 của katspaugh/wavesurfer.js) — luôn gỡ handler
+     * CŨ trước khi gắn MỚI, tránh chồng nhiều listener nếu bấm ▶ dòng khác trong lúc dòng trước còn
+     * đang phát dở. */
+    _playRangeAndStop(start, end) {
+        if (this._lineRangeStopHandler) {
+            this._wavesurfer.un('timeupdate', this._lineRangeStopHandler);
+            this._lineRangeStopHandler = null;
+        }
+        this._lineRangeStopHandler = (currentTime) => {
+            if (currentTime >= end) {
+                this._wavesurfer.pause();
+                this._wavesurfer.un('timeupdate', this._lineRangeStopHandler);
+                this._lineRangeStopHandler = null;
+            }
+        };
+        this._wavesurfer.on('timeupdate', this._lineRangeStopHandler);
+        this._wavesurfer.play(start, end); // (start,end) nếu wavesurfer tự dừng đúng thì lưới an toàn ở trên coi như dự phòng, không xung đột
     },
 
     // ============================== Lưu / điều hướng ==============================
