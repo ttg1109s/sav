@@ -7,6 +7,7 @@ const LANG_PATCH_SUBTITLE_EDITOR = {
     'subtitleEditor.songNotFound': 'Song not found — it may have been deleted.',
     'subtitleEditor.errorTitle': 'Unable to open',
     'subtitleEditor.saved': 'Subtitles saved.',
+    'subtitleEditor.waveformError': 'Unable to load the waveform. You can still add/edit lines using the tools below (timing tools that need the waveform selection won\'t work).',
     'subtitleEditor.btnBack': 'Back',
     'subtitleEditor.btnSave': 'Save',
     'subtitleEditor.autoTiming.defaultText': 'New subtitle',
