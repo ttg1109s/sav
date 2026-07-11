@@ -61,6 +61,34 @@ const routerSubtitleEditor = (() => {
                 break;
             }
 
+            // MỚI (yêu cầu Giang, mục 3) — nút "Copy all" trong bảng debug log.
+            case 'subtitleEditor.copyDebugLog.click': {
+                workflowSubtitleEditor.copyDebugLogToClipboard();
+                break;
+            }
+
+            // MỚI (yêu cầu Giang, mục 2) — chốt start/end vùng chọn = vị trí phát hiện tại.
+            case 'subtitleEditor.regionSetStart.click': {
+                workflowSubtitleEditor.setRegionStartToCurrentTime();
+                break;
+            }
+
+            case 'subtitleEditor.regionSetEnd.click': {
+                workflowSubtitleEditor.setRegionEndToCurrentTime();
+                break;
+            }
+
+            // MỚI (yêu cầu Giang, mục 5) — tool "Shift".
+            case 'subtitleEditor.shift.click': {
+                workflowSubtitleEditor.toggleShiftSelectionMode();
+                break;
+            }
+
+            case 'subtitleEditor.shiftContinue.click': {
+                workflowSubtitleEditor.openShiftModal();
+                break;
+            }
+
             case 'subtitleEditor.back.click': {
                 workflowSubtitleEditor.back(); // CHỈ history.back() -> gọi thẳng cũng được, nhưng
                 // gọi qua workflow cho ĐỒNG NHẤT với mọi hành động khác của trang này.
