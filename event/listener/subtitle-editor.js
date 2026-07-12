@@ -21,6 +21,7 @@ const btnExportSrt = document.getElementById('btn-export-srt');
 const srtUpload = document.getElementById('srt-upload');
 const btnCreateLineFromSelection = document.getElementById('btn-create-line-from-selection');
 const btnSplit = document.getElementById('btn-split'); // MỚI (yêu cầu Giang)
+const btnCutMp3 = document.getElementById('btn-cut-mp3'); // MỚI (yêu cầu Giang, mục 1)
 const btnPlaySelection = document.getElementById('btn-play-selection');
 const btnSaveSubtitles = document.getElementById('btn-save-subtitles');
 const btnBackToPlaylist = document.getElementById('btn-back-to-playlist');
@@ -85,6 +86,13 @@ if (btnCreateLineFromSelection) {
 if (btnSplit) {
     btnSplit.addEventListener('click', () => {
         eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.split.click', payload: {} });
+    });
+}
+
+// MỚI (yêu cầu Giang, mục 1) — "Cut MP3": cắt vùng chọn hiện tại thành file .mp3 thật.
+if (btnCutMp3) {
+    btnCutMp3.addEventListener('click', () => {
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.cutMp3.click', payload: {} });
     });
 }
 
