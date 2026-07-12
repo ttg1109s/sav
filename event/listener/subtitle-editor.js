@@ -25,6 +25,7 @@ const btnCutMp3 = document.getElementById('btn-cut-mp3'); // MỚI (yêu cầu G
 const btnPlaySelection = document.getElementById('btn-play-selection');
 const btnSaveSubtitles = document.getElementById('btn-save-subtitles');
 const btnBackToPlaylist = document.getElementById('btn-back-to-playlist');
+const btnReloadNoCache = document.getElementById('btn-reload-no-cache'); // MỚI (yêu cầu Giang)
 
 // MỚI (11/07/2026, yêu cầu Giang, mục 2) — Play/Pause + giờ start/end vùng chọn, và nút cảnh báo
 // mở bảng debug log (xem subtitle-editor.html, khung #waveform-frame).
@@ -65,6 +66,13 @@ const btnToolbarScrollRight = document.getElementById('btn-toolbar-scroll-right'
 if (btnBackToPlaylist) {
     btnBackToPlaylist.addEventListener('click', () => {
         eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.back.click', payload: {} });
+    });
+}
+
+// MỚI (yêu cầu Giang) — tải lại KHÔNG dùng cache.
+if (btnReloadNoCache) {
+    btnReloadNoCache.addEventListener('click', () => {
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.reloadNoCache.click', payload: {} });
     });
 }
 
