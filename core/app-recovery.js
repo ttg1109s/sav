@@ -28,9 +28,15 @@
             location.reload();
         }
 
-        /** Core thuần: reset vizConfig về default rồi reload. Không hỏi xác nhận gì ở đây. */
+        /** Core thuần: reset vizConfig về default rồi reload. Không hỏi xác nhận gì ở đây.
+         * FIX (cùng bug "chỉnh EQ không có kết quả", xem comment đầy đủ ở service/state.js chỗ khởi
+         * tạo vizConfig lần đầu) — { ...CONST.DEFAULT_VIZ_CONFIG } là spread NÔNG, field `manualEq`
+         * (mảng, bị Object.freeze() trong CONST.DEFAULT_VIZ_CONFIG — bản mẫu, ĐÚNG nên đóng băng)
+         * copy theo REFERENCE chứ không phải bản sao — tự tạo mảng MỚI độc lập cho chắc, dù
+         * saveConfig()+reload() ngay sau đó thường "tự gột" lại đúng qua loadConfig() (JSON.parse
+         * luôn trả mảng thường), phòng hờ nếu có gì đó đọc vizConfig TRƯỚC lúc reload kịp chạy. */
         function executeRestoreDefaults() {
-            appState.set('vizConfig', { ...CONST.DEFAULT_VIZ_CONFIG });
+            appState.set('vizConfig', { ...CONST.DEFAULT_VIZ_CONFIG, manualEq: [...CONST.DEFAULT_VIZ_CONFIG.manualEq] });
             saveConfig();
             location.reload();
         }
