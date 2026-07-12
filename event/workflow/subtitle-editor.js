@@ -31,6 +31,8 @@ const workflowSubtitleEditor = {
     _autoSubStartTime: null, // đang "ghi" auto-timing hay không (khác null = đang ghi)
     _wavesurfer: null,
     _regionsPlugin: null,
+    _timelinePlugin: null, // MỚI (yêu cầu Giang, mục 1) — dải mốc thời gian
+    _zoomLevel: 70, // MỚI (yêu cầu Giang, mục 1) — px/giây hiện tại (khởi tạo = giá trị minPxPerSec cũ), zoomIn()/zoomOut() tự cập nhật
     _region: null, // Region DUY NHẤT, sống suốt vòng đời trang — mọi tool "vùng chọn" thao tác lên nó
     _isDebugPanelOpen: false, // MỚI (11/07/2026) — bảng debug log đang mở hay không
     _debugLogInterval: null, // MỚI (11/07/2026) — id setInterval refresh bảng debug log lúc đang mở
@@ -98,13 +100,20 @@ const workflowSubtitleEditor = {
             const freshBlob = await rematerializeBlob(blob); // service/db.js
             const url = URL.createObjectURL(freshBlob);
             this._regionsPlugin = WaveSurfer.Regions.create();
+            // MỚI (yêu cầu Giang, mục 1) — dải mốc thời gian, plugin CHÍNH THỨC của WaveSurfer —
+            // container RIÊNG (#waveform-timeline, không lồng vào #waveform-container) để không co
+            // hẹp sóng âm đang có. Tự đồng bộ cuộn/zoom với this._wavesurfer, không cần code thêm.
+            this._timelinePlugin = typeof WaveSurfer.Timeline !== 'undefined'
+                ? WaveSurfer.Timeline.create({ container: waveformTimelineEl, height: 20 })
+                : null;
+            if (!this._timelinePlugin) console.warn('[subtitle-editor] WaveSurfer.Timeline không tải được (CDN chặn/lỗi mạng?) — waveform vẫn dùng được, chỉ thiếu dải mốc thời gian.');
             this._wavesurfer = WaveSurfer.create({
                 container: waveformContainerEl,
                 height: 88,
                 waveColor: '#475569',
                 progressColor: '#0ea5e9',
                 cursorColor: '#f8fafc',
-                minPxPerSec: 70, // cuộn ngang — bài dài hơn khung nhìn sẽ tự cuộn được (mục "dải âm thanh cuộn ngang")
+                minPxPerSec: this._zoomLevel, // MỚI (yêu cầu Giang, mục 1) — biến state (thay hằng số 70 cũ) để zoomIn()/zoomOut() có gốc theo dõi đúng
                 normalize: true,
                 // MỚI (yêu cầu Giang — "thanh cuộn phải tự cuộn theo phần nhạc đang chạy") — 2 field
                 // này CÓ SẴN trong WaveSurfer ("Automatically scroll the container to keep the
@@ -116,7 +125,7 @@ const workflowSubtitleEditor = {
                 // _playRangeAndStop()) — con trỏ luôn giữ ở GIỮA khung nhìn, không phải tự kéo lại.
                 autoScroll: true,
                 autoCenter: true,
-                plugins: [this._regionsPlugin],
+                plugins: this._timelinePlugin ? [this._regionsPlugin, this._timelinePlugin] : [this._regionsPlugin],
             });
 
             this._wavesurfer.on('error', (err) => {
@@ -251,6 +260,23 @@ const workflowSubtitleEditor = {
         this._wavesurfer.setTime(time);
         this._updateCurrentTimeDisplay(time);
         if (wasPlaying && !this._wavesurfer.isPlaying()) this._wavesurfer.play();
+    },
+
+    /** MỚI (yêu cầu Giang, mục 1) — zoom in/out waveform qua WaveSurfer.zoom() (API CÓ SẴN, đổi
+     * "pixel/giây" đang hiển thị — timeline (nếu tải được) + region + con trỏ TỰ đồng bộ theo,
+     * không cần code thêm gì). Nhân/chia 1.5x mỗi lần bấm — kẹp trong [20, 500] px/giây, đủ rộng để
+     * từ "cả bài" (zoom out hết cỡ, bài dài vài phút vẫn gói gọn trong khung nhìn) tới "từng chữ"
+     * (zoom in hết cỡ, canh mili-giây bằng mắt cũng được). */
+    zoomIn() {
+        if (!this._wavesurfer) return;
+        this._zoomLevel = Math.min(500, Math.round(this._zoomLevel * 1.5));
+        this._wavesurfer.zoom(this._zoomLevel);
+    },
+
+    zoomOut() {
+        if (!this._wavesurfer) return;
+        this._zoomLevel = Math.max(20, Math.round(this._zoomLevel / 1.5));
+        this._wavesurfer.zoom(this._zoomLevel);
     },
 
     /** MỚI (11/07/2026, mục 2/6) — bật/tắt bảng xem console.log/warn/error + lỗi promise không ai
@@ -482,6 +508,7 @@ const workflowSubtitleEditor = {
         let currentHH = Math.floor(totalMs / 3600000) % 24;
         let currentMM = Math.floor(totalMs / 60000) % 60;
         let currentSS = Math.floor(totalMs / 1000) % 60;
+        const initTenth = Math.floor((totalMs % 1000) / 100); // giữ tên riêng — dùng lại để set vị trí cuộn ban đầu SAU KHI modal đã gắn vào document (xem fix bên dưới)
 
         /** Tính [min,max] (đơn vị THÔ, ví dụ 0-23 cho HH) hợp lệ cho tầng `level`, dựa trên giá trị
          * ỔN ĐỊNH HIỆN TẠI của các tầng THÔ HƠN — ước lượng theo phần dư còn lại của [minAllowed,
@@ -517,7 +544,12 @@ const workflowSubtitleEditor = {
             }
             const bottomSpacer = document.createElement('div'); bottomSpacer.style.height = ITEM_H + 'px'; col.appendChild(bottomSpacer);
             items.forEach((item, i) => item.addEventListener('click', () => col.scrollTo({ top: i * ITEM_H, behavior: 'smooth' })));
-            col.scrollTop = initIndex * ITEM_H; // vị trí ban đầu NGAY LẬP TỨC (không animation) trước khi modal kịp hiện ra
+            // FIX (yêu cầu Giang, mục 2 — "mở lên luôn là 00:00:00") — KHÔNG set `col.scrollTop`
+            // Ở ĐÂY nữa — `col` lúc này CHƯA gắn vào document (chỉ mới `createElement`, chưa
+            // `appendChild` vào <body>) — set `scrollTop` trên phần tử CHƯA có layout thật (chưa
+            // attach) bị trình duyệt coi như no-op/tự reset về 0, đúng NGUYÊN NHÂN modal luôn mở ra
+            // ở 00:00:00 bất kể `currentSeconds` truyền vào là gì. Dời việc này xuống SAU
+            // `document.body.appendChild(overlay)` (đã có layout thật) — xem bên dưới.
 
             let settleTimer = null;
             col.addEventListener('scroll', () => {
@@ -536,7 +568,7 @@ const workflowSubtitleEditor = {
         const hhCol = buildColumn(24, currentHH, 'hh', (v) => { currentHH = v; reclampFinerThan('hh'); });
         const mmCol = buildColumn(60, currentMM, 'mm', (v) => { currentMM = v; reclampFinerThan('mm'); });
         const ssCol = buildColumn(60, currentSS, 'ss', (v) => { currentSS = v; reclampFinerThan('ss'); });
-        const tenthCol = buildColumn(10, Math.floor((totalMs % 1000) / 100), 'tenth', () => {}); // tầng mịn nhất, không có gì phụ thuộc theo sau
+        const tenthCol = buildColumn(10, initTenth, 'tenth', () => {}); // tầng mịn nhất, không có gì phụ thuộc theo sau
 
         /** Wheel `level` vừa ổn định ở giá trị mới -> MỌI wheel MỊN HƠN cần tự kẹp lại NGAY (bound
          * của chúng vừa đổi theo giá trị mới này). */
@@ -626,6 +658,16 @@ const workflowSubtitleEditor = {
         });
 
         document.body.appendChild(overlay);
+
+        // FIX (yêu cầu Giang, mục 2 — "mở lên luôn là 00:00:00") — ĐÂY MỚI LÀ LÚC ĐÚNG để set vị
+        // trí cuộn ban đầu — 4 cột giờ đã THẬT SỰ nằm trong document (attach xong ở dòng trên), có
+        // layout thật, `scrollTop` gán vào lúc này mới có tác dụng (không còn bị trình duyệt âm
+        // thầm bỏ qua/reset về 0 như lúc còn là node tách rời, xem comment đầy đủ ở buildColumn()).
+        // Gán trực tiếp (không animation) — tránh thấy giật ngay lúc vừa mở modal.
+        hhCol.scrollTop = currentHH * ITEM_H;
+        mmCol.scrollTop = currentMM * ITEM_H;
+        ssCol.scrollTop = currentSS * ITEM_H;
+        tenthCol.scrollTop = initTenth * ITEM_H;
     },
 
     // ============================== Toolbar: giữ nguyên tính năng cũ ==============================
@@ -900,7 +942,7 @@ const workflowSubtitleEditor = {
         // khoảng ngắn, tự kiểm tra `isPlaying()` có THẬT SỰ đúng không, CHƯA đúng thì tự thử lại —
         // lặp tối đa vài lần, đủ để né mọi độ trễ seek thực tế gặp phải mà không cần người dùng bấm
         // lại tay.
-        this._startPlaybackWithRetry(lineId, 3);
+        this._startPlaybackWithRetry(lineId, start, 3);
     },
 
     /** Gọi `.play()` — bắt Promise reject (va chạm với pause() vừa gọi) VÀ xác minh lại bằng
@@ -908,7 +950,25 @@ const workflowSubtitleEditor = {
      * gì do seek chưa kịp sẵn sàng) — tự thử lại tới `attemptsLeft` lần. Luôn kiểm tra
      * `this._activePlaybackLineId === lineId` trước khi thử lại — nếu người dùng đã tự đổi ý (bấm
      * dừng, hoặc chuyển sang phát nguồn khác) trong lúc đang chờ, KHÔNG ép phát đè lên ý muốn mới. */
-    _startPlaybackWithRetry(lineId, attemptsLeft) {
+    /** Gọi `.play()` — bắt Promise reject (va chạm với pause() vừa gọi) VÀ xác minh THẬT (sau
+     * 150ms) xem đã phát chưa — tự thử lại tới `attemptsLeft` lần.
+     * FIX (yêu cầu Giang — "bấm lần 2: chạy tới hết cả bài, lần 3 mới lại đúng") — NGUYÊN NHÂN GỐC
+     * tìm được: bản trước CHỈ so `this._activePlaybackLineId === lineId` để quyết định "còn nên
+     * thử lại không" — nhưng với "Phát vùng chọn"/"[▶]" khung điều khiển, `lineId` LUÔN là `null`
+     * (đại diện "đây là vùng chọn chung, không phải 1 dòng cụ thể") — TRÙNG với giá trị `null` mà
+     * `_activePlaybackLineId` cũng bị reset về SAU KHI 1 vùng NGẮN đã tự phát xong + tự dừng ĐÚNG
+     * ở `end` (hoàn toàn hợp lệ, xem `_clearLineRangeStopHandler()`) — 2 Ý NGHĨA KHÁC NHAU của cùng
+     * giá trị `null` bị NHẦM LẪN thành 1: lưới xác minh 150ms tưởng nhầm "chưa phát được" trong khi
+     * THỰC RA đã phát xong + dừng đúng từ lâu — kích hoạt 1 lượt `.play()` THỪA, không setTime()
+     * lại, KHÔNG có timeupdate handler nào canh dừng nữa (đã bị gỡ khi dừng đúng) -> phát tuột luôn
+     * tới hết bài. FIX: thêm ĐIỀU KIỆN THỨ 2 bắt buộc — `this._isPlayingRegion` (cờ RIÊNG, LUÔN về
+     * `false` khi dừng — dù dừng vì lý do gì — phân biệt rạch ròi "vẫn đang trong 1 phiên phát được
+     * yêu cầu" khỏi "đã xong rồi", không lẫn với ý nghĩa "null = vùng chung" của `lineId` nữa) — VÀ
+     * đổi hẳn cách kiểm tra "chưa phát được" từ `!isPlaying()` (mơ hồ — cũng đúng cho "đã phát VÀ
+     * dừng xong") sang so `getCurrentTime()` có THẬT SỰ chưa nhích lên khỏi `start` hay không (chỉ
+     * đúng khi play() CHƯA TỪNG chạy được tí nào — không thể nhầm với "đã chạy xong", lúc đó
+     * currentTime chắc chắn đã tiến xa khỏi start). */
+    _startPlaybackWithRetry(lineId, start, attemptsLeft) {
         if (!this._wavesurfer) return;
         let retried = false; // dedupe — .catch() VÀ lưới xác minh setTimeout có thể CÙNG muốn thử lại, chỉ cho phép 1 lần
         const playResult = this._wavesurfer.play();
@@ -918,18 +978,18 @@ const workflowSubtitleEditor = {
             if (err) console.warn('[subtitle-editor] play() bị reject/chưa thật sự chạy — thử lại:', err);
             if (attemptsLeft <= 0) return;
             setTimeout(() => {
-                if (this._activePlaybackLineId === lineId && !this._wavesurfer.isPlaying()) {
-                    this._startPlaybackWithRetry(lineId, attemptsLeft - 1);
-                }
+                const stillWanted = this._activePlaybackLineId === lineId && this._isPlayingRegion; // vẫn ĐÚNG phiên phát này, chưa bị hành động khác/tự dừng xong "cướp"
+                const neverActuallyStarted = this._wavesurfer && !this._wavesurfer.isPlaying() && this._wavesurfer.getCurrentTime() <= start + 0.05; // CHƯA TỪNG nhích lên khỏi start — không thể nhầm với "đã chạy xong"
+                if (stillWanted && neverActuallyStarted) this._startPlaybackWithRetry(lineId, start, attemptsLeft - 1);
             }, 120);
         };
         if (playResult && typeof playResult.catch === 'function') playResult.catch(retryIfStillWanted);
         // Lưới xác minh BỔ SUNG — kể cả khi playResult "resolve" (không reject gì) — vẫn tự kiểm
         // tra THẬT xem đã phát chưa, chưa thì coi như thất bại âm thầm và thử lại.
         setTimeout(() => {
-            if (this._activePlaybackLineId === lineId && this._wavesurfer && !this._wavesurfer.isPlaying()) {
-                retryIfStillWanted(null);
-            }
+            const stillWanted = this._activePlaybackLineId === lineId && this._isPlayingRegion;
+            const neverActuallyStarted = this._wavesurfer && !this._wavesurfer.isPlaying() && this._wavesurfer.getCurrentTime() <= start + 0.05;
+            if (stillWanted && neverActuallyStarted) retryIfStillWanted(null);
         }, 150);
     },
 
