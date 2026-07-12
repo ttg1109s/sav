@@ -71,6 +71,11 @@ file 100% hot-path. `core/dom-refs.js` không có function nào — chỉ khai `
   sánh trực tiếp được 1:1 vì phạm vi file khác nhau, nhưng cùng thứ tự độ lớn)
 - Có ít nhất 1 vi phạm xác nhận (Rule 2, hoặc Rule 1-strong, hoặc Rule 3): **133** / 366 (**36%** —
   bản gốc 150/266 = 56%)
+- **Rule 5** (5a/5b/5c, mới thêm 10/07/2026, chưa từng nằm trong đợt audit gốc): đã đọc thủ công
+  toàn bộ 20 hàm có `addEventListener` + 4 candidate Rule 5b — 2 vi phạm 5c xác nhận
+  (`modal-choice.js` đã biết, `settings-panel-stack.js` MỚI phát hiện — xem mục Rule 5 dưới), 3 vi
+  phạm 5a nhưng thuộc core di sản (nợ kế thừa, không phải code mới), 0 vi phạm 5b sau khi loại hết
+  false-positive.
 
 **Nhận xét đáng chú ý:** tỉ lệ vi phạm GIẢM (56% → 36%) dù tổng số function tăng — vì phần lớn 18
 file MỚI (viết trong Nhóm A "Documents" và tái cấu trúc Settings, SAU KHI Rule 1-4 đã có hiệu lực
@@ -95,47 +100,108 @@ riêng tư cùng file).
 
 ---
 
-## Rule 5 (5a/5b/5c) — sơ bộ, CHƯA có trong lần audit gốc (Rule 5 viết sau, 10/07/2026)
+## Rule 5 (5a/5b/5c) — audit đầy đủ, đã đọc từng candidate xác nhận verdict (không còn "sơ bộ")
 
-20 hàm có `addEventListener(` trong thân — phân 2 nhóm theo mức độ tin cậy:
+Bản trước (12/07/2026, cùng ngày) chỉ liệt kê 20 hàm có `addEventListener` + 4 candidate Rule 5b
+làm danh sách CẦN ĐỌC — bản này đã đọc từng chỗ, kết luận rõ ràng thay vì để ngỏ.
 
-**Nhóm khớp diện miễn 5a (file có hậu tố `-ui.js`, hàm dựng modal/drawer/picker mới — đúng tinh
-thần ngoại lệ, NHƯNG chưa xác nhận từng dòng "callback chỉ gọi tham số, không gọi core khác"):**
-`core/file-manager/document-ui.js` (`buildDocumentTitleModal`, `renderDocumentList`,
+### Rule 5a (`addEventListener`) — verdict cuối cùng
+
+**TUÂN THỦ đầy đủ (14 hàm, file có hậu tố `-ui.js`, dựng modal/drawer/picker MỚI thật, callback chỉ
+gọi tham số):** `core/file-manager/document-ui.js` (`buildDocumentTitleModal`, `renderDocumentList`,
 `buildDocumentDetailModal`, `buildDocumentEditorSurface`, `buildDocumentEditorDrawer`),
 `core/file-manager/folder-picker-ui.js` (`openFolderPickerModal`, `openRenameFolderModal`),
 `core/file-manager/photo-ui.js` (`openRenameAlbumModal`, `openImageCarouselPickerModal`,
 `openPhotoUiImagePickerModal`, `openImageLibraryPickerModal`, `renderSlideshowAlbumPickerGrid`,
 `openCreateAlbumModal`, `openImagePreviewModal`), `core/subtitle/subtitles-ui.js` (`buildLineCard`
-— ĐÃ tự ghi rõ trong comment "callback CHỈ nhận tham số" đúng Rule 5a, xem file đó dòng ~180).
+— tự ghi rõ "callback CHỈ nhận tham số" đúng Rule 5a, dòng ~180).
 
-**Nhóm CẦN SOÁT MẮT (file KHÔNG có hậu tố `-ui.js`, gắn listener lên phần tử NGHI LÀ tĩnh/có sẵn
-chứ không phải cụm DOM mới tự tạo — nếu đúng vậy thì KHÔNG đạt điều kiện miễn 5a):**
-- `core/wakelock.js :: requestWakeLock` (16-22) — gắn `'release'` lên `WakeLockSentinel` (native
-  API, không phải DOM) + `'touchstart'`/`'click'` lên `document.body` (phần tử TĨNH có sẵn) — nghi
-  vi phạm 5a thật (không dựng cụm DOM mới nào).
-- `core/resume-state-storage.js :: applyResumeStateToRam` (196-241) — gắn `'loadedmetadata'` lên
-  `bgVideoElement` (dom-ref tĩnh có sẵn, không phải mới tạo) — nghi vi phạm.
-- `core/state-and-video-bg.js :: setupVideoBgSource` (86-97) — tương tự, gắn lên `bgVideoElement` —
-  file tự ghi chú đây là pattern CŨ giữ nguyên từ trước ver 12, có thể xếp vào nợ kế thừa thay vì
-  vi phạm mới.
-- `core/playlist/loader.js :: readAudioDuration` (14-29) — gắn lên `tempAudio` — CẦN ĐỌC LẠI xem
-  `tempAudio` có phải `new Audio()` tạo mới trong chính hàm này không (nếu có, có thể tính là
-  "cụm mới" dù không phải UI hiển thị — ranh giới chưa rõ, Rule 5a viết cho modal/drawer/toolbar,
-  chưa tính trường hợp phần tử media ẩn dùng để đo).
-- `core/playlist/render.js :: attachCoverFallback` (41-46) — gắn lên `imgEl` tham số — nếu `imgEl`
-  là phần tử MỚI tạo trong `buildSongNode()` (hàm gọi tới đây) thì có thể vẫn nằm trong tinh thần
-  "dựng cụm DOM mới", cần đọc chuỗi gọi để xác nhận.
+**TUÂN THỦ — thuộc 1 diện MIỄN TRỪ chưa được đặt tên chính thức trong Rule 5a (đề xuất bổ sung, xem
+cuối mục này):** phần tử DOM tạo ra KHÔNG PHẢI "cụm UI hiển thị/tương tác" (modal/drawer/toolbar)
+mà là **công cụ tạm/vô hình, tạo và huỷ trong CHÍNH hàm đó, không bao giờ gắn vào cây DOM hiển
+thị**, dùng để gọi 1 API trình duyệt (đo layout, giải mã media, kích hoạt tải file):
+- `core/playlist/loader.js :: readAudioDuration` — `const tempAudio = new Audio();` tạo MỚI ngay
+  trong hàm, 2 listener (`loadedmetadata`/`error`) chỉ gọi biến cục bộ (`safeResolve`/`cleanup`),
+  KHÔNG gọi core nào khác — callback sạch, phần tử KHÔNG BAO GIỜ gắn vào DOM thật.
+- `core/id3-export.js` — `<a>` tạo tạm để kích hoạt tải file (`triggerDownload`), không gắn DOM.
+- `core/file-manager/document-pagination.js` — 3 phần tử tạm (`sourceContainer`/`wrap`/`measureEl`)
+  chỉ để ĐO layout, không gắn DOM, không listener.
+- `core/file-manager/document.js` — phần tử tạm trong `sanitizeDocumentHtml()` dùng làm parser
+  HTML (`container`/`span`), không gắn DOM, không listener.
 
-**Không kết luận vi phạm dứt khoát cho nhóm 2** — đúng tinh thần Rule 1/3 ở trên, đây là DANH SÁCH
-CẦN ĐỌC TAY, không phải verdict cuối cùng. Ghi nhận để có nếu Giang muốn rà Rule 5 có hệ thống thay
-vì chỉ bắt được qua đọc lướt như `core/modal-choice.js` (đã ghi ở `core-function-conventions.md`).
+**VI PHẠM XÁC NHẬN (KHÔNG đạt điều kiện miễn — gắn listener lên phần tử TĨNH có sẵn, không phải
+cụm DOM mới):**
+- `core/wakelock.js :: requestWakeLock` — gắn `'release'` lên `WakeLockSentinel` (native, không
+  phải DOM tự tạo) + `'touchstart'`/`'click'` lên `document.body` (tĩnh, có sẵn từ trước). File
+  này thuộc **core di sản** (đã có từ trước ver 12, nằm trong 48 file gốc) — theo đúng phạm vi áp
+  dụng đã chốt ("chỉ code MỚI viết/sửa từ ver 12 bắt buộc"), đây là **nợ kỹ thuật kế thừa**, không
+  phải vi phạm mới — chỉ bắt buộc sửa khi hàm này bị đụng tới thật.
+- `core/resume-state-storage.js :: applyResumeStateToRam` — gắn `'loadedmetadata'` lên
+  `bgVideoElement` (dom-ref tĩnh). Cùng diện core di sản như trên — nợ kỹ thuật kế thừa.
+- `core/state-and-video-bg.js :: setupVideoBgSource` — gắn lên `bgVideoElement`, file tự ghi chú
+  đây là pattern CŨ giữ nguyên từ trước ver 12 — nợ kỹ thuật kế thừa, không phải vi phạm mới.
 
-Rule 5b (dùng `classList`/`dataset` làm điều kiện rẽ nhánh) — 4 candidate thô phát hiện qua regex,
-CẦN đọc tay để phân biệt guard clause thật với rẽ nhánh 2 tiến trình: `core/file-manager/
-photo-ui.js :: _collapseFarMasonryChunks`, `core/file-manager/photo-ui.js ::
-_watchMasonryChunkForRestore`, `core/subtitle/subtitle-display.js :: addActiveSubBlock`,
-`core/visualizer/visualizer-display.js :: updateTypeUI`.
+**VI PHẠM XÁC NHẬN — thuộc code MỚI (không được miễn theo phạm vi legacy):** không hàm nào trong
+14+ hàm compliant/miễn trừ ở trên vi phạm — 3 vi phạm còn lại đều là code **CŨ** (core di sản).
+Không phát hiện vi phạm 5a nào trong code MỚI viết từ ver 12 trở đi.
+
+**Đề xuất bổ sung Rule 5a (chưa viết vào `core-function-conventions.md`, cần Giang chốt trước khi
+thêm chính thức):** thêm 1 diện miễn trừ thứ 3 (ngoài "hạ tầng dùng chung" kiểu `modal-choice.js`)
+— **"phần tử DOM tạm/vô hình, KHÔNG BAO GIỜ gắn vào cây DOM hiển thị, tạo và huỷ trong cùng 1
+hàm, chỉ dùng để gọi API trình duyệt (đo lường/giải mã/kích hoạt tải)"** — khác hẳn "cụm UI mới"
+(modal/drawer/toolbar) mà Rule 5a gốc hình dung, nhưng cùng tinh thần an toàn (không có tương tác
+người dùng nào cần audit). Đã xác nhận lặp lại ở ÍT NHẤT 4 file khác nhau (`loader.js`,
+`id3-export.js`, `document-pagination.js`, `document.js`) — đủ để thành 1 pattern chính thức thay
+vì mỗi file tự giải thích rời rạc bằng comment riêng.
+
+**Core di sản, hợp lệ về bản chất nhưng chưa xếp loại chính thức (không phải "phần tử tạm vô hình"
+như nhóm trên, cũng không phải cụm modal/drawer đầy đủ — nằm giữa 2 nhóm):**
+`core/playlist/render.js :: attachCoverFallback` — gắn `'error'` lên `imgEl`, xác nhận `imgEl` LÀ
+phần tử ảnh bìa MỚI tạo ngay trong `buildSongNode()` (hàm gọi tới đây, cùng file) khi dựng mỗi
+dòng bài hát — đúng tinh thần "cụm DOM mới" (không phải phần tử tĩnh có sẵn), callback SẠCH (chỉ
+tự gỡ listener + đổi `src`, không gọi core nào khác). Core di sản (đã có từ trước ver 12) nên
+không bắt buộc đổi tên `-ui.js` ngay, nhưng về hành vi đã tuân thủ Rule 5a trọn vẹn nếu bị đụng lại.
+
+### Rule 5c (hậu tố `-ui.js`) — 2 vi phạm xác nhận, 1 ĐÃ SỬA
+
+- **`core/modal-choice.js`** — đã ghi nhận từ trước (xem `core-function-conventions.md`), CHƯA sửa.
+- **`core/settings-panel-stack.js` → `core/settings-panel-stack-ui.js` — ĐÃ SỬA (12/07/2026, cùng
+  ngày phát hiện).** File này `document.createElement('div')` dựng MỚI panel Settings ĐỘNG (dòng
+  104, `_buildPanelInnerHtml()`) — đúng định nghĩa "dựng cụm DOM mới" của Rule 5a/5c — nhưng KHÔNG
+  có hậu tố `-ui.js`. Nghiêm trọng hơn: docstring đầu file (dòng 50) từng tự ghi **"Core UI
+  THUẦN... KHÔNG thuộc phạm vi Rule 1-4"** — ĐÚNG CÂU mà Rule 5 (`core-function-conventions.md`,
+  đoạn mở đầu) đã viết rõ là **"TUYÊN BỐ NÀY KHÔNG CÓ CĂN CỨ"**. Khác với 3 vi phạm 5a ở trên (core
+  di sản, được miễn tạm), file này là **code MỚI** (viết 08/07/2026, Nhóm D) — KHÔNG thuộc diện
+  legacy, phải sửa theo đúng tinh thần "code mới bắt buộc tuân thủ ngay từ đầu". Về mặt NỘI DUNG
+  file vẫn khá sạch (không tự `appState.get()`, không `addEventListener`, không `taskManager` — tự
+  nhận đúng) — vi phạm CHỈ nằm ở (a) tên file thiếu hậu tố, (b) dòng docstring viện dẫn sai câu chữ
+  Rule 5 để tự miễn trừ. **Đã sửa:** đổi tên file thành `settings-panel-stack-ui.js` (cập nhật
+  `<script src>` + comment tham chiếu trong `index.html`) + sửa lại docstring thành "tuân thủ Rule
+  1-4 đầy đủ, CỘNG Rule 5 (dựng UI)". **Lưu ý:** file này vẫn còn 2 vi phạm Rule 3 KHÁC (gọi
+  `scrollSliderTo()` từ `core/slider-panel-scroll.js`, xem bảng theo file bên dưới) — KHÔNG liên
+  quan tới Rule 5c vừa sửa, vẫn còn mở.
+- **Borderline, độ ưu tiên thấp (chỉ thêm ĐÚNG 1 phần tử nhỏ vào node có sẵn, không phải cụm
+  modal/drawer/toolbar đầy đủ — chưa rõ có tính là "cụm DOM mới" theo tinh thần Rule 5c hay không):**
+  `core/playlist/selection.js` (badge chỉ báo chọn, `node.appendChild(indicator)` lên node ĐÃ CÓ
+  SẴN được truyền vào — code MỚI, Nhóm B/C), `core/equalizer.js::initEQSliders` (dựng cột slider
+  EQ, nhưng chỉ 1/3 hàm trong file này dựng DOM — tiêu chí "TOÀN BỘ hoặc PHẦN LỚN" của Rule 5c chưa
+  rõ có tính hay không).
+
+### Rule 5b (`classList`/`dataset` làm điều kiện rẽ nhánh) — 0 vi phạm sau khi đọc kỹ
+
+Cả 4 candidate từ lần quét trước đều là FALSE POSITIVE, đã đọc code xác nhận:
+- `photo-ui.js :: _collapseFarMasonryChunks`/`_watchMasonryChunkForRestore` — `dataset.collapsed`
+  dùng làm điều kiện GUARD (tránh collapse/expand trùng lặp một trạng thái đã đúng), KHÔNG phải
+  chọn giữa 2 tiến trình nghiệp vụ khác nhau — đúng guard clause hợp lệ (cùng tinh thần ví dụ "ĐƯỢC"
+  ở Rule 1).
+- `subtitle-display.js :: addActiveSubBlock` — `child.dataset.start` dùng làm DỮ LIỆU số để sắp xếp
+  vị trí chèn (thuật toán insertion sort), không phải cờ trạng thái rẽ nhánh — không phải Rule 5b.
+- `visualizer-display.js :: updateTypeUI` — nhánh `if (cfg.type === 'vortex')` đọc `appState`
+  (Rule 1 thường, đã có trong bảng Rule 1/2/3 phía dưới), KHÔNG phải `classList`/`dataset` — quét
+  trước gán nhầm vào Rule 5b, thực ra không liên quan.
+
+**Kết luận Rule 5b: sạch hoàn toàn** (0/366 function vi phạm) — không phát hiện chỗ nào lách Rule 1
+qua đường DOM state.
 
 ---
 

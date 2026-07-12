@@ -20,10 +20,22 @@ Lý do: `taskManager` là NGUỒN QUẢN LÝ TIMER TẬP TRUNG DUY NHẤT của 
 **1 ngoại lệ ĐÃ BIẾT, giữ nguyên có chủ đích:** `core/tab-hide-reload.js::triggerHideAndReload()`
 dùng `setTimeout` thô (debounce 50ms phân biệt "ẩn tab thật" vs F5/đóng tab) — code này chạy NGAY
 TRONG lúc trang sắp bị unload/ẩn (`visibilitychange`/`pagehide`), cùng nhóm "browser lifecycle event
-đứng ngoài /event/" đã có tiền lệ ở `event-bus-flow.md` — thời điểm này không đáng tin cậy để phụ
-thuộc vào bất kỳ hạ tầng nào khác (kể cả `taskManager`). KHÔNG quét thấy chỗ nào khác dùng
-`setTimeout`/`setInterval` thô ngoài `service/task-manager.js` (định nghĩa gốc) tại thời điểm viết
-tài liệu này (04/07/2026).
+đứng ngoài `/event/`" đã có tiền lệ ở `event-bus-flow.md` — thời điểm này không đáng tin cậy để phụ
+thuộc vào bất kỳ hạ tầng nào khác (kể cả `taskManager`).
+
+> **[ĐÍNH CHÍNH 12/07/2026]** Từng ghi nhận 1 ngoại lệ thứ 2 ở đây cho
+> `event/workflow/subtitle-editor.js` (5 chỗ `setTimeout`/`setInterval` thô, lý do "trang
+> `subtitle-editor.html` không nạp `service/task-manager.js`") — SAI, đã kiểm tra lại kỹ hơn:
+> `service/task-manager.js` KHÔNG có dependency gì cả (không cần `appState`, không cần
+> `event/tab.js`, không cần bất kỳ file nào khác — đọc thẳng file đó xác nhận 0 tham chiếu
+> `appState`/`document`). Coupling với `event/tab.js` mà lý do cũ viện dẫn KHÔNG CÓ THẬT — kiểm tra
+> lại còn phát hiện thêm: `event/tab.js` **CHƯA TỪNG gọi `taskManager.pauseAll()`/`resumeAll()`**
+> ở BẤT KỲ ĐÂU trong toàn bộ app, kể cả `index.html` (`pauseAll`/`resumeAll` chỉ được ĐỊNH NGHĨA
+> trong `service/task-manager.js`, không nơi nào gọi tới — dead code). Đã sửa: thêm
+> `service/task-manager.js` vào `subtitle-editor.html`, đổi cả 5 chỗ sang
+> `taskManager.once()`/`addNew()` — **không còn ngoại lệ thứ 2 nữa**, chỉ còn đúng 1 ngoại lệ ở
+> trên. KHÔNG quét thấy chỗ nào khác dùng `setTimeout`/`setInterval` thô ngoài
+> `service/task-manager.js` (định nghĩa gốc) và ngoại lệ trên tại thời điểm viết tài liệu này.
 
 ## 2. CHỈ Workflow (`event/workflow/*.js`) được dùng `taskManager`
 
