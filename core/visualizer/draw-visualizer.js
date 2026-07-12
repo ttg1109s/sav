@@ -156,4 +156,9 @@
             }
             if (typeof appState !== 'undefined') appState.set('_isPlaylistReadyForResumeModal', true);
             if (typeof enableResumeModalButtonsWhenPlaylistReady === 'function') enableResumeModalButtonsWhenPlaylistReady();
+            // MỚI (yêu cầu Giang) — cuộn tới bài vừa sửa phụ đề xong (quay lại từ subtitle-editor.
+            // html qua nút "←") — đặt Ở ĐÂY, SAU CÙNG (đã initPlaylistFromDB() + khôi phục
+            // activePlayListFolder xong) để chắc chắn danh sách đang ở trạng thái CUỐI CÙNG trước
+            // khi cuộn. Gọi TRỰC TIẾP, KHÔNG qua eventBus — cùng quy ước lifecycle boot ở trên.
+            if (typeof scrollToSongIfPending === 'function') scrollToSongIfPending();
         });
