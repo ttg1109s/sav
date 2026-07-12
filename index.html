@@ -736,9 +736,10 @@
          comment đầu event/router/stats-panel.js). -->
     <script src="event/router/stats-panel.js?v=20260629v1"></script>
     <script src="event/listener/stats-panel.js?v=20260629v1"></script>
-    <!-- Cụm "savLogo" (ver 11, patch 6): KHÔNG có event/workflow/sav-logo.js — chỉ 2 msg.type,
-         chỉ cần ĐÚNG 1 HÀM CORE (setSavLogoExpanded), router gọi THẲNG. -->
-    <script src="event/router/sav-logo.js?v=20260702v1"></script>
+    <!-- Cụm "savLogo" (ver 11, patch 6) — MỚI (12/07/2026): giờ CÓ event/workflow/sav-logo.js
+         (xem comment đầu file — case 'toggle' cần Workflow vì tự chuẩn bị appState cho Core). -->
+    <script src="event/workflow/sav-logo.js?v=20260712v1"></script>
+    <script src="event/router/sav-logo.js?v=20260712v1"></script>
     <script src="event/listener/sav-logo.js?v=20260629v1"></script>
     <!-- Cụm "languageSettings" (ver 11, patch 7). -->
     <script src="event/workflow/language-settings.js?v=20260629v1"></script>
@@ -752,8 +753,8 @@
     <script src="event/router/playlist-empty-state.js?v=20260703v1"></script>
     <script src="event/listener/playlist-empty-state.js?v=20260629v1"></script>
     <!-- Cụm "subtitleModal" (ver 11, patch 9). -->
-    <script src="event/workflow/subtitle-modal.js?v=20260710v1"></script>
-    <script src="event/router/subtitle-modal.js?v=20260710v1"></script>
+    <script src="event/workflow/subtitle-modal.js?v=20260712v1"></script>
+    <script src="event/router/subtitle-modal.js?v=20260712v1"></script>
     <script src="event/listener/subtitle-modal.js?v=20260710v1"></script>
     <!-- Cụm "autoSwitchVisual" — Batch D3 (06/07/2026): core đã refactor Rule 1-4 đầy đủ, GIỜ CẦN
          workflow (event/workflow/auto-switch-visual.js) — không còn gọi thẳng core như trước. -->
@@ -771,14 +772,17 @@
     <script src="event/workflow/subtitle-style-settings.js?v=20260707v2"></script>
     <script src="event/router/subtitle-style-settings.js?v=20260707v2"></script>
     <script src="event/listener/subtitle-style-settings.js?v=20260707v2"></script>
-    <!-- Cụm "visualizerMiscSettings" (ver 11, patch 13): Batch D2 — 2 msg.type Subtitle Drawer đã
-         dời sang cụm "subtitleStyleSettings" ở trên. Còn lại 4 msg.type (2 nút Visualizer Drawer +
-         select kiểu hiệu ứng + toggle giữ màn hình sáng), vẫn KHÔNG có workflow, gọi thẳng core. -->
-    <script src="event/router/visualizer-misc-settings.js?v=20260706v2"></script>
+    <!-- Cụm "visualizerMiscSettings" (ver 11, patch 13) — MỚI (12/07/2026): giờ CÓ
+         event/workflow/visualizer-misc-settings.js — cả 2 msg.type đều cần Workflow (gọi ≥2 hàm
+         nối tiếp, hoặc tự chuẩn bị appState cho Core — xem comment đầu file workflow). -->
+    <script src="event/workflow/visualizer-misc-settings.js?v=20260712v1"></script>
+    <script src="event/router/visualizer-misc-settings.js?v=20260712v1"></script>
     <script src="event/listener/visualizer-misc-settings.js?v=20260706v2"></script>
-    <!-- Cụm "equalizerSettings" (ver 11, patch 14): KHÔNG có workflow — 1 delegation listener
-         trên eqSlidersWrapper thay cho 10 listener riêng lẻ trong vòng lặp initEQSliders(). -->
-    <script src="event/router/equalizer-settings.js?v=20260630v1"></script>
+    <!-- Cụm "equalizerSettings" (ver 11, patch 14) — MỚI (12/07/2026): giờ CÓ
+         event/workflow/equalizer-settings.js — msg.type duy nhất tự chuẩn bị appState
+         (eqBandNodes) cho Core, đúng hình dạng bắt buộc Workflow. -->
+    <script src="event/workflow/equalizer-settings.js?v=20260712v1"></script>
+    <script src="event/router/equalizer-settings.js?v=20260712v1"></script>
     <script src="event/listener/equalizer-settings.js?v=20260630v1"></script>
     <!-- event/tab.js — 3 lifecycle listener đặc thù của tab (visibilitychange/pagehide/
          beforeunload). Gọi thẳng hàm, không qua bus. Nạp CUỐI CÙNG trong toàn bộ /event/
