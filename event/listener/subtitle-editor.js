@@ -32,6 +32,8 @@ const waveformControlsEl = document.getElementById('waveform-controls');
 const btnWaveformPlayPause = document.getElementById('btn-waveform-playpause');
 const iconWaveformPlay = document.getElementById('icon-waveform-play');
 const iconWaveformPause = document.getElementById('icon-waveform-pause');
+const waveformCurrentTimeEl = document.getElementById('waveform-current-time'); // MỚI (yêu cầu Giang, mục 2)
+const btnPlayRegionControl = document.getElementById('btn-play-region-control'); // MỚI (yêu cầu Giang, mục 8)
 const waveformRegionStartEl = document.getElementById('waveform-region-start');
 const waveformRegionEndEl = document.getElementById('waveform-region-end');
 const btnWaveformDebug = document.getElementById('btn-waveform-debug');
@@ -127,6 +129,38 @@ if (btnSaveSubtitles) {
 if (btnWaveformPlayPause) {
     btnWaveformPlayPause.addEventListener('click', () => {
         eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.waveformPlayPause.click', payload: {} });
+    });
+}
+
+// MỚI (yêu cầu Giang, mục 2/6) — FIX bug ĐÃ XÁC NHẬN của chính WaveSurfer.js v7 (GitHub issue
+// #3804, katspaugh/wavesurfer.js: "[Regions] Clicking inside region does not seek", tái hiện từ
+// bản 7.8.2 trên Chrome/Edge) — bấm vào PHẦN NẰM TRONG vùng chọn (this._region, hầu như luôn che
+// phần lớn waveform) hoàn toàn KHÔNG chuyển vị trí phát, chỉ bấm ra NGOÀI vùng chọn mới ăn — đúng
+// nguyên nhân "current không bắt đúng vị trí bấm" (mục 2) VÀ "Auto-timing không bắt đúng current"
+// (mục 6, chính là 1 hệ quả của cùng bug này). Tự tính vị trí bấm THẲNG từ toạ độ chuột/chạm (không
+// lệ thuộc gì vào cơ chế click-to-seek nội bộ của WaveSurfer đang lỗi ở trên) rồi gọi
+// workflowSubtitleEditor.seekTo() — hoạt động ĐÚNG bất kể bấm trong hay ngoài vùng chọn.
+if (waveformContainerEl) {
+    waveformContainerEl.addEventListener('click', (e) => {
+        const rect = waveformContainerEl.getBoundingClientRect();
+        // scrollLeft + scrollWidth (KHÔNG phải clientWidth) — bài dài hơn khung nhìn sẽ cuộn ngang
+        // (minPxPerSec, xem _initWaveform()), phải tính trên TOÀN BỘ chiều rộng thật của waveform,
+        // không chỉ phần đang hiện trên màn hình.
+        const clickX = e.clientX - rect.left + waveformContainerEl.scrollLeft;
+        const totalWidth = waveformContainerEl.scrollWidth;
+        if (totalWidth <= 0) return;
+        // Gửi TỈ LỆ (0..1) THÔ, không tự nhân duration ở đây — nghe/tua chuyển sang giây là việc
+        // của Workflow (duration là thuộc tính của this._wavesurfer, listener không nên tự đọc
+        // thẳng state nội bộ của workflow).
+        const fraction = Math.max(0, Math.min(1, clickX / totalWidth));
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.seek.click', payload: { fraction } });
+    });
+}
+
+// MỚI (yêu cầu Giang, mục 8) — phát riêng vùng chọn, lối tắt ngay trong khung điều khiển.
+if (btnPlayRegionControl) {
+    btnPlayRegionControl.addEventListener('click', () => {
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.playSelection.click', payload: {} });
     });
 }
 
