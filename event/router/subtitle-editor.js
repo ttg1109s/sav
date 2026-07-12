@@ -125,6 +125,19 @@ const routerSubtitleEditor = (() => {
                 break;
             }
 
+            // MỚI (12/07/2026, audit kiến trúc `/event/` — xem readme/changelog/v12.md mục 14) —
+            // 2 nút mũi tên cuộn thanh công cụ TRƯỚC ĐÂY gọi thẳng `scrollSliderTo()` (core) NGAY
+            // TRONG listener, bỏ qua hoàn toàn bus — nay đi đúng luồng listener→router→workflow.
+            case 'subtitleEditor.toolbarScroll.left.click': {
+                workflowSubtitleEditor.scrollToolbar('left');
+                break;
+            }
+
+            case 'subtitleEditor.toolbarScroll.right.click': {
+                workflowSubtitleEditor.scrollToolbar('right');
+                break;
+            }
+
             default:
                 console.warn(`[routerSubtitleEditor] msg.type không xác định: "${msg.type}"`, msg);
         }
