@@ -157,10 +157,18 @@ const workflowSubtitleEditor = {
             this._wavesurfer.on('play', () => {
                 iconWaveformPlay.classList.add('hidden');
                 iconWaveformPause.classList.remove('hidden');
+                // FIX (yêu cầu Giang, mục 2 — icon "Play region"/▶ dòng không hiện lúc đang phát) —
+                // TRƯỚC ĐÂY gọi _updatePlaybackIcons() NGAY SAU khi gọi .play() trong
+                // _playRangeAndStop() — nhưng TẠI THỜI ĐIỂM đó .play() CHƯA THỰC SỰ bắt đầu phát
+                // (isPlaying() vẫn trả false), nên icon luôn tính SAI thành "chưa phát". Giờ gọi
+                // NGAY TRONG sự kiện 'play' thật của WaveSurfer — ĐÚNG lúc phát THỰC SỰ bắt đầu,
+                // bất kể do hành động nào kích hoạt (Play/Pause chung, "Play region", ▶ dòng nào).
+                this._updatePlaybackIcons();
             });
             this._wavesurfer.on('pause', () => {
                 iconWaveformPause.classList.add('hidden');
                 iconWaveformPlay.classList.remove('hidden');
+                this._updatePlaybackIcons(); // cùng lý do ở trên — đồng bộ NGAY lúc phát THỰC SỰ dừng
             });
             // MỚI (yêu cầu Giang, mục 2) — giờ vị trí phát HIỆN TẠI, trước đây hoàn toàn không có
             // gì phản ánh trên UI. Luôn bật (KHÔNG gỡ/gắn lại như _lineRangeStopHandler — đây là
@@ -433,29 +441,54 @@ const workflowSubtitleEditor = {
      * được lúc dòng đó đang ở chế độ sửa (nút start/end chỉ hiện trong chế độ đó, xem core/
      * subtitle/subtitles-ui.js). Xác nhận -> cập nhật PENDING + đồng bộ NGƯỢC vào this._region (mục
      * 5), KHÔNG commit thẳng vào dòng (chờ bấm ✓ Áp dụng).
-     * SỬA (yêu cầu Giang, mục 7 — "thông minh hoá") — giới hạn CHẶT: ô "start" không được > tổng
-     * bài hát VÀ không được > end hiện tại (PENDING); ô "end" không được > tổng bài hát VÀ không
-     * được < start hiện tại (PENDING). Vừa hiện rõ khoảng hợp lệ (UI hoá — dòng chú thích trong
-     * modal + tự khoá nút "Xong" nếu đang cuộn ra ngoài khoảng đó) VỪA kẹp cứng giá trị lúc xác
-     * nhận (chống trong logic — LUÔN đúng dù UI có lỡ cho bấm "Xong" hay không).
+     * SỬA (yêu cầu Giang, mục 3 — "UI hoá là chỉ cuộn được tới giá trị min-max") — BỎ HẲN cách cũ
+     * (chỉ cảnh báo + khoá nút "Xong") — giờ CHẶN THẬT việc cuộn ra ngoài [minAllowed,maxAllowed]:
+     * cho lướt tự do (giữ nguyên cảm giác cuộn mượt của native scroll), rồi NGAY KHI lướt tay DỪNG
+     * HẲN (debounce 120ms), tự "bật lại" (snap) về mép gần nhất nếu đã vượt biên — hiệu ứng
+     * "rubber-band" quen thuộc ở mép danh sách trên iOS. 4 wheel (HH/MM/SS/x100ms) PHỤ THUỘC NHAU
+     * theo tầng — bound của MM tính theo giá trị HH HIỆN TẠI (đã ổn định), bound của SS tính theo
+     * HH+MM, bound của tenths tính theo HH+MM+SS — mỗi khi 1 wheel THÔ hơn ổn định ở giá trị mới,
+     * các wheel MỊN HƠN tự kẹp lại theo bound MỚI ngay lập tức (xem reclampFinerThan()).
+     * Vẫn CHỐNG TRONG LOGIC (kẹp cứng lần cuối lúc bấm "Xong") — LUÔN đúng dù cơ chế chặn cuộn ở
+     * trên có lỡ chưa kịp ổn định hay không.
      * @param {string} subId @param {'start'|'end'} kind @param {number} currentSeconds
      */
     openTimePickerModal(subId, kind, currentSeconds) {
         if (!this._wavesurfer) return;
         const ITEM_H = 44; // px — PHẢI khớp đúng h-11 (44px) của mỗi số trong subtitle-editor.html/CSS bên dưới
         const totalDuration = this._wavesurfer.getDuration() || 0;
-        // Giới hạn THẬT (mục 7): start bị chặn bởi min(tổng bài hát, end PENDING hiện tại); end bị
-        // chặn TRÊN bởi tổng bài hát, chặn DƯỚI bởi start PENDING hiện tại.
+        // Giới hạn THẬT: start bị chặn bởi min(tổng bài hát, end PENDING hiện tại); end bị chặn
+        // TRÊN bởi tổng bài hát, chặn DƯỚI bởi start PENDING hiện tại.
         const minAllowed = kind === 'start' ? 0 : this._editingPendingStart;
         const maxAllowed = kind === 'start' ? Math.min(totalDuration, this._editingPendingEnd) : totalDuration;
 
         const totalMs = Math.max(0, Math.round(currentSeconds * 1000));
-        const initHH = Math.floor(totalMs / 3600000) % 24;
-        const initMM = Math.floor(totalMs / 60000) % 60;
-        const initSS = Math.floor(totalMs / 1000) % 60;
-        const initTenth = Math.floor((totalMs % 1000) / 100);
+        // Giá trị HIỆN TẠI của từng wheel (CHỈ cập nhật khi wheel đó "ổn định" — xem onSettle bên
+        // dưới) — dùng để tính bound cho các wheel MỊN HƠN theo tầng.
+        let currentHH = Math.floor(totalMs / 3600000) % 24;
+        let currentMM = Math.floor(totalMs / 60000) % 60;
+        let currentSS = Math.floor(totalMs / 1000) % 60;
 
-        function buildColumn(count, initIndex) {
+        /** Tính [min,max] (đơn vị THÔ, ví dụ 0-23 cho HH) hợp lệ cho tầng `level`, dựa trên giá trị
+         * ỔN ĐỊNH HIỆN TẠI của các tầng THÔ HƠN — ước lượng theo phần dư còn lại của [minAllowed,
+         * maxAllowed] sau khi trừ phần các tầng thô hơn đã đóng góp. */
+        function boundsFor(level) {
+            const prefixSeconds =
+                (level === 'hh' ? 0 : currentHH * 3600) +
+                (level === 'hh' || level === 'mm' ? 0 : currentMM * 60) +
+                (level === 'hh' || level === 'mm' || level === 'ss' ? 0 : currentSS);
+            const unitSeconds = level === 'hh' ? 3600 : level === 'mm' ? 60 : level === 'ss' ? 1 : 0.1;
+            const count = level === 'hh' ? 24 : level === 'tenth' ? 10 : 60;
+            let min = Math.max(0, Math.floor((minAllowed - prefixSeconds) / unitSeconds + 1e-9));
+            let max = Math.min(count - 1, Math.floor((maxAllowed - prefixSeconds) / unitSeconds + 1e-9));
+            if (min > max) { min = 0; max = count - 1; } // an toàn — hiếm khi xảy ra (làm tròn biên) -> bỏ giới hạn tầng này, logic lúc "Xác nhận" vẫn kẹp đúng
+            return [min, max];
+        }
+
+        /** Dựng 1 cột cuộn — `onSettle(index)` gọi SAU KHI lướt tay dừng hẳn VÀ đã tự kẹp về đúng
+         * [min,max] (nếu cần) — dùng để các wheel THÔ HƠN... không, dùng để CHÍNH wheel này cập
+         * nhật biến current* của nó, cho các wheel MỊN HƠN tính lại bound theo. */
+        function buildColumn(count, initIndex, level, onSettle) {
             const col = document.createElement('div');
             col.className = 'time-picker-col flex-1 h-[132px] overflow-y-scroll snap-y snap-mandatory';
             col.style.scrollSnapStop = 'always';
@@ -471,13 +504,40 @@ const workflowSubtitleEditor = {
             const bottomSpacer = document.createElement('div'); bottomSpacer.style.height = ITEM_H + 'px'; col.appendChild(bottomSpacer);
             items.forEach((item, i) => item.addEventListener('click', () => col.scrollTo({ top: i * ITEM_H, behavior: 'smooth' })));
             col.scrollTop = initIndex * ITEM_H; // vị trí ban đầu NGAY LẬP TỨC (không animation) trước khi modal kịp hiện ra
+
+            let settleTimer = null;
+            col.addEventListener('scroll', () => {
+                clearTimeout(settleTimer);
+                settleTimer = setTimeout(() => {
+                    const idx = Math.round(col.scrollTop / ITEM_H);
+                    const [min, max] = boundsFor(level);
+                    const clamped = Math.max(min, Math.min(max, idx));
+                    if (clamped !== idx) col.scrollTo({ top: clamped * ITEM_H, behavior: 'smooth' }); // "bật lại" mép gần nhất — rubber-band
+                    onSettle(clamped);
+                }, 120); // đợi lướt tay DỪNG HẲN rồi mới kẹp — tránh giật lúc đang lướt dở
+            });
             return col;
         }
 
-        const hhCol = buildColumn(24, initHH);
-        const mmCol = buildColumn(60, initMM);
-        const ssCol = buildColumn(60, initSS);
-        const tenthCol = buildColumn(10, initTenth);
+        const hhCol = buildColumn(24, currentHH, 'hh', (v) => { currentHH = v; reclampFinerThan('hh'); });
+        const mmCol = buildColumn(60, currentMM, 'mm', (v) => { currentMM = v; reclampFinerThan('mm'); });
+        const ssCol = buildColumn(60, currentSS, 'ss', (v) => { currentSS = v; reclampFinerThan('ss'); });
+        const tenthCol = buildColumn(10, Math.floor((totalMs % 1000) / 100), 'tenth', () => {}); // tầng mịn nhất, không có gì phụ thuộc theo sau
+
+        /** Wheel `level` vừa ổn định ở giá trị mới -> MỌI wheel MỊN HƠN cần tự kẹp lại NGAY (bound
+         * của chúng vừa đổi theo giá trị mới này). */
+        function reclampFinerThan(level) {
+            const finerCols = level === 'hh' ? [['mm', mmCol], ['ss', ssCol], ['tenth', tenthCol]]
+                : level === 'mm' ? [['ss', ssCol], ['tenth', tenthCol]]
+                    : [['tenth', tenthCol]];
+            finerCols.forEach(([finerLevel, col]) => {
+                const idx = Math.round(col.scrollTop / ITEM_H);
+                const [min, max] = boundsFor(finerLevel);
+                const clamped = Math.max(min, Math.min(max, idx));
+                if (clamped !== idx) col.scrollTo({ top: clamped * ITEM_H, behavior: 'smooth' });
+                if (finerLevel === 'mm') currentMM = clamped; else if (finerLevel === 'ss') currentSS = clamped;
+            });
+        }
 
         const overlay = document.createElement('div');
         overlay.id = 'time-picker-modal-overlay';
@@ -491,7 +551,8 @@ const workflowSubtitleEditor = {
         titleEl.textContent = kind === 'start' ? t('subtitleEditor.timePicker.titleStart') : t('subtitleEditor.timePicker.titleEnd');
         card.appendChild(titleEl);
 
-        // MỚI (yêu cầu Giang, mục 7 — "UI hoá giới hạn") — hiện rõ khoảng hợp lệ ngay trong modal.
+        // Hiện rõ khoảng hợp lệ ngay trong modal (thông tin, KHÔNG phải cảnh báo động — việc CHẶN
+        // THẬT nằm ở cơ chế cuộn phía trên, xem buildColumn()).
         const rangeHintEl = document.createElement('p');
         rangeHintEl.className = 'text-[11px] text-slate-400 font-mono';
         rangeHintEl.textContent = tFormat('subtitleEditor.timePicker.rangeHint', { min: secToStr(minAllowed), max: secToStr(maxAllowed) });
@@ -512,13 +573,6 @@ const workflowSubtitleEditor = {
         });
         card.appendChild(labelRow);
 
-        // MỚI (mục 7) — dòng cảnh báo nhỏ, CHỈ hiện khi vị trí đang cuộn NẰM NGOÀI khoảng hợp lệ —
-        // UI hoá giới hạn thêm 1 bước: khoá hẳn nút "Xong" cho tới khi cuộn về đúng trong khoảng.
-        const warningEl = document.createElement('p');
-        warningEl.className = 'hidden text-[11px] text-rose-400 font-semibold';
-        warningEl.textContent = t('subtitleEditor.timePicker.outOfRange');
-        card.appendChild(warningEl);
-
         const buttonRow = document.createElement('div');
         buttonRow.className = 'flex gap-3 mt-1';
         const cancelBtn = document.createElement('button');
@@ -528,37 +582,25 @@ const workflowSubtitleEditor = {
         buttonRow.appendChild(cancelBtn);
         const confirmBtn = document.createElement('button');
         confirmBtn.type = 'button';
-        confirmBtn.className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-bold transition-colors disabled:opacity-40';
+        confirmBtn.className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-bold transition-colors';
         confirmBtn.textContent = t('common.ok');
         buttonRow.appendChild(confirmBtn);
         card.appendChild(buttonRow);
 
         overlay.appendChild(card);
 
-        function readWheelSeconds() {
+        // --- addEventListener: gom cuối hàm (Rule 5a) ---
+        function closeModal() { overlay.remove(); }
+        cancelBtn.addEventListener('click', closeModal);
+        confirmBtn.addEventListener('click', () => {
             const hh = Math.round(hhCol.scrollTop / ITEM_H);
             const mm = Math.round(mmCol.scrollTop / ITEM_H);
             const ss = Math.round(ssCol.scrollTop / ITEM_H);
             const tenth = Math.round(tenthCol.scrollTop / ITEM_H);
-            return hh * 3600 + mm * 60 + ss + tenth * 0.1;
-        }
-        function refreshValidityUi() {
-            const seconds = readWheelSeconds();
-            const outOfRange = seconds < minAllowed || seconds > maxAllowed;
-            warningEl.classList.toggle('hidden', !outOfRange);
-            confirmBtn.disabled = outOfRange;
-        }
-        refreshValidityUi(); // trạng thái ban đầu
-
-        // --- addEventListener: gom cuối hàm (Rule 5a) ---
-        function closeModal() { overlay.remove(); }
-        cancelBtn.addEventListener('click', closeModal);
-        [hhCol, mmCol, ssCol, tenthCol].forEach((col) => col.addEventListener('scroll', refreshValidityUi));
-        confirmBtn.addEventListener('click', () => {
-            if (confirmBtn.disabled) return; // lưới an toàn — không nên tới được đây nếu UI đã khoá đúng
-            // SỬA (mục 7) — CHỐNG TRONG LOGIC: kẹp cứng vào [minAllowed, maxAllowed] LẦN CUỐI trước
-            // khi dùng, LUÔN đúng bất kể UI ở trên có lỡ cho qua hay không.
-            const seconds = Math.max(minAllowed, Math.min(maxAllowed, readWheelSeconds()));
+            // CHỐNG TRONG LOGIC: kẹp cứng vào [minAllowed, maxAllowed] LẦN CUỐI trước khi dùng —
+            // LUÔN đúng dù cơ chế chặn cuộn ở trên có lỡ chưa kịp "ổn định" (debounce 120ms) hay
+            // không (vd bấm "Xong" ngay khi vừa lướt xong, chưa đủ 120ms).
+            const seconds = Math.max(minAllowed, Math.min(maxAllowed, hh * 3600 + mm * 60 + ss + tenth * 0.1));
             closeModal();
             if (this._editingLineId === subId) {
                 // Đang sửa ĐÚNG dòng này — chỉ cập nhật PENDING + đồng bộ NGƯỢC region (mục 5),
@@ -753,7 +795,12 @@ const workflowSubtitleEditor = {
     togglePlayPause() {
         if (!this._wavesurfer) return;
         this._clearLineRangeStopHandler();
-        this._wavesurfer.playPause();
+        // FIX (yêu cầu Giang, mục 2) — cùng lý do _playRangeAndStop(): playPause() có thể gọi
+        // .play() nội bộ, cũng có thể bị reject nếu va chạm với 1 lượt pause() vừa xảy ra sát đó.
+        const result = this._wavesurfer.playPause();
+        if (result && typeof result.catch === 'function') {
+            result.catch((err) => console.warn('[subtitle-editor] playPause() bị reject:', err));
+        }
     },
 
     /** MỚI (yêu cầu Giang, mục 1 — "phải như thế") — nút ▶ mỗi dòng phụ đề giờ dùng ĐÚNG cùng
@@ -800,7 +847,6 @@ const workflowSubtitleEditor = {
         this._wavesurfer.setTime(start);
         this._isPlayingRegion = true;
         this._activePlaybackLineId = lineId; // gán SAU khi _clearLineRangeStopHandler() đã reset xong
-        this._updatePlaybackIcons();
         this._lineRangeStopHandler = (currentTime) => {
             if (currentTime >= end) {
                 this._wavesurfer.pause();
@@ -808,7 +854,23 @@ const workflowSubtitleEditor = {
             }
         };
         this._wavesurfer.on('timeupdate', this._lineRangeStopHandler);
-        this._wavesurfer.play();
+        // FIX (yêu cầu Giang, mục 2 — "phải bấm 2 lần mới phát lại") — NGUYÊN NHÂN GỐC nghi vấn:
+        // `.pause()` (tự dừng đúng end) rồi ngay sau đó người dùng bấm lại để phát -> `.play()` gọi
+        // RẤT SÁT với `.pause()` vừa rồi -> đụng đúng lỗi trình duyệt đã biết rộng rãi với
+        // HTMLMediaElement: "The play() request was interrupted by a call to pause()"
+        // (DOMException) — Promise của `.play()` bị REJECT, phát lại THẤT BẠI ÂM THẦM nếu không ai
+        // bắt lỗi này — lần bấm ĐẦU coi như "không có tác dụng gì", lần bấm THỨ HAI (đủ xa lần
+        // pause() trước) mới thật sự ăn, đúng y hệt triệu chứng "phải bấm 2 lần". FIX: bắt lỗi
+        // reject, tự thử lại 1 lần sau khi nhường 1 chút thời gian (né đúng lúc va chạm).
+        const playResult = this._wavesurfer.play();
+        if (playResult && typeof playResult.catch === 'function') {
+            playResult.catch((err) => {
+                console.warn('[subtitle-editor] play() bị reject (có thể do va chạm với pause() vừa gọi) — thử lại:', err);
+                setTimeout(() => {
+                    if (this._wavesurfer) this._wavesurfer.play().catch((err2) => console.error('[subtitle-editor] play() thử lại vẫn thất bại:', err2));
+                }, 80);
+            });
+        }
     },
 
     /** MỚI (yêu cầu Giang, mục 1.C) — gỡ sạch listener 'timeupdate' đang canh dừng 1 lượt nghe thử
@@ -870,6 +932,14 @@ const workflowSubtitleEditor = {
             this._region.setOptions({ start: this._region.end, end: current });
         }
         this._updateRegionTimeDisplay();
+        // FIX (yêu cầu Giang, mục 1 — "chưa đồng bộ") — TRƯỚC ĐÂY chỉ dựa vào sự kiện 'update' của
+        // region tự bắn (đăng ký ở _initWaveform()) để đồng bộ ngược vào dòng đang sửa — nhưng
+        // KHÔNG có tài liệu/bằng chứng nào đảm bảo `region.setOptions()` LUÔN bắn 'update' đồng bộ
+        // hệt như lúc kéo tay (GitHub issue #3050 của katspaugh/wavesurfer.js còn ghi nhận
+        // setOptions() gọi trong 1 số ngữ cảnh KHÔNG cập nhật đúng UI). Gọi TRỰC TIẾP
+        // _syncPendingFromRegion() ở đây, KHÔNG lệ thuộc gì vào việc sự kiện có bắn hay không —
+        // luôn đúng bất kể hành vi thật của thư viện.
+        this._syncPendingFromRegion();
     },
 
     /** Đối xứng với setRegionStartToCurrentTime() ở trên — current <= start hiện tại (bấm "chốt
@@ -884,6 +954,7 @@ const workflowSubtitleEditor = {
             this._region.setOptions({ start: current, end: this._region.start });
         }
         this._updateRegionTimeDisplay();
+        this._syncPendingFromRegion(); // FIX (yêu cầu Giang, mục 1) — cùng lý do ở trên
     },
 
     // ============================== Toolbar: MỚI — tool "Cut MP3" (yêu cầu Giang, mục 1) ==============================
