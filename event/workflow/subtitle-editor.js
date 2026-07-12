@@ -630,6 +630,131 @@ const workflowSubtitleEditor = {
         this._updateRegionTimeDisplay();
     },
 
+    // ============================== Toolbar: MỚI — tool "Cut MP3" (yêu cầu Giang, mục 1) ==============================
+
+    /** Bấm "Cut" — cắt ĐÚNG đoạn this._region hiện tại thành 1 file .mp3 thật, xong hiện modal 3
+     * lựa chọn (modalChoice() có sẵn, core/modal-choice.js) Huỷ/Tải xuống/Chèn. Tự khoá nút trong
+     * lúc mã hoá (đề phòng bấm chồng — mã hoá lamejs chạy đồng bộ, chặn main thread 1 lúc tuỳ độ
+     * dài vùng chọn). */
+    async cutMp3FromRegion() {
+        if (!this._region || !this._wavesurfer) return;
+        if (btnCutMp3.dataset.busy === '1') return;
+        btnCutMp3.dataset.busy = '1';
+        btnCutMp3.classList.add('opacity-40', 'pointer-events-none');
+        try {
+            // Nhường 1 khung hình cho trình duyệt VẼ XONG trạng thái "đang xử lý" (mờ nút) TRƯỚC
+            // khi bắt đầu việc mã hoá đồng bộ nặng — không làm vậy, nút sẽ trông như "không phản
+            // hồi" suốt lúc mã hoá vì main thread bận, không kịp repaint.
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+            const blob = await this._encodeMp3FromRegion(this._region.start, this._region.end);
+            this._showCutResultModal(blob);
+        } catch (err) {
+            console.error('[subtitle-editor] Cắt MP3 thất bại:', err);
+            await alertModal(t('subtitleEditor.cutMp3.error')); // core/modal-choice.js
+        } finally {
+            btnCutMp3.dataset.busy = '0';
+            btnCutMp3.classList.remove('opacity-40', 'pointer-events-none');
+        }
+    },
+
+    /** Cắt [startSec, endSec] từ AudioBuffer ĐÃ GIẢI MÃ SẴN của chính WaveSurfer
+     * (getDecodedData() — cùng nguồn dữ liệu với waveform đang hiển thị, không tự decodeAudioData()
+     * lại từ đầu tốn công) rồi mã hoá bằng lamejs (CDN, subtitle-editor.html) -> Blob 'audio/mpeg'.
+     * lamejs cần PCM 16-bit int — tự convert từ Float32Array (-1..1) của Web Audio API. Block size
+     * 1152 = đúng 1 khung MPEG Layer III chuẩn (xem ví dụ chính thức của lamejs). */
+    async _encodeMp3FromRegion(startSec, endSec) {
+        const buffer = this._wavesurfer.getDecodedData();
+        if (!buffer) throw new Error('getDecodedData() null — chưa có dữ liệu audio đã giải mã.');
+
+        const sampleRate = buffer.sampleRate;
+        const startSample = Math.max(0, Math.floor(startSec * sampleRate));
+        const endSample = Math.min(buffer.length, Math.ceil(endSec * sampleRate));
+        const sliceLength = endSample - startSample;
+        if (sliceLength <= 0) throw new Error('Vùng chọn rỗng, không có gì để cắt.');
+
+        const channels = Math.min(buffer.numberOfChannels, 2); // lamejs chỉ hỗ trợ mono/stereo
+        const mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, 128); // 128kbps — đủ dùng cho đoạn cắt ngắn
+        const blockSize = 1152;
+        const mp3Chunks = [];
+
+        const chanData = [];
+        for (let c = 0; c < channels; c++) {
+            const src = buffer.getChannelData(Math.min(c, buffer.numberOfChannels - 1)).subarray(startSample, endSample);
+            const int16 = new Int16Array(sliceLength);
+            for (let i = 0; i < sliceLength; i++) {
+                const s = Math.max(-1, Math.min(1, src[i]));
+                int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+            }
+            chanData.push(int16);
+        }
+
+        for (let i = 0; i < sliceLength; i += blockSize) {
+            const left = chanData[0].subarray(i, i + blockSize);
+            const encoded = channels === 2
+                ? mp3encoder.encodeBuffer(left, chanData[1].subarray(i, i + blockSize))
+                : mp3encoder.encodeBuffer(left);
+            if (encoded.length > 0) mp3Chunks.push(encoded);
+        }
+        const finalChunk = mp3encoder.flush();
+        if (finalChunk.length > 0) mp3Chunks.push(finalChunk);
+
+        return new Blob(mp3Chunks, { type: 'audio/mpeg' });
+    },
+
+    /** Modal 3 lựa chọn sau khi cắt xong — TÁI DÙNG modalChoice() có sẵn (core/modal-choice.js,
+     * đúng yêu cầu Giang "modal choice") thay vì dựng modal riêng như Split/Shift (ở đây chỉ cần
+     * chọn 1 trong 3 nút, không cần input gì thêm — modalChoice() vừa khớp, không cần viết thêm). */
+    _showCutResultModal(blob) {
+        const startStr = secToStr(this._region.start); // core
+        const endStr = secToStr(this._region.end); // core
+        const baseTitle = this._record.tag?.title || this._songKey;
+        const fileName = `${baseTitle} [cut ${startStr} - ${endStr}].mp3`.replace(/[:,]/g, '-');
+
+        modalChoice( // core/modal-choice.js
+            tFormat('subtitleEditor.cutMp3.resultDesc', { start: startStr, end: endStr }),
+            [
+                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors' },
+                { label: t('subtitleEditor.cutMp3.download'), className: 'flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-bold transition-colors', onClick: () => this._downloadCutBlob(blob, fileName) },
+                { label: t('subtitleEditor.cutMp3.insert'), className: 'flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-sm font-bold transition-colors', onClick: () => this._insertCutBlobAsNewSong(blob, fileName) },
+            ],
+            { title: t('subtitleEditor.cutMp3.resultTitle') }
+        );
+    },
+
+    _downloadCutBlob(blob, fileName) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = fileName; a.click();
+        URL.revokeObjectURL(url);
+    },
+
+    /** "Chèn" — thêm đoạn vừa cắt vào thư viện NHƯ 1 BÀI HÁT MỚI, HOÀN TOÀN TÁCH BIỆT khỏi bài
+     * gốc đang mở (record riêng, key riêng) — tái dùng ĐÚNG resolveSongKey()/setSongRecord()
+     * (service/db.js) mà core/playlist/loader.js dùng khi nạp file mới, để key luôn nhất quán với
+     * cách app tự đặt tên bài trùng. KHÔNG cần tự thêm vào `playlistOrder` (appState — trang này
+     * không nạp service/state.js): initPlaylistFromDB() (core/playlist/loader.js) coi store
+     * `songs` là "chân lý duy nhất", tự quét lại TOÀN BỘ key trong store đó mỗi lần index.html mở
+     * — bài mới chèn sẽ tự xuất hiện ngay lần quay lại Playlist sau, không cần đụng gì thêm ở đây. */
+    async _insertCutBlobAsNewSong(blob, fileName) {
+        const key = await resolveSongKey(fileName); // service/db.js
+        const baseTitle = this._record.tag?.title || this._songKey;
+        const record = {
+            filename: fileName,
+            blob,
+            tag: {
+                title: tFormat('subtitleEditor.cutMp3.newSongTitle', { title: baseTitle }),
+                artist: this._record.tag?.artist || '',
+                album: this._record.tag?.album || '',
+            },
+            cover: this._record.cover || null,
+            subtitles: [],
+            duration: this._region.end - this._region.start,
+            addedAt: Date.now(),
+        };
+        await setSongRecord(key, record); // service/db.js
+        await alertModal(t('subtitleEditor.cutMp3.inserted')); // core/modal-choice.js
+    },
+
     // ============================== Toolbar: MỚI — tool "Shift" (yêu cầu Giang, mục 5) ==============================
 
     /** Bấm nút "Shift" trên thanh công cụ — bật/tắt "chế độ chọn dòng" để dịch giờ hàng loạt.
