@@ -134,7 +134,34 @@
             var fillEl = document.getElementById('app-preloader-bar-fill');
             var percentEl = document.getElementById('app-preloader-percent');
             var preloaderEl = document.getElementById('app-preloader');
-            var pollTimer = setInterval(function () {
+
+            // FIX (yêu cầu Giang — "% không chạy thật, mặc định 0% hoặc 100%") — 2 NGUYÊN NHÂN GỐC
+            // tìm được, cả 2 đều liên quan tới cách đo % (đếm resource qua Performance API):
+            //
+            // (1) Resource Timing API có GIỚI HẠN BUFFER MẶC ĐỊNH (thường ~150-250 entry tuỳ trình
+            //     duyệt) — VƯỢT quá giới hạn này, entry MỚI bị ÂM THẦM BỎ QUA (không lỗi, không
+            //     cảnh báo). App này có tới ~176 file <script src> RIÊNG (chưa tính CSS/CDN/ảnh...) —
+            //     cộng dồn TOÀN BỘ resource khác của trang, tổng số entry rất dễ VƯỢT NGƯỠNG MẶC ĐỊNH
+            //     — `loaded` (đếm qua `performance.getEntriesByType('resource')`) NGỪNG TĂNG giữa
+            //     chừng dù script vẫn đang tải tiếp thật — % bị "đứng hình" ở 1 mức nào đó rồi nhảy
+            //     thẳng lên 100% khi `window.load` bắn (ép cứng, xem hidePreloader()) — ĐÚNG hiện
+            //     tượng "% không chạy thật, chỉ thấy 0%/100%". FIX: chủ động tăng buffer lên dư dả
+            //     (500, gấp gần 3 lần số script hiện có, chừa chỗ cho tăng trưởng sau này) NGAY LÚC
+            //     BẮT ĐẦU, trước khi bất kỳ resource nào kịp tải xong.
+            //
+            // (2) Trên mạng nhanh (hoặc cache trình duyệt còn hiệu lực từ lần ghé trước) — TOÀN BỘ
+            //     176+ script có thể tải xong trong CHƯA TỚI 80ms (chu kỳ poll đầu tiên) — `window.
+            //     load` bắn TRƯỚC KHI setInterval() kịp chạy lần nào — % thật (đang tăng dần) KHÔNG
+            //     BAO GIỜ kịp vẽ ra màn hình, người dùng chỉ thấy "0%" tĩnh (giá trị khởi tạo cứng
+            //     trong HTML) rồi NHẢY THẲNG "100%" (ép cứng bởi hidePreloader()) — ĐÚNG PHẦN CÒN
+            //     LẠI của hiện tượng Giang mô tả. FIX: tách phần đo % ra 1 hàm riêng, gọi NGAY LẬP
+            //     TỨC (đồng bộ, không đợi tick đầu của setInterval) TRƯỚC KHI đăng ký interval — dù
+            //     mạng nhanh cỡ nào, ít nhất 1 lần đo % thật cũng kịp render trước khi có gì ép 100%.
+            if (typeof performance.setResourceTimingBufferSize === 'function') {
+                performance.setResourceTimingBufferSize(500);
+            }
+
+            function measureProgress() {
                 var total = document.querySelectorAll('script[src]').length;
                 if (total === 0) return; // guard: parser chưa tới thẻ script nào (cực hiếm)
                 var loaded = 0;
@@ -147,7 +174,10 @@
                 var percent = Math.min(100, Math.round((loaded / total) * 100));
                 fillEl.style.width = percent + '%';
                 percentEl.textContent = percent + '%';
-            }, 80);
+            }
+
+            measureProgress(); // (2) đo NGAY LẬP TỨC, không đợi tick đầu 80ms
+            var pollTimer = setInterval(measureProgress, 80);
 
             function hidePreloader() {
                 clearInterval(pollTimer);
@@ -371,7 +401,7 @@
          core/config.js (vizConfig khởi tạo bằng { ...CONST.DEFAULT_VIZ_CONFIG }) và trước toàn bộ
          core/ còn lại; PHẢI nạp SAU core/modal-choice.js (alertModal, dùng cho option notifyUI).
          Xem comment đầu file service/state.js. -->
-    <script src="service/state.js?v=20260709v1"></script>
+    <script src="service/state.js?v=20260712v1"></script>
     <script src="core/config.js?v=20260709v1"></script>
     <!-- event/store.js (class EventStore) — CHỈ riêng file NÀY trong toàn bộ /event/ được nạp SỚM
          ở đây, KHÔNG đợi xuống cuối cùng cùng bus/workflow/router/listener. Lý do: playlist/
@@ -524,7 +554,7 @@
          định" trong Settings. PHẢI nạp SAU dom-refs.js/main.js (cần btnRestartApp/btnRestoreDefaults
          đã có ref + HTML thật đã chèn), resume-state-storage.js, config.js (saveConfig/loadConfig
          giờ ở đây), modal-choice.js. Xem comment đầu file app-recovery.js. -->
-    <script src="core/app-recovery.js?v=20260625v10"></script>
+    <script src="core/app-recovery.js?v=20260712v1"></script>
     <!-- Settings "Ngôn ngữ" (batch i18n; tái cấu trúc /lang/ — đã dời từ js/core/language-settings.js
          sang lang/language-settings.js, nội dung KHÔNG đổi, chỉ đổi đường dẫn) — xử lý
          <select>/upload/xóa ngôn ngữ. PHẢI nạp SAU dom-refs.js/main.js (cần ref DOM của

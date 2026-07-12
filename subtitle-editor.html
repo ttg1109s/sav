@@ -64,6 +64,10 @@
          khi dùng). -->
     <script src="https://unpkg.com/wavesurfer.js@7"></script>
     <script src="https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.min.js"></script>
+    <!-- MỚI (yêu cầu Giang, mục 1 — tool "Cut MP3") — encoder MP3 THUẦN JS (không cần server), mã
+         hoá trực tiếp buffer PCM đã giải mã sẵn của WaveSurfer (getDecodedData()) thành file .mp3
+         THẬT — xem event/workflow/subtitle-editor.js::_encodeMp3FromRegion(). -->
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
 </head>
 <body class="bg-[#0b0f1a] text-white min-h-screen flex flex-col overflow-hidden">
 
@@ -211,6 +215,12 @@
                     <svg class="w-6 h-6 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7.848 8.25l1.536.887M7.848 8.25a3 3 0 11-5.196-3 3 3 0 015.196 3zm1.536.887a2.165 2.165 0 011.083 1.839c.005.351.054.695.14 1.024m-1.223-2.863l7.104 4.101M7.848 15.75l1.536-.887m-1.536.887a3 3 0 11-5.196 3 3 3 0 015.196-3zm1.536-.887a2.165 2.165 0 001.083-1.838c.005-.352.054-.695.14-1.025m-1.223 2.863l7.104-4.101m0-4.899L19.5 3.75M12.75 12l6.75 6.75" /></svg>
                     <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-split-label"></span>
                 </button>
+                <!-- MỚI (yêu cầu Giang, mục 1) — "Cut": cắt ĐÚNG đoạn vùng chọn thành 1 file .mp3
+                     thật (lamejs), xong hiện modal 3 lựa chọn Huỷ/Tải xuống/Chèn vào thư viện. -->
+                <button id="btn-cut-mp3" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
+                    <svg class="w-6 h-6 text-fuchsia-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2 2l20 20"></path></svg>
+                    <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-cut-mp3-label"></span>
+                </button>
                 <!-- MỚI (yêu cầu Giang, mục 5) — "Shift": bật chế độ chọn dòng để dịch giờ hàng
                      loạt (xem workflowSubtitleEditor.toggleShiftSelectionMode()). -->
                 <button id="btn-shift" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
@@ -243,7 +253,7 @@
     <script src="lang/patch/patch-subtitle-settings.js?v=20260709v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260706v2"></script>
     <script src="lang/patch/patch-file-manager.js?v=20260710v1"></script>
-    <script src="lang/patch/patch-subtitle-editor.js?v=20260711v5"></script>
+    <script src="lang/patch/patch-subtitle-editor.js?v=20260712v1"></script>
     <!-- lang.js hardcode Object.assign() cả 7 biến LANG_PATCH_* trên — THIẾU BẤT KỲ FILE NÀO Ở
          TRÊN đều làm lang.js ReferenceError ngay khi parse (chạy TRÊN CẢ index.html LẪN trang này,
          xem lang/lang.js) — KHÔNG được bớt file nào dù trang này chỉ thật sự DÙNG patch-common/
@@ -261,10 +271,10 @@
          thanh công cụ cuộn ngang MỚI ở dưới (#toolbar-scroll-container) — không viết lại 1 bản
          `scrollTo()` riêng thứ 3. File này THUẦN, không phụ thuộc gì, an toàn nạp ở trang độc lập. -->
     <script src="core/slider-panel-scroll.js?v=20260711v1"></script>
-    <script src="event/workflow/subtitle-editor.js?v=20260711v4"></script>
-    <script src="event/router/subtitle-editor.js?v=20260711v4"></script>
+    <script src="event/workflow/subtitle-editor.js?v=20260712v1"></script>
+    <script src="event/router/subtitle-editor.js?v=20260712v1"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowSubtitleEditor.init() ngay khi chạy. -->
-    <script src="event/listener/subtitle-editor.js?v=20260711v5"></script>
+    <script src="event/listener/subtitle-editor.js?v=20260712v1"></script>
     <script>
         // i18n text tĩnh KHÔNG qua template literal ${t(...)} lúc parse (component của trang này
         // không phải TPL_* string — HTML viết tay ở trên) — gán SAU khi lang.js đã nạp xong.
@@ -276,6 +286,7 @@
         document.getElementById('btn-add-sub-label').textContent = t('subtitleEditor.btnAddSub.title');
         document.getElementById('btn-create-from-selection-label').textContent = t('subtitleEditor.btnCreateFromSelection.title');
         document.getElementById('btn-split-label').textContent = t('subtitleEditor.btnSplit.title');
+        document.getElementById('btn-cut-mp3-label').textContent = t('subtitleEditor.btnCutMp3.title');
         document.getElementById('btn-play-selection-label').textContent = t('subtitleEditor.btnPlaySelection.title');
         document.getElementById('btn-export-srt-label').textContent = t('subtitleEditor.btnExportSrt');
         document.getElementById('waveform-error-label').textContent = t('subtitleEditor.waveformError');
