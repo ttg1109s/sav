@@ -40,6 +40,12 @@ const routerSubtitleEditor = (() => {
                 break;
             }
 
+            // MỚI (yêu cầu Giang, mục 1) — cắt vùng chọn hiện tại thành file .mp3 thật.
+            case 'subtitleEditor.cutMp3.click': {
+                workflowSubtitleEditor.cutMp3FromRegion();
+                break;
+            }
+
             case 'subtitleEditor.playSelection.click': {
                 workflowSubtitleEditor.playSelection();
                 break;
