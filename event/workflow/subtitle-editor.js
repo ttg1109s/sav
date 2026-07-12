@@ -100,6 +100,16 @@ const workflowSubtitleEditor = {
                 cursorColor: '#f8fafc',
                 minPxPerSec: 70, // cuộn ngang — bài dài hơn khung nhìn sẽ tự cuộn được (mục "dải âm thanh cuộn ngang")
                 normalize: true,
+                // MỚI (yêu cầu Giang — "thanh cuộn phải tự cuộn theo phần nhạc đang chạy") — 2 field
+                // này CÓ SẴN trong WaveSurfer ("Automatically scroll the container to keep the
+                // current position in viewport" / "keep the cursor in the center of the waveform
+                // during playback") nhưng TRƯỚC ĐÂY chưa khai báo tường minh — phụ thuộc giá trị
+                // mặc định của thư viện (không chắc chắn bản build nào cũng bật sẵn). Khai RÕ RÀNG
+                // ở đây để LUÔN đúng hành vi mong muốn, không phụ thuộc mặc định ẩn: cuộn theo lúc
+                // đang phát VÀ mỗi lần seek thủ công (setTime(), xem seekToFraction()/
+                // _playRangeAndStop()) — con trỏ luôn giữ ở GIỮA khung nhìn, không phải tự kéo lại.
+                autoScroll: true,
+                autoCenter: true,
                 plugins: [this._regionsPlugin],
             });
 
