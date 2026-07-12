@@ -29,6 +29,15 @@ const LANG_PATCH_SUBTITLE_EDITOR = {
     'subtitleEditor.split.title': 'Split into lines',
     'subtitleEditor.split.desc': 'Divide the current selection ({start} → {end}) into equal lines. New lines are added empty (placeholder text) — fill them in afterward.',
     'subtitleEditor.split.confirm': 'Split',
+    // MỚI (yêu cầu Giang, mục 1) — tool "Cut MP3": cắt vùng chọn thành file .mp3 thật.
+    'subtitleEditor.btnCutMp3.title': 'Cut MP3',
+    'subtitleEditor.cutMp3.resultTitle': 'Clip ready',
+    'subtitleEditor.cutMp3.resultDesc': 'Cut {start} → {end}. What would you like to do with it?',
+    'subtitleEditor.cutMp3.download': 'Download',
+    'subtitleEditor.cutMp3.insert': 'Add to library',
+    'subtitleEditor.cutMp3.newSongTitle': '{title} (cut)',
+    'subtitleEditor.cutMp3.inserted': 'Added to your library as a new song.',
+    'subtitleEditor.cutMp3.error': 'Could not cut this clip. Please try a shorter selection.',
     'subtitleEditor.btnPlaySelection.title': 'Play selection',
     'subtitleEditor.btnExportSrt': 'Export .srt',
     // MỚI (11/07/2026, yêu cầu Giang, mục 2) — nút cảnh báo góc trái trên khung waveform, mở bảng
