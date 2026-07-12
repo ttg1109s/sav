@@ -62,10 +62,10 @@ const routerSubtitleEditor = (() => {
                 break;
             }
 
-            // MỚI (yêu cầu Giang, mục 2/6) — tự tính seek thay cho cơ chế click-to-seek nội bộ của
-            // WaveSurfer đang lỗi khi bấm trong vùng chọn (xem comment đầy đủ ở listener).
+            // MỚI (yêu cầu Giang, mục 1/2/6) — tự tính seek qua toạ độ + API cuộn thật của
+            // WaveSurfer, thay cho cơ chế click-to-seek nội bộ đang lỗi (xem comment ở listener).
             case 'subtitleEditor.seek.click': {
-                workflowSubtitleEditor.seekToFraction(msg.payload.fraction);
+                workflowSubtitleEditor.seekFromClick(msg.payload.clickXInViewport);
                 break;
             }
 
