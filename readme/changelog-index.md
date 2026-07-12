@@ -11,7 +11,9 @@ Editor tách từ modal sang trang riêng `subtitle-editor.html`, Documents vi�
 
 - [v12.md](./changelog/v12.md) — hạ tầng block/VM-state (nay đã wire), Đa phương tiện, Settings/
   Theme, Subtitle Editor trang riêng, Documents Nhóm A, Rule 5 — nợ kỹ thuật mới: seek-trước-rồi-
-  phát Subtitle Editor, 2 file mồ côi, tài liệu `readme/` tụt hậu
+  phát Subtitle Editor, 2 file mồ côi, Rule 3 mới ở `photo-ui.js`/`settings-panel-stack.js`. Kèm
+  re-sync đầy đủ `folder-structure.md`/`where-to-edit.md`/`core-legacy-audit.md` (đã tụt hậu, giờ
+  quét lại bằng script, khớp code thật)
 - [v11.md](./changelog/v11.md) — event bus hoàn tất, State tập trung (đã audit từng key), 3 lỗi nhỏ
 - [v10-lang-test.md](./changelog/v10-lang-test.md) — khung đa ngôn ngữ (i18n), English gốc cứng
   RAM, ngôn ngữ khác qua IndexedDB tự upload — ⚠️ vẫn CHƯA test trên browser thật (không đổi ở v11)
