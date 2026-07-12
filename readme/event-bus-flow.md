@@ -14,7 +14,7 @@ Listener (DOM/tab/window/...)
 ┌─────────────────────────────────────────────────────────────────┐
 │ event/bus.js                                                    │
 │                                                                   │
-│  Block gate (event/block.js — DATA, hiện RỖNG)                  │
+│  Block gate (event/block.js — DATA, CÓ 1 entry thật: xem mục 2) │
 │  isBlocked(msg.type)? ──── true ────▶  DỪNG, KHÔNG vào Router   │
 │       │ false                          (im lặng, đúng thiết kế) │
 └───────┼───────────────────────────────────────────────────────┘
@@ -25,10 +25,11 @@ Listener (DOM/tab/window/...)
     ┌───────────────────────────── case cụ thể ─────────────────────────────┐
     │                                                                        │
     │  (A) gọi thẳng 1 hàm CORE          (B) giao WORKFLOW      (C) VirtualMachineState.run([...])
-    │      không cần state gì cả             ≥2 lời gọi side-       rẽ nhánh theo state, CHẠY
-    │      (Ví dụ 1 — xem mục 3)              effect nối tiếp,       NHIỀU callback nếu nhiều rule
-    │                                         có phụ thuộc thứ tự   cùng khớp — mỗi callback là
-    │                                                                 CORE hoặc WORKFLOW tuỳ rule
+    │      KHÔNG cần đọc appState            cần chuẩn bị state/     rẽ nhánh theo state, CHẠY
+    │      nào để nuôi Core                  service cho Core (dù     NHIỀU callback nếu nhiều rule
+    │      (xem mục 4A)                       1 hàm), HOẶC ≥2 lời     cùng khớp — mỗi callback là
+    │                                         gọi nối tiếp phụ thuộc   CORE hoặc WORKFLOW tuỳ rule
+    │                                         nhau (xem mục 4B)
     └────────────────────────────────────────────────────────────────────────┘
                                                                           │
                                                              mỗi rule khớp gọi callback()
@@ -104,28 +105,49 @@ Mỗi cụm (`storage`, `playlist`, `visualizerDisplay`...) có đúng 1 router,
 
 ## 4. Trong 1 case — 3 hướng có thể đi (không loại trừ nhau, chọn tuỳ nhu cầu case đó)
 
-### (A) Gọi thẳng Core — không cần biết state gì
+### (A) Gọi thẳng Core — message tự đủ nghĩa, KHÔNG cần đọc `appState` nào cho core
 
-Đa số case hiện có. Message tự đủ nghĩa (dựa vào chính `msg.payload`, hoặc hành vi không đổi theo
-state khác), gọi thẳng 1 hàm:
+Chỉ áp dụng khi case **không cần lấy bất kỳ giá trị `appState` nào** để đưa vào core — hàm core
+chỉ cần đúng `msg.payload` (hoặc không cần tham số gì), hành vi không phụ thuộc bất kỳ state nào
+khác:
 ```js
 case 'cluster.action.click':
     coreFunctionX(msg.payload);
     break;
 ```
+Nếu core cần bất kỳ giá trị `appState` nào ngoài `msg.payload` — dù chỉ 1 key, dù case chỉ gọi
+đúng 1 hàm core — KHÔNG còn là (A) nữa, xem (B) ngay dưới.
 
-### (B) Giao Workflow — ≥2 lời gọi side-effect nối tiếp, có thứ tự phụ thuộc nhau
+### (B) Giao Workflow — cần ≥1 bước chuẩn bị (lấy state/gọi service) hoặc ≥2 lời gọi nối tiếp
 
-**[Cập nhật — xem [core-function-conventions.md Rule 3](./core-function-conventions.md)]** Tiêu
-chí cũ ("cần shield/modal, HOẶC ≥2 hàm core độc lập") đã **bỏ điều kiện shield/modal riêng biệt**
-— giờ chỉ cần đúng hình dạng: gọi ≥2 hàm (core hoặc hàm khác) mà **ít nhất 1 hàm không có return
-được dùng** (chỉ tạo side-effect) và chạy **đồng bộ hoặc bất đồng bộ có chờ** (tạo phụ thuộc thứ
-tự — bước sau chạy sau khi bước trước đã chạy/hoàn thành) → LUÔN là Workflow, bất kể đơn giản hay
-phức tạp, có `shield`/`modal` hay không. `shield`/`modal` vẫn THƯỜNG xuất hiện (nhiều thao tác cần
-chờ — IndexedDB, network...) nhưng chỉ là 1 LÝ DO hay gặp, không còn là điều kiện quyết định.
+**Workflow không chỉ được định nghĩa bằng SỐ BƯỚC.** Bản chất Workflow là tầng ĐIỀU PHỐI — nơi
+duy nhất được phép vừa đọc `appState`/gọi `service/` vừa quyết định gọi Core nào — nên Workflow
+cần thiết bất cứ khi nào 1 case phải hoàn thành 1 mục tiêu nghiệp vụ LỚN HƠN "gọi đúng 1 hàm với
+đúng `msg.payload` nó có sẵn", bất kể việc đó gói gọn trong 1 bước hay nhiều bước:
+
+- **≥2 lời gọi (core hoặc hàm khác) nối tiếp, có phụ thuộc thứ tự** — gọi ≥2 hàm mà **ít nhất 1
+  hàm không có return được dùng** (chỉ tạo side-effect) và chạy **đồng bộ hoặc bất đồng bộ có chờ**
+  (bước sau chạy sau khi bước trước đã chạy/hoàn thành) → LUÔN là Workflow, bất kể đơn giản hay
+  phức tạp, có `shield`/`modal` hay không. `shield`/`modal` vẫn THƯỜNG xuất hiện (nhiều thao tác cần
+  chờ — IndexedDB, network...) nhưng chỉ là 1 LÝ DO hay gặp, không còn là điều kiện quyết định.
+- **CHUẨN BỊ state cho Core, dù chỉ gọi ĐÚNG 1 hàm core** — tự nó cũng là Workflow, không có ngoại
+  lệ nào biện minh kiểu "chỉ 1 core nên không cần Workflow". Core không được tự `appState.get()`
+  (Rule 2) — nghĩa là LUÔN có 1 tầng nào đó đứng ra đọc state rồi truyền vào, và tầng đó, theo
+  đúng định nghĩa, CHÍNH LÀ Workflow — dù công việc "chuẩn bị" đó chỉ vỏn vẹn 1 dòng
+  `appState.get(...)` rồi gọi thẳng core ngay sau. Router không tự làm việc này thay Workflow được
+  — Router chỉ chuyển tiếp `msg`, không đọc `appState` để nuôi core.
+- Cùng logic, **gọi `service/` (db.js, operation.js...) để chuẩn bị dữ liệu cho Core** cũng là
+  Workflow, không phải ngoại lệ của Router — Router không tự gọi `service/` để chuẩn bị input cho
+  Core.
+
+**Khi Workflow cần LẤY NHIỀU HƠN 1 giá trị `appState` để cung cấp cho 1 lời gọi Core** — dùng dạng
+gọi theo mảng `appState.get([key1, key2, ...])` (trả object gồm các key đã liệt kê) THAY VÌ nhiều
+lời gọi `appState.get(key)` rời rạc từng key một. Chỉ 1 giá trị duy nhất thì gọi đơn `get(key)` như
+bình thường — quy tắc mảng chỉ bắt buộc từ 2 giá trị trở lên.
 
 **Ngoại lệ:** lời gọi bất đồng bộ và KHÔNG chờ (fire-and-forget, không `await`) không tạo phụ
-thuộc thứ tự — KHÔNG tính là Workflow, được gọi thẳng trong Core/Router như bình thường.
+thuộc thứ tự — KHÔNG tính là Workflow, được gọi thẳng trong Core/Router như bình thường (miễn
+không cần `appState` nào để gọi, đúng điều kiện (A) ở trên).
 
 ```js
 case 'cluster.action.change':
@@ -222,9 +244,11 @@ tiêu chí (A)/(B) ở mục 4, chỉ khác là được BỌC trong 1 rule thay
 
 | Câu hỏi | Chọn |
 |---|---|
-| Không cần biết state nào cả (kể cả chỉ dùng `msg.payload` của chính message)? | (A) gọi thẳng Core |
+| Không cần đọc `appState` nào cả để nuôi Core (kể cả chỉ dùng `msg.payload` của chính message)? | (A) gọi thẳng Core |
+| Cần đọc dù chỉ 1 giá trị `appState`/gọi `service/` để CHUẨN BỊ input cho Core — dù case chỉ gọi đúng 1 hàm? | (B) Workflow — "chuẩn bị state cho Core" tự nó là Workflow, không có ngoại lệ "1 core thì khỏi cần" |
 | Cần gọi ≥2 hàm nối tiếp, ít nhất 1 hàm void/side-effect, chạy đồng bộ hoặc async có chờ (tạo phụ thuộc thứ tự)? | (B) Workflow — bất kể đơn giản hay cần shield/modal |
-| Cần đọc `appState` KHÁC để quyết định chạy gì — dù chỉ 1 điều kiện/1 đích hay nhiều? | (C) `VirtualMachineState` — LUÔN dùng, không viết switch/if tay đọc `appState` trong case nữa |
+| Cần đọc `appState` KHÁC để quyết định CHẠY GÌ (chọn giữa các Core/Workflow khác nhau) — dù chỉ 1 điều kiện/1 đích hay nhiều? | (C) `VirtualMachineState` — LUÔN dùng, không viết switch/if tay đọc `appState` trong case nữa |
+| Workflow cần lấy ≥2 giá trị `appState` để cung cấp cho 1 lời gọi Core? | `appState.get([key1, key2, ...])` dạng mảng — không gọi rời từng key |
 | Điều kiện chặn dùng ở ≥2 router, hoặc bản chất là chặn hẳn không chạy gì? | Block (`event/block.js`) — chặn TRƯỚC router, không phải trong case |
 
 ← [Quay lại README](../README.md)
