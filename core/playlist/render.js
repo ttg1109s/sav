@@ -226,6 +226,29 @@
             appState.mutate('domNodesByKey', m => m.set(key, newNode));
         }
 
+        /** MỚI (yêu cầu Giang) — cuộn tới ĐÚNG bài hát vừa sửa phụ đề xong (quay lại từ subtitle-
+         * editor.html) — đọc key đã lưu tạm qua sessionStorage TRƯỚC KHI điều hướng đi (xem
+         * event/workflow/subtitle-editor.js::back() — sessionStorage là CÁCH DUY NHẤT truyền dữ
+         * liệu qua 1 lượt history.back() THẬT, khác SPA route). Tra THẲNG qua `domNodesByKey` (Map
+         * bền vững renderPlaylistDiff() đang dùng, LUÔN khớp đúng node THẬT đang hiển thị — không
+         * tự dò lại DOM bằng querySelector) rồi cuộn + chớp sáng nhẹ viền cho dễ nhận ra. Xoá cờ
+         * NGAY sau khi đọc — chỉ cuộn ĐÚNG 1 lần, không lặp lại ở các lần tải trang sau.
+         * Gọi từ core/visualizer/draw-visualizer.js, NGAY SAU initPlaylistFromDB() + khôi phục
+         * activePlayListFolder (đảm bảo scope/danh sách đã ở trạng thái CUỐI CÙNG trước khi cuộn —
+         * cuộn sớm hơn có thể nhắm nhầm lúc danh sách còn đang lọc lại theo folder). */
+        function scrollToSongIfPending() {
+            const key = sessionStorage.getItem('sav_scrollToSongKey');
+            if (!key) return;
+            sessionStorage.removeItem('sav_scrollToSongKey'); // xoá NGAY — chỉ dùng 1 lần, tránh lặp lại nếu tải lại trang sau đó
+            requestAnimationFrame(() => {
+                const node = appState.get('domNodesByKey').get(key);
+                if (!node || !node.isConnected) return; // không tìm thấy (bài có thể đang ở scope/folder khác lúc quay lại) -> bỏ qua im lặng
+                node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                node.classList.add('ring-2', 'ring-sky-400');
+                setTimeout(() => node.classList.remove('ring-2', 'ring-sky-400'), 1500);
+            });
+        }
+
         /** Ô tìm kiếm thay đổi: CHỈ lọc lại danh sách hiển thị (renderOrder) — KHÔNG đụng hàng đợi phát. */
         function applySearchQuery(raw) {
             appState.set('searchQuery', normalizeSongName(raw));
