@@ -108,6 +108,12 @@ const routerSubtitleEditor = (() => {
                 break;
             }
 
+            // MỚI (yêu cầu Giang) — tải lại KHÔNG dùng cache.
+            case 'subtitleEditor.reloadNoCache.click': {
+                workflowSubtitleEditor.reloadWithoutCache();
+                break;
+            }
+
             default:
                 console.warn(`[routerSubtitleEditor] msg.type không xác định: "${msg.type}"`, msg);
         }
