@@ -9,6 +9,11 @@ const LANG_PATCH_SUBTITLE_EDITOR = {
     'subtitleEditor.saved': 'Subtitles saved.',
     'subtitleEditor.waveformError': 'Unable to load the waveform. You can still add/edit lines using the tools below (timing tools that need the waveform selection won\'t work).',
     'subtitleEditor.btnBack': 'Back',
+    // MỚI (yêu cầu Giang) — nút tải lại KHÔNG dùng cache + modal xác nhận.
+    'subtitleEditor.btnReload.title': 'Reload (no cache)',
+    'subtitleEditor.reloadConfirm.title': 'Reload without cache?',
+    'subtitleEditor.reloadConfirm.desc': 'Any edits not yet saved (tap "Save" first) will be lost. Reload anyway?',
+    'subtitleEditor.reloadConfirm.confirmBtn': 'Reload',
     'subtitleEditor.btnSave': 'Save',
     'subtitleEditor.autoTiming.defaultText': 'New subtitle',
     'subtitleEditor.newLine.defaultText': 'New subtitle',
