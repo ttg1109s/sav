@@ -34,6 +34,10 @@ const btnWaveformPlayPause = document.getElementById('btn-waveform-playpause');
 const iconWaveformPlay = document.getElementById('icon-waveform-play');
 const iconWaveformPause = document.getElementById('icon-waveform-pause');
 const waveformCurrentTimeEl = document.getElementById('waveform-current-time'); // MỚI (yêu cầu Giang, mục 2)
+// MỚI (yêu cầu Giang, mục 1) — dải mốc thời gian + zoom in/out.
+const waveformTimelineEl = document.getElementById('waveform-timeline');
+const btnWaveformZoomIn = document.getElementById('btn-waveform-zoom-in');
+const btnWaveformZoomOut = document.getElementById('btn-waveform-zoom-out');
 const btnPlayRegionControl = document.getElementById('btn-play-region-control'); // MỚI (yêu cầu Giang, mục 8)
 const iconPlayRegionPlay = document.getElementById('icon-play-region-play'); // MỚI (yêu cầu Giang, mục 3/4)
 const iconPlayRegionPause = document.getElementById('icon-play-region-pause'); // MỚI (yêu cầu Giang, mục 3/4)
@@ -173,6 +177,18 @@ if (waveformContainerEl) {
 if (btnPlayRegionControl) {
     btnPlayRegionControl.addEventListener('click', () => {
         eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.playSelection.click', payload: {} });
+    });
+}
+
+// MỚI (yêu cầu Giang, mục 1) — zoom in/out waveform.
+if (btnWaveformZoomIn) {
+    btnWaveformZoomIn.addEventListener('click', () => {
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.zoomIn.click', payload: {} });
+    });
+}
+if (btnWaveformZoomOut) {
+    btnWaveformZoomOut.addEventListener('click', () => {
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.zoomOut.click', payload: {} });
     });
 }
 
