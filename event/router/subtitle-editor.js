@@ -51,6 +51,17 @@ const routerSubtitleEditor = (() => {
                 break;
             }
 
+            // MỚI (yêu cầu Giang, mục 1) — zoom in/out waveform.
+            case 'subtitleEditor.zoomIn.click': {
+                workflowSubtitleEditor.zoomIn();
+                break;
+            }
+
+            case 'subtitleEditor.zoomOut.click': {
+                workflowSubtitleEditor.zoomOut();
+                break;
+            }
+
             case 'subtitleEditor.save.click': {
                 workflowSubtitleEditor.saveToDatabase();
                 break;
