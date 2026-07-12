@@ -748,9 +748,11 @@ const workflowSubtitleEditor = {
 
     /** "+ Thêm dòng" — nối sau dòng cuối +2s — GIỮ NGUYÊN hành vi cũ (KHÔNG dùng region, xem
      * createLineFromSelection() bên dưới cho tool MỚI dùng region). */
+    /** SỬA (yêu cầu Giang) — khoảng cách tối thiểu 1s giữa start dòng MỚI và end dòng CUỐI hiện có
+     * (trước đây chỉ +0.1s, quá sát — 2 dòng liền kề gần như dính nhau). */
     addNewLine() {
         const last = this._subtitles[this._subtitles.length - 1];
-        const startSec = last ? last.end + 0.1 : 0;
+        const startSec = last ? last.end + 1 : 0;
         const newSub = createSubtitleLine(t('subtitleEditor.newLine.defaultText'), startSec, startSec + 2); // core
         this._subtitles = [...this._subtitles, newSub]; // đã ở cuối mảng, không cần sort lại
         this._renderLines();
