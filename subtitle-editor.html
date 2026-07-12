@@ -64,6 +64,10 @@
          khi dùng). -->
     <script src="https://unpkg.com/wavesurfer.js@7"></script>
     <script src="https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.min.js"></script>
+    <!-- MỚI (yêu cầu Giang, mục 1) — plugin CHÍNH THỨC của WaveSurfer, hiện dải mốc thời gian
+         (00:10, 00:20...) — không tự vẽ tay, tái dùng đúng plugin có sẵn (cùng tinh thần "dùng thư
+         viện thứ 3" đã áp dụng cho Regions/lamejs). -->
+    <script src="https://unpkg.com/wavesurfer.js@7/dist/plugins/timeline.min.js"></script>
     <!-- MỚI (yêu cầu Giang, mục 1 — tool "Cut MP3") — encoder MP3 THUẦN JS (không cần server), mã
          hoá trực tiếp buffer PCM đã giải mã sẵn của WaveSurfer (getDecodedData()) thành file .mp3
          THẬT — xem event/workflow/subtitle-editor.js::_encodeMp3FromRegion(). -->
@@ -132,6 +136,13 @@
             </div>
         </div>
 
+        <!-- MỚI (yêu cầu Giang, mục 1) — dải mốc thời gian (Timeline plugin CHÍNH THỨC của
+             WaveSurfer) — container RIÊNG (không lồng vào #waveform-container) để không co hẹp
+             sóng âm đang có, cao cố định 20px khớp đúng `height` truyền cho plugin (xem
+             _initWaveform()). Cuộn ngang ĐỒNG BỘ với waveform (chính plugin tự lo, cùng
+             this._wavesurfer). -->
+        <div id="waveform-timeline" class="w-full h-5 overflow-hidden mt-1"></div>
+
         <!-- SỬA (yêu cầu Giang, mục 1) — khung điều khiển RỜI HẲN khỏi #waveform-frame (trước đây
              `absolute bottom-0` ĐÈ LÊN đáy waveform, che mất 1 dải sóng âm thật) — giờ là 1 khối
              THƯỜNG (flow bình thường) ngay DƯỚI khung waveform, không chồng lấn gì cả. Tách 2 hàng:
@@ -148,6 +159,16 @@
                      không có gì phản ánh, tự cập nhật theo sự kiện 'timeupdate' (đang phát) và mỗi
                      lần bấm/kéo trên waveform (xem seekTo(), event/workflow/subtitle-editor.js). -->
                 <span id="waveform-current-time" class="text-[11px] font-mono text-slate-300">00:00:00,000</span>
+                <!-- MỚI (yêu cầu Giang, mục 1) — zoom in/out waveform (WaveSurfer.zoom(), xem
+                     workflowSubtitleEditor.zoomIn()/zoomOut()). -->
+                <div class="ml-auto flex items-center gap-1">
+                    <button id="btn-waveform-zoom-out" type="button" class="w-6 h-6 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-slate-300 transition-colors" title="">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16zM8 11h6" /></svg>
+                    </button>
+                    <button id="btn-waveform-zoom-in" type="button" class="w-6 h-6 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-slate-300 transition-colors" title="">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16zM11 8v6M8 11h6" /></svg>
+                    </button>
+                </div>
                 <!-- MỚI (yêu cầu Giang, mục 8) — phát RIÊNG vùng chọn, đặt ngay trong khung điều
                      khiển cho dễ bấm (khác nút "Phát vùng chọn" ở thanh công cụ dưới — CÙNG 1 hành
                      động, chỉ thêm lối tắt ở đây).
@@ -156,7 +177,7 @@
                      LỒNG TRONG khung vuông bo góc — CỐ Ý KHÁC hẳn icon "▶" trần (không khung) đang
                      dùng ở nút play/pause chung bên trái + nút ▶ mỗi dòng phụ đề + nút "Phát vùng
                      chọn" ở toolbar — không dùng lại cùng 1 icon cho nhiều nút phát khác nghĩa nhau. -->
-                <button id="btn-play-region-control" type="button" class="ml-auto shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 transition-colors" title="">
+                <button id="btn-play-region-control" type="button" class="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 transition-colors" title="">
                     <!-- MỚI (yêu cầu Giang, mục 3/4) — 2 icon riêng, đổi qua lại theo ĐÚNG trạng thái
                          "đang phát theo vùng" (_isPlayingRegion, KHÔNG dùng sự kiện play/pause chung
                          của WaveSurfer — xem workflowSubtitleEditor._updatePlaybackIcons()) — nút
@@ -300,7 +321,7 @@
     <script src="lang/patch/patch-subtitle-settings.js?v=20260709v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260706v2"></script>
     <script src="lang/patch/patch-file-manager.js?v=20260710v1"></script>
-    <script src="lang/patch/patch-subtitle-editor.js?v=20260712v4"></script>
+    <script src="lang/patch/patch-subtitle-editor.js?v=20260712v5"></script>
     <!-- lang.js hardcode Object.assign() cả 7 biến LANG_PATCH_* trên — THIẾU BẤT KỲ FILE NÀO Ở
          TRÊN đều làm lang.js ReferenceError ngay khi parse (chạy TRÊN CẢ index.html LẪN trang này,
          xem lang/lang.js) — KHÔNG được bớt file nào dù trang này chỉ thật sự DÙNG patch-common/
@@ -318,10 +339,10 @@
          thanh công cụ cuộn ngang MỚI ở dưới (#toolbar-scroll-container) — không viết lại 1 bản
          `scrollTo()` riêng thứ 3. File này THUẦN, không phụ thuộc gì, an toàn nạp ở trang độc lập. -->
     <script src="core/slider-panel-scroll.js?v=20260711v1"></script>
-    <script src="event/workflow/subtitle-editor.js?v=20260712v8"></script>
-    <script src="event/router/subtitle-editor.js?v=20260712v4"></script>
+    <script src="event/workflow/subtitle-editor.js?v=20260712v10"></script>
+    <script src="event/router/subtitle-editor.js?v=20260712v5"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowSubtitleEditor.init() ngay khi chạy. -->
-    <script src="event/listener/subtitle-editor.js?v=20260712v4"></script>
+    <script src="event/listener/subtitle-editor.js?v=20260712v5"></script>
     <script>
         // i18n text tĩnh KHÔNG qua template literal ${t(...)} lúc parse (component của trang này
         // không phải TPL_* string — HTML viết tay ở trên) — gán SAU khi lang.js đã nạp xong.
@@ -344,6 +365,8 @@
         document.getElementById('btn-region-set-start').title = t('subtitleEditor.btnRegionSetStart.title');
         document.getElementById('btn-region-set-end').title = t('subtitleEditor.btnRegionSetEnd.title');
         document.getElementById('btn-play-region-control').title = t('subtitleEditor.btnPlaySelection.title');
+        document.getElementById('btn-waveform-zoom-in').title = t('subtitleEditor.btnZoomIn.title');
+        document.getElementById('btn-waveform-zoom-out').title = t('subtitleEditor.btnZoomOut.title');
         document.getElementById('btn-debug-copy-all').textContent = t('subtitleEditor.debugCopyAll');
         document.getElementById('btn-debug-close').title = t('subtitleEditor.debugClose.title');
         document.getElementById('btn-shift-label').textContent = t('subtitleEditor.btnShift.title');
