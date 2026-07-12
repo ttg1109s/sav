@@ -13,9 +13,10 @@ const LANG_PATCH_SUBTITLE_EDITOR = {
     'subtitleEditor.autoTiming.defaultText': 'New subtitle',
     'subtitleEditor.newLine.defaultText': 'New subtitle',
     'subtitleEditor.line.placeholder': 'Subtitle text...',
-    // XOÁ (yêu cầu Giang, mục 4) — 'subtitleEditor.line.btnApply' không còn dùng, nút ✓ "Áp dụng"
-    // đã bỏ hẳn (auto-commit khi rời ô/blur cho text, commit ngay lúc bấm "Xong" trong modal bánh
-    // xe cho giờ — xem core/subtitle/subtitles-ui.js + event/workflow/subtitle-editor.js).
+    // KHÔI PHỤC (yêu cầu Giang, mục 3 — "khôi phục lại nút apply") — nút ✓ Áp dụng quay lại, giờ
+    // gắn với "chế độ sửa" (bấm vào dòng để sửa) thay vì luôn-sửa-được như bản trước.
+    'subtitleEditor.line.btnApply': 'Apply',
+    'subtitleEditor.line.btnCancelEdit': 'Cancel edit',
     'subtitleEditor.line.btnRemove': 'Remove line',
     // MỚI (yêu cầu Giang) — nút ▶ mỗi dòng, phát đúng [start,end] của dòng đó rồi dừng.
     'subtitleEditor.line.btnPlayRange': 'Play this line',
@@ -57,6 +58,10 @@ const LANG_PATCH_SUBTITLE_EDITOR = {
     // MỚI (yêu cầu Giang, mục 4) — modal "bánh xe cuộn số" chọn giờ start/end 1 dòng.
     'subtitleEditor.timePicker.titleStart': 'Set start time',
     'subtitleEditor.timePicker.titleEnd': 'Set end time',
+    // MỚI (yêu cầu Giang, mục 7 — "thông minh hoá") — hiện rõ khoảng giờ hợp lệ + cảnh báo khi
+    // đang cuộn ra ngoài khoảng đó.
+    'subtitleEditor.timePicker.rangeHint': 'Valid range: {min} → {max}',
+    'subtitleEditor.timePicker.outOfRange': 'Out of the valid range — adjust before confirming.',
     // MỚI (yêu cầu Giang, mục 5) — tool "Shift": chọn dòng rồi dịch giờ hàng loạt.
     'subtitleEditor.btnShift.title': 'Shift',
     'subtitleEditor.shift.selectedCount': '{n} selected',
