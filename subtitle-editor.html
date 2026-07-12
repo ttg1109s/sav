@@ -335,17 +335,25 @@
     <script src="service/db.js?v=20260711v1"></script>
     <!-- MỚI (10/07/2026) — TÁCH RIÊNG khỏi service/db.js, dùng ở CẢ 2 trang. -->
     <script src="service/song-key-cipher.js?v=20260710v1"></script>
+    <!-- MỚI (12/07/2026, audit kiến trúc `/event/`) — TRƯỚC ĐÂY trang này KHÔNG nạp file này, dùng
+         setTimeout/setInterval thô 5 chỗ trong event/workflow/subtitle-editor.js, biện minh sai
+         "taskManager cần event/tab.js đi kèm mới có ích" (KHÔNG ĐÚNG — service/task-manager.js
+         không phụ thuộc gì cả, `event/tab.js` thực ra còn chưa từng gọi pauseAll()/resumeAll() ở
+         BẤT KỲ đâu trong app, kể cả index.html — xem readme/task-manager-conventions.md). Nạp
+         SỚM, cùng vị trí quy ước như index.html ("ngay sau dom-refs.js" — trang này không có
+         dom-refs.js nên đặt cạnh service/db.js cho gọn). -->
+    <script src="service/task-manager.js?v=20260712v1"></script>
     <script src="core/subtitle/subtitles.js?v=20260711v1"></script>
     <script src="core/subtitle/subtitles-ui.js?v=20260712v3"></script>
     <!-- MỚI (11/07/2026, yêu cầu Giang) — tái dùng ĐÚNG hàm cuộn ngang chung của app (đã tách ra
          cho #side-left-container/#settings-stack-body, xem sav12-handoff-plan.md Phần 1 mục 1) cho
          thanh công cụ cuộn ngang MỚI ở dưới (#toolbar-scroll-container) — không viết lại 1 bản
          `scrollTo()` riêng thứ 3. File này THUẦN, không phụ thuộc gì, an toàn nạp ở trang độc lập. -->
-    <script src="core/slider-panel-scroll.js?v=20260711v1"></script>
-    <script src="event/workflow/subtitle-editor.js?v=20260712v14"></script>
-    <script src="event/router/subtitle-editor.js?v=20260712v6"></script>
+    <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
+    <script src="event/workflow/subtitle-editor.js?v=20260712v17"></script>
+    <script src="event/router/subtitle-editor.js?v=20260712v7"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowSubtitleEditor.init() ngay khi chạy. -->
-    <script src="event/listener/subtitle-editor.js?v=20260712v6"></script>
+    <script src="event/listener/subtitle-editor.js?v=20260712v7"></script>
     <script>
         // i18n text tĩnh KHÔNG qua template literal ${t(...)} lúc parse (component của trang này
         // không phải TPL_* string — HTML viết tay ở trên) — gán SAU khi lang.js đã nạp xong.

@@ -417,17 +417,19 @@
     <script src="core/dom-refs.js?v=20260710v2"></script>
     <!-- core/slider-panel-scroll.js (MỚI, 09/07/2026) — 2 hàm dùng CHUNG (getPositionStart/
          scrollSliderTo) + hằng số SLIDER_PANEL_SCROLL_ESTIMATED_MS cho MỌI khung cuộn ngang kiểu
-         "slider panel" — core/settings-panel-stack.js (ngay dưới) VÀ core/player-controls.js (xa
-         hơn) đều cần 2 hàm này tồn tại sẵn. Core UI thuần, không phụ thuộc gì (không cần
+         "slider panel" — core/settings-panel-stack-ui.js (ngay dưới) VÀ core/player-controls.js
+         (xa hơn) đều cần 2 hàm này tồn tại sẵn. Core UI thuần, không phụ thuộc gì (không cần
          dom-refs.js, đặt ngay sau chỉ vì đây là vị trí nhóm CORE bắt đầu). -->
-    <script src="core/slider-panel-scroll.js?v=20260709v1"></script>
+    <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
     <!-- Batch D1 (Settings restructure, 06/07/2026) — ngăn xếp panel Settings (core UI thuần,
          push/pop/reset). VIẾT LẠI 06/07/2026 (slider thật, header nhét vào từng panel). VIẾT LẠI
          TIẾP 09/07/2026 (rút getPositionStart/scrollSliderTo dùng chung) — CẦN core/dom-refs.js
          (settingsStackBody/settingsStackPanelMain/closeDrawer, đã nạp ngay trên) + core/slider-
          panel-scroll.js (đã nạp ngay trên) — KHÔNG cần t()/taskManager (nhận title đã dịch sẵn qua
-         tham số, không tự chờ animation — xem docstring đầu file). -->
-    <script src="core/settings-panel-stack.js?v=20260709v1"></script>
+         tham số, không tự chờ animation — xem docstring đầu file). ĐỔI TÊN 12/07/2026 (Rule 5c —
+         file này tự tạo panel DOM mới, bắt buộc hậu tố `-ui.js`; xoá thủ công file cũ
+         `core/settings-panel-stack.js` nếu còn trên đĩa). -->
+    <script src="core/settings-panel-stack-ui.js?v=20260712v1"></script>
     <!-- Logo "SAV" (cụm /event/ "savLogo") — cần biến `savLogo` vừa nạp từ dom-refs.js ngay trên. -->
     <script src="core/sav-logo.js?v=20260629v1"></script>
     <!-- TaskManager (Loop/TaskManager) — quản lý TẬP TRUNG mọi setInterval/setTimeout của app
@@ -635,7 +637,7 @@
     <script src="event/virtual-machine-state.js?v=20260701v1"></script>
     <!-- Cụm "settingsStackNav" (Batch D1, Settings restructure, 06/07/2026) — nút Back DÙNG CHUNG
          cho MỌI panel con Settings (About/Visualizer/.../File Manager, bất kể panel nào đang mở).
-         CẦN core/settings-panel-stack.js (đã nạp ở nhóm CORE phía trên). NẠP TRƯỚC settingsMisc
+         CẦN core/settings-panel-stack-ui.js (đã nạp ở nhóm CORE phía trên). NẠP TRƯỚC settingsMisc
          (settingsMisc.openAbout() gọi pushSettingsPanel() — không thật sự phụ thuộc thứ tự, nhưng
          đặt Back trước Open cho xuôi mạch đọc). -->
     <script src="event/workflow/settings-stack-nav.js?v=20260709v1"></script>
@@ -660,7 +662,7 @@
          + core/playlist/render.js (đã nạp ở nhóm CORE, phía trên nhóm EVENT này). -->
     <script src="event/workflow/playlist-scope.js?v=20260703v3"></script>
     <!-- Batch D5 (Settings restructure, 06/07/2026) — Song + Folder Detail nay 2 cấp push/pop
-         động TRONG CÙNG 1 ngăn xếp (core/settings-panel-stack.js, đã nạp ở nhóm CORE) — CẦN
+         động TRONG CÙNG 1 ngăn xếp (core/settings-panel-stack-ui.js, đã nạp ở nhóm CORE) — CẦN
          core/file-manager/folder-list-ui.js/folder-detail-ui.js/core/storage-manager.js (đã đổi
          sang nhận phần tử qua tham số, đã nạp ở nhóm CORE). -->
     <script src="event/workflow/file-manager-song.js?v=20260706v1"></script>
@@ -677,14 +679,14 @@
     <script src="event/listener/slideshow.js?v=20260706v1"></script>
     <!-- Batch 3 (03/07/2026) — workflowFileManagerPhoto CẦN tồn tại trước khi router gọi tới.
          Batch D6 (Settings restructure, 06/07/2026): panel Photo nay push/pop động, `fullBleed:
-         true` (masonry/story slider tràn viền, xem core/settings-panel-stack.js đã nạp ở nhóm
+         true` (masonry/story slider tràn viền, xem core/settings-panel-stack-ui.js đã nạp ở nhóm
          CORE) — CẦN core/file-manager/photo-ui.js (đã đổi renderAlbumStory/renderImageMasonry/
          updateImageSelectionCount sang nhận phần tử qua tham số, đã nạp ở nhóm CORE). -->
     <script src="event/workflow/file-manager-photo.js?v=20260709v1"></script>
     <script src="event/router/file-manager-photo.js?v=20260706v1"></script>
     <script src="event/listener/file-manager-photo.js?v=20260706v1"></script>
     <!-- workflowFileManagerDocument CẦN tồn tại trước khi router gọi tới. Batch D7 (06/07/2026):
-         panel Document push/pop động — CẦN core/settings-panel-stack.js (đã nạp ở nhóm CORE).
+         panel Document push/pop động — CẦN core/settings-panel-stack-ui.js (đã nạp ở nhóm CORE).
          VIẾT LẠI (10/07/2026, Nhóm A, CẬP NHẬT cùng ngày sau phản hồi Giang) — .txt upload lưu
          string[] (splitPlainTextIntoParagraphs()), .docx/user-edited lưu HTML
          (sanitizeDocumentHtml()), KHÔNG còn Markdown/Turndown. Toàn bộ mount+wire modal/drawer
@@ -767,7 +769,7 @@
     <script src="event/listener/visualizer-control-center.js?v=20260703v2"></script>
     <!-- Cụm "subtitleStyleSettings" — Batch D2 (Settings restructure, 06/07/2026): GIỜ CẦN
          workflow (openPanel() push động + 8 hàm set* nay Rule 1-4 đầy đủ, không còn tự gọi core
-         khác — xem event/workflow/subtitle-style-settings.js). CẦN core/settings-panel-stack.js,
+         khác — xem event/workflow/subtitle-style-settings.js). CẦN core/settings-panel-stack-ui.js,
          components/subtitle-settings-drawer.js (đã nạp ở nhóm components phía trên). -->
     <script src="event/workflow/subtitle-style-settings.js?v=20260707v2"></script>
     <script src="event/router/subtitle-style-settings.js?v=20260707v2"></script>
