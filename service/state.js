@@ -640,8 +640,27 @@
         /** Instance quản lý — MỌI đường ghi vào STATE từ file khác PHẢI đi qua appState.set()/mutate(), không gán thẳng STATE.xxx = ... */
         const appState = new AppState(STATE, STATE_SCHEMA);
 
-        /** vizConfig khởi tạo thật SAU khi CONST sẵn sàng — { ...DEFAULT_VIZ_CONFIG } đúng hành vi gốc. */
-        appState.set('vizConfig', { ...CONST.DEFAULT_VIZ_CONFIG });
+        /** vizConfig khởi tạo thật SAU khi CONST sẵn sàng — { ...DEFAULT_VIZ_CONFIG } đúng hành vi gốc.
+         * FIX (yêu cầu Giang — "chỉnh EQ/Volume không có kết quả") — NGUYÊN NHÂN GỐC tìm được: field
+         * `manualEq` trong DEFAULT_VIZ_CONFIG (xem khai báo phía trên) bị `Object.freeze()` RIÊNG
+         * (ngoài việc CẢ object DEFAULT_VIZ_CONFIG cũng đã freeze ở tầng ngoài) — { ...spread } chỉ
+         * copy NÔNG (shallow), field mảng bên trong vẫn là ĐÚNG reference frozen đó, không phải bản
+         * sao mới. `appState.mutate('vizConfig', cfg => {...})` (service/state.js::mutate(), xem
+         * docstring "thao tác IN-PLACE") KHÔNG clone gì cả — thao tác thẳng lên chính object đang
+         * sống trong STATE. Router equalizer-settings.js làm đúng 1 việc duy nhất để lưu giá trị
+         * band thủ công: `cfg.manualEq[index] = value;` — gán index lên 1 mảng ĐÃ BỊ FREEZE thì
+         * THẤT BẠI ÂM THẦM (không strict mode, không lỗi, không cảnh báo — giá trị chỉ đơn giản
+         * không đổi). Với NGƯỜI DÙNG MỚI/config chưa từng lưu `manualEq` riêng (loadConfig() ở
+         * core/config.js chỉ điền default khi `!cfg.manualEq`, KHÔNG thay được 1 mảng đã tồn tại dù
+         * đang bị đóng băng) — kéo từng thanh EQ thủ công KHÔNG BAO GIỜ thực sự lưu lại được, dù
+         * `eqBandNodes[index].gain.value = value` (dòng NGAY SAU trong cùng router) vẫn tạm nghe
+         * được ÂM THANH thay đổi ngay lúc kéo (thao tác riêng, không đụng cfg.manualEq) — khiến bug
+         * càng khó nhận ra (nghe CÓ đổi tức thời, nhưng không lưu lại, mất ngay khi đổi mode qua lại
+         * hoặc tải lại trang). FIX: tách riêng `manualEq` ra khỏi spread nông, tự tạo bản sao MẢNG
+         * MỚI (KHÔNG đóng băng) cho vizConfig SỐNG THẬT — giữ nguyên `Object.freeze()` trên chính
+         * DEFAULT_VIZ_CONFIG.manualEq (bản mẫu/hằng số, ĐÚNG nên đóng băng để không ai vô tình sửa
+         * nhầm bản mẫu) — chỉ riêng bản đang sống trong STATE phải LUÔN là mảng độc lập, sửa được. */
+        appState.set('vizConfig', { ...CONST.DEFAULT_VIZ_CONFIG, manualEq: [...CONST.DEFAULT_VIZ_CONFIG.manualEq] });
         // v12 "Multi Media" — cùng pattern với vizConfig ở trên.
         appState.set('slideshowConfig', { ...CONST.DEFAULT_SLIDESHOW_CONFIG });
         appState.set('readerConfig', { ...CONST.DEFAULT_READER_CONFIG });
