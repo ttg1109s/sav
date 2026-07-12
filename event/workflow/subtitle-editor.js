@@ -248,6 +248,16 @@ const workflowSubtitleEditor = {
      * @param {number} clickXInViewport vị trí bấm TÍNH TỪ MÉP TRÁI khung nhìn thấy (chưa cộng cuộn
      *   — listener chỉ đo geometry thô, phần tính "cuộn bao nhiêu" giao hẳn cho hàm này, đúng chỗ
      *   sở hữu `this._wavesurfer`). */
+    /** SỬA (yêu cầu Giang — bug ẩn "bấm waveform để chọn current TRƯỚC KHI bấm play lần nào, rồi
+     * mới bấm play thì nhạc phát từ đầu, current/thời gian/region đều không chạy theo") —
+     * NGUYÊN NHÂN GỐC nghi vấn: WaveSurfer.js có 2 pipeline HOÀN TOÀN ĐỘC LẬP — (1) giải mã qua Web
+     * Audio API để VẼ sóng (sự kiện 'decode'/'ready' chỉ đảm bảo ĐÚNG pipeline này xong), và (2) thẻ
+     * `<audio>` bên dưới (backend MediaElement) THẬT SỰ phát âm thanh. 'ready' bắn xong KHÔNG có
+     * nghĩa pipeline (2) cũng đã tải đủ để CHO PHÉP seek — nếu người dùng bấm chọn vị trí (seek)
+     * NGAY LÚC ĐÓ (chưa từng bấm play lần nào — pipeline (2) có thể vẫn đang tải ngầm), trình duyệt
+     * có thể ÂM THẦM BỎ QUA lệnh seek đó (currentTime của thẻ audio chưa "sẵn sàng" nhận giá trị
+     * mới) — về sau bấm play chỉ đơn giản phát từ đâu đó KHÔNG PHẢI vị trí vừa chọn (thường là 0).
+     * FIX: XÁC MINH + tự thử lại — gọi `_seekWithRetry()` thay vì `setTime()` trần trụi. */
     seekFromClick(clickXInViewport) {
         if (!this._wavesurfer) return;
         const duration = this._wavesurfer.getDuration();
@@ -257,9 +267,30 @@ const workflowSubtitleEditor = {
         const absolutePx = scrollPx + clickXInViewport;
         const time = Math.max(0, Math.min(duration, absolutePx / pxPerSec));
         const wasPlaying = this._wavesurfer.isPlaying();
+        this._updateCurrentTimeDisplay(time); // cập nhật hiển thị NGAY (lạc quan) — 'timeupdate' sẽ tự sửa lại nếu lượt seek đầu bị lỡ, xác minh xong ở dưới
+        this._seekWithRetry(time, 3, () => {
+            if (wasPlaying && !this._wavesurfer.isPlaying()) this._wavesurfer.play();
+        });
+    },
+
+    /** MỚI — seek tới `time`, XÁC MINH THẬT (đọc lại getCurrentTime() sau 1 khoảng ngắn, KHÔNG chỉ
+     * tin `setTime()` đã "chắc chắn ăn") — chưa khớp (lệch > 150ms) thì tự thử lại, tối đa
+     * `attemptsLeft` lần. Gọi `onSeeked()` (nếu có) đúng 1 lần khi ĐÃ xác nhận khớp (hoặc hết lượt
+     * thử — vẫn gọi tiếp, thà lệch 1 chút còn hơn im lặng không làm gì). Dùng CHUNG cho
+     * seekFromClick() (mục click chọn vị trí) VÀ _playRangeAndStop() (seek-rồi-phát [start,end]) —
+     * CÙNG 1 lớp bug gốc, cùng 1 cách né. */
+    _seekWithRetry(time, attemptsLeft, onSeeked) {
+        if (!this._wavesurfer) return;
         this._wavesurfer.setTime(time);
-        this._updateCurrentTimeDisplay(time);
-        if (wasPlaying && !this._wavesurfer.isPlaying()) this._wavesurfer.play();
+        setTimeout(() => {
+            if (!this._wavesurfer) return;
+            const matched = Math.abs(this._wavesurfer.getCurrentTime() - time) <= 0.15;
+            if (matched || attemptsLeft <= 0) {
+                if (onSeeked) onSeeked();
+            } else {
+                this._seekWithRetry(time, attemptsLeft - 1, onSeeked);
+            }
+        }, 80);
     },
 
     /** MỚI (yêu cầu Giang, mục 1) — zoom in/out waveform qua WaveSurfer.zoom() (API CÓ SẴN, đổi
@@ -913,7 +944,6 @@ const workflowSubtitleEditor = {
      *   chung", id = 1 dòng cụ thể — dùng để cập nhật icon ĐÚNG nơi (mục 1). */
     _playRangeAndStop(start, end, lineId = null) {
         this._clearLineRangeStopHandler(); // dọn state CŨ trước (reset _activePlaybackLineId về null)
-        this._wavesurfer.setTime(start);
         this._isPlayingRegion = true;
         this._activePlaybackLineId = lineId; // gán SAU khi _clearLineRangeStopHandler() đã reset xong
         this._lineRangeStopHandler = (currentTime) => {
@@ -923,26 +953,15 @@ const workflowSubtitleEditor = {
             }
         };
         this._wavesurfer.on('timeupdate', this._lineRangeStopHandler);
-        // FIX (yêu cầu Giang, mục 2 — "phải bấm 2 lần mới phát lại") — NGUYÊN NHÂN GỐC nghi vấn:
-        // `.pause()` (tự dừng đúng end) rồi ngay sau đó người dùng bấm lại để phát -> `.play()` gọi
-        // RẤT SÁT với `.pause()` vừa rồi -> đụng đúng lỗi trình duyệt đã biết rộng rãi với
-        // HTMLMediaElement: "The play() request was interrupted by a call to pause()"
-        // (DOMException) — Promise của `.play()` bị REJECT, phát lại THẤT BẠI ÂM THẦM nếu không ai
-        // bắt lỗi này — lần bấm ĐẦU coi như "không có tác dụng gì", lần bấm THỨ HAI (đủ xa lần
-        // pause() trước) mới thật sự ăn, đúng y hệt triệu chứng "phải bấm 2 lần". FIX: bắt lỗi
-        // reject, tự thử lại 1 lần sau khi nhường 1 chút thời gian (né đúng lúc va chạm).
-        // FIX (yêu cầu Giang, mục 1 — "vẫn phải bấm 2 lần: 1 lần về start, 1 lần mới chạy") —
-        // NGUYÊN NHÂN GỐC nghi vấn: `setTime()` TRẢ VỀ ngay nhưng seek THẬT trên <audio> bên dưới
-        // là bất đồng bộ ở tầng trình duyệt (cần thời gian định vị/buffer byte tại vị trí mới) —
-        // gọi `.play()` NGAY LẬP TỨC (cùng lúc) có thể "hụt": trình duyệt lặng lẽ KHÔNG phát được gì
-        // (không phải lúc nào cũng reject rõ ràng qua Promise) vì dữ liệu tại vị trí mới CHƯA sẵn
-        // sàng — bấm LẦN 2 mới ăn vì lúc đó seek từ lần trước đã kịp hoàn tất. Bản trước CHỈ bắt lỗi
-        // reject (đúng cho trường hợp "play() request interrupted by pause()") nhưng KHÔNG bắt được
-        // trường hợp "resolve nhưng thực ra chưa phát gì" này. FIX: THÊM lưới xác minh — sau 1
-        // khoảng ngắn, tự kiểm tra `isPlaying()` có THẬT SỰ đúng không, CHƯA đúng thì tự thử lại —
-        // lặp tối đa vài lần, đủ để né mọi độ trễ seek thực tế gặp phải mà không cần người dùng bấm
-        // lại tay.
-        this._startPlaybackWithRetry(lineId, start, 3);
+        // FIX (yêu cầu Giang — bug ẩn thứ tự thao tác + "phải bấm 2 lần mới phát lại") — GỘP 2 lớp
+        // xác minh: (1) `_seekWithRetry()` đảm bảo seek tới `start` THẬT SỰ ăn trước khi phát (cùng
+        // gốc bug với seekFromClick() — pipeline vẽ sóng 'ready' xong KHÔNG có nghĩa thẻ <audio>
+        // bên dưới đã sẵn sàng nhận seek, đặc biệt lần ĐẦU TIÊN thao tác sau khi trang load xong);
+        // (2) `_startPlaybackWithRetry()` đảm bảo `.play()` THẬT SỰ chạy sau đó (va chạm
+        // "play() interrupted by pause()", hoặc chưa sẵn sàng phát ngay sau seek). Xâu chuỗi ĐÚNG
+        // THỨ TỰ — CHỈ gọi play() sau khi seek đã XÁC NHẬN xong, không còn "seek rồi phát ngay lập
+        // tức, hên xui" như bản trước.
+        this._seekWithRetry(start, 3, () => this._startPlaybackWithRetry(lineId, start, 3));
     },
 
     /** Gọi `.play()` — bắt Promise reject (va chạm với pause() vừa gọi) VÀ xác minh lại bằng
