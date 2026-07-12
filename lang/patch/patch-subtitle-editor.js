@@ -66,7 +66,8 @@ const LANG_PATCH_SUBTITLE_EDITOR = {
     // MỚI (yêu cầu Giang, mục 7 — "thông minh hoá") — hiện rõ khoảng giờ hợp lệ + cảnh báo khi
     // đang cuộn ra ngoài khoảng đó.
     'subtitleEditor.timePicker.rangeHint': 'Valid range: {min} → {max}',
-    'subtitleEditor.timePicker.outOfRange': 'Out of the valid range — adjust before confirming.',
+    // XOÁ (yêu cầu Giang, mục 3) — 'subtitleEditor.timePicker.outOfRange' không còn dùng, thay
+    // cảnh báo động bằng chặn cuộn thật (rubber-band snap-back), xem openTimePickerModal().
     // MỚI (yêu cầu Giang, mục 5) — tool "Shift": chọn dòng rồi dịch giờ hàng loạt.
     'subtitleEditor.btnShift.title': 'Shift',
     'subtitleEditor.shift.selectedCount': '{n} selected',
