@@ -408,6 +408,20 @@ const workflowSubtitleEditor = {
         this._updateWaveformControlsBlockState();
     },
 
+    /** FIX (yêu cầu Giang, mục 3 — "nút X không xoá được") — NGUYÊN NHÂN GỐC tìm được: hàm này BỊ
+     * XOÁ MẤT hoàn toàn trong 1 lần viết lại code trước đó (_renderLines() vẫn gọi
+     * `this._removeLine(id)` ở callback `onRemove`, nhưng hàm không còn tồn tại) — bấm ✕ ném
+     * TypeError ÂM THẦM (không có gì hiển thị lỗi cho Giang thấy, đúng y hệt triệu chứng "không xoá
+     * được"). Khôi phục lại đầy đủ.
+     * Thêm lưới an toàn: tự xoá TRỰC TIẾP node khỏi cache/DOM ở đây luôn (không chỉ trông chờ
+     * renderSubtitleLines() tự dọn qua diff) — phòng hờ mọi trường hợp lạ khác. */
+    _removeLine(id) {
+        this._subtitles = computeRemovedSubtitles(this._subtitles, id); // core
+        const node = this._lineCardNodesById.get(id);
+        if (node) { node.remove(); this._lineCardNodesById.delete(id); }
+        this._renderLines();
+    },
+
     /** MỚI (yêu cầu Giang, mục 5) — region.on('update') (kéo tay cầm HOẶC bấm {/} — cả 2 đều đi
      * qua region.setOptions(), cùng bắn 'update') gọi hàm này KHI đang sửa 1 dòng — đồng bộ NGƯỢC
      * giờ region hiện tại vào PENDING của dòng đó, cập nhật hiển thị TRỰC TIẾP (không render lại
@@ -807,12 +821,25 @@ const workflowSubtitleEditor = {
      * `_togglePlayRange()` với "Phát vùng chọn"/"[▶]" khung điều khiển — CÙNG hành vi toggle (bấm
      * lại lúc đang phát ĐÚNG dòng này = dừng; bấm sau khi dừng/hết end = LUÔN phát lại từ đầu dòng).
      * Nhận startStr/endStr thô "HH:MM:SS,mmm" (đọc trực tiếp lúc bấm, xem core/subtitle/
-     * subtitles-ui.js) + `id` (MỚI — để phân biệt icon ĐÚNG dòng nào đang phát, không lẫn giữa
-     * nhiều dòng). */
+     * subtitles-ui.js) + `id` (để phân biệt icon ĐÚNG dòng nào đang phát).
+     * FIX (yêu cầu Giang, mục 2 — "vẫn chạy theo region cũ khi sửa lại start/end") — NGUYÊN NHÂN
+     * GỐC: card của dòng ĐANG SỬA cập nhật hiển thị start/end PENDING TRỰC TIẾP qua DOM
+     * (_syncPendingFromRegion(), KHÔNG render lại toàn bộ — cố ý, để mượt lúc kéo region) — nhưng
+     * listener của nút ▶ (gắn 1 LẦN lúc dựng card, core/subtitle/subtitles-ui.js) đóng gói CLOSURE
+     * theo giá trị PENDING TẠI THỜI ĐIỂM DỰNG, không tự cập nhật theo các lần kéo/sửa SAU ĐÓ —
+     * startStr/endStr truyền vào đây có thể đã CŨ. FIX: nếu dòng NÀY đang được sửa
+     * (`this._editingLineId === id`), LUÔN ưu tiên đọc thẳng `this._editingPendingStart/End` (state
+     * SỐNG của chính Workflow, luôn đúng) — bỏ qua startStr/endStr được truyền vào (có thể cũ). */
     playLineRange(id, startStr, endStr) {
         if (!this._wavesurfer) return;
-        const start = strToSec(startStr); // core
-        const end = strToSec(endStr); // core
+        let start, end;
+        if (this._editingLineId === id) {
+            start = this._editingPendingStart;
+            end = this._editingPendingEnd;
+        } else {
+            start = strToSec(startStr); // core
+            end = strToSec(endStr); // core
+        }
         if (end <= start) return; // giờ dòng không hợp lệ (end <= start) -> không phát gì, tránh phát ngược/vô hạn
         this._togglePlayRange(start, end, id);
     },
@@ -862,15 +889,48 @@ const workflowSubtitleEditor = {
         // bắt lỗi này — lần bấm ĐẦU coi như "không có tác dụng gì", lần bấm THỨ HAI (đủ xa lần
         // pause() trước) mới thật sự ăn, đúng y hệt triệu chứng "phải bấm 2 lần". FIX: bắt lỗi
         // reject, tự thử lại 1 lần sau khi nhường 1 chút thời gian (né đúng lúc va chạm).
+        // FIX (yêu cầu Giang, mục 1 — "vẫn phải bấm 2 lần: 1 lần về start, 1 lần mới chạy") —
+        // NGUYÊN NHÂN GỐC nghi vấn: `setTime()` TRẢ VỀ ngay nhưng seek THẬT trên <audio> bên dưới
+        // là bất đồng bộ ở tầng trình duyệt (cần thời gian định vị/buffer byte tại vị trí mới) —
+        // gọi `.play()` NGAY LẬP TỨC (cùng lúc) có thể "hụt": trình duyệt lặng lẽ KHÔNG phát được gì
+        // (không phải lúc nào cũng reject rõ ràng qua Promise) vì dữ liệu tại vị trí mới CHƯA sẵn
+        // sàng — bấm LẦN 2 mới ăn vì lúc đó seek từ lần trước đã kịp hoàn tất. Bản trước CHỈ bắt lỗi
+        // reject (đúng cho trường hợp "play() request interrupted by pause()") nhưng KHÔNG bắt được
+        // trường hợp "resolve nhưng thực ra chưa phát gì" này. FIX: THÊM lưới xác minh — sau 1
+        // khoảng ngắn, tự kiểm tra `isPlaying()` có THẬT SỰ đúng không, CHƯA đúng thì tự thử lại —
+        // lặp tối đa vài lần, đủ để né mọi độ trễ seek thực tế gặp phải mà không cần người dùng bấm
+        // lại tay.
+        this._startPlaybackWithRetry(lineId, 3);
+    },
+
+    /** Gọi `.play()` — bắt Promise reject (va chạm với pause() vừa gọi) VÀ xác minh lại bằng
+     * `isPlaying()` sau 150ms (phòng trường hợp resolve "thành công" nhưng thực ra chưa phát được
+     * gì do seek chưa kịp sẵn sàng) — tự thử lại tới `attemptsLeft` lần. Luôn kiểm tra
+     * `this._activePlaybackLineId === lineId` trước khi thử lại — nếu người dùng đã tự đổi ý (bấm
+     * dừng, hoặc chuyển sang phát nguồn khác) trong lúc đang chờ, KHÔNG ép phát đè lên ý muốn mới. */
+    _startPlaybackWithRetry(lineId, attemptsLeft) {
+        if (!this._wavesurfer) return;
+        let retried = false; // dedupe — .catch() VÀ lưới xác minh setTimeout có thể CÙNG muốn thử lại, chỉ cho phép 1 lần
         const playResult = this._wavesurfer.play();
-        if (playResult && typeof playResult.catch === 'function') {
-            playResult.catch((err) => {
-                console.warn('[subtitle-editor] play() bị reject (có thể do va chạm với pause() vừa gọi) — thử lại:', err);
-                setTimeout(() => {
-                    if (this._wavesurfer) this._wavesurfer.play().catch((err2) => console.error('[subtitle-editor] play() thử lại vẫn thất bại:', err2));
-                }, 80);
-            });
-        }
+        const retryIfStillWanted = (err) => {
+            if (retried) return;
+            retried = true;
+            if (err) console.warn('[subtitle-editor] play() bị reject/chưa thật sự chạy — thử lại:', err);
+            if (attemptsLeft <= 0) return;
+            setTimeout(() => {
+                if (this._activePlaybackLineId === lineId && !this._wavesurfer.isPlaying()) {
+                    this._startPlaybackWithRetry(lineId, attemptsLeft - 1);
+                }
+            }, 120);
+        };
+        if (playResult && typeof playResult.catch === 'function') playResult.catch(retryIfStillWanted);
+        // Lưới xác minh BỔ SUNG — kể cả khi playResult "resolve" (không reject gì) — vẫn tự kiểm
+        // tra THẬT xem đã phát chưa, chưa thì coi như thất bại âm thầm và thử lại.
+        setTimeout(() => {
+            if (this._activePlaybackLineId === lineId && this._wavesurfer && !this._wavesurfer.isPlaying()) {
+                retryIfStillWanted(null);
+            }
+        }, 150);
     },
 
     /** MỚI (yêu cầu Giang, mục 1.C) — gỡ sạch listener 'timeupdate' đang canh dừng 1 lượt nghe thử
