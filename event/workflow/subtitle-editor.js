@@ -35,6 +35,7 @@ const workflowSubtitleEditor = {
     _isDebugPanelOpen: false, // MỚI (11/07/2026) — bảng debug log đang mở hay không
     _debugLogInterval: null, // MỚI (11/07/2026) — id setInterval refresh bảng debug log lúc đang mở
     _lineRangeStopHandler: null, // MỚI (yêu cầu Giang) — handler 'timeupdate' đang canh dừng phát 1 dòng, null nếu không có dòng nào đang phát preview
+    _isPlayingRegion: false, // MỚI (yêu cầu Giang, mục 3/4) — đang phát THEO VÙNG/DÒNG (bị chặn tự dừng ở end) hay không — khác phát chung (Play/Pause) không giới hạn
     _isShiftSelectionMode: false, // MỚI (yêu cầu Giang, tool "Shift") — đang ở chế độ chọn dòng để dịch giờ hàng loạt hay không
     _shiftSelectedIds: new Set(), // MỚI (yêu cầu Giang, tool "Shift") — tập id các dòng đang được chọn
     _lineCardNodesById: new Map(), // MỚI (yêu cầu Giang, mục 7) — Map bền vững subId -> card DOM, giữ NGUYÊN qua các lần render (diff thay vì rebuild toàn bộ, cùng thuật toán renderPlaylistDiff() core/playlist/render.js)
@@ -106,7 +107,7 @@ const workflowSubtitleEditor = {
                 // during playback") nhưng TRƯỚC ĐÂY chưa khai báo tường minh — phụ thuộc giá trị
                 // mặc định của thư viện (không chắc chắn bản build nào cũng bật sẵn). Khai RÕ RÀNG
                 // ở đây để LUÔN đúng hành vi mong muốn, không phụ thuộc mặc định ẩn: cuộn theo lúc
-                // đang phát VÀ mỗi lần seek thủ công (setTime(), xem seekToFraction()/
+                // đang phát VÀ mỗi lần seek thủ công (setTime(), xem seekFromClick()/
                 // _playRangeAndStop()) — con trỏ luôn giữ ở GIỮA khung nhìn, không phải tự kéo lại.
                 autoScroll: true,
                 autoCenter: true,
@@ -193,35 +194,45 @@ const workflowSubtitleEditor = {
 
     /** MỚI (yêu cầu Giang, mục 2) — cập nhật nhãn giờ đang phát HIỆN TẠI (khác giờ start/end vùng
      * chọn ở trên) — gọi liên tục lúc đang phát ('timeupdate') VÀ mỗi lần seek thủ công
-     * (seekToFraction() bên dưới). */
+     * (seekFromClick() bên dưới). */
     _updateCurrentTimeDisplay(currentTime) {
         if (!waveformCurrentTimeEl) return;
         waveformCurrentTimeEl.textContent = secToStr(currentTime); // core
     },
 
-    /** MỚI (yêu cầu Giang, mục 2/6) — FIX bug ĐÃ XÁC NHẬN của WaveSurfer.js v7 (GitHub issue
-     * #3804, katspaugh/wavesurfer.js — "Clicking inside region does not seek", tái hiện từ bản
-     * 7.8.2 trên Chrome/Edge): bấm vào phần NẰM TRONG vùng chọn hoàn toàn không chuyển vị trí phát
-     * qua cơ chế click-to-seek gốc của thư viện — chỉ bấm NGOÀI vùng chọn mới ăn. Listener
-     * (event/listener/subtitle-editor.js) đã tự tính `fraction` (0..1) từ toạ độ chạm/chuột THẬT,
-     * KHÔNG lệ thuộc gì cơ chế đang lỗi đó — hàm này chỉ still cần nhân với `getDuration()` (thuộc
-     * về this._wavesurfer, đúng chỗ để đọc) rồi `setTime()` thẳng.
-     * Nếu ĐANG phát trước lúc bấm, PHẢI tiếp tục phát tại vị trí mới (đúng yêu cầu Giang) — KHÔNG
-     * cứ giả định `setTime()` tự giữ nguyên trạng thái phát (một số bản/tình huống của WaveSurfer
-     * từng ghi nhận seek có thể vô tình đổi trạng thái play/pause, xem GitHub issue #226) — tự kiểm
-     * tra + gọi lại `.play()` cho chắc, không dựa may rủi vào hành vi mặc định. */
-    seekToFraction(fraction) {
+    /** SỬA (yêu cầu Giang, mục 1/2 — "nhảy linh tinh rất xa") — NGUYÊN NHÂN GỐC tìm được: bản
+     * trước tự tính `fraction` dựa trên `waveformContainerEl.scrollWidth`/`.scrollLeft` (div NGOÀI
+     * do chính tay dựng) — SAI GIẢ ĐỊNH rằng div đó là phần tử ĐANG CUỘN thật. WaveSurfer.js v7 tự
+     * quản lý cuộn ngang RIÊNG bên trong Shadow DOM của chính nó (xem `getScroll()`/`setScroll()`/
+     * `setScrollTime()`, tài liệu chính thức), KHÔNG chắc chắn cùng 1 phần tử với div ngoài mình
+     * đưa vào `container` — `scrollWidth` đo trên div ngoài có thể chỉ phản ánh đúng bề rộng khung
+     * NHÌN THẤY (không phải tổng bề rộng thật của cả waveform, dài hơn nhiều lần với bài dài +
+     * `minPxPerSec: 70`) — khiến tỉ lệ tính sai lệch cực lớn, bấm 1 chỗ nhưng nhảy tới vị trí hoàn
+     * toàn khác (đúng "nhảy linh tinh rất xa"). Mục 2 ("Play không phát theo thanh current") CÙNG
+     * GỐC — vị trí seek vốn đã sai ngay từ bước tính toán, "phát không theo current" chỉ là biểu
+     * hiện khác của cùng 1 lỗi.
+     * FIX: bỏ HẲN việc tự đoán qua DOM ngoài — dùng ĐÚNG API THẬT của chính WaveSurfer:
+     * `getScroll()` (vị trí cuộn THẬT, tính bằng pixel, do chính thư viện quản lý) +
+     * `options.minPxPerSec` (số pixel/giây ĐANG DÙNG THẬT, không đoán) — 2 giá trị này LUÔN đúng
+     * bất kể div ngoài có thật sự là phần tử cuộn hay không.
+     * @param {number} clickXInViewport vị trí bấm TÍNH TỪ MÉP TRÁI khung nhìn thấy (chưa cộng cuộn
+     *   — listener chỉ đo geometry thô, phần tính "cuộn bao nhiêu" giao hẳn cho hàm này, đúng chỗ
+     *   sở hữu `this._wavesurfer`). */
+    seekFromClick(clickXInViewport) {
         if (!this._wavesurfer) return;
         const duration = this._wavesurfer.getDuration();
         if (!duration) return;
-        const time = Math.max(0, Math.min(duration, fraction * duration));
+        const pxPerSec = this._wavesurfer.options.minPxPerSec || 1;
+        const scrollPx = this._wavesurfer.getScroll(); // vị trí cuộn THẬT của chính WaveSurfer, không đoán qua div ngoài
+        const absolutePx = scrollPx + clickXInViewport;
+        const time = Math.max(0, Math.min(duration, absolutePx / pxPerSec));
         const wasPlaying = this._wavesurfer.isPlaying();
         this._wavesurfer.setTime(time);
         this._updateCurrentTimeDisplay(time);
         if (wasPlaying && !this._wavesurfer.isPlaying()) this._wavesurfer.play();
     },
 
-    /** MỚI (11/07/2026, mục 2) — bật/tắt bảng xem console.log/warn/error + lỗi promise không ai
+    /** MỚI (11/07/2026, mục 2/6) — bật/tắt bảng xem console.log/warn/error + lỗi promise không ai
      * bắt (window.__sedLog, thu từ đầu <head> subtitle-editor.html — xem comment ở đó) NGAY TRÊN
      * MÀN HÌNH, phục vụ điều tra bug waveform trên thiết bị không có devtools. Panel TỰ LÀM MỚI
      * (setInterval 500ms) trong lúc đang mở — dừng hẳn lúc đóng, không có trang này thì không nạp
@@ -532,6 +543,18 @@ const workflowSubtitleEditor = {
      * khiển — mục 8). */
     playSelection() {
         if (!this._region) return;
+        // MỚI (yêu cầu Giang, mục 3/4) — TOGGLE thật, không chỉ "luôn seek+play":
+        // - Đang phát THEO VÙNG/DÒNG (_isPlayingRegion true, còn đang chạy thật) mà bấm lại -> PAUSE
+        //   ngay (không phát lại từ đầu) — đây chính là "block" ngăn xung đột Giang yêu cầu (mục 3):
+        //   1 nút vừa là nút bắt đầu vừa là nút dừng, không có 2 trạng thái mơ hồ chồng nhau.
+        // - MỌI trường hợp khác (chưa phát, hoặc đã dừng/đã hết tới end trước đó) -> LUÔN bắt đầu
+        //   LẠI từ this._region.start (đúng yêu cầu Giang mục 4 — "hết time end bấm lại phải từ
+        //   đầu luôn", KHÔNG tiếp tục từ chỗ dừng cũ).
+        if (this._isPlayingRegion && this._wavesurfer.isPlaying()) {
+            this._wavesurfer.pause();
+            this._clearLineRangeStopHandler(); // tự đặt _isPlayingRegion = false + cập nhật icon
+            return;
+        }
         this._playRangeAndStop(this._region.start, this._region.end);
     },
 
@@ -659,6 +682,8 @@ const workflowSubtitleEditor = {
     _playRangeAndStop(start, end) {
         this._clearLineRangeStopHandler();
         this._wavesurfer.setTime(start);
+        this._isPlayingRegion = true; // MỚI (yêu cầu Giang, mục 3/4)
+        this._updatePlayRegionIcon();
         this._lineRangeStopHandler = (currentTime) => {
             if (currentTime >= end) {
                 this._wavesurfer.pause();
@@ -672,12 +697,29 @@ const workflowSubtitleEditor = {
     /** MỚI (yêu cầu Giang, mục 1.C) — gỡ sạch listener 'timeupdate' đang canh dừng 1 lượt nghe thử
      * ▶ dòng (nếu có) — gọi TRƯỚC MỌI hành động phát lại độc lập khác (play/pause thủ công, phát
      * vùng chọn, bắt đầu ghi Auto-timing) để tránh nó tự pause() nhầm về sau nếu playback tình cờ
-     * chạy ngang qua đúng mốc `end` cũ của nó. An toàn gọi nhiều lần (no-op nếu không có gì để gỡ). */
+     * chạy ngang qua đúng mốc `end` cũ của nó. An toàn gọi nhiều lần (no-op nếu không có gì để gỡ).
+     * MỚI (yêu cầu Giang, mục 3/4) — LUÔN reset `_isPlayingRegion` + icon nút "Play region" mỗi khi
+     * bị gỡ, BẤT KỂ lý do gỡ (tự dừng đúng end, hay bị 1 hành động khác — play/pause chung, ▶ dòng
+     * khác, Auto-timing — "cướp" quyền điều khiển) — bảo đảm nút "Play region" KHÔNG BAO GIỜ hiện
+     * sai trạng thái "đang phát" trong khi thực ra đã bị hành động khác tiếp quản. */
     _clearLineRangeStopHandler() {
         if (this._lineRangeStopHandler) {
             this._wavesurfer.un('timeupdate', this._lineRangeStopHandler);
             this._lineRangeStopHandler = null;
         }
+        this._isPlayingRegion = false;
+        this._updatePlayRegionIcon();
+    },
+
+    /** MỚI (yêu cầu Giang, mục 3/4) — đổi icon nút "[▶]"/"[⏸]" trong khung điều khiển theo ĐÚNG
+     * `_isPlayingRegion` (KHÔNG dùng sự kiện 'play'/'pause' chung của WaveSurfer — sự kiện đó bắn
+     * cho MỌI kiểu phát, kể cả Play/Pause thường không giới hạn, không phản ánh đúng riêng trạng
+     * thái "đang phát theo vùng/dòng bị chặn ở end" mà nút này cần thể hiện). */
+    _updatePlayRegionIcon() {
+        if (!iconPlayRegionPlay || !iconPlayRegionPause) return;
+        const isActive = this._isPlayingRegion && this._wavesurfer && this._wavesurfer.isPlaying();
+        iconPlayRegionPlay.classList.toggle('hidden', isActive);
+        iconPlayRegionPause.classList.toggle('hidden', !isActive);
     },
 
     /** MỚI (yêu cầu Giang, mục 2) — đặt this._region.start = vị trí phát HIỆN TẠI
