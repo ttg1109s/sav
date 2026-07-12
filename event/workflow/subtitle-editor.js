@@ -5,11 +5,17 @@
  *
  * Trang này KHÔNG dùng `appState` của app chính (không nạp `service/state.js`) — state RIÊNG sống
  * trong instance object này (giống tinh thần `EventStore` nhưng đơn giản hơn, không cần namespace
- * vì chỉ 1 trang, 1 workflow duy nhất). CÙNG LÝ DO, trang này KHÔNG nạp `service/task-manager.js`
- * lẫn `event/tab.js` — mọi `setTimeout`/`setInterval` trong file này dùng THÔ (không qua
- * `taskManager`), đã ghi nhận CHÍNH THỨC là ngoại lệ thứ 2 của quy ước cấm `setTimeout` thô (xem
- * `readme/task-manager-conventions.md` mục 1, 12/07/2026) — KHÔNG phải sót/quên, là quyết định có
- * chủ đích do trang độc lập không có cơ chế `pauseAll()/resumeAll()` theo tab-hide để tận dụng.
+ * vì chỉ 1 trang, 1 workflow duy nhất).
+ *
+ * SỬA (12/07/2026, audit kiến trúc `/event/`) — file này TỪNG dùng `setTimeout`/`setInterval` thô
+ * 5 chỗ, biện minh "trang không nạp `service/task-manager.js` nên không dùng được" — SAI, đã đính
+ * chính: `service/task-manager.js` KHÔNG có dependency gì (không cần `appState`/`event/tab.js`),
+ * và `event/tab.js` thực ra CHƯA TỪNG gọi `pauseAll()/resumeAll()` ở bất kỳ đâu trong app (kể cả
+ * `index.html`) — 2 hàm đó định nghĩa xong để đó, không ai gọi. Đã thêm
+ * `<script src="service/task-manager.js">` vào `subtitle-editor.html` + đổi cả 5 chỗ sang
+ * `taskManager.once()`/`addNew()` (xem `readme/task-manager-conventions.md` mục 1 — KHÔNG còn là
+ * ngoại lệ nữa, chỉ còn đúng 1 ngoại lệ `core/tab-hide-reload.js`). Trang này VẪN KHÔNG nạp
+ * `event/tab.js` (lifecycle riêng của `index.html`, không liên quan tới việc dùng `taskManager`).
  *
  * WaveSurfer.js (CDN, xem subtitle-editor.html) đảm nhiệm CẢ waveform LẪN phát âm thanh — KHÔNG
  * cần `<audio>` riêng, KHÔNG cần Worker decode riêng (đã cân nhắc lại theo phản hồi Giang — dùng
@@ -39,7 +45,6 @@ const workflowSubtitleEditor = {
     _zoomLevel: 70, // MỚI (yêu cầu Giang, mục 1) — px/giây hiện tại (khởi tạo = giá trị minPxPerSec cũ), zoomIn()/zoomOut() tự cập nhật
     _region: null, // Region DUY NHẤT, sống suốt vòng đời trang — mọi tool "vùng chọn" thao tác lên nó
     _isDebugPanelOpen: false, // MỚI (11/07/2026) — bảng debug log đang mở hay không
-    _debugLogInterval: null, // MỚI (11/07/2026) — id setInterval refresh bảng debug log lúc đang mở
     _lineRangeStopHandler: null, // MỚI (yêu cầu Giang) — handler 'timeupdate' đang canh dừng phát 1 dòng, null nếu không có dòng nào đang phát preview
     _isPlayingRegion: false, // MỚI (yêu cầu Giang, mục 3/4) — đang phát THEO VÙNG/DÒNG (bị chặn tự dừng ở end) hay không — khác phát chung (Play/Pause) không giới hạn
     _activePlaybackLineId: null, // MỚI (yêu cầu Giang, mục 1) — null = đang phát THEO VÙNG CHUNG (this._region), id = đang phát ĐÚNG dòng đó — phân biệt để đổi icon đúng nơi
@@ -291,7 +296,7 @@ const workflowSubtitleEditor = {
     _seekWithRetry(time, attemptsLeft, onSeeked) {
         if (!this._wavesurfer) return;
         this._wavesurfer.setTime(time);
-        setTimeout(() => {
+        taskManager.once(() => {
             if (!this._wavesurfer) return;
             const matched = Math.abs(this._wavesurfer.getCurrentTime() - time) <= 0.15;
             if (matched || attemptsLeft <= 0) {
@@ -322,18 +327,21 @@ const workflowSubtitleEditor = {
     /** MỚI (11/07/2026, mục 2/6) — bật/tắt bảng xem console.log/warn/error + lỗi promise không ai
      * bắt (window.__sedLog, thu từ đầu <head> subtitle-editor.html — xem comment ở đó) NGAY TRÊN
      * MÀN HÌNH, phục vụ điều tra bug waveform trên thiết bị không có devtools. Panel TỰ LÀM MỚI
-     * (setInterval 500ms) trong lúc đang mở — dừng hẳn lúc đóng, không có trang này thì không nạp
-     * `service/task-manager.js` nên KHÔNG dùng taskManager (không có trên trang này), setInterval
-     * thuần là lựa chọn đúng duy nhất ở đây. */
+     * (task lặp 500ms qua `taskManager`) trong lúc đang mở — dừng hẳn lúc đóng.
+     *
+     * SỬA (12/07/2026, audit kiến trúc `/event/` — xem readme/changelog/v12.md) — TRƯỚC ĐÂY dùng
+     * `setInterval`/`clearInterval` thô, biện minh "trang này không nạp service/task-manager.js
+     * nên không dùng được" — SAI: `service/task-manager.js` không có dependency gì (đã kiểm tra
+     * lại, xem `readme/task-manager-conventions.md`), giờ đã thêm vào `subtitle-editor.html`. */
     toggleDebugPanel() {
         this._isDebugPanelOpen = !this._isDebugPanelOpen;
         waveformDebugPanelEl.classList.toggle('hidden', !this._isDebugPanelOpen);
         if (this._isDebugPanelOpen) {
             this._renderDebugLog();
-            this._debugLogInterval = setInterval(() => this._renderDebugLog(), 500);
-        } else if (this._debugLogInterval) {
-            clearInterval(this._debugLogInterval);
-            this._debugLogInterval = null;
+            taskManager.addNew('subtitleEditorDebugLog', { time: 500, exe: () => this._renderDebugLog(), mode: 'timeout', count: 0 });
+            taskManager.operator('subtitleEditorDebugLog', 'enabled');
+        } else {
+            taskManager.kill('subtitleEditorDebugLog');
         }
     },
 
@@ -591,16 +599,14 @@ const workflowSubtitleEditor = {
             // ở 00:00:00 bất kể `currentSeconds` truyền vào là gì. Dời việc này xuống SAU
             // `document.body.appendChild(overlay)` (đã có layout thật) — xem bên dưới.
 
-            let settleTimer = null;
             col.addEventListener('scroll', () => {
-                clearTimeout(settleTimer);
-                settleTimer = setTimeout(() => {
+                taskManager.once(() => {
                     const idx = Math.round(col.scrollTop / ITEM_H);
                     const [min, max] = boundsFor(level);
                     const clamped = Math.max(min, Math.min(max, idx));
                     if (clamped !== idx) col.scrollTo({ top: clamped * ITEM_H, behavior: 'smooth' }); // "bật lại" mép gần nhất — rubber-band
                     onSettle(clamped);
-                }, 120); // đợi lướt tay DỪNG HẲN rồi mới kẹp — tránh giật lúc đang lướt dở
+                }, 120, `subtitleEditorTimePickerSettle_${level}`); // đợi lướt tay DỪNG HẲN rồi mới kẹp — tránh giật lúc đang lướt dở. Tên cố định theo `level` (hh/mm/ss) = debounce riêng từng cột, gọi lại nhiều lần tự huỷ bản cũ (đúng API taskManager.once, KHÔNG cần tự clearTimeout/biến local nữa)
             });
             return col;
         }
@@ -1007,7 +1013,7 @@ const workflowSubtitleEditor = {
             retried = true;
             if (err) console.warn('[subtitle-editor] play() bị reject/chưa thật sự chạy — thử lại:', err);
             if (attemptsLeft <= 0) return;
-            setTimeout(() => {
+            taskManager.once(() => {
                 const stillWanted = this._activePlaybackLineId === lineId && this._isPlayingRegion; // vẫn ĐÚNG phiên phát này, chưa bị hành động khác/tự dừng xong "cướp"
                 const neverActuallyStarted = this._wavesurfer && !this._wavesurfer.isPlaying() && this._wavesurfer.getCurrentTime() <= start + 0.05; // CHƯA TỪNG nhích lên khỏi start — không thể nhầm với "đã chạy xong"
                 if (stillWanted && neverActuallyStarted) this._startPlaybackWithRetry(lineId, start, attemptsLeft - 1);
@@ -1016,7 +1022,7 @@ const workflowSubtitleEditor = {
         if (playResult && typeof playResult.catch === 'function') playResult.catch(retryIfStillWanted);
         // Lưới xác minh BỔ SUNG — kể cả khi playResult "resolve" (không reject gì) — vẫn tự kiểm
         // tra THẬT xem đã phát chưa, chưa thì coi như thất bại âm thầm và thử lại.
-        setTimeout(() => {
+        taskManager.once(() => {
             const stillWanted = this._activePlaybackLineId === lineId && this._isPlayingRegion;
             const neverActuallyStarted = this._wavesurfer && !this._wavesurfer.isPlaying() && this._wavesurfer.getCurrentTime() <= start + 0.05;
             if (stillWanted && neverActuallyStarted) retryIfStillWanted(null);
@@ -1421,7 +1427,7 @@ const workflowSubtitleEditor = {
      *     sequence đó) CÓ THỂ KHÔNG BAO GIỜ chạy lại! `location.href` LUÔN ép tải trang MỚI hoàn
      *     toàn, đảm bảo boot sequence + scrollToSongIfPending() LUÔN chạy. */
     back() {
-        if (this._debugLogInterval) clearInterval(this._debugLogInterval); // dọn tay, dù rời trang cũng huỷ JS context
+        taskManager.kill('subtitleEditorDebugLog'); // dọn tay, dù rời trang cũng huỷ JS context (kill() tự no-op an toàn nếu task không tồn tại/chưa từng chạy)
         if (this._songKey) {
             localStorage.setItem('sav_editingSubtitle', 'true');
             localStorage.setItem('sav_scrollToSongKey', this._songKey);
