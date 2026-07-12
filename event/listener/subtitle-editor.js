@@ -64,6 +64,9 @@ const btnShiftContinue = document.getElementById('btn-shift-continue');
 // MỚI (11/07/2026, yêu cầu Giang) — thanh công cụ cuộn ngang (thay grid-cols-7 cố định cũ, xem
 // subtitle-editor.html) + 2 nút mũi tên cuộn qua lại, dùng chung scrollSliderTo()
 // (core/slider-panel-scroll.js) với #side-left-container/#settings-stack-body ở index.html.
+// SỬA (12/07/2026, audit kiến trúc `/event/`) — 2 handler bên dưới TRƯỚC ĐÂY tự tính target rồi
+// gọi thẳng scrollSliderTo(), bỏ qua bus — nay chỉ gửi message, tính toán + gọi core đã dời sang
+// workflowSubtitleEditor.scrollToolbar() (event/workflow/subtitle-editor.js).
 const toolbarScrollContainerEl = document.getElementById('toolbar-scroll-container');
 const btnToolbarScrollLeft = document.getElementById('btn-toolbar-scroll-left');
 const btnToolbarScrollRight = document.getElementById('btn-toolbar-scroll-right');
@@ -254,15 +257,12 @@ function _updateToolbarArrowState() {
 
 if (btnToolbarScrollLeft && toolbarScrollContainerEl) {
     btnToolbarScrollLeft.addEventListener('click', () => {
-        const target = Math.max(0, toolbarScrollContainerEl.scrollLeft - toolbarScrollContainerEl.clientWidth * 0.8);
-        scrollSliderTo(toolbarScrollContainerEl, target, true); // core/slider-panel-scroll.js
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.toolbarScroll.left.click', payload: {} });
     });
 }
 if (btnToolbarScrollRight && toolbarScrollContainerEl) {
     btnToolbarScrollRight.addEventListener('click', () => {
-        const maxScroll = toolbarScrollContainerEl.scrollWidth - toolbarScrollContainerEl.clientWidth;
-        const target = Math.min(maxScroll, toolbarScrollContainerEl.scrollLeft + toolbarScrollContainerEl.clientWidth * 0.8);
-        scrollSliderTo(toolbarScrollContainerEl, target, true); // core/slider-panel-scroll.js
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.toolbarScroll.right.click', payload: {} });
     });
 }
 if (toolbarScrollContainerEl) {
