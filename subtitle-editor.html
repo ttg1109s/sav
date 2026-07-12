@@ -80,6 +80,13 @@
         <button id="btn-back-to-playlist" class="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors shrink-0" title="">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
         </button>
+        <!-- MỚI (yêu cầu Giang) — tải lại trang KHÔNG dùng cache (xem workflowSubtitleEditor.
+             reloadWithoutCache()) — thêm query param cache-bust rồi điều hướng, ép trình duyệt tải
+             THẬT từ mạng thay vì phục vụ từ cache đĩa/bộ nhớ. Hỏi xác nhận trước (có thể mất chỉnh
+             sửa chưa bấm "Lưu"). -->
+        <button id="btn-reload-no-cache" class="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors shrink-0" title="">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+        </button>
         <h1 id="subtitle-editor-title" class="flex-1 min-w-0 text-sm font-bold truncate"></h1>
         <button id="btn-save-subtitles" class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold transition-colors shadow shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
@@ -273,7 +280,7 @@
     <script src="lang/patch/patch-subtitle-settings.js?v=20260709v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260706v2"></script>
     <script src="lang/patch/patch-file-manager.js?v=20260710v1"></script>
-    <script src="lang/patch/patch-subtitle-editor.js?v=20260712v2"></script>
+    <script src="lang/patch/patch-subtitle-editor.js?v=20260712v3"></script>
     <!-- lang.js hardcode Object.assign() cả 7 biến LANG_PATCH_* trên — THIẾU BẤT KỲ FILE NÀO Ở
          TRÊN đều làm lang.js ReferenceError ngay khi parse (chạy TRÊN CẢ index.html LẪN trang này,
          xem lang/lang.js) — KHÔNG được bớt file nào dù trang này chỉ thật sự DÙNG patch-common/
@@ -291,16 +298,17 @@
          thanh công cụ cuộn ngang MỚI ở dưới (#toolbar-scroll-container) — không viết lại 1 bản
          `scrollTo()` riêng thứ 3. File này THUẦN, không phụ thuộc gì, an toàn nạp ở trang độc lập. -->
     <script src="core/slider-panel-scroll.js?v=20260711v1"></script>
-    <script src="event/workflow/subtitle-editor.js?v=20260712v5"></script>
-    <script src="event/router/subtitle-editor.js?v=20260712v3"></script>
+    <script src="event/workflow/subtitle-editor.js?v=20260712v6"></script>
+    <script src="event/router/subtitle-editor.js?v=20260712v4"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowSubtitleEditor.init() ngay khi chạy. -->
-    <script src="event/listener/subtitle-editor.js?v=20260712v3"></script>
+    <script src="event/listener/subtitle-editor.js?v=20260712v4"></script>
     <script>
         // i18n text tĩnh KHÔNG qua template literal ${t(...)} lúc parse (component của trang này
         // không phải TPL_* string — HTML viết tay ở trên) — gán SAU khi lang.js đã nạp xong.
         document.getElementById('sub-empty-state-label').textContent = t('subtitleEditor.listEmpty');
         document.getElementById('btn-save-subtitles-label').textContent = t('subtitleEditor.btnSave');
         document.getElementById('btn-back-to-playlist').title = t('subtitleEditor.btnBack');
+        document.getElementById('btn-reload-no-cache').title = t('subtitleEditor.btnReload.title');
         document.getElementById('btn-upload-label').textContent = t('subtitleEditor.btnUpload.title');
         document.getElementById('btn-auto-timing-label').textContent = t('subtitleEditor.btnAutoTiming.title');
         document.getElementById('btn-add-sub-label').textContent = t('subtitleEditor.btnAddSub.title');
