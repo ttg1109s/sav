@@ -102,11 +102,21 @@
          FIX (11/07/2026, phản hồi Giang) — trước đây `#waveform-container` KHÔNG có chiều cao cố
          định: trống rỗng (0px) tới khi WaveSurfer render xong, nên lúc CDN/decode lỗi (im lặng,
          không exception nào ném ra ngoài) khung waveform biến mất hẳn, trông như không có gì ở đó.
-         Giờ `#waveform-frame` LUÔN có chiều cao cố định (h-24) — `#waveform-container` (canvas
-         WaveSurfer vẽ vào) và `#waveform-error` (ẩn mặc định, hiện khi lỗi — xem
-         event/workflow/subtitle-editor.js::_showWaveformError()) xếp CHỒNG lên nhau bên trong. -->
+         Giờ `#waveform-frame` LUÔN có chiều cao cố định — `#waveform-container` (canvas WaveSurfer
+         vẽ vào) và `#waveform-error` (ẩn mặc định, hiện khi lỗi — xem event/workflow/
+         subtitle-editor.js::_showWaveformError()) xếp CHỒNG lên nhau bên trong.
+         FIX (yêu cầu Giang, mục 1 — "Timeline bị mất khi waveform cuộn ra khỏi khung đầu tiên") —
+         TRƯỚC ĐÂY dải mốc thời gian (Timeline plugin) dùng container RIÊNG (#waveform-timeline,
+         KHÔNG lồng vào #waveform-container) — NGUYÊN NHÂN GỐC: 2 phần tử này là 2 vùng cuộn ĐỘC
+         LẬP nhau — plugin không tự đồng bộ vị trí cuộn ngang giữa 2 container khác nhau (chỉ tự
+         đồng bộ khi CÙNG 1 container với waveform chính, theo đúng tài liệu WaveSurfer — "container
+         defaults to wavesurfer's container") — cuộn sóng âm đi thì dải mốc vẫn đứng yên tại chỗ cũ,
+         trông như "biến mất" khỏi khung nhìn hiện tại. FIX: bỏ hẳn container riêng, để Timeline
+         plugin dùng CHUNG `#waveform-container` (mặc định, không truyền `container` riêng nữa, xem
+         _initWaveform()) — CÙNG 1 vùng cuộn với sóng âm, LUÔN đồng bộ tuyệt đối. Tăng chiều cao
+         khung (h-24 -> h-32) để đủ chỗ cho CẢ sóng âm (88px) LẪN dải mốc (20px) trong CÙNG khung. -->
     <div class="shrink-0 bg-black/30 border-b border-white/10 px-2 py-3">
-        <div id="waveform-frame" class="relative w-full h-24">
+        <div id="waveform-frame" class="relative w-full h-32">
             <div id="waveform-container" class="w-full h-full overflow-x-auto"></div>
             <div id="waveform-error" class="hidden absolute inset-0 z-10 flex flex-col items-center justify-center gap-1.5 text-slate-500 pointer-events-none">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
@@ -135,13 +145,6 @@
                 <div id="waveform-debug-log" class="space-y-0.5"></div>
             </div>
         </div>
-
-        <!-- MỚI (yêu cầu Giang, mục 1) — dải mốc thời gian (Timeline plugin CHÍNH THỨC của
-             WaveSurfer) — container RIÊNG (không lồng vào #waveform-container) để không co hẹp
-             sóng âm đang có, cao cố định 20px khớp đúng `height` truyền cho plugin (xem
-             _initWaveform()). Cuộn ngang ĐỒNG BỘ với waveform (chính plugin tự lo, cùng
-             this._wavesurfer). -->
-        <div id="waveform-timeline" class="w-full h-5 overflow-hidden mt-1"></div>
 
         <!-- SỬA (yêu cầu Giang, mục 1) — khung điều khiển RỜI HẲN khỏi #waveform-frame (trước đây
              `absolute bottom-0` ĐÈ LÊN đáy waveform, che mất 1 dải sóng âm thật) — giờ là 1 khối
@@ -339,10 +342,10 @@
          thanh công cụ cuộn ngang MỚI ở dưới (#toolbar-scroll-container) — không viết lại 1 bản
          `scrollTo()` riêng thứ 3. File này THUẦN, không phụ thuộc gì, an toàn nạp ở trang độc lập. -->
     <script src="core/slider-panel-scroll.js?v=20260711v1"></script>
-    <script src="event/workflow/subtitle-editor.js?v=20260712v12"></script>
+    <script src="event/workflow/subtitle-editor.js?v=20260712v13"></script>
     <script src="event/router/subtitle-editor.js?v=20260712v5"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowSubtitleEditor.init() ngay khi chạy. -->
-    <script src="event/listener/subtitle-editor.js?v=20260712v5"></script>
+    <script src="event/listener/subtitle-editor.js?v=20260712v6"></script>
     <script>
         // i18n text tĩnh KHÔNG qua template literal ${t(...)} lúc parse (component của trang này
         // không phải TPL_* string — HTML viết tay ở trên) — gán SAU khi lang.js đã nạp xong.
