@@ -34,6 +34,8 @@ const iconWaveformPlay = document.getElementById('icon-waveform-play');
 const iconWaveformPause = document.getElementById('icon-waveform-pause');
 const waveformCurrentTimeEl = document.getElementById('waveform-current-time'); // MỚI (yêu cầu Giang, mục 2)
 const btnPlayRegionControl = document.getElementById('btn-play-region-control'); // MỚI (yêu cầu Giang, mục 8)
+const iconPlayRegionPlay = document.getElementById('icon-play-region-play'); // MỚI (yêu cầu Giang, mục 3/4)
+const iconPlayRegionPause = document.getElementById('icon-play-region-pause'); // MỚI (yêu cầu Giang, mục 3/4)
 const waveformRegionStartEl = document.getElementById('waveform-region-start');
 const waveformRegionEndEl = document.getElementById('waveform-region-end');
 const btnWaveformDebug = document.getElementById('btn-waveform-debug');
@@ -140,20 +142,22 @@ if (btnWaveformPlayPause) {
 // (mục 6, chính là 1 hệ quả của cùng bug này). Tự tính vị trí bấm THẲNG từ toạ độ chuột/chạm (không
 // lệ thuộc gì vào cơ chế click-to-seek nội bộ của WaveSurfer đang lỗi ở trên) rồi gọi
 // workflowSubtitleEditor.seekTo() — hoạt động ĐÚNG bất kể bấm trong hay ngoài vùng chọn.
+// MỚI (yêu cầu Giang, mục 2/6) — FIX bug ĐÃ XÁC NHẬN của chính WaveSurfer.js v7 (GitHub issue
+// #3804, katspaugh/wavesurfer.js: "[Regions] Clicking inside region does not seek", tái hiện từ
+// bản 7.8.2 trên Chrome/Edge) — bấm vào PHẦN NẰM TRONG vùng chọn (this._region, hầu như luôn che
+// phần lớn waveform) hoàn toàn KHÔNG chuyển vị trí phát, chỉ bấm ra NGOÀI vùng chọn mới ăn.
+// SỬA (yêu cầu Giang — "nhảy linh tinh rất xa") — bản trước tự tính tỉ lệ (0..1) dựa trên
+// `waveformContainerEl.scrollWidth`/`.scrollLeft` — SAI GIẢ ĐỊNH div NGOÀI này là phần tử đang
+// cuộn thật (WaveSurfer tự quản lý cuộn RIÊNG trong Shadow DOM của nó, không chắc cùng 1 phần tử).
+// Giờ CHỈ đo geometry THÔ ở đây (vị trí bấm tính từ mép trái khung NHÌN THẤY — không tự cộng/đoán
+// gì về cuộn) — phần "cuộn bao nhiêu" giao hẳn cho workflowSubtitleEditor.seekFromClick() tự đọc
+// qua `this._wavesurfer.getScroll()` (API THẬT của chính thư viện, luôn đúng bất kể div ngoài có
+// phải phần tử cuộn hay không).
 if (waveformContainerEl) {
     waveformContainerEl.addEventListener('click', (e) => {
         const rect = waveformContainerEl.getBoundingClientRect();
-        // scrollLeft + scrollWidth (KHÔNG phải clientWidth) — bài dài hơn khung nhìn sẽ cuộn ngang
-        // (minPxPerSec, xem _initWaveform()), phải tính trên TOÀN BỘ chiều rộng thật của waveform,
-        // không chỉ phần đang hiện trên màn hình.
-        const clickX = e.clientX - rect.left + waveformContainerEl.scrollLeft;
-        const totalWidth = waveformContainerEl.scrollWidth;
-        if (totalWidth <= 0) return;
-        // Gửi TỈ LỆ (0..1) THÔ, không tự nhân duration ở đây — nghe/tua chuyển sang giây là việc
-        // của Workflow (duration là thuộc tính của this._wavesurfer, listener không nên tự đọc
-        // thẳng state nội bộ của workflow).
-        const fraction = Math.max(0, Math.min(1, clickX / totalWidth));
-        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.seek.click', payload: { fraction } });
+        const clickXInViewport = e.clientX - rect.left;
+        eventBus.send({ router: 'subtitleEditor', type: 'subtitleEditor.seek.click', payload: { clickXInViewport } });
     });
 }
 
