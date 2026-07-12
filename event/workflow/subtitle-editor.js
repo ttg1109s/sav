@@ -36,9 +36,14 @@ const workflowSubtitleEditor = {
     _debugLogInterval: null, // MỚI (11/07/2026) — id setInterval refresh bảng debug log lúc đang mở
     _lineRangeStopHandler: null, // MỚI (yêu cầu Giang) — handler 'timeupdate' đang canh dừng phát 1 dòng, null nếu không có dòng nào đang phát preview
     _isPlayingRegion: false, // MỚI (yêu cầu Giang, mục 3/4) — đang phát THEO VÙNG/DÒNG (bị chặn tự dừng ở end) hay không — khác phát chung (Play/Pause) không giới hạn
+    _activePlaybackLineId: null, // MỚI (yêu cầu Giang, mục 1) — null = đang phát THEO VÙNG CHUNG (this._region), id = đang phát ĐÚNG dòng đó — phân biệt để đổi icon đúng nơi
     _isShiftSelectionMode: false, // MỚI (yêu cầu Giang, tool "Shift") — đang ở chế độ chọn dòng để dịch giờ hàng loạt hay không
     _shiftSelectedIds: new Set(), // MỚI (yêu cầu Giang, tool "Shift") — tập id các dòng đang được chọn
     _lineCardNodesById: new Map(), // MỚI (yêu cầu Giang, mục 7) — Map bền vững subId -> card DOM, giữ NGUYÊN qua các lần render (diff thay vì rebuild toàn bộ, cùng thuật toán renderPlaylistDiff() core/playlist/render.js)
+    _editingLineId: null, // MỚI (yêu cầu Giang, mục 3) — id dòng đang ở "chế độ sửa" (null = không dòng nào đang sửa)
+    _editingPendingStart: null, // MỚI — giờ start ĐANG SỬA (giây, CHƯA Apply) của dòng _editingLineId
+    _editingPendingEnd: null, // MỚI — giờ end ĐANG SỬA (giây, CHƯA Apply)
+    _editingCardEl: null, // MỚI — cache tham chiếu DOM card đang sửa, cập nhật TRỰC TIẾP lúc kéo region (mục 5, không qua render lại toàn bộ)
 
     /** Chạy 1 LẦN lúc trang load xong (xem event/listener/subtitle-editor.js). */
     async init() {
@@ -130,7 +135,15 @@ const workflowSubtitleEditor = {
                 });
                 // MỚI (11/07/2026, mục 2) — thanh giờ start/end sống theo ĐÚNG region này suốt
                 // vòng đời trang, tự cập nhật mỗi lần kéo tay cầm (không cần đợi 'update-end').
-                this._region.on('update', () => this._updateRegionTimeDisplay());
+                // MỚI (yêu cầu Giang, mục 5) — NẾU đang sửa 1 dòng (this._editingLineId), kéo tay
+                // cầm region ĐỒNG BỘ NGƯỢC vào giờ PENDING của dòng đó (region lúc này ĐANG đại
+                // diện cho đúng dòng đang sửa, xem enterLineEditMode()) — cập nhật TRỰC TIẾP qua
+                // this._editingCardEl (KHÔNG qua render lại toàn bộ — kéo tay cầm bắn 'update' RẤT
+                // NHIỀU lần/giây, render lại mỗi lần sẽ giật/mất focus).
+                this._region.on('update', () => {
+                    this._updateRegionTimeDisplay();
+                    if (this._editingLineId !== null) this._syncPendingFromRegion();
+                });
                 this._updateRegionTimeDisplay();
             });
 
@@ -310,60 +323,132 @@ const workflowSubtitleEditor = {
      * đảm 1 chỗ DUY NHẤT, không cần nhớ gọi sortSubtitlesByStart() rải rác ở từng hàm mutate —
      * idempotent, sắp xếp mảng đã sắp xếp sẵn gần như miễn phí). Truyền THÊM `_lineCardNodesById`
      * (Map bền vững) cho renderSubtitleLines() tự DIFF thay vì `replaceChildren()` toàn bộ mỗi lần
-     * — CÙNG thuật toán renderPlaylistDiff() (core/playlist/render.js): giữ nguyên node không đổi,
-     * chỉ thêm/xoá/dời đúng những node cần — không còn "nhấp nháy" cả danh sách mỗi lần 1 dòng đổi
-     * giờ (khiến nó tự đổi vị trí) hay có hành động khác (Split/Shift/xoá dòng khác) trigger render
-     * lại. */
+     * — CÙNG thuật toán renderPlaylistDiff() (core/playlist/render.js).
+     * SỬA (yêu cầu Giang, mục 3/4) — `uiState.mode` giờ có 3 giá trị ('normal'/'selecting'/
+     * 'editing') thay vì chỉ đúng/sai của riêng "Shift" — core/subtitle/subtitles-ui.js tự quyết
+     * cấu trúc từng card theo mode này (bình thường/đang chọn Shift/đang sửa 1 dòng + mọi dòng
+     * KHÁC bị khoá). */
     _renderLines() {
         this._subtitles = sortSubtitlesByStart(this._subtitles); // core
+        const mode = this._editingLineId !== null ? 'editing' : this._isShiftSelectionMode ? 'selecting' : 'normal';
         renderSubtitleLines(linesContainerEl, this._subtitles, { // core/subtitle/subtitles-ui.js
-            onTextCommit: (id, text) => this._commitLineText(id, text),
+            onEnterEdit: (id) => this.enterLineEditMode(id), // MỚI (yêu cầu Giang, mục 3)
+            onApplyEdit: (id, text) => this.applyLineEdit(id, text), // MỚI — khôi phục nút ✓ (mục 3)
+            onCancelEdit: () => this.cancelLineEdit(), // MỚI
             onRemove: (id) => this._removeLine(id),
-            onPlayRange: (startStr, endStr) => this.playLineRange(startStr, endStr), // MỚI (yêu cầu Giang)
-            onOpenTimePicker: (id, kind, seconds) => this.openTimePickerModal(id, kind, seconds), // MỚI (yêu cầu Giang, mục 4)
-            onToggleSelect: (id) => this.toggleLineSelection(id), // MỚI (yêu cầu Giang, tool "Shift")
-        }, { active: this._isShiftSelectionMode, selectedIds: this._shiftSelectedIds }, this._lineCardNodesById);
+            onPlayRange: (id, startStr, endStr) => this.playLineRange(id, startStr, endStr), // MỚI (yêu cầu Giang, mục 1) — thêm id để đổi icon đúng dòng
+            onOpenTimePicker: (id, kind, seconds) => this.openTimePickerModal(id, kind, seconds),
+            onToggleSelect: (id) => this.toggleLineSelection(id),
+        }, {
+            mode,
+            selectedIds: this._shiftSelectedIds,
+            editingId: this._editingLineId,
+            editingPendingStart: this._editingPendingStart,
+            editingPendingEnd: this._editingPendingEnd,
+        }, this._lineCardNodesById);
         subEmptyStateEl.classList.toggle('hidden', this._subtitles.length > 0);
     },
 
-    /** SỬA (yêu cầu Giang, mục 4 — bỏ nút ✓ "vô dụng") — THAY _applyLine() cũ (cần bấm ✓ riêng):
-     * text giờ auto-commit ngay khi rời ô (blur, xem core/subtitle/subtitles-ui.js) — không còn
-     * khái niệm "gõ xong nhưng quên bấm Áp dụng" nữa.
-     * MỚI (yêu cầu Giang, mục 7) — `_lineCardNodesById.delete(id)` TRƯỚC khi render — đánh dấu
-     * "dòng này vừa đổi dữ liệu, cần dựng lại card mới" (renderSubtitleLines() tự build fresh cho
-     * đúng id này) — CÁC DÒNG KHÁC không đụng gì (CÙNG PATTERN refreshSongNode(), core/playlist/
-     * render.js). */
-    _commitLineText(id, text) {
-        this._subtitles = computeUpdatedSubtitles(this._subtitles, id, { text }); // core
-        this._lineCardNodesById.delete(id);
+    /** MỚI (yêu cầu Giang, mục 3) — bấm NGUYÊN 1 card (KHÔNG phải Shift-selecting, KHÔNG có dòng
+     * nào khác đang sửa) -> vào "chế độ sửa" cho ĐÚNG dòng đó: cho phép gõ text, hiện nút giờ
+     * start/end (mở modal bánh xe) + nút ✓ Áp dụng/✕ Huỷ, và QUAN TRỌNG — nhảy this._region theo
+     * ĐÚNG [start,end] dòng này (mục 3 "vùng region theo nhảy theo line được chọn") để có thể kéo
+     * tay cầm/chốt mốc {}/nghe trực tiếp trong lúc sửa (mục 5).
+     * MỚI (mục 4) — chặn hẳn: không cho vào chế độ sửa nếu ĐÃ có dòng khác đang sửa (phải Áp dụng/
+     * Huỷ dòng đó trước), và chặn nếu đang ở chế độ chọn Shift (2 chế độ loại trừ nhau). */
+    enterLineEditMode(id) {
+        if (this._editingLineId !== null) return; // đã có dòng khác đang sửa -> chặn
+        if (this._isShiftSelectionMode) return; // đang chọn Shift -> chặn (2 chế độ loại trừ nhau)
+        const sub = this._subtitles.find((s) => s.id === id);
+        if (!sub) return;
+        this._editingLineId = id;
+        this._editingPendingStart = sub.start;
+        this._editingPendingEnd = sub.end;
+        if (this._region) this._region.setOptions({ start: sub.start, end: sub.end }); // nhảy vùng theo dòng (mục 3)
+        this._lineCardNodesById.clear(); // đổi mode -> đổi cấu trúc MỌI card (khoá các dòng khác + hiện input/✓/✕ ở dòng đang sửa)
         this._renderLines();
+        this._editingCardEl = this._lineCardNodesById.get(id); // cache để cập nhật trực tiếp lúc kéo region (mục 5)
+        this._updateWaveformControlsBlockState(); // MỚI (mục 4)
     },
 
-    /** SỬA (yêu cầu Giang, mục 4) — giờ start/end giờ đổi qua modal "bánh xe cuộn số"
-     * (openTimePickerModal() bên dưới), gọi hàm này lúc bấm "Xong" trong modal đó — commit NGAY,
-     * không còn ô gõ tay + nút ✓ riêng để "áp dụng" nữa. */
-    _applyLineTime(id, kind, seconds) {
-        this._subtitles = computeUpdatedSubtitles(this._subtitles, id, { [kind]: seconds }); // core
-        this._lineCardNodesById.delete(id); // MỚI (yêu cầu Giang, mục 7) — dòng này đổi giờ, ép dựng lại card mới
-        this._renderLines(); // tự sort lại rồi (xem _renderLines())
+    /** Bấm ✓ "Áp dụng" lúc đang sửa — commit CẢ text LẪN giờ PENDING (start/end đã đồng bộ qua
+     * region/modal, xem _syncPendingFromRegion()/openTimePickerModal()) vào ĐÚNG dòng đang sửa,
+     * rồi thoát chế độ sửa. */
+    applyLineEdit(id, text) {
+        if (this._editingLineId !== id) return;
+        this._subtitles = computeUpdatedSubtitles(this._subtitles, id, { // core
+            text,
+            start: this._editingPendingStart,
+            end: this._editingPendingEnd,
+        });
+        this._exitLineEditMode();
     },
 
-    _removeLine(id) {
-        this._subtitles = computeRemovedSubtitles(this._subtitles, id); // core
-        this._renderLines(); // renderSubtitleLines() tự dọn node thừa qua diff, không cần tự xoá tay khỏi cache ở đây
+    /** Bấm ✕ "Huỷ" lúc đang sửa — thoát chế độ sửa, KHÔNG commit gì (mọi thay đổi PENDING mất,
+     * dòng giữ nguyên giá trị CŨ trước khi bấm vào sửa). */
+    cancelLineEdit() {
+        this._exitLineEditMode();
     },
 
-    /** MỚI (yêu cầu Giang, mục 4) — modal "bánh xe cuộn số" chọn giờ start/end 1 dòng, THAY ô gõ
-     * tay trực tiếp (dễ gõ sai định dạng "HH:MM:SS,mmm", không có bàn phím số chuyên dụng trên
-     * nhiều thiết bị). 4 cột cuộn dọc dùng CSS scroll-snap THUẦN (không cần JS vật lý cuộn/
-     * animation nào — trình duyệt tự "hút" về đúng vị trí sau khi lướt tay, xem assets/css/
-     * style.css::.time-picker-col) — Giờ/Phút/Giây/phần trăm-mili-giây (bước 100ms, đủ dùng cho
-     * canh tay — muốn chính xác hơn vẫn kéo tay cầm trên waveform, xem setRegionStartToCurrentTime
-     * ()/setRegionEndToCurrentTime() cho 1 cách chốt mốc CHÍNH XÁC hơn nữa dựa theo lúc đang nghe).
+    _exitLineEditMode() {
+        this._editingLineId = null;
+        this._editingPendingStart = null;
+        this._editingPendingEnd = null;
+        this._editingCardEl = null;
+        this._lineCardNodesById.clear(); // đổi mode -> đổi cấu trúc MỌI card, mở khoá lại các dòng khác
+        this._renderLines(); // tự sort lại rồi (xem _renderLines()) — giờ vừa Apply có thể đổi thứ tự
+        this._updateWaveformControlsBlockState();
+    },
+
+    /** MỚI (yêu cầu Giang, mục 5) — region.on('update') (kéo tay cầm HOẶC bấm {/} — cả 2 đều đi
+     * qua region.setOptions(), cùng bắn 'update') gọi hàm này KHI đang sửa 1 dòng — đồng bộ NGƯỢC
+     * giờ region hiện tại vào PENDING của dòng đó, cập nhật hiển thị TRỰC TIẾP (không render lại
+     * toàn bộ — 'update' bắn liên tục lúc kéo, render lại mỗi lần sẽ giật/mất focus ô text đang gõ). */
+    _syncPendingFromRegion() {
+        if (!this._region || this._editingLineId === null) return;
+        this._editingPendingStart = this._region.start;
+        this._editingPendingEnd = this._region.end;
+        if (this._editingCardEl) {
+            const startBtn = this._editingCardEl.querySelector('.sub-line-start-btn');
+            const endBtn = this._editingCardEl.querySelector('.sub-line-end-btn');
+            if (startBtn) startBtn.textContent = secToStr(this._editingPendingStart); // core
+            if (endBtn) endBtn.textContent = secToStr(this._editingPendingEnd); // core
+        }
+    },
+
+    /** MỚI (yêu cầu Giang, mục 4) — chặn CÁC NÚT của khung điều khiển waveform lúc đang sửa 1 dòng
+     * — TRỪ 2 nút "{"/"}"" (set start/end = current, vẫn cần dùng để đồng bộ giờ dòng đang sửa,
+     * mục 5). Play/Pause chung + "[▶]" phát vùng chung + tool "Shift" đều khoá lại lúc này. */
+    _updateWaveformControlsBlockState() {
+        const blocked = this._editingLineId !== null;
+        [btnWaveformPlayPause, btnPlayRegionControl, btnShift].forEach((el) => {
+            if (!el) return;
+            el.classList.toggle('opacity-40', blocked);
+            el.classList.toggle('pointer-events-none', blocked);
+        });
+        // "{" / "}" CỐ Ý không đụng gì — luôn bật, đúng yêu cầu Giang (mục 4, mục 5).
+    },
+
+    /** MỚI (yêu cầu Giang, mục 4) — modal "bánh xe cuộn số" chọn giờ start/end 1 dòng — CHỈ mở
+     * được lúc dòng đó đang ở chế độ sửa (nút start/end chỉ hiện trong chế độ đó, xem core/
+     * subtitle/subtitles-ui.js). Xác nhận -> cập nhật PENDING + đồng bộ NGƯỢC vào this._region (mục
+     * 5), KHÔNG commit thẳng vào dòng (chờ bấm ✓ Áp dụng).
+     * SỬA (yêu cầu Giang, mục 7 — "thông minh hoá") — giới hạn CHẶT: ô "start" không được > tổng
+     * bài hát VÀ không được > end hiện tại (PENDING); ô "end" không được > tổng bài hát VÀ không
+     * được < start hiện tại (PENDING). Vừa hiện rõ khoảng hợp lệ (UI hoá — dòng chú thích trong
+     * modal + tự khoá nút "Xong" nếu đang cuộn ra ngoài khoảng đó) VỪA kẹp cứng giá trị lúc xác
+     * nhận (chống trong logic — LUÔN đúng dù UI có lỡ cho bấm "Xong" hay không).
      * @param {string} subId @param {'start'|'end'} kind @param {number} currentSeconds
      */
     openTimePickerModal(subId, kind, currentSeconds) {
+        if (!this._wavesurfer) return;
         const ITEM_H = 44; // px — PHẢI khớp đúng h-11 (44px) của mỗi số trong subtitle-editor.html/CSS bên dưới
+        const totalDuration = this._wavesurfer.getDuration() || 0;
+        // Giới hạn THẬT (mục 7): start bị chặn bởi min(tổng bài hát, end PENDING hiện tại); end bị
+        // chặn TRÊN bởi tổng bài hát, chặn DƯỚI bởi start PENDING hiện tại.
+        const minAllowed = kind === 'start' ? 0 : this._editingPendingStart;
+        const maxAllowed = kind === 'start' ? Math.min(totalDuration, this._editingPendingEnd) : totalDuration;
+
         const totalMs = Math.max(0, Math.round(currentSeconds * 1000));
         const initHH = Math.floor(totalMs / 3600000) % 24;
         const initMM = Math.floor(totalMs / 60000) % 60;
@@ -406,6 +491,12 @@ const workflowSubtitleEditor = {
         titleEl.textContent = kind === 'start' ? t('subtitleEditor.timePicker.titleStart') : t('subtitleEditor.timePicker.titleEnd');
         card.appendChild(titleEl);
 
+        // MỚI (yêu cầu Giang, mục 7 — "UI hoá giới hạn") — hiện rõ khoảng hợp lệ ngay trong modal.
+        const rangeHintEl = document.createElement('p');
+        rangeHintEl.className = 'text-[11px] text-slate-400 font-mono';
+        rangeHintEl.textContent = tFormat('subtitleEditor.timePicker.rangeHint', { min: secToStr(minAllowed), max: secToStr(maxAllowed) });
+        card.appendChild(rangeHintEl);
+
         const wheelWrap = document.createElement('div');
         wheelWrap.className = 'relative flex gap-1';
         const highlightBand = document.createElement('div');
@@ -421,6 +512,13 @@ const workflowSubtitleEditor = {
         });
         card.appendChild(labelRow);
 
+        // MỚI (mục 7) — dòng cảnh báo nhỏ, CHỈ hiện khi vị trí đang cuộn NẰM NGOÀI khoảng hợp lệ —
+        // UI hoá giới hạn thêm 1 bước: khoá hẳn nút "Xong" cho tới khi cuộn về đúng trong khoảng.
+        const warningEl = document.createElement('p');
+        warningEl.className = 'hidden text-[11px] text-rose-400 font-semibold';
+        warningEl.textContent = t('subtitleEditor.timePicker.outOfRange');
+        card.appendChild(warningEl);
+
         const buttonRow = document.createElement('div');
         buttonRow.className = 'flex gap-3 mt-1';
         const cancelBtn = document.createElement('button');
@@ -430,24 +528,45 @@ const workflowSubtitleEditor = {
         buttonRow.appendChild(cancelBtn);
         const confirmBtn = document.createElement('button');
         confirmBtn.type = 'button';
-        confirmBtn.className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-bold transition-colors';
+        confirmBtn.className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-bold transition-colors disabled:opacity-40';
         confirmBtn.textContent = t('common.ok');
         buttonRow.appendChild(confirmBtn);
         card.appendChild(buttonRow);
 
         overlay.appendChild(card);
 
-        // --- addEventListener: gom cuối hàm (Rule 5a) ---
-        function closeModal() { overlay.remove(); }
-        cancelBtn.addEventListener('click', closeModal);
-        confirmBtn.addEventListener('click', () => {
+        function readWheelSeconds() {
             const hh = Math.round(hhCol.scrollTop / ITEM_H);
             const mm = Math.round(mmCol.scrollTop / ITEM_H);
             const ss = Math.round(ssCol.scrollTop / ITEM_H);
             const tenth = Math.round(tenthCol.scrollTop / ITEM_H);
-            const seconds = hh * 3600 + mm * 60 + ss + tenth * 0.1;
+            return hh * 3600 + mm * 60 + ss + tenth * 0.1;
+        }
+        function refreshValidityUi() {
+            const seconds = readWheelSeconds();
+            const outOfRange = seconds < minAllowed || seconds > maxAllowed;
+            warningEl.classList.toggle('hidden', !outOfRange);
+            confirmBtn.disabled = outOfRange;
+        }
+        refreshValidityUi(); // trạng thái ban đầu
+
+        // --- addEventListener: gom cuối hàm (Rule 5a) ---
+        function closeModal() { overlay.remove(); }
+        cancelBtn.addEventListener('click', closeModal);
+        [hhCol, mmCol, ssCol, tenthCol].forEach((col) => col.addEventListener('scroll', refreshValidityUi));
+        confirmBtn.addEventListener('click', () => {
+            if (confirmBtn.disabled) return; // lưới an toàn — không nên tới được đây nếu UI đã khoá đúng
+            // SỬA (mục 7) — CHỐNG TRONG LOGIC: kẹp cứng vào [minAllowed, maxAllowed] LẦN CUỐI trước
+            // khi dùng, LUÔN đúng bất kể UI ở trên có lỡ cho qua hay không.
+            const seconds = Math.max(minAllowed, Math.min(maxAllowed, readWheelSeconds()));
             closeModal();
-            this._applyLineTime(subId, kind, seconds);
+            if (this._editingLineId === subId) {
+                // Đang sửa ĐÚNG dòng này — chỉ cập nhật PENDING + đồng bộ NGƯỢC region (mục 5),
+                // KHÔNG commit thẳng (chờ bấm ✓ Áp dụng, xem applyLineEdit()).
+                if (kind === 'start') this._editingPendingStart = seconds; else this._editingPendingEnd = seconds;
+                if (this._region) this._region.setOptions({ [kind]: seconds });
+                this._syncPendingFromRegion();
+            }
         });
 
         document.body.appendChild(overlay);
@@ -533,29 +652,11 @@ const workflowSubtitleEditor = {
         this._renderLines();
     },
 
-    /** "▶ Phát vùng chọn" — SỬA (yêu cầu Giang, mục 4) — trước đây gọi thẳng `this._region.play()`
-     * (nội bộ region.play() chỉ là `this.wavesurfer.play(this.start, this.end)`, xem GitHub issue
-     * #3011/#1786 của katspaugh/wavesurfer.js — vài bản/tình huống KHÔNG đảm bảo tự seek đúng
-     * `start` trước khi phát, "phát không đúng vùng region được chọn" đúng y hệt triệu chứng Giang
-     * báo). Đổi sang dùng CHUNG lõi `_playRangeAndStop()` (đã tự `setTime()` seek CHÍNH XÁC trước
-     * khi `.play()`, xem bên dưới) — CÙNG 1 lõi đáng tin cậy cho MỌI nơi cần "phát [start,end] rồi
-     * dừng" (▶ mỗi dòng phụ đề, nút "Phát vùng chọn" ở toolbar, nút "[▶]" mới trong khung điều
-     * khiển — mục 8). */
+    /** "▶ Phát vùng chọn" — dùng CHUNG lõi `_togglePlayRange()` (mục 1: nút ▶ mỗi dòng phụ đề CŨNG
+     * dùng đúng lõi này — hành vi toggle giống hệt nhau ở mọi nơi). */
     playSelection() {
         if (!this._region) return;
-        // MỚI (yêu cầu Giang, mục 3/4) — TOGGLE thật, không chỉ "luôn seek+play":
-        // - Đang phát THEO VÙNG/DÒNG (_isPlayingRegion true, còn đang chạy thật) mà bấm lại -> PAUSE
-        //   ngay (không phát lại từ đầu) — đây chính là "block" ngăn xung đột Giang yêu cầu (mục 3):
-        //   1 nút vừa là nút bắt đầu vừa là nút dừng, không có 2 trạng thái mơ hồ chồng nhau.
-        // - MỌI trường hợp khác (chưa phát, hoặc đã dừng/đã hết tới end trước đó) -> LUÔN bắt đầu
-        //   LẠI từ this._region.start (đúng yêu cầu Giang mục 4 — "hết time end bấm lại phải từ
-        //   đầu luôn", KHÔNG tiếp tục từ chỗ dừng cũ).
-        if (this._isPlayingRegion && this._wavesurfer.isPlaying()) {
-            this._wavesurfer.pause();
-            this._clearLineRangeStopHandler(); // tự đặt _isPlayingRegion = false + cập nhật icon
-            return;
-        }
-        this._playRangeAndStop(this._region.start, this._region.end);
+        this._togglePlayRange(this._region.start, this._region.end, null); // null = "vùng chọn chung", KHÁC 1 dòng cụ thể
     },
 
     /** MỚI (yêu cầu Giang) — "Split": mở modal hỏi số dòng (x) muốn chia this._region hiện tại
@@ -655,16 +756,33 @@ const workflowSubtitleEditor = {
         this._wavesurfer.playPause();
     },
 
-    /** MỚI (yêu cầu Giang) — nút ▶ mỗi dòng phụ đề: phát ĐÚNG [start, end] của dòng đó rồi tự
-     * dừng lại (KHÔNG chạy tiếp qua dòng sau). Nhận startStr/endStr thô "HH:MM:SS,mmm" (đọc trực
-     * tiếp từ 2 ô giờ đang hiển thị NGAY LÚC BẤM, xem core/subtitle/subtitles-ui.js) — CÙNG PATTERN
-     * _applyLine() tự strToSec() ở phía Workflow, core UI không tự parse giờ. */
-    playLineRange(startStr, endStr) {
+    /** MỚI (yêu cầu Giang, mục 1 — "phải như thế") — nút ▶ mỗi dòng phụ đề giờ dùng ĐÚNG cùng
+     * `_togglePlayRange()` với "Phát vùng chọn"/"[▶]" khung điều khiển — CÙNG hành vi toggle (bấm
+     * lại lúc đang phát ĐÚNG dòng này = dừng; bấm sau khi dừng/hết end = LUÔN phát lại từ đầu dòng).
+     * Nhận startStr/endStr thô "HH:MM:SS,mmm" (đọc trực tiếp lúc bấm, xem core/subtitle/
+     * subtitles-ui.js) + `id` (MỚI — để phân biệt icon ĐÚNG dòng nào đang phát, không lẫn giữa
+     * nhiều dòng). */
+    playLineRange(id, startStr, endStr) {
         if (!this._wavesurfer) return;
         const start = strToSec(startStr); // core
         const end = strToSec(endStr); // core
         if (end <= start) return; // giờ dòng không hợp lệ (end <= start) -> không phát gì, tránh phát ngược/vô hạn
-        this._playRangeAndStop(start, end);
+        this._togglePlayRange(start, end, id);
+    },
+
+    /** MỚI (yêu cầu Giang, mục 1/3/4) — TOGGLE dùng CHUNG cho MỌI nơi cần "phát [start,end] rồi tự
+     * dừng, bấm lại lúc đang phát ĐÚNG cùng 1 nguồn = dừng, bấm sau khi dừng = luôn phát lại từ
+     * đầu": "Phát vùng chọn"/"[▶]" khung điều khiển (`lineId = null`) VÀ ▶ mỗi dòng phụ đề
+     * (`lineId = id` dòng đó). So `_activePlaybackLineId === lineId` để phân biệt "bấm lại ĐÚNG
+     * nguồn đang phát" (dừng) với "bấm nguồn KHÁC trong lúc 1 nguồn khác đang phát" (chuyển sang
+     * phát nguồn mới, không chỉ dừng nguồn cũ — _playRangeAndStop() tự dọn nguồn cũ trước). */
+    _togglePlayRange(start, end, lineId) {
+        if (this._isPlayingRegion && this._activePlaybackLineId === lineId && this._wavesurfer.isPlaying()) {
+            this._wavesurfer.pause();
+            this._clearLineRangeStopHandler(); // tự reset state + icon
+            return;
+        }
+        this._playRangeAndStop(start, end, lineId);
     },
 
     /** Lõi DÙNG CHUNG cho mọi chỗ cần "phát đúng [start,end] rồi tự dừng" (▶ mỗi dòng phụ đề,
@@ -674,16 +792,15 @@ const workflowSubtitleEditor = {
      * theo tài liệu CHÍNH THỨC của WaveSurfer.js (mọi bản, kể cả v7): "play([start[, end]]) —
      * Starts playback from the CURRENT position. Optional start/end... để set RANGE phát", nghĩa
      * là tham số `start` KHÔNG được đảm bảo tự seek tới — chỉ `end` chắc chắn dùng để biết lúc nào
-     * dừng. Cộng thêm GitHub issue #3011/#1786 (katspaugh/wavesurfer.js) ghi nhận hành vi seek qua
-     * tham số này KHÔNG NHẤT QUÁN giữa các bản build. FIX: tự `setTime(start)` TƯỜNG MINH trước,
-     * rồi mới `.play()` (không tham số) — loại bỏ hoàn toàn phụ thuộc vào hành vi mơ hồ đó, LUÔN
-     * phát ĐÚNG từ `start` bất kể bản build nào. Lưới an toàn `timeupdate` tự dừng ở `end` (đã có
-     * sẵn) không đổi. */
-    _playRangeAndStop(start, end) {
-        this._clearLineRangeStopHandler();
+     * dừng. FIX: tự `setTime(start)` TƯỜNG MINH trước, rồi mới `.play()` (không tham số).
+     * @param {number} start @param {number} end @param {string|null} lineId null = "vùng chọn
+     *   chung", id = 1 dòng cụ thể — dùng để cập nhật icon ĐÚNG nơi (mục 1). */
+    _playRangeAndStop(start, end, lineId = null) {
+        this._clearLineRangeStopHandler(); // dọn state CŨ trước (reset _activePlaybackLineId về null)
         this._wavesurfer.setTime(start);
-        this._isPlayingRegion = true; // MỚI (yêu cầu Giang, mục 3/4)
-        this._updatePlayRegionIcon();
+        this._isPlayingRegion = true;
+        this._activePlaybackLineId = lineId; // gán SAU khi _clearLineRangeStopHandler() đã reset xong
+        this._updatePlaybackIcons();
         this._lineRangeStopHandler = (currentTime) => {
             if (currentTime >= end) {
                 this._wavesurfer.pause();
@@ -695,31 +812,44 @@ const workflowSubtitleEditor = {
     },
 
     /** MỚI (yêu cầu Giang, mục 1.C) — gỡ sạch listener 'timeupdate' đang canh dừng 1 lượt nghe thử
-     * ▶ dòng (nếu có) — gọi TRƯỚC MỌI hành động phát lại độc lập khác (play/pause thủ công, phát
-     * vùng chọn, bắt đầu ghi Auto-timing) để tránh nó tự pause() nhầm về sau nếu playback tình cờ
-     * chạy ngang qua đúng mốc `end` cũ của nó. An toàn gọi nhiều lần (no-op nếu không có gì để gỡ).
-     * MỚI (yêu cầu Giang, mục 3/4) — LUÔN reset `_isPlayingRegion` + icon nút "Play region" mỗi khi
-     * bị gỡ, BẤT KỂ lý do gỡ (tự dừng đúng end, hay bị 1 hành động khác — play/pause chung, ▶ dòng
-     * khác, Auto-timing — "cướp" quyền điều khiển) — bảo đảm nút "Play region" KHÔNG BAO GIỜ hiện
-     * sai trạng thái "đang phát" trong khi thực ra đã bị hành động khác tiếp quản. */
+     * (nếu có) — gọi TRƯỚC MỌI hành động phát lại độc lập khác (play/pause thủ công, phát vùng
+     * chọn/dòng khác, bắt đầu ghi Auto-timing) để tránh nó tự pause() nhầm về sau. LUÔN reset
+     * `_isPlayingRegion`/`_activePlaybackLineId` + icon (control bar VÀ dòng đang phát nếu có) mỗi
+     * khi bị gỡ, BẤT KỂ lý do — bảo đảm không nơi nào hiện sai trạng thái "đang phát". */
     _clearLineRangeStopHandler() {
         if (this._lineRangeStopHandler) {
             this._wavesurfer.un('timeupdate', this._lineRangeStopHandler);
             this._lineRangeStopHandler = null;
         }
         this._isPlayingRegion = false;
-        this._updatePlayRegionIcon();
+        this._updatePlaybackIcons(); // cập nhật TRƯỚC KHI xoá _activePlaybackLineId, để còn tìm đúng card mà tắt icon
+        this._activePlaybackLineId = null;
     },
 
-    /** MỚI (yêu cầu Giang, mục 3/4) — đổi icon nút "[▶]"/"[⏸]" trong khung điều khiển theo ĐÚNG
-     * `_isPlayingRegion` (KHÔNG dùng sự kiện 'play'/'pause' chung của WaveSurfer — sự kiện đó bắn
-     * cho MỌI kiểu phát, kể cả Play/Pause thường không giới hạn, không phản ánh đúng riêng trạng
-     * thái "đang phát theo vùng/dòng bị chặn ở end" mà nút này cần thể hiện). */
-    _updatePlayRegionIcon() {
-        if (!iconPlayRegionPlay || !iconPlayRegionPause) return;
+    /** MỚI (yêu cầu Giang, mục 1/3/4) — đổi icon "[▶]"/"[⏸]" ở khung điều khiển (KHI đang phát
+     * VÙNG CHUNG, `_activePlaybackLineId === null`) VÀ icon ▶/⏸ của ĐÚNG 1 dòng đang phát (nếu có,
+     * qua `_lineCardNodesById` — KHÔNG render lại toàn bộ, chỉ đổi class trực tiếp trên node đã
+     * cache). KHÔNG dùng sự kiện 'play'/'pause' chung của WaveSurfer — sự kiện đó bắn cho MỌI kiểu
+     * phát (kể cả Play/Pause thường không giới hạn), không phân biệt được "đang phát vùng/dòng bị
+     * chặn ở end" khỏi phát chung. */
+    _updatePlaybackIcons() {
         const isActive = this._isPlayingRegion && this._wavesurfer && this._wavesurfer.isPlaying();
-        iconPlayRegionPlay.classList.toggle('hidden', isActive);
-        iconPlayRegionPause.classList.toggle('hidden', !isActive);
+        const isRegionActive = isActive && this._activePlaybackLineId === null;
+        if (iconPlayRegionPlay && iconPlayRegionPause) {
+            iconPlayRegionPlay.classList.toggle('hidden', isRegionActive);
+            iconPlayRegionPause.classList.toggle('hidden', !isRegionActive);
+        }
+        if (this._activePlaybackLineId !== null) {
+            const card = this._lineCardNodesById.get(this._activePlaybackLineId);
+            if (card) {
+                const playIcon = card.querySelector('.sub-line-play-icon');
+                const pauseIcon = card.querySelector('.sub-line-pause-icon');
+                if (playIcon && pauseIcon) {
+                    playIcon.classList.toggle('hidden', isActive);
+                    pauseIcon.classList.toggle('hidden', !isActive);
+                }
+            }
+        }
     },
 
     /** MỚI (yêu cầu Giang, mục 2) — đặt this._region.start = vị trí phát HIỆN TẠI
@@ -891,9 +1021,13 @@ const workflowSubtitleEditor = {
      * sót chọn từ lần trước".
      * MỚI (yêu cầu Giang, mục 7) — bật/tắt chế độ chọn đổi hẳn CẤU TRÚC của MỌI card (có/không ô
      * tròn chọn, input/nút disabled khác nhau) — KHÔNG chỉ 1 dòng cụ thể như
-     * _commitLineText()/_applyLineTime() — phải xoá SẠCH cache (`clear()`), ép dựng lại card mới
+     * _commitLineText()/_applyLineTime() cũ (nay đã thay bằng applyLineEdit()/cancelLineEdit(),
+     * xem docstring đầu file) — phải xoá SẠCH cache (`clear()`), ép dựng lại card mới
      * cho TOÀN BỘ danh sách, không chỉ xoá riêng lẻ từng id. */
+    /** MỚI (yêu cầu Giang, mục 4) — chặn hẳn nếu ĐANG sửa 1 dòng (2 chế độ loại trừ nhau — phải
+     * Áp dụng/Huỷ dòng đang sửa trước khi chuyển sang chọn Shift). */
     toggleShiftSelectionMode() {
+        if (this._editingLineId !== null) return;
         this._isShiftSelectionMode = !this._isShiftSelectionMode;
         if (!this._isShiftSelectionMode) this._shiftSelectedIds = new Set();
         this._lineCardNodesById.clear();
