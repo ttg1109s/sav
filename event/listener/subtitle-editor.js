@@ -34,8 +34,9 @@ const btnWaveformPlayPause = document.getElementById('btn-waveform-playpause');
 const iconWaveformPlay = document.getElementById('icon-waveform-play');
 const iconWaveformPause = document.getElementById('icon-waveform-pause');
 const waveformCurrentTimeEl = document.getElementById('waveform-current-time'); // MỚI (yêu cầu Giang, mục 2)
-// MỚI (yêu cầu Giang, mục 1) — dải mốc thời gian + zoom in/out.
-const waveformTimelineEl = document.getElementById('waveform-timeline');
+// MỚI (yêu cầu Giang, mục 1) — zoom in/out. FIX — dải mốc thời gian (Timeline plugin) không còn
+// dùng container riêng nữa (#waveform-timeline đã bỏ, xem subtitle-editor.html + event/workflow/
+// subtitle-editor.js) — render CHUNG waveformContainerEl để luôn đồng bộ cuộn, không cần ref riêng.
 const btnWaveformZoomIn = document.getElementById('btn-waveform-zoom-in');
 const btnWaveformZoomOut = document.getElementById('btn-waveform-zoom-out');
 const btnPlayRegionControl = document.getElementById('btn-play-region-control'); // MỚI (yêu cầu Giang, mục 8)
