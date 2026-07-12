@@ -5,7 +5,11 @@
  *
  * Trang này KHÔNG dùng `appState` của app chính (không nạp `service/state.js`) — state RIÊNG sống
  * trong instance object này (giống tinh thần `EventStore` nhưng đơn giản hơn, không cần namespace
- * vì chỉ 1 trang, 1 workflow duy nhất).
+ * vì chỉ 1 trang, 1 workflow duy nhất). CÙNG LÝ DO, trang này KHÔNG nạp `service/task-manager.js`
+ * lẫn `event/tab.js` — mọi `setTimeout`/`setInterval` trong file này dùng THÔ (không qua
+ * `taskManager`), đã ghi nhận CHÍNH THỨC là ngoại lệ thứ 2 của quy ước cấm `setTimeout` thô (xem
+ * `readme/task-manager-conventions.md` mục 1, 12/07/2026) — KHÔNG phải sót/quên, là quyết định có
+ * chủ đích do trang độc lập không có cơ chế `pauseAll()/resumeAll()` theo tab-hide để tận dụng.
  *
  * WaveSurfer.js (CDN, xem subtitle-editor.html) đảm nhiệm CẢ waveform LẪN phát âm thanh — KHÔNG
  * cần `<audio>` riêng, KHÔNG cần Worker decode riêng (đã cân nhắc lại theo phản hồi Giang — dùng
@@ -1449,5 +1453,21 @@ const workflowSubtitleEditor = {
         const url = new URL(window.location.href);
         url.searchParams.set('_r', Date.now().toString());
         window.location.href = url.toString();
+    },
+
+    /** MỚI (12/07/2026, audit kiến trúc `/event/` — xem readme/changelog/v12.md mục 14/18) — 2 nút
+     * mũi tên cuộn thanh công cụ (`#toolbar-scroll-container`, dom-ref khai ở event/listener/
+     * subtitle-editor.js). TRƯỚC ĐÂY listener tự tính `target` rồi gọi thẳng `scrollSliderTo()`
+     * (core/slider-panel-scroll.js) — bỏ qua hoàn toàn bus. SỬA LẦN 2 (cùng ngày, Giang chỉ ra):
+     * bản đầu dời đúng VỊ TRÍ (Listener → Workflow) nhưng vẫn tự TÍNH TOÁN (`Math.max/min`) ngay
+     * trong Workflow — sai tiếp, vì tính toán KHÔNG phải việc của Workflow (Workflow điều phối,
+     * KHÔNG tự chứa phép tính nghiệp vụ) — đúng lỗi mà `core/slider-panel-scroll.js` từng được
+     * tách ra để tránh (xem docstring đầu file đó). Giờ gọi ĐÚNG 2 hàm Core nối tiếp:
+     * `getStepScrollTarget()` (tính, THUẦN) rồi `scrollSliderTo()` (hành động) — Workflow không
+     * còn phép tính nào của riêng nó. @param {'left'|'right'} direction */
+    scrollToolbar(direction) {
+        if (!toolbarScrollContainerEl) return;
+        const target = getStepScrollTarget(toolbarScrollContainerEl, direction); // core/slider-panel-scroll.js
+        scrollSliderTo(toolbarScrollContainerEl, target, true); // core/slider-panel-scroll.js
     },
 };
