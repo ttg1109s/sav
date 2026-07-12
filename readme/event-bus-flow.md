@@ -140,10 +140,16 @@ cần thiết bất cứ khi nào 1 case phải hoàn thành 1 mục tiêu nghi�
   Workflow, không phải ngoại lệ của Router — Router không tự gọi `service/` để chuẩn bị input cho
   Core.
 
-**Khi Workflow cần LẤY NHIỀU HƠN 1 giá trị `appState` để cung cấp cho 1 lời gọi Core** — dùng dạng
-gọi theo mảng `appState.get([key1, key2, ...])` (trả object gồm các key đã liệt kê) THAY VÌ nhiều
-lời gọi `appState.get(key)` rời rạc từng key một. Chỉ 1 giá trị duy nhất thì gọi đơn `get(key)` như
-bình thường — quy tắc mảng chỉ bắt buộc từ 2 giá trị trở lên.
+**Ranh giới đếm "≥2 giá trị" là theo CẢ 1 lần thực thi Workflow, KHÔNG phải theo từng lời gọi Core
+riêng lẻ.** Nếu 1 method Workflow gọi 2 Core khác nhau, mỗi Core chỉ cần ĐÚNG 1 giá trị `appState`
+(2 core, 2 field khác nhau, không trùng) — vẫn PHẢI gộp thành 1 lần `appState.get([key1, key2])`
+duy nhất ở đầu method, KHÔNG được tách thành 2 lần `get(key)` rời rạc (mỗi lần ngay trước lúc gọi
+Core tương ứng). Đứng từ góc Workflow: tổng nhu cầu đọc state của CẢ method là 2 giá trị, bất kể
+2 giá trị đó cuối cùng "đi" tới cùng 1 Core hay rẽ ra phục vụ 2 Core khác nhau — quy tắc mảng tính
+theo tổng số giá trị Workflow cần lấy trong 1 lần chạy, không tính theo "core này cần bao nhiêu".
+Chỉ khi CẢ method chỉ cần vỏn vẹn 1 giá trị `appState` duy nhất (dù để nuôi 1 hay nhiều Core) thì
+mới gọi đơn `get(key)` như bình thường — quy tắc mảng bắt buộc ngay khi tổng số giá trị cần lấy
+trong method đó từ 2 trở lên.
 
 **Ngoại lệ:** lời gọi bất đồng bộ và KHÔNG chờ (fire-and-forget, không `await`) không tạo phụ
 thuộc thứ tự — KHÔNG tính là Workflow, được gọi thẳng trong Core/Router như bình thường (miễn
@@ -248,7 +254,7 @@ tiêu chí (A)/(B) ở mục 4, chỉ khác là được BỌC trong 1 rule thay
 | Cần đọc dù chỉ 1 giá trị `appState`/gọi `service/` để CHUẨN BỊ input cho Core — dù case chỉ gọi đúng 1 hàm? | (B) Workflow — "chuẩn bị state cho Core" tự nó là Workflow, không có ngoại lệ "1 core thì khỏi cần" |
 | Cần gọi ≥2 hàm nối tiếp, ít nhất 1 hàm void/side-effect, chạy đồng bộ hoặc async có chờ (tạo phụ thuộc thứ tự)? | (B) Workflow — bất kể đơn giản hay cần shield/modal |
 | Cần đọc `appState` KHÁC để quyết định CHẠY GÌ (chọn giữa các Core/Workflow khác nhau) — dù chỉ 1 điều kiện/1 đích hay nhiều? | (C) `VirtualMachineState` — LUÔN dùng, không viết switch/if tay đọc `appState` trong case nữa |
-| Workflow cần lấy ≥2 giá trị `appState` để cung cấp cho 1 lời gọi Core? | `appState.get([key1, key2, ...])` dạng mảng — không gọi rời từng key |
+| Tổng cả 1 lần thực thi Workflow cần lấy ≥2 giá trị `appState` (dù để nuôi 1 Core hay rẽ ra nhiều Core khác nhau)? | `appState.get([key1, key2, ...])` dạng mảng — không gọi rời từng key theo từng Core |
 | Điều kiện chặn dùng ở ≥2 router, hoặc bản chất là chặn hẳn không chạy gì? | Block (`event/block.js`) — chặn TRƯỚC router, không phải trong case |
 
 ← [Quay lại README](../README.md)
