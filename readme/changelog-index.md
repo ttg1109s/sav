@@ -1,12 +1,17 @@
 # Mục lục Changelog
 
-Bản hiện tại: **ver 12** — thêm hạ tầng rẽ nhánh theo `appState` cho `/event/`: `service/
-operation.js` (so sánh toán tử dùng chung), `event/block.js` (chặn message trước router, hiện
-rỗng), `event/virtual-machine-state.js` (chạy nhiều workflow độc lập trong 1 case router). CHƯA
-wire vào router/core nào — xem [event-bus-flow.md](./event-bus-flow.md) cho sơ đồ đầy đủ. Xem
-đầy đủ ở [v12.md](./changelog/v12.md).
+Bản hiện tại: **ver 12** — hạ tầng rẽ nhánh theo `appState` cho `/event/` (`service/operation.js`,
+`event/block.js`, `event/virtual-machine-state.js` — **nay đã wire thật**, ≥15 điểm gọi), Đa
+phương tiện (Slideshow/Ảnh/Documents v1, IndexedDB v4), tái cấu trúc Settings + Theme 4 mode
+(Sáng/Tối/Background/Gradient — riêng "Sáng" mới chỉ lưu lựa chọn, CHƯA áp màu thật), Subtitle
+Editor tách từ modal sang trang riêng `subtitle-editor.html`, Documents viết lại hoàn chỉnh lần 2
+(Nhóm A), Rule 5 cho hàm dựng UI (`readme/core-function-conventions.md`). Xem đầy đủ ở
+[v12.md](./changelog/v12.md) — file này gộp nhiều phiên rải từ đầu tháng 7 tới 12/07/2026, trước
+đó chỉ tài liệu hoá trong các bản `sav12-handoff-plan*.md` tạm, chưa gộp vào changelog chính thức.
 
-- [v12.md](./changelog/v12.md) — hạ tầng block/virtual-machine-state cho event bus, chưa wire
+- [v12.md](./changelog/v12.md) — hạ tầng block/VM-state (nay đã wire), Đa phương tiện, Settings/
+  Theme, Subtitle Editor trang riêng, Documents Nhóm A, Rule 5 — nợ kỹ thuật mới: seek-trước-rồi-
+  phát Subtitle Editor, 2 file mồ côi, tài liệu `readme/` tụt hậu
 - [v11.md](./changelog/v11.md) — event bus hoàn tất, State tập trung (đã audit từng key), 3 lỗi nhỏ
 - [v10-lang-test.md](./changelog/v10-lang-test.md) — khung đa ngôn ngữ (i18n), English gốc cứng
   RAM, ngôn ngữ khác qua IndexedDB tự upload — ⚠️ vẫn CHƯA test trên browser thật (không đổi ở v11)
@@ -29,13 +34,19 @@ wire vào router/core nào — xem [event-bus-flow.md](./event-bus-flow.md) cho 
 
 ## Tóm tắt từng bản (cũ → mới)
 
-Ver 12 thêm hạ tầng rẽ nhánh theo `appState` cho kiến trúc `/event/`, KHÔNG đổi hành vi app nào —
-`service/operation.js` (so sánh toán tử `=== !== > < >= <= in notIn` dùng chung), `event/block.js`
-(chặn 1 `msg.type` TRƯỚC khi vào router, đăng ký qua `eventBus.registerBlock()`, hiện đang RỖNG),
-`event/virtual-machine-state.js` (`VirtualMachineState.run()`, chạy nhiều workflow độc lập NGAY
-TRONG 1 case của router, không loại trừ nhau). Cả 3 file đã nạp vào `index.html` nhưng chưa wire
-case thật nào — xem [event-bus-flow.md](./event-bus-flow.md) cho sơ đồ đầy đủ luồng
-listener→router→core/workflow/virtual-machine-state.
+Ver 12 mở đầu bằng hạ tầng rẽ nhánh theo `appState` cho kiến trúc `/event/` — `service/operation.js`
+(so sánh toán tử dùng chung), `event/block.js` (chặn 1 `msg.type` TRƯỚC khi vào router, đăng ký qua
+`eventBus.registerBlock()`), `event/virtual-machine-state.js` (`VirtualMachineState.run()`, chạy
+nhiều workflow độc lập NGAY TRONG 1 case của router) — cả 3 nay **đã wire thật** (≥15 điểm gọi, xem
+[v12.md](./changelog/v12.md) mục 3). Sau đó ver 12 còn gồm 1 khối lượng lớn việc khác trải dài tới
+12/07/2026, trước đây chỉ nằm trong các bản `sav12-handoff-plan*.md` tạm chưa gộp chính thức: Đa
+phương tiện (Slideshow/Ảnh/Documents bản v1, IndexedDB nâng lên `DB_VERSION` 4 với 5 store mới),
+File Manager chuyển hẳn vào Settings, tái cấu trúc toàn bộ Settings (điều hướng cuộn ngang thay
+trượt dọc) + hạ tầng Theme 4 mode, Subtitle Editor tách từ modal sang trang riêng
+`subtitle-editor.html` (WaveSurfer.js, Cut MP3/lamejs), Documents viết lại hoàn chỉnh lần 2 (Nhóm A
+— content model `.txt` = `string[]`, `.docx`/user-edited = HTML đã lọc whitelist), và Rule 5 mới
+cho hàm dựng UI ở `core-function-conventions.md`. Chi tiết đầy đủ + nợ kỹ thuật (kể cả 1 chỗ đính
+chính "Fix B" shuffle từng bị ghi nhầm là đã xong) ở [v12.md](./changelog/v12.md).
 
 Ver 11 KHÔNG có tính năng mới cho người dùng cuối — thuần tái cấu trúc nội bộ. Kiến trúc `/event/`
 (`listener → router → workflow → core`) hoàn tất cho 14 cụm (119 listener nghiệp vụ), cả State
