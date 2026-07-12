@@ -100,23 +100,18 @@ const workflowSubtitleEditor = {
             const freshBlob = await rematerializeBlob(blob); // service/db.js
             const url = URL.createObjectURL(freshBlob);
             this._regionsPlugin = WaveSurfer.Regions.create();
-            // MỚI (yêu cầu Giang, mục 1) — dải mốc thời gian, plugin CHÍNH THỨC của WaveSurfer —
-            // container RIÊNG (#waveform-timeline, không lồng vào #waveform-container) để không co
-            // hẹp sóng âm đang có. Tự đồng bộ cuộn/zoom với this._wavesurfer, không cần code thêm.
-            // FIX (yêu cầu Giang — "Lỗi khởi tạo WaveSurfer: Can't find variable: waveformTimelineEl")
-            // — THÊM guard `typeof waveformTimelineEl !== 'undefined'` NGOÀI guard plugin đã có sẵn
-            // (`typeof WaveSurfer.Timeline !== 'undefined'`) — biến DOM này khai ở
-            // event/listener/subtitle-editor.js, nếu vì bất kỳ lý do gì (thiếu file, áp patch không
-            // đủ...) biến đó KHÔNG tồn tại, việc tham chiếu THẲNG tới nó (không qua `typeof`) ném
-            // ReferenceError NGAY LẬP TỨC — rơi vào `catch` NGOÀI CÙNG của _initWaveform(), khiến
-            // TOÀN BỘ waveform báo lỗi "Unable to load" dù chẳng liên quan gì tới waveform thật —
-            // chỉ vì 1 tính năng PHỤ (dải mốc thời gian) thiếu 1 biến DOM. Giờ xuống cấp AN TOÀN:
-            // thiếu biến/element này chỉ tắt riêng dải mốc thời gian, KHÔNG kéo sập cả waveform.
-            const timelineContainerEl = typeof waveformTimelineEl !== 'undefined' ? waveformTimelineEl : null;
-            this._timelinePlugin = (timelineContainerEl && typeof WaveSurfer.Timeline !== 'undefined')
-                ? WaveSurfer.Timeline.create({ container: timelineContainerEl, height: 20 })
+            // MỚI (yêu cầu Giang, mục 1) — dải mốc thời gian, plugin CHÍNH THỨC của WaveSurfer.
+            // FIX (yêu cầu Giang — "Timeline bị mất khi waveform cuộn ra khỏi khung đầu tiên") —
+            // TRƯỚC ĐÂY dùng container RIÊNG (#waveform-timeline) — 2 vùng cuộn ĐỘC LẬP nhau, cuộn
+            // sóng âm không tự kéo dải mốc theo (plugin chỉ tự đồng bộ khi CÙNG 1 container với
+            // waveform chính, theo đúng tài liệu WaveSurfer). Giờ KHÔNG truyền `container` riêng
+            // nữa — mặc định dùng CHUNG `waveformContainerEl` (container của chính waveform),
+            // LUÔN cùng 1 vùng cuộn, đồng bộ tuyệt đối (subtitle-editor.html đã tăng chiều cao
+            // #waveform-frame để đủ chỗ cho cả sóng âm lẫn dải mốc trong CÙNG khung). */
+            this._timelinePlugin = typeof WaveSurfer.Timeline !== 'undefined'
+                ? WaveSurfer.Timeline.create({ height: 20 })
                 : null;
-            if (!this._timelinePlugin) console.warn('[subtitle-editor] Dải mốc thời gian (Timeline) không khởi tạo được (thiếu plugin CDN hoặc thiếu #waveform-timeline) — waveform chính vẫn dùng được bình thường.');
+            if (!this._timelinePlugin) console.warn('[subtitle-editor] Dải mốc thời gian (Timeline) không khởi tạo được (CDN chặn/lỗi mạng?) — waveform chính vẫn dùng được bình thường.');
             this._wavesurfer = WaveSurfer.create({
                 container: waveformContainerEl,
                 height: 88,
@@ -1407,19 +1402,25 @@ const workflowSubtitleEditor = {
         await alertModal(t('subtitleEditor.saved'));
     },
 
-    /** Nút "←" — quay lại playlist. `history.back()` hoạt động đúng vì trang được ĐIỀU HƯỚNG tới
-     * (window.location.href, KHÔNG mở tab mới — xem workflowPlaylist.openSubtitleEditorForSongMenu()/
-     * workflowSubtitleModal.openEditor()), nên lịch sử trình duyệt LUÔN có index.html ngay trước đó. */
-    /** MỚI (yêu cầu Giang) — lưu tạm `_songKey` qua sessionStorage TRƯỚC KHI điều hướng đi — đây là
-     * CÁCH DUY NHẤT truyền dữ liệu qua 1 lượt ĐIỀU HƯỚNG TRANG THẬT (history.back(), KHÔNG phải
-     * SPA route) tới index.html: index.html tự đọc lại cờ này lúc boot xong (xem
-     * scrollToSongIfPending(), core/playlist/render.js, gọi từ core/visualizer/draw-visualizer.js
-     * NGAY SAU initPlaylistFromDB()) để tự cuộn tới ĐÚNG bài vừa sửa phụ đề xong, không phải tự tìm
-     * lại bằng mắt trong danh sách dài. */
+    /** SỬA (yêu cầu Giang) — nút "←" quay lại playlist, đổi hẳn cách quay lại:
+     * (1) LƯU 2 GIÁ TRỊ vào `localStorage` — cờ RÕ RÀNG `sav_editingSubtitle = 'true'` + key bài
+     *     hát `sav_scrollToSongKey` riêng — để index.html tự kiểm tra đúng/sai rạch ròi (xem
+     *     scrollToSongIfPending(), core/playlist/render.js, gọi từ core/visualizer/
+     *     draw-visualizer.js NGAY SAU initPlaylistFromDB()) rồi tự cuộn tới ĐÚNG bài vừa sửa phụ đề
+     *     xong, không phải tự tìm lại bằng mắt trong danh sách dài.
+     * (2) ĐIỀU HƯỚNG THẲNG bằng `location.href` TỚI index.html — KHÔNG dùng `history.back()` nữa.
+     *     NGUYÊN NHÂN: `history.back()` có thể được trình duyệt phục vụ từ bfcache (back-forward
+     *     cache) — TRẢ VỀ ĐÚNG snapshot JS/DOM lúc rời trang, KHÔNG chạy lại boot sequence
+     *     (core/visualizer/draw-visualizer.js) — nghĩa là scrollToSongIfPending() (gọi TRONG boot
+     *     sequence đó) CÓ THỂ KHÔNG BAO GIỜ chạy lại! `location.href` LUÔN ép tải trang MỚI hoàn
+     *     toàn, đảm bảo boot sequence + scrollToSongIfPending() LUÔN chạy. */
     back() {
         if (this._debugLogInterval) clearInterval(this._debugLogInterval); // dọn tay, dù rời trang cũng huỷ JS context
-        if (this._songKey) sessionStorage.setItem('sav_scrollToSongKey', this._songKey);
-        history.back();
+        if (this._songKey) {
+            localStorage.setItem('sav_editingSubtitle', 'true');
+            localStorage.setItem('sav_scrollToSongKey', this._songKey);
+        }
+        window.location.href = 'index.html';
     },
 
     /** MỚI (yêu cầu Giang) — nút tải lại KHÔNG dùng cache. Hỏi xác nhận trước (modalChoice() có
