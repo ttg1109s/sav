@@ -8,11 +8,13 @@
  *   - visualizerTypeSelect.change (đổi kiểu hiệu ứng, Main)
  *   - keepScreenOnToggle.change (bật/tắt giữ màn hình sáng, Main)
  *
- * Cả 2 msg.type chỉ cần gọi thẳng hàm core — KHÔNG có shield/modal — không cần workflow.
+ * SỬA (12/07/2026, audit kiến trúc `/event/` — xem readme/changelog/v12.md mục 14/16) — CẢ 2
+ * msg.type ĐÃ DỜI logic sang `event/workflow/visualizer-misc-settings.js` (MỚI). Câu "chỉ cần gọi
+ * thẳng hàm core... không cần workflow" ở bản cũ SAI theo quy ước hiện hành: cả 2 case đều hoặc
+ * gọi ≥2 hàm side-effect nối tiếp, hoặc tự chuẩn bị `appState` cho Core — cả hai đều bắt buộc
+ * Workflow (readme/event-bus-flow.md mục 4B), không phải ngoại lệ "không có shield/modal".
  *
- * NẠP SAU: event/bus.js, core/visualizer/visualizer-display.js (updateTypeUI),
- *           core/config.js (saveConfig, vizConfig, MODES, currentModeIndex),
- *           core/wakelock.js (requestWakeLock, releaseWakeLock).
+ * NẠP SAU: event/bus.js, event/workflow/visualizer-misc-settings.js.
  * NẠP TRƯỚC: event/listener/visualizer-misc-settings.js.
  */
 const routerVisualizerMiscSettings = (() => {
@@ -31,23 +33,13 @@ const routerVisualizerMiscSettings = (() => {
 
             // ── Đổi kiểu hiệu ứng ───────────────────────────────────────────
             case 'visualizerMiscSettings.visualizerType.change': {
-                const idx = MODES.indexOf(msg.payload.value);
-                if (idx === -1) break;
-                appState.set('currentModeIndex', idx);
-                updateTypeUI();
-                saveConfig();
+                workflowVisualizerMiscSettings.applyVisualizerType(msg.payload.value);
                 break;
             }
 
             // ── Giữ màn hình sáng ────────────────────────────────────────────
             case 'visualizerMiscSettings.keepScreenOn.change': {
-                appState.mutate('vizConfig', cfg => { cfg.keepScreenOn = msg.payload.checked; });
-                saveConfig();
-                if (appState.get('vizConfig').keepScreenOn) {
-                    if (typeof audioPlayer !== 'undefined' && !audioPlayer.paused) requestWakeLock();
-                } else {
-                    releaseWakeLock();
-                }
+                workflowVisualizerMiscSettings.setKeepScreenOn(msg.payload.checked);
                 break;
             }
 
