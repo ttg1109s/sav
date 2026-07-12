@@ -148,7 +148,14 @@
                      ở toolbar — không dùng lại cùng 1 icon cho 3-4 nút phát khác nghĩa nhau, dễ
                      nhầm nút nào làm gì. -->
                 <button id="btn-play-region-control" type="button" class="ml-auto shrink-0 px-2 h-7 flex items-center justify-center rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 transition-colors" title="">
-                    <span class="font-mono text-xs font-bold tracking-tight">[▶]</span>
+                    <!-- MỚI (yêu cầu Giang, mục 3/4) — 2 icon riêng, đổi qua lại theo ĐÚNG trạng thái
+                         "đang phát theo vùng" (_isPlayingRegion, KHÔNG dùng sự kiện play/pause chung
+                         của WaveSurfer — xem workflowSubtitleEditor._updatePlayRegionIcon()) — nút
+                         này giờ là TOGGLE thật: bấm lần 2 lúc đang phát = dừng (mục 3, "cần thêm
+                         block" ngăn xung đột với Play/Pause chung); bấm lại sau khi dừng/hết end =
+                         LUÔN phát lại từ đầu vùng chọn (mục 4). -->
+                    <span id="icon-play-region-play" class="font-mono text-xs font-bold tracking-tight">[▶]</span>
+                    <span id="icon-play-region-pause" class="font-mono text-xs font-bold tracking-tight hidden">[⏸]</span>
                 </button>
             </div>
             <div class="flex items-center gap-2">
@@ -284,10 +291,10 @@
          thanh công cụ cuộn ngang MỚI ở dưới (#toolbar-scroll-container) — không viết lại 1 bản
          `scrollTo()` riêng thứ 3. File này THUẦN, không phụ thuộc gì, an toàn nạp ở trang độc lập. -->
     <script src="core/slider-panel-scroll.js?v=20260711v1"></script>
-    <script src="event/workflow/subtitle-editor.js?v=20260712v3"></script>
-    <script src="event/router/subtitle-editor.js?v=20260712v2"></script>
+    <script src="event/workflow/subtitle-editor.js?v=20260712v4"></script>
+    <script src="event/router/subtitle-editor.js?v=20260712v3"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowSubtitleEditor.init() ngay khi chạy. -->
-    <script src="event/listener/subtitle-editor.js?v=20260712v2"></script>
+    <script src="event/listener/subtitle-editor.js?v=20260712v3"></script>
     <script>
         // i18n text tĩnh KHÔNG qua template literal ${t(...)} lúc parse (component của trang này
         // không phải TPL_* string — HTML viết tay ở trên) — gán SAU khi lang.js đã nạp xong.
