@@ -1194,4 +1194,30 @@ const workflowSubtitleEditor = {
         if (this._debugLogInterval) clearInterval(this._debugLogInterval); // dọn tay, dù rời trang cũng huỷ JS context
         history.back();
     },
+
+    /** MỚI (yêu cầu Giang) — nút tải lại KHÔNG dùng cache. Hỏi xác nhận trước (modalChoice() có
+     * sẵn, core/modal-choice.js) vì `this._subtitles` là mảng làm việc TRONG BỘ NHỚ — CHƯA CHẮC đã
+     * ghi xuống IndexedDB (bấm "Lưu" mới ghi thật, xem saveToDatabase()) — tải lại mà chưa Lưu sẽ
+     * MẤT mọi chỉnh sửa dở dang, cần cảnh báo rõ trước khi làm. */
+    reloadWithoutCache() {
+        modalChoice( // core/modal-choice.js
+            t('subtitleEditor.reloadConfirm.desc'),
+            [
+                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors' },
+                { label: t('subtitleEditor.reloadConfirm.confirmBtn'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-bold transition-colors', onClick: () => this._doReloadWithoutCache() },
+            ],
+            { title: t('subtitleEditor.reloadConfirm.title') }
+        );
+    },
+
+    /** Thêm query param cache-bust rồi điều hướng tới CHÍNH URL đó (GIỮ NGUYÊN `?song=...` hiện
+     * có) — ép trình duyệt coi đây là URL MỚI, tải THẬT từ mạng thay vì phục vụ HTML từ cache đĩa/
+     * bộ nhớ. `location.reload(true)` KHÔNG còn đáng tin cậy (Firefox đã bỏ hẳn tham số `force`,
+     * Chrome cũng không đảm bảo bỏ qua cache thật sự dù truyền tham số này) — đổi URL qua query
+     * param là cách DUY NHẤT hoạt động nhất quán trên mọi trình duyệt/WebView. */
+    _doReloadWithoutCache() {
+        const url = new URL(window.location.href);
+        url.searchParams.set('_r', Date.now().toString());
+        window.location.href = url.toString();
+    },
 };
