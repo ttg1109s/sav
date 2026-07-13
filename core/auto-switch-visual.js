@@ -139,13 +139,18 @@
             // Người dùng vừa mới bắt đầu nghe, chưa có lý do gì để auto-switch nhảy hiệu ứng NGAY
             // GIÂY ĐẦU TIÊN trước khi mốc thời gian thật nào trôi qua.
             const marks = [{ time: 0, visual: MODES[appState.get('currentModeIndex')] }];
-            if (duration <= 0) { appState.set('autoSwitchVisualMarks', marks); return; } // chưa có duration hợp lệ -> chỉ 1 mốc, không đổi gì cho tới khi build lại
+            // FIX (13/07/2026, bug "đóng/mở lại app -> visual đứng yên hết bài hiện tại") — trả về
+            // false khi chưa có duration hợp lệ (chỉ 1 mốc, không đổi gì) để nơi gọi
+            // (startAutoSwitchVisualBranch()) BIẾT lần build này KHÔNG đầy đủ — xem giải thích đầy
+            // đủ ở startAutoSwitchVisualBranch().
+            if (duration <= 0) { appState.set('autoSwitchVisualMarks', marks); return false; }
 
             const maxAllowed = Math.round(duration / 2);
             const step = Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, Math.min(appState.get('vizConfig').autoSwitchVisualSecondsDuration, maxAllowed));
             let t = step;
             while (t < duration) { marks.push({ time: t, visual: null }); t += step; }
             appState.set('autoSwitchVisualMarks', marks);
+            return true;
         }
 
         /**
@@ -224,13 +229,37 @@
             if (!cfg.autoSwitchVisualEnabled || !currentKey) return;
 
             if (cfg.autoSwitchVisualTimeMode === 'duration') {
+                // FIX (13/07/2026, bug Giang báo — "đóng và vào lại app, visual cuối trong lượt
+                // auto chạy tới hết bài hiện tại, bài sau mới auto-switch lại bình thường") —
+                // NGUYÊN NHÂN GỐC: 'play' bắn TRƯỚC 'loadedmetadata' trong playSong() (xem giải
+                // thích ở onAutoSwitchVisualSongChanged() dưới) — trên 1 phiên VỪA khởi động lại
+                // (app mới mở/đóng-mở lại), AudioContext/pipeline decode CHƯA "khởi động nóng"
+                // (setupAudioContext() ở audio-engine.js chạy nặng hơn hẳn so với các lần đổi bài
+                // SAU đó trong cùng phiên) — 'play' bắn ra khi audioPlayer.duration CHƯA kịp có giá
+                // trị hợp lệ (vẫn NaN). buildAutoSwitchVisualMarks() lúc đó rơi vào nhánh
+                // "duration <= 0" — CHỈ tạo ĐÚNG 1 mốc (t=0) rồi return false — nhưng bản TRƯỚC ĐÂY
+                // vẫn cứ appState.set('_lastMarksBuiltForKey', currentKey) VÔ ĐIỀU KIỆN ngay sau
+                // đó — khiến 'loadedmetadata' bắn SAU (lúc này duration đã có thật) bị
+                // onAutoSwitchVisualSongChanged() TƯỞNG NHẦM là "bài này đã build marks xong rồi",
+                // bỏ qua không rebuild — mảng marks CHỈ 1 MỐC đó tồn tại SUỐT hết bài (không mốc
+                // nào khác để tick nhảy tới) -> visual đứng yên tới hết bài, đúng triệu chứng Giang
+                // mô tả. Bài SAU đó hoạt động lại bình thường vì lúc này pipeline đã "ấm", duration
+                // có sẵn ngay lúc 'play' bắn, build đủ mốc ngay từ đầu.
+                // SỬA: chỉ đánh dấu `_lastMarksBuiltForKey` khi ĐÃ THẬT SỰ build đủ mốc (marks phục
+                // hồi từ resume snapshot LUÔN coi là đủ — đã có sẵn từ 1 phiên có duration hợp lệ
+                // trước đó; buildAutoSwitchVisualMarks() chỉ coi là đủ khi trả về `true`) — nếu
+                // KHÔNG đủ (duration chưa sẵn sàng), để nguyên `_lastMarksBuiltForKey` (không khớp
+                // currentKey), 'loadedmetadata' bắn sau đó sẽ tự phát hiện chưa khớp và rebuild lại
+                // ĐÚNG với duration thật, không còn bị chặn nhầm nữa.
+                let marksReady;
                 if (typeof window !== 'undefined' && Array.isArray(window._resumeAutoSwitchVisualMarks) && window._resumeAutoSwitchVisualMarks.length > 0) {
                     appState.set('autoSwitchVisualMarks', window._resumeAutoSwitchVisualMarks);
                     window._resumeAutoSwitchVisualMarks = null; // chỉ dùng 1 lần — lần sau build lại bình thường
+                    marksReady = true;
                 } else {
-                    buildAutoSwitchVisualMarks();
+                    marksReady = buildAutoSwitchVisualMarks();
                 }
-                appState.set('_lastMarksBuiltForKey', currentKey); // đánh dấu ĐÃ build/gán marks đúng cho bài này — xem onAutoSwitchVisualSongChanged()
+                if (marksReady) appState.set('_lastMarksBuiltForKey', currentKey); // đánh dấu ĐÃ build/gán marks đúng cho bài này — xem onAutoSwitchVisualSongChanged()
                 taskManager.addNew(AUTO_SWITCH_VISUAL_TASK_MARKS, { time: 1000, exe: autoSwitchVisualMarksTick, mode: 'timeout', count: 0 });
                 taskManager.operator(AUTO_SWITCH_VISUAL_TASK_MARKS, 'enabled');
                 if (typeof audioPlayer !== 'undefined' && audioPlayer.paused) taskManager.pause(AUTO_SWITCH_VISUAL_TASK_MARKS);
