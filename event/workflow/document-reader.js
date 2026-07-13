@@ -82,7 +82,11 @@ const workflowDocumentReader = {
         const bodyHtml = documents.length
             ? renderItemList(null, documents, itemTemplateDocumentRow, { activeDocumentKey: this._currentDocumentKey }) // components/items.js
             : `<p class="text-sm text-slate-400 text-center py-10">${t('documentPicker.empty')}</p>`;
-        const config = { height: '70vh', zIndex: 40, headerHtml: this._buildListHeaderHtml(), bodyHtml, bodyClass: 'overflow-y-auto px-4 py-3' };
+        // isWindowVirtual: false (tường minh) — danh sách này KHÔNG qua workflowVirtualList.mount()
+        // (vẫn dưới ngưỡng ~100-200 tài liệu, renderItemList(null, ...) trả chuỗi đầy đủ như cũ,
+        // xem components/items.js) — event/router/virtual-list.js dựa vào field này để biết KHÔNG
+        // xử lý 'scroll' cho Drawer lúc đang ở mode List.
+        const config = { height: '70vh', zIndex: 40, headerHtml: this._buildListHeaderHtml(), bodyHtml, bodyClass: 'overflow-y-auto px-4 py-3', isWindowVirtual: false };
         if (genericDrawerPanel.classList.contains('hidden')) {
             openGenericDrawer(config); // core/generic-drawer.js
         } else {
@@ -144,6 +148,7 @@ const workflowDocumentReader = {
             headerHtml: this._buildReadHeaderHtml(),
             bodyHtml: this._buildReadBodyHtml(),
             bodyClass: 'relative overflow-hidden px-6 pt-5 pb-16',
+            isWindowVirtual: false, // tường minh — Reader tự phân trang riêng (core/file-manager/document-pagination.js), KHÔNG phải danh sách windowing của workflowVirtualList
         });
         this._wireReadEvents();
         this._rebuildPagesFromScratch();
