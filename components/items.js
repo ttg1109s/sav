@@ -1,15 +1,42 @@
 /**
- * components/items.js — Catalog template item + renderItemList() dùng CHUNG MỚI (mục 3
- * plan-v12-extended.md, 10/07/2026, Nhóm A). **Batch này CHỈ wire cho Document Picker** (danh sách
- * bên trong Generic Drawer ở chế độ List, xem event/workflow/document-reader.js::openPicker()) —
- * File Manager Song/Photo (tự createElement từng dòng) GIỮ NGUYÊN, chưa đụng. File Manager ->
- * Documents (CRUD, renderDocumentList() ở core/file-manager/document-ui.js) CŨNG GIỮ NGUYÊN — đó
- * là danh sách KHÁC (có badge/mở modal chi tiết), không phải Document Picker.
+ * components/items.js — Catalog template item + renderItemList() dùng CHUNG (mục 3
+ * plan-v12-extended.md, 10/07/2026, Nhóm A). **Hiện CHỈ wire cho Document Picker** (danh sách bên
+ * trong Generic Drawer ở chế độ List, xem event/workflow/document-reader.js::openPicker()) — File
+ * Manager Song/Photo (tự createElement từng dòng) GIỮ NGUYÊN, chưa đụng. File Manager -> Documents
+ * (CRUD, renderDocumentList() ở core/file-manager/document-ui.js) CŨNG GIỮ NGUYÊN — đó là danh
+ * sách KHÁC (có badge/mở modal chi tiết), không phải Document Picker.
  *
- * Mốc hiệu năng đã hiệu chỉnh: ~100-200 item (không phải 1000+). Ở mốc này, virtual scroll thật
- * (tái dùng node theo vùng nhìn thấy) là dư thừa — renderItemList() dùng giao diện TỔNG QUÁT để
- * SAU NÀY (không phải batch này) có thể đổi phần BÊN TRONG sang windowed rendering cho chỗ thật
- * sự cần (vd danh sách bài hát dài) mà KHÔNG phải sửa nơi gọi.
+ * Mốc hiệu năng đã hiệu chỉnh: ~100-200 item (không phải 1000+). Ở mốc này, `renderItemList()`
+ * render đầy đủ 1 lần là đủ mượt — KHÔNG tự windowing bên trong hàm này (xem lý do ở
+ * `computeVirtualWindowRange()` bên dưới).
+ *
+ * [SỬA 13/07/2026, tự audit lại theo core-function-conventions.md + event-bus-flow.md] — bản đầu
+ * (cùng ngày) từng nhét CẢ vòng đời windowing (tạo spacer/viewport, gắn `scroll` listener, tự
+ * quyết định khi nào vẽ lại) THẲNG vào `renderItemList()` — VI PHẠM:
+ * - Rule 1 (core-function-conventions.md) — hàm chọn giữa 3 TIẾN TRÌNH khác nhau (trả chuỗi/render
+ *   đầy đủ/render windowed có state riêng) theo hình dạng tham số, đúng mẫu SAI
+ *   `handleUpload(file, isVideo)` trong tài liệu.
+ * - Rule 3 + mục "Listener" (event-bus-flow.md) — callback của `scroll` listener gọi THẲNG TÊN 1
+ *   hàm khác cùng file (`_scheduleVirtualRender`) — đúng lỗi tài liệu nêu đích danh ("document-ui.js
+ *   bản đầu Nhóm A gọi resolveDocumentHtml() trong callback" — VẪN vi phạm dù addEventListener
+ *   được phép). Không thể tự nhận miễn trừ kiểu modalChoice() — tài liệu đã bác chính xác pattern
+ *   này ở folder-picker-ui.js ("tự ghi cùng pattern... KHÔNG hợp lệ, chưa qua audit").
+ * - Rule 5c — thêm `document.createElement()` dựng cụm DOM mới (spacer/viewport) mà không đổi tên
+ *   file thành `-ui.js`.
+ *
+ * SỬA ĐÚNG: windowing bản chất là ĐIỀU PHỐI liên tục (tự quyết định khi nào vẽ lại theo scroll) —
+ * đúng loại việc Rule 3 nói thuộc về Workflow ("Timer/interval là công cụ điều phối — đúng vai trò
+ * Workflow"). File này giờ CHỈ giữ lại **`computeVirtualWindowRange()`** — 1 hàm THUẦN (không DOM,
+ * không `appState`, không gọi core/hàm nào khác, không nhánh tiến trình — chỉ toán học kẹp giá
+ * trị) tính ra khoảng chỉ số [startIdx, endIdx) cần hiển thị. Workflow NÀO thật sự cần windowing
+ * (hiện CHƯA có — Document Picker vẫn dưới ngưỡng, dùng `renderItemList()` render đầy đủ như
+ * thường) sẽ TỰ:
+ *   1. Tự `createElement` dựng spacer/viewport (Rule 5a/5c riêng nếu tách file `-ui.js`).
+ *   2. Tự `addEventListener('scroll', ...)` NGAY TẠI WORKFLOW (Workflow được phép, không phải Core).
+ *   3. Mỗi lần cuộn, tự gọi `computeVirtualWindowRange()` (core) RỒI tự
+ *      `renderItemList(viewportEl, items.slice(startIdx, endIdx), templateFn, ctx)` (core khác) —
+ *      Workflow đứng NGOÀI gọi CẢ HAI, đúng mẫu ĐÚNG của Rule 3 (`startTransitionVisuals`/
+ *      `setImage`/`finishTransitionVisuals` tách riêng, Workflow tự gọi từng hàm).
  *
  * Generic Drawer (core/generic-drawer.js) và items.js TÁCH BIỆT HOÀN TOÀN, không phụ thuộc nhau:
  * Drawer không biết "item" là gì (chỉ nhận `bodyHtml` là 1 chuỗi có sẵn), items.js không biết
@@ -62,4 +89,31 @@ function renderItemList(containerEl, items, templateFn, ctx) {
     const html = items.map((item) => templateFn(item, ctx)).join('');
     if (containerEl) containerEl.innerHTML = html;
     return html;
+}
+
+/**
+ * THUẦN (Rule 1-4 core-function-conventions.md: không DOM, không `appState`, không gọi hàm nào
+ * khác, không rẽ nhánh tiến trình — chỉ kẹp giá trị toán học) — tính khoảng chỉ số [startIdx,
+ * endIdx) CẦN hiển thị cho 1 danh sách windowing, dựa trên vị trí cuộn/kích thước khung nhìn hiện
+ * tại. GIẢ ĐỊNH mọi item cao ĐỀU NHAU (`itemHeight` cố định, đo 1 lần bên ngoài hàm này — không phù
+ * hợp cho template có chiều cao co giãn theo nội dung).
+ *
+ * Workflow nào cần windowing THẬT (hiện CHƯA có nơi gọi — xem docstring đầu file) tự gọi hàm này
+ * MỖI LẦN cuộn, rồi tự `renderItemList(viewportEl, items.slice(startIdx, endIdx), templateFn, ctx)`
+ * — 2 lời gọi TÁCH RỜI do Workflow điều phối, KHÔNG hàm core nào gọi hàm core kia.
+ *
+ * @param {number} scrollTop - vị trí cuộn hiện tại (px) của khung chứa.
+ * @param {number} viewHeight - chiều cao khung nhìn thấy (px, thường = containerEl.clientHeight).
+ * @param {number} itemHeight - chiều cao 1 dòng/tile (px, đo 1 lần từ item đầu tiên, dùng chung).
+ * @param {number} itemCount - tổng số item trong danh sách đầy đủ.
+ * @param {number} [bufferRows] - số dòng đệm thêm mỗi phía NGOÀI vùng nhìn thấy (mặc định 4) — cuộn
+ *        nhanh không bị chớp trắng trước khi kịp vẽ dòng mới.
+ * @returns {{startIdx: number, endIdx: number}}
+ */
+function computeVirtualWindowRange(scrollTop, viewHeight, itemHeight, itemCount, bufferRows) {
+    const buffer = bufferRows == null ? 4 : bufferRows;
+    const safeItemHeight = itemHeight > 0 ? itemHeight : 1; // kẹp an toàn — tránh chia cho 0 nếu nơi gọi lỡ đo ra 0
+    const startIdx = Math.max(0, Math.floor(scrollTop / safeItemHeight) - buffer);
+    const endIdx = Math.min(itemCount, Math.ceil((scrollTop + viewHeight) / safeItemHeight) + buffer);
+    return { startIdx, endIdx };
 }
