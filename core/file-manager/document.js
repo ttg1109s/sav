@@ -53,6 +53,12 @@
  */
 const DOCUMENT_HTML_ALLOWED_TAGS = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'B', 'STRONG', 'I', 'EM', 'U', 'BLOCKQUOTE', 'UL', 'OL', 'LI', 'A']);
 
+// Tập con CHỈ những thẻ BLOCK-LEVEL của whitelist trên (loại B/STRONG/I/EM/U/A/LI — LI chỉ hợp lệ
+// LỒNG trong UL/OL, không đứng rời top-level) — dùng để phân biệt "khối riêng" (flush đoạn đang
+// gom, giữ nguyên) với "thẻ định dạng trong dòng" (vẫn thuộc VỀ đoạn đang gom) ở bước gom đoạn cuối
+// sanitizeDocumentHtml(), xem docstring hàm đó.
+const DOCUMENT_BLOCK_LEVEL_TAGS = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'BLOCKQUOTE', 'UL', 'OL']);
+
 /**
  * Lọc 1 chuỗi HTML theo whitelist (mục 1.1 plan-v12-extended.md) — dựng `<div>` tạm (KHÔNG gắn
  * vào document thật), đệ quy xử lý CON TRƯỚC KHI xử lý chính node cha (bottom-up — tránh phá kết
@@ -60,9 +66,30 @@ const DOCUMENT_HTML_ALLOWED_TAGS = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 
  * UNWRAP (giữ nguyên con, chỉ bỏ lớp bọc); comment/node lạ khác -> xoá hẳn. Tag hợp lệ -> xoá SẠCH
  * attribute thừa — RIÊNG `<a>` giữ lại `href`.
  *
+ * SỬA (13/07/2026, Giang báo — dán chữ từ app khác vào ô Sửa, các đoạn dính liền thành 1 khối) —
+ * NGUYÊN NHÂN GỐC: trình duyệt dán plain-text vào contentEditable thường KHÔNG tạo `<p>` cho mỗi
+ * dòng — WebKit/Safari (nền tảng chính của app, xem file:// + iOS webview) thường gói CẢ đoạn dán
+ * vào 1 `<div>` DUY NHẤT, dùng `<br>` cho MỖI lượt xuống dòng bên trong (Chrome thì ngược lại, mỗi
+ * dòng 1 `<div>` riêng) — CẢ 2 kiểu đều KHÔNG có trong whitelist. Bản CŨ unwrap TRƠN mọi tag lạ
+ * (đẩy con lên, xoá vỏ, KHÔNG chèn gì thay thế) — với `<br>` (không có con để đẩy lên) nghĩa là XOÁ
+ * SẠCH, mất hẳn dấu vết ngắt dòng; với `<div>` cũng vậy — nhiều dòng/đoạn RIÊNG BIỆT trong mắt
+ * người dùng bị dính liền thành 1 khối văn bản không ngắt, đúng triệu chứng Giang báo.
+ * SỬA: `<br>`/`<div>` giờ được thay bằng 1 TEXT NODE chứa `"\n"` (KHÔNG xoá trơn) TRƯỚC khi
+ * unwrap/xoá — giữ lại dấu vết ranh giới dòng/đoạn. Sau khi walk() xong (mọi tag lạ đã xử lý), 1
+ * lượt GOM ĐOẠN cuối cùng duyệt lại các node RỜI (text/thẻ định dạng trong dòng nằm trực tiếp ở
+ * top-level, KHÔNG nằm trong khối `<p>`/`<h#>`/`<blockquote>` nào) — tách theo ranh giới `"\n"`
+ * VỪA chèn (CÙNG quy tắc với splitPlainTextIntoParagraphs() — chấm câu + tab/≥2 dấu cách cũng tính
+ * là ranh giới đoạn) — bọc mỗi phần THÀNH 1 `<p>` riêng, GIỮ NGUYÊN các khối ĐÃ hợp lệ sẵn (nếu
+ * nguồn dán có `<p>` thật) không đụng gì.
+ *
+ * `walk()`/lượt gom đoạn đều là CLOSURE lồng bên trong CHÍNH hàm này (không phải hàm top-level
+ * riêng) — Rule 3 (core-function-conventions.md) cấm core gọi core KHÁC, "không phân biệt cùng
+ * file/khác file" (xem docstring đầu file.js) — closure lồng bên trong 1 hàm KHÔNG tính là "hàm
+ * khác", đúng tinh thần cho phép.
+ *
  * Dùng ở: (1) event/workflow/file-manager-document.js SAU mammoth.js (upload .docx), (2)
  * event/workflow/document-reader.js SAU khi đọc contentEditable (lọc lại HTML trước khi lưu —
- * trình duyệt hay tự chèn div/span style lộn xộn, mục 1.3).
+ * trình duyệt hay tự chèn div/span/br lộn xộn, mục 1.3).
  * @param {string} html
  * @returns {string}
  */
@@ -77,6 +104,15 @@ function sanitizeDocumentHtml(html) {
 
             walk(node); // đệ quy CON TRƯỚC (bottom-up)
 
+            if (node.tagName === 'BR') { node.replaceWith(document.createTextNode('\n')); return; } // giữ dấu vết ngắt dòng, KHÔNG xoá trơn
+            if (node.tagName === 'DIV') {
+                node.parentNode.insertBefore(document.createTextNode('\n'), node); // ranh giới TRƯỚC
+                while (node.firstChild) node.parentNode.insertBefore(node.firstChild, node); // đẩy con lên (đã sanitize sạch từ đệ quy trên)
+                node.parentNode.insertBefore(document.createTextNode('\n'), node); // ranh giới SAU
+                node.remove();
+                return;
+            }
+
             if (!DOCUMENT_HTML_ALLOWED_TAGS.has(node.tagName)) {
                 while (node.firstChild) node.parentNode.insertBefore(node.firstChild, node); // unwrap: đẩy con lên thay chính nó
                 node.remove();
@@ -90,7 +126,35 @@ function sanitizeDocumentHtml(html) {
         });
     })(container);
 
-    return container.innerHTML;
+    // Gom các node RỜI (text/thẻ định dạng trong dòng nằm trực tiếp ở top-level `container`, do
+    // BR/DIV vừa được walk() ở trên thay bằng "\n", HOẶC vốn dĩ chưa từng có khối bọc nào) thành
+    // các <p> riêng theo đúng ranh giới "\n" — giữ NGUYÊN vị trí các khối ĐÃ hợp lệ (p/h#/
+    // blockquote/ul/ol) xen kẽ, không đụng gì tới chúng.
+    const finalContainer = document.createElement('div');
+    let currentP = null; // <p> đang gom dở — null nghĩa là chưa có node rời nào để gom
+    function ensureCurrentP() { return currentP || (currentP = document.createElement('p')); }
+    function flushCurrentP() {
+        if (currentP && currentP.textContent.trim()) finalContainer.appendChild(currentP);
+        currentP = null;
+    }
+    Array.from(container.childNodes).forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE && DOCUMENT_BLOCK_LEVEL_TAGS.has(node.tagName)) {
+            flushCurrentP(); // khối riêng -> đóng đoạn rời đang gom (nếu có) trước khi giữ nguyên khối này
+            finalContainer.appendChild(node);
+            return;
+        }
+        if (node.nodeType === Node.ELEMENT_NODE) { ensureCurrentP().appendChild(node); return; } // thẻ định dạng trong dòng (b/strong/i/em/u/a) -> thuộc đoạn đang gom
+        // TEXT_NODE — tách theo "\n" (từ BR/DIV vừa thay ở walk(), hoặc \n thật vốn có sẵn) + CÙNG
+        // quy tắc "chấm câu + tab/≥2 dấu cách" với splitPlainTextIntoParagraphs() (xem hàm đó).
+        const parts = node.textContent.replace(/\.(\t| {2,})/g, '.\n').split('\n');
+        parts.forEach((part, idx) => {
+            if (part) ensureCurrentP().appendChild(document.createTextNode(part));
+            if (idx < parts.length - 1) flushCurrentP(); // gặp ranh giới -> đóng đoạn hiện tại, đoạn MỚI bắt đầu từ phần sau
+        });
+    });
+    flushCurrentP();
+
+    return finalContainer.innerHTML;
 }
 
 /**
@@ -116,15 +180,29 @@ function resolveDocumentHtml(record) {
 }
 
 /**
- * Tách 1 chuỗi text thuần (.txt) THÀNH mảng đoạn văn — tách theo DÒNG TRỐNG (thuật toán CŨ, mục
- * 1.2 plan-v12-extended.md, hồi sinh lại từ trước 05/07/2026). ĐÂY LÀ ĐỊNH DẠNG LƯU THẲNG cho
- * .txt upload (KHÔNG convert sang HTML ở bước này — xem docstring đầu file, SỬA lại sau phản hồi
- * Giang 10/07/2026: bản đầu Nhóm A từng convert sang HTML ngay ở đây, SAI).
+ * Tách 1 chuỗi text thuần (.txt) THÀNH mảng đoạn văn — ĐỊNH DẠNG LƯU THẲNG cho .txt upload (KHÔNG
+ * convert sang HTML ở bước này — xem docstring đầu file, resolveDocumentHtml() mới bọc `<p>` lúc
+ * đọc).
+ *
+ * SỬA (13/07/2026, Giang báo — "chỉ nhận \n\n -> p, \n đơn lẻ không ra gì cả") — bản cũ chỉ tách
+ * theo `/\n\s*\n/` (2 dòng trống liên tiếp), phụ thuộc file gốc CÓ dùng đúng kiểu xuống dòng đó —
+ * mỗi ứng dụng/nguồn xuất file 1 kiểu khác nhau (Windows `\r\n`, Mac cũ chỉ `\r` không có `\n`, hay
+ * chỉ xuống dòng ĐƠN không có dòng trống ngăn cách) khiến nhiều đoạn bị dính chung làm 1 khối hoặc
+ * cả file chỉ ra đúng 1 đoạn duy nhất. Giờ chuẩn hoá TRƯỚC mọi kiểu xuống dòng (`\r\n`/`\r` riêng lẻ
+ * đều quy về `\n`), rồi coi MỌI `\n` đơn lẻ (không cần dòng trống) là 1 ranh giới đoạn — thêm 1 dấu
+ * hiệu ranh giới đoạn KHÁC không cần ký tự xuống dòng thật: câu kết bằng dấu chấm rồi theo sau là
+ * tab hoặc từ 2 dấu cách trở lên (1 số nguồn xuất chỉ canh khoảng trắng/tab giữa đoạn, không có ký
+ * tự xuống dòng thật nào).
  * @param {string} text
  * @returns {string[]}
  */
 function splitPlainTextIntoParagraphs(text) {
-    return String(text || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+    return String(text || '')
+        .replace(/\r\n|\r/g, '\n') // chuẩn hoá Windows (\r\n) VÀ Mac cũ (\r riêng lẻ, không có \n) về \n
+        .replace(/\.(\t| {2,})/g, '.\n') // chấm câu rồi tab/≥2 dấu cách (không có xuống dòng thật) -> cũng coi là ngắt đoạn
+        .split('\n')
+        .map((p) => p.trim())
+        .filter(Boolean);
 }
 
 /**
