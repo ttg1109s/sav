@@ -679,6 +679,7 @@ const workflowSubtitleEditor = {
         const newSub = createSubtitleLine(t('subtitleEditor.newLine.defaultText'), startSec, startSec + 2); // core
         this._subtitles = [...this._subtitles, newSub]; // đã ở cuối mảng, không cần sort lại
         this._renderLines();
+        this._scrollLineIntoView(newSub.id); // cuộn tới đúng dòng vừa thêm, khỏi phải tự cuộn tay
     },
 
     importSrtFile(file) {
@@ -709,6 +710,16 @@ const workflowSubtitleEditor = {
         const newSub = createSubtitleLine(t('subtitleEditor.newLine.defaultText'), this._region.start, this._region.end); // core
         this._subtitles = sortSubtitlesByStart([...this._subtitles, newSub]); // core
         this._renderLines();
+        this._scrollLineIntoView(newSub.id); // cuộn tới đúng dòng vừa thêm, khỏi phải tự cuộn tay
+    },
+
+    /** Cuộn danh sách dòng phụ đề tới ĐÚNG 1 dòng theo id — dùng ngay sau khi thêm dòng mới
+     * (addNewLine()/createLineFromSelection()) để người dùng khỏi phải tự cuộn tay tìm dòng vừa
+     * thêm, đặc biệt khi danh sách dài và dòng mới nằm giữa sau khi sort lại theo start. Gọi SAU
+     * _renderLines() (cần node đã dựng xong trong _lineCardNodesById). */
+    _scrollLineIntoView(id) {
+        const node = this._lineCardNodesById.get(id);
+        if (node && typeof node.scrollIntoView === 'function') node.scrollIntoView({ behavior: 'smooth', block: 'center' });
     },
 
     /** "▶ Phát vùng chọn" — dùng CHUNG lõi `_togglePlayRange()` (mục 1: nút ▶ mỗi dòng phụ đề CŨNG

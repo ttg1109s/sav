@@ -45,6 +45,8 @@
  */
 const DOCUMENT_READER_RELAYOUT_TASK = 'documentReaderRelayout';
 const DOCUMENT_READER_PRELOAD_SLOT_COUNT = 5; // mục 4.1 plan-v12-extended.md
+const DOCUMENT_READER_KEEP_BEHIND_COUNT = 10; // giữ tối đa 10 trang ĐÃ ĐỌC (phía sau currentPageIndex) có html thật trong bộ nhớ — xa hơn thì dọn, xem _pruneFarBehindPages()
+const DOCUMENT_READER_RESTORE_BATCH_COUNT = 5; // mỗi lần cần khôi phục html đã dọn, khôi phục theo LÔ (không phải từng trang 1) — đỡ tính lại nhiều lần nếu người dùng tiếp tục lùi quanh khu vực đó
 
 const workflowDocumentReader = {
     _mode: null, // 'list' | 'read' | null (đóng hẳn)
@@ -52,7 +54,7 @@ const workflowDocumentReader = {
     _currentContentHtml: '',
     _currentTitle: '',
     _currentCreatedBy: 'upload',
-    _pages: [], // {html: string, endCursor: number}[] — cache slot đã tính, xem _computeMoreSlots()
+    _pages: [], // {startCursor, endCursor: {blockIndex,textOffset}, html: string|null}[] — html=null nghĩa là đã bị dọn (xem _pruneFarBehindPages()), cần _restorePageHtmlIfNeeded() lại trước khi hiện
     _currentPageIndex: 0,
     _isLastSlotReached: false,
     _pageSize: null, // {width, height, className} — đo lần gần nhất, xem _measurePageSize()
@@ -304,14 +306,46 @@ const workflowDocumentReader = {
     },
 
     /** Tính THÊM `count` slot nối tiếp cache hiện có (dùng cursor = endCursor của slot cuối cùng
-     * đã có, hoặc 0 nếu cache rỗng). Dừng sớm nếu đã chạm slot cuối tài liệu. */
+     * đã có, hoặc {blockIndex:0, textOffset:0} nếu cache rỗng — xem cursor mở rộng ở
+     * core/file-manager/document-pagination.js). Dừng sớm nếu đã chạm slot cuối tài liệu. */
     _computeMoreSlots(count) {
-        let cursor = this._pages.length ? this._pages[this._pages.length - 1].endCursor : 0;
+        let cursor = this._pages.length ? this._pages[this._pages.length - 1].endCursor : { blockIndex: 0, textOffset: 0 };
         for (let i = 0; i < count && !this._isLastSlotReached; i++) {
             const { slotHtml, nextCursor, isLastSlot } = computeNextDocumentReaderSlot(this._currentContentHtml, cursor, this._pageSize); // core
-            this._pages.push({ html: slotHtml, endCursor: nextCursor });
+            this._pages.push({ startCursor: cursor, endCursor: nextCursor, html: slotHtml });
             cursor = nextCursor;
             if (isLastSlot) this._isLastSlotReached = true;
+        }
+    },
+
+    /** Dọn `html` (chuỗi đo được — phần TỐN bộ nhớ nhất của 1 trang, có thể dài với tài liệu lớn)
+     * của các trang ĐÃ ĐỌC quá xa phía sau `_currentPageIndex` (quá
+     * `DOCUMENT_READER_KEEP_BEHIND_COUNT` trang) — vẫn GIỮ NGUYÊN `startCursor`/`endCursor` (2 số/
+     * object nhẹ) để khôi phục lại RẺ (chỉ 1 lần gọi `computeNextDocumentReaderSlot()` cho ĐÚNG
+     * trang cần, không cần tính lại từ đầu tài liệu) nếu người dùng lùi lại xa sau này — xem
+     * `_restorePageHtmlIfNeeded()`. Gọi sau MỖI lần `nextPage()` — KHÔNG gọi ở `prevPage()` (lùi
+     * lại không tích luỹ thêm trang phía sau cần dọn). */
+    _pruneFarBehindPages() {
+        const cutoff = this._currentPageIndex - DOCUMENT_READER_KEEP_BEHIND_COUNT;
+        for (let i = 0; i < cutoff; i++) {
+            if (this._pages[i] && this._pages[i].html !== null) this._pages[i].html = null;
+        }
+    },
+
+    /** Nếu trang tại `index` đã bị dọn html (`html === null`) — tính lại NGAY từ `startCursor` đã
+     * nhớ sẵn (KHÔNG cần duyệt lại từ đầu tài liệu) — khôi phục theo LÔ
+     * `DOCUMENT_READER_RESTORE_BATCH_COUNT` trang liền kề (không chỉ đúng 1 trang) để hạn chế số
+     * lần gọi lại `computeNextDocumentReaderSlot()` nếu người dùng tiếp tục lùi quanh khu vực đó. */
+    _restorePageHtmlIfNeeded(index) {
+        if (!this._pages[index] || this._pages[index].html !== null) return;
+        let cursor = this._pages[index].startCursor;
+        const end = Math.min(index + DOCUMENT_READER_RESTORE_BATCH_COUNT, this._pages.length);
+        for (let i = index; i < end; i++) {
+            if (this._pages[i].html === null) {
+                const { slotHtml } = computeNextDocumentReaderSlot(this._currentContentHtml, cursor, this._pageSize); // core
+                this._pages[i].html = slotHtml;
+            }
+            cursor = this._pages[i].endCursor;
         }
     },
 
@@ -347,7 +381,7 @@ const workflowDocumentReader = {
      */
     _renderCurrentPage(direction) {
         const page = this._pages[this._currentPageIndex];
-        const html = page ? page.html : '';
+        const html = page ? (page.html || '') : ''; // page.html có thể null nếu bị dọn — nơi gọi (nextPage/prevPage) LUÔN _restorePageHtmlIfNeeded() trước khi tới đây
         if (direction) {
             this._slideToNewPage(html, direction);
         } else {
@@ -402,11 +436,13 @@ const workflowDocumentReader = {
         this._currentPageIndex++;
         this._renderCurrentPage('next');
         this._ensureLookahead(DOCUMENT_READER_PRELOAD_SLOT_COUNT); // giữ luôn 5 trang cache phía trước
+        this._pruneFarBehindPages(); // dọn html các trang đã đọc quá xa phía sau (>10 trang) — nhẹ bộ nhớ với tài liệu dài
     },
 
     prevPage() {
         if (this._currentPageIndex <= 0) return;
         this._currentPageIndex--;
+        this._restorePageHtmlIfNeeded(this._currentPageIndex); // khôi phục nếu trang này đã bị dọn html (xem _pruneFarBehindPages())
         this._renderCurrentPage('prev');
         this._ensureLookahead(DOCUMENT_READER_PRELOAD_SLOT_COUNT); // giữ luôn 5 trang cache phía trước
     },
