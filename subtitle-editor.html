@@ -73,7 +73,13 @@
          THẬT — xem event/workflow/subtitle-editor.js::_encodeMp3FromRegion(). -->
     <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
 </head>
-<body class="bg-[#0b0f1a] text-white min-h-screen flex flex-col overflow-hidden">
+<body class="bg-[#0b0f1a] text-white h-screen flex flex-col overflow-hidden">
+    <!-- FIX (13/07/2026) — `min-h-screen` chỉ đặt chiều cao TỐI THIỂU, `<body>` có thể giãn vượt
+         quá 100vh khi tổng nội dung các con flex cao hơn viewport, khiến `#sub-list-container`
+         (flex-1 min-h-0 overflow-y-auto) mất ranh giới chiều cao thật để overflow — phần vượt quá
+         bị chính `overflow: hidden` của `<body>` cắt mất, list không cuộn được, đáy list dính luôn
+         vào đỉnh toolbar. Đổi sang `h-screen` (đúng quy ước `<body>` của index.html) để có chiều
+         cao CỐ ĐỊNH, list cuộn được bình thường. -->
 
     <!-- Header — SỬA (10/07/2026, phản hồi Giang): `.glass-modal` (border 4 CẠNH + bo góc — xem
          MỌI nơi khác dùng class này trong app, luôn là card NỔI rounded-2xl, KHÔNG BAO GIỜ dùng
@@ -223,7 +229,10 @@
          `#sub-list-container`, phủ đè lên khi cần qua `absolute inset-0` — `#sub-list-container`
          giờ CHỈ chứa đúng các card dòng phụ đề, so khớp số lượng luôn chính xác. -->
     <div class="flex-1 min-h-0 relative">
-        <div id="sub-list-container" class="h-full overflow-y-auto"></div>
+        <!-- FIX (13/07/2026) — thêm pb-3 để dòng cuối cùng không dính sát vào viền trên của
+             toolbar (trước đây card cuối + border-t của toolbar chạm thẳng nhau, không có khoảng
+             thở). -->
+        <div id="sub-list-container" class="h-full overflow-y-auto pb-3"></div>
         <div class="hidden absolute inset-0 flex flex-col items-center justify-center h-full text-slate-500 gap-3 opacity-60 py-16 pointer-events-none" id="sub-empty-state">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             <span class="font-medium text-sm px-8 text-center" id="sub-empty-state-label"></span>
@@ -252,7 +261,9 @@
          (giữ đúng bảng màu cũ để dễ phân biệt) làm nền tương phản trực tiếp trên nền tối chung của
          thanh. Nút mũi tên NGƯỢC LẠI — có nền riêng (nhạt, phủ trọn chiều cao, bo góc phía ngoài) để
          rõ ràng là 1 nút bấm được, không lẫn với nội dung cuộn bên trong. -->
-    <div class="shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-[#0f172a]/70 backdrop-blur-xl border-t border-white/10 flex items-stretch">
+    <!-- FIX (13/07/2026) — thêm shadow hắt LÊN TRÊN để toolbar trông TÁCH HẲN khỏi list phía trên
+         (rõ ràng là 1 khối riêng, không chỉ dựa vào 1 viền border-t mảnh dễ bị nhầm là dính liền). -->
+    <div class="shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-[#0f172a]/70 backdrop-blur-xl border-t border-white/10 shadow-[0_-6px_16px_-4px_rgba(0,0,0,0.4)] flex items-stretch">
         <button id="btn-toolbar-scroll-left" type="button" class="shrink-0 w-8 rounded-r-2xl flex items-center justify-center bg-white/5 hover:bg-white/10 text-white transition-colors" title="">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" /></svg>
         </button>
