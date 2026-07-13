@@ -210,6 +210,20 @@
             activeBackgroundAlbum: 'nullable-string', // albumId đang dùng làm nền slideshow, null = không dùng
             slideshowConfig: 'object',               // { mode, intervalSeconds, transitionType, photoPerSong, showCaption } — xem CONST.DEFAULT_SLIDESHOW_CONFIG
             readerConfig: 'object',                  // { fontFamily, fontSize, bgColor, textColor, opacity } — xem CONST.DEFAULT_READER_CONFIG
+
+            // ── generic drawer ────────────────────────────────────────────────
+            // MỚI (13/07/2026) — khôi phục overlay + chặn mở chồng (Giang yêu cầu, xem
+            // core/generic-drawer.js). isGenericDrawerOpen: true từ lúc openGenericDrawer() bắt
+            // đầu tới lúc hideGenericDrawerImmediately() chạy xong (transition đóng đã hết hẳn) —
+            // dùng bởi Block gate (event/block.js) để chặn mọi msg.type "mở Generic Drawer" khác
+            // trong lúc đang mở, tránh 2 tính năng cùng lúc ghi đè bodyHtml của nhau.
+            // isGenericDrawerContentVirtual: true khi nội dung ĐANG hiển thị là 1 danh sách
+            // windowing thật (mount() qua event/workflow/virtual-list.js) — dùng bởi
+            // event/router/virtual-list.js để biết có nên xử lý 'virtualList.scroll' hay không,
+            // tránh xung đột khi Generic Drawer đang hiện nội dung KHÁC (vd Document Reader, phân
+            // trang riêng, không phải danh sách windowing).
+            isGenericDrawerOpen: 'boolean',
+            isGenericDrawerContentVirtual: 'boolean',
         };
 
         /** Giá trị khởi tạo mặc định — copy NGUYÊN VẸN giá trị/kiểu thật từ source gốc. */
@@ -363,6 +377,10 @@
                 activeBackgroundAlbum: null,
                 slideshowConfig: {},
                 readerConfig: {},
+
+                // ── generic drawer ──────────────────────────────────────────────
+                isGenericDrawerOpen: false,
+                isGenericDrawerContentVirtual: false,
             };
         }
 
