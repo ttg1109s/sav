@@ -111,12 +111,17 @@ function saveConfig(cfg) {
 
 **VIẾT LẠI TOÀN BỘ (04/07/2026, phản hồi Giang) — HUỶ BỎ ngoại lệ "return value" và ngoại lệ "bất
 đồng bộ không chờ" từng có ở bản Rule 3 trước đây.** Chính sách MỚI, đơn giản hơn hẳn, không còn
-trường hợp nào cần cân nhắc:
+trường hợp nào cần cân nhắc. **[CẤU TRÚC LẠI THÀNH 3a/3b/3c — 13/07/2026, phản hồi Giang]** —
+KHÔNG đổi nội dung 3a/3b so với bản 04/07, CHỈ thêm 3c (hàm con phục vụ vòng lặp) là MỚI.
+
+### 3a — Định nghĩa cứng: không thể gọi core trong core
 
 **1 function core TUYỆT ĐỐI KHÔNG được gọi bất kỳ function core/nghiệp vụ nào khác** — dù hàm kia
 có return value hay không, dù A có dùng giá trị trả về hay không, dù gọi đồng bộ hay bất đồng bộ,
 dù có `await` hay không. Không còn tiêu chí nào để "hợp lệ hoá" 1 lời gọi core→core nữa — **mọi
 lời gọi core→core, bất kể hình dạng gì, đều phải chuyển ra Workflow.**
+
+### 3b — Chỉ được gọi các API ngoại lệ đã có, tuân thủ console.log
 
 **NGOẠI LỆ DUY NHẤT — gọi API `service/` (hạ tầng, KHÔNG tính là "gọi hàm core khác"):**
 - `service/db.js` — mọi hàm data layer (`getMeta`/`setMeta`/`getSongRecord`/`getAlbumRecord`/
@@ -135,6 +140,34 @@ KHÁC — nơi quyết định/nghiệp vụ nằm Ở BÊN TRONG hàm được 
 `taskManager.once()` cho lời gọi "bất đồng bộ không chờ" (ví dụ `beginSlideshowTransition()` cũ) —
 NGOẠI LỆ NÀY ĐÃ BỎ. Timer/interval/timeout là công cụ ĐIỀU PHỐI (orchestration) — đúng vai trò
 Workflow, không phải core thuần.
+
+### 3c — Hàm con phục vụ vòng lặp (MỚI, 13/07/2026, phản hồi Giang)
+
+**1 function core được phép tự chứa hàm con** (closure lồng bên trong, KHÔNG phải hàm top-level
+riêng — xem ví dụ `sanitizeDocumentHtml()::walk()`, `core/file-manager/document.js`) khi TẤT CẢ
+điều kiện sau đều đúng:
+
+1. **Chỉ giới hạn cho việc loop** — bản thân hàm con có chứa vòng lặp/đệ quy (`for`/`while`/tự gọi
+   lại chính nó) để hoàn thành việc của nó. KHÔNG bắt buộc core cha phải gọi hàm con đó nhiều lần —
+   chỉ cần chính hàm con cần cấu trúc lặp là đủ điều kiện này.
+2. **Không trùng lặp logic với bất kỳ core nào khác đã có trong app** — nếu logic giống hệt 1 core
+   đã tồn tại, PHẢI tái dùng core đó qua Workflow (không viết lại).
+3. **Phép thử "1 phần nghiệp vụ" hay "1 nghiệp vụ khác"** — gọi hàm con đó ĐỘC LẬP, tách khỏi core
+   cha, kết quả trả về có phải 1 GIÁ TRỊ HOÀN CHỈNH, tự nó có Ý NGHĨA NGHIỆP VỤ RIÊNG hay không?
+   - CÓ → đó là 1 nghiệp vụ KHÁC (dù nhỏ) → PHẢI tách hẳn core riêng/top-level, KHÔNG được làm hàm
+     con — hàm con đó CHỈ được phép là 1 PHẦN của nghiệp vụ core cha, không phải 1 nghiệp vụ khác
+     sau khi bản thân core cha đã hoàn thành.
+   - KHÔNG (chỉ là 1 giá trị TRUNG GIAN, vô nghĩa nếu đứng 1 mình, phải có core cha xử lý tiếp mới
+     thành kết quả thật) → hợp lệ làm hàm con.
+4. **Hàm con đó PHẢI tuân đủ Rule 1-4 y hệt core chính** — đơn tuyến (Rule 1), không tự
+   `appState.get()` (Rule 2), không gọi core/hàm con nào khác ngoài chính nó (Rule 3, đệ quy áp
+   dụng), ghi state qua `set()`/`mutate()` phải kèm `console.log` (Rule 4).
+
+Ví dụ hợp lệ: `sanitizeDocumentHtml()::walk()` (đệ quy) — `computeNextDocumentReaderSlot()::
+sliceBlockByTextRange()`/`splitOversizedBlockToFit()`/`findWordBoundaryBefore()` (đều có vòng
+lặp/đệ quy nội bộ, kết quả trả về là giá trị trung gian — vd `findWordBoundaryBefore()` chỉ trả 1
+chỉ số, vô nghĩa nếu đứng riêng, phải phối hợp với `sliceBlockByTextRange()` mới thành 1 đoạn text
+thật — xem `core/file-manager/document-pagination.js`).
 
 ### Hệ quả — Workflow giờ PHẢI làm nhiều việc hơn: chuẩn bị data + gọi core + (nếu cần) lặp qua taskManager
 
@@ -224,7 +257,7 @@ tinh thần nợ kỹ thuật — xem [core-legacy-audit.md](./core-legacy-audit
 Rule 1-4 ở trên, CỘNG THÊM 2 rule riêng dưới đây (đặc thù cho việc dựng UI có tương tác — Rule 1-4
 gốc không lường tới DOM).
 
-### 5a — `addEventListener`: cấm rải rác; cho phép NẾU dựng UI động — nhưng PHẢI gom cuối hàm
+### 5a — `addEventListener`: cấm rải rác; cho phép NẾU dựng UI động — nhưng PHẢI gom cuối hàm VÀ callback CHỈ được bắn event bus
 
 Core nói chung KHÔNG được tự `addEventListener` — đúng tinh thần "core không tự quyết định điều gì
 xảy ra khi người dùng tương tác", việc đó thuộc Router/Workflow (xem
@@ -235,9 +268,15 @@ phải phần tử tĩnh có sẵn từ `core/dom-refs.js`) — phần tử đó
 KHÔNG THỂ wire qua `event/listener/*.js` (không có gì để `document.getElementById` trước đó).
 Trường hợp NÀY được phép `addEventListener` ngay trong hàm dựng UI, với 2 điều kiện BẮT BUỘC ĐỦ CẢ:
 
-1. **Callback CHỈ được gọi tham số nhận từ nơi gọi** (đúng khuôn `modalChoice()` —
-   `btnDef.onClick()`) — **TUYỆT ĐỐI KHÔNG gọi thẳng tên 1 hàm core/nghiệp vụ khác bên trong
-   callback**, vẫn là Rule 3, KHÔNG có ngoại lệ thêm ở đây chỉ vì nằm trong `addEventListener`.
+1. **[SỬA 13/07/2026, phản hồi Giang] Callback CHỈ được phép làm đúng 1 việc: gọi
+   `eventBus.send({router, type, payload})`** — KHÔNG còn được phép "chỉ gọi tham số nhận từ nơi
+   gọi" như bản trước (đó là khuôn CŨ của `modalChoice()`, giờ CHỈ còn là ngoại lệ đã audit riêng,
+   xem cuối mục này). Không phân biệt DOM TĨNH (đăng ký trước lúc boot qua `event/listener/*.js`)
+   hay DOM ĐỘNG (đăng ký ngay trong hàm dựng UI, đúng mục 5a này) — 2 kiểu chỉ khác THỜI ĐIỂM đăng
+   ký trong bộ nhớ lúc khởi tạo, KHÔNG ảnh hưởng gì tới NỘI DUNG callback bên trong — không thể
+   biện minh sự khác biệt tĩnh/động để né quy tắc. Callback gọi thẳng tên 1 hàm core/Workflow khác
+   (kể cả qua tham số callback được truyền vào) đều là vi phạm Rule 3, KHÔNG có ngoại lệ thêm ở đây
+   chỉ vì nằm trong `addEventListener`.
 2. **Toàn bộ `addEventListener` phải gom lại 1 khối, đặt Ở CUỐI hàm** (sau khi cây DOM đã dựng
    xong hoàn toàn) — KHÔNG xen kẽ giữa các đoạn `createElement`/`appendChild`, để chỉ cần nhìn
    xuống cuối hàm là thấy NGAY toàn bộ hành vi tương tác, không phải dò từng dòng.
@@ -256,7 +295,7 @@ function buildXModal(data, onSave) {
 }
 ```
 ```js
-// ĐÚNG — dựng DOM xong hoàn toàn TRƯỚC, addEventListener gom 1 khối Ở CUỐI
+// SAI — gom cuối hàm ĐÚNG, nhưng callback gọi tham số thay vì bắn event bus (vi phạm điều kiện 1 MỚI)
 function buildXModal(data, onSave) {
     const overlay = document.createElement('div');
     const saveBtn = document.createElement('button');
@@ -264,13 +303,40 @@ function buildXModal(data, onSave) {
     overlay.appendChild(saveBtn);
     overlay.appendChild(cancelBtn);
 
-    // --- addEventListener: gom cuối hàm (Rule 5a) ---
-    saveBtn.addEventListener('click', () => onSave(saveBtn.value)); // CHỈ gọi tham số, không gọi core khác
+    saveBtn.addEventListener('click', () => onSave(saveBtn.value)); // SAI — không qua eventBus
     cancelBtn.addEventListener('click', () => overlay.remove());
 
     return overlay;
 }
 ```
+```js
+// ĐÚNG — dựng DOM xong hoàn toàn TRƯỚC, addEventListener gom 1 khối Ở CUỐI, callback CHỈ bắn eventBus
+function buildXModal(data) {
+    const overlay = document.createElement('div');
+    const saveBtn = document.createElement('button');
+    const cancelBtn = document.createElement('button');
+    overlay.appendChild(saveBtn);
+    overlay.appendChild(cancelBtn);
+
+    // --- addEventListener: gom cuối hàm (Rule 5a) ---
+    saveBtn.addEventListener('click', () => eventBus.send({ router: 'xModal', type: 'xModal.save.click', payload: { value: saveBtn.value } }));
+    cancelBtn.addEventListener('click', () => eventBus.send({ router: 'xModal', type: 'xModal.cancel.click', payload: {} }));
+
+    return overlay;
+}
+```
+
+**Ngoại lệ ĐÃ audit chính thức, giữ nguyên — `core/modal-choice.js::modalChoice()`:** callback gọi
+thẳng tham số `onClick` truyền vào lúc gọi hàm (không qua bus). Ngoại lệ này CHỈ áp dụng cho ĐÚNG
+`modalChoice()` — bất kỳ file nào khác muốn miễn trừ tương tự PHẢI qua audit chính thức riêng,
+KHÔNG được tự nhận "giống modalChoice()" để suy ra miễn trừ (tiền lệ bị bác chính xác pattern này ở
+`folder-picker-ui.js`, xem [event-bus-flow.md](./event-bus-flow.md)).
+
+> **Không hồi tố** — điều kiện 1 (MỚI) chỉ áp dụng cho hàm dựng UI MỚI viết/bị đụng thật từ thời
+> điểm chốt rule này (13/07/2026) trở đi, đúng chính sách chung ở đầu tài liệu. Code hiện có ngoài
+> `modalChoice()` (tương tác bên trong Generic Drawer ở `event/workflow/document-reader.js`,
+> `core/file-manager/folder-picker-ui.js`, `buildDocumentEditorSurface()`, danh sách item động ở
+> `components/items.js`...) GIỮ NGUYÊN, ghi nhận là nợ kỹ thuật, không bắt sửa ngay.
 
 ### 5b — KHÔNG dùng trạng thái DOM làm điều kiện rẽ nhánh nghiệp vụ (lách Rule 1)
 
