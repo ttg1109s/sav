@@ -150,25 +150,14 @@ if (btnWaveformPlayPause) {
     });
 }
 
-// MỚI (yêu cầu Giang, mục 2/6) — FIX bug ĐÃ XÁC NHẬN của chính WaveSurfer.js v7 (GitHub issue
-// #3804, katspaugh/wavesurfer.js: "[Regions] Clicking inside region does not seek", tái hiện từ
-// bản 7.8.2 trên Chrome/Edge) — bấm vào PHẦN NẰM TRONG vùng chọn (this._region, hầu như luôn che
-// phần lớn waveform) hoàn toàn KHÔNG chuyển vị trí phát, chỉ bấm ra NGOÀI vùng chọn mới ăn — đúng
-// nguyên nhân "current không bắt đúng vị trí bấm" (mục 2) VÀ "Auto-timing không bắt đúng current"
-// (mục 6, chính là 1 hệ quả của cùng bug này). Tự tính vị trí bấm THẲNG từ toạ độ chuột/chạm (không
-// lệ thuộc gì vào cơ chế click-to-seek nội bộ của WaveSurfer đang lỗi ở trên) rồi gọi
-// workflowSubtitleEditor.seekTo() — hoạt động ĐÚNG bất kể bấm trong hay ngoài vùng chọn.
-// MỚI (yêu cầu Giang, mục 2/6) — FIX bug ĐÃ XÁC NHẬN của chính WaveSurfer.js v7 (GitHub issue
-// #3804, katspaugh/wavesurfer.js: "[Regions] Clicking inside region does not seek", tái hiện từ
-// bản 7.8.2 trên Chrome/Edge) — bấm vào PHẦN NẰM TRONG vùng chọn (this._region, hầu như luôn che
-// phần lớn waveform) hoàn toàn KHÔNG chuyển vị trí phát, chỉ bấm ra NGOÀI vùng chọn mới ăn.
-// SỬA (yêu cầu Giang — "nhảy linh tinh rất xa") — bản trước tự tính tỉ lệ (0..1) dựa trên
-// `waveformContainerEl.scrollWidth`/`.scrollLeft` — SAI GIẢ ĐỊNH div NGOÀI này là phần tử đang
-// cuộn thật (WaveSurfer tự quản lý cuộn RIÊNG trong Shadow DOM của nó, không chắc cùng 1 phần tử).
-// Giờ CHỈ đo geometry THÔ ở đây (vị trí bấm tính từ mép trái khung NHÌN THẤY — không tự cộng/đoán
-// gì về cuộn) — phần "cuộn bao nhiêu" giao hẳn cho workflowSubtitleEditor.seekFromClick() tự đọc
-// qua `this._wavesurfer.getScroll()` (API THẬT của chính thư viện, luôn đúng bất kể div ngoài có
-// phải phần tử cuộn hay không).
+// Bug đã xác nhận của WaveSurfer.js v7 (GitHub issue #3804: "[Regions] Clicking inside region does
+// not seek") — bấm vào phần NẰM TRONG vùng chọn (this._region, hầu như luôn che phần lớn waveform)
+// hoàn toàn không chuyển vị trí phát, chỉ bấm ra ngoài vùng chọn mới ăn. Tự tính vị trí bấm thẳng
+// từ toạ độ chuột/chạm (không lệ thuộc cơ chế click-to-seek nội bộ đang lỗi) rồi gọi
+// workflowSubtitleEditor.seekFromClick() — hoạt động đúng bất kể bấm trong hay ngoài vùng chọn.
+// Chỉ đo geometry thô ở đây (vị trí bấm tính từ mép trái khung nhìn thấy, không tự đoán gì về
+// cuộn) — phần "cuộn bao nhiêu" giao hẳn cho seekFromClick() tự đọc qua `getScroll()` (API thật của
+// chính thư viện, luôn đúng bất kể div ngoài có phải phần tử cuộn hay không).
 if (waveformContainerEl) {
     waveformContainerEl.addEventListener('click', (e) => {
         const rect = waveformContainerEl.getBoundingClientRect();
