@@ -1,40 +1,26 @@
 /**
- * core/subtitle/subtitles-ui.js — Core NGHIỆP VỤ dựng UI cho danh sách dòng phụ đề (Rule 5,
- * core-function-conventions.md) — hậu tố `-ui` vì TỰ `createElement` dựng cụm DOM MỚI (mỗi dòng
+ * core/subtitle/subtitles-ui.js — Core nghiệp vụ dựng UI cho danh sách dòng phụ đề (Rule 5,
+ * core-function-conventions.md) — hậu tố `-ui` vì tự `createElement` dựng cụm DOM mới (mỗi dòng
  * sub là 1 card), khác `core/subtitle/subtitles.js` (thuần business logic, không đụng DOM).
  *
- * VIẾT LẠI (12/07/2026, yêu cầu Giang — khôi phục chế độ sửa + nút Áp dụng):
- * ```
- * -----------------
- * Line content (bình thường: chữ ĐỌC-THÔI, bấm NGUYÊN card để vào chế độ sửa)
- * -----------------  <- KHÔNG còn vạch phân chia (mục 2, đã bỏ hẳn div border-t)
- * 🕐 start → end   |   ▶ nghe thử   ✕ xoá         (bình thường)
- * 🕐 [nút start] → [nút end]   |   ▶ nghe thử   ✕ Huỷ   ✓ Áp dụng   (ĐANG SỬA)
- * ```
+ * 3 mode (`uiState.mode`): 'normal' | 'selecting' (tool Shift) | 'editing' (bấm vào 1 dòng để
+ * sửa). 'normal': text/giờ đọc-thôi, bấm nguyên card -> vào 'editing' cho đúng dòng đó. 'selecting':
+ * ô tròn chọn, bấm nguyên card để chọn/bỏ chọn. 'editing': chỉ 1 dòng (uiState.editingId) ở dạng
+ * sửa được thật (input text + nút giờ mở modal bánh xe + ✓ Áp dụng/✕ Huỷ) — mọi dòng khác bị khoá
+ * hẳn (mờ + pointer-events-none). Giờ start/end hiển thị của dòng đang sửa là giá trị PENDING
+ * (uiState.editingPendingStart/End — chưa Apply, đồng bộ 2 chiều với this._region qua Workflow),
+ * không phải sub.start/end đã lưu.
  *
- * 3 MODE (`uiState.mode`): 'normal' | 'selecting' (tool Shift) | 'editing' (bấm vào 1 dòng để sửa).
- * - 'normal': text/giờ ĐỌC-THÔI, bấm NGUYÊN card -> vào 'editing' cho ĐÚNG dòng đó.
- * - 'selecting': ô tròn chọn, bấm NGUYÊN card để chọn/bỏ chọn (tool Shift).
- * - 'editing': CHỈ 1 dòng (uiState.editingId) ở dạng sửa được thật (input text + nút giờ mở modal
- *   bánh xe + ✓ Áp dụng/✕ Huỷ) — MỌI dòng KHÁC bị khoá hẳn (mờ + pointer-events-none, yêu cầu Giang
- *   mục 4 "chặn các line subtitles khác"). Giờ start/end hiển thị của dòng đang sửa là giá trị
- *   PENDING (uiState.editingPendingStart/End — CHƯA Apply, đồng bộ 2 chiều với this._region qua
- *   Workflow, xem event/workflow/subtitle-editor.js::_syncPendingFromRegion()), KHÔNG phải
- *   sub.start/end đã lưu.
+ * Nút ▶ có 2 icon (play/pause) — Workflow tự đổi trực tiếp (không qua render lại) theo dòng nào
+ * đang thật sự phát.
  *
- * Nút ▶ có 2 icon (play/pause, class `.sub-line-play-icon`/`.sub-line-pause-icon`) — Workflow tự
- * đổi TRỰC TIẾP (không qua render lại) theo dòng nào ĐANG thật sự phát (mục 1 — nút ▶ dòng cũng
- * toggle được y hệt "Phát vùng chọn"/"[▶]" khung điều khiển).
+ * Diff-render: 1 Map bền vững `subId -> card DOM` (Workflow giữ, truyền vào mỗi lần gọi qua
+ * `cardNodesById`) — node nào không đổi thì giữ nguyên 100%, chỉ thêm/xoá/dời đúng những node cần
+ * (cùng thuật toán renderPlaylistDiff()). Đổi `mode` đổi hẳn cấu trúc mọi card -> Workflow tự
+ * `cardNodesById.clear()` trước khi gọi lại.
  *
- * DIFF-RENDER (mục 7, tận dụng thuật toán renderPlaylistDiff() core/playlist/render.js) — 1 Map
- * bền vững `subId -> card DOM` (Workflow giữ, truyền vào MỖI lần gọi qua `cardNodesById`) — node
- * NÀO không đổi thì GIỮ NGUYÊN 100%, chỉ thêm/xoá/dời đúng những node cần. Đổi `mode` (normal <->
- * selecting <-> editing) đổi HẲN cấu trúc MỌI card -> Workflow tự `cardNodesById.clear()` trước khi
- * gọi lại trong trường hợp đó (xem enterLineEditMode()/_exitLineEditMode()/
- * toggleShiftSelectionMode()).
- *
- * `renderSubtitleLines()`/`buildLineCard()` tự gắn TOÀN BỘ sự kiện (Rule 5a — gom cuối hàm),
- * callback CHỈ nhận tham số — KHÔNG gọi core khác.
+ * `renderSubtitleLines()`/`buildLineCard()` tự gắn toàn bộ sự kiện (Rule 5a — gom cuối hàm),
+ * callback chỉ nhận tham số — không gọi core khác.
  *
  * NẠP SAU: lang/lang.js (t()), core/subtitle/subtitles.js (secToStr()).
  */
