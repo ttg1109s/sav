@@ -311,6 +311,9 @@
         // `genericDrawerOverlay` (nền mờ che màn hình) — bản đầu có bug đóng drawer không xoá lại
         // `hidden` cho overlay, khiến nó che chắn UI mãi mãi sau lần đóng đầu tiên; Giang xác nhận
         // lớp này không cần thiết, bỏ hẳn khỏi component luôn (components/generic-drawer.js).
+        // [KHÔI PHỤC 13/07/2026, Giang yêu cầu] — overlay quay lại, lần này core/generic-drawer.js
+        // tự đồng bộ đúng nhịp mở/đóng (xem docstring đầu file đó), không lặp lại bug cũ.
+        const genericDrawerOverlay = document.getElementById('generic-drawer-overlay');
         const genericDrawerPanel = document.getElementById('generic-drawer-panel');
         const genericDrawerHeader = document.getElementById('generic-drawer-header');
         const genericDrawerBody = document.getElementById('generic-drawer-body');
