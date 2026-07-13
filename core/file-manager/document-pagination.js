@@ -115,38 +115,67 @@ function computeNextDocumentReaderSlot(contentHtml, cursor, pageSize) {
      * cao mục tiêu / chiều cao đo được của TOÀN khối ~ tỉ lệ số ký tự cần giữ), ĐO LẠI THẬT bằng
      * DOM, CO/GIÃN theo tỉ lệ vừa đo mỗi vòng (tối đa SPLIT_MAX_TRIES lần) tới khi đạt
      * SPLIT_FIT_THRESHOLD, rồi né cắt giữa từ (lùi về khoảng trắng gần nhất, giới hạn mức hy sinh).
+     *
+     * [SỬA 13/07/2026, Giang báo — "1 ký tự rồi để trống cả 1 dải lớn"] — bản trước đo bằng CHÍNH
+     * `measureEl` của trang (đã CÓ SẴN nội dung các khối trước đó, từ khi thêm khả năng cắt cả khối
+     * KHÔNG PHẢI khối đầu — xem "SỬA 13/07/2026" ở docstring đầu file) VÀ so với `pageSize.height`
+     * (chiều cao CẢ TRANG) thay vì chỗ trống THẬT SỰ còn lại — nội suy ra tỉ lệ hoàn toàn sai (mục
+     * tiêu ảo lớn hơn nhiều so với chỗ trống thật), hội tụ CỰC CHẬM (mỗi vòng chỉ tiến được rất ít
+     * do tỉ lệ hiệu chỉnh gần bằng 1), trong `SPLIT_MAX_TRIES` lần thử KHÔNG đủ để bao giờ đạt
+     * "vừa khít" — rơi vào fallback "1 ký tự" trong khi trang còn thừa rất nhiều chỗ trống, ĐÚNG
+     * triệu chứng Giang báo (chữ "Thế"/"Đoạn" bị tách còn mỗi "T"/"Đ", phần còn lại trống trơn).
+     * SỬA: đo bằng 1 `scratchEl` TÁCH BIỆT HOÀN TOÀN (rỗng, không dính nội dung khối khác), VÀ nội
+     * suy/so sánh với `availableHeight` (chỗ trống THẬT SỰ còn lại, nơi gọi tự tính trước khi gọi
+     * hàm này) thay vì `pageSize.height` — luôn đúng bất kể khối đang xét là khối đầu hay khối sau.
      * @param {Element} block - khối GỐC (chưa cắt) đang cần tách.
-     * @param {HTMLElement} measureEl - DOM tạm dùng để đo, PHẢI đang RỖNG lúc gọi hàm này.
+     * @param {number} availableHeight - chỗ trống THẬT SỰ còn lại trên trang (px) dành cho khối
+     *        này — bằng `pageSize.height` nếu là khối đầu (trang đang trống), nhỏ hơn nếu đã có
+     *        khối khác trước đó.
      * @returns {{fittedClone: Element, charsUsed: number}|null} null nếu khối không có ký tự nào để
      *   cắt (vd toàn thẻ rỗng) — nơi gọi tự lùi về chấp nhận tràn nguyên khối trong trường hợp đó. */
-    function splitOversizedBlockToFit(block, measureEl) {
+    function splitOversizedBlockToFit(block, availableHeight) {
         const totalLen = block.textContent.length;
-        if (totalLen === 0) return null;
+        if (totalLen === 0 || availableHeight <= 0) return null;
 
-        measureEl.appendChild(block.cloneNode(true));
-        const fullHeight = measureEl.scrollHeight;
-        measureEl.removeChild(measureEl.lastChild);
-        if (fullHeight <= 0) return null;
+        // scratchEl TÁCH BIỆT với measureEl của trang — đo ĐÚNG chiều cao của riêng khối này, không
+        // lẫn nội dung các khối đã đặt trước đó.
+        const scratchEl = document.createElement('div');
+        scratchEl.className = pageSize.className || '';
+        scratchEl.style.position = 'fixed';
+        scratchEl.style.visibility = 'hidden';
+        scratchEl.style.pointerEvents = 'none';
+        scratchEl.style.left = '-9999px';
+        scratchEl.style.top = '0';
+        scratchEl.style.width = `${pageSize.width}px`;
+        scratchEl.style.height = 'auto';
+        document.body.appendChild(scratchEl);
 
-        let guess = Math.max(1, Math.floor(totalLen * (pageSize.height / fullHeight)));
+        scratchEl.appendChild(block.cloneNode(true));
+        const fullHeight = scratchEl.scrollHeight;
+        scratchEl.removeChild(scratchEl.lastChild);
+        if (fullHeight <= 0) { document.body.removeChild(scratchEl); return null; }
+
+        let guess = Math.max(1, Math.floor(totalLen * (availableHeight / fullHeight)));
         let bestFit = null; // {chars, clone} — lần thử GẦN NHẤT đã vừa khít, giữ lại phòng vòng sau tệ hơn
 
         for (let attempt = 0; attempt < SPLIT_MAX_TRIES; attempt++) {
             guess = Math.min(totalLen - 1, Math.max(1, guess)); // luôn giữ ÍT NHẤT 1 ký tự cho trang sau — đảm bảo cursor tiến tới, không kẹt vòng lặp
             const candidate = sliceBlockByTextRange(block, 0, guess);
-            measureEl.appendChild(candidate);
-            const measuredHeight = measureEl.scrollHeight;
-            measureEl.removeChild(measureEl.lastChild);
+            scratchEl.appendChild(candidate);
+            const measuredHeight = scratchEl.scrollHeight;
+            scratchEl.removeChild(scratchEl.lastChild);
 
-            if (measuredHeight <= pageSize.height) {
+            if (measuredHeight <= availableHeight) {
                 bestFit = { chars: guess, clone: candidate };
-                if (measuredHeight >= pageSize.height * SPLIT_FIT_THRESHOLD || guess >= totalLen - 1) break; // đủ khít, hoặc đã hết chữ để nới thêm -> dừng
+                if (measuredHeight >= availableHeight * SPLIT_FIT_THRESHOLD || guess >= totalLen - 1) break; // đủ khít, hoặc đã hết chữ để nới thêm -> dừng
                 guess = Math.min(totalLen - 1, guess + Math.max(1, Math.floor((totalLen - guess) * 0.15))); // vừa khít nhưng còn dư nhiều chỗ -> nới thêm thử tiếp
             } else {
-                guess = Math.max(1, Math.floor(guess * (pageSize.height / measuredHeight))); // vẫn tràn -> co lại ĐÚNG theo tỉ lệ vừa đo (nội suy lại, không chia đôi mù)
+                guess = Math.max(1, Math.floor(guess * (availableHeight / measuredHeight))); // vẫn tràn -> co lại ĐÚNG theo tỉ lệ vừa đo (nội suy lại, không chia đôi mù)
                 if (bestFit && guess <= bestFit.chars) break; // không hội tụ thêm được nữa -> dùng bản vừa khít gần nhất đã có
             }
         }
+
+        document.body.removeChild(scratchEl);
 
         if (!bestFit) bestFit = { chars: 1, clone: sliceBlockByTextRange(block, 0, 1) }; // hết lượt thử vẫn không vừa (hiếm — trang quá nhỏ so với cỡ chữ) -> LUÔN giữ tối thiểu 1 ký tự để đảm bảo tiến tới
 
@@ -235,7 +264,7 @@ function computeNextDocumentReaderSlot(contentHtml, cursor, pageSize) {
         // Giang phàn nàn — không cần cố lấp bằng mọi giá).
         const remainingGap = pageSize.height - heightBeforeBlock;
         const isWorthSplitting = isFirstBlockOfPage || remainingGap >= pageSize.height * MIN_SPLIT_GAP_RATIO;
-        const splitResult = isWorthSplitting ? splitOversizedBlockToFit(sourceBlock, measureEl) : null;
+        const splitResult = isWorthSplitting ? splitOversizedBlockToFit(sourceBlock, remainingGap) : null;
 
         if (splitResult) {
             measureEl.appendChild(splitResult.fittedClone);
