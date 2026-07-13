@@ -114,24 +114,17 @@
          * bài" (xem event/workflow/playlist-empty-state.js, dùng top-level thật qua
          * recomputeDisplayOrder() + hàm updateShuffleArray() cũ ở trên).
          *
-         * QUYẾT ĐỊNH KỸ THUẬT QUAN TRỌNG — GIỮ TỔNG ĐỘ DÀI shuffleIndices = topLevelKeys.length,
-         * KHÔNG rút ngắn còn mỗi activeQueueKeys (dù về Ý NGHĨA người dùng chỉ muốn nghe "hiện
-         * hành"): core/player-controls.js::playNext()/playPrev() — CODE DI SẢN nợ kỹ thuật NẶNG
-         * (16+13 lượt appState.get(), vi phạm Rule 1 else/switch shuffle/không-shuffle, xem
-         * core-legacy-audit.md) — đang dùng CỐ ĐỊNH appState.get('playlistOrder').length làm biên
-         * "hết mảng" cho NHÁNH shuffle. Nếu shuffleIndices ngắn hơn playlistOrder, currentPos có thể
-         * vượt quá độ dài thật của shuffleIndices trước khi chạm điều kiện "hết mảng" đó (vì điều
-         * kiện so với playlistOrder.length, không phải shuffleIndices.length thật) -> đọc phải index
-         * undefined -> playSong(undefined) lỗi. Đưa activeQueueKeys lên ĐẦU mảng (trộn riêng, không
-         * lẫn với phần còn lại), phần CÒN LẠI của top-level nối THEO SAU (cũng trộn riêng) — giữ
-         * ĐÚNG mong muốn "Next/Prev liên tiếp xoay vòng trong hiện hành trước" cho tới khi hết, sau
-         * đó mới "tràn" sang phần còn lại của top-level, KHÔNG crash, KHÔNG cần đụng playNext/
-         * playPrev. Muốn CHẶN HẲN không cho tràn (ranh giới cứng, dừng lại ở cuối hiện hành thay vì
-         * tràn) cần refactor playNext/playPrev tách nhánh shuffle riêng (đúng Rule 1) — CHI PHÍ đó
-         * lớn hơn nhiều so với fix hiện tại (đúng tinh thần core-function-conventions.md mục 0.5:
-         * "tốn công hơn nhiều so với tính năng đang làm -> dừng lại hỏi trước khi sửa"). **CHỐT
-         * 03/07/2026 (Giang xác nhận):** để đấy làm NỢ KỸ THUẬT — xử lý SAU KHI hoàn thành hết các
-         * patch còn lại của ver 12, KHÔNG làm ngay trong batch này.
+         * QUYẾT ĐỊNH KỸ THUẬT — GIỮ TỔNG ĐỘ DÀI shuffleIndices = topLevelKeys.length (activeQueueKeys
+         * luôn đứng ĐẦU, remaining nối sau) — KHÔNG rút ngắn còn mỗi activeQueueKeys, để giữ 1 mảng
+         * duy nhất vừa phục vụ "hiện hành" vừa phục vụ tràn sang top-level khi cần.
+         *
+         * [FIX B — 13/07/2026, đã làm thật] `core/player-controls.js::playNext()`/`playPrev()` giờ
+         * dùng ĐÚNG `shuffleIndices.length` làm biên (không còn `playlistOrder.length` cố định), VÀ
+         * đọc `appState.sectionQueueActive` để tự giới hạn cứng trong đúng `activeQueueKeys.length`
+         * đầu mảng khi có 1 section đang hiện hành — Next/Prev không còn tràn sang phần `remaining`
+         * nữa. Mảng vẫn giữ NGUYÊN cấu trúc (activeQueueKeys + remaining nối sau) như thiết kế ban
+         * đầu của hàm này — phần `remaining` giờ đóng vai trò lưới an toàn (nếu `sectionQueueActive`
+         * lỡ lệch pha với `displayOrder` thật) hơn là "vùng sẽ tràn tới" như trước.
          *
          * Rule 1: đơn tuyến — CHỈ tính lại shuffleIndices theo 2 nhóm ưu tiên, không rẽ nhánh tiến
          * trình nào khác.
