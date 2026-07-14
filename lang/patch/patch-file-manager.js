@@ -138,6 +138,8 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.newFolderPlaceholder': 'New folder name',
     'fileManager.song.btnCreateFolder': 'Create',
     'fileManager.song.folderEmpty': 'No folders yet.',
+    // MỚI (14/07/2026, Giang yêu cầu) — hiển thị số bài trong mỗi hàng folder.
+    'fileManager.song.folderSongCount': '{count} songs',
     'fileManager.song.activeFolderBadge': 'Currently applied to Playlist',
     'fileManager.song.renameFolderTitle': 'Rename folder',
     'fileManager.song.deleteFolderTitle': 'Delete folder',
