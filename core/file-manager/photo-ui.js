@@ -31,6 +31,16 @@
  *
  * FIX (04/07/2026, mục 1 phản hồi Giang): `openImageLibraryPickerModal()` thêm tham số `onCancel`
  * (tuỳ chọn) — gọi khi đóng modal mà CHƯA chọn ảnh nào, để nơi gọi tự trả toggle "On" về "off".
+ *
+ * PATCH 1 mục 1 (14/07/2026, group ảnh theo ngày tải lên — theo ảnh chụp Google Photos Giang gửi):
+ * `renderImageMasonry()` giờ tự sắp xếp `images` theo `addedAt` MỚI NHẤT lên đầu trước khi render,
+ * và `_loadNextMasonryChunk()` tự chèn 1 header ngăn cách NGÀY (full-width, `_buildMasonryDateHeaderTile()`)
+ * ngay trước ảnh ĐẦU TIÊN của mỗi ngày mới trong lúc build từng chunk — TÁI DÙNG NGUYÊN cơ chế chunk
+ * hiện có (KHÔNG đổi `MASONRY_CHUNK_SIZE`/collapse/expand — việc rà lại toàn bộ windowing để "Item +
+ * window ảo" là mục 2, CHƯA làm ở patch này). Header KHÔNG nằm trong mảng `tiles` bookkeeping nên
+ * không bao giờ bị thu gọn cùng chunk. Áp dụng cho MỌI nơi gọi `renderImageMasonry()` (Photo & Album
+ * LẪN `openPhotoUiImagePickerModal()` — cùng 1 hàm dùng chung, xem mục "Picker cover bài hát" ở
+ * dưới), do đó picker chọn ảnh bìa bài hát cũng tự có nhóm theo ngày, không cần code riêng.
  */
 
 // ===================== Story slider Album =====================
@@ -152,9 +162,22 @@ let _masonryChunkTiles = new Map(); // chunkIndex -> Array<tileEl> (đúng thứ
 let _masonryHighestLoadedChunk = -1;
 let _masonryGrowObserver = null;
 let _masonryRestoreObservers = [];
+// MỚI (Patch 1, mục 1 — group ảnh theo ngày tải lên, 14/07/2026): khoá NGÀY của tile ảnh cuối cùng
+// đã render — cập nhật TUẦN TỰ qua từng chunk (chunk luôn tải đúng thứ tự tăng dần chỉ số, KHÔNG
+// BAO GIỜ nhảy cóc — xem _loadNextMasonryChunk()), nên 1 biến module chạy dọc suốt phiên render là
+// đủ để phát hiện đúng ranh giới ngày xuyên suốt nhiều chunk, không cần biết trước toàn bộ danh
+// sách nhóm. Reset về null mỗi lần renderImageMasonry() vẽ lại từ đầu.
+let _masonryLastRenderedDayKey = null;
 
 function renderImageMasonry(containerEl, images, selectionMode, selectedImageKeys, emptyEl) {
     if (!containerEl) return; // guard
+
+    // MỚI (Patch 1, mục 1) — mới nhất lên đầu (kiểu Google Photos), làm nền để _loadNextMasonryChunk()
+    // phát hiện ranh giới ngày lúc build từng chunk. Sắp xếp NGAY TẠI ĐÂY (không tách hàm core riêng
+    // ở image.js) — đây là bước CHUẨN BỊ nội bộ của CHÍNH quy trình "render lưới ảnh" này, không phải
+    // 1 nghiệp vụ khác đứng riêng, nên không vi phạm Rule 3 (Core gọi Core). Tạo mảng MỚI, không mutate
+    // tham số `images` gốc (nơi gọi có thể đang giữ tham chiếu khác tới cùng mảng đó).
+    images = [...images].sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
 
     _teardownMasonryWatchers();
     containerEl.querySelectorAll('[data-has-object-url]').forEach((node) => {
@@ -170,6 +193,7 @@ function renderImageMasonry(containerEl, images, selectionMode, selectedImageKey
     _masonrySelectedKeys = selectedImageKeys;
     _masonryChunkTiles = new Map();
     _masonryHighestLoadedChunk = -1;
+    _masonryLastRenderedDayKey = null; // MỚI (Patch 1, mục 1)
 
     if (images.length === 0) return;
 
@@ -190,6 +214,36 @@ function _masonryTotalChunks() {
     return Math.ceil(_masonryImages.length / MASONRY_CHUNK_SIZE);
 }
 
+// ===================== MỚI (Patch 1, mục 1, 14/07/2026) — Group ảnh theo ngày tải lên =============
+// Header ngăn cách CHỈ chèn xen giữa các tile ẢNH lúc build chunk (_loadNextMasonryChunk() dưới),
+// KHÔNG được đưa vào mảng `tiles` (bookkeeping collapse/expand) — nhờ vậy header LUÔN hiện, không
+// bao giờ bị thu gọn thành placeholder rỗng như tile ảnh (đúng hành vi Google Photos: nhãn ngày vẫn
+// đứng yên dù ảnh bên dưới đã bị giải phóng bộ nhớ).
+
+/** Khoá NGÀY (giờ địa phương máy người dùng) từ `addedAt` — CHỈ dùng để SO SÁNH 2 ảnh có cùng ngày
+ * hay không, KHÔNG dùng để hiển thị (xem _buildMasonryDateHeaderTile() cho phần hiển thị). Hàm
+ * THUẦN — không appState, không DOM, không gọi core khác. */
+function _masonryDayKey(addedAt) {
+    const d = new Date(addedAt || 0);
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+/** Dựng 1 hàng NGĂN CÁCH NGÀY (full-width, không phải ảnh, không bấm được — không có
+ * `data-image-key` nên listener delegated `button[data-image-key]` không kích hoạt gì trên nó).
+ * Nhãn theo `navigator.language` (locale trình duyệt) — KHÔNG qua t()/tFormat() vì tên thứ/tháng
+ * không thuộc bộ key dịch hiện có (chỉ chứa chuỗi tĩnh), dùng thẳng Intl.DateTimeFormat cho đúng
+ * ngôn ngữ hệ điều hành người dùng, cùng kiểu "Thứ Bảy, 14 thg 2" như Google Photos. Thêm năm nếu
+ * KHÁC năm hiện tại. */
+function _buildMasonryDateHeaderTile(addedAt) {
+    const d = new Date(addedAt || 0);
+    const opts = { weekday: 'long', day: 'numeric', month: 'short' };
+    if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+    const header = document.createElement('div');
+    header.className = 'col-span-full px-1 pt-3 pb-1.5 first:pt-0 text-sm font-semibold text-slate-200';
+    header.textContent = new Intl.DateTimeFormat(navigator.language, opts).format(d);
+    return header;
+}
+
 /** Nạp chunk KẾ TIẾP (chưa từng tải) — gọi lúc mở lần đầu (chunk 0) VÀ mỗi khi sentinel cuối danh
  * sách lọt vào viewport. Tự dừng hẳn (disconnect observer) khi đã tải hết toàn bộ chunk. */
 function _loadNextMasonryChunk() {
@@ -203,7 +257,19 @@ function _loadNextMasonryChunk() {
     const sentinel = _masonryContainerEl.querySelector('.masonry-bottom-sentinel'); // SCOPED (04/07/2026, mục 3) — không còn getElementById toàn cục, tránh đụng độ id nếu 2 masonry cùng tồn tại (File Manager + picker cover bài hát)
     const tiles = [];
     for (let i = start; i < end; i++) {
-        const tile = _buildMasonryTile(_masonryImages[i]);
+        const image = _masonryImages[i];
+
+        // MỚI (Patch 1, mục 1) — guard clause thuần (Rule 1 core-function-conventions.md): xoá `if`
+        // này đi, vòng lặp vẫn còn ĐÚNG 1 kịch bản duy nhất ("chèn header ngăn cách cho ảnh đang
+        // xét"), chỉ mất phần "bỏ qua khi ảnh này CÙNG NGÀY với ảnh render gần nhất" — KHÔNG phải rẽ
+        // nhánh giữa 2 tiến trình nghiệp vụ khác nhau.
+        const dayKey = _masonryDayKey(image.addedAt);
+        if (dayKey !== _masonryLastRenderedDayKey) {
+            _masonryContainerEl.insertBefore(_buildMasonryDateHeaderTile(image.addedAt), sentinel);
+            _masonryLastRenderedDayKey = dayKey;
+        }
+
+        const tile = _buildMasonryTile(image);
         _masonryContainerEl.insertBefore(tile, sentinel); // chèn TRƯỚC sentinel — sentinel luôn ở cuối cùng
         tiles.push(tile);
     }
