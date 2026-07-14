@@ -643,24 +643,23 @@ function openCreateAlbumModal(onConfirm) {
 // Hàm dựng UI thuần (giống openRenameFolderModal/openFolderPickerModal ở
 // core/file-manager/folder-picker-ui.js) — KHÔNG thuộc phạm vi 4 rule core-function-conventions.md
 // (rule đó áp cho hàm NGHIỆP VỤ, không áp cho hàm dựng UI).
-//
-// VIẾT LẠI HOÀN TOÀN (04/07/2026, mục 2 phản hồi Giang):
-//   1. GOM tất cả nút (Gỡ khỏi album/Đặt làm nền Playlist/Đặt làm nền Visual/Xoá) vào 1 menu
-//      dropdown mở qua nút "..." — CHỈ còn X (đóng) đứng riêng như cũ.
-//   2. THÊM tính năng CAPTION — hiện caption hiện có (nếu có) dưới ảnh, bấm vào để sửa (input +
-//      Lưu/Huỷ), lưu qua `callbacks.onSaveCaption(caption)`.
 /**
+ * SỬA (14/07/2026, mục cuối — menu action ảnh) — bỏ hẳn dropdown menu tự vẽ (text list, absolute
+ * positioned) VÀ caption-row-tự-sửa-tại-chỗ. Menu giờ là Generic Drawer (icon hoá, xem
+ * `buildPhotoActionMenuHtml()` ngay dưới) — KHÔNG dựng được ở ĐÂY (Generic Drawer là DOM TĨNH có
+ * sẵn từ `dom-refs.js`, không phải "cụm DOM mới tự tạo", Rule 5a CẤM Core tự `addEventListener` cho
+ * nó) — nên "..." CHỈ gọi `callbacks.onOpenMenu()`, Workflow (`event/workflow/file-manager-photo.js::
+ * _openImageActionMenu()`) tự mở/wire Generic Drawer. Trả về `{ close }` để Workflow tự đóng modal
+ * này SAU KHI 1 action (trừ "Sửa caption") được chọn từ menu.
  * @param {{key: string, blob: Blob, filename: string, caption?: string}} image
- * @param {{onDelete: () => void, onSetPlaylistBg: () => void, onSetVisualBg: () => void, onRemoveFromAlbum?: () => void, onSaveCaption: (caption: string) => void}} callbacks
- *        onRemoveFromAlbum TUỲ CHỌN — chỉ truyền khi đang lọc theo 1 album cụ thể, mục "Gỡ khỏi
- *        album" CHỈ hiện trong menu khi có callback này.
+ * @param {{onOpenMenu: () => void}} callbacks
+ * @returns {{close: () => void}}
  */
 function openImagePreviewModal(image, callbacks) {
     const stale = document.getElementById('image-preview-overlay');
     if (stale) stale.remove();
 
     const objectUrl = URL.createObjectURL(image.blob);
-    let currentCaption = image.caption || '';
 
     const overlay = document.createElement('div');
     overlay.id = 'image-preview-overlay';
@@ -671,9 +670,9 @@ function openImagePreviewModal(image, callbacks) {
         overlay.remove();
     }
 
-    // ---- Header: X đóng (trái) + "..." menu (phải) ----
+    // ---- Header: X đóng (trái) + "..." mở menu (phải) ----
     const header = document.createElement('div');
-    header.className = 'flex justify-between items-center px-4 py-3 shrink-0 gap-2 relative';
+    header.className = 'flex justify-between items-center px-4 py-3 shrink-0 gap-2';
     const closeBtn = document.createElement('button');
     closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
     closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
@@ -683,25 +682,8 @@ function openImagePreviewModal(image, callbacks) {
     const menuBtn = document.createElement('button');
     menuBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
     menuBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg>';
+    menuBtn.addEventListener('click', callbacks.onOpenMenu);
     header.appendChild(menuBtn);
-
-    const menu = document.createElement('div');
-    menu.className = 'hidden absolute top-14 right-3 z-10 w-56 rounded-2xl bg-[#1a1a1e] border border-white/10 shadow-2xl overflow-hidden flex flex-col py-1';
-    function closeMenu() { menu.classList.add('hidden'); }
-    menuBtn.addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('hidden'); });
-
-    function addMenuItem(label, danger, onClick) {
-        const item = document.createElement('button');
-        item.className = `text-left px-4 py-3 text-sm font-medium hover:bg-white/10 transition-colors ${danger ? 'text-rose-400' : 'text-white'}`;
-        item.textContent = label;
-        item.addEventListener('click', () => { closeMenu(); closeModal(); onClick(); });
-        menu.appendChild(item);
-    }
-    addMenuItem(t('fileManager.photo.image.btnSetPlaylistBg'), false, callbacks.onSetPlaylistBg);
-    addMenuItem(t('fileManager.photo.image.btnSetVisualBg'), false, callbacks.onSetVisualBg);
-    if (callbacks.onRemoveFromAlbum) addMenuItem(t('fileManager.photo.image.btnRemoveFromAlbum'), false, callbacks.onRemoveFromAlbum);
-    addMenuItem(t('fileManager.photo.image.btnDelete'), true, callbacks.onDelete);
-    header.appendChild(menu);
     overlay.appendChild(header);
 
     const imgWrap = document.createElement('div');
@@ -713,63 +695,108 @@ function openImagePreviewModal(image, callbacks) {
     imgWrap.appendChild(img);
     overlay.appendChild(imgWrap);
 
-    // ---- MỚI (mục 2) — hàng Caption: hiện caption hiện có (hoặc placeholder mời nhập), bấm vào
-    // để sửa (input + Lưu/Huỷ). ----
-    const captionRow = document.createElement('div');
-    captionRow.className = 'px-4 pb-4 shrink-0';
-    overlay.appendChild(captionRow);
-
-    function renderCaptionDisplay() {
-        captionRow.replaceChildren();
-        const displayBtn = document.createElement('button');
-        displayBtn.className = 'w-full text-left px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors';
-        const label = document.createElement('div');
-        label.className = 'text-[11px] text-slate-400 uppercase tracking-wider mb-0.5';
-        label.textContent = t('fileManager.photo.image.captionLabel');
-        displayBtn.appendChild(label);
-        const textEl = document.createElement('div');
-        textEl.className = currentCaption ? 'text-sm text-white' : 'text-sm text-slate-500 italic';
-        textEl.textContent = currentCaption || t('fileManager.photo.image.captionPlaceholder');
-        displayBtn.appendChild(textEl);
-        displayBtn.addEventListener('click', renderCaptionEditor);
-        captionRow.appendChild(displayBtn);
+    // Caption — CHỈ hiển thị (đọc), sửa qua menu "Edit caption" (openEditCaptionModal() ngay dưới,
+    // Workflow tự mở SAU khi đóng menu) — bỏ hẳn kiểu bấm-vào-để-sửa-tại-chỗ cũ.
+    if (image.caption) {
+        const captionEl = document.createElement('p');
+        captionEl.className = 'px-4 pb-4 shrink-0 text-sm text-slate-300 text-center';
+        captionEl.textContent = image.caption;
+        overlay.appendChild(captionEl);
     }
-
-    function renderCaptionEditor() {
-        captionRow.replaceChildren();
-        const box = document.createElement('div');
-        box.className = 'px-4 py-3 rounded-xl bg-white/5 border border-sky-500/40 flex flex-col gap-2';
-        const inputEl = document.createElement('textarea');
-        inputEl.className = 'w-full bg-transparent text-sm text-white outline-none resize-none placeholder:text-slate-500';
-        inputEl.rows = 2;
-        inputEl.maxLength = 200;
-        inputEl.placeholder = t('fileManager.photo.image.captionPlaceholder');
-        inputEl.value = currentCaption;
-        box.appendChild(inputEl);
-        const btnRow = document.createElement('div');
-        btnRow.className = 'flex justify-end gap-2';
-        const cancelBtn = document.createElement('button');
-        cancelBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:bg-white/10 transition-colors';
-        cancelBtn.textContent = t('common.cancel');
-        cancelBtn.addEventListener('click', renderCaptionDisplay);
-        const saveBtn = document.createElement('button');
-        saveBtn.className = 'px-4 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-white transition-colors';
-        saveBtn.textContent = t('common.save');
-        saveBtn.addEventListener('click', () => {
-            currentCaption = inputEl.value.trim();
-            callbacks.onSaveCaption(currentCaption);
-            renderCaptionDisplay();
-        });
-        btnRow.appendChild(cancelBtn);
-        btnRow.appendChild(saveBtn);
-        box.appendChild(btnRow);
-        captionRow.appendChild(box);
-        inputEl.focus();
-    }
-
-    renderCaptionDisplay();
-
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); else closeMenu(); });
 
     document.body.appendChild(overlay);
+    return { close: closeModal };
+}
+
+/**
+ * MỚI (14/07/2026, mục cuối) — bodyHtml cho menu action ảnh (Generic Drawer, icon hoá + tên ngắn
+ * gọn — yêu cầu Giang). Hàm THUẦN (Rule 1-4): chỉ ghép chuỗi từ `ctx`, không DOM/appState/gọi core
+ * khác. `flex flex-wrap justify-center` — mỗi nút rộng theo NỘI DUNG (`w-[76px]` cố định NHỎ, không
+ * kéo giãn hết hàng), tự XUỐNG DÒNG nếu không đủ chỗ — không bao giờ vượt quá bề rộng khung cha
+ * (luôn ≤ bề rộng màn hình trừ padding, đúng yêu cầu "width theo content, không cố định, nhưng <
+ * tổng màn hình").
+ * @param {{hasAlbum: boolean}} ctx
+ * @returns {string}
+ */
+function buildPhotoActionMenuHtml(ctx) {
+    const ICON_BG = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
+    const ICON_VISUAL = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg>';
+    const ICON_CAPTION = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
+    const ICON_EDIT_IMAGE = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3"/></svg>';
+    const ICON_REMOVE_ALBUM = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6"/></svg>';
+    const ICON_TRASH = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
+
+    const items = [
+        { action: 'setPlaylistBg', label: t('fileManager.photo.image.btnSetPlaylistBg'), icon: ICON_BG },
+        { action: 'setVisualBg', label: t('fileManager.photo.image.btnSetVisualBg'), icon: ICON_VISUAL },
+        { action: 'editCaption', label: t('fileManager.photo.image.btnEditCaption'), icon: ICON_CAPTION },
+        { action: 'editImage', label: t('fileManager.photo.image.btnEditImage'), icon: ICON_EDIT_IMAGE },
+    ];
+    if (ctx && ctx.hasAlbum) items.push({ action: 'removeFromAlbum', label: t('fileManager.photo.image.btnRemoveFromAlbum'), icon: ICON_REMOVE_ALBUM });
+    items.push({ action: 'delete', label: t('fileManager.photo.image.btnDelete'), icon: ICON_TRASH, danger: true });
+
+    return `
+        <div class="flex flex-wrap justify-center gap-x-5 gap-y-4">
+            ${items.map((item) => `
+                <button type="button" data-photo-menu-action="${item.action}" class="flex flex-col items-center gap-1.5 w-[76px]">
+                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center ${item.danger ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-700'}">${item.icon}</div>
+                    <span class="text-[11px] font-medium text-center leading-tight ${item.danger ? 'text-rose-600' : 'text-slate-700'}">${escapeHtml(item.label)}</span>
+                </button>
+            `).join('')}
+        </div>
+    `;
+}
+
+/** MỚI (14/07/2026, mục cuối) — modal sửa caption, mở TỪ menu action (Generic Drawer đã đóng trước
+ * đó) — cùng khuôn `openRenameAlbumModal()` (overlay riêng, KHÔNG phụ thuộc modal xem ảnh còn mở
+ * hay không).
+ * @param {string} currentCaption
+ * @param {(caption: string) => void} onSave
+ */
+function openEditCaptionModal(currentCaption, onSave) {
+    const stale = document.getElementById('edit-caption-overlay');
+    if (stale) stale.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'edit-caption-overlay';
+    overlay.className = 'fixed inset-0 z-[131] bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+
+    const card = document.createElement('div');
+    card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
+    const titleEl = document.createElement('h3');
+    titleEl.className = 'text-base font-bold text-white';
+    titleEl.textContent = t('fileManager.photo.image.btnEditCaption');
+    card.appendChild(titleEl);
+
+    function closeModal() { overlay.remove(); }
+
+    const inputEl = document.createElement('textarea');
+    inputEl.rows = 3;
+    inputEl.maxLength = 200;
+    inputEl.placeholder = t('fileManager.photo.image.captionPlaceholder');
+    inputEl.value = currentCaption;
+    inputEl.className = 'bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none resize-none focus:border-sky-500 focus:bg-black/60 transition-colors';
+    card.appendChild(inputEl);
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'flex gap-3';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-sm font-semibold transition-colors';
+    cancelBtn.textContent = t('common.cancel');
+    cancelBtn.addEventListener('click', closeModal);
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'flex-1 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors';
+    saveBtn.textContent = t('common.save');
+    saveBtn.addEventListener('click', () => {
+        const caption = inputEl.value.trim();
+        closeModal();
+        onSave(caption);
+    });
+    btnRow.appendChild(cancelBtn);
+    btnRow.appendChild(saveBtn);
+    card.appendChild(btnRow);
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    inputEl.focus();
 }

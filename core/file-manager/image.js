@@ -70,6 +70,21 @@ async function setImageCaption(imageKey, caption) {
 }
 
 /**
+ * MỚI (14/07/2026, mục cuối — tính năng Edit ảnh) — ghi đè `blob` sau khi sửa ở trang
+ * `image-edit.html`, giữ nguyên `filename`/`addedAt`/`caption` — cùng khuôn `setImageCaption()`
+ * ngay trên (đọc record đầy đủ, ghi đè ĐÚNG 1 field, lưu lại nguyên record).
+ * @param {string} imageKey
+ * @param {Blob} newBlob
+ * @returns {Promise<{status: 'notFound'|'ok'}>}
+ */
+async function updateImageBlob(imageKey, newBlob) {
+    const record = await getImageRecord(imageKey); // data layer
+    if (!record) return { status: 'notFound' };
+    await setImageRecord(imageKey, { ...record, blob: newBlob });
+    return { status: 'ok' };
+}
+
+/**
  * Xoá hẳn 1 ảnh khỏi thư viện — dọn cascade khỏi MỌI album đang chứa nó TRƯỚC khi xoá record.
  * Cascade viết TRỰC TIẾP trong thân hàm (không gọi ra 1 hàm core riêng ở album.js) — cùng nguyên
  * tắc deleteFolder() ở core/file-manager/folder.js: dọn cascade + xoá record CHÍNH là 1 tiến trình
