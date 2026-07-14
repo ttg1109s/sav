@@ -56,6 +56,7 @@ function renderFolderListUI(folders, activeFolderId, listEl, emptyEl) {
         nameWrapEl.appendChild(nameEl);
 
         const countEl = document.createElement('span');
+        countEl.dataset.role = 'count'; // MỚI (14/07/2026) — để updateFolderListRowUI() tìm đúng phần tử cần vá
         countEl.className = 'block text-xs text-slate-500';
         countEl.textContent = tFormat('fileManager.song.folderSongCount', { count: folder.songCount || 0 });
         nameWrapEl.appendChild(countEl);
@@ -81,4 +82,38 @@ function renderFolderListUI(folders, activeFolderId, listEl, emptyEl) {
 
         listEl.appendChild(row);
     });
+}
+
+/**
+ * Vá lại 1 HÀNG folder ĐÃ CÓ SẴN trong DOM (không dựng lại từ đầu) — dùng khi CHỈ 1 folder đổi
+ * (xoá bài/remove-all/apply/unapply) TRONG LÚC danh sách KHÔNG hiển thị (vd đang xem Folder
+ * Detail), tránh phải gọi lại renderFolderListUI() cho TOÀN BỘ danh sách (tốn kém — N lượt
+ * getFolderSongCount() + render lại DOM không cần thiết cho các hàng KHÔNG đổi gì). MỚI
+ * (14/07/2026, Giang yêu cầu — "xoá song trong folder xong back không render lại", xem
+ * event/workflow/file-manager-song.js::refreshStaleFolderRowIfNeeded()).
+ * @param {HTMLElement} rowEl - hàng ĐÃ có sẵn (tìm qua `[data-folder-id="..."]`).
+ * @param {number} songCount
+ * @param {boolean} isActive
+ */
+function updateFolderListRowUI(rowEl, songCount, isActive) {
+    const nameEl = rowEl.querySelector('[data-role="name"]');
+    const countEl = rowEl.querySelector('[data-role="count"]');
+    if (countEl) countEl.textContent = tFormat('fileManager.song.folderSongCount', { count: songCount });
+
+    rowEl.classList.toggle('bg-sky-500/10', isActive);
+    if (nameEl) {
+        nameEl.classList.toggle('text-sky-300', isActive);
+        nameEl.classList.toggle('text-slate-200', !isActive);
+    }
+
+    let dotEl = rowEl.querySelector('[data-role="active-dot"]');
+    if (isActive && !dotEl) {
+        dotEl = document.createElement('span');
+        dotEl.dataset.role = 'active-dot';
+        dotEl.className = 'w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0';
+        dotEl.title = t('fileManager.song.activeFolderBadge');
+        rowEl.insertBefore(dotEl, rowEl.firstChild);
+    } else if (!isActive && dotEl) {
+        dotEl.remove();
+    }
 }

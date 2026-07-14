@@ -67,7 +67,10 @@ async function resolveFolderId(name) {
 }
 
 /**
- * Tạo 1 folder mới rỗng. 1 tiến trình duy nhất: kiểm tra trùng tên -> sinh id -> ghi metadata ->
+ * Tạo 1 folder mới rỗng — nhận `folderId` ĐÃ ĐƯỢC XÁC ĐỊNH SẴN qua tham số (nơi gọi tự
+ * `resolveFolderId(name)` TRƯỚC, rồi gọi hàm này — 2 core TÁCH RỜI, Workflow tự gọi CẢ HAI theo
+ * đúng thứ tự, xem "SỬA 14/07/2026" bên dưới). 1 tiến trình duy nhất: kiểm tra trùng TÊN (không
+ * phải id — id lúc này CHẮC CHẮN không trùng, đã tự `resolveFolderId()` đảm bảo) -> ghi metadata ->
  * ghi mapping rỗng — nhánh "trùng tên -> dừng sớm" là guard clause (Rule 1 cho phép), KHÔNG phải
  * rẽ nhánh 2 tiến trình khác nhau.
  *
@@ -76,16 +79,27 @@ async function resolveFolderId(name) {
  * riêng biệt, gây nhầm lẫn thật). Giờ CHẶN HẲN — so khớp CASE-SENSITIVE (phân biệt hoa/thường):
  * "abc" / "ABC" / "Abc" được coi là 3 tên KHÁC NHAU, được phép cùng tồn tại; CHỈ chặn khi trùng
  * tuyệt đối từng ký tự.
+ *
+ * [TỰ SỬA 14/07/2026, tự audit lại Rule 3 — Giang yêu cầu "đụng hàm di sản phải refactor luôn theo
+ * rule"] — trước đây hàm này TỰ gọi `listFolders()` (kiểm tra trùng tên) VÀ `resolveFolderId()`
+ * (sinh id) — CẢ 2 đều là core KHÁC trong CÙNG file, biện minh "có return value nên hợp lệ" — SAI
+ * theo Rule 3 hiện hành. `listFolders()` đã inline TRỰC TIẾP (2 dòng, không đáng tách riêng).
+ * `resolveFolderId()` KHÁC — có vòng lặp + logic riêng đáng kể (đọc `deletedFolderIds`, tự sinh
+ * suffix), tự nó là 1 NGHIỆP VỤ HOÀN CHỈNH ("cấp 1 id an toàn cho tên này") — KHÔNG hợp lệ làm hàm
+ * con (không qua được phép thử Rule 3c: gọi độc lập vẫn ra 1 giá trị có Ý NGHĨA NGHIỆP VỤ RIÊNG,
+ * không phải giá trị trung gian vô nghĩa). Đổi hẳn CHỮ KÝ hàm — nhận `folderId` qua tham số thay vì
+ * tự tính — nơi gọi (Workflow) giờ PHẢI tự gọi `resolveFolderId(name)` TRƯỚC, xem 2 nơi gọi:
+ * `event/workflow/file-manager-song.js::createFolderFromInput()`,
+ * `event/workflow/playlist.js::createFolderInPicker()`.
+ * @param {string} folderId - ĐÃ resolve sẵn qua `resolveFolderId(name)`.
  * @param {string} name
  * @returns {Promise<{status: 'duplicateName'|'ok', folderId?: string}>}
  */
-async function createFolder(name) {
-    const existingFolders = await listFolders(); // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
-    console.log(`[createFolder] callTo: "listFolders", request: "kiểm tra tên '${name}' đã tồn tại chưa (case-sensitive)"`);
+async function createFolder(folderId, name) {
+    const existingIds = await getAllFolderKeys(); // service/db.js — API ngoại lệ Rule 3b
+    const existingFolders = (await Promise.all(existingIds.map((id) => getFolderRecord(id)))).filter(Boolean); // service/db.js
     if (existingFolders.some(f => f.name === name)) return { status: 'duplicateName' };
 
-    const folderId = await resolveFolderId(name); // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
-    console.log(`[createFolder] callTo: "resolveFolderId", request: "sinh id duy nhất từ tên '${name}'"`);
     await setFolderRecord(folderId, { id: folderId, name });
     await setFolderSongMap(folderId, { list: [], empty: 0 });
     return { status: 'ok', folderId };
