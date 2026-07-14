@@ -360,7 +360,7 @@
          CŨ (ĐÃ XOÁ — xoá tay nếu còn sót trên máy). items.js (mục 3) ĐỘC LẬP với Generic Drawer
          (xem docstring đầu file) nhưng đặt cạnh nhau cho dễ đọc. -->
     <script src="components/generic-drawer.js?v=20260714v2"></script>
-    <script src="components/items.js?v=20260714v1"></script>
+    <script src="components/items.js?v=20260714v2"></script>
     <!-- Visualizer/Subtitle Settings Drawer (ver 8 refine, mục 3) — cùng pattern navigation
          stack với About/Storage Drawer, mở chồng lên #drawer-settings. -->
     <script src="components/visualizer-settings-drawer.js?v=20260707v1"></script>
@@ -469,7 +469,7 @@
          tiếp ở đây, nhưng gom nhóm cho dễ đọc). -->
     <script src="core/file-manager/image.js?v=20260714v1"></script>
     <script src="core/file-manager/album.js?v=20260703v1"></script>
-    <script src="core/file-manager/photo-ui.js?v=20260714v1"></script>
+    <script src="core/file-manager/photo-ui.js?v=20260714v2"></script>
     <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer (core UI thuần), CẦN
          core/dom-refs.js (đã nạp ngay trên: genericDrawerOverlay/Panel/Header/Body). Đặt cạnh
          nhóm Documents cho dễ đọc dù bản thân KHÔNG phụ thuộc gì từ document.js/document-ui.js. -->
@@ -690,7 +690,7 @@
          computeVariableVirtualWindowRange()/renderItemList()/itemTemplateImageGridRow() (components/
          items.js, đã nạp SỚM HƠN NHIỀU — dòng ~363) VÀ sortImagesByAddedDateDesc()/buildPhotoGridRows()
          (core/file-manager/image.js, đã nạp ở nhóm CORE) — cả 2 đều nạp TRƯỚC file này, an toàn. -->
-    <script src="event/workflow/file-manager-photo.js?v=20260714v1"></script>
+    <script src="event/workflow/file-manager-photo.js?v=20260714v2"></script>
     <script src="event/router/file-manager-photo.js?v=20260706v1"></script>
     <script src="event/listener/file-manager-photo.js?v=20260714v1"></script>
     <!-- workflowFileManagerDocument CẦN tồn tại trước khi router gọi tới. Batch D7 (06/07/2026):
@@ -721,10 +721,10 @@
     <!-- MỚI (13/07/2026, plan-v12-extended.md mục 3, hạ tầng windowing thật cho items.js) — Workflow
          CHUNG "virtualList", chưa có nơi gọi thật nào (Document Picker vẫn dưới ngưỡng ~100-200
          item) — dựng sẵn cho lần cần thật, xem docstring đầu event/workflow/virtual-list.js. -->
-    <script src="event/workflow/virtual-list.js?v=20260713v1"></script>
-    <script src="event/router/virtual-list.js?v=20260713v1"></script>
-    <script src="event/listener/virtual-list.js?v=20260713v1"></script>
-    <script src="event/workflow/playlist.js?v=20260714v4"></script>
+    <script src="event/workflow/virtual-list.js?v=20260714v1"></script>
+    <script src="event/router/virtual-list.js?v=20260714v1"></script>
+    <script src="event/listener/virtual-list.js?v=20260714v1"></script>
+    <script src="event/workflow/playlist.js?v=20260714v5"></script>
     <script src="event/router/playlist.js?v=20260704v1"></script>
     <script src="event/listener/playlist.js?v=20260704v1"></script>
     <!-- Cụm "playerControls" (ver 11, patch 3): 16/17 msg.type KHÔNG cần workflow (router gọi
