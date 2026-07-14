@@ -51,7 +51,7 @@ const workflowPlaylist = {
         openPhotoUiImagePickerModal(images, (imageKey) => { // core/file-manager/photo-ui.js
             this.applyCoverFromLibrary(imageKey);
         }, undefined, (gridEl) => {
-            workflowFileManagerPhoto.setupPhotoGridWindow(gridEl, images, {}); // event/workflow/file-manager-photo.js — miền khác, tái dùng THẲNG
+            workflowFileManagerPhoto.setupPhotoGridWindow(gridEl, images, {}, 'photoGridPicker'); // event/workflow/file-manager-photo.js — mountKey riêng, độc lập panel Photo & Album
         });
     },
 
