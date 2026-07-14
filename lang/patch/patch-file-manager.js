@@ -65,10 +65,15 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.image.btnRemoveFromAlbum': 'Remove from album',
     'fileManager.photo.image.uploadSuccess': 'Added {count} photo(s).',
     // ── Batch tiếp theo (03/07/2026, hạ tầng z-index nền Visual) — "Đặt làm nền" trên ảnh ─────
-    'fileManager.photo.image.btnSetPlaylistBg': 'Set as Playlist background',
-    'fileManager.photo.image.btnSetVisualBg': 'Set as Visualizer background',
+    // RÚT GỌN (14/07/2026, mục cuối — icon hoá menu action ảnh, Giang yêu cầu tên ngắn gọn).
+    'fileManager.photo.image.btnSetPlaylistBg': 'Set as background',
+    'fileManager.photo.image.btnSetVisualBg': 'Set as background visualizer',
     'fileManager.photo.image.setPlaylistBgSuccess': 'Set as Playlist background.',
     'fileManager.photo.image.setVisualBgSuccess': 'Set as Visualizer background.',
+    // MỚI (14/07/2026, mục cuối) — 2 action mới trong menu (đã icon hoá) + tiêu đề Generic Drawer.
+    'fileManager.photo.image.btnEditCaption': 'Edit caption',
+    'fileManager.photo.image.btnEditImage': 'Edit image',
+    'fileManager.photo.image.menuTitle': 'Photo options',
     'fileManager.photo.album.all': 'All',
     'fileManager.photo.album.new': 'New',
     'fileManager.photo.album.createTitle': 'New album',
