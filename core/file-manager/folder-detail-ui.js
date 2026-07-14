@@ -21,8 +21,11 @@
  * @returns {Array<{key: string, title: string, artist: string}>}
  */
 function getFolderSongsForDisplay(folderMap, playlistCache) {
-    const keys = getFolderSongKeys(folderMap); // CÓ return, DÙNG ngay dưới -> Rule 3 hợp lệ
-    console.log(`[getFolderSongsForDisplay] callTo: "getFolderSongKeys", request: "lấy danh sách bài đang thật trong folder để hiển thị Folder Detail Drawer"`);
+    // [TỰ SỬA 14/07/2026, tự audit lại Rule 3] — trước đây gọi getFolderSongKeys() (1 core KHÁC ở
+    // core/file-manager/folder.js) rồi biện minh "có return value nên hợp lệ" — SAI theo Rule 3
+    // hiện hành (xem giải thích đầy đủ ở core/file-manager/folder.js::deleteFolder()). Inline TRỰC
+    // TIẾP logic 1 dòng (lọc tombstone null) tại đây, không gọi hàm đó nữa.
+    const keys = folderMap.list.filter((k) => k != null);
 
     return keys.map((key) => {
         const cached = playlistCache.get(key);

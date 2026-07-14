@@ -123,8 +123,12 @@ async function deleteFolder(folderId) {
     const folderMap = await getFolderSongMap(folderId);
     if (!folderMap) return { status: 'notFound' };
 
-    const songKeys = getFolderSongKeys(folderMap); // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
-    console.log(`[deleteFolder] callTo: "getFolderSongKeys", request: "lấy danh sách bài đang thật trong folder ${folderId} để dọn field trước khi xoá"`);
+    // [TỰ SỬA 14/07/2026, tự audit lại Rule 3] — trước đây gọi getFolderSongKeys() (1 core KHÁC
+    // trong CÙNG file) rồi biện minh "có return value nên hợp lệ" — SAI theo đúng Rule 3 hiện hành
+    // (readme/core-function-conventions.md mục 3a: "không còn tiêu chí nào để hợp lệ hoá core gọi
+    // core"). Inline TRỰC TIẾP logic 1 dòng của getFolderSongKeys() (lọc tombstone null) tại đây,
+    // không gọi hàm đó nữa.
+    const songKeys = folderMap.list.filter((k) => k != null);
     for (const songKey of songKeys) {
         const record = await getSongRecord(songKey);
         if (!record || !record.folder) continue; // guard: record đã bị xoá/hỏng dữ liệu ở nơi khác — bỏ qua, không chặn xoá folder
@@ -284,8 +288,8 @@ async function removeAllSongsFromFolder(folderId) {
     const folderMap = await getFolderSongMap(folderId);
     if (!folderMap) return { status: 'notFound' };
 
-    const songKeys = getFolderSongKeys(folderMap); // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
-    console.log(`[removeAllSongsFromFolder] callTo: "getFolderSongKeys", request: "lấy danh sách bài đang thật trong folder ${folderId} để dọn field trước khi rỗng hoá"`);
+    // Inline (không gọi getFolderSongKeys() — xem giải thích đầy đủ ở deleteFolder() phía trên).
+    const songKeys = folderMap.list.filter((k) => k != null);
     for (const songKey of songKeys) {
         const record = await getSongRecord(songKey);
         if (!record || !record.folder) continue; // guard: record đã bị xoá/hỏng dữ liệu ở nơi khác — bỏ qua
@@ -295,6 +299,18 @@ async function removeAllSongsFromFolder(folderId) {
 
     await setFolderSongMap(folderId, { list: [], empty: 0 });
     return { status: 'ok' };
+}
+
+/**
+ * Đếm số bài THẬT SỰ (không tính tombstone-null) trong 1 folder — dùng hiển thị "X bài" ở danh
+ * sách folder (Settings -> File Manager -> Song). MỚI (14/07/2026, Giang yêu cầu).
+ * @param {string} folderId
+ * @returns {Promise<number>}
+ */
+async function getFolderSongCount(folderId) {
+    const folderMap = await getFolderSongMap(folderId);
+    if (!folderMap) return 0;
+    return folderMap.list.filter((k) => k != null).length; // inline, không gọi getFolderSongKeys() — xem giải thích ở deleteFolder()
 }
 
 /**

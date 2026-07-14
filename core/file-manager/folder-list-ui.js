@@ -12,7 +12,10 @@
  */
 
 /**
- * @param {Array<{id: string, name: string}>} folders
+ * @param {Array<{id: string, name: string, songCount?: number}>} folders - MỚI (14/07/2026, Giang
+ *        yêu cầu) — `songCount` tuỳ chọn: số bài THẬT SỰ đang có trong folder (nơi gọi tự
+ *        getFolderSongCount() cho TỪNG folder rồi gắn vào, xem event/workflow/file-manager-song.js
+ *        — hàm này KHÔNG tự tính, chỉ hiển thị nếu có, mặc định 0 nếu thiếu).
  * @param {string|null} activeFolderId - MỚI (sửa gap UX 03/07/2026): folder đang là
  *        activePlayListFolder (nếu có) — đánh dấu riêng để người dùng biết đang scope theo folder
  *        nào, tránh quên/nhầm sau khi F5 (scope giờ lưu bền qua meta, không còn "hiển nhiên thấy
@@ -41,11 +44,23 @@ function renderFolderListUI(folders, activeFolderId, listEl, emptyEl) {
             row.appendChild(dotEl);
         }
 
+        // MỚI (14/07/2026, Giang yêu cầu) — bọc tên + số bài trong 1 cột dọc thay vì <span> đơn lẻ
+        // như trước, để chèn thêm dòng phụ "X bài" mà không phá layout hàng ngang hiện có.
+        const nameWrapEl = document.createElement('div');
+        nameWrapEl.className = 'flex-1 min-w-0';
+
         const nameEl = document.createElement('span');
         nameEl.dataset.role = 'name'; // MỚI (03/07/2026, đợt 6) — để querySelector không nhầm với chấm active (cũng là <span>)
-        nameEl.className = `flex-1 min-w-0 truncate text-sm font-medium${isActive ? ' text-sky-300' : ' text-slate-200'}`;
+        nameEl.className = `block truncate text-sm font-medium${isActive ? ' text-sky-300' : ' text-slate-200'}`;
         nameEl.textContent = folder.name;
-        row.appendChild(nameEl);
+        nameWrapEl.appendChild(nameEl);
+
+        const countEl = document.createElement('span');
+        countEl.className = 'block text-xs text-slate-500';
+        countEl.textContent = tFormat('fileManager.song.folderSongCount', { count: folder.songCount || 0 });
+        nameWrapEl.appendChild(countEl);
+
+        row.appendChild(nameWrapEl);
 
         const renameBtn = document.createElement('button');
         renameBtn.dataset.folderAction = 'rename';
