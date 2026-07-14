@@ -152,7 +152,10 @@ const LANG_PATCH_FILE_MANAGER = {
     // hiển thị bằng 1 heading NGAY TRONG BODY panel (xem components/file-manager.js).
     'fileManager.song.folderDetail.headerTitle': 'Folder Detail',
     'fileManager.song.folderDetail.btnApply': 'Apply to Playlist',
-    'fileManager.song.folderDetail.btnUnapply': 'Remove from Playlist',
+    // SỬA (14/07/2026, Giang yêu cầu) — "Remove from Playlist" GÂY HIỂU NHẦM (nghe như xoá bài
+    // khỏi playlist, trong khi thật ra chỉ HUỶ scope "folder đang active" — playlist quay lại hiện
+    // TOÀN BỘ thư viện, không mất bài nào). Đổi tên rõ nghĩa hơn.
+    'fileManager.song.folderDetail.btnUnapply': 'Unset Active Playlist',
     // 'songListTitle' XOÁ (14/07/2026, Giang yêu cầu — bỏ tiêu đề "SONGS IN THIS FOLDER") — KHÔNG
     // còn nơi nào dùng, xem components/file-manager.js::renderFileManagerFolderDetailPanelBody().
     'fileManager.song.folderDetail.empty': 'No songs in this folder yet.',
