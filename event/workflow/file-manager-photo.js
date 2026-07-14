@@ -33,39 +33,104 @@
  * dưới), gọi `workflowVirtualList.mount()` (event/workflow/virtual-list.js) — file ĐÓ mới là nơi
  * thật sự đo/dựng/vẽ lại; `scroll` đi ĐÚNG luồng listener->bus->router->workflow (SỬA 14/07/2026,
  * Giang chỉ ra bản đầu Workflow này tự `addEventListener('scroll', ...)` là SAI).
+ *
+ * TIẾP (14/07/2026, cùng ngày, phản hồi tiếp theo):
+ *   1. Nút upload + nút "xoá nhanh" (MỚI, mục 2.2) dời vào `headerActionHtml` (core/settings-panel-
+ *      stack-ui.js — MỚI thêm slot này) — `openPanel()` tự build, KHÔNG còn thanh riêng dưới header.
+ *   2. Album story — pagination CHỈ toggle CSS `hidden` (Giang đơn giản hoá, KHÔNG cắt mảng/re-
+ *      render mỗi lần bấm ‹/› — xem `renderAlbumStory()`/`setAlbumStoryPageVisibility()` core/
+ *      file-manager/photo-ui.js). Tile "+" tạo mới ĐÃ tĩnh (components/file-manager.js).
+ *   3. Chế độ "xoá nhanh" ảnh — bấm ảnh nào xoá luôn ảnh đó, không hỏi lại (`promptQuickDeleteMode`/
+ *      `quickDeleteImage`).
+ *   4. `openPanel()` bọc `withLoadingShield()` quanh lần `refresh()` ĐẦU TIÊN — Giang chỉ ra: DOM
+ *      lưới ảnh (nặng — nhiều object URL) KHÔNG được tải song song lúc panel còn đang trượt vào,
+ *      phải tải SAU KHI đã vào hẳn, che bằng shield, chỉ tắt khi xong.
  */
 let fileManagerPhotoPanelEl = null; // panel Photo đang mở — null nếu đang đóng (Batch D6)
 
 // Chiều cao (px) CỐ ĐỊNH của 1 hàng header ngày — PHẢI khớp đúng class `h-10` ở
 // components/items.js::itemTemplateImageGridRow() (đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia).
 const PHOTO_GRID_HEADER_HEIGHT_PX = 40;
-// Khớp class `gap-1` (Tailwind = 4px) trên chính lưới — đổi CSS gap thì phải đổi luôn hằng số này.
-const PHOTO_GRID_GAP_PX = 4;
+// Khớp .photo-grid { gap: 2px } ở assets/css/style.css — đổi CSS gap thì phải đổi luôn hằng số này.
+const PHOTO_GRID_GAP_PX = 2;
+// Khớp w-16 (64px) + gap-4 (16px) ở album story (components/file-manager.js) — đổi CSS thì phải đổi luôn.
+const ALBUM_STORY_TILE_WIDTH_PX = 64;
+const ALBUM_STORY_GAP_PX = 16;
 
 const workflowFileManagerPhoto = {
 
     /** Ứng với 'fileManagerPhoto.openPanel.click'. `fullBleed: true` — masonry/story slider vốn
      * thiết kế tràn viền (edge-to-edge), KHÔNG dùng khung "max-w-2xl mx-auto" mặc định của mọi
-     * panel khác (xem core/settings-panel-stack.js::pushSettingsPanel(), Batch D6). */
+     * panel khác (xem core/settings-panel-stack.js::pushSettingsPanel(), Batch D6).
+     * SỬA (14/07/2026) — `withLoadingShield()` bọc quanh lần `refresh()` ĐẦU TIÊN: panel push +
+     * trượt vào là animation NHẸ (chỉ CSS), tách biệt hẳn khỏi việc tải DOM lưới ảnh NẶNG (nhiều
+     * object URL) — che bằng shield, tắt NGAY khi DOM lần đầu xong, không phải đợi hết animation. */
     async openPanel() {
-        fileManagerPhotoPanelEl = pushSettingsPanel({ title: t('fileManager.photo.title'), bodyHtml: renderFileManagerPhotoPanelBody(), fullBleed: true });
-        await this.refresh(null, false, new Set());
+        fileManagerPhotoPanelEl = pushSettingsPanel({
+            title: t('fileManager.photo.title'),
+            bodyHtml: renderFileManagerPhotoPanelBody(),
+            fullBleed: true,
+            headerActionHtml: this._buildHeaderActionHtml(),
+        });
+        this._wireHeaderActionEvents();
+        await withLoadingShield(t('fileManager.photo.loadingTitle'), async () => { // core/loading-shield-util.js
+            await this.refresh(null, false, new Set(), 0, false);
+        });
+    },
+
+    _buildHeaderActionHtml() {
+        return `
+            <button id="btn-file-manager-image-upload-trigger" class="w-8 h-8 flex items-center justify-center rounded-full bg-sky-500 hover:bg-sky-400 transition-colors text-white shrink-0" title="${t('fileManager.photo.uploadTitle')}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+            </button>
+            <button id="btn-file-manager-image-delete-mode" class="hidden w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0" title="${t('fileManager.photo.image.quickDeleteTitle')}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            </button>
+            <input type="file" id="file-manager-image-upload-input" accept="image/png,image/jpeg,image/webp" multiple class="hidden">
+        `;
+    },
+
+    /** Wire 2 nút vừa dựng trong header (`headerActionHtml`) — panel push CHỈ 1 LẦN/lần mở (khác
+     * `refresh()` gọi lại nhiều lần), nên wire Ở ĐÂY, KHÔNG phải trong `refresh()` (tránh gắn listener
+     * trùng nhiều lần lên CÙNG 1 nút tĩnh). */
+    _wireHeaderActionEvents() {
+        const uploadBtn = fileManagerPhotoPanelEl.querySelector('#btn-file-manager-image-upload-trigger');
+        const uploadInput = fileManagerPhotoPanelEl.querySelector('#file-manager-image-upload-input');
+        if (uploadBtn && uploadInput) uploadBtn.addEventListener('click', () => uploadInput.click());
+        // (change của uploadInput đã wire ở event/listener/file-manager-photo.js — delegated qua settingsStackBody)
+        const deleteModeBtn = fileManagerPhotoPanelEl.querySelector('#btn-file-manager-image-delete-mode');
+        if (deleteModeBtn) deleteModeBtn.addEventListener('click', () => {
+            eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.image.deleteMode.click', payload: {} });
+        });
     },
 
     /** Đọc lại toàn bộ album + ảnh, vẽ lại story slider + masonry + thanh quản lý album + thanh
      * chọn nhiều (lọc theo activeAlbumId nếu có). Dùng lại ở MỌI nơi cần vẽ lại (mở panel, chọn
      * album, đổi tên/xoá album, tạo album, upload xong, xoá ảnh xong, bật/tắt/xác nhận chọn nhiều).
+     * KHÔNG dùng cho pagination story album nữa (bấm ‹/› giờ đi `navigateAlbumStoryPage()`, CHỈ
+     * toggle CSS, không gọi lại hàm này — xem đó).
      * @param {string|null} activeAlbumId
      * @param {boolean} [imageSelectionMode]
      * @param {Set<string>} [selectedImageKeys]
+     * @param {number} [albumStoryPageIndex]
+     * @param {boolean} [imageQuickDeleteMode]
      */
-    async refresh(activeAlbumId, imageSelectionMode = false, selectedImageKeys = new Set()) {
+    async refresh(activeAlbumId, imageSelectionMode = false, selectedImageKeys = new Set(), albumStoryPageIndex = 0, imageQuickDeleteMode = false) {
         if (!fileManagerPhotoPanelEl) return; // guard: panel đã đóng
         const albums = await listAlbums(); // core/file-manager/album.js
         const images = await listImages(); // core/file-manager/image.js
         const imageRecordsByKey = new Map(images.map((img) => [img.key, img]));
 
-        renderAlbumStory(albums, activeAlbumId, imageRecordsByKey, fileManagerPhotoPanelEl.querySelector('#file-manager-album-story')); // core/file-manager/photo-ui.js
+        // ---- Album story: render TOÀN BỘ 1 lần, gắn trang, hiện đúng trang hiện tại bằng CSS ----
+        const storyListEl = fileManagerPhotoPanelEl.querySelector('#file-manager-album-story');
+        if (storyListEl) {
+            const itemsPerPage = Math.max(1, Math.floor((storyListEl.clientWidth + ALBUM_STORY_GAP_PX) / (ALBUM_STORY_TILE_WIDTH_PX + ALBUM_STORY_GAP_PX)));
+            const totalPages = renderAlbumStory(['__all__', ...albums], itemsPerPage, activeAlbumId, imageRecordsByKey, storyListEl); // core/file-manager/photo-ui.js
+            const clampedPage = Math.max(0, Math.min(albumStoryPageIndex, totalPages - 1));
+            setAlbumStoryPageVisibility(storyListEl, clampedPage); // core/file-manager/photo-ui.js
+            storyListEl.dataset.totalPages = String(totalPages); // navigateAlbumStoryPage() đọc lại — KHÔNG cần đo/render lại mỗi lần bấm ‹/›
+            this._updateAlbumStoryArrows(clampedPage, totalPages);
+        }
 
         const activeAlbum = activeAlbumId ? albums.find((a) => a.id === activeAlbumId) : null;
 
@@ -83,6 +148,14 @@ const workflowFileManagerPhoto = {
             updateImageSelectionCount(selectedImageKeys.size, fileManagerPhotoPanelEl.querySelector('#file-manager-image-selection-count'));
         }
 
+        // ---- Nút "xoá nhanh" trong header: chỉ hiện khi có ảnh, đổi màu khi đang bật ----
+        const deleteModeBtn = fileManagerPhotoPanelEl.querySelector('#btn-file-manager-image-delete-mode');
+        if (deleteModeBtn) {
+            deleteModeBtn.classList.toggle('hidden', images.length === 0);
+            deleteModeBtn.classList.toggle('bg-rose-500', imageQuickDeleteMode);
+            deleteModeBtn.classList.toggle('bg-white/10', !imageQuickDeleteMode);
+        }
+
         const displayedImages = imageSelectionMode
             ? images
             : (activeAlbum ? images.filter((img) => activeAlbum.imageKeys.includes(img.key)) : images);
@@ -93,6 +166,59 @@ const workflowFileManagerPhoto = {
             displayedImages,
             { selectionMode: imageSelectionMode, selectedImageKeys }
         );
+    },
+
+    /** MỚI (14/07/2026) — chuyển trang story album CHỈ bằng CSS (Giang đơn giản hoá) — KHÔNG gọi
+     * lại `refresh()` (không đọc DB, không dựng lại DOM). `totalPages` đọc từ `dataset` gắn sẵn lúc
+     * `refresh()` gần nhất (KHÔNG tính lại — số album không đổi giữa 2 lần bấm ‹/›).
+     * @param {number} requestedIndex
+     * @returns {number} chỉ số trang THẬT SỰ áp dụng (đã kẹp) — Router tự đồng bộ lại state của nó.
+     */
+    navigateAlbumStoryPage(requestedIndex) {
+        if (!fileManagerPhotoPanelEl) return 0;
+        const storyListEl = fileManagerPhotoPanelEl.querySelector('#file-manager-album-story');
+        if (!storyListEl) return 0;
+        const totalPages = Number(storyListEl.dataset.totalPages || 1);
+        const clamped = Math.max(0, Math.min(requestedIndex, totalPages - 1));
+        setAlbumStoryPageVisibility(storyListEl, clamped); // core/file-manager/photo-ui.js
+        this._updateAlbumStoryArrows(clamped, totalPages);
+        return clamped;
+    },
+
+    _updateAlbumStoryArrows(pageIndex, totalPages) {
+        const prevBtn = fileManagerPhotoPanelEl.querySelector('#btn-file-manager-album-story-prev');
+        const nextBtn = fileManagerPhotoPanelEl.querySelector('#btn-file-manager-album-story-next');
+        if (prevBtn) {
+            prevBtn.classList.toggle('hidden', totalPages <= 1);
+            prevBtn.classList.toggle('opacity-30', pageIndex <= 0);
+            prevBtn.disabled = pageIndex <= 0;
+        }
+        if (nextBtn) {
+            nextBtn.classList.toggle('hidden', totalPages <= 1);
+            nextBtn.classList.toggle('opacity-30', pageIndex >= totalPages - 1);
+            nextBtn.disabled = pageIndex >= totalPages - 1;
+        }
+    },
+
+    /** MỚI (14/07/2026, mục 2.2) — hỏi xác nhận TRƯỚC KHI bật chế độ xoá nhanh (modalChoice()) —
+     * chỉ BẬT mới cần hỏi, TẮT thì không (xem event/router/file-manager-photo.js). */
+    promptQuickDeleteMode(onConfirm) {
+        modalChoice( // core/modal-choice.js
+            t('fileManager.photo.image.quickDeleteConfirm.desc'),
+            [
+                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
+                { label: t('fileManager.photo.image.quickDeleteConfirm.confirmBtn'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: onConfirm },
+            ],
+            { title: t('fileManager.photo.image.quickDeleteConfirm.title') }
+        );
+    },
+
+    /** MỚI (14/07/2026, mục 2.2) — xoá NGAY 1 ảnh, không hỏi lại (đã hỏi 1 lần lúc BẬT chế độ này).
+     * Giữ nguyên `albumStoryPageIndex`/chế độ xoá nhanh sau khi refresh (đang xoá dở, KHÔNG nên nhảy
+     * về trang 1 story album hay tự thoát chế độ). */
+    async quickDeleteImage(imageKey, activeAlbumId, albumStoryPageIndex) {
+        await deleteImage(imageKey); // core/file-manager/image.js — cascade dọn album
+        await this.refresh(activeAlbumId, false, new Set(), albumStoryPageIndex, true);
     },
 
     /** MỚI (Patch mục 2, 14/07/2026) — chuẩn bị "hàng lưới" (buildPhotoGridRows(), core) rồi giao
@@ -108,14 +234,14 @@ const workflowFileManagerPhoto = {
      */
     setupPhotoGridWindow(scrollEl, images, ctx, mountKey = 'photoGrid') {
         if (!scrollEl) return;
-        const columns = window.matchMedia('(min-width: 640px)').matches ? 4 : 3; // khớp breakpoint Tailwind `sm:` trên class `grid-cols-3 sm:grid-cols-4`
+        const columns = window.matchMedia('(min-width: 640px)').matches ? 4 : 3; // khớp @media (min-width: 640px) trong .photo-grid (assets/css/style.css, CSS thuần — KHÔNG còn Tailwind sm:)
         const rows = buildPhotoGridRows(sortImagesByAddedDateDesc(images), columns); // core/file-manager/image.js
 
         workflowVirtualList.mount(mountKey, { // event/workflow/virtual-list.js
             scrollEl, rows, ctx,
             templateFn: itemTemplateImageGridRow, // components/items.js
             windowId: 'file-manager-image-masonry', // GIỮ NGUYÊN id cũ — listener click delegated (event/listener/file-manager-photo.js) lọc theo id này
-            windowClassName: 'grid grid-cols-3 sm:grid-cols-4 gap-1',
+            windowClassName: 'photo-grid',
             computeRowHeights: (sizerEl) => {
                 const tileWidth = (sizerEl.clientWidth - (columns - 1) * PHOTO_GRID_GAP_PX) / columns;
                 const imageRowHeight = tileWidth + PHOTO_GRID_GAP_PX;
@@ -272,17 +398,17 @@ const workflowFileManagerPhoto = {
             zIndex: 131,
             height: 'auto',
             maxHeight: '60vh',
-            headerHtml: this._buildImageMenuHeaderHtml(),
+            headerHtml: this._buildImageMenuHeaderHtml(t('fileManager.photo.image.menuTitle')),
             bodyHtml: buildPhotoActionMenuHtml({ hasAlbum: !!activeAlbumId }), // core/file-manager/photo-ui.js
             bodyClass: 'overflow-y-auto px-4 pb-6 pt-2',
         });
         this._wireImageMenuEvents(image, activeAlbumId, modalHandle);
     },
 
-    _buildImageMenuHeaderHtml() {
+    _buildImageMenuHeaderHtml(title) {
         return `
             <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
-                <h3 class="text-base font-bold text-slate-900">${t('fileManager.photo.image.menuTitle')}</h3>
+                <h3 class="text-base font-bold text-slate-900">${title}</h3>
                 <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
@@ -291,7 +417,9 @@ const workflowFileManagerPhoto = {
     },
 
     /** Wire click cho menu vừa mở — mọi action (trừ "editCaption") đóng CẢ drawer LẪN modal xem ảnh
-     * trước khi chạy; "editCaption" chỉ đóng drawer, modal xem ảnh vẫn mở phía sau. */
+     * trước khi chạy; "editCaption" KHÔNG đóng drawer — chuyển MƯỢT sang form sửa caption NGAY
+     * TRONG CÙNG drawer đó (`updateGenericDrawer()`, cùng cơ chế List<->Read của `document-
+     * reader.js`, Giang yêu cầu 14/07/2026 — bỏ hẳn modal riêng trước đó). */
     _wireImageMenuEvents(image, activeAlbumId, modalHandle) {
         const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
         if (closeBtn) closeBtn.addEventListener('click', () => this._closeGenericDrawerFully());
@@ -299,17 +427,13 @@ const workflowFileManagerPhoto = {
         genericDrawerBody.querySelectorAll('button[data-photo-menu-action]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const action = btn.dataset.photoMenuAction;
-                this._closeGenericDrawerFully();
 
                 if (action === 'editCaption') {
-                    openEditCaptionModal(image.caption || '', async (caption) => { // core/file-manager/photo-ui.js
-                        await setImageCaption(image.key, caption); // core/file-manager/image.js
-                        if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.refreshCaptionIfCurrentImage(image.key, caption);
-                        if (typeof workflowVisualizerControlCenter !== 'undefined') workflowVisualizerControlCenter.refreshCaptionIfVisualBgImage(image.key, caption);
-                    });
+                    this._openEditCaptionForm(image);
                     return;
                 }
 
+                this._closeGenericDrawerFully();
                 modalHandle.close();
                 if (action === 'setPlaylistBg') this.setAsPlaylistBackground(image.key);
                 else if (action === 'setVisualBg') this.setAsVisualBackground(image.key);
@@ -318,6 +442,35 @@ const workflowFileManagerPhoto = {
                 else if (action === 'delete') deleteImage(image.key).then(() => this.refresh(activeAlbumId)); // core/file-manager/image.js — cascade dọn album
             });
         });
+    },
+
+    /** MỚI (14/07/2026, mục cuối, Giang yêu cầu — caption dùng Generic Drawer, KHÔNG modal) —
+     * chuyển MƯỢT nội dung drawer ĐANG MỞ (menu action) sang form sửa caption, KHÔNG đóng/mở lại từ
+     * đầu (`updateGenericDrawer()`, tham khảo `document-reader.js::_switchToRead()` cùng cơ chế). */
+    _openEditCaptionForm(image) {
+        updateGenericDrawer({ // core/generic-drawer.js
+            zIndex: 131,
+            height: 'auto',
+            maxHeight: '50vh',
+            headerHtml: this._buildImageMenuHeaderHtml(t('fileManager.photo.image.btnEditCaption')),
+            bodyHtml: buildEditCaptionFormHtml(image.caption || ''), // core/file-manager/photo-ui.js
+            bodyClass: 'px-4 pb-5 pt-2',
+        });
+
+        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
+        if (closeBtn) closeBtn.addEventListener('click', () => this._closeGenericDrawerFully());
+        const textarea = genericDrawerBody.querySelector('#caption-form-textarea');
+        const cancelBtn = genericDrawerBody.querySelector('#btn-caption-form-cancel');
+        const saveBtn = genericDrawerBody.querySelector('#btn-caption-form-save');
+        if (cancelBtn) cancelBtn.addEventListener('click', () => this._closeGenericDrawerFully());
+        if (saveBtn) saveBtn.addEventListener('click', async () => {
+            const caption = textarea ? textarea.value.trim() : '';
+            this._closeGenericDrawerFully();
+            await setImageCaption(image.key, caption); // core/file-manager/image.js
+            if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.refreshCaptionIfCurrentImage(image.key, caption);
+            if (typeof workflowVisualizerControlCenter !== 'undefined') workflowVisualizerControlCenter.refreshCaptionIfVisualBgImage(image.key, caption);
+        });
+        if (textarea) textarea.focus();
     },
 
     /** Trượt Generic Drawer xuống RỒI ẩn hẳn sau `transitionend` — cùng khuôn `_closeGenericDrawerFully()`

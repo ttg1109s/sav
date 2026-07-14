@@ -29,6 +29,7 @@ const workflowVirtualList = {
             if (windowId) windowEl.id = windowId;
             if (windowClassName) windowEl.className = windowClassName;
             windowEl.style.position = 'absolute';
+            windowEl.style.top = '0';
             windowEl.style.left = '0';
             windowEl.style.right = '0';
             sizerEl.appendChild(windowEl);
