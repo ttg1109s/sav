@@ -89,6 +89,16 @@ core" dù cùng 1 khối tính năng masonry) và `core/settings-panel-stack.js`
 là điểm yếu nhất (dễ vi phạm nhất vì phải nhớ đẩy MỌI lời gọi core→core ra Workflow, kể cả helper
 riêng tư cùng file).
 
+> **[GIẢI QUYẾT 14/07/2026, Patch mục 2 "Item + window ảo"]** — 9/11 vi phạm Rule 3 nêu trên (toàn
+> bộ chuỗi `_loadNextMasonryChunk`/`_collapseFarMasonryChunks`/`_fillMasonryTile`/... ở
+> `photo-ui.js`) KHÔNG còn tồn tại — XOÁ HẲN cả cụm hàm (không sửa tại chỗ), thay bằng hạ tầng dùng
+> chung `components/items.js` (`computeVariableVirtualWindowRange()`/`renderItemList()`/
+> `itemTemplateImageGridRow()`) + `core/file-manager/image.js::buildPhotoGridRows()`, điều phối hoàn
+> toàn từ `event/workflow/file-manager-photo.js::setupPhotoGridWindow()` — đúng kiến trúc Workflow
+> gọi 2 Core độc lập, không còn core-gọi-core nào trong cụm này. Số liệu tổng ở trên (11 vi phạm
+> Rule 3, 133/366 tổng) là ẢNH CHỤP TẠI THỜI ĐIỂM AUDIT GỐC, KHÔNG cập nhật lại — chỉ 2 vi phạm còn
+> lại ở `core/settings-panel-stack.js` là còn mở tính đến patch này.
+
 ## Phương pháp & độ tin cậy từng cột
 
 | Cột | Cách xác định | Độ tin cậy |
@@ -328,6 +338,13 @@ _Không phát hiện vi phạm Rule 1 (strong)/2/3 nào — mọi function đề
 _Không phát hiện vi phạm Rule 1 (strong)/2/3 nào — mọi function đều sạch theo tiêu chí quét._
 
 ### `core/file-manager/photo-ui.js`
+
+> **[14/07/2026, Patch mục 2]** Bảng dưới là ẢNH CHỤP LỊCH SỬ tại thời điểm audit gốc — các hàng
+> `renderImageMasonry`/`_loadNextMasonryChunk`/`_collapseFarMasonryChunks`/`_expandMasonryChunk`/
+> `_buildMasonryTile`/`_fillMasonryTile` (và dòng số ở `openPhotoUiImagePickerModal` gọi
+> `renderImageMasonry`) KHÔNG còn đúng — toàn bộ đã bị XOÁ HẲN, thay bằng
+> `event/workflow/file-manager-photo.js::setupPhotoGridWindow()` (Workflow, không phải Core) gọi
+> `components/items.js`. Giữ nguyên bảng để tham khảo lịch sử, KHÔNG xoá dòng.
 
 | Hàm | Dòng | R2 (`appState.get` — số lần) | R1-strong (else/switch) | R3 (gọi void xác nhận) |
 |---|---|---|---|---|

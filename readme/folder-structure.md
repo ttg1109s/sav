@@ -88,8 +88,12 @@ visual-master/
 │   ├── bottom-player.js
 │   ├── generic-drawer.js        — MỚI (Nhóm A) — khung trắng dùng chung List↔Read cho Document
 │   │                              Picker/Reader, KHÔNG có overlay (đã bỏ hẳn, xem changelog/v12.md)
-│   ├── items.js                 — MỚI (Nhóm A) — itemTemplateDocumentRow()/renderItemList(), CHỈ
-│   │                              wire cho Document Picker (chưa đụng Song/Photo)
+│   ├── items.js                 — MỚI (Nhóm A) — itemTemplateDocumentRow()/itemTemplateFolderTile()/
+│   │                              renderItemList()/computeVirtualWindowRange() (Document Picker,
+│   │                              chưa windowing thật). Patch mục 1/2 (14/07/2026) thêm
+│   │                              itemTemplateImageGridRow()/computeVariableVirtualWindowRange() —
+│   │                              consumer windowing THẬT đầu tiên (lưới ảnh Photo & Album, xem
+│   │                              event/workflow/file-manager-photo.js::setupPhotoGridWindow())
 │   ├── file-manager.js          — 3 drawer con (Song/Photo & Album/Document), mỗi drawer tự quản
 │   │                              lý mở/đóng bằng class thuần, KHÔNG có màn "File Manager" cấp cao
 │   ├── slideshow-settings-drawer.js — cấu hình Slideshow nền (transition, Ken Burns hiện vẫn còn
@@ -187,10 +191,13 @@ visual-master/
 │   │   ├── folder-list-ui.js        — danh sách folder — hậu tố -ui.js (Rule 5c)
 │   │   ├── folder-detail-ui.js      — chi tiết 1 folder (danh sách bài trong đó) — hậu tố -ui.js
 │   │   ├── folder-picker-ui.js      — modal chọn folder khi thêm bài — hậu tố -ui.js
-│   │   ├── image.js                 — CRUD ảnh trong File Manager
-│   │   ├── photo-ui.js              — masonry grid, carousel picker, album — hậu tố -ui.js (chuỗi
-│   │   │                              helper private `_loadNextMasonryChunk`/`_fillMasonryTile`...
-│   │   │                              gọi nhau — nợ kỹ thuật Rule 3 mới ghi nhận, xem audit)
+│   │   ├── image.js                 — CRUD ảnh + sortImagesByAddedDateDesc()/buildPhotoGridRows()
+│   │   │                              (chuẩn bị hàng lưới group-theo-ngày cho window ảo, Patch mục
+│   │   │                              1/2, 14/07/2026 — xem event/workflow/file-manager-photo.js)
+│   │   ├── photo-ui.js              — carousel picker, album, modal xem ảnh — hậu tố -ui.js. Lưới
+│   │   │                              ảnh (masonry chunk-based cũ, từng là nợ kỹ thuật Rule 3 — xem
+│   │   │                              audit) ĐÃ XOÁ HẲN 14/07/2026, thay bằng components/items.js +
+│   │   │                              event/workflow/file-manager-photo.js::setupPhotoGridWindow()
 │   │   ├── album.js                 — CRUD album ảnh dùng cho Slideshow nền
 │   │   ├── slideshow.js             — engine 13 CSS transition + Ken Burns (Ken Burns CHƯA tách
 │   │   │                              riêng khỏi transitionType — nợ kỹ thuật mở)
