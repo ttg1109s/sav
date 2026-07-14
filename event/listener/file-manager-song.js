@@ -43,7 +43,26 @@ function handleFileManagerSongDelegatedClick(e) {
         return;
     }
 
+    // MỚI (14/07/2026, tích hợp pagination) — 2 nút ‹ › của #file-manager-folder-pagination
+    // (buildPaginationFullHtml(), core/pagination.js — `data-pagination-action="prev"/"next"`,
+    // KHÔNG có id riêng vì hàm đó trung tính/tái dùng được, xem docstring core/pagination.js).
+    const folderPagination = e.target.closest('#file-manager-folder-pagination');
+    if (folderPagination) {
+        const actionBtn = e.target.closest('button[data-pagination-action]');
+        if (!actionBtn) return; // bấm trúng vùng trống/số trang hiện tại (không phải nút) -> không gửi gì
+        const type = actionBtn.dataset.paginationAction === 'next'
+            ? 'fileManagerSong.folder.page.next'
+            : 'fileManagerSong.folder.page.prev';
+        eventBus.send({ router: 'fileManagerSong', type, payload: {} });
+        return;
+    }
+
     // ===================== Folder Detail Drawer (Phase 2, MỚI — mục 1b/c) =====================
+    // MỚI (14/07/2026, Giang yêu cầu layout lại) — icon Sửa tên NGAY cạnh tên folder.
+    if (e.target.closest('#btn-file-manager-folder-detail-rename')) {
+        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.folder.detail.rename.click', payload: {} });
+        return;
+    }
     if (e.target.closest('#btn-file-manager-folder-apply-to-playlist')) {
         const btnApply = e.target.closest('#btn-file-manager-folder-apply-to-playlist');
         // MỚI (03/07/2026, đợt 4, điểm 2) — 1 nút, 2 msg.type tuỳ data-mode (workflow tự đổi
@@ -60,6 +79,12 @@ function handleFileManagerSongDelegatedClick(e) {
         const btn = e.target.closest('button[data-remove-song-key]');
         if (!btn) return; // không bấm trúng icon X -> không gửi gì cả
         eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.folder.removeSong', payload: { songKey: btn.dataset.removeSongKey } });
+        return;
+    }
+
+    // MỚI (14/07/2026, Giang yêu cầu) — nút "Xoá hết bài", CĂN GIỮA cuối panel Folder Detail.
+    if (e.target.closest('#btn-file-manager-folder-detail-remove-all')) {
+        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.folder.removeAllSongs.click', payload: {} });
         return;
     }
 
