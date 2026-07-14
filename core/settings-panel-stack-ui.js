@@ -83,7 +83,14 @@ let settingsPanelStackEntries = [{ panelEl: settingsStackPanelMain }];
  * @param {boolean} fullBleed - bỏ qua wrapper "max-w-2xl mx-auto space-y-5" + padding mặc định,
  *        dùng cho nội dung cố tình tràn viền (vd Photo — masonry ảnh, xem Batch D6).
  */
-function _buildPanelInnerHtml(title, bodyHtml, fullBleed) {
+/**
+ * MỚI (14/07/2026, mục cuối phản hồi Giang — "đem nút upload lên phải header") — `headerActionHtml`
+ * (tuỳ chọn): chuỗi HTML 1 cụm hành động, đặt `absolute right-4` ĐỐI XỨNG nút Back (`absolute
+ * left-4`) — trước đây header chỉ có Back + title, panel nào cần thêm nút riêng phải tự dựng 1
+ * THANH NHỎ bên dưới header (xem lịch sử ở components/file-manager.js, Photo & Album). Nơi gọi
+ * (Workflow) tự `querySelector` trong panel trả về để wire event, giống mọi nội dung body khác.
+ */
+function _buildPanelInnerHtml(title, bodyHtml, fullBleed, headerActionHtml) {
     const bodyWrapperClass = fullBleed
         ? 'flex-grow overflow-y-auto'
         : 'flex-grow overflow-y-auto px-4 py-4 sm:px-8 pb-20';
@@ -94,6 +101,7 @@ function _buildPanelInnerHtml(title, bodyHtml, fullBleed) {
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
             </button>
             <h2 class="text-base sm:text-lg font-semibold text-white truncate text-center">${title}</h2>
+            ${headerActionHtml ? `<div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 shrink-0">${headerActionHtml}</div>` : ''}
         </div>
         <div class="${bodyWrapperClass}">${bodyInner}</div>
     `;
@@ -102,14 +110,14 @@ function _buildPanelInnerHtml(title, bodyHtml, fullBleed) {
 /**
  * Mở 1 panel mới — panel MỚI append vào CUỐI khung cuộn ngang, rồi cuộn mượt sang nó (xem docstring
  * đầu file).
- * @param {{title: string, bodyHtml: string, fullBleed?: boolean}} params
+ * @param {{title: string, bodyHtml: string, fullBleed?: boolean, headerActionHtml?: string}} params
  * @returns {HTMLElement} panel vừa tạo — nơi gọi (Workflow) tự `querySelector` bên trong để wire
  *          event riêng của panel đó (đúng quy ước Generic Drawer: "component tĩnh + dom-refs").
  */
-function pushSettingsPanel({ title, bodyHtml, fullBleed = false }) {
+function pushSettingsPanel({ title, bodyHtml, fullBleed = false, headerActionHtml = '' }) {
     const panelEl = document.createElement('div');
     panelEl.className = 'settings-stack-panel w-full h-full flex-shrink-0 flex flex-col';
-    panelEl.innerHTML = _buildPanelInnerHtml(title, bodyHtml, fullBleed);
+    panelEl.innerHTML = _buildPanelInnerHtml(title, bodyHtml, fullBleed, headerActionHtml);
     settingsStackBody.appendChild(panelEl);
     settingsPanelStackEntries.push({ panelEl });
 
