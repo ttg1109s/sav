@@ -71,6 +71,20 @@ const routerFileManagerSong = (() => {
                 break;
             }
 
+            // MỚI (14/07/2026, tích hợp pagination — Giang yêu cầu) — danh sách folder 10/trang,
+            // control 'full' (‹ trang/tổng ›), 2 nút prev/next đều CHỈ 1 hàm core
+            // (computePage(), core/pagination.js) nhưng workflow CẦN đọc lại listFolders() +
+            // querySelector bên trong panel -> workflow, không gọi thẳng.
+            case 'fileManagerSong.folder.page.prev': {
+                workflowFileManagerSong.changeFolderListPage(-1);
+                break;
+            }
+
+            case 'fileManagerSong.folder.page.next': {
+                workflowFileManagerSong.changeFolderListPage(1);
+                break;
+            }
+
             // ===================== Folder Detail Drawer (Phase 2, MỚI — mục 1b/c, CHỐT 03/07/2026) =====================
 
             case 'fileManagerSong.folder.openDetail': {
@@ -84,6 +98,24 @@ const routerFileManagerSong = (() => {
                 if (!currentFolderDetailId) return; // guard: không có context nào đang mở (không nên xảy ra)
                 const { songKey } = msg.payload;
                 workflowFileManagerSong.removeSongFromFolderById(currentFolderDetailId, songKey); // >1 hàm core -> workflow
+                break;
+            }
+
+            // MỚI (14/07/2026, Giang yêu cầu layout lại Folder Detail) — icon Sửa tên NGAY cạnh
+            // tên folder (khác renameFolderById() ở nhánh panel Song ngay trên — 2 NGUỒN đọc
+            // currentName khác nhau, workflowFileManagerSong tự gộp qua _promptRenameFolder()
+            // dùng chung, xem event/workflow/file-manager-song.js).
+            case 'fileManagerSong.folder.detail.rename.click': {
+                if (!currentFolderDetailId) return; // guard: nút chỉ hiện trong drawer đã mở 1 folder cụ thể
+                workflowFileManagerSong.renameActiveFolderDetail(currentFolderDetailId);
+                break;
+            }
+
+            // MỚI (14/07/2026, Giang yêu cầu) — "Xoá hết bài" trong folder đang xem — CHỈ dọn
+            // rỗng, KHÔNG xoá folder (khác hẳn 'folder.actionClick' action='delete' ở trên).
+            case 'fileManagerSong.folder.removeAllSongs.click': {
+                if (!currentFolderDetailId) return; // guard: cùng lý do ở trên
+                workflowFileManagerSong.removeAllSongsFromActiveFolder(currentFolderDetailId);
                 break;
             }
 

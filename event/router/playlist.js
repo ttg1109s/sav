@@ -68,6 +68,32 @@ const routerPlaylist = (() => {
                 break;
             }
 
+            // ===================== Add to Folder — Generic Drawer grid (MỚI 14/07/2026) =====================
+            // Toàn bộ tương tác BÊN TRONG Drawer (wire trực tiếp trong workflowPlaylist SAU mỗi lần
+            // vẽ grid, xem event/workflow/playlist.js::_wireFolderPickerEvents()) — CHỈ 1 hàm core
+            // mỗi case (hoặc cần đọc thêm dữ liệu closure của Workflow như _folderPickerOnPick) nên
+            // router gọi THẲNG workflow, không cần VirtualMachineState.
+
+            case 'playlist.folderPicker.tile.click': {
+                workflowPlaylist.pickFolderInPicker(msg.payload.folderId);
+                break;
+            }
+
+            case 'playlist.folderPicker.addTile.click': {
+                workflowPlaylist.createFolderInPicker();
+                break;
+            }
+
+            case 'playlist.folderPicker.rename.commit': {
+                workflowPlaylist.commitFolderPickerRename(msg.payload.folderId, msg.payload.name);
+                break;
+            }
+
+            case 'playlist.folderPicker.close.click': {
+                workflowPlaylist.closeFolderPicker();
+                break;
+            }
+
             case 'playlist.item.menuClick': {
                 const { key, anchorBtn } = msg.payload;
                 openSongActionMenu(key, anchorBtn);
