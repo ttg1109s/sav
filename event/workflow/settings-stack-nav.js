@@ -24,6 +24,18 @@
  * settings-panel-stack.js, đã xoá) sang `SLIDER_PANEL_SCROLL_ESTIMATED_MS` (dùng chung, xem
  * core/slider-panel-scroll.js — cùng file vừa rút ra `getPositionStart`/`scrollSliderTo`).
  *
+ * MỚI (14/07/2026, Giang yêu cầu — "xoá song trong folder xong back không render lại") — `back()`
+ * giờ CŨNG gọi `workflowFileManagerSong.refreshStaleFolderRowIfNeeded()` SAU MỖI lần pop, bất kể
+ * đang lùi từ panel nào — Workflow gọi Workflow KHÁC MIỀN tự do (không bị Rule 3), hàm đó tự
+ * no-op ngay (chỉ đọc 1 field appState) nếu không có gì cần vá, nên KHÔNG tốn kém cho panel không
+ * liên quan File Manager. Đây là 1 exception NHỎ, có chủ đích, với tinh thần "dùng CHUNG mọi
+ * panel" nêu trên — cân nhắc đã ghi rõ ở chính lời gọi, không giấu trong 1 lớp trừu tượng khác.
+ * KHÔNG cần `event/workflow/file-manager-song.js` nạp TRƯỚC file này — tham chiếu
+ * `workflowFileManagerSong` nằm TRONG thân hàm `back()`, chỉ resolve lúc `back()` THẬT SỰ được gọi
+ * (người dùng bấm Back, chắc chắn sau khi mọi script đã nạp xong), không phải lúc file này được
+ * nạp — cùng cách `workflowPlaylist` gọi `workflowSubtitleModal.navigateToEditor()` không cần thứ
+ * tự nạp cụ thể.
+ *
  * NẠP SAU: core/settings-panel-stack.js, core/slider-panel-scroll.js (SLIDER_PANEL_SCROLL_ESTIMATED_MS),
  * core/dom-refs.js (settingsStackBody).
  */
@@ -34,5 +46,13 @@ const workflowSettingsStackNav = {
         const removedPanelEl = popSettingsPanel();
         if (!removedPanelEl) return; // đã ở Main, không có gì để pop (nút Back không tồn tại ở Main nên khó xảy ra, guard cho chắc)
         taskManager.once(() => { removedPanelEl.remove(); }, SLIDER_PANEL_SCROLL_ESTIMATED_MS, 'popSettingsPanel');
+
+        // MỚI (14/07/2026, Giang yêu cầu — "xoá song trong folder xong back không render lại") —
+        // Workflow gọi Workflow KHÁC MIỀN tự do (không bị Rule 3, rule đó CHỈ áp cho Core) — tự
+        // no-op ngay nếu không có gì cần vá (đọc 1 field appState rồi thoát), CHI PHÍ gần như 0 cho
+        // MỌI panel khác không liên quan tới File Manager. KHÔNG đặt TRONG taskManager.once() ở
+        // trên — chạy NGAY (đồng bộ với việc pop), không cần đợi animation trượt xong mới vá (vá
+        // DOM của panel ĐÃ Ở SẴN trong ngăn xếp, không phải panel vừa bị xoá).
+        workflowFileManagerSong.refreshStaleFolderRowIfNeeded();
     }
 };

@@ -281,8 +281,8 @@ const workflowPlaylist = {
     },
 
     // ===================== Add to Folder — Generic Drawer grid (MỚI 14/07/2026) =====================
-    // Trước đây: modal riêng (core/file-manager/folder-picker-ui.js::openFolderPickerModal(), giờ
-    // MỒ CÔI — không còn nơi gọi nào, giữ lại file làm tư liệu đối chiếu, Giang xoá tay khi rảnh).
+    // Trước đây: modal riêng (core/file-manager/folder-picker-ui.js::openFolderPickerModal() — ĐÃ
+    // XOÁ HẲN 14/07/2026, không còn nơi gọi nào).
     // Giờ: Generic Drawer + grid folder (icon trên + tên dưới tối đa 2 dòng, xem
     // components/items.js::itemTemplateFolderTile()) + 1 tile "Tạo folder mới" cố định cuối grid
     // (buildAddFolderTileHtml()) — bấm vào tạo NGAY 1 folder tên tự động, vào thẳng chế độ sửa tên
@@ -311,7 +311,14 @@ const workflowPlaylist = {
         // giữa cả cụm khi hàng cuối chưa đầy).
         const bodyHtml = `<div class="flex flex-wrap justify-start gap-4 p-5">${itemsHtml}${buildAddFolderTileHtml()}</div>`; // components/items.js
         const config = {
-            height: '60vh',
+            // SỬA (14/07/2026, Giang báo — "layout grid thừa khoảng trống") — TRƯỚC ĐÂY height cố
+            // định '60vh' bất kể có bao nhiêu folder, để lại khoảng trống lớn phía dưới khi chỉ có
+            // vài tile. Giờ height:'auto' (panel tự co theo ĐÚNG nội dung thật) + maxHeight:'60vh'
+            // (không bao giờ vượt quá, nội dung dài tự cuộn nhờ bodyClass overflow-y-auto có sẵn) —
+            // xem docstring core/generic-drawer.js::openGenericDrawer(). Test thật bằng Chromium
+            // xác nhận: ít item -> panel co nhỏ đúng theo nội dung; nhiều item -> kẹp đúng ở maxHeight.
+            height: 'auto',
+            maxHeight: '60vh',
             // SỬA (14/07/2026) — BỎ `zIndex: 40` cứng (thấp hơn #app-stack z-[60], gây Drawer bị đè
             // khi mở từ Playlist) — rơi về GENERIC_DRAWER_DEFAULT_Z_INDEX (128) mặc định, xem
             // docstring core/generic-drawer.js.
@@ -390,7 +397,10 @@ const workflowPlaylist = {
      * đúng 1 mô hình tương tác duy nhất cho toàn bộ grid (tạo ≠ chọn, tách 2 hành động RÕ RÀNG). */
     async createFolderInPicker() {
         const defaultName = this._computeDefaultFolderName();
-        const result = await createFolder(defaultName); // core có sẵn (core/file-manager/folder.js)
+        // SỬA (14/07/2026, tự audit lại Rule 3) — createFolder() đổi chữ ký, không còn tự
+        // resolveFolderId() nội bộ, xem docstring createFolder() (core/file-manager/folder.js).
+        const folderId = await resolveFolderId(defaultName); // core
+        const result = await createFolder(folderId, defaultName); // core có sẵn (core/file-manager/folder.js)
         if (result.status !== 'ok') return; // hiếm — trùng tên dù đã tự tính tên không trùng (race hiếm gặp), im lặng bỏ qua
         this._folderPickerFolders.push({ id: result.folderId, name: defaultName });
         this._folderPickerEditingId = result.folderId;
