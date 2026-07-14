@@ -224,6 +224,21 @@
             // trang riêng, không phải danh sách windowing).
             isGenericDrawerOpen: 'boolean',
             isGenericDrawerContentVirtual: 'boolean',
+            // MỚI (14/07/2026, Giang yêu cầu) — trang ĐANG xem của danh sách folder ở File Manager
+            // -> Song (0-based, 10 folder/trang, xem event/workflow/file-manager-song.js +
+            // core/pagination.js). Workflow tự đọc field này rồi TRUYỀN vào computePage() (core
+            // THUẦN, không tự appState.get() — Rule 2) — tránh mỗi lần refreshSongTab() bị reset về
+            // trang đầu (trước đây sống trong 1 property riêng của workflow, giờ gom vào appState
+            // theo đúng tinh thần "state nghiệp vụ toàn app gom 1 chỗ" của chính file này).
+            pageCurrentFolderSongList: 'number',
+            // MỚI (14/07/2026, Giang yêu cầu) — trang ĐANG xem của danh sách bài BÊN TRONG 1 folder
+            // (Folder Detail Drawer, 0-based, ~30 bài/trang, mode 'list') — CÙNG lý do/tinh thần với
+            // pageCurrentFolderSongList ở trên, KHÁC field vì 2 danh sách độc lập (folder list vs
+            // song list trong 1 folder cụ thể).
+            pageCurrentFolderDetailSongList: 'number',
+            // MỚI (14/07/2026, Giang yêu cầu) — trang ĐANG xem của danh sách tài liệu ở File
+            // Manager -> Documents (0-based, 50 tài liệu/trang, mode 'list').
+            pageCurrentDocumentList: 'number',
         };
 
         /** Giá trị khởi tạo mặc định — copy NGUYÊN VẸN giá trị/kiểu thật từ source gốc. */
@@ -381,6 +396,9 @@
                 // ── generic drawer ──────────────────────────────────────────────
                 isGenericDrawerOpen: false,
                 isGenericDrawerContentVirtual: false,
+                pageCurrentFolderSongList: 0,
+                pageCurrentFolderDetailSongList: 0,
+                pageCurrentDocumentList: 0,
             };
         }
 
