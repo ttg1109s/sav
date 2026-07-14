@@ -13,6 +13,10 @@
  *
  * NẠP SAU: service/db.js (getImageRecord/setImageRecord/deleteImageRecord/getAllImageKeys/slugify,
  * getAllAlbumKeys/getAlbumRecord/setAlbumRecord — dùng cho cascade dọn album trong deleteImage()).
+ *
+ * PATCH mục 1/2 (14/07/2026, group ảnh theo ngày + Item/window ảo): thêm 2 hàm THUẦN
+ * `sortImagesByAddedDateDesc()`/`buildPhotoGridRows()` — CHUẨN BỊ dữ liệu cho lưới ảnh Photo &
+ * Album, xem event/workflow/file-manager-photo.js::setupPhotoGridWindow().
  */
 
 /**
@@ -106,4 +110,60 @@ async function listImages() {
         return record ? { key, ...record } : null;
     }));
     return records.filter(Boolean);
+}
+
+// ===================== Group theo ngày + Window ảo (Patch mục 1/2, 14/07/2026) ====================
+// 2 hàm THUẦN dưới đây CHUẨN BỊ dữ liệu cho lưới ảnh Photo & Album — xem event/workflow/
+// file-manager-photo.js::setupPhotoGridWindow() (Workflow gọi CẢ HAI, RỒI mới gọi
+// computeVirtualWindowRange()/renderItemList() — components/items.js) + core/file-manager/
+// photo-ui.js (docstring đầu file, giải thích đầy đủ vì sao tách qua Workflow thay vì tự gọi nhau).
+
+/**
+ * Sắp xếp danh sách ảnh theo `addedAt` MỚI NHẤT lên đầu (kiểu Google Photos) — CHUẨN BỊ cho
+ * buildPhotoGridRows() nhóm theo ngày. Hàm THUẦN — không mutate mảng gốc, không appState, không
+ * gọi core khác.
+ * @param {Array<{key:string, blob:Blob, filename:string, addedAt:number}>} images
+ * @returns {Array} bản sao MỚI đã sắp xếp
+ */
+function sortImagesByAddedDateDesc(images) {
+    return [...images].sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+}
+
+/**
+ * Đóng gói danh sách ảnh ĐÃ sắp xếp (sortImagesByAddedDateDesc()) thành các HÀNG hiển thị — dùng
+ * làm "items" cho window ảo (components/items.js::computeVirtualWindowRange() + renderItemList()).
+ * Mỗi hàng là 1 trong 2 dạng:
+ *   - header ngăn cách ngày (hàng RIÊNG, full-width) — LUÔN bắt đầu 1 hàng ẢNH MỚI ngay sau đó, dù
+ *     hàng ảnh trước chưa đủ `columns` (KHÔNG gộp ảnh 2 ngày khác nhau chung 1 hàng lưới — đúng bố
+ *     cục ảnh chụp Google Photos Giang gửi).
+ *   - cụm tối đa `columns` ảnh CÙNG NGÀY (1 hàng lưới thật).
+ * Hàm THUẦN (Rule 1-4 core-function-conventions.md) — không appState, không DOM, không gọi core
+ * khác (khoá ngày tính INLINE ngay trong vòng lặp, KHÔNG tách hàm riêng — tránh Core gọi Core).
+ * 1 vòng lặp duy nhất, rẽ nhánh nội bộ CHỈ để chọn giữa 2 DẠNG HIỂN THỊ của CÙNG 1 khái niệm "hàng
+ * tiếp theo" — cùng khuôn if/else `itemTemplateFolderTile()` (components/items.js) chọn giữa 2 dạng
+ * của CÙNG 1 loại item, không phải rẽ nhánh 2 nghiệp vụ khác nhau (Rule 1).
+ * @param {Array<{key:string, blob:Blob, filename:string, addedAt:number}>} sortedImages
+ * @param {number} columns - số cột lưới hiện tại (Workflow tự đo, xem setupPhotoGridWindow()).
+ * @returns {Array<{type:'header', addedAt:number}|{type:'imageRow', images:Array}>}
+ */
+function buildPhotoGridRows(sortedImages, columns) {
+    const safeColumns = columns > 0 ? columns : 3; // guard clause thuần — vẫn 1 tiến trình duy nhất, chỉ kẹp giá trị đầu vào không hợp lệ
+    const rows = [];
+    let currentRow = null;
+    let lastDayKey = null;
+    for (const image of sortedImages) {
+        const d = new Date(image.addedAt || 0);
+        const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+        if (dayKey !== lastDayKey) {
+            rows.push({ type: 'header', addedAt: image.addedAt });
+            currentRow = null;
+            lastDayKey = dayKey;
+        }
+        if (!currentRow || currentRow.images.length >= safeColumns) {
+            currentRow = { type: 'imageRow', images: [] };
+            rows.push(currentRow);
+        }
+        currentRow.images.push(image);
+    }
+    return rows;
 }

@@ -1,25 +1,16 @@
 /**
  * core/file-manager/photo-ui.js — Vẽ UI Photo & Album (Batch 3, 03/07/2026): story slider album
- * (lazy load avatar qua IntersectionObserver — mục 3 yêu cầu gốc) + masonry ảnh (CSS `columns`
- * thuần, không thêm lib — xem plan-v12-multimedia-decisions.md mục 3, câu hỏi #6 đã đóng: chưa
- * thấy lý do cần lib JS masonry cho khối lượng ảnh cá nhân). Hàm THUẦN (không I/O, không appState)
- * — nơi gọi (workflow) tự đọc DB rồi truyền dữ liệu vào, đúng nguyên tắc core/file-manager/
+ * (lazy load avatar qua IntersectionObserver — mục 3 yêu cầu gốc). Hàm THUẦN (không I/O, không
+ * appState) — nơi gọi (workflow) tự đọc DB rồi truyền dữ liệu vào, đúng nguyên tắc core/file-manager/
  * folder-list-ui.js/folder-detail-ui.js đã theo.
  *
- * Object URL: TẠO LÚC LAZY-LOAD (Intersection vào viewport), LƯU trên chính node
+ * Object URL (story slider): TẠO LÚC LAZY-LOAD (Intersection vào viewport), LƯU trên chính node
  * (`node._objectUrl`), REVOKE khi node bị gỡ khỏi DOM (vẽ lại toàn bộ list) — cùng pattern
- * `_coverObjectUrl` đã dùng ở core/playlist/render.js.
+ * `_coverObjectUrl` đã dùng ở core/playlist/render.js. Lưới ảnh (mục dưới) KHÔNG còn dùng cơ chế
+ * này nữa, xem lý do ở đúng mục đó.
  *
- * NẠP SAU: lang/lang.js (t()). Batch D6 (06/07/2026): panel Photo giờ push/pop động (core/
- * settings-panel-stack.js) — `renderAlbumStory`/`renderImageMasonry`/`updateImageSelectionCount`
- * KHÔNG còn phụ thuộc core/dom-refs.js (fileManagerAlbumStory/fileManagerImageMasonry/
- * fileManagerImageEmpty/fileManagerImageSelectionCount ĐÃ XOÁ khỏi file đó) — nhận phần tử DOM qua
- * tham số. `toggleImageSelectionBadge()` dùng `_masonryContainerEl` (bookkeeping nội bộ có sẵn).
- *
- * MỚI (batch tiếp theo 03/07/2026, mục 2.2/2.3 plan-v12-multimedia-update-2.md — nợ kỹ thuật đã
- * xác nhận từ Batch 3): `renderImageMasonry()` nhận thêm 2 tham số tuỳ chọn (selectionMode/
- * selectedImageKeys) để vẽ dấu tick chọn nhiều; `openRenameAlbumModal()` — đổi tên album, cùng
- * khuôn `openRenameFolderModal()`.
+ * NẠP SAU: lang/lang.js (t()), components/items.js (renderItemList/computeVirtualWindowRange dùng
+ * ở event/workflow/file-manager-photo.js, KHÔNG dùng trực tiếp trong file này — xem Rule 3).
  *
  * MỚI (Batch 8, 03/07/2026, slideshow nền Visual): `openAlbumPickerModal()` — picker chọn 1 ALBUM
  * (khác `openImageLibraryPickerModal()` chọn 1 ẢNH), dùng bởi Slideshow Settings Drawer.
@@ -32,15 +23,22 @@
  * FIX (04/07/2026, mục 1 phản hồi Giang): `openImageLibraryPickerModal()` thêm tham số `onCancel`
  * (tuỳ chọn) — gọi khi đóng modal mà CHƯA chọn ảnh nào, để nơi gọi tự trả toggle "On" về "off".
  *
- * PATCH 1 mục 1 (14/07/2026, group ảnh theo ngày tải lên — theo ảnh chụp Google Photos Giang gửi):
- * `renderImageMasonry()` giờ tự sắp xếp `images` theo `addedAt` MỚI NHẤT lên đầu trước khi render,
- * và `_loadNextMasonryChunk()` tự chèn 1 header ngăn cách NGÀY (full-width, `_buildMasonryDateHeaderTile()`)
- * ngay trước ảnh ĐẦU TIÊN của mỗi ngày mới trong lúc build từng chunk — TÁI DÙNG NGUYÊN cơ chế chunk
- * hiện có (KHÔNG đổi `MASONRY_CHUNK_SIZE`/collapse/expand — việc rà lại toàn bộ windowing để "Item +
- * window ảo" là mục 2, CHƯA làm ở patch này). Header KHÔNG nằm trong mảng `tiles` bookkeeping nên
- * không bao giờ bị thu gọn cùng chunk. Áp dụng cho MỌI nơi gọi `renderImageMasonry()` (Photo & Album
- * LẪN `openPhotoUiImagePickerModal()` — cùng 1 hàm dùng chung, xem mục "Picker cover bài hát" ở
- * dưới), do đó picker chọn ảnh bìa bài hát cũng tự có nhóm theo ngày, không cần code riêng.
+ * PATCH mục 2 (14/07/2026, "bỏ cách cũ, áp dụng Item + window ảo") — XOÁ HẲN `renderImageMasonry()`
+ * + toàn bộ hệ chunk load/collapse/restore qua IntersectionObserver (đã viết ở Patch mục 1) VÀ
+ * `toggleImageSelectionBadge()` (patch DOM surgical cũ, gắn với `_masonryContainerEl` đã không còn
+ * tồn tại). Group ảnh theo NGÀY (mục 1) + windowing giờ đều chuyển qua hạ tầng "Item" dùng chung:
+ *   - core/file-manager/image.js::sortImagesByAddedDateDesc()/buildPhotoGridRows() — core THUẦN,
+ *     chuẩn bị "hàng lưới" (header ngày hoặc cụm ảnh).
+ *   - components/items.js::itemTemplateImageGridRow() — template 1 hàng (tạo object URL NGAY lúc
+ *     build chuỗi — an toàn vì chỉ 1 cửa sổ nhỏ được render mỗi lần, không phải toàn bộ thư viện).
+ *   - event/workflow/file-manager-photo.js::setupPhotoGridWindow() — điều phối (đo cột/chiều cao
+ *     hàng, gắn `scroll` listener, gọi computeVirtualWindowRange() RỒI renderItemList() — CHỈ
+ *     Workflow được gọi cả 2, xem Rule 3 core-function-conventions.md). Dùng CHUNG cho CẢ Photo &
+ *     Album LẪN `openPhotoUiImagePickerModal()` (picker cover bài hát — hàm đó giờ CHỈ dựng khung
+ *     modal + `<div>` grid rỗng, giao lại qua tham số `onGridReady` để Workflow tự setup, xem hàm
+ *     đó bên dưới) — tránh duy trì 2 hệ windowing khác nhau trong project.
+ * `_thumbnailLazyObserver`/`_observeLazyThumbnail` GIỮ NGUYÊN — vẫn phục vụ story slider Album (số
+ * lượng nhỏ, không cần window ảo).
  */
 
 // ===================== Story slider Album =====================
@@ -118,264 +116,26 @@ function renderAlbumStory(albums, activeAlbumId, imageRecordsByKey, storyEl) {
     storyEl.appendChild(newItem);
 }
 
-// ===================== Masonry ảnh =====================
-
-/**
- * VIẾT LẠI HOÀN TOÀN (04/07/2026, mục 3 phản hồi Giang — "layout đang rất bullshit"):
- *   1. Layout đổi từ CSS `columns` (masonry cột, thứ tự duyệt LỆCH theo cột — xem
- *      components/file-manager.js) sang GRID Ô VUÔNG ĐỀU (`grid grid-cols-3 sm:grid-cols-4`,
- *      mỗi tile `aspect-square` + `object-cover`) — kiểu Google Images đơn giản hoá (không cần
- *      "justified rows" thật, vẫn thẳng hàng ngang dọc gọn gàng, KHÔNG cần biết trước tỉ lệ ảnh).
- *   2. KHÔNG còn tạo TOÀN BỘ DOM node ngay từ đầu (trước đây `images.forEach` tạo hết mọi tile dù
- *      chưa cuộn tới — hại DOM thật với thư viện lớn). Giờ chia CHUNK cố định
- *      (`MASONRY_CHUNK_SIZE` ảnh/chunk), CHỈ render chunk 0 lúc mở; cuộn gần hết chunk đang có ->
- *      tự thêm chunk kế tiếp (`_masonryGrowObserver`, sentinel cuối danh sách).
- *   3. Chunk cuộn QUÁ XA (vượt `MASONRY_KEEP_CHUNKS` chunk gần vị trí đang tải nhất) tự "thu gọn"
- *      — THAY tile ảnh thật bằng tile placeholder RỖNG CÙNG KÍCH THƯỚC Ô LƯỚI (nhờ layout đã đổi
- *      sang Ô VUÔNG ĐỀU ở bước 1, placeholder trống luôn khớp y hệt kích thước tile thật -> KHÔNG
- *      lệch layout/nhảy cuộn khi thu gọn, không cần đo `offsetHeight` gì cả). Blob GỐC vẫn còn
- *      nguyên trong tham số `images` (biến JS, không mất) — cuộn NGƯỢC lại gần 1 chunk đã thu gọn
- *      tự "khôi phục" lại tile thật NGAY (chỉ tạo lại object URL từ Blob có sẵn, KHÔNG đọc lại
- *      IndexedDB) qua observer riêng gắn trên tile đầu mỗi chunk.
- * @param {HTMLElement} containerEl - MỚI (04/07/2026, mục 3 phản hồi Giang) — tham số hoá container
- *      (trước đây hardcode `fileManagerImageMasonry`) để TÁI DÙNG ĐƯỢC toàn bộ hàm này (layout +
- *      chunk load/collapse) cho modal khác — xem `openPhotoUiImagePickerModal()` (picker cover bài
- *      hát, event/workflow/playlist.js).
- * @param {Array<{key: string, blob: Blob, filename: string}>} images
- * @param {boolean} [selectionMode]
- * @param {Set<string>} [selectedImageKeys]
- * @param {HTMLElement} [emptyEl] - Batch D6 (06/07/2026): panel Photo giờ push/pop động — nhận
- *      phần tử "rỗng" qua tham số THAY vì so sánh `containerEl === fileManagerImageMasonry` (biến
- *      toàn cục đó không còn hợp lệ nữa). Modal khác (cover picker) không có khái niệm "rỗng" nên
- *      đơn giản bỏ qua tham số này (undefined -> không toggle gì).
- */
-const MASONRY_CHUNK_SIZE = 30;
-const MASONRY_KEEP_CHUNKS = 3; // giữ tối đa 3 chunk (90 ảnh) "sống" (ảnh thật) quanh vị trí đang tải gần nhất
-
-// Bookkeeping của lần renderImageMasonry() gần nhất — reset mỗi lần gọi lại từ đầu (đổi album/thư
-// mục khác, hoặc bật/tắt chế độ chọn nhiều).
-let _masonryContainerEl = null;
-let _masonryImages = [];
-let _masonrySelectionMode = false;
-let _masonrySelectedKeys = null;
-let _masonryChunkTiles = new Map(); // chunkIndex -> Array<tileEl> (đúng thứ tự trong chunk đó)
-let _masonryHighestLoadedChunk = -1;
-let _masonryGrowObserver = null;
-let _masonryRestoreObservers = [];
-// MỚI (Patch 1, mục 1 — group ảnh theo ngày tải lên, 14/07/2026): khoá NGÀY của tile ảnh cuối cùng
-// đã render — cập nhật TUẦN TỰ qua từng chunk (chunk luôn tải đúng thứ tự tăng dần chỉ số, KHÔNG
-// BAO GIỜ nhảy cóc — xem _loadNextMasonryChunk()), nên 1 biến module chạy dọc suốt phiên render là
-// đủ để phát hiện đúng ranh giới ngày xuyên suốt nhiều chunk, không cần biết trước toàn bộ danh
-// sách nhóm. Reset về null mỗi lần renderImageMasonry() vẽ lại từ đầu.
-let _masonryLastRenderedDayKey = null;
-
-function renderImageMasonry(containerEl, images, selectionMode, selectedImageKeys, emptyEl) {
-    if (!containerEl) return; // guard
-
-    // MỚI (Patch 1, mục 1) — mới nhất lên đầu (kiểu Google Photos), làm nền để _loadNextMasonryChunk()
-    // phát hiện ranh giới ngày lúc build từng chunk. Sắp xếp NGAY TẠI ĐÂY (không tách hàm core riêng
-    // ở image.js) — đây là bước CHUẨN BỊ nội bộ của CHÍNH quy trình "render lưới ảnh" này, không phải
-    // 1 nghiệp vụ khác đứng riêng, nên không vi phạm Rule 3 (Core gọi Core). Tạo mảng MỚI, không mutate
-    // tham số `images` gốc (nơi gọi có thể đang giữ tham chiếu khác tới cùng mảng đó).
-    images = [...images].sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
-
-    _teardownMasonryWatchers();
-    containerEl.querySelectorAll('[data-has-object-url]').forEach((node) => {
-        if (node._objectUrl) { try { URL.revokeObjectURL(node._objectUrl); } catch (e) {} }
-    });
-    containerEl.innerHTML = '';
-
-    if (emptyEl) emptyEl.classList.toggle('hidden', images.length > 0);
-
-    _masonryContainerEl = containerEl;
-    _masonryImages = images;
-    _masonrySelectionMode = selectionMode;
-    _masonrySelectedKeys = selectedImageKeys;
-    _masonryChunkTiles = new Map();
-    _masonryHighestLoadedChunk = -1;
-    _masonryLastRenderedDayKey = null; // MỚI (Patch 1, mục 1)
-
-    if (images.length === 0) return;
-
-    const sentinel = document.createElement('div');
-    sentinel.className = 'masonry-bottom-sentinel col-span-full h-px';
-    containerEl.appendChild(sentinel);
-
-    _loadNextMasonryChunk(); // chunk 0 — hiện ngay, không chờ cuộn
-
-    _masonryGrowObserver = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting) _loadNextMasonryChunk();
-    }, { root: null, rootMargin: '800px' });
-    _masonryGrowObserver.observe(sentinel);
-}
-
-/** Tổng số chunk của lần render hiện tại — tính lại mỗi lần gọi (rẻ, không cần cache riêng). */
-function _masonryTotalChunks() {
-    return Math.ceil(_masonryImages.length / MASONRY_CHUNK_SIZE);
-}
-
-// ===================== MỚI (Patch 1, mục 1, 14/07/2026) — Group ảnh theo ngày tải lên =============
-// Header ngăn cách CHỈ chèn xen giữa các tile ẢNH lúc build chunk (_loadNextMasonryChunk() dưới),
-// KHÔNG được đưa vào mảng `tiles` (bookkeeping collapse/expand) — nhờ vậy header LUÔN hiện, không
-// bao giờ bị thu gọn thành placeholder rỗng như tile ảnh (đúng hành vi Google Photos: nhãn ngày vẫn
-// đứng yên dù ảnh bên dưới đã bị giải phóng bộ nhớ).
-
-/** Khoá NGÀY (giờ địa phương máy người dùng) từ `addedAt` — CHỈ dùng để SO SÁNH 2 ảnh có cùng ngày
- * hay không, KHÔNG dùng để hiển thị (xem _buildMasonryDateHeaderTile() cho phần hiển thị). Hàm
- * THUẦN — không appState, không DOM, không gọi core khác. */
-function _masonryDayKey(addedAt) {
-    const d = new Date(addedAt || 0);
-    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
-
-/** Dựng 1 hàng NGĂN CÁCH NGÀY (full-width, không phải ảnh, không bấm được — không có
- * `data-image-key` nên listener delegated `button[data-image-key]` không kích hoạt gì trên nó).
- * Nhãn theo `navigator.language` (locale trình duyệt) — KHÔNG qua t()/tFormat() vì tên thứ/tháng
- * không thuộc bộ key dịch hiện có (chỉ chứa chuỗi tĩnh), dùng thẳng Intl.DateTimeFormat cho đúng
- * ngôn ngữ hệ điều hành người dùng, cùng kiểu "Thứ Bảy, 14 thg 2" như Google Photos. Thêm năm nếu
- * KHÁC năm hiện tại. */
-function _buildMasonryDateHeaderTile(addedAt) {
-    const d = new Date(addedAt || 0);
-    const opts = { weekday: 'long', day: 'numeric', month: 'short' };
-    if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
-    const header = document.createElement('div');
-    header.className = 'col-span-full px-1 pt-3 pb-1.5 first:pt-0 text-sm font-semibold text-slate-200';
-    header.textContent = new Intl.DateTimeFormat(navigator.language, opts).format(d);
-    return header;
-}
-
-/** Nạp chunk KẾ TIẾP (chưa từng tải) — gọi lúc mở lần đầu (chunk 0) VÀ mỗi khi sentinel cuối danh
- * sách lọt vào viewport. Tự dừng hẳn (disconnect observer) khi đã tải hết toàn bộ chunk. */
-function _loadNextMasonryChunk() {
-    const nextIndex = _masonryHighestLoadedChunk + 1;
-    if (nextIndex >= _masonryTotalChunks()) {
-        if (_masonryGrowObserver) { _masonryGrowObserver.disconnect(); _masonryGrowObserver = null; }
-        return;
-    }
-    const start = nextIndex * MASONRY_CHUNK_SIZE;
-    const end = Math.min(start + MASONRY_CHUNK_SIZE, _masonryImages.length);
-    const sentinel = _masonryContainerEl.querySelector('.masonry-bottom-sentinel'); // SCOPED (04/07/2026, mục 3) — không còn getElementById toàn cục, tránh đụng độ id nếu 2 masonry cùng tồn tại (File Manager + picker cover bài hát)
-    const tiles = [];
-    for (let i = start; i < end; i++) {
-        const image = _masonryImages[i];
-
-        // MỚI (Patch 1, mục 1) — guard clause thuần (Rule 1 core-function-conventions.md): xoá `if`
-        // này đi, vòng lặp vẫn còn ĐÚNG 1 kịch bản duy nhất ("chèn header ngăn cách cho ảnh đang
-        // xét"), chỉ mất phần "bỏ qua khi ảnh này CÙNG NGÀY với ảnh render gần nhất" — KHÔNG phải rẽ
-        // nhánh giữa 2 tiến trình nghiệp vụ khác nhau.
-        const dayKey = _masonryDayKey(image.addedAt);
-        if (dayKey !== _masonryLastRenderedDayKey) {
-            _masonryContainerEl.insertBefore(_buildMasonryDateHeaderTile(image.addedAt), sentinel);
-            _masonryLastRenderedDayKey = dayKey;
-        }
-
-        const tile = _buildMasonryTile(image);
-        _masonryContainerEl.insertBefore(tile, sentinel); // chèn TRƯỚC sentinel — sentinel luôn ở cuối cùng
-        tiles.push(tile);
-    }
-    _masonryChunkTiles.set(nextIndex, tiles);
-    _masonryHighestLoadedChunk = nextIndex;
-
-    _collapseFarMasonryChunks();
-    _watchMasonryChunkForRestore(nextIndex);
-}
-
-/** Thu gọn MỌI chunk cũ hơn `MASONRY_KEEP_CHUNKS` chunk tính từ chunk mới nhất vừa tải. */
-function _collapseFarMasonryChunks() {
-    const oldestToKeep = _masonryHighestLoadedChunk - MASONRY_KEEP_CHUNKS + 1;
-    _masonryChunkTiles.forEach((tiles, chunkIndex) => {
-        if (chunkIndex < oldestToKeep && tiles[0] && tiles[0].dataset.collapsed !== '1') {
-            _collapseMasonryChunk(chunkIndex);
-        }
-    });
-}
-
-/** Thu gọn 1 chunk — thay từng tile ảnh thật bằng placeholder RỖNG CÙNG class kích thước ô lưới
- * (`aspect-square`) nên KHÔNG lệch layout. Revoke hết object URL đang giữ (giải phóng bộ nhớ thật
- * — đây chính là phần "để trong RAM cache tạm" mà Giang nhắc: Blob GỐC vẫn còn trong `_masonryImages`,
- * chỉ object URL runtime bị dọn). */
-function _collapseMasonryChunk(chunkIndex) {
-    const tiles = _masonryChunkTiles.get(chunkIndex);
-    if (!tiles) return;
-    tiles.forEach((tile) => {
-        if (tile._objectUrl) { try { URL.revokeObjectURL(tile._objectUrl); } catch (e) {} tile._objectUrl = null; }
-        _thumbnailLazyObserver.unobserve(tile); // phòng tile đang chờ lazy-load dở dang lúc bị thu gọn
-        tile.replaceChildren();
-        tile.className = 'aspect-square rounded-xl bg-white/5 border border-white/5';
-        tile.removeAttribute('data-image-key'); // MẤU CHỐT: listener delegated lọc theo 'button[data-image-key]' — bỏ thuộc tính này để bấm vào placeholder không kích hoạt gì
-        tile.dataset.collapsed = '1';
-    });
-}
-
-/** Khôi phục 1 chunk đã bị thu gọn — dựng lại đúng nội dung tile thật từ `_masonryImages` (Blob
- * vẫn còn nguyên trong RAM, KHÔNG đọc lại IndexedDB). */
-function _expandMasonryChunk(chunkIndex) {
-    const tiles = _masonryChunkTiles.get(chunkIndex);
-    if (!tiles) return;
-    const start = chunkIndex * MASONRY_CHUNK_SIZE;
-    tiles.forEach((tile, offset) => {
-        const image = _masonryImages[start + offset];
-        if (!image) return;
-        tile.className = 'relative block aspect-square rounded-xl overflow-hidden bg-white/5 border border-white/10';
-        delete tile.dataset.collapsed;
-        _fillMasonryTile(tile, image);
-    });
-}
-
-/** Dựng 1 tile MỚI (chunk vừa tải lần đầu) — khung ngoài + gọi `_fillMasonryTile()` để đổ nội dung. */
-function _buildMasonryTile(image) {
-    const tile = document.createElement('button');
-    tile.className = 'relative block aspect-square rounded-xl overflow-hidden bg-white/5 border border-white/10';
-    _fillMasonryTile(tile, image);
-    return tile;
-}
-
-/** Đổ nội dung THẬT (ảnh + badge chọn nhiều nếu có) vào 1 tile — dùng CHUNG bởi `_buildMasonryTile()`
- * (tile mới) VÀ `_expandMasonryChunk()` (tile được khôi phục sau khi thu gọn). */
-function _fillMasonryTile(tile, image) {
-    tile.dataset.imageKey = image.key;
-    tile.dataset.hasObjectUrl = '1';
-    tile.replaceChildren();
-
-    const img = document.createElement('img');
-    img.className = 'w-full h-full object-cover block';
-    img.alt = image.filename;
-    tile.appendChild(img);
-
-    if (_masonrySelectionMode) {
-        const isSelected = _masonrySelectedKeys.has(image.key);
-        const badge = document.createElement('span');
-        badge.className = `absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-colors ${isSelected ? 'bg-sky-500 border-sky-400' : 'bg-black/40 border-white/60'}`;
-        if (isSelected) {
-            badge.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
-        }
-        tile.appendChild(badge);
-    }
-
-    _observeLazyThumbnail(tile, image.blob, img);
-}
-
-/** Gắn 1 observer "canh chừng" cho tile ĐẦU của 1 chunk vừa tải — phát hiện lúc cuộn NGƯỢC lại gần
- * 1 chunk ĐÃ bị thu gọn (ở tương lai) thì tự khôi phục. Chỉ cần theo dõi 1 tile đại diện/chunk là đủ
- * (cả chunk luôn cùng vào/ra viewport gần như đồng thời — không cần observer riêng cho từng tile). */
-function _watchMasonryChunkForRestore(chunkIndex) {
-    const tiles = _masonryChunkTiles.get(chunkIndex);
-    if (!tiles || tiles.length === 0) return;
-    const anchor = tiles[0];
-    const observer = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && anchor.dataset.collapsed === '1') _expandMasonryChunk(chunkIndex);
-    }, { root: null, rootMargin: '800px' });
-    observer.observe(anchor);
-    _masonryRestoreObservers.push(observer);
-}
-
-/** Dọn sạch MỌI observer của lần render trước — gọi ở ĐẦU `renderImageMasonry()` mỗi lần render
- * lại từ đầu, tránh rò rỉ observer của danh sách ảnh cũ. */
-function _teardownMasonryWatchers() {
-    if (_masonryGrowObserver) { _masonryGrowObserver.disconnect(); _masonryGrowObserver = null; }
-    _masonryRestoreObservers.forEach((o) => o.disconnect());
-    _masonryRestoreObservers = [];
-}
+// ===================== Lưới ảnh — Item + Window ảo (Patch mục 2, 14/07/2026) ===================
+// BỎ HẲN hệ Masonry chunk-based cũ (renderImageMasonry() + chunk load/collapse/restore qua
+// IntersectionObserver, ~260 dòng) — THAY bằng hạ tầng "Item" (components/items.js::
+// renderItemList()/itemTemplateImageGridRow()) + "window ảo" thật sự theo vị trí cuộn
+// (components/items.js::computeVirtualWindowRange()), đúng yêu cầu Giang.
+//   - Đóng gói "hàng lưới" (header ngày / cụm ảnh) — core THUẦN, xem
+//     core/file-manager/image.js::buildPhotoGridRows() (còn sortImagesByAddedDateDesc() chuẩn bị
+//     input đã sort).
+//   - Template 1 hàng — components/items.js::itemTemplateImageGridRow() (tạo object URL NGAY lúc
+//     build chuỗi, AN TOÀN vì chỉ render 1 cửa sổ nhỏ mỗi lần, không phải toàn bộ thư viện).
+//   - Điều phối (đo cột/chiều cao hàng, gắn `scroll` listener, gọi computeVirtualWindowRange() RỒI
+//     renderItemList() — CẢ HAI đều là "core" theo đúng cách gọi của components/items.js, nên CHỈ
+//     Workflow được gọi cả 2, KHÔNG core nào ở file NÀY gọi trực tiếp, đúng Rule 3) — xem
+//     event/workflow/file-manager-photo.js::setupPhotoGridWindow(). Hàm ĐÓ dùng CHUNG cho CẢ Photo
+//     & Album (fileManagerPhotoPanelEl) LẪN Picker cover bài hát (openPhotoUiImagePickerModal() bên
+//     dưới, gọi qua event/workflow/playlist.js — Workflow gọi Workflow miền khác, TỰ DO theo
+//     event-bus-flow.md mục 4B "Tái dùng Workflow giữa các miền khác nhau"), tránh duy trì 2 hệ
+//     windowing khác nhau trong project.
+//   - `_thumbnailLazyObserver`/`_observeLazyThumbnail` (ngay dưới) GIỮ NGUYÊN — vẫn dùng cho story
+//     slider Album (số lượng nhỏ, không cần window ảo).
 
 // ===================== Lazy-load thuần (IntersectionObserver) =====================
 
@@ -387,6 +147,7 @@ const _thumbnailLazyObserver = new IntersectionObserver((entries) => {
         _thumbnailLazyObserver.unobserve(node);
         const url = URL.createObjectURL(node._pendingBlob);
         node._objectUrl = url;
+
         if (node._imgEl) {
             node._imgEl.src = url; // masonry: <img> con
         } else {
@@ -609,15 +370,25 @@ function openImageCarouselPickerModal(images, onSelect, onCancel) {
 
 // ===================== Picker cover bài hát — TÁI DÙNG view Photo UI mới (04/07/2026, mục 3) =====
 // THAY hẳn openImageLibraryPickerModal() (lưới columns cũ) cho RIÊNG chỗ "Chọn ảnh" ở tab Cover
-// (Edit song info, event/workflow/playlist.js) — dùng ĐÚNG `renderImageMasonry()` (grid ô vuông +
-// chunk load/collapse, xem comment hàm đó) vừa viết lại cho Photo & Album, tận dụng NGUYÊN layout/
-// hiệu năng đó thay vì duy trì 2 kiểu lưới ảnh khác nhau trong project.
+// (Edit song info, event/workflow/playlist.js) — dùng ĐÚNG khung/style của Photo & Album, tận dụng
+// NGUYÊN layout thay vì duy trì 2 kiểu lưới ảnh khác nhau trong project.
+//
+// SỬA (Patch mục 2, 14/07/2026) — hàm này KHÔNG còn tự vẽ lưới ảnh (renderImageMasonry() đã bỏ
+// hẳn). CHỈ dựng khung modal (header/close/trạng thái rỗng) + `<div id>` GRID RỖNG, rồi gọi
+// `onGridReady(gridEl)` để NƠI GỌI (Workflow — event/workflow/playlist.js) tự
+// `workflowFileManagerPhoto.setupPhotoGridWindow(gridEl, gridEl, ...)`. Hàm NÀY (Core) KHÔNG được tự
+// gọi `computeVirtualWindowRange()`/`renderItemList()` (Rule 3 core-function-conventions.md — 2 hàm
+// đó là "core" theo đúng cách components/items.js tự gọi tên, nên CHỈ Workflow được đứng ra gọi cả
+// hai, không core nào khác được gọi hộ) — đây chính xác lý do phải tách qua callback thay vì tự làm
+// trong file này như bản `renderImageMasonry()` cũ.
 /**
  * @param {Array<{key: string, blob: Blob, filename: string}>} images
  * @param {(imageKey: string) => void} onSelect
  * @param {() => void} [onCancel]
+ * @param {(gridEl: HTMLElement) => void} [onGridReady] - gọi NGAY SAU khi grid rỗng đã vào DOM
+ *        (bỏ qua nếu `images.length === 0` — không có grid nào để giao).
  */
-function openPhotoUiImagePickerModal(images, onSelect, onCancel) {
+function openPhotoUiImagePickerModal(images, onSelect, onCancel, onGridReady) {
     const stale = document.getElementById('photo-ui-image-picker-overlay');
     if (stale) stale.remove();
 
@@ -652,13 +423,12 @@ function openPhotoUiImagePickerModal(images, onSelect, onCancel) {
         overlay.appendChild(emptyEl);
     } else {
         const grid = document.createElement('div');
-        grid.className = 'flex-1 overflow-y-auto px-2 pb-4 grid grid-cols-3 sm:grid-cols-4 gap-1';
+        grid.className = 'flex-1 overflow-y-auto px-2 pb-4';
         overlay.appendChild(grid);
-        renderImageMasonry(grid, images, false, null); // core/file-manager/photo-ui.js — TÁI DÙNG NGUYÊN layout + chunk load/collapse
 
         // Click chọn — delegated riêng cho modal này (KHÁC listener của File Manager, đóng ngay +
-        // gọi onSelect thay vì mở preview), cùng chuẩn `data-image-key` mà renderImageMasonry() đặt
-        // trên mọi tile (kể cả sau khi 1 chunk được thu gọn/khôi phục).
+        // gọi onSelect thay vì mở preview), cùng chuẩn `data-image-key` mà
+        // itemTemplateImageGridRow() (components/items.js) đặt trên mọi tile.
         grid.addEventListener('click', (e) => {
             const tile = e.target.closest('button[data-image-key]');
             if (!tile) return;
@@ -667,6 +437,8 @@ function openPhotoUiImagePickerModal(images, onSelect, onCancel) {
             closeModal();
             onSelect(imageKey);
         });
+
+        if (typeof onGridReady === 'function') onGridReady(grid);
     }
 
     document.body.appendChild(overlay);
@@ -802,40 +574,13 @@ function renderSlideshowAlbumPickerGrid(gridEl, albums, activeAlbumId, imageReco
     });
 }
 
-// ===================== Patch DOM surgical cho chế độ chọn nhiều (MỚI batch 03/07/2026, mục 3) ===
-// FIX nhấp nháy: renderImageMasonry() ở trên XÂY LẠI TOÀN BỘ DOM (revoke + tạo lại mọi object URL)
-// — hợp lý cho lần vẽ ĐẦU (vào chế độ chọn / thoát chế độ chọn), nhưng NẾU gọi lại mỗi lần CHỌN/BỎ
-// CHỌN 1 ảnh (workflow cũ làm vậy) thì mọi ảnh khác cũng bị revoke+load lại object URL dù không
-// đổi gì -> nhấp nháy toàn bộ lưới chỉ vì chạm 1 ô. 2 hàm THUẦN dưới đây chỉ đổi ĐÚNG 1 ô (badge)
-// hoặc 1 dòng text (số lượng đã chọn) — dùng SAU LẦN VẼ ĐẦU, không đụng DOM node nào khác. Cùng
-// tinh thần core/playlist/selection.js (showSelectionIndicator/hideSelectionIndicator) — 1 lớp
-// patch DOM tách riêng khỏi pipeline render chính.
-
-/**
- * Đổi trạng thái chọn/bỏ chọn NGAY TRÊN 1 tile đã có sẵn trong DOM (không revoke/tạo lại object
- * URL của tile đó hay bất kỳ tile nào khác).
- * @param {string} imageKey
- * @param {boolean} isSelected
- */
-/** Batch D6 (06/07/2026) — dùng `_masonryContainerEl` (biến bookkeeping nội bộ, luôn trỏ đúng
- * container của lần renderImageMasonry() gần nhất) THAY vì dom-ref tĩnh `fileManagerImageMasonry`
- * — panel Photo giờ push/pop động, biến toàn cục đó không còn hợp lệ. */
-function toggleImageSelectionBadge(imageKey, isSelected) {
-    if (!_masonryContainerEl) return; // guard
-    const tile = _masonryContainerEl.querySelector(`[data-image-key="${imageKey}"]`);
-    if (!tile) return; // guard: hiếm, ảnh không còn trong DOM (race)
-
-    let badge = tile.querySelector('[data-role="selection-badge"]');
-    if (!badge) {
-        badge = document.createElement('span');
-        badge.dataset.role = 'selection-badge';
-        tile.appendChild(badge);
-    }
-    badge.className = `absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-colors ${isSelected ? 'bg-sky-500 border-sky-400' : 'bg-black/40 border-white/60'}`;
-    badge.innerHTML = isSelected
-        ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>'
-        : '';
-}
+// ===================== Đếm số ảnh đang chọn (chế độ chọn nhiều) ==================================
+// TRƯỚC ĐÂY còn có `toggleImageSelectionBadge()` (patch DOM surgical, chỉ đổi 1 tile để tránh nhấp
+// nháy cả lưới) — XOÁ ở Patch mục 2 (14/07/2026) cùng lúc bỏ `renderImageMasonry()`/
+// `_masonryContainerEl`: giờ mỗi lần chọn/bỏ chọn 1 ảnh, Workflow gọi lại ĐÚNG closure vẽ cửa sổ
+// hiện tại (`setupPhotoGridWindow()` trả về, xem event/workflow/file-manager-photo.js) — chỉ vẽ lại
+// ~1 cửa sổ nhỏ (visible + buffer, không phải toàn bộ thư viện như bản Masonry cũ), nên KHÔNG còn
+// cần patch surgical riêng nữa, nhấp nháy không đáng kể.
 
 /** Đổi text "N selected" mà không đụng DOM nào khác. Batch D6 — nhận `countEl` qua tham số.
  * @param {number} count @param {HTMLElement} [countEl] */
