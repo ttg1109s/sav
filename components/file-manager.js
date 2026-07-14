@@ -134,7 +134,7 @@ function renderFileManagerFolderDetailPanelBody() {
                      "uppercase" ở tên (đợt 6, điểm 4 cũ) — đây là tên THẬT của folder, ép hoa toàn
                      bộ khiến 2 folder khác tên chỉ do khác hoa/thường trông giống hệt nhau. -->
                 <div class="flex items-center justify-between gap-2 -mt-2">
-                    <h2 id="file-manager-folder-detail-title" class="text-lg font-bold tracking-wider text-white truncate min-w-0">—</h2>
+                    <h2 id="file-manager-folder-detail-title" class="flex-1 text-lg font-bold tracking-wider text-white truncate min-w-0">—</h2>
                     <button id="btn-file-manager-folder-detail-rename" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 shrink-0" title="${t('fileManager.song.folderDetail.renameTitle')}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                     </button>
