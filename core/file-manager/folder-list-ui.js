@@ -91,6 +91,13 @@ function renderFolderListUI(folders, activeFolderId, listEl, emptyEl) {
  * getFolderSongCount() + render lại DOM không cần thiết cho các hàng KHÔNG đổi gì). MỚI
  * (14/07/2026, Giang yêu cầu — "xoá song trong folder xong back không render lại", xem
  * event/workflow/file-manager-song.js::refreshStaleFolderRowIfNeeded()).
+ *
+ * [TỰ SỬA 14/07/2026, tự audit lại Rule 5b] — bản đầu dùng `if (isActive && !dotEl) {...} else if
+ * (!isActive && dotEl) {...}` — đọc `!dotEl` (DOM có tồn tại hay không) làm 1 phần điều kiện rẽ
+ * nhánh "tạo mới" vs "xoá" — đúng lối lách Rule 1 mà Rule 5b nêu đích danh (dùng trạng thái DOM
+ * làm điều kiện chọn giữa ≥2 tiến trình khác nhau). SỬA: xoá dot CŨ (nếu có) VÔ ĐIỀU KIỆN trước
+ * (dọn dẹp, không phải "chọn tiến trình"), rồi CHỈ rẽ nhánh tạo dot mới theo ĐÚNG 1 tham số
+ * `isActive` — không còn đọc DOM để quyết định.
  * @param {HTMLElement} rowEl - hàng ĐÃ có sẵn (tìm qua `[data-folder-id="..."]`).
  * @param {number} songCount
  * @param {boolean} isActive
@@ -106,14 +113,14 @@ function updateFolderListRowUI(rowEl, songCount, isActive) {
         nameEl.classList.toggle('text-slate-200', !isActive);
     }
 
-    let dotEl = rowEl.querySelector('[data-role="active-dot"]');
-    if (isActive && !dotEl) {
-        dotEl = document.createElement('span');
+    const existingDotEl = rowEl.querySelector('[data-role="active-dot"]');
+    if (existingDotEl) existingDotEl.remove(); // dọn dẹp VÔ ĐIỀU KIỆN — không phải "chọn tiến trình", chỉ tránh nhân đôi trước khi dựng lại
+
+    if (isActive) { // rẽ nhánh THEO THAM SỐ isActive — không đọc DOM để quyết định
+        const dotEl = document.createElement('span');
         dotEl.dataset.role = 'active-dot';
         dotEl.className = 'w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0';
         dotEl.title = t('fileManager.song.activeFolderBadge');
         rowEl.insertBefore(dotEl, rowEl.firstChild);
-    } else if (!isActive && dotEl) {
-        dotEl.remove();
     }
 }
