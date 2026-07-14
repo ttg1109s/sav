@@ -222,12 +222,13 @@ const workflowPlaylist = {
 
     /**
      * MỚI (mục 1d, CHỐT 03/07/2026) — "Thêm vào thư mục" cho ĐÚNG 1 bài từ menu 3 chấm đơn lẻ.
-     * Song song với openAddToFolderPicker() ở trên (chọn nhiều) — KHÔNG gộp chung 1 method vì 2
+     * Song song với openAddToFolderPicker() ở dưới (chọn nhiều) — KHÔNG gộp chung 1 method vì 2
      * message trigger khác nhau (đơn lẻ đọc `songActionMenuKey` trong playlistStore, chọn nhiều
      * đọc `selectedSongKeys` trong appState) và cần đóng đúng menu tương ứng (songActionMenu vs
      * chế độ chọn nhiều) — viết chung sẽ phải rẽ nhánh theo "nguồn nào gọi tới", đúng thứ vi phạm
      * Rule 1 nếu đặt trong core, và không cần thiết ở tầng workflow (workflow không bị Rule 1 ràng
-     * buộc, nhưng tách riêng vẫn rõ ràng hơn khi đọc).
+     * buộc, nhưng tách riêng vẫn rõ ràng hơn khi đọc). CẢ 2 giờ dùng CHUNG `_openFolderPickerDrawer()`
+     * (grid Generic Drawer, xem MỚI 14/07/2026 bên dưới) — chỉ khác `onPick` callback.
      */
     /**
      * MỚI (10/07/2026) — "Sửa phụ đề" trong menu 3 chấm: đọc key bài đang mở menu, đóng menu, rồi
@@ -248,9 +249,7 @@ const workflowPlaylist = {
         if (!key) return;
         closeSongActionMenu();
 
-        const folders = await listFolders(); // core có sẵn, CÓ return, DÙNG ngay dưới
-
-        const finishAdd = async (folderId) => {
+        await this._openFolderPickerDrawer(async (folderId) => {
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
                 await addSongsToFolder([key], folderId); // core có sẵn (core/file-manager/folder.js)
             });
@@ -259,38 +258,18 @@ const workflowPlaylist = {
             // (hoặc lần bấm "Áp dụng" kế tiếp) sẽ tự đọc đúng danh sách mới — xem
             // event/workflow/playlist-scope.js.
             await alertModal(tFormat('fileManager.folderPicker.addSuccess', { count: 1 }));
-        };
-
-        openFolderPickerModal(folders, {
-            onPickExisting: (folderId) => { finishAdd(folderId); },
-            onCreateNew: async (name) => {
-                const result = await createFolder(name); // core có sẵn (core/file-manager/folder.js)
-                // MỚI (03/07/2026, đợt 6, điểm 4) — createFolder() giờ có thể trả 'duplicateName'
-                // (chặn tên trùng, case-sensitive) — báo lỗi rõ ràng thay vì âm thầm addSongsToFolder
-                // với folderId undefined (bug nếu bỏ qua check này).
-                if (result.status === 'duplicateName') {
-                    await alertModal(tFormat('fileManager.folderPicker.duplicateName', { name: escapeHtml(name) }));
-                    return;
-                }
-                await finishAdd(result.folderId);
-            }
         });
     },
 
     /**
-     * "Thêm vào thư mục" — liệt kê folder có sẵn (listFolders(), core/file-manager/folder.js) rồi
-     * mở picker (openFolderPickerModal(), core/file-manager/folder-picker-ui.js — hàm dựng UI
-     * thuần, không phải core nghiệp vụ). 2 callback của picker (chọn folder có sẵn / tạo mới) đều
-     * gọi tiếp addSongsToFolder() — cùng 1 hành động, chỉ khác bước "có cần createFolder() trước
-     * không", nên vẫn hợp lý gộp trong 1 workflow method thay vì tách 2 method riêng.
+     * "Thêm vào thư mục" (chọn nhiều) — cùng `_openFolderPickerDrawer()` với bản 1-bài ở trên, chỉ
+     * khác `onPick` (nhiều key + thoát chế độ chọn).
      */
     async openAddToFolderPicker() {
         const keys = Array.from(appState.get('selectedSongKeys'));
         if (keys.length === 0) return;
 
-        const folders = await listFolders(); // core có sẵn, CÓ return, DÙNG ngay dưới
-
-        const finishAdd = async (folderId) => {
+        await this._openFolderPickerDrawer(async (folderId) => {
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
                 await addSongsToFolder(keys, folderId); // core có sẵn (core/file-manager/folder.js)
             });
@@ -298,20 +277,159 @@ const workflowPlaylist = {
             // ở finishAdd() bản 1-bài phía trên (openAddToFolderPickerForSongMenu).
             this._exitSelectionMode();
             await alertModal(tFormat('fileManager.folderPicker.addSuccess', { count: keys.length }));
-        };
-
-        openFolderPickerModal(folders, {
-            onPickExisting: (folderId) => { finishAdd(folderId); },
-            onCreateNew: async (name) => {
-                const result = await createFolder(name); // core có sẵn (core/file-manager/folder.js)
-                // MỚI (03/07/2026, đợt 6, điểm 4) — xem giải thích ở openAddToFolderPickerForSongMenu() phía trên.
-                if (result.status === 'duplicateName') {
-                    await alertModal(tFormat('fileManager.folderPicker.duplicateName', { name: escapeHtml(name) }));
-                    return;
-                }
-                await finishAdd(result.folderId);
-            }
         });
+    },
+
+    // ===================== Add to Folder — Generic Drawer grid (MỚI 14/07/2026) =====================
+    // Trước đây: modal riêng (core/file-manager/folder-picker-ui.js::openFolderPickerModal(), giờ
+    // MỒ CÔI — không còn nơi gọi nào, giữ lại file làm tư liệu đối chiếu, Giang xoá tay khi rảnh).
+    // Giờ: Generic Drawer + grid folder (icon trên + tên dưới tối đa 2 dòng, xem
+    // components/items.js::itemTemplateFolderTile()) + 1 tile "Tạo folder mới" cố định cuối grid
+    // (buildAddFolderTileHtml()) — bấm vào tạo NGAY 1 folder tên tự động, vào thẳng chế độ sửa tên
+    // (input, focus sẵn). Toàn bộ tương tác trong Drawer (tap chọn folder/tap tạo mới/sửa tên/đóng)
+    // ĐỀU bắn qua eventBus (Rule 5a MỚI, readme/core-function-conventions.md — code MỚI viết từ
+    // 13/07/2026 không còn ngoại lệ "gọi thẳng tham số" như modalChoice()).
+
+    _folderPickerFolders: [], // danh sách folder ĐANG hiển thị trong grid — cache RAM, chỉ dùng lúc Drawer đang mở
+    _folderPickerEditingId: null, // folderId đang ở chế độ sửa tên (null = không có)
+    _folderPickerOnPick: null, // callback(folderId) — set bởi entry method (openAddToFolderPickerForSongMenu/openAddToFolderPicker), gọi khi user CHỌN xong 1 folder
+
+    /** Mở Drawer lần đầu — đọc danh sách folder, vẽ grid, wire sự kiện. */
+    async _openFolderPickerDrawer(onPick) {
+        this._folderPickerFolders = await listFolders(); // core có sẵn, CÓ return, DÙNG ngay dưới
+        this._folderPickerEditingId = null;
+        this._folderPickerOnPick = onPick;
+        this._renderFolderPickerGrid(true);
+    },
+
+    /** Vẽ lại grid (mở lần đầu HOẶC sau khi thêm/sửa tên 1 folder) — `isFirstOpen` quyết định
+     * open vs update Generic Drawer (core/generic-drawer.js — 2 hàm khác nhau tuỳ Drawer đang đóng
+     * hay đã mở sẵn, xem docstring ở đó). */
+    _renderFolderPickerGrid(isFirstOpen) {
+        const itemsHtml = renderItemList(null, this._folderPickerFolders, itemTemplateFolderTile, { editingFolderId: this._folderPickerEditingId }); // components/items.js
+        const bodyHtml = `<div class="flex flex-wrap justify-center gap-4 p-5">${itemsHtml}${buildAddFolderTileHtml()}</div>`; // components/items.js
+        const config = {
+            height: '60vh',
+            zIndex: 40,
+            headerHtml: this._buildFolderPickerHeaderHtml(),
+            bodyHtml,
+            bodyClass: 'overflow-y-auto',
+            isWindowVirtual: false, // tường minh — số folder thực tế luôn rất nhỏ, không cần windowing (xem event/workflow/virtual-list.js)
+        };
+        if (isFirstOpen) openGenericDrawer(config); // core/generic-drawer.js
+        else updateGenericDrawer(config); // core/generic-drawer.js
+        this._wireFolderPickerEvents();
+    },
+
+    _buildFolderPickerHeaderHtml() {
+        return `
+            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
+                <h3 class="text-base font-bold text-slate-900">${t('fileManager.folderPicker.title')}</h3>
+                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+        `;
+    },
+
+    /** Wire lại TOÀN BỘ sự kiện SAU MỖI lần vẽ grid (nội dung genericDrawerBody bị thay hoàn
+     * toàn mỗi lần) — mọi callback CHỈ bắn eventBus.send(), KHÔNG gọi thẳng tên hàm nào (Rule 5a
+     * MỚI). Input sửa tên (nếu đang có) tự focus + select ngay — KHÔNG qua eventBus (đây là hành
+     * vi UI thuần "đặt con trỏ vào ô vừa hiện ra", không phải 1 hành động nghiệp vụ). */
+    _wireFolderPickerEvents() {
+        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
+        if (closeBtn) closeBtn.addEventListener('click', () => {
+            eventBus.send({ router: 'playlist', type: 'playlist.folderPicker.close.click', payload: {} });
+        });
+
+        genericDrawerBody.querySelectorAll('.generic-item-folder-tile').forEach((tileEl) => {
+            tileEl.addEventListener('click', () => {
+                eventBus.send({ router: 'playlist', type: 'playlist.folderPicker.tile.click', payload: { folderId: tileEl.dataset.folderId } });
+            });
+        });
+
+        const addTileEl = genericDrawerBody.querySelector('#generic-folder-picker-add-tile');
+        if (addTileEl) addTileEl.addEventListener('click', () => {
+            eventBus.send({ router: 'playlist', type: 'playlist.folderPicker.addTile.click', payload: {} });
+        });
+
+        const renameInputEl = genericDrawerBody.querySelector('.generic-folder-tile-rename-input');
+        if (renameInputEl) {
+            renameInputEl.focus();
+            renameInputEl.select();
+            const commit = () => {
+                eventBus.send({ router: 'playlist', type: 'playlist.folderPicker.rename.commit', payload: { folderId: renameInputEl.closest('[data-folder-id]').dataset.folderId, name: renameInputEl.value } });
+            };
+            renameInputEl.addEventListener('blur', commit);
+            renameInputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') renameInputEl.blur(); }); // Enter -> blur -> tự trigger commit ở trên, không lặp lại logic
+        }
+    },
+
+    /** msg.type = 'playlist.folderPicker.tile.click' — user CHỌN xong 1 folder (có sẵn hoặc vừa
+     * tạo, không quan trọng — mọi tile đều "chọn được" như nhau). */
+    async pickFolderInPicker(folderId) {
+        const onPick = this._folderPickerOnPick;
+        this.closeFolderPicker();
+        if (onPick) await onPick(folderId);
+    },
+
+    /** msg.type = 'playlist.folderPicker.close.click'. */
+    closeFolderPicker() {
+        this._folderPickerOnPick = null;
+        this._closeGenericDrawerFully();
+    },
+
+    /** msg.type = 'playlist.folderPicker.addTile.click' — tạo NGAY 1 folder tên tự động (không
+     * trùng tên bất kỳ folder nào đang có), thêm vào cache RAM, vẽ lại grid với tile MỚI ở chế độ
+     * sửa tên (focus sẵn, xem _wireFolderPickerEvents()). KHÔNG tự "chọn" folder này luôn — user
+     * vẫn cần tap vào tile (sau khi sửa tên xong) như MỌI tile khác để hoàn tất việc chọn, giữ
+     * đúng 1 mô hình tương tác duy nhất cho toàn bộ grid (tạo ≠ chọn, tách 2 hành động RÕ RÀNG). */
+    async createFolderInPicker() {
+        const defaultName = this._computeDefaultFolderName();
+        const result = await createFolder(defaultName); // core có sẵn (core/file-manager/folder.js)
+        if (result.status !== 'ok') return; // hiếm — trùng tên dù đã tự tính tên không trùng (race hiếm gặp), im lặng bỏ qua
+        this._folderPickerFolders.push({ id: result.folderId, name: defaultName });
+        this._folderPickerEditingId = result.folderId;
+        this._renderFolderPickerGrid(false);
+    },
+
+    /** Tính tên mặc định KHÔNG trùng bất kỳ folder nào đang hiển thị trong grid — "Thư mục mới",
+     * "Thư mục mới 2", "Thư mục mới 3"... */
+    _computeDefaultFolderName() {
+        const base = t('fileManager.folderPicker.defaultNewFolderName');
+        const existingNames = new Set(this._folderPickerFolders.map((f) => f.name));
+        if (!existingNames.has(base)) return base;
+        let n = 2;
+        while (existingNames.has(`${base} ${n}`)) n++;
+        return `${base} ${n}`;
+    },
+
+    /** msg.type = 'playlist.folderPicker.rename.commit' — blur/Enter của ô sửa tên. Tên rỗng hoặc
+     * giữ nguyên tên tự động -> bỏ qua (KHÔNG gọi renameFolder() vô ích), chỉ thoát chế độ sửa. */
+    async commitFolderPickerRename(folderId, name) {
+        this._folderPickerEditingId = null;
+        const trimmed = (name || '').trim();
+        const folder = this._folderPickerFolders.find((f) => f.id === folderId);
+        if (trimmed && folder && trimmed !== folder.name) {
+            const result = await renameFolder(folderId, trimmed); // core có sẵn
+            if (result.status === 'ok') folder.name = trimmed;
+            // 'duplicateName' (hiếm — user tự gõ trùng tên folder khác) -> im lặng giữ tên cũ,
+            // không alertModal giữa lúc đang thao tác nhanh (khác hẳn form Sửa tên đầy đủ ở
+            // Settings -> File Manager -> Song, nơi đó VẪN báo lỗi rõ ràng).
+        }
+        this._renderFolderPickerGrid(false);
+    },
+
+    /** Cùng pattern `_closeGenericDrawerFully()` ở event/workflow/document-reader.js —
+     * `closeGenericDrawer()` (core) CHỈ trượt xuống + mờ overlay, KHÔNG tự ẩn hẳn (Rule 5a: core
+     * không được tự addEventListener cho DOM TĨNH) — Workflow tự nghe `transitionend` rồi gọi
+     * `hideGenericDrawerImmediately()` để ẩn hẳn. */
+    _closeGenericDrawerFully() {
+        closeGenericDrawer(); // core/generic-drawer.js
+        genericDrawerPanel.addEventListener('transitionend', function onTransitionEnd() {
+            genericDrawerPanel.removeEventListener('transitionend', onTransitionEnd);
+            hideGenericDrawerImmediately(); // core/generic-drawer.js
+        }, { once: true });
     },
 
     /**
