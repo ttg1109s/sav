@@ -273,6 +273,31 @@ async function removeSongFromFolder(songKey, folderId) {
 }
 
 /**
+ * Gỡ TẤT CẢ bài khỏi 1 folder (rỗng hoá nội dung) — KHÁC hẳn deleteFolder(): folder (metadata/tên)
+ * VẪN GIỮ NGUYÊN, chỉ dọn sạch danh sách bài BÊN TRONG. MỚI (14/07/2026, Giang yêu cầu — nút "Xoá
+ * hết bài" trong Folder Detail). Cùng thứ tự AN TOÀN với deleteFolder(): dọn field
+ * `record.folder[folderId]` khỏi TỪNG bài đang có TRƯỚC, rồi mới ghi `folder_song` rỗng.
+ * @param {string} folderId
+ * @returns {Promise<{status: 'notFound'|'ok'}>}
+ */
+async function removeAllSongsFromFolder(folderId) {
+    const folderMap = await getFolderSongMap(folderId);
+    if (!folderMap) return { status: 'notFound' };
+
+    const songKeys = getFolderSongKeys(folderMap); // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
+    console.log(`[removeAllSongsFromFolder] callTo: "getFolderSongKeys", request: "lấy danh sách bài đang thật trong folder ${folderId} để dọn field trước khi rỗng hoá"`);
+    for (const songKey of songKeys) {
+        const record = await getSongRecord(songKey);
+        if (!record || !record.folder) continue; // guard: record đã bị xoá/hỏng dữ liệu ở nơi khác — bỏ qua
+        delete record.folder[folderId];
+        await setSongRecord(songKey, record);
+    }
+
+    await setFolderSongMap(folderId, { list: [], empty: 0 });
+    return { status: 'ok' };
+}
+
+/**
  * Liệt kê toàn bộ folder hiện có (metadata), dùng cho picker/UI danh sách.
  * @returns {Promise<Array<{id: string, name: string}>>}
  */

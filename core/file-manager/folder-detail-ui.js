@@ -37,12 +37,15 @@ function getFolderSongsForDisplay(folderMap, playlistCache) {
 /**
  * @param {Array<{key: string, title: string, artist: string}>} songs
  * @param {HTMLElement} listEl @param {HTMLElement} [emptyEl]
+ * @param {HTMLElement} [removeAllBtnEl] - MỚI (14/07/2026) — nút "Xoá hết bài", tự ẩn khi
+ *        `songs.length === 0` (không có gì để xoá) — cùng điều kiện với `emptyEl`.
  */
-function renderFolderDetailSongList(songs, listEl, emptyEl) {
+function renderFolderDetailSongList(songs, listEl, emptyEl, removeAllBtnEl) {
     if (!listEl) return; // guard: panel đang đóng
 
     listEl.innerHTML = '';
     if (emptyEl) emptyEl.classList.toggle('hidden', songs.length > 0);
+    if (removeAllBtnEl) removeAllBtnEl.classList.toggle('hidden', songs.length === 0);
 
     songs.forEach((song) => {
         const row = document.createElement('div');
