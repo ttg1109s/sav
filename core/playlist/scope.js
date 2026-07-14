@@ -34,8 +34,11 @@ function loadAllSongs(playlistCache) {
  */
 async function loadSongsFromFolder(folderId, playlistCache) {
     const folderMap = await getFolderSongMap(folderId); // data layer thuần (service/db.js) — KHÔNG tính "core khác" theo Rule 3, xem đầu core/file-manager/folder.js
-    const folderKeys = getFolderSongKeys(folderMap); // CÓ return, DÙNG ngay dưới -> Rule 3 hợp lệ
-    console.log(`[loadSongsFromFolder] callTo: "getFolderSongKeys", request: "lấy danh sách bài đang thật trong folder ${folderId} để scope playlist"`);
+    // [TỰ SỬA 14/07/2026, tự audit lại Rule 3] — trước đây gọi getFolderSongKeys() (1 core KHÁC ở
+    // core/file-manager/folder.js) rồi biện minh "có return value nên hợp lệ" — SAI theo Rule 3
+    // hiện hành (xem giải thích đầy đủ ở core/file-manager/folder.js::deleteFolder()). Inline TRỰC
+    // TIẾP logic 1 dòng (lọc tombstone null) tại đây, không gọi hàm đó nữa.
+    const folderKeys = folderMap.list.filter((k) => k != null);
 
     const scoped = folderKeys.filter(k => playlistCache.has(k));
     appState.set('playlistOrder', scoped);
