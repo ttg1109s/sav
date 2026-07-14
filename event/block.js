@@ -60,3 +60,14 @@ eventBus.registerBlock('documentPicker.open.click', [
         { field: 'isGenericDrawerOpen', operator: '===', value: true },
     ],
 ]);
+
+// MỚI (14/07/2026, tích hợp Add to Folder -> Generic Drawer grid) — 'playlist.actionMenu.addToFolder'
+// là msg.type RIÊNG (không chia sẻ với hành động khác, khác 'playlist.selection.moreMenu.select'
+// bản chọn nhiều — msg.type đó CHUNG cho cả play/export/addToFolder/delete qua payload.action, KHÔNG
+// đăng ký block ở đây vì sẽ chặn nhầm cả 3 hành động còn lại). Lớp overlay (core/generic-drawer.js)
+// đã chặn click xuyên qua VỀ MẶT HÌNH ẢNH khi Drawer đang mở — block này là lớp phòng thủ thứ 2.
+eventBus.registerBlock('playlist.actionMenu.addToFolder', [
+    [
+        { field: 'isGenericDrawerOpen', operator: '===', value: true },
+    ],
+]);
