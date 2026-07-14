@@ -62,8 +62,13 @@ const GENERIC_DRAWER_DEFAULT_Z_INDEX = 128;
 
 /**
  * Mở drawer LẦN ĐẦU (đang đóng -> mở) — set toàn bộ cấu hình + trượt lên + hiện overlay.
- * @param {{height?: string, zIndex?: number, headerHtml: string, bodyHtml: string, bodyClass?: string, isWindowVirtual?: boolean}} config
+ * @param {{height?: string, maxHeight?: string, zIndex?: number, headerHtml: string, bodyHtml: string, bodyClass?: string, isWindowVirtual?: boolean}} config
  *   - height: mặc định '70vh' nếu không truyền.
+ *   - maxHeight: MỚI (14/07/2026, Giang yêu cầu — "tránh thừa khoảng trống" cho grid folder ít
+ *     item) — mặc định RỖNG (không giới hạn thêm gì cả, giữ hành vi cũ) nếu không truyền. Dùng
+ *     KẾT HỢP `height: 'auto'` để panel tự co theo ĐÚNG nội dung thật (không còn 1 khối cố định
+ *     cao `height` bất kể có bao nhiêu nội dung) nhưng vẫn KHÔNG BAO GIỜ vượt quá `maxHeight` (nội
+ *     dung dài sẽ tự cuộn bên trong `genericDrawerBody`, nhờ `bodyClass: 'overflow-y-auto'`).
  *   - zIndex: mặc định GENERIC_DRAWER_DEFAULT_Z_INDEX (128) nếu không truyền (overlay tự dùng
  *     zIndex - 1) — xem giải thích đầy đủ ở docstring hằng số phía trên.
  *   - isWindowVirtual: mặc định false — true nếu bodyHtml là 1 danh sách windowing thật (đã
@@ -72,6 +77,7 @@ const GENERIC_DRAWER_DEFAULT_Z_INDEX = 128;
 function openGenericDrawer(config) {
     const zIndex = config.zIndex || GENERIC_DRAWER_DEFAULT_Z_INDEX;
     genericDrawerPanel.style.height = config.height || '70vh';
+    genericDrawerPanel.style.maxHeight = config.maxHeight || '';
     genericDrawerPanel.style.zIndex = String(zIndex);
     genericDrawerHeader.innerHTML = config.headerHtml || '';
     genericDrawerBody.innerHTML = config.bodyHtml || '';
@@ -99,11 +105,12 @@ function openGenericDrawer(config) {
 /**
  * Chuyển MƯỢT sang cấu hình MỚI trong khi ĐANG MỞ (không đóng/mở lại từ đầu) — cơ chế chuyển
  * List <-> Read (mục 2/4.1 plan-v12-extended.md). Drawer PHẢI đang mở trước khi gọi.
- * @param {{height?: string, zIndex?: number, headerHtml: string, bodyHtml: string, bodyClass?: string, isWindowVirtual?: boolean}} config
+ * @param {{height?: string, maxHeight?: string, zIndex?: number, headerHtml: string, bodyHtml: string, bodyClass?: string, isWindowVirtual?: boolean}} config
  */
 function updateGenericDrawer(config) {
     const zIndex = config.zIndex || GENERIC_DRAWER_DEFAULT_Z_INDEX;
     genericDrawerPanel.style.height = config.height || '70vh';
+    genericDrawerPanel.style.maxHeight = config.maxHeight || '';
     genericDrawerPanel.style.zIndex = String(zIndex);
     genericDrawerHeader.innerHTML = config.headerHtml || '';
     genericDrawerBody.innerHTML = config.bodyHtml || '';
