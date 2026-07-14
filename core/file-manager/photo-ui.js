@@ -31,12 +31,13 @@
  *     chuẩn bị "hàng lưới" (header ngày hoặc cụm ảnh).
  *   - components/items.js::itemTemplateImageGridRow() — template 1 hàng (tạo object URL NGAY lúc
  *     build chuỗi — an toàn vì chỉ 1 cửa sổ nhỏ được render mỗi lần, không phải toàn bộ thư viện).
- *   - event/workflow/file-manager-photo.js::setupPhotoGridWindow() — điều phối (đo cột/chiều cao
- *     hàng, gắn `scroll` listener, gọi computeVirtualWindowRange() RỒI renderItemList() — CHỈ
- *     Workflow được gọi cả 2, xem Rule 3 core-function-conventions.md). Dùng CHUNG cho CẢ Photo &
- *     Album LẪN `openPhotoUiImagePickerModal()` (picker cover bài hát — hàm đó giờ CHỈ dựng khung
- *     modal + `<div>` grid rỗng, giao lại qua tham số `onGridReady` để Workflow tự setup, xem hàm
- *     đó bên dưới) — tránh duy trì 2 hệ windowing khác nhau trong project.
+ *   - event/workflow/file-manager-photo.js::setupPhotoGridWindow() — chuẩn bị hàng lưới RỒI giao
+ *     `workflowVirtualList.mount()` (event/workflow/virtual-list.js) đo/dựng/vẽ. `scroll` đi ĐÚNG
+ *     luồng listener->bus->router->workflow như mọi sự kiện khác (event/listener/virtual-list.js —
+ *     KHÔNG Workflow tự `addEventListener`). Dùng CHUNG cho CẢ Photo & Album LẪN
+ *     `openPhotoUiImagePickerModal()` (picker cover bài hát — hàm đó giờ CHỈ dựng khung modal +
+ *     `<div>` grid rỗng, giao lại qua tham số `onGridReady`, xem hàm đó bên dưới) — tránh duy trì 2
+ *     hệ windowing khác nhau trong project.
  * `_thumbnailLazyObserver`/`_observeLazyThumbnail` GIỮ NGUYÊN — vẫn phục vụ story slider Album (số
  * lượng nhỏ, không cần window ảo).
  */
@@ -120,19 +121,20 @@ function renderAlbumStory(albums, activeAlbumId, imageRecordsByKey, storyEl) {
 // BỎ HẲN hệ Masonry chunk-based cũ (renderImageMasonry() + chunk load/collapse/restore qua
 // IntersectionObserver, ~260 dòng) — THAY bằng hạ tầng "Item" (components/items.js::
 // renderItemList()/itemTemplateImageGridRow()) + "window ảo" thật sự theo vị trí cuộn
-// (components/items.js::computeVirtualWindowRange()), đúng yêu cầu Giang.
+// (components/items.js::computeVariableVirtualWindowRange()), đúng yêu cầu Giang.
 //   - Đóng gói "hàng lưới" (header ngày / cụm ảnh) — core THUẦN, xem
 //     core/file-manager/image.js::buildPhotoGridRows() (còn sortImagesByAddedDateDesc() chuẩn bị
 //     input đã sort).
 //   - Template 1 hàng — components/items.js::itemTemplateImageGridRow() (tạo object URL NGAY lúc
 //     build chuỗi, AN TOÀN vì chỉ render 1 cửa sổ nhỏ mỗi lần, không phải toàn bộ thư viện).
-//   - Điều phối (đo cột/chiều cao hàng, gắn `scroll` listener, gọi computeVirtualWindowRange() RỒI
-//     renderItemList() — CẢ HAI đều là "core" theo đúng cách gọi của components/items.js, nên CHỈ
-//     Workflow được gọi cả 2, KHÔNG core nào ở file NÀY gọi trực tiếp, đúng Rule 3) — xem
-//     event/workflow/file-manager-photo.js::setupPhotoGridWindow(). Hàm ĐÓ dùng CHUNG cho CẢ Photo
-//     & Album (fileManagerPhotoPanelEl) LẪN Picker cover bài hát (openPhotoUiImagePickerModal() bên
-//     dưới, gọi qua event/workflow/playlist.js — Workflow gọi Workflow miền khác, TỰ DO theo
-//     event-bus-flow.md mục 4B "Tái dùng Workflow giữa các miền khác nhau"), tránh duy trì 2 hệ
+//   - Điều phối (đo cột/chiều cao hàng, gọi computeVariableVirtualWindowRange() RỒI renderItemList())
+//     THẬT SỰ nằm ở event/workflow/virtual-list.js::workflowVirtualList — file này KHÔNG gọi core
+//     nào ở đây, chỉ chuẩn bị "hàng lưới" RỒI giao workflowVirtualList.mount() (gọi từ
+//     event/workflow/file-manager-photo.js::setupPhotoGridWindow()). `scroll` đi ĐÚNG luồng
+//     listener->bus->router->workflow (event/listener/virtual-list.js), KHÔNG Workflow tự
+//     addEventListener. Dùng CHUNG cho CẢ Photo & Album (fileManagerPhotoPanelEl) LẪN Picker cover
+//     bài hát (openPhotoUiImagePickerModal() bên dưới, gọi qua event/workflow/playlist.js —
+//     Workflow gọi Workflow miền khác, TỰ DO theo event-bus-flow.md mục 4B), tránh duy trì 2 hệ
 //     windowing khác nhau trong project.
 //   - `_thumbnailLazyObserver`/`_observeLazyThumbnail` (ngay dưới) GIỮ NGUYÊN — vẫn dùng cho story
 //     slider Album (số lượng nhỏ, không cần window ảo).
@@ -376,11 +378,10 @@ function openImageCarouselPickerModal(images, onSelect, onCancel) {
 // SỬA (Patch mục 2, 14/07/2026) — hàm này KHÔNG còn tự vẽ lưới ảnh (renderImageMasonry() đã bỏ
 // hẳn). CHỈ dựng khung modal (header/close/trạng thái rỗng) + `<div id>` GRID RỖNG, rồi gọi
 // `onGridReady(gridEl)` để NƠI GỌI (Workflow — event/workflow/playlist.js) tự
-// `workflowFileManagerPhoto.setupPhotoGridWindow(gridEl, gridEl, ...)`. Hàm NÀY (Core) KHÔNG được tự
-// gọi `computeVirtualWindowRange()`/`renderItemList()` (Rule 3 core-function-conventions.md — 2 hàm
-// đó là "core" theo đúng cách components/items.js tự gọi tên, nên CHỈ Workflow được đứng ra gọi cả
-// hai, không core nào khác được gọi hộ) — đây chính xác lý do phải tách qua callback thay vì tự làm
-// trong file này như bản `renderImageMasonry()` cũ.
+// `workflowFileManagerPhoto.setupPhotoGridWindow(gridEl, images, {}, 'photoGridPicker')`. Hàm NÀY
+// (Core) KHÔNG được tự gọi `computeVariableVirtualWindowRange()`/`renderItemList()` (Rule 3 — 2 hàm
+// đó là "core", CHỈ Workflow được đứng ra gọi cả hai) — đây chính xác lý do phải tách qua callback
+// thay vì tự làm trong file này như bản `renderImageMasonry()` cũ.
 /**
  * @param {Array<{key: string, blob: Blob, filename: string}>} images
  * @param {(imageKey: string) => void} onSelect
