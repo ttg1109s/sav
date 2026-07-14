@@ -6,9 +6,11 @@
  * `btnOpenFileManagerPhoto`, Main tĩnh) ĐỔI sang delegation trên `settingsStackBody`, cùng CHUẨN
  * đã dùng ở Song (Batch D5). `btnBackFileManagerPhoto` ĐÃ XOÁ (Back dùng CHUNG).
  *
- * Nút "Tải ảnh lên" (`#btn-file-manager-image-upload-trigger`) chỉ CLICK HỘ input file ẩn kế bên
- * (`#file-manager-image-upload-input`) — thao tác DOM proxy thuần, KHÔNG cần round-trip qua
- * eventBus/router (router cũ cũng chỉ gọi thẳng `.click()`, không có logic nghiệp vụ nào).
+ * SỬA (14/07/2026, mục cuối) — nút "Tải ảnh lên" + "xoá nhanh" dời vào `headerActionHtml` (dựng
+ * ĐỘNG lúc `openPanel()`, xem event/workflow/file-manager-photo.js::_wireHeaderActionEvents()) —
+ * WIRE TRỰC TIẾP tại Workflow (KHÔNG qua eventBus cho riêng click mở input file — cùng quy ước "nút
+ * động do Workflow tự dựng thì Workflow tự wire", xem docstring core/generic-drawer.js), block
+ * delegated cũ cho `#btn-file-manager-image-upload-trigger` ĐÃ BỎ (tránh gọi `.click()` 2 lần).
  *
  * NẠP SAU CÙNG (sau bus, core, workflow, router, VÀ SAU dom-refs.js).
  */
@@ -24,6 +26,15 @@ function handleFileManagerPhotoDelegatedClick(e) {
     const storyBtn = e.target.closest('button[data-album-story-action]');
     if (storyBtn && e.target.closest('#file-manager-album-story')) {
         eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.album.storyClick', payload: { action: storyBtn.dataset.albumStoryAction, albumId: storyBtn.dataset.albumId } });
+        return;
+    }
+    // MỚI (14/07/2026, mục 2.3) — 2 nút ‹/› pagination story album (tĩnh, components/file-manager.js).
+    if (e.target.closest('#btn-file-manager-album-story-prev')) {
+        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumStory.prev.click', payload: {} });
+        return;
+    }
+    if (e.target.closest('#btn-file-manager-album-story-next')) {
+        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumStory.next.click', payload: {} });
         return;
     }
 
@@ -57,14 +68,6 @@ function handleFileManagerPhotoDelegatedClick(e) {
     }
     if (e.target.closest('#btn-file-manager-image-selection-confirm')) {
         eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imageSelection.confirm', payload: {} });
-        return;
-    }
-
-    // ===================== Upload (DOM proxy thuần, không qua eventBus) =====================
-    if (e.target.closest('#btn-file-manager-image-upload-trigger')) {
-        const panel = e.target.closest('.settings-stack-panel');
-        const input = panel ? panel.querySelector('#file-manager-image-upload-input') : null;
-        if (input) input.click();
         return;
     }
 }
