@@ -82,6 +82,16 @@ function handleFileManagerSongDelegatedClick(e) {
         return;
     }
 
+    // MỚI (14/07/2026, tích hợp pagination) — mode 'list' (dãy số trang, buildPaginationListHtml(),
+    // core/pagination.js) của danh sách bài trong Folder Detail.
+    const folderDetailSongPagination = e.target.closest('#file-manager-folder-detail-song-pagination');
+    if (folderDetailSongPagination) {
+        const gotoBtn = e.target.closest('button[data-pagination-action="goto"]');
+        if (!gotoBtn) return; // bấm trúng vùng trống -> không gửi gì
+        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.folder.detail.song.page.goto', payload: { pageIndex: Number(gotoBtn.dataset.pageIndex) } });
+        return;
+    }
+
     // MỚI (14/07/2026, Giang yêu cầu) — nút "Xoá hết bài", CĂN GIỮA cuối panel Folder Detail.
     if (e.target.closest('#btn-file-manager-folder-detail-remove-all')) {
         eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.folder.removeAllSongs.click', payload: {} });

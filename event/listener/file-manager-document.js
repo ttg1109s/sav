@@ -27,6 +27,15 @@ function handleFileManagerDocumentDelegatedClick(e) {
         eventBus.send({ router: 'fileManagerDocument', type: 'fileManagerDocument.create.click', payload: {} });
         return;
     }
+    // MỚI (14/07/2026, tích hợp pagination) — mode 'list' (buildPaginationListHtml(),
+    // core/pagination.js) của danh sách document.
+    const documentPagination = e.target.closest('#file-manager-document-pagination');
+    if (documentPagination) {
+        const gotoBtn = e.target.closest('button[data-pagination-action="goto"]');
+        if (!gotoBtn) return; // bấm trúng vùng trống -> không gửi gì
+        eventBus.send({ router: 'fileManagerDocument', type: 'fileManagerDocument.page.goto', payload: { pageIndex: Number(gotoBtn.dataset.pageIndex) } });
+        return;
+    }
 }
 
 function handleFileManagerDocumentDelegatedChange(e) {
