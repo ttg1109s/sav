@@ -120,6 +120,15 @@ const routerFileManagerSong = (() => {
                 break;
             }
 
+            // MỚI (14/07/2026, tự audit lại Rule 5a) — bấm "Lưu" trong modal đổi tên
+            // (openRenameFolderModal(), core/file-manager/folder-picker-ui.js) — DÙNG CHUNG cho cả
+            // 2 nguồn mở modal (renameFolderById() ở panel Song, renameActiveFolderDetail() ở
+            // Folder Detail) vì payload đã có sẵn `folderId`, không cần phân biệt nguồn nào gọi tới.
+            case 'fileManagerSong.folder.rename.confirm': {
+                workflowFileManagerSong.confirmRenameFolder(msg.payload.folderId, msg.payload.name);
+                break;
+            }
+
             // MỚI (14/07/2026, Giang yêu cầu) — "Xoá hết bài" trong folder đang xem — CHỈ dọn
             // rỗng, KHÔNG xoá folder (khác hẳn 'folder.actionClick' action='delete' ở trên).
             case 'fileManagerSong.folder.removeAllSongs.click': {
