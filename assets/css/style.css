@@ -315,3 +315,73 @@ body {
     transition: transform 220ms ease-out;
     will-change: transform;
 }
+
+/* ============================================================================================
+   MỚI (14/07/2026, mục cuối, Giang yêu cầu — "layout ảnh không giống Google Photos, dùng CSS
+   thuần thay Tailwind") — lưới ảnh Photo & Album (components/items.js::itemTemplateImageGridRow(),
+   event/workflow/file-manager-photo.js::setupPhotoGridWindow()). Google Photos: ô VUÔNG sát mép
+   nhau (khe hở ~2px), KHÔNG bo góc, KHÔNG viền — khác hẳn bản Tailwind cũ (rounded-xl + border +
+   gap-1/4px). `.photo-grid-header`/`.photo-tile` chiều cao/khoảng cách PHẢI khớp đúng
+   PHOTO_GRID_HEADER_HEIGHT_PX/PHOTO_GRID_GAP_PX (event/workflow/file-manager-photo.js) — đổi 1
+   trong 2 chỗ PHẢI đổi luôn chỗ kia.
+   ============================================================================================ */
+.photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+}
+@media (min-width: 640px) {
+    .photo-grid { grid-template-columns: repeat(4, 1fr); }
+}
+.photo-grid-header {
+    grid-column: 1 / -1;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    padding: 0 2px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+.photo-tile {
+    position: relative;
+    display: block;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0;
+    border: 0;
+}
+.photo-tile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* ============================================================================================
+   MỚI (14/07/2026, mục cuối, Giang yêu cầu — "photo view ảnh phải full width/height với màn") —
+   modal xem ảnh full-screen (core/file-manager/photo-ui.js::openImagePreviewModal()). Ảnh PHỦ
+   KÍN màn hình (object-fit: cover — cắt bớt cạnh dư nếu tỉ lệ ảnh khác tỉ lệ màn hình, KHÔNG
+   letterbox/viền đen như object-contain cũ), header (X/"...") + caption NỔI đè lên trên bằng
+   gradient scrim, không đẩy ảnh thu nhỏ lại như trước.
+   ============================================================================================ */
+.photo-preview-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.photo-preview-scrim-top {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
+    padding-bottom: 24px;
+}
+.photo-preview-scrim-bottom {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.65), transparent);
+    padding-top: 32px;
+}
