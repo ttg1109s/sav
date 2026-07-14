@@ -53,6 +53,10 @@ let fileManagerPhotoPanelEl = null; // panel Photo đang mở — null nếu đa
 const PHOTO_GRID_HEADER_HEIGHT_PX = 40;
 // Khớp .photo-grid { gap: 2px } ở assets/css/style.css — đổi CSS gap thì phải đổi luôn hằng số này.
 const PHOTO_GRID_GAP_PX = 2;
+// Khớp minmax(110px, ...) trong .photo-grid (assets/css/style.css, auto-fill — KHÔNG còn breakpoint
+// cố định) — đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia (JS cần biết TRƯỚC số cột THẬT trình duyệt sẽ
+// tự tính, để chia ảnh vào đúng hàng cho windowing).
+const PHOTO_TILE_MIN_PX = 110;
 // Khớp w-16 (64px) + gap-4 (16px) ở album story (components/file-manager.js) — đổi CSS thì phải đổi luôn.
 const ALBUM_STORY_TILE_WIDTH_PX = 64;
 const ALBUM_STORY_GAP_PX = 16;
@@ -62,9 +66,14 @@ const workflowFileManagerPhoto = {
     /** Ứng với 'fileManagerPhoto.openPanel.click'. `fullBleed: true` — masonry/story slider vốn
      * thiết kế tràn viền (edge-to-edge), KHÔNG dùng khung "max-w-2xl mx-auto" mặc định của mọi
      * panel khác (xem core/settings-panel-stack.js::pushSettingsPanel(), Batch D6).
-     * SỬA (14/07/2026) — `withLoadingShield()` bọc quanh lần `refresh()` ĐẦU TIÊN: panel push +
-     * trượt vào là animation NHẸ (chỉ CSS), tách biệt hẳn khỏi việc tải DOM lưới ảnh NẶNG (nhiều
-     * object URL) — che bằng shield, tắt NGAY khi DOM lần đầu xong, không phải đợi hết animation. */
+     * SỬA (14/07/2026, Giang chỉnh lại thứ tự) — ĐÚNG trình tự: trượt xong HẲN (chờ THẬT
+     * `SLIDER_PANEL_SCROLL_ESTIMATED_MS`, core/slider-panel-scroll.js — taskManager, Rule 3 CHỈ
+     * Workflow được dùng, cùng khuôn `workflowSettingsStackNav.back()`) -> RỒI MỚI bật shield -> tải
+     * DOM lưới ảnh -> tắt shield. Bản trước bật shield + đo DOM NGAY SAU `pushSettingsPanel()` —
+     * lúc đó panel CHỈ VỪA bắt đầu trượt vào, `scrollEl.clientWidth`/`clientHeight` đo lúc này KHÔNG
+     * đáng tin (panel chưa vào đúng vị trí cuối) — nghi vấn nguyên nhân góp phần gây bug windowing
+     * (chỉ hoạt động đúng SAU khi có 1 `refresh()` khác chạy lúc panel đã ổn định, vd sau khi xoá
+     * ảnh ở chế độ xoá nhanh). */
     async openPanel() {
         fileManagerPhotoPanelEl = pushSettingsPanel({
             title: t('fileManager.photo.title'),
@@ -73,6 +82,9 @@ const workflowFileManagerPhoto = {
             headerActionHtml: this._buildHeaderActionHtml(),
         });
         this._wireHeaderActionEvents();
+
+        await new Promise((resolve) => taskManager.once(resolve, SLIDER_PANEL_SCROLL_ESTIMATED_MS, 'fileManagerPhotoOpenPanel')); // core/slider-panel-scroll.js — đợi trượt xong HẲN
+
         await withLoadingShield(t('fileManager.photo.loadingTitle'), async () => { // core/loading-shield-util.js
             await this.refresh(null, false, new Set(), 0, false);
         });
@@ -224,6 +236,15 @@ const workflowFileManagerPhoto = {
      * KHÔNG tự đụng DOM cuộn/scroll listener nữa (SỬA 14/07/2026, xem docstring đầu file). Dùng
      * CHUNG cho Photo & Album (gọi từ refresh()) LẪN picker cover bài hát (event/workflow/
      * playlist.js — Workflow gọi Workflow miền khác, TỰ DO theo event-bus-flow.md mục 4B).
+     *
+     * SỬA (14/07/2026, Giang chỉ ra layout ảnh KHÔNG phải grid N×N cố định theo breakpoint — xem
+     * `.photo-grid` ở assets/css/style.css, giờ `repeat(auto-fill, minmax(110px, 1fr))`) — `columns`
+     * giờ ĐO THẬT bề rộng khả dụng của `scrollEl` (trừ padding qua `getComputedStyle()`, KHÔNG
+     * hardcode số magic — 2 nơi gọi hàm này có padding KHÁC NHAU: Photo `px-3`, picker `px-2`) RỒI
+     * tính đúng công thức `auto-fill` mà CSS dùng, để số "cột" JS chia ảnh vào TỪNG hàng logic khớp
+     * CHÍNH XÁC số cột trình duyệt THẬT SỰ vẽ ra — lệch 1 cột là chiều cao hàng tính sai, windowing
+     * sai theo (nghi vấn góp phần gây bug mục 3 phản hồi trước — hàng lưới tính sai chiều cao khiến
+     * `computeVariableVirtualWindowRange()` xác định sai `startIdx/endIdx`).
      * @param {HTMLElement} scrollEl - container CUỘN, ĐÃ có trong DOM thật.
      * @param {Array<{key:string, blob:Blob, filename:string, addedAt:number}>} images
      * @param {{selectionMode?: boolean, selectedImageKeys?: Set<string>}} [ctx]
@@ -232,7 +253,9 @@ const workflowFileManagerPhoto = {
      */
     setupPhotoGridWindow(scrollEl, images, ctx, mountKey = 'photoGrid') {
         if (!scrollEl) return;
-        const columns = window.matchMedia('(min-width: 640px)').matches ? 4 : 3; // khớp @media (min-width: 640px) trong .photo-grid (assets/css/style.css, CSS thuần — KHÔNG còn Tailwind sm:)
+        const scrollElStyle = window.getComputedStyle(scrollEl);
+        const availableWidth = scrollEl.clientWidth - parseFloat(scrollElStyle.paddingLeft || '0') - parseFloat(scrollElStyle.paddingRight || '0');
+        const columns = Math.max(1, Math.floor((availableWidth + PHOTO_GRID_GAP_PX) / (PHOTO_TILE_MIN_PX + PHOTO_GRID_GAP_PX))); // ĐÚNG công thức auto-fill CSS dùng
         const rows = buildPhotoGridRows(sortImagesByAddedDateDesc(images), columns); // core/file-manager/image.js
 
         workflowVirtualList.mount(mountKey, { // event/workflow/virtual-list.js

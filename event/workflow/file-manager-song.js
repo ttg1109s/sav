@@ -197,15 +197,18 @@ const workflowFileManagerSong = {
      * Header dùng CHUNG chỉ nhận title CỐ ĐỊNH lúc push (không tự cập nhật lại được sau) — tên
      * folder THẬT (chỉ biết sau khi đọc DB xong) hiển thị bằng 1 heading NGAY TRONG BODY panel
      * (`#file-manager-folder-detail-title`, xem components/file-manager.js), không phải ở header.
-     * SỬA (14/07/2026, mục cuối, đồng bộ với Photo & Album) — `withLoadingShield()` bọc quanh
-     * `refreshFolderDetail()` ĐẦU TIÊN: panel push/trượt vào KHÔNG được tải DOM danh sách bài cùng
-     * lúc — che bằng shield, tắt ngay khi DOM lần đầu xong. */
+     * SỬA (14/07/2026, đồng bộ Photo & Album) — ĐÚNG trình tự: trượt xong HẲN (chờ THẬT
+     * `SLIDER_PANEL_SCROLL_ESTIMATED_MS`, taskManager, Rule 3) -> RỒI MỚI bật shield -> tải DOM
+     * danh sách bài -> tắt shield. */
     async openFolderDetail(folderId) {
         fileManagerFolderDetailPanelEl = pushSettingsPanel({ title: t('fileManager.song.folderDetail.headerTitle'), bodyHtml: renderFileManagerFolderDetailPanelBody() });
         // MỚI (14/07/2026, Giang yêu cầu) — mở 1 folder MỚI luôn về trang 1 của danh sách bài bên
         // trong nó (khác folder khác, "trang đang xem" của folder CŨ không còn ý nghĩa gì).
         appState.set('pageCurrentFolderDetailSongList', 0);
         console.log(`writer: "openFolderDetail", page: "pageCurrentFolderDetailSongList", content: "0"`);
+
+        await new Promise((resolve) => taskManager.once(resolve, SLIDER_PANEL_SCROLL_ESTIMATED_MS, 'openFolderDetail')); // core/slider-panel-scroll.js — đợi trượt xong HẲN
+
         await withLoadingShield(t('fileManager.song.folderDetail.loadingTitle'), async () => { // core/loading-shield-util.js
             await this.refreshFolderDetail(folderId);
         });
