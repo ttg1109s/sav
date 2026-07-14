@@ -12,9 +12,19 @@
  * components/items.js: mỗi kiểu hiển thị = 1 hàm riêng, KHÔNG gộp chung 1 hàm rồi rẽ nhánh theo
  * tham số `control` bên trong — đúng Rule 1 "nơi gọi tự chọn đúng hàm", không phải core tự chọn).
  * Nơi gọi (Workflow) tự quyết định gọi hàm nào theo `control` mình muốn:
- *   - 'arrow'     -> buildPaginationArrowsHtml() — CHỈ 2 nút ‹ › (không hiện số trang).
- *   - 'list'      -> buildPaginationListHtml()   — dãy số trang (1 2 3 ...), bấm thẳng vào số.
- *   - 'full'      -> buildPaginationFullHtml()   — 2 nút ‹ › + "trang hiện tại / tổng số trang".
+ *
+ * [SỬA 14/07/2026, Giang chỉnh lại ngữ nghĩa 2 mode 'arrow'/'full' — bản đầu hiểu NGƯỢC]
+ *   - 'arrow' -> buildPaginationArrowsHtml() — 2 nút ‹ › + "trang hiện tại / tổng số trang".
+ *   - 'list'  -> buildPaginationListHtml()   — dãy số trang (1 2 3 ...), bấm thẳng vào số (KHÔNG đổi).
+ *   - 'full'  -> buildPaginationFullHtml()   — 2 nút ‹ › BỌC NGOÀI dãy số trang (‹ 1 2 3 4 5 ›).
+ *
+ * [TỰ SỬA NGAY — cùng đợt, tự audit lại] — bản viết đầu của lần sửa này từng tách HTML nút ‹/›
+ * dùng chung thành 2 hàm PHỤ top-level (`_paginationPrevBtnHtml()`/`_paginationNextBtnHtml()`) rồi
+ * gọi từ `buildPaginationArrowsHtml()`/`buildPaginationFullHtml()` — ĐÚNG lỗi Rule 3 vừa tự sửa ở
+ * `document-pagination.js` cùng ngày (core gọi core qua hàm phụ top-level "cùng file"). Giờ HTML
+ * nút ‹/› được VIẾT LẶP LẠI trực tiếp trong TỪNG hàm cần nó (KHÔNG trích xuất hàm chung) — trùng ~4
+ * dòng HTML, đổi lấy tuân thủ Rule 3 rõ ràng, không cần tranh cãi "hàm phụ có phải core khác không".
+ *
  * Không hàm nào tự `addEventListener` (chỉ trả chuỗi HTML, giống mọi template khác trong
  * components/items.js) — nơi gọi tự wire sự kiện SAU khi đã chèn vào DOM thật.
  *
@@ -48,26 +58,27 @@ function computePage(items, pageIndex, pageSize) {
     };
 }
 
-/** Control 'arrow' — CHỈ 2 nút ‹ › (không hiện số trang). Trả CHUỖI RỖNG nếu `totalPages <= 1`
- * (không có gì để phân trang) — nơi gọi tự quyết định có ẩn hẳn container hay không dựa vào chuỗi
- * rỗng đó, KHÔNG cần tự kiểm tra `totalPages` riêng.
+/** Control 'arrow' — 2 nút ‹ › + "trang hiện tại / tổng số trang". Trả CHUỖI RỖNG nếu
+ * `totalPages <= 1` (không có gì để phân trang) — nơi gọi tự quyết định có ẩn hẳn container hay
+ * không dựa vào chuỗi rỗng đó, KHÔNG cần tự kiểm tra `totalPages` riêng.
  * @param {number} pageIndex @param {number} totalPages @returns {string} */
 function buildPaginationArrowsHtml(pageIndex, totalPages) {
     if (totalPages <= 1) return '';
     return `
-        <div class="flex items-center justify-center gap-3 py-2">
-            <button type="button" data-pagination-action="prev" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 disabled:opacity-30 disabled:pointer-events-none" ${pageIndex <= 0 ? 'disabled' : ''}>
+        <div class="flex items-center justify-center gap-4 py-2">
+            <button type="button" data-pagination-action="prev" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 disabled:opacity-30 disabled:pointer-events-none shrink-0" ${pageIndex <= 0 ? 'disabled' : ''}>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
             </button>
-            <button type="button" data-pagination-action="next" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 disabled:opacity-30 disabled:pointer-events-none" ${pageIndex >= totalPages - 1 ? 'disabled' : ''}>
+            <span class="text-xs font-mono text-slate-400 tabular-nums">${pageIndex + 1} / ${totalPages}</span>
+            <button type="button" data-pagination-action="next" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 disabled:opacity-30 disabled:pointer-events-none shrink-0" ${pageIndex >= totalPages - 1 ? 'disabled' : ''}>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
             </button>
         </div>
     `;
 }
 
-/** Control 'list' — dãy số trang bấm thẳng (1 2 3 ...), trang hiện tại tô nổi bật. Trả CHUỖI RỖNG
- * nếu `totalPages <= 1`.
+/** Control 'list' — dãy số trang bấm thẳng (1 2 3 ...), trang hiện tại tô nổi bật, KHÔNG có nút
+ * ‹ ›. Trả CHUỖI RỖNG nếu `totalPages <= 1`.
  * @param {number} pageIndex @param {number} totalPages @returns {string} */
 function buildPaginationListHtml(pageIndex, totalPages) {
     if (totalPages <= 1) return '';
@@ -81,18 +92,25 @@ function buildPaginationListHtml(pageIndex, totalPages) {
     return `<div class="flex items-center justify-center gap-1.5 flex-wrap py-2">${pages.join('')}</div>`;
 }
 
-/** Control 'full' — 2 nút ‹ › + "trang hiện tại / tổng số trang". Trả CHUỖI RỖNG nếu
+/** Control 'full' — 2 nút ‹ › BỌC NGOÀI dãy số trang (‹ 1 2 3 4 5 ›). Trả CHUỖI RỖNG nếu
  * `totalPages <= 1`.
  * @param {number} pageIndex @param {number} totalPages @returns {string} */
 function buildPaginationFullHtml(pageIndex, totalPages) {
     if (totalPages <= 1) return '';
+    const pages = [];
+    for (let i = 0; i < totalPages; i++) {
+        const isActive = i === pageIndex;
+        pages.push(`
+            <button type="button" data-pagination-action="goto" data-page-index="${i}" class="w-8 h-8 rounded-full text-xs font-semibold transition-colors ${isActive ? 'bg-sky-500 text-white' : 'hover:bg-white/10 text-slate-300'}">${i + 1}</button>
+        `);
+    }
     return `
-        <div class="flex items-center justify-center gap-4 py-2">
-            <button type="button" data-pagination-action="prev" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 disabled:opacity-30 disabled:pointer-events-none" ${pageIndex <= 0 ? 'disabled' : ''}>
+        <div class="flex items-center justify-center gap-1.5 flex-wrap py-2">
+            <button type="button" data-pagination-action="prev" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 disabled:opacity-30 disabled:pointer-events-none shrink-0" ${pageIndex <= 0 ? 'disabled' : ''}>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
             </button>
-            <span class="text-xs font-mono text-slate-400 tabular-nums">${pageIndex + 1} / ${totalPages}</span>
-            <button type="button" data-pagination-action="next" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 disabled:opacity-30 disabled:pointer-events-none" ${pageIndex >= totalPages - 1 ? 'disabled' : ''}>
+            ${pages.join('')}
+            <button type="button" data-pagination-action="next" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 disabled:opacity-30 disabled:pointer-events-none shrink-0" ${pageIndex >= totalPages - 1 ? 'disabled' : ''}>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
             </button>
         </div>

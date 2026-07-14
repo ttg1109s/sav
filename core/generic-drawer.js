@@ -40,15 +40,37 @@
  */
 
 /**
+ * [SỬA 14/07/2026, Giang báo — "mở từ Playlist thì Drawer nằm DƯỚI UI, mở từ Visualizer thì OK"]
+ * — NGUYÊN NHÂN GỐC: `#app-stack` (components/app-view-stack.js, bọc CẢ Playlist LẪN Settings) là
+ * `fixed inset-0 z-[60]` — tự tạo 1 STACKING CONTEXT riêng. `#generic-drawer-panel`/
+ * `#generic-drawer-overlay` là ANH EM (sibling) của `#app-stack` trong `#app-root` (xem main.js),
+ * KHÔNG phải hậu duệ của nó — z-index của bất kỳ thứ gì BÊN TRONG `#app-stack` (kể cả
+ * `#song-action-menu` z-[115]) chỉ so sánh được VỚI NHAU trong phạm vi stacking context đó, KHÔNG
+ * "thoát ra ngoài" để so với `#generic-drawer-panel` — thứ THẬT SỰ cạnh tranh với Generic Drawer là
+ * chính `#app-stack` (z-60). Mặc định CŨ `zIndex: 40` (< 60) khiến Drawer luôn bị `#app-stack` đè
+ * lên bất cứ khi nào Playlist/Settings đang là view active — ĐÚNG triệu chứng "mở từ Playlist bị
+ * nằm dưới UI" (mở từ nút trong Visualizer Control Center "may mắn" không việc gì vì lúc đó
+ * `#app-stack` đang bị trượt translate ra ngoài khung nhìn, không thật sự che ĐÚNG vị trí Drawer).
+ * SỬA: nâng mặc định lên `GENERIC_DRAWER_DEFAULT_Z_INDEX` — soi lại TOÀN BỘ z-index đang dùng
+ * trong app (`z-[130]` của modalChoice() là mốc "đứng trên mọi modal thường, dưới loading-shield
+ * z-[200]", xem docstring core/modal-choice.js) — đặt Generic Drawer ở `128`: CAO HƠN mọi overlay
+ * nội dung hiện có (menu/modal cao nhất trước đó là playback-error-modal `z-[125]`), THẤP HƠN
+ * modalChoice() (`130`) để alertModal()/modalChoice() bật lên TRONG LÚC Drawer đang mở (vd báo lỗi
+ * trùng tên khi tạo folder) vẫn hiện ĐÚNG TRÊN Drawer, không bị Drawer đè ngược lại.
+ */
+const GENERIC_DRAWER_DEFAULT_Z_INDEX = 128;
+
+/**
  * Mở drawer LẦN ĐẦU (đang đóng -> mở) — set toàn bộ cấu hình + trượt lên + hiện overlay.
  * @param {{height?: string, zIndex?: number, headerHtml: string, bodyHtml: string, bodyClass?: string, isWindowVirtual?: boolean}} config
  *   - height: mặc định '70vh' nếu không truyền.
- *   - zIndex: mặc định 40 nếu không truyền (overlay tự dùng zIndex - 1).
+ *   - zIndex: mặc định GENERIC_DRAWER_DEFAULT_Z_INDEX (128) nếu không truyền (overlay tự dùng
+ *     zIndex - 1) — xem giải thích đầy đủ ở docstring hằng số phía trên.
  *   - isWindowVirtual: mặc định false — true nếu bodyHtml là 1 danh sách windowing thật (đã
  *     workflowVirtualList.mount()), xem docstring đầu file.
  */
 function openGenericDrawer(config) {
-    const zIndex = config.zIndex || 40;
+    const zIndex = config.zIndex || GENERIC_DRAWER_DEFAULT_Z_INDEX;
     genericDrawerPanel.style.height = config.height || '70vh';
     genericDrawerPanel.style.zIndex = String(zIndex);
     genericDrawerHeader.innerHTML = config.headerHtml || '';
@@ -80,7 +102,7 @@ function openGenericDrawer(config) {
  * @param {{height?: string, zIndex?: number, headerHtml: string, bodyHtml: string, bodyClass?: string, isWindowVirtual?: boolean}} config
  */
 function updateGenericDrawer(config) {
-    const zIndex = config.zIndex || 40;
+    const zIndex = config.zIndex || GENERIC_DRAWER_DEFAULT_Z_INDEX;
     genericDrawerPanel.style.height = config.height || '70vh';
     genericDrawerPanel.style.zIndex = String(zIndex);
     genericDrawerHeader.innerHTML = config.headerHtml || '';
