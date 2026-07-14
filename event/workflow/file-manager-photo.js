@@ -129,7 +129,7 @@ const workflowFileManagerPhoto = {
             const clampedPage = Math.max(0, Math.min(albumStoryPageIndex, totalPages - 1));
             setAlbumStoryPageVisibility(storyListEl, clampedPage); // core/file-manager/photo-ui.js
             storyListEl.dataset.totalPages = String(totalPages); // navigateAlbumStoryPage() đọc lại — KHÔNG cần đo/render lại mỗi lần bấm ‹/›
-            this._updateAlbumStoryArrows(clampedPage, totalPages);
+            this._renderAlbumStoryPagination(clampedPage, totalPages);
         }
 
         const activeAlbum = activeAlbumId ? albums.find((a) => a.id === activeAlbumId) : null;
@@ -169,8 +169,10 @@ const workflowFileManagerPhoto = {
     },
 
     /** MỚI (14/07/2026) — chuyển trang story album CHỈ bằng CSS (Giang đơn giản hoá) — KHÔNG gọi
-     * lại `refresh()` (không đọc DB, không dựng lại DOM). `totalPages` đọc từ `dataset` gắn sẵn lúc
-     * `refresh()` gần nhất (KHÔNG tính lại — số album không đổi giữa 2 lần bấm ‹/›).
+     * lại `refresh()` (không đọc DB, không dựng lại DOM ảnh/album). `totalPages` đọc từ `dataset`
+     * gắn sẵn lúc `refresh()` gần nhất (KHÔNG tính lại — số album không đổi giữa 2 lần bấm ‹/›) —
+     * O(1) THẬT SỰ: không I/O, chỉ patch DOM surgical (toggle class + đổ lại ĐÚNG 1 khối HTML nhỏ
+     * — 2 nút + số trang, KHÔNG đụng gì tới các tile ảnh/album đã render sẵn).
      * @param {number} requestedIndex
      * @returns {number} chỉ số trang THẬT SỰ áp dụng (đã kẹp) — Router tự đồng bộ lại state của nó.
      */
@@ -181,23 +183,19 @@ const workflowFileManagerPhoto = {
         const totalPages = Number(storyListEl.dataset.totalPages || 1);
         const clamped = Math.max(0, Math.min(requestedIndex, totalPages - 1));
         setAlbumStoryPageVisibility(storyListEl, clamped); // core/file-manager/photo-ui.js
-        this._updateAlbumStoryArrows(clamped, totalPages);
+        this._renderAlbumStoryPagination(clamped, totalPages);
         return clamped;
     },
 
-    _updateAlbumStoryArrows(pageIndex, totalPages) {
-        const prevBtn = fileManagerPhotoPanelEl.querySelector('#btn-file-manager-album-story-prev');
-        const nextBtn = fileManagerPhotoPanelEl.querySelector('#btn-file-manager-album-story-next');
-        if (prevBtn) {
-            prevBtn.classList.toggle('hidden', totalPages <= 1);
-            prevBtn.classList.toggle('opacity-30', pageIndex <= 0);
-            prevBtn.disabled = pageIndex <= 0;
-        }
-        if (nextBtn) {
-            nextBtn.classList.toggle('hidden', totalPages <= 1);
-            nextBtn.classList.toggle('opacity-30', pageIndex >= totalPages - 1);
-            nextBtn.disabled = pageIndex >= totalPages - 1;
-        }
+    /** SỬA (14/07/2026, Giang chỉnh lại — dùng THẲNG `buildPaginationArrowsHtml()` core/pagination.js,
+     * KHÔNG tự viết 2 nút ‹/› riêng nữa) — đổ NGUYÊN chuỗi hàm đó vào
+     * `#file-manager-album-story-pagination-wrap` (`display:contents`, assets/css/style.css — "tháo"
+     * div bọc ngoài, ẩn số trang bằng CSS, xem file đó). Click 2 nút wire delegated qua
+     * `event/listener/file-manager-photo.js` (chọn theo `data-pagination-action`, thuộc tính core
+     * TỰ gắn sẵn) — KHÔNG cần wire lại ở đây mỗi lần gọi hàm này. */
+    _renderAlbumStoryPagination(pageIndex, totalPages) {
+        const wrapEl = fileManagerPhotoPanelEl.querySelector('#file-manager-album-story-pagination-wrap');
+        if (wrapEl) wrapEl.innerHTML = buildPaginationArrowsHtml(pageIndex, totalPages); // core/pagination.js, KHÔNG sửa
     },
 
     /** MỚI (14/07/2026, mục 2.2) — hỏi xác nhận TRƯỚC KHI bật chế độ xoá nhanh (modalChoice()) —
