@@ -51,6 +51,7 @@ const LANG_PATCH_FILE_MANAGER = {
     // 'settingsDrawer.back.title' (Batch D1) cho mọi panel.
     // ── Drawer con: Photo & Album (placeholder, chưa code — b2/b3) ──────────────────────────
     'fileManager.photo.title': 'Photo & Album',
+    'fileManager.photo.loadingTitle': 'Loading photos...',
     // Batch D6 (06/07/2026) — 'fileManager.photo.back.title' XOÁ, dùng CHUNG
     // 'settingsDrawer.back.title' (Batch D1).
     // ── Batch 3 (03/07/2026) ──────────────────────────────────────────────────────────────
@@ -74,6 +75,11 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.image.btnEditCaption': 'Edit caption',
     'fileManager.photo.image.btnEditImage': 'Edit image',
     'fileManager.photo.image.menuTitle': 'Photo options',
+    // MỚI (14/07/2026, mục cuối, mục 2.2) — chế độ xoá nhanh.
+    'fileManager.photo.image.quickDeleteTitle': 'Quick delete',
+    'fileManager.photo.image.quickDeleteConfirm.title': 'Enable quick delete?',
+    'fileManager.photo.image.quickDeleteConfirm.desc': 'While enabled, tapping any photo deletes it immediately — no confirmation per photo. Tap the trash icon again to turn it off.',
+    'fileManager.photo.image.quickDeleteConfirm.confirmBtn': 'Enable',
     'fileManager.photo.album.all': 'All',
     'fileManager.photo.album.new': 'New',
     'fileManager.photo.album.createTitle': 'New album',
@@ -156,6 +162,7 @@ const LANG_PATCH_FILE_MANAGER = {
     // lúc push (không tự cập nhật lại được sau khi biết tên folder thật) — tên folder thật giờ
     // hiển thị bằng 1 heading NGAY TRONG BODY panel (xem components/file-manager.js).
     'fileManager.song.folderDetail.headerTitle': 'Folder Detail',
+    'fileManager.song.folderDetail.loadingTitle': 'Loading songs...',
     'fileManager.song.folderDetail.btnApply': 'Apply to Playlist',
     // SỬA (14/07/2026, Giang yêu cầu) — "Remove from Playlist" GÂY HIỂU NHẦM (nghe như xoá bài
     // khỏi playlist, trong khi thật ra chỉ HUỶ scope "folder đang active" — playlist quay lại hiện
