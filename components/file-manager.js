@@ -169,20 +169,40 @@ function renderFileManagerFolderDetailPanelBody() {
 // Batch D6 (Settings restructure, 06/07/2026): TPL_FILE_MANAGER_PHOTO_DRAWER (khung `fixed
 // inset-0 drawer-glass z-[90]` + header riêng) THAY bằng hàm `renderFileManagerPhotoPanelBody()`,
 // PUSH ĐỘNG với `fullBleed: true` (masonry/story slider tràn viền, không dùng khung "max-w-2xl"
-// mặc định — xem event/workflow/file-manager-photo.js::openPanel()). Nút upload
-// (`#btn-file-manager-image-upload-trigger`) TRƯỚC ĐÂY nằm trong header bar riêng (cạnh title) —
-// header giờ dùng CHUNG (chỉ title + Back), nút upload dời xuống 1 THANH NHỎ ngay đầu body.
+// mặc định — xem event/workflow/file-manager-photo.js::openPanel()).
+//
+// SỬA (14/07/2026, mục cuối, Giang yêu cầu):
+//   1. Nút upload dời NGƯỢC LẠI lên header dùng chung (`headerActionHtml`, core/settings-panel-
+//      stack-ui.js — MỚI thêm) — thanh nhỏ riêng đã bỏ hẳn. `#btn-file-manager-image-delete-mode`
+//      (icon thùng rác, chế độ xoá nhanh — mục 2.2) ĐI CÙNG headerActionHtml, cả 2 nút build ở
+//      event/workflow/file-manager-photo.js::openPanel() (không hardcode ở đây — trạng thái hiện/ẩn
+//      của thùng rác phụ thuộc `images.length`, chỉ Workflow biết lúc mở panel).
+//   2. Album story — THÊM pagination "arrow" (mục 2.3): nút "+" tạo album mới giờ CỐ ĐỊNH (tách
+//      khỏi `renderAlbumStory()`, viết TĨNH ngay đây — không còn phụ thuộc dữ liệu album, không cần
+//      vẽ lại mỗi refresh), đặt NGAY SAU nút ‹ — "Tất cả" + danh sách album (renderAlbumStory() vẽ
+//      TRANG hiện tại vào `#file-manager-album-story`) mới là phần ĐƯỢC PHÂN TRANG. 2 nút ‹/›
+//      KHÔNG dùng `core/pagination.js::buildPaginationArrowsHtml()` (hàm đó gộp CẢ 2 nút + số trang
+//      thành 1 khối đặt DƯỚI nội dung — không đúng bố cục "kẹp 2 bên" cần ở đây) — viết trực tiếp,
+//      TÁI DÙNG `computePage()` (core/pagination.js, KHÔNG sửa gì hàm này) làm toán phân trang, đúng
+//      yêu cầu "dùng container ép layout CSS cho arrow thay vì can thiệp core".
 function renderFileManagerPhotoPanelBody() {
     return `
-        <div class="flex justify-end items-center px-4 py-2 border-b border-white/5 shrink-0">
-            <button id="btn-file-manager-image-upload-trigger" class="w-8 h-8 flex items-center justify-center rounded-full bg-sky-500 hover:bg-sky-400 transition-colors text-white shrink-0" data-i18n-title="fileManager.photo.uploadTitle" title="${t('fileManager.photo.uploadTitle')}">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+        <!-- Album story: ‹ | [+ tạo mới, CỐ ĐỊNH] | [Tất cả + album, PHÂN TRANG] | › -->
+        <div class="flex items-center gap-2 pl-2 pr-4 py-4 shrink-0 border-b border-white/5">
+            <button id="btn-file-manager-album-story-prev" type="button" class="hidden w-7 h-7 shrink-0 flex items-center justify-center rounded-full hover:bg-white/10 text-slate-300 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" /></svg>
             </button>
-            <input type="file" id="file-manager-image-upload-input" accept="image/png,image/jpeg,image/webp" multiple class="hidden">
+            <button data-album-story-action="create" class="flex flex-col items-center gap-1.5 shrink-0 w-16">
+                <div class="w-14 h-14 rounded-full flex items-center justify-center border-2 border-dashed border-white/20 text-slate-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                </div>
+                <span class="text-[11px] text-slate-400 truncate w-full text-center">${t('fileManager.photo.album.new')}</span>
+            </button>
+            <div id="file-manager-album-story" class="flex gap-4 overflow-hidden flex-1 min-w-0"></div>
+            <button id="btn-file-manager-album-story-next" type="button" class="hidden w-7 h-7 shrink-0 flex items-center justify-center rounded-full hover:bg-white/10 text-slate-300 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" /></svg>
+            </button>
         </div>
-
-        <!-- Story slider Album (mục 3, lazy load qua IntersectionObserver — core/file-manager/photo-ui.js) -->
-        <div id="file-manager-album-story" class="flex gap-4 overflow-x-auto px-4 py-4 snap-x snap-mandatory shrink-0 border-b border-white/5"></div>
 
         <!-- Thanh quản lý album đang lọc: chỉ hiện khi activeAlbumId != null (toggle 'hidden'/
              'flex' ở workflow, xem event/workflow/file-manager-photo.js::refresh()). 3 nút: Thêm
@@ -213,7 +233,7 @@ function renderFileManagerPhotoPanelBody() {
              "sizer + window" (id="file-manager-image-masonry" GIỮ NGUYÊN trên phần tử grid thật bên
              trong, để listener click delegated không cần đổi selector) NGAY LÚC panel mở, chèn TRƯỚC
              #file-manager-image-empty — KHÔNG hardcode div masonry ở template tĩnh này nữa. -->
-        <div id="file-manager-image-scroll" class="flex-grow overflow-y-auto px-3 py-3 pb-20 relative">
+        <div id="file-manager-image-scroll" class="flex-grow min-h-0 overflow-y-auto px-3 py-3 pb-20 relative">
             <p id="file-manager-image-empty" class="hidden text-sm text-slate-400 text-center py-10" data-i18n="fileManager.photo.image.empty">${t('fileManager.photo.image.empty')}</p>
         </div>
 

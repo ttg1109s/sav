@@ -243,7 +243,7 @@ function itemTemplateImageGridRow(row, ctx) {
         const opts = { weekday: 'long', day: 'numeric', month: 'short' };
         if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
         const label = new Intl.DateTimeFormat(navigator.language, opts).format(d);
-        return `<div class="col-span-full h-10 flex items-center px-1 text-sm font-semibold text-slate-200">${escapeHtml(label)}</div>`;
+        return `<div class="photo-grid-header">${escapeHtml(label)}</div>`;
     }
 
     const selectionMode = !!(ctx && ctx.selectionMode);
@@ -254,8 +254,8 @@ function itemTemplateImageGridRow(row, ctx) {
         const badgeHtml = !selectionMode ? '' : `
             <span class="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-colors ${isSelected ? 'bg-sky-500 border-sky-400' : 'bg-black/40 border-white/60'}">${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>' : ''}</span>`;
         return `
-            <button type="button" class="relative block aspect-square rounded-xl overflow-hidden bg-white/5 border border-white/10" data-image-key="${escapeHtml(image.key)}" data-has-object-url="1">
-                <img src="${objectUrl}" alt="${escapeHtml(image.filename)}" class="w-full h-full object-cover block">${badgeHtml}
+            <button type="button" class="photo-tile" data-image-key="${escapeHtml(image.key)}" data-has-object-url="1">
+                <img src="${objectUrl}" alt="${escapeHtml(image.filename)}">${badgeHtml}
             </button>`;
     }).join('');
 }
