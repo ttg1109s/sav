@@ -101,6 +101,15 @@ const routerFileManagerSong = (() => {
                 break;
             }
 
+            // MỚI (14/07/2026, tích hợp pagination — Giang yêu cầu) — danh sách bài trong Folder
+            // Detail, ~30 bài/trang, mode 'list' (bấm THẲNG vào số trang, khác 'arrow' prev/next
+            // của danh sách folder).
+            case 'fileManagerSong.folder.detail.song.page.goto': {
+                if (!currentFolderDetailId) return; // guard
+                workflowFileManagerSong.goToFolderDetailSongPage(currentFolderDetailId, msg.payload.pageIndex);
+                break;
+            }
+
             // MỚI (14/07/2026, Giang yêu cầu layout lại Folder Detail) — icon Sửa tên NGAY cạnh
             // tên folder (khác renameFolderById() ở nhánh panel Song ngay trên — 2 NGUỒN đọc
             // currentName khác nhau, workflowFileManagerSong tự gộp qua _promptRenameFolder()

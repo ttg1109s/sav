@@ -30,6 +30,12 @@ const routerFileManagerDocument = (() => {
                 workflowFileManagerDocument.createNewDocument();
                 break;
             }
+            // MỚI (14/07/2026, tích hợp pagination — Giang yêu cầu) — danh sách document, ~50/trang,
+            // mode 'list' (bấm THẲNG vào số trang).
+            case 'fileManagerDocument.page.goto': {
+                workflowFileManagerDocument.goToDocumentPage(msg.payload.pageIndex);
+                break;
+            }
             default:
                 console.warn(`[router:fileManagerDocument] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`, msg);
         }
