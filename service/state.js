@@ -239,6 +239,17 @@
             // MỚI (14/07/2026, Giang yêu cầu) — trang ĐANG xem của danh sách tài liệu ở File
             // Manager -> Documents (0-based, 50 tài liệu/trang, mode 'list').
             pageCurrentDocumentList: 'number',
+            // MỚI (14/07/2026, Giang yêu cầu — "xoá song trong folder xong back không render lại")
+            // — folderId (dùng ĐÚNG `data-folder-id` đã có sẵn trên mỗi hàng, KHÔNG cần thêm
+            // attribute mới) của folder VỪA bị đổi (xoá bài/remove-all/apply/unapply) TRONG LÚC
+            // đang xem Folder Detail (nên danh sách folder — ĐANG BỊ CHE PHÍA SAU trong ngăn xếp —
+            // không được vẽ lại ngay). `null` = không có gì cần vá. Workflow tự đọc/ghi (Rule 2) —
+            // đọc lúc Back (workflowSettingsStackNav.back() gọi chéo sang
+            // workflowFileManagerSong.refreshStaleFolderRowIfNeeded(), 2 Workflow khác miền gọi tự
+            // do, không bị Rule 3), PHẢI đặt lại `null` NGAY sau khi vá xong (dù vá được hay không —
+            // vd folder đó đang ở TRANG KHÁC lúc quay lại — để không lặp lại việc vá vô ích ở lần
+            // Back kế tiếp).
+            staleFolderListRowId: 'nullable-string',
         };
 
         /** Giá trị khởi tạo mặc định — copy NGUYÊN VẸN giá trị/kiểu thật từ source gốc. */
@@ -399,6 +410,7 @@
                 pageCurrentFolderSongList: 0,
                 pageCurrentFolderDetailSongList: 0,
                 pageCurrentDocumentList: 0,
+                staleFolderListRowId: null,
             };
         }
 
