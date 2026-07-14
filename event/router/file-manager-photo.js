@@ -17,6 +17,10 @@
  *
  * STATE CONTEXT: `activeAlbumId` (album đang lọc masonry, null = "Tất cả"), `imageSelectionMode`/
  * `selectedImageKeys` sống Ở ĐÂY — cùng cách router "fileManagerSong" giữ `currentFolderDetailId`.
+ * MỚI (14/07/2026, mục cuối): `albumStoryPageIndex` (trang hiện tại của story album, arrow
+ * pagination) + `imageQuickDeleteMode` (chế độ xoá nhanh — bấm ảnh nào xoá ảnh đó, không hỏi lại).
+ * 3 chế độ khi bấm 1 ảnh (`imageSelectionMode`/`imageQuickDeleteMode`/bình thường) LOẠI TRỪ NHAU —
+ * KHÔNG BAO GIỜ bật đồng thời 2 cái (guard ở case tương ứng).
  *
  * NẠP SAU: event/bus.js, event/workflow/file-manager-photo.js (workflowFileManagerPhoto),
  * core/settings-panel-stack.js (pushSettingsPanel).
@@ -26,6 +30,8 @@ const routerFileManagerPhoto = (() => {
     let activeAlbumId = null; // context state CỦA RIÊNG panel Photo — reset về null mỗi lần mở lại
     let imageSelectionMode = false; // MỚI — true = đang chọn nhiều ảnh để thêm vào activeAlbumId
     let selectedImageKeys = new Set(); // MỚI — tập imageKey đang được chọn khi imageSelectionMode=true
+    let albumStoryPageIndex = 0; // MỚI (14/07/2026) — trang hiện tại của story album (arrow pagination)
+    let imageQuickDeleteMode = false; // MỚI (14/07/2026) — true = bấm ảnh nào xoá ngay ảnh đó, không hỏi lại
 
     function handle(msg) {
         switch (msg.type) {
@@ -33,6 +39,8 @@ const routerFileManagerPhoto = (() => {
                 activeAlbumId = null; // luôn mở lại từ "Tất cả", không nhớ lọc phiên trước
                 imageSelectionMode = false;
                 selectedImageKeys = new Set();
+                albumStoryPageIndex = 0;
+                imageQuickDeleteMode = false;
                 workflowFileManagerPhoto.openPanel(); // >1 hàm core nối tiếp (push + đọc DB + vẽ) -> workflow
                 break;
             }
@@ -40,24 +48,36 @@ const routerFileManagerPhoto = (() => {
             // ===================== Album (story slider) =====================
 
             case 'fileManagerPhoto.album.storyClick': {
-                if (imageSelectionMode) break; // guard: đang chọn nhiều ảnh -> KHÔNG cho đổi lọc/tạo album giữa chừng (chỉ Huỷ/Xác nhận mới thoát chế độ này, xem 2 case bên dưới)
+                if (imageSelectionMode || imageQuickDeleteMode) break; // guard: đang chọn nhiều ảnh/xoá nhanh -> KHÔNG cho đổi lọc/tạo album giữa chừng
                 const { action, albumId } = msg.payload;
                 // 3 giá trị LOẠI TRỪ NHAU (đúng data-album-story-action khai báo ở
                 // components/file-manager.js/core/file-manager/photo-ui.js) -> BẮT BUỘC qua VirtualMachineState.
                 VirtualMachineState.run([
                     { state: action, operation: '===', value: 'all', callback: () => {
                         activeAlbumId = null;
-                        workflowFileManagerPhoto.refresh(activeAlbumId, imageSelectionMode, selectedImageKeys);
+                        workflowFileManagerPhoto.refresh(activeAlbumId, imageSelectionMode, selectedImageKeys, albumStoryPageIndex, imageQuickDeleteMode);
                     } },
                     { state: action, operation: '===', value: 'select', callback: () => {
                         // Bấm lại đúng album đang lọc -> bỏ lọc (toggle), giống hành vi tab.
                         activeAlbumId = (activeAlbumId === albumId) ? null : albumId;
-                        workflowFileManagerPhoto.refresh(activeAlbumId, imageSelectionMode, selectedImageKeys);
+                        workflowFileManagerPhoto.refresh(activeAlbumId, imageSelectionMode, selectedImageKeys, albumStoryPageIndex, imageQuickDeleteMode);
                     } },
                     { state: action, operation: '===', value: 'create', callback: () => {
                         workflowFileManagerPhoto.promptCreateAlbum(activeAlbumId); // >1 hàm core -> workflow
                     } },
                 ]);
+                break;
+            }
+
+            // MỚI (14/07/2026, mục 2.3) — pagination "arrow" cho story album. Giang ĐƠN GIẢN HOÁ:
+            // CHỈ toggle CSS (`workflowFileManagerPhoto.navigateAlbumStoryPage()`), KHÔNG gọi lại
+            // `refresh()` (không cần đọc lại DB/dựng lại DOM chỉ để đổi trang xem).
+            case 'fileManagerPhoto.albumStory.prev.click': {
+                albumStoryPageIndex = workflowFileManagerPhoto.navigateAlbumStoryPage(albumStoryPageIndex - 1);
+                break;
+            }
+            case 'fileManagerPhoto.albumStory.next.click': {
+                albumStoryPageIndex = workflowFileManagerPhoto.navigateAlbumStoryPage(albumStoryPageIndex + 1);
                 break;
             }
 
@@ -74,7 +94,7 @@ const routerFileManagerPhoto = (() => {
                     { state: action, operation: '===', value: 'addImages', callback: () => {
                         imageSelectionMode = true;
                         selectedImageKeys = new Set();
-                        workflowFileManagerPhoto.refresh(activeAlbumId, imageSelectionMode, selectedImageKeys);
+                        workflowFileManagerPhoto.refresh(activeAlbumId, imageSelectionMode, selectedImageKeys, albumStoryPageIndex, imageQuickDeleteMode);
                     } },
                     // MỚI (Batch 8, slideshow) — "Dùng làm nền Slideshow" cho album đang lọc.
                     { state: action, operation: '===', value: 'setSlideshowBg', callback: () => {
@@ -96,16 +116,38 @@ const routerFileManagerPhoto = (() => {
 
             case 'fileManagerPhoto.image.click': {
                 const { imageKey } = msg.payload;
-                // Click 1 ảnh có 2 Ý NGHĨA loại trừ nhau tuỳ imageSelectionMode: mở preview (bình
-                // thường) HAY toggle chọn/bỏ (đang chọn nhiều để thêm vào album) -> VirtualMachineState.
+                // Click 1 ảnh có 3 Ý NGHĨA LOẠI TRỪ NHAU tuỳ chế độ hiện tại: chọn/bỏ (đang thêm
+                // ảnh vào album) / xoá ngay (chế độ xoá nhanh, MỚI 14/07/2026) / mở preview (bình
+                // thường) -> VirtualMachineState (3 state loại trừ nhau, chỉ ĐÚNG 1 khớp tại 1 thời
+                // điểm — bất biến đảm bảo ở 2 case bật/tắt tương ứng, không bao giờ bật đồng thời).
                 VirtualMachineState.run([
                     { state: imageSelectionMode, operation: '===', value: true, callback: () => {
                         workflowFileManagerPhoto.toggleImageSelectionInSet(imageKey, selectedImageKeys); // mutate Set qua tham chiếu + patch DOM surgical -> KHÔNG cần activeAlbumId (fix mục 3, không còn refresh() toàn bộ)
                     } },
-                    { state: imageSelectionMode, operation: '===', value: false, callback: () => {
+                    { state: imageQuickDeleteMode, operation: '===', value: true, callback: () => {
+                        workflowFileManagerPhoto.quickDeleteImage(imageKey, activeAlbumId, albumStoryPageIndex); // >1 hàm core -> workflow
+                    } },
+                    { state: (!imageSelectionMode && !imageQuickDeleteMode), operation: '===', value: true, callback: () => {
                         workflowFileManagerPhoto.openImagePreview(imageKey, activeAlbumId); // >1 hàm core -> workflow
                     } },
                 ]);
+                break;
+            }
+
+            // ===================== MỚI (14/07/2026, mục 2.2) — chế độ xoá nhanh ===================
+
+            case 'fileManagerPhoto.image.deleteMode.click': {
+                if (imageSelectionMode) break; // guard: đang chọn nhiều ảnh để thêm vào album -> không cho bật xoá nhanh giữa chừng
+                if (imageQuickDeleteMode) {
+                    // Đang bật sẵn -> bấm lại = TẮT NGAY, không cần hỏi lại (chỉ BẬT mới cần xác nhận).
+                    imageQuickDeleteMode = false;
+                    workflowFileManagerPhoto.refresh(activeAlbumId, imageSelectionMode, selectedImageKeys, albumStoryPageIndex, imageQuickDeleteMode);
+                    break;
+                }
+                workflowFileManagerPhoto.promptQuickDeleteMode(() => { // >1 hàm core (modal + refresh) -> workflow
+                    imageQuickDeleteMode = true;
+                    workflowFileManagerPhoto.refresh(activeAlbumId, imageSelectionMode, selectedImageKeys, albumStoryPageIndex, imageQuickDeleteMode);
+                });
                 break;
             }
 
@@ -114,7 +156,7 @@ const routerFileManagerPhoto = (() => {
             case 'fileManagerPhoto.imageSelection.cancel': {
                 imageSelectionMode = false;
                 selectedImageKeys = new Set();
-                workflowFileManagerPhoto.refresh(activeAlbumId, imageSelectionMode, selectedImageKeys);
+                workflowFileManagerPhoto.refresh(activeAlbumId, imageSelectionMode, selectedImageKeys, albumStoryPageIndex, imageQuickDeleteMode);
                 break;
             }
 
