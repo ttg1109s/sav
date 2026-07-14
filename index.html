@@ -308,7 +308,7 @@
     <script src="lang/patch/patch-settings-misc.js?v=20260706v2"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260714v2"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260714v3"></script>
     <!-- MỚI (10/07/2026) — dùng ở CẢ index.html LẪN subtitle-editor.html, xem lang/lang.js. -->
     <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
     <script src="lang/lang.js?v=20260702v1"></script>
@@ -354,7 +354,7 @@
          3 drawer con (Song/Photo & Album/Documents) mở thẳng từ section "File Manager" vừa thêm
          ở settings/file-manager-section.js, cùng cấp nav-stack với About/Visualizer Settings
          Drawer bên dưới. THAY components/storage-drawer.js (About -> Storage cũ, không còn mount). -->
-    <script src="components/file-manager.js?v=20260714v2"></script>
+    <script src="components/file-manager.js?v=20260714v3"></script>
     <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer, khung TRẮNG dùng CHUNG
          cho Document List+Reader — THAY components/document-reader.js/document-picker-drawer.js
          CŨ (ĐÃ XOÁ — xoá tay nếu còn sót trên máy). items.js (mục 3) ĐỘC LẬP với Generic Drawer
@@ -401,7 +401,7 @@
          core/config.js (vizConfig khởi tạo bằng { ...CONST.DEFAULT_VIZ_CONFIG }) và trước toàn bộ
          core/ còn lại; PHẢI nạp SAU core/modal-choice.js (alertModal, dùng cho option notifyUI).
          Xem comment đầu file service/state.js. -->
-    <script src="service/state.js?v=20260714v2"></script>
+    <script src="service/state.js?v=20260714v3"></script>
     <script src="core/config.js?v=20260709v1"></script>
     <!-- event/store.js (class EventStore) — CHỈ riêng file NÀY trong toàn bộ /event/ được nạp SỚM
          ở đây, KHÔNG đợi xuống cuối cùng cùng bus/workflow/router/listener. Lý do: playlist/
@@ -449,8 +449,8 @@
          folder.js CẦN core/db.js (slugify + CRUD folders/folder_song/songs). folder-picker-ui.js
          CẦN t() (lang/lang.js, đã nạp từ rất sớm) — không phụ thuộc folder.js (chỉ dựng DOM +
          callback do nơi gọi truyền vào). -->
-    <script src="core/file-manager/folder.js?v=20260714v2"></script>
-    <script src="core/file-manager/folder-picker-ui.js?v=20260702v1"></script>
+    <script src="core/file-manager/folder.js?v=20260714v3"></script>
+    <script src="core/file-manager/folder-picker-ui.js?v=20260714v3"></script>
     <!-- MỚI (14/07/2026, tích hợp Generic Drawer/Item/windowing) — pagination DÙNG CHUNG, KHÔNG
          phụ thuộc gì (core THUẦN) — dùng bởi danh sách folder (10 folder/trang), xem
          event/workflow/file-manager-song.js. -->
@@ -458,10 +458,10 @@
     <!-- core/file-manager/nav.js ĐÃ XOÁ khỏi đây (Batch D7, batch CUỐI Nhóm D) — file đó giờ
          RỖNG (0 hàm, cả 4 khu vực Song/Folder Detail/Photo/Documents đã chuyển hết sang push/pop
          động) — XOÁ TAY file core/file-manager/nav.js, không tự động xoá. -->
-    <script src="core/file-manager/folder-list-ui.js?v=20260714v2"></script>
+    <script src="core/file-manager/folder-list-ui.js?v=20260714v3"></script>
     <!-- Phase 2 (mục 1b/c, CHỐT 03/07/2026) — Folder Detail Drawer. CẦN core/file-manager/folder.js
          (getFolderSongKeys) + core/dom-refs.js (đã nạp ngay trên). -->
-    <script src="core/file-manager/folder-detail-ui.js?v=20260714v2"></script>
+    <script src="core/file-manager/folder-detail-ui.js?v=20260714v3"></script>
     <!-- Batch 3 (03/07/2026) — Ảnh & Album. image.js/album.js độc lập với folder.js (không dùng
          chung hàm nào ngoài slugify()/getMeta()/setMeta() ở core/db.js) — thứ tự giữa 2 file này
          với nhau không quan trọng, chỉ cần SAU core/db.js. photo-ui.js CẦN dom-refs.js (đã nạp ở
@@ -473,7 +473,7 @@
     <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer (core UI thuần), CẦN
          core/dom-refs.js (đã nạp ngay trên: genericDrawerOverlay/Panel/Header/Body). Đặt cạnh
          nhóm Documents cho dễ đọc dù bản thân KHÔNG phụ thuộc gì từ document.js/document-ui.js. -->
-    <script src="core/generic-drawer.js?v=20260714v2"></script>
+    <script src="core/generic-drawer.js?v=20260714v3"></script>
     <!-- Documents — CRUD + lọc HTML whitelist (document.js, VIẾT LẠI 10/07/2026 Nhóm A — bỏ
          Markdown/Turndown), hàm dựng UI + surface Sửa dùng chung (document-ui.js, VIẾT LẠI cùng
          đợt — bỏ Toast UI Editor/kỹ thuật CSS multi-column cũ). document-pagination.js (MỚI, core
@@ -644,7 +644,7 @@
          CẦN core/settings-panel-stack-ui.js (đã nạp ở nhóm CORE phía trên). NẠP TRƯỚC settingsMisc
          (settingsMisc.openAbout() gọi pushSettingsPanel() — không thật sự phụ thuộc thứ tự, nhưng
          đặt Back trước Open cho xuôi mạch đọc). -->
-    <script src="event/workflow/settings-stack-nav.js?v=20260709v1"></script>
+    <script src="event/workflow/settings-stack-nav.js?v=20260714v3"></script>
     <script src="event/router/settings-stack-nav.js?v=20260706v1"></script>
     <script src="event/listener/settings-stack-nav.js?v=20260706v2"></script>
     <!-- Cụm "settingsMisc" (ver 11, patch 5): gộp aboutDrawer + appRecovery — gộp vì mỗi nhánh quá
@@ -669,8 +669,8 @@
          động TRONG CÙNG 1 ngăn xếp (core/settings-panel-stack-ui.js, đã nạp ở nhóm CORE) — CẦN
          core/file-manager/folder-list-ui.js/folder-detail-ui.js/core/storage-manager.js (đã đổi
          sang nhận phần tử qua tham số, đã nạp ở nhóm CORE). -->
-    <script src="event/workflow/file-manager-song.js?v=20260714v2"></script>
-    <script src="event/router/file-manager-song.js?v=20260714v2"></script>
+    <script src="event/workflow/file-manager-song.js?v=20260714v3"></script>
+    <script src="event/router/file-manager-song.js?v=20260714v3"></script>
     <script src="event/listener/file-manager-song.js?v=20260714v2"></script>
     <!-- Batch 8, ver 12 "Multi Media" — cụm "slideshowSettings" (Slideshow nền Visual). PHẢI nạp
          TRƯỚC event/workflow/file-manager-photo.js (gọi workflowSlideshow.clearActiveAlbum() +
@@ -720,7 +720,7 @@
     <script src="event/workflow/virtual-list.js?v=20260713v1"></script>
     <script src="event/router/virtual-list.js?v=20260713v1"></script>
     <script src="event/listener/virtual-list.js?v=20260713v1"></script>
-    <script src="event/workflow/playlist.js?v=20260708v1"></script>
+    <script src="event/workflow/playlist.js?v=20260714v3"></script>
     <script src="event/router/playlist.js?v=20260704v1"></script>
     <script src="event/listener/playlist.js?v=20260704v1"></script>
     <!-- Cụm "playerControls" (ver 11, patch 3): 16/17 msg.type KHÔNG cần workflow (router gọi
