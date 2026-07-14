@@ -52,46 +52,63 @@
  * @param {HTMLElement} storyEl - Batch D6 (06/07/2026): panel Photo giờ push/pop động (core/
  *        settings-panel-stack.js) — nhận qua tham số thay vì dom-refs tĩnh `fileManagerAlbumStory`.
  */
-function renderAlbumStory(albums, activeAlbumId, imageRecordsByKey, storyEl) {
-    if (!storyEl) return; // guard
+/**
+ * SỬA (14/07/2026, mục cuối, Giang ĐƠN GIẢN HOÁ lại — "ẩn current page/page bằng css display none
+ * là được") — KHÔNG còn cắt mảng theo trang (`computePage()` + re-render mỗi lần bấm ‹/›). Giờ vẽ
+ * TOÀN BỘ "Tất cả" + album MỘT LẦN (chỉ lúc `refresh()` load lại dữ liệu thật), MỖI tile gắn
+ * `dataset.storyPage` (trang chứa nó) — chuyển trang sau đó CHỈ toggle class `hidden` qua
+ * `setAlbumStoryPageVisibility()` (ngay dưới, KHÔNG đụng DB/DOM rebuild) — rẻ hơn nhiều, không cần
+ * Workflow gọi lại `refresh()` mỗi lần bấm mũi tên.
+ * @param {Array<'__all__'|{id: string, name: string, imageKeys: string[]}>} allItems - "Tất cả" +
+ *        TOÀN BỘ album, KHÔNG cắt trang.
+ * @param {number} itemsPerPage
+ * @param {string|null} activeAlbumId
+ * @param {Map<string, Object>} imageRecordsByKey
+ * @param {HTMLElement} storyEl
+ * @returns {number} totalPages
+ */
+function renderAlbumStory(allItems, itemsPerPage, activeAlbumId, imageRecordsByKey, storyEl) {
+    if (!storyEl) return 1; // guard
 
-    // Revoke toàn bộ object URL cũ trước khi xoá DOM (tránh rò rỉ bộ nhớ — cùng pattern renderPlaylistDiff)
     storyEl.querySelectorAll('[data-has-object-url]').forEach((node) => {
         if (node._objectUrl) { try { URL.revokeObjectURL(node._objectUrl); } catch (e) {} }
     });
     storyEl.innerHTML = '';
 
-    // ── "Tất cả" (bỏ lọc) ──────────────────────────────────────────────────────────────────
-    const allItem = document.createElement('button');
-    allItem.dataset.albumStoryAction = 'all';
-    allItem.className = 'flex flex-col items-center gap-1.5 shrink-0 snap-start w-16';
-    const allCircle = document.createElement('div');
-    allCircle.className = `w-14 h-14 rounded-full flex items-center justify-center border-2 transition-colors ${activeAlbumId === null ? 'border-sky-400 bg-sky-500/20' : 'border-white/15 bg-white/5'}`;
-    allCircle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>';
-    allItem.appendChild(allCircle);
-    const allLabel = document.createElement('span');
-    allLabel.className = `text-[11px] truncate w-full text-center ${activeAlbumId === null ? 'text-sky-300 font-semibold' : 'text-slate-400'}`;
-    allLabel.textContent = t('fileManager.photo.album.all');
-    allItem.appendChild(allLabel);
-    storyEl.appendChild(allItem);
+    allItems.forEach((entry, index) => {
+        const pageIndex = Math.floor(index / itemsPerPage);
 
-    // ── Từng album ─────────────────────────────────────────────────────────────────────────
-    albums.forEach((album) => {
+        if (entry === '__all__') {
+            const allItem = document.createElement('button');
+            allItem.dataset.albumStoryAction = 'all';
+            allItem.dataset.storyPage = String(pageIndex);
+            allItem.className = 'flex flex-col items-center gap-1.5 shrink-0 w-16';
+            const allCircle = document.createElement('div');
+            allCircle.className = `w-14 h-14 rounded-full flex items-center justify-center border-2 transition-colors ${activeAlbumId === null ? 'border-sky-400 bg-sky-500/20' : 'border-white/15 bg-white/5'}`;
+            allCircle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>';
+            allItem.appendChild(allCircle);
+            const allLabel = document.createElement('span');
+            allLabel.className = `text-[11px] truncate w-full text-center ${activeAlbumId === null ? 'text-sky-300 font-semibold' : 'text-slate-400'}`;
+            allLabel.textContent = t('fileManager.photo.album.all');
+            allItem.appendChild(allLabel);
+            storyEl.appendChild(allItem);
+            return;
+        }
+
+        const album = entry;
         const isActive = album.id === activeAlbumId;
         const item = document.createElement('button');
         item.dataset.albumStoryAction = 'select';
         item.dataset.albumId = album.id;
-        item.className = 'flex flex-col items-center gap-1.5 shrink-0 snap-start w-16';
+        item.dataset.storyPage = String(pageIndex);
+        item.className = 'flex flex-col items-center gap-1.5 shrink-0 w-16';
 
         const circle = document.createElement('div');
         circle.dataset.hasObjectUrl = '1';
         circle.className = `w-14 h-14 rounded-full overflow-hidden flex items-center justify-center border-2 transition-colors bg-white/5 ${isActive ? 'border-sky-400' : 'border-white/15'}`;
-        // Placeholder icon trước khi lazy-load ảnh đại diện
         circle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>';
         const firstImageKey = album.imageKeys.find((k) => imageRecordsByKey.has(k));
-        if (firstImageKey) {
-            _observeLazyThumbnail(circle, imageRecordsByKey.get(firstImageKey).blob);
-        }
+        if (firstImageKey) _observeLazyThumbnail(circle, imageRecordsByKey.get(firstImageKey).blob);
         item.appendChild(circle);
 
         const label = document.createElement('span');
@@ -102,19 +119,22 @@ function renderAlbumStory(albums, activeAlbumId, imageRecordsByKey, storyEl) {
         storyEl.appendChild(item);
     });
 
-    // ── "+" tạo album mới ──────────────────────────────────────────────────────────────────
-    const newItem = document.createElement('button');
-    newItem.dataset.albumStoryAction = 'create';
-    newItem.className = 'flex flex-col items-center gap-1.5 shrink-0 snap-start w-16';
-    const newCircle = document.createElement('div');
-    newCircle.className = 'w-14 h-14 rounded-full flex items-center justify-center border-2 border-dashed border-white/20 text-slate-400';
-    newCircle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>';
-    newItem.appendChild(newCircle);
-    const newLabel = document.createElement('span');
-    newLabel.className = 'text-[11px] text-slate-400 truncate w-full text-center';
-    newLabel.textContent = t('fileManager.photo.album.new');
-    newItem.appendChild(newLabel);
-    storyEl.appendChild(newItem);
+    return Math.max(1, Math.ceil(allItems.length / itemsPerPage));
+}
+
+/** MỚI (14/07/2026, mục cuối) — chuyển trang story album CHỈ bằng CSS (`hidden` — `display:none`),
+ * KHÔNG đụng DOM/DB gì khác — dùng `dataset.storyPage` đã gắn sẵn lúc `renderAlbumStory()`. Hàm
+ * THUẦN theo nghĩa không gọi core/appState nào khác, chỉ patch DOM surgical (cùng nhóm
+ * `updateImageSelectionCount()` — patch nhỏ, không thuộc diện phải qua Workflow điều phối vì không
+ * gọi core nào khác).
+ * @param {HTMLElement} storyEl
+ * @param {number} pageIndex
+ */
+function setAlbumStoryPageVisibility(storyEl, pageIndex) {
+    if (!storyEl) return;
+    storyEl.querySelectorAll('[data-story-page]').forEach((el) => {
+        el.classList.toggle('hidden', el.dataset.storyPage !== String(pageIndex));
+    });
 }
 
 // ===================== Lưới ảnh — Item + Window ảo (Patch mục 2, 14/07/2026) ===================
@@ -424,7 +444,7 @@ function openPhotoUiImagePickerModal(images, onSelect, onCancel, onGridReady) {
         overlay.appendChild(emptyEl);
     } else {
         const grid = document.createElement('div');
-        grid.className = 'flex-1 overflow-y-auto px-2 pb-4';
+        grid.className = 'flex-1 min-h-0 overflow-y-auto px-2 pb-4';
         overlay.appendChild(grid);
 
         // Click chọn — delegated riêng cho modal này (KHÁC listener của File Manager, đóng ngay +
@@ -663,16 +683,25 @@ function openImagePreviewModal(image, callbacks) {
 
     const overlay = document.createElement('div');
     overlay.id = 'image-preview-overlay';
-    overlay.className = 'fixed inset-0 z-[130] bg-black/85 backdrop-blur-sm flex flex-col';
+    overlay.className = 'fixed inset-0 z-[130] bg-black overflow-hidden';
 
     function closeModal() {
         try { URL.revokeObjectURL(objectUrl); } catch (e) {}
         overlay.remove();
     }
 
-    // ---- Header: X đóng (trái) + "..." mở menu (phải) ----
+    // MỚI (14/07/2026, mục cuối, Giang yêu cầu — "ảnh phải full width/height với màn") — ảnh PHỦ
+    // KÍN overlay (.photo-preview-image, assets/css/style.css — object-fit: cover, KHÔNG contain),
+    // header/caption NỔI ĐÈ LÊN TRÊN bằng gradient scrim thay vì đẩy ảnh thu nhỏ lại như bản cũ.
+    const img = document.createElement('img');
+    img.src = objectUrl;
+    img.alt = image.filename;
+    img.className = 'photo-preview-image';
+    overlay.appendChild(img);
+
+    // ---- Header nổi: X đóng (trái) + "..." mở menu (phải) ----
     const header = document.createElement('div');
-    header.className = 'flex justify-between items-center px-4 py-3 shrink-0 gap-2';
+    header.className = 'photo-preview-scrim-top flex justify-between items-center px-4 pt-4 pb-3 gap-2';
     const closeBtn = document.createElement('button');
     closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
     closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
@@ -686,20 +715,10 @@ function openImagePreviewModal(image, callbacks) {
     header.appendChild(menuBtn);
     overlay.appendChild(header);
 
-    const imgWrap = document.createElement('div');
-    imgWrap.className = 'flex-1 flex items-center justify-center px-4 pb-2 min-h-0';
-    const img = document.createElement('img');
-    img.src = objectUrl;
-    img.alt = image.filename;
-    img.className = 'max-w-full max-h-full object-contain rounded-lg';
-    imgWrap.appendChild(img);
-    overlay.appendChild(imgWrap);
-
-    // Caption — CHỈ hiển thị (đọc), sửa qua menu "Edit caption" (openEditCaptionModal() ngay dưới,
-    // Workflow tự mở SAU khi đóng menu) — bỏ hẳn kiểu bấm-vào-để-sửa-tại-chỗ cũ.
+    // Caption — nổi đè ở ĐÁY (scrim dưới), CHỈ hiển thị (đọc), sửa qua menu "Edit caption".
     if (image.caption) {
         const captionEl = document.createElement('p');
-        captionEl.className = 'px-4 pb-4 shrink-0 text-sm text-slate-300 text-center';
+        captionEl.className = 'photo-preview-scrim-bottom px-4 pb-4 text-sm text-slate-100 text-center';
         captionEl.textContent = image.caption;
         overlay.appendChild(captionEl);
     }
@@ -711,10 +730,15 @@ function openImagePreviewModal(image, callbacks) {
 /**
  * MỚI (14/07/2026, mục cuối) — bodyHtml cho menu action ảnh (Generic Drawer, icon hoá + tên ngắn
  * gọn — yêu cầu Giang). Hàm THUẦN (Rule 1-4): chỉ ghép chuỗi từ `ctx`, không DOM/appState/gọi core
- * khác. `flex flex-wrap justify-center` — mỗi nút rộng theo NỘI DUNG (`w-[76px]` cố định NHỎ, không
- * kéo giãn hết hàng), tự XUỐNG DÒNG nếu không đủ chỗ — không bao giờ vượt quá bề rộng khung cha
- * (luôn ≤ bề rộng màn hình trừ padding, đúng yêu cầu "width theo content, không cố định, nhưng <
- * tổng màn hình").
+ * khác.
+ *
+ * SỬA 2 LẦN (14/07/2026):
+ *   - Giang chỉ ra lần 1: "độ rộng phải = tên nút dài nhất, không xuống dòng" -> đổi sang 1 hàng
+ *     ngang, mỗi nút rộng theo ký tự nhãn dài nhất (đơn vị `ch`).
+ *   - Giang CHỈNH LẠI lần 2 (hoàn tác lần 1): "tối thiểu 2 dòng, dài quá thì '...', tham khảo
+ *     toolbar subtitle-editor" -> giờ ĐÚNG khuôn toolbar đó (`w-[70px] shrink-0 flex flex-col`,
+ *     `overflow-x-auto` nếu tràn hàng), nhãn cho phép vỡ TỐI ĐA 2 dòng (`line-clamp-2`), dài hơn
+ *     nữa mới cắt "…" (CSS `line-clamp` tự thêm ellipsis ở cuối dòng 2).
  * @param {{hasAlbum: boolean}} ctx
  * @returns {string}
  */
@@ -736,67 +760,30 @@ function buildPhotoActionMenuHtml(ctx) {
     items.push({ action: 'delete', label: t('fileManager.photo.image.btnDelete'), icon: ICON_TRASH, danger: true });
 
     return `
-        <div class="flex flex-wrap justify-center gap-x-5 gap-y-4">
+        <div class="flex items-start gap-1 overflow-x-auto px-1 pb-1">
             ${items.map((item) => `
-                <button type="button" data-photo-menu-action="${item.action}" class="flex flex-col items-center gap-1.5 w-[76px]">
+                <button type="button" data-photo-menu-action="${item.action}" class="w-[70px] shrink-0 flex flex-col items-center gap-1.5 py-1">
                     <div class="w-12 h-12 rounded-2xl flex items-center justify-center ${item.danger ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-700'}">${item.icon}</div>
-                    <span class="text-[11px] font-medium text-center leading-tight ${item.danger ? 'text-rose-600' : 'text-slate-700'}">${escapeHtml(item.label)}</span>
+                    <span class="text-[11px] font-medium text-center leading-tight [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden ${item.danger ? 'text-rose-600' : 'text-slate-700'}">${escapeHtml(item.label)}</span>
                 </button>
             `).join('')}
         </div>
     `;
 }
 
-/** MỚI (14/07/2026, mục cuối) — modal sửa caption, mở TỪ menu action (Generic Drawer đã đóng trước
- * đó) — cùng khuôn `openRenameAlbumModal()` (overlay riêng, KHÔNG phụ thuộc modal xem ảnh còn mở
- * hay không).
+/** MỚI (14/07/2026, mục cuối) — bodyHtml form sửa caption, render TRONG Generic Drawer (Giang chỉ
+ * ra: KHÔNG dùng modal riêng nữa — chuyển mượt trong CÙNG drawer đang mở cho menu action, cùng cơ
+ * chế List<->Read của `document-reader.js`, xem `event/workflow/file-manager-photo.js::
+ * _wireImageMenuEvents()` nhánh 'editCaption'). Hàm THUẦN — chỉ ghép chuỗi, không DOM/appState.
  * @param {string} currentCaption
- * @param {(caption: string) => void} onSave
+ * @returns {string}
  */
-function openEditCaptionModal(currentCaption, onSave) {
-    const stale = document.getElementById('edit-caption-overlay');
-    if (stale) stale.remove();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'edit-caption-overlay';
-    overlay.className = 'fixed inset-0 z-[131] bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
-
-    const card = document.createElement('div');
-    card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
-    const titleEl = document.createElement('h3');
-    titleEl.className = 'text-base font-bold text-white';
-    titleEl.textContent = t('fileManager.photo.image.btnEditCaption');
-    card.appendChild(titleEl);
-
-    function closeModal() { overlay.remove(); }
-
-    const inputEl = document.createElement('textarea');
-    inputEl.rows = 3;
-    inputEl.maxLength = 200;
-    inputEl.placeholder = t('fileManager.photo.image.captionPlaceholder');
-    inputEl.value = currentCaption;
-    inputEl.className = 'bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none resize-none focus:border-sky-500 focus:bg-black/60 transition-colors';
-    card.appendChild(inputEl);
-
-    const btnRow = document.createElement('div');
-    btnRow.className = 'flex gap-3';
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-sm font-semibold transition-colors';
-    cancelBtn.textContent = t('common.cancel');
-    cancelBtn.addEventListener('click', closeModal);
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'flex-1 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors';
-    saveBtn.textContent = t('common.save');
-    saveBtn.addEventListener('click', () => {
-        const caption = inputEl.value.trim();
-        closeModal();
-        onSave(caption);
-    });
-    btnRow.appendChild(cancelBtn);
-    btnRow.appendChild(saveBtn);
-    card.appendChild(btnRow);
-
-    overlay.appendChild(card);
-    document.body.appendChild(overlay);
-    inputEl.focus();
+function buildEditCaptionFormHtml(currentCaption) {
+    return `
+        <textarea id="caption-form-textarea" rows="3" maxlength="200" placeholder="${escapeHtml(t('fileManager.photo.image.captionPlaceholder'))}" class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 outline-none resize-none focus:border-sky-400 transition-colors">${escapeHtml(currentCaption)}</textarea>
+        <div class="flex gap-3 mt-3">
+            <button type="button" id="btn-caption-form-cancel" class="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-colors">${escapeHtml(t('common.cancel'))}</button>
+            <button type="button" id="btn-caption-form-save" class="flex-1 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors">${escapeHtml(t('common.save'))}</button>
+        </div>
+    `;
 }
