@@ -1,24 +1,17 @@
 /**
- * event/listener/virtual-list.js — Listener cho sự kiện 'scroll' của container đang windowing
- * (hiện chỉ `genericDrawerBody` — container KHÁC nào sau này cần windowing cũng đăng ký thêm
- * đúng 1 khối tương tự ở đây, xem event/workflow/virtual-list.js::mount()).
+ * event/listener/virtual-list.js — Listener 'scroll' DUY NHẤT, delegated ở `document` (capture —
+ * 'scroll' KHÔNG bubble, phải bắt ở capture phase mới nghe được từ container con bất kỳ).
  *
- * CHỈ làm 1 việc: đăng ký sự kiện + gọi eventBus.send() — KHÔNG tự quyết định container này ĐANG
- * windowing thật hay không (đó là việc của Workflow, tự no-op nếu chưa mount() gì, xem
- * workflowVirtualList.handleScroll()).
+ * SỬA 14/07/2026 (Giang chỉ ra: trước đó chỉ hardcode `genericDrawerBody`, khiến Photo & Album phải
+ * tự addEventListener riêng ở Workflow — SAI, phá đúng luồng listener->bus->router->workflow) — giờ
+ * ĐỌC `e.target.dataset.virtualScrollMount` (tự gắn bởi `workflowVirtualList.mount()`, xem
+ * event/workflow/virtual-list.js) thay vì check id/selector cố định — container NÀO gọi `mount()`
+ * cũng TỰ ĐỘNG được nghe scroll, không cần thêm khối listener riêng mỗi lần có tính năng mới.
  *
- * Tiền lệ: sự kiện TẦN SUẤT CAO không có ngoại lệ bỏ qua eventBus — audioPlayer 'timeupdate' (rất
- * dày, xem event/listener/player-controls.js) vẫn đi ĐÚNG qua eventBus.send() như mọi sự kiện
- * khác, không đặc cách. 'scroll' ở đây theo ĐÚNG tiền lệ đó, không tự viết tắt riêng trong Workflow.
- *
- * NẠP SAU: event/bus.js, core/dom-refs.js (genericDrawerBody).
+ * NẠP SAU: event/bus.js.
  */
-if (genericDrawerBody) {
-    genericDrawerBody.addEventListener('scroll', () => {
-        eventBus.send({
-            router: 'virtualList',
-            type: 'virtualList.scroll',
-            payload: { scrollTop: genericDrawerBody.scrollTop, clientHeight: genericDrawerBody.clientHeight },
-        });
-    }, { passive: true });
-}
+document.addEventListener('scroll', (e) => {
+    const mountKey = e.target.dataset && e.target.dataset.virtualScrollMount;
+    if (!mountKey) return; // không phải container đang windowing -> bỏ qua
+    eventBus.send({ router: 'virtualList', type: 'virtualList.scroll', payload: { mountKey } });
+}, { capture: true, passive: true });
