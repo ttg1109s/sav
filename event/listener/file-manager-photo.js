@@ -23,8 +23,13 @@ if (btnOpenFileManagerPhoto) {
 
 function handleFileManagerPhotoDelegatedClick(e) {
     // ===================== Story slider Album (Batch 3) =====================
+    // BUG FIX (14/07/2026, Giang phát hiện — nút "+" tạo album không hoạt động): tile "+" đã tách
+    // ra làm anh em (sibling) của #file-manager-album-story từ lúc mục 3 (arrow pagination) —
+    // scope CŨ `e.target.closest('#file-manager-album-story')` chỉ trùng phần TRONG đó, KHÔNG bắt
+    // được click trên tile "+" (đứng NGOÀI, tuy cùng hàng) -> đổi sang scope theo HÀNG NGOÀI CÙNG
+    // (#file-manager-album-story-row, bao cả 2).
     const storyBtn = e.target.closest('button[data-album-story-action]');
-    if (storyBtn && e.target.closest('#file-manager-album-story')) {
+    if (storyBtn && e.target.closest('#file-manager-album-story-row')) {
         eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.album.storyClick', payload: { action: storyBtn.dataset.albumStoryAction, albumId: storyBtn.dataset.albumId } });
         return;
     }
