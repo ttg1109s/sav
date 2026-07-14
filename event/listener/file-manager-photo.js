@@ -43,7 +43,7 @@ function handleFileManagerPhotoDelegatedClick(e) {
         return;
     }
 
-    // ===================== Masonry ảnh =====================
+    // ===================== Lưới ảnh (Patch mục 2, 14/07/2026 — Item + window ảo, THAY masonry cũ) ==
     const tile = e.target.closest('button[data-image-key]');
     if (tile && e.target.closest('#file-manager-image-masonry')) {
         eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.image.click', payload: { imageKey: tile.dataset.imageKey } });
