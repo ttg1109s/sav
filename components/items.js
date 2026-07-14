@@ -24,25 +24,23 @@
  * - Rule 5c — thêm `document.createElement()` dựng cụm DOM mới (spacer/viewport) mà không đổi tên
  *   file thành `-ui.js`.
  *
- * SỬA ĐÚNG: windowing bản chất là ĐIỀU PHỐI liên tục (tự quyết định khi nào vẽ lại theo scroll) —
- * đúng loại việc Rule 3 nói thuộc về Workflow ("Timer/interval là công cụ điều phối — đúng vai trò
- * Workflow"). File này CHỈ giữ **`computeVirtualWindowRange()`** — 1 hàm THUẦN (không DOM, không
- * `appState`, không gọi core/hàm nào khác, không nhánh tiến trình — chỉ toán học kẹp giá trị) tính
- * ra khoảng chỉ số [startIdx, endIdx) cần hiển thị. Workflow tự:
- *   1. Tự `createElement` dựng spacer/viewport (Rule 5a/5c riêng nếu tách file `-ui.js`).
- *   2. Tự `addEventListener('scroll', ...)` NGAY TẠI WORKFLOW (Workflow được phép, không phải Core).
- *   3. Mỗi lần cuộn, tự gọi `computeVirtualWindowRange()` (core) RỒI tự
- *      `renderItemList(viewportEl, items.slice(startIdx, endIdx), templateFn, ctx)` (core khác) —
- *      Workflow đứng NGOÀI gọi CẢ HAI, đúng mẫu ĐÚNG của Rule 3 (`startTransitionVisuals`/
- *      `setImage`/`finishTransitionVisuals` tách riêng, Workflow tự gọi từng hàm).
+ * SỬA ĐÚNG: windowing là ĐIỀU PHỐI liên tục theo dữ liệu — đúng vai trò Workflow (Rule 3: 2 hàm
+ * core phụ thuộc kết quả nhau, `computeVirtualWindowRange()`/`computeVariableVirtualWindowRange()`
+ * RỒI `renderItemList()`, CHỈ Workflow được gọi cả 2). File này CHỈ giữ 2 hàm THUẦN tính toán
+ * (không DOM/`appState`/gọi hàm khác) — KHÔNG có phần "tạo spacer/gắn scroll listener" ở đây.
  *
- * CONSUMER THẬT ĐẦU TIÊN (Patch mục 2, 14/07/2026): lưới ảnh Photo & Album (`event/workflow/
- * file-manager-photo.js::setupPhotoGridWindow()`), THAY HẲN hệ masonry chunk-based cũ ở
- * `core/file-manager/photo-ui.js`. Vì hàng lưới ảnh KHÔNG đều chiều cao (header ngày xen giữa —
- * xem `core/file-manager/image.js::buildPhotoGridRows()`), consumer này dùng
- * `computeVariableVirtualWindowRange()` (biến thể chiều cao không đều, xem ngay dưới) THAY vì
- * `computeVirtualWindowRange()` (giả định chiều cao đều — vẫn giữ nguyên cho Document Picker sau
- * này nếu vượt ngưỡng ~100-200 item). Template dùng `itemTemplateImageGridRow()` (ngay dưới).
+ * `scroll` — SỬA 14/07/2026 (Giang chỉ ra bản trước SAI): đi ĐÚNG luồng listener->bus->router->
+ * workflow như MỌI sự kiện khác (kể cả tần suất cao), KHÔNG Workflow tự `addEventListener`. Xem
+ * `event/listener/virtual-list.js` (1 listener chung, đọc `dataset.virtualScrollMount`) +
+ * `event/workflow/virtual-list.js` (`workflowVirtualList.mount()`/`redraw()` — nơi THẬT SỰ dựng
+ * spacer/viewport + gọi 2 hàm core dưới đây).
+ *
+ * CONSUMER THẬT ĐẦU TIÊN (Patch mục 2, 14/07/2026): lưới ảnh Photo & Album, qua
+ * `event/workflow/file-manager-photo.js::setupPhotoGridWindow()` -> `workflowVirtualList.mount()`.
+ * Hàng lưới KHÔNG đều chiều cao (header ngày xen giữa, xem `core/file-manager/image.js::
+ * buildPhotoGridRows()`) nên dùng `computeVariableVirtualWindowRange()` (ngay dưới), KHÔNG dùng
+ * `computeVirtualWindowRange()` (giả định chiều cao đều — vẫn giữ cho danh sách đều sau này).
+ * Template: `itemTemplateImageGridRow()` (ngay dưới).
  *
  * Generic Drawer (core/generic-drawer.js) và items.js TÁCH BIỆT HOÀN TOÀN, không phụ thuộc nhau:
  * Drawer không biết "item" là gì (chỉ nhận `bodyHtml` là 1 chuỗi có sẵn), items.js không biết
@@ -230,8 +228,8 @@ function computeVariableVirtualWindowRange(rowHeights, scrollTop, viewHeight, bu
  *     NGAY LÚC build chuỗi. AN TOÀN dù hàm này "THUẦN" theo nghĩa Rule 1-4 (Rule 1-4 chỉ cấm
  *     `appState.get()`/gọi core khác/`addEventListener` rải rác — KHÔNG cấm side-effect khác như tạo
  *     object URL) vì chỉ 1 CỬA SỔ NHỎ (visible+buffer) được template hoá mỗi lần `renderItemList()`
- *     chạy — nơi gọi (Workflow) tự chịu trách nhiệm revoke object URL CŨ trước khi gọi lại (đúng
- *     pattern "revoke trước khi innerHTML=" đã dùng ở `renderImageMasonry()` bản cũ đã xoá).
+ *     chạy — `workflowVirtualList.redraw()`/`unmount()` (event/workflow/virtual-list.js) tự revoke
+ *     object URL CŨ trước khi vẽ lại.
  * 2 DẠNG xử lý trong CÙNG 1 hàm — `if/else` ở đây CHỈ chọn giữa 2 CÁCH HIỂN THỊ của CÙNG 1 khái
  * niệm "hàng lưới ảnh" — đúng khuôn `itemTemplateFolderTile()` ở trên (2 chế độ hiển thị 1 LOẠI
  * item, KHÔNG phải rẽ nhánh giữa 2 NGHIỆP VỤ khác nhau — Rule 1 chỉ cấm vế sau).
