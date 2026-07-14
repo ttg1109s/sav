@@ -37,13 +37,21 @@ const workflowPlaylist = {
 
     /** MỚI (03/07/2026); VIẾT LẠI (04/07/2026, mục 3 phản hồi Giang — bỏ hẳn nút Upload, chỉ còn
      * "Choose photo") — mở picker chọn 1 ảnh có sẵn trong File Manager làm cover, TÁI DÙNG NGUYÊN
-     * view Photo UI mới (`openPhotoUiImagePickerModal`, grid ô vuông + chunk load/collapse — xem
-     * core/file-manager/photo-ui.js) THAY `openImageLibraryPickerModal()` (lưới columns cũ). Đọc
-     * danh sách ảnh RỒI mở picker -> ≥2 bước -> workflow. */
+     * view Photo UI mới (`openPhotoUiImagePickerModal` — xem core/file-manager/photo-ui.js) THAY
+     * `openImageLibraryPickerModal()` (lưới columns cũ). Đọc danh sách ảnh RỒI mở picker -> ≥2 bước
+     * -> workflow.
+     *
+     * SỬA (Patch mục 2, 14/07/2026) — `openPhotoUiImagePickerModal()` KHÔNG còn tự vẽ lưới (Rule 3:
+     * đó là việc CHỈ Workflow được làm). Truyền `onGridReady` — gọi `workflowFileManagerPhoto.
+     * setupPhotoGridWindow()` (Workflow gọi Workflow miền khác, TỰ DO theo event-bus-flow.md mục 4B)
+     * NGAY SAU khi grid rỗng đã vào DOM, tái dùng NGUYÊN hạ tầng windowing của Photo & Album — tránh
+     * duy trì 2 hệ lưới ảnh khác nhau trong project. */
     async pickCoverFromLibrary() {
         const images = await listImages(); // core có sẵn (core/file-manager/image.js), CÓ return, DÙNG ngay dưới
         openPhotoUiImagePickerModal(images, (imageKey) => { // core/file-manager/photo-ui.js
             this.applyCoverFromLibrary(imageKey);
+        }, undefined, (gridEl) => {
+            workflowFileManagerPhoto.setupPhotoGridWindow(gridEl, images, {}); // event/workflow/file-manager-photo.js — miền khác, tái dùng THẲNG
         });
     },
 

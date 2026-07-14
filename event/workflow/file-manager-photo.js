@@ -23,13 +23,35 @@
  * module bên dưới) lưu panel đang mở, cùng pattern đã dùng ở Slideshow/Song (event/workflow/
  * slideshow.js::slideshowSettingsPanelEl, event/workflow/file-manager-song.js::
  * fileManagerSongPanelEl) — KHÔNG chủ động null-hoá lúc đóng (vô hại, lý do y hệt 2 nơi kia).
- * `renderAlbumStory`/`renderImageMasonry`/`updateImageSelectionCount` (core/file-manager/
- * photo-ui.js) ĐÃ đổi sang nhận phần tử qua tham số — mọi method dưới đây tự `querySelector` bên
- * trong `fileManagerPhotoPanelEl` rồi truyền vào. Modal (openCreateAlbumModal/openRenameAlbumModal/
- * openImagePreviewModal...) KHÔNG cần đổi gì — tự dựng overlay ĐỘC LẬP (document.body), không phụ
- * thuộc panel.
+ * `renderAlbumStory`/`updateImageSelectionCount` (core/file-manager/photo-ui.js) nhận phần tử qua
+ * tham số — mọi method dưới đây tự `querySelector` bên trong `fileManagerPhotoPanelEl` rồi truyền
+ * vào. Modal (openCreateAlbumModal/openRenameAlbumModal/openImagePreviewModal...) KHÔNG cần đổi gì
+ * — tự dựng overlay ĐỘC LẬP (document.body), không phụ thuộc panel.
+ *
+ * PATCH mục 2 (14/07/2026, "bỏ cách cũ, áp dụng Item + window ảo") — `renderImageMasonry()` (core/
+ * file-manager/photo-ui.js) ĐÃ XOÁ. Lưới ảnh giờ qua `setupPhotoGridWindow()` (method MỚI, ngay
+ * dưới) — Workflow tự đo cột/chiều cao hàng, tự dựng cấu trúc "sizer + window" bên trong khung cuộn,
+ * tự gắn `scroll` listener TRỰC TIẾP (Workflow được phép, không phải Core — xem docstring
+ * components/items.js + tiền lệ event/workflow/subtitle-editor.js::buildColumn()), rồi mỗi lần cuộn
+ * tự gọi `computeVariableVirtualWindowRange()` RỒI `renderItemList()` (2 hàm core KHÁC NHAU ở
+ * components/items.js — CHỈ Workflow được đứng ra gọi cả 2, Rule 3 core-function-conventions.md).
+ * `fileManagerPhotoGridRedraw` (biến module bên dưới) lưu closure "vẽ lại cửa sổ hiện tại" của lần
+ * `setupPhotoGridWindow()` gần nhất — dùng khi CHỈ `ctx` (chế độ chọn nhiều) đổi, KHÔNG cần đo lại/
+ * dựng lại từ đầu (xem `toggleImageSelectionInSet()`).
  */
 let fileManagerPhotoPanelEl = null; // panel Photo đang mở — null nếu đang đóng (Batch D6)
+let fileManagerPhotoGridRedraw = null; // closure "vẽ lại cửa sổ hiện tại" — trả về từ setupPhotoGridWindow() gần nhất, null nếu panel đang đóng/chưa mở lưới lần nào (Patch mục 2)
+// scrollEl -> closure redraw() MỚI NHẤT (Patch mục 2) — `scroll` listener (gắn 1 LẦN/scrollEl, xem
+// setupPhotoGridWindow()) LUÔN tra map này thay vì đóng cứng theo closure lúc bind, để KHÔNG kẹt vào
+// bản `rows`/`ctx` CŨ khi setupPhotoGridWindow() được gọi lại nhiều lần trên CÙNG 1 scrollEl (đổi
+// album/filter) — key là WeakMap nên KHÔNG rò rỉ khi scrollEl bị gỡ khỏi DOM (đóng panel/modal).
+const _photoGridRedrawByScrollEl = new WeakMap();
+
+// Chiều cao (px) CỐ ĐỊNH của 1 hàng header ngày — PHẢI khớp đúng class `h-10` ở
+// components/items.js::itemTemplateImageGridRow() (đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia).
+const PHOTO_GRID_HEADER_HEIGHT_PX = 40;
+// Khớp class `gap-1` (Tailwind = 4px) trên chính lưới — đổi CSS gap thì phải đổi luôn hằng số này.
+const PHOTO_GRID_GAP_PX = 4;
 
 const workflowFileManagerPhoto = {
 
@@ -75,11 +97,83 @@ const workflowFileManagerPhoto = {
         const displayedImages = imageSelectionMode
             ? images
             : (activeAlbum ? images.filter((img) => activeAlbum.imageKeys.includes(img.key)) : images);
-        renderImageMasonry( // core/file-manager/photo-ui.js
-            fileManagerPhotoPanelEl.querySelector('#file-manager-image-masonry'),
-            displayedImages, imageSelectionMode, selectedImageKeys,
-            fileManagerPhotoPanelEl.querySelector('#file-manager-image-empty')
+        const emptyEl = fileManagerPhotoPanelEl.querySelector('#file-manager-image-empty');
+        if (emptyEl) emptyEl.classList.toggle('hidden', displayedImages.length > 0);
+        fileManagerPhotoGridRedraw = this.setupPhotoGridWindow(
+            fileManagerPhotoPanelEl.querySelector('#file-manager-image-scroll'),
+            displayedImages,
+            { selectionMode: imageSelectionMode, selectedImageKeys }
         );
+    },
+
+    /** MỚI (Patch mục 2, 14/07/2026) — Setup/vẽ lại windowing cho 1 lưới ảnh. Dùng CHUNG cho CẢ
+     * Photo & Album (gọi từ refresh() ở trên) LẪN picker cover bài hát (gọi qua tham số
+     * `onGridReady` của `openPhotoUiImagePickerModal()`, xem event/workflow/playlist.js — Workflow
+     * gọi Workflow miền khác, TỰ DO theo event-bus-flow.md mục 4B "Tái dùng Workflow giữa các miền
+     * khác nhau"). Đo cột/chiều cao TỪ `scrollEl` thật (đã có layout trong DOM — hàm này LUÔN được
+     * gọi SAU khi `scrollEl` đã `appendChild` vào document, không bao giờ đo phần tử rỗng chưa gắn).
+     * Dựng cấu trúc "sizer + window" bên trong — idempotent qua `dataset.photoGridSizer` (an toàn
+     * khi gọi lại nhiều lần trên CÙNG 1 `scrollEl`, vd đổi album/filter — KHÔNG tạo lồng nhau, KHÔNG
+     * xoá mất `#file-manager-image-empty` tĩnh đã có sẵn trong `scrollEl`, xem components/
+     * file-manager.js). Gắn `scroll` listener TRỰC TIẾP tại đây (Workflow được phép — KHÔNG phải
+     * Core, xem docstring components/items.js + tiền lệ event/workflow/subtitle-editor.js::
+     * buildColumn()) — chỉ bind ĐÚNG 1 LẦN/`scrollEl` (guard `dataset.virtualScrollBound`), listener
+     * đó LUÔN gọi qua `_photoGridRedrawByScrollEl` (WeakMap module-level ngay dưới) để không bao giờ
+     * kẹt vào closure `redraw` CŨ của lần setup trước đó (mỗi lần gọi lại setupPhotoGridWindow() với
+     * `images`/`ctx` MỚI, map được cập nhật ngay, listener cũ tự động dùng closure MỚI nhất).
+     * @param {HTMLElement} scrollEl - container CUỘN (overflow-y-auto), ĐÃ có trong DOM thật.
+     * @param {Array<{key:string, blob:Blob, filename:string, addedAt:number}>} images
+     * @param {{selectionMode?: boolean, selectedImageKeys?: Set<string>}} [ctx]
+     * @returns {() => void} closure "vẽ lại cửa sổ hiện tại" — gọi lại sau khi CHỈ `ctx` đổi (vd bật
+     *          tắt chọn nhiều/đổi ảnh đang chọn) MÀ KHÔNG cần đo lại/dựng lại từ đầu.
+     */
+    setupPhotoGridWindow(scrollEl, images, ctx) {
+        if (!scrollEl) return () => {};
+
+        const columns = window.matchMedia('(min-width: 640px)').matches ? 4 : 3; // khớp breakpoint Tailwind `sm:` trên class `grid-cols-3 sm:grid-cols-4`
+        const sortedImages = sortImagesByAddedDateDesc(images); // core/file-manager/image.js
+        const rows = buildPhotoGridRows(sortedImages, columns); // core/file-manager/image.js
+
+        let sizerEl = scrollEl.querySelector(':scope > [data-photo-grid-sizer]');
+        if (!sizerEl) {
+            sizerEl = document.createElement('div');
+            sizerEl.dataset.photoGridSizer = '1';
+            sizerEl.style.position = 'relative';
+            const windowEl = document.createElement('div');
+            windowEl.id = 'file-manager-image-masonry'; // GIỮ NGUYÊN id cũ — listener click delegated (event/listener/file-manager-photo.js) + picker modal (photo-ui.js) đang lọc theo id/selector này
+            windowEl.className = 'grid grid-cols-3 sm:grid-cols-4 gap-1';
+            windowEl.style.position = 'absolute';
+            windowEl.style.left = '0';
+            windowEl.style.right = '0';
+            sizerEl.appendChild(windowEl);
+            scrollEl.prepend(sizerEl); // CHÈN TRƯỚC #file-manager-image-empty tĩnh có sẵn — KHÔNG innerHTML='' (sẽ xoá mất phần tử đó)
+        }
+        const windowEl = sizerEl.querySelector('#file-manager-image-masonry');
+
+        const tileWidth = (sizerEl.clientWidth - (columns - 1) * PHOTO_GRID_GAP_PX) / columns; // ĐO SAU khi sizerEl đã vào DOM — clientWidth ở đây KHÔNG dính padding (sizerEl không có padding riêng), khác scrollEl.clientWidth (có padding `px-3`)
+        const imageRowHeight = tileWidth + PHOTO_GRID_GAP_PX;
+        const rowHeights = rows.map((row) => row.type === 'header' ? PHOTO_GRID_HEADER_HEIGHT_PX + PHOTO_GRID_GAP_PX : imageRowHeight);
+
+        function redraw() {
+            const { startIdx, endIdx, offsetTop, totalHeight } = computeVariableVirtualWindowRange(rowHeights, scrollEl.scrollTop, scrollEl.clientHeight); // components/items.js
+            sizerEl.style.height = totalHeight + 'px';
+            windowEl.style.transform = `translateY(${offsetTop}px)`;
+
+            windowEl.querySelectorAll('[data-has-object-url]').forEach((node) => {
+                const img = node.querySelector('img');
+                if (img && img.src) { try { URL.revokeObjectURL(img.src); } catch (e) {} }
+            });
+            renderItemList(windowEl, rows.slice(startIdx, endIdx), itemTemplateImageGridRow, ctx); // components/items.js
+        }
+
+        redraw();
+        _photoGridRedrawByScrollEl.set(scrollEl, redraw);
+        if (!scrollEl.dataset.virtualScrollBound) {
+            scrollEl.dataset.virtualScrollBound = '1';
+            scrollEl.addEventListener('scroll', () => _photoGridRedrawByScrollEl.get(scrollEl)(), { passive: true });
+        }
+
+        return redraw;
     },
 
     /** Ứng với storyClick action='create'. */
@@ -150,7 +244,10 @@ const workflowFileManagerPhoto = {
     toggleImageSelectionInSet(imageKey, selectedImageKeys) {
         if (selectedImageKeys.has(imageKey)) selectedImageKeys.delete(imageKey);
         else selectedImageKeys.add(imageKey);
-        toggleImageSelectionBadge(imageKey, selectedImageKeys.has(imageKey)); // core, patch DOM surgical (dùng _masonryContainerEl nội bộ)
+        // MỚI (Patch mục 2) — `ctx.selectedImageKeys` truyền vào setupPhotoGridWindow() lúc refresh()
+        // là CHÍNH `selectedImageKeys` này (cùng tham chiếu, Router giữ nguyên object) — gọi lại
+        // closure redraw() là ĐỦ để badge chọn cập nhật, KHÔNG cần đo lại/dựng lại từ đầu.
+        if (fileManagerPhotoGridRedraw) fileManagerPhotoGridRedraw();
         if (fileManagerPhotoPanelEl) {
             updateImageSelectionCount(selectedImageKeys.size, fileManagerPhotoPanelEl.querySelector('#file-manager-image-selection-count')); // core, patch DOM surgical
         }
