@@ -17,6 +17,14 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.folderPicker.btnCreate': 'Create',
     'fileManager.folderPicker.addSuccess': 'Added {count} song(s) to the folder.',
     'fileManager.folderPicker.duplicateName': 'A folder named "{name}" already exists (folder names are case-sensitive — different capitalization counts as a different name).',
+    // MỚI (14/07/2026, tích hợp Generic Drawer grid — Giang yêu cầu, thay modal cũ) —
+    // 'newTileLabel': nhãn dưới tile "+" cuối grid. 'defaultNewFolderName': tên tự sinh khi bấm
+    // tile đó (createFolderInPicker(), event/workflow/playlist.js) — CÙNG chuỗi gốc, "newTileLabel"
+    // chỉ là NHÃN hiển thị trên tile (có thể khác nếu sau này muốn), "defaultNewFolderName" là TÊN
+    // THẬT ghi vào DB — cố ý tách 2 key dù value hiện giống nhau, để đổi riêng từng cái sau này
+    // không ảnh hưởng nhau.
+    'fileManager.folderPicker.newTileLabel': 'New folder',
+    'fileManager.folderPicker.defaultNewFolderName': 'New folder',
     // ── Section "File Manager" trong Settings (CHỐT 03/07/2026 — xem
     // plan-v12-multimedia-decisions.md mục 1a/7): KHÔNG còn 1 overlay cấp cao riêng với tab bar
     // nữa — đây giờ là 1 section thường trong Settings (giống "Hệ thống & Playlist"...), 3 hàng
@@ -143,9 +151,17 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.folderDetail.headerTitle': 'Folder Detail',
     'fileManager.song.folderDetail.btnApply': 'Apply to Playlist',
     'fileManager.song.folderDetail.btnUnapply': 'Remove from Playlist',
-    'fileManager.song.folderDetail.songListTitle': 'Songs in this folder',
+    // 'songListTitle' XOÁ (14/07/2026, Giang yêu cầu — bỏ tiêu đề "SONGS IN THIS FOLDER") — KHÔNG
+    // còn nơi nào dùng, xem components/file-manager.js::renderFileManagerFolderDetailPanelBody().
     'fileManager.song.folderDetail.empty': 'No songs in this folder yet.',
     'fileManager.song.folderDetail.removeSongTitle': 'Remove from folder',
+    // MỚI (14/07/2026, Giang yêu cầu layout lại — icon Sửa tên cạnh tên folder).
+    'fileManager.song.folderDetail.renameTitle': 'Rename folder',
+    // MỚI (14/07/2026, Giang yêu cầu — nút "Xoá hết bài" CĂN GIỮA cuối panel, CHỈ dọn rỗng folder,
+    // KHÔNG xoá folder — khác hẳn "Xoá folder" ở panel Song, deleteActiveFolderById()).
+    'fileManager.song.folderDetail.btnRemoveAll': 'Remove all songs',
+    'fileManager.song.folderDetail.removeAllTitle': 'Remove all songs',
+    'fileManager.song.folderDetail.removeAllConfirm': 'Remove all songs from this folder? The folder itself stays — only its contents are cleared. Songs remain in your library.',
     'fileManager.song.folderDetail.reloadTitle': 'Apply now?',
     'fileManager.song.folderDetail.reloadBtnNo': 'Not now',
     'fileManager.song.folderDetail.reloadBtnNow': 'Reload now',
