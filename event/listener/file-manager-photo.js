@@ -28,13 +28,16 @@ function handleFileManagerPhotoDelegatedClick(e) {
         eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.album.storyClick', payload: { action: storyBtn.dataset.albumStoryAction, albumId: storyBtn.dataset.albumId } });
         return;
     }
-    // MỚI (14/07/2026, mục 2.3) — 2 nút ‹/› pagination story album (tĩnh, components/file-manager.js).
-    if (e.target.closest('#btn-file-manager-album-story-prev')) {
-        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumStory.prev.click', payload: {} });
-        return;
-    }
-    if (e.target.closest('#btn-file-manager-album-story-next')) {
-        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumStory.next.click', payload: {} });
+    // MỚI (14/07/2026, mục 2.3) — 2 nút ‹/› pagination story album — GIỜ là nút do
+    // buildPaginationArrowsHtml() (core/pagination.js) tự sinh, đổ vào
+    // #file-manager-album-story-pagination-wrap (xem event/workflow/file-manager-photo.js::
+    // _renderAlbumStoryPagination()) — chọn theo `data-pagination-action`, thuộc tính core TỰ gắn,
+    // KHÔNG phải id tự đặt.
+    const paginationBtn = e.target.closest('#file-manager-album-story-pagination-wrap button[data-pagination-action]');
+    if (paginationBtn) {
+        const action = paginationBtn.dataset.paginationAction;
+        if (action === 'prev') eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumStory.prev.click', payload: {} });
+        else if (action === 'next') eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumStory.next.click', payload: {} });
         return;
     }
 
