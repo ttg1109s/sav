@@ -324,14 +324,20 @@ body {
    gap-1/4px). `.photo-grid-header`/`.photo-tile` chiều cao/khoảng cách PHẢI khớp đúng
    PHOTO_GRID_HEADER_HEIGHT_PX/PHOTO_GRID_GAP_PX (event/workflow/file-manager-photo.js) — đổi 1
    trong 2 chỗ PHẢI đổi luôn chỗ kia.
+
+   SỬA (14/07/2026, Giang chỉ lại — "không phải grid N x N cố định, mà X ảnh = width container, dư
+   ra vừa X+1 ảnh thì xuống hàng mới, cứ thế lặp lại"): bản trước CHỈ đổi cột qua ĐÚNG 1 breakpoint
+   (`@media min-width:640px`, 3 cột -> 4 cột) — vẫn là "N x N cố định" theo TỪNG breakpoint, không
+   đúng ý. `repeat(auto-fill, minmax(PHOTO_TILE_MIN_PX, 1fr))` — trình duyệt TỰ tính số cột vừa
+   khít bề rộng container ở BẤT KỲ độ rộng nào (không chỉ 2 mốc cố định), mỗi ô co giãn đều
+   (`1fr`) để LẤP KÍN hàng — ĐÚNG "X ảnh = width container" Giang mô tả. `PHOTO_TILE_MIN_PX` PHẢI
+   khớp hằng số cùng tên ở `event/workflow/file-manager-photo.js` (JS cần biết TRƯỚC số cột THẬT để
+   chia ảnh vào đúng hàng cho windowing — đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia).
    ============================================================================================ */
 .photo-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
     gap: 2px;
-}
-@media (min-width: 640px) {
-    .photo-grid { grid-template-columns: repeat(4, 1fr); }
 }
 .photo-grid-header {
     grid-column: 1 / -1;
