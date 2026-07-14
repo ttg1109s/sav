@@ -385,3 +385,30 @@ body {
     background: linear-gradient(to top, rgba(0,0,0,0.65), transparent);
     padding-top: 32px;
 }
+
+/* ============================================================================================
+   MỚI (14/07/2026, Giang chỉnh lại — "dùng THẲNG buildPaginationArrowsHtml() core/pagination.js,
+   ẩn số trang bằng CSS, KHÔNG sửa core") — album story (components/file-manager.js::
+   renderFileManagerPhotoPanelBody(), #file-manager-album-story-pagination-wrap). `display:
+   contents` "tháo" hẳn cái `<div>` bọc ngoài mà buildPaginationArrowsHtml() tự tạo — 3 con bên
+   trong (nút ‹, span "trang hiện tại/tổng", nút ›) trở thành con TRỰC TIẾP của hàng flex cha
+   (album story row), tự xếp lại vị trí bằng `order` — HOÀN TOÀN không cần sửa core/pagination.js.
+   ============================================================================================ */
+#file-manager-album-story-pagination-wrap {
+    display: contents;
+}
+#file-manager-album-story-pagination-wrap [data-pagination-action="prev"] {
+    order: 0;
+}
+#file-manager-album-story-pagination-wrap [data-pagination-action="next"] {
+    order: 2;
+}
+/* Số "trang hiện tại/tổng" (`<span class="... tabular-nums">`, DUY NHẤT phần tử không phải nút
+   trong div core tự tạo) — Giang KHÔNG muốn hiện, ẩn thẳng, KHÔNG cần core biết gì về việc này. */
+#file-manager-album-story-pagination-wrap span.tabular-nums {
+    display: none;
+}
+/* "+" tạo album mới + danh sách album — LUÔN đứng GIỮA 2 nút ‹/› (order 0 và 2 ở trên). */
+.photo-album-story-content {
+    order: 1;
+}
