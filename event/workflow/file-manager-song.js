@@ -33,15 +33,14 @@ let fileManagerFolderDetailPanelEl = null; // panel Folder Detail đang mở (c�
 
 const workflowFileManagerSong = {
 
-    _folderListPageIndex: 0, // MỚI (14/07/2026, tích hợp pagination) — trang ĐANG xem của danh sách folder, 0-based
-
     // ===================== Mở/đóng drawer (CHỐT 03/07/2026, mục 1a/7 — Song giờ là drawer con
     // độc lập mở thẳng từ Settings, không còn màn "File Manager" cha điều phối nữa) ============
 
     /** Ứng với 'fileManagerSong.openPanel.click'. Push panel Song (cấp 1). */
     async openPanel() {
         fileManagerSongPanelEl = pushSettingsPanel({ title: t('fileManager.song.title'), bodyHtml: renderFileManagerSongPanelBody() });
-        this._folderListPageIndex = 0; // MỚI — mở lại panel từ đầu luôn về trang 1
+        appState.set('pageCurrentFolderSongList', 0); // mở lại panel từ đầu luôn về trang 1
+        console.log(`writer: "openPanel", page: "pageCurrentFolderSongList", content: "0"`);
         await this.refreshSongTab();
     },
 
@@ -53,22 +52,37 @@ const workflowFileManagerSong = {
         if (!fileManagerSongPanelEl) return; // panel đã đóng — an toàn bỏ qua
         const folders = await listFolders(); // core có sẵn (core/file-manager/folder.js), CÓ return, DÙNG ngay dưới
 
-        // MỚI (14/07/2026, Giang yêu cầu — "10 folder/page, control next prev") — computePage()
-        // (core/pagination.js) THUẦN, tự KẸP pageIndex về khoảng hợp lệ (vd vừa xoá hết folder ở
-        // trang cuối) — đồng bộ lại _folderListPageIndex theo giá trị đã kẹp, để lần gọi SAU
-        // (prev/next) tính đúng từ đây, không lệch.
-        const pageResult = computePage(folders, this._folderListPageIndex, 10); // core/pagination.js
-        this._folderListPageIndex = pageResult.pageIndex;
+        // MỚI (14/07/2026, Giang yêu cầu — "10 folder/page, mặc định bật, mode arrow") —
+        // computePage() (core/pagination.js) THUẦN, KHÔNG tự appState.get() (Rule 2) — Workflow
+        // (đây) tự đọc appState.get('pageCurrentFolderSongList') rồi TRUYỀN vào làm tham số, đúng
+        // Rule 2. Field này sống ở appState (KHÔNG phải property riêng của workflow) — tránh mỗi
+        // lần refreshSongTab() bị lệch/reset nếu sau này có nơi khác cũng cần biết/đổi trang đang
+        // xem (gom state nghiệp vụ về 1 chỗ, đúng tinh thần chính service/state.js đề ra).
+        // computePage() tự KẸP pageIndex về khoảng hợp lệ (vd vừa xoá hết folder ở trang cuối) —
+        // ghi lại appState nếu bị kẹp, để lần gọi SAU (prev/next) tính đúng từ đây, không lệch.
+        const pageResult = computePage(folders, appState.get('pageCurrentFolderSongList'), 10); // core/pagination.js
+        if (pageResult.pageIndex !== appState.get('pageCurrentFolderSongList')) {
+            appState.set('pageCurrentFolderSongList', pageResult.pageIndex);
+            console.log(`writer: "refreshSongTab", page: "pageCurrentFolderSongList", content: "${pageResult.pageIndex}"`);
+        }
+
+        // MỚI (14/07/2026, Giang yêu cầu — hiển thị số bài mỗi folder) — CHỈ đếm cho ĐÚNG 10 folder
+        // của TRANG ĐANG XEM (không phải toàn bộ folders — tránh N lượt đọc DB thừa cho folder
+        // không hiển thị), chạy song song qua Promise.all.
+        const pageItemsWithCount = await Promise.all(pageResult.pageItems.map(async (folder) => ({
+            ...folder,
+            songCount: await getFolderSongCount(folder.id), // core có sẵn (core/file-manager/folder.js)
+        })));
 
         renderFolderListUI(
-            pageResult.pageItems, appState.get('activePlayListFolder'),
+            pageItemsWithCount, appState.get('activePlayListFolder'),
             fileManagerSongPanelEl.querySelector('#file-manager-folder-list'),
             fileManagerSongPanelEl.querySelector('#file-manager-folder-empty')
         );
         const paginationEl = fileManagerSongPanelEl.querySelector('#file-manager-folder-pagination');
-        // control 'full' (‹ trang/tổng ›) theo đúng yêu cầu Giang — buildPaginationFullHtml() tự
-        // trả chuỗi rỗng nếu totalPages <= 1, không cần tự if riêng ở đây.
-        if (paginationEl) paginationEl.innerHTML = buildPaginationFullHtml(pageResult.pageIndex, pageResult.totalPages); // core/pagination.js
+        // MỚI (14/07/2026, Giang chỉnh lại) — mode 'arrow' (‹ trang/tổng ›), MẶC ĐỊNH BẬT — tự trả
+        // chuỗi rỗng nếu totalPages <= 1, không cần tự if riêng ở đây.
+        if (paginationEl) paginationEl.innerHTML = buildPaginationArrowsHtml(pageResult.pageIndex, pageResult.totalPages); // core/pagination.js
 
         await renderStorageStats( // core có sẵn (core/storage-manager.js)
             fileManagerSongPanelEl.querySelector('#stat-storage-total-songs'),
@@ -85,7 +99,9 @@ const workflowFileManagerSong = {
      * đơn giản, nhất quán với cách các thao tác khác trong file này luôn "sửa xong thì refresh lại
      * toàn bộ", không tự vá DOM cục bộ. */
     async changeFolderListPage(direction) {
-        this._folderListPageIndex += direction;
+        const next = appState.get('pageCurrentFolderSongList') + direction;
+        appState.set('pageCurrentFolderSongList', next);
+        console.log(`writer: "changeFolderListPage", page: "pageCurrentFolderSongList", content: "${next}"`);
         await this.refreshSongTab();
     },
 
@@ -173,11 +189,16 @@ const workflowFileManagerSong = {
      * (`#file-manager-folder-detail-title`, xem components/file-manager.js), không phải ở header. */
     async openFolderDetail(folderId) {
         fileManagerFolderDetailPanelEl = pushSettingsPanel({ title: t('fileManager.song.folderDetail.headerTitle'), bodyHtml: renderFileManagerFolderDetailPanelBody() });
+        // MỚI (14/07/2026, Giang yêu cầu) — mở 1 folder MỚI luôn về trang 1 của danh sách bài bên
+        // trong nó (khác folder khác, "trang đang xem" của folder CŨ không còn ý nghĩa gì).
+        appState.set('pageCurrentFolderDetailSongList', 0);
+        console.log(`writer: "openFolderDetail", page: "pageCurrentFolderDetailSongList", content: "0"`);
         await this.refreshFolderDetail(folderId);
     },
 
-    /** Vẽ lại tiêu đề + danh sách bài + nút Áp dụng/Bỏ áp dụng của Folder Detail Drawer đang mở —
-     * dùng lúc mở lần đầu, sau khi gỡ 1 bài, và sau khi đổi scope (Áp dụng/Bỏ áp dụng).
+    /** Vẽ lại tiêu đề + danh sách bài (ĐÃ PHÂN TRANG, ~30 bài/trang, mode 'list') + nút Áp dụng/Bỏ
+     * áp dụng của Folder Detail Drawer đang mở — dùng lúc mở lần đầu, sau khi gỡ 1 bài, và sau khi
+     * đổi scope (Áp dụng/Bỏ áp dụng).
      * @returns {Promise<Object>} folderMap vừa đọc
      */
     async refreshFolderDetail(folderId) {
@@ -186,38 +207,63 @@ const workflowFileManagerSong = {
         setFolderDetailTitle(folderRecord ? folderRecord.name : '', fileManagerFolderDetailPanelEl.querySelector('#file-manager-folder-detail-title'));
 
         const folderMap = await getFolderSongMap(folderId); // core có sẵn (service/db.js)
-        const songs = getFolderSongsForDisplay(folderMap, appState.get('playlistCache')); // core/file-manager/folder-detail-ui.js
+        const allSongs = getFolderSongsForDisplay(folderMap, appState.get('playlistCache')); // core/file-manager/folder-detail-ui.js
+
+        // MỚI (14/07/2026, Giang yêu cầu — "~30 bài/trang, mode list, nhớ qua appState") —
+        // computePage() (core/pagination.js) THUẦN — Workflow tự đọc/ghi appState, không để core tự làm.
+        const pageResult = computePage(allSongs, appState.get('pageCurrentFolderDetailSongList'), 30); // core/pagination.js
+        if (pageResult.pageIndex !== appState.get('pageCurrentFolderDetailSongList')) {
+            appState.set('pageCurrentFolderDetailSongList', pageResult.pageIndex);
+            console.log(`writer: "refreshFolderDetail", page: "pageCurrentFolderDetailSongList", content: "${pageResult.pageIndex}"`);
+        }
+
         renderFolderDetailSongList(
-            songs,
+            pageResult.pageItems,
             fileManagerFolderDetailPanelEl.querySelector('#file-manager-folder-detail-song-list'),
             fileManagerFolderDetailPanelEl.querySelector('#file-manager-folder-detail-empty'),
-            fileManagerFolderDetailPanelEl.querySelector('#btn-file-manager-folder-detail-remove-all') // MỚI (14/07/2026) — tự ẩn khi rỗng
+            fileManagerFolderDetailPanelEl.querySelector('#btn-file-manager-folder-detail-remove-all') // tự ẩn khi rỗng — dùng allSongs.length (xem bên trong hàm, KHÔNG bị ảnh hưởng bởi phân trang)
         );
+        const paginationEl = fileManagerFolderDetailPanelEl.querySelector('#file-manager-folder-detail-song-pagination');
+        // mode 'list' (dãy số trang, không mũi tên) theo đúng yêu cầu Giang.
+        if (paginationEl) paginationEl.innerHTML = buildPaginationListHtml(pageResult.pageIndex, pageResult.totalPages); // core/pagination.js
 
-        appState.set('folderDetailSongCount', songs.length);
-        console.log(`writer: "refreshFolderDetail", page: "folderDetailSongCount", content: "${songs.length}"`);
+        appState.set('folderDetailSongCount', allSongs.length); // TỔNG số bài THẬT (không phải chỉ trang đang xem) — Block gate 'applyToPlaylist.click' cần biết folder có rỗng HOÀN TOÀN hay không, xem event/block.js
+        console.log(`writer: "refreshFolderDetail", page: "folderDetailSongCount", content: "${allSongs.length}"`);
 
         this._updateApplyButtonMode(folderId);
         return folderMap;
     },
 
-    /** DOM-patch thuần (không I/O) — đổi title/màu/`data-mode` icon Áp dụng/Bỏ áp dụng theo đúng
+    /** Ứng với 'fileManagerSong.folder.detail.song.page.goto' — mode 'list', bấm THẲNG vào 1 số
+     * trang (khác 'arrow' ở danh sách folder, chỉ có prev/next). MỚI (14/07/2026). */
+    async goToFolderDetailSongPage(folderId, pageIndex) {
+        appState.set('pageCurrentFolderDetailSongList', pageIndex);
+        console.log(`writer: "goToFolderDetailSongPage", page: "pageCurrentFolderDetailSongList", content: "${pageIndex}"`);
+        await this.refreshFolderDetail(folderId);
+    },
+
+    /** DOM-patch thuần (không I/O) — đổi nhãn/màu/`data-mode` nút Áp dụng/Bỏ áp dụng theo đúng
      * folder đang xem có phải activePlayListFolder hay không. Tách riêng vì gọi lại nhiều lần
      * (refreshFolderDetail, applyFolderToPlaylist, unapplyFolderFromPlaylist).
-     * SỬA (14/07/2026, Giang yêu cầu layout lại — nút CHỮ đầy chiều rộng -> ICON nhỏ cạnh tên) —
-     * trước đây đổi `textContent` + `bg-*`/`hover:bg-*` (nút NỀN màu); giờ đổi `title` (tooltip,
-     * ICON không còn chỗ cho text) + màu CHÍNH ICON (`text-sky-400` chưa áp dụng / `text-rose-400`
-     * đã áp dụng — thay cho nền, giữ tinh thần "màu phân biệt trạng thái" y hệt bản cũ). */
+     * SỬA (14/07/2026, Giang yêu cầu — bỏ icon ở header, đưa lại thành nút CHỮ đứng CẠNH "Xoá hết
+     * bài" ở cuối panel) — quay lại đổi `textContent` + set/bỏ class viền/nền/chữ theo cặp
+     * sky (chưa áp dụng) / rose (đã áp dụng), khớp đúng style pill của nút "Xoá hết bài" bên cạnh. */
     _updateApplyButtonMode(folderId) {
         if (!fileManagerFolderDetailPanelEl) return; // guard
         const btn = fileManagerFolderDetailPanelEl.querySelector('#btn-file-manager-folder-apply-to-playlist');
         if (!btn) return;
         const isActive = folderId === appState.get('activePlayListFolder');
-        btn.title = isActive
+        btn.textContent = isActive
             ? t('fileManager.song.folderDetail.btnUnapply')
             : t('fileManager.song.folderDetail.btnApply');
         btn.dataset.mode = isActive ? 'unapply' : 'apply';
-        btn.classList.toggle('text-sky-400', !isActive);
+        btn.classList.toggle('bg-sky-500/10', !isActive);
+        btn.classList.toggle('hover:bg-sky-500/20', !isActive);
+        btn.classList.toggle('border-sky-400/30', !isActive);
+        btn.classList.toggle('text-sky-300', !isActive);
+        btn.classList.toggle('bg-rose-600/10', isActive);
+        btn.classList.toggle('hover:bg-rose-600/20', isActive);
+        btn.classList.toggle('border-rose-500/30', isActive);
         btn.classList.toggle('text-rose-400', isActive);
     },
 

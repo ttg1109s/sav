@@ -27,17 +27,43 @@ const workflowFileManagerDocument = {
     /** Ứng với 'fileManagerDocument.openPanel.click' — push panel + vẽ lại danh sách. */
     async openPanel() {
         fileManagerDocumentPanelEl = pushSettingsPanel({ title: t('fileManager.document.title'), bodyHtml: renderFileManagerDocumentPanelBody() });
+        appState.set('pageCurrentDocumentList', 0); // MỚI (14/07/2026) — mở lại panel từ đầu luôn về trang 1
+        console.log(`writer: "openPanel", page: "pageCurrentDocumentList", content: "0"`);
         await this.refresh();
     },
 
-    /** Vẽ lại danh sách document — gọi lúc mở panel + sau mỗi lần thêm/xoá/đổi tên. */
+    /** Vẽ lại danh sách document (ĐÃ PHÂN TRANG, ~50 tài liệu/trang, mode 'list') — gọi lúc mở
+     * panel + sau mỗi lần thêm/xoá/đổi tên. */
     async refresh() {
         if (!fileManagerDocumentPanelEl) return; // guard: panel đã đóng
         const documents = await listDocuments(); // core
         const emptyEl = fileManagerDocumentPanelEl.querySelector('#file-manager-document-empty');
         if (emptyEl) emptyEl.classList.toggle('hidden', documents.length > 0);
+
+        // MỚI (14/07/2026, Giang yêu cầu — "tiện luôn làm list ở document file manager mode list
+        // 50/page") — CÙNG pattern computePage()/appState với danh sách folder
+        // (event/workflow/file-manager-song.js::refreshSongTab()), field appState RIÊNG
+        // (pageCurrentDocumentList) vì đây là danh sách độc lập.
+        const pageResult = computePage(documents, appState.get('pageCurrentDocumentList'), 50); // core/pagination.js
+        if (pageResult.pageIndex !== appState.get('pageCurrentDocumentList')) {
+            appState.set('pageCurrentDocumentList', pageResult.pageIndex);
+            console.log(`writer: "refresh", page: "pageCurrentDocumentList", content: "${pageResult.pageIndex}"`);
+        }
+
         const listEl = fileManagerDocumentPanelEl.querySelector('#file-manager-document-list');
-        renderDocumentList(listEl, documents, (doc) => this.openDetail(doc)); // core — tự wire click từng hàng (Rule 5a)
+        renderDocumentList(listEl, pageResult.pageItems, (doc) => this.openDetail(doc)); // core — tự wire click từng hàng (Rule 5a)
+
+        const paginationEl = fileManagerDocumentPanelEl.querySelector('#file-manager-document-pagination');
+        // mode 'list' (dãy số trang) theo đúng yêu cầu Giang.
+        if (paginationEl) paginationEl.innerHTML = buildPaginationListHtml(pageResult.pageIndex, pageResult.totalPages); // core/pagination.js
+    },
+
+    /** Ứng với 'fileManagerDocument.page.goto' — mode 'list', bấm THẲNG vào 1 số trang. MỚI
+     * (14/07/2026). */
+    async goToDocumentPage(pageIndex) {
+        appState.set('pageCurrentDocumentList', pageIndex);
+        console.log(`writer: "goToDocumentPage", page: "pageCurrentDocumentList", content: "${pageIndex}"`);
+        await this.refresh();
     },
 
     /**

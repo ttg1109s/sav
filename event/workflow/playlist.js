@@ -307,10 +307,14 @@ const workflowPlaylist = {
      * hay đã mở sẵn, xem docstring ở đó). */
     _renderFolderPickerGrid(isFirstOpen) {
         const itemsHtml = renderItemList(null, this._folderPickerFolders, itemTemplateFolderTile, { editingFolderId: this._folderPickerEditingId }); // components/items.js
-        const bodyHtml = `<div class="flex flex-wrap justify-center gap-4 p-5">${itemsHtml}${buildAddFolderTileHtml()}</div>`; // components/items.js
+        // SỬA (14/07/2026, Giang yêu cầu) — justify-center -> justify-start (căn trái thay vì căn
+        // giữa cả cụm khi hàng cuối chưa đầy).
+        const bodyHtml = `<div class="flex flex-wrap justify-start gap-4 p-5">${itemsHtml}${buildAddFolderTileHtml()}</div>`; // components/items.js
         const config = {
             height: '60vh',
-            zIndex: 40,
+            // SỬA (14/07/2026) — BỎ `zIndex: 40` cứng (thấp hơn #app-stack z-[60], gây Drawer bị đè
+            // khi mở từ Playlist) — rơi về GENERIC_DRAWER_DEFAULT_Z_INDEX (128) mặc định, xem
+            // docstring core/generic-drawer.js.
             headerHtml: this._buildFolderPickerHeaderHtml(),
             bodyHtml,
             bodyClass: 'overflow-y-auto',
