@@ -179,29 +179,29 @@ function renderFileManagerFolderDetailPanelBody() {
 //      của thùng rác phụ thuộc `images.length`, chỉ Workflow biết lúc mở panel).
 //   2. Album story — THÊM pagination "arrow" (mục 2.3): nút "+" tạo album mới giờ CỐ ĐỊNH (tách
 //      khỏi `renderAlbumStory()`, viết TĨNH ngay đây — không còn phụ thuộc dữ liệu album, không cần
-//      vẽ lại mỗi refresh), đặt NGAY SAU nút ‹ — "Tất cả" + danh sách album (renderAlbumStory() vẽ
-//      TRANG hiện tại vào `#file-manager-album-story`) mới là phần ĐƯỢC PHÂN TRANG. 2 nút ‹/›
-//      KHÔNG dùng `core/pagination.js::buildPaginationArrowsHtml()` (hàm đó gộp CẢ 2 nút + số trang
-//      thành 1 khối đặt DƯỚI nội dung — không đúng bố cục "kẹp 2 bên" cần ở đây) — viết trực tiếp,
-//      TÁI DÙNG `computePage()` (core/pagination.js, KHÔNG sửa gì hàm này) làm toán phân trang, đúng
-//      yêu cầu "dùng container ép layout CSS cho arrow thay vì can thiệp core".
+//      vẽ lại mỗi refresh).
+//
+// SỬA (14/07/2026, Giang chỉnh lại — "dùng THẲNG core/pagination.js::buildPaginationArrowsHtml(),
+// KHÔNG tự viết 2 nút ‹/› riêng; số 'trang hiện tại/tổng' hàm đó TỰ tạo ra thì ẩn bằng CSS, KHÔNG
+// sửa core"): `#file-manager-album-story-pagination-wrap` RỖNG — Workflow đổ NGUYÊN chuỗi
+// `buildPaginationArrowsHtml()` (core, KHÔNG sửa) vào đây mỗi lần đổi trang. `display: contents`
+// (assets/css/style.css) "tháo" cái `<div>` bọc ngoài của hàm đó ra khỏi layout — 3 con bên trong
+// (nút ‹, span "1/3", nút ›) trở thành con TRỰC TIẾP của hàng flex này, tự xếp lại vị trí bằng
+// `order` (CSS thuần, KHÔNG đụng core): ‹ đứng đầu, "+ tạo mới"/danh sách album đứng giữa, › đứng
+// cuối — số trang "1/3" bị ẩn hẳn (`display:none`, chọn theo `[data-pagination-action]` — thuộc
+// tính core tự gắn sẵn, không cần thêm class/id gì mới vào core).
 function renderFileManagerPhotoPanelBody() {
     return `
         <!-- Album story: ‹ | [+ tạo mới, CỐ ĐỊNH] | [Tất cả + album, PHÂN TRANG] | › -->
         <div class="flex items-center gap-2 pl-2 pr-4 py-4 shrink-0 border-b border-white/5">
-            <button id="btn-file-manager-album-story-prev" type="button" class="hidden w-7 h-7 shrink-0 flex items-center justify-center rounded-full hover:bg-white/10 text-slate-300 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" /></svg>
-            </button>
-            <button data-album-story-action="create" class="flex flex-col items-center gap-1.5 shrink-0 w-16">
+            <div id="file-manager-album-story-pagination-wrap"></div>
+            <button data-album-story-action="create" class="photo-album-story-content flex flex-col items-center gap-1.5 shrink-0 w-16">
                 <div class="w-14 h-14 rounded-full flex items-center justify-center border-2 border-dashed border-white/20 text-slate-400">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                 </div>
                 <span class="text-[11px] text-slate-400 truncate w-full text-center">${t('fileManager.photo.album.new')}</span>
             </button>
-            <div id="file-manager-album-story" class="flex gap-4 overflow-hidden flex-1 min-w-0"></div>
-            <button id="btn-file-manager-album-story-next" type="button" class="hidden w-7 h-7 shrink-0 flex items-center justify-center rounded-full hover:bg-white/10 text-slate-300 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" /></svg>
-            </button>
+            <div id="file-manager-album-story" class="photo-album-story-content flex gap-4 overflow-hidden flex-1 min-w-0"></div>
         </div>
 
         <!-- Thanh quản lý album đang lọc: chỉ hiện khi activeAlbumId != null (toggle 'hidden'/
