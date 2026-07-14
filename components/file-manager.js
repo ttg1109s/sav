@@ -207,9 +207,13 @@ function renderFileManagerPhotoPanelBody() {
             </div>
         </div>
 
-        <!-- Masonry ảnh (grid ô vuông đều — mục 3, VIẾT LẠI 04/07/2026). -->
-        <div class="flex-grow overflow-y-auto px-3 py-3 pb-20 relative">
-            <div id="file-manager-image-masonry" class="grid grid-cols-3 sm:grid-cols-4 gap-1"></div>
+        <!-- Lưới ảnh — Item + window ảo (Patch mục 2, 14/07/2026, THAY masonry chunk-based cũ). Khung
+             CUỘN chỉ còn #file-manager-image-empty tĩnh (vị trí hiển thị GIỮ NGUYÊN như bản cũ) —
+             Workflow (event/workflow/file-manager-photo.js::setupPhotoGridWindow()) tự dựng cấu trúc
+             "sizer + window" (id="file-manager-image-masonry" GIỮ NGUYÊN trên phần tử grid thật bên
+             trong, để listener click delegated không cần đổi selector) NGAY LÚC panel mở, chèn TRƯỚC
+             #file-manager-image-empty — KHÔNG hardcode div masonry ở template tĩnh này nữa. -->
+        <div id="file-manager-image-scroll" class="flex-grow overflow-y-auto px-3 py-3 pb-20 relative">
             <p id="file-manager-image-empty" class="hidden text-sm text-slate-400 text-center py-10" data-i18n="fileManager.photo.image.empty">${t('fileManager.photo.image.empty')}</p>
         </div>
 

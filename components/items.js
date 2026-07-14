@@ -26,17 +26,23 @@
  *
  * SỬA ĐÚNG: windowing bản chất là ĐIỀU PHỐI liên tục (tự quyết định khi nào vẽ lại theo scroll) —
  * đúng loại việc Rule 3 nói thuộc về Workflow ("Timer/interval là công cụ điều phối — đúng vai trò
- * Workflow"). File này giờ CHỈ giữ lại **`computeVirtualWindowRange()`** — 1 hàm THUẦN (không DOM,
- * không `appState`, không gọi core/hàm nào khác, không nhánh tiến trình — chỉ toán học kẹp giá
- * trị) tính ra khoảng chỉ số [startIdx, endIdx) cần hiển thị. Workflow NÀO thật sự cần windowing
- * (hiện CHƯA có — Document Picker vẫn dưới ngưỡng, dùng `renderItemList()` render đầy đủ như
- * thường) sẽ TỰ:
+ * Workflow"). File này CHỈ giữ **`computeVirtualWindowRange()`** — 1 hàm THUẦN (không DOM, không
+ * `appState`, không gọi core/hàm nào khác, không nhánh tiến trình — chỉ toán học kẹp giá trị) tính
+ * ra khoảng chỉ số [startIdx, endIdx) cần hiển thị. Workflow tự:
  *   1. Tự `createElement` dựng spacer/viewport (Rule 5a/5c riêng nếu tách file `-ui.js`).
  *   2. Tự `addEventListener('scroll', ...)` NGAY TẠI WORKFLOW (Workflow được phép, không phải Core).
  *   3. Mỗi lần cuộn, tự gọi `computeVirtualWindowRange()` (core) RỒI tự
  *      `renderItemList(viewportEl, items.slice(startIdx, endIdx), templateFn, ctx)` (core khác) —
  *      Workflow đứng NGOÀI gọi CẢ HAI, đúng mẫu ĐÚNG của Rule 3 (`startTransitionVisuals`/
  *      `setImage`/`finishTransitionVisuals` tách riêng, Workflow tự gọi từng hàm).
+ *
+ * CONSUMER THẬT ĐẦU TIÊN (Patch mục 2, 14/07/2026): lưới ảnh Photo & Album (`event/workflow/
+ * file-manager-photo.js::setupPhotoGridWindow()`), THAY HẲN hệ masonry chunk-based cũ ở
+ * `core/file-manager/photo-ui.js`. Vì hàng lưới ảnh KHÔNG đều chiều cao (header ngày xen giữa —
+ * xem `core/file-manager/image.js::buildPhotoGridRows()`), consumer này dùng
+ * `computeVariableVirtualWindowRange()` (biến thể chiều cao không đều, xem ngay dưới) THAY vì
+ * `computeVirtualWindowRange()` (giả định chiều cao đều — vẫn giữ nguyên cho Document Picker sau
+ * này nếu vượt ngưỡng ~100-200 item). Template dùng `itemTemplateImageGridRow()` (ngay dưới).
  *
  * Generic Drawer (core/generic-drawer.js) và items.js TÁCH BIỆT HOÀN TOÀN, không phụ thuộc nhau:
  * Drawer không biết "item" là gì (chỉ nhận `bodyHtml` là 1 chuỗi có sẵn), items.js không biết
@@ -166,4 +172,92 @@ function computeVirtualWindowRange(scrollTop, viewHeight, itemHeight, itemCount,
     const startIdx = Math.max(0, Math.floor(scrollTop / safeItemHeight) - buffer);
     const endIdx = Math.min(itemCount, Math.ceil((scrollTop + viewHeight) / safeItemHeight) + buffer);
     return { startIdx, endIdx };
+}
+
+/**
+ * MỚI (Patch mục 2, 14/07/2026) — biến thể `computeVirtualWindowRange()` cho danh sách CHIỀU CAO
+ * TỪNG HÀNG KHÔNG ĐỀU (vd lưới ảnh Photo & Album: header ngăn cách ngày khác chiều cao hàng ảnh —
+ * xem `core/file-manager/image.js::buildPhotoGridRows()`). Hàm THUẦN (Rule 1-4
+ * core-function-conventions.md) — không DOM/`appState`/gọi hàm khác, chỉ toán học kẹp giá trị dựa
+ * trên mảng chiều cao ĐÃ ĐO SẴN (nơi gọi tự đo, giống tinh thần `itemHeight` ở
+ * `computeVirtualWindowRange()`). 1 vòng lặp duy nhất, 2 `if` bên trong đều là guard-clause cho
+ * CÙNG 1 tiến trình "tìm khoảng hàng giao với [lo, hi]" (xoá `if` nào đi, vòng lặp vẫn mô tả ĐÚNG 1
+ * kịch bản đó, chỉ mất phần dừng sớm/đánh dấu điểm bắt đầu — không phải rẽ nhánh 2 nghiệp vụ khác
+ * nhau, Rule 1 core-function-conventions.md).
+ * @param {number[]} rowHeights - chiều cao (px) TỪNG hàng, đúng thứ tự hiển thị.
+ * @param {number} scrollTop
+ * @param {number} viewHeight
+ * @param {number} [bufferPx] - vùng đệm (px) mỗi phía NGOÀI vùng nhìn thấy — mặc định 600. Dùng PX
+ *        thay vì "số hàng đệm" (`bufferRows` ở `computeVirtualWindowRange()`) vì chiều cao hàng ở
+ *        đây không đều, không có 1 con số "N hàng" nào phản ánh đúng khoảng đệm thực tế.
+ * @returns {{startIdx: number, endIdx: number, offsetTop: number, totalHeight: number}} `offsetTop`
+ *          — vị trí (px) của hàng `startIdx` tính từ đầu danh sách, dùng để `translateY()` cửa sổ
+ *          đã render đúng vị trí trong khung cuộn. `totalHeight` — tổng chiều cao TOÀN BỘ danh sách
+ *          (kể cả phần chưa render), dùng đặt chiều cao "sizer" để thanh cuộn dài đúng thực tế.
+ */
+function computeVariableVirtualWindowRange(rowHeights, scrollTop, viewHeight, bufferPx) {
+    const buffer = bufferPx == null ? 600 : bufferPx;
+    const totalHeight = rowHeights.reduce((sum, h) => sum + h, 0);
+    const lo = Math.max(0, scrollTop - buffer);
+    const hi = scrollTop + viewHeight + buffer;
+
+    let offset = 0;
+    let startIdx = 0;
+    let endIdx = rowHeights.length;
+    let offsetTop = 0;
+    let foundStart = false;
+    for (let i = 0; i < rowHeights.length; i++) {
+        const rowTop = offset;
+        const rowBottom = offset + rowHeights[i];
+        if (!foundStart && rowBottom > lo) { startIdx = i; offsetTop = rowTop; foundStart = true; } // guard: đánh dấu điểm bắt đầu ĐÚNG 1 LẦN, ngay khi hàng đầu tiên chạm vùng [lo,hi]
+        if (rowTop >= hi) { endIdx = i; break; } // guard: hàng đã vượt hẳn khỏi vùng [lo,hi] -> dừng sớm, không cần duyệt tiếp
+        offset = rowBottom;
+    }
+    return { startIdx, endIdx, offsetTop, totalHeight };
+}
+
+/**
+ * MỚI (Patch mục 2, 14/07/2026) — Template 1 "hàng" lưới ảnh, dùng CHUNG cho lưới Photo & Album
+ * (`event/workflow/file-manager-photo.js::setupPhotoGridWindow()`) LẪN picker cover bài hát (cùng
+ * hàm, khác nơi gọi — xem docstring đầu `core/file-manager/photo-ui.js`). Hàng có 2 DẠNG (xem
+ * `core/file-manager/image.js::buildPhotoGridRows()`):
+ *   - `header` — 1 `<div>` full-width ngăn cách ngày. Nhãn theo `navigator.language`
+ *     (`Intl.DateTimeFormat`) — tên thứ/tháng không thuộc bộ key dịch `t()`/`tFormat()` hiện có, nên
+ *     KHÔNG qua hệ i18n. Class `h-10` (40px) CỐ ĐỊNH — PHẢI khớp đúng hằng số
+ *     `PHOTO_GRID_HEADER_HEIGHT_PX` ở `event/workflow/file-manager-photo.js` (Workflow cần biết
+ *     TRƯỚC chiều cao thật để tính toán windowing — đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia).
+ *   - `imageRow` — TỐI ĐA `columns` nút `<button>` ảnh, MỖI nút tự `URL.createObjectURL(image.blob)`
+ *     NGAY LÚC build chuỗi. AN TOÀN dù hàm này "THUẦN" theo nghĩa Rule 1-4 (Rule 1-4 chỉ cấm
+ *     `appState.get()`/gọi core khác/`addEventListener` rải rác — KHÔNG cấm side-effect khác như tạo
+ *     object URL) vì chỉ 1 CỬA SỔ NHỎ (visible+buffer) được template hoá mỗi lần `renderItemList()`
+ *     chạy — nơi gọi (Workflow) tự chịu trách nhiệm revoke object URL CŨ trước khi gọi lại (đúng
+ *     pattern "revoke trước khi innerHTML=" đã dùng ở `renderImageMasonry()` bản cũ đã xoá).
+ * 2 DẠNG xử lý trong CÙNG 1 hàm — `if/else` ở đây CHỈ chọn giữa 2 CÁCH HIỂN THỊ của CÙNG 1 khái
+ * niệm "hàng lưới ảnh" — đúng khuôn `itemTemplateFolderTile()` ở trên (2 chế độ hiển thị 1 LOẠI
+ * item, KHÔNG phải rẽ nhánh giữa 2 NGHIỆP VỤ khác nhau — Rule 1 chỉ cấm vế sau).
+ * @param {{type:'header', addedAt:number}|{type:'imageRow', images:Array<{key:string,blob:Blob,filename:string}>}} row
+ * @param {{selectionMode?: boolean, selectedImageKeys?: Set<string>}} [ctx]
+ * @returns {string}
+ */
+function itemTemplateImageGridRow(row, ctx) {
+    if (row.type === 'header') {
+        const d = new Date(row.addedAt || 0);
+        const opts = { weekday: 'long', day: 'numeric', month: 'short' };
+        if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+        const label = new Intl.DateTimeFormat(navigator.language, opts).format(d);
+        return `<div class="col-span-full h-10 flex items-center px-1 text-sm font-semibold text-slate-200">${escapeHtml(label)}</div>`;
+    }
+
+    const selectionMode = !!(ctx && ctx.selectionMode);
+    const selectedKeys = ctx && ctx.selectedImageKeys;
+    return row.images.map((image) => {
+        const objectUrl = URL.createObjectURL(image.blob);
+        const isSelected = selectionMode && selectedKeys && selectedKeys.has(image.key);
+        const badgeHtml = !selectionMode ? '' : `
+            <span class="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-colors ${isSelected ? 'bg-sky-500 border-sky-400' : 'bg-black/40 border-white/60'}">${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>' : ''}</span>`;
+        return `
+            <button type="button" class="relative block aspect-square rounded-xl overflow-hidden bg-white/5 border border-white/10" data-image-key="${escapeHtml(image.key)}" data-has-object-url="1">
+                <img src="${objectUrl}" alt="${escapeHtml(image.filename)}" class="w-full h-full object-cover block">${badgeHtml}
+            </button>`;
+    }).join('');
 }
