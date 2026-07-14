@@ -241,30 +241,105 @@ const workflowFileManagerPhoto = {
     },
 
     /** Ứng với 'fileManagerPhoto.image.click' khi imageSelectionMode=false (xem router).
+     * SỬA (14/07/2026, mục cuối) — menu action giờ là Generic Drawer (icon hoá) thay dropdown cũ,
+     * mở qua `callbacks.onOpenMenu` (modal xem ảnh — Core — KHÔNG được tự đụng Generic Drawer, DOM
+     * tĩnh, Rule 5a). `modalHandle.close()` gọi TỪ ĐÂY sau khi 1 action (trừ "Sửa caption") được
+     * chọn — modal Core trả `{ close }` đúng lúc `openImagePreviewModal()` return.
      * @param {string} imageKey
      * @param {string|null} activeAlbumId
      */
     async openImagePreview(imageKey, activeAlbumId) {
         const record = await getImageRecord(imageKey); // data layer (service/db.js)
         if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
+        const image = { key: imageKey, ...record };
 
-        openImagePreviewModal({ key: imageKey, ...record }, { // core/file-manager/photo-ui.js
-            onDelete: async () => {
-                await deleteImage(imageKey); // core/file-manager/image.js — cascade dọn album (Batch 3)
-                await this.refresh(activeAlbumId);
-            },
-            onSetPlaylistBg: async () => { await this.setAsPlaylistBackground(imageKey); },
-            onSetVisualBg: async () => { await this.setAsVisualBackground(imageKey); },
-            onRemoveFromAlbum: activeAlbumId ? async () => {
-                await removeImageFromAlbum(imageKey, activeAlbumId); // core có sẵn (core/file-manager/album.js, Batch 3)
-                await this.refresh(activeAlbumId);
-            } : undefined,
-            onSaveCaption: async (caption) => {
-                await setImageCaption(imageKey, caption); // core/file-manager/image.js
-                if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.refreshCaptionIfCurrentImage(imageKey, caption);
-                if (typeof workflowVisualizerControlCenter !== 'undefined') workflowVisualizerControlCenter.refreshCaptionIfVisualBgImage(imageKey, caption);
-            },
+        const modalHandle = openImagePreviewModal(image, { // core/file-manager/photo-ui.js
+            onOpenMenu: () => this._openImageActionMenu(image, activeAlbumId, modalHandle),
         });
+    },
+
+    /** MỚI (14/07/2026, mục cuối) — mở menu action (Generic Drawer, icon hoá) cho 1 ảnh đang xem.
+     * `zIndex: 131` — TRÊN overlay modal xem ảnh (z-130, core/file-manager/photo-ui.js), dưới
+     * modalChoice() (z-130... doc cũ ghi 130, thực tế 130 = cùng tầng preview — 131 đủ nổi trên cả
+     * 2, xem docstring core/generic-drawer.js). `height: 'auto' + maxHeight` — tự co theo số icon
+     * (4-6 tuỳ có album hay không), không chừa khoảng trống thừa.
+     * @param {{key: string, blob: Blob, filename: string, caption?: string}} image
+     * @param {string|null} activeAlbumId
+     * @param {{close: () => void}} modalHandle
+     */
+    _openImageActionMenu(image, activeAlbumId, modalHandle) {
+        openGenericDrawer({ // core/generic-drawer.js
+            zIndex: 131,
+            height: 'auto',
+            maxHeight: '60vh',
+            headerHtml: this._buildImageMenuHeaderHtml(),
+            bodyHtml: buildPhotoActionMenuHtml({ hasAlbum: !!activeAlbumId }), // core/file-manager/photo-ui.js
+            bodyClass: 'overflow-y-auto px-4 pb-6 pt-2',
+        });
+        this._wireImageMenuEvents(image, activeAlbumId, modalHandle);
+    },
+
+    _buildImageMenuHeaderHtml() {
+        return `
+            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
+                <h3 class="text-base font-bold text-slate-900">${t('fileManager.photo.image.menuTitle')}</h3>
+                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+        `;
+    },
+
+    /** Wire click cho menu vừa mở — mọi action (trừ "editCaption") đóng CẢ drawer LẪN modal xem ảnh
+     * trước khi chạy; "editCaption" chỉ đóng drawer, modal xem ảnh vẫn mở phía sau. */
+    _wireImageMenuEvents(image, activeAlbumId, modalHandle) {
+        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
+        if (closeBtn) closeBtn.addEventListener('click', () => this._closeGenericDrawerFully());
+
+        genericDrawerBody.querySelectorAll('button[data-photo-menu-action]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const action = btn.dataset.photoMenuAction;
+                this._closeGenericDrawerFully();
+
+                if (action === 'editCaption') {
+                    openEditCaptionModal(image.caption || '', async (caption) => { // core/file-manager/photo-ui.js
+                        await setImageCaption(image.key, caption); // core/file-manager/image.js
+                        if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.refreshCaptionIfCurrentImage(image.key, caption);
+                        if (typeof workflowVisualizerControlCenter !== 'undefined') workflowVisualizerControlCenter.refreshCaptionIfVisualBgImage(image.key, caption);
+                    });
+                    return;
+                }
+
+                modalHandle.close();
+                if (action === 'setPlaylistBg') this.setAsPlaylistBackground(image.key);
+                else if (action === 'setVisualBg') this.setAsVisualBackground(image.key);
+                else if (action === 'editImage') this.navigateToImageEdit(image.key);
+                else if (action === 'removeFromAlbum') removeImageFromAlbum(image.key, activeAlbumId).then(() => this.refresh(activeAlbumId)); // core có sẵn (core/file-manager/album.js)
+                else if (action === 'delete') deleteImage(image.key).then(() => this.refresh(activeAlbumId)); // core/file-manager/image.js — cascade dọn album
+            });
+        });
+    },
+
+    /** Trượt Generic Drawer xuống RỒI ẩn hẳn sau `transitionend` — cùng khuôn `_closeGenericDrawerFully()`
+     * ở event/workflow/document-reader.js (Core `core/generic-drawer.js` KHÔNG được tự
+     * `addEventListener` cho DOM tĩnh, Rule 5a — chỉ Workflow được làm). */
+    _closeGenericDrawerFully() {
+        closeGenericDrawer(); // core/generic-drawer.js
+        genericDrawerPanel.addEventListener('transitionend', function onTransitionEnd() {
+            genericDrawerPanel.removeEventListener('transitionend', onTransitionEnd);
+            hideGenericDrawerImmediately(); // core/generic-drawer.js
+        }, { once: true });
+    },
+
+    /** MỚI (14/07/2026, mục cuối) — điều hướng sang trang `image-edit.html` cho 1 ảnh, cùng khuôn
+     * `workflowSubtitleModal.navigateToEditor()` (`window.location.href` toàn trang, KHÔNG
+     * iframe/popup — 2 trang cùng origin `file://`, dùng chung IndexedDB, không cần postMessage).
+     * TÁI DÙNG NGUYÊN `encodeSongKeyForUrl()` (service/song-key-cipher.js) — hàm đó CHỈ mã hoá 1
+     * chuỗi key bất kỳ, không có gì "song" riêng trong thuật toán, không cần viết cipher thứ 2.
+     * @param {string} imageKey
+     */
+    navigateToImageEdit(imageKey) {
+        window.location.href = `image-edit.html?image=${encodeSongKeyForUrl(imageKey)}`; // service/song-key-cipher.js
     },
 
     /** Ứng với nút "Đặt làm nền Playlist" trong modal xem ảnh — TÁI DÙNG NGUYÊN applyBgImage().
