@@ -52,6 +52,11 @@ function renderFileManagerSongPanelBody() {
                         </div>
                         <div id="file-manager-folder-list" class="flex flex-col divide-y divide-white/5"></div>
                         <p id="file-manager-folder-empty" class="hidden text-sm text-slate-400 p-4 text-center" data-i18n="fileManager.song.folderEmpty">${t('fileManager.song.folderEmpty')}</p>
+                        <!-- MỚI (14/07/2026, tích hợp pagination — Giang yêu cầu, 10 folder/trang,
+                             control "full": ‹ trang/tổng ›) — xem core/pagination.js +
+                             event/workflow/file-manager-song.js::refreshSongTab(). Rỗng nếu
+                             totalPages <= 1 (buildPaginationFullHtml() tự trả chuỗi rỗng). -->
+                        <div id="file-manager-folder-pagination" class="border-t border-white/5"></div>
                     </div>
                 </div>
 
@@ -122,22 +127,40 @@ function renderFileManagerSongPanelBody() {
 // cả 2 — core/settings-panel-stack.js tự quản lý thứ tự pop đúng theo ngăn xếp.
 function renderFileManagerFolderDetailPanelBody() {
     return `
-                <!-- MỚI (03/07/2026, đợt 6, điểm 4): BỎ class "uppercase" — đây là chỗ hiển thị
-                     TÊN THẬT của folder, ép hoa toàn bộ sẽ khiến 2 folder khác tên chỉ do khác
-                     hoa/thường (vd "abc" vs "ABC") trông GIỐNG HỆT NHAU trên UI dù DB coi là 2 tên
-                     khác nhau. Batch D5: dời từ header bar riêng (đã bỏ) vào NGAY ĐẦU body — header
-                     dùng CHUNG chỉ nhận title cố định lúc push, không tự cập nhật lại được sau khi
-                     biết tên thật (xem event/workflow/file-manager-song.js::refreshFolderDetail()). -->
-                <h2 id="file-manager-folder-detail-title" class="text-lg font-bold tracking-wider text-white truncate -mt-2">—</h2>
+                <!-- MỚI (14/07/2026, Giang yêu cầu — layout lại) — flex-between: tên folder BÊN
+                     TRÁI, 2 icon (Sửa tên/Áp dụng) BÊN PHẢI. Trước đây: <h2> riêng 1 hàng + nút
+                     "Áp dụng"/"Bỏ áp dụng" CHỮ ĐẦY CHIỀU RỘNG ngay dưới — giờ gộp 1 hàng, 2 nút
+                     Sửa/Áp dụng thành ICON (title/màu vẫn phân biệt trạng thái, xem
+                     event/workflow/file-manager-song.js::_updateApplyButtonMode()). BỎ class
+                     "uppercase" ở tên (đợt 6, điểm 4 cũ) — đây là tên THẬT của folder, ép hoa toàn
+                     bộ khiến 2 folder khác tên chỉ do khác hoa/thường trông giống hệt nhau. -->
+                <div class="flex items-center justify-between gap-2 -mt-2">
+                    <h2 id="file-manager-folder-detail-title" class="text-lg font-bold tracking-wider text-white truncate min-w-0">—</h2>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <button id="btn-file-manager-folder-detail-rename" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300" title="${t('fileManager.song.folderDetail.renameTitle')}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                        </button>
+                        <button id="btn-file-manager-folder-apply-to-playlist" data-mode="apply" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-sky-400" title="${t('fileManager.song.folderDetail.btnApply')}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </button>
+                    </div>
+                </div>
 
-                <button id="btn-file-manager-folder-apply-to-playlist" data-mode="apply" class="w-full py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors shadow" data-i18n="fileManager.song.folderDetail.btnApply">${t('fileManager.song.folderDetail.btnApply')}</button>
-
+                <!-- MỚI (14/07/2026) — BỎ tiêu đề "SONGS IN THIS FOLDER" (Giang yêu cầu) — danh
+                     sách bài đứng thẳng dưới header, không cần nhãn giới thiệu riêng. -->
                 <div>
-                    <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2 ml-2" data-i18n="fileManager.song.folderDetail.songListTitle">${t('fileManager.song.folderDetail.songListTitle')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                         <div id="file-manager-folder-detail-song-list" class="flex flex-col divide-y divide-white/5"></div>
                         <p id="file-manager-folder-detail-empty" class="hidden text-sm text-slate-400 p-4 text-center" data-i18n="fileManager.song.folderDetail.empty">${t('fileManager.song.folderDetail.empty')}</p>
                     </div>
+                </div>
+
+                <!-- MỚI (14/07/2026, Giang yêu cầu) — "Xoá hết bài" (CHỈ dọn rỗng folder, KHÔNG
+                     xoá folder — khác hẳn "Xoá folder" ở panel Song) — nút CĂN GIỮA, tự ẩn khi
+                     folder đã rỗng sẵn (renderFolderDetailSongList() toggle 'hidden', xem
+                     core/file-manager/folder-detail-ui.js). -->
+                <div class="flex justify-center">
+                    <button id="btn-file-manager-folder-detail-remove-all" class="hidden px-5 py-2.5 rounded-xl bg-rose-600/10 hover:bg-rose-600/20 border border-rose-500/30 text-rose-400 text-sm font-semibold transition-colors" data-i18n="fileManager.song.folderDetail.btnRemoveAll">${t('fileManager.song.folderDetail.btnRemoveAll')}</button>
                 </div>
 `;
 }
