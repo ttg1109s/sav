@@ -72,8 +72,30 @@ const workflowVirtualList = {
         renderItemList(m.windowEl, m.rows.slice(startIdx, endIdx), m.templateFn, m.ctx); // components/items.js
     },
 
-    /** Router gọi mỗi lần 'scroll' — no-op nếu `mountKey` chưa/không còn mount (guard trong redraw()). */
+    /** Router gọi mỗi lần 'scroll' — THROTTLE qua `requestAnimationFrame`, TỐI ĐA 1 `redraw()` MỖI
+     * KHUNG HÌNH, thay vì gọi thẳng cho MỖI sự kiện 'scroll' thô.
+     *
+     * BUG FIX NGHIÊM TRỌNG (15/07/2026, Giang báo — "crash cả app vì tràn RAM") — bản trước gọi
+     * `this.redraw(mountKey)` TRỰC TIẾP ở đây, không throttle gì cả. Sự kiện `scroll` gốc của trình
+     * duyệt bắn RẤT DÀY lúc lướt nhanh/miết tay (fling) trên di động — có thể vài chục lần/giây,
+     * KHÔNG đồng bộ với tần suất vẽ lại màn hình (~60fps). MỖI `redraw()` làm: revoke TOÀN BỘ object
+     * URL đang có trong cửa sổ HIỆN TẠI (thường 20-40+ ảnh, tính cả buffer 600px 2 bên) RỒI tạo MỚI
+     * HOÀN TOÀN từng đó object URL (kể cả ảnh KHÔNG hề đổi giữa 2 lần vẽ) + `innerHTML=` dựng lại
+     * từng đó `<img>` — buộc trình duyệt DECODE LẠI TỪ ĐẦU từng đó ảnh. Lướt nhanh -> `redraw()` gọi
+     * dồn dập hàng chục lần/giây -> hàng trăm/nghìn lượt decode ảnh xếp hàng nhanh hơn tốc độ trình
+     * duyệt kịp giải phóng bitmap đã decode -> RAM phình lên rất nhanh -> crash trên thiết bị RAM
+     * hạn chế (đặc biệt ảnh gốc độ phân giải cao). SỬA: gộp NHIỀU sự kiện 'scroll' liên tiếp trong
+     * CÙNG 1 khung hình thành ĐÚNG 1 lần `redraw()` (kỹ thuật "rAF throttle" tiêu chuẩn cho sự kiện
+     * tần suất cao) — `_redrawScheduledMountKeys` (Set, module-level) đánh dấu mount NÀO đang chờ
+     * khung hình kế tiếp, tránh xếp chồng nhiều `requestAnimationFrame` cho CÙNG 1 mount. */
+    _redrawScheduledMountKeys: new Set(),
+
     handleScroll(mountKey) {
-        this.redraw(mountKey);
+        if (this._redrawScheduledMountKeys.has(mountKey)) return; // guard — đã có 1 redraw chờ khung hình kế tiếp cho mount này, KHÔNG xếp thêm
+        this._redrawScheduledMountKeys.add(mountKey);
+        requestAnimationFrame(() => {
+            this._redrawScheduledMountKeys.delete(mountKey);
+            this.redraw(mountKey);
+        });
     },
 };
