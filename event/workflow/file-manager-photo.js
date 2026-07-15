@@ -56,7 +56,18 @@ const PHOTO_GRID_GAP_PX = 2;
 // Khớp minmax(110px, ...) trong .photo-grid (assets/css/style.css, auto-fill — KHÔNG còn breakpoint
 // cố định) — đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia (JS cần biết TRƯỚC số cột THẬT trình duyệt sẽ
 // tự tính, để chia ảnh vào đúng hàng cho windowing).
+// SẼ GỠ ở Giai đoạn 2 (thay bằng PHOTO_ROW_HEIGHT_PX ngay dưới — đổi hẳn từ lưới NxN cố định sang
+// hàng cao cố định/rộng theo tỉ lệ ảnh, mục 3b) — CHƯA gỡ ở Giai đoạn 1 vì setupPhotoGridWindow()
+// vẫn đang gọi buildPhotoGridRows() theo chữ ký CŨ (columns) cho tới khi Giai đoạn 2 nối lại.
 const PHOTO_TILE_MIN_PX = 110;
+// MỚI (Giai đoạn 1, rewrite Photo/Album, mục 3b/3c) — chiều cao CỐ ĐỊNH (px) của 1 hàng ảnh kiểu
+// "justified row" (Google Photos thật — KHÔNG phải ô vuông NxN). Dùng ở 2 chỗ, BẮT BUỘC khớp nhau:
+//   1. `_resizeImageForThumbnail()` (ngay dưới) — resize `thumbBlob` lúc upload đúng chiều cao này.
+//   2. CSS hàng ảnh (Giai đoạn 2, thay `.photo-tile { aspect-ratio: 1/1 }`) + buildPhotoGridRows()
+//      (core/file-manager/image.js, tham số `rowHeightPx`, GỌI Ở Giai đoạn 2 khi nối lại windowing).
+// Giá trị 120 là mặc định hợp lý (gần bằng PHOTO_TILE_MIN_PX cũ) — đổi tuỳ ý, chỉ cần đổi ĐÚNG 1 chỗ
+// (hằng số dùng chung, không lặp lại số ở nơi khác).
+const PHOTO_ROW_HEIGHT_PX = 120;
 // Khớp w-16 (64px) + gap-4 (16px) ở album story (components/file-manager.js) — đổi CSS thì phải đổi luôn.
 const ALBUM_STORY_TILE_WIDTH_PX = 64;
 const ALBUM_STORY_GAP_PX = 16;
@@ -415,7 +426,48 @@ const workflowFileManagerPhoto = {
         await alertModal(tFormat('fileManager.photo.album.addImagesSuccess', { count: addedCount }));
     },
 
+    /** MỚI (Giai đoạn 1, rewrite Photo/Album, mục 3c/3d) — resize 1 ảnh lúc upload: `height` = ĐÚNG
+     * `PHOTO_ROW_HEIGHT_PX` (khớp CSS hàng ảnh, nối ở Giai đoạn 2), `width` theo tỉ lệ ẢNH GỐC (ngang
+     * hay dọc tự quy đổi qua `naturalWidth/naturalHeight`, KHÔNG ép cứng). Trả thêm `width`/`height`
+     * GỐC (trước resize) để `buildPhotoGridRows()` (core) tính tỉ lệ hiển thị MÀ KHÔNG cần decode ảnh
+     * lại lúc dựng lưới.
+     * Đặt ở Workflow (KHÔNG phải core/file-manager/image.js) vì cần `Image`/`canvas` — DOM API, core
+     * không được đụng theo Rule 1-4 — đúng tiền lệ `event/workflow/image-edit.js` đang xử lý canvas
+     * riêng ở Workflow, core chỉ nhận `Blob` đã xong việc.
+     * @param {File} file
+     * @returns {Promise<{thumbBlob: Blob, width: number, height: number}>}
+     */
+    _resizeImageForThumbnail(file) {
+        return new Promise((resolve, reject) => {
+            const objectUrl = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => {
+                const width = img.naturalWidth;
+                const height = img.naturalHeight;
+                const targetHeight = PHOTO_ROW_HEIGHT_PX;
+                const targetWidth = Math.max(1, Math.round(targetHeight * (width / height))); // guard: tối thiểu 1px, tránh canvas rộng 0 nếu ảnh hỏng tỉ lệ
+                const canvas = document.createElement('canvas');
+                canvas.width = targetWidth;
+                canvas.height = targetHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+                URL.revokeObjectURL(objectUrl);
+                canvas.toBlob((thumbBlob) => {
+                    if (!thumbBlob) { reject(new Error('[_resizeImageForThumbnail] canvas.toBlob trả về null')); return; }
+                    resolve({ thumbBlob, width, height });
+                }, 'image/jpeg', 0.82);
+            };
+            img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('[_resizeImageForThumbnail] không đọc được ảnh để resize')); };
+            img.src = objectUrl;
+        });
+    },
+
     /** Ứng với 'fileManagerPhoto.upload.change'.
+     * SỬA (Giai đoạn 1, rewrite Photo/Album, mục 3c/3d) — resize `thumbBlob` (`_resizeImageForThumbnail()`
+     * ngay trên) TRƯỚC khi gọi `saveImage()` (core/file-manager/image.js — đổi chữ ký, nhận thêm
+     * `thumbBlob`/`width`/`height`). Lỗi resize 1 ảnh (vd file hỏng) KHÔNG được chặn cả lô upload —
+     * bắt riêng, bỏ qua đúng ảnh đó, tiếp tục ảnh sau (Rule 1: vẫn 1 tiến trình "upload cả lô", guard
+     * lỗi từng phần tử không tính là rẽ nhánh nghiệp vụ).
      * @param {FileList} files
      * @param {string|null} activeAlbumId
      */
@@ -423,9 +475,16 @@ const workflowFileManagerPhoto = {
         const fileArray = Array.from(files);
         if (fileArray.length === 0) return;
 
+        let failedCount = 0;
         await withLoadingShield(t('common.loading.savingInfo'), async () => {
             for (const file of fileArray) {
-                await saveImage(file, file.name); // core/file-manager/image.js
+                try {
+                    const { thumbBlob, width, height } = await this._resizeImageForThumbnail(file);
+                    await saveImage(file, file.name, thumbBlob, width, height); // core/file-manager/image.js — chữ ký MỚI
+                } catch (err) {
+                    console.error(`[uploadImages] resize/lưu thất bại cho file "${file.name}":`, err);
+                    failedCount++;
+                }
             }
         });
         if (fileManagerPhotoPanelEl) {
@@ -433,7 +492,8 @@ const workflowFileManagerPhoto = {
             if (uploadInput) uploadInput.value = ''; // cho phép chọn lại đúng file cũ ở lần sau
         }
         await this.refresh(activeAlbumId);
-        await alertModal(tFormat('fileManager.photo.image.uploadSuccess', { count: fileArray.length }));
+        const successCount = fileArray.length - failedCount;
+        await alertModal(tFormat('fileManager.photo.image.uploadSuccess', { count: successCount }));
     },
 
     /** Ứng với 'fileManagerPhoto.image.click' khi imageSelectionMode=false (xem router).
