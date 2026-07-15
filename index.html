@@ -301,11 +301,11 @@
             được bình thường ở đây dù db.js nạp sau — JS không resolve tham chiếu lúc định nghĩa
             hàm, chỉ lúc hàm thực sự được GỌI (luôn sau khi người dùng tương tác, lúc đó toàn bộ
             trang đã nạp xong từ lâu). Xem comment đầu file /lang/lang.js để biết đầy đủ kiến trúc. -->
-    <script src="lang/patch/patch-common.js?v=20260710v1"></script>
+    <script src="lang/patch/patch-common.js?v=20260714v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260711v1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260708v1"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260709v1"></script>
-    <script src="lang/patch/patch-settings-misc.js?v=20260706v2"></script>
+    <script src="lang/patch/patch-settings-misc.js?v=20260714v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
     <script src="lang/patch/patch-file-manager.js?v=20260714v5"></script>
@@ -349,7 +349,7 @@
     <script src="components/settings/visualizer-geometry-color.js?v=20260707v3"></script>
     <script src="components/settings/audio-eq.js?v=20260707v2"></script>
     <script src="components/settings/subtitle-style.js?v=20260707v2"></script>
-    <script src="components/settings/misc.js?v=20260707v2"></script>
+    <script src="components/settings/misc.js?v=20260714v1"></script>
     <script src="components/settings/language.js?v=20260707v2"></script>
     <script src="components/settings-drawer.js?v=20260708v2"></script>
     <script src="components/about-drawer.js?v=20260707v1"></script>
@@ -418,7 +418,7 @@
          LẠI của /event/ (bus/workflow/router/listener vẫn nạp cuối cùng tuyệt đối như cũ, xem
          khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260710v2"></script>
+    <script src="core/dom-refs.js?v=20260714v1"></script>
     <!-- core/slider-panel-scroll.js (MỚI, 09/07/2026) — 2 hàm dùng CHUNG (getPositionStart/
          scrollSliderTo) + hằng số SLIDER_PANEL_SCROLL_ESTIMATED_MS cho MỌI khung cuộn ngang kiểu
          "slider panel" — core/settings-panel-stack-ui.js (ngay dưới) VÀ core/player-controls.js
@@ -564,7 +564,7 @@
          định" trong Settings. PHẢI nạp SAU dom-refs.js/main.js (cần btnRestartApp/btnRestoreDefaults
          đã có ref + HTML thật đã chèn), resume-state-storage.js, config.js (saveConfig/loadConfig
          giờ ở đây), modal-choice.js. Xem comment đầu file app-recovery.js. -->
-    <script src="core/app-recovery.js?v=20260712v1"></script>
+    <script src="core/app-recovery.js?v=20260714v1"></script>
     <!-- Settings "Ngôn ngữ" (batch i18n; tái cấu trúc /lang/ — đã dời từ js/core/language-settings.js
          sang lang/language-settings.js, nội dung KHÔNG đổi, chỉ đổi đường dẫn) — xử lý
          <select>/upload/xóa ngôn ngữ. PHẢI nạp SAU dom-refs.js/main.js (cần ref DOM của
@@ -655,9 +655,9 @@
          nhỏ để xứng đáng 1 router/listener riêng. Ver 12 "Multi Media": nhánh storageDrawer đã DỜI
          sang cụm "fileManagerSong" ngay dưới (plan-v12-multimedia.md mục 3). Batch D1: aboutDrawer
          giờ CẦN workflow (push panel + tính thống kê), xem event/workflow/settings-misc.js. -->
-    <script src="event/workflow/settings-misc.js?v=20260706v1"></script>
-    <script src="event/router/settings-misc.js?v=20260706v1"></script>
-    <script src="event/listener/settings-misc.js?v=20260706v1"></script>
+    <script src="event/workflow/settings-misc.js?v=20260714v1"></script>
+    <script src="event/router/settings-misc.js?v=20260714v1"></script>
+    <script src="event/listener/settings-misc.js?v=20260714v1"></script>
     <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): cụm
          "fileManager" (khung điều hướng cấp cao cũ) ĐÃ BỎ HẲN — thay bằng 3 cụm ĐỘC LẬP, mỗi cụm
          tự mở/đóng drawer con của mình (folder.js/nav.js nạp trước, xem thứ tự script core/ phía
