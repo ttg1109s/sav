@@ -377,7 +377,11 @@ body {
     inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    /* Mặc định `contain` (AN TOÀN — không cắt mất nội dung ảnh) TRƯỚC khi ảnh load xong. JS
+       (core/file-manager/photo-ui.js::openImagePreviewModal()) tự đo hướng ảnh so hướng màn hình
+       NGAY lúc load xong, đổi sang `cover` (phủ kín, cắt tối thiểu) CHỈ khi 2 hướng khớp nhau —
+       xem giải thích đầy đủ tại đó (14/07/2026, Giang chỉ ra bản cover-cứng-mọi-ảnh là sai). */
+    object-fit: contain;
 }
 .photo-preview-scrim-top {
     position: absolute;
