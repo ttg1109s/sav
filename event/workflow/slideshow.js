@@ -30,7 +30,7 @@
  * Drawer, không cần đồng bộ nhanh kiểu kéo slider).
  *
  * CASCADE "xoá album đang dùng làm nguồn slideshow" — xem `clearActiveAlbum()`, gọi từ
- * event/workflow/file-manager-photo.js::deleteAlbumById() khi album vừa xoá trùng
+ * event/workflow/file-manager-photo.js::deleteAlbumFromList() (đổi tên ở Giai đoạn 3b, rewrite Photo/Album) khi album vừa xoá trùng
  * `activeBackgroundAlbum` (mục 4 bước 2, plan-v12-multimedia-update-3.md).
  *
  * "PHOTO PER SONG" (MỚI 04/07/2026, mục 5 phản hồi Giang) — `slideshowConfig.photoPerSong=true`:
@@ -161,7 +161,7 @@ const workflowSlideshow = {
 
     /** Tắt nền Slideshow — dọn tham chiếu + dừng engine. Dùng cho CẢ 2 ngữ cảnh: người dùng chủ
      * động bấm "Tắt" ở Settings Drawer, VÀ cascade khi album đang active bị xoá (gọi từ
-     * event/workflow/file-manager-photo.js::deleteAlbumById()). */
+     * event/workflow/file-manager-photo.js::deleteAlbumFromList() (đổi tên ở Giai đoạn 3b, rewrite Photo/Album)). */
     async clearActiveAlbum() {
         appState.set('activeBackgroundAlbum', null);
         console.log(`writer: "workflowSlideshow.clearActiveAlbum", page: "activeBackgroundAlbum", content: "null"`);

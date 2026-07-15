@@ -48,6 +48,7 @@
  *      phải tải SAU KHI đã vào hẳn, che bằng shield, chỉ tắt khi xong.
  */
 let fileManagerPhotoPanelEl = null; // panel Photo đang mở — null nếu đang đóng (Batch D6)
+let albumListPanelEl = null; // MỚI (Giai đoạn 3b) — Album List sub-panel đang mở — null nếu đang đóng, cùng pattern fileManagerPhotoPanelEl
 
 // Chiều cao (px) CỐ ĐỊNH của 1 hàng header ngày — PHẢI khớp đúng class `h-10` ở
 // components/items.js::itemTemplateImageGridRow() (đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia).
@@ -69,8 +70,8 @@ const PHOTO_GRID_GAP_PX = 2;
 // (hằng số dùng chung, không lặp lại số ở nơi khác).
 const PHOTO_ROW_HEIGHT_PX = 120;
 // Khớp w-16 (64px) + gap-4 (16px) ở album story (components/file-manager.js) — đổi CSS thì phải đổi luôn.
-const ALBUM_STORY_TILE_WIDTH_PX = 64;
-const ALBUM_STORY_GAP_PX = 16;
+// ĐÃ GỠ (Giai đoạn 3b) — ALBUM_STORY_TILE_WIDTH_PX/ALBUM_STORY_GAP_PX không còn dùng sau khi bỏ
+// hẳn story slider ngang (thay bằng Album List sub-panel, xem openAlbumListPanel() ngay dưới).
 
 const workflowFileManagerPhoto = {
 
@@ -97,7 +98,7 @@ const workflowFileManagerPhoto = {
         await new Promise((resolve) => taskManager.once(resolve, SLIDER_PANEL_SCROLL_ESTIMATED_MS, 'fileManagerPhotoOpenPanel')); // core/slider-panel-scroll.js — đợi trượt xong HẲN
 
         await withLoadingShield(t('fileManager.photo.loadingTitle'), async () => { // core/loading-shield-util.js
-            await this.refresh(null, false, new Set(), 0, false);
+            await this.refresh(null);
         });
     },
 
@@ -127,89 +128,47 @@ const workflowFileManagerPhoto = {
         });
     },
 
-    /** Đọc lại toàn bộ album + ảnh, vẽ lại story slider + masonry + thanh quản lý album + thanh
-     * chọn nhiều (lọc theo activeAlbumId nếu có). Dùng lại ở MỌI nơi cần vẽ lại (mở panel, chọn
-     * album, đổi tên/xoá album, tạo album, upload xong, xoá ảnh xong, bật/tắt/xác nhận chọn nhiều).
-     * KHÔNG dùng cho pagination story album nữa (bấm ‹/› giờ đi `navigateAlbumStoryPage()`, CHỈ
-     * toggle CSS, không gọi lại hàm này — xem đó).
-     * @param {string|null} activeAlbumId
-     * @param {boolean} [imageSelectionMode]
-     * @param {Set<string>} [selectedImageKeys]
-     * @param {number} [albumStoryPageIndex]
-     * @param {boolean} [imageQuickDeleteMode]
-     */
-    /** Đọc lại toàn bộ album + ảnh, vẽ lại story slider + masonry + thanh quản lý album + thanh
-     * chọn nhiều (lọc theo activeAlbumId nếu có). Dùng lại ở MỌI nơi cần vẽ lại (mở panel, chọn
-     * album, đổi tên/xoá album, tạo album, upload xong, xoá ảnh xong, bật/tắt/xác nhận chọn nhiều).
-     * KHÔNG dùng cho pagination story album nữa (bấm ‹/› giờ đi `navigateAlbumStoryPage()`, CHỈ
-     * toggle CSS, không gọi lại hàm này — xem đó).
+    /** Đọc lại toàn bộ ảnh (lọc theo `activeAlbumId` nếu có), vẽ lại lưới ảnh chính + chip lọc + nút
+     * xoá nhanh. Dùng lại ở MỌI nơi cần vẽ lại lưới ảnh chính (mở panel, chọn/bỏ lọc album, upload
+     * xong, xoá ảnh xong, bật/tắt/xác nhận xoá nhanh).
      *
-     * BUG FIX (14/07/2026, Giang báo "Add new album chưa hoạt động") — TRUY VẾT: click -> router ->
-     * `promptCreateAlbum()` -> `openCreateAlbumModal()` -> `createAlbum()` (ghi DB, THÀNH CÔNG) ->
-     * `refresh(activeAlbumId)` — CHỈ 1 tham số, 4 tham số phân trang còn lại lấy mặc định, trong đó
-     * `albumStoryPageIndex = 0` LUÔN LUÔN. Nếu ĐÃ có đủ album lấp đầy trang 1 (`itemsPerPage`, tuỳ
-     * bề rộng màn hình — vd 4 album/trang), album VỪA TẠO (thường KHÔNG rơi đúng cuối danh sách vì
-     * `listAlbums()` trả theo thứ tự KEY IndexedDB, không phải thứ tự tạo) có thể rơi vào TRANG 2+
-     * — `setAlbumStoryPageVisibility(storyListEl, 0)` chỉ hiện trang 1, ẩn hẳn trang chứa album vừa
-     * tạo. Album ĐÃ tạo thành công trong DB (kiểm tra lại DB sẽ thấy) nhưng KHÔNG HIỆN LÊN MÀN HÌNH
-     * — đúng cảm giác "chưa hoạt động". SỬA: thêm `focusAlbumId` (tuỳ chọn) — nếu truyền, tự tìm
-     * ĐÚNG trang chứa album đó (dựa theo CHÍNH `itemsPerPage` vừa đo, không đoán) rồi hiện trang đó,
-     * bỏ qua `albumStoryPageIndex` truyền vào.
+     * ĐẬP ĐI LÀM LẠI (Giai đoạn 3b, rewrite Photo/Album, mục 3a) — XOÁ HẲN phần vẽ story slider
+     * (`renderAlbumStory`/`setAlbumStoryPageVisibility`/`_renderAlbumStoryPagination`) và thanh quản
+     * lý album inline (`#file-manager-album-manage-bar`) — album giờ quản lý HOÀN TOÀN trong Album
+     * List sub-panel riêng (`openAlbumListPanel()`/`refreshAlbumListPanel()` ngay dưới). Hàm NÀY chỉ
+     * còn lo lưới ảnh chính + 1 chip lọc đơn giản (tên album đang lọc + nút bỏ lọc, KHÔNG còn hành
+     * động rename/delete/addImages/slideshow ở đây nữa).
+     * ĐÃ XOÁ tham số `imageSelectionMode`/`selectedImageKeys`/`albumStoryPageIndex`/`focusAlbumId` —
+     * "thêm ảnh vào album" giờ là picker Generic Drawer riêng (KHÔNG đụng lưới ảnh chính nữa, xem
+     * `openAlbumImagePicker()`), "focus đúng trang vừa tạo album" giờ thuộc
+     * `promptCreateAlbumFromList()` (Album List sub-panel tự lo trang của NÓ, không liên quan lưới
+     * ảnh chính này nữa).
      * @param {string|null} activeAlbumId
-     * @param {boolean} [imageSelectionMode]
-     * @param {Set<string>} [selectedImageKeys]
-     * @param {number} [albumStoryPageIndex]
      * @param {boolean} [imageQuickDeleteMode]
-     * @param {Set<string>} [quickDeleteSelectedKeys] - MỚI (Giai đoạn 3) — ảnh đã đánh dấu chờ xoá,
-     *        LOẠI TRỪ với `selectedImageKeys` (đảm bảo ở Router).
-     * @param {string|null} [focusAlbumId] - album CẦN LUÔN HIỆN RA (vd vừa tạo/vừa chọn) — tự nhảy
-     *        đúng trang chứa nó, ưu tiên HƠN `albumStoryPageIndex`.
+     * @param {Set<string>} [quickDeleteSelectedKeys]
      */
-    async refresh(activeAlbumId, imageSelectionMode = false, selectedImageKeys = new Set(), albumStoryPageIndex = 0, imageQuickDeleteMode = false, quickDeleteSelectedKeys = new Set(), focusAlbumId = null) {
+    async refresh(activeAlbumId, imageQuickDeleteMode = false, quickDeleteSelectedKeys = new Set()) {
         if (!fileManagerPhotoPanelEl) return; // guard: panel đã đóng
-        const albums = await listAlbums(); // core/file-manager/album.js
         const images = await listImages(); // core/file-manager/image.js
-        const imageRecordsByKey = new Map(images.map((img) => [img.key, img]));
 
-        // ---- Album story: render TOÀN BỘ 1 lần, gắn trang, hiện đúng trang hiện tại bằng CSS ----
-        const storyListEl = fileManagerPhotoPanelEl.querySelector('#file-manager-album-story');
-        if (storyListEl) {
-            const itemsPerPage = Math.max(1, Math.floor((storyListEl.clientWidth + ALBUM_STORY_GAP_PX) / (ALBUM_STORY_TILE_WIDTH_PX + ALBUM_STORY_GAP_PX)));
-            const combinedStoryItems = ['__all__', ...albums];
-            const totalPages = renderAlbumStory(combinedStoryItems, itemsPerPage, activeAlbumId, imageRecordsByKey, storyListEl); // core/file-manager/photo-ui.js
-
-            let targetPageIndex = albumStoryPageIndex;
-            if (focusAlbumId) {
-                const focusIndex = combinedStoryItems.findIndex((item) => item !== '__all__' && item.id === focusAlbumId);
-                if (focusIndex >= 0) targetPageIndex = Math.floor(focusIndex / itemsPerPage); // album mới có thể KHÔNG ở cuối danh sách (thứ tự theo key IndexedDB) — tìm ĐÚNG vị trí thật, không đoán
-            }
-
-            const clampedPage = Math.max(0, Math.min(targetPageIndex, totalPages - 1));
-            setAlbumStoryPageVisibility(storyListEl, clampedPage); // core/file-manager/photo-ui.js
-            storyListEl.dataset.totalPages = String(totalPages); // navigateAlbumStoryPage() đọc lại — KHÔNG cần đo/render lại mỗi lần bấm ‹/›
-            this._renderAlbumStoryPagination(clampedPage, totalPages);
+        let activeAlbum = null;
+        if (activeAlbumId) {
+            const albums = await listAlbums(); // core/file-manager/album.js
+            activeAlbum = albums.find((a) => a.id === activeAlbumId) || null;
         }
 
-        const activeAlbum = activeAlbumId ? albums.find((a) => a.id === activeAlbumId) : null;
-
-        const manageBar = fileManagerPhotoPanelEl.querySelector('#file-manager-album-manage-bar');
-        if (manageBar) {
-            const showManageBar = !!activeAlbum && !imageSelectionMode;
-            manageBar.classList.toggle('hidden', !showManageBar);
-            manageBar.classList.toggle('flex', showManageBar);
-            const manageNameEl = fileManagerPhotoPanelEl.querySelector('#file-manager-album-manage-name');
-            if (manageNameEl) manageNameEl.textContent = activeAlbum ? activeAlbum.name : '';
-        }
-        const selectionBar = fileManagerPhotoPanelEl.querySelector('#file-manager-image-selection-bar');
-        if (selectionBar) {
-            selectionBar.classList.toggle('hidden', !imageSelectionMode);
-            updateImageSelectionCount(selectedImageKeys.size, fileManagerPhotoPanelEl.querySelector('#file-manager-image-selection-count'));
+        // ---- Chip lọc album đang xem (THAY thanh quản lý album đầy đủ cũ) ----
+        const filterChip = fileManagerPhotoPanelEl.querySelector('#file-manager-album-filter-chip');
+        if (filterChip) {
+            filterChip.classList.toggle('hidden', !activeAlbum);
+            filterChip.classList.toggle('flex', !!activeAlbum);
+            const nameEl = fileManagerPhotoPanelEl.querySelector('#file-manager-album-filter-name');
+            if (nameEl) nameEl.textContent = activeAlbum ? activeAlbum.name : '';
         }
 
         // ---- Nút "xoá nhanh" trong header: chỉ hiện khi có ảnh, đổi màu khi đang bật ----
-        // SỬA (Giai đoạn 3, redesign chế độ xoá nhanh) — title hiện thêm số lượng đã đánh dấu (vd
-        // "Xoá nhanh (3)") khi đang bật VÀ có ≥1 ảnh đã đánh dấu — phản hồi trực quan, không cần đếm
-        // lại bằng mắt từng badge đỏ trên lưới.
+        // Title hiện thêm số lượng đã đánh dấu (vd "Xoá nhanh (3)") khi đang bật VÀ có ≥1 ảnh đã
+        // đánh dấu — phản hồi trực quan, không cần đếm lại bằng mắt từng badge đỏ trên lưới.
         const deleteModeBtn = fileManagerPhotoPanelEl.querySelector('#btn-file-manager-image-delete-mode');
         if (deleteModeBtn) {
             deleteModeBtn.classList.toggle('hidden', images.length === 0);
@@ -219,46 +178,14 @@ const workflowFileManagerPhoto = {
             deleteModeBtn.title = (imageQuickDeleteMode && quickDeleteSelectedKeys.size > 0) ? `${baseTitle} (${quickDeleteSelectedKeys.size})` : baseTitle;
         }
 
-        const displayedImages = imageSelectionMode
-            ? images
-            : (activeAlbum ? images.filter((img) => activeAlbum.imageKeys.includes(img.key)) : images);
+        const displayedImages = activeAlbum ? images.filter((img) => activeAlbum.imageKeys.includes(img.key)) : images;
         const emptyEl = fileManagerPhotoPanelEl.querySelector('#file-manager-image-empty');
         if (emptyEl) emptyEl.classList.toggle('hidden', displayedImages.length > 0);
         this.setupPhotoGridWindow(
             fileManagerPhotoPanelEl.querySelector('#file-manager-image-scroll'),
             displayedImages,
-            { selectionMode: imageSelectionMode, selectedImageKeys, quickDeleteMode: imageQuickDeleteMode, quickDeleteSelectedKeys }
+            { quickDeleteMode: imageQuickDeleteMode, quickDeleteSelectedKeys }
         );
-    },
-
-    /** MỚI (14/07/2026) — chuyển trang story album CHỈ bằng CSS (Giang đơn giản hoá) — KHÔNG gọi
-     * lại `refresh()` (không đọc DB, không dựng lại DOM ảnh/album). `totalPages` đọc từ `dataset`
-     * gắn sẵn lúc `refresh()` gần nhất (KHÔNG tính lại — số album không đổi giữa 2 lần bấm ‹/›) —
-     * O(1) THẬT SỰ: không I/O, chỉ patch DOM surgical (toggle class + đổ lại ĐÚNG 1 khối HTML nhỏ
-     * — 2 nút + số trang, KHÔNG đụng gì tới các tile ảnh/album đã render sẵn).
-     * @param {number} requestedIndex
-     * @returns {number} chỉ số trang THẬT SỰ áp dụng (đã kẹp) — Router tự đồng bộ lại state của nó.
-     */
-    navigateAlbumStoryPage(requestedIndex) {
-        if (!fileManagerPhotoPanelEl) return 0;
-        const storyListEl = fileManagerPhotoPanelEl.querySelector('#file-manager-album-story');
-        if (!storyListEl) return 0;
-        const totalPages = Number(storyListEl.dataset.totalPages || 1);
-        const clamped = Math.max(0, Math.min(requestedIndex, totalPages - 1));
-        setAlbumStoryPageVisibility(storyListEl, clamped); // core/file-manager/photo-ui.js
-        this._renderAlbumStoryPagination(clamped, totalPages);
-        return clamped;
-    },
-
-    /** SỬA (14/07/2026, Giang chỉnh lại — dùng THẲNG `buildPaginationArrowsHtml()` core/pagination.js,
-     * KHÔNG tự viết 2 nút ‹/› riêng nữa) — đổ NGUYÊN chuỗi hàm đó vào
-     * `#file-manager-album-story-pagination-wrap` (`display:contents`, assets/css/style.css — "tháo"
-     * div bọc ngoài, ẩn số trang bằng CSS, xem file đó). Click 2 nút wire delegated qua
-     * `event/listener/file-manager-photo.js` (chọn theo `data-pagination-action`, thuộc tính core
-     * TỰ gắn sẵn) — KHÔNG cần wire lại ở đây mỗi lần gọi hàm này. */
-    _renderAlbumStoryPagination(pageIndex, totalPages) {
-        const wrapEl = fileManagerPhotoPanelEl.querySelector('#file-manager-album-story-pagination-wrap');
-        if (wrapEl) wrapEl.innerHTML = buildPaginationArrowsHtml(pageIndex, totalPages); // core/pagination.js, KHÔNG sửa
     },
 
     /** MỚI (14/07/2026, mục 2.2) — hỏi xác nhận TRƯỚC KHI bật chế độ xoá nhanh (modalChoice()) —
@@ -301,10 +228,9 @@ const workflowFileManagerPhoto = {
      * PHẢI vẫn đang bật (UI vẫn đúng thực tế, không lệch với Router).
      * @param {Set<string>} quickDeleteSelectedKeys
      * @param {string|null} activeAlbumId
-     * @param {number} albumStoryPageIndex
      * @param {() => void} onConfirmed
      */
-    async confirmQuickDeleteBatch(quickDeleteSelectedKeys, activeAlbumId, albumStoryPageIndex, onConfirmed) {
+    async confirmQuickDeleteBatch(quickDeleteSelectedKeys, activeAlbumId, onConfirmed) {
         const keys = Array.from(quickDeleteSelectedKeys);
         modalChoice( // core/modal-choice.js
             tFormat('fileManager.photo.image.quickDeleteBatchConfirm.confirm', { count: keys.length }),
@@ -316,7 +242,7 @@ const workflowFileManagerPhoto = {
                     });
                     quickDeleteSelectedKeys.clear();
                     onConfirmed(); // Router tự đồng bộ imageQuickDeleteMode=false — ĐÚNG lúc này, không sớm hơn
-                    await this.refresh(activeAlbumId, false, new Set(), albumStoryPageIndex, false, quickDeleteSelectedKeys);
+                    await this.refresh(activeAlbumId, false, quickDeleteSelectedKeys);
                 } },
             ],
             { title: t('fileManager.photo.image.quickDeleteBatchConfirm.title') }
@@ -347,7 +273,10 @@ const workflowFileManagerPhoto = {
      * giờ CHỈ đo 1 LẦN cho mục đích packing hàng, không còn ai đo lại lần 2 cho chiều cao nữa.
      * @param {HTMLElement} scrollEl - container CUỘN, ĐÃ có trong DOM thật.
      * @param {Array<{key:string, blob:Blob, thumbBlob?:Blob, width?:number, height?:number, filename:string, addedAt:number}>} images
-     * @param {{selectionMode?: boolean, selectedImageKeys?: Set<string>}} [ctx]
+     * @param {{selectionMode?: boolean, selectedImageKeys?: Set<string>, quickDeleteMode?: boolean, quickDeleteSelectedKeys?: Set<string>}} [ctx]
+     *        `selectionMode`/`selectedImageKeys` — picker "thêm ảnh vào album" (mountKey 'genericDrawer').
+     *        `quickDeleteMode`/`quickDeleteSelectedKeys` — lưới ảnh chính (mountKey 'photoGrid'). 2
+     *        cặp field LOẠI TRỪ NHAU tuỳ mountKey, KHÔNG BAO GIỜ cả 4 field cùng có nghĩa 1 lúc.
      * @param {string} [mountKey] - phân biệt Photo & Album (mặc định 'photoGrid') với picker cover
      *        bài hát ('photoGridPicker', truyền tường minh từ playlist.js) — 2 container ĐỘC LẬP.
      */
@@ -374,99 +303,277 @@ const workflowFileManagerPhoto = {
         });
     },
 
-    /** Ứng với storyClick action='create'. */
-    async promptCreateAlbum(activeAlbumId) {
+    // ===================== MỚI (Giai đoạn 3b, rewrite Photo/Album, mục 3a) — Album List sub-panel
+    // (THAY HẲN story slider + thanh quản lý album inline cũ — promptCreateAlbum/renameAlbumById/
+    // deleteAlbumById ĐÃ XOÁ, xem lịch sử git nếu cần đối chiếu). Push TỪ TRONG panel Photo — ĐÚNG
+    // khuôn Folder List -> Folder Detail (event/workflow/file-manager-song.js::openFolderDetail()),
+    // KHÔNG cần xử lý gì đặc biệt cho "back" — popSettingsPanel() tự quay đúng panel Photo bên dưới.
+    // ==========================================================================================
+
+    /** Ứng với 'fileManagerPhoto.albumList.open.click'. Cùng trình tự đã chốt với panel Photo
+     * chính: trượt xong HẲN -> shield -> đọc DB -> vẽ -> tắt shield. */
+    async openAlbumListPanel() {
+        albumListPanelEl = pushSettingsPanel({
+            title: t('fileManager.photo.albumList.title'),
+            bodyHtml: renderFileManagerAlbumListPanelBody(), // components/file-manager.js
+        });
+        const createBtn = albumListPanelEl.querySelector('#btn-file-manager-album-list-create');
+        if (createBtn) createBtn.addEventListener('click', () => {
+            eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.create.click', payload: {} });
+        });
+
+        await new Promise((resolve) => taskManager.once(resolve, SLIDER_PANEL_SCROLL_ESTIMATED_MS, 'fileManagerAlbumListOpenPanel')); // core/slider-panel-scroll.js — đợi trượt xong HẲN, cùng lý do openPanel()
+
+        await withLoadingShield(t('fileManager.photo.loadingTitle'), async () => {
+            await this.refreshAlbumListPanel(0);
+        });
+    },
+
+    /** Đọc lại album, phân trang mode 'list' (core/pagination.js, ~10 album/trang — ĐÚNG chữ Giang
+     * dùng "pagination dạng list page"), vẽ lại từng hàng qua itemTemplateAlbumListRow()
+     * (components/items.js). KHÔNG windowing (workflowVirtualList) — số album thực tế luôn nhỏ,
+     * render thẳng 1 trang là đủ mượt, cùng tinh thần refreshSongTab() (Folder List) không windowing.
+     * @param {number} pageIndex
+     */
+    async refreshAlbumListPanel(pageIndex) {
+        if (!albumListPanelEl) return; // guard: panel đã đóng
+        const albums = await listAlbums(); // core/file-manager/album.js
+        const pageResult = computePage(albums, pageIndex, 10); // core/pagination.js
+
+        const listEl = albumListPanelEl.querySelector('#file-manager-album-list');
+        if (listEl) listEl.innerHTML = pageResult.pageItems.map((album) => itemTemplateAlbumListRow(album)).join(''); // components/items.js
+        const emptyEl = albumListPanelEl.querySelector('#file-manager-album-list-empty');
+        if (emptyEl) emptyEl.classList.toggle('hidden', albums.length > 0);
+        const paginationEl = albumListPanelEl.querySelector('#file-manager-album-list-pagination');
+        if (paginationEl) paginationEl.innerHTML = buildPaginationListHtml(pageResult.pageIndex, pageResult.totalPages); // core/pagination.js, KHÔNG sửa
+    },
+
+    /** Ứng với 'fileManagerPhoto.albumList.create.click'. Cùng khuôn `promptCreateAlbum()` cũ, chỉ
+     * khác: focus đúng TRANG của Album List sub-panel (KHÔNG còn liên quan lưới ảnh chính/story nữa).
+     * @param {number} currentPageIndex
+     */
+    async promptCreateAlbumFromList(currentPageIndex) {
         openCreateAlbumModal(async (name) => { // core/file-manager/photo-ui.js
             const result = await createAlbum(name); // core/file-manager/album.js
             if (result.status === 'duplicateName') {
                 await alertModal(tFormat('fileManager.folderPicker.duplicateName', { name: escapeHtml(name) }));
                 return;
             }
-            await this.refresh(activeAlbumId, false, new Set(), 0, false, new Set(), result.albumId); // focusAlbumId — LUÔN nhảy tới đúng trang chứa album vừa tạo (xem giải thích bug ở docstring refresh())
+            // Album mới có thể KHÔNG rơi đúng trang đang xem (listAlbums() trả theo thứ tự key
+            // IndexedDB, không phải thứ tự tạo) — tìm ĐÚNG trang chứa nó, cùng lý do BUG FIX
+            // "Add new album chưa hoạt động" đã từng vá ở bản story cũ (không lặp lại bug đó).
+            const albums = await listAlbums();
+            const focusIndex = albums.findIndex((a) => a.id === result.albumId);
+            const targetPage = focusIndex >= 0 ? Math.floor(focusIndex / 10) : currentPageIndex;
+            await this.refreshAlbumListPanel(targetPage);
         });
     },
 
-    // ===================== MỚI (batch tiếp theo, mục 2.2) — quản lý album đang lọc =============
-
-    /** Ứng với 'fileManagerPhoto.album.manageClick' action='rename'. Đọc tên hiện tại THẲNG từ DOM
-     * đã render sẵn (tránh round-trip đọc lại DB chỉ để lấy tên đang hiển thị).
+    /** Ứng với 'fileManagerPhoto.albumList.action.click' action='rename'. Đọc tên hiện tại từ core
+     * (KHÔNG có sẵn trong DOM gọn như thanh quản lý cũ — hàng list không giữ tên riêng ngoài text
+     * đang hiển thị, đọc lại DB rẻ, số album nhỏ).
      * @param {string} albumId
+     * @param {number} pageIndex
      */
-    renameAlbumById(albumId) {
-        if (!fileManagerPhotoPanelEl) return;
-        const nameEl = fileManagerPhotoPanelEl.querySelector('#file-manager-album-manage-name');
-        const currentName = nameEl ? nameEl.textContent : '';
-        openRenameAlbumModal(currentName, async (newName) => { // core/file-manager/photo-ui.js
-            const result = await renameAlbum(albumId, newName); // core có sẵn (core/file-manager/album.js)
+    async renameAlbumFromList(albumId, pageIndex) {
+        const albums = await listAlbums();
+        const album = albums.find((a) => a.id === albumId);
+        if (!album) return; // guard: album vừa bị xoá ở thao tác khác
+        openRenameAlbumModal(album.name, async (newName) => { // core/file-manager/photo-ui.js
+            const result = await renameAlbum(albumId, newName); // core/file-manager/album.js
             if (result.status === 'duplicateName') {
                 await alertModal(tFormat('fileManager.folderPicker.duplicateName', { name: escapeHtml(newName) }));
                 return;
             }
-            await this.refresh(albumId); // albumId KHÔNG đổi sau khi rename -> vẫn đang lọc đúng album này
+            await this.refreshAlbumListPanel(pageIndex);
         });
     },
 
-    /** Ứng với 'fileManagerPhoto.album.manageClick' action='delete'.
+    /** Ứng với 'fileManagerPhoto.albumList.action.click' action='delete'.
      * @param {string} albumId
-     * @param {() => void} onDeleted - reset `activeAlbumId` về null Ở TẦNG ROUTER.
+     * @param {number} pageIndex
+     * @param {() => void} onDeleted - reset `activeAlbumId` Ở TẦNG ROUTER nếu album vừa xoá đang là
+     *        album lọc lưới ảnh chính.
      */
-    deleteAlbumById(albumId, onDeleted) {
-        const nameEl = fileManagerPhotoPanelEl ? fileManagerPhotoPanelEl.querySelector('#file-manager-album-manage-name') : null;
-        const albumName = nameEl ? nameEl.textContent : '';
+    async deleteAlbumFromList(albumId, pageIndex, onDeleted) {
+        const albums = await listAlbums();
+        const album = albums.find((a) => a.id === albumId);
+        const albumName = album ? album.name : '';
         modalChoice(
             tFormat('fileManager.photo.album.deleteConfirm', { name: escapeHtml(albumName) }),
             [
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('fileManager.photo.album.btnDelete'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
-                    await deleteAlbum(albumId); // core có sẵn (core/file-manager/album.js) — KHÔNG đụng ảnh bên trong, chỉ mất liên kết
-                    // MỚI (Batch 8, slideshow) — cascade "xoá album đang dùng làm nguồn slideshow".
+                    await deleteAlbum(albumId); // core/file-manager/album.js — KHÔNG đụng ảnh bên trong, chỉ mất liên kết
                     if (appState.get('activeBackgroundAlbum') === albumId && typeof workflowSlideshow !== 'undefined') {
-                        await workflowSlideshow.clearActiveAlbum();
+                        await workflowSlideshow.clearActiveAlbum(); // cascade "xoá album đang dùng làm nguồn slideshow" (Batch 8, giữ nguyên hành vi cũ)
                     }
                     onDeleted();
-                    await this.refresh(null, false, new Set());
+                    await this.refreshAlbumListPanel(pageIndex);
                 } }
             ],
             { title: t('fileManager.photo.album.deleteTitle') }
         );
     },
 
-    // ===================== MỚI (batch tiếp theo, mục 2.3) — chọn nhiều ảnh có sẵn để thêm vào
-    // album đang lọc =============================================================================
-
-    /** Ứng với 'fileManagerPhoto.image.click' khi imageSelectionMode=true (xem router). Mutate
-     * TRỰC TIẾP `selectedImageKeys` (Set) qua tham chiếu — router giữ nguyên object đó.
-     * @param {string} imageKey
-     * @param {Set<string>} selectedImageKeys
-     */
-    toggleImageSelectionInSet(imageKey, selectedImageKeys) {
-        if (selectedImageKeys.has(imageKey)) selectedImageKeys.delete(imageKey);
-        else selectedImageKeys.add(imageKey);
-        // ctx.selectedImageKeys truyền vào mount() lúc refresh() là CHÍNH selectedImageKeys này
-        // (cùng tham chiếu, Router giữ nguyên object) — redraw() là ĐỦ, không cần mount() lại.
-        workflowVirtualList.redraw('photoGrid'); // event/workflow/virtual-list.js
-        if (fileManagerPhotoPanelEl) {
-            updateImageSelectionCount(selectedImageKeys.size, fileManagerPhotoPanelEl.querySelector('#file-manager-image-selection-count')); // core, patch DOM surgical
-        }
-    },
-
-    /** Ứng với 'fileManagerPhoto.imageSelection.confirm'. addImagesToAlbum() tự bỏ qua ảnh đã có
-     * sẵn trong album (không thêm trùng) — xem core/file-manager/album.js.
-     * @param {string} albumId
-     * @param {Set<string>} selectedImageKeys
+    /** Ứng với 'fileManagerPhoto.albumList.rowClick' — bấm tên/số lượng (KHÔNG phải icon) -> lọc
+     * lưới ảnh chính theo `activeAlbumId` (Router đã tính toggle) + pop về panel Photo. MỚI dùng
+     * `popSettingsPanel()` TRỰC TIẾP từ 1 feature workflow (khác `workflowSettingsStackNav.back()`
+     * — nơi DUY NHẤT làm việc này trước giờ, cho nút Back dùng chung) — biện minh: "chọn xong tự
+     * quay lại" là hành vi CHỦ Ý của tính năng này (không phải Back thường), CÙNG 2 dòng
+     * `popSettingsPanel()` + `taskManager.once(...).remove()` Y HỆT `workflowSettingsStackNav.back()`
+     * đang làm — không phát minh cơ chế mới, chỉ tái dùng đúng 2 hàm core đã có.
      * @param {string|null} activeAlbumId
      */
-    async confirmAddSelectedImages(albumId, selectedImageKeys, activeAlbumId) {
-        const keys = Array.from(selectedImageKeys);
-        if (keys.length === 0) return; // guard — chưa chọn gì thì không làm gì
+    async selectAlbumAndReturnToPhotoGrid(activeAlbumId) {
+        const removedPanelEl = popSettingsPanel(); // core/settings-panel-stack.js
+        if (removedPanelEl) taskManager.once(() => { removedPanelEl.remove(); }, SLIDER_PANEL_SCROLL_ESTIMATED_MS, 'albumListSelectPop');
+        albumListPanelEl = null;
+        await this.refresh(activeAlbumId);
+    },
+
+    /** Ứng với 'fileManagerPhoto.albumList.action.click' action='view'. Carousel xem+xoá khỏi album
+     * (core/file-manager/photo-ui.js::openImageCarouselViewModal() — MỚI Giai đoạn 3b, hàm RIÊNG
+     * với carousel chọn nền, xem docstring ở đó).
+     * @param {string} albumId
+     */
+    async openAlbumCarouselView(albumId) {
+        const albums = await listAlbums();
+        const album = albums.find((a) => a.id === albumId);
+        if (!album) return;
+        const allImages = await listImages(); // core/file-manager/image.js
+        const albumImages = allImages.filter((img) => album.imageKeys.includes(img.key));
+
+        openImageCarouselViewModal( // core/file-manager/photo-ui.js
+            albumImages,
+            (imageKey) => { removeImageFromAlbum(imageKey, albumId); }, // fire-and-forget, core/file-manager/album.js — KHÔNG await ở core, đúng docstring hàm đó
+            () => { this.refreshAlbumListPanel(0); } // đóng modal (dù có xoá hay không) -> số lượng ảnh trong album có thể đã đổi, vẽ lại danh sách. Trang 0 đơn giản hoá — album có thể đã đổi vị trí sau xoá, không cố focus lại
+        );
+    },
+
+    // ===================== MỚI (Giai đoạn 3b, rewrite Photo/Album, mục 3a/4) — Picker "thêm ảnh
+    // vào album" (Generic Drawer, multi-select). Click grid ĐI ĐÚNG luồng eventBus (listener -> đây
+    // -> workflow), KHÔNG raw callback như modal picker cover bài hát cũ (core/file-manager/
+    // photo-ui.js::openPhotoUiImagePickerModal() — tiền lệ CŨ trước Rule 5a, không hồi tố, nhưng
+    // KHÔNG lặp lại cho code MỚI — đúng yêu cầu Giang "đảm bảo event bus"). ============================
+
+    /** Ứng với 'fileManagerPhoto.albumList.action.click' action='addImages'. Generic Drawer height
+     * TĂNG lên '90vh' (Giang yêu cầu — mặc định '70vh' của Generic Drawer không đủ chỗ cho lưới ảnh
+     * cuộn thoải mái, khác hẳn menu action chỉ vài dòng chữ). Trình tự ĐÚNG đã chốt trước đó: drawer
+     * trượt lên xong HẲN (nghe `transitionend` THẬT — core/generic-drawer.js, KHÔNG đoán mốc thời
+     * gian, khác panel chính dùng `SLIDER_PANEL_SCROLL_ESTIMATED_MS` ước lượng vì Generic Drawer đã
+     * có sẵn cơ chế transitionend chính xác hơn) -> icon loading ĐƠN GIẢN (không phải shield đầy màn
+     * hình như panel chính) -> đọc DB + windowing -> tắt icon.
+     * @param {string} albumId
+     */
+    async openAlbumImagePicker(albumId) {
+        openGenericDrawer({ // core/generic-drawer.js
+            height: '90vh', // MỚI (Giang yêu cầu, Giai đoạn 3b) — tăng từ mặc định 70vh, cần chỗ cho lưới ảnh
+            zIndex: Z_INDEX.GENERIC_DRAWER, // core/config.js — mặc định, KHÔNG có modal xem ảnh nào mở đồng thời với picker này (khác action-menu cần z=131)
+            headerHtml: this._buildImageMenuHeaderHtml(t('fileManager.photo.album.addImagesTitle')),
+            bodyHtml: this._buildImagePickerBodyHtml(),
+            bodyClass: 'flex flex-col',
+            isWindowVirtual: true, // MỚI — kích hoạt gate router cho scroll event (mountKey 'genericDrawer', event/router/virtual-list.js) — lần đầu tiên có nơi dùng path này (trước đó có hạ tầng sẵn nhưng chưa ai gọi)
+        });
+
+        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
+        if (closeBtn) closeBtn.addEventListener('click', () => {
+            eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePicker.close.click', payload: {} });
+        });
+        const confirmBtn = genericDrawerBody.querySelector('#btn-file-manager-image-picker-confirm');
+        if (confirmBtn) confirmBtn.addEventListener('click', () => {
+            eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePicker.confirm.click', payload: {} });
+        });
+        // Click tile — delegated NGAY TRÊN genericDrawerBody (KHÔNG đi qua settingsStackBody, Generic
+        // Drawer là ANH EM của #app-stack trong #app-root — cấu trúc DOM tách biệt hẳn, xem docstring
+        // core/generic-drawer.js — nên PHẢI tự wire riêng ở đây, không dựa được vào delegation chung
+        // của event/listener/file-manager-photo.js). Callback gọi eventBus.send() — ĐÚNG yêu cầu
+        // Giang, KHÔNG gọi thẳng workflow method như _wireImageMenuEvents() đang làm (đó là tiền lệ
+        // CŨ, chấp nhận được vì Workflow-gọi-Workflow-của-chính-mình không bị Rule 5a chi phối, nhưng
+        // ở ĐÂY đi qua eventBus cho nhất quán với toàn bộ luồng ảnh còn lại).
+        genericDrawerBody.addEventListener('click', (e) => {
+            const tile = e.target.closest('button[data-image-key]');
+            if (!tile) return;
+            eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePicker.tile.click', payload: { imageKey: tile.dataset.imageKey } });
+        });
+
+        await new Promise((resolve) => {
+            genericDrawerPanel.addEventListener('transitionend', function onOpenTransitionEnd() {
+                genericDrawerPanel.removeEventListener('transitionend', onOpenTransitionEnd);
+                resolve();
+            }, { once: true });
+        });
+
+        const loadingIconEl = genericDrawerBody.querySelector('#file-manager-image-picker-loading');
+        if (loadingIconEl) loadingIconEl.classList.remove('hidden');
+        const images = await listImages(); // core/file-manager/image.js
+        if (loadingIconEl) loadingIconEl.classList.add('hidden');
+
+        const scrollEl = genericDrawerBody.querySelector('#file-manager-image-picker-scroll');
+        const emptyEl = genericDrawerBody.querySelector('#file-manager-image-picker-empty');
+        if (emptyEl) emptyEl.classList.toggle('hidden', images.length > 0);
+        this.setupPhotoGridWindow(scrollEl, images, { selectionMode: true, selectedImageKeys: new Set() }, 'genericDrawer');
+        // Set rỗng ban đầu — Router giữ Set THẬT (imagePickerSelectedKeys), truyền lại đúng tham
+        // chiếu đó qua toggleImagePickerSelectionInSet()/redraw() ngay khi tile đầu tiên được bấm,
+        // cùng cơ chế "Set truyền vào ctx lúc mount() là chính Set Router giữ" đã dùng cho lưới chính.
+    },
+
+    /** HTML khung picker: scroll container (grid windowing sẽ chèn vào TRONG đây) + icon loading đơn
+     * giản (KHÔNG phải shield đầy màn hình — Giang chốt trình tự "drawer lên xong -> icon đơn giản ->
+     * load -> tắt") + nút xác nhận cố định đáy. Đặt ở Workflow (không phải core) — cùng khuôn
+     * `_buildImageMenuHeaderHtml()` bên dưới, glue 1-nơi-dùng, không đủ "substantial" để tách core.
+     */
+    _buildImagePickerBodyHtml() {
+        return `
+            <div class="flex-1 min-h-0 overflow-y-auto relative" id="file-manager-image-picker-scroll">
+                <p id="file-manager-image-picker-empty" class="hidden text-sm text-slate-400 text-center py-10 px-6">${t('fileManager.photo.image.empty')}</p>
+            </div>
+            <div id="file-manager-image-picker-loading" class="hidden absolute inset-0 flex items-center justify-center bg-black/40 pointer-events-none">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 animate-spin text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            </div>
+            <div class="p-4 border-t border-white/10 shrink-0">
+                <button type="button" id="btn-file-manager-image-picker-confirm" class="w-full py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors">${t('fileManager.photo.album.btnAddSelected')}</button>
+            </div>
+        `;
+    },
+
+    /** Ứng với 'fileManagerPhoto.imagePicker.tile.click'. Cùng khuôn `toggleQuickDeleteMarkInSet()`
+     * — mutate Set qua tham chiếu + patch DOM surgical, KHÔNG đọc/ghi DB.
+     * @param {string} imageKey
+     * @param {Set<string>} selectedKeys
+     */
+    toggleImagePickerSelectionInSet(imageKey, selectedKeys) {
+        if (selectedKeys.has(imageKey)) selectedKeys.delete(imageKey);
+        else selectedKeys.add(imageKey);
+        workflowVirtualList.redraw('genericDrawer'); // event/workflow/virtual-list.js
+    },
+
+    /** Ứng với 'fileManagerPhoto.imagePicker.confirm.click'. addImagesToAlbum() tự bỏ qua ảnh đã có
+     * sẵn trong album (không thêm trùng) — xem core/file-manager/album.js.
+     * @param {string} albumId
+     * @param {Set<string>} selectedKeys
+     * @param {number} albumListPageIndex - để vẽ lại ĐÚNG trang đang xem sau khi đóng picker.
+     */
+    async confirmAlbumImagePicker(albumId, selectedKeys, albumListPageIndex) {
+        const keys = Array.from(selectedKeys);
+        workflowVirtualList.unmount('genericDrawer'); // event/workflow/virtual-list.js — dọn object URL NGAY, không đợi lần mount() kế tiếp mới tự dọn
+        this._closeGenericDrawerFully();
+        if (keys.length === 0) return; // guard — chưa chọn gì thì không gọi DB, không thông báo gì
 
         let addedCount = 0;
         await withLoadingShield(t('common.loading.savingInfo'), async () => {
-            const result = await addImagesToAlbum(keys, albumId);
+            const result = await addImagesToAlbum(keys, albumId); // core/file-manager/album.js
             addedCount = result.addedCount;
         });
-        await this.refresh(activeAlbumId, false, new Set());
+        await this.refreshAlbumListPanel(albumListPageIndex);
         await alertModal(tFormat('fileManager.photo.album.addImagesSuccess', { count: addedCount }));
+    },
+
+    /** Ứng với 'fileManagerPhoto.imagePicker.close.click' — đóng picker, KHÔNG addImagesToAlbum gì
+     * cả (Huỷ). */
+    closeAlbumImagePicker() {
+        workflowVirtualList.unmount('genericDrawer'); // event/workflow/virtual-list.js — dọn object URL NGAY
+        this._closeGenericDrawerFully();
     },
 
     /** MỚI (Giai đoạn 1, rewrite Photo/Album, mục 3c/3d) — resize 1 ảnh lúc upload: `height` = ĐÚNG
@@ -539,7 +646,7 @@ const workflowFileManagerPhoto = {
         await alertModal(tFormat('fileManager.photo.image.uploadSuccess', { count: successCount }));
     },
 
-    /** Ứng với 'fileManagerPhoto.image.click' khi imageSelectionMode=false (xem router).
+    /** Ứng với 'fileManagerPhoto.image.click' khi imageQuickDeleteMode=false (xem router).
      * SỬA (14/07/2026, mục cuối) — menu action giờ là Generic Drawer (icon hoá) thay dropdown cũ,
      * mở qua `callbacks.onOpenMenu` (modal xem ảnh — Core — KHÔNG được tự đụng Generic Drawer, DOM
      * tĩnh, Rule 5a). `modalHandle.close()` gọi TỪ ĐÂY sau khi 1 action (trừ "Sửa caption") được
