@@ -108,7 +108,7 @@ async function cleanupOrphanedAlbumImageKeys() {
 
 /**
  * MỒ CÔI #4 — `meta.activeBackgroundAlbum` (nguồn nền Slideshow) trỏ tới 1 album đã bị xoá (lẽ ra
- * `deleteAlbumById()` đã cascade dọn ngay lúc xoá — xem event/workflow/file-manager-photo.js —
+ * `deleteAlbumFromList()` (đổi tên ở Giai đoạn 3b, rewrite Photo/Album) đã cascade dọn ngay lúc xoá — xem event/workflow/file-manager-photo.js —
  * safety net phòng đường xoá khác/lỗi đồng bộ).
  * @returns {Promise<number>} 0 hoặc 1.
  */

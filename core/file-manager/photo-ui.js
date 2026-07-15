@@ -42,100 +42,12 @@
  * lượng nhỏ, không cần window ảo).
  */
 
-// ===================== Story slider Album =====================
-
-/**
- * @param {Array<{id: string, name: string, imageKeys: string[]}>} albums
- * @param {string|null} activeAlbumId - album đang lọc (null = "Tất cả")
- * @param {Map<string, Object>} imageRecordsByKey - key -> {blob,...}, dùng lấy ảnh đại diện đầu
- *        tiên của mỗi album mà KHÔNG cần đọc DB lại (workflow đã có sẵn từ listImages()).
- * @param {HTMLElement} storyEl - Batch D6 (06/07/2026): panel Photo giờ push/pop động (core/
- *        settings-panel-stack.js) — nhận qua tham số thay vì dom-refs tĩnh `fileManagerAlbumStory`.
- */
-/**
- * SỬA (14/07/2026, mục cuối, Giang ĐƠN GIẢN HOÁ lại — "ẩn current page/page bằng css display none
- * là được") — KHÔNG còn cắt mảng theo trang (`computePage()` + re-render mỗi lần bấm ‹/›). Giờ vẽ
- * TOÀN BỘ "Tất cả" + album MỘT LẦN (chỉ lúc `refresh()` load lại dữ liệu thật), MỖI tile gắn
- * `dataset.storyPage` (trang chứa nó) — chuyển trang sau đó CHỈ toggle class `hidden` qua
- * `setAlbumStoryPageVisibility()` (ngay dưới, KHÔNG đụng DB/DOM rebuild) — rẻ hơn nhiều, không cần
- * Workflow gọi lại `refresh()` mỗi lần bấm mũi tên.
- * @param {Array<'__all__'|{id: string, name: string, imageKeys: string[]}>} allItems - "Tất cả" +
- *        TOÀN BỘ album, KHÔNG cắt trang.
- * @param {number} itemsPerPage
- * @param {string|null} activeAlbumId
- * @param {Map<string, Object>} imageRecordsByKey
- * @param {HTMLElement} storyEl
- * @returns {number} totalPages
- */
-function renderAlbumStory(allItems, itemsPerPage, activeAlbumId, imageRecordsByKey, storyEl) {
-    if (!storyEl) return 1; // guard
-
-    storyEl.querySelectorAll('[data-has-object-url]').forEach((node) => {
-        if (node._objectUrl) { try { URL.revokeObjectURL(node._objectUrl); } catch (e) {} }
-    });
-    storyEl.innerHTML = '';
-
-    allItems.forEach((entry, index) => {
-        const pageIndex = Math.floor(index / itemsPerPage);
-
-        if (entry === '__all__') {
-            const allItem = document.createElement('button');
-            allItem.dataset.albumStoryAction = 'all';
-            allItem.dataset.storyPage = String(pageIndex);
-            allItem.className = 'flex flex-col items-center gap-1.5 shrink-0 w-16';
-            const allCircle = document.createElement('div');
-            allCircle.className = `w-14 h-14 rounded-full flex items-center justify-center border-2 transition-colors ${activeAlbumId === null ? 'border-sky-400 bg-sky-500/20' : 'border-white/15 bg-white/5'}`;
-            allCircle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>';
-            allItem.appendChild(allCircle);
-            const allLabel = document.createElement('span');
-            allLabel.className = `text-[11px] truncate w-full text-center ${activeAlbumId === null ? 'text-sky-300 font-semibold' : 'text-slate-400'}`;
-            allLabel.textContent = t('fileManager.photo.album.all');
-            allItem.appendChild(allLabel);
-            storyEl.appendChild(allItem);
-            return;
-        }
-
-        const album = entry;
-        const isActive = album.id === activeAlbumId;
-        const item = document.createElement('button');
-        item.dataset.albumStoryAction = 'select';
-        item.dataset.albumId = album.id;
-        item.dataset.storyPage = String(pageIndex);
-        item.className = 'flex flex-col items-center gap-1.5 shrink-0 w-16';
-
-        const circle = document.createElement('div');
-        circle.dataset.hasObjectUrl = '1';
-        circle.className = `w-14 h-14 rounded-full overflow-hidden flex items-center justify-center border-2 transition-colors bg-white/5 ${isActive ? 'border-sky-400' : 'border-white/15'}`;
-        circle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>';
-        const firstImageKey = album.imageKeys.find((k) => imageRecordsByKey.has(k));
-        if (firstImageKey) _observeLazyThumbnail(circle, imageRecordsByKey.get(firstImageKey).blob);
-        item.appendChild(circle);
-
-        const label = document.createElement('span');
-        label.className = `text-[11px] truncate w-full text-center ${isActive ? 'text-sky-300 font-semibold' : 'text-slate-400'}`;
-        label.textContent = album.name;
-        item.appendChild(label);
-
-        storyEl.appendChild(item);
-    });
-
-    return Math.max(1, Math.ceil(allItems.length / itemsPerPage));
-}
-
-/** MỚI (14/07/2026, mục cuối) — chuyển trang story album CHỈ bằng CSS (`hidden` — `display:none`),
- * KHÔNG đụng DOM/DB gì khác — dùng `dataset.storyPage` đã gắn sẵn lúc `renderAlbumStory()`. Hàm
- * THUẦN theo nghĩa không gọi core/appState nào khác, chỉ patch DOM surgical (cùng nhóm
- * `updateImageSelectionCount()` — patch nhỏ, không thuộc diện phải qua Workflow điều phối vì không
- * gọi core nào khác).
- * @param {HTMLElement} storyEl
- * @param {number} pageIndex
- */
-function setAlbumStoryPageVisibility(storyEl, pageIndex) {
-    if (!storyEl) return;
-    storyEl.querySelectorAll('[data-story-page]').forEach((el) => {
-        el.classList.toggle('hidden', el.dataset.storyPage !== String(pageIndex));
-    });
-}
+// ===================== ĐÃ GỠ (Giai đoạn 3b, rewrite Photo/Album, mục 3a) — Story slider Album =====
+// `renderAlbumStory()`/`setAlbumStoryPageVisibility()` (bản trước ở đây) XOÁ HẲN — THAY bằng Album
+// List sub-panel (itemTemplateAlbumListRow(), components/items.js + openAlbumListPanel()/
+// refreshAlbumListPanel(), event/workflow/file-manager-photo.js). `_thumbnailLazyObserver`/
+// `_observeLazyThumbnail` (ngay dưới) GIỮ NGUYÊN — vẫn dùng cho lưới ảnh chính + picker cover bài
+// hát (KHÔNG liên quan story slider đã xoá).
 
 // ===================== Lưới ảnh — Item + Window ảo (Patch mục 2, 14/07/2026) ===================
 // BỎ HẲN hệ Masonry chunk-based cũ (renderImageMasonry() + chunk load/collapse/restore qua
@@ -677,7 +589,7 @@ function openImageLibraryPickerModal(images, onSelect, onCancel) {
 // THAY openAlbumPickerModal() cũ (modal tối toàn màn hình, Batch 8) — panel container tĩnh
 // (#slideshow-album-picker-panel, components/slideshow-settings-drawer.js) đã mount sẵn, hàm này
 // CHỈ vẽ lại GRID bên trong mỗi lần mở (event/workflow/slideshow.js::openAlbumPicker). Album hình
-// TRÒN — cùng shape avatar ở renderAlbumStory() phía trên. Album ĐANG active có viền sáng + vòng
+// TRÒN — cùng shape avatar ở itemTemplateAlbumListRow() (components/items.js, Giai đoạn 3b). Album ĐANG active có viền sáng + vòng
 // "đang chạy" quay quanh (.ss-picker-active, assets/css/slideshow.css); các album KHÁC bị blur mờ
 // (.ss-picker-blurred) — CHỈ áp dụng khi CÓ 1 album đang active (chưa chọn gì thì hiện bình thường
 // hết, không có gì để "làm nổi bật" so với phần còn lại).
@@ -686,7 +598,7 @@ function openImageLibraryPickerModal(images, onSelect, onCancel) {
  * @param {Array<{id: string, name: string, imageKeys: string[]}>} albums
  * @param {string|null} activeAlbumId
  * @param {Map<string, Object>} imageRecordsByKey - key -> {blob,...}, dùng lấy ảnh đại diện đầu
- *        tiên của mỗi album mà KHÔNG cần đọc DB lại (cùng pattern renderAlbumStory()).
+ *        tiên của mỗi album mà KHÔNG cần đọc DB lại (cùng pattern lấy ảnh đại diện đầu tiên đã dùng ở Album List sub-panel).
  * @param {(albumId: string) => void} onSelect
  */
 function renderSlideshowAlbumPickerGrid(gridEl, albums, activeAlbumId, imageRecordsByKey, onSelect) {
@@ -729,19 +641,12 @@ function renderSlideshowAlbumPickerGrid(gridEl, albums, activeAlbumId, imageReco
     });
 }
 
-// ===================== Đếm số ảnh đang chọn (chế độ chọn nhiều) ==================================
-// TRƯỚC ĐÂY còn có `toggleImageSelectionBadge()` (patch DOM surgical, chỉ đổi 1 tile để tránh nhấp
-// nháy cả lưới) — XOÁ ở Patch mục 2 (14/07/2026) cùng lúc bỏ `renderImageMasonry()`/
-// `_masonryContainerEl`: giờ mỗi lần chọn/bỏ chọn 1 ảnh, Workflow gọi lại ĐÚNG closure vẽ cửa sổ
-// hiện tại (`setupPhotoGridWindow()` trả về, xem event/workflow/file-manager-photo.js) — chỉ vẽ lại
-// ~1 cửa sổ nhỏ (visible + buffer, không phải toàn bộ thư viện như bản Masonry cũ), nên KHÔNG còn
-// cần patch surgical riêng nữa, nhấp nháy không đáng kể.
-
-/** Đổi text "N selected" mà không đụng DOM nào khác. Batch D6 — nhận `countEl` qua tham số.
- * @param {number} count @param {HTMLElement} [countEl] */
-function updateImageSelectionCount(count, countEl) {
-    if (countEl) countEl.textContent = tFormat('fileManager.photo.album.selectedCount', { count });
-}
+// ===================== ĐÃ GỠ (Giai đoạn 3b, rewrite Photo/Album, mục 3a/4) — Đếm số ảnh đang chọn
+// (chế độ chọn nhiều NGAY TRONG lưới chính) =========================================================
+// `updateImageSelectionCount()` (bản trước ở đây) XOÁ HẲN cùng lúc bỏ hẳn `imageSelectionMode`/
+// `#file-manager-image-selection-bar` — "thêm ảnh vào album" giờ là picker Generic Drawer riêng
+// (nút xác nhận picker KHÔNG hiện số lượng dạng text riêng, chỉ có nhãn cố định — có thể bổ sung sau
+// nếu Giang thấy cần, cùng tinh thần title nút xoá nhanh đang hiện số lượng).
 
 // ===================== Tạo Album (modal) =====================
 // Cùng khuôn mẫu openRenameFolderModal() ở core/file-manager/folder-picker-ui.js — KHÔNG có sẵn
