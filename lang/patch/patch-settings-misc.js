@@ -18,6 +18,8 @@ const LANG_PATCH_SETTINGS_MISC = {
     'settingsMisc.restartApp.hint': 'Use this if the player freezes, gets stuck, or behaves abnormally. Does not affect saved music/playlist/settings.',
     'settingsMisc.restoreDefaults.label': 'Restore default settings',
     'settingsMisc.restoreDefaults.hint': 'Resets colors, effects, EQ, and other display customizations to defaults. Does NOT delete uploaded music/playlist.',
+    'settingsMisc.clearCache.label': 'Clear JS/CSS cache',
+    'settingsMisc.clearCache.hint': 'Use this if the app still looks/behaves like an older version after an update. Does not affect saved music/playlist/settings.',
 
     'settingsDrawer.title': 'System Settings',
     // Batch D1 (Settings restructure, 06/07/2026) — nút Back giờ DÙNG CHUNG cho mọi panel con

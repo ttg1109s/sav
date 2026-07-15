@@ -102,6 +102,9 @@ const LANG_PATCH_COMMON = {
     'common.appRecovery.restoreDefaultsTitle': 'Restore default settings',
     'common.appRecovery.restoreDefaultsBody': 'Restore default settings? Colors, effects, EQ, and all other display customizations will return to their original defaults. Your uploaded music and playlist will NOT be deleted.',
     'common.appRecovery.restoreDefaultsConfirmBtn': 'Restore defaults',
+    'common.appRecovery.clearCacheTitle': 'Clear JS/CSS cache',
+    'common.appRecovery.clearCacheBody': 'Clear cached app files and reload? Use this if the app still looks/behaves like an older version after an update. Your music, playlist, and saved settings will NOT be lost.',
+    'common.appRecovery.clearCacheConfirmBtn': 'Clear cache',
     'common.cancel': 'Cancel',
     // MỚI (04/07/2026, mục 2 phản hồi Giang).
     'common.save': 'Save',
