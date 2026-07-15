@@ -229,16 +229,25 @@ function computeVariableVirtualWindowRange(rowHeights, scrollTop, viewHeight, bu
  *     KHÔNG qua hệ i18n. Class `h-10` (40px) CỐ ĐỊNH — PHẢI khớp đúng hằng số
  *     `PHOTO_GRID_HEADER_HEIGHT_PX` ở `event/workflow/file-manager-photo.js` (Workflow cần biết
  *     TRƯỚC chiều cao thật để tính toán windowing — đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia).
- *   - `imageRow` — TỐI ĐA `columns` nút `<button>` ảnh, MỖI nút tự `URL.createObjectURL(image.blob)`
- *     NGAY LÚC build chuỗi. AN TOÀN dù hàm này "THUẦN" theo nghĩa Rule 1-4 (Rule 1-4 chỉ cấm
- *     `appState.get()`/gọi core khác/`addEventListener` rải rác — KHÔNG cấm side-effect khác như tạo
- *     object URL) vì chỉ 1 CỬA SỔ NHỎ (visible+buffer) được template hoá mỗi lần `renderItemList()`
- *     chạy — `workflowVirtualList.redraw()`/`unmount()` (event/workflow/virtual-list.js) tự revoke
- *     object URL CŨ trước khi vẽ lại.
+ *   - `imageRow` — bọc trong 1 `<div class="photo-row">` (Giai đoạn 2, rewrite Photo/Album, mục 3b —
+ *     THAY hẳn CSS Grid `auto-fill` cũ, tránh fragile coupling "JS đoán trước số cột trình duyệt tự
+ *     tính"). MỖI `<button>` ảnh tự set `style="aspect-ratio: width/height"` (CSS `height:100%` từ
+ *     `.photo-row` cố định chiều cao, `aspect-ratio` tự suy ra chiều rộng — KHÔNG cần JS tính px thủ
+ *     công). `image.width`/`image.height` THIẾU (ảnh cũ, upload trước Giai đoạn 1) -> fallback `1/1`
+ *     — CÙNG quy tắc fallback `buildPhotoGridRows()` (core/file-manager/image.js) đang dùng, đảm bảo
+ *     2 bên tính ra ĐÚNG hàng khớp nhau.
+ *     Object URL lấy từ `image.thumbBlob` (ảnh đã resize lúc upload — nhẹ hơn nhiều so với ảnh gốc)
+ *     — fallback `image.blob` cho ảnh cũ CHƯA có `thumbBlob` (Giai đoạn 1, mục 3d). `blob` GỐC chỉ
+ *     dùng lúc mở full view (`openImagePreviewModal()`), KHÔNG đụng ở đây.
+ *     AN TOÀN dù hàm này "THUẦN" theo nghĩa Rule 1-4 (Rule 1-4 chỉ cấm `appState.get()`/gọi core
+ *     khác/`addEventListener` rải rác — KHÔNG cấm side-effect khác như tạo object URL) vì chỉ 1 CỬA
+ *     SỔ NHỎ (visible+buffer) được template hoá mỗi lần `renderItemList()` chạy —
+ *     `workflowVirtualList.redraw()`/`unmount()` (event/workflow/virtual-list.js) tự revoke object
+ *     URL CŨ trước khi vẽ lại.
  * 2 DẠNG xử lý trong CÙNG 1 hàm — `if/else` ở đây CHỈ chọn giữa 2 CÁCH HIỂN THỊ của CÙNG 1 khái
  * niệm "hàng lưới ảnh" — đúng khuôn `itemTemplateFolderTile()` ở trên (2 chế độ hiển thị 1 LOẠI
  * item, KHÔNG phải rẽ nhánh giữa 2 NGHIỆP VỤ khác nhau — Rule 1 chỉ cấm vế sau).
- * @param {{type:'header', addedAt:number}|{type:'imageRow', images:Array<{key:string,blob:Blob,filename:string}>}} row
+ * @param {{type:'header', addedAt:number}|{type:'imageRow', images:Array<{key:string,blob:Blob,thumbBlob?:Blob,width?:number,height?:number,filename:string}>}} row
  * @param {{selectionMode?: boolean, selectedImageKeys?: Set<string>}} [ctx]
  * @returns {string}
  */
@@ -253,14 +262,16 @@ function itemTemplateImageGridRow(row, ctx) {
 
     const selectionMode = !!(ctx && ctx.selectionMode);
     const selectedKeys = ctx && ctx.selectedImageKeys;
-    return row.images.map((image) => {
-        const objectUrl = URL.createObjectURL(image.blob);
+    const tilesHtml = row.images.map((image) => {
+        const objectUrl = URL.createObjectURL(image.thumbBlob || image.blob); // fallback ảnh cũ chưa có thumbBlob (Giai đoạn 1, mục 3d)
+        const aspectRatio = (image.width > 0 && image.height > 0) ? `${image.width}/${image.height}` : '1/1'; // fallback khớp buildPhotoGridRows()
         const isSelected = selectionMode && selectedKeys && selectedKeys.has(image.key);
         const badgeHtml = !selectionMode ? '' : `
             <span class="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-colors ${isSelected ? 'bg-sky-500 border-sky-400' : 'bg-black/40 border-white/60'}">${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>' : ''}</span>`;
         return `
-            <button type="button" class="photo-tile" data-image-key="${escapeHtml(image.key)}" data-has-object-url="1">
+            <button type="button" class="photo-tile" style="aspect-ratio: ${aspectRatio}" data-image-key="${escapeHtml(image.key)}" data-has-object-url="1">
                 <img src="${objectUrl}" alt="${escapeHtml(image.filename)}">${badgeHtml}
             </button>`;
     }).join('');
+    return `<div class="photo-row">${tilesHtml}</div>`;
 }
