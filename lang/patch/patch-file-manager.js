@@ -78,8 +78,17 @@ const LANG_PATCH_FILE_MANAGER = {
     // MỚI (14/07/2026, mục cuối, mục 2.2) — chế độ xoá nhanh.
     'fileManager.photo.image.quickDeleteTitle': 'Quick delete',
     'fileManager.photo.image.quickDeleteConfirm.title': 'Enable quick delete?',
-    'fileManager.photo.image.quickDeleteConfirm.desc': 'While enabled, tapping any photo deletes it immediately — no confirmation per photo. Tap the trash icon again to turn it off.',
+    // SỬA (Giai đoạn 3, rewrite Photo/Album — redesign chế độ xoá nhanh) — hành vi MỚI: bấm ảnh chỉ
+    // ĐÁNH DẤU (không xoá ngay), bấm lại icon thùng rác mới thật sự xoá TOÀN BỘ đã đánh dấu 1 lần.
+    'fileManager.photo.image.quickDeleteConfirm.desc': 'While enabled, tap photos to mark them for deletion. Tap the trash icon again to delete all marked photos at once.',
     'fileManager.photo.image.quickDeleteConfirm.confirmBtn': 'Enable',
+    // MỚI (Giai đoạn 3) — xác nhận xoá batch (chỉ hỏi khi có ≥1 ảnh đã đánh dấu — 0 ảnh thì thoát
+    // thẳng, không hỏi gì, xem event/router/file-manager-photo.js). Đúng khuôn modalChoice() ở
+    // deleteAlbumById() ngay dưới: `.confirm` (text động, có {count}) -> tham số 1; `.title` (tiêu đề
+    // ngắn TĨNH) -> option {title}.
+    'fileManager.photo.image.quickDeleteBatchConfirm.confirm': 'Delete {count} photos? This cannot be undone.',
+    'fileManager.photo.image.quickDeleteBatchConfirm.title': 'Delete photos?',
+    'fileManager.photo.image.quickDeleteBatchConfirm.confirmBtn': 'Delete',
     'fileManager.photo.album.all': 'All',
     'fileManager.photo.album.new': 'New',
     'fileManager.photo.album.createTitle': 'New album',
