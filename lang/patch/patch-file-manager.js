@@ -59,6 +59,16 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.image.empty': 'No photos yet. Tap the + button above to add some.',
     // MỚI (04/07/2026, mục 2 phản hồi Giang) — carousel chọn ảnh nền (Visual/Playlist).
     'fileManager.photo.carousel.confirmButton': 'Use this photo',
+    // MỚI (Giai đoạn 3b, rewrite Photo/Album, mục 3a) — carousel xem ảnh trong album (KHÁC carousel
+    // chọn nền ngay trên — nút đáy ở đây là "Xoá khỏi album", không phải "Dùng ảnh này").
+    'fileManager.photo.album.carousel.removeButton': 'Remove from album',
+    // MỚI (Giai đoạn 3b) — Album List sub-panel (THAY story slider ngang cũ).
+    'fileManager.photo.albumList.title': 'Albums',
+    'fileManager.photo.albumList.entryButton': 'Albums',
+    'fileManager.photo.albumList.empty': 'No albums yet.',
+    'fileManager.photo.albumList.createNew': 'New album',
+    'fileManager.photo.albumList.photoCount': '{count} photos',
+    'fileManager.photo.album.viewTitle': 'View photos',
     // MỚI (04/07/2026, mục 2 phản hồi Giang) — caption ảnh.
     'fileManager.photo.image.captionLabel': 'Caption',
     'fileManager.photo.image.captionPlaceholder': 'Add a caption for this photo…',
