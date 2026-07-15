@@ -48,7 +48,13 @@ const routerFileManagerPhoto = (() => {
             // ===================== Album (story slider) =====================
 
             case 'fileManagerPhoto.album.storyClick': {
-                if (imageSelectionMode || imageQuickDeleteMode) break; // guard: đang chọn nhiều ảnh/xoá nhanh -> KHÔNG cho đổi lọc/tạo album giữa chừng
+                // BUG FIX (14/07/2026, Giang báo "Add new album không hiện modal gì cả") — bản
+                // trước chặn CẢ khi `imageQuickDeleteMode` đang bật, im lặng `break` KHÔNG báo gì —
+                // đúng cảm giác "bấm không có phản ứng". Xét lại: KHÔNG có xung đột nghiệp vụ thật
+                // giữa "xoá nhanh" và đổi lọc/tạo album (khác `imageSelectionMode` — đang GIỮA CHỪNG
+                // chọn ảnh để thêm vào 1 album cụ thể, đổi lọc/tạo album lúc đó MỚI thật sự phá dở
+                // luồng). Chỉ còn guard đúng `imageSelectionMode`.
+                if (imageSelectionMode) break; // guard: đang chọn nhiều ảnh để thêm vào album -> KHÔNG cho đổi lọc/tạo album giữa chừng (chỉ Huỷ/Xác nhận mới thoát chế độ này)
                 const { action, albumId } = msg.payload;
                 // 3 giá trị LOẠI TRỪ NHAU (đúng data-album-story-action khai báo ở
                 // components/file-manager.js/core/file-manager/photo-ui.js) -> BẮT BUỘC qua VirtualMachineState.
