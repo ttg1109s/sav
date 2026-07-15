@@ -40,8 +40,9 @@
  *   2. Album story — pagination CHỈ toggle CSS `hidden` (Giang đơn giản hoá, KHÔNG cắt mảng/re-
  *      render mỗi lần bấm ‹/› — xem `renderAlbumStory()`/`setAlbumStoryPageVisibility()` core/
  *      file-manager/photo-ui.js). Tile "+" tạo mới ĐÃ tĩnh (components/file-manager.js).
- *   3. Chế độ "xoá nhanh" ảnh — bấm ảnh nào xoá luôn ảnh đó, không hỏi lại (`promptQuickDeleteMode`/
- *      `quickDeleteImage`).
+ *   3. Chế độ "xoá nhanh" ảnh — bấm ảnh để ĐÁNH DẤU, bấm icon thùng rác để xoá batch 1 lần (SỬA
+ *      Giai đoạn 3, redesign — xem `promptQuickDeleteMode`/`toggleQuickDeleteMarkInSet`/
+ *      `confirmQuickDeleteBatch`, docstring chi tiết ở từng hàm).
  *   4. `openPanel()` bọc `withLoadingShield()` quanh lần `refresh()` ĐẦU TIÊN — Giang chỉ ra: DOM
  *      lưới ảnh (nặng — nhiều object URL) KHÔNG được tải song song lúc panel còn đang trượt vào,
  *      phải tải SAU KHI đã vào hẳn, che bằng shield, chỉ tắt khi xong.
@@ -159,10 +160,12 @@ const workflowFileManagerPhoto = {
      * @param {Set<string>} [selectedImageKeys]
      * @param {number} [albumStoryPageIndex]
      * @param {boolean} [imageQuickDeleteMode]
+     * @param {Set<string>} [quickDeleteSelectedKeys] - MỚI (Giai đoạn 3) — ảnh đã đánh dấu chờ xoá,
+     *        LOẠI TRỪ với `selectedImageKeys` (đảm bảo ở Router).
      * @param {string|null} [focusAlbumId] - album CẦN LUÔN HIỆN RA (vd vừa tạo/vừa chọn) — tự nhảy
      *        đúng trang chứa nó, ưu tiên HƠN `albumStoryPageIndex`.
      */
-    async refresh(activeAlbumId, imageSelectionMode = false, selectedImageKeys = new Set(), albumStoryPageIndex = 0, imageQuickDeleteMode = false, focusAlbumId = null) {
+    async refresh(activeAlbumId, imageSelectionMode = false, selectedImageKeys = new Set(), albumStoryPageIndex = 0, imageQuickDeleteMode = false, quickDeleteSelectedKeys = new Set(), focusAlbumId = null) {
         if (!fileManagerPhotoPanelEl) return; // guard: panel đã đóng
         const albums = await listAlbums(); // core/file-manager/album.js
         const images = await listImages(); // core/file-manager/image.js
@@ -204,11 +207,16 @@ const workflowFileManagerPhoto = {
         }
 
         // ---- Nút "xoá nhanh" trong header: chỉ hiện khi có ảnh, đổi màu khi đang bật ----
+        // SỬA (Giai đoạn 3, redesign chế độ xoá nhanh) — title hiện thêm số lượng đã đánh dấu (vd
+        // "Xoá nhanh (3)") khi đang bật VÀ có ≥1 ảnh đã đánh dấu — phản hồi trực quan, không cần đếm
+        // lại bằng mắt từng badge đỏ trên lưới.
         const deleteModeBtn = fileManagerPhotoPanelEl.querySelector('#btn-file-manager-image-delete-mode');
         if (deleteModeBtn) {
             deleteModeBtn.classList.toggle('hidden', images.length === 0);
             deleteModeBtn.classList.toggle('bg-rose-500', imageQuickDeleteMode);
             deleteModeBtn.classList.toggle('bg-white/10', !imageQuickDeleteMode);
+            const baseTitle = t('fileManager.photo.image.quickDeleteTitle');
+            deleteModeBtn.title = (imageQuickDeleteMode && quickDeleteSelectedKeys.size > 0) ? `${baseTitle} (${quickDeleteSelectedKeys.size})` : baseTitle;
         }
 
         const displayedImages = imageSelectionMode
@@ -219,7 +227,7 @@ const workflowFileManagerPhoto = {
         this.setupPhotoGridWindow(
             fileManagerPhotoPanelEl.querySelector('#file-manager-image-scroll'),
             displayedImages,
-            { selectionMode: imageSelectionMode, selectedImageKeys }
+            { selectionMode: imageSelectionMode, selectedImageKeys, quickDeleteMode: imageQuickDeleteMode, quickDeleteSelectedKeys }
         );
     },
 
@@ -266,12 +274,53 @@ const workflowFileManagerPhoto = {
         );
     },
 
-    /** MỚI (14/07/2026, mục 2.2) — xoá NGAY 1 ảnh, không hỏi lại (đã hỏi 1 lần lúc BẬT chế độ này).
-     * Giữ nguyên `albumStoryPageIndex`/chế độ xoá nhanh sau khi refresh (đang xoá dở, KHÔNG nên nhảy
-     * về trang 1 story album hay tự thoát chế độ). */
-    async quickDeleteImage(imageKey, activeAlbumId, albumStoryPageIndex) {
-        await deleteImage(imageKey); // core/file-manager/image.js — cascade dọn album
-        await this.refresh(activeAlbumId, false, new Set(), albumStoryPageIndex, true);
+    /** SỬA (Giai đoạn 3, rewrite Photo/Album — redesign chế độ xoá nhanh) — THAY hẳn
+     * `quickDeleteImage()` cũ (xoá NGAY từng ảnh, mỗi lần round-trip DB riêng — đúng cái Giang chỉ ra
+     * "tốn kém" ở phần audit trước rewrite này). Giờ bấm ảnh chỉ TOGGLE vào/ra
+     * `quickDeleteSelectedKeys` (Set closure ở Router) — patch DOM surgical qua `redraw()`, KHÔNG
+     * `refresh()`, KHÔNG đọc/ghi DB gì cả — cùng khuôn `toggleImageSelectionInSet()` ngay trên (chỉ
+     * khác Set đích + mountKey ctx field).
+     * @param {string} imageKey
+     * @param {Set<string>} quickDeleteSelectedKeys
+     */
+    toggleQuickDeleteMarkInSet(imageKey, quickDeleteSelectedKeys) {
+        if (quickDeleteSelectedKeys.has(imageKey)) quickDeleteSelectedKeys.delete(imageKey);
+        else quickDeleteSelectedKeys.add(imageKey);
+        workflowVirtualList.redraw('photoGrid'); // event/workflow/virtual-list.js — ctx.quickDeleteSelectedKeys truyền vào mount() lúc refresh() là CHÍNH Set này (cùng tham chiếu, Router giữ nguyên object)
+    },
+
+    /** MỚI (Giai đoạn 3, rewrite Photo/Album — redesign chế độ xoá nhanh) — xoá TOÀN BỘ ảnh đã đánh
+     * dấu 1 LẦN (gộp N lần xoá thành đúng 1 round-trip DB + 1 `refresh()` duy nhất, KHÔNG phải N lần
+     * như bản cũ). Chỉ gọi khi `quickDeleteSelectedKeys.size > 0` (Router tự đảm bảo qua
+     * `VirtualMachineState`, xem event/router/file-manager-photo.js — case `size === 0` xử lý RIÊNG,
+     * không gọi hàm này).
+     * `onConfirmed` — callback Router truyền vào (KHÔNG tự set `imageQuickDeleteMode=false` ở đây,
+     * cùng khuôn `onDeleted` của `deleteAlbumById()` — Workflow không tự mutate được biến closure
+     * primitive của Router). Gọi ĐÚNG lúc xoá xong THẬT (bên trong `onClick` nút xác nhận, SAU khi
+     * `deleteImage()` đã chạy xong) — KHÔNG gọi sớm hơn, vì user có thể bấm Huỷ ở modal, lúc đó mode
+     * PHẢI vẫn đang bật (UI vẫn đúng thực tế, không lệch với Router).
+     * @param {Set<string>} quickDeleteSelectedKeys
+     * @param {string|null} activeAlbumId
+     * @param {number} albumStoryPageIndex
+     * @param {() => void} onConfirmed
+     */
+    async confirmQuickDeleteBatch(quickDeleteSelectedKeys, activeAlbumId, albumStoryPageIndex, onConfirmed) {
+        const keys = Array.from(quickDeleteSelectedKeys);
+        modalChoice( // core/modal-choice.js
+            tFormat('fileManager.photo.image.quickDeleteBatchConfirm.confirm', { count: keys.length }),
+            [
+                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
+                { label: t('fileManager.photo.image.quickDeleteBatchConfirm.confirmBtn'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
+                    await withLoadingShield(t('common.loading.savingInfo'), async () => {
+                        for (const key of keys) await deleteImage(key); // core/file-manager/image.js — cascade dọn album, TỪNG ảnh vẫn phải gọi riêng (deleteImage() không có bản batch) nhưng CHỈ 1 refresh() sau CÙNG, không phải N lần
+                    });
+                    quickDeleteSelectedKeys.clear();
+                    onConfirmed(); // Router tự đồng bộ imageQuickDeleteMode=false — ĐÚNG lúc này, không sớm hơn
+                    await this.refresh(activeAlbumId, false, new Set(), albumStoryPageIndex, false, quickDeleteSelectedKeys);
+                } },
+            ],
+            { title: t('fileManager.photo.image.quickDeleteBatchConfirm.title') }
+        );
     },
 
     /** MỚI (Patch mục 2, 14/07/2026) — chuẩn bị "hàng lưới" (buildPhotoGridRows(), core) rồi giao
@@ -333,7 +382,7 @@ const workflowFileManagerPhoto = {
                 await alertModal(tFormat('fileManager.folderPicker.duplicateName', { name: escapeHtml(name) }));
                 return;
             }
-            await this.refresh(activeAlbumId, false, new Set(), 0, false, result.albumId); // focusAlbumId — LUÔN nhảy tới đúng trang chứa album vừa tạo (xem giải thích bug ở docstring refresh())
+            await this.refresh(activeAlbumId, false, new Set(), 0, false, new Set(), result.albumId); // focusAlbumId — LUÔN nhảy tới đúng trang chứa album vừa tạo (xem giải thích bug ở docstring refresh())
         });
     },
 
