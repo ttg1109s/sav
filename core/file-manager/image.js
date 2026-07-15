@@ -3,6 +3,15 @@
  * Batch 3 (03/07/2026). Schema ĐÃ CHỐT từ hạ tầng DB trước đó (xem comment DB_VERSION ở
  * service/db.js): store 'images', key = imageKey, value = { blob, filename, addedAt }.
  *
+ * MỚI (Giai đoạn 1, rewrite Photo/Album — mục 3c/3d) — record thêm 3 field: `thumbBlob` (ảnh đã
+ * resize lúc upload, height cố định — event/workflow/file-manager-photo.js::_resizeImageForThumbnail(),
+ * DÙNG cho lưới ảnh), `width`/`height` (kích thước ẢNH GỐC, đo lúc resize — DÙNG để
+ * buildPhotoGridRows() tính tỉ lệ hiển thị mà KHÔNG cần decode ảnh lại lúc dựng lưới, xem hàm ngay
+ * dưới). `blob` gốc CHỈ dùng khi mở full view (openImagePreviewModal()/carousel) — KHÔNG đổi.
+ * Record CŨ (upload trước bản này) THIẾU 3 field trên — mọi nơi đọc PHẢI tự fallback (`thumbBlob ||
+ * blob`, `width > 0 ? ... : 1` coi như ảnh vuông) — KHÔNG migrate DB_VERSION (idb-keyval tự do field,
+ * cùng nguyên tắc `caption` ở setImageCaption() ngay dưới).
+ *
  * KHÔNG có store quan hệ riêng ảnh<->album (khác hẳn folder<->song) — quan hệ nằm ở field
  * `imageKeys` NGAY TRÊN record album (xem core/file-manager/album.js) — đơn giản hơn vì album
  * KHÔNG cần giữ "vị trí" của ảnh đã gỡ (không có khái niệm resume vị trí phát như playlist), nên
@@ -41,15 +50,21 @@ async function resolveImageKey(filename) {
 
 /**
  * Lưu 1 ảnh mới (hoặc ghi đè nếu trùng filename — xem resolveImageKey()). 1 tiến trình duy nhất:
- * sinh key -> ghi record.
- * @param {File|Blob} file
+ * sinh key -> ghi record. `thumbBlob`/`width`/`height` PHẢI tính SẴN trước khi gọi hàm này (Workflow
+ * — event/workflow/file-manager-photo.js::_resizeImageForThumbnail(), cần Image/canvas là DOM API,
+ * core KHÔNG được đụng theo Rule 1-4, đúng tiền lệ event/workflow/image-edit.js đang xử lý canvas
+ * riêng ở Workflow) — hàm này (core) CHỈ ghi lại nguyên xi, không tự resize/decode gì thêm.
+ * @param {File|Blob} file - blob ẢNH GỐC (không resize).
  * @param {string} filename
+ * @param {Blob} thumbBlob - ảnh đã resize sẵn, dùng cho lưới (Giai đoạn 1, mục 3d).
+ * @param {number} width - chiều rộng ẢNH GỐC (px), đo lúc resize.
+ * @param {number} height - chiều cao ẢNH GỐC (px), đo lúc resize.
  * @returns {Promise<string>} imageKey vừa lưu
  */
-async function saveImage(file, filename) {
+async function saveImage(file, filename, thumbBlob, width, height) {
     const imageKey = await resolveImageKey(filename); // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
     console.log(`[saveImage] callTo: "resolveImageKey", request: "sinh/tái dùng key duy nhất từ tên file '${filename}'"`);
-    await setImageRecord(imageKey, { blob: file, filename, addedAt: Date.now() });
+    await setImageRecord(imageKey, { blob: file, thumbBlob, width, height, filename, addedAt: Date.now() });
     return imageKey;
 }
 
@@ -73,6 +88,12 @@ async function setImageCaption(imageKey, caption) {
  * MỚI (14/07/2026, mục cuối — tính năng Edit ảnh) — ghi đè `blob` sau khi sửa ở trang
  * `image-edit.html`, giữ nguyên `filename`/`addedAt`/`caption` — cùng khuôn `setImageCaption()`
  * ngay trên (đọc record đầy đủ, ghi đè ĐÚNG 1 field, lưu lại nguyên record).
+ *
+ * BIẾT TRƯỚC (Giai đoạn 1, rewrite Photo/Album) — hàm này CHƯA regenerate `thumbBlob`/`width`/
+ * `height` sau khi sửa ảnh (crop/rotate có thể đổi tỉ lệ thật) -> lưới ảnh có thể hiển thị SAI tỉ lệ
+ * cho tới khi ảnh đó được backfill (mở full view 1 lần — cùng cơ chế backfill ảnh cũ). Cân nhắc gọi
+ * `_resizeImageForThumbnail()` (event/workflow/file-manager-photo.js) ở `event/workflow/image-edit.js`
+ * lúc lưu, TRUYỀN kết quả vào đây — CHƯA làm ở Giai đoạn 1 này, để dành giai đoạn sau nếu Giang xác nhận cần.
  * @param {string} imageKey
  * @param {Blob} newBlob
  * @returns {Promise<{status: 'notFound'|'ok'}>}
@@ -149,22 +170,36 @@ function sortImagesByAddedDateDesc(images) {
  * làm "items" cho window ảo (components/items.js::computeVirtualWindowRange() + renderItemList()).
  * Mỗi hàng là 1 trong 2 dạng:
  *   - header ngăn cách ngày (hàng RIÊNG, full-width) — LUÔN bắt đầu 1 hàng ẢNH MỚI ngay sau đó, dù
- *     hàng ảnh trước chưa đủ `columns` (KHÔNG gộp ảnh 2 ngày khác nhau chung 1 hàng lưới — đúng bố
- *     cục ảnh chụp Google Photos Giang gửi).
- *   - cụm tối đa `columns` ảnh CÙNG NGÀY (1 hàng lưới thật).
+ *     hàng ảnh trước chưa lấp đầy `containerWidthPx` (KHÔNG gộp ảnh 2 ngày khác nhau chung 1 hàng).
+ *   - cụm ảnh CÙNG NGÀY vừa khít `containerWidthPx` (1 hàng lưới thật).
+ *
+ * SỬA (Giai đoạn 1, rewrite Photo/Album, mục 3b — "không phải NxN cố định, ảnh cao = chiều cao
+ * hàng, rộng theo tỉ lệ ảnh") — bản trước gộp theo SỐ LƯỢNG ảnh cố định/hàng (`columns`, ô vuông
+ * đều nhau). Giờ mỗi ảnh 1 chiều rộng hiển thị KHÁC NHAU (`rowHeightPx * tỉ lệ ảnh`) nên phải cộng
+ * dồn WIDTH thay vì đếm SỐ ẢNH — hàng đầy khi tổng width cộng thêm 1 ảnh nữa VƯỢT `containerWidthPx`.
+ * `image.width`/`image.height` (ảnh gốc, đo lúc upload — event/workflow/file-manager-photo.js::
+ * _resizeImageForThumbnail()) dùng để tính tỉ lệ MÀ KHÔNG cần decode ảnh lại ở đây (giữ hàm THUẦN,
+ * không DOM) — ảnh cũ thiếu 2 field này (upload trước Giai đoạn 1) coi tạm như ảnh vuông (tỉ lệ 1).
+ *
  * Hàm THUẦN (Rule 1-4 core-function-conventions.md) — không appState, không DOM, không gọi core
  * khác (khoá ngày tính INLINE ngay trong vòng lặp, KHÔNG tách hàm riêng — tránh Core gọi Core).
  * 1 vòng lặp duy nhất, rẽ nhánh nội bộ CHỈ để chọn giữa 2 DẠNG HIỂN THỊ của CÙNG 1 khái niệm "hàng
  * tiếp theo" — cùng khuôn if/else `itemTemplateFolderTile()` (components/items.js) chọn giữa 2 dạng
  * của CÙNG 1 loại item, không phải rẽ nhánh 2 nghiệp vụ khác nhau (Rule 1).
- * @param {Array<{key:string, blob:Blob, filename:string, addedAt:number}>} sortedImages
- * @param {number} columns - số cột lưới hiện tại (Workflow tự đo, xem setupPhotoGridWindow()).
+ * @param {Array<{key:string, blob:Blob, thumbBlob?:Blob, width?:number, height?:number, filename:string, addedAt:number}>} sortedImages
+ * @param {number} containerWidthPx - bề rộng khả dụng thật của container lưới (Workflow tự đo — xem
+ *        cảnh báo đo `clientWidth` SAI thời điểm ở docstring `setupPhotoGridWindow()`, event/workflow/
+ *        file-manager-photo.js — cùng nguyên tắc phải áp dụng ở đây).
+ * @param {number} rowHeightPx - chiều cao CỐ ĐỊNH của 1 hàng ảnh (px) — khớp `PHOTO_ROW_HEIGHT_PX`
+ *        (event/workflow/file-manager-photo.js) VÀ chiều cao resize lúc upload (`_resizeImageForThumbnail()`).
  * @returns {Array<{type:'header', addedAt:number}|{type:'imageRow', images:Array}>}
  */
-function buildPhotoGridRows(sortedImages, columns) {
-    const safeColumns = columns > 0 ? columns : 3; // guard clause thuần — vẫn 1 tiến trình duy nhất, chỉ kẹp giá trị đầu vào không hợp lệ
+function buildPhotoGridRows(sortedImages, containerWidthPx, rowHeightPx) {
+    const safeContainerWidthPx = containerWidthPx > 0 ? containerWidthPx : 320; // guard clause thuần — kẹp giá trị đầu vào không hợp lệ
+    const safeRowHeightPx = rowHeightPx > 0 ? rowHeightPx : 120; // guard clause thuần — khớp mặc định PHOTO_ROW_HEIGHT_PX
     const rows = [];
     let currentRow = null;
+    let currentRowWidthPx = 0;
     let lastDayKey = null;
     for (const image of sortedImages) {
         const d = new Date(image.addedAt || 0);
@@ -172,13 +207,18 @@ function buildPhotoGridRows(sortedImages, columns) {
         if (dayKey !== lastDayKey) {
             rows.push({ type: 'header', addedAt: image.addedAt });
             currentRow = null;
+            currentRowWidthPx = 0;
             lastDayKey = dayKey;
         }
-        if (!currentRow || currentRow.images.length >= safeColumns) {
+        const aspectRatio = (image.width > 0 && image.height > 0) ? (image.width / image.height) : 1; // guard: ảnh cũ thiếu metadata -> coi tạm như vuông
+        const displayWidthPx = safeRowHeightPx * aspectRatio;
+        if (!currentRow || (currentRowWidthPx + displayWidthPx) > safeContainerWidthPx) {
             currentRow = { type: 'imageRow', images: [] };
             rows.push(currentRow);
+            currentRowWidthPx = 0;
         }
         currentRow.images.push(image);
+        currentRowWidthPx += displayWidthPx;
     }
     return rows;
 }
