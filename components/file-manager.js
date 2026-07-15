@@ -228,20 +228,6 @@ function renderFileManagerPhotoPanelBody() {
         <div id="file-manager-image-scroll" class="flex-grow min-h-0 overflow-y-auto pb-20 relative">
             <p id="file-manager-image-empty" class="hidden text-sm text-slate-400 text-center py-10 px-6" data-i18n="fileManager.photo.image.empty">${t('fileManager.photo.image.empty')}</p>
         </div>
-
-        <!-- Thanh hành động khi đang chọn nhiều ảnh để thêm vào album đang xem (bật qua icon "Thêm
-             ảnh" ở Album List sub-panel — event/workflow/file-manager-photo.js::albumListAction()).
-             "absolute bottom-0" neo theo chính panel (fullBleed panel là position:absolute + flex
-             flex-col, cha gần nhất lập context định vị) — cần "relative" ở div masonry ngay trên để
-             "absolute" ở đây neo đúng theo panel tổng thể chứ không theo riêng div masonry (khác bản
-             gốc dùng #drawer cha làm mốc — panel giờ đã tự là mốc đó). -->
-        <div id="file-manager-image-selection-bar" class="hidden absolute bottom-0 inset-x-0 z-20 bg-[#0f172a]/95 backdrop-blur-md border-t border-white/10 px-4 py-3 flex items-center justify-between gap-2">
-            <span id="file-manager-image-selection-count" class="text-sm font-semibold text-slate-200"></span>
-            <div class="flex items-center gap-2 shrink-0">
-                <button id="btn-file-manager-image-selection-cancel" class="px-3.5 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-sm font-semibold transition-colors" data-i18n="common.cancel">${t('common.cancel')}</button>
-                <button id="btn-file-manager-image-selection-confirm" class="px-3.5 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors" data-i18n="fileManager.photo.album.btnAddSelected">${t('fileManager.photo.album.btnAddSelected')}</button>
-            </div>
-        </div>
 `;
 }
 
