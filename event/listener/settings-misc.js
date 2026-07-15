@@ -44,3 +44,10 @@ if (typeof btnRestoreDefaults !== 'undefined' && btnRestoreDefaults) {
         eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.restoreDefaults.click', payload: {} });
     });
 }
+
+// MỚI (14/07/2026, Giang yêu cầu — "nút xoá cache js/css cho page")
+if (typeof btnClearCache !== 'undefined' && btnClearCache) {
+    btnClearCache.addEventListener('click', () => {
+        eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.clearCache.click', payload: {} });
+    });
+}
