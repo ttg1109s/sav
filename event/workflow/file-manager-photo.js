@@ -237,14 +237,24 @@ const workflowFileManagerPhoto = {
      * CHUNG cho Photo & Album (gọi từ refresh()) LẪN picker cover bài hát (event/workflow/
      * playlist.js — Workflow gọi Workflow miền khác, TỰ DO theo event-bus-flow.md mục 4B).
      *
-     * SỬA (14/07/2026, Giang chỉ ra layout ảnh KHÔNG phải grid N×N cố định theo breakpoint — xem
-     * `.photo-grid` ở assets/css/style.css, giờ `repeat(auto-fill, minmax(110px, 1fr))`) — `columns`
-     * giờ ĐO THẬT bề rộng khả dụng của `scrollEl` (trừ padding qua `getComputedStyle()`, KHÔNG
-     * hardcode số magic — 2 nơi gọi hàm này có padding KHÁC NHAU: Photo `px-3`, picker `px-2`) RỒI
-     * tính đúng công thức `auto-fill` mà CSS dùng, để số "cột" JS chia ảnh vào TỪNG hàng logic khớp
-     * CHÍNH XÁC số cột trình duyệt THẬT SỰ vẽ ra — lệch 1 cột là chiều cao hàng tính sai, windowing
-     * sai theo (nghi vấn góp phần gây bug mục 3 phản hồi trước — hàng lưới tính sai chiều cao khiến
-     * `computeVariableVirtualWindowRange()` xác định sai `startIdx/endIdx`).
+     * GIẢI THÍCH BUG (14/07/2026, Giang báo "chỉ hiển thị đầy đủ SAU 1 thay đổi DOM khác", "layout
+     * vẫn sai") — NGUYÊN NHÂN GỐC THẬT SỰ: `columns` tính từ `scrollEl.clientWidth` NGAY tại đây,
+     * TRƯỚC CẢ khi gọi `mount()`. Lúc `openPanel()` vừa `pushSettingsPanel()` xong, dù đã đợi
+     * `SLIDER_PANEL_SCROLL_ESTIMATED_MS` (ước lượng, KHÔNG đảm bảo tuyệt đối), panel/khung cha đôi
+     * khi VẪN CHƯA layout xong THẬT SỰ (phụ thuộc máy/trình duyệt, ước lượng cố định không đủ tin
+     * cậy) — `scrollEl.clientWidth` đo ra `0`. `columns` tính ra sai (thường = 0 hoặc số vô nghĩa)
+     * -> `buildPhotoGridRows()` nhóm ảnh vào SAI số ảnh/hàng (KHÔNG khớp số cột CSS `auto-fill` THẬT
+     * SỰ vẽ ra sau đó -> layout lệch, mục 2) -> `computeRowHeights()` (bên trong `mount()`) CŨNG đo
+     * `sizerEl.clientWidth` lúc còn `0` đó -> `rowHeights` sai theo -> `computeVariableVirtualWindowRange()`
+     * tính ra khoảng hiển thị RỖNG/SAI (mục 1, "không hiển thị gì"). Mọi hành động sau đó gây
+     * `refresh()` MỚI (vd xoá ảnh) chạy lại ĐÚNG LÚC panel đã ổn định thật -> đo đúng -> "tự nhiên
+     * hoạt động" — ĐÚNG NHƯ Giang quan sát, không phải "tải 1 cục" theo nghĩa tải hết dữ liệu (dữ
+     * liệu ảnh vốn PHẢI đọc hết 1 lần từ DB để tính toán phân trang/windowing, đúng thiết kế) mà là
+     * "vẽ ra kết quả SAI do đo kích thước container SAI thời điểm".
+     * SỬA: tự kiểm tra `scrollEl` ĐÃ có kích thước thật chưa (`clientWidth`/`clientHeight` > 0)
+     * NGAY TRƯỚC khi tính `columns` — CHƯA thì tự lên lịch gọi lại chính nó ở khung hình kế tiếp
+     * (`requestAnimationFrame`, KHÔNG đoán 1 mốc thời gian cố định nào) tới khi đo được thật mới
+     * tính tiếp — đảm bảo `columns`/`rows` LUÔN dựa trên kích thước ĐÃ ổn định.
      * @param {HTMLElement} scrollEl - container CUỘN, ĐÃ có trong DOM thật.
      * @param {Array<{key:string, blob:Blob, filename:string, addedAt:number}>} images
      * @param {{selectionMode?: boolean, selectedImageKeys?: Set<string>}} [ctx]
@@ -253,6 +263,12 @@ const workflowFileManagerPhoto = {
      */
     setupPhotoGridWindow(scrollEl, images, ctx, mountKey = 'photoGrid') {
         if (!scrollEl) return;
+        if (scrollEl.clientWidth === 0 || scrollEl.clientHeight === 0) {
+            // Container CHƯA có kích thước thật (panel/khung cha còn đang settle layout) — thử lại
+            // NGAY khung hình kế tiếp, KHÔNG vẽ gì với số liệu sai lúc này.
+            requestAnimationFrame(() => this.setupPhotoGridWindow(scrollEl, images, ctx, mountKey));
+            return;
+        }
         const scrollElStyle = window.getComputedStyle(scrollEl);
         const availableWidth = scrollEl.clientWidth - parseFloat(scrollElStyle.paddingLeft || '0') - parseFloat(scrollElStyle.paddingRight || '0');
         const columns = Math.max(1, Math.floor((availableWidth + PHOTO_GRID_GAP_PX) / (PHOTO_TILE_MIN_PX + PHOTO_GRID_GAP_PX))); // ĐÚNG công thức auto-fill CSS dùng
