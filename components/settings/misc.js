@@ -48,12 +48,20 @@ const TPL_SETTINGS_MISC = `
                     </div>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                 </button>
-                <button id="setting-restore-defaults" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
+                <button id="setting-restore-defaults" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
                     <div class="pr-3">
                         <div class="text-sm font-medium truncate" data-i18n="settingsMisc.restoreDefaults.label">${t('settingsMisc.restoreDefaults.label')}</div>
                         <div class="text-xs text-slate-400 mt-0.5" data-i18n="settingsMisc.restoreDefaults.hint">${t('settingsMisc.restoreDefaults.hint')}</div>
                     </div>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                </button>
+                <!-- MỚI (14/07/2026, Giang yêu cầu — "nút xoá cache js/css cho page") -->
+                <button id="setting-clear-cache" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
+                    <div class="pr-3">
+                        <div class="text-sm font-medium truncate" data-i18n="settingsMisc.clearCache.label">${t('settingsMisc.clearCache.label')}</div>
+                        <div class="text-xs text-slate-400 mt-0.5" data-i18n="settingsMisc.clearCache.hint">${t('settingsMisc.clearCache.hint')}</div>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
             </div>
         </div>
