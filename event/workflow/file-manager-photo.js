@@ -56,10 +56,9 @@ const PHOTO_GRID_GAP_PX = 2;
 // Khớp minmax(110px, ...) trong .photo-grid (assets/css/style.css, auto-fill — KHÔNG còn breakpoint
 // cố định) — đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia (JS cần biết TRƯỚC số cột THẬT trình duyệt sẽ
 // tự tính, để chia ảnh vào đúng hàng cho windowing).
-// SẼ GỠ ở Giai đoạn 2 (thay bằng PHOTO_ROW_HEIGHT_PX ngay dưới — đổi hẳn từ lưới NxN cố định sang
-// hàng cao cố định/rộng theo tỉ lệ ảnh, mục 3b) — CHƯA gỡ ở Giai đoạn 1 vì setupPhotoGridWindow()
-// vẫn đang gọi buildPhotoGridRows() theo chữ ký CŨ (columns) cho tới khi Giai đoạn 2 nối lại.
-const PHOTO_TILE_MIN_PX = 110;
+// ĐÃ GỠ ở Giai đoạn 2 (`PHOTO_TILE_MIN_PX` không còn dùng — thay bằng `PHOTO_ROW_HEIGHT_PX` ngay
+// dưới, đổi hẳn từ lưới NxN cố định sang hàng cao cố định/rộng theo tỉ lệ ảnh, mục 3b). CSS Grid
+// `auto-fill`/`minmax` cũng đã bỏ (assets/css/style.css::.photo-grid).
 // MỚI (Giai đoạn 1, rewrite Photo/Album, mục 3b/3c) — chiều cao CỐ ĐỊNH (px) của 1 hàng ảnh kiểu
 // "justified row" (Google Photos thật — KHÔNG phải ô vuông NxN). Dùng ở 2 chỗ, BẮT BUỘC khớp nhau:
 //   1. `_resizeImageForThumbnail()` (ngay dưới) — resize `thumbBlob` lúc upload đúng chiều cao này.
@@ -281,26 +280,24 @@ const workflowFileManagerPhoto = {
      * CHUNG cho Photo & Album (gọi từ refresh()) LẪN picker cover bài hát (event/workflow/
      * playlist.js — Workflow gọi Workflow miền khác, TỰ DO theo event-bus-flow.md mục 4B).
      *
-     * GIẢI THÍCH BUG (14/07/2026, Giang báo "chỉ hiển thị đầy đủ SAU 1 thay đổi DOM khác", "layout
-     * vẫn sai") — NGUYÊN NHÂN GỐC THẬT SỰ: `columns` tính từ `scrollEl.clientWidth` NGAY tại đây,
-     * TRƯỚC CẢ khi gọi `mount()`. Lúc `openPanel()` vừa `pushSettingsPanel()` xong, dù đã đợi
-     * `SLIDER_PANEL_SCROLL_ESTIMATED_MS` (ước lượng, KHÔNG đảm bảo tuyệt đối), panel/khung cha đôi
-     * khi VẪN CHƯA layout xong THẬT SỰ (phụ thuộc máy/trình duyệt, ước lượng cố định không đủ tin
-     * cậy) — `scrollEl.clientWidth` đo ra `0`. `columns` tính ra sai (thường = 0 hoặc số vô nghĩa)
-     * -> `buildPhotoGridRows()` nhóm ảnh vào SAI số ảnh/hàng (KHÔNG khớp số cột CSS `auto-fill` THẬT
-     * SỰ vẽ ra sau đó -> layout lệch, mục 2) -> `computeRowHeights()` (bên trong `mount()`) CŨNG đo
-     * `sizerEl.clientWidth` lúc còn `0` đó -> `rowHeights` sai theo -> `computeVariableVirtualWindowRange()`
-     * tính ra khoảng hiển thị RỖNG/SAI (mục 1, "không hiển thị gì"). Mọi hành động sau đó gây
-     * `refresh()` MỚI (vd xoá ảnh) chạy lại ĐÚNG LÚC panel đã ổn định thật -> đo đúng -> "tự nhiên
-     * hoạt động" — ĐÚNG NHƯ Giang quan sát, không phải "tải 1 cục" theo nghĩa tải hết dữ liệu (dữ
-     * liệu ảnh vốn PHẢI đọc hết 1 lần từ DB để tính toán phân trang/windowing, đúng thiết kế) mà là
-     * "vẽ ra kết quả SAI do đo kích thước container SAI thời điểm".
-     * SỬA: tự kiểm tra `scrollEl` ĐÃ có kích thước thật chưa (`clientWidth`/`clientHeight` > 0)
-     * NGAY TRƯỚC khi tính `columns` — CHƯA thì tự lên lịch gọi lại chính nó ở khung hình kế tiếp
-     * (`requestAnimationFrame`, KHÔNG đoán 1 mốc thời gian cố định nào) tới khi đo được thật mới
-     * tính tiếp — đảm bảo `columns`/`rows` LUÔN dựa trên kích thước ĐÃ ổn định.
+     * GIẢI THÍCH BUG CŨ (14/07/2026, Giang báo "chỉ hiển thị đầy đủ SAU 1 thay đổi DOM khác", "layout
+     * vẫn sai") — NGUYÊN NHÂN GỐC lúc đó: `columns` tính từ `scrollEl.clientWidth` NGAY tại đây,
+     * TRƯỚC CẢ khi gọi `mount()`, dựa trên việc "đoán" số cột CSS `auto-fill` SẼ tự vẽ ra — sai 1 ly
+     * (đo `clientWidth` lúc panel chưa settle layout xong, ra `0`) là `buildPhotoGridRows()` gộp SAI
+     * số ảnh/hàng, KHÔNG khớp layout CSS thật vẽ ra sau đó.
+     * SỬA (Giai đoạn 2, rewrite Photo/Album, mục 3b) — bỏ HẲN khái niệm `columns`/CSS Grid auto-fill.
+     * Giờ mỗi hàng là 1 `.photo-row` FLEX tường minh (components/items.js::itemTemplateImageGridRow()),
+     * cao CỐ ĐỊNH `PHOTO_ROW_HEIGHT_PX`, tile rộng theo `aspect-ratio` CSS thật (không cần trình
+     * duyệt "đoán" cột nữa) — `buildPhotoGridRows()` chỉ cần `containerWidthPx` (đo 1 LẦN DUY NHẤT,
+     * TRƯỚC khi build rows) để biết dừng hàng ở đâu, KHÔNG cần khớp lại với bất kỳ phép đo DOM nào
+     * SAU đó nữa. `computeRowHeights()` (bên trong `mount()`) giờ trả về HẰNG SỐ thuần (không đo
+     * `sizerEl.clientWidth` như bản cũ) — loại bỏ hẳn lớp fragility THỨ 2 (2 lần đo DOM ở 2 thời điểm
+     * khác nhau phải khớp nhau) từng gây ra đúng bug này.
+     * Guard `clientWidth === 0` NGAY DƯỚI đây VẪN GIỮ NGUYÊN — vẫn cần đo `containerWidthPx` ĐÚNG lúc
+     * container đã có kích thước thật (panel/khung cha có thể chưa settle layout xong), chỉ khác là
+     * giờ CHỈ đo 1 LẦN cho mục đích packing hàng, không còn ai đo lại lần 2 cho chiều cao nữa.
      * @param {HTMLElement} scrollEl - container CUỘN, ĐÃ có trong DOM thật.
-     * @param {Array<{key:string, blob:Blob, filename:string, addedAt:number}>} images
+     * @param {Array<{key:string, blob:Blob, thumbBlob?:Blob, width?:number, height?:number, filename:string, addedAt:number}>} images
      * @param {{selectionMode?: boolean, selectedImageKeys?: Set<string>}} [ctx]
      * @param {string} [mountKey] - phân biệt Photo & Album (mặc định 'photoGrid') với picker cover
      *        bài hát ('photoGridPicker', truyền tường minh từ playlist.js) — 2 container ĐỘC LẬP.
@@ -315,18 +312,15 @@ const workflowFileManagerPhoto = {
         }
         const scrollElStyle = window.getComputedStyle(scrollEl);
         const availableWidth = scrollEl.clientWidth - parseFloat(scrollElStyle.paddingLeft || '0') - parseFloat(scrollElStyle.paddingRight || '0');
-        const columns = Math.max(1, Math.floor((availableWidth + PHOTO_GRID_GAP_PX) / (PHOTO_TILE_MIN_PX + PHOTO_GRID_GAP_PX))); // ĐÚNG công thức auto-fill CSS dùng
-        const rows = buildPhotoGridRows(sortImagesByAddedDateDesc(images), columns); // core/file-manager/image.js
+        const rows = buildPhotoGridRows(sortImagesByAddedDateDesc(images), availableWidth, PHOTO_ROW_HEIGHT_PX); // core/file-manager/image.js — chữ ký MỚI (Giai đoạn 1+2)
 
         workflowVirtualList.mount(mountKey, { // event/workflow/virtual-list.js
             scrollEl, rows, ctx,
             templateFn: itemTemplateImageGridRow, // components/items.js
             windowId: 'file-manager-image-masonry', // GIỮ NGUYÊN id cũ — listener click delegated (event/listener/file-manager-photo.js) lọc theo id này
             windowClassName: 'photo-grid',
-            computeRowHeights: (sizerEl) => {
-                const tileWidth = (sizerEl.clientWidth - (columns - 1) * PHOTO_GRID_GAP_PX) / columns;
-                const imageRowHeight = tileWidth + PHOTO_GRID_GAP_PX;
-                return rows.map((row) => row.type === 'header' ? PHOTO_GRID_HEADER_HEIGHT_PX + PHOTO_GRID_GAP_PX : imageRowHeight);
+            computeRowHeights: () => { // KHÔNG còn cần đo sizerEl — chiều cao mỗi loại hàng giờ là HẰNG SỐ (Giai đoạn 2)
+                return rows.map((row) => row.type === 'header' ? PHOTO_GRID_HEADER_HEIGHT_PX + PHOTO_GRID_GAP_PX : PHOTO_ROW_HEIGHT_PX + PHOTO_GRID_GAP_PX);
             },
         });
     },
