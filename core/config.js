@@ -32,6 +32,26 @@
             _reportFatalError('Promise bị reject nhưng không ai .catch()', e.reason);
         });
 
+        // MỚI (Giai đoạn 1, rewrite Photo/Album, mục 2 — fix bug Generic Drawer không che nút close)
+        // — bảng z-index TẬP TRUNG. Root cause bug cũ: mỗi overlay tự gán số z-index riêng rải rác
+        // từng file (Image Preview z-130, Generic Drawer mặc định z-128, action-menu z-131, modal-
+        // choice z-200...) — không ai đối chiếu chung 1 chỗ, dễ lặp lại lỗi lệch thứ tự lớp khi thêm
+        // overlay mới. MỌI overlay/modal/drawer MỚI (album carousel, cover picker chuyển vào Generic
+        // Drawer — Giai đoạn 3/4) PHẢI tra bảng này qua `element.style.zIndex = String(Z_INDEX.xxx)`
+        // (KHÔNG dùng class Tailwind tĩnh kiểu `z-[130]` — không interpolate được hằng số JS lúc
+        // runtime, đúng cách core/generic-drawer.js đang làm). Overlay CŨ (chưa migrate) giữ nguyên
+        // số hiện tại, sẽ đổi dần khi giai đoạn liên quan đụng tới file đó — KHÔNG đổi hàng loạt ở
+        // đây để tránh rủi ro ngoài phạm vi Giai đoạn 1.
+        const Z_INDEX = {
+            APP_STACK: 60,                  // #app-stack (main.js) — mốc tham chiếu thấp nhất
+            GENERIC_DRAWER: 128,             // core/generic-drawer.js — panel; overlay tự dùng GENERIC_DRAWER - 1
+            IMAGE_PREVIEW: 130,              // core/file-manager/photo-ui.js::openImagePreviewModal()
+            IMAGE_CAROUSEL_PICKER: 130,      // core/file-manager/photo-ui.js::openImageCarouselPickerModal()
+            PHOTO_UI_IMAGE_PICKER: 130,      // core/file-manager/photo-ui.js::openPhotoUiImagePickerModal() — SẼ GỠ khi chuyển vào Generic Drawer (Giai đoạn 4)
+            IMAGE_ACTION_MENU_DRAWER: 131,   // event/workflow/file-manager-photo.js::_openImageActionMenu()/_openEditCaptionForm() — Generic Drawer mở TRÊN Image Preview
+            MODAL_CHOICE: 200,               // core/modal-choice.js — luôn cao nhất
+        };
+
         const APP_CONFIG = { fftSizeStandard: 256, fftSizeHighRes: 2048, fftSizePitch: 2048, bpmMinWaitTime: 250 };
         const PERFORMANCE_PROFILES = {
             high: { stars: 200, tunnelRings: 60, glassDrops: 250, bldMult: 1.0, streakProb: 0.8, blurMult: 1.0, streetRain: 220 },
