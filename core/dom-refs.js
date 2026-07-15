@@ -172,7 +172,7 @@
         const visualEnabledToggle = document.getElementById('setting-visual-enable');
         const keepScreenOnToggle = document.getElementById('setting-keep-screen-on');
         // Khắc phục sự cố (ver 10 refine, bổ sung) — xem js/core/app-recovery.js.
-        const btnRestartApp = document.getElementById('setting-restart-app'), btnRestoreDefaults = document.getElementById('setting-restore-defaults');
+        const btnRestartApp = document.getElementById('setting-restart-app'), btnRestoreDefaults = document.getElementById('setting-restore-defaults'), btnClearCache = document.getElementById('setting-clear-cache');
 
         // Ngôn ngữ (Settings) — xem lang/language-settings.js.
         // FIX (kiến trúc /event/, cụm "languageSettings"): 3 biến này TRƯỚC ĐÂY tự getElementById
