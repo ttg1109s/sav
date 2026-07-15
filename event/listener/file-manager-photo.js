@@ -12,6 +12,17 @@
  * động do Workflow tự dựng thì Workflow tự wire", xem docstring core/generic-drawer.js), block
  * delegated cũ cho `#btn-file-manager-image-upload-trigger` ĐÃ BỎ (tránh gọi `.click()` 2 lần).
  *
+ * ĐẬP ĐI LÀM LẠI (Giai đoạn 3b, rewrite Photo/Album, mục 3a/4, Giang yêu cầu) — XOÁ HẲN delegation
+ * cho story slider (`data-album-story-action`, `#file-manager-album-story-pagination-wrap`) và
+ * thanh quản lý album inline (`#file-manager-album-manage-bar`) — THAY bằng Album List sub-panel
+ * (`#btn-file-manager-open-album-list`, `#file-manager-album-filter-chip`, `#file-manager-album-list`
+ * — vẫn delegated qua `settingsStackBody`, VÌ Album List sub-panel là panel push động, NẰM TRONG
+ * `settingsStackBody` giống mọi panel khác). XOÁ delegation cho thanh chọn nhiều cũ
+ * (`#btn-file-manager-image-selection-cancel/confirm`) — "thêm ảnh vào album" giờ là picker Generic
+ * Drawer riêng, click grid của picker đó KHÔNG qua đây (Generic Drawer là ANH EM của `#app-stack`
+ * trong `#app-root`, NẰM NGOÀI `settingsStackBody` — wire riêng TRỰC TIẾP trong
+ * `workflowFileManagerPhoto.openAlbumImagePicker()`, xem file đó).
+ *
  * NẠP SAU CÙNG (sau bus, core, workflow, router, VÀ SAU dom-refs.js).
  */
 
@@ -22,43 +33,40 @@ if (btnOpenFileManagerPhoto) {
 }
 
 function handleFileManagerPhotoDelegatedClick(e) {
-    // ===================== Story slider Album (Batch 3) =====================
-    // BUG FIX (14/07/2026, Giang phát hiện — nút "+" tạo album không hoạt động): tile "+" đã tách
-    // ra làm anh em (sibling) của #file-manager-album-story từ lúc mục 3 (arrow pagination) —
-    // scope CŨ `e.target.closest('#file-manager-album-story')` chỉ trùng phần TRONG đó, KHÔNG bắt
-    // được click trên tile "+" (đứng NGOÀI, tuy cùng hàng) -> đổi sang scope theo HÀNG NGOÀI CÙNG
-    // (#file-manager-album-story-row, bao cả 2).
-    const storyBtn = e.target.closest('button[data-album-story-action]');
-    if (storyBtn && e.target.closest('#file-manager-album-story-row')) {
-        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.album.storyClick', payload: { action: storyBtn.dataset.albumStoryAction, albumId: storyBtn.dataset.albumId } });
+    // ===================== MỚI (Giai đoạn 3b) — panel Photo chính: mở Album List + bỏ lọc =========
+
+    if (e.target.closest('#btn-file-manager-open-album-list')) {
+        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.open.click', payload: {} });
         return;
     }
-    // MỚI (14/07/2026, mục 2.3) — 2 nút ‹/› pagination story album — GIỜ là nút do
-    // buildPaginationArrowsHtml() (core/pagination.js) tự sinh, đổ vào
-    // #file-manager-album-story-pagination-wrap (xem event/workflow/file-manager-photo.js::
-    // _renderAlbumStoryPagination()) — chọn theo `data-pagination-action`, thuộc tính core TỰ gắn,
-    // KHÔNG phải id tự đặt.
-    const paginationBtn = e.target.closest('#file-manager-album-story-pagination-wrap button[data-pagination-action]');
-    if (paginationBtn) {
-        const action = paginationBtn.dataset.paginationAction;
-        if (action === 'prev') eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumStory.prev.click', payload: {} });
-        else if (action === 'next') eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumStory.next.click', payload: {} });
+    if (e.target.closest('#btn-file-manager-album-filter-clear')) {
+        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumFilter.clear.click', payload: {} });
         return;
     }
 
-    // ===================== Thanh quản lý album đang lọc =====================
-    if (e.target.closest('#file-manager-album-manage-bar')) {
-        const btn = e.target.closest('button[id]');
-        if (!btn) return;
-        const actionById = {
-            'btn-file-manager-album-add-images': 'addImages',
-            'btn-file-manager-album-set-slideshow-bg': 'setSlideshowBg',
-            'btn-file-manager-album-rename': 'rename',
-            'btn-file-manager-album-delete': 'delete',
-        };
-        const action = actionById[btn.id];
-        if (!action) return; // bấm trúng phần tử khác trong thanh (vd tên album) -> không gửi gì cả
-        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.album.manageClick', payload: { action } });
+    // ===================== MỚI (Giai đoạn 3b) — Album List sub-panel ==========================
+    // Check `data-album-list-action` (icon) TRƯỚC `data-album-list-row` (tên/số lượng) — 1 icon nằm
+    // LỒNG bên trong hàng, closest() sẽ trúng icon trước nếu check icon trước, tránh bấm icon lại
+    // kích hoạt luôn cả filter (xem docstring itemTemplateAlbumListRow(), components/items.js).
+
+    const albumListCreateBtn = e.target.closest('#btn-file-manager-album-list-create');
+    if (albumListCreateBtn) {
+        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.create.click', payload: {} });
+        return;
+    }
+    const albumListPaginationBtn = e.target.closest('#file-manager-album-list-pagination button[data-pagination-action="goto"]');
+    if (albumListPaginationBtn) {
+        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.page.click', payload: { pageIndex: Number(albumListPaginationBtn.dataset.pageIndex) } });
+        return;
+    }
+    const albumListActionBtn = e.target.closest('button[data-album-list-action]');
+    if (albumListActionBtn && e.target.closest('#file-manager-album-list')) {
+        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.action.click', payload: { action: albumListActionBtn.dataset.albumListAction, albumId: albumListActionBtn.dataset.albumId } });
+        return;
+    }
+    const albumListRowBtn = e.target.closest('button[data-album-list-row]');
+    if (albumListRowBtn && e.target.closest('#file-manager-album-list')) {
+        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.rowClick', payload: { albumId: albumListRowBtn.dataset.albumId } });
         return;
     }
 
@@ -66,16 +74,6 @@ function handleFileManagerPhotoDelegatedClick(e) {
     const tile = e.target.closest('button[data-image-key]');
     if (tile && e.target.closest('#file-manager-image-masonry')) {
         eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.image.click', payload: { imageKey: tile.dataset.imageKey } });
-        return;
-    }
-
-    // ===================== Thanh hành động chọn nhiều =====================
-    if (e.target.closest('#btn-file-manager-image-selection-cancel')) {
-        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imageSelection.cancel', payload: {} });
-        return;
-    }
-    if (e.target.closest('#btn-file-manager-image-selection-confirm')) {
-        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imageSelection.confirm', payload: {} });
         return;
     }
 }
