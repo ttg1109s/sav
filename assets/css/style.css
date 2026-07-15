@@ -319,28 +319,28 @@ body {
 /* ============================================================================================
    MỚI (14/07/2026, mục cuối, Giang yêu cầu — "layout ảnh không giống Google Photos, dùng CSS
    thuần thay Tailwind") — lưới ảnh Photo & Album (components/items.js::itemTemplateImageGridRow(),
-   event/workflow/file-manager-photo.js::setupPhotoGridWindow()). Google Photos: ô VUÔNG sát mép
-   nhau (khe hở ~2px), KHÔNG bo góc, KHÔNG viền — khác hẳn bản Tailwind cũ (rounded-xl + border +
-   gap-1/4px). `.photo-grid-header`/`.photo-tile` chiều cao/khoảng cách PHẢI khớp đúng
-   PHOTO_GRID_HEADER_HEIGHT_PX/PHOTO_GRID_GAP_PX (event/workflow/file-manager-photo.js) — đổi 1
-   trong 2 chỗ PHẢI đổi luôn chỗ kia.
+   event/workflow/file-manager-photo.js::setupPhotoGridWindow()). Google Photos: ô sát mép nhau
+   (khe hở ~2px), KHÔNG bo góc, KHÔNG viền — khác hẳn bản Tailwind cũ (rounded-xl + border +
+   gap-1/4px). `.photo-grid-header`/`.photo-row` chiều cao/khoảng cách PHẢI khớp đúng
+   PHOTO_GRID_HEADER_HEIGHT_PX/PHOTO_ROW_HEIGHT_PX/PHOTO_GRID_GAP_PX (event/workflow/file-manager-
+   photo.js) — đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia.
 
-   SỬA (14/07/2026, Giang chỉ lại — "không phải grid N x N cố định, mà X ảnh = width container, dư
-   ra vừa X+1 ảnh thì xuống hàng mới, cứ thế lặp lại"): bản trước CHỈ đổi cột qua ĐÚNG 1 breakpoint
-   (`@media min-width:640px`, 3 cột -> 4 cột) — vẫn là "N x N cố định" theo TỪNG breakpoint, không
-   đúng ý. `repeat(auto-fill, minmax(PHOTO_TILE_MIN_PX, 1fr))` — trình duyệt TỰ tính số cột vừa
-   khít bề rộng container ở BẤT KỲ độ rộng nào (không chỉ 2 mốc cố định), mỗi ô co giãn đều
-   (`1fr`) để LẤP KÍN hàng — ĐÚNG "X ảnh = width container" Giang mô tả. `PHOTO_TILE_MIN_PX` PHẢI
-   khớp hằng số cùng tên ở `event/workflow/file-manager-photo.js` (JS cần biết TRƯỚC số cột THẬT để
-   chia ảnh vào đúng hàng cho windowing — đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia).
+   SỬA (Giai đoạn 2, rewrite Photo/Album, mục 3b — Giang chỉ lại LẦN 2: "không phải cố định n x n,
+   height cố định, div chứa ảnh auto width, ảnh height = height div, width auto theo tỉ lệ ảnh")
+   — ĐẢO NGƯỢC quyết định "ô vuông auto-fill" (bản 14/07/2026 phía trên, giờ đã lỗi thời): CSS Grid
+   `auto-fill`/`aspect-ratio:1/1` ép MỌI ảnh thành ô vuông NxN, không còn phù hợp. Giờ mỗi "hàng" là
+   1 `.photo-row` FLEX riêng (bọc tường minh trong `itemTemplateImageGridRow()`, KHÔNG còn để CSS Grid
+   tự auto-flow các tile rời rạc — đó là nguồn gốc fragile coupling cũ: JS phải đoán TRƯỚC đúng số cột
+   trình duyệt sẽ tự tính để chia ảnh vào đúng hàng, sai 1 ly là lệch windowing). Mỗi `.photo-tile`
+   cao BẰNG chiều cao hàng (CSS `height:100%` trong `.photo-row` đã fix `height`), rộng TỰ ĐỘNG theo
+   `aspect-ratio` (đặt inline qua `style`, tính từ `image.width/image.height` — CÙNG SỐ LIỆU
+   `buildPhotoGridRows()` (core/file-manager/image.js) dùng để cộng dồn width lúc gộp hàng, nên 2 bên
+   LUÔN khớp nhau, không cần trình duyệt "đoán" cột nữa).
    ============================================================================================ */
 .photo-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 2px;
+    display: block;
 }
 .photo-grid-header {
-    grid-column: 1 / -1;
     height: 40px;
     display: flex;
     align-items: center;
@@ -349,10 +349,17 @@ body {
     font-weight: 600;
     color: #e2e8f0;
 }
+.photo-row {
+    display: flex;
+    height: 120px; /* khớp PHOTO_ROW_HEIGHT_PX (event/workflow/file-manager-photo.js) — đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia */
+    gap: 2px;
+    overflow: hidden; /* tile cuối hàng có thể dư/thiếu vài px so với bề rộng container (JS chỉ ước lượng TRƯỚC khi trình duyệt render thật) — cắt phần dư thay vì tràn layout */
+}
 .photo-tile {
     position: relative;
     display: block;
-    aspect-ratio: 1 / 1;
+    height: 100%;
+    flex-shrink: 0; /* GIỮ NGUYÊN width tính từ aspect-ratio — không cho flexbox bóp méo để lấp đầy hàng */
     overflow: hidden;
     background: rgba(255, 255, 255, 0.05);
     padding: 0;
