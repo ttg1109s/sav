@@ -127,7 +127,32 @@ const workflowFileManagerPhoto = {
      * @param {number} [albumStoryPageIndex]
      * @param {boolean} [imageQuickDeleteMode]
      */
-    async refresh(activeAlbumId, imageSelectionMode = false, selectedImageKeys = new Set(), albumStoryPageIndex = 0, imageQuickDeleteMode = false) {
+    /** Đọc lại toàn bộ album + ảnh, vẽ lại story slider + masonry + thanh quản lý album + thanh
+     * chọn nhiều (lọc theo activeAlbumId nếu có). Dùng lại ở MỌI nơi cần vẽ lại (mở panel, chọn
+     * album, đổi tên/xoá album, tạo album, upload xong, xoá ảnh xong, bật/tắt/xác nhận chọn nhiều).
+     * KHÔNG dùng cho pagination story album nữa (bấm ‹/› giờ đi `navigateAlbumStoryPage()`, CHỈ
+     * toggle CSS, không gọi lại hàm này — xem đó).
+     *
+     * BUG FIX (14/07/2026, Giang báo "Add new album chưa hoạt động") — TRUY VẾT: click -> router ->
+     * `promptCreateAlbum()` -> `openCreateAlbumModal()` -> `createAlbum()` (ghi DB, THÀNH CÔNG) ->
+     * `refresh(activeAlbumId)` — CHỈ 1 tham số, 4 tham số phân trang còn lại lấy mặc định, trong đó
+     * `albumStoryPageIndex = 0` LUÔN LUÔN. Nếu ĐÃ có đủ album lấp đầy trang 1 (`itemsPerPage`, tuỳ
+     * bề rộng màn hình — vd 4 album/trang), album VỪA TẠO (thường KHÔNG rơi đúng cuối danh sách vì
+     * `listAlbums()` trả theo thứ tự KEY IndexedDB, không phải thứ tự tạo) có thể rơi vào TRANG 2+
+     * — `setAlbumStoryPageVisibility(storyListEl, 0)` chỉ hiện trang 1, ẩn hẳn trang chứa album vừa
+     * tạo. Album ĐÃ tạo thành công trong DB (kiểm tra lại DB sẽ thấy) nhưng KHÔNG HIỆN LÊN MÀN HÌNH
+     * — đúng cảm giác "chưa hoạt động". SỬA: thêm `focusAlbumId` (tuỳ chọn) — nếu truyền, tự tìm
+     * ĐÚNG trang chứa album đó (dựa theo CHÍNH `itemsPerPage` vừa đo, không đoán) rồi hiện trang đó,
+     * bỏ qua `albumStoryPageIndex` truyền vào.
+     * @param {string|null} activeAlbumId
+     * @param {boolean} [imageSelectionMode]
+     * @param {Set<string>} [selectedImageKeys]
+     * @param {number} [albumStoryPageIndex]
+     * @param {boolean} [imageQuickDeleteMode]
+     * @param {string|null} [focusAlbumId] - album CẦN LUÔN HIỆN RA (vd vừa tạo/vừa chọn) — tự nhảy
+     *        đúng trang chứa nó, ưu tiên HƠN `albumStoryPageIndex`.
+     */
+    async refresh(activeAlbumId, imageSelectionMode = false, selectedImageKeys = new Set(), albumStoryPageIndex = 0, imageQuickDeleteMode = false, focusAlbumId = null) {
         if (!fileManagerPhotoPanelEl) return; // guard: panel đã đóng
         const albums = await listAlbums(); // core/file-manager/album.js
         const images = await listImages(); // core/file-manager/image.js
@@ -137,8 +162,16 @@ const workflowFileManagerPhoto = {
         const storyListEl = fileManagerPhotoPanelEl.querySelector('#file-manager-album-story');
         if (storyListEl) {
             const itemsPerPage = Math.max(1, Math.floor((storyListEl.clientWidth + ALBUM_STORY_GAP_PX) / (ALBUM_STORY_TILE_WIDTH_PX + ALBUM_STORY_GAP_PX)));
-            const totalPages = renderAlbumStory(['__all__', ...albums], itemsPerPage, activeAlbumId, imageRecordsByKey, storyListEl); // core/file-manager/photo-ui.js
-            const clampedPage = Math.max(0, Math.min(albumStoryPageIndex, totalPages - 1));
+            const combinedStoryItems = ['__all__', ...albums];
+            const totalPages = renderAlbumStory(combinedStoryItems, itemsPerPage, activeAlbumId, imageRecordsByKey, storyListEl); // core/file-manager/photo-ui.js
+
+            let targetPageIndex = albumStoryPageIndex;
+            if (focusAlbumId) {
+                const focusIndex = combinedStoryItems.findIndex((item) => item !== '__all__' && item.id === focusAlbumId);
+                if (focusIndex >= 0) targetPageIndex = Math.floor(focusIndex / itemsPerPage); // album mới có thể KHÔNG ở cuối danh sách (thứ tự theo key IndexedDB) — tìm ĐÚNG vị trí thật, không đoán
+            }
+
+            const clampedPage = Math.max(0, Math.min(targetPageIndex, totalPages - 1));
             setAlbumStoryPageVisibility(storyListEl, clampedPage); // core/file-manager/photo-ui.js
             storyListEl.dataset.totalPages = String(totalPages); // navigateAlbumStoryPage() đọc lại — KHÔNG cần đo/render lại mỗi lần bấm ‹/›
             this._renderAlbumStoryPagination(clampedPage, totalPages);
@@ -295,7 +328,7 @@ const workflowFileManagerPhoto = {
                 await alertModal(tFormat('fileManager.folderPicker.duplicateName', { name: escapeHtml(name) }));
                 return;
             }
-            await this.refresh(activeAlbumId);
+            await this.refresh(activeAlbumId, false, new Set(), 0, false, result.albumId); // focusAlbumId — LUÔN nhảy tới đúng trang chứa album vừa tạo (xem giải thích bug ở docstring refresh())
         });
     },
 
