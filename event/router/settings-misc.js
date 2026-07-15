@@ -66,6 +66,19 @@ const routerSettingsMisc = (() => {
                 break;
             }
 
+            // MỚI (14/07/2026, Giang yêu cầu — "nút xoá cache js/css cho page")
+            case 'settingsMisc.clearCache.click': {
+                workflowSettingsMisc.askClearCache({
+                    onConfirmSend: () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.clearCache.confirm', payload: {} })
+                });
+                break;
+            }
+
+            case 'settingsMisc.clearCache.confirm': {
+                executeClearCache(); // core/app-recovery.js — async, không cần await ở đây (router không giữ gì sau lệnh gọi)
+                break;
+            }
+
             default:
                 console.warn(`[router:settingsMisc] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`);
         }
