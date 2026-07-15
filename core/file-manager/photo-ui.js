@@ -690,13 +690,24 @@ function openImagePreviewModal(image, callbacks) {
         overlay.remove();
     }
 
-    // MỚI (14/07/2026, mục cuối, Giang yêu cầu — "ảnh phải full width/height với màn") — ảnh PHỦ
-    // KÍN overlay (.photo-preview-image, assets/css/style.css — object-fit: cover, KHÔNG contain),
-    // header/caption NỔI ĐÈ LÊN TRÊN bằng gradient scrim thay vì đẩy ảnh thu nhỏ lại như bản cũ.
+    // SỬA (14/07/2026, Giang chỉ ra: "sao ảnh nào cũng crop để full view?" — ĐÚNG, bản trước gán
+    // CỨNG `object-fit: cover` cho MỌI ảnh, không tính hướng ảnh so với hướng màn hình). GIẢI THÍCH:
+    // "full width + full height" và "không cắt mất ảnh" chỉ cùng đúng khi tỉ lệ ảnh ~ tỉ lệ màn
+    // hình (cùng hướng: ảnh ngang trên màn ngang, ảnh dọc trên màn dọc) — cover lúc đó chỉ cắt RẤT
+    // ÍT (khớp sẵn). Ảnh NGANG xem trên màn DỌC (hoặc ngược lại) mà ép cover sẽ cắt mất PHẦN LỚN nội
+    // dung ảnh — không hợp lý. SỬA: đo `naturalWidth/Height` (ảnh) so `innerWidth/Height` (màn hình)
+    // NGAY khi ảnh load xong — CÙNG hướng (cả 2 cùng ngang hoặc cùng dọc) mới dùng cover; LỆCH hướng
+    // thì đổi qua contain (hiện trọn ảnh, dư khoảng đen 2 bên do overlay đã bg-black sẵn — KHÔNG mất
+    // nội dung ảnh).
     const img = document.createElement('img');
-    img.src = objectUrl;
     img.alt = image.filename;
     img.className = 'photo-preview-image';
+    img.addEventListener('load', () => {
+        const imageIsLandscape = img.naturalWidth >= img.naturalHeight;
+        const screenIsLandscape = window.innerWidth >= window.innerHeight;
+        img.style.objectFit = (imageIsLandscape === screenIsLandscape) ? 'cover' : 'contain';
+    }, { once: true });
+    img.src = objectUrl;
     overlay.appendChild(img);
 
     // ---- Header nổi: X đóng (trái) + "..." mở menu (phải) ----
