@@ -248,7 +248,9 @@ function computeVariableVirtualWindowRange(rowHeights, scrollTop, viewHeight, bu
  * niệm "hàng lưới ảnh" — đúng khuôn `itemTemplateFolderTile()` ở trên (2 chế độ hiển thị 1 LOẠI
  * item, KHÔNG phải rẽ nhánh giữa 2 NGHIỆP VỤ khác nhau — Rule 1 chỉ cấm vế sau).
  * @param {{type:'header', addedAt:number}|{type:'imageRow', images:Array<{key:string,blob:Blob,thumbBlob?:Blob,width?:number,height?:number,filename:string}>}} row
- * @param {{selectionMode?: boolean, selectedImageKeys?: Set<string>}} [ctx]
+ * @param {{selectionMode?: boolean, selectedImageKeys?: Set<string>, quickDeleteMode?: boolean, quickDeleteSelectedKeys?: Set<string>}} [ctx]
+ *        `quickDeleteMode`/`quickDeleteSelectedKeys` MỚI (Giai đoạn 3, redesign chế độ xoá nhanh) —
+ *        LOẠI TRỪ với `selectionMode` (đảm bảo ở Router, không bao giờ cả 2 cùng true).
  * @returns {string}
  */
 function itemTemplateImageGridRow(row, ctx) {
@@ -262,14 +264,28 @@ function itemTemplateImageGridRow(row, ctx) {
 
     const selectionMode = !!(ctx && ctx.selectionMode);
     const selectedKeys = ctx && ctx.selectedImageKeys;
+    // MỚI (Giai đoạn 3, rewrite Photo/Album — redesign chế độ xoá nhanh) — 2 chế độ đánh dấu tile
+    // LOẠI TRỪ NHAU (đảm bảo ở Router — event/router/file-manager-photo.js, KHÔNG BAO GIỜ cả 2 cùng
+    // true): `selectionMode` (chọn thêm vào album, badge XANH) / `quickDeleteMode` (đánh dấu chờ xoá
+    // — MỚI, badge ĐỎ, khác màu để phân biệt 2 nghiệp vụ). Badge ĐỎ dùng luôn icon thùng rác thay vì
+    // dấu tick — rõ ý nghĩa hơn ("ảnh này SẼ bị xoá") so với dùng chung 1 kiểu tick 2 màu.
+    const quickDeleteMode = !!(ctx && ctx.quickDeleteMode);
+    const quickDeleteSelectedKeys = ctx && ctx.quickDeleteSelectedKeys;
     const tilesHtml = row.images.map((image) => {
         const objectUrl = URL.createObjectURL(image.thumbBlob || image.blob); // fallback ảnh cũ chưa có thumbBlob (Giai đoạn 1, mục 3d)
         const aspectRatio = (image.width > 0 && image.height > 0) ? `${image.width}/${image.height}` : '1/1'; // fallback khớp buildPhotoGridRows()
         const isSelected = selectionMode && selectedKeys && selectedKeys.has(image.key);
-        const badgeHtml = !selectionMode ? '' : `
+        const isMarkedForDelete = quickDeleteMode && quickDeleteSelectedKeys && quickDeleteSelectedKeys.has(image.key);
+        let badgeHtml = '';
+        if (selectionMode) {
+            badgeHtml = `
             <span class="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-colors ${isSelected ? 'bg-sky-500 border-sky-400' : 'bg-black/40 border-white/60'}">${isSelected ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>' : ''}</span>`;
+        } else if (quickDeleteMode) {
+            badgeHtml = `
+            <span class="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-colors ${isMarkedForDelete ? 'bg-rose-500 border-rose-400' : 'bg-black/40 border-white/60'}">${isMarkedForDelete ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>' : ''}</span>`;
+        }
         return `
-            <button type="button" class="photo-tile" style="aspect-ratio: ${aspectRatio}" data-image-key="${escapeHtml(image.key)}" data-has-object-url="1">
+            <button type="button" class="photo-tile${isMarkedForDelete ? ' opacity-50' : ''}" style="aspect-ratio: ${aspectRatio}" data-image-key="${escapeHtml(image.key)}" data-has-object-url="1">
                 <img src="${objectUrl}" alt="${escapeHtml(image.filename)}">${badgeHtml}
             </button>`;
     }).join('');
