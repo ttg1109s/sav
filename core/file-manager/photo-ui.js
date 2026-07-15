@@ -390,7 +390,141 @@ function openImageCarouselPickerModal(images, onSelect, onCancel) {
     document.body.appendChild(overlay);
 }
 
-// ===================== Picker cover bài hát — TÁI DÙNG view Photo UI mới (04/07/2026, mục 3) =====
+// ===================== MỚI (Giai đoạn 3b, rewrite Photo/Album, mục 3a) — Carousel XEM ảnh trong 1
+// album + XOÁ KHỎI ALBUM (không phải xoá khỏi thư viện) — mở từ icon "view" ở Album List sub-panel.
+// HÀM RIÊNG (không nhét vào openImageCarouselPickerModal() ở trên dù cấu trúc DOM gần giống hệt) —
+// đây là 2 NGHIỆP VỤ khác nhau thật sự (chọn 1 ảnh làm nền vs duyệt+xoá nhiều ảnh khỏi album), Rule 1
+// cấm branch giữa 2 nghiệp vụ trong CÙNG 1 hàm — chấp nhận lặp lại ~60 dòng cấu trúc DOM, đúng
+// tinh thần "lặp code, giữ Rule 3 rõ ràng" đã áp dụng ở core/pagination.js. CÓ dùng lại
+// `computeCarouselWindowIndices()` (hàm toán THUẦN, không phải "core khác" theo nghĩa Rule 3 — cùng
+// cách `resolveImageKey()` gọi thẳng `slugify()` dùng chung).
+// =====================================================================================================
+
+/**
+ * @param {Array<{key: string, blob: Blob, filename: string}>} images - ảnh TRONG album đang xem
+ *        (album đã lọc sẵn TRƯỚC khi truyền vào — hàm này không tự lọc theo albumId).
+ * @param {(imageKey: string) => void} onRemoveFromAlbum - gọi NGAY lúc bấm nút xoá (KHÔNG await —
+ *        hàm này chỉ cập nhật UI local ngay lập tức/optimistic, Workflow tự lo ghi DB async song
+ *        song, cùng tinh thần `toggleImageSelectionInSet()` không đợi DB).
+ * @param {() => void} [onClose] - gọi khi đóng modal (X, hết ảnh, hoặc bấm ra ngoài) — dùng để nơi
+ *        gọi tự refresh() lại Album List (số lượng ảnh trong album có thể đã đổi).
+ */
+function openImageCarouselViewModal(images, onRemoveFromAlbum, onClose) {
+    const stale = document.getElementById('image-carousel-view-overlay');
+    if (stale) stale.remove();
+
+    if (images.length === 0) {
+        if (typeof onClose === 'function') onClose();
+        alertModal(t('fileManager.photo.image.empty'));
+        return;
+    }
+
+    let currentIndex = 0;
+    let localImages = [...images]; // bản sao MUTABLE riêng — xoá khỏi đây KHÔNG đụng mảng gốc nơi gọi truyền vào
+    const loadedSlides = new Map(); // index -> { el, objectUrl }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'image-carousel-view-overlay';
+    overlay.className = 'fixed inset-0 z-[130] bg-black flex flex-col';
+
+    function closeModal() {
+        loadedSlides.forEach(({ objectUrl }) => { try { URL.revokeObjectURL(objectUrl); } catch (e) {} });
+        loadedSlides.clear();
+        overlay.remove();
+        if (typeof onClose === 'function') onClose();
+    }
+
+    const header = document.createElement('div');
+    header.className = 'flex justify-between items-center px-4 py-3 shrink-0';
+    const counter = document.createElement('span');
+    counter.className = 'text-sm text-slate-300 font-mono';
+    header.appendChild(counter);
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white';
+    closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
+    closeBtn.addEventListener('click', closeModal);
+    header.appendChild(closeBtn);
+    overlay.appendChild(header);
+
+    const viewport = document.createElement('div');
+    viewport.className = 'flex-1 relative overflow-hidden';
+    overlay.appendChild(viewport);
+
+    const footer = document.createElement('div');
+    footer.className = 'flex items-center justify-between gap-3 p-4 shrink-0';
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0 disabled:opacity-30';
+    prevBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>';
+    // SỬA (chốt với Giang) — nút đáy KHÔNG phải "chọn ảnh" (openImageCarouselPickerModal() đã có
+    // ý nghĩa đó) — ở ĐÂY là "Xoá khỏi album" (removeImageFromAlbum(), KHÔNG xoá khỏi thư viện).
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-bold transition-colors shadow';
+    removeBtn.textContent = t('fileManager.photo.album.carousel.removeButton');
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0 disabled:opacity-30';
+    nextBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>';
+    footer.appendChild(prevBtn);
+    footer.appendChild(removeBtn);
+    footer.appendChild(nextBtn);
+    overlay.appendChild(footer);
+
+    function ensureSlide(index) {
+        if (loadedSlides.has(index)) return;
+        const image = localImages[index];
+        const el = document.createElement('div');
+        el.className = 'absolute inset-0 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200';
+        const img = document.createElement('img');
+        img.className = 'max-w-full max-h-full object-contain';
+        img.alt = image.filename;
+        const objectUrl = URL.createObjectURL(image.blob);
+        img.src = objectUrl;
+        el.appendChild(img);
+        viewport.appendChild(el);
+        loadedSlides.set(index, { el, objectUrl });
+    }
+
+    function render() {
+        const total = localImages.length;
+        counter.textContent = `${currentIndex + 1} / ${total}`;
+        prevBtn.disabled = total <= 1;
+        nextBtn.disabled = total <= 1;
+
+        const windowIndices = computeCarouselWindowIndices(currentIndex, total, CAROUSEL_WINDOW_RADIUS);
+        windowIndices.forEach((idx) => ensureSlide(idx));
+
+        Array.from(loadedSlides.keys()).forEach((idx) => {
+            if (windowIndices.includes(idx)) return;
+            const { el, objectUrl } = loadedSlides.get(idx);
+            try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+            el.remove();
+            loadedSlides.delete(idx);
+        });
+
+        loadedSlides.forEach(({ el }, idx) => {
+            el.classList.toggle('opacity-100', idx === currentIndex);
+            el.classList.toggle('opacity-0', idx !== currentIndex);
+        });
+    }
+
+    prevBtn.addEventListener('click', () => { currentIndex = (currentIndex - 1 + localImages.length) % localImages.length; render(); });
+    nextBtn.addEventListener('click', () => { currentIndex = (currentIndex + 1) % localImages.length; render(); });
+    removeBtn.addEventListener('click', () => {
+        const removedKey = localImages[currentIndex].key;
+        onRemoveFromAlbum(removedKey); // fire-and-forget — Workflow tự ghi DB async song song, KHÔNG await ở core (Rule 2/4)
+        localImages.splice(currentIndex, 1);
+        if (localImages.length === 0) { closeModal(); return; } // hết ảnh trong album -> đóng hẳn
+        if (currentIndex >= localImages.length) currentIndex = localImages.length - 1;
+        // Index đã lệch sau splice -> cache slide theo index cũ SAI hoàn toàn -> dọn SẠCH, để
+        // ensureSlide() tự dựng lại đúng cửa sổ mới quanh currentIndex (đơn giản, an toàn hơn tự vá
+        // lại từng index — xoá ảnh là thao tác không thường xuyên, không cần tối ưu chi tiết ở đây).
+        loadedSlides.forEach(({ objectUrl, el }) => { try { URL.revokeObjectURL(objectUrl); } catch (e) {} el.remove(); });
+        loadedSlides.clear();
+        render();
+    });
+
+    render();
+    document.body.appendChild(overlay);
+}
 // THAY hẳn openImageLibraryPickerModal() (lưới columns cũ) cho RIÊNG chỗ "Chọn ảnh" ở tab Cover
 // (Edit song info, event/workflow/playlist.js) — dùng ĐÚNG khung/style của Photo & Album, tận dụng
 // NGUYÊN layout thay vì duy trì 2 kiểu lưới ảnh khác nhau trong project.
