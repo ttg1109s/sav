@@ -192,39 +192,26 @@ function renderFileManagerFolderDetailPanelBody() {
 // tính core tự gắn sẵn, không cần thêm class/id gì mới vào core).
 function renderFileManagerPhotoPanelBody() {
     return `
-        <!-- Album story: ‹ | [+ tạo mới, CỐ ĐỊNH] | [Tất cả + album, PHÂN TRANG] | › -->
-        <div id="file-manager-album-story-row" class="flex items-center gap-2 pl-2 pr-4 py-4 shrink-0 border-b border-white/5">
-            <div id="file-manager-album-story-pagination-wrap"></div>
-            <button data-album-story-action="create" class="photo-album-story-content flex flex-col items-center gap-1.5 shrink-0 w-16">
-                <div class="w-14 h-14 rounded-full flex items-center justify-center border-2 border-dashed border-white/20 text-slate-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                </div>
-                <span class="text-[11px] text-slate-400 truncate w-full text-center">${t('fileManager.photo.album.new')}</span>
-            </button>
-            <div id="file-manager-album-story" class="photo-album-story-content flex gap-4 overflow-hidden flex-1 min-w-0"></div>
-        </div>
+        <!-- SỬA (Giai đoạn 3b, rewrite Photo/Album, mục 3a — Giang yêu cầu "đập đi làm lại") — THAY
+             HẲN story slider ngang + thanh quản lý album cũ (2 khối đã xoá, xem lịch sử git nếu cần
+             đối chiếu) bằng 1 nút mở Album List sub-panel riêng (list phân trang, xem
+             renderFileManagerAlbumListPanelBody() ngay dưới + event/workflow/file-manager-photo.js::
+             openAlbumListPanel()). Toàn bộ quản lý album (đổi tên/xoá/thêm ảnh/xem) giờ SỐNG TRONG
+             sub-panel đó — panel Photo chính CHỈ còn hiện chip lọc đơn giản (tên album đang lọc + nút
+             bỏ lọc) khi có, KHÔNG còn thanh hành động đầy đủ như trước. -->
+        <button id="btn-file-manager-open-album-list" class="flex items-center justify-between gap-2 pl-4 pr-3 py-3 shrink-0 border-b border-white/5 hover:bg-white/5 transition-colors">
+            <span class="text-sm font-semibold text-slate-200" data-i18n="fileManager.photo.albumList.entryButton">${t('fileManager.photo.albumList.entryButton')}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+        </button>
 
-        <!-- Thanh quản lý album đang lọc: chỉ hiện khi activeAlbumId != null (toggle 'hidden'/
-             'flex' ở workflow, xem event/workflow/file-manager-photo.js::refresh()). 3 nút: Thêm
-             ảnh có sẵn (mở chế độ chọn nhiều trong masonry) / Đổi tên / Xoá album. -->
-        <div id="file-manager-album-manage-bar" class="hidden items-center justify-between gap-2 px-4 py-2 border-b border-white/5 shrink-0 bg-white/5">
-            <span id="file-manager-album-manage-name" class="text-sm font-semibold text-sky-300 truncate min-w-0"></span>
-            <div class="flex items-center gap-1 shrink-0">
-                <button id="btn-file-manager-album-add-images" class="p-1.5 rounded-full hover:bg-white/10 transition-colors text-slate-400 hover:text-sky-400" data-i18n-title="fileManager.photo.album.addImagesTitle" title="${t('fileManager.photo.album.addImagesTitle')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v4m-2-2h4" /></svg>
-                </button>
-                <!-- MỚI (Batch 8, slideshow) — "Dùng làm nền Slideshow" cho album đang lọc, xem
-                     event/workflow/file-manager-photo.js::setAsSlideshowBackground(). -->
-                <button id="btn-file-manager-album-set-slideshow-bg" class="p-1.5 rounded-full hover:bg-white/10 transition-colors text-slate-400 hover:text-fuchsia-400" data-i18n-title="fileManager.photo.album.setSlideshowBgTitle" title="${t('fileManager.photo.album.setSlideshowBgTitle')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 22V12h6v10" /></svg>
-                </button>
-                <button id="btn-file-manager-album-rename" class="p-1.5 rounded-full hover:bg-white/10 transition-colors text-slate-400 hover:text-emerald-400" data-i18n-title="fileManager.photo.album.renameTitle" title="${t('fileManager.photo.album.renameTitle')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                </button>
-                <button id="btn-file-manager-album-delete" class="p-1.5 rounded-full hover:bg-rose-500/10 transition-colors text-slate-400 hover:text-rose-400" data-i18n-title="fileManager.photo.album.deleteTitle" title="${t('fileManager.photo.album.deleteTitle')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
-            </div>
+        <!-- Chip lọc album đang xem — chỉ hiện khi activeAlbumId != null (toggle 'hidden'/'flex' ở
+             workflow, xem event/workflow/file-manager-photo.js::refresh()). Đổi tên/xoá/thêm ảnh/xem
+             album giờ đều làm TRONG Album List sub-panel — chip này CHỈ để bỏ lọc nhanh. -->
+        <div id="file-manager-album-filter-chip" class="hidden items-center justify-between gap-2 px-4 py-2 border-b border-white/5 shrink-0 bg-white/5">
+            <span id="file-manager-album-filter-name" class="text-sm font-semibold text-sky-300 truncate min-w-0"></span>
+            <button id="btn-file-manager-album-filter-clear" class="p-1.5 rounded-full hover:bg-white/10 transition-colors text-slate-400 hover:text-white shrink-0" title="${t('fileManager.photo.album.all')}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
         </div>
 
         <!-- Lưới ảnh — Item + window ảo (Patch mục 2, 14/07/2026, THAY masonry chunk-based cũ). Khung
@@ -242,12 +229,12 @@ function renderFileManagerPhotoPanelBody() {
             <p id="file-manager-image-empty" class="hidden text-sm text-slate-400 text-center py-10 px-6" data-i18n="fileManager.photo.image.empty">${t('fileManager.photo.image.empty')}</p>
         </div>
 
-        <!-- Thanh hành động khi đang chọn nhiều ảnh để thêm vào album đang xem (bật qua nút "Thêm
-             ảnh có sẵn" ở thanh quản lý album phía trên). "absolute bottom-0" neo theo chính panel
-             (fullBleed panel là position:absolute + flex flex-col, cha gần nhất lập context
-             định vị) — cần "relative" ở div masonry ngay trên để "absolute" ở đây neo đúng theo
-             panel tổng thể chứ không theo riêng div masonry (khác bản gốc dùng #drawer cha làm
-             mốc — panel giờ đã tự là mốc đó). -->
+        <!-- Thanh hành động khi đang chọn nhiều ảnh để thêm vào album đang xem (bật qua icon "Thêm
+             ảnh" ở Album List sub-panel — event/workflow/file-manager-photo.js::albumListAction()).
+             "absolute bottom-0" neo theo chính panel (fullBleed panel là position:absolute + flex
+             flex-col, cha gần nhất lập context định vị) — cần "relative" ở div masonry ngay trên để
+             "absolute" ở đây neo đúng theo panel tổng thể chứ không theo riêng div masonry (khác bản
+             gốc dùng #drawer cha làm mốc — panel giờ đã tự là mốc đó). -->
         <div id="file-manager-image-selection-bar" class="hidden absolute bottom-0 inset-x-0 z-20 bg-[#0f172a]/95 backdrop-blur-md border-t border-white/10 px-4 py-3 flex items-center justify-between gap-2">
             <span id="file-manager-image-selection-count" class="text-sm font-semibold text-slate-200"></span>
             <div class="flex items-center gap-2 shrink-0">
@@ -255,6 +242,40 @@ function renderFileManagerPhotoPanelBody() {
                 <button id="btn-file-manager-image-selection-confirm" class="px-3.5 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors" data-i18n="fileManager.photo.album.btnAddSelected">${t('fileManager.photo.album.btnAddSelected')}</button>
             </div>
         </div>
+`;
+}
+
+/**
+ * MỚI (Giai đoạn 3b, rewrite Photo/Album, mục 3a) — Album List sub-panel, push TỪ TRONG panel Photo
+ * (event/workflow/file-manager-photo.js::openAlbumListPanel(), pushSettingsPanel() lồng nhau — ĐÚNG
+ * khuôn Folder List -> Folder Detail đã có sẵn ở event/workflow/file-manager-song.js::
+ * openFolderDetail(), KHÔNG cần xử lý gì đặc biệt cho "back" — popSettingsPanel() tự quay đúng panel
+ * Photo bên dưới). List phân trang kiểu 'list' (buildPaginationListHtml(), core/pagination.js —
+ * ĐÚNG chữ Giang dùng "pagination dạng list page"), ~10 album/trang — mỗi hàng dựng qua
+ * itemTemplateAlbumListRow() (components/items.js).
+ * KHÔNG dùng windowing (workflowVirtualList) — số album của 1 người dùng thực tế luôn nhỏ (hàng
+ * chục, không phải hàng nghìn như ảnh/bài hát), render thẳng 1 trang (~10 hàng) là đủ mượt, đúng
+ * tinh thần "computePage() + render thẳng" Folder List đang dùng (không windowing).
+ */
+function renderFileManagerAlbumListPanelBody() {
+    return `
+                <div class="flex items-center justify-between gap-2 -mt-2">
+                    <h2 class="flex-1 text-lg font-bold tracking-wider text-white truncate min-w-0" data-i18n="fileManager.photo.albumList.title">${t('fileManager.photo.albumList.title')}</h2>
+                    <button id="btn-file-manager-album-list-create" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 shrink-0" title="${t('fileManager.photo.albumList.createNew')}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                    </button>
+                </div>
+
+                <div>
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
+                        <div id="file-manager-album-list" class="flex flex-col divide-y divide-white/5"></div>
+                        <p id="file-manager-album-list-empty" class="hidden text-sm text-slate-400 p-4 text-center" data-i18n="fileManager.photo.albumList.empty">${t('fileManager.photo.albumList.empty')}</p>
+                        <!-- ~10 album/trang, mode 'list' (dãy số trang, KHÔNG nút ‹ ›) — xem
+                             core/pagination.js + event/workflow/file-manager-photo.js::
+                             refreshAlbumListPanel(). Rỗng nếu totalPages <= 1. -->
+                        <div id="file-manager-album-list-pagination" class="border-t border-white/5"></div>
+                    </div>
+                </div>
 `;
 }
 
