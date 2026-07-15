@@ -194,7 +194,12 @@ function computeVirtualWindowRange(scrollTop, viewHeight, itemHeight, itemCount,
  *          (kể cả phần chưa render), dùng đặt chiều cao "sizer" để thanh cuộn dài đúng thực tế.
  */
 function computeVariableVirtualWindowRange(rowHeights, scrollTop, viewHeight, bufferPx) {
-    const buffer = bufferPx == null ? 600 : bufferPx;
+    // SỬA (15/07/2026, cùng đợt fix tràn RAM — xem event/workflow/virtual-list.js::handleScroll())
+    // — giảm 600 -> 400: buffer càng lớn, càng nhiều ảnh CÙNG LÚC nằm trong cửa sổ (mỗi ảnh CHIẾM
+    // BITMAP đã decode trong RAM, ảnh gốc độ phân giải cao có thể vài MB/ảnh) — 400px vẫn đủ mượt
+    // (vài hàng đệm mỗi phía trước khi tới rìa màn hình thật) mà giảm đáng kể số ảnh decode đồng
+    // thời tối đa so với 600px cũ.
+    const buffer = bufferPx == null ? 400 : bufferPx;
     const totalHeight = rowHeights.reduce((sum, h) => sum + h, 0);
     const lo = Math.max(0, scrollTop - buffer);
     const hi = scrollTop + viewHeight + buffer;

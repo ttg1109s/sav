@@ -193,7 +193,7 @@ function renderFileManagerFolderDetailPanelBody() {
 function renderFileManagerPhotoPanelBody() {
     return `
         <!-- Album story: ‹ | [+ tạo mới, CỐ ĐỊNH] | [Tất cả + album, PHÂN TRANG] | › -->
-        <div class="flex items-center gap-2 pl-2 pr-4 py-4 shrink-0 border-b border-white/5">
+        <div id="file-manager-album-story-row" class="flex items-center gap-2 pl-2 pr-4 py-4 shrink-0 border-b border-white/5">
             <div id="file-manager-album-story-pagination-wrap"></div>
             <button data-album-story-action="create" class="photo-album-story-content flex flex-col items-center gap-1.5 shrink-0 w-16">
                 <div class="w-14 h-14 rounded-full flex items-center justify-center border-2 border-dashed border-white/20 text-slate-400">
@@ -232,9 +232,14 @@ function renderFileManagerPhotoPanelBody() {
              Workflow (event/workflow/file-manager-photo.js::setupPhotoGridWindow()) tự dựng cấu trúc
              "sizer + window" (id="file-manager-image-masonry" GIỮ NGUYÊN trên phần tử grid thật bên
              trong, để listener click delegated không cần đổi selector) NGAY LÚC panel mở, chèn TRƯỚC
-             #file-manager-image-empty — KHÔNG hardcode div masonry ở template tĩnh này nữa. -->
-        <div id="file-manager-image-scroll" class="flex-grow min-h-0 overflow-y-auto px-3 py-3 pb-20 relative">
-            <p id="file-manager-image-empty" class="hidden text-sm text-slate-400 text-center py-10" data-i18n="fileManager.photo.image.empty">${t('fileManager.photo.image.empty')}</p>
+             #file-manager-image-empty — KHÔNG hardcode div masonry ở template tĩnh này nữa.
+             SỬA (15/07/2026, Giang chỉ ra "layout chưa giống Google Photos") — BỎ px-3 py-3 (viền
+             ngoài 12px) — Google Photos lưới ảnh SÁT MÉP MÀN HÌNH THẬT SỰ, không có viền ngoài nào
+             (chỉ có khe hở 2px GIỮA các ô, xem .photo-grid ở assets/css/style.css). Text rỗng
+             (#file-manager-image-empty) tự thêm px-6 RIÊNG (không dựa vào padding container nữa)
+             để không dính sát mép khi không có ảnh nào. -->
+        <div id="file-manager-image-scroll" class="flex-grow min-h-0 overflow-y-auto pb-20 relative">
+            <p id="file-manager-image-empty" class="hidden text-sm text-slate-400 text-center py-10 px-6" data-i18n="fileManager.photo.image.empty">${t('fileManager.photo.image.empty')}</p>
         </div>
 
         <!-- Thanh hành động khi đang chọn nhiều ảnh để thêm vào album đang xem (bật qua nút "Thêm
