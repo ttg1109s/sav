@@ -46,8 +46,13 @@ const routerFileManagerPhoto = (() => {
     let quickDeleteSelectedKeys = new Set(); // ảnh đã đánh dấu chờ xoá trong lưới chính
 
     let albumListPageIndex = 0; // MỚI (Giai đoạn 3b) — trang hiện tại của Album List sub-panel (mode 'list', core/pagination.js)
-    let imagePickerAlbumId = null; // MỚI (Giai đoạn 3b) — album đang "thêm ảnh vào" qua picker Generic Drawer (null = picker đang đóng)
-    let imagePickerSelectedKeys = new Set(); // MỚI (Giai đoạn 3b) — ảnh đã chọn trong picker, LOẠI TRỪ với quickDeleteSelectedKeys (2 UI khác nhau, không bao giờ cùng mở)
+
+    // SỬA (Giai đoạn 4, rewrite Photo/Album, mục 4) — `imagePickerAlbumId`/`imagePickerSelectedKeys`
+    // ĐÃ CHUYỂN vào Workflow (`_imagePickerSession`, event/workflow/file-manager-photo.js) — picker
+    // giờ dùng CHUNG cho 2 chế độ (thêm ảnh vào album/chọn bìa bài hát, mục 4), "chế độ nào đang mở"
+    // là "handle của UI đang mở" (cùng loại `fileManagerPhotoPanelEl`), không còn là "state nghiệp vụ
+    // ảnh hưởng rẽ nhánh Router" thuần cho riêng album nữa — Router giờ CHỈ relay message, không giữ
+    // state picker nào cả.
 
     function handle(msg) {
         switch (msg.type) {
@@ -109,9 +114,7 @@ const routerFileManagerPhoto = (() => {
                         workflowFileManagerPhoto.openAlbumCarouselView(albumId); // >1 hàm core -> workflow
                     } },
                     { state: action, operation: '===', value: 'addImages', callback: () => {
-                        imagePickerAlbumId = albumId;
-                        imagePickerSelectedKeys = new Set();
-                        workflowFileManagerPhoto.openAlbumImagePicker(albumId); // >1 hàm core (Generic Drawer + shield + đọc DB + windowing) -> workflow
+                        workflowFileManagerPhoto.openAlbumImagePicker(albumId, albumListPageIndex); // >1 hàm core (Generic Drawer + shield + đọc DB + windowing) -> workflow
                     } },
                     { state: action, operation: '===', value: 'rename', callback: () => {
                         workflowFileManagerPhoto.renameAlbumFromList(albumId, albumListPageIndex); // >1 hàm core -> workflow
@@ -135,26 +138,18 @@ const routerFileManagerPhoto = (() => {
             // lại cho code MỚI này — đúng yêu cầu Giang "đảm bảo event bus"). ==================
 
             case 'fileManagerPhoto.imagePicker.tile.click': {
-                if (!imagePickerAlbumId) break; // guard: picker đã đóng (race hiếm, vd đóng đúng lúc tap) — bỏ qua an toàn
                 const { imageKey } = msg.payload;
-                workflowFileManagerPhoto.toggleImagePickerSelectionInSet(imageKey, imagePickerSelectedKeys); // mutate Set qua tham chiếu + patch DOM surgical, cùng khuôn toggleQuickDeleteMarkInSet()
+                workflowFileManagerPhoto.handleImagePickerTileClick(imageKey); // Workflow tự branch theo _imagePickerSession.mode
                 break;
             }
 
             case 'fileManagerPhoto.imagePicker.confirm.click': {
-                if (!imagePickerAlbumId) break;
-                const albumId = imagePickerAlbumId;
-                const keysToAdd = imagePickerSelectedKeys;
-                imagePickerAlbumId = null;
-                imagePickerSelectedKeys = new Set();
-                workflowFileManagerPhoto.confirmAlbumImagePicker(albumId, keysToAdd, albumListPageIndex); // >1 hàm core (shield + addImagesToAlbum + đóng drawer + refresh dòng album) -> workflow
+                workflowFileManagerPhoto.handleImagePickerConfirmClick();
                 break;
             }
 
             case 'fileManagerPhoto.imagePicker.close.click': {
-                imagePickerAlbumId = null;
-                imagePickerSelectedKeys = new Set();
-                workflowFileManagerPhoto.closeAlbumImagePicker(); // chỉ đóng drawer, KHÔNG addImagesToAlbum gì cả
+                workflowFileManagerPhoto.handleImagePickerCloseClick();
                 break;
             }
 
