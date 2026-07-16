@@ -151,12 +151,12 @@ const workflowFileManagerPhoto = {
     async refresh(activeAlbumId, imageQuickDeleteMode = false, quickDeleteSelectedKeys = new Set()) {
         if (!fileManagerPhotoPanelEl) return; // guard: panel đã đóng
         const images = await listImages(); // core/file-manager/image.js
+        const albums = await listAlbums(); // core/file-manager/album.js — MỚI (fix bug 1) luôn đọc, không chỉ khi có activeAlbumId, để cập nhật số lượng trên nút vào Album List
+        const activeAlbum = activeAlbumId ? (albums.find((a) => a.id === activeAlbumId) || null) : null;
 
-        let activeAlbum = null;
-        if (activeAlbumId) {
-            const albums = await listAlbums(); // core/file-manager/album.js
-            activeAlbum = albums.find((a) => a.id === activeAlbumId) || null;
-        }
+        // ---- SỬA (fix bug 1) — nút vào Album List hiện thêm số lượng album, vd "Albums (5)" ----
+        const entryLabelEl = fileManagerPhotoPanelEl.querySelector('#file-manager-album-list-entry-label');
+        if (entryLabelEl) entryLabelEl.textContent = `${t('fileManager.photo.albumList.entryButton')} (${albums.length})`;
 
         // ---- Chip lọc album đang xem (THAY thanh quản lý album đầy đủ cũ) ----
         const filterChip = fileManagerPhotoPanelEl.querySelector('#file-manager-album-filter-chip');
@@ -312,8 +312,13 @@ const workflowFileManagerPhoto = {
     // KHÔNG cần xử lý gì đặc biệt cho "back" — popSettingsPanel() tự quay đúng panel Photo bên dưới.
     // ==========================================================================================
 
-    /** Ứng với 'fileManagerPhoto.albumList.open.click'. Cùng trình tự đã chốt với panel Photo
-     * chính: trượt xong HẲN -> shield -> đọc DB -> vẽ -> tắt shield. */
+    /** Ứng với 'fileManagerPhoto.albumList.open.click'.
+     * SỬA (fix bug 4, Giang chỉ ra "list dùng pagination nhẹ, không đáng kể") — BỎ `withLoadingShield()`
+     * (khác panel Photo chính — lưới ảnh nặng, nhiều object URL, thật sự cần che) — Album List KHÔNG
+     * windowing, tối đa 10 hàng/trang, `refreshAlbumListPanel()` chỉ 1 lượt đọc DB nhỏ (số album
+     * thực tế luôn ít) — che chỉ gây nhấp nháy thừa, không có gì đáng che cả. VẪN giữ đợi trượt xong
+     * HẲN trước khi vẽ (SLIDER_PANEL_SCROLL_ESTIMATED_MS) — không liên quan tới shield, tránh vẽ lúc
+     * panel còn đang animation dở dang. */
     async openAlbumListPanel() {
         albumListPanelEl = pushSettingsPanel({
             title: t('fileManager.photo.albumList.title'),
@@ -325,10 +330,7 @@ const workflowFileManagerPhoto = {
         });
 
         await new Promise((resolve) => taskManager.once(resolve, SLIDER_PANEL_SCROLL_ESTIMATED_MS, 'fileManagerAlbumListOpenPanel')); // core/slider-panel-scroll.js — đợi trượt xong HẲN, cùng lý do openPanel()
-
-        await withLoadingShield(t('fileManager.photo.loadingTitle'), async () => {
-            await this.refreshAlbumListPanel(0);
-        });
+        await this.refreshAlbumListPanel(0); // KHÔNG shield (fix bug 4) — list nhẹ, không windowing
     },
 
     /** Đọc lại album, phân trang mode 'list' (core/pagination.js, ~10 album/trang — ĐÚNG chữ Giang
@@ -418,21 +420,9 @@ const workflowFileManagerPhoto = {
         );
     },
 
-    /** Ứng với 'fileManagerPhoto.albumList.rowClick' — bấm tên/số lượng (KHÔNG phải icon) -> lọc
-     * lưới ảnh chính theo `activeAlbumId` (Router đã tính toggle) + pop về panel Photo. MỚI dùng
-     * `popSettingsPanel()` TRỰC TIẾP từ 1 feature workflow (khác `workflowSettingsStackNav.back()`
-     * — nơi DUY NHẤT làm việc này trước giờ, cho nút Back dùng chung) — biện minh: "chọn xong tự
-     * quay lại" là hành vi CHỦ Ý của tính năng này (không phải Back thường), CÙNG 2 dòng
-     * `popSettingsPanel()` + `taskManager.once(...).remove()` Y HỆT `workflowSettingsStackNav.back()`
-     * đang làm — không phát minh cơ chế mới, chỉ tái dùng đúng 2 hàm core đã có.
-     * @param {string|null} activeAlbumId
-     */
-    async selectAlbumAndReturnToPhotoGrid(activeAlbumId) {
-        const removedPanelEl = popSettingsPanel(); // core/settings-panel-stack.js
-        if (removedPanelEl) taskManager.once(() => { removedPanelEl.remove(); }, SLIDER_PANEL_SCROLL_ESTIMATED_MS, 'albumListSelectPop');
-        albumListPanelEl = null;
-        await this.refresh(activeAlbumId);
-    },
+    // ĐÃ GỠ (fix bug 2, Giang yêu cầu "ấn vào album lại ra sub panel -> bỏ") — selectAlbumAndReturnToPhotoGrid()
+    // (bấm tên/số lượng album -> lọc lưới ảnh chính + pop về panel Photo) XOÁ HẲN — vùng tên/số
+    // lượng KHÔNG còn bấm được nữa, xem itemTemplateAlbumListRow() (components/items.js).
 
     /** Ứng với 'fileManagerPhoto.albumList.action.click' action='view'. Carousel xem+xoá khỏi album
      * (core/file-manager/photo-ui.js::openImageCarouselViewModal() — MỚI Giai đoạn 3b, hàm RIÊNG
@@ -448,6 +438,7 @@ const workflowFileManagerPhoto = {
 
         openImageCarouselViewModal( // core/file-manager/photo-ui.js
             albumImages,
+            album.name, // MỚI (fix bug 3) — hiện qua nút info trong carousel
             (imageKey) => { removeImageFromAlbum(imageKey, albumId); }, // fire-and-forget, core/file-manager/album.js — KHÔNG await ở core, đúng docstring hàm đó
             () => { this.refreshAlbumListPanel(0); } // đóng modal (dù có xoá hay không) -> số lượng ảnh trong album có thể đã đổi, vẽ lại danh sách. Trang 0 đơn giản hoá — album có thể đã đổi vị trí sau xoá, không cố focus lại
         );
