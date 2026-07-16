@@ -246,25 +246,24 @@ function renderFileManagerPhotoPanelBody() {
  * chục, không phải hàng nghìn như ảnh/bài hát), render thẳng 1 trang (~10 hàng) là đủ mượt, đúng
  * tinh thần "computePage() + render thẳng" Folder List đang dùng (không windowing).
  */
+/**
+ * VIẾT LẠI (Giang yêu cầu "bỏ khung viền container, bỏ padding, gap margin — làm giống y hệt
+ * Playlist UI") — bỏ HẲN card `glass-modal rounded-2xl` cũ (list giờ tràn viền edge-to-edge, đúng
+ * style Songs list — core/playlist/render.js::buildSongNode()). Cũng bỏ luôn `<h2>` tiêu đề + nút
+ * "+" tự dựng tay ở đây — TRÙNG LẶP với header CHUẨN của `pushSettingsPanel({title, ...})` (đã hiện
+ * sẵn tiêu đề + nút Back, xem core/settings-panel-stack-ui.js) — nút "+" giờ dời sang
+ * `headerActionHtml` (đối xứng nút Back, đúng khuôn panel Photo chính đang làm với nút upload).
+ * Panel này giờ PHẢI mở với `fullBleed: true` (event/workflow/file-manager-photo.js::
+ * openAlbumListPanel()) để list tràn viền thật — nếu không, khung `max-w-2xl mx-auto px-4/px-8` mặc
+ * định của `pushSettingsPanel()` vẫn ép lề 2 bên.
+ */
 function renderFileManagerAlbumListPanelBody() {
     return `
-                <div class="flex items-center justify-between gap-2 -mt-2">
-                    <h2 class="flex-1 text-lg font-bold tracking-wider text-white truncate min-w-0" data-i18n="fileManager.photo.albumList.title">${t('fileManager.photo.albumList.title')}</h2>
-                    <button id="btn-file-manager-album-list-create" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 shrink-0" title="${t('fileManager.photo.albumList.createNew')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                    </button>
-                </div>
-
-                <div>
-                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                        <div id="file-manager-album-list" class="flex flex-col divide-y divide-white/5"></div>
-                        <p id="file-manager-album-list-empty" class="hidden text-sm text-slate-400 p-4 text-center" data-i18n="fileManager.photo.albumList.empty">${t('fileManager.photo.albumList.empty')}</p>
-                        <!-- ~10 album/trang, mode 'list' (dãy số trang, KHÔNG nút ‹ ›) — xem
-                             core/pagination.js + event/workflow/file-manager-photo.js::
-                             refreshAlbumListPanel(). Rỗng nếu totalPages <= 1. -->
-                        <div id="file-manager-album-list-pagination" class="border-t border-white/5"></div>
-                    </div>
-                </div>
+        <div id="file-manager-album-list" class="flex flex-col"></div>
+        <p id="file-manager-album-list-empty" class="hidden text-sm text-slate-400 p-4 text-center" data-i18n="fileManager.photo.albumList.empty">${t('fileManager.photo.albumList.empty')}</p>
+        <!-- ~10 album/trang, mode 'list' (dãy số trang, KHÔNG nút ‹ ›) — xem core/pagination.js +
+             event/workflow/file-manager-photo.js::refreshAlbumListPanel(). Rỗng nếu totalPages <= 1. -->
+        <div id="file-manager-album-list-pagination" class="border-t border-white/5 px-4"></div>
 `;
 }
 
