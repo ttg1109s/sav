@@ -62,6 +62,7 @@ const LANG_PATCH_FILE_MANAGER = {
     // MỚI (Giai đoạn 3b, rewrite Photo/Album, mục 3a) — carousel xem ảnh trong album (KHÁC carousel
     // chọn nền ngay trên — nút đáy ở đây là "Xoá khỏi album", không phải "Dùng ảnh này").
     'fileManager.photo.album.carousel.removeButton': 'Remove from album',
+    'fileManager.photo.album.carousel.infoTitle': 'Album name',
     // MỚI (Giai đoạn 3b) — Album List sub-panel (THAY story slider ngang cũ).
     'fileManager.photo.albumList.title': 'Albums',
     'fileManager.photo.albumList.entryButton': 'Albums',
