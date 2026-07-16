@@ -89,19 +89,28 @@ async function setImageCaption(imageKey, caption) {
  * `image-edit.html`, giữ nguyên `filename`/`addedAt`/`caption` — cùng khuôn `setImageCaption()`
  * ngay trên (đọc record đầy đủ, ghi đè ĐÚNG 1 field, lưu lại nguyên record).
  *
- * BIẾT TRƯỚC (Giai đoạn 1, rewrite Photo/Album) — hàm này CHƯA regenerate `thumbBlob`/`width`/
- * `height` sau khi sửa ảnh (crop/rotate có thể đổi tỉ lệ thật) -> lưới ảnh có thể hiển thị SAI tỉ lệ
- * cho tới khi ảnh đó được backfill (mở full view 1 lần — cùng cơ chế backfill ảnh cũ). Cân nhắc gọi
- * `_resizeImageForThumbnail()` (event/workflow/file-manager-photo.js) ở `event/workflow/image-edit.js`
- * lúc lưu, TRUYỀN kết quả vào đây — CHƯA làm ở Giai đoạn 1 này, để dành giai đoạn sau nếu Giang xác nhận cần.
+ * HOÀN THIỆN (Giai đoạn 5, rewrite Photo/Album — trả nợ kỹ thuật ghi ở Giai đoạn 1) — nhận thêm
+ * `thumbBlob`/`width`/`height`, ghi đè CẢ 3 cùng lúc với `blob` — trước đây chỉ ghi `blob`, khiến
+ * `thumbBlob` (lưới ảnh) SAI tỉ lệ/nội dung so với ảnh vừa sửa (crop/rotate đổi cả kích thước lẫn
+ * hình ảnh) VĨNH VIỄN cho tới khi tự sửa lại code — KHÔNG có cơ chế backfill tự động nào cứu (đính
+ * chính: comment cũ ở đầu file này từng nhắc "backfill lười khi mở full-view" như đã cài — thực tế
+ * CHƯA BAO GIỜ implement, chỉ là dự định ghi nhầm thành đã làm; ảnh cũ thiếu `thumbBlob`/`width`/
+ * `height` VẪN đang fallback vĩnh viễn về `blob` gốc + tỉ lệ vuông tại `itemTemplateImageGridRow()`/
+ * `buildPhotoGridRows()`, không tự sửa dù đã mở full-view — cần Giang xác nhận có cần implement
+ * backfill thật hay chấp nhận giữ nguyên cho tới khi ảnh được re-upload/edit). Nơi gọi
+ * (event/workflow/image-edit.js::handleSave()) PHẢI tự resize thumbnail TRƯỚC khi gọi hàm này —
+ * core không được đụng canvas (Rule 1-4, DOM API).
  * @param {string} imageKey
- * @param {Blob} newBlob
+ * @param {Blob} newBlob - ảnh GỐC đã sửa.
+ * @param {Blob} thumbBlob - thumbnail đã resize sẵn, cùng công thức lúc upload.
+ * @param {number} width - chiều rộng ảnh GỐC đã sửa (px).
+ * @param {number} height - chiều cao ảnh GỐC đã sửa (px).
  * @returns {Promise<{status: 'notFound'|'ok'}>}
  */
-async function updateImageBlob(imageKey, newBlob) {
+async function updateImageBlob(imageKey, newBlob, thumbBlob, width, height) {
     const record = await getImageRecord(imageKey); // data layer
     if (!record) return { status: 'notFound' };
-    await setImageRecord(imageKey, { ...record, blob: newBlob });
+    await setImageRecord(imageKey, { ...record, blob: newBlob, thumbBlob, width, height });
     return { status: 'ok' };
 }
 
