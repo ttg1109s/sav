@@ -242,7 +242,7 @@ function renderFileManagerPhotoPanelBody() {
  * Photo bên dưới). List phân trang kiểu 'list' (buildPaginationListHtml(), core/pagination.js —
  * ĐÚNG chữ Giang dùng "pagination dạng list page"), ~10 album/trang — mỗi hàng dựng qua
  * itemTemplateAlbumListRow() (components/items.js).
- * KHÔNG dùng windowing (workflowVirtualList) — số album của 1 người dùng thực tế luôn nhỏ (hàng
+ * KHÔNG dùng windowing (workflowPhotoGalleryWindow) — số album của 1 người dùng thực tế luôn nhỏ (hàng
  * chục, không phải hàng nghìn như ảnh/bài hát), render thẳng 1 trang (~10 hàng) là đủ mượt, đúng
  * tinh thần "computePage() + render thẳng" Folder List đang dùng (không windowing).
  */
