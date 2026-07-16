@@ -217,13 +217,10 @@
             // đầu tới lúc hideGenericDrawerImmediately() chạy xong (transition đóng đã hết hẳn) —
             // dùng bởi Block gate (event/block.js) để chặn mọi msg.type "mở Generic Drawer" khác
             // trong lúc đang mở, tránh 2 tính năng cùng lúc ghi đè bodyHtml của nhau.
-            // isGenericDrawerContentVirtual: true khi nội dung ĐANG hiển thị là 1 danh sách
-            // windowing thật (mount() qua event/workflow/virtual-list.js) — dùng bởi
-            // event/router/virtual-list.js để biết có nên xử lý 'virtualList.scroll' hay không,
-            // tránh xung đột khi Generic Drawer đang hiện nội dung KHÁC (vd Document Reader, phân
-            // trang riêng, không phải danh sách windowing).
+            // ĐÃ GỠ (rewrite Photo/Album) — isGenericDrawerContentVirtual XOÁ HẲN cùng lúc bỏ hẳn
+            // event/workflow,router,listener/virtual-list.js — picker ảnh Generic Drawer giờ dùng
+            // event/workflow/photo-gallery-window.js (IntersectionObserver, không cần cờ gate nào).
             isGenericDrawerOpen: 'boolean',
-            isGenericDrawerContentVirtual: 'boolean',
             // MỚI (14/07/2026, Giang yêu cầu) — trang ĐANG xem của danh sách folder ở File Manager
             // -> Song (0-based, 10 folder/trang, xem event/workflow/file-manager-song.js +
             // core/pagination.js). Workflow tự đọc field này rồi TRUYỀN vào computePage() (core
@@ -406,7 +403,6 @@
 
                 // ── generic drawer ──────────────────────────────────────────────
                 isGenericDrawerOpen: false,
-                isGenericDrawerContentVirtual: false,
                 pageCurrentFolderSongList: 0,
                 pageCurrentFolderDetailSongList: 0,
                 pageCurrentDocumentList: 0,
