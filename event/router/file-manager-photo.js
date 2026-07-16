@@ -171,32 +171,42 @@ const routerFileManagerPhoto = (() => {
 
             // ===================== Chế độ xoá nhanh =====================
             // VirtualMachineState 3 nhánh LOẠI TRỪ NHAU (Giang chỉ ra "tránh lãng phí khi không xoá
-            // gì"):
-            //   1. Chưa bật mode -> hỏi xác nhận, bật mode + Set rỗng.
-            //   2. Đang bật, CHƯA đánh dấu ảnh nào -> tắt mode NGAY, 1 refresh() để vẽ lại UI bình
-            //      thường — KHÔNG gọi deleteImage() nào.
-            //   3. Đang bật, ĐÃ đánh dấu ≥1 ảnh -> hỏi xác nhận kèm số lượng -> xoá batch 1 lần + 1
-            //      refresh() duy nhất -> tắt mode.
+            // gì" — SỬA thêm sau: "tại sao phải có refresh?" — nhánh 1/2 KHÔNG đổi dữ liệu ảnh, chỉ
+            // đổi UI):
+            //   1. Chưa bật mode -> hỏi xác nhận, bật mode + Set rỗng -> CHỈ đổi UI nút/badge
+            //      (updateQuickDeleteModeUI()), KHÔNG đọc lại DB/KHÔNG dựng lại lưới.
+            //   2. Đang bật, CHƯA đánh dấu ảnh nào -> tắt mode NGAY -> CŨNG chỉ đổi UI, cùng lý do
+            //      trên — KHÔNG gọi deleteImage() nào, KHÔNG refresh() nào.
+            //   3. Đang bật, ĐÃ đánh dấu ≥1 ảnh -> hỏi xác nhận kèm số lượng -> xoá batch 1 lần —
+            //      NHÁNH DUY NHẤT còn refresh() thật (bên trong confirmQuickDeleteBatch()), vì ảnh
+            //      THẬT SỰ bị xoá khỏi DB, lưới bắt buộc phải đọc lại/dựng lại.
 
             case 'fileManagerPhoto.image.deleteMode.click': {
                 VirtualMachineState.run([
                     { state: !imageQuickDeleteMode, operation: '===', value: true, callback: () => {
-                        workflowFileManagerPhoto.promptQuickDeleteMode(() => { // >1 hàm core (modal + refresh) -> workflow
+                        workflowFileManagerPhoto.promptQuickDeleteMode(() => { // >1 hàm core (modal + cập nhật UI) -> workflow
                             imageQuickDeleteMode = true;
                             quickDeleteSelectedKeys = new Set();
-                            workflowFileManagerPhoto.refresh(activeAlbumId, imageQuickDeleteMode, quickDeleteSelectedKeys);
+                            // SỬA (Giang chỉ ra "tại sao phải có refresh?") — bật mode KHÔNG cần đọc
+                            // lại DB/dựng lại lưới, dữ liệu ảnh không đổi — chỉ đổi màu nút + bật
+                            // badge trên tile đang hiển thị.
+                            workflowFileManagerPhoto.updateQuickDeleteModeUI(imageQuickDeleteMode, quickDeleteSelectedKeys);
                         });
                     } },
                     { state: (imageQuickDeleteMode && quickDeleteSelectedKeys.size === 0), operation: '===', value: true, callback: () => {
                         imageQuickDeleteMode = false;
-                        workflowFileManagerPhoto.refresh(activeAlbumId, imageQuickDeleteMode, quickDeleteSelectedKeys);
+                        // SỬA (Giang chỉ ra "tại sao phải có refresh?") — tắt mode (chưa đánh dấu gì)
+                        // CŨNG không cần đọc lại DB/dựng lại lưới — cùng lý do nhánh trên.
+                        workflowFileManagerPhoto.updateQuickDeleteModeUI(imageQuickDeleteMode, quickDeleteSelectedKeys);
                     } },
                     { state: (imageQuickDeleteMode && quickDeleteSelectedKeys.size > 0), operation: '===', value: true, callback: () => {
                         // onConfirmed: Router KHÔNG tự đặt imageQuickDeleteMode=false NGAY ở đây —
                         // modalChoice() còn đang MỞ, user có thể Huỷ (khi đó mode PHẢI vẫn đang bật,
                         // UI vẫn đang hiện badge đỏ đúng thực tế) — Workflow tự gọi callback này ĐÚNG
                         // lúc xoá xong thật (bên trong onClick nút xác nhận), Router lúc đó mới đồng
-                        // bộ biến của mình.
+                        // bộ biến của mình. NHÁNH NÀY VẪN GỌI refresh() THẬT (bên trong
+                        // confirmQuickDeleteBatch()) — ảnh THẬT SỰ bị xoá khỏi DB, lưới bắt buộc phải
+                        // đọc lại/dựng lại, khác 2 nhánh trên (chỉ đổi UI, không đổi dữ liệu).
                         workflowFileManagerPhoto.confirmQuickDeleteBatch(quickDeleteSelectedKeys, activeAlbumId, () => { imageQuickDeleteMode = false; }); // >1 hàm core (modal + shield + deleteImage*N + refresh) -> workflow
                     } },
                 ]);
