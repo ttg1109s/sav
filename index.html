@@ -230,6 +230,14 @@
          _processDocxUpload() + core/file-manager/document-ui.js::buildDocumentEditorSurface()
          (contentEditable + toolbar tự viết, thay Toast UI Editor). -->
     <script src="https://cdn.jsdelivr.net/npm/mammoth@1.7.2/mammoth.browser.min.js"></script>
+    <!-- MỚI (rewrite Photo/Album, "đập đi làm lại" — Giang yêu cầu dùng thư viện thật thay virtual
+         window tự viết) — fjGallery (flickr-justified-gallery), thuật toán justified layout ĐÚNG
+         bản Flickr/Google Photos dùng thật (flickr/justified-layout gốc, bọc UMD sẵn) — tự nong/co
+         chiều cao mỗi hàng để khít CHÍNH XÁC bề rộng container, KHÔNG cắt/KHÔNG thừa như bản tự viết
+         cũ. Dùng cho lưới ảnh Photo & Album (event/workflow/photo-gallery-window.js) LẪN picker ảnh
+         Generic Drawer (cùng hạ tầng, xem event/workflow/file-manager-photo.js). -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flickr-justified-gallery@2.1/dist/fjGallery.css">
+    <script src="https://cdn.jsdelivr.net/npm/flickr-justified-gallery@2.1/dist/fjGallery.min.js"></script>
 
     <!-- CSS tách riêng — DỜI TỪ <head> XUỐNG ĐÂY (cùng lý do). -->
     <!-- ?v=APP_VERSION (đặt cố định ngay dưới đây, đổi mỗi lần deploy): chỉ ÉP TRÌNH DUYỆT TẢI LẠI
@@ -687,14 +695,15 @@
     <script src="event/listener/slideshow.js?v=20260706v1"></script>
     <!-- Batch 3 (03/07/2026) — workflowFileManagerPhoto CẦN tồn tại trước khi router gọi tới.
          Batch D6 (Settings restructure, 06/07/2026): panel Photo nay push/pop động, `fullBleed:
-         true` (lưới ảnh/story slider tràn viền, xem core/settings-panel-stack-ui.js đã nạp ở nhóm
-         CORE) — CẦN core/file-manager/photo-ui.js (renderAlbumStory/updateImageSelectionCount nhận
-         phần tử qua tham số, đã nạp ở nhóm CORE).
-         PATCH mục 2 (14/07/2026) — workflowFileManagerPhoto::setupPhotoGridWindow() gọi thẳng
-         computeVariableVirtualWindowRange()/renderItemList()/itemTemplateImageGridRow() (components/
-         items.js, đã nạp SỚM HƠN NHIỀU — dòng ~363) VÀ sortImagesByAddedDateDesc()/buildPhotoGridRows()
-         (core/file-manager/image.js, đã nạp ở nhóm CORE) — cả 2 đều nạp TRƯỚC file này, an toàn. -->
-    <script src="event/workflow/file-manager-photo.js?v=20260714v8"></script>
+         true` (lưới ảnh tràn viền, xem core/settings-panel-stack-ui.js đã nạp ở nhóm CORE) — CẦN
+         core/file-manager/photo-ui.js (đã nạp ở nhóm CORE).
+         ĐẬP ĐI LÀM LẠI (rewrite Photo/Album, dùng fjGallery) — workflowFileManagerPhoto::
+         setupPhotoGridWindow() giờ gọi thẳng `workflowPhotoGalleryWindow.mount()` (event/workflow/
+         photo-gallery-window.js, nạp SAU file này — AN TOÀN vì chỉ THỰC SỰ gọi lúc user tương tác,
+         sau khi mọi script đã nạp xong hết, cùng quy ước load-order đã dùng cho popSettingsPanel()
+         và nhiều global khác trong project) + core/file-manager/image.js::sortImagesByAddedDateDesc()/
+         groupImagesByDay() (đã nạp ở nhóm CORE, TRƯỚC file này, an toàn). -->
+    <script src="event/workflow/file-manager-photo.js?v=20260716v2"></script>
     <script src="event/router/file-manager-photo.js?v=20260714v2"></script>
     <script src="event/listener/file-manager-photo.js?v=20260714v4"></script>
     <!-- workflowFileManagerDocument CẦN tồn tại trước khi router gọi tới. Batch D7 (06/07/2026):
@@ -722,12 +731,13 @@
     <script src="event/workflow/document-reader.js?v=20260710v4"></script>
     <script src="event/router/document-picker.js?v=20260710v1"></script>
     <script src="event/listener/document-picker.js?v=20260710v1"></script>
-    <!-- MỚI (13/07/2026, plan-v12-extended.md mục 3, hạ tầng windowing thật cho items.js) — Workflow
-         CHUNG "virtualList", chưa có nơi gọi thật nào (Document Picker vẫn dưới ngưỡng ~100-200
-         item) — dựng sẵn cho lần cần thật, xem docstring đầu event/workflow/virtual-list.js. -->
-    <script src="event/workflow/virtual-list.js?v=20260715v1"></script>
-    <script src="event/router/virtual-list.js?v=20260714v1"></script>
-    <script src="event/listener/virtual-list.js?v=20260714v1"></script>
+    <!-- ĐẬP ĐI LÀM LẠI (rewrite Photo/Album, Giang yêu cầu "không dùng window virtual tự tạo nữa") —
+         event/workflow/virtual-list.js + event/router,listener/virtual-list.js (hạ tầng scroll-based
+         windowing tự viết, TỪNG gây hàng loạt bug layout/lệch cuộn) XOÁ HẲN. THAY bằng
+         event/workflow/photo-gallery-window.js — windowing cấp NHÓM NGÀY (KHÔNG cấp ảnh/pixel),
+         dùng IntersectionObserver (API trình duyệt gốc, không tự đo scrollTop/rowHeight nào nữa) +
+         fjGallery (thư viện thật, xem CDN ở trên) lo layout thật bên trong mỗi nhóm còn tải. -->
+    <script src="event/workflow/photo-gallery-window.js?v=20260716v1"></script>
     <script src="event/workflow/playlist.js?v=20260714v5"></script>
     <script src="event/router/playlist.js?v=20260704v1"></script>
     <script src="event/listener/playlist.js?v=20260704v1"></script>
