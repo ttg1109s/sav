@@ -10,19 +10,20 @@
  * xử lý overlay THEO ĐÚNG NHỊP với panel (ẩn dần lúc bắt đầu đóng, xoá `hidden` hẳn lúc đã đóng
  * xong) — không lặp lại bug cũ.
  *
- * THÊM 2 việc mới cùng đợt:
+ * THÊM 1 việc MỚI cùng đợt:
  * 1. `isGenericDrawerOpen` (service/state.js) — ghi `true` lúc mở, `false` lúc đóng hẳn — dùng bởi
  *    Block gate (event/block.js) để CHẶN mọi msg.type "mở Generic Drawer" khác trong lúc đang mở
  *    (tránh 2 tính năng cùng lúc ghi đè bodyHtml của nhau) — xem event/block.js.
- * 2. `config.isWindowVirtual` (tham số MỚI của openGenericDrawer()/updateGenericDrawer(), mặc định
- *    false) — ghi vào `isGenericDrawerContentVirtual` (service/state.js). Nơi gọi (Workflow) PHẢI
- *    truyền `true` khi bodyHtml hiện tại là 1 danh sách windowing thật (đã `workflowVirtualList.
- *    mount()` — xem event/workflow/virtual-list.js) — event/router/virtual-list.js đọc field này
- *    để biết có nên xử lý sự kiện 'scroll' hay không, tránh xung đột khi Drawer đang hiện nội dung
- *    KHÁC (vd Document Reader, tự phân trang riêng, không phải danh sách windowing).
  *
- * Cả 2 đều ghi qua `appState.set()` (Rule 2 CHO PHÉP — chỉ chặn chiều ĐỌC, không chặn chiều GHI),
- * kèm `console.log` theo Rule 4.
+ * ĐÃ GỠ (rewrite Photo/Album, Giang yêu cầu "không dùng window virtual tự tạo nữa") —
+ * `config.isWindowVirtual`/`isGenericDrawerContentVirtual` (từng ghi cờ cho `event/router/
+ * virtual-list.js` biết có nên xử lý 'scroll' hay không) — XOÁ HẲN cùng lúc bỏ hẳn
+ * `event/workflow,router,listener/virtual-list.js` — picker ảnh Generic Drawer giờ dùng
+ * `event/workflow/photo-gallery-window.js` (IntersectionObserver, KHÔNG cần lắng nghe sự kiện
+ * 'scroll' nào cả, nên cờ gate này không còn ý nghĩa).
+ *
+ * Ghi qua `appState.set()` (Rule 2 CHO PHÉP — chỉ chặn chiều ĐỌC, không chặn chiều GHI), kèm
+ * `console.log` theo Rule 4.
  *
  * Khung HTML (components/generic-drawer.js) lấy NGUYÊN từ components/document-picker-drawer.js CŨ
  * (ĐÃ XOÁ) — đổi id/class sang trung tính `generic-drawer*`.
@@ -62,7 +63,7 @@ const GENERIC_DRAWER_DEFAULT_Z_INDEX = 128;
 
 /**
  * Mở drawer LẦN ĐẦU (đang đóng -> mở) — set toàn bộ cấu hình + trượt lên + hiện overlay.
- * @param {{height?: string, maxHeight?: string, zIndex?: number, headerHtml: string, bodyHtml: string, bodyClass?: string, isWindowVirtual?: boolean}} config
+ * @param {{height?: string, maxHeight?: string, zIndex?: number, headerHtml: string, bodyHtml: string, bodyClass?: string}} config
  *   - height: mặc định '70vh' nếu không truyền.
  *   - maxHeight: MỚI (14/07/2026, Giang yêu cầu — "tránh thừa khoảng trống" cho grid folder ít
  *     item) — mặc định RỖNG (không giới hạn thêm gì cả, giữ hành vi cũ) nếu không truyền. Dùng
@@ -71,8 +72,6 @@ const GENERIC_DRAWER_DEFAULT_Z_INDEX = 128;
  *     dung dài sẽ tự cuộn bên trong `genericDrawerBody`, nhờ `bodyClass: 'overflow-y-auto'`).
  *   - zIndex: mặc định GENERIC_DRAWER_DEFAULT_Z_INDEX (128) nếu không truyền (overlay tự dùng
  *     zIndex - 1) — xem giải thích đầy đủ ở docstring hằng số phía trên.
- *   - isWindowVirtual: mặc định false — true nếu bodyHtml là 1 danh sách windowing thật (đã
- *     workflowVirtualList.mount()), xem docstring đầu file.
  */
 function openGenericDrawer(config) {
     const zIndex = config.zIndex || GENERIC_DRAWER_DEFAULT_Z_INDEX;
@@ -98,14 +97,12 @@ function openGenericDrawer(config) {
 
     appState.set('isGenericDrawerOpen', true);
     console.log(`writer: "openGenericDrawer", page: "isGenericDrawerOpen", content: "true"`);
-    appState.set('isGenericDrawerContentVirtual', !!config.isWindowVirtual);
-    console.log(`writer: "openGenericDrawer", page: "isGenericDrawerContentVirtual", content: "${!!config.isWindowVirtual}"`);
 }
 
 /**
  * Chuyển MƯỢT sang cấu hình MỚI trong khi ĐANG MỞ (không đóng/mở lại từ đầu) — cơ chế chuyển
  * List <-> Read (mục 2/4.1 plan-v12-extended.md). Drawer PHẢI đang mở trước khi gọi.
- * @param {{height?: string, maxHeight?: string, zIndex?: number, headerHtml: string, bodyHtml: string, bodyClass?: string, isWindowVirtual?: boolean}} config
+ * @param {{height?: string, maxHeight?: string, zIndex?: number, headerHtml: string, bodyHtml: string, bodyClass?: string}} config
  */
 function updateGenericDrawer(config) {
     const zIndex = config.zIndex || GENERIC_DRAWER_DEFAULT_Z_INDEX;
@@ -116,9 +113,6 @@ function updateGenericDrawer(config) {
     genericDrawerBody.innerHTML = config.bodyHtml || '';
     genericDrawerBody.className = `flex-1 min-h-0 ${config.bodyClass || ''}`.trim();
     genericDrawerOverlay.style.zIndex = String(zIndex - 1);
-
-    appState.set('isGenericDrawerContentVirtual', !!config.isWindowVirtual);
-    console.log(`writer: "updateGenericDrawer", page: "isGenericDrawerContentVirtual", content: "${!!config.isWindowVirtual}"`);
 }
 
 /** Đóng drawer (trượt xuống + mờ dần overlay) — CHƯA thêm lại `hidden` (đợi transition xong, xem
@@ -139,6 +133,4 @@ function hideGenericDrawerImmediately() {
 
     appState.set('isGenericDrawerOpen', false);
     console.log(`writer: "hideGenericDrawerImmediately", page: "isGenericDrawerOpen", content: "false"`);
-    appState.set('isGenericDrawerContentVirtual', false);
-    console.log(`writer: "hideGenericDrawerImmediately", page: "isGenericDrawerContentVirtual", content: "false"`);
 }
