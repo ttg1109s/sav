@@ -95,15 +95,13 @@ const routerFileManagerPhoto = (() => {
                 break;
             }
 
-            // Bấm THẲNG vào tên/số lượng (KHÔNG phải icon) -> lọc lưới ảnh chính + quay lại panel
-            // Photo (pop). Bấm lại ĐÚNG album đang lọc -> bỏ lọc (toggle, giống hành vi tab, đúng
-            // hành vi storyClick cũ).
-            case 'fileManagerPhoto.albumList.rowClick': {
-                const { albumId } = msg.payload;
-                activeAlbumId = (activeAlbumId === albumId) ? null : albumId;
-                workflowFileManagerPhoto.selectAlbumAndReturnToPhotoGrid(activeAlbumId); // >1 hàm core (pop + refresh) -> workflow
-                break;
-            }
+            // ĐÃ GỠ (fix bug 2, Giang yêu cầu "ấn vào album lại ra sub panel -> bỏ") — case
+            // 'fileManagerPhoto.albumList.rowClick' (bấm tên/số lượng -> lọc lưới ảnh chính + quay
+            // lại panel Photo) XOÁ HẲN — vùng tên/số lượng KHÔNG còn bấm được nữa, xem
+            // itemTemplateAlbumListRow() (components/items.js). Lọc lưới ảnh chính theo album giờ
+            // KHÔNG còn đường vào nào từ Album List sub-panel (chỉ còn xem qua carousel — icon
+            // 'view') — activeAlbumId vẫn còn dùng được (vd nếu sau này Giang muốn thêm lại đường
+            // vào khác), chỉ là hiện không còn nơi nào set nó khác null nữa.
 
             // 4 icon LOẠI TRỪ NHAU (đúng data-album-list-action gắn ở itemTemplateAlbumListRow(),
             // components/items.js) -> VirtualMachineState, cùng khuôn 'album.manageClick' cũ.
