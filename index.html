@@ -486,6 +486,10 @@
          core/dom-refs.js (đã nạp ngay trên: genericDrawerOverlay/Panel/Header/Body). Đặt cạnh
          nhóm Documents cho dễ đọc dù bản thân KHÔNG phụ thuộc gì từ document.js/document-ui.js. -->
     <script src="core/generic-drawer.js?v=20260714v3"></script>
+    <!-- MỚI (rewrite Photo/Album, Giang yêu cầu tách dropdown menu 3 chấm để tái dùng) — component
+         dùng CHUNG cho mọi nút "..." cần menu ngắn neo cạnh nút (KHÁC Generic Drawer — bottom sheet
+         toàn màn hình). Áp dụng đầu tiên cho Album List (event/workflow/file-manager-photo.js). -->
+    <script src="core/dropdown-menu.js?v=20260716v1"></script>
     <!-- Documents — CRUD + lọc HTML whitelist (document.js, VIẾT LẠI 10/07/2026 Nhóm A — bỏ
          Markdown/Turndown), hàm dựng UI + surface Sửa dùng chung (document-ui.js, VIẾT LẠI cùng
          đợt — bỏ Toast UI Editor/kỹ thuật CSS multi-column cũ). document-pagination.js (MỚI, core
