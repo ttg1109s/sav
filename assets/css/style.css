@@ -317,71 +317,91 @@ body {
 }
 
 /* ============================================================================================
-   MỚI (14/07/2026, mục cuối, Giang yêu cầu — "layout ảnh không giống Google Photos, dùng CSS
-   thuần thay Tailwind") — lưới ảnh Photo & Album (components/items.js::itemTemplateImageGridRow(),
-   event/workflow/file-manager-photo.js::setupPhotoGridWindow()). Google Photos: ô sát mép nhau
-   (khe hở ~2px), KHÔNG bo góc, KHÔNG viền — khác hẳn bản Tailwind cũ (rounded-xl + border +
-   gap-1/4px). `.photo-grid-header`/`.photo-row` chiều cao/khoảng cách PHẢI khớp đúng
-   PHOTO_GRID_HEADER_HEIGHT_PX/PHOTO_ROW_HEIGHT_PX/PHOTO_GRID_GAP_PX (event/workflow/file-manager-
-   photo.js) — đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia.
-
-   SỬA (Giai đoạn 2, rewrite Photo/Album, mục 3b — Giang chỉ lại LẦN 2: "không phải cố định n x n,
-   height cố định, div chứa ảnh auto width, ảnh height = height div, width auto theo tỉ lệ ảnh")
-   — ĐẢO NGƯỢC quyết định "ô vuông auto-fill" (bản 14/07/2026 phía trên, giờ đã lỗi thời): CSS Grid
-   `auto-fill`/`aspect-ratio:1/1` ép MỌI ảnh thành ô vuông NxN, không còn phù hợp. Giờ mỗi "hàng" là
-   1 `.photo-row` FLEX riêng (bọc tường minh trong `itemTemplateImageGridRow()`, KHÔNG còn để CSS Grid
-   tự auto-flow các tile rời rạc — đó là nguồn gốc fragile coupling cũ: JS phải đoán TRƯỚC đúng số cột
-   trình duyệt sẽ tự tính để chia ảnh vào đúng hàng, sai 1 ly là lệch windowing). Mỗi `.photo-tile`
-   cao BẰNG chiều cao hàng (CSS `height:100%` trong `.photo-row` đã fix `height`), rộng TỰ ĐỘNG theo
-   `aspect-ratio` (đặt inline qua `style`, tính từ `image.width/image.height` — CÙNG SỐ LIỆU
-   `buildPhotoGridRows()` (core/file-manager/image.js) dùng để cộng dồn width lúc gộp hàng, nên 2 bên
-   LUÔN khớp nhau, không cần trình duyệt "đoán" cột nữa).
+   ĐẬP ĐI LÀM LẠI (rewrite Photo/Album, Giang yêu cầu "không dùng window virtual tự tạo nữa, dùng
+   thư viện") — lưới ảnh Photo & Album (event/workflow/photo-gallery-window.js). Layout THẬT (tự
+   nong/co chiều cao hàng để khít CHÍNH XÁC bề rộng container) giao HẲN cho fjGallery (thư viện,
+   CDN — index.html, tự có `fjGallery.css` riêng lo việc định vị `.fj-gallery-item` bên trong
+   `.fj-gallery`, KHÔNG được sửa/ghi đè ở đây). CSS ở đây CHỈ còn 3 việc: khung nhóm ngày (header +
+   placeholder khi bị gỡ khỏi DOM lúc cuộn xa), badge chọn/xoá, và shimmer placeholder lúc ảnh chưa
+   vẽ xong — TOÀN BỘ phần "hàng cao bao nhiêu/ảnh rộng bao nhiêu" (.photo-row/.photo-grid/.photo-
+   tile cũ, tự tính bằng tay) đã XOÁ HẲN, đúng nguồn gốc hàng loạt bug layout/lệch cuộn đã gặp.
    ============================================================================================ */
-.photo-grid {
-    display: block;
-}
-.photo-grid-header {
+.photo-day-header {
     height: 40px;
-    margin-bottom: 2px; /* FIX BUG (Giang báo layout dính liền + trống phần dưới khi cuộn sâu) — PHẢI khớp PHOTO_GRID_GAP_PX (event/workflow/file-manager-photo.js). computeRowHeights() (event/workflow/file-manager-photo.js::setupPhotoGridWindow()) CỘNG SẴN +2px/hàng vào windowing (tổng chiều cao sizer + offsetTop translateY) — bản trước CSS KHÔNG có khoảng cách thật nào giữa các hàng, 2 bên lệch nhau NGAY TỪ HÀNG ĐẦU, lệch CÀNG TÍCH LUỸ khi càng nhiều hàng phía trên (2px × số hàng đã cuộn qua) — tới 1 lúc nào đó vùng "cửa sổ" JS tính ra và vị trí cuộn THẬT của trình duyệt lệch đủ xa để hụt hẳn 1 khoảng, hiện ra như "trống, không hiển thị phần dưới" đúng Giang mô tả. Đổi 1 trong 2 chỗ (JS/CSS) PHẢI đổi luôn chỗ kia.
     display: flex;
     align-items: center;
-    padding: 0 2px;
+    padding: 0 8px;
     font-size: 13px;
     font-weight: 600;
     color: #e2e8f0;
 }
-.photo-row {
-    display: flex;
-    height: 120px; /* khớp PHOTO_ROW_HEIGHT_PX (event/workflow/file-manager-photo.js) — đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia */
-    margin-bottom: 2px; /* FIX BUG — xem giải thích đầy đủ ở .photo-grid-header ngay trên, cùng lỗi */
-    gap: 2px;
-    overflow: hidden; /* tile cuối hàng có thể dư/thiếu vài px so với bề rộng container (JS chỉ ước lượng TRƯỚC khi trình duyệt render thật) — cắt phần dư thay vì tràn layout */
+.photo-day-group-placeholder {
+    /* height do JS gán trực tiếp (mốc offsetHeight đã đo THẬT lúc nhóm còn hiển thị đầy đủ, xem
+       event/workflow/photo-gallery-window.js::_unloadGroup()) — CSS chỉ cần 1 màu nền rất nhẹ,
+       tránh trông như khoảng trắng trống trơn giữa 2 nhóm còn tải. */
+    background: rgba(255, 255, 255, 0.02);
 }
-/* MỚI (fix bug 4, Giang yêu cầu "placeholder animation thay vì để trống khung hình") — thay nền tĩnh
-   mờ cũ (rgba cố định) bằng hiệu ứng nhấp nháy nhẹ (pulse), CHẠY LIÊN TỤC phía SAU <img> — KHÔNG cần
-   JS nào tắt/bật animation khi ảnh tải xong: <img> (object-fit:cover, phủ kín 100% tile) tự động
-   PHỦ LÊN placeholder ngay khi có dữ liệu để vẽ, animation phía dưới tuy vẫn chạy nhưng bị che khuất
-   hoàn toàn — đúng ý Giang "khi có ảnh chỉ cần cho ảnh phủ lên là được", không cần onload/JS gì thêm. */
-@keyframes photo-tile-shimmer {
-    0%, 100% { background-color: rgba(255, 255, 255, 0.04); }
-    50% { background-color: rgba(255, 255, 255, 0.11); }
-}
-.photo-tile {
-    position: relative;
-    display: block;
-    height: 100%;
-    flex-shrink: 0; /* GIỮ NGUYÊN width tính từ aspect-ratio — không cho flexbox bóp méo để lấp đầy hàng */
+
+.fj-gallery-item {
     overflow: hidden;
-    animation: photo-tile-shimmer 1.4s ease-in-out infinite;
-    padding: 0;
-    border: 0;
+    cursor: pointer;
 }
-.photo-tile img {
-    position: relative; /* NẰM TRÊN animation nền của .photo-tile (cùng stacking context, thứ tự DOM sau nên tự đè lên) */
+.fj-gallery-item img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
+}
+
+/* Placeholder animation (fix bug 4, Giang yêu cầu "placeholder animation thay vì để trống khung
+   hình") — shimmer chạy liên tục phía SAU <img>: <img> phủ kín 100% tile (object-fit: cover) tự
+   động PHỦ LÊN ngay khi có dữ liệu để vẽ, KHÔNG cần onload/JS gì thêm ("khi có ảnh chỉ cần cho ảnh
+   phủ lên là được" — đúng nguyên văn Giang yêu cầu, giữ nguyên từ bản trước). */
+@keyframes photo-tile-shimmer {
+    0%, 100% { background-color: rgba(255, 255, 255, 0.04); }
+    50% { background-color: rgba(255, 255, 255, 0.11); }
+}
+.fj-gallery-item {
+    animation: photo-tile-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Badge chọn (xanh, thêm ảnh vào album/chọn bìa)/xoá (đỏ, xoá nhanh) — overlay góc trên phải mỗi
+   tile. LUÔN hiện khung viền mờ (kể cả CHƯA đánh dấu — biết đang ở chế độ chọn/xoá, bấm vào đâu),
+   CHỈ hiện icon tick/thùng rác + màu đặc khi `.photo-tile-marked` (JS toggle trực tiếp lúc bấm, xem
+   event/workflow/photo-gallery-window.js::setTileBadge() — KHÔNG dựng lại cả nhóm chỉ để đổi 1
+   badge). Phần tử `.photo-tile-badge` CHỈ tồn tại trong DOM khi mount() có `badgeMode` — mount bình
+   thường (xem ảnh, không chọn/xoá) không có phần tử này, không tốn gì. */
+.photo-tile-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 20px;
+    height: 20px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+.photo-tile-badge svg {
+    display: none; /* CHỈ hiện icon khi đã đánh dấu — badge CHƯA đánh dấu là khung viền rỗng */
+}
+.photo-tile-marked .photo-tile-badge-select {
+    background: #0ea5e9;
+    border-color: #38bdf8;
+}
+.photo-tile-marked .photo-tile-badge-delete {
+    background: #f43f5e;
+    border-color: #fb7185;
+}
+.photo-tile-marked .photo-tile-badge svg {
+    display: block;
+}
+.photo-tile-marked img {
+    opacity: 0.5;
 }
 
 /* ============================================================================================
