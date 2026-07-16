@@ -45,9 +45,9 @@ function handleFileManagerPhotoDelegatedClick(e) {
     }
 
     // ===================== MỚI (Giai đoạn 3b) — Album List sub-panel ==========================
-    // Check `data-album-list-action` (icon) TRƯỚC `data-album-list-row` (tên/số lượng) — 1 icon nằm
-    // LỒNG bên trong hàng, closest() sẽ trúng icon trước nếu check icon trước, tránh bấm icon lại
-    // kích hoạt luôn cả filter (xem docstring itemTemplateAlbumListRow(), components/items.js).
+    // Check `data-album-list-action` (icon) — vùng tên/số lượng KHÔNG còn bấm được nữa (fix bug 2,
+    // Giang yêu cầu "ấn vào album lại ra sub panel -> bỏ" — xem itemTemplateAlbumListRow(),
+    // components/items.js).
 
     const albumListCreateBtn = e.target.closest('#btn-file-manager-album-list-create');
     if (albumListCreateBtn) {
@@ -62,11 +62,6 @@ function handleFileManagerPhotoDelegatedClick(e) {
     const albumListActionBtn = e.target.closest('button[data-album-list-action]');
     if (albumListActionBtn && e.target.closest('#file-manager-album-list')) {
         eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.action.click', payload: { action: albumListActionBtn.dataset.albumListAction, albumId: albumListActionBtn.dataset.albumId } });
-        return;
-    }
-    const albumListRowBtn = e.target.closest('button[data-album-list-row]');
-    if (albumListRowBtn && e.target.closest('#file-manager-album-list')) {
-        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.rowClick', payload: { albumId: albumListRowBtn.dataset.albumId } });
         return;
     }
 
