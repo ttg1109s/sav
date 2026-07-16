@@ -65,9 +65,12 @@ function handleFileManagerPhotoDelegatedClick(e) {
         return;
     }
 
-    // ===================== Lưới ảnh (Patch mục 2, 14/07/2026 — Item + window ảo, THAY masonry cũ) ==
-    const tile = e.target.closest('button[data-image-key]');
-    if (tile && e.target.closest('#file-manager-image-masonry')) {
+    // ===================== Lưới ảnh (event/workflow/photo-gallery-window.js — thay masonry/windowing tự viết cũ) ==
+    // SỬA (rewrite Photo/Album, dùng fjGallery) — tile giờ là `<div class="fj-gallery-item">` (đúng
+    // cấu trúc fjGallery yêu cầu), KHÔNG còn `<button>` như bản windowing tự viết cũ — selector đổi
+    // theo, bỏ ràng buộc tag.
+    const tile = e.target.closest('[data-image-key]');
+    if (tile && e.target.closest('.photo-gallery-window')) {
         eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.image.click', payload: { imageKey: tile.dataset.imageKey } });
         return;
     }
