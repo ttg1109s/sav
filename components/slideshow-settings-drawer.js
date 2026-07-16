@@ -5,8 +5,10 @@
  *   2. Bỏ 2 nút "Chọn Album"/"Tắt" — thay bằng 1 cần gạt DUY NHẤT "#setting-slideshow-enable": gạt
  *      "On" TỰ mở panel chọn Album ngay (giống 3 toggle nền Video/Ảnh đã sửa ở mục 1 — cùng ngày);
  *      huỷ/đóng panel không chọn gì -> tự gạt về "off".
- *   3. Panel chọn Album ĐỔI HẲN sang kiểu "notify center" — TÁI DÙNG class `.glass-control-center`
- *      (xem `TPL_SLIDESHOW_ALBUM_PICKER` bên dưới, ĐỘC LẬP với panel Settings).
+ *   3. VIẾT LẠI LẦN 2 (Giai đoạn 4, rewrite Photo/Album, mục 1, Giang yêu cầu "bỏ modal đi mà áp
+ *      dụng gentic drawer") — panel chọn Album ĐỔI HẲN từ "notify center" tĩnh (mount sẵn lúc boot)
+ *      sang Generic Drawer ĐỘNG (core/generic-drawer.js) — xem event/workflow/slideshow.js::
+ *      openAlbumPicker(). File NÀY (component) không còn markup panel chọn Album nào cả.
  *
  * === Batch D4 (Settings restructure, tiếp D1/D2/D3) ===
  * TRƯỚC ĐÂY `TPL_SLIDESHOW_SETTINGS_DRAWER` gộp CẢ khung `fixed inset-0 drawer-glass z-[90]` LẪN
@@ -15,10 +17,8 @@
  *   - `renderSlideshowPanelBody()` — 6 input (enable/mode/photoPerSong/interval/transition/
  *     showCaption), PUSH ĐỘNG vào Settings Stack (core/settings-panel-stack.js), giống About/
  *     Subtitle/Visualizer.
- *   - `TPL_SLIDESHOW_ALBUM_PICKER` — panel chọn Album kiểu "notify center", GIỮ NGUYÊN TĨNH (mount
- *     1 lần lúc boot, KHÔNG di chuyển) — đây là 1 overlay ĐỘC LẬP với Settings Stack (ngang hàng
- *     kiến trúc, giống Modal Subtitle Giang đã chỉ ra 06/07/2026), không phải 1 tầng lồng trong
- *     ngăn xếp Settings — không cần push/pop gì cả, chỉ toggle hidden/scale như trước giờ.
+ *   - Panel chọn Album — ĐÃ ĐỔI SANG Generic Drawer động (Giai đoạn 4, xem mục 3 ngay trên) —
+ *     KHÔNG còn `TPL_SLIDESHOW_ALBUM_PICKER` mount tĩnh nào ở file này nữa.
  *
  * Logic: event/workflow/slideshow.js (workflowSlideshow); listener/router: cụm "slideshowSettings"
  * (event/listener,router/slideshow.js).
@@ -98,17 +98,8 @@ function renderSlideshowPanelBody() {
 `;
 }
 
-/**
- * Panel chọn Album kiểu "notify center" (TÁI DÙNG pattern #visualizer-control-center: overlay mờ +
- * panel .glass-control-center scale/opacity) — ĐỘC LẬP với Settings Stack, KHÔNG di chuyển (xem
- * docstring đầu file). Mount TĨNH 1 lần lúc boot (main.js), z-index cao hơn hẳn [130]/[131] để
- * không bị giới hạn bởi overflow/transform của bất kỳ drawer nào (kể cả #drawer-settings).
- */
-const TPL_SLIDESHOW_ALBUM_PICKER = `
-    <div id="slideshow-album-picker-overlay" class="hidden fixed inset-0 z-[130] pointer-events-auto bg-black/40"></div>
-    <div id="slideshow-album-picker-panel" class="fixed inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[440px] top-1/2 -translate-y-1/2 glass-control-center rounded-3xl shadow-2xl transform scale-0 opacity-0 transition-all duration-300 ease-out z-[131] pointer-events-auto p-5 max-h-[70vh] flex flex-col">
-        <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-4 text-center shrink-0" data-i18n="slideshowSettingsDrawer.albumPicker.title">${t('slideshowSettingsDrawer.albumPicker.title')}</h3>
-        <div id="slideshow-album-picker-grid" class="grid grid-cols-3 gap-x-2 gap-y-5 overflow-y-auto"></div>
-        <p id="slideshow-album-picker-empty" class="hidden text-sm text-slate-300 text-center py-8" data-i18n="slideshowSettingsDrawer.albumPicker.empty">${t('slideshowSettingsDrawer.albumPicker.empty')}</p>
-    </div>
-`;
+// ===================== ĐÃ GỠ (Giai đoạn 4, rewrite Photo/Album, mục 1) — Panel chọn Album kiểu
+// "notify center" tĩnh =========================================================================
+// `TPL_SLIDESHOW_ALBUM_PICKER` (bản trước ở đây, mount tĩnh 1 lần lúc boot) XOÁ HẲN — panel chọn
+// Album giờ dùng Generic Drawer ĐỘNG (core/generic-drawer.js), dựng lúc cần qua
+// event/workflow/slideshow.js::openAlbumPicker() — KHÔNG còn overlay/panel riêng mount sẵn nữa.
