@@ -47,7 +47,10 @@
             GENERIC_DRAWER: 128,             // core/generic-drawer.js — panel; overlay tự dùng GENERIC_DRAWER - 1
             IMAGE_PREVIEW: 130,              // core/file-manager/photo-ui.js::openImagePreviewModal()
             IMAGE_CAROUSEL_PICKER: 130,      // core/file-manager/photo-ui.js::openImageCarouselPickerModal()
-            PHOTO_UI_IMAGE_PICKER: 130,      // core/file-manager/photo-ui.js::openPhotoUiImagePickerModal() — SẼ GỠ khi chuyển vào Generic Drawer (Giai đoạn 4)
+            // ĐÃ GỠ (Giai đoạn 4) — PHOTO_UI_IMAGE_PICKER (z-130, modal picker cover bài hát riêng)
+            // không còn tồn tại — picker "thêm ảnh vào album"/"chọn bìa bài hát" giờ DÙNG CHUNG
+            // Generic Drawer (event/workflow/file-manager-photo.js::_openImagePickerDrawer()), tự
+            // dùng GENERIC_DRAWER (128) ngay trên, không cần entry riêng trong bảng này nữa.
             IMAGE_ACTION_MENU_DRAWER: 131,   // event/workflow/file-manager-photo.js::_openImageActionMenu()/_openEditCaptionForm() — Generic Drawer mở TRÊN Image Preview
             MODAL_CHOICE: 200,               // core/modal-choice.js — luôn cao nhất
         };

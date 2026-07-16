@@ -158,10 +158,9 @@
         // MỚI (Batch 9, 04/07/2026, mục 4) — panel chọn Album kiểu "notify center" — ĐỘC LẬP với
         // Settings Stack (KHÔNG di chuyển, xem components/slideshow-settings-drawer.js), 4 const
         // dưới đây GIỮ NGUYÊN tĩnh.
-        const slideshowAlbumPickerOverlay = document.getElementById('slideshow-album-picker-overlay');
-        const slideshowAlbumPickerPanel = document.getElementById('slideshow-album-picker-panel');
-        const slideshowAlbumPickerGrid = document.getElementById('slideshow-album-picker-grid');
-        const slideshowAlbumPickerEmpty = document.getElementById('slideshow-album-picker-empty');
+        // ĐÃ GỠ (Giai đoạn 4, rewrite Photo/Album, mục 1) — slideshowAlbumPickerOverlay/Panel/Grid/
+        // Empty không còn tồn tại (panel chọn Album Slideshow giờ dùng Generic Drawer động, đọc lại
+        // genericDrawerBody mỗi lần mở — xem event/workflow/slideshow.js::openAlbumPicker()).
         // (settingSlideshowEnableToggle/slideshowModeSelect/settingSlideshowPhotoPerSongToggle/
         // slideshowIntervalRow/slideshowIntervalInput/slideshowTransitionSelect/
         // settingSlideshowShowCaptionToggle ĐÃ XOÁ — Batch D4: 6 input Settings giờ sống động BÊN
