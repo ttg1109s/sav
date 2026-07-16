@@ -7,9 +7,14 @@
  * 6 input (enable/mode/photoPerSong/interval/transition/showCaption) sống BÊN TRONG panel Settings
  * (push/pop động, core/settings-panel-stack.js) — ĐỔI sang delegation trên `settingsStackBody`,
  * CHUẨN đã dùng từ Batch D2/D3. `btnBackSlideshowSettings` ĐÃ XOÁ (Back dùng CHUNG
- * `btnSettingsStackBack`). `btnOpenSlideshowSettings` (Main, tĩnh) + `slideshowAlbumPickerOverlay`
- * (panel chọn Album, ĐỘC LẬP với Settings Stack — xem docstring components/slideshow-settings-
- * drawer.js) GIỮ NGUYÊN kiểu listener trực tiếp, KHÔNG cần delegation.
+ * `btnSettingsStackBack`). `btnOpenSlideshowSettings` (Main, tĩnh) GIỮ NGUYÊN kiểu listener trực
+ * tiếp, KHÔNG cần delegation.
+ *
+ * ĐÃ GỠ (Giai đoạn 4, rewrite Photo/Album, mục 1) — listener tĩnh cho `slideshowAlbumPickerOverlay`
+ * (panel chọn Album kiểu "notify center", mount sẵn lúc boot) — panel đó giờ là Generic Drawer ĐỘNG,
+ * `genericDrawerOverlay` (element DÙNG CHUNG nhiều feature) được wire/gỡ listener ĐÚNG lúc mở/đóng
+ * NGAY TRONG event/workflow/slideshow.js::openAlbumPicker()/_closeAlbumPickerDrawer() — KHÔNG thể
+ * wire tĩnh 1 lần ở đây nữa (sẽ dính sang mọi Generic Drawer khác, không riêng gì Slideshow).
  */
 
 if (btnOpenSlideshowSettings) {
@@ -19,12 +24,6 @@ if (btnOpenSlideshowSettings) {
 }
 
 // (btnBackSlideshowSettings ĐÃ XOÁ — Batch D4: Back dùng CHUNG btnSettingsStackBack.)
-
-if (slideshowAlbumPickerOverlay) {
-    slideshowAlbumPickerOverlay.addEventListener('click', () => {
-        eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.albumPicker.overlay.click', payload: {} });
-    });
-}
 
 // ===================== 6 input BÊN TRONG panel Settings (delegate) =====================
 const SLIDESHOW_SETTINGS_INPUT_MAP = {
