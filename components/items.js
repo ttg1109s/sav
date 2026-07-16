@@ -297,9 +297,10 @@ function itemTemplateImageGridRow(row, ctx) {
  * slider ngang cũ, event/workflow/file-manager-photo.js::refreshAlbumListPanel()). Layout ĐÚNG
  * Giang mô tả: tên trái (truncate, phần còn lại click được để LỌC lưới ảnh chính + quay lại panel
  * Photo) — số lượng ảnh giữa — 4 icon hành động phải (xem/thêm ảnh/đổi tên/xoá).
- * `data-album-list-row` (vùng tên+số lượng, click -> filter) TÁCH RIÊNG khỏi `data-album-list-action`
- * (icon, click -> hành động khác) — listener (event/listener/file-manager-photo.js) check action
- * TRƯỚC, row SAU, tránh bấm icon lại kích hoạt luôn cả filter.
+ * SỬA (fix bug 2, Giang yêu cầu "ấn vào album lại ra sub panel -> bỏ") — vùng tên/số lượng KHÔNG
+ * còn bấm được nữa (đổi từ `<button data-album-list-row>` sang `<div>` tĩnh) — trước đây bấm vào sẽ
+ * lọc lưới ảnh chính + quay về panel Photo, nay bỏ hẳn tương tác đó, CHỈ còn 4 icon hành động phải
+ * là bấm được (xem/thêm ảnh/đổi tên/xoá).
  * Hàm THUẦN (Rule 1-4) — không appState, không DOM, không gọi core khác.
  * @param {{id: string, name: string, imageKeys: Array<string>}} album
  * @returns {string}
@@ -308,9 +309,9 @@ function itemTemplateAlbumListRow(album) {
     const count = Array.isArray(album.imageKeys) ? album.imageKeys.length : 0;
     return `
         <div class="flex items-center gap-2 px-4 py-3 border-b border-white/5">
-            <button type="button" class="flex-1 min-w-0 text-left" data-album-list-row="1" data-album-id="${escapeHtml(album.id)}">
+            <div class="flex-1 min-w-0">
                 <span class="text-sm font-semibold text-slate-100 truncate block">${escapeHtml(album.name)}</span>
-            </button>
+            </div>
             <span class="text-xs text-slate-400 shrink-0 tabular-nums">${tFormat('fileManager.photo.albumList.photoCount', { count })}</span>
             <div class="flex items-center gap-0.5 shrink-0">
                 <button type="button" class="p-1.5 rounded-full hover:bg-white/10 transition-colors text-slate-400 hover:text-violet-400" data-album-list-action="view" data-album-id="${escapeHtml(album.id)}" title="${t('fileManager.photo.album.viewTitle')}">
