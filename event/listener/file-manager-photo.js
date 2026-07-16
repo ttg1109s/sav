@@ -44,10 +44,13 @@ function handleFileManagerPhotoDelegatedClick(e) {
         return;
     }
 
-    // ===================== MỚI (Giai đoạn 3b) — Album List sub-panel ==========================
-    // Check `data-album-list-action` (icon) — vùng tên/số lượng KHÔNG còn bấm được nữa (fix bug 2,
-    // Giang yêu cầu "ấn vào album lại ra sub panel -> bỏ" — xem itemTemplateAlbumListRow(),
-    // components/items.js).
+    // ===================== Album List sub-panel ==========================
+    // VIẾT LẠI (Giang yêu cầu "làm giống y hệt Playlist UI, action ba chấm dropdown") — bỏ hẳn
+    // `data-album-list-action` (4 icon rời cũ) — CHỈ còn nút "..." duy nhất (`data-album-menu-
+    // action`), mở dropdown (core/dropdown-menu.js). `albumId` đọc từ DÒNG CHA (`[data-album-id]`,
+    // đặt trên cả dòng — xem itemTemplateAlbumListRow(), components/items.js), KHÔNG còn đặt riêng
+    // trên từng nút như trước (giờ chỉ có đúng 1 nút/dòng). `anchorBtn` truyền qua payload để dropdown
+    // tự định vị — ĐÚNG tiền lệ `event/listener/playlist.js::'playlist.item.menuClick'`.
 
     const albumListCreateBtn = e.target.closest('#btn-file-manager-album-list-create');
     if (albumListCreateBtn) {
@@ -59,9 +62,10 @@ function handleFileManagerPhotoDelegatedClick(e) {
         eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.page.click', payload: { pageIndex: Number(albumListPaginationBtn.dataset.pageIndex) } });
         return;
     }
-    const albumListActionBtn = e.target.closest('button[data-album-list-action]');
-    if (albumListActionBtn && e.target.closest('#file-manager-album-list')) {
-        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.action.click', payload: { action: albumListActionBtn.dataset.albumListAction, albumId: albumListActionBtn.dataset.albumId } });
+    const albumMenuBtn = e.target.closest('button[data-album-menu-action]');
+    if (albumMenuBtn) {
+        const rowEl = albumMenuBtn.closest('[data-album-id]');
+        if (rowEl) eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.menu.click', payload: { albumId: rowEl.dataset.albumId, anchorBtn: albumMenuBtn } });
         return;
     }
 
