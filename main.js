@@ -82,9 +82,11 @@
         // giờ ĐỀU là panel động — KHÔNG còn TPL_FILE_MANAGER_* nào mount tĩnh ở đây nữa.
         // Batch D4 (Settings restructure, 06/07/2026) — TPL_SLIDESHOW_SETTINGS_DRAWER ĐÃ BỎ khỏi
         // mount tĩnh (nội dung giờ là renderSlideshowPanelBody(), push động — xem event/workflow/
-        // slideshow.js::openPanel()); THAY bằng TPL_SLIDESHOW_ALBUM_PICKER (panel chọn Album kiểu
-        // "notify center" — ĐỘC LẬP với Settings Stack, vẫn mount tĩnh như trước, KHÔNG di chuyển).
-        TPL_SLIDESHOW_ALBUM_PICKER + // Batch 8, ver 12 "Multi Media" — Slideshow nền Visual.
+        // slideshow.js::openPanel()).
+        // ĐÃ GỠ (Giai đoạn 4, rewrite Photo/Album, mục 1 — Giang yêu cầu "bỏ modal đi mà áp dụng
+        // gentic drawer") — TPL_SLIDESHOW_ALBUM_PICKER (panel chọn Album kiểu "notify center", mount
+        // tĩnh) KHÔNG còn — panel chọn Album Slideshow giờ dùng Generic Drawer ĐỘNG, xem
+        // event/workflow/slideshow.js::openAlbumPicker().
         // Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — TPL_DOCUMENT_READER/
         // TPL_DOCUMENT_PICKER_DRAWER CŨ ĐÃ BỎ (components/document-reader.js/
         // document-picker-drawer.js đã xoá) — THAY bằng 1 khung TRẮNG dùng CHUNG duy nhất cho cả
