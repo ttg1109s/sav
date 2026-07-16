@@ -85,6 +85,17 @@ const workflowPhotoGalleryWindow = {
         this._mounts.delete(mountKey);
     },
 
+    /** Dựng 1 phần tử badge (chọn/xoá) — dùng CHUNG cho `_loadGroup()` (dựng tile mới) và
+     * `setBadgeMode()` (đổi badge trên tile đã có) — tránh lặp SVG icon 2 nơi. */
+    _createBadgeElement(badgeMode) {
+        const badge = document.createElement('span');
+        badge.className = `photo-tile-badge photo-tile-badge-${badgeMode === 'quickDelete' ? 'delete' : 'select'}`;
+        badge.innerHTML = badgeMode === 'quickDelete'
+            ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>'
+            : '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
+        return badge;
+    },
+
     /** Dựng DOM thật (header + tile) cho 1 nhóm ngày + gọi fjGallery() layout — CHỈ khi nhóm đó
      * CHƯA đang tải (guard idempotent, IntersectionObserver có thể bắn nhiều lần cho cùng 1 target
      * nếu qua lại ranh giới liên tục). */
@@ -118,11 +129,7 @@ const workflowPhotoGalleryWindow = {
             itemEl.appendChild(img);
 
             if (m.badgeMode) {
-                const badge = document.createElement('span');
-                badge.className = `photo-tile-badge photo-tile-badge-${m.badgeMode === 'quickDelete' ? 'delete' : 'select'}`;
-                badge.innerHTML = m.badgeMode === 'quickDelete'
-                    ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>'
-                    : '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
+                const badge = this._createBadgeElement(m.badgeMode);
                 itemEl.appendChild(badge);
                 if (m.selectedKeys.has(image.key)) itemEl.classList.add('photo-tile-marked');
             }
@@ -153,6 +160,34 @@ const workflowPhotoGalleryWindow = {
         record.el.innerHTML = '';
         if (record.heightPx) record.el.style.height = record.heightPx + 'px'; // giữ ĐÚNG chỗ trống — cuộn không giật
         record.el.classList.add('photo-day-group-placeholder');
+    },
+
+    /** MỚI (Giang chỉ ra "tại sao phải có refresh?" — bật/tắt chế độ badge KHÔNG cần đọc lại DB/dựng
+     * lại lưới, dữ liệu ảnh không hề đổi) — đổi `badgeMode`/`selectedKeys` trên mount ĐANG có, CHỈ
+     * cập nhật badge cho tile thuộc nhóm ĐANG hiển thị (nhóm placeholder tự đọc đúng `m.badgeMode`/
+     * `m.selectedKeys` mới khi tải lại sau này qua `_loadGroup()`, KHÔNG cần đụng vào ở đây) — KHÔNG
+     * revoke/tạo lại object URL nào, KHÔNG gọi fjGallery() lại (layout ảnh không đổi, chỉ thêm/bớt
+     * badge phủ lên).
+     * @param {string} mountKey
+     * @param {'quickDelete'|'multiSelect'|null} badgeMode
+     * @param {Set<string>} [selectedKeys]
+     */
+    setBadgeMode(mountKey, badgeMode, selectedKeys) {
+        const m = this._mounts.get(mountKey);
+        if (!m) return;
+        m.badgeMode = badgeMode || null;
+        m.selectedKeys = selectedKeys || new Set();
+        m.groupRecords.forEach((record) => {
+            if (!record.loaded) return; // nhóm placeholder — bỏ qua, tự đúng khi tải lại sau này
+            record.el.querySelectorAll('.fj-gallery-item').forEach((itemEl) => {
+                const oldBadge = itemEl.querySelector('.photo-tile-badge');
+                if (oldBadge) oldBadge.remove();
+                itemEl.classList.remove('photo-tile-marked');
+                if (!m.badgeMode) return;
+                itemEl.appendChild(this._createBadgeElement(m.badgeMode));
+                if (m.selectedKeys.has(itemEl.dataset.imageKey)) itemEl.classList.add('photo-tile-marked');
+            });
+        });
     },
 
     /** MỚI — toggle badge 1 tile CỤ THỂ đã biết `imageKey` (gọi SAU khi Workflow đã mutate Set lựa

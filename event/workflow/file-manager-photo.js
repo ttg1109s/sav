@@ -205,7 +205,8 @@ const workflowFileManagerPhoto = {
      * "tốn kém" ở phần audit trước rewrite này). Giờ bấm ảnh chỉ TOGGLE vào/ra
      * `quickDeleteSelectedKeys` (Set closure ở Router) — patch DOM TRỰC TIẾP đúng 1 tile qua
      * `workflowPhotoGalleryWindow.setTileBadge()` (event/workflow/photo-gallery-window.js), KHÔNG
-     * `refresh()`/KHÔNG dựng lại cả nhóm ngày, KHÔNG đọc/ghi DB gì cả.
+     * `refresh()`/KHÔNG dựng lại cả nhóm ngày, KHÔNG đọc/ghi DB gì cả. Title nút tự cập nhật số
+     * lượng NGAY tại đây (không đợi `refresh()` nào khác) — patch chuỗi text, rẻ.
      * @param {string} imageKey
      * @param {Set<string>} quickDeleteSelectedKeys
      */
@@ -214,6 +215,40 @@ const workflowFileManagerPhoto = {
         if (isNowMarked) quickDeleteSelectedKeys.add(imageKey);
         else quickDeleteSelectedKeys.delete(imageKey);
         workflowPhotoGalleryWindow.setTileBadge('photoGrid', imageKey, isNowMarked); // event/workflow/photo-gallery-window.js
+        this._updateQuickDeleteButtonTitle(quickDeleteSelectedKeys);
+    },
+
+    /** MỚI (Giang chỉ ra "tại sao phải có refresh?" — bật/tắt chế độ xoá nhanh KHÔNG cần đọc lại DB/
+     * dựng lại lưới, dữ liệu ảnh không hề đổi lúc này) — THAY thế lời gọi `refresh()` đầy đủ trước
+     * đây ở case bật mode (Set rỗng)/tắt mode (Set rỗng) của router — CHỈ 2 việc: đổi màu/tiêu đề nút
+     * + đổi badge trên tile ĐANG hiển thị qua `workflowPhotoGalleryWindow.setBadgeMode()` (KHÔNG
+     * revoke/tạo lại object URL, KHÔNG gọi fjGallery() lại). `refresh()` đầy đủ CHỈ còn cần cho
+     * `confirmQuickDeleteBatch()` (ảnh THẬT SỰ bị xoá khỏi DB, lưới bắt buộc phải dựng lại).
+     * @param {boolean} imageQuickDeleteMode
+     * @param {Set<string>} quickDeleteSelectedKeys
+     */
+    updateQuickDeleteModeUI(imageQuickDeleteMode, quickDeleteSelectedKeys) {
+        if (!fileManagerPhotoPanelEl) return;
+        const deleteModeBtn = fileManagerPhotoPanelEl.querySelector('#btn-file-manager-image-delete-mode');
+        if (deleteModeBtn) {
+            deleteModeBtn.classList.toggle('bg-rose-500', imageQuickDeleteMode);
+            deleteModeBtn.classList.toggle('bg-white/10', !imageQuickDeleteMode);
+        }
+        this._updateQuickDeleteButtonTitle(quickDeleteSelectedKeys, imageQuickDeleteMode);
+        workflowPhotoGalleryWindow.setBadgeMode('photoGrid', imageQuickDeleteMode ? 'quickDelete' : null, quickDeleteSelectedKeys); // event/workflow/photo-gallery-window.js
+    },
+
+    /** Patch chuỗi text title nút xoá nhanh — DÙNG CHUNG cho `toggleQuickDeleteMarkInSet()` (đánh
+     * dấu từng ảnh) VÀ `updateQuickDeleteModeUI()` (bật/tắt mode), tránh lặp logic 2 nơi.
+     * @param {Set<string>} quickDeleteSelectedKeys
+     * @param {boolean} [imageQuickDeleteMode] - mặc định true (gọi từ toggleQuickDeleteMarkInSet chỉ khi ĐANG bật mode).
+     */
+    _updateQuickDeleteButtonTitle(quickDeleteSelectedKeys, imageQuickDeleteMode = true) {
+        if (!fileManagerPhotoPanelEl) return;
+        const deleteModeBtn = fileManagerPhotoPanelEl.querySelector('#btn-file-manager-image-delete-mode');
+        if (!deleteModeBtn) return;
+        const baseTitle = t('fileManager.photo.image.quickDeleteTitle');
+        deleteModeBtn.title = (imageQuickDeleteMode && quickDeleteSelectedKeys.size > 0) ? `${baseTitle} (${quickDeleteSelectedKeys.size})` : baseTitle;
     },
 
     /** MỚI (Giai đoạn 3, rewrite Photo/Album — redesign chế độ xoá nhanh) — xoá TOÀN BỘ ảnh đã đánh
