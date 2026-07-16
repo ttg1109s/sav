@@ -204,26 +204,11 @@ function finishSlideshowTransitionVisuals(outgoingLayerEl, incomingLayerEl) {
     incomingLayerEl.classList.add('ss-current');
 }
 
-/**
- * Core thuần: hiện/ẩn panel chọn Album (Batch 9, mục 4) — CÙNG kiểu animation với
- * #visualizer-control-center (scale-0/opacity-0 <-> bỏ, xem core/state-and-video-bg.js::
- * openControlCenter/closeControlCenter). 2 phần tử riêng (overlay mờ phía sau + panel nổi) vì
- * panel này có thể mở TỪ Slideshow Settings Drawer (đã là 1 lớp overlay khác) — cần lớp overlay
- * riêng để bắt sự kiện "bấm ra ngoài -> đóng" mà không đóng nhầm luôn cả Settings Drawer bên dưới.
- * @param {HTMLElement} overlayEl
- * @param {HTMLElement} panelEl
- * @param {boolean} visible
- */
-function setSlideshowAlbumPickerVisible(overlayEl, panelEl, visible) {
-    if (!overlayEl || !panelEl) return;
-    if (visible) {
-        overlayEl.classList.remove('hidden');
-        panelEl.classList.remove('scale-0', 'opacity-0');
-    } else {
-        overlayEl.classList.add('hidden');
-        panelEl.classList.add('scale-0', 'opacity-0');
-    }
-}
+// ===================== ĐÃ GỠ (Giai đoạn 4, rewrite Photo/Album, mục 1) — hiện/ẩn panel chọn Album
+// kiểu "notify center" =============================================================================
+// `setSlideshowAlbumPickerVisible()` (bản trước ở đây) XOÁ HẲN — panel chọn Album giờ dùng
+// `openGenericDrawer()`/`closeGenericDrawer()` (core/generic-drawer.js) như mọi Generic Drawer khác,
+// xem event/workflow/slideshow.js::openAlbumPicker()/_closeAlbumPickerDrawer().
 
 /**
  * Core thuần: dọn class DOM của 1 layer về trạng thái nghỉ (KHÔNG đụng ảnh/Ken Burns — Workflow tự

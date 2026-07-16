@@ -34,12 +34,12 @@
  *   - event/workflow/file-manager-photo.js::setupPhotoGridWindow() — chuẩn bị hàng lưới RỒI giao
  *     `workflowVirtualList.mount()` (event/workflow/virtual-list.js) đo/dựng/vẽ. `scroll` đi ĐÚNG
  *     luồng listener->bus->router->workflow như mọi sự kiện khác (event/listener/virtual-list.js —
- *     KHÔNG Workflow tự `addEventListener`). Dùng CHUNG cho CẢ Photo & Album LẪN
- *     `openPhotoUiImagePickerModal()` (picker cover bài hát — hàm đó giờ CHỈ dựng khung modal +
- *     `<div>` grid rỗng, giao lại qua tham số `onGridReady`, xem hàm đó bên dưới) — tránh duy trì 2
- *     hệ windowing khác nhau trong project.
- * `_thumbnailLazyObserver`/`_observeLazyThumbnail` GIỮ NGUYÊN — vẫn phục vụ story slider Album (số
- * lượng nhỏ, không cần window ảo).
+ *     KHÔNG Workflow tự `addEventListener`). Dùng CHUNG cho CẢ Photo & Album LẪN picker ảnh Generic
+ *     Drawer (mountKey 'genericDrawer', event/workflow/file-manager-photo.js::
+ *     _openImagePickerDrawer() — Giai đoạn 3b/4, THAY `openPhotoUiImagePickerModal()` cũ đã xoá) —
+ *     tránh duy trì 2 hệ windowing khác nhau trong project.
+ * `_thumbnailLazyObserver`/`_observeLazyThumbnail` GIỮ NGUYÊN — vẫn phục vụ Slideshow Settings (chọn
+ * album nền, số lượng nhỏ, không cần window ảo — story slider Album ĐÃ XOÁ ở Giai đoạn 3b).
  */
 
 // ===================== ĐÃ GỠ (Giai đoạn 3b, rewrite Photo/Album, mục 3a) — Story slider Album =====
@@ -64,10 +64,10 @@
 //     nào ở đây, chỉ chuẩn bị "hàng lưới" RỒI giao workflowVirtualList.mount() (gọi từ
 //     event/workflow/file-manager-photo.js::setupPhotoGridWindow()). `scroll` đi ĐÚNG luồng
 //     listener->bus->router->workflow (event/listener/virtual-list.js), KHÔNG Workflow tự
-//     addEventListener. Dùng CHUNG cho CẢ Photo & Album (fileManagerPhotoPanelEl) LẪN Picker cover
-//     bài hát (openPhotoUiImagePickerModal() bên dưới, gọi qua event/workflow/playlist.js —
-//     Workflow gọi Workflow miền khác, TỰ DO theo event-bus-flow.md mục 4B), tránh duy trì 2 hệ
-//     windowing khác nhau trong project.
+//     addEventListener. Dùng CHUNG cho CẢ Photo & Album (fileManagerPhotoPanelEl) LẪN picker ảnh
+//     Generic Drawer (event/workflow/file-manager-photo.js::_openImagePickerDrawer() — Giai đoạn
+//     3b/4, THAY openPhotoUiImagePickerModal() cũ đã xoá — Workflow gọi Workflow miền khác, TỰ DO
+//     theo event-bus-flow.md mục 4B), tránh duy trì 2 hệ windowing khác nhau trong project.
 //   - `_thumbnailLazyObserver`/`_observeLazyThumbnail` (ngay dưới) GIỮ NGUYÊN — vẫn dùng cho story
 //     slider Album (số lượng nhỏ, không cần window ảo).
 
@@ -437,79 +437,13 @@ function openImageCarouselViewModal(images, onRemoveFromAlbum, onClose) {
     render();
     document.body.appendChild(overlay);
 }
-// THAY hẳn openImageLibraryPickerModal() (lưới columns cũ) cho RIÊNG chỗ "Chọn ảnh" ở tab Cover
-// (Edit song info, event/workflow/playlist.js) — dùng ĐÚNG khung/style của Photo & Album, tận dụng
-// NGUYÊN layout thay vì duy trì 2 kiểu lưới ảnh khác nhau trong project.
-//
-// SỬA (Patch mục 2, 14/07/2026) — hàm này KHÔNG còn tự vẽ lưới ảnh (renderImageMasonry() đã bỏ
-// hẳn). CHỈ dựng khung modal (header/close/trạng thái rỗng) + `<div id>` GRID RỖNG, rồi gọi
-// `onGridReady(gridEl)` để NƠI GỌI (Workflow — event/workflow/playlist.js) tự
-// `workflowFileManagerPhoto.setupPhotoGridWindow(gridEl, images, {}, 'photoGridPicker')`. Hàm NÀY
-// (Core) KHÔNG được tự gọi `computeVariableVirtualWindowRange()`/`renderItemList()` (Rule 3 — 2 hàm
-// đó là "core", CHỈ Workflow được đứng ra gọi cả hai) — đây chính xác lý do phải tách qua callback
-// thay vì tự làm trong file này như bản `renderImageMasonry()` cũ.
-/**
- * @param {Array<{key: string, blob: Blob, filename: string}>} images
- * @param {(imageKey: string) => void} onSelect
- * @param {() => void} [onCancel]
- * @param {(gridEl: HTMLElement) => void} [onGridReady] - gọi NGAY SAU khi grid rỗng đã vào DOM
- *        (bỏ qua nếu `images.length === 0` — không có grid nào để giao).
- */
-function openPhotoUiImagePickerModal(images, onSelect, onCancel, onGridReady) {
-    const stale = document.getElementById('photo-ui-image-picker-overlay');
-    if (stale) stale.remove();
-
-    let hasSelected = false;
-
-    const overlay = document.createElement('div');
-    overlay.id = 'photo-ui-image-picker-overlay';
-    overlay.className = 'fixed inset-0 z-[130] bg-black flex flex-col';
-
-    function closeModal() {
-        overlay.remove();
-        if (!hasSelected && typeof onCancel === 'function') onCancel();
-    }
-
-    const header = document.createElement('div');
-    header.className = 'flex justify-between items-center px-4 py-3 shrink-0';
-    const titleEl = document.createElement('h3');
-    titleEl.className = 'text-base font-bold text-white';
-    titleEl.textContent = t('playlistView.songEdit.coverPickLibrary');
-    header.appendChild(titleEl);
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white';
-    closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
-    closeBtn.addEventListener('click', closeModal);
-    header.appendChild(closeBtn);
-    overlay.appendChild(header);
-
-    if (images.length === 0) {
-        const emptyEl = document.createElement('p');
-        emptyEl.className = 'flex-1 flex items-center justify-center text-sm text-slate-400 text-center px-8';
-        emptyEl.textContent = t('fileManager.photo.image.empty');
-        overlay.appendChild(emptyEl);
-    } else {
-        const grid = document.createElement('div');
-        grid.className = 'flex-1 min-h-0 overflow-y-auto px-2 pb-4';
-        overlay.appendChild(grid);
-
-        // Click chọn — delegated riêng cho modal này (KHÁC listener của File Manager, đóng ngay +
-        // gọi onSelect thay vì mở preview), cùng chuẩn `data-image-key` mà
-        // itemTemplateImageGridRow() (components/items.js) đặt trên mọi tile.
-        grid.addEventListener('click', (e) => {
-            const tile = e.target.closest('button[data-image-key]');
-            if (!tile) return;
-            hasSelected = true;
-            const imageKey = tile.dataset.imageKey;
-            closeModal();
-            onSelect(imageKey);
-        });
-
-        if (typeof onGridReady === 'function') onGridReady(grid);
-    }
-
-    document.body.appendChild(overlay);
-}
+// ===================== ĐÃ GỠ (Giai đoạn 4, rewrite Photo/Album, mục 4) — Picker cover bài hát dạng
+// modal riêng =====================================================================================
+// `openPhotoUiImagePickerModal()` (bản trước ở đây) XOÁ HẲN — THAY bằng
+// `workflowFileManagerPhoto.openCoverImagePicker()` (event/workflow/file-manager-photo.js), dùng
+// CHUNG hạ tầng Generic Drawer với picker "thêm ảnh vào album" (mode single-select thay vì multi-
+// select) — KHÔNG còn modal riêng ngoài luồng eventBus, gọi từ event/workflow/playlist.js::
+// pickCoverFromLibrary().
 
 // ===================== Picker chọn 1 ảnh dùng chung (MỚI batch 03/07/2026) =====================
 // Dùng bởi tab "Ảnh bìa" (modal Sửa thông tin bài hát, components/playlist-view.js) — xem
