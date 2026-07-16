@@ -45,12 +45,14 @@
  * finishSlideshowTransitionVisuals, resetSlideshowLayerClasses, applySlideshowKenBurns,
  * freezeSlideshowKenBurnsEndState, pickRandomSlideshowKenBurnsVariant),
  * core/file-manager/album.js (getAlbumRecord/listAlbums — qua service/db.js), core/file-manager/image.js
- * (getImageRecord), core/file-manager/photo-ui.js (renderSlideshowAlbumPickerGrid), service/db.js
- * (getMeta/setMeta), core/dom-refs.js (slideshowContainer/slideshowLayer1/slideshowLayer2/
- * slideshowAlbumPicker.../bgCaptionFrame — panel chọn Album + caption VẪN tĩnh, xem Batch D4 dưới),
- * core/settings-panel-stack.js (pushSettingsPanel), components/slideshow-settings-drawer.js
- * (renderSlideshowPanelBody), service/task-manager.js (taskManager — CHỈ Workflow này dùng, core
- * không còn dùng kể từ 04/07/2026), service/state.js (appState).
+ * (getImageRecord), core/file-manager/photo-ui.js (renderSlideshowAlbumPickerGrid — GIỮ NGUYÊN, giờ
+ * vẽ vào genericDrawerBody thay vì panel tĩnh cũ), service/db.js (getMeta/setMeta), core/dom-refs.js
+ * (slideshowContainer/slideshowLayer1/slideshowLayer2/bgCaptionFrame, genericDrawerOverlay/Panel/
+ * Header/Body — Generic Drawer dùng chung, Giai đoạn 4),
+ * core/settings-panel-stack.js (pushSettingsPanel), core/generic-drawer.js (openGenericDrawer/
+ * closeGenericDrawer/hideGenericDrawerImmediately — Giai đoạn 4), components/slideshow-settings-
+ * drawer.js (renderSlideshowPanelBody), service/task-manager.js (taskManager — CHỈ Workflow này
+ * dùng, core không còn dùng kể từ 04/07/2026), service/state.js (appState).
  * NẠP TRƯỚC: event/router/slideshow.js, event/workflow/file-manager-photo.js (gọi
  * `workflowSlideshow.clearActiveAlbum()` trong cascade xoá album).
  *
@@ -68,11 +70,13 @@
  * method đọc biến này khi panel đã đóng (delegation chỉ khớp id khi phần tử thật sự tồn tại/đang
  * hiển thị) — `openPanel()` GÁN LẠI biến này mỗi lần mở, luôn trỏ đúng panel MỚI NHẤT.
  *
- * `TPL_SLIDESHOW_ALBUM_PICKER` (panel chọn Album kiểu "notify center") VẪN TĨNH, KHÔNG di chuyển
- * — đây là 1 overlay ĐỘC LẬP với Settings Stack (ngang hàng kiến trúc, giống Modal Subtitle Giang
- * đã chỉ ra), không phải 1 tầng lồng trong ngăn xếp — `slideshowAlbumPicker*` dom-refs GIỮ NGUYÊN.
+ * VIẾT LẠI (Giai đoạn 4, rewrite Photo/Album, mục 1) — `TPL_SLIDESHOW_ALBUM_PICKER`/
+ * `slideshowAlbumPicker*` dom-refs ĐÃ XOÁ — panel chọn Album giờ là Generic Drawer ĐỘNG (core/
+ * generic-drawer.js), dựng lại mỗi lần mở qua `openAlbumPicker()`/`_closeAlbumPickerDrawer()` ngay
+ * dưới, cùng hạ tầng dùng chung với menu action ảnh/picker ảnh Photo & Album.
  */
 let slideshowSettingsPanelEl = null; // panel Settings Slideshow đang mở — null nếu đang đóng (Batch D4)
+let _albumPickerOverlayClickHandler = null; // MỚI (Giai đoạn 4) — tham chiếu handler đang gắn trên genericDrawerOverlay (element DÙNG CHUNG nhiều feature) để tự gỡ đúng lúc đóng picker Album, xem openAlbumPicker()/_closeAlbumPickerDrawer()
 
 const SLIDESHOW_TASK = 'slideshowTimer';
 // MỚI (04/07/2026, mục 5 phản hồi Giang) — task "canh chừng" đổi bài hát cho chế độ "Photo per
@@ -430,34 +434,88 @@ const workflowSlideshow = {
         }
     },
 
-    /** MỚI (Batch 9, mục 4) — mở panel chọn Album kiểu "notify center" (vẽ lại GRID mỗi lần mở,
-     * panel TĨNH đã mount sẵn — components/slideshow-settings-drawer.js). Dùng CHUNG cho 2 ngữ
-     * cảnh: (a) vừa gạt "On" lần đầu (chưa có album), (b) bấm hàng "album đang chạy" để ĐỔI sang
-     * album khác (đã có album từ trước). */
+    /** MỚI (Batch 9, mục 4) — mở panel chọn Album.
+     * VIẾT LẠI (Giai đoạn 4, rewrite Photo/Album, mục 1, Giang yêu cầu "bỏ modal đi mà áp dụng
+     * gentic drawer") — THAY HẲN panel "notify center" tĩnh (mount sẵn lúc boot) bằng Generic Drawer
+     * ĐỘNG (core/generic-drawer.js) — cùng hạ tầng đã dùng cho menu action ảnh/picker ảnh Photo &
+     * Album. `genericDrawerOverlay` là element DÙNG CHUNG nhiều feature (KHÔNG riêng gì Slideshow) —
+     * PHẢI tự wire/gỡ listener ĐÚNG lúc mở/đóng (không thể wire tĩnh 1 lần, xem
+     * `_closeAlbumPickerDrawer()` ngay dưới), khác `renderSlideshowAlbumPickerGrid()` (core/
+     * file-manager/photo-ui.js) — hàm đó GIỮ NGUYÊN, chỉ đổi NƠI nó vẽ vào (genericDrawerBody thay
+     * vì panel tĩnh cũ).
+     * Dùng CHUNG cho 2 ngữ cảnh: (a) vừa gạt "On" lần đầu (chưa có album), (b) bấm hàng "album đang
+     * chạy" để ĐỔI sang album khác (đã có album từ trước). */
     async openAlbumPicker() {
         const [albums, images] = await Promise.all([listAlbums(), listImages()]); // core có sẵn, CÓ return, DÙNG ngay dưới
         const imageRecordsByKey = new Map(images.map((img) => [img.key, img]));
         const activeAlbumId = appState.get('activeBackgroundAlbum');
 
-        renderSlideshowAlbumPickerGrid(slideshowAlbumPickerGrid, albums, activeAlbumId, imageRecordsByKey, async (albumId) => { // core/file-manager/photo-ui.js
-            setSlideshowAlbumPickerVisible(slideshowAlbumPickerOverlay, slideshowAlbumPickerPanel, false); // core
+        openGenericDrawer({ // core/generic-drawer.js
+            zIndex: Z_INDEX.GENERIC_DRAWER, // core/config.js — mặc định, không có overlay ảnh nào mở đồng thời
+            headerHtml: `
+                <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
+                    <h3 class="text-base font-bold text-slate-900">${t('slideshowSettingsDrawer.albumPicker.title')}</h3>
+                    <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+            `, // cùng khuôn header Generic Drawer ảnh (event/workflow/file-manager-photo.js::_buildImageMenuHeaderHtml()) — viết riêng thay vì gọi cross-domain vì chỉ 8 dòng, không đáng ghép phụ thuộc 2 workflow cho 1 đoạn HTML nhỏ (cùng tinh thần core/pagination.js chấp nhận lặp code nhỏ đổi lấy ranh giới rõ ràng)
+            bodyHtml: `
+                <div id="slideshow-album-picker-grid" class="grid grid-cols-3 gap-x-2 gap-y-5"></div>
+                <p id="slideshow-album-picker-empty" class="hidden text-sm text-slate-300 text-center py-8">${t('slideshowSettingsDrawer.albumPicker.empty')}</p>
+            `,
+            bodyClass: 'overflow-y-auto px-4 pb-6 pt-2',
+        });
+
+        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
+        if (closeBtn) closeBtn.addEventListener('click', () => {
+            eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.albumPicker.overlay.click', payload: {} }); // dùng CHUNG message với bấm ra ngoài — cùng ý nghĩa "huỷ"
+        });
+        _albumPickerOverlayClickHandler = () => {
+            eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.albumPicker.overlay.click', payload: {} });
+        };
+        genericDrawerOverlay.addEventListener('click', _albumPickerOverlayClickHandler);
+
+        const gridEl = genericDrawerBody.querySelector('#slideshow-album-picker-grid');
+        const emptyEl = genericDrawerBody.querySelector('#slideshow-album-picker-empty');
+        renderSlideshowAlbumPickerGrid(gridEl, albums, activeAlbumId, imageRecordsByKey, async (albumId) => { // core/file-manager/photo-ui.js — GIỮ NGUYÊN, chỉ đổi nơi vẽ vào
+            this._closeAlbumPickerDrawer();
             await this.setActiveAlbum(albumId);
             await this.refreshDrawerUI();
         });
-        if (slideshowAlbumPickerEmpty) slideshowAlbumPickerEmpty.classList.toggle('hidden', albums.length > 0);
-        setSlideshowAlbumPickerVisible(slideshowAlbumPickerOverlay, slideshowAlbumPickerPanel, true); // core
+        if (emptyEl) emptyEl.classList.toggle('hidden', albums.length > 0);
     },
 
     /** MỚI (Batch 9, mục 4) — ứng với bấm ra ngoài panel (overlay) mà KHÔNG chọn album nào. Nếu
      * lúc mở panel CHƯA có album active (vừa gạt "On" lần đầu) -> tự trả toggle về "off" (đúng cơ
      * chế đã thống nhất ở mục 1: huỷ picker = huỷ luôn hành động "bật"). Nếu ĐÃ có album từ trước
      * (đang đổi album, không phải bật mới) -> giữ nguyên mọi thứ, chỉ đóng panel. */
+    /** Ứng với bấm ra ngoài Generic Drawer HOẶC nút X — huỷ, không chọn gì. Nếu vẫn chưa có album
+     * active (lần đầu gạt "On" rồi huỷ ngang, hoặc đổi album nhưng huỷ) — tự gạt toggle về "off",
+     * cùng hành vi cũ. */
     cancelAlbumPicker() {
-        setSlideshowAlbumPickerVisible(slideshowAlbumPickerOverlay, slideshowAlbumPickerPanel, false); // core
+        this._closeAlbumPickerDrawer();
         const enableToggle = slideshowSettingsPanelEl ? slideshowSettingsPanelEl.querySelector('#setting-slideshow-enable') : null;
         if (!appState.get('activeBackgroundAlbum') && enableToggle) {
             enableToggle.checked = false;
         }
+    },
+
+    /** MỚI (Giai đoạn 4, rewrite Photo/Album, mục 1) — đóng Generic Drawer picker Album, DÙNG CHUNG
+     * cho mọi lối thoát (chọn xong/huỷ nút X/bấm ra ngoài). Gỡ `_albumPickerOverlayClickHandler` khỏi
+     * `genericDrawerOverlay` TRƯỚC KHI đóng — element đó DÙNG CHUNG nhiều feature khác (menu action
+     * ảnh, picker ảnh Photo & Album...), KHÔNG gỡ sẽ dính sang lần mở drawer TIẾP THEO của feature
+     * khác, bắn nhầm `slideshowSettings.albumPicker.overlay.click` không liên quan gì. */
+    _closeAlbumPickerDrawer() {
+        if (_albumPickerOverlayClickHandler) {
+            genericDrawerOverlay.removeEventListener('click', _albumPickerOverlayClickHandler);
+            _albumPickerOverlayClickHandler = null;
+        }
+        closeGenericDrawer(); // core/generic-drawer.js
+        genericDrawerPanel.addEventListener('transitionend', function onTransitionEnd() {
+            genericDrawerPanel.removeEventListener('transitionend', onTransitionEnd);
+            hideGenericDrawerImmediately(); // core/generic-drawer.js
+        }, { once: true });
     },
 
     /** Ứng với select "Cách chọn ảnh kế tiếp" (sequential/random).
