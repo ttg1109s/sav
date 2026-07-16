@@ -23,6 +23,13 @@
  * Cropper.js (CDN), DOM tĩnh của image-edit.html (event/listener/image-edit.js khai const tham
  * chiếu NGAY ĐẦU file đó, trang nhỏ không cần dom-refs.js riêng — cùng quy ước subtitle-editor.js).
  */
+
+// MỚI (Giai đoạn 5, rewrite Photo/Album — hoàn thiện thumbBlob sau khi edit) — PHẢI khớp
+// PHOTO_ROW_HEIGHT_PX ở event/workflow/file-manager-photo.js. KHÔNG dùng lại hằng số CHUNG được vì
+// image-edit.html là trang ĐỘC LẬP (window.location.href toàn trang, KHÔNG nạp core/config.js hay
+// bất kỳ file nào của index.html — xem docstring đầu file) — đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia.
+const PHOTO_ROW_HEIGHT_PX = 120;
+
 const workflowImageEdit = {
     _imageKey: null,
     _record: null, // record đầy đủ từ getImageRecord() (blob, filename, addedAt, caption)
@@ -143,7 +150,14 @@ const workflowImageEdit = {
     /** Vẽ canvas đã crop/rotate/flip (Cropper) RỒI "nướng" filter màu vào (canvas 2D `ctx.filter`,
      * CÙNG chuỗi CSS filter đang preview) -> `toBlob()`. Tách hàm riêng vì Lưu cần Blob THẬT (không
      * chỉ để xem), Crop (handleCrop()) chỉ cần canvas hình học, không cần filter.
-     * @returns {Promise<Blob|null>}
+     *
+     * SỬA (Giai đoạn 5, rewrite Photo/Album — hoàn thiện thumbBlob sau khi edit) — trả thêm
+     * `width`/`height` (kích thước THẬT sau crop — có thể khác hẳn ảnh gốc, `buildPhotoGridRows()`
+     * core/file-manager/image.js cần đúng số này để tính tỉ lệ hiển thị lưới) VÀ `sourceCanvas`
+     * (chính `out`, TÁI DÙNG lại cho `_buildThumbnailBlob()` ngay dưới — tránh decode Blob lại lần 2
+     * qua `<img>` như `_resizeImageForThumbnail()` bên index.html phải làm, vì ở ĐÂY canvas kết quả
+     * đã có sẵn ngay trong bộ nhớ).
+     * @returns {Promise<{blob: Blob, width: number, height: number, sourceCanvas: HTMLCanvasElement}|null>}
      */
     _buildFinalBlob() {
         if (!this._cropper) return Promise.resolve(null);
@@ -156,13 +170,43 @@ const workflowImageEdit = {
         ctx.filter = imageEditCanvasWrap.style.filter || 'none';
         ctx.drawImage(geoCanvas, 0, 0);
         const mime = (this._record && this._record.blob.type) || 'image/jpeg';
-        return new Promise((resolve) => out.toBlob(resolve, mime, 0.92));
+        return new Promise((resolve) => {
+            out.toBlob((blob) => {
+                resolve(blob ? { blob, width: out.width, height: out.height, sourceCanvas: out } : null);
+            }, mime, 0.92);
+        });
     },
 
+    /** MỚI (Giai đoạn 5, rewrite Photo/Album — hoàn thiện thumbBlob sau khi edit) — resize thumbnail
+     * TỪ canvas đã dựng sẵn (`sourceCanvas`, từ `_buildFinalBlob()`) — KHÔNG decode lại từ Blob qua
+     * `<img>` như `_resizeImageForThumbnail()` (event/workflow/file-manager-photo.js) vì canvas
+     * nguồn ĐÃ CÓ SẴN trong bộ nhớ ở đây, decode lại tốn kém vô ích. CÙNG công thức resize (height
+     * cố định `PHOTO_ROW_HEIGHT_PX`, width theo tỉ lệ) — 2 nơi PHẢI ra kết quả tương đương.
+     * @param {HTMLCanvasElement} sourceCanvas
+     * @param {string} mime
+     * @returns {Promise<Blob|null>}
+     */
+    _buildThumbnailBlob(sourceCanvas, mime) {
+        const targetHeight = PHOTO_ROW_HEIGHT_PX;
+        const targetWidth = Math.max(1, Math.round(targetHeight * (sourceCanvas.width / sourceCanvas.height))); // guard: tối thiểu 1px
+        const thumbCanvas = document.createElement('canvas');
+        thumbCanvas.width = targetWidth;
+        thumbCanvas.height = targetHeight;
+        thumbCanvas.getContext('2d').drawImage(sourceCanvas, 0, 0, targetWidth, targetHeight);
+        return new Promise((resolve) => thumbCanvas.toBlob(resolve, mime, 0.82));
+    },
+
+    /** SỬA (Giai đoạn 5, rewrite Photo/Album — trả nợ kỹ thuật ghi ở Giai đoạn 1) — resize
+     * `thumbBlob` NGAY TRƯỚC khi ghi, TRUYỀN kèm `width`/`height` thật sau crop vào
+     * `updateImageBlob()` (core/file-manager/image.js — chữ ký MỚI) — lưới ảnh Photo & Album giờ
+     * hiển thị ĐÚNG ảnh/tỉ lệ vừa sửa ngay lập tức, không cần đợi cơ chế backfill lười (mở full view
+     * 1 lần) như trước. */
     async handleSave() {
-        const blob = await this._buildFinalBlob();
-        if (!blob) return; // guard — chưa có gì để lưu (ảnh chưa load xong)
-        await updateImageBlob(this._imageKey, blob); // core/file-manager/image.js
+        const finalResult = await this._buildFinalBlob();
+        if (!finalResult) return; // guard — chưa có gì để lưu (ảnh chưa load xong)
+        const { blob, width, height, sourceCanvas } = finalResult;
+        const thumbBlob = await this._buildThumbnailBlob(sourceCanvas, blob.type || 'image/jpeg');
+        await updateImageBlob(this._imageKey, blob, thumbBlob, width, height); // core/file-manager/image.js — chữ ký MỚI
         this._hasUnsavedChanges = false;
         await alertModal(t('imageEdit.saved')); // core/modal-choice.js
     },
