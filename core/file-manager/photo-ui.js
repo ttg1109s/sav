@@ -23,21 +23,23 @@
  * FIX (04/07/2026, mục 1 phản hồi Giang): `openImageLibraryPickerModal()` thêm tham số `onCancel`
  * (tuỳ chọn) — gọi khi đóng modal mà CHƯA chọn ảnh nào, để nơi gọi tự trả toggle "On" về "off".
  *
- * PATCH mục 2 (14/07/2026, "bỏ cách cũ, áp dụng Item + window ảo") — XOÁ HẲN `renderImageMasonry()`
- * + toàn bộ hệ chunk load/collapse/restore qua IntersectionObserver (đã viết ở Patch mục 1) VÀ
- * `toggleImageSelectionBadge()` (patch DOM surgical cũ, gắn với `_masonryContainerEl` đã không còn
- * tồn tại). Group ảnh theo NGÀY (mục 1) + windowing giờ đều chuyển qua hạ tầng "Item" dùng chung:
- *   - core/file-manager/image.js::sortImagesByAddedDateDesc()/buildPhotoGridRows() — core THUẦN,
- *     chuẩn bị "hàng lưới" (header ngày hoặc cụm ảnh).
- *   - components/items.js::itemTemplateImageGridRow() — template 1 hàng (tạo object URL NGAY lúc
- *     build chuỗi — an toàn vì chỉ 1 cửa sổ nhỏ được render mỗi lần, không phải toàn bộ thư viện).
- *   - event/workflow/file-manager-photo.js::setupPhotoGridWindow() — chuẩn bị hàng lưới RỒI giao
- *     `workflowVirtualList.mount()` (event/workflow/virtual-list.js) đo/dựng/vẽ. `scroll` đi ĐÚNG
- *     luồng listener->bus->router->workflow như mọi sự kiện khác (event/listener/virtual-list.js —
- *     KHÔNG Workflow tự `addEventListener`). Dùng CHUNG cho CẢ Photo & Album LẪN picker ảnh Generic
+ * ĐẬP ĐI LÀM LẠI (rewrite Photo/Album, Giang yêu cầu "không dùng window virtual tự tạo nữa, dùng
+ * thư viện") — hệ "Item + window ảo" tự viết (`computeVariableVirtualWindowRange()`/
+ * `itemTemplateImageGridRow()`/`workflowVirtualList` — từng THAY `renderImageMasonry()` chunk-based
+ * cũ hơn nữa ở Patch mục 2, 14/07/2026) XOÁ HẲN CẢ CỤM — nguồn gốc hàng loạt bug layout/lệch cuộn
+ * đã gặp (tự đo `scrollTop`/`clientWidth`/tự tính `offsetTop` bằng tay). Lưới ảnh Photo & Album giờ
+ * dùng:
+ *   - core/file-manager/image.js::sortImagesByAddedDateDesc()/groupImagesByDay() — core THUẦN, CHỈ
+ *     còn việc gom nhóm theo ngày (KHÔNG còn tự đóng gói "hàng lưới"/tính width nào cả).
+ *   - event/workflow/photo-gallery-window.js — windowing cấp NHÓM NGÀY qua `IntersectionObserver`
+ *     (API trình duyệt gốc, không tự nghe 'scroll'/tự tính offset bằng tay nào nữa) + fjGallery
+ *     (thư viện thật, CDN — index.html, thuật toán Flickr/Google Photos) lo layout justified thật
+ *     bên trong mỗi nhóm còn tải. Tile ảnh dựng bằng DOM node thật (`createElement`) NGAY trong file
+ *     đó — KHÔNG còn qua template chuỗi HTML nào ở components/items.js nữa.
+ *   - event/workflow/file-manager-photo.js::setupPhotoGridWindow() — chỉ còn 1 lệnh gọi thẳng
+ *     `workflowPhotoGalleryWindow.mount()`. Dùng CHUNG cho CẢ Photo & Album LẪN picker ảnh Generic
  *     Drawer (mountKey 'genericDrawer', event/workflow/file-manager-photo.js::
- *     _openImagePickerDrawer() — Giai đoạn 3b/4, THAY `openPhotoUiImagePickerModal()` cũ đã xoá) —
- *     tránh duy trì 2 hệ windowing khác nhau trong project.
+ *     _openImagePickerDrawer()) — tránh duy trì 2 hệ windowing khác nhau trong project.
  * `_thumbnailLazyObserver`/`_observeLazyThumbnail` GIỮ NGUYÊN — vẫn phục vụ Slideshow Settings (chọn
  * album nền, số lượng nhỏ, không cần window ảo — story slider Album ĐÃ XOÁ ở Giai đoạn 3b).
  */
@@ -49,27 +51,14 @@
 // `_observeLazyThumbnail` (ngay dưới) GIỮ NGUYÊN — vẫn dùng cho lưới ảnh chính + picker cover bài
 // hát (KHÔNG liên quan story slider đã xoá).
 
-// ===================== Lưới ảnh — Item + Window ảo (Patch mục 2, 14/07/2026) ===================
-// BỎ HẲN hệ Masonry chunk-based cũ (renderImageMasonry() + chunk load/collapse/restore qua
-// IntersectionObserver, ~260 dòng) — THAY bằng hạ tầng "Item" (components/items.js::
-// renderItemList()/itemTemplateImageGridRow()) + "window ảo" thật sự theo vị trí cuộn
-// (components/items.js::computeVariableVirtualWindowRange()), đúng yêu cầu Giang.
-//   - Đóng gói "hàng lưới" (header ngày / cụm ảnh) — core THUẦN, xem
-//     core/file-manager/image.js::buildPhotoGridRows() (còn sortImagesByAddedDateDesc() chuẩn bị
-//     input đã sort).
-//   - Template 1 hàng — components/items.js::itemTemplateImageGridRow() (tạo object URL NGAY lúc
-//     build chuỗi, AN TOÀN vì chỉ render 1 cửa sổ nhỏ mỗi lần, không phải toàn bộ thư viện).
-//   - Điều phối (đo cột/chiều cao hàng, gọi computeVariableVirtualWindowRange() RỒI renderItemList())
-//     THẬT SỰ nằm ở event/workflow/virtual-list.js::workflowVirtualList — file này KHÔNG gọi core
-//     nào ở đây, chỉ chuẩn bị "hàng lưới" RỒI giao workflowVirtualList.mount() (gọi từ
-//     event/workflow/file-manager-photo.js::setupPhotoGridWindow()). `scroll` đi ĐÚNG luồng
-//     listener->bus->router->workflow (event/listener/virtual-list.js), KHÔNG Workflow tự
-//     addEventListener. Dùng CHUNG cho CẢ Photo & Album (fileManagerPhotoPanelEl) LẪN picker ảnh
-//     Generic Drawer (event/workflow/file-manager-photo.js::_openImagePickerDrawer() — Giai đoạn
-//     3b/4, THAY openPhotoUiImagePickerModal() cũ đã xoá — Workflow gọi Workflow miền khác, TỰ DO
-//     theo event-bus-flow.md mục 4B), tránh duy trì 2 hệ windowing khác nhau trong project.
-//   - `_thumbnailLazyObserver`/`_observeLazyThumbnail` (ngay dưới) GIỮ NGUYÊN — vẫn dùng cho story
-//     slider Album (số lượng nhỏ, không cần window ảo).
+// ===================== ĐÃ GỠ (rewrite Photo/Album, dùng fjGallery) — Lưới ảnh — Item + Window ảo tự
+// viết ==========================================================================================
+// Toàn bộ hệ "Item + window ảo" tự viết (renderItemList()/itemTemplateImageGridRow()/
+// computeVariableVirtualWindowRange()/workflowVirtualList — components/items.js + event/workflow/
+// virtual-list.js, ĐÃ XOÁ) — nguồn gốc hàng loạt bug layout/lệch cuộn đã gặp. Lưới ảnh giờ dùng
+// event/workflow/photo-gallery-window.js (windowing cấp NHÓM NGÀY qua IntersectionObserver +
+// fjGallery, thư viện thật — xem docstring đầu file) — không còn gì ở photo-ui.js xử lý phần này
+// nữa, KHÔNG có "Điều phối"/"Template 1 hàng" nào cần biết tới ở đây.
 
 // ===================== Lazy-load thuần (IntersectionObserver) =====================
 

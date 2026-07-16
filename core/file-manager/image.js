@@ -5,9 +5,10 @@
  *
  * MỚI (Giai đoạn 1, rewrite Photo/Album — mục 3c/3d) — record thêm 3 field: `thumbBlob` (ảnh đã
  * resize lúc upload, height cố định — event/workflow/file-manager-photo.js::_resizeImageForThumbnail(),
- * DÙNG cho lưới ảnh), `width`/`height` (kích thước ẢNH GỐC, đo lúc resize — DÙNG để
- * buildPhotoGridRows() tính tỉ lệ hiển thị mà KHÔNG cần decode ảnh lại lúc dựng lưới, xem hàm ngay
- * dưới). `blob` gốc CHỈ dùng khi mở full view (openImagePreviewModal()/carousel) — KHÔNG đổi.
+ * DÙNG cho lưới ảnh), `width`/`height` (kích thước ẢNH GỐC, đo lúc resize — DÙNG làm attribute
+ * width/height thật trên thẻ <img> để fjGallery (thư viện, event/workflow/photo-gallery-window.js)
+ * tính tỉ lệ hiển thị mà KHÔNG cần đợi ảnh decode xong mới layout được). `blob` gốc CHỈ dùng khi
+ * mở full view (openImagePreviewModal()/carousel) — KHÔNG đổi.
  * Record CŨ (upload trước bản này) THIẾU 3 field trên — mọi nơi đọc PHẢI tự fallback (`thumbBlob ||
  * blob`, `width > 0 ? ... : 1` coi như ảnh vuông) — KHÔNG migrate DB_VERSION (idb-keyval tự do field,
  * cùng nguyên tắc `caption` ở setImageCaption() ngay dưới).
@@ -23,9 +24,11 @@
  * NẠP SAU: service/db.js (getImageRecord/setImageRecord/deleteImageRecord/getAllImageKeys/slugify,
  * getAllAlbumKeys/getAlbumRecord/setAlbumRecord — dùng cho cascade dọn album trong deleteImage()).
  *
- * PATCH mục 1/2 (14/07/2026, group ảnh theo ngày + Item/window ảo): thêm 2 hàm THUẦN
- * `sortImagesByAddedDateDesc()`/`buildPhotoGridRows()` — CHUẨN BỊ dữ liệu cho lưới ảnh Photo &
- * Album, xem event/workflow/file-manager-photo.js::setupPhotoGridWindow().
+ * PATCH mục 1/2 (14/07/2026, group ảnh theo ngày + Item/window ảo); VIẾT LẠI (rewrite Photo/
+ * Album, dùng fjGallery) — 2 hàm THUẦN `sortImagesByAddedDateDesc()`/`groupImagesByDay()` (đổi
+ * tên từ `buildPhotoGridRows()`, giờ CHỈ gom nhóm theo ngày, không tự đóng gói hàng/tính width
+ * nào nữa) — CHUẨN BỊ dữ liệu cho lưới ảnh Photo & Album, xem event/workflow/photo-gallery-
+ * window.js.
  */
 
 /**
@@ -95,8 +98,9 @@ async function setImageCaption(imageKey, caption) {
  * hình ảnh) VĨNH VIỄN cho tới khi tự sửa lại code — KHÔNG có cơ chế backfill tự động nào cứu (đính
  * chính: comment cũ ở đầu file này từng nhắc "backfill lười khi mở full-view" như đã cài — thực tế
  * CHƯA BAO GIỜ implement, chỉ là dự định ghi nhầm thành đã làm; ảnh cũ thiếu `thumbBlob`/`width`/
- * `height` VẪN đang fallback vĩnh viễn về `blob` gốc + tỉ lệ vuông tại `itemTemplateImageGridRow()`/
- * `buildPhotoGridRows()`, không tự sửa dù đã mở full-view — cần Giang xác nhận có cần implement
+ * `height` VẪN đang fallback vĩnh viễn về `blob` gốc (event/workflow/photo-gallery-window.js đọc
+ * `image.thumbBlob || image.blob`) + tỉ lệ 1/1 (fjGallery không có attribute width/height thật để
+ * đọc), không tự sửa dù đã mở full-view — cần Giang xác nhận có cần implement
  * backfill thật hay chấp nhận giữ nguyên cho tới khi ảnh được re-upload/edit). Nơi gọi
  * (event/workflow/image-edit.js::handleSave()) PHẢI tự resize thumbnail TRƯỚC khi gọi hàm này —
  * core không được đụng canvas (Rule 1-4, DOM API).
@@ -159,9 +163,10 @@ async function listImages() {
 
 // ===================== Group theo ngày + Window ảo (Patch mục 1/2, 14/07/2026) ====================
 // 2 hàm THUẦN dưới đây CHUẨN BỊ dữ liệu cho lưới ảnh Photo & Album — xem event/workflow/
-// file-manager-photo.js::setupPhotoGridWindow() (Workflow gọi CẢ HAI, RỒI mới gọi
-// computeVirtualWindowRange()/renderItemList() — components/items.js) + core/file-manager/
-// photo-ui.js (docstring đầu file, giải thích đầy đủ vì sao tách qua Workflow thay vì tự gọi nhau).
+// file-manager-photo.js::setupPhotoGridWindow() (Workflow gọi CẢ HAI, RỒI mới giao
+// workflowPhotoGalleryWindow.mount() — event/workflow/photo-gallery-window.js) + core/
+// file-manager/photo-ui.js (docstring đầu file, giải thích đầy đủ vì sao tách qua Workflow thay
+// vì tự gọi nhau).
 
 /**
  * Sắp xếp danh sách ảnh theo `addedAt` MỚI NHẤT lên đầu (kiểu Google Photos) — CHUẨN BỊ cho
@@ -175,59 +180,49 @@ function sortImagesByAddedDateDesc(images) {
 }
 
 /**
- * Đóng gói danh sách ảnh ĐÃ sắp xếp (sortImagesByAddedDateDesc()) thành các HÀNG hiển thị — dùng
- * làm "items" cho window ảo (components/items.js::computeVirtualWindowRange() + renderItemList()).
- * Mỗi hàng là 1 trong 2 dạng:
- *   - header ngăn cách ngày (hàng RIÊNG, full-width) — LUÔN bắt đầu 1 hàng ẢNH MỚI ngay sau đó, dù
- *     hàng ảnh trước chưa lấp đầy `containerWidthPx` (KHÔNG gộp ảnh 2 ngày khác nhau chung 1 hàng).
- *   - cụm ảnh CÙNG NGÀY vừa khít `containerWidthPx` (1 hàng lưới thật).
+ * MỚI (rewrite Photo/Album, thay itemTemplateImageGridRow() đã xoá) — format nhãn header ngày hiển
+ * thị phía trên mỗi nhóm ảnh (vd "Thứ Hai, 15 thg 7"). Theo `navigator.language` — tên thứ/tháng
+ * không thuộc bộ key dịch `t()`/`tFormat()` hiện có, nên KHÔNG qua hệ i18n, dùng thẳng
+ * `Intl.DateTimeFormat` (built-in JS, không phải DOM API — an toàn với Rule 1-4).
+ * @param {number} addedAt - timestamp (ms) của 1 ảnh BẤT KỲ trong nhóm ngày đó.
+ * @returns {string}
+ */
+function formatPhotoDayHeaderLabel(addedAt) {
+    const d = new Date(addedAt || 0);
+    const opts = { weekday: 'long', day: 'numeric', month: 'short' };
+    if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+    return new Intl.DateTimeFormat(navigator.language, opts).format(d);
+}
+
+/**
+ * Gom danh sách ảnh ĐÃ sắp xếp (sortImagesByAddedDateDesc()) thành các NHÓM THEO NGÀY — dùng làm
+ * đơn vị windowing cấp NHÓM (KHÔNG phải cấp hàng/pixel) cho event/workflow/photo-gallery-window.js.
  *
- * SỬA (Giai đoạn 1, rewrite Photo/Album, mục 3b — "không phải NxN cố định, ảnh cao = chiều cao
- * hàng, rộng theo tỉ lệ ảnh") — bản trước gộp theo SỐ LƯỢNG ảnh cố định/hàng (`columns`, ô vuông
- * đều nhau). Giờ mỗi ảnh 1 chiều rộng hiển thị KHÁC NHAU (`rowHeightPx * tỉ lệ ảnh`) nên phải cộng
- * dồn WIDTH thay vì đếm SỐ ẢNH — hàng đầy khi tổng width cộng thêm 1 ảnh nữa VƯỢT `containerWidthPx`.
- * `image.width`/`image.height` (ảnh gốc, đo lúc upload — event/workflow/file-manager-photo.js::
- * _resizeImageForThumbnail()) dùng để tính tỉ lệ MÀ KHÔNG cần decode ảnh lại ở đây (giữ hàm THUẦN,
- * không DOM) — ảnh cũ thiếu 2 field này (upload trước Giai đoạn 1) coi tạm như ảnh vuông (tỉ lệ 1).
+ * ĐẬP ĐI LÀM LẠI (rewrite Photo/Album, Giang yêu cầu "không dùng window virtual tự tạo nữa, dùng
+ * thư viện") — THAY HẲN `buildPhotoGridRows()` (bản trước ở đây, tự cộng dồn width để đóng gói
+ * TỪNG HÀNG — đúng nguồn gốc hàng loạt bug layout/lệch cuộn đã gặp). Giờ core CHỈ còn việc gom
+ * nhóm theo ngày — việc "xếp ảnh vào đúng hàng, hàng cao bao nhiêu, ảnh nào rộng bao nhiêu" giao
+ * HẲN cho fjGallery (thư viện thật, thuật toán Flickr/Google Photos, xem event/workflow/
+ * photo-gallery-window.js) — core không tự tính toán layout nào nữa.
  *
  * Hàm THUẦN (Rule 1-4 core-function-conventions.md) — không appState, không DOM, không gọi core
  * khác (khoá ngày tính INLINE ngay trong vòng lặp, KHÔNG tách hàm riêng — tránh Core gọi Core).
- * 1 vòng lặp duy nhất, rẽ nhánh nội bộ CHỈ để chọn giữa 2 DẠNG HIỂN THỊ của CÙNG 1 khái niệm "hàng
- * tiếp theo" — cùng khuôn if/else `itemTemplateFolderTile()` (components/items.js) chọn giữa 2 dạng
- * của CÙNG 1 loại item, không phải rẽ nhánh 2 nghiệp vụ khác nhau (Rule 1).
  * @param {Array<{key:string, blob:Blob, thumbBlob?:Blob, width?:number, height?:number, filename:string, addedAt:number}>} sortedImages
- * @param {number} containerWidthPx - bề rộng khả dụng thật của container lưới (Workflow tự đo — xem
- *        cảnh báo đo `clientWidth` SAI thời điểm ở docstring `setupPhotoGridWindow()`, event/workflow/
- *        file-manager-photo.js — cùng nguyên tắc phải áp dụng ở đây).
- * @param {number} rowHeightPx - chiều cao CỐ ĐỊNH của 1 hàng ảnh (px) — khớp `PHOTO_ROW_HEIGHT_PX`
- *        (event/workflow/file-manager-photo.js) VÀ chiều cao resize lúc upload (`_resizeImageForThumbnail()`).
- * @returns {Array<{type:'header', addedAt:number}|{type:'imageRow', images:Array}>}
+ * @returns {Array<{dayKey:string, addedAt:number, images:Array}>}
  */
-function buildPhotoGridRows(sortedImages, containerWidthPx, rowHeightPx) {
-    const safeContainerWidthPx = containerWidthPx > 0 ? containerWidthPx : 320; // guard clause thuần — kẹp giá trị đầu vào không hợp lệ
-    const safeRowHeightPx = rowHeightPx > 0 ? rowHeightPx : 120; // guard clause thuần — khớp mặc định PHOTO_ROW_HEIGHT_PX
-    const rows = [];
-    let currentRow = null;
-    let currentRowWidthPx = 0;
+function groupImagesByDay(sortedImages) {
+    const groups = [];
+    let currentGroup = null;
     let lastDayKey = null;
     for (const image of sortedImages) {
         const d = new Date(image.addedAt || 0);
         const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
         if (dayKey !== lastDayKey) {
-            rows.push({ type: 'header', addedAt: image.addedAt });
-            currentRow = null;
-            currentRowWidthPx = 0;
+            currentGroup = { dayKey, addedAt: image.addedAt, images: [] };
+            groups.push(currentGroup);
             lastDayKey = dayKey;
         }
-        const aspectRatio = (image.width > 0 && image.height > 0) ? (image.width / image.height) : 1; // guard: ảnh cũ thiếu metadata -> coi tạm như vuông
-        const displayWidthPx = safeRowHeightPx * aspectRatio;
-        if (!currentRow || (currentRowWidthPx + displayWidthPx) > safeContainerWidthPx) {
-            currentRow = { type: 'imageRow', images: [] };
-            rows.push(currentRow);
-            currentRowWidthPx = 0;
-        }
-        currentRow.images.push(image);
-        currentRowWidthPx += displayWidthPx;
+        currentGroup.images.push(image);
     }
-    return rows;
+    return groups;
 }
