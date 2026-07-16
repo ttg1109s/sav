@@ -15,9 +15,15 @@ body {
 /* FIX (04/07/2026, mục 7) — rule này trước đây nhắm `#app`, một id KHÔNG TỒN TẠI trong DOM thật
    (project dùng `#app-root`, xem index.html/main.js) -> hoàn toàn "chết", chưa từng có tác dụng.
    Sửa lại đúng id (padding này vô hại — env(safe-area-inset-*) đều trả 0 vì KHÔNG dùng
-   viewport-fit=cover, xem đoạn dưới). */
+   viewport-fit=cover, xem đoạn dưới).
+   FIX (Giang báo "hở mép panel, cả 4 cạnh") — `height: 100%` (cascade mong manh qua body/html,
+   nhiều rule `min-height`/`height` chồng nhau ở đầu file) ĐỔI sang `100dvh` TRỰC TIẾP — khớp CHÍNH
+   XÁC đơn vị 4 lớp nền toàn màn hình đang dùng (xem giải thích đầy đủ ở khối #bg-video/
+   #visualizer-solid-bg/#visual-bg-image/canvas ngay dưới) — không còn phụ thuộc cascade %, không
+   còn lệch đơn vị vh/dvh giữa panel và nền. */
 #app-root {
-    height: 100%;
+    height: 100dvh;
+    width: 100%;
     padding:
         env(safe-area-inset-top)
         env(safe-area-inset-right)
@@ -38,7 +44,18 @@ body {
    Vùng đó giờ do CHÍNH TRÌNH DUYỆT vẽ (không phải nội dung trang), nên CSS không còn ảnh hưởng gì
    tới màu của nó nữa — đòn bẩy DUY NHẤT còn lại là <meta name="theme-color"> (index.html, cố định
    #000000, KHÔNG đồng bộ theo `vizConfig.bgColor`) để màu vùng đó KHÔNG đổi theo màu nền Settings. */
-        #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
+   /* FIX (Giang báo "hở mép panel Playlist/Settings, cả 4 cạnh, luôn luôn từ lúc vào app") —
+      NGUYÊN NHÂN: `body` (đầu file này) dùng `min-height: 100dvh` (đơn vị viewport ĐỘNG — tự co
+      giãn ĐÚNG theo khoảng trống thật còn lại sau khi trừ thanh địa chỉ trình duyệt), nhưng 4 lớp
+      NỀN toàn màn hình ngay dưới đây (#bg-video/#visualizer-solid-bg/#visual-bg-image/canvas) vẫn
+      dùng `100vh` (đơn vị viewport TĨNH — luôn lấy kích thước lớn nhất có thể, KHÔNG trừ thanh địa
+      chỉ dù nó đang hiện hay ẩn). Lúc mới vào app (thanh địa chỉ thường đang HIỆN), `100dvh` <
+      `100vh` thật sự — panel (#app-root, co theo `dvh` qua cascade từ `body`) NGẮN HƠN 4 lớp nền
+      (vẫn `vh`, luôn full) — hở ra đúng dải viền quanh panel, hiện xuyên qua tới nền/glow phía
+      dưới, y hệt Giang mô tả. SỬA: đồng bộ CẢ 4 lớp nền LẪN `#app-root` (ngay trên, height đổi
+      thẳng sang `100dvh`, KHÔNG còn dựa cascade `%` mong manh qua body/html nữa) về CÙNG 1 đơn vị
+      — không còn ai "lớn hơn" ai để hở ra khoảng trống nào cả. */
+        #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; object-fit: cover; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
         /* Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). CHỐT
            03/07/2026 (Giang xác nhận): 4 lớp nền màn Visualizer ĐỀU BẬT SONG SONG được (không loại
            trừ nhau) — thứ tự z-index thấp -> cao: nền màu Settings (bgColor, FIX 04/07/2026:
@@ -48,14 +65,14 @@ body {
            chính visualizer đang vẽ (#webgl-canvas z-index 1/#visualizer z-index 10, luôn trên
            cùng, KHÔNG đổi). Xem core/state-and-video-bg.js (applyVisualBgImageToDOM) cho đầy đủ lý
            do + lưu ý hiệu năng riêng cho slideshow (task lặp, KHÁC ảnh tĩnh DOM ở đây). */
-        #visualizer-solid-bg { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -3; pointer-events: none; background-color: #000000; }
-        #visual-bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background-size: cover; background-position: center; z-index: -2; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
+        #visualizer-solid-bg { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: -3; pointer-events: none; background-color: #000000; }
+        #visual-bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; background-size: cover; background-position: center; z-index: -2; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
         /* Slideshow album (nền thứ 3, z-index -1) — Batch 8, ver 12 "Multi Media": ĐÃ TRIỂN KHAI
            THẬT ở assets/css/slideshow.css (#visual-slideshow-container), file CSS TÁCH RIÊNG THEO
            DOMAIN ĐẦU TIÊN của project (plan-v12-multimedia.md mục 2 — phá quy ước "1 file CSS"
            giữ từ ver 5, chủ động). Nạp qua <link> riêng trong index.html, SAU style.css này. */
         
-        canvas { display: block; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; pointer-events: none;}
+        canvas { display: block; width: 100vw; height: 100dvh; position: absolute; top: 0; left: 0; pointer-events: none;}
         #webgl-canvas { z-index: 1; } 
         #visualizer { z-index: 10; }
         
