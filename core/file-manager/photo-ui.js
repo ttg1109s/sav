@@ -315,13 +315,15 @@ function openImageCarouselPickerModal(images, onSelect, onCancel) {
 /**
  * @param {Array<{key: string, blob: Blob, filename: string}>} images - ảnh TRONG album đang xem
  *        (album đã lọc sẵn TRƯỚC khi truyền vào — hàm này không tự lọc theo albumId).
+ * @param {string} albumName - MỚI (fix bug 3, Giang yêu cầu "thêm nút info hiện tên album đang
+ *        xem") — hiện/ẩn qua nút info ở header, KHÔNG hiện mặc định (tránh che thêm phần ảnh).
  * @param {(imageKey: string) => void} onRemoveFromAlbum - gọi NGAY lúc bấm nút xoá (KHÔNG await —
  *        hàm này chỉ cập nhật UI local ngay lập tức/optimistic, Workflow tự lo ghi DB async song
  *        song, cùng tinh thần `toggleImageSelectionInSet()` không đợi DB).
  * @param {() => void} [onClose] - gọi khi đóng modal (X, hết ảnh, hoặc bấm ra ngoài) — dùng để nơi
  *        gọi tự refresh() lại Album List (số lượng ảnh trong album có thể đã đổi).
  */
-function openImageCarouselViewModal(images, onRemoveFromAlbum, onClose) {
+function openImageCarouselViewModal(images, albumName, onRemoveFromAlbum, onClose) {
     const stale = document.getElementById('image-carousel-view-overlay');
     if (stale) stale.remove();
 
@@ -347,16 +349,33 @@ function openImageCarouselViewModal(images, onRemoveFromAlbum, onClose) {
     }
 
     const header = document.createElement('div');
-    header.className = 'flex justify-between items-center px-4 py-3 shrink-0';
+    header.className = 'flex justify-between items-center px-4 py-3 shrink-0 gap-2';
     const counter = document.createElement('span');
     counter.className = 'text-sm text-slate-300 font-mono';
     header.appendChild(counter);
+
+    const headerRight = document.createElement('div');
+    headerRight.className = 'flex items-center gap-2 shrink-0';
+    // MỚI (fix bug 3, Giang yêu cầu) — nút info, bấm hiện/ẩn tên album đang xem (banner nhỏ ngay
+    // dưới header, KHÔNG hiện mặc định — chỉ hiện khi cần, tránh che thêm phần ảnh).
+    const infoBtn = document.createElement('button');
+    infoBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white';
+    infoBtn.title = t('fileManager.photo.album.carousel.infoTitle');
+    infoBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
+    headerRight.appendChild(infoBtn);
     const closeBtn = document.createElement('button');
     closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white';
     closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
     closeBtn.addEventListener('click', closeModal);
-    header.appendChild(closeBtn);
+    headerRight.appendChild(closeBtn);
+    header.appendChild(headerRight);
     overlay.appendChild(header);
+
+    const nameLabel = document.createElement('div');
+    nameLabel.className = 'hidden px-4 pb-2 text-sm text-slate-200 font-semibold text-center shrink-0 truncate';
+    nameLabel.textContent = albumName;
+    overlay.appendChild(nameLabel);
+    infoBtn.addEventListener('click', () => { nameLabel.classList.toggle('hidden'); });
 
     const viewport = document.createElement('div');
     viewport.className = 'flex-1 relative overflow-hidden';
