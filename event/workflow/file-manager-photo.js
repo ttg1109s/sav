@@ -30,9 +30,13 @@
  *
  * PATCH mục 2 (14/07/2026, "bỏ cách cũ, áp dụng Item + window ảo") — `renderImageMasonry()` (core/
  * file-manager/photo-ui.js) ĐÃ XOÁ. Lưới ảnh giờ qua `setupPhotoGridWindow()` (method MỚI, ngay
- * dưới), gọi `workflowVirtualList.mount()` (event/workflow/virtual-list.js) — file ĐÓ mới là nơi
- * thật sự đo/dựng/vẽ lại; `scroll` đi ĐÚNG luồng listener->bus->router->workflow (SỬA 14/07/2026,
- * Giang chỉ ra bản đầu Workflow này tự `addEventListener('scroll', ...)` là SAI).
+ * dưới).
+ * ĐẬP ĐI LÀM LẠI (rewrite Photo/Album, Giang yêu cầu "không dùng window virtual tự tạo nữa, dùng
+ * thư viện") — `workflowVirtualList.mount()` (event/workflow/virtual-list.js, tự viết, nguồn gốc
+ * hàng loạt bug layout/lệch cuộn) XOÁ HẲN — `setupPhotoGridWindow()` giờ gọi
+ * `workflowPhotoGalleryWindow.mount()` (event/workflow/photo-gallery-window.js): windowing cấp NHÓM
+ * NGÀY qua `IntersectionObserver` (trình duyệt tự lo, không tự nghe 'scroll'/tự tính offset bằng
+ * tay nào nữa) + fjGallery (thư viện thật, CDN) lo layout justified thật.
  *
  * TIẾP (14/07/2026, cùng ngày, phản hồi tiếp theo):
  *   1. Nút upload + nút "xoá nhanh" (MỚI, mục 2.2) dời vào `headerActionHtml` (core/settings-panel-
@@ -51,24 +55,18 @@ let fileManagerPhotoPanelEl = null; // panel Photo đang mở — null nếu đa
 let albumListPanelEl = null; // MỚI (Giai đoạn 3b) — Album List sub-panel đang mở — null nếu đang đóng, cùng pattern fileManagerPhotoPanelEl
 let _imagePickerSession = null; // MỚI (Giai đoạn 4) — session picker ảnh Generic Drawer đang mở (null = đang đóng). Handle của UI, KHÔNG phải state nghiệp vụ ảnh hưởng rẽ nhánh Router — cùng loại với 2 biến panel ngay trên, xem docstring openAlbumImagePicker()/openCoverImagePicker()
 
-// Chiều cao (px) CỐ ĐỊNH của 1 hàng header ngày — PHẢI khớp đúng class `h-10` ở
-// components/items.js::itemTemplateImageGridRow() (đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia).
-const PHOTO_GRID_HEADER_HEIGHT_PX = 40;
-// Khớp .photo-grid { gap: 2px } ở assets/css/style.css — đổi CSS gap thì phải đổi luôn hằng số này.
-const PHOTO_GRID_GAP_PX = 2;
-// Khớp minmax(110px, ...) trong .photo-grid (assets/css/style.css, auto-fill — KHÔNG còn breakpoint
-// cố định) — đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia (JS cần biết TRƯỚC số cột THẬT trình duyệt sẽ
-// tự tính, để chia ảnh vào đúng hàng cho windowing).
-// ĐÃ GỠ ở Giai đoạn 2 (`PHOTO_TILE_MIN_PX` không còn dùng — thay bằng `PHOTO_ROW_HEIGHT_PX` ngay
-// dưới, đổi hẳn từ lưới NxN cố định sang hàng cao cố định/rộng theo tỉ lệ ảnh, mục 3b). CSS Grid
-// `auto-fill`/`minmax` cũng đã bỏ (assets/css/style.css::.photo-grid).
+// ĐÃ GỠ (rewrite Photo/Album, dùng fjGallery) — PHOTO_GRID_HEADER_HEIGHT_PX/PHOTO_GRID_GAP_PX không
+// còn dùng: chiều cao header ngày giờ THUẦN CSS (assets/css/style.css::.photo-day-header { height:
+// 40px }, không cần JS biết trước nữa — windowing cấp NHÓM NGÀY, không cần cộng dồn chiều cao TỪNG
+// HÀNG như bản cũ); khoảng cách giữa ảnh giờ truyền thẳng `gutter: 2` vào config fjGallery (xem
+// event/workflow/photo-gallery-window.js::_loadGroup()), không cần hằng số riêng ở đây.
 // MỚI (Giai đoạn 1, rewrite Photo/Album, mục 3b/3c) — chiều cao CỐ ĐỊNH (px) của 1 hàng ảnh kiểu
-// "justified row" (Google Photos thật — KHÔNG phải ô vuông NxN). Dùng ở 2 chỗ, BẮT BUỘC khớp nhau:
+// "justified row" (Google Photos thật). Dùng ở 2 chỗ, BẮT BUỘC khớp nhau:
 //   1. `_resizeImageForThumbnail()` (ngay dưới) — resize `thumbBlob` lúc upload đúng chiều cao này.
-//   2. CSS hàng ảnh (Giai đoạn 2, thay `.photo-tile { aspect-ratio: 1/1 }`) + buildPhotoGridRows()
-//      (core/file-manager/image.js, tham số `rowHeightPx`, GỌI Ở Giai đoạn 2 khi nối lại windowing).
-// Giá trị 120 là mặc định hợp lý (gần bằng PHOTO_TILE_MIN_PX cũ) — đổi tuỳ ý, chỉ cần đổi ĐÚNG 1 chỗ
-// (hằng số dùng chung, không lặp lại số ở nơi khác).
+//   2. `rowHeight` truyền vào fjGallery (event/workflow/photo-gallery-window.js) — thư viện tự nong/
+//      co MỖI HÀNG THẬT quanh giá trị này (KHÔNG cố định tuyệt đối như bản windowing tự viết cũ —
+//      đây chính là đúng thuật toán Flickr/Google Photos, khác hẳn "mọi hàng cao ĐÚNG N px").
+// Giá trị 120 là mặc định hợp lý — đổi tuỳ ý, chỉ cần đổi ĐÚNG 1 chỗ (hằng số dùng chung).
 const PHOTO_ROW_HEIGHT_PX = 120;
 // Khớp w-16 (64px) + gap-4 (16px) ở album story (components/file-manager.js) — đổi CSS thì phải đổi luôn.
 // ĐÃ GỠ (Giai đoạn 3b) — ALBUM_STORY_TILE_WIDTH_PX/ALBUM_STORY_GAP_PX không còn dùng sau khi bỏ
@@ -205,16 +203,17 @@ const workflowFileManagerPhoto = {
     /** SỬA (Giai đoạn 3, rewrite Photo/Album — redesign chế độ xoá nhanh) — THAY hẳn
      * `quickDeleteImage()` cũ (xoá NGAY từng ảnh, mỗi lần round-trip DB riêng — đúng cái Giang chỉ ra
      * "tốn kém" ở phần audit trước rewrite này). Giờ bấm ảnh chỉ TOGGLE vào/ra
-     * `quickDeleteSelectedKeys` (Set closure ở Router) — patch DOM surgical qua `redraw()`, KHÔNG
-     * `refresh()`, KHÔNG đọc/ghi DB gì cả — cùng khuôn `toggleImageSelectionInSet()` ngay trên (chỉ
-     * khác Set đích + mountKey ctx field).
+     * `quickDeleteSelectedKeys` (Set closure ở Router) — patch DOM TRỰC TIẾP đúng 1 tile qua
+     * `workflowPhotoGalleryWindow.setTileBadge()` (event/workflow/photo-gallery-window.js), KHÔNG
+     * `refresh()`/KHÔNG dựng lại cả nhóm ngày, KHÔNG đọc/ghi DB gì cả.
      * @param {string} imageKey
      * @param {Set<string>} quickDeleteSelectedKeys
      */
     toggleQuickDeleteMarkInSet(imageKey, quickDeleteSelectedKeys) {
-        if (quickDeleteSelectedKeys.has(imageKey)) quickDeleteSelectedKeys.delete(imageKey);
-        else quickDeleteSelectedKeys.add(imageKey);
-        workflowVirtualList.redraw('photoGrid'); // event/workflow/virtual-list.js — ctx.quickDeleteSelectedKeys truyền vào mount() lúc refresh() là CHÍNH Set này (cùng tham chiếu, Router giữ nguyên object)
+        const isNowMarked = !quickDeleteSelectedKeys.has(imageKey);
+        if (isNowMarked) quickDeleteSelectedKeys.add(imageKey);
+        else quickDeleteSelectedKeys.delete(imageKey);
+        workflowPhotoGalleryWindow.setTileBadge('photoGrid', imageKey, isNowMarked); // event/workflow/photo-gallery-window.js
     },
 
     /** MỚI (Giai đoạn 3, rewrite Photo/Album — redesign chế độ xoá nhanh) — xoá TOÀN BỘ ảnh đã đánh
@@ -250,28 +249,20 @@ const workflowFileManagerPhoto = {
         );
     },
 
-    /** MỚI (Patch mục 2, 14/07/2026) — chuẩn bị "hàng lưới" (buildPhotoGridRows(), core) rồi giao
-     * cho `workflowVirtualList.mount()` (event/workflow/virtual-list.js) đo/dựng/vẽ — file NÀY
-     * KHÔNG tự đụng DOM cuộn/scroll listener nữa (SỬA 14/07/2026, xem docstring đầu file). Dùng
-     * CHUNG cho Photo & Album (gọi từ refresh()) LẪN picker cover bài hát (event/workflow/
-     * playlist.js — Workflow gọi Workflow miền khác, TỰ DO theo event-bus-flow.md mục 4B).
-     *
-     * GIẢI THÍCH BUG CŨ (14/07/2026, Giang báo "chỉ hiển thị đầy đủ SAU 1 thay đổi DOM khác", "layout
-     * vẫn sai") — NGUYÊN NHÂN GỐC lúc đó: `columns` tính từ `scrollEl.clientWidth` NGAY tại đây,
-     * TRƯỚC CẢ khi gọi `mount()`, dựa trên việc "đoán" số cột CSS `auto-fill` SẼ tự vẽ ra — sai 1 ly
-     * (đo `clientWidth` lúc panel chưa settle layout xong, ra `0`) là `buildPhotoGridRows()` gộp SAI
-     * số ảnh/hàng, KHÔNG khớp layout CSS thật vẽ ra sau đó.
-     * SỬA (Giai đoạn 2, rewrite Photo/Album, mục 3b) — bỏ HẲN khái niệm `columns`/CSS Grid auto-fill.
-     * Giờ mỗi hàng là 1 `.photo-row` FLEX tường minh (components/items.js::itemTemplateImageGridRow()),
-     * cao CỐ ĐỊNH `PHOTO_ROW_HEIGHT_PX`, tile rộng theo `aspect-ratio` CSS thật (không cần trình
-     * duyệt "đoán" cột nữa) — `buildPhotoGridRows()` chỉ cần `containerWidthPx` (đo 1 LẦN DUY NHẤT,
-     * TRƯỚC khi build rows) để biết dừng hàng ở đâu, KHÔNG cần khớp lại với bất kỳ phép đo DOM nào
-     * SAU đó nữa. `computeRowHeights()` (bên trong `mount()`) giờ trả về HẰNG SỐ thuần (không đo
-     * `sizerEl.clientWidth` như bản cũ) — loại bỏ hẳn lớp fragility THỨ 2 (2 lần đo DOM ở 2 thời điểm
-     * khác nhau phải khớp nhau) từng gây ra đúng bug này.
-     * Guard `clientWidth === 0` NGAY DƯỚI đây VẪN GIỮ NGUYÊN — vẫn cần đo `containerWidthPx` ĐÚNG lúc
-     * container đã có kích thước thật (panel/khung cha có thể chưa settle layout xong), chỉ khác là
-     * giờ CHỈ đo 1 LẦN cho mục đích packing hàng, không còn ai đo lại lần 2 cho chiều cao nữa.
+    /** ĐẬP ĐI LÀM LẠI (rewrite Photo/Album, Giang yêu cầu "không dùng window virtual tự tạo nữa,
+     * dùng thư viện") — THAY HẲN `workflowVirtualList.mount()` (event/workflow/virtual-list.js, đã
+     * xoá — nguồn gốc hàng loạt bug layout/lệch cuộn) bằng `workflowPhotoGalleryWindow.mount()`
+     * (event/workflow/photo-gallery-window.js) — windowing cấp NHÓM NGÀY qua `IntersectionObserver`
+     * (trình duyệt tự lo, không tự đo `scrollTop`/`clientWidth`/tự tính `offsetTop` bằng tay nào
+     * nữa) + fjGallery (thư viện thật) lo layout justified thật bên trong mỗi nhóm còn tải.
+     * KHÔNG còn cần đo `clientWidth` TRƯỚC ở đây (bản cũ phải đoán TRƯỚC số cột/gộp hàng bằng tay —
+     * đúng nguồn gốc bug "chỉ hiển thị đầy đủ SAU 1 thay đổi DOM khác") — `fjGallery()` tự đo lúc
+     * NÓ thật sự chạy (bên trong `_loadGroup()`, event/workflow/photo-gallery-window.js), ĐÚNG lúc
+     * nhóm đó đã ở trong DOM thật với kích thước thật (IntersectionObserver chỉ bắn callback SAU
+     * khi trình duyệt đã layout xong, tự loại bỏ hẳn lớp fragility "đo quá sớm" cũ).
+     * Dùng CHUNG cho Photo & Album (gọi từ `refresh()`) LẪN picker ảnh Generic Drawer
+     * (`_openImagePickerDrawer()` ngay dưới — Workflow gọi Workflow miền khác, TỰ DO theo
+     * event-bus-flow.md mục 4B).
      * @param {HTMLElement} scrollEl - container CUỘN, ĐÃ có trong DOM thật.
      * @param {Array<{key:string, blob:Blob, thumbBlob?:Blob, width?:number, height?:number, filename:string, addedAt:number}>} images
      * @param {{selectionMode?: boolean, selectedImageKeys?: Set<string>, quickDeleteMode?: boolean, quickDeleteSelectedKeys?: Set<string>}} [ctx]
@@ -280,34 +271,18 @@ const workflowFileManagerPhoto = {
      *        cặp field LOẠI TRỪ NHAU tuỳ mountKey, KHÔNG BAO GIỜ cả 4 field cùng có nghĩa 1 lúc.
      * @param {string} [mountKey] - phân biệt Photo & Album (mặc định 'photoGrid') với picker ảnh
      *        Generic Drawer ('genericDrawer', event/workflow/file-manager-photo.js::
-     *        _openImagePickerDrawer() — Giai đoạn 4, THAY 'photoGridPicker' cũ, xem docstring đó).
+     *        _openImagePickerDrawer()).
      */
     setupPhotoGridWindow(scrollEl, images, ctx, mountKey = 'photoGrid') {
         if (!scrollEl) return;
-        if (scrollEl.clientWidth === 0 || scrollEl.clientHeight === 0) {
-            // Container CHƯA có kích thước thật (panel/khung cha còn đang settle layout) — thử lại
-            // NGAY khung hình kế tiếp, KHÔNG vẽ gì với số liệu sai lúc này.
-            requestAnimationFrame(() => this.setupPhotoGridWindow(scrollEl, images, ctx, mountKey));
-            return;
-        }
-        const scrollElStyle = window.getComputedStyle(scrollEl);
-        const availableWidth = scrollEl.clientWidth - parseFloat(scrollElStyle.paddingLeft || '0') - parseFloat(scrollElStyle.paddingRight || '0');
-        const rows = buildPhotoGridRows(sortImagesByAddedDateDesc(images), availableWidth, PHOTO_ROW_HEIGHT_PX); // core/file-manager/image.js — chữ ký MỚI (Giai đoạn 1+2)
-
-        workflowVirtualList.mount(mountKey, { // event/workflow/virtual-list.js
-            scrollEl, rows, ctx,
-            templateFn: itemTemplateImageGridRow, // components/items.js
-            windowId: 'file-manager-image-masonry', // GIỮ NGUYÊN id cũ — listener click delegated (event/listener/file-manager-photo.js) lọc theo id này
-            windowClassName: 'photo-grid',
-            computeRowHeights: () => { // KHÔNG còn cần đo sizerEl — chiều cao mỗi loại hàng giờ là HẰNG SỐ (Giai đoạn 2)
-                return rows.map((row) => row.type === 'header' ? PHOTO_GRID_HEADER_HEIGHT_PX + PHOTO_GRID_GAP_PX : PHOTO_ROW_HEIGHT_PX + PHOTO_GRID_GAP_PX);
-            },
-            // FIX BUG 3 (Giang yêu cầu) — CHỈ picker Generic Drawer debounce 100ms chờ dừng cuộn mới
-            // vẽ (xem docstring handleScroll(), event/workflow/virtual-list.js) — lưới Photo & Album
-            // chính ('photoGrid') vẫn rAF throttle như cũ (undefined -> mặc định), người dùng cần
-            // thấy cập nhật liên tục khi cuộn ở màn chính, KHÔNG áp dụng cho picker (lướt nhanh tìm
-            // ảnh không cần realtime).
-            scrollSettleMs: mountKey === 'genericDrawer' ? 100 : undefined,
+        const quickDeleteMode = !!(ctx && ctx.quickDeleteMode);
+        const selectionMode = !!(ctx && ctx.selectionMode);
+        workflowPhotoGalleryWindow.mount(mountKey, { // event/workflow/photo-gallery-window.js
+            scrollEl,
+            images,
+            rowHeightPx: PHOTO_ROW_HEIGHT_PX,
+            badgeMode: quickDeleteMode ? 'quickDelete' : (selectionMode ? 'multiSelect' : null),
+            selectedKeys: quickDeleteMode ? ctx.quickDeleteSelectedKeys : (selectionMode ? ctx.selectedImageKeys : undefined),
         });
     },
 
@@ -341,7 +316,7 @@ const workflowFileManagerPhoto = {
 
     /** Đọc lại album, phân trang mode 'list' (core/pagination.js, ~10 album/trang — ĐÚNG chữ Giang
      * dùng "pagination dạng list page"), vẽ lại từng hàng qua itemTemplateAlbumListRow()
-     * (components/items.js). KHÔNG windowing (workflowVirtualList) — số album thực tế luôn nhỏ,
+     * (components/items.js). KHÔNG windowing (workflowPhotoGalleryWindow) — số album thực tế luôn nhỏ,
      * render thẳng 1 trang là đủ mượt, cùng tinh thần refreshSongTab() (Folder List) không windowing.
      * @param {number} pageIndex
      */
@@ -488,8 +463,9 @@ const workflowFileManagerPhoto = {
 
     /** Dựng khung Generic Drawer DÙNG CHUNG cho cả 2 chế độ — CHỈ khác `showConfirmButton` (multi-
      * select cần nút xác nhận cố định đáy, single-select KHÔNG — tap là chọn ngay). Đây là 2 CÁCH
-     * HIỂN THỊ của CÙNG 1 khái niệm "picker ảnh" (đúng khuôn `itemTemplateImageGridRow()` branch
-     * theo `ctx.selectionMode` — Rule 1 chỉ cấm rẽ nhánh giữa 2 NGHIỆP VỤ khác nhau) — nghiệp vụ THẬT
+     * HIỂN THỊ của CÙNG 1 khái niệm "picker ảnh" (đúng khuôn badge chọn/xoá — event/workflow/
+     * photo-gallery-window.js — branch theo `ctx.selectionMode`, Rule 1 chỉ cấm rẽ nhánh giữa 2
+     * NGHIỆP VỤ khác nhau) — nghiệp vụ THẬT
      * (thêm vào album / set bìa) tách hẳn ở `handleImagePickerConfirmClick()`/
      * `handleImagePickerTileClick()` bên dưới, branch theo `_imagePickerSession.mode`, KHÔNG lẫn vào
      * hàm dựng khung này.
@@ -507,7 +483,6 @@ const workflowFileManagerPhoto = {
             headerHtml: this._buildImageMenuHeaderHtml(title),
             bodyHtml: this._buildImagePickerBodyHtml(showConfirmButton),
             bodyClass: 'flex flex-col',
-            isWindowVirtual: true, // kích hoạt gate router cho scroll event (mountKey 'genericDrawer', event/router/virtual-list.js)
         });
 
         const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
@@ -526,8 +501,10 @@ const workflowFileManagerPhoto = {
         // yêu cầu Giang, KHÔNG gọi thẳng workflow method như `_wireImageMenuEvents()` đang làm (đó là
         // tiền lệ CŨ, chấp nhận được vì Workflow-gọi-Workflow-của-chính-mình không bị Rule 5a chi
         // phối, nhưng ở ĐÂY đi qua eventBus cho nhất quán với toàn bộ luồng ảnh còn lại).
+        // SỬA (rewrite Photo/Album, dùng fjGallery) — tile giờ là `<div class="fj-gallery-item">`,
+        // KHÔNG còn `<button>` — selector đổi theo, bỏ ràng buộc tag.
         genericDrawerBody.addEventListener('click', (e) => {
-            const tile = e.target.closest('button[data-image-key]');
+            const tile = e.target.closest('[data-image-key]');
             if (!tile) return;
             eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePicker.tile.click', payload: { imageKey: tile.dataset.imageKey } });
         });
@@ -581,9 +558,10 @@ const workflowFileManagerPhoto = {
         if (!_imagePickerSession) return; // guard: picker đã đóng (race hiếm, vd đóng đúng lúc tap)
         if (_imagePickerSession.mode === 'multiSelectAlbum') {
             const selectedKeys = _imagePickerSession.selectedKeys;
-            if (selectedKeys.has(imageKey)) selectedKeys.delete(imageKey);
-            else selectedKeys.add(imageKey);
-            workflowVirtualList.redraw('genericDrawer'); // event/workflow/virtual-list.js
+            const isNowMarked = !selectedKeys.has(imageKey);
+            if (isNowMarked) selectedKeys.add(imageKey);
+            else selectedKeys.delete(imageKey);
+            workflowPhotoGalleryWindow.setTileBadge('genericDrawer', imageKey, isNowMarked); // event/workflow/photo-gallery-window.js
             return;
         }
         // singleSelectCover — bấm là chọn NGAY, đóng drawer luôn, KHÔNG cần nút xác nhận riêng.
@@ -628,7 +606,7 @@ const workflowFileManagerPhoto = {
     /** Dọn session + unmount windowing (revoke object URL NGAY, không đợi lần mount() kế tiếp mới
      * tự dọn) + đóng drawer — DÙNG CHUNG cho MỌI lối thoát picker (chọn xong/xác nhận/huỷ). */
     _teardownImagePicker() {
-        workflowVirtualList.unmount('genericDrawer'); // event/workflow/virtual-list.js
+        workflowPhotoGalleryWindow.unmount('genericDrawer'); // event/workflow/photo-gallery-window.js
         this._closeGenericDrawerFully();
         _imagePickerSession = null;
     },
@@ -636,7 +614,7 @@ const workflowFileManagerPhoto = {
     /** MỚI (Giai đoạn 1, rewrite Photo/Album, mục 3c/3d) — resize 1 ảnh lúc upload: `height` = ĐÚNG
      * `PHOTO_ROW_HEIGHT_PX` (khớp CSS hàng ảnh, nối ở Giai đoạn 2), `width` theo tỉ lệ ẢNH GỐC (ngang
      * hay dọc tự quy đổi qua `naturalWidth/naturalHeight`, KHÔNG ép cứng). Trả thêm `width`/`height`
-     * GỐC (trước resize) để `buildPhotoGridRows()` (core) tính tỉ lệ hiển thị MÀ KHÔNG cần decode ảnh
+     * GỐC (trước resize) để fjGallery (thư viện, xem event/workflow/photo-gallery-window.js) tính tỉ lệ hiển thị MÀ KHÔNG cần decode ảnh
      * lại lúc dựng lưới.
      * Đặt ở Workflow (KHÔNG phải core/file-manager/image.js) vì cần `Image`/`canvas` — DOM API, core
      * không được đụng theo Rule 1-4 — đúng tiền lệ `event/workflow/image-edit.js` đang xử lý canvas

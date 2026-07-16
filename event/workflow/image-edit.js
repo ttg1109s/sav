@@ -152,8 +152,8 @@ const workflowImageEdit = {
      * chỉ để xem), Crop (handleCrop()) chỉ cần canvas hình học, không cần filter.
      *
      * SỬA (Giai đoạn 5, rewrite Photo/Album — hoàn thiện thumbBlob sau khi edit) — trả thêm
-     * `width`/`height` (kích thước THẬT sau crop — có thể khác hẳn ảnh gốc, `buildPhotoGridRows()`
-     * core/file-manager/image.js cần đúng số này để tính tỉ lệ hiển thị lưới) VÀ `sourceCanvas`
+     * `width`/`height` (kích thước THẬT sau crop — có thể khác hẳn ảnh gốc, fjGallery (thư viện,
+     * event/workflow/photo-gallery-window.js) cần đúng số này để tính tỉ lệ hiển thị lưới) VÀ `sourceCanvas`
      * (chính `out`, TÁI DÙNG lại cho `_buildThumbnailBlob()` ngay dưới — tránh decode Blob lại lần 2
      * qua `<img>` như `_resizeImageForThumbnail()` bên index.html phải làm, vì ở ĐÂY canvas kết quả
      * đã có sẵn ngay trong bộ nhớ).

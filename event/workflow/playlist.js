@@ -329,7 +329,6 @@ const workflowPlaylist = {
             headerHtml: this._buildFolderPickerHeaderHtml(),
             bodyHtml,
             bodyClass: 'overflow-y-auto',
-            isWindowVirtual: false, // tường minh — số folder thực tế luôn rất nhỏ, không cần windowing (xem event/workflow/virtual-list.js)
         };
         if (isFirstOpen) openGenericDrawer(config); // core/generic-drawer.js
         else updateGenericDrawer(config); // core/generic-drawer.js

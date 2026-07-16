@@ -82,14 +82,14 @@ const workflowDocumentReader = {
         const bodyHtml = documents.length
             ? renderItemList(null, documents, itemTemplateDocumentRow, { activeDocumentKey: this._currentDocumentKey }) // components/items.js
             : `<p class="text-sm text-slate-400 text-center py-10">${t('documentPicker.empty')}</p>`;
-        // isWindowVirtual: false (tường minh) — danh sách này KHÔNG qua workflowVirtualList.mount()
-        // (vẫn dưới ngưỡng ~100-200 tài liệu, renderItemList(null, ...) trả chuỗi đầy đủ như cũ,
-        // xem components/items.js) — event/router/virtual-list.js dựa vào field này để biết KHÔNG
-        // xử lý 'scroll' cho Drawer lúc đang ở mode List.
+        // ĐÃ GỠ (rewrite Photo/Album) — comment cũ về `isWindowVirtual: false`/`event/router/
+        // virtual-list.js` không còn ý nghĩa, hạ tầng đó đã xoá hẳn. Danh sách này vẫn render đầy đủ
+        // 1 lần qua `renderItemList(null, ...)` như cũ (vẫn dưới ngưỡng ~100-200 tài liệu, KHÔNG
+        // liên quan gì windowing ảnh).
         // SỬA (14/07/2026, Giang báo bug z-index — Drawer bị #app-stack z-[60] đè khi mở từ
         // Playlist) — BỎ `zIndex: 40` cứng ở đây (thấp hơn #app-stack), để rơi về
         // GENERIC_DRAWER_DEFAULT_Z_INDEX (128) mặc định của core/generic-drawer.js.
-        const config = { height: '70vh', headerHtml: this._buildListHeaderHtml(), bodyHtml, bodyClass: 'overflow-y-auto px-4 py-3', isWindowVirtual: false };
+        const config = { height: '70vh', headerHtml: this._buildListHeaderHtml(), bodyHtml, bodyClass: 'overflow-y-auto px-4 py-3' };
         if (genericDrawerPanel.classList.contains('hidden')) {
             openGenericDrawer(config); // core/generic-drawer.js
         } else {
@@ -152,7 +152,6 @@ const workflowDocumentReader = {
             headerHtml: this._buildReadHeaderHtml(),
             bodyHtml: this._buildReadBodyHtml(),
             bodyClass: 'relative overflow-hidden px-6 pt-5 pb-16',
-            isWindowVirtual: false, // tường minh — Reader tự phân trang riêng (core/file-manager/document-pagination.js), KHÔNG phải danh sách windowing của workflowVirtualList
         });
         this._wireReadEvents();
         this._rebuildPagesFromScratch();
