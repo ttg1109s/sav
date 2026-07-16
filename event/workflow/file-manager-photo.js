@@ -68,6 +68,12 @@ let _imagePickerSession = null; // MỚI (Giai đoạn 4) — session picker ả
 //      đây chính là đúng thuật toán Flickr/Google Photos, khác hẳn "mọi hàng cao ĐÚNG N px").
 // Giá trị 120 là mặc định hợp lý — đổi tuỳ ý, chỉ cần đổi ĐÚNG 1 chỗ (hằng số dùng chung).
 const PHOTO_ROW_HEIGHT_PX = 120;
+// MỚI (Giang yêu cầu — "resize thumb theo tỉ lệ 20% width và 20% height") — hệ số co CẢ 2 chiều lúc
+// resize `thumbBlob` (_resizeImageForThumbnail() ngay dưới/event/workflow/image-edit.js::
+// _buildThumbnailBlob() — PHẢI khớp nhau, đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia). TÁCH BIỆT hẳn
+// khỏi PHOTO_ROW_HEIGHT_PX (chỉ còn ý nghĩa "chiều cao HIỂN THỊ trong lưới" truyền cho fjGallery,
+// KHÔNG còn liên quan gì tới kích thước THẬT của file thumbBlob lưu trong DB nữa).
+const THUMBNAIL_SCALE_RATIO = 0.2;
 // Khớp w-16 (64px) + gap-4 (16px) ở album story (components/file-manager.js) — đổi CSS thì phải đổi luôn.
 // ĐÃ GỠ (Giai đoạn 3b) — ALBUM_STORY_TILE_WIDTH_PX/ALBUM_STORY_GAP_PX không còn dùng sau khi bỏ
 // hẳn story slider ngang (thay bằng Album List sub-panel, xem openAlbumListPanel() ngay dưới).
@@ -335,10 +341,24 @@ const workflowFileManagerPhoto = {
      * thực tế luôn ít) — che chỉ gây nhấp nháy thừa, không có gì đáng che cả. VẪN giữ đợi trượt xong
      * HẲN trước khi vẽ (SLIDER_PANEL_SCROLL_ESTIMATED_MS) — không liên quan tới shield, tránh vẽ lúc
      * panel còn đang animation dở dang. */
+    /** Ứng với 'fileManagerPhoto.albumList.open.click'.
+     * SỬA (fix bug 4, Giang chỉ ra "list dùng pagination nhẹ, không đáng kể") — BỎ `withLoadingShield()`
+     * (khác panel Photo chính — lưới ảnh nặng, nhiều object URL, thật sự cần che) — Album List KHÔNG
+     * windowing, tối đa 10 hàng/trang, `refreshAlbumListPanel()` chỉ 1 lượt đọc DB nhỏ (số album
+     * thực tế luôn ít) — che chỉ gây nhấp nháy thừa, không có gì đáng che cả. VẪN giữ đợi trượt xong
+     * HẲN trước khi vẽ (SLIDER_PANEL_SCROLL_ESTIMATED_MS) — không liên quan tới shield, tránh vẽ lúc
+     * panel còn đang animation dở dang.
+     * SỬA (Giang yêu cầu "bỏ khung viền, làm giống y hệt Playlist UI") — `fullBleed: true` MỚI (list
+     * tràn viền edge-to-edge, xem components/file-manager.js::renderFileManagerAlbumListPanelBody())
+     * + nút "+" tạo album dời vào `headerActionHtml` (đối xứng nút Back, đúng khuôn panel Photo
+     * chính) — bỏ hẳn việc tự dựng `<h2>` tiêu đề trùng lặp trong bodyHtml (title CHUẨN của
+     * `pushSettingsPanel()` đã đủ). */
     async openAlbumListPanel() {
         albumListPanelEl = pushSettingsPanel({
             title: t('fileManager.photo.albumList.title'),
             bodyHtml: renderFileManagerAlbumListPanelBody(), // components/file-manager.js
+            fullBleed: true,
+            headerActionHtml: this._buildAlbumListHeaderActionHtml(),
         });
         const createBtn = albumListPanelEl.querySelector('#btn-file-manager-album-list-create');
         if (createBtn) createBtn.addEventListener('click', () => {
@@ -349,23 +369,79 @@ const workflowFileManagerPhoto = {
         await this.refreshAlbumListPanel(0); // KHÔNG shield (fix bug 4) — list nhẹ, không windowing
     },
 
+    /** Nút "+" tạo album mới — dời vào header (đối xứng nút Back), THAY vì tự dựng trong bodyHtml
+     * (cũ, trùng lặp với title CHUẨN của pushSettingsPanel() — xem docstring openAlbumListPanel()).
+     * Cùng khuôn `_buildHeaderActionHtml()` của panel Photo chính (nút upload). */
+    _buildAlbumListHeaderActionHtml() {
+        return `
+            <button id="btn-file-manager-album-list-create" class="w-8 h-8 flex items-center justify-center rounded-full bg-sky-500 hover:bg-sky-400 transition-colors text-white shrink-0" title="${t('fileManager.photo.albumList.createNew')}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+            </button>`;
+    },
+
     /** Đọc lại album, phân trang mode 'list' (core/pagination.js, ~10 album/trang — ĐÚNG chữ Giang
      * dùng "pagination dạng list page"), vẽ lại từng hàng qua itemTemplateAlbumListRow()
      * (components/items.js). KHÔNG windowing (workflowPhotoGalleryWindow) — số album thực tế luôn nhỏ,
      * render thẳng 1 trang là đủ mượt, cùng tinh thần refreshSongTab() (Folder List) không windowing.
+     * SỬA (Giang yêu cầu layout "ảnh album | tên album | số lượng ảnh + ...") — đọc thêm
+     * `listImages()` để lấy ảnh đại diện đầu tiên mỗi album (`imageRecordsByKey`, TÁI DÙNG đúng cách
+     * `renderSlideshowAlbumPickerGrid()` đang làm) — revoke TOÀN BỘ object URL cũ TRƯỚC khi vẽ lại
+     * (danh sách này KHÔNG windowing, tự vẽ lại hết mỗi lần refresh, phải tự dọn tay).
      * @param {number} pageIndex
      */
     async refreshAlbumListPanel(pageIndex) {
         if (!albumListPanelEl) return; // guard: panel đã đóng
         const albums = await listAlbums(); // core/file-manager/album.js
+        const images = await listImages(); // core/file-manager/image.js — MỚI, lấy ảnh đại diện
+        const imageRecordsByKey = new Map(images.map((img) => [img.key, img]));
         const pageResult = computePage(albums, pageIndex, 10); // core/pagination.js
 
         const listEl = albumListPanelEl.querySelector('#file-manager-album-list');
-        if (listEl) listEl.innerHTML = pageResult.pageItems.map((album) => itemTemplateAlbumListRow(album)).join(''); // components/items.js
+        if (listEl) {
+            listEl.querySelectorAll('[data-has-object-url]').forEach((img) => { try { URL.revokeObjectURL(img.src); } catch (e) {} }); // dọn object URL cũ TRƯỚC khi ghi đè — KHÔNG windowing, tự vẽ lại toàn bộ
+            listEl.innerHTML = pageResult.pageItems.map((album) => itemTemplateAlbumListRow(album, imageRecordsByKey)).join(''); // components/items.js
+        }
         const emptyEl = albumListPanelEl.querySelector('#file-manager-album-list-empty');
         if (emptyEl) emptyEl.classList.toggle('hidden', albums.length > 0);
         const paginationEl = albumListPanelEl.querySelector('#file-manager-album-list-pagination');
         if (paginationEl) paginationEl.innerHTML = buildPaginationListHtml(pageResult.pageIndex, pageResult.totalPages); // core/pagination.js, KHÔNG sửa
+    },
+
+    /** MỚI (Giang yêu cầu "action ba chấm dropdown, tái dùng như action song, truyền vào dạng
+     * [{icon, name, callback}]") — THAY HẲN 4 icon rời cũ. Ứng với 'fileManagerPhoto.albumList.
+     * menu.click'. Mỗi `callback` tự gọi `eventBus.send()` (Rule 5a — core/dropdown-menu.js CHỈ gọi
+     * lại đúng callback được truyền vào, KHÔNG tự quyết định nghiệp vụ) — TÁI DÙNG NGUYÊN case
+     * 'fileManagerPhoto.albumList.action.click' đã có sẵn ở router (KHÔNG đổi gì phía dispatch, chỉ
+     * đổi NƠI TRIGGER từ 4 nút rời sang 1 dropdown).
+     * @param {string} albumId
+     * @param {HTMLElement} anchorBtn - nút "..." vừa bấm, dùng để định vị dropdown.
+     * @param {number} albumListPageIndex
+     */
+    openAlbumActionMenu(albumId, anchorBtn, albumListPageIndex) {
+        const dispatch = (action) => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.action.click', payload: { action, albumId } });
+        openDropdownMenu(anchorBtn, [ // core/dropdown-menu.js
+            {
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 8a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>',
+                name: t('fileManager.photo.album.viewTitle'),
+                callback: () => dispatch('view'),
+            },
+            {
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v4m-2-2h4" /></svg>',
+                name: t('fileManager.photo.album.addImagesTitle'),
+                callback: () => dispatch('addImages'),
+            },
+            {
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>',
+                name: t('fileManager.photo.album.renameTitle'),
+                callback: () => dispatch('rename'),
+            },
+            {
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>',
+                name: t('fileManager.photo.album.deleteTitle'),
+                callback: () => dispatch('delete'),
+                destructive: true,
+            },
+        ]);
     },
 
     /** Ứng với 'fileManagerPhoto.albumList.create.click'. Cùng khuôn `promptCreateAlbum()` cũ, chỉ
@@ -646,11 +722,15 @@ const workflowFileManagerPhoto = {
         _imagePickerSession = null;
     },
 
-    /** MỚI (Giai đoạn 1, rewrite Photo/Album, mục 3c/3d) — resize 1 ảnh lúc upload: `height` = ĐÚNG
-     * `PHOTO_ROW_HEIGHT_PX` (khớp CSS hàng ảnh, nối ở Giai đoạn 2), `width` theo tỉ lệ ẢNH GỐC (ngang
-     * hay dọc tự quy đổi qua `naturalWidth/naturalHeight`, KHÔNG ép cứng). Trả thêm `width`/`height`
-     * GỐC (trước resize) để fjGallery (thư viện, xem event/workflow/photo-gallery-window.js) tính tỉ lệ hiển thị MÀ KHÔNG cần decode ảnh
-     * lại lúc dựng lưới.
+    /** MỚI (Giai đoạn 1, rewrite Photo/Album, mục 3c/3d) — resize 1 ảnh lúc upload.
+     * SỬA (Giang yêu cầu — "resize theo tỉ lệ 20% width và 20% height") — THAY hẳn cách tính cũ
+     * (height CỐ ĐỊNH = PHOTO_ROW_HEIGHT_PX, width suy theo tỉ lệ ảnh gốc). Giờ CẢ 2 chiều đều co
+     * theo ĐÚNG 1 hệ số 20% trên chính kích thước ảnh gốc — tỉ lệ ảnh (aspect ratio) TỰ giữ nguyên
+     * (co đều 2 chiều cùng hệ số), KHÔNG còn phụ thuộc `PHOTO_ROW_HEIGHT_PX` nữa (hằng số đó giờ
+     * CHỈ còn dùng cho `rowHeight` truyền vào fjGallery — chiều cao HIỂN THỊ trong lưới, KHÁC hẳn
+     * kích thước THẬT của file `thumbBlob` lưu trong DB).
+     * Trả thêm `width`/`height` GỐC (trước resize) để fjGallery (thư viện, xem event/workflow/
+     * photo-gallery-window.js) tính tỉ lệ hiển thị MÀ KHÔNG cần decode ảnh lại lúc dựng lưới.
      * Đặt ở Workflow (KHÔNG phải core/file-manager/image.js) vì cần `Image`/`canvas` — DOM API, core
      * không được đụng theo Rule 1-4 — đúng tiền lệ `event/workflow/image-edit.js` đang xử lý canvas
      * riêng ở Workflow, core chỉ nhận `Blob` đã xong việc.
@@ -664,8 +744,8 @@ const workflowFileManagerPhoto = {
             img.onload = () => {
                 const width = img.naturalWidth;
                 const height = img.naturalHeight;
-                const targetHeight = PHOTO_ROW_HEIGHT_PX;
-                const targetWidth = Math.max(1, Math.round(targetHeight * (width / height))); // guard: tối thiểu 1px, tránh canvas rộng 0 nếu ảnh hỏng tỉ lệ
+                const targetWidth = Math.max(1, Math.round(width * THUMBNAIL_SCALE_RATIO)); // guard: tối thiểu 1px, tránh canvas rộng 0 nếu ảnh hỏng tỉ lệ
+                const targetHeight = Math.max(1, Math.round(height * THUMBNAIL_SCALE_RATIO));
                 const canvas = document.createElement('canvas');
                 canvas.width = targetWidth;
                 canvas.height = targetHeight;

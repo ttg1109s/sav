@@ -24,11 +24,13 @@
  * chiếu NGAY ĐẦU file đó, trang nhỏ không cần dom-refs.js riêng — cùng quy ước subtitle-editor.js).
  */
 
-// MỚI (Giai đoạn 5, rewrite Photo/Album — hoàn thiện thumbBlob sau khi edit) — PHẢI khớp
-// PHOTO_ROW_HEIGHT_PX ở event/workflow/file-manager-photo.js. KHÔNG dùng lại hằng số CHUNG được vì
-// image-edit.html là trang ĐỘC LẬP (window.location.href toàn trang, KHÔNG nạp core/config.js hay
-// bất kỳ file nào của index.html — xem docstring đầu file) — đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia.
-const PHOTO_ROW_HEIGHT_PX = 120;
+// ĐÃ GỠ (Giang yêu cầu "resize theo tỉ lệ 20% width và 20% height") — PHOTO_ROW_HEIGHT_PX không còn
+// dùng ở trang này (chỉ dùng cho chiều cao HIỂN THỊ trong lưới, KHÔNG liên quan resize thumbBlob
+// thật nữa). THAY bằng THUMBNAIL_SCALE_RATIO — PHẢI khớp hằng số cùng tên ở event/workflow/
+// file-manager-photo.js. KHÔNG dùng lại hằng số CHUNG được vì image-edit.html là trang ĐỘC LẬP
+// (window.location.href toàn trang, KHÔNG nạp core/config.js hay bất kỳ file nào của index.html —
+// xem docstring đầu file) — đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia.
+const THUMBNAIL_SCALE_RATIO = 0.2;
 
 const workflowImageEdit = {
     _imageKey: null,
@@ -180,15 +182,18 @@ const workflowImageEdit = {
     /** MỚI (Giai đoạn 5, rewrite Photo/Album — hoàn thiện thumbBlob sau khi edit) — resize thumbnail
      * TỪ canvas đã dựng sẵn (`sourceCanvas`, từ `_buildFinalBlob()`) — KHÔNG decode lại từ Blob qua
      * `<img>` như `_resizeImageForThumbnail()` (event/workflow/file-manager-photo.js) vì canvas
-     * nguồn ĐÃ CÓ SẴN trong bộ nhớ ở đây, decode lại tốn kém vô ích. CÙNG công thức resize (height
-     * cố định `PHOTO_ROW_HEIGHT_PX`, width theo tỉ lệ) — 2 nơi PHẢI ra kết quả tương đương.
+     * nguồn ĐÃ CÓ SẴN trong bộ nhớ ở đây, decode lại tốn kém vô ích.
+     * SỬA (Giang yêu cầu — "resize theo tỉ lệ 20% width và 20% height") — CÙNG công thức
+     * `THUMBNAIL_SCALE_RATIO` (event/workflow/file-manager-photo.js) — 2 nơi PHẢI ra kết quả tương
+     * đương (đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia — file NÀY là trang ĐỘC LẬP, không nạp chung
+     * hằng số với index.html, xem docstring PHOTO_ROW_HEIGHT_PX đầu file).
      * @param {HTMLCanvasElement} sourceCanvas
      * @param {string} mime
      * @returns {Promise<Blob|null>}
      */
     _buildThumbnailBlob(sourceCanvas, mime) {
-        const targetHeight = PHOTO_ROW_HEIGHT_PX;
-        const targetWidth = Math.max(1, Math.round(targetHeight * (sourceCanvas.width / sourceCanvas.height))); // guard: tối thiểu 1px
+        const targetWidth = Math.max(1, Math.round(sourceCanvas.width * THUMBNAIL_SCALE_RATIO)); // guard: tối thiểu 1px
+        const targetHeight = Math.max(1, Math.round(sourceCanvas.height * THUMBNAIL_SCALE_RATIO));
         const thumbCanvas = document.createElement('canvas');
         thumbCanvas.width = targetWidth;
         thumbCanvas.height = targetHeight;
