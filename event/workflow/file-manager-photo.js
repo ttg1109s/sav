@@ -302,6 +302,12 @@ const workflowFileManagerPhoto = {
             computeRowHeights: () => { // KHÔNG còn cần đo sizerEl — chiều cao mỗi loại hàng giờ là HẰNG SỐ (Giai đoạn 2)
                 return rows.map((row) => row.type === 'header' ? PHOTO_GRID_HEADER_HEIGHT_PX + PHOTO_GRID_GAP_PX : PHOTO_ROW_HEIGHT_PX + PHOTO_GRID_GAP_PX);
             },
+            // FIX BUG 3 (Giang yêu cầu) — CHỈ picker Generic Drawer debounce 100ms chờ dừng cuộn mới
+            // vẽ (xem docstring handleScroll(), event/workflow/virtual-list.js) — lưới Photo & Album
+            // chính ('photoGrid') vẫn rAF throttle như cũ (undefined -> mặc định), người dùng cần
+            // thấy cập nhật liên tục khi cuộn ở màn chính, KHÔNG áp dụng cho picker (lướt nhanh tìm
+            // ảnh không cần realtime).
+            scrollSettleMs: mountKey === 'genericDrawer' ? 100 : undefined,
         });
     },
 
