@@ -64,11 +64,12 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.album.carousel.removeButton': 'Remove from album',
     'fileManager.photo.album.carousel.infoTitle': 'Album name',
     // MỚI (Giai đoạn 3b) — Album List sub-panel (THAY story slider ngang cũ).
-    'fileManager.photo.albumList.title': 'Albums',
-    'fileManager.photo.albumList.entryButton': 'Albums',
+    'fileManager.photo.albumList.title': 'Photo Albums',
+    'fileManager.photo.albumList.entryButton': 'Photo Albums',
     'fileManager.photo.albumList.empty': 'No albums yet.',
     'fileManager.photo.albumList.createNew': 'New album',
     'fileManager.photo.albumList.photoCount': '{count} photos',
+    'fileManager.photo.albumList.menuTitle': 'Album options',
     'fileManager.photo.album.viewTitle': 'View photos',
     // MỚI (04/07/2026, mục 2 phản hồi Giang) — caption ảnh.
     'fileManager.photo.image.captionLabel': 'Caption',
