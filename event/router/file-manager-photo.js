@@ -103,8 +103,19 @@ const routerFileManagerPhoto = (() => {
             // 'view') — activeAlbumId vẫn còn dùng được (vd nếu sau này Giang muốn thêm lại đường
             // vào khác), chỉ là hiện không còn nơi nào set nó khác null nữa.
 
-            // 4 icon LOẠI TRỪ NHAU (đúng data-album-list-action gắn ở itemTemplateAlbumListRow(),
-            // components/items.js) -> VirtualMachineState, cùng khuôn 'album.manageClick' cũ.
+            // MỚI (Giang yêu cầu "action ba chấm dropdown, tái dùng như action song") — THAY 4 icon
+            // rời cũ bằng 1 nút "..." mở dropdown (core/dropdown-menu.js). `anchorBtn` truyền qua
+            // payload — ĐÚNG tiền lệ đã có (event/listener/playlist.js::'playlist.item.menuClick',
+            // truyền `anchorBtn` y hệt cách này).
+            case 'fileManagerPhoto.albumList.menu.click': {
+                const { albumId, anchorBtn } = msg.payload;
+                workflowFileManagerPhoto.openAlbumActionMenu(albumId, anchorBtn, albumListPageIndex); // dựng dropdown + wire callback -> workflow
+                break;
+            }
+
+            // 4 hành động LOẠI TRỪ NHAU — ĐÍCH dispatch của dropdown ngay trên (mỗi mục dropdown tự
+            // eventBus.send() case này, xem workflowFileManagerPhoto.openAlbumActionMenu()) — CHÍNH
+            // case này KHÔNG đổi gì so với bản trước (chỉ đổi NƠI trigger từ 4 nút rời sang dropdown).
             case 'fileManagerPhoto.albumList.action.click': {
                 const { action, albumId } = msg.payload;
                 VirtualMachineState.run([
