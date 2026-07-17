@@ -57,7 +57,7 @@ const workflowPhotoGalleryWindow = {
             return { dayKey: group.dayKey, addedAt: group.addedAt, images: group.images, el: groupEl, loaded: false, heightPx: null };
         });
 
-        const m = { scrollEl, containerEl, groupRecords, observer: null, rowHeightPx, badgeMode: badgeMode || null, selectedKeys: selectedKeys || new Set() };
+        const m = { mountKey, scrollEl, containerEl, groupRecords, observer: null, rowHeightPx, badgeMode: badgeMode || null, selectedKeys: selectedKeys || new Set() };
 
         // rootMargin ~200% chiều cao khung cuộn mỗi phía — giữ trước/sau ~2 màn hình (đúng vùng đệm
         // đã thống nhất, THAY "bufferPx" tự tính cũ — giá trị này trình duyệt tự quy đổi theo % kích
@@ -107,7 +107,14 @@ const workflowPhotoGalleryWindow = {
         record.el.innerHTML = '';
 
         const headerEl = document.createElement('div');
-        headerEl.className = 'photo-day-header';
+        // SỬA (17/07/2026, Giang chỉ ra "màu chữ ngày tháng tương phản kém") — `.photo-day-header`
+        // (assets/css/style.css) dùng màu CHỮ SÁNG (`#e2e8f0`), ĐÚNG khi nền TỐI (lưới ảnh chính,
+        // mountKey 'photoGrid') nhưng SAI hẳn khi cùng class này render TRONG Generic Drawer
+        // (mountKey 'genericDrawer' — nền LUÔN TRẮNG cố định, xem components/generic-drawer.js) —
+        // chữ sáng trên nền trắng gần như vô hình. Thêm class bổ sung
+        // `.photo-day-header--on-light` (chỉ áp khi mount TRONG Generic Drawer) đổi màu chữ sang
+        // tối — KHÔNG đổi `.photo-day-header` gốc (vẫn đúng cho lưới ảnh chính, nền tối).
+        headerEl.className = m.mountKey === 'genericDrawer' ? 'photo-day-header photo-day-header--on-light' : 'photo-day-header';
         headerEl.textContent = formatPhotoDayHeaderLabel(record.addedAt); // core/file-manager/image.js, hàm thuần
         record.el.appendChild(headerEl);
 

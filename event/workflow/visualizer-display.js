@@ -158,6 +158,17 @@ const workflowVisualizerDisplay = {
      * openImageCarouselPickerModal, xem core/file-manager/photo-ui.js). Gạt về "off" thì chỉ tắt
      * hiển thị — KHÔNG xoá Blob đã lưu trong IndexedDB nữa (đảo ngược quyết định cũ, xem
      * applyBgImageEnabled() core/visualizer/visualizer-display.js).
+     *
+     * MỒ CÔI HOÀN TOÀN (17/07/2026) — trước đây còn 1 đường gọi thật (event/workflow/theme.js ->
+     * `selectThemeMode()`, khi card "Background" chưa có ảnh); card đó giờ gọi thẳng
+     * `workflowFileManagerPhoto.openCoverImagePicker()` (Generic Drawer), KHÔNG qua hàm này nữa
+     * (xem event/workflow/theme.js::pickNewBackgroundImage()). Đường vào CÒN LẠI —
+     * `case 'visualizerDisplay.bgImage.toggle'` (event/router/visualizer-display.js) — đã mồ côi
+     * TỪ TRƯỚC (07/07/2026, HOTFIX 4: checkbox `bgImageEnableToggle` gửi msg.type này đã bị xoá
+     * khỏi DOM, không còn listener nào gửi lại msg.type đó nữa, xem
+     * event/listener/visualizer-display.js). Kết quả: KHÔNG còn đường chạy thật nào tới hàm này —
+     * GIỮ NGUYÊN trên đĩa (không xoá), cùng tinh thần các file mồ côi khác đã ghi nhận ở
+     * readme/folder-structure.md (`event/workflow/document-picker.js`...).
      * @param {{enabled: boolean}} payload
      */
     async toggleBgImage(payload) {

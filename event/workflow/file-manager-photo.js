@@ -516,24 +516,29 @@ const workflowFileManagerPhoto = {
     // (bấm tên/số lượng album -> lọc lưới ảnh chính + pop về panel Photo) XOÁ HẲN — vùng tên/số
     // lượng KHÔNG còn bấm được nữa, xem itemTemplateAlbumListRow() (components/items.js).
 
-    /** Ứng với 'fileManagerPhoto.albumList.action.click' action='view'. Carousel xem+xoá khỏi album
-     * (core/file-manager/photo-ui.js::openImageCarouselViewModal() — MỚI Giai đoạn 3b, hàm RIÊNG
-     * với carousel chọn nền, xem docstring ở đó).
+    /** Ứng với 'fileManagerPhoto.albumList.action.click' action='view'.
+     * SỬA (17/07/2026, Giang yêu cầu "bỏ carousel, đổi sang view xem giống File Manager -> Photo
+     * nhưng chỉ ảnh trong album") — THAY HẲN carousel xem+xoá cũ (`openImageCarouselViewModal()`,
+     * core/file-manager/photo-ui.js — HÀM VẪN GIỮ NGUYÊN trên đĩa, KHÔNG xoá, chỉ không còn gọi ở
+     * đây) bằng cách TÁI DÙNG chính lưới ảnh panel Photo chính (`fileManagerPhotoPanelEl`) — panel
+     * đó ĐÃ CÓ SẴN cơ chế lọc theo `activeAlbumId` (chip lọc + nút "bỏ lọc", xem `refresh()`) và
+     * đang NẰM SẴN ngay phía dưới Album List sub-panel trong ngăn xếp (chỉ đang bị cuộn khuất, xem
+     * core/settings-panel-stack-ui.js — Album List PUSH lên TRÊN nó, không hề xoá) — KHÔNG cần mở
+     * panel MỚI nào cả.
+     *
+     * Router đã set `activeAlbumId = albumId` NGAY TRƯỚC khi gọi hàm này (xem
+     * event/router/file-manager-photo.js — Router tự mutate biến closure của chính nó, không phải
+     * việc của Workflow). Hàm NÀY chỉ còn 2 việc, ĐÚNG THỨ TỰ: (1) vẽ lại lưới chính theo đúng lọc
+     * đó TRƯỚC (`refresh()`, await cho xong hẳn — bao gồm cả windowing) — panel đang ẩn nên vẽ
+     * trước không gây "flash" nội dung CŨ (toàn bộ ảnh, chưa lọc); (2) RỒI MỚI lùi
+     * (`workflowSettingsStackNav.back()`, Workflow gọi Workflow khác miền — tự do, xem
+     * event-bus-flow.md mục 4B) về ĐÚNG panel đó — người dùng thấy NGAY lưới đã lọc, không thấy
+     * bước trung gian nào.
      * @param {string} albumId
      */
-    async openAlbumCarouselView(albumId) {
-        const albums = await listAlbums();
-        const album = albums.find((a) => a.id === albumId);
-        if (!album) return;
-        const allImages = await listImages(); // core/file-manager/image.js
-        const albumImages = allImages.filter((img) => album.imageKeys.includes(img.key));
-
-        openImageCarouselViewModal( // core/file-manager/photo-ui.js
-            albumImages,
-            album.name, // MỚI (fix bug 3) — hiện qua nút info trong carousel
-            (imageKey) => { removeImageFromAlbum(imageKey, albumId); }, // fire-and-forget, core/file-manager/album.js — KHÔNG await ở core, đúng docstring hàm đó
-            () => { this.refreshAlbumListPanel(0); } // đóng modal (dù có xoá hay không) -> số lượng ảnh trong album có thể đã đổi, vẽ lại danh sách. Trang 0 đơn giản hoá — album có thể đã đổi vị trí sau xoá, không cố focus lại
-        );
+    async viewAlbumImages(albumId) {
+        await this.refresh(albumId);
+        workflowSettingsStackNav.back(); // event/workflow/settings-stack-nav.js
     },
 
     // ===================== MỚI (Giai đoạn 3b/4, rewrite Photo/Album) — Picker ảnh DÙNG CHUNG Generic
@@ -627,10 +632,12 @@ const workflowFileManagerPhoto = {
             }, { once: true });
         });
 
-        const loadingIconEl = genericDrawerBody.querySelector('#file-manager-image-picker-loading');
-        if (loadingIconEl) loadingIconEl.classList.remove('hidden');
+        // BỎ icon loading khi đọc DB (17/07/2026, Giang yêu cầu "bỏ loading đi") — trước đây có 1
+        // icon spin đơn giản phủ lên #file-manager-image-picker-scroll trong lúc listImages() chạy
+        // (`#file-manager-image-picker-loading`, xem lịch sử ở `_buildImagePickerBodyHtml()`) — ĐÃ
+        // XOÁ HẲN khối HTML đó luôn (không chỉ ẩn/hiện) — listImages() vẫn await bình thường ngay
+        // dưới, chỉ không còn gì che màn hình trong lúc đợi.
         const images = await listImages(); // core/file-manager/image.js
-        if (loadingIconEl) loadingIconEl.classList.add('hidden');
         if (!_imagePickerSession) return; // guard — user đóng picker RẤT NHANH trong lúc đang đọc DB (hiếm, nhưng an toàn — tránh vẽ vào drawer đã đóng)
 
         const scrollEl = genericDrawerBody.querySelector('#file-manager-image-picker-scroll');
@@ -640,19 +647,19 @@ const workflowFileManagerPhoto = {
         this.setupPhotoGridWindow(scrollEl, images, ctx, 'genericDrawer');
     },
 
-    /** HTML khung picker: scroll container (grid windowing sẽ chèn vào TRONG đây) + icon loading đơn
-     * giản + nút xác nhận cố định đáy CHỈ khi `showConfirmButton` (mode multiSelectAlbum). Đặt ở
-     * Workflow (không phải core) — cùng khuôn `_buildImageMenuHeaderHtml()` bên dưới, glue riêng cho
-     * feature này, không đủ "substantial" để tách core.
+    /** HTML khung picker: scroll container (grid windowing sẽ chèn vào TRONG đây) + nút xác nhận cố
+     * định đáy CHỈ khi `showConfirmButton` (mode multiSelectAlbum). Đặt ở Workflow (không phải
+     * core) — cùng khuôn `_buildImageMenuHeaderHtml()` bên dưới, glue riêng cho feature này, không
+     * đủ "substantial" để tách core.
+     * SỬA (17/07/2026, Giang yêu cầu "bỏ loading đi") — XOÁ HẲN khối icon loading
+     * (`#file-manager-image-picker-loading`, spinner phủ lên trong lúc đọc DB) — xem
+     * `_openImagePickerDrawer()`.
      * @param {boolean} showConfirmButton
      */
     _buildImagePickerBodyHtml(showConfirmButton) {
         return `
             <div class="flex-1 min-h-0 overflow-y-auto relative" id="file-manager-image-picker-scroll">
                 <p id="file-manager-image-picker-empty" class="hidden text-sm text-slate-400 text-center py-10 px-6">${t('fileManager.photo.image.empty')}</p>
-            </div>
-            <div id="file-manager-image-picker-loading" class="hidden absolute inset-0 flex items-center justify-center bg-black/40 pointer-events-none">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 animate-spin text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
             </div>
             ${showConfirmButton ? `
             <div class="p-4 border-t border-white/10 shrink-0">
