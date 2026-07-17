@@ -435,8 +435,8 @@ body {
    MỚI (14/07/2026, mục cuối, Giang yêu cầu — "photo view ảnh phải full width/height với màn") —
    modal xem ảnh full-screen (core/file-manager/photo-ui.js::openImagePreviewModal()). Ảnh PHỦ
    KÍN màn hình (object-fit: cover — cắt bớt cạnh dư nếu tỉ lệ ảnh khác tỉ lệ màn hình, KHÔNG
-   letterbox/viền đen như object-contain cũ), header (X/"...") + caption NỔI đè lên trên bằng
-   gradient scrim, không đẩy ảnh thu nhỏ lại như trước.
+   letterbox/viền đen như object-contain cũ), header (X/"...") nổi đè lên trên bằng gradient
+   scrim, không đẩy ảnh thu nhỏ lại như trước.
    ============================================================================================ */
 .photo-preview-image {
     position: absolute;
@@ -454,12 +454,6 @@ body {
     top: 0; left: 0; right: 0;
     background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
     padding-bottom: 24px;
-}
-.photo-preview-scrim-bottom {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    background: linear-gradient(to top, rgba(0,0,0,0.65), transparent);
-    padding-top: 32px;
 }
 
 /* ============================================================================================
