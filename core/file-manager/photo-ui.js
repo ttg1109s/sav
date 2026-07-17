@@ -646,13 +646,13 @@ function openCreateAlbumModal(onConfirm) {
 // (rule đó áp cho hàm NGHIỆP VỤ, không áp cho hàm dựng UI).
 /**
  * SỬA (14/07/2026, mục cuối — menu action ảnh) — bỏ hẳn dropdown menu tự vẽ (text list, absolute
- * positioned) VÀ caption-row-tự-sửa-tại-chỗ. Menu giờ là Generic Drawer (icon hoá, xem
+ * positioned). Menu giờ là Generic Drawer (icon hoá, xem
  * `buildPhotoActionMenuHtml()` ngay dưới) — KHÔNG dựng được ở ĐÂY (Generic Drawer là DOM TĨNH có
  * sẵn từ `dom-refs.js`, không phải "cụm DOM mới tự tạo", Rule 5a CẤM Core tự `addEventListener` cho
  * nó) — nên "..." CHỈ gọi `callbacks.onOpenMenu()`, Workflow (`event/workflow/file-manager-photo.js::
  * _openImageActionMenu()`) tự mở/wire Generic Drawer. Trả về `{ close }` để Workflow tự đóng modal
- * này SAU KHI 1 action (trừ "Sửa caption") được chọn từ menu.
- * @param {{key: string, blob: Blob, filename: string, caption?: string}} image
+ * này SAU KHI 1 action được chọn từ menu.
+ * @param {{key: string, blob: Blob, filename: string}} image
  * @param {{onOpenMenu: () => void}} callbacks
  * @returns {{close: () => void}}
  */
@@ -707,14 +707,6 @@ function openImagePreviewModal(image, callbacks) {
     header.appendChild(menuBtn);
     overlay.appendChild(header);
 
-    // Caption — nổi đè ở ĐÁY (scrim dưới), CHỈ hiển thị (đọc), sửa qua menu "Edit caption".
-    if (image.caption) {
-        const captionEl = document.createElement('p');
-        captionEl.className = 'photo-preview-scrim-bottom px-4 pb-4 text-sm text-slate-100 text-center';
-        captionEl.textContent = image.caption;
-        overlay.appendChild(captionEl);
-    }
-
     document.body.appendChild(overlay);
     return { close: closeModal };
 }
@@ -737,7 +729,6 @@ function openImagePreviewModal(image, callbacks) {
 function buildPhotoActionMenuHtml(ctx) {
     const ICON_BG = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
     const ICON_VISUAL = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg>';
-    const ICON_CAPTION = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
     const ICON_EDIT_IMAGE = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3"/></svg>';
     const ICON_REMOVE_ALBUM = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6"/></svg>';
     const ICON_TRASH = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
@@ -745,7 +736,6 @@ function buildPhotoActionMenuHtml(ctx) {
     const items = [
         { action: 'setPlaylistBg', label: t('fileManager.photo.image.btnSetPlaylistBg'), icon: ICON_BG },
         { action: 'setVisualBg', label: t('fileManager.photo.image.btnSetVisualBg'), icon: ICON_VISUAL },
-        { action: 'editCaption', label: t('fileManager.photo.image.btnEditCaption'), icon: ICON_CAPTION },
         { action: 'editImage', label: t('fileManager.photo.image.btnEditImage'), icon: ICON_EDIT_IMAGE },
     ];
     if (ctx && ctx.hasAlbum) items.push({ action: 'removeFromAlbum', label: t('fileManager.photo.image.btnRemoveFromAlbum'), icon: ICON_REMOVE_ALBUM });
@@ -763,19 +753,4 @@ function buildPhotoActionMenuHtml(ctx) {
     `;
 }
 
-/** MỚI (14/07/2026, mục cuối) — bodyHtml form sửa caption, render TRONG Generic Drawer (Giang chỉ
- * ra: KHÔNG dùng modal riêng nữa — chuyển mượt trong CÙNG drawer đang mở cho menu action, cùng cơ
- * chế List<->Read của `document-reader.js`, xem `event/workflow/file-manager-photo.js::
- * _wireImageMenuEvents()` nhánh 'editCaption'). Hàm THUẦN — chỉ ghép chuỗi, không DOM/appState.
- * @param {string} currentCaption
- * @returns {string}
- */
-function buildEditCaptionFormHtml(currentCaption) {
-    return `
-        <textarea id="caption-form-textarea" rows="3" maxlength="200" placeholder="${escapeHtml(t('fileManager.photo.image.captionPlaceholder'))}" class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 outline-none resize-none focus:border-sky-400 transition-colors">${escapeHtml(currentCaption)}</textarea>
-        <div class="flex gap-3 mt-3">
-            <button type="button" id="btn-caption-form-cancel" class="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-colors">${escapeHtml(t('common.cancel'))}</button>
-            <button type="button" id="btn-caption-form-save" class="flex-1 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors">${escapeHtml(t('common.save'))}</button>
-        </div>
-    `;
-}
+

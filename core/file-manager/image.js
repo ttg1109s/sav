@@ -10,8 +10,7 @@
  * tính tỉ lệ hiển thị mà KHÔNG cần đợi ảnh decode xong mới layout được). `blob` gốc CHỈ dùng khi
  * mở full view (openImagePreviewModal()/carousel) — KHÔNG đổi.
  * Record CŨ (upload trước bản này) THIẾU 3 field trên — mọi nơi đọc PHẢI tự fallback (`thumbBlob ||
- * blob`, `width > 0 ? ... : 1` coi như ảnh vuông) — KHÔNG migrate DB_VERSION (idb-keyval tự do field,
- * cùng nguyên tắc `caption` ở setImageCaption() ngay dưới).
+ * blob`, `width > 0 ? ... : 1` coi như ảnh vuông) — KHÔNG migrate DB_VERSION (idb-keyval tự do field).
  *
  * KHÔNG có store quan hệ riêng ảnh<->album (khác hẳn folder<->song) — quan hệ nằm ở field
  * `imageKeys` NGAY TRÊN record album (xem core/file-manager/album.js) — đơn giản hơn vì album
@@ -72,25 +71,9 @@ async function saveImage(file, filename, thumbBlob, width, height) {
 }
 
 /**
- * MỚI (04/07/2026, mục 2 phản hồi Giang) — đặt/xoá caption cho 1 ảnh (field MỚI trong record, ảnh
- * cũ chưa từng có caption coi như '' — không cần migrate DB_VERSION vì idb-keyval lưu object tự do,
- * thêm field mới không phá record cũ). Đọc lại record đầy đủ trước (giữ nguyên blob/filename/
- * addedAt), chỉ ghi đè `caption`, lưu lại NGUYÊN record — 1 tiến trình duy nhất.
- * @param {string} imageKey
- * @param {string} caption - truyền '' để xoá caption.
- * @returns {Promise<{status: 'notFound'|'ok'}>}
- */
-async function setImageCaption(imageKey, caption) {
-    const record = await getImageRecord(imageKey); // data layer
-    if (!record) return { status: 'notFound' };
-    await setImageRecord(imageKey, { ...record, caption });
-    return { status: 'ok' };
-}
-
-/**
  * MỚI (14/07/2026, mục cuối — tính năng Edit ảnh) — ghi đè `blob` sau khi sửa ở trang
- * `image-edit.html`, giữ nguyên `filename`/`addedAt`/`caption` — cùng khuôn `setImageCaption()`
- * ngay trên (đọc record đầy đủ, ghi đè ĐÚNG 1 field, lưu lại nguyên record).
+ * `image-edit.html`, giữ nguyên `filename`/`addedAt` (đọc record đầy đủ, ghi đè ĐÚNG các field cần
+ * đổi, lưu lại nguyên record).
  *
  * HOÀN THIỆN (Giai đoạn 5, rewrite Photo/Album — trả nợ kỹ thuật ghi ở Giai đoạn 1) — nhận thêm
  * `thumbBlob`/`width`/`height`, ghi đè CẢ 3 cùng lúc với `blob` — trước đây chỉ ghi `blob`, khiến
