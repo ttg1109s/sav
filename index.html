@@ -316,7 +316,7 @@
     <script src="lang/patch/patch-settings-misc.js?v=20260714v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260717v1"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260717v2"></script>
     <!-- MỚI (10/07/2026) — dùng ở CẢ index.html LẪN subtitle-editor.html, xem lang/lang.js. -->
     <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
     <!-- MỚI (14/07/2026, mục cuối — trang image-edit.html) — cần nạp Ở ĐÂY dù index.html không
@@ -372,7 +372,7 @@
          CŨ (ĐÃ XOÁ — xoá tay nếu còn sót trên máy). items.js (mục 3) ĐỘC LẬP với Generic Drawer
          (xem docstring đầu file) nhưng đặt cạnh nhau cho dễ đọc. -->
     <script src="components/generic-drawer.js?v=20260714v2"></script>
-    <script src="components/items.js?v=20260715v1"></script>
+    <script src="components/items.js?v=20260717v1"></script>
     <!-- Visualizer/Subtitle Settings Drawer (ver 8 refine, mục 3) — cùng pattern navigation
          stack với About/Storage Drawer, mở chồng lên #drawer-settings. -->
     <script src="components/visualizer-settings-drawer.js?v=20260707v1"></script>
@@ -441,7 +441,7 @@
          tham số, không tự chờ animation — xem docstring đầu file). ĐỔI TÊN 12/07/2026 (Rule 5c —
          file này tự tạo panel DOM mới, bắt buộc hậu tố `-ui.js`; xoá thủ công file cũ
          `core/settings-panel-stack.js` nếu còn trên đĩa). -->
-    <script src="core/settings-panel-stack-ui.js?v=20260714v1"></script>
+    <script src="core/settings-panel-stack-ui.js?v=20260717v1"></script>
     <!-- Logo "SAV" (cụm /event/ "savLogo") — cần biến `savLogo` vừa nạp từ dom-refs.js ngay trên. -->
     <script src="core/sav-logo.js?v=20260629v1"></script>
     <!-- TaskManager (Loop/TaskManager) — quản lý TẬP TRUNG mọi setInterval/setTimeout của app
@@ -660,7 +660,7 @@
          CẦN core/settings-panel-stack-ui.js (đã nạp ở nhóm CORE phía trên). NẠP TRƯỚC settingsMisc
          (settingsMisc.openAbout() gọi pushSettingsPanel() — không thật sự phụ thuộc thứ tự, nhưng
          đặt Back trước Open cho xuôi mạch đọc). -->
-    <script src="event/workflow/settings-stack-nav.js?v=20260714v3"></script>
+    <script src="event/workflow/settings-stack-nav.js?v=20260717v1"></script>
     <script src="event/router/settings-stack-nav.js?v=20260706v1"></script>
     <script src="event/listener/settings-stack-nav.js?v=20260706v2"></script>
     <!-- Cụm "settingsMisc" (ver 11, patch 5): gộp aboutDrawer + appRecovery — gộp vì mỗi nhánh quá
@@ -707,9 +707,9 @@
          sau khi mọi script đã nạp xong hết, cùng quy ước load-order đã dùng cho popSettingsPanel()
          và nhiều global khác trong project) + core/file-manager/image.js::sortImagesByAddedDateDesc()/
          groupImagesByDay() (đã nạp ở nhóm CORE, TRƯỚC file này, an toàn). -->
-    <script src="event/workflow/file-manager-photo.js?v=20260717v1"></script>
-    <script src="event/router/file-manager-photo.js?v=20260717v1"></script>
-    <script src="event/listener/file-manager-photo.js?v=20260714v4"></script>
+    <script src="event/workflow/file-manager-photo.js?v=20260717v2"></script>
+    <script src="event/router/file-manager-photo.js?v=20260717v2"></script>
+    <script src="event/listener/file-manager-photo.js?v=20260717v1"></script>
     <!-- workflowFileManagerDocument CẦN tồn tại trước khi router gọi tới. Batch D7 (06/07/2026):
          panel Document push/pop động — CẦN core/settings-panel-stack-ui.js (đã nạp ở nhóm CORE).
          VIẾT LẠI (10/07/2026, Nhóm A, CẬP NHẬT cùng ngày sau phản hồi Giang) — .txt upload lưu
