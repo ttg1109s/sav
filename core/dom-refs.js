@@ -148,6 +148,11 @@
         const slideshowContainer = document.getElementById('visual-slideshow-container');
         const slideshowLayer1 = document.getElementById('visual-slideshow-layer-1');
         const slideshowLayer2 = document.getElementById('visual-slideshow-layer-2');
+        // MỚI (Ken Burns, 18/07/2026) — layer CON bên trong mỗi slideshow-layer, mang
+        // background-image + animation pan/zoom Ken Burns (TÁCH khỏi layer ngoài — layer ngoài chỉ
+        // còn lo animation chuyển cảnh, xem docstring index.html/assets/css/slideshow.css).
+        const slideshowLayer1Pan = document.getElementById('visual-slideshow-layer-1-pan');
+        const slideshowLayer2Pan = document.getElementById('visual-slideshow-layer-2-pan');
         const btnOpenSlideshowSettings = document.getElementById('setting-open-slideshow-settings');
         // (drawerSlideshowSettings/btnBackSlideshowSettings ĐÃ XOÁ — Batch D4: panel Slideshow
         // Settings giờ động, không còn drawer tĩnh riêng; Back dùng CHUNG btnSettingsStackBack.)
