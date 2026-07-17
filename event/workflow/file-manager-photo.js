@@ -873,8 +873,8 @@ const workflowFileManagerPhoto = {
     /** Ứng với 'fileManagerPhoto.image.click' khi imageQuickDeleteMode=false (xem router).
      * SỬA (14/07/2026, mục cuối) — menu action giờ là Generic Drawer (icon hoá) thay dropdown cũ,
      * mở qua `callbacks.onOpenMenu` (modal xem ảnh — Core — KHÔNG được tự đụng Generic Drawer, DOM
-     * tĩnh, Rule 5a). `modalHandle.close()` gọi TỪ ĐÂY sau khi 1 action (trừ "Sửa caption") được
-     * chọn — modal Core trả `{ close }` đúng lúc `openImagePreviewModal()` return.
+     * tĩnh, Rule 5a). `modalHandle.close()` gọi TỪ ĐÂY sau khi 1 action được chọn — modal Core trả
+     * `{ close }` đúng lúc `openImagePreviewModal()` return.
      * @param {string} imageKey
      * @param {string|null} activeAlbumId
      */
@@ -893,7 +893,7 @@ const workflowFileManagerPhoto = {
      * modalChoice() (z-130... doc cũ ghi 130, thực tế 130 = cùng tầng preview — 131 đủ nổi trên cả
      * 2, xem docstring core/generic-drawer.js). `height: 'auto' + maxHeight` — tự co theo số icon
      * (4-6 tuỳ có album hay không), không chừa khoảng trống thừa.
-     * @param {{key: string, blob: Blob, filename: string, caption?: string}} image
+     * @param {{key: string, blob: Blob, filename: string}} image
      * @param {string|null} activeAlbumId
      * @param {{close: () => void}} modalHandle
      */
@@ -920,10 +920,7 @@ const workflowFileManagerPhoto = {
         `;
     },
 
-    /** Wire click cho menu vừa mở — mọi action (trừ "editCaption") đóng CẢ drawer LẪN modal xem ảnh
-     * trước khi chạy; "editCaption" KHÔNG đóng drawer — chuyển MƯỢT sang form sửa caption NGAY
-     * TRONG CÙNG drawer đó (`updateGenericDrawer()`, cùng cơ chế List<->Read của `document-
-     * reader.js`, Giang yêu cầu 14/07/2026 — bỏ hẳn modal riêng trước đó). */
+    /** Wire click cho menu vừa mở — mọi action đóng CẢ drawer LẪN modal xem ảnh trước khi chạy. */
     _wireImageMenuEvents(image, activeAlbumId, modalHandle) {
         const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
         if (closeBtn) closeBtn.addEventListener('click', () => this._closeGenericDrawerFully());
@@ -931,11 +928,6 @@ const workflowFileManagerPhoto = {
         genericDrawerBody.querySelectorAll('button[data-photo-menu-action]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const action = btn.dataset.photoMenuAction;
-
-                if (action === 'editCaption') {
-                    this._openEditCaptionForm(image);
-                    return;
-                }
 
                 this._closeGenericDrawerFully();
                 modalHandle.close();
@@ -946,35 +938,6 @@ const workflowFileManagerPhoto = {
                 else if (action === 'delete') deleteImage(image.key).then(() => this.refresh(activeAlbumId)); // core/file-manager/image.js — cascade dọn album
             });
         });
-    },
-
-    /** MỚI (14/07/2026, mục cuối, Giang yêu cầu — caption dùng Generic Drawer, KHÔNG modal) —
-     * chuyển MƯỢT nội dung drawer ĐANG MỞ (menu action) sang form sửa caption, KHÔNG đóng/mở lại từ
-     * đầu (`updateGenericDrawer()`, tham khảo `document-reader.js::_switchToRead()` cùng cơ chế). */
-    _openEditCaptionForm(image) {
-        updateGenericDrawer({ // core/generic-drawer.js
-            zIndex: 131,
-            height: 'auto',
-            maxHeight: '50vh',
-            headerHtml: this._buildImageMenuHeaderHtml(t('fileManager.photo.image.btnEditCaption')),
-            bodyHtml: buildEditCaptionFormHtml(image.caption || ''), // core/file-manager/photo-ui.js
-            bodyClass: 'px-4 pb-5 pt-2',
-        });
-
-        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-        if (closeBtn) closeBtn.addEventListener('click', () => this._closeGenericDrawerFully());
-        const textarea = genericDrawerBody.querySelector('#caption-form-textarea');
-        const cancelBtn = genericDrawerBody.querySelector('#btn-caption-form-cancel');
-        const saveBtn = genericDrawerBody.querySelector('#btn-caption-form-save');
-        if (cancelBtn) cancelBtn.addEventListener('click', () => this._closeGenericDrawerFully());
-        if (saveBtn) saveBtn.addEventListener('click', async () => {
-            const caption = textarea ? textarea.value.trim() : '';
-            this._closeGenericDrawerFully();
-            await setImageCaption(image.key, caption); // core/file-manager/image.js
-            if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.refreshCaptionIfCurrentImage(image.key, caption);
-            if (typeof workflowVisualizerControlCenter !== 'undefined') workflowVisualizerControlCenter.refreshCaptionIfVisualBgImage(image.key, caption);
-        });
-        if (textarea) textarea.focus();
     },
 
     /** Trượt Generic Drawer xuống RỒI ẩn hẳn sau `transitionend` — cùng khuôn `_closeGenericDrawerFully()`

@@ -47,7 +47,7 @@
  * core/file-manager/album.js (getAlbumRecord/listAlbums — qua service/db.js), core/file-manager/image.js
  * (getImageRecord), core/file-manager/photo-ui.js (renderSlideshowAlbumPickerGrid — GIỮ NGUYÊN, giờ
  * vẽ vào genericDrawerBody thay vì panel tĩnh cũ), service/db.js (getMeta/setMeta), core/dom-refs.js
- * (slideshowContainer/slideshowLayer1/slideshowLayer2/bgCaptionFrame, genericDrawerOverlay/Panel/
+ * (slideshowContainer/slideshowLayer1/slideshowLayer2, genericDrawerOverlay/Panel/
  * Header/Body — Generic Drawer dùng chung, Giai đoạn 4),
  * core/settings-panel-stack.js (pushSettingsPanel), core/generic-drawer.js (openGenericDrawer/
  * closeGenericDrawer/hideGenericDrawerImmediately — Giai đoạn 4), components/slideshow-settings-
@@ -57,7 +57,7 @@
  * `workflowSlideshow.clearActiveAlbum()` trong cascade xoá album).
  *
  * === Batch D4 (Settings restructure, 06/07/2026) ===
- * Panel Settings (6 input enable/mode/photoPerSong/interval/transition/showCaption) giờ PUSH/POP
+ * Panel Settings (5 input enable/mode/photoPerSong/interval/transition) giờ PUSH/POP
  * động (core/settings-panel-stack.js) — KHÔNG còn `drawerSlideshowSettings`/6 dom-refs tĩnh (xem
  * core/dom-refs.js). File này KHÔNG cần refactor Rule 0.5 (mọi hàm ở đây ĐÃ LÀ Workflow — được
  * phép appState.get()/taskManager sẵn, core/file-manager/slideshow.js vốn ĐÃ Rule 1-4 đầy đủ từ
@@ -140,7 +140,6 @@ const workflowSlideshow = {
                 if (typeof savedConfig.intervalSeconds === 'number' && savedConfig.intervalSeconds >= 5) cfg.intervalSeconds = savedConfig.intervalSeconds;
                 if (SLIDESHOW_TRANSITION_TYPES.includes(savedConfig.transitionType)) cfg.transitionType = savedConfig.transitionType;
                 if (typeof savedConfig.photoPerSong === 'boolean') cfg.photoPerSong = savedConfig.photoPerSong;
-                if (typeof savedConfig.showCaption === 'boolean') cfg.showCaption = savedConfig.showCaption;
             });
         }
         if (!savedAlbumId) return;
@@ -213,7 +212,6 @@ const workflowSlideshow = {
             taskManager.addNew(SLIDESHOW_TASK, { time: this._computeIntervalMs(), exe: () => this._tick(), mode: 'timeout', count: 0 });
             taskManager.operator(SLIDESHOW_TASK, 'enabled');
         }
-        this._refreshCaptionVisibility(); // core/UI — mục 2: hiện khung caption ngay nếu đang bật + có caption
     },
 
     /** Dừng hẳn engine — dọn task + ẩn container + revoke object URL.
@@ -226,7 +224,6 @@ const workflowSlideshow = {
         taskManager.kill('slideshowKenBurnsFreeze1');
         taskManager.kill('slideshowKenBurnsFreeze2');
         setSlideshowContainerVisible(slideshowContainer, false); // core
-        setBgCaptionVisible(bgCaptionFrame, false); // core — mục 2
         [slideshowLayer1, slideshowLayer2].forEach((layerEl) => {
             setSlideshowLayerImage(layerEl, ''); // core
             applySlideshowKenBurns(layerEl, false, 0); // core
@@ -312,47 +309,17 @@ const workflowSlideshow = {
         this._currentObjectUrl = objectUrl;
         this._currentIndex = nextIndex;
         this._layerToggle = !this._layerToggle;
-        this._refreshCaptionVisibility(); // core/UI — mục 2: đổi ảnh -> đổi luôn caption tương ứng (nếu bật)
-    },
-
-    /** MỚI (04/07/2026, mục 2 phản hồi Giang) — hiện/ẩn + đổi nội dung khung caption theo ẢNH ĐANG
-     * CHIẾU hiện tại, CHỈ khi `slideshowConfig.showCaption` bật + ảnh đó CÓ caption + video nền
-     * KHÔNG bật (video luôn che kín, hiện caption lúc đó vô nghĩa — cùng lý do
-     * `pauseForVideoBg()` chủ động ẩn hẳn). Gọi mỗi lần đổi ảnh (`_tick()`) + lúc bắt đầu
-     * (`start()`) + lúc video nền tắt lại (`resumeFromVideoBg()`). */
-    _refreshCaptionVisibility() {
-        const cfg = appState.get('slideshowConfig');
-        const image = this._images[this._currentIndex];
-        const shouldShow = !!cfg.showCaption && !!image && !!image.caption && !appState.get('vizConfig').videoBgEnabled;
-        setBgCaptionVisible(bgCaptionFrame, shouldShow); // core
-        if (shouldShow) setBgCaptionText(bgCaptionText, image.caption); // core
-    },
-
-    /** MỚI (04/07/2026, mục 2) — gọi từ event/workflow/file-manager-photo.js ngay lúc người dùng
-     * sửa caption 1 ảnh ở Photo UI: cập nhật CACHE RAM (`_images`, để lần hiện lại sau — vòng lặp
-     * quay lại — vẫn đúng, KHÔNG cần đọc lại DB) + đổi hiển thị NGAY nếu ảnh đó ĐANG là ảnh hiện
-     * tại của slideshow.
-     * @param {string} imageKey
-     * @param {string} caption
-     */
-    refreshCaptionIfCurrentImage(imageKey, caption) {
-        const idx = this._images.findIndex((img) => img.key === imageKey);
-        if (idx === -1) return;
-        this._images[idx].caption = caption;
-        if (idx === this._currentIndex) this._refreshCaptionVisibility();
     },
 
     /**
      * MỚI (04/07/2026, mục 2 phản hồi Giang) — GỌI TRỰC TIẾP từ
      * `workflowVisualizerControlCenter` NGAY LÚC video nền BẬT thành công (KHÔNG còn watchdog
      * poll 3s/lần — Giang chỉ ra ĐÚNG: đã có sẵn sự kiện click bật/tắt video để biết, poll lại
-     * appState mỗi 3s là thừa). Ẩn luôn khung caption (nếu đang bật) — video nền có z-index CAO
-     * HƠN caption (xem assets/css/slideshow.css) nên video che mất caption dù có hiện cũng vô ích.
+     * appState mỗi 3s là thừa).
      */
     pauseForVideoBg() {
         taskManager.pause(SLIDESHOW_TASK);
         taskManager.pause(SLIDESHOW_SONG_WATCH_TASK);
-        setBgCaptionVisible(bgCaptionFrame, false); // core
     },
 
     /** MỚI (04/07/2026, mục 2) — GỌI TRỰC TIẾP từ `workflowVisualizerControlCenter` NGAY LÚC
@@ -361,7 +328,6 @@ const workflowSlideshow = {
         if (!appState.get('activeBackgroundAlbum')) return; // không có slideshow nào đang chạy -> không có gì để resume
         if (taskManager.plan[SLIDESHOW_TASK]) taskManager.resume(SLIDESHOW_TASK); // no-op an toàn nếu không tồn tại/không paused
         if (taskManager.plan[SLIDESHOW_SONG_WATCH_TASK]) taskManager.resume(SLIDESHOW_SONG_WATCH_TASK);
-        this._refreshCaptionVisibility(); // core/UI — hiện lại khung caption nếu đang bật + có ảnh đang chiếu
     },
 
     // ===================== Settings Drawer (cụm router "slideshowSettings") =====================
@@ -389,7 +355,6 @@ const workflowSlideshow = {
         const intervalRow = slideshowSettingsPanelEl.querySelector('#slideshow-interval-row');
         const intervalInput = slideshowSettingsPanelEl.querySelector('#setting-slideshow-interval');
         const transitionSelect = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition');
-        const showCaptionToggle = slideshowSettingsPanelEl.querySelector('#setting-slideshow-show-caption');
 
         if (enableToggle) enableToggle.checked = !!albumId;
         if (modeSelect) modeSelect.value = cfg.mode;
@@ -399,8 +364,6 @@ const workflowSlideshow = {
         if (intervalRow) intervalRow.classList.toggle('hidden', !!cfg.photoPerSong);
         if (intervalInput) intervalInput.value = cfg.intervalSeconds;
         if (transitionSelect) transitionSelect.value = cfg.transitionType;
-        // MỚI (04/07/2026, mục 2) — đồng bộ toggle "Show caption".
-        if (showCaptionToggle) showCaptionToggle.checked = !!cfg.showCaption;
     },
 
     /** MỚI (04/07/2026, mục 5) — ứng với gạt "Photo per song". Persist + nếu engine đang chạy, khởi
@@ -559,15 +522,5 @@ const workflowSlideshow = {
         console.log(`writer: "workflowSlideshow.changeTransitionType", page: "slideshowConfig", content: "transitionType=${type}"`);
         await setMeta('slideshowConfig', appState.get('slideshowConfig'));
         setSlideshowTransitionType(slideshowContainer, type); // core — áp ngay cho lần chuyển cảnh kế tiếp
-    },
-
-    /** MỚI (04/07/2026, mục 2 phản hồi Giang) — ứng với toggle "Show caption".
-     * @param {boolean} checked
-     */
-    async changeShowCaption(checked) {
-        appState.mutate('slideshowConfig', (cfg) => { cfg.showCaption = checked; });
-        console.log(`writer: "workflowSlideshow.changeShowCaption", page: "slideshowConfig", content: "showCaption=${checked}"`);
-        await setMeta('slideshowConfig', appState.get('slideshowConfig'));
-        this._refreshCaptionVisibility(); // core/UI — áp ngay, không cần đợi lượt đổi ảnh kế tiếp
     },
 };

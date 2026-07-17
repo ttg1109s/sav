@@ -34,7 +34,7 @@ const THUMBNAIL_SCALE_RATIO = 0.2;
 
 const workflowImageEdit = {
     _imageKey: null,
-    _record: null, // record đầy đủ từ getImageRecord() (blob, filename, addedAt, caption)
+    _record: null, // record đầy đủ từ getImageRecord() (blob, filename, addedAt)
     _cropper: null,
     _flipX: 1,
     _flipY: 1,
