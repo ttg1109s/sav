@@ -198,21 +198,6 @@
         // `disableVideoBackgroundState()`/`applyUploadedVideoBg()` (di sản, giữ nguyên như đề xuất
         // ban đầu — không thêm lời gọi void nào vào các hàm đó).
 
-        /** Core thuần: hiện/ẩn khung caption ảnh nền (Visual bg image tĩnh HOẶC ảnh hiện tại của
-         * Slideshow) — MỚI (04/07/2026, mục 2 phản hồi Giang). Dùng CHUNG bởi
-         * event/workflow/visualizer-control-center.js (visualBgImage) VÀ event/workflow/slideshow.js
-         * (ảnh hiện tại của slideshow, nếu bật "Hiện caption"). */
-        function setBgCaptionVisible(frameEl, visible) {
-            if (!frameEl) return;
-            frameEl.classList.toggle('hidden', !visible);
-        }
-
-        /** Core thuần: đổi nội dung text đang hiện trong khung caption. */
-        function setBgCaptionText(textEl, caption) {
-            if (!textEl) return;
-            textEl.textContent = caption || '';
-        }
-
         /** Core thuần: hiện/ẩn + set `background-image` DOM cho nền tĩnh Visual — KHÔNG biết gì về
          * IndexedDB/store `images` (nơi gọi tự resolve Blob -> objectUrl trước, xem
          * event/workflow/file-manager-photo.js).

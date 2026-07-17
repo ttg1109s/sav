@@ -145,9 +145,6 @@
         const visualBgImageElement = document.getElementById('visual-bg-image');
         // Slideshow nền Visual (nguồn nền thứ 3, Batch 8, ver 12 "Multi Media") — xem
         // core/file-manager/slideshow.js / event/workflow/slideshow.js.
-        // MỚI (04/07/2026, mục 2 phản hồi Giang) — khung caption ảnh nền (Visual bg image/Slideshow).
-        const bgCaptionFrame = document.getElementById('bg-caption-frame');
-        const bgCaptionText = document.getElementById('bg-caption-text');
         const slideshowContainer = document.getElementById('visual-slideshow-container');
         const slideshowLayer1 = document.getElementById('visual-slideshow-layer-1');
         const slideshowLayer2 = document.getElementById('visual-slideshow-layer-2');
@@ -162,8 +159,8 @@
         // Empty không còn tồn tại (panel chọn Album Slideshow giờ dùng Generic Drawer động, đọc lại
         // genericDrawerBody mỗi lần mở — xem event/workflow/slideshow.js::openAlbumPicker()).
         // (settingSlideshowEnableToggle/slideshowModeSelect/settingSlideshowPhotoPerSongToggle/
-        // slideshowIntervalRow/slideshowIntervalInput/slideshowTransitionSelect/
-        // settingSlideshowShowCaptionToggle ĐÃ XOÁ — Batch D4: 6 input Settings giờ sống động BÊN
+        // slideshowIntervalRow/slideshowIntervalInput/slideshowTransitionSelect
+        // ĐÃ XOÁ — Batch D4: 5 input Settings giờ sống động BÊN
         // TRONG panel, không còn DOM tĩnh — event/listener/slideshow.js dùng delegation trên
         // settingsStackBody thay vì đọc const ở đây.)
         // "Tắt Visual" (ver 8 refine) — ĐỘC LẬP khỏi nhóm Video Background, đặt thành mục cài đặt

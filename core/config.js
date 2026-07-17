@@ -51,7 +51,7 @@
             // không còn tồn tại — picker "thêm ảnh vào album"/"chọn bìa bài hát" giờ DÙNG CHUNG
             // Generic Drawer (event/workflow/file-manager-photo.js::_openImagePickerDrawer()), tự
             // dùng GENERIC_DRAWER (128) ngay trên, không cần entry riêng trong bảng này nữa.
-            IMAGE_ACTION_MENU_DRAWER: 131,   // event/workflow/file-manager-photo.js::_openImageActionMenu()/_openEditCaptionForm() — Generic Drawer mở TRÊN Image Preview
+            IMAGE_ACTION_MENU_DRAWER: 131,   // event/workflow/file-manager-photo.js::_openImageActionMenu() — Generic Drawer mở TRÊN Image Preview
             MODAL_CHOICE: 200,               // core/modal-choice.js — luôn cao nhất
         };
 
