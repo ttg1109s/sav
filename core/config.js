@@ -90,8 +90,9 @@
             // 'light' | 'dark' | 'background' (dùng ảnh nền tuỳ chỉnh, tái dùng bgImage/bgBlur/
             // bgImageEnabled đã có sẵn — 'background' TỰ kéo theo bgImageEnabled=true) |
             // 'gradient' (MỚI 09/07/2026, phản hồi Giang mục 1 — mode RIÊNG, KHÔNG chung với
-            // 'background', dùng 2 màu gradientFrom/gradientTo ngay dưới) — xem
-            // event/workflow/theme.js::selectThemeMode(). MẶC ĐỊNH 'dark' — app hiện tại LUÔN
+            // 'background', dùng 2 màu gradientFrom/gradientTo ngay dưới) — chọn qua
+            // event/router/theme.js (VirtualMachineState), chốt tại
+            // event/workflow/theme.js::_commitThemeMode(). MẶC ĐỊNH 'dark' — app hiện tại LUÔN
             // tối, đúng hành vi cũ trước khi có lựa chọn này. 'light' CHƯA áp dụng lại giao diện
             // sáng thật (chỉ mới lưu lựa chọn + UI chọn — việc tô lại màu TOÀN APP theo 'light' là
             // việc RIÊNG, làm theo từng đợt Settings -> Playlist -> phần còn lại, xem báo cáo cuối

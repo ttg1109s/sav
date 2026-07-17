@@ -51,7 +51,7 @@
          * không phụ thuộc `themeMode` có đồng bộ kịp hay chưa. `themeMode==='gradient'` chỉ đúng ý
          * nghĩa khi CHẮC CHẮN không có ảnh nào đang áp (bgImage rỗng — bất biến này do
          * `applyBgImageEnabled(false)` đảm bảo mỗi khi chuyển sang mode khác 'background', xem
-         * event/workflow/theme.js::selectThemeMode()).
+         * event/workflow/theme.js::applyNonBackgroundMode()).
          */
         function updatePlaylistBg() {
             const cfg = appState.get('vizConfig');
