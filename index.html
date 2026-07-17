@@ -268,18 +268,6 @@
         <div id="visual-slideshow-layer-2" class="slideshow-layer"></div>
     </div>
 
-    <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — caption ảnh nền (Visual bg image tĩnh HOẶC ảnh
-         hiện tại của Slideshow, nếu bật "Hiện caption") — overlay TOP kiểu TikTok. z-index đặt
-         GIỮA canvas visualizer (#visualizer z-10) và dải nút #visualizer-ui (z-30) — hiện ĐÈ LÊN
-         nội dung visual nhưng KHÔNG che nút bấm. Ẩn/hiện + nội dung điều khiển qua
-         core/file-manager/slideshow.js (setSlideshowCaptionVisible/setSlideshowCaptionText) — gọi
-         từ event/workflow/slideshow.js VÀ event/workflow/visualizer-control-center.js. TỰ ẨN khi
-         video nền bật (xem workflowSlideshow.pauseForVideoBg()) — video luôn che kín mọi thứ bên
-         dưới nó nên hiện caption lúc đó vô nghĩa. -->
-    <div id="bg-caption-frame" class="hidden fixed top-0 inset-x-0 z-[25] pointer-events-none bg-gradient-to-b from-black/70 via-black/25 to-transparent pt-10 pb-8 px-6 flex justify-center">
-        <p id="bg-caption-text" class="text-white text-sm sm:text-base font-medium text-center max-w-2xl drop-shadow-lg"></p>
-    </div>
-
     <!-- Canvas WebGL (Three.js - Vortex Engine) -->
     <canvas id="webgl-canvas" class="opacity-0 transition-opacity duration-700"></canvas>
     <!-- Canvas 2D (toàn bộ các hiệu ứng visualizer khác) -->
