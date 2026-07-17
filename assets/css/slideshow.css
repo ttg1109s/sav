@@ -10,15 +10,27 @@
  * Mốc z-index -1 đã CHỪA SẴN ở style.css (giữa #visual-bg-image -2 và #bg-video 0, xem comment ở
  * đó) — thực thi THẬT tại đây.
  *
- * DOM (index.html): #visual-slideshow-container > #visual-slideshow-layer-1 + -layer-2 (2 lớp
- * ảnh xen kẽ). JS điều khiển ở core/file-manager/slideshow.js (hàm thuần, đổi class/style) +
- * event/workflow/slideshow.js (orchestration — chọn ảnh kế tiếp, quản lý task lặp).
+ * DOM (index.html): #visual-slideshow-container > (#visual-slideshow-layer-1 + -layer-2) — mỗi
+ * layer lại bọc 1 layer CON (#visual-slideshow-layer-N-pan, class `.ss-kenburns-pan`). JS điều
+ * khiển ở core/file-manager/slideshow.js (hàm thuần, đổi class/style) + event/workflow/slideshow.js
+ * (orchestration — chọn ảnh kế tiếp, quản lý task lặp).
  *
- * CƠ CHẾ 2 LỚP: đúng 1 lớp mang class `.ss-current` (opacity 1, z-index 2, KHÔNG animate — trạng
- * thái nghỉ). Lúc chuyển cảnh: lớp còn lại (đang ẩn) nhận ảnh mới rồi class `.ss-layer-enter`
- * (z-index 3, chạy animation "enter" — xem beginSlideshowTransition(), core/file-manager/
- * slideshow.js), lớp cũ nhận `.ss-layer-exit` (chạy animation "exit"). CSS bên dưới chọn ĐÚNG cặp
- * animation theo [data-transition] gán trên #visual-slideshow-container.
+ * VIẾT LẠI (Ken Burns, 18/07/2026, phản hồi Giang) — TÁCH layer ngoài/layer con vì CSS chỉ giữ
+ * ĐÚNG 1 `animation-name` hiệu lực trên 1 phần tử tại 1 thời điểm (rule sau/specificity cao hơn
+ * THẮNG, không cộng dồn). Bản CŨ gộp CẢ transition chuyển cảnh (.ss-layer-enter/exit) LẪN pan/zoom
+ * Ken Burns (.ss-kenburns) lên CHUNG `.slideshow-layer` — 7/12 kiểu transition CŨNG animate
+ * `transform` (zoomIn/zoomOut/flip/rotateFade/slideLeft/slideRight/glitch), đụng thẳng property Ken
+ * Burns đang dùng — kết hợp 2 cái này SẼ bị nuốt/giật. Giờ:
+ *   - `.slideshow-layer` (NGOÀI) — CHỈ animation chuyển cảnh (opacity/transform/clip-path/filter
+ *     tuỳ kiểu, class ss-current/ss-layer-enter/ss-layer-exit) + `overflow: hidden` (clip layer
+ *     con lúc nó scale to hơn khung, xem Ken Burns dưới).
+ *   - `.ss-kenburns-pan` (CON, MỚI) — nhận `background-image` (setSlideshowLayerImage() giờ set
+ *     lên layer CON, không phải layer ngoài — xem event/workflow/slideshow.js) + toàn bộ animation
+ *     pan/zoom Ken Burns. 2 phần tử khác nhau -> 2 animation-name độc lập, không đè nhau -> Ken
+ *     Burns dùng ĐƯỢC cùng lúc với CẢ 12 kiểu transition, không riêng gì fade.
+ * `transitionType === 'kenburns'` (lựa chọn cũ, gộp chung vào danh sách transition) ĐÃ XOÁ HẲN —
+ * Ken Burns giờ là toggle ĐỘC LẬP `slideshowConfig.kenBurnsEnabled` (event/workflow/slideshow.js),
+ * không migrate config cũ (Giang yêu cầu xoá sạch, không giữ tương thích ngược).
  *
  * THỜI LƯỢNG 900ms — PHẢI khớp SLIDESHOW_TRANSITION_DURATION_MS (core/file-manager/slideshow.js).
  * Đổi 1 chỗ phải đổi luôn chỗ kia.
@@ -32,33 +44,50 @@
 
 .slideshow-layer {
     position: absolute; inset: 0;
-    background-size: cover; background-position: center;
     opacity: 0; z-index: 1;
     backface-visibility: hidden;
+    overflow: hidden; /* MỚI (Ken Burns) — clip layer con .ss-kenburns-pan lúc nó scale to hơn khung */
 }
 .slideshow-layer.ss-current { opacity: 1; z-index: 2; }
 .slideshow-layer.ss-layer-enter { z-index: 3; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
 .slideshow-layer.ss-layer-exit  { z-index: 2; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
 
-/* Ken Burns — pan/zoom chậm SUỐT thời gian hiển thị (KHÁC transition lúc đổi cảnh ở dưới), gắn
-   thêm lên layer vừa trở thành "current" khi slideshowConfig.transitionType === 'kenburns' (xem
-   applySlideshowKenBurns()). Thời lượng gán qua JS (style.animationDuration = intervalSeconds),
+/* Layer CON (MỚI, Ken Burns 18/07/2026) — mang background-image THẬT (setSlideshowLayerImage() giờ
+   set lên đây, xem event/workflow/slideshow.js) + toàn bộ animation pan/zoom Ken Burns bên dưới.
+   `inset: -1px` (thay vì 0) — che hết viền subpixel có thể lộ ra lúc scale animation chạy gần biên. */
+.ss-kenburns-pan {
+    position: absolute; inset: -1px;
+    background-size: cover; background-position: center;
+}
+
+/* Ken Burns — pan/zoom chậm SUỐT thời gian hiển thị (KHÁC transition lúc đổi cảnh), gắn lên layer
+   CON (`.ss-kenburns-pan`) vừa trở thành "current" khi `slideshowConfig.kenBurnsEnabled === true`
+   (xem applySlideshowKenBurns()). Thời lượng gán qua JS (style.animationDuration = intervalSeconds),
    KHÔNG hardcode ở đây vì phụ thuộc cấu hình người dùng.
-   FIX (04/07/2026, mục 4 phản hồi Giang) — bản cũ CHỈ 1 hướng cố định (luôn scale nhẹ + đẩy về
-   góc trên-trái, `linear`) nên cảm giác "đơ"/máy móc lặp lại y hệt mọi ảnh. Thay bằng 4 biến thể
-   hướng pan khác nhau (chọn ngẫu nhiên mỗi ảnh — pickRandomSlideshowKenBurnsVariant(),
-   core/file-manager/slideshow.js) + `ease-in-out` (mượt hơn hẳn `linear`, có "nhấn nhá" đầu/cuối
-   thay vì tốc độ đều tăm tắp) + biên độ zoom lớn hơn (1 -> 1.12, trước 1.08, rõ chuyển động hơn). */
-.slideshow-layer.ss-kenburns { animation-timing-function: ease-in-out; animation-fill-mode: forwards; }
-.slideshow-layer.ss-kenburns-1 { animation-name: ss-kenburns-pan-1; }
-.slideshow-layer.ss-kenburns-2 { animation-name: ss-kenburns-pan-2; }
-.slideshow-layer.ss-kenburns-3 { animation-name: ss-kenburns-pan-3; }
-.slideshow-layer.ss-kenburns-4 { animation-name: ss-kenburns-pan-4; }
-/* 4 hướng: zoom-in trôi về góc dưới-phải / zoom-in trôi về góc trên-trái / zoom-out từ góc dưới-phải / zoom-out từ góc trên-trái */
+   MỞ RỘNG (Ken Burns, 18/07/2026, "Nhóm 1" — mục 3 phản hồi Giang) — 4 hướng (góc) cũ GIỮ NGUYÊN
+   (biến thể 1-4) + THÊM 4 hướng giữa-cạnh (biến thể 5-8, zoom-out từ giữa mỗi cạnh về tâm — cùng
+   tinh thần "in/out" đã có ở 1-4, chỉ đổi điểm xuất phát từ góc sang giữa cạnh). MỖI biến thể có
+   `animation-timing-function` RIÊNG (trước đây CHUNG `ease-in-out` cho cả 4) — tạo cảm giác khác
+   nhau rõ hơn giữa các lượt đổi ảnh, không chỉ khác hướng mà còn khác "nhịp" chuyển động. */
+.ss-kenburns-pan.ss-kenburns { animation-fill-mode: forwards; }
+.ss-kenburns-pan.ss-kenburns-1 { animation-name: ss-kenburns-pan-1; animation-timing-function: ease-in-out; }
+.ss-kenburns-pan.ss-kenburns-2 { animation-name: ss-kenburns-pan-2; animation-timing-function: ease-out; }
+.ss-kenburns-pan.ss-kenburns-3 { animation-name: ss-kenburns-pan-3; animation-timing-function: ease-in-out; }
+.ss-kenburns-pan.ss-kenburns-4 { animation-name: ss-kenburns-pan-4; animation-timing-function: ease-out; }
+.ss-kenburns-pan.ss-kenburns-5 { animation-name: ss-kenburns-pan-5; animation-timing-function: ease-in; }
+.ss-kenburns-pan.ss-kenburns-6 { animation-name: ss-kenburns-pan-6; animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1); }
+.ss-kenburns-pan.ss-kenburns-7 { animation-name: ss-kenburns-pan-7; animation-timing-function: ease-in-out; }
+.ss-kenburns-pan.ss-kenburns-8 { animation-name: ss-kenburns-pan-8; animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+/* 1-4: zoom-in/out từ 4 GÓC (giữ nguyên bản cũ) */
 @keyframes ss-kenburns-pan-1 { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.12) translate(-2.5%, -2.5%); } }
 @keyframes ss-kenburns-pan-2 { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.12) translate(2.5%, 2.5%); } }
 @keyframes ss-kenburns-pan-3 { from { transform: scale(1.12) translate(-2.5%, 1.5%); } to { transform: scale(1) translate(0, 0); } }
 @keyframes ss-kenburns-pan-4 { from { transform: scale(1.12) translate(2.5%, -1.5%); } to { transform: scale(1) translate(0, 0); } }
+/* 5-8: zoom-out từ GIỮA MỖI CẠNH (trên/dưới/trái/phải) về tâm — MỚI (Nhóm 1, 18/07/2026) */
+@keyframes ss-kenburns-pan-5 { from { transform: scale(1.12) translate(0, -2.5%);   } to { transform: scale(1) translate(0, 0); } }
+@keyframes ss-kenburns-pan-6 { from { transform: scale(1.12) translate(0, 2.5%);    } to { transform: scale(1) translate(0, 0); } }
+@keyframes ss-kenburns-pan-7 { from { transform: scale(1.12) translate(-2.5%, 0);   } to { transform: scale(1) translate(0, 0); } }
+@keyframes ss-kenburns-pan-8 { from { transform: scale(1.12) translate(2.5%, 0);    } to { transform: scale(1) translate(0, 0); } }
 
 /* ==================== 1. fade — mờ chồng ==================== */
 #visual-slideshow-container[data-transition="fade"] .ss-layer-enter { animation-name: ss-fade-in; }
@@ -98,34 +127,29 @@
 @keyframes ss-flip-in  { from { opacity: 0; transform: rotateY(-90deg); } 50% { opacity: 1; } to { opacity: 1; transform: rotateY(0deg); } }
 @keyframes ss-flip-out { from { opacity: 1; transform: rotateY(0deg); } 50% { opacity: 0; } to { opacity: 0; transform: rotateY(90deg); } }
 
-/* ==================== 8. kenburns — transition LÚC ĐỔI dùng lại fade thuần; hiệu ứng "sống" nằm
-   ở .ss-kenburns phía trên (áp SUỐT thời gian hiển thị, không chỉ lúc đổi) ==================== */
-#visual-slideshow-container[data-transition="kenburns"] .ss-layer-enter { animation-name: ss-fade-in; }
-#visual-slideshow-container[data-transition="kenburns"] .ss-layer-exit  { animation-name: ss-fade-out; }
-
-/* ==================== 9. blur — ảnh cũ mờ dần, ảnh mới nét dần ==================== */
+/* ==================== 8. blur — ảnh cũ mờ dần, ảnh mới nét dần ==================== */
 #visual-slideshow-container[data-transition="blur"] .ss-layer-enter { animation-name: ss-blur-in; }
 #visual-slideshow-container[data-transition="blur"] .ss-layer-exit  { animation-name: ss-blur-out; }
 @keyframes ss-blur-in  { from { opacity: 0; filter: blur(24px); } to { opacity: 1; filter: blur(0); } }
 @keyframes ss-blur-out { from { opacity: 1; filter: blur(0); } to { opacity: 0; filter: blur(24px); } }
 
-/* ==================== 10. rotateFade — ảnh mới xoay nhẹ vài độ + fade in cùng lúc ==================== */
+/* ==================== 9. rotateFade — ảnh mới xoay nhẹ vài độ + fade in cùng lúc ==================== */
 #visual-slideshow-container[data-transition="rotateFade"] .ss-layer-enter { animation-name: ss-rotate-fade-in; }
 #visual-slideshow-container[data-transition="rotateFade"] .ss-layer-exit  { animation-name: ss-fade-out; }
 @keyframes ss-rotate-fade-in { from { opacity: 0; transform: rotate(-4deg) scale(1.03); } to { opacity: 1; transform: rotate(0deg) scale(1); } }
 
-/* ==================== 11. curtain — lộ dần từ GIỮA ra 2 bên (khác wipe: wipe kéo 1 hướng,
+/* ==================== 10. curtain — lộ dần từ GIỮA ra 2 bên (khác wipe: wipe kéo 1 hướng,
    curtain kéo 2 hướng đối xứng ra 2 mép) ==================== */
 #visual-slideshow-container[data-transition="curtain"] .ss-layer-enter { animation-name: ss-curtain-enter; }
 #visual-slideshow-container[data-transition="curtain"] .ss-layer-exit  { animation: none; opacity: 1; }
 @keyframes ss-curtain-enter { from { clip-path: inset(0 50% 0 50%); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
 
-/* ==================== 12. circleReveal — ảnh mới lộ ra từ 1 vòng tròn phóng to dần từ tâm ==================== */
+/* ==================== 11. circleReveal — ảnh mới lộ ra từ 1 vòng tròn phóng to dần từ tâm ==================== */
 #visual-slideshow-container[data-transition="circleReveal"] .ss-layer-enter { animation-name: ss-circle-reveal-enter; }
 #visual-slideshow-container[data-transition="circleReveal"] .ss-layer-exit  { animation: none; opacity: 1; }
 @keyframes ss-circle-reveal-enter { from { clip-path: circle(0% at 50% 50%); opacity: 1; } to { clip-path: circle(75% at 50% 50%); opacity: 1; } }
 
-/* ==================== 13. glitch — 1-2 khung hình dịch ngang ngẫu nhiên nhỏ + đổi màu nhẹ ngay
+/* ==================== 12. glitch — 1-2 khung hình dịch ngang ngẫu nhiên nhỏ + đổi màu nhẹ ngay
    lúc chuyển, hợp nhạc điện tử/mạnh. Tần suất/độ mạnh giữ THẤP (chỉ 900ms lúc chuyển, không lặp
    lại giữa chừng) — tránh gây rối mắt nếu lạm dụng, đúng lưu ý ở plan-v12-multimedia.md mục 4.b3. */
 #visual-slideshow-container[data-transition="glitch"] .ss-layer-enter { animation-name: ss-glitch-enter; }
