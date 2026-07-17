@@ -22,23 +22,39 @@
  *   - `imageSelectionMode`/`selectedImageKeys`/`imageSelection.cancel`/`imageSelection.confirm`
  *     (chọn nhiều NGAY TRONG lưới chính để thêm vào album) — KHÔNG còn ai kích hoạt (chỉ từng bật
  *     qua `manageClick` action='addImages' đã xoá) — THAY HẲN bằng `imagePicker.*` (Generic Drawer
- *     picker riêng, multi-select trong picker đó, KHÔNG đụng lưới ảnh chính nữa).
+ *     picker riêng, KHÔNG đụng lưới ảnh chính nữa).
  *
- * STATE CONTEXT còn lại: `activeAlbumId` (album đang lọc lưới ảnh chính, null = "Tất cả").
- * MỚI (Giai đoạn 3b): `albumListPageIndex` (trang Album List sub-panel), `imagePickerAlbumId`/
- * `imagePickerSelectedKeys` (context của picker "thêm ảnh vào album" — Generic Drawer, KHÔNG phải
- * lưới chính).
+ * SỬA TIẾP (17/07/2026, phản hồi Giang) — 4 THAY ĐỔI CÙNG ĐỢT:
+ *   1. Nút "Tải ảnh lên" ở header panel Photo, khi đang lọc theo 1 album, giờ TỰ thêm ảnh vừa tải
+ *      vào ĐÚNG album đó (xem `workflowFileManagerPhoto.uploadImages()`) — XOÁ HẲN action
+ *      "addImages" (dropdown) + picker Generic Drawer multi-select liên quan (`openAlbumImagePicker`,
+ *      case `imagePicker.confirm.click`, nhánh `multiSelectAlbum` trong `_imagePickerSession`) —
+ *      picker ảnh giờ CHỈ CÒN 1 chế độ (chọn 1 ảnh, dùng cho "Ảnh bìa" bài hát + Theme Background).
+ *   2. Case MỚI `albumList.row.click` — bấm THẲNG vào hàng album (không qua dropdown) lọc lưới ảnh
+ *      chính + lùi về panel Photo NGAY — action "view" trong dropdown ĐÃ XOÁ (dư thừa, cùng 1 hành
+ *      vi). Dropdown giờ CHỈ CÒN "Đổi tên"/"Xoá".
+ *   3. `back()` DÙNG CHUNG (event/workflow/settings-stack-nav.js) giờ tự kiểm tra "đang đứng đúng
+ *      panel Photo + đang lọc theo album" (qua `getActiveAlbumId()` ngay dưới) TRƯỚC khi pop — nếu
+ *      đúng, bỏ lọc (`clearActiveAlbumFilter()`) thay vì pop hẳn ra Settings Main.
+ *   4. Xoá 1 album đang là album ĐANG LỌC lưới chính -> tự bỏ lọc + vẽ lại NGAY (Tất cả) — dùng
+ *      chung `clearActiveAlbumFilter()` (case 'delete' bên dưới).
+ *
+ * STATE CONTEXT còn lại: `activeAlbumId` (album đang lọc lưới ảnh chính, null = "Tất cả") — lộ CHỈ
+ * ĐỌC ra ngoài qua `getActiveAlbumId()`, GHI qua `clearActiveAlbumFilter()` hoặc message của chính
+ * router này (xem 2 hàm ngay dưới `let` — dùng bởi `workflowSettingsStackNav.back()`, miền khác).
+ * MỚI (Giai đoạn 3b): `albumListPageIndex` (trang Album List sub-panel).
  * MỚI (14/07/2026, mục cuối): `imageQuickDeleteMode` (chế độ xoá nhanh).
  * SỬA (Giai đoạn 3, redesign xoá nhanh) — `imageQuickDeleteMode` giờ CHỈ bật/tắt chế độ, KHÔNG còn
- * tự xoá ngay lúc bấm ảnh. `quickDeleteSelectedKeys` (Set closure, cùng khuôn `imagePickerSelectedKeys`)
- * — bấm ảnh chỉ TOGGLE vào/ra Set này (patch DOM, không refresh/không DB). Nút xoá nhanh ở header
- * dùng `VirtualMachineState.run()` 3 nhánh loại trừ nhau — tránh gọi `deleteImage()`/`refresh()`
- * lãng phí khi Set rỗng.
+ * tự xoá ngay lúc bấm ảnh. `quickDeleteSelectedKeys` (Set closure) — bấm ảnh chỉ TOGGLE vào/ra Set
+ * này (patch DOM, không refresh/không DB). Nút xoá nhanh ở header dùng `VirtualMachineState.run()`
+ * 3 nhánh loại trừ nhau — tránh gọi `deleteImage()`/`refresh()` lãng phí khi Set rỗng.
  * 2 chế độ khi bấm 1 ảnh trong lưới CHÍNH (`imageQuickDeleteMode`/bình thường) LOẠI TRỪ NHAU.
  *
  * NẠP SAU: event/bus.js, event/workflow/file-manager-photo.js (workflowFileManagerPhoto),
- * core/settings-panel-stack.js (pushSettingsPanel).
- * NẠP TRƯỚC: event/listener/file-manager-photo.js.
+ * core/settings-panel-stack-ui.js (pushSettingsPanel).
+ * NẠP TRƯỚC: event/listener/file-manager-photo.js. `getActiveAlbumId()`/`clearActiveAlbumFilter()`
+ * chỉ resolve LÚC `workflowSettingsStackNav.back()` THẬT SỰ chạy (bấm Back) — không cần nạp trước
+ * event/workflow/settings-stack-nav.js, cùng quy ước lazy-reference đã có ở file đó.
  */
 const routerFileManagerPhoto = (() => {
     let activeAlbumId = null; // context state CỦA RIÊNG panel Photo — reset về null mỗi lần mở lại
@@ -47,12 +63,29 @@ const routerFileManagerPhoto = (() => {
 
     let albumListPageIndex = 0; // MỚI (Giai đoạn 3b) — trang hiện tại của Album List sub-panel (mode 'list', core/pagination.js)
 
-    // SỬA (Giai đoạn 4, rewrite Photo/Album, mục 4) — `imagePickerAlbumId`/`imagePickerSelectedKeys`
-    // ĐÃ CHUYỂN vào Workflow (`_imagePickerSession`, event/workflow/file-manager-photo.js) — picker
-    // giờ dùng CHUNG cho 2 chế độ (thêm ảnh vào album/chọn bìa bài hát, mục 4), "chế độ nào đang mở"
-    // là "handle của UI đang mở" (cùng loại `fileManagerPhotoPanelEl`), không còn là "state nghiệp vụ
-    // ảnh hưởng rẽ nhánh Router" thuần cho riêng album nữa — Router giờ CHỈ relay message, không giữ
-    // state picker nào cả.
+    // SỬA (17/07/2026, phản hồi Giang) — `imagePickerAlbumId`/`imagePickerSelectedKeys` cũ (context
+    // picker "thêm ảnh vào album") ĐÃ XOÁ HẲN cùng lúc bỏ action "addImages" (xem đầu file) — picker
+    // Generic Drawer giờ CHỈ CÒN 1 chế độ (`_imagePickerSession` ở Workflow không còn field `mode`
+    // nữa, xem event/workflow/file-manager-photo.js).
+
+    /** MỚI (17/07/2026, Giang yêu cầu) — bỏ lọc album đang xem + vẽ lại lưới ảnh chính (Tất cả).
+     * DÙNG CHUNG cho 3 nơi cần "bỏ lọc": chip "bỏ lọc" (case ngay dưới), Back khi đang lọc
+     * (event/workflow/settings-stack-nav.js::back(), qua `getActiveAlbumId()` ngay dưới + kiểm tra
+     * đang đứng đúng panel Photo), và khi CHÍNH album đang lọc bị xoá (case 'delete' bên dưới) —
+     * gộp lại tránh lặp `activeAlbumId = null` + `refresh()` ở nhiều nơi. GIỮ NGUYÊN
+     * `imageQuickDeleteMode`/`quickDeleteSelectedKeys` hiện tại (không reset) — đúng hành vi cũ của
+     * chip "bỏ lọc". */
+    function clearActiveAlbumFilter() {
+        activeAlbumId = null;
+        workflowFileManagerPhoto.refresh(activeAlbumId, imageQuickDeleteMode, quickDeleteSelectedKeys);
+    }
+
+    /** MỚI (17/07/2026, Giang yêu cầu) — lộ `activeAlbumId` ra ngoài (CHỈ ĐỌC) cho
+     * `workflowSettingsStackNav.back()` kiểm tra "đang lọc theo album không" TRƯỚC khi quyết định
+     * pop hẳn panel hay chỉ bỏ lọc (xem event/workflow/settings-stack-nav.js). KHÔNG đổi tinh thần
+     * "activeAlbumId là state RIÊNG của Router" — đây chỉ là 1 khe ĐỌC hẹp, GHI vẫn phải qua
+     * `clearActiveAlbumFilter()` ở trên hoặc qua chính message của router này. */
+    function getActiveAlbumId() { return activeAlbumId; }
 
     function handle(msg) {
         switch (msg.type) {
@@ -67,8 +100,22 @@ const routerFileManagerPhoto = (() => {
             // ===================== MỚI (Giai đoạn 3b) — bỏ lọc nhanh (chip ở panel Photo chính) ===
 
             case 'fileManagerPhoto.albumFilter.clear.click': {
-                activeAlbumId = null;
-                workflowFileManagerPhoto.refresh(activeAlbumId, imageQuickDeleteMode, quickDeleteSelectedKeys);
+                clearActiveAlbumFilter();
+                break;
+            }
+
+            // ===================== MỚI (17/07/2026, Giang yêu cầu "bấm vào album để view luôn ảnh")
+            // — bấm THẲNG vào hàng album (KHÔNG phải nút "...") trong Album List sub-panel -> lọc
+            // NGAY lưới ảnh chính theo album đó + lùi về panel Photo. THAY cho action "view" trong
+            // dropdown (đã xoá, xem openAlbumActionMenu() — event/workflow/file-manager-photo.js).
+            // Cùng logic hệt action 'view' cũ (xem lịch sử trong workflowFileManagerPhoto.viewAlbumImages()).
+
+            case 'fileManagerPhoto.albumList.row.click': {
+                const { albumId } = msg.payload;
+                activeAlbumId = albumId;
+                imageQuickDeleteMode = false;
+                quickDeleteSelectedKeys = new Set();
+                workflowFileManagerPhoto.viewAlbumImages(activeAlbumId); // refresh panel Photo (đang ẩn dưới) + pop về đó -> workflow
                 break;
             }
 
@@ -95,13 +142,10 @@ const routerFileManagerPhoto = (() => {
                 break;
             }
 
-            // ĐÃ GỠ (fix bug 2, Giang yêu cầu "ấn vào album lại ra sub panel -> bỏ") — case
-            // 'fileManagerPhoto.albumList.rowClick' (bấm tên/số lượng -> lọc lưới ảnh chính + quay
-            // lại panel Photo) XOÁ HẲN — vùng tên/số lượng KHÔNG còn bấm được nữa, xem
-            // itemTemplateAlbumListRow() (components/items.js). ĐÍNH CHÍNH (17/07/2026, bỏ carousel
-            // action 'view') — `activeAlbumId` giờ LẠI CÓ đường set khác null: action 'view' ngay
-            // dưới (icon "..." -> "Xem") set nó rồi lọc lưới ảnh chính, KHÁC HẲN case rowClick đã xoá
-            // ở trên (đây là hành động CHỦ Ý qua menu, không phải bấm nhầm ngay trên hàng album).
+            // LỊCH SỬ (chỉ để đối chiếu, KHÔNG còn đúng hiện trạng — xem case 'albumList.row.click'
+            // Ở TRÊN thay vào chỗ này): "fix bug 2" (Giang yêu cầu "ấn vào album lại ra sub panel ->
+            // bỏ") từng xoá hẳn hành vi bấm-hàng-để-lọc — 17/07/2026 Giang yêu cầu THÊM LẠI đúng hành
+            // vi đó (qua case 'albumList.row.click'), lần này CHỦ Ý, không phải bug.
 
             // MỚI (Giang yêu cầu "action ba chấm dropdown, tái dùng như action song") — THAY 4 icon
             // rời cũ bằng 1 nút "..." mở dropdown (core/dropdown-menu.js). `anchorBtn` truyền qua
@@ -113,58 +157,43 @@ const routerFileManagerPhoto = (() => {
                 break;
             }
 
-            // 4 hành động LOẠI TRỪ NHAU — ĐÍCH dispatch của dropdown ngay trên (mỗi mục dropdown tự
-            // eventBus.send() case này, xem workflowFileManagerPhoto.openAlbumActionMenu()) — CHÍNH
-            // case này KHÔNG đổi gì so với bản trước (chỉ đổi NƠI trigger từ 4 nút rời sang dropdown).
+            // SỬA (17/07/2026, phản hồi Giang) — dropdown CHỈ CÒN 2 hành động (rename/delete):
+            //   - 'view' XOÁ khỏi đây — bấm hàng đã làm việc này rồi (case 'albumList.row.click' ở
+            //     trên), giữ 2 đường vào cho CÙNG 1 hành động là dư thừa.
+            //   - 'addImages' XOÁ HẲN — nút "Tải ảnh lên" ở header panel Photo giờ TỰ thêm ảnh vừa
+            //     tải vào album đang lọc (nếu có), xem workflowFileManagerPhoto.uploadImages() —
+            //     không cần picker "thêm ảnh có sẵn" riêng nữa.
             case 'fileManagerPhoto.albumList.action.click': {
                 const { action, albumId } = msg.payload;
                 VirtualMachineState.run([
-                    { state: action, operation: '===', value: 'view', callback: () => {
-                        // SỬA (17/07/2026, bỏ carousel) — "xem" giờ lọc THẲNG lưới ảnh panel Photo
-                        // chính theo album này (activeAlbumId là state CỦA RIÊNG Router, xem đầu
-                        // file — Workflow không tự mutate được, phải set NGAY Ở ĐÂY trước khi gọi).
-                        // Reset LUÔN imageQuickDeleteMode/quickDeleteSelectedKeys — refresh() bên
-                        // trong viewAlbumImages() dùng tham số mặc định (false/Set rỗng, xem chữ ký
-                        // refresh()); nếu KHÔNG reset ở đây, Router vẫn tưởng đang bật xoá nhanh
-                        // (cờ closure cũ) trong khi lưới vừa vẽ lại KHÔNG hiện badge nào — bấm ảnh
-                        // sẽ lặng lẽ đánh dấu xoá thay vì mở preview, lệch hẳn với UI đang thấy.
-                        activeAlbumId = albumId;
-                        imageQuickDeleteMode = false;
-                        quickDeleteSelectedKeys = new Set();
-                        workflowFileManagerPhoto.viewAlbumImages(activeAlbumId); // refresh panel Photo (đang ẩn dưới) + pop về đó -> workflow
-                    } },
-                    { state: action, operation: '===', value: 'addImages', callback: () => {
-                        workflowFileManagerPhoto.openAlbumImagePicker(albumId, albumListPageIndex); // >1 hàm core (Generic Drawer + shield + đọc DB + windowing) -> workflow
-                    } },
                     { state: action, operation: '===', value: 'rename', callback: () => {
                         workflowFileManagerPhoto.renameAlbumFromList(albumId, albumListPageIndex); // >1 hàm core -> workflow
                     } },
                     { state: action, operation: '===', value: 'delete', callback: () => {
-                        // onDeleted: reset activeAlbumId về null NGAY TẦNG NÀY nếu album vừa xoá
-                        // đang là album đang lọc lưới chính — workflow không tự mutate được biến
-                        // closure primitive của router (xem comment đầu file).
+                        // onDeleted: nếu album vừa xoá đang là album đang lọc lưới chính -> bỏ lọc +
+                        // vẽ lại lưới (Tất cả) NGAY (MỚI 17/07/2026, Giang yêu cầu "back về Album List
+                        // phải render lại all photo") — dùng chung clearActiveAlbumFilter() (đầu file),
+                        // workflow không tự mutate được biến closure primitive của router.
                         workflowFileManagerPhoto.deleteAlbumFromList(albumId, albumListPageIndex, () => {
-                            if (activeAlbumId === albumId) activeAlbumId = null;
+                            if (activeAlbumId === albumId) clearActiveAlbumFilter();
                         });
                     } },
                 ]);
                 break;
             }
 
-            // ===================== MỚI (Giai đoạn 3b, mục 3a/4) — Picker "thêm ảnh vào album"
-            // (Generic Drawer, multi-select) — event bus ĐẦY ĐỦ (listener -> đây -> workflow), KHÔNG
-            // dùng raw callback như modal picker cover bài hát cũ (core/file-manager/photo-ui.js::
-            // openPhotoUiImagePickerModal(), tiền lệ CŨ trước Rule 5a, không hồi tố nhưng KHÔNG lặp
-            // lại cho code MỚI này — đúng yêu cầu Giang "đảm bảo event bus"). ==================
+            // ===================== Picker ảnh (Generic Drawer, single-select) — event bus ĐẦY ĐỦ
+            // (listener -> đây -> workflow), KHÔNG dùng raw callback như modal picker cover bài hát
+            // cũ (core/file-manager/photo-ui.js::openPhotoUiImagePickerModal(), tiền lệ CŨ trước
+            // Rule 5a, không hồi tố nhưng KHÔNG lặp lại cho code MỚI này). SỬA (17/07/2026, phản hồi
+            // Giang) — XOÁ hẳn case 'imagePicker.confirm.click' (chỉ có nghĩa ở mode multiSelectAlbum
+            // — mode đó đã xoá hẳn cùng lúc bỏ action "Add photos", xem
+            // workflowFileManagerPhoto.uploadImages()). Picker giờ CHỈ CÒN đúng 1 chế độ — chọn 1
+            // ảnh, chọn là xong ngay, không cần bước xác nhận riêng nữa. ==========================
 
             case 'fileManagerPhoto.imagePicker.tile.click': {
                 const { imageKey } = msg.payload;
-                workflowFileManagerPhoto.handleImagePickerTileClick(imageKey); // Workflow tự branch theo _imagePickerSession.mode
-                break;
-            }
-
-            case 'fileManagerPhoto.imagePicker.confirm.click': {
-                workflowFileManagerPhoto.handleImagePickerConfirmClick();
+                workflowFileManagerPhoto.handleImagePickerTileClick(imageKey);
                 break;
             }
 
@@ -249,7 +278,7 @@ const routerFileManagerPhoto = (() => {
         }
     }
 
-    return { handle };
+    return { handle, getActiveAlbumId, clearActiveAlbumFilter };
 })();
 
 eventBus.register('fileManagerPhoto', routerFileManagerPhoto);
