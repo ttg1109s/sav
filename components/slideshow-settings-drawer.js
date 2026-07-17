@@ -14,8 +14,8 @@
  * TRƯỚC ĐÂY `TPL_SLIDESHOW_SETTINGS_DRAWER` gộp CẢ khung `fixed inset-0 drawer-glass z-[90]` LẪN
  * panel chọn Album (2 phần tử ĐỘC LẬP mount ở z-[130]/[131], không lồng trong khung trên — xem
  * comment gốc). Tách làm 2:
- *   - `renderSlideshowPanelBody()` — 6 input (enable/mode/photoPerSong/interval/transition/
- *     showCaption), PUSH ĐỘNG vào Settings Stack (core/settings-panel-stack.js), giống About/
+ *   - `renderSlideshowPanelBody()` — 5 input (enable/mode/photoPerSong/interval/transition),
+ *     PUSH ĐỘNG vào Settings Stack (core/settings-panel-stack.js), giống About/
  *     Subtitle/Visualizer.
  *   - Panel chọn Album — ĐÃ ĐỔI SANG Generic Drawer động (Giai đoạn 4, xem mục 3 ngay trên) —
  *     KHÔNG còn `TPL_SLIDESHOW_ALBUM_PICKER` mount tĩnh nào ở file này nữa.
@@ -65,7 +65,7 @@ function renderSlideshowPanelBody() {
                             </div>
                             <input id="setting-slideshow-interval" type="number" min="5" step="1" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-20 text-right shrink-0">
                         </div>
-                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <div class="flex justify-between items-center p-4">
                             <span class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.transition.label">${t('slideshowSettingsDrawer.transition.label')}</span>
                             <select id="setting-slideshow-transition" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-40 text-right">
                                 <option value="fade" data-i18n="slideshowSettingsDrawer.transition.fade">${t('slideshowSettingsDrawer.transition.fade')}</option>
@@ -82,16 +82,6 @@ function renderSlideshowPanelBody() {
                                 <option value="circleReveal" data-i18n="slideshowSettingsDrawer.transition.circleReveal">${t('slideshowSettingsDrawer.transition.circleReveal')}</option>
                                 <option value="glitch" data-i18n="slideshowSettingsDrawer.transition.glitch">${t('slideshowSettingsDrawer.transition.glitch')}</option>
                             </select>
-                        </div>
-                        <div class="flex justify-between items-center p-4">
-                            <div class="pr-3">
-                                <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.showCaption.label">${t('slideshowSettingsDrawer.showCaption.label')}</div>
-                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="slideshowSettingsDrawer.showCaption.hint">${t('slideshowSettingsDrawer.showCaption.hint')}</div>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="setting-slideshow-show-caption" class="sr-only peer">
-                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-fuchsia-500 shadow-inner"></div>
-                            </label>
                         </div>
                     </div>
                 </div>
