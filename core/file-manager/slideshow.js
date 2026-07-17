@@ -36,11 +36,12 @@
  * (`.ss-layer-enter`/`.ss-layer-exit`) — đổi 1 chỗ phải đổi luôn chỗ kia. */
 const SLIDESHOW_TRANSITION_DURATION_MS = 900;
 
-/** 13 kiểu transition hợp lệ (plan-v12-multimedia.md mục 4.b3: 7 cơ bản + 6 mở rộng) — dùng để
- * validate config đã lưu (phòng giá trị hỏng/cũ) và đổ vào <select> Settings Drawer. */
+/** 12 kiểu transition hợp lệ (plan-v12-multimedia.md mục 4.b3: 7 cơ bản + 5 mở rộng — Ken Burns
+ * ĐÃ TÁCH khỏi danh sách này, xem SLIDESHOW_KENBURNS_VARIANTS) — dùng để validate config đã lưu
+ * (phòng giá trị hỏng/cũ) và đổ vào <select> Settings Drawer. */
 const SLIDESHOW_TRANSITION_TYPES = [
     'fade', 'slideLeft', 'slideRight', 'zoomIn', 'zoomOut', 'wipe', 'flip',
-    'kenburns', 'blur', 'rotateFade', 'curtain', 'circleReveal', 'glitch',
+    'blur', 'rotateFade', 'curtain', 'circleReveal', 'glitch',
 ];
 
 /**
@@ -94,11 +95,17 @@ function setSlideshowLayerImage(layerEl, objectUrl) {
     layerEl.style.backgroundImage = objectUrl ? `url(${objectUrl})` : '';
 }
 
-/** 4 biến thể hướng pan/zoom Ken Burns (mục 4 phản hồi Giang: bản cũ CHỈ 1 hướng cố định — luôn
- * scale nhẹ + đẩy về góc trên-trái, linear, "đơ"/máy móc). Mỗi lần 1 ảnh trở thành "current", chọn
- * NGẪU NHIÊN 1 trong 4 để cảm giác sống động, không lặp lại y hệt liên tục. CSS tương ứng ở
- * assets/css/slideshow.css (`.ss-kenburns-1`..`.ss-kenburns-4`, `ease-in-out` thay vì `linear`). */
-const SLIDESHOW_KENBURNS_VARIANTS = ['ss-kenburns-1', 'ss-kenburns-2', 'ss-kenburns-3', 'ss-kenburns-4'];
+/** 8 biến thể hướng pan/zoom Ken Burns (MỞ RỘNG 18/07/2026, "Nhóm 1" mục 3 phản hồi Giang — từ 4
+ * lên 8: giữ nguyên 4 hướng GÓC cũ, thêm 4 hướng GIỮA-CẠNH mới). Mỗi lần 1 ảnh trở thành "current",
+ * chọn NGẪU NHIÊN 1 trong 8 để cảm giác sống động, không lặp lại y hệt liên tục. Áp dụng lên layer
+ * CON (`.ss-kenburns-pan`, xem index.html/event/workflow/slideshow.js) — KHÔNG còn lên layer ngoài
+ * như bản trước (tách 2 phần tử để dùng ĐƯỢC cùng lúc với mọi kiểu transition, xem docstring đầu
+ * assets/css/slideshow.css). CSS tương ứng ở đó (`.ss-kenburns-1`..`.ss-kenburns-8`) — MỖI biến
+ * thể giờ có `animation-timing-function` RIÊNG (trước đây chung `ease-in-out` cho cả 4). */
+const SLIDESHOW_KENBURNS_VARIANTS = [
+    'ss-kenburns-1', 'ss-kenburns-2', 'ss-kenburns-3', 'ss-kenburns-4',
+    'ss-kenburns-5', 'ss-kenburns-6', 'ss-kenburns-7', 'ss-kenburns-8',
+];
 
 /** Giá trị `transform` ở đúng keyframe `to` của mỗi variant (assets/css/slideshow.css) — dùng bởi
  * `freezeSlideshowKenBurnsEndState()` để "đóng băng" ĐÚNG vị trí cuối bằng inline style. Đổi 1 chỗ
@@ -108,13 +115,17 @@ const SLIDESHOW_KENBURNS_END_TRANSFORMS = {
     'ss-kenburns-2': 'scale(1.12) translate(2.5%, 2.5%)',
     'ss-kenburns-3': 'scale(1) translate(0, 0)',
     'ss-kenburns-4': 'scale(1) translate(0, 0)',
+    'ss-kenburns-5': 'scale(1) translate(0, 0)',
+    'ss-kenburns-6': 'scale(1) translate(0, 0)',
+    'ss-kenburns-7': 'scale(1) translate(0, 0)',
+    'ss-kenburns-8': 'scale(1) translate(0, 0)',
 };
 
 /**
- * Core thuần: chọn NGẪU NHIÊN 1 trong 4 biến thể Ken Burns — TÁCH RIÊNG khỏi
+ * Core thuần: chọn NGẪU NHIÊN 1 trong 8 biến thể Ken Burns — TÁCH RIÊNG khỏi
  * applySlideshowKenBurns() (Rule 1: "chọn biến thể" và "áp dụng" là 2 việc khác nhau; hàm áp dụng
  * nhận biến thể qua tham số, không tự chọn bên trong).
- * @returns {string} 1 trong 4 class ở SLIDESHOW_KENBURNS_VARIANTS.
+ * @returns {string} 1 trong 8 class ở SLIDESHOW_KENBURNS_VARIANTS.
  */
 function pickRandomSlideshowKenBurnsVariant() {
     return SLIDESHOW_KENBURNS_VARIANTS[Math.floor(Math.random() * SLIDESHOW_KENBURNS_VARIANTS.length)];
@@ -122,21 +133,26 @@ function pickRandomSlideshowKenBurnsVariant() {
 
 /**
  * Core thuần: bật/tắt hiệu ứng Ken Burns (pan/zoom chậm SUỐT thời gian hiển thị — khác transition
- * lúc đổi cảnh) trên 1 layer. `durationMs` khớp khoảng cách giữa 2 lần đổi
- * (slideshowConfig.intervalSeconds * 1000) để pan/zoom "vừa khít" đúng 1 chu kỳ hiển thị.
- * `variant` (1 trong SLIDESHOW_KENBURNS_VARIANTS, do nơi gọi chọn qua
- * pickRandomSlideshowKenBurnsVariant() — Rule 2: nhận qua tham số, không tự chọn ở đây).
+ * lúc đổi cảnh) trên layer CON `.ss-kenburns-pan` (KHÔNG phải layer ngoài — TÁCH riêng 18/07/2026
+ * để dùng ĐƯỢC cùng lúc với mọi kiểu transition, xem docstring đầu assets/css/slideshow.css). Nơi
+ * gọi (event/workflow/slideshow.js) tự `querySelector`/giữ tham chiếu layer con rồi truyền vào
+ * đây qua tham số — Rule 2, hàm KHÔNG tự biết gì về cấu trúc DOM cha/con.
+ * `durationMs` khớp khoảng cách giữa 2 lần đổi (slideshowConfig.intervalSeconds * 1000) để
+ * pan/zoom "vừa khít" đúng 1 chu kỳ hiển thị. `variant` (1 trong SLIDESHOW_KENBURNS_VARIANTS, do
+ * nơi gọi chọn qua pickRandomSlideshowKenBurnsVariant() — Rule 2: nhận qua tham số, không tự chọn
+ * ở đây).
+ * @param {HTMLElement} panEl - layer CON `.ss-kenburns-pan`.
  */
-function applySlideshowKenBurns(layerEl, active, durationMs, variant) {
-    if (!layerEl) return;
+function applySlideshowKenBurns(panEl, active, durationMs, variant) {
+    if (!panEl) return;
     if (active) {
-        layerEl.style.animationDuration = `${Math.max(1000, durationMs)}ms`;
-        layerEl.classList.remove(...SLIDESHOW_KENBURNS_VARIANTS);
-        layerEl.classList.add('ss-kenburns', variant && SLIDESHOW_KENBURNS_VARIANTS.includes(variant) ? variant : SLIDESHOW_KENBURNS_VARIANTS[0]);
+        panEl.style.animationDuration = `${Math.max(1000, durationMs)}ms`;
+        panEl.classList.remove(...SLIDESHOW_KENBURNS_VARIANTS);
+        panEl.classList.add('ss-kenburns', variant && SLIDESHOW_KENBURNS_VARIANTS.includes(variant) ? variant : SLIDESHOW_KENBURNS_VARIANTS[0]);
     } else {
-        layerEl.classList.remove('ss-kenburns', ...SLIDESHOW_KENBURNS_VARIANTS);
-        layerEl.style.animationDuration = '';
-        layerEl.style.transform = ''; // dọn luôn transform "đóng băng" nếu freezeSlideshowKenBurnsEndState() đã set trước đó
+        panEl.classList.remove('ss-kenburns', ...SLIDESHOW_KENBURNS_VARIANTS);
+        panEl.style.animationDuration = '';
+        panEl.style.transform = ''; // dọn luôn transform "đóng băng" nếu freezeSlideshowKenBurnsEndState() đã set trước đó
     }
 }
 
@@ -148,7 +164,7 @@ function applySlideshowKenBurns(layerEl, active, durationMs, variant) {
  * nhảy về xy gốc") — thay vì cố xác định CHÍNH XÁC vì sao `animation-fill-mode: forwards` không
  * giữ được trạng thái cuối lúc animation tự hết `animation-duration` (nghi vấn hợp lý nhất:
  * `.ss-kenburns` khai `animation-fill-mode`, còn `animation-name` khai riêng ở
- * `.ss-kenburns-1..4` — 2 rule cùng specificity nhưng khác thuộc tính, VỀ LÝ THUYẾT vẫn phải hợp
+ * `.ss-kenburns-1..8` — 2 rule cùng specificity nhưng khác thuộc tính, VỀ LÝ THUYẾT vẫn phải hợp
  * nhất đúng, nhưng thực tế observed lại nhảy — không đáng tin cậy 100% qua mọi trình duyệt/thiết
  * bị), giải pháp CHẮC CHẮN ĐÚNG hơn: gọi hàm này NGAY KHI hết đúng `durationMs` (Workflow tự
  * `taskManager.once()` lịch đúng thời điểm, xem event/workflow/slideshow.js) để tự tay set
@@ -156,15 +172,15 @@ function applySlideshowKenBurns(layerEl, active, durationMs, variant) {
  * = ĐÚNG giá trị `to` của keyframe variant đó (tra `SLIDESHOW_KENBURNS_END_TRANSFORMS`) + gỡ hẳn
  * animation (đổi classList) — từ thời điểm này layer đứng yên ở đúng vị trí cuối, không animation
  * nào chạy nữa nên không còn gì có thể "nhảy" được nữa.
- * @param {HTMLElement} layerEl
+ * @param {HTMLElement} panEl - layer CON `.ss-kenburns-pan` (KHÔNG phải layer ngoài).
  * @param {string} variant - ĐÚNG variant đã dùng lúc applySlideshowKenBurns(..., true, ..., variant)
  */
-function freezeSlideshowKenBurnsEndState(layerEl, variant) {
-    if (!layerEl) return;
-    layerEl.classList.remove('ss-kenburns', ...SLIDESHOW_KENBURNS_VARIANTS);
-    layerEl.style.animationDuration = '';
+function freezeSlideshowKenBurnsEndState(panEl, variant) {
+    if (!panEl) return;
+    panEl.classList.remove('ss-kenburns', ...SLIDESHOW_KENBURNS_VARIANTS);
+    panEl.style.animationDuration = '';
     const endTransform = SLIDESHOW_KENBURNS_END_TRANSFORMS[variant];
-    if (endTransform) layerEl.style.transform = endTransform;
+    if (endTransform) panEl.style.transform = endTransform;
 }
 
 /**
