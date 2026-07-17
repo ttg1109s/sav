@@ -36,13 +36,35 @@
  * nạp — cùng cách `workflowPlaylist` gọi `workflowSubtitleModal.navigateToEditor()` không cần thứ
  * tự nạp cụ thể.
  *
- * NẠP SAU: core/settings-panel-stack.js, core/slider-panel-scroll.js (SLIDER_PANEL_SCROLL_ESTIMATED_MS),
+ * MỚI (17/07/2026, Giang yêu cầu — "back mà album active thì quay UI chính chứ không phải setting
+ * main") — CÙNG TINH THẦN exception ở trên (Workflow gọi Workflow/Router miền khác tự do), thêm 1
+ * chặn NGAY ĐẦU `back()`: panel Photo đang lọc theo album + đang là panel TRÊN CÙNG -> bỏ lọc thay
+ * vì pop hẳn. Khác exception 14/07 ở chỗ chặn này chạy TRƯỚC pop (có thể SKIP pop hẳn), không phải
+ * chạy SAU. Cần 2 hàm mới, đọc THUẦN không tác dụng phụ, đều lazy-reference (không cần thứ tự nạp):
+ * `peekTopSettingsPanel()` (core/settings-panel-stack-ui.js) và
+ * `routerFileManagerPhoto.getActiveAlbumId()` (event/router/file-manager-photo.js).
+ *
+ * NẠP SAU: core/settings-panel-stack-ui.js, core/slider-panel-scroll.js (SLIDER_PANEL_SCROLL_ESTIMATED_MS),
  * core/dom-refs.js (settingsStackBody).
  */
 const workflowSettingsStackNav = {
 
     /** Ứng với msg.type = 'settingsStackNav.back.click' — pop panel đang mở, DÙNG CHUNG mọi panel. */
     back() {
+        // MỚI (17/07/2026, Giang yêu cầu) — panel Photo đang lọc theo 1 album
+        // (`routerFileManagerPhoto.getActiveAlbumId()`, event/router/file-manager-photo.js) VÀ đang
+        // là panel TRÊN CÙNG (`peekTopSettingsPanel()`, core/settings-panel-stack-ui.js — đọc thuần,
+        // không tác dụng phụ) -> Back nghĩa là "bỏ lọc, về lại toàn bộ ảnh" NGAY TRÊN panel đó,
+        // KHÔNG pop hẳn (đúng ý Giang: "back mà album active thì quay UI chính chứ không phải
+        // setting main"). CẢ 2 điều kiện PHẢI ĐỦ — chỉ đọc `getActiveAlbumId()` không thôi sẽ bắt
+        // NHẦM lúc đang Back từ 1 panel KHÁC (vd Album List sub-panel, đang push TRÊN panel Photo)
+        // trong khi `activeAlbumId` vẫn còn set từ trước — trường hợp đó phải pop BÌNH THƯỜNG (rời
+        // Album List, không đụng gì tới bộ lọc của panel Photo bên dưới).
+        if (peekTopSettingsPanel() === fileManagerPhotoPanelEl && routerFileManagerPhoto.getActiveAlbumId()) {
+            routerFileManagerPhoto.clearActiveAlbumFilter(); // event/router/file-manager-photo.js — Router tự mutate activeAlbumId của chính nó + gọi refresh()
+            return;
+        }
+
         const removedPanelEl = popSettingsPanel();
         if (!removedPanelEl) return; // đã ở Main, không có gì để pop (nút Back không tồn tại ở Main nên khó xảy ra, guard cho chắc)
         taskManager.once(() => { removedPanelEl.remove(); }, SLIDER_PANEL_SCROLL_ESTIMATED_MS, 'popSettingsPanel');

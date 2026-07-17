@@ -53,7 +53,7 @@
  */
 let fileManagerPhotoPanelEl = null; // panel Photo đang mở — null nếu đang đóng (Batch D6)
 let albumListPanelEl = null; // MỚI (Giai đoạn 3b) — Album List sub-panel đang mở — null nếu đang đóng, cùng pattern fileManagerPhotoPanelEl
-let _imagePickerSession = null; // MỚI (Giai đoạn 4) — session picker ảnh Generic Drawer đang mở (null = đang đóng). Handle của UI, KHÔNG phải state nghiệp vụ ảnh hưởng rẽ nhánh Router — cùng loại với 2 biến panel ngay trên, xem docstring openAlbumImagePicker()/openCoverImagePicker()
+let _imagePickerSession = null; // MỚI (Giai đoạn 4) — session picker ảnh Generic Drawer đang mở (null = đang đóng). Handle của UI, KHÔNG phải state nghiệp vụ ảnh hưởng rẽ nhánh Router — cùng loại với 2 biến panel ngay trên, xem docstring openCoverImagePicker() (17/07/2026: chỉ còn 1 chế độ, openAlbumImagePicker() đã xoá)
 
 // ĐÃ GỠ (rewrite Photo/Album, dùng fjGallery) — PHOTO_GRID_HEADER_HEIGHT_PX/PHOTO_GRID_GAP_PX không
 // còn dùng: chiều cao header ngày giờ THUẦN CSS (assets/css/style.css::.photo-day-header { height:
@@ -144,8 +144,9 @@ const workflowFileManagerPhoto = {
      * còn lo lưới ảnh chính + 1 chip lọc đơn giản (tên album đang lọc + nút bỏ lọc, KHÔNG còn hành
      * động rename/delete/addImages/slideshow ở đây nữa).
      * ĐÃ XOÁ tham số `imageSelectionMode`/`selectedImageKeys`/`albumStoryPageIndex`/`focusAlbumId` —
-     * "thêm ảnh vào album" giờ là picker Generic Drawer riêng (KHÔNG đụng lưới ảnh chính nữa, xem
-     * `openAlbumImagePicker()`), "focus đúng trang vừa tạo album" giờ thuộc
+     * "thêm ảnh vào album" TỪNG là picker Generic Drawer riêng (KHÔNG đụng lưới ảnh chính), rồi
+     * 17/07/2026 ĐÃ XOÁ HẲN picker đó — giờ nút "Tải ảnh lên" tự gắn ảnh mới vào album đang lọc
+     * (xem `uploadImages()`), "focus đúng trang vừa tạo album" giờ thuộc
      * `promptCreateAlbumFromList()` (Album List sub-panel tự lo trang của NÓ, không liên quan lưới
      * ảnh chính này nữa).
      * @param {string|null} activeAlbumId
@@ -307,9 +308,13 @@ const workflowFileManagerPhoto = {
      * @param {HTMLElement} scrollEl - container CUỘN, ĐÃ có trong DOM thật.
      * @param {Array<{key:string, blob:Blob, thumbBlob?:Blob, width?:number, height?:number, filename:string, addedAt:number}>} images
      * @param {{selectionMode?: boolean, selectedImageKeys?: Set<string>, quickDeleteMode?: boolean, quickDeleteSelectedKeys?: Set<string>}} [ctx]
-     *        `selectionMode`/`selectedImageKeys` — picker "thêm ảnh vào album" (mountKey 'genericDrawer').
-     *        `quickDeleteMode`/`quickDeleteSelectedKeys` — lưới ảnh chính (mountKey 'photoGrid'). 2
-     *        cặp field LOẠI TRỪ NHAU tuỳ mountKey, KHÔNG BAO GIỜ cả 4 field cùng có nghĩa 1 lúc.
+     *        `quickDeleteMode`/`quickDeleteSelectedKeys` — lưới ảnh chính (mountKey 'photoGrid').
+     *        `selectionMode`/`selectedImageKeys` — badge chọn nhiều DÙNG CHUNG (KHÔNG gắn riêng
+     *        album/mountKey nào) — hiện KHÔNG còn nơi nào truyền `true` (picker Generic Drawer chỉ
+     *        còn single-select, luôn truyền `{}`, xem `_openImagePickerDrawer()` — 17/07/2026, bỏ
+     *        multi-select "thêm ảnh vào album") — GIỮ NGUYÊN cơ chế (không xoá) để tái dùng nếu sau
+     *        này có nhu cầu chọn nhiều khác, đúng tinh thần "context chung, không riêng cho album".
+     *        2 cặp field LOẠI TRỪ NHAU tuỳ dùng, KHÔNG BAO GIỜ cả 4 field cùng có nghĩa 1 lúc.
      * @param {string} [mountKey] - phân biệt Photo & Album (mặc định 'photoGrid') với picker ảnh
      *        Generic Drawer ('genericDrawer', event/workflow/file-manager-photo.js::
      *        _openImagePickerDrawer()).
@@ -413,6 +418,15 @@ const workflowFileManagerPhoto = {
      * lại đúng callback được truyền vào, KHÔNG tự quyết định nghiệp vụ) — TÁI DÙNG NGUYÊN case
      * 'fileManagerPhoto.albumList.action.click' đã có sẵn ở router (KHÔNG đổi gì phía dispatch, chỉ
      * đổi NƠI TRIGGER từ 4 nút rời sang 1 dropdown).
+     *
+     * SỬA (17/07/2026, phản hồi Giang) — CHỈ CÒN 2 mục (Đổi tên/Xoá):
+     *   - "Xem" (action 'view') XOÁ — bấm THẲNG vào hàng album giờ làm việc này rồi (event/listener/
+     *     file-manager-photo.js -> 'fileManagerPhoto.albumList.row.click' -> event/router/file-
+     *     manager-photo.js -> `viewAlbumImages()`), giữ 2 đường vào cho CÙNG 1 hành động là dư thừa.
+     *   - "Thêm ảnh có sẵn" (action 'addImages') XOÁ HẲN — nút "Tải ảnh lên" ở header panel Photo
+     *     giờ TỰ thêm ảnh vừa tải vào album đang lọc (nếu có, xem `uploadImages()` bên dưới), picker
+     *     Generic Drawer multi-select riêng cho việc này không còn cần thiết — ĐÃ XOÁ HẲN
+     *     `openAlbumImagePicker()`/nhánh `multiSelectAlbum` (xem lịch sử ở đầu file).
      * @param {string} albumId
      * @param {HTMLElement} anchorBtn - nút "..." vừa bấm, dùng để định vị dropdown.
      * @param {number} albumListPageIndex
@@ -420,16 +434,6 @@ const workflowFileManagerPhoto = {
     openAlbumActionMenu(albumId, anchorBtn, albumListPageIndex) {
         const dispatch = (action) => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.action.click', payload: { action, albumId } });
         openDropdownMenu(anchorBtn, [ // core/dropdown-menu.js
-            {
-                icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 8a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>',
-                name: t('fileManager.photo.album.viewTitle'),
-                callback: () => dispatch('view'),
-            },
-            {
-                icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v4m-2-2h4" /></svg>',
-                name: t('fileManager.photo.album.addImagesTitle'),
-                callback: () => dispatch('addImages'),
-            },
             {
                 icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>',
                 name: t('fileManager.photo.album.renameTitle'),
@@ -541,63 +545,49 @@ const workflowFileManagerPhoto = {
         workflowSettingsStackNav.back(); // event/workflow/settings-stack-nav.js
     },
 
-    // ===================== MỚI (Giai đoạn 3b/4, rewrite Photo/Album) — Picker ảnh DÙNG CHUNG Generic
-    // Drawer, 2 CHẾ ĐỘ: multi-select (thêm vào album) / single-select (chọn 1 ảnh, vd bìa bài hát —
-    // mục 4, THAY HẲN `openPhotoUiImagePickerModal()` cũ ở core/file-manager/photo-ui.js). Session
-    // hiện tại giữ ở ĐÂY (`_imagePickerSession`, biến module) — KHÔNG phải Router: đây là "handle của
-    // UI đang mở" (cùng loại state với `fileManagerPhotoPanelEl`/`albumListPanelEl`), không phải
-    // "state nghiệp vụ ảnh hưởng rẽ nhánh Router" như `activeAlbumId`. Click grid ĐI ĐÚNG luồng
-    // eventBus (listener trên `genericDrawerBody` -> Router -> Workflow tự branch theo
-    // `_imagePickerSession.mode`) — KHÔNG raw callback như modal picker cover CŨ (tiền lệ TRƯỚC Rule
-    // 5a, không hồi tố, KHÔNG lặp lại cho code MỚI — đúng yêu cầu Giang "đảm bảo event bus"). =========
+    // ===================== Picker ảnh dùng chung (Generic Drawer, single-select) — TỪNG có 2 chế
+    // độ (multi-select thêm vào album / single-select chọn 1 ảnh), SỬA (17/07/2026, phản hồi Giang)
+    // — XOÁ HẲN chế độ multi-select (`openAlbumImagePicker()`, nhánh `multiSelectAlbum` trong
+    // `_imagePickerSession`, `handleImagePickerConfirmClick()`, nút xác nhận cố định đáy) — "thêm
+    // ảnh vào album" giờ đi qua nút "Tải ảnh lên" (upload TỰ gắn vào album đang lọc, xem
+    // `uploadImages()`), không cần picker "chọn ảnh có sẵn" riêng nữa. CHỈ CÒN đúng 1 chế độ (dùng
+    // cho "Ảnh bìa" bài hát — event/workflow/playlist.js::pickCoverFromLibrary() — VÀ Theme
+    // Background — event/workflow/theme.js::pickNewBackgroundImage()) — bấm 1 ảnh là chọn xong
+    // ngay, không cần bước xác nhận. Session giữ ở ĐÂY (`_imagePickerSession`, biến module) — KHÔNG
+    // phải Router: đây là "handle của UI đang mở" (cùng loại state với `fileManagerPhotoPanelEl`/
+    // `albumListPanelEl`), không phải "state nghiệp vụ ảnh hưởng rẽ nhánh Router". Click grid ĐI
+    // ĐÚNG luồng eventBus (listener trên `genericDrawerBody` -> Router -> Workflow) — KHÔNG raw
+    // callback như modal picker cover CŨ (tiền lệ TRƯỚC Rule 5a, không hồi tố, KHÔNG lặp lại cho
+    // code MỚI). ======================================================================
 
-    /** Ứng với 'fileManagerPhoto.albumList.action.click' action='addImages' — multi-select, xác
-     * nhận bằng nút đáy cố định, gọi `addImagesToAlbum()`.
-     * @param {string} albumId
-     * @param {number} albumListPageIndex
-     */
-    async openAlbumImagePicker(albumId, albumListPageIndex) {
-        _imagePickerSession = { mode: 'multiSelectAlbum', albumId, selectedKeys: new Set(), albumListPageIndex };
-        await this._openImagePickerDrawer(t('fileManager.photo.album.addImagesTitle'), true);
-    },
-
-    /** MỚI (Giai đoạn 4, rewrite Photo/Album, mục 4) — chọn 1 ảnh làm bìa bài hát, THAY HẲN
-     * `openPhotoUiImagePickerModal()` cũ (core/file-manager/photo-ui.js — ĐÃ XOÁ, modal riêng ngoài
-     * luồng eventBus). Gọi TỪ event/workflow/playlist.js::pickCoverFromLibrary() (Workflow gọi
-     * Workflow miền khác, TỰ DO theo event-bus-flow.md mục 4B) — single-select: bấm ẢNH NÀO là chọn
-     * NGAY ảnh đó + đóng drawer, KHÔNG có nút xác nhận riêng (khác hẳn ca multi-select album — cùng
-     * khác biệt `openImageCarouselPickerModal()`/`openImageLibraryPickerModal()` cũ đã có: chọn 1 =
-     * chọn xong luôn, không cần bước xác nhận thứ 2).
+    /** MỚI (Giai đoạn 4, rewrite Photo/Album, mục 4) — chọn 1 ảnh làm bìa bài hát HOẶC ảnh nền
+     * Theme, THAY HẲN `openPhotoUiImagePickerModal()` cũ (core/file-manager/photo-ui.js — ĐÃ XOÁ,
+     * modal riêng ngoài luồng eventBus). Gọi TỪ event/workflow/playlist.js::pickCoverFromLibrary()
+     * VÀ event/workflow/theme.js::pickNewBackgroundImage() (Workflow gọi Workflow miền khác, TỰ DO
+     * theo event-bus-flow.md mục 4B) — bấm ẢNH NÀO là chọn NGAY ảnh đó + đóng drawer, KHÔNG có nút
+     * xác nhận riêng (cùng tinh thần `openImageCarouselPickerModal()`/`openImageLibraryPickerModal()`
+     * cũ đã có: chọn 1 = chọn xong luôn, không cần bước xác nhận thứ 2).
      * @param {(imageKey: string) => void} onSelect
      * @param {() => void} [onCancel] - gọi khi đóng picker MÀ CHƯA chọn gì (nút X) — cùng ngữ nghĩa
      *        `onCancel` các picker chọn-1-ảnh cũ (nơi gọi tự trả toggle "On" về "off" nếu có).
      */
     async openCoverImagePicker(onSelect, onCancel) {
-        _imagePickerSession = { mode: 'singleSelectCover', onSelect, onCancel, hasSelected: false };
-        await this._openImagePickerDrawer(t('playlistView.songEdit.coverPickLibrary'), false);
+        _imagePickerSession = { onSelect, onCancel, hasSelected: false };
+        await this._openImagePickerDrawer(t('playlistView.songEdit.coverPickLibrary'));
     },
 
-    /** Dựng khung Generic Drawer DÙNG CHUNG cho cả 2 chế độ — CHỈ khác `showConfirmButton` (multi-
-     * select cần nút xác nhận cố định đáy, single-select KHÔNG — tap là chọn ngay). Đây là 2 CÁCH
-     * HIỂN THỊ của CÙNG 1 khái niệm "picker ảnh" (đúng khuôn badge chọn/xoá — event/workflow/
-     * photo-gallery-window.js — branch theo `ctx.selectionMode`, Rule 1 chỉ cấm rẽ nhánh giữa 2
-     * NGHIỆP VỤ khác nhau) — nghiệp vụ THẬT
-     * (thêm vào album / set bìa) tách hẳn ở `handleImagePickerConfirmClick()`/
-     * `handleImagePickerTileClick()` bên dưới, branch theo `_imagePickerSession.mode`, KHÔNG lẫn vào
-     * hàm dựng khung này.
-     * Height `90vh` (Giang yêu cầu — mặc định `70vh` của Generic Drawer không đủ chỗ cho lưới ảnh
-     * cuộn thoải mái, khác hẳn menu action chỉ vài dòng chữ). Trình tự ĐÃ CHỐT: drawer trượt lên xong
-     * HẲN (nghe `transitionend` THẬT, core/generic-drawer.js) -> icon loading ĐƠN GIẢN (không phải
-     * shield đầy màn hình như panel chính) -> đọc DB + windowing -> tắt icon.
+    /** Dựng khung Generic Drawer cho picker ảnh. Height `90vh` (Giang yêu cầu — mặc định `70vh` của
+     * Generic Drawer không đủ chỗ cho lưới ảnh cuộn thoải mái, khác hẳn menu action chỉ vài dòng
+     * chữ). Trình tự ĐÃ CHỐT: drawer trượt lên xong HẲN (nghe `transitionend` THẬT, core/generic-
+     * drawer.js) -> đọc DB + windowing (KHÔNG còn icon loading, xem SỬA 17/07/2026 ngay dưới).
      * @param {string} title
-     * @param {boolean} showConfirmButton
      */
-    async _openImagePickerDrawer(title, showConfirmButton) {
+    async _openImagePickerDrawer(title) {
         openGenericDrawer({ // core/generic-drawer.js
             height: '90vh',
             zIndex: Z_INDEX.GENERIC_DRAWER, // core/config.js — mặc định, KHÔNG có modal xem ảnh nào mở đồng thời với picker này (khác action-menu cần z=131)
             headerHtml: this._buildImageMenuHeaderHtml(title),
-            bodyHtml: this._buildImagePickerBodyHtml(showConfirmButton),
+            bodyHtml: this._buildImagePickerBodyHtml(),
             bodyClass: 'flex flex-col',
         });
 
@@ -605,12 +595,6 @@ const workflowFileManagerPhoto = {
         if (closeBtn) closeBtn.addEventListener('click', () => {
             eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePicker.close.click', payload: {} });
         });
-        if (showConfirmButton) {
-            const confirmBtn = genericDrawerBody.querySelector('#btn-file-manager-image-picker-confirm');
-            if (confirmBtn) confirmBtn.addEventListener('click', () => {
-                eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePicker.confirm.click', payload: {} });
-            });
-        }
         // Click tile — delegated NGAY TRÊN genericDrawerBody (KHÔNG đi qua settingsStackBody, Generic
         // Drawer là ANH EM của #app-stack trong #app-root — cấu trúc DOM tách biệt hẳn, xem docstring
         // core/generic-drawer.js — nên PHẢI tự wire riêng ở đây). Callback gọi eventBus.send() — ĐÚNG
@@ -643,86 +627,49 @@ const workflowFileManagerPhoto = {
         const scrollEl = genericDrawerBody.querySelector('#file-manager-image-picker-scroll');
         const emptyEl = genericDrawerBody.querySelector('#file-manager-image-picker-empty');
         if (emptyEl) emptyEl.classList.toggle('hidden', images.length > 0);
-        const ctx = showConfirmButton ? { selectionMode: true, selectedImageKeys: _imagePickerSession.selectedKeys } : {}; // singleSelectCover — KHÔNG badge, tap = chọn ngay
-        this.setupPhotoGridWindow(scrollEl, images, ctx, 'genericDrawer');
+        this.setupPhotoGridWindow(scrollEl, images, {}, 'genericDrawer'); // {} — picker single-select KHÔNG cần badge chọn/xoá
     },
 
-    /** HTML khung picker: scroll container (grid windowing sẽ chèn vào TRONG đây) + nút xác nhận cố
-     * định đáy CHỈ khi `showConfirmButton` (mode multiSelectAlbum). Đặt ở Workflow (không phải
-     * core) — cùng khuôn `_buildImageMenuHeaderHtml()` bên dưới, glue riêng cho feature này, không
-     * đủ "substantial" để tách core.
+    /** HTML khung picker: scroll container (grid windowing sẽ chèn vào TRONG đây). Đặt ở Workflow
+     * (không phải core) — cùng khuôn `_buildImageMenuHeaderHtml()` bên dưới, glue riêng cho feature
+     * này, không đủ "substantial" để tách core.
      * SỬA (17/07/2026, Giang yêu cầu "bỏ loading đi") — XOÁ HẲN khối icon loading
      * (`#file-manager-image-picker-loading`, spinner phủ lên trong lúc đọc DB) — xem
-     * `_openImagePickerDrawer()`.
-     * @param {boolean} showConfirmButton
+     * `_openImagePickerDrawer()`. CÙNG ĐỢT — XOÁ HẲN nút xác nhận cố định đáy (chỉ có nghĩa ở chế độ
+     * multi-select album, ĐÃ XOÁ, xem đầu khối này).
      */
-    _buildImagePickerBodyHtml(showConfirmButton) {
+    _buildImagePickerBodyHtml() {
         return `
             <div class="flex-1 min-h-0 overflow-y-auto relative" id="file-manager-image-picker-scroll">
                 <p id="file-manager-image-picker-empty" class="hidden text-sm text-slate-400 text-center py-10 px-6">${t('fileManager.photo.image.empty')}</p>
             </div>
-            ${showConfirmButton ? `
-            <div class="p-4 border-t border-white/10 shrink-0">
-                <button type="button" id="btn-file-manager-image-picker-confirm" class="w-full py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors">${t('fileManager.photo.album.btnAddSelected')}</button>
-            </div>` : ''}
         `;
     },
 
-    /** Ứng với 'fileManagerPhoto.imagePicker.tile.click' — branch theo `_imagePickerSession.mode`
-     * (2 NGHIỆP VỤ khác nhau thật sự, tách rõ ở ĐÂY chứ không phải ở `_openImagePickerDrawer()`).
+    /** Ứng với 'fileManagerPhoto.imagePicker.tile.click' — bấm là chọn NGAY, đóng drawer luôn,
+     * KHÔNG cần nút xác nhận riêng (picker CHỈ CÒN 1 chế độ, xem đầu khối này).
      * @param {string} imageKey
      */
     handleImagePickerTileClick(imageKey) {
         if (!_imagePickerSession) return; // guard: picker đã đóng (race hiếm, vd đóng đúng lúc tap)
-        if (_imagePickerSession.mode === 'multiSelectAlbum') {
-            const selectedKeys = _imagePickerSession.selectedKeys;
-            const isNowMarked = !selectedKeys.has(imageKey);
-            if (isNowMarked) selectedKeys.add(imageKey);
-            else selectedKeys.delete(imageKey);
-            workflowPhotoGalleryWindow.setTileBadge('genericDrawer', imageKey, isNowMarked); // event/workflow/photo-gallery-window.js
-            return;
-        }
-        // singleSelectCover — bấm là chọn NGAY, đóng drawer luôn, KHÔNG cần nút xác nhận riêng.
         _imagePickerSession.hasSelected = true;
         const onSelect = _imagePickerSession.onSelect;
         this._teardownImagePicker();
         onSelect(imageKey);
     },
 
-    /** Ứng với 'fileManagerPhoto.imagePicker.confirm.click' — CHỈ có nghĩa ở mode multiSelectAlbum
-     * (nút xác nhận không tồn tại ở mode singleSelectCover, guard tự bỏ qua an toàn nếu lệch).
-     * `addImagesToAlbum()` tự bỏ qua ảnh đã có sẵn trong album (không thêm trùng) — xem
-     * core/file-manager/album.js. */
-    async handleImagePickerConfirmClick() {
-        if (!_imagePickerSession || _imagePickerSession.mode !== 'multiSelectAlbum') return; // guard
-        const { albumId, selectedKeys, albumListPageIndex } = _imagePickerSession;
-        const keys = Array.from(selectedKeys);
-        this._teardownImagePicker();
-        if (keys.length === 0) return; // guard — chưa chọn gì thì không gọi DB, không thông báo gì
-
-        let addedCount = 0;
-        await withLoadingShield(t('common.loading.savingInfo'), async () => {
-            const result = await addImagesToAlbum(keys, albumId); // core/file-manager/album.js
-            addedCount = result.addedCount;
-        });
-        await this.refreshAlbumListPanel(albumListPageIndex);
-        await alertModal(tFormat('fileManager.photo.album.addImagesSuccess', { count: addedCount }));
-    },
-
     /** Ứng với 'fileManagerPhoto.imagePicker.close.click' — đóng picker qua nút X (Huỷ, chưa chọn
-     * gì THÊM — mode singleSelectCover có thể ĐÃ chọn xong trước đó, khi đó không còn `_imagePickerSession`
-     * để mà đóng qua đường này nữa, guard tự an toàn). `onCancel` CHỈ gọi ở mode singleSelectCover
-     * (cùng ngữ nghĩa modal cũ) — mode multiSelectAlbum không có khái niệm "cancel toggle", đóng
-     * ngang bằng bỏ dở, không cần báo ai. */
+     * gì). `onCancel` gọi nếu có VÀ chưa chọn gì trước đó (guard `hasSelected` — race hiếm, vd đóng
+     * đúng lúc vừa chọn xong). */
     handleImagePickerCloseClick() {
         if (!_imagePickerSession) return;
-        const { mode, onCancel, hasSelected } = _imagePickerSession;
+        const { onCancel, hasSelected } = _imagePickerSession;
         this._teardownImagePicker();
-        if (mode === 'singleSelectCover' && !hasSelected && typeof onCancel === 'function') onCancel();
+        if (!hasSelected && typeof onCancel === 'function') onCancel();
     },
 
     /** Dọn session + unmount windowing (revoke object URL NGAY, không đợi lần mount() kế tiếp mới
-     * tự dọn) + đóng drawer — DÙNG CHUNG cho MỌI lối thoát picker (chọn xong/xác nhận/huỷ). */
+     * tự dọn) + đóng drawer — DÙNG CHUNG cho MỌI lối thoát picker (chọn xong/huỷ). */
     _teardownImagePicker() {
         workflowPhotoGalleryWindow.unmount('genericDrawer'); // event/workflow/photo-gallery-window.js
         this._closeGenericDrawerFully();
@@ -775,6 +722,14 @@ const workflowFileManagerPhoto = {
      * `thumbBlob`/`width`/`height`). Lỗi resize 1 ảnh (vd file hỏng) KHÔNG được chặn cả lô upload —
      * bắt riêng, bỏ qua đúng ảnh đó, tiếp tục ảnh sau (Rule 1: vẫn 1 tiến trình "upload cả lô", guard
      * lỗi từng phần tử không tính là rẽ nhánh nghiệp vụ).
+     *
+     * SỬA (17/07/2026, Giang yêu cầu "đang xem 1 album -> upload tự add luôn vào album đó") — THAY
+     * HẲN picker "Thêm ảnh có sẵn" (Generic Drawer multi-select, ĐÃ XOÁ, xem lịch sử đầu file): khi
+     * `activeAlbumId` khác `null` (đang lọc lưới ảnh chính theo 1 album), MỌI ảnh upload thành công
+     * lô này TỰ ĐỘNG gắn luôn vào album đó (`addImagesToAlbum()`, core/file-manager/album.js) —
+     * KHÔNG cần bước chọn ảnh có sẵn riêng nữa, vì ảnh MỚI vốn đã đang xem ĐÚNG NGỮ CẢNH album này.
+     * Ảnh resize/lưu THẤT BẠI (bắt riêng ở `catch` ngay dưới) KHÔNG được thêm vào album — chỉ gom
+     * đúng key ảnh ĐÃ lưu thành công.
      * @param {FileList} files
      * @param {string|null} activeAlbumId
      */
@@ -783,15 +738,20 @@ const workflowFileManagerPhoto = {
         if (fileArray.length === 0) return;
 
         let failedCount = 0;
+        const uploadedKeys = []; // MỚI (17/07/2026) — key ảnh upload THÀNH CÔNG, dùng để auto add vào album đang lọc (nếu có)
         await withLoadingShield(t('common.loading.savingInfo'), async () => {
             for (const file of fileArray) {
                 try {
                     const { thumbBlob, width, height } = await this._resizeImageForThumbnail(file);
-                    await saveImage(file, file.name, thumbBlob, width, height); // core/file-manager/image.js — chữ ký MỚI
+                    const imageKey = await saveImage(file, file.name, thumbBlob, width, height); // core/file-manager/image.js — chữ ký MỚI, CÓ return (imageKey)
+                    uploadedKeys.push(imageKey);
                 } catch (err) {
                     console.error(`[uploadImages] resize/lưu thất bại cho file "${file.name}":`, err);
                     failedCount++;
                 }
+            }
+            if (activeAlbumId && uploadedKeys.length > 0) {
+                await addImagesToAlbum(uploadedKeys, activeAlbumId); // core/file-manager/album.js
             }
         });
         if (fileManagerPhotoPanelEl) {
