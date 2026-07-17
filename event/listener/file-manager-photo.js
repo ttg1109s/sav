@@ -26,8 +26,14 @@
  * MỚI (17/07/2026, Giang yêu cầu "bấm vào album để view luôn ảnh") — thêm delegation bấm CẢ HÀNG
  * album (`[data-album-id]`, ĐẶT SAU check nút "..." `data-album-menu-action` — nút đó NẰM BÊN
  * TRONG hàng, phải check trước để không bị hàng nuốt mất click) -> `albumList.row.click`. CÙNG ĐỢT
- * — action "addImages" (dropdown) + picker Generic Drawer multi-select (`openAlbumImagePicker()`)
- * ĐÃ XOÁ HẲN, "thêm ảnh vào album" giờ đi qua nút "Tải ảnh lên" (tự gắn vào album đang lọc).
+ * — action "addImages" (dropdown Album List) ĐÃ XOÁ HẲN (dropdown giờ chỉ còn Đổi tên/Xoá). MỘT
+ * NGÀY SAU (18/07/2026, Giang yêu cầu "khôi phục add photo vào album") — "thêm ảnh vào album" quay
+ * lại, nhưng qua ĐƯỜNG KHÁC: nút "+" ở header panel Photo chính (khi đang lọc theo album) mở dropdown
+ * 2 lựa chọn (Tải ảnh lên / Chọn ảnh có sẵn) — nút "+" này wire TRỰC TIẾP trong Workflow
+ * (`_wireHeaderActionEvents()`), KHÔNG qua delegation ở file này — ĐÚNG quy ước đã có từ 14/07/2026
+ * "nút động do Workflow tự dựng (`headerActionHtml`) thì Workflow tự wire" (xem đầu file), dù nút
+ * này vẫn NẰM TRONG `settingsStackBody` về mặt DOM (khác hẳn picker Generic Drawer — panel RIÊNG,
+ * NẰM NGOÀI hẳn).
  *
  * NẠP SAU CÙNG (sau bus, core, workflow, router, VÀ SAU dom-refs.js).
  */
