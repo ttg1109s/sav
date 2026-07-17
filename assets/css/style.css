@@ -352,6 +352,16 @@ body {
     font-weight: 600;
     color: #e2e8f0;
 }
+/* MỚI (17/07/2026, Giang chỉ ra "màu chữ ngày tháng tương phản kém") — CHỈ áp dụng khi lưới ảnh
+   render TRONG Generic Drawer (mountKey 'genericDrawer', xem event/workflow/photo-gallery-
+   window.js::_loadGroup()) — nền panel đó LUÔN TRẮNG cố định (components/generic-drawer.js), màu
+   chữ sáng #e2e8f0 gốc gần như vô hình trên nền đó. Đổi sang màu tối, cùng tông `text-slate-700`
+   đã dùng cho các nhãn khác bên trong Generic Drawer (vd buildPhotoActionMenuHtml(), core/file-
+   manager/photo-ui.js) — lưới ảnh CHÍNH (nền tối, mountKey 'photoGrid') KHÔNG đụng gì, vẫn dùng
+   đúng `.photo-day-header` gốc ở trên. */
+.photo-day-header--on-light {
+    color: #334155;
+}
 .photo-day-group-placeholder {
     /* height do JS gán trực tiếp (mốc offsetHeight đã đo THẬT lúc nhóm còn hiển thị đầy đủ, xem
        event/workflow/photo-gallery-window.js::_unloadGroup()) — CSS chỉ cần 1 màu nền rất nhẹ,
