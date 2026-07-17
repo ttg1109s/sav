@@ -114,6 +114,16 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.album.deleteConfirm': 'Delete album "{name}"? Photos inside stay in your library, only the album is removed.',
     'fileManager.photo.album.btnDelete': 'Delete',
     'fileManager.photo.album.selectedCount': '{count} selected',
+    // RESTORE (18/07/2026, Giang yêu cầu "khôi phục add photo vào album") — 17/07/2026 từng xoá 3
+    // key ngay dưới cùng lúc bỏ picker multi-select, nay khôi phục lại (picker quay lại, điểm vào
+    // đổi — xem workflowFileManagerPhoto.openAlbumImagePicker()).
+    'fileManager.photo.album.addImagesTitle': 'Add photos',
+    'fileManager.photo.album.btnAddSelected': 'Add to album',
+    'fileManager.photo.album.addImagesSuccess': 'Added {count} photo(s) to the album.',
+    // MỚI (18/07/2026) — 2 lựa chọn trong dropdown nút "+" khi đang lọc theo album (xem
+    // workflowFileManagerPhoto.openAddToAlbumChoiceMenu()).
+    'fileManager.photo.album.addChoiceUploadTitle': 'Upload new photos',
+    'fileManager.photo.album.addChoiceExistingTitle': 'Choose from library',
     // ── Drawer con: Documents (mục 4.b4, ĐÃ CODE THẬT 04/07/2026) ────────────────────────────
     'fileManager.document.title': 'Documents',
     // Batch D7 (06/07/2026, batch cuối Nhóm D) — 'fileManager.document.back.title' XOÁ, dùng
