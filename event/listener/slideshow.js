@@ -4,7 +4,7 @@
  * panel chọn Album kiểu "notify center").
  *
  * === Batch D4 (Settings restructure, 06/07/2026) ===
- * 6 input (enable/mode/photoPerSong/interval/transition/showCaption) sống BÊN TRONG panel Settings
+ * 5 input (enable/mode/photoPerSong/interval/transition) sống BÊN TRONG panel Settings
  * (push/pop động, core/settings-panel-stack.js) — ĐỔI sang delegation trên `settingsStackBody`,
  * CHUẨN đã dùng từ Batch D2/D3. `btnBackSlideshowSettings` ĐÃ XOÁ (Back dùng CHUNG
  * `btnSettingsStackBack`). `btnOpenSlideshowSettings` (Main, tĩnh) GIỮ NGUYÊN kiểu listener trực
@@ -32,7 +32,6 @@ const SLIDESHOW_SETTINGS_INPUT_MAP = {
     'setting-slideshow-photo-per-song': { type: 'slideshowSettings.photoPerSong.change', event: 'change', checkbox: true },
     'setting-slideshow-interval': { type: 'slideshowSettings.interval.change', event: 'change' },
     'setting-slideshow-transition': { type: 'slideshowSettings.transitionType.change', event: 'change' },
-    'setting-slideshow-show-caption': { type: 'slideshowSettings.showCaption.change', event: 'change', checkbox: true },
 };
 
 function handleSlideshowSettingsDelegatedChange(e) {
