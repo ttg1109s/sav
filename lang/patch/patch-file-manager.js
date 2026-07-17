@@ -70,7 +70,6 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.albumList.createNew': 'New album',
     'fileManager.photo.albumList.photoCount': '{count} photos',
     'fileManager.photo.albumList.menuTitle': 'Album options',
-    'fileManager.photo.album.viewTitle': 'View photos',
     // MỚI (04/07/2026, mục 2 phản hồi Giang) — caption ảnh.
     'fileManager.photo.image.captionLabel': 'Caption',
     'fileManager.photo.image.captionPlaceholder': 'Add a caption for this photo…',
@@ -106,8 +105,7 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.album.createTitle': 'New album',
     'fileManager.photo.album.namePlaceholder': 'Album name',
     'fileManager.photo.album.btnCreate': 'Create',
-    // ── Batch tiếp theo (03/07/2026, mục 2.2/2.3) — Đổi tên/Xoá album + thêm ảnh có sẵn ──────
-    'fileManager.photo.album.addImagesTitle': 'Add photos',
+    // ── Batch tiếp theo (03/07/2026, mục 2.2/2.3) — Đổi tên/Xoá album ────────────────────────
     // MỚI (Batch 8, 03/07/2026, slideshow nền Visual).
     'fileManager.photo.album.setSlideshowBgTitle': 'Use as Slideshow background',
     'fileManager.photo.album.setSlideshowBgSuccess': 'Set as Slideshow background.',
@@ -116,8 +114,6 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.album.deleteConfirm': 'Delete album "{name}"? Photos inside stay in your library, only the album is removed.',
     'fileManager.photo.album.btnDelete': 'Delete',
     'fileManager.photo.album.selectedCount': '{count} selected',
-    'fileManager.photo.album.btnAddSelected': 'Add to album',
-    'fileManager.photo.album.addImagesSuccess': 'Added {count} photo(s) to the album.',
     // ── Drawer con: Documents (mục 4.b4, ĐÃ CODE THẬT 04/07/2026) ────────────────────────────
     'fileManager.document.title': 'Documents',
     // Batch D7 (06/07/2026, batch cuối Nhóm D) — 'fileManager.document.back.title' XOÁ, dùng
