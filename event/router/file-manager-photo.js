@@ -98,10 +98,10 @@ const routerFileManagerPhoto = (() => {
             // ĐÃ GỠ (fix bug 2, Giang yêu cầu "ấn vào album lại ra sub panel -> bỏ") — case
             // 'fileManagerPhoto.albumList.rowClick' (bấm tên/số lượng -> lọc lưới ảnh chính + quay
             // lại panel Photo) XOÁ HẲN — vùng tên/số lượng KHÔNG còn bấm được nữa, xem
-            // itemTemplateAlbumListRow() (components/items.js). Lọc lưới ảnh chính theo album giờ
-            // KHÔNG còn đường vào nào từ Album List sub-panel (chỉ còn xem qua carousel — icon
-            // 'view') — activeAlbumId vẫn còn dùng được (vd nếu sau này Giang muốn thêm lại đường
-            // vào khác), chỉ là hiện không còn nơi nào set nó khác null nữa.
+            // itemTemplateAlbumListRow() (components/items.js). ĐÍNH CHÍNH (17/07/2026, bỏ carousel
+            // action 'view') — `activeAlbumId` giờ LẠI CÓ đường set khác null: action 'view' ngay
+            // dưới (icon "..." -> "Xem") set nó rồi lọc lưới ảnh chính, KHÁC HẲN case rowClick đã xoá
+            // ở trên (đây là hành động CHỦ Ý qua menu, không phải bấm nhầm ngay trên hàng album).
 
             // MỚI (Giang yêu cầu "action ba chấm dropdown, tái dùng như action song") — THAY 4 icon
             // rời cũ bằng 1 nút "..." mở dropdown (core/dropdown-menu.js). `anchorBtn` truyền qua
@@ -120,7 +120,18 @@ const routerFileManagerPhoto = (() => {
                 const { action, albumId } = msg.payload;
                 VirtualMachineState.run([
                     { state: action, operation: '===', value: 'view', callback: () => {
-                        workflowFileManagerPhoto.openAlbumCarouselView(albumId); // >1 hàm core -> workflow
+                        // SỬA (17/07/2026, bỏ carousel) — "xem" giờ lọc THẲNG lưới ảnh panel Photo
+                        // chính theo album này (activeAlbumId là state CỦA RIÊNG Router, xem đầu
+                        // file — Workflow không tự mutate được, phải set NGAY Ở ĐÂY trước khi gọi).
+                        // Reset LUÔN imageQuickDeleteMode/quickDeleteSelectedKeys — refresh() bên
+                        // trong viewAlbumImages() dùng tham số mặc định (false/Set rỗng, xem chữ ký
+                        // refresh()); nếu KHÔNG reset ở đây, Router vẫn tưởng đang bật xoá nhanh
+                        // (cờ closure cũ) trong khi lưới vừa vẽ lại KHÔNG hiện badge nào — bấm ảnh
+                        // sẽ lặng lẽ đánh dấu xoá thay vì mở preview, lệch hẳn với UI đang thấy.
+                        activeAlbumId = albumId;
+                        imageQuickDeleteMode = false;
+                        quickDeleteSelectedKeys = new Set();
+                        workflowFileManagerPhoto.viewAlbumImages(activeAlbumId); // refresh panel Photo (đang ẩn dưới) + pop về đó -> workflow
                     } },
                     { state: action, operation: '===', value: 'addImages', callback: () => {
                         workflowFileManagerPhoto.openAlbumImagePicker(albumId, albumListPageIndex); // >1 hàm core (Generic Drawer + shield + đọc DB + windowing) -> workflow
