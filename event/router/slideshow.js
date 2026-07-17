@@ -60,11 +60,6 @@ const routerSlideshowSettings = (() => {
                 workflowSlideshow.changeTransitionType(msg.payload.value); // >1 bước (set + persist + áp DOM) -> workflow
                 break;
 
-            // MỚI (04/07/2026, mục 2) — toggle "Show caption".
-            case 'slideshowSettings.showCaption.change':
-                workflowSlideshow.changeShowCaption(msg.payload.checked); // >1 bước (set + persist + đồng bộ hiển thị) -> workflow
-                break;
-
             default:
                 console.warn(`[routerSlideshowSettings] msg.type không xác định: "${msg.type}"`, msg);
         }
