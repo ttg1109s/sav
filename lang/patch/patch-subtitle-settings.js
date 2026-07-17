@@ -67,9 +67,6 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'slideshowSettingsDrawer.transition.curtain': 'Curtain',
     'slideshowSettingsDrawer.transition.circleReveal': 'Circle reveal',
     'slideshowSettingsDrawer.transition.glitch': 'Glitch',
-    // MỚI (04/07/2026, mục 2 phản hồi Giang).
-    'slideshowSettingsDrawer.showCaption.label': 'Show caption',
-    'slideshowSettingsDrawer.showCaption.hint': "Show each photo's caption as a TikTok-style overlay",
 
     // Tái tổ chức (07/07/2026, phản hồi Giang mục 4) — section cũ "Playlist & Background" TÁCH
     // làm 2: "Playlist" (file này, chỉ còn view/sort) + "Background" (KEY MỚI, xem

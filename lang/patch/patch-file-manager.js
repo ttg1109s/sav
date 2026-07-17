@@ -70,9 +70,6 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.albumList.createNew': 'New album',
     'fileManager.photo.albumList.photoCount': '{count} photos',
     'fileManager.photo.albumList.menuTitle': 'Album options',
-    // MỚI (04/07/2026, mục 2 phản hồi Giang) — caption ảnh.
-    'fileManager.photo.image.captionLabel': 'Caption',
-    'fileManager.photo.image.captionPlaceholder': 'Add a caption for this photo…',
     'fileManager.photo.image.btnDelete': 'Remove from library',
     'fileManager.photo.image.btnRemoveFromAlbum': 'Remove from album',
     'fileManager.photo.image.uploadSuccess': 'Added {count} photo(s).',
@@ -82,8 +79,7 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.image.btnSetVisualBg': 'Set as background visualizer',
     'fileManager.photo.image.setPlaylistBgSuccess': 'Set as Playlist background.',
     'fileManager.photo.image.setVisualBgSuccess': 'Set as Visualizer background.',
-    // MỚI (14/07/2026, mục cuối) — 2 action mới trong menu (đã icon hoá) + tiêu đề Generic Drawer.
-    'fileManager.photo.image.btnEditCaption': 'Edit caption',
+    // MỚI (14/07/2026, mục cuối) — action mới trong menu (đã icon hoá) + tiêu đề Generic Drawer.
     'fileManager.photo.image.btnEditImage': 'Edit image',
     'fileManager.photo.image.menuTitle': 'Photo options',
     // MỚI (14/07/2026, mục cuối, mục 2.2) — chế độ xoá nhanh.
