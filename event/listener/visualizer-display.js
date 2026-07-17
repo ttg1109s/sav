@@ -43,8 +43,10 @@ if (btnCycleMode) {
 // (không phải `null`) nên ném `ReferenceError` ngay khi file này chạy, làm HỎNG mọi listener khai
 // báo PHÍA SAU trong CÙNG file (bgBlurSlider/volumeSlider/eqSelect/14 input delegate bên dưới đều
 // không được gắn). Luồng bật/tắt ảnh nền giờ đi qua card "Background" (event/listener/theme.js ->
-// event/workflow/theme.js::selectThemeMode() -> workflowVisualizerDisplay.toggleBgImage()) — không
-// cần thay thế gì ở đây.
+// event/router/theme.js, VirtualMachineState chọn method -> event/workflow/theme.js::
+// applyNonBackgroundMode()/pickNewBackgroundImage()/reuseExistingBackgroundImage(), ĐÃ CẬP NHẬT
+// 17/07/2026 — KHÔNG còn qua workflowVisualizerDisplay.toggleBgImage() nữa, hàm đó giờ mồ côi) —
+// không cần thay thế gì ở đây.
 
 if (bgBlurSlider) {
     bgBlurSlider.addEventListener('input', (e) => {
