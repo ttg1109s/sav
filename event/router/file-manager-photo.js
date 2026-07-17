@@ -29,7 +29,8 @@
  *      vào ĐÚNG album đó (xem `workflowFileManagerPhoto.uploadImages()`) — XOÁ HẲN action
  *      "addImages" (dropdown) + picker Generic Drawer multi-select liên quan (`openAlbumImagePicker`,
  *      case `imagePicker.confirm.click`, nhánh `multiSelectAlbum` trong `_imagePickerSession`) —
- *      picker ảnh giờ CHỈ CÒN 1 chế độ (chọn 1 ảnh, dùng cho "Ảnh bìa" bài hát + Theme Background).
+ *      picker ảnh CÒN đúng 1 chế độ (chọn 1 ảnh, dùng cho "Ảnh bìa" bài hát + Theme Background).
+ *      **MỤC NÀY ĐẢO NGƯỢC 1 PHẦN NGAY HÔM SAU, xem mục 5.**
  *   2. Case MỚI `albumList.row.click` — bấm THẲNG vào hàng album (không qua dropdown) lọc lưới ảnh
  *      chính + lùi về panel Photo NGAY — action "view" trong dropdown ĐÃ XOÁ (dư thừa, cùng 1 hành
  *      vi). Dropdown giờ CHỈ CÒN "Đổi tên"/"Xoá".
@@ -38,6 +39,17 @@
  *      đúng, bỏ lọc (`clearActiveAlbumFilter()`) thay vì pop hẳn ra Settings Main.
  *   4. Xoá 1 album đang là album ĐANG LỌC lưới chính -> tự bỏ lọc + vẽ lại NGAY (Tất cả) — dùng
  *      chung `clearActiveAlbumFilter()` (case 'delete' bên dưới).
+ *
+ * SỬA TIẾP (18/07/2026, phản hồi Giang — "khôi phục add photo vào album, bấm + ra 2 lựa chọn"):
+ *   5. Nút "+" (upload) ở header panel Photo KHÔNG còn LUÔN mở thẳng hộp thoại chọn file nữa — khi
+ *      đang lọc theo 1 album (`activeAlbumId` khác null), giờ mở dropdown 2 lựa chọn ("Tải ảnh lên"
+ *      / "Chọn ảnh có sẵn") — case MỚI `uploadTrigger.click` (đọc `activeAlbumId` quyết định) +
+ *      `addPhotoChoice.click` (đích dispatch của dropdown). "Chọn ảnh có sẵn" RESTORE LẠI picker
+ *      Generic Drawer multi-select + case `imagePicker.confirm.click` (mục 1 ở trên đã xoá) —
+ *      `openAlbumImagePicker()` giờ gọi từ đây (KHÔNG còn từ dropdown Album List như bản GỐC trước
+ *      17/07/2026, xem docstring hàm đó). "Tải ảnh lên" vẫn dùng ĐÚNG `triggerUploadInput()` +
+ *      `uploadImages()` cũ (mục 1) — hành vi upload KHÔNG đổi gì, chỉ đổi CÁCH BẤM TỚI nó khi đang
+ *      lọc theo album. KHÔNG đang lọc -> nút "+" vẫn mở thẳng hộp thoại chọn file như trước giờ.
  *
  * STATE CONTEXT còn lại: `activeAlbumId` (album đang lọc lưới ảnh chính, null = "Tất cả") — lộ CHỈ
  * ĐỌC ra ngoài qua `getActiveAlbumId()`, GHI qua `clearActiveAlbumFilter()` hoặc message của chính
@@ -63,10 +75,10 @@ const routerFileManagerPhoto = (() => {
 
     let albumListPageIndex = 0; // MỚI (Giai đoạn 3b) — trang hiện tại của Album List sub-panel (mode 'list', core/pagination.js)
 
-    // SỬA (17/07/2026, phản hồi Giang) — `imagePickerAlbumId`/`imagePickerSelectedKeys` cũ (context
-    // picker "thêm ảnh vào album") ĐÃ XOÁ HẲN cùng lúc bỏ action "addImages" (xem đầu file) — picker
-    // Generic Drawer giờ CHỈ CÒN 1 chế độ (`_imagePickerSession` ở Workflow không còn field `mode`
-    // nữa, xem event/workflow/file-manager-photo.js).
+    // `imagePickerAlbumId`/`imagePickerSelectedKeys` cũ (context picker "thêm ảnh vào album") ĐÃ
+    // CHUYỂN vào Workflow từ Giai đoạn 4 (`_imagePickerSession`, event/workflow/file-manager-
+    // photo.js) — Router giờ CHỈ relay message, không giữ state picker nào cả. 17/07/2026 từng xoá
+    // hẳn chế độ multi-select đó, 18/07/2026 Giang yêu cầu khôi phục lại (xem mục 5, đầu file).
 
     /** MỚI (17/07/2026, Giang yêu cầu) — bỏ lọc album đang xem + vẽ lại lưới ảnh chính (Tất cả).
      * DÙNG CHUNG cho 3 nơi cần "bỏ lọc": chip "bỏ lọc" (case ngay dưới), Back khi đang lọc
@@ -182,18 +194,24 @@ const routerFileManagerPhoto = (() => {
                 break;
             }
 
-            // ===================== Picker ảnh (Generic Drawer, single-select) — event bus ĐẦY ĐỦ
-            // (listener -> đây -> workflow), KHÔNG dùng raw callback như modal picker cover bài hát
-            // cũ (core/file-manager/photo-ui.js::openPhotoUiImagePickerModal(), tiền lệ CŨ trước
-            // Rule 5a, không hồi tố nhưng KHÔNG lặp lại cho code MỚI này). SỬA (17/07/2026, phản hồi
-            // Giang) — XOÁ hẳn case 'imagePicker.confirm.click' (chỉ có nghĩa ở mode multiSelectAlbum
-            // — mode đó đã xoá hẳn cùng lúc bỏ action "Add photos", xem
-            // workflowFileManagerPhoto.uploadImages()). Picker giờ CHỈ CÒN đúng 1 chế độ — chọn 1
-            // ảnh, chọn là xong ngay, không cần bước xác nhận riêng nữa. ==========================
+            // ===================== Picker ảnh (Generic Drawer) — event bus ĐẦY ĐỦ (listener -> đây
+            // -> workflow), KHÔNG dùng raw callback như modal picker cover bài hát cũ (core/file-
+            // manager/photo-ui.js::openPhotoUiImagePickerModal(), tiền lệ CŨ trước Rule 5a, không
+            // hồi tố nhưng KHÔNG lặp lại cho code MỚI này). SỬA (17/07/2026) từng XOÁ hẳn case
+            // 'imagePicker.confirm.click' cùng lúc bỏ action "Add photos" — RESTORE (18/07/2026,
+            // Giang yêu cầu "khôi phục add photo vào album") cùng lúc thêm nút "+" 2 lựa chọn (xem
+            // case 'uploadTrigger.click'/'addPhotoChoice.click' ở khu vực Upload bên dưới). Picker
+            // giờ LẠI CÓ 2 chế độ (chọn 1 ảnh / multi-select thêm vào album, xem
+            // workflowFileManagerPhoto._imagePickerSession). ================================
 
             case 'fileManagerPhoto.imagePicker.tile.click': {
                 const { imageKey } = msg.payload;
-                workflowFileManagerPhoto.handleImagePickerTileClick(imageKey);
+                workflowFileManagerPhoto.handleImagePickerTileClick(imageKey); // Workflow tự branch theo _imagePickerSession.mode
+                break;
+            }
+
+            case 'fileManagerPhoto.imagePicker.confirm.click': {
+                workflowFileManagerPhoto.handleImagePickerConfirmClick();
                 break;
             }
 
@@ -266,6 +284,42 @@ const routerFileManagerPhoto = (() => {
 
             // ===================== Upload (Batch 3 — nút riêng của Photo drawer, CHƯA phải bộ
             // phân loại thông minh dùng chung với upload nhạc — đó là Batch 8 theo kế hoạch) =====
+
+            // MỚI (18/07/2026, Giang yêu cầu "khôi phục add photo vào album, bấm + ra 2 lựa chọn")
+            // — nút "+" ở header panel Photo giờ dispatch qua ĐÂY thay vì gọi thẳng
+            // `uploadInput.click()` (xem event/workflow/file-manager-photo.js::_wireHeaderActionEvents()) —
+            // cần đọc `activeAlbumId` (state RIÊNG của Router) để quyết định CHẠY GÌ -> LUÔN
+            // VirtualMachineState (event-bus-flow.md mục 4C), cùng khuôn case 'image.click' phía trên.
+            case 'fileManagerPhoto.uploadTrigger.click': {
+                VirtualMachineState.run([
+                    { state: !!activeAlbumId, operation: '===', value: true, callback: () => {
+                        // Đang lọc theo 1 album -> mở dropdown 2 lựa chọn (Tải ảnh lên / Chọn ảnh có sẵn).
+                        workflowFileManagerPhoto.openAddToAlbumChoiceMenu(activeAlbumId);
+                    } },
+                    { state: !activeAlbumId, operation: '===', value: true, callback: () => {
+                        // KHÔNG lọc -> mở thẳng hộp thoại chọn file, giữ NGUYÊN hành vi cũ.
+                        workflowFileManagerPhoto.triggerUploadInput();
+                    } },
+                ]);
+                break;
+            }
+
+            // Đích dispatch của dropdown 2 lựa chọn ngay trên (mỗi mục dropdown tự eventBus.send()
+            // case này, xem workflowFileManagerPhoto.openAddToAlbumChoiceMenu()) — 2 lựa chọn LOẠI
+            // TRỪ NHAU, dispatch theo msg.payload.choice (KHÔNG phải appState) — cùng khuôn case
+            // 'albumList.action.click' (dispatch theo payload, tiền lệ đã có sẵn trong chính file này).
+            case 'fileManagerPhoto.addPhotoChoice.click': {
+                const { choice, albumId } = msg.payload;
+                VirtualMachineState.run([
+                    { state: choice, operation: '===', value: 'upload', callback: () => {
+                        workflowFileManagerPhoto.triggerUploadInput();
+                    } },
+                    { state: choice, operation: '===', value: 'existing', callback: () => {
+                        workflowFileManagerPhoto.openAlbumImagePicker(albumId); // >1 hàm core (Generic Drawer + shield + đọc DB + windowing) -> workflow
+                    } },
+                ]);
+                break;
+            }
 
             case 'fileManagerPhoto.upload.change': {
                 const { files } = msg.payload;
