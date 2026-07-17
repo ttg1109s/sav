@@ -14,9 +14,9 @@
  * TRƯỚC ĐÂY `TPL_SLIDESHOW_SETTINGS_DRAWER` gộp CẢ khung `fixed inset-0 drawer-glass z-[90]` LẪN
  * panel chọn Album (2 phần tử ĐỘC LẬP mount ở z-[130]/[131], không lồng trong khung trên — xem
  * comment gốc). Tách làm 2:
- *   - `renderSlideshowPanelBody()` — 5 input (enable/mode/photoPerSong/interval/transition),
- *     PUSH ĐỘNG vào Settings Stack (core/settings-panel-stack.js), giống About/
- *     Subtitle/Visualizer.
+ *   - `renderSlideshowPanelBody()` — 6 input (enable/mode/photoPerSong/interval/transition/
+ *     kenBurns — Ken Burns TÁCH KHỎI transition select thành toggle riêng, 18/07/2026), PUSH ĐỘNG
+ *     vào Settings Stack (core/settings-panel-stack.js), giống About/Subtitle/Visualizer.
  *   - Panel chọn Album — ĐÃ ĐỔI SANG Generic Drawer động (Giai đoạn 4, xem mục 3 ngay trên) —
  *     KHÔNG còn `TPL_SLIDESHOW_ALBUM_PICKER` mount tĩnh nào ở file này nữa.
  *
@@ -65,7 +65,7 @@ function renderSlideshowPanelBody() {
                             </div>
                             <input id="setting-slideshow-interval" type="number" min="5" step="1" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-20 text-right shrink-0">
                         </div>
-                        <div class="flex justify-between items-center p-4">
+                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <span class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.transition.label">${t('slideshowSettingsDrawer.transition.label')}</span>
                             <select id="setting-slideshow-transition" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-40 text-right">
                                 <option value="fade" data-i18n="slideshowSettingsDrawer.transition.fade">${t('slideshowSettingsDrawer.transition.fade')}</option>
@@ -75,13 +75,26 @@ function renderSlideshowPanelBody() {
                                 <option value="zoomOut" data-i18n="slideshowSettingsDrawer.transition.zoomOut">${t('slideshowSettingsDrawer.transition.zoomOut')}</option>
                                 <option value="wipe" data-i18n="slideshowSettingsDrawer.transition.wipe">${t('slideshowSettingsDrawer.transition.wipe')}</option>
                                 <option value="flip" data-i18n="slideshowSettingsDrawer.transition.flip">${t('slideshowSettingsDrawer.transition.flip')}</option>
-                                <option value="kenburns" data-i18n="slideshowSettingsDrawer.transition.kenburns">${t('slideshowSettingsDrawer.transition.kenburns')}</option>
                                 <option value="blur" data-i18n="slideshowSettingsDrawer.transition.blur">${t('slideshowSettingsDrawer.transition.blur')}</option>
                                 <option value="rotateFade" data-i18n="slideshowSettingsDrawer.transition.rotateFade">${t('slideshowSettingsDrawer.transition.rotateFade')}</option>
                                 <option value="curtain" data-i18n="slideshowSettingsDrawer.transition.curtain">${t('slideshowSettingsDrawer.transition.curtain')}</option>
                                 <option value="circleReveal" data-i18n="slideshowSettingsDrawer.transition.circleReveal">${t('slideshowSettingsDrawer.transition.circleReveal')}</option>
                                 <option value="glitch" data-i18n="slideshowSettingsDrawer.transition.glitch">${t('slideshowSettingsDrawer.transition.glitch')}</option>
                             </select>
+                        </div>
+                        <!-- MỚI (Ken Burns, 18/07/2026, phản hồi Giang) — toggle ĐỘC LẬP, TÁCH khỏi
+                             select Transition ngay trên (trước đây 'kenburns' là 1 option trong đó,
+                             chọn nó là khoá cứng transition về fade — giờ Ken Burns dùng ĐƯỢC cùng
+                             lúc với BẤT KỲ kiểu transition nào). Mặc định OFF. -->
+                        <div class="flex justify-between items-center p-4">
+                            <div class="pr-3">
+                                <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.kenBurns.label">${t('slideshowSettingsDrawer.kenBurns.label')}</div>
+                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="slideshowSettingsDrawer.kenBurns.hint">${t('slideshowSettingsDrawer.kenBurns.hint')}</div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="setting-slideshow-kenburns" class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-fuchsia-500 shadow-inner"></div>
+                            </label>
                         </div>
                     </div>
                 </div>
