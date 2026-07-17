@@ -18,10 +18,16 @@
  * (`#btn-file-manager-open-album-list`, `#file-manager-album-filter-chip`, `#file-manager-album-list`
  * — vẫn delegated qua `settingsStackBody`, VÌ Album List sub-panel là panel push động, NẰM TRONG
  * `settingsStackBody` giống mọi panel khác). XOÁ delegation cho thanh chọn nhiều cũ
- * (`#btn-file-manager-image-selection-cancel/confirm`) — "thêm ảnh vào album" giờ là picker Generic
- * Drawer riêng, click grid của picker đó KHÔNG qua đây (Generic Drawer là ANH EM của `#app-stack`
- * trong `#app-root`, NẰM NGOÀI `settingsStackBody` — wire riêng TRỰC TIẾP trong
- * `workflowFileManagerPhoto.openAlbumImagePicker()`, xem file đó).
+ * (`#btn-file-manager-image-selection-cancel/confirm`) — picker Generic Drawer (chọn 1 ảnh, vd "Ảnh
+ * bìa"/Theme Background) sống NGOÀI `settingsStackBody` (Generic Drawer là ANH EM của `#app-stack`
+ * trong `#app-root`) — click grid của picker đó KHÔNG qua đây, wire riêng TRỰC TIẾP trong
+ * `workflowFileManagerPhoto._openImagePickerDrawer()`, xem file đó.
+ *
+ * MỚI (17/07/2026, Giang yêu cầu "bấm vào album để view luôn ảnh") — thêm delegation bấm CẢ HÀNG
+ * album (`[data-album-id]`, ĐẶT SAU check nút "..." `data-album-menu-action` — nút đó NẰM BÊN
+ * TRONG hàng, phải check trước để không bị hàng nuốt mất click) -> `albumList.row.click`. CÙNG ĐỢT
+ * — action "addImages" (dropdown) + picker Generic Drawer multi-select (`openAlbumImagePicker()`)
+ * ĐÃ XOÁ HẲN, "thêm ảnh vào album" giờ đi qua nút "Tải ảnh lên" (tự gắn vào album đang lọc).
  *
  * NẠP SAU CÙNG (sau bus, core, workflow, router, VÀ SAU dom-refs.js).
  */
@@ -66,6 +72,15 @@ function handleFileManagerPhotoDelegatedClick(e) {
     if (albumMenuBtn) {
         const rowEl = albumMenuBtn.closest('[data-album-id]');
         if (rowEl) eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.menu.click', payload: { albumId: rowEl.dataset.albumId, anchorBtn: albumMenuBtn } });
+        return;
+    }
+    // MỚI (17/07/2026, Giang yêu cầu "bấm vào album để view luôn ảnh") — bấm bất kỳ đâu trên hàng
+    // album (KHÔNG phải nút "...", đã return ở nhánh trên nếu trúng) -> lọc lưới ảnh chính theo
+    // album đó. ĐẶT SAU check `albumMenuBtn` — nút "..." NẰM BÊN TRONG `[data-album-id]`, nếu đặt
+    // TRƯỚC sẽ nuốt mất click vào nút đó.
+    const albumRowEl = e.target.closest('[data-album-id]');
+    if (albumRowEl) {
+        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.row.click', payload: { albumId: albumRowEl.dataset.albumId } });
         return;
     }
 
