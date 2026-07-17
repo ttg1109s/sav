@@ -108,6 +108,18 @@ function _buildPanelInnerHtml(title, bodyHtml, fullBleed, headerActionHtml) {
 }
 
 /**
+ * Trả về panelEl đang Ở TRÊN CÙNG ngăn xếp (panel đang hiển thị thật) — hàm ĐỌC thuần, không tác
+ * dụng phụ. MỚI (17/07/2026, Giang yêu cầu) — dùng khi cần biết "đang đứng đúng panel nào" TRƯỚC
+ * khi quyết định hành vi Back đặc thù cho 1 panel cụ thể (vd panel Photo đang lọc theo album, xem
+ * event/workflow/settings-stack-nav.js::back()) — tránh bắt nhầm sang panel KHÁC đang mở phía trên
+ * nó trong ngăn xếp.
+ * @returns {HTMLElement}
+ */
+function peekTopSettingsPanel() {
+    return settingsPanelStackEntries[settingsPanelStackEntries.length - 1].panelEl;
+}
+
+/**
  * Mở 1 panel mới — panel MỚI append vào CUỐI khung cuộn ngang, rồi cuộn mượt sang nó (xem docstring
  * đầu file).
  * @param {{title: string, bodyHtml: string, fullBleed?: boolean, headerActionHtml?: string}} params
