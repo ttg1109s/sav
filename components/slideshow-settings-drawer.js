@@ -59,12 +59,17 @@ function renderSlideshowPanelBody() {
                                 <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-fuchsia-500 shadow-inner"></div>
                             </label>
                         </div>
+                        <!-- SỬA (18/07/2026, phản hồi Giang — "setting chọn thời gian mở modal picker
+                             y như cách subtitles làm") — THAY <input type="number"> cũ bằng nút bấm,
+                             click mở modal "bánh xe cuộn số" dùng chung (core/time-picker-modal.js,
+                             xem workflowSlideshow.openIntervalPicker()). "5s" chỉ là placeholder TĨNH
+                             — refreshDrawerUI() ghi đè ĐÚNG giá trị thật ngay sau khi panel mở. -->
                         <div id="slideshow-interval-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <div>
                                 <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.interval.label">${t('slideshowSettingsDrawer.interval.label')}</div>
                                 <div class="text-xs text-slate-400 mt-0.5" data-i18n="slideshowSettingsDrawer.interval.hint">${t('slideshowSettingsDrawer.interval.hint')}</div>
                             </div>
-                            <input id="setting-slideshow-interval" type="number" min="5" step="1" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-20 text-right shrink-0">
+                            <button type="button" id="setting-slideshow-interval" class="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none w-20 text-right shrink-0 hover:bg-white/10 transition-colors">5s</button>
                         </div>
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <span class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.transition.label">${t('slideshowSettingsDrawer.transition.label')}</span>
