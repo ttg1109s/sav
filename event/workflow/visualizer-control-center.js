@@ -12,11 +12,13 @@
  *      `disableVideoBackgroundState()`/`disableVisualBgImageState()` đã sửa tương ứng, xem
  *      core/state-and-video-bg.js) — vì vậy 2 nhánh "tắt" dưới đây không còn cần shield nữa.
  *
- * MỚI (04/07/2026, mục 2 phản hồi Giang):
- *   - Video nền BẬT/TẮT giờ GỌI TRỰC TIẾP `workflowSlideshow.pauseForVideoBg()`/
- *     `resumeFromVideoBg()` NGAY tại đây — THAY watchdog poll 3s/lần đã XOÁ hẳn khỏi
- *     event/workflow/slideshow.js (Giang chỉ ra ĐÚNG: đã có sẵn sự kiện click bật/tắt video để
- *     biết, poll lại appState mỗi 3s là thừa).
+ * MỚI (04/07/2026, mục 2 phản hồi Giang; SỬA 18/07/2026, mục 1 — gộp chung 2 hàm riêng thành 1
+ *   điểm đồng bộ duy nhất, xem event/workflow/slideshow.js::syncPlaybackGate()):
+ *   - Video nền BẬT/TẮT giờ GỌI TRỰC TIẾP `workflowSlideshow.syncPlaybackGate()` NGAY tại đây —
+ *     THAY watchdog poll 3s/lần đã XOÁ hẳn khỏi event/workflow/slideshow.js (Giang chỉ ra ĐÚNG: đã
+ *     có sẵn sự kiện click bật/tắt video để biết, poll lại appState mỗi 3s là thừa). Hàm đó GIỜ
+ *     CŨNG tự kiểm tra thêm điều kiện nhạc đang phát (mục 1, 18/07/2026) — KHÔNG chỉ riêng video
+ *     nền nữa, nên gọi TỪ ĐÂY vẫn đúng dù lý do gọi ban đầu chỉ là video nền.
  */
 const workflowVisualizerControlCenter = {
 
@@ -33,7 +35,7 @@ const workflowVisualizerControlCenter = {
     async disableVideoBackground() {
         disableVideoBackgroundState(); // core: dọn vizConfig.videoBgUrl (GIỮ NGUYÊN meta.videoBg) + đồng bộ UI
         // MỚI (mục 2) — video tắt -> báo TRỰC TIẾP cho slideshow tự resume (THAY watchdog poll đã bỏ).
-        if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.resumeFromVideoBg();
+        if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.syncPlaybackGate();
     },
 
     /**
@@ -52,7 +54,7 @@ const workflowVisualizerControlCenter = {
             applyUploadedVideoBg(file); // core: tạo blob URL + bật + đồng bộ UI (validate lại 1 lần nữa, vô hại)
         });
         // MỚI (mục 2) — video bật thành công -> báo TRỰC TIẾP cho slideshow tự pause.
-        if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.pauseForVideoBg();
+        if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.syncPlaybackGate();
     },
 
     /** MỚI (03/07/2026, mục 2; VIẾT LẠI 04/07/2026, mục 1) — ứng với gạt

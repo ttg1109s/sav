@@ -14,15 +14,18 @@
  *      1-4. Workflow nói chung được phép đọc appState trực tiếp (không như core) — xem tiền lệ
  *      event/workflow/file-manager-song.js, event/workflow/playlist.js.
  *
- * PAUSE/RESUME theo `vizConfig.videoBgEnabled` — VIẾT LẠI (04/07/2026, mục 2 phản hồi Giang, BỎ
- * watchdog poll 3s/lần): trước đây `_tick()` tự đọc `videoBgEnabled` MỖI LẦN CHẠY + có 1 task
+ * PAUSE/RESUME theo `vizConfig.videoBgEnabled` VÀ trạng thái phát nhạc — VIẾT LẠI (04/07/2026, mục
+ * 2 phản hồi Giang, BỎ watchdog poll 3s/lần; MỞ RỘNG 18/07/2026, mục 1 phản hồi Giang — thêm điều
+ * kiện nhạc đang phát): trước đây `_tick()` tự đọc `videoBgEnabled` MỖI LẦN CHẠY + có 1 task
  * "canh chừng" riêng (`_startWatchdog()`) đọc mỗi 3s để tự resume — Giang chỉ ra ĐÚNG: đã có sẵn
  * sự kiện click bật/tắt video (`event/workflow/visualizer-control-center.js`) để biết CHÍNH XÁC
- * lúc nào cần pause/resume, poll lại appState mỗi 3s là THỪA. Giờ `pauseForVideoBg()`/
- * `resumeFromVideoBg()` được GỌI TRỰC TIẾP từ đúng lúc video bật/tắt thành công (event-driven,
- * KHÔNG còn polling nào cả). KHÔNG đụng `enableVideoBackground()`/`disableVideoBackgroundState()`/
- * `applyUploadedVideoBg()` (code DI SẢN đã có nợ Rule 3 sẵn — cùng lý do đã ghi ở
- * core/state-and-video-bg.js, KHÔNG thêm lời gọi void mới vào các hàm đó).
+ * lúc nào cần pause/resume, poll lại appState mỗi 3s là THỪA. Giờ `syncPlaybackGate()` (GỘP CHUNG
+ * 2 hàm riêng `pauseForVideoBg()`/`resumeFromVideoBg()` đời trước — 18/07/2026) được GỌI TRỰC TIẾP
+ * từ CẢ 2 nguồn (video bật/tắt THÀNH CÔNG — visualizer-control-center.js; VÀ audio play/pause —
+ * core/player-controls.js), event-driven, KHÔNG còn polling nào cả — engine CHỈ "chạy" khi CẢ HAI
+ * điều kiện đúng cùng lúc (xem `_shouldBeRunning()`). KHÔNG đụng `enableVideoBackground()`/
+ * `disableVideoBackgroundState()`/`applyUploadedVideoBg()` (code DI SẢN đã có nợ Rule 3 sẵn — cùng
+ * lý do đã ghi ở core/state-and-video-bg.js, KHÔNG thêm lời gọi void mới vào các hàm đó).
  *
  * PERSIST: `meta.slideshowConfig` + `meta.activeBackgroundAlbum` (service/db.js, getMeta/setMeta) —
  * đọc lại lúc boot qua `loadPersistedSettingsOnBoot()`, gọi từ core/visualizer/draw-visualizer.js
@@ -136,6 +139,15 @@ const workflowSlideshow = {
     _currentObjectUrl: null,
     _layerToggle: false,   // false = layer1 đang 'current', true = layer2 đang 'current'
     _lastSeenSongKey: null, // MỚI (mục 5) — bookkeeping riêng của _startSongWatcher(), xem hàm đó
+    // MỚI (18/07/2026, mục 1 phản hồi Giang — "chưa phát nhạc slideshow đã tự chạy") — có đang
+    // THẬT SỰ hiện container + chạy task hay không (KHÁC `activeBackgroundAlbum` — cái đó chỉ nói
+    // "có album được CHỌN", không nói "đang CHIẾU"). false = đã start() xong phần chuẩn bị (_images
+    // nạp sẵn) nhưng ĐANG CHỜ nhạc phát lần đầu mới thật sự hiện — xem _reveal()/syncPlaybackGate().
+    _isRevealed: false,
+    // MỚI (18/07/2026, mục 2 phản hồi Giang — "mỗi lượt kế tiếp dù giống ảnh trước đó đều phải
+    // ngẫu nhiên chứ không dùng vị trí cũ") — direction Ken Burns CỤ THỂ vừa dùng ở lượt kích hoạt
+    // gần nhất (bất kể layer nào) — truyền vào resolveSlideshowKenBurnsDirection() làm excludeDirection.
+    _lastKenBurnsDirection: null,
 
     _currentLayer() { return this._layerToggle ? slideshowLayer2 : slideshowLayer1; },
     _idleLayer() { return this._layerToggle ? slideshowLayer1 : slideshowLayer2; },
@@ -255,6 +267,13 @@ const workflowSlideshow = {
     /** Bắt đầu (hoặc khởi động lại) engine cho 1 albumId.
      * VIẾT LẠI (04/07/2026, mục 5 phản hồi Giang) — rẽ nhánh theo `slideshowConfig.photoPerSong`:
      * true -> `_startSongWatcher()` (đổi ảnh theo bài hát); false -> task đếm giờ cố định như cũ.
+     * VIẾT LẠI LẦN 2 (18/07/2026, mục 1 phản hồi Giang — "chưa phát nhạc slideshow đã tự chạy và
+     * hiển thị ảnh rồi") — TÁCH phần "chuẩn bị" (nạp _images, reset index — LUÔN làm ngay) khỏi
+     * phần "hiện + chạy" (`_reveal()`, CHỈ làm khi `_shouldBeRunning()` — nhạc đang phát THẬT +
+     * video nền tắt). Nếu gọi start() lúc nhạc CHƯA phát (vd boot xong tự restore album đã lưu,
+     * hoặc vừa chọn album trong Settings lúc nhạc đang pause) -> _images đã sẵn sàng nhưng
+     * container VẪN ẨN, KHÔNG task nào chạy — chờ `syncPlaybackGate()` gọi `_reveal()` đúng lúc
+     * nhạc bắt đầu phát lần đầu (xem handleAudioPlay(), core/player-controls.js).
      * @param {string} albumId
      */
     async start(albumId) {
@@ -266,6 +285,38 @@ const workflowSlideshow = {
         }
         this._currentIndex = -1;
         this._layerToggle = false;
+        if (this._shouldBeRunning()) this._reveal();
+        // Chưa đủ điều kiện (nhạc chưa phát/đang pause, hoặc video nền đang bật) -> để yên, container
+        // ẩn, KHÔNG hiện ảnh nào — chờ syncPlaybackGate() gọi lại đúng lúc đủ điều kiện.
+    },
+
+    /** MỚI (18/07/2026, mục 1 phản hồi Giang) — tính xem engine CÓ NÊN đang "chạy" hay không, dựa
+     * trên 2 điều kiện ĐỘC LẬP PHẢI ĐÚNG CÙNG LÚC: (1) audio đang phát THẬT (không chỉ có
+     * currentKey — phải đọc thẳng `audioPlayer.paused`, tin cậy hơn appState có thể lệch nhịp) VÀ
+     * (2) video nền KHÔNG đang bật (video luôn che kín, chạy slideshow phía dưới vô nghĩa — lý do
+     * cũ của pauseForVideoBg()/resumeFromVideoBg(), giờ GỘP CHUNG vào đây thay vì 2 hàm riêng).
+     * @returns {boolean}
+     */
+    _shouldBeRunning() {
+        return !audioPlayer.paused && !appState.get('vizConfig').videoBgEnabled;
+    },
+
+    /** MỚI (18/07/2026, mục 1 phản hồi Giang) — hiện container + ảnh đầu tiên + bắt đầu task lặp
+     * (hoặc song-watcher) — gọi LẦN ĐẦU đúng lúc `_shouldBeRunning()` chuyển từ false -> true (từ
+     * `start()` nếu nhạc ĐÃ phát sẵn, hoặc từ `syncPlaybackGate()` lúc nhạc BẮT ĐẦU phát). KHÔNG
+     * gọi lại nếu ĐÃ revealed rồi (dùng `_resumeTicking()` thay — xem `syncPlaybackGate()`).
+     * MỚI (mục 4 phản hồi Giang — "khi áp dụng slideshow thì phải ẩn background image, không tắt")
+     * — ẨN `#visual-bg-image` (opacity 0, KHÔNG đụng `vizConfig.visualBgImageEnabled`/`visualBgImage`
+     * trong state) — slideshow ĐÃ che nó bằng z-index rồi (xem core/state-and-video-bg.js), nhưng
+     * ẩn tường minh để tránh lớp đó vẫn "sống" ngầm dưới lúc slideshow hiện. `stop()` tự khôi phục
+     * lại ĐÚNG theo trạng thái `visualBgImageEnabled` của chính nó (KHÔNG tự ép bật lại nếu người
+     * dùng vốn dĩ đã tắt nó từ trước). */
+    _reveal() {
+        if (this._isRevealed) return;
+        this._isRevealed = true;
+        if (visualBgImageElement && appState.get('vizConfig').visualBgImageEnabled) {
+            visualBgImageElement.style.opacity = '0'; // core dom-ref trực tiếp — CHỈ ẩn, KHÔNG tắt state
+        }
         setSlideshowContainerVisible(slideshowContainer, true); // core
         this._showFirstImage();
         if (appState.get('slideshowConfig').photoPerSong) {
@@ -277,6 +328,39 @@ const workflowSlideshow = {
         }
     },
 
+    /** MỚI (18/07/2026, mục 1 phản hồi Giang) — điểm ĐỒNG BỘ DUY NHẤT cho trạng thái "chạy" của
+     * engine, gọi từ MỌI nguồn có thể ảnh hưởng (audio play/pause — core/player-controls.js;
+     * video nền bật/tắt — event/workflow/visualizer-control-center.js). THAY HẲN 2 hàm riêng lẻ
+     * cũ `pauseForVideoBg()`/`resumeFromVideoBg()` — gộp chung vào đây để 2 nguồn KHÔNG dẫm chân
+     * nhau (vd nhạc resume nhưng video nền vẫn đang bật -> KHÔNG được chạy, chỉ 1 hàm duy nhất
+     * kiểm tra CẢ HAI điều kiện mới quyết định đúng). Tự idempotent — gọi lại nhiều lần dù trạng
+     * thái không đổi cũng không sao. */
+    syncPlaybackGate() {
+        if (!appState.get('activeBackgroundAlbum')) return; // không có slideshow nào được chọn -> không có gì để sync
+        const shouldRun = this._shouldBeRunning();
+        if (shouldRun && !this._isRevealed) this._reveal();
+        else if (shouldRun && this._isRevealed) this._resumeTicking();
+        else if (!shouldRun && this._isRevealed) this._pauseTicking();
+    },
+
+    /** MỚI (18/07/2026, mục 1 phản hồi Giang) — tạm dừng task lặp + ĐÓNG BĂNG Ken Burns TẠI ĐÚNG
+     * vị trí hiện tại (không cancel/reset — xem pauseSlideshowKenBurnsAnimation(), core). */
+    _pauseTicking() {
+        taskManager.pause(SLIDESHOW_TASK);
+        taskManager.pause(SLIDESHOW_SONG_WATCH_TASK);
+        pauseSlideshowKenBurnsAnimation(this._kenBurnsAnim1); // core
+        pauseSlideshowKenBurnsAnimation(this._kenBurnsAnim2); // core
+    },
+
+    /** MỚI (18/07/2026, mục 1 phản hồi Giang) — chạy tiếp task lặp + Ken Burns từ ĐÚNG vị trí đã
+     * đóng băng (không restart). */
+    _resumeTicking() {
+        if (taskManager.plan[SLIDESHOW_TASK]) taskManager.resume(SLIDESHOW_TASK);
+        if (taskManager.plan[SLIDESHOW_SONG_WATCH_TASK]) taskManager.resume(SLIDESHOW_SONG_WATCH_TASK);
+        resumeSlideshowKenBurnsAnimation(this._kenBurnsAnim1); // core
+        resumeSlideshowKenBurnsAnimation(this._kenBurnsAnim2); // core
+    },
+
     /** Dừng hẳn engine — dọn task + ẩn container + revoke object URL.
      * VIẾT LẠI (04/07/2026, mục 3 — Rule 3 siết chặt): core không còn hàm gộp
      * `resetSlideshowLayers()` (từng tự gọi 2 hàm core khác bên trong, nay cấm) — Workflow tự lặp
@@ -285,7 +369,11 @@ const workflowSlideshow = {
      * giờ nhận layer CON (Pan), `resetSlideshowLayerClasses()` vẫn nhận layer NGOÀI như cũ (2 việc
      * khác phần tử — xem docstring đầu file). Task `slideshowKenBurnsFreeze1`/`2` KHÔNG CÒN TỒN TẠI
      * (kỹ thuật CSS cũ cần tự "đóng băng" bằng tay — WAAPI `fill:'forwards'` tự làm việc đó, xem
-     * docstring `startSlideshowKenBurnsAnimation()` core) — bỏ luôn 2 dòng `taskManager.kill()` đó. */
+     * docstring `startSlideshowKenBurnsAnimation()` core) — bỏ luôn 2 dòng `taskManager.kill()` đó.
+     * SỬA LẦN 2 (18/07/2026, mục 1+4 phản hồi Giang) — reset `_isRevealed`/`_lastKenBurnsDirection`
+     * (engine tắt hẳn = phải "chưa revealed" nếu start() lại) + KHÔI PHỤC Visual bg image (`#visual-
+     * bg-image`) về ĐÚNG trạng thái `visualBgImageEnabled` của chính nó (mục 4 — chỉ ẨN lúc slideshow
+     * chạy, KHÔNG tắt state, nên lúc dừng phải trả lại y như trước nếu nó vốn đang bật). */
     stop() {
         taskManager.kill(SLIDESHOW_TASK);
         taskManager.kill(SLIDESHOW_SONG_WATCH_TASK);
@@ -298,6 +386,11 @@ const workflowSlideshow = {
         });
         if (this._currentObjectUrl) { try { URL.revokeObjectURL(this._currentObjectUrl); } catch (e) {} this._currentObjectUrl = null; }
         this._currentIndex = -1;
+        this._isRevealed = false;
+        this._lastKenBurnsDirection = null;
+        if (visualBgImageElement && appState.get('vizConfig').visualBgImageEnabled) {
+            visualBgImageElement.style.opacity = '1'; // core dom-ref trực tiếp — khôi phục ĐÚNG trạng thái riêng của nó
+        }
     },
 
     /** Hiện ảnh ĐẦU TIÊN ngay lập tức lúc start() (KHÔNG chuyển cảnh — chỉ set thẳng lên layer
@@ -344,7 +437,8 @@ const workflowSlideshow = {
      *   `width`/`height` là kích thước ẢNH GỐC — có thể thiếu ở record cũ, core tự fallback an toàn).
      */
     _activateKenBurns(panEl, mode, image) {
-        const direction = resolveSlideshowKenBurnsDirection(mode); // core
+        const direction = resolveSlideshowKenBurnsDirection(mode, this._lastKenBurnsDirection); // core
+        this._lastKenBurnsDirection = direction; // MỚI (mục 2) — nhớ lại cho lượt kế tiếp loại trừ
         const bounds = computeSlideshowKenBurnsSafeBounds(image ? image.width : 0, image ? image.height : 0, window.innerWidth, window.innerHeight); // core
         const keyframes = pickSlideshowKenBurnsKeyframes(direction, bounds); // core
         const durationMs = this._computeIntervalMs();
@@ -355,9 +449,8 @@ const workflowSlideshow = {
     /** taskManager exe — đóng vai trò "Router" cho tick tự sinh (xem comment đầu file): tự đọc
      * appState rồi gọi hàm THUẦN ở core/file-manager/slideshow.js.
      * ĐƠN GIẢN HOÁ (04/07/2026, mục 2 phản hồi Giang) — bỏ hẳn check `videoBgEnabled` + pause() ở
-     * đây: watchdog poll 3s/lần đã XOÁ (xem lý do ở `pauseForVideoBg()`/`resumeFromVideoBg()`
-     * dưới) — task này giờ CHỈ chạy khi thật sự KHÔNG bị pause từ bên ngoài, không cần tự kiểm tra
-     * lại nữa.
+     * đây: watchdog poll 3s/lần đã XOÁ (xem lý do ở `syncPlaybackGate()` phía trên) — task này giờ
+     * CHỈ chạy khi thật sự KHÔNG bị pause từ bên ngoài, không cần tự kiểm tra lại nữa.
      * SỬA (Ken Burns, 18/07/2026) — background-image/Ken Burns thao tác lên layer CON
      * (`outgoingPan`/`incomingPan`), transition chuyển cảnh (class ss-layer-enter/exit) vẫn thao
      * tác lên layer NGOÀI (`outgoingLayer`/`incomingLayer`) như cũ. Điều kiện Ken Burns đổi sang
@@ -402,25 +495,6 @@ const workflowSlideshow = {
         this._currentObjectUrl = objectUrl;
         this._currentIndex = nextIndex;
         this._layerToggle = !this._layerToggle;
-    },
-
-    /**
-     * MỚI (04/07/2026, mục 2 phản hồi Giang) — GỌI TRỰC TIẾP từ
-     * `workflowVisualizerControlCenter` NGAY LÚC video nền BẬT thành công (KHÔNG còn watchdog
-     * poll 3s/lần — Giang chỉ ra ĐÚNG: đã có sẵn sự kiện click bật/tắt video để biết, poll lại
-     * appState mỗi 3s là thừa).
-     */
-    pauseForVideoBg() {
-        taskManager.pause(SLIDESHOW_TASK);
-        taskManager.pause(SLIDESHOW_SONG_WATCH_TASK);
-    },
-
-    /** MỚI (04/07/2026, mục 2) — GỌI TRỰC TIẾP từ `workflowVisualizerControlCenter` NGAY LÚC
-     * video nền TẮT thành công. */
-    resumeFromVideoBg() {
-        if (!appState.get('activeBackgroundAlbum')) return; // không có slideshow nào đang chạy -> không có gì để resume
-        if (taskManager.plan[SLIDESHOW_TASK]) taskManager.resume(SLIDESHOW_TASK); // no-op an toàn nếu không tồn tại/không paused
-        if (taskManager.plan[SLIDESHOW_SONG_WATCH_TASK]) taskManager.resume(SLIDESHOW_SONG_WATCH_TASK);
     },
 
     // ===================== Settings Drawer (cụm router "slideshowSettings") =====================
