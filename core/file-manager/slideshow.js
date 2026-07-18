@@ -32,14 +32,12 @@
  * nhận qua tham số, không tự getElementById, không có ràng buộc thứ tự nào.
  */
 
-/** MẶC ĐỊNH thời lượng 1 lượt chuyển cảnh (ms) — dùng làm giá trị KHỞI TẠO của
- * `slideshowConfig.transitionDurationMs` (service/state.js) lúc CHƯA từng cấu hình gì (cài mới).
- * SỬA (18/07/2026, phản hồi Giang — thêm tuỳ chỉnh thời gian transition) — KHÔNG CÒN dùng trực
- * tiếp lúc runtime nữa (trước đây hardcode CẢ ở đây LẪN CSS `animation-duration: 900ms` — giờ giá
- * trị THẬT lấy từ `slideshowConfig.transitionDurationMs`, set ĐỘNG qua
- * `setSlideshowTransitionTiming()` ngay dưới, KHÔNG còn phải "khớp" gì với CSS nữa — CSS chỉ giữ
- * `animation-duration: 900ms` làm giá trị DỰ PHÒNG, luôn bị inline style ghi đè). */
-const SLIDESHOW_TRANSITION_DURATION_MS = 900;
+// ĐÃ XOÁ (18/07/2026, phản hồi Giang — phát hiện lúc soát bug) — `SLIDESHOW_TRANSITION_DURATION_MS`
+// (từng = 900) không còn được DÙNG THẬT ở đâu nữa (giá trị mặc định THẬT giờ nằm ở
+// `service/state.js::DEFAULT_SLIDESHOW_CONFIG.transitionDurationMs`, hiện = 1000 — khớp đúng
+// SLIDESHOW_TRANSITION_MIN_TIME_MS đã chốt) — giữ hằng số CŨ nằm im ở đây SẼ lệch với giá trị THẬT
+// (900 vs 1000), gây hiểu lầm khi đọc code. Xoá hẳn thay vì để "chết" không đồng bộ.
+
 
 /** 12 kiểu transition hợp lệ (plan-v12-multimedia.md mục 4.b3: 7 cơ bản + 5 mở rộng — Ken Burns
  * ĐÃ TÁCH khỏi danh sách này, xem SLIDESHOW_KENBURNS_MODES) — dùng để validate config đã lưu
