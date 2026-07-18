@@ -4,7 +4,7 @@
  * panel chọn Album kiểu "notify center").
  *
  * === Batch D4 (Settings restructure, 06/07/2026) ===
- * 6 input (enable/mode/photoPerSong/interval/transition/kenBurns) sống BÊN TRONG panel Settings
+ * 7 input (enable/mode/photoPerSong/interval/transition/kenBurns/kenBurnsMode) sống BÊN TRONG panel Settings
  * (push/pop động, core/settings-panel-stack.js) — ĐỔI sang delegation trên `settingsStackBody`,
  * CHUẨN đã dùng từ Batch D2/D3. `btnBackSlideshowSettings` ĐÃ XOÁ (Back dùng CHUNG
  * `btnSettingsStackBack`). `btnOpenSlideshowSettings` (Main, tĩnh) GIỮ NGUYÊN kiểu listener trực
@@ -25,7 +25,7 @@ if (btnOpenSlideshowSettings) {
 
 // (btnBackSlideshowSettings ĐÃ XOÁ — Batch D4: Back dùng CHUNG btnSettingsStackBack.)
 
-// ===================== 6 input BÊN TRONG panel Settings (delegate) =====================
+// ===================== 7 input BÊN TRONG panel Settings (delegate) =====================
 const SLIDESHOW_SETTINGS_INPUT_MAP = {
     'setting-slideshow-enable': { type: 'slideshowSettings.enable.change', event: 'change', checkbox: true },
     'setting-slideshow-mode': { type: 'slideshowSettings.mode.change', event: 'change' },
@@ -33,6 +33,7 @@ const SLIDESHOW_SETTINGS_INPUT_MAP = {
     'setting-slideshow-interval': { type: 'slideshowSettings.interval.change', event: 'change' },
     'setting-slideshow-transition': { type: 'slideshowSettings.transitionType.change', event: 'change' },
     'setting-slideshow-kenburns': { type: 'slideshowSettings.kenBurns.change', event: 'change', checkbox: true },
+    'setting-slideshow-kenburns-mode': { type: 'slideshowSettings.kenBurnsMode.change', event: 'change' },
 };
 
 function handleSlideshowSettingsDelegatedChange(e) {
