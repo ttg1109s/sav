@@ -208,7 +208,7 @@
             // chạy (displayOrder quay lại phản ánh top-level thật) — xem core/playlist/order.js.
             sectionQueueActive: 'boolean',
             activeBackgroundAlbum: 'nullable-string', // albumId đang dùng làm nền slideshow, null = không dùng
-            slideshowConfig: 'object',               // { mode, intervalSeconds, transitionType, photoPerSong, kenBurnsEnabled } — xem CONST.DEFAULT_SLIDESHOW_CONFIG
+            slideshowConfig: 'object',               // { mode, intervalSeconds, transitionType, photoPerSong, kenBurnsEnabled, kenBurnsMode } — xem CONST.DEFAULT_SLIDESHOW_CONFIG
             readerConfig: 'object',                  // { fontFamily, fontSize, bgColor, textColor, opacity } — xem CONST.DEFAULT_READER_CONFIG
 
             // ── generic drawer ────────────────────────────────────────────────
@@ -494,6 +494,11 @@
                                       // MỚI HOÀN TOÀN — KHÔNG migrate từ 'kenburns' đời trước (đã
                                       // gộp chung vào transitionType, nay xoá sạch không giữ
                                       // tương thích ngược).
+                kenBurnsMode: 'zoomPanRandom', // MỚI ("Nhóm 2", 18/07/2026, phản hồi Giang) — 1
+                                      // trong 13 SLIDESHOW_KENBURNS_MODES (core/file-manager/
+                                      // slideshow.js) — THAY HẲN "Nhóm 1" (8 biến thể random tự
+                                      // động, không chọn được). Mặc định 'zoomPanRandom' (đa dạng
+                                      // nhất, gần giống cảm giác Nhóm 1 cũ nhất trong 13 lựa chọn).
             }),
             DEFAULT_READER_CONFIG: Object.freeze({
                 fontFamily: 'system-ui',
