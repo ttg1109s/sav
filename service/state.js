@@ -208,7 +208,7 @@
             // chạy (displayOrder quay lại phản ánh top-level thật) — xem core/playlist/order.js.
             sectionQueueActive: 'boolean',
             activeBackgroundAlbum: 'nullable-string', // albumId đang dùng làm nền slideshow, null = không dùng
-            slideshowConfig: 'object',               // { mode, intervalSeconds, transitionType, photoPerSong } — xem CONST.DEFAULT_SLIDESHOW_CONFIG
+            slideshowConfig: 'object',               // { mode, intervalSeconds, transitionType, photoPerSong, kenBurnsEnabled } — xem CONST.DEFAULT_SLIDESHOW_CONFIG
             readerConfig: 'object',                  // { fontFamily, fontSize, bgColor, textColor, opacity } — xem CONST.DEFAULT_READER_CONFIG
 
             // ── generic drawer ────────────────────────────────────────────────
@@ -488,6 +488,12 @@
                 photoPerSong: false, // MỚI (04/07/2026, mục 5 phản hồi Giang) — true: đổi ảnh THEO
                                       // bài hát (1 ảnh/1 bài, đổi đúng lúc bài hát đổi — kể cả seek
                                       // KHÔNG tính, chỉ tính đổi BÀI thật), bỏ qua intervalSeconds.
+                kenBurnsEnabled: false, // MỚI (Ken Burns, 18/07/2026, phản hồi Giang) — pan/zoom
+                                      // chậm SUỐT thời gian hiển thị, ĐỘC LẬP với transitionType
+                                      // (dùng được cùng lúc với BẤT KỲ kiểu transition nào). Field
+                                      // MỚI HOÀN TOÀN — KHÔNG migrate từ 'kenburns' đời trước (đã
+                                      // gộp chung vào transitionType, nay xoá sạch không giữ
+                                      // tương thích ngược).
             }),
             DEFAULT_READER_CONFIG: Object.freeze({
                 fontFamily: 'system-ui',
