@@ -59,7 +59,24 @@ const routerSlideshowSettings = (() => {
                 break;
 
             case 'slideshowSettings.transitionType.change':
-                workflowSlideshow.changeTransitionType(msg.payload.value); // >1 bước (set + persist + áp DOM) -> workflow
+                workflowSlideshow.changeTransitionType(msg.payload.value); // >1 bước (set + persist + áp DOM + ẩn/hiện hàng tỉ lệ) -> workflow
+                break;
+
+            // MỚI (18/07/2026, phản hồi Giang — mục "thêm thời gian transition giữa 2 ảnh").
+            case 'slideshowSettings.transitionDuration.openPicker':
+                workflowSlideshow.openTransitionDurationPicker(); // >1 bước (mở modal + xử lý callback) -> workflow
+                break;
+
+            case 'slideshowSettings.transitionRatio.preview':
+                workflowSlideshow.previewTransitionRatio(msg.payload.value); // >1 bước (đọc appState + tính toán + cập nhật DOM) -> workflow
+                break;
+
+            case 'slideshowSettings.transitionRatio.change':
+                workflowSlideshow.changeTransitionRatio(msg.payload.value); // >1 bước (set + persist + đồng bộ nhãn) -> workflow
+                break;
+
+            case 'slideshowSettings.transitionEasing.change':
+                workflowSlideshow.changeTransitionEasing(msg.payload.value); // >1 bước (validate + set + persist) -> workflow
                 break;
 
             // MỚI (Ken Burns, 18/07/2026, phản hồi Giang) — toggle độc lập, tách khỏi transitionType.
