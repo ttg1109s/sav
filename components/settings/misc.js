@@ -41,6 +41,17 @@ const TPL_SETTINGS_MISC = `
         <div>
             <h3 class="text-xs font-bold text-rose-400 uppercase tracking-widest mb-2 ml-2" data-i18n="settingsMisc.troubleshootTitle">${t('settingsMisc.troubleshootTitle')}</h3>
             <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
+                <!-- MỚI (18/07/2026, Giang yêu cầu — xem log console ngay trong app, không cần
+                     DevTools thật, hữu ích lúc test mobile — xem core/debug-console.js). Đặt ĐẦU
+                     tiên trong section này — xem log thường là bước debug ĐẦU TIÊN trước khi quyết
+                     định khởi động lại/khôi phục mặc định/xoá cache. -->
+                <button id="setting-open-debug-console" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        <span class="text-sm font-medium truncate" data-i18n="settingsMisc.openDebugConsole.label">${t('settingsMisc.openDebugConsole.label')}</span>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                </button>
                 <button id="setting-restart-app" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
                     <div class="pr-3">
                         <div class="text-sm font-medium truncate" data-i18n="settingsMisc.restartApp.label">${t('settingsMisc.restartApp.label')}</div>
