@@ -53,41 +53,22 @@
 .slideshow-layer.ss-layer-exit  { z-index: 2; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
 
 /* Layer CON (MỚI, Ken Burns 18/07/2026) — mang background-image THẬT (setSlideshowLayerImage() giờ
-   set lên đây, xem event/workflow/slideshow.js) + toàn bộ animation pan/zoom Ken Burns bên dưới.
+   set lên đây, xem event/workflow/slideshow.js). Animation pan/zoom Ken Burns chạy bằng Web
+   Animations API (panEl.animate(), xem core/file-manager/slideshow.js) — KHÔNG có CSS
+   @keyframes/class nào cho nó ở file này (xem comment ngay dưới các rule transition).
    `inset: -1px` (thay vì 0) — che hết viền subpixel có thể lộ ra lúc scale animation chạy gần biên. */
 .ss-kenburns-pan {
     position: absolute; inset: -1px;
     background-size: cover; background-position: center;
 }
 
-/* Ken Burns — pan/zoom chậm SUỐT thời gian hiển thị (KHÁC transition lúc đổi cảnh), gắn lên layer
-   CON (`.ss-kenburns-pan`) vừa trở thành "current" khi `slideshowConfig.kenBurnsEnabled === true`
-   (xem applySlideshowKenBurns()). Thời lượng gán qua JS (style.animationDuration = intervalSeconds),
-   KHÔNG hardcode ở đây vì phụ thuộc cấu hình người dùng.
-   MỞ RỘNG (Ken Burns, 18/07/2026, "Nhóm 1" — mục 3 phản hồi Giang) — 4 hướng (góc) cũ GIỮ NGUYÊN
-   (biến thể 1-4) + THÊM 4 hướng giữa-cạnh (biến thể 5-8, zoom-out từ giữa mỗi cạnh về tâm — cùng
-   tinh thần "in/out" đã có ở 1-4, chỉ đổi điểm xuất phát từ góc sang giữa cạnh). MỖI biến thể có
-   `animation-timing-function` RIÊNG (trước đây CHUNG `ease-in-out` cho cả 4) — tạo cảm giác khác
-   nhau rõ hơn giữa các lượt đổi ảnh, không chỉ khác hướng mà còn khác "nhịp" chuyển động. */
-.ss-kenburns-pan.ss-kenburns { animation-fill-mode: forwards; }
-.ss-kenburns-pan.ss-kenburns-1 { animation-name: ss-kenburns-pan-1; animation-timing-function: ease-in-out; }
-.ss-kenburns-pan.ss-kenburns-2 { animation-name: ss-kenburns-pan-2; animation-timing-function: ease-out; }
-.ss-kenburns-pan.ss-kenburns-3 { animation-name: ss-kenburns-pan-3; animation-timing-function: ease-in-out; }
-.ss-kenburns-pan.ss-kenburns-4 { animation-name: ss-kenburns-pan-4; animation-timing-function: ease-out; }
-.ss-kenburns-pan.ss-kenburns-5 { animation-name: ss-kenburns-pan-5; animation-timing-function: ease-in; }
-.ss-kenburns-pan.ss-kenburns-6 { animation-name: ss-kenburns-pan-6; animation-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1); }
-.ss-kenburns-pan.ss-kenburns-7 { animation-name: ss-kenburns-pan-7; animation-timing-function: ease-in-out; }
-.ss-kenburns-pan.ss-kenburns-8 { animation-name: ss-kenburns-pan-8; animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
-/* 1-4: zoom-in/out từ 4 GÓC (giữ nguyên bản cũ) */
-@keyframes ss-kenburns-pan-1 { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.12) translate(-2.5%, -2.5%); } }
-@keyframes ss-kenburns-pan-2 { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.12) translate(2.5%, 2.5%); } }
-@keyframes ss-kenburns-pan-3 { from { transform: scale(1.12) translate(-2.5%, 1.5%); } to { transform: scale(1) translate(0, 0); } }
-@keyframes ss-kenburns-pan-4 { from { transform: scale(1.12) translate(2.5%, -1.5%); } to { transform: scale(1) translate(0, 0); } }
-/* 5-8: zoom-out từ GIỮA MỖI CẠNH (trên/dưới/trái/phải) về tâm — MỚI (Nhóm 1, 18/07/2026) */
-@keyframes ss-kenburns-pan-5 { from { transform: scale(1.12) translate(0, -2.5%);   } to { transform: scale(1) translate(0, 0); } }
-@keyframes ss-kenburns-pan-6 { from { transform: scale(1.12) translate(0, 2.5%);    } to { transform: scale(1) translate(0, 0); } }
-@keyframes ss-kenburns-pan-7 { from { transform: scale(1.12) translate(-2.5%, 0);   } to { transform: scale(1) translate(0, 0); } }
-@keyframes ss-kenburns-pan-8 { from { transform: scale(1.12) translate(2.5%, 0);    } to { transform: scale(1) translate(0, 0); } }
+/* Ken Burns — VIẾT LẠI LẦN 2 (18/07/2026, phản hồi Giang) — KHÔNG còn CSS `@keyframes`/classList
+   nào ở đây nữa. `.ss-kenburns-pan` (khai ngay trên) chỉ còn lo layout/background-size/position —
+   toàn bộ animation pan/zoom giờ chạy bằng Web Animations API (`panEl.animate()`), viết trực tiếp
+   trong JS (core/file-manager/slideshow.js::startSlideshowKenBurnsAnimation()), KHÔNG cần class
+   hay @keyframes tĩnh nào — lý do: biên pan AN TOÀN phụ thuộc tỉ lệ ẢNH THẬT (khác nhau mỗi ảnh),
+   CSS tĩnh không thể biểu diễn được, chỉ JS tính runtime mới làm được (xem docstring đầy đủ ở file
+   JS trên). */
 
 /* ==================== 1. fade — mờ chồng ==================== */
 #visual-slideshow-container[data-transition="fade"] .ss-layer-enter { animation-name: ss-fade-in; }
