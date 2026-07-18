@@ -145,9 +145,17 @@ const SLIDESHOW_KENBURNS_MIN_MEANINGFUL_PAN_PCT = 4;
  * tự nhiên/lộ hết bố cục gốc của ảnh. */
 const SLIDESHOW_KENBURNS_MAX_PAN_PCT = 35;
 /** Biên độ dự phòng CỐ ĐỊNH (kỹ thuật cũ, giữ lại làm phương án AN TOÀN) — dùng khi pan-only mà
- * ảnh không có "dư" thật đủ dùng, đảm bảo LUÔN có chuyển động thay vì đứng yên. */
-const SLIDESHOW_KENBURNS_FALLBACK_OVERSCAN_SCALE = 1.06;
-const SLIDESHOW_KENBURNS_FALLBACK_PAN_PCT = 1.5;
+ * ảnh không có "dư" thật đủ dùng, đảm bảo LUÔN có chuyển động thay vì đứng yên.
+ * SỬA (18/07/2026, mục 3 phản hồi Giang — "pan left/right còn thiếu") — TĂNG biên độ (1.06->1.10,
+ * 1.5%->2.5-4% random) so bản đầu. Lý do: khung hiển thị (desktop, thường rất RỘNG — vd 16:9) so
+ * với đa số ảnh chụp thường (4:3, 3:2 — thường "thấp" hơn tỉ lệ khung) khiến TRỤC NGANG hiếm khi có
+ * "dư" thật (đa số ảnh dư ở trục DỌC) — pan trái/phải RƠI VÀO nhánh dự phòng này GẦN NHƯ MỌI LÚC
+ * trong thực tế, trong khi bản đầu (1.06/1.5%) cho chuyển động quá nhỏ, gần như không thấy được —
+ * trông như "bị thiếu" dù code vẫn chạy đúng. Random hoá magnitude luôn (thay vì hằng số CỐ ĐỊNH)
+ * — vừa đa dạng hơn, vừa tránh lặp lại y hệt mọi lần (mục 2 phản hồi Giang). */
+const SLIDESHOW_KENBURNS_FALLBACK_OVERSCAN_SCALE = 1.10;
+const SLIDESHOW_KENBURNS_FALLBACK_PAN_MIN_PCT = 2.5;
+const SLIDESHOW_KENBURNS_FALLBACK_PAN_MAX_PCT = 4;
 
 /**
  * Core thuần: tính biên AN TOÀN để pan bằng `background-position` (LỘ pixel THẬT bị
@@ -183,12 +191,26 @@ function computeSlideshowKenBurnsSafeBounds(imgW, imgH, frameW, frameH) {
  * (*Random) thì chọn NGẪU NHIÊN 1 direction CỤ THỂ trong ĐÚNG nhóm con (SLIDESHOW_KENBURNS_RANDOM_GROUPS,
  * không lẫn nhóm — panRandom KHÔNG BAO GIỜ ra kết quả có zoom), ngược lại trả thẳng. TÁCH RIÊNG
  * khỏi việc tính animation thật (Rule 1: "chọn direction" và "tính keyframe" là 2 việc khác nhau).
+ *
+ * SỬA (18/07/2026, mục 2 phản hồi Giang — "mỗi lượt kế tiếp dù giống ảnh trước đó đều phải ngẫu
+ * nhiên chứ không dùng vị trí cũ") — nhận thêm `excludeDirection` (direction ĐÃ DÙNG ở lượt kích
+ * hoạt liền trước, do Workflow tự nhớ — xem `_lastKenBurnsDirection`, event/workflow/slideshow.js),
+ * LOẠI TRỪ nó khỏi lượt random này — CÙNG CONVENTION `pickNextSlideshowIndexRandom()` ở trên (vòng
+ * lặp while loại trừ index liền trước) — đảm bảo *Random KHÔNG BAO GIỜ lặp lại Y HỆT direction vừa
+ * dùng, kể cả khi random tự nhiên "trúng" lại (khác hẳn chỉ random suông có thể trùng liên tiếp).
+ * Chế độ CỤ THỂ (không phải *Random) KHÔNG bị ảnh hưởng — luôn trả về chính nó dù trùng lượt trước
+ * (đúng ý người dùng khi CHỌN CỐ ĐỊNH 1 hướng).
  * @param {string} mode - 1 trong SLIDESHOW_KENBURNS_MODES.
+ * @param {string|null} excludeDirection - direction dùng ở lượt liền trước (null nếu chưa có).
  * @returns {string} 1 trong 10 direction CỤ THỂ.
  */
-function resolveSlideshowKenBurnsDirection(mode) {
+function resolveSlideshowKenBurnsDirection(mode, excludeDirection) {
     const randomGroup = SLIDESHOW_KENBURNS_RANDOM_GROUPS[mode];
-    return randomGroup ? randomGroup[Math.floor(Math.random() * randomGroup.length)] : mode;
+    if (!randomGroup) return mode; // chế độ CỤ THỂ -> luôn trả chính nó, không random/loại trừ gì cả
+    if (randomGroup.length <= 1) return randomGroup[0]; // guard: nhóm chỉ có 1 lựa chọn (hiếm, phòng hờ)
+    let picked = randomGroup[Math.floor(Math.random() * randomGroup.length)];
+    while (picked === excludeDirection) picked = randomGroup[Math.floor(Math.random() * randomGroup.length)];
+    return picked;
 }
 
 /**
@@ -227,17 +249,20 @@ function pickSlideshowKenBurnsKeyframes(direction, bounds) {
             else { bgFrom = `50% ${startPct}%`; bgTo = `50% ${endPct}%`; }
         } else if (!isZoomPan) {
             // Pan-only nhưng ảnh KHÔNG có dư thật -> dự phòng overscan cố định (kỹ thuật cũ) để
-            // vẫn có chuyển động, không đứng yên.
+            // vẫn có chuyển động, không đứng yên. SỬA (mục 2+3 phản hồi Giang) — random hoá
+            // magnitude (KHÔNG dùng hằng số cố định) — vừa tránh lặp lại y hệt mọi lần, vừa biên
+            // độ đủ lớn để KHÔNG trông như "thiếu" khi so với nhánh pan thật ở trên.
             scaleFrom = SLIDESHOW_KENBURNS_FALLBACK_OVERSCAN_SCALE;
             scaleTo = SLIDESHOW_KENBURNS_FALLBACK_OVERSCAN_SCALE;
-            const mag = SLIDESHOW_KENBURNS_FALLBACK_PAN_PCT;
+            const mag = rand(SLIDESHOW_KENBURNS_FALLBACK_PAN_MIN_PCT, SLIDESHOW_KENBURNS_FALLBACK_PAN_MAX_PCT);
             if (axis === 'x') { translateFromX = -sign * mag; translateToX = sign * mag; }
             else { translateFromY = -sign * mag; translateToY = sign * mag; }
         } else {
             // zoomPan* nhưng ảnh không có dư thật trục đó -> pan NHẸ bằng translate (biên nhỏ hơn
             // pan-only vì bản thân zoom đã "che" phần rìa scale ra rồi, không cần overscan dự
-            // phòng nữa — chỉ translate thêm 1 chút cho có phương hướng rõ ràng).
-            const mag = 2;
+            // phòng nữa — chỉ translate thêm 1 chút cho có phương hướng rõ ràng). Random hoá
+            // magnitude (mục 2 phản hồi Giang) — tránh lặp lại y hệt mọi lần.
+            const mag = rand(1.5, 3);
             if (axis === 'x') { translateFromX = -sign * mag; translateToX = sign * mag; }
             else { translateFromY = -sign * mag; translateToY = sign * mag; }
         }
@@ -282,6 +307,30 @@ function stopSlideshowKenBurnsAnimation(panEl, animation) {
     if (!panEl) return;
     panEl.style.transform = '';
     panEl.style.backgroundPosition = '';
+}
+
+/**
+ * Core thuần: TẠM DỪNG Ken Burns TẠI ĐÚNG VỊ TRÍ HIỆN TẠI — dùng khi nhạc bị pause (MỚI, 18/07/2026,
+ * mục 1 phản hồi Giang: "khi pause phải tạm dừng và đóng băng luôn dù nó đang ở vị trí nào"). KHÁC
+ * HẲN `stopSlideshowKenBurnsAnimation()` (huỷ + reset về gốc) — `.pause()` của Web Animations API
+ * GIỮ NGUYÊN `currentTime` (vị trí đang chạy dở, bất kỳ đâu giữa from/to), sẵn sàng chạy tiếp ĐÚNG
+ * chỗ đó qua `resumeSlideshowKenBurnsAnimation()` khi nhạc phát lại — không cần biết/tính lại
+ * transform hiện tại là gì (khỏi phải tự tính "vị trí đang ở đâu", trình duyệt tự lo).
+ * @param {Animation|null} animation - Animation Workflow đang giữ cho layer này (null nếu chưa
+ *   từng kích hoạt/đã dừng hẳn).
+ */
+function pauseSlideshowKenBurnsAnimation(animation) {
+    if (animation) { try { animation.pause(); } catch (e) {} }
+}
+
+/**
+ * Core thuần: CHẠY TIẾP Ken Burns từ ĐÚNG vị trí đã tạm dừng — dùng khi nhạc phát lại sau khi
+ * pause (MỚI, 18/07/2026, mục 1 phản hồi Giang). `.play()` của Web Animations API tự tiếp tục từ
+ * `currentTime` đã giữ nguyên lúc `pauseSlideshowKenBurnsAnimation()` — KHÔNG restart từ đầu.
+ * @param {Animation|null} animation
+ */
+function resumeSlideshowKenBurnsAnimation(animation) {
+    if (animation) { try { animation.play(); } catch (e) {} }
 }
 
 /**
