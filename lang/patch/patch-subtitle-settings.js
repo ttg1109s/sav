@@ -53,6 +53,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'slideshowSettingsDrawer.photoPerSong.hint': 'Change photo when the song changes, not on a timer',
     'slideshowSettingsDrawer.interval.label': 'Seconds per photo',
     'slideshowSettingsDrawer.interval.hint': 'Minimum 5 seconds',
+    // MỚI (18/07/2026, phản hồi Giang) — tiêu đề modal picker (core/time-picker-modal.js).
+    'slideshowSettingsDrawer.interval.pickerTitle': 'Seconds per photo',
     'slideshowSettingsDrawer.transition.label': 'Transition effect',
     'slideshowSettingsDrawer.transition.fade': 'Fade',
     'slideshowSettingsDrawer.transition.slideLeft': 'Slide left',
