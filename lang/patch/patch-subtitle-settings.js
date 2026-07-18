@@ -69,6 +69,25 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // MỚI (Ken Burns, 18/07/2026, phản hồi Giang) — toggle ĐỘC LẬP, tách khỏi transition select.
     'slideshowSettingsDrawer.kenBurns.label': 'Ken Burns',
     'slideshowSettingsDrawer.kenBurns.hint': 'Slow pan/zoom on each photo — works together with any transition above',
+    // MỚI ("Nhóm 2", 18/07/2026, phản hồi Giang) — 13 chế độ Ken Burns, THAY HẲN "Nhóm 1" (8 biến
+    // thể random tự động, không chọn được).
+    'slideshowSettingsDrawer.kenBurnsMode.label': 'Movement style',
+    'slideshowSettingsDrawer.kenBurnsMode.groupPan': 'Pan only',
+    'slideshowSettingsDrawer.kenBurnsMode.panLeft': 'Pan left',
+    'slideshowSettingsDrawer.kenBurnsMode.panRight': 'Pan right',
+    'slideshowSettingsDrawer.kenBurnsMode.panTop': 'Pan up',
+    'slideshowSettingsDrawer.kenBurnsMode.panBottom': 'Pan down',
+    'slideshowSettingsDrawer.kenBurnsMode.panRandom': 'Pan (random direction)',
+    'slideshowSettingsDrawer.kenBurnsMode.groupZoom': 'Zoom only (center)',
+    'slideshowSettingsDrawer.kenBurnsMode.zoomIn': 'Zoom in',
+    'slideshowSettingsDrawer.kenBurnsMode.zoomOut': 'Zoom out',
+    'slideshowSettingsDrawer.kenBurnsMode.zoomRandom': 'Zoom (random in/out)',
+    'slideshowSettingsDrawer.kenBurnsMode.groupZoomPan': 'Zoom + pan',
+    'slideshowSettingsDrawer.kenBurnsMode.zoomPanLeft': 'Zoom + pan left',
+    'slideshowSettingsDrawer.kenBurnsMode.zoomPanRight': 'Zoom + pan right',
+    'slideshowSettingsDrawer.kenBurnsMode.zoomPanTop': 'Zoom + pan up',
+    'slideshowSettingsDrawer.kenBurnsMode.zoomPanBottom': 'Zoom + pan down',
+    'slideshowSettingsDrawer.kenBurnsMode.zoomPanRandom': 'Zoom + pan (random direction)',
 
     // Tái tổ chức (07/07/2026, phản hồi Giang mục 4) — section cũ "Playlist & Background" TÁCH
     // làm 2: "Playlist" (file này, chỉ còn view/sort) + "Background" (KEY MỚI, xem
