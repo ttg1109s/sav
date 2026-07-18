@@ -14,8 +14,9 @@
  * TRƯỚC ĐÂY `TPL_SLIDESHOW_SETTINGS_DRAWER` gộp CẢ khung `fixed inset-0 drawer-glass z-[90]` LẪN
  * panel chọn Album (2 phần tử ĐỘC LẬP mount ở z-[130]/[131], không lồng trong khung trên — xem
  * comment gốc). Tách làm 2:
- *   - `renderSlideshowPanelBody()` — 6 input (enable/mode/photoPerSong/interval/transition/
- *     kenBurns — Ken Burns TÁCH KHỎI transition select thành toggle riêng, 18/07/2026), PUSH ĐỘNG
+ *   - `renderSlideshowPanelBody()` — 7 input (enable/mode/photoPerSong/interval/transition/
+ *     kenBurns/kenBurnsMode — Ken Burns TÁCH KHỎI transition select thành toggle riêng
+ *     18/07/2026, kenBurnsMode "Nhóm 2" thêm cùng ngày, THAY HẲN "Nhóm 1"), PUSH ĐỘNG
  *     vào Settings Stack (core/settings-panel-stack.js), giống About/Subtitle/Visualizer.
  *   - Panel chọn Album — ĐÃ ĐỔI SANG Generic Drawer động (Giai đoạn 4, xem mục 3 ngay trên) —
  *     KHÔNG còn `TPL_SLIDESHOW_ALBUM_PICKER` mount tĩnh nào ở file này nữa.
@@ -86,7 +87,7 @@ function renderSlideshowPanelBody() {
                              select Transition ngay trên (trước đây 'kenburns' là 1 option trong đó,
                              chọn nó là khoá cứng transition về fade — giờ Ken Burns dùng ĐƯỢC cùng
                              lúc với BẤT KỲ kiểu transition nào). Mặc định OFF. -->
-                        <div class="flex justify-between items-center p-4">
+                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <div class="pr-3">
                                 <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.kenBurns.label">${t('slideshowSettingsDrawer.kenBurns.label')}</div>
                                 <div class="text-xs text-slate-400 mt-0.5" data-i18n="slideshowSettingsDrawer.kenBurns.hint">${t('slideshowSettingsDrawer.kenBurns.hint')}</div>
@@ -95,6 +96,34 @@ function renderSlideshowPanelBody() {
                                 <input type="checkbox" id="setting-slideshow-kenburns" class="sr-only peer">
                                 <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-fuchsia-500 shadow-inner"></div>
                             </label>
+                        </div>
+                        <!-- MỚI ("Nhóm 2", 18/07/2026, phản hồi Giang) — THAY HẲN "Nhóm 1" (8 biến
+                             thể random tự động, không ai chọn được) bằng 13 chế độ CÓ TÊN, tự chọn.
+                             Ẩn/hiện theo toggle Ken Burns ngay trên — CÙNG KHUÔN #slideshow-interval-row
+                             ẩn/hiện theo photoPerSong (xem refreshDrawerUI()/changeKenBurnsEnabled()). -->
+                        <div id="slideshow-kenburns-mode-row" class="flex justify-between items-center p-4">
+                            <span class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.kenBurnsMode.label">${t('slideshowSettingsDrawer.kenBurnsMode.label')}</span>
+                            <select id="setting-slideshow-kenburns-mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-40 text-right">
+                                <optgroup label="${t('slideshowSettingsDrawer.kenBurnsMode.groupPan')}">
+                                    <option value="panLeft" data-i18n="slideshowSettingsDrawer.kenBurnsMode.panLeft">${t('slideshowSettingsDrawer.kenBurnsMode.panLeft')}</option>
+                                    <option value="panRight" data-i18n="slideshowSettingsDrawer.kenBurnsMode.panRight">${t('slideshowSettingsDrawer.kenBurnsMode.panRight')}</option>
+                                    <option value="panTop" data-i18n="slideshowSettingsDrawer.kenBurnsMode.panTop">${t('slideshowSettingsDrawer.kenBurnsMode.panTop')}</option>
+                                    <option value="panBottom" data-i18n="slideshowSettingsDrawer.kenBurnsMode.panBottom">${t('slideshowSettingsDrawer.kenBurnsMode.panBottom')}</option>
+                                    <option value="panRandom" data-i18n="slideshowSettingsDrawer.kenBurnsMode.panRandom">${t('slideshowSettingsDrawer.kenBurnsMode.panRandom')}</option>
+                                </optgroup>
+                                <optgroup label="${t('slideshowSettingsDrawer.kenBurnsMode.groupZoom')}">
+                                    <option value="zoomIn" data-i18n="slideshowSettingsDrawer.kenBurnsMode.zoomIn">${t('slideshowSettingsDrawer.kenBurnsMode.zoomIn')}</option>
+                                    <option value="zoomOut" data-i18n="slideshowSettingsDrawer.kenBurnsMode.zoomOut">${t('slideshowSettingsDrawer.kenBurnsMode.zoomOut')}</option>
+                                    <option value="zoomRandom" data-i18n="slideshowSettingsDrawer.kenBurnsMode.zoomRandom">${t('slideshowSettingsDrawer.kenBurnsMode.zoomRandom')}</option>
+                                </optgroup>
+                                <optgroup label="${t('slideshowSettingsDrawer.kenBurnsMode.groupZoomPan')}">
+                                    <option value="zoomPanLeft" data-i18n="slideshowSettingsDrawer.kenBurnsMode.zoomPanLeft">${t('slideshowSettingsDrawer.kenBurnsMode.zoomPanLeft')}</option>
+                                    <option value="zoomPanRight" data-i18n="slideshowSettingsDrawer.kenBurnsMode.zoomPanRight">${t('slideshowSettingsDrawer.kenBurnsMode.zoomPanRight')}</option>
+                                    <option value="zoomPanTop" data-i18n="slideshowSettingsDrawer.kenBurnsMode.zoomPanTop">${t('slideshowSettingsDrawer.kenBurnsMode.zoomPanTop')}</option>
+                                    <option value="zoomPanBottom" data-i18n="slideshowSettingsDrawer.kenBurnsMode.zoomPanBottom">${t('slideshowSettingsDrawer.kenBurnsMode.zoomPanBottom')}</option>
+                                    <option value="zoomPanRandom" data-i18n="slideshowSettingsDrawer.kenBurnsMode.zoomPanRandom">${t('slideshowSettingsDrawer.kenBurnsMode.zoomPanRandom')}</option>
+                                </optgroup>
+                            </select>
                         </div>
                     </div>
                 </div>
