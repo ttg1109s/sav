@@ -14,21 +14,29 @@
  * TRƯỚC ĐÂY `TPL_SLIDESHOW_SETTINGS_DRAWER` gộp CẢ khung `fixed inset-0 drawer-glass z-[90]` LẪN
  * panel chọn Album (2 phần tử ĐỘC LẬP mount ở z-[130]/[131], không lồng trong khung trên — xem
  * comment gốc). Tách làm 2:
- *   - `renderSlideshowPanelBody()` — 7 input (enable/mode/photoPerSong/interval/transition/
- *     kenBurns/kenBurnsMode — Ken Burns TÁCH KHỎI transition select thành toggle riêng
- *     18/07/2026, kenBurnsMode "Nhóm 2" thêm cùng ngày, THAY HẲN "Nhóm 1"), PUSH ĐỘNG
- *     vào Settings Stack (core/settings-panel-stack.js), giống About/Subtitle/Visualizer.
+ *   - `renderSlideshowPanelBody()` — PUSH ĐỘNG vào Settings Stack (core/settings-panel-stack-ui.js),
+ *     giống About/Subtitle/Visualizer.
  *   - Panel chọn Album — ĐÃ ĐỔI SANG Generic Drawer động (Giai đoạn 4, xem mục 3 ngay trên) —
  *     KHÔNG còn `TPL_SLIDESHOW_ALBUM_PICKER` mount tĩnh nào ở file này nữa.
+ *
+ * TÁI CẤU TRÚC THEO NHÓM (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh" +
+ * "tái cấu trúc lại panel theo nhóm mục") — 10 input trước đây nằm CHUNG 1 danh sách dài, giờ chia
+ * 3 NHÓM (`<h3>` + card riêng, CÙNG khuôn hình các section khác trong Settings — vd
+ * components/settings/misc.js):
+ *   1. "Album" — enable/mode/photoPerSong/interval (4 input) — CHỌN ẢNH NÀO/HIỂN THỊ BAO LÂU.
+ *   2. "Chuyển cảnh" — transitionType/transitionDuration/transitionRatio (ẩn động nếu kiểu đang
+ *      chọn không hỗ trợ, xem transitionSupportsInOutRatio() core)/transitionEasing (4 input) —
+ *      HIỆU ỨNG CROSSFADE lúc đổi ảnh.
+ *   3. "Ken Burns" — kenBurnsEnabled/kenBurnsMode (2 input) — HIỆU ỨNG PAN/ZOOM lúc đang hiện ảnh.
  *
  * Logic: event/workflow/slideshow.js (workflowSlideshow); listener/router: cụm "slideshowSettings"
  * (event/listener,router/slideshow.js).
  */
 function renderSlideshowPanelBody() {
     return `
-                <!-- SECTION DUY NHẤT (Batch 9 — gộp 2 section cũ) -->
+                <!-- ===================== NHÓM 1: ALBUM ===================== -->
                 <div>
-                    <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2" data-i18n="slideshowSettingsDrawer.sectionTitle">${t('slideshowSettingsDrawer.sectionTitle')}</h3>
+                    <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2" data-i18n="slideshowSettingsDrawer.groupAlbum.title">${t('slideshowSettingsDrawer.groupAlbum.title')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
 
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
@@ -64,13 +72,21 @@ function renderSlideshowPanelBody() {
                              click mở modal "bánh xe cuộn số" dùng chung (core/time-picker-modal.js,
                              xem workflowSlideshow.openIntervalPicker()). "5s" chỉ là placeholder TĨNH
                              — refreshDrawerUI() ghi đè ĐÚNG giá trị thật ngay sau khi panel mở. -->
-                        <div id="slideshow-interval-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <div id="slideshow-interval-row" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
                             <div>
                                 <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.interval.label">${t('slideshowSettingsDrawer.interval.label')}</div>
                                 <div class="text-xs text-slate-400 mt-0.5" data-i18n="slideshowSettingsDrawer.interval.hint">${t('slideshowSettingsDrawer.interval.hint')}</div>
                             </div>
                             <button type="button" id="setting-slideshow-interval" class="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none w-20 text-right shrink-0 hover:bg-white/10 transition-colors">5s</button>
                         </div>
+                    </div>
+                </div>
+
+                <!-- ===================== NHÓM 2: CHUYỂN CẢNH ===================== -->
+                <div>
+                    <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="slideshowSettingsDrawer.groupTransition.title">${t('slideshowSettingsDrawer.groupTransition.title')}</h3>
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
+
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <span class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.transition.label">${t('slideshowSettingsDrawer.transition.label')}</span>
                             <select id="setting-slideshow-transition" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-40 text-right">
@@ -88,10 +104,49 @@ function renderSlideshowPanelBody() {
                                 <option value="glitch" data-i18n="slideshowSettingsDrawer.transition.glitch">${t('slideshowSettingsDrawer.transition.glitch')}</option>
                             </select>
                         </div>
+                        <!-- MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2
+                             ảnh") — nút mở modal chọn thời gian DÙNG CHUNG, format 's-ms' (giây +
+                             phần mười giây — giữ độ chính xác dưới giây, mặc định cũ 900ms). "0.9s"
+                             chỉ là placeholder TĨNH — refreshDrawerUI() ghi đè giá trị thật. -->
+                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
+                            <div class="pr-3">
+                                <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.transitionDuration.label">${t('slideshowSettingsDrawer.transitionDuration.label')}</div>
+                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="slideshowSettingsDrawer.transitionDuration.hint">${t('slideshowSettingsDrawer.transitionDuration.hint')}</div>
+                            </div>
+                            <button type="button" id="setting-slideshow-transition-duration" class="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none w-20 text-right shrink-0 hover:bg-white/10 transition-colors">0.9s</button>
+                        </div>
+                        <!-- MỚI (18/07/2026) — ẨN ĐỘNG khi transitionType đang chọn KHÔNG hỗ trợ pha
+                             "out" độc lập (wipe/curtain/circleReveal — xem transitionSupportsInOutRatio(),
+                             core/file-manager/slideshow.js) — refreshDrawerUI()/changeTransitionType()
+                             tự toggle class "hidden" trên chính row này. -->
+                        <div id="slideshow-transition-ratio-row" class="p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.transitionRatio.label">${t('slideshowSettingsDrawer.transitionRatio.label')}</span>
+                                <span id="slideshow-transition-ratio-label" class="text-xs text-slate-400 font-mono"></span>
+                            </div>
+                            <input type="range" id="setting-slideshow-transition-ratio" min="0" max="100" step="5" class="w-full accent-fuchsia-500">
+                        </div>
+                        <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
+                            <span class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.transitionEasing.label">${t('slideshowSettingsDrawer.transitionEasing.label')}</span>
+                            <select id="setting-slideshow-transition-easing" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
+                                <option value="linear" data-i18n="slideshowSettingsDrawer.transitionEasing.linear">${t('slideshowSettingsDrawer.transitionEasing.linear')}</option>
+                                <option value="ease" data-i18n="slideshowSettingsDrawer.transitionEasing.ease">${t('slideshowSettingsDrawer.transitionEasing.ease')}</option>
+                                <option value="ease-in" data-i18n="slideshowSettingsDrawer.transitionEasing.easeIn">${t('slideshowSettingsDrawer.transitionEasing.easeIn')}</option>
+                                <option value="ease-out" data-i18n="slideshowSettingsDrawer.transitionEasing.easeOut">${t('slideshowSettingsDrawer.transitionEasing.easeOut')}</option>
+                                <option value="ease-in-out" data-i18n="slideshowSettingsDrawer.transitionEasing.easeInOut">${t('slideshowSettingsDrawer.transitionEasing.easeInOut')}</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===================== NHÓM 3: KEN BURNS ===================== -->
+                <div>
+                    <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="slideshowSettingsDrawer.groupKenBurns.title">${t('slideshowSettingsDrawer.groupKenBurns.title')}</h3>
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                         <!-- MỚI (Ken Burns, 18/07/2026, phản hồi Giang) — toggle ĐỘC LẬP, TÁCH khỏi
-                             select Transition ngay trên (trước đây 'kenburns' là 1 option trong đó,
-                             chọn nó là khoá cứng transition về fade — giờ Ken Burns dùng ĐƯỢC cùng
-                             lúc với BẤT KỲ kiểu transition nào). Mặc định OFF. -->
+                             select Transition (trước đây 'kenburns' là 1 option trong đó, chọn nó
+                             là khoá cứng transition về fade — giờ Ken Burns dùng ĐƯỢC cùng lúc với
+                             BẤT KỲ kiểu transition nào). Mặc định OFF. -->
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <div class="pr-3">
                                 <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.kenBurns.label">${t('slideshowSettingsDrawer.kenBurns.label')}</div>
