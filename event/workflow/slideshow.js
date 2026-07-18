@@ -184,9 +184,14 @@ const workflowSlideshow = {
      * -> Ken Burns hoàn thành chuyển động trong 60s đầu rồi đóng băng, ĐÚNG cách Ken Burns thật —
      * không lia liên tục suốt cả bài). Fallback về `_computeIntervalMs()` nếu `duration`/
      * `currentTime` chưa sẵn sàng (metadata chưa load xong, hiếm).
+     * ĐỔI TÊN (18/07/2026, mục "thêm thời gian transition") — từ `_computeKenBurnsDurationMs()`
+     * thành tên TỔNG QUÁT hơn: hàm này TRẢ VỀ "ảnh sắp hiện sẽ hiển thị trong bao lâu" — ước lượng
+     * này ĐÚNG cho CẢ Ken Burns LẪN việc kẹp thời gian transition (mục mới — xem
+     * `capSlideshowTransitionDurationMs()`, core) — dùng CHUNG 1 hàm, không viết lại logic
+     * photoPerSong-aware 2 lần.
      * @returns {number}
      */
-    _computeKenBurnsDurationMs() {
+    _computeImageDisplayDurationMs() {
         const cfg = appState.get('slideshowConfig');
         if (cfg.photoPerSong && audioPlayer && Number.isFinite(audioPlayer.duration) && audioPlayer.duration > 0) {
             const remainingMs = (audioPlayer.duration - audioPlayer.currentTime) * 1000;
@@ -238,6 +243,10 @@ const workflowSlideshow = {
                 if (typeof savedConfig.photoPerSong === 'boolean') cfg.photoPerSong = savedConfig.photoPerSong;
                 if (typeof savedConfig.kenBurnsEnabled === 'boolean') cfg.kenBurnsEnabled = savedConfig.kenBurnsEnabled;
                 if (SLIDESHOW_KENBURNS_MODES.includes(savedConfig.kenBurnsMode)) cfg.kenBurnsMode = savedConfig.kenBurnsMode;
+                // MỚI (18/07/2026, phản hồi Giang — tuỳ chỉnh thời gian/tỉ lệ/easing transition).
+                if (typeof savedConfig.transitionDurationMs === 'number' && savedConfig.transitionDurationMs >= SLIDESHOW_TRANSITION_MIN_TIME_MS && savedConfig.transitionDurationMs <= SLIDESHOW_TRANSITION_MAX_TIME_MS) cfg.transitionDurationMs = savedConfig.transitionDurationMs;
+                if (typeof savedConfig.transitionInOutRatio === 'number' && savedConfig.transitionInOutRatio >= 0 && savedConfig.transitionInOutRatio <= 100) cfg.transitionInOutRatio = savedConfig.transitionInOutRatio;
+                if (SLIDESHOW_TRANSITION_EASINGS.includes(savedConfig.transitionEasing)) cfg.transitionEasing = savedConfig.transitionEasing;
             });
         }
         if (!savedAlbumId) return;
@@ -444,7 +453,7 @@ const workflowSlideshow = {
      * SỬA (Ken Burns, 18/07/2026) — nhận layer CON (Pan), KHÔNG phải layer ngoài.
      * VIẾT LẠI LẦN 2 ("Nhóm 2" WAAPI, 18/07/2026) — resolve direction + tính bounds từ ảnh thật.
      * VIẾT LẠI LẦN 3 (18/07/2026, "time-scaled magnitude" + fix "Photo per song" phản hồi Giang) —
-     * `durationMs` giờ đọc qua `_computeKenBurnsDurationMs()` (ĐÚNG cho cả 2 chế độ, xem hàm đó)
+     * `durationMs` giờ đọc qua `_computeImageDisplayDurationMs()` (ĐÚNG cho cả 2 chế độ, xem hàm đó)
      * THAY vì luôn `_computeIntervalMs()` — rồi CAP 1 LẦN DUY NHẤT qua `capSlideshowKenBurnsDurationMs()`
      * (core) NGAY TẠI ĐÂY, dùng CHUNG kết quả đã cap cho CẢ `pickSlideshowKenBurnsKeyframes()` LẪN
      * `startSlideshowKenBurnsAnimation()` — 2 nơi PHẢI khớp nhau tuyệt đối (biên độ tính theo 1 con
@@ -458,7 +467,7 @@ const workflowSlideshow = {
         const direction = resolveSlideshowKenBurnsDirection(mode, this._lastKenBurnsDirection); // core
         this._lastKenBurnsDirection = direction; // MỚI (mục 2) — nhớ lại cho lượt kế tiếp loại trừ
         const bounds = computeSlideshowKenBurnsSafeBounds(image ? image.width : 0, image ? image.height : 0, window.innerWidth, window.innerHeight); // core
-        const durationMs = capSlideshowKenBurnsDurationMs(this._computeKenBurnsDurationMs()); // core — cap 1 LẦN, dùng chung 2 nơi dưới
+        const durationMs = capSlideshowKenBurnsDurationMs(this._computeImageDisplayDurationMs()); // core — cap 1 LẦN, dùng chung 2 nơi dưới
         const keyframes = pickSlideshowKenBurnsKeyframes(direction, bounds, durationMs); // core
         const anim = startSlideshowKenBurnsAnimation(panEl, keyframes, durationMs); // core
         this._setKenBurnsAnim(panEl, anim);
@@ -473,7 +482,15 @@ const workflowSlideshow = {
      * (`outgoingPan`/`incomingPan`), transition chuyển cảnh (class ss-layer-enter/exit) vẫn thao
      * tác lên layer NGOÀI (`outgoingLayer`/`incomingLayer`) như cũ. Điều kiện Ken Burns đổi sang
      * `cfg.kenBurnsEnabled` — ĐỘC LẬP với `cfg.transitionType`, nên chạy được cùng lúc với BẤT KỲ
-     * kiểu transition nào (khác trước: 'kenburns' khoá cứng transition về fade). */
+     * kiểu transition nào (khác trước: 'kenburns' khoá cứng transition về fade).
+     * VIẾT LẠI LẦN 2 (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh") —
+     * TÍNH thời gian transition THẬT (kẹp theo `_computeImageDisplayDurationMs()` — tránh xung đột
+     * với lượt `_tick()` kế tiếp) + tách "in"/"out" theo tỉ lệ đã cấu hình (bỏ qua tỉ lệ, dùng
+     * TOÀN BỘ `totalMs` làm "in" nếu kiểu transition hiện tại KHÔNG hỗ trợ pha "out" — xem
+     * `transitionSupportsInOutRatio()`) — set ĐỘNG lên từng layer TRƯỚC khi
+     * `startSlideshowTransitionVisuals()` thêm class (thứ tự BẮT BUỘC, xem docstring
+     * `setSlideshowTransitionTiming()` core). Task cleanup giờ đợi `Math.max(inMs, outMs)` (KHÔNG
+     * còn hằng số cố định `SLIDESHOW_TRANSITION_DURATION_MS`). */
     _tick() {
         if (this._images.length === 0) return; // album rỗng (ảnh vừa bị xoá hết) -> chờ, không lỗi
 
@@ -494,21 +511,31 @@ const workflowSlideshow = {
         setSlideshowLayerImage(incomingPan, objectUrl); // core — layer CON
         if (cfg.kenBurnsEnabled) this._activateKenBurns(incomingPan, cfg.kenBurnsMode, image);
 
+        // MỚI (18/07/2026, mục "thêm thời gian transition") — tính in/out THẬT từ config, kẹp
+        // theo thời gian ảnh sẽ hiển thị (tránh xung đột lượt _tick() kế tiếp).
+        const totalMs = capSlideshowTransitionDurationMs(cfg.transitionDurationMs, this._computeImageDisplayDurationMs()); // core
+        const { inMs, outMs } = transitionSupportsInOutRatio(cfg.transitionType) // core
+            ? computeSlideshowTransitionInOutMs(totalMs, cfg.transitionInOutRatio) // core
+            : { inMs: totalMs, outMs: totalMs }; // 3 kiểu không có pha "out" -> bỏ qua tỉ lệ, dùng trọn totalMs cho "in"
+        setSlideshowTransitionTiming(incomingLayer, inMs, cfg.transitionEasing); // core — PHẢI set TRƯỚC khi thêm class
+        setSlideshowTransitionTiming(outgoingLayer, outMs, cfg.transitionEasing); // core
+
         // VIẾT LẠI (04/07/2026, mục 3 — Rule 3 siết chặt): trước đây gọi 1 hàm core duy nhất
         // (beginSlideshowTransition) TỰ taskManager.once() + TỰ gọi core khác bên trong — giờ CẤM.
         // Workflow tự làm cả 2 việc đó: gọi core "bắt đầu" NGAY, rồi TỰ taskManager.once() lịch
-        // đúng lúc hết SLIDESHOW_TRANSITION_DURATION_MS để tự gọi TỪNG hàm core "kết thúc".
+        // đúng lúc hết thời lượng THẬT (Math.max(inMs, outMs)) để tự gọi TỪNG hàm core "kết thúc".
         startSlideshowTransitionVisuals(outgoingLayer, incomingLayer); // core — layer NGOÀI
+        const cleanupDelayMs = Math.max(inMs, outMs);
         taskManager.once(() => {
             setSlideshowLayerImage(outgoingPan, ''); // core — layer CON
             stopSlideshowKenBurnsAnimation(outgoingPan, this._getKenBurnsAnim(outgoingPan)); // core — layer CON (Ken Burns WAAPI)
             this._setKenBurnsAnim(outgoingPan, null);
             finishSlideshowTransitionVisuals(outgoingLayer, incomingLayer); // core — layer NGOÀI
-        }, SLIDESHOW_TRANSITION_DURATION_MS, 'slideshowTransitionCleanup');
+        }, cleanupDelayMs, 'slideshowTransitionCleanup');
 
         if (this._currentObjectUrl) {
             const staleUrl = this._currentObjectUrl;
-            taskManager.once(() => { try { URL.revokeObjectURL(staleUrl); } catch (e) {} }, SLIDESHOW_TRANSITION_DURATION_MS + 100, 'slideshowRevokeStale');
+            taskManager.once(() => { try { URL.revokeObjectURL(staleUrl); } catch (e) {} }, cleanupDelayMs + 100, 'slideshowRevokeStale');
         }
         this._currentObjectUrl = objectUrl;
         this._currentIndex = nextIndex;
@@ -543,6 +570,10 @@ const workflowSlideshow = {
         const kenBurnsToggle = slideshowSettingsPanelEl.querySelector('#setting-slideshow-kenburns');
         const kenBurnsModeRow = slideshowSettingsPanelEl.querySelector('#slideshow-kenburns-mode-row');
         const kenBurnsModeSelect = slideshowSettingsPanelEl.querySelector('#setting-slideshow-kenburns-mode');
+        const transitionDurationBtn = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-duration');
+        const transitionRatioRow = slideshowSettingsPanelEl.querySelector('#slideshow-transition-ratio-row');
+        const transitionRatioSlider = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-ratio');
+        const transitionEasingSelect = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-easing');
 
         if (enableToggle) enableToggle.checked = !!albumId;
         if (modeSelect) modeSelect.value = cfg.mode;
@@ -558,6 +589,14 @@ const workflowSlideshow = {
         // (không còn ý nghĩa gì lúc đó — cùng khuôn intervalRow ẩn/hiện theo photoPerSong).
         if (kenBurnsModeRow) kenBurnsModeRow.classList.toggle('hidden', !cfg.kenBurnsEnabled);
         if (kenBurnsModeSelect) kenBurnsModeSelect.value = cfg.kenBurnsMode;
+        // MỚI (18/07/2026, mục "thêm thời gian transition") — đồng bộ nút thời gian + ẩn/hiện hàng
+        // tỉ lệ theo ĐÚNG transitionType hiện tại (transitionSupportsInOutRatio(), core) + đồng bộ
+        // slider + nhãn "In Xs / Out Ys" + easing.
+        if (transitionDurationBtn) transitionDurationBtn.textContent = `${(cfg.transitionDurationMs / 1000).toFixed(1)}s`;
+        if (transitionRatioRow) transitionRatioRow.classList.toggle('hidden', !transitionSupportsInOutRatio(cfg.transitionType)); // core
+        if (transitionRatioSlider) transitionRatioSlider.value = cfg.transitionInOutRatio;
+        this._updateTransitionRatioLabel(slideshowSettingsPanelEl, cfg.transitionInOutRatio);
+        if (transitionEasingSelect) transitionEasingSelect.value = cfg.transitionEasing;
     },
 
     /** MỚI (04/07/2026, mục 5) — ứng với gạt "Photo per song". Persist + nếu engine đang chạy, khởi
@@ -727,12 +766,100 @@ const workflowSlideshow = {
      * changeKenBurnsEnabled() ngay dưới).
      * @param {string} type
      */
+    /** Ứng với select "Hiệu ứng chuyển cảnh" (12 kiểu — Ken Burns ĐÃ TÁCH khỏi danh sách này, xem
+     * changeKenBurnsEnabled() ngay dưới).
+     * SỬA (18/07/2026, phản hồi Giang — mục "thêm thời gian transition") — thêm ẩn/hiện hàng
+     * "Tỉ lệ In/Out" NGAY khi đổi kiểu (KHÔNG chờ mở lại panel) — CÙNG KHUÔN
+     * `changeKenBurnsEnabled()` tự toggle `#slideshow-kenburns-mode-row` ngay trong hàm, không gọi
+     * cả `refreshDrawerUI()` cho 1 thay đổi nhỏ.
+     * @param {string} type
+     */
     async changeTransitionType(type) {
         if (!SLIDESHOW_TRANSITION_TYPES.includes(type)) return; // guard: giá trị lạ -> bỏ qua
         appState.mutate('slideshowConfig', (cfg) => { cfg.transitionType = type; });
         console.log(`writer: "workflowSlideshow.changeTransitionType", page: "slideshowConfig", content: "transitionType=${type}"`);
         await setMeta('slideshowConfig', appState.get('slideshowConfig'));
         setSlideshowTransitionType(slideshowContainer, type); // core — áp ngay cho lần chuyển cảnh kế tiếp
+        if (slideshowSettingsPanelEl) {
+            const ratioRow = slideshowSettingsPanelEl.querySelector('#slideshow-transition-ratio-row');
+            if (ratioRow) ratioRow.classList.toggle('hidden', !transitionSupportsInOutRatio(type)); // core
+        }
+    },
+
+    /** MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh") — ứng với nút
+     * "Thời gian chuyển cảnh" — mở modal chọn thời gian DÙNG CHUNG (core/time-picker-modal.js).
+     * `format: 's-ms'` (giây + phần mười giây — Giang chốt: mặc định cũ 900ms là DƯỚI 1 giây, chỉ
+     * có cột giây nguyên sẽ mất khả năng đặt tinh vậy). Min 1s/Max 60s (Giang chốt, khớp
+     * SLIDESHOW_TRANSITION_MIN/MAX_TIME_MS, core). Xác nhận -> persist + đồng bộ nhãn nút + đồng
+     * bộ LẠI nhãn "Tỉ lệ In/Out" (phụ thuộc TỔNG thời gian vừa đổi, xem `_updateTransitionRatioLabel()`). */
+    openTransitionDurationPicker() {
+        if (!slideshowSettingsPanelEl) return;
+        const cfg = appState.get('slideshowConfig');
+        openTimePickerModal({ // core/time-picker-modal.js
+            title: t('slideshowSettingsDrawer.transitionDuration.pickerTitle'),
+            format: 's-ms',
+            valueMs: cfg.transitionDurationMs,
+            minMs: SLIDESHOW_TRANSITION_MIN_TIME_MS, // core
+            maxMs: SLIDESHOW_TRANSITION_MAX_TIME_MS, // core
+            onConfirm: async (resultMs) => {
+                const v = Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, Math.min(SLIDESHOW_TRANSITION_MAX_TIME_MS, resultMs));
+                appState.mutate('slideshowConfig', (c) => { c.transitionDurationMs = v; });
+                console.log(`writer: "workflowSlideshow.openTransitionDurationPicker", page: "slideshowConfig", content: "transitionDurationMs=${v}"`);
+                await setMeta('slideshowConfig', appState.get('slideshowConfig'));
+                if (!slideshowSettingsPanelEl) return;
+                const btn = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-duration');
+                if (btn) btn.textContent = `${(v / 1000).toFixed(1)}s`;
+                const ratioSlider = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-ratio');
+                this._updateTransitionRatioLabel(slideshowSettingsPanelEl, ratioSlider ? Number(ratioSlider.value) : v);
+            },
+        });
+    },
+
+    /** Cập nhật nhãn "In Xs / Out Ys" hiển thị cạnh slider Tỉ lệ In/Out — đọc `transitionDurationMs`
+     * hiện tại từ appState + `ratioPercent` truyền vào (KHÔNG đọc lại từ DOM slider — nơi gọi tự
+     * quyết định dùng giá trị nào, xem 2 nơi gọi hàm này).
+     * @param {HTMLElement} panelEl
+     * @param {number} ratioPercent
+     */
+    _updateTransitionRatioLabel(panelEl, ratioPercent) {
+        const labelEl = panelEl ? panelEl.querySelector('#slideshow-transition-ratio-label') : null;
+        if (!labelEl) return;
+        const cfg = appState.get('slideshowConfig');
+        const { inMs, outMs } = computeSlideshowTransitionInOutMs(cfg.transitionDurationMs, ratioPercent); // core
+        labelEl.textContent = tFormat('slideshowSettingsDrawer.transitionRatio.previewFormat', { in: (inMs / 1000).toFixed(1), out: (outMs / 1000).toFixed(1) });
+    },
+
+    /** Ứng với sự kiện 'input' (LIVE, đang kéo thả) trên slider Tỉ lệ In/Out — CHỈ cập nhật nhãn
+     * hiển thị ngay lúc kéo, KHÔNG persist (persist thật ở `changeTransitionRatio()`, bắn lúc
+     * 'change' — thả tay ra mới lưu, tránh ghi IndexedDB liên tục mỗi pixel kéo).
+     * @param {number} ratioPercent
+     */
+    previewTransitionRatio(ratioPercent) {
+        if (!slideshowSettingsPanelEl) return;
+        this._updateTransitionRatioLabel(slideshowSettingsPanelEl, ratioPercent);
+    },
+
+    /** Ứng với sự kiện 'change' (thả tay) trên slider Tỉ lệ In/Out — persist + đồng bộ nhãn (khớp
+     * giá trị đã kẹp, nếu có).
+     * @param {number} ratioPercent
+     */
+    async changeTransitionRatio(ratioPercent) {
+        const v = Math.max(0, Math.min(100, ratioPercent));
+        appState.mutate('slideshowConfig', (cfg) => { cfg.transitionInOutRatio = v; });
+        console.log(`writer: "workflowSlideshow.changeTransitionRatio", page: "slideshowConfig", content: "transitionInOutRatio=${v}"`);
+        await setMeta('slideshowConfig', appState.get('slideshowConfig'));
+        if (slideshowSettingsPanelEl) this._updateTransitionRatioLabel(slideshowSettingsPanelEl, v);
+    },
+
+    /** Ứng với select "Easing" — 5 giá trị hợp lệ (SLIDESHOW_TRANSITION_EASINGS, core) — 'linear'
+     * = Giang gọi "không easing" (tốc độ đều tăm tắp).
+     * @param {string} easing
+     */
+    async changeTransitionEasing(easing) {
+        if (!SLIDESHOW_TRANSITION_EASINGS.includes(easing)) return; // guard: giá trị lạ -> bỏ qua
+        appState.mutate('slideshowConfig', (cfg) => { cfg.transitionEasing = easing; });
+        console.log(`writer: "workflowSlideshow.changeTransitionEasing", page: "slideshowConfig", content: "transitionEasing=${easing}"`);
+        await setMeta('slideshowConfig', appState.get('slideshowConfig'));
     },
 
     /** MỚI (Ken Burns, 18/07/2026, phản hồi Giang) — ứng với toggle "Ken Burns" (ĐỘC LẬP với
