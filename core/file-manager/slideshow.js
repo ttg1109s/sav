@@ -32,8 +32,13 @@
  * nhận qua tham số, không tự getElementById, không có ràng buộc thứ tự nào.
  */
 
-/** Thời lượng 1 lượt chuyển cảnh (ms) — PHẢI khớp animation-duration ở assets/css/slideshow.css
- * (`.ss-layer-enter`/`.ss-layer-exit`) — đổi 1 chỗ phải đổi luôn chỗ kia. */
+/** MẶC ĐỊNH thời lượng 1 lượt chuyển cảnh (ms) — dùng làm giá trị KHỞI TẠO của
+ * `slideshowConfig.transitionDurationMs` (service/state.js) lúc CHƯA từng cấu hình gì (cài mới).
+ * SỬA (18/07/2026, phản hồi Giang — thêm tuỳ chỉnh thời gian transition) — KHÔNG CÒN dùng trực
+ * tiếp lúc runtime nữa (trước đây hardcode CẢ ở đây LẪN CSS `animation-duration: 900ms` — giờ giá
+ * trị THẬT lấy từ `slideshowConfig.transitionDurationMs`, set ĐỘNG qua
+ * `setSlideshowTransitionTiming()` ngay dưới, KHÔNG còn phải "khớp" gì với CSS nữa — CSS chỉ giữ
+ * `animation-duration: 900ms` làm giá trị DỰ PHÒNG, luôn bị inline style ghi đè). */
 const SLIDESHOW_TRANSITION_DURATION_MS = 900;
 
 /** 12 kiểu transition hợp lệ (plan-v12-multimedia.md mục 4.b3: 7 cơ bản + 5 mở rộng — Ken Burns
@@ -43,6 +48,79 @@ const SLIDESHOW_TRANSITION_TYPES = [
     'fade', 'slideLeft', 'slideRight', 'zoomIn', 'zoomOut', 'wipe', 'flip',
     'blur', 'rotateFade', 'curtain', 'circleReveal', 'glitch',
 ];
+
+/** MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh") — 3 kiểu KHÔNG có
+ * pha "out" độc lập: layer CŨ đứng yên bất động (`animation: none; opacity: 1;`, xem assets/css/
+ * slideshow.css mục 6/10/11), hiệu ứng CHỈ đến từ layer MỚI phủ dần lên bằng clip-path. Khái niệm
+ * "tỉ lệ In/Out" KHÔNG áp dụng được cho 3 kiểu này — Settings Drawer tự ẨN mục đó khi 1 trong 3
+ * đang được chọn (xem `transitionSupportsInOutRatio()` ngay dưới + event/workflow/slideshow.js). */
+const SLIDESHOW_TRANSITION_TYPES_NO_OUT = ['wipe', 'curtain', 'circleReveal'];
+
+/** Biên thời gian transition [1s, 60s] — Giang chốt: min 1s (tránh transition "0 giây" vô nghĩa),
+ * max 60s (khớp modal picker mới, format 's-ms'). Cũng dùng làm 2 mốc validate config đã lưu. */
+const SLIDESHOW_TRANSITION_MIN_TIME_MS = 1000;
+const SLIDESHOW_TRANSITION_MAX_TIME_MS = 60000;
+
+/** 5 easing hợp lệ cho transition — 'linear' = Giang gọi "không easing" (tốc độ đều tăm tắp),
+ * 4 còn lại là 4 đường cong CSS chuẩn. Dùng để validate config đã lưu + đổ vào <select>. */
+const SLIDESHOW_TRANSITION_EASINGS = ['linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out'];
+
+/**
+ * Core thuần: kiểm tra 1 kiểu transition CÓ pha "out" độc lập hay không (xem
+ * SLIDESHOW_TRANSITION_TYPES_NO_OUT ngay trên để biết lý do 3 kiểu không có).
+ * @param {string} transitionType
+ * @returns {boolean}
+ */
+function transitionSupportsInOutRatio(transitionType) {
+    return !SLIDESHOW_TRANSITION_TYPES_NO_OUT.includes(transitionType);
+}
+
+/**
+ * Core thuần: từ TỔNG thời gian transition + tỉ lệ % (Giang gọi "in/out ratio" — % dành cho "in",
+ * phần còn lại là "out"), TÍNH RA 2 thời lượng riêng cho pha "in" (layer MỚI, `.ss-layer-enter`) và
+ * pha "out" (layer CŨ, `.ss-layer-exit`). Đúng ví dụ Giang đưa: totalMs=10000, ratioPercent=60 ->
+ * {inMs:6000, outMs:4000}; ratioPercent=30 -> {inMs:3000, outMs:7000}.
+ * @param {number} totalMs
+ * @param {number} ratioPercent - 0-100, % dành cho "in".
+ * @returns {{inMs: number, outMs: number}}
+ */
+function computeSlideshowTransitionInOutMs(totalMs, ratioPercent) {
+    const clampedRatio = Math.max(0, Math.min(100, ratioPercent));
+    const inMs = Math.round(totalMs * clampedRatio / 100);
+    return { inMs, outMs: totalMs - inMs };
+}
+
+/**
+ * Core thuần: KẸP thời gian transition đã cấu hình về KHÔNG VƯỢT QUÁ thời gian hiển thị mỗi ảnh
+ * (interval) — tránh xung đột: transition dài hơn khoảng cách tới lượt đổi ảnh KẾ TIẾP sẽ bị
+ * `_tick()` mới cắt ngang giữa chừng (dùng lại ĐÚNG 2 layer đó cho lượt mới trong khi animation cũ
+ * chưa xong) — giật/lỗi hình, ĐÚNG vấn đề đã lường trước với Giang trước khi code.
+ * @param {number} configuredMs
+ * @param {number} intervalMs
+ * @returns {number}
+ */
+function capSlideshowTransitionDurationMs(configuredMs, intervalMs) {
+    return Math.min(configuredMs, intervalMs);
+}
+
+/**
+ * Core thuần: set duration + easing của animation TRÊN 1 layer — PHẢI gọi TRƯỚC khi
+ * `startSlideshowTransitionVisuals()` thêm class enter/exit (đổi thứ tự sẽ khiến animation đã lỡ
+ * bắt đầu chạy với giá trị CŨ 1-2 frame trước khi kịp áp giá trị mới). TÁCH RIÊNG khỏi
+ * `startSlideshowTransitionVisuals()` (Rule 1 — "set thời lượng/easing" và "bắt đầu animation
+ * bằng cách thêm class" là 2 việc khác nhau, cùng tinh thần tách `setSlideshowLayerImage()` khỏi
+ * `startSlideshowTransitionVisuals()` đã có từ trước). Nơi gọi (Workflow) tự gọi 2 LẦN — 1 lần cho
+ * layer NGOÀI (incoming, dùng `inMs`) + 1 lần cho layer NGOÀI (outgoing, dùng `outMs`) — TỰ tính
+ * `inMs`/`outMs` khác nhau trước khi gọi (computeSlideshowTransitionInOutMs()).
+ * @param {HTMLElement} layerEl - layer NGOÀI (`.slideshow-layer`, KHÔNG phải layer con Ken Burns).
+ * @param {number} durationMs
+ * @param {string} easing - 1 trong SLIDESHOW_TRANSITION_EASINGS.
+ */
+function setSlideshowTransitionTiming(layerEl, durationMs, easing) {
+    if (!layerEl) return;
+    layerEl.style.animationDuration = `${durationMs}ms`;
+    layerEl.style.animationTimingFunction = easing;
+}
 
 /**
  * Core thuần: chọn index KẾ TIẾP theo THỨ TỰ (tuần tự, có vòng lặp). Guard clause thuần (Rule 1
