@@ -43,7 +43,9 @@
  * CÙNG bài không kích hoạt đổi ảnh ("bù trừ theo seek" theo đúng yêu cầu). `intervalSeconds` bị bỏ
  * qua hoàn toàn ở chế độ này.
  *
- * NẠP SAU: core/file-manager/slideshow.js (SLIDESHOW_TRANSITION_TYPES, SLIDESHOW_TRANSITION_DURATION_MS,
+ * NẠP SAU: core/file-manager/slideshow.js (SLIDESHOW_TRANSITION_TYPES, SLIDESHOW_TRANSITION_TYPES_NO_OUT,
+ * SLIDESHOW_TRANSITION_MIN/MAX_TIME_MS, SLIDESHOW_TRANSITION_EASINGS, transitionSupportsInOutRatio,
+ * computeSlideshowTransitionInOutMs, capSlideshowTransitionDurationMs, setSlideshowTransitionTiming,
  * pickNextSlideshowIndex*, setSlideshow*, startSlideshowTransitionVisuals,
  * finishSlideshowTransitionVisuals, resetSlideshowLayerClasses, computeSlideshowKenBurnsSafeBounds,
  * resolveSlideshowKenBurnsDirection, pickSlideshowKenBurnsKeyframes, startSlideshowKenBurnsAnimation,
@@ -489,8 +491,7 @@ const workflowSlideshow = {
      * TOÀN BỘ `totalMs` làm "in" nếu kiểu transition hiện tại KHÔNG hỗ trợ pha "out" — xem
      * `transitionSupportsInOutRatio()`) — set ĐỘNG lên từng layer TRƯỚC khi
      * `startSlideshowTransitionVisuals()` thêm class (thứ tự BẮT BUỘC, xem docstring
-     * `setSlideshowTransitionTiming()` core). Task cleanup giờ đợi `Math.max(inMs, outMs)` (KHÔNG
-     * còn hằng số cố định `SLIDESHOW_TRANSITION_DURATION_MS`). */
+     * `setSlideshowTransitionTiming()` core). Task cleanup giờ đợi `Math.max(inMs, outMs)`. */
     _tick() {
         if (this._images.length === 0) return; // album rỗng (ảnh vừa bị xoá hết) -> chờ, không lỗi
 
@@ -788,21 +789,32 @@ const workflowSlideshow = {
 
     /** MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh") — ứng với nút
      * "Thời gian chuyển cảnh" — mở modal chọn thời gian DÙNG CHUNG (core/time-picker-modal.js).
-     * `format: 's-ms'` (giây + phần mười giây — Giang chốt: mặc định cũ 900ms là DƯỚI 1 giây, chỉ
-     * có cột giây nguyên sẽ mất khả năng đặt tinh vậy). Min 1s/Max 60s (Giang chốt, khớp
-     * SLIDESHOW_TRANSITION_MIN/MAX_TIME_MS, core). Xác nhận -> persist + đồng bộ nhãn nút + đồng
-     * bộ LẠI nhãn "Tỉ lệ In/Out" (phụ thuộc TỔNG thời gian vừa đổi, xem `_updateTransitionRatioLabel()`). */
+     * `format: 's-ms'` (giây + phần mười giây — giữ độ chính xác dưới giây). Min 1s (Giang chốt,
+     * SLIDESHOW_TRANSITION_MIN_TIME_MS, core).
+     * SỬA (18/07/2026, phản hồi Giang — phát hiện bug: "phải bị max theo seconds chứ, không thể
+     * quay hơn, nhưng hiện tại có thể chọn lớn hơn") — Max KHÔNG còn cố định 60s nữa: transition
+     * KHÔNG BAO GIỜ nên dài hơn chính thời gian ảnh sẽ hiển thị (nếu không, y hệt bug "chuyển cảnh
+     * bị cắt ngang lượt kế tiếp" đã lường trước — capSlideshowTransitionDurationMs() ở `_tick()`
+     * VẪN giữ làm lưới an toàn RUNTIME, nhưng để tránh cho phép CHỌN 1 giá trị vô nghĩa ngay từ đầu,
+     * modal picker giờ tự kẹp Max = MIN(60s, thời gian ảnh hiển thị hiện tại —
+     * `_computeImageDisplayDurationMs()`, ĐÚNG cho cả 2 chế độ thường/photoPerSong). Kẹp thêm 1
+     * lớp an toàn `Math.max(MIN_TIME_MS, ...)` phòng trường hợp hiếm ảnh hiển thị CÒN LẠI dưới 1s
+     * (photoPerSong, bài hát sắp hết) khiến max tính ra nhỏ hơn cả min — tránh modal nhận biên
+     * [min,max] đảo ngược.
+     * Xác nhận -> persist + đồng bộ nhãn nút + đồng bộ LẠI nhãn "Tỉ lệ In/Out" (phụ thuộc TỔNG
+     * thời gian vừa đổi, xem `_updateTransitionRatioLabel()`). */
     openTransitionDurationPicker() {
         if (!slideshowSettingsPanelEl) return;
         const cfg = appState.get('slideshowConfig');
+        const maxMs = Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, Math.min(SLIDESHOW_TRANSITION_MAX_TIME_MS, this._computeImageDisplayDurationMs()));
         openTimePickerModal({ // core/time-picker-modal.js
             title: t('slideshowSettingsDrawer.transitionDuration.pickerTitle'),
             format: 's-ms',
-            valueMs: cfg.transitionDurationMs,
+            valueMs: Math.min(cfg.transitionDurationMs, maxMs), // kẹp vị trí cuộn ban đầu luôn, tránh mở lên vượt max mới
             minMs: SLIDESHOW_TRANSITION_MIN_TIME_MS, // core
-            maxMs: SLIDESHOW_TRANSITION_MAX_TIME_MS, // core
+            maxMs, // ĐỘNG theo thời gian ảnh hiển thị hiện tại — KHÔNG còn cố định 60s
             onConfirm: async (resultMs) => {
-                const v = Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, Math.min(SLIDESHOW_TRANSITION_MAX_TIME_MS, resultMs));
+                const v = Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, Math.min(maxMs, resultMs));
                 appState.mutate('slideshowConfig', (c) => { c.transitionDurationMs = v; });
                 console.log(`writer: "workflowSlideshow.openTransitionDurationPicker", page: "slideshowConfig", content: "transitionDurationMs=${v}"`);
                 await setMeta('slideshowConfig', appState.get('slideshowConfig'));
