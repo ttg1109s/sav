@@ -4,11 +4,16 @@
  * panel chọn Album kiểu "notify center").
  *
  * === Batch D4 (Settings restructure, 06/07/2026) ===
- * 7 input (enable/mode/photoPerSong/interval/transition/kenBurns/kenBurnsMode) sống BÊN TRONG panel Settings
- * (push/pop động, core/settings-panel-stack.js) — ĐỔI sang delegation trên `settingsStackBody`,
- * CHUẨN đã dùng từ Batch D2/D3. `btnBackSlideshowSettings` ĐÃ XOÁ (Back dùng CHUNG
- * `btnSettingsStackBack`). `btnOpenSlideshowSettings` (Main, tĩnh) GIỮ NGUYÊN kiểu listener trực
- * tiếp, KHÔNG cần delegation.
+ * 10 input (enable/mode/photoPerSong/interval/transition/kenBurns/kenBurnsMode/transitionDuration/
+ * transitionRatio/transitionEasing) sống BÊN TRONG panel Settings (push/pop động, core/settings-
+ * panel-stack-ui.js) — ĐỔI sang delegation trên `settingsStackBody`, CHUẨN đã dùng từ Batch D2/D3.
+ * `btnBackSlideshowSettings` ĐÃ XOÁ (Back dùng CHUNG `btnSettingsStackBack`). `btnOpenSlideshowSettings`
+ * (Main, tĩnh) GIỮ NGUYÊN kiểu listener trực tiếp, KHÔNG cần delegation.
+ *
+ * SỬA (18/07/2026, phản hồi Giang — mục "thêm thời gian transition") — MAP đổi sang KEY GHÉP
+ * `"${id}:${eventType}"` (trước đây key CHỈ là id, 1 entry/id) — cần thiết vì slider Tỉ lệ In/Out
+ * cần CẢ 2 event KHÁC NHAU trên CÙNG 1 phần tử (`'input'` lúc đang kéo — chỉ cập nhật nhãn xem
+ * trước, KHÔNG persist; `'change'` lúc thả tay — persist thật), 1 id giờ có thể có ≥2 entry.
  *
  * ĐÃ GỠ (Giai đoạn 4, rewrite Photo/Album, mục 1) — listener tĩnh cho `slideshowAlbumPickerOverlay`
  * (panel chọn Album kiểu "notify center", mount sẵn lúc boot) — panel đó giờ là Generic Drawer ĐỘNG,
@@ -25,31 +30,43 @@ if (btnOpenSlideshowSettings) {
 
 // (btnBackSlideshowSettings ĐÃ XOÁ — Batch D4: Back dùng CHUNG btnSettingsStackBack.)
 
-// ===================== 7 input BÊN TRONG panel Settings (delegate) =====================
+// ===================== 10 input BÊN TRONG panel Settings (delegate) =====================
+// Key = "id:eventType" (SỬA 18/07/2026 — xem docstring đầu file).
 const SLIDESHOW_SETTINGS_INPUT_MAP = {
-    'setting-slideshow-enable': { type: 'slideshowSettings.enable.change', event: 'change', checkbox: true },
-    'setting-slideshow-mode': { type: 'slideshowSettings.mode.change', event: 'change' },
-    'setting-slideshow-photo-per-song': { type: 'slideshowSettings.photoPerSong.change', event: 'change', checkbox: true },
+    'setting-slideshow-enable:change': { type: 'slideshowSettings.enable.change', checkbox: true },
+    'setting-slideshow-mode:change': { type: 'slideshowSettings.mode.change' },
+    'setting-slideshow-photo-per-song:change': { type: 'slideshowSettings.photoPerSong.change', checkbox: true },
     // SỬA (18/07/2026, phản hồi Giang — "setting chọn thời gian mở modal picker") — input số cũ
     // (<input type="number">, event 'change') ĐỔI thành nút bấm (<button>, event 'click') mở modal
     // "bánh xe cuộn số" dùng chung (core/time-picker-modal.js) — KHÔNG còn đọc .value trực tiếp từ
     // input nữa, xem `openModal: true` bên dưới.
-    'setting-slideshow-interval': { type: 'slideshowSettings.interval.openPicker', event: 'click', openModal: true },
-    'setting-slideshow-transition': { type: 'slideshowSettings.transitionType.change', event: 'change' },
-    'setting-slideshow-kenburns': { type: 'slideshowSettings.kenBurns.change', event: 'change', checkbox: true },
-    'setting-slideshow-kenburns-mode': { type: 'slideshowSettings.kenBurnsMode.change', event: 'change' },
+    'setting-slideshow-interval:click': { type: 'slideshowSettings.interval.openPicker', openModal: true },
+    'setting-slideshow-transition:change': { type: 'slideshowSettings.transitionType.change' },
+    'setting-slideshow-kenburns:change': { type: 'slideshowSettings.kenBurns.change', checkbox: true },
+    'setting-slideshow-kenburns-mode:change': { type: 'slideshowSettings.kenBurnsMode.change' },
+    // MỚI (18/07/2026, mục "thêm thời gian transition") — 3 input mới.
+    'setting-slideshow-transition-duration:click': { type: 'slideshowSettings.transitionDuration.openPicker', openModal: true },
+    'setting-slideshow-transition-ratio:input': { type: 'slideshowSettings.transitionRatio.preview', numeric: true },
+    'setting-slideshow-transition-ratio:change': { type: 'slideshowSettings.transitionRatio.change', numeric: true },
+    'setting-slideshow-transition-easing:change': { type: 'slideshowSettings.transitionEasing.change' },
 };
 
 function handleSlideshowSettingsDelegatedEvent(e) {
-    const entry = SLIDESHOW_SETTINGS_INPUT_MAP[e.target.id];
-    if (!entry || entry.event !== e.type) return; // không phải input cụm này (hoặc sai loại event)
+    const entry = SLIDESHOW_SETTINGS_INPUT_MAP[`${e.target.id}:${e.type}`];
+    if (!entry) return; // không phải input cụm này (hoặc sai loại event cho đúng id đó)
 
-    const payload = entry.checkbox ? { checked: e.target.checked } : entry.openModal ? {} : { value: e.target.value };
+    const payload = entry.checkbox ? { checked: e.target.checked }
+        : entry.openModal ? {}
+        : entry.numeric ? { value: Number(e.target.value) }
+        : { value: e.target.value };
     eventBus.send({ router: 'slideshowSettings', type: entry.type, payload });
 }
 
 if (settingsStackBody) {
     settingsStackBody.addEventListener('change', handleSlideshowSettingsDelegatedEvent);
-    // MỚI (18/07/2026) — thêm delegation 'click' cho input DẠNG NÚT (hiện chỉ có interval picker).
+    // MỚI (18/07/2026) — delegation 'click' cho input DẠNG NÚT (interval/transitionDuration picker).
     settingsStackBody.addEventListener('click', handleSlideshowSettingsDelegatedEvent);
+    // MỚI (18/07/2026, mục "thêm thời gian transition") — delegation 'input' CHO RIÊNG slider Tỉ lệ
+    // In/Out (xem preview() khác change() ở docstring đầu file).
+    settingsStackBody.addEventListener('input', handleSlideshowSettingsDelegatedEvent);
 }
