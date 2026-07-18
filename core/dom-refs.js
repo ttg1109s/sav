@@ -252,6 +252,8 @@
         // đúng quy ước Generic Drawer: "component tĩnh + dom-refs, nội dung động thì Workflow tự
         // querySelector sau khi gán". `btnOpenAbout` VẪN TĨNH (nút nằm trong Main, không bị xoá).
         const btnOpenAbout = document.getElementById('setting-open-about');
+        // MỚI (18/07/2026, Giang yêu cầu — xem debug-console.js) — nút mở panel xem console log.
+        const btnOpenDebugConsole = document.getElementById('setting-open-debug-console');
 
         // ===================== Settings Stack (khung dùng CHUNG mọi panel con) =====================
         // Batch D1 — SỬA GỐC thiết kế cũ (9 drawer con là sibling `fixed inset-0` riêng, phân biệt
