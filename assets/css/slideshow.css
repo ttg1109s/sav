@@ -49,6 +49,11 @@
     overflow: hidden; /* MỚI (Ken Burns) — clip layer con .ss-kenburns-pan lúc nó scale to hơn khung */
 }
 .slideshow-layer.ss-current { opacity: 1; z-index: 2; }
+/* SỬA (18/07/2026, phản hồi Giang — tuỳ chỉnh thời gian + tỉ lệ In/Out + easing cho transition) —
+   `animation-duration`/`animation-timing-function` ở 2 rule dưới CHỈ còn là giá trị DỰ PHÒNG —
+   giá trị THẬT set ĐỘNG qua inline style ngay TRƯỚC lúc class enter/exit được thêm (Workflow gọi
+   `setSlideshowTransitionTiming()`, core/file-manager/slideshow.js — inline style LUÔN thắng CSS
+   stylesheet, 2 con số 900ms/ease dưới đây không còn ý nghĩa thực tế trừ phi JS lỡ chưa kịp set). */
 .slideshow-layer.ss-layer-enter { z-index: 3; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
 .slideshow-layer.ss-layer-exit  { z-index: 2; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
 
