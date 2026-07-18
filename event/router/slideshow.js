@@ -62,7 +62,12 @@ const routerSlideshowSettings = (() => {
 
             // MỚI (Ken Burns, 18/07/2026, phản hồi Giang) — toggle độc lập, tách khỏi transitionType.
             case 'slideshowSettings.kenBurns.change':
-                workflowSlideshow.changeKenBurnsEnabled(msg.payload.checked); // >1 bước (set + persist) -> workflow
+                workflowSlideshow.changeKenBurnsEnabled(msg.payload.checked); // >1 bước (set + persist + đồng bộ hàng select) -> workflow
+                break;
+
+            // MỚI ("Nhóm 2", 18/07/2026, phản hồi Giang) — 13 chế độ, THAY HẲN "Nhóm 1".
+            case 'slideshowSettings.kenBurnsMode.change':
+                workflowSlideshow.changeKenBurnsMode(msg.payload.value); // >1 bước (validate + set + persist) -> workflow
                 break;
 
             default:
