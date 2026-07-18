@@ -292,6 +292,13 @@
          trên mọi nền tảng, đặc biệt khi chạy qua file://). KHÔNG còn input nào ở đây nữa. -->
     <audio id="audio-player" style="display: none;" playsinline></audio>
 
+    <!-- MỚI (18/07/2026, Giang yêu cầu — "mục mới Settings > Misc, vào hiện console log") — NẠP
+         SỚM NHẤT CÓ THỂ trong toàn bộ script NỘI BỘ (đứng TRƯỚC CẢ khối i18n dưới đây) — bọc
+         console.log/warn/error để bắt được CÀNG NHIỀU log càng tốt từ suốt quá trình boot, kể cả
+         log của MỌI file nạp SAU nó. Không phụ thuộc gì (không đụng DOM/appState/t()) — an toàn
+         đứng vị trí đầu tiên tuyệt đối. Xem docstring đầu file để biết lý do side-effect top-level. -->
+    <script src="core/debug-console.js?v=20260718v1"></script>
+
     <!-- =====================================================================
          0) I18N (batch i18n; tái cấu trúc /lang/ — xem readme/folder-structure.md): toàn bộ
             default-language keys (LANG_EN_KEYS, ~312 key) đã được CHIA NHỎ thành 5 file patch
@@ -359,6 +366,8 @@
     <script src="components/settings/language.js?v=20260707v2"></script>
     <script src="components/settings-drawer.js?v=20260708v2"></script>
     <script src="components/about-drawer.js?v=20260707v1"></script>
+    <!-- MỚI (18/07/2026, Giang yêu cầu) — panel xem console log (Settings > Misc). -->
+    <script src="components/debug-console-drawer.js?v=20260718v1"></script>
     <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): File
          Manager KHÔNG còn là 1 overlay cấp cao mở từ Playlist nữa (bỏ patch 02/07/2026) — giờ là
          3 drawer con (Song/Photo & Album/Documents) mở thẳng từ section "File Manager" vừa thêm
