@@ -47,8 +47,8 @@
  * core/file-manager/album.js (getAlbumRecord/listAlbums — qua service/db.js), core/file-manager/image.js
  * (getImageRecord), core/file-manager/photo-ui.js (renderSlideshowAlbumPickerGrid — GIỮ NGUYÊN, giờ
  * vẽ vào genericDrawerBody thay vì panel tĩnh cũ), service/db.js (getMeta/setMeta), core/dom-refs.js
- * (slideshowContainer/slideshowLayer1/slideshowLayer2, genericDrawerOverlay/Panel/
- * Header/Body — Generic Drawer dùng chung, Giai đoạn 4),
+ * (slideshowContainer/slideshowLayer1/slideshowLayer2/slideshowLayer1Pan/slideshowLayer2Pan,
+ * genericDrawerOverlay/Panel/Header/Body — Generic Drawer dùng chung, Giai đoạn 4),
  * core/settings-panel-stack.js (pushSettingsPanel), core/generic-drawer.js (openGenericDrawer/
  * closeGenericDrawer/hideGenericDrawerImmediately — Giai đoạn 4), components/slideshow-settings-
  * drawer.js (renderSlideshowPanelBody), service/task-manager.js (taskManager — CHỈ Workflow này
@@ -57,7 +57,7 @@
  * `workflowSlideshow.clearActiveAlbum()` trong cascade xoá album).
  *
  * === Batch D4 (Settings restructure, 06/07/2026) ===
- * Panel Settings (5 input enable/mode/photoPerSong/interval/transition) giờ PUSH/POP
+ * Panel Settings (6 input enable/mode/photoPerSong/interval/transition/kenBurns) giờ PUSH/POP
  * động (core/settings-panel-stack.js) — KHÔNG còn `drawerSlideshowSettings`/6 dom-refs tĩnh (xem
  * core/dom-refs.js). File này KHÔNG cần refactor Rule 0.5 (mọi hàm ở đây ĐÃ LÀ Workflow — được
  * phép appState.get()/taskManager sẵn, core/file-manager/slideshow.js vốn ĐÃ Rule 1-4 đầy đủ từ
@@ -74,6 +74,30 @@
  * `slideshowAlbumPicker*` dom-refs ĐÃ XOÁ — panel chọn Album giờ là Generic Drawer ĐỘNG (core/
  * generic-drawer.js), dựng lại mỗi lần mở qua `openAlbumPicker()`/`_closeAlbumPickerDrawer()` ngay
  * dưới, cùng hạ tầng dùng chung với menu action ảnh/picker ảnh Photo & Album.
+ *
+ * === Ken Burns (18/07/2026, phản hồi Giang) — VIẾT LẠI HOÀN TOÀN, KHÔNG migrate config cũ ===
+ * `transitionType === 'kenburns'` (lựa chọn gộp chung vào 13 kiểu transition, đời trước) ĐÃ XOÁ
+ * SẠCH — Ken Burns giờ là toggle ĐỘC LẬP `slideshowConfig.kenBurnsEnabled` (mặc định `false`),
+ * dùng ĐƯỢC cùng lúc với BẤT KỲ kiểu transition nào (khác trước: chọn Ken Burns là mất quyền chọn
+ * transition, khoá cứng về fade). Cơ chế: `_showFirstImage()`/`_tick()` giờ check
+ * `cfg.kenBurnsEnabled` (KHÔNG còn check `cfg.transitionType`) để quyết định có gọi
+ * `_activateKenBurns()` hay không — ĐỘC LẬP hoàn toàn với việc chọn transitionType nào.
+ * Bật/tắt toggle CHỈ ảnh hưởng từ ẢNH KẾ TIẾP trở đi (Giang chốt: không ép reset ảnh đang hiện
+ * hoạt — đúng tiền lệ `changeMode()`/`changeTransitionType()`, không đặc cách riêng cho Ken Burns).
+ * Config cũ đã lưu (`transitionType: 'kenburns'`) tự nhiên bị bỏ qua bởi validate
+ * `SLIDESHOW_TRANSITION_TYPES.includes()` ở `loadPersistedSettingsOnBoot()` (mảng đó đã bỏ
+ * 'kenburns') — rơi về default 'fade', KHÔNG tự bật `kenBurnsEnabled` thay thế (Giang yêu cầu
+ * không migrate, không giữ tương thích ngược).
+ *
+ * KIẾN TRÚC 2 LỚP/LAYER (thay vì 1) — mỗi `slideshowLayerN` (ngoài, lo animation chuyển cảnh) giờ
+ * bọc 1 `slideshowLayerNPan` (con, lo background-image + animation pan/zoom Ken Burns) — xem
+ * docstring đầu assets/css/slideshow.css để biết lý do TÁCH (CSS chỉ giữ 1 `animation-name` hiệu
+ * lực/phần tử, gộp chung sẽ đè lẫn nhau lúc cả 2 animation cùng chạy). HỆ QUẢ: `setSlideshowLayerImage()`
+ * giờ LUÔN nhận layer CON (`_currentPanLayer()`/`_idlePanLayer()`, method mới ngay dưới, cùng khuôn
+ * `_currentLayer()`/`_idleLayer()`) làm tham số — KỂ CẢ khi Ken Burns đang tắt (background-image
+ * SỐNG cố định ở layer con bất kể Ken Burns bật/tắt, chỉ animation pan/zoom là có/không). 2 hàm
+ * Ken Burns (`applySlideshowKenBurns()`/`freezeSlideshowKenBurnsEndState()`) cũng nhận layer CON,
+ * KHÔNG đổi chữ ký hàm core (core vẫn "thuần", chỉ tham số truyền vào đổi ý nghĩa — Rule 2 vẫn giữ).
  */
 let slideshowSettingsPanelEl = null; // panel Settings Slideshow đang mở — null nếu đang đóng (Batch D4)
 let _albumPickerOverlayClickHandler = null; // MỚI (Giai đoạn 4) — tham chiếu handler đang gắn trên genericDrawerOverlay (element DÙNG CHUNG nhiều feature) để tự gỡ đúng lúc đóng picker Album, xem openAlbumPicker()/_closeAlbumPickerDrawer()
@@ -98,6 +122,11 @@ const workflowSlideshow = {
 
     _currentLayer() { return this._layerToggle ? slideshowLayer2 : slideshowLayer1; },
     _idleLayer() { return this._layerToggle ? slideshowLayer1 : slideshowLayer2; },
+    // MỚI (Ken Burns, 18/07/2026) — layer CON tương ứng (mang background-image + animation pan/zoom
+    // Ken Burns, xem docstring đầu file/assets/css/slideshow.css). CÙNG logic _layerToggle, chỉ đổi
+    // đích đến (Pan thay vì layer ngoài).
+    _currentPanLayer() { return this._layerToggle ? slideshowLayer2Pan : slideshowLayer1Pan; },
+    _idlePanLayer() { return this._layerToggle ? slideshowLayer1Pan : slideshowLayer2Pan; },
 
     _computeIntervalMs() {
         return Math.max(5, appState.get('slideshowConfig').intervalSeconds) * 1000;
@@ -128,7 +157,11 @@ const workflowSlideshow = {
     // ===================== Boot / persist =====================
 
     /** Đọc lại slideshowConfig/activeBackgroundAlbum đã lưu (meta) lúc boot — gọi 1 LẦN từ
-     * DOMContentLoaded (core/visualizer/draw-visualizer.js), SAU loadConfig(). */
+     * DOMContentLoaded (core/visualizer/draw-visualizer.js), SAU loadConfig().
+     * Ken Burns (18/07/2026) — đọc `kenBurnsEnabled` như field bình thường, KHÔNG migrate config cũ
+     * (`transitionType: 'kenburns'` đời trước tự bị validate `SLIDESHOW_TRANSITION_TYPES.includes()`
+     * loại bỏ ở dòng dưới — rơi về default 'fade', KHÔNG tự bật `kenBurnsEnabled` thay thế, đúng
+     * yêu cầu Giang "xoá sạch, không migrate"). */
     async loadPersistedSettingsOnBoot() {
         const [savedConfig, savedAlbumId] = await Promise.all([
             getMeta('slideshowConfig'),
@@ -140,6 +173,7 @@ const workflowSlideshow = {
                 if (typeof savedConfig.intervalSeconds === 'number' && savedConfig.intervalSeconds >= 5) cfg.intervalSeconds = savedConfig.intervalSeconds;
                 if (SLIDESHOW_TRANSITION_TYPES.includes(savedConfig.transitionType)) cfg.transitionType = savedConfig.transitionType;
                 if (typeof savedConfig.photoPerSong === 'boolean') cfg.photoPerSong = savedConfig.photoPerSong;
+                if (typeof savedConfig.kenBurnsEnabled === 'boolean') cfg.kenBurnsEnabled = savedConfig.kenBurnsEnabled;
             });
         }
         if (!savedAlbumId) return;
@@ -217,24 +251,31 @@ const workflowSlideshow = {
     /** Dừng hẳn engine — dọn task + ẩn container + revoke object URL.
      * VIẾT LẠI (04/07/2026, mục 3 — Rule 3 siết chặt): core không còn hàm gộp
      * `resetSlideshowLayers()` (từng tự gọi 2 hàm core khác bên trong, nay cấm) — Workflow tự lặp
-     * qua 2 layer, tự gọi TỪNG hàm core cần thiết theo đúng thứ tự. */
+     * qua 2 layer, tự gọi TỪNG hàm core cần thiết theo đúng thứ tự.
+     * SỬA (Ken Burns, 18/07/2026) — `setSlideshowLayerImage()`/`applySlideshowKenBurns()` giờ nhận
+     * layer CON (Pan), `resetSlideshowLayerClasses()` vẫn nhận layer NGOÀI như cũ (2 việc khác
+     * phần tử — xem docstring đầu file). */
     stop() {
         taskManager.kill(SLIDESHOW_TASK);
         taskManager.kill(SLIDESHOW_SONG_WATCH_TASK);
         taskManager.kill('slideshowKenBurnsFreeze1');
         taskManager.kill('slideshowKenBurnsFreeze2');
         setSlideshowContainerVisible(slideshowContainer, false); // core
-        [slideshowLayer1, slideshowLayer2].forEach((layerEl) => {
-            setSlideshowLayerImage(layerEl, ''); // core
-            applySlideshowKenBurns(layerEl, false, 0); // core
-            resetSlideshowLayerClasses(layerEl); // core
+        [[slideshowLayer1, slideshowLayer1Pan], [slideshowLayer2, slideshowLayer2Pan]].forEach(([layerEl, panEl]) => {
+            setSlideshowLayerImage(panEl, ''); // core — layer CON
+            applySlideshowKenBurns(panEl, false, 0); // core — layer CON
+            resetSlideshowLayerClasses(layerEl); // core — layer NGOÀI
         });
         if (this._currentObjectUrl) { try { URL.revokeObjectURL(this._currentObjectUrl); } catch (e) {} this._currentObjectUrl = null; }
         this._currentIndex = -1;
     },
 
     /** Hiện ảnh ĐẦU TIÊN ngay lập tức lúc start() (KHÔNG chuyển cảnh — chỉ set thẳng lên layer
-     * "current"), thay vì để màn hình trống chờ hết interval đầu tiên mới thấy gì. */
+     * "current"), thay vì để màn hình trống chờ hết interval đầu tiên mới thấy gì.
+     * SỬA (Ken Burns, 18/07/2026) — background-image set lên layer CON (`_currentPanLayer()`),
+     * class `ss-current` vẫn gán lên layer NGOÀI (`_currentLayer()`) như cũ. Điều kiện kích hoạt
+     * Ken Burns đổi từ `cfg.transitionType === 'kenburns'` sang `cfg.kenBurnsEnabled` — ĐỘC LẬP
+     * với transitionType đang chọn. */
     _showFirstImage() {
         const image = this._images[0];
         if (!image) return;
@@ -242,11 +283,12 @@ const workflowSlideshow = {
         this._currentObjectUrl = objectUrl;
         this._currentIndex = 0;
         const layerEl = this._currentLayer();
-        setSlideshowLayerImage(layerEl, objectUrl); // core
+        const panEl = this._currentPanLayer();
+        setSlideshowLayerImage(panEl, objectUrl); // core — layer CON
         if (layerEl) layerEl.classList.add('ss-current');
         const cfg = appState.get('slideshowConfig');
         setSlideshowTransitionType(slideshowContainer, cfg.transitionType); // core
-        if (cfg.transitionType === 'kenburns') this._activateKenBurns(layerEl);
+        if (cfg.kenBurnsEnabled) this._activateKenBurns(panEl);
     },
 
     /**
@@ -256,15 +298,18 @@ const workflowSlideshow = {
      * inline style (freezeSlideshowKenBurnsEndState(), core/file-manager/slideshow.js) — KHÔNG
      * còn phó mặc hoàn toàn cho CSS `animation-fill-mode: forwards` (không đáng tin cậy 100% qua
      * mọi trình duyệt, xem comment hàm đó).
-     * @param {HTMLElement} layerEl
+     * SỬA (Ken Burns, 18/07/2026) — nhận layer CON (Pan), KHÔNG phải layer ngoài (xem docstring
+     * đầu file) — so sánh nhận diện layer 1/2 cũng đổi theo (`slideshowLayer1Pan` thay vì
+     * `slideshowLayer1`).
+     * @param {HTMLElement} panEl - layer CON `.ss-kenburns-pan`.
      */
-    _activateKenBurns(layerEl) {
+    _activateKenBurns(panEl) {
         const variant = pickRandomSlideshowKenBurnsVariant(); // core
         const durationMs = this._computeIntervalMs();
-        applySlideshowKenBurns(layerEl, true, durationMs, variant); // core
+        applySlideshowKenBurns(panEl, true, durationMs, variant); // core
         taskManager.once(() => {
-            freezeSlideshowKenBurnsEndState(layerEl, variant); // core
-        }, durationMs, layerEl === slideshowLayer1 ? 'slideshowKenBurnsFreeze1' : 'slideshowKenBurnsFreeze2');
+            freezeSlideshowKenBurnsEndState(panEl, variant); // core
+        }, durationMs, panEl === slideshowLayer1Pan ? 'slideshowKenBurnsFreeze1' : 'slideshowKenBurnsFreeze2');
     },
 
     /** taskManager exe — đóng vai trò "Router" cho tick tự sinh (xem comment đầu file): tự đọc
@@ -272,7 +317,12 @@ const workflowSlideshow = {
      * ĐƠN GIẢN HOÁ (04/07/2026, mục 2 phản hồi Giang) — bỏ hẳn check `videoBgEnabled` + pause() ở
      * đây: watchdog poll 3s/lần đã XOÁ (xem lý do ở `pauseForVideoBg()`/`resumeFromVideoBg()`
      * dưới) — task này giờ CHỈ chạy khi thật sự KHÔNG bị pause từ bên ngoài, không cần tự kiểm tra
-     * lại nữa. */
+     * lại nữa.
+     * SỬA (Ken Burns, 18/07/2026) — background-image/Ken Burns thao tác lên layer CON
+     * (`outgoingPan`/`incomingPan`), transition chuyển cảnh (class ss-layer-enter/exit) vẫn thao
+     * tác lên layer NGOÀI (`outgoingLayer`/`incomingLayer`) như cũ. Điều kiện Ken Burns đổi sang
+     * `cfg.kenBurnsEnabled` — ĐỘC LẬP với `cfg.transitionType`, nên chạy được cùng lúc với BẤT KỲ
+     * kiểu transition nào (khác trước: 'kenburns' khoá cứng transition về fade). */
     _tick() {
         if (this._images.length === 0) return; // album rỗng (ảnh vừa bị xoá hết) -> chờ, không lỗi
 
@@ -286,20 +336,22 @@ const workflowSlideshow = {
         const objectUrl = URL.createObjectURL(image.blob);
         const outgoingLayer = this._currentLayer();
         const incomingLayer = this._idleLayer();
+        const outgoingPan = this._currentPanLayer();
+        const incomingPan = this._idlePanLayer();
 
         setSlideshowTransitionType(slideshowContainer, cfg.transitionType); // core
-        setSlideshowLayerImage(incomingLayer, objectUrl); // core
-        if (cfg.transitionType === 'kenburns') this._activateKenBurns(incomingLayer);
+        setSlideshowLayerImage(incomingPan, objectUrl); // core — layer CON
+        if (cfg.kenBurnsEnabled) this._activateKenBurns(incomingPan);
 
         // VIẾT LẠI (04/07/2026, mục 3 — Rule 3 siết chặt): trước đây gọi 1 hàm core duy nhất
         // (beginSlideshowTransition) TỰ taskManager.once() + TỰ gọi core khác bên trong — giờ CẤM.
         // Workflow tự làm cả 2 việc đó: gọi core "bắt đầu" NGAY, rồi TỰ taskManager.once() lịch
         // đúng lúc hết SLIDESHOW_TRANSITION_DURATION_MS để tự gọi TỪNG hàm core "kết thúc".
-        startSlideshowTransitionVisuals(outgoingLayer, incomingLayer); // core
+        startSlideshowTransitionVisuals(outgoingLayer, incomingLayer); // core — layer NGOÀI
         taskManager.once(() => {
-            setSlideshowLayerImage(outgoingLayer, ''); // core
-            applySlideshowKenBurns(outgoingLayer, false, 0); // core
-            finishSlideshowTransitionVisuals(outgoingLayer, incomingLayer); // core
+            setSlideshowLayerImage(outgoingPan, ''); // core — layer CON
+            applySlideshowKenBurns(outgoingPan, false, 0); // core — layer CON
+            finishSlideshowTransitionVisuals(outgoingLayer, incomingLayer); // core — layer NGOÀI
         }, SLIDESHOW_TRANSITION_DURATION_MS, 'slideshowTransitionCleanup');
 
         if (this._currentObjectUrl) {
@@ -355,6 +407,7 @@ const workflowSlideshow = {
         const intervalRow = slideshowSettingsPanelEl.querySelector('#slideshow-interval-row');
         const intervalInput = slideshowSettingsPanelEl.querySelector('#setting-slideshow-interval');
         const transitionSelect = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition');
+        const kenBurnsToggle = slideshowSettingsPanelEl.querySelector('#setting-slideshow-kenburns');
 
         if (enableToggle) enableToggle.checked = !!albumId;
         if (modeSelect) modeSelect.value = cfg.mode;
@@ -364,6 +417,8 @@ const workflowSlideshow = {
         if (intervalRow) intervalRow.classList.toggle('hidden', !!cfg.photoPerSong);
         if (intervalInput) intervalInput.value = cfg.intervalSeconds;
         if (transitionSelect) transitionSelect.value = cfg.transitionType;
+        // MỚI (Ken Burns, 18/07/2026) — đồng bộ toggle độc lập, KHÔNG còn nằm trong transitionSelect.
+        if (kenBurnsToggle) kenBurnsToggle.checked = !!cfg.kenBurnsEnabled;
     },
 
     /** MỚI (04/07/2026, mục 5) — ứng với gạt "Photo per song". Persist + nếu engine đang chạy, khởi
@@ -513,7 +568,8 @@ const workflowSlideshow = {
         }
     },
 
-    /** Ứng với select "Hiệu ứng chuyển cảnh" (13 kiểu).
+    /** Ứng với select "Hiệu ứng chuyển cảnh" (12 kiểu — Ken Burns ĐÃ TÁCH khỏi danh sách này, xem
+     * changeKenBurnsEnabled() ngay dưới).
      * @param {string} type
      */
     async changeTransitionType(type) {
@@ -522,5 +578,21 @@ const workflowSlideshow = {
         console.log(`writer: "workflowSlideshow.changeTransitionType", page: "slideshowConfig", content: "transitionType=${type}"`);
         await setMeta('slideshowConfig', appState.get('slideshowConfig'));
         setSlideshowTransitionType(slideshowContainer, type); // core — áp ngay cho lần chuyển cảnh kế tiếp
+    },
+
+    /** MỚI (Ken Burns, 18/07/2026, phản hồi Giang) — ứng với toggle "Ken Burns" (ĐỘC LẬP với
+     * transitionType, dùng ĐƯỢC cùng lúc với BẤT KỲ kiểu transition nào). CHỈ persist + đồng bộ
+     * state — KHÔNG ép reset/dừng ảnh đang hiện hoạt (Giang chốt: bật/tắt áp dụng từ ẢNH KẾ TIẾP,
+     * đúng tiền lệ `changeMode()`/`changeTransitionType()` — không đặc cách riêng cho Ken Burns).
+     * Cơ chế tick tự nhiên (`_showFirstImage()`/`_tick()`) tự đọc lại field này mỗi lượt đổi ảnh —
+     * TẮT giữa chừng: ảnh đang chạy cứ hiện hết (kể cả task freeze đã lên lịch vẫn bắn bình
+     * thường), layer outgoing ở lượt `_tick()` kế tiếp tự gọi `applySlideshowKenBurns(outgoingPan,
+     * false, 0)` (code cleanup có sẵn) → tự về gốc, không cần xử lý gì thêm ở đây.
+     * @param {boolean} checked
+     */
+    async changeKenBurnsEnabled(checked) {
+        appState.mutate('slideshowConfig', (cfg) => { cfg.kenBurnsEnabled = checked; });
+        console.log(`writer: "workflowSlideshow.changeKenBurnsEnabled", page: "slideshowConfig", content: "kenBurnsEnabled=${checked}"`);
+        await setMeta('slideshowConfig', appState.get('slideshowConfig'));
     },
 };
