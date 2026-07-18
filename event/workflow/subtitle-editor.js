@@ -15,8 +15,9 @@
  * giờ từ vùng chọn, Phát vùng chọn, Split, Cut MP3, Shift giờ hàng loạt. Nút Lưu tách riêng khỏi
  * "đóng" (trang không tự đóng khi lưu — nút "←" quay lại riêng, xem `back()`).
  *
- * NẠP SAU: core/subtitle/subtitles.js, core/subtitle/subtitles-ui.js, service/db.js, lang/lang.js,
- * WaveSurfer.js (CDN) + Regions plugin (CDN).
+ * NẠP SAU: core/subtitle/subtitles.js, core/subtitle/subtitles-ui.js, core/time-picker-modal.js
+ * (MỚI 18/07/2026 — openTimePickerModal() dùng chung, xem docstring hàm cùng tên trong file này),
+ * service/db.js, lang/lang.js, WaveSurfer.js (CDN) + Regions plugin (CDN).
  */
 const workflowSubtitleEditor = {
     _songKey: null,
@@ -463,181 +464,44 @@ const workflowSubtitleEditor = {
     /** Modal "bánh xe cuộn số" chọn giờ start/end 1 dòng — CHỈ mở được lúc dòng đó đang ở chế độ
      * sửa (nút start/end chỉ hiện trong chế độ đó). Xác nhận -> cập nhật PENDING + đồng bộ ngược
      * vào this._region, KHÔNG commit thẳng vào dòng (chờ bấm ✓ Áp dụng).
-     * Chặn THẬT việc cuộn ra ngoài [minAllowed,maxAllowed]: cho lướt tự do (giữ cảm giác cuộn mượt
-     * của native scroll), rồi ngay khi lướt tay dừng hẳn (debounce 120ms), tự "snap" về mép gần
-     * nhất nếu đã vượt biên (hiệu ứng rubber-band quen thuộc trên iOS). 4 wheel (HH/MM/SS/x100ms)
-     * phụ thuộc nhau theo tầng — bound của MM tính theo giá trị HH hiện tại, bound của SS tính theo
-     * HH+MM, bound của tenths tính theo HH+MM+SS — mỗi khi 1 wheel thô hơn ổn định ở giá trị mới,
-     * các wheel mịn hơn tự kẹp lại theo bound mới ngay lập tức (xem reclampFinerThan()). Vẫn kẹp
-     * cứng lần cuối lúc bấm "Xong" để luôn đúng dù cơ chế chặn cuộn ở trên có lỡ chưa kịp ổn định.
+     *
+     * TÁCH RA (18/07/2026, phản hồi Giang — "tách modal đó ra như 1 core thuần chung để tái sử
+     * dụng") — cơ chế "bánh xe cuộn số" (scroll-snap, rubber-band, N cột phụ thuộc nhau theo tầng)
+     * ĐÃ CHUYỂN HẲN sang `core/time-picker-modal.js::openTimePickerModal()` (DÙNG CHUNG, không
+     * riêng gì Subtitle Editor nữa) — hàm NÀY giờ CHỈ còn 1 wrapper mỏng: tự tính min/max/giá trị
+     * hiện tại theo SECONDS (giữ NGUYÊN cách tính cũ, KHÔNG đổi 1 chữ), quy đổi sang MILI GIÂY
+     * (đơn vị canonical của modal dùng chung — xem docstring core/time-picker-modal.js), gọi modal
+     * với `format: 'h-m-s-ms'` (giữ ĐÚNG 4 cột hh/mm/ss/x100ms như bản gốc), rồi convert NGƯỢC kết
+     * quả (mili giây) về giây trước khi chạy lại ĐÚNG logic onConfirm cũ (cập nhật PENDING + đồng
+     * bộ `_region`) — HÀNH VI ĐẦU RA ĐỐI VỚI NGƯỜI DÙNG GIỮ NGUYÊN 100%, KHÔNG đổi gì cả.
      * @param {string} subId @param {'start'|'end'} kind @param {number} currentSeconds
      */
     openTimePickerModal(subId, kind, currentSeconds) {
         if (!this._wavesurfer) return;
-        const ITEM_H = 44; // px — PHẢI khớp đúng h-11 (44px) của mỗi số trong subtitle-editor.html/CSS bên dưới
         const totalDuration = this._wavesurfer.getDuration() || 0;
         // Giới hạn THẬT: start bị chặn bởi min(tổng bài hát, end PENDING hiện tại); end bị chặn
-        // TRÊN bởi tổng bài hát, chặn DƯỚI bởi start PENDING hiện tại.
+        // TRÊN bởi tổng bài hát, chặn DƯỚI bởi start PENDING hiện tại. (GIỮ NGUYÊN cách tính cũ.)
         const minAllowed = kind === 'start' ? 0 : this._editingPendingStart;
         const maxAllowed = kind === 'start' ? Math.min(totalDuration, this._editingPendingEnd) : totalDuration;
 
-        const totalMs = Math.max(0, Math.round(currentSeconds * 1000));
-        // Giá trị HIỆN TẠI của từng wheel (CHỈ cập nhật khi wheel đó "ổn định" — xem onSettle bên
-        // dưới) — dùng để tính bound cho các wheel MỊN HƠN theo tầng.
-        let currentHH = Math.floor(totalMs / 3600000) % 24;
-        let currentMM = Math.floor(totalMs / 60000) % 60;
-        let currentSS = Math.floor(totalMs / 1000) % 60;
-        const initTenth = Math.floor((totalMs % 1000) / 100); // giữ tên riêng — dùng lại để set vị trí cuộn ban đầu SAU KHI modal đã gắn vào document (xem fix bên dưới)
-
-        /** Tính [min,max] (đơn vị THÔ, ví dụ 0-23 cho HH) hợp lệ cho tầng `level`, dựa trên giá trị
-         * ỔN ĐỊNH HIỆN TẠI của các tầng THÔ HƠN — ước lượng theo phần dư còn lại của [minAllowed,
-         * maxAllowed] sau khi trừ phần các tầng thô hơn đã đóng góp. */
-        function boundsFor(level) {
-            const prefixSeconds =
-                (level === 'hh' ? 0 : currentHH * 3600) +
-                (level === 'hh' || level === 'mm' ? 0 : currentMM * 60) +
-                (level === 'hh' || level === 'mm' || level === 'ss' ? 0 : currentSS);
-            const unitSeconds = level === 'hh' ? 3600 : level === 'mm' ? 60 : level === 'ss' ? 1 : 0.1;
-            const count = level === 'hh' ? 24 : level === 'tenth' ? 10 : 60;
-            let min = Math.max(0, Math.floor((minAllowed - prefixSeconds) / unitSeconds + 1e-9));
-            let max = Math.min(count - 1, Math.floor((maxAllowed - prefixSeconds) / unitSeconds + 1e-9));
-            if (min > max) { min = 0; max = count - 1; } // an toàn — hiếm khi xảy ra (làm tròn biên) -> bỏ giới hạn tầng này, logic lúc "Xác nhận" vẫn kẹp đúng
-            return [min, max];
-        }
-
-        /** Dựng 1 cột cuộn — `onSettle(index)` gọi SAU KHI lướt tay dừng hẳn VÀ đã tự kẹp về đúng
-         * [min,max] (nếu cần) — dùng để các wheel THÔ HƠN... không, dùng để CHÍNH wheel này cập
-         * nhật biến current* của nó, cho các wheel MỊN HƠN tính lại bound theo. */
-        function buildColumn(count, initIndex, level, onSettle) {
-            const col = document.createElement('div');
-            col.className = 'time-picker-col flex-1 h-[132px] overflow-y-scroll snap-y snap-mandatory';
-            col.style.scrollSnapStop = 'always';
-            const topSpacer = document.createElement('div'); topSpacer.style.height = ITEM_H + 'px'; col.appendChild(topSpacer);
-            const items = [];
-            for (let i = 0; i < count; i++) {
-                const item = document.createElement('div');
-                item.className = 'h-11 flex items-center justify-center snap-center text-lg font-mono text-white';
-                item.textContent = String(i).padStart(2, '0');
-                col.appendChild(item);
-                items.push(item);
-            }
-            const bottomSpacer = document.createElement('div'); bottomSpacer.style.height = ITEM_H + 'px'; col.appendChild(bottomSpacer);
-            items.forEach((item, i) => item.addEventListener('click', () => col.scrollTo({ top: i * ITEM_H, behavior: 'smooth' })));
-            // KHÔNG set `col.scrollTop` ở đây — `col` chưa gắn vào document (chưa có layout thật),
-            // trình duyệt sẽ coi như no-op/tự reset về 0. Dời xuống SAU document.body.appendChild(overlay).
-
-            col.addEventListener('scroll', () => {
-                taskManager.once(() => {
-                    const idx = Math.round(col.scrollTop / ITEM_H);
-                    const [min, max] = boundsFor(level);
-                    const clamped = Math.max(min, Math.min(max, idx));
-                    if (clamped !== idx) col.scrollTo({ top: clamped * ITEM_H, behavior: 'smooth' }); // "bật lại" mép gần nhất — rubber-band
-                    onSettle(clamped);
-                }, 120, `subtitleEditorTimePickerSettle_${level}`); // đợi lướt tay DỪNG HẲN rồi mới kẹp — tránh giật lúc đang lướt dở. Tên cố định theo `level` (hh/mm/ss) = debounce riêng từng cột, gọi lại nhiều lần tự huỷ bản cũ (đúng API taskManager.once, KHÔNG cần tự clearTimeout/biến local nữa)
-            });
-            return col;
-        }
-
-        const hhCol = buildColumn(24, currentHH, 'hh', (v) => { currentHH = v; reclampFinerThan('hh'); });
-        const mmCol = buildColumn(60, currentMM, 'mm', (v) => { currentMM = v; reclampFinerThan('mm'); });
-        const ssCol = buildColumn(60, currentSS, 'ss', (v) => { currentSS = v; reclampFinerThan('ss'); });
-        const tenthCol = buildColumn(10, initTenth, 'tenth', () => {}); // tầng mịn nhất, không có gì phụ thuộc theo sau
-
-        /** Wheel `level` vừa ổn định ở giá trị mới -> MỌI wheel MỊN HƠN cần tự kẹp lại NGAY (bound
-         * của chúng vừa đổi theo giá trị mới này). */
-        function reclampFinerThan(level) {
-            const finerCols = level === 'hh' ? [['mm', mmCol], ['ss', ssCol], ['tenth', tenthCol]]
-                : level === 'mm' ? [['ss', ssCol], ['tenth', tenthCol]]
-                    : [['tenth', tenthCol]];
-            finerCols.forEach(([finerLevel, col]) => {
-                const idx = Math.round(col.scrollTop / ITEM_H);
-                const [min, max] = boundsFor(finerLevel);
-                const clamped = Math.max(min, Math.min(max, idx));
-                if (clamped !== idx) col.scrollTo({ top: clamped * ITEM_H, behavior: 'smooth' });
-                if (finerLevel === 'mm') currentMM = clamped; else if (finerLevel === 'ss') currentSS = clamped;
-            });
-        }
-
-        const overlay = document.createElement('div');
-        overlay.id = 'time-picker-modal-overlay';
-        overlay.className = 'fixed inset-0 z-[130] bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
-
-        const card = document.createElement('div');
-        card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-3';
-
-        const titleEl = document.createElement('h3');
-        titleEl.className = 'text-base font-bold text-white';
-        titleEl.textContent = kind === 'start' ? t('subtitleEditor.timePicker.titleStart') : t('subtitleEditor.timePicker.titleEnd');
-        card.appendChild(titleEl);
-
-        // Hiện rõ khoảng hợp lệ ngay trong modal (thông tin, KHÔNG phải cảnh báo động — việc CHẶN
-        // THẬT nằm ở cơ chế cuộn phía trên, xem buildColumn()).
-        const rangeHintEl = document.createElement('p');
-        rangeHintEl.className = 'text-[11px] text-slate-400 font-mono';
-        rangeHintEl.textContent = tFormat('subtitleEditor.timePicker.rangeHint', { min: secToStr(minAllowed), max: secToStr(maxAllowed) });
-        card.appendChild(rangeHintEl);
-
-        const wheelWrap = document.createElement('div');
-        wheelWrap.className = 'relative flex gap-1';
-        const highlightBand = document.createElement('div');
-        highlightBand.className = 'absolute inset-x-0 top-1/2 -translate-y-1/2 h-11 bg-white/10 rounded-lg pointer-events-none border-y border-white/20';
-        wheelWrap.appendChild(highlightBand);
-        [hhCol, mmCol, ssCol, tenthCol].forEach((col) => wheelWrap.appendChild(col));
-        card.appendChild(wheelWrap);
-
-        const labelRow = document.createElement('div');
-        labelRow.className = 'flex gap-1 text-[10px] text-slate-500 text-center';
-        ['HH', 'MM', 'SS', 'x100ms'].forEach((label) => {
-            const span = document.createElement('span'); span.className = 'flex-1'; span.textContent = label; labelRow.appendChild(span);
+        openTimePickerModal({ // core/time-picker-modal.js — DÙNG CHUNG
+            title: kind === 'start' ? t('subtitleEditor.timePicker.titleStart') : t('subtitleEditor.timePicker.titleEnd'),
+            format: 'h-m-s-ms', // GIỮ NGUYÊN 4 cột hh/mm/ss/x100ms như bản gốc (xem docstring core, 'ms' = x100ms)
+            valueMs: Math.max(0, Math.round(currentSeconds * 1000)),
+            minMs: Math.round(minAllowed * 1000),
+            maxMs: Math.round(maxAllowed * 1000),
+            rangeHintText: tFormat('subtitleEditor.timePicker.rangeHint', { min: secToStr(minAllowed), max: secToStr(maxAllowed) }),
+            onConfirm: (resultMs) => {
+                const seconds = resultMs / 1000;
+                if (this._editingLineId === subId) {
+                    // Đang sửa ĐÚNG dòng này — chỉ cập nhật PENDING + đồng bộ NGƯỢC region (mục 5),
+                    // KHÔNG commit thẳng (chờ bấm ✓ Áp dụng, xem applyLineEdit()).
+                    if (kind === 'start') this._editingPendingStart = seconds; else this._editingPendingEnd = seconds;
+                    if (this._region) this._region.setOptions({ [kind]: seconds });
+                    this._syncPendingFromRegion();
+                }
+            },
         });
-        card.appendChild(labelRow);
-
-        const buttonRow = document.createElement('div');
-        buttonRow.className = 'flex gap-3 mt-1';
-        const cancelBtn = document.createElement('button');
-        cancelBtn.type = 'button';
-        cancelBtn.className = 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors';
-        cancelBtn.textContent = t('common.cancel');
-        buttonRow.appendChild(cancelBtn);
-        const confirmBtn = document.createElement('button');
-        confirmBtn.type = 'button';
-        confirmBtn.className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-bold transition-colors';
-        confirmBtn.textContent = t('common.ok');
-        buttonRow.appendChild(confirmBtn);
-        card.appendChild(buttonRow);
-
-        overlay.appendChild(card);
-
-        // --- addEventListener: gom cuối hàm (Rule 5a) ---
-        function closeModal() { overlay.remove(); }
-        cancelBtn.addEventListener('click', closeModal);
-        confirmBtn.addEventListener('click', () => {
-            const hh = Math.round(hhCol.scrollTop / ITEM_H);
-            const mm = Math.round(mmCol.scrollTop / ITEM_H);
-            const ss = Math.round(ssCol.scrollTop / ITEM_H);
-            const tenth = Math.round(tenthCol.scrollTop / ITEM_H);
-            // CHỐNG TRONG LOGIC: kẹp cứng vào [minAllowed, maxAllowed] LẦN CUỐI trước khi dùng —
-            // LUÔN đúng dù cơ chế chặn cuộn ở trên có lỡ chưa kịp "ổn định" (debounce 120ms) hay
-            // không (vd bấm "Xong" ngay khi vừa lướt xong, chưa đủ 120ms).
-            const seconds = Math.max(minAllowed, Math.min(maxAllowed, hh * 3600 + mm * 60 + ss + tenth * 0.1));
-            closeModal();
-            if (this._editingLineId === subId) {
-                // Đang sửa ĐÚNG dòng này — chỉ cập nhật PENDING + đồng bộ NGƯỢC region (mục 5),
-                // KHÔNG commit thẳng (chờ bấm ✓ Áp dụng, xem applyLineEdit()).
-                if (kind === 'start') this._editingPendingStart = seconds; else this._editingPendingEnd = seconds;
-                if (this._region) this._region.setOptions({ [kind]: seconds });
-                this._syncPendingFromRegion();
-            }
-        });
-
-        document.body.appendChild(overlay);
-
-        // Đúng lúc để set vị trí cuộn ban đầu — 4 cột đã attach vào document, có layout thật.
-        // Gán trực tiếp (không animation) — tránh giật ngay lúc vừa mở modal.
-        hhCol.scrollTop = currentHH * ITEM_H;
-        mmCol.scrollTop = currentMM * ITEM_H;
-        ssCol.scrollTop = currentSS * ITEM_H;
-        tenthCol.scrollTop = initTenth * ITEM_H;
     },
 
     // ============================== Toolbar: giữ nguyên tính năng cũ ==============================

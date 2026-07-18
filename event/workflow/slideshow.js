@@ -172,6 +172,29 @@ const workflowSlideshow = {
         return Math.max(5, appState.get('slideshowConfig').intervalSeconds) * 1000;
     },
 
+    /** MỚI (18/07/2026, phản hồi Giang — fix "Photo per song" dùng SAI thời gian cho Ken Burns) —
+     * `_computeIntervalMs()` LUÔN đọc `intervalSeconds` (5-60s), kể cả lúc `photoPerSong` đang
+     * BẬT — nhưng lúc đó `intervalSeconds` bị ẨN đi/không dùng để đổi ảnh nữa (ảnh đổi theo BÀI
+     * HÁT, có thể dài vài phút) — dùng nhầm `intervalSeconds` (thường 5s mặc định) làm duration
+     * Ken Burns khiến nó chạy hết + ĐÓNG BĂNG chỉ sau vài giây đầu, "chết đứng" suốt phần còn lại
+     * của bài hát.
+     * SỬA: `photoPerSong` bật -> ước lượng THỜI GIAN CÒN LẠI của bài hát THẬT
+     * (`audioPlayer.duration - audioPlayer.currentTime`) làm duration — core
+     * `capSlideshowKenBurnsDurationMs()` sẽ tự kẹp về tối đa 60s ngay sau đó (bài hát dài vài phút
+     * -> Ken Burns hoàn thành chuyển động trong 60s đầu rồi đóng băng, ĐÚNG cách Ken Burns thật —
+     * không lia liên tục suốt cả bài). Fallback về `_computeIntervalMs()` nếu `duration`/
+     * `currentTime` chưa sẵn sàng (metadata chưa load xong, hiếm).
+     * @returns {number}
+     */
+    _computeKenBurnsDurationMs() {
+        const cfg = appState.get('slideshowConfig');
+        if (cfg.photoPerSong && audioPlayer && Number.isFinite(audioPlayer.duration) && audioPlayer.duration > 0) {
+            const remainingMs = (audioPlayer.duration - audioPlayer.currentTime) * 1000;
+            if (remainingMs > 0) return remainingMs;
+        }
+        return this._computeIntervalMs();
+    },
+
     /** MỚI (04/07/2026, mục 5 phản hồi Giang) — chế độ "Photo per song": THAY task đếm giờ cố định
      * bằng task poll `currentKey` mỗi 1s — CHỈ gọi `_tick()` (đổi ảnh) khi key ĐỔI THẬT so với lần
      * đọc trước (next/prev/hết bài tự next/chọn bài khác đều đổi `currentKey` — xem
@@ -418,19 +441,14 @@ const workflowSlideshow = {
      * MỚI (04/07/2026, mục 3 phản hồi Giang — Rule 3 siết chặt): Workflow (KHÔNG phải core) tự
      * chọn direction/tính bounds rồi gọi core tạo Animation — giữ đúng Rule 2 (core nhận mọi thứ
      * qua tham số, không tự đọc appState/window).
-     * SỬA (Ken Burns, 18/07/2026) — nhận layer CON (Pan), KHÔNG phải layer ngoài (xem docstring
-     * đầu file) — so sánh nhận diện layer 1/2 cũng đổi theo (`slideshowLayer1Pan` thay vì
-     * `slideshowLayer1`).
-     * VIẾT LẠI LẦN 2 ("Nhóm 2" — BẢN ĐÚNG, Web Animations API, 18/07/2026, phản hồi Giang) —
-     * KHÔNG còn chọn class CSS nữa. Giờ: (1) resolve `mode` -> direction cụ thể (core), (2) tính
-     * biên an toàn TỪ WIDTH/HEIGHT THẬT của ĐÚNG ảnh sắp chiếu (`image.width`/`image.height`, core)
-     * — PHẢI nhận `image` qua tham số (KHÔNG đọc `this._images[this._currentIndex]` ở đây — lúc
-     * gọi hàm này trong `_tick()`, `this._currentIndex` VẪN LÀ ảnh CŨ, chưa kịp cập nhật thành
-     * `nextIndex` — đọc nhầm ảnh sẽ tính sai biên), (3) tính keyframe ngẫu nhiên (core), (4) tạo
-     * Animation qua `panEl.animate()` (core) + TỰ GIỮ lại animation đó (`_setKenBurnsAnim()`) để
-     * `.cancel()` đúng lúc sau này — KHÔNG còn `taskManager.once()` lịch "đóng băng" thủ công nữa
-     * (WAAPI `fill:'forwards'` tự làm việc đó, xem docstring `startSlideshowKenBurnsAnimation()`
-     * core — đơn giản hoá được đáng kể so với bản CSS cũ).
+     * SỬA (Ken Burns, 18/07/2026) — nhận layer CON (Pan), KHÔNG phải layer ngoài.
+     * VIẾT LẠI LẦN 2 ("Nhóm 2" WAAPI, 18/07/2026) — resolve direction + tính bounds từ ảnh thật.
+     * VIẾT LẠI LẦN 3 (18/07/2026, "time-scaled magnitude" + fix "Photo per song" phản hồi Giang) —
+     * `durationMs` giờ đọc qua `_computeKenBurnsDurationMs()` (ĐÚNG cho cả 2 chế độ, xem hàm đó)
+     * THAY vì luôn `_computeIntervalMs()` — rồi CAP 1 LẦN DUY NHẤT qua `capSlideshowKenBurnsDurationMs()`
+     * (core) NGAY TẠI ĐÂY, dùng CHUNG kết quả đã cap cho CẢ `pickSlideshowKenBurnsKeyframes()` LẪN
+     * `startSlideshowKenBurnsAnimation()` — 2 nơi PHẢI khớp nhau tuyệt đối (biên độ tính theo 1 con
+     * số, animation chạy theo con số khác = lệch tốc độ, đúng bug gốc Giang phát hiện).
      * @param {HTMLElement} panEl - layer CON `.ss-kenburns-pan`.
      * @param {string} mode - 1 trong SLIDESHOW_KENBURNS_MODES (cfg.kenBurnsMode).
      * @param {{width?: number, height?: number}} image - ẢNH SẮP chiếu lên panEl (record đầy đủ,
@@ -440,8 +458,8 @@ const workflowSlideshow = {
         const direction = resolveSlideshowKenBurnsDirection(mode, this._lastKenBurnsDirection); // core
         this._lastKenBurnsDirection = direction; // MỚI (mục 2) — nhớ lại cho lượt kế tiếp loại trừ
         const bounds = computeSlideshowKenBurnsSafeBounds(image ? image.width : 0, image ? image.height : 0, window.innerWidth, window.innerHeight); // core
-        const keyframes = pickSlideshowKenBurnsKeyframes(direction, bounds); // core
-        const durationMs = this._computeIntervalMs();
+        const durationMs = capSlideshowKenBurnsDurationMs(this._computeKenBurnsDurationMs()); // core — cap 1 LẦN, dùng chung 2 nơi dưới
+        const keyframes = pickSlideshowKenBurnsKeyframes(direction, bounds, durationMs); // core
         const anim = startSlideshowKenBurnsAnimation(panEl, keyframes, durationMs); // core
         this._setKenBurnsAnim(panEl, anim);
     },
@@ -520,7 +538,7 @@ const workflowSlideshow = {
         const modeSelect = slideshowSettingsPanelEl.querySelector('#setting-slideshow-mode');
         const photoPerSongToggle = slideshowSettingsPanelEl.querySelector('#setting-slideshow-photo-per-song');
         const intervalRow = slideshowSettingsPanelEl.querySelector('#slideshow-interval-row');
-        const intervalInput = slideshowSettingsPanelEl.querySelector('#setting-slideshow-interval');
+        const intervalBtn = slideshowSettingsPanelEl.querySelector('#setting-slideshow-interval');
         const transitionSelect = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition');
         const kenBurnsToggle = slideshowSettingsPanelEl.querySelector('#setting-slideshow-kenburns');
         const kenBurnsModeRow = slideshowSettingsPanelEl.querySelector('#slideshow-kenburns-mode-row');
@@ -532,7 +550,7 @@ const workflowSlideshow = {
         // khi đang bật (không còn ý nghĩa gì lúc đó).
         if (photoPerSongToggle) photoPerSongToggle.checked = !!cfg.photoPerSong;
         if (intervalRow) intervalRow.classList.toggle('hidden', !!cfg.photoPerSong);
-        if (intervalInput) intervalInput.value = cfg.intervalSeconds;
+        if (intervalBtn) intervalBtn.textContent = `${cfg.intervalSeconds}s`; // SỬA (18/07/2026) — nút bấm (textContent), không còn <input>.value
         if (transitionSelect) transitionSelect.value = cfg.transitionType;
         // MỚI (Ken Burns, 18/07/2026) — đồng bộ toggle độc lập, KHÔNG còn nằm trong transitionSelect.
         if (kenBurnsToggle) kenBurnsToggle.checked = !!cfg.kenBurnsEnabled;
@@ -667,26 +685,42 @@ const workflowSlideshow = {
         await setMeta('slideshowConfig', appState.get('slideshowConfig'));
     },
 
-    /** Ứng với input "Thời gian mỗi ảnh (giây)" — kẹp tối thiểu 5s (đúng plan mục 4.b3).
-     * @param {string|number} seconds
-     */
-    async changeInterval(seconds) {
-        const v = Math.max(5, parseInt(seconds, 10) || 5);
-        appState.mutate('slideshowConfig', (cfg) => { cfg.intervalSeconds = v; });
-        console.log(`writer: "workflowSlideshow.changeInterval", page: "slideshowConfig", content: "intervalSeconds=${v}"`);
-        await setMeta('slideshowConfig', appState.get('slideshowConfig'));
-        if (slideshowSettingsPanelEl) {
-            const intervalInput = slideshowSettingsPanelEl.querySelector('#setting-slideshow-interval');
-            if (intervalInput) intervalInput.value = v; // đồng bộ lại nếu giá trị bị kẹp
-        }
-        // Loop (task-manager.js) KHÔNG hỗ trợ đổi `time` giữa chừng của task count vô hạn — tự
-        // kill + addNew lại với time mới, CÙNG lý do scheduleNextAutoSwitchVisualTimer() làm ở
-        // core/auto-switch-visual.js.
-        if (appState.get('activeBackgroundAlbum') && taskManager.plan[SLIDESHOW_TASK]) {
-            taskManager.kill(SLIDESHOW_TASK);
-            taskManager.addNew(SLIDESHOW_TASK, { time: this._computeIntervalMs(), exe: () => this._tick(), mode: 'timeout', count: 0 });
-            taskManager.operator(SLIDESHOW_TASK, 'enabled');
-        }
+    /** SỬA (18/07/2026, phản hồi Giang — "setting chọn thời gian mở modal picker y như cách
+     * subtitles làm") — THAY HẲN input số cũ (<input type="number">, đọc .value trực tiếp qua
+     * changeInterval()) bằng modal "bánh xe cuộn số" DÙNG CHUNG (core/time-picker-modal.js).
+     * `format: 's'` — CHỈ 1 cột giây, KHÔNG giới hạn modulo 60 (đơn vị THÔ NHẤT/DUY NHẤT trong
+     * format), hiển thị thẳng giá trị thật 5-60 (đúng yêu cầu Giang: "hiển thị chỉ có mỗi s ví dụ
+     * 5, 60, 120"). `minMs`/`maxMs` = 5000/60000 — KHỚP ĐÚNG SLIDESHOW_KENBURNS_MIN_TIME_MS/
+     * MAX_TIME_MS (core/file-manager/slideshow.js) — 2 nơi PHẢI khớp nhau (Ken Burns time-scaling
+     * tính theo ĐÚNG biên interval này).
+     * Xác nhận -> persist + reschedule task (GIỮ NGUYÊN logic cũ của changeInterval(), chỉ đổi
+     * NƠI giá trị `seconds` đến từ đâu — trước đọc thẳng input.value, giờ từ callback modal). */
+    openIntervalPicker() {
+        if (!slideshowSettingsPanelEl) return;
+        const cfg = appState.get('slideshowConfig');
+        openTimePickerModal({ // core/time-picker-modal.js
+            title: t('slideshowSettingsDrawer.interval.pickerTitle'),
+            format: 's',
+            valueMs: cfg.intervalSeconds * 1000,
+            minMs: 5000,
+            maxMs: 60000,
+            onConfirm: async (resultMs) => {
+                const v = Math.max(5, Math.round(resultMs / 1000));
+                appState.mutate('slideshowConfig', (c) => { c.intervalSeconds = v; });
+                console.log(`writer: "workflowSlideshow.openIntervalPicker", page: "slideshowConfig", content: "intervalSeconds=${v}"`);
+                await setMeta('slideshowConfig', appState.get('slideshowConfig'));
+                const intervalBtn = slideshowSettingsPanelEl ? slideshowSettingsPanelEl.querySelector('#setting-slideshow-interval') : null;
+                if (intervalBtn) intervalBtn.textContent = `${v}s`; // đồng bộ lại chữ trên nút
+                // Loop (task-manager.js) KHÔNG hỗ trợ đổi `time` giữa chừng của task count vô hạn —
+                // tự kill + addNew lại với time mới, CÙNG lý do scheduleNextAutoSwitchVisualTimer()
+                // làm ở core/auto-switch-visual.js.
+                if (appState.get('activeBackgroundAlbum') && taskManager.plan[SLIDESHOW_TASK]) {
+                    taskManager.kill(SLIDESHOW_TASK);
+                    taskManager.addNew(SLIDESHOW_TASK, { time: this._computeIntervalMs(), exe: () => this._tick(), mode: 'timeout', count: 0 });
+                    taskManager.operator(SLIDESHOW_TASK, 'enabled');
+                }
+            },
+        });
     },
 
     /** Ứng với select "Hiệu ứng chuyển cảnh" (12 kiểu — Ken Burns ĐÃ TÁCH khỏi danh sách này, xem
