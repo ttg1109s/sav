@@ -491,6 +491,9 @@
          * Audio bắt đầu phát (sự kiện 'play' của audioPlayer) — cập nhật icon, record-art quay,
          * Media Session, refresh node danh sách, bắt đầu đếm thời gian nghe, đồng bộ auto-switch +
          * video nền. Ứng với msg.type 'playerControls.audio.play'.
+         * MỚI (18/07/2026, mục 1 phản hồi Giang — "chưa phát nhạc slideshow đã tự chạy") — báo
+         * TRỰC TIẾP cho Slideshow biết nhạc vừa phát, để nó tự hiện lần đầu (nếu đang chờ) hoặc
+         * chạy tiếp từ vị trí đã đóng băng (nếu đang pause) — xem workflowSlideshow.syncPlaybackGate().
          */
         function handleAudioPlay() {
             iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden'); 
@@ -502,11 +505,14 @@
             // Chỉ ĐỒNG BỘ phát video theo nhạc — KHÔNG fade lại. Nguồn + fade đã thiết lập 1 lần
             // lúc bật/upload/nạp trang (handleVideoBackground), nên Next/Prev không lặp lại cú fade.
             syncVideoBgToAudio();
+            if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.syncPlaybackGate();
         }
 
         /**
          * Audio bị dừng (sự kiện 'pause') — ngược lại handleAudioPlay(), cộng thêm
          * releaseWakeLock(). Ứng với msg.type 'playerControls.audio.pause'.
+         * MỚI (18/07/2026, mục 1 phản hồi Giang) — báo TRỰC TIẾP cho Slideshow biết nhạc vừa
+         * pause, để nó tự tạm dừng + đóng băng Ken Burns TẠI ĐÚNG vị trí hiện tại.
          */
         function handleAudioPause() {
             iconPlay.classList.remove('hidden'); iconPause.classList.add('hidden'); 
@@ -516,6 +522,7 @@
             stopListenClock();
             if (typeof syncAutoSwitchVisualPlayState === 'function') syncAutoSwitchVisualPlayState(); // ver 10: xem auto-switch-visual.js
             syncVideoBgToAudio();
+            if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.syncPlaybackGate();
         }
 
         /**
