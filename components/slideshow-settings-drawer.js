@@ -106,14 +106,14 @@ function renderSlideshowPanelBody() {
                         </div>
                         <!-- MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2
                              ảnh") — nút mở modal chọn thời gian DÙNG CHUNG, format 's-ms' (giây +
-                             phần mười giây — giữ độ chính xác dưới giây, mặc định cũ 900ms). "0.9s"
+                             phần mười giây — giữ độ chính xác dưới giây). "1.0s" chỉ là placeholder
                              chỉ là placeholder TĨNH — refreshDrawerUI() ghi đè giá trị thật. -->
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <div class="pr-3">
                                 <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.transitionDuration.label">${t('slideshowSettingsDrawer.transitionDuration.label')}</div>
                                 <div class="text-xs text-slate-400 mt-0.5" data-i18n="slideshowSettingsDrawer.transitionDuration.hint">${t('slideshowSettingsDrawer.transitionDuration.hint')}</div>
                             </div>
-                            <button type="button" id="setting-slideshow-transition-duration" class="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none w-20 text-right shrink-0 hover:bg-white/10 transition-colors">0.9s</button>
+                            <button type="button" id="setting-slideshow-transition-duration" class="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none w-20 text-right shrink-0 hover:bg-white/10 transition-colors">1.0s</button>
                         </div>
                         <!-- MỚI (18/07/2026) — ẨN ĐỘNG khi transitionType đang chọn KHÔNG hỗ trợ pha
                              "out" độc lập (wipe/curtain/circleReveal — xem transitionSupportsInOutRatio(),
