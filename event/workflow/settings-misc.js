@@ -40,6 +40,57 @@ const workflowSettingsMisc = {
         statListenSecondsEl.textContent = formatDurationLong(stats.totalListenSeconds);
     },
 
+    /**
+     * MỚI (18/07/2026, Giang yêu cầu — "mục mới Settings > Misc, vào hiện console log") — ứng với
+     * msg.type = 'settingsMisc.debugConsole.open'. Push panel + vẽ danh sách log THẬT (đọc
+     * `getDebugConsoleLogs()`, core/debug-console.js) + wire 2 nút Copy/Xoá.
+     */
+    async openDebugConsole() {
+        const panelEl = pushSettingsPanel({ title: t('settingsMisc.debugConsole.title'), bodyHtml: renderDebugConsolePanelBody() });
+        this._renderDebugConsoleList(panelEl);
+
+        const copyBtn = panelEl.querySelector('#btn-debug-console-copy');
+        const clearBtn = panelEl.querySelector('#btn-debug-console-clear');
+
+        if (copyBtn) copyBtn.addEventListener('click', async () => {
+            const logs = getDebugConsoleLogs(); // core
+            const text = logs.map((l) => `[${new Date(l.time).toLocaleTimeString()}] ${l.level.toUpperCase()}: ${l.text}`).join('\n');
+            try {
+                await navigator.clipboard.writeText(text);
+                alertModal(t('settingsMisc.debugConsole.copiedMsg'));
+            } catch (e) {
+                alertModal(t('settingsMisc.debugConsole.copyFailedMsg'));
+            }
+        });
+
+        if (clearBtn) clearBtn.addEventListener('click', () => {
+            clearDebugConsoleLogs(); // core
+            this._renderDebugConsoleList(panelEl);
+        });
+    },
+
+    /** Vẽ lại TOÀN BỘ danh sách log vào `#debug-console-list` bên trong `panelEl` — gọi lúc mở
+     * panel LẪN sau khi bấm "Xoá" (danh sách rỗng lại). Tự cuộn xuống dòng MỚI NHẤT sau khi vẽ.
+     * `escapeHtml()` (core/modal-choice.js) BẮT BUỘC — nội dung log có thể chứa bất kỳ ký tự nào
+     * (object dump, tên file người dùng...), gán qua `innerHTML` không escape sẽ vỡ layout/lộ XSS.
+     * @param {HTMLElement} panelEl
+     */
+    _renderDebugConsoleList(panelEl) {
+        const listEl = panelEl.querySelector('#debug-console-list');
+        if (!listEl) return;
+        const logs = getDebugConsoleLogs(); // core
+        if (logs.length === 0) {
+            listEl.textContent = t('settingsMisc.debugConsole.emptyMsg');
+            return;
+        }
+        listEl.innerHTML = logs.map((l) => {
+            const color = l.level === 'error' ? 'text-rose-400' : l.level === 'warn' ? 'text-amber-400' : 'text-slate-300';
+            const time = new Date(l.time).toLocaleTimeString();
+            return `<div class="${color} mb-1 break-all whitespace-pre-wrap">[${time}] ${escapeHtml(l.text)}</div>`;
+        }).join('');
+        listEl.scrollTop = listEl.scrollHeight;
+    },
+
     // ===================== appRecovery =====================
 
     /** Ứng với msg.type = 'settingsMisc.restartApp.click' — modal xác nhận; OK gửi tiếp message
