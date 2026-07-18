@@ -14,7 +14,7 @@
  *     04/07/2026): KHÔNG hàm nào trong file này gọi hàm khác trong CHÍNH file này hay dùng
  *     `taskManager` — `startSlideshowTransitionVisuals()`/`finishSlideshowTransitionVisuals()` cố
  *     tình tách rời (trước đây gộp `beginSlideshowTransition()` tự gọi `taskManager.once()` rồi
- *     tự gọi `setSlideshowLayerImage()`/`applySlideshowKenBurns()` bên trong — VI PHẠM CẢ HAI theo
+ *     tự gọi `setSlideshowLayerImage()`/`stopSlideshowKenBurnsAnimation()` bên trong — VI PHẠM CẢ HAI theo
  *     rule mới). Workflow (event/workflow/slideshow.js) tự `taskManager.once()` + tự gọi TỪNG hàm
  *     core theo đúng thứ tự.
  *   - Rule 4: file này không tự appState.set()/mutate() (chỉ thao tác DOM thuần) -> N/A.
@@ -37,7 +37,7 @@
 const SLIDESHOW_TRANSITION_DURATION_MS = 900;
 
 /** 12 kiểu transition hợp lệ (plan-v12-multimedia.md mục 4.b3: 7 cơ bản + 5 mở rộng — Ken Burns
- * ĐÃ TÁCH khỏi danh sách này, xem SLIDESHOW_KENBURNS_VARIANTS) — dùng để validate config đã lưu
+ * ĐÃ TÁCH khỏi danh sách này, xem SLIDESHOW_KENBURNS_MODES) — dùng để validate config đã lưu
  * (phòng giá trị hỏng/cũ) và đổ vào <select> Settings Drawer. */
 const SLIDESHOW_TRANSITION_TYPES = [
     'fade', 'slideLeft', 'slideRight', 'zoomIn', 'zoomOut', 'wipe', 'flip',
@@ -95,92 +95,193 @@ function setSlideshowLayerImage(layerEl, objectUrl) {
     layerEl.style.backgroundImage = objectUrl ? `url(${objectUrl})` : '';
 }
 
-/** 8 biến thể hướng pan/zoom Ken Burns (MỞ RỘNG 18/07/2026, "Nhóm 1" mục 3 phản hồi Giang — từ 4
- * lên 8: giữ nguyên 4 hướng GÓC cũ, thêm 4 hướng GIỮA-CẠNH mới). Mỗi lần 1 ảnh trở thành "current",
- * chọn NGẪU NHIÊN 1 trong 8 để cảm giác sống động, không lặp lại y hệt liên tục. Áp dụng lên layer
- * CON (`.ss-kenburns-pan`, xem index.html/event/workflow/slideshow.js) — KHÔNG còn lên layer ngoài
- * như bản trước (tách 2 phần tử để dùng ĐƯỢC cùng lúc với mọi kiểu transition, xem docstring đầu
- * assets/css/slideshow.css). CSS tương ứng ở đó (`.ss-kenburns-1`..`.ss-kenburns-8`) — MỖI biến
- * thể giờ có `animation-timing-function` RIÊNG (trước đây chung `ease-in-out` cho cả 4). */
-const SLIDESHOW_KENBURNS_VARIANTS = [
-    'ss-kenburns-1', 'ss-kenburns-2', 'ss-kenburns-3', 'ss-kenburns-4',
-    'ss-kenburns-5', 'ss-kenburns-6', 'ss-kenburns-7', 'ss-kenburns-8',
+/**
+ * VIẾT LẠI LẦN 2 (Ken Burns "Nhóm 2" — BẢN ĐÚNG, 18/07/2026, phản hồi Giang) — bản trước (13 chế
+ * độ CÓ TÊN nhưng vẫn CSS @keyframes tĩnh) CHỈ đúng phần "chia tuỳ chọn", CHƯA đúng phần "dùng kỹ
+ * thuật Nhóm 2" (Web Animations API + biên tính theo TỈ LỆ ẢNH THẬT) — Giang chỉ ra rõ, sửa lại
+ * ĐÚNG cả 2 vế cùng lúc. XOÁ SẠCH toàn bộ hạ tầng CSS keyframe/classList của bản trước
+ * (SLIDESHOW_KENBURNS_CLASS_BY_MODE/ALL_CLASSES/END_TRANSFORMS + 10 class .ss-kenburns-* +
+ * @keyframes tương ứng ở assets/css/slideshow.css) — THAY bằng `panEl.animate()` (Web Animations
+ * API), vì lý do CĂN BẢN: CSS @keyframes là TĨNH (viết cứng % cố định), trong khi biên pan AN TOÀN
+ * giờ PHỤ THUỘC tỉ lệ ẢNH THẬT (record.width/height, core/file-manager/image.js) so với tỉ lệ
+ * khung — MỖI ảnh 1 biên khác nhau, không thể viết cố định sẵn cho MỌI ảnh bằng CSS tĩnh được;
+ * chỉ JS tính runtime (`computeSlideshowKenBurnsSafeBounds()`) + feed thẳng vào Animation API mới
+ * làm được. 13 SLIDESHOW_KENBURNS_MODES GIỮ NGUYÊN (không đổi field/<select> Settings) — chỉ đổi
+ * CÁCH áp dụng bên trong.
+ *
+ * KỸ THUẬT PAN "THẬT" (background-position) — THAY vì luôn giả lập pan bằng overscan cố định +
+ * transform translate (bản trước, LUÔN áp dụng bất kể ảnh gì): `background-size: cover` cắt bớt 1
+ * chiều của ảnh để phủ kín khung — chiều bị cắt CÀNG NHIỀU (ảnh lệch tỉ lệ khung càng xa) thì càng
+ * "dư" pixel ẢNH GỐC THẬT sẵn có để pan qua bằng `background-position` — LỘ pixel THẬT bị cắt mất,
+ * KHÁC HẲN zoom transform (chỉ phóng to lại phần ĐÃ hiển thị, không có pixel mới). Chỉ khi ảnh gần
+ * khớp tỉ lệ khung (không có "dư" thật đáng kể) mới rơi về phương án dự phòng (overscan cố định
+ * nhỏ qua transform, xem `pickSlideshowKenBurnsKeyframes()`) — đảm bảo LUÔN có chuyển động, không
+ * đứng yên, dù ảnh không có "dư" gì để khai thác.
+ *
+ * HỆ QUẢ PHỤ (bỏ được nợ cũ) — `fill: 'forwards'` của Web Animations API TỰ giữ trạng thái CUỐI
+ * khi animation chạy hết tự nhiên, ĐÁNG TIN CẬY hơn `animation-fill-mode: forwards` qua CSS class
+ * (bản CSS cũ từng phải tự `taskManager.once()` lịch riêng để "đóng băng" bằng tay — xem lịch sử
+ * bug 04/07/2026 mục 6, `freezeSlideshowKenBurnsEndState()` — HÀM ĐÓ + toàn bộ cơ chế
+ * `slideshowKenBurnsFreeze1`/`2` task ĐÃ XOÁ, KHÔNG CÒN CẦN THIẾT với kỹ thuật này).
+ */
+const SLIDESHOW_KENBURNS_MODES = [
+    'panLeft', 'panRight', 'panTop', 'panBottom', 'panRandom',
+    'zoomIn', 'zoomOut', 'zoomRandom',
+    'zoomPanLeft', 'zoomPanRight', 'zoomPanTop', 'zoomPanBottom', 'zoomPanRandom',
 ];
 
-/** Giá trị `transform` ở đúng keyframe `to` của mỗi variant (assets/css/slideshow.css) — dùng bởi
- * `freezeSlideshowKenBurnsEndState()` để "đóng băng" ĐÚNG vị trí cuối bằng inline style. Đổi 1 chỗ
- * (CSS keyframe) PHẢI đổi luôn chỗ kia (bảng này) — 2 nơi phải khớp nhau tuyệt đối. */
-const SLIDESHOW_KENBURNS_END_TRANSFORMS = {
-    'ss-kenburns-1': 'scale(1.12) translate(-2.5%, -2.5%)',
-    'ss-kenburns-2': 'scale(1.12) translate(2.5%, 2.5%)',
-    'ss-kenburns-3': 'scale(1) translate(0, 0)',
-    'ss-kenburns-4': 'scale(1) translate(0, 0)',
-    'ss-kenburns-5': 'scale(1) translate(0, 0)',
-    'ss-kenburns-6': 'scale(1) translate(0, 0)',
-    'ss-kenburns-7': 'scale(1) translate(0, 0)',
-    'ss-kenburns-8': 'scale(1) translate(0, 0)',
+/** 3 chế độ META (*Random) -> danh sách direction CỤ THỂ trong ĐÚNG nhóm con của nó — dùng bởi
+ * `resolveSlideshowKenBurnsDirection()` để random ĐÚNG PHẠM VI, không lẫn nhóm. */
+const SLIDESHOW_KENBURNS_RANDOM_GROUPS = {
+    panRandom: ['panLeft', 'panRight', 'panTop', 'panBottom'],
+    zoomRandom: ['zoomIn', 'zoomOut'],
+    zoomPanRandom: ['zoomPanLeft', 'zoomPanRight', 'zoomPanTop', 'zoomPanBottom'],
 };
 
-/**
- * Core thuần: chọn NGẪU NHIÊN 1 trong 8 biến thể Ken Burns — TÁCH RIÊNG khỏi
- * applySlideshowKenBurns() (Rule 1: "chọn biến thể" và "áp dụng" là 2 việc khác nhau; hàm áp dụng
- * nhận biến thể qua tham số, không tự chọn bên trong).
- * @returns {string} 1 trong 8 class ở SLIDESHOW_KENBURNS_VARIANTS.
- */
-function pickRandomSlideshowKenBurnsVariant() {
-    return SLIDESHOW_KENBURNS_VARIANTS[Math.floor(Math.random() * SLIDESHOW_KENBURNS_VARIANTS.length)];
-}
+/** Dưới ngưỡng này (%) coi như ảnh KHÔNG có "dư" thật đáng kể ở trục đó -> dùng phương án dự
+ * phòng (overscan cố định qua transform) thay vì background-position. */
+const SLIDESHOW_KENBURNS_MIN_MEANINGFUL_PAN_PCT = 4;
+/** Trần an toàn (%) dù ảnh lệch tỉ lệ khung CỰC ĐOAN (vd ảnh panorama) — tránh pan xa tới mức mất
+ * tự nhiên/lộ hết bố cục gốc của ảnh. */
+const SLIDESHOW_KENBURNS_MAX_PAN_PCT = 35;
+/** Biên độ dự phòng CỐ ĐỊNH (kỹ thuật cũ, giữ lại làm phương án AN TOÀN) — dùng khi pan-only mà
+ * ảnh không có "dư" thật đủ dùng, đảm bảo LUÔN có chuyển động thay vì đứng yên. */
+const SLIDESHOW_KENBURNS_FALLBACK_OVERSCAN_SCALE = 1.06;
+const SLIDESHOW_KENBURNS_FALLBACK_PAN_PCT = 1.5;
 
 /**
- * Core thuần: bật/tắt hiệu ứng Ken Burns (pan/zoom chậm SUỐT thời gian hiển thị — khác transition
- * lúc đổi cảnh) trên layer CON `.ss-kenburns-pan` (KHÔNG phải layer ngoài — TÁCH riêng 18/07/2026
- * để dùng ĐƯỢC cùng lúc với mọi kiểu transition, xem docstring đầu assets/css/slideshow.css). Nơi
- * gọi (event/workflow/slideshow.js) tự `querySelector`/giữ tham chiếu layer con rồi truyền vào
- * đây qua tham số — Rule 2, hàm KHÔNG tự biết gì về cấu trúc DOM cha/con.
- * `durationMs` khớp khoảng cách giữa 2 lần đổi (slideshowConfig.intervalSeconds * 1000) để
- * pan/zoom "vừa khít" đúng 1 chu kỳ hiển thị. `variant` (1 trong SLIDESHOW_KENBURNS_VARIANTS, do
- * nơi gọi chọn qua pickRandomSlideshowKenBurnsVariant() — Rule 2: nhận qua tham số, không tự chọn
- * ở đây).
- * @param {HTMLElement} panEl - layer CON `.ss-kenburns-pan`.
+ * Core thuần: tính biên AN TOÀN để pan bằng `background-position` (LỘ pixel THẬT bị
+ * `background-size: cover` cắt mất) — dựa trên tỉ lệ ẢNH GỐC (record.width/record.height) so với
+ * tỉ lệ KHUNG hiển thị hiện tại. Trả về % TỐI ĐA an toàn để dao động quanh tâm (50%) MỖI TRỤC — 0
+ * nghĩa là KHÔNG có "dư" ở trục đó (ảnh khớp gần đúng tỉ lệ khung), nơi gọi
+ * (`pickSlideshowKenBurnsKeyframes()`) tự biết cần rơi về phương án dự phòng.
+ * @param {number} imgW - record.width (ẢNH GỐC, có thể 0/undefined nếu record cũ thiếu field).
+ * @param {number} imgH - record.height.
+ * @param {number} frameW - chiều rộng khung hiển thị (window.innerWidth lúc gọi).
+ * @param {number} frameH - chiều cao khung hiển thị (window.innerHeight lúc gọi).
+ * @returns {{panXRangePct: number, panYRangePct: number}}
  */
-function applySlideshowKenBurns(panEl, active, durationMs, variant) {
-    if (!panEl) return;
-    if (active) {
-        panEl.style.animationDuration = `${Math.max(1000, durationMs)}ms`;
-        panEl.classList.remove(...SLIDESHOW_KENBURNS_VARIANTS);
-        panEl.classList.add('ss-kenburns', variant && SLIDESHOW_KENBURNS_VARIANTS.includes(variant) ? variant : SLIDESHOW_KENBURNS_VARIANTS[0]);
-    } else {
-        panEl.classList.remove('ss-kenburns', ...SLIDESHOW_KENBURNS_VARIANTS);
-        panEl.style.animationDuration = '';
-        panEl.style.transform = ''; // dọn luôn transform "đóng băng" nếu freezeSlideshowKenBurnsEndState() đã set trước đó
+function computeSlideshowKenBurnsSafeBounds(imgW, imgH, frameW, frameH) {
+    if (!imgW || !imgH || !frameW || !frameH) return { panXRangePct: 0, panYRangePct: 0 }; // record cũ thiếu width/height -> an toàn: coi như không có dư, rơi về dự phòng
+    const imgRatio = imgW / imgH;
+    const frameRatio = frameW / frameH;
+    if (imgRatio > frameRatio) {
+        // Ảnh "rộng" hơn khung theo tỉ lệ -> cover cắt bớt 2 bên trái/phải -> dư THEO TRỤC NGANG.
+        const hiddenFraction = 1 - (frameRatio / imgRatio); // 0..1 — phần TRĂM chiều rộng ảnh bị cắt mất
+        return { panXRangePct: Math.min(SLIDESHOW_KENBURNS_MAX_PAN_PCT, hiddenFraction * 50), panYRangePct: 0 };
     }
+    if (imgRatio < frameRatio) {
+        // Ảnh "cao" hơn khung theo tỉ lệ -> cover cắt bớt trên/dưới -> dư THEO TRỤC DỌC.
+        const hiddenFraction = 1 - (imgRatio / frameRatio);
+        return { panXRangePct: 0, panYRangePct: Math.min(SLIDESHOW_KENBURNS_MAX_PAN_PCT, hiddenFraction * 50) };
+    }
+    return { panXRangePct: 0, panYRangePct: 0 }; // khớp gần đúng tỉ lệ khung -> không trục nào có dư
 }
 
 /**
- * Core thuần: "ĐÓNG BĂNG" trạng thái CUỐI của hiệu ứng Ken Burns bằng INLINE STYLE thay vì tiếp
- * tục dựa vào CSS `animation-fill-mode: forwards` giữ hộ.
- *
- * LÝ DO (fix bug 04/07/2026, mục 6 phản hồi Giang: "zoom pan đến xy nhưng khi kết thúc thì nó lại
- * nhảy về xy gốc") — thay vì cố xác định CHÍNH XÁC vì sao `animation-fill-mode: forwards` không
- * giữ được trạng thái cuối lúc animation tự hết `animation-duration` (nghi vấn hợp lý nhất:
- * `.ss-kenburns` khai `animation-fill-mode`, còn `animation-name` khai riêng ở
- * `.ss-kenburns-1..8` — 2 rule cùng specificity nhưng khác thuộc tính, VỀ LÝ THUYẾT vẫn phải hợp
- * nhất đúng, nhưng thực tế observed lại nhảy — không đáng tin cậy 100% qua mọi trình duyệt/thiết
- * bị), giải pháp CHẮC CHẮN ĐÚNG hơn: gọi hàm này NGAY KHI hết đúng `durationMs` (Workflow tự
- * `taskManager.once()` lịch đúng thời điểm, xem event/workflow/slideshow.js) để tự tay set
- * `transform` bằng INLINE STYLE (đè lên MỌI animation/class, không phụ thuộc `fill-mode` gì nữa)
- * = ĐÚNG giá trị `to` của keyframe variant đó (tra `SLIDESHOW_KENBURNS_END_TRANSFORMS`) + gỡ hẳn
- * animation (đổi classList) — từ thời điểm này layer đứng yên ở đúng vị trí cuối, không animation
- * nào chạy nữa nên không còn gì có thể "nhảy" được nữa.
- * @param {HTMLElement} panEl - layer CON `.ss-kenburns-pan` (KHÔNG phải layer ngoài).
- * @param {string} variant - ĐÚNG variant đã dùng lúc applySlideshowKenBurns(..., true, ..., variant)
+ * Core thuần: từ `mode` (1 trong 13 SLIDESHOW_KENBURNS_MODES), nếu là 1 trong 3 chế độ META
+ * (*Random) thì chọn NGẪU NHIÊN 1 direction CỤ THỂ trong ĐÚNG nhóm con (SLIDESHOW_KENBURNS_RANDOM_GROUPS,
+ * không lẫn nhóm — panRandom KHÔNG BAO GIỜ ra kết quả có zoom), ngược lại trả thẳng. TÁCH RIÊNG
+ * khỏi việc tính animation thật (Rule 1: "chọn direction" và "tính keyframe" là 2 việc khác nhau).
+ * @param {string} mode - 1 trong SLIDESHOW_KENBURNS_MODES.
+ * @returns {string} 1 trong 10 direction CỤ THỂ.
  */
-function freezeSlideshowKenBurnsEndState(panEl, variant) {
+function resolveSlideshowKenBurnsDirection(mode) {
+    const randomGroup = SLIDESHOW_KENBURNS_RANDOM_GROUPS[mode];
+    return randomGroup ? randomGroup[Math.floor(Math.random() * randomGroup.length)] : mode;
+}
+
+/**
+ * Core thuần: TỪ 1 direction CỤ THỂ (đã resolve xong *Random) + biên an toàn ẢNH THẬT
+ * (computeSlideshowKenBurnsSafeBounds()), TÍNH NGẪU NHIÊN 1 cặp keyframe {transform,
+ * backgroundPosition} để feed thẳng vào `panEl.animate([from, to], {...})`. Biên độ zoom/pan
+ * random NHẸ MỖI LẦN gọi (KHÔNG cố định như CSS @keyframes trước đây) — biến thể gần như vô hạn
+ * dù cùng 1 direction, cùng 1 ảnh.
+ * @param {string} direction - 1 trong 10 direction CỤ THỂ.
+ * @param {{panXRangePct: number, panYRangePct: number}} bounds
+ * @returns {[Object, Object]} [from, to] — mỗi phần tử {transform, backgroundPosition}.
+ */
+function pickSlideshowKenBurnsKeyframes(direction, bounds) {
+    const rand = (min, max) => min + Math.random() * (max - min);
+    const isZoomOnly = direction === 'zoomIn' || direction === 'zoomOut';
+    const isPan = !isZoomOnly; // mọi direction TRỪ 2 cái zoom-only đều có thành phần pan
+
+    let scaleFrom = 1, scaleTo = 1;
+    if (direction === 'zoomIn' || direction.startsWith('zoomPan')) { scaleFrom = 1; scaleTo = rand(1.08, 1.16); }
+    else if (direction === 'zoomOut') { scaleFrom = rand(1.08, 1.16); scaleTo = 1; }
+
+    let bgFrom = '50% 50%', bgTo = '50% 50%';
+    let translateFromX = 0, translateFromY = 0, translateToX = 0, translateToY = 0;
+
+    if (isPan) {
+        const axis = (direction.endsWith('Left') || direction.endsWith('Right')) ? 'x' : 'y';
+        const sign = (direction.endsWith('Left') || direction.endsWith('Top')) ? -1 : 1; // Left/Top: kết thúc lệch ÂM so với tâm 50%
+        const rangePct = axis === 'x' ? bounds.panXRangePct : bounds.panYRangePct;
+        const isZoomPan = direction.startsWith('zoomPan');
+
+        if (rangePct >= SLIDESHOW_KENBURNS_MIN_MEANINGFUL_PAN_PCT) {
+            // PAN THẬT bằng background-position — ảnh có "dư" pixel thật đủ dùng ở trục này.
+            const mag = rand(SLIDESHOW_KENBURNS_MIN_MEANINGFUL_PAN_PCT, rangePct);
+            const startPct = 50 - sign * mag, endPct = 50 + sign * mag;
+            if (axis === 'x') { bgFrom = `${startPct}% 50%`; bgTo = `${endPct}% 50%`; }
+            else { bgFrom = `50% ${startPct}%`; bgTo = `50% ${endPct}%`; }
+        } else if (!isZoomPan) {
+            // Pan-only nhưng ảnh KHÔNG có dư thật -> dự phòng overscan cố định (kỹ thuật cũ) để
+            // vẫn có chuyển động, không đứng yên.
+            scaleFrom = SLIDESHOW_KENBURNS_FALLBACK_OVERSCAN_SCALE;
+            scaleTo = SLIDESHOW_KENBURNS_FALLBACK_OVERSCAN_SCALE;
+            const mag = SLIDESHOW_KENBURNS_FALLBACK_PAN_PCT;
+            if (axis === 'x') { translateFromX = -sign * mag; translateToX = sign * mag; }
+            else { translateFromY = -sign * mag; translateToY = sign * mag; }
+        } else {
+            // zoomPan* nhưng ảnh không có dư thật trục đó -> pan NHẸ bằng translate (biên nhỏ hơn
+            // pan-only vì bản thân zoom đã "che" phần rìa scale ra rồi, không cần overscan dự
+            // phòng nữa — chỉ translate thêm 1 chút cho có phương hướng rõ ràng).
+            const mag = 2;
+            if (axis === 'x') { translateFromX = -sign * mag; translateToX = sign * mag; }
+            else { translateFromY = -sign * mag; translateToY = sign * mag; }
+        }
+    }
+
+    return [
+        { transform: `scale(${scaleFrom}) translate(${translateFromX}%, ${translateFromY}%)`, backgroundPosition: bgFrom },
+        { transform: `scale(${scaleTo}) translate(${translateToX}%, ${translateToY}%)`, backgroundPosition: bgTo },
+    ];
+}
+
+/**
+ * Core thuần: BẮT ĐẦU Ken Burns bằng Web Animations API trên layer CON `.ss-kenburns-pan` (KHÔNG
+ * phải layer ngoài — tách 2 phần tử từ trước, xem docstring đầu assets/css/slideshow.css). Nơi gọi
+ * (event/workflow/slideshow.js) tự giữ tham chiếu layer con + tự giữ luôn `Animation` object trả
+ * về (để `.cancel()` lúc cần — đổi ảnh mới/tắt Ken Burns, xem `stopSlideshowKenBurnsAnimation()`
+ * ngay dưới) — Rule 2, hàm này KHÔNG tự quản lý vòng đời Animation, chỉ tạo ra rồi trả lại.
+ * `fill: 'forwards'` tự giữ trạng thái CUỐI khi animation chạy hết tự nhiên (xem docstring đầu
+ * file — bỏ hẳn được cơ chế "đóng băng" thủ công của bản CSS cũ).
+ * @param {HTMLElement} panEl - layer CON `.ss-kenburns-pan`.
+ * @param {[Object, Object]} keyframes - từ pickSlideshowKenBurnsKeyframes().
+ * @param {number} durationMs - khớp khoảng cách giữa 2 lần đổi ảnh.
+ * @returns {Animation|null}
+ */
+function startSlideshowKenBurnsAnimation(panEl, keyframes, durationMs) {
+    if (!panEl) return null;
+    return panEl.animate(keyframes, { duration: Math.max(1000, durationMs), easing: 'ease-in-out', fill: 'forwards' });
+}
+
+/**
+ * Core thuần: DỪNG + RESET HẲN Ken Burns về trạng thái gốc (transform/backgroundPosition trung
+ * lập) — dùng khi tắt Ken Burns HOẶC layer chuyển sang "outgoing" (đổi ảnh mới). `.cancel()`
+ * Animation đang giữ (nếu có) TRƯỚC khi reset inline style — `cancel()` tự gỡ hiệu lực
+ * `fill:'forwards'` đang áp, không làm vậy trước thì set lại style ngay sau có thể bị animation
+ * "forwards" ghi đè lại (animation đã cancel không còn ảnh hưởng gì tới style nữa).
+ * @param {HTMLElement} panEl - layer CON `.ss-kenburns-pan`.
+ * @param {Animation|null} animation - Animation Workflow đang giữ cho layer này (null nếu chưa
+ *   từng kích hoạt hoặc đã dừng trước đó).
+ */
+function stopSlideshowKenBurnsAnimation(panEl, animation) {
+    if (animation) { try { animation.cancel(); } catch (e) {} }
     if (!panEl) return;
-    panEl.classList.remove('ss-kenburns', ...SLIDESHOW_KENBURNS_VARIANTS);
-    panEl.style.animationDuration = '';
-    const endTransform = SLIDESHOW_KENBURNS_END_TRANSFORMS[variant];
-    if (endTransform) panEl.style.transform = endTransform;
+    panEl.style.transform = '';
+    panEl.style.backgroundPosition = '';
 }
 
 /**
@@ -189,10 +290,10 @@ function freezeSlideshowKenBurnsEndState(panEl, variant) {
  * VIẾT LẠI (04/07/2026, phản hồi Giang mục 3 — Rule 3 siết chặt: CẤM TUYỆT ĐỐI `taskManager`
  * trong core + CẤM TUYỆT ĐỐI core gọi core khác). Bản cũ `beginSlideshowTransition()` tự gọi
  * `taskManager.once()` rồi bên trong callback tự gọi `setSlideshowLayerImage()`/
- * `applySlideshowKenBurns()` — VI PHẠM CẢ HAI. Tách thành 2 hàm ĐỘC LẬP (hàm này + `finish...`
+ * `stopSlideshowKenBurnsAnimation()` — VI PHẠM CẢ HAI. Tách thành 2 hàm ĐỘC LẬP (hàm này + `finish...`
  * dưới), KHÔNG hàm nào gọi hàm kia hay gọi taskManager — Workflow
  * (event/workflow/slideshow.js::_tick()) tự `taskManager.once()` + tự gọi TỪNG hàm core cần thiết
- * (kể cả `setSlideshowLayerImage()`/`applySlideshowKenBurns()` cho outgoing layer) theo đúng thứ
+ * (kể cả `setSlideshowLayerImage()`/`stopSlideshowKenBurnsAnimation()` cho outgoing layer) theo đúng thứ
  * tự, xem ví dụ ở core-function-conventions.md Rule 3.
  * @param {HTMLElement} outgoingLayerEl - layer đang có class 'ss-current'.
  * @param {HTMLElement} incomingLayerEl - layer đang ẩn, ĐÃ được set ảnh mới (Workflow tự gọi
@@ -208,7 +309,7 @@ function startSlideshowTransitionVisuals(outgoingLayerEl, incomingLayerEl) {
 /**
  * Core thuần: KẾT THÚC 1 lượt chuyển cảnh — dọn class 2 layer về trạng thái nghỉ mới.
  * Workflow gọi hàm này SAU KHI đã tự gọi `setSlideshowLayerImage(outgoingLayerEl, '')` +
- * `applySlideshowKenBurns(outgoingLayerEl, false, 0)` riêng (xem comment
+ * `stopSlideshowKenBurnsAnimation(outgoingLayerEl, ...)` riêng (xem comment
  * `startSlideshowTransitionVisuals()` ở trên) — hàm này KHÔNG tự gọi lại 2 hàm đó.
  * @param {HTMLElement} outgoingLayerEl
  * @param {HTMLElement} incomingLayerEl
@@ -228,7 +329,7 @@ function finishSlideshowTransitionVisuals(outgoingLayerEl, incomingLayerEl) {
 
 /**
  * Core thuần: dọn class DOM của 1 layer về trạng thái nghỉ (KHÔNG đụng ảnh/Ken Burns — Workflow tự
- * gọi riêng `setSlideshowLayerImage()`/`applySlideshowKenBurns()` cho từng layer, xem
+ * gọi riêng `setSlideshowLayerImage()`/`stopSlideshowKenBurnsAnimation()` cho từng layer, xem
  * event/workflow/slideshow.js::stop() — Rule 3 CẤM hàm này tự gọi 2 hàm đó nội bộ).
  * @param {HTMLElement} layerEl
  */
