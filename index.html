@@ -262,10 +262,20 @@
     <!-- Slideshow nền Visual (nguồn nền thứ 3, Batch 8, ver 12 "Multi Media") — 2 lớp ảnh xen kẽ,
          JS điều khiển ở core/file-manager/slideshow.js (hàm thuần) + event/workflow/slideshow.js
          (orchestration). CSS: assets/css/slideshow.css (z-index -1, giữa #visual-bg-image và
-         #bg-video — xem comment ở assets/css/style.css). -->
+         #bg-video — xem comment ở assets/css/style.css).
+         VIẾT LẠI (Ken Burns, 18/07/2026) — mỗi layer NGOÀI (`.slideshow-layer`) giờ bọc 1 layer
+         CON (`.ss-kenburns-pan`) — layer ngoài CHỈ lo animation chuyển cảnh (opacity/transform/
+         clip-path tuỳ kiểu transition, class ss-current/ss-layer-enter/ss-layer-exit), layer con
+         CHỈ lo background-image + animation pan/zoom Ken Burns. TÁCH RIÊNG 2 phần tử vì CSS chỉ
+         giữ 1 `animation-name` hiệu lực/phần tử — gộp chung sẽ bị đè lẫn nhau lúc cả 2 animation
+         cùng chạy (xem giải thích đầy đủ ở assets/css/slideshow.css). -->
     <div id="visual-slideshow-container" class="hidden">
-        <div id="visual-slideshow-layer-1" class="slideshow-layer"></div>
-        <div id="visual-slideshow-layer-2" class="slideshow-layer"></div>
+        <div id="visual-slideshow-layer-1" class="slideshow-layer">
+            <div id="visual-slideshow-layer-1-pan" class="ss-kenburns-pan"></div>
+        </div>
+        <div id="visual-slideshow-layer-2" class="slideshow-layer">
+            <div id="visual-slideshow-layer-2-pan" class="ss-kenburns-pan"></div>
+        </div>
     </div>
 
     <!-- Canvas WebGL (Three.js - Vortex Engine) -->
