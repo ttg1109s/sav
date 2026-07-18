@@ -61,12 +61,14 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'slideshowSettingsDrawer.transition.zoomOut': 'Zoom out',
     'slideshowSettingsDrawer.transition.wipe': 'Wipe',
     'slideshowSettingsDrawer.transition.flip': 'Flip (3D)',
-    'slideshowSettingsDrawer.transition.kenburns': 'Ken Burns (slow pan/zoom)',
     'slideshowSettingsDrawer.transition.blur': 'Blur cross-fade',
     'slideshowSettingsDrawer.transition.rotateFade': 'Rotate + fade',
     'slideshowSettingsDrawer.transition.curtain': 'Curtain',
     'slideshowSettingsDrawer.transition.circleReveal': 'Circle reveal',
     'slideshowSettingsDrawer.transition.glitch': 'Glitch',
+    // MỚI (Ken Burns, 18/07/2026, phản hồi Giang) — toggle ĐỘC LẬP, tách khỏi transition select.
+    'slideshowSettingsDrawer.kenBurns.label': 'Ken Burns',
+    'slideshowSettingsDrawer.kenBurns.hint': 'Slow pan/zoom on each photo — works together with any transition above',
 
     // Tái tổ chức (07/07/2026, phản hồi Giang mục 4) — section cũ "Playlist & Background" TÁCH
     // làm 2: "Playlist" (file này, chỉ còn view/sort) + "Background" (KEY MỚI, xem
