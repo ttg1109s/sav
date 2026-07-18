@@ -22,6 +22,13 @@ if (btnOpenAbout) {
     });
 }
 
+// MỚI (18/07/2026, Giang yêu cầu — xem core/debug-console.js).
+if (btnOpenDebugConsole) {
+    btnOpenDebugConsole.addEventListener('click', () => {
+        eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.debugConsole.open', payload: {} });
+    });
+}
+
 // (btnBackAbout ĐÃ XOÁ — Batch D1: About không còn header/nút Back riêng, `#drawer-about` cũ
 // không còn tồn tại. Back giờ dùng CHUNG `#btn-settings-stack-back`, xem
 // event/listener/settings-stack-nav.js — KHÔNG để lại `if (x)` rỗng cho biến đã xoá.)
