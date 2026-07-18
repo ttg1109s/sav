@@ -140,6 +140,12 @@ const SLIDESHOW_KENBURNS_RANDOM_GROUPS = {
 
 /** Dưới ngưỡng này (%) coi như ảnh KHÔNG có "dư" thật đáng kể ở trục đó -> dùng phương án dự
  * phòng (overscan cố định qua transform) thay vì background-position. */
+/** Biên thời gian [5s, 60s] dùng làm 2 mốc nội suy "Scl" (computeSlideshowKenBurnsTargetMagnitude())
+ * — KHỚP ĐÚNG min/max của `slideshowConfig.intervalSeconds` (components/slideshow-settings-drawer.js,
+ * cũng sẽ là min/max của modal chọn thời gian mới — xem core/time-picker-modal.js). */
+const SLIDESHOW_KENBURNS_MIN_TIME_MS = 5000;
+const SLIDESHOW_KENBURNS_MAX_TIME_MS = 60000;
+
 const SLIDESHOW_KENBURNS_MIN_MEANINGFUL_PAN_PCT = 4;
 /** Trần an toàn (%) dù ảnh lệch tỉ lệ khung CỰC ĐOAN (vd ảnh panorama) — tránh pan xa tới mức mất
  * tự nhiên/lộ hết bố cục gốc của ảnh. */
@@ -214,23 +220,83 @@ function resolveSlideshowKenBurnsDirection(mode, excludeDirection) {
 }
 
 /**
+ * Core thuần: "KẸP" thời gian hiệu ứng Ken Burns về [5s, 60s] — dùng CẢ lúc tính biên độ
+ * (magnitude, xem computeSlideshowKenBurnsTargetMagnitude()) LẪN lúc set duration animation THẬT
+ * (startSlideshowKenBurnsAnimation()) — 2 nơi PHẢI dùng CÙNG 1 giá trị đã kẹp, không thì biên độ
+ * tính theo 1 con số còn animation chạy theo con số khác -> lệch tốc độ, y hệt bug gốc.
+ *
+ * LÝ DO KẸP TRẦN 60s (18/07/2026, mục "photo per song" phản hồi Giang) — chế độ "Photo per song"
+ * có thể cho thời gian hiển thị 1 ảnh RẤT DÀI (vài phút, hết cả bài hát dài) — animation Ken Burns
+ * KHÔNG nên kéo dài y hệt thời gian đó (biên độ pan/zoom bị "giãn" quá mỏng trên khoảng thời gian
+ * quá dài -> giật, đúng vấn đề Giang phát hiện). Kẹp trần 60s -> Ken Burns hoàn thành 1 lượt
+ * chuyển động trong tối đa 60s rồi ĐÓNG BĂNG (fill:'forwards') cho hết phần thời gian còn lại của
+ * ảnh — ĐÚNG cách Ken Burns thật hoạt động (lia máy chậm 1 lượt rồi giữ yên, không lia liên tục
+ * suốt nhiều phút).
+ * @param {number} durationMs
+ * @returns {number}
+ */
+function capSlideshowKenBurnsDurationMs(durationMs) {
+    return Math.max(SLIDESHOW_KENBURNS_MIN_TIME_MS, Math.min(SLIDESHOW_KENBURNS_MAX_TIME_MS, durationMs));
+}
+
+/**
+ * Core thuần: nội suy tuyến tính (Giang gọi "Scl") — TỪ `durationMs` (ĐÃ KẸP [5s,60s] bởi
+ * capSlideshowKenBurnsDurationMs() TRƯỚC KHI truyền vào đây) + 1 cặp biên [minPct, maxPct], TÍNH
+ * RA 1 điểm "mục tiêu" tỉ lệ thuận với thời gian — thời gian chuyển cảnh CÀNG DÀI thì mục tiêu
+ * CÀNG GẦN `maxPct`, CÀNG NGẮN thì CÀNG GẦN `minPct`. Nơi gọi (pickSlideshowKenBurnsKeyframes())
+ * KHÔNG dùng thẳng con số này — cộng thêm ±20% jitter ngẫu nhiên quanh nó (giữ đúng yêu cầu mục 2
+ * — mỗi lượt vẫn phải khác nhau, không dùng lại y hệt 1 vị trí) rồi mới kẹp vào [minPct, maxPct]
+ * lần cuối.
+ * DÙNG CHUNG cho MỌI biên độ cần "tỉ lệ thuận thời gian" trong file này (pan thật/dự phòng/zoom) —
+ * đơn vị của minPct/maxPct KHÔNG quan trọng (% hay hệ số scale đều nội suy tuyến tính y hệt).
+ * @param {number} durationMs - ĐÃ kẹp [5000,60000] (dùng capSlideshowKenBurnsDurationMs() trước).
+ * @param {number} minPct - giá trị tại durationMs = 5000ms.
+ * @param {number} maxPct - giá trị tại durationMs = 60000ms.
+ * @returns {number}
+ */
+function computeSlideshowKenBurnsTargetMagnitude(durationMs, minPct, maxPct) {
+    const ratio = (durationMs - SLIDESHOW_KENBURNS_MIN_TIME_MS) / (SLIDESHOW_KENBURNS_MAX_TIME_MS - SLIDESHOW_KENBURNS_MIN_TIME_MS);
+    return minPct + (maxPct - minPct) * Math.max(0, Math.min(1, ratio));
+}
+
+/**
  * Core thuần: TỪ 1 direction CỤ THỂ (đã resolve xong *Random) + biên an toàn ẢNH THẬT
- * (computeSlideshowKenBurnsSafeBounds()), TÍNH NGẪU NHIÊN 1 cặp keyframe {transform,
- * backgroundPosition} để feed thẳng vào `panEl.animate([from, to], {...})`. Biên độ zoom/pan
- * random NHẸ MỖI LẦN gọi (KHÔNG cố định như CSS @keyframes trước đây) — biến thể gần như vô hạn
- * dù cùng 1 direction, cùng 1 ảnh.
+ * (computeSlideshowKenBurnsSafeBounds()) + `durationMs` (ĐÃ KẸP — capSlideshowKenBurnsDurationMs()),
+ * TÍNH cặp keyframe {transform, backgroundPosition} để feed thẳng vào `panEl.animate([from, to],
+ * {...})`.
+ *
+ * SỬA (18/07/2026, "time-scaled magnitude" phản hồi Giang: "thời gian chuyển a->b lớn mà vị trí
+ * ken từ x-y lại quá ngắn thì motion giật") — biên độ pan/zoom KHÔNG còn random ĐỘC LẬP với
+ * `durationMs` như bản trước (random hẳn giữa 2 cận cố định bất kể thời gian chạy bao lâu — thời
+ * gian dài + biên độ ngắn = tốc độ cực chậm = giật do làm tròn subpixel). Giờ TÍNH mục tiêu tỉ lệ
+ * thuận `durationMs` trước (computeSlideshowKenBurnsTargetMagnitude() — "Scl"), RỒI MỚI random
+ * NHẸ quanh mục tiêu đó (±20%, giữ đúng yêu cầu mục 2 — vẫn đa dạng, không lặp lại y hệt) — giữ
+ * TỐC ĐỘ (biên độ/thời gian) tương đối ổn định dù `durationMs` là 5s hay 60s, thay vì để 2 biến
+ * độc lập nhau dẫn tới tốc độ cực chậm (giật) hoặc cực nhanh (giật kiểu khác — "lia" quá gấp).
  * @param {string} direction - 1 trong 10 direction CỤ THỂ.
  * @param {{panXRangePct: number, panYRangePct: number}} bounds
+ * @param {number} durationMs - ĐÃ kẹp [5000,60000] bởi capSlideshowKenBurnsDurationMs().
  * @returns {[Object, Object]} [from, to] — mỗi phần tử {transform, backgroundPosition}.
  */
-function pickSlideshowKenBurnsKeyframes(direction, bounds) {
+function pickSlideshowKenBurnsKeyframes(direction, bounds, durationMs) {
     const rand = (min, max) => min + Math.random() * (max - min);
+    /** Random NHẸ (±20%) quanh 1 mục tiêu đã tính theo thời gian, rồi kẹp cứng vào [floor, ceil]
+     * lần cuối (phòng jitter đẩy vượt biên hợp lệ). */
+    const jitterAround = (target, floor, ceil) => {
+        const jitter = Math.max((ceil - floor) * 0.05, target * 0.2); // tối thiểu 1 chút dù target ~0
+        return Math.max(floor, Math.min(ceil, rand(target - jitter, target + jitter)));
+    };
     const isZoomOnly = direction === 'zoomIn' || direction === 'zoomOut';
     const isPan = !isZoomOnly; // mọi direction TRỪ 2 cái zoom-only đều có thành phần pan
 
     let scaleFrom = 1, scaleTo = 1;
-    if (direction === 'zoomIn' || direction.startsWith('zoomPan')) { scaleFrom = 1; scaleTo = rand(1.08, 1.16); }
-    else if (direction === 'zoomOut') { scaleFrom = rand(1.08, 1.16); scaleTo = 1; }
+    if (direction === 'zoomIn' || direction.startsWith('zoomPan')) {
+        const targetDelta = computeSlideshowKenBurnsTargetMagnitude(durationMs, 0.08, 0.16);
+        scaleFrom = 1; scaleTo = 1 + jitterAround(targetDelta, 0.08, 0.16);
+    } else if (direction === 'zoomOut') {
+        const targetDelta = computeSlideshowKenBurnsTargetMagnitude(durationMs, 0.08, 0.16);
+        scaleFrom = 1 + jitterAround(targetDelta, 0.08, 0.16); scaleTo = 1;
+    }
 
     let bgFrom = '50% 50%', bgTo = '50% 50%';
     let translateFromX = 0, translateFromY = 0, translateToX = 0, translateToY = 0;
@@ -243,26 +309,26 @@ function pickSlideshowKenBurnsKeyframes(direction, bounds) {
 
         if (rangePct >= SLIDESHOW_KENBURNS_MIN_MEANINGFUL_PAN_PCT) {
             // PAN THẬT bằng background-position — ảnh có "dư" pixel thật đủ dùng ở trục này.
-            const mag = rand(SLIDESHOW_KENBURNS_MIN_MEANINGFUL_PAN_PCT, rangePct);
+            const target = computeSlideshowKenBurnsTargetMagnitude(durationMs, SLIDESHOW_KENBURNS_MIN_MEANINGFUL_PAN_PCT, rangePct);
+            const mag = jitterAround(target, SLIDESHOW_KENBURNS_MIN_MEANINGFUL_PAN_PCT, rangePct);
             const startPct = 50 - sign * mag, endPct = 50 + sign * mag;
             if (axis === 'x') { bgFrom = `${startPct}% 50%`; bgTo = `${endPct}% 50%`; }
             else { bgFrom = `50% ${startPct}%`; bgTo = `50% ${endPct}%`; }
         } else if (!isZoomPan) {
             // Pan-only nhưng ảnh KHÔNG có dư thật -> dự phòng overscan cố định (kỹ thuật cũ) để
-            // vẫn có chuyển động, không đứng yên. SỬA (mục 2+3 phản hồi Giang) — random hoá
-            // magnitude (KHÔNG dùng hằng số cố định) — vừa tránh lặp lại y hệt mọi lần, vừa biên
-            // độ đủ lớn để KHÔNG trông như "thiếu" khi so với nhánh pan thật ở trên.
+            // vẫn có chuyển động, không đứng yên.
             scaleFrom = SLIDESHOW_KENBURNS_FALLBACK_OVERSCAN_SCALE;
             scaleTo = SLIDESHOW_KENBURNS_FALLBACK_OVERSCAN_SCALE;
-            const mag = rand(SLIDESHOW_KENBURNS_FALLBACK_PAN_MIN_PCT, SLIDESHOW_KENBURNS_FALLBACK_PAN_MAX_PCT);
+            const target = computeSlideshowKenBurnsTargetMagnitude(durationMs, SLIDESHOW_KENBURNS_FALLBACK_PAN_MIN_PCT, SLIDESHOW_KENBURNS_FALLBACK_PAN_MAX_PCT);
+            const mag = jitterAround(target, SLIDESHOW_KENBURNS_FALLBACK_PAN_MIN_PCT, SLIDESHOW_KENBURNS_FALLBACK_PAN_MAX_PCT);
             if (axis === 'x') { translateFromX = -sign * mag; translateToX = sign * mag; }
             else { translateFromY = -sign * mag; translateToY = sign * mag; }
         } else {
             // zoomPan* nhưng ảnh không có dư thật trục đó -> pan NHẸ bằng translate (biên nhỏ hơn
             // pan-only vì bản thân zoom đã "che" phần rìa scale ra rồi, không cần overscan dự
-            // phòng nữa — chỉ translate thêm 1 chút cho có phương hướng rõ ràng). Random hoá
-            // magnitude (mục 2 phản hồi Giang) — tránh lặp lại y hệt mọi lần.
-            const mag = rand(1.5, 3);
+            // phòng nữa — chỉ translate thêm 1 chút cho có phương hướng rõ ràng).
+            const target = computeSlideshowKenBurnsTargetMagnitude(durationMs, 1.5, 3);
+            const mag = jitterAround(target, 1.5, 3);
             if (axis === 'x') { translateFromX = -sign * mag; translateToX = sign * mag; }
             else { translateFromY = -sign * mag; translateToY = sign * mag; }
         }
@@ -284,12 +350,15 @@ function pickSlideshowKenBurnsKeyframes(direction, bounds) {
  * file — bỏ hẳn được cơ chế "đóng băng" thủ công của bản CSS cũ).
  * @param {HTMLElement} panEl - layer CON `.ss-kenburns-pan`.
  * @param {[Object, Object]} keyframes - từ pickSlideshowKenBurnsKeyframes().
- * @param {number} durationMs - khớp khoảng cách giữa 2 lần đổi ảnh.
+ * @param {number} durationMs - PHẢI là giá trị ĐÃ KẸP bởi `capSlideshowKenBurnsDurationMs()` — nơi
+ *   gọi (event/workflow/slideshow.js) tự cap 1 LẦN rồi dùng CHUNG kết quả đó cho cả
+ *   `pickSlideshowKenBurnsKeyframes()` LẪN tham số này (2 nơi PHẢI khớp nhau, không thì biên độ
+ *   tính theo 1 con số còn animation chạy theo con số khác — lệch tốc độ, đúng bug gốc).
  * @returns {Animation|null}
  */
 function startSlideshowKenBurnsAnimation(panEl, keyframes, durationMs) {
     if (!panEl) return null;
-    return panEl.animate(keyframes, { duration: Math.max(1000, durationMs), easing: 'ease-in-out', fill: 'forwards' });
+    return panEl.animate(keyframes, { duration: Math.max(SLIDESHOW_KENBURNS_MIN_TIME_MS, durationMs), easing: 'ease-in-out', fill: 'forwards' });
 }
 
 /**
