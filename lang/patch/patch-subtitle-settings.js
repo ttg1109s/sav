@@ -40,7 +40,11 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'slideshowSettingsDrawer.title': 'Slideshow Background',
     // VIẾT LẠI (Batch 9, 04/07/2026, mục 4) — gộp 2 section cũ ("Album"/"Playback") thành 1; 2 nút
     // "Choose album"/"Turn off" thay bằng 1 toggle "enable" duy nhất + hàng "album đang chạy".
-    'slideshowSettingsDrawer.sectionTitle': 'Slideshow',
+    // SỬA (18/07/2026, phản hồi Giang — "tái cấu trúc panel theo nhóm mục") — 'sectionTitle' (1
+    // tiêu đề DUY NHẤT cho cả panel) ĐÃ XOÁ, thay bằng 3 tiêu đề nhóm riêng.
+    'slideshowSettingsDrawer.groupAlbum.title': 'Album',
+    'slideshowSettingsDrawer.groupTransition.title': 'Transition',
+    'slideshowSettingsDrawer.groupKenBurns.title': 'Ken Burns',
     'slideshowSettingsDrawer.enable.label': 'Use slideshow',
     'slideshowSettingsDrawer.enable.hint': 'Toggle on to pick an album; toggle off just stops it',
     'slideshowSettingsDrawer.albumPicker.title': 'Choose an album',
@@ -90,6 +94,21 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'slideshowSettingsDrawer.kenBurnsMode.zoomPanTop': 'Zoom + pan up',
     'slideshowSettingsDrawer.kenBurnsMode.zoomPanBottom': 'Zoom + pan down',
     'slideshowSettingsDrawer.kenBurnsMode.zoomPanRandom': 'Zoom + pan (random direction)',
+
+    // MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh").
+    'slideshowSettingsDrawer.transitionDuration.label': 'Transition duration',
+    'slideshowSettingsDrawer.transitionDuration.hint': 'How long the crossfade itself takes (0:01–1:00)',
+    'slideshowSettingsDrawer.transitionDuration.pickerTitle': 'Transition duration',
+    'slideshowSettingsDrawer.transitionRatio.label': 'In/Out ratio',
+    // Nhãn xem trước SỐNG — {in}/{out} tính lại mỗi lần kéo slider (xem
+    // event/workflow/slideshow.js::_updateTransitionRatioLabel()), KHÁC key .label tĩnh ngay trên.
+    'slideshowSettingsDrawer.transitionRatio.previewFormat': 'In {in}s / Out {out}s',
+    'slideshowSettingsDrawer.transitionEasing.label': 'Easing',
+    'slideshowSettingsDrawer.transitionEasing.linear': 'Linear (no easing)',
+    'slideshowSettingsDrawer.transitionEasing.ease': 'Ease',
+    'slideshowSettingsDrawer.transitionEasing.easeIn': 'Ease in',
+    'slideshowSettingsDrawer.transitionEasing.easeOut': 'Ease out',
+    'slideshowSettingsDrawer.transitionEasing.easeInOut': 'Ease in-out',
 
     // Tái tổ chức (07/07/2026, phản hồi Giang mục 4) — section cũ "Playlist & Background" TÁCH
     // làm 2: "Playlist" (file này, chỉ còn view/sort) + "Background" (KEY MỚI, xem
