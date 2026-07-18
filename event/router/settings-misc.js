@@ -17,8 +17,10 @@
  *   - Nghiệp vụ CHỈ CẦN ĐÚNG 1 HÀM CORE -> router tự gọi thẳng, BỎ QUA workflow.
  *   - Cần >1 hàm core (hoặc modal/shield) -> router giao cho workflowSettingsMisc.
  *
- * NẠP SAU: event/bus.js, core/about-stats.js, core/app-recovery.js, core/settings-panel-stack.js
- * (cần pushSettingsPanel), components/about-drawer.js (cần renderAboutPanelBody), lang/lang.js
+ * NẠP SAU: event/bus.js, core/about-stats.js, core/app-recovery.js, core/debug-console.js (MỚI
+ * 18/07/2026 — getDebugConsoleLogs/clearDebugConsoleLogs), core/settings-panel-stack-ui.js (cần
+ * pushSettingsPanel), components/about-drawer.js (cần renderAboutPanelBody),
+ * components/debug-console-drawer.js (MỚI — cần renderDebugConsolePanelBody), lang/lang.js
  * (cần t()), event/workflow/settings-misc.js (cần workflowSettingsMisc tồn tại).
  * NẠP TRƯỚC: event/listener/settings-misc.js.
  */
@@ -32,6 +34,12 @@ const routerSettingsMisc = (() => {
             case 'settingsMisc.aboutDrawer.open': {
                 // Batch D1 — nay >1 hàm core (push panel + tính thống kê bất đồng bộ) -> workflow.
                 workflowSettingsMisc.openAbout();
+                break;
+            }
+
+            // MỚI (18/07/2026, Giang yêu cầu — xem log console ngay trong app).
+            case 'settingsMisc.debugConsole.open': {
+                workflowSettingsMisc.openDebugConsole(); // >1 hàm core (push panel + đọc buffer + wire nút) -> workflow
                 break;
             }
 
