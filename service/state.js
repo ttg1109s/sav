@@ -499,11 +499,14 @@
                                       // slideshow.js) — THAY HẲN "Nhóm 1" (8 biến thể random tự
                                       // động, không chọn được). Mặc định 'zoomPanRandom' (đa dạng
                                       // nhất, gần giống cảm giác Nhóm 1 cũ nhất trong 13 lựa chọn).
-                transitionDurationMs: 900, // MỚI (18/07/2026, phản hồi Giang — "thêm thời gian
+                transitionDurationMs: 1000, // MỚI (18/07/2026, phản hồi Giang — "thêm thời gian
                                       // transition giữa 2 ảnh") — TỔNG thời gian 1 lượt chuyển
-                                      // cảnh (1-60s, xem SLIDESHOW_TRANSITION_MIN/MAX_TIME_MS) —
-                                      // 900ms khớp ĐÚNG hành vi mặc định cũ (hardcode CSS trước
-                                      // đây), giữ liên tục cho user cũ chưa từng đổi gì.
+                                      // cảnh (1-60s, xem SLIDESHOW_TRANSITION_MIN/MAX_TIME_MS).
+                                      // SỬA (18/07/2026, phản hồi Giang — phát hiện bug) — bản ĐẦU
+                                      // để 900 (khớp hardcode CSS cũ) nhưng Giang đã chốt MIN là
+                                      // 1000ms (1s) — 900 < 1000 VI PHẠM chính ràng buộc min vừa
+                                      // đặt ra (mặc định cho cài mới đã sai ngay từ đầu). Đổi lên
+                                      // đúng mốc MIN, KHÔNG cố giữ "liên tục" với giá trị cũ nữa.
                 transitionInOutRatio: 50, // MỚI (18/07/2026) — % thời gian dành cho pha "in" (layer
                                       // mới), phần còn lại là "out" (layer cũ) — 50 = chia đều,
                                       // KHỚP ĐÚNG hành vi cũ (in/out luôn bằng nhau, cùng 900ms).
