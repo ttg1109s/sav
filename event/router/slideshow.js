@@ -52,8 +52,10 @@ const routerSlideshowSettings = (() => {
                 workflowSlideshow.changePhotoPerSong(msg.payload.checked); // >1 bước (set + persist + đổi cơ chế tick) -> workflow
                 break;
 
-            case 'slideshowSettings.interval.change':
-                workflowSlideshow.changeInterval(msg.payload.value); // >1 bước (set + persist + reschedule task) -> workflow
+            // SỬA (18/07/2026, phản hồi Giang) — input số cũ ĐỔI thành nút bấm mở modal picker
+            // (core/time-picker-modal.js) — workflow tự mở modal + tự xử lý kết quả trong 1 hàm.
+            case 'slideshowSettings.interval.openPicker':
+                workflowSlideshow.openIntervalPicker(); // >1 bước (mở modal + xử lý callback) -> workflow
                 break;
 
             case 'slideshowSettings.transitionType.change':
