@@ -60,6 +60,11 @@ const routerSlideshowSettings = (() => {
                 workflowSlideshow.changeTransitionType(msg.payload.value); // >1 bước (set + persist + áp DOM) -> workflow
                 break;
 
+            // MỚI (Ken Burns, 18/07/2026, phản hồi Giang) — toggle độc lập, tách khỏi transitionType.
+            case 'slideshowSettings.kenBurns.change':
+                workflowSlideshow.changeKenBurnsEnabled(msg.payload.checked); // >1 bước (set + persist) -> workflow
+                break;
+
             default:
                 console.warn(`[routerSlideshowSettings] msg.type không xác định: "${msg.type}"`, msg);
         }
