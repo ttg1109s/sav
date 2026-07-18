@@ -31,12 +31,16 @@
  *
  * NẠP SAU: lang/lang.js (t()) — file này chỉ gán text qua `textContent` (KHÔNG `innerHTML`), nên KHÔNG cần escapeHtml()/core/modal-choice.js.
  *
- * LƯU Ý RULE 3 (CẤM taskManager trong core) — cơ chế debounce "chờ lướt tay dừng hẳn rồi mới kẹp
- * biên" (bản gốc Subtitle Editor dùng `taskManager.once()`, hợp lệ vì đó là Workflow) giờ chuyển
- * sang `setTimeout`/`clearTimeout` THUẦN của trình duyệt — đây là timer PRIVATE, chỉ phục vụ 1 tiểu
- * tiết UI (chờ cuộn ổn định) hoàn toàn NỘI BỘ trong chính các phần tử DOM mà hàm này tự tạo ra,
- * KHÔNG điều phối bất kỳ tiến trình nghiệp vụ nhiều bước nào xuyên file — không vi phạm TINH THẦN
- * Rule 3 (vốn nhắm tới việc core "giấu" orchestration nhiều bước qua taskManager), dù có dùng timer.
+ * LƯU Ý RULE 3 (CẤM taskManager trong core) — 2 nơi dùng timer THUẦN của trình duyệt (KHÔNG phải
+ * `taskManager` của project):
+ *   1. Debounce "chờ lướt tay dừng hẳn rồi mới kẹp biên" — `setTimeout`/`clearTimeout` (bản gốc
+ *      Subtitle Editor dùng `taskManager.once()`, hợp lệ vì đó là Workflow).
+ *   2. Trì hoãn set vị trí cuộn ban đầu tới SAU khi layout đã chắc chắn xong — `requestAnimationFrame`
+ *      (x2 liên tiếp, MỚI 18/07/2026 — fix bug "mở lần đầu hiện 0 0 0", xem cuối `openTimePickerModal()`).
+ * CẢ 2 đều là timer PRIVATE, chỉ phục vụ tiểu tiết UI hoàn toàn NỘI BỘ trong chính các phần tử DOM
+ * mà hàm này tự tạo ra, KHÔNG điều phối bất kỳ tiến trình nghiệp vụ nhiều bước nào xuyên file —
+ * không vi phạm TINH THẦN Rule 3 (vốn nhắm tới việc core "giấu" orchestration nhiều bước qua
+ * taskManager), dù có dùng timer.
  */
 
 /** 1 đơn vị = bao nhiêu mili giây — 'ms' ở đây CỐ Ý là PHẦN MƯỜI GIÂY (x100ms), xem docstring đầu
@@ -268,7 +272,19 @@ function openTimePickerModal(config) {
 
     document.body.appendChild(overlay);
 
-    // Đúng lúc để set vị trí cuộn ban đầu — các cột đã attach vào document, có layout thật. Gán
-    // trực tiếp (không animation) — tránh giật ngay lúc vừa mở modal.
-    cols.forEach((col, i) => { col.scrollTop = currentValues[i] * ITEM_H; });
+    // FIX BUG (18/07/2026, phản hồi Giang — "input ban đầu là 1 nhưng khi click vẫn là 0 0 0, tắt
+    // đi ấn lần 2 mới đúng") — set `scrollTop` NGAY SAU `appendChild()` (như bản trước) đôi khi
+    // KHÔNG có tác dụng: trình duyệt CHƯA CHẮC đã hoàn tất layout cho cột vừa chèn tại đúng thời
+    // điểm đồng bộ đó (đặc biệt rõ với Tailwind CDN JIT — tiêm CSS cho class MỚI THẤY LẦN ĐẦU qua
+    // MutationObserver, BẤT ĐỒNG BỘ, không kịp trong cùng 1 tick — cột có thể tạm thời cao 0px lúc
+    // gán scrollTop, khiến giá trị bị bỏ qua/kẹp về 0). Lần MỞ THỨ 2 "đúng" vì lúc đó Tailwind đã
+    // tiêm xong CSS cho các class đó từ lần trước — không phải do modal tự nhớ gì cả.
+    // SỬA: trì hoãn qua REQUESTANIMATIONFRAME 2 LẦN LIÊN TIẾP (double rAF — mẫu hình chuẩn để chờ
+    // "chắc chắn đã qua ít nhất 1 lượt layout/paint đầy đủ" của DOM vừa chèn, đáng tin cậy hơn hẳn
+    // set ngay lập tức hay dùng setTimeout(0) đơn thuần — vẫn có thể chạy trước paint đầu tiên).
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            cols.forEach((col, i) => { col.scrollTop = currentValues[i] * ITEM_H; });
+        });
+    });
 }
