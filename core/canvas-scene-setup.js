@@ -38,6 +38,11 @@
                 if (appState.get('spInitialized') && appState.get('spCamera')) {
                     const spCamera = appState.get('spCamera');
                     spCamera.aspect = window.innerWidth/window.innerHeight; spCamera.updateProjectionMatrix();
+                    // MỚI (19/07/2026, tích hợp UnrealBloomPass thật) — composer có buffer nội bộ
+                    // riêng theo kích thước màn hình, PHẢI tự resize theo, renderer.setSize() ở
+                    // trên không tự động lan sang composer.
+                    const spComposer = appState.get('spComposer');
+                    if (spComposer) spComposer.setSize(window.innerWidth, window.innerHeight);
                 }
             }
             
