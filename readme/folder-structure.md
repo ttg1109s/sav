@@ -226,8 +226,12 @@ visual-master/
 │       │                              style/blur nền/gradientFrom/gradientTo cho Theme...)
 │       ├── visualizer-misc-settings.js — mở/đóng drawer Visualizer/Subtitle, đổi kiểu hiệu ứng,
 │       │                              giữ màn hình sáng
-│       ├── draw-helpers.js          — HOT PATH — hàm vẽ dùng chung (giọt nước, khung kính, nốt
-│       │                              nhạc bay)
+│       ├── draw/                    — HOT PATH — MỚI (19/07/2026, tách từ draw-helpers.js cũ,
+│       │                              mỗi hàm 1 file) — hàm vẽ dùng chung
+│       │   ├── water-drop.js           (giọt nước — Rain)
+│       │   ├── window-frame.js         (khung cửa sổ NHÀ — Rain kiểu "glass")
+│       │   ├── spaceship-frame.js      (khung khoang lái tàu vũ trụ — Space, KHÁC window-frame.js)
+│       │   └── flying-note.js          (nốt nhạc bay lên, DOM — mọi kiểu hiệu ứng)
 │       ├── draw-visualizer.js       — HOT PATH — vòng lặp render chính (requestAnimationFrame),
 │       │                              object VISUALIZER_DRAWERS, và dòng
 │       │                              document.addEventListener('DOMContentLoaded', ...) — ĐIỂM
@@ -236,10 +240,12 @@ visual-master/
 │           ├── bar.js                  (Phản chiếu cánh bướm / Thác đổ)
 │           ├── lightning.js
 │           ├── rubik.js                (map nốt→trục/lớp ở RUBIK_NOTE_TO_TURN, dom-refs.js)
-│           ├── vortex.js               (update mỗi khung hình; khởi tạo ở three-vortex.js)
+│           ├── vortex.js               (update mỗi khung hình; khởi tạo ở core/webgl/three-vortex.js)
 │           ├── black-hole.js           — hiệu năng khi cuộn ĐANG TREO (bar tần số + shadowBlur là
 │           │                              thủ phạm chính, không phải sao — xem changelog/v12.md)
-│           └── rain.js                 (kiểu Trôi cửa kính / Mưa phố)
+│           ├── rain.js                 (kiểu Trôi cửa kính / Mưa phố)
+│           └── space.js                — MỚI (19/07/2026) — "Drifting Space" (update mỗi khung
+│                                          hình; khởi tạo ở core/webgl/three-space.js)
 │
 ├── service/
 │   ├── state.js                  — STATE_SCHEMA + class AppState (get/set/mutate, validate kiểu,

@@ -35,17 +35,21 @@
 ## Loại trừ hot-path (không đưa vào audit)
 
 Toàn bộ hàm trong các file sau (chạy trong/được gọi trực tiếp mỗi khung hình từ vòng lặp
-`requestAnimationFrame` ở `core/visualizer/draw-visualizer.js`) — DANH SÁCH KHÔNG ĐỔI so với bản
-gốc, xác nhận lại không có file hot-path mới nào phát sinh:
+`requestAnimationFrame` ở `core/visualizer/draw-visualizer.js`) — CẬP NHẬT 19/07/2026 (thêm
+`types/space.js` MỚI + 4 file tách từ `draw-helpers.js` cũ, xem `readme/folder-structure.md`):
 
 - `core/visualizer/draw-visualizer.js`
-- `core/visualizer/draw-helpers.js`
+- `core/visualizer/draw/water-drop.js`
+- `core/visualizer/draw/window-frame.js`
+- `core/visualizer/draw/spaceship-frame.js`
+- `core/visualizer/draw/flying-note.js`
 - `core/visualizer/types/bar.js`
 - `core/visualizer/types/black-hole.js`
 - `core/visualizer/types/lightning.js`
 - `core/visualizer/types/rain.js`
 - `core/visualizer/types/rubik.js`
 - `core/visualizer/types/vortex.js`
+- `core/visualizer/types/space.js`
 - `core/three-vortex.js`
 - `core/rubik-math.js`
 
