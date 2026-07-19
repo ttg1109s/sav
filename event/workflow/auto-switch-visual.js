@@ -15,6 +15,7 @@ const workflowAutoSwitchVisual = {
         setAutoSwitchVisualEnabled(checked, optionsEl);
         saveConfig();
         updateCycleModeButtonState(); // khoá/mở #btn-cycle-mode NGAY khi người dùng bật/tắt
+        updateVisualizerTypeSelectState(); // FIX BUG 19/07/2026 (mục 5) — khoá luôn select "Kiểu hiệu ứng"
         startAutoSwitchVisualBranch(); // bật -> khởi động đúng nhánh; tắt -> hàm tự kill hết vì shouldRun=false
     },
 
