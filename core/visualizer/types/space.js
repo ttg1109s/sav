@@ -97,18 +97,18 @@
                 fieldPoints.material.size = 5 + beatScale * 6; // audio-reactive: to hẳn theo nhịp
             }
 
-            // 5. Sao băng/thiên thạch — MỚI (19/07/2026, yêu cầu Giang): thử three-nebula trước
-            // (spNebulaSystem, xem core/webgl/three-space.js), bọc try/catch NGAY TẠI ĐIỂM GỌI —
-            // lỗi runtime bất kỳ (API không đúng tài liệu, bản CDN esm-only...) sẽ tắt hẳn Nebula
-            // cho phần còn lại phiên này, chuyển hẳn sang pool THREE.Points gốc ở khung hình kế.
+            // 5. Sao băng/thiên thạch — MỚI (19/07/2026, yêu cầu Giang): thử @newkrok/three-particles
+            // trước (spParticleLibApi, xem core/webgl/three-space.js), bọc try/catch NGAY TẠI ĐIỂM
+            // GỌI — lỗi runtime bất kỳ sẽ tắt hẳn thư viện cho phần còn lại phiên này, chuyển hẳn
+            // sang pool THREE.Points gốc ở khung hình kế.
             if (isPlaying && Math.random() < 0.05 + smoothedEnergy * 0.12) trySpawnSpaceMeteor(currentZ, pathParams);
             const cam = appState.get('spCamera');
-            if (spNebulaSystem) {
+            if (spParticleLibApi) {
                 try {
-                    updateSpaceNebulaMeteors(currentZ, cam);
+                    updateSpaceParticleLibMeteors(currentZ, cam);
                 } catch (e) {
-                    console.warn('[space.js] three-nebula lỗi lúc cập nhật thiên thạch — tắt hẳn, fallback pool THREE.Points gốc:', e);
-                    spNebulaSystem = null;
+                    console.warn('[space.js] @newkrok/three-particles lỗi lúc cập nhật thiên thạch — tắt hẳn, fallback pool THREE.Points gốc:', e);
+                    spParticleLibApi = null;
                 }
             } else {
                 const meteorPool = appState.get('spMeteorPool');
