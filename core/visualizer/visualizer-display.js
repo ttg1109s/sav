@@ -325,7 +325,7 @@
         /** Core thuần: bật/tắt "khung kính tàu vũ trụ" (item 4, MỚI 19/07/2026). CÙNG MẪU với
          * setGlassFlash() ngay trên — chỉ mutate config, việc VẼ đọc cfg.spaceGlassFrame mỗi khung
          * hình ở core/visualizer/draw-visualizer.js (gọi drawWindowFrame(ctx) có sẵn ở
-         * draw-helpers.js, TÁI DÙNG đúng hàm Rain "glass" đang dùng — không cần overlay DOM riêng). */
+         * draw/window-frame.js, TÁI DÙNG đúng hàm Rain "glass" đang dùng — không cần overlay DOM riêng). */
         function setSpaceGlassFrame(checked) {
             appState.mutate('vizConfig', cfg => { cfg.spaceGlassFrame = checked; });
         }

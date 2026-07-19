@@ -77,10 +77,9 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // "Khung kính tàu vũ trụ" (item 4, MỚI 19/07/2026) — TÁI DÙNG drawWindowFrame(ctx) có
-            // sẵn (draw-helpers.js, Rain "glass" style đang dùng cùng hàm này), vẽ đè lên canvas 2D
-            // (#visualizer, z-index CAO HƠN #webgl-canvas) — không cần overlay CSS riêng.
-            if (cfg.type === 'space' && cfg.spaceGlassFrame) drawWindowFrame(ctx);
+            // "Khung kính khoang lái" (item 4) — drawSpaceshipFrame() RIÊNG cho Space (draw/spaceship-frame.js),
+            // KHÔNG dùng drawWindowFrame() (đó là cửa sổ nhà, sai theme — xem docstring hàm đó).
+            if (cfg.type === 'space' && cfg.spaceGlassFrame) drawSpaceshipFrame(ctx);
 
             const drawFn = VISUALIZER_DRAWERS[cfg.type];
             if (drawFn) drawFn(ctx, perf, isPlaying, appState.get('beatScale'));
