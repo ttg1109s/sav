@@ -231,6 +231,7 @@ visual-master/
 │       │   ├── water-drop.js           (giọt nước — Rain)
 │       │   ├── window-frame.js         (khung cửa sổ NHÀ — Rain kiểu "glass")
 │       │   ├── spaceship-frame.js      (khung khoang lái tàu vũ trụ — Space, KHÁC window-frame.js)
+│       │   ├── space-collision-flash.js (MỚI, flash cam/trắng khi thiên thạch va chạm — Space)
 │       │   └── flying-note.js          (nốt nhạc bay lên, DOM — mọi kiểu hiệu ứng)
 │       ├── draw-visualizer.js       — HOT PATH — vòng lặp render chính (requestAnimationFrame),
 │       │                              object VISUALIZER_DRAWERS, và dòng

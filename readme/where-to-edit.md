@@ -47,7 +47,7 @@
 | Visual Lightning / Black Hole | `core/visualizer/types/lightning.js`, `black-hole.js` |
 | Visual Vortex / Drifting Space (WebGL) | `core/visualizer/types/vortex.js`/`space.js` (vẽ mỗi khung hình), `core/webgl/three-vortex.js`/`three-space.js` (khởi tạo scene) |
 | Vòng lặp render chính, thêm visual mới | `core/visualizer/draw-visualizer.js` (object `VISUALIZER_DRAWERS`, và điểm khởi động app trong `DOMContentLoaded`) |
-| Hàm vẽ dùng chung | `core/visualizer/draw/` (mỗi hàm 1 file: `water-drop.js`, `window-frame.js`, `spaceship-frame.js`, `flying-note.js`) |
+| Hàm vẽ dùng chung | `core/visualizer/draw/` (mỗi hàm 1 file: `water-drop.js`, `window-frame.js`, `spaceship-frame.js`, `space-collision-flash.js`, `flying-note.js`) |
 | Điều khiển hiển thị Visualizer (màu/EQ mode/bar style...) | `core/visualizer/visualizer-display.js`; listener/router qua cụm `visualizerDisplay` (có workflow) |
 | Mở/đóng drawer Visualizer/Subtitle, đổi kiểu hiệu ứng, giữ màn hình sáng | `core/visualizer/visualizer-misc-settings.js`; listener/router qua cụm `visualizerMiscSettings` (patch 13) |
 | Control Center (panel 6 icon trên Visualizer) | `components/visualizer-overlay.js` (HTML), `core/state-and-video-bg.js` (mở/đóng panel); listener/router/workflow qua cụm `visualizerControlCenter` (patch 11) |

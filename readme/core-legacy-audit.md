@@ -36,12 +36,13 @@
 
 Toàn bộ hàm trong các file sau (chạy trong/được gọi trực tiếp mỗi khung hình từ vòng lặp
 `requestAnimationFrame` ở `core/visualizer/draw-visualizer.js`) — CẬP NHẬT 19/07/2026 (thêm
-`types/space.js` MỚI + 4 file tách từ `draw-helpers.js` cũ, xem `readme/folder-structure.md`):
+`types/space.js` MỚI + 5 file tách từ `draw-helpers.js` cũ, xem `readme/folder-structure.md`):
 
 - `core/visualizer/draw-visualizer.js`
 - `core/visualizer/draw/water-drop.js`
 - `core/visualizer/draw/window-frame.js`
 - `core/visualizer/draw/spaceship-frame.js`
+- `core/visualizer/draw/space-collision-flash.js`
 - `core/visualizer/draw/flying-note.js`
 - `core/visualizer/types/bar.js`
 - `core/visualizer/types/black-hole.js`

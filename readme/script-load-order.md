@@ -92,9 +92,10 @@ core/storage-manager.js
 core/visualizer/visualizer-display.js
 core/auto-switch-visual.js      ← cần MODES/currentModeIndex/updateTypeUI/saveConfig/audioPlayer
                                    đã có ref, và taskManager đã tồn tại
-core/visualizer/draw/*.js       ← 4 file (MỚI 19/07/2026, tách từ draw-helpers.js cũ — mỗi hàm 1
+core/visualizer/draw/*.js       ← 5 file (MỚI 19/07/2026, tách từ draw-helpers.js cũ — mỗi hàm 1
                                    file: water-drop.js/window-frame.js/spaceship-frame.js/
-                                   flying-note.js), không phụ thuộc thứ tự lẫn nhau
+                                   space-collision-flash.js/flying-note.js), không phụ thuộc thứ
+                                   tự lẫn nhau
 core/visualizer/types/*.js      ← 7 file (MỚI 19/07/2026: +space.js), không phụ thuộc thứ tự lẫn nhau
 core/visualizer/draw-visualizer.js  ← nạp SAU CÙNG trong khối core/ — gọi tới các hàm draw* ở
                                    types/, và chứa document.addEventListener('DOMContentLoaded', ...)
