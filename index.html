@@ -240,7 +240,14 @@
          hưởng các <script> khác, xem console nếu muốn kiểm tra). core/webgl/three-space.js tự kiểm
          tra `typeof window.Nebula` trước khi dùng — KHÔNG có thì tự động fallback về pool
          THREE.Points thiên thạch gốc (đã xác nhận chạy được), không crash gì cả. -->
-    <script src="https://cdn.jsdelivr.net/npm/three-nebula@10.0.3"></script>
+    <!-- MỚI (19/07/2026, yêu cầu Giang) — THAY three-nebula (đã xác nhận KHÔNG lộ window.Nebula
+         qua console log Giang gửi) bằng @newkrok/three-particles — hiện đại hơn hẳn (còn bảo trì,
+         có hỗ trợ WebGPU, tài liệu rõ ràng, CodePen demo chạy thật:
+         codepen.io/NewKrok/pen/GgRzEmP). RỦI RO CÒN LẠI: chưa xác nhận 100% tên global chính xác
+         khi nạp qua <script> thường (README không phân biệt rõ ES-module import vs global) —
+         core/webgl/three-space.js dò nhiều khả năng tên global, fallback pool THREE.Points gốc nếu
+         không tìm thấy cái nào, giống hệt cơ chế guard đã dùng cho bloom/THREEx.Planets. -->
+    <script src="https://cdn.jsdelivr.net/npm/@newkrok/three-particles@latest/dist/three-particles.min.js"></script>
     <!-- MỚI (19/07/2026, yêu cầu Giang — thử tích hợp THREEx.Planets cho hành tinh/starfield
          Space) — extension THẬT cho three.js (jeromeetienne/threex.planets, 258 sao GitHub),
          texture ẢNH THẬT từ planetpixelemporium (Trái Đất/Sao Hoả/Mặt Trời...), KHÔNG phải hình
