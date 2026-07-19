@@ -10,7 +10,8 @@
  * ở settings-drawer.js) giờ chỉ còn 1 card:
  *
  * CARD — "Visualizer" (kiểu hiệu ứng):
- *   - select "Kiểu hiệu ứng" (#setting-visualizer-type) — chọn TRỰC TIẾP 1 trong 6 visual,
+ *   - select "Kiểu hiệu ứng" (#setting-visualizer-type) — chọn TRỰC TIẾP 1 trong 7 visual (MỚI
+ *     19/07/2026: thêm "Drifting Space", xem core/webgl/three-space.js),
  *     thay cho việc phải bấm nút cycle (#btn-cycle-mode) nhiều lần mới tới đúng kiểu muốn —
  *     đây là phần người dùng cần "ngay trong giao diện", không phải mở drawer mới thấy.
  *   - nút "Tùy chỉnh Visualizer" mở drawer chứa phần còn lại (Chất lượng Render, hình học chi
@@ -64,6 +65,7 @@ const TPL_SETTINGS_VISUALIZER = `
                         <option value="vortex" data-i18n="settingsVisualizer.type.vortex">${t('settingsVisualizer.type.vortex')}</option>
                         <option value="black hole" data-i18n="settingsVisualizer.type.blackHole">${t('settingsVisualizer.type.blackHole')}</option>
                         <option value="rain" data-i18n="settingsVisualizer.type.rain">${t('settingsVisualizer.type.rain')}</option>
+                        <option value="space" data-i18n="settingsVisualizer.type.space">${t('settingsVisualizer.type.space')}</option>
                     </select>
                 </div>
                 <div class="flex justify-between items-center p-4 border-b border-white/5">
