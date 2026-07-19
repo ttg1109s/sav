@@ -58,7 +58,8 @@ core/resume-state-storage.js
 core/upload-validation.js
 core/listen-stats.js
 core/loading-shield-util.js
-core/three-vortex.js
+core/webgl/three-vortex.js
+core/webgl/three-space.js
 core/state-and-video-bg.js
 core/subtitle/subtitles.js
 core/equalizer.js
@@ -92,7 +93,7 @@ core/visualizer/visualizer-display.js
 core/auto-switch-visual.js      ← cần MODES/currentModeIndex/updateTypeUI/saveConfig/audioPlayer
                                    đã có ref, và taskManager đã tồn tại
 core/visualizer/draw-helpers.js
-core/visualizer/types/*.js      ← 6 file, không phụ thuộc thứ tự lẫn nhau
+core/visualizer/types/*.js      ← 7 file (MỚI 19/07/2026: +space.js), không phụ thuộc thứ tự lẫn nhau
 core/visualizer/draw-visualizer.js  ← nạp SAU CÙNG trong khối core/ — gọi tới các hàm draw* ở
                                    types/, và chứa document.addEventListener('DOMContentLoaded', ...)
                                    — ĐIỂM KHỞI ĐỘNG THỰC SỰ của app (await loadConfig();

@@ -140,8 +140,15 @@ visual-master/
 │   ├── upload-validation.js      — validateAudioFile/ImageFile/VideoFile
 │   ├── listen-stats.js           — số lần nghe/thời gian nghe riêng từng bài (debounce qua taskManager)
 │   ├── loading-shield-util.js    — withLoadingShield() dùng chung, cờ isShieldBusy
-│   ├── three-vortex.js           — HOT PATH — khởi tạo + cập nhật mỗi frame Three.js scene cho
-│   │                              visual Vortex
+│   ├── webgl/                     — MỚI (dời 19/07/2026, gom nhóm "2 file three") — mọi engine
+│   │                                khởi tạo Three.js đứng riêng thư mục con này (KHÔNG đụng
+│   │                                core/visualizer/types/*.js — file update mỗi khung hình vẫn ở
+│   │                                nguyên chỗ cũ, chỉ phần INIT dời vào đây)
+│   │   ├── three-vortex.js        — HOT PATH — khởi tạo + cập nhật mỗi frame Three.js scene cho
+│   │   │                            visual Vortex (DỜI từ core/three-vortex.js, 19/07/2026)
+│   │   └── three-space.js         — MỚI (19/07/2026) — khởi tạo Three.js scene cho visual
+│   │                                "Drifting Space" (hành tinh/sao/dải ngân hà/thiên thạch),
+│   │                                DÙNG CHUNG renderer #webgl-canvas với three-vortex.js
 │   ├── state-and-video-bg.js     — handleVideoBackground(), mở/đóng Control Center
 │   ├── equalizer.js              — slider EQ dùng 1 listener DELEGATION trên eqSlidersWrapper
 │   │                              (event/listener/equalizer-settings.js) thay 10 listener rời
