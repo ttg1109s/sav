@@ -349,6 +349,25 @@
         }
 
         /**
+         * FIX BUG (19/07/2026, yêu cầu Giang — mục 5) — khi "Tự động đổi hiệu ứng" đang BẬT, select
+         * "Kiểu hiệu ứng" (#setting-visualizer-type, Settings chính) VẪN chọn tay được, dù nút cycle
+         * (#btn-cycle-mode, Control Center) đã bị khoá đúng — 2 đường CÙNG đổi visual tay nhưng chỉ
+         * 1 đường được khoá, người dùng vẫn lách qua được bằng select. Khoá CẢ 2 nơi, CÙNG lý do và
+         * CÙNG cách làm như updateCycleModeButtonState() ngay trên (thuộc tính `disabled` HTML thật,
+         * không chỉ CSS mờ) — gọi hàm này ở ĐÚNG những chỗ đã gọi updateCycleModeButtonState().
+         * Truy vấn TƯƠI (không dom-refs tĩnh) dù select này thực ra tĩnh từ lúc boot — chỉ để nhất
+         * quán với các hàm truy vấn tươi khác trong file này.
+         */
+        function updateVisualizerTypeSelectState() {
+            const selectEl = document.getElementById('setting-visualizer-type');
+            if (!selectEl) return;
+            const locked = appState.get('vizConfig').autoSwitchVisualEnabled === true;
+            selectEl.disabled = locked;
+            selectEl.classList.toggle('opacity-40', locked);
+            selectEl.classList.toggle('cursor-not-allowed', locked);
+        }
+
+        /**
          * Hiện ĐÚNG 1 trong 3 khối input theo `timeModeValue`, ẩn 2 khối còn lại.
          *
          * Batch D3 (Settings restructure, 06/07/2026) — panel Visualizer Settings giờ PUSH/POP
@@ -377,6 +396,7 @@
          */
         function initAutoSwitchCycleButtonFromConfig() {
             updateCycleModeButtonState();
+            updateVisualizerTypeSelectState(); // FIX BUG 19/07/2026 (mục 5) — xem docstring hàm này ở trên
         }
 
         /** Core thuần: ứng với toggle bật/tắt "Tự động đổi hiệu ứng". Batch D3 — nhận `optionsEl`
