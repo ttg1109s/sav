@@ -58,8 +58,12 @@
                         sectorObj.material.size = sectorObj.userData.baseSize + beatScale * 4;
                     }
                 } else {
-                    if (sectorObj.scale.x < 0.999) {
-                        const s = sectorObj.scale.x + (1 - sectorObj.scale.x) * 0.05;
+                    // MỚI (19/07/2026) — fade-in về ĐÚNG userData.targetScale, KHÔNG hardcode 1:
+                    // mesh THREEx.Planets (_tryCreateThreexPlanet()) đã quy đổi bán kính riêng của
+                    // nó về ~140 bằng 1 hệ số scale KHÁC 1, fade cứng về 1 sẽ sai kích thước.
+                    const targetScale = sectorObj.userData.targetScale || 1;
+                    if (sectorObj.scale.x < targetScale - 0.001) {
+                        const s = sectorObj.scale.x + (targetScale - sectorObj.scale.x) * 0.05;
                         sectorObj.scale.setScalar(s);
                     }
                     if (sectorObj.userData.kind === 'star' && sectorObj.userData.starLight) {
@@ -93,26 +97,38 @@
                 fieldPoints.material.size = 5 + beatScale * 6; // audio-reactive: to hẳn theo nhịp
             }
 
-            // 5. Sao băng/thiên thạch.
+            // 5. Sao băng/thiên thạch — MỚI (19/07/2026, yêu cầu Giang): thử three-nebula trước
+            // (spNebulaSystem, xem core/webgl/three-space.js), bọc try/catch NGAY TẠI ĐIỂM GỌI —
+            // lỗi runtime bất kỳ (API không đúng tài liệu, bản CDN esm-only...) sẽ tắt hẳn Nebula
+            // cho phần còn lại phiên này, chuyển hẳn sang pool THREE.Points gốc ở khung hình kế.
             if (isPlaying && Math.random() < 0.05 + smoothedEnergy * 0.12) trySpawnSpaceMeteor(currentZ, pathParams);
-            const meteorPool = appState.get('spMeteorPool');
-            meteorPool.forEach(m => {
-                if (!m.userData.active) return;
-                m.position.x += m.userData.vx;
-                m.position.y += m.userData.vy;
-                m.position.z += m.userData.vz;
-                m.userData.life -= 0.018;
-                const op = Math.max(0, Math.min(1, m.userData.life * 1.4)) * 0.95;
-                m.material.opacity = op;
-                m.userData.glowSprite.material.opacity = op;
-
-                const cam = appState.get('spCamera');
-                const distToCam = Math.abs(m.position.z - currentZ);
-                if (distToCam < 110 && Math.abs(m.position.x - cam.position.x) < 130 && Math.abs(m.position.y - cam.position.y) < 130 && Math.random() > 0.45) {
-                    triggerSpaceCollisionShake();
+            const cam = appState.get('spCamera');
+            if (spNebulaSystem) {
+                try {
+                    updateSpaceNebulaMeteors(currentZ, cam);
+                } catch (e) {
+                    console.warn('[space.js] three-nebula lỗi lúc cập nhật thiên thạch — tắt hẳn, fallback pool THREE.Points gốc:', e);
+                    spNebulaSystem = null;
                 }
-                if (m.userData.life <= 0) { m.userData.active = false; m.visible = false; }
-            });
+            } else {
+                const meteorPool = appState.get('spMeteorPool');
+                meteorPool.forEach(m => {
+                    if (!m.userData.active) return;
+                    m.position.x += m.userData.vx;
+                    m.position.y += m.userData.vy;
+                    m.position.z += m.userData.vz;
+                    m.userData.life -= 0.018;
+                    const op = Math.max(0, Math.min(1, m.userData.life * 1.4)) * 0.95;
+                    m.material.opacity = op;
+                    m.userData.glowSprite.material.opacity = op;
+
+                    const distToCam = Math.abs(m.position.z - currentZ);
+                    if (distToCam < 110 && Math.abs(m.position.x - cam.position.x) < 130 && Math.abs(m.position.y - cam.position.y) < 130 && Math.random() > 0.45) {
+                        triggerSpaceCollisionShake();
+                    }
+                    if (m.userData.life <= 0) { m.userData.active = false; m.visible = false; }
+                });
+            }
 
             // 6. KEN BURNS (MỚI — "zoom + pan mọi chiều, kể cả chéo góc", tư duy y hệt slideshow) —
             // spPanAngle quét LIÊN TỤC (rad, không giới hạn), lấy sin/cos ở 2 TẦN SỐ LỆCH NHAU cho
@@ -127,7 +143,6 @@
             const kenBurnsPanY = Math.sin(panAngle * 0.72) * panRadius * 0.6; // tần số Y lệch X -> Lissajous, quét chéo góc
             const kenBurnsDolly = Math.sin(panAngle * 0.35) * (70 + smoothedEnergy * 130); // "zoom" thật: tiến/lùi dọc trục nhìn
 
-            const cam = appState.get('spCamera');
             const targetFov = 70 - beatScale * 8 - Math.sin(panAngle * 0.35) * 4; // FOV thở CỘNG THÊM zoom nhịp beat
             cam.fov += (targetFov - cam.fov) * 0.08;
             cam.updateProjectionMatrix();
