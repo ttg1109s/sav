@@ -77,9 +77,12 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // "Khung kính khoang lái" (item 4) — drawSpaceshipFrame() RIÊNG cho Space (draw/spaceship-frame.js),
-            // KHÔNG dùng drawWindowFrame() (đó là cửa sổ nhà, sai theme — xem docstring hàm đó).
-            if (cfg.type === 'space' && cfg.spaceGlassFrame) drawSpaceshipFrame(ctx);
+            // "Khung kính khoang lái" (item 4, tuỳ chọn) + "Flash va chạm" (MỚI, luôn hiện bất kể
+            // khung kính bật/tắt) — 2 hàm RIÊNG trong core/visualizer/draw/.
+            if (cfg.type === 'space') {
+                if (cfg.spaceGlassFrame) drawSpaceshipFrame(ctx);
+                drawSpaceCollisionFlash(ctx);
+            }
 
             const drawFn = VISUALIZER_DRAWERS[cfg.type];
             if (drawFn) drawFn(ctx, perf, isPlaying, appState.get('beatScale'));
