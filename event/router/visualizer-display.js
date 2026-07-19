@@ -133,6 +133,13 @@ const routerVisualizerDisplay = (() => {
                 break;
             }
 
+            // MỚI (19/07/2026, "Drifting Space", item 4).
+            case 'visualizerDisplay.spaceGlassFrame.change': {
+                const { checked } = msg.payload;
+                workflowVisualizerDisplay.setSpaceGlassFrame(checked);
+                break;
+            }
+
             // ===================== Kích thước bar/mirror =====================
             case 'visualizerDisplay.maxHeight.input': {
                 const { value, displayEl } = msg.payload;
