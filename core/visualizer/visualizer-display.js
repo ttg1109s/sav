@@ -312,6 +312,14 @@
             appState.mutate('vizConfig', cfg => { cfg.vortexStyle = value; });
         }
 
+        /** Core thuần: kiểu hiệu ứng Space con (MỚI 19/07/2026, viết lại LẦN 3 — Galaxy Explore/Sun
+         * System/Vacuum Void). Chỉ mutate config — việc dựng lại nội dung scene nằm ở
+         * reinitSpaceStyleContent() (core/webgl/three-space.js), gọi từ event/workflow/visualizer-display.js
+         * NGAY sau hàm này (không gọi ở đây vì core không được gọi core khác/hàm 3D nặng). */
+        function setSpaceStyle(value) {
+            appState.mutate('vizConfig', cfg => { cfg.spaceStyle = value; });
+        }
+
         /** Core thuần: kiểu hiệu ứng Bar con (mirror/cascade). Batch D3 — BỎ `updateBarStyleUI()`/`saveConfig()`. */
         function setBarStyle(value) {
             appState.mutate('vizConfig', cfg => { cfg.barStyle = value; });
