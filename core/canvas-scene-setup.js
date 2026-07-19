@@ -23,7 +23,23 @@
             const dpr = appState.get('dpr');
             canvas.width = window.innerWidth * dpr; canvas.height = window.innerHeight * dpr;
             const tRenderer = appState.get('tRenderer');
-            if(tRenderer) { tRenderer.setSize(window.innerWidth, window.innerHeight); const tCamera = appState.get('tCamera'); tCamera.aspect = window.innerWidth/window.innerHeight; tCamera.updateProjectionMatrix(); }
+            if(tRenderer) {
+                tRenderer.setSize(window.innerWidth, window.innerHeight);
+                // FIX (19/07/2026) — tRenderer giờ DÙNG CHUNG giữa Vortex (tCamera) và Space
+                // (spCamera, xem core/webgl/three-space.js) — tRenderer tồn tại KHÔNG còn đồng
+                // nghĩa tCamera cũng tồn tại nữa (có thể Space tạo tRenderer trước khi Vortex từng
+                // init). Kiểm tra RIÊNG từng engine theo ĐÚNG cờ init của chính nó, không suy luận
+                // chung 1 điều kiện tRenderer như bản cũ (đã gây TypeError "tCamera undefined" khi
+                // vào Space trước, resizeCanvas() bị gọi lại lúc phát bài — core/audio-engine.js).
+                if (appState.get('tInitialized') && appState.get('tCamera')) {
+                    const tCamera = appState.get('tCamera');
+                    tCamera.aspect = window.innerWidth/window.innerHeight; tCamera.updateProjectionMatrix();
+                }
+                if (appState.get('spInitialized') && appState.get('spCamera')) {
+                    const spCamera = appState.get('spCamera');
+                    spCamera.aspect = window.innerWidth/window.innerHeight; spCamera.updateProjectionMatrix();
+                }
+            }
             
             initStars(); initThreeJS(); updateThreeJSColors(); initRubik();
             appState.set('ripples', []);
