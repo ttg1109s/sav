@@ -148,6 +148,17 @@
             spKeyLight: 'any',      // THREE.DirectionalLight | undefined
             spGlowTexture: 'any',   // THREE.CanvasTexture (glow tròn, dựng 1 lần) | undefined
             spComposer: 'any',      // THREE.EffectComposer (bloom) | undefined — null nếu thư viện không tải được (fallback render thẳng)
+            // MỚI (viết lại toàn diện LẦN 2, 19/07/2026, phản hồi Giang — "tư duy Ken Burns"
+            // zoom+pan+chéo góc + star field to dần khi tiến tới):
+            spPanAngle: 'number',       // góc quét pan liên tục (rad) — TỰ NHIÊN quét qua MỌI hướng
+                                        // kể cả chéo góc theo thời gian, thay vì chỉ 8 hướng rời rạc
+                                        // như slideshow (không cần thiết cho camera 3D di chuyển
+                                        // liên tục — xem core/webgl/three-space.js)
+            spFieldStarPoints: 'any',  // THREE.Points | undefined — lớp "sao lấm chấm" RIÊNG (khác
+                                        // spStarPoints nền tĩnh), mỗi sao tự tái sinh (sliding
+                                        // window, giống tRings của Vortex) khi camera vượt qua, to
+                                        // dần lúc tiến gần (sizeAttenuation chuẩn của PointsMaterial)
+            spFieldStarZs: 'array',    // vị trí Z hiện tại của từng sao trong spFieldStarPoints
 
             // ── audio engine ──────────────────────────────────────────────────
             audioContext: 'any',           // AudioContext | undefined trước setupAudioContext()
@@ -358,6 +369,9 @@
                 spKeyLight: undefined,
                 spGlowTexture: undefined,
                 spComposer: undefined,
+                spPanAngle: 0,
+                spFieldStarPoints: undefined,
+                spFieldStarZs: [],
 
                 // ── audio engine ──────────────────────────────────────────────
                 audioContext: undefined,
@@ -449,9 +463,9 @@
         const CONST = Object.freeze({
             APP_CONFIG: Object.freeze({ fftSizeStandard: 256, fftSizeHighRes: 2048, fftSizePitch: 2048, bpmMinWaitTime: 250 }),
             PERFORMANCE_PROFILES: Object.freeze({
-                high:   Object.freeze({ stars: 200, tunnelRings: 60, glassDrops: 250, bldMult: 1.0, streakProb: 0.8,  blurMult: 1.0, streetRain: 220, spaceStars: 2200, spaceGalaxyStars: 3500, spaceDetail: 28, spaceMeteorPool: 24 }),
-                medium: Object.freeze({ stars: 100, tunnelRings: 35, glassDrops: 100, bldMult: 1.5, streakProb: 0.9,  blurMult: 0.5, streetRain: 130, spaceStars: 1200, spaceGalaxyStars: 2000, spaceDetail: 18, spaceMeteorPool: 14 }),
-                low:    Object.freeze({ stars: 40,  tunnelRings: 15, glassDrops: 40,  bldMult: 2.5, streakProb: 0.95, blurMult: 0,   streetRain: 70, spaceStars: 500, spaceGalaxyStars: 900, spaceDetail: 10, spaceMeteorPool: 6 }),
+                high:   Object.freeze({ stars: 200, tunnelRings: 60, glassDrops: 250, bldMult: 1.0, streakProb: 0.8,  blurMult: 1.0, streetRain: 220, spaceStars: 2200, spaceGalaxyStars: 3500, spaceDetail: 28, spaceMeteorPool: 24, spaceFieldStars: 220 }),
+                medium: Object.freeze({ stars: 100, tunnelRings: 35, glassDrops: 100, bldMult: 1.5, streakProb: 0.9,  blurMult: 0.5, streetRain: 130, spaceStars: 1200, spaceGalaxyStars: 2000, spaceDetail: 18, spaceMeteorPool: 14, spaceFieldStars: 120 }),
+                low:    Object.freeze({ stars: 40,  tunnelRings: 15, glassDrops: 40,  bldMult: 2.5, streakProb: 0.95, blurMult: 0,   streetRain: 70, spaceStars: 500, spaceGalaxyStars: 900, spaceDetail: 10, spaceMeteorPool: 6, spaceFieldStars: 60 }),
             }),
             DEFAULT_VINYL: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0OCIgZmlsbD0iIzFlMjkzYiIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjE2IiBmaWxsPSIjMGYxNzJhIi8+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iMTUiIGZpbGw9IiNjYmQ1ZTEiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0IiBmaWxsPSIjMGYxNzJhIi8+PC9zdmc+',
             EQ_PRESETS: Object.freeze({
