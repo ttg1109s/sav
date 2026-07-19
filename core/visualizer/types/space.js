@@ -1,22 +1,16 @@
 /**
- * Visual SPACE — "Drifting Space": trôi giữa các thiên thể theo đường bay CONG (quỹ đạo nền, tái
- * dùng công thức Vortex) CỘNG THÊM lớp chuyển động kiểu Ken Burns (zoom + pan mọi hướng kể cả chéo
- * góc, audio-reactive — tư duy y hệt slideshow Ken Burns, xem core/file-manager/slideshow.js,
- * SLIDESHOW_KENBURNS_MODES: panLeft/Right/Top/Bottom, zoomIn/Out, zoomPanLeft/Right/Top/Bottom).
- * Cập nhật mỗi khung hình, gọi từ core/visualizer/draw-visualizer.js.
+ * Visual SPACE — VIẾT LẠI HOÀN TOÀN LẦN 3 (19/07/2026, phản hồi Giang "xoá hết viết lại hết
+ * space") — dispatcher cập nhật mỗi khung hình theo `vizConfig.spaceStyle` (galaxyExplore/
+ * sunSystem/vacuumVoid), gọi từ core/visualizer/draw-visualizer.js. Xem docstring đầu
+ * core/webgl/three-space.js để biết đầy đủ kiến trúc 3 kiểu con.
  *
- * VIẾT LẠI LẦN 2 (19/07/2026, phản hồi Giang "đập đi viết lại hết") — xem docstring đầu
- * core/webgl/three-space.js để biết đầy đủ những gì đã đổi (planet texture/star sprite+light/star
- * field tái sinh/khung kính SVG). File này thêm:
- *   - Lớp Ken Burns: pan theo góc quét LIÊN TỤC (spPanAngle, tần số X/Y LỆCH nhau → quét kiểu
- *     Lissajous, tự nhiên đi qua MỌI hướng kể cả chéo góc theo thời gian, không cần liệt kê rời rạc
- *     8 hướng như slideshow vì camera 3D di chuyển liên tục) + "zoom" THẬT gồm CẢ dolly (tiến/lùi
- *     dọc trục nhìn) LẪN FOV thở — biên độ/tốc độ đều tăng theo smoothedEnergy (BẮT BUỘC dựa vào
- *     audio, theo yêu cầu Giang).
- *   - Cập nhật lớp "sao lấm chấm" tái sinh (spFieldStarPoints/spFieldStarZs) mỗi khung hình —
- *     kích thước điểm cũng nhấp nháy theo beatScale.
- *   - Ngôi sao: cường độ PointLight thật nhấp nháy theo audio. Dải ngân hà: xoay + kích thước điểm
- *     nhấp nháy theo audio.
+ * GIỮ NGUYÊN (yêu cầu Giang "giữ nguyên movement"): quỹ đạo cong nền (spPathParams, công thức TÁI
+ * DÙNG từ Vortex) + lớp Ken Burns (spPanAngle, zoom+pan+chéo góc, audio-reactive) — dùng CHUNG cho
+ * Galaxy Explore/Vacuum Void y hệt trước. Sun System TÁI SỬ DỤNG CÙNG CƠ CHẾ (spPanAngle quét liên
+ * tục theo audio) nhưng đổi Ý NGHĨA: pan angle -> góc quỹ đạo camera bay quanh hệ/hành tinh tiêu
+ * điểm, dolly -> khoảng cách quan sát (xa=toàn hệ lúc nhạc êm, gần=áp sát hành tinh lúc nhạc dồn) —
+ * KHÔNG dùng quỹ đạo cong nền cho vị trí camera ở kiểu này (hệ mặt trời neo tại 1 điểm, không phải
+ * "bay xuyên qua" như 2 kiểu kia).
  *
  * MIỄN kiến trúc /event/ và Rule 1-5 — giống Vortex.
  */
@@ -24,130 +18,173 @@
             if (!appState.get('spInitialized')) return;
             const smoothedEnergy = appState.get('smoothedEnergy');
             const beatScale = appState.get('beatScale');
+            const style = appState.get('vizConfig').spaceStyle;
+            const cam = appState.get('spCamera');
 
-            // 1. Tốc độ trôi dọc quỹ đạo nền theo nhạc.
-            const targetSpeed = 6 + smoothedEnergy * 26;
-            spDriftSpeed += (targetSpeed - spDriftSpeed) * 0.02;
-            appState.set('spCurrentDriftZ', appState.get('spCurrentDriftZ') - spDriftSpeed, { skipCheck: true });
-            const currentZ = appState.get('spCurrentDriftZ');
-
-            // 2. Quỹ đạo cong NỀN (tái dùng kỹ thuật Vortex) — vẫn giữ, đây là "khung xương" lớn;
-            // Ken Burns (bước 6) là lớp chuyển động THÊM VÀO trên nền này, không thay thế.
+            // Quỹ đạo cong nền + Ken Burns — GIỮ NGUYÊN cơ chế, dùng cho Galaxy Explore/Vacuum Void.
+            // Sun System vẫn cập nhật (để chuyển kiểu mượt) nhưng KHÔNG dùng cho vị trí camera.
             updateSpacePathLerp();
             if (isPlaying && smoothedEnergy > 0.6 && Math.random() > 0.985) rollNewSpacePathCurve();
             const pathParams = appState.get('spPathParams');
 
-            // 3. "Sang khu vực khác theo nhạc".
-            const sectorObj = appState.get('spGroupSector').children[0];
-            const gapToSector = sectorObj ? (currentZ - sectorObj.position.z) : Infinity;
-            const closeToSector = gapToSector < 300;
-            if (isPlaying && (closeToSector || (smoothedEnergy > 0.7 && Math.random() > 0.99))) {
-                rollNewSpaceSector(currentZ, perf);
-            }
+            const targetSpeed = (style === 'sunSystem' ? 0.6 : 6) + smoothedEnergy * (style === 'sunSystem' ? 0.4 : 26);
+            spDriftSpeed += (targetSpeed - spDriftSpeed) * 0.02;
+            appState.set('spCurrentDriftZ', appState.get('spCurrentDriftZ') - spDriftSpeed, { skipCheck: true });
+            const currentZ = appState.get('spCurrentDriftZ');
 
-            // 3b. Fade-in + hiệu ứng RIÊNG theo loại thiên thể (audio-reactive — mục "quan trọng
-            // phải dựa vào audio"): NGÔI SAO -> PointLight thật nhấp nháy cường độ theo beat; DẢI
-            // NGÂN HÀ -> xoay liên tục (nhanh hơn khi nhạc mạnh) + kích thước điểm nhấp nháy.
-            if (sectorObj) {
-                if (sectorObj.isPoints) {
-                    if (sectorObj.material.opacity < sectorObj.userData.targetOpacity - 0.01) {
-                        sectorObj.material.opacity += (sectorObj.userData.targetOpacity - sectorObj.material.opacity) * 0.04;
-                    }
-                    if (sectorObj.userData.kind === 'galaxy') {
-                        sectorObj.rotation.y += 0.0012 + smoothedEnergy * 0.004;
-                        sectorObj.material.size = sectorObj.userData.baseSize + beatScale * 4;
-                    }
-                } else {
-                    // MỚI (19/07/2026) — fade-in về ĐÚNG userData.targetScale, KHÔNG hardcode 1:
-                    // mesh THREEx.Planets (_tryCreateThreexPlanet()) đã quy đổi bán kính riêng của
-                    // nó về ~140 bằng 1 hệ số scale KHÁC 1, fade cứng về 1 sẽ sai kích thước.
-                    const targetScale = sectorObj.userData.targetScale || 1;
-                    if (sectorObj.scale.x < targetScale - 0.001) {
-                        const s = sectorObj.scale.x + (targetScale - sectorObj.scale.x) * 0.05;
-                        sectorObj.scale.setScalar(s);
-                    }
-                    if (sectorObj.userData.kind === 'star' && sectorObj.userData.starLight) {
-                        sectorObj.userData.starLight.intensity = 1.6 + beatScale * 2.2 + smoothedEnergy * 1.2;
-                    }
-                }
-            }
-
-            // 4. Star field tái sinh (mục "sao lấm chấm to dần khi tiến tới") — sliding-window TÁI
-            // DÙNG kỹ thuật tRings của Vortex: sao nào camera đã vượt qua -> đưa lại thật xa phía
-            // trước, quanh tâm quỹ đạo cong tại Z mới. To dần khi tiến gần là do sizeAttenuation
-            // CHUẨN của PointsMaterial (không tự chế shader) — hoàn toàn tự động, không cần code gì
-            // thêm ở đây ngoài việc dời vị trí lúc tái sinh.
-            const fieldPoints = appState.get('spFieldStarPoints');
-            if (fieldPoints) {
-                const posAttr = fieldPoints.geometry.attributes.position;
-                const zs = appState.get('spFieldStarZs');
-                for (let i = 0; i < zs.length; i++) {
-                    if (zs[i] > currentZ + 40) {
-                        const newZ = currentZ - SPACE_DEPTH * (0.6 + Math.random() * 0.4);
-                        const center = getSpacePathOffsetAt(newZ, pathParams);
-                        const lateral = 80 + Math.random() * 900;
-                        const angle = Math.random() * Math.PI * 2;
-                        posAttr.array[i * 3] = center.x + Math.cos(angle) * lateral;
-                        posAttr.array[i * 3 + 1] = center.y + Math.sin(angle) * lateral * 0.7;
-                        posAttr.array[i * 3 + 2] = newZ;
-                        zs[i] = newZ;
-                    }
-                }
-                posAttr.needsUpdate = true;
-                fieldPoints.material.size = 5 + beatScale * 6; // audio-reactive: to hẳn theo nhịp
-            }
-
-            // 5. Sao băng/thiên thạch — MỚI (19/07/2026, yêu cầu Giang): thử @newkrok/three-particles
-            // trước (spParticleLibApi, xem core/webgl/three-space.js), bọc try/catch NGAY TẠI ĐIỂM
-            // GỌI — lỗi runtime bất kỳ sẽ tắt hẳn thư viện cho phần còn lại phiên này, chuyển hẳn
-            // sang pool THREE.Points gốc ở khung hình kế.
-            if (isPlaying && Math.random() < 0.05 + smoothedEnergy * 0.12) trySpawnSpaceMeteor(currentZ, pathParams);
-            const cam = appState.get('spCamera');
-            if (spParticleLibApi) {
-                try {
-                    updateSpaceParticleLibMeteors(currentZ, cam);
-                } catch (e) {
-                    console.warn('[space.js] @newkrok/three-particles lỗi lúc cập nhật thiên thạch — tắt hẳn, fallback pool THREE.Points gốc:', e);
-                    spParticleLibApi = null;
-                }
+            if (style === 'sunSystem') {
+                drawSunSystemFrame(perf, isPlaying, smoothedEnergy, beatScale, cam);
+            } else if (style === 'vacuumVoid') {
+                drawVacuumVoidFrame(perf, isPlaying, smoothedEnergy, beatScale, cam, currentZ, pathParams);
             } else {
-                const meteorPool = appState.get('spMeteorPool');
-                meteorPool.forEach(m => {
-                    if (!m.userData.active) return;
-                    m.position.x += m.userData.vx;
-                    m.position.y += m.userData.vy;
-                    m.position.z += m.userData.vz;
-                    m.userData.life -= 0.018;
-                    const op = Math.max(0, Math.min(1, m.userData.life * 1.4)) * 0.95;
-                    m.material.opacity = op;
-                    m.userData.glowSprite.material.opacity = op;
-
-                    const distToCam = Math.abs(m.position.z - currentZ);
-                    if (distToCam < 110 && Math.abs(m.position.x - cam.position.x) < 130 && Math.abs(m.position.y - cam.position.y) < 130 && Math.random() > 0.45) {
-                        triggerSpaceCollisionShake();
-                    }
-                    if (m.userData.life <= 0) { m.userData.active = false; m.visible = false; }
-                });
+                drawGalaxyExploreFrame(perf, isPlaying, smoothedEnergy, beatScale, cam, currentZ, pathParams);
             }
 
-            // 6. KEN BURNS (MỚI — "zoom + pan mọi chiều, kể cả chéo góc", tư duy y hệt slideshow) —
-            // spPanAngle quét LIÊN TỤC (rad, không giới hạn), lấy sin/cos ở 2 TẦN SỐ LỆCH NHAU cho
-            // trục X/Y (kiểu Lissajous) -> tự nhiên vẽ nên đường quét đi qua MỌI hướng kể cả chéo
-            // góc theo thời gian, không lặp lại y hệt chu kỳ trước. Biên độ + tốc độ quét đều tăng
-            // theo smoothedEnergy (BẮT BUỘC dựa vào audio). "Zoom" THẬT gồm dolly (đẩy camera tiến/
-            // lùi dọc trục Z so với quỹ đạo nền) CỘNG FOV thở — không chỉ đổi FOV suông.
+            if (spFlashOpacity > 0) spFlashOpacity *= 0.87;
+
+            const composer = appState.get('spComposer');
+            if (composer) composer.render();
+            else appState.get('tRenderer').render(appState.get('spScene'), cam);
+        }
+
+        /** Cập nhật + render khung hình cho kiểu GALAXY EXPLORE — camera xuyên thẳng qua nhiều
+         * thiên hà liên tiếp (đường bay cong nền + Ken Burns GIỮ NGUYÊN như trước). */
+        function drawGalaxyExploreFrame(perf, isPlaying, smoothedEnergy, beatScale, cam, currentZ, pathParams) {
+            updateGalaxyExplore(currentZ, pathParams, perf, beatScale, smoothedEnergy);
+            updateSpaceFieldStars(currentZ, pathParams, beatScale);
+            applySpaceKenBurnsCamera(cam, currentZ, pathParams, smoothedEnergy, beatScale, 0, 0);
+            appState.get('spStarPoints').position.z = currentZ * 0.15;
+        }
+
+        /** Cập nhật + render khung hình cho kiểu VACUUM VOID — chỉ có hạt/thiên thạch, va chạm =
+         * kính vỡ + sóng năng lượng (đường bay cong nền + Ken Burns GIỮ NGUYÊN). */
+        function drawVacuumVoidFrame(perf, isPlaying, smoothedEnergy, beatScale, cam, currentZ, pathParams) {
+            updateSpaceFieldStars(currentZ, pathParams, beatScale);
+            applySpaceKenBurnsCamera(cam, currentZ, pathParams, smoothedEnergy, beatScale, 0, 0);
+            appState.get('spStarPoints').position.z = currentZ * 0.15;
+
+            // Thiên thạch — NGƯỠNG XUẤT HIỆN + VA CHẠM đều NÂNG LÊN (mục "hiếm hơn, kịch tính hơn"
+            // Giang yêu cầu — trước đây 0.05+energy*0.12, giờ giảm xuống để hiếm hơn RÕ RỆT).
+            if (isPlaying && Math.random() < 0.025 + smoothedEnergy * 0.05) trySpawnSpaceMeteor(currentZ, pathParams);
+            const meteorPool = appState.get('spMeteorPool');
+            meteorPool.forEach(m => {
+                if (!m.userData.active) return;
+                m.position.x += m.userData.vx;
+                m.position.y += m.userData.vy;
+                m.position.z += m.userData.vz;
+                m.userData.life -= 0.018;
+                const op = Math.max(0, Math.min(1, m.userData.life * 1.4)) * 0.95;
+                m.material.opacity = op;
+                m.userData.glowSprite.material.opacity = op;
+
+                // NGƯỠNG VA CHẠM NÂNG LÊN (mục Giang) — khoảng cách phải RẤT gần (trước 110/130,
+                // giờ 70/85) VÀ xác suất thấp hơn (trước >0.45, giờ >0.72) — va chạm hiếm, mỗi lần
+                // xảy ra đáng nhớ, KHÔNG còn xảy ra liên tục vụn vặt.
+                const distToCam = Math.abs(m.position.z - currentZ);
+                if (distToCam < 70 && Math.abs(m.position.x - cam.position.x) < 85 && Math.abs(m.position.y - cam.position.y) < 85 && Math.random() > 0.72) {
+                    triggerSpaceCollisionShake(m.position.clone(), m.material.color.getHex());
+                }
+                if (m.userData.life <= 0) { m.userData.active = false; m.visible = false; }
+            });
+
+            updateVacuumVoidEffects();
+        }
+
+        /** Cập nhật mảnh vỡ kính + sóng năng lượng đang hoạt động (mục Vacuum Void, MỚI 19/07/2026)
+         * — mảnh vỡ bay xa dần + rơi nhẹ + xoay + mờ dần; sóng năng lượng nở to dần + mờ dần. Cả 2
+         * tự dọn khỏi scene khi hết đời (life<=0), KHÔNG rò rỉ bộ nhớ. */
+        function updateVacuumVoidEffects() {
+            const shards = appState.get('spShatterShards');
+            for (let i = shards.length - 1; i >= 0; i--) {
+                const s = shards[i];
+                s.mesh.position.x += s.vx; s.mesh.position.y += s.vy; s.mesh.position.z += s.vz;
+                s.vy -= 0.15; // trọng lực giả nhẹ
+                s.mesh.rotation.x += s.rvx; s.mesh.rotation.y += s.rvy; s.mesh.rotation.z += s.rvz;
+                s.life -= 0.02;
+                s.mesh.material.opacity = Math.max(0, s.life) * 0.85;
+                if (s.life <= 0) {
+                    appState.get('spContentGroup').remove(s.mesh);
+                    shards.splice(i, 1);
+                }
+            }
+            const waves = appState.get('spEnergyWaves');
+            for (let i = waves.length - 1; i >= 0; i--) {
+                const w = waves[i];
+                w.life -= 0.03;
+                const scale = 1 + (1 - w.life) * 90;
+                w.mesh.scale.setScalar(scale);
+                w.mesh.material.opacity = Math.max(0, w.life) * 0.9;
+                w.mesh.lookAt(appState.get('spCamera').position);
+                if (w.life <= 0) {
+                    appState.get('spContentGroup').remove(w.mesh);
+                    waves.splice(i, 1);
+                }
+            }
+        }
+
+        /** Cập nhật + render khung hình cho kiểu SUN SYSTEM — hành tinh tự quay quanh Mặt Trời
+         * (updateSunSystem(), tốc độ cố định), CAMERA orbit quanh hệ/hành tinh tiêu điểm — TÁI
+         * DÙNG spPanAngle (Ken Burns) nhưng đổi ý nghĩa thành GÓC QUỸ ĐẠO camera, zoomLerp (0=toàn
+         * hệ lúc nhạc êm, 1=áp sát hành tinh lúc nhạc dồn) thay cho dolly tuyến tính trước đây —
+         * ĐÚNG yêu cầu Giang "nhạc chậm zoom out quan sát toàn hệ, nhạc nhanh zoom in + di chuyển
+         * qua lại giữa các hành tinh", VẪN dựa vào audio xuyên suốt. */
+        function drawSunSystemFrame(perf, isPlaying, smoothedEnergy, beatScale, cam) {
+            updateSunSystem(perf);
+            const planets = appState.get('spSunPlanets');
+            if (planets.length === 0) return;
+            const sun = planets.find(p => p.isSun) || planets[0];
+
+            // Đổi hành tinh tiêu điểm khi nhạc đủ mạnh — "di chuyển qua lại giữa các hành tinh".
+            if (isPlaying && smoothedEnergy > 0.6 && Math.random() > 0.985) {
+                appState.set('spSunFocusIndex', 1 + Math.floor(Math.random() * (planets.length - 1)), { skipCheck: true });
+            }
+            const focus = planets[appState.get('spSunFocusIndex')] || sun;
+
+            // zoomLerp: nội suy CHẬM theo smoothedEnergy — 0 = toàn hệ (nhạc êm), 1 = áp sát hành
+            // tinh (nhạc dồn dập) — mượt, không giật cục theo từng khung hình đơn lẻ.
+            const targetZoom = smoothedEnergy;
+            appState.set('spSunZoomLerp', appState.get('spSunZoomLerp') + (targetZoom - appState.get('spSunZoomLerp')) * 0.008, { skipCheck: true });
+            const zoomLerp = appState.get('spSunZoomLerp');
+
+            const wideDistance = 1500, closeDistance = 220;
+            const distance = wideDistance + (closeDistance - wideDistance) * zoomLerp;
+            const lookAtX = sun.mesh.position.x + (focus.mesh.position.x - sun.mesh.position.x) * zoomLerp;
+            const lookAtY = sun.mesh.position.y + (focus.mesh.position.y - sun.mesh.position.y) * zoomLerp;
+            const lookAtZ = sun.mesh.position.z + (focus.mesh.position.z - sun.mesh.position.z) * zoomLerp;
+
+            // Góc quỹ đạo camera (TÁI DÙNG spPanAngle, Ken Burns) — quét liên tục theo audio, cho
+            // cảm giác "bay lượn quanh hệ" thay vì đứng yên 1 góc.
+            appState.set('spPanAngle', appState.get('spPanAngle') + 0.0012 + smoothedEnergy * 0.0025, { skipCheck: true });
+            const panAngle = appState.get('spPanAngle');
+            const camTargetX = lookAtX + Math.cos(panAngle) * distance;
+            const camTargetZ = lookAtZ + Math.sin(panAngle) * distance;
+            const camTargetY = lookAtY + 140 + Math.sin(panAngle * 0.4) * 70 - zoomLerp * 60;
+
+            cam.position.x += (camTargetX - cam.position.x) * 0.04;
+            cam.position.y += (camTargetY - cam.position.y) * 0.04;
+            cam.position.z += (camTargetZ - cam.position.z) * 0.04;
+            cam.lookAt(lookAtX, lookAtY, lookAtZ);
+
+            const targetFov = 65 - beatScale * 6;
+            cam.fov += (targetFov - cam.fov) * 0.08;
+            cam.updateProjectionMatrix();
+        }
+
+        /** Áp dụng camera Ken Burns (zoom+pan+chéo góc, GIỮ NGUYÊN công thức từ trước) bám theo
+         * quỹ đạo cong nền — dùng chung cho Galaxy Explore + Vacuum Void. `extraPanX/extraPanY` dự
+         * phòng mở rộng sau này (hiện truyền 0). */
+        function applySpaceKenBurnsCamera(cam, currentZ, pathParams, smoothedEnergy, beatScale, extraPanX, extraPanY) {
             appState.set('spPanAngle', appState.get('spPanAngle') + 0.0007 + smoothedEnergy * 0.0013, { skipCheck: true });
             const panAngle = appState.get('spPanAngle');
             const panRadius = 55 + smoothedEnergy * 95;
-            const kenBurnsPanX = Math.cos(panAngle) * panRadius;
-            const kenBurnsPanY = Math.sin(panAngle * 0.72) * panRadius * 0.6; // tần số Y lệch X -> Lissajous, quét chéo góc
-            const kenBurnsDolly = Math.sin(panAngle * 0.35) * (70 + smoothedEnergy * 130); // "zoom" thật: tiến/lùi dọc trục nhìn
+            const kenBurnsPanX = Math.cos(panAngle) * panRadius + extraPanX;
+            const kenBurnsPanY = Math.sin(panAngle * 0.72) * panRadius * 0.6 + extraPanY;
+            const kenBurnsDolly = Math.sin(panAngle * 0.35) * (70 + smoothedEnergy * 130);
 
-            const targetFov = 70 - beatScale * 8 - Math.sin(panAngle * 0.35) * 4; // FOV thở CỘNG THÊM zoom nhịp beat
+            const targetFov = 70 - beatScale * 8 - Math.sin(panAngle * 0.35) * 4;
             cam.fov += (targetFov - cam.fov) * 0.08;
             cam.updateProjectionMatrix();
 
-            // 7. Camera bám theo TÂM quỹ đạo cong nền + Ken Burns pan CỘNG THÊM + rung va chạm.
             const camTargetPos = getSpacePathOffsetAt(currentZ, pathParams);
             let shakeX = 0, shakeY = 0;
             if (spShakeFrames > 0) {
@@ -163,15 +200,4 @@
             const lookAheadZ = currentZ - 800;
             const lookPos = getSpacePathOffsetAt(lookAheadZ, pathParams);
             cam.lookAt(lookPos.x, lookPos.y, lookAheadZ);
-
-            // 8. Flash va chạm tắt dần.
-            if (spFlashOpacity > 0) spFlashOpacity *= 0.87;
-
-            // 9. Starfield nền xa trôi CHẬM hơn hẳn (thị sai/parallax).
-            appState.get('spStarPoints').position.z = currentZ * 0.15;
-
-            // 10. Render — ưu tiên composer bloom thật, fallback render thẳng nếu không tải được.
-            const composer = appState.get('spComposer');
-            if (composer) composer.render();
-            else appState.get('tRenderer').render(appState.get('spScene'), cam);
         }
