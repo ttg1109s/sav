@@ -1,57 +1,46 @@
 /**
- * Hằng số & hàm khởi tạo/cập nhật "Drifting Space" Engine bằng Three.js — trôi giữa các thiên thể
- * (hành tinh/ngôi sao/dải ngân hà), sao băng/thiên thạch xuất hiện ngẫu nhiên theo năng lượng
- * nhạc, rung nhẹ + flash camera khi "va chạm".
+ * Hằng số & hàm khởi tạo "Drifting Space" Engine bằng Three.js — trôi giữa các thiên thể (hành
+ * tinh/ngôi sao/dải ngân hà), sao lấm chấm to dần khi tiến tới, sao băng/thiên thạch ngẫu nhiên,
+ * rung + flash khi "va chạm".
  *
- * VIẾT LẠI TOÀN DIỆN (19/07/2026, phản hồi Giang — bản đầu "rất tệ": khối cầu phẳng như hình
- * tròn 2D, thiên thạch không thấy, quỹ đạo chỉ đâm thẳng không bay vòng/lên xuống, va chạm không
- * thấy gì, xuất hiện đột ngột, không tích hợp thư viện nào). Batch này:
- *   1. ÁNH SÁNG THẬT (AmbientLight + DirectionalLight) + MeshStandardMaterial thay MeshBasicMaterial
- *      cho hành tinh/sao — có bóng đổ/gradient thật theo góc chiếu sáng, không còn phẳng.
- *   2. QUỸ ĐẠO CONG — TÁI DÙNG đúng kỹ thuật sin/cos của Vortex (getVortexCenterAt/
- *      rollNewVortexCurve/updateVortexCurveLerp, xem core/webgl/three-vortex.js) cho cả camera
- *      lẫn vị trí thiên thể/thiên thạch — spPathParams/spPathTarget (giống hệt tPathParams/
- *      tPathTarget), tự động cho bay vòng trái/phải + lên/xuống thay vì đâm thẳng.
- *   3. THIÊN THẠCH to hơn ~3 lần + sprite glow (texture canvas gradient dựng 1 lần, KHÔNG dùng
- *      ảnh asset ngoài) + sinh dày hơn + quỹ đạo cắt ngang tầm nhìn thật (trước đây sinh quá xa 2
- *      bên, ra ngoài FOV).
- *   4. FADE-IN — thiên thể mới scale từ 0 lên 1 trong ~1.5s, không còn "pop" đột ngột.
- *   5. VA CHẠM RÕ RÀNG — rung camera MẠNH hơn + flash màu cam/trắng trên canvas 2D (xem
- *      core/visualizer/draw/space-collision-flash.js), không chỉ rung nhẹ khó nhận ra.
- *   6. TÍCH HỢP THƯ VIỆN THẬT (Giang yêu cầu — không tự chế mọi thứ): THREE.EffectComposer +
- *      THREE.RenderPass + THREE.UnrealBloomPass — bộ postprocessing CHÍNH THỨC của three.js
- *      (examples/js/postprocessing/*, cùng version r128 với three.min.js đang dùng, nạp qua
- *      jsdelivr — xem index.html khu CDN). Có GUARD an toàn: nếu vì lý do gì đó 3 class này chưa
- *      tồn tại (CDN lỗi mạng...), tự động fallback về renderer.render() thẳng như cũ — KHÔNG BAO
- *      GIỜ crash toàn bộ visualizer chỉ vì bloom không tải được.
+ * VIẾT LẠI LẦN 2 (19/07/2026, phản hồi Giang — "đập đi viết lại hết"). So với lần 1, đợt này:
+ *   1. HÀNH TINH — canvas procedural texture (dải màu + đốm bão, giống kỹ thuật texture thủ tục
+ *      chuẩn cho hành tinh hư cấu — KHÔNG còn màu phẳng đơn sắc).
+ *   2. NGÔI SAO — corona giờ là Sprite billboard (luôn quay mặt về camera, dùng CHUNG texture glow
+ *      với thiên thạch — TÁI DÙNG, không tạo thêm kỹ thuật mới) + THREE.PointLight THẬT tại vị trí
+ *      sao (chiếu sáng vật lý thật, cường độ nhấp nháy theo audio).
+ *   3. DẢI NGÂN HÀ — giữ nguyên kỹ thuật sinh xoắn ốc (đã là kỹ thuật chuẩn phổ biến, xem batch
+ *      trước), thêm xoay + nhấp nháy kích thước theo audio.
+ *   4. STAR FIELD MỚI — lớp "sao lấm chấm" RIÊNG (spFieldStarPoints, khác hẳn spStarPoints nền xa
+ *      tĩnh), mỗi sao tự "tái sinh" theo kiểu sliding-window (TÁI DÙNG kỹ thuật tRings của Vortex)
+ *      khi camera vượt qua — to dần khi tiến gần là nhờ `sizeAttenuation: true` CHUẨN CÓ SẴN của
+ *      THREE.PointsMaterial (không cần shader tự chế).
+ *   5. KHUNG KÍNH KHOANG LÁI — chuyển hẳn sang SVG DOM (#space-glass-frame, index.html), KHÔNG còn
+ *      hàm canvas vẽ tay (đã xoá core/visualizer/draw/spaceship-frame.js).
+ *   6. Camera Ken Burns (zoom+pan+chéo góc, audio-reactive) — LOGIC CHẠY ở
+ *      core/visualizer/types/space.js::drawSpace(), state chuẩn bị ở đây (spPanAngle).
+ *   7. GIỮ NGUYÊN: quỹ đạo cong nền (spPathParams/spPathTarget, tái dùng công thức Vortex), pool
+ *      thiên thạch tái sử dụng, fade-in, composer bloom thật (THREE.EffectComposer/RenderPass/
+ *      UnrealBloomPass — xem index.html khu CDN, có fallback an toàn).
  *
- * DÙNG CHUNG 1 WebGL renderer (#webgl-canvas, appState 'tRenderer') với Vortex — 2 kiểu KHÔNG BAO
- * GIỜ active cùng lúc. Mỗi kiểu tự có Scene/Camera RIÊNG (tiền tố "sp" cho biến STATE của Space).
+ * DÙNG CHUNG 1 WebGL renderer (#webgl-canvas, appState 'tRenderer') với Vortex. Mỗi kiểu tự có
+ * Scene/Camera RIÊNG. MIỄN kiến trúc /event/ VÀ Rule 1-5 — giống hệt lý do three-vortex.js/
+ * vortex.js được miễn.
  *
- * MIỄN kiến trúc /event/ VÀ Rule 1-5 — giống hệt lý do three-vortex.js/vortex.js được miễn (module
- * hiệu ứng nhúng, đọc/ghi state trực tiếp mỗi khung hình).
- *
- * PHẢI nạp SAU: core/config.js (PERFORMANCE_PROFILES), service/state.js (appState),
- * core/audio-analysis.js (getComputedColor()), VÀ SAU 7 file postprocessing CDN (xem index.html —
- * chỉ ĐỊNH NGHĨA hàm ở đây, không gọi ngay lúc parse, nên thứ tự nạp thực tế trong index.html an
- * toàn dù đứng trước — chỉ cần tồn tại trước lúc initThreeSpace() THỰC SỰ CHẠY, tức lúc người dùng
- * chọn kiểu 'space', luôn sau khi mọi script đã nạp xong). NẠP TRƯỚC core/visualizer/types/space.js.
+ * PHẢI nạp SAU: core/config.js, service/state.js, core/audio-analysis.js (getComputedColor()), 7
+ * file postprocessing CDN (index.html). NẠP TRƯỚC core/visualizer/types/space.js.
  */
-        const SPACE_DEPTH = 4000;   // khoảng cách trôi tối đa theo trục Z (giống TUNNEL_DEPTH của Vortex)
-
-        // 3 loại thiên thể xoay vòng khi "sang khu vực khác" — luôn chọn KHÁC loại đang có.
+        const SPACE_DEPTH = 4000;
         const SPACE_SECTOR_KINDS = ['planet', 'star', 'galaxy'];
 
-        let spDriftSpeed = 0;       // biến NỘI BỘ — tốc độ trôi hiện tại, chỉ dùng trong drawSpace()
-        let spShakeFrames = 0;      // số khung hình rung lắc còn lại sau va chạm thiên thạch
-        let spShakeMagnitude = 0;   // biên độ rung hiện tại (giảm dần mỗi khung hình)
-        let spFlashOpacity = 0;     // độ mờ flash va chạm trên canvas 2D (giảm dần mỗi khung hình) — xem draw/space-collision-flash.js
+        let spDriftSpeed = 0;
+        let spShakeFrames = 0;
+        let spShakeMagnitude = 0;
+        let spFlashOpacity = 0;
 
-        /** Tính offset x/y của đường bay cong tại 1 điểm Z bất kỳ — TÁI DÙNG Y HỆT công thức
-         * getVortexCenterAt() của Vortex (core/webgl/three-vortex.js), chỉ đổi tên tham số cho rõ
-         * ngữ cảnh Space. Đây là gốc rễ khắc phục "quỹ đạo chỉ đâm thẳng, không bay vòng/lên
-         * xuống" — camera VÀ thiên thể/thiên thạch đều lấy toạ độ tâm từ CÙNG 1 hàm này tại đúng Z
-         * của chúng, nên toàn cảnh cùng "uốn lượn" nhất quán với nhau. */
+        /** Tính offset x/y của đường bay cong nền tại 1 điểm Z bất kỳ — TÁI DÙNG Y HỆT công thức
+         * getVortexCenterAt() của Vortex. Camera VÀ mọi thiên thể/thiên thạch/sao lấy toạ độ tâm từ
+         * CÙNG 1 hàm này tại đúng Z của chúng, nên toàn cảnh "uốn lượn" nhất quán với nhau. */
         function getSpacePathOffsetAt(z, pathParams) {
             return {
                 x: Math.sin(z * pathParams.freqX + pathParams.phaseX) * pathParams.ampX,
@@ -59,10 +48,7 @@
             };
         }
 
-        /** Đổi hướng bay cong (khi nhạc mạnh) — TÁI DÙNG kỹ thuật rollNewVortexCurve(): đổi nhẹ
-         * nhàng so với target hiện tại (nội suy dần ở updateSpacePathLerp()), tránh nhảy đột ngột.
-         * Biên độ/tần số RỘNG hơn Vortex (không gian mở, không phải đường ống hẹp — camera nên "lượn
-         * sải" chứ không "xóc nảy" như tunnel). */
+        /** Đổi hướng bay cong nền (khi nhạc mạnh) — TÁI DÙNG kỹ thuật rollNewVortexCurve(). */
         function rollNewSpacePathCurve() {
             const jitter = (base, range) => base + (Math.random() - 0.5) * range;
             appState.mutate('spPathTarget', target => {
@@ -73,9 +59,8 @@
             }, { skipCheck: true });
         }
 
-        /** Nội suy mượt hình dáng đường bay cong về phía target — TÁI DÙNG kỹ thuật
-         * updateVortexCurveLerp(), hệ số k nhỏ hơn Vortex (0.004 so với 0.006) — trôi chậm rãi,
-         * "sải cánh" hơn hẳn cảm giác gấp gáp của đường ống hẹp Vortex. */
+        /** Nội suy mượt hình dáng đường bay cong nền về phía target — TÁI DÙNG kỹ thuật
+         * updateVortexCurveLerp(), hệ số k nhỏ hơn Vortex — trôi chậm rãi, "sải cánh" hơn. */
         function updateSpacePathLerp() {
             const k = 0.004;
             const target = appState.get('spPathTarget');
@@ -89,10 +74,9 @@
             }, { skipCheck: true });
         }
 
-        /** Dựng 1 texture glow tròn (canvas gradient, KHÔNG dùng ảnh asset ngoài — đúng tinh thần
-         * dự án chạy qua file://) — dùng làm sprite phát sáng cho đầu thiên thạch, tạo cảm giác
-         * "sao băng" rõ ràng thay vì 1 khối hộp mỏng 3px gần như vô hình như bản trước. Dựng 1 LẦN
-         * DUY NHẤT (lưu vào appState 'spGlowTexture'), tái sử dụng cho mọi sprite. */
+        /** Texture glow tròn dùng chung (canvas gradient, KHÔNG dùng ảnh asset ngoài) — dùng cho
+         * sprite đầu thiên thạch VÀ corona ngôi sao (TÁI DÙNG 1 texture cho cả 2, không tạo thêm kỹ
+         * thuật riêng). Dựng 1 LẦN DUY NHẤT. */
         function _buildSpaceGlowTexture() {
             const size = 128;
             const cnv = document.createElement('canvas');
@@ -106,41 +90,81 @@
             return new THREE.CanvasTexture(cnv);
         }
 
-        /** Dựng 1 hành tinh: khối cầu MeshStandardMaterial (phản ứng ánh sáng thật, KHÔNG còn
-         * MeshBasicMaterial phẳng như hình tròn 2D — mục 1) + viền khí quyển mờ additive. Màu LẤY
-         * THEO vizConfig.mode qua getComputedColor() (item 3, readme/visual-conventions.md). Bắt
-         * đầu scale 0 để fade-in (mục 4, xem drawSpace()). */
+        /** Texture bề mặt hành tinh — kỹ thuật procedural texture THỦ TỤC CHUẨN (canvas 2D: dải
+         * màu ngang kiểu "gas giant" + đốm bão/miệng hố ngẫu nhiên), thay vì màu phẳng đơn sắc (mục
+         * 1 — nguyên nhân chính khiến hành tinh "chẳng khác gì hình tròn 2D" ở bản trước, KỂ CẢ sau
+         * khi đã thêm ánh sáng, vì bề mặt vẫn hoàn toàn đồng nhất 1 màu). Tỉ lệ 2:1 (equirectangular)
+         * đúng chuẩn UV mapping mặc định của THREE.SphereGeometry. */
+        function _buildSpacePlanetTexture(baseColorHex) {
+            const w = 256, h = 128;
+            const cnv = document.createElement('canvas');
+            cnv.width = w; cnv.height = h;
+            const c = cnv.getContext('2d');
+            c.fillStyle = baseColorHex; c.fillRect(0, 0, w, h);
+            const bands = 4 + Math.floor(Math.random() * 4);
+            for (let i = 0; i < bands; i++) {
+                const y = (i / bands) * h;
+                const bandH = h / bands;
+                const lightness = 30 + Math.random() * 35;
+                c.fillStyle = `hsla(${Math.random() * 360}, 45%, ${lightness}%, ${0.25 + Math.random() * 0.3})`;
+                c.fillRect(0, y, w, bandH);
+            }
+            const blotchCount = 14 + Math.floor(Math.random() * 12);
+            for (let i = 0; i < blotchCount; i++) {
+                c.beginPath();
+                c.ellipse(Math.random() * w, Math.random() * h, 5 + Math.random() * 16, 3 + Math.random() * 9, Math.random() * Math.PI, 0, Math.PI * 2);
+                c.fillStyle = `hsla(${Math.random() * 360}, 55%, ${25 + Math.random() * 35}%, 0.35)`;
+                c.fill();
+            }
+            const tex = new THREE.CanvasTexture(cnv);
+            tex.wrapS = THREE.RepeatWrapping;
+            return tex;
+        }
+
+        /** Dựng 1 hành tinh: SphereGeometry + MeshStandardMaterial CÓ TEXTURE bề mặt (mục 1, thay
+         * màu phẳng) + phản ứng ánh sáng thật (AmbientLight/DirectionalLight, xem initThreeSpace())
+         * + viền khí quyển mờ additive. Màu nền LẤY THEO vizConfig.mode qua getComputedColor()
+         * (item 3, readme/visual-conventions.md). Bắt đầu scale 0 để fade-in. */
         function _createSpacePlanetMesh(perf) {
-            const color = new THREE.Color(getComputedColor(0, 1, Math.round(appState.get('beatScale') * 255)).fill);
+            const baseColor = getComputedColor(0, 1, Math.round(appState.get('beatScale') * 255)).fill;
             const geo = new THREE.SphereGeometry(140, perf.spaceDetail, perf.spaceDetail);
-            const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0.15, emissive: color, emissiveIntensity: 0.1 });
+            const mat = new THREE.MeshStandardMaterial({ map: _buildSpacePlanetTexture(baseColor), roughness: 0.8, metalness: 0.1 });
             const mesh = new THREE.Mesh(geo, mat);
             const glowGeo = new THREE.SphereGeometry(152, Math.max(8, perf.spaceDetail - 8), Math.max(8, perf.spaceDetail - 8));
-            const glowMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, side: THREE.BackSide });
+            const glowMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(baseColor), transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, side: THREE.BackSide });
             mesh.add(new THREE.Mesh(glowGeo, glowMat));
             mesh.scale.setScalar(0.001);
             return mesh;
         }
 
-        /** Dựng 1 "ngôi sao": khối cầu MeshStandardMaterial emissive CAO (tự phát sáng mạnh — vừa
-         * đúng vật lý sao thật, vừa "mồi" UnrealBloomPass tạo quầng sáng rực, mục 6) + corona mờ
-         * additive lồng ngoài. Màu LẤY THEO vizConfig.mode (item 3). Fade-in giống hành tinh. */
-        function _createSpaceStarMesh(perf) {
+        /** Dựng 1 "ngôi sao": khối cầu MeshStandardMaterial emissive CAO (tự phát sáng, mồi
+         * UnrealBloomPass) + corona giờ là SPRITE billboard (TÁI DÙNG spGlowTexture chung, mục 2 —
+         * luôn quay mặt về camera, đẹp hơn hẳn corona hình cầu BackSide cũ ở mọi góc nhìn) +
+         * THREE.PointLight THẬT gắn kèm (chiếu sáng vật lý thật cho khung cảnh xung quanh, cường độ
+         * nhấp nháy theo audio ở drawSpace()). Màu LẤY THEO vizConfig.mode. Fade-in giống hành tinh. */
+        function _createSpaceStarMesh(perf, glowTexture) {
             const color = new THREE.Color(getComputedColor(0, 1, 255).fill);
             const geo = new THREE.SphereGeometry(90, perf.spaceDetail, perf.spaceDetail);
             const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.4, metalness: 0, emissive: color, emissiveIntensity: 1.6 });
             const mesh = new THREE.Mesh(geo, mat);
-            const coronaGeo = new THREE.SphereGeometry(240, Math.max(8, perf.spaceDetail - 8), Math.max(8, perf.spaceDetail - 8));
-            const coronaMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, side: THREE.BackSide });
-            mesh.add(new THREE.Mesh(coronaGeo, coronaMat));
+
+            const corona = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture, color, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+            corona.scale.set(620, 620, 1);
+            mesh.add(corona);
+
+            const starLight = new THREE.PointLight(color, 2.2, 2400, 1.6);
+            mesh.add(starLight);
+            mesh.userData.starLight = starLight;
+
             mesh.scale.setScalar(0.001);
             return mesh;
         }
 
-        /** Dựng 1 dải ngân hà: đĩa xoắn ốc bằng THREE.Points (kỹ thuật phổ biến — phân bố bán kính
-         * ngẫu nhiên + góc xoắn tăng dần theo bán kính). 2 màu core/edge LẤY THEO vizConfig.mode
-         * (item 3). Fade-in qua opacity (Points không nên scale 0 — mật độ hạt sẽ trông sai, dùng
-         * material.opacity thay vì scale cho riêng loại này). */
+        /** Dựng 1 dải ngân hà: đĩa xoắn ốc bằng THREE.Points — kỹ thuật sinh xoắn ốc CHUẨN, phổ
+         * biến (phân bố bán kính ngẫu nhiên + góc xoắn tăng dần theo bán kính + màu chuyển dần từ
+         * tâm ra rìa — đúng kỹ thuật "galaxy generator" tham khảo phổ biến, GIỮ NGUYÊN từ batch
+         * trước). Thêm xoay + nhấp nháy kích thước theo audio (drawSpace()). 2 màu core/edge LẤY
+         * THEO vizConfig.mode. Fade-in qua opacity (Points scale=0 sẽ trông sai). */
         function _createSpaceGalaxyPoints(perf) {
             const count = perf.spaceGalaxyStars;
             const positions = new Float32Array(count * 3);
@@ -165,17 +189,16 @@
             geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
             const mat = new THREE.PointsMaterial({ size: 6, sizeAttenuation: true, vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
             const points = new THREE.Points(geo, mat);
-            points.userData.targetOpacity = 0.9; // fade-in đích (xem drawSpace())
+            points.userData.targetOpacity = 0.9;
+            points.userData.baseSize = 6;
             return points;
         }
 
-        /** Dựng NGẪU NHIÊN 1 thiên thể mới theo `kind`, đặt tại Z=`atZ`, LỆCH quanh TÂM đường bay
-         * cong tại chính Z đó (getSpacePathOffsetAt) thay vì quanh gốc toạ độ thế giới cố định như
-         * bản trước — để thiên thể luôn nằm "trên hành trình" nhất quán với đường camera đang lượn
-         * (mục 2), không trôi lệch ra xa khỏi tầm nhìn khi đường cong đổi hướng. */
-        function _spawnSpaceSectorObject(kind, atZ, perf, pathParams) {
+        /** Dựng NGẪU NHIÊN 1 thiên thể mới theo `kind`, LỆCH quanh TÂM đường bay cong nền tại đúng
+         * Z đó (getSpacePathOffsetAt) — luôn nằm "trên hành trình" nhất quán với camera. */
+        function _spawnSpaceSectorObject(kind, atZ, perf, pathParams, glowTexture) {
             let obj;
-            if (kind === 'star') obj = _createSpaceStarMesh(perf);
+            if (kind === 'star') obj = _createSpaceStarMesh(perf, glowTexture);
             else if (kind === 'galaxy') obj = _createSpaceGalaxyPoints(perf);
             else obj = _createSpacePlanetMesh(perf);
             const center = getSpacePathOffsetAt(atZ, pathParams);
@@ -186,9 +209,32 @@
             return obj;
         }
 
-        /** Khởi tạo toàn bộ engine Space: scene/camera/renderer (dùng chung Vortex)/ánh sáng/
-         * starfield nền/nhóm thiên thể chính/pool thiên thạch/texture glow/composer bloom. Gọi 1
-         * lần lúc chuyển sang kiểu 'space' lần đầu (xem updateTypeUI()). */
+        /** Dựng lớp "sao lấm chấm" RIÊNG — mỗi sao tái sinh kiểu sliding-window (TÁI DÙNG kỹ thuật
+         * tRings của Vortex) khi camera vượt qua, rải quanh TÂM đường bay cong tại đúng Z của nó.
+         * "To dần khi tiến tới" là nhờ `sizeAttenuation: true` CHUẨN CÓ SẴN của PointsMaterial
+         * (three.js tự tính theo phối cảnh — KHÔNG cần shader tự chế riêng). */
+        function _createSpaceFieldStars(perf, pathParams) {
+            const count = perf.spaceFieldStars;
+            const positions = new Float32Array(count * 3);
+            const zs = [];
+            for (let i = 0; i < count; i++) {
+                const z = -Math.random() * SPACE_DEPTH;
+                const center = getSpacePathOffsetAt(z, pathParams);
+                const lateral = 80 + Math.random() * 900;
+                const angle = Math.random() * Math.PI * 2;
+                positions[i * 3] = center.x + Math.cos(angle) * lateral;
+                positions[i * 3 + 1] = center.y + Math.sin(angle) * lateral * 0.7;
+                positions[i * 3 + 2] = z;
+                zs.push(z);
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const mat = new THREE.PointsMaterial({ color: 0xdff1ff, size: 5, sizeAttenuation: true, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
+            appState.set('spFieldStarZs', zs, { skipCheck: true });
+            return new THREE.Points(geo, mat);
+        }
+
+        /** Khởi tạo toàn bộ engine Space. Gọi 1 lần lúc chuyển sang kiểu 'space' lần đầu. */
         function initThreeSpace() {
             if (appState.get('spInitialized') && appState.get('spScene')) {
                 const sc = appState.get('spScene');
@@ -204,33 +250,28 @@
             appState.set('spCamera', new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, SPACE_DEPTH), { skipCheck: true });
             appState.get('spCamera').position.set(0, 0, 0);
 
-            // ÁNH SÁNG THẬT (mục 1) — thiếu ánh sáng là NGUYÊN NHÂN CHÍNH khiến khối cầu
-            // MeshBasicMaterial bản trước trông phẳng như hình tròn 2D (KHÔNG có gradient sáng/tối
-            // nào theo góc nhìn). AmbientLight cho sáng nền tối thiểu (không bao giờ đen tuyền phía
-            // khuất), DirectionalLight tạo rõ mặt sáng/mặt tối trên khối cầu — đây là 2 loại ánh
-            // sáng CƠ BẢN NHẤT của three.js, không phải addon, luôn có sẵn.
+            // Ánh sáng thật (giữ từ lần 1) — CƠ BẢN của three.js, không phải addon.
             appState.set('spAmbientLight', new THREE.AmbientLight(0x33406b, 0.55), { skipCheck: true });
             appState.get('spScene').add(appState.get('spAmbientLight'));
             appState.set('spKeyLight', new THREE.DirectionalLight(0xffffff, 1.15), { skipCheck: true });
             appState.get('spKeyLight').position.set(1, 1.2, 0.6);
             appState.get('spScene').add(appState.get('spKeyLight'));
 
-            // Renderer DÙNG CHUNG với Vortex.
             if (!appState.get('tRenderer')) {
                 appState.set('tRenderer', new THREE.WebGLRenderer({ canvas: tCanvas, alpha: true, antialias: true }), { skipCheck: true });
                 appState.get('tRenderer').setPixelRatio(window.devicePixelRatio);
             }
             appState.get('tRenderer').setSize(window.innerWidth, window.innerHeight);
 
-            // Texture glow dùng chung cho sprite đầu thiên thạch (mục 3) — dựng 1 lần, tái sử dụng.
             if (!appState.get('spGlowTexture')) appState.set('spGlowTexture', _buildSpaceGlowTexture(), { skipCheck: true });
+            const glowTexture = appState.get('spGlowTexture');
 
-            // Đường bay cong (mục 2) — reset về mặc định mỗi lần init lại, tự nội suy dần khi chạy.
             const defaultPath = { freqX: 0.0007, freqY: 0.0005, ampX: 380, ampY: 260, phaseX: 0, phaseY: 0 };
             appState.set('spPathParams', { ...defaultPath }, { skipCheck: true });
             appState.set('spPathTarget', { ...defaultPath }, { skipCheck: true });
+            appState.set('spPanAngle', 0, { skipCheck: true });
 
-            // Starfield nền tĩnh (Points, bao quanh toàn bộ đường trôi) — mật độ theo quality.
+            // Starfield nền xa TĨNH (giữ từ lần 1 — "bầu trời" bao quanh, trôi rất chậm/parallax).
             const starCount = perf.spaceStars;
             const starPositions = new Float32Array(starCount * 3);
             for (let i = 0; i < starCount; i++) {
@@ -244,24 +285,24 @@
             appState.set('spStarPoints', new THREE.Points(starGeo, starMat), { skipCheck: true });
             appState.get('spScene').add(appState.get('spStarPoints'));
 
-            // Nhóm thiên thể đang "trôi qua" — luôn giữ ĐÚNG 1 thiên thể chính tại 1 thời điểm.
+            // MỚI (mục 4) — lớp "sao lấm chấm" tái sinh, to dần khi tiến tới.
+            appState.set('spFieldStarPoints', _createSpaceFieldStars(perf, appState.get('spPathParams')), { skipCheck: true });
+            appState.get('spScene').add(appState.get('spFieldStarPoints'));
+
             appState.set('spGroupSector', new THREE.Group(), { skipCheck: true });
             appState.get('spScene').add(appState.get('spGroupSector'));
             const firstKind = SPACE_SECTOR_KINDS[Math.floor(Math.random() * SPACE_SECTOR_KINDS.length)];
-            appState.get('spGroupSector').add(_spawnSpaceSectorObject(firstKind, -900, perf, appState.get('spPathParams')));
+            appState.get('spGroupSector').add(_spawnSpaceSectorObject(firstKind, -900, perf, appState.get('spPathParams'), glowTexture));
             appState.set('spSectorKind', firstKind, { skipCheck: true });
 
-            // Pool sao băng/thiên thạch — mỗi mesh giờ có thêm 1 Sprite glow con (mục 3), TO HƠN
-            // ~3 lần bản trước, tái sử dụng (không tạo/xoá mesh liên tục mỗi khung hình).
             appState.set('spGroupMeteors', new THREE.Group(), { skipCheck: true });
             const meteorGeo = new THREE.BoxGeometry(10, 10, 160);
-            const glowTex = appState.get('spGlowTexture');
             const meteorPool = [];
             for (let i = 0; i < perf.spaceMeteorPool; i++) {
                 const m = new THREE.Mesh(meteorGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending }));
-                const glowSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+                const glowSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture, color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
                 glowSprite.scale.set(60, 60, 1);
-                glowSprite.position.set(0, 0, 80); // đầu thiên thạch (phía trước theo hướng bay)
+                glowSprite.position.set(0, 0, 80);
                 m.add(glowSprite);
                 m.visible = false;
                 m.userData = { active: false, life: 0, vx: 0, vy: 0, vz: 0, glowSprite };
@@ -274,10 +315,8 @@
             appState.set('spCurrentDriftZ', 0, { skipCheck: true });
             appState.set('spInitialized', true, { skipCheck: true });
 
-            // TÍCH HỢP THƯ VIỆN THẬT (mục 6) — THREE.EffectComposer + RenderPass + UnrealBloomPass,
-            // bộ postprocessing CHÍNH THỨC của three.js (không tự chế shader nào). GUARD: nếu vì lý
-            // do gì đó (mạng lỗi lúc nạp CDN...) 1 trong 3 class chưa tồn tại, spComposer = null —
-            // drawSpace() tự fallback render thẳng renderer.render(), KHÔNG BAO GIỜ crash.
+            // Bloom thật (THREE.EffectComposer/RenderPass/UnrealBloomPass, giữ từ lần 1) — guard an
+            // toàn, fallback render thẳng nếu CDN lỗi.
             if (typeof THREE.EffectComposer === 'function' && typeof THREE.RenderPass === 'function' && typeof THREE.UnrealBloomPass === 'function') {
                 try {
                     const composer = new THREE.EffectComposer(appState.get('tRenderer'));
@@ -296,22 +335,20 @@
             }
         }
 
-        /** Chọn 1 loại thiên thể MỚI khác loại hiện tại, dựng nó ở phía trước (cách `currentZ` một
-         * khoảng xa, LỆCH quanh tâm đường bay cong tại đúng Z đó — mục 2), xoá thiên thể cũ. */
+        /** Chọn 1 loại thiên thể MỚI khác loại hiện tại, dựng phía trước, LỆCH quanh tâm đường bay
+         * cong nền tại đúng Z đó. */
         function rollNewSpaceSector(currentZ, perf) {
             const group = appState.get('spGroupSector');
             while (group.children.length > 0) group.remove(group.children[0]);
             const prevKind = appState.get('spSectorKind');
             let kind = prevKind;
             while (kind === prevKind) kind = SPACE_SECTOR_KINDS[Math.floor(Math.random() * SPACE_SECTOR_KINDS.length)];
-            group.add(_spawnSpaceSectorObject(kind, currentZ - 1600, perf, appState.get('spPathParams')));
+            group.add(_spawnSpaceSectorObject(kind, currentZ - 1600, perf, appState.get('spPathParams'), appState.get('spGlowTexture')));
             appState.set('spSectorKind', kind, { skipCheck: true });
         }
 
         /** Kích hoạt 1 sao băng/thiên thạch còn RẢNH trong pool — xuất hiện GẦN tâm đường bay cong
-         * tại đúng Z camera hiện tại (mục 3 — bản trước sinh quá xa 2 bên, hay ra NGOÀI khung hình
-         * FOV nên "không thấy"), bay cắt chéo NGANG qua phía trước camera, TO + sáng hơn hẳn (sprite
-         * glow ở đầu, xem initThreeSpace()). */
+         * tại đúng Z camera hiện tại, bay cắt chéo NGANG qua phía trước camera. */
         function trySpawnSpaceMeteor(cameraZ, pathParams) {
             const pool = appState.get('spMeteorPool');
             const idx = pool.findIndex(m => !m.userData.active);
@@ -336,10 +373,7 @@
             return true;
         }
 
-        /** Bắt đầu 1 đợt rung camera (mục 5 — MẠNH hơn hẳn bản trước, "không thấy va chạm" là do
-         * biên độ quá nhỏ) + kích hoạt flash màu cam/trắng trên canvas 2D (spFlashOpacity, xem
-         * core/visualizer/draw/space-collision-flash.js) — va chạm giờ CÓ 2 tín hiệu rõ ràng cùng
-         * lúc thay vì chỉ rung nhẹ mờ nhạt. */
+        /** Bắt đầu 1 đợt rung camera + flash màu cam/trắng trên canvas 2D khi va chạm. */
         function triggerSpaceCollisionShake() {
             spShakeFrames = 22;
             spShakeMagnitude = 14 + Math.random() * 8;
