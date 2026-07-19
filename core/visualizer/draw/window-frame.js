@@ -4,9 +4,9 @@
  * Giang — mỗi hàm 1 file trong core/visualizer/draw/) từ file gộp cũ
  * core/visualizer/draw-helpers.js (đã xoá, xem readme/folder-structure.md).
  *
- * LƯU Ý: đây là khung cửa sổ NHÀ — KHÁC hẳn drawSpaceshipFrame() (draw/spaceship-frame.js, khung
- * khoang lái tàu vũ trụ cho Space) — 2 hàm KHÔNG dùng thay cho nhau (nhầm lẫn đã xảy ra ở batch
- * trước, xem docstring spaceship-frame.js).
+ * LƯU Ý: đây là khung cửa sổ NHÀ — KHÁC hẳn khung khoang lái tàu vũ trụ của Space (VIẾT LẠI LẦN 2,
+ * 19/07/2026 — giờ là SVG DOM #space-glass-frame trong index.html, KHÔNG còn hàm canvas riêng như
+ * bản đầu, xem readme/folder-structure.md) — 2 khung KHÔNG dùng thay cho nhau.
  */
         function drawWindowFrame(ctx) {
             let fw = 25 * appState.get('dpr'); let midW = 15 * appState.get('dpr'); 
