@@ -278,7 +278,7 @@
         </div>
     </div>
 
-    <!-- Canvas WebGL (Three.js - Vortex Engine) -->
+    <!-- Canvas WebGL (Three.js - Vortex Engine + Drifting Space Engine, dùng chung 1 canvas) -->
     <canvas id="webgl-canvas" class="opacity-0 transition-opacity duration-700"></canvas>
     <!-- Canvas 2D (toàn bộ các hiệu ứng visualizer khác) -->
     <canvas id="visualizer" class="opacity-0 transition-opacity duration-700"></canvas>
@@ -527,7 +527,12 @@
     <script src="core/upload-validation.js?v=20260625v8e"></script>
     <script src="core/listen-stats.js?v=20260625v10"></script>
     <script src="core/loading-shield-util.js?v=20260625v10"></script>
-    <script src="core/three-vortex.js?v=20260625v8e"></script>
+    <script src="core/webgl/three-vortex.js?v=20260719v1"></script>
+    <!-- MỚI (19/07/2026, visualizer "Drifting Space") — engine WebGL thứ 2, dùng CHUNG renderer
+         #webgl-canvas với Vortex ngay trên (2 kiểu không bao giờ active cùng lúc). Xem comment đầu
+         file để biết đầy đủ lý do đặt cạnh three-vortex.js. Cả 2 file gom vào core/webgl/ (dời
+         19/07/2026, yêu cầu Giang) — XOÁ TAY file cũ core/three-vortex.js. -->
+    <script src="core/webgl/three-space.js?v=20260719v2"></script>
     <script src="core/state-and-video-bg.js?v=20260704v2"></script>
     <!-- core/subtitle/subtitles.js ĐÃ CHUYỂN (10/07/2026) — CHỈ nạp ở subtitle-editor.html giờ
          (soạn phụ đề chuyển sang trang riêng). core/subtitle/subtitle-display.js (hiển thị phụ đề
@@ -608,7 +613,7 @@
          hiệu ứng hình ảnh/màu/EQ/volume + nút Cycle hiệu ứng (#btn-cycle-mode). Đặt ĐẦU khu
          VISUALIZERS (không cần đứng sau draw-helpers.js/types/* — không tham chiếu chúng lúc
          parse, chỉ trong callback lazy). PHẢI nạp SAU: core/dom-refs.js (ref DOM mọi
-         select/slider/toggle), core/config.js (EQ_PRESETS, APP_CONFIG), core/three-vortex.js
+         select/slider/toggle), core/config.js (EQ_PRESETS, APP_CONFIG), core/webgl/three-vortex.js
          (initThreeJS, updateVortexVisibility), core/canvas-scene-setup.js (allocateBuffers,
          resizeCanvas), core/upload-validation.js, core/loading-shield-util.js, core/modal-choice.js,
          core/color-utils.js (updatePlaylistBg, updateDOMBackground) — TẤT CẢ đã nạp từ khu CORE
@@ -624,6 +629,8 @@
     <script src="core/visualizer/types/lightning.js?v=20260625v8e"></script>
     <script src="core/visualizer/types/rubik.js?v=20260625v8e"></script>
     <script src="core/visualizer/types/vortex.js?v=20260625v8e"></script>
+    <!-- MỚI (19/07/2026, "Drifting Space") — cùng nhóm WebGL với vortex.js ngay trên. -->
+    <script src="core/visualizer/types/space.js?v=20260719v1"></script>
     <script src="core/visualizer/types/black-hole.js?v=20260625v8e"></script>
     <script src="core/visualizer/types/rain.js?v=20260704v1"></script>
     <!-- draw-visualizer.js chứa điểm khởi động thực sự của app (DOMContentLoaded ->
