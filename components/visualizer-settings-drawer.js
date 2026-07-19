@@ -75,6 +75,18 @@ function renderVisualizerPanelBody() {
                                 </label>
                             </div>
                         </div>
+                        <!-- MỚI (19/07/2026, viết lại LẦN 3, phản hồi Giang — tách Space thành 3
+                             kiểu con) — selector kiểu con, ĐÚNG MẪU #setting-vortex-style. Đổi kiểu
+                             sẽ dựng lại NỘI DUNG scene (không phải camera/renderer/ánh sáng dùng
+                             chung) — xem setSpaceStyle(), core/visualizer/visualizer-display.js. -->
+                        <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors bg-cyan-900/10 border-b border-cyan-500/20">
+                            <div><div class="text-sm font-medium text-cyan-300" data-i18n="visualizerSettingsDrawer.spaceStyle.label">${t('visualizerSettingsDrawer.spaceStyle.label')}</div></div>
+                            <select id="setting-space-style" class="bg-black/60 border border-cyan-500/30 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-44 text-right">
+                                <option value="galaxyExplore" data-i18n="visualizerSettingsDrawer.spaceStyle.galaxyExplore">${t('visualizerSettingsDrawer.spaceStyle.galaxyExplore')}</option>
+                                <option value="sunSystem" data-i18n="visualizerSettingsDrawer.spaceStyle.sunSystem">${t('visualizerSettingsDrawer.spaceStyle.sunSystem')}</option>
+                                <option value="vacuumVoid" data-i18n="visualizerSettingsDrawer.spaceStyle.vacuumVoid">${t('visualizerSettingsDrawer.spaceStyle.vacuumVoid')}</option>
+                            </select>
+                        </div>
                         <!-- MỚI (19/07/2026, visualizer "Drifting Space", item 4) — tuỳ chọn ẩn/hiện
                              khung kính tàu vũ trụ (overlay CSS tĩnh #space-glass-frame, KHÁC glassFlash
                              của Rain — xem setSpaceGlassFrame(), core/visualizer/visualizer-display.js). -->
