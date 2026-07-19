@@ -46,6 +46,8 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.rainStyle.glass': 'Drips on glass',
     'visualizerSettingsDrawer.rainStyle.street': 'Street & park rain',
     'visualizerSettingsDrawer.glassFlash.label': 'Flash (glass & street lights)',
+    // MỚI (19/07/2026, visualizer "Drifting Space").
+    'visualizerSettingsDrawer.spaceGlassFrame.label': 'Show cockpit window frame',
     'visualizerSettingsDrawer.colorSectionTitle': 'Visualizer colors',
     'visualizerSettingsDrawer.bgColor.label': 'Black background color',
     'visualizerSettingsDrawer.colorMode.label': 'Waveform color mode',
