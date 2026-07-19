@@ -605,14 +605,15 @@
     <script src="core/storage-manager.js?v=20260708v1"></script>
 
     <!-- =====================================================================
-         4) VISUALIZERS: hàm vẽ canvas dùng chung (draw-helpers.js), từng visual riêng theo
+         4) VISUALIZERS: hàm vẽ canvas dùng chung (core/visualizer/draw/, mỗi hàm 1 file, MỚI
+            19/07/2026 — trước đây gộp 1 file draw-helpers.js), từng visual riêng theo
             file trong types/, rồi cuối cùng vòng lặp render chính (draw-visualizer.js) — file
             này phải nạp SAU CÙNG vì nó tham chiếu tới các hàm draw* định nghĩa ở các file trên.
          ===================================================================== -->
     <!-- visualizers/visualizer-display.js (ver 11, MỚI — tách từ core/player-controls.js): Settings
          hiệu ứng hình ảnh/màu/EQ/volume + nút Cycle hiệu ứng (#btn-cycle-mode). Đặt ĐẦU khu
-         VISUALIZERS (không cần đứng sau draw-helpers.js/types/* — không tham chiếu chúng lúc
-         parse, chỉ trong callback lazy). PHẢI nạp SAU: core/dom-refs.js (ref DOM mọi
+         VISUALIZERS (không cần đứng sau core/visualizer/draw/*.js/types/* — không tham chiếu chúng
+         lúc parse, chỉ trong callback lazy). PHẢI nạp SAU: core/dom-refs.js (ref DOM mọi
          select/slider/toggle), core/config.js (EQ_PRESETS, APP_CONFIG), core/webgl/three-vortex.js
          (initThreeJS, updateVortexVisibility), core/canvas-scene-setup.js (allocateBuffers,
          resizeCanvas), core/upload-validation.js, core/loading-shield-util.js, core/modal-choice.js,
@@ -624,7 +625,14 @@
          đó định nghĩa updateTypeUI/saveConfig mà auto-switch-visual.js cần, xem comment đầu file
          auto-switch-visual.js) và sau task-manager.js (cần taskManager, đã nạp từ khu CORE). -->
     <script src="core/auto-switch-visual.js?v=20260706v1"></script>
-    <script src="core/visualizer/draw-helpers.js?v=20260625v10"></script>
+    <!-- MỚI (19/07/2026, yêu cầu Giang) — core/visualizer/draw-helpers.js (file gộp) TÁCH thành 4
+         file riêng, mỗi hàm 1 file, trong core/visualizer/draw/ — thứ tự nạp giữa 4 file này KHÔNG
+         quan trọng (không phụ thuộc lẫn nhau, giống types/*.js). XOÁ TAY file cũ
+         core/visualizer/draw-helpers.js. -->
+    <script src="core/visualizer/draw/water-drop.js?v=20260719v1"></script>
+    <script src="core/visualizer/draw/window-frame.js?v=20260719v1"></script>
+    <script src="core/visualizer/draw/spaceship-frame.js?v=20260719v1"></script>
+    <script src="core/visualizer/draw/flying-note.js?v=20260719v1"></script>
     <script src="core/visualizer/types/bar.js?v=20260625v8e"></script>
     <script src="core/visualizer/types/lightning.js?v=20260625v8e"></script>
     <script src="core/visualizer/types/rubik.js?v=20260625v8e"></script>
