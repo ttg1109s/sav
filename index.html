@@ -296,6 +296,41 @@
 
     <!-- Canvas WebGL (Three.js - Vortex Engine + Drifting Space Engine, dùng chung 1 canvas) -->
     <canvas id="webgl-canvas" class="opacity-0 transition-opacity duration-700"></canvas>
+    <!-- MỚI (19/07/2026, viết lại LẦN 2 — phản hồi Giang "khung kính chẳng giống gì cả, sao không
+         chép ảnh -> SVG rồi scale") — SVG vector THẬT (bezel khoang lái + bu-lông góc + thanh chống
+         chéo góc + vạch HUD), KHÔNG còn vẽ tay bằng canvas arithmetic (drawSpaceshipFrame() cũ đã
+         xoá, xem readme/folder-structure.md). preserveAspectRatio="none" để khung LUÔN chạm đủ 4
+         cạnh màn hình bất kể tỉ lệ thiết bị (đánh đổi: bu-lông tròn có thể hơi bầu dục ở màn hình
+         quá dẹt/quá cao — chấp nhận được cho 1 lớp trang trí). Toggle hiện/ẩn qua class "hidden"
+         (setSpaceGlassFrame(), core/visualizer/visualizer-display.js). -->
+    <svg id="space-glass-frame" class="hidden" viewBox="0 0 200 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <linearGradient id="sgf-bezel" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#2a3244"/>
+                <stop offset="50%" stop-color="#0d111c"/>
+                <stop offset="100%" stop-color="#2a3244"/>
+            </linearGradient>
+            <radialGradient id="sgf-bolt" cx="35%" cy="35%" r="70%">
+                <stop offset="0%" stop-color="#cfe0ff"/>
+                <stop offset="60%" stop-color="#5f7699"/>
+                <stop offset="100%" stop-color="#1c2433"/>
+            </radialGradient>
+            <radialGradient id="sgf-vignette" cx="50%" cy="50%" r="70%">
+                <stop offset="55%" stop-color="rgba(0,0,0,0)"/>
+                <stop offset="100%" stop-color="rgba(0,0,0,0.65)"/>
+            </radialGradient>
+        </defs>
+        <rect x="0" y="0" width="200" height="120" fill="url(#sgf-vignette)"/>
+        <path d="M0,0 H200 V120 H0 Z M9,7 H191 V113 H9 Z" fill="url(#sgf-bezel)" fill-rule="evenodd" opacity="0.92"/>
+        <rect x="9" y="7" width="182" height="106" fill="none" stroke="rgba(180,210,255,0.35)" stroke-width="0.6"/>
+        <circle cx="14" cy="12" r="3" fill="url(#sgf-bolt)"/>
+        <circle cx="186" cy="12" r="3" fill="url(#sgf-bolt)"/>
+        <circle cx="14" cy="108" r="3" fill="url(#sgf-bolt)"/>
+        <circle cx="186" cy="108" r="3" fill="url(#sgf-bolt)"/>
+        <path d="M9,7 L28,20 M191,7 L172,20 M9,113 L28,100 M191,113 L172,100" stroke="rgba(150,180,220,0.3)" stroke-width="1" fill="none"/>
+        <path d="M70,113 h60" stroke="rgba(180,220,255,0.4)" stroke-width="1"/>
+        <path d="M85,109 h30" stroke="rgba(180,220,255,0.25)" stroke-width="0.6"/>
+    </svg>
     <!-- Canvas 2D (toàn bộ các hiệu ứng visualizer khác) -->
     <canvas id="visualizer" class="opacity-0 transition-opacity duration-700"></canvas>
 
@@ -548,7 +583,7 @@
          #webgl-canvas với Vortex ngay trên (2 kiểu không bao giờ active cùng lúc). Xem comment đầu
          file để biết đầy đủ lý do đặt cạnh three-vortex.js. Cả 2 file gom vào core/webgl/ (dời
          19/07/2026, yêu cầu Giang) — XOÁ TAY file cũ core/three-vortex.js. -->
-    <script src="core/webgl/three-space.js?v=20260719v3"></script>
+    <script src="core/webgl/three-space.js?v=20260719v4"></script>
     <script src="core/state-and-video-bg.js?v=20260704v2"></script>
     <!-- core/subtitle/subtitles.js ĐÃ CHUYỂN (10/07/2026) — CHỈ nạp ở subtitle-editor.html giờ
          (soạn phụ đề chuyển sang trang riêng). core/subtitle/subtitle-display.js (hiển thị phụ đề
@@ -647,7 +682,6 @@
          core/visualizer/draw-helpers.js. -->
     <script src="core/visualizer/draw/water-drop.js?v=20260719v1"></script>
     <script src="core/visualizer/draw/window-frame.js?v=20260719v1"></script>
-    <script src="core/visualizer/draw/spaceship-frame.js?v=20260719v1"></script>
     <script src="core/visualizer/draw/space-collision-flash.js?v=20260719v2"></script>
     <script src="core/visualizer/draw/flying-note.js?v=20260719v1"></script>
     <script src="core/visualizer/types/bar.js?v=20260625v8e"></script>
@@ -655,7 +689,7 @@
     <script src="core/visualizer/types/rubik.js?v=20260625v8e"></script>
     <script src="core/visualizer/types/vortex.js?v=20260625v8e"></script>
     <!-- MỚI (19/07/2026, "Drifting Space") — cùng nhóm WebGL với vortex.js ngay trên. -->
-    <script src="core/visualizer/types/space.js?v=20260719v2"></script>
+    <script src="core/visualizer/types/space.js?v=20260719v3"></script>
     <script src="core/visualizer/types/black-hole.js?v=20260625v8e"></script>
     <script src="core/visualizer/types/rain.js?v=20260704v1"></script>
     <!-- draw-visualizer.js chứa điểm khởi động thực sự của app (DOMContentLoaded ->
