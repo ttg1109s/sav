@@ -60,10 +60,13 @@
         // spaceDetail/spaceMeteorPool thêm vào CẢ 3 mức, cùng tinh thần scale theo quality như các
         // field khác trong bảng này (mật độ starfield/galaxy, độ chi tiết khối cầu hành tinh-sao,
         // số lượng thiên thạch tối đa cùng lúc trong pool tái sử dụng — xem core/webgl/three-space.js).
+        // MỚI (viết lại LẦN 2, 19/07/2026, phản hồi Giang "sao lấm chấm to dần khi tiến tới") —
+        // thêm spaceFieldStars: số sao lớp "tái sinh" (sliding window như tRings Vortex), KHÁC
+        // spaceStars (nền tĩnh xa, không tái sinh).
         const PERFORMANCE_PROFILES = {
-            high: { stars: 200, tunnelRings: 60, glassDrops: 250, bldMult: 1.0, streakProb: 0.8, blurMult: 1.0, streetRain: 220, spaceStars: 2200, spaceGalaxyStars: 3500, spaceDetail: 28, spaceMeteorPool: 24 },
-            medium: { stars: 100, tunnelRings: 35, glassDrops: 100, bldMult: 1.5, streakProb: 0.9, blurMult: 0.5, streetRain: 130, spaceStars: 1200, spaceGalaxyStars: 2000, spaceDetail: 18, spaceMeteorPool: 14 },
-            low: { stars: 40, tunnelRings: 15, glassDrops: 40, bldMult: 2.5, streakProb: 0.95, blurMult: 0, streetRain: 70, spaceStars: 500, spaceGalaxyStars: 900, spaceDetail: 10, spaceMeteorPool: 6 } 
+            high: { stars: 200, tunnelRings: 60, glassDrops: 250, bldMult: 1.0, streakProb: 0.8, blurMult: 1.0, streetRain: 220, spaceStars: 2200, spaceGalaxyStars: 3500, spaceDetail: 28, spaceMeteorPool: 24, spaceFieldStars: 220 },
+            medium: { stars: 100, tunnelRings: 35, glassDrops: 100, bldMult: 1.5, streakProb: 0.9, blurMult: 0.5, streetRain: 130, spaceStars: 1200, spaceGalaxyStars: 2000, spaceDetail: 18, spaceMeteorPool: 14, spaceFieldStars: 120 },
+            low: { stars: 40, tunnelRings: 15, glassDrops: 40, bldMult: 2.5, streakProb: 0.95, blurMult: 0, streetRain: 70, spaceStars: 500, spaceGalaxyStars: 900, spaceDetail: 10, spaceMeteorPool: 6, spaceFieldStars: 60 } 
         };
         const DEFAULT_VINYL = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0OCIgZmlsbD0iIzFlMjkzYiIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjE2IiBmaWxsPSIjMGYxNzJhIi8+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iMTUiIGZpbGw9IiNjYmQ1ZTEiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0IiBmaWxsPSIjMGYxNzJhIi8+PC9zdmc+';
         const EQ_FREQS = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
