@@ -67,12 +67,20 @@
 
             if (isPlaying && (cfg.quality === 'high' || cfg.quality === 'medium') && appState.get('smoothedEnergy') > 0.3 && Math.random() > 0.6) spawnFlyingNote();
 
-            // ================== THREEJS VORTEX ENGINE ==================
+            // ================== THREEJS VORTEX / SPACE ENGINE ==================
             // Render qua canvas WebGL riêng (#webgl-canvas), TRƯỚC khi canvas 2D (#visualizer) được
             // clear ở dưới — 2 canvas xếp lớp lên nhau bằng CSS (xem styles.css, #webgl-canvas z-index).
+            // 'space' (MỚI 19/07/2026, "Drifting Space") CÙNG NHÓM với 'vortex' — cả 2 dùng chung
+            // #webgl-canvas, không nằm trong VISUALIZER_DRAWERS (bảng chỉ dành cho canvas 2D).
             if (cfg.type === 'vortex') drawVortex(perf, isPlaying);
+            else if (cfg.type === 'space') drawSpace(perf, isPlaying);
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // "Khung kính tàu vũ trụ" (item 4, MỚI 19/07/2026) — TÁI DÙNG drawWindowFrame(ctx) có
+            // sẵn (draw-helpers.js, Rain "glass" style đang dùng cùng hàm này), vẽ đè lên canvas 2D
+            // (#visualizer, z-index CAO HƠN #webgl-canvas) — không cần overlay CSS riêng.
+            if (cfg.type === 'space' && cfg.spaceGlassFrame) drawWindowFrame(ctx);
 
             const drawFn = VISUALIZER_DRAWERS[cfg.type];
             if (drawFn) drawFn(ctx, perf, isPlaying, appState.get('beatScale'));

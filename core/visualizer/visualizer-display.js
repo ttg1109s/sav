@@ -96,9 +96,13 @@
             // đặt đồng bộ ở đây đảm bảo 2 UI luôn khớp nhau bất kể đổi từ đâu.
             if (typeof visualizerTypeSelect !== 'undefined' && visualizerTypeSelect) visualizerTypeSelect.value = cfg.type;
 
-            if (cfg.type === 'vortex') {
-                if(!appState.get('tInitialized')) initThreeJS();
-                updateVortexVisibility();
+            // MỚI (19/07/2026, visualizer "Drifting Space") — 'space' DÙNG CHUNG #webgl-canvas với
+            // 'vortex' (2 kiểu WebGL không bao giờ active cùng lúc), nên mở rộng ĐÚNG điều kiện cũ
+            // thay vì viết lại — mỗi kiểu tự init đúng engine của nó (initThreeJS()/initThreeSpace(),
+            // xem core/webgl/three-vortex.js/core/webgl/three-space.js).
+            if (cfg.type === 'vortex' || cfg.type === 'space') {
+                if (cfg.type === 'vortex') { if (!appState.get('tInitialized')) initThreeJS(); updateVortexVisibility(); }
+                else if (!appState.get('spInitialized')) initThreeSpace();
                 // FIX (04/07/2026, mục 4) — 'playlist-hidden' THAY '-translate-y-full' (dọc -> ngang).
                 // SỬA (07/07/2026, batch gộp container) — class `playlist-hidden` đã DỜI từ
                 // `#playlist-view` sang `#side-left-container`. HOTFIX 16 (08/07/2026) — dời TIẾP
@@ -115,12 +119,15 @@
                 const blockVortexEl = document.getElementById('block-vortex');
                 const blockRainEl = document.getElementById('block-rain');
                 const blockBarStyleEl = document.getElementById('block-bar-style');
+                const blockSpaceEl = document.getElementById('block-space');
 
                 blockMaxHeightEl.classList.add('hidden'); blockBarWidthEl.classList.add('hidden');
                 blockVortexEl.classList.add('hidden'); blockRainEl.classList.add('hidden'); blockBarStyleEl.classList.add('hidden');
+                if (blockSpaceEl) blockSpaceEl.classList.add('hidden');
 
                 if (cfg.type === 'vortex') { blockVortexEl.classList.remove('hidden'); blockVortexEl.classList.add('flex'); }
                 else if (cfg.type === 'rain') { blockRainEl.classList.remove('hidden'); blockRainEl.classList.add('flex'); }
+                else if (cfg.type === 'space') { if (blockSpaceEl) { blockSpaceEl.classList.remove('hidden'); blockSpaceEl.classList.add('flex'); } }
                 else if (cfg.type === 'bar') {
                     // "Độ cao tối đa" vẫn dùng chung cho Bar (cả mirror/cascade); "Độ dày thanh" KHÔNG
                     // áp dụng cho Bar nữa (chỉ Black Hole) — xem updateBarStyleUI cho 2 setting riêng
@@ -139,7 +146,7 @@
                 }
             }
 
-            if(appState.get('analyser')) { appState.get('analyser').fftSize = (cfg.type === 'vortex' || cfg.type === 'lightning') ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard; allocateBuffers(); }
+            if(appState.get('analyser')) { appState.get('analyser').fftSize = (cfg.type === 'vortex' || cfg.type === 'space' || cfg.type === 'lightning') ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard; allocateBuffers(); }
         }
 
         /** HOTFIX 2 (07/07/2026) — cùng sửa như updateTypeUI() ở trên: `barMirrorOptions` KHÔNG
@@ -313,6 +320,14 @@
         /** Core thuần: bật/tắt hiệu ứng chớp kính (Rain). Batch D3 — BỎ `saveConfig()` nội bộ. */
         function setGlassFlash(checked) {
             appState.mutate('vizConfig', cfg => { cfg.glassFlash = checked; });
+        }
+
+        /** Core thuần: bật/tắt "khung kính tàu vũ trụ" (item 4, MỚI 19/07/2026). CÙNG MẪU với
+         * setGlassFlash() ngay trên — chỉ mutate config, việc VẼ đọc cfg.spaceGlassFrame mỗi khung
+         * hình ở core/visualizer/draw-visualizer.js (gọi drawWindowFrame(ctx) có sẵn ở
+         * draw-helpers.js, TÁI DÙNG đúng hàm Rain "glass" đang dùng — không cần overlay DOM riêng). */
+        function setSpaceGlassFrame(checked) {
+            appState.mutate('vizConfig', cfg => { cfg.spaceGlassFrame = checked; });
         }
 
         /** Core thuần: độ cao tối đa của bar. Batch D3 — nhận `displayEl` qua tham số. @param {string} value @param {HTMLElement} [displayEl] */
