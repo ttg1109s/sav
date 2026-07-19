@@ -141,6 +141,13 @@
             spSectorKind: 'string', // 'planet' | 'star' | 'galaxy'
             spGroupMeteors: 'any', // THREE.Group | undefined
             spMeteorPool: 'array', // pool THREE.Mesh tái sử dụng cho sao băng/thiên thạch
+            // MỚI (viết lại toàn diện 19/07/2026, phản hồi Giang — quỹ đạo cong/ánh sáng thật/bloom):
+            spPathParams: 'object', // đường bay cong hiện tại (freqX/Y, ampX/Y, phaseX/Y) — giống tPathParams của Vortex
+            spPathTarget: 'object', // đích nội suy tới của spPathParams — giống tPathTarget của Vortex
+            spAmbientLight: 'any',  // THREE.AmbientLight | undefined
+            spKeyLight: 'any',      // THREE.DirectionalLight | undefined
+            spGlowTexture: 'any',   // THREE.CanvasTexture (glow tròn, dựng 1 lần) | undefined
+            spComposer: 'any',      // THREE.EffectComposer (bloom) | undefined — null nếu thư viện không tải được (fallback render thẳng)
 
             // ── audio engine ──────────────────────────────────────────────────
             audioContext: 'any',           // AudioContext | undefined trước setupAudioContext()
@@ -345,6 +352,12 @@
                 spSectorKind: 'planet',
                 spGroupMeteors: undefined,
                 spMeteorPool: [],
+                spPathParams: { freqX: 0.0007, freqY: 0.0005, ampX: 380, ampY: 260, phaseX: 0, phaseY: 0 },
+                spPathTarget: { freqX: 0.0007, freqY: 0.0005, ampX: 380, ampY: 260, phaseX: 0, phaseY: 0 },
+                spAmbientLight: undefined,
+                spKeyLight: undefined,
+                spGlowTexture: undefined,
+                spComposer: undefined,
 
                 // ── audio engine ──────────────────────────────────────────────
                 audioContext: undefined,
