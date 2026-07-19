@@ -735,6 +735,19 @@ const workflowSlideshow = {
      * tính theo ĐÚNG biên interval này).
      * Xác nhận -> persist + reschedule task (GIỮ NGUYÊN logic cũ của changeInterval(), chỉ đổi
      * NƠI giá trị `seconds` đến từ đâu — trước đọc thẳng input.value, giờ từ callback modal). */
+    /** Ứng với nút "Thời gian mỗi ảnh" — mở modal chọn thời gian DÙNG CHUNG (core/time-picker-
+     * modal.js), format 's', min 5s/max 60s.
+     * SỬA (18/07/2026, phản hồi Giang — phát hiện bug: "chỉnh Seconds per photo xuống THẤP HƠN
+     * transition đã đặt trước đó -> ô transition vẫn hiện giá trị CŨ, không tự hạ theo") — sau khi
+     * persist `intervalSeconds` mới, TỰ KIỂM TRA + KẸP `transitionDurationMs` XUỐNG nếu đang VƯỢT
+     * interval mới — tái dùng NGUYÊN `capSlideshowTransitionDurationMs()` (core, Math.min thuần) đã
+     * có sẵn cho runtime, KHÔNG viết lại logic (Rule 3c — không trùng lặp core đã tồn tại). CHỈ
+     * kẹp XUỐNG (không bao giờ đẩy LÊN) — tăng interval lại KHÔNG tự phục hồi transition về giá
+     * trị cũ (không có "giá trị đúng" nào để phục hồi về, người dùng tự chỉnh lại nếu muốn dài hơn).
+     * KHÔNG cần `event/virtual-machine-state.js` — đây là 1 luồng ĐƠN TUYẾN (interval đổi -> LUÔN
+     * kiểm tra transition), không phải rẽ nhánh chọn giữa ≥2 workflow khác nhau tuỳ state (đúng
+     * phạm vi VirtualMachineState) — nằm gọn trong 1 callback Workflow, đủ đơn giản không cần thêm
+     * tầng nào khác. */
     openIntervalPicker() {
         if (!slideshowSettingsPanelEl) return;
         const cfg = appState.get('slideshowConfig');
@@ -746,11 +759,27 @@ const workflowSlideshow = {
             maxMs: 60000,
             onConfirm: async (resultMs) => {
                 const v = Math.max(5, Math.round(resultMs / 1000));
-                appState.mutate('slideshowConfig', (c) => { c.intervalSeconds = v; });
-                console.log(`writer: "workflowSlideshow.openIntervalPicker", page: "slideshowConfig", content: "intervalSeconds=${v}"`);
+                const newIntervalMs = v * 1000;
+                let correctedTransitionMs = null; // MỚI — null = không cần sửa gì, có giá trị = ĐÃ bị kẹp xuống
+                appState.mutate('slideshowConfig', (c) => {
+                    c.intervalSeconds = v;
+                    const cappedMs = capSlideshowTransitionDurationMs(c.transitionDurationMs, newIntervalMs); // core — tái dùng NGUYÊN hàm đã có
+                    if (cappedMs !== c.transitionDurationMs) { c.transitionDurationMs = cappedMs; correctedTransitionMs = cappedMs; }
+                });
+                console.log(`writer: "workflowSlideshow.openIntervalPicker", page: "slideshowConfig", content: "intervalSeconds=${v}${correctedTransitionMs !== null ? `, transitionDurationMs tự kẹp xuống ${correctedTransitionMs}` : ''}"`);
                 await setMeta('slideshowConfig', appState.get('slideshowConfig'));
-                const intervalBtn = slideshowSettingsPanelEl ? slideshowSettingsPanelEl.querySelector('#setting-slideshow-interval') : null;
+                if (!slideshowSettingsPanelEl) return;
+                const intervalBtn = slideshowSettingsPanelEl.querySelector('#setting-slideshow-interval');
                 if (intervalBtn) intervalBtn.textContent = `${v}s`; // đồng bộ lại chữ trên nút
+                // MỚI — nếu transitionDurationMs vừa bị kẹp xuống, đồng bộ LẠI nút + nhãn tỉ lệ
+                // (phụ thuộc transitionDurationMs) — KHÔNG thì 2 chỗ này hiện SAI (giá trị cũ đã
+                // không còn đúng nữa, đúng bug Giang phát hiện).
+                if (correctedTransitionMs !== null) {
+                    const transitionBtn = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-duration');
+                    if (transitionBtn) transitionBtn.textContent = `${(correctedTransitionMs / 1000).toFixed(1)}s`;
+                    const ratioSlider = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-ratio');
+                    this._updateTransitionRatioLabel(slideshowSettingsPanelEl, ratioSlider ? Number(ratioSlider.value) : appState.get('slideshowConfig').transitionInOutRatio);
+                }
                 // Loop (task-manager.js) KHÔNG hỗ trợ đổi `time` giữa chừng của task count vô hạn —
                 // tự kill + addNew lại với time mới, CÙNG lý do scheduleNextAutoSwitchVisualTimer()
                 // làm ở core/auto-switch-visual.js.
