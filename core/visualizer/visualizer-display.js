@@ -112,6 +112,11 @@
                 if (!appStack.classList.contains('playlist-hidden')) {} else { document.getElementById('webgl-canvas').classList.remove('opacity-0'); }
             } else { document.getElementById('webgl-canvas').classList.add('opacity-0'); }
 
+            // SVG "khung kính khoang lái" (item 4, viết lại LẦN 2) — CHỈ hiện khi ĐANG ở kiểu
+            // 'space' VÀ cfg.spaceGlassFrame đang bật; mọi kiểu khác (kể cả Vortex) luôn ẩn.
+            const spaceGlassFrameEl = document.getElementById('space-glass-frame');
+            if (spaceGlassFrameEl) spaceGlassFrameEl.classList.toggle('hidden', !(cfg.type === 'space' && cfg.spaceGlassFrame));
+
             // HOTFIX 2 — truy vấn TƯƠI, KHÔNG dựa vào biến toàn cục (xem docstring hàm ngay trên).
             const blockMaxHeightEl = document.getElementById('block-max-height');
             if (blockMaxHeightEl) {
@@ -322,12 +327,15 @@
             appState.mutate('vizConfig', cfg => { cfg.glassFlash = checked; });
         }
 
-        /** Core thuần: bật/tắt "khung kính tàu vũ trụ" (item 4, MỚI 19/07/2026). CÙNG MẪU với
-         * setGlassFlash() ngay trên — chỉ mutate config, việc VẼ đọc cfg.spaceGlassFrame mỗi khung
-         * hình ở core/visualizer/draw-visualizer.js (gọi drawWindowFrame(ctx) có sẵn ở
-         * draw/window-frame.js, TÁI DÙNG đúng hàm Rain "glass" đang dùng — không cần overlay DOM riêng). */
+        /** Core: bật/tắt "khung kính khoang lái tàu vũ trụ" (item 4). VIẾT LẠI LẦN 2 (19/07/2026,
+         * phản hồi Giang "chẳng giống gì cả, sao không chép ảnh -> SVG") — không còn vẽ canvas mỗi
+         * khung hình, mà là SVG DOM TĨNH (#space-glass-frame, index.html) toggle hiện/ẩn qua class
+         * "hidden". Vì là phần tử DOM CỐ ĐỊNH ngoài mọi panel động, core tự phản ánh luôn ra DOM ở
+         * đây (cùng tinh thần "phần tử sống động, truy vấn tươi" đã áp dụng cho updateTypeUI()). */
         function setSpaceGlassFrame(checked) {
             appState.mutate('vizConfig', cfg => { cfg.spaceGlassFrame = checked; });
+            const el = document.getElementById('space-glass-frame');
+            if (el) el.classList.toggle('hidden', !checked || appState.get('vizConfig').type !== 'space');
         }
 
         /** Core thuần: độ cao tối đa của bar. Batch D3 — nhận `displayEl` qua tham số. @param {string} value @param {HTMLElement} [displayEl] */

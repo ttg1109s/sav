@@ -77,12 +77,11 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // "Khung kính khoang lái" (item 4, tuỳ chọn) + "Flash va chạm" (MỚI, luôn hiện bất kể
-            // khung kính bật/tắt) — 2 hàm RIÊNG trong core/visualizer/draw/.
-            if (cfg.type === 'space') {
-                if (cfg.spaceGlassFrame) drawSpaceshipFrame(ctx);
-                drawSpaceCollisionFlash(ctx);
-            }
+            // "Flash va chạm" (canvas 2D, luôn hiện bất kể khung kính SVG bật/tắt — xem
+            // core/visualizer/draw/space-collision-flash.js). Khung kính khoang lái (item 4) giờ
+            // là SVG DOM riêng (#space-glass-frame, index.html) — toggle qua setSpaceGlassFrame()/
+            // updateTypeUI() (core/visualizer/visualizer-display.js), KHÔNG còn vẽ trên canvas.
+            if (cfg.type === 'space') drawSpaceCollisionFlash(ctx);
 
             const drawFn = VISUALIZER_DRAWERS[cfg.type];
             if (drawFn) drawFn(ctx, perf, isPlaying, appState.get('beatScale'));
