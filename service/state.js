@@ -131,6 +131,17 @@
             tBarRingZs: 'array',
             tWaveMeshes: 'array',
 
+            // ── three/space (MỚI 19/07/2026, "Drifting Space" — xem core/webgl/three-space.js) ──
+            spScene: 'any',        // THREE.Scene | undefined trước initThreeSpace()
+            spCamera: 'any',       // THREE.Camera | undefined
+            spInitialized: 'boolean',
+            spCurrentDriftZ: 'number',
+            spStarPoints: 'any',   // THREE.Points | undefined (starfield nền)
+            spGroupSector: 'any',  // THREE.Group | undefined (thiên thể đang trôi qua)
+            spSectorKind: 'string', // 'planet' | 'star' | 'galaxy'
+            spGroupMeteors: 'any', // THREE.Group | undefined
+            spMeteorPool: 'array', // pool THREE.Mesh tái sử dụng cho sao băng/thiên thạch
+
             // ── audio engine ──────────────────────────────────────────────────
             audioContext: 'any',           // AudioContext | undefined trước setupAudioContext()
             analyser: 'any',               // AnalyserNode | undefined
@@ -324,6 +335,17 @@
                 tBarRingZs: [],
                 tWaveMeshes: [],
 
+                // ── three/space (MỚI 19/07/2026, "Drifting Space") ───────────────
+                spScene: undefined,
+                spCamera: undefined,
+                spInitialized: false,
+                spCurrentDriftZ: 0,
+                spStarPoints: undefined,
+                spGroupSector: undefined,
+                spSectorKind: 'planet',
+                spGroupMeteors: undefined,
+                spMeteorPool: [],
+
                 // ── audio engine ──────────────────────────────────────────────
                 audioContext: undefined,
                 analyser: undefined,
@@ -414,9 +436,9 @@
         const CONST = Object.freeze({
             APP_CONFIG: Object.freeze({ fftSizeStandard: 256, fftSizeHighRes: 2048, fftSizePitch: 2048, bpmMinWaitTime: 250 }),
             PERFORMANCE_PROFILES: Object.freeze({
-                high:   Object.freeze({ stars: 200, tunnelRings: 60, glassDrops: 250, bldMult: 1.0, streakProb: 0.8,  blurMult: 1.0, streetRain: 220 }),
-                medium: Object.freeze({ stars: 100, tunnelRings: 35, glassDrops: 100, bldMult: 1.5, streakProb: 0.9,  blurMult: 0.5, streetRain: 130 }),
-                low:    Object.freeze({ stars: 40,  tunnelRings: 15, glassDrops: 40,  bldMult: 2.5, streakProb: 0.95, blurMult: 0,   streetRain: 70 }),
+                high:   Object.freeze({ stars: 200, tunnelRings: 60, glassDrops: 250, bldMult: 1.0, streakProb: 0.8,  blurMult: 1.0, streetRain: 220, spaceStars: 2200, spaceGalaxyStars: 3500, spaceDetail: 28, spaceMeteorPool: 24 }),
+                medium: Object.freeze({ stars: 100, tunnelRings: 35, glassDrops: 100, bldMult: 1.5, streakProb: 0.9,  blurMult: 0.5, streetRain: 130, spaceStars: 1200, spaceGalaxyStars: 2000, spaceDetail: 18, spaceMeteorPool: 14 }),
+                low:    Object.freeze({ stars: 40,  tunnelRings: 15, glassDrops: 40,  bldMult: 2.5, streakProb: 0.95, blurMult: 0,   streetRain: 70, spaceStars: 500, spaceGalaxyStars: 900, spaceDetail: 10, spaceMeteorPool: 6 }),
             }),
             DEFAULT_VINYL: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0OCIgZmlsbD0iIzFlMjkzYiIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjE2IiBmaWxsPSIjMGYxNzJhIi8+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iMTUiIGZpbGw9IiNjYmQ1ZTEiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0IiBmaWxsPSIjMGYxNzJhIi8+PC9zdmc+',
             EQ_PRESETS: Object.freeze({
@@ -424,10 +446,10 @@
                 rock: Object.freeze([5, 4, 3, 1, -1, -1, 1, 2, 3, 4]), acoustic: Object.freeze([2, 1, 0, 0, 1, 2, 3, 4, 3, 2]), electronic: Object.freeze([5, 4, 1, -1, -2, 0, 1, 3, 4, 5]),
                 manual: Object.freeze([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
             }),
-            MODES: Object.freeze(['bar', 'lightning', 'rubik', 'vortex', 'black hole', 'rain']),
+            MODES: Object.freeze(['bar', 'lightning', 'rubik', 'vortex', 'black hole', 'rain', 'space']),
             AUTO_SWITCH_VISUAL_MIN_SECONDS: 10,
             DEFAULT_VIZ_CONFIG: Object.freeze({
-                quality: 'high', type: 'bar', barStyle: 'mirror', vortexStyle: 'rings', rainStyle: 'glass', glassFlash: true, mode: 'solid',
+                quality: 'high', type: 'bar', barStyle: 'mirror', vortexStyle: 'rings', rainStyle: 'glass', glassFlash: true, spaceGlassFrame: true, mode: 'solid',
                 bgColor: '#000000', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 minH: 4, maxH: 400, barWidth: 4, bgImage: '', bgBlur: 0, bgImageEnabled: false,
                 // MỚI (09/07/2026) — `themeMode`/`gradientFrom`/`gradientTo` BỊ SÓT khỏi bản
