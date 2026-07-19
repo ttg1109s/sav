@@ -1,6 +1,6 @@
 /**
  * Visual VORTEX — cập nhật mỗi khung hình cho đường ống bay xuyên không gian dựng bằng Three.js
- * (khởi tạo scene/camera/group nằm ở js/core/three-vortex.js, hàm initThreeJS()). File này chỉ
+ * (khởi tạo scene/camera/group nằm ở core/webgl/three-vortex.js, hàm initThreeJS() — dời vào core/webgl/ 19/07/2026). File này chỉ
  * chứa phần cập nhật vị trí/màu/camera mỗi frame, gọi từ vòng lặp render chính. Logic gốc giữ
  * nguyên 1:1.
  */
