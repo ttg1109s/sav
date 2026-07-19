@@ -75,6 +75,18 @@ function renderVisualizerPanelBody() {
                                 </label>
                             </div>
                         </div>
+                        <!-- MỚI (19/07/2026, visualizer "Drifting Space", item 4) — tuỳ chọn ẩn/hiện
+                             khung kính tàu vũ trụ (overlay CSS tĩnh #space-glass-frame, KHÁC glassFlash
+                             của Rain — xem setSpaceGlassFrame(), core/visualizer/visualizer-display.js). -->
+                        <div id="block-space" class="hidden flex-col bg-cyan-900/10 border-b border-cyan-500/20">
+                            <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
+                                <div><div class="text-sm font-medium text-cyan-300" data-i18n="visualizerSettingsDrawer.spaceGlassFrame.label">${t('visualizerSettingsDrawer.spaceGlassFrame.label')}</div></div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="setting-space-glass-frame" class="sr-only peer">
+                                    <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                                </label>
+                            </div>
+                        </div>
         
                     </div>
         
