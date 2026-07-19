@@ -19,6 +19,12 @@
  *      hàm canvas vẽ tay (đã xoá core/visualizer/draw/spaceship-frame.js).
  *   6. Camera Ken Burns (zoom+pan+chéo góc, audio-reactive) — LOGIC CHẠY ở
  *      core/visualizer/types/space.js::drawSpace(), state chuẩn bị ở đây (spPanAngle).
+ *   6b. MỚI (19/07/2026, yêu cầu Giang) — THỬ three-nebula (particle engine thật cho three.js,
+ *      window.Nebula, xem index.html CDN) cho thiên thạch, THAY vì tự chế pool THREE.Points khi
+ *      thư viện dùng được — RỦI RO ĐÃ BIẾT: bản CDN mới nhất bị gắn nhãn "esm", có thể không lộ
+ *      window.Nebula khi nạp qua <script> thường. Guard 3 lớp (tồn tại/đúng kiểu hàm/try-catch) +
+ *      tắt hẳn vĩnh viễn cho phiên nếu lỗi runtime bất kỳ — fallback pool THREE.Points gốc VẪN
+ *      dựng sẵn song song (spMeteorPool), không tốn thêm chi phí đáng kể khi không dùng tới.
  *   7. GIỮ NGUYÊN: quỹ đạo cong nền (spPathParams/spPathTarget, tái dùng công thức Vortex), pool
  *      thiên thạch tái sử dụng, fade-in, composer bloom thật (THREE.EffectComposer/RenderPass/
  *      UnrealBloomPass — xem index.html khu CDN, có fallback an toàn).
@@ -37,6 +43,13 @@
         let spShakeFrames = 0;
         let spShakeMagnitude = 0;
         let spFlashOpacity = 0;
+
+        // MỚI (19/07/2026, yêu cầu Giang — thử tích hợp three-nebula cho thiên thạch) — null nếu
+        // thư viện không dùng được (CDN esm-only/lỗi mạng) HOẶC bị tắt sau khi 1 lần lỗi runtime —
+        // lúc đó trySpawnSpaceMeteor()/drawSpace() TỰ ĐỘNG fallback về pool THREE.Points gốc (đã
+        // xác nhận chạy được, xem _trySpawnLegacyMeteor() + spMeteorPool).
+        let spNebulaSystem = null;
+        let spNebulaMeteorSlots = [];
 
         /** Tính offset x/y của đường bay cong nền tại 1 điểm Z bất kỳ — TÁI DÙNG Y HỆT công thức
          * getVortexCenterAt() của Vortex. Camera VÀ mọi thiên thể/thiên thạch/sao lấy toạ độ tâm từ
@@ -121,11 +134,45 @@
             return tex;
         }
 
-        /** Dựng 1 hành tinh: SphereGeometry + MeshStandardMaterial CÓ TEXTURE bề mặt (mục 1, thay
-         * màu phẳng) + phản ứng ánh sáng thật (AmbientLight/DirectionalLight, xem initThreeSpace())
-         * + viền khí quyển mờ additive. Màu nền LẤY THEO vizConfig.mode qua getComputedColor()
-         * (item 3, readme/visual-conventions.md). Bắt đầu scale 0 để fade-in. */
+        /** Thử dựng hành tinh bằng THREEx.Planets (MỚI 19/07/2026, yêu cầu Giang) — texture ẢNH
+         * THẬT (Trái Đất/Sao Hoả/Sao Kim/Thuỷ/Thiên Vương/Hải Vương/Mặt Trời, chọn ngẫu nhiên mỗi
+         * lần), KHÔNG phải texture procedural tự vẽ. Trả về `null` nếu thư viện không có/lỗi bất kỳ
+         * (API đời cũ không tương thích three.js r128) — gọi luôn trong try/catch ở
+         * _createSpacePlanetMesh() để không lộ lỗi ra ngoài. THREEx.Planets tự chọn kích thước
+         * RIÊNG (không khớp world-scale của Space) nên phải đo bounding sphere rồi tính lại hệ số
+         * scale cho khớp bán kính ~140 (giống loại procedural) — LƯU hệ số này vào userData.targetScale
+         * để drawSpace() fade-in đúng tỉ lệ (không phải fade về 1 tuyệt đối). KHÔNG áp getComputedColor()
+         * lên mesh này — đây là texture ảnh THẬT của thiên thể có thật, tô màu tuỳ ý theo
+         * vizConfig.mode sẽ làm sai lệch hẳn hình ảnh thật (khác hẳn khối cầu procedural, vốn
+         * không có "màu đúng" cố định nào để giữ). */
+        function _tryCreateThreexPlanet() {
+            if (typeof THREEx === 'undefined' || !THREEx.Planets) return null;
+            const creators = ['createEarth', 'createMars', 'createVenus', 'createMercury', 'createUranus', 'createNeptune', 'createSun'];
+            const fn = creators[Math.floor(Math.random() * creators.length)];
+            if (typeof THREEx.Planets[fn] !== 'function') return null;
+            const mesh = THREEx.Planets[fn]();
+            if (!mesh || !mesh.isObject3D) return null;
+            const box = new THREE.Box3().setFromObject(mesh);
+            const size = box.getSize(new THREE.Vector3());
+            const currentRadius = Math.max(size.x, size.y, size.z) / 2 || 1;
+            const scaleFactor = 140 / currentRadius;
+            mesh.userData.targetScale = scaleFactor;
+            mesh.scale.setScalar(scaleFactor * 0.001); // bắt đầu rất nhỏ để fade-in giống mọi loại khác
+            return mesh;
+        }
+
+        /** Dựng 1 hành tinh: THỬ THREEx.Planets TRƯỚC (texture ảnh thật, mục 1 — xem
+         * _tryCreateThreexPlanet()), fallback SphereGeometry + MeshStandardMaterial CÓ TEXTURE
+         * procedural tự tạo (canvas) nếu thư viện không dùng được. Fallback vẫn phản ứng ánh sáng
+         * thật (AmbientLight/DirectionalLight) + màu nền LẤY THEO vizConfig.mode qua
+         * getComputedColor() (item 3). Bắt đầu scale 0 để fade-in. */
         function _createSpacePlanetMesh(perf) {
+            try {
+                const threexMesh = _tryCreateThreexPlanet();
+                if (threexMesh) return threexMesh;
+            } catch (e) {
+                console.warn('[three-space] THREEx.Planets lỗi — fallback texture procedural tự tạo:', e);
+            }
             const baseColor = getComputedColor(0, 1, Math.round(appState.get('beatScale') * 255)).fill;
             const geo = new THREE.SphereGeometry(140, perf.spaceDetail, perf.spaceDetail);
             const mat = new THREE.MeshStandardMaterial({ map: _buildSpacePlanetTexture(baseColor), roughness: 0.8, metalness: 0.1 });
@@ -133,6 +180,7 @@
             const glowGeo = new THREE.SphereGeometry(152, Math.max(8, perf.spaceDetail - 8), Math.max(8, perf.spaceDetail - 8));
             const glowMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(baseColor), transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, side: THREE.BackSide });
             mesh.add(new THREE.Mesh(glowGeo, glowMat));
+            mesh.userData.targetScale = 1;
             mesh.scale.setScalar(0.001);
             return mesh;
         }
@@ -312,6 +360,27 @@
             appState.set('spMeteorPool', meteorPool, { skipCheck: true });
             appState.get('spScene').add(appState.get('spGroupMeteors'));
 
+            // Thử three-nebula cho thiên thạch (MỚI 19/07/2026, yêu cầu Giang) — pool THREE.Points
+            // gốc ở trên VẪN dựng đủ làm fallback (không tốn kém gì thêm, chỉ là ẩn/không dùng nếu
+            // Nebula chạy được). Guard 3 lớp: (1) window.Nebula tồn tại, (2) SpriteRenderer tồn tại,
+            // (3) try/catch quanh new System() — bất kỳ lớp nào fail đều fallback êm, không crash.
+            spNebulaMeteorSlots = [];
+            for (let i = 0; i < perf.spaceMeteorPool; i++) spNebulaMeteorSlots.push({ emitter: null, active: false, vx: 0, vy: 0, vz: 0, life: 0 });
+            if (typeof window.Nebula !== 'undefined' && typeof window.Nebula.System === 'function' && typeof window.Nebula.SpriteRenderer === 'function') {
+                try {
+                    const { System, SpriteRenderer } = window.Nebula;
+                    const system = new System();
+                    system.addRenderer(new SpriteRenderer(appState.get('spScene'), THREE));
+                    spNebulaSystem = system;
+                } catch (e) {
+                    console.warn('[three-space] three-nebula init lỗi — fallback pool THREE.Points gốc cho thiên thạch:', e);
+                    spNebulaSystem = null;
+                }
+            } else {
+                console.warn('[three-space] Không tìm thấy window.Nebula (CDN esm-only/lỗi mạng?) — fallback pool THREE.Points gốc cho thiên thạch.');
+                spNebulaSystem = null;
+            }
+
             appState.set('spCurrentDriftZ', 0, { skipCheck: true });
             appState.set('spInitialized', true, { skipCheck: true });
 
@@ -347,9 +416,27 @@
             appState.set('spSectorKind', kind, { skipCheck: true });
         }
 
-        /** Kích hoạt 1 sao băng/thiên thạch còn RẢNH trong pool — xuất hiện GẦN tâm đường bay cong
-         * tại đúng Z camera hiện tại, bay cắt chéo NGANG qua phía trước camera. */
+        /** Kích hoạt 1 sao băng/thiên thạch — DISPATCHER (MỚI 19/07/2026, yêu cầu Giang): thử
+         * three-nebula TRƯỚC (nếu `spNebulaSystem` đã init thành công) — LỖI RUNTIME BẤT KỲ (API
+         * không đúng như tài liệu, bản CDN esm-only không lộ hết hàm...) sẽ TẮT HẲN Nebula cho
+         * PHẦN CÒN LẠI của phiên (đặt `spNebulaSystem = null`) rồi fallback pool THREE.Points gốc
+         * (_trySpawnLegacyMeteor(), đã xác nhận chạy được) — KHÔNG BAO GIỜ crash Space vì lý do
+         * Nebula, dù nó có hoạt động đúng như tài liệu hay không. */
         function trySpawnSpaceMeteor(cameraZ, pathParams) {
+            if (spNebulaSystem) {
+                try {
+                    return _trySpawnNebulaMeteor(cameraZ, pathParams);
+                } catch (e) {
+                    console.warn('[three-space] three-nebula lỗi lúc bắn thiên thạch — tắt hẳn cho phiên này, fallback pool THREE.Points gốc:', e);
+                    spNebulaSystem = null;
+                }
+            }
+            return _trySpawnLegacyMeteor(cameraZ, pathParams);
+        }
+
+        /** Kích hoạt 1 sao băng/thiên thạch còn RẢNH trong pool THREE.Points gốc (GIỮ NGUYÊN từ
+         * bản trước, ĐÃ XÁC NHẬN chạy được — dùng làm fallback khi three-nebula không khả dụng). */
+        function _trySpawnLegacyMeteor(cameraZ, pathParams) {
             const pool = appState.get('spMeteorPool');
             const idx = pool.findIndex(m => !m.userData.active);
             if (idx === -1) return false;
@@ -371,6 +458,65 @@
             m.visible = true;
             m.lookAt(m.position.x + m.userData.vx, m.position.y + m.userData.vy, m.position.z + m.userData.vz);
             return true;
+        }
+
+        /** Kích hoạt 1 "thiên thạch" bằng Emitter thật của three-nebula (MỚI 19/07/2026) — TÁI
+         * DÙNG đúng mẫu API trong README chính thức (System/Emitter/Rate/Span/Position/PointZone/
+         * Mass/Radius/Life/Alpha/Scale/Color), KHÔNG tự chế cơ chế particle riêng. Emitter đặt tại
+         * vị trí thiên thạch, cập nhật `.position` mỗi khung hình theo vận tốc -> particle mới sinh
+         * ra LUÔN ở vị trí hiện tại, tạo vệt đuôi tự nhiên (kỹ thuật "trail" chuẩn của mọi particle
+         * engine, không riêng Nebula). Alpha(0.9→0)+Scale(1→0.2) cho vệt mờ dần/nhỏ dần — đúng cảm
+         * giác sao băng hơn hẳn 1 box+sprite tĩnh của pool gốc. */
+        function _trySpawnNebulaMeteor(cameraZ, pathParams) {
+            const { Emitter, Rate, Span, Position, PointZone, Mass, Radius, Life, Alpha, Scale, Color } = window.Nebula;
+            const slot = spNebulaMeteorSlots.find(s => !s.active);
+            if (!slot) return false;
+            const center = getSpacePathOffsetAt(cameraZ, pathParams);
+            const side = Math.random() < 0.5 ? -1 : 1;
+            const startX = center.x + side * (140 + Math.random() * 160);
+            const startY = center.y + (Math.random() - 0.5) * 260;
+            const startZ = cameraZ - 320 - Math.random() * 180;
+            const speed = 12 + Math.random() * 9;
+            slot.vx = -side * speed * 1.15;
+            slot.vy = (Math.random() - 0.5) * 3.5;
+            slot.vz = speed * 1.3;
+            slot.life = 1;
+            const meteorColor = new THREE.Color(getComputedColor(0, 1, Math.round(appState.get('beatScale') * 255)).fill);
+            const emitter = new Emitter();
+            emitter.position.set(startX, startY, startZ);
+            emitter
+                .setRate(new Rate(new Span(3, 6), new Span(0.02)))
+                .setInitializers([new Position(new PointZone(0, 0, 0)), new Mass(1), new Radius(3, 7), new Life(0.7)])
+                .setBehaviours([new Alpha(0.9, 0), new Scale(1, 0.15), new Color(meteorColor, meteorColor)])
+                .emit();
+            spNebulaSystem.addEmitter(emitter);
+            slot.emitter = emitter;
+            slot.active = true;
+            return true;
+        }
+
+        /** Cập nhật + dọn dẹp toàn bộ Emitter thiên thạch three-nebula đang hoạt động, VÀ kiểm tra
+         * va chạm (giống hệt logic pool gốc) — gọi mỗi khung hình từ drawSpace(), bọc try/catch ở
+         * ĐIỂM GỌI (core/visualizer/types/space.js) để lỗi runtime bất kỳ cũng tắt hẳn Nebula, KHÔNG
+         * crash Space. */
+        function updateSpaceNebulaMeteors(currentZ, cam) {
+            spNebulaMeteorSlots.forEach(slot => {
+                if (!slot.active) return;
+                slot.emitter.position.x += slot.vx;
+                slot.emitter.position.y += slot.vy;
+                slot.emitter.position.z += slot.vz;
+                slot.life -= 0.018;
+                const distToCam = Math.abs(slot.emitter.position.z - currentZ);
+                if (distToCam < 110 && Math.abs(slot.emitter.position.x - cam.position.x) < 130 && Math.abs(slot.emitter.position.y - cam.position.y) < 130 && Math.random() > 0.45) {
+                    triggerSpaceCollisionShake();
+                }
+                if (slot.life <= 0) {
+                    spNebulaSystem.removeEmitter(slot.emitter);
+                    slot.active = false;
+                    slot.emitter = null;
+                }
+            });
+            spNebulaSystem.update();
         }
 
         /** Bắt đầu 1 đợt rung camera + flash màu cam/trắng trên canvas 2D khi va chạm. */
