@@ -75,6 +75,17 @@ body {
         canvas { display: block; width: 100vw; height: 100dvh; position: absolute; top: 0; left: 0; pointer-events: none;}
         #webgl-canvas { z-index: 1; } 
         #visualizer { z-index: 10; }
+
+        /* MỚI (19/07/2026, viết lại LẦN 2) — SVG khung khoang lái Space, z-index NGAY TRÊN
+           #visualizer (10), DƯỚI mọi UI chrome thật (#app-stack z-index 60, xem bảng Z_INDEX ở
+           core/config.js). pointer-events: none để không chặn thao tác bên dưới. width/height
+           100% + display:block để lấp đầy đúng viewport (viewBox + preserveAspectRatio="none" lo
+           phần co giãn nội dung bên trong, xem index.html). */
+        #space-glass-frame {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: 11;
+            pointer-events: none; display: block;
+        }
+        #space-glass-frame.hidden { display: none; }
         
         input[type="file"] { display: none; }
 
