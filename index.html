@@ -233,29 +233,20 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-    <!-- MỚI (19/07/2026, yêu cầu Giang — thử tích hợp three-nebula cho thiên thạch Space) —
-         RỦI RO ĐÃ XÁC NHẬN: bản mới nhất (10.0.3, không cập nhật 4 năm) bị jsdelivr gắn nhãn "esm",
-         CÓ THỂ không lộ ra global window.Nebula khi nạp qua thẻ <script> thường (nếu file build là
-         cú pháp ES module `export`, script này sẽ lỗi PARSE — chỉ lỗi RIÊNG file này, KHÔNG ảnh
-         hưởng các <script> khác, xem console nếu muốn kiểm tra). core/webgl/three-space.js tự kiểm
-         tra `typeof window.Nebula` trước khi dùng — KHÔNG có thì tự động fallback về pool
-         THREE.Points thiên thạch gốc (đã xác nhận chạy được), không crash gì cả. -->
-    <!-- MỚI (19/07/2026, yêu cầu Giang) — THAY three-nebula (đã xác nhận KHÔNG lộ window.Nebula
-         qua console log Giang gửi) bằng @newkrok/three-particles — hiện đại hơn hẳn (còn bảo trì,
-         có hỗ trợ WebGPU, tài liệu rõ ràng, CodePen demo chạy thật:
-         codepen.io/NewKrok/pen/GgRzEmP). RỦI RO CÒN LẠI: chưa xác nhận 100% tên global chính xác
-         khi nạp qua <script> thường (README không phân biệt rõ ES-module import vs global) —
-         core/webgl/three-space.js dò nhiều khả năng tên global, fallback pool THREE.Points gốc nếu
-         không tìm thấy cái nào, giống hệt cơ chế guard đã dùng cho bloom/THREEx.Planets. -->
-    <script src="https://cdn.jsdelivr.net/npm/@newkrok/three-particles@latest/dist/three-particles.min.js"></script>
-    <!-- MỚI (19/07/2026, yêu cầu Giang — thử tích hợp THREEx.Planets cho hành tinh/starfield
-         Space) — extension THẬT cho three.js (jeromeetienne/threex.planets, 258 sao GitHub),
-         texture ẢNH THẬT từ planetpixelemporium (Trái Đất/Sao Hoả/Mặt Trời...), KHÔNG phải hình
-         cầu 1 màu tự vẽ. RỦI RO ĐÃ BIẾT: viết cho three.js đời rất cũ (~r70, ~2014) — dự án dùng
-         r128 (2021), giữa 2 mốc three.js đã XOÁ HẲN THREE.Geometry (đổi sang BufferGeometry) và
-         nhiều API khác. core/webgl/three-space.js tự try/catch quanh MỌI lời gọi THREEx.Planets.*
-         — lỗi bất kỳ (kể cả throw ngay khi gọi hàm tạo) đều fallback về texture procedural tự tạo
-         canvas (đã xác nhận chạy được), KHÔNG crash Space. -->
+    <!-- BỎ HẲN (19/07/2026, viết lại LẦN 3, yêu cầu Giang "xoá hết viết lại hết space, bao gồm
+         thư viện đã dùng") — 2 script three-nebula (không lộ window.Nebula, xác nhận qua console
+         log Giang gửi) và @newkrok/three-particles (chưa xác nhận chạy) ĐÃ XOÁ. Vacuum Void quay
+         lại pool THREE.Points gốc (thuộc bản thân three.js, không phải addon ngoài — xem
+         core/webgl/three-space.js). GIỮ LẠI: bloom (2 script trên, ĐÃ XÁC NHẬN không lỗi qua
+         console log) + THREEx.Planets ngay dưới (ĐÃ XÁC NHẬN chạy — chỉ warning deprecated, dùng
+         CHO SUN SYSTEM, đúng nghĩa "sử dụng thư viện" Giang yêu cầu riêng cho kiểu này). -->
+    <!-- MỚI (19/07/2026, yêu cầu Giang — dùng cho Sun System) — extension THẬT cho three.js
+         (jeromeetienne/threex.planets, 258 sao GitHub), texture ẢNH THẬT từ planetpixelemporium
+         (Trái Đất/Sao Hoả/Mặt Trời...), KHÔNG phải hình cầu 1 màu tự vẽ. RỦI RO ĐÃ BIẾT (nhưng ĐÃ
+         XÁC NHẬN VẪN CHẠY qua console log Giang gửi, chỉ warning deprecated không lỗi): viết cho
+         three.js đời rất cũ (~r70, ~2014) — dự án dùng r128 (2021). core/webgl/three-space.js vẫn
+         tự try/catch quanh MỌI lời gọi THREEx.Planets.* — lỗi bất kỳ (từng hành tinh riêng lẻ) đều
+         fallback về texture procedural tự tạo canvas cho ĐÚNG hành tinh đó, không crash cả Space. -->
     <script src="https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/threex.planets.js"></script>
     <!-- Lưu trữ IndexedDB cho nhạc/tag/cover/sub/ảnh-video nền (xem PLAN_INDEXEDDB.md) -->
     <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
@@ -607,7 +598,7 @@
          #webgl-canvas với Vortex ngay trên (2 kiểu không bao giờ active cùng lúc). Xem comment đầu
          file để biết đầy đủ lý do đặt cạnh three-vortex.js. Cả 2 file gom vào core/webgl/ (dời
          19/07/2026, yêu cầu Giang) — XOÁ TAY file cũ core/three-vortex.js. -->
-    <script src="core/webgl/three-space.js?v=20260719v5"></script>
+    <script src="core/webgl/three-space.js?v=20260719v6"></script>
     <script src="core/state-and-video-bg.js?v=20260704v2"></script>
     <!-- core/subtitle/subtitles.js ĐÃ CHUYỂN (10/07/2026) — CHỈ nạp ở subtitle-editor.html giờ
          (soạn phụ đề chuyển sang trang riêng). core/subtitle/subtitle-display.js (hiển thị phụ đề
@@ -713,7 +704,7 @@
     <script src="core/visualizer/types/rubik.js?v=20260625v8e"></script>
     <script src="core/visualizer/types/vortex.js?v=20260625v8e"></script>
     <!-- MỚI (19/07/2026, "Drifting Space") — cùng nhóm WebGL với vortex.js ngay trên. -->
-    <script src="core/visualizer/types/space.js?v=20260719v4"></script>
+    <script src="core/visualizer/types/space.js?v=20260719v5"></script>
     <script src="core/visualizer/types/black-hole.js?v=20260625v8e"></script>
     <script src="core/visualizer/types/rain.js?v=20260704v1"></script>
     <!-- draw-visualizer.js chứa điểm khởi động thực sự của app (DOMContentLoaded ->
