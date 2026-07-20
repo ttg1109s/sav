@@ -76,9 +76,10 @@
             'manual': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         };
 
-        // MỚI (20/07/2026, plan-space-galaxy.md Phần B) — thêm lại 'space' (kiểu con DUY NHẤT
-        // hiện có: 'galaxy', xem vizConfig.spaceStyle) — VIẾT LẠI HOÀN TOÀN, không kế thừa gì từ
-        // bản Space cũ đã xoá trắng trước đó.
+        // MỚI (20/07/2026, plan-space-galaxy.md Phần B) — thêm lại 'space' (visual "Galaxy
+        // Journey", VIẾT LẠI HOÀN TOÀN, không kế thừa gì từ bản Space cũ đã xoá trắng trước đó).
+        // Không có kiểu con nào để chọn (dropdown/setting Galaxy ĐÃ BỎ 21/07/2026, phản hồi Giang
+        // mục 1 — mọi tinh chỉnh giờ là hằng số cố định trong event/workflow/visualizer-render.js).
         const MODES = ['bar', 'lightning', 'rubik', 'vortex', 'black hole', 'rain', 'space'];
 
         // Auto-switch-visual (ver 10): ngưỡng tối thiểu HARDCODE cho mọi cách tính thời gian giữa
@@ -93,15 +94,12 @@
 
         const DEFAULT_VIZ_CONFIG = {
             quality: 'high', type: 'bar', barStyle: 'mirror', vortexStyle: 'rings', rainStyle: 'glass', glassFlash: true, mode: 'solid', 
-            // MỚI (20/07/2026, plan-space-galaxy.md Phần B) — kiểu con của Space, dropdown LUÔN
-            // HIỆN dù hiện chỉ có 1 mục (giữ kiến trúc mở rộng sau này, xem plan B2). 4 field
-            // tinh chỉnh (B5) — ngưỡng/xác suất reroll hướng nhìn VÀ nhảy cụm thiên hà, TÁCH RIÊNG
-            // 2 cặp ngưỡng-xác suất (không dùng chung 1 field, đúng tinh thần các cặp
-            // autoSwitchVisual* ở dưới). Default KHÔNG kế thừa gì từ bản Space cũ, chỉ là điểm
-            // khởi đầu hợp lý — Giang chỉnh tay sau.
-            spaceStyle: 'galaxy',
-            spaceRerollThreshold: 0.6, spaceRerollChance: 0.985,
-            spaceJumpThreshold: 0.8, spaceJumpChance: 0.99,
+            // (20/07/2026, plan-space-galaxy.md Phần B — ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1)
+            // `spaceStyle` + 4 field tinh chỉnh (spaceRerollThreshold/Chance, spaceJumpThreshold/
+            // Chance) TỪNG nằm ở đây, có UI slider riêng — Giang yêu cầu BỎ HẲN phần setting này.
+            // 4 giá trị đó giờ là HẰNG SỐ trong event/workflow/visualizer-render.js (không còn
+            // người dùng chỉnh qua UI, chỉnh tay trong code nếu cần) — xem SPACE_REROLL_*/
+            // SPACE_JUMP_* ở file đó.
             bgColor: '#000000', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', 
             minH: 4, maxH: 400, barWidth: 4, bgImage: '', bgBlur: 0, bgImageEnabled: false,
             // MỚI (07/07/2026, phản hồi Giang — mở đầu Theme thật) — LOẠI TRỪ NHAU:
@@ -270,13 +268,10 @@
                 if (cfg.type === 'synthesia') { cfg.type = 'bar'; cfg.barStyle = 'cascade'; }
                 if (cfg.type === 'firefly_forest' || cfg.type === 'seasons' || cfg.type === 'wave') cfg.type = 'bar';
                 if (!cfg.barStyle) cfg.barStyle = 'mirror';
-                // MỚI (20/07/2026, plan-space-galaxy.md Phần B) — cấu hình cũ (trước khi có Space)
-                // không có các field này -> điền default, tránh `undefined` lọt vào slider/dropdown.
-                if (!cfg.spaceStyle) cfg.spaceStyle = DEFAULT_VIZ_CONFIG.spaceStyle;
-                if (typeof cfg.spaceRerollThreshold !== 'number') cfg.spaceRerollThreshold = DEFAULT_VIZ_CONFIG.spaceRerollThreshold;
-                if (typeof cfg.spaceRerollChance !== 'number') cfg.spaceRerollChance = DEFAULT_VIZ_CONFIG.spaceRerollChance;
-                if (typeof cfg.spaceJumpThreshold !== 'number') cfg.spaceJumpThreshold = DEFAULT_VIZ_CONFIG.spaceJumpThreshold;
-                if (typeof cfg.spaceJumpChance !== 'number') cfg.spaceJumpChance = DEFAULT_VIZ_CONFIG.spaceJumpChance;
+                // (20/07/2026 — ĐÃ BỎ 21/07/2026) — migrate spaceStyle/4 field tinh chỉnh cũ ĐÃ
+                // XOÁ cùng lúc bỏ field khỏi DEFAULT_VIZ_CONFIG (xem comment ở đó). Cấu hình CŨ đã
+                // lỡ lưu các field này (localStorage/IndexedDB, 20-21/07/2026) vô hại — JS đơn
+                // giản bỏ qua field thừa không còn trong schema, không cần dọn tay.
                 if (cfg.mirrorBarCount == null) cfg.mirrorBarCount = 32;
                 if (cfg.bgImageEnabled == null) cfg.bgImageEnabled = false;
                 // MỚI (07/07/2026) — người dùng CŨ đã bật sẵn ảnh nền trước khi có khái niệm Theme
