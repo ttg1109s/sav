@@ -547,33 +547,24 @@ function computeSpaceForwardBasis(forward) {
 }
 
 /**
- * Toạ độ "nút" của sợi vũ trụ, đo `distanceAhead` ĐƠN VỊ KHOẢNG CÁCH (KHÔNG còn phải index) TỪ
- * `originPos` (vị trí camera NGAY LÚC gọi hàm), THEO ĐÚNG hướng camera đang bay (`forward`/
- * `right`/`up`, xem `computeSpaceForwardBasis`) — THAY HẲN cách tính bản trước (trục Z thế giới
- * CỐ ĐỊNH, giả định camera luôn bay -Z).
+ * Toạ độ "nút" của sợi vũ trụ, đo `distanceAhead` ĐƠN VỊ KHOẢNG CÁCH TỪ `originPos` (vị trí camera
+ * NGAY LÚC gọi hàm), THEO ĐÚNG hướng camera đang bay (`forward`/`right`/`up`).
  *
- * FIX (21/07/2026, phản hồi Giang mục 2d — "quay hướng khác thì không sinh thiên hà, nền tối"):
- * bản trước tính vị trí "nút" bằng `-clusterIdx * spacingZ` trên trục Z THẾ GIỚI tuyệt đối — chỉ
- * đúng khi camera luôn bay theo -Z. Từ khi hướng bay là `spLegForward` (mô hình "waypoint nối
- * tiếp", có thể đổi hướng dần qua từng leg — xem `event/workflow/visualizer-render.js`), chuỗi
- * thiên hà PHẢI sinh dọc theo hướng camera ĐANG BAY, không phải trục Z cố định — nếu không, quay
- * sang hướng khác sẽ không có gì phía trước (đúng triệu chứng Giang báo). Gọi hàm này với
- * `originPos`/`forward` LẤY TỪ vị trí/hướng camera HIỆN TẠI mỗi lần cần sinh thêm (xem
- * `event/workflow/visualizer-render.js::_manageSpaceChain()`)
- * — quay hướng nào, chuỗi tự "mọc" theo đúng hướng đó trong vài khung hình.
- *
- * `wobbleSeed` giữ nguyên công thức sin/cos uốn lượn cũ (KHÔNG kế thừa ý nghĩa gì đặc biệt, chỉ
- * là hằng số hợp lý cho hình dạng lượn sóng) — áp theo trục `right`/`up` CỤC BỘ thay vì trục X/Y
- * thế giới.
+ * FIX (21/07/2026, phản hồi Giang lượt 4, mục 3 — "thiên hà sinh mới vẫn phân bố không đều, chỉ
+ * tập trung ở khu vực nào đó"): bản trước lệch ngang/dọc theo `sin(wobbleSeed*0.95)`/
+ * `cos(wobbleSeed*0.7)` — 2 hàm TUẦN HOÀN, biến thiên CHẬM giữa các nút liên tiếp (wobbleSeed chỉ
+ * tăng 1 mỗi nút) — tạo ra 1 "hành lang" hẹp uốn lượn ĐỀU ĐẶN, khiến phần lớn thiên hà nhìn thấy
+ * cùng lúc (nhiều nút trong tầm nhìn 1500 đơn vị) đều dồn về gần CÙNG 1 phía so với trục bay, thay
+ * vì trải khắp màn hình. VIẾT LẠI: NGẪU NHIÊN THẬT (Math.random()) cho mỗi nút — độc lập hoàn toàn
+ * giữa các nút liên tiếp, trải đều thật sự theo thời gian dài. `wobbleSeed` KHÔNG CÒN dùng (bỏ
+ * tham số) vì random thật không cần "hạt giống" tuần tự nữa.
  * @param {THREE.Vector3} originPos @param {THREE.Vector3} forward @param {THREE.Vector3} right
- * @param {THREE.Vector3} up @param {number} distanceAhead @param {number} wobbleSeed
+ * @param {THREE.Vector3} up @param {number} distanceAhead
  * @returns {THREE.Vector3}
  */
-function computeGalaxyClusterCore(originPos, forward, right, up, distanceAhead, wobbleSeed) {
-    // Biên độ TĂNG (fix mục 2, phản hồi 21/07/2026 — trước 110/45 quá hẹp, phần lớn khung hình
-    // vẫn trống dù nút dày hơn — cần trải rộng CẢ theo trục ngang lẫn trục dọc màn hình).
-    const rightWobble = Math.sin(wobbleSeed * 0.95) * 170;
-    const upWobble = Math.cos(wobbleSeed * 0.7) * 90;
+function computeGalaxyClusterCore(originPos, forward, right, up, distanceAhead) {
+    const rightWobble = (Math.random() - 0.5) * 2 * 260;
+    const upWobble = (Math.random() - 0.5) * 2 * 140;
     return originPos.clone()
         .addScaledVector(forward, distanceAhead)
         .addScaledVector(right, rightWobble)
