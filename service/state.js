@@ -95,6 +95,12 @@
             pitchTimeDomainArray: 'any',      // Uint8Array | undefined
             previousSpectrumArray: 'any',     // Float32Array | undefined
             beatTimes: 'array',
+            // MỚI (21/07/2026, phản hồi Giang lượt 4, mục 1) — bộ đếm SỐ BEAT đã phát hiện (tăng
+            // dần, KHÔNG reset trừ lúc đổi bài — xem core/playlist/actions.js) — tăng ngay tại
+            // điểm phát hiện beat CÓ SẴN trong core/audio-analysis.js (cùng chỗ ghi `beatTimes`).
+            // "Bar" (ô nhịp) = `Math.floor(beatCount / 4)`, giả định nhịp 4/4 phổ biến nhất — nơi
+            // dùng: event/workflow/visualizer-render.js (Space, sinh LUT sin theo bar nhạc).
+            beatCount: 'number',
             fluxHistory: 'array',
             frameCounter: 'number',
             dpr: 'number',
@@ -347,6 +353,7 @@
                 pitchTimeDomainArray: undefined,
                 previousSpectrumArray: undefined,
                 beatTimes: [],
+                beatCount: 0,
                 fluxHistory: [],
                 frameCounter: 0,
                 dpr: 1,
