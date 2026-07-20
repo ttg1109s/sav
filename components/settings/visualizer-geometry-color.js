@@ -64,6 +64,7 @@ const TPL_SETTINGS_VISUALIZER = `
                         <option value="vortex" data-i18n="settingsVisualizer.type.vortex">${t('settingsVisualizer.type.vortex')}</option>
                         <option value="black hole" data-i18n="settingsVisualizer.type.blackHole">${t('settingsVisualizer.type.blackHole')}</option>
                         <option value="rain" data-i18n="settingsVisualizer.type.rain">${t('settingsVisualizer.type.rain')}</option>
+                        <option value="space" data-i18n="settingsVisualizer.type.space">${t('settingsVisualizer.type.space')}</option>
                     </select>
                 </div>
                 <div class="flex justify-between items-center p-4 border-b border-white/5">
