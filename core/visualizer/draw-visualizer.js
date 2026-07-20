@@ -67,21 +67,12 @@
 
             if (isPlaying && (cfg.quality === 'high' || cfg.quality === 'medium') && appState.get('smoothedEnergy') > 0.3 && Math.random() > 0.6) spawnFlyingNote();
 
-            // ================== THREEJS VORTEX / SPACE ENGINE ==================
+            // ================== THREEJS VORTEX ENGINE ==================
             // Render qua canvas WebGL riêng (#webgl-canvas), TRƯỚC khi canvas 2D (#visualizer) được
             // clear ở dưới — 2 canvas xếp lớp lên nhau bằng CSS (xem styles.css, #webgl-canvas z-index).
-            // 'space' (MỚI 19/07/2026, "Drifting Space") CÙNG NHÓM với 'vortex' — cả 2 dùng chung
-            // #webgl-canvas, không nằm trong VISUALIZER_DRAWERS (bảng chỉ dành cho canvas 2D).
             if (cfg.type === 'vortex') drawVortex(perf, isPlaying);
-            else if (cfg.type === 'space') drawSpace(perf, isPlaying);
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // "Flash va chạm" (canvas 2D, luôn hiện bất kể khung kính SVG bật/tắt — xem
-            // core/visualizer/draw/space-collision-flash.js). Khung kính khoang lái (item 4) giờ
-            // là SVG DOM riêng (#space-glass-frame, index.html) — toggle qua setSpaceGlassFrame()/
-            // updateTypeUI() (core/visualizer/visualizer-display.js), KHÔNG còn vẽ trên canvas.
-            if (cfg.type === 'space') drawSpaceCollisionFlash(ctx);
 
             const drawFn = VISUALIZER_DRAWERS[cfg.type];
             if (drawFn) drawFn(ctx, perf, isPlaying, appState.get('beatScale'));
