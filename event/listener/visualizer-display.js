@@ -85,12 +85,8 @@ const VISUALIZER_DISPLAY_INPUT_MAP = {
     'setting-max-height': { type: 'visualizerDisplay.maxHeight.input', event: 'input', display: true },
     'setting-bar-width': { type: 'visualizerDisplay.barWidth.input', event: 'input', display: true },
     'setting-mirror-count': { type: 'visualizerDisplay.mirrorCount.input', event: 'input', display: true },
-    // MỚI (Phần B, Galaxy, plan B5/B8) — dropdown kiểu con + 4 slider tinh chỉnh.
-    'setting-space-style': { type: 'visualizerDisplay.spaceStyle.change', event: 'change' },
-    'setting-space-reroll-threshold': { type: 'visualizerDisplay.spaceRerollThreshold.input', event: 'input', display: true },
-    'setting-space-reroll-chance': { type: 'visualizerDisplay.spaceRerollChance.input', event: 'input', display: true },
-    'setting-space-jump-threshold': { type: 'visualizerDisplay.spaceJumpThreshold.input', event: 'input', display: true },
-    'setting-space-jump-chance': { type: 'visualizerDisplay.spaceJumpChance.input', event: 'input', display: true },
+    // (Phần B, Galaxy — 5 entry spaceStyle/4 slider tinh chỉnh ĐÃ BỎ 21/07/2026, phản hồi Giang
+    // mục 1 — panel tinh chỉnh Space đã xoá khỏi components/visualizer-settings-drawer.js).
 };
 
 /** Tìm phần tử CÙNG panel (data-value-target/data-cross-target chỉ là id, không đủ để
