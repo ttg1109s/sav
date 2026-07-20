@@ -46,13 +46,7 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.rainStyle.glass': 'Drips on glass',
     'visualizerSettingsDrawer.rainStyle.street': 'Street & park rain',
     'visualizerSettingsDrawer.glassFlash.label': 'Flash (glass & street lights)',
-    // MỚI (20/07/2026, plan-space-galaxy.md Phần B) — kiểu con Space + 4 slider tinh chỉnh.
-    'visualizerSettingsDrawer.spaceStyle.label': 'Space sub-style',
-    'visualizerSettingsDrawer.spaceStyle.galaxy': 'Galaxy Journey',
-    'visualizerSettingsDrawer.spaceRerollThreshold.label': 'View reroll — energy threshold',
-    'visualizerSettingsDrawer.spaceRerollChance.label': 'View reroll — random chance',
-    'visualizerSettingsDrawer.spaceJumpThreshold.label': 'Cluster jump — energy threshold',
-    'visualizerSettingsDrawer.spaceJumpChance.label': 'Cluster jump — random chance',
+    // (Phần B, Galaxy — 6 key spaceStyle/4 slider tinh chỉnh ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1)
     'visualizerSettingsDrawer.colorSectionTitle': 'Visualizer colors',
     'visualizerSettingsDrawer.bgColor.label': 'Black background color',
     'visualizerSettingsDrawer.colorMode.label': 'Waveform color mode',
