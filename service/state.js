@@ -131,6 +131,23 @@
             tBarRingZs: 'array',
             tWaveMeshes: 'array',
 
+            // ── three/space "Galaxy Journey" (MỚI, 20/07/2026, plan-space-galaxy.md Phần B) ────
+            // DÙNG CHUNG tRenderer/canvas với Vortex ở trên — KHÔNG có tRenderer riêng. Camera/
+            // scene singleton + chuỗi thiên hà, xem plan B7.
+            spScene: 'any',            // THREE.Scene | undefined trước lần đầu vào 'space'
+            spCamera: 'any',           // THREE.PerspectiveCamera | undefined
+            spInitialized: 'boolean',
+            spGlowTexture: 'any',      // THREE.CanvasTexture (sao) | undefined
+            spNebulaTexture: 'any',    // THREE.CanvasTexture (tinh vân) | undefined
+            spDustMesh: 'any',         // THREE.Points (SpaceDust) | undefined
+            spViewDir: 'any',          // THREE.Vector3 — hướng bay/nhìn HIỆN TẠI (hợp nhất, plan B3)
+            spViewDirTarget: 'any',    // THREE.Vector3 — hướng MỤC TIÊU, đổi lúc "reroll"
+            spDriftSpeed: 'number',    // tốc độ hành trình đã làm mượt (EMA), cùng vai trò tWarpSpeed ở Vortex nhưng SỐNG trong STATE (cần reset lúc init lại)
+            spGalaxyClusters: 'array', // mảng instance GalaxyCluster (thay spGalaxySlots bản demo)
+            spNextClusterIndex: 'number',
+            spTotalGalaxiesSpawned: 'number', // bộ đếm ID toàn cục — KHÔNG dùng spGalaxyClusters.length (tránh trùng ID khi splice phần tử cũ)
+            spCurrentTargetIndex: 'nullable-number', // .index của thiên hà đang khoá mục tiêu, null = chưa có
+
             // ── audio engine ──────────────────────────────────────────────────
             audioContext: 'any',           // AudioContext | undefined trước setupAudioContext()
             analyser: 'any',               // AnalyserNode | undefined
@@ -331,6 +348,21 @@
                 tBarsMesh: undefined,
                 tBarRingZs: [],
                 tWaveMeshes: [],
+
+                // ── three/space "Galaxy Journey" (MỚI, plan Phần B) ────────────
+                spScene: undefined,
+                spCamera: undefined,
+                spInitialized: false,
+                spGlowTexture: undefined,
+                spNebulaTexture: undefined,
+                spDustMesh: undefined,
+                spViewDir: undefined,
+                spViewDirTarget: undefined,
+                spDriftSpeed: 0,
+                spGalaxyClusters: [],
+                spNextClusterIndex: 0,
+                spTotalGalaxiesSpawned: 0,
+                spCurrentTargetIndex: null,
 
                 // ── audio engine ──────────────────────────────────────────────
                 audioContext: undefined,

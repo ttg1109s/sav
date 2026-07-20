@@ -19,10 +19,21 @@
  *     trước đây setInterval) cũng đổi sang mode 'timeout' (bù trôi) — chấp nhận overhead bù giờ
  *     ở MỌI task để đổi lấy 1 API thống nhất duy nhất, đúng yêu cầu.
  *
+ * MODE `raf` (MỚI, 20/07/2026, plan-space-galaxy.md Phần A) — nhánh THỨ 3 của `Loop`, bên cạnh
+ * `interval`/`timeout`: dùng `requestAnimationFrame`/`cancelAnimationFrame` thay cho
+ * `setTimeout`/`setInterval` — TỰ GỌI LẠI CHÍNH NÓ bên trong, y hệt cơ chế tự-tái-sinh của mode
+ * `timeout` (KHÔNG liên quan gì tới `eventBus` — đây là nhầm lẫn ban đầu đã sửa lúc lập plan: đừng
+ * lẫn "vòng lặp tự nuôi sống" với "bắn sự kiện"). Dùng cho vòng lặp render 60fps
+ * (`event/workflow/visualizer-render.js`) — nơi DUY NHẤT hợp lệ để 1 Workflow đăng ký task này
+ * (Core CẤM TUYỆT ĐỐI dùng `taskManager`, xem mục 2 dưới, không đổi gì cho mode `raf`).
+ * `time` VÔ NGHĨA với mode này (trình duyệt tự quyết định nhịp vẽ, không hẹn giờ) — `addNew()`/
+ * `enabled()` BỎ QUA việc validate `time > 0` riêng cho mode `raf` (xem `#validate()`/`enabled()`).
+ *
  * 2 KIỂU TASK dùng trong app:
  *   (A) Task LẶP, SỐNG LÂU, có tên cố định, dùng pause()/resume() khi tab ẩn/hiện hoặc nhạc
- *       dừng/phát tiếp — ví dụ 'listenClock', 'autoSwitchVisual'. Đăng ký 1 lần qua addNew(),
- *       enabled() lúc cần bắt đầu, pause()/resume() xuyên suốt đời sống, kill() khi dọn hẳn.
+ *       dừng/phát tiếp — ví dụ 'listenClock', 'autoSwitchVisual', 'visualizerRender' (mode `raf`).
+ *       Đăng ký 1 lần qua addNew(), enabled() lúc cần bắt đầu, pause()/resume() xuyên suốt đời
+ *       sống, kill() khi dọn hẳn.
  *   (B) Task BẮN 1 LẦN (thay cho setTimeout cũ) — đăng ký qua taskManager.once(fn, ms, name?):
  *         - Nếu KHÔNG truyền name: tự sinh tên duy nhất (dùng cho timeout "tạm", có thể cần huỷ
  *           sớm qua taskManager.kill(tênTrảVề) — ví dụ 2 timeout race nhau trong 1 Promise).
@@ -36,9 +47,10 @@
  */
         class Loop {
             /**
-             * @param {number} time - Thời gian lặp (ms)
+             * @param {number} time - Thời gian lặp (ms). VÔ NGHĨA khi mode = 'raf' (xem đầu file).
              * @param {function} callback - Hàm thực thi
              * @param {string} mode - 'interval' (setInterval) hoặc 'timeout' (setTimeout bù giờ)
+             *   hoặc 'raf' (MỚI — requestAnimationFrame, xem đầu file).
              * @param {number} count - Số lần chạy (0 = vô hạn)
              */
             constructor(time = 0, callback = () => { }, mode = 'interval', count = 0) {
@@ -114,12 +126,42 @@
                 }, nextDelay);
             }
 
+            /**
+             * MỚI (mode 'raf') — y hệt cấu trúc #runTimeout() ở trên (chạy callback TRƯỚC, tự
+             * tái-sinh bằng cách gọi lại chính nó SAU), chỉ thay setTimeout/nextDelay bằng
+             * requestAnimationFrame (không có khái niệm "drift bù giờ" — mỗi lần trình duyệt sẵn
+             * sàng vẽ là chạy ngay, không hẹn giờ trước).
+             */
+            #runRaf() {
+                if (!this.isRunning || this.isPaused) return;
+                if (this.isBusy) { // hiếm — 1 tick trước còn đang chạy (lỗi đồng bộ lạ), bỏ qua tick này, vẫn xin tick kế tiếp
+                    this.timerId = requestAnimationFrame(() => { if (this.isRunning) this.#runRaf(); });
+                    return;
+                }
+                this.isBusy = true;
+                this.lastTick = Date.now();
+
+                try {
+                    this.callback();
+                } catch (error) {
+                    console.error("TaskManager Raf Error:", error);
+                }
+
+                this.isBusy = false;
+                if (!this.#tickCount()) return; // count giới hạn đã hết -> #tickCount() tự disabled(), không xin tick nữa
+
+                this.timerId = requestAnimationFrame(() => {
+                    if (this.isRunning) this.#runRaf();
+                });
+            }
+
             enabled() {
                 if (typeof this.callback !== 'function') {
                     console.error("TaskManager: Callback must be a function");
                     return;
                 }
-                if (this.time <= 0) {
+                // mode 'raf': `time` vô nghĩa (trình duyệt tự quyết định nhịp vẽ) — bỏ qua validate này.
+                if (this.mode !== 'raf' && this.time <= 0) {
                     console.error("TaskManager: Time must be greater than 0");
                     return;
                 }
@@ -138,6 +180,10 @@
                     this.timerId = setTimeout(() => {
                         if (this.isRunning) this.#runTimeout();
                     }, this.time);
+                } else if (this.mode === 'raf') {
+                    this.timerId = requestAnimationFrame(() => {
+                        if (this.isRunning) this.#runRaf();
+                    });
                 }
             }
 
@@ -146,6 +192,7 @@
                 this.isPaused = false;
                 if (this.timerId) {
                     if (this.mode === 'interval') clearInterval(this.timerId);
+                    else if (this.mode === 'raf') cancelAnimationFrame(this.timerId);
                     else clearTimeout(this.timerId);
                     this.timerId = null;
                 }
@@ -159,6 +206,11 @@
                 if (this.mode === 'timeout') {
                     this.remainingTime = Math.max(0, this.expected - now);
                     clearTimeout(this.timerId);
+                } else if (this.mode === 'raf') {
+                    // mode 'raf' KHÔNG có khái niệm "thời gian còn lại tới lần chạy kế" (mỗi frame
+                    // chạy NGAY khi trình duyệt cho phép, không hẹn giờ trước) — resume() chỉ cần
+                    // xin lại 1 frame mới ngay lập tức, không dùng remainingTime.
+                    cancelAnimationFrame(this.timerId);
                 } else {
                     this.remainingTime = Math.max(0, this.time - (now - this.lastTick));
                     clearInterval(this.timerId);
@@ -169,6 +221,14 @@
             resume() {
                 if (!this.isRunning || !this.isPaused) return;
                 this.isPaused = false;
+
+                if (this.mode === 'raf') {
+                    // Không cần setTimeout trung gian như 2 mode kia — raf tự nhiên chạy vào frame
+                    // kế tiếp trình duyệt vẽ, xin thẳng 1 frame mới là đủ (đúng tinh thần "resume
+                    // tức thì" của mode này, không có gì để "bù trôi").
+                    this.timerId = requestAnimationFrame(() => { if (this.isRunning) this.#runRaf(); });
+                    return;
+                }
 
                 this.timerId = setTimeout(() => {
                     if (!this.isRunning || this.isPaused) return;
