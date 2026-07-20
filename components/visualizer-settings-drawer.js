@@ -76,37 +76,12 @@ function renderVisualizerPanelBody() {
                             </div>
                         </div>
 
-                        <!-- MỚI (Phần B, Galaxy, plan B5/B8) — dropdown kiểu con Space (LUÔN HIỆN dù
-                             hiện chỉ có 1 mục "Galaxy", giữ kiến trúc mở rộng sau này) + 4 slider tinh
-                             chỉnh, đặt trong khối con 'space-galaxy-tuning' CHỈ hiện khi
-                             'spaceStyle === galaxy' (gate riêng, KHÔNG gate theo cfg.type — xem
-                             updateSpaceStyleUI()). -->
-                        <div id="block-space" class="hidden flex-col bg-cyan-900/10 border-b border-cyan-500/20">
-                            <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors border-b border-cyan-500/10">
-                                <div><div class="text-sm font-medium text-cyan-300" data-i18n="visualizerSettingsDrawer.spaceStyle.label">${t('visualizerSettingsDrawer.spaceStyle.label')}</div></div>
-                                <select id="setting-space-style" class="bg-black/60 border border-cyan-500/30 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
-                                    <option value="galaxy" data-i18n="visualizerSettingsDrawer.spaceStyle.galaxy">${t('visualizerSettingsDrawer.spaceStyle.galaxy')}</option>
-                                </select>
-                            </div>
-                            <div id="space-galaxy-tuning" class="hidden flex-col">
-                                <div class="flex flex-col p-4 border-b border-cyan-500/10 hover:bg-white/5 transition-colors">
-                                    <div class="flex justify-between items-center mb-2"><span class="text-sm font-medium text-cyan-200" data-i18n="visualizerSettingsDrawer.spaceRerollThreshold.label">${t('visualizerSettingsDrawer.spaceRerollThreshold.label')}</span><span id="val-space-reroll-threshold" class="text-xs text-cyan-400 font-mono">0.60</span></div>
-                                    <input type="range" id="setting-space-reroll-threshold" data-value-target="val-space-reroll-threshold" min="0" max="1" step="0.01" class="setting-slider">
-                                </div>
-                                <div class="flex flex-col p-4 border-b border-cyan-500/10 hover:bg-white/5 transition-colors">
-                                    <div class="flex justify-between items-center mb-2"><span class="text-sm font-medium text-cyan-200" data-i18n="visualizerSettingsDrawer.spaceRerollChance.label">${t('visualizerSettingsDrawer.spaceRerollChance.label')}</span><span id="val-space-reroll-chance" class="text-xs text-cyan-400 font-mono">0.985</span></div>
-                                    <input type="range" id="setting-space-reroll-chance" data-value-target="val-space-reroll-chance" min="0.9" max="1" step="0.001" class="setting-slider">
-                                </div>
-                                <div class="flex flex-col p-4 border-b border-cyan-500/10 hover:bg-white/5 transition-colors">
-                                    <div class="flex justify-between items-center mb-2"><span class="text-sm font-medium text-cyan-200" data-i18n="visualizerSettingsDrawer.spaceJumpThreshold.label">${t('visualizerSettingsDrawer.spaceJumpThreshold.label')}</span><span id="val-space-jump-threshold" class="text-xs text-cyan-400 font-mono">0.80</span></div>
-                                    <input type="range" id="setting-space-jump-threshold" data-value-target="val-space-jump-threshold" min="0" max="1" step="0.01" class="setting-slider">
-                                </div>
-                                <div class="flex flex-col p-4 hover:bg-white/5 transition-colors">
-                                    <div class="flex justify-between items-center mb-2"><span class="text-sm font-medium text-cyan-200" data-i18n="visualizerSettingsDrawer.spaceJumpChance.label">${t('visualizerSettingsDrawer.spaceJumpChance.label')}</span><span id="val-space-jump-chance" class="text-xs text-cyan-400 font-mono">0.990</span></div>
-                                    <input type="range" id="setting-space-jump-chance" data-value-target="val-space-jump-chance" min="0.9" max="1" step="0.001" class="setting-slider">
-                                </div>
-                            </div>
-                        </div>
+                        <!-- (Phần B, Galaxy — dropdown kiểu con + 4 slider tinh chỉnh reroll/jump
+                             ĐÃ BỎ HẲN 21/07/2026, phản hồi Giang mục 1 — 4 giá trị đó giờ là hằng
+                             số cố định trong event/workflow/visualizer-render.js, không còn UI
+                             chỉnh. Kiểu hiệu ứng "Space" vẫn chọn được bình thường qua select
+                             chính "Kiểu hiệu ứng" ở components/settings/visualizer-geometry-color.js
+                             — CHỈ bỏ panel tinh chỉnh chi tiết này.) -->
                     </div>
         
                     <h3 class="text-xs font-bold text-rose-400 uppercase tracking-widest mb-2 ml-2" data-i18n="visualizerSettingsDrawer.colorSectionTitle">${t('visualizerSettingsDrawer.colorSectionTitle')}</h3>
