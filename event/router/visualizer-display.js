@@ -152,6 +152,37 @@ const routerVisualizerDisplay = (() => {
                 break;
             }
 
+            // ===================== Space / Galaxy (Phần B) =====================
+            case 'visualizerDisplay.spaceStyle.change': {
+                const { value } = msg.payload;
+                workflowVisualizerDisplay.setSpaceStyle(value);
+                break;
+            }
+
+            case 'visualizerDisplay.spaceRerollThreshold.input': {
+                const { value, displayEl } = msg.payload;
+                workflowVisualizerDisplay.setSpaceRerollThreshold(value, displayEl);
+                break;
+            }
+
+            case 'visualizerDisplay.spaceRerollChance.input': {
+                const { value, displayEl } = msg.payload;
+                workflowVisualizerDisplay.setSpaceRerollChance(value, displayEl);
+                break;
+            }
+
+            case 'visualizerDisplay.spaceJumpThreshold.input': {
+                const { value, displayEl } = msg.payload;
+                workflowVisualizerDisplay.setSpaceJumpThreshold(value, displayEl);
+                break;
+            }
+
+            case 'visualizerDisplay.spaceJumpChance.input': {
+                const { value, displayEl } = msg.payload;
+                workflowVisualizerDisplay.setSpaceJumpChance(value, displayEl);
+                break;
+            }
+
             // ===================== Volume / EQ (Main, KHÔNG di chuyển) =====================
             case 'visualizerDisplay.volume.input': {
                 const { value } = msg.payload;
