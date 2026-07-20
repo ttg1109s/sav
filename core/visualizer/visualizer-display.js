@@ -152,16 +152,23 @@
                         const dustMesh = buildSpaceDustMesh(dustCount, SPACE_DUST_RANGE, appState.get('spGlowTexture'));
                         appState.get('spScene').add(dustMesh);
                         appState.set('spDustMesh', dustMesh);
-                        appState.set('spViewDir', new THREE.Vector3(0, 0, -1));
-                        appState.set('spViewDirTarget', new THREE.Vector3(0, 0, -1));
                         appState.set('spGalaxyClusters', []);
                         appState.set('spNextClusterIndex', 0);
                         appState.set('spTotalGalaxiesSpawned', 0);
                         appState.set('spCurrentTargetIndex', null);
-                        // MỚI (mục 2a) — đảm bảo KHÔNG kẹt ở trạng thái "đang nhảy dở" từ phiên
-                        // trước (không thể xảy ra thật vì spInitialized reset về false mỗi lần
-                        // đổi trang, nhưng khai rõ cho đủ bộ, tránh phụ thuộc ngầm vào default).
-                        appState.set('spJumpActive', false);
+                        // MỚI (21/07/2026, phản hồi Giang lượt 2) — mô hình "waypoint nối tiếp"
+                        // (mục 3) — KHÔNG khởi tạo `spNextPos` ở đây (để trống/undefined có chủ
+                        // đích): `event/workflow/visualizer-render.js::_tickSpace()` tự phát hiện
+                        // `!appState.get('spNextPos')` ở lần tick ĐẦU TIÊN và tự sinh leg đầu tiên
+                        // — tránh trùng lặp logic "sinh leg" ở 2 nơi khác nhau (ở đây và ở Workflow).
+                        appState.set('spNextPos', undefined);
+                        appState.set('spPendingNextPos', undefined);
+                        appState.set('spJumpLocked', false);
+                        // MỚI (21/07/2026, phản hồi Giang lượt 2) — baseline 60 (~nốt Đô giữa,
+                        // tầm trung phổ biến của nhạc cụ/giọng hát), KHÔNG phải 0 — tránh false-
+                        // trigger "đỉnh nốt mới" ngay ở NỐT ĐẦU TIÊN sau khi vừa chuyển sang Space
+                        // (mọi nốt bình thường đều > 0 nên sẽ luôn bị tính nhầm là đỉnh nếu baseline = 0).
+                        appState.set('spHighestNoteSeen', 60);
                         appState.set('spInitialized', true);
                     }
                     // Tone mapping (plan B2) — lưu mặc định (Vortex, KHÔNG set tone mapping riêng —
