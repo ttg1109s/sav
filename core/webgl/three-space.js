@@ -481,8 +481,28 @@ const GALAXY_GENERATORS = {
 // ============================================================================================
 
 /** Chọn ngẫu nhiên 1 trong 10 hình thái. */
-function pickGalaxyType() {
-    return SPACE_GALAXY_TYPES[Math.floor(Math.random() * SPACE_GALAXY_TYPES.length)];
+/**
+ * "Túi xáo trộn" (shuffle bag) chọn hình thái thiên hà — FIX (21/07/2026, phản hồi Giang — "hình
+ * thái thiên hà phân bổ không đều, trùng lặp khá nhiều"): random ĐỘC LẬP thuần tuý (bản trước,
+ * `pickGalaxyType()` — mỗi lần chọn không nhớ gì các lần trước) vẫn có thể ra liên tiếp NHIỀU lần
+ * cùng 1 hình thái hoàn toàn hợp lệ về mặt xác suất (không phải bug, nhưng KHÓ CHỊU về mặt thị
+ * giác — đúng phản ánh của Giang). Giờ đảm bảo mọi 10 hình thái xuất hiện ĐÚNG 1 LẦN mỗi chu kỳ 10
+ * lần chọn (thứ tự bên trong mỗi chu kỳ vẫn NGẪU NHIÊN, chỉ đảm bảo KHÔNG THIẾU/KHÔNG THỪA hình
+ * thái nào trong 1 chu kỳ) — thuật toán Fisher-Yates chuẩn khi túi cạn.
+ * @param {string[]} bag - túi hiện tại (Workflow tự lưu trong STATE, truyền vào đây mỗi lần gọi) —
+ *   rỗng hoặc `null`/`undefined` thì tự nạp lại đầy + xáo trộn.
+ * @returns {{type: string, remainingBag: string[]}}
+ */
+function pickGalaxyTypeFromBag(bag) {
+    let currentBag = (bag && bag.length > 0) ? bag.slice() : SPACE_GALAXY_TYPES.slice();
+    if (currentBag.length === SPACE_GALAXY_TYPES.length) {
+        for (let i = currentBag.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const tmp = currentBag[i]; currentBag[i] = currentBag[j]; currentBag[j] = tmp;
+        }
+    }
+    const type = currentBag.pop();
+    return { type, remainingBag: currentBag };
 }
 
 /** Sinh tên ngẫu nhiên kiểu "Messier Prime-482". */
