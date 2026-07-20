@@ -95,12 +95,9 @@
             pitchTimeDomainArray: 'any',      // Uint8Array | undefined
             previousSpectrumArray: 'any',     // Float32Array | undefined
             beatTimes: 'array',
-            // MỚI (21/07/2026, phản hồi Giang lượt 4, mục 1) — bộ đếm SỐ BEAT đã phát hiện (tăng
-            // dần, KHÔNG reset trừ lúc đổi bài — xem core/playlist/actions.js) — tăng ngay tại
-            // điểm phát hiện beat CÓ SẴN trong core/audio-analysis.js (cùng chỗ ghi `beatTimes`).
-            // "Bar" (ô nhịp) = `Math.floor(beatCount / 4)`, giả định nhịp 4/4 phổ biến nhất — nơi
-            // dùng: event/workflow/visualizer-render.js (Space, sinh LUT sin theo bar nhạc).
-            beatCount: 'number',
+            // (beatCount ĐÃ BỎ, 21/07/2026 lượt 5, mục 4 — "loại bỏ LUT + bar hoàn toàn". Từng
+            // thêm lượt 4 để suy ra "bar" cho Space, nay không còn dùng — dọn sạch, không để lại
+            // hạ tầng chết trong STATE.)
             fluxHistory: 'array',
             frameCounter: 'number',
             dpr: 'number',
@@ -166,22 +163,27 @@
             spLegDuration: 'number',   // tổng thời lượng leg hiện tại (từ BPM lúc bắt đầu + random)
             spPendingNextPos: 'any',   // THREE.Vector3 | null — điểm đến leg KẾ TIẾP, sinh sẵn giữa chừng leg hiện tại
             spPendingForward: 'any',   // THREE.Vector3 | null — hướng của leg KẾ TIẾP
-            // MỚI (21/07/2026, phản hồi Giang lượt 3, mục 4) — LUT sin tạo quỹ đạo uốn lượn mượt
-            // giữa 2 waypoint (thay đường thẳng tắp) — sinh CÙNG LÚC với nextPos/forward của mỗi
-            // leg (cả thường lẫn nhảy), kích thước bảng NGẪU NHIÊN 1-64 mỗi lần.
-            spLegSineLUT: 'any',           // Float32Array — LUT của leg hiện tại
-            spLegSineAmplitude: 'number',  // biên độ (đơn vị 3D) áp cho LUT hiện tại
-            spPendingLegSineLUT: 'any',    // Float32Array | null — LUT của leg KẾ TIẾP
-            spPendingLegSineAmplitude: 'number', // biên độ của leg KẾ TIẾP
-            // "Nhảy" sang thiên hà khác (mục 2 lượt 2, VIẾT LẠI luồng lượt 3 mục 1) — TRIGGER là
-            // NỐT CAO NHẤT vừa vang lên. LƯỢT 3: KHÔNG còn cắt ngang leg hiện tại nữa — jump được
-            // CHÈN VÀO như 1 leg "pending ƯU TIÊN" (spPendingIsJump), tận dụng ĐÚNG cơ chế
-            // blend-hướng-nhìn-mượt sẵn có ở đoạn cuối leg hiện tại (fix triệt để "hard cut" —
-            // không còn cú xoay đột ngột lúc BẮT ĐẦU leg nhảy nữa, xem
-            // event/workflow/visualizer-render.js). `spJumpLocked` khoá NGAY lúc CHÈN (không đợi
-            // tới lúc leg nhảy thật sự bắt đầu) — khoá không cho trigger nhảy chồng lấp + khoá
-            // không cho `_manageSpaceChain()` tự ý ghi đè `spCurrentTargetIndex` suốt từ lúc chèn
-            // tới lúc THỰC SỰ đến nơi (bao gồm cả phần còn lại của leg hiện tại).
+            // (spLegSineLUT/spLegSineAmplitude/spPendingLegSineLUT/spPendingLegSineAmplitude ĐÃ BỎ,
+            // 21/07/2026 lượt 5, mục 4 — "loại bỏ LUT + bar hoàn toàn". Quỹ đạo leg trở lại đường
+            // THẲNG tắp giữa 2 waypoint như trước lượt 3.)
+            // MỚI (21/07/2026, phản hồi Giang lượt 5, mục 5) — "roll camera sau mỗi lượt dựa theo
+            // note pick giống như rubik, nhưng sinh ngẫu nhiên, tái sử dụng": `spNoteRollTable` là
+            // bảng 12 phần tử (1/nốt trong quãng tám, giống cấu trúc RUBIK_NOTE_TO_TURN ở
+            // core/dom-refs.js) nhưng SINH NGẪU NHIÊN 1 LẦN lúc khởi tạo Space (KHÔNG cố định tay
+            // như Rubik) rồi TÁI SỬ DỤNG suốt phiên xem — mỗi lần bắt đầu 1 leg mới, tra bảng theo
+            // `lastValidMidiNote % 12` để lấy góc roll (radian) cho leg đó, xem
+            // event/workflow/visualizer-render.js.
+            spNoteRollTable: 'any',    // number[] (12 phần tử, radian) | undefined trước khi Space init
+            spLegRoll: 'number',       // góc roll ĐANG ÁP DỤNG cho leg hiện tại (radian)
+            spPendingRoll: 'number',   // góc roll của leg KẾ TIẾP — blend dần vào ở đoạn cuối leg hiện tại
+            // "Nhảy" sang thiên hà khác — TRIGGER là NỐT CAO NHẤT vừa vang lên. Jump được CHÈN VÀO
+            // như 1 leg "pending ƯU TIÊN" (spPendingIsJump), tận dụng ĐÚNG cơ chế blend-hướng-nhìn-
+            // mượt sẵn có ở đoạn cuối leg hiện tại (fix triệt để "hard cut" — không còn cú xoay đột
+            // ngột lúc BẮT ĐẦU leg nhảy nữa, xem event/workflow/visualizer-render.js). `spJumpLocked`
+            // khoá NGAY lúc CHÈN (không đợi tới lúc leg nhảy thật sự bắt đầu) — khoá không cho
+            // trigger nhảy chồng lấp + khoá không cho `_manageSpaceChain()` tự ý ghi đè
+            // `spCurrentTargetIndex` suốt từ lúc chèn tới lúc THỰC SỰ đến nơi (bao gồm cả phần còn
+            // lại của leg hiện tại).
             spJumpLocked: 'boolean',
             spHighestNoteSeen: 'number', // "trần" nốt cao nhất gần đây, tự hạ dần theo thời gian (decay) — nốt VƯỢT trần này mới tính là "đỉnh mới"
             spPendingIsJump: 'boolean',            // leg PENDING hiện tại có phải leg nhảy (ưu tiên) hay không
@@ -353,7 +355,6 @@
                 pitchTimeDomainArray: undefined,
                 previousSpectrumArray: undefined,
                 beatTimes: [],
-                beatCount: 0,
                 fluxHistory: [],
                 frameCounter: 0,
                 dpr: 1,
@@ -408,10 +409,9 @@
                 spLegDuration: 0,
                 spPendingNextPos: undefined,
                 spPendingForward: undefined,
-                spLegSineLUT: undefined,
-                spLegSineAmplitude: 0,
-                spPendingLegSineLUT: undefined,
-                spPendingLegSineAmplitude: 0,
+                spNoteRollTable: undefined,
+                spLegRoll: 0,
+                spPendingRoll: 0,
                 spJumpLocked: false,
                 spHighestNoteSeen: 0,
                 spPendingIsJump: false,
