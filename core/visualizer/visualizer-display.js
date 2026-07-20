@@ -163,6 +163,19 @@
                         // — tránh trùng lặp logic "sinh leg" ở 2 nơi khác nhau (ở đây và ở Workflow).
                         appState.set('spNextPos', undefined);
                         appState.set('spPendingNextPos', undefined);
+                        // MỚI (21/07/2026, phản hồi Giang lượt 5, mục 5) — "roll camera sau mỗi
+                        // lượt dựa theo note pick giống như rubik, nhưng sinh ngẫu nhiên, tái sử
+                        // dụng": bảng 12 giá trị (1/nốt trong quãng tám), SINH NGẪU NHIÊN ĐÚNG 1
+                        // LẦN ở đây (giống cấu trúc RUBIK_NOTE_TO_TURN, core/dom-refs.js, nhưng
+                        // KHÔNG cố định tay) — TÁI SỬ DỤNG suốt phiên xem Space, không random lại
+                        // mỗi leg (event/workflow/visualizer-render.js chỉ TRA BẢNG mỗi leg qua
+                        // `_pickNoteRoll()`). Tham chiếu `SPACE_NOTE_ROLL_RANGE` định nghĩa ở
+                        // event/workflow/visualizer-render.js — hợp lệ dù file đó nạp SAU file này
+                        // (tham chiếu xảy ra lúc HÀM NÀY THỰC SỰ CHẠY, luôn sau khi toàn bộ
+                        // <script> trong trang đã parse xong, không phải lúc parse).
+                        appState.set('spNoteRollTable', Array.from({ length: 12 }, () => (Math.random() - 0.5) * 2 * SPACE_NOTE_ROLL_RANGE));
+                        appState.set('spLegRoll', 0);
+                        appState.set('spPendingRoll', 0);
                         appState.set('spPendingIsJump', false);
                         appState.set('spPendingJumpTargetIndex', null);
                         appState.set('spCurrentLegIsJump', false);
