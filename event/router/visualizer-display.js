@@ -151,37 +151,7 @@ const routerVisualizerDisplay = (() => {
                 workflowVisualizerDisplay.setMirrorCount(value, displayEl);
                 break;
             }
-
-            // ===================== Space / Galaxy (Phần B) =====================
-            case 'visualizerDisplay.spaceStyle.change': {
-                const { value } = msg.payload;
-                workflowVisualizerDisplay.setSpaceStyle(value);
-                break;
-            }
-
-            case 'visualizerDisplay.spaceRerollThreshold.input': {
-                const { value, displayEl } = msg.payload;
-                workflowVisualizerDisplay.setSpaceRerollThreshold(value, displayEl);
-                break;
-            }
-
-            case 'visualizerDisplay.spaceRerollChance.input': {
-                const { value, displayEl } = msg.payload;
-                workflowVisualizerDisplay.setSpaceRerollChance(value, displayEl);
-                break;
-            }
-
-            case 'visualizerDisplay.spaceJumpThreshold.input': {
-                const { value, displayEl } = msg.payload;
-                workflowVisualizerDisplay.setSpaceJumpThreshold(value, displayEl);
-                break;
-            }
-
-            case 'visualizerDisplay.spaceJumpChance.input': {
-                const { value, displayEl } = msg.payload;
-                workflowVisualizerDisplay.setSpaceJumpChance(value, displayEl);
-                break;
-            }
+            // (Phần B, Galaxy — 5 case spaceStyle/4 slider ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1)
 
             // ===================== Volume / EQ (Main, KHÔNG di chuyển) =====================
             case 'visualizerDisplay.volume.input': {
