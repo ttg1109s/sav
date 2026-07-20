@@ -164,38 +164,27 @@
                         // — tránh trùng lặp logic "sinh leg" ở 2 nơi khác nhau (ở đây và ở Workflow).
                         appState.set('spNextPos', undefined);
                         appState.set('spPendingNextPos', undefined);
-                        // MỚI (21/07/2026, phản hồi Giang — "tiên đoán trước hướng next roll... khoá
-                        // toàn bộ moving... đợi thêm xong xong rồi mới mở khoá") — reset vùng staging
-                        // pre-spawn, phòng dở dang từ phiên trước (không thể xảy ra thật vì
-                        // spInitialized reset false mỗi lần đổi trang, nhưng khai rõ cho đủ bộ).
+                        // MỚI (21/07/2026, phản hồi Giang — "tiên đoán trước hướng, kiểm tra mật độ
+                        // thiên hà vùng đó rồi mới quyết định thêm... khoá toàn bộ moving... đợi
+                        // thêm xong xong rồi mới mở khoá") — reset vùng staging pre-spawn, phòng dở
+                        // dang từ phiên trước (không thể xảy ra thật vì spInitialized reset false
+                        // mỗi lần đổi trang, nhưng khai rõ cho đủ bộ).
                         appState.set('spPreSpawnLocked', false);
                         appState.set('spPreSpawnForward', undefined);
                         appState.set('spPreSpawnNextPos', undefined);
-                        appState.set('spPreSpawnRoll', 0);
-                        appState.set('spPreSpawnIsJump', false);
-                        appState.set('spPreSpawnJumpTargetIndex', null);
-                        // MỚI (21/07/2026, phản hồi Giang lượt 5, mục 5) — "roll camera sau mỗi
-                        // lượt dựa theo note pick giống như rubik, nhưng sinh ngẫu nhiên, tái sử
-                        // dụng": bảng 12 giá trị (1/nốt trong quãng tám), SINH NGẪU NHIÊN ĐÚNG 1
-                        // LẦN ở đây (giống cấu trúc RUBIK_NOTE_TO_TURN, core/dom-refs.js, nhưng
-                        // KHÔNG cố định tay) — TÁI SỬ DỤNG suốt phiên xem Space, không random lại
-                        // mỗi leg (event/workflow/visualizer-render.js chỉ TRA BẢNG mỗi leg qua
-                        // `_pickNoteRoll()`). Tham chiếu `SPACE_NOTE_ROLL_RANGE` định nghĩa ở
-                        // event/workflow/visualizer-render.js — hợp lệ dù file đó nạp SAU file này
-                        // (tham chiếu xảy ra lúc HÀM NÀY THỰC SỰ CHẠY, luôn sau khi toàn bộ
-                        // <script> trong trang đã parse xong, không phải lúc parse).
-                        appState.set('spNoteRollTable', Array.from({ length: 12 }, () => (Math.random() - 0.5) * 2 * SPACE_NOTE_ROLL_RANGE));
-                        appState.set('spLegRoll', 0);
-                        appState.set('spPendingRoll', 0);
-                        appState.set('spPendingIsJump', false);
-                        appState.set('spPendingJumpTargetIndex', null);
-                        appState.set('spCurrentLegIsJump', false);
-                        appState.set('spJumpLocked', false);
-                        // MỚI (21/07/2026, phản hồi Giang lượt 2) — baseline 60 (~nốt Đô giữa,
-                        // tầm trung phổ biến của nhạc cụ/giọng hát), KHÔNG phải 0 — tránh false-
-                        // trigger "đỉnh nốt mới" ngay ở NỐT ĐẦU TIÊN sau khi vừa chuyển sang Space
-                        // (mọi nốt bình thường đều > 0 nên sẽ luôn bị tính nhầm là đỉnh nếu baseline = 0).
-                        appState.set('spHighestNoteSeen', 60);
+                        // VIẾT LẠI (21/07/2026, phản hồi Giang — "roll... đang bị hiểu nhầm thành
+                        // rotate 2D chứ không phải bẻ hướng di chuyển của camera theo 360 độ theo
+                        // pitch note") — bảng 12 giá trị GÓC BẺ LÁI (radian, [-π,π), đủ 360°), giống
+                        // cấu trúc RUBIK_NOTE_TO_TURN (core/dom-refs.js) nhưng SINH NGẪU NHIÊN 1
+                        // LẦN ở đây (KHÔNG cố định tay), TÁI SỬ DỤNG suốt phiên xem Space — mỗi lần
+                        // sinh hướng leg mới, tra bảng theo nốt hiện tại rồi XOAY THẲNG vector
+                        // forward sang hướng đó (`steerSpaceForward()`, core/webgl/three-space.js —
+                        // xem event/workflow/visualizer-render.js::_computeNextNormalLeg()), KHÔNG
+                        // còn là 1 phép xoay cosmetic quanh trục nhìn như trước nữa. Tham chiếu
+                        // `SPACE_NOTE_STEER_RANGE` định nghĩa ở event/workflow/visualizer-render.js —
+                        // hợp lệ dù file đó nạp SAU file này (tham chiếu xảy ra lúc HÀM NÀY THỰC SỰ
+                        // CHẠY, luôn sau khi toàn bộ <script> trong trang đã parse xong).
+                        appState.set('spNoteSteerTable', Array.from({ length: 12 }, () => (Math.random() - 0.5) * 2 * SPACE_NOTE_STEER_RANGE));
                         appState.set('spInitialized', true);
                     }
                     // Tone mapping (plan B2) — lưu mặc định (Vortex, KHÔNG set tone mapping riêng —
