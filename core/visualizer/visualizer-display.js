@@ -158,6 +158,10 @@
                         appState.set('spNextClusterIndex', 0);
                         appState.set('spTotalGalaxiesSpawned', 0);
                         appState.set('spCurrentTargetIndex', null);
+                        // MỚI (mục 2a) — đảm bảo KHÔNG kẹt ở trạng thái "đang nhảy dở" từ phiên
+                        // trước (không thể xảy ra thật vì spInitialized reset về false mỗi lần
+                        // đổi trang, nhưng khai rõ cho đủ bộ, tránh phụ thuộc ngầm vào default).
+                        appState.set('spJumpActive', false);
                         appState.set('spInitialized', true);
                     }
                     // Tone mapping (plan B2) — lưu mặc định (Vortex, KHÔNG set tone mapping riêng —
@@ -193,14 +197,13 @@
                 const blockVortexEl = document.getElementById('block-vortex');
                 const blockRainEl = document.getElementById('block-rain');
                 const blockBarStyleEl = document.getElementById('block-bar-style');
-                const blockSpaceEl = document.getElementById('block-space'); // MỚI (Phần B, Galaxy)
 
                 blockMaxHeightEl.classList.add('hidden'); blockBarWidthEl.classList.add('hidden');
                 blockVortexEl.classList.add('hidden'); blockRainEl.classList.add('hidden'); blockBarStyleEl.classList.add('hidden');
-                if (blockSpaceEl) blockSpaceEl.classList.add('hidden');
 
                 if (cfg.type === 'vortex') { blockVortexEl.classList.remove('hidden'); blockVortexEl.classList.add('flex'); }
-                else if (cfg.type === 'space') { if (blockSpaceEl) { blockSpaceEl.classList.remove('hidden'); blockSpaceEl.classList.add('flex'); updateSpaceStyleUI(); } }
+                // 'space' KHÔNG có panel tinh chỉnh riêng (đã bỏ 21/07/2026, phản hồi Giang mục 1)
+                // — không cần nhánh nào ở đây, engine Galaxy tự khởi tạo ở khối phía trên.
                 else if (cfg.type === 'rain') { blockRainEl.classList.remove('hidden'); blockRainEl.classList.add('flex'); }
                 else if (cfg.type === 'bar') {
                     // "Độ cao tối đa" vẫn dùng chung cho Bar (cả mirror/cascade); "Độ dày thanh" KHÔNG
@@ -234,20 +237,8 @@
             barMirrorOptionsEl.classList.toggle('flex', isMirror);
         }
 
-        /**
-         * MỚI (Phần B, Galaxy, plan B5) — hiện/ẩn khối 4 slider tinh chỉnh (reroll/jump threshold/
-         * chance) theo `cfg.spaceStyle` — GATE THEO `spaceStyle`, KHÔNG gate theo `cfg.type==='space'`
-         * (đã gate ở tầng ngoài `block-space` rồi, xem updateTypeUI()) — để tự ẩn nếu sau này có
-         * thêm kiểu con Space khác không cần đúng 2 ngưỡng reroll/jump này (đúng chốt của Giang).
-         * Cùng pattern HOTFIX 2 — truy vấn TƯƠI qua document.getElementById(), không dựa dom-refs tĩnh.
-         */
-        function updateSpaceStyleUI() {
-            const tuningEl = document.getElementById('space-galaxy-tuning');
-            if (!tuningEl) return;
-            const isGalaxy = appState.get('vizConfig').spaceStyle === 'galaxy';
-            tuningEl.classList.toggle('hidden', !isGalaxy);
-            tuningEl.classList.toggle('flex', isGalaxy);
-        }
+        // (Phần B, Galaxy — updateSpaceStyleUI() ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1, cùng lúc
+        // xoá panel tinh chỉnh 4 slider reroll/jump khỏi components/visualizer-settings-drawer.js)
 
         /** HOTFIX 2 (07/07/2026) — cùng sửa như updateTypeUI()/updateBarStyleUI(): `solidColorContainer`/
          * `dynColorContainer` KHÔNG tồn tại nữa — đổi sang `document.getElementById()` truy vấn tươi. */
@@ -406,39 +397,10 @@
             appState.mutate('vizConfig', cfg => { cfg.rainStyle = value; });
         }
 
-        /** Core thuần: kiểu con của Space (MỚI, Phần B — hiện chỉ có 'galaxy', dropdown LUÔN HIỆN
-         * để giữ kiến trúc mở rộng sau này, xem plan B2). */
-        function setSpaceStyle(value) {
-            appState.mutate('vizConfig', cfg => { cfg.spaceStyle = value; });
-        }
-
-        /** Core thuần: ngưỡng năng lượng để "reroll" hướng nhìn mới (plan B5). @param {string} value @param {HTMLElement} [displayEl] */
-        function setSpaceRerollThreshold(value, displayEl) {
-            const v = parseFloat(value);
-            appState.mutate('vizConfig', cfg => { cfg.spaceRerollThreshold = v; });
-            if (displayEl) displayEl.textContent = v.toFixed(2);
-        }
-
-        /** Core thuần: xác suất random đi kèm ngưỡng reroll (plan B5). @param {string} value @param {HTMLElement} [displayEl] */
-        function setSpaceRerollChance(value, displayEl) {
-            const v = parseFloat(value);
-            appState.mutate('vizConfig', cfg => { cfg.spaceRerollChance = v; });
-            if (displayEl) displayEl.textContent = v.toFixed(3);
-        }
-
-        /** Core thuần: ngưỡng năng lượng để nhảy sang cụm thiên hà kế tiếp (plan B5). @param {string} value @param {HTMLElement} [displayEl] */
-        function setSpaceJumpThreshold(value, displayEl) {
-            const v = parseFloat(value);
-            appState.mutate('vizConfig', cfg => { cfg.spaceJumpThreshold = v; });
-            if (displayEl) displayEl.textContent = v.toFixed(2);
-        }
-
-        /** Core thuần: xác suất random đi kèm ngưỡng nhảy cụm (plan B5). @param {string} value @param {HTMLElement} [displayEl] */
-        function setSpaceJumpChance(value, displayEl) {
-            const v = parseFloat(value);
-            appState.mutate('vizConfig', cfg => { cfg.spaceJumpChance = v; });
-            if (displayEl) displayEl.textContent = v.toFixed(3);
-        }
+        // (Phần B, Galaxy — setSpaceStyle()/setSpaceRerollThreshold()/setSpaceRerollChance()/
+        // setSpaceJumpThreshold()/setSpaceJumpChance() ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1 —
+        // 4 giá trị ngưỡng/xác suất giờ là hằng số cố định trong
+        // event/workflow/visualizer-render.js, KHÔNG còn chỉnh qua UI/vizConfig.)
 
         /** Core thuần: bật/tắt hiệu ứng chớp kính (Rain). Batch D3 — BỎ `saveConfig()` nội bộ. */
         function setGlassFlash(checked) {
