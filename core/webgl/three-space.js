@@ -43,12 +43,10 @@ const SPACE_GALAXY_NAME_SUFFIXES = ['X-1', 'Prime', 'Alpha', 'Beta-9', 'V', 'Zet
 /** 10 hình thái thiên hà — khớp 1:1 với 10 hàm `generate*Positions` + `GALAXY_GENERATORS` bên dưới. */
 const SPACE_GALAXY_TYPES = ['Spiral', 'Barred Spiral', 'Elliptical', 'Ring', 'Irregular', 'Lenticular', 'Flocculent Spiral', 'Sombrero', 'Cartwheel', 'Peculiar'];
 
-/** Palette CỐ ĐỊNH cho 1 số hình thái đặc thù (KHÔNG dùng dynA/dynB — màu này gắn với chính hình
- * dạng thiên hà, ví dụ thiên hà già Elliptical/Lenticular luôn ngả vàng-cam, không phụ thuộc gu
- * màu người dùng chọn cho hiệu ứng khác). Hình thái KHÔNG có trong bảng này (Spiral/Barred
- * Spiral/Ring/Irregular/Flocculent Spiral) dùng thẳng `cfg.dynA`/`cfg.dynB` — xem
- * `pickGalaxyPalette()`, đúng plan B4 ("colorIn/colorOut cơ bản | cfg.dynA/cfg.dynB | Thay 5
- * palette hard-code"). */
+/** Palette CỐ ĐỊNH cho 1 số hình thái đặc thù (KHÔNG đổi theo `mode`/`dynA`/`dynB` — màu này gắn
+ * với chính hình dạng thiên hà, ví dụ thiên hà già Elliptical/Lenticular luôn ngả vàng-cam, không
+ * phụ thuộc gu màu người dùng chọn). Hình thái KHÔNG có trong bảng này (Spiral/Barred Spiral/
+ * Ring/Irregular/Flocculent Spiral) tôn trọng `vizConfig.mode` — xem `pickGalaxyPalette()`. */
 const SPACE_GALAXY_SPECIAL_PALETTES = {
     'Elliptical': { in: '#f59e0b', out: '#b45309' },
     'Lenticular': { in: '#f59e0b', out: '#b45309' },
@@ -495,15 +493,23 @@ function generateRandomGalaxyName() {
 
 /**
  * Palette (colorIn/colorOut) theo hình thái — 5 hình thái ĐẶC THÙ dùng màu CỐ ĐỊNH
- * (`SPACE_GALAXY_SPECIAL_PALETTES`, gắn với chính hình dạng vật lý), 5 hình thái còn lại dùng
- * THẲNG `dynA`/`dynB` của người dùng (plan B4 — thay hẳn 5 palette random hard-code bản demo).
+ * (`SPACE_GALAXY_SPECIAL_PALETTES`, gắn với chính hình dạng vật lý, KHÔNG đổi theo `mode`), 5 hình
+ * thái còn lại tôn trọng `vizConfig.mode` — ĐÚNG yêu cầu #3 `readme/visual-conventions.md` ("màu
+ * phải lấy từ helper màu chung/solidColor/dynA-dynB theo lựa chọn người dùng", KHÔNG hard-code):
+ * FIX (21/07/2026, phản hồi Giang mục 4 — "chưa áp dụng file md visualizer") — bản trước LUÔN
+ * dùng `dynA`/`dynB` bất kể `mode` đang là gì, kể cả khi người dùng chọn 'solid' — SAI, đã sửa:
+ * `mode === 'solid'` giờ dùng `solidColor` cho CẢ colorIn/colorOut (đúng bản chất "1 màu duy
+ * nhất" mà mọi visual khác áp dụng cho mode này); `dynamic`/`gradient` dùng `dynA`/`dynB` (gradient
+ * còn được hue-shift theo `globalHueOffset` mỗi frame — xem `GalaxyCluster.update()`/
+ * `event/workflow/visualizer-render.js`, KHÔNG đụng ở hàm này).
  * Guard clause thuần (Rule 1) — KHÔNG phải rẽ nhánh 2 tiến trình khác nhau: xoá `if` đi, hàm vẫn
  * còn ĐÚNG 1 kịch bản "tra bảng lấy palette", chỉ mất phần "trường hợp đặc biệt có palette cố định".
- * @param {string} type @param {string} dynA @param {string} dynB
+ * @param {string} type @param {string} mode @param {string} solidColor @param {string} dynA @param {string} dynB
  * @returns {{in: string, out: string}}
  */
-function pickGalaxyPalette(type, dynA, dynB) {
+function pickGalaxyPalette(type, mode, solidColor, dynA, dynB) {
     if (SPACE_GALAXY_SPECIAL_PALETTES[type]) return SPACE_GALAXY_SPECIAL_PALETTES[type];
+    if (mode === 'solid') return { in: solidColor, out: solidColor };
     return { in: dynA, out: dynB };
 }
 
@@ -522,14 +528,52 @@ function buildGalaxyGeometryConfig(radius) {
 // 5. CHUỖI THIÊN HÀ — toán học vị trí "nút" sợi vũ trụ + phân tán thành viên quanh nút
 // ============================================================================================
 
-/** Toạ độ tâm ("nút") thứ `clusterIdx` của sợi vũ trụ — đường uốn lượn sin/cos liên tục (KHÔNG
- * liên quan gì tới Ken Burns sin/cos bản Space cũ — đây là toán vị trí KHÔNG GIAN 3D, khác hẳn
- * bản chất "pan camera 2D" của Ken Burns). @returns {THREE.Vector3} */
-function computeGalaxyClusterCore(clusterIdx, spacingZ) {
-    const zCenter = -clusterIdx * spacingZ;
-    const xCenter = Math.sin(clusterIdx * 0.95) * 110;
-    const yCenter = Math.cos(clusterIdx * 0.7) * 45;
-    return new THREE.Vector3(xCenter, yCenter, zCenter);
+/**
+ * Hệ trục cục bộ (phải/trên) TỪ hướng bay hiện tại `forward` — dùng để đặt các "nút" chuỗi thiên
+ * hà lệch trái/phải/trên/dưới quanh trục tiến, THAY vì cố định theo trục X/Y thế giới (bản trước) —
+ * cần thiết từ khi camera có thể quay bất kỳ hướng nào (xem `computeGalaxyClusterCore` ngay dưới).
+ * Guard: khi `forward` gần như thẳng đứng (nhìn gần thẳng lên/xuống), `cross(forward, worldUp)`
+ * suy biến gần 0 (2 vector gần song song) — dùng trục X thế giới làm tham chiếu dự phòng.
+ * @param {THREE.Vector3} forward - ĐÃ normalize
+ * @returns {{right: THREE.Vector3, up: THREE.Vector3}}
+ */
+function computeSpaceForwardBasis(forward) {
+    const worldUp = new THREE.Vector3(0, 1, 0);
+    const right = new THREE.Vector3().crossVectors(forward, worldUp);
+    if (right.lengthSq() < 0.0001) right.set(1, 0, 0); else right.normalize();
+    const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+    return { right, up };
+}
+
+/**
+ * Toạ độ "nút" của sợi vũ trụ, đo `distanceAhead` ĐƠN VỊ KHOẢNG CÁCH (KHÔNG còn phải index) TỪ
+ * `originPos` (vị trí camera NGAY LÚC gọi hàm), THEO ĐÚNG hướng camera đang bay (`forward`/
+ * `right`/`up`, xem `computeSpaceForwardBasis`) — THAY HẲN cách tính bản trước (trục Z thế giới
+ * CỐ ĐỊNH, giả định camera luôn bay -Z).
+ *
+ * FIX (21/07/2026, phản hồi Giang mục 2d — "quay hướng khác thì không sinh thiên hà, nền tối"):
+ * bản trước tính vị trí "nút" bằng `-clusterIdx * spacingZ` trên trục Z THẾ GIỚI tuyệt đối — chỉ
+ * đúng khi camera luôn bay theo -Z. Từ khi hướng bay hợp nhất với hướng nhìn (`spViewDir`, plan
+ * B3) và có thể quay bất kỳ hướng nào (mục 2c), chuỗi thiên hà PHẢI sinh dọc theo hướng camera
+ * ĐANG NHÌN, không phải trục Z cố định — nếu không, quay sang hướng khác sẽ không có gì phía
+ * trước (đúng triệu chứng Giang báo). Gọi hàm này với `originPos`/`forward` LẤY TỪ vị trí/hướng
+ * camera HIỆN TẠI mỗi lần cần sinh thêm (xem `event/workflow/visualizer-render.js::_manageSpaceChain()`)
+ * — quay hướng nào, chuỗi tự "mọc" theo đúng hướng đó trong vài khung hình.
+ *
+ * `wobbleSeed` giữ nguyên công thức sin/cos uốn lượn cũ (KHÔNG kế thừa ý nghĩa gì đặc biệt, chỉ
+ * là hằng số hợp lý cho hình dạng lượn sóng) — áp theo trục `right`/`up` CỤC BỘ thay vì trục X/Y
+ * thế giới.
+ * @param {THREE.Vector3} originPos @param {THREE.Vector3} forward @param {THREE.Vector3} right
+ * @param {THREE.Vector3} up @param {number} distanceAhead @param {number} wobbleSeed
+ * @returns {THREE.Vector3}
+ */
+function computeGalaxyClusterCore(originPos, forward, right, up, distanceAhead, wobbleSeed) {
+    const rightWobble = Math.sin(wobbleSeed * 0.95) * 110;
+    const upWobble = Math.cos(wobbleSeed * 0.7) * 45;
+    return originPos.clone()
+        .addScaledVector(forward, distanceAhead)
+        .addScaledVector(right, rightWobble)
+        .addScaledVector(up, upWobble);
 }
 
 /** Offset ngẫu nhiên (phân tán chặt quanh 1 nút) cho 1 thành viên trong cụm 2-3 thiên hà.
@@ -545,13 +589,17 @@ function computeGalaxyMemberOffset() {
     );
 }
 
+/** Biên độ pitch (radian) khi "reroll" hướng nhìn mới — TĂNG so với bản trước (0.5π) theo yêu cầu
+ * "tăng ngưỡng có thể xoay lên cao hơn" (phản hồi 21/07/2026, mục 2c). */
+const SPACE_REROLL_PITCH_RANGE = Math.PI * 0.85;
+
 /** Hướng nhìn/di chuyển MỤC TIÊU mới lúc "reroll" (plan B3/B4) — hình nón ngẫu nhiên hướng về
  * phía trước (-Z), lệch theo `pitchBias` (nốt cao -> thiên hướng "lên", nốt thấp -> "xuống").
  * @param {number} pitchBias - radian, âm/dương lệch trục pitch, đã tính sẵn bởi Workflow.
  * @returns {THREE.Vector3} */
 function rollNewSpaceViewDirTarget(pitchBias) {
     const yaw = (Math.random() - 0.5) * Math.PI * 0.9;
-    const pitch = (Math.random() - 0.5) * Math.PI * 0.5 + pitchBias;
+    const pitch = (Math.random() - 0.5) * SPACE_REROLL_PITCH_RANGE + pitchBias;
     return new THREE.Vector3(
         Math.sin(yaw) * Math.cos(pitch),
         Math.sin(pitch),
