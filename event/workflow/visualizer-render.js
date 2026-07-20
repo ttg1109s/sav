@@ -96,7 +96,13 @@ const SPACE_JUMP_LEG_SPEED_MULT = 3.0;
 // suốt phiên xem, KHÔNG random lại mỗi leg (chỉ TRA BẢNG mỗi leg, giống hệt cách Rubik tra
 // RUBIK_NOTE_TO_TURN cố định — khác duy nhất ở chỗ bảng của Space được random SINH RA thay vì gõ
 // tay cố định).
-const SPACE_NOTE_ROLL_RANGE = Math.PI * 0.4; // ±72° — biên độ roll tối đa khi sinh bảng
+// FIX (21/07/2026, phản hồi Giang lượt 6 — "có đảm bảo roll 360 độ không đấy?"): TRƯỚC ĐÂY chỉ
+// ±72° (Math.PI*0.4, tổng biên độ 144°) — tôi TỰ giới hạn mà chưa hỏi lại, SAI với kỳ vọng "note
+// pick giống Rubik" (Rubik xoay đủ mọi góc theo lượt). Giờ ĐỦ 360°: khoảng [-π, π) — công thức
+// sinh bảng bên dưới `(Math.random()-0.5)*2*SPACE_NOTE_ROLL_RANGE` với range=π cho ra ĐÚNG [-π,
+// π), phủ TOÀN BỘ vòng tròn (góc -170° và +190° là CÙNG 1 hướng vật lý, nên [-π,π) đã đủ, không
+// cần thêm gì).
+const SPACE_NOTE_ROLL_RANGE = Math.PI;
 
 // Tốc độ tự quay CHUNG của thiên hà (sao/nebula) — hệ số NHÂN CHUNG nhẹ lên trên `rotationSpeed`
 // RIÊNG của từng thiên hà (đã random khi spawn, biên độ rộng 0.05-0.6 — xem _manageSpaceChain) —
@@ -300,7 +306,15 @@ const workflowVisualizerRender = {
             const blendT = Math.min(1, (progress - SPACE_LEG_BLEND_START) / (1 - SPACE_LEG_BLEND_START));
             orientForward = legForward.clone().lerp(pendingForward, blendT).normalize();
             const pendingRoll = appState.get('spPendingRoll');
-            appliedRoll = appliedRoll + (pendingRoll - appliedRoll) * blendT;
+            // FIX (21/07/2026, phản hồi Giang lượt 6) — blend theo ĐƯỜNG NGẮN NHẤT, KHÔNG lerp
+            // tuyến tính thô 2 giá trị góc: biên độ roll giờ ĐỦ 360° (-π..π), 2 góc có thể nằm 2
+            // phía đối lập biên ±π (VD 170° và -170° — vật lý chỉ cách nhau 20°, nhưng lerp thô sẽ
+            // đi vòng qua 0° hết 340°, quay 1 vòng dư thừa rất khó chịu). Chuẩn hoá chênh lệch góc
+            // về (-π, π] trước khi lerp để LUÔN chọn hướng quay gần hơn.
+            let rollDelta = pendingRoll - appliedRoll;
+            while (rollDelta > Math.PI) rollDelta -= Math.PI * 2;
+            while (rollDelta < -Math.PI) rollDelta += Math.PI * 2;
+            appliedRoll = appliedRoll + rollDelta * blendT;
         }
         const orientBasis = computeSpaceForwardBasis(orientForward); // core
         const rolledBasis = applySpaceRoll(orientBasis.right, orientBasis.up, appliedRoll); // core — mục 5
