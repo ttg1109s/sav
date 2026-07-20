@@ -424,7 +424,7 @@
          core/config.js (vizConfig khởi tạo bằng { ...CONST.DEFAULT_VIZ_CONFIG }) và trước toàn bộ
          core/ còn lại; PHẢI nạp SAU core/modal-choice.js (alertModal, dùng cho option notifyUI).
          Xem comment đầu file service/state.js. -->
-    <script src="service/state.js?v=20260721v5"></script>
+    <script src="service/state.js?v=20260721v6"></script>
     <script src="core/config.js?v=20260721v1"></script>
     <!-- event/store.js (class EventStore) — CHỈ riêng file NÀY trong toàn bộ /event/ được nạp SỚM
          ở đây, KHÔNG đợi xuống cuối cùng cùng bus/workflow/router/listener. Lý do: playlist/
@@ -531,7 +531,7 @@
     <!-- core/webgl/three-space.js — VIẾT LẠI HOÀN TOÀN (20/07/2026, plan-space-galaxy.md Phần B,
          "Galaxy Journey") — không còn rỗng. Engine dùng CHUNG canvas/renderer với Vortex (dòng
          script ngay trên) — KHÔNG tạo WebGLRenderer/resize listener riêng, xem initThreeSpace(). -->
-    <script src="core/webgl/three-space.js?v=20260721v5"></script>
+    <script src="core/webgl/three-space.js?v=20260721v6"></script>
     <script src="core/state-and-video-bg.js?v=20260704v2"></script>
     <!-- core/subtitle/subtitles.js ĐÃ CHUYỂN (10/07/2026) — CHỈ nạp ở subtitle-editor.html giờ
          (soạn phụ đề chuyển sang trang riêng). core/subtitle/subtitle-display.js (hiển thị phụ đề
@@ -618,7 +618,7 @@
          resizeCanvas), core/upload-validation.js, core/loading-shield-util.js, core/modal-choice.js,
          core/color-utils.js (updatePlaylistBg, updateDOMBackground) — TẤT CẢ đã nạp từ khu CORE
          ở trên, nên an toàn đặt ở đây. Xem comment đầu file để biết đầy đủ. -->
-    <script src="core/visualizer/visualizer-display.js?v=20260721v4"></script>
+    <script src="core/visualizer/visualizer-display.js?v=20260721v5"></script>
     <!-- Tự động đổi hiệu ứng Visualizer theo thời gian (ver 10, ĐỔI vị trí ver 11: trước đây nạp
          ngay sau player-controls.js ở khu CORE — giờ PHẢI nạp SAU visualizer-display.js vì file
          đó định nghĩa updateTypeUI/saveConfig mà auto-switch-visual.js cần, xem comment đầu file
@@ -640,7 +640,7 @@
          Phần B) — không còn rỗng. Vài hàm Core nhỏ chạy MỖI FRAME (camera/chain/render/dust),
          gọi bởi event/workflow/visualizer-render.js::_tickSpace() — xem đầu file để biết quy tắc
          "không hàm nào gọi hàm khác" áp dụng CẢ 2 file core/webgl/three-space.js lẫn file này. -->
-    <script src="core/visualizer/types/space.js?v=20260721v4"></script>
+    <script src="core/visualizer/types/space.js?v=20260721v5"></script>
     <script src="core/visualizer/types/black-hole.js?v=20260625v8e"></script>
     <script src="core/visualizer/types/rain.js?v=20260704v1"></script>
     <!-- draw-visualizer.js GIẢI THỂ HOÀN TOÀN (0 byte, 20/07/2026, plan-space-galaxy.md Phần A) —
@@ -656,7 +656,7 @@
          file này — đã parse xong). Đặt Ở ĐÂY (thay vì trong /event/ phía dưới) vì đây thuộc nhóm
          "vòng lặp render 60fps tự taskManager", KHÔNG qua eventBus/Router — khác bản chất hẳn với
          khối /event/ Listener→Router→Workflow bên dưới (xem readme/event-bus-flow.md). -->
-    <script src="event/workflow/visualizer-render.js?v=20260721v6"></script>
+    <script src="event/workflow/visualizer-render.js?v=20260721v7"></script>
 
 
     <!-- =====================================================================
