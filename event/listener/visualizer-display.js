@@ -82,8 +82,6 @@ const VISUALIZER_DISPLAY_INPUT_MAP = {
     'setting-bar-style': { type: 'visualizerDisplay.barStyle.change', event: 'change' },
     'setting-rain-style': { type: 'visualizerDisplay.rainStyle.change', event: 'change' },
     'setting-glass-flash': { type: 'visualizerDisplay.glassFlash.change', event: 'change', checkbox: true },
-    // MỚI (19/07/2026, "Drifting Space", item 4) — toggle khung kính tàu vũ trụ.
-    'setting-space-glass-frame': { type: 'visualizerDisplay.spaceGlassFrame.change', event: 'change', checkbox: true },
     'setting-max-height': { type: 'visualizerDisplay.maxHeight.input', event: 'input', display: true },
     'setting-bar-width': { type: 'visualizerDisplay.barWidth.input', event: 'input', display: true },
     'setting-mirror-count': { type: 'visualizerDisplay.mirrorCount.input', event: 'input', display: true },
