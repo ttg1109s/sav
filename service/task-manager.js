@@ -282,7 +282,17 @@
                     this.kill(taskName);
                 }
 
-                if (typeof time !== 'number' || time <= 0) {
+                // mode 'raf': `time` vô nghĩa (trình duyệt tự quyết định nhịp vẽ, không hẹn giờ) —
+                // BỎ QUA check time>0 cho mode này. FIX (bug thật, 20/07/2026 — Giang báo lỗi
+                // console "TaskManager: Invalid time for task visualizerRender"): trước đó CHỈ
+                // sửa `Loop.enabled()` bỏ qua check này — QUÊN MẤT `#validate()` ở ĐÂY, được gọi
+                // từ `addNew()` NGAY TRƯỚC khi 1 `Loop` được `new` ra (xem `addNew()` bên dưới:
+                // `if (!this.#validate(...)) return;` — return SỚM, `Loop` chưa kịp sinh ra thì
+                // `enabled()` không bao giờ được gọi tới). Kết quả: `taskManager.addNew('visualizerRender',
+                // { time: 0, mode: 'raf', ... })` bị chặn đứng NGAY TẠI ĐÂY, task không hề được
+                // thêm vào `this.plan` — `operator(name, 'enabled')` sau đó chỉ no-op (task không
+                // tồn tại) — vòng lặp render KHÔNG BAO GIỜ thực sự chạy dù không ném lỗi gì thêm.
+                if (mode !== 'raf' && (typeof time !== 'number' || time <= 0)) {
                     console.error(`TaskManager: Invalid time for task ${taskName}`);
                     return false;
                 }
