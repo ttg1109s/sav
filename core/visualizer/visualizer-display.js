@@ -163,6 +163,9 @@
                         // — tránh trùng lặp logic "sinh leg" ở 2 nơi khác nhau (ở đây và ở Workflow).
                         appState.set('spNextPos', undefined);
                         appState.set('spPendingNextPos', undefined);
+                        appState.set('spPendingIsJump', false);
+                        appState.set('spPendingJumpTargetIndex', null);
+                        appState.set('spCurrentLegIsJump', false);
                         appState.set('spJumpLocked', false);
                         // MỚI (21/07/2026, phản hồi Giang lượt 2) — baseline 60 (~nốt Đô giữa,
                         // tầm trung phổ biến của nhạc cụ/giọng hát), KHÔNG phải 0 — tránh false-
