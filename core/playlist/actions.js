@@ -193,7 +193,6 @@
                 if (!appState.get('domNodesByKey').has(key)) renderPlaylistDiff();
                 if (appState.get('currentKey')) btnReturnVisual.classList.remove('hidden');
                 appState.set('beatTimes', []); appState.set('fluxHistory', []); appState.set('currentCalculatedBpm', "---"); statBpm.textContent = "---"; statNote.textContent = "---";
-                appState.set('beatCount', 0); // MỚI (21/07/2026, phản hồi Giang lượt 4) — reset "bar" về 0 mỗi bài mới, cùng lúc với beatTimes/fluxHistory
                 // Reset trạng thái pitch worker — tránh hiện sót nốt nhạc của bài VỪA đổi trong vài
                 // chục ms đầu (worker là bất đồng bộ, kết quả cũ có thể vẫn đang "bay" lúc đổi bài).
                 appState.set('latestPitchFrequency', -1); appState.set('lastValidNoteStr', null); appState.set('lastValidNoteTime', 0); appState.set('lastValidMidiNote', null);
