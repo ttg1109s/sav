@@ -20,6 +20,24 @@
  */
 
 /**
+ * Tra bảng LUT sin theo `progress` (0..1, nội suy tuyến tính giữa 2 mốc gần nhất trong bảng) —
+ * mục 4. Trả về hệ số lệch (-1..1, đã nhân biên độ ở Workflow) áp lên trục vuông góc với hướng
+ * leg, tạo quỹ đạo uốn lượn hình sin thay vì đường thẳng tắp giữa 2 waypoint.
+ * @param {Float32Array} lut @param {number} progress
+ * @returns {number}
+ */
+function sampleSpaceLegSineLUT(lut, progress) {
+    if (!lut || lut.length === 0) return 0;
+    const clamped = Math.max(0, Math.min(1, progress));
+    if (lut.length === 1) return lut[0];
+    const scaled = clamped * (lut.length - 1);
+    const idx0 = Math.floor(scaled);
+    const idx1 = Math.min(lut.length - 1, idx0 + 1);
+    const frac = scaled - idx0;
+    return lut[idx0] + (lut[idx1] - lut[idx0]) * frac;
+}
+
+/**
  * Nội suy MƯỢT (smoothstep, không tuyến tính) vị trí camera dọc theo 1 "leg" (chặng di chuyển từ
  * 1 waypoint tới waypoint kế tiếp — mục 3 "waypoint nối tiếp", ÁP DỤNG CHO MỌI leg, không riêng gì
  * lúc "nhảy" cụm thiên hà nữa, xem đổi tên từ `computeSpaceJumpPosition` cũ). `progress` tăng dần
