@@ -25,11 +25,14 @@
  * (plan B2). Xem `_tickSpace()` bên dưới.
  *
  * VIẾT LẠI LẦN 2 (21/07/2026, phản hồi Giang) — mô hình di chuyển "waypoint nối tiếp": camera LUÔN
- * đang bay từ 1 điểm (`spLegStartPos`) tới điểm kế tiếp (`spNextPos`), tốc độ = BPM hiện tại lúc
- * BẮT ĐẦU mỗi leg + random — waypoint SAU đó được sinh sẵn giữa chừng leg hiện tại, dùng để blend
- * hướng nhìn mượt ở đoạn cuối (fix "hard cut" mục 1). "Nhảy" sang thiên hà khác giờ trigger bằng
- * NỐT CAO NHẤT vừa vang lên (KHÔNG còn ngưỡng năng lượng/random), khoá roll + khoá không cho nhảy
- * chồng lấp trong lúc di chuyển. Xem `_tickSpace()`/`_advanceSpaceLeg()`/`_startGalaxyJumpLeg()`.
+ * đang bay từ 1 điểm (`spLegStartPos`) tới điểm kế tiếp (`spNextPos`), tốc độ = BPM + năng lượng
+ * nhạc TỨC THỜI mỗi frame — waypoint SAU đó được sinh sẵn giữa chừng leg hiện tại, dùng để blend
+ * hướng nhìn mượt ở đoạn cuối (fix "hard cut"), có KIỂM TRA MẬT ĐỘ thiên hà trước khi cam kết
+ * hướng mới (`_stageNextLeg()`/`_advancePreSpawn()`, khoá `spPreSpawnLocked` nếu chưa đủ, tránh
+ * "màn đen xì" + spawn dồn cục). Cơ chế "nhảy" sang thiên hà khác (jump) ĐÃ BỎ HẲN (phản hồi
+ * 21/07/2026 — "loại bỏ toàn bộ cơ chế jump"). Hướng bay MỖI leg giờ được "bẻ lái" (KHÔNG phải
+ * roll cosmetic quanh trục nhìn — sửa hiểu nhầm, xem `core/webgl/three-space.js::steerSpaceForward()`)
+ * theo nốt hiện tại, biên độ ĐỦ 360°. Xem `_tickSpace()`/`_advanceSpaceLeg()`/`_computeNextNormalLeg()`.
  *
  * NẠP: SAU toàn bộ `core/visualizer/types/*.js`, `core/visualizer/draw/*.js`,
  * `core/webgl/three-vortex.js`, `core/webgl/three-space.js`, `core/audio-analysis.js`,
@@ -65,16 +68,13 @@ const SPACE_CHAIN_AHEAD_MARGIN = 20;
 // Khoảng cách mỗi leg thường (đơn vị 3D).
 const SPACE_LEG_DISTANCE = 380;
 // Tốc độ (đơn vị/giây) tại 120bpm, năng lượng trung bình — nhân với (bpm/120) VÀ hệ số năng
-// lượng TỨC THỜI mỗi frame (xem _advanceSpaceLeg — fix "speed đang cài cứng lại không theo nhạc").
+// lượng TỨC THỜI mỗi frame (xem _advanceSpaceLeg — tốc độ phản ứng liên tục theo nhạc).
 const SPACE_LEG_SPEED_BASE = 46;
 // +-30% ngẫu nhiên tốc độ CẢ leg (1 lần lúc bắt đầu, không đổi giữa chừng — "cộng thêm giá trị
 // ngẫu nhiên", TÁCH RIÊNG khỏi phần phản ứng nhạc LIÊN TỤC ở trên).
 const SPACE_LEG_DURATION_RANDOM_VARIANCE = 0.3;
-// Độ lệch hướng NHẸ mỗi leg thường (radian) — lệch DẦN từng chút 1 so với hướng leg trước.
-const SPACE_LEG_YAW_JITTER = Math.PI * 0.16;
-const SPACE_LEG_PITCH_JITTER = Math.PI * 0.10;
-// % progress bắt đầu blend hướng nhìn (+ roll) sang leg KẾ TIẾP — mượt hoá chuyển tiếp, fix "hard
-// cut" (hướng nhìn đổi ĐỘT NGỘT đúng lúc hết leg) — cũng chính là thứ mượt hoá lúc BẮT ĐẦU leg nhảy.
+// % progress bắt đầu blend hướng nhìn sang leg KẾ TIẾP — mượt hoá chuyển tiếp, fix "hard cut"
+// (hướng nhìn đổi ĐỘT NGỘT đúng lúc hết leg).
 const SPACE_LEG_BLEND_START = 0.65;
 // % progress bắt đầu THỬ sinh waypoint kế tiếp ("đồng thời sinh điểm kế tiếp") — "thử" vì còn phải
 // qua kiểm tra mật độ (`_stageNextLeg`), không phải lúc nào cũng chốt được ngay.
@@ -82,30 +82,22 @@ const SPACE_LEG_PENDING_GEN_PROGRESS = 0.35;
 // Tốc độ (đơn vị/giây) khi KHÔNG phát nhạc — LUÔN phải có trôi tối thiểu.
 const SPACE_IDLE_LEG_SPEED = 8;
 
-// ===== Hằng số "nhảy" sang thiên hà khác theo NỐT CAO NHẤT =====
-const SPACE_JUMP_NOTE_MARGIN = 2;
-const SPACE_NOTE_PEAK_DECAY_PER_SEC = 0.6;
-// "di chuyển NHANH" — nhân thêm vào tốc độ leg thường khi leg đó là leg nhảy.
-const SPACE_JUMP_LEG_SPEED_MULT = 3.0;
-
-// ===== Roll camera theo nốt (giống Rubik, sinh ngẫu nhiên, tái sử dụng) =====
-const SPACE_NOTE_ROLL_RANGE = Math.PI; // [-π, π) — ĐỦ 360°, xem phản hồi "có đảm bảo roll 360 độ không"
+// ===== "Bẻ lái" hướng bay theo nốt (VIẾT LẠI HOÀN TOÀN, 21/07/2026, phản hồi Giang — "roll... đang
+// bị hiểu nhầm thành rotate 2D chứ không phải bẻ hướng di chuyển của camera theo 360 độ theo pitch
+// note") — thay HẲN mô hình "roll cosmetic quanh trục nhìn" (đã bỏ) LẪN "lệch nhẹ ngẫu nhiên mỗi
+// leg" (đã bỏ, generateNextSpaceLegForward()) — giờ MỖI leg mới, hướng `forward` bị XOAY THẲNG
+// (steerSpaceForward(), core/webgl/three-space.js) 1 góc tra theo NỐT HIỆN TẠI, biên độ ĐỦ 360°. =====
+const SPACE_NOTE_STEER_RANGE = Math.PI; // [-π, π) — ĐỦ 360°
 
 // Tốc độ tự quay CHUNG của thiên hà — hệ số NHÂN CHUNG nhẹ lên trên `rotationSpeed` RIÊNG của
 // từng thiên hà — TÁCH HẲN khỏi tốc độ camera/BPM.
 const SPACE_GALAXY_SPIN_SPEED = 0.8;
 
-// ===== MỚI (21/07/2026, phản hồi Giang — "roll về hướng không có thiên hà nào, màn đen xì... cần
-// tiên đoán trước hướng, kiểm tra mật độ... khoá toàn bộ moving... đợi thêm xong xong rồi mới mở
-// khoá") — pre-spawn có kiểm tra mật độ TRƯỚC khi cam kết hướng leg kế tiếp =====
-// Phạm vi kiểm tra mật độ: dọc trục (đơn vị 3D) và bán kính "nón" ngang trục.
+// ===== Pre-spawn có kiểm tra mật độ TRƯỚC khi cam kết hướng leg kế tiếp (fix "roll về hướng không
+// có thiên hà nào, màn đen xì... bỗng nhiên lại phóng đến nhanh như jump") =====
 const SPACE_PRESPAWN_CHECK_DISTANCE = 600;
 const SPACE_PRESPAWN_LATERAL_RADIUS = 320;
-// Số thiên hà TỐI THIỂU cần có trong vùng kiểm tra mới coi là "đủ dày", không cần bơm thêm.
 const SPACE_PRESPAWN_MIN_DENSITY = 6;
-// Số "nút" (3-5 thiên hà/nút) bơm thêm MỖI TICK trong lúc khoá chờ — GIỚI HẠN để trải công việc ra
-// NHIỀU FRAME, tránh giật hình do sinh hàng loạt thiên hà dồn 1 lúc (đúng nguyên nhân "bỗng nhiên
-// phóng đến nhanh như jump" Giang báo — trước đây có thể phải sinh ~20 nút dồn 1 frame duy nhất).
 const SPACE_PRESPAWN_BATCH_PER_TICK = 1;
 
 // Biến NỘI BỘ (KHÔNG thuộc STATE, cùng kiểu với `tWarpSpeed` ở core/webgl/three-vortex.js) —
@@ -177,10 +169,12 @@ const workflowVisualizerRender = {
 
     /**
      * Điều phối 1 frame của visual Galaxy — mô hình "waypoint nối tiếp" CÓ KIỂM TRA MẬT ĐỘ trước
-     * khi cam kết hướng mới (mục "roll về hướng không có thiên hà"). Thứ tự mỗi tick: bootstrap ->
-     * chuỗi thiên hà (theo forward leg HIỆN TẠI) -> kiểm tra "nốt đỉnh mới" để bắt đầu quy trình
-     * nhảy -> nếu đang khoá chờ mật độ, bơm thêm 1 đợt nhỏ -> tiến hành di chuyển dọc leg (LUÔN
-     * chạy, "trôi nhẹ" không phụ thuộc khoá) -> cập nhật từng thiên hà -> bụi nền -> render.
+     * khi cam kết hướng mới. VIẾT LẠI (21/07/2026, phản hồi Giang — xoá HẲN cơ chế "nhảy" sang
+     * thiên hà khác) — không còn bước kiểm tra "nốt đỉnh mới" để bắt đầu nhảy nữa, hướng bay chỉ
+     * còn 1 nguồn DUY NHẤT: "bẻ lái" theo nốt mỗi khi sinh leg mới (`_computeNextNormalLeg()`).
+     * Thứ tự mỗi tick: bootstrap -> chuỗi thiên hà (theo forward leg HIỆN TẠI) -> nếu đang khoá chờ
+     * mật độ, bơm thêm 1 đợt nhỏ -> tiến hành di chuyển dọc leg (LUÔN chạy, "trôi nhẹ" không phụ
+     * thuộc khoá) -> cập nhật từng thiên hà -> bụi nền -> render.
      */
     _tickSpace(cfg, isPlaying, smoothedEnergy, globalHueOffset) {
         if (!appState.get('spInitialized')) return; // guard, giống hệt drawVortex()
@@ -191,7 +185,6 @@ const workflowVisualizerRender = {
         const spDustMesh = appState.get('spDustMesh');
         const spGalaxyClusters = appState.get('spGalaxyClusters'); // reference SỐNG — mọi push/splice bên dưới đều phản ánh qua biến này (cùng 1 mảng, không cần đọc lại)
         const currentCalculatedBpm = appState.get('currentCalculatedBpm');
-        const lastValidMidiNote = appState.get('lastValidMidiNote');
         const beatScale = appState.get('beatScale');
         const perf = PERFORMANCE_PROFILES[cfg.quality];
 
@@ -210,48 +203,43 @@ const workflowVisualizerRender = {
         const legForward = appState.get('spLegForward');
         this._manageSpaceChain(spScene, spGalaxyClusters, spCamera.position, legForward, cfg, perf);
 
-        // ----- 2. "nhảy" sang thiên hà khác — trigger bằng NỐT CAO NHẤT vừa vang lên. -----
-        if (!appState.get('spJumpLocked') && isPlaying) {
-            const isNewPeakNote = this._checkNewHighestNote(lastValidMidiNote, delta);
-            if (isNewPeakNote) this._startGalaxyJumpLeg(spGalaxyClusters, appState.get('spCurrentTargetIndex'), legForward, spCamera.position, cfg, perf);
-        }
-
-        // ----- 3. đang khoá chờ đủ mật độ thiên hà theo hướng ứng viên? Bơm thêm 1 đợt NHỎ. -----
+        // ----- 2. đang khoá chờ đủ mật độ thiên hà theo hướng ứng viên? Bơm thêm 1 đợt NHỎ. -----
         if (appState.get('spPreSpawnLocked')) {
             this._advancePreSpawn(spScene, spGalaxyClusters, spCamera.position, cfg, perf);
         }
 
-        // ----- 4. tiến hành di chuyển dọc leg hiện tại — LUÔN chạy bất kể có đang khoá chờ mật độ
-        // hay không ("trôi nhẹ", KHÔNG đứng hình chờ) — vị trí + hướng nhìn + roll khoá ổn định. -----
+        // ----- 3. tiến hành di chuyển dọc leg hiện tại — LUÔN chạy bất kể có đang khoá chờ mật độ
+        // hay không ("trôi nhẹ", KHÔNG đứng hình chờ) — vị trí + hướng nhìn khoá ổn định. -----
         this._advanceSpaceLeg(spCamera, delta, currentCalculatedBpm, isPlaying, smoothedEnergy);
 
-        // ----- 5. cập nhật từng thiên hà (tốc độ tự quay RIÊNG theo từng thiên hà) -----
+        // ----- 4. cập nhật từng thiên hà (tốc độ tự quay RIÊNG theo từng thiên hà) -----
         const hueShift = (cfg.mode === 'dynamic' || cfg.mode === 'gradient') ? globalHueOffset : 0;
         spGalaxyClusters.forEach(cluster => cluster.update(delta, SPACE_GALAXY_SPIN_SPEED, _spGlobalTime, hueShift, smoothedEnergy)); // core method
 
-        // ----- 6. bụi vũ trụ nền -----
+        // ----- 5. bụi vũ trụ nền -----
         updateSpaceDustEachFrame(spDustMesh, spCamera.position, SPACE_DUST_RANGE, beatScale); // core
 
-        // ----- 7. render -----
+        // ----- 6. render -----
         renderSpaceScene(tRenderer, spScene, spCamera); // core
     },
 
     /**
-     * Tra bảng `spNoteRollTable` theo nốt HIỆN TẠI, giống hệt cách Rubik tra `RUBIK_NOTE_TO_TURN`.
-     * @returns {number} góc roll (radian), 0 nếu chưa detect được nốt nào hoặc bảng chưa sẵn sàng.
+     * Tra bảng `spNoteSteerTable` theo nốt HIỆN TẠI, giống hệt cách Rubik tra `RUBIK_NOTE_TO_TURN`
+     * (core/dom-refs.js) — trả về GÓC BẺ LÁI (radian), dùng để XOAY THẲNG hướng bay (KHÔNG phải
+     * roll cosmetic quanh trục nhìn — xem `steerSpaceForward()`, core/webgl/three-space.js).
+     * @returns {number} 0 nếu chưa detect được nốt nào hoặc bảng chưa sẵn sàng.
      */
-    _pickNoteRoll() {
+    _pickNoteSteerAngle() {
         const midiNote = appState.get('lastValidMidiNote');
-        const table = appState.get('spNoteRollTable');
+        const table = appState.get('spNoteSteerTable');
         if (!midiNote || !table) return 0;
         const noteIdx = ((midiNote % 12) + 12) % 12;
         return table[noteIdx];
     },
 
     /** Tra "túi xáo trộn" hình thái thiên hà (fix "hình thái phân bổ không đều, trùng lặp khá
-     * nhiều") — MỌI lần spawn 1 thiên hà (dù trong `_manageSpaceChain()` hay `_advancePreSpawn()`)
-     * đều PHẢI qua đây, KHÔNG gọi thẳng `pickGalaxyTypeFromBag()` riêng lẻ ở 2 nơi (tránh 2 túi
-     * độc lập không đồng bộ).
+     * nhiều") — MỌI lần spawn 1 thiên hà đều PHẢI qua đây, KHÔNG gọi thẳng
+     * `pickGalaxyTypeFromBag()` riêng lẻ ở 2 nơi (tránh 2 túi độc lập không đồng bộ).
      * @returns {string} */
     _pickNextGalaxyType() {
         const bag = appState.get('spGalaxyTypeBag');
@@ -261,8 +249,7 @@ const workflowVisualizerRender = {
     },
 
     /** Sinh toàn bộ thành viên (3-5 thiên hà) của 1 "nút" — dùng CHUNG cho cả `_manageSpaceChain()`
-     * (spawn theo hướng leg ĐANG CHẠY) LẪN `_advancePreSpawn()` (spawn theo hướng ỨNG VIÊN đang
-     * chờ đủ mật độ) — tránh trùng lặp logic ở 2 nơi. */
+     * LẪN `_advancePreSpawn()` — tránh trùng lặp logic ở 2 nơi. */
     _spawnGalaxyNodeMembers(clusterCore, cfg, perf, spScene, spGlowTexture, spNebulaTexture) {
         let totalSpawned = appState.get('spTotalGalaxiesSpawned');
         const memberCount = 3 + Math.floor(Math.random() * 3);
@@ -302,53 +289,46 @@ const workflowVisualizerRender = {
         appState.set('spTotalGalaxiesSpawned', totalSpawned);
     },
 
-    /** Tính 1 bộ (hướng, điểm đến, roll) cho leg THƯỜNG ứng viên — lệch NHẸ khỏi `currentForward`
-     * ("sinh ra... góc độ tiếp theo", KHÔNG phải chọn hướng ngẫu nhiên hoàn toàn mới); roll tra
-     * theo nốt hiện tại. CHỈ tính toán ứng viên — KHÔNG tự chốt thành pending (xem `_stageNextLeg`).
+    /**
+     * Tính 1 bộ (hướng, điểm đến) cho leg ứng viên KẾ TIẾP — hướng = `currentForward` XOAY THẲNG
+     * (`steerSpaceForward()`, core/webgl/three-space.js) 1 góc TRA THEO NỐT HIỆN TẠI
+     * (`_pickNoteSteerAngle()`) — VIẾT LẠI (21/07/2026, phản hồi Giang — "bẻ hướng di chuyển của
+     * camera theo 360 độ theo pitch note", KHÔNG phải roll cosmetic hay lệch ngẫu nhiên nhỏ như
+     * trước). CHỈ tính toán ứng viên — KHÔNG tự chốt thành pending (xem `_stageNextLeg`).
      */
     _computeNextNormalLeg(originPos, currentForward) {
-        const { right, up } = computeSpaceForwardBasis(currentForward); // core
-        const nextForward = generateNextSpaceLegForward(currentForward, right, up, SPACE_LEG_YAW_JITTER, SPACE_LEG_PITCH_JITTER); // core
+        const { right } = computeSpaceForwardBasis(currentForward); // core
+        const steerAngle = this._pickNoteSteerAngle();
+        const nextForward = steerSpaceForward(currentForward, right, steerAngle); // core
         const nextPos = originPos.clone().addScaledVector(nextForward, SPACE_LEG_DISTANCE);
-        const roll = this._pickNoteRoll();
-        return { nextForward, nextPos, roll };
+        return { nextForward, nextPos };
     },
 
     /**
-     * "Tiên đoán trước hướng next roll của camera, kiểm tra tỉ lệ mật độ thiên hà vùng đó rồi mới
-     * quyết định thêm hay không thêm và thêm bao nhiêu" — nhận 1 leg ỨNG VIÊN (thường hoặc nhảy),
-     * kiểm tra mật độ thiên hà SẴN CÓ theo hướng đó (`assessGalaxyDensityAhead`, core, chỉ ĐẾM,
-     * không tự spawn). ĐỦ dày thì CHỐT NGAY thành pending thật. CHƯA đủ thì khoá lại
-     * (`spPreSpawnLocked`), lưu ứng viên vào vùng staging — `_advancePreSpawn()` tự bơm thêm dần ở
-     * các tick sau. "Khoá toàn bộ moving, không sinh next pos/next roll cho trôi nhẹ" — leg ĐANG
-     * CHẠY (`spLegForward`/`spNextPos`) hoàn toàn KHÔNG bị đụng — vẫn tiếp tục di chuyển bình
-     * thường trong lúc khoá, chỉ có việc CHỐT HƯỚNG KẾ TIẾP là bị hoãn lại.
+     * "Tiên đoán trước hướng, kiểm tra tỉ lệ mật độ thiên hà vùng đó rồi mới quyết định thêm hay
+     * không thêm và thêm bao nhiêu" — nhận 1 leg ỨNG VIÊN, kiểm tra mật độ thiên hà SẴN CÓ theo
+     * hướng đó (`assessGalaxyDensityAhead`, core, chỉ ĐẾM, không tự spawn). ĐỦ dày thì CHỐT NGAY
+     * thành pending thật. CHƯA đủ thì khoá lại (`spPreSpawnLocked`), lưu ứng viên vào vùng staging
+     * — `_advancePreSpawn()` tự bơm thêm dần ở các tick sau. Leg ĐANG CHẠY hoàn toàn KHÔNG bị đụng
+     * — vẫn tiếp tục di chuyển bình thường ("trôi nhẹ") trong lúc khoá.
      */
-    _stageNextLeg(candidateForward, candidateNextPos, candidateRoll, isJump, jumpTargetIndex, camPos, spGalaxyClusters, cfg, perf) {
+    _stageNextLeg(candidateForward, candidateNextPos, camPos, spGalaxyClusters, cfg, perf) {
         const density = assessGalaxyDensityAhead(spGalaxyClusters, camPos, candidateForward, SPACE_PRESPAWN_CHECK_DISTANCE, SPACE_PRESPAWN_LATERAL_RADIUS); // core
         if (density >= SPACE_PRESPAWN_MIN_DENSITY) {
             appState.set('spPendingForward', candidateForward);
             appState.set('spPendingNextPos', candidateNextPos);
-            appState.set('spPendingRoll', candidateRoll);
-            appState.set('spPendingIsJump', isJump);
-            appState.set('spPendingJumpTargetIndex', jumpTargetIndex);
             return;
         }
         appState.set('spPreSpawnLocked', true);
         appState.set('spPreSpawnForward', candidateForward);
         appState.set('spPreSpawnNextPos', candidateNextPos);
-        appState.set('spPreSpawnRoll', candidateRoll);
-        appState.set('spPreSpawnIsJump', isJump);
-        appState.set('spPreSpawnJumpTargetIndex', jumpTargetIndex);
     },
 
     /**
      * Bơm thêm thiên hà DẦN DẦN (giới hạn `SPACE_PRESPAWN_BATCH_PER_TICK` nút/tick — trải công
-     * việc ra NHIỀU FRAME) theo hướng đang chờ (`spPreSpawnForward`) — fix trực tiếp "bỗng nhiên
-     * lại phóng đến nhanh như jump chứ không trôi": nguyên nhân THẬT SỰ là TRƯỚC ĐÂY toàn bộ ~20
-     * nút cần thiết để lấp đầy tầm nhìn bị sinh DỒN 1 LẦN trong CÙNG 1 frame ngay khi camera vừa
-     * quay hướng mới — hàng chục thiên hà "nổ" ra cùng lúc trông như 1 cú jump giả. Giờ CHỈ 1
-     * nút/tick, kiểm tra lại mật độ mỗi tick — ĐỦ rồi thì CHỐT thành pending thật + mở khoá.
+     * việc ra NHIỀU FRAME, tránh giật hình do sinh hàng loạt thiên hà dồn 1 lúc) theo hướng đang
+     * chờ (`spPreSpawnForward`) — kiểm tra lại mật độ mỗi tick, ĐỦ rồi thì CHỐT thành pending thật
+     * + mở khoá.
      */
     _advancePreSpawn(spScene, spGalaxyClusters, camPos, cfg, perf) {
         const forward = appState.get('spPreSpawnForward');
@@ -369,9 +349,6 @@ const workflowVisualizerRender = {
         if (density >= SPACE_PRESPAWN_MIN_DENSITY) {
             appState.set('spPendingForward', forward);
             appState.set('spPendingNextPos', appState.get('spPreSpawnNextPos'));
-            appState.set('spPendingRoll', appState.get('spPreSpawnRoll'));
-            appState.set('spPendingIsJump', appState.get('spPreSpawnIsJump'));
-            appState.set('spPendingJumpTargetIndex', appState.get('spPreSpawnJumpTargetIndex'));
             appState.set('spPreSpawnLocked', false);
         }
     },
@@ -388,33 +365,27 @@ const workflowVisualizerRender = {
         appState.set('spLegDistanceCovered', 0);
         appState.set('spLegTotalDistance', camPos.distanceTo(generated.nextPos));
         appState.set('spLegSpeedRandomFactor', 1);
-        appState.set('spLegRoll', generated.roll);
         appState.set('spPendingNextPos', null);
         appState.set('spPendingForward', null);
-        appState.set('spPendingRoll', 0);
-        appState.set('spCurrentLegIsJump', false);
     },
 
     /**
-     * Tiến 1 bước dọc leg hiện tại — FIX (21/07/2026, phản hồi Giang — "speed đang cài cứng lại
-     * không theo nhạc"): tốc độ tính LẠI MỖI FRAME từ BPM + `smoothedEnergy` (EMA mượt sẵn, KHÔNG
-     * dùng `beatScale` thô để tránh giật/lag), CỘNG DỒN quãng đường thay vì dùng "duration" cố
-     * định tính 1 lần lúc bắt đầu leg (mô hình cũ — tốc độ "đông cứng" suốt cả leg, không phản ứng
-     * nhạc nữa sau khi leg đã bắt đầu).
+     * Tiến 1 bước dọc leg hiện tại — tốc độ tính LẠI MỖI FRAME từ BPM + `smoothedEnergy` (EMA mượt
+     * sẵn, KHÔNG dùng `beatScale` thô để tránh giật/lag), CỘNG DỒN quãng đường thay vì "duration"
+     * cố định tính 1 lần lúc bắt đầu leg.
      *
      * Vị trí nội suy THẲNG (`computeSpaceLegPosition`). Hướng camera THEO `legForward` — BLEND dần
-     * sang hướng leg KẾ TIẾP (kể cả leg nhảy) ở đoạn cuối để KHÔNG có cú xoay đột ngột lúc chuyển
-     * leg. Roll blend theo ĐƯỜNG NGẮN NHẤT (biên độ đã full 360°). Khi đến nơi: snap chính xác vị
-     * trí + chuyển sang leg kế tiếp. Khi chưa đến, VÀ KHÔNG đang khoá chờ mật độ (`spPreSpawnLocked`),
-     * VÀ chưa có pending: thử sinh + kiểm tra mật độ waypoint kế tiếp giữa chừng.
+     * sang hướng leg KẾ TIẾP (đã BAO GỒM SẴN việc bẻ lái theo nốt) ở đoạn cuối để KHÔNG có cú xoay
+     * đột ngột lúc chuyển leg. Khi đến nơi: snap chính xác vị trí + chuyển sang leg kế tiếp. Khi
+     * chưa đến, VÀ KHÔNG đang khoá chờ mật độ, VÀ chưa có pending: thử sinh + kiểm tra mật độ
+     * waypoint kế tiếp giữa chừng.
      */
     _advanceSpaceLeg(spCamera, delta, currentCalculatedBpm, isPlaying, smoothedEnergy) {
         const bpm = parseInt(currentCalculatedBpm, 10) || 120;
         const randomFactor = appState.get('spLegSpeedRandomFactor');
-        let legSpeed = isPlaying
+        const legSpeed = isPlaying
             ? SPACE_LEG_SPEED_BASE * (bpm / 120) * (0.7 + smoothedEnergy * 0.6) * randomFactor
             : SPACE_IDLE_LEG_SPEED;
-        if (appState.get('spCurrentLegIsJump')) legSpeed *= SPACE_JUMP_LEG_SPEED_MULT;
 
         const distanceCovered = appState.get('spLegDistanceCovered') + legSpeed * delta;
         const totalDistance = appState.get('spLegTotalDistance');
@@ -428,20 +399,13 @@ const workflowVisualizerRender = {
         spCamera.position.copy(finalPos);
 
         let orientForward = legForward;
-        let appliedRoll = appState.get('spLegRoll');
         const pendingForward = appState.get('spPendingForward');
         if (pendingForward && progress > SPACE_LEG_BLEND_START) {
             const blendT = Math.min(1, (progress - SPACE_LEG_BLEND_START) / (1 - SPACE_LEG_BLEND_START));
             orientForward = legForward.clone().lerp(pendingForward, blendT).normalize();
-            const pendingRoll = appState.get('spPendingRoll');
-            let rollDelta = pendingRoll - appliedRoll;
-            while (rollDelta > Math.PI) rollDelta -= Math.PI * 2;
-            while (rollDelta < -Math.PI) rollDelta += Math.PI * 2;
-            appliedRoll = appliedRoll + rollDelta * blendT;
         }
         const orientBasis = computeSpaceForwardBasis(orientForward); // core
-        const rolledBasis = applySpaceRoll(orientBasis.right, orientBasis.up, appliedRoll); // core
-        applyStableSpaceOrientation(spCamera, orientForward, rolledBasis.right, rolledBasis.up); // core — khoá ổn định
+        applyStableSpaceOrientation(spCamera, orientForward, orientBasis.right, orientBasis.up); // core — khoá ổn định, không lật roll ngoài ý muốn
 
         if (progress >= 1) {
             spCamera.position.copy(nextPos); // snap chính xác vị trí
@@ -452,34 +416,26 @@ const workflowVisualizerRender = {
                 const cfg = appState.get('vizConfig');
                 const perf = PERFORMANCE_PROFILES[cfg.quality];
                 const candidate = this._computeNextNormalLeg(nextPos, legForward);
-                this._stageNextLeg(candidate.nextForward, candidate.nextPos, candidate.roll, false, null, spCamera.position, appState.get('spGalaxyClusters'), cfg, perf);
+                this._stageNextLeg(candidate.nextForward, candidate.nextPos, spCamera.position, appState.get('spGalaxyClusters'), cfg, perf);
             }
         }
     },
 
     /**
-     * Hoàn tất leg hiện tại, chuyển sang leg KẾ TIẾP (đã chốt sẵn — nếu CHƯA (hiếm, ví dụ vẫn
-     * đang khoá chờ mật độ đúng lúc leg cũ hết), sinh 1 leg "nối tiếp tạm" CÙNG hướng vừa xong,
-     * KHÔNG qua kiểm tra mật độ — tránh camera đứng khựng hẳn; quá trình khoá chờ ở nền (nếu có)
-     * VẪN TIẾP TỤC, sẽ chốt vào lần commit SAU) — mở khoá `spJumpLocked` NẾU leg VỪA HOÀN THÀNH là
-     * leg nhảy (đã THỰC SỰ tới đích B).
+     * Hoàn tất leg hiện tại, chuyển sang leg KẾ TIẾP (đã chốt sẵn — nếu CHƯA, sinh 1 leg "nối tiếp
+     * tạm" CÙNG hướng vừa xong, KHÔNG qua kiểm tra mật độ — tránh camera đứng khựng hẳn; quá trình
+     * khoá chờ ở nền, nếu có, VẪN TIẾP TỤC, sẽ chốt vào lần commit SAU).
      */
     _commitNextSpaceLeg(currentCalculatedBpm, isPlaying) {
-        if (appState.get('spCurrentLegIsJump')) appState.set('spJumpLocked', false);
-
         const finishedPos = appState.get('spNextPos');
         const finishedForward = appState.get('spLegForward');
         let nextForward = appState.get('spPendingForward');
         let nextPos = appState.get('spPendingNextPos');
-        let nextRoll = appState.get('spPendingRoll');
-        const nextIsJump = !!appState.get('spPendingIsJump');
-        const nextJumpTargetIndex = appState.get('spPendingJumpTargetIndex');
 
         if (!nextPos) {
             const generated = this._computeNextNormalLeg(finishedPos, finishedForward);
             nextForward = generated.nextForward;
             nextPos = generated.nextPos;
-            nextRoll = generated.roll;
         }
 
         appState.set('spLegStartPos', finishedPos.clone());
@@ -488,60 +444,14 @@ const workflowVisualizerRender = {
         appState.set('spLegDistanceCovered', 0);
         appState.set('spLegTotalDistance', finishedPos.distanceTo(nextPos));
         appState.set('spLegSpeedRandomFactor', 1 + (Math.random() - 0.5) * SPACE_LEG_DURATION_RANDOM_VARIANCE); // "cộng thêm giá trị ngẫu nhiên"
-        appState.set('spLegRoll', nextRoll);
-        appState.set('spCurrentLegIsJump', nextIsJump);
-        if (nextIsJump && nextJumpTargetIndex !== null) appState.set('spCurrentTargetIndex', nextJumpTargetIndex);
 
         appState.set('spPendingNextPos', null);
         appState.set('spPendingForward', null);
-        appState.set('spPendingRoll', 0);
-        appState.set('spPendingIsJump', false);
-        appState.set('spPendingJumpTargetIndex', null);
-    },
-
-    /**
-     * Phát hiện "đỉnh nốt mới" — `spHighestNoteSeen` là 1 cái "trần" tự hạ dần theo thời gian
-     * (`SPACE_NOTE_PEAK_DECAY_PER_SEC`); nốt hiện tại VƯỢT trần đó (cộng biên
-     * `SPACE_JUMP_NOTE_MARGIN`) mới tính là đỉnh mới.
-     */
-    _checkNewHighestNote(lastValidMidiNote, delta) {
-        if (!lastValidMidiNote) return false;
-        let ceiling = appState.get('spHighestNoteSeen') - SPACE_NOTE_PEAK_DECAY_PER_SEC * delta;
-        if (ceiling < 0) ceiling = 0;
-        const isPeak = lastValidMidiNote > ceiling + SPACE_JUMP_NOTE_MARGIN;
-        appState.set('spHighestNoteSeen', isPeak ? lastValidMidiNote : ceiling, { skipCheck: true });
-        return isPeak;
-    },
-
-    /**
-     * Bắt đầu quy trình "nhảy" sang thiên hà khác — chọn thiên hà GẦN NHẤT phía trước theo hướng
-     * đang bay hiện tại TÍNH TỪ A (thiên hà đang khoá làm mục tiêu), rồi ĐƯA QUA `_stageNextLeg()`
-     * (kiểm tra mật độ TRƯỚC khi chốt, giống hệt leg thường) — KHÔNG còn tự ý chốt pending ngay
-     * lập tức nữa. Khoá `spJumpLocked` NGAY (trước cả khi biết mật độ đủ hay chưa) — chặn trigger
-     * nhảy chồng lấp trong lúc chờ.
-     */
-    _startGalaxyJumpLeg(spGalaxyClusters, currentTargetIndex, currentForward, camPos, cfg, perf) {
-        const clusterA = currentTargetIndex !== null ? spGalaxyClusters.find(g => g.index === currentTargetIndex) : null;
-        if (!clusterA) return; // chưa có mục tiêu nào đang khoá (rất sớm lúc mới vào Space) — bỏ qua, thử lại đỉnh nốt kế tiếp
-
-        const candidates = spGalaxyClusters
-            .filter(g => g !== clusterA)
-            .map(g => ({ g, dist: g.position.clone().sub(clusterA.position).dot(currentForward) }))
-            .filter(o => o.dist > 0)
-            .sort((a, b) => a.dist - b.dist);
-        if (candidates.length === 0) return; // chưa có gì "kế cận" đúng nghĩa phía trước A — bỏ qua
-
-        const clusterB = candidates[0].g;
-        const abDirection = clusterB.position.clone().sub(clusterA.position).normalize();
-
-        appState.set('spJumpLocked', true);
-        this._stageNextLeg(abDirection, clusterB.position.clone(), this._pickNoteRoll(), true, clusterB.index, camPos, spGalaxyClusters, cfg, perf);
     },
 
     /**
      * Quản lý chuỗi thiên hà 1 tick: đọc quyết định THUẦN từ `manageGalaxyChain()` (core), rồi TỰ
      * thực thi (dispose/sinh mới/khoá mục tiêu) — không hàm Core nào ở đây gọi hàm Core khác.
-     * KHÔNG tự ý ghi đè `spCurrentTargetIndex` khi đang khoá (`spJumpLocked`).
      */
     _manageSpaceChain(spScene, spGalaxyClusters, camPos, forward, cfg, perf) {
         const info = manageGalaxyChain(spGalaxyClusters, camPos, forward, SPACE_CHAIN_DISPOSE_DISTANCE, SPACE_CHAIN_DISPOSE_LATERAL_DISTANCE, SPACE_AHEAD_WINDOW, SPACE_CHAIN_AHEAD_MARGIN); // core
@@ -565,8 +475,6 @@ const workflowVisualizerRender = {
         }
         appState.set('spNextClusterIndex', nextIdx);
 
-        if (!appState.get('spJumpLocked') && info.nearestAheadIndex !== null) {
-            appState.set('spCurrentTargetIndex', info.nearestAheadIndex);
-        }
+        if (info.nearestAheadIndex !== null) appState.set('spCurrentTargetIndex', info.nearestAheadIndex);
     },
 };
