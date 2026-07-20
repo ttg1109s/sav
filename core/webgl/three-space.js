@@ -43,10 +43,10 @@ const SPACE_GALAXY_NAME_SUFFIXES = ['X-1', 'Prime', 'Alpha', 'Beta-9', 'V', 'Zet
 /** 10 hình thái thiên hà — khớp 1:1 với 10 hàm `generate*Positions` + `GALAXY_GENERATORS` bên dưới. */
 const SPACE_GALAXY_TYPES = ['Spiral', 'Barred Spiral', 'Elliptical', 'Ring', 'Irregular', 'Lenticular', 'Flocculent Spiral', 'Sombrero', 'Cartwheel', 'Peculiar'];
 
-/** Palette CỐ ĐỊNH cho 1 số hình thái đặc thù (KHÔNG đổi theo `mode`/`dynA`/`dynB` — màu này gắn
- * với chính hình dạng thiên hà, ví dụ thiên hà già Elliptical/Lenticular luôn ngả vàng-cam, không
- * phụ thuộc gu màu người dùng chọn). Hình thái KHÔNG có trong bảng này (Spiral/Barred Spiral/
- * Ring/Irregular/Flocculent Spiral) tôn trọng `vizConfig.mode` — xem `pickGalaxyPalette()`. */
+/** (21/07/2026 — KHÔNG CÒN dùng cho màu nữa, xem `pickGalaxyPalette()`) Palette từng CỐ ĐỊNH cho
+ * 1 số hình thái đặc thù — GIỮ LẠI data này trong file phòng cần tái dùng cho mục đích KHÁC màu
+ * (ví dụ tô điểm chi tiết hình dạng), tuyệt đối KHÔNG dùng lại cho việc chọn màu chủ đạo nữa (mọi
+ * hình thái giờ đều theo `vizConfig.mode`, không ngoại lệ). */
 const SPACE_GALAXY_SPECIAL_PALETTES = {
     'Elliptical': { in: '#f59e0b', out: '#b45309' },
     'Lenticular': { in: '#f59e0b', out: '#b45309' },
@@ -492,23 +492,22 @@ function generateRandomGalaxyName() {
 }
 
 /**
- * Palette (colorIn/colorOut) theo hình thái — 5 hình thái ĐẶC THÙ dùng màu CỐ ĐỊNH
- * (`SPACE_GALAXY_SPECIAL_PALETTES`, gắn với chính hình dạng vật lý, KHÔNG đổi theo `mode`), 5 hình
- * thái còn lại tôn trọng `vizConfig.mode` — ĐÚNG yêu cầu #3 `readme/visual-conventions.md` ("màu
- * phải lấy từ helper màu chung/solidColor/dynA-dynB theo lựa chọn người dùng", KHÔNG hard-code):
- * FIX (21/07/2026, phản hồi Giang mục 4 — "chưa áp dụng file md visualizer") — bản trước LUÔN
- * dùng `dynA`/`dynB` bất kể `mode` đang là gì, kể cả khi người dùng chọn 'solid' — SAI, đã sửa:
- * `mode === 'solid'` giờ dùng `solidColor` cho CẢ colorIn/colorOut (đúng bản chất "1 màu duy
- * nhất" mà mọi visual khác áp dụng cho mode này); `dynamic`/`gradient` dùng `dynA`/`dynB` (gradient
- * còn được hue-shift theo `globalHueOffset` mỗi frame — xem `GalaxyCluster.update()`/
- * `event/workflow/visualizer-render.js`, KHÔNG đụng ở hàm này).
- * Guard clause thuần (Rule 1) — KHÔNG phải rẽ nhánh 2 tiến trình khác nhau: xoá `if` đi, hàm vẫn
- * còn ĐÚNG 1 kịch bản "tra bảng lấy palette", chỉ mất phần "trường hợp đặc biệt có palette cố định".
- * @param {string} type @param {string} mode @param {string} solidColor @param {string} dynA @param {string} dynB
+ * Palette (colorIn/colorOut) — FIX (21/07/2026, phản hồi Giang lượt 2, mục 4 — "vẫn chưa áp dụng
+ * chế độ màu... đã bảo phải theo setting"): bản trước vẫn còn NGOẠI LỆ cho 5/10 hình thái
+ * (Elliptical/Lenticular/Cartwheel/Sombrero/Peculiar dùng `SPACE_GALAXY_SPECIAL_PALETTES` CỐ ĐỊNH,
+ * phớt lờ `mode`) — vì `pickGalaxyType()` chọn ĐỀU NGẪU NHIÊN trong 10 hình thái, ~50% thiên hà
+ * hiển thị ra sẽ KHÔNG BAO GIỜ đổi màu theo setting, đúng triệu chứng Giang báo. BỎ HẲN ngoại lệ
+ * đó — MỌI hình thái, KHÔNG trừ ai, đều theo `vizConfig.mode`: 'solid' dùng `solidColor` (cho cả
+ * colorIn/colorOut, đúng bản chất "1 màu duy nhất" mọi visual khác áp dụng), còn lại dùng
+ * `dynA`/`dynB` ('gradient' còn hue-shift theo `globalHueOffset` mỗi frame, xem
+ * `GalaxyCluster.update()`, KHÔNG đụng ở hàm này). `SPACE_GALAXY_SPECIAL_PALETTES` ở trên GIỮ
+ * LẠI trong file nhưng KHÔNG còn được dùng cho MÀU nữa (không xoá hẳn — có thể tái dùng sau này
+ * cho mục đích khác, ví dụ tô điểm hình dạng theo hình thái, KHÔNG liên quan màu sắc người dùng
+ * chọn).
+ * @param {string} mode @param {string} solidColor @param {string} dynA @param {string} dynB
  * @returns {{in: string, out: string}}
  */
-function pickGalaxyPalette(type, mode, solidColor, dynA, dynB) {
-    if (SPACE_GALAXY_SPECIAL_PALETTES[type]) return SPACE_GALAXY_SPECIAL_PALETTES[type];
+function pickGalaxyPalette(mode, solidColor, dynA, dynB) {
     if (mode === 'solid') return { in: solidColor, out: solidColor };
     return { in: dynA, out: dynB };
 }
@@ -553,11 +552,12 @@ function computeSpaceForwardBasis(forward) {
  *
  * FIX (21/07/2026, phản hồi Giang mục 2d — "quay hướng khác thì không sinh thiên hà, nền tối"):
  * bản trước tính vị trí "nút" bằng `-clusterIdx * spacingZ` trên trục Z THẾ GIỚI tuyệt đối — chỉ
- * đúng khi camera luôn bay theo -Z. Từ khi hướng bay hợp nhất với hướng nhìn (`spViewDir`, plan
- * B3) và có thể quay bất kỳ hướng nào (mục 2c), chuỗi thiên hà PHẢI sinh dọc theo hướng camera
- * ĐANG NHÌN, không phải trục Z cố định — nếu không, quay sang hướng khác sẽ không có gì phía
- * trước (đúng triệu chứng Giang báo). Gọi hàm này với `originPos`/`forward` LẤY TỪ vị trí/hướng
- * camera HIỆN TẠI mỗi lần cần sinh thêm (xem `event/workflow/visualizer-render.js::_manageSpaceChain()`)
+ * đúng khi camera luôn bay theo -Z. Từ khi hướng bay là `spLegForward` (mô hình "waypoint nối
+ * tiếp", có thể đổi hướng dần qua từng leg — xem `event/workflow/visualizer-render.js`), chuỗi
+ * thiên hà PHẢI sinh dọc theo hướng camera ĐANG BAY, không phải trục Z cố định — nếu không, quay
+ * sang hướng khác sẽ không có gì phía trước (đúng triệu chứng Giang báo). Gọi hàm này với
+ * `originPos`/`forward` LẤY TỪ vị trí/hướng camera HIỆN TẠI mỗi lần cần sinh thêm (xem
+ * `event/workflow/visualizer-render.js::_manageSpaceChain()`)
  * — quay hướng nào, chuỗi tự "mọc" theo đúng hướng đó trong vài khung hình.
  *
  * `wobbleSeed` giữ nguyên công thức sin/cos uốn lượn cũ (KHÔNG kế thừa ý nghĩa gì đặc biệt, chỉ
@@ -589,22 +589,28 @@ function computeGalaxyMemberOffset() {
     );
 }
 
-/** Biên độ pitch (radian) khi "reroll" hướng nhìn mới — TĂNG so với bản trước (0.5π) theo yêu cầu
- * "tăng ngưỡng có thể xoay lên cao hơn" (phản hồi 21/07/2026, mục 2c). */
-const SPACE_REROLL_PITCH_RANGE = Math.PI * 0.85;
-
-/** Hướng nhìn/di chuyển MỤC TIÊU mới lúc "reroll" (plan B3/B4) — hình nón ngẫu nhiên hướng về
- * phía trước (-Z), lệch theo `pitchBias` (nốt cao -> thiên hướng "lên", nốt thấp -> "xuống").
- * @param {number} pitchBias - radian, âm/dương lệch trục pitch, đã tính sẵn bởi Workflow.
- * @returns {THREE.Vector3} */
-function rollNewSpaceViewDirTarget(pitchBias) {
-    const yaw = (Math.random() - 0.5) * Math.PI * 0.9;
-    const pitch = (Math.random() - 0.5) * SPACE_REROLL_PITCH_RANGE + pitchBias;
-    return new THREE.Vector3(
-        Math.sin(yaw) * Math.cos(pitch),
-        Math.sin(pitch),
-        -Math.cos(yaw) * Math.cos(pitch)
-    ).normalize();
+/**
+ * Hướng bay của leg KẾ TIẾP — VIẾT LẠI HOÀN TOÀN (21/07/2026, phản hồi Giang lượt 2, mục 3) thay
+ * hẳn `rollNewSpaceViewDirTarget()` (ngưỡng năng lượng + random rời rạc, mô hình lượt 1 đã bỏ) —
+ * giờ MỌI leg đều tự động lệch NHẸ khỏi hướng leg TRƯỚC ĐÓ, KHÔNG cần điều kiện kích hoạt gì cả
+ * ("liên tục như vậy", đúng mục 3) — tạo cảm giác uốn lượn tự nhiên xuyên suốt hành trình, thay vì
+ * bay thẳng đơ hoặc đổi hướng đột ngột hẳn 1 phát theo ngưỡng năng lượng như trước. Độ lệch NHỎ so
+ * với hình nón rộng ±0.85π/±0.9π của "reroll" lượt 1 — lệch dần TỪNG CHÚT MỘT mỗi leg, cộng dồn
+ * qua nhiều leg liên tiếp vẫn tạo được hành trình xoay chuyển đa dạng theo thời gian mà không có
+ * cú rẽ ngoặt gấp nào (khớp đúng mô tả "sinh ra... góc độ tiếp theo của camera" — góc độ TIẾP
+ * THEO, tính từ góc HIỆN TẠI, không phải chọn ngẫu nhiên hoàn toàn mới).
+ * @param {THREE.Vector3} currentForward - đã normalize
+ * @param {THREE.Vector3} right @param {THREE.Vector3} up - từ `computeSpaceForwardBasis(currentForward)`
+ * @param {number} yawRange @param {number} pitchRange - biên độ lệch (radian) — Workflow truyền hằng số
+ * @returns {THREE.Vector3}
+ */
+function generateNextSpaceLegForward(currentForward, right, up, yawRange, pitchRange) {
+    const yawDelta = (Math.random() - 0.5) * yawRange;
+    const pitchDelta = (Math.random() - 0.5) * pitchRange;
+    return currentForward.clone()
+        .addScaledVector(right, Math.tan(yawDelta))
+        .addScaledVector(up, Math.tan(pitchDelta))
+        .normalize();
 }
 
 // ============================================================================================
