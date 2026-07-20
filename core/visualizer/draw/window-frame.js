@@ -3,10 +3,6 @@
  * (core/visualizer/types/rain.js, đứng nhìn mưa ngoài cửa sổ). TÁCH RIÊNG (19/07/2026, yêu cầu
  * Giang — mỗi hàm 1 file trong core/visualizer/draw/) từ file gộp cũ
  * core/visualizer/draw-helpers.js (đã xoá, xem readme/folder-structure.md).
- *
- * LƯU Ý: đây là khung cửa sổ NHÀ — KHÁC hẳn khung khoang lái tàu vũ trụ của Space (VIẾT LẠI LẦN 2,
- * 19/07/2026 — giờ là SVG DOM #space-glass-frame trong index.html, KHÔNG còn hàm canvas riêng như
- * bản đầu, xem readme/folder-structure.md) — 2 khung KHÔNG dùng thay cho nhau.
  */
         function drawWindowFrame(ctx) {
             let fw = 25 * appState.get('dpr'); let midW = 15 * appState.get('dpr'); 
