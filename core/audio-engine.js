@@ -94,7 +94,16 @@
                 prevNode.connect(appState.get('masterGainNode')); appState.get('masterGainNode').connect(appState.get('analyser')); appState.get('masterGainNode').connect(appState.get('analyserPitch')); appState.get('analyser').connect(appState.get('audioContext').destination);
 
                 initPitchWorker();
-                allocateBuffers(); resizeCanvas(); drawVisualizer(); updateDOMBackground();
+                // MỚI (20/07/2026, plan-space-galaxy.md Phần A, mục A2) — `drawVisualizer()` cũ
+                // (core/visualizer/draw-visualizer.js, nay đã RỖNG) ĐỔI thành
+                // `workflowVisualizerRender.start()` — Core gọi Workflow, VI PHẠM KỸ THUẬT Rule 3,
+                // NHƯNG ĐÃ ĐÁNH DẤU RÕ là ngoại lệ đã biết (nhất quán với việc `playSong()`, hàm
+                // gọi `setupAudioContext()`, vốn dĩ đã Core-gọi-Core tràn lan từ trước —
+                // `switchToVisualizer()`/`refreshSongNode()`/`renderPlaylistDiff()`/
+                // `bumpSongPlayCount()`...). `taskManager.operator(name,'enabled')` tự guard
+                // chống double-start (no-op nếu đã chạy) nên gọi `start()` từ đây an toàn tuyệt
+                // đối, kể cả khi nhánh này không còn là nhánh "lần đầu" duy nhất chạy nó.
+                allocateBuffers(); resizeCanvas(); workflowVisualizerRender.start(); updateDOMBackground();
             } else if (appState.get('audioContext').state === 'suspended' || appState.get('audioContext').state === 'interrupted') appState.get('audioContext').resume();
         }
 

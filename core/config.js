@@ -56,10 +56,16 @@
         };
 
         const APP_CONFIG = { fftSizeStandard: 256, fftSizeHighRes: 2048, fftSizePitch: 2048, bpmMinWaitTime: 250 };
+        // MỚI (20/07/2026, plan-space-galaxy.md Phần B, mục B6) — 3 field `galaxy*` cho visual
+        // Space (kiểu con 'galaxy'): số sao min/max mỗi thiên hà, số hạt tinh vân, số hạt bụi nền
+        // — GIẢM theo quality để hạ hiệu năng máy yếu. `galaxyAheadWindow` (tầm nhìn xa của chuỗi
+        // thiên hà) KHÔNG nằm trong bảng này — CỐ ĐỊNH 1500 ở MỌI mức quality (đã CHỐT, xem hằng
+        // số `SPACE_AHEAD_WINDOW` ở event/workflow/visualizer-render.js — hạ hiệu năng chỉ qua
+        // giảm hạt/cụm, không đụng tầm nhìn).
         const PERFORMANCE_PROFILES = {
-            high: { stars: 200, tunnelRings: 60, glassDrops: 250, bldMult: 1.0, streakProb: 0.8, blurMult: 1.0, streetRain: 220 },
-            medium: { stars: 100, tunnelRings: 35, glassDrops: 100, bldMult: 1.5, streakProb: 0.9, blurMult: 0.5, streetRain: 130 },
-            low: { stars: 40, tunnelRings: 15, glassDrops: 40, bldMult: 2.5, streakProb: 0.95, blurMult: 0, streetRain: 70 } 
+            high: { stars: 200, tunnelRings: 60, glassDrops: 250, bldMult: 1.0, streakProb: 0.8, blurMult: 1.0, streetRain: 220, galaxyStarsMin: 3800, galaxyStarsMax: 6000, galaxyNebulaCount: 35, galaxyDustCount: 1500 },
+            medium: { stars: 100, tunnelRings: 35, glassDrops: 100, bldMult: 1.5, streakProb: 0.9, blurMult: 0.5, streetRain: 130, galaxyStarsMin: 2000, galaxyStarsMax: 3000, galaxyNebulaCount: 18, galaxyDustCount: 700 },
+            low: { stars: 40, tunnelRings: 15, glassDrops: 40, bldMult: 2.5, streakProb: 0.95, blurMult: 0, streetRain: 70, galaxyStarsMin: 800, galaxyStarsMax: 1200, galaxyNebulaCount: 0, galaxyDustCount: 300 }
         };
         const DEFAULT_VINYL = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0OCIgZmlsbD0iIzFlMjkzYiIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjE2IiBmaWxsPSIjMGYxNzJhIi8+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iMTUiIGZpbGw9IiNjYmQ1ZTEiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0IiBmaWxsPSIjMGYxNzJhIi8+PC9zdmc+';
         const EQ_FREQS = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
@@ -70,7 +76,10 @@
             'manual': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         };
 
-        const MODES = ['bar', 'lightning', 'rubik', 'vortex', 'black hole', 'rain'];
+        // MỚI (20/07/2026, plan-space-galaxy.md Phần B) — thêm lại 'space' (kiểu con DUY NHẤT
+        // hiện có: 'galaxy', xem vizConfig.spaceStyle) — VIẾT LẠI HOÀN TOÀN, không kế thừa gì từ
+        // bản Space cũ đã xoá trắng trước đó.
+        const MODES = ['bar', 'lightning', 'rubik', 'vortex', 'black hole', 'rain', 'space'];
 
         // Auto-switch-visual (ver 10): ngưỡng tối thiểu HARDCODE cho mọi cách tính thời gian giữa
         // 2 lần đổi hiệu ứng — người dùng KHÔNG thể điền thấp hơn mức này, validate ở cả input UI
@@ -84,6 +93,15 @@
 
         const DEFAULT_VIZ_CONFIG = {
             quality: 'high', type: 'bar', barStyle: 'mirror', vortexStyle: 'rings', rainStyle: 'glass', glassFlash: true, mode: 'solid', 
+            // MỚI (20/07/2026, plan-space-galaxy.md Phần B) — kiểu con của Space, dropdown LUÔN
+            // HIỆN dù hiện chỉ có 1 mục (giữ kiến trúc mở rộng sau này, xem plan B2). 4 field
+            // tinh chỉnh (B5) — ngưỡng/xác suất reroll hướng nhìn VÀ nhảy cụm thiên hà, TÁCH RIÊNG
+            // 2 cặp ngưỡng-xác suất (không dùng chung 1 field, đúng tinh thần các cặp
+            // autoSwitchVisual* ở dưới). Default KHÔNG kế thừa gì từ bản Space cũ, chỉ là điểm
+            // khởi đầu hợp lý — Giang chỉnh tay sau.
+            spaceStyle: 'galaxy',
+            spaceRerollThreshold: 0.6, spaceRerollChance: 0.985,
+            spaceJumpThreshold: 0.8, spaceJumpChance: 0.99,
             bgColor: '#000000', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', 
             minH: 4, maxH: 400, barWidth: 4, bgImage: '', bgBlur: 0, bgImageEnabled: false,
             // MỚI (07/07/2026, phản hồi Giang — mở đầu Theme thật) — LOẠI TRỪ NHAU:
@@ -252,6 +270,13 @@
                 if (cfg.type === 'synthesia') { cfg.type = 'bar'; cfg.barStyle = 'cascade'; }
                 if (cfg.type === 'firefly_forest' || cfg.type === 'seasons' || cfg.type === 'wave') cfg.type = 'bar';
                 if (!cfg.barStyle) cfg.barStyle = 'mirror';
+                // MỚI (20/07/2026, plan-space-galaxy.md Phần B) — cấu hình cũ (trước khi có Space)
+                // không có các field này -> điền default, tránh `undefined` lọt vào slider/dropdown.
+                if (!cfg.spaceStyle) cfg.spaceStyle = DEFAULT_VIZ_CONFIG.spaceStyle;
+                if (typeof cfg.spaceRerollThreshold !== 'number') cfg.spaceRerollThreshold = DEFAULT_VIZ_CONFIG.spaceRerollThreshold;
+                if (typeof cfg.spaceRerollChance !== 'number') cfg.spaceRerollChance = DEFAULT_VIZ_CONFIG.spaceRerollChance;
+                if (typeof cfg.spaceJumpThreshold !== 'number') cfg.spaceJumpThreshold = DEFAULT_VIZ_CONFIG.spaceJumpThreshold;
+                if (typeof cfg.spaceJumpChance !== 'number') cfg.spaceJumpChance = DEFAULT_VIZ_CONFIG.spaceJumpChance;
                 if (cfg.mirrorBarCount == null) cfg.mirrorBarCount = 32;
                 if (cfg.bgImageEnabled == null) cfg.bgImageEnabled = false;
                 // MỚI (07/07/2026) — người dùng CŨ đã bật sẵn ảnh nền trước khi có khái niệm Theme

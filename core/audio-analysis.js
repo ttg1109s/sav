@@ -9,6 +9,37 @@
  * fluxHistory/currentCalculatedBpm/rubikPitchAvg...) — các giá trị này được visual Rubik dùng,
  * phải tiếp tục chạy đúng bất kể dải số liệu có hiện hay không.
  */
+        /**
+         * MỚI (20/07/2026, plan-space-galaxy.md Phần A, mục A3) — 3 hàm Core THUẦN tách ra từ
+         * đoạn tính `beatScale`/`smoothedEnergy`/`globalHueOffset` TRƯỚC ĐÂY nằm thẳng trong vòng
+         * lặp `drawVisualizer()` (core/visualizer/draw-visualizer.js, nay đã RỖNG — logic dời sang
+         * `event/workflow/visualizer-render.js::_tick()`). Mỗi hàm 1 việc, CHỈ nhận tham số, KHÔNG
+         * tự `appState.get()` (Rule 2) — Workflow tự đọc appState rồi truyền vào, tự
+         * `appState.set(..., { skipCheck: true })` lại kết quả trả về (hot path 60fps, MIỄN Rule 4
+         * console.log — đúng ngoại lệ đã ghi ở `core-function-conventions.md` Rule 4).
+         */
+
+        /** Trung bình biên độ dải bass (bassCount phần tử đầu của vizDataArray), chuẩn hoá 0-1. */
+        function computeBeatScale(vizDataArray, bassCount) {
+            let bassSum = 0;
+            for (let i = 0; i < bassCount; i++) bassSum += vizDataArray[i];
+            return (bassSum / bassCount) / 255;
+        }
+
+        /** Làm mượt beatScale theo thời gian (EMA hệ số 0.15) — dùng cho mọi hiệu ứng cần phản ứng
+         * "mượt" với nhạc thay vì giật theo từng khung hình thô. */
+        function computeSmoothedEnergy(beatScale, prevSmoothedEnergy) {
+            return prevSmoothedEnergy + (beatScale - prevSmoothedEnergy) * 0.15;
+        }
+
+        /** Tiến hue-cycle 1 bước (chỉ khi đang phát) — guard clause thuần (KHÔNG phải rẽ nhánh 2
+         * tiến trình khác nhau theo Rule 1: xoá nhánh `if` đi, hàm vẫn còn ĐÚNG 1 kịch bản "tiến
+         * hue", chỉ mất phần "dừng sớm nếu không phát nhạc"). */
+        function computeNextGlobalHueOffset(current, beatScale, isPlaying) {
+            if (!isPlaying) return current;
+            return (current + 0.5 + (beatScale * 5)) % 360;
+        }
+
         function getComputedColor(i, totalLength, dataValue) {
             const cfg = appState.get('vizConfig');
             if (cfg.mode === 'dynamic') return { fill: interpolateColor(cfg.dynA, cfg.dynB, i / totalLength), glow: interpolateColor(cfg.dynA, cfg.dynB, i / totalLength) };
