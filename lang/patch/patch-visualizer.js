@@ -38,11 +38,6 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.vortexStyle.rings': 'Light rings',
     'visualizerSettingsDrawer.vortexStyle.bars': '3D bar segments (Equalizer)',
     'visualizerSettingsDrawer.vortexStyle.wave': 'Wave noise (fade)',
-    // MỚI (19/07/2026, viết lại LẦN 3 — 3 kiểu con Space).
-    'visualizerSettingsDrawer.spaceStyle.label': 'Space style',
-    'visualizerSettingsDrawer.spaceStyle.galaxyExplore': 'Galaxy Explore',
-    'visualizerSettingsDrawer.spaceStyle.sunSystem': 'Sun System',
-    'visualizerSettingsDrawer.spaceStyle.vacuumVoid': 'Vacuum Void',
     'visualizerSettingsDrawer.barStyle.label': 'Bar style',
     'visualizerSettingsDrawer.barStyle.mirror': 'Mirror (butterfly)',
     'visualizerSettingsDrawer.barStyle.cascade': 'Cascade',
@@ -51,8 +46,6 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.rainStyle.glass': 'Drips on glass',
     'visualizerSettingsDrawer.rainStyle.street': 'Street & park rain',
     'visualizerSettingsDrawer.glassFlash.label': 'Flash (glass & street lights)',
-    // MỚI (19/07/2026, visualizer "Drifting Space").
-    'visualizerSettingsDrawer.spaceGlassFrame.label': 'Show cockpit window frame',
     'visualizerSettingsDrawer.colorSectionTitle': 'Visualizer colors',
     'visualizerSettingsDrawer.bgColor.label': 'Black background color',
     'visualizerSettingsDrawer.colorMode.label': 'Waveform color mode',

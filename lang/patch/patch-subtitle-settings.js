@@ -151,7 +151,6 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsVisualizer.type.vortex': 'Vortex (Tunnel)',
     'settingsVisualizer.type.blackHole': 'Black Hole',
     'settingsVisualizer.type.rain': 'Rain',
-    'settingsVisualizer.type.space': 'Drifting Space', // MỚI (19/07/2026)
     'settingsVisualizer.openDrawer.label': 'Customize Visualizer',
     'settingsVisualizer.openDrawer.hint': 'Render quality, per-effect geometry, colors, auto-switch effect',
     'settingsVisualizer.visualEnable.label': 'Show visual',
