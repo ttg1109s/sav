@@ -80,9 +80,11 @@ state, tự gọi core.
 
 ```js
 taskManager.addNew(name, { time, exe, mode, count });
-// time: ms giữa các lần chạy (mode 'timeout') hoặc trước lần chạy đầu.
+// time: ms giữa các lần chạy (mode 'timeout') hoặc trước lần chạy đầu. VÔ NGHĨA với mode 'raf'
+//       (xem ngay dưới) — có thể truyền 0, addNew()/enabled() tự bỏ qua validate time>0 cho mode này.
 // exe:  function chạy — ĐÂY LÀ NƠI Workflow tự appState.get() + tự gọi core, KHÔNG đặt logic core trực tiếp trong 1 hàm core riêng rồi truyền vào đây.
-// mode: 'timeout' (bù trôi, dùng cho MỌI task lặp trong app — xem service/task-manager.js, KHÔNG dùng mode 'interval').
+// mode: 'timeout' (bù trôi, dùng cho MỌI task lặp thường trong app — xem service/task-manager.js,
+//       KHÔNG dùng mode 'interval') hoặc 'raf' (MỚI, 20/07/2026 — requestAnimationFrame, xem mục 4b).
 // count: 0 = lặp vô hạn cho tới khi kill(); >0 = số lần chạy giới hạn.
 taskManager.operator(name, 'enabled');  // BẮT BUỘC gọi ngay sau addNew() để task thực sự chạy.
 taskManager.pause(name);                // tạm dừng, giữ nguyên vị trí trong chu kỳ.
@@ -92,6 +94,29 @@ taskManager.isTaskRunning(name);        // LƯU Ý: vẫn trả `true` NGAY CẢ
 
 taskManager.once(fn, ms, name);         // task CHẠY 1 LẦN rồi tự kill — dùng thay setTimeout thô. Truyền `name` cố định + gọi lại nhiều lần = tự huỷ bản cũ, đặt lại từ đầu (đúng hành vi debounce). Không truyền `name`: tự sinh tên duy nhất, trả về { name, kill() } để nơi gọi tự huỷ sớm nếu cần.
 ```
+
+### 4b. Mode `raf` (MỚI, 20/07/2026, plan-space-galaxy.md Phần A)
+
+Nhánh THỨ 3 của `Loop`, bên cạnh `interval`/`timeout`: dùng `requestAnimationFrame`/
+`cancelAnimationFrame` thay `setTimeout`/`setInterval` — tự gọi lại chính nó bên trong, y hệt cơ
+chế tự-tái-sinh của mode `timeout` (`#runRaf()`, cấu trúc giống hệt `#runTimeout()`, chỉ đổi cơ
+chế hẹn giờ). **KHÔNG liên quan gì tới `eventBus`** — đừng nhầm "vòng lặp tự nuôi sống qua
+`taskManager`" với "bắn sự kiện qua `eventBus`", đây là 2 khái niệm độc lập.
+
+Dùng cho ĐÚNG 1 trường hợp trong app hiện tại: `event/workflow/visualizer-render.js` (vòng lặp
+render chính, thay `requestAnimationFrame(drawVisualizer)` thô trước đây nằm trong
+`core/visualizer/draw-visualizer.js`, nay file đó đã RỖNG).
+
+```js
+// event/workflow/visualizer-render.js
+taskManager.addNew('visualizerRender', { time: 0, exe: () => this._tick(), mode: 'raf', count: 0 });
+taskManager.operator('visualizerRender', 'enabled');
+```
+
+`pause()`/`resume()`/`kill()` hoạt động y hệt 2 mode kia (dùng chung `pauseAll()`/`resumeAll()`
+lúc tab ẩn/hiện, xem `event/tab.js`) — chỉ khác cơ chế hẹn giờ bên trong `Loop`, không cần biết gì
+thêm ở tầng gọi.
+
 
 ## 5. Ví dụ ĐÚNG — Workflow tự tick, tự gọi core (mẫu chuẩn từ `event/workflow/slideshow.js`)
 

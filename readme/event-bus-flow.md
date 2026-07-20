@@ -52,6 +52,17 @@ DOM (`click`/`change`/`input`...), `tab`/`window` lifecycle (`visibilitychange`/
 + gọi `eventBus.send({ router, type, payload })`. KHÔNG chứa logic nghiệp vụ, KHÔNG đọc `appState`
 để quyết định gì (đó là việc của Block/Router/VirtualMachineState phía sau).
 
+> **[MỚI, 20/07/2026, plan-space-galaxy.md Phần A]** Vòng lặp render chính
+> (`event/workflow/visualizer-render.js`) là 1 TRƯỜNG HỢP RIÊNG, đứng NGOÀI sơ đồ
+> Listener→Router→Core/Workflow ở trên: Workflow đó tự đăng ký task `taskManager` mode `raf`
+> (`service/task-manager.js`, MỚI) và tự "tick" 60 lần/giây, KHÔNG có Listener nào gửi
+> `eventBus.send()`, KHÔNG có Router nào `switch(msg.type)`. Đây vẫn ĐÚNG định nghĩa vai trò
+> Workflow (tự đọc `appState`, tự quyết định gọi Core nào, xem mục 4B dưới) — chỉ khác nguồn
+> "kích hoạt" là 1 vòng lặp tự nuôi sống (`taskManager` mode `raf`) thay vì 1 sự kiện DOM rời rạc.
+> Điểm khởi động DUY NHẤT của vòng lặp này là `core/audio-engine.js::setupAudioContext()` gọi
+> `workflowVisualizerRender.start()` — 1 ngoại lệ Core-gọi-Workflow ĐÃ ĐÁNH DẤU RÕ (xem comment
+> tại đó), KHÔNG phải tiền lệ cho phép Core gọi Workflow ở nơi khác.
+
 Ngoại lệ đã chốt từ trước (rule 2b.7 + audit đầy đủ ở [changelog/v11.md mục
 2](./changelog/v11.md), 18/18 `addEventListener` ngoài `/event/` được liệt kê tên + lý do): browser
 lifecycle events gắn thẳng trên `window`/`document` đứng NGOÀI `/event/` (`core/tab-hide-reload.js`,

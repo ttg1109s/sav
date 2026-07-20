@@ -146,8 +146,10 @@ visual-master/
 │   │                                nguyên chỗ cũ, chỉ phần INIT dời vào đây)
 │   │   ├── three-vortex.js        — HOT PATH — khởi tạo + cập nhật mỗi frame Three.js scene cho
 │   │   │                            visual Vortex (DỜI từ core/three-vortex.js, 19/07/2026)
-│   │   └── three-space.js         — RỖNG (0 byte, 20/07/2026 — Giang yêu cầu xoá toàn bộ visual
-│   │                                Space, giữ lại file để không đổi thứ tự nạp script)
+│   │   └── three-space.js         — Engine "Galaxy Journey" (VIẾT LẠI HOÀN TOÀN 20/07/2026,
+│   │                                plan-space-galaxy.md Phần B — class GalaxyCluster, 10 hàm
+│   │                                generate*Positions, shader, texture, SpaceDust; init dùng
+│   │                                CHUNG canvas/renderer với three-vortex.js ở trên)
 │   ├── state-and-video-bg.js     — handleVideoBackground(), mở/đóng Control Center
 │   ├── equalizer.js              — slider EQ dùng 1 listener DELEGATION trên eqSlidersWrapper
 │   │                              (event/listener/equalizer-settings.js) thay 10 listener rời
@@ -232,10 +234,11 @@ visual-master/
 │       │   ├── spaceship-frame.js      — RỖNG (0 byte, đã orphan trước 20/07/2026)
 │       │   ├── space-collision-flash.js — RỖNG (0 byte, 20/07/2026 — xoá visual Space, giữ file)
 │       │   └── flying-note.js          (nốt nhạc bay lên, DOM — mọi kiểu hiệu ứng)
-│       ├── draw-visualizer.js       — HOT PATH — vòng lặp render chính (requestAnimationFrame),
-│       │                              object VISUALIZER_DRAWERS, và dòng
-│       │                              document.addEventListener('DOMContentLoaded', ...) — ĐIỂM
-│       │                              KHỞI ĐỘNG THỰC SỰ của toàn app
+│       ├── draw-visualizer.js       — GIẢI THỂ HOÀN TOÀN (0 byte, 20/07/2026, plan-space-galaxy.md
+│       │                              Phần A) — object VISUALIZER_DRAWERS + vòng lặp render dời
+│       │                              sang event/workflow/visualizer-render.js (taskManager mode
+│       │                              `raf`, MỚI); đoạn DOMContentLoaded (ĐIỂM KHỞI ĐỘNG THỰC SỰ
+│       │                              của app) dời sang event/router/app-boot.js
 │       └── types/                   — HOT PATH — mỗi visual 1 file riêng
 │           ├── bar.js                  (Phản chiếu cánh bướm / Thác đổ)
 │           ├── lightning.js
@@ -244,7 +247,9 @@ visual-master/
 │           ├── black-hole.js           — hiệu năng khi cuộn ĐANG TREO (bar tần số + shadowBlur là
 │           │                              thủ phạm chính, không phải sao — xem changelog/v12.md)
 │           ├── rain.js                 (kiểu Trôi cửa kính / Mưa phố)
-│           └── space.js                — RỖNG (0 byte, 20/07/2026 — xoá visual Space, giữ file)
+│           └── space.js                — VIẾT LẠI HOÀN TOÀN (20/07/2026, plan-space-galaxy.md
+│                                          Phần B) — vài hàm Core nhỏ chạy mỗi frame (camera/chain/
+│                                          render/dust), khởi tạo ở core/webgl/three-space.js
 │
 ├── service/
 │   ├── state.js                  — STATE_SCHEMA + class AppState (get/set/mutate, validate kiểu,
@@ -274,14 +279,23 @@ visual-master/
     │                              đầu file "CHƯA có entry nào" đã LỖI THỜI, xem changelog/v12.md
     ├── virtual-machine-state.js  — VirtualMachineState.run(rules): chạy NHIỀU callback độc lập
     │                              theo điều kiện — ĐÃ DÙNG THẬT ≥15 điểm (playlist, file-manager-
-    │                              photo/song, draw-visualizer, folder.js...)
+    │                              photo/song, app-boot (DỜI từ draw-visualizer.js, 20/07/2026),
+    │                              folder.js...)
     ├── store.js                  — class EventStore: "state context" RIÊNG của từng router (khác
     │                              phạm vi với service/state.js)
     ├── tab.js                    — 3 lifecycle listener KHÔNG qua bus (visibilitychange/pagehide/
-    │                              beforeunload) — nạp CUỐI CÙNG trong toàn bộ /event/
+    │                              beforeunload) — nạp CUỐI CÙNG trong toàn bộ /event/ (TRỪ
+    │                              router/app-boot.js, xem ngay dưới — nạp SAU CẢ tab.js)
     ├── listener/                 — 24 file (14 cụm gốc ver 11 + 10 cụm mới Nhóm A/B/C/D)
-    ├── router/                   — 24 file, tự eventBus.register() lúc nạp
-    └── workflow/                 — 21 file (10 cụm gốc có workflow + 11 cụm mới):
+    ├── router/                   — 25 file (24 cụm cũ + app-boot.js, MỚI 20/07/2026 — dời
+    │                              document.addEventListener('DOMContentLoaded', ...) từ
+    │                              core/visualizer/draw-visualizer.js, KHÔNG tự eventBus.register()
+    │                              như 24 file kia — đây là ngoại lệ đặt tên "router" vì cùng dùng
+    │                              VirtualMachineState cho 1 quyết định lúc boot, xem
+    │                              plan-space-galaxy.md Phần A + comment đầu file đó)
+    └── workflow/                 — 22 file (21 cụm cũ + visualizer-render.js, MỚI 20/07/2026 —
+                                   vòng lặp render chính, taskManager mode `raf`, KHÔNG qua
+                                   eventBus/Router, xem readme/event-bus-flow.md mục 1):
                                    settings-misc, playlist, visualizer-display, language-settings,
                                    visualizer-control-center, playlist-empty-state, playlist-scope,
                                    auto-switch-visual, stats-panel (đã có từ trước) — MỚI thêm:
@@ -289,7 +303,8 @@ visual-master/
                                    file-manager-document, file-manager-cleanup, document-reader
                                    (gộp cả document-picker cũ — file cũ document-picker.js CÒN TRÊN
                                    ĐĨA, KHÔNG còn nạp, xem "2 file mồ côi" ở changelog/v12.md),
-                                   settings-stack-nav, slideshow, subtitle-editor, theme
+                                   settings-stack-nav, slideshow, subtitle-editor, theme,
+                                   visualizer-render (MỚI, xem trên)
 ```
 
 > **Lưu ý đặt tên:** cụm `event/{router,listener,workflow}/subtitle-modal.js` vẫn còn TÊN CŨ dù
