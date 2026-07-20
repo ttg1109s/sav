@@ -71,26 +71,71 @@ function updateSpaceDustEachFrame(dustMesh, camPos, range, beatScale) {
  * (Workflow tự đọc kết quả trả về rồi tự gọi `cluster.dispose(scene)`/tự spawn cụm mới — Rule 2
  * "chỉ nhận tham số", Rule 3 "không tự gọi hàm khác"). Guard/lookup thuần, không rẽ nhánh giữa 2
  * tiến trình nghiệp vụ khác nhau — chỉ 1 kịch bản duy nhất "đánh giá chuỗi hiện tại".
- * @param {GalaxyCluster[]} clusters @param {number} camZ
- * @param {number} disposeDistance - dispose khi thiên hà đã trôi lại phía sau quá khoảng này
+ *
+ * FIX (21/07/2026, phản hồi Giang mục 2d — "quay hướng khác thì không sinh thiên hà, nền tối"):
+ * bản trước dùng TOẠ ĐỘ Z THẾ GIỚI thô (`camZ`) để quyết định "phía trước"/"phía sau" — chỉ đúng
+ * khi camera luôn bay theo -Z. VIẾT LẠI: "phía trước"/"phía sau" giờ là CHIẾU (dot product) vị trí
+ * thiên hà lên trục `forward` (hướng camera ĐANG NHÌN/BAY, `spViewDir`) kể từ `camPos` — đúng với
+ * MỌI hướng bay, không riêng -Z. Dispose THÊM 1 tiêu chí mới: thiên hà lệch quá xa NGANG khỏi trục
+ * bay hiện tại (`disposeLateralDistance`) cũng bị dọn — cần thiết vì sau khi camera quay hướng
+ * khác nhiều, thiên hà cũ (thuộc hướng bay TRƯỚC ĐÓ) có thể không còn tính là "phía sau" theo
+ * nghĩa dot-product (nằm lệch sang 1 bên) nhưng vẫn nên dọn để tránh chuỗi phình to vô hạn.
+ * @param {GalaxyCluster[]} clusters @param {THREE.Vector3} camPos @param {THREE.Vector3} forward
+ * @param {number} disposeDistance - dispose khi đã trôi lại phía sau (dọc trục forward) quá khoảng này
+ * @param {number} disposeLateralDistance - dispose khi lệch NGANG khỏi trục forward quá khoảng này
  * @param {number} aheadWindow - tầm nhìn xa cần đảm bảo luôn có thiên hà phủ tới (CỐ ĐỊNH 1500, plan B6)
  * @param {number} aheadMargin - biên tối thiểu phía trước camera để tính "đã ở phía trước"
- * @returns {{toDisposeIndices: number[], furthestZ: number, needsMoreSpawns: boolean, nearestAheadIndex: (number|null)}}
+ * @returns {{toDisposeIndices: number[], furthestAheadDist: number, needsMoreSpawns: boolean, nearestAheadIndex: (number|null)}}
  */
-function manageGalaxyChain(clusters, camZ, disposeDistance, aheadWindow, aheadMargin) {
+function manageGalaxyChain(clusters, camPos, forward, disposeDistance, disposeLateralDistance, aheadWindow, aheadMargin) {
+    const alongDists = new Array(clusters.length);
     const toDisposeIndices = [];
+
     for (let i = clusters.length - 1; i >= 0; i--) {
-        if (clusters[i].position.z > camZ + disposeDistance) toDisposeIndices.push(i);
+        const offset = clusters[i].position.clone().sub(camPos);
+        const along = offset.dot(forward);
+        alongDists[i] = along;
+        const lateralSq = Math.max(0, offset.lengthSq() - along * along);
+        if (along < -disposeDistance || lateralSq > disposeLateralDistance * disposeLateralDistance) {
+            toDisposeIndices.push(i);
+        }
     }
 
-    const remaining = clusters.filter((_, i) => toDisposeIndices.indexOf(i) === -1);
-    const furthestZ = remaining.length > 0 ? Math.min(...remaining.map(c => c.position.z)) : camZ;
-    const needsMoreSpawns = furthestZ > camZ - aheadWindow;
+    let furthestAheadDist = -Infinity;
+    let nearestAheadIndex = null;
+    let nearestAheadDist = Infinity;
+    for (let i = 0; i < clusters.length; i++) {
+        if (toDisposeIndices.indexOf(i) !== -1) continue;
+        const d = alongDists[i];
+        if (d > furthestAheadDist) furthestAheadDist = d;
+        if (d > aheadMargin && d < nearestAheadDist) { nearestAheadDist = d; nearestAheadIndex = clusters[i].index; }
+    }
+    if (furthestAheadDist === -Infinity) furthestAheadDist = 0; // không còn thiên hà nào phía trước (mảng rỗng hoặc vừa dispose hết)
 
-    const ahead = remaining.filter(c => c.position.z < camZ - aheadMargin).sort((a, b) => b.position.z - a.position.z);
-    const nearestAheadIndex = ahead.length > 0 ? ahead[0].index : null;
+    const needsMoreSpawns = furthestAheadDist < aheadWindow;
+    return { toDisposeIndices, furthestAheadDist, needsMoreSpawns, nearestAheadIndex };
+}
 
-    return { toDisposeIndices, furthestZ, needsMoreSpawns, nearestAheadIndex };
+/** Camera đã "xoay tới nơi" hướng đang lerp hay chưa — dùng để KHOÁ không cho reroll tiếp cho tới
+ * khi thực sự xoay gần hết tới hướng trước đó (fix mục 2c, "chuyển động 360 chưa mượt" — trước
+ * đây reroll có thể kích hoạt lại NGAY CẢ KHI viewDir còn đang lerp dở dang, gây đổi hướng liên
+ * tục giật cục). So góc giữa 2 vector đã normalize — pure, không phụ thuộc gì khác.
+ * @param {THREE.Vector3} viewDir @param {THREE.Vector3} viewDirTarget @param {number} angleThreshold - radian
+ * @returns {boolean} */
+function hasSpaceViewArrived(viewDir, viewDirTarget, angleThreshold) {
+    return viewDir.angleTo(viewDirTarget) < angleThreshold;
+}
+
+/** Nội suy MƯỢT (smoothstep, không tuyến tính) vị trí camera trong 1 cú "nhảy" cụm thiên hà — fix
+ * mục 2a ("jump đột ngột") — bản trước teleport tức thì (`camera.position.set(...)` 1 lần), giờ
+ * Workflow gọi hàm này MỖI FRAME trong lúc nhảy, `progress` tăng dần 0→1 theo thời gian đã trôi
+ * qua / tổng thời lượng cú nhảy (base + phần random cộng thêm, xem Workflow).
+ * @param {THREE.Vector3} fromPos @param {THREE.Vector3} toPos @param {number} progress - 0..1 (ngoài khoảng tự kẹp)
+ * @returns {THREE.Vector3} */
+function computeSpaceJumpPosition(fromPos, toPos, progress) {
+    const clamped = Math.max(0, Math.min(1, progress));
+    const eased = clamped * clamped * (3 - 2 * clamped); // smoothstep — chậm lúc đầu/cuối, nhanh giữa chừng
+    return fromPos.clone().lerp(toPos, eased);
 }
 
 /** Render scene Galaxy — bọc `renderer.render()` thành 1 hàm Core cho nhất quán với các bước
