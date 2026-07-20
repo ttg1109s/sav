@@ -20,6 +20,30 @@
  */
 
 /**
+ * Đếm số thiên hà HIỆN CÓ nằm trong 1 "nón" hẹp phía trước theo hướng `forward` (trong phạm vi
+ * `checkDistance` dọc trục, `lateralRadius` ngang trục) — MỚI (21/07/2026, phản hồi Giang —
+ * "roll về hướng không có thiên hà nào, màn đen xì... cần tiên đoán trước hướng, kiểm tra tỉ lệ
+ * mật độ thiên hà ở vùng đó rồi mới quyết định thêm hay không"). Hàm THUẦN, CHỈ đếm/tính toán,
+ * KHÔNG tự spawn gì — Workflow tự đọc kết quả trả về rồi quyết định có cần bơm thêm thiên hà theo
+ * hướng đó hay không TRƯỚC khi cam kết chuyển sang hướng này (xem
+ * `event/workflow/visualizer-render.js::_stageNextLeg()`/`_advancePreSpawn()`).
+ * @param {GalaxyCluster[]} clusters @param {THREE.Vector3} camPos @param {THREE.Vector3} forward
+ * @param {number} checkDistance @param {number} lateralRadius
+ * @returns {number} số thiên hà đang nằm trong vùng kiểm tra
+ */
+function assessGalaxyDensityAhead(clusters, camPos, forward, checkDistance, lateralRadius) {
+    let count = 0;
+    for (let i = 0; i < clusters.length; i++) {
+        const offset = clusters[i].position.clone().sub(camPos);
+        const along = offset.dot(forward);
+        if (along <= 0 || along > checkDistance) continue;
+        const lateralSq = Math.max(0, offset.lengthSq() - along * along);
+        if (lateralSq < lateralRadius * lateralRadius) count++;
+    }
+    return count;
+}
+
+/**
  * Xoay 2 trục right/up (đã trực chuẩn với forward) quanh CHÍNH trục forward theo góc `rollAngle`
  * (radian) — tạo hiệu ứng "roll" camera (nghiêng/lật quanh trục nhìn) mà KHÔNG đổi HƯỚNG nhìn
  * (forward giữ nguyên, chỉ trục "lên" của camera xoay đi). Công thức xoay 2D chuẩn trong mặt
