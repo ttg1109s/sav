@@ -32,10 +32,10 @@
 // 1. HẰNG SỐ / DỮ LIỆU (không phải hàm — tham chiếu tự do, KHÔNG tính là "gọi hàm")
 // ============================================================================================
 
-/** Khoảng cách trục Z giữa 2 "nút" liên tiếp của sợi vũ trụ (mỗi nút sinh 3-5 thiên hà). GIẢM từ
- * 200 xuống 110 (fix mục 2, phản hồi 21/07/2026 — "vùng thiên hà xuất hiện ít, thưa, xa" — nút
- * dày hơn gần gấp đôi = mật độ nhìn thấy tăng tương ứng). */
-const SPACE_CLUSTER_SPACING_Z = 110;
+/** Khoảng cách trục Z giữa 2 "nút" liên tiếp của sợi vũ trụ (mỗi nút sinh 3-5 thiên hà). GIẢM
+ * THÊM (fix mục 2, phản hồi 21/07/2026 lượt 5 — "giảm khoảng cách giữa các cụm thiên hà lại"),
+ * trước 200 -> 110 (lượt 3) -> 70 (lượt 5). */
+const SPACE_CLUSTER_SPACING_Z = 70;
 
 /** Định danh ngẫu nhiên chuẩn khoa học (giữ nguyên tinh thần bản demo, số liệu không kế thừa gì
  * đặc biệt — chỉ là 1 danh sách tên hợp lý cho bản MỚI). */
@@ -586,31 +586,8 @@ function computeGalaxyMemberOffset() {
     );
 }
 
-/**
- * Bảng tra sóng sin (LUT) tạo độ lệch mượt cho quỹ đạo 1 leg (mục 4, phản hồi 21/07/2026 —
- * "tích hợp bảng LUT động, số lượng ngẫu nhiên từ 1-64... tạo quỹ đạo chuyển động mượt từ a-b
- * theo hình sin"). Kích thước NGẪU NHIÊN mỗi lần sinh (1-64, do Workflow tự random rồi truyền
- * vào) — dùng ĐÚNG NỬA chu kỳ sin (0 ở 2 đầu bảng, đỉnh ở giữa) để đảm bảo KHÔNG phá vỡ tính liên
- * tục tại 2 điểm nối waypoint (A/B vẫn nối đúng vị trí — 0 lệch tại 2 đầu mút — chỉ đường ĐI GIỮA
- * 2 điểm đó uốn lượn thay vì thẳng tắp).
- * @param {number} size - đã kẹp 1-64 bởi Workflow trước khi gọi
- * @returns {Float32Array}
- */
-function buildSpaceLegSineLUT(size) {
-    const clampedSize = Math.max(1, Math.min(64, Math.floor(size)));
-    const lut = new Float32Array(clampedSize);
-    // FIX edge case size=1 (xác suất ~1.5%/leg): chỉ 1 mẫu KHÔNG thể biểu diễn hình sin (0 ở 2 đầu,
-    // đỉnh ở giữa) — lấy tại t=0.5 sẽ ra sin(π/2)=1 CỐ ĐỊNH suốt cả leg (vi phạm "0 tại 2 đầu mút"),
-    // khiến vị trí lệch hằng số rồi "bật" về đúng waypoint ở khung hình cuối (giật nhẹ). size=1 giờ
-    // trả thẳng leg "phẳng" (không lệch) — biến thể tự nhiên (thỉnh thoảng có leg thẳng tắp giữa
-    // các leg uốn lượn), KHÔNG vi phạm tính liên tục.
-    if (clampedSize === 1) { lut[0] = 0; return lut; }
-    for (let i = 0; i < clampedSize; i++) {
-        const t = i / (clampedSize - 1);
-        lut[i] = Math.sin(t * Math.PI);
-    }
-    return lut;
-}
+// (buildSpaceLegSineLUT() ĐÃ BỎ, 21/07/2026 lượt 5, mục 4 — "loại bỏ LUT + bar hoàn toàn". Quỹ
+// đạo leg trở lại đường THẲNG tắp giữa 2 waypoint như trước lượt 3.)
 
 /**
  * Hướng bay của leg KẾ TIẾP — VIẾT LẠI HOÀN TOÀN (21/07/2026, phản hồi Giang lượt 2, mục 3) thay
