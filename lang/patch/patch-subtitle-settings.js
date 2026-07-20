@@ -151,6 +151,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsVisualizer.type.vortex': 'Vortex (Tunnel)',
     'settingsVisualizer.type.blackHole': 'Black Hole',
     'settingsVisualizer.type.rain': 'Rain',
+    // MỚI (20/07/2026, plan-space-galaxy.md Phần B) — thêm lại 'space' vào select Kiểu hiệu ứng.
+    'settingsVisualizer.type.space': 'Space (Galaxy)',
     'settingsVisualizer.openDrawer.label': 'Customize Visualizer',
     'settingsVisualizer.openDrawer.hint': 'Render quality, per-effect geometry, colors, auto-switch effect',
     'settingsVisualizer.visualEnable.label': 'Show visual',
