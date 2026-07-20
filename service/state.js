@@ -131,42 +131,6 @@
             tBarRingZs: 'array',
             tWaveMeshes: 'array',
 
-            // ── three/space (VIẾT LẠI LẦN 3, 19/07/2026, phản hồi Giang — "xoá hết viết lại,
-            // tách 3 kiểu con Galaxy Explore/Sun System/Vacuum Void" — xem core/webgl/three-space.js) ──
-            spScene: 'any',        // THREE.Scene | undefined trước initThreeSpace()
-            spCamera: 'any',       // THREE.Camera | undefined
-            spInitialized: 'boolean',
-            spCurrentDriftZ: 'number',
-            spStarPoints: 'any',   // THREE.Points | undefined (starfield nền tĩnh, DÙNG CHUNG cả 3 kiểu)
-            spPathParams: 'object', // đường bay cong hiện tại (freqX/Y, ampX/Y, phaseX/Y) — GIỮ NGUYÊN
-                                     // từ 2 lần viết trước theo đúng yêu cầu "giữ nguyên movement"
-            spPathTarget: 'object', // đích nội suy tới của spPathParams
-            spPanAngle: 'number',    // góc quét Ken Burns (zoom+pan+chéo góc) — GIỮ NGUYÊN
-            spAmbientLight: 'any',  // THREE.AmbientLight | undefined
-            spKeyLight: 'any',      // THREE.DirectionalLight | undefined
-            spGlowTexture: 'any',   // THREE.CanvasTexture (glow tròn, dựng 1 lần) | undefined
-            spComposer: 'any',      // THREE.EffectComposer (bloom) | undefined — null nếu thư viện không tải được
-            spContentGroup: 'any',  // THREE.Group | undefined — nội dung RIÊNG theo từng kiểu con,
-                                     // xoá/dựng lại khi đổi spaceStyle (setSpaceStyle() ->
-                                     // reinitSpaceStyleContent()) — KHÔNG đụng camera/renderer/ánh
-                                     // sáng/đường bay cong dùng chung ở trên
-            // Galaxy Explore — nhiều thiên hà tái sinh (sliding window, giống tRings Vortex):
-            spGalaxySlots: 'array', // {points, z, active} — mỗi thiên hà tự tái sinh khi camera vượt qua
-            // Sun System — hệ mặt trời thật (THREEx.Planets nếu dùng được, xem _tryCreateThreexPlanet()):
-            spSunPlanets: 'array',    // {mesh, orbitRadius, orbitSpeed, angle, isSun}
-            spSunFocusIndex: 'number', // hành tinh đang "tham quan" (đổi theo audio)
-            spSunZoomLerp: 'number',   // 0 = nhìn toàn hệ (nhạc chậm) .. 1 = áp sát hành tinh (nhạc nhanh)
-            // Vacuum Void — pool thiên thạch (GIỮ NGUYÊN THREE.Points gốc, KHÔNG dùng thư viện particle
-            // ngoài nữa — 2 lần thử three-nebula/three-particles đều không xác nhận chạy được) + hiệu
-            // ứng va chạm MỚI (kính vỡ + sóng năng lượng, thay rung+flash đơn giản trước đây):
-            spGroupMeteors: 'any', // THREE.Group | undefined
-            spMeteorPool: 'array', // pool THREE.Mesh tái sử dụng cho sao băng/thiên thạch
-            spShatterShards: 'array', // mảnh vỡ kính bay ra khi va chạm — {mesh, vx,vy,vz, life}
-            spEnergyWaves: 'array',   // vòng sóng năng lượng nở ra khi va chạm — {mesh, life}
-            spFieldStarPoints: 'any',  // THREE.Points | undefined — lớp "sao lấm chấm" tái sinh
-                                        // (Galaxy Explore + Vacuum Void, KHÔNG dùng ở Sun System)
-            spFieldStarZs: 'array',    // vị trí Z hiện tại của từng sao trong spFieldStarPoints
-
             // ── audio engine ──────────────────────────────────────────────────
             audioContext: 'any',           // AudioContext | undefined trước setupAudioContext()
             analyser: 'any',               // AnalyserNode | undefined
@@ -368,31 +332,6 @@
                 tBarRingZs: [],
                 tWaveMeshes: [],
 
-                // ── three/space (VIẾT LẠI LẦN 3, 19/07/2026 — 3 kiểu con) ─────────
-                spScene: undefined,
-                spCamera: undefined,
-                spInitialized: false,
-                spCurrentDriftZ: 0,
-                spStarPoints: undefined,
-                spPathParams: { freqX: 0.0007, freqY: 0.0005, ampX: 380, ampY: 260, phaseX: 0, phaseY: 0 },
-                spPathTarget: { freqX: 0.0007, freqY: 0.0005, ampX: 380, ampY: 260, phaseX: 0, phaseY: 0 },
-                spPanAngle: 0,
-                spAmbientLight: undefined,
-                spKeyLight: undefined,
-                spGlowTexture: undefined,
-                spComposer: undefined,
-                spContentGroup: undefined,
-                spGalaxySlots: [],
-                spSunPlanets: [],
-                spSunFocusIndex: 0,
-                spSunZoomLerp: 0,
-                spGroupMeteors: undefined,
-                spMeteorPool: [],
-                spShatterShards: [],
-                spEnergyWaves: [],
-                spFieldStarPoints: undefined,
-                spFieldStarZs: [],
-
                 // ── audio engine ──────────────────────────────────────────────
                 audioContext: undefined,
                 analyser: undefined,
@@ -483,9 +422,9 @@
         const CONST = Object.freeze({
             APP_CONFIG: Object.freeze({ fftSizeStandard: 256, fftSizeHighRes: 2048, fftSizePitch: 2048, bpmMinWaitTime: 250 }),
             PERFORMANCE_PROFILES: Object.freeze({
-                high:   Object.freeze({ stars: 200, tunnelRings: 60, glassDrops: 250, bldMult: 1.0, streakProb: 0.8,  blurMult: 1.0, streetRain: 220, spaceStars: 2200, spaceGalaxyStars: 6000, spaceGalaxyCount: 3, spaceDetail: 28, spaceMeteorPool: 24, spaceFieldStars: 220 }),
-                medium: Object.freeze({ stars: 100, tunnelRings: 35, glassDrops: 100, bldMult: 1.5, streakProb: 0.9,  blurMult: 0.5, streetRain: 130, spaceStars: 1200, spaceGalaxyStars: 3000, spaceGalaxyCount: 2, spaceDetail: 18, spaceMeteorPool: 14, spaceFieldStars: 120 }),
-                low:    Object.freeze({ stars: 40,  tunnelRings: 15, glassDrops: 40,  bldMult: 2.5, streakProb: 0.95, blurMult: 0,   streetRain: 70, spaceStars: 500, spaceGalaxyStars: 1500, spaceGalaxyCount: 2, spaceDetail: 10, spaceMeteorPool: 6, spaceFieldStars: 60 }),
+                high:   Object.freeze({ stars: 200, tunnelRings: 60, glassDrops: 250, bldMult: 1.0, streakProb: 0.8,  blurMult: 1.0, streetRain: 220 }),
+                medium: Object.freeze({ stars: 100, tunnelRings: 35, glassDrops: 100, bldMult: 1.5, streakProb: 0.9,  blurMult: 0.5, streetRain: 130 }),
+                low:    Object.freeze({ stars: 40,  tunnelRings: 15, glassDrops: 40,  bldMult: 2.5, streakProb: 0.95, blurMult: 0,   streetRain: 70 }),
             }),
             DEFAULT_VINYL: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0OCIgZmlsbD0iIzFlMjkzYiIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjE2IiBmaWxsPSIjMGYxNzJhIi8+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iMTUiIGZpbGw9IiNjYmQ1ZTEiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0IiBmaWxsPSIjMGYxNzJhIi8+PC9zdmc+',
             EQ_PRESETS: Object.freeze({
@@ -493,10 +432,10 @@
                 rock: Object.freeze([5, 4, 3, 1, -1, -1, 1, 2, 3, 4]), acoustic: Object.freeze([2, 1, 0, 0, 1, 2, 3, 4, 3, 2]), electronic: Object.freeze([5, 4, 1, -1, -2, 0, 1, 3, 4, 5]),
                 manual: Object.freeze([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
             }),
-            MODES: Object.freeze(['bar', 'lightning', 'rubik', 'vortex', 'black hole', 'rain', 'space']),
+            MODES: Object.freeze(['bar', 'lightning', 'rubik', 'vortex', 'black hole', 'rain']),
             AUTO_SWITCH_VISUAL_MIN_SECONDS: 10,
             DEFAULT_VIZ_CONFIG: Object.freeze({
-                quality: 'high', type: 'bar', barStyle: 'mirror', vortexStyle: 'rings', rainStyle: 'glass', glassFlash: true, spaceGlassFrame: true, spaceStyle: 'galaxyExplore', mode: 'solid',
+                quality: 'high', type: 'bar', barStyle: 'mirror', vortexStyle: 'rings', rainStyle: 'glass', glassFlash: true, mode: 'solid',
                 bgColor: '#000000', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 minH: 4, maxH: 400, barWidth: 4, bgImage: '', bgBlur: 0, bgImageEnabled: false,
                 // MỚI (09/07/2026) — `themeMode`/`gradientFrom`/`gradientTo` BỊ SÓT khỏi bản
