@@ -20,21 +20,22 @@
  */
 
 /**
- * Tra bảng LUT sin theo `progress` (0..1, nội suy tuyến tính giữa 2 mốc gần nhất trong bảng) —
- * mục 4. Trả về hệ số lệch (-1..1, đã nhân biên độ ở Workflow) áp lên trục vuông góc với hướng
- * leg, tạo quỹ đạo uốn lượn hình sin thay vì đường thẳng tắp giữa 2 waypoint.
- * @param {Float32Array} lut @param {number} progress
- * @returns {number}
+ * Xoay 2 trục right/up (đã trực chuẩn với forward) quanh CHÍNH trục forward theo góc `rollAngle`
+ * (radian) — tạo hiệu ứng "roll" camera (nghiêng/lật quanh trục nhìn) mà KHÔNG đổi HƯỚNG nhìn
+ * (forward giữ nguyên, chỉ trục "lên" của camera xoay đi). Công thức xoay 2D chuẩn trong mặt
+ * phẳng vuông góc forward. MỚI (21/07/2026, phản hồi Giang lượt 5, mục 5 — "roll camera sau mỗi
+ * lượt dựa theo note pick giống như rubik") — Workflow tự tra bảng
+ * `spNoteRollTable` (12 giá trị random, sinh 1 lần lúc init Space, tái sử dụng suốt phiên — xem
+ * `core/visualizer/visualizer-display.js`) theo nốt hiện tại để lấy `rollAngle`, rồi gọi hàm này
+ * TRƯỚC khi gọi `applyStableSpaceOrientation()`.
+ * @param {THREE.Vector3} right @param {THREE.Vector3} up @param {number} rollAngle - radian
+ * @returns {{right: THREE.Vector3, up: THREE.Vector3}}
  */
-function sampleSpaceLegSineLUT(lut, progress) {
-    if (!lut || lut.length === 0) return 0;
-    const clamped = Math.max(0, Math.min(1, progress));
-    if (lut.length === 1) return lut[0];
-    const scaled = clamped * (lut.length - 1);
-    const idx0 = Math.floor(scaled);
-    const idx1 = Math.min(lut.length - 1, idx0 + 1);
-    const frac = scaled - idx0;
-    return lut[idx0] + (lut[idx1] - lut[idx0]) * frac;
+function applySpaceRoll(right, up, rollAngle) {
+    const cosA = Math.cos(rollAngle), sinA = Math.sin(rollAngle);
+    const newRight = right.clone().multiplyScalar(cosA).addScaledVector(up, sinA);
+    const newUp = up.clone().multiplyScalar(cosA).addScaledVector(right, -sinA);
+    return { right: newRight, up: newUp };
 }
 
 /**
