@@ -74,13 +74,6 @@
                 if (currentFlux > fluxThreshold && currentFlux > 150 && (now - lastBeatTime > APP_CONFIG.bpmMinWaitTime)) {
                     if (lastBeatTime > 0) { appState.mutate('beatTimes', arr => { arr.push(now - lastBeatTime); if (arr.length > 5) arr.shift(); }, { skipCheck: true }); }
                     lastBeatTime = now;
-                    // MỚI (21/07/2026, phản hồi Giang lượt 4, mục 1) — tăng bộ đếm beat TẠI ĐÚNG
-                    // điểm phát hiện beat có sẵn (KHÔNG dựng cơ chế phát hiện riêng) — dùng để suy
-                    // ra "bar" (ô nhịp) cho event/workflow/visualizer-render.js (Space). Đây là
-                    // dòng BỔ SUNG đơn thuần (đếm thêm 1), KHÔNG đổi logic phát hiện beat/tính BPM
-                    // hiện có bên dưới — không phát sinh nghĩa vụ refactor hàm này (Rule 0.5,
-                    // tương tự các bổ sung nhỏ khác đã làm trong core-legacy-audit.md).
-                    appState.mutate('beatCount', c => c + 1, { skipCheck: true });
                     const beatTimes = appState.get('beatTimes');
                     if (beatTimes.length >= 2) {
                         let avgInterval = beatTimes.reduce((a, b) => a + b) / beatTimes.length;
