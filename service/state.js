@@ -169,54 +169,36 @@
             // — thay bằng mô hình CỘNG DỒN QUÃNG ĐƯỜNG: mỗi frame đọc TƯƠI BPM + smoothedEnergy
             // tính tốc độ TỨC THỜI, cộng dồn vào spLegDistanceCovered — progress = covered/total,
             // KHÔNG cần biết trước "leg mất bao lâu" — cho phép tốc độ phản ứng LIÊN TỤC với nhạc
-            // trong suốt 1 leg (trước đây tốc độ "đông cứng" ngay khi leg bắt đầu, không đổi cho
-            // tới khi leg kế tiếp). Xem event/workflow/visualizer-render.js::_advanceSpaceLeg().
+            // trong suốt 1 leg. Xem event/workflow/visualizer-render.js::_advanceSpaceLeg().
             spLegDistanceCovered: 'number', // quãng đường ĐÃ ĐI trong leg hiện tại (đơn vị 3D)
             spLegTotalDistance: 'number',   // tổng quãng đường leg hiện tại (cố định lúc bắt đầu = khoảng cách legStartPos->nextPos)
             spLegSpeedRandomFactor: 'number', // hệ số ngẫu nhiên ổn định CHO CẢ leg (không đổi giữa chừng) — "cộng thêm giá trị ngẫu nhiên"
             spPendingNextPos: 'any',   // THREE.Vector3 | null — điểm đến leg KẾ TIẾP, sinh sẵn giữa chừng leg hiện tại
-            spPendingForward: 'any',   // THREE.Vector3 | null — hướng của leg KẾ TIẾP
-            // (spLegSineLUT/spLegSineAmplitude/spPendingLegSineLUT/spPendingLegSineAmplitude ĐÃ BỎ,
-            // 21/07/2026 lượt 5, mục 4 — "loại bỏ LUT + bar hoàn toàn". Quỹ đạo leg trở lại đường
-            // THẲNG tắp giữa 2 waypoint như trước lượt 3.)
-            // MỚI (21/07/2026, phản hồi Giang lượt 5, mục 5) — "roll camera sau mỗi lượt dựa theo
-            // note pick giống như rubik, nhưng sinh ngẫu nhiên, tái sử dụng": `spNoteRollTable` là
-            // bảng 12 phần tử (1/nốt trong quãng tám, giống cấu trúc RUBIK_NOTE_TO_TURN ở
-            // core/dom-refs.js) nhưng SINH NGẪU NHIÊN 1 LẦN lúc khởi tạo Space (KHÔNG cố định tay
-            // như Rubik) rồi TÁI SỬ DỤNG suốt phiên xem — mỗi lần bắt đầu 1 leg mới, tra bảng theo
-            // `lastValidMidiNote % 12` để lấy góc roll (radian) cho leg đó, xem
-            // event/workflow/visualizer-render.js.
-            spNoteRollTable: 'any',    // number[] (12 phần tử, radian) | undefined trước khi Space init
-            spLegRoll: 'number',       // góc roll ĐANG ÁP DỤNG cho leg hiện tại (radian)
-            spPendingRoll: 'number',   // góc roll của leg KẾ TIẾP — blend dần vào ở đoạn cuối leg hiện tại
-            // "Nhảy" sang thiên hà khác — TRIGGER là NỐT CAO NHẤT vừa vang lên. Jump được CHÈN VÀO
-            // như 1 leg "pending ƯU TIÊN" (spPendingIsJump), tận dụng ĐÚNG cơ chế blend-hướng-nhìn-
-            // mượt sẵn có ở đoạn cuối leg hiện tại (fix triệt để "hard cut" — không còn cú xoay đột
-            // ngột lúc BẮT ĐẦU leg nhảy nữa, xem event/workflow/visualizer-render.js). `spJumpLocked`
-            // khoá NGAY lúc CHÈN (không đợi tới lúc leg nhảy thật sự bắt đầu) — khoá không cho
-            // trigger nhảy chồng lấp + khoá không cho `_manageSpaceChain()` tự ý ghi đè
-            // `spCurrentTargetIndex` suốt từ lúc chèn tới lúc THỰC SỰ đến nơi (bao gồm cả phần còn
-            // lại của leg hiện tại).
-            spJumpLocked: 'boolean',
-            spHighestNoteSeen: 'number', // "trần" nốt cao nhất gần đây, tự hạ dần theo thời gian (decay) — nốt VƯỢT trần này mới tính là "đỉnh mới"
-            spPendingIsJump: 'boolean',            // leg PENDING hiện tại có phải leg nhảy (ưu tiên) hay không
-            spPendingJumpTargetIndex: 'nullable-number', // .index thiên hà B — dùng lúc commit leg nhảy làm spCurrentTargetIndex
-            spCurrentLegIsJump: 'boolean',         // leg ĐANG CHẠY (không phải pending) có phải leg nhảy hay không — quyết định có mở khoá lúc leg này hoàn tất hay không kích hoạt nhảy
+            spPendingForward: 'any',   // THREE.Vector3 | null — hướng của leg KẾ TIẾP (đã BAO GỒM SẴN việc bẻ lái theo nốt, xem spNoteSteerTable)
+            // VIẾT LẠI (21/07/2026, phản hồi Giang — "roll... đang bị hiểu nhầm thành rotate 2D
+            // chứ không phải bẻ hướng di chuyển của camera theo 360 độ theo pitch note") — bỏ hẳn
+            // `spNoteRollTable`/`spLegRoll`/`spPendingRoll` (từng dùng để XOAY TRỤC LÊN/PHẢI quanh
+            // CHÍNH hướng nhìn — cosmetic, KHÔNG đổi hướng ĐI, SAI bản chất yêu cầu). Đổi thành
+            // `spNoteSteerTable`: CÙNG cấu trúc bảng 12 phần tử (1/nốt, giống RUBIK_NOTE_TO_TURN,
+            // core/dom-refs.js — SINH NGẪU NHIÊN 1 LẦN lúc Space init, TÁI SỬ DỤNG suốt phiên),
+            // nhưng giá trị giờ là GÓC BẺ LÁI (radian, [-π, π) — đủ 360°) áp TRỰC TIẾP lên vector
+            // `forward` khi sinh hướng leg KẾ TIẾP (`steerSpaceForward()`, core/webgl/three-space.js)
+            // — THAY HẲN cơ chế lệch nhẹ ngẫu nhiên cũ (`generateNextSpaceLegForward()` ĐÃ BỎ).
+            // KHÔNG còn field "spLegRoll đang áp dụng" nữa — góc bẻ lái được TIÊU THỤ NGAY lúc sinh
+            // hướng (kết quả nằm thẳng trong spLegForward/spPendingForward), không cần lưu riêng.
+            spNoteSteerTable: 'any',   // number[] (12 phần tử, radian) | undefined trước khi Space init
 
             // MỚI (21/07/2026, phản hồi Giang — "roll về hướng không có thiên hà nào, màn đen xì
             // ... cần tiên đoán trước hướng next roll, kiểm tra mật độ thiên hà vùng đó rồi mới
             // quyết định thêm... khoá toàn bộ moving, không sinh next pos/next roll cho trôi nhẹ,
-            // đợi thêm xong xong rồi mới mở khoá") — vùng "staging" cho ứng viên leg KẾ TIẾP (dù
-            // thường hay nhảy) đang chờ đủ mật độ thiên hà mới được CHỐT thành `spPendingForward`/
-            // `spPendingNextPos`/... thật — xem `_stageNextLeg()`/`_advancePreSpawn()`,
-            // event/workflow/visualizer-render.js. Leg ĐANG CHẠY (spLegForward/spNextPos) KHÔNG bị
-            // ảnh hưởng gì — vẫn tiếp tục di chuyển bình thường ("trôi nhẹ") trong lúc khoá.
+            // đợi thêm xong xong rồi mới mở khoá") — vùng "staging" cho ứng viên leg KẾ TIẾP đang
+            // chờ đủ mật độ thiên hà mới được CHỐT thành `spPendingForward`/`spPendingNextPos` thật
+            // — xem `_stageNextLeg()`/`_advancePreSpawn()`, event/workflow/visualizer-render.js.
+            // Leg ĐANG CHẠY (spLegForward/spNextPos) KHÔNG bị ảnh hưởng gì — vẫn tiếp tục di
+            // chuyển bình thường ("trôi nhẹ") trong lúc khoá.
             spPreSpawnLocked: 'boolean',
             spPreSpawnForward: 'any',              // THREE.Vector3 | null — hướng ứng viên đang chờ đủ mật độ
             spPreSpawnNextPos: 'any',              // THREE.Vector3 | null
-            spPreSpawnRoll: 'number',
-            spPreSpawnIsJump: 'boolean',
-            spPreSpawnJumpTargetIndex: 'nullable-number',
 
             // ── audio engine ──────────────────────────────────────────────────
             audioContext: 'any',           // AudioContext | undefined trước setupAudioContext()
@@ -439,20 +421,10 @@
                 spLegSpeedRandomFactor: 1,
                 spPendingNextPos: undefined,
                 spPendingForward: undefined,
-                spNoteRollTable: undefined,
-                spLegRoll: 0,
-                spPendingRoll: 0,
-                spJumpLocked: false,
-                spHighestNoteSeen: 0,
-                spPendingIsJump: false,
-                spPendingJumpTargetIndex: null,
-                spCurrentLegIsJump: false,
+                spNoteSteerTable: undefined,
                 spPreSpawnLocked: false,
                 spPreSpawnForward: undefined,
                 spPreSpawnNextPos: undefined,
-                spPreSpawnRoll: 0,
-                spPreSpawnIsJump: false,
-                spPreSpawnJumpTargetIndex: null,
 
                 // ── audio engine ──────────────────────────────────────────────
                 audioContext: undefined,
