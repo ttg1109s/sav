@@ -146,9 +146,8 @@ visual-master/
 │   │                                nguyên chỗ cũ, chỉ phần INIT dời vào đây)
 │   │   ├── three-vortex.js        — HOT PATH — khởi tạo + cập nhật mỗi frame Three.js scene cho
 │   │   │                            visual Vortex (DỜI từ core/three-vortex.js, 19/07/2026)
-│   │   └── three-space.js         — MỚI (19/07/2026) — khởi tạo Three.js scene cho visual
-│   │                                "Drifting Space" (hành tinh/sao/dải ngân hà/thiên thạch),
-│   │                                DÙNG CHUNG renderer #webgl-canvas với three-vortex.js
+│   │   └── three-space.js         — RỖNG (0 byte, 20/07/2026 — Giang yêu cầu xoá toàn bộ visual
+│   │                                Space, giữ lại file để không đổi thứ tự nạp script)
 │   ├── state-and-video-bg.js     — handleVideoBackground(), mở/đóng Control Center
 │   ├── equalizer.js              — slider EQ dùng 1 listener DELEGATION trên eqSlidersWrapper
 │   │                              (event/listener/equalizer-settings.js) thay 10 listener rời
@@ -230,8 +229,8 @@ visual-master/
 │       │                              mỗi hàm 1 file) — hàm vẽ dùng chung
 │       │   ├── water-drop.js           (giọt nước — Rain)
 │       │   ├── window-frame.js         (khung cửa sổ NHÀ — Rain kiểu "glass")
-│       │   ├── spaceship-frame.js      (khung khoang lái tàu vũ trụ — Space, KHÁC window-frame.js)
-│       │   ├── space-collision-flash.js (MỚI, flash cam/trắng khi thiên thạch va chạm — Space)
+│       │   ├── spaceship-frame.js      — RỖNG (0 byte, đã orphan trước 20/07/2026)
+│       │   ├── space-collision-flash.js — RỖNG (0 byte, 20/07/2026 — xoá visual Space, giữ file)
 │       │   └── flying-note.js          (nốt nhạc bay lên, DOM — mọi kiểu hiệu ứng)
 │       ├── draw-visualizer.js       — HOT PATH — vòng lặp render chính (requestAnimationFrame),
 │       │                              object VISUALIZER_DRAWERS, và dòng
@@ -245,8 +244,7 @@ visual-master/
 │           ├── black-hole.js           — hiệu năng khi cuộn ĐANG TREO (bar tần số + shadowBlur là
 │           │                              thủ phạm chính, không phải sao — xem changelog/v12.md)
 │           ├── rain.js                 (kiểu Trôi cửa kính / Mưa phố)
-│           └── space.js                — MỚI (19/07/2026) — "Drifting Space" (update mỗi khung
-│                                          hình; khởi tạo ở core/webgl/three-space.js)
+│           └── space.js                — RỖNG (0 byte, 20/07/2026 — xoá visual Space, giữ file)
 │
 ├── service/
 │   ├── state.js                  — STATE_SCHEMA + class AppState (get/set/mutate, validate kiểu,
