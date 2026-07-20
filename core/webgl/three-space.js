@@ -610,27 +610,25 @@ function computeGalaxyMemberOffset() {
 // đạo leg trở lại đường THẲNG tắp giữa 2 waypoint như trước lượt 3.)
 
 /**
- * Hướng bay của leg KẾ TIẾP — VIẾT LẠI HOÀN TOÀN (21/07/2026, phản hồi Giang lượt 2, mục 3) thay
- * hẳn `rollNewSpaceViewDirTarget()` (ngưỡng năng lượng + random rời rạc, mô hình lượt 1 đã bỏ) —
- * giờ MỌI leg đều tự động lệch NHẸ khỏi hướng leg TRƯỚC ĐÓ, KHÔNG cần điều kiện kích hoạt gì cả
- * ("liên tục như vậy", đúng mục 3) — tạo cảm giác uốn lượn tự nhiên xuyên suốt hành trình, thay vì
- * bay thẳng đơ hoặc đổi hướng đột ngột hẳn 1 phát theo ngưỡng năng lượng như trước. Độ lệch NHỎ so
- * với hình nón rộng ±0.85π/±0.9π của "reroll" lượt 1 — lệch dần TỪNG CHÚT MỘT mỗi leg, cộng dồn
- * qua nhiều leg liên tiếp vẫn tạo được hành trình xoay chuyển đa dạng theo thời gian mà không có
- * cú rẽ ngoặt gấp nào (khớp đúng mô tả "sinh ra... góc độ tiếp theo của camera" — góc độ TIẾP
- * THEO, tính từ góc HIỆN TẠI, không phải chọn ngẫu nhiên hoàn toàn mới).
- * @param {THREE.Vector3} currentForward - đã normalize
- * @param {THREE.Vector3} right @param {THREE.Vector3} up - từ `computeSpaceForwardBasis(currentForward)`
- * @param {number} yawRange @param {number} pitchRange - biên độ lệch (radian) — Workflow truyền hằng số
+ * "Bẻ hướng" bay của camera sang hướng MỚI theo góc `steerAngle` (radian) — VIẾT LẠI HOÀN TOÀN
+ * (21/07/2026, phản hồi Giang — "roll back camera... đang bị hiểu nhầm thành rotate 2D chứ không
+ * phải bẻ hướng di chuyển của camera theo 360 độ theo pitch note") — thay HẲN
+ * `generateNextSpaceLegForward()` (jitter NHỎ dùng `Math.tan()`, chỉ hợp với góc bé — KHÔNG THỂ
+ * xoay quá ±90° vì tan() tiến tới vô cực, không đáp ứng được yêu cầu "360 độ") VÀ thay hẳn ý nghĩa
+ * "roll" trước đó (từng bị hiểu nhầm thành xoay trục lên/phải quanh CHÍNH hướng nhìn — cosmetic,
+ * không đổi hướng ĐI — xem `applySpaceRoll()` ĐÃ BỎ). Giờ ĐÚNG bản chất: xoay THẲNG vector
+ * `forward` sang phía `right`, PHÉP XOAY CHUẨN (sin/cos, không suy biến ở góc lớn) trong mặt
+ * phẳng forward-right — `steerAngle` = 0 giữ nguyên hướng, = ±π/2 rẽ hẳn sang phải/trái, = ±π quay
+ * ngược 180° — phủ ĐỦ trọn 360° (kể cả quay đầu hoàn toàn), đúng yêu cầu.
+ * @param {THREE.Vector3} forward - đã normalize
+ * @param {THREE.Vector3} right - từ `computeSpaceForwardBasis(forward)`
+ * @param {number} steerAngle - radian, tra theo nốt (Workflow — mỗi nốt 1 góc bẻ lái cố định, xem
+ *   `spNoteSteerTable`)
  * @returns {THREE.Vector3}
  */
-function generateNextSpaceLegForward(currentForward, right, up, yawRange, pitchRange) {
-    const yawDelta = (Math.random() - 0.5) * yawRange;
-    const pitchDelta = (Math.random() - 0.5) * pitchRange;
-    return currentForward.clone()
-        .addScaledVector(right, Math.tan(yawDelta))
-        .addScaledVector(up, Math.tan(pitchDelta))
-        .normalize();
+function steerSpaceForward(forward, right, steerAngle) {
+    const cosA = Math.cos(steerAngle), sinA = Math.sin(steerAngle);
+    return forward.clone().multiplyScalar(cosA).addScaledVector(right, sinA).normalize();
 }
 
 // ============================================================================================
