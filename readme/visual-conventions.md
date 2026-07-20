@@ -34,4 +34,28 @@ mục trên trước khi coi là hoàn tất. Nếu visual mới cần đọc/gh
 tự khai `let` cục bộ mới trong file visual — xem quy ước STATE ở
 [changelog/v11.md](./changelog/v11.md) mục 3.
 
+## Ghi chú cho visual WebGL (Vortex, Space "Galaxy Journey") — bổ sung 21/07/2026
+
+`VISUALIZER_DRAWERS` (mục "Khi thêm visual mới" ở trên) ĐÃ DỜI sang
+`event/workflow/visualizer-render.js` từ 20/07/2026 (plan-space-galaxy.md Phần A,
+`core/visualizer/draw-visualizer.js` nay RỖNG) — đăng ký hàm vẽ 2D mới ở object đó thay vì file cũ.
+2 visual dùng canvas WebGL riêng (`#webgl-canvas`, dùng CHUNG 1 `tRenderer`) KHÔNG nằm trong bảng
+`VISUALIZER_DRAWERS` (xử lý riêng bằng `if/else` ngay trong `_tick()`), nhưng VẪN PHẢI tuân đủ 4
+mục ở trên — cách áp dụng có khác biệt so với visual canvas 2D thường:
+
+1. **Video nền** — TỰ ĐỘNG thoả mãn: `tRenderer` khởi tạo với `alpha: true`
+   (`core/webgl/three-vortex.js`), scene KHÔNG set `scene.background`, nên phần khung hình không
+   có mesh nào che phủ luôn trong suốt, video nền hiện xuyên qua bình thường — KHÔNG cần thêm
+   `if (!videoBgEnabled)` như visual 2D.
+2. **Màu nền** — TỰ ĐỘNG thoả mãn cùng lý do trên: nền THẬT SỰ là CSS/body (`updateDOMBackground()`
+   theo `bgColor`), canvas WebGL trong suốt để lộ ra.
+3. **Chế độ màu (`mode`)** — PHẢI tự áp dụng trong code sinh màu của visual, KHÔNG tự động như 2
+   mục trên. FIX (21/07/2026, phản hồi Giang mục 4 — Space từng bỏ sót mục này, luôn dùng
+   `dynA`/`dynB` bất kể `mode`): xem `pickGalaxyPalette()` (`core/webgl/three-space.js`) —
+   `mode === 'solid'` dùng `solidColor` cho cả colorIn/colorOut, `dynamic`/`gradient` dùng
+   `dynA`/`dynB` (gradient còn hue-shift theo `globalHueOffset` mỗi frame, xem
+   `GalaxyCluster.update()`). Vortex hiện KHÔNG đổi màu theo `mode` (nợ kỹ thuật cũ, chưa đụng tới).
+4. **Hiệu năng** — `PERFORMANCE_PROFILES` áp dụng bình thường (`galaxyStarsMin/Max`,
+   `galaxyNebulaCount`, `galaxyDustCount` cho Space; `stars`/`tunnelRings` cho Vortex).
+
 ← [Quay lại README](../README.md)
