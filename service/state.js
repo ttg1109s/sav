@@ -160,12 +160,27 @@
             spLegDuration: 'number',   // tổng thời lượng leg hiện tại (từ BPM lúc bắt đầu + random)
             spPendingNextPos: 'any',   // THREE.Vector3 | null — điểm đến leg KẾ TIẾP, sinh sẵn giữa chừng leg hiện tại
             spPendingForward: 'any',   // THREE.Vector3 | null — hướng của leg KẾ TIẾP
-            // "Nhảy" sang thiên hà khác (mục 2) — TRIGGER giờ là NỐT CAO NHẤT vừa vang lên (KHÔNG
-            // còn ngưỡng năng lượng/random như lượt 1) — `spJumpLocked` khoá KHÔNG cho trigger
-            // nhảy tiếp + khoá KHÔNG cho `_manageSpaceChain()` tự ý ghi đè `spCurrentTargetIndex`
-            // trong lúc đang nhảy (đúng nguyên nhân gốc mục 1).
+            // MỚI (21/07/2026, phản hồi Giang lượt 3, mục 4) — LUT sin tạo quỹ đạo uốn lượn mượt
+            // giữa 2 waypoint (thay đường thẳng tắp) — sinh CÙNG LÚC với nextPos/forward của mỗi
+            // leg (cả thường lẫn nhảy), kích thước bảng NGẪU NHIÊN 1-64 mỗi lần.
+            spLegSineLUT: 'any',           // Float32Array — LUT của leg hiện tại
+            spLegSineAmplitude: 'number',  // biên độ (đơn vị 3D) áp cho LUT hiện tại
+            spPendingLegSineLUT: 'any',    // Float32Array | null — LUT của leg KẾ TIẾP
+            spPendingLegSineAmplitude: 'number', // biên độ của leg KẾ TIẾP
+            // "Nhảy" sang thiên hà khác (mục 2 lượt 2, VIẾT LẠI luồng lượt 3 mục 1) — TRIGGER là
+            // NỐT CAO NHẤT vừa vang lên. LƯỢT 3: KHÔNG còn cắt ngang leg hiện tại nữa — jump được
+            // CHÈN VÀO như 1 leg "pending ƯU TIÊN" (spPendingIsJump), tận dụng ĐÚNG cơ chế
+            // blend-hướng-nhìn-mượt sẵn có ở đoạn cuối leg hiện tại (fix triệt để "hard cut" —
+            // không còn cú xoay đột ngột lúc BẮT ĐẦU leg nhảy nữa, xem
+            // event/workflow/visualizer-render.js). `spJumpLocked` khoá NGAY lúc CHÈN (không đợi
+            // tới lúc leg nhảy thật sự bắt đầu) — khoá không cho trigger nhảy chồng lấp + khoá
+            // không cho `_manageSpaceChain()` tự ý ghi đè `spCurrentTargetIndex` suốt từ lúc chèn
+            // tới lúc THỰC SỰ đến nơi (bao gồm cả phần còn lại của leg hiện tại).
             spJumpLocked: 'boolean',
-            spHighestNoteSeen: 'number', // "trần" nốt cao nhất gần đây, tự hạ dần theo thời gian (decay) — nốt VƯỢT trần này mới tính là "đỉnh mới" kích hoạt nhảy
+            spHighestNoteSeen: 'number', // "trần" nốt cao nhất gần đây, tự hạ dần theo thời gian (decay) — nốt VƯỢT trần này mới tính là "đỉnh mới"
+            spPendingIsJump: 'boolean',            // leg PENDING hiện tại có phải leg nhảy (ưu tiên) hay không
+            spPendingJumpTargetIndex: 'nullable-number', // .index thiên hà B — dùng lúc commit leg nhảy làm spCurrentTargetIndex
+            spCurrentLegIsJump: 'boolean',         // leg ĐANG CHẠY (không phải pending) có phải leg nhảy hay không — quyết định có mở khoá lúc leg này hoàn tất hay không kích hoạt nhảy
 
             // ── audio engine ──────────────────────────────────────────────────
             audioContext: 'any',           // AudioContext | undefined trước setupAudioContext()
@@ -386,8 +401,15 @@
                 spLegDuration: 0,
                 spPendingNextPos: undefined,
                 spPendingForward: undefined,
+                spLegSineLUT: undefined,
+                spLegSineAmplitude: 0,
+                spPendingLegSineLUT: undefined,
+                spPendingLegSineAmplitude: 0,
                 spJumpLocked: false,
                 spHighestNoteSeen: 0,
+                spPendingIsJump: false,
+                spPendingJumpTargetIndex: null,
+                spCurrentLegIsJump: false,
 
                 // ── audio engine ──────────────────────────────────────────────
                 audioContext: undefined,
