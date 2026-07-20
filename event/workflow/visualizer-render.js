@@ -61,37 +61,48 @@ const SPACE_CHAIN_DISPOSE_DISTANCE = 300;
 const SPACE_CHAIN_DISPOSE_LATERAL_DISTANCE = 900;
 const SPACE_CHAIN_AHEAD_MARGIN = 20;
 
-// ===== Hằng số mô hình "waypoint nối tiếp" (MỚI 21/07/2026, phản hồi Giang lượt 2, mục 3 — thay
-// HẲN toàn bộ hằng số spViewDir/spDriftSpeed/reroll của lượt 1) =====
-// Khoảng cách MỖI leg (đơn vị 3D) — gần bằng SPACE_CLUSTER_SPACING_Z (200), hợp lý cho 1 "bước"
-// giữa các cụm thiên hà liên tiếp.
+// ===== Hằng số mô hình "waypoint nối tiếp" (plan mục 3, lượt 2) =====
+// Khoảng cách MỖI leg (đơn vị 3D) — gần bằng SPACE_CLUSTER_SPACING_Z (110, đã giảm mục 2 lượt 3).
 const SPACE_LEG_DISTANCE = 220;
-// Tốc độ (đơn vị/giây) tại 120bpm — nhân với (bpm/120) mỗi leg ("lấy bpm hiện tại làm tốc độ").
-const SPACE_LEG_SPEED_BASE = 26;
+// Tốc độ (đơn vị/giây) tại 120bpm — nhân với (bpm/120) mỗi leg. TĂNG (fix mục 3, phản hồi
+// 21/07/2026 lượt 3 — "tăng tốc thêm cho camera lên"), trước 26.
+const SPACE_LEG_SPEED_BASE = 46;
 // +-30% ngẫu nhiên thời lượng mỗi leg ("Đương nhiên phải cộng thêm giá trị ngẫu nhiên").
 const SPACE_LEG_DURATION_RANDOM_VARIANCE = 0.3;
-// Độ lệch hướng NHẸ mỗi leg (radian) — "sinh ra... góc độ tiếp theo của camera", lệch DẦN từng
-// chút 1 so với hướng leg trước, KHÔNG phải chọn hướng ngẫu nhiên hoàn toàn mới mỗi lần.
+// Độ lệch hướng NHẸ mỗi leg thường (radian) — "sinh ra... góc độ tiếp theo của camera", lệch DẦN
+// từng chút 1 so với hướng leg trước.
 const SPACE_LEG_YAW_JITTER = Math.PI * 0.16;
 const SPACE_LEG_PITCH_JITTER = Math.PI * 0.10;
 // % progress bắt đầu blend hướng nhìn sang leg KẾ TIẾP (đã sinh sẵn) — mượt hoá chuyển tiếp, fix
-// trực tiếp nguyên nhân "hard cut" mục 1 (trước đây hướng nhìn đổi ĐỘT NGỘT đúng lúc hết leg).
+// trực tiếp nguyên nhân "hard cut" (hướng nhìn đổi ĐỘT NGỘT đúng lúc hết leg) — CƠ CHẾ NÀY giờ
+// cũng chính là thứ mượt hoá luôn cả lúc BẮT ĐẦU leg nhảy (mục 1, lượt 3 — xem _startGalaxyJumpLeg).
 const SPACE_LEG_BLEND_START = 0.65;
 // % progress bắt đầu sinh SẴN waypoint kế tiếp ("đồng thời sinh điểm kế tiếp", mục 3).
 const SPACE_LEG_PENDING_GEN_PROGRESS = 0.35;
-// Tốc độ (đơn vị/giây) khi KHÔNG phát nhạc — LUÔN phải có trôi tối thiểu (giữ nguyên yêu cầu mục
-// 3 của LƯỢT 1, "kể cả khi dừng audio thì camera vẫn phải có độ trôi nhất định").
-const SPACE_IDLE_LEG_SPEED = 6;
+// Tốc độ (đơn vị/giây) khi KHÔNG phát nhạc — LUÔN phải có trôi tối thiểu.
+const SPACE_IDLE_LEG_SPEED = 8;
 
-// ===== Hằng số "nhảy" sang thiên hà khác theo NỐT CAO NHẤT (MỚI 21/07/2026, phản hồi Giang lượt
-// 2, mục 2 — thay HẲN ngưỡng năng lượng + random rời rạc của lượt 1) =====
-// Nốt phải CAO HƠN "trần" gần nhất ít nhất ngần này (nửa cung MIDI) mới tính là "đỉnh mới".
+// ===== Hằng số "nhảy" sang thiên hà khác theo NỐT CAO NHẤT (mục 2, lượt 2 — luồng chèn pending
+// ưu tiên VIẾT LẠI mục 1, lượt 3) =====
 const SPACE_JUMP_NOTE_MARGIN = 2;
-// "Trần" tự hạ dần theo thời gian (nửa cung/giây) — cho phép nốt tương tự kích hoạt lại sau vài giây,
-// tránh việc chạm đỉnh 1 lần rồi không bao giờ nhảy được nữa suốt phần còn lại của bài hát.
 const SPACE_NOTE_PEAK_DECAY_PER_SEC = 0.6;
-// "di chuyển NHANH" (mục 2) — nhân thêm vào tốc độ leg thường khi đang thực hiện cú nhảy.
-const SPACE_JUMP_LEG_SPEED_MULT = 2.6;
+// "di chuyển NHANH" — nhân thêm vào tốc độ leg thường khi leg đó là leg nhảy.
+const SPACE_JUMP_LEG_SPEED_MULT = 3.0;
+
+// ===== Hằng số LUT sin quỹ đạo (MỚI, mục 4, phản hồi 21/07/2026 lượt 3) =====
+const SPACE_LEG_SINE_MIN_SIZE = 1;
+const SPACE_LEG_SINE_MAX_SIZE = 64; // "số lượng ngẫu nhiên từ 1-64"
+const SPACE_LEG_SINE_AMPLITUDE_MIN = 10;
+const SPACE_LEG_SINE_AMPLITUDE_MAX = 45; // "+ ngẫu nhiên" biên độ lệch quỹ đạo
+
+// ===== Tốc độ tự quay của thiên hà (sao/nebula) — CỐ ĐỊNH, TÁCH HẲN khỏi tốc độ camera/BPM =====
+// FIX (21/07/2026, phản hồi Giang lượt 3, mục 3 — "chỉ nói tốc độ camera sao lại chỉnh cả thiên
+// hà"): TRƯỚC ĐÂY (lượt 1) dùng CHUNG 1 biến `speed` cho cả tốc độ camera LẪN tốc độ tự quay của
+// sao/nebula ("miễn phí", theo plan B4 gốc) — ĐÂY chính là nguồn gốc của sự "liên quan" ngoài ý
+// muốn. Lượt 2 đã tách ra dùng `bpm/120` riêng cho spin (không còn dính tốc độ CAMERA nữa), nhưng
+// vẫn còn phụ thuộc BPM/nhạc. Lượt 3 CẮT ĐỨT HẲN — spin giờ là HẰNG SỐ CỐ ĐỊNH, không phụ thuộc
+// BPM, không phụ thuộc tốc độ camera/leg dưới bất kỳ hình thức nào.
+const SPACE_GALAXY_SPIN_SPEED = 0.8;
 
 // Biến NỘI BỘ (KHÔNG thuộc STATE, cùng kiểu với `tWarpSpeed` ở core/webgl/three-vortex.js) —
 // đồng hồ delta-time riêng cho Galaxy (6 visual cũ không cần delta, giữ nguyên hành vi cũ).
@@ -161,11 +172,12 @@ const workflowVisualizerRender = {
     },
 
     /**
-     * Điều phối 1 frame của visual Galaxy — mô hình "waypoint nối tiếp" (mục 3, viết lại lần 2):
-     * camera LUÔN đang bay giữa 2 điểm (`spLegStartPos` -> `spNextPos`) theo `spLegForward`, tốc
-     * độ tính từ BPM lúc BẮT ĐẦU mỗi leg. Thứ tự mỗi tick: bootstrap (nếu chưa có leg) -> chuỗi
-     * thiên hà (theo forward của leg HIỆN TẠI) -> kiểm tra "nốt đỉnh mới" để bắt đầu 1 leg NHẢY
-     * (mục 2) -> tiến hành di chuyển dọc leg -> cập nhật từng thiên hà -> bụi nền -> render.
+     * Điều phối 1 frame của visual Galaxy — mô hình "waypoint nối tiếp": camera LUÔN đang bay
+     * giữa 2 điểm (`spLegStartPos` -> `spNextPos`) theo `spLegForward`, tốc độ tính từ BPM lúc
+     * BẮT ĐẦU mỗi leg. Thứ tự mỗi tick: bootstrap (nếu chưa có leg) -> chuỗi thiên hà (theo
+     * forward của leg HIỆN TẠI) -> kiểm tra "nốt đỉnh mới" để CHÈN 1 leg NHẢY làm pending ưu tiên
+     * (mục 1/2, KHÔNG cắt ngang leg hiện tại) -> tiến hành di chuyển dọc leg -> cập nhật từng
+     * thiên hà (spin CỐ ĐỊNH, mục 3) -> bụi nền -> render.
      */
     _tickSpace(cfg, isPlaying, smoothedEnergy, globalHueOffset) {
         if (!appState.get('spInitialized')) return; // guard, giống hệt drawVortex()
@@ -195,22 +207,19 @@ const workflowVisualizerRender = {
         const legForward = appState.get('spLegForward');
         this._manageSpaceChain(spScene, spGalaxyClusters, spCamera.position, legForward, cfg, perf);
 
-        // ----- 2. "nhảy" sang thiên hà khác — trigger bằng NỐT CAO NHẤT vừa vang lên (mục 2, KHÔNG
-        // còn ngưỡng năng lượng/random) — CHỈ khi KHÔNG đang khoá (đang thực hiện 1 leg nhảy khác). -----
+        // ----- 2. "nhảy" sang thiên hà khác — trigger bằng NỐT CAO NHẤT vừa vang lên — CHÈN LÀM
+        // PENDING ƯU TIÊN (mục 1, KHÔNG cắt ngang leg hiện tại — xem docstring _startGalaxyJumpLeg). -----
         if (!appState.get('spJumpLocked') && isPlaying) {
             const isNewPeakNote = this._checkNewHighestNote(lastValidMidiNote, delta);
-            if (isNewPeakNote) this._startGalaxyJumpLeg(spCamera.position, spGalaxyClusters, legForward);
+            if (isNewPeakNote) this._startGalaxyJumpLeg(spGalaxyClusters, appState.get('spCurrentTargetIndex'), legForward);
         }
 
-        // ----- 3. tiến hành di chuyển dọc leg hiện tại (vị trí + hướng nhìn khoá roll) -----
+        // ----- 3. tiến hành di chuyển dọc leg hiện tại (vị trí + hướng nhìn khoá roll + LUT sin) -----
         this._advanceSpaceLeg(spCamera, delta, currentCalculatedBpm, isPlaying);
 
-        // ----- 4. cập nhật từng thiên hà (tốc độ tự quay TÁCH RIÊNG khỏi tốc độ camera — không
-        // còn 1 biến `speed` DUY NHẤT dùng chung cho cả 2 như mô hình lượt 1 nữa). -----
+        // ----- 4. cập nhật từng thiên hà — tốc độ tự quay CỐ ĐỊNH (mục 3, TÁCH HẲN khỏi camera/BPM) -----
         const hueShift = (cfg.mode === 'dynamic' || cfg.mode === 'gradient') ? globalHueOffset : 0;
-        const bpmForSpin = parseInt(currentCalculatedBpm, 10) || 120;
-        const spinSpeed = isPlaying ? (bpmForSpin / 120) : 0.5;
-        spGalaxyClusters.forEach(cluster => cluster.update(delta, spinSpeed, _spGlobalTime, hueShift, smoothedEnergy)); // core method
+        spGalaxyClusters.forEach(cluster => cluster.update(delta, SPACE_GALAXY_SPIN_SPEED, _spGlobalTime, hueShift, smoothedEnergy)); // core method
 
         // ----- 5. bụi vũ trụ nền -----
         updateSpaceDustEachFrame(spDustMesh, spCamera.position, SPACE_DUST_RANGE, beatScale); // core
@@ -219,37 +228,53 @@ const workflowVisualizerRender = {
         renderSpaceScene(tRenderer, spScene, spCamera); // core
     },
 
-    /** Tính 1 cặp (hướng, điểm đến) cho leg THƯỜNG kế tiếp — lệch NHẸ khỏi `currentForward` (mục
-     * 3 "sinh ra... góc độ tiếp theo", KHÔNG phải chọn hướng ngẫu nhiên hoàn toàn mới). Dùng
+    /** Sinh 1 bộ tham số LUT sin MỚI (mục 4) — kích thước bảng NGẪU NHIÊN 1-64, biên độ NGẪU
+     * NHIÊN — dùng cho MỌI leg (thường lẫn nhảy), sinh CÙNG LÚC với nextPos/forward của leg đó. */
+    _generateLegSineParams() {
+        const lutSize = SPACE_LEG_SINE_MIN_SIZE + Math.floor(Math.random() * (SPACE_LEG_SINE_MAX_SIZE - SPACE_LEG_SINE_MIN_SIZE + 1));
+        const lut = buildSpaceLegSineLUT(lutSize); // core
+        const amplitude = SPACE_LEG_SINE_AMPLITUDE_MIN + Math.random() * (SPACE_LEG_SINE_AMPLITUDE_MAX - SPACE_LEG_SINE_AMPLITUDE_MIN);
+        return { lut, amplitude };
+    },
+
+    /** Tính 1 bộ (hướng, điểm đến, LUT sin) cho leg THƯỜNG kế tiếp — lệch NHẸ khỏi `currentForward`
+     * (mục 3 "sinh ra... góc độ tiếp theo", KHÔNG phải chọn hướng ngẫu nhiên hoàn toàn mới). Dùng
      * chung cho cả bootstrap (leg đầu tiên) lẫn mọi lần chuyển leg thường sau này. */
     _computeNextNormalLeg(originPos, currentForward) {
         const { right, up } = computeSpaceForwardBasis(currentForward); // core
         const nextForward = generateNextSpaceLegForward(currentForward, right, up, SPACE_LEG_YAW_JITTER, SPACE_LEG_PITCH_JITTER); // core
         const nextPos = originPos.clone().addScaledVector(nextForward, SPACE_LEG_DISTANCE);
-        return { nextForward, nextPos };
+        const sineParams = this._generateLegSineParams();
+        return { nextForward, nextPos, lut: sineParams.lut, amplitude: sineParams.amplitude };
     },
 
     /** Sinh leg ĐẦU TIÊN lúc vừa vào 'space' — hướng khởi điểm mặc định (0,0,-1), tốc độ dùng
      * baseline 120bpm (BPM thật có thể chưa sẵn sàng ngay lúc này). */
     _beginFirstSpaceLeg(camPos) {
         const initialForward = new THREE.Vector3(0, 0, -1);
-        const { nextForward, nextPos } = this._computeNextNormalLeg(camPos, initialForward);
+        const generated = this._computeNextNormalLeg(camPos, initialForward);
         appState.set('spLegStartPos', camPos.clone());
-        appState.set('spLegForward', nextForward);
-        appState.set('spNextPos', nextPos);
+        appState.set('spLegForward', generated.nextForward);
+        appState.set('spNextPos', generated.nextPos);
         appState.set('spLegElapsed', 0);
         appState.set('spLegDuration', SPACE_LEG_DISTANCE / SPACE_LEG_SPEED_BASE);
+        appState.set('spLegSineLUT', generated.lut);
+        appState.set('spLegSineAmplitude', generated.amplitude);
         appState.set('spPendingNextPos', null);
         appState.set('spPendingForward', null);
+        appState.set('spCurrentLegIsJump', false);
     },
 
     /**
-     * Tiến 1 bước dọc leg hiện tại: nội suy vị trí mượt (`computeSpaceLegPosition`), dựng hướng
-     * camera ỔN ĐỊNH (khoá roll, `applyStableSpaceOrientation`) — BLEND dần sang hướng leg KẾ TIẾP
-     * ở đoạn cuối (`SPACE_LEG_BLEND_START`) để KHÔNG có cú xoay đột ngột lúc chuyển leg (fix "hard
-     * cut" mục 1). Khi đến nơi: snap chính xác vị trí + chuyển sang leg kế tiếp
-     * (`_commitNextSpaceLeg`). Khi chưa đến: sinh SẴN waypoint kế tiếp giữa chừng (mục 3 "đồng
-     * thời sinh điểm kế tiếp").
+     * Tiến 1 bước dọc leg hiện tại: nội suy vị trí THẲNG (`computeSpaceLegPosition`) rồi CỘNG THÊM
+     * độ lệch theo LUT sin (mục 4 — quỹ đạo uốn lượn thay vì thẳng tắp, 2 đầu mút LUT = 0 nên vẫn
+     * nối ĐÚNG vị trí waypoint). Dựng hướng camera ỔN ĐỊNH (khoá roll, `applyStableSpaceOrientation`)
+     * — BLEND dần sang hướng leg KẾ TIẾP (kể cả leg đó là leg NHẢY — xem `_startGalaxyJumpLeg`) ở
+     * đoạn cuối (`SPACE_LEG_BLEND_START`) để KHÔNG có cú xoay đột ngột lúc chuyển leg (fix "hard
+     * cut" mục 1, CẢ lúc chuyển leg thường LẪN lúc bắt đầu leg nhảy). Khi đến nơi: snap chính xác
+     * vị trí + chuyển sang leg kế tiếp (`_commitNextSpaceLeg`). Khi chưa đến: sinh SẴN waypoint kế
+     * tiếp giữa chừng (mục 3 "đồng thời sinh điểm kế tiếp") — CHỈ khi KHÔNG đã có pending (thường
+     * hoặc nhảy) từ trước.
      */
     _advanceSpaceLeg(spCamera, delta, currentCalculatedBpm, isPlaying) {
         const elapsed = appState.get('spLegElapsed') + delta;
@@ -260,8 +285,15 @@ const workflowVisualizerRender = {
         const nextPos = appState.get('spNextPos');
         const legForward = appState.get('spLegForward');
 
-        const newPos = computeSpaceLegPosition(legStartPos, nextPos, progress); // core
-        spCamera.position.copy(newPos);
+        const straightPos = computeSpaceLegPosition(legStartPos, nextPos, progress); // core
+
+        // Mục 4 — lệch quỹ đạo theo LUT sin (vuông góc trục leg thẳng, KHÔNG theo hướng nhìn đã blend).
+        const legBasis = computeSpaceForwardBasis(legForward); // core
+        const lut = appState.get('spLegSineLUT');
+        const amplitude = appState.get('spLegSineAmplitude');
+        const lutValue = sampleSpaceLegSineLUT(lut, progress); // core
+        const finalPos = straightPos.addScaledVector(legBasis.right, lutValue * amplitude);
+        spCamera.position.copy(finalPos);
 
         let orientForward = legForward;
         const pendingForward = appState.get('spPendingForward');
@@ -269,11 +301,11 @@ const workflowVisualizerRender = {
             const blendT = Math.min(1, (progress - SPACE_LEG_BLEND_START) / (1 - SPACE_LEG_BLEND_START));
             orientForward = legForward.clone().lerp(pendingForward, blendT).normalize();
         }
-        const { right, up } = computeSpaceForwardBasis(orientForward); // core
-        applyStableSpaceOrientation(spCamera, orientForward, right, up); // core — khoá roll (mục 2)
+        const orientBasis = computeSpaceForwardBasis(orientForward); // core
+        applyStableSpaceOrientation(spCamera, orientForward, orientBasis.right, orientBasis.up); // core — khoá roll (mục 2/3)
 
         if (progress >= 1) {
-            spCamera.position.copy(nextPos); // snap chính xác, tránh trôi dư do làm tròn số
+            spCamera.position.copy(nextPos); // snap chính xác vị trí THẲNG (2 đầu mút LUT vốn = 0 nên khớp)
             this._commitNextSpaceLeg(currentCalculatedBpm, isPlaying);
         } else {
             appState.set('spLegElapsed', elapsed, { skipCheck: true });
@@ -281,50 +313,68 @@ const workflowVisualizerRender = {
                 const generated = this._computeNextNormalLeg(nextPos, legForward);
                 appState.set('spPendingNextPos', generated.nextPos);
                 appState.set('spPendingForward', generated.nextForward);
+                appState.set('spPendingLegSineLUT', generated.lut);
+                appState.set('spPendingLegSineAmplitude', generated.amplitude);
             }
         }
     },
 
     /**
      * Hoàn tất leg hiện tại, chuyển sang leg KẾ TIẾP (đã sinh sẵn giữa chừng — nếu chưa kịp sinh,
-     * ví dụ leg nhảy quá ngắn, sinh ngay tại đây) — "kết thúc, mở khoá, lại lấy bpm hiện tại lấy
-     * làm tốc độ" (mục 3): mở khoá `spJumpLocked` nếu vừa hoàn thành 1 leg nhảy, rồi ĐỌC TƯƠI BPM
-     * hiện tại (KHÔNG dùng giá trị cũ từ lúc leg trước bắt đầu) làm tốc độ cho leg MỚI.
+     * sinh ngay tại đây) — "kết thúc, mở khoá, lại lấy bpm hiện tại lấy làm tốc độ" (mục 3): mở
+     * khoá `spJumpLocked` NẾU leg VỪA HOÀN THÀNH (tới giờ) là leg nhảy (đã THỰC SỰ tới đích B) —
+     * rồi ĐỌC TƯƠI BPM hiện tại làm tốc độ cho leg MỚI, NHÂN THÊM hệ số nhanh nếu leg MỚI đó lại
+     * là 1 leg nhảy khác (mục 2 "di chuyển nhanh").
      */
     _commitNextSpaceLeg(currentCalculatedBpm, isPlaying) {
-        if (appState.get('spJumpLocked')) appState.set('spJumpLocked', false);
+        // Leg VỪA CHẠY XONG (tới giờ) là leg nhảy -> đã THỰC SỰ đến đích B -> mở khoá (mục 1 "khoá, đến -> mở khoá").
+        if (appState.get('spCurrentLegIsJump')) appState.set('spJumpLocked', false);
 
         const finishedPos = appState.get('spNextPos');
         const finishedForward = appState.get('spLegForward');
         let nextForward = appState.get('spPendingForward');
         let nextPos = appState.get('spPendingNextPos');
+        let nextLUT = appState.get('spPendingLegSineLUT');
+        let nextAmplitude = appState.get('spPendingLegSineAmplitude');
+        const nextIsJump = !!appState.get('spPendingIsJump');
+        const nextJumpTargetIndex = appState.get('spPendingJumpTargetIndex');
 
         if (!nextPos) {
             const generated = this._computeNextNormalLeg(finishedPos, finishedForward);
             nextForward = generated.nextForward;
             nextPos = generated.nextPos;
+            nextLUT = generated.lut;
+            nextAmplitude = generated.amplitude;
         }
 
         appState.set('spLegStartPos', finishedPos.clone());
         appState.set('spLegForward', nextForward);
         appState.set('spNextPos', nextPos);
         appState.set('spLegElapsed', 0);
+        appState.set('spLegSineLUT', nextLUT);
+        appState.set('spLegSineAmplitude', nextAmplitude);
+        appState.set('spCurrentLegIsJump', nextIsJump);
+        if (nextIsJump && nextJumpTargetIndex !== null) appState.set('spCurrentTargetIndex', nextJumpTargetIndex);
 
         const bpm = parseInt(currentCalculatedBpm, 10) || 120;
-        const legSpeed = isPlaying ? SPACE_LEG_SPEED_BASE * (bpm / 120) : SPACE_IDLE_LEG_SPEED; // mục 3 lượt 1 — LUÔN có trôi tối thiểu khi dừng nhạc
+        let legSpeed = isPlaying ? SPACE_LEG_SPEED_BASE * (bpm / 120) : SPACE_IDLE_LEG_SPEED; // LUÔN có trôi tối thiểu khi dừng nhạc
+        if (nextIsJump) legSpeed *= SPACE_JUMP_LEG_SPEED_MULT; // "di chuyển nhanh" (mục 2)
         const distance = finishedPos.distanceTo(nextPos);
         const randomFactor = 1 + (Math.random() - 0.5) * SPACE_LEG_DURATION_RANDOM_VARIANCE; // "cộng thêm giá trị ngẫu nhiên" (mục 3)
         appState.set('spLegDuration', Math.max(0.3, (distance / legSpeed) * randomFactor));
 
         appState.set('spPendingNextPos', null);
         appState.set('spPendingForward', null);
+        appState.set('spPendingLegSineLUT', null);
+        appState.set('spPendingIsJump', false);
+        appState.set('spPendingJumpTargetIndex', null);
     },
 
     /**
-     * Phát hiện "đỉnh nốt mới" (mục 2 — thay hẳn ngưỡng năng lượng/random lượt 1) — `spHighestNoteSeen`
-     * là 1 cái "trần" tự hạ dần theo thời gian (`SPACE_NOTE_PEAK_DECAY_PER_SEC`); nốt hiện tại VƯỢT
-     * trần đó (cộng biên `SPACE_JUMP_NOTE_MARGIN`) mới tính là đỉnh mới — trần tự hạ cho phép nốt
-     * tương tự kích hoạt lại sau vài giây, KHÔNG bị "dùng 1 lần rồi thôi" suốt phần còn lại bài hát.
+     * Phát hiện "đỉnh nốt mới" (mục 2) — `spHighestNoteSeen` là 1 cái "trần" tự hạ dần theo thời
+     * gian (`SPACE_NOTE_PEAK_DECAY_PER_SEC`); nốt hiện tại VƯỢT trần đó (cộng biên
+     * `SPACE_JUMP_NOTE_MARGIN`) mới tính là đỉnh mới — trần tự hạ cho phép nốt tương tự kích hoạt
+     * lại sau vài giây, KHÔNG bị "dùng 1 lần rồi thôi" suốt phần còn lại bài hát.
      */
     _checkNewHighestNote(lastValidMidiNote, delta) {
         if (!lastValidMidiNote) return false;
@@ -336,40 +386,46 @@ const workflowVisualizerRender = {
     },
 
     /**
-     * Bắt đầu 1 leg "NHẢY" sang thiên hà khác (mục 2) — chọn thiên hà GẦN NHẤT phía trước theo
-     * hướng đang bay hiện tại ("kế cận của hướng đó"), rồi THAY THẾ leg hiện tại bằng 1 leg mới bắt
-     * đầu từ VỊ TRÍ CAMERA HIỆN TẠI (KHÔNG teleport — vị trí liên tục, chỉ đổi ĐIỂM ĐẾN/HƯỚNG) với
-     * tốc độ NHANH hơn hẳn leg thường (`SPACE_JUMP_LEG_SPEED_MULT`) — "di chuyển nhanh tới thay vì
-     * jump đột ngột". Khoá `spJumpLocked` (mở lại ở `_commitNextSpaceLeg` khi leg này hoàn tất) —
-     * vừa khoá không cho trigger nhảy chồng lấp, vừa khoá không cho `_manageSpaceChain()` tự ý ghi
-     * đè `spCurrentTargetIndex` giữa chừng (đúng NGUYÊN NHÂN GỐC "hard cut" mục 1).
+     * CHÈN 1 leg "NHẢY" (mục 2) làm PENDING ƯU TIÊN — VIẾT LẠI HOÀN TOÀN (21/07/2026, phản hồi
+     * Giang lượt 3, mục 1) — trước đây hàm này CẮT NGANG leg hiện tại ngay lập tức (đổi
+     * `spLegForward`/`spNextPos` TỨC THÌ), khiến hướng camera SNAP đột ngột đúng lúc jump bắt đầu
+     * (nguyên nhân THẬT SỰ của "hard cut": "đang ở A -> nhảy sang B -> rồi mới smooth vào" — vế
+     * ĐẦU đột ngột, chỉ vế SAU mượt). VIẾT LẠI: KHÔNG đụng gì tới leg hiện tại — chỉ CHÈN kết quả
+     * vào `spPendingNextPos`/`spPendingForward` (ghi đè pending thường nếu có) — cơ chế blend
+     * hướng nhìn CÓ SẴN ở `_advanceSpaceLeg()` (đoạn cuối leg hiện tại, `SPACE_LEG_BLEND_START`)
+     * TỰ xoay camera MƯỢT sang hướng này trước khi leg nhảy thật sự bắt đầu — KHÔNG còn cú snap
+     * nào cả. Khi leg hiện tại hoàn tất tự nhiên, `_commitNextSpaceLeg()` "kích hoạt" leg nhảy này
+     * với tốc độ NHANH hơn hẳn (mục 2 "di chuyển nhanh").
+     *
+     * "Xác định khoảng cách/góc TỪ CỤM NÀY ĐẾN CỤM KHÁC" (mục 1) — B chọn dựa trên khoảng cách/
+     * hướng TỪ A (thiên hà ĐANG khoá làm mục tiêu, `spCurrentTargetIndex`), KHÔNG phải từ vị trí
+     * camera hiện tại — bám đúng cấu trúc thật của sợi vũ trụ tại điểm đó (vector A->B) thay vì
+     * hướng tuỳ tiện theo vị trí camera nhất thời.
+     * @param {GalaxyCluster[]} spGalaxyClusters @param {number|null} currentTargetIndex @param {THREE.Vector3} currentForward
      */
-    _startGalaxyJumpLeg(camPos, spGalaxyClusters, currentForward) {
-        const ahead = spGalaxyClusters
-            .map(g => ({ g, dist: g.position.clone().sub(camPos).dot(currentForward) }))
-            .filter(o => o.dist > SPACE_CHAIN_AHEAD_MARGIN)
+    _startGalaxyJumpLeg(spGalaxyClusters, currentTargetIndex, currentForward) {
+        const clusterA = currentTargetIndex !== null ? spGalaxyClusters.find(g => g.index === currentTargetIndex) : null;
+        if (!clusterA) return; // chưa có mục tiêu nào đang khoá (rất sớm lúc mới vào Space) — bỏ qua, thử lại đỉnh nốt kế tiếp
+
+        const candidates = spGalaxyClusters
+            .filter(g => g !== clusterA)
+            .map(g => ({ g, dist: g.position.clone().sub(clusterA.position).dot(currentForward) }))
+            .filter(o => o.dist > 0)
             .sort((a, b) => a.dist - b.dist);
-        if (ahead.length === 0) return; // chưa có gì đủ gần phía trước để nhảy tới — bỏ qua, thử lại lúc đỉnh nốt kế tiếp
+        if (candidates.length === 0) return; // chưa có gì "kế cận" đúng nghĩa phía trước A — bỏ qua
 
-        const target = ahead[0].g;
-        const targetPos = target.position.clone();
-        const newForward = targetPos.clone().sub(camPos).normalize();
+        const clusterB = candidates[0].g;
+        const abDirection = clusterB.position.clone().sub(clusterA.position).normalize();
+        const sineParams = this._generateLegSineParams(); // mục 4 — sinh ĐỒNG THỜI với nextPos/next-roll của leg nhảy
 
-        appState.set('spLegStartPos', camPos.clone());
-        appState.set('spLegForward', newForward);
-        appState.set('spNextPos', targetPos);
-        appState.set('spLegElapsed', 0);
+        appState.set('spPendingNextPos', clusterB.position.clone());
+        appState.set('spPendingForward', abDirection);
+        appState.set('spPendingLegSineLUT', sineParams.lut);
+        appState.set('spPendingLegSineAmplitude', sineParams.amplitude);
+        appState.set('spPendingIsJump', true);
+        appState.set('spPendingJumpTargetIndex', clusterB.index);
 
-        const bpm = parseInt(appState.get('currentCalculatedBpm'), 10) || 120;
-        const legSpeed = SPACE_LEG_SPEED_BASE * (bpm / 120) * SPACE_JUMP_LEG_SPEED_MULT;
-        const distance = camPos.distanceTo(targetPos);
-        const randomFactor = 1 + (Math.random() - 0.5) * SPACE_LEG_DURATION_RANDOM_VARIANCE; // "cộng thêm giá trị ngẫu nhiên" (mục 3)
-        appState.set('spLegDuration', Math.max(0.3, (distance / legSpeed) * randomFactor));
-
-        appState.set('spPendingNextPos', null); // huỷ waypoint thường đã sinh sẵn (nếu có) — leg nhảy này thay thế hoàn toàn
-        appState.set('spPendingForward', null);
-        appState.set('spCurrentTargetIndex', target.index);
-        appState.set('spJumpLocked', true);
+        appState.set('spJumpLocked', true); // khoá NGAY lúc CHÈN (mục 1 "chèn vào (vì ưu tiên) -> ... -> khoá")
     },
 
     /**
@@ -378,10 +434,9 @@ const workflowVisualizerRender = {
      * cách gọi RIÊNG LẺ từng hàm/method Core theo đúng thứ tự — không hàm Core nào ở đây gọi hàm
      * Core khác (plan B2/Rule 3c).
      *
-     * FIX (21/07/2026, phản hồi Giang lượt 2, mục 1) — KHÔNG còn tự ý ghi đè `spCurrentTargetIndex`
-     * khi đang khoá (`spJumpLocked`) — đây chính là NGUYÊN NHÂN GỐC gây "hard cut" lượt trước: 2 cơ
-     * chế (chain-management tự khoá "gần nhất phía trước" MỖI FRAME, và jump tự khoá mục tiêu riêng)
-     * giành nhau ghi `spCurrentTargetIndex`, khiến hướng nhìn/mục tiêu đổi đột ngột giữa chừng.
+     * KHÔNG tự ý ghi đè `spCurrentTargetIndex` khi đang khoá (`spJumpLocked`) — 2 cơ chế (chain-
+     * management tự khoá "gần nhất phía trước" MỖI FRAME, và jump tự khoá mục tiêu riêng) từng
+     * giành nhau ghi `spCurrentTargetIndex`, là 1 phần nguyên nhân "hard cut" các lượt trước.
      */
     _manageSpaceChain(spScene, spGalaxyClusters, camPos, forward, cfg, perf) {
         const info = manageGalaxyChain(spGalaxyClusters, camPos, forward, SPACE_CHAIN_DISPOSE_DISTANCE, SPACE_CHAIN_DISPOSE_LATERAL_DISTANCE, SPACE_AHEAD_WINDOW, SPACE_CHAIN_AHEAD_MARGIN); // core
@@ -406,15 +461,13 @@ const workflowVisualizerRender = {
             furthestAheadDist += SPACE_CLUSTER_SPACING_Z;
             const clusterCore = computeGalaxyClusterCore(camPos, forward, right, up, furthestAheadDist, nextIdx); // core
             nextIdx++;
-            const memberCount = 2 + Math.floor(Math.random() * 2);
+            // Số thành viên mỗi nút TĂNG (3-5, fix mục 2 "mật độ thấp") — trước 2-3.
+            const memberCount = 3 + Math.floor(Math.random() * 3);
             for (let k = 0; k < memberCount; k++) {
                 const offset = computeGalaxyMemberOffset(); // core
                 const finalPos = clusterCore.clone().add(offset);
                 const type = pickGalaxyType(); // core
-                // FIX (21/07/2026, phản hồi Giang lượt 2, mục 4 — dứt điểm) — pickGalaxyPalette()
-                // KHÔNG còn nhận `type` nữa: MỌI hình thái đều theo `cfg.mode`/`solidColor`/
-                // `dynA`/`dynB`, không còn ngoại lệ 5 hình thái "đặc thù" phớt lờ setting màu.
-                const palette = pickGalaxyPalette(cfg.mode, cfg.solidColor, cfg.dynA, cfg.dynB); // core
+                const palette = pickGalaxyPalette(cfg.mode, cfg.solidColor, cfg.dynA, cfg.dynB); // core — MỌI hình thái đều theo cfg.mode, không ngoại lệ
                 const radius = 65 + Math.random() * 25;
                 // Snapshot lúc SPAWN (one-shot, plan B4) — mật độ sao bám theo smoothedEnergy TẠI
                 // THỜI ĐIỂM sinh (KHÔNG đổi lại sau đó, "baked" vào chính thiên hà này).
@@ -447,7 +500,7 @@ const workflowVisualizerRender = {
         appState.set('spNextClusterIndex', nextIdx);
         appState.set('spTotalGalaxiesSpawned', totalSpawned);
 
-        // 3. khoá mục tiêu gần nhất phía trước — CHỈ khi KHÔNG đang khoá bởi 1 leg nhảy (fix mục 1)
+        // 3. khoá mục tiêu gần nhất phía trước — CHỈ khi KHÔNG đang khoá bởi 1 leg nhảy
         if (!appState.get('spJumpLocked') && info.nearestAheadIndex !== null) {
             appState.set('spCurrentTargetIndex', info.nearestAheadIndex);
         }
