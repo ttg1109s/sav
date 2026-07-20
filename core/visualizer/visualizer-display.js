@@ -48,6 +48,39 @@
  * auto-switch-visual.js) vẫn GIỮ NGUYÊN lệnh gọi hàm trực tiếp — KHÔNG thuộc phạm vi patch này
  * (xem plan.md, đã chốt lùi việc đưa cross-call qua bus tới khi 134 listener gốc tách xong hết).
  */
+        // MỚI (Phần B, Galaxy) — biến NỘI BỘ (KHÔNG thuộc STATE, cùng kiểu với `tWarpSpeed` ở
+        // core/webgl/three-vortex.js): lưu tạm tone mapping mặc định của renderer dùng chung
+        // (Vortex) để trả lại đúng giá trị khi rời khỏi 'space' — xem updateTypeUI() bên dưới.
+        let _spDefaultToneMapping = null;
+        // Bán kính vùng trôi của SpaceDust (đơn vị Three.js) — hằng số cấu hình, KHÔNG đổi theo
+        // quality (chỉ SỐ LƯỢNG hạt bụi đổi theo quality qua PERFORMANCE_PROFILES.galaxyDustCount,
+        // xem plan B6).
+        const SPACE_DUST_RANGE = 500;
+
+        /**
+         * MỚI (20/07/2026, plan-space-galaxy.md Phần A, mục A3) — Core THUẦN tách từ đoạn toggle
+         * `style.visibility` TRƯỚC ĐÂY nằm thẳng trong `drawVisualizer()`
+         * (core/visualizer/draw-visualizer.js, nay đã RỖNG — logic dời sang
+         * `event/workflow/visualizer-render.js::_tick()`, nơi DUY NHẤT gọi hàm này mỗi frame).
+         * Guard clause thuần (Rule 1): xoá `if` đi, hàm vẫn còn ĐÚNG 1 kịch bản "đồng bộ hiển thị
+         * theo isVisualOff", chỉ mất phần "bỏ qua nếu đã đúng trạng thái rồi" (tối ưu, tránh ghi
+         * DOM thừa mỗi frame).
+         * @param {HTMLElement} canvasEl - canvas 2D chính (#visualizer)
+         * @param {HTMLElement} webglCanvasEl - canvas WebGL (#webgl-canvas, dùng chung Vortex/Space)
+         * @param {boolean} isVisualOff
+         */
+        function updateCanvasVisibility(canvasEl, webglCanvasEl, isVisualOff) {
+            if (isVisualOff) {
+                if (canvasEl.style.visibility !== 'hidden') {
+                    canvasEl.style.visibility = 'hidden';
+                    webglCanvasEl.style.visibility = 'hidden';
+                }
+            } else if (canvasEl.style.visibility === 'hidden') {
+                canvasEl.style.visibility = '';
+                webglCanvasEl.style.visibility = '';
+            }
+        }
+
         function updateProgressBarCSS() {
             const cfg = appState.get('vizConfig');
             const percentage = (progressBar.value / (progressBar.max || 100)) * 100;
@@ -88,6 +121,9 @@
          */
         function updateTypeUI() {
             const currentModeIndex = appState.get('currentModeIndex');
+            // MỚI (Phần B, Galaxy) — bắt lại kiểu CŨ TRƯỚC khi ghi đè, cần biết có đang RỜI KHỎI
+            // 'space' hay không (trả tone mapping renderer dùng chung về mặc định của Vortex).
+            const previousType = appState.get('vizConfig').type;
             appState.mutate('vizConfig', cfg => { cfg.type = MODES[currentModeIndex]; });
             const cfg = appState.get('vizConfig');
             modeBadge.textContent = `${currentModeIndex + 1}/${MODES.length}`;
@@ -96,8 +132,44 @@
             // đặt đồng bộ ở đây đảm bảo 2 UI luôn khớp nhau bất kể đổi từ đâu.
             if (typeof visualizerTypeSelect !== 'undefined' && visualizerTypeSelect) visualizerTypeSelect.value = cfg.type;
 
-            if (cfg.type === 'vortex') {
-                if (!appState.get('tInitialized')) initThreeJS(); updateVortexVisibility();
+            if (cfg.type === 'vortex' || cfg.type === 'space') {
+                // Space (MỚI, Phần B) DÙNG CHUNG canvas #webgl-canvas + tRenderer với Vortex — KHÔNG
+                // tạo WebGLRenderer/resize listener riêng (plan B2) — vẫn cần initThreeJS() (Vortex)
+                // chạy trước ÍT NHẤT 1 lần để tRenderer tồn tại, bất kể Space hay Vortex vào trước.
+                if (!appState.get('tInitialized')) initThreeJS();
+                if (cfg.type === 'vortex') {
+                    updateVortexVisibility();
+                } else {
+                    // 'space' — khởi tạo engine Galaxy đúng 1 LẦN (spInitialized), TÁI SỬ DỤNG
+                    // appState.get('tRenderer') vừa đảm bảo tồn tại ở dòng trên.
+                    if (!appState.get('spInitialized')) {
+                        const created = initThreeSpace(appState.get('tRenderer'));
+                        appState.set('spScene', created.spScene);
+                        appState.set('spCamera', created.spCamera);
+                        appState.set('spGlowTexture', createGalaxyStarTexture());
+                        appState.set('spNebulaTexture', createGalaxyNebulaTexture());
+                        const dustCount = PERFORMANCE_PROFILES[cfg.quality].galaxyDustCount;
+                        const dustMesh = buildSpaceDustMesh(dustCount, SPACE_DUST_RANGE, appState.get('spGlowTexture'));
+                        appState.get('spScene').add(dustMesh);
+                        appState.set('spDustMesh', dustMesh);
+                        appState.set('spViewDir', new THREE.Vector3(0, 0, -1));
+                        appState.set('spViewDirTarget', new THREE.Vector3(0, 0, -1));
+                        appState.set('spGalaxyClusters', []);
+                        appState.set('spNextClusterIndex', 0);
+                        appState.set('spTotalGalaxiesSpawned', 0);
+                        appState.set('spCurrentTargetIndex', null);
+                        appState.set('spInitialized', true);
+                    }
+                    // Tone mapping (plan B2) — lưu mặc định (Vortex, KHÔNG set tone mapping riêng —
+                    // xem core/webgl/three-vortex.js — mặc định THREE.NoToneMapping) vào biến NỘI
+                    // BỘ (KHÔNG thuộc STATE, cùng kiểu với `tWarpSpeed` ở three-vortex.js), set ACES
+                    // khi VÀO 'space', trả lại mặc định khi RA (nhánh else phía dưới).
+                    const tRenderer = appState.get('tRenderer');
+                    if (tRenderer) {
+                        if (_spDefaultToneMapping === null) _spDefaultToneMapping = tRenderer.toneMapping;
+                        tRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+                    }
+                }
                 // FIX (04/07/2026, mục 4) — 'playlist-hidden' THAY '-translate-y-full' (dọc -> ngang).
                 // SỬA (07/07/2026, batch gộp container) — class `playlist-hidden` đã DỜI từ
                 // `#playlist-view` sang `#side-left-container`. HOTFIX 16 (08/07/2026) — dời TIẾP
@@ -105,7 +177,14 @@
                 // KHÔNG BAO GIỜ còn mang class này nữa (chỉ lo cuộn ngang) — kiểm tra SAI phần tử ở
                 // đây sẽ luôn trả về false, làm webgl-canvas không bao giờ hiện lại đúng lúc.
                 if (!appStack.classList.contains('playlist-hidden')) {} else { document.getElementById('webgl-canvas').classList.remove('opacity-0'); }
-            } else { document.getElementById('webgl-canvas').classList.add('opacity-0'); }
+            } else {
+                document.getElementById('webgl-canvas').classList.add('opacity-0');
+                // Rời khỏi 'space' — trả tone mapping renderer dùng chung về mặc định của Vortex.
+                if (previousType === 'space') {
+                    const tRenderer = appState.get('tRenderer');
+                    if (tRenderer && _spDefaultToneMapping !== null) tRenderer.toneMapping = _spDefaultToneMapping;
+                }
+            }
 
             // HOTFIX 2 — truy vấn TƯƠI, KHÔNG dựa vào biến toàn cục (xem docstring hàm ngay trên).
             const blockMaxHeightEl = document.getElementById('block-max-height');
@@ -114,11 +193,14 @@
                 const blockVortexEl = document.getElementById('block-vortex');
                 const blockRainEl = document.getElementById('block-rain');
                 const blockBarStyleEl = document.getElementById('block-bar-style');
+                const blockSpaceEl = document.getElementById('block-space'); // MỚI (Phần B, Galaxy)
 
                 blockMaxHeightEl.classList.add('hidden'); blockBarWidthEl.classList.add('hidden');
                 blockVortexEl.classList.add('hidden'); blockRainEl.classList.add('hidden'); blockBarStyleEl.classList.add('hidden');
+                if (blockSpaceEl) blockSpaceEl.classList.add('hidden');
 
                 if (cfg.type === 'vortex') { blockVortexEl.classList.remove('hidden'); blockVortexEl.classList.add('flex'); }
+                else if (cfg.type === 'space') { if (blockSpaceEl) { blockSpaceEl.classList.remove('hidden'); blockSpaceEl.classList.add('flex'); updateSpaceStyleUI(); } }
                 else if (cfg.type === 'rain') { blockRainEl.classList.remove('hidden'); blockRainEl.classList.add('flex'); }
                 else if (cfg.type === 'bar') {
                     // "Độ cao tối đa" vẫn dùng chung cho Bar (cả mirror/cascade); "Độ dày thanh" KHÔNG
@@ -150,6 +232,21 @@
             const isMirror = appState.get('vizConfig').barStyle === 'mirror';
             barMirrorOptionsEl.classList.toggle('hidden', !isMirror);
             barMirrorOptionsEl.classList.toggle('flex', isMirror);
+        }
+
+        /**
+         * MỚI (Phần B, Galaxy, plan B5) — hiện/ẩn khối 4 slider tinh chỉnh (reroll/jump threshold/
+         * chance) theo `cfg.spaceStyle` — GATE THEO `spaceStyle`, KHÔNG gate theo `cfg.type==='space'`
+         * (đã gate ở tầng ngoài `block-space` rồi, xem updateTypeUI()) — để tự ẩn nếu sau này có
+         * thêm kiểu con Space khác không cần đúng 2 ngưỡng reroll/jump này (đúng chốt của Giang).
+         * Cùng pattern HOTFIX 2 — truy vấn TƯƠI qua document.getElementById(), không dựa dom-refs tĩnh.
+         */
+        function updateSpaceStyleUI() {
+            const tuningEl = document.getElementById('space-galaxy-tuning');
+            if (!tuningEl) return;
+            const isGalaxy = appState.get('vizConfig').spaceStyle === 'galaxy';
+            tuningEl.classList.toggle('hidden', !isGalaxy);
+            tuningEl.classList.toggle('flex', isGalaxy);
         }
 
         /** HOTFIX 2 (07/07/2026) — cùng sửa như updateTypeUI()/updateBarStyleUI(): `solidColorContainer`/
@@ -307,6 +404,40 @@
         /** Core thuần: kiểu hiệu ứng Rain con. Batch D3 — BỎ `resizeCanvas()`/`saveConfig()`. */
         function setRainStyle(value) {
             appState.mutate('vizConfig', cfg => { cfg.rainStyle = value; });
+        }
+
+        /** Core thuần: kiểu con của Space (MỚI, Phần B — hiện chỉ có 'galaxy', dropdown LUÔN HIỆN
+         * để giữ kiến trúc mở rộng sau này, xem plan B2). */
+        function setSpaceStyle(value) {
+            appState.mutate('vizConfig', cfg => { cfg.spaceStyle = value; });
+        }
+
+        /** Core thuần: ngưỡng năng lượng để "reroll" hướng nhìn mới (plan B5). @param {string} value @param {HTMLElement} [displayEl] */
+        function setSpaceRerollThreshold(value, displayEl) {
+            const v = parseFloat(value);
+            appState.mutate('vizConfig', cfg => { cfg.spaceRerollThreshold = v; });
+            if (displayEl) displayEl.textContent = v.toFixed(2);
+        }
+
+        /** Core thuần: xác suất random đi kèm ngưỡng reroll (plan B5). @param {string} value @param {HTMLElement} [displayEl] */
+        function setSpaceRerollChance(value, displayEl) {
+            const v = parseFloat(value);
+            appState.mutate('vizConfig', cfg => { cfg.spaceRerollChance = v; });
+            if (displayEl) displayEl.textContent = v.toFixed(3);
+        }
+
+        /** Core thuần: ngưỡng năng lượng để nhảy sang cụm thiên hà kế tiếp (plan B5). @param {string} value @param {HTMLElement} [displayEl] */
+        function setSpaceJumpThreshold(value, displayEl) {
+            const v = parseFloat(value);
+            appState.mutate('vizConfig', cfg => { cfg.spaceJumpThreshold = v; });
+            if (displayEl) displayEl.textContent = v.toFixed(2);
+        }
+
+        /** Core thuần: xác suất random đi kèm ngưỡng nhảy cụm (plan B5). @param {string} value @param {HTMLElement} [displayEl] */
+        function setSpaceJumpChance(value, displayEl) {
+            const v = parseFloat(value);
+            appState.mutate('vizConfig', cfg => { cfg.spaceJumpChance = v; });
+            if (displayEl) displayEl.textContent = v.toFixed(3);
         }
 
         /** Core thuần: bật/tắt hiệu ứng chớp kính (Rain). Batch D3 — BỎ `saveConfig()` nội bộ. */
