@@ -43,24 +43,11 @@ function assessGalaxyDensityAhead(clusters, camPos, forward, checkDistance, late
     return count;
 }
 
-/**
- * Xoay 2 trục right/up (đã trực chuẩn với forward) quanh CHÍNH trục forward theo góc `rollAngle`
- * (radian) — tạo hiệu ứng "roll" camera (nghiêng/lật quanh trục nhìn) mà KHÔNG đổi HƯỚNG nhìn
- * (forward giữ nguyên, chỉ trục "lên" của camera xoay đi). Công thức xoay 2D chuẩn trong mặt
- * phẳng vuông góc forward. MỚI (21/07/2026, phản hồi Giang lượt 5, mục 5 — "roll camera sau mỗi
- * lượt dựa theo note pick giống như rubik") — Workflow tự tra bảng
- * `spNoteRollTable` (12 giá trị random, sinh 1 lần lúc init Space, tái sử dụng suốt phiên — xem
- * `core/visualizer/visualizer-display.js`) theo nốt hiện tại để lấy `rollAngle`, rồi gọi hàm này
- * TRƯỚC khi gọi `applyStableSpaceOrientation()`.
- * @param {THREE.Vector3} right @param {THREE.Vector3} up @param {number} rollAngle - radian
- * @returns {{right: THREE.Vector3, up: THREE.Vector3}}
- */
-function applySpaceRoll(right, up, rollAngle) {
-    const cosA = Math.cos(rollAngle), sinA = Math.sin(rollAngle);
-    const newRight = right.clone().multiplyScalar(cosA).addScaledVector(up, sinA);
-    const newUp = up.clone().multiplyScalar(cosA).addScaledVector(right, -sinA);
-    return { right: newRight, up: newUp };
-}
+// (applySpaceRoll() ĐÃ BỎ, 21/07/2026, phản hồi Giang — "roll... đang bị hiểu nhầm thành rotate
+// 2D chứ không phải bẻ hướng di chuyển của camera". Hàm này chỉ xoay trục lên/phải quanh CHÍNH
+// hướng nhìn (cosmetic tilt/bank, KHÔNG đổi hướng ĐI) — sai bản chất yêu cầu. Thay bằng
+// `steerSpaceForward()` (core/webgl/three-space.js) — xoay THẲNG vector forward, đổi HƯỚNG ĐI
+// thật sự, xem event/workflow/visualizer-render.js.)
 
 /**
  * Nội suy MƯỢT (smoothstep, không tuyến tính) vị trí camera dọc theo 1 "leg" (chặng di chuyển từ
