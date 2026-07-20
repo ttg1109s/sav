@@ -1,6 +1,6 @@
 /**
  * DỜI (19/07/2026, yêu cầu Giang) — file này TRƯỚC ĐÂY ở `core/three-vortex.js`, giờ chuyển vào
- * `core/webgl/three-vortex.js` (gom nhóm với `core/webgl/three-space.js`, cùng là engine khởi tạo
+ * `core/webgl/three-vortex.js` (thư mục webgl/ gom các engine khởi tạo
  * Three.js) — NỘI DUNG KHÔNG ĐỔI GÌ khác ngoài đường dẫn. Giang cần XOÁ TAY file cũ
  * `core/three-vortex.js` (không tự xoá qua patch). Cập nhật `<script src="...">` tương ứng trong
  * index.html — xem thứ tự nạp GIỮ NGUYÊN như cũ.
