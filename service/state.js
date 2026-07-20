@@ -147,6 +147,14 @@
             spNextClusterIndex: 'number',
             spTotalGalaxiesSpawned: 'number', // bộ đếm ID toàn cục — KHÔNG dùng spGalaxyClusters.length (tránh trùng ID khi splice phần tử cũ)
             spCurrentTargetIndex: 'nullable-number', // .index của thiên hà đang khoá mục tiêu, null = chưa có
+            // MỚI (21/07/2026, phản hồi Giang mục 2a — "jump đột ngột, không mượt") — cơ chế nhảy
+            // cụm MƯỢT (nội suy vị trí theo thời gian, KHÔNG teleport tức thì như bản trước) + KHOÁ
+            // không cho nhảy tiếp cho tới khi đến đích, xem event/workflow/visualizer-render.js.
+            spJumpActive: 'boolean',
+            spJumpFromPos: 'any',      // THREE.Vector3 | undefined — vị trí camera lúc BẮT ĐẦU nhảy
+            spJumpToPos: 'any',        // THREE.Vector3 | undefined — vị trí camera lúc ĐẾN ĐÍCH
+            spJumpElapsed: 'number',   // giây đã trôi qua trong cú nhảy hiện tại
+            spJumpDuration: 'number',  // tổng thời lượng cú nhảy hiện tại (base + phần random cộng thêm)
 
             // ── audio engine ──────────────────────────────────────────────────
             audioContext: 'any',           // AudioContext | undefined trước setupAudioContext()
@@ -363,6 +371,11 @@
                 spNextClusterIndex: 0,
                 spTotalGalaxiesSpawned: 0,
                 spCurrentTargetIndex: null,
+                spJumpActive: false,
+                spJumpFromPos: undefined,
+                spJumpToPos: undefined,
+                spJumpElapsed: 0,
+                spJumpDuration: 0,
 
                 // ── audio engine ──────────────────────────────────────────────
                 audioContext: undefined,
