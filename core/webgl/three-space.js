@@ -32,8 +32,10 @@
 // 1. HẰNG SỐ / DỮ LIỆU (không phải hàm — tham chiếu tự do, KHÔNG tính là "gọi hàm")
 // ============================================================================================
 
-/** Khoảng cách trục Z giữa 2 "nút" liên tiếp của sợi vũ trụ (mỗi nút sinh 2-3 thiên hà). */
-const SPACE_CLUSTER_SPACING_Z = 200;
+/** Khoảng cách trục Z giữa 2 "nút" liên tiếp của sợi vũ trụ (mỗi nút sinh 3-5 thiên hà). GIẢM từ
+ * 200 xuống 110 (fix mục 2, phản hồi 21/07/2026 — "vùng thiên hà xuất hiện ít, thưa, xa" — nút
+ * dày hơn gần gấp đôi = mật độ nhìn thấy tăng tương ứng). */
+const SPACE_CLUSTER_SPACING_Z = 110;
 
 /** Định danh ngẫu nhiên chuẩn khoa học (giữ nguyên tinh thần bản demo, số liệu không kế thừa gì
  * đặc biệt — chỉ là 1 danh sách tên hợp lý cho bản MỚI). */
@@ -568,18 +570,22 @@ function computeSpaceForwardBasis(forward) {
  * @returns {THREE.Vector3}
  */
 function computeGalaxyClusterCore(originPos, forward, right, up, distanceAhead, wobbleSeed) {
-    const rightWobble = Math.sin(wobbleSeed * 0.95) * 110;
-    const upWobble = Math.cos(wobbleSeed * 0.7) * 45;
+    // Biên độ TĂNG (fix mục 2, phản hồi 21/07/2026 — trước 110/45 quá hẹp, phần lớn khung hình
+    // vẫn trống dù nút dày hơn — cần trải rộng CẢ theo trục ngang lẫn trục dọc màn hình).
+    const rightWobble = Math.sin(wobbleSeed * 0.95) * 170;
+    const upWobble = Math.cos(wobbleSeed * 0.7) * 90;
     return originPos.clone()
         .addScaledVector(forward, distanceAhead)
         .addScaledVector(right, rightWobble)
         .addScaledVector(up, upWobble);
 }
 
-/** Offset ngẫu nhiên (phân tán chặt quanh 1 nút) cho 1 thành viên trong cụm 2-3 thiên hà.
+/** Offset ngẫu nhiên (phân tán quanh 1 nút) cho 1 thành viên trong cụm — bán kính TĂNG (fix mục 2,
+ * phản hồi 21/07/2026 — "phân bổ đều trên màn hình xa gần", trước 40-85 quá hẹp so với khoảng
+ * cách giữa các nút, khiến phần lớn khung hình trống).
  * @returns {THREE.Vector3} */
 function computeGalaxyMemberOffset() {
-    const dispRadius = 40 + Math.random() * 45;
+    const dispRadius = 70 + Math.random() * 90;
     const angle = Math.random() * Math.PI * 2;
     const elevation = (Math.random() - 0.5) * Math.PI * 0.5;
     return new THREE.Vector3(
@@ -587,6 +593,32 @@ function computeGalaxyMemberOffset() {
         Math.sin(elevation) * dispRadius,
         Math.sin(angle) * Math.cos(elevation) * dispRadius
     );
+}
+
+/**
+ * Bảng tra sóng sin (LUT) tạo độ lệch mượt cho quỹ đạo 1 leg (mục 4, phản hồi 21/07/2026 —
+ * "tích hợp bảng LUT động, số lượng ngẫu nhiên từ 1-64... tạo quỹ đạo chuyển động mượt từ a-b
+ * theo hình sin"). Kích thước NGẪU NHIÊN mỗi lần sinh (1-64, do Workflow tự random rồi truyền
+ * vào) — dùng ĐÚNG NỬA chu kỳ sin (0 ở 2 đầu bảng, đỉnh ở giữa) để đảm bảo KHÔNG phá vỡ tính liên
+ * tục tại 2 điểm nối waypoint (A/B vẫn nối đúng vị trí — 0 lệch tại 2 đầu mút — chỉ đường ĐI GIỮA
+ * 2 điểm đó uốn lượn thay vì thẳng tắp).
+ * @param {number} size - đã kẹp 1-64 bởi Workflow trước khi gọi
+ * @returns {Float32Array}
+ */
+function buildSpaceLegSineLUT(size) {
+    const clampedSize = Math.max(1, Math.min(64, Math.floor(size)));
+    const lut = new Float32Array(clampedSize);
+    // FIX edge case size=1 (xác suất ~1.5%/leg): chỉ 1 mẫu KHÔNG thể biểu diễn hình sin (0 ở 2 đầu,
+    // đỉnh ở giữa) — lấy tại t=0.5 sẽ ra sin(π/2)=1 CỐ ĐỊNH suốt cả leg (vi phạm "0 tại 2 đầu mút"),
+    // khiến vị trí lệch hằng số rồi "bật" về đúng waypoint ở khung hình cuối (giật nhẹ). size=1 giờ
+    // trả thẳng leg "phẳng" (không lệch) — biến thể tự nhiên (thỉnh thoảng có leg thẳng tắp giữa
+    // các leg uốn lượn), KHÔNG vi phạm tính liên tục.
+    if (clampedSize === 1) { lut[0] = 0; return lut; }
+    for (let i = 0; i < clampedSize; i++) {
+        const t = i / (clampedSize - 1);
+        lut[i] = Math.sin(t * Math.PI);
+    }
+    return lut;
 }
 
 /**
