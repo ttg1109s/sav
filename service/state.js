@@ -140,21 +140,32 @@
             spGlowTexture: 'any',      // THREE.CanvasTexture (sao) | undefined
             spNebulaTexture: 'any',    // THREE.CanvasTexture (tinh vân) | undefined
             spDustMesh: 'any',         // THREE.Points (SpaceDust) | undefined
-            spViewDir: 'any',          // THREE.Vector3 — hướng bay/nhìn HIỆN TẠI (hợp nhất, plan B3)
-            spViewDirTarget: 'any',    // THREE.Vector3 — hướng MỤC TIÊU, đổi lúc "reroll"
-            spDriftSpeed: 'number',    // tốc độ hành trình đã làm mượt (EMA), cùng vai trò tWarpSpeed ở Vortex nhưng SỐNG trong STATE (cần reset lúc init lại)
             spGalaxyClusters: 'array', // mảng instance GalaxyCluster (thay spGalaxySlots bản demo)
             spNextClusterIndex: 'number',
             spTotalGalaxiesSpawned: 'number', // bộ đếm ID toàn cục — KHÔNG dùng spGalaxyClusters.length (tránh trùng ID khi splice phần tử cũ)
             spCurrentTargetIndex: 'nullable-number', // .index của thiên hà đang khoá mục tiêu, null = chưa có
-            // MỚI (21/07/2026, phản hồi Giang mục 2a — "jump đột ngột, không mượt") — cơ chế nhảy
-            // cụm MƯỢT (nội suy vị trí theo thời gian, KHÔNG teleport tức thì như bản trước) + KHOÁ
-            // không cho nhảy tiếp cho tới khi đến đích, xem event/workflow/visualizer-render.js.
-            spJumpActive: 'boolean',
-            spJumpFromPos: 'any',      // THREE.Vector3 | undefined — vị trí camera lúc BẮT ĐẦU nhảy
-            spJumpToPos: 'any',        // THREE.Vector3 | undefined — vị trí camera lúc ĐẾN ĐÍCH
-            spJumpElapsed: 'number',   // giây đã trôi qua trong cú nhảy hiện tại
-            spJumpDuration: 'number',  // tổng thời lượng cú nhảy hiện tại (base + phần random cộng thêm)
+            // VIẾT LẠI HOÀN TOÀN (21/07/2026, phản hồi Giang lượt 2 — thay hẳn mô hình
+            // spViewDir/spViewDirTarget + spJumpActive/spJumpFromPos/spJumpToPos/spJumpElapsed/
+            // spJumpDuration của lượt 1) — mô hình "waypoint nối tiếp" (mục 3): camera LUÔN đang
+            // di chuyển từ `spLegStartPos` tới `spNextPos` theo hướng `spLegForward`, tốc độ tính
+            // từ BPM hiện tại lúc BẮT ĐẦU mỗi leg — waypoint KẾ TIẾP (`spPendingNextPos`/
+            // `spPendingForward`) được sinh sẵn TRONG lúc leg hiện tại còn đang chạy (không đợi
+            // tới lúc đến nơi), dùng để BLEND hướng nhìn mượt về hướng leg sau ở đoạn cuối leg
+            // hiện tại — xem `event/workflow/visualizer-render.js::_advanceSpaceLeg()`, fix trực
+            // tiếp nguyên nhân "hard cut" mục 1 (trước đây đổi hướng ĐỘT NGỘT đúng lúc chuyển leg).
+            spLegStartPos: 'any',      // THREE.Vector3 — vị trí camera lúc BẮT ĐẦU leg hiện tại
+            spNextPos: 'any',          // THREE.Vector3 — điểm đến của leg hiện tại
+            spLegForward: 'any',       // THREE.Vector3 — hướng bay/nhìn của leg hiện tại (đã normalize)
+            spLegElapsed: 'number',    // giây đã trôi qua trong leg hiện tại
+            spLegDuration: 'number',   // tổng thời lượng leg hiện tại (từ BPM lúc bắt đầu + random)
+            spPendingNextPos: 'any',   // THREE.Vector3 | null — điểm đến leg KẾ TIẾP, sinh sẵn giữa chừng leg hiện tại
+            spPendingForward: 'any',   // THREE.Vector3 | null — hướng của leg KẾ TIẾP
+            // "Nhảy" sang thiên hà khác (mục 2) — TRIGGER giờ là NỐT CAO NHẤT vừa vang lên (KHÔNG
+            // còn ngưỡng năng lượng/random như lượt 1) — `spJumpLocked` khoá KHÔNG cho trigger
+            // nhảy tiếp + khoá KHÔNG cho `_manageSpaceChain()` tự ý ghi đè `spCurrentTargetIndex`
+            // trong lúc đang nhảy (đúng nguyên nhân gốc mục 1).
+            spJumpLocked: 'boolean',
+            spHighestNoteSeen: 'number', // "trần" nốt cao nhất gần đây, tự hạ dần theo thời gian (decay) — nốt VƯỢT trần này mới tính là "đỉnh mới" kích hoạt nhảy
 
             // ── audio engine ──────────────────────────────────────────────────
             audioContext: 'any',           // AudioContext | undefined trước setupAudioContext()
@@ -364,18 +375,19 @@
                 spGlowTexture: undefined,
                 spNebulaTexture: undefined,
                 spDustMesh: undefined,
-                spViewDir: undefined,
-                spViewDirTarget: undefined,
-                spDriftSpeed: 0,
                 spGalaxyClusters: [],
                 spNextClusterIndex: 0,
                 spTotalGalaxiesSpawned: 0,
                 spCurrentTargetIndex: null,
-                spJumpActive: false,
-                spJumpFromPos: undefined,
-                spJumpToPos: undefined,
-                spJumpElapsed: 0,
-                spJumpDuration: 0,
+                spLegStartPos: undefined,
+                spNextPos: undefined,
+                spLegForward: undefined,
+                spLegElapsed: 0,
+                spLegDuration: 0,
+                spPendingNextPos: undefined,
+                spPendingForward: undefined,
+                spJumpLocked: false,
+                spHighestNoteSeen: 0,
 
                 // ── audio engine ──────────────────────────────────────────────
                 audioContext: undefined,
