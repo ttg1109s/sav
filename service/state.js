@@ -144,6 +144,11 @@
             spNebulaTexture: 'any',    // THREE.CanvasTexture (tinh vân) | undefined
             spDustMesh: 'any',         // THREE.Points (SpaceDust) | undefined
             spGalaxyClusters: 'array', // mảng instance GalaxyCluster (thay spGalaxySlots bản demo)
+            // MỚI (21/07/2026, phản hồi Giang — "hình thái thiên hà phân bổ không đều, trùng lặp
+            // khá nhiều") — "túi xáo trộn" (shuffle bag, xem `pickGalaxyTypeFromBag()`,
+            // core/webgl/three-space.js): đảm bảo mọi 10 hình thái xuất hiện đúng 1 lần/chu kỳ 10
+            // lần spawn, thay vì random độc lập dễ ra liên tiếp trùng hình thái.
+            spGalaxyTypeBag: 'array',
             spNextClusterIndex: 'number',
             spTotalGalaxiesSpawned: 'number', // bộ đếm ID toàn cục — KHÔNG dùng spGalaxyClusters.length (tránh trùng ID khi splice phần tử cũ)
             spCurrentTargetIndex: 'nullable-number', // .index của thiên hà đang khoá mục tiêu, null = chưa có
@@ -159,8 +164,16 @@
             spLegStartPos: 'any',      // THREE.Vector3 — vị trí camera lúc BẮT ĐẦU leg hiện tại
             spNextPos: 'any',          // THREE.Vector3 — điểm đến của leg hiện tại
             spLegForward: 'any',       // THREE.Vector3 — hướng bay/nhìn của leg hiện tại (đã normalize)
-            spLegElapsed: 'number',    // giây đã trôi qua trong leg hiện tại
-            spLegDuration: 'number',   // tổng thời lượng leg hiện tại (từ BPM lúc bắt đầu + random)
+            // ĐỔI (21/07/2026, phản hồi Giang — "speed đang cài cứng lại không theo nhạc") — bỏ
+            // spLegElapsed/spLegDuration (giả định tốc độ CỐ ĐỊNH suốt leg, tính 1 LẦN lúc bắt đầu)
+            // — thay bằng mô hình CỘNG DỒN QUÃNG ĐƯỜNG: mỗi frame đọc TƯƠI BPM + smoothedEnergy
+            // tính tốc độ TỨC THỜI, cộng dồn vào spLegDistanceCovered — progress = covered/total,
+            // KHÔNG cần biết trước "leg mất bao lâu" — cho phép tốc độ phản ứng LIÊN TỤC với nhạc
+            // trong suốt 1 leg (trước đây tốc độ "đông cứng" ngay khi leg bắt đầu, không đổi cho
+            // tới khi leg kế tiếp). Xem event/workflow/visualizer-render.js::_advanceSpaceLeg().
+            spLegDistanceCovered: 'number', // quãng đường ĐÃ ĐI trong leg hiện tại (đơn vị 3D)
+            spLegTotalDistance: 'number',   // tổng quãng đường leg hiện tại (cố định lúc bắt đầu = khoảng cách legStartPos->nextPos)
+            spLegSpeedRandomFactor: 'number', // hệ số ngẫu nhiên ổn định CHO CẢ leg (không đổi giữa chừng) — "cộng thêm giá trị ngẫu nhiên"
             spPendingNextPos: 'any',   // THREE.Vector3 | null — điểm đến leg KẾ TIẾP, sinh sẵn giữa chừng leg hiện tại
             spPendingForward: 'any',   // THREE.Vector3 | null — hướng của leg KẾ TIẾP
             // (spLegSineLUT/spLegSineAmplitude/spPendingLegSineLUT/spPendingLegSineAmplitude ĐÃ BỎ,
@@ -189,6 +202,21 @@
             spPendingIsJump: 'boolean',            // leg PENDING hiện tại có phải leg nhảy (ưu tiên) hay không
             spPendingJumpTargetIndex: 'nullable-number', // .index thiên hà B — dùng lúc commit leg nhảy làm spCurrentTargetIndex
             spCurrentLegIsJump: 'boolean',         // leg ĐANG CHẠY (không phải pending) có phải leg nhảy hay không — quyết định có mở khoá lúc leg này hoàn tất hay không kích hoạt nhảy
+
+            // MỚI (21/07/2026, phản hồi Giang — "roll về hướng không có thiên hà nào, màn đen xì
+            // ... cần tiên đoán trước hướng next roll, kiểm tra mật độ thiên hà vùng đó rồi mới
+            // quyết định thêm... khoá toàn bộ moving, không sinh next pos/next roll cho trôi nhẹ,
+            // đợi thêm xong xong rồi mới mở khoá") — vùng "staging" cho ứng viên leg KẾ TIẾP (dù
+            // thường hay nhảy) đang chờ đủ mật độ thiên hà mới được CHỐT thành `spPendingForward`/
+            // `spPendingNextPos`/... thật — xem `_stageNextLeg()`/`_advancePreSpawn()`,
+            // event/workflow/visualizer-render.js. Leg ĐANG CHẠY (spLegForward/spNextPos) KHÔNG bị
+            // ảnh hưởng gì — vẫn tiếp tục di chuyển bình thường ("trôi nhẹ") trong lúc khoá.
+            spPreSpawnLocked: 'boolean',
+            spPreSpawnForward: 'any',              // THREE.Vector3 | null — hướng ứng viên đang chờ đủ mật độ
+            spPreSpawnNextPos: 'any',              // THREE.Vector3 | null
+            spPreSpawnRoll: 'number',
+            spPreSpawnIsJump: 'boolean',
+            spPreSpawnJumpTargetIndex: 'nullable-number',
 
             // ── audio engine ──────────────────────────────────────────────────
             audioContext: 'any',           // AudioContext | undefined trước setupAudioContext()
@@ -399,14 +427,16 @@
                 spNebulaTexture: undefined,
                 spDustMesh: undefined,
                 spGalaxyClusters: [],
+                spGalaxyTypeBag: [],
                 spNextClusterIndex: 0,
                 spTotalGalaxiesSpawned: 0,
                 spCurrentTargetIndex: null,
                 spLegStartPos: undefined,
                 spNextPos: undefined,
                 spLegForward: undefined,
-                spLegElapsed: 0,
-                spLegDuration: 0,
+                spLegDistanceCovered: 0,
+                spLegTotalDistance: 0,
+                spLegSpeedRandomFactor: 1,
                 spPendingNextPos: undefined,
                 spPendingForward: undefined,
                 spNoteRollTable: undefined,
@@ -417,6 +447,12 @@
                 spPendingIsJump: false,
                 spPendingJumpTargetIndex: null,
                 spCurrentLegIsJump: false,
+                spPreSpawnLocked: false,
+                spPreSpawnForward: undefined,
+                spPreSpawnNextPos: undefined,
+                spPreSpawnRoll: 0,
+                spPreSpawnIsJump: false,
+                spPreSpawnJumpTargetIndex: null,
 
                 // ── audio engine ──────────────────────────────────────────────
                 audioContext: undefined,
