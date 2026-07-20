@@ -153,6 +153,7 @@
                         appState.get('spScene').add(dustMesh);
                         appState.set('spDustMesh', dustMesh);
                         appState.set('spGalaxyClusters', []);
+                        appState.set('spGalaxyTypeBag', []); // MỚI — túi xáo trộn hình thái, rỗng lúc đầu tự nạp lại ở lần spawn đầu tiên
                         appState.set('spNextClusterIndex', 0);
                         appState.set('spTotalGalaxiesSpawned', 0);
                         appState.set('spCurrentTargetIndex', null);
@@ -163,6 +164,16 @@
                         // — tránh trùng lặp logic "sinh leg" ở 2 nơi khác nhau (ở đây và ở Workflow).
                         appState.set('spNextPos', undefined);
                         appState.set('spPendingNextPos', undefined);
+                        // MỚI (21/07/2026, phản hồi Giang — "tiên đoán trước hướng next roll... khoá
+                        // toàn bộ moving... đợi thêm xong xong rồi mới mở khoá") — reset vùng staging
+                        // pre-spawn, phòng dở dang từ phiên trước (không thể xảy ra thật vì
+                        // spInitialized reset false mỗi lần đổi trang, nhưng khai rõ cho đủ bộ).
+                        appState.set('spPreSpawnLocked', false);
+                        appState.set('spPreSpawnForward', undefined);
+                        appState.set('spPreSpawnNextPos', undefined);
+                        appState.set('spPreSpawnRoll', 0);
+                        appState.set('spPreSpawnIsJump', false);
+                        appState.set('spPreSpawnJumpTargetIndex', null);
                         // MỚI (21/07/2026, phản hồi Giang lượt 5, mục 5) — "roll camera sau mỗi
                         // lượt dựa theo note pick giống như rubik, nhưng sinh ngẫu nhiên, tái sử
                         // dụng": bảng 12 giá trị (1/nốt trong quãng tám), SINH NGẪU NHIÊN ĐÚNG 1
