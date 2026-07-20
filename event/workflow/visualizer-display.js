@@ -52,7 +52,6 @@ const workflowVisualizerDisplay = {
         panelEl.querySelector('#setting-bar-style').value = cfg.barStyle;
         panelEl.querySelector('#setting-rain-style').value = cfg.rainStyle;
         panelEl.querySelector('#setting-glass-flash').checked = cfg.glassFlash === true;
-        panelEl.querySelector('#setting-space-glass-frame').checked = cfg.spaceGlassFrame === true;
         panelEl.querySelector('#setting-max-height').value = cfg.maxH;
         panelEl.querySelector('#val-max').textContent = cfg.maxH;
         panelEl.querySelector('#setting-bar-width').value = cfg.barWidth;
@@ -136,11 +135,6 @@ const workflowVisualizerDisplay = {
     },
     setGlassFlash(checked) {
         setGlassFlash(checked);
-        saveConfig();
-    },
-    // MỚI (19/07/2026, "Drifting Space", item 4).
-    setSpaceGlassFrame(checked) {
-        setSpaceGlassFrame(checked);
         saveConfig();
     },
     setMaxHeight(value, displayEl) {
