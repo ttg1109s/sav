@@ -58,23 +58,13 @@ const workflowVisualizerDisplay = {
         panelEl.querySelector('#val-width').textContent = cfg.barWidth;
         panelEl.querySelector('#setting-mirror-count').value = cfg.mirrorBarCount;
         panelEl.querySelector('#val-mirror-count').textContent = cfg.mirrorBarCount;
-        // MỚI (Phần B, Galaxy) — dropdown kiểu con + 4 slider tinh chỉnh.
-        panelEl.querySelector('#setting-space-style').value = cfg.spaceStyle;
-        panelEl.querySelector('#setting-space-reroll-threshold').value = cfg.spaceRerollThreshold;
-        panelEl.querySelector('#val-space-reroll-threshold').textContent = cfg.spaceRerollThreshold.toFixed(2);
-        panelEl.querySelector('#setting-space-reroll-chance').value = cfg.spaceRerollChance;
-        panelEl.querySelector('#val-space-reroll-chance').textContent = cfg.spaceRerollChance.toFixed(3);
-        panelEl.querySelector('#setting-space-jump-threshold').value = cfg.spaceJumpThreshold;
-        panelEl.querySelector('#val-space-jump-threshold').textContent = cfg.spaceJumpThreshold.toFixed(2);
-        panelEl.querySelector('#setting-space-jump-chance').value = cfg.spaceJumpChance;
-        panelEl.querySelector('#val-space-jump-chance').textContent = cfg.spaceJumpChance.toFixed(3);
+        // (Phần B, Galaxy — đồng bộ 5 input spaceStyle/4 slider ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1)
 
         // Hiện/ẩn đúng khối theo kiểu hiệu ứng/mode màu/kiểu bar hiện tại — 3 hàm này giờ đã có
         // guard (Batch D3), panel vừa push nên chắc chắn tìm thấy phần tử, chạy đúng như mong đợi.
         updateTypeUI();
         updateColorMenuUI();
         updateBarStyleUI();
-        updateSpaceStyleUI();
 
         // ===== Section "Tự động đổi hiệu ứng" (core/auto-switch-visual.js) =====
         const elEnable = panelEl.querySelector('#setting-auto-switch-enable');
@@ -160,29 +150,7 @@ const workflowVisualizerDisplay = {
         setMirrorCount(value, displayEl);
         saveConfig();
     },
-
-    // ===================== Space / Galaxy (Phần B) =====================
-    setSpaceStyle(value) {
-        setSpaceStyle(value);
-        updateSpaceStyleUI();
-        saveConfig();
-    },
-    setSpaceRerollThreshold(value, displayEl) {
-        setSpaceRerollThreshold(value, displayEl);
-        saveConfig();
-    },
-    setSpaceRerollChance(value, displayEl) {
-        setSpaceRerollChance(value, displayEl);
-        saveConfig();
-    },
-    setSpaceJumpThreshold(value, displayEl) {
-        setSpaceJumpThreshold(value, displayEl);
-        saveConfig();
-    },
-    setSpaceJumpChance(value, displayEl) {
-        setSpaceJumpChance(value, displayEl);
-        saveConfig();
-    },
+    // (Phần B, Galaxy — 5 method spaceStyle/4 slider ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1)
 
     /**
      * FIX (04/07/2026, mục 1 phản hồi Giang) — GỘP nút "Chọn thư viện" (đã xoá) VÀO ĐÂY: gạt toggle
