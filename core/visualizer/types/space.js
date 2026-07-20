@@ -9,41 +9,45 @@
  * NẠP: SAU `core/webgl/three-space.js` (không phụ thuộc lẫn nhau về hàm, nhưng cùng nhóm
  * "engine Galaxy" nên đặt cạnh nhau trong index.html cho dễ đọc, giống cặp
  * three-vortex.js/types/vortex.js).
+ *
+ * VIẾT LẠI LẦN 2 (21/07/2026, phản hồi Giang) — bỏ hẳn `updateSpaceCamera()`/
+ * `updateSpaceViewDirLerp()`/`hasSpaceViewArrived()` (mô hình "hướng nhìn lerp liên tục + reroll
+ * theo ngưỡng năng lượng" của lượt 1) — thay bằng mô hình "waypoint nối tiếp" (mục 3): camera
+ * luôn di chuyển thẳng từ 1 điểm tới điểm kế tiếp (`spLegStartPos` -> `spNextPos`), Workflow tự
+ * quản lý vòng đời từng leg — file này chỉ còn giữ các hàm TÍNH TOÁN thuần cho từng bước
+ * (nội suy vị trí, dựng hướng camera ỔN ĐỊNH không lật roll, quản lý chuỗi thiên hà, bụi nền,
+ * render).
  */
 
-/** Bước camera 1 frame: giảm tốc khi xuyên lõi thiên hà mục tiêu, tiến theo `viewDir` (ĐÃ hợp
- * nhất "hướng bay" và "hướng nhìn" làm 1, plan B3 — KHÔNG có zoom/dolly riêng, 360° xoay + tịnh
- * tiến theo `viewDir` đã tự bao gồm hiệu ứng gần/xa/lên/xuống).
- * @param {THREE.PerspectiveCamera} camera
- * @param {THREE.Vector3} viewDir - đã lerp sẵn về phía `viewDirTarget` (xem `updateSpaceViewDirLerp`)
- * @param {THREE.Vector3|null} targetGalaxyPos - vị trí thiên hà đang khoá mục tiêu (null nếu chưa có)
- * @param {number} baseSpeed - tốc độ hành trình cơ sở (đã tính từ BPM+energy, xem Workflow)
- * @param {number} delta - giây kể từ frame trước
- * @returns {number} quãng đường vừa đi được (dùng để cộng dồn thống kê nếu cần)
- */
-function updateSpaceCamera(camera, viewDir, targetGalaxyPos, baseSpeed, delta) {
-    let speedModifier = 1.0;
-    if (targetGalaxyPos) {
-        const distToCore = camera.position.distanceTo(targetGalaxyPos);
-        if (distToCore < 80) {
-            speedModifier = THREE.MathUtils.mapLinear(Math.max(distToCore, 12), 12, 80, 0.38, 0.95);
-        }
-    }
-    const moveStep = viewDir.clone().multiplyScalar(baseSpeed * speedModifier * delta);
-    camera.position.add(moveStep);
-    camera.lookAt(camera.position.clone().add(viewDir));
-    return moveStep.length();
+/**
+ * Nội suy MƯỢT (smoothstep, không tuyến tính) vị trí camera dọc theo 1 "leg" (chặng di chuyển từ
+ * 1 waypoint tới waypoint kế tiếp — mục 3 "waypoint nối tiếp", ÁP DỤNG CHO MỌI leg, không riêng gì
+ * lúc "nhảy" cụm thiên hà nữa, xem đổi tên từ `computeSpaceJumpPosition` cũ). `progress` tăng dần
+ * 0→1 theo thời gian đã trôi qua / tổng thời lượng leg (tính từ BPM hiện tại lúc BẮT ĐẦU leg, xem
+ * Workflow).
+ * @param {THREE.Vector3} fromPos @param {THREE.Vector3} toPos @param {number} progress - 0..1 (ngoài khoảng tự kẹp)
+ * @returns {THREE.Vector3} */
+function computeSpaceLegPosition(fromPos, toPos, progress) {
+    const clamped = Math.max(0, Math.min(1, progress));
+    const eased = clamped * clamped * (3 - 2 * clamped); // smoothstep — chậm lúc đầu/cuối, nhanh giữa chừng
+    return fromPos.clone().lerp(toPos, eased);
 }
 
-/** Lerp `viewDir` (hướng HIỆN TẠI) về phía `viewDirTarget` (hướng MỤC TIÊU, chỉ đổi lúc "reroll")
- * — tạo đúng cảm giác "momen" rẽ trái/phải/trên/dưới từng đợt thay vì xoay đều liên tục (plan B3).
- * Mutate `viewDir` TRỰC TIẾP (tham số truyền vào là chính THREE.Vector3 đang sống trong appState,
- * KHÔNG phải gọi `appState.mutate` — giống hệt cách `tCamera.position.x += ...` mutate trực tiếp
- * 1 THREE object reference trong `core/visualizer/types/vortex.js::drawVortex()`).
- * @param {THREE.Vector3} viewDir @param {THREE.Vector3} viewDirTarget @param {number} lerpFactor */
-function updateSpaceViewDirLerp(viewDir, viewDirTarget, lerpFactor) {
-    viewDir.lerp(viewDirTarget, lerpFactor);
-    viewDir.normalize();
+/**
+ * Dựng hướng camera TRỰC TIẾP từ 3 trục trực chuẩn (forward/right/up) ĐÃ CÓ SẴN NHÁNH DỰ PHÒNG
+ * (xem `computeSpaceForwardBasis()`, core/webgl/three-space.js) — THAY hẳn
+ * `Object3D.lookAt()` (Three.js), nguồn gốc THẬT SỰ của hiện tượng "hard cut" Giang báo (mục 1,
+ * phản hồi 21/07/2026): `lookAt()` tự tính lại right/up từ forward + world-up MỖI LẦN gọi, dùng
+ * ĐÚNG công thức `cross()` như `computeSpaceForwardBasis()` nhưng KHÔNG có nhánh dự phòng khi
+ * forward gần song song world-up (~camera nhìn gần thẳng đứng) — vector right suy biến gần 0,
+ * hướng "lên" của camera random hoá đột ngột, nhìn như camera bị LẬT/XOAY ROLL trong 1 khung hình
+ * (đúng nghĩa đen "hard cut"). Dùng LUÔN basis đã tính ổn định (Workflow tính 1 lần/frame qua
+ * `computeSpaceForwardBasis()` rồi truyền vào đây) -> KHÔNG BAO GIỜ suy biến -> roll LUÔN khoá ổn
+ * định (đúng yêu cầu "lock roll camera", mục 2).
+ * @param {THREE.Camera} camera @param {THREE.Vector3} forward @param {THREE.Vector3} right @param {THREE.Vector3} up */
+function applyStableSpaceOrientation(camera, forward, right, up) {
+    const m = new THREE.Matrix4().makeBasis(right, up, forward.clone().negate());
+    camera.quaternion.setFromRotationMatrix(m);
 }
 
 /** Cập nhật vị trí bụi vũ trụ nền theo camera (wrap 3D quanh camera, cảm giác bụi vô hạn) +
@@ -75,7 +79,7 @@ function updateSpaceDustEachFrame(dustMesh, camPos, range, beatScale) {
  * FIX (21/07/2026, phản hồi Giang mục 2d — "quay hướng khác thì không sinh thiên hà, nền tối"):
  * bản trước dùng TOẠ ĐỘ Z THẾ GIỚI thô (`camZ`) để quyết định "phía trước"/"phía sau" — chỉ đúng
  * khi camera luôn bay theo -Z. VIẾT LẠI: "phía trước"/"phía sau" giờ là CHIẾU (dot product) vị trí
- * thiên hà lên trục `forward` (hướng camera ĐANG NHÌN/BAY, `spViewDir`) kể từ `camPos` — đúng với
+ * thiên hà lên trục `forward` (hướng leg camera ĐANG BAY, `spLegForward`) kể từ `camPos` — đúng với
  * MỌI hướng bay, không riêng -Z. Dispose THÊM 1 tiêu chí mới: thiên hà lệch quá xa NGANG khỏi trục
  * bay hiện tại (`disposeLateralDistance`) cũng bị dọn — cần thiết vì sau khi camera quay hướng
  * khác nhiều, thiên hà cũ (thuộc hướng bay TRƯỚC ĐÓ) có thể không còn tính là "phía sau" theo
@@ -116,27 +120,9 @@ function manageGalaxyChain(clusters, camPos, forward, disposeDistance, disposeLa
     return { toDisposeIndices, furthestAheadDist, needsMoreSpawns, nearestAheadIndex };
 }
 
-/** Camera đã "xoay tới nơi" hướng đang lerp hay chưa — dùng để KHOÁ không cho reroll tiếp cho tới
- * khi thực sự xoay gần hết tới hướng trước đó (fix mục 2c, "chuyển động 360 chưa mượt" — trước
- * đây reroll có thể kích hoạt lại NGAY CẢ KHI viewDir còn đang lerp dở dang, gây đổi hướng liên
- * tục giật cục). So góc giữa 2 vector đã normalize — pure, không phụ thuộc gì khác.
- * @param {THREE.Vector3} viewDir @param {THREE.Vector3} viewDirTarget @param {number} angleThreshold - radian
- * @returns {boolean} */
-function hasSpaceViewArrived(viewDir, viewDirTarget, angleThreshold) {
-    return viewDir.angleTo(viewDirTarget) < angleThreshold;
-}
-
-/** Nội suy MƯỢT (smoothstep, không tuyến tính) vị trí camera trong 1 cú "nhảy" cụm thiên hà — fix
- * mục 2a ("jump đột ngột") — bản trước teleport tức thì (`camera.position.set(...)` 1 lần), giờ
- * Workflow gọi hàm này MỖI FRAME trong lúc nhảy, `progress` tăng dần 0→1 theo thời gian đã trôi
- * qua / tổng thời lượng cú nhảy (base + phần random cộng thêm, xem Workflow).
- * @param {THREE.Vector3} fromPos @param {THREE.Vector3} toPos @param {number} progress - 0..1 (ngoài khoảng tự kẹp)
- * @returns {THREE.Vector3} */
-function computeSpaceJumpPosition(fromPos, toPos, progress) {
-    const clamped = Math.max(0, Math.min(1, progress));
-    const eased = clamped * clamped * (3 - 2 * clamped); // smoothstep — chậm lúc đầu/cuối, nhanh giữa chừng
-    return fromPos.clone().lerp(toPos, eased);
-}
+// (hasSpaceViewArrived() ĐÃ BỎ, 21/07/2026 — mô hình waypoint mới không cần arrival-gate góc:
+// mỗi leg tự có `spLegDuration` riêng, hướng leg KẾ TIẾP chỉ áp dụng khi leg HIỆN TẠI đã đến đích
+// đúng nghĩa đen (progress>=1, xem Workflow), không có khái niệm "lerp dở dang" nữa.)
 
 /** Render scene Galaxy — bọc `renderer.render()` thành 1 hàm Core cho nhất quán với các bước
  * khác (thay vì Workflow gọi thẳng API renderer — vẫn hợp lệ, nhưng để đúng tinh thần "Workflow
