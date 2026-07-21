@@ -119,9 +119,13 @@ const SPACE_NOTE_STEER_RANGE = Math.PI; // [-π, π) — ĐỦ 360°
 const SPACE_GALAXY_SPIN_SPEED = 0.8;
 
 // ===== Pre-spawn có kiểm tra mật độ TRƯỚC khi cam kết hướng kế tiếp (fix "roll về hướng không có
-// thiên hà nào, màn đen xì") — mục 2 Giang: pha ROTATE CHỈ bắt đầu khi đủ mật độ. =====
-const SPACE_PRESPAWN_CHECK_DISTANCE = 600;
-const SPACE_PRESPAWN_LATERAL_RADIUS = 320;
+// thiên hà nào, màn đen xì") — mục 2 Giang: pha ROTATE CHỈ bắt đầu khi đủ mật độ.
+// SỬA BUG (21/07/2026, lượt 8) — bỏ hẳn `SPACE_PRESPAWN_CHECK_DISTANCE`/`SPACE_PRESPAWN_LATERAL_RADIUS`
+// (hình TRỤ riêng, LỆCH với hình NÓN thật sự dùng để chọn mục tiêu — xem
+// `assessGalaxyDensityAhead()`, core/visualizer/types/space.js, để hiểu tại sao lệch này gây bug
+// "báo đủ mật độ nhưng lúc tìm toạ độ thật lại không thấy gì, bay vào khoảng đen"). Giờ TÁI DÙNG
+// THẲNG `SPACE_TARGET_CONE_COS`/`SPACE_TARGET_MAX_DIST` (đã khai ở dưới) cho CẢ kiểm tra mật độ
+// LẪN chọn mục tiêu thật — 1 NGUỒN DUY NHẤT, không thể lệch nhau nữa. =====
 const SPACE_PRESPAWN_MIN_DENSITY = 6;
 const SPACE_PRESPAWN_BATCH_PER_TICK = 1;
 
@@ -565,7 +569,7 @@ const workflowVisualizerRender = {
      * các tick sau. Pha TRAVEL đang chạy hoàn toàn KHÔNG bị đụng.
      */
     _stageNextLeg(candidateForward, camPos, spGalaxyClusters) {
-        const density = assessGalaxyDensityAhead(spGalaxyClusters, camPos, candidateForward, SPACE_PRESPAWN_CHECK_DISTANCE, SPACE_PRESPAWN_LATERAL_RADIUS); // core
+        const density = assessGalaxyDensityAhead(spGalaxyClusters, camPos, candidateForward, SPACE_TARGET_MAX_DIST, SPACE_TARGET_CONE_COS); // core
         if (density >= SPACE_PRESPAWN_MIN_DENSITY) {
             appState.set('spCandidateForward', candidateForward);
             appState.set('spPreSpawnLocked', false);
@@ -596,7 +600,7 @@ const workflowVisualizerRender = {
         }
         appState.set('spNextClusterIndex', nextIdx);
 
-        const density = assessGalaxyDensityAhead(spGalaxyClusters, camPos, forward, SPACE_PRESPAWN_CHECK_DISTANCE, SPACE_PRESPAWN_LATERAL_RADIUS); // core
+        const density = assessGalaxyDensityAhead(spGalaxyClusters, camPos, forward, SPACE_TARGET_MAX_DIST, SPACE_TARGET_CONE_COS); // core
         if (density >= SPACE_PRESPAWN_MIN_DENSITY) {
             appState.set('spCandidateForward', forward);
             appState.set('spPreSpawnLocked', false);
