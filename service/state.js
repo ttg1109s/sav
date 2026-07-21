@@ -149,16 +149,20 @@
             // core/webgl/three-space.js): đảm bảo mọi 10 hình thái xuất hiện đúng 1 lần/chu kỳ 10
             // lần spawn, thay vì random độc lập dễ ra liên tiếp trùng hình thái.
             spGalaxyTypeBag: 'array',
-            spNextClusterIndex: 'number',
             spTotalGalaxiesSpawned: 'number', // bộ đếm ID toàn cục — KHÔNG dùng spGalaxyClusters.length (tránh trùng ID khi splice phần tử cũ)
-            spCurrentTargetIndex: 'nullable-number', // .index của thiên hà đang khoá mục tiêu, null = chưa có
-            // VIẾT LẠI LẦN 3 (21/07/2026, phản hồi Giang lượt 6 — thay hẳn mô hình "waypoint nối
-            // tiếp + blend cuối leg" của lượt 2, vốn CHỒNG "di chuyển" và "xoay hướng" vào cùng 1
-            // lúc: "đi từ A đến B kết thúc và xoay từ X đến Y là hai pha khác nhau") — máy trạng
-            // thái `spPhase`: 'travel' (camera di chuyển A->B, hướng nhìn `spForward` CỐ ĐỊNH,
-            // không đổi dù chỉ 1 độ) | 'rotating' (vị trí camera KHOÁ NGUYÊN tại B, chỉ hướng nhìn
-            // nội suy dần X->Y). Chỉ 1 trong 2 trạng thái tại 1 thời điểm, KHÔNG BAO GIỜ vừa dịch
-            // chuyển vừa xoay cùng lúc. Xem event/workflow/visualizer-render.js::_tickSpace()/
+            // VIẾT LẠI LẦN 4 (21/07/2026, phản hồi Giang lượt 9 — "thay vì vừa chuyển vừa tạo...
+            // ngay từ đầu tạo 1 map thiên hà sẵn có 3D trải đều các hướng") — bỏ hẳn
+            // `spNextClusterIndex`/`spCurrentTargetIndex` (chỉ có ý nghĩa với mô hình chuỗi "vừa
+            // bay vừa spawn theo cửa sổ phía trước" ĐÃ BỎ) VÀ bỏ hẳn `spCandidateForward`/
+            // `spPreSpawnLocked`/`spPreSpawnForward` (vùng "staging chờ đủ mật độ trước khi cho
+            // phép rotate" — không còn cần thiết vì bản đồ giờ TĨNH, dựng sẵn ĐỦ mọi hướng, xem
+            // `event/workflow/visualizer-render.js::_ensureGalaxyMap()`). Thêm `spMapCenter`/
+            // `spMapLastRegenTime` cho bản đồ TĨNH mới.
+            //
+            // Máy trạng thái `spPhase`: 'travel' (camera di chuyển A->B, hướng nhìn `spForward`
+            // CỐ ĐỊNH, không đổi dù chỉ 1 độ) | 'rotating' (vị trí camera KHOÁ NGUYÊN tại B, chỉ
+            // hướng nhìn nội suy dần X->Y). Chỉ 1 trong 2 trạng thái tại 1 thời điểm, KHÔNG BAO GIỜ
+            // vừa dịch chuyển vừa xoay cùng lúc. Xem event/workflow/visualizer-render.js::_tickSpace()/
             // _advanceSpaceTravel()/_advanceSpaceRotate()/_tryCommitRotatePhase().
             spPhase: 'string',         // 'travel' | 'rotating'
             spForward: 'any',          // THREE.Vector3 — hướng nhìn/bay HIỆN TẠI (cố định suốt travel, đổi dần suốt rotate)
@@ -179,36 +183,27 @@
             spSpeedSamplePoints: 'array',   // number[] (0..1, đã sort tăng dần, luôn có phần tử 0)
             spSpeedSampleIdx: 'number',     // mốc ĐANG áp dụng (index vào spSpeedSamplePoints)
             spCurrentLegSpeed: 'number',    // tốc độ (đơn vị/giây) ĐANG khoá theo mốc hiện tại
-            // VIẾT LẠI (21/07/2026, phản hồi Giang — "roll... đang bị hiểu nhầm thành rotate 2D
-            // chứ không phải bẻ hướng di chuyển của camera theo 360 độ theo pitch note") — bỏ hẳn
-            // `spNoteRollTable`/`spLegRoll`/`spPendingRoll` (từng dùng để XOAY TRỤC LÊN/PHẢI quanh
-            // CHÍNH hướng nhìn — cosmetic, KHÔNG đổi hướng ĐI, SAI bản chất yêu cầu). Đổi thành
-            // `spNoteSteerTable`: bảng 12 phần tử (1/nốt, giống RUBIK_NOTE_TO_TURN,
-            // core/dom-refs.js — SINH NGẪU NHIÊN 1 LẦN lúc Space init, TÁI SỬ DỤNG suốt phiên).
-            // CẬP NHẬT (21/07/2026, lượt 6 — "3D là đa hướng, cần thêm trên/dưới/chéo") — mỗi phần
-            // tử giờ là 1 CẶP {yaw, pitch} (radian, cả 2 đều [-π, π) — KHÔNG giới hạn biên độ pitch,
-            // Giang xác nhận "cứ cho lộn") thay vì 1 số đơn (2D) — áp qua steerSpaceForward3D(),
-            // core/webgl/three-space.js.
+            // Bảng 12 phần tử (1/nốt, giống RUBIK_NOTE_TO_TURN, core/dom-refs.js — SINH NGẪU NHIÊN
+            // 1 LẦN lúc Space init, TÁI SỬ DỤNG suốt phiên) — mỗi phần tử là 1 CẶP {yaw, pitch}
+            // (radian, cả 2 đều [-π, π) — KHÔNG giới hạn biên độ pitch, Giang xác nhận "cứ cho
+            // lộn") — áp qua steerSpaceForward3D(), core/webgl/three-space.js.
             spNoteSteerTable: 'any',   // {yaw:number, pitch:number}[] (12 phần tử) | undefined trước khi Space init
 
-            // MỚI (21/07/2026, phản hồi Giang — "roll về hướng không có thiên hà nào, màn đen xì
-            // ... cần tiên đoán trước hướng, kiểm tra mật độ thiên hà vùng đó rồi mới quyết định
-            // thêm... phải thêm xong mới được phép quay") — vùng "staging" cho hướng KẾ TIẾP đang
-            // chờ đủ mật độ thiên hà mới được CHỐT thành `spCandidateForward` thật (đủ điều kiện để
-            // pha ROTATE bắt đầu khi travel hiện tại kết thúc) — xem
-            // `_stageNextLeg()`/`_advancePreSpawn()`/`_tryCommitRotatePhase()`,
-            // event/workflow/visualizer-render.js. Leg TRAVEL ĐANG CHẠY KHÔNG bị ảnh hưởng gì —
-            // vẫn tiếp tục di chuyển bình thường trong lúc khoá; camera CHỈ đứng CHỜ tại waypoint B
-            // (không tiến thêm, không xoay) nếu đã tới B mà vẫn CHƯA đủ mật độ.
-            spCandidateForward: 'any',  // THREE.Vector3 | null — hướng KẾ TIẾP đã XÁC NHẬN đủ mật độ, sẵn sàng cho pha ROTATE
-            spPreSpawnLocked: 'boolean',
-            spPreSpawnForward: 'any',   // THREE.Vector3 | null — hướng ứng viên đang chờ đủ mật độ
+            // MỚI (21/07/2026, lượt 9, phản hồi Giang mục 1+4 — "ngay từ đầu tạo 1 map thiên hà
+            // sẵn có 3D trải đều các hướng... dựa vào energy + camera không phải đang moving để
+            // quyết định tái tạo lại"). Bản đồ TĨNH: N cụm thiên hà (N/bán kính co giãn theo
+            // `quality`, xem `PERFORMANCE_PROFILES`, core/config.js) phân bố ĐỀU NGẪU NHIÊN trong
+            // 1 khối cầu quanh `spMapCenter` — dựng 1 LẦN, chỉ tái tạo TOÀN BỘ khi năng lượng đủ
+            // cao VÀ camera đang đứng yên (xem `_ensureGalaxyMap()`,
+            // event/workflow/visualizer-render.js).
+            spMapCenter: 'any',            // THREE.Vector3 — tâm bản đồ hiện tại | undefined trước khi dựng lần đầu
+            spMapLastRegenTime: 'number',  // _spGlobalTime (giây, đồng hồ nội bộ Workflow) lúc tái tạo GẦN NHẤT
 
             // MỚI (21/07/2026, lượt 6) — trạng thái pha ROTATE (chỉ có ý nghĩa khi spPhase === 'rotating').
             spRotateFromForward: 'any', // THREE.Vector3 — hướng LÚC BẮT ĐẦU rotate (= spForward tại thời điểm đó)
-            spRotateToForward: 'any',   // THREE.Vector3 — hướng ĐÍCH (= spCandidateForward đã xác nhận)
+            spRotateToForward: 'any',   // THREE.Vector3 — hướng ĐÍCH (đã chọn qua note table, xem _tryCommitRotatePhase())
             spRotateElapsed: 'number',  // giây đã trôi trong pha rotate hiện tại
-            spRotateDuration: 'number', // giây — tính 1 LẦN lúc bắt đầu rotate, tỉ lệ theo góc lệch (xem computeSpaceRotateDuration())
+            spRotateDuration: 'number', // giây — tính 1 LẦN lúc bắt đầu rotate, theo góc lệch VÀ thông số nhạc (xem computeSpaceRotateDuration())
 
             // ── audio engine ──────────────────────────────────────────────────
             audioContext: 'any',           // AudioContext | undefined trước setupAudioContext()
@@ -420,9 +415,7 @@
                 spDustMesh: undefined,
                 spGalaxyClusters: [],
                 spGalaxyTypeBag: [],
-                spNextClusterIndex: 0,
                 spTotalGalaxiesSpawned: 0,
-                spCurrentTargetIndex: null,
                 spPhase: 'travel',
                 spForward: undefined,
                 spLegStartPos: undefined,
@@ -435,9 +428,8 @@
                 spSpeedSampleIdx: 0,
                 spCurrentLegSpeed: 0,
                 spNoteSteerTable: undefined,
-                spCandidateForward: undefined,
-                spPreSpawnLocked: false,
-                spPreSpawnForward: undefined,
+                spMapCenter: undefined,
+                spMapLastRegenTime: 0,
                 spRotateFromForward: undefined,
                 spRotateToForward: undefined,
                 spRotateElapsed: 0,
