@@ -71,3 +71,22 @@ eventBus.registerBlock('playlist.actionMenu.addToFolder', [
         { field: 'isGenericDrawerOpen', operator: '===', value: true },
     ],
 ]);
+
+// ===================== Video Player mode <-> Use background video — khoá chéo 2 chiều =====================
+// MỚI (21/07/2026, Giang chỉ ra "Block đã có sẵn notify, sao phải tự viết alertModal") — 2 tính
+// năng dùng CHUNG `bgVideoElement`, KHÔNG được cùng bật. MỖI CHIỀU BẬT là 1 msg.type RIÊNG (KHÔNG
+// còn 1 msg.type '.change' + payload checked — Block gate chỉ đọc appState, không đọc được payload,
+// xem event/bus.js::evalCondition()) — cùng tiền lệ 'folder.applyToPlaylist.click' KHÁC
+// 'folder.unapplyFromPlaylist.click' ở trên. Chiều "TẮT" (disable.click) KHÔNG đăng ký gì — luôn
+// cho phép, không có gì cần khoá khi tắt.
+eventBus.registerBlock('fileManagerVideo.playerModeToggle.enable.click', [
+    [
+        { field: 'vizConfig.videoBgEnabled', operator: '===', value: true },
+    ],
+], { notify: t('fileManager.video.playerModeToggle.blockedByBgVideo') });
+
+eventBus.registerBlock('visualizerControlCenter.videoEnable.enable.click', [
+    [
+        { field: 'isVideoPlayerMode', operator: '===', value: true },
+    ],
+], { notify: t('settingsPlaylistBg.videoEnable.blockedByPlayerMode') });
