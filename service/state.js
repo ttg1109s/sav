@@ -240,6 +240,12 @@
             // ── video bg ──────────────────────────────────────────────────────
             _videoBgLoadedUrl: 'nullable-string',
 
+            // ── Video Player mode (MỚI, 21/07/2026, mục 4 — phát video làm "bài hát", tách khỏi
+            // playlist nhạc thường) ──────────────────────────────────────────────
+            isVideoPlayerMode: 'boolean',
+            videoPlaylist: 'array',        // danh sách videoKey, thứ tự phát (cũ -> mới, KHÔNG shuffle/repeat ở bản đầu)
+            currentVideoKey: 'nullable-string',
+
             // ── wake lock / tab ───────────────────────────────────────────────
             nativeWakeLock: 'any',         // WakeLockSentinel | null
             _isRealUnloadHappening: 'boolean',
@@ -467,6 +473,11 @@
 
                 // ── video bg ──────────────────────────────────────────────────
                 _videoBgLoadedUrl: null,
+
+                // ── Video Player mode (MỚI, 21/07/2026) ──────────────────────────
+                isVideoPlayerMode: false,
+                videoPlaylist: [],
+                currentVideoKey: null,
 
                 // ── wake lock / tab ─────────────────────────────────────────────
                 nativeWakeLock: null,
