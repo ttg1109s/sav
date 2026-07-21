@@ -609,46 +609,77 @@ function computeSpaceForwardBasis(forward) {
  * `computeGalaxyClusterCore()` cũ (đặt 1 "nút" duy nhất phía trước camera theo `forward`, gọi lặp
  * lại MỖI FRAME khi cần mở rộng cửa sổ nhìn xa — mô hình "vừa bay vừa sinh"). Giờ sinh CẢ N nút
  * CÙNG LÚC trong 1 khối CẦU bán kính `mapRadius` quanh `centerPos` (thường là vị trí camera TẠI
- * THỜI ĐIỂM dựng/tái tạo bản đồ — xem `event/workflow/visualizer-render.js::_ensureGalaxyMap()`).
+ * THỜI ĐIỂM dựng/tái tạo bản đồ — CHỈ xảy ra lúc camera ĐỨNG YÊN, xem
+ * `event/workflow/visualizer-render.js::_ensureGalaxyMap()`, gọi DUY NHẤT từ
+ * `_startTravelPhase()` TRƯỚC khi bắt đầu di chuyển — KHÔNG BAO GIỜ tái tạo giữa lúc đang bay).
  *
- * SỬA BUG (21/07/2026, lượt 10, phản hồi Giang — "lấm chấm các hạt nhỏ ở khoảng cách xa... xoay
- * hướng khác không thấy gì... cuối cùng mất sạch"): bản đầu (lượt 9) lấy bán kính
- * `r = mapRadius * Math.cbrt(Math.random())` — công thức CHUẨN cho mật độ ĐỀU THEO THỂ TÍCH, nhưng
- * chính vì "đều theo thể tích" nên phần LỚN số nút rơi vào lớp vỏ NGOÀI CÙNG của khối cầu (thể
- * tích 1 lớp vỏ mỏng tăng theo r² — càng xa tâm càng nhiều thể tích, càng nhiều nút) — trong khi
- * TÂM khối cầu (đúng ngay chỗ camera đang đứng) lại RẤT THƯA — hậu quả đúng y hệt Giang mô tả: gần
- * camera gần như trống trơn, chỉ thấy vài chấm sáng tít xa (đã bị mờ thêm bởi fog), quay hướng nào
- * cũng không thấy gì gần, và cảm giác "mất sạch" khi camera trôi dạt ra xa dần vùng thưa quanh tâm.
- * VIẾT LẠI: đổi hẳn sang phân bố CỐ Ý LỆCH mật độ VỀ PHÍA TÂM (`r = mapRadius * random()^BIAS`,
- * `BIAS` > 1 nghĩa là random() gần 0 thường xuyên hơn gần 1 → r nhỏ chiếm đa số) — KHÔNG còn "đều
- * thật" về mặt thống kê nữa, nhưng đây chính là điều CẦN cho cảm giác thị giác "camera luôn đứng
- * giữa 1 vùng thiên hà san sát" (mục 5, lượt 9) — vùng RÌA xa vẫn có nút (random() gần 1 vẫn xảy
- * ra, chỉ hiếm hơn) để nền xa không trống hẳn.
+ * SỬA BUG (21/07/2026, lượt 10, phản hồi Giang — "lấm chấm hạt nhỏ ở xa... mất sạch"): bản lượt 9
+ * dùng `r = mapRadius * cbrt(random())` (đều theo THỂ TÍCH — phần LỚN nút rơi vào lớp vỏ NGOÀI
+ * CÙNG, quanh tâm/camera lại RẤT THƯA). SỬA lượt 10 (lệch bán kính về tâm bằng số mũ) tuy đặc hơn
+ * quanh camera nhưng VẪN random thuần cho GÓC — mà random thuần (dù bán kính hay góc) vốn nổi
+ * tiếng tạo ra cụm/khoảng trống thấy rõ bằng mắt ("Poisson clumping" / nhiễu trắng — thống kê xác
+ * suất chuẩn nhưng KHÔNG "đều" theo cảm nhận thị giác con người) — đúng triệu chứng lượt này:
+ * "chỗ tập trung quá nhiều, chỗ quá ít, chủ yếu toàn thấy đen".
+ *
+ * VIẾT LẠI LẦN 2 (lượt 10) — đổi hẳn sang **Poisson-disc sampling** (kỹ thuật "nhiễu xanh"/blue
+ * noise chuẩn ngành đồ hoạ thủ tục — dùng rải sao/rừng cây/texture điểm... chính vì lý do NÀY: đảm
+ * bảo mọi điểm cách nhau tối thiểu `minDist`, loại bỏ HẲN cả cụm dồn (2 điểm quá gần) LẪN khoảng
+ * trống lớn (thuật toán tự "lấp đầy" cho tới khi đạt đủ số nút) — ĐỀU hơn random thuần RẤT NHIỀU
+ * mà vẫn giữ được cảm giác tự nhiên (không phải lưới đều tăm tắp). Cài đặt "dart-throwing" đơn giản
+ * (N nhỏ, vài chục nút — KHÔNG cần lưới tăng tốc kiểu Bridson đầy đủ): mỗi nút thử tối đa
+ * `maxAttempts` toạ độ ngẫu nhiên, chấp nhận ứng viên ĐẦU TIÊN cách MỌI nút đã đặt >= `minDist`;
+ * hết lượt thử mà chưa đạt thì lấy ứng viên "ít tệ nhất" (xa các nút hiện có NHẤT trong số đã thử)
+ * để LUÔN đủ đúng `nodeCount` nút (không bao giờ thiếu). `minDist` tự tính từ khoảng cách trung
+ * bình lý thuyết cho `nodeCount` điểm trong khối cầu bán kính `mapRadius`
+ * (`mapRadius / cbrt(nodeCount)`), nhân hệ số co gọn `SPACE_MAP_PACK_RATIO` — GIẢM hệ số này để
+ * "co cụm" gần nhau hơn (phản hồi Giang mục "tiếp tục co cụm lại khoảng cách"), TĂNG `nodeCount`
+ * (xem `PERFORMANCE_PROFILES`, core/config.js) cũng tự động kéo `minDist` nhỏ lại (đặc hơn).
  * @param {THREE.Vector3} centerPos @param {number} nodeCount @param {number} mapRadius
  * @returns {THREE.Vector3[]}
  */
 function generateGalaxyMapNodePositions(centerPos, nodeCount, mapRadius) {
-    const RADIAL_BIAS_POWER = 2.4; // > 1 -> dồn mật độ nút VỀ GẦN centerPos, xem SỬA BUG ở trên
+    const SPACE_MAP_PACK_RATIO = 0.55; // < 1 -> minDist NHỎ hơn khoảng cách trung bình lý thuyết -> co cụm gần nhau hơn
+    const maxAttempts = 40;
+    const avgSpacing = mapRadius / Math.cbrt(Math.max(nodeCount, 1));
+    const minDist = avgSpacing * SPACE_MAP_PACK_RATIO;
+
     const positions = [];
     for (let i = 0; i < nodeCount; i++) {
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(Math.random() * 2 - 1);
-        const r = mapRadius * Math.pow(Math.random(), RADIAL_BIAS_POWER);
-        positions.push(new THREE.Vector3(
-            centerPos.x + r * Math.sin(phi) * Math.cos(theta),
-            centerPos.y + r * Math.sin(phi) * Math.sin(theta),
-            centerPos.z + r * Math.cos(phi)
-        ));
+        let fallbackCandidate = null;
+        let fallbackNearestDist = -1;
+        let placed = false;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(Math.random() * 2 - 1);
+            const r = mapRadius * Math.cbrt(Math.random());
+            const candidate = new THREE.Vector3(
+                centerPos.x + r * Math.sin(phi) * Math.cos(theta),
+                centerPos.y + r * Math.sin(phi) * Math.sin(theta),
+                centerPos.z + r * Math.cos(phi)
+            );
+
+            let nearestDist = Infinity;
+            for (let j = 0; j < positions.length; j++) {
+                const d = candidate.distanceTo(positions[j]);
+                if (d < nearestDist) nearestDist = d;
+            }
+
+            if (nearestDist >= minDist) { positions.push(candidate); placed = true; break; }
+            if (nearestDist > fallbackNearestDist) { fallbackNearestDist = nearestDist; fallbackCandidate = candidate; }
+        }
+
+        if (!placed) positions.push(fallbackCandidate); // hết lượt thử — vẫn LUÔN đặt đủ nodeCount, lấy ứng viên xa các nút hiện có NHẤT
     }
     return positions;
 }
 
-/** Offset ngẫu nhiên (phân tán quanh 1 nút) cho 1 thành viên trong cụm — CO LẠI (21/07/2026, lượt
- * 9, phản hồi Giang mục 5 — "co lại các cụm và thiên hà lại với nhau... để tạo cảm giác san sát và
- * ít khoảng trống đen nhất"), trước 70-160 (lượt 7) -> 40-85.
+/** Offset ngẫu nhiên (phân tán quanh 1 nút) cho 1 thành viên trong cụm — CO TIẾP (21/07/2026, lượt
+ * 10, phản hồi Giang — "tiếp tục co cụm lại khoảng cách giữa các cụm và thiên hà"), trước 70-160
+ * (lượt 7) -> 40-85 (lượt 9) -> 30-60.
  * @returns {THREE.Vector3} */
 function computeGalaxyMemberOffset() {
-    const dispRadius = 40 + Math.random() * 45;
+    const dispRadius = 30 + Math.random() * 30;
     const angle = Math.random() * Math.PI * 2;
     const elevation = (Math.random() - 0.5) * Math.PI * 0.5;
     return new THREE.Vector3(
