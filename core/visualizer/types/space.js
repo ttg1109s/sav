@@ -2,102 +2,82 @@
  * core/visualizer/types/space.js — viết lại HOÀN TOÀN (20/07/2026, plan-space-galaxy.md Phần B)
  * — bản trước đã bị xoá trắng (0 byte). Vài hàm Core NHỎ, mỗi hàm 1 việc, chạy MỖI FRAME —
  * `event/workflow/visualizer-render.js::_tickSpace()` gọi RIÊNG LẺ từng hàm dưới đây theo đúng
- * thứ tự (camera -> chain -> dust -> render), KHÔNG hàm nào ở đây gọi hàm khác trong CHÍNH FILE
- * NÀY, và CŨNG KHÔNG gọi bất kỳ hàm nào ở `core/webgl/three-space.js` (2 file đứng NGANG HÀNG,
- * cùng bị Workflow gọi riêng lẻ — xem quy tắc đầy đủ ở đầu `core/webgl/three-space.js`).
+ * thứ tự, KHÔNG hàm nào ở đây gọi hàm khác trong CHÍNH FILE NÀY, và CŨNG KHÔNG gọi bất kỳ hàm nào
+ * ở `core/webgl/three-space.js` (2 file đứng NGANG HÀNG, cùng bị Workflow gọi riêng lẻ — xem quy
+ * tắc đầy đủ ở đầu `core/webgl/three-space.js`).
  *
  * NẠP: SAU `core/webgl/three-space.js` (không phụ thuộc lẫn nhau về hàm, nhưng cùng nhóm
  * "engine Galaxy" nên đặt cạnh nhau trong index.html cho dễ đọc, giống cặp
  * three-vortex.js/types/vortex.js).
  *
- * VIẾT LẠI LẦN 2 (21/07/2026, phản hồi Giang) — bỏ hẳn `updateSpaceCamera()`/
- * `updateSpaceViewDirLerp()`/`hasSpaceViewArrived()` (mô hình "hướng nhìn lerp liên tục + reroll
- * theo ngưỡng năng lượng" của lượt 1) — thay bằng mô hình "waypoint nối tiếp" (mục 3): camera
- * luôn di chuyển thẳng từ 1 điểm tới điểm kế tiếp (`spLegStartPos` -> `spNextPos`), Workflow tự
- * quản lý vòng đời từng leg — file này chỉ còn giữ các hàm TÍNH TOÁN thuần cho từng bước
- * (nội suy vị trí, dựng hướng camera ỔN ĐỊNH không lật roll, quản lý chuỗi thiên hà, bụi nền,
- * render).
- *
  * VIẾT LẠI LẦN 3 (21/07/2026, phản hồi Giang lượt 6) — tách HẲN "di chuyển" và "xoay hướng" thành
  * 2 PHA riêng biệt, không chồng lên nhau (`spPhase`: 'travel' | 'rotating', xem
  * `event/workflow/visualizer-render.js`): pha TRAVEL camera di chuyển A->B theo hướng CỐ ĐỊNH
- * (không đổi hướng nhìn); đến B, xác nhận đủ mật độ thiên hà hướng kế tiếp mới chuyển sang pha
- * ROTATE — vị trí camera KHOÁ NGUYÊN tại B, chỉ hướng NHÌN đổi dần X->Y. Rotate xong mới bắt đầu
- * TRAVEL leg kế tiếp. THÊM MỚI: `findClusterTargetAhead()` (waypoint chọn NGẪU NHIÊN 1 cụm thiên
- * hà, ƯU TIÊN cụm đủ xa, thay vì công thức mù), `computeSpaceLegControlPoint()` + đổi `computeSpaceLegPosition()` sang
- * Quadratic Bezier (quỹ đạo CONG thay vì thẳng tắp), `computeSpaceRotateForward()`/
- * `computeAngleBetweenForwards()`/`computeSpaceRotateDuration()` (nội suy + tính thời lượng pha
- * ROTATE, mượt theo góc — góc nhỏ xoay nhanh, góc lớn xoay chậm hơn, KHÔNG tuyến tính).
- */
-
-/**
- * Đánh giá mật độ thiên hà phía trước theo hướng `forward` (KHÔNG spawn, chỉ ĐẾM) — MỚI
- * (21/07/2026, phản hồi Giang — "roll về hướng không có thiên hà nào, màn đen xì... cần tiên đoán
- * trước hướng, kiểm tra tỉ lệ mật độ thiên hà ở vùng đó rồi mới quyết định thêm hay không"). Hàm
- * THUẦN, CHỈ đếm/tính toán, KHÔNG tự spawn gì — Workflow tự đọc kết quả trả về rồi quyết định có
- * cần bơm thêm thiên hà theo hướng đó hay không TRƯỚC khi cam kết chuyển sang hướng này, xem
- * `event/workflow/visualizer-render.js::_stageNextLeg()`/`_advancePreSpawn()`.
+ * (không đổi hướng nhìn); đến B chuyển sang pha ROTATE — vị trí camera KHOÁ NGUYÊN tại B, chỉ
+ * hướng NHÌN đổi dần X->Y. Rotate xong mới bắt đầu TRAVEL leg kế tiếp.
  *
- * SỬA BUG (21/07/2026, lượt 8, phản hồi Giang — "lại bug không tạo thêm cụm thiên hà mới trước
- * khi xoay, lại toàn di chuyển tới khoảng đen"): bản trước dùng hình TRỤ (bán kính lệch ngang CỐ
- * ĐỊNH `lateralRadius`, không phụ thuộc khoảng cách) — trong khi `findClusterTargetAhead()` (hàm
- * THẬT SỰ chọn toạ độ để bay tới) dùng hình NÓN (giới hạn theo GÓC). Ở khoảng cách GẦN, hình trụ
- * "duyệt qua" dễ hơn hình nón RẤT NHIỀU (cùng bán kính lệch ngang nhưng góc lệch cho phép ở gần
- * còn RỘNG hơn cả 70-80°, trong khi nón chỉ cho phép 35°) — hậu quả: kiểm tra mật độ báo "ĐỦ dày"
- * (dựa trên vài thiên hà lệch xa trục nhưng gần camera) trong khi `findClusterTargetAhead()` sau
- * đó lại KHÔNG tìm thấy thiên hà nào thật sự nằm trong nón để làm mục tiêu — rơi về công thức mù,
- * bay thẳng vào khoảng KHÔNG có gì. VIẾT LẠI: dùng ĐÚNG CÙNG 1 hình NÓN (góc `maxAngleCos`) với
- * `findClusterTargetAhead()` — mật độ báo đủ CHẮC CHẮN nghĩa là tìm mục tiêu thật SẼ thành công.
- * @param {GalaxyCluster[]} clusters @param {THREE.Vector3} camPos @param {THREE.Vector3} forward
- * @param {number} checkDistance @param {number} maxAngleCos - cos(góc nón tối đa), CÙNG tiêu chí với `findClusterTargetAhead()`
- * @returns {number} số thiên hà đang nằm trong nón kiểm tra
+ * VIẾT LẠI LẦN 4 (21/07/2026, phản hồi Giang lượt 9 — "thay vì vừa chuyển vừa tạo... ngay từ đầu
+ * tạo 1 map thiên hà sẵn có 3D trải đều các hướng... khỏi cần tính việc sinh ra cụm và thiên hà
+ * tính hướng") — BỎ HẲN `manageGalaxyChain()` (quản lý chuỗi thiên hà "vừa bay vừa spawn/dispose
+ * theo cửa sổ phía trước") VÀ `assessGalaxyDensityAhead()` (kiểm tra mật độ TRƯỚC khi cho phép
+ * xoay — không còn cần thiết vì bản đồ giờ TĨNH, dựng sẵn ĐỦ mọi hướng, không có khái niệm "chưa
+ * kịp sinh thiên hà theo hướng mới" nữa). `findClusterTargetAhead()` bỏ ưu tiên khoảng xa (phản
+ * hồi Giang — "không cần ưu tiên khoảng xa"), chọn NGẪU NHIÊN ĐỀU trong mọi cụm khớp nón.
+ * `computeSpaceRotateDuration()` nhận thêm `musicSpeedFactor` (mục "tốc độ xoay camera... cần phải
+ * phụ thuộc vào thông số nhạc"). THÊM MỚI `mirrorPositionIfOutOfBounds()` (mục "biên bản đồ — nếu
+ * vượt biên thì lấy toạ độ ÂM").
  */
-function assessGalaxyDensityAhead(clusters, camPos, forward, checkDistance, maxAngleCos) {
-    let count = 0;
-    for (let i = 0; i < clusters.length; i++) {
-        const offset = clusters[i].position.clone().sub(camPos);
-        const dist = offset.length();
-        if (dist <= 0 || dist > checkDistance) continue;
-        const cosAngle = offset.dot(forward) / dist;
-        if (cosAngle >= maxAngleCos) count++;
-    }
-    return count;
-}
+
+// (assessGalaxyDensityAhead() ĐÃ BỎ, 21/07/2026 lượt 9, phản hồi Giang — "khỏi cần tính việc sinh
+// ra cụm và thiên hà tính hướng". Hàm này TỪNG dùng để kiểm tra mật độ thiên hà TRƯỚC khi cho phép
+// chuyển sang pha ROTATE (đề phòng xoay vào hướng chưa kịp sinh thiên hà) — không còn cần thiết vì
+// bản đồ giờ TĨNH, dựng sẵn ĐỦ mọi hướng ngay từ đầu, không có khái niệm "hướng chưa kịp sinh" nữa
+// — `findClusterTargetAhead()` bên dưới CHẮC CHẮN tìm được mục tiêu hợp lệ, xem
+// event/workflow/visualizer-render.js::_computeTravelWaypoint().)
 
 /**
- * Tìm 1 cụm thiên hà làm MỤC TIÊU camera bay tới/xuyên qua — VIẾT LẠI (21/07/2026, phản hồi Giang
- * lượt 7, mục 1 — "chọn một điểm ngẫu nhiên rồi bắt di chuyển đến đó... toạ độ camera phải di
- * chuyển trùng với vị trí của cụm hoặc thiên hà nào đó") — THAY HẲN chọn "gần nhất" (khiến mỗi
- * chặng bay quá NGẮN — do các nút sinh dày đặc, cụm gần nhất trong nón gần như LUÔN kề sát ngay
- * bên, camera liên tục nhảy sang hàng xóm sát vách thay vì bay hẳn 1 hành trình rõ rệt tới 1 thiên
- * hà cụ thể). Giờ chọn NGẪU NHIÊN trong số các cụm nằm trong 1 "nón" phía trước theo hướng
- * `forward`, ƯU TIÊN cụm đủ XA (`dist >= minDist`) — không đủ cụm xa mới nới lỏng chấp nhận CẢ cụm
- * gần hơn. Khoảng cách dùng để lọc là khoảng cách 3D THẬT (`offset.length()`, giữa 2 TOẠ ĐỘ đầy đủ
- * x/y/z), KHÔNG PHẢI khoảng cách chiếu phẳng lên 1 mặt phẳng nào — camera CHẮC CHẮN di chuyển
- * trùng khớp toạ độ với cụm được chọn (Workflow set `nextPos` = TOẠ ĐỘ THẬT trả về ở đây, camera
- * bay đúng theo Bezier tới ĐÚNG điểm này, xem `_computeTravelWaypoint()`,
- * event/workflow/visualizer-render.js).
+ * Tìm 1 cụm thiên hà làm MỤC TIÊU camera bay tới/xuyên qua — trong 1 "nón" phía trước theo hướng
+ * `forward`. VIẾT LẠI (21/07/2026, phản hồi Giang lượt 9 — "không cần ưu tiên khoảng xa"): bản
+ * trước (lượt 7) ưu tiên cụm đủ xa (`minDist`) — Giang xác nhận KHÔNG CẦN nữa, giờ chọn NGẪU NHIÊN
+ * ĐỀU trong TẤT CẢ cụm khớp nón, không phân biệt gần/xa. Khoảng cách dùng để lọc là khoảng cách 3D
+ * THẬT (`offset.length()`, giữa 2 TOẠ ĐỘ đầy đủ x/y/z), KHÔNG PHẢI khoảng cách chiếu phẳng lên 1
+ * mặt phẳng nào — camera CHẮC CHẮN di chuyển trùng khớp toạ độ với cụm được chọn (Workflow set
+ * `nextPos` = TOẠ ĐỘ THẬT trả về ở đây, camera bay đúng theo Bezier tới ĐÚNG điểm này, xem
+ * `_computeTravelWaypoint()`, event/workflow/visualizer-render.js).
  * @param {GalaxyCluster[]} clusters @param {THREE.Vector3} camPos @param {THREE.Vector3} forward
  * @param {number} maxAngleCos - cos(góc nón tối đa) — 1 = thẳng chính giữa, càng nhỏ nón càng rộng
- * @param {number} minDist - khoảng cách 3D THẬT tối thiểu ƯU TIÊN (đảm bảo hành trình đủ dài)
  * @param {number} maxDist - khoảng cách 3D THẬT tối đa còn tính là "trong tầm"
  * @returns {THREE.Vector3|null} toạ độ THẬT của cụm được chọn, null nếu không có cụm nào khớp
  */
-function findClusterTargetAhead(clusters, camPos, forward, maxAngleCos, minDist, maxDist) {
-    const farCandidates = [];
-    const anyCandidates = [];
+function findClusterTargetAhead(clusters, camPos, forward, maxAngleCos, maxDist) {
+    const candidates = [];
     for (let i = 0; i < clusters.length; i++) {
         const offset = clusters[i].position.clone().sub(camPos);
         const dist = offset.length(); // khoảng cách 3D THẬT giữa 2 toạ độ đầy đủ x/y/z, KHÔNG phải chiếu phẳng
         if (dist <= 0 || dist > maxDist) continue;
         const cosAngle = offset.dot(forward) / dist;
         if (cosAngle < maxAngleCos) continue;
-        anyCandidates.push(clusters[i].position);
-        if (dist >= minDist) farCandidates.push(clusters[i].position);
+        candidates.push(clusters[i].position);
     }
-    const pool = farCandidates.length > 0 ? farCandidates : anyCandidates;
-    if (pool.length === 0) return null;
-    return pool[Math.floor(Math.random() * pool.length)].clone();
+    if (candidates.length === 0) return null;
+    return candidates[Math.floor(Math.random() * candidates.length)].clone();
+}
+
+/**
+ * Biên bản đồ — MỚI (21/07/2026, phản hồi Giang lượt 9 — "nếu nextPos = hoặc > biên hoặc < biên
+ * với N nào đó chỉ cần cho nó di chuyển âm nextPos là được"). Bản đồ thiên hà TĨNH là 1 khối cầu
+ * bán kính `mapRadius` quanh `centerPos` (xem `generateGalaxyMapNodePositions()`,
+ * core/webgl/three-space.js) — nếu `pos` vượt biên (khoảng cách tới `centerPos` > `mapRadius`),
+ * PHẢN CHIẾU qua tâm (lấy toạ độ ÂM tương đối, `centerPos - (pos - centerPos)`) thay vì mở rộng
+ * bản đồ — do bản đồ đã phân bố ĐỀU quanh tâm nên phía đối xứng luôn có dữ liệu hợp lệ tương
+ * đương, an toàn tuyệt đối để "gói gọn" camera lại trong vùng đã dựng sẵn.
+ * @param {THREE.Vector3} pos @param {THREE.Vector3} centerPos @param {number} mapRadius
+ * @returns {THREE.Vector3}
+ */
+function mirrorPositionIfOutOfBounds(pos, centerPos, mapRadius) {
+    const offset = pos.clone().sub(centerPos);
+    if (offset.length() <= mapRadius) return pos.clone();
+    return centerPos.clone().sub(offset);
 }
 
 // (applySpaceRoll() ĐÃ BỎ, 21/07/2026, phản hồi Giang — "roll... đang bị hiểu nhầm thành rotate
@@ -158,13 +138,22 @@ function computeAngleBetweenForwards(fromForward, toForward) {
  * KHÔNG tuyến tính, chỉ minh hoạ bằng ví dụ, không áp cứng số). Power-law: góc càng lớn thời
  * lượng càng dài, mũ < 1 khiến góc nhỏ đã tăng nhanh rồi thoải dần về `maxDuration` lúc góc gần
  * 180° (đường lõm, không tuyến tính).
+ *
+ * THÊM (21/07/2026, lượt 9, phản hồi Giang — "tốc độ xoay camera từ hướng này sang hướng khác
+ * cũng cần phải phụ thuộc vào thông số nhạc") — `musicSpeedFactor` (Workflow tự tính từ BPM/energy,
+ * CÙNG công thức tinh thần với tốc độ TRAVEL, xem `_tryCommitRotatePhase()`,
+ * event/workflow/visualizer-render.js) CHIA vào thời lượng gốc (theo góc) — nhạc nhanh/năng lượng
+ * cao (factor > 1) rút ngắn thời lượng (xoay NHANH hơn), nhạc chậm/yên tĩnh (factor < 1) kéo dài
+ * ra (xoay CHẬM hơn) — KHÔNG thay thế yếu tố góc, chỉ điều biến thêm lên trên.
  * @param {number} angleDeg @param {number} minDuration @param {number} maxDuration @param {number} power
+ * @param {number} musicSpeedFactor - > 1 xoay nhanh hơn, < 1 xoay chậm hơn, 1 = không đổi
  * @returns {number} giây
  */
-function computeSpaceRotateDuration(angleDeg, minDuration, maxDuration, power) {
+function computeSpaceRotateDuration(angleDeg, minDuration, maxDuration, power, musicSpeedFactor) {
     const clampedAngle = Math.max(0, Math.min(180, angleDeg));
     const ratio = Math.pow(clampedAngle / 180, power);
-    return minDuration + (maxDuration - minDuration) * ratio;
+    const baseDuration = minDuration + (maxDuration - minDuration) * ratio;
+    return baseDuration / musicSpeedFactor;
 }
 
 /**
@@ -220,55 +209,12 @@ function updateSpaceDustEachFrame(dustMesh, camPos, range, beatScale) {
     dustMesh.material.opacity = 0.4 + beatScale * 0.3;
 }
 
-/**
- * Phân tích trạng thái chuỗi thiên hà — CHỈ TÍNH TOÁN/QUYẾT ĐỊNH, KHÔNG tự dispose/spawn gì cả
- * (Workflow tự đọc kết quả trả về rồi tự gọi `cluster.dispose(scene)`/tự spawn cụm mới — Rule 2
- * "chỉ nhận tham số", Rule 3 "không tự gọi hàm khác"). Guard/lookup thuần, không rẽ nhánh giữa 2
- * tiến trình nghiệp vụ khác nhau — chỉ 1 kịch bản duy nhất "đánh giá chuỗi hiện tại".
- *
- * FIX (21/07/2026, phản hồi Giang mục 2d — "quay hướng khác thì không sinh thiên hà, nền tối"):
- * bản trước dùng TOẠ ĐỘ Z THẾ GIỚI thô (`camZ`) để quyết định "phía trước"/"phía sau" — chỉ đúng
- * khi camera luôn bay theo -Z. VIẾT LẠI: "phía trước"/"phía sau" giờ là CHIẾU (dot product) vị trí
- * thiên hà lên trục `forward` (hướng leg camera ĐANG BAY, `spLegForward`) kể từ `camPos` — đúng với
- * MỌI hướng bay, không riêng -Z. Dispose THÊM 1 tiêu chí mới: thiên hà lệch quá xa NGANG khỏi trục
- * bay hiện tại (`disposeLateralDistance`) cũng bị dọn — cần thiết vì sau khi camera quay hướng
- * khác nhiều, thiên hà cũ (thuộc hướng bay TRƯỚC ĐÓ) có thể không còn tính là "phía sau" theo
- * nghĩa dot-product (nằm lệch sang 1 bên) nhưng vẫn nên dọn để tránh chuỗi phình to vô hạn.
- * @param {GalaxyCluster[]} clusters @param {THREE.Vector3} camPos @param {THREE.Vector3} forward
- * @param {number} disposeDistance - dispose khi đã trôi lại phía sau (dọc trục forward) quá khoảng này
- * @param {number} disposeLateralDistance - dispose khi lệch NGANG khỏi trục forward quá khoảng này
- * @param {number} aheadWindow - tầm nhìn xa cần đảm bảo luôn có thiên hà phủ tới (CỐ ĐỊNH 1500, plan B6)
- * @param {number} aheadMargin - biên tối thiểu phía trước camera để tính "đã ở phía trước"
- * @returns {{toDisposeIndices: number[], furthestAheadDist: number, needsMoreSpawns: boolean, nearestAheadIndex: (number|null)}}
- */
-function manageGalaxyChain(clusters, camPos, forward, disposeDistance, disposeLateralDistance, aheadWindow, aheadMargin) {
-    const alongDists = new Array(clusters.length);
-    const toDisposeIndices = [];
-
-    for (let i = clusters.length - 1; i >= 0; i--) {
-        const offset = clusters[i].position.clone().sub(camPos);
-        const along = offset.dot(forward);
-        alongDists[i] = along;
-        const lateralSq = Math.max(0, offset.lengthSq() - along * along);
-        if (along < -disposeDistance || lateralSq > disposeLateralDistance * disposeLateralDistance) {
-            toDisposeIndices.push(i);
-        }
-    }
-
-    let furthestAheadDist = -Infinity;
-    let nearestAheadIndex = null;
-    let nearestAheadDist = Infinity;
-    for (let i = 0; i < clusters.length; i++) {
-        if (toDisposeIndices.indexOf(i) !== -1) continue;
-        const d = alongDists[i];
-        if (d > furthestAheadDist) furthestAheadDist = d;
-        if (d > aheadMargin && d < nearestAheadDist) { nearestAheadDist = d; nearestAheadIndex = clusters[i].index; }
-    }
-    if (furthestAheadDist === -Infinity) furthestAheadDist = 0; // không còn thiên hà nào phía trước (mảng rỗng hoặc vừa dispose hết)
-
-    const needsMoreSpawns = furthestAheadDist < aheadWindow;
-    return { toDisposeIndices, furthestAheadDist, needsMoreSpawns, nearestAheadIndex };
-}
+// (manageGalaxyChain() ĐÃ BỎ, 21/07/2026 lượt 9, phản hồi Giang — "thay vì vừa chuyển vừa tạo".
+// Hàm này TỪNG quản lý dispose/spawn thiên hà theo 1 "cửa sổ nhìn xa" trượt theo camera (mô hình
+// streaming) — KHÔNG còn cần thiết vì bản đồ giờ TĨNH, dựng sẵn 1 lần rồi giữ nguyên (chỉ tái tạo
+// TOÀN BỘ theo điều kiện năng lượng+trạng thái đứng yên, xem
+// event/workflow/visualizer-render.js::_ensureGalaxyMap()), không còn khái niệm "phía trước"/
+// "phía sau" cần dispose/spawn liên tục theo từng frame nữa.)
 
 // (hasSpaceViewArrived() ĐÃ BỎ, 21/07/2026 — mô hình waypoint mới không cần arrival-gate góc:
 // mỗi leg tự có `spLegDuration` riêng, hướng leg KẾ TIẾP chỉ áp dụng khi leg HIỆN TẠI đã đến đích
