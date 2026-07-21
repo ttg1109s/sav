@@ -97,11 +97,7 @@ function setBgVideoElementForPlayerMode(enabled) {
     bgVideoElement.style.opacity = enabled ? '1' : '0';
 }
 
-/** Đổi màu/trạng thái active của nút "Play mode" ở header Visualizer.
- * @param {boolean} active
- */
-function updateVideoPlayerToggleButtonUI(active) {
-    if (!btnVideoPlayerToggle) return;
-    btnVideoPlayerToggle.classList.toggle('bg-rose-500', active);
-    btnVideoPlayerToggle.classList.toggle('glass-panel', !active);
-}
+// SỬA (21/07/2026, cùng ngày) — `updateVideoPlayerToggleButtonUI()` (đổi màu nút header) ĐÃ XOÁ —
+// nút "Play mode" ở header Visualizer đã dời hẳn sang checkbox trong panel File Manager -> Video
+// (components/file-manager.js::renderFileManagerVideoPanelBody()) — checkbox tự đồng bộ `.checked`
+// trực tiếp trong event/workflow/file-manager-video.js lúc mở panel, không cần hàm core riêng.

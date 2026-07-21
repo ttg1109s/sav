@@ -50,7 +50,9 @@
         const btnPlaylistEmptyPlay = document.getElementById('btn-playlist-empty-play');
         const btnPlaylistEmptyShuffle = document.getElementById('btn-playlist-empty-shuffle');
         const btnBackPlaylist = document.getElementById('btn-back-playlist'), loadingShield = document.getElementById('loading-shield'), loadingText = document.getElementById('loading-text');
-        const btnVideoPlayerToggle = document.getElementById('btn-video-player-toggle'); // MỚI (21/07/2026, mục 4 — Video Player mode)
+        // SỬA (21/07/2026) — btnVideoPlayerToggle (nút header, thêm Batch 3) ĐÃ XOÁ — toggle "Video
+        // Player mode" giờ SỐNG trong panel File Manager -> Video (DOM động, push/pop — KHÔNG phải
+        // dom-refs tĩnh nữa, xem event/workflow/file-manager-video.js::openPanel()).
         const btnReturnVisual = document.getElementById('btn-return-visual');
         // "Control Center" của màn Visualizer (ver 8 refine) — thay cho dải dọc 6 nút cũ. Nút mở
         // ở góc trái, panel trượt từ trên xuống chứa grid icon; overlay mờ để bấm ra ngoài là đóng.

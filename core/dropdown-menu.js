@@ -28,18 +28,25 @@
 /**
  * @param {HTMLElement} anchorEl - nút "..." vừa bấm, dùng để định vị menu ngay cạnh nó.
  * @param {Array<{icon: string, name: string, callback: () => void, destructive?: boolean}>} items
+ * @param {{zIndex?: number}} [options] - MỚI (21/07/2026, cần cho menu ảnh Photo — mở TỪ TRONG modal
+ *   xem ảnh full-screen `#image-preview-overlay`, z-130, xem core/file-manager/photo-ui.js —
+ *   z-index MẶC ĐỊNH của dropdown (126/127) sẽ bị chính modal đó ĐÈ LÊN, ẩn mất). Không truyền ->
+ *   giữ NGUYÊN 126/127 như trước (mọi nơi gọi cũ, vd Album List, KHÔNG cần đổi gì).
  */
-function openDropdownMenu(anchorEl, items) {
+function openDropdownMenu(anchorEl, items, options) {
+    options = options || {};
     closeDropdownMenu(); // chỉ 1 menu mở tại 1 thời điểm — đóng cái cũ (nếu còn) trước khi dựng cái mới
 
     const overlay = document.createElement('div');
     overlay.id = 'dropdown-menu-overlay';
-    overlay.className = 'fixed inset-0 z-[126]'; // dưới action-menu ảnh (131, core/config.js::Z_INDEX)/modalChoice (200) — trên nội dung panel thường
+    overlay.className = 'fixed inset-0'; // z-index gán qua .style bên dưới (KHÔNG dùng class Tailwind động — bracket-notation động không được Play CDN JIT quét đúng, cùng quy ước Z_INDEX/Generic Drawer đã chốt, xem core/config.js)
+    overlay.style.zIndex = String((options.zIndex || 127) - 1); // dưới action-menu ảnh (131, core/config.js::Z_INDEX)/modalChoice (200) — trên nội dung panel thường
     overlay.addEventListener('click', closeDropdownMenu);
 
     const menu = document.createElement('div');
     menu.id = 'dropdown-menu-panel';
-    menu.className = 'fixed z-[127] w-48 py-1.5 rounded-xl glass-modal shadow-2xl overflow-hidden';
+    menu.className = 'fixed w-48 py-1.5 rounded-xl glass-modal shadow-2xl overflow-hidden';
+    menu.style.zIndex = String(options.zIndex || 127);
 
     items.forEach((item) => {
         const btn = document.createElement('button');
