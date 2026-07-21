@@ -8,13 +8,21 @@
  * định (không phải listener nội bộ dùng-1-lần), VẪN đưa vào /event/ theo đúng nghĩa đen "DOM
  * listener cần tách" (quyết định của Giang, không áp dụng ngoại lệ 2b.6).
  *
- * QUY TẮC RẼ NHÁNH: 15/17 msg.type ở đây chỉ cần ĐÚNG 1 HÀM CORE (không có shield/modal, không cần
+ * QUY TẮC RẼ NHÁNH: 11/17 msg.type ở đây chỉ cần ĐÚNG 1 HÀM CORE (không có shield/modal, không cần
  * phối hợp nhiều hàm, không cần đọc appState nào khác) -> router gọi THẲNG. 'playerControls.
  * shuffle.click' (fix 03/07/2026, mục 3b) cần 2 hàm core nối tiếp có phụ thuộc thứ tự
  * (toggleShuffle() rồi updateShuffleArrayFromQueue() theo giá trị MỚI) -> giao event/workflow/
  * player-controls.js. 'playerControls.settingsDrawer.close' cần ≥2 hàm core nối tiếp (validate
  * video nền + reset ngăn xếp panel con + cuộn) -> giao Workflow — xem
  * workflowPlayerControls.closeSettingsDrawer().
+ *
+ * MỚI (21/07/2026, mục 4 — Video Player mode, xem event/workflow/video-player.js) — 4 case
+ * 'playPause.click'/'next.click'/'prev.click'/'audio.ended' giờ ĐỌC `appState.get('isVideoPlayerMode')`
+ * + VirtualMachineState 2 nhánh loại trừ nhau: true -> giao `workflowVideoPlayer` (video đang "làm
+ * bài hát"); false -> gọi THẲNG core cũ y hệt trước đây, KHÔNG đổi hành vi gốc dù chỉ 1 dòng. Video
+ * Player mode CỐ Ý KHÔNG đụng gì các case audio.play/pause/loadedmetadata/error/timeupdate/seeked
+ * — audioPlayer vẫn đang thật sự phát (dù muted) nên mọi cơ chế đó (progress bar, Media Session,
+ * wake lock, listen clock...) tự chạy đúng, không cần nhánh riêng (đơn giản hoá đã báo Giang).
  *
  * LỊCH SỬ (không còn áp dụng, giữ lại để tra cứu nếu cần) — batch 07-08/07/2026 (HOTFIX 7-10) đã
  * từng cho phép mở Settings NGAY TỪ Visualizer (nút #btn-settings trong Control Center), khiến cả
@@ -24,13 +32,14 @@
  * Settings giờ LUÔN mở từ Playlist, không còn nhánh nào để rẽ, dọn sạch VirtualMachineState khỏi
  * cả 2 case.
  *
- * STATE CONTEXT: không có — mọi msg.type độc lập, không có "hồ sơ vụ việc giữa 2 lượt" nào cần nhớ
- * ở tầng router/EventStore cho cụm này.
+ * STATE CONTEXT: không có state RIÊNG của router này — `isVideoPlayerMode` (đọc ở 4 case mới) sống
+ * ở appState (service/state.js), KHÔNG phải context cục bộ của router (đúng nguyên tắc: state cần
+ * đọc CHÉO giữa 2 router — "playerControls" đọc, "videoPlayer" ghi — PHẢI qua appState).
  *
- * NẠP SAU: event/bus.js, event/workflow/player-controls.js, core/player-controls.js (cần toàn bộ
- * hàm core ở trên, gồm scrollSideLeftToSettingsSmooth/scrollSideLeftToPlaylistSmooth — HOTFIX 8),
- * playlist/* (cần playNext/playPrev/window.playSong — đã có từ trước). NẠP TRƯỚC:
- * event/listener/player-controls.js.
+ * NẠP SAU: event/bus.js, event/workflow/player-controls.js, event/workflow/video-player.js (MỚI),
+ * core/player-controls.js (cần toàn bộ hàm core ở trên, gồm scrollSideLeftToSettingsSmooth/
+ * scrollSideLeftToPlaylistSmooth — HOTFIX 8), playlist/* (cần playNext/playPrev/window.playSong —
+ * đã có từ trước). NẠP TRƯỚC: event/listener/player-controls.js.
  */
 const routerPlayerControls = (() => {
 
@@ -45,17 +54,43 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.playPause.click': {
-                togglePlayPause();
+                // MỚI (21/07/2026, mục 4 — Video Player mode) — VirtualMachineState branch theo
+                // `isVideoPlayerMode` (event/workflow/video-player.js). Nhánh false GỌI THẲNG
+                // `togglePlayPause()` (core có sẵn, KHÔNG đổi gì) — giữ NGUYÊN hành vi gốc.
+                VirtualMachineState.run([
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
+                        workflowVideoPlayer.togglePlayPauseVideo();
+                    } },
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
+                        togglePlayPause();
+                    } },
+                ]);
                 break;
             }
 
             case 'playerControls.next.click': {
-                playNext(true); // hàm core có sẵn, force=true giữ đúng hành vi gốc của nút Next
+                // MỚI (21/07/2026, mục 4 — Video Player mode), cùng khuôn 'playPause.click' ở trên.
+                VirtualMachineState.run([
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
+                        workflowVideoPlayer.nextVideo(); // >1 hàm core (đọc DB + đổi src 2 element) -> workflow
+                    } },
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
+                        playNext(true); // hàm core có sẵn, force=true giữ đúng hành vi gốc của nút Next
+                    } },
+                ]);
                 break;
             }
 
             case 'playerControls.prev.click': {
-                playPrev();
+                // MỚI (21/07/2026, mục 4 — Video Player mode), cùng khuôn 'next.click' ở trên.
+                VirtualMachineState.run([
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
+                        workflowVideoPlayer.prevVideo();
+                    } },
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
+                        playPrev();
+                    } },
+                ]);
                 break;
             }
 
@@ -100,7 +135,17 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.audio.ended': {
-                handleAudioEnded();
+                // MỚI (21/07/2026, mục 4 — Video Player mode) — video hết -> tự chuyển video kế
+                // tiếp (KHÔNG áp playNext()/repeatMode của Song). Nhánh false GIỮ NGUYÊN
+                // `handleAudioEnded()` — hành vi gốc không đổi gì.
+                VirtualMachineState.run([
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
+                        workflowVideoPlayer.handleVideoPlayerEnded();
+                    } },
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
+                        handleAudioEnded();
+                    } },
+                ]);
                 break;
             }
 

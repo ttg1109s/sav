@@ -3,9 +3,10 @@
  *
  * QUY TẮC RẼ NHÁNH:
  *   - returnToVisualizer/controlCenter.toggle/controlCenter.overlayClick/controlCenter.gridClick/
- *     visualEnable.change/videoUpload.cancel CHỈ CẦN 1 hàm core (hoặc 1 DOM thuần) -> gọi THẲNG.
- *   - videoEnable.change/videoUpload.change/visualBgImageEnable.change (MỚI 04/07/2026, mục 1: cả
- *     3 giờ LUÔN qua workflow vì nhánh "bật" cần mở picker/file-dialog, >1 bước) -> giao workflow.
+ *     visualEnable.change CHỈ CẦN 1 hàm core (hoặc 1 DOM thuần) -> gọi THẲNG.
+ *   - videoEnable.change/visualBgImageEnable.change (MỚI 04/07/2026, mục 1; SỬA 21/07/2026 —
+ *     videoEnable giờ mở Generic Drawer picker thay vì hộp thoại file OS, xem event/workflow/
+ *     file-manager-video.js::openVideoBgPicker()) — nhánh "bật" cần mở picker, >1 bước -> giao workflow.
  * KHÔNG giữ state context riêng.
  */
 const routerVisualizerControlCenter = (() => {
@@ -45,15 +46,10 @@ const routerVisualizerControlCenter = (() => {
                 setVisualEnabled(msg.payload.checked);
                 break;
 
-            case 'visualizerControlCenter.videoUpload.change':
-                workflowVisualizerControlCenter.uploadVideoBackground({ file: msg.payload.file });
-                break;
-
-            // MỚI (04/07/2026, mục 1) — huỷ hộp thoại chọn file (không chọn gì) -> trả toggle về
-            // "off". CHỈ 1 thao tác DOM thuần -> gọi thẳng, không cần workflow.
-            case 'visualizerControlCenter.videoUpload.cancel':
-                videoEnableToggle.checked = false;
-                break;
+            // SỬA (21/07/2026, dọn dẹp sau Batch 2) — case 'videoUpload.change'/'videoUpload.cancel'
+            // ĐÃ XOÁ HẲN — input `#setting-video-upload` không còn tồn tại (xem event/listener/
+            // visualizer-control-center.js), luồng "on" giờ đi thẳng qua Generic Drawer picker
+            // (workflowVisualizerControlCenter.enableVideoBackgroundToggle(), case 'videoEnable.change' ở trên).
 
             // MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer. FIX (04/07/2026, mục 1) —
             // checked=false giờ CHỈ ẩn hiển thị (không còn đụng IndexedDB) nên KHÔNG cần workflow
