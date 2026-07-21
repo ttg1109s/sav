@@ -1,6 +1,11 @@
 /**
  * event/listener/video-player.js — TẤT CẢ listener của cụm "videoPlayer". MỚI (21/07/2026, mục 4).
  *
+ * SỬA (21/07/2026, cùng ngày) — nút toggle "Play mode" (header Visualizer) ĐÃ DỜI sang panel File
+ * Manager -> Video (Giang yêu cầu) — listener click của nó giờ NẰM Ở `event/workflow/file-manager-
+ * video.js` (checkbox động, wire lúc panel mở, KHÔNG phải dom-refs tĩnh) — file NÀY giờ CHỈ còn cử
+ * chỉ vuốt.
+ *
  * CỬ CHỈ VUỐT (Giang yêu cầu "nghiên cứu cử chỉ vuốt như TikTok") — vuốt DỌC trên `bgVideoElement`
  * lúc đang ở Video Player mode: vuốt LÊN (ngón tay di chuyển lên trên) = video kế tiếp (giống
  * TikTok "vuốt lên xem tiếp"), vuốt XUỐNG = video trước đó. Đo qua `touchstart`/`touchend` (đơn
@@ -15,14 +20,8 @@
  * KHÔNG ở Player mode (vd đang chỉ bật Video nền trang trí) phải là no-op, không vô tình next/prev
  * bài hát đang nghe.
  *
- * NẠP SAU: core/dom-refs.js (btnVideoPlayerToggle, bgVideoElement).
+ * NẠP SAU: core/dom-refs.js (bgVideoElement).
  */
-
-if (btnVideoPlayerToggle) {
-    btnVideoPlayerToggle.addEventListener('click', () => {
-        eventBus.send({ router: 'videoPlayer', type: 'videoPlayer.toggle.click', payload: {} });
-    });
-}
 
 if (bgVideoElement) {
     bgVideoElement.addEventListener('touchstart', (e) => {

@@ -19,9 +19,12 @@ if (btnOpenFileManagerVideo) {
 
 function handleFileManagerVideoDelegatedClick(e) {
     // ===================== Lưới video (event/workflow/video-gallery-window.js) =====================
+    // SỬA (21/07/2026) — thêm `anchorEl: tile` trong payload — workflowFileManagerVideo.
+    // openVideoTileActionMenu() (dropdown, core/dropdown-menu.js) cần 1 anchorEl để định vị menu
+    // sát tile vừa bấm (KHÁC hẳn preview fullscreen cũ, không cần biết vị trí gì).
     const tile = e.target.closest('[data-video-key]');
     if (tile && e.target.closest('.video-gallery-window')) {
-        eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.video.click', payload: { videoKey: tile.dataset.videoKey } });
+        eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.video.click', payload: { videoKey: tile.dataset.videoKey, anchorEl: tile } });
         return;
     }
 }
