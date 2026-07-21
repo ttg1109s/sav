@@ -493,6 +493,11 @@
     <script src="core/file-manager/image.js?v=20260714v2"></script>
     <script src="core/file-manager/album.js?v=20260703v1"></script>
     <script src="core/file-manager/photo-ui.js?v=20260714v5"></script>
+    <!-- MỚI (21/07/2026) — File Manager -> Video. Độc lập với image.js/album.js/document.js (không
+         dùng chung hàm nào ngoài slugify()/service/db.js) — chỉ cần SAU service/db.js. video-ui.js
+         CẦN core/dom-refs.js (đã nạp ở block DOM refs phía trên) + lang/lang.js (t()). -->
+    <script src="core/file-manager/video.js?v=20260721v1"></script>
+    <script src="core/file-manager/video-ui.js?v=20260721v1"></script>
     <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer (core UI thuần), CẦN
          core/dom-refs.js (đã nạp ngay trên: genericDrawerOverlay/Panel/Header/Body). Đặt cạnh
          nhóm Documents cho dễ đọc dù bản thân KHÔNG phụ thuộc gì từ document.js/document-ui.js. -->
@@ -749,6 +754,14 @@
     <script src="event/workflow/file-manager-photo.js?v=20260718v1"></script>
     <script src="event/router/file-manager-photo.js?v=20260718v1"></script>
     <script src="event/listener/file-manager-photo.js?v=20260718v1"></script>
+    <!-- MỚI (21/07/2026) — cụm "fileManagerVideo". workflowFileManagerVideo CẦN tồn tại trước khi
+         router gọi tới. Panel Video push/pop động, `fullBleed: true` (lưới video tràn viền, cùng
+         khuôn Photo) — CẦN core/file-manager/video-ui.js (đã nạp ở nhóm CORE). Gọi
+         `workflowVideoGalleryWindow.mount()` (event/workflow/video-gallery-window.js, nạp SAU file
+         này — AN TOÀN, chỉ THỰC SỰ gọi lúc user tương tác, cùng quy ước photo-gallery-window.js). -->
+    <script src="event/workflow/file-manager-video.js?v=20260721v1"></script>
+    <script src="event/router/file-manager-video.js?v=20260721v1"></script>
+    <script src="event/listener/file-manager-video.js?v=20260721v1"></script>
     <!-- workflowFileManagerDocument CẦN tồn tại trước khi router gọi tới. Batch D7 (06/07/2026):
          panel Document push/pop động — CẦN core/settings-panel-stack-ui.js (đã nạp ở nhóm CORE).
          VIẾT LẠI (10/07/2026, Nhóm A, CẬP NHẬT cùng ngày sau phản hồi Giang) — .txt upload lưu
@@ -781,6 +794,10 @@
          dùng IntersectionObserver (API trình duyệt gốc, không tự đo scrollTop/rowHeight nào nữa) +
          fjGallery (thư viện thật, xem CDN ở trên) lo layout thật bên trong mỗi nhóm còn tải. -->
     <script src="event/workflow/photo-gallery-window.js?v=20260717v1"></script>
+    <!-- MỚI (21/07/2026) — windowing lưới Video (CSS Grid, KHÔNG fjGallery), CẦN
+         core/file-manager/video.js::sortVideosByAddedDateDesc()/groupVideosByDay()/
+         formatVideoDayHeaderLabel()/formatVideoDuration() (đã nạp ở nhóm CORE, TRƯỚC file này). -->
+    <script src="event/workflow/video-gallery-window.js?v=20260721v1"></script>
     <script src="event/workflow/playlist.js?v=20260714v5"></script>
     <script src="event/router/playlist.js?v=20260704v1"></script>
     <script src="event/listener/playlist.js?v=20260704v1"></script>
