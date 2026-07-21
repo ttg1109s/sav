@@ -23,8 +23,8 @@
  * `event/workflow/visualizer-render.js`): pha TRAVEL camera di chuyển A->B theo hướng CỐ ĐỊNH
  * (không đổi hướng nhìn); đến B, xác nhận đủ mật độ thiên hà hướng kế tiếp mới chuyển sang pha
  * ROTATE — vị trí camera KHOÁ NGUYÊN tại B, chỉ hướng NHÌN đổi dần X->Y. Rotate xong mới bắt đầu
- * TRAVEL leg kế tiếp. THÊM MỚI: `findNearestClusterAhead()` (waypoint nhắm cụm thiên hà gần nhất
- * thay vì công thức mù), `computeSpaceLegControlPoint()` + đổi `computeSpaceLegPosition()` sang
+ * TRAVEL leg kế tiếp. THÊM MỚI: `findClusterTargetAhead()` (waypoint chọn NGẪU NHIÊN 1 cụm thiên
+ * hà, ƯU TIÊN cụm đủ xa, thay vì công thức mù), `computeSpaceLegControlPoint()` + đổi `computeSpaceLegPosition()` sang
  * Quadratic Bezier (quỹ đạo CONG thay vì thẳng tắp), `computeSpaceRotateForward()`/
  * `computeAngleBetweenForwards()`/`computeSpaceRotateDuration()` (nội suy + tính thời lượng pha
  * ROTATE, mượt theo góc — góc nhỏ xoay nhanh, góc lớn xoay chậm hơn, KHÔNG tuyến tính).
@@ -55,29 +55,39 @@ function assessGalaxyDensityAhead(clusters, camPos, forward, checkDistance, late
 }
 
 /**
- * Tìm cụm thiên hà GẦN NHẤT nằm trong 1 "nón" phía trước theo hướng `forward` — MỚI (21/07/2026,
- * phản hồi Giang mục 3 — "thay vì sinh ngẫu nhiên, dựa theo hướng camera, tìm điểm nextPos tới cụm
- * thiên hà kế cận và bay xuyên qua"). Hàm THUẦN, CHỈ tìm/trả về, KHÔNG spawn/dispose gì — Workflow
- * tự đọc kết quả rồi tự quyết định dùng vị trí này làm waypoint hay rơi về công thức mù (không cụm
- * nào khớp — vd vừa bẻ lái sang vùng chưa kịp spawn), xem
- * `event/workflow/visualizer-render.js::_computeTravelWaypoint()`.
+ * Tìm 1 cụm thiên hà làm MỤC TIÊU camera bay tới/xuyên qua — VIẾT LẠI (21/07/2026, phản hồi Giang
+ * lượt 7, mục 1 — "chọn một điểm ngẫu nhiên rồi bắt di chuyển đến đó... toạ độ camera phải di
+ * chuyển trùng với vị trí của cụm hoặc thiên hà nào đó") — THAY HẲN chọn "gần nhất" (khiến mỗi
+ * chặng bay quá NGẮN — do các nút sinh dày đặc, cụm gần nhất trong nón gần như LUÔN kề sát ngay
+ * bên, camera liên tục nhảy sang hàng xóm sát vách thay vì bay hẳn 1 hành trình rõ rệt tới 1 thiên
+ * hà cụ thể). Giờ chọn NGẪU NHIÊN trong số các cụm nằm trong 1 "nón" phía trước theo hướng
+ * `forward`, ƯU TIÊN cụm đủ XA (`dist >= minDist`) — không đủ cụm xa mới nới lỏng chấp nhận CẢ cụm
+ * gần hơn. Khoảng cách dùng để lọc là khoảng cách 3D THẬT (`offset.length()`, giữa 2 TOẠ ĐỘ đầy đủ
+ * x/y/z), KHÔNG PHẢI khoảng cách chiếu phẳng lên 1 mặt phẳng nào — camera CHẮC CHẮN di chuyển
+ * trùng khớp toạ độ với cụm được chọn (Workflow set `nextPos` = TOẠ ĐỘ THẬT trả về ở đây, camera
+ * bay đúng theo Bezier tới ĐÚNG điểm này, xem `_computeTravelWaypoint()`,
+ * event/workflow/visualizer-render.js).
  * @param {GalaxyCluster[]} clusters @param {THREE.Vector3} camPos @param {THREE.Vector3} forward
  * @param {number} maxAngleCos - cos(góc nón tối đa) — 1 = thẳng chính giữa, càng nhỏ nón càng rộng
- * @param {number} maxDist
- * @returns {THREE.Vector3|null} vị trí cụm gần nhất, null nếu không có cụm nào khớp
+ * @param {number} minDist - khoảng cách 3D THẬT tối thiểu ƯU TIÊN (đảm bảo hành trình đủ dài)
+ * @param {number} maxDist - khoảng cách 3D THẬT tối đa còn tính là "trong tầm"
+ * @returns {THREE.Vector3|null} toạ độ THẬT của cụm được chọn, null nếu không có cụm nào khớp
  */
-function findNearestClusterAhead(clusters, camPos, forward, maxAngleCos, maxDist) {
-    let nearestPos = null;
-    let nearestDist = Infinity;
+function findClusterTargetAhead(clusters, camPos, forward, maxAngleCos, minDist, maxDist) {
+    const farCandidates = [];
+    const anyCandidates = [];
     for (let i = 0; i < clusters.length; i++) {
         const offset = clusters[i].position.clone().sub(camPos);
-        const dist = offset.length();
+        const dist = offset.length(); // khoảng cách 3D THẬT giữa 2 toạ độ đầy đủ x/y/z, KHÔNG phải chiếu phẳng
         if (dist <= 0 || dist > maxDist) continue;
         const cosAngle = offset.dot(forward) / dist;
         if (cosAngle < maxAngleCos) continue;
-        if (dist < nearestDist) { nearestDist = dist; nearestPos = clusters[i].position; }
+        anyCandidates.push(clusters[i].position);
+        if (dist >= minDist) farCandidates.push(clusters[i].position);
     }
-    return nearestPos ? nearestPos.clone() : null;
+    const pool = farCandidates.length > 0 ? farCandidates : anyCandidates;
+    if (pool.length === 0) return null;
+    return pool[Math.floor(Math.random() * pool.length)].clone();
 }
 
 // (applySpaceRoll() ĐÃ BỎ, 21/07/2026, phản hồi Giang — "roll... đang bị hiểu nhầm thành rotate
