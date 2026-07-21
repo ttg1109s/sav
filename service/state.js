@@ -152,53 +152,63 @@
             spNextClusterIndex: 'number',
             spTotalGalaxiesSpawned: 'number', // bộ đếm ID toàn cục — KHÔNG dùng spGalaxyClusters.length (tránh trùng ID khi splice phần tử cũ)
             spCurrentTargetIndex: 'nullable-number', // .index của thiên hà đang khoá mục tiêu, null = chưa có
-            // VIẾT LẠI HOÀN TOÀN (21/07/2026, phản hồi Giang lượt 2 — thay hẳn mô hình
-            // spViewDir/spViewDirTarget + spJumpActive/spJumpFromPos/spJumpToPos/spJumpElapsed/
-            // spJumpDuration của lượt 1) — mô hình "waypoint nối tiếp" (mục 3): camera LUÔN đang
-            // di chuyển từ `spLegStartPos` tới `spNextPos` theo hướng `spLegForward`, tốc độ tính
-            // từ BPM hiện tại lúc BẮT ĐẦU mỗi leg — waypoint KẾ TIẾP (`spPendingNextPos`/
-            // `spPendingForward`) được sinh sẵn TRONG lúc leg hiện tại còn đang chạy (không đợi
-            // tới lúc đến nơi), dùng để BLEND hướng nhìn mượt về hướng leg sau ở đoạn cuối leg
-            // hiện tại — xem `event/workflow/visualizer-render.js::_advanceSpaceLeg()`, fix trực
-            // tiếp nguyên nhân "hard cut" mục 1 (trước đây đổi hướng ĐỘT NGỘT đúng lúc chuyển leg).
-            spLegStartPos: 'any',      // THREE.Vector3 — vị trí camera lúc BẮT ĐẦU leg hiện tại
-            spNextPos: 'any',          // THREE.Vector3 — điểm đến của leg hiện tại
-            spLegForward: 'any',       // THREE.Vector3 — hướng bay/nhìn của leg hiện tại (đã normalize)
-            // ĐỔI (21/07/2026, phản hồi Giang — "speed đang cài cứng lại không theo nhạc") — bỏ
-            // spLegElapsed/spLegDuration (giả định tốc độ CỐ ĐỊNH suốt leg, tính 1 LẦN lúc bắt đầu)
-            // — thay bằng mô hình CỘNG DỒN QUÃNG ĐƯỜNG: mỗi frame đọc TƯƠI BPM + smoothedEnergy
-            // tính tốc độ TỨC THỜI, cộng dồn vào spLegDistanceCovered — progress = covered/total,
-            // KHÔNG cần biết trước "leg mất bao lâu" — cho phép tốc độ phản ứng LIÊN TỤC với nhạc
-            // trong suốt 1 leg. Xem event/workflow/visualizer-render.js::_advanceSpaceLeg().
+            // VIẾT LẠI LẦN 3 (21/07/2026, phản hồi Giang lượt 6 — thay hẳn mô hình "waypoint nối
+            // tiếp + blend cuối leg" của lượt 2, vốn CHỒNG "di chuyển" và "xoay hướng" vào cùng 1
+            // lúc: "đi từ A đến B kết thúc và xoay từ X đến Y là hai pha khác nhau") — máy trạng
+            // thái `spPhase`: 'travel' (camera di chuyển A->B, hướng nhìn `spForward` CỐ ĐỊNH,
+            // không đổi dù chỉ 1 độ) | 'rotating' (vị trí camera KHOÁ NGUYÊN tại B, chỉ hướng nhìn
+            // nội suy dần X->Y). Chỉ 1 trong 2 trạng thái tại 1 thời điểm, KHÔNG BAO GIỜ vừa dịch
+            // chuyển vừa xoay cùng lúc. Xem event/workflow/visualizer-render.js::_tickSpace()/
+            // _advanceSpaceTravel()/_advanceSpaceRotate()/_tryCommitRotatePhase().
+            spPhase: 'string',         // 'travel' | 'rotating'
+            spForward: 'any',          // THREE.Vector3 — hướng nhìn/bay HIỆN TẠI (cố định suốt travel, đổi dần suốt rotate)
+            spLegStartPos: 'any',      // THREE.Vector3 — vị trí camera lúc BẮT ĐẦU leg travel hiện tại
+            spNextPos: 'any',          // THREE.Vector3 — điểm đến (waypoint B) của leg travel hiện tại
+            // MỚI (21/07/2026, phản hồi Giang mục 4 — "cung di chuyển uốn lượn cong... thay vì
+            // tuyến tính thẳng") — điểm điều khiển Quadratic Bezier, sinh 1 LẦN lúc bắt đầu leg,
+            // xem computeSpaceLegControlPoint()/computeSpaceLegPosition() (core/visualizer/types/space.js).
+            spLegControlPoint: 'any',  // THREE.Vector3
             spLegDistanceCovered: 'number', // quãng đường ĐÃ ĐI trong leg hiện tại (đơn vị 3D)
             spLegTotalDistance: 'number',   // tổng quãng đường leg hiện tại (cố định lúc bắt đầu = khoảng cách legStartPos->nextPos)
             spLegSpeedRandomFactor: 'number', // hệ số ngẫu nhiên ổn định CHO CẢ leg (không đổi giữa chừng) — "cộng thêm giá trị ngẫu nhiên"
-            spPendingNextPos: 'any',   // THREE.Vector3 | null — điểm đến leg KẾ TIẾP, sinh sẵn giữa chừng leg hiện tại
-            spPendingForward: 'any',   // THREE.Vector3 | null — hướng của leg KẾ TIẾP (đã BAO GỒM SẴN việc bẻ lái theo nốt, xem spNoteSteerTable)
+            // MỚI (21/07/2026, phản hồi Giang mục speed — "tính X lần trong phạm vi di chuyển sau
+            // đó dùng bpm tại thời điểm Xn đó làm base") — X mốc % quãng đường (0..1, LUÔN có mốc
+            // 0) sinh ngẫu nhiên lúc bắt đầu leg; mỗi lần progress vượt qua 1 mốc, lấy lại BPM +
+            // energy TẠI THỜI ĐIỂM ĐÓ làm tốc độ mới, giữ nguyên (KHÔNG đổi mượt liên tục mỗi
+            // frame nữa) tới mốc kế tiếp. Xem _advanceSpaceTravel().
+            spSpeedSamplePoints: 'array',   // number[] (0..1, đã sort tăng dần, luôn có phần tử 0)
+            spSpeedSampleIdx: 'number',     // mốc ĐANG áp dụng (index vào spSpeedSamplePoints)
+            spCurrentLegSpeed: 'number',    // tốc độ (đơn vị/giây) ĐANG khoá theo mốc hiện tại
             // VIẾT LẠI (21/07/2026, phản hồi Giang — "roll... đang bị hiểu nhầm thành rotate 2D
             // chứ không phải bẻ hướng di chuyển của camera theo 360 độ theo pitch note") — bỏ hẳn
             // `spNoteRollTable`/`spLegRoll`/`spPendingRoll` (từng dùng để XOAY TRỤC LÊN/PHẢI quanh
             // CHÍNH hướng nhìn — cosmetic, KHÔNG đổi hướng ĐI, SAI bản chất yêu cầu). Đổi thành
-            // `spNoteSteerTable`: CÙNG cấu trúc bảng 12 phần tử (1/nốt, giống RUBIK_NOTE_TO_TURN,
-            // core/dom-refs.js — SINH NGẪU NHIÊN 1 LẦN lúc Space init, TÁI SỬ DỤNG suốt phiên),
-            // nhưng giá trị giờ là GÓC BẺ LÁI (radian, [-π, π) — đủ 360°) áp TRỰC TIẾP lên vector
-            // `forward` khi sinh hướng leg KẾ TIẾP (`steerSpaceForward()`, core/webgl/three-space.js)
-            // — THAY HẲN cơ chế lệch nhẹ ngẫu nhiên cũ (`generateNextSpaceLegForward()` ĐÃ BỎ).
-            // KHÔNG còn field "spLegRoll đang áp dụng" nữa — góc bẻ lái được TIÊU THỤ NGAY lúc sinh
-            // hướng (kết quả nằm thẳng trong spLegForward/spPendingForward), không cần lưu riêng.
-            spNoteSteerTable: 'any',   // number[] (12 phần tử, radian) | undefined trước khi Space init
+            // `spNoteSteerTable`: bảng 12 phần tử (1/nốt, giống RUBIK_NOTE_TO_TURN,
+            // core/dom-refs.js — SINH NGẪU NHIÊN 1 LẦN lúc Space init, TÁI SỬ DỤNG suốt phiên).
+            // CẬP NHẬT (21/07/2026, lượt 6 — "3D là đa hướng, cần thêm trên/dưới/chéo") — mỗi phần
+            // tử giờ là 1 CẶP {yaw, pitch} (radian, cả 2 đều [-π, π) — KHÔNG giới hạn biên độ pitch,
+            // Giang xác nhận "cứ cho lộn") thay vì 1 số đơn (2D) — áp qua steerSpaceForward3D(),
+            // core/webgl/three-space.js.
+            spNoteSteerTable: 'any',   // {yaw:number, pitch:number}[] (12 phần tử) | undefined trước khi Space init
 
             // MỚI (21/07/2026, phản hồi Giang — "roll về hướng không có thiên hà nào, màn đen xì
-            // ... cần tiên đoán trước hướng next roll, kiểm tra mật độ thiên hà vùng đó rồi mới
-            // quyết định thêm... khoá toàn bộ moving, không sinh next pos/next roll cho trôi nhẹ,
-            // đợi thêm xong xong rồi mới mở khoá") — vùng "staging" cho ứng viên leg KẾ TIẾP đang
-            // chờ đủ mật độ thiên hà mới được CHỐT thành `spPendingForward`/`spPendingNextPos` thật
-            // — xem `_stageNextLeg()`/`_advancePreSpawn()`, event/workflow/visualizer-render.js.
-            // Leg ĐANG CHẠY (spLegForward/spNextPos) KHÔNG bị ảnh hưởng gì — vẫn tiếp tục di
-            // chuyển bình thường ("trôi nhẹ") trong lúc khoá.
+            // ... cần tiên đoán trước hướng, kiểm tra mật độ thiên hà vùng đó rồi mới quyết định
+            // thêm... phải thêm xong mới được phép quay") — vùng "staging" cho hướng KẾ TIẾP đang
+            // chờ đủ mật độ thiên hà mới được CHỐT thành `spCandidateForward` thật (đủ điều kiện để
+            // pha ROTATE bắt đầu khi travel hiện tại kết thúc) — xem
+            // `_stageNextLeg()`/`_advancePreSpawn()`/`_tryCommitRotatePhase()`,
+            // event/workflow/visualizer-render.js. Leg TRAVEL ĐANG CHẠY KHÔNG bị ảnh hưởng gì —
+            // vẫn tiếp tục di chuyển bình thường trong lúc khoá; camera CHỈ đứng CHỜ tại waypoint B
+            // (không tiến thêm, không xoay) nếu đã tới B mà vẫn CHƯA đủ mật độ.
+            spCandidateForward: 'any',  // THREE.Vector3 | null — hướng KẾ TIẾP đã XÁC NHẬN đủ mật độ, sẵn sàng cho pha ROTATE
             spPreSpawnLocked: 'boolean',
-            spPreSpawnForward: 'any',              // THREE.Vector3 | null — hướng ứng viên đang chờ đủ mật độ
-            spPreSpawnNextPos: 'any',              // THREE.Vector3 | null
+            spPreSpawnForward: 'any',   // THREE.Vector3 | null — hướng ứng viên đang chờ đủ mật độ
+
+            // MỚI (21/07/2026, lượt 6) — trạng thái pha ROTATE (chỉ có ý nghĩa khi spPhase === 'rotating').
+            spRotateFromForward: 'any', // THREE.Vector3 — hướng LÚC BẮT ĐẦU rotate (= spForward tại thời điểm đó)
+            spRotateToForward: 'any',   // THREE.Vector3 — hướng ĐÍCH (= spCandidateForward đã xác nhận)
+            spRotateElapsed: 'number',  // giây đã trôi trong pha rotate hiện tại
+            spRotateDuration: 'number', // giây — tính 1 LẦN lúc bắt đầu rotate, tỉ lệ theo góc lệch (xem computeSpaceRotateDuration())
 
             // ── audio engine ──────────────────────────────────────────────────
             audioContext: 'any',           // AudioContext | undefined trước setupAudioContext()
@@ -413,18 +423,25 @@
                 spNextClusterIndex: 0,
                 spTotalGalaxiesSpawned: 0,
                 spCurrentTargetIndex: null,
+                spPhase: 'travel',
+                spForward: undefined,
                 spLegStartPos: undefined,
                 spNextPos: undefined,
-                spLegForward: undefined,
+                spLegControlPoint: undefined,
                 spLegDistanceCovered: 0,
                 spLegTotalDistance: 0,
                 spLegSpeedRandomFactor: 1,
-                spPendingNextPos: undefined,
-                spPendingForward: undefined,
+                spSpeedSamplePoints: [],
+                spSpeedSampleIdx: 0,
+                spCurrentLegSpeed: 0,
                 spNoteSteerTable: undefined,
+                spCandidateForward: undefined,
                 spPreSpawnLocked: false,
                 spPreSpawnForward: undefined,
-                spPreSpawnNextPos: undefined,
+                spRotateFromForward: undefined,
+                spRotateToForward: undefined,
+                spRotateElapsed: 0,
+                spRotateDuration: 0,
 
                 // ── audio engine ──────────────────────────────────────────────
                 audioContext: undefined,
