@@ -583,6 +583,10 @@
          ranh giới nghiệp vụ là cấu hình Visualizer, không phải điều khiển phát nhạc. Xem comment
          đầu core/player-controls.js để biết đầy đủ lý do tách + đảm bảo thứ tự nạp an toàn. -->
     <script src="core/player-controls.js?v=20260709v1"></script>
+    <!-- MỚI (21/07/2026, mục 4 — Video Player mode) — core/video-player.js: tính next/prev key,
+         mutate state, toggle UI nút. Đặt CẠNH core/player-controls.js cho dễ đọc (2 tính năng liên
+         quan chặt, dù KHÔNG đụng chung file nào). NẠP SAU service/state.js (đã nạp từ đầu). -->
+    <script src="core/video-player.js?v=20260721v1"></script>
     <script src="core/audio-engine.js?v=20260720v1"></script>
     <script src="core/app-cleanup.js?v=20260630v1"></script>
     <!-- Toggle ẩn/hiện dải BPM/Pitch/Energy (ver 10 refine, bổ sung) — PHẢI nạp TRƯỚC
@@ -805,6 +809,14 @@
          THẲNG). MỚI (fix 03/07/2026, mục 3b): 'playerControls.shuffle.click' giờ cần
          event/workflow/player-controls.js (2 hàm core nối tiếp, phụ thuộc thứ tự — xem comment đầu
          file đó + event/router/player-controls.js). -->
+    <!-- MỚI (21/07/2026, mục 4 — Video Player mode) — cụm "videoPlayer". PHẢI nạp TRƯỚC
+         event/router/player-controls.js (case 'playPause.click'/'next.click'/'prev.click'/
+         'audio.ended' gọi thẳng workflowVideoPlayer khi isVideoPlayerMode=true). CẦN
+         core/video-player.js + core/file-manager/video.js (listVideos/sortVideosByAddedDateDesc,
+         đã nạp ở nhóm CORE) + core/state-and-video-bg.js (handleVideoBackground, đã nạp từ đầu). -->
+    <script src="event/workflow/video-player.js?v=20260721v1"></script>
+    <script src="event/router/video-player.js?v=20260721v1"></script>
+    <script src="event/listener/video-player.js?v=20260721v1"></script>
     <script src="event/workflow/player-controls.js?v=20260708v4"></script>
     <script src="event/router/player-controls.js?v=20260708v2"></script>
     <script src="event/listener/player-controls.js?v=20260708v1"></script>
