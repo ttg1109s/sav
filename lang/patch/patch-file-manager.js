@@ -33,6 +33,7 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.sectionTitle': 'File Manager',
     'fileManager.entry.song': 'Song',
     'fileManager.entry.photo': 'Photo & Album',
+    'fileManager.entry.video': 'Video', // MỚI (21/07/2026)
     'fileManager.entry.document': 'Documents',
     // MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager.
     'fileManager.cleanup.label': 'Clean up data',
@@ -120,6 +121,23 @@ const LANG_PATCH_FILE_MANAGER = {
     // workflowFileManagerPhoto.openAddToAlbumChoiceMenu()).
     'fileManager.photo.album.addChoiceUploadTitle': 'Upload new photos',
     'fileManager.photo.album.addChoiceExistingTitle': 'Choose from library',
+    // ── Drawer con: Video (MỚI, 21/07/2026) — KHÔNG có Album, đơn giản hơn hẳn Photo ─────────
+    'fileManager.video.title': 'Video',
+    'fileManager.video.loadingTitle': 'Loading videos...',
+    'fileManager.video.uploadTitle': 'Add videos',
+    'fileManager.video.empty': 'No videos yet. Tap the + button above to add some.',
+    'fileManager.video.uploadSuccess': 'Added {count} video(s).',
+    'fileManager.video.btnDelete': 'Delete video',
+    'fileManager.video.deleteConfirm.title': 'Delete video?',
+    'fileManager.video.deleteConfirm.desc': 'Delete this video? This cannot be undone.',
+    'fileManager.video.deleteConfirm.confirmBtn': 'Delete',
+    'fileManager.video.quickDeleteTitle': 'Quick delete',
+    'fileManager.video.quickDeleteConfirm.title': 'Enable quick delete?',
+    'fileManager.video.quickDeleteConfirm.desc': 'While enabled, tap videos to mark them for deletion. Tap the trash icon again to delete all marked videos at once.',
+    'fileManager.video.quickDeleteConfirm.confirmBtn': 'Enable',
+    'fileManager.video.quickDeleteBatchConfirm.title': 'Delete videos?',
+    'fileManager.video.quickDeleteBatchConfirm.confirm': 'Delete {count} videos? This cannot be undone.',
+    'fileManager.video.quickDeleteBatchConfirm.confirmBtn': 'Delete',
     // ── Drawer con: Documents (mục 4.b4, ĐÃ CODE THẬT 04/07/2026) ────────────────────────────
     'fileManager.document.title': 'Documents',
     // Batch D7 (06/07/2026, batch cuối Nhóm D) — 'fileManager.document.back.title' XOÁ, dùng
