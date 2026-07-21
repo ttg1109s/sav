@@ -2,15 +2,18 @@
  * event/workflow/file-manager-video.js — MỚI (21/07/2026), File Manager -> Video. "THẰNG THỰC THI
  * CUỐI" cho panel Video. Mirror event/workflow/file-manager-photo.js — NHƯNG đơn giản hơn hẳn:
  * KHÔNG có Album (Giang chốt), lưới CSS Grid full-width thay fjGallery justified (xem
- * event/workflow/video-gallery-window.js), menu action video chỉ có Xoá (core/file-manager/
- * video-ui.js::openVideoPreviewModal(), 2 nút X/thùng rác, KHÔNG cần Generic Drawer nhiều lựa chọn
- * như Photo).
+ * event/workflow/video-gallery-window.js).
  *
- * Batch 1 (module Video độc lập) — CHƯA có picker Generic Drawer cho "Use background video" (Batch
- * 2, xem event/workflow/visualizer-control-center.js).
+ * SỬA (21/07/2026, cùng ngày, Giang yêu cầu "bấm video KHÔNG phát trình chạy, chỉ hiện dropdown
+ * menu") — bấm 1 tile (ngoài chế độ xoá nhanh) giờ mở dropdown (core/dropdown-menu.js, xem
+ * `openVideoTileActionMenu()`) với 3 lựa chọn (Set as bg video/Edit video/Xoá) — THAY HẲN
+ * `openVideoPreview()` (fullscreen player, `core/file-manager/video-ui.js::openVideoPreviewModal()`)
+ * — file đó giờ KHÔNG còn ai gọi tới (nợ kỹ thuật đã biết, chưa xoá hẳn file, cùng tinh thần
+ * "setAsSlideshowBackground() chưa có UI gọi tới" đã áp dụng cho Photo trước đây).
  *
- * NẠP SAU: core/file-manager/video.js, core/file-manager/video-ui.js, core/settings-panel-stack-
- * ui.js (pushSettingsPanel), event/workflow/video-gallery-window.js.
+ * NẠP SAU: core/file-manager/video.js, core/dropdown-menu.js, core/settings-panel-stack-
+ * ui.js (pushSettingsPanel), event/workflow/video-gallery-window.js, event/workflow/video-player.js
+ * (workflowVideoPlayer — togglePlayerModeFromPanel() gọi trực tiếp, Workflow gọi Workflow).
  */
 let fileManagerVideoPanelEl = null; // panel Video đang mở — null nếu đang đóng (cùng khuôn fileManagerPhotoPanelEl)
 let _videoPickerSession = null; // MỚI (Batch 2) — session picker Generic Drawer (chọn 1 video làm nền), cùng khuôn _imagePickerSession (file-manager-photo.js)
@@ -57,7 +60,14 @@ const workflowFileManagerVideo = {
      * `refresh()`, tránh gắn listener trùng nhiều lần lên CÙNG 1 nút tĩnh). Nút "+" dispatch qua
      * eventBus (KHÔNG gọi thẳng `.click()` input — Router quyết định, cùng khuôn Photo dù ở Video
      * không có branching nào để quyết định — vẫn giữ round-trip qua Router cho nhất quán kiến trúc,
-     * dễ audit "mọi tương tác đều qua eventBus"). */
+     * dễ audit "mọi tương tác đều qua eventBus").
+     * SỬA (21/07/2026, Giang yêu cầu "nút apply Video Player chuyển qua toggle ở Video UI") — thêm
+     * wire checkbox `#setting-video-player-mode-enable` (nằm trong BODY, không phải header, nhưng
+     * wire CHUNG ở đây cho đơn giản — panel push CHỈ 1 LẦN/lần mở, KHÔNG khác gì 2 nút header về mặt
+     * "chỉ cần wire đúng 1 lần"). `.checked` đồng bộ TRỰC TIẾP theo `appState.get('isVideoPlayerMode')`
+     * NGAY sau khi push — KHÔNG bake cứng vào template (cùng quy ước Settings khác, xem
+     * loadBackgroundAssets() core/config.js — template render mặc định, 1 bước riêng sync giá trị
+     * thật sau đó). */
     _wireHeaderActionEvents() {
         const uploadBtn = fileManagerVideoPanelEl.querySelector('#btn-file-manager-video-upload-trigger');
         if (uploadBtn) uploadBtn.addEventListener('click', () => {
@@ -68,6 +78,37 @@ const workflowFileManagerVideo = {
         if (deleteModeBtn) deleteModeBtn.addEventListener('click', () => {
             eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.deleteMode.click', payload: {} });
         });
+
+        const playerModeCheckbox = fileManagerVideoPanelEl.querySelector('#setting-video-player-mode-enable');
+        if (playerModeCheckbox) {
+            playerModeCheckbox.checked = appState.get('isVideoPlayerMode');
+            playerModeCheckbox.addEventListener('change', (e) => {
+                eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.playerModeToggle.change', payload: { checked: e.target.checked } });
+            });
+        }
+    },
+
+    /** Ứng với 'fileManagerVideo.playerModeToggle.change'. MỚI (21/07/2026, Giang yêu cầu "khoá
+     * chéo 2 nút Use background video/Video Player bằng block + thông báo lý do", THAY hẳn cơ chế
+     * "tự tắt hộ lẫn nhau" của Batch 3 gốc) — bật lên: kiểm tra Video nền trang trí (`vizConfig.
+     * videoBgEnabled`) TRƯỚC, đang bật -> BLOCK (trả checkbox về off + báo lý do), KHÔNG tự tắt hộ
+     * nữa. Tắt đi: luôn cho phép (không có gì phải khoá khi TẮT).
+     * @param {boolean} checked
+     */
+    async togglePlayerModeFromPanel(checked) {
+        if (!fileManagerVideoPanelEl) return;
+        const checkboxEl = fileManagerVideoPanelEl.querySelector('#setting-video-player-mode-enable');
+        if (checked) {
+            if (appState.get('vizConfig').videoBgEnabled) {
+                if (checkboxEl) checkboxEl.checked = false;
+                await alertModal(t('fileManager.video.playerModeToggle.blockedByBgVideo'));
+                return;
+            }
+            await workflowVideoPlayer.enterVideoPlayerMode(); // event/workflow/video-player.js — Workflow gọi Workflow, tự do theo event-bus-flow.md mục 4B
+            if (!appState.get('isVideoPlayerMode') && checkboxEl) checkboxEl.checked = false; // guard: enterVideoPlayerMode() có thể tự bỏ giữa chừng (vd danh sách rỗng) -> trả checkbox về off
+        } else {
+            await workflowVideoPlayer.exitVideoPlayerMode();
+        }
     },
 
     /** Ứng với 'fileManagerVideo.uploadTrigger.click' (Router gọi thẳng, không cần VirtualMachineState
@@ -184,28 +225,82 @@ const workflowFileManagerVideo = {
         await alertModal(tFormat('fileManager.video.uploadSuccess', { count: successCount }));
     },
 
-    /** Ứng với 'fileManagerVideo.video.click' khi videoQuickDeleteMode=false (xem router). */
-    async openVideoPreview(videoKey) {
-        const record = await getVideoRecord(videoKey); // data layer (service/db.js)
-        if (!record) return; // guard: video vừa bị xoá ở tab/thao tác khác
-        const video = { key: videoKey, ...record };
-
-        const modalHandle = openVideoPreviewModal(video, { // core/file-manager/video-ui.js
-            onDelete: () => this._confirmDeleteSingleVideo(video, modalHandle),
-        });
+    /** Ứng với 'fileManagerVideo.video.click' khi videoQuickDeleteMode=false (xem router).
+     * SỬA (21/07/2026, Giang yêu cầu "bấm vào video KHÔNG phát trình chạy, chỉ hiện dropdown menu")
+     * — THAY HẲN `openVideoPreview()` (fullscreen player) cũ — giờ mở dropdown (core/dropdown-
+     * menu.js) NGAY tại tile, 3 lựa chọn: Set as bg video / Edit video (placeholder) / Xoá.
+     * @param {string} videoKey
+     * @param {HTMLElement} anchorEl - tile vừa bấm, dùng để định vị dropdown.
+     */
+    openVideoTileActionMenu(videoKey, anchorEl) {
+        const dispatch = (action) => eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.tileMenu.action.click', payload: { action, videoKey } });
+        openDropdownMenu(anchorEl, [ // core/dropdown-menu.js
+            {
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg>',
+                name: t('fileManager.video.btnSetAsBgVideo'),
+                callback: () => dispatch('setAsBgVideo'),
+            },
+            {
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3"/></svg>',
+                name: t('fileManager.video.editVideo.label'),
+                callback: () => dispatch('editVideo'),
+            },
+            {
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>',
+                name: t('fileManager.video.btnDelete'),
+                callback: () => dispatch('delete'),
+                destructive: true,
+            },
+        ]);
     },
 
-    /** Hỏi xác nhận trước khi xoá 1 video từ modal xem — KHÔNG dùng chung với batch xoá nhanh (số
-     * lượng cố định = 1, i18n riêng "xoá video này?"). */
-    _confirmDeleteSingleVideo(video, modalHandle) {
+    /** Ứng với 'fileManagerVideo.tileMenu.action.click' action='setAsBgVideo' — set THẲNG 1 video
+     * cụ thể làm "Use background video", KHÔNG qua picker Generic Drawer (Batch 2) — tắt hẳn 1 bước
+     * (đã đang xem đúng video này rồi, không cần chọn lại). Cùng KHOÁ CHÉO với Video Player mode
+     * (event/workflow/visualizer-control-center.js::enableVideoBackgroundToggle() — lý do đối
+     * xứng: 2 tính năng dùng chung `bgVideoElement`, không được cùng bật).
+     * @param {string} videoKey
+     */
+    async setVideoAsBackground(videoKey) {
+        if (appState.get('isVideoPlayerMode')) {
+            await alertModal(t('fileManager.video.setAsBgVideo.blockedByPlayerMode'));
+            return;
+        }
+        const record = await getVideoRecord(videoKey); // service/db.js
+        if (!record) return; // guard: video vừa bị xoá ở nơi khác
+        await withLoadingShield(t('common.loading.savingVideoBg'), async () => {
+            await setMeta('videoBg', record.blob); // service/db.js
+            applyUploadedVideoBg(record.blob); // core/state-and-video-bg.js, di sản — tự set videoBgEnabled=true + đồng bộ UI + saveConfig()
+        });
+        if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.syncPlaybackGate();
+        await alertModal(t('fileManager.video.setAsBgVideo.success'));
+    },
+
+    /** Ứng với 'fileManagerVideo.tileMenu.action.click' action='editVideo' — PLACEHOLDER (Giang
+     * yêu cầu "tạm thời để placeholder trước") — CHƯA có tính năng edit video thật. */
+    showEditVideoPlaceholder() {
+        alertModal(t('fileManager.video.editVideo.comingSoon'));
+    },
+
+    /** Ứng với 'fileManagerVideo.tileMenu.action.click' action='delete' — hỏi xác nhận trước khi
+     * xoá 1 video. SỬA (21/07/2026, Giang yêu cầu) — GUARD MỚI: video ĐANG PHÁT trong Video Player
+     * mode (`currentVideoKey` trùng) -> CHẶN HẲN, báo lý do + yêu cầu chuyển video khác/tắt Player
+     * mode trước — KHÔNG cho xoá (xoá Blob đang được `bgVideoElement`/`audioPlayer` tham chiếu sẽ
+     * làm hỏng phát ngay lập tức).
+     * @param {string} videoKey
+     */
+    async confirmDeleteSingleVideo(videoKey) {
+        if (appState.get('isVideoPlayerMode') && appState.get('currentVideoKey') === videoKey) {
+            await alertModal(t('fileManager.video.deleteConfirm.blockedByPlaying'));
+            return;
+        }
         modalChoice( // core/modal-choice.js
             t('fileManager.video.deleteConfirm.desc'),
             [
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('fileManager.video.deleteConfirm.confirmBtn'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
-                    modalHandle.close();
                     await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                        await deleteVideo(video.key); // core/file-manager/video.js
+                        await deleteVideo(videoKey); // core/file-manager/video.js
                     });
                     await this.refresh();
                 } },
@@ -269,11 +364,19 @@ const workflowFileManagerVideo = {
 
     /** Xoá TOÀN BỘ video đã đánh dấu 1 LẦN (gộp N lần xoá thành đúng 1 round-trip + 1 `refresh()`
      * duy nhất) — cùng khuôn `confirmQuickDeleteBatch()` Photo.
+     * SỬA (21/07/2026, Giang yêu cầu, mở rộng thêm guard cho batch — cùng lý do
+     * `confirmDeleteSingleVideo()`) — video ĐANG PHÁT trong Video Player mode nằm TRONG lô đánh dấu
+     * -> CHẶN HẲN cả lô (không xoá phần còn lại thay thế — đơn giản/an toàn hơn xoá 1 phần rồi báo
+     * riêng), báo lý do, KHÔNG tự bỏ video đó ra rồi xoá phần còn lại.
      * @param {Set<string>} quickDeleteSelectedKeys
      * @param {() => void} onConfirmed
      */
     async confirmQuickDeleteBatch(quickDeleteSelectedKeys, onConfirmed) {
         const keys = Array.from(quickDeleteSelectedKeys);
+        if (appState.get('isVideoPlayerMode') && keys.includes(appState.get('currentVideoKey'))) {
+            await alertModal(t('fileManager.video.deleteConfirm.blockedByPlaying'));
+            return;
+        }
         modalChoice( // core/modal-choice.js
             tFormat('fileManager.video.quickDeleteBatchConfirm.confirm', { count: keys.length }),
             [

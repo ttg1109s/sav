@@ -871,10 +871,9 @@ const workflowFileManagerPhoto = {
     },
 
     /** Ứng với 'fileManagerPhoto.image.click' khi imageQuickDeleteMode=false (xem router).
-     * SỬA (14/07/2026, mục cuối) — menu action giờ là Generic Drawer (icon hoá) thay dropdown cũ,
-     * mở qua `callbacks.onOpenMenu` (modal xem ảnh — Core — KHÔNG được tự đụng Generic Drawer, DOM
-     * tĩnh, Rule 5a). `modalHandle.close()` gọi TỪ ĐÂY sau khi 1 action được chọn — modal Core trả
-     * `{ close }` đúng lúc `openImagePreviewModal()` return.
+     * SỬA (21/07/2026, Giang yêu cầu "menu action ảnh chuyển từ Generic Drawer sang dropdown") —
+     * `callbacks.onOpenMenu` giờ NHẬN `menuBtn` (nút "..." vừa bấm, xem core/file-manager/photo-
+     * ui.js::openImagePreviewModal()) — dùng làm `anchorEl` cho `openDropdownMenu()`.
      * @param {string} imageKey
      * @param {string|null} activeAlbumId
      */
@@ -884,29 +883,37 @@ const workflowFileManagerPhoto = {
         const image = { key: imageKey, ...record };
 
         const modalHandle = openImagePreviewModal(image, { // core/file-manager/photo-ui.js
-            onOpenMenu: () => this._openImageActionMenu(image, activeAlbumId, modalHandle),
+            onOpenMenu: (menuBtn) => this._openImageActionMenu(image, activeAlbumId, modalHandle, menuBtn),
         });
     },
 
-    /** MỚI (14/07/2026, mục cuối) — mở menu action (Generic Drawer, icon hoá) cho 1 ảnh đang xem.
-     * `zIndex: 131` — TRÊN overlay modal xem ảnh (z-130, core/file-manager/photo-ui.js), dưới
-     * modalChoice() (z-130... doc cũ ghi 130, thực tế 130 = cùng tầng preview — 131 đủ nổi trên cả
-     * 2, xem docstring core/generic-drawer.js). `height: 'auto' + maxHeight` — tự co theo số icon
-     * (4-6 tuỳ có album hay không), không chừa khoảng trống thừa.
+    /** SỬA (21/07/2026, Giang yêu cầu) — menu action giờ là dropdown (core/dropdown-menu.js), THAY
+     * Generic Drawer icon hoá cũ (đơn giản hoá, cùng khuôn `openAlbumActionMenu()` đã có sẵn trong
+     * chính file này). `zIndex: 132` — TRÊN modal xem ảnh full-screen (`#image-preview-overlay`,
+     * z-130) — dropdown MẶC ĐỊNH (126/127) chỉ đủ nổi trên nội dung panel thường, KHÔNG đủ nổi trên
+     * 1 modal full-screen khác (xem docstring openDropdownMenu(), core/dropdown-menu.js).
+     * `dispatch()` đóng CẢ modal xem ảnh (`modalHandle`, đóng NGAY — KHÔNG qua eventBus, đây là dọn
+     * UI của CHÍNH lần mở menu này, không phải nghiệp vụ) LẪN bắn action THẬT qua eventBus (Rule 5a
+     * — nghiệp vụ thật luôn qua Router, KHÔNG viết thẳng trong callback dropdown).
      * @param {{key: string, blob: Blob, filename: string}} image
      * @param {string|null} activeAlbumId
      * @param {{close: () => void}} modalHandle
+     * @param {HTMLElement} anchorEl - nút "..." vừa bấm.
      */
-    _openImageActionMenu(image, activeAlbumId, modalHandle) {
-        openGenericDrawer({ // core/generic-drawer.js
-            zIndex: 131,
-            height: 'auto',
-            maxHeight: '60vh',
-            headerHtml: this._buildImageMenuHeaderHtml(t('fileManager.photo.image.menuTitle')),
-            bodyHtml: buildPhotoActionMenuHtml({ hasAlbum: !!activeAlbumId }), // core/file-manager/photo-ui.js
-            bodyClass: 'overflow-y-auto px-4 pb-6 pt-2',
-        });
-        this._wireImageMenuEvents(image, activeAlbumId, modalHandle);
+    _openImageActionMenu(image, activeAlbumId, modalHandle, anchorEl) {
+        const dispatch = (action) => {
+            modalHandle.close();
+            eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imageMenu.action.click', payload: { action, imageKey: image.key } });
+        };
+        const items = [
+            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>', name: t('fileManager.photo.image.btnSetPlaylistBg'), callback: () => dispatch('setPlaylistBg') },
+            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg>', name: t('fileManager.photo.image.btnSetVisualBg'), callback: () => dispatch('setVisualBg') },
+            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3"/></svg>', name: t('fileManager.photo.image.btnEditImage'), callback: () => dispatch('editImage') },
+        ];
+        if (activeAlbumId) items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6"/></svg>', name: t('fileManager.photo.image.btnRemoveFromAlbum'), callback: () => dispatch('removeFromAlbum') });
+        items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>', name: t('fileManager.photo.image.btnDelete'), callback: () => dispatch('delete'), destructive: true });
+
+        openDropdownMenu(anchorEl, items, { zIndex: 132 }); // core/dropdown-menu.js
     },
 
     _buildImageMenuHeaderHtml(title) {
@@ -918,26 +925,6 @@ const workflowFileManagerPhoto = {
                 </button>
             </div>
         `;
-    },
-
-    /** Wire click cho menu vừa mở — mọi action đóng CẢ drawer LẪN modal xem ảnh trước khi chạy. */
-    _wireImageMenuEvents(image, activeAlbumId, modalHandle) {
-        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-        if (closeBtn) closeBtn.addEventListener('click', () => this._closeGenericDrawerFully());
-
-        genericDrawerBody.querySelectorAll('button[data-photo-menu-action]').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const action = btn.dataset.photoMenuAction;
-
-                this._closeGenericDrawerFully();
-                modalHandle.close();
-                if (action === 'setPlaylistBg') this.setAsPlaylistBackground(image.key);
-                else if (action === 'setVisualBg') this.setAsVisualBackground(image.key);
-                else if (action === 'editImage') this.navigateToImageEdit(image.key);
-                else if (action === 'removeFromAlbum') removeImageFromAlbum(image.key, activeAlbumId).then(() => this.refresh(activeAlbumId)); // core có sẵn (core/file-manager/album.js)
-                else if (action === 'delete') deleteImage(image.key).then(() => this.refresh(activeAlbumId)); // core/file-manager/image.js — cascade dọn album
-            });
-        });
     },
 
     /** Trượt Generic Drawer xuống RỒI ẩn hẳn sau `transitionend` — cùng khuôn `_closeGenericDrawerFully()`

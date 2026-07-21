@@ -1,7 +1,17 @@
 /**
- * event/workflow/video-player.js — "THẰNG THỰC THI CUỐI" của router "videoPlayer" (nút toggle) VÀ
- * được GỌI TỪ router "playerControls" (Next/Prev/Play-Pause/'ended' khi `isVideoPlayerMode=true` —
- * xem event/router/player-controls.js, VirtualMachineState branch theo cờ này).
+ * event/workflow/video-player.js — GỌI TỪ 2 nơi: (1) `workflowFileManagerVideo.
+ * togglePlayerModeFromPanel()` — checkbox "Video Player mode" trong panel File Manager -> Video
+ * (Batch 3 ban đầu đặt nút này ở header Visualizer — Giang yêu cầu 21/07/2026 dời hẳn sang đây,
+ * xem lịch sử patch); (2) router "playerControls" (Next/Prev/Play-Pause/'ended' khi
+ * `isVideoPlayerMode=true` — xem event/router/player-controls.js, VirtualMachineState branch theo
+ * cờ này).
+ *
+ * KHOÁ CHÉO với Video nền trang trí (SỬA 21/07/2026 — Giang yêu cầu đổi "tự tắt hộ lẫn nhau" thành
+ * "khoá cứng + báo lý do") — file NÀY KHÔNG còn tự đụng `vizConfig.videoBgEnabled`/
+ * `handleVideoBackground()` nữa (khác Batch 3 gốc): nơi GỌI (`workflowFileManagerVideo`/
+ * `workflowVisualizerControlCenter`) tự kiểm tra chéo TRƯỚC khi gọi `enterVideoPlayerMode()`/mở
+ * picker Video nền — đảm bảo 2 tính năng KHÔNG BAO GIỜ cùng bật, nên file này không cần biết gì về
+ * Video nền trang trí nữa (tách bạch hoàn toàn 2 domain, chỉ còn dùng chung `bgVideoElement`).
  *
  * BẢN ĐẦU (21/07/2026, đã báo Giang là đơn giản hoá) — KHÔNG có shuffle/repeat/wake-lock/Media-
  * Session RIÊNG cho video (audioPlayer vẫn đang thật sự phát dù muted, nên các cơ chế đó của SONG
@@ -9,22 +19,19 @@
  * controls.js, KHÔNG bị đụng). Danh sách video phát TUẦN TỰ theo thứ tự thêm vào (cũ -> mới).
  *
  * NẠP SAU: core/video-player.js, core/file-manager/video.js (listVideos/sortVideosByAddedDateDesc),
- * service/db.js (getVideoRecord), core/state-and-video-bg.js (handleVideoBackground — tắt/khôi phục
- * Video nền lúc vào/ra mode).
+ * service/db.js (getVideoRecord).
  */
 const workflowVideoPlayer = {
     _objectUrl: null, // object URL HIỆN TẠI đang gán cho CẢ audioPlayer LẪN bgVideoElement (revoke trước khi tạo url mới)
-    _prevVideoBgEnabled: false, // nhớ lại vizConfig.videoBgEnabled TRƯỚC lúc vào mode, để khôi phục đúng lúc thoát
     _swipeStartY: null, // toạ độ Y lúc touchstart — dùng bởi event/listener/video-player.js (cử chỉ vuốt)
 
-    /** Ứng với 'videoPlayer.toggle.click' — bật nếu đang tắt, tắt nếu đang bật. */
-    toggleVideoPlayerMode() {
-        if (appState.get('isVideoPlayerMode')) this.exitVideoPlayerMode();
-        else this.enterVideoPlayerMode();
-    },
-
-    /** Vào Video Player mode: đọc danh sách video, tắt SẠCH Video nền trang trí (tránh 2 tính năng
-     * cùng tranh chấp `bgVideoElement`), phát video đầu tiên trong danh sách. */
+    /** Vào Video Player mode: đọc danh sách video, phát video đầu tiên. GỌI TỪ
+     * `workflowFileManagerVideo.togglePlayerModeFromPanel()` (checkbox trong panel File Manager ->
+     * Video) — nơi gọi ĐÃ tự đảm bảo Video nền trang trí đang TẮT trước khi gọi hàm này (khoá chéo
+     * cứng, xem event/workflow/file-manager-video.js — KHÔNG còn silent auto-tắt/khôi phục
+     * `vizConfig.videoBgEnabled` ở ĐÂY nữa như bản Batch 3 đầu tiên, Giang yêu cầu đổi "tự tắt hộ"
+     * thành "khoá cứng + báo lý do" ở CẢ 2 nút, xem event/workflow/visualizer-control-center.js::
+     * enableVideoBackgroundToggle()). */
     async enterVideoPlayerMode() {
         const videos = await listVideos(); // core/file-manager/video.js
         if (videos.length === 0) { await alertModal(t('videoPlayer.empty')); return; }
@@ -32,25 +39,13 @@ const workflowVideoPlayer = {
         // Thứ tự phát: cũ -> mới (đảo ngược sortVideosByAddedDateDesc — hàm đó trả mới -> cũ).
         const videoPlaylist = sortVideosByAddedDateDesc(videos).reverse().map((v) => v.key); // core/file-manager/video.js
 
-        // Tắt Video nền trang trí SẠCH (nếu đang bật) TRƯỚC khi Player mode chiếm bgVideoElement —
-        // KHÔNG gọi saveConfig() (đây là chiếm dụng TẠM THỜI, không phải đổi lựa chọn thật của
-        // người dùng) — cùng lý do event/workflow/file-manager-video.js không gọi saveConfig() khi
-        // không cần thiết.
-        this._prevVideoBgEnabled = appState.get('vizConfig').videoBgEnabled;
-        if (this._prevVideoBgEnabled) {
-            appState.mutate('vizConfig', (cfg) => { cfg.videoBgEnabled = false; });
-            handleVideoBackground(); // core/state-and-video-bg.js, di sản — ẩn/pause bgVideoElement đúng cách
-        }
-
         enterVideoPlayerModeState(videoPlaylist); // core/video-player.js
-        setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop
-        updateVideoPlayerToggleButtonUI(true); // core/video-player.js
+        setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop + hiện
 
         await this.playVideoByKey(videoPlaylist[0]);
     },
 
-    /** Thoát Video Player mode: dừng + dọn 2 element, khôi phục Video nền trang trí về ĐÚNG trạng
-     * thái trước lúc vào mode (không đổi lựa chọn thật của người dùng). */
+    /** Thoát Video Player mode: dừng + dọn 2 element, trả `bgVideoElement` về mặc định trang trí. */
     async exitVideoPlayerMode() {
         audioPlayer.pause();
         bgVideoElement.pause();
@@ -60,14 +55,6 @@ const workflowVideoPlayer = {
         audioPlayer.load(); // buộc <audio> bỏ hẳn tham chiếu blob URL vừa revoke (tránh giữ RAM)
 
         exitVideoPlayerModeState(); // core/video-player.js
-        updateVideoPlayerToggleButtonUI(false); // core/video-player.js
-
-        // Khôi phục Video nền trang trí (nếu trước đó đang bật) — vizConfig.videoBgUrl KHÔNG hề bị
-        // đụng suốt lúc Player mode chạy, nên chỉ cần bật lại cờ + gọi lại handleVideoBackground().
-        if (this._prevVideoBgEnabled) {
-            appState.mutate('vizConfig', (cfg) => { cfg.videoBgEnabled = true; });
-            handleVideoBackground(); // core/state-and-video-bg.js, di sản
-        }
     },
 
     /** Nạp 1 video vào CẢ 2 element (audioPlayer muted nuôi analyser + bgVideoElement thật) + phát
