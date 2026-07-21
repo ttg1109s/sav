@@ -127,6 +127,7 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.video.uploadTitle': 'Add videos',
     'fileManager.video.empty': 'No videos yet. Tap the + button above to add some.',
     'fileManager.video.uploadSuccess': 'Added {count} video(s).',
+    'fileManager.video.pickerTitle': 'Choose a video',
     'fileManager.video.btnDelete': 'Delete video',
     'fileManager.video.deleteConfirm.title': 'Delete video?',
     'fileManager.video.deleteConfirm.desc': 'Delete this video? This cannot be undone.',
