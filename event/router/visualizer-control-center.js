@@ -29,16 +29,15 @@ const routerVisualizerControlCenter = (() => {
                 handleControlCenterGridClick(msg.payload.target);
                 break;
 
-            case 'visualizerControlCenter.videoEnable.change': {
-                // FIX (04/07/2026, mục 1) — checked=true KHÔNG còn gọi thẳng enableVideoBackground()
-                // nữa (giả định "đã biết chắc videoBgUrl có sẵn" SAI khi bật lần đầu -> "on ảo" tới
-                // lúc đóng Settings mới tự sửa, xem validateVideoBgOnClose()). Giờ LUÔN mở hộp thoại
-                // chọn file NGAY khi gạt On (>1 bước, có thể huỷ) -> workflow.
-                if (msg.payload.checked) {
-                    workflowVisualizerControlCenter.enableVideoBackgroundToggle();
-                } else {
-                    workflowVisualizerControlCenter.disableVideoBackground();
-                }
+            // SỬA (21/07/2026, Giang chỉ ra Block gate có sẵn notify) — TÁCH 2 msg.type riêng
+            // (KHÔNG còn if/else theo msg.payload.checked) — Block gate (event/block.js) đăng ký
+            // chặn NGAY tại msg.type 'videoEnable.enable.click' (điều kiện: isVideoPlayerMode===true).
+            case 'visualizerControlCenter.videoEnable.enable.click': {
+                workflowVisualizerControlCenter.enableVideoBackgroundToggle();
+                break;
+            }
+            case 'visualizerControlCenter.videoEnable.disable.click': {
+                workflowVisualizerControlCenter.disableVideoBackground();
                 break;
             }
 
