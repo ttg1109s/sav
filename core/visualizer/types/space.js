@@ -31,25 +31,35 @@
  */
 
 /**
- * Đếm số thiên hà HIỆN CÓ nằm trong 1 "nón" hẹp phía trước theo hướng `forward` (trong phạm vi
- * `checkDistance` dọc trục, `lateralRadius` ngang trục) — MỚI (21/07/2026, phản hồi Giang —
- * "roll về hướng không có thiên hà nào, màn đen xì... cần tiên đoán trước hướng, kiểm tra tỉ lệ
- * mật độ thiên hà ở vùng đó rồi mới quyết định thêm hay không"). Hàm THUẦN, CHỈ đếm/tính toán,
- * KHÔNG tự spawn gì — Workflow tự đọc kết quả trả về rồi quyết định có cần bơm thêm thiên hà theo
- * hướng đó hay không TRƯỚC khi cam kết chuyển sang hướng này (xem
- * `event/workflow/visualizer-render.js::_stageNextLeg()`/`_advancePreSpawn()`).
+ * Đánh giá mật độ thiên hà phía trước theo hướng `forward` (KHÔNG spawn, chỉ ĐẾM) — MỚI
+ * (21/07/2026, phản hồi Giang — "roll về hướng không có thiên hà nào, màn đen xì... cần tiên đoán
+ * trước hướng, kiểm tra tỉ lệ mật độ thiên hà ở vùng đó rồi mới quyết định thêm hay không"). Hàm
+ * THUẦN, CHỈ đếm/tính toán, KHÔNG tự spawn gì — Workflow tự đọc kết quả trả về rồi quyết định có
+ * cần bơm thêm thiên hà theo hướng đó hay không TRƯỚC khi cam kết chuyển sang hướng này, xem
+ * `event/workflow/visualizer-render.js::_stageNextLeg()`/`_advancePreSpawn()`.
+ *
+ * SỬA BUG (21/07/2026, lượt 8, phản hồi Giang — "lại bug không tạo thêm cụm thiên hà mới trước
+ * khi xoay, lại toàn di chuyển tới khoảng đen"): bản trước dùng hình TRỤ (bán kính lệch ngang CỐ
+ * ĐỊNH `lateralRadius`, không phụ thuộc khoảng cách) — trong khi `findClusterTargetAhead()` (hàm
+ * THẬT SỰ chọn toạ độ để bay tới) dùng hình NÓN (giới hạn theo GÓC). Ở khoảng cách GẦN, hình trụ
+ * "duyệt qua" dễ hơn hình nón RẤT NHIỀU (cùng bán kính lệch ngang nhưng góc lệch cho phép ở gần
+ * còn RỘNG hơn cả 70-80°, trong khi nón chỉ cho phép 35°) — hậu quả: kiểm tra mật độ báo "ĐỦ dày"
+ * (dựa trên vài thiên hà lệch xa trục nhưng gần camera) trong khi `findClusterTargetAhead()` sau
+ * đó lại KHÔNG tìm thấy thiên hà nào thật sự nằm trong nón để làm mục tiêu — rơi về công thức mù,
+ * bay thẳng vào khoảng KHÔNG có gì. VIẾT LẠI: dùng ĐÚNG CÙNG 1 hình NÓN (góc `maxAngleCos`) với
+ * `findClusterTargetAhead()` — mật độ báo đủ CHẮC CHẮN nghĩa là tìm mục tiêu thật SẼ thành công.
  * @param {GalaxyCluster[]} clusters @param {THREE.Vector3} camPos @param {THREE.Vector3} forward
- * @param {number} checkDistance @param {number} lateralRadius
- * @returns {number} số thiên hà đang nằm trong vùng kiểm tra
+ * @param {number} checkDistance @param {number} maxAngleCos - cos(góc nón tối đa), CÙNG tiêu chí với `findClusterTargetAhead()`
+ * @returns {number} số thiên hà đang nằm trong nón kiểm tra
  */
-function assessGalaxyDensityAhead(clusters, camPos, forward, checkDistance, lateralRadius) {
+function assessGalaxyDensityAhead(clusters, camPos, forward, checkDistance, maxAngleCos) {
     let count = 0;
     for (let i = 0; i < clusters.length; i++) {
         const offset = clusters[i].position.clone().sub(camPos);
-        const along = offset.dot(forward);
-        if (along <= 0 || along > checkDistance) continue;
-        const lateralSq = Math.max(0, offset.lengthSq() - along * along);
-        if (lateralSq < lateralRadius * lateralRadius) count++;
+        const dist = offset.length();
+        if (dist <= 0 || dist > checkDistance) continue;
+        const cosAngle = offset.dot(forward) / dist;
+        if (cosAngle >= maxAngleCos) count++;
     }
     return count;
 }
