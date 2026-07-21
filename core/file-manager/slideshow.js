@@ -89,16 +89,20 @@ function computeSlideshowTransitionInOutMs(totalMs, ratioPercent) {
 }
 
 /**
- * Core thuần: KẸP thời gian transition đã cấu hình về KHÔNG VƯỢT QUÁ thời gian hiển thị mỗi ảnh
- * (interval) — tránh xung đột: transition dài hơn khoảng cách tới lượt đổi ảnh KẾ TIẾP sẽ bị
- * `_tick()` mới cắt ngang giữa chừng (dùng lại ĐÚNG 2 layer đó cho lượt mới trong khi animation cũ
- * chưa xong) — giật/lỗi hình, ĐÚNG vấn đề đã lường trước với Giang trước khi code.
+ * Core thuần: KẸP thời gian transition đã cấu hình về NHỎ HƠN thời gian hiển thị mỗi ảnh (interval)
+ * TỐI THIỂU 1 GIÂY (SỬA 21/07/2026, Giang chốt: "transition luôn phải nhỏ hơn seconds per photo ít
+ * nhất 1 đơn vị giây" — vd interval=5s thì max transition=4s) — tránh xung đột: transition dài hơn
+ * (hoặc bằng) khoảng cách tới lượt đổi ảnh KẾ TIẾP sẽ bị `_tick()` mới cắt ngang giữa chừng (dùng
+ * lại ĐÚNG 2 layer đó cho lượt mới trong khi animation cũ chưa xong) — giật/lỗi hình, ĐÚNG vấn đề đã
+ * lường trước với Giang trước khi code. `Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, ...)` — sàn an
+ * toàn (1s) phòng `intervalMs` cực nhỏ (không xảy ra trong thực tế — interval tối thiểu toàn hệ
+ * thống đã là 5s, xem `_computeIntervalMs()`, luôn còn dư ≥4s sau khi trừ 1s).
  * @param {number} configuredMs
  * @param {number} intervalMs
  * @returns {number}
  */
 function capSlideshowTransitionDurationMs(configuredMs, intervalMs) {
-    return Math.min(configuredMs, intervalMs);
+    return Math.min(configuredMs, Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, intervalMs - 1000));
 }
 
 /**
@@ -312,16 +316,7 @@ function resolveSlideshowKenBurnsDirection(mode, excludeDirection) {
  * @returns {number}
  */
 function capSlideshowKenBurnsDurationMs(durationMs) {
-    // SỬA (21/07/2026, Giang yêu cầu "time Ken Burns bắt buộc phải nhỏ hơn seconds per photo tối
-    // thiểu 1s") — trừ bớt 1000ms khỏi thời gian hiển thị ảnh THẬT (`durationMs` truyền vào, xem
-    // _computeImageDisplayDurationMs() ở nơi gọi) TRƯỚC KHI kẹp [MIN,MAX] — animation Ken Burns
-    // LUÔN kết thúc SỚM HƠN ít nhất 1 giây so với lúc ảnh bị thay/chuyển cảnh, tránh hiệu ứng
-    // pan/zoom bị "cắt cụt" đúng lúc ảnh đổi. LƯU Ý biên: nếu `durationMs - 1000` tụt XUỐNG DƯỚI
-    // SLIDESHOW_KENBURNS_MIN_TIME_MS (vd interval đang ở mức tối thiểu 5s toàn hệ thống) thì MIN
-    // vẫn thắng (sàn kỹ thuật — animation quá ngắn trông giật, xem comment ngay trên) — trường hợp
-    // NÀY Ken Burns sẽ bằng ĐÚNG thời gian hiển thị ảnh (không còn cách 1s), chấp nhận được vì hiếm
-    // gặp (chỉ xảy ra ở interval tối thiểu).
-    return Math.max(SLIDESHOW_KENBURNS_MIN_TIME_MS, Math.min(SLIDESHOW_KENBURNS_MAX_TIME_MS, durationMs - 1000));
+    return Math.max(SLIDESHOW_KENBURNS_MIN_TIME_MS, Math.min(SLIDESHOW_KENBURNS_MAX_TIME_MS, durationMs));
 }
 
 /**
