@@ -98,6 +98,16 @@ const workflowVideoPlayer = {
 
         setCurrentVideoKey(videoKey); // core/video-player.js
 
+        // SỬA (21/07/2026, Giang chỉ ra "nguồn phân tích audio chưa được cấp") — `setupAudioContext()`
+        // (core/audio-engine.js) tạo `AudioContext`/`analyser`/`createMediaElementSource(audioPlayer)`
+        // — nhưng CHỈ tạo ĐÚNG 1 LẦN DUY NHẤT (guard `if (!appState.get('audioContext'))`, an toàn
+        // gọi lại nhiều lần). `window.playSong()` LUÔN gọi hàm này mỗi lần phát — nếu người dùng
+        // CHƯA TỪNG phát bài hát nào trước khi bật Video Player mode, `audioContext`/`analyser`
+        // CHƯA TỪNG được tạo -> BPM/Pitch/Energy đứng yên "---"/"0%" mãi mãi vì không có gì nuôi
+        // analyser cả. Gọi Ở ĐÂY (mỗi lần phát video) để đảm bảo pipeline LUÔN sẵn sàng, bất kể đã
+        // từng phát bài hát nào trước đó hay chưa.
+        setupAudioContext(); // core/audio-engine.js
+
         playerTitle.textContent = record.filename || t('videoPlayer.untitled');
         playerArtist.textContent = t('videoPlayer.nowPlayingLabel');
         if ('mediaSession' in navigator) {
