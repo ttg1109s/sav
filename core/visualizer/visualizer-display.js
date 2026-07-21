@@ -154,9 +154,7 @@
                         appState.set('spDustMesh', dustMesh);
                         appState.set('spGalaxyClusters', []);
                         appState.set('spGalaxyTypeBag', []); // MỚI — túi xáo trộn hình thái, rỗng lúc đầu tự nạp lại ở lần spawn đầu tiên
-                        appState.set('spNextClusterIndex', 0);
                         appState.set('spTotalGalaxiesSpawned', 0);
-                        appState.set('spCurrentTargetIndex', null);
                         // MỚI (21/07/2026, phản hồi Giang lượt 2) — mô hình pha TRAVEL/ROTATE
                         // (mục 3) — KHÔNG khởi tạo `spNextPos` ở đây (để trống/undefined có chủ
                         // đích): `event/workflow/visualizer-render.js::_tickSpace()` tự phát hiện
@@ -165,14 +163,13 @@
                         appState.set('spPhase', 'travel');
                         appState.set('spForward', undefined);
                         appState.set('spNextPos', undefined);
-                        // MỚI (21/07/2026, phản hồi Giang — "tiên đoán trước hướng, kiểm tra mật độ
-                        // thiên hà vùng đó rồi mới quyết định thêm... khoá toàn bộ moving... đợi
-                        // thêm xong xong rồi mới mở khoá") — reset vùng staging pre-spawn, phòng dở
-                        // dang từ phiên trước (không thể xảy ra thật vì spInitialized reset false
-                        // mỗi lần đổi trang, nhưng khai rõ cho đủ bộ).
-                        appState.set('spCandidateForward', null);
-                        appState.set('spPreSpawnLocked', false);
-                        appState.set('spPreSpawnForward', undefined);
+                        // MỚI (21/07/2026, lượt 9, phản hồi Giang mục 1 — "ngay từ đầu tạo 1 map
+                        // thiên hà sẵn có 3D trải đều các hướng") — bản đồ TĨNH chưa dựng lúc này
+                        // (mảng `spGalaxyClusters` rỗng ở trên tự báo hiệu "chưa dựng" cho
+                        // `_ensureGalaxyMap()`, event/workflow/visualizer-render.js — tự dựng NGAY
+                        // lần tick đầu tiên), chỉ khai rõ 2 field liên quan cho đủ bộ.
+                        appState.set('spMapCenter', undefined);
+                        appState.set('spMapLastRegenTime', 0);
                         // VIẾT LẠI (21/07/2026, phản hồi Giang lượt 6 — "camera chuyển hướng hiện
                         // tại chỉ có trái phải, cần thêm trên dưới, chéo góc... môi trường 3D là đa
                         // hướng") — bảng 12 phần tử, mỗi phần tử giờ là 1 CẶP {yaw, pitch} (radian,
