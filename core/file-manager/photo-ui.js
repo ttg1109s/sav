@@ -652,8 +652,12 @@ function openCreateAlbumModal(onConfirm) {
  * nó) — nên "..." CHỈ gọi `callbacks.onOpenMenu()`, Workflow (`event/workflow/file-manager-photo.js::
  * _openImageActionMenu()`) tự mở/wire Generic Drawer. Trả về `{ close }` để Workflow tự đóng modal
  * này SAU KHI 1 action được chọn từ menu.
+ * SỬA (21/07/2026, Giang yêu cầu "menu action ảnh chuyển từ Generic Drawer sang dropdown") —
+ * `callbacks.onOpenMenu` giờ NHẬN THAM SỐ `menuBtn` (chính nút "..." vừa bấm) — dropdown
+ * (core/dropdown-menu.js::openDropdownMenu()) cần 1 `anchorEl` để định vị menu SÁT nút, khác hẳn
+ * Generic Drawer cũ (bottom sheet toàn chiều rộng, không cần biết vị trí nút).
  * @param {{key: string, blob: Blob, filename: string}} image
- * @param {{onOpenMenu: () => void}} callbacks
+ * @param {{onOpenMenu: (menuBtn: HTMLElement) => void}} callbacks
  * @returns {{close: () => void}}
  */
 function openImagePreviewModal(image, callbacks) {
@@ -703,7 +707,7 @@ function openImagePreviewModal(image, callbacks) {
     const menuBtn = document.createElement('button');
     menuBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
     menuBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg>';
-    menuBtn.addEventListener('click', callbacks.onOpenMenu);
+    menuBtn.addEventListener('click', () => callbacks.onOpenMenu(menuBtn));
     header.appendChild(menuBtn);
     overlay.appendChild(header);
 
@@ -711,46 +715,8 @@ function openImagePreviewModal(image, callbacks) {
     return { close: closeModal };
 }
 
-/**
- * MỚI (14/07/2026, mục cuối) — bodyHtml cho menu action ảnh (Generic Drawer, icon hoá + tên ngắn
- * gọn — yêu cầu Giang). Hàm THUẦN (Rule 1-4): chỉ ghép chuỗi từ `ctx`, không DOM/appState/gọi core
- * khác.
- *
- * SỬA 2 LẦN (14/07/2026):
- *   - Giang chỉ ra lần 1: "độ rộng phải = tên nút dài nhất, không xuống dòng" -> đổi sang 1 hàng
- *     ngang, mỗi nút rộng theo ký tự nhãn dài nhất (đơn vị `ch`).
- *   - Giang CHỈNH LẠI lần 2 (hoàn tác lần 1): "tối thiểu 2 dòng, dài quá thì '...', tham khảo
- *     toolbar subtitle-editor" -> giờ ĐÚNG khuôn toolbar đó (`w-[70px] shrink-0 flex flex-col`,
- *     `overflow-x-auto` nếu tràn hàng), nhãn cho phép vỡ TỐI ĐA 2 dòng (`line-clamp-2`), dài hơn
- *     nữa mới cắt "…" (CSS `line-clamp` tự thêm ellipsis ở cuối dòng 2).
- * @param {{hasAlbum: boolean}} ctx
- * @returns {string}
- */
-function buildPhotoActionMenuHtml(ctx) {
-    const ICON_BG = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
-    const ICON_VISUAL = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg>';
-    const ICON_EDIT_IMAGE = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3"/></svg>';
-    const ICON_REMOVE_ALBUM = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6"/></svg>';
-    const ICON_TRASH = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
-
-    const items = [
-        { action: 'setPlaylistBg', label: t('fileManager.photo.image.btnSetPlaylistBg'), icon: ICON_BG },
-        { action: 'setVisualBg', label: t('fileManager.photo.image.btnSetVisualBg'), icon: ICON_VISUAL },
-        { action: 'editImage', label: t('fileManager.photo.image.btnEditImage'), icon: ICON_EDIT_IMAGE },
-    ];
-    if (ctx && ctx.hasAlbum) items.push({ action: 'removeFromAlbum', label: t('fileManager.photo.image.btnRemoveFromAlbum'), icon: ICON_REMOVE_ALBUM });
-    items.push({ action: 'delete', label: t('fileManager.photo.image.btnDelete'), icon: ICON_TRASH, danger: true });
-
-    return `
-        <div class="flex items-start gap-1 overflow-x-auto px-1 pb-1">
-            ${items.map((item) => `
-                <button type="button" data-photo-menu-action="${item.action}" class="w-[70px] shrink-0 flex flex-col items-center gap-1.5 py-1">
-                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center ${item.danger ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-700'}">${item.icon}</div>
-                    <span class="text-[11px] font-medium text-center leading-tight [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden ${item.danger ? 'text-rose-600' : 'text-slate-700'}">${escapeHtml(item.label)}</span>
-                </button>
-            `).join('')}
-        </div>
-    `;
-}
-
+// SỬA (21/07/2026, Giang yêu cầu "menu action ảnh chuyển từ Generic Drawer sang dropdown") —
+// `buildPhotoActionMenuHtml()` (bodyHtml cho Generic Drawer, icon hoá) ĐÃ XOÁ HẲN — menu action giờ
+// dùng `openDropdownMenu()` (core/dropdown-menu.js), xem event/workflow/file-manager-photo.js::
+// _openImageActionMenu() (5 icon SVG dời sang thẳng đó, dùng lại nguyên văn).
 

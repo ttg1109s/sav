@@ -312,7 +312,16 @@ function resolveSlideshowKenBurnsDirection(mode, excludeDirection) {
  * @returns {number}
  */
 function capSlideshowKenBurnsDurationMs(durationMs) {
-    return Math.max(SLIDESHOW_KENBURNS_MIN_TIME_MS, Math.min(SLIDESHOW_KENBURNS_MAX_TIME_MS, durationMs));
+    // SỬA (21/07/2026, Giang yêu cầu "time Ken Burns bắt buộc phải nhỏ hơn seconds per photo tối
+    // thiểu 1s") — trừ bớt 1000ms khỏi thời gian hiển thị ảnh THẬT (`durationMs` truyền vào, xem
+    // _computeImageDisplayDurationMs() ở nơi gọi) TRƯỚC KHI kẹp [MIN,MAX] — animation Ken Burns
+    // LUÔN kết thúc SỚM HƠN ít nhất 1 giây so với lúc ảnh bị thay/chuyển cảnh, tránh hiệu ứng
+    // pan/zoom bị "cắt cụt" đúng lúc ảnh đổi. LƯU Ý biên: nếu `durationMs - 1000` tụt XUỐNG DƯỚI
+    // SLIDESHOW_KENBURNS_MIN_TIME_MS (vd interval đang ở mức tối thiểu 5s toàn hệ thống) thì MIN
+    // vẫn thắng (sàn kỹ thuật — animation quá ngắn trông giật, xem comment ngay trên) — trường hợp
+    // NÀY Ken Burns sẽ bằng ĐÚNG thời gian hiển thị ảnh (không còn cách 1s), chấp nhận được vì hiếm
+    // gặp (chỉ xảy ra ở interval tối thiểu).
+    return Math.max(SLIDESHOW_KENBURNS_MIN_TIME_MS, Math.min(SLIDESHOW_KENBURNS_MAX_TIME_MS, durationMs - 1000));
 }
 
 /**
