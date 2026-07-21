@@ -66,16 +66,12 @@ const TPL_VISUALIZER_OVERLAY = `
 
                 <!-- Nút "Quay lại Danh sách" — thao tác dùng rất thường xuyên, không gộp vào
                      Control Center ẩn/hiện bên dưới.
-                     MỚI (21/07/2026, mục 4 — Video Player mode) — BỌC CHUNG với nút "Play mode"
-                     MỚI trong 1 nhóm flex (giữ ĐÚNG 3 "vùng" trái/giữa/phải cho justify-between
-                     của #visualizer-top-bar — thêm trực tiếp thành con thứ 4 sẽ phá layout canh
-                     đều 3 vùng cũ). -->
-                <div class="flex items-center gap-2 shrink-0 pointer-events-none">
-                    <button id="btn-video-player-toggle" class="w-10 h-10 shrink-0 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors group shadow-lg pointer-events-auto" data-i18n-title="visualizerOverlay.btnVideoPlayerToggle.title" title="${t('visualizerOverlay.btnVideoPlayerToggle.title')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-300 group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    </button>
-                    <button id="btn-back-playlist" class="w-10 h-10 shrink-0 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors group shadow-lg pointer-events-auto" data-i18n-title="visualizerOverlay.btnBackPlaylist.title" title="${t('visualizerOverlay.btnBackPlaylist.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-300 group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg></button>
-                </div>
+                     SỬA (21/07/2026, Giang yêu cầu "nút apply Video Player chuyển qua toggle ở
+                     Video UI, ngay trên list video") — nút "Play mode" (thêm 21/07/2026 buổi sáng,
+                     xem lịch sử patch Batch 3) ĐÃ CHUYỂN HẲN sang components/file-manager.js::
+                     renderFileManagerVideoPanelBody() (toggle ngay trên lưới video) — XOÁ khỏi
+                     header Visualizer, trả về ĐÚNG 1 nút gốc như trước Batch 3. -->
+                <button id="btn-back-playlist" class="w-10 h-10 shrink-0 flex items-center justify-center glass-panel hover:bg-white/10 rounded-full transition-colors group shadow-lg pointer-events-auto" data-i18n-title="visualizerOverlay.btnBackPlaylist.title" title="${t('visualizerOverlay.btnBackPlaylist.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-300 group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg></button>
             </div>
 
             <!-- Panel "Control Center" — PHÓNG RA TỪ TRUNG TÂM (vị trí nút mở, góc trái trên) kiểu
