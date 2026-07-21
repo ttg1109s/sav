@@ -11,7 +11,6 @@
 const LANG_PATCH_VISUALIZER = {
     'visualizerOverlay.btnBackPlaylist.title': 'Back to list',
     'visualizerOverlay.btnControlCenter.title': 'Quick controls',
-    'visualizerOverlay.btnVideoPlayerToggle.title': 'Video Player mode', // MỚI (21/07/2026, mục 4)
     'videoPlayer.empty': 'No videos yet. Add some in File Manager -> Video first.',
     'visualizerOverlay.cycleMode.title': 'Change effect',
     'visualizerOverlay.cycleMode.label': 'Effect',

@@ -134,6 +134,7 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsPlaylistBg.sortMode.za': 'Name Z → A',
     'settingsPlaylistBg.videoEnable.label': 'Use Video Background',
     'settingsPlaylistBg.videoEnable.hint': 'Toggle on to pick a video; toggle off just hides it (kept for next time)',
+    'settingsPlaylistBg.videoEnable.blockedByPlayerMode': 'Turn off Video Player mode first (File Manager -> Video) before using a background video.',
     // MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer, KHÁC ảnh nền Playlist ngay dưới.
     'settingsPlaylistBg.visualBgImage.label': 'Use Visualizer background image',
     'settingsPlaylistBg.visualBgImage.hint': 'Toggle on to pick a photo; toggle off just hides it (kept for next time)',

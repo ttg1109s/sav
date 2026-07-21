@@ -128,6 +128,17 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.video.empty': 'No videos yet. Tap the + button above to add some.',
     'fileManager.video.uploadSuccess': 'Added {count} video(s).',
     'fileManager.video.pickerTitle': 'Choose a video',
+    // MỚI (21/07/2026, buổi chiều) — toggle "Video Player mode" (ngay trên lưới video).
+    'fileManager.video.playerModeToggle.label': 'Video Player mode',
+    'fileManager.video.playerModeToggle.hint': 'Play your videos as the main content on the Visualizer screen (uses Next/Prev/Play controls)',
+    'fileManager.video.playerModeToggle.blockedByBgVideo': 'Turn off "Use Video Background" first (Settings) before enabling Video Player mode.',
+    // Dropdown menu 1 tile (Set as bg video / Edit video / Xoá) — THAY hẳn preview fullscreen cũ.
+    'fileManager.video.btnSetAsBgVideo': 'Set as background video',
+    'fileManager.video.setAsBgVideo.blockedByPlayerMode': 'Turn off Video Player mode first before setting a background video.',
+    'fileManager.video.setAsBgVideo.success': 'Set as background video.',
+    'fileManager.video.editVideo.label': 'Edit video',
+    'fileManager.video.editVideo.comingSoon': 'Video editing is coming soon.',
+    'fileManager.video.deleteConfirm.blockedByPlaying': 'This video is currently playing in Video Player mode. Switch to another video or turn off Video Player mode first.',
     'fileManager.video.btnDelete': 'Delete video',
     'fileManager.video.deleteConfirm.title': 'Delete video?',
     'fileManager.video.deleteConfirm.desc': 'Delete this video? This cannot be undone.',
