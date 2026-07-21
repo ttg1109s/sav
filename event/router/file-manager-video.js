@@ -75,6 +75,21 @@ const routerFileManagerVideo = (() => {
                 break;
             }
 
+            // ===================== Batch 2 (21/07/2026) — Picker Generic Drawer "Use background
+            // video" (event/workflow/visualizer-control-center.js). Router CHỈ relay message, KHÔNG
+            // giữ state picker nào (session sống trong Workflow, `_videoPickerSession`) — cùng
+            // nguyên tắc đã áp dụng cho picker ảnh (file-manager-photo.js).
+            case 'fileManagerVideo.videoPicker.tile.click': {
+                const { videoKey } = msg.payload;
+                workflowFileManagerVideo.handleVideoPickerTileClick(videoKey);
+                break;
+            }
+
+            case 'fileManagerVideo.videoPicker.close.click': {
+                workflowFileManagerVideo.handleVideoPickerCloseClick();
+                break;
+            }
+
             default:
                 console.warn(`[router:fileManagerVideo] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`, msg);
         }
