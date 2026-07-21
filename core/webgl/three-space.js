@@ -26,6 +26,12 @@
  * `WebGLRenderer`/resize listener riêng, xem `initThreeSpace()`), TRƯỚC
  * `core/visualizer/types/space.js` (file đó chỉ chứa vài hàm nhỏ chạy MỖI FRAME, dùng ngược lại
  * KHÔNG ai trong 2 file gọi nhau).
+ *
+ * CẬP NHẬT (21/07/2026, phản hồi Giang lượt 6 — mô hình pha TRAVEL/ROTATE tách rời, xem
+ * `event/workflow/visualizer-render.js`): `steerSpaceForward()` (2D, chỉ trái/phải) ĐỔI THÀNH
+ * `steerSpaceForward3D()` (yaw+pitch, đủ 3 chiều, KHÔNG giới hạn biên độ). `GalaxyCluster`
+ * constructor nhận thêm `driftSpeedFactor` (đọc dải FFT bin lúc spawn, xem
+ * `computeGalaxyDriftSpeedFactor()`).
  */
 
 // ============================================================================================
@@ -534,6 +540,27 @@ function pickGalaxyPalette(mode, solidColor, dynA, dynB) {
     return { in: dynA, out: dynB };
 }
 
+/**
+ * Hệ số tốc độ trôi dạt (nhân vào `SPACE_GALAXY_DRIFT_MAX_SPEED`) — MỚI (21/07/2026, phản hồi
+ * Giang — "tốc độ di chuyển tự thân thiên hà làm 1 phổ số ngẫu nhiên dựa trên dải FFT bin audio
+ * tại thời điểm nó xuất hiện", tham khảo cách Vortex đọc `vizDataArray[idx % bufferLength]` theo
+ * từng ring/bar riêng). Lấy TRUNG BÌNH 1 dải bin (`binIndex` ± `binSpread`) trong phổ FFT hiện có
+ * — Workflow tự chọn `binIndex` (thường theo thứ tự spawn, đảm bảo mỗi thiên hà "bốc" 1 vùng phổ
+ * khác nhau) rồi gọi hàm THUẦN này — SNAPSHOT 1 LẦN lúc spawn (one-shot), KHÔNG đổi lại sau đó,
+ * cùng tinh thần với `densityRatio`/`starsCount` ở `_spawnGalaxyNodeMembers()`.
+ * @param {Uint8Array} vizDataArray @param {number} binIndex @param {number} binSpread
+ * @returns {number} 0.3 - 1.6
+ */
+function computeGalaxyDriftSpeedFactor(vizDataArray, binIndex, binSpread) {
+    let sum = 0, count = 0;
+    for (let i = binIndex - binSpread; i <= binIndex + binSpread; i++) {
+        if (i < 0 || i >= vizDataArray.length) continue;
+        sum += vizDataArray[i]; count++;
+    }
+    const avg = count > 0 ? sum / count : 0;
+    return 0.3 + (avg / 255) * 1.3;
+}
+
 /** Config hình học (bán kính/số nhánh/độ xoắn/độ tán xạ/cỡ sao) dùng chung cho cả 10 hàm generate. */
 function buildGalaxyGeometryConfig(radius) {
     return {
@@ -610,25 +637,31 @@ function computeGalaxyMemberOffset() {
 // đạo leg trở lại đường THẲNG tắp giữa 2 waypoint như trước lượt 3.)
 
 /**
- * "Bẻ hướng" bay của camera sang hướng MỚI theo góc `steerAngle` (radian) — VIẾT LẠI HOÀN TOÀN
- * (21/07/2026, phản hồi Giang — "roll back camera... đang bị hiểu nhầm thành rotate 2D chứ không
- * phải bẻ hướng di chuyển của camera theo 360 độ theo pitch note") — thay HẲN
- * `generateNextSpaceLegForward()` (jitter NHỎ dùng `Math.tan()`, chỉ hợp với góc bé — KHÔNG THỂ
- * xoay quá ±90° vì tan() tiến tới vô cực, không đáp ứng được yêu cầu "360 độ") VÀ thay hẳn ý nghĩa
- * "roll" trước đó (từng bị hiểu nhầm thành xoay trục lên/phải quanh CHÍNH hướng nhìn — cosmetic,
- * không đổi hướng ĐI — xem `applySpaceRoll()` ĐÃ BỎ). Giờ ĐÚNG bản chất: xoay THẲNG vector
- * `forward` sang phía `right`, PHÉP XOAY CHUẨN (sin/cos, không suy biến ở góc lớn) trong mặt
- * phẳng forward-right — `steerAngle` = 0 giữ nguyên hướng, = ±π/2 rẽ hẳn sang phải/trái, = ±π quay
- * ngược 180° — phủ ĐỦ trọn 360° (kể cả quay đầu hoàn toàn), đúng yêu cầu.
+ * "Bẻ hướng" bay của camera sang hướng MỚI, ĐỦ 3 CHIỀU — VIẾT LẠI (21/07/2026, phản hồi Giang —
+ * "camera chuyển hướng hiện tại chỉ có trái phải, cần thêm trên dưới, chéo góc... môi trường 3D là
+ * đa hướng") — THAY HẲN `steerSpaceForward()` cũ (chỉ xoay trong mặt phẳng forward-right, tức CHỈ
+ * trái/phải, `up` không hề tham gia). Giờ compose 2 phép xoay trục ĐỘC LẬP:
+ *   1. Xoay `yaw` quanh trục `up` (trái/phải).
+ *   2. Xoay `pitch` quanh trục `right` MỚI — tính LẠI SAU KHI đã áp yaw (vuông góc thật với hướng
+ *      vừa xoay, tránh suy biến/gimbal lock).
+ * 2 góc khác 0 CÙNG LÚC (vd yaw=+40°, pitch=-25°) tự nhiên ra hướng CHÉO (phải-xuống...) — không
+ * cần trục thứ 3 nào khác, đủ phủ MỌI điểm trên mặt cầu hướng nhìn quanh vị trí camera hiện tại
+ * (KHÔNG phải quay quanh gốc toạ độ thế giới — quay hướng ĐI quanh CHÍNH camera). KHÔNG giới hạn
+ * biên độ pitch (Giang xác nhận "cứ cho lộn" — camera được phép lộn ngược hoàn toàn). Dùng
+ * `Vector3.applyAxisAngle()` (Three.js, phép xoay Rodrigues quanh 1 trục bất kỳ) — ĐÚNG với MỌI
+ * góc kể cả ±180°, không suy biến như công thức sin/cos phẳng cũ (chỉ đúng khi xoay trong 1 mặt
+ * phẳng cố định).
  * @param {THREE.Vector3} forward - đã normalize
- * @param {THREE.Vector3} right - từ `computeSpaceForwardBasis(forward)`
- * @param {number} steerAngle - radian, tra theo nốt (Workflow — mỗi nốt 1 góc bẻ lái cố định, xem
- *   `spNoteSteerTable`)
+ * @param {THREE.Vector3} up - từ `computeSpaceForwardBasis(forward)`
+ * @param {number} yaw - radian, xoay quanh `up` (trái/phải)
+ * @param {number} pitch - radian, xoay quanh `right` MỚI sau yaw (trên/dưới) — KHÔNG giới hạn biên độ
  * @returns {THREE.Vector3}
  */
-function steerSpaceForward(forward, right, steerAngle) {
-    const cosA = Math.cos(steerAngle), sinA = Math.sin(steerAngle);
-    return forward.clone().multiplyScalar(cosA).addScaledVector(right, sinA).normalize();
+function steerSpaceForward3D(forward, up, yaw, pitch) {
+    const yawed = forward.clone().applyAxisAngle(up, yaw).normalize();
+    const rightAfterYaw = new THREE.Vector3().crossVectors(yawed, up);
+    if (rightAfterYaw.lengthSq() < 0.0001) rightAfterYaw.set(1, 0, 0); else rightAfterYaw.normalize();
+    return yawed.applyAxisAngle(rightAfterYaw, pitch).normalize();
 }
 
 // ============================================================================================
@@ -639,8 +672,14 @@ class GalaxyCluster {
     /**
      * Constructor CHỈ gán field thuần — KHÔNG tự gọi build()/buildNebula() (Workflow tự gọi 2
      * method đó RIÊNG, theo đúng thứ tự, ngay sau khi `new`).
+     * @param {number} driftSpeedFactor - MỚI (21/07/2026, phản hồi Giang mục audio — "tốc độ di
+     *   chuyển tự thân thiên hà làm 1 phổ số ngẫu nhiên dựa trên dải FFT bin audio tại thời điểm
+     *   nó xuất hiện") — hệ số 0.3-1.6 nhân vào biên độ trôi dạt, Workflow tự tính SẴN từ 1 dải bin
+     *   `vizDataArray` TẠI THỜI ĐIỂM SPAWN (xem `computeGalaxyDriftSpeedFactor()` + gọi tại
+     *   `event/workflow/visualizer-render.js::_spawnGalaxyNodeMembers()`), "bake" 1 lần vào đây,
+     *   KHÔNG đổi lại sau đó — cùng tinh thần snapshot với `starsCount`/`densityRatio`.
      */
-    constructor(position, index, name, type, radius, starsCount, rotationDir, rotationSpeed, rotation) {
+    constructor(position, index, name, type, radius, starsCount, rotationDir, rotationSpeed, rotation, driftSpeedFactor) {
         this.id = THREE.MathUtils.generateUUID();
         this.index = index;
         this.name = name;
@@ -652,9 +691,9 @@ class GalaxyCluster {
         this.rotationSpeed = rotationSpeed;
 
         this.driftVelocity = new THREE.Vector3(
-            (Math.random() - 0.5) * SPACE_GALAXY_DRIFT_MAX_SPEED,
-            (Math.random() - 0.5) * SPACE_GALAXY_DRIFT_MAX_SPEED,
-            (Math.random() - 0.5) * SPACE_GALAXY_DRIFT_MAX_SPEED
+            (Math.random() - 0.5) * SPACE_GALAXY_DRIFT_MAX_SPEED * driftSpeedFactor,
+            (Math.random() - 0.5) * SPACE_GALAXY_DRIFT_MAX_SPEED * driftSpeedFactor,
+            (Math.random() - 0.5) * SPACE_GALAXY_DRIFT_MAX_SPEED * driftSpeedFactor
         );
 
         this.mesh = null;
