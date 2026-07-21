@@ -826,16 +826,20 @@ const workflowSlideshow = {
      * bị cắt ngang lượt kế tiếp" đã lường trước — capSlideshowTransitionDurationMs() ở `_tick()`
      * VẪN giữ làm lưới an toàn RUNTIME, nhưng để tránh cho phép CHỌN 1 giá trị vô nghĩa ngay từ đầu,
      * modal picker giờ tự kẹp Max = MIN(60s, thời gian ảnh hiển thị hiện tại —
-     * `_computeImageDisplayDurationMs()`, ĐÚNG cho cả 2 chế độ thường/photoPerSong). Kẹp thêm 1
-     * lớp an toàn `Math.max(MIN_TIME_MS, ...)` phòng trường hợp hiếm ảnh hiển thị CÒN LẠI dưới 1s
-     * (photoPerSong, bài hát sắp hết) khiến max tính ra nhỏ hơn cả min — tránh modal nhận biên
-     * [min,max] đảo ngược.
+     * `_computeImageDisplayDurationMs()`, ĐÚNG cho cả 2 chế độ thường/photoPerSong).
+     * SỬA LẦN 2 (21/07/2026, Giang chốt: "max input transition phải LUÔN nhỏ hơn seconds per photo
+     * tối thiểu 1 đơn vị giây" — vd interval=5s thì max=4s, KHÔNG được bằng nhau) — trừ thêm 1000ms
+     * khỏi `_computeImageDisplayDurationMs()` TRƯỚC khi kẹp [MIN,MAX] — CÙNG công thức
+     * `capSlideshowTransitionDurationMs()` (core, dùng lại y hệt logic, không viết trùng — Rule 3c).
+     * Kẹp thêm 1 lớp an toàn `Math.max(MIN_TIME_MS, ...)` phòng trường hợp hiếm ảnh hiển thị CÒN LẠI
+     * dưới 2s (photoPerSong, bài hát sắp hết) khiến max tính ra nhỏ hơn cả min — tránh modal nhận
+     * biên [min,max] đảo ngược.
      * Xác nhận -> persist + đồng bộ nhãn nút + đồng bộ LẠI nhãn "Tỉ lệ In/Out" (phụ thuộc TỔNG
      * thời gian vừa đổi, xem `_updateTransitionRatioLabel()`). */
     openTransitionDurationPicker() {
         if (!slideshowSettingsPanelEl) return;
         const cfg = appState.get('slideshowConfig');
-        const maxMs = Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, Math.min(SLIDESHOW_TRANSITION_MAX_TIME_MS, this._computeImageDisplayDurationMs()));
+        const maxMs = Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, Math.min(SLIDESHOW_TRANSITION_MAX_TIME_MS, this._computeImageDisplayDurationMs() - 1000));
         openTimePickerModal({ // core/time-picker-modal.js
             title: t('slideshowSettingsDrawer.transitionDuration.pickerTitle'),
             format: 's-ms',

@@ -1,17 +1,19 @@
 /**
  * event/workflow/video-player.js — GỌI TỪ 2 nơi: (1) `workflowFileManagerVideo.
- * togglePlayerModeFromPanel()` — checkbox "Video Player mode" trong panel File Manager -> Video
- * (Batch 3 ban đầu đặt nút này ở header Visualizer — Giang yêu cầu 21/07/2026 dời hẳn sang đây,
- * xem lịch sử patch); (2) router "playerControls" (Next/Prev/Play-Pause/'ended' khi
- * `isVideoPlayerMode=true` — xem event/router/player-controls.js, VirtualMachineState branch theo
- * cờ này).
+ * enablePlayerModeFromPanel()`/`disablePlayerModeFromPanel()` — checkbox "Video Player mode" trong
+ * panel File Manager -> Video (Batch 3 ban đầu đặt nút này ở header Visualizer — Giang yêu cầu
+ * 21/07/2026 dời hẳn sang đây, xem lịch sử patch); (2) router "playerControls" (Next/Prev/Play-
+ * Pause/'ended' khi `isVideoPlayerMode=true` — xem event/router/player-controls.js,
+ * VirtualMachineState branch theo cờ này).
  *
  * KHOÁ CHÉO với Video nền trang trí (SỬA 21/07/2026 — Giang yêu cầu đổi "tự tắt hộ lẫn nhau" thành
- * "khoá cứng + báo lý do") — file NÀY KHÔNG còn tự đụng `vizConfig.videoBgEnabled`/
- * `handleVideoBackground()` nữa (khác Batch 3 gốc): nơi GỌI (`workflowFileManagerVideo`/
- * `workflowVisualizerControlCenter`) tự kiểm tra chéo TRƯỚC khi gọi `enterVideoPlayerMode()`/mở
- * picker Video nền — đảm bảo 2 tính năng KHÔNG BAO GIỜ cùng bật, nên file này không cần biết gì về
- * Video nền trang trí nữa (tách bạch hoàn toàn 2 domain, chỉ còn dùng chung `bgVideoElement`).
+ * "khoá cứng + báo lý do"; SỬA LẦN 2 cùng ngày — chuyển từ `if/alertModal` thủ công sang Block gate
+ * khai báo, xem event/block.js) — file NÀY KHÔNG đụng `vizConfig.videoBgEnabled`/
+ * `handleVideoBackground()` — Block gate (event/block.js, đăng ký trên msg.type
+ * 'fileManagerVideo.playerModeToggle.enable.click'/'visualizerControlCenter.videoEnable.enable.click')
+ * tự chặn TRƯỚC KHI message tới router, đảm bảo 2 tính năng KHÔNG BAO GIỜ cùng bật — file này không
+ * cần biết gì về Video nền trang trí nữa (tách bạch hoàn toàn 2 domain, chỉ còn dùng chung
+ * `bgVideoElement`).
  *
  * BẢN ĐẦU (21/07/2026, đã báo Giang là đơn giản hoá) — KHÔNG có shuffle/repeat/wake-lock/Media-
  * Session RIÊNG cho video (audioPlayer vẫn đang thật sự phát dù muted, nên các cơ chế đó của SONG
@@ -26,11 +28,11 @@ const workflowVideoPlayer = {
     _swipeStartY: null, // toạ độ Y lúc touchstart — dùng bởi event/listener/video-player.js (cử chỉ vuốt)
 
     /** Vào Video Player mode: đọc danh sách video, phát video đầu tiên. GỌI TỪ
-     * `workflowFileManagerVideo.togglePlayerModeFromPanel()` (checkbox trong panel File Manager ->
-     * Video) — nơi gọi ĐÃ tự đảm bảo Video nền trang trí đang TẮT trước khi gọi hàm này (khoá chéo
-     * cứng, xem event/workflow/file-manager-video.js — KHÔNG còn silent auto-tắt/khôi phục
-     * `vizConfig.videoBgEnabled` ở ĐÂY nữa như bản Batch 3 đầu tiên, Giang yêu cầu đổi "tự tắt hộ"
-     * thành "khoá cứng + báo lý do" ở CẢ 2 nút, xem event/workflow/visualizer-control-center.js::
+     * `workflowFileManagerVideo.enablePlayerModeFromPanel()` (checkbox trong panel File Manager ->
+     * Video) — nơi gọi ĐÃ tự đảm bảo Video nền trang trí đang TẮT trước khi gọi hàm này (Block gate,
+     * xem event/block.js — KHÔNG còn silent auto-tắt/khôi phục `vizConfig.videoBgEnabled` ở ĐÂY nữa
+     * như bản Batch 3 đầu tiên, Giang yêu cầu đổi "tự tắt hộ" thành "khoá cứng + báo lý do" ở CẢ 2
+     * nút, xem event/workflow/visualizer-control-center.js::
      * enableVideoBackgroundToggle()). */
     async enterVideoPlayerMode() {
         const videos = await listVideos(); // core/file-manager/video.js

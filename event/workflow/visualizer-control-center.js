@@ -34,11 +34,13 @@ const workflowVisualizerControlCenter = {
      * refs.js) + listener 'change'/'cancel' (event/listener/visualizer-control-center.js) +
      * 2 case router tương ứng + `uploadVideoBackground()` (ngay dưới, không còn ai gọi tới).
      *
-     * KHOÁ CHÉO với Video Player mode (MỚI, 21/07/2026 buổi chiều, Giang yêu cầu "khoá chéo 2 nút
-     * bằng block + thông báo lý do", THAY hẳn cơ chế "tự tắt hộ" của Batch 3 gốc) — `isVideoPlayerMode`
-     * đang bật -> BLOCK NGAY, KHÔNG mở picker, trả toggle về off + báo lý do. 2 tính năng dùng
-     * CHUNG `bgVideoElement` — không được cùng bật (xem event/workflow/file-manager-video.js::
-     * togglePlayerModeFromPanel(), guard ĐỐI XỨNG ở chiều ngược lại).
+     * KHOÁ CHÉO với Video Player mode (MỚI, 21/07/2026 buổi chiều; SỬA LẦN 2 cùng ngày — Giang chỉ
+     * ra "Block (event/block.js) có sẵn tính năng notify, sao phải tự viết alertModal?") — Block
+     * gate ĐÃ tự chặn message 'visualizerControlCenter.videoEnable.enable.click' + tự bật notify
+     * NẾU `isVideoPlayerMode===true` (đăng ký ở event/block.js) — hàm NÀY KHÔNG cần tự kiểm tra lại
+     * điều kiện đó nữa (bỏ hẳn `if (...) { alertModal(...); return; }` cũ). 2 tính năng dùng CHUNG
+     * `bgVideoElement` — không được cùng bật (xem event/workflow/file-manager-video.js::
+     * enablePlayerModeFromPanel(), Block gate ĐỐI XỨNG ở chiều ngược lại).
      *
      * Tái dùng THẲNG `applyUploadedVideoBg()` (core/state-and-video-bg.js, di sản — KHÔNG đụng file
      * đó) — hàm này nhận `File` NHƯNG chỉ đọc `.type`/gọi `URL.createObjectURL()`, hoàn toàn hoạt
@@ -46,11 +48,6 @@ const workflowVisualizerControlCenter = {
      * `validateVideoFile()` (core/upload-validation.js) chỉ fallback đọc `.name` khi `.type` RỖNG,
      * mà Blob lưu qua IndexedDB LUÔN giữ nguyên `.type`. */
     async enableVideoBackgroundToggle() {
-        if (appState.get('isVideoPlayerMode')) {
-            videoEnableToggle.checked = false;
-            await alertModal(t('settingsPlaylistBg.videoEnable.blockedByPlayerMode'));
-            return;
-        }
         workflowFileManagerVideo.openVideoBgPicker(async (videoKey) => { // event/workflow/file-manager-video.js
             const record = await getVideoRecord(videoKey); // service/db.js
             if (!record) { videoEnableToggle.checked = false; return; } // guard: video vừa bị xoá ở nơi khác -> coi như huỷ
