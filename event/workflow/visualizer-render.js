@@ -40,8 +40,10 @@
  * để tránh đứng khựng, ĐÃ BỎ HẲN, đó chính là lỗi Giang chỉ ra).
  *
  * Đúng mục 3 (Giang — "tìm điểm nextPos tới cụm thiên hà kế cận và bay xuyên qua"): waypoint pha
- * TRAVEL giờ ưu tiên nhắm cụm thiên hà GẦN NHẤT theo hướng hiện tại (`findNearestClusterAhead()`,
- * core/visualizer/types/space.js), rơi về công thức mù cũ chỉ khi không có cụm nào trong tầm.
+ * TRAVEL giờ chọn NGẪU NHIÊN 1 cụm thiên hà, ƯU TIÊN cụm đủ XA, trong nón phía trước theo hướng
+ * hiện tại (`findClusterTargetAhead()`, core/visualizer/types/space.js — VIẾT LẠI lượt 7, phản hồi
+ * Giang mục 1 — "chọn nhất" khiến chặng bay quá NGẮN, camera chỉ nhảy sang cụm sát vách thay vì
+ * bay hẳn 1 hành trình rõ rệt), rơi về công thức mù cũ chỉ khi không có cụm nào trong tầm.
  *
  * Đúng mục speed (Giang — "tính X lần trong phạm vi di chuyển, dùng bpm tại thời điểm đó làm
  * base, x2 tốc độ"): mỗi leg travel tự sinh vài mốc % quãng đường ngẫu nhiên, mỗi lần vượt qua 1
@@ -77,13 +79,17 @@ const SPACE_AHEAD_WINDOW = 1500;
 const SPACE_CHAIN_DISPOSE_DISTANCE = 300;
 // Dispose thêm theo khoảng cách NGANG khỏi trục bay hiện tại (xem manageGalaxyChain(),
 // core/visualizer/types/space.js) — dọn thiên hà "lạc hướng" sau khi camera quay đổi hướng nhiều.
-const SPACE_CHAIN_DISPOSE_LATERAL_DISTANCE = 900;
+// TĂNG (21/07/2026, lượt 7, đi cùng SPACE_LATERAL_SPREAD_RATIO_* — nút sinh ở xa giờ tán RỘNG hơn
+// hẳn theo hình nón, 900 cũ sẽ dispose NHẦM những nút vừa sinh hợp lệ ở rìa xa).
+const SPACE_CHAIN_DISPOSE_LATERAL_DISTANCE = 1300;
 const SPACE_CHAIN_AHEAD_MARGIN = 20;
 
 // ===== Hằng số mô hình pha TRAVEL/ROTATE =====
 // Khoảng cách FALLBACK MÙ khi không có cụm thiên hà nào trong nón phía trước lúc tính waypoint
 // (xem _computeTravelWaypoint()) — bình thường waypoint nhắm thẳng cụm gần nhất, KHÔNG dùng số này.
-const SPACE_LEG_DISTANCE = 380;
+// TĂNG (21/07/2026, lượt 7 — đồng bộ với SPACE_TARGET_MIN_DIST, tránh fallback ra chặng NGẮN hơn
+// cả trường hợp có cụm thật).
+const SPACE_LEG_DISTANCE = 550;
 // Tốc độ (đơn vị/giây) tại 120bpm, năng lượng trung bình — nhân với (bpm/120), hệ số năng lượng
 // TẠI THỜI ĐIỂM lấy mẫu (xem mốc lấy mẫu BPM dưới), và SPACE_SPEED_MULTIPLIER.
 const SPACE_LEG_SPEED_BASE = 46;
@@ -119,17 +125,31 @@ const SPACE_PRESPAWN_LATERAL_RADIUS = 320;
 const SPACE_PRESPAWN_MIN_DENSITY = 6;
 const SPACE_PRESPAWN_BATCH_PER_TICK = 1;
 
-// MỚI (21/07/2026, lượt 6, phản hồi Giang mục 3 — "tìm điểm nextPos tới cụm thiên hà kế cận và
-// bay xuyên qua") — nón quét cụm thiên hà gần nhất phía trước cho waypoint pha TRAVEL.
+// VIẾT LẠI (21/07/2026, lượt 7, phản hồi Giang mục 1 — "chọn một điểm ngẫu nhiên rồi bắt di chuyển
+// đến đó") — waypoint pha TRAVEL giờ chọn NGẪU NHIÊN 1 cụm trong nón phía trước (không còn "gần
+// nhất"), ƯU TIÊN cụm đủ XA (SPACE_TARGET_MIN_DIST) để mỗi chặng bay là 1 hành trình THẬT SỰ, xem
+// findClusterTargetAhead() (core/visualizer/types/space.js).
 const SPACE_TARGET_CONE_ANGLE_DEG = 35;
 const SPACE_TARGET_CONE_COS = Math.cos(SPACE_TARGET_CONE_ANGLE_DEG * Math.PI / 180);
-const SPACE_TARGET_MAX_DIST = 900;
+// Khoảng cách 3D THẬT tối thiểu ưu tiên (đảm bảo hành trình đủ dài, không nhảy sang cụm sát vách).
+const SPACE_TARGET_MIN_DIST = 450;
+// TĂNG (21/07/2026, lượt 7 — đi cùng mật độ thiên hà dày hơn, có nhiều cụm ĐỦ XA hơn để chọn).
+const SPACE_TARGET_MAX_DIST = 1300;
 // "Bay xuyên qua" thay vì dừng đúng tâm cụm — cộng thêm 1 đoạn ngắn theo hướng bay.
 const SPACE_FLYTHROUGH_OVERSHOOT = 60;
 
 // MỚI (21/07/2026, lượt 6, phản hồi Giang mục 4 — "cung di chuyển uốn lượn cong... thay vì tuyến
 // tính thẳng") — biên độ cong (Quadratic Bezier) = tỉ lệ này nhân tổng khoảng cách leg.
 const SPACE_LEG_CURVE_STRENGTH_RATIO = 0.25;
+
+// MỚI (21/07/2026, lượt 7, phản hồi Giang mục 2 — "phân bổ đều trên khắp màn hình, hướng camera dự
+// kiến trước khi quay") — tỉ lệ lệch ngang/dọc TỐI ĐA mỗi đơn vị khoảng cách khi sinh 1 "nút" chuỗi
+// thiên hà (xem computeGalaxyClusterCore(), core/webgl/three-space.js) — xấp xỉ tan(nửa góc FOV)
+// camera (fov dọc 65° ở initThreeSpace(), core/webgl/three-space.js) — NGANG rộng hơn DỌC (màn hình
+// luôn rộng hơn cao) — nhân thêm hệ số dư (>1) để phủ tràn ra cả rìa màn hình thay vì vừa khít,
+// tránh viền tối lúc camera hơi lệch trục giữa các thiên hà đang có.
+const SPACE_LATERAL_SPREAD_RATIO_H = 0.85;
+const SPACE_LATERAL_SPREAD_RATIO_V = 0.55;
 
 // MỚI (21/07/2026, lượt 6, phản hồi Giang — "xoay hướng này phải được làm mềm... dù quay 1-30 độ
 // hay 1-180 độ cảm giác mượt vẫn là như nhau") — thời lượng pha ROTATE, power-law theo góc lệch.
@@ -296,7 +316,10 @@ const workflowVisualizerRender = {
     _spawnGalaxyNodeMembers(clusterCore, cfg, perf, spScene, spGlowTexture, spNebulaTexture) {
         let totalSpawned = appState.get('spTotalGalaxiesSpawned');
         const vizDataArray = appState.get('vizDataArray');
-        const memberCount = 3 + Math.floor(Math.random() * 3);
+        // TĂNG (21/07/2026, lượt 7, phản hồi Giang mục 2 — "tăng lượng thiên hà xuất hiện lên"),
+        // trước 3-5 (lượt 5) -> 4-7, đi cùng SPACE_CLUSTER_SPACING_Z giảm (nhiều nút hơn/1500 đơn
+        // vị tầm nhìn) — tổng thiên hà nhìn thấy cùng lúc tăng đáng kể.
+        const memberCount = 4 + Math.floor(Math.random() * 4);
         for (let k = 0; k < memberCount; k++) {
             const offset = computeGalaxyMemberOffset(); // core
             const finalPos = clusterCore.clone().add(offset);
@@ -341,17 +364,20 @@ const workflowVisualizerRender = {
     },
 
     /**
-     * Waypoint (điểm B) cho pha TRAVEL — MỚI (21/07/2026, lượt 6, phản hồi Giang mục 3 — "thay vì
-     * sinh ngẫu nhiên, dựa theo hướng camera, tìm điểm nextPos tới cụm thiên hà kế cận và bay
-     * xuyên qua"). Ưu tiên nhắm cụm thiên hà GẦN NHẤT theo `forward` (`findNearestClusterAhead()`,
-     * core/visualizer/types/space.js), cộng thêm chút "overshoot" để bay XUYÊN QUA thay vì dừng
-     * đúng tâm. KHÔNG có cụm nào trong nón (vd vừa xoay sang vùng chưa kịp spawn) → rơi về công
-     * thức mù cũ (originPos + forward*khoảng cách cố định).
+     * Waypoint (điểm B) cho pha TRAVEL — VIẾT LẠI (21/07/2026, lượt 7, phản hồi Giang mục 1 —
+     * "chọn một điểm ngẫu nhiên rồi bắt di chuyển đến đó... toạ độ camera phải di chuyển trùng với
+     * vị trí của cụm hoặc thiên hà nào đó, chứ không phải camera cố định"). Chọn NGẪU NHIÊN 1 cụm
+     * (ƯU TIÊN cụm đủ xa — `SPACE_TARGET_MIN_DIST` — cho hành trình đủ dài) trong nón phía trước
+     * theo `forward` (`findClusterTargetAhead()`, core/visualizer/types/space.js — khoảng cách 3D
+     * THẬT, không phải chiếu phẳng), cộng thêm chút "overshoot" để bay XUYÊN QUA thay vì dừng đúng
+     * tâm. Camera THẬT SỰ di chuyển toạ độ tới đây (KHÔNG cố định camera — xem `_advanceSpaceTravel()`
+     * đặt thẳng `spCamera.position` mỗi frame). KHÔNG có cụm nào trong nón (vd vừa xoay sang vùng
+     * chưa kịp spawn) → rơi về công thức mù cũ (originPos + forward*khoảng cách cố định).
      */
     _computeTravelWaypoint(originPos, forward, spGalaxyClusters) {
-        const nearestPos = findNearestClusterAhead(spGalaxyClusters, originPos, forward, SPACE_TARGET_CONE_COS, SPACE_TARGET_MAX_DIST); // core
-        return nearestPos
-            ? nearestPos.addScaledVector(forward, SPACE_FLYTHROUGH_OVERSHOOT)
+        const targetPos = findClusterTargetAhead(spGalaxyClusters, originPos, forward, SPACE_TARGET_CONE_COS, SPACE_TARGET_MIN_DIST, SPACE_TARGET_MAX_DIST); // core
+        return targetPos
+            ? targetPos.addScaledVector(forward, SPACE_FLYTHROUGH_OVERSHOOT)
             : originPos.clone().addScaledVector(forward, SPACE_LEG_DISTANCE);
     },
 
@@ -564,7 +590,7 @@ const workflowVisualizerRender = {
         let nextIdx = appState.get('spNextClusterIndex');
         for (let n = 0; n < SPACE_PRESPAWN_BATCH_PER_TICK; n++) {
             const distanceAhead = SPACE_CLUSTER_SPACING_Z * (n + 1);
-            const clusterCore = computeGalaxyClusterCore(camPos, forward, right, up, distanceAhead); // core
+            const clusterCore = computeGalaxyClusterCore(camPos, forward, right, up, distanceAhead, SPACE_LATERAL_SPREAD_RATIO_H, SPACE_LATERAL_SPREAD_RATIO_V); // core
             nextIdx++;
             this._spawnGalaxyNodeMembers(clusterCore, cfg, perf, spScene, spGlowTexture, spNebulaTexture);
         }
@@ -597,7 +623,7 @@ const workflowVisualizerRender = {
 
         while (furthestAheadDist < SPACE_AHEAD_WINDOW) {
             furthestAheadDist += SPACE_CLUSTER_SPACING_Z;
-            const clusterCore = computeGalaxyClusterCore(camPos, forward, right, up, furthestAheadDist); // core
+            const clusterCore = computeGalaxyClusterCore(camPos, forward, right, up, furthestAheadDist, SPACE_LATERAL_SPREAD_RATIO_H, SPACE_LATERAL_SPREAD_RATIO_V); // core
             nextIdx++;
             this._spawnGalaxyNodeMembers(clusterCore, cfg, perf, spScene, spGlowTexture, spNebulaTexture);
         }
