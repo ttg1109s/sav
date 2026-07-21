@@ -27,9 +27,18 @@ if (visualizerControlCenter) {
     });
 }
 
+// SỬA (21/07/2026, Giang chỉ ra: "Block (event/block.js) có sẵn tính năng notify, sao phải tự viết
+// alertModal?") — TÁCH `visualizerControlCenter.videoEnable.change` (1 msg.type + payload checked)
+// thành 2 msg.type riêng `videoEnable.enable.click`/`.disable.click` — Block gate CHỈ đọc được
+// appState (KHÔNG đọc payload, xem event/bus.js::evalCondition()) nên cần msg.type RIÊNG cho chiều
+// "bật" mới đăng ký chặn được (xem event/block.js — khoá chéo với Video Player mode). Checkbox giờ
+// "controlled toggle" — LUÔN trả `.checked` về ĐÚNG giá trị thật NGAY trong listener TRƯỚC KHI
+// dispatch, tránh nhấp nháy sai nếu bị Block gate chặn.
 if (videoEnableToggle) {
     videoEnableToggle.addEventListener('change', (e) => {
-        eventBus.send({ router: 'visualizerControlCenter', type: 'visualizerControlCenter.videoEnable.change', payload: { checked: e.target.checked } });
+        const intendedChecked = e.target.checked;
+        e.target.checked = appState.get('vizConfig').videoBgEnabled; // "controlled toggle"
+        eventBus.send({ router: 'visualizerControlCenter', type: intendedChecked ? 'visualizerControlCenter.videoEnable.enable.click' : 'visualizerControlCenter.videoEnable.disable.click', payload: {} });
     });
 }
 
