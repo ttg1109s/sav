@@ -82,13 +82,15 @@ const TPL_SETTINGS_VISUALIZER = `
                      theme.js) — cùng nhóm "hiển thị Visualizer" với "Hiện Visual" ngay trên. BỎ màu
                      xanh đặc biệt (border-sky-500/30 bg-sky-900/20 text-sky-300) khỏi "Video nền" —
                      đúng phản hồi Giang "khác với các setting khác", giờ dùng NGUYÊN style chung
-                     như mọi hàng khác trong app. FIX (04/07/2026, mục 1 phản hồi Giang) — bỏ hẳn
-                     nút "Choose" riêng: gạt toggle lên "On" giờ TỰ mở hộp thoại chọn file video
-                     LUÔN (input ẩn, kích hoạt qua JS — xem event/workflow/visualizer-control-
-                     center.js::enableVideoBackgroundToggle). Huỷ hộp thoại không chọn gì -> tự trả
-                     toggle về "off" (sự kiện 'cancel', xem event/listener/visualizer-control-
-                     center.js). Tắt toggle chỉ ẩn hiển thị, KHÔNG xoá video đã lưu — gạt lại "On"
-                     mở lại hộp thoại chọn file MỚI. -->
+                     như mọi hàng khác trong app.
+                     SỬA (21/07/2026, Batch 2 module Video) — gạt toggle "On" giờ mở Generic Drawer
+                     chọn video CÓ SẴN trong File Manager -> Video (event/workflow/file-manager-
+                     video.js::openVideoBgPicker(), xem event/workflow/visualizer-control-
+                     center.js::enableVideoBackgroundToggle()) THAY HẲN hộp thoại chọn file OS cũ —
+                     input #setting-video-upload (dòng NGAY DƯỚI trước đây) ĐÃ XOÁ, không còn ai
+                     .click() tới nữa. Huỷ picker không chọn gì -> tự trả toggle về "off" (cùng
+                     ngữ nghĩa onCancel cũ). Tắt toggle chỉ ẩn hiển thị, KHÔNG xoá video đã lưu —
+                     gạt lại "On" mở lại picker. -->
                 <div class="flex flex-col border-b border-white/5">
                     <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
                         <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.videoEnable.label">${t('settingsPlaylistBg.videoEnable.label')}</span>
@@ -100,7 +102,6 @@ const TPL_SETTINGS_VISUALIZER = `
                     <div class="px-4 pb-4 -mt-2">
                         <div class="text-xs text-slate-400" data-i18n="settingsPlaylistBg.videoEnable.hint">${t('settingsPlaylistBg.videoEnable.hint')}</div>
                     </div>
-                    <input type="file" id="setting-video-upload" accept=".mp4,.webm,.ogv,.mov,video/mp4,video/webm,video/ogg,video/quicktime" class="hidden">
                 </div>
                 <!-- DỜI VÀO ĐÂY (07/07/2026, mục 3) — Ảnh nền tĩnh cho màn Visualizer (KHÁC HẲN
                      Ảnh nền Playlist/App ở section Theme — 2 field/2 cơ chế riêng biệt, xem
