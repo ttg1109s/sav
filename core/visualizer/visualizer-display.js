@@ -157,34 +157,39 @@
                         appState.set('spNextClusterIndex', 0);
                         appState.set('spTotalGalaxiesSpawned', 0);
                         appState.set('spCurrentTargetIndex', null);
-                        // MỚI (21/07/2026, phản hồi Giang lượt 2) — mô hình "waypoint nối tiếp"
+                        // MỚI (21/07/2026, phản hồi Giang lượt 2) — mô hình pha TRAVEL/ROTATE
                         // (mục 3) — KHÔNG khởi tạo `spNextPos` ở đây (để trống/undefined có chủ
                         // đích): `event/workflow/visualizer-render.js::_tickSpace()` tự phát hiện
                         // `!appState.get('spNextPos')` ở lần tick ĐẦU TIÊN và tự sinh leg đầu tiên
                         // — tránh trùng lặp logic "sinh leg" ở 2 nơi khác nhau (ở đây và ở Workflow).
+                        appState.set('spPhase', 'travel');
+                        appState.set('spForward', undefined);
                         appState.set('spNextPos', undefined);
-                        appState.set('spPendingNextPos', undefined);
                         // MỚI (21/07/2026, phản hồi Giang — "tiên đoán trước hướng, kiểm tra mật độ
                         // thiên hà vùng đó rồi mới quyết định thêm... khoá toàn bộ moving... đợi
                         // thêm xong xong rồi mới mở khoá") — reset vùng staging pre-spawn, phòng dở
                         // dang từ phiên trước (không thể xảy ra thật vì spInitialized reset false
                         // mỗi lần đổi trang, nhưng khai rõ cho đủ bộ).
+                        appState.set('spCandidateForward', null);
                         appState.set('spPreSpawnLocked', false);
                         appState.set('spPreSpawnForward', undefined);
-                        appState.set('spPreSpawnNextPos', undefined);
-                        // VIẾT LẠI (21/07/2026, phản hồi Giang — "roll... đang bị hiểu nhầm thành
-                        // rotate 2D chứ không phải bẻ hướng di chuyển của camera theo 360 độ theo
-                        // pitch note") — bảng 12 giá trị GÓC BẺ LÁI (radian, [-π,π), đủ 360°), giống
-                        // cấu trúc RUBIK_NOTE_TO_TURN (core/dom-refs.js) nhưng SINH NGẪU NHIÊN 1
-                        // LẦN ở đây (KHÔNG cố định tay), TÁI SỬ DỤNG suốt phiên xem Space — mỗi lần
-                        // sinh hướng leg mới, tra bảng theo nốt hiện tại rồi XOAY THẲNG vector
-                        // forward sang hướng đó (`steerSpaceForward()`, core/webgl/three-space.js —
-                        // xem event/workflow/visualizer-render.js::_computeNextNormalLeg()), KHÔNG
-                        // còn là 1 phép xoay cosmetic quanh trục nhìn như trước nữa. Tham chiếu
-                        // `SPACE_NOTE_STEER_RANGE` định nghĩa ở event/workflow/visualizer-render.js —
-                        // hợp lệ dù file đó nạp SAU file này (tham chiếu xảy ra lúc HÀM NÀY THỰC SỰ
-                        // CHẠY, luôn sau khi toàn bộ <script> trong trang đã parse xong).
-                        appState.set('spNoteSteerTable', Array.from({ length: 12 }, () => (Math.random() - 0.5) * 2 * SPACE_NOTE_STEER_RANGE));
+                        // VIẾT LẠI (21/07/2026, phản hồi Giang lượt 6 — "camera chuyển hướng hiện
+                        // tại chỉ có trái phải, cần thêm trên dưới, chéo góc... môi trường 3D là đa
+                        // hướng") — bảng 12 phần tử, mỗi phần tử giờ là 1 CẶP {yaw, pitch} (radian,
+                        // cả 2 đều [-π,π), pitch KHÔNG giới hạn biên độ — Giang xác nhận "cứ cho
+                        // lộn"), giống cấu trúc RUBIK_NOTE_TO_TURN (core/dom-refs.js) nhưng SINH
+                        // NGẪU NHIÊN 1 LẦN ở đây, TÁI SỬ DỤNG suốt phiên xem Space — mỗi lần cần 1
+                        // hướng ứng viên MỚI, tra bảng theo nốt hiện tại rồi XOAY THẲNG vector
+                        // forward sang hướng đó (`steerSpaceForward3D()`, core/webgl/three-space.js
+                        // — xem event/workflow/visualizer-render.js::_computeSteeredCandidateForward()).
+                        // Tham chiếu `SPACE_NOTE_STEER_RANGE` định nghĩa ở
+                        // event/workflow/visualizer-render.js — hợp lệ dù file đó nạp SAU file này
+                        // (tham chiếu xảy ra lúc HÀM NÀY THỰC SỰ CHẠY, luôn sau khi toàn bộ
+                        // <script> trong trang đã parse xong).
+                        appState.set('spNoteSteerTable', Array.from({ length: 12 }, () => ({
+                            yaw: (Math.random() - 0.5) * 2 * SPACE_NOTE_STEER_RANGE,
+                            pitch: (Math.random() - 0.5) * 2 * SPACE_NOTE_STEER_RANGE
+                        })));
                         appState.set('spInitialized', true);
                     }
                     // Tone mapping (plan B2) — lưu mặc định (Vortex, KHÔNG set tone mapping riêng —
