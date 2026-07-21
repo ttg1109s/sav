@@ -50,6 +50,7 @@
         const btnPlaylistEmptyPlay = document.getElementById('btn-playlist-empty-play');
         const btnPlaylistEmptyShuffle = document.getElementById('btn-playlist-empty-shuffle');
         const btnBackPlaylist = document.getElementById('btn-back-playlist'), loadingShield = document.getElementById('loading-shield'), loadingText = document.getElementById('loading-text');
+        const btnVideoPlayerToggle = document.getElementById('btn-video-player-toggle'); // MỚI (21/07/2026, mục 4 — Video Player mode)
         const btnReturnVisual = document.getElementById('btn-return-visual');
         // "Control Center" của màn Visualizer (ver 8 refine) — thay cho dải dọc 6 nút cũ. Nút mở
         // ở góc trái, panel trượt từ trên xuống chứa grid icon; overlay mờ để bấm ra ngoài là đóng.
@@ -138,7 +139,11 @@
         const volumeSlider = document.getElementById('setting-volume'), valVolumeDisplay = document.getElementById('val-volume');
         const eqSelect = document.getElementById('setting-eq'), eqSlidersWrapper = document.getElementById('eq-sliders-wrapper');
 
-        const videoEnableToggle = document.getElementById('setting-video-enable'), videoUploadInput = document.getElementById('setting-video-upload'), bgVideoElement = document.getElementById('bg-video');
+        // SỬA (21/07/2026, dọn dẹp sau Batch 2 module Video) — `videoUploadInput` XOÁ HẲN (biến +
+        // DOM element `#setting-video-upload`, xem components/settings/visualizer-geometry-color.js)
+        // — đường chết thật từ khi `enableVideoBackgroundToggle()` đổi sang mở Generic Drawer picker
+        // (event/workflow/file-manager-video.js) thay vì `.click()` input này.
+        const videoEnableToggle = document.getElementById('setting-video-enable'), bgVideoElement = document.getElementById('bg-video');
         // Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual).
         // FIX (04/07/2026, mục 1a) — nền màu Settings (bgColor), TÁCH khỏi document.body.
         const visualizerSolidBg = document.getElementById('visualizer-solid-bg');

@@ -3,7 +3,8 @@
  *
  * ÁP DỤNG /event/ (cụm "visualizerControlCenter"): `addEventListener` cũ của btnReturnVisual/
  * btnOpenControlCenter/controlCenterOverlay/visualizerControlCenter/videoEnableToggle/
- * visualEnabledToggle/videoUploadInput đã CHUYỂN sang event/listener/visualizer-control-center.js.
+ * visualEnabledToggle đã CHUYỂN sang event/listener/visualizer-control-center.js (`videoUploadInput`
+ * — XOÁ HẲN 21/07/2026, dọn dẹp sau Batch 2 module Video, xem event/workflow/file-manager-video.js).
  * 2 nhánh cần shield/modal (đổi videoEnableToggle, upload video) đặt ở
  * event/workflow/visualizer-control-center.js — core không biết withLoadingShield/alertModal tồn
  * tại. `bgVideoElement.addEventListener('loadeddata'/'playing', fadeVideoIn, {once:true})` GIỮ
