@@ -91,10 +91,38 @@ function setCurrentVideoKey(videoKey) {
  * đây chỉ cần đặt giá trị TẠM AN TOÀN (ẩn) phòng trường hợp không có Video nền nào cần khôi phục.
  * @param {boolean} enabled
  */
+/** Đổi `muted`/`loop`/`opacity`/`z-index` của `bgVideoElement` (#bg-video, TÁI DÙNG — xem docstring
+ * đầu file) giữa 2 chế độ.
+ * `enabled=true` (vào Player mode): bỏ muted (nghe tiếng thật) + tắt loop (cần bắt được sự kiện hết
+ * video để tự chuyển tiếp — thật ra 'ended' bắt trên `audioPlayer`, xem event/router/player-
+ * controls.js, nhưng tắt loop ở ĐÂY để 2 element hết video CÙNG LÚC, không lệch pha) + hiện luôn
+ * (`opacity: 1`, KHÔNG dùng class `.hidden` — xem lý do ở comment cũ bên dưới).
+ * SỬA (21/07/2026, Giang chỉ ra đúng gốc rễ: "#bg-video z-index 0 < #visualizer z-index 10" — CSS
+ * `assets/css/style.css`, cả 2 đều con TRỰC TIẾP của `<body>`, KHÔNG lồng trong khung visualizer
+ * nào) — `bgVideoElement.style.zIndex = '15'` khi enabled, NÂNG hẳn video LÊN TRÊN cả `#visualizer`
+ * (z:10) LẪN `#webgl-canvas` (z:1) — bất kể loại visualizer nào đang chạy (space/vortex/rain/...)
+ * có tự vẽ nền đục (opaque fill) hay không, video LUÔN đảm bảo hiển thị ĐÈ LÊN TRÊN canvas (KHÔNG
+ * phải đi sửa từng file `core/visualizer/types/*.js` — không liên quan gì thuật toán vẽ của từng
+ * loại, thuần tuý là thứ tự xếp lớp DOM). z:15 vẫn THẤP HƠN toàn bộ UI chrome cần giữ hiện trên
+ * cùng: `#visualizer-ui` (z:30), `#player-container`, `#app-stack` (z:60) — stats/nút điều
+ * khiển/player bar vẫn thấy được ĐÈ TRÊN video, đúng ý "visualizer vẫn chạy như thường, TRÊN video
+ * đó" Giang mô tả ban đầu (ở đây là UI chrome thay vì hiệu ứng vẽ, do hạn chế mỗi loại visualizer
+ * tự vẽ nền khác nhau — xem báo cáo).
+ * `enabled=false` (thoát Player mode): trả lại ĐÚNG mặc định trang trí (muted+loop=true, ẩn opacity
+ * 0, z-index về `''` để CSS tĩnh (`z-index: 0`) tự áp dụng lại như cũ).
+ * SỬA THÊM (cùng lượt) — Giang báo "cử chỉ vuốt không hoạt động": `#bg-video` có CSS cứng
+ * `pointer-events: none` (để click XUYÊN QUA nó tới visualizer/UI phía trên trong chế độ nền trang
+ * trí bình thường — ĐÚNG ý đồ gốc) — nghĩa là `touchstart`/`touchend` gắn trên chính element này
+ * (event/listener/video-player.js) KHÔNG BAO GIỜ bắn ra. `enabled=true`: bật lại
+ * `pointer-events: auto` qua inline style (đè CSS tĩnh) để nhận được cử chỉ vuốt.
+ * @param {boolean} enabled
+ */
 function setBgVideoElementForPlayerMode(enabled) {
     bgVideoElement.muted = !enabled;
     bgVideoElement.loop = !enabled;
     bgVideoElement.style.opacity = enabled ? '1' : '0';
+    bgVideoElement.style.zIndex = enabled ? '15' : '';
+    bgVideoElement.style.pointerEvents = enabled ? 'auto' : '';
 }
 
 // SỬA (21/07/2026, cùng ngày) — `updateVideoPlayerToggleButtonUI()` (đổi màu nút header) ĐÃ XOÁ —
