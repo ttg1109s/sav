@@ -38,10 +38,11 @@
 // 1. HẰNG SỐ / DỮ LIỆU (không phải hàm — tham chiếu tự do, KHÔNG tính là "gọi hàm")
 // ============================================================================================
 
-/** Khoảng cách trục Z giữa 2 "nút" liên tiếp của sợi vũ trụ (mỗi nút sinh 3-5 thiên hà). GIẢM
- * THÊM (fix mục 2, phản hồi 21/07/2026 lượt 5 — "giảm khoảng cách giữa các cụm thiên hà lại"),
- * trước 200 -> 110 (lượt 3) -> 70 (lượt 5). */
-const SPACE_CLUSTER_SPACING_Z = 70;
+/** Khoảng cách trục Z giữa 2 "nút" liên tiếp của sợi vũ trụ (mỗi nút sinh 1 số thiên hà). GIẢM
+ * THÊM (mục 2, phản hồi 21/07/2026 lượt 7 — "tăng lượng thiên hà xuất hiện lên"), trước 200 ->
+ * 110 (lượt 3) -> 70 (lượt 5) -> 45 (lượt 7, cùng với tăng số thiên hà/nút, xem
+ * `_spawnGalaxyNodeMembers()`, event/workflow/visualizer-render.js). */
+const SPACE_CLUSTER_SPACING_Z = 45;
 
 /** Định danh ngẫu nhiên chuẩn khoa học (giữ nguyên tinh thần bản demo, số liệu không kế thừa gì
  * đặc biệt — chỉ là 1 danh sách tên hợp lý cho bản MỚI). */
@@ -605,13 +606,25 @@ function computeSpaceForwardBasis(forward) {
  * vì trải khắp màn hình. VIẾT LẠI: NGẪU NHIÊN THẬT (Math.random()) cho mỗi nút — độc lập hoàn toàn
  * giữa các nút liên tiếp, trải đều thật sự theo thời gian dài. `wobbleSeed` KHÔNG CÒN dùng (bỏ
  * tham số) vì random thật không cần "hạt giống" tuần tự nữa.
+ *
+ * VIẾT LẠI LẦN 2 (21/07/2026, phản hồi Giang lượt 7, mục 2 — "phân bổ đều trên khắp màn hình,
+ * hướng camera dự kiến trước khi quay") — bản trước lệch ngang/dọc biên độ CỐ ĐỊNH (260/140) BẤT
+ * KỂ `distanceAhead` — khiến nút GẦN bị tán quá rộng (lệch ra ngoài cả góc nhìn camera) trong khi
+ * nút XA lại tán quá hẹp (không phủ hết bề ngang màn hình ở khoảng cách đó) — hình dạng vùng sinh
+ * thiên hà thực chất là 1 "ỐNG" đường kính cố định, không phải HÌNH NÓN đúng theo phối cảnh
+ * camera. Giờ biên độ lệch TỈ LỆ THUẬN với `distanceAhead` (nhân thêm
+ * `lateralSpreadH`/`lateralSpreadV` — Workflow tự tính từ góc nhìn camera, xem
+ * `event/workflow/visualizer-render.js`) — ra đúng HÌNH NÓN mở rộng dần theo khoảng cách, phủ ĐỀU
+ * khắp khung hình ở MỌI độ sâu.
  * @param {THREE.Vector3} originPos @param {THREE.Vector3} forward @param {THREE.Vector3} right
  * @param {THREE.Vector3} up @param {number} distanceAhead
+ * @param {number} lateralSpreadH - tỉ lệ lệch NGANG tối đa / 1 đơn vị khoảng cách (vd tan(nửa góc FOV ngang))
+ * @param {number} lateralSpreadV - tỉ lệ lệch DỌC tối đa / 1 đơn vị khoảng cách
  * @returns {THREE.Vector3}
  */
-function computeGalaxyClusterCore(originPos, forward, right, up, distanceAhead) {
-    const rightWobble = (Math.random() - 0.5) * 2 * 260;
-    const upWobble = (Math.random() - 0.5) * 2 * 140;
+function computeGalaxyClusterCore(originPos, forward, right, up, distanceAhead, lateralSpreadH, lateralSpreadV) {
+    const rightWobble = (Math.random() - 0.5) * 2 * distanceAhead * lateralSpreadH;
+    const upWobble = (Math.random() - 0.5) * 2 * distanceAhead * lateralSpreadV;
     return originPos.clone()
         .addScaledVector(forward, distanceAhead)
         .addScaledVector(right, rightWobble)
