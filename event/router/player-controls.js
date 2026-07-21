@@ -16,13 +16,14 @@
  * video nền + reset ngăn xếp panel con + cuộn) -> giao Workflow — xem
  * workflowPlayerControls.closeSettingsDrawer().
  *
- * MỚI (21/07/2026, mục 4 — Video Player mode, xem event/workflow/video-player.js) — 4 case
- * 'playPause.click'/'next.click'/'prev.click'/'audio.ended' giờ ĐỌC `appState.get('isVideoPlayerMode')`
- * + VirtualMachineState 2 nhánh loại trừ nhau: true -> giao `workflowVideoPlayer` (video đang "làm
- * bài hát"); false -> gọi THẲNG core cũ y hệt trước đây, KHÔNG đổi hành vi gốc dù chỉ 1 dòng. Video
- * Player mode CỐ Ý KHÔNG đụng gì các case audio.play/pause/loadedmetadata/error/timeupdate/seeked
- * — audioPlayer vẫn đang thật sự phát (dù muted) nên mọi cơ chế đó (progress bar, Media Session,
- * wake lock, listen clock...) tự chạy đúng, không cần nhánh riêng (đơn giản hoá đã báo Giang).
+ * MỚI (21/07/2026, mục 4 — Video Player mode, xem event/workflow/video-player.js) — 5 case
+ * 'playPause.click'/'next.click'/'prev.click'/'audio.ended'/'backToPlaylist.click' giờ ĐỌC
+ * `appState.get('isVideoPlayerMode')` + VirtualMachineState 2 nhánh loại trừ nhau: true -> giao
+ * `workflowVideoPlayer` (video đang "làm bài hát"); false -> gọi THẲNG core cũ y hệt trước đây,
+ * KHÔNG đổi hành vi gốc dù chỉ 1 dòng. Video Player mode CỐ Ý KHÔNG đụng gì các case audio.play/
+ * pause/loadedmetadata/error/timeupdate/seeked — audioPlayer vẫn đang thật sự phát (dù muted) nên
+ * mọi cơ chế đó (progress bar, Media Session, wake lock, listen clock...) tự chạy đúng, không cần
+ * nhánh riêng (đơn giản hoá đã báo Giang).
  *
  * LỊCH SỬ (không còn áp dụng, giữ lại để tra cứu nếu cần) — batch 07-08/07/2026 (HOTFIX 7-10) đã
  * từng cho phép mở Settings NGAY TỪ Visualizer (nút #btn-settings trong Control Center), khiến cả
@@ -49,7 +50,19 @@ const routerPlayerControls = (() => {
 
             // ===================== Click UI =====================
             case 'playerControls.backToPlaylist.click': {
-                handleBackToPlaylistClick();
+                // MỚI (21/07/2026, mục 4 — Video Player mode, Giang chỉ ra "cần quy trình khác,
+                // phải dùng vmstate") — Video Player mode BẬT TỪ trang Settings (khác mọi lần gọi
+                // switchToVisualizer() khác, LUÔN từ trang Playlist đang hiện sẵn) nên "Back" cần
+                // tự cuộn lại về trang Playlist, xem event/workflow/video-player.js::
+                // handleBackToPlaylistFromVideoMode(). Nhánh false GIỮ NGUYÊN hành vi gốc.
+                VirtualMachineState.run([
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
+                        workflowVideoPlayer.handleBackToPlaylistFromVideoMode();
+                    } },
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
+                        handleBackToPlaylistClick();
+                    } },
+                ]);
                 break;
             }
 
