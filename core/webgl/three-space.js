@@ -608,21 +608,32 @@ function computeSpaceForwardBasis(forward) {
  * như vậy khỏi cần tính việc sinh ra cụm và thiên hà tính hướng") — THAY HẲN
  * `computeGalaxyClusterCore()` cũ (đặt 1 "nút" duy nhất phía trước camera theo `forward`, gọi lặp
  * lại MỖI FRAME khi cần mở rộng cửa sổ nhìn xa — mô hình "vừa bay vừa sinh"). Giờ sinh CẢ N nút
- * CÙNG LÚC, phân bố ĐỀU NGẪU NHIÊN theo THỂ TÍCH (không dồn về tâm — bán kính lấy căn bậc 3 của số
- * ngẫu nhiên, chuẩn lấy mẫu đều trong hình cầu) trong 1 khối CẦU bán kính `mapRadius` quanh
- * `centerPos` (thường là vị trí camera TẠI THỜI ĐIỂM dựng/tái tạo bản đồ — xem
- * `event/workflow/visualizer-render.js::_ensureGalaxyMap()`), phủ ĐỦ MỌI HƯỚNG chứ không riêng
- * phía trước — bay sang hướng nào cũng có sẵn thiên hà, không cần tính toán gì thêm lúc camera đổi
- * hướng.
+ * CÙNG LÚC trong 1 khối CẦU bán kính `mapRadius` quanh `centerPos` (thường là vị trí camera TẠI
+ * THỜI ĐIỂM dựng/tái tạo bản đồ — xem `event/workflow/visualizer-render.js::_ensureGalaxyMap()`).
+ *
+ * SỬA BUG (21/07/2026, lượt 10, phản hồi Giang — "lấm chấm các hạt nhỏ ở khoảng cách xa... xoay
+ * hướng khác không thấy gì... cuối cùng mất sạch"): bản đầu (lượt 9) lấy bán kính
+ * `r = mapRadius * Math.cbrt(Math.random())` — công thức CHUẨN cho mật độ ĐỀU THEO THỂ TÍCH, nhưng
+ * chính vì "đều theo thể tích" nên phần LỚN số nút rơi vào lớp vỏ NGOÀI CÙNG của khối cầu (thể
+ * tích 1 lớp vỏ mỏng tăng theo r² — càng xa tâm càng nhiều thể tích, càng nhiều nút) — trong khi
+ * TÂM khối cầu (đúng ngay chỗ camera đang đứng) lại RẤT THƯA — hậu quả đúng y hệt Giang mô tả: gần
+ * camera gần như trống trơn, chỉ thấy vài chấm sáng tít xa (đã bị mờ thêm bởi fog), quay hướng nào
+ * cũng không thấy gì gần, và cảm giác "mất sạch" khi camera trôi dạt ra xa dần vùng thưa quanh tâm.
+ * VIẾT LẠI: đổi hẳn sang phân bố CỐ Ý LỆCH mật độ VỀ PHÍA TÂM (`r = mapRadius * random()^BIAS`,
+ * `BIAS` > 1 nghĩa là random() gần 0 thường xuyên hơn gần 1 → r nhỏ chiếm đa số) — KHÔNG còn "đều
+ * thật" về mặt thống kê nữa, nhưng đây chính là điều CẦN cho cảm giác thị giác "camera luôn đứng
+ * giữa 1 vùng thiên hà san sát" (mục 5, lượt 9) — vùng RÌA xa vẫn có nút (random() gần 1 vẫn xảy
+ * ra, chỉ hiếm hơn) để nền xa không trống hẳn.
  * @param {THREE.Vector3} centerPos @param {number} nodeCount @param {number} mapRadius
  * @returns {THREE.Vector3[]}
  */
 function generateGalaxyMapNodePositions(centerPos, nodeCount, mapRadius) {
+    const RADIAL_BIAS_POWER = 2.4; // > 1 -> dồn mật độ nút VỀ GẦN centerPos, xem SỬA BUG ở trên
     const positions = [];
     for (let i = 0; i < nodeCount; i++) {
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos(Math.random() * 2 - 1);
-        const r = mapRadius * Math.cbrt(Math.random());
+        const r = mapRadius * Math.pow(Math.random(), RADIAL_BIAS_POWER);
         positions.push(new THREE.Vector3(
             centerPos.x + r * Math.sin(phi) * Math.cos(theta),
             centerPos.y + r * Math.sin(phi) * Math.sin(theta),
