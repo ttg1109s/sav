@@ -22,11 +22,34 @@
  */
 const workflowVisualizerControlCenter = {
 
-    /** MỚI (04/07/2026, mục 1) — ứng với gạt "#setting-video-enable" lên On: LUÔN mở hộp thoại
-     * chọn file NGAY (input ẩn, kích hoạt qua .click()) — KHÔNG tự bật `videoBgEnabled` ở đây, chờ
-     * đúng sự kiện 'change' (chọn xong) hoặc 'cancel' (huỷ, xem listener) mới quyết định. */
+    /** SỬA (21/07/2026, Batch 2 module Video — Giang yêu cầu "Use background video -> mở generic
+     * drawer -> video") — THAY HẲN `videoUploadInput.click()` (hộp thoại chọn file OS cũ, xem lịch
+     * sử patch): giờ mở Generic Drawer chọn 1 video CÓ SẴN trong File Manager -> Video (Giang chốt
+     * — mục 21/07/2026: CHỈ chọn từ thư viện có sẵn, KHÔNG có "Upload mới" ngay trong drawer, phải
+     * upload trước ở File Manager -> Video).
+     * `videoUploadInput`/`uploadVideoBackground()` (ngay dưới) GIỮ NGUYÊN, không xoá — giờ là
+     * ĐƯỜNG CHẾT (không còn nút nào trong UI trigger `.click()` input đó nữa) — nợ kỹ thuật ĐÃ BIẾT,
+     * cùng tinh thần "core setAsSlideshowBackground() chưa có UI gọi tới" (xem lịch sử patch Photo)
+     * — chưa xoá vì có 2 nơi component khác nhau (`playlist-background.js`/`visualizer-geometry-
+     * color.js`) cùng khai báo trùng `id="setting-video-upload"`, cần Giang xác nhận trước khi dọn.
+     *
+     * Tái dùng THẲNG `applyUploadedVideoBg()` (core/state-and-video-bg.js, di sản — KHÔNG đụng file
+     * đó) — hàm này nhận `File` NHƯNG chỉ đọc `.type`/gọi `URL.createObjectURL()`, hoàn toàn hoạt
+     * động đúng với 1 `Blob` đọc lại từ IndexedDB (record.blob, KHÔNG có `.name`) — đã xác nhận
+     * `validateVideoFile()` (core/upload-validation.js) chỉ fallback đọc `.name` khi `.type` RỖNG,
+     * mà Blob lưu qua IndexedDB LUÔN giữ nguyên `.type`. */
     async enableVideoBackgroundToggle() {
-        videoUploadInput.click();
+        workflowFileManagerVideo.openVideoBgPicker(async (videoKey) => { // event/workflow/file-manager-video.js
+            const record = await getVideoRecord(videoKey); // service/db.js
+            if (!record) { videoEnableToggle.checked = false; return; } // guard: video vừa bị xoá ở nơi khác -> coi như huỷ
+            await withLoadingShield(t('common.loading.savingVideoBg'), async () => {
+                await setMeta('videoBg', record.blob); // service/db.js — CÙNG cơ chế persist đã dùng ở uploadVideoBackground()
+                applyUploadedVideoBg(record.blob); // core/state-and-video-bg.js, di sản — tạo blob URL + bật + đồng bộ UI
+            });
+            if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.syncPlaybackGate();
+        }, () => {
+            videoEnableToggle.checked = false; // huỷ/đóng picker không chọn gì -> tự trả toggle về "off"
+        });
     },
 
     /** Ứng với msg.type = 'visualizerControlCenter.videoEnable.change' khi TẮT — CHỈ còn đồng bộ

@@ -13,6 +13,7 @@
  * ui.js (pushSettingsPanel), event/workflow/video-gallery-window.js.
  */
 let fileManagerVideoPanelEl = null; // panel Video đang mở — null nếu đang đóng (cùng khuôn fileManagerPhotoPanelEl)
+let _videoPickerSession = null; // MỚI (Batch 2) — session picker Generic Drawer (chọn 1 video làm nền), cùng khuôn _imagePickerSession (file-manager-photo.js)
 
 // Hệ số resize khung hình chụp làm thumbnail — CÙNG GIÁ TRỊ THUMBNAIL_SCALE_RATIO (file-manager-
 // photo.js) để nhất quán độ nặng dữ liệu giữa 2 module Ảnh/Video, viết riêng biến (Rule 3: mỗi
@@ -288,5 +289,121 @@ const workflowFileManagerVideo = {
             ],
             { title: t('fileManager.video.quickDeleteBatchConfirm.title') }
         );
+    },
+
+    // ===================== Batch 2 (21/07/2026) — Picker Generic Drawer cho "Use background
+    // video" (event/workflow/visualizer-control-center.js::enableVideoBackgroundToggle()). Mirror
+    // ĐÚNG `openCoverImagePicker()`/`_openImagePickerDrawer()` (file-manager-photo.js) — nhưng đơn
+    // giản hơn hẳn: Video CHỈ có 1 chế độ picker DUY NHẤT (single-select, tap = chọn ngay) — Giang
+    // chốt KHÔNG có "Upload mới ngay trong drawer" (khác Photo, đôi khi có confirmButton cho
+    // multi-select album) — nên KHÔNG cần field `mode`/`showConfirmButton` nào trong session, đơn
+    // giản hoá tối đa so với bản Photo. =====================================================
+
+    /** Mở Generic Drawer chọn 1 video CÓ SẴN trong thư viện Video — DÙNG CHUNG cho MỌI nơi cần
+     * "chọn 1 video làm nền" (hiện tại chỉ có Settings -> "Use background video", nhưng viết tổng
+     * quát qua tham số `onSelect`/`onCancel`, không hardcode nghiệp vụ video nền ở ĐÂY — cùng triết
+     * lý `openCoverImagePicker()` Photo).
+     * @param {(videoKey: string) => void} onSelect
+     * @param {() => void} [onCancel] - gọi khi đóng picker MÀ CHƯA chọn gì (nút X).
+     */
+    async openVideoBgPicker(onSelect, onCancel) {
+        _videoPickerSession = { onSelect, onCancel, hasSelected: false };
+
+        openGenericDrawer({ // core/generic-drawer.js
+            height: '90vh',
+            zIndex: Z_INDEX.GENERIC_DRAWER, // core/config.js — mặc định, không có modal nào khác mở đồng thời picker này
+            headerHtml: this._buildVideoPickerHeaderHtml(t('fileManager.video.pickerTitle')),
+            bodyHtml: this._buildVideoPickerBodyHtml(),
+            bodyClass: 'flex flex-col',
+        });
+
+        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
+        if (closeBtn) closeBtn.addEventListener('click', () => {
+            eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.videoPicker.close.click', payload: {} });
+        });
+
+        // Click tile — delegated NGAY TRÊN genericDrawerBody (Generic Drawer là ANH EM của
+        // #app-stack, KHÔNG nằm trong settingsStackBody — PHẢI tự wire riêng ở đây, cùng khuôn
+        // `_openImagePickerDrawer()` Photo).
+        genericDrawerBody.addEventListener('click', (e) => {
+            const tile = e.target.closest('[data-video-key]');
+            if (!tile) return;
+            eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.videoPicker.tile.click', payload: { videoKey: tile.dataset.videoKey } });
+        });
+
+        await new Promise((resolve) => {
+            genericDrawerPanel.addEventListener('transitionend', function onOpenTransitionEnd() {
+                genericDrawerPanel.removeEventListener('transitionend', onOpenTransitionEnd);
+                resolve();
+            }, { once: true });
+        });
+
+        const videos = await listVideos(); // core/file-manager/video.js
+        if (!_videoPickerSession) return; // guard — user đóng picker RẤT NHANH trong lúc đang đọc DB
+
+        const scrollEl = genericDrawerBody.querySelector('#file-manager-video-picker-scroll');
+        const emptyEl = genericDrawerBody.querySelector('#file-manager-video-picker-empty');
+        if (emptyEl) emptyEl.classList.toggle('hidden', videos.length > 0);
+        workflowVideoGalleryWindow.mount('genericDrawer', { scrollEl, videos, badgeMode: null, selectedKeys: new Set() }); // event/workflow/video-gallery-window.js — single-select, KHÔNG badge, tap = chọn ngay
+    },
+
+    _buildVideoPickerHeaderHtml(title) {
+        return `
+            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
+                <h3 class="text-base font-bold text-slate-900">${title}</h3>
+                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+        `;
+    },
+
+    _buildVideoPickerBodyHtml() {
+        return `
+            <div class="flex-1 min-h-0 overflow-y-auto relative" id="file-manager-video-picker-scroll">
+                <p id="file-manager-video-picker-empty" class="hidden text-sm text-slate-400 text-center py-10 px-6">${t('fileManager.video.empty')}</p>
+            </div>
+        `;
+    },
+
+    /** Ứng với 'fileManagerVideo.videoPicker.tile.click' — LUÔN single-select (khác Photo không cần
+     * branch theo `mode`) — bấm là chọn NGAY, đóng drawer luôn.
+     * @param {string} videoKey
+     */
+    handleVideoPickerTileClick(videoKey) {
+        if (!_videoPickerSession) return; // guard: picker đã đóng (race hiếm, vd đóng đúng lúc tap)
+        _videoPickerSession.hasSelected = true;
+        const onSelect = _videoPickerSession.onSelect;
+        this._teardownVideoPicker();
+        onSelect(videoKey);
+    },
+
+    /** Ứng với 'fileManagerVideo.videoPicker.close.click' — đóng picker qua nút X (huỷ, chưa chọn
+     * gì) — `onCancel` CHỈ gọi khi CHƯA `hasSelected` (tránh gọi 2 lần nếu race hiếm). */
+    handleVideoPickerCloseClick() {
+        if (!_videoPickerSession) return;
+        const { onCancel, hasSelected } = _videoPickerSession;
+        this._teardownVideoPicker();
+        if (!hasSelected && typeof onCancel === 'function') onCancel();
+    },
+
+    /** Dọn session + unmount windowing (revoke object URL NGAY) + đóng drawer — DÙNG CHUNG cho MỌI
+     * lối thoát picker (chọn xong/huỷ). */
+    _teardownVideoPicker() {
+        workflowVideoGalleryWindow.unmount('genericDrawer'); // event/workflow/video-gallery-window.js
+        this._closeGenericDrawerFully();
+        _videoPickerSession = null;
+    },
+
+    /** Trượt Generic Drawer xuống RỒI ẩn hẳn sau `transitionend` — cùng khuôn `_closeGenericDrawerFully()`
+     * ở event/workflow/file-manager-photo.js (Core `core/generic-drawer.js` KHÔNG được tự
+     * `addEventListener` cho DOM tĩnh, Rule 5a — chỉ Workflow được làm). Viết riêng bản của Video
+     * (Rule 3: mỗi domain module tự chứa, không gọi chéo Workflow khác cho tiện ích nhỏ này). */
+    _closeGenericDrawerFully() {
+        closeGenericDrawer(); // core/generic-drawer.js
+        genericDrawerPanel.addEventListener('transitionend', function onTransitionEnd() {
+            genericDrawerPanel.removeEventListener('transitionend', onTransitionEnd);
+            hideGenericDrawerImmediately(); // core/generic-drawer.js
+        }, { once: true });
     },
 };
