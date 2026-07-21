@@ -32,17 +32,24 @@
  * `steerSpaceForward3D()` (yaw+pitch, đủ 3 chiều, KHÔNG giới hạn biên độ). `GalaxyCluster`
  * constructor nhận thêm `driftSpeedFactor` (đọc dải FFT bin lúc spawn, xem
  * `computeGalaxyDriftSpeedFactor()`).
+ *
+ * VIẾT LẠI LẦN 2 (21/07/2026, phản hồi Giang lượt 9 — "thay vì vừa chuyển vừa tạo... ngay từ đầu
+ * tạo 1 map thiên hà sẵn có 3D trải đều các hướng"): bỏ hẳn mô hình chuỗi thiên hà "vừa bay vừa
+ * spawn/dispose theo cửa sổ phía trước camera" (`computeGalaxyClusterCore()`,
+ * `SPACE_CLUSTER_SPACING_Z`) — thay bằng `generateGalaxyMapNodePositions()`: dựng CẢ 1 bản đồ TĨNH
+ * (N nút phân bố đều NGẪU NHIÊN trong 1 khối cầu quanh 1 tâm) 1 LẦN, Workflow tự quyết định khi
+ * nào tái tạo lại toàn bộ (`_ensureGalaxyMap()`, event/workflow/visualizer-render.js).
  */
 
 // ============================================================================================
 // 1. HẰNG SỐ / DỮ LIỆU (không phải hàm — tham chiếu tự do, KHÔNG tính là "gọi hàm")
 // ============================================================================================
 
-/** Khoảng cách trục Z giữa 2 "nút" liên tiếp của sợi vũ trụ (mỗi nút sinh 1 số thiên hà). GIẢM
- * THÊM (mục 2, phản hồi 21/07/2026 lượt 7 — "tăng lượng thiên hà xuất hiện lên"), trước 200 ->
- * 110 (lượt 3) -> 70 (lượt 5) -> 45 (lượt 7, cùng với tăng số thiên hà/nút, xem
- * `_spawnGalaxyNodeMembers()`, event/workflow/visualizer-render.js). */
-const SPACE_CLUSTER_SPACING_Z = 45;
+// (SPACE_CLUSTER_SPACING_Z ĐÃ BỎ, 21/07/2026 lượt 9, phản hồi Giang — "thay vì vừa chuyển vừa tạo,
+// ngay từ đầu tạo 1 map thiên hà sẵn có 3D trải đều các hướng, khỏi cần tính sinh cụm/tính hướng
+// theo camera nữa" — chuỗi thiên hà "vừa bay vừa spawn/dispose theo cửa sổ phía trước" ĐÃ BỎ HẲN,
+// thay bằng bản đồ TĨNH dựng 1 lần rồi bay vòng quanh trong đó, xem `generateGalaxyMapNodePositions()`
+// bên dưới + `event/workflow/visualizer-render.js::_ensureGalaxyMap()`.)
 
 /** Định danh ngẫu nhiên chuẩn khoa học (giữ nguyên tinh thần bản demo, số liệu không kế thừa gì
  * đặc biệt — chỉ là 1 danh sách tên hợp lý cho bản MỚI). */
@@ -595,48 +602,42 @@ function computeSpaceForwardBasis(forward) {
 }
 
 /**
- * Toạ độ "nút" của sợi vũ trụ, đo `distanceAhead` ĐƠN VỊ KHOẢNG CÁCH TỪ `originPos` (vị trí camera
- * NGAY LÚC gọi hàm), THEO ĐÚNG hướng camera đang bay (`forward`/`right`/`up`).
- *
- * FIX (21/07/2026, phản hồi Giang lượt 4, mục 3 — "thiên hà sinh mới vẫn phân bố không đều, chỉ
- * tập trung ở khu vực nào đó"): bản trước lệch ngang/dọc theo `sin(wobbleSeed*0.95)`/
- * `cos(wobbleSeed*0.7)` — 2 hàm TUẦN HOÀN, biến thiên CHẬM giữa các nút liên tiếp (wobbleSeed chỉ
- * tăng 1 mỗi nút) — tạo ra 1 "hành lang" hẹp uốn lượn ĐỀU ĐẶN, khiến phần lớn thiên hà nhìn thấy
- * cùng lúc (nhiều nút trong tầm nhìn 1500 đơn vị) đều dồn về gần CÙNG 1 phía so với trục bay, thay
- * vì trải khắp màn hình. VIẾT LẠI: NGẪU NHIÊN THẬT (Math.random()) cho mỗi nút — độc lập hoàn toàn
- * giữa các nút liên tiếp, trải đều thật sự theo thời gian dài. `wobbleSeed` KHÔNG CÒN dùng (bỏ
- * tham số) vì random thật không cần "hạt giống" tuần tự nữa.
- *
- * VIẾT LẠI LẦN 2 (21/07/2026, phản hồi Giang lượt 7, mục 2 — "phân bổ đều trên khắp màn hình,
- * hướng camera dự kiến trước khi quay") — bản trước lệch ngang/dọc biên độ CỐ ĐỊNH (260/140) BẤT
- * KỂ `distanceAhead` — khiến nút GẦN bị tán quá rộng (lệch ra ngoài cả góc nhìn camera) trong khi
- * nút XA lại tán quá hẹp (không phủ hết bề ngang màn hình ở khoảng cách đó) — hình dạng vùng sinh
- * thiên hà thực chất là 1 "ỐNG" đường kính cố định, không phải HÌNH NÓN đúng theo phối cảnh
- * camera. Giờ biên độ lệch TỈ LỆ THUẬN với `distanceAhead` (nhân thêm
- * `lateralSpreadH`/`lateralSpreadV` — Workflow tự tính từ góc nhìn camera, xem
- * `event/workflow/visualizer-render.js`) — ra đúng HÌNH NÓN mở rộng dần theo khoảng cách, phủ ĐỀU
- * khắp khung hình ở MỌI độ sâu.
- * @param {THREE.Vector3} originPos @param {THREE.Vector3} forward @param {THREE.Vector3} right
- * @param {THREE.Vector3} up @param {number} distanceAhead
- * @param {number} lateralSpreadH - tỉ lệ lệch NGANG tối đa / 1 đơn vị khoảng cách (vd tan(nửa góc FOV ngang))
- * @param {number} lateralSpreadV - tỉ lệ lệch DỌC tối đa / 1 đơn vị khoảng cách
- * @returns {THREE.Vector3}
+ * Sinh TOÀN BỘ toạ độ "nút" của 1 bản đồ thiên hà TĨNH — VIẾT LẠI HOÀN TOÀN (21/07/2026, phản hồi
+ * Giang lượt 9 — "thay vì vừa chuyển vừa tạo. Ngay từ lúc đầu tạo ra một map thiên hà sẵn có 3D
+ * trải đều các hướng và không gian khu vực và một array gồm toạ độ x,y,z của các cụm thiên hà...
+ * như vậy khỏi cần tính việc sinh ra cụm và thiên hà tính hướng") — THAY HẲN
+ * `computeGalaxyClusterCore()` cũ (đặt 1 "nút" duy nhất phía trước camera theo `forward`, gọi lặp
+ * lại MỖI FRAME khi cần mở rộng cửa sổ nhìn xa — mô hình "vừa bay vừa sinh"). Giờ sinh CẢ N nút
+ * CÙNG LÚC, phân bố ĐỀU NGẪU NHIÊN theo THỂ TÍCH (không dồn về tâm — bán kính lấy căn bậc 3 của số
+ * ngẫu nhiên, chuẩn lấy mẫu đều trong hình cầu) trong 1 khối CẦU bán kính `mapRadius` quanh
+ * `centerPos` (thường là vị trí camera TẠI THỜI ĐIỂM dựng/tái tạo bản đồ — xem
+ * `event/workflow/visualizer-render.js::_ensureGalaxyMap()`), phủ ĐỦ MỌI HƯỚNG chứ không riêng
+ * phía trước — bay sang hướng nào cũng có sẵn thiên hà, không cần tính toán gì thêm lúc camera đổi
+ * hướng.
+ * @param {THREE.Vector3} centerPos @param {number} nodeCount @param {number} mapRadius
+ * @returns {THREE.Vector3[]}
  */
-function computeGalaxyClusterCore(originPos, forward, right, up, distanceAhead, lateralSpreadH, lateralSpreadV) {
-    const rightWobble = (Math.random() - 0.5) * 2 * distanceAhead * lateralSpreadH;
-    const upWobble = (Math.random() - 0.5) * 2 * distanceAhead * lateralSpreadV;
-    return originPos.clone()
-        .addScaledVector(forward, distanceAhead)
-        .addScaledVector(right, rightWobble)
-        .addScaledVector(up, upWobble);
+function generateGalaxyMapNodePositions(centerPos, nodeCount, mapRadius) {
+    const positions = [];
+    for (let i = 0; i < nodeCount; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(Math.random() * 2 - 1);
+        const r = mapRadius * Math.cbrt(Math.random());
+        positions.push(new THREE.Vector3(
+            centerPos.x + r * Math.sin(phi) * Math.cos(theta),
+            centerPos.y + r * Math.sin(phi) * Math.sin(theta),
+            centerPos.z + r * Math.cos(phi)
+        ));
+    }
+    return positions;
 }
 
-/** Offset ngẫu nhiên (phân tán quanh 1 nút) cho 1 thành viên trong cụm — bán kính TĂNG (fix mục 2,
- * phản hồi 21/07/2026 — "phân bổ đều trên màn hình xa gần", trước 40-85 quá hẹp so với khoảng
- * cách giữa các nút, khiến phần lớn khung hình trống).
+/** Offset ngẫu nhiên (phân tán quanh 1 nút) cho 1 thành viên trong cụm — CO LẠI (21/07/2026, lượt
+ * 9, phản hồi Giang mục 5 — "co lại các cụm và thiên hà lại với nhau... để tạo cảm giác san sát và
+ * ít khoảng trống đen nhất"), trước 70-160 (lượt 7) -> 40-85.
  * @returns {THREE.Vector3} */
 function computeGalaxyMemberOffset() {
-    const dispRadius = 70 + Math.random() * 90;
+    const dispRadius = 40 + Math.random() * 45;
     const angle = Math.random() * Math.PI * 2;
     const elevation = (Math.random() - 0.5) * Math.PI * 0.5;
     return new THREE.Vector3(
