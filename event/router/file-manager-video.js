@@ -39,18 +39,46 @@ const routerFileManagerVideo = (() => {
             }
 
             case 'fileManagerVideo.video.click': {
-                const { videoKey } = msg.payload;
-                // 2 Ý NGHĨA loại trừ nhau: đánh dấu chờ xoá (xoá nhanh) / mở preview (bình thường) —
-                // cần đọc `videoQuickDeleteMode` (state RIÊNG của Router) để CHỌN đích -> LUÔN
-                // VirtualMachineState (event-bus-flow.md mục 4C).
+                const { videoKey, anchorEl } = msg.payload;
+                // 2 Ý NGHĨA loại trừ nhau: đánh dấu chờ xoá (xoá nhanh) / mở menu action (bình
+                // thường, SỬA 21/07/2026 — trước đây mở preview fullscreen, giờ mở dropdown, xem
+                // workflowFileManagerVideo.openVideoTileActionMenu()) — cần đọc `videoQuickDeleteMode`
+                // (state RIÊNG của Router) để CHỌN đích -> LUÔN VirtualMachineState (event-bus-
+                // flow.md mục 4C).
                 VirtualMachineState.run([
                     { state: videoQuickDeleteMode, operation: '===', value: true, callback: () => {
                         workflowFileManagerVideo.toggleQuickDeleteMarkInSet(videoKey, quickDeleteSelectedKeys);
                     } },
                     { state: !videoQuickDeleteMode, operation: '===', value: true, callback: () => {
-                        workflowFileManagerVideo.openVideoPreview(videoKey); // >1 hàm core -> workflow
+                        workflowFileManagerVideo.openVideoTileActionMenu(videoKey, anchorEl);
                     } },
                 ]);
+                break;
+            }
+
+            // MỚI (21/07/2026, Giang yêu cầu "bấm video hiện dropdown menu: Set as bg video/Edit
+            // video/Xoá") — đích dispatch của dropdown (workflowFileManagerVideo.openVideoTileActionMenu()).
+            case 'fileManagerVideo.tileMenu.action.click': {
+                const { action, videoKey } = msg.payload;
+                VirtualMachineState.run([
+                    { state: action, operation: '===', value: 'setAsBgVideo', callback: () => {
+                        workflowFileManagerVideo.setVideoAsBackground(videoKey);
+                    } },
+                    { state: action, operation: '===', value: 'editVideo', callback: () => {
+                        workflowFileManagerVideo.showEditVideoPlaceholder();
+                    } },
+                    { state: action, operation: '===', value: 'delete', callback: () => {
+                        workflowFileManagerVideo.confirmDeleteSingleVideo(videoKey);
+                    } },
+                ]);
+                break;
+            }
+
+            // MỚI (21/07/2026, Giang yêu cầu "toggle Video Player chuyển vào Video UI") — checkbox
+            // trong panel (components/file-manager.js::renderFileManagerVideoPanelBody()).
+            case 'fileManagerVideo.playerModeToggle.change': {
+                const { checked } = msg.payload;
+                workflowFileManagerVideo.togglePlayerModeFromPanel(checked); // >1 hàm core (đọc vizConfig + gọi workflowVideoPlayer) -> workflow
                 break;
             }
 

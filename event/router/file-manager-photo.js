@@ -327,6 +327,34 @@ const routerFileManagerPhoto = (() => {
                 break;
             }
 
+            // MỚI (21/07/2026, Giang yêu cầu "menu action ảnh chuyển từ Generic Drawer sang
+            // dropdown") — đích dispatch của dropdown (event/workflow/file-manager-photo.js::
+            // _openImageActionMenu()) — dùng `activeAlbumId` CỦA ROUTER (closure, KHÔNG qua
+            // payload) — luôn phản ánh ĐÚNG ngữ cảnh đang lọc lúc action THẬT SỰ chạy, tránh lệch
+            // nếu người dùng đổi ngữ cảnh giữa lúc mở menu và lúc bấm action (hiếm, nhưng an toàn
+            // hơn truyền qua payload lúc mở menu).
+            case 'fileManagerPhoto.imageMenu.action.click': {
+                const { action, imageKey } = msg.payload;
+                VirtualMachineState.run([
+                    { state: action, operation: '===', value: 'setPlaylistBg', callback: () => {
+                        workflowFileManagerPhoto.setAsPlaylistBackground(imageKey);
+                    } },
+                    { state: action, operation: '===', value: 'setVisualBg', callback: () => {
+                        workflowFileManagerPhoto.setAsVisualBackground(imageKey);
+                    } },
+                    { state: action, operation: '===', value: 'editImage', callback: () => {
+                        workflowFileManagerPhoto.navigateToImageEdit(imageKey);
+                    } },
+                    { state: action, operation: '===', value: 'removeFromAlbum', callback: () => {
+                        removeImageFromAlbum(imageKey, activeAlbumId).then(() => workflowFileManagerPhoto.refresh(activeAlbumId)); // core/file-manager/album.js
+                    } },
+                    { state: action, operation: '===', value: 'delete', callback: () => {
+                        deleteImage(imageKey).then(() => workflowFileManagerPhoto.refresh(activeAlbumId)); // core/file-manager/image.js — cascade dọn album
+                    } },
+                ]);
+                break;
+            }
+
             default:
                 console.warn(`[router:fileManagerPhoto] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`, msg);
         }
