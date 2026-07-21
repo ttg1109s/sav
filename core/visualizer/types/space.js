@@ -17,6 +17,17 @@
  * quản lý vòng đời từng leg — file này chỉ còn giữ các hàm TÍNH TOÁN thuần cho từng bước
  * (nội suy vị trí, dựng hướng camera ỔN ĐỊNH không lật roll, quản lý chuỗi thiên hà, bụi nền,
  * render).
+ *
+ * VIẾT LẠI LẦN 3 (21/07/2026, phản hồi Giang lượt 6) — tách HẲN "di chuyển" và "xoay hướng" thành
+ * 2 PHA riêng biệt, không chồng lên nhau (`spPhase`: 'travel' | 'rotating', xem
+ * `event/workflow/visualizer-render.js`): pha TRAVEL camera di chuyển A->B theo hướng CỐ ĐỊNH
+ * (không đổi hướng nhìn); đến B, xác nhận đủ mật độ thiên hà hướng kế tiếp mới chuyển sang pha
+ * ROTATE — vị trí camera KHOÁ NGUYÊN tại B, chỉ hướng NHÌN đổi dần X->Y. Rotate xong mới bắt đầu
+ * TRAVEL leg kế tiếp. THÊM MỚI: `findNearestClusterAhead()` (waypoint nhắm cụm thiên hà gần nhất
+ * thay vì công thức mù), `computeSpaceLegControlPoint()` + đổi `computeSpaceLegPosition()` sang
+ * Quadratic Bezier (quỹ đạo CONG thay vì thẳng tắp), `computeSpaceRotateForward()`/
+ * `computeAngleBetweenForwards()`/`computeSpaceRotateDuration()` (nội suy + tính thời lượng pha
+ * ROTATE, mượt theo góc — góc nhỏ xoay nhanh, góc lớn xoay chậm hơn, KHÔNG tuyến tính).
  */
 
 /**
@@ -43,24 +54,113 @@ function assessGalaxyDensityAhead(clusters, camPos, forward, checkDistance, late
     return count;
 }
 
+/**
+ * Tìm cụm thiên hà GẦN NHẤT nằm trong 1 "nón" phía trước theo hướng `forward` — MỚI (21/07/2026,
+ * phản hồi Giang mục 3 — "thay vì sinh ngẫu nhiên, dựa theo hướng camera, tìm điểm nextPos tới cụm
+ * thiên hà kế cận và bay xuyên qua"). Hàm THUẦN, CHỈ tìm/trả về, KHÔNG spawn/dispose gì — Workflow
+ * tự đọc kết quả rồi tự quyết định dùng vị trí này làm waypoint hay rơi về công thức mù (không cụm
+ * nào khớp — vd vừa bẻ lái sang vùng chưa kịp spawn), xem
+ * `event/workflow/visualizer-render.js::_computeTravelWaypoint()`.
+ * @param {GalaxyCluster[]} clusters @param {THREE.Vector3} camPos @param {THREE.Vector3} forward
+ * @param {number} maxAngleCos - cos(góc nón tối đa) — 1 = thẳng chính giữa, càng nhỏ nón càng rộng
+ * @param {number} maxDist
+ * @returns {THREE.Vector3|null} vị trí cụm gần nhất, null nếu không có cụm nào khớp
+ */
+function findNearestClusterAhead(clusters, camPos, forward, maxAngleCos, maxDist) {
+    let nearestPos = null;
+    let nearestDist = Infinity;
+    for (let i = 0; i < clusters.length; i++) {
+        const offset = clusters[i].position.clone().sub(camPos);
+        const dist = offset.length();
+        if (dist <= 0 || dist > maxDist) continue;
+        const cosAngle = offset.dot(forward) / dist;
+        if (cosAngle < maxAngleCos) continue;
+        if (dist < nearestDist) { nearestDist = dist; nearestPos = clusters[i].position; }
+    }
+    return nearestPos ? nearestPos.clone() : null;
+}
+
 // (applySpaceRoll() ĐÃ BỎ, 21/07/2026, phản hồi Giang — "roll... đang bị hiểu nhầm thành rotate
 // 2D chứ không phải bẻ hướng di chuyển của camera". Hàm này chỉ xoay trục lên/phải quanh CHÍNH
 // hướng nhìn (cosmetic tilt/bank, KHÔNG đổi hướng ĐI) — sai bản chất yêu cầu. Thay bằng
-// `steerSpaceForward()` (core/webgl/three-space.js) — xoay THẲNG vector forward, đổi HƯỚNG ĐI
-// thật sự, xem event/workflow/visualizer-render.js.)
+// `steerSpaceForward3D()` (core/webgl/three-space.js, ĐỔI TÊN lượt 6 — thêm pitch, xem đầu file
+// đó) — xoay THẲNG vector forward, đổi HƯỚNG ĐI thật sự, xem event/workflow/visualizer-render.js.)
 
 /**
- * Nội suy MƯỢT (smoothstep, không tuyến tính) vị trí camera dọc theo 1 "leg" (chặng di chuyển từ
- * 1 waypoint tới waypoint kế tiếp — mục 3 "waypoint nối tiếp", ÁP DỤNG CHO MỌI leg, không riêng gì
- * lúc "nhảy" cụm thiên hà nữa, xem đổi tên từ `computeSpaceJumpPosition` cũ). `progress` tăng dần
- * 0→1 theo thời gian đã trôi qua / tổng thời lượng leg (tính từ BPM hiện tại lúc BẮT ĐẦU leg, xem
- * Workflow).
- * @param {THREE.Vector3} fromPos @param {THREE.Vector3} toPos @param {number} progress - 0..1 (ngoài khoảng tự kẹp)
+ * Điểm điều khiển (control point) cho quỹ đạo CONG (Quadratic Bezier) — MỚI (21/07/2026, phản hồi
+ * Giang mục 4 — "cung di chuyển uốn lượn cong trên hoặc dưới, trái phải hay phải trái thay vì
+ * tuyến tính thẳng"). LƯU Ý: bản LUT sin cong trước đó đã bị chính Giang yêu cầu bỏ hẳn ("bỏ LUT +
+ * bar hoàn toàn") — lần này KHÔNG dùng lại LUT, chỉ 1 điểm lệch NGẪU NHIÊN kết hợp CẢ `right` LẪN
+ * `up` cùng lúc (cong được mọi hướng: lên/xuống/trái/phải/chéo) tại trung điểm quãng đường, sinh 1
+ * LẦN lúc BẮT ĐẦU leg (pha TRAVEL), giữ nguyên suốt leg đó.
+ * @param {THREE.Vector3} fromPos @param {THREE.Vector3} toPos @param {THREE.Vector3} right
+ * @param {THREE.Vector3} up @param {number} curveStrength - biên độ lệch tối đa (đơn vị 3D)
+ * @returns {THREE.Vector3}
+ */
+function computeSpaceLegControlPoint(fromPos, toPos, right, up, curveStrength) {
+    const mid = fromPos.clone().lerp(toPos, 0.5);
+    const lateral = (Math.random() - 0.5) * 2;
+    const vertical = (Math.random() - 0.5) * 2;
+    return mid.addScaledVector(right, lateral * curveStrength).addScaledVector(up, vertical * curveStrength);
+}
+
+/**
+ * Nội suy vị trí camera dọc theo 1 "leg" (pha TRAVEL) — ĐỔI (21/07/2026, phản hồi Giang mục 4) từ
+ * lerp THẲNG sang Quadratic Bezier (`fromPos`/`controlPoint`/`toPos`) — quỹ đạo CONG thay vì
+ * đường thẳng tắp, `controlPoint` sinh ngẫu nhiên lúc bắt đầu leg (xem
+ * `computeSpaceLegControlPoint()`). `progress` vẫn easing smoothstep như cũ (chậm lúc đầu/cuối,
+ * nhanh giữa chừng) — CHỈ đổi ĐƯỜNG ĐI, không đổi nhịp độ tăng tốc.
+ * @param {THREE.Vector3} fromPos @param {THREE.Vector3} controlPoint @param {THREE.Vector3} toPos
+ * @param {number} progress - 0..1 (ngoài khoảng tự kẹp)
  * @returns {THREE.Vector3} */
-function computeSpaceLegPosition(fromPos, toPos, progress) {
+function computeSpaceLegPosition(fromPos, controlPoint, toPos, progress) {
     const clamped = Math.max(0, Math.min(1, progress));
-    const eased = clamped * clamped * (3 - 2 * clamped); // smoothstep — chậm lúc đầu/cuối, nhanh giữa chừng
-    return fromPos.clone().lerp(toPos, eased);
+    const t = clamped * clamped * (3 - 2 * clamped); // smoothstep — chậm lúc đầu/cuối, nhanh giữa chừng
+    const invT = 1 - t;
+    return fromPos.clone().multiplyScalar(invT * invT)
+        .addScaledVector(controlPoint, 2 * invT * t)
+        .addScaledVector(toPos, t * t);
+}
+
+/**
+ * Góc lệch (độ, 0-180) giữa 2 hướng nhìn — MỚI (21/07/2026, phản hồi Giang — thời lượng pha
+ * ROTATE phải tỉ lệ theo góc quay, xem `computeSpaceRotateDuration()`).
+ * @param {THREE.Vector3} fromForward @param {THREE.Vector3} toForward @returns {number}
+ */
+function computeAngleBetweenForwards(fromForward, toForward) {
+    const dot = THREE.MathUtils.clamp(fromForward.dot(toForward), -1, 1);
+    return THREE.MathUtils.radToDeg(Math.acos(dot));
+}
+
+/**
+ * Thời lượng (giây) cho pha XOAY HƯỚNG (ROTATE) — MỚI (21/07/2026, phản hồi Giang — "xoay hướng
+ * này phải được làm mềm... dù quay 1-30 độ hay 1-180 độ cảm giác mượt vẫn là như nhau" — tức
+ * KHÔNG tuyến tính, chỉ minh hoạ bằng ví dụ, không áp cứng số). Power-law: góc càng lớn thời
+ * lượng càng dài, mũ < 1 khiến góc nhỏ đã tăng nhanh rồi thoải dần về `maxDuration` lúc góc gần
+ * 180° (đường lõm, không tuyến tính).
+ * @param {number} angleDeg @param {number} minDuration @param {number} maxDuration @param {number} power
+ * @returns {number} giây
+ */
+function computeSpaceRotateDuration(angleDeg, minDuration, maxDuration, power) {
+    const clampedAngle = Math.max(0, Math.min(180, angleDeg));
+    const ratio = Math.pow(clampedAngle / 180, power);
+    return minDuration + (maxDuration - minDuration) * ratio;
+}
+
+/**
+ * Hướng camera TẠI 1 thời điểm giữa pha ROTATE — nội suy quaternion (slerp) từ `fromForward` sang
+ * `toForward`, PHỦ ĐỦ mọi góc kể cả gần/đúng 180° đối cực (`setFromUnitVectors()` tự chọn trục
+ * xoay dự phòng khi 2 vector gần như ngược hướng nhau — KHÔNG suy biến như nlerp thô ở góc này,
+ * cần thiết vì pitch KHÔNG giới hạn biên độ, xem `steerSpaceForward3D()`). Camera KHÔNG đổi VỊ TRÍ
+ * trong pha này (Workflow tự khoá `spCamera.position`, xem
+ * `event/workflow/visualizer-render.js::_advanceSpaceRotate()`), chỉ hướng NHÌN đổi dần.
+ * @param {THREE.Vector3} fromForward @param {THREE.Vector3} toForward @param {number} t - 0..1 (đã easing)
+ * @returns {THREE.Vector3}
+ */
+function computeSpaceRotateForward(fromForward, toForward, t) {
+    const qTarget = new THREE.Quaternion().setFromUnitVectors(fromForward, toForward);
+    const qCurrent = new THREE.Quaternion().slerp(qTarget, t);
+    return fromForward.clone().applyQuaternion(qCurrent).normalize();
 }
 
 /**
