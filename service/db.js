@@ -84,11 +84,18 @@
         //                     Giang): content LUÔN là MẢNG đoạn văn (không phải 1 chuỗi dài), tách
         //                     lúc upload/tạo (xem core/file-manager/document.js). CHỈ createdBy=
         //                     'user' được sửa nội dung trong Reader.
+        // MỚI (21/07/2026, module File Manager -> Video) — tăng lên 5, thêm 1 store nữa:
+        //   - 'videos'      : video người dùng thêm vào File Manager, key = videoKey, value =
+        //                     { blob, thumbBlob, width, height, duration, filename, addedAt } —
+        //                     CÙNG SCHEMA `images` (xem `thumbBlob`/`width`/`height` ở comment
+        //                     store 'images' trên) + thêm `duration` (giây, số thực, đo lúc upload
+        //                     — event/workflow/file-manager-video.js). KHÔNG có quan hệ album nào
+        //                     (Video không có khái niệm Album, khác Photo).
         // Field `folder: { [folderId]: position }` trên record của store 'songs' KHÔNG cần đổi
         // version DB (IndexedDB không ràng buộc schema trong value của 1 store) — chỉ cần các core
         // function đọc/ghi record 'songs' biết thêm field này khi cần (việc của bước sau, xem
         // plan-v12 mục 5 bước 2-3), KHÔNG thuộc phạm vi hạ tầng DB ở bước này.
-        const DB_VERSION = 4;
+        const DB_VERSION = 5;
 
         // FIX (11/07/2026, phát hiện qua bảng debug log MỚI trên subtitle-editor.html — xem
         // ReferenceError "Can't find variable: appState" + "Cannot access 'songsStore' before
@@ -141,6 +148,7 @@
                     if (!db.objectStoreNames.contains('images')) db.createObjectStore('images');
                     if (!db.objectStoreNames.contains('albums')) db.createObjectStore('albums');
                     if (!db.objectStoreNames.contains('documents')) db.createObjectStore('documents');
+                    if (!db.objectStoreNames.contains('videos')) db.createObjectStore('videos'); // MỚI (21/07/2026, module Video)
                 };
                 request.onsuccess = () => {
                     const db = request.result;
@@ -198,6 +206,7 @@
         const imagesStore = makeStoreAccessor('images');
         const albumsStore = makeStoreAccessor('albums');
         const documentsStore = makeStoreAccessor('documents');
+        const videosStore = makeStoreAccessor('videos'); // MỚI (21/07/2026, module Video)
 
         /** CRUD cho store 'languages' — dùng bởi lang.js (saveLanguagePack/applySavedLanguage/
          * deleteLanguagePack). Key luôn là mã ngôn ngữ (vd 'vi'), KHÔNG bao giờ là 'en' (en nằm
@@ -239,6 +248,12 @@
         function setDocumentRecord(documentKey, record) { return idbKeyval.set(documentKey, record, documentsStore); }
         function deleteDocumentRecord(documentKey) { return idbKeyval.del(documentKey, documentsStore); }
         function getAllDocumentKeys() { return idbKeyval.keys(documentsStore); }
+
+        // MỚI (21/07/2026, module File Manager -> Video) — CRUD thô, cùng khuôn 'images' ở trên.
+        function getVideoRecord(videoKey) { return idbKeyval.get(videoKey, videosStore); }
+        function setVideoRecord(videoKey, record) { return idbKeyval.set(videoKey, record, videosStore); }
+        function deleteVideoRecord(videoKey) { return idbKeyval.del(videoKey, videosStore); }
+        function getAllVideoKeys() { return idbKeyval.keys(videosStore); }
 
 
         /**
