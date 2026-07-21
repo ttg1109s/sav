@@ -68,9 +68,9 @@
         // nhiều thiên hà đồng thời. `galaxyMapRadius` cũng co theo — bán kính NHỎ hơn cần ÍT nút
         // hơn vẫn giữ được cảm giác "san sát" (mục 5).
         const PERFORMANCE_PROFILES = {
-            high: { stars: 200, tunnelRings: 60, glassDrops: 250, bldMult: 1.0, streakProb: 0.8, blurMult: 1.0, streetRain: 220, galaxyStarsMin: 3800, galaxyStarsMax: 6000, galaxyNebulaCount: 35, galaxyDustCount: 1500, galaxyMapNodes: 100, galaxyMapRadius: 900 },
-            medium: { stars: 100, tunnelRings: 35, glassDrops: 100, bldMult: 1.5, streakProb: 0.9, blurMult: 0.5, streetRain: 130, galaxyStarsMin: 2000, galaxyStarsMax: 3000, galaxyNebulaCount: 18, galaxyDustCount: 700, galaxyMapNodes: 62, galaxyMapRadius: 750 },
-            low: { stars: 40, tunnelRings: 15, glassDrops: 40, bldMult: 2.5, streakProb: 0.95, blurMult: 0, streetRain: 70, galaxyStarsMin: 800, galaxyStarsMax: 1200, galaxyNebulaCount: 0, galaxyDustCount: 300, galaxyMapNodes: 32, galaxyMapRadius: 550 }
+            high: { stars: 200, tunnelRings: 60, glassDrops: 250, bldMult: 1.0, streakProb: 0.8, blurMult: 1.0, streetRain: 220, galaxyStarsMin: 3800, galaxyStarsMax: 6000, galaxyNebulaCount: 35, galaxyDustCount: 1500, galaxyMapNodes: 70, galaxyMapRadius: 950 },
+            medium: { stars: 100, tunnelRings: 35, glassDrops: 100, bldMult: 1.5, streakProb: 0.9, blurMult: 0.5, streetRain: 130, galaxyStarsMin: 2000, galaxyStarsMax: 3000, galaxyNebulaCount: 18, galaxyDustCount: 700, galaxyMapNodes: 42, galaxyMapRadius: 800 },
+            low: { stars: 40, tunnelRings: 15, glassDrops: 40, bldMult: 2.5, streakProb: 0.95, blurMult: 0, streetRain: 70, galaxyStarsMin: 800, galaxyStarsMax: 1200, galaxyNebulaCount: 0, galaxyDustCount: 300, galaxyMapNodes: 22, galaxyMapRadius: 600 }
         };
         const DEFAULT_VINYL = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0OCIgZmlsbD0iIzFlMjkzYiIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjE2IiBmaWxsPSIjMGYxNzJhIi8+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iMTUiIGZpbGw9IiNjYmQ1ZTEiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0IiBmaWxsPSIjMGYxNzJhIi8+PC9zdmc+';
         const EQ_FREQS = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
