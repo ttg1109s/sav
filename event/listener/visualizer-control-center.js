@@ -39,22 +39,11 @@ if (typeof visualEnabledToggle !== 'undefined' && visualEnabledToggle) {
     });
 }
 
-if (videoUploadInput) {
-    videoUploadInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        e.target.value = '';
-        if (!file) return;
-        eventBus.send({ router: 'visualizerControlCenter', type: 'visualizerControlCenter.videoUpload.change', payload: { file } });
-    });
-    // MỚI (04/07/2026, mục 1 phản hồi Giang) — sự kiện 'cancel' chuẩn của <input type="file">
-    // (hỗ trợ Chrome/Edge/most WebView hiện đại; trình duyệt cũ hơn chưa hỗ trợ sẽ bỏ qua, toggle
-    // có thể kẹt "on" tới lần đổi khác — nợ kỹ thuật nhỏ, xem plan-v12-multimedia-update-5.md mục 1).
-    // Bắn ra khi người dùng đóng hộp thoại chọn file của OS mà KHÔNG chọn gì — dùng để tự trả
-    // #setting-video-enable về "off" (bug đã báo: gạt On mở hộp thoại, huỷ, toggle vẫn kẹt "on").
-    videoUploadInput.addEventListener('cancel', () => {
-        eventBus.send({ router: 'visualizerControlCenter', type: 'visualizerControlCenter.videoUpload.cancel', payload: {} });
-    });
-}
+// SỬA (21/07/2026, dọn dẹp sau Batch 2 module Video) — block listener `videoUploadInput`
+// (change + cancel) ĐÃ XOÁ HẲN — input `#setting-video-upload` không còn tồn tại trong DOM (xem
+// components/settings/visualizer-geometry-color.js), thay bằng Generic Drawer picker
+// (event/workflow/file-manager-video.js::openVideoBgPicker(), gọi từ
+// event/workflow/visualizer-control-center.js::enableVideoBackgroundToggle()).
 
 // FIX (04/07/2026, mục 1 phản hồi Giang) — bỏ hẳn nút riêng #setting-visual-bg-image-pick (từng mở
 // picker độc lập với toggle #setting-visual-bg-image-enable). Giờ CHỈ CÒN toggle — gạt "On" tự mở
