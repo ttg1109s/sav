@@ -16,10 +16,11 @@ const routerVideoEdit = (() => {
             case 'videoEdit.rotateRight.click': { workflowVideoEditor.handleRotateRight(); break; }
             case 'videoEdit.reset.click': { workflowVideoEditor.handleReset(); break; }
 
-            // MỚI (Batch 2) — Cut.
+            // MỚI (Batch 2) — Cut (kéo thả 2 tay cầm trên filmstrip).
             case 'videoEdit.cut.click': { workflowVideoEditor.handleCutOpen(); break; }
-            case 'videoEdit.cutPickStart.click': { workflowVideoEditor.handleCutPickStart(); break; }
-            case 'videoEdit.cutPickEnd.click': { workflowVideoEditor.handleCutPickEnd(); break; }
+            case 'videoEdit.cutDrag.start': { workflowVideoEditor.handleCutDragStart(msg.payload.handle, msg.payload.clientX); break; }
+            case 'videoEdit.cutDrag.move': { workflowVideoEditor.handleCutDragMove(msg.payload.clientX); break; }
+            case 'videoEdit.cutDrag.end': { workflowVideoEditor.handleCutDragEnd(); break; }
             case 'videoEdit.cutConfirm.click': { workflowVideoEditor.handleCutConfirm(); break; }
             case 'videoEdit.cutCancel.click': { workflowVideoEditor.handleCutCancel(); break; }
             case 'videoEdit.cutReset.click': { workflowVideoEditor.handleCutReset(); break; }
