@@ -296,10 +296,17 @@ const workflowFileManagerVideo = {
         await alertModal(t('fileManager.video.setAsBgVideo.success'));
     },
 
-    /** Ứng với 'fileManagerVideo.tileMenu.action.click' action='editVideo' — PLACEHOLDER (Giang
-     * yêu cầu "tạm thời để placeholder trước") — CHƯA có tính năng edit video thật. */
-    showEditVideoPlaceholder() {
-        alertModal(t('fileManager.video.editVideo.comingSoon'));
+    /** Ứng với 'fileManagerVideo.tileMenu.action.click' action='editVideo' — MỚI (Batch 1, module
+     * Video Editor), THAY placeholder cũ (`showEditVideoPlaceholder()`, chỉ alert "coming soon").
+     * Điều hướng sang trang `video-editor.html`, CÙNG KHUÔN `workflowFileManagerPhoto.
+     * navigateToImageEdit()` (`window.location.href` toàn trang, KHÔNG iframe/popup — 2 trang cùng
+     * origin `file://`, dùng chung IndexedDB). TÁI DÙNG NGUYÊN `encodeSongKeyForUrl()`
+     * (service/song-key-cipher.js) — hàm đó chỉ mã hoá 1 chuỗi key bất kỳ, không có gì đặc thù
+     * "video".
+     * @param {string} videoKey
+     */
+    navigateToVideoEdit(videoKey) {
+        window.location.href = `video-editor.html?video=${encodeSongKeyForUrl(videoKey)}`; // service/song-key-cipher.js
     },
 
     /** Ứng với 'fileManagerVideo.tileMenu.action.click' action='delete' — hỏi xác nhận trước khi
