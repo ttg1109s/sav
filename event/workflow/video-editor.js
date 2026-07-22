@@ -27,14 +27,17 @@
  * từ video tại `currentTime` — Cropper.js không chạy trực tiếp trên `<video>`. Kết quả lưu dạng TỈ
  * LỆ (0-1, không phải px) để không phụ thuộc kích thước hiển thị.
  *
- * PHẠM VI BATCH 2 (MỚI): Cut (chọn khoảng thời gian giữ lại, qua `core/time-picker-modal.js` — dùng
- * chung, đã có sẵn) + Trích xuất ảnh (chụp khung hình hiện tại, lưu THẲNG vào IndexedDB store
- * 'images' qua `core/file-manager/image.js::saveImage()` — KHÔNG qua Save/engine, xuất tức thì,
- * không chờ Batch 4). `core/video-editor/webcodecs-engine.js::processVideo()` đã nhận thêm tham số
- * `cutRange` (sẽ dùng ở Batch 4 lúc bấm Lưu, giống crop/rotate/filter — CHƯA gọi ở batch này).
+ * PHẠM VI BATCH 2 (MỚI): Cut (kéo thả 2 tay cầm hình chữ nhật đứng trên dải filmstrip — GIỐNG
+ * phần mềm biên tập video mobile, phản hồi Giang "cần gì dùng audio, dùng chính video/kéo hình chữ
+ * nhật đứng" — THAY HẲN bản đầu dùng `core/time-picker-modal.js`/WaveSurfer, cả 2 đều bị bác vì
+ * không cho thấy NỘI DUNG hình ảnh tại điểm cắt) + Trích xuất ảnh (chụp khung hình hiện tại, lưu
+ * THẲNG vào IndexedDB store 'images' qua `core/file-manager/image.js::saveImage()` — KHÔNG qua
+ * Save/engine, xuất tức thì, không chờ Batch 4). `core/video-editor/webcodecs-engine.js::
+ * processVideo()` đã nhận thêm tham số `cutRange` (sẽ dùng ở Batch 4 lúc bấm Lưu, giống crop/
+ * rotate/filter — CHƯA gọi ở batch này).
  *
  * NẠP SAU: core/video-editor/compat-guard.js, core/video-editor/frame-extract.js,
- * core/file-manager/image.js, core/time-picker-modal.js, service/db.js,
+ * core/video-editor/filmstrip.js, core/file-manager/image.js, service/db.js,
  * service/song-key-cipher.js, lang/lang.js, Cropper.js (CDN), DOM tĩnh của video-editor.html
  * (event/listener/video-editor.js khai const tham chiếu NGAY ĐẦU file đó — trang nhỏ, không cần
  * dom-refs.js riêng).
@@ -200,23 +203,91 @@ const workflowVideoEditor = {
         }
     },
 
-    // ===================== Cut (khoảng thời gian giữ lại, MỚI Batch 2) =====================
+    // ===================== Cut (filmstrip + kéo thả 2 tay cầm, MỚI — thay hẳn time-picker cũ) =====================
 
-    /** Bấm nút "Cut" — tạm dừng video, mở overlay chọn 2 mốc bắt đầu/kết thúc. Nháp
-     * (`_cutDraftStart/_cutDraftEnd`) tách riêng khỏi `_cutRange` thật — chỉ ghi vào `_cutRange`
-     * lúc bấm "Xong" (Cancel không làm mất lựa chọn cũ, cùng tinh thần overlay Crop). */
-    handleCutOpen() {
+    _filmstripBuilt: false, // chỉ build filmstrip 1 LẦN mỗi phiên mở trang (ảnh không đổi giữa các lần mở overlay)
+    _cutDragHandle: null, // 'start'|'end'|null — tay cầm ĐANG kéo
+    _cutBarLeft: 0,
+    _cutBarWidth: 0,
+
+    /** Bấm nút "Cut" — tạm dừng video, mở overlay, build filmstrip (nếu chưa build) rồi vẽ thanh
+     * kéo theo trạng thái nháp hiện tại. */
+    async handleCutOpen() {
         if (!videoEditorSourceEl.duration) return; // guard — video chưa load xong metadata
         videoEditorSourceEl.pause();
         this._cutDraftStart = this._cutRange ? this._cutRange.start : 0;
         this._cutDraftEnd = this._cutRange ? this._cutRange.end : videoEditorSourceEl.duration;
-        this._updateCutOverlayLabels();
         videoEditorCutOverlayEl.classList.remove('hidden');
+        await this._buildFilmstripIfNeeded();
+        this._renderCutTrimBar();
     },
 
-    _updateCutOverlayLabels() {
-        videoEditorCutStartLabelEl.textContent = this._formatSeconds(this._cutDraftStart);
-        videoEditorCutEndLabelEl.textContent = this._formatSeconds(this._cutDraftEnd);
+    /** Trích khung hình rải đều dựng dải filmstrip nền cho thanh kéo — core/video-editor/
+     * filmstrip.js. Khung nào lỗi (blob null) bị bỏ qua, KHÔNG chặn cả dải. */
+    async _buildFilmstripIfNeeded() {
+        if (this._filmstripBuilt) return;
+        this._filmstripBuilt = true;
+        videoEditorCutFilmstripEl.innerHTML = '';
+        const frames = await buildCutFilmstripFrames(this._record.blob, 12, 80, 64); // core/video-editor/filmstrip.js
+        frames.forEach((frame) => {
+            if (!frame.blob) return; // guard — khung này lỗi, bỏ qua
+            const img = document.createElement('img');
+            img.className = 'h-full flex-1 object-cover';
+            img.src = URL.createObjectURL(frame.blob);
+            videoEditorCutFilmstripEl.appendChild(img);
+        });
+    },
+
+    /** Bắt đầu kéo 1 tay cầm — ghi nhớ kích thước thanh (đo 1 lần lúc bắt đầu kéo, không đo lại
+     * mỗi lần di chuyển) rồi áp NGAY vị trí chạm đầu tiên (không cần đợi lần `pointermove` đầu). */
+    handleCutDragStart(handle, clientX) {
+        this._cutDragHandle = handle;
+        const rect = videoEditorCutFilmstripWrapEl.getBoundingClientRect();
+        this._cutBarLeft = rect.left;
+        this._cutBarWidth = rect.width;
+        this.handleCutDragMove(clientX);
+    },
+
+    /** Kéo tay cầm — kẹp trong biên hợp lệ (không vượt quá tay cầm còn lại trừ khoảng cách tối
+     * thiểu 1s, không vượt [0, duration]), preview NGAY khung hình tương ứng lên video. */
+    handleCutDragMove(clientX) {
+        if (!this._cutDragHandle) return; // guard — không đang kéo tay cầm nào
+        const MIN_GAP_SECONDS = 1;
+        const duration = videoEditorSourceEl.duration || 0;
+        const px = Math.min(this._cutBarWidth, Math.max(0, clientX - this._cutBarLeft));
+        const seconds = this._cutBarWidth > 0 ? (px / this._cutBarWidth) * duration : 0;
+
+        if (this._cutDragHandle === 'start') {
+            this._cutDraftStart = Math.max(0, Math.min(seconds, this._cutDraftEnd - MIN_GAP_SECONDS));
+        } else {
+            this._cutDraftEnd = Math.min(duration, Math.max(seconds, this._cutDraftStart + MIN_GAP_SECONDS));
+        }
+        videoEditorSourceEl.currentTime = this._cutDragHandle === 'start' ? this._cutDraftStart : this._cutDraftEnd;
+        this._renderCutTrimBar();
+    },
+
+    handleCutDragEnd() {
+        this._cutDragHandle = null;
+    },
+
+    /** Vẽ lại vị trí 2 tay cầm + vùng tô mờ ngoài đoạn chọn + nhãn thời gian, theo
+     * `_cutDraftStart`/`_cutDraftEnd` hiện tại. */
+    _renderCutTrimBar() {
+        const rect = videoEditorCutFilmstripWrapEl.getBoundingClientRect();
+        const barWidth = rect.width;
+        const duration = videoEditorSourceEl.duration || 1;
+        const HANDLE_W = 16; // PHẢI khớp w-4 (16px, Tailwind) của tay cầm trong video-editor.html
+        const startPx = (this._cutDraftStart / duration) * barWidth;
+        const endPx = (this._cutDraftEnd / duration) * barWidth;
+
+        videoEditorCutHandleStartEl.style.left = `${Math.max(0, startPx - HANDLE_W / 2)}px`;
+        videoEditorCutHandleEndEl.style.left = `${Math.min(barWidth - HANDLE_W, endPx - HANDLE_W / 2)}px`;
+        videoEditorCutDimLeftEl.style.width = `${startPx}px`;
+        videoEditorCutDimRightEl.style.left = `${endPx}px`;
+        videoEditorCutDimRightEl.style.width = `${Math.max(0, barWidth - endPx)}px`;
+        videoEditorCutSelectionBorderEl.style.left = `${startPx}px`;
+        videoEditorCutSelectionBorderEl.style.width = `${Math.max(0, endPx - startPx)}px`;
+        videoEditorCutRangeLabelEl.textContent = `${this._formatSeconds(this._cutDraftStart)} – ${this._formatSeconds(this._cutDraftEnd)}`;
     },
 
     /** "m:ss" — hàm hiển thị riêng của trang này (KHÔNG gọi core nào khác, Rule 3 — mỗi trang độc
@@ -227,38 +298,6 @@ const workflowVideoEditor = {
         const m = Math.floor(s / 60);
         const rem = s % 60;
         return `${m}:${rem < 10 ? '0' : ''}${rem}`;
-    },
-
-    /** Mở time-picker-modal (core/time-picker-modal.js, dùng chung) chọn điểm BẮT ĐẦU — biên trên
-     * luôn cách điểm kết thúc hiện tại ít nhất 1s. */
-    handleCutPickStart() {
-        openTimePickerModal({ // core/time-picker-modal.js
-            title: t('videoEdit.cutOverlay.pickStart'),
-            format: 's',
-            valueMs: this._cutDraftStart * 1000,
-            minMs: 0,
-            maxMs: Math.max(0, this._cutDraftEnd * 1000 - 1000),
-            onConfirm: (resultMs) => {
-                this._cutDraftStart = resultMs / 1000;
-                this._updateCutOverlayLabels();
-            },
-        });
-    },
-
-    /** Mở time-picker-modal chọn điểm KẾT THÚC — biên dưới luôn cách điểm bắt đầu hiện tại ít nhất 1s. */
-    handleCutPickEnd() {
-        const durationMs = videoEditorSourceEl.duration * 1000;
-        openTimePickerModal({ // core/time-picker-modal.js
-            title: t('videoEdit.cutOverlay.pickEnd'),
-            format: 's',
-            valueMs: this._cutDraftEnd * 1000,
-            minMs: Math.min(durationMs, this._cutDraftStart * 1000 + 1000),
-            maxMs: durationMs,
-            onConfirm: (resultMs) => {
-                this._cutDraftEnd = resultMs / 1000;
-                this._updateCutOverlayLabels();
-            },
-        });
     },
 
     handleCutConfirm() {
