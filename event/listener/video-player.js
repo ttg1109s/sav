@@ -3,8 +3,18 @@
  *
  * SỬA (21/07/2026, cùng ngày) — nút toggle "Play mode" (header Visualizer) ĐÃ DỜI sang panel File
  * Manager -> Video (Giang yêu cầu) — listener click của nó giờ NẰM Ở `event/workflow/file-manager-
- * video.js` (checkbox động, wire lúc panel mở, KHÔNG phải dom-refs tĩnh) — file NÀY giờ CHỈ còn cử
- * chỉ vuốt.
+ * video.js` (checkbox động, wire lúc panel mở, KHÔNG phải dom-refs tĩnh).
+ *
+ * SỬA LẦN 2 (21/07/2026, viết lại kiến trúc — audioPlayer không còn dùng cho video) — THÊM 5 sự
+ * kiện NGUYÊN BẢN của `bgVideoElement` (play/pause/timeupdate/loadedmetadata/ended) — trước đây
+ * TOÀN BỘ progress bar/current time/icon Play-Pause/auto-next đều bám theo sự kiện của `audioPlayer`
+ * (element KHÔNG THỰC SỰ chạy khi nhận src là blob video trên 1 số trình duyệt/thiết bị — xem
+ * docstring core/video-player.js). Giờ `bgVideoElement` tự bắn sự kiện CỦA CHÍNH NÓ, dispatch qua
+ * message type RIÊNG (`playerControls.video.*` — KHÔNG trùng `playerControls.audio.*` của Song,
+ * tránh phải branch VirtualMachineState ở NHỮNG case đó — chỉ 2 case progressBar seeking/
+ * seekCommit BẮT BUỘC branch vì dùng CHUNG 1 DOM listener/message type với Song, xem event/router/
+ * player-controls.js). Guard `appState.get('isVideoPlayerMode')` trong TỪNG listener — sự kiện của
+ * `bgVideoElement` lúc CHỈ bật Video nền trang trí (không phải Player mode) phải là no-op.
  *
  * CỬ CHỈ VUỐT (Giang yêu cầu "nghiên cứu cử chỉ vuốt như TikTok") — vuốt DỌC trên `bgVideoElement`
  * lúc đang ở Video Player mode: vuốt LÊN (ngón tay di chuyển lên trên) = video kế tiếp (giống
@@ -24,6 +34,27 @@
  */
 
 if (bgVideoElement) {
+    bgVideoElement.addEventListener('play', () => {
+        if (!appState.get('isVideoPlayerMode')) return;
+        eventBus.send({ router: 'playerControls', type: 'playerControls.video.play', payload: {} });
+    });
+    bgVideoElement.addEventListener('pause', () => {
+        if (!appState.get('isVideoPlayerMode')) return;
+        eventBus.send({ router: 'playerControls', type: 'playerControls.video.pause', payload: {} });
+    });
+    bgVideoElement.addEventListener('loadedmetadata', () => {
+        if (!appState.get('isVideoPlayerMode')) return;
+        eventBus.send({ router: 'playerControls', type: 'playerControls.video.loadedmetadata', payload: {} });
+    });
+    bgVideoElement.addEventListener('timeupdate', () => {
+        if (!appState.get('isVideoPlayerMode')) return;
+        eventBus.send({ router: 'playerControls', type: 'playerControls.video.timeupdate', payload: {} });
+    });
+    bgVideoElement.addEventListener('ended', () => {
+        if (!appState.get('isVideoPlayerMode')) return;
+        eventBus.send({ router: 'playerControls', type: 'playerControls.video.ended', payload: {} });
+    });
+
     bgVideoElement.addEventListener('touchstart', (e) => {
         if (!appState.get('isVideoPlayerMode')) return; // guard: không ở Player mode -> vuốt không có ý nghĩa gì
         workflowVideoPlayer._swipeStartY = e.changedTouches[0].clientY;
