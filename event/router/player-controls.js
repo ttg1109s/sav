@@ -16,14 +16,24 @@
  * video nền + reset ngăn xếp panel con + cuộn) -> giao Workflow — xem
  * workflowPlayerControls.closeSettingsDrawer().
  *
- * MỚI (21/07/2026, mục 4 — Video Player mode, xem event/workflow/video-player.js) — 5 case
- * 'playPause.click'/'next.click'/'prev.click'/'audio.ended'/'backToPlaylist.click' giờ ĐỌC
+ * MỚI (21/07/2026, mục 4 — Video Player mode, xem event/workflow/video-player.js) — 4 case
+ * 'playPause.click'/'next.click'/'prev.click'/'backToPlaylist.click' ĐỌC
  * `appState.get('isVideoPlayerMode')` + VirtualMachineState 2 nhánh loại trừ nhau: true -> giao
  * `workflowVideoPlayer` (video đang "làm bài hát"); false -> gọi THẲNG core cũ y hệt trước đây,
- * KHÔNG đổi hành vi gốc dù chỉ 1 dòng. Video Player mode CỐ Ý KHÔNG đụng gì các case audio.play/
- * pause/loadedmetadata/error/timeupdate/seeked — audioPlayer vẫn đang thật sự phát (dù muted) nên
- * mọi cơ chế đó (progress bar, Media Session, wake lock, listen clock...) tự chạy đúng, không cần
- * nhánh riêng (đơn giản hoá đã báo Giang).
+ * KHÔNG đổi hành vi gốc dù chỉ 1 dòng.
+ *
+ * VIẾT LẠI LẦN 2 (21/07/2026, cùng ngày — Giang phát hiện qua video test: `audioPlayer` không thực
+ * sự chạy khi nhận blob video làm src trên 1 số trình duyệt/thiết bị, dù `bgVideoElement` vẫn phát
+ * tiếng bình thường — xem docstring đầy đủ core/video-player.js) — BỎ HẲN ý tưởng "audioPlayer câm
+ * nuôi mọi thứ cho video" của bản đầu. `bgVideoElement` giờ tự bắn 5 sự kiện CỦA CHÍNH NÓ (play/
+ * pause/loadedmetadata/timeupdate/ended), dispatch qua message type RIÊNG `playerControls.video.*`
+ * (xem event/listener/video-player.js, guard `isVideoPlayerMode` NGAY trong listener) — 5 case
+ * NÀY gọi THẲNG `workflowVideoPlayer`, KHÔNG cần VirtualMachineState (KHÔNG dùng chung nguồn sự
+ * kiện với Song, chỉ bgVideoElement mới bắn ra được). CHỈ 'progressBar.seeking'/'seekCommit' MỚI
+ * cần VirtualMachineState — đây là 2 case DUY NHẤT còn dùng CHUNG 1 DOM listener/message type giữa
+ * Song và Video (chỉ có 1 thanh progress bar vật lý). Các case 'audio.play'/'audio.pause'/
+ * 'audio.loadedmetadata'/'audio.timeupdate'/'audio.ended' (từ `audioPlayer`) giữ NGUYÊN hành vi
+ * gốc, KHÔNG branch gì — `audioPlayer` giờ HOÀN TOÀN không liên quan tới Video Player mode nữa.
  *
  * LỊCH SỬ (không còn áp dụng, giữ lại để tra cứu nếu cần) — batch 07-08/07/2026 (HOTFIX 7-10) đã
  * từng cho phép mở Settings NGAY TỪ Visualizer (nút #btn-settings trong Control Center), khiến cả
@@ -148,17 +158,7 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.audio.ended': {
-                // MỚI (21/07/2026, mục 4 — Video Player mode) — video hết -> tự chuyển video kế
-                // tiếp (KHÔNG áp playNext()/repeatMode của Song). Nhánh false GIỮ NGUYÊN
-                // `handleAudioEnded()` — hành vi gốc không đổi gì.
-                VirtualMachineState.run([
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
-                        workflowVideoPlayer.handleVideoPlayerEnded();
-                    } },
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
-                        handleAudioEnded();
-                    } },
-                ]);
+                handleAudioEnded();
                 break;
             }
 
@@ -182,16 +182,64 @@ const routerPlayerControls = (() => {
                 break;
             }
 
+            // ===================== Sự kiện bgVideoElement (Video Player mode, MỚI 21/07/2026,
+            // viết lại lần 2 — audioPlayer không còn dùng cho video) — 5 msg.type RIÊNG (KHÔNG
+            // trùng 'audio.*' của Song, xem event/listener/video-player.js), mỗi cái CHỈ tới từ
+            // bgVideoElement lúc isVideoPlayerMode=true (guard NGAY trong listener) -> gọi THẲNG,
+            // KHÔNG cần VirtualMachineState (không có nhánh nào khác để rẽ tại ĐÂY, khác progressBar
+            // seek ngay dưới — đó mới là nơi 2 nguồn thật sự DÙNG CHUNG 1 message type). =====
+            case 'playerControls.video.play': {
+                workflowVideoPlayer.handleVideoPlayState();
+                break;
+            }
+
+            case 'playerControls.video.pause': {
+                workflowVideoPlayer.handleVideoPauseState();
+                break;
+            }
+
+            case 'playerControls.video.loadedmetadata': {
+                workflowVideoPlayer.handleVideoLoadedMetadata();
+                break;
+            }
+
+            case 'playerControls.video.timeupdate': {
+                workflowVideoPlayer.handleVideoTimeUpdate();
+                break;
+            }
+
+            case 'playerControls.video.ended': {
+                workflowVideoPlayer.handleVideoPlayerEnded(); // >1 hàm core (stopListenClock + nextVideo async) -> workflow
+                break;
+            }
+
             // ===================== progressBar (kéo tay) =====================
             case 'playerControls.progressBar.seeking': {
+                // MỚI (21/07/2026, mục 4 — Video Player mode) — CÙNG 1 DOM listener/message type
+                // dùng chung giữa Song/Video (chỉ 1 thanh progress bar vật lý) -> BẮT BUỘC
+                // VirtualMachineState (khác 5 case video.* ở trên, mỗi cái có nguồn sự kiện RIÊNG).
                 const { value } = msg.payload;
-                handleProgressBarSeeking(value);
+                VirtualMachineState.run([
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
+                        workflowVideoPlayer.handleVideoSeeking(value);
+                    } },
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
+                        handleProgressBarSeeking(value);
+                    } },
+                ]);
                 break;
             }
 
             case 'playerControls.progressBar.seekCommit': {
                 const { value } = msg.payload;
-                handleProgressBarSeekCommit(value);
+                VirtualMachineState.run([
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
+                        workflowVideoPlayer.handleVideoSeekCommit(value);
+                    } },
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
+                        handleProgressBarSeekCommit(value);
+                    } },
+                ]);
                 break;
             }
 
