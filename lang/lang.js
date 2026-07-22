@@ -74,7 +74,8 @@ const LANG_EN_KEYS = Object.assign(
     LANG_PATCH_SETTINGS_MISC,
     LANG_PATCH_FILE_MANAGER,
     LANG_PATCH_SUBTITLE_EDITOR,
-    LANG_PATCH_IMAGE_EDIT
+    LANG_PATCH_IMAGE_EDIT,
+    LANG_PATCH_VIDEO_EDITOR // MỚI (Batch 1, module Video Editor) — xem lang/patch/patch-video-editor.js
 );
 
 /**
