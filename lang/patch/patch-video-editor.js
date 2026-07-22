@@ -9,6 +9,7 @@ const LANG_PATCH_VIDEO_EDITOR = {
     'videoEdit.videoNotFound': 'Video not found — it may have been deleted.',
     'videoEdit.errorTitle': 'Unable to open',
     'videoEdit.compat.unsupportedBrowser': 'This browser does not support video editing (WebCodecs unavailable).',
+    'videoEdit.compat.mediabunnyNotLoaded': 'Video editing library failed to load — check your connection and try again. (Tap the 🐞 button for details.)',
     'videoEdit.compat.noVideoTrack': 'This file has no video track.',
     'videoEdit.compat.codecNotSupported': 'This video format is not supported for editing on this device.',
     'videoEdit.compat.unreadableFile': 'This video file could not be read.',
