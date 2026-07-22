@@ -160,7 +160,9 @@ const workflowVisualizerRender = {
 
         analyser.getByteFrequencyData(vizDataArray);
         const bufferLength = analyser.frequencyBinCount;
-        const isPlaying = !audioPlayer.paused;
+        // SỬA (21/07/2026, cùng lý do core/audio-analysis.js::updateStatsDashboard()) — đọc
+        // bgVideoElement khi đang ở Video Player mode, audioPlayer không còn liên quan gì tới video.
+        const isPlaying = appState.get('isVideoPlayerMode') ? !bgVideoElement.paused : !audioPlayer.paused;
 
         const bassCount = Math.floor(bufferLength * 0.1);
         const newBeatScale = computeBeatScale(vizDataArray, bassCount); // core
