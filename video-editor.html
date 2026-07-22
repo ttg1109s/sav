@@ -54,8 +54,40 @@
     <link rel="stylesheet" href="assets/css/style.css?v=20260715v1">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
     <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
-    <!-- Mediabunny — xem ghi chú "CHƯA TỰ VERIFY" ở comment đầu file. -->
-    <script src="https://cdn.jsdelivr.net/npm/mediabunny@1.46.0/dist/mediabunny.cjs"></script>
+    <!-- Mediabunny — KHÔNG dùng 1 URL cố định (URL trước đó đã xác nhận 404 qua debug console của
+         Giang). Thử LẦN LƯỢT nhiều ứng viên (thứ tự ưu tiên: đoán đúng nhất trước, dựa theo cấu
+         trúc thật `dist/bundles/mediabunny-ac3.mjs` của gói con cùng dự án) — cái nào tải được thì
+         dùng, dừng ngay, KHÔNG thử tiếp. Chỉ báo lỗi 'mediabunnyNotLoaded' khi TẤT CẢ đều fail.
+         QUAN TRỌNG: script tạo bằng createElement() vốn dĩ BẤT ĐỒNG BỘ (không tự chặn các thẻ
+         <script> tĩnh phía sau chạy trước) — expose `window._mediabunnyLoadPromise` để
+         event/workflow/video-editor.js::init() tự `await` trước khi gọi checkVideoEditorCompat(),
+         tránh race condition kiểm tra "chưa tải xong" nhầm thành "không tải được". -->
+    <script>
+        window._mediabunnyLoadPromise = new Promise((resolve) => {
+            const candidates = [
+                'https://cdn.jsdelivr.net/npm/mediabunny@1.46.0/dist/bundles/mediabunny.cjs',
+                'https://cdn.jsdelivr.net/npm/mediabunny/dist/bundles/mediabunny.cjs',
+                'https://unpkg.com/mediabunny@1.46.0/dist/bundles/mediabunny.cjs',
+                'https://unpkg.com/mediabunny/dist/bundles/mediabunny.cjs',
+                'https://cdn.jsdelivr.net/npm/mediabunny@1.46.0/dist/mediabunny.cjs',
+            ];
+            let i = 0;
+            function tryNext() {
+                if (i >= candidates.length) {
+                    console.error('[loadMediabunnyWithFallback] Đã thử hết ' + candidates.length + ' URL, KHÔNG url nào tải được Mediabunny.');
+                    resolve(false); // resolve (KHÔNG reject) — nơi gọi tự kiểm tra typeof Mediabunny, không cần try/catch riêng
+                    return;
+                }
+                const url = candidates[i++];
+                const el = document.createElement('script');
+                el.src = url;
+                el.onload = () => { console.log(`[loadMediabunnyWithFallback] Tải được Mediabunny từ: ${url}`); resolve(true); };
+                el.onerror = () => { console.warn(`[loadMediabunnyWithFallback] Fail: ${url} — thử URL kế tiếp.`); tryNext(); };
+                document.head.appendChild(el);
+            }
+            tryNext();
+        });
+    </script>
 </head>
 <body class="bg-[#0b0f1a] text-white h-screen flex flex-col overflow-hidden">
 
