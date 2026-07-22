@@ -100,29 +100,35 @@ function setCurrentVideoKey(videoKey) {
     appState.set('currentVideoKey', videoKey);
 }
 
-/** Đổi `muted`/`loop`/`opacity`/`z-index`/`pointer-events`/`.hidden` của `bgVideoElement` (#bg-
- * video, TÁI DÙNG — xem docstring đầu file) giữa 2 chế độ.
+/** Đổi `muted`/`loop`/`pointer-events`/`.hidden` của `bgVideoElement` (#bg-video, TÁI DÙNG — xem
+ * docstring đầu file) giữa 2 chế độ. KHÔNG đụng `opacity` ở ĐÂY nữa (SỬA 21/07/2026, đợt so sánh
+ * 2 luồng — xem event/workflow/video-player.js::playVideoByKey()) — `handleVideoBackground()`
+ * (core/state-and-video-bg.js, luồng bg video THAM CHIẾU) cũng KHÔNG set opacity trong nhánh bật,
+ * mà giao hẳn cho `setupVideoBgSource()` (gọi RIÊNG mỗi lần đổi URL) tự quản lý fade-in — file NÀY
+ * mirror ĐÚNG cách chia việc đó: hàm này (gọi 1 LẦN lúc vào/ra mode) chỉ lo phần "khung"
+ * (hidden/muted/loop/pointer-events), còn "nội dung" (opacity theo TỪNG video) do
+ * `playVideoByKey()` tự lo (gọi mỗi lần đổi video, kể cả Next/Prev).
  * SỬA (21/07/2026, Giang chỉ ra video vẫn không hiện dù đã tắt cả Visual — z-index/canvas KHÔNG
- * PHẢI nguyên nhân) — ĐỐI CHIẾU với `handleVideoBackground()` (core/state-and-video-bg.js, luồng
- * "Video nền" ĐANG hoạt động tốt) phát hiện dòng `bgVideoElement.classList.remove('hidden')`
- * (bật)/`classList.add('hidden')` (tắt, sau 500ms fade) — bản trước của hàm NÀY CHỈ đổi
- * `style.opacity`, KHÔNG BAO GIỜ gỡ class `.hidden` (Tailwind, `display: none`) — SAI: docstring
- * cũ (đã xoá) từng khẳng định nhầm "#bg-video CHỈ dùng opacity, không bao giờ đụng .hidden", THỰC
- * TẾ handleVideoBackground() CÓ đụng cả 2 hướng. `display:none` THẮNG TUYỆT ĐỐI mọi `opacity`/
- * `z-index` khác — dù set opacity:1/z-index:15 đúng, phần tử vẫn KHÔNG render gì cả nếu `.hidden`
- * còn đó. Đây là NGUYÊN NHÂN THẬT của "vẫn không hiện video" (z-index/canvas trước đó là suy đoán
- * sai, đã bị Giang bác bỏ bằng thực nghiệm — tắt cả Visual vẫn không thấy gì).
- * `enabled=true`: gỡ `.hidden` (`classList.remove`) + set opacity/z-index/pointer-events như cũ.
- * `enabled=false`: thêm lại `.hidden` (an toàn — Block gate đảm bảo Video nền THẬT không hề bật lúc
- * này, xem event/block.js, nên không có rủi ro trùng lẫn "khôi phục Video nền" như từng lo ngại).
+ * PHẢI nguyên nhân) — ĐỐI CHIẾU với `handleVideoBackground()` phát hiện dòng
+ * `bgVideoElement.classList.remove('hidden')` (bật)/`classList.add('hidden')` (tắt) — bản trước
+ * của hàm NÀY CHỈ đổi `style.opacity`, KHÔNG BAO GIỜ gỡ class `.hidden` (Tailwind, `display:
+ * none`) — `display:none` THẮNG TUYỆT ĐỐI mọi `opacity` khác.
+ * SỬA LẦN 2 (cùng ngày — Giang chỉnh lại: "index đang nằm TRÊN visual effect, phải đưa xuống THẤP
+ * HƠN visual") — bỏ HẲN việc set `z-index` qua inline style — trả về ĐÚNG z-index TĨNH mặc định
+ * của CSS (`#bg-video { z-index: 0; }`, GIỐNG HỆT cách "Video nền" trang trí vẫn dùng).
+ * `enabled=true`: gỡ `.hidden` + bỏ muted + tắt loop (BẮT BUỘC — cần `bgVideoElement` tự bắn
+ * 'ended' để tự chuyển video kế tiếp) + bật lại `pointer-events:auto` (nhận cử chỉ vuốt).
+ * `enabled=false`: thêm lại `.hidden` (an toàn — Block gate đảm bảo Video nền THẬT không hề bật
+ * lúc này) + trả lại muted+loop=true + ẩn hẳn (`opacity:0`, CHỈ trường hợp NÀY hàm mới đụng
+ * opacity — khớp `handleVideoBackground()` nhánh tắt: `bgVideoElement.style.opacity = '0';` ngay
+ * dòng đầu) + pointer-events mặc định (`''`).
  * @param {boolean} enabled
  */
 function setBgVideoElementForPlayerMode(enabled) {
     bgVideoElement.muted = !enabled;
     bgVideoElement.loop = !enabled;
-    bgVideoElement.classList.toggle('hidden', !enabled); // BẮT BUỘC — xem docstring, đây mới là nguyên nhân thật
-    bgVideoElement.style.opacity = enabled ? '1' : '0';
-    bgVideoElement.style.zIndex = enabled ? '15' : '';
+    bgVideoElement.classList.toggle('hidden', !enabled); // BẮT BUỘC — display:none thắng tuyệt đối opacity
+    if (!enabled) bgVideoElement.style.opacity = '0'; // khớp handleVideoBackground() nhánh tắt — enabled=true KHÔNG đụng opacity, xem docstring
     bgVideoElement.style.pointerEvents = enabled ? 'auto' : '';
 }
 
