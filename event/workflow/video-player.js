@@ -38,15 +38,40 @@ const workflowVideoPlayer = {
      * Settings), hiện `#player-container` (bar dưới cùng — nếu không gọi hàm này, mang class
      * `hidden` mãi mãi, mọi cập nhật UI bên trong dù đúng vẫn KHÔNG AI THẤY ĐƯỢC). CHỈ gọi 1 LẦN
      * lúc VÀO mode. */
+    /** Vào Video Player mode: đọc danh sách video, phát video đầu tiên, CHUYỂN MÀN HÌNH sang
+     * Visualizer. GỌI TỪ `workflowFileManagerVideo.enablePlayerModeFromPanel()` (checkbox trong
+     * panel File Manager -> Video) — nơi gọi ĐÃ tự đảm bảo Video nền trang trí đang TẮT trước khi
+     * gọi hàm này (Block gate, xem event/block.js).
+     * SỬA (21/07/2026, Giang yêu cầu "khi enable Video Player, mọi trạng thái phát Song phải về
+     * gốc — pause + UI playlist sạch như mới load app — TRƯỚC KHI chuyển màn") — nếu đang có bài
+     * hát đang phát/tạm dừng dở (`currentKey` khác null): pause `audioPlayer` + xoá `currentKey` +
+     * refresh LẠI đúng 1 hàng đó (`refreshSongNode()`, core/playlist/render.js — patch DOM TRỰC
+     * TIẾP, không render lại cả danh sách) để xoá highlight "đang phát". LÀM TRƯỚC `switchToVisualizer()`
+     * — đúng thứ tự Giang yêu cầu.
+     * ĂN THEO MIỄN PHÍ (không cần code thêm) — `currentKey=null` khiến `saveResumeStateToLocalStorage()`
+     * (core/resume-state-storage.js, dòng đầu: `if (currentKey === null) return false;`) tự động
+     * KHÔNG lưu gì + KHÔNG set cờ resume nữa mỗi khi tab bị ẩn lúc đang ở Video Player mode — ĐÚNG
+     * ý Giang "phải skip chế độ resume tab", không cần sửa gì thêm ở core/tab-hide-reload.js.
+     * `switchToVisualizer()` (core/player-controls.js, hàm CÓ SẴN) — ẩn `#app-stack` (Playlist+
+     * Settings), hiện `#player-container` (bar dưới cùng — nếu không gọi hàm này, mang class
+     * `hidden` mãi mãi, mọi cập nhật UI bên trong dù đúng vẫn KHÔNG AI THẤY ĐƯỢC). CHỈ gọi 1 LẦN
+     * lúc VÀO mode. */
     async enterVideoPlayerMode() {
         const videos = await listVideos(); // core/file-manager/video.js
         if (videos.length === 0) { await alertModal(t('videoPlayer.empty')); return; }
+
+        const previousSongKey = appState.get('currentKey');
+        if (previousSongKey !== null) {
+            audioPlayer.pause(); // bắn sự kiện 'pause' NGUYÊN BẢN -> handleAudioPause() (core/player-controls.js, KHÔNG đụng) tự lo icon/wake lock/Media Session cho Song
+            appState.set('currentKey', null);
+            refreshSongNode(previousSongKey); // core/playlist/render.js — patch riêng đúng 1 hàng, xoá highlight "đang phát"
+        }
 
         // Thứ tự phát: cũ -> mới (đảo ngược sortVideosByAddedDateDesc — hàm đó trả mới -> cũ).
         const videoPlaylist = sortVideosByAddedDateDesc(videos).reverse().map((v) => v.key); // core/file-manager/video.js
 
         enterVideoPlayerModeState(videoPlaylist); // core/video-player.js
-        setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop + hiện + z-index + pointer-events
+        setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop + hiện + pointer-events
 
         await this.playVideoByKey(videoPlaylist[0]);
         switchToVisualizer(); // core/player-controls.js, hàm CÓ SẴN
@@ -191,17 +216,17 @@ const workflowVideoPlayer = {
      * vmstate") — ứng với 'playerControls.backToPlaylist.click' khi `isVideoPlayerMode=true` (xem
      * event/router/player-controls.js, VirtualMachineState branch theo cờ này — nhánh false vẫn
      * gọi THẲNG `handleBackToPlaylistClick()` gốc, KHÔNG đổi gì).
-     * LÝ DO CẦN NHÁNH RIÊNG: `switchToVisualizer()` (gọi ở `enterVideoPlayerMode()`) trong MỌI
-     * trường hợp khác (tap bài hát, nút "Quay lại Visualizer") LUÔN được gọi lúc trang Playlist
-     * ĐANG hiện sẵn trong `#side-left-container` (`scrollLeft≈0` từ trước) — nhưng Video Player
-     * mode BẬT TỪ trang SETTINGS (checkbox trong File Manager -> Video), nên `#side-left-container`
-     * vẫn đang cuộn Ở TRANG SETTINGS lúc gọi `switchToVisualizer()`. Nếu chỉ gọi
-     * `handleBackToPlaylistClick()` gốc, người dùng bấm "Quay lại Danh sách" sẽ thấy LẠI trang
-     * Settings/panel Video, không phải Playlist — PHẢI tự cuộn thêm bằng
-     * `scrollSideLeftToPlaylistSmooth()` (core/player-controls.js, hàm CÓ SẴN). KHÔNG dừng video
-     * (giữ ĐÚNG hành vi "quay lại Playlist không dừng nhạc" đã áp dụng cho Song). */
+     * SỬA (21/07/2026, cùng ngày — Giang chỉnh lại: "từ visualizer bấm back -> phải chuyển ngay về
+     * SETTINGS", KHÔNG PHẢI Playlist như bản trước) — Video Player mode BẬT TỪ trang SETTINGS
+     * (checkbox trong File Manager -> Video, panel đang mở SÂU trong đó) — bấm "Back" hợp lý nhất
+     * là trở về ĐÚNG chỗ vừa bật nó (Settings/panel Video), KHÔNG PHẢI Playlist (khác hẳn hành vi
+     * "Back" của Song — Song luôn được chọn TỪ trang Playlist nên back về Playlist là đúng, nhưng
+     * Video Player không có tương đương "chọn từ trang Playlist" nào cả).
+     * `scrollSideLeftToSettingsSmooth()` (core/player-controls.js, hàm CÓ SẴN — cùng cặp với
+     * `scrollSideLeftToPlaylistSmooth()`) — tự cuộn `#side-left-container` về ĐÚNG trang Settings.
+     * KHÔNG dừng video (giữ ĐÚNG hành vi "quay lại không dừng phát" đã áp dụng cho Song). */
     handleBackToPlaylistFromVideoMode() {
         handleBackToPlaylistClick(); // core/player-controls.js — hành vi gốc (ẩn Visualizer, hiện lại #app-stack, KHÔNG dừng phát)
-        scrollSideLeftToPlaylistSmooth(); // core/player-controls.js, hàm CÓ SẴN — tự cuộn về ĐÚNG trang Playlist
+        scrollSideLeftToSettingsSmooth(); // core/player-controls.js, hàm CÓ SẴN — tự cuộn về ĐÚNG trang Settings (KHÁC Song — xem docstring)
     },
 };
