@@ -16,6 +16,17 @@ const routerVideoEdit = (() => {
             case 'videoEdit.rotateRight.click': { workflowVideoEditor.handleRotateRight(); break; }
             case 'videoEdit.reset.click': { workflowVideoEditor.handleReset(); break; }
 
+            // MỚI (Batch 2) — Cut.
+            case 'videoEdit.cut.click': { workflowVideoEditor.handleCutOpen(); break; }
+            case 'videoEdit.cutPickStart.click': { workflowVideoEditor.handleCutPickStart(); break; }
+            case 'videoEdit.cutPickEnd.click': { workflowVideoEditor.handleCutPickEnd(); break; }
+            case 'videoEdit.cutConfirm.click': { workflowVideoEditor.handleCutConfirm(); break; }
+            case 'videoEdit.cutCancel.click': { workflowVideoEditor.handleCutCancel(); break; }
+            case 'videoEdit.cutReset.click': { workflowVideoEditor.handleCutReset(); break; }
+
+            // MỚI (Batch 2) — Trích xuất ảnh.
+            case 'videoEdit.extractFrame.click': { workflowVideoEditor.handleExtractFrame(); break; }
+
             default:
                 console.warn(`[router:videoEdit] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`);
         }
