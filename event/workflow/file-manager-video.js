@@ -229,6 +229,11 @@ const workflowFileManagerVideo = {
             if (uploadInput) uploadInput.value = ''; // cho phép chọn lại đúng file cũ ở lần sau
         }
         await this.refresh();
+        // MỚI (21/07/2026, Giang chỉ ra "không cập nhật lại list của video") — nếu Video Player
+        // mode ĐANG CHẠY (vẫn tới được panel này lúc video đang phát nền, xem event/workflow/
+        // video-player.js::handleBackToPlaylistFromVideoMode()), làm mới `videoPlaylist` NGAY để
+        // Next/Prev thấy được video vừa upload — KHÔNG cần tắt/bật lại mode.
+        await workflowVideoPlayer.refreshVideoPlaylistIfActive(); // event/workflow/video-player.js — tự guard isVideoPlayerMode, no-op nếu không ở mode này
         const successCount = fileArray.length - failedCount;
         await alertModal(tFormat('fileManager.video.uploadSuccess', { count: successCount }));
     },
