@@ -29,6 +29,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Edit Video</title>
+    <!-- MỚI (phản hồi Giang — test trên mobile không mở được F12) — core/debug-console.js PHẢI
+         nạp ĐẦU TIÊN TUYỆT ĐỐI (trước cả Tailwind/CDN khác) để bắt được MỌI console.log/warn/error
+         xảy ra sau đó, đúng quy ước đã ghi trong chính file đó (dùng lại NGUYÊN, không sửa gì —
+         cùng file core/debug-console.js đang chạy ở index.html). -->
+    <script src="core/debug-console.js?v=20260718v1"></script>
+    <script>
+        // Bắt lỗi TẢI SCRIPT/CSS (404, mất mạng...) — các lỗi này KHÔNG bao giờ gọi console.error()
+        // (không phải lỗi JS chạy sai, mà là lỗi tải resource ở tầng trình duyệt) nên
+        // core/debug-console.js phía trên KHÔNG tự bắt được — phải tự lắng nghe 'error' trên
+        // window Ở PHA CAPTURE (lỗi tải resource KHÔNG bubble lên, bắt ở pha bubble sẽ không thấy
+        // gì). Đây chính là nghi vấn hàng đầu cho lỗi Giang đang gặp (CDN Mediabunny 404).
+        window.addEventListener('error', (e) => {
+            if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+                console.error(`[resource-load-error] Không tải được: ${e.target.src || e.target.href}`);
+            }
+        }, true); // true = capture phase, BẮT BUỘC
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         // Cùng fix hover-kẹt-trên-cảm-ứng đã áp dụng ở index.html/image-edit.html.
@@ -154,6 +171,23 @@
         </button>
     </div>
 
+    <!-- MỚI (phản hồi Giang — xem log ngay trên mobile, không cần F12). Nút nổi góc dưới trái +
+         overlay xem log dạng text thuần — TỰ CHỨA, KHÔNG dùng components/debug-console-drawer.js
+         thật của trang chính (file đó gắn với Settings panel-stack, phụ thuộc appState — trang này
+         cố tình không nạp appState, xem docstring event/workflow/video-editor.js). Chỉ đọc
+         `getDebugConsoleLogs()` (core/debug-console.js, không phụ thuộc gì) rồi tự vẽ. -->
+    <button id="btn-video-editor-debug-toggle" class="fixed bottom-3 left-3 z-[60] w-10 h-10 rounded-full bg-slate-700/80 backdrop-blur flex items-center justify-center text-sm">🐞</button>
+    <div id="video-editor-debug-overlay" class="hidden fixed inset-0 z-[61] bg-black/95 flex flex-col">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+            <span class="text-sm font-semibold">Debug Console</span>
+            <div class="flex items-center gap-2">
+                <button id="btn-video-editor-debug-copy" class="px-3 py-1.5 rounded-lg bg-white/10 text-xs font-semibold">Copy</button>
+                <button id="btn-video-editor-debug-close" class="px-3 py-1.5 rounded-lg bg-white/10 text-xs font-semibold">Đóng</button>
+            </div>
+        </div>
+        <pre id="video-editor-debug-body" class="flex-1 min-h-0 overflow-y-auto px-3 py-2 text-[10px] leading-relaxed whitespace-pre-wrap font-mono"></pre>
+    </div>
+
     <!-- ===================== SCRIPT ===================== -->
     <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
     <script src="lang/patch/patch-common.js?v=20260714v1"></script>
@@ -205,6 +239,30 @@
         document.getElementById('video-editor-cut-title').textContent = t('videoEdit.cutOverlay.title');
         document.getElementById('btn-video-editor-cut-cancel').textContent = t('videoEdit.cutOverlay.cancel');
         document.getElementById('btn-video-editor-cut-confirm').textContent = t('videoEdit.cutOverlay.confirm');
+
+        // Debug overlay — CỐ Ý viết thẳng ở đây, KHÔNG qua eventBus (tiện ích chẩn đoán, không
+        // phải nghiệp vụ của trang — cùng tinh thần ngoại lệ mà core/debug-console.js đã nêu).
+        const debugOverlayEl = document.getElementById('video-editor-debug-overlay');
+        const debugBodyEl = document.getElementById('video-editor-debug-body');
+        function renderDebugLogs() {
+            const logs = getDebugConsoleLogs(); // core/debug-console.js
+            debugBodyEl.textContent = logs.map((entry) => {
+                const time = new Date(entry.time).toLocaleTimeString();
+                const tag = entry.level === 'error' ? '🔴' : entry.level === 'warn' ? '🟡' : '⚪';
+                return `${tag} ${time}  ${entry.text}`;
+            }).join('\n') || '(chưa có log nào)';
+            debugBodyEl.scrollTop = debugBodyEl.scrollHeight;
+        }
+        document.getElementById('btn-video-editor-debug-toggle').addEventListener('click', () => {
+            renderDebugLogs();
+            debugOverlayEl.classList.remove('hidden');
+        });
+        document.getElementById('btn-video-editor-debug-close').addEventListener('click', () => {
+            debugOverlayEl.classList.add('hidden');
+        });
+        document.getElementById('btn-video-editor-debug-copy').addEventListener('click', () => {
+            navigator.clipboard?.writeText(debugBodyEl.textContent).catch(() => {});
+        });
     </script>
 </body>
 </html>
