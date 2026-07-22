@@ -21,6 +21,19 @@ const btnVeRotateRight = document.getElementById('btn-ve-rotate-right');
 const btnVeReset = document.getElementById('btn-ve-reset');
 const btnVideoEditorCropCancel = document.getElementById('btn-video-editor-crop-cancel');
 const btnVideoEditorCropConfirm = document.getElementById('btn-video-editor-crop-confirm');
+// MỚI (Batch 2) — Cut.
+const videoEditorCutOverlayEl = document.getElementById('video-editor-cut-overlay');
+const videoEditorCutBadgeEl = document.getElementById('video-editor-cut-badge');
+const videoEditorCutStartLabelEl = document.getElementById('video-editor-cut-start-label');
+const videoEditorCutEndLabelEl = document.getElementById('video-editor-cut-end-label');
+const btnVeCut = document.getElementById('btn-ve-cut');
+const btnVeCutReset = document.getElementById('btn-ve-cut-reset');
+const btnVideoEditorCutPickStart = document.getElementById('btn-video-editor-cut-pick-start');
+const btnVideoEditorCutPickEnd = document.getElementById('btn-video-editor-cut-pick-end');
+const btnVideoEditorCutCancel = document.getElementById('btn-video-editor-cut-cancel');
+const btnVideoEditorCutConfirm = document.getElementById('btn-video-editor-cut-confirm');
+// MỚI (Batch 2) — Trích xuất ảnh.
+const btnVeExtractFrame = document.getElementById('btn-ve-extract-frame');
 const sliderVeBrightness = document.getElementById('slider-ve-brightness');
 const sliderVeContrast = document.getElementById('slider-ve-contrast');
 const sliderVeSaturation = document.getElementById('slider-ve-saturation');
@@ -53,6 +66,31 @@ btnVeReset.addEventListener('click', () => {
     slider.addEventListener('input', () => {
         eventBus.send({ router: 'videoEdit', type: 'videoEdit.filter.change', payload: {} });
     });
+});
+
+// MỚI (Batch 2) — Cut.
+btnVeCut.addEventListener('click', () => {
+    eventBus.send({ router: 'videoEdit', type: 'videoEdit.cut.click', payload: {} });
+});
+btnVeCutReset.addEventListener('click', () => {
+    eventBus.send({ router: 'videoEdit', type: 'videoEdit.cutReset.click', payload: {} });
+});
+btnVideoEditorCutPickStart.addEventListener('click', () => {
+    eventBus.send({ router: 'videoEdit', type: 'videoEdit.cutPickStart.click', payload: {} });
+});
+btnVideoEditorCutPickEnd.addEventListener('click', () => {
+    eventBus.send({ router: 'videoEdit', type: 'videoEdit.cutPickEnd.click', payload: {} });
+});
+btnVideoEditorCutCancel.addEventListener('click', () => {
+    eventBus.send({ router: 'videoEdit', type: 'videoEdit.cutCancel.click', payload: {} });
+});
+btnVideoEditorCutConfirm.addEventListener('click', () => {
+    eventBus.send({ router: 'videoEdit', type: 'videoEdit.cutConfirm.click', payload: {} });
+});
+
+// MỚI (Batch 2) — Trích xuất ảnh.
+btnVeExtractFrame.addEventListener('click', () => {
+    eventBus.send({ router: 'videoEdit', type: 'videoEdit.extractFrame.click', payload: {} });
 });
 
 workflowVideoEditor.init();
