@@ -19,9 +19,19 @@
  * Saturation/Grayscale qua CSS `filter` (xem trực tiếp lúc chỉnh, "nướng" vào canvas lúc Lưu —
  * `_buildFinalBlob()`).
  *
- * NẠP SAU: core/file-manager/image.js, service/db.js, service/song-key-cipher.js, lang/lang.js,
- * Cropper.js (CDN), DOM tĩnh của image-edit.html (event/listener/image-edit.js khai const tham
- * chiếu NGAY ĐẦU file đó, trang nhỏ không cần dom-refs.js riêng — cùng quy ước subtitle-editor.js).
+ * SỬA (phản hồi Giang — "sau này đổi thư viện chỉnh sửa ảnh thì?") — file này KHÔNG còn tham chiếu
+ * `Cropper`/`new Cropper(...)` trực tiếp ở đâu nữa — mọi lời gọi Cropper.js đã gom vào
+ * `core/image-edit/cropper-engine.js` (`initCropperSession()`/`getCroppedCanvasFromSession()`/
+ * `rotateSession()`/`flipHorizontalSession()`/`flipVerticalSession()`/`resetSession()`/
+ * `destroyCropperSession()`) — sau này đổi thư viện crop ảnh chỉ cần sửa file đó, KHÔNG đụng
+ * Workflow này. `this._cropper` bên dưới giờ là "session" (xem docstring cropper-engine.js), KHÔNG
+ * còn là instance `Cropper` trần — Workflow không tự gọi method nào của nó ngoài qua các hàm ở
+ * cropper-engine.js.
+ *
+ * NẠP SAU: core/file-manager/image.js, core/image-edit/cropper-engine.js, service/db.js,
+ * service/song-key-cipher.js, lang/lang.js, Cropper.js (CDN), DOM tĩnh của image-edit.html
+ * (event/listener/image-edit.js khai const tham chiếu NGAY ĐẦU file đó, trang nhỏ không cần
+ * dom-refs.js riêng — cùng quy ước subtitle-editor.js).
  */
 
 // ĐÃ GỠ (Giang yêu cầu "resize theo tỉ lệ 20% width và 20% height") — PHOTO_ROW_HEIGHT_PX không còn
@@ -66,8 +76,8 @@ const workflowImageEdit = {
     },
 
     _initCropper() {
-        if (this._cropper) this._cropper.destroy();
-        this._cropper = new Cropper(imageEditSourceEl, { // CDN global
+        if (this._cropper) destroyCropperSession(this._cropper); // core/image-edit/cropper-engine.js
+        this._cropper = initCropperSession(imageEditSourceEl, { // core/image-edit/cropper-engine.js
             viewMode: 1,
             autoCropArea: 1,
             background: false,
@@ -107,7 +117,7 @@ const workflowImageEdit = {
      * flip) và màu sắc (filter), đúng 2 khái niệm khác nhau. */
     handleCrop() {
         if (!this._cropper) return; // guard — chưa init xong (ảnh chưa load)
-        const canvas = this._cropper.getCroppedCanvas();
+        const canvas = getCroppedCanvasFromSession(this._cropper); // core/image-edit/cropper-engine.js
         if (!canvas) return; // guard — chưa có vùng chọn hợp lệ
         imageEditSourceEl.src = canvas.toDataURL();
         this._hasUnsavedChanges = true;
@@ -117,27 +127,27 @@ const workflowImageEdit = {
 
     handleRotate(deg) {
         if (!this._cropper) return;
-        this._cropper.rotate(deg);
+        rotateSession(this._cropper, deg); // core/image-edit/cropper-engine.js
         this._hasUnsavedChanges = true;
     },
 
     handleFlipHorizontal() {
         if (!this._cropper) return;
         this._flipX = this._flipX === 1 ? -1 : 1;
-        this._cropper.scaleX(this._flipX);
+        flipHorizontalSession(this._cropper, this._flipX); // core/image-edit/cropper-engine.js
         this._hasUnsavedChanges = true;
     },
 
     handleFlipVertical() {
         if (!this._cropper) return;
         this._flipY = this._flipY === 1 ? -1 : 1;
-        this._cropper.scaleY(this._flipY);
+        flipVerticalSession(this._cropper, this._flipY); // core/image-edit/cropper-engine.js
         this._hasUnsavedChanges = true;
     },
 
     handleReset() {
         if (!this._cropper) return;
-        this._cropper.reset();
+        resetSession(this._cropper); // core/image-edit/cropper-engine.js
         this._flipX = 1;
         this._flipY = 1;
         sliderBrightness.value = 100;
@@ -163,7 +173,7 @@ const workflowImageEdit = {
      */
     _buildFinalBlob() {
         if (!this._cropper) return Promise.resolve(null);
-        const geoCanvas = this._cropper.getCroppedCanvas();
+        const geoCanvas = getCroppedCanvasFromSession(this._cropper); // core/image-edit/cropper-engine.js
         if (!geoCanvas) return Promise.resolve(null);
         const out = document.createElement('canvas');
         out.width = geoCanvas.width;
