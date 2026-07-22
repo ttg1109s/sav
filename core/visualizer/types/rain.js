@@ -40,13 +40,16 @@
             // phố NGAY DƯỚI vẫn giữ nguyên điều kiện `!cfg.videoBgEnabled` (KHÔNG đổi) — vẫn vẽ
             // bình thường khi dùng ảnh/slideshow, nên tự động nằm ĐÈ LÊN 2 nguồn nền đó (đúng yêu
             // cầu "phải luôn đặt sau trăng + big city").
-            const hasCustomBg = cfg.videoBgEnabled || cfg.visualBgImageEnabled || !!appState.get('activeBackgroundAlbum');
+            // SỬA (21/07/2026, Giang xác nhận qua test — Video Player mode cũng cần hiện xuyên qua
+            // canvas kiểu "rain", CÙNG ý nghĩa Video nền trang trí, dù cố ý KHÔNG dùng chung cờ
+            // `videoBgEnabled` — thêm `appState.get('isVideoPlayerMode')` làm điều kiện thứ 4.
+            const hasCustomBg = cfg.videoBgEnabled || cfg.visualBgImageEnabled || !!appState.get('activeBackgroundAlbum') || appState.get('isVideoPlayerMode');
             if (!hasCustomBg) { ctx.fillStyle = cfg.bgColor; ctx.fillRect(0, 0, canvas.width, canvas.height); }
             let progress = 0; if (audioPlayer && isFinite(audioPlayer.duration) && audioPlayer.duration > 0) progress = audioPlayer.currentTime / audioPlayer.duration;
             let moonX = canvas.width * 0.70; let moonY = canvas.height * 0.35; let baseScale = 4 + Math.sin(progress * Math.PI) * 1; let baseMoonRadius = baseScale * 8 * dpr; 
             let dynamicMoonRadius = baseMoonRadius + (smoothedEnergy * 8 * dpr);
 
-            if(!cfg.videoBgEnabled) {
+            if(!cfg.videoBgEnabled && !appState.get('isVideoPlayerMode')) {
                 ctx.beginPath(); ctx.arc(moonX, moonY, Math.max(0.1, dynamicMoonRadius), 0, Math.PI * 2); ctx.fillStyle = '#e0e8ff';
                 if (perf.blurMult > 0) { ctx.shadowBlur = (30 + smoothedEnergy * 20) * dpr * perf.blurMult; ctx.shadowColor = '#aaccff'; }
                 ctx.globalAlpha = 0.6 + (smoothedEnergy * 0.3); ctx.fill(); ctx.shadowBlur = 0;
@@ -54,7 +57,7 @@
 
             drawRainFlash(ctx, isPlaying, (a) => `rgba(200, 220, 255, ${a})`);
 
-            if(!cfg.videoBgEnabled) {
+            if(!cfg.videoBgEnabled && !appState.get('isVideoPlayerMode')) {
                 ctx.globalAlpha = 0.4; 
                 appState.get('cityBuildings').forEach(b => {
                     ctx.fillStyle = '#03060a'; ctx.fillRect(b.x, canvas.height - b.h, b.w, b.h);
@@ -144,7 +147,8 @@
             // nguồn nền (video/ảnh Visual/slideshow), không chỉ riêng video, khi quyết định có tô
             // phủ `skyGrad` hay để trống cho nền thật hiện xuyên qua. Cảnh công viên (đất/đèn/mưa)
             // vẫn vẽ đè lên như cũ — tự động nằm TRƯỚC (đè lên) nền ảnh/slideshow.
-            const hasCustomBg = cfg.videoBgEnabled || cfg.visualBgImageEnabled || !!appState.get('activeBackgroundAlbum');
+            // SỬA (21/07/2026, cùng lý do đã sửa ở drawRainGlass() phía trên) — thêm isVideoPlayerMode.
+            const hasCustomBg = cfg.videoBgEnabled || cfg.visualBgImageEnabled || !!appState.get('activeBackgroundAlbum') || appState.get('isVideoPlayerMode');
             if (!hasCustomBg) {
                 const nightColors = getComputedColor(0, 1, 60);
                 let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
