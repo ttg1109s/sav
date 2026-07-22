@@ -77,6 +77,24 @@ function computePrevVideoKey(videoPlaylist, currentVideoKey) {
     return videoPlaylist[currentPos - 1];
 }
 
+/**
+ * MỚI (21/07/2026, Giang yêu cầu "shuffle/repeat chưa áp dụng cho video player") — chọn NGẪU
+ * NHIÊN 1 videoKey trong `videoPlaylist`, LOẠI TRỪ `excludeKey` (video đang phát) — dùng cho
+ * shuffle. ĐƠN GIẢN HOÁ (đã báo Giang) — chọn ngẫu nhiên MỖI LẦN gọi (KHÔNG duy trì 1 mảng
+ * `videoShuffleIndices` cố định như Song, xem `shuffleIndices`/`updateShuffleArrayFromQueue()` —
+ * đảm bảo KHÔNG lặp lại video vừa xem trong 2 lượt liên tiếp, nhưng KHÔNG đảm bảo "xem hết mọi
+ * video 1 lượt rồi mới lặp lại" như thuật toán shuffle đầy đủ của Song).
+ * @param {string[]} videoPlaylist
+ * @param {string|null} excludeKey
+ * @returns {string|null} null nếu danh sách rỗng
+ */
+function pickRandomVideoKeyExcluding(videoPlaylist, excludeKey) {
+    if (videoPlaylist.length === 0) return null;
+    if (videoPlaylist.length === 1) return videoPlaylist[0]; // chỉ có 1 video -> chính nó, không có gì để loại trừ
+    const candidates = videoPlaylist.filter((k) => k !== excludeKey);
+    return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
 /** Bật state Video Player mode + gán danh sách phát — gọi lúc BẮT ĐẦU vào mode (Workflow đã đọc
  * xong danh sách video từ DB trước khi gọi hàm này). `currentVideoKey` reset về null — Workflow tự
  * gọi `setCurrentVideoKey()` ngay sau khi phát video đầu tiên.
