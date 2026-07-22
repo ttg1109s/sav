@@ -100,28 +100,27 @@ function setCurrentVideoKey(videoKey) {
     appState.set('currentVideoKey', videoKey);
 }
 
-/** Đổi `muted`/`loop`/`opacity`/`z-index`/`pointer-events` của `bgVideoElement` (#bg-video, TÁI
- * DÙNG — xem docstring đầu file) giữa 2 chế độ.
- * `enabled=true` (vào Player mode): bỏ muted (nghe tiếng thật) + tắt loop (BẮT BUỘC — cần
- * `bgVideoElement` tự bắn sự kiện 'ended' để tự chuyển video kế tiếp, `loop=true` sẽ KHÔNG BAO GIỜ
- * bắn 'ended') + hiện luôn (`opacity: 1`, KHÔNG dùng class `.hidden` — cơ chế gốc của #bg-video
- * (core/state-and-video-bg.js) CHỈ dùng `opacity`, KHÔNG bao giờ đụng `.hidden`; nếu ở đây thêm
- * `.hidden` thì lúc thoát Player mode + khôi phục Video nền thật, `handleVideoBackground()` chỉ
- * biết sửa `opacity` chứ KHÔNG gỡ `.hidden` — video nền sẽ kẹt vô hình `display:none` mãi mãi).
- * z-index nâng lên `15` — TRÊN cả `#visualizer` (z:10)/`#webgl-canvas` (z:1), cả 2 đều con TRỰC
- * TIẾP của `<body>` — bất kể loại visualizer nào đang chạy có tự vẽ nền đục hay không, video LUÔN
- * đảm bảo hiển thị ĐÈ LÊN TRÊN canvas (KHÔNG phải sửa từng file `core/visualizer/types/*.js`).
- * z:15 vẫn THẤP HƠN UI chrome (`#visualizer-ui` z:30, `#player-container`, `#app-stack` z:60) — nút
- * điều khiển/player bar vẫn hiện đè trên video. `pointer-events: auto` — `#bg-video` mặc định có
- * CSS cứng `pointer-events: none` (để click xuyên qua trong chế độ nền trang trí) — Player mode cần
- * nhận cử chỉ vuốt (event/listener/video-player.js), phải bật lại qua inline style.
- * `enabled=false` (thoát Player mode): trả lại ĐÚNG mặc định trang trí (muted+loop=true, ẩn opacity
- * 0, z-index/pointer-events về `''` để CSS tĩnh tự áp dụng lại).
+/** Đổi `muted`/`loop`/`opacity`/`z-index`/`pointer-events`/`.hidden` của `bgVideoElement` (#bg-
+ * video, TÁI DÙNG — xem docstring đầu file) giữa 2 chế độ.
+ * SỬA (21/07/2026, Giang chỉ ra video vẫn không hiện dù đã tắt cả Visual — z-index/canvas KHÔNG
+ * PHẢI nguyên nhân) — ĐỐI CHIẾU với `handleVideoBackground()` (core/state-and-video-bg.js, luồng
+ * "Video nền" ĐANG hoạt động tốt) phát hiện dòng `bgVideoElement.classList.remove('hidden')`
+ * (bật)/`classList.add('hidden')` (tắt, sau 500ms fade) — bản trước của hàm NÀY CHỈ đổi
+ * `style.opacity`, KHÔNG BAO GIỜ gỡ class `.hidden` (Tailwind, `display: none`) — SAI: docstring
+ * cũ (đã xoá) từng khẳng định nhầm "#bg-video CHỈ dùng opacity, không bao giờ đụng .hidden", THỰC
+ * TẾ handleVideoBackground() CÓ đụng cả 2 hướng. `display:none` THẮNG TUYỆT ĐỐI mọi `opacity`/
+ * `z-index` khác — dù set opacity:1/z-index:15 đúng, phần tử vẫn KHÔNG render gì cả nếu `.hidden`
+ * còn đó. Đây là NGUYÊN NHÂN THẬT của "vẫn không hiện video" (z-index/canvas trước đó là suy đoán
+ * sai, đã bị Giang bác bỏ bằng thực nghiệm — tắt cả Visual vẫn không thấy gì).
+ * `enabled=true`: gỡ `.hidden` (`classList.remove`) + set opacity/z-index/pointer-events như cũ.
+ * `enabled=false`: thêm lại `.hidden` (an toàn — Block gate đảm bảo Video nền THẬT không hề bật lúc
+ * này, xem event/block.js, nên không có rủi ro trùng lẫn "khôi phục Video nền" như từng lo ngại).
  * @param {boolean} enabled
  */
 function setBgVideoElementForPlayerMode(enabled) {
     bgVideoElement.muted = !enabled;
     bgVideoElement.loop = !enabled;
+    bgVideoElement.classList.toggle('hidden', !enabled); // BẮT BUỘC — xem docstring, đây mới là nguyên nhân thật
     bgVideoElement.style.opacity = enabled ? '1' : '0';
     bgVideoElement.style.zIndex = enabled ? '15' : '';
     bgVideoElement.style.pointerEvents = enabled ? 'auto' : '';

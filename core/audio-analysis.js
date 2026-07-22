@@ -63,7 +63,17 @@
             let energyPercent = Math.min(100, Math.round(((totalAmplitude / bufferLength) / 255) * 100 * 1.5)); 
             if (appState.get('isStatsPanelVisible')) statEnergy.textContent = energyPercent + '%'; 
             
-            let isPlaying = !audioPlayer.paused && audioPlayer.currentTime > 0;
+            // SỬA (21/07/2026, Giang chỉ ra "BPM/Pitch không chạy, chỉ Energy chạy") — `isPlaying`
+            // trước đây LUÔN đọc `audioPlayer` — ĐÚNG cho Song, nhưng Video Player mode (event/
+            // workflow/video-player.js) KHÔNG còn đụng `audioPlayer` nữa (bỏ hẳn từ bản viết lại
+            // lần 2), audioPlayer.paused LUÔN true/currentTime LUÔN 0 -> `isPlaying` LUÔN false cho
+            // video -> toàn bộ khối BPM (dòng dưới)/Pitch (dòng dưới nữa) KHÔNG BAO GIỜ chạy, rơi
+            // thẳng vào nhánh else (dòng cuối, reset "---") — ĐÚNG lý do "chỉ Energy chạy" (Energy
+            // tính Ở NGOÀI guard này, dòng phía trên, không phụ thuộc `isPlaying`). Đọc
+            // `bgVideoElement` khi đang ở Video Player mode — CÙNG Ý NGHĨA, chỉ đổi NGUỒN đọc.
+            let isPlaying = appState.get('isVideoPlayerMode')
+                ? (!bgVideoElement.paused && bgVideoElement.currentTime > 0)
+                : (!audioPlayer.paused && audioPlayer.currentTime > 0);
 
             if(isPlaying) {
                 appState.mutate('fluxHistory', arr => { arr.push(currentFlux); if(arr.length > 45) arr.shift(); }, { skipCheck: true });
