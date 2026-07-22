@@ -62,6 +62,7 @@ const workflowVideoEditor = {
         const record = await getVideoRecord(videoKey); // data layer (service/db.js)
         if (!record) { this._showFatalError(t('videoEdit.videoNotFound')); return; }
 
+        await window._mediabunnyLoadPromise; // MỚI — chờ loader thử xong toàn bộ URL CDN (xem video-editor.html) TRƯỚC khi kiểm tra compat, tránh nhầm "chưa tải xong" thành "không tải được"
         const compat = await checkVideoEditorCompat(record.blob); // core/video-editor/compat-guard.js
         if (!compat.supported) { this._showFatalError(t(`videoEdit.compat.${compat.reason}`)); return; }
 
