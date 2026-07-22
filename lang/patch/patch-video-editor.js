@@ -35,10 +35,6 @@ const LANG_PATCH_VIDEO_EDITOR = {
     'videoEdit.cutOverlay.title': 'Cut video',
     'videoEdit.cutOverlay.cancel': 'Cancel',
     'videoEdit.cutOverlay.confirm': 'Done',
-    'videoEdit.cutOverlay.pickStart': 'Start point',
-    'videoEdit.cutOverlay.pickEnd': 'End point',
-    'videoEdit.cutOverlay.startCaption': 'Start',
-    'videoEdit.cutOverlay.endCaption': 'End',
     // MỚI (Batch 2) — Trích xuất ảnh.
     'videoEdit.btnExtractFrame.title': 'Extract photo',
     'videoEdit.extractFrame.success': 'Photo saved to your library.',
