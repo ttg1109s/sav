@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<!--
+    video-editor.html — Trang RIÊNG để sửa video (MỚI, Batch 1, module Video Editor — nối vào
+    action "editVideo" đã có sẵn ở Video Manager, trước đây chỉ alert "coming soon"). Cùng kiến
+    trúc `image-edit.html`/`subtitle-editor.html`: mở qua `?video=<key đã mã hoá>`, tự nạp script
+    riêng, đọc/ghi CHUNG 1 IndexedDB với trang chính (cùng origin `file://`).
+
+    PHẠM VI BATCH 1: Crop + Rotate (90°) + Filter màu (brightness/contrast/saturation) — CHƯA có
+    nút Lưu/Cut/Chèn nhạc/Chia video (các batch sau). Mọi chỉnh sửa ở batch này chỉ là STATE +
+    PREVIEW, chưa "nướng" thành file thật (xem event/workflow/video-editor.js).
+
+    Thư viện:
+    - Cropper.js v1 (CDN, UMD, global `Cropper`) — dùng lại ĐÚNG bản CDN đã có sẵn cho
+      image-edit.html — CHỈ dùng cho khung crop trên 1 ảnh TĨNH chụp từ video, KHÔNG chạy trực
+      tiếp trên `<video>`. Đây là dùng chung THƯ VIỆN, KHÔNG phải dùng chung CODE với image-edit.
+    - Mediabunny (CDN, global `Mediabunny`) — bọc quanh WebCodecs API của trình duyệt, dùng để
+      đọc/ghi file video thật (`core/video-editor/webcodecs-engine.js`,
+      `core/video-editor/compat-guard.js`). CHƯA TỰ VERIFY được URL/bản build này bằng cách chạy
+      thật trong sandbox viết code — nếu script lỗi không nạp được, kiểm tra lại tại
+      https://github.com/Vanilagy/mediabunny/releases (bản đang trỏ: v1.46.0).
+    - Brightness/Contrast/Saturation dùng CSS `filter` lúc xem preview — "nướng" thật vào canvas
+      lúc xử lý (`core/video-editor/webcodecs-engine.js`, sẽ được gọi ở Batch 4 lúc bấm Lưu).
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Edit Video</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Cùng fix hover-kẹt-trên-cảm-ứng đã áp dụng ở index.html/image-edit.html.
+        tailwind.config = { future: { hoverOnlyWhenSupported: true } };
+    </script>
+    <link rel="stylesheet" href="assets/css/style.css?v=20260715v1">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
+    <!-- Mediabunny — xem ghi chú "CHƯA TỰ VERIFY" ở comment đầu file. -->
+    <script src="https://cdn.jsdelivr.net/npm/mediabunny@1.46.0/dist/mediabunny.cjs"></script>
+</head>
+<body class="bg-[#0b0f1a] text-white h-screen flex flex-col overflow-hidden">
+
+    <!-- Header — cùng khuôn image-edit.html/subtitle-editor.html. KHÔNG có nút Lưu ở Batch 1. -->
+    <div class="flex items-center gap-3 px-4 py-3 shrink-0 bg-[#0f172a]/70 backdrop-blur-xl border-b border-white/10">
+        <button id="btn-back-video-editor" class="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+        </button>
+        <h1 id="video-editor-title" class="text-sm font-bold text-white truncate flex-1"></h1>
+    </div>
+
+    <!-- Vùng preview video. Rotate áp transform trực tiếp lên #video-editor-source (xem
+         _applyRotatePreview() trong workflow) — wrap này là khung tham chiếu kích thước. -->
+    <div id="video-editor-preview-wrap" class="flex-1 min-h-0 relative bg-black overflow-hidden">
+        <video id="video-editor-source" class="block" controls playsinline></video>
+        <p id="video-editor-fatal-error" class="hidden absolute inset-0 flex items-center justify-center text-sm text-slate-400 text-center px-8"></p>
+    </div>
+
+    <!-- Overlay Crop — ẨN mặc định, chỉ hiện khi bấm nút Crop. Cropper.js gắn vào ảnh TĨNH chụp
+         từ khung hình hiện tại (KHÔNG chạy trực tiếp trên video). -->
+    <div id="video-editor-crop-overlay" class="hidden fixed inset-0 z-50 bg-black flex flex-col">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+            <button id="btn-video-editor-crop-cancel" class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold transition-colors"></button>
+            <span id="video-editor-crop-title" class="text-sm font-semibold"></span>
+            <button id="btn-video-editor-crop-confirm" class="px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-sm font-bold transition-colors"></button>
+        </div>
+        <div class="flex-1 min-h-0 relative bg-black">
+            <img id="video-editor-crop-source" class="max-w-full block" alt="">
+        </div>
+    </div>
+
+    <!-- Badge crop hiện tại + nút xoá crop. -->
+    <div class="shrink-0 px-4 pt-2 flex items-center justify-between text-[11px] text-slate-400">
+        <span id="video-editor-crop-badge"></span>
+        <button id="btn-ve-crop-reset" class="hidden text-rose-400 underline"></button>
+    </div>
+
+    <!-- Thanh trượt màu — LUÔN hiện, cùng khuôn image-edit.html nhưng CODE ĐỘC LẬP hoàn toàn. -->
+    <div class="shrink-0 px-4 py-3 border-t border-white/10 flex flex-col gap-2.5">
+        <div class="flex items-center gap-3">
+            <span id="label-ve-filter-brightness" class="text-[11px] text-slate-400 w-20 shrink-0"></span>
+            <input id="slider-ve-brightness" type="range" min="50" max="150" value="100" class="flex-1 accent-sky-500">
+        </div>
+        <div class="flex items-center gap-3">
+            <span id="label-ve-filter-contrast" class="text-[11px] text-slate-400 w-20 shrink-0"></span>
+            <input id="slider-ve-contrast" type="range" min="50" max="150" value="100" class="flex-1 accent-sky-500">
+        </div>
+        <div class="flex items-center gap-3">
+            <span id="label-ve-filter-saturation" class="text-[11px] text-slate-400 w-20 shrink-0"></span>
+            <input id="slider-ve-saturation" type="range" min="0" max="200" value="100" class="flex-1 accent-sky-500">
+        </div>
+    </div>
+
+    <!-- Toolbar — cùng khuôn ô icon image-edit.html. -->
+    <div class="shrink-0 flex items-center gap-1 px-2 py-2 overflow-x-auto border-t border-white/10 bg-[#0f172a]/70">
+        <button id="btn-ve-crop" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
+            <svg class="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3"></path></svg>
+            <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-ve-crop-label"></span>
+        </button>
+        <button id="btn-ve-rotate-left" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
+            <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 15L3 9m0 0l6-6M3 9h11a6 6 0 010 12h-2"></path></svg>
+            <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-ve-rotate-left-label"></span>
+        </button>
+        <button id="btn-ve-rotate-right" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
+            <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l6-6m0 0l-6-6m6 6H10a6 6 0 000 12h2"></path></svg>
+            <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-ve-rotate-right-label"></span>
+        </button>
+        <button id="btn-ve-reset" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
+            <svg class="w-6 h-6 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-ve-reset-label"></span>
+        </button>
+    </div>
+
+    <!-- ===================== SCRIPT ===================== -->
+    <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
+    <script src="lang/patch/patch-common.js?v=20260714v1"></script>
+    <script src="lang/patch/patch-playlist.js?v=20260711v1"></script>
+    <script src="lang/patch/patch-visualizer.js?v=20260721v1"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260720v1"></script>
+    <script src="lang/patch/patch-settings-misc.js?v=20260714v1"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260718v1"></script>
+    <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
+    <script src="lang/patch/patch-image-edit.js?v=20260714v1"></script>
+    <!-- MỚI (Batch 1, module Video Editor) — 9 biến LANG_PATCH_* giờ Object.assign() ở lang.js
+         (đã cập nhật, xem lang/lang.js) — trang này chỉ THẬT SỰ dùng patch-common/patch-video-editor,
+         các file còn lại nạp cho ĐỦ BỘ (KHÔNG được bớt, xem docstring đầu lang/lang.js). -->
+    <script src="lang/patch/patch-video-editor.js?v=20260722v1"></script>
+    <script src="lang/lang.js?v=20260722v1"></script>
+    <script src="core/modal-choice.js?v=20260625v9"></script>
+    <script src="event/bus.js?v=20260625v10"></script>
+    <script src="service/db.js?v=20260711v1"></script>
+    <script src="service/song-key-cipher.js?v=20260710v1"></script>
+    <script src="core/video-editor/compat-guard.js?v=20260722v1"></script>
+    <script src="core/video-editor/webcodecs-engine.js?v=20260722v1"></script>
+    <script src="event/workflow/video-editor.js?v=20260722v1"></script>
+    <script src="event/router/video-editor.js?v=20260722v1"></script>
+    <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowVideoEditor.init() ngay khi chạy. -->
+    <script src="event/listener/video-editor.js?v=20260722v1"></script>
+    <script>
+        // i18n text tĩnh (gán SAU khi lang.js đã nạp) — cùng khuôn image-edit.html.
+        document.getElementById('btn-ve-crop-label').textContent = t('videoEdit.btnCrop.title');
+        document.getElementById('btn-ve-rotate-left-label').textContent = t('videoEdit.btnRotateLeft.title');
+        document.getElementById('btn-ve-rotate-right-label').textContent = t('videoEdit.btnRotateRight.title');
+        document.getElementById('btn-ve-reset-label').textContent = t('videoEdit.btnReset.title');
+        document.getElementById('label-ve-filter-brightness').textContent = t('videoEdit.filterBrightness');
+        document.getElementById('label-ve-filter-contrast').textContent = t('videoEdit.filterContrast');
+        document.getElementById('label-ve-filter-saturation').textContent = t('videoEdit.filterSaturation');
+        document.getElementById('video-editor-crop-title').textContent = t('videoEdit.cropOverlay.title');
+        document.getElementById('btn-video-editor-crop-cancel').textContent = t('videoEdit.cropOverlay.cancel');
+        document.getElementById('btn-video-editor-crop-confirm').textContent = t('videoEdit.cropOverlay.confirm');
+        document.getElementById('btn-ve-crop-reset').textContent = t('videoEdit.cropReset.label');
+    </script>
+</body>
+</html>

@@ -328,7 +328,10 @@
          dùng key nào trong đó (menu ảnh chỉ dùng key ở patch-file-manager.js) — lang.js
          Object.assign() 8 biến LANG_PATCH_*, THIẾU file này -> ReferenceError khi parse lang.js. -->
     <script src="lang/patch/patch-image-edit.js?v=20260714v1"></script>
-    <script src="lang/lang.js?v=20260714v1"></script>
+    <!-- MỚI (Batch 1, module Video Editor) — dùng ở CẢ index.html (menu video gọi
+         navigateToVideoEdit()) LẪN video-editor.html, xem lang/lang.js. -->
+    <script src="lang/patch/patch-video-editor.js?v=20260722v1"></script>
+    <script src="lang/lang.js?v=20260722v1"></script>
 
     <!-- =====================================================================
          1) COMPONENTS: mỗi file chỉ định nghĩa một biến TPL_* chứa chuỗi HTML.

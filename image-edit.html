@@ -103,10 +103,12 @@
     <script src="lang/patch/patch-file-manager.js?v=20260714v5"></script>
     <script src="lang/patch/patch-subtitle-editor.js?v=20260712v5"></script>
     <script src="lang/patch/patch-image-edit.js?v=20260714v1"></script>
-    <!-- lang.js Object.assign() CẢ 8 biến LANG_PATCH_* trên — THIẾU FILE NÀO cũng ReferenceError
+    <!-- MỚI (Batch 1, module Video Editor) — bắt buộc nạp dù trang này không dùng, xem bên dưới. -->
+    <script src="lang/patch/patch-video-editor.js?v=20260722v1"></script>
+    <!-- lang.js Object.assign() CẢ 9 biến LANG_PATCH_* trên — THIẾU FILE NÀO cũng ReferenceError
          ngay khi parse (xem lang/lang.js) — trang này chỉ THẬT SỰ dùng patch-common/patch-file-manager
          (btnEditImage dùng chung key)/patch-image-edit, các file còn lại nạp cho ĐỦ BỘ. -->
-    <script src="lang/lang.js?v=20260714v1"></script>
+    <script src="lang/lang.js?v=20260722v1"></script>
     <script src="core/modal-choice.js?v=20260625v9"></script>
     <script src="event/bus.js?v=20260625v10"></script>
     <script src="service/db.js?v=20260711v1"></script>
