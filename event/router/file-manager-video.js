@@ -65,7 +65,7 @@ const routerFileManagerVideo = (() => {
                         workflowFileManagerVideo.setVideoAsBackground(videoKey);
                     } },
                     { state: action, operation: '===', value: 'editVideo', callback: () => {
-                        workflowFileManagerVideo.showEditVideoPlaceholder();
+                        workflowFileManagerVideo.navigateToVideoEdit(videoKey); // MỚI (Batch 1, module Video Editor) — thay placeholder cũ
                     } },
                     { state: action, operation: '===', value: 'delete', callback: () => {
                         workflowFileManagerVideo.confirmDeleteSingleVideo(videoKey);
