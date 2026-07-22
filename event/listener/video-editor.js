@@ -21,15 +21,19 @@ const btnVeRotateRight = document.getElementById('btn-ve-rotate-right');
 const btnVeReset = document.getElementById('btn-ve-reset');
 const btnVideoEditorCropCancel = document.getElementById('btn-video-editor-crop-cancel');
 const btnVideoEditorCropConfirm = document.getElementById('btn-video-editor-crop-confirm');
-// MỚI (Batch 2) — Cut.
+// MỚI (Batch 2) — Cut (filmstrip + kéo thả 2 tay cầm).
 const videoEditorCutOverlayEl = document.getElementById('video-editor-cut-overlay');
 const videoEditorCutBadgeEl = document.getElementById('video-editor-cut-badge');
-const videoEditorCutStartLabelEl = document.getElementById('video-editor-cut-start-label');
-const videoEditorCutEndLabelEl = document.getElementById('video-editor-cut-end-label');
+const videoEditorCutFilmstripWrapEl = document.getElementById('video-editor-cut-filmstrip-wrap');
+const videoEditorCutFilmstripEl = document.getElementById('video-editor-cut-filmstrip');
+const videoEditorCutDimLeftEl = document.getElementById('video-editor-cut-dim-left');
+const videoEditorCutDimRightEl = document.getElementById('video-editor-cut-dim-right');
+const videoEditorCutSelectionBorderEl = document.getElementById('video-editor-cut-selection-border');
+const videoEditorCutHandleStartEl = document.getElementById('video-editor-cut-handle-start');
+const videoEditorCutHandleEndEl = document.getElementById('video-editor-cut-handle-end');
+const videoEditorCutRangeLabelEl = document.getElementById('video-editor-cut-range-label');
 const btnVeCut = document.getElementById('btn-ve-cut');
 const btnVeCutReset = document.getElementById('btn-ve-cut-reset');
-const btnVideoEditorCutPickStart = document.getElementById('btn-video-editor-cut-pick-start');
-const btnVideoEditorCutPickEnd = document.getElementById('btn-video-editor-cut-pick-end');
 const btnVideoEditorCutCancel = document.getElementById('btn-video-editor-cut-cancel');
 const btnVideoEditorCutConfirm = document.getElementById('btn-video-editor-cut-confirm');
 // MỚI (Batch 2) — Trích xuất ảnh.
@@ -75,17 +79,34 @@ btnVeCut.addEventListener('click', () => {
 btnVeCutReset.addEventListener('click', () => {
     eventBus.send({ router: 'videoEdit', type: 'videoEdit.cutReset.click', payload: {} });
 });
-btnVideoEditorCutPickStart.addEventListener('click', () => {
-    eventBus.send({ router: 'videoEdit', type: 'videoEdit.cutPickStart.click', payload: {} });
-});
-btnVideoEditorCutPickEnd.addEventListener('click', () => {
-    eventBus.send({ router: 'videoEdit', type: 'videoEdit.cutPickEnd.click', payload: {} });
-});
 btnVideoEditorCutCancel.addEventListener('click', () => {
     eventBus.send({ router: 'videoEdit', type: 'videoEdit.cutCancel.click', payload: {} });
 });
 btnVideoEditorCutConfirm.addEventListener('click', () => {
     eventBus.send({ router: 'videoEdit', type: 'videoEdit.cutConfirm.click', payload: {} });
+});
+// Kéo thả 2 tay cầm — Pointer Events (thống nhất chuột/chạm, cùng quy ước Pointer Events đã dùng
+// ở Simple Farm). `setPointerCapture` để pointermove/pointerup vẫn nhận được dù ngón tay/chuột di
+// chuyển RA NGOÀI phạm vi tay cầm trong lúc kéo — không cần lắng nghe trên `document`.
+[
+    { el: videoEditorCutHandleStartEl, handle: 'start' },
+    { el: videoEditorCutHandleEndEl, handle: 'end' },
+].forEach(({ el, handle }) => {
+    el.addEventListener('pointerdown', (e) => {
+        el.setPointerCapture(e.pointerId);
+        eventBus.send({ router: 'videoEdit', type: 'videoEdit.cutDrag.start', payload: { handle, clientX: e.clientX } });
+    });
+    el.addEventListener('pointermove', (e) => {
+        if (!el.hasPointerCapture(e.pointerId)) return; // guard — không đang kéo tay cầm NÀY
+        eventBus.send({ router: 'videoEdit', type: 'videoEdit.cutDrag.move', payload: { clientX: e.clientX } });
+    });
+    el.addEventListener('pointerup', (e) => {
+        el.releasePointerCapture(e.pointerId);
+        eventBus.send({ router: 'videoEdit', type: 'videoEdit.cutDrag.end', payload: {} });
+    });
+    el.addEventListener('pointercancel', () => {
+        eventBus.send({ router: 'videoEdit', type: 'videoEdit.cutDrag.end', payload: {} });
+    });
 });
 
 // MỚI (Batch 2) — Trích xuất ảnh.
