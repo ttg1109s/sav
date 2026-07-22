@@ -28,16 +28,9 @@
  */
 const workflowVideoPlayer = {
     _objectUrl: null, // object URL HIỆN TẠI đang gán cho bgVideoElement (revoke trước khi tạo url mới)
+    _thumbObjectUrl: null, // object URL của thumbBlob HIỆN TẠI (cover ở player bar, #record-container) — revoke trước khi tạo url mới
     _swipeStartY: null, // toạ độ Y lúc touchstart — dùng bởi event/listener/video-player.js (cử chỉ vuốt)
 
-    /** Vào Video Player mode: đọc danh sách video, phát video đầu tiên, CHUYỂN MÀN HÌNH sang
-     * Visualizer. GỌI TỪ `workflowFileManagerVideo.enablePlayerModeFromPanel()` (checkbox trong
-     * panel File Manager -> Video) — nơi gọi ĐÃ tự đảm bảo Video nền trang trí đang TẮT trước khi
-     * gọi hàm này (Block gate, xem event/block.js).
-     * `switchToVisualizer()` (core/player-controls.js, hàm CÓ SẴN) — ẩn `#app-stack` (Playlist+
-     * Settings), hiện `#player-container` (bar dưới cùng — nếu không gọi hàm này, mang class
-     * `hidden` mãi mãi, mọi cập nhật UI bên trong dù đúng vẫn KHÔNG AI THẤY ĐƯỢC). CHỈ gọi 1 LẦN
-     * lúc VÀO mode. */
     /** Vào Video Player mode: đọc danh sách video, phát video đầu tiên, CHUYỂN MÀN HÌNH sang
      * Visualizer. GỌI TỪ `workflowFileManagerVideo.enablePlayerModeFromPanel()` (checkbox trong
      * panel File Manager -> Video) — nơi gọi ĐÃ tự đảm bảo Video nền trang trí đang TẮT trước khi
@@ -52,6 +45,13 @@ const workflowVideoPlayer = {
      * (core/resume-state-storage.js, dòng đầu: `if (currentKey === null) return false;`) tự động
      * KHÔNG lưu gì + KHÔNG set cờ resume nữa mỗi khi tab bị ẩn lúc đang ở Video Player mode — ĐÚNG
      * ý Giang "phải skip chế độ resume tab", không cần sửa gì thêm ở core/tab-hide-reload.js.
+     * SỬA LẦN 2 (21/07/2026, Giang yêu cầu "so sánh bg video enable và luồng video player") — ĐỐI
+     * CHIẾU `handleVideoBackground()` (core/state-and-video-bg.js) phát hiện 1 dòng CÒN THIẾU:
+     * `visualizerSolidBg.style.backgroundColor = '#000000'` — nền đen cưỡng chế PHÍA SAU video
+     * (lớp `#visualizer-solid-bg`, z:-3, dưới cùng). KHÔNG set dòng này, nền solid vẫn giữ màu
+     * `cfg.bgColor` cũ (vd xanh đậm/tuỳ theme) — tuỳ mắt nhìn CÓ THỂ trông giống "video không che
+     * hết màn" hoặc lẫn với suy đoán z-index (đã bác bỏ). Thêm ĐÚNG dòng này, khớp 100% luồng bg
+     * video đã chứng minh hoạt động tốt.
      * `switchToVisualizer()` (core/player-controls.js, hàm CÓ SẴN) — ẩn `#app-stack` (Playlist+
      * Settings), hiện `#player-container` (bar dưới cùng — nếu không gọi hàm này, mang class
      * `hidden` mãi mãi, mọi cập nhật UI bên trong dù đúng vẫn KHÔNG AI THẤY ĐƯỢC). CHỈ gọi 1 LẦN
@@ -70,6 +70,7 @@ const workflowVideoPlayer = {
         // Thứ tự phát: cũ -> mới (đảo ngược sortVideosByAddedDateDesc — hàm đó trả mới -> cũ).
         const videoPlaylist = sortVideosByAddedDateDesc(videos).reverse().map((v) => v.key); // core/file-manager/video.js
 
+        visualizerSolidBg.style.backgroundColor = '#000000'; // khớp handleVideoBackground() (core/state-and-video-bg.js) — nền đen cưỡng chế phía sau video
         enterVideoPlayerModeState(videoPlaylist); // core/video-player.js
         setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop + hiện + pointer-events
 
@@ -77,13 +78,18 @@ const workflowVideoPlayer = {
         switchToVisualizer(); // core/player-controls.js, hàm CÓ SẴN
     },
 
-    /** Thoát Video Player mode: dừng + dọn `bgVideoElement`, trả về mặc định trang trí. */
+    /** Thoát Video Player mode: dừng + dọn `bgVideoElement`, trả về mặc định trang trí.
+     * SỬA (21/07/2026, cùng đợt so sánh 2 luồng) — thêm `updateDOMBackground()` (core/color-
+     * utils.js, hàm CÓ SẴN) — trả `visualizerSolidBg` về ĐÚNG `cfg.bgColor` (hàm đó tự đọc
+     * `cfg.videoBgEnabled`, LUÔN false cho Video Player mode — không cần biết gì thêm, tự làm đúng). */
     async exitVideoPlayerMode() {
         bgVideoElement.pause();
-        setBgVideoElementForPlayerMode(false); // core/video-player.js — trả lại muted+loop=true, ẩn, z-index/pointer-events mặc định
+        setBgVideoElementForPlayerMode(false); // core/video-player.js — trả lại muted+loop=true, ẩn, pointer-events mặc định
         if (this._objectUrl) { try { URL.revokeObjectURL(this._objectUrl); } catch (e) {} this._objectUrl = null; }
+        if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} this._thumbObjectUrl = null; }
         bgVideoElement.removeAttribute('src');
         bgVideoElement.load(); // buộc <video> bỏ hẳn tham chiếu blob URL vừa revoke (tránh giữ RAM)
+        updateDOMBackground(); // core/color-utils.js, hàm CÓ SẴN — trả visualizerSolidBg về cfg.bgColor
 
         exitVideoPlayerModeState(); // core/video-player.js
         releaseWakeLock(); stopListenClock(); // core/player-controls.js — dọn nốt 2 cơ chế đã bật lúc phát
@@ -103,7 +109,18 @@ const workflowVideoPlayer = {
 
         if (this._objectUrl) { try { URL.revokeObjectURL(this._objectUrl); } catch (e) {} }
         this._objectUrl = URL.createObjectURL(record.blob);
+
+        // SỬA (21/07/2026, đợt so sánh 2 luồng — Giang yêu cầu) — mirror ĐÚNG `setupVideoBgSource()`
+        // (core/state-and-video-bg.js, luồng bg video THAM CHIẾU): ẩn TRƯỚC (opacity=0) tránh chớp
+        // khung hình cũ/đen, gán `src`, RỒI chờ 'loadeddata'/'playing' (bất kỳ cái nào bắn trước,
+        // {once:true} tự gỡ) mới fade hiện — KHÁC bản trước set opacity=1 NGAY LẬP TỨC (từ
+        // `setBgVideoElementForPlayerMode()`, giờ đã bỏ hẳn phần opacity ở đó, xem core/video-
+        // player.js) khi khung hình THẬT chưa chắc đã sẵn sàng.
+        bgVideoElement.style.opacity = '0';
         bgVideoElement.src = this._objectUrl;
+        const fadeVideoIn = () => { bgVideoElement.style.opacity = '1'; };
+        bgVideoElement.addEventListener('loadeddata', fadeVideoIn, { once: true });
+        bgVideoElement.addEventListener('playing', fadeVideoIn, { once: true });
 
         setCurrentVideoKey(videoKey); // core/video-player.js
 
@@ -122,6 +139,17 @@ const workflowVideoPlayer = {
                 artwork: [],
             });
         }
+
+        // MỚI (21/07/2026, Giang yêu cầu "chỉnh cover ở player bottom = dùng ảnh thumb của video")
+        // — CÙNG khuôn cách Song dựng lại `recordContainer.innerHTML` (core/playlist/actions.js) —
+        // dùng `record.thumbBlob` (đã có sẵn từ lúc upload, core/file-manager/video.js) thay
+        // `currentCoverObjectURL` của Song. `animate-spin-slow` LUÔN có mặt (video vừa gọi
+        // `bgVideoElement.play()` ngay dưới), lớp `.paused` (nếu cần) do `handleVideoPlayState()`/
+        // `handleVideoPauseState()` tự toggle sau, cùng cách Song đang làm (core/player-
+        // controls.js, KHÔNG đụng).
+        if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} }
+        this._thumbObjectUrl = URL.createObjectURL(record.thumbBlob);
+        recordContainer.innerHTML = `<img id="record-art" src="${this._thumbObjectUrl}" class="w-full h-full rounded-full object-cover shadow-lg relative z-20 animate-spin-slow" alt="${t('videoPlayer.untitled')}"><div class="absolute inset-0 m-auto w-3 h-3 bg-slate-900 rounded-full border border-slate-700 z-30"></div>`;
 
         requestWakeLock(); // core/player-controls.js — cùng khuôn playNext()/playPrev()/togglePlayPause() của Song
         bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
@@ -157,6 +185,7 @@ const workflowVideoPlayer = {
      * dụng cho Video — viết bản RIÊNG, gọn hơn). */
     handleVideoPlayState() {
         iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden');
+        const recordArtDynamic = document.getElementById('record-art'); if (recordArtDynamic) recordArtDynamic.classList.remove('paused'); // cùng khuôn handleAudioPlay() core/player-controls.js
         if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
         requestWakeLock(); startListenClock(); // core/player-controls.js
     },
@@ -164,6 +193,7 @@ const workflowVideoPlayer = {
     /** Ứng với 'playerControls.video.pause' — ngược lại `handleVideoPlayState()`. */
     handleVideoPauseState() {
         iconPlay.classList.remove('hidden'); iconPause.classList.add('hidden');
+        const recordArtDynamic = document.getElementById('record-art'); if (recordArtDynamic) recordArtDynamic.classList.add('paused'); // cùng khuôn handleAudioPause() core/player-controls.js
         if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
         releaseWakeLock(); stopListenClock(); // core/player-controls.js
     },
@@ -228,5 +258,21 @@ const workflowVideoPlayer = {
     handleBackToPlaylistFromVideoMode() {
         handleBackToPlaylistClick(); // core/player-controls.js — hành vi gốc (ẩn Visualizer, hiện lại #app-stack, KHÔNG dừng phát)
         scrollSideLeftToSettingsSmooth(); // core/player-controls.js, hàm CÓ SẴN — tự cuộn về ĐÚNG trang Settings (KHÁC Song — xem docstring)
+    },
+
+    /** MỚI (21/07/2026, Giang yêu cầu "nút X Main Settings khi Video Player đang bật phải chuyển
+     * thẳng về Visualizer") — ứng với 'playerControls.settingsDrawer.close' khi
+     * `isVideoPlayerMode=true` (xem event/router/player-controls.js, VirtualMachineState branch —
+     * nhánh false vẫn gọi `workflowPlayerControls.closeSettingsDrawer()` gốc, KHÔNG đổi gì).
+     * `resetSettingsStackToMain()` (core, dùng lại nguyên từ `closeSettingsDrawer()` gốc) — dọn
+     * ngăn xếp panel con (File Manager -> Video đang mở SÂU) về lại trang gốc Settings, để lần mở
+     * lại sau LUÔN sạch — KHÔNG gọi `scrollSideLeftToPlaylistSmooth()` như nhánh Song (không cần,
+     * `switchToVisualizer()` NGAY SAU đã ẩn hẳn `#app-stack`, vị trí cuộn bên trong không còn ai
+     * nhìn thấy lúc này) — KHÔNG gọi `validateVideoBgOnClose()` (chỉ liên quan Video nền trang trí,
+     * Block gate đã đảm bảo tính năng đó luôn TẮT suốt lúc Video Player mode bật, xem event/
+     * block.js — gọi vào cũng chỉ no-op, bỏ cho gọn). */
+    closeSettingsDrawerToVisualizer() {
+        resetSettingsStackToMain(); // core, dùng lại nguyên
+        switchToVisualizer(); // core/player-controls.js, hàm CÓ SẴN
     },
 };
