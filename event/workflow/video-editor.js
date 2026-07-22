@@ -27,9 +27,17 @@
  * từ video tại `currentTime` — Cropper.js không chạy trực tiếp trên `<video>`. Kết quả lưu dạng TỈ
  * LỆ (0-1, không phải px) để không phụ thuộc kích thước hiển thị.
  *
- * NẠP SAU: core/video-editor/compat-guard.js, service/db.js, service/song-key-cipher.js,
- * lang/lang.js, Cropper.js (CDN), DOM tĩnh của video-editor.html (event/listener/video-editor.js
- * khai const tham chiếu NGAY ĐẦU file đó — trang nhỏ, không cần dom-refs.js riêng).
+ * PHẠM VI BATCH 2 (MỚI): Cut (chọn khoảng thời gian giữ lại, qua `core/time-picker-modal.js` — dùng
+ * chung, đã có sẵn) + Trích xuất ảnh (chụp khung hình hiện tại, lưu THẲNG vào IndexedDB store
+ * 'images' qua `core/file-manager/image.js::saveImage()` — KHÔNG qua Save/engine, xuất tức thì,
+ * không chờ Batch 4). `core/video-editor/webcodecs-engine.js::processVideo()` đã nhận thêm tham số
+ * `cutRange` (sẽ dùng ở Batch 4 lúc bấm Lưu, giống crop/rotate/filter — CHƯA gọi ở batch này).
+ *
+ * NẠP SAU: core/video-editor/compat-guard.js, core/video-editor/frame-extract.js,
+ * core/file-manager/image.js, core/time-picker-modal.js, service/db.js,
+ * service/song-key-cipher.js, lang/lang.js, Cropper.js (CDN), DOM tĩnh của video-editor.html
+ * (event/listener/video-editor.js khai const tham chiếu NGAY ĐẦU file đó — trang nhỏ, không cần
+ * dom-refs.js riêng).
  */
 const workflowVideoEditor = {
     _videoKey: null,
@@ -37,6 +45,9 @@ const workflowVideoEditor = {
     _cropper: null,
     _cropFraction: null, // {x,y,w,h} tỉ lệ 0-1, null = không crop
     _rotateDeg: 0, // 0/90/180/270
+    _cutRange: null, // {start,end} giây, null = giữ nguyên toàn bộ — MỚI (Batch 2)
+    _cutDraftStart: 0, // MỚI (Batch 2) — giá trị ĐANG chỉnh trong overlay Cut, chỉ ghi vào _cutRange lúc bấm "Xong"
+    _cutDraftEnd: 0,
     _hasUnsavedChanges: false,
 
     /** Chạy 1 LẦN lúc trang load xong (xem event/listener/video-editor.js). */
@@ -58,6 +69,7 @@ const workflowVideoEditor = {
         videoEditorSourceEl.src = objectUrl;
         videoEditorSourceEl.addEventListener('loadedmetadata', () => this._applyRotatePreview(), { once: true });
         this._updateCropBadge();
+        this._updateCutBadge();
     },
 
     _showFatalError(message) {
@@ -188,17 +200,129 @@ const workflowVideoEditor = {
         }
     },
 
+    // ===================== Cut (khoảng thời gian giữ lại, MỚI Batch 2) =====================
+
+    /** Bấm nút "Cut" — tạm dừng video, mở overlay chọn 2 mốc bắt đầu/kết thúc. Nháp
+     * (`_cutDraftStart/_cutDraftEnd`) tách riêng khỏi `_cutRange` thật — chỉ ghi vào `_cutRange`
+     * lúc bấm "Xong" (Cancel không làm mất lựa chọn cũ, cùng tinh thần overlay Crop). */
+    handleCutOpen() {
+        if (!videoEditorSourceEl.duration) return; // guard — video chưa load xong metadata
+        videoEditorSourceEl.pause();
+        this._cutDraftStart = this._cutRange ? this._cutRange.start : 0;
+        this._cutDraftEnd = this._cutRange ? this._cutRange.end : videoEditorSourceEl.duration;
+        this._updateCutOverlayLabels();
+        videoEditorCutOverlayEl.classList.remove('hidden');
+    },
+
+    _updateCutOverlayLabels() {
+        videoEditorCutStartLabelEl.textContent = this._formatSeconds(this._cutDraftStart);
+        videoEditorCutEndLabelEl.textContent = this._formatSeconds(this._cutDraftEnd);
+    },
+
+    /** "m:ss" — hàm hiển thị riêng của trang này (KHÔNG gọi core nào khác, Rule 3 — mỗi trang độc
+     * lập tự chứa hàm format của mình, cùng tiền lệ `formatVideoDuration()` core/file-manager/
+     * video.js viết riêng thay vì gọi lại `formatTime()` của Playlist). */
+    _formatSeconds(totalSeconds) {
+        const s = Math.max(0, Math.round(totalSeconds));
+        const m = Math.floor(s / 60);
+        const rem = s % 60;
+        return `${m}:${rem < 10 ? '0' : ''}${rem}`;
+    },
+
+    /** Mở time-picker-modal (core/time-picker-modal.js, dùng chung) chọn điểm BẮT ĐẦU — biên trên
+     * luôn cách điểm kết thúc hiện tại ít nhất 1s. */
+    handleCutPickStart() {
+        openTimePickerModal({ // core/time-picker-modal.js
+            title: t('videoEdit.cutOverlay.pickStart'),
+            format: 's',
+            valueMs: this._cutDraftStart * 1000,
+            minMs: 0,
+            maxMs: Math.max(0, this._cutDraftEnd * 1000 - 1000),
+            onConfirm: (resultMs) => {
+                this._cutDraftStart = resultMs / 1000;
+                this._updateCutOverlayLabels();
+            },
+        });
+    },
+
+    /** Mở time-picker-modal chọn điểm KẾT THÚC — biên dưới luôn cách điểm bắt đầu hiện tại ít nhất 1s. */
+    handleCutPickEnd() {
+        const durationMs = videoEditorSourceEl.duration * 1000;
+        openTimePickerModal({ // core/time-picker-modal.js
+            title: t('videoEdit.cutOverlay.pickEnd'),
+            format: 's',
+            valueMs: this._cutDraftEnd * 1000,
+            minMs: Math.min(durationMs, this._cutDraftStart * 1000 + 1000),
+            maxMs: durationMs,
+            onConfirm: (resultMs) => {
+                this._cutDraftEnd = resultMs / 1000;
+                this._updateCutOverlayLabels();
+            },
+        });
+    },
+
+    handleCutConfirm() {
+        this._cutRange = { start: this._cutDraftStart, end: this._cutDraftEnd };
+        this._hasUnsavedChanges = true;
+        this._closeCutOverlay();
+        this._updateCutBadge();
+    },
+
+    handleCutCancel() {
+        this._closeCutOverlay();
+    },
+
+    _closeCutOverlay() {
+        videoEditorCutOverlayEl.classList.add('hidden');
+        videoEditorSourceEl.play().catch(() => {}); // best-effort — cùng lý do _closeCropOverlay()
+    },
+
+    handleCutReset() {
+        this._cutRange = null;
+        this._hasUnsavedChanges = true;
+        this._updateCutBadge();
+    },
+
+    _updateCutBadge() {
+        if (this._cutRange) {
+            videoEditorCutBadgeEl.textContent = tFormat('videoEdit.cutBadge.active', { start: this._formatSeconds(this._cutRange.start), end: this._formatSeconds(this._cutRange.end) });
+            btnVeCutReset.classList.remove('hidden');
+        } else {
+            videoEditorCutBadgeEl.textContent = t('videoEdit.cutBadge.none');
+            btnVeCutReset.classList.add('hidden');
+        }
+    },
+
+    // ===================== Trích xuất ảnh (MỚI Batch 2 — lưu THẲNG vào DB, không qua Save) =====================
+
+    /** Chụp khung hình hiện tại, lưu THẲNG vào IndexedDB store 'images' (KHÔNG qua engine/Save —
+     * đây là thao tác ĐỘC LẬP, xuất tức thì, không phụ thuộc trạng thái crop/rotate/filter/cut
+     * đang chỉnh dở). "Chất lượng gốc" = giữ nguyên độ phân giải video, KHÔNG resize (chỉ
+     * thumbnail mới resize, phục vụ lưới hiển thị — cùng quy ước Photo & Album có sẵn). */
+    async handleExtractFrame() {
+        if (!videoEditorSourceEl.videoWidth) return; // guard — video chưa load xong metadata
+        const sourceCanvas = captureVideoFrameToCanvas(videoEditorSourceEl); // core/video-editor/frame-extract.js
+        const blob = await new Promise((resolve) => sourceCanvas.toBlob(resolve, 'image/jpeg', 0.95));
+        if (!blob) { await alertModal(t('videoEdit.extractFrame.failed')); return; }
+        const thumbBlob = await buildExtractedPhotoThumbnail(sourceCanvas, 0.2); // core/video-editor/frame-extract.js
+        const filename = `${buildExtractedPhotoFilename()}.jpg`; // core/video-editor/frame-extract.js
+        await saveImage(blob, filename, thumbBlob, sourceCanvas.width, sourceCanvas.height); // core/file-manager/image.js
+        await alertModal(t('videoEdit.extractFrame.success'));
+    },
+
     // ===================== Reset toàn bộ + điều hướng =====================
 
     handleReset() {
         this._cropFraction = null;
         this._rotateDeg = 0;
+        this._cutRange = null;
         sliderVeBrightness.value = 100;
         sliderVeContrast.value = 100;
         sliderVeSaturation.value = 100;
         this._applyFilterPreview();
         this._applyRotatePreview();
         this._updateCropBadge();
+        this._updateCutBadge();
         this._hasUnsavedChanges = true; // vẫn coi là "có sửa" — KHÔNG chắc trùng khớp tuyệt đối trạng thái ban đầu nếu trang vừa mở đã có sẵn giá trị khác mặc định
     },
 
