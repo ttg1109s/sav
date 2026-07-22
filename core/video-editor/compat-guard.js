@@ -26,8 +26,17 @@
  * @returns {Promise<{ supported: true, videoTrack: object, audioTrack: object|null } | { supported: false, reason: string }>}
  */
 async function checkVideoEditorCompat(videoBlob) {
-    if (typeof Mediabunny === 'undefined' || typeof VideoDecoder === 'undefined') {
-        return { supported: false, reason: 'unsupportedBrowser' }; // trình duyệt không có WebCodecs (vd Firefox Android, Safari quá cũ)
+    // MỚI (phản hồi Giang — "rõ là H.264 vẫn không mở được", cần phân biệt 2 nguyên nhân KHÁC hẳn
+    // nhau: (a) CDN Mediabunny tải lỗi (404/mạng) — sửa được bằng cách đổi lại URL CDN, KHÔNG liên
+    // quan trình duyệt/codec; (b) trình duyệt thật sự không có WebCodecs — không sửa được. Trước
+    // đây gộp chung 1 lý do 'unsupportedBrowser' → hiểu lầm là do định dạng/trình duyệt, trong khi
+    // rất có thể chỉ là script CDN chưa tải xong/lỗi 404.
+    if (typeof Mediabunny === 'undefined') {
+        console.error('[checkVideoEditorCompat] window.Mediabunny không tồn tại — script CDN Mediabunny CHƯA TẢI ĐƯỢC (kiểm tra tab Network / debug console: 404? sai URL? mất mạng?).');
+        return { supported: false, reason: 'mediabunnyNotLoaded' };
+    }
+    if (typeof VideoDecoder === 'undefined') {
+        return { supported: false, reason: 'unsupportedBrowser' }; // Mediabunny CÓ tải được nhưng trình duyệt thật sự không có WebCodecs (vd Firefox Android, Safari quá cũ)
     }
     let input;
     try {
