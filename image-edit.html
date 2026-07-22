@@ -114,7 +114,10 @@
     <script src="service/db.js?v=20260711v1"></script>
     <script src="service/song-key-cipher.js?v=20260710v1"></script>
     <script src="core/file-manager/image.js?v=20260714v2"></script>
-    <script src="event/workflow/image-edit.js?v=20260714v1"></script>
+    <!-- MỚI (phản hồi Giang — "sau này đổi thư viện chỉnh sửa ảnh thì?") — gom mọi lời gọi
+         Cropper.js vào đây, event/workflow/image-edit.js không còn tham chiếu `Cropper` trực tiếp. -->
+    <script src="core/image-edit/cropper-engine.js?v=20260722v1"></script>
+    <script src="event/workflow/image-edit.js?v=20260722v1"></script>
     <script src="event/router/image-edit.js?v=20260714v1"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowImageEdit.init() ngay khi chạy. -->
     <script src="event/listener/image-edit.js?v=20260714v1"></script>
