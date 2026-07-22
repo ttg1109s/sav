@@ -138,11 +138,20 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.settingsDrawer.close': {
-                // VIẾT LẠI (08/07/2026, HOTFIX 11) — cùng lý do ở trên: Settings giờ LUÔN mở từ
-                // Playlist nên đóng cũng LUÔN về Playlist — không còn nhánh "về Visualizer" nào để
-                // rẽ. Vẫn giao Workflow (không gọi thẳng core) vì cần ≥2 hàm core nối tiếp (validate
-                // video nền + reset ngăn xếp panel con + cuộn) — đúng (B) event-bus-flow.md.
-                workflowPlayerControls.closeSettingsDrawer();
+                // SỬA (21/07/2026, Giang yêu cầu "nút X Main Settings khi Video Player đang bật
+                // phải chuyển thẳng về Visualizer, nhớ dùng vmstate") — HOTFIX 11 (08/07/2026) từng
+                // bỏ nhánh "về Visualizer" vì lúc đó Settings CHỈ mở được từ Playlist (đúng cho
+                // Song) — nhưng giờ Settings CÒN mở được để bật Video Player mode (checkbox trong
+                // File Manager -> Video), nên đóng Settings lúc `isVideoPlayerMode=true` phải về
+                // THẲNG Visualizer (xem video đang phát), KHÔNG PHẢI Playlist như bình thường.
+                VirtualMachineState.run([
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
+                        workflowVideoPlayer.closeSettingsDrawerToVisualizer();
+                    } },
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
+                        workflowPlayerControls.closeSettingsDrawer(); // hành vi gốc HOTFIX 11 — KHÔNG đổi gì
+                    } },
+                ]);
                 break;
             }
 
