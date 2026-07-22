@@ -6,8 +6,11 @@
     riêng, đọc/ghi CHUNG 1 IndexedDB với trang chính (cùng origin `file://`).
 
     PHẠM VI BATCH 1: Crop + Rotate (90°) + Filter màu (brightness/contrast/saturation) — CHƯA có
-    nút Lưu/Cut/Chèn nhạc/Chia video (các batch sau). Mọi chỉnh sửa ở batch này chỉ là STATE +
-    PREVIEW, chưa "nướng" thành file thật (xem event/workflow/video-editor.js).
+    nút Lưu (Batch 4). Mọi chỉnh sửa crop/rotate/filter/cut ở đây chỉ là STATE + PREVIEW, chưa
+    "nướng" thành file thật (xem event/workflow/video-editor.js).
+
+    PHẠM VI BATCH 2 (MỚI): Cut (chọn khoảng thời gian giữ lại) + Trích xuất ảnh (chụp khung hình
+    hiện tại, lưu THẲNG vào IndexedDB store 'images' — KHÔNG qua Save/engine, xuất tức thì).
 
     Thư viện:
     - Cropper.js v1 (CDN, UMD, global `Cropper`) — dùng lại ĐÚNG bản CDN đã có sẵn cho
@@ -67,10 +70,34 @@
         </div>
     </div>
 
-    <!-- Badge crop hiện tại + nút xoá crop. -->
+    <!-- Overlay Cut — ẨN mặc định, MỚI (Batch 2). 2 mốc bắt đầu/kết thúc, mỗi mốc mở
+         core/time-picker-modal.js (dùng chung, format 's') để chọn. -->
+    <div id="video-editor-cut-overlay" class="hidden fixed inset-0 z-50 bg-black flex flex-col">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+            <button id="btn-video-editor-cut-cancel" class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold transition-colors"></button>
+            <span id="video-editor-cut-title" class="text-sm font-semibold"></span>
+            <button id="btn-video-editor-cut-confirm" class="px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-sm font-bold transition-colors"></button>
+        </div>
+        <div class="flex-1 min-h-0 flex flex-col justify-center gap-4 px-6">
+            <button id="btn-video-editor-cut-pick-start" class="flex items-center justify-between px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition-colors">
+                <span id="video-editor-cut-start-caption" class="text-sm text-slate-300"></span>
+                <span id="video-editor-cut-start-label" class="text-lg font-mono font-bold"></span>
+            </button>
+            <button id="btn-video-editor-cut-pick-end" class="flex items-center justify-between px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition-colors">
+                <span id="video-editor-cut-end-caption" class="text-sm text-slate-300"></span>
+                <span id="video-editor-cut-end-label" class="text-lg font-mono font-bold"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Badge crop/cut hiện tại + nút xoá. -->
     <div class="shrink-0 px-4 pt-2 flex items-center justify-between text-[11px] text-slate-400">
         <span id="video-editor-crop-badge"></span>
         <button id="btn-ve-crop-reset" class="hidden text-rose-400 underline"></button>
+    </div>
+    <div class="shrink-0 px-4 pt-1 flex items-center justify-between text-[11px] text-slate-400">
+        <span id="video-editor-cut-badge"></span>
+        <button id="btn-ve-cut-reset" class="hidden text-rose-400 underline"></button>
     </div>
 
     <!-- Thanh trượt màu — LUÔN hiện, cùng khuôn image-edit.html nhưng CODE ĐỘC LẬP hoàn toàn. -->
@@ -103,6 +130,16 @@
             <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l6-6m0 0l-6-6m6 6H10a6 6 0 000 12h2"></path></svg>
             <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-ve-rotate-right-label"></span>
         </button>
+        <!-- MỚI (Batch 2) — Cut. -->
+        <button id="btn-ve-cut" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
+            <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M6 3a3 3 0 100 6 3 3 0 000-6zm12 12a3 3 0 100 6 3 3 0 000-6zM6.75 8.25L18 19.5m-1.5-16.5L6.75 15.75"></path></svg>
+            <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-ve-cut-label"></span>
+        </button>
+        <!-- MỚI (Batch 2) — Trích xuất ảnh. -->
+        <button id="btn-ve-extract-frame" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
+            <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><circle cx="12" cy="13" r="3.5" stroke-width="2"></circle></svg>
+            <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-ve-extract-frame-label"></span>
+        </button>
         <button id="btn-ve-reset" class="w-[64px] shrink-0 flex flex-col items-center gap-1.5 py-1.5 active:opacity-50 transition-opacity">
             <svg class="w-6 h-6 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
             <span class="text-[9px] font-medium text-slate-300 text-center truncate w-full" id="btn-ve-reset-label"></span>
@@ -129,11 +166,16 @@
     <script src="service/db.js?v=20260711v1"></script>
     <script src="service/song-key-cipher.js?v=20260710v1"></script>
     <script src="core/video-editor/compat-guard.js?v=20260722v1"></script>
-    <script src="core/video-editor/webcodecs-engine.js?v=20260722v1"></script>
-    <script src="event/workflow/video-editor.js?v=20260722v1"></script>
-    <script src="event/router/video-editor.js?v=20260722v1"></script>
+    <script src="core/video-editor/webcodecs-engine.js?v=20260722v2"></script>
+    <!-- MỚI (Batch 2) — time-picker-modal.js dùng chung (đã có sẵn cho Slideshow/Subtitle Editor)
+         cho Cut; frame-extract.js + core/file-manager/image.js cho Trích xuất ảnh (saveImage()). -->
+    <script src="core/time-picker-modal.js?v=20260718v1"></script>
+    <script src="core/video-editor/frame-extract.js?v=20260722v1"></script>
+    <script src="core/file-manager/image.js?v=20260714v2"></script>
+    <script src="event/workflow/video-editor.js?v=20260722v2"></script>
+    <script src="event/router/video-editor.js?v=20260722v2"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowVideoEditor.init() ngay khi chạy. -->
-    <script src="event/listener/video-editor.js?v=20260722v1"></script>
+    <script src="event/listener/video-editor.js?v=20260722v2"></script>
     <script>
         // i18n text tĩnh (gán SAU khi lang.js đã nạp) — cùng khuôn image-edit.html.
         document.getElementById('btn-ve-crop-label').textContent = t('videoEdit.btnCrop.title');
@@ -147,6 +189,15 @@
         document.getElementById('btn-video-editor-crop-cancel').textContent = t('videoEdit.cropOverlay.cancel');
         document.getElementById('btn-video-editor-crop-confirm').textContent = t('videoEdit.cropOverlay.confirm');
         document.getElementById('btn-ve-crop-reset').textContent = t('videoEdit.cropReset.label');
+        // MỚI (Batch 2).
+        document.getElementById('btn-ve-cut-label').textContent = t('videoEdit.btnCut.title');
+        document.getElementById('btn-ve-extract-frame-label').textContent = t('videoEdit.btnExtractFrame.title');
+        document.getElementById('btn-ve-cut-reset').textContent = t('videoEdit.cutReset.label');
+        document.getElementById('video-editor-cut-title').textContent = t('videoEdit.cutOverlay.title');
+        document.getElementById('btn-video-editor-cut-cancel').textContent = t('videoEdit.cutOverlay.cancel');
+        document.getElementById('btn-video-editor-cut-confirm').textContent = t('videoEdit.cutOverlay.confirm');
+        document.getElementById('video-editor-cut-start-caption').textContent = t('videoEdit.cutOverlay.startCaption');
+        document.getElementById('video-editor-cut-end-caption').textContent = t('videoEdit.cutOverlay.endCaption');
     </script>
 </body>
 </html>
