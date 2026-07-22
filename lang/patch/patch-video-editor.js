@@ -27,4 +27,20 @@ const LANG_PATCH_VIDEO_EDITOR = {
     'videoEdit.cropOverlay.confirm': 'Done',
     'videoEdit.discardConfirm.title': 'Discard changes?',
     'videoEdit.discardConfirm.desc': 'Your edits have not been saved. Leave without saving?',
+    // MỚI (Batch 2) — Cut.
+    'videoEdit.btnCut.title': 'Cut',
+    'videoEdit.cutBadge.none': 'Full length (no cut)',
+    'videoEdit.cutBadge.active': 'Cut: {start} – {end}',
+    'videoEdit.cutReset.label': 'Clear cut',
+    'videoEdit.cutOverlay.title': 'Cut video',
+    'videoEdit.cutOverlay.cancel': 'Cancel',
+    'videoEdit.cutOverlay.confirm': 'Done',
+    'videoEdit.cutOverlay.pickStart': 'Start point',
+    'videoEdit.cutOverlay.pickEnd': 'End point',
+    'videoEdit.cutOverlay.startCaption': 'Start',
+    'videoEdit.cutOverlay.endCaption': 'End',
+    // MỚI (Batch 2) — Trích xuất ảnh.
+    'videoEdit.btnExtractFrame.title': 'Extract photo',
+    'videoEdit.extractFrame.success': 'Photo saved to your library.',
+    'videoEdit.extractFrame.failed': 'Could not extract this frame.',
 };
