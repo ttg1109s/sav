@@ -9,10 +9,19 @@
  * được chặn trước bằng `core/video-editor/compat-guard.js` (chạy lúc mở trang, TRƯỚC khi tới hàm
  * này). Engine có thể đổi sau (xem docstring hàm `processVideo()`) mà KHÔNG cần sửa Workflow/UI.
  *
- * PHẠM VI BATCH 1: chỉ crop/rotate/filter màu (brightness/contrast/saturation). Audio giữ NGUYÊN
- * VẸN qua cơ chế "pass-through" (copy thẳng packet đã encode sẵn, KHÔNG decode/re-encode lại —
- * đúng khuyến nghị chính thức của WebCodecs cho trường hợp không cần sửa âm thanh) — trộn nhạc mới/
+ * PHẠM VI BATCH 1: crop/rotate/filter màu (brightness/contrast/saturation). Audio giữ NGUYÊN VẸN
+ * qua cơ chế "pass-through" (copy thẳng packet đã encode sẵn, KHÔNG decode/re-encode lại — đúng
+ * khuyến nghị chính thức của WebCodecs cho trường hợp không cần sửa âm thanh) — trộn nhạc mới/
  * chỉnh volume thuộc Batch 3, sẽ thay đúng đoạn pass-through này bằng bước mix thật.
+ *
+ * MỞ RỘNG BATCH 2 — thêm `cutRange` (cắt theo khoảng thời gian). VẪN CÙNG 1 TIẾN TRÌNH "sản xuất
+ * video đã chỉnh sửa từ nguồn + tham số" (không phải rẽ nhánh sang tiến trình khác — Rule 1 không
+ * bị vi phạm, `cutRange` chỉ là 1 tham số nữa của CÙNG pipeline: giới hạn khoảng thời gian đọc
+ * frame/packet, dịch timestamp về 0). Audio pass-through cũng giới hạn theo `cutRange` (packet
+ * range qua `EncodedPacketSink.packets(startPacket, endPacket)`) — LƯU Ý KIỂM THỬ: vì audio KHÔNG
+ * decode/re-encode lại, điểm cắt audio chỉ chính xác tới packet gần nhất (thường lệch tối đa vài
+ * chục ms so với điểm cắt video yêu cầu) — CHƯA verify runtime, xem ghi chú ở
+ * `_passThroughAudioTrack()`.
  *
  * NẠP SAU: Mediabunny (CDN/vendor, script tag, global `Mediabunny`) — bản thân Mediabunny bọc quanh
  * WebCodecs (VideoDecoder/VideoEncoder toàn cục của trình duyệt), không cần nạp gì thêm.
@@ -57,8 +66,9 @@ function _drawFrameToCanvas(ctx, sample, cropPx, rotateDeg, filterCss, outW, out
  * cha mới thành video hoàn chỉnh (Rule 3c, hợp lệ làm hàm con).
  * @param {any} audioTrack - InputAudioTrack (Mediabunny) hoặc null (video câm).
  * @param {any} output - Output (Mediabunny), CHƯA gọi `start()`.
+ * @param {{start:number,end:number}|null} cutRange - giây, null = giữ nguyên toàn bộ.
  */
-async function _passThroughAudioTrack(audioTrack, output) {
+async function _passThroughAudioTrack(audioTrack, output, cutRange) {
     if (!audioTrack) return; // guard — video không có track audio, bỏ qua, KHÔNG lỗi
     // GHI CHÚ KIỂM THỬ: `audioTrack.codec` là ức đoán DỰA TRÊN tài liệu (tương tự cách
     // `AudioBufferSource({ codec: 'aac' })` dùng mã ngắn) — kiểm tra lại đúng tên field khi test
@@ -68,8 +78,18 @@ async function _passThroughAudioTrack(audioTrack, output) {
     const audioSource = new Mediabunny.EncodedAudioPacketSource(codec);
     output.addAudioTrack(audioSource);
     const sink = new Mediabunny.EncodedPacketSink(audioTrack);
-    for await (const packet of sink.packets()) {
-        await audioSource.add(packet);
+    const cutStart = cutRange ? cutRange.start : 0;
+    // GHI CHÚ KIỂM THỬ: `packets(startPacket, endPacket)` nhận PACKET (không phải số giây thẳng) —
+    // lấy qua getPacket(giây) trước, đúng theo tài liệu Mediabunny — CHƯA verify runtime.
+    const startPacket = cutRange ? await sink.getPacket(cutRange.start) : undefined;
+    const endPacket = cutRange ? await sink.getPacket(cutRange.end) : undefined;
+    for await (const packet of sink.packets(startPacket, endPacket)) {
+        // GHI CHÚ KIỂM THỬ: dựng lại EncodedPacket để dịch timestamp về 0 khi có cắt — giả định
+        // `packet.data` đọc lại được nguyên xi qua constructor (theo tài liệu), CHƯA verify runtime.
+        const shifted = cutStart > 0
+            ? new Mediabunny.EncodedPacket(packet.data, packet.type, packet.timestamp - cutStart, packet.duration, packet.sequenceNumber)
+            : packet;
+        await audioSource.add(shifted);
     }
     if (typeof audioSource.close === 'function') audioSource.close();
 }
@@ -88,13 +108,16 @@ async function _passThroughAudioTrack(audioTrack, output) {
  * @param {number} params.rotateDeg - 0/90/180/270 (độ xoay THÊM, không phải rotation có sẵn của
  *   file gốc — `VideoSample.draw()` được kỳ vọng tự áp rotation gốc, xem ghi chú kiểm thử ở trên).
  * @param {string} params.filterCss - chuỗi CSS filter đã "nướng" (brightness/contrast/saturation).
+ * @param {{start:number,end:number}|null} params.cutRange - MỚI (Batch 2) — khoảng thời gian giữ
+ *   lại (giây), null = giữ nguyên toàn bộ thời lượng.
  * @returns {Promise<Blob>} video đã xử lý xong, định dạng mp4.
  */
-async function processVideo({ sourceBlob, cropFraction, rotateDeg, filterCss }) {
+async function processVideo({ sourceBlob, cropFraction, rotateDeg, filterCss, cutRange }) {
     const noCrop = !cropFraction;
     const noRotate = !rotateDeg || rotateDeg % 360 === 0;
     const noFilter = !filterCss || filterCss === 'none' || filterCss.trim() === '';
-    if (noCrop && noRotate && noFilter) return sourceBlob; // guard clause — không có gì để xử lý, trả nguyên bản gốc
+    const noCut = !cutRange;
+    if (noCrop && noRotate && noFilter && noCut) return sourceBlob; // guard clause — không có gì để xử lý, trả nguyên bản gốc
 
     const input = new Mediabunny.Input({ source: new Mediabunny.BlobSource(sourceBlob), formats: Mediabunny.ALL_FORMATS });
     const videoTrack = await input.getPrimaryVideoTrack();
@@ -119,13 +142,15 @@ async function processVideo({ sourceBlob, cropFraction, rotateDeg, filterCss }) 
     const output = new Mediabunny.Output({ format: new Mediabunny.Mp4OutputFormat(), target: new Mediabunny.BufferTarget() });
     const videoSource = new Mediabunny.CanvasSource(canvas, { codec: 'avc', bitrate: Mediabunny.QUALITY_HIGH });
     output.addVideoTrack(videoSource);
-    await _passThroughAudioTrack(audioTrack, output); // gọi TRƯỚC output.start() — addAudioTrack() phải xong trước khi start (xem Quick start Mediabunny)
+    await _passThroughAudioTrack(audioTrack, output, cutRange); // gọi TRƯỚC output.start() — addAudioTrack() phải xong trước khi start (xem Quick start Mediabunny)
 
     await output.start();
+    const cutStart = cutRange ? cutRange.start : 0;
+    const cutEnd = cutRange ? cutRange.end : Infinity;
     const sink = new Mediabunny.VideoSampleSink(videoTrack);
-    for await (const sample of sink.samples()) {
+    for await (const sample of sink.samples(cutStart, cutEnd)) { // Mediabunny hỗ trợ sẵn range (giây) — xem quick start
         _drawFrameToCanvas(ctx, sample, cropPx, deg, filterCss, outW, outH);
-        await videoSource.add(sample.timestamp, sample.duration);
+        await videoSource.add(sample.timestamp - cutStart, sample.duration); // dịch về 0 khi có cắt (cutStart=0 -> không đổi gì)
         if (typeof sample.close === 'function') sample.close();
     }
     if (typeof videoSource.close === 'function') videoSource.close();
