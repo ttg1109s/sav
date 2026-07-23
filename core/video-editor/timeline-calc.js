@@ -92,3 +92,118 @@ function formatClipTimeLabel(totalSeconds) {
     const rem = s % 60;
     return `${m}:${rem < 10 ? '0' : ''}${rem}`;
 }
+
+/**
+ * [MỚI, audit 23/07/2026 — chuyển từ event/workflow/video-editor.js vào đây, đúng vai Core] Tổng
+ * giây OUTPUT của mọi đoạn TRƯỚC `index` (không tính đoạn đó) — dùng để đổi giây NGUỒN đang xem
+ * TRONG 1 đoạn ra giây OUTPUT, NHẸ HƠN gọi `computeVideoClipsLayout()` (không cần tính luôn px của
+ * MỌI đoạn chỉ để đọc 1 field).
+ * @param {Array<{sourceStart:number,sourceEnd:number}>} videoClips @param {number} index
+ * @returns {number}
+ */
+function computeOutputStartForClipIndex(videoClips, index) {
+    let sum = 0;
+    for (let i = 0; i < index; i++) sum += Math.max(0, videoClips[i].sourceEnd - videoClips[i].sourceStart);
+    return sum;
+}
+
+/**
+ * [MỚI, audit 23/07/2026] Độ rộng OUTPUT cần hiển thị trên timeline = MAX giữa tổng thời lượng
+ * Video và mọi clip Nhạc/Chữ (được phép kéo vượt quá trên giao diện, xem docstring
+ * `processVideo()` — webcodecs-engine.js). LẶP LẠI công thức cộng dồn của `computeVideoTotalDuration()`
+ * (Rule 3 — Core KHÔNG được gọi Core khác dù cùng file, chấp nhận trùng lặp nhỏ, cùng tiền lệ
+ * `webcodecs-engine.js`).
+ * @param {Array<{sourceStart:number,sourceEnd:number}>} videoClips
+ * @param {Array<{timelineEnd:number}>} audioClips @param {Array<{timelineEnd:number}>} textClips
+ * @returns {number}
+ */
+function computeTimelineRenderWidthSeconds(videoClips, audioClips, textClips) {
+    let maxEnd = videoClips.reduce((sum, c) => sum + Math.max(0, c.sourceEnd - c.sourceStart), 0);
+    audioClips.forEach((c) => { if (c.timelineEnd > maxEnd) maxEnd = c.timelineEnd; });
+    textClips.forEach((c) => { if (c.timelineEnd > maxEnd) maxEnd = c.timelineEnd; });
+    return maxEnd;
+}
+
+/**
+ * [MỚI, audit 23/07/2026 — chuyển từ `handleTimelineDragMove()`] Kéo tay cầm START của 1 đoạn
+ * Video — RIPPLE vào láng giềng liền TRƯỚC (nếu có) để GIỮ CỐ ĐỊNH outputEnd của chính đoạn đang
+ * kéo (Giang yêu cầu: "kéo start thì phải cố định end rồi dịch"). Chứng minh toán học: nếu
+ * `clip.sourceStart` và `prevClip.sourceEnd` CÙNG cộng thêm `delta`, thì `prevClip` giãn/co đúng
+ * `delta` (bù trừ), còn `clip` co/giãn đúng `-delta` — tổng 2 đoạn không đổi nên outputEnd của
+ * `clip` (= outputStart của đoạn kế) không xê dịch. Đoạn ĐẦU TIÊN (không láng giềng trước) dùng biên
+ * tự do (tổng thời lượng Video đổi theo, y hệt hành vi cũ). KHÔNG mutate `videoClips` — nơi gọi tự
+ * áp `newSourceStart`/`prevSourceEnd` (nếu khác null) vào đúng object.
+ * @param {Array<{sourceStart:number,sourceEnd:number}>} videoClips @param {number} index
+ * @param {number} deltaSec @param {number} minGap @param {number} fullSourceDuration
+ * @returns {{newSourceStart:number, prevSourceEnd:number|null}}
+ */
+function computeVideoStartTrim(videoClips, index, deltaSec, minGap, fullSourceDuration) {
+    const clip = videoClips[index];
+    const prevClip = videoClips[index - 1];
+    if (prevClip) {
+        const minDelta = Math.max(-clip.sourceStart, prevClip.sourceStart + minGap - prevClip.sourceEnd);
+        const maxDelta = Math.min(clip.sourceEnd - minGap - clip.sourceStart, fullSourceDuration - prevClip.sourceEnd);
+        const clamped = Math.max(minDelta, Math.min(deltaSec, maxDelta));
+        return { newSourceStart: clip.sourceStart + clamped, prevSourceEnd: prevClip.sourceEnd + clamped };
+    }
+    return { newSourceStart: Math.max(0, Math.min(clip.sourceStart + deltaSec, clip.sourceEnd - minGap)), prevSourceEnd: null };
+}
+
+/**
+ * [MỚI, audit 23/07/2026 — chuyển từ `handleTimelineDragMove()`] Đối xứng với `computeVideoStartTrim()`
+ * — kéo tay cầm END, RIPPLE vào láng giềng liền SAU để giữ cố định outputStart của chính đoạn đang
+ * kéo. Đoạn CUỐI CÙNG (không láng giềng sau) dùng biên tự do.
+ * @param {Array<{sourceStart:number,sourceEnd:number}>} videoClips @param {number} index
+ * @param {number} deltaSec @param {number} minGap @param {number} fullSourceDuration
+ * @returns {{newSourceEnd:number, nextSourceStart:number|null}}
+ */
+function computeVideoEndTrim(videoClips, index, deltaSec, minGap, fullSourceDuration) {
+    const clip = videoClips[index];
+    const nextClip = videoClips[index + 1];
+    if (nextClip) {
+        const minDelta = Math.max(clip.sourceStart + minGap - clip.sourceEnd, -nextClip.sourceStart);
+        const maxDelta = Math.min(fullSourceDuration - clip.sourceEnd, nextClip.sourceEnd - minGap - nextClip.sourceStart);
+        const clamped = Math.max(minDelta, Math.min(deltaSec, maxDelta));
+        return { newSourceEnd: clip.sourceEnd + clamped, nextSourceStart: nextClip.sourceStart + clamped };
+    }
+    return { newSourceEnd: Math.min(fullSourceDuration, Math.max(clip.sourceEnd + deltaSec, clip.sourceStart + minGap)), nextSourceStart: null };
+}
+
+/**
+ * [MỚI, audit 23/07/2026 — chuyển từ `handleTimelineDragMove()`] Kéo tay cầm start/end/move của 1
+ * clip TỰ DO (Nhạc/Chữ) — trả về cặp timelineStart/End MỚI, KHÔNG mutate `clip` truyền vào.
+ * @param {{timelineStart:number,timelineEnd:number}} clip @param {'start'|'end'|'move'} handleType
+ * @param {number} deltaSec @param {number} minGap
+ * @returns {{timelineStart:number, timelineEnd:number}}
+ */
+function computeFreeClipDrag(clip, handleType, deltaSec, minGap) {
+    if (handleType === 'start') {
+        return { timelineStart: Math.max(0, Math.min(clip.timelineStart + deltaSec, clip.timelineEnd - minGap)), timelineEnd: clip.timelineEnd };
+    }
+    if (handleType === 'end') {
+        // KHÔNG chặn trên — cho phép kéo vượt tổng thời lượng Video (Giang yêu cầu, xem processVideo()).
+        return { timelineStart: clip.timelineStart, timelineEnd: Math.max(clip.timelineEnd + deltaSec, clip.timelineStart + minGap) };
+    }
+    const length = clip.timelineEnd - clip.timelineStart;
+    const newStart = Math.max(0, clip.timelineStart + deltaSec);
+    return { timelineStart: newStart, timelineEnd: newStart + length };
+}
+
+/**
+ * [MỚI, audit 23/07/2026 — chuyển từ `handlePreviewTextDragStart()`] Tìm clip Chữ ĐANG HIỂN THỊ tại
+ * `outputTime` và GẦN vị trí chạm nhất theo % chiều cao canvas — dùng cho kéo Text trực tiếp trên
+ * preview.
+ * @param {Array<{posY:number,timelineStart:number,timelineEnd:number}>} textClips
+ * @param {number} outputTime @param {number} touchPercent @param {number} maxDistance
+ * @returns {number|null} index trong `textClips`, null nếu không có clip nào đủ gần/đang hiển thị.
+ */
+function findNearestActiveTextClip(textClips, outputTime, touchPercent, maxDistance) {
+    let bestIndex = null;
+    let bestDist = Infinity;
+    textClips.forEach((c, index) => {
+        if (outputTime < c.timelineStart || outputTime >= c.timelineEnd) return;
+        const dist = Math.abs(c.posY - touchPercent);
+        if (dist < bestDist) { bestDist = dist; bestIndex = index; }
+    });
+    return bestDist <= maxDistance ? bestIndex : null;
+}
