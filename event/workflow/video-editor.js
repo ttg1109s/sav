@@ -114,11 +114,17 @@ const workflowVideoEditor = {
         this._renderToolbar();
         this._updateTimeDisplay(0);
 
-        // Đợi 'seeked' — đảm bảo khung tại currentTime=0 ĐÃ decode xong mới vẽ (chỉ dựa
-        // loadedmetadata chưa đủ ở 1 số trình duyệt — fix bug "phải Play mới hiện hình/time").
-        videoEditorSourceEl.addEventListener('seeked', () => this._drawFrame(), { once: true });
+        // Vẽ khung đầu tiên — BỀN HƠN bản cũ (chỉ đợi 1 mình 'seeked', không đủ chắc ở mọi trình
+        // duyệt/thiết bị): nghe CẢ 3 sự kiện (loadeddata/canplay/seeked, cái nào tới trước vẽ trước,
+        // vẽ thêm lần nữa cũng vô hại), VÀ vẽ NGAY nếu dữ liệu khung hình đã sẵn có (readyState >= 2
+        // — HAVE_CURRENT_DATA) — tránh trường hợp các event đó đã bắn ra TRƯỚC khi ta kịp đăng ký.
+        const drawFirstFrame = () => this._drawFrame();
+        videoEditorSourceEl.addEventListener('loadeddata', drawFirstFrame, { once: true });
+        videoEditorSourceEl.addEventListener('canplay', drawFirstFrame, { once: true });
+        videoEditorSourceEl.addEventListener('seeked', drawFirstFrame, { once: true });
         videoEditorSourceEl.currentTime = 0.0001;
         videoEditorSourceEl.currentTime = 0;
+        if (videoEditorSourceEl.readyState >= 2) this._drawFrame();
 
         try {
             this._masterFilmstripFrames = await buildCutFilmstripFrames(this._record.blob, 30, 60, 64); // core/video-editor/filmstrip.js — TRÍCH 1 LẦN duy nhất, dùng lại cho MỌI đoạn sau khi tách
@@ -250,6 +256,17 @@ const workflowVideoEditor = {
     handleSkipStart() { this._seekToOutputTime(0); },
     handleSkipEnd() { this._seekToOutputTime(this._totalDuration()); },
 
+    /** Chạm/kéo trên NỀN timeline (ngoài mọi clip) — tua con trỏ chính xác tới đúng điểm chạm.
+     * MỚI — trước đây chỉ có Play/Pause/Skip để dời con trỏ, gần như không thể dừng đúng 1 điểm ở
+     * giữa 1 đoạn để "Cắt tại current" (Giang báo Cắt luôn không có tác dụng — do con trỏ hầu như
+     * luôn dính sát mép 0, bị `MIN_GAP` trong `handleCutAtCurrent()` từ chối âm thầm). */
+    handleScrub(clientX) {
+        if (this._isPlaying) this._pause();
+        const rect = videoEditorTimelineContentEl.getBoundingClientRect();
+        const sec = pxToSeconds(clientX - rect.left, this._pixelsPerSecond);
+        this._seekToOutputTime(sec);
+    },
+
     // ===================== Chọn clip (viền + toolbar theo ngữ cảnh) =====================
 
     _isSelected(track, index) { return !!this._selected && this._selected.track === track && this._selected.index === index; },
@@ -286,6 +303,46 @@ const workflowVideoEditor = {
         }
     },
 
+    /**
+     * Gắn kéo-thả cho 1 tay cầm/thân clip — DÙNG CHUNG cho cả 3 track (video/audio/text). SỬA BUG
+     * (Giang báo "kéo không di chuyển được" cả 3 track): bản trước dùng `el.hasPointerCapture()`
+     * làm ĐIỀU KIỆN cho phép `pointermove` chạy tiếp — nếu `setPointerCapture()` fail ÂM THẦM (có
+     * thể xảy ra tuỳ trình duyệt/thiết bị, không throw ra ngoài để bắt), MỌI `pointermove` sau đó bị
+     * chặn ngay từ điều kiện đó, kéo hoàn toàn không có tác dụng dù `pointerdown` vẫn chạy bình
+     * thường. Nay dùng CỜ RIÊNG (`el._veDragging`) do CHÍNH TA đặt/xoá — không phụ thuộc capture có
+     * thành công hay không; `setPointerCapture()`/`releasePointerCapture()` vẫn gọi (tốt hơn nếu
+     * thành công, mượt tay hơn khi ngón tay lệch ra ngoài phạm vi tay cầm) nhưng bọc try/catch, lỗi
+     * ở đó KHÔNG được phép chặn `eventBus.send()` phía sau.
+     * @param {HTMLElement} el @param {string} track @param {number} index @param {string} handleType
+     * @param {boolean} enableTapSelect - true CHỈ cho phần "thân" (body) clip Nhạc/Chữ — chạm nhẹ
+     *   (không kéo đáng kể) thì tính là "chọn clip" (Video tự có listener 'click' riêng ở nơi gọi).
+     */
+    _attachDragHandlers(el, track, index, handleType, enableTapSelect) {
+        el.addEventListener('pointerdown', (e) => {
+            el._veDragging = true;
+            el._veDragStartX = e.clientX;
+            el._veDragMoved = false;
+            try { el.setPointerCapture(e.pointerId); } catch (err) { console.warn('[timelineDrag] setPointerCapture lỗi (bỏ qua, vẫn kéo bình thường qua cờ _veDragging):', err); }
+            eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.start', payload: { track, index, handleType, clientX: e.clientX } });
+        });
+        el.addEventListener('pointermove', (e) => {
+            if (!el._veDragging) return;
+            if (Math.abs(e.clientX - el._veDragStartX) > 4) el._veDragMoved = true;
+            eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.move', payload: { clientX: e.clientX } });
+        });
+        el.addEventListener('pointerup', (e) => {
+            if (!el._veDragging) return;
+            el._veDragging = false;
+            try { el.releasePointerCapture(e.pointerId); } catch (err) { /* không sao — pointerup vẫn xử lý bình thường */ }
+            eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.end', payload: {} });
+            if (enableTapSelect && !el._veDragMoved) eventBus.send({ router: 'videoEdit', type: 'videoEdit.selectClip.click', payload: { track, index } });
+        });
+        el.addEventListener('pointercancel', () => {
+            el._veDragging = false;
+            eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.end', payload: {} });
+        });
+    },
+
     _renderVideoTrack() {
         videoEditorTrackVideoEl.innerHTML = '';
         const layout = computeVideoClipsLayout(this._videoClips, this._pixelsPerSecond);
@@ -314,12 +371,7 @@ const workflowVideoEditor = {
                 if (e.target === handleStart || e.target === handleEnd) return;
                 eventBus.send({ router: 'videoEdit', type: 'videoEdit.selectClip.click', payload: { track: 'video', index } });
             });
-            [{ el: handleStart, type: 'start' }, { el: handleEnd, type: 'end' }].forEach(({ el: h, type }) => {
-                h.addEventListener('pointerdown', (e) => { h.setPointerCapture(e.pointerId); eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.start', payload: { track: 'video', index, handleType: type, clientX: e.clientX } }); });
-                h.addEventListener('pointermove', (e) => { if (!h.hasPointerCapture(e.pointerId)) return; eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.move', payload: { clientX: e.clientX } }); });
-                h.addEventListener('pointerup', (e) => { h.releasePointerCapture(e.pointerId); eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.end', payload: {} }); });
-                h.addEventListener('pointercancel', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.end', payload: {} }));
-            });
+            [{ el: handleStart, type: 'start' }, { el: handleEnd, type: 'end' }].forEach(({ el: h, type }) => this._attachDragHandlers(h, 'video', index, type, false));
             videoEditorTrackVideoEl.appendChild(el);
         });
     },
@@ -356,30 +408,8 @@ const workflowVideoEditor = {
             handleEnd.className = 'video-editor-clip-handle absolute right-0 top-0 bottom-0 w-3 bg-white/30 z-10';
             el.append(handleStart, body, handleEnd);
 
-            [{ el: handleStart, type: 'start' }, { el: handleEnd, type: 'end' }].forEach(({ el: h, type }) => {
-                h.addEventListener('pointerdown', (e) => { h.setPointerCapture(e.pointerId); eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.start', payload: { track, index, handleType: type, clientX: e.clientX } }); });
-                h.addEventListener('pointermove', (e) => { if (!h.hasPointerCapture(e.pointerId)) return; eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.move', payload: { clientX: e.clientX } }); });
-                h.addEventListener('pointerup', (e) => { h.releasePointerCapture(e.pointerId); eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.end', payload: {} }); });
-                h.addEventListener('pointercancel', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.end', payload: {} }));
-            });
-            // Body: PHÂN BIỆT chạm-để-CHỌN (không dịch) vs kéo-để-DI CHUYỂN (dịch đáng kể) —
-            // đo khoảng dịch chuyển tại pointerup, dưới ngưỡng 4px coi là "chạm chọn".
-            body.addEventListener('pointerdown', (e) => {
-                body.setPointerCapture(e.pointerId);
-                body._veDragStartX = e.clientX; body._veDragMoved = false;
-                eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.start', payload: { track, index, handleType: 'move', clientX: e.clientX } });
-            });
-            body.addEventListener('pointermove', (e) => {
-                if (!body.hasPointerCapture(e.pointerId)) return;
-                if (Math.abs(e.clientX - body._veDragStartX) > 4) body._veDragMoved = true;
-                eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.move', payload: { clientX: e.clientX } });
-            });
-            body.addEventListener('pointerup', (e) => {
-                body.releasePointerCapture(e.pointerId);
-                eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.end', payload: {} });
-                if (!body._veDragMoved) eventBus.send({ router: 'videoEdit', type: 'videoEdit.selectClip.click', payload: { track, index } });
-            });
-            body.addEventListener('pointercancel', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.end', payload: {} }));
+            [{ el: handleStart, type: 'start' }, { el: handleEnd, type: 'end' }].forEach(({ el: h, type }) => this._attachDragHandlers(h, track, index, type, false));
+            this._attachDragHandlers(body, track, index, 'move', true); // true — chạm nhẹ (không kéo) = chọn clip
 
             containerEl.appendChild(el);
         });
@@ -499,10 +529,16 @@ const workflowVideoEditor = {
     },
 
     handleDeleteClip() {
-        if (!this._selected || this._selected.track === 'video') return; // Video KHÔNG xoá được
+        if (!this._selected) return;
         const { track, index } = this._selected;
-        const list = track === 'audio' ? this._audioClips : this._textClips;
-        list.splice(index, 1);
+        if (track === 'video') {
+            if (this._videoClips.length <= 1) return; // guard — KHÔNG được xoá đoạn Video DUY NHẤT còn lại (không thể có Video rỗng)
+            this._videoClips.splice(index, 1);
+            if (this._currentClipIndex != null && this._currentClipIndex >= this._videoClips.length) this._currentClipIndex = this._videoClips.length - 1;
+        } else {
+            const list = track === 'audio' ? this._audioClips : this._textClips;
+            list.splice(index, 1);
+        }
         this._selected = null;
         this._hasUnsavedChanges = true;
         this._renderAllTracks();
@@ -565,6 +601,7 @@ const workflowVideoEditor = {
 
         if (track === 'video') {
             if (this._videoClips.length > 1) {
+                addBtn(_veIcon('delete'), 'videoEdit.btnDelete.title', 'videoEdit.deleteClip.click');
                 if (this._selected.index > 0) addBtn(_veIcon('moveLeft'), 'videoEdit.btnMoveEarlier.title', 'videoEdit.moveClipEarlier.click');
                 if (this._selected.index < this._videoClips.length - 1) addBtn(_veIcon('moveRight'), 'videoEdit.btnMoveLater.title', 'videoEdit.moveClipLater.click');
             }
