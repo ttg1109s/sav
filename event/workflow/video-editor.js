@@ -1,54 +1,59 @@
 /**
- * event/workflow/video-editor.js — Workflow DUY NHẤT của trang `video-editor.html` v2 (23/07/2026).
- * KHÔNG dùng `appState`/`service/state.js` (cùng lý do `image-edit.html`) — state cục bộ sống trong
- * object này. Toàn bộ quyết định kiến trúc đã chốt với Giang — xem `plan-video-editor.md` mục 0
- * (KHÔNG lặp lại chi tiết ở đây).
+ * event/workflow/video-editor.js — Workflow DUY NHẤT của `video-editor.html` v3 (23/07/2026). KHÔNG
+ * dùng `appState` (cùng lý do `image-edit.html`) — state cục bộ sống trong object này.
  *
- * HỆ TOẠ ĐỘ TIMELINE (quan trọng, đọc trước khi sửa bất kỳ hàm _timelineXxx nào):
- *   - Toàn bộ track (Video/Audio/Text) dùng CHUNG 1 hệ toạ độ giây = giây GỐC của file video (0 →
- *     `_originalDuration`), KHÔNG phải giây "đã cắt". Track Video hiển thị TOÀN BỘ chiều dài gốc,
- *     2 tay cầm (`videoStart`/`videoEnd`) kéo TRỰC TIẾP trong khoảng đó (đúng cơ chế `video.txt`,
- *     GIỮ NGUYÊN — không đổi thành overlay filmstrip riêng).
- *   - Track Audio (nhạc chèn) LUÔN neo trái = `_cutRange.start` (không có vị trí tự do), độ rộng =
- *     `_cutRange.end - _cutRange.start` — tự dịch/co giãn theo mỗi khi `_cutRange` đổi (mục 4c plan).
- *   - Track Text: `timelineStart`/`timelineEnd` lưu tương đối so với `_cutRange.start` (0 = đầu đoạn
- *     ACTIVE) — vị trí HIỂN THỊ trên track = `_cutRange.start + timelineStart/End` (để luôn nằm
- *     đúng vùng KHÔNG bị cắt bỏ, dịch theo cùng `_cutRange.start` khi tay cầm videoStart bị kéo).
- *   - Playhead hiển thị tại `_cutRange.start + hoạt động hiện tại` (cùng hệ toạ độ với track Video).
+ * [v3] ĐỔI KIẾN TRÚC LỚN theo yêu cầu Giang — xem đầu `video-editor.html` để tóm tắt. Chi tiết mô
+ * hình dữ liệu:
+ *   - `_videoClips`: mảng `{sourceStart, sourceEnd}` (giây NGUỒN, tức giây trong file video gốc),
+ *     THEO THỨ TỰ, nối tiếp nhau trên timeline OUTPUT (vị trí OUTPUT của mỗi đoạn = TỰ TÍNH từ tổng
+ *     độ dài các đoạn TRƯỚC nó — xem `computeVideoClipsLayout()`, core/video-editor/timeline-calc.js
+ *     — KHÔNG lưu vị trí riêng, không thể đặt tự do, không hở/không đè). Trim = đổi sourceStart/End
+ *     của 1 đoạn (đoạn khác tự dịch theo, do vị trí luôn tính lại). Tách = chia 1 đoạn thành 2 (mảng
+ *     +1 phần tử). Xoá: KHÔNG cho phép. Đổi thứ tự: hoán đổi vị trí trong mảng.
+ *   - `_audioClips`/`_textClips`: mảng clip TỰ DO, mỗi clip có `timelineStart`/`timelineEnd` riêng
+ *     (giây OUTPUT, KHÔNG neo theo Video) — trim/di chuyển/tách/nhân bản/xoá đều được. Được phép
+ *     kéo vượt quá tổng thời lượng Video trên giao diện — CHỈ bị cắt bỏ lúc xuất thật
+ *     (`core/video-editor/webcodecs-engine.js::processVideo()`).
+ *   - `_selected`: `{track, index}|null` — clip đang chọn, quyết định nội dung `#video-editor-toolbar`
+ *     (dựng động, xem `_renderToolbar()`).
  *
- * PREVIEW: canvas (KHÔNG còn `<video controls>` native) — vòng lặp vẽ qua `taskManager` mode `raf`
- * (đăng ký 1 lần lúc init, `pause()`/`resume()` theo Play/Pause — đúng tiền lệ `visualizerRender`).
+ * PREVIEW: canvas, vòng lặp `taskManager` mode `raf`. Vì Video giờ nhiều đoạn KHÔNG LIÊN TỤC trong
+ * file nguồn, lúc phát phải TỰ nhảy `currentTime` sang đoạn kế tiếp khi hết đoạn hiện tại (xem `_tick()`).
  *
- * NẠP SAU: mọi core/video-editor/*.js, core/song-search.js, core/image-editor/cropper-engine.js,
- * core/dropdown-menu.js, service/task-manager.js, Cropper.js/Mediabunny/JSZip (CDN), DOM tĩnh của
- * video-editor.html (event/listener/video-editor.js khai const NGAY ĐẦU file đó).
+ * GIỚI HẠN ĐÃ BIẾT (thành thật với Giang): preview trực tiếp chỉ phát ĐÚNG 1 bài hát tại 1 thời điểm
+ * (đổi `<audio>` src theo clip nào đang active tại thời điểm phát) — nếu 2 clip Nhạc chồng nhau trên
+ * timeline, preview chỉ nghe được 1 trong 2; lúc XUẤT THẬT (Lưu) vẫn trộn ĐẦY ĐỦ mọi clip chồng nhau
+ * (qua OfflineAudioContext, xem webcodecs-engine.js) — chỉ preview bị giới hạn.
  */
 const workflowVideoEditor = {
     _videoKey: null,
     _record: null,
-    _originalDuration: 0,
+    _fullSourceDuration: 0,
     _nativeW: 0,
     _nativeH: 0,
     _pixelsPerSecond: 40,
 
+    _videoClips: [],
+    _audioClips: [],
+    _textClips: [],
+    _currentClipIndex: null, // đoạn Video đang phát/xem (index trong _videoClips)
+    _idCounter: 1,
+
     _rotateDeg: 0,
     _cropFraction: null,
     _cropper: null,
-    _cutRange: null, // {start,end} giây GỐC — set sau khi metadata load xong
-    _filmstripBuilt: false,
+    _volumeVideo: 100, // % — toàn cục
 
-    _textOverlay: null, // {val,size,color,posY,timelineStart,timelineEnd} | null — timelineStart/End tương đối _cutRange.start
-    _song: null, // {songKey, record, offsetInSong} | null
-    _songSearchQuery: '',
-    _songListCache: null, // [{key,tag,duration}] — build 1 lần lúc mở panel Nhạc lần đầu
-    _volumeVideo: 100, // %
-    _volumeSong: 100, // %
-
+    _selected: null, // {track:'video'|'audio'|'text', index}|null
     _isPlaying: false,
-    _dragHandle: null, // 'videoStart'|'videoEnd'|'textStart'|'textMove'|'textEnd'|'audioOffsetDrag'|null
-    _dragBarLeft: 0,
-    _dragLastClientX: 0, // dùng riêng cho audioOffsetDrag (delta-based, xem docstring đầu file)
-    _dragGrabOffsetSec: 0, // dùng riêng cho textMove (giữ nguyên khoảng cách điểm chạm ↔ mép trái clip)
+    _dragHandle: null, // {track,index,handleType:'start'|'end'|'move'}|null
+    _dragLastClientX: 0,
+    _draggingSongShift: false,
+    _songShiftPxPerSec: 0,
+
+    _songListCache: null,
+    _songSearchQuery: '',
+    _masterFilmstripFrames: null,
 
     _hasUnsavedChanges: false,
 
@@ -70,11 +75,12 @@ const workflowVideoEditor = {
         videoEditorTitleEl.textContent = record.filename || videoKey;
 
         videoEditorSourceEl.src = URL.createObjectURL(record.blob);
+        videoEditorSourceEl.load(); // ép tải ngay — fix bug "phải Play mới hiện" (xem docstring video-editor.html)
         videoEditorSourceEl.addEventListener('loadedmetadata', () => this._onMetadataReady(), { once: true });
 
         taskManager.addNew('videoEditorPreviewRender', { time: 0, exe: () => this._tick(), mode: 'raf', count: 0 });
         taskManager.operator('videoEditorPreviewRender', 'enabled');
-        taskManager.pause('videoEditorPreviewRender'); // chỉ chạy liên tục lúc đang Play — xem togglePlay()
+        taskManager.pause('videoEditorPreviewRender');
     },
 
     _showFatalError(message) {
@@ -87,94 +93,133 @@ const workflowVideoEditor = {
     async _onMetadataReady() {
         this._nativeW = videoEditorSourceEl.videoWidth || 16;
         this._nativeH = videoEditorSourceEl.videoHeight || 9;
-        this._originalDuration = videoEditorSourceEl.duration || 0;
-        this._cutRange = { start: 0, end: this._originalDuration };
-        videoEditorSourceEl.currentTime = 0;
+        this._fullSourceDuration = videoEditorSourceEl.duration || 0;
+        this._videoClips = [{ sourceStart: 0, sourceEnd: this._fullSourceDuration }];
+        this._currentClipIndex = 0;
         videoEditorPreviewCanvasEl.width = this._nativeW;
         videoEditorPreviewCanvasEl.height = this._nativeH;
         videoEditorEmptyStateEl.classList.add('hidden');
         videoEditorPlayheadEl.classList.remove('hidden');
-        videoEditorTimelineContentEl.style.width = `${this._originalDuration * this._pixelsPerSecond}px`;
-        await this._buildFilmstripIfNeeded();
-        this._layoutAllClips();
+
+        this._masterFilmstripFrames = await buildCutFilmstripFrames(this._record.blob, 30, 60, 64); // core/video-editor/filmstrip.js — TRÍCH 1 LẦN duy nhất, dùng lại cho MỌI đoạn sau khi tách (lọc theo range, xem _renderVideoTrack())
+
+        this._renderAllTracks();
+        this._renderToolbar();
         this._updateTimeDisplay(0);
-        this._drawFrame(); // vẽ ngay 1 khung khi đang tạm dừng
+
+        // Đợi 'seeked' — đảm bảo khung tại currentTime=0 ĐÃ decode xong mới vẽ (chỉ dựa
+        // loadedmetadata chưa đủ ở 1 số trình duyệt — fix bug "phải Play mới hiện hình/time").
+        videoEditorSourceEl.addEventListener('seeked', () => this._drawFrame(), { once: true });
+        videoEditorSourceEl.currentTime = 0.0001;
+        videoEditorSourceEl.currentTime = 0;
+    },
+
+    _totalDuration() { return computeVideoTotalDuration(this._videoClips); }, // core/video-editor/timeline-calc.js
+    _nextId() { return `c${this._idCounter++}`; },
+
+    _totalRenderWidthSeconds() {
+        let maxEnd = this._totalDuration();
+        this._audioClips.forEach((c) => { if (c.timelineEnd > maxEnd) maxEnd = c.timelineEnd; });
+        this._textClips.forEach((c) => { if (c.timelineEnd > maxEnd) maxEnd = c.timelineEnd; });
+        return maxEnd;
     },
 
     // ===================== Vòng lặp render (taskManager mode raf) =====================
 
     _tick() {
         if (!this._isPlaying) return;
-        const activeDuration = computeActiveDuration(this._cutRange); // core/video-editor/timeline-calc.js
-        const activeCur = videoEditorSourceEl.currentTime - this._cutRange.start;
-        if (activeCur >= activeDuration - 0.03 || videoEditorSourceEl.ended) {
-            this._pause();
-            this._seekActive(activeDuration);
-            return;
+        if (this._currentClipIndex == null || !this._videoClips[this._currentClipIndex]) { this._pause(); return; }
+        const clip = this._videoClips[this._currentClipIndex];
+        if (videoEditorSourceEl.currentTime >= clip.sourceEnd - 0.03 || videoEditorSourceEl.ended) {
+            if (this._currentClipIndex + 1 < this._videoClips.length) {
+                this._currentClipIndex++;
+                videoEditorSourceEl.currentTime = this._videoClips[this._currentClipIndex].sourceStart;
+                videoEditorSourceEl.play().catch(() => {});
+            } else {
+                this._pause();
+                this._seekToOutputTime(this._totalDuration());
+                return;
+            }
         }
-        this._syncSongPlayback(activeCur);
-        this._updateTimeDisplay(activeCur);
+        const outputTime = this._computeCurrentOutputTime();
+        this._syncAudioClips(outputTime);
+        this._updateTimeDisplay(outputTime);
         this._drawFrame();
+    },
+
+    _computeCurrentOutputTime() {
+        if (this._currentClipIndex == null || !this._videoClips[this._currentClipIndex]) return 0;
+        const layout = computeVideoClipsLayout(this._videoClips, this._pixelsPerSecond); // core/video-editor/timeline-calc.js
+        const entry = layout[this._currentClipIndex];
+        const clip = this._videoClips[this._currentClipIndex];
+        if (!entry) return 0;
+        return entry.outputStart + Math.max(0, videoEditorSourceEl.currentTime - clip.sourceStart);
     },
 
     _currentFilterCss() {
         return `brightness(${sliderVeBrightness.value}%) contrast(${sliderVeContrast.value}%) saturate(${sliderVeSaturation.value}%)`;
     },
 
-    /** Vẽ 1 khung hiện tại (crop+rotate+filter+text) lên canvas — core/video-editor/preview-draw.js. */
     _drawFrame() {
         const ctx = videoEditorPreviewCanvasEl.getContext('2d');
-        const cropPx = computeCropPixels(this._cropFraction, this._nativeW, this._nativeH);
+        const cropPx = computeCropPixels(this._cropFraction, this._nativeW, this._nativeH); // core/video-editor/preview-draw.js
         const { outW, outH, deg } = computeRotatedOutputSize(cropPx, this._rotateDeg);
         if (videoEditorPreviewCanvasEl.width !== outW) videoEditorPreviewCanvasEl.width = outW;
         if (videoEditorPreviewCanvasEl.height !== outH) videoEditorPreviewCanvasEl.height = outH;
         drawVideoPreviewFrame(ctx, videoEditorSourceEl, cropPx, deg, this._currentFilterCss(), outW, outH);
-        if (this._textOverlay) {
-            const activeCur = videoEditorSourceEl.currentTime - this._cutRange.start;
-            if (activeCur >= this._textOverlay.timelineStart && activeCur < this._textOverlay.timelineEnd) {
-                drawTextOverlay(ctx, outW, outH, this._textOverlay);
-            }
-        }
+        const outputTime = this._computeCurrentOutputTime();
+        this._textClips.forEach((tc) => {
+            if (outputTime >= tc.timelineStart && outputTime < tc.timelineEnd) drawTextOverlay(ctx, outW, outH, tc);
+        });
     },
 
-    _syncSongPlayback(activeCur) {
-        if (!this._song) return;
-        const targetTime = this._song.offsetInSong + activeCur;
-        if (Math.abs(videoEditorSongAudioEl.currentTime - targetTime) > 0.15) videoEditorSongAudioEl.currentTime = targetTime;
+    /** LƯU Ý (xem docstring đầu file): preview chỉ phát ĐÚNG 1 bài hát tại 1 thời điểm. */
+    _syncAudioClips(outputTime) {
+        const active = this._audioClips.find((c) => outputTime >= c.timelineStart && outputTime < c.timelineEnd);
+        if (!active) { videoEditorSongAudioEl.pause(); this._activePreviewAudioClipId = null; return; }
+        if (this._activePreviewAudioClipId !== active.id) {
+            this._activePreviewAudioClipId = active.id;
+            videoEditorSongAudioEl.src = URL.createObjectURL(active.record.blob);
+            videoEditorSongAudioEl.volume = Math.min(1, active.volume);
+        }
+        const targetTime = active.offsetInSong + (outputTime - active.timelineStart);
+        if (Math.abs(videoEditorSongAudioEl.currentTime - targetTime) > 0.2) videoEditorSongAudioEl.currentTime = targetTime;
         if (this._isPlaying && videoEditorSongAudioEl.paused) videoEditorSongAudioEl.play().catch(() => {});
     },
 
-    _updateTimeDisplay(activeCur) {
-        const activeDuration = computeActiveDuration(this._cutRange);
-        videoEditorCurrentTimeEl.textContent = formatClipTimeLabel(activeCur); // core/video-editor/timeline-calc.js
-        videoEditorTotalTimeEl.textContent = formatClipTimeLabel(activeDuration);
-        const playheadLeft = computePlayheadLeftPx(this._cutRange.start + Math.max(0, activeCur), this._pixelsPerSecond);
-        videoEditorPlayheadEl.style.left = `${playheadLeft}px`;
+    _updateTimeDisplay(outputTime) {
+        videoEditorCurrentTimeEl.textContent = formatClipTimeLabel(outputTime); // core/video-editor/timeline-calc.js
+        videoEditorTotalTimeEl.textContent = formatClipTimeLabel(this._totalDuration());
+        videoEditorPlayheadEl.style.left = `${computePlayheadLeftPx(outputTime, this._pixelsPerSecond)}px`;
     },
 
-    _seekActive(activeSeconds) {
-        const clamped = Math.max(0, Math.min(activeSeconds, computeActiveDuration(this._cutRange)));
-        videoEditorSourceEl.currentTime = this._cutRange.start + clamped;
-        this._syncSongPlayback(clamped);
+    _seekToOutputTime(outputSeconds) {
+        const total = this._totalDuration();
+        const clamped = Math.max(0, Math.min(outputSeconds, total));
+        const layout = computeVideoClipsLayout(this._videoClips, this._pixelsPerSecond);
+        let idx = layout.findIndex((l) => clamped >= l.outputStart && clamped < l.outputEnd);
+        if (idx === -1) idx = Math.max(0, layout.length - 1);
+        this._currentClipIndex = idx;
+        const clip = this._videoClips[idx];
+        if (clip && layout[idx]) videoEditorSourceEl.currentTime = clip.sourceStart + Math.max(0, clamped - layout[idx].outputStart);
+        this._syncAudioClips(clamped);
         this._updateTimeDisplay(clamped);
         this._drawFrame();
     },
 
-    // ===================== Transport (Play/Pause/Skip) =====================
+    // ===================== Transport =====================
 
-    handleTogglePlay() {
-        if (this._isPlaying) this._pause(); else this._play();
-    },
+    handleTogglePlay() { if (this._isPlaying) this._pause(); else this._play(); },
 
     _play() {
-        if (!this._cutRange) return; // guard — video chưa load xong metadata
-        const activeDuration = computeActiveDuration(this._cutRange);
-        const activeCur = videoEditorSourceEl.currentTime - this._cutRange.start;
-        if (activeCur >= activeDuration - 0.05) this._seekActive(0); // đã ở cuối -> phát lại từ đầu
+        if (!this._videoClips.length) return;
+        const total = this._totalDuration();
+        const cur = this._computeCurrentOutputTime();
+        if (cur >= total - 0.05 || this._currentClipIndex == null) this._seekToOutputTime(0);
         this._isPlaying = true;
         videoEditorPlayIconEl.textContent = '❚❚';
         videoEditorSourceEl.play().catch(() => {});
-        this._syncSongPlayback(Math.max(0, videoEditorSourceEl.currentTime - this._cutRange.start));
+        this._syncAudioClips(this._computeCurrentOutputTime());
         taskManager.resume('videoEditorPreviewRender');
     },
 
@@ -187,169 +232,335 @@ const workflowVideoEditor = {
         this._drawFrame();
     },
 
-    handleSkipStart() { this._seekActive(0); },
-    handleSkipEnd() { this._seekActive(computeActiveDuration(this._cutRange)); },
+    handleSkipStart() { this._seekToOutputTime(0); },
+    handleSkipEnd() { this._seekToOutputTime(this._totalDuration()); },
 
-    // ===================== Bottom-sheet panel (tab) =====================
+    // ===================== Chọn clip (viền + toolbar theo ngữ cảnh) =====================
 
-    handleTabClick(targetId) {
-        const isOpen = !videoEditorToolPanelEl.classList.contains('translate-y-full');
-        const alreadyShowingThis = !document.getElementById(targetId).classList.contains('hidden');
-        if (isOpen && alreadyShowingThis) { this._closePanel(); return; }
-        this._openPanel(targetId);
+    _isSelected(track, index) { return !!this._selected && this._selected.track === track && this._selected.index === index; },
+
+    handleSelectClip(track, index) {
+        this._selected = { track, index };
+        this._renderAllTracks();
+        this._renderToolbar();
     },
 
-    _openPanel(targetId) {
-        videoEditorPanelContents.forEach((p) => p.classList.add('hidden'));
-        const target = document.getElementById(targetId);
-        target.classList.remove('hidden');
-        target.classList.add('flex');
-        videoEditorPanelTitleEl.textContent = t(`videoEdit.panelTitle.${targetId}`);
-        videoEditorToolPanelEl.classList.remove('translate-y-full');
-        videoEditorToolTabs.forEach((tabEl) => tabEl.classList.remove('text-white'));
-        const activeTab = Array.from(videoEditorToolTabs).find((tabEl) => tabEl.dataset.target === targetId);
-        if (activeTab) activeTab.classList.add('text-white');
-        if (targetId === 'video-editor-panel-audio') this._ensureSongListLoaded();
+    handleDeselect() {
+        this._selected = null;
+        this._renderAllTracks();
+        this._renderToolbar();
     },
 
-    handlePanelClose() { this._closePanel(); },
+    // ===================== Layout — dựng/định vị clip trên timeline =====================
 
-    _closePanel() {
-        videoEditorToolPanelEl.classList.add('translate-y-full');
-        videoEditorToolTabs.forEach((tabEl) => tabEl.classList.remove('text-white'));
+    _renderAllTracks() {
+        this._updateTimelineWidthAndMarker(this._totalDuration());
+        this._renderVideoTrack();
+        this._renderAudioTrack();
+        this._renderTextTrack();
     },
 
-    // ===================== Layout (áp toạ độ tính được lên style của clip) =====================
-
-    _layoutAllClips() {
-        this._layoutVideoClip();
-        this._layoutAudioClip();
-        this._layoutTextClip();
+    _updateTimelineWidthAndMarker(totalDuration) {
+        const renderWidthSec = this._totalRenderWidthSeconds();
+        videoEditorTimelineContentEl.style.width = `${Math.max(renderWidthSec, 1) * this._pixelsPerSecond}px`;
+        if (renderWidthSec > totalDuration + 0.05) {
+            videoEditorDurationEndMarkerEl.classList.remove('hidden');
+            videoEditorDurationEndMarkerEl.style.left = `${totalDuration * this._pixelsPerSecond}px`;
+        } else {
+            videoEditorDurationEndMarkerEl.classList.add('hidden');
+        }
     },
 
-    _layoutVideoClip() {
-        const { leftPx, widthPx } = computeClipLayoutPx(0, this._originalDuration, this._pixelsPerSecond);
-        videoEditorClipVideoEl.style.left = `${leftPx}px`;
-        videoEditorClipVideoEl.style.width = `${widthPx}px`;
-    },
+    _renderVideoTrack() {
+        videoEditorTrackVideoEl.innerHTML = '';
+        const layout = computeVideoClipsLayout(this._videoClips, this._pixelsPerSecond);
+        this._videoClips.forEach((clip, index) => {
+            const l = layout[index];
+            const el = document.createElement('div');
+            el.className = `absolute h-full top-0 bg-slate-800 rounded-lg overflow-hidden border-2 ${this._isSelected('video', index) ? 'border-white' : 'border-transparent'}`;
+            el.style.left = `${l.leftPx}px`;
+            el.style.width = `${Math.max(l.widthPx, 8)}px`;
 
-    _layoutAudioClip() {
-        if (!this._song) { videoEditorClipAudioEl.classList.add('hidden'); return; }
-        videoEditorClipAudioEl.classList.remove('hidden');
-        videoEditorClipAudioEl.classList.add('flex');
-        const activeDuration = computeActiveDuration(this._cutRange);
-        const { leftPx, widthPx } = computeClipLayoutPx(this._cutRange.start, activeDuration, this._pixelsPerSecond);
-        videoEditorClipAudioEl.style.left = `${leftPx}px`;
-        videoEditorClipAudioEl.style.width = `${widthPx}px`;
-        videoEditorClipAudioLabelEl.textContent = this._song.record.tag.title || this._song.songKey;
-    },
+            const handleStart = document.createElement('div');
+            handleStart.className = 'video-editor-clip-handle absolute left-0 top-0 bottom-0 w-4 bg-white z-10 rounded-l-md';
+            const filmstrip = document.createElement('div');
+            filmstrip.className = 'absolute inset-0 flex pointer-events-none';
+            (this._masterFilmstripFrames || []).filter((f) => f.blob && f.timestamp >= clip.sourceStart && f.timestamp <= clip.sourceEnd).forEach((f) => {
+                const img = document.createElement('img');
+                img.className = 'h-full flex-1 object-cover opacity-70';
+                img.src = URL.createObjectURL(f.blob);
+                filmstrip.appendChild(img);
+            });
+            const handleEnd = document.createElement('div');
+            handleEnd.className = 'video-editor-clip-handle absolute right-0 top-0 bottom-0 w-4 bg-white z-10 rounded-r-md';
+            el.append(handleStart, filmstrip, handleEnd);
 
-    _layoutTextClip() {
-        if (!this._textOverlay) { videoEditorClipTextEl.classList.add('hidden'); return; }
-        videoEditorClipTextEl.classList.remove('hidden');
-        videoEditorClipTextEl.classList.add('flex');
-        const start = this._cutRange.start + this._textOverlay.timelineStart;
-        const length = this._textOverlay.timelineEnd - this._textOverlay.timelineStart;
-        const { leftPx, widthPx } = computeClipLayoutPx(start, length, this._pixelsPerSecond);
-        videoEditorClipTextEl.style.left = `${leftPx}px`;
-        videoEditorClipTextEl.style.width = `${widthPx}px`;
-        videoEditorClipTextLabelEl.textContent = this._textOverlay.val || t('videoEdit.text.defaultValue');
-    },
-
-    // ===================== Cut — kéo 2 tay cầm TRỰC TIẾP trên track Video =====================
-
-    async _buildFilmstripIfNeeded() {
-        if (this._filmstripBuilt) return;
-        this._filmstripBuilt = true;
-        videoEditorClipVideoFilmstripEl.innerHTML = '';
-        const frames = await buildCutFilmstripFrames(this._record.blob, 14, 60, 64); // core/video-editor/filmstrip.js — TÁI DÙNG, không viết filmstrip mới
-        frames.forEach((frame) => {
-            if (!frame.blob) return;
-            const img = document.createElement('img');
-            img.className = 'h-full flex-1 object-cover opacity-70';
-            img.src = URL.createObjectURL(frame.blob);
-            videoEditorClipVideoFilmstripEl.appendChild(img);
+            el.addEventListener('click', (e) => {
+                if (e.target === handleStart || e.target === handleEnd) return;
+                eventBus.send({ router: 'videoEdit', type: 'videoEdit.selectClip.click', payload: { track: 'video', index } });
+            });
+            [{ el: handleStart, type: 'start' }, { el: handleEnd, type: 'end' }].forEach(({ el: h, type }) => {
+                h.addEventListener('pointerdown', (e) => { h.setPointerCapture(e.pointerId); eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.start', payload: { track: 'video', index, handleType: type, clientX: e.clientX } }); });
+                h.addEventListener('pointermove', (e) => { if (!h.hasPointerCapture(e.pointerId)) return; eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.move', payload: { clientX: e.clientX } }); });
+                h.addEventListener('pointerup', (e) => { h.releasePointerCapture(e.pointerId); eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.end', payload: {} }); });
+                h.addEventListener('pointercancel', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.end', payload: {} }));
+            });
+            videoEditorTrackVideoEl.appendChild(el);
         });
     },
 
-    handleTimelineDragStart(handle, clientX) {
-        this._dragHandle = handle;
-        const rect = videoEditorTimelineContentEl.getBoundingClientRect();
-        this._dragBarLeft = rect.left;
-        this._dragLastClientX = clientX;
-        if (handle === 'textMove') {
-            const clipLeftPx = computeClipLayoutPx(this._cutRange.start + this._textOverlay.timelineStart, 0, this._pixelsPerSecond).leftPx;
-            this._dragGrabOffsetSec = pxToSeconds(clientX - rect.left - clipLeftPx, this._pixelsPerSecond);
-        } else if (handle !== 'audioOffsetDrag') {
-            this.handleTimelineDragMove(clientX); // áp NGAY vị trí chạm đầu tiên — trừ audioOffsetDrag (delta-based, xem dưới)
+    /** Chỉ CẬP NHẬT VỊ TRÍ (không dựng lại DOM/filmstrip) — dùng lúc đang kéo tay cầm Video, mượt hơn (Rule 5a: đây là Workflow, không phải Core, không bị ràng buộc). */
+    _layoutVideoTrackLive() {
+        const layout = computeVideoClipsLayout(this._videoClips, this._pixelsPerSecond);
+        const els = videoEditorTrackVideoEl.children;
+        for (let i = 0; i < els.length && i < layout.length; i++) {
+            els[i].style.left = `${layout[i].leftPx}px`;
+            els[i].style.width = `${Math.max(layout[i].widthPx, 8)}px`;
         }
+        this._updateTimelineWidthAndMarker(layout.length ? layout[layout.length - 1].outputEnd : 0);
     },
 
+    _renderFreeClipTrack(containerEl, clips, track, colorClass, labelFn) {
+        containerEl.innerHTML = '';
+        clips.forEach((clip, index) => {
+            const { leftPx, widthPx } = computeClipLayoutPx(clip.timelineStart, clip.timelineEnd - clip.timelineStart, this._pixelsPerSecond);
+            const el = document.createElement('div');
+            el.className = `absolute h-full top-0 ${colorClass} rounded-lg overflow-hidden border-2 ${this._isSelected(track, index) ? 'border-white' : 'border-transparent'}`;
+            el.style.left = `${leftPx}px`;
+            el.style.width = `${Math.max(widthPx, 8)}px`;
+
+            const handleStart = document.createElement('div');
+            handleStart.className = 'video-editor-clip-handle absolute left-0 top-0 bottom-0 w-3 bg-white/30 z-10';
+            const body = document.createElement('div');
+            body.className = 'video-editor-clip-body absolute inset-0 flex items-center px-3';
+            const label = document.createElement('span');
+            label.className = 'text-[9px] font-bold text-white truncate pointer-events-none';
+            label.textContent = labelFn(clip);
+            body.appendChild(label);
+            const handleEnd = document.createElement('div');
+            handleEnd.className = 'video-editor-clip-handle absolute right-0 top-0 bottom-0 w-3 bg-white/30 z-10';
+            el.append(handleStart, body, handleEnd);
+
+            [{ el: handleStart, type: 'start' }, { el: handleEnd, type: 'end' }].forEach(({ el: h, type }) => {
+                h.addEventListener('pointerdown', (e) => { h.setPointerCapture(e.pointerId); eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.start', payload: { track, index, handleType: type, clientX: e.clientX } }); });
+                h.addEventListener('pointermove', (e) => { if (!h.hasPointerCapture(e.pointerId)) return; eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.move', payload: { clientX: e.clientX } }); });
+                h.addEventListener('pointerup', (e) => { h.releasePointerCapture(e.pointerId); eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.end', payload: {} }); });
+                h.addEventListener('pointercancel', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.end', payload: {} }));
+            });
+            // Body: PHÂN BIỆT chạm-để-CHỌN (không dịch) vs kéo-để-DI CHUYỂN (dịch đáng kể) —
+            // đo khoảng dịch chuyển tại pointerup, dưới ngưỡng 4px coi là "chạm chọn".
+            body.addEventListener('pointerdown', (e) => {
+                body.setPointerCapture(e.pointerId);
+                body._veDragStartX = e.clientX; body._veDragMoved = false;
+                eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.start', payload: { track, index, handleType: 'move', clientX: e.clientX } });
+            });
+            body.addEventListener('pointermove', (e) => {
+                if (!body.hasPointerCapture(e.pointerId)) return;
+                if (Math.abs(e.clientX - body._veDragStartX) > 4) body._veDragMoved = true;
+                eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.move', payload: { clientX: e.clientX } });
+            });
+            body.addEventListener('pointerup', (e) => {
+                body.releasePointerCapture(e.pointerId);
+                eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.end', payload: {} });
+                if (!body._veDragMoved) eventBus.send({ router: 'videoEdit', type: 'videoEdit.selectClip.click', payload: { track, index } });
+            });
+            body.addEventListener('pointercancel', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.timelineDrag.end', payload: {} }));
+
+            containerEl.appendChild(el);
+        });
+    },
+
+    _renderAudioTrack() { this._renderFreeClipTrack(videoEditorTrackAudioEl, this._audioClips, 'audio', 'bg-emerald-500/80', (c) => c.record.tag.title || c.songKey); },
+    _renderTextTrack() { this._renderFreeClipTrack(videoEditorTrackTextEl, this._textClips, 'text', 'bg-purple-500/80', (c) => c.val); },
+
+    _layoutSingleFreeClip(track, index) {
+        const list = track === 'audio' ? this._audioClips : this._textClips;
+        const clip = list[index];
+        const containerEl = track === 'audio' ? videoEditorTrackAudioEl : videoEditorTrackTextEl;
+        const el = containerEl.children[index];
+        if (!clip || !el) return;
+        const { leftPx, widthPx } = computeClipLayoutPx(clip.timelineStart, clip.timelineEnd - clip.timelineStart, this._pixelsPerSecond);
+        el.style.left = `${leftPx}px`;
+        el.style.width = `${Math.max(widthPx, 8)}px`;
+        this._updateTimelineWidthAndMarker(this._totalDuration());
+    },
+
+    // ===================== Kéo-thả timeline (trim/move — chung cho cả 3 track) =====================
+
+    handleTimelineDragStart(track, index, handleType, clientX) {
+        this._dragHandle = { track, index, handleType };
+        this._dragLastClientX = clientX;
+    },
+
+    /** Delta-based (so với lần move TRƯỚC, không phải toạ độ tuyệt đối) — bền vững kể cả khi
+     * `#video-editor-timeline-container` đang cuộn dở (không cần đo `getBoundingClientRect()`). */
     handleTimelineDragMove(clientX) {
         if (!this._dragHandle) return;
-        const MIN_GAP = 0.5; // giây, khoảng cách tối thiểu giữa 2 tay cầm
-        const activeDuration = computeActiveDuration(this._cutRange);
+        const { track, index, handleType } = this._dragHandle;
+        const deltaSec = pxToSeconds(clientX - this._dragLastClientX, this._pixelsPerSecond); // core/video-editor/timeline-calc.js
+        this._dragLastClientX = clientX;
+        const MIN_GAP = 0.3;
 
-        if (this._dragHandle === 'audioOffsetDrag') {
-            const deltaSec = pxToSeconds(clientX - this._dragLastClientX, this._pixelsPerSecond); // core/video-editor/timeline-calc.js
-            this._dragLastClientX = clientX;
-            const windowLength = computeActiveDuration(this._cutRange);
-            this._song.offsetInSong = clampSongOffsetDrag(this._song.offsetInSong + deltaSec, windowLength, this._song.record.duration); // core/video-editor/audio-sync.js
-            this._syncSongPlayback(Math.max(0, videoEditorSourceEl.currentTime - this._cutRange.start));
-            return;
-        }
-
-        const px = clientX - this._dragBarLeft;
-        const sec = pxToSeconds(px, this._pixelsPerSecond);
-
-        if (this._dragHandle === 'videoStart') {
-            this._cutRange.start = Math.max(0, Math.min(sec, this._cutRange.end - MIN_GAP));
-            this._onCutRangeChanged();
-        } else if (this._dragHandle === 'videoEnd') {
-            this._cutRange.end = Math.min(this._originalDuration, Math.max(sec, this._cutRange.start + MIN_GAP));
-            this._onCutRangeChanged();
-        } else if (this._textOverlay && (this._dragHandle === 'textStart' || this._dragHandle === 'textMove' || this._dragHandle === 'textEnd')) {
-            const relSec = sec - this._cutRange.start; // đổi về toạ độ TƯƠNG ĐỐI (0 = đầu đoạn active)
-            if (this._dragHandle === 'textStart') {
-                this._textOverlay.timelineStart = Math.max(0, Math.min(relSec, this._textOverlay.timelineEnd - MIN_GAP));
-            } else if (this._dragHandle === 'textEnd') {
-                this._textOverlay.timelineEnd = Math.min(activeDuration, Math.max(relSec, this._textOverlay.timelineStart + MIN_GAP));
-            } else { // textMove
-                const length = this._textOverlay.timelineEnd - this._textOverlay.timelineStart;
-                let newStart = relSec - this._dragGrabOffsetSec;
-                newStart = Math.max(0, Math.min(newStart, activeDuration - length));
-                this._textOverlay.timelineStart = newStart;
-                this._textOverlay.timelineEnd = newStart + length;
+        if (track === 'video') {
+            const clip = this._videoClips[index];
+            if (!clip) return;
+            if (handleType === 'start') clip.sourceStart = Math.max(0, Math.min(clip.sourceStart + deltaSec, clip.sourceEnd - MIN_GAP));
+            else if (handleType === 'end') clip.sourceEnd = Math.min(this._fullSourceDuration, Math.max(clip.sourceEnd + deltaSec, clip.sourceStart + MIN_GAP));
+            this._layoutVideoTrackLive();
+        } else {
+            const list = track === 'audio' ? this._audioClips : this._textClips;
+            const clip = list[index];
+            if (!clip) return;
+            if (handleType === 'start') {
+                clip.timelineStart = Math.max(0, Math.min(clip.timelineStart + deltaSec, clip.timelineEnd - MIN_GAP));
+            } else if (handleType === 'end') {
+                clip.timelineEnd = Math.max(clip.timelineEnd + deltaSec, clip.timelineStart + MIN_GAP); // KHÔNG chặn trên — cho phép kéo vượt tổng thời lượng Video (Giang yêu cầu)
+            } else if (handleType === 'move') {
+                const length = clip.timelineEnd - clip.timelineStart;
+                clip.timelineStart = Math.max(0, clip.timelineStart + deltaSec);
+                clip.timelineEnd = clip.timelineStart + length;
             }
-            this._layoutTextClip();
+            this._layoutSingleFreeClip(track, index);
         }
         this._hasUnsavedChanges = true;
     },
 
     handleTimelineDragEnd() {
+        if (!this._dragHandle) return;
         this._dragHandle = null;
+        this._drawFrame();
+        this._renderAllTracks(); // đồng bộ đầy đủ (viền chọn, marker, độ rộng) — filmstrip KHÔNG trích lại (đã cache _masterFilmstripFrames, chỉ lọc theo range)
     },
 
-    /** Video vừa bị trim — layout lại track Video/Audio/Text + đồng bộ khung nhạc (mục 4c plan). */
-    _onCutRangeChanged() {
-        this._layoutVideoClip();
-        if (this._song) {
-            const activeDuration = computeActiveDuration(this._cutRange);
-            const result = recalcSongWindowOnVideoTrim(this._song.offsetInSong, activeDuration, this._song.record.duration); // core/video-editor/audio-sync.js
-            this._song.offsetInSong = result.offsetInSong;
-            this._layoutAudioClip();
+    // ===================== Cắt tại current / Nhân bản / Xoá / Đổi thứ tự =====================
+
+    handleCutAtCurrent() {
+        if (!this._selected) return;
+        const outputTime = this._computeCurrentOutputTime();
+        const { track, index } = this._selected;
+        const MIN_GAP = 0.3;
+
+        if (track === 'video') {
+            const found = findVideoClipAtOutputTime(this._videoClips, outputTime); // core/video-editor/timeline-calc.js
+            if (!found || found.index !== index) return; // guard — con trỏ không nằm trong đúng đoạn đang chọn
+            const clip = this._videoClips[index];
+            if (found.sourceSplitPoint <= clip.sourceStart + MIN_GAP || found.sourceSplitPoint >= clip.sourceEnd - MIN_GAP) return; // guard — quá sát mép
+            const [a, b] = splitRangeAt(clip.sourceStart, clip.sourceEnd, found.sourceSplitPoint); // core/video-editor/timeline-calc.js
+            this._videoClips.splice(index, 1, { sourceStart: a.start, sourceEnd: a.end }, { sourceStart: b.start, sourceEnd: b.end });
+            this._selected = { track: 'video', index };
+        } else {
+            const list = track === 'audio' ? this._audioClips : this._textClips;
+            const clip = list[index];
+            if (!clip || outputTime <= clip.timelineStart + MIN_GAP || outputTime >= clip.timelineEnd - MIN_GAP) return;
+            const originalStart = clip.timelineStart;
+            const [a, b] = splitRangeAt(clip.timelineStart, clip.timelineEnd, outputTime);
+            const cloneB = Object.assign({}, clip, { timelineStart: b.start, timelineEnd: b.end });
+            if (track === 'audio') cloneB.offsetInSong = clip.offsetInSong + (b.start - originalStart); // giữ liền mạch nội dung bài hát qua điểm cắt
+            clip.timelineStart = a.start; clip.timelineEnd = a.end;
+            list.splice(index + 1, 0, cloneB);
         }
-        if (this._textOverlay) {
-            const activeDuration = computeActiveDuration(this._cutRange);
-            this._textOverlay.timelineStart = Math.max(0, Math.min(this._textOverlay.timelineStart, activeDuration));
-            this._textOverlay.timelineEnd = Math.max(this._textOverlay.timelineStart, Math.min(this._textOverlay.timelineEnd, activeDuration));
-            this._layoutTextClip();
-        }
-        const activeCur = videoEditorSourceEl.currentTime - this._cutRange.start;
-        this._seekActive(Math.max(0, Math.min(activeCur, computeActiveDuration(this._cutRange))));
+        this._hasUnsavedChanges = true;
+        this._renderAllTracks();
+        this._renderToolbar();
     },
 
-    // ===================== Crop (Cropper.js — GIỮ NGUYÊN, xem plan mục 0.4) =====================
+    handleDuplicateClip() {
+        if (!this._selected) return;
+        const { track, index } = this._selected;
+        if (track === 'video') {
+            this._videoClips.splice(index + 1, 0, Object.assign({}, this._videoClips[index]));
+            this._selected = { track: 'video', index: index + 1 };
+        } else {
+            const list = track === 'audio' ? this._audioClips : this._textClips;
+            const clip = list[index];
+            const length = clip.timelineEnd - clip.timelineStart;
+            const dup = Object.assign({}, clip, { id: this._nextId(), timelineStart: clip.timelineEnd, timelineEnd: clip.timelineEnd + length });
+            list.splice(index + 1, 0, dup);
+            this._selected = { track, index: index + 1 };
+        }
+        this._hasUnsavedChanges = true;
+        this._renderAllTracks();
+        this._renderToolbar();
+    },
+
+    handleDeleteClip() {
+        if (!this._selected || this._selected.track === 'video') return; // Video KHÔNG xoá được
+        const { track, index } = this._selected;
+        const list = track === 'audio' ? this._audioClips : this._textClips;
+        list.splice(index, 1);
+        this._selected = null;
+        this._hasUnsavedChanges = true;
+        this._renderAllTracks();
+        this._renderToolbar();
+    },
+
+    handleMoveClipEarlier() {
+        if (!this._selected || this._selected.track !== 'video' || this._selected.index <= 0) return;
+        const { index } = this._selected;
+        const arr = this._videoClips;
+        [arr[index - 1], arr[index]] = [arr[index], arr[index - 1]];
+        this._selected = { track: 'video', index: index - 1 };
+        this._afterVideoClipsReordered();
+    },
+
+    handleMoveClipLater() {
+        if (!this._selected || this._selected.track !== 'video' || this._selected.index >= this._videoClips.length - 1) return;
+        const { index } = this._selected;
+        const arr = this._videoClips;
+        [arr[index], arr[index + 1]] = [arr[index + 1], arr[index]];
+        this._selected = { track: 'video', index: index + 1 };
+        this._afterVideoClipsReordered();
+    },
+
+    _afterVideoClipsReordered() {
+        this._hasUnsavedChanges = true;
+        this._renderAllTracks();
+        this._renderToolbar();
+    },
+
+    // ===================== Toolbar (icon SVG, nội dung đổi theo lựa chọn) =====================
+
+    _renderToolbar() {
+        videoEditorToolbarEl.innerHTML = '';
+        const addBtn = (iconHtml, labelKey, msgType) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'shrink-0 w-14 flex flex-col items-center gap-1 py-1.5 active:opacity-50 transition-opacity text-slate-200';
+            btn.innerHTML = `<span class="w-5 h-5 flex items-center justify-center">${iconHtml}</span><span class="text-[9px] font-medium truncate w-full text-center">${t(labelKey)}</span>`;
+            btn.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: msgType, payload: {} }));
+            videoEditorToolbarEl.appendChild(btn);
+        };
+
+        if (!this._selected) {
+            addBtn(_veIcon('crop'), 'videoEdit.btnCrop.title', 'videoEdit.crop.click');
+            addBtn(_veIcon('rotateLeft'), 'videoEdit.btnRotateLeft.title', 'videoEdit.rotateLeft.click');
+            addBtn(_veIcon('rotateRight'), 'videoEdit.btnRotateRight.title', 'videoEdit.rotateRight.click');
+            addBtn(_veIcon('adjust'), 'videoEdit.btnAdjust.title', 'videoEdit.props.open');
+            addBtn(_veIcon('reset'), 'videoEdit.btnReset.title', 'videoEdit.reset.click');
+            addBtn(_veIcon('extractFrame'), 'videoEdit.btnExtractFrame.title', 'videoEdit.extractFrame.click');
+            addBtn(_veIcon('addMusic'), 'videoEdit.btnAddMusic.title', 'videoEdit.addMusic.open');
+            addBtn('<span class="font-bold text-sm">T</span>', 'videoEdit.btnAddText.title', 'videoEdit.addText.click');
+            return;
+        }
+
+        const { track } = this._selected;
+        addBtn(_veIcon('deselect'), 'videoEdit.btnDeselect.title', 'videoEdit.deselect.click');
+        addBtn(_veIcon('cut'), 'videoEdit.btnCutCurrent.title', 'videoEdit.cutAtCurrent.click');
+        addBtn(_veIcon('duplicate'), 'videoEdit.btnDuplicate.title', 'videoEdit.duplicateClip.click');
+
+        if (track === 'video') {
+            if (this._videoClips.length > 1) {
+                if (this._selected.index > 0) addBtn(_veIcon('moveLeft'), 'videoEdit.btnMoveEarlier.title', 'videoEdit.moveClipEarlier.click');
+                if (this._selected.index < this._videoClips.length - 1) addBtn(_veIcon('moveRight'), 'videoEdit.btnMoveLater.title', 'videoEdit.moveClipLater.click');
+            }
+        } else {
+            addBtn(_veIcon('delete'), 'videoEdit.btnDelete.title', 'videoEdit.deleteClip.click');
+            if (track === 'audio') addBtn(_veIcon('shiftSegment'), 'videoEdit.btnShiftSegment.title', 'videoEdit.songShift.open');
+            else addBtn('<span class="font-bold text-sm">Aa</span>', 'videoEdit.btnEditText.title', 'videoEdit.textEdit.open');
+        }
+    },
+
+    // ===================== Crop (Cropper.js — toàn cục, không đổi so với v2) =====================
 
     handleCropOpen() {
         if (!this._nativeW) return;
@@ -385,7 +596,6 @@ const workflowVideoEditor = {
         this._cropFraction = { x: data.x / w, y: data.y / h, w: data.width / w, h: data.height / h };
         this._hasUnsavedChanges = true;
         this._closeCropOverlay();
-        this._updateCropBadge();
         this._drawFrame();
     },
 
@@ -396,50 +606,16 @@ const workflowVideoEditor = {
         videoEditorCropOverlayEl.classList.add('hidden');
     },
 
-    handleCropReset() {
-        this._cropFraction = null;
-        this._hasUnsavedChanges = true;
-        this._updateCropBadge();
-        this._drawFrame();
-    },
+    handleCropReset() { this._cropFraction = null; this._hasUnsavedChanges = true; this._drawFrame(); },
 
-    _updateCropBadge() {
-        if (this._cropFraction) {
-            videoEditorCropBadgeEl.textContent = tFormat('videoEdit.cropBadge.active', { w: Math.round(this._cropFraction.w * 100), h: Math.round(this._cropFraction.h * 100) });
-            btnVeCropReset.classList.remove('hidden');
-        } else {
-            videoEditorCropBadgeEl.textContent = t('videoEdit.cropBadge.none');
-            btnVeCropReset.classList.add('hidden');
-        }
-    },
+    // ===================== Rotate / Filter / Volume gốc / Reset (toàn cục) =====================
 
-    // ===================== Rotate =====================
+    handleRotateLeft() { this._rotateDeg = ((this._rotateDeg - 90) % 360 + 360) % 360; this._hasUnsavedChanges = true; this._drawFrame(); },
+    handleRotateRight() { this._rotateDeg = (this._rotateDeg + 90) % 360; this._hasUnsavedChanges = true; this._drawFrame(); },
+    handleFilterChange() { this._hasUnsavedChanges = true; if (!this._isPlaying) this._drawFrame(); },
 
-    handleRotateLeft() {
-        this._rotateDeg = ((this._rotateDeg - 90) % 360 + 360) % 360;
-        this._hasUnsavedChanges = true;
-        this._drawFrame();
-    },
-
-    handleRotateRight() {
-        this._rotateDeg = (this._rotateDeg + 90) % 360;
-        this._hasUnsavedChanges = true;
-        this._drawFrame();
-    },
-
-    // ===================== Filter (đọc trực tiếp slider mỗi lần vẽ, xem _currentFilterCss()) =====================
-
-    handleFilterChange() {
-        this._hasUnsavedChanges = true;
-        if (!this._isPlaying) this._drawFrame();
-    },
-
-    // ===================== Volume =====================
-    // LƯU Ý: preview trực tiếp qua thẻ <audio>/<video> chỉ hỗ trợ .volume tối đa 1.0 (100%) —
-    // khuếch đại >100% CHỈ áp dụng đúng lúc "nướng" thật (processVideo() dùng GainNode, không giới
-    // hạn 1.0). Preview khi kéo slider >100% sẽ nghe như đúng 100% cho tới lúc bấm Lưu — hạn chế đã
-    // biết, chấp nhận được (native volume API của trình duyệt không hỗ trợ khuếch đại).
-
+    // LƯU Ý: preview qua <video>/<audio> chỉ hỗ trợ .volume tối đa 1.0 — khuếch đại >100% chỉ áp
+    // dụng ĐÚNG lúc "nướng" thật (processVideo() dùng GainNode, không giới hạn 1.0).
     handleVolVideoChange(value) {
         this._volumeVideo = parseInt(value, 10) || 0;
         videoEditorVolVideoValEl.textContent = `${this._volumeVideo}%`;
@@ -447,14 +623,21 @@ const workflowVideoEditor = {
         this._hasUnsavedChanges = true;
     },
 
-    handleVolSongChange(value) {
-        this._volumeSong = parseInt(value, 10) || 0;
-        videoEditorVolSongValEl.textContent = `${this._volumeSong}%`;
-        videoEditorSongAudioEl.volume = Math.min(1, this._volumeSong / 100);
+    handleReset() {
+        this._cropFraction = null;
+        this._rotateDeg = 0;
+        this._volumeVideo = 100;
+        sliderVeBrightness.value = 100; sliderVeContrast.value = 100; sliderVeSaturation.value = 100; sliderVeVolVideo.value = 100;
+        videoEditorFilterBrightnessValEl.textContent = '100%'; videoEditorFilterContrastValEl.textContent = '100%'; videoEditorFilterSaturationValEl.textContent = '100%'; videoEditorVolVideoValEl.textContent = '100%';
+        videoEditorSourceEl.volume = 1;
         this._hasUnsavedChanges = true;
+        this._drawFrame();
     },
 
-    // ===================== Trích xuất ảnh (KHÔNG đổi so với Batch 2) =====================
+    handlePropsOpen() { videoEditorPropsModalEl.classList.remove('hidden'); videoEditorPropsModalEl.classList.add('flex'); },
+    handlePropsClose() { videoEditorPropsModalEl.classList.add('hidden'); videoEditorPropsModalEl.classList.remove('flex'); },
+
+    // ===================== Trích xuất ảnh (không đổi) =====================
 
     async handleExtractFrame() {
         if (!this._nativeW) return;
@@ -467,30 +650,35 @@ const workflowVideoEditor = {
         await alertModal(t('videoEdit.extractFrame.success'));
     },
 
-    // ===================== Nhạc chèn (panel "Nhạc" — tự viết, không Generic Drawer/appState) =====================
+    // ===================== Thêm nhạc (modal chọn — thay panel bottom-sheet cũ) =====================
+
+    handleAddMusicOpen() {
+        videoEditorSongPickerModalEl.classList.remove('hidden'); videoEditorSongPickerModalEl.classList.add('flex');
+        this._ensureSongListLoaded();
+    },
+    handleSongPickerClose() { videoEditorSongPickerModalEl.classList.add('hidden'); videoEditorSongPickerModalEl.classList.remove('flex'); },
 
     async _ensureSongListLoaded() {
         if (this._songListCache) { this._renderSongList(); return; }
         const keys = await getAllSongKeys();
-        this._songListCache = await Promise.all(keys.map(async (key) => {
+        const records = await Promise.all(keys.map(async (key) => {
             const record = await getSongRecord(key);
             return record ? { key, tag: record.tag, duration: record.duration } : null;
         }));
-        this._songListCache = this._songListCache.filter(Boolean);
+        this._songListCache = records.filter(Boolean);
         this._renderSongList();
     },
 
     _renderSongList() {
         const query = this._songSearchQuery;
-        const filtered = this._songListCache.filter((item) => songMatchesQuery(query, item.tag.title, item.tag.artist, item.tag.album)); // core/song-search.js — DÙNG CHUNG với Playlist
+        const filtered = this._songListCache.filter((item) => songMatchesQuery(query, item.tag.title, item.tag.artist, item.tag.album)); // core/song-search.js
         videoEditorSongListEl.innerHTML = '';
         filtered.forEach((item) => {
             const row = document.createElement('button');
             row.type = 'button';
             row.className = 'w-full text-left px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 flex flex-col';
             row.innerHTML = `<span class="text-xs font-semibold text-white truncate">${_escapeVideoEditorHtml(item.tag.title || item.key)}</span><span class="text-[10px] text-slate-400 truncate">${_escapeVideoEditorHtml(item.tag.artist || '')}</span>`;
-            // addEventListener gom cuối hàm dựng cụm DOM MỚI, callback CHỈ bắn eventBus (Rule 5a).
-            row.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.songSelect.click', payload: { songKey: item.key } }));
+            row.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.songPicker.select', payload: { songKey: item.key } }));
             videoEditorSongListEl.appendChild(row);
         });
     },
@@ -509,133 +697,134 @@ const workflowVideoEditor = {
         videoEditorSongSearchInputEl.focus();
     },
 
-    async handleSongSelect(songKey) {
+    async handleSongPickerSelect(songKey) {
         const record = await getSongRecord(songKey);
         if (!record) return;
-        const activeDuration = computeActiveDuration(this._cutRange);
-        const result = recalcSongWindowOnVideoTrim(0, activeDuration, record.duration || 0); // core/video-editor/audio-sync.js
-        this._song = { songKey, record, offsetInSong: result.offsetInSong };
-        videoEditorSongAudioEl.src = URL.createObjectURL(record.blob);
-        videoEditorSongAudioEl.volume = Math.min(1, this._volumeSong / 100);
-        videoEditorVolSongGroupEl.classList.remove('opacity-40');
-        sliderVeVolSong.disabled = false;
-        btnVeRemoveSong.classList.remove('hidden');
-        this._layoutAudioClip();
+        const outputTime = this._computeCurrentOutputTime();
+        const length = Math.min(10, record.duration || 10);
+        this._audioClips.push({ id: this._nextId(), songKey, record, timelineStart: outputTime, timelineEnd: outputTime + length, offsetInSong: 0, volume: 1 });
+        this._selected = { track: 'audio', index: this._audioClips.length - 1 };
+        this.handleSongPickerClose();
         this._hasUnsavedChanges = true;
-        this._closePanel();
+        this._renderAllTracks();
+        this._renderToolbar();
     },
 
-    handleRemoveSong() {
-        this._song = null;
-        videoEditorSongAudioEl.pause();
-        videoEditorSongAudioEl.src = '';
-        videoEditorVolSongGroupEl.classList.add('opacity-40');
-        sliderVeVolSong.disabled = true;
-        btnVeRemoveSong.classList.add('hidden');
-        this._layoutAudioClip();
-        this._hasUnsavedChanges = true;
-    },
-
-    // ===================== Text overlay =====================
+    // ===================== Chữ (Text overlay đa-clip) =====================
 
     handleAddText() {
-        const activeDuration = computeActiveDuration(this._cutRange);
-        this._textOverlay = {
-            val: videoEditorTextValueEl.value || t('videoEdit.text.defaultValue'),
-            size: parseInt(sliderVeTextSize.value, 10) || 60,
-            color: videoEditorTextColorEl.value,
-            posY: parseInt(sliderVeTextPosY.value, 10) || 80,
-            timelineStart: 0,
-            timelineEnd: Math.min(3, activeDuration),
-        };
-        videoEditorTextControlsEl.classList.remove('hidden');
-        videoEditorTextControlsEl.classList.add('flex');
-        btnVeAddText.classList.add('hidden');
-        this._layoutTextClip();
+        const outputTime = this._computeCurrentOutputTime();
+        this._textClips.push({ id: this._nextId(), val: t('videoEdit.text.defaultValue'), size: 60, color: '#ffffff', posY: 80, timelineStart: outputTime, timelineEnd: outputTime + 3 });
+        this._selected = { track: 'text', index: this._textClips.length - 1 };
         this._hasUnsavedChanges = true;
+        this._renderAllTracks();
+        this._renderToolbar();
+        this.handleTextEditOpen();
+    },
+
+    _activeTextClip() { return this._selected && this._selected.track === 'text' ? this._textClips[this._selected.index] : null; },
+
+    handleTextEditOpen() {
+        const clip = this._activeTextClip();
+        if (!clip) return;
+        videoEditorTextValueEl.value = clip.val;
+        sliderVeTextSize.value = clip.size;
+        videoEditorTextColorEl.value = clip.color;
+        sliderVeTextPosY.value = clip.posY;
+        videoEditorTextPosYDisplayEl.textContent = `${clip.posY}%`;
+        videoEditorTextEditModalEl.classList.remove('hidden'); videoEditorTextEditModalEl.classList.add('flex');
+    },
+
+    handleTextEditClose() {
+        videoEditorTextEditModalEl.classList.add('hidden'); videoEditorTextEditModalEl.classList.remove('flex');
+        this._renderAllTracks();
         this._drawFrame();
     },
 
-    handleRemoveText() {
-        this._textOverlay = null;
-        videoEditorTextControlsEl.classList.add('hidden');
-        videoEditorTextControlsEl.classList.remove('flex');
-        btnVeAddText.classList.remove('hidden');
-        this._layoutTextClip();
-        this._hasUnsavedChanges = true;
-        this._drawFrame();
-    },
-
-    handleTextValueInput(value) {
-        if (!this._textOverlay) return;
-        this._textOverlay.val = value;
-        videoEditorClipTextLabelEl.textContent = value || t('videoEdit.text.defaultValue');
-        this._drawFrame();
-    },
-
-    handleTextSizeChange(value) {
-        if (!this._textOverlay) return;
-        this._textOverlay.size = parseInt(value, 10) || 60;
-        this._drawFrame();
-    },
-
-    handleTextColorChange(value) {
-        if (!this._textOverlay) return;
-        this._textOverlay.color = value;
-        this._drawFrame();
-    },
-
+    handleTextValueInput(value) { const c = this._activeTextClip(); if (!c) return; c.val = value; this._hasUnsavedChanges = true; },
+    handleTextSizeChange(value) { const c = this._activeTextClip(); if (!c) return; c.size = parseInt(value, 10) || 60; this._hasUnsavedChanges = true; this._drawFrame(); },
+    handleTextColorChange(value) { const c = this._activeTextClip(); if (!c) return; c.color = value; this._hasUnsavedChanges = true; this._drawFrame(); },
     handleTextPosYChange(value) {
-        if (!this._textOverlay) return;
-        this._textOverlay.posY = parseInt(value, 10) || 80;
-        videoEditorTextPosYDisplayEl.textContent = `${this._textOverlay.posY}%`;
-        this._drawFrame();
+        const c = this._activeTextClip(); if (!c) return;
+        c.posY = parseInt(value, 10) || 80;
+        videoEditorTextPosYDisplayEl.textContent = `${c.posY}%`;
+        this._hasUnsavedChanges = true; this._drawFrame();
     },
 
-    // ===================== Reset (chỉ Crop/Rotate/Filter — Cut/Nhạc/Chữ có nút xoá riêng) =====================
+    // ===================== "Dịch chuyển tới đoạn" (chọn đoạn nhạc gốc + âm lượng riêng clip) =====================
 
-    handleReset() {
-        this._cropFraction = null;
-        this._rotateDeg = 0;
-        sliderVeBrightness.value = 100;
-        sliderVeContrast.value = 100;
-        sliderVeSaturation.value = 100;
-        this._updateCropBadge();
+    _activeAudioClip() { return this._selected && this._selected.track === 'audio' ? this._audioClips[this._selected.index] : null; },
+
+    handleSongShiftOpen() {
+        const clip = this._activeAudioClip();
+        if (!clip) return;
+        videoEditorSongShiftModalEl.classList.remove('hidden'); videoEditorSongShiftModalEl.classList.add('flex');
+        sliderVeClipVolume.value = Math.round(clip.volume * 100);
+        videoEditorClipVolumeValEl.textContent = `${Math.round(clip.volume * 100)}%`;
+        this._renderSongShiftBar();
+    },
+
+    _renderSongShiftBar() {
+        const clip = this._activeAudioClip();
+        if (!clip) return;
+        const barWidth = videoEditorSongShiftBarWrapEl.clientWidth || 300;
+        const songDuration = clip.record.duration || 1;
+        this._songShiftPxPerSec = barWidth / songDuration;
+        const clipLength = clip.timelineEnd - clip.timelineStart;
+        videoEditorSongShiftWindowEl.style.left = `${clip.offsetInSong * this._songShiftPxPerSec}px`;
+        videoEditorSongShiftWindowEl.style.width = `${Math.max(8, clipLength * this._songShiftPxPerSec)}px`;
+        videoEditorSongShiftTimeLabelEl.textContent = `${formatClipTimeLabel(clip.offsetInSong)} / ${formatClipTimeLabel(songDuration)}`;
+    },
+
+    handleSongShiftDragStart(clientX) { this._dragLastClientX = clientX; this._draggingSongShift = true; },
+
+    handleSongShiftDragMove(clientX) {
+        if (!this._draggingSongShift) return;
+        const clip = this._activeAudioClip();
+        if (!clip) return;
+        const deltaSec = (clientX - this._dragLastClientX) / (this._songShiftPxPerSec || 1);
+        this._dragLastClientX = clientX;
+        const clipLength = clip.timelineEnd - clip.timelineStart;
+        clip.offsetInSong = clampSongOffsetDrag(clip.offsetInSong + deltaSec, clipLength, clip.record.duration || 0); // core/video-editor/audio-sync.js
+        this._renderSongShiftBar();
         this._hasUnsavedChanges = true;
-        this._drawFrame();
     },
 
-    // ===================== Lưu (dropdown Ghi đè | Lưu mới — Batch 4) =====================
+    handleSongShiftDragEnd() { this._draggingSongShift = false; },
+
+    handleClipVolumeChange(value) {
+        const clip = this._activeAudioClip();
+        if (!clip) return;
+        clip.volume = (parseInt(value, 10) || 0) / 100;
+        videoEditorClipVolumeValEl.textContent = `${value}%`;
+        this._hasUnsavedChanges = true;
+    },
+
+    handleSongShiftClose() {
+        videoEditorSongShiftModalEl.classList.add('hidden'); videoEditorSongShiftModalEl.classList.remove('flex');
+        this._renderAllTracks();
+    },
+
+    // ===================== Lưu (dropdown Ghi đè | Lưu mới) =====================
 
     handleSaveClick(anchorEl) {
-        openDropdownMenu(anchorEl, [ // core/dropdown-menu.js — TÁI DÙNG, không viết dropdown riêng
-            {
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.6M20 20v-5h-.6M19.4 9A8 8 0 006 6.6M4.6 15a8 8 0 0013.4 2.4"/></svg>',
-                name: t('videoEdit.save.overwrite'),
-                callback: () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.saveOverwrite.click', payload: {} }),
-            },
-            {
-                icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16m8-8H4"/></svg>',
-                name: t('videoEdit.save.asNew'),
-                callback: () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.saveAsNew.click', payload: {} }),
-            },
+        openDropdownMenu(anchorEl, [
+            { icon: _veIcon('cut'), name: t('videoEdit.save.overwrite'), callback: () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.saveOverwrite.click', payload: {} }) },
+            { icon: _veIcon('duplicate'), name: t('videoEdit.save.asNew'), callback: () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.saveAsNew.click', payload: {} }) },
         ]);
     },
 
-    /** Tham số CHUNG cho processVideo() — dùng cho cả Ghi đè/Lưu mới/Split (mục Split gọi riêng, tự override cutRange/textOverlay/songOffset theo từng đoạn). */
-    _buildProcessParams(overrides) {
-        return Object.assign({
+    _buildProcessParams() {
+        return {
             sourceBlob: this._record.blob,
+            videoClips: this._videoClips,
             cropFraction: this._cropFraction,
             rotateDeg: this._rotateDeg,
             filterCss: this._currentFilterCss(),
-            cutRange: this._cutRange,
-            textOverlay: this._textOverlay,
-            songBlob: this._song ? this._song.record.blob : null,
-            songOffsetSeconds: this._song ? this._song.offsetInSong : 0,
             volumeVideo: this._volumeVideo / 100,
-            volumeSong: this._volumeSong / 100,
-        }, overrides || {});
+            textClips: this._textClips,
+            audioClips: this._audioClips.map((c) => ({ blob: c.record.blob, offsetInSong: c.offsetInSong, timelineStart: c.timelineStart, timelineEnd: c.timelineEnd, volume: c.volume })),
+        };
     },
 
     _buildNewFilename(suffix) {
@@ -646,17 +835,15 @@ const workflowVideoEditor = {
         return `${base}-${suffix || 'edit'}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}${pad(stamp.getSeconds())}.mp4`;
     },
 
-    /** Chụp khung đầu của 1 Blob video MỚI để làm thumbBlob (lưới Video Manager) — dùng <video> tạm, KHÔNG tái dùng captureVideoFrameToCanvas() (hàm đó đọc từ videoEditorSourceEl đang mở, không phải blob mới). */
     async _buildThumbForBlob(blob) {
         const tmp = document.createElement('video');
         tmp.muted = true;
         tmp.src = URL.createObjectURL(blob);
         await new Promise((resolve) => { tmp.addEventListener('loadeddata', resolve, { once: true }); });
         const canvas = document.createElement('canvas');
-        canvas.width = tmp.videoWidth;
-        canvas.height = tmp.videoHeight;
+        canvas.width = tmp.videoWidth; canvas.height = tmp.videoHeight;
         canvas.getContext('2d').drawImage(tmp, 0, 0, canvas.width, canvas.height);
-        const thumbBlob = await buildExtractedPhotoThumbnail(canvas, 0.2); // core/video-editor/frame-extract.js — tái dùng
+        const thumbBlob = await buildExtractedPhotoThumbnail(canvas, 0.2); // core/video-editor/frame-extract.js
         return { thumbBlob, width: tmp.videoWidth, height: tmp.videoHeight, duration: tmp.duration };
     },
 
@@ -689,74 +876,6 @@ const workflowVideoEditor = {
         }
     },
 
-    // ===================== Split theo giây + nén zip (Batch 4) =====================
-
-    handleSplitOpen() {
-        if (!this._cutRange) return;
-        this._pause();
-        const activeDuration = computeActiveDuration(this._cutRange);
-        const maxSeconds = Math.max(1, Math.floor(activeDuration / 2));
-        videoEditorSplitInputLabelEl.textContent = tFormat('videoEdit.split.inputLabel', { max: maxSeconds });
-        videoEditorSplitSecondsInputEl.max = String(maxSeconds);
-        videoEditorSplitSecondsInputEl.value = String(Math.min(10, maxSeconds));
-        videoEditorSplitModalEl.classList.remove('hidden');
-        videoEditorSplitModalEl.classList.add('flex');
-        videoEditorSplitSetupBoxEl.classList.remove('hidden');
-        videoEditorSplitProgressBoxEl.classList.add('hidden');
-    },
-
-    handleSplitCancel() {
-        videoEditorSplitModalEl.classList.add('hidden');
-        videoEditorSplitModalEl.classList.remove('flex');
-    },
-
-    async handleSplitStart() {
-        const activeDuration = computeActiveDuration(this._cutRange);
-        const maxSeconds = Math.max(1, Math.floor(activeDuration / 2));
-        const seconds = parseInt(videoEditorSplitSecondsInputEl.value, 10);
-        if (!seconds || seconds < 1 || seconds > maxSeconds) { await alertModal(tFormat('videoEdit.split.invalid', { max: maxSeconds })); return; }
-
-        videoEditorSplitSetupBoxEl.classList.add('hidden');
-        videoEditorSplitProgressBoxEl.classList.remove('hidden');
-        const totalSegments = Math.ceil(activeDuration / seconds);
-        const zip = new JSZip();
-        const baseName = this._buildNewFilename('split').replace(/\.mp4$/, '');
-
-        try {
-            for (let i = 0; i < totalSegments; i++) {
-                videoEditorSplitProgressTextEl.textContent = tFormat('videoEdit.split.progress', { current: i + 1, total: totalSegments });
-                const segStartActive = i * seconds;
-                const segEndActive = Math.min((i + 1) * seconds, activeDuration);
-                const segCutRange = { start: this._cutRange.start + segStartActive, end: this._cutRange.start + segEndActive };
-
-                let segText = null;
-                if (this._textOverlay) {
-                    const ts = Math.max(this._textOverlay.timelineStart, segStartActive) - segStartActive;
-                    const te = Math.min(this._textOverlay.timelineEnd, segEndActive) - segStartActive;
-                    if (te > ts) segText = Object.assign({}, this._textOverlay, { timelineStart: ts, timelineEnd: te });
-                }
-                let segSongBlob = null;
-                let segSongOffset = 0;
-                if (this._song) {
-                    segSongOffset = this._song.offsetInSong + segStartActive;
-                    if (segSongOffset < this._song.record.duration) segSongBlob = this._song.record.blob; // hết bài hát giữa chừng -> đoạn sau không chèn nhạc nữa (giới hạn đã biết)
-                }
-
-                const blob = await processVideo(this._buildProcessParams({ cutRange: segCutRange, textOverlay: segText, songBlob: segSongBlob, songOffsetSeconds: segSongOffset }));
-                zip.file(`${baseName}-part${i + 1}.mp4`, blob);
-            }
-            const zipBlob = await zip.generateAsync({ type: 'blob' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(zipBlob);
-            a.download = `${baseName}.zip`;
-            a.click();
-            this.handleSplitCancel();
-        } catch (err) {
-            console.error('[handleSplitStart] Lỗi chia video:', err);
-            await alertModal(t('videoEdit.split.failed'));
-        }
-    },
-
     // ===================== Quay lại =====================
 
     handleBack() {
@@ -772,7 +891,28 @@ const workflowVideoEditor = {
     },
 };
 
-/** Escape HTML tối thiểu cho tên bài hát/nghệ sĩ hiển thị trong danh sách (dữ liệu người dùng nhập lúc thêm bài hát — KHÔNG escape trong hàm dùng chung core/song-search.js vì đó là hàm so khớp thuần, không dựng DOM). */
+/** Escape HTML tối thiểu cho tên bài hát/nghệ sĩ hiển thị trong danh sách chọn nhạc. */
 function _escapeVideoEditorHtml(str) {
     return (str || '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/** Icon SVG dùng cho toolbar/dropdown (Workflow, KHÔNG thuộc core/ — không bị ràng buộc Rule 5). */
+function _veIcon(name) {
+    const paths = {
+        crop: 'M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3',
+        rotateLeft: 'M9 15L3 9m0 0l6-6M3 9h11a6 6 0 010 12h-2',
+        rotateRight: 'M15 15l6-6m0 0l-6-6m6 6H10a6 6 0 000 12h2',
+        adjust: 'M4 6h16M6 6a2 2 0 104 0 2 2 0 00-4 0zM4 12h16M14 12a2 2 0 104 0 2 2 0 00-4 0zM4 18h16M8 18a2 2 0 104 0 2 2 0 00-4 0z',
+        reset: 'M4 4v5h.6M20 20v-5h-.6M19.4 9A8 8 0 006 6.6M4.6 15a8 8 0 0013.4 2.4',
+        extractFrame: 'M4 7h3l1.5-2h7L17 7h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1zM12 17a4 4 0 100-8 4 4 0 000 8z',
+        addMusic: 'M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-2a3 3 0 11-6 0 3 3 0 016 0z',
+        deselect: 'M6 18L18 6M6 6l12 12',
+        cut: 'M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M6 3a3 3 0 100 6 3 3 0 000-6zm12 12a3 3 0 100 6 3 3 0 000-6zM6.75 8.25L18 19.5m-1.5-16.5L6.75 15.75',
+        duplicate: 'M8 16V5a1 1 0 011-1h9a1 1 0 011 1v9a1 1 0 01-1 1H9M8 16H5a1 1 0 01-1-1V6a1 1 0 011-1h3m0 11v3a1 1 0 001 1h9a1 1 0 001-1v-9a1 1 0 00-1-1h-3',
+        delete: 'M4 7h16M9 7V4h6v3m-7 0v13a1 1 0 001 1h8a1 1 0 001-1V7H7z',
+        shiftSegment: 'M8 7l-4 5 4 5M16 7l4 5-4 5',
+        moveLeft: 'M15 19l-7-7 7-7',
+        moveRight: 'M9 5l7 7-7 7',
+    };
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="${paths[name] || ''}"/></svg>`;
 }
