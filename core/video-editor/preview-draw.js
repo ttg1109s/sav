@@ -100,6 +100,49 @@ function drawTextOverlay(ctx, outW, outH, text, outputTime) {
     ctx.restore();
 }
 
+/**
+ * [MỚI, 24/07/2026, sửa bug "chưa click được vào text trên preview"] Tìm clip Chữ ĐANG HIỂN THỊ mà
+ * điểm chạm (PX theo độ phân giải THẬT canvas) rơi ĐÚNG vào HỘP BAO THẬT của dòng chữ đó — bản
+ * trước (`findNearestActiveTextClip`, so khoảng cách tới đúng 1 điểm tâm, bán kính cố định rất nhỏ)
+ * chạm KHÔNG TRÚNG NẾU chạm gần mép chữ dài thay vì đúng tâm. Hàm này đo ĐỘ RỘNG THẬT của chữ qua
+ * `ctx.measureText()` (tự set font riêng cho từng clip, bọc save/restore — KHÔNG ảnh hưởng
+ * `ctx.font` của nơi gọi), CÓ tính cả góc xoay (đưa điểm chạm về hệ toạ độ LOCAL của chữ trước khi
+ * so khớp hộp chữ nhật). Duyệt NGƯỢC (clip vẽ SAU nằm TRÊN CÙNG về hiển thị) để ưu tiên chọn đúng
+ * clip user NHÌN THẤY trước nếu nhiều clip chồng nhau.
+ * @param {CanvasRenderingContext2D} ctx @param {Array} textClips @param {number} outputTime
+ * @param {number} touchX @param {number} touchY - PX canvas thật (KHÔNG phải %).
+ * @param {number} canvasW @param {number} canvasH @param {number} margin - PX nới rộng biên mỗi phía cho dễ chạm.
+ * @returns {number|null} index trong `textClips`, null nếu không trúng clip nào.
+ */
+function findTextClipAtPoint(ctx, textClips, outputTime, touchX, touchY, canvasW, canvasH, margin) {
+    const scaleF = canvasH / 1080;
+    for (let i = textClips.length - 1; i >= 0; i--) {
+        const c = textClips[i];
+        if (outputTime < c.timelineStart || outputTime >= c.timelineEnd) continue;
+
+        const finalSize = Math.round((c.size || 60) * scaleF);
+        ctx.save();
+        const weight = c.bold ? 'bold' : 'normal';
+        const style = c.italic ? 'italic' : 'normal';
+        ctx.font = `${style} ${weight} ${finalSize}px "${c.fontFamily || 'system-ui'}", -apple-system, sans-serif`;
+        const textWidth = ctx.measureText(c.val || '').width;
+        ctx.restore();
+
+        const halfW = textWidth / 2 + margin;
+        const halfH = finalSize / 2 + margin;
+        const cx = canvasW * ((c.posX ?? 50) / 100);
+        const cy = canvasH * ((c.posY ?? 80) / 100);
+        const dx = touchX - cx;
+        const dy = touchY - cy;
+        const rad = (-(c.rotation || 0) * Math.PI) / 180; // xoay NGƯỢC lại góc của chữ -> đưa điểm chạm về hệ toạ độ LOCAL (chưa xoay) của chữ
+        const localX = dx * Math.cos(rad) - dy * Math.sin(rad);
+        const localY = dx * Math.sin(rad) + dy * Math.cos(rad);
+
+        if (Math.abs(localX) <= halfW && Math.abs(localY) <= halfH) return i;
+    }
+    return null;
+}
+
 /** Chuỗi CSS filter từ 3 giá trị slider (0-200%, brightness/contrast mặc định 50-150). */
 function buildFilterCss(brightness, contrast, saturation) {
     return `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
