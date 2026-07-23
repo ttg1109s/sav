@@ -4,8 +4,13 @@
  *   - `displayOrder` (hàng đợi phát): sort theo mode nhưng có "pending append" lúc đang phát.
  * Cùng dùng chung 1 hàm so sánh tên (sortKeysByMode) để 2 thứ tự nhất quán về quy tắc sắp xếp.
  *
- * Ver 8: matchesSearch() lọc thêm theo `tag.album` (trước đây chỉ title + artist) — gõ tên
- * album vào ô tìm kiếm giờ cũng ra kết quả đúng.
+ * Ver 8: lọc tìm kiếm thêm theo `tag.album` (trước đây chỉ title + artist) — gõ tên album vào ô
+ * tìm kiếm giờ cũng ra kết quả đúng.
+ *
+ * [REFACTOR 23/07/2026] `matchesSearch()` (lớp trung gian tự appState.get()) ĐÃ XOÁ — logic so
+ * khớp chuyển hẳn sang `songMatchesQuery()` (core/song-search.js, THUẦN, dùng CHUNG với module Video
+ * Editor). `recomputeRenderOrder()` bên dưới giờ tự đọc appState rồi gọi thẳng hàm đó (xem comment
+ * tại chỗ).
  */
 
         /** Mảng key đã lọc bỏ bài lỗi (confirmedBrokenKeys) — nền chung cho cả render lẫn hàng đợi. */
@@ -25,22 +30,26 @@
             return keys.slice(); // 'default'
         }
 
-        function matchesSearch(key) {
-            if (!appState.get('searchQuery')) return true;
-            const cached = appState.get('playlistCache').get(key);
-            const title = normalizeSongName(cached ? cached.tag.title : key);
-            const artist = normalizeSongName(cached ? cached.tag.artist : '');
-            const album = normalizeSongName(cached ? cached.tag.album : '');
-            return title.includes(appState.get('searchQuery')) || artist.includes(appState.get('searchQuery')) || album.includes(appState.get('searchQuery'));
-        }
-
         // ===================== (A) DANH SÁCH HIỂN THỊ =====================
         /**
          * Tính lại renderOrder = các bài hợp lệ, lọc theo ô tìm kiếm, sắp theo mode hiện tại.
          * KHÔNG bao giờ phụ thuộc currentKey / pending / hàng đợi phát — UI luôn "đúng như mắt thấy".
+         *
+         * [REFACTOR 23/07/2026, phản hồi Giang] — bỏ hẳn `matchesSearch()` làm lớp trung gian (hàm
+         * đó tự `appState.get()` bên trong, không tái dùng được cho Video Editor — trang không nạp
+         * `appState`). Hàm NÀY vốn đã tự đọc/ghi `appState` trực tiếp (`liveKeys()`, `appState.set(
+         * 'renderOrder', ...)`) — tức đã LÀ Workflow theo định nghĩa (event-bus-flow.md mục 4B: đọc
+         * state để chuẩn bị input cho Core = Workflow), nên gọi thẳng Core thuần `songMatchesQuery()`
+         * (core/song-search.js, dùng CHUNG với Video Editor) ở đây KHÔNG vi phạm Rule 3 (Rule 3 chỉ
+         * cấm Core gọi Core — đây là Workflow gọi Core).
          */
         function recomputeRenderOrder() {
-            appState.set('renderOrder', sortKeysByMode(liveKeys().filter(matchesSearch)));
+            const query = appState.get('searchQuery'); // ĐÃ chuẩn hoá sẵn lúc gõ (applySearchQuery(), render.js)
+            const cache = appState.get('playlistCache');
+            appState.set('renderOrder', sortKeysByMode(liveKeys().filter((key) => {
+                const cached = cache.get(key);
+                return songMatchesQuery(query, cached ? cached.tag.title : key, cached ? cached.tag.artist : '', cached ? cached.tag.album : '');
+            })));
         }
 
         // ===================== (B) HÀNG ĐỢI PHÁT =====================

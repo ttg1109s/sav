@@ -35,7 +35,6 @@
             const min = Math.floor(seconds / 60); const sec = Math.floor(seconds % 60); return `${min}:${sec < 10 ? '0' : ''}${sec}`;
         }
 
-        /** Chuẩn hoá tên bài để sort A-Z/Z-A & tìm kiếm ổn định: bỏ dấu tiếng Việt, hạ thường, trim. */
-        function normalizeSongName(name) {
-            return (name || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-        }
+        // normalizeSongName() ĐÃ CHUYỂN sang core/song-search.js (23/07/2026, refactor phản hồi
+        // Giang — Video Editor cần tái dùng nhưng không nạp appState) — dùng chung Playlist + Video
+        // Editor, không còn bản riêng ở đây. Nạp core/song-search.js TRƯỚC file này trong index.html.
