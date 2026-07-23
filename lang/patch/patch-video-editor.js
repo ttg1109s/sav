@@ -54,6 +54,7 @@ const LANG_PATCH_VIDEO_EDITOR = {
     'videoEdit.cropOverlay.title': 'Crop video',
     'videoEdit.cropOverlay.cancel': 'Cancel',
     'videoEdit.cropOverlay.confirm': 'Done',
+    'videoEdit.ratio.free': 'Free',
 
     // Trích xuất ảnh.
     'videoEdit.extractFrame.success': 'Photo saved to your library.',
