@@ -559,6 +559,10 @@
     <script src="core/wakelock.js?v=20260630v1"></script>
     <script src="core/color-utils.js?v=20260717v1"></script>
     <script src="core/canvas-scene-setup.js?v=20260625v8e"></script>
+    <!-- MỚI (23/07/2026, refactor phản hồi Giang) — normalizeSongName()/songMatchesQuery() dùng
+         CHUNG Playlist + Video Editor, tách khỏi core/playlist/state.js để không kéo appState theo
+         khi module Video Editor cần tái dùng. PHẢI nạp TRƯỚC core/playlist/order.js. -->
+    <script src="core/song-search.js?v=20260723v1"></script>
     <!-- Playlist tách module (v6): state -> order -> render -> loader -> actions -> main.
          PHẢI nạp TRƯỚC player-controls.js (file đó tham chiếu playlistOrder/displayOrder/
          recomputeDisplayOrder/renderPlaylistDiff...). main.js (object-function) gọi PlaylistMain.init()
