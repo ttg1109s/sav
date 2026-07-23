@@ -677,6 +677,38 @@
             constructor(initialState, schema) {
                 this._state = initialState; // KHÔNG copy — giữ cùng reference với STATE export ra ngoài
                 this._schema = schema;
+                this._registry = {}; // { [account]: string[] | 'all' } — xem registry()
+                this._currentAccount = null; // account ĐANG active của TRANG hiện tại (1 trang gọi registry() ĐÚNG 1 lần lúc nạp)
+            }
+
+            /**
+             * [MỚI, 23/07/2026, phản hồi Giang — "mỗi file HTML là 1 owner riêng, muốn truy cập
+             * state (kể cả index.html) cũng phải đăng ký"] Đăng ký "tài khoản" (tên trang) + danh
+             * sách state key được PHÉP đọc/ghi qua get()/set()/mutate() TỪ TRANG NÀY. Gọi ĐÚNG 1
+             * LẦN, CÀNG SỚM CÀNG TỐT ngay sau khi service/state.js vừa nạp xong (trước bất kỳ
+             * get()/set() nào khác chạy) — mỗi HTML là 1 "account" riêng (index.html vẫn cần hầu
+             * hết ~90 key hiện có -> đăng ký 'all'; trang khác chỉ dùng vài key cụ thể -> liệt kê
+             * đúng danh sách đó, KHÔNG dùng 'all').
+             *
+             * TƯƠNG THÍCH NGƯỢC: nếu KHÔNG trang nào gọi registry() (file/trang cũ chưa migrate),
+             * `_currentAccount` vẫn `null` -> `_isAllowed()` trả `true` cho MỌI key (không giới
+             * hạn gì cả) — hành vi y hệt trước khi có cơ chế này.
+             * @param {string} account - tên trang, vd 'player' (index.html), 'videoEditor' (video-editor.html).
+             * @param {string[]|'all'} allowedKeys - mảng tên key được phép, hoặc chuỗi 'all' = không giới hạn.
+             */
+            registry(account, allowedKeys) {
+                this._registry[account] = allowedKeys;
+                this._currentAccount = account;
+                console.log(`[AppState.registry] account: "${account}", allowedKeys: ${allowedKeys === 'all' ? '"all"' : JSON.stringify(allowedKeys)}`);
+            }
+
+            /** Private: `key` có được phép đọc/ghi theo account ĐANG active hay không. */
+            _isAllowed(key) {
+                if (!this._currentAccount) return true; // CHƯA registry() lần nào -> không giới hạn (tương thích ngược)
+                const allowed = this._registry[this._currentAccount];
+                if (allowed === 'all') return true;
+                if (!Array.isArray(allowed)) return false; // account đã đăng ký nhưng danh sách sai định dạng -> chặn an toàn, không mở toang
+                return allowed.includes(key);
             }
 
             /**
@@ -700,13 +732,24 @@
              */
             get(key) {
                 if (Array.isArray(key)) return this._getMany(key);
+                if (!this._isAllowed(key)) {
+                    console.warn(`[AppState.get] Account "${this._currentAccount}" không có quyền đọc key "${key}" — kiểm tra lại danh sách ở appState.registry(). Trả undefined.`);
+                    return undefined;
+                }
                 return this._state[key];
             }
 
             /** Private: đọc NHIỀU key cùng lúc, dùng bởi get() khi nhận array — xem comment get(). */
             _getMany(keys) {
                 const result = {};
-                keys.forEach((k) => { result[k] = this._state[k]; });
+                keys.forEach((k) => {
+                    if (!this._isAllowed(k)) {
+                        console.warn(`[AppState.get] Account "${this._currentAccount}" không có quyền đọc key "${k}" — bỏ qua, trả undefined cho key đó.`);
+                        result[k] = undefined;
+                        return;
+                    }
+                    result[k] = this._state[k];
+                });
                 return result;
             }
 
@@ -742,6 +785,11 @@
                 options = options || {};
                 const notifyUI = options.notifyUI === true; // mặc định false theo yêu cầu
                 const skipCheck = options.skipCheck === true; // mặc định false — chỉ hot path mới bật
+
+                if (!this._isAllowed(key)) {
+                    console.warn(`[AppState.set] Account "${this._currentAccount}" không có quyền ghi key "${key}" — kiểm tra lại danh sách ở appState.registry(). KHÔNG ghi.`);
+                    return false;
+                }
 
                 if (skipCheck) {
                     this._state[key] = value;
@@ -800,6 +848,12 @@
             mutate(key, mutatorFn, options) {
                 options = options || {};
                 const skipCheck = options.skipCheck === true;
+
+                if (!this._isAllowed(key)) {
+                    console.warn(`[AppState.mutate] Account "${this._currentAccount}" không có quyền mutate key "${key}" — kiểm tra lại danh sách ở appState.registry(). Bỏ qua.`);
+                    return false;
+                }
+
                 const collection = this._state[key];
 
                 if (collection === undefined && !(key in this._state)) {
