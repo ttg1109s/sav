@@ -849,7 +849,7 @@ const workflowVideoEditor = {
 
     handlePropsOpen() {
         const bodyHtml = `
-            <div class="px-4 pb-6 flex flex-col gap-5">
+            <div class="px-4 flex flex-col gap-5 video-editor-gd-body-pb">
                 <div><label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.volVideo'))}</span><span id="ve-gd-vol-video-val">${this._volumeVideo}%</span></label><input type="range" id="ve-gd-vol-video" min="0" max="200" value="${this._volumeVideo}" class="w-full"></div>
                 <div><label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.filterBrightness'))}</span><span id="ve-gd-brightness-val">${this._brightness}%</span></label><input type="range" id="ve-gd-brightness" min="50" max="150" value="${this._brightness}" class="w-full"></div>
                 <div><label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.filterContrast'))}</span><span id="ve-gd-contrast-val">${this._contrast}%</span></label><input type="range" id="ve-gd-contrast" min="50" max="150" value="${this._contrast}" class="w-full"></div>
@@ -896,7 +896,7 @@ const workflowVideoEditor = {
 
     handleAddMusicOpen() {
         const bodyHtml = `
-            <div class="px-4 pb-4 flex flex-col gap-2.5 h-full">
+            <div class="px-4 flex flex-col gap-2.5 h-full video-editor-gd-body-pb">
                 <div class="relative shrink-0">
                     <input id="ve-gd-song-search" type="text" inputmode="search" autocomplete="off" placeholder="${_escapeVideoEditorHtml(t('videoEdit.songSearch.placeholder'))}" class="w-full bg-slate-100 border border-slate-200 rounded-xl pl-3 pr-8 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none">
                     <button id="ve-gd-song-search-clear" type="button" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm leading-none">&times;</button>
@@ -999,7 +999,7 @@ const workflowVideoEditor = {
         const boldClass = (on) => `py-2 rounded-xl text-xs font-bold border ${on ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-100 text-slate-600 border-slate-200'}`;
         const italicClass = (on) => `py-2 rounded-xl text-xs italic font-semibold border ${on ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-100 text-slate-600 border-slate-200'}`;
         const bodyHtml = `
-            <div class="px-4 pb-6 flex flex-col gap-3">
+            <div class="px-4 flex flex-col gap-3 video-editor-gd-body-pb">
                 <input type="text" id="ve-gd-text-value" value="${_escapeVideoEditorHtml(clip.val)}" class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 outline-none">
                 <select id="ve-gd-text-font" class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 outline-none" style="font-family:'${clip.fontFamily}'">${fontOptionsHtml}</select>
                 <div class="grid grid-cols-2 gap-2">
@@ -1066,7 +1066,7 @@ const workflowVideoEditor = {
         const clip = this._activeAudioClip();
         if (!clip) return;
         const bodyHtml = `
-            <div class="px-4 pb-6 flex flex-col gap-4">
+            <div class="px-4 flex flex-col gap-4 video-editor-gd-body-pb">
                 <p class="text-center text-[11px] text-slate-500">${_escapeVideoEditorHtml(t('videoEdit.songShift.positionLabel'))}: ${formatClipTimeLabel(clip.timelineStart)} – ${formatClipTimeLabel(clip.timelineEnd)} / ${formatClipTimeLabel(this._totalDuration())}</p>
                 <div>
                     <div id="ve-gd-shift-time-label" class="text-center text-[11px] font-mono text-emerald-600 mb-2"></div>
