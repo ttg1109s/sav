@@ -428,6 +428,14 @@
          core/ còn lại; PHẢI nạp SAU core/modal-choice.js (alertModal, dùng cho option notifyUI).
          Xem comment đầu file service/state.js. -->
     <script src="service/state.js?v=20260721v9"></script>
+    <script>
+        // [MỚI, 23/07/2026] Đăng ký account cho trang này — MỖI HTML là 1 "owner" riêng, muốn
+        // đọc/ghi appState (kể cả trang chính này) cũng phải đăng ký qua registry(), xem docstring
+        // đầy đủ ở service/state.js::AppState::registry(). index.html vẫn cần hầu hết ~90 key hiện
+        // có -> đăng ký 'all' (không giới hạn) — giữ NGUYÊN hành vi hiện tại, KHÔNG đổi gì.
+        const APP_ACCOUNT = 'player';
+        appState.registry(APP_ACCOUNT, 'all');
+    </script>
     <script src="core/config.js?v=20260721v3"></script>
     <!-- event/store.js (class EventStore) — CHỈ riêng file NÀY trong toàn bộ /event/ được nạp SỚM
          ở đây, KHÔNG đợi xuống cuối cùng cùng bus/workflow/router/listener. Lý do: playlist/

@@ -35,6 +35,10 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
     <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <!-- Google Fonts — danh sách chọn phông cho Text overlay (event/workflow/video-editor.js::VIDEO_EDITOR_FONTS). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,700;1,700&family=Montserrat:ital,wght@0,700;1,700&family=Playfair+Display:ital,wght@0,700;1,700&family=Pacifico&family=Bebas+Neue&family=Lobster&family=Oswald:ital,wght@0,700;1,700&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
     <script>
         window._mediabunnyLoadPromise = new Promise((resolve) => {
             const candidates = [
@@ -140,82 +144,18 @@
         <div id="video-editor-crop-ratio-row" class="video-editor-pb-safe flex items-center justify-center gap-2 py-3 px-2 bg-black border-t border-white/10 overflow-x-auto shrink-0"></div>
     </div>
 
-    <!-- Modal "Chỉnh" (Filter + Volume gốc, toàn cục) — MỚI v3, thay bottom-sheet cũ. -->
-    <div id="video-editor-props-modal" class="hidden fixed inset-0 bg-black/80 z-[75] flex-col items-center justify-center backdrop-blur-md p-6">
-        <div class="bg-[#1c1c1e] border border-white/10 rounded-2xl p-5 w-full max-w-sm flex flex-col gap-4">
-            <h3 id="video-editor-props-title" class="font-bold text-sm text-white"></h3>
-            <div>
-                <label class="flex justify-between text-[10px] text-slate-300 mb-1.5"><span id="label-ve-vol-video"></span><span id="video-editor-vol-video-val">100%</span></label>
-                <input type="range" id="slider-ve-vol-video" min="0" max="200" value="100">
-            </div>
-            <div>
-                <label class="flex justify-between text-[10px] text-slate-300 mb-1.5"><span id="label-ve-filter-brightness"></span><span id="video-editor-filter-brightness-val">100%</span></label>
-                <input type="range" id="slider-ve-brightness" min="50" max="150" value="100">
-            </div>
-            <div>
-                <label class="flex justify-between text-[10px] text-slate-300 mb-1.5"><span id="label-ve-filter-contrast"></span><span id="video-editor-filter-contrast-val">100%</span></label>
-                <input type="range" id="slider-ve-contrast" min="50" max="150" value="100">
-            </div>
-            <div>
-                <label class="flex justify-between text-[10px] text-slate-300 mb-1.5"><span id="label-ve-filter-saturation"></span><span id="video-editor-filter-saturation-val">100%</span></label>
-                <input type="range" id="slider-ve-saturation" min="0" max="200" value="100">
-            </div>
-            <button id="btn-video-editor-props-close" class="mt-1 py-2.5 rounded-xl bg-white/10 text-xs font-bold"></button>
+    <!-- Generic Drawer — TÁI SỬ DỤNG NGUYÊN component dùng chung toàn app (components/generic-
+         drawer.js + core/generic-drawer.js), THAY cho 4 modal viết tay riêng lẻ trước đây (Chỉnh/
+         Sửa chữ/Chọn nhạc/Dịch chuyển đoạn — nay đều gọi openGenericDrawer() với headerHtml/
+         bodyHtml khác nhau, xem event/workflow/video-editor.js). Trang này KHÔNG qua main.js nên
+         gắn markup THẲNG ở đây (không cần bước mount JS) — giữ NGUYÊN cấu trúc/id/class gốc. -->
+    <div id="generic-drawer-overlay" class="hidden fixed inset-0 z-[39] bg-black/50 opacity-0 transition-opacity duration-300 ease-out"></div>
+    <div id="generic-drawer-panel" class="hidden fixed inset-x-0 bottom-0 z-40 h-[70vh] bg-white rounded-t-3xl shadow-2xl flex flex-col transform translate-y-full transition-transform duration-300 ease-out pointer-events-auto">
+        <div class="flex justify-center pt-3 pb-1 shrink-0">
+            <div class="w-10 h-1.5 rounded-full bg-slate-300"></div>
         </div>
-    </div>
-
-    <!-- Modal Sửa chữ (clip Chữ đang chọn) — MỚI v3. -->
-    <div id="video-editor-text-edit-modal" class="hidden fixed inset-0 bg-black/80 z-[75] flex-col items-center justify-center backdrop-blur-md p-6">
-        <div class="bg-[#1c1c1e] border border-white/10 rounded-2xl p-5 w-full max-w-sm flex flex-col gap-3">
-            <h3 id="video-editor-text-edit-title" class="font-bold text-sm text-white"></h3>
-            <input type="text" id="video-editor-text-value" class="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white outline-none">
-            <div class="grid grid-cols-2 gap-2">
-                <div class="bg-white/5 p-2.5 rounded-xl">
-                    <label id="label-ve-text-size" class="block text-[10px] text-slate-400 mb-1.5"></label>
-                    <input type="range" id="slider-ve-text-size" min="20" max="150" value="60">
-                </div>
-                <div class="bg-white/5 p-2.5 rounded-xl">
-                    <label id="label-ve-text-color" class="block text-[10px] text-slate-400 mb-1.5"></label>
-                    <input type="color" id="video-editor-text-color" value="#ffffff" class="w-full h-6 bg-transparent border-0 rounded cursor-pointer p-0">
-                </div>
-            </div>
-            <div class="bg-white/5 p-2.5 rounded-xl">
-                <label class="flex justify-between text-[10px] text-slate-400 mb-1.5"><span id="label-ve-text-posY"></span><span id="video-editor-text-posY-display">80%</span></label>
-                <input type="range" id="slider-ve-text-posY" min="5" max="95" value="80">
-            </div>
-            <button id="btn-video-editor-text-edit-close" class="mt-1 py-2.5 rounded-xl bg-white/10 text-xs font-bold"></button>
-        </div>
-    </div>
-
-    <!-- Modal chọn Nhạc (thay panel "Nhạc" bottom-sheet cũ) — MỚI v3. -->
-    <div id="video-editor-song-picker-modal" class="hidden fixed inset-0 bg-black/90 z-[75] flex-col p-4">
-        <div class="bg-[#1c1c1e] border border-white/10 rounded-2xl p-4 w-full max-w-sm mx-auto flex flex-col gap-2.5 flex-1 min-h-0 my-auto" style="max-height: 70vh;">
-            <div class="flex items-center justify-between">
-                <h3 id="video-editor-song-picker-title" class="font-bold text-sm text-white"></h3>
-                <button id="btn-video-editor-song-picker-close" class="w-7 h-7 rounded-full bg-white/10 text-slate-400">&times;</button>
-            </div>
-            <div class="relative">
-                <input id="video-editor-song-search-input" type="text" inputmode="search" autocomplete="off" class="w-full bg-white/10 border border-white/10 rounded-xl pl-3 pr-8 py-2 text-xs text-white placeholder-slate-500 outline-none">
-                <button id="btn-ve-song-search-clear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">&times;</button>
-            </div>
-            <div id="video-editor-song-list" class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1"></div>
-        </div>
-    </div>
-
-    <!-- Modal "Dịch chuyển tới đoạn" (chọn đoạn nào của file nhạc gốc được dùng) — MỚI v3. -->
-    <div id="video-editor-song-shift-modal" class="hidden fixed inset-0 bg-black/90 z-[75] flex-col items-center justify-center backdrop-blur-md p-6">
-        <div class="bg-[#1c1c1e] border border-white/10 rounded-2xl p-5 w-full max-w-sm flex flex-col gap-4">
-            <h3 id="video-editor-song-shift-title" class="font-bold text-sm text-white text-center"></h3>
-            <div id="video-editor-song-shift-time-label" class="text-center text-[11px] font-mono text-amber-400"></div>
-            <div id="video-editor-song-shift-bar-wrap" class="relative h-12 rounded-lg overflow-hidden bg-black/40 select-none touch-none">
-                <div id="video-editor-song-shift-window" class="absolute top-0 bottom-0 bg-emerald-500/70 border-2 border-emerald-300 rounded" data-handle="shiftWindow"></div>
-            </div>
-            <div>
-                <label class="flex justify-between text-[10px] text-slate-300 mb-1.5"><span id="label-ve-clip-volume"></span><span id="video-editor-clip-volume-val">100%</span></label>
-                <input type="range" id="slider-ve-clip-volume" min="0" max="200" value="100">
-            </div>
-            <button id="btn-video-editor-song-shift-confirm" class="py-3 bg-white text-black rounded-xl text-sm font-bold"></button>
-        </div>
+        <div id="generic-drawer-header" class="shrink-0"></div>
+        <div id="generic-drawer-body" class="flex-1 min-h-0"></div>
     </div>
 
     <!-- Debug console mobile — nút bật/tắt giờ nằm trong header (btn-video-editor-debug-toggle). -->
@@ -250,6 +190,19 @@
     <script src="lang/lang.js?v=20260723v2"></script>
     <script src="core/modal-choice.js?v=20260625v9"></script>
     <script src="core/dropdown-menu.js?v=20260716v1"></script>
+    <!-- [MỚI, 23/07/2026, phản hồi Giang] service/state.js — TỰ CHỨA hoàn toàn (CONST định nghĩa
+         NGAY trong chính file đó, KHÔNG cần core/config.js — xem đầu file), an toàn nạp riêng ở
+         trang này. Đăng ký account 'videoEditor' NGAY sau, CHỈ xin quyền đúng 1 key cần thật
+         (isGenericDrawerOpen, core/generic-drawer.js dùng) — xem AppState::registry(). -->
+    <script src="service/state.js?v=20260721v9"></script>
+    <script>
+        const APP_ACCOUNT = 'videoEditor';
+        appState.registry(APP_ACCOUNT, ['isGenericDrawerOpen']);
+    </script>
+    <!-- Tái sử dụng Generic Drawer CÓ SẴN (core/generic-drawer.js) — CẤM tự dựng modal mới lặp
+         lại, xem khung HTML #generic-drawer-* cuối file (chép NGUYÊN từ components/generic-
+         drawer.js, trang này KHÔNG qua main.js nên gắn thẳng vào markup, không cần mount JS). -->
+    <script src="core/generic-drawer.js?v=20260716v2"></script>
     <script src="service/task-manager.js?v=20260720v1"></script>
     <script src="event/bus.js?v=20260625v10"></script>
     <script src="service/db.js?v=20260711v1"></script>
@@ -275,22 +228,6 @@
         document.getElementById('video-editor-crop-title').textContent = t('videoEdit.cropOverlay.title');
         document.getElementById('btn-video-editor-crop-cancel').textContent = t('videoEdit.cropOverlay.cancel');
         document.getElementById('btn-video-editor-crop-confirm').textContent = t('videoEdit.cropOverlay.confirm');
-        document.getElementById('video-editor-props-title').textContent = t('videoEdit.propsModal.title');
-        document.getElementById('label-ve-vol-video').textContent = t('videoEdit.volVideo');
-        document.getElementById('label-ve-filter-brightness').textContent = t('videoEdit.filterBrightness');
-        document.getElementById('label-ve-filter-contrast').textContent = t('videoEdit.filterContrast');
-        document.getElementById('label-ve-filter-saturation').textContent = t('videoEdit.filterSaturation');
-        document.getElementById('btn-video-editor-props-close').textContent = t('common.done');
-        document.getElementById('video-editor-text-edit-title').textContent = t('videoEdit.textEdit.title');
-        document.getElementById('label-ve-text-size').textContent = t('videoEdit.text.size');
-        document.getElementById('label-ve-text-color').textContent = t('videoEdit.text.color');
-        document.getElementById('label-ve-text-posY').textContent = t('videoEdit.text.posY');
-        document.getElementById('btn-video-editor-text-edit-close').textContent = t('common.done');
-        document.getElementById('video-editor-song-picker-title').textContent = t('videoEdit.songPicker.title');
-        document.getElementById('video-editor-song-search-input').placeholder = t('videoEdit.songSearch.placeholder');
-        document.getElementById('video-editor-song-shift-title').textContent = t('videoEdit.songShift.title');
-        document.getElementById('label-ve-clip-volume').textContent = t('videoEdit.clipVolume.label');
-        document.getElementById('btn-video-editor-song-shift-confirm').textContent = t('common.done');
 
         document.getElementById('btn-video-editor-reload').addEventListener('click', () => { window.location.reload(); });
         const debugOverlayEl = document.getElementById('video-editor-debug-overlay');
