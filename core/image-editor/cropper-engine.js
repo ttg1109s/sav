@@ -48,6 +48,16 @@ function rotateSession(session, deg) {
     session.rotate(deg);
 }
 
+/**
+ * [MỚI, module Video Editor — dùng để đọc toạ độ vùng crop RA khỏi phiên, KHÔNG cần canvas đã áp
+ * crop (khác `getCroppedCanvasFromSession()`, dùng cho `image-edit.html` — cần ảnh THẬT đã cắt sẵn;
+ * Video Editor chỉ cần toạ độ để tự tính lại theo tỉ lệ 0-1, "nướng" thật lúc `processVideo()`)]
+ * @param {any} session @param {boolean} rounded @returns {{x:number,y:number,width:number,height:number}}
+ */
+function getCropDataFromSession(session, rounded) {
+    return session.getData(!!rounded);
+}
+
 /** Đặt hệ số lật ngang (1 = bình thường, -1 = đã lật) — Workflow tự tính toggle, hàm này chỉ ÁP
  * giá trị. @param {any} session @param {number} scaleX */
 function flipHorizontalSession(session, scaleX) {
