@@ -10,13 +10,18 @@ const routerVideoEdit = (() => {
             case 'videoEdit.skipStart.click': { workflowVideoEditor.handleSkipStart(); break; }
             case 'videoEdit.skipEnd.click': { workflowVideoEditor.handleSkipEnd(); break; }
 
-            case 'videoEdit.tab.click': { workflowVideoEditor.handleTabClick(msg.payload.targetId); break; }
-            case 'videoEdit.panelClose.click': { workflowVideoEditor.handlePanelClose(); break; }
+            case 'videoEdit.selectClip.click': { workflowVideoEditor.handleSelectClip(msg.payload.track, msg.payload.index); break; }
+            case 'videoEdit.deselect.click': { workflowVideoEditor.handleDeselect(); break; }
 
-            // Kéo-thả timeline (Cut trên track Video, Text move/resize, Audio offset drag).
-            case 'videoEdit.timelineDrag.start': { workflowVideoEditor.handleTimelineDragStart(msg.payload.handle, msg.payload.clientX); break; }
+            case 'videoEdit.timelineDrag.start': { workflowVideoEditor.handleTimelineDragStart(msg.payload.track, msg.payload.index, msg.payload.handleType, msg.payload.clientX); break; }
             case 'videoEdit.timelineDrag.move': { workflowVideoEditor.handleTimelineDragMove(msg.payload.clientX); break; }
             case 'videoEdit.timelineDrag.end': { workflowVideoEditor.handleTimelineDragEnd(); break; }
+
+            case 'videoEdit.cutAtCurrent.click': { workflowVideoEditor.handleCutAtCurrent(); break; }
+            case 'videoEdit.duplicateClip.click': { workflowVideoEditor.handleDuplicateClip(); break; }
+            case 'videoEdit.deleteClip.click': { workflowVideoEditor.handleDeleteClip(); break; }
+            case 'videoEdit.moveClipEarlier.click': { workflowVideoEditor.handleMoveClipEarlier(); break; }
+            case 'videoEdit.moveClipLater.click': { workflowVideoEditor.handleMoveClipLater(); break; }
 
             case 'videoEdit.crop.click': { workflowVideoEditor.handleCropOpen(); break; }
             case 'videoEdit.cropConfirm.click': { workflowVideoEditor.handleCropConfirm(); break; }
@@ -26,34 +31,35 @@ const routerVideoEdit = (() => {
             case 'videoEdit.rotateRight.click': { workflowVideoEditor.handleRotateRight(); break; }
             case 'videoEdit.filter.change': { workflowVideoEditor.handleFilterChange(); break; }
             case 'videoEdit.reset.click': { workflowVideoEditor.handleReset(); break; }
+            case 'videoEdit.props.open': { workflowVideoEditor.handlePropsOpen(); break; }
+            case 'videoEdit.props.close': { workflowVideoEditor.handlePropsClose(); break; }
+            case 'videoEdit.volVideo.change': { workflowVideoEditor.handleVolVideoChange(msg.payload.value); break; }
             case 'videoEdit.extractFrame.click': { workflowVideoEditor.handleExtractFrame(); break; }
 
-            case 'videoEdit.volVideo.change': { workflowVideoEditor.handleVolVideoChange(msg.payload.value); break; }
-            case 'videoEdit.volSong.change': { workflowVideoEditor.handleVolSongChange(msg.payload.value); break; }
-
-            // Nhạc chèn.
+            case 'videoEdit.addMusic.open': { workflowVideoEditor.handleAddMusicOpen(); break; }
+            case 'videoEdit.songPicker.close': { workflowVideoEditor.handleSongPickerClose(); break; }
             case 'videoEdit.songSearch.input': { workflowVideoEditor.handleSongSearchInput(msg.payload.value); break; }
             case 'videoEdit.songSearchClear.click': { workflowVideoEditor.handleSongSearchClear(); break; }
-            case 'videoEdit.songSelect.click': { workflowVideoEditor.handleSongSelect(msg.payload.songKey); break; }
-            case 'videoEdit.removeSong.click': { workflowVideoEditor.handleRemoveSong(); break; }
+            case 'videoEdit.songPicker.select': { workflowVideoEditor.handleSongPickerSelect(msg.payload.songKey); break; }
 
-            // Text overlay.
             case 'videoEdit.addText.click': { workflowVideoEditor.handleAddText(); break; }
-            case 'videoEdit.removeText.click': { workflowVideoEditor.handleRemoveText(); break; }
+            case 'videoEdit.textEdit.open': { workflowVideoEditor.handleTextEditOpen(); break; }
+            case 'videoEdit.textEdit.close': { workflowVideoEditor.handleTextEditClose(); break; }
             case 'videoEdit.textValue.input': { workflowVideoEditor.handleTextValueInput(msg.payload.value); break; }
             case 'videoEdit.textSize.change': { workflowVideoEditor.handleTextSizeChange(msg.payload.value); break; }
             case 'videoEdit.textColor.change': { workflowVideoEditor.handleTextColorChange(msg.payload.value); break; }
             case 'videoEdit.textPosY.change': { workflowVideoEditor.handleTextPosYChange(msg.payload.value); break; }
 
-            // Lưu (Batch 4).
+            case 'videoEdit.songShift.open': { workflowVideoEditor.handleSongShiftOpen(); break; }
+            case 'videoEdit.songShift.close': { workflowVideoEditor.handleSongShiftClose(); break; }
+            case 'videoEdit.songShiftDrag.start': { workflowVideoEditor.handleSongShiftDragStart(msg.payload.clientX); break; }
+            case 'videoEdit.songShiftDrag.move': { workflowVideoEditor.handleSongShiftDragMove(msg.payload.clientX); break; }
+            case 'videoEdit.songShiftDrag.end': { workflowVideoEditor.handleSongShiftDragEnd(); break; }
+            case 'videoEdit.clipVolume.change': { workflowVideoEditor.handleClipVolumeChange(msg.payload.value); break; }
+
             case 'videoEdit.save.click': { workflowVideoEditor.handleSaveClick(msg.payload.anchorEl); break; }
             case 'videoEdit.saveOverwrite.click': { workflowVideoEditor.handleSaveOverwrite(); break; }
             case 'videoEdit.saveAsNew.click': { workflowVideoEditor.handleSaveAsNew(); break; }
-
-            // Split (Batch 4).
-            case 'videoEdit.split.click': { workflowVideoEditor.handleSplitOpen(); break; }
-            case 'videoEdit.splitCancel.click': { workflowVideoEditor.handleSplitCancel(); break; }
-            case 'videoEdit.splitStart.click': { workflowVideoEditor.handleSplitStart(); break; }
 
             default:
                 console.warn(`[router:videoEdit] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`);
