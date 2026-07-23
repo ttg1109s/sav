@@ -1,0 +1,76 @@
+/**
+ * assets/css/video-editor.css — CSS riêng cho `video-editor.html` (MỚI, 23/07/2026 — tách từ khối
+ * <style> inline của prototype `video.txt`, cùng quy ước `assets/css/slideshow.css` — CSS riêng
+ * theo TÍNH NĂNG, không đè `assets/css/style.css` dùng chung toàn app).
+ *
+ * SỬA so với bản gốc `video.txt` (KHÔNG lấy nguyên, có 1 chỗ mâu thuẫn quy ước chung — xem plan
+ * mục 7): `video.txt` có `* { scrollbar-width: none }` + `::-webkit-scrollbar { display:none }`
+ * ẨN SCROLLBAR TOÀN TRANG — mâu thuẫn `assets/css/style.css` (đã có thanh scroll 4px dùng chung
+ * toàn app) + tiền lệ `.time-picker-col` (style.css) chỉ ẩn SCOPE RIÊNG. Ở ĐÂY chỉ ẩn scrollbar
+ * trong đúng khu vực timeline/bottom-sheet (không cần thanh cuộn lộ ra ở đó, kéo-thả là chính).
+ */
+
+/* ===================== Custom range slider (filter/volume) ===================== */
+#video-editor-root input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    background: #3f3f46;
+    border-radius: 2px;
+    outline: none;
+}
+#video-editor-root input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+#video-editor-root input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: none;
+    border-radius: 50%;
+    background: #ffffff;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* ===================== Lưới Timeline (mốc giây) ===================== */
+#video-editor-timeline-container {
+    background-image: linear-gradient(to right, #2a2a2c 1px, transparent 1px);
+    background-size: 50px 100%;
+    background-position: 0 0;
+    /* Ẩn scrollbar CHỈ trong khu vực timeline (SCOPE RIÊNG, không phải `*` toàn trang — khác
+       video.txt gốc, xem docstring đầu file) — kéo-thả timeline không cần thanh cuộn lộ ra. */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+#video-editor-timeline-container::-webkit-scrollbar { display: none; }
+
+/* ===================== Tay cầm kéo cắt (Trim handle) ===================== */
+.video-editor-clip-handle { cursor: ew-resize; touch-action: none; position: relative; }
+.video-editor-clip-handle::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 4px; height: 16px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 2px;
+}
+.video-editor-clip-body { cursor: grab; touch-action: none; }
+.video-editor-clip-body:active { cursor: grabbing; }
+
+/* ===================== Hiệu ứng clip đang được chọn ===================== */
+.video-editor-clip-active { outline: 2px solid #ffffff; outline-offset: -2px; z-index: 20; }
+
+/* ===================== Safe-area (tai thỏ/thanh điều hướng) ===================== */
+#video-editor-root .video-editor-pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
+#video-editor-root .video-editor-pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+
+.video-editor-file-upload-hidden { display: none; }
