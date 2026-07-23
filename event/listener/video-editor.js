@@ -3,10 +3,15 @@
  * KHÔNG tách `core/dom-refs.js` riêng — khai `const` tham chiếu DOM NGAY ĐẦU file này.
  *
  * LƯU Ý: các cụm DOM ĐỘNG (clip Video/Nhạc/Chữ trên timeline, nút trong toolbar, dòng trong danh
- * sách chọn nhạc) do CHÍNH `event/workflow/video-editor.js` dựng (`_renderVideoTrack()`,
- * `_renderFreeClipTrack()`, `_renderToolbar()`, `_renderSongList()`) — addEventListener của các cụm
- * đó nằm NGAY TRONG Workflow lúc dựng (Rule 5a: dựng cụm DOM MỚI, callback CHỈ gọi eventBus.send()),
- * KHÔNG lặp lại ở đây. File này CHỈ gắn listener cho DOM TĨNH có sẵn trong HTML.
+ * sách chọn nhạc, nội dung Generic Drawer) do CHÍNH `event/workflow/video-editor.js` dựng —
+ * addEventListener của các cụm đó nằm NGAY TRONG Workflow lúc dựng, KHÔNG lặp lại ở đây. File này
+ * CHỈ gắn listener cho DOM TĨNH có sẵn trong HTML.
+ *
+ * [23/07/2026] — Thêm ref `generic-drawer-*` (core/generic-drawer.js, TÁI SỬ DỤNG THẬT — Giang yêu
+ * cầu cấm dựng modal mới lặp lại) THAY 4 modal viết tay cũ (đã xoá khỏi HTML). Bỏ toàn bộ wiring
+ * của 4 modal đó (nay Workflow tự querySelector+wire ngay khi mở, xem
+ * event/workflow/video-editor.js::handlePropsOpen()/...). Kéo Text trên preview đổi sang 2 CHIỀU
+ * (posX+posY, trước chỉ Y) + THÊM cử chỉ 2 ngón (pinch) co giãn/xoay.
  *
  * NẠP SAU: DOM tĩnh của video-editor.html đã render, event/bus.js, event/router/video-editor.js,
  * event/workflow/video-editor.js. Tự gọi workflowVideoEditor.init() ngay khi chạy (dòng cuối file).
@@ -43,38 +48,14 @@ const videoEditorCropRatioRowEl = document.getElementById('video-editor-crop-rat
 const btnVideoEditorCropCancel = document.getElementById('btn-video-editor-crop-cancel');
 const btnVideoEditorCropConfirm = document.getElementById('btn-video-editor-crop-confirm');
 
-const videoEditorPropsModalEl = document.getElementById('video-editor-props-modal');
-const sliderVeVolVideo = document.getElementById('slider-ve-vol-video');
-const videoEditorVolVideoValEl = document.getElementById('video-editor-vol-video-val');
-const sliderVeBrightness = document.getElementById('slider-ve-brightness');
-const videoEditorFilterBrightnessValEl = document.getElementById('video-editor-filter-brightness-val');
-const sliderVeContrast = document.getElementById('slider-ve-contrast');
-const videoEditorFilterContrastValEl = document.getElementById('video-editor-filter-contrast-val');
-const sliderVeSaturation = document.getElementById('slider-ve-saturation');
-const videoEditorFilterSaturationValEl = document.getElementById('video-editor-filter-saturation-val');
-const btnVideoEditorPropsClose = document.getElementById('btn-video-editor-props-close');
-
-const videoEditorTextEditModalEl = document.getElementById('video-editor-text-edit-modal');
-const videoEditorTextValueEl = document.getElementById('video-editor-text-value');
-const sliderVeTextSize = document.getElementById('slider-ve-text-size');
-const videoEditorTextColorEl = document.getElementById('video-editor-text-color');
-const sliderVeTextPosY = document.getElementById('slider-ve-text-posY');
-const videoEditorTextPosYDisplayEl = document.getElementById('video-editor-text-posY-display');
-const btnVideoEditorTextEditClose = document.getElementById('btn-video-editor-text-edit-close');
-
-const videoEditorSongPickerModalEl = document.getElementById('video-editor-song-picker-modal');
-const btnVideoEditorSongPickerClose = document.getElementById('btn-video-editor-song-picker-close');
-const videoEditorSongSearchInputEl = document.getElementById('video-editor-song-search-input');
-const btnVeSongSearchClear = document.getElementById('btn-ve-song-search-clear');
-const videoEditorSongListEl = document.getElementById('video-editor-song-list');
-
-const videoEditorSongShiftModalEl = document.getElementById('video-editor-song-shift-modal');
-const videoEditorSongShiftTimeLabelEl = document.getElementById('video-editor-song-shift-time-label');
-const videoEditorSongShiftBarWrapEl = document.getElementById('video-editor-song-shift-bar-wrap');
-const videoEditorSongShiftWindowEl = document.getElementById('video-editor-song-shift-window');
-const sliderVeClipVolume = document.getElementById('slider-ve-clip-volume');
-const videoEditorClipVolumeValEl = document.getElementById('video-editor-clip-volume-val');
-const btnVideoEditorSongShiftConfirm = document.getElementById('btn-video-editor-song-shift-confirm');
+// Generic Drawer — TÁI SỬ DỤNG component dùng chung toàn app (core/generic-drawer.js), thay 4
+// modal viết tay cũ (Chỉnh/Sửa chữ/Chọn nhạc/Dịch chuyển đoạn). Nội dung header/body do Workflow tự
+// gán + wire mỗi lần mở (xem handlePropsOpen()/handleTextEditOpen()/handleAddMusicOpen()/
+// handleSongShiftOpen()) — ở đây CHỈ khai ref, không wire gì thêm.
+const genericDrawerOverlay = document.getElementById('generic-drawer-overlay');
+const genericDrawerPanel = document.getElementById('generic-drawer-panel');
+const genericDrawerHeader = document.getElementById('generic-drawer-header');
+const genericDrawerBody = document.getElementById('generic-drawer-body');
 
 const videoEditorSourceEl = document.getElementById('video-editor-source');
 const videoEditorSongAudioEl = document.getElementById('video-editor-song-audio');
@@ -86,28 +67,68 @@ btnVePlay.addEventListener('click', () => eventBus.send({ router: 'videoEdit', t
 btnVeSkipStart.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.skipStart.click', payload: {} }));
 btnVeSkipEnd.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.skipEnd.click', payload: {} }));
 
-// ===================== Kéo Text trực tiếp trên preview (canvas) =====================
-let _veTextDragging = false;
-function _veCanvasYFromEvent(e) {
+// ===================== Kéo/Pinch Text trực tiếp trên preview (canvas) =====================
+// 1 ngón = di chuyển (posX/posY), 2 ngón = co giãn kích cỡ + xoay (pinch). Theo dõi TỐI ĐA 2
+// pointer đang nhấn trên canvas — chuyển thẳng từ "1 ngón di chuyển" sang "2 ngón pinch" giữa
+// chừng nếu ngón thứ 2 chạm xuống (dừng hẳn drag, bắt đầu pinch); nhấc bớt 1 ngón (còn <2) thì kết
+// thúc pinch luôn (không quay lại drag — đơn giản hoá, chạm lại để kéo tiếp).
+const _veActivePointers = new Map(); // pointerId -> {x,y}
+let _veGestureMode = null; // 'drag' | 'pinch' | null
+let _vePinchStartDist = 0;
+let _vePinchStartAngle = 0;
+
+function _veCanvasPointFromEvent(e) {
     const rect = videoEditorPreviewCanvasEl.getBoundingClientRect();
-    const scaleY = videoEditorPreviewCanvasEl.height / rect.height;
-    return (e.clientY - rect.top) * scaleY;
+    return {
+        x: computeCanvasXFromClientX(e.clientX, rect.left, rect.width, videoEditorPreviewCanvasEl.width), // core/video-editor/preview-draw.js
+        y: computeCanvasYFromClientY(e.clientY, rect.top, rect.height, videoEditorPreviewCanvasEl.height),
+    };
 }
+
 videoEditorPreviewCanvasEl.addEventListener('pointerdown', (e) => {
-    _veTextDragging = true;
     try { videoEditorPreviewCanvasEl.setPointerCapture(e.pointerId); } catch (err) { /* không sao */ }
-    eventBus.send({ router: 'videoEdit', type: 'videoEdit.previewTextDrag.start', payload: { canvasY: _veCanvasYFromEvent(e) } });
+    _veActivePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (_veActivePointers.size === 1) {
+        _veGestureMode = 'drag';
+        const p = _veCanvasPointFromEvent(e);
+        eventBus.send({ router: 'videoEdit', type: 'videoEdit.previewTextDrag.start', payload: { canvasX: p.x, canvasY: p.y } });
+    } else if (_veActivePointers.size === 2) {
+        if (_veGestureMode === 'drag') eventBus.send({ router: 'videoEdit', type: 'videoEdit.previewTextDrag.end', payload: {} }); // dừng drag 1 ngón, chuyển sang pinch
+        _veGestureMode = 'pinch';
+        const pts = [..._veActivePointers.values()];
+        _vePinchStartDist = computeDistanceBetweenPoints(pts[0].x, pts[0].y, pts[1].x, pts[1].y); // core/video-editor/preview-draw.js
+        _vePinchStartAngle = computeAngleBetweenPoints(pts[0].x, pts[0].y, pts[1].x, pts[1].y);
+        eventBus.send({ router: 'videoEdit', type: 'videoEdit.previewTextPinch.start', payload: {} });
+    }
 });
 videoEditorPreviewCanvasEl.addEventListener('pointermove', (e) => {
-    if (!_veTextDragging) return;
-    eventBus.send({ router: 'videoEdit', type: 'videoEdit.previewTextDrag.move', payload: { canvasY: _veCanvasYFromEvent(e) } });
+    if (!_veActivePointers.has(e.pointerId)) return;
+    _veActivePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (_veGestureMode === 'pinch' && _veActivePointers.size === 2) {
+        const pts = [..._veActivePointers.values()];
+        const currentDist = computeDistanceBetweenPoints(pts[0].x, pts[0].y, pts[1].x, pts[1].y);
+        const currentAngle = computeAngleBetweenPoints(pts[0].x, pts[0].y, pts[1].x, pts[1].y);
+        eventBus.send({ router: 'videoEdit', type: 'videoEdit.previewTextPinch.move', payload: { startDist: _vePinchStartDist, startAngleDeg: _vePinchStartAngle, currentDist, currentAngleDeg: currentAngle } });
+    } else if (_veGestureMode === 'drag' && _veActivePointers.size === 1) {
+        const p = _veCanvasPointFromEvent(e);
+        eventBus.send({ router: 'videoEdit', type: 'videoEdit.previewTextDrag.move', payload: { canvasX: p.x, canvasY: p.y } });
+    }
 });
-videoEditorPreviewCanvasEl.addEventListener('pointerup', (e) => {
-    _veTextDragging = false;
+function _veEndPointer(e) {
     try { videoEditorPreviewCanvasEl.releasePointerCapture(e.pointerId); } catch (err) { /* không sao */ }
-    eventBus.send({ router: 'videoEdit', type: 'videoEdit.previewTextDrag.end', payload: {} });
-});
-videoEditorPreviewCanvasEl.addEventListener('pointercancel', () => { _veTextDragging = false; eventBus.send({ router: 'videoEdit', type: 'videoEdit.previewTextDrag.end', payload: {} }); });
+    _veActivePointers.delete(e.pointerId);
+    if (_veGestureMode === 'pinch' && _veActivePointers.size < 2) {
+        _veGestureMode = null;
+        eventBus.send({ router: 'videoEdit', type: 'videoEdit.previewTextPinch.end', payload: {} });
+    } else if (_veGestureMode === 'drag' && _veActivePointers.size < 1) {
+        _veGestureMode = null;
+        eventBus.send({ router: 'videoEdit', type: 'videoEdit.previewTextDrag.end', payload: {} });
+    }
+}
+videoEditorPreviewCanvasEl.addEventListener('pointerup', _veEndPointer);
+videoEditorPreviewCanvasEl.addEventListener('pointercancel', _veEndPointer);
 
 // ===================== Chạm nền timeline (ngoài mọi clip) — bỏ chọn HOẶC tua con trỏ =====================
 // PHÂN BIỆT: e.target === chính videoEditorTimelineContentEl (nền trống, không phải 1 clip cụ thể)
@@ -153,50 +174,5 @@ videoEditorPlayheadEl.addEventListener('pointercancel', () => { _veScrubbing = f
 // ===================== Crop overlay (Cropper.js) =====================
 btnVideoEditorCropCancel.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.cropCancel.click', payload: {} }));
 btnVideoEditorCropConfirm.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.cropConfirm.click', payload: {} }));
-
-// ===================== Modal "Chỉnh" (Filter + Volume gốc) =====================
-sliderVeVolVideo.addEventListener('input', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.volVideo.change', payload: { value: sliderVeVolVideo.value } }));
-[sliderVeBrightness, sliderVeContrast, sliderVeSaturation].forEach((slider) => {
-    slider.addEventListener('input', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.filter.change', payload: {} }));
-});
-sliderVeBrightness.addEventListener('input', () => { videoEditorFilterBrightnessValEl.textContent = `${sliderVeBrightness.value}%`; });
-sliderVeContrast.addEventListener('input', () => { videoEditorFilterContrastValEl.textContent = `${sliderVeContrast.value}%`; });
-sliderVeSaturation.addEventListener('input', () => { videoEditorFilterSaturationValEl.textContent = `${sliderVeSaturation.value}%`; });
-btnVideoEditorPropsClose.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.props.close', payload: {} }));
-
-// ===================== Modal Sửa chữ =====================
-videoEditorTextValueEl.addEventListener('input', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.textValue.input', payload: { value: videoEditorTextValueEl.value } }));
-sliderVeTextSize.addEventListener('input', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.textSize.change', payload: { value: sliderVeTextSize.value } }));
-videoEditorTextColorEl.addEventListener('input', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.textColor.change', payload: { value: videoEditorTextColorEl.value } }));
-sliderVeTextPosY.addEventListener('input', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.textPosY.change', payload: { value: sliderVeTextPosY.value } }));
-btnVideoEditorTextEditClose.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.textEdit.close', payload: {} }));
-
-// ===================== Modal chọn Nhạc =====================
-btnVideoEditorSongPickerClose.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.songPicker.close', payload: {} }));
-videoEditorSongSearchInputEl.addEventListener('input', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.songSearch.input', payload: { value: videoEditorSongSearchInputEl.value } }));
-btnVeSongSearchClear.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.songSearchClear.click', payload: {} }));
-// Danh sách bài hát (#video-editor-song-list) dựng ĐỘNG mỗi lần tìm kiếm — listener từng dòng gắn
-// ngay trong Workflow lúc dựng DOM (_renderSongList()), đúng Rule 5a.
-
-// ===================== Modal "Dịch chuyển tới đoạn" (kéo chọn đoạn trong bài + âm lượng clip) =====================
-// Dùng cờ tự quản lý (KHÔNG dựa hasPointerCapture() — có thể fail âm thầm tuỳ trình duyệt/thiết bị,
-// xem docstring _attachDragHandlers() ở event/workflow/video-editor.js, cùng gốc bug với 3 track).
-videoEditorSongShiftWindowEl.addEventListener('pointerdown', (e) => {
-    videoEditorSongShiftWindowEl._veDragging = true;
-    try { videoEditorSongShiftWindowEl.setPointerCapture(e.pointerId); } catch (err) { console.warn('[songShiftDrag] setPointerCapture lỗi (bỏ qua):', err); }
-    eventBus.send({ router: 'videoEdit', type: 'videoEdit.songShiftDrag.start', payload: { clientX: e.clientX } });
-});
-videoEditorSongShiftWindowEl.addEventListener('pointermove', (e) => {
-    if (!videoEditorSongShiftWindowEl._veDragging) return;
-    eventBus.send({ router: 'videoEdit', type: 'videoEdit.songShiftDrag.move', payload: { clientX: e.clientX } });
-});
-videoEditorSongShiftWindowEl.addEventListener('pointerup', (e) => {
-    videoEditorSongShiftWindowEl._veDragging = false;
-    try { videoEditorSongShiftWindowEl.releasePointerCapture(e.pointerId); } catch (err) { /* không sao */ }
-    eventBus.send({ router: 'videoEdit', type: 'videoEdit.songShiftDrag.end', payload: {} });
-});
-videoEditorSongShiftWindowEl.addEventListener('pointercancel', () => { videoEditorSongShiftWindowEl._veDragging = false; eventBus.send({ router: 'videoEdit', type: 'videoEdit.songShiftDrag.end', payload: {} }); });
-sliderVeClipVolume.addEventListener('input', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.clipVolume.change', payload: { value: sliderVeClipVolume.value } }));
-btnVideoEditorSongShiftConfirm.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.songShift.close', payload: {} }));
 
 workflowVideoEditor.init();
