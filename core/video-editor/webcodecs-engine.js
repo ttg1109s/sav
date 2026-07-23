@@ -42,19 +42,44 @@ function _drawFrameToCanvas(ctx, sample, cropPx, rotateDeg, filterCss, outW, out
     ctx.restore();
 }
 
-/** Vẽ đè 1 clip chữ lên canvas — gọi khi `outputTime` nằm trong `[timelineStart,timelineEnd)` của clip đó (Workflow/hàm cha tự so sánh, hàm này chỉ vẽ — Rule 1). */
-function _drawTextOverlayToCanvas(ctx, outW, outH, text) {
+/** Vẽ đè 1 clip chữ lên canvas — gọi khi `outputTime` nằm trong `[timelineStart,timelineEnd)` của clip đó (Workflow/hàm cha tự so sánh, hàm này chỉ vẽ — Rule 1). ĐỒNG BỘ công thức với `drawTextOverlay()` (core/video-editor/preview-draw.js) để preview khớp CHÍNH XÁC kết quả xuất thật — xem docstring đầu file. */
+function _drawTextOverlayToCanvas(ctx, outW, outH, text, outputTime) {
     ctx.save();
     const scaleF = outH / 1080;
-    const finalSize = Math.round(text.size * scaleF);
-    ctx.font = `bold ${finalSize}px -apple-system, Inter, sans-serif`;
+    const finalSize = Math.round((text.size || 60) * scaleF);
+    const weight = text.bold ? 'bold' : 'normal';
+    const style = text.italic ? 'italic' : 'normal';
+    const family = text.fontFamily || 'system-ui';
+    ctx.font = `${style} ${weight} ${finalSize}px "${family}", -apple-system, Inter, sans-serif`;
     ctx.fillStyle = text.color;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(0,0,0,0.6)';
-    ctx.shadowBlur = 8;
-    ctx.shadowOffsetY = 4;
-    ctx.fillText(text.val, outW / 2, outH * (text.posY / 100));
+
+    let alpha = 1;
+    if (text.transition === 'fade') {
+        const FADE_SEC = 0.4;
+        const clipDur = Math.max(0, text.timelineEnd - text.timelineStart);
+        const fadeDur = Math.min(FADE_SEC, clipDur / 2);
+        if (fadeDur > 0) {
+            const distIn = outputTime - text.timelineStart;
+            const distOut = text.timelineEnd - outputTime;
+            alpha = Math.max(0, Math.min(1, Math.min(distIn, distOut) / fadeDur));
+        }
+    }
+    ctx.globalAlpha = alpha;
+
+    if (text.shadow !== false) {
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 4;
+    }
+    if (text.blur > 0) ctx.filter = `blur(${Math.round(text.blur * scaleF)}px)`;
+
+    const cx = outW * ((text.posX ?? 50) / 100);
+    const cy = outH * ((text.posY ?? 80) / 100);
+    ctx.translate(cx, cy);
+    ctx.rotate(((text.rotation || 0) * Math.PI) / 180);
+    ctx.fillText(text.val, 0, 0);
     ctx.restore();
 }
 
@@ -187,7 +212,7 @@ async function processVideo({ sourceBlob, videoClips, cropFraction, rotateDeg, f
             _drawFrameToCanvas(ctx, sample, cropPx, deg, filterCss, outW, outH);
             if (!noText) {
                 for (const text of textClips) {
-                    if (outputTime >= text.timelineStart && outputTime < text.timelineEnd) _drawTextOverlayToCanvas(ctx, outW, outH, text);
+                    if (outputTime >= text.timelineStart && outputTime < text.timelineEnd) _drawTextOverlayToCanvas(ctx, outW, outH, text, outputTime);
                 }
             }
             await videoSource.add(outputTime, sample.duration);

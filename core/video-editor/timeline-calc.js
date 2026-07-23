@@ -190,19 +190,21 @@ function computeFreeClipDrag(clip, handleType, deltaSec, minGap) {
 }
 
 /**
- * [MỚI, audit 23/07/2026 — chuyển từ `handlePreviewTextDragStart()`] Tìm clip Chữ ĐANG HIỂN THỊ tại
- * `outputTime` và GẦN vị trí chạm nhất theo % chiều cao canvas — dùng cho kéo Text trực tiếp trên
- * preview.
- * @param {Array<{posY:number,timelineStart:number,timelineEnd:number}>} textClips
- * @param {number} outputTime @param {number} touchPercent @param {number} maxDistance
+ * [MỞ RỘNG, 23/07/2026 — Text giờ có `posX` (trước chỉ `posY`, luôn canh giữa ngang)] Tìm clip Chữ
+ * ĐANG HIỂN THỊ tại `outputTime` và GẦN vị trí chạm nhất theo khoảng cách 2 CHIỀU (X+Y, % kích
+ * thước canvas) — dùng cho kéo Text trực tiếp trên preview.
+ * @param {Array<{posX:number,posY:number,timelineStart:number,timelineEnd:number}>} textClips
+ * @param {number} outputTime @param {number} touchXPercent @param {number} touchYPercent @param {number} maxDistance
  * @returns {number|null} index trong `textClips`, null nếu không có clip nào đủ gần/đang hiển thị.
  */
-function findNearestActiveTextClip(textClips, outputTime, touchPercent, maxDistance) {
+function findNearestActiveTextClip(textClips, outputTime, touchXPercent, touchYPercent, maxDistance) {
     let bestIndex = null;
     let bestDist = Infinity;
     textClips.forEach((c, index) => {
         if (outputTime < c.timelineStart || outputTime >= c.timelineEnd) return;
-        const dist = Math.abs(c.posY - touchPercent);
+        const dx = (c.posX ?? 50) - touchXPercent;
+        const dy = (c.posY ?? 80) - touchYPercent;
+        const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < bestDist) { bestDist = dist; bestIndex = index; }
     });
     return bestDist <= maxDistance ? bestIndex : null;
