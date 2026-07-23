@@ -26,6 +26,8 @@
  * (qua OfflineAudioContext, xem webcodecs-engine.js) — chỉ preview bị giới hạn.
  */
 const workflowVideoEditor = {
+    MIN_CLIP_GAP_SEC: 0.3, // độ dài tối thiểu 1 đoạn/khoảng cách tối thiểu tới mép khi trim/cắt — DÙNG CHUNG, tránh lặp `const MIN_GAP = 0.3` rải rác nhiều hàm.
+
     _videoKey: null,
     _record: null,
     _fullSourceDuration: 0,
@@ -139,10 +141,7 @@ const workflowVideoEditor = {
     _nextId() { return `c${this._idCounter++}`; },
 
     _totalRenderWidthSeconds() {
-        let maxEnd = this._totalDuration();
-        this._audioClips.forEach((c) => { if (c.timelineEnd > maxEnd) maxEnd = c.timelineEnd; });
-        this._textClips.forEach((c) => { if (c.timelineEnd > maxEnd) maxEnd = c.timelineEnd; });
-        return maxEnd;
+        return computeTimelineRenderWidthSeconds(this._videoClips, this._audioClips, this._textClips); // core/video-editor/timeline-calc.js
     },
 
     // ===================== Vòng lặp render (taskManager mode raf) =====================
@@ -170,15 +169,13 @@ const workflowVideoEditor = {
 
     _computeCurrentOutputTime() {
         if (this._currentClipIndex == null || !this._videoClips[this._currentClipIndex]) return 0;
-        const layout = computeVideoClipsLayout(this._videoClips, this._pixelsPerSecond); // core/video-editor/timeline-calc.js
-        const entry = layout[this._currentClipIndex];
         const clip = this._videoClips[this._currentClipIndex];
-        if (!entry) return 0;
-        return entry.outputStart + Math.max(0, videoEditorSourceEl.currentTime - clip.sourceStart);
+        const outputStart = computeOutputStartForClipIndex(this._videoClips, this._currentClipIndex); // core/video-editor/timeline-calc.js
+        return outputStart + Math.max(0, videoEditorSourceEl.currentTime - clip.sourceStart);
     },
 
     _currentFilterCss() {
-        return `brightness(${sliderVeBrightness.value}%) contrast(${sliderVeContrast.value}%) saturate(${sliderVeSaturation.value}%)`;
+        return buildFilterCss(sliderVeBrightness.value, sliderVeContrast.value, sliderVeSaturation.value); // core/video-editor/preview-draw.js
     },
 
     _drawFrame() {
@@ -218,12 +215,12 @@ const workflowVideoEditor = {
     _seekToOutputTime(outputSeconds) {
         const total = this._totalDuration();
         const clamped = Math.max(0, Math.min(outputSeconds, total));
-        const layout = computeVideoClipsLayout(this._videoClips, this._pixelsPerSecond);
-        let idx = layout.findIndex((l) => clamped >= l.outputStart && clamped < l.outputEnd);
-        if (idx === -1) idx = Math.max(0, layout.length - 1);
-        this._currentClipIndex = idx;
-        const clip = this._videoClips[idx];
-        if (clip && layout[idx]) videoEditorSourceEl.currentTime = clip.sourceStart + Math.max(0, clamped - layout[idx].outputStart);
+        const lastClip = this._videoClips[this._videoClips.length - 1];
+        const found = findVideoClipAtOutputTime(this._videoClips, clamped) // core/video-editor/timeline-calc.js
+            || (lastClip ? { index: this._videoClips.length - 1, sourceSplitPoint: lastClip.sourceEnd } : null); // clamped === total (mép cuối cùng) — findVideoClipAtOutputTime dùng "<" nghiêm ngặt nên không khớp, tự rơi về cuối đoạn cuối
+        if (!found) return;
+        this._currentClipIndex = found.index;
+        videoEditorSourceEl.currentTime = found.sourceSplitPoint;
         this._syncAudioClips(clamped);
         this._updateTimeDisplay(clamped);
         this._drawFrame();
@@ -275,19 +272,10 @@ const workflowVideoEditor = {
         const outputTime = this._computeCurrentOutputTime();
         const canvasH = videoEditorPreviewCanvasEl.height || 1;
         const touchPercent = (canvasY / canvasH) * 100;
-        const active = this._textClips
-            .map((c, index) => ({ c, index }))
-            .filter(({ c }) => outputTime >= c.timelineStart && outputTime < c.timelineEnd);
-        if (!active.length) { this._previewTextDragIndex = null; return; }
-        let best = active[0];
-        let bestDist = Math.abs(best.c.posY - touchPercent);
-        active.forEach((item) => {
-            const dist = Math.abs(item.c.posY - touchPercent);
-            if (dist < bestDist) { best = item; bestDist = dist; }
-        });
-        if (bestDist > 15) { this._previewTextDragIndex = null; return; } // guard — chạm quá xa MỌI dòng chữ đang hiện, không kéo gì cả
-        this._previewTextDragIndex = best.index;
-        this._selected = { track: 'text', index: best.index };
+        const index = findNearestActiveTextClip(this._textClips, outputTime, touchPercent, 15); // core/video-editor/timeline-calc.js
+        if (index == null) { this._previewTextDragIndex = null; return; }
+        this._previewTextDragIndex = index;
+        this._selected = { track: 'text', index };
         this._renderAllTracks();
         this._renderToolbar();
     },
@@ -488,39 +476,22 @@ const workflowVideoEditor = {
         const { track, index, handleType } = this._dragHandle;
         const deltaSec = pxToSeconds(clientX - this._dragLastClientX, this._pixelsPerSecond); // core/video-editor/timeline-calc.js
         this._dragLastClientX = clientX;
-        const MIN_GAP = 0.3;
+        const MIN_GAP = this.MIN_CLIP_GAP_SEC;
 
         if (track === 'video') {
             const clip = this._videoClips[index];
             if (!clip) return;
-            // RIPPLE — kéo mép nào thì mép ĐỐI DIỆN của đoạn đang kéo GIỮ NGUYÊN vị trí (Giang yêu
-            // cầu: "kéo start thì phải cố định end rồi dịch"), bù trừ đúng bằng láng giềng liền kề
-            // (không hở/không đè — cộng-trừ CÙNG 1 lượng ở láng giềng, xem chứng minh trong docstring
-            // dưới `_layoutVideoTrackLive()`). Đoạn ĐẦU/CUỐI không có láng giềng phía đó -> biên tự
-            // do như cũ (tổng thời lượng đổi).
+            // Toán RIPPLE (giữ cố định mép ĐỐI DIỆN — Giang yêu cầu) nằm ở Core, xem docstring
+            // `computeVideoStartTrim()`/`computeVideoEndTrim()`, core/video-editor/timeline-calc.js.
             if (handleType === 'start') {
-                const prevClip = this._videoClips[index - 1];
-                if (prevClip) {
-                    const minDelta = Math.max(-clip.sourceStart, prevClip.sourceStart + MIN_GAP - prevClip.sourceEnd);
-                    const maxDelta = Math.min(clip.sourceEnd - MIN_GAP - clip.sourceStart, this._fullSourceDuration - prevClip.sourceEnd);
-                    const clamped = Math.max(minDelta, Math.min(deltaSec, maxDelta));
-                    clip.sourceStart += clamped;
-                    prevClip.sourceEnd += clamped;
-                } else {
-                    clip.sourceStart = Math.max(0, Math.min(clip.sourceStart + deltaSec, clip.sourceEnd - MIN_GAP));
-                }
+                const result = computeVideoStartTrim(this._videoClips, index, deltaSec, MIN_GAP, this._fullSourceDuration);
+                clip.sourceStart = result.newSourceStart;
+                if (result.prevSourceEnd != null) this._videoClips[index - 1].sourceEnd = result.prevSourceEnd;
                 this._previewVideoAtSourceTime(index, clip.sourceStart);
             } else if (handleType === 'end') {
-                const nextClip = this._videoClips[index + 1];
-                if (nextClip) {
-                    const minDelta = Math.max(clip.sourceStart + MIN_GAP - clip.sourceEnd, -nextClip.sourceStart);
-                    const maxDelta = Math.min(this._fullSourceDuration - clip.sourceEnd, nextClip.sourceEnd - MIN_GAP - nextClip.sourceStart);
-                    const clamped = Math.max(minDelta, Math.min(deltaSec, maxDelta));
-                    clip.sourceEnd += clamped;
-                    nextClip.sourceStart += clamped;
-                } else {
-                    clip.sourceEnd = Math.min(this._fullSourceDuration, Math.max(clip.sourceEnd + deltaSec, clip.sourceStart + MIN_GAP));
-                }
+                const result = computeVideoEndTrim(this._videoClips, index, deltaSec, MIN_GAP, this._fullSourceDuration);
+                clip.sourceEnd = result.newSourceEnd;
+                if (result.nextSourceStart != null) this._videoClips[index + 1].sourceStart = result.nextSourceStart;
                 this._previewVideoAtSourceTime(index, Math.max(clip.sourceStart, clip.sourceEnd - 0.05));
             }
             this._layoutVideoTrackLive();
@@ -528,15 +499,9 @@ const workflowVideoEditor = {
             const list = track === 'audio' ? this._audioClips : this._textClips;
             const clip = list[index];
             if (!clip) return;
-            if (handleType === 'start') {
-                clip.timelineStart = Math.max(0, Math.min(clip.timelineStart + deltaSec, clip.timelineEnd - MIN_GAP));
-            } else if (handleType === 'end') {
-                clip.timelineEnd = Math.max(clip.timelineEnd + deltaSec, clip.timelineStart + MIN_GAP); // KHÔNG chặn trên — cho phép kéo vượt tổng thời lượng Video (Giang yêu cầu)
-            } else if (handleType === 'move') {
-                const length = clip.timelineEnd - clip.timelineStart;
-                clip.timelineStart = Math.max(0, clip.timelineStart + deltaSec);
-                clip.timelineEnd = clip.timelineStart + length;
-            }
+            const result = computeFreeClipDrag(clip, handleType, deltaSec, MIN_GAP); // core/video-editor/timeline-calc.js
+            clip.timelineStart = result.timelineStart;
+            clip.timelineEnd = result.timelineEnd;
             this._layoutSingleFreeClip(track, index);
             if (handleType === 'start' || handleType === 'move') this._seekToOutputTime(clip.timelineStart);
             else this._seekToOutputTime(Math.max(clip.timelineStart, clip.timelineEnd - 0.05));
@@ -569,7 +534,7 @@ const workflowVideoEditor = {
         if (!this._selected) return;
         const outputTime = this._computeCurrentOutputTime();
         const { track, index } = this._selected;
-        const MIN_GAP = 0.3;
+        const MIN_GAP = this.MIN_CLIP_GAP_SEC;
 
         if (track === 'video') {
             const found = findVideoClipAtOutputTime(this._videoClips, outputTime); // core/video-editor/timeline-calc.js
