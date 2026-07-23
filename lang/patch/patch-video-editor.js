@@ -63,6 +63,8 @@ const LANG_PATCH_VIDEO_EDITOR = {
     // Modal chọn Nhạc (thêm clip Nhạc mới).
     'videoEdit.songPicker.title': 'Add music',
     'videoEdit.songSearch.placeholder': 'Search songs…',
+    'videoEdit.songSearch.emptyPrompt': 'Type a song name to search.',
+    'videoEdit.songSearch.noResults': 'No songs found.',
 
     // Modal Sửa chữ (clip Chữ đang chọn).
     'videoEdit.textEdit.title': 'Edit text',
@@ -70,9 +72,16 @@ const LANG_PATCH_VIDEO_EDITOR = {
     'videoEdit.text.size': 'Size',
     'videoEdit.text.color': 'Color',
     'videoEdit.text.posY': 'Vertical position',
+    'videoEdit.text.blur': 'Blur',
+    'videoEdit.text.shadow': 'Drop shadow',
+    'videoEdit.text.transition': 'Transition',
+    'videoEdit.text.transitionNone': 'None',
+    'videoEdit.text.transitionFade': 'Fade in/out',
+    'videoEdit.text.gestureHint': 'Drag on preview to move — pinch with 2 fingers to resize/rotate.',
 
     // Modal "Dịch chuyển tới đoạn" (chọn đoạn nhạc gốc + âm lượng riêng clip nhạc đang chọn).
     'videoEdit.songShift.title': 'Adjust music clip',
+    'videoEdit.songShift.positionLabel': 'Position on video',
     'videoEdit.clipVolume.label': 'Clip volume',
 
     // Lưu (dropdown).
