@@ -69,7 +69,13 @@
             </button>
             <span id="video-editor-title" class="text-xs font-semibold text-slate-200 truncate"></span>
         </div>
-        <button id="btn-ve-save" class="px-4 py-1.5 bg-white text-black rounded text-xs font-bold shadow active:scale-95 transition shrink-0"></button>
+        <div class="flex items-center gap-2 shrink-0">
+            <button id="btn-video-editor-reload" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-slate-300">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.6M20 20v-5h-.6M19.4 9A8 8 0 006 6.6M4.6 15a8 8 0 0013.4 2.4" /></svg>
+            </button>
+            <button id="btn-video-editor-debug-toggle" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-sm">🐞</button>
+            <button id="btn-ve-save" class="px-4 py-1.5 bg-white text-black rounded text-xs font-bold shadow active:scale-95 transition"></button>
+        </div>
     </header>
 
     <!-- 2/5 — Preview (canvas) + transport bar (dải nhỏ, không tính vào tỉ lệ) -->
@@ -208,8 +214,7 @@
         </div>
     </div>
 
-    <!-- Debug console mobile — không đổi. -->
-    <button id="btn-video-editor-debug-toggle" class="fixed bottom-3 left-3 z-[80] w-10 h-10 rounded-full bg-slate-700/80 backdrop-blur flex items-center justify-center text-sm">🐞</button>
+    <!-- Debug console mobile — nút bật/tắt giờ nằm trong header (btn-video-editor-debug-toggle). -->
     <div id="video-editor-debug-overlay" class="hidden fixed inset-0 z-[81] bg-black/95 flex flex-col">
         <div class="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
             <span class="text-sm font-semibold">Debug Console</span>
@@ -283,6 +288,7 @@
         document.getElementById('label-ve-clip-volume').textContent = t('videoEdit.clipVolume.label');
         document.getElementById('btn-video-editor-song-shift-confirm').textContent = t('common.done');
 
+        document.getElementById('btn-video-editor-reload').addEventListener('click', () => { window.location.reload(); });
         const debugOverlayEl = document.getElementById('video-editor-debug-overlay');
         const debugBodyEl = document.getElementById('video-editor-debug-body');
         function renderDebugLogs() {
