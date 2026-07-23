@@ -73,3 +73,14 @@ function flipVerticalSession(session, scaleY) {
 function resetSession(session) {
     session.reset();
 }
+
+/**
+ * [MỚI, module Video Editor — preset tỉ lệ khung hình (16:9/9:16/1:1/...)] Đặt tỉ lệ khung crop cố
+ * định — Cropper.js tự canh lại vùng crop hiện có cho khớp tỉ lệ mới (KHÔNG cộng dồn/biến dạng qua
+ * nhiều lần đổi, vì luôn tính lại từ ẢNH GỐC mỗi lần gọi `setAspectRatio()`, không dựa trên crop cũ
+ * — đổi 16:9 -> 9:16 -> 16:9 nhiều lần vẫn cho kết quả nhất quán).
+ * @param {any} session @param {number} ratio - width/height (vd 16/9, 9/16, 1); truyền `NaN` = tự do (không khoá tỉ lệ).
+ */
+function setAspectRatioSession(session, ratio) {
+    session.setAspectRatio(ratio);
+}
