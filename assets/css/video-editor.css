@@ -11,7 +11,14 @@
  */
 
 /* ===================== Custom range slider (filter/volume) ===================== */
-#video-editor-root input[type="range"] {
+/* [SỬA 24/07/2026, Giang báo "slider ở Chỉnh/Nhạc không kích hoạt được"] — BỎ scope
+   `#video-editor-root` trước đây: Generic Drawer (#generic-drawer-panel, nơi các slider Chỉnh/Sửa
+   chữ/Dịch chuyển đoạn nhạc THẬT SỰ sống) là ANH EM (sibling) của #video-editor-root trong DOM,
+   KHÔNG phải con — selector có scope không hề áp dụng vào đó, khiến slider hiện theo mặc định
+   trình duyệt (thường quá mảnh/khó bắt tay trên di động, dễ trông như "không kích hoạt được"). File
+   CSS này CHỈ dùng riêng cho video-editor.html nên bỏ scope là an toàn (không có input[range] nào
+   khác trên trang xung đột). */
+input[type="range"] {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
@@ -20,19 +27,19 @@
     border-radius: 2px;
     outline: none;
 }
-#video-editor-root input[type="range"]::-webkit-slider-thumb {
+input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     background: #ffffff;
     cursor: pointer;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
-#video-editor-root input[type="range"]::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
+input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
     border: none;
     border-radius: 50%;
     background: #ffffff;
@@ -72,5 +79,12 @@
 /* ===================== Safe-area (tai thỏ/thanh điều hướng) ===================== */
 #video-editor-root .video-editor-pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
 #video-editor-root .video-editor-pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+
+/* [MỚI 24/07/2026, Giang báo "padding bottom Generic Drawer phải cao hơn tránh đụng cử chỉ vuốt"]
+   — riêng cho nội dung BÊN TRONG #generic-drawer-body của video-editor.html (Chỉnh/Sửa chữ/Chọn
+   nhạc/Dịch chuyển đoạn): env(safe-area-inset-bottom) thường chỉ ~16-34px (đủ cho tai thỏ/home-
+   indicator iOS), KHÔNG đủ tránh vùng cử chỉ vuốt-lên-về-Home/vuốt-cạnh của nhiều máy Android —
+   cộng thêm 1 khoảng CỐ ĐỊNH 40px NGOÀI phần safe-area đó. */
+.video-editor-gd-body-pb { padding-bottom: max(56px, calc(env(safe-area-inset-bottom, 16px) + 40px)); }
 
 .video-editor-file-upload-hidden { display: none; }
