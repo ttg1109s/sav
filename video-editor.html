@@ -197,7 +197,13 @@
     <script src="service/state.js?v=20260721v9"></script>
     <script>
         const APP_ACCOUNT = 'videoEditor';
-        appState.registry(APP_ACCOUNT, ['isGenericDrawerOpen']);
+        // 'dbReadyPromise' — service/db.js TỰ PHÁT HIỆN `appState` có tồn tại hay không
+        // (typeof appState !== 'undefined') để quyết định lưu promise "DB đã sẵn sàng" qua appState
+        // hay biến module-scope riêng (thiết kế cho subtitle-editor.html KHÔNG nạp state.js). Trang
+        // này giờ CÓ nạp state.js -> appState tồn tại -> db.js tự chuyển sang nhánh dùng appState —
+        // PHẢI đăng ký key này, thiếu sẽ bị chặn ghi/đọc, khiến getVideoRecord()/getSongRecord()...
+        // không bao giờ resolve (đúng bug "treo ở loading video" Giang báo).
+        appState.registry(APP_ACCOUNT, ['isGenericDrawerOpen', 'dbReadyPromise']);
     </script>
     <!-- Tái sử dụng Generic Drawer CÓ SẴN (core/generic-drawer.js) — CẤM tự dựng modal mới lặp
          lại, xem khung HTML #generic-drawer-* cuối file (chép NGUYÊN từ components/generic-
