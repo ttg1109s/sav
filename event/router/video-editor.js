@@ -13,6 +13,9 @@ const routerVideoEdit = (() => {
             case 'videoEdit.selectClip.click': { workflowVideoEditor.handleSelectClip(msg.payload.track, msg.payload.index); break; }
             case 'videoEdit.deselect.click': { workflowVideoEditor.handleDeselect(); break; }
             case 'videoEdit.scrub.move': { workflowVideoEditor.handleScrub(msg.payload.clientX); break; }
+            case 'videoEdit.previewTextDrag.start': { workflowVideoEditor.handlePreviewTextDragStart(msg.payload.canvasY); break; }
+            case 'videoEdit.previewTextDrag.move': { workflowVideoEditor.handlePreviewTextDragMove(msg.payload.canvasY); break; }
+            case 'videoEdit.previewTextDrag.end': { workflowVideoEditor.handlePreviewTextDragEnd(); break; }
 
             case 'videoEdit.timelineDrag.start': { workflowVideoEditor.handleTimelineDragStart(msg.payload.track, msg.payload.index, msg.payload.handleType, msg.payload.clientX); break; }
             case 'videoEdit.timelineDrag.move': { workflowVideoEditor.handleTimelineDragMove(msg.payload.clientX); break; }
@@ -25,6 +28,7 @@ const routerVideoEdit = (() => {
             case 'videoEdit.moveClipLater.click': { workflowVideoEditor.handleMoveClipLater(); break; }
 
             case 'videoEdit.crop.click': { workflowVideoEditor.handleCropOpen(); break; }
+            case 'videoEdit.cropRatio.select': { workflowVideoEditor.handleCropRatioSelect(msg.payload.ratio); break; }
             case 'videoEdit.cropConfirm.click': { workflowVideoEditor.handleCropConfirm(); break; }
             case 'videoEdit.cropCancel.click': { workflowVideoEditor.handleCropCancel(); break; }
             case 'videoEdit.cropReset.click': { workflowVideoEditor.handleCropReset(); break; }
