@@ -106,6 +106,7 @@ const LANG_PATCH_COMMON = {
     'common.appRecovery.clearCacheBody': 'Clear cached app files and reload? Use this if the app still looks/behaves like an older version after an update. Your music, playlist, and saved settings will NOT be lost.',
     'common.appRecovery.clearCacheConfirmBtn': 'Clear cache',
     'common.cancel': 'Cancel',
+    'common.done': 'Done',
     // MỚI (04/07/2026, mục 2 phản hồi Giang).
     'common.save': 'Save',
     'common.ok': 'OK',
