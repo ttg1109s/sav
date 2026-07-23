@@ -79,7 +79,7 @@
     </header>
 
     <!-- 2/5 — Preview (canvas) + transport bar (dải nhỏ, không tính vào tỉ lệ) -->
-    <section class="relative flex flex-col bg-[#0a0a0a] shrink-0 overflow-hidden border-b border-white/10" style="flex: 2 1 0%;">
+    <section class="relative flex flex-col bg-[#0a0a0a] shrink-0 overflow-hidden border-b border-white/10" style="flex: 3 1 0%;">
         <div class="relative flex-1 min-h-0 flex items-center justify-center">
             <canvas id="video-editor-preview-canvas" class="max-w-full max-h-full object-contain"></canvas>
             <div id="video-editor-empty-state" class="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-center px-6">
@@ -99,23 +99,23 @@
     </section>
 
     <!-- 2/5 — Timeline đa-clip (3 track song song: Chữ / Video / Nhạc) -->
-    <section class="relative min-h-0 bg-black overflow-hidden" style="flex: 2 1 0%;">
-        <div id="video-editor-timeline-container" class="h-full overflow-auto relative p-3 pt-6">
-            <div id="video-editor-timeline-content" class="relative h-full min-h-[170px]" style="width: 100%; min-width: 100%;">
+    <section class="relative min-h-0 bg-black overflow-hidden" style="flex: 1 1 0%;">
+        <div id="video-editor-timeline-container" class="h-full overflow-auto relative p-2 pt-4">
+            <div id="video-editor-timeline-content" class="relative h-full min-h-[120px]" style="width: 100%; min-width: 100%;">
                 <div id="video-editor-playhead" class="absolute top-0 bottom-0 left-0 w-[1.5px] bg-white z-40 pointer-events-none hidden shadow-[0_0_8px_rgba(255,255,255,0.8)]"></div>
                 <div id="video-editor-duration-end-marker" class="absolute top-0 bottom-0 w-0 border-l-2 border-dashed border-amber-400/70 z-30 pointer-events-none hidden"></div>
 
-                <div class="absolute top-0 left-0 w-full flex flex-col gap-2.5">
+                <div class="absolute top-0 left-0 w-full flex flex-col gap-1.5">
                     <!-- Track Chữ — clip TỰ DO, dựng động -->
-                    <div class="h-9 relative rounded-lg bg-white/5 border border-white/10">
+                    <div class="h-7 relative rounded-lg bg-white/5 border border-white/10">
                         <div id="video-editor-track-text" class="relative h-full"></div>
                     </div>
                     <!-- Track Video — mảng đoạn nối tiếp, dựng động -->
-                    <div class="h-16 relative rounded-lg bg-white/5 border border-white/10">
+                    <div class="h-12 relative rounded-lg bg-white/5 border border-white/10">
                         <div id="video-editor-track-video" class="relative h-full"></div>
                     </div>
                     <!-- Track Nhạc — clip TỰ DO, dựng động -->
-                    <div class="h-11 relative rounded-lg bg-white/5 border border-white/10">
+                    <div class="h-9 relative rounded-lg bg-white/5 border border-white/10">
                         <div id="video-editor-track-audio" class="relative h-full"></div>
                     </div>
                 </div>
