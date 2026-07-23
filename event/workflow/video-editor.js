@@ -212,6 +212,7 @@ const workflowVideoEditor = {
         videoEditorCurrentTimeEl.textContent = formatClipTimeLabel(outputTime); // core/video-editor/timeline-calc.js
         videoEditorTotalTimeEl.textContent = formatClipTimeLabel(this._totalDuration());
         videoEditorPlayheadEl.style.left = `${computePlayheadLeftPx(outputTime, this._pixelsPerSecond)}px`;
+        videoEditorPlayheadTimeEl.textContent = formatClipTimeLabel(outputTime);
     },
 
     _seekToOutputTime(outputSeconds) {
@@ -265,6 +266,49 @@ const workflowVideoEditor = {
         const rect = videoEditorTimelineContentEl.getBoundingClientRect();
         const sec = pxToSeconds(clientX - rect.left, this._pixelsPerSecond);
         this._seekToOutputTime(sec);
+    },
+
+    /** MỚI — Giang yêu cầu: nhấn vào chữ trên preview phải kéo di chuyển được (trước đây chỉ chỉnh
+     * được `posY` qua slider trong modal Sửa chữ). Chạm gần dòng chữ nào (đang hiển thị tại thời
+     * điểm hiện tại) thì chọn + kéo dòng đó, đổi `posY` theo % chiều cao canvas. */
+    handlePreviewTextDragStart(canvasY) {
+        const outputTime = this._computeCurrentOutputTime();
+        const canvasH = videoEditorPreviewCanvasEl.height || 1;
+        const touchPercent = (canvasY / canvasH) * 100;
+        const active = this._textClips
+            .map((c, index) => ({ c, index }))
+            .filter(({ c }) => outputTime >= c.timelineStart && outputTime < c.timelineEnd);
+        if (!active.length) { this._previewTextDragIndex = null; return; }
+        let best = active[0];
+        let bestDist = Math.abs(best.c.posY - touchPercent);
+        active.forEach((item) => {
+            const dist = Math.abs(item.c.posY - touchPercent);
+            if (dist < bestDist) { best = item; bestDist = dist; }
+        });
+        if (bestDist > 15) { this._previewTextDragIndex = null; return; } // guard — chạm quá xa MỌI dòng chữ đang hiện, không kéo gì cả
+        this._previewTextDragIndex = best.index;
+        this._selected = { track: 'text', index: best.index };
+        this._renderAllTracks();
+        this._renderToolbar();
+    },
+
+    handlePreviewTextDragMove(canvasY) {
+        if (this._previewTextDragIndex == null) return;
+        const clip = this._textClips[this._previewTextDragIndex];
+        if (!clip) return;
+        const canvasH = videoEditorPreviewCanvasEl.height || 1;
+        clip.posY = Math.max(5, Math.min(95, Math.round((canvasY / canvasH) * 100)));
+        this._hasUnsavedChanges = true;
+        this._drawFrame();
+        if (!videoEditorTextEditModalEl.classList.contains('hidden')) {
+            sliderVeTextPosY.value = clip.posY;
+            videoEditorTextPosYDisplayEl.textContent = `${clip.posY}%`;
+        }
+    },
+
+    handlePreviewTextDragEnd() {
+        if (this._previewTextDragIndex != null) this._renderAllTracks();
+        this._previewTextDragIndex = null;
     },
 
     // ===================== Chọn clip (viền + toolbar theo ngữ cảnh) =====================
@@ -449,8 +493,36 @@ const workflowVideoEditor = {
         if (track === 'video') {
             const clip = this._videoClips[index];
             if (!clip) return;
-            if (handleType === 'start') clip.sourceStart = Math.max(0, Math.min(clip.sourceStart + deltaSec, clip.sourceEnd - MIN_GAP));
-            else if (handleType === 'end') clip.sourceEnd = Math.min(this._fullSourceDuration, Math.max(clip.sourceEnd + deltaSec, clip.sourceStart + MIN_GAP));
+            // RIPPLE — kéo mép nào thì mép ĐỐI DIỆN của đoạn đang kéo GIỮ NGUYÊN vị trí (Giang yêu
+            // cầu: "kéo start thì phải cố định end rồi dịch"), bù trừ đúng bằng láng giềng liền kề
+            // (không hở/không đè — cộng-trừ CÙNG 1 lượng ở láng giềng, xem chứng minh trong docstring
+            // dưới `_layoutVideoTrackLive()`). Đoạn ĐẦU/CUỐI không có láng giềng phía đó -> biên tự
+            // do như cũ (tổng thời lượng đổi).
+            if (handleType === 'start') {
+                const prevClip = this._videoClips[index - 1];
+                if (prevClip) {
+                    const minDelta = Math.max(-clip.sourceStart, prevClip.sourceStart + MIN_GAP - prevClip.sourceEnd);
+                    const maxDelta = Math.min(clip.sourceEnd - MIN_GAP - clip.sourceStart, this._fullSourceDuration - prevClip.sourceEnd);
+                    const clamped = Math.max(minDelta, Math.min(deltaSec, maxDelta));
+                    clip.sourceStart += clamped;
+                    prevClip.sourceEnd += clamped;
+                } else {
+                    clip.sourceStart = Math.max(0, Math.min(clip.sourceStart + deltaSec, clip.sourceEnd - MIN_GAP));
+                }
+                this._previewVideoAtSourceTime(index, clip.sourceStart);
+            } else if (handleType === 'end') {
+                const nextClip = this._videoClips[index + 1];
+                if (nextClip) {
+                    const minDelta = Math.max(clip.sourceStart + MIN_GAP - clip.sourceEnd, -nextClip.sourceStart);
+                    const maxDelta = Math.min(this._fullSourceDuration - clip.sourceEnd, nextClip.sourceEnd - MIN_GAP - nextClip.sourceStart);
+                    const clamped = Math.max(minDelta, Math.min(deltaSec, maxDelta));
+                    clip.sourceEnd += clamped;
+                    nextClip.sourceStart += clamped;
+                } else {
+                    clip.sourceEnd = Math.min(this._fullSourceDuration, Math.max(clip.sourceEnd + deltaSec, clip.sourceStart + MIN_GAP));
+                }
+                this._previewVideoAtSourceTime(index, Math.max(clip.sourceStart, clip.sourceEnd - 0.05));
+            }
             this._layoutVideoTrackLive();
         } else {
             const list = track === 'audio' ? this._audioClips : this._textClips;
@@ -466,8 +538,22 @@ const workflowVideoEditor = {
                 clip.timelineEnd = clip.timelineStart + length;
             }
             this._layoutSingleFreeClip(track, index);
+            if (handleType === 'start' || handleType === 'move') this._seekToOutputTime(clip.timelineStart);
+            else this._seekToOutputTime(Math.max(clip.timelineStart, clip.timelineEnd - 0.05));
         }
         this._hasUnsavedChanges = true;
+    },
+
+    /** Nhảy `<video>` tới đúng giây NGUỒN đang kéo (start/end) VÀ vẽ lại preview ngay khi khung đó
+     * decode xong — MỚI (Giang báo trim không cập nhật preview). `clipIndex` cập nhật luôn
+     * `_currentClipIndex` để current-time hiển thị đúng theo track Video đang chỉnh. */
+    _previewVideoAtSourceTime(clipIndex, sourceTime) {
+        this._currentClipIndex = clipIndex;
+        videoEditorSourceEl.currentTime = Math.max(0, Math.min(sourceTime, Math.max(0, this._fullSourceDuration - 0.01)));
+        videoEditorSourceEl.addEventListener('seeked', () => {
+            this._drawFrame();
+            this._updateTimeDisplay(this._computeCurrentOutputTime());
+        }, { once: true });
     },
 
     handleTimelineDragEnd() {
@@ -624,6 +710,33 @@ const workflowVideoEditor = {
         videoEditorCropSourceEl.src = canvas.toDataURL('image/jpeg', 0.92);
         videoEditorCropOverlayEl.classList.remove('hidden');
         videoEditorCropSourceEl.addEventListener('load', () => this._initCropper(), { once: true });
+        this._renderCropRatioButtons();
+    },
+
+    /** MỚI — preset tỉ lệ khung hình (Giang yêu cầu: đổi 16:9 <-> 9:16 nhiều lần vẫn phải ra đúng,
+     * không biến dạng cộng dồn — xem docstring `setAspectRatioSession()`, core/image-editor/cropper-engine.js). */
+    _renderCropRatioButtons() {
+        videoEditorCropRatioRowEl.innerHTML = '';
+        const presets = [
+            { label: t('videoEdit.ratio.free'), ratio: NaN },
+            { label: '16:9', ratio: 16 / 9 },
+            { label: '9:16', ratio: 9 / 16 },
+            { label: '1:1', ratio: 1 },
+            { label: '4:5', ratio: 4 / 5 },
+        ];
+        presets.forEach(({ label, ratio }) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'shrink-0 px-3 py-1.5 rounded-lg bg-white/10 text-xs font-semibold text-slate-200 active:opacity-50';
+            btn.textContent = label;
+            btn.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.cropRatio.select', payload: { ratio } }));
+            videoEditorCropRatioRowEl.appendChild(btn);
+        });
+    },
+
+    handleCropRatioSelect(ratio) {
+        if (!this._cropper) return;
+        setAspectRatioSession(this._cropper, ratio); // core/image-editor/cropper-engine.js — luôn tính lại từ ảnh gốc, đổi qua lại nhiều lần không biến dạng cộng dồn
     },
 
     _initCropper() {
