@@ -84,7 +84,26 @@ btnVePlay.addEventListener('click', () => eventBus.send({ router: 'videoEdit', t
 btnVeSkipStart.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.skipStart.click', payload: {} }));
 btnVeSkipEnd.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.skipEnd.click', payload: {} }));
 
-// ===================== Chạm nền timeline (ngoài mọi clip) — bỏ chọn =====================
+// ===================== Chạm nền timeline (ngoài mọi clip) — bỏ chọn HOẶC tua con trỏ =====================
+// PHÂN BIỆT: e.target === chính videoEditorTimelineContentEl (nền trống, không phải 1 clip cụ thể)
+// mới xử lý ở đây — chạm vào 1 clip đã có listener RIÊNG của chính clip đó (Workflow dựng động).
+let _veScrubbing = false;
+videoEditorTimelineContentEl.addEventListener('pointerdown', (e) => {
+    if (e.target !== videoEditorTimelineContentEl) return;
+    _veScrubbing = true;
+    try { videoEditorTimelineContentEl.setPointerCapture(e.pointerId); } catch (err) { /* không sao — vẫn tua qua cờ _veScrubbing */ }
+    eventBus.send({ router: 'videoEdit', type: 'videoEdit.scrub.move', payload: { clientX: e.clientX } });
+});
+videoEditorTimelineContentEl.addEventListener('pointermove', (e) => {
+    if (!_veScrubbing) return;
+    eventBus.send({ router: 'videoEdit', type: 'videoEdit.scrub.move', payload: { clientX: e.clientX } });
+});
+videoEditorTimelineContentEl.addEventListener('pointerup', (e) => {
+    if (!_veScrubbing) return;
+    _veScrubbing = false;
+    try { videoEditorTimelineContentEl.releasePointerCapture(e.pointerId); } catch (err) { /* không sao */ }
+});
+videoEditorTimelineContentEl.addEventListener('pointercancel', () => { _veScrubbing = false; });
 videoEditorTimelineContentEl.addEventListener('click', (e) => {
     if (e.target === videoEditorTimelineContentEl) eventBus.send({ router: 'videoEdit', type: 'videoEdit.deselect.click', payload: {} });
 });
@@ -118,19 +137,23 @@ btnVeSongSearchClear.addEventListener('click', () => eventBus.send({ router: 'vi
 // ngay trong Workflow lúc dựng DOM (_renderSongList()), đúng Rule 5a.
 
 // ===================== Modal "Dịch chuyển tới đoạn" (kéo chọn đoạn trong bài + âm lượng clip) =====================
+// Dùng cờ tự quản lý (KHÔNG dựa hasPointerCapture() — có thể fail âm thầm tuỳ trình duyệt/thiết bị,
+// xem docstring _attachDragHandlers() ở event/workflow/video-editor.js, cùng gốc bug với 3 track).
 videoEditorSongShiftWindowEl.addEventListener('pointerdown', (e) => {
-    videoEditorSongShiftWindowEl.setPointerCapture(e.pointerId);
+    videoEditorSongShiftWindowEl._veDragging = true;
+    try { videoEditorSongShiftWindowEl.setPointerCapture(e.pointerId); } catch (err) { console.warn('[songShiftDrag] setPointerCapture lỗi (bỏ qua):', err); }
     eventBus.send({ router: 'videoEdit', type: 'videoEdit.songShiftDrag.start', payload: { clientX: e.clientX } });
 });
 videoEditorSongShiftWindowEl.addEventListener('pointermove', (e) => {
-    if (!videoEditorSongShiftWindowEl.hasPointerCapture(e.pointerId)) return;
+    if (!videoEditorSongShiftWindowEl._veDragging) return;
     eventBus.send({ router: 'videoEdit', type: 'videoEdit.songShiftDrag.move', payload: { clientX: e.clientX } });
 });
 videoEditorSongShiftWindowEl.addEventListener('pointerup', (e) => {
-    videoEditorSongShiftWindowEl.releasePointerCapture(e.pointerId);
+    videoEditorSongShiftWindowEl._veDragging = false;
+    try { videoEditorSongShiftWindowEl.releasePointerCapture(e.pointerId); } catch (err) { /* không sao */ }
     eventBus.send({ router: 'videoEdit', type: 'videoEdit.songShiftDrag.end', payload: {} });
 });
-videoEditorSongShiftWindowEl.addEventListener('pointercancel', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.songShiftDrag.end', payload: {} }));
+videoEditorSongShiftWindowEl.addEventListener('pointercancel', () => { videoEditorSongShiftWindowEl._veDragging = false; eventBus.send({ router: 'videoEdit', type: 'videoEdit.songShiftDrag.end', payload: {} }); });
 sliderVeClipVolume.addEventListener('input', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.clipVolume.change', payload: { value: sliderVeClipVolume.value } }));
 btnVideoEditorSongShiftConfirm.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.songShift.close', payload: {} }));
 
