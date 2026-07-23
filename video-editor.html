@@ -1,29 +1,23 @@
 <!DOCTYPE html>
 <!--
-    video-editor.html — v2 (23/07/2026), viết lại khung UI theo prototype `video.txt` (CapCut-style:
-    canvas preview + transport bar riêng + timeline đa track Video/Audio/Text + bottom-sheet 4 tab),
-    thay hẳn toolbar icon rời rạc của bản Batch 1-2 cũ. TOÀN BỘ quyết định kiến trúc đã chốt với
-    Giang qua hội thoại — xem `plan-video-editor.md` mục 0 (KHÔNG lặp lại chi tiết ở đây).
-
-    TÓM TẮT những gì ĐỔI so với bản cũ (để đọc code không bỡ ngỡ):
-    - Bỏ hẳn `<video controls>` native — preview 100% qua canvas (#video-editor-preview-canvas),
-      vòng lặp vẽ chạy qua `taskManager` mode `raf` (event/workflow/video-editor.js).
-    - Cut: bỏ overlay filmstrip riêng — chuyển thành kéo-thả 2 tay cầm TRỰC TIẾP trên track Video
-      trong timeline chính (đúng cơ chế video.txt) — filmstrip.js vẫn tái dùng để lấy ảnh thật lấp
-      vào track đó (không viết "filmstrip mới").
-    - Crop: GIỮ Cropper.js (overlay #video-editor-crop-overlay bên dưới, không đổi so với bản cũ).
-    - Nhạc chèn: chọn từ IndexedDB (không upload file), panel tự viết (không Generic Drawer/appState),
-      tìm kiếm dùng chung core/song-search.js với Playlist UI.
-    - Text overlay: MỚI, giữ theo yêu cầu Giang (ngoài 7 yêu cầu gốc).
-    - Lưu: dropdown Ghi đè | Lưu mới (core/dropdown-menu.js) — Batch 4.
-    - Split theo giây + nén zip (JSZip, đã có sẵn CDN cho Playlist) — Batch 4.
+    video-editor.html — v3 (23/07/2026), đổi kiến trúc lớn theo yêu cầu Giang:
+    - Track Video/Nhạc/Chữ giờ đều là TIMELINE ĐA-CLIP (mảng), không còn 1 cutRange/1 bài hát/1 dòng
+      chữ duy nhất. Video: các đoạn nối tiếp nhau, không hở, không xoá được (chỉ trim/tách/nhân bản/
+      đổi thứ tự). Nhạc/Chữ: clip TỰ DO (vị trí + độ dài riêng), trim/di chuyển/tách/nhân bản/xoá được.
+    - Bỏ hẳn bottom-sheet 4 tab — quay lại toolbar icon SVG hàng ngang (giống bản Batch 1-2 cũ), nội
+      dung ĐỔI THEO đang chọn Video/Nhạc/Chữ nào (dựng động trong event/workflow/video-editor.js).
+    - Split (nút riêng + modal nhập giây) BỎ HẲN — thay bằng "Cắt" trong toolbar, tách đoạn ĐANG CHỌN
+      tại đúng vị trí con trỏ hiện tại.
+    - Bố cục: 2/5 preview video, 2/5 timeline, 1/5 toolbar (header + transport bar là dải nhỏ cố định
+      ngoài tỉ lệ này).
+    - Fix bug "phải Play mới hiện khung/time đầu" (thẻ <video> ẩn bằng display:none trước đây khiến
+      1 số trình duyệt mobile trì hoãn decode) — xem thẻ <video id="video-editor-source"> cuối file.
 -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Edit Video</title>
-    <!-- core/debug-console.js PHẢI nạp ĐẦU TIÊN TUYỆT ĐỐI (không đổi so với bản cũ). -->
     <script src="core/debug-console.js?v=20260718v1"></script>
     <script>
         window.addEventListener('error', (e) => {
@@ -37,13 +31,10 @@
         tailwind.config = { future: { hoverOnlyWhenSupported: true } };
     </script>
     <link rel="stylesheet" href="assets/css/style.css?v=20260715v1">
-    <!-- MỚI (v2) — CSS riêng module này, tách từ video.txt (xem plan mục 7). -->
-    <link rel="stylesheet" href="assets/css/video-editor.css?v=20260723v1">
+    <link rel="stylesheet" href="assets/css/video-editor.css?v=20260723v2">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
     <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
-    <!-- JSZip — MỚI (v2, Batch 4 Split) — ĐÃ có sẵn CDN cho Playlist (index.html), dùng lại đúng bản. -->
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <!-- Mediabunny — không đổi so với bản cũ (nhiều URL dự phòng, chưa xác nhận cuối cùng). -->
     <script>
         window._mediabunnyLoadPromise = new Promise((resolve) => {
             const candidates = [
@@ -55,11 +46,7 @@
             ];
             let i = 0;
             function tryNext() {
-                if (i >= candidates.length) {
-                    console.error('[loadMediabunnyWithFallback] Đã thử hết ' + candidates.length + ' URL, KHÔNG url nào tải được Mediabunny.');
-                    resolve(false);
-                    return;
-                }
+                if (i >= candidates.length) { console.error('[loadMediabunnyWithFallback] Đã thử hết ' + candidates.length + ' URL, KHÔNG url nào tải được Mediabunny.'); resolve(false); return; }
                 const url = candidates[i++];
                 const el = document.createElement('script');
                 el.src = url;
@@ -74,226 +61,154 @@
 <body class="bg-black text-white h-[100dvh] w-full flex flex-col overflow-hidden select-none">
 <div id="video-editor-root" class="flex flex-col h-full w-full overflow-hidden">
 
-    <!-- 1. Header -->
-    <header class="h-12 video-editor-pt-safe bg-black flex items-center justify-between px-3 shrink-0 z-20 border-b border-white/10">
+    <!-- Header -->
+    <header class="h-11 video-editor-pt-safe bg-black flex items-center justify-between px-3 shrink-0 z-20 border-b border-white/10">
         <div class="flex items-center gap-2 min-w-0">
             <button id="btn-back-video-editor" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-slate-300 shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
             </button>
             <span id="video-editor-title" class="text-xs font-semibold text-slate-200 truncate"></span>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-            <button id="btn-ve-split" class="px-3 py-1.5 bg-white/10 text-white rounded text-xs font-bold active:scale-95 transition"></button>
-            <button id="btn-ve-save" class="px-4 py-1.5 bg-white text-black rounded text-xs font-bold shadow active:scale-95 transition"></button>
-        </div>
+        <button id="btn-ve-save" class="px-4 py-1.5 bg-white text-black rounded text-xs font-bold shadow active:scale-95 transition shrink-0"></button>
     </header>
 
-    <!-- 2. Preview (canvas) -->
-    <section class="relative flex items-center justify-center bg-[#0a0a0a] h-[32vh] shrink-0 overflow-hidden border-b border-white/10">
-        <canvas id="video-editor-preview-canvas" class="max-w-full max-h-full object-contain"></canvas>
-        <div id="video-editor-empty-state" class="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-center px-6">
-            <p id="video-editor-empty-state-text" class="text-xs text-slate-400"></p>
+    <!-- 2/5 — Preview (canvas) + transport bar (dải nhỏ, không tính vào tỉ lệ) -->
+    <section class="relative flex flex-col bg-[#0a0a0a] shrink-0 overflow-hidden border-b border-white/10" style="flex: 2 1 0%;">
+        <div class="relative flex-1 min-h-0 flex items-center justify-center">
+            <canvas id="video-editor-preview-canvas" class="max-w-full max-h-full object-contain"></canvas>
+            <div id="video-editor-empty-state" class="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-center px-6">
+                <p id="video-editor-empty-state-text" class="text-xs text-slate-400"></p>
+            </div>
+            <p id="video-editor-fatal-error" class="hidden absolute inset-0 flex items-center justify-center text-sm text-slate-400 text-center px-8"></p>
         </div>
-        <p id="video-editor-fatal-error" class="hidden absolute inset-0 flex items-center justify-center text-sm text-slate-400 text-center px-8"></p>
+        <div class="h-9 shrink-0 bg-[#121212] flex items-center justify-between px-3 border-t border-white/10">
+            <div class="text-[11px] font-mono text-slate-400 w-20"><span id="video-editor-current-time" class="text-white">00:00</span>/<span id="video-editor-total-time">00:00</span></div>
+            <div class="flex items-center justify-center gap-6 flex-1">
+                <button id="btn-ve-skip-start" class="text-slate-400 text-base active:scale-90 transition">|&lt;</button>
+                <button id="btn-ve-play" class="text-white text-lg w-8 text-center active:scale-90 transition"><span id="video-editor-play-icon">&#9654;</span></button>
+                <button id="btn-ve-skip-end" class="text-slate-400 text-base active:scale-90 transition">&gt;|</button>
+            </div>
+            <div class="w-20"></div>
+        </div>
     </section>
 
-    <!-- 3. Transport bar -->
-    <section class="h-10 bg-[#121212] flex items-center justify-between px-3 shrink-0 border-b border-white/10">
-        <div class="text-[11px] font-mono text-slate-400 w-20">
-            <span id="video-editor-current-time" class="text-white">00:00</span>/<span id="video-editor-total-time">00:00</span>
-        </div>
-        <div class="flex items-center justify-center gap-6 flex-1">
-            <button id="btn-ve-skip-start" class="text-slate-400 text-base active:scale-90 transition">|&lt;</button>
-            <button id="btn-ve-play" class="text-white text-lg w-8 text-center active:scale-90 transition">
-                <span id="video-editor-play-icon">&#9654;</span>
-            </button>
-            <button id="btn-ve-skip-end" class="text-slate-400 text-base active:scale-90 transition">&gt;|</button>
-        </div>
-        <div class="w-20"></div>
-    </section>
-
-    <!-- 4. Timeline (đa track) + bottom-sheet panel -->
-    <section class="flex-1 min-h-0 relative flex flex-col bg-black overflow-hidden">
-        <div id="video-editor-timeline-container" class="flex-1 overflow-auto relative p-3 pt-6">
+    <!-- 2/5 — Timeline đa-clip (3 track song song: Chữ / Video / Nhạc) -->
+    <section class="relative min-h-0 bg-black overflow-hidden" style="flex: 2 1 0%;">
+        <div id="video-editor-timeline-container" class="h-full overflow-auto relative p-3 pt-6">
             <div id="video-editor-timeline-content" class="relative h-full min-h-[170px]" style="width: 100%; min-width: 100%;">
                 <div id="video-editor-playhead" class="absolute top-0 bottom-0 left-0 w-[1.5px] bg-white z-40 pointer-events-none hidden shadow-[0_0_8px_rgba(255,255,255,0.8)]"></div>
+                <div id="video-editor-duration-end-marker" class="absolute top-0 bottom-0 w-0 border-l-2 border-dashed border-amber-400/70 z-30 pointer-events-none hidden"></div>
 
                 <div class="absolute top-0 left-0 w-full flex flex-col gap-2.5">
-                    <!-- Track Text -->
+                    <!-- Track Chữ — clip TỰ DO, dựng động -->
                     <div class="h-9 relative rounded-lg bg-white/5 border border-white/10">
-                        <div id="video-editor-clip-text" class="hidden absolute h-full top-0 bg-purple-500/80 rounded-lg border border-white/20 overflow-hidden">
-                            <div class="video-editor-clip-handle absolute left-0 top-0 bottom-0 w-3.5 bg-white/20 rounded-l-lg z-10" data-handle="textStart"></div>
-                            <div class="video-editor-clip-body absolute inset-0" data-handle="textMove"></div>
-                            <span class="text-[9px] font-bold px-4 truncate pointer-events-none absolute inset-0 flex items-center" id="video-editor-clip-text-label"></span>
-                            <div class="video-editor-clip-handle absolute right-0 top-0 bottom-0 w-3.5 bg-white/20 rounded-r-lg z-10" data-handle="textEnd"></div>
-                        </div>
+                        <div id="video-editor-track-text" class="relative h-full"></div>
                     </div>
-
-                    <!-- Track Video (Cut = kéo 2 tay cầm trực tiếp ở đây) -->
+                    <!-- Track Video — mảng đoạn nối tiếp, dựng động -->
                     <div class="h-16 relative rounded-lg bg-white/5 border border-white/10">
-                        <div id="video-editor-clip-video" class="absolute h-full top-0 bg-slate-800 rounded-lg overflow-hidden border-2 border-transparent">
-                            <div class="video-editor-clip-handle absolute left-0 top-0 bottom-0 w-4 bg-white z-10 rounded-l-md" data-handle="videoStart"></div>
-                            <div id="video-editor-clip-video-filmstrip" class="absolute inset-0 flex pointer-events-none"></div>
-                            <div class="video-editor-clip-handle absolute right-0 top-0 bottom-0 w-4 bg-white z-10 rounded-r-md" data-handle="videoEnd"></div>
-                        </div>
+                        <div id="video-editor-track-video" class="relative h-full"></div>
                     </div>
-
-                    <!-- Track Audio (nhạc chèn) -->
+                    <!-- Track Nhạc — clip TỰ DO, dựng động -->
                     <div class="h-11 relative rounded-lg bg-white/5 border border-white/10">
-                        <div id="video-editor-clip-audio" class="hidden absolute h-full top-0 bg-emerald-500/80 rounded-lg border border-white/20 overflow-hidden">
-                            <div class="video-editor-clip-body absolute inset-0 flex items-center px-3" data-handle="audioOffsetDrag">
-                                <span class="text-[9px] font-bold text-white truncate pointer-events-none" id="video-editor-clip-audio-label"></span>
-                            </div>
-                        </div>
+                        <div id="video-editor-track-audio" class="relative h-full"></div>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Bottom-sheet panel (tự viết, KHÔNG Generic Drawer/appState) -->
-        <div id="video-editor-tool-panel" class="absolute inset-x-0 bottom-0 h-[36vh] max-h-80 bg-[#1c1c1e] rounded-t-2xl transform translate-y-full transition-transform duration-300 ease-out z-50 flex flex-col border-t border-white/10">
-            <div class="h-11 border-b border-white/10 flex justify-between items-center px-4 shrink-0">
-                <span id="video-editor-panel-title" class="font-bold text-xs text-white"></span>
-                <button id="btn-ve-panel-close" class="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-slate-400">&#9660;</button>
-            </div>
-            <div class="flex-1 overflow-y-auto relative p-3">
-
-                <!-- Panel: Video (Crop/Rotate/Reset) -->
-                <div id="video-editor-panel-cut" class="video-editor-panel-content absolute inset-0 p-3 hidden flex-col gap-3">
-                    <button id="btn-ve-crop" class="w-full py-3 bg-white/10 rounded-xl text-xs font-bold flex items-center justify-center gap-2"></button>
-                    <div class="flex items-center justify-between text-[11px] text-slate-400">
-                        <span id="video-editor-crop-badge"></span>
-                        <button id="btn-ve-crop-reset" class="hidden text-rose-400 underline"></button>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button id="btn-ve-rotate-left" class="py-3 bg-white/10 rounded-xl text-xs font-bold"></button>
-                        <button id="btn-ve-rotate-right" class="py-3 bg-white/10 rounded-xl text-xs font-bold"></button>
-                    </div>
-                    <button id="btn-ve-reset" class="mt-2 py-2.5 rounded-xl bg-rose-500/10 text-rose-400 text-xs font-bold border border-rose-500/20"></button>
-                </div>
-
-                <!-- Panel: Nhạc -->
-                <div id="video-editor-panel-audio" class="video-editor-panel-content absolute inset-0 p-3 hidden flex-col gap-2.5">
-                    <div class="relative">
-                        <input id="video-editor-song-search-input" type="text" inputmode="search" autocomplete="off" class="w-full bg-white/10 border border-white/10 rounded-xl pl-3 pr-8 py-2 text-xs text-white placeholder-slate-500 outline-none">
-                        <button id="btn-ve-song-search-clear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">&times;</button>
-                    </div>
-                    <div id="video-editor-song-list" class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1"></div>
-                    <button id="btn-ve-remove-song" class="hidden py-2.5 rounded-xl bg-rose-500/10 text-rose-400 text-xs font-bold border border-rose-500/20"></button>
-                </div>
-
-                <!-- Panel: Chữ (Text overlay) -->
-                <div id="video-editor-panel-text" class="video-editor-panel-content absolute inset-0 p-3 hidden flex-col gap-3">
-                    <button id="btn-ve-add-text" class="w-full py-3 bg-purple-500 text-white rounded-xl text-xs font-bold"></button>
-                    <div id="video-editor-text-controls" class="hidden flex-col gap-3">
-                        <input type="text" id="video-editor-text-value" class="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white outline-none">
-                        <div class="grid grid-cols-2 gap-2">
-                            <div class="bg-white/5 p-2.5 rounded-xl">
-                                <label id="label-ve-text-size" class="block text-[10px] text-slate-400 mb-1.5"></label>
-                                <input type="range" id="slider-ve-text-size" min="20" max="150" value="60">
-                            </div>
-                            <div class="bg-white/5 p-2.5 rounded-xl">
-                                <label id="label-ve-text-color" class="block text-[10px] text-slate-400 mb-1.5"></label>
-                                <input type="color" id="video-editor-text-color" value="#ffffff" class="w-full h-6 bg-transparent border-0 rounded cursor-pointer p-0">
-                            </div>
-                        </div>
-                        <div class="bg-white/5 p-2.5 rounded-xl">
-                            <label class="flex justify-between text-[10px] text-slate-400 mb-1.5">
-                                <span id="label-ve-text-posY"></span><span id="video-editor-text-posY-display">80%</span>
-                            </label>
-                            <input type="range" id="slider-ve-text-posY" min="5" max="95" value="80">
-                        </div>
-                        <button id="btn-ve-remove-text" class="py-2.5 rounded-xl bg-rose-500/10 text-rose-400 text-xs font-bold border border-rose-500/20"></button>
-                    </div>
-                </div>
-
-                <!-- Panel: Chỉnh (Filter/Volume/Trích xuất ảnh) -->
-                <div id="video-editor-panel-properties" class="video-editor-panel-content absolute inset-0 p-3 hidden flex-col gap-4">
-                    <div>
-                        <h3 id="video-editor-volume-heading" class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2"></h3>
-                        <div class="space-y-3 bg-white/5 p-3 rounded-xl">
-                            <div>
-                                <label class="flex justify-between text-[10px] text-slate-300 mb-1.5"><span id="label-ve-vol-video"></span><span id="video-editor-vol-video-val">100%</span></label>
-                                <input type="range" id="slider-ve-vol-video" min="0" max="200" value="100">
-                            </div>
-                            <div id="video-editor-vol-song-group" class="opacity-40">
-                                <label class="flex justify-between text-[10px] text-slate-300 mb-1.5"><span id="label-ve-vol-song"></span><span id="video-editor-vol-song-val">100%</span></label>
-                                <input type="range" id="slider-ve-vol-song" min="0" max="200" value="100" disabled>
-                            </div>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 id="video-editor-filter-heading" class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2"></h3>
-                        <div class="space-y-3 bg-white/5 p-3 rounded-xl">
-                            <div>
-                                <label class="flex justify-between text-[10px] text-slate-300 mb-1.5"><span id="label-ve-filter-brightness"></span><span id="video-editor-filter-brightness-val">100%</span></label>
-                                <input type="range" id="slider-ve-brightness" min="50" max="150" value="100">
-                            </div>
-                            <div>
-                                <label class="flex justify-between text-[10px] text-slate-300 mb-1.5"><span id="label-ve-filter-contrast"></span><span id="video-editor-filter-contrast-val">100%</span></label>
-                                <input type="range" id="slider-ve-contrast" min="50" max="150" value="100">
-                            </div>
-                            <div>
-                                <label class="flex justify-between text-[10px] text-slate-300 mb-1.5"><span id="label-ve-filter-saturation"></span><span id="video-editor-filter-saturation-val">100%</span></label>
-                                <input type="range" id="slider-ve-saturation" min="0" max="200" value="100">
-                            </div>
-                        </div>
-                    </div>
-                    <button id="btn-ve-extract-frame" class="py-2.5 rounded-xl bg-white/10 text-xs font-bold"></button>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- 5. Bottom nav (4 tab) -->
-    <nav class="h-14 video-editor-pb-safe bg-[#121212] border-t border-white/10 flex items-center justify-around px-2 z-[55] shrink-0">
-        <button class="video-editor-tool-tab flex-1 flex flex-col items-center justify-center gap-1 text-slate-400 active:scale-95 transition" data-target="video-editor-panel-cut">
-            <span class="text-base">&#9986;</span>
-            <span id="tab-ve-cut-label" class="text-[9px] font-bold uppercase"></span>
-        </button>
-        <button class="video-editor-tool-tab flex-1 flex flex-col items-center justify-center gap-1 text-slate-400 active:scale-95 transition" data-target="video-editor-panel-audio">
-            <span class="text-base">&#9835;</span>
-            <span id="tab-ve-audio-label" class="text-[9px] font-bold uppercase"></span>
-        </button>
-        <button class="video-editor-tool-tab flex-1 flex flex-col items-center justify-center gap-1 text-slate-400 active:scale-95 transition" data-target="video-editor-panel-text">
-            <span class="text-base">T</span>
-            <span id="tab-ve-text-label" class="text-[9px] font-bold uppercase"></span>
-        </button>
-        <button class="video-editor-tool-tab flex-1 flex flex-col items-center justify-center gap-1 text-slate-400 active:scale-95 transition" data-target="video-editor-panel-properties">
-            <span class="text-base">&#9881;</span>
-            <span id="tab-ve-properties-label" class="text-[9px] font-bold uppercase"></span>
-        </button>
-    </nav>
+    <!-- 1/5 — Toolbar (icon SVG, nội dung đổi theo lựa chọn — dựng động trong Workflow) -->
+    <nav id="video-editor-toolbar" class="video-editor-pb-safe bg-[#121212] border-t border-white/10 flex items-center gap-1 overflow-x-auto px-2 shrink-0" style="flex: 1 1 0%;"></nav>
 
-    <!-- Overlay Crop — GIỮ NGUYÊN từ bản cũ (Cropper.js trên khung hình tĩnh). -->
+    <!-- Overlay Crop (Cropper.js) — không đổi so với v2. -->
     <div id="video-editor-crop-overlay" class="hidden fixed inset-0 z-[70] bg-black flex flex-col">
         <div class="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
             <button id="btn-video-editor-crop-cancel" class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold transition-colors"></button>
             <span id="video-editor-crop-title" class="text-sm font-semibold"></span>
             <button id="btn-video-editor-crop-confirm" class="px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-sm font-bold transition-colors"></button>
         </div>
-        <div class="flex-1 min-h-0 relative bg-black">
-            <img id="video-editor-crop-source" class="max-w-full block" alt="">
-        </div>
+        <div class="flex-1 min-h-0 relative bg-black"><img id="video-editor-crop-source" class="max-w-full block" alt=""></div>
     </div>
 
-    <!-- Modal Split — MỚI (v2, Batch 4). -->
-    <div id="video-editor-split-modal" class="hidden fixed inset-0 bg-black/90 z-[75] flex-col items-center justify-center backdrop-blur-md p-6">
+    <!-- Modal "Chỉnh" (Filter + Volume gốc, toàn cục) — MỚI v3, thay bottom-sheet cũ. -->
+    <div id="video-editor-props-modal" class="hidden fixed inset-0 bg-black/80 z-[75] flex-col items-center justify-center backdrop-blur-md p-6">
         <div class="bg-[#1c1c1e] border border-white/10 rounded-2xl p-5 w-full max-w-sm flex flex-col gap-4">
-            <h3 id="video-editor-split-title" class="font-bold text-base text-white text-center"></h3>
-            <div id="video-editor-split-setup-box" class="space-y-3">
-                <label id="video-editor-split-input-label" class="block text-xs text-slate-400"></label>
-                <input id="video-editor-split-seconds-input" type="number" min="1" class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-center">
-                <button id="btn-video-editor-split-start" class="w-full py-3 bg-white text-black rounded-xl text-sm font-bold"></button>
-                <button id="btn-video-editor-split-cancel" class="w-full py-2 bg-transparent text-slate-500 text-xs font-bold"></button>
+            <h3 id="video-editor-props-title" class="font-bold text-sm text-white"></h3>
+            <div>
+                <label class="flex justify-between text-[10px] text-slate-300 mb-1.5"><span id="label-ve-vol-video"></span><span id="video-editor-vol-video-val">100%</span></label>
+                <input type="range" id="slider-ve-vol-video" min="0" max="200" value="100">
             </div>
-            <div id="video-editor-split-progress-box" class="hidden space-y-3">
-                <div id="video-editor-split-progress-text" class="text-center text-xs text-slate-400"></div>
+            <div>
+                <label class="flex justify-between text-[10px] text-slate-300 mb-1.5"><span id="label-ve-filter-brightness"></span><span id="video-editor-filter-brightness-val">100%</span></label>
+                <input type="range" id="slider-ve-brightness" min="50" max="150" value="100">
             </div>
+            <div>
+                <label class="flex justify-between text-[10px] text-slate-300 mb-1.5"><span id="label-ve-filter-contrast"></span><span id="video-editor-filter-contrast-val">100%</span></label>
+                <input type="range" id="slider-ve-contrast" min="50" max="150" value="100">
+            </div>
+            <div>
+                <label class="flex justify-between text-[10px] text-slate-300 mb-1.5"><span id="label-ve-filter-saturation"></span><span id="video-editor-filter-saturation-val">100%</span></label>
+                <input type="range" id="slider-ve-saturation" min="0" max="200" value="100">
+            </div>
+            <button id="btn-video-editor-props-close" class="mt-1 py-2.5 rounded-xl bg-white/10 text-xs font-bold"></button>
         </div>
     </div>
 
-    <!-- Debug console mobile — GIỮ NGUYÊN từ bản cũ. -->
+    <!-- Modal Sửa chữ (clip Chữ đang chọn) — MỚI v3. -->
+    <div id="video-editor-text-edit-modal" class="hidden fixed inset-0 bg-black/80 z-[75] flex-col items-center justify-center backdrop-blur-md p-6">
+        <div class="bg-[#1c1c1e] border border-white/10 rounded-2xl p-5 w-full max-w-sm flex flex-col gap-3">
+            <h3 id="video-editor-text-edit-title" class="font-bold text-sm text-white"></h3>
+            <input type="text" id="video-editor-text-value" class="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white outline-none">
+            <div class="grid grid-cols-2 gap-2">
+                <div class="bg-white/5 p-2.5 rounded-xl">
+                    <label id="label-ve-text-size" class="block text-[10px] text-slate-400 mb-1.5"></label>
+                    <input type="range" id="slider-ve-text-size" min="20" max="150" value="60">
+                </div>
+                <div class="bg-white/5 p-2.5 rounded-xl">
+                    <label id="label-ve-text-color" class="block text-[10px] text-slate-400 mb-1.5"></label>
+                    <input type="color" id="video-editor-text-color" value="#ffffff" class="w-full h-6 bg-transparent border-0 rounded cursor-pointer p-0">
+                </div>
+            </div>
+            <div class="bg-white/5 p-2.5 rounded-xl">
+                <label class="flex justify-between text-[10px] text-slate-400 mb-1.5"><span id="label-ve-text-posY"></span><span id="video-editor-text-posY-display">80%</span></label>
+                <input type="range" id="slider-ve-text-posY" min="5" max="95" value="80">
+            </div>
+            <button id="btn-video-editor-text-edit-close" class="mt-1 py-2.5 rounded-xl bg-white/10 text-xs font-bold"></button>
+        </div>
+    </div>
+
+    <!-- Modal chọn Nhạc (thay panel "Nhạc" bottom-sheet cũ) — MỚI v3. -->
+    <div id="video-editor-song-picker-modal" class="hidden fixed inset-0 bg-black/90 z-[75] flex-col p-4">
+        <div class="bg-[#1c1c1e] border border-white/10 rounded-2xl p-4 w-full max-w-sm mx-auto flex flex-col gap-2.5 flex-1 min-h-0 my-auto" style="max-height: 70vh;">
+            <div class="flex items-center justify-between">
+                <h3 id="video-editor-song-picker-title" class="font-bold text-sm text-white"></h3>
+                <button id="btn-video-editor-song-picker-close" class="w-7 h-7 rounded-full bg-white/10 text-slate-400">&times;</button>
+            </div>
+            <div class="relative">
+                <input id="video-editor-song-search-input" type="text" inputmode="search" autocomplete="off" class="w-full bg-white/10 border border-white/10 rounded-xl pl-3 pr-8 py-2 text-xs text-white placeholder-slate-500 outline-none">
+                <button id="btn-ve-song-search-clear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">&times;</button>
+            </div>
+            <div id="video-editor-song-list" class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1"></div>
+        </div>
+    </div>
+
+    <!-- Modal "Dịch chuyển tới đoạn" (chọn đoạn nào của file nhạc gốc được dùng) — MỚI v3. -->
+    <div id="video-editor-song-shift-modal" class="hidden fixed inset-0 bg-black/90 z-[75] flex-col items-center justify-center backdrop-blur-md p-6">
+        <div class="bg-[#1c1c1e] border border-white/10 rounded-2xl p-5 w-full max-w-sm flex flex-col gap-4">
+            <h3 id="video-editor-song-shift-title" class="font-bold text-sm text-white text-center"></h3>
+            <div id="video-editor-song-shift-time-label" class="text-center text-[11px] font-mono text-amber-400"></div>
+            <div id="video-editor-song-shift-bar-wrap" class="relative h-12 rounded-lg overflow-hidden bg-black/40 select-none touch-none">
+                <div id="video-editor-song-shift-window" class="absolute top-0 bottom-0 bg-emerald-500/70 border-2 border-emerald-300 rounded" data-handle="shiftWindow"></div>
+            </div>
+            <div>
+                <label class="flex justify-between text-[10px] text-slate-300 mb-1.5"><span id="label-ve-clip-volume"></span><span id="video-editor-clip-volume-val">100%</span></label>
+                <input type="range" id="slider-ve-clip-volume" min="0" max="200" value="100">
+            </div>
+            <button id="btn-video-editor-song-shift-confirm" class="py-3 bg-white text-black rounded-xl text-sm font-bold"></button>
+        </div>
+    </div>
+
+    <!-- Debug console mobile — không đổi. -->
     <button id="btn-video-editor-debug-toggle" class="fixed bottom-3 left-3 z-[80] w-10 h-10 rounded-full bg-slate-700/80 backdrop-blur flex items-center justify-center text-sm">🐞</button>
     <div id="video-editor-debug-overlay" class="hidden fixed inset-0 z-[81] bg-black/95 flex flex-col">
         <div class="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
@@ -306,9 +221,10 @@
         <pre id="video-editor-debug-body" class="flex-1 min-h-0 overflow-y-auto px-3 py-2 text-[10px] leading-relaxed whitespace-pre-wrap font-mono"></pre>
     </div>
 
-    <!-- Thẻ ẩn để decode — canvas preview lấy pixel từ đây. -->
-    <video id="video-editor-source" class="hidden" playsinline crossorigin="anonymous"></video>
-    <audio id="video-editor-song-audio" class="hidden" crossorigin="anonymous"></audio>
+    <!-- Thẻ ẩn để decode — canvas preview lấy pixel từ đây. KHÔNG dùng display:none (xem docstring
+         đầu file) — ẩn bằng kích thước 1px + opacity 0, vẫn nằm trong luồng render. -->
+    <video id="video-editor-source" class="absolute top-0 left-0 w-px h-px opacity-0 pointer-events-none overflow-hidden -z-10" preload="auto" playsinline crossorigin="anonymous"></video>
+    <audio id="video-editor-song-audio" class="hidden" preload="auto" crossorigin="anonymous"></audio>
 </div>
 
     <!-- ===================== SCRIPT ===================== -->
@@ -321,68 +237,52 @@
     <script src="lang/patch/patch-file-manager.js?v=20260718v1"></script>
     <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
     <script src="lang/patch/patch-image-edit.js?v=20260714v1"></script>
-    <script src="lang/patch/patch-video-editor.js?v=20260723v1"></script>
-    <script src="lang/lang.js?v=20260723v1"></script>
+    <script src="lang/patch/patch-video-editor.js?v=20260723v2"></script>
+    <script src="lang/lang.js?v=20260723v2"></script>
     <script src="core/modal-choice.js?v=20260625v9"></script>
     <script src="core/dropdown-menu.js?v=20260716v1"></script>
     <script src="service/task-manager.js?v=20260720v1"></script>
     <script src="event/bus.js?v=20260625v10"></script>
     <script src="service/db.js?v=20260711v1"></script>
     <script src="service/song-key-cipher.js?v=20260710v1"></script>
-    <!-- MỚI (v2) — tìm kiếm nhạc dùng chung với Playlist UI. -->
     <script src="core/song-search.js?v=20260723v1"></script>
     <script src="core/video-editor/compat-guard.js?v=20260722v1"></script>
-    <script src="core/video-editor/webcodecs-engine.js?v=20260723v1"></script>
+    <script src="core/video-editor/webcodecs-engine.js?v=20260723v2"></script>
     <script src="core/video-editor/filmstrip.js?v=20260722v1"></script>
     <script src="core/video-editor/frame-extract.js?v=20260722v1"></script>
-    <!-- MỚI (v2) — core thuần cho timeline/preview/đồng bộ nhạc-cut. -->
-    <script src="core/video-editor/timeline-calc.js?v=20260723v1"></script>
+    <script src="core/video-editor/timeline-calc.js?v=20260723v2"></script>
     <script src="core/video-editor/preview-draw.js?v=20260723v1"></script>
-    <script src="core/video-editor/audio-sync.js?v=20260723v1"></script>
+    <script src="core/video-editor/audio-sync.js?v=20260723v2"></script>
+    <script src="core/image-editor/cropper-engine.js?v=20260723v1"></script>
     <script src="core/file-manager/image.js?v=20260714v2"></script>
-    <script src="event/workflow/video-editor.js?v=20260723v1"></script>
-    <script src="event/router/video-editor.js?v=20260723v1"></script>
+    <script src="core/file-manager/video.js?v=20260714v1"></script>
+    <script src="event/workflow/video-editor.js?v=20260723v2"></script>
+    <script src="event/router/video-editor.js?v=20260723v2"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowVideoEditor.init() ngay khi chạy. -->
-    <script src="event/listener/video-editor.js?v=20260723v1"></script>
+    <script src="event/listener/video-editor.js?v=20260723v2"></script>
     <script>
-        // i18n text tĩnh (gán SAU khi lang.js đã nạp).
-        document.getElementById('btn-ve-split').textContent = t('videoEdit.btnSplit.title');
         document.getElementById('btn-ve-save').textContent = t('videoEdit.btnSave.title');
         document.getElementById('video-editor-empty-state-text').textContent = t('videoEdit.loading');
-        document.getElementById('btn-ve-crop').textContent = t('videoEdit.btnCrop.title');
         document.getElementById('video-editor-crop-title').textContent = t('videoEdit.cropOverlay.title');
         document.getElementById('btn-video-editor-crop-cancel').textContent = t('videoEdit.cropOverlay.cancel');
         document.getElementById('btn-video-editor-crop-confirm').textContent = t('videoEdit.cropOverlay.confirm');
-        document.getElementById('btn-ve-crop-reset').textContent = t('videoEdit.cropReset.label');
-        document.getElementById('btn-ve-rotate-left').textContent = t('videoEdit.btnRotateLeft.title');
-        document.getElementById('btn-ve-rotate-right').textContent = t('videoEdit.btnRotateRight.title');
-        document.getElementById('btn-ve-reset').textContent = t('videoEdit.btnReset.title');
-        document.getElementById('video-editor-song-search-input').placeholder = t('videoEdit.songSearch.placeholder');
-        document.getElementById('btn-ve-remove-song').textContent = t('videoEdit.btnRemoveSong.title');
-        document.getElementById('btn-ve-add-text').textContent = t('videoEdit.btnAddText.title');
-        document.getElementById('label-ve-text-size').textContent = t('videoEdit.text.size');
-        document.getElementById('label-ve-text-color').textContent = t('videoEdit.text.color');
-        document.getElementById('label-ve-text-posY').textContent = t('videoEdit.text.posY');
-        document.getElementById('btn-ve-remove-text').textContent = t('videoEdit.btnRemoveText.title');
-        document.getElementById('video-editor-text-value').value = t('videoEdit.text.defaultValue');
-        document.getElementById('video-editor-volume-heading').textContent = t('videoEdit.volumeHeading');
+        document.getElementById('video-editor-props-title').textContent = t('videoEdit.propsModal.title');
         document.getElementById('label-ve-vol-video').textContent = t('videoEdit.volVideo');
-        document.getElementById('label-ve-vol-song').textContent = t('videoEdit.volSong');
-        document.getElementById('video-editor-filter-heading').textContent = t('videoEdit.filterHeading');
         document.getElementById('label-ve-filter-brightness').textContent = t('videoEdit.filterBrightness');
         document.getElementById('label-ve-filter-contrast').textContent = t('videoEdit.filterContrast');
         document.getElementById('label-ve-filter-saturation').textContent = t('videoEdit.filterSaturation');
-        document.getElementById('btn-ve-extract-frame').textContent = t('videoEdit.btnExtractFrame.title');
-        document.getElementById('tab-ve-cut-label').textContent = t('videoEdit.tab.cut');
-        document.getElementById('tab-ve-audio-label').textContent = t('videoEdit.tab.audio');
-        document.getElementById('tab-ve-text-label').textContent = t('videoEdit.tab.text');
-        document.getElementById('tab-ve-properties-label').textContent = t('videoEdit.tab.properties');
-        document.getElementById('video-editor-split-title').textContent = t('videoEdit.split.title');
-        // video-editor-split-input-label — set ĐỘNG trong workflowVideoEditor.handleSplitOpen() (cần kèm số giây tối đa tính theo video thật, KHÔNG set tĩnh 1 lần ở đây được).
-        document.getElementById('btn-video-editor-split-start').textContent = t('videoEdit.split.start');
-        document.getElementById('btn-video-editor-split-cancel').textContent = t('common.cancel');
+        document.getElementById('btn-video-editor-props-close').textContent = t('common.done');
+        document.getElementById('video-editor-text-edit-title').textContent = t('videoEdit.textEdit.title');
+        document.getElementById('label-ve-text-size').textContent = t('videoEdit.text.size');
+        document.getElementById('label-ve-text-color').textContent = t('videoEdit.text.color');
+        document.getElementById('label-ve-text-posY').textContent = t('videoEdit.text.posY');
+        document.getElementById('btn-video-editor-text-edit-close').textContent = t('common.done');
+        document.getElementById('video-editor-song-picker-title').textContent = t('videoEdit.songPicker.title');
+        document.getElementById('video-editor-song-search-input').placeholder = t('videoEdit.songSearch.placeholder');
+        document.getElementById('video-editor-song-shift-title').textContent = t('videoEdit.songShift.title');
+        document.getElementById('label-ve-clip-volume').textContent = t('videoEdit.clipVolume.label');
+        document.getElementById('btn-video-editor-song-shift-confirm').textContent = t('common.done');
 
-        // Debug overlay — CỐ Ý viết thẳng ở đây, không qua eventBus (tiện ích chẩn đoán).
         const debugOverlayEl = document.getElementById('video-editor-debug-overlay');
         const debugBodyEl = document.getElementById('video-editor-debug-body');
         function renderDebugLogs() {
@@ -394,16 +294,9 @@
             }).join('\n') || '(chưa có log nào)';
             debugBodyEl.scrollTop = debugBodyEl.scrollHeight;
         }
-        document.getElementById('btn-video-editor-debug-toggle').addEventListener('click', () => {
-            renderDebugLogs();
-            debugOverlayEl.classList.remove('hidden');
-        });
-        document.getElementById('btn-video-editor-debug-close').addEventListener('click', () => {
-            debugOverlayEl.classList.add('hidden');
-        });
-        document.getElementById('btn-video-editor-debug-copy').addEventListener('click', () => {
-            navigator.clipboard?.writeText(debugBodyEl.textContent).catch(() => {});
-        });
+        document.getElementById('btn-video-editor-debug-toggle').addEventListener('click', () => { renderDebugLogs(); debugOverlayEl.classList.remove('hidden'); });
+        document.getElementById('btn-video-editor-debug-close').addEventListener('click', () => { debugOverlayEl.classList.add('hidden'); });
+        document.getElementById('btn-video-editor-debug-copy').addEventListener('click', () => { navigator.clipboard?.writeText(debugBodyEl.textContent).catch(() => {}); });
     </script>
 </body>
 </html>
