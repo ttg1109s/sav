@@ -695,20 +695,22 @@
              * hạn gì cả) — hành vi y hệt trước khi có cơ chế này.
              * @param {string} account - tên trang, vd 'player' (index.html), 'videoEditor' (video-editor.html).
              * @param {string[]|'all'} allowedKeys - mảng tên key được phép, hoặc chuỗi 'all' = không giới hạn.
+             *   Lưu NGAY thành `Set` (nếu không phải 'all') — so khớp ở `_isAllowed()` qua `Set.has()`
+             *   O(1), KHÔNG dùng `Array.includes()` (O(n), phải quét tuần tự từng phần tử).
              */
             registry(account, allowedKeys) {
-                this._registry[account] = allowedKeys;
+                this._registry[account] = allowedKeys === 'all' ? 'all' : new Set(allowedKeys);
                 this._currentAccount = account;
                 console.log(`[AppState.registry] account: "${account}", allowedKeys: ${allowedKeys === 'all' ? '"all"' : JSON.stringify(allowedKeys)}`);
             }
 
-            /** Private: `key` có được phép đọc/ghi theo account ĐANG active hay không. */
+            /** Private: `key` có được phép đọc/ghi theo account ĐANG active hay không. `Set.has()` — O(1). */
             _isAllowed(key) {
                 if (!this._currentAccount) return true; // CHƯA registry() lần nào -> không giới hạn (tương thích ngược)
                 const allowed = this._registry[this._currentAccount];
                 if (allowed === 'all') return true;
-                if (!Array.isArray(allowed)) return false; // account đã đăng ký nhưng danh sách sai định dạng -> chặn an toàn, không mở toang
-                return allowed.includes(key);
+                if (!(allowed instanceof Set)) return false; // account đã đăng ký nhưng danh sách sai định dạng -> chặn an toàn, không mở toang
+                return allowed.has(key);
             }
 
             /**
