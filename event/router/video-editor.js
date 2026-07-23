@@ -12,6 +12,7 @@ const routerVideoEdit = (() => {
 
             case 'videoEdit.selectClip.click': { workflowVideoEditor.handleSelectClip(msg.payload.track, msg.payload.index); break; }
             case 'videoEdit.deselect.click': { workflowVideoEditor.handleDeselect(); break; }
+            case 'videoEdit.scrub.move': { workflowVideoEditor.handleScrub(msg.payload.clientX); break; }
 
             case 'videoEdit.timelineDrag.start': { workflowVideoEditor.handleTimelineDragStart(msg.payload.track, msg.payload.index, msg.payload.handleType, msg.payload.clientX); break; }
             case 'videoEdit.timelineDrag.move': { workflowVideoEditor.handleTimelineDragMove(msg.payload.clientX); break; }
