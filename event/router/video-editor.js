@@ -1,6 +1,13 @@
 /**
  * event/router/video-editor.js — Router "videoEdit", tự đăng ký với eventBus. Trang
  * `video-editor.html` DUY NHẤT dùng router này (KHÔNG nạp ở `index.html`).
+ *
+ * [23/07/2026] — BỎ các case của nội dung BÊN TRONG Generic Drawer (Chỉnh/Sửa chữ/Chọn nhạc/Dịch
+ * chuyển đoạn) — nay Workflow tự querySelector + addEventListener TRỰC TIẾP ngay sau khi gọi
+ * `openGenericDrawer()` (đúng quy ước sẵn có của Generic Drawer trong toàn app, xem
+ * event/workflow/video-editor.js::handlePropsOpen()/handleTextEditOpen()/...), KHÔNG qua
+ * eventBus.send() nữa. CHỈ giữ lại case MỞ (props.open/addMusic.open/textEdit.open/songShift.open
+ * — do TOOLBAR dispatch qua eventBus như bình thường).
  */
 const routerVideoEdit = (() => {
     function handle(msg) {
@@ -13,9 +20,12 @@ const routerVideoEdit = (() => {
             case 'videoEdit.selectClip.click': { workflowVideoEditor.handleSelectClip(msg.payload.track, msg.payload.index); break; }
             case 'videoEdit.deselect.click': { workflowVideoEditor.handleDeselect(); break; }
             case 'videoEdit.scrub.move': { workflowVideoEditor.handleScrub(msg.payload.clientX); break; }
-            case 'videoEdit.previewTextDrag.start': { workflowVideoEditor.handlePreviewTextDragStart(msg.payload.canvasY); break; }
-            case 'videoEdit.previewTextDrag.move': { workflowVideoEditor.handlePreviewTextDragMove(msg.payload.canvasY); break; }
+            case 'videoEdit.previewTextDrag.start': { workflowVideoEditor.handlePreviewTextDragStart(msg.payload.canvasX, msg.payload.canvasY); break; }
+            case 'videoEdit.previewTextDrag.move': { workflowVideoEditor.handlePreviewTextDragMove(msg.payload.canvasX, msg.payload.canvasY); break; }
             case 'videoEdit.previewTextDrag.end': { workflowVideoEditor.handlePreviewTextDragEnd(); break; }
+            case 'videoEdit.previewTextPinch.start': { workflowVideoEditor.handlePreviewTextPinchStart(); break; }
+            case 'videoEdit.previewTextPinch.move': { workflowVideoEditor.handlePreviewTextPinchMove(msg.payload.startDist, msg.payload.startAngleDeg, msg.payload.currentDist, msg.payload.currentAngleDeg); break; }
+            case 'videoEdit.previewTextPinch.end': { workflowVideoEditor.handlePreviewTextPinchEnd(); break; }
 
             case 'videoEdit.timelineDrag.start': { workflowVideoEditor.handleTimelineDragStart(msg.payload.track, msg.payload.index, msg.payload.handleType, msg.payload.clientX); break; }
             case 'videoEdit.timelineDrag.move': { workflowVideoEditor.handleTimelineDragMove(msg.payload.clientX); break; }
@@ -34,33 +44,16 @@ const routerVideoEdit = (() => {
             case 'videoEdit.cropReset.click': { workflowVideoEditor.handleCropReset(); break; }
             case 'videoEdit.rotateLeft.click': { workflowVideoEditor.handleRotateLeft(); break; }
             case 'videoEdit.rotateRight.click': { workflowVideoEditor.handleRotateRight(); break; }
-            case 'videoEdit.filter.change': { workflowVideoEditor.handleFilterChange(); break; }
             case 'videoEdit.reset.click': { workflowVideoEditor.handleReset(); break; }
             case 'videoEdit.props.open': { workflowVideoEditor.handlePropsOpen(); break; }
-            case 'videoEdit.props.close': { workflowVideoEditor.handlePropsClose(); break; }
-            case 'videoEdit.volVideo.change': { workflowVideoEditor.handleVolVideoChange(msg.payload.value); break; }
             case 'videoEdit.extractFrame.click': { workflowVideoEditor.handleExtractFrame(); break; }
 
             case 'videoEdit.addMusic.open': { workflowVideoEditor.handleAddMusicOpen(); break; }
-            case 'videoEdit.songPicker.close': { workflowVideoEditor.handleSongPickerClose(); break; }
-            case 'videoEdit.songSearch.input': { workflowVideoEditor.handleSongSearchInput(msg.payload.value); break; }
-            case 'videoEdit.songSearchClear.click': { workflowVideoEditor.handleSongSearchClear(); break; }
-            case 'videoEdit.songPicker.select': { workflowVideoEditor.handleSongPickerSelect(msg.payload.songKey); break; }
 
             case 'videoEdit.addText.click': { workflowVideoEditor.handleAddText(); break; }
             case 'videoEdit.textEdit.open': { workflowVideoEditor.handleTextEditOpen(); break; }
-            case 'videoEdit.textEdit.close': { workflowVideoEditor.handleTextEditClose(); break; }
-            case 'videoEdit.textValue.input': { workflowVideoEditor.handleTextValueInput(msg.payload.value); break; }
-            case 'videoEdit.textSize.change': { workflowVideoEditor.handleTextSizeChange(msg.payload.value); break; }
-            case 'videoEdit.textColor.change': { workflowVideoEditor.handleTextColorChange(msg.payload.value); break; }
-            case 'videoEdit.textPosY.change': { workflowVideoEditor.handleTextPosYChange(msg.payload.value); break; }
 
             case 'videoEdit.songShift.open': { workflowVideoEditor.handleSongShiftOpen(); break; }
-            case 'videoEdit.songShift.close': { workflowVideoEditor.handleSongShiftClose(); break; }
-            case 'videoEdit.songShiftDrag.start': { workflowVideoEditor.handleSongShiftDragStart(msg.payload.clientX); break; }
-            case 'videoEdit.songShiftDrag.move': { workflowVideoEditor.handleSongShiftDragMove(msg.payload.clientX); break; }
-            case 'videoEdit.songShiftDrag.end': { workflowVideoEditor.handleSongShiftDragEnd(); break; }
-            case 'videoEdit.clipVolume.change': { workflowVideoEditor.handleClipVolumeChange(msg.payload.value); break; }
 
             case 'videoEdit.save.click': { workflowVideoEditor.handleSaveClick(msg.payload.anchorEl); break; }
             case 'videoEdit.saveOverwrite.click': { workflowVideoEditor.handleSaveOverwrite(); break; }
