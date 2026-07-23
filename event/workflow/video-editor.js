@@ -301,11 +301,10 @@ const workflowVideoEditor = {
      * kéo dòng đó, đổi `posX`/`posY` theo % kích thước canvas. */
     handlePreviewTextDragStart(canvasX, canvasY) {
         const outputTime = this._computeCurrentOutputTime();
+        const ctx = videoEditorPreviewCanvasEl.getContext('2d');
         const canvasW = videoEditorPreviewCanvasEl.width || 1;
         const canvasH = videoEditorPreviewCanvasEl.height || 1;
-        const touchXPercent = (canvasX / canvasW) * 100;
-        const touchYPercent = (canvasY / canvasH) * 100;
-        const index = findNearestActiveTextClip(this._textClips, outputTime, touchXPercent, touchYPercent, 20); // core/video-editor/timeline-calc.js
+        const index = findTextClipAtPoint(ctx, this._textClips, outputTime, canvasX, canvasY, canvasW, canvasH, 28); // core/video-editor/preview-draw.js — hộp bao thật (đo ctx.measureText), có tính xoay
         if (index == null) { this._previewTextDragIndex = null; return; }
         this._previewTextDragIndex = index;
         this._selected = { track: 'text', index };
