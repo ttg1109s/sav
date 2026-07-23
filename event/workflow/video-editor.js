@@ -76,7 +76,12 @@ const workflowVideoEditor = {
 
         videoEditorSourceEl.src = URL.createObjectURL(record.blob);
         videoEditorSourceEl.load(); // ép tải ngay — fix bug "phải Play mới hiện" (xem docstring video-editor.html)
-        videoEditorSourceEl.addEventListener('loadedmetadata', () => this._onMetadataReady(), { once: true });
+        videoEditorSourceEl.addEventListener('loadedmetadata', () => {
+            this._onMetadataReady().catch((err) => {
+                console.error('[init] Lỗi không lường trước lúc dựng UI sau loadedmetadata:', err);
+                this._showFatalError(t('videoEdit.compat.unreadableFile'));
+            });
+        }, { once: true });
 
         taskManager.addNew('videoEditorPreviewRender', { time: 0, exe: () => this._tick(), mode: 'raf', count: 0 });
         taskManager.operator('videoEditorPreviewRender', 'enabled');
@@ -101,8 +106,10 @@ const workflowVideoEditor = {
         videoEditorEmptyStateEl.classList.add('hidden');
         videoEditorPlayheadEl.classList.remove('hidden');
 
-        this._masterFilmstripFrames = await buildCutFilmstripFrames(this._record.blob, 30, 60, 64); // core/video-editor/filmstrip.js — TRÍCH 1 LẦN duy nhất, dùng lại cho MỌI đoạn sau khi tách (lọc theo range, xem _renderVideoTrack())
-
+        // Dựng UI CỐT LÕI TRƯỚC (toolbar/timeline/thời gian) — KHÔNG chờ filmstrip. Bug đã gặp: lỗi
+        // ném ra trong lúc trích filmstrip (Mediabunny, xem catch dưới) làm cả hàm dừng NGANG, khiến
+        // toolbar/timeline/tổng thời lượng KHÔNG BAO GIỜ được dựng (mất trắng) — nay tách filmstrip
+        // ra thành bước PHỤ, chạy SAU, tự bọc try/catch riêng, không được phép chặn phần cốt lõi.
         this._renderAllTracks();
         this._renderToolbar();
         this._updateTimeDisplay(0);
@@ -112,6 +119,14 @@ const workflowVideoEditor = {
         videoEditorSourceEl.addEventListener('seeked', () => this._drawFrame(), { once: true });
         videoEditorSourceEl.currentTime = 0.0001;
         videoEditorSourceEl.currentTime = 0;
+
+        try {
+            this._masterFilmstripFrames = await buildCutFilmstripFrames(this._record.blob, 30, 60, 64); // core/video-editor/filmstrip.js — TRÍCH 1 LẦN duy nhất, dùng lại cho MỌI đoạn sau khi tách
+            this._renderVideoTrack(); // vẽ lại RIÊNG track Video để hiện ảnh minh hoạ vừa trích xong
+        } catch (err) {
+            console.error('[_onMetadataReady] Lỗi trích filmstrip — bỏ qua ảnh minh hoạ, KHÔNG chặn phần còn lại của app:', err);
+            this._masterFilmstripFrames = [];
+        }
     },
 
     _totalDuration() { return computeVideoTotalDuration(this._videoClips); }, // core/video-editor/timeline-calc.js
