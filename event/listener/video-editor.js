@@ -29,6 +29,7 @@ const btnVeSkipEnd = document.getElementById('btn-ve-skip-end');
 const videoEditorTimelineContainerEl = document.getElementById('video-editor-timeline-container');
 const videoEditorTimelineContentEl = document.getElementById('video-editor-timeline-content');
 const videoEditorPlayheadEl = document.getElementById('video-editor-playhead');
+const videoEditorPlayheadTimeEl = document.getElementById('video-editor-playhead-time');
 const videoEditorDurationEndMarkerEl = document.getElementById('video-editor-duration-end-marker');
 const videoEditorTrackTextEl = document.getElementById('video-editor-track-text');
 const videoEditorTrackVideoEl = document.getElementById('video-editor-track-video');
@@ -38,6 +39,7 @@ const videoEditorToolbarEl = document.getElementById('video-editor-toolbar');
 
 const videoEditorCropOverlayEl = document.getElementById('video-editor-crop-overlay');
 const videoEditorCropSourceEl = document.getElementById('video-editor-crop-source');
+const videoEditorCropRatioRowEl = document.getElementById('video-editor-crop-ratio-row');
 const btnVideoEditorCropCancel = document.getElementById('btn-video-editor-crop-cancel');
 const btnVideoEditorCropConfirm = document.getElementById('btn-video-editor-crop-confirm');
 
@@ -84,6 +86,29 @@ btnVePlay.addEventListener('click', () => eventBus.send({ router: 'videoEdit', t
 btnVeSkipStart.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.skipStart.click', payload: {} }));
 btnVeSkipEnd.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.skipEnd.click', payload: {} }));
 
+// ===================== Kéo Text trực tiếp trên preview (canvas) =====================
+let _veTextDragging = false;
+function _veCanvasYFromEvent(e) {
+    const rect = videoEditorPreviewCanvasEl.getBoundingClientRect();
+    const scaleY = videoEditorPreviewCanvasEl.height / rect.height;
+    return (e.clientY - rect.top) * scaleY;
+}
+videoEditorPreviewCanvasEl.addEventListener('pointerdown', (e) => {
+    _veTextDragging = true;
+    try { videoEditorPreviewCanvasEl.setPointerCapture(e.pointerId); } catch (err) { /* không sao */ }
+    eventBus.send({ router: 'videoEdit', type: 'videoEdit.previewTextDrag.start', payload: { canvasY: _veCanvasYFromEvent(e) } });
+});
+videoEditorPreviewCanvasEl.addEventListener('pointermove', (e) => {
+    if (!_veTextDragging) return;
+    eventBus.send({ router: 'videoEdit', type: 'videoEdit.previewTextDrag.move', payload: { canvasY: _veCanvasYFromEvent(e) } });
+});
+videoEditorPreviewCanvasEl.addEventListener('pointerup', (e) => {
+    _veTextDragging = false;
+    try { videoEditorPreviewCanvasEl.releasePointerCapture(e.pointerId); } catch (err) { /* không sao */ }
+    eventBus.send({ router: 'videoEdit', type: 'videoEdit.previewTextDrag.end', payload: {} });
+});
+videoEditorPreviewCanvasEl.addEventListener('pointercancel', () => { _veTextDragging = false; eventBus.send({ router: 'videoEdit', type: 'videoEdit.previewTextDrag.end', payload: {} }); });
+
 // ===================== Chạm nền timeline (ngoài mọi clip) — bỏ chọn HOẶC tua con trỏ =====================
 // PHÂN BIỆT: e.target === chính videoEditorTimelineContentEl (nền trống, không phải 1 clip cụ thể)
 // mới xử lý ở đây — chạm vào 1 clip đã có listener RIÊNG của chính clip đó (Workflow dựng động).
@@ -107,6 +132,23 @@ videoEditorTimelineContentEl.addEventListener('pointercancel', () => { _veScrubb
 videoEditorTimelineContentEl.addEventListener('click', (e) => {
     if (e.target === videoEditorTimelineContentEl) eventBus.send({ router: 'videoEdit', type: 'videoEdit.deselect.click', payload: {} });
 });
+
+// Kéo trực tiếp thanh playhead (trước đây `pointer-events-none`, không kéo được) — dùng CHUNG cờ
+// _veScrubbing + message 'videoEdit.scrub.move' với chạm nền timeline, cùng 1 hành vi tua.
+videoEditorPlayheadEl.addEventListener('pointerdown', (e) => {
+    _veScrubbing = true;
+    try { videoEditorPlayheadEl.setPointerCapture(e.pointerId); } catch (err) { /* không sao — vẫn tua qua cờ _veScrubbing */ }
+    eventBus.send({ router: 'videoEdit', type: 'videoEdit.scrub.move', payload: { clientX: e.clientX } });
+});
+videoEditorPlayheadEl.addEventListener('pointermove', (e) => {
+    if (!_veScrubbing) return;
+    eventBus.send({ router: 'videoEdit', type: 'videoEdit.scrub.move', payload: { clientX: e.clientX } });
+});
+videoEditorPlayheadEl.addEventListener('pointerup', (e) => {
+    _veScrubbing = false;
+    try { videoEditorPlayheadEl.releasePointerCapture(e.pointerId); } catch (err) { /* không sao */ }
+});
+videoEditorPlayheadEl.addEventListener('pointercancel', () => { _veScrubbing = false; });
 
 // ===================== Crop overlay (Cropper.js) =====================
 btnVideoEditorCropCancel.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.cropCancel.click', payload: {} }));
