@@ -25,6 +25,19 @@
  * timeline, preview chỉ nghe được 1 trong 2; lúc XUẤT THẬT (Lưu) vẫn trộn ĐẦY ĐỦ mọi clip chồng nhau
  * (qua OfflineAudioContext, xem webcodecs-engine.js) — chỉ preview bị giới hạn.
  */
+/** Danh sách phông chọn cho Text overlay — KHỚP với thẻ <link> Google Fonts nạp ở đầu video-editor.html. */
+const VIDEO_EDITOR_FONTS = [
+    { label: 'Mặc định', value: 'system-ui' },
+    { label: 'Roboto', value: 'Roboto' },
+    { label: 'Montserrat', value: 'Montserrat' },
+    { label: 'Playfair Display', value: 'Playfair Display' },
+    { label: 'Pacifico', value: 'Pacifico' },
+    { label: 'Bebas Neue', value: 'Bebas Neue' },
+    { label: 'Lobster', value: 'Lobster' },
+    { label: 'Oswald', value: 'Oswald' },
+    { label: 'Dancing Script', value: 'Dancing Script' },
+];
+
 const workflowVideoEditor = {
     MIN_CLIP_GAP_SEC: 0.3, // độ dài tối thiểu 1 đoạn/khoảng cách tối thiểu tới mép khi trim/cắt — DÙNG CHUNG, tránh lặp `const MIN_GAP = 0.3` rải rác nhiều hàm.
 
@@ -45,6 +58,7 @@ const workflowVideoEditor = {
     _cropFraction: null,
     _cropper: null,
     _volumeVideo: 100, // % — toàn cục
+    _brightness: 100, _contrast: 100, _saturation: 100, // % — toàn cục (MỚI: trước đọc thẳng DOM slider của modal cũ làm state, nay modal là Generic Drawer — nội dung mất đi mỗi lần đóng, PHẢI có field riêng làm nguồn sự thật)
 
     _selected: null, // {track:'video'|'audio'|'text', index}|null
     _isPlaying: false,
@@ -52,6 +66,7 @@ const workflowVideoEditor = {
     _dragLastClientX: 0,
     _draggingSongShift: false,
     _songShiftPxPerSec: 0,
+    _pinchState: null, // {startDist,startAngleDeg,baseSize,baseRotation}|null — MỚI, kéo-giãn/xoay Text 2 ngón trên preview
 
     _songListCache: null,
     _songSearchQuery: '',
@@ -175,7 +190,7 @@ const workflowVideoEditor = {
     },
 
     _currentFilterCss() {
-        return buildFilterCss(sliderVeBrightness.value, sliderVeContrast.value, sliderVeSaturation.value); // core/video-editor/preview-draw.js
+        return buildFilterCss(this._brightness, this._contrast, this._saturation); // core/video-editor/preview-draw.js
     },
 
     _drawFrame() {
@@ -187,21 +202,37 @@ const workflowVideoEditor = {
         drawVideoPreviewFrame(ctx, videoEditorSourceEl, cropPx, deg, this._currentFilterCss(), outW, outH);
         const outputTime = this._computeCurrentOutputTime();
         this._textClips.forEach((tc) => {
-            if (outputTime >= tc.timelineStart && outputTime < tc.timelineEnd) drawTextOverlay(ctx, outW, outH, tc);
+            if (outputTime >= tc.timelineStart && outputTime < tc.timelineEnd) drawTextOverlay(ctx, outW, outH, tc, outputTime);
         });
     },
 
-    /** LƯU Ý (xem docstring đầu file): preview chỉ phát ĐÚNG 1 bài hát tại 1 thời điểm. */
+    /** LƯU Ý (xem docstring đầu file): preview chỉ phát ĐÚNG 1 bài hát tại 1 thời điểm.
+     * SỬA (Giang báo "nhạc bị biến dạng và méo") — bản trước nhảy thẳng `currentTime` mỗi khi lệch
+     * > 0.2s, có thể xảy ra RẤT thường xuyên (mỗi frame ở ~60fps) do sai số tích luỹ nhỏ — nhảy
+     * currentTime liên tục gây giật/rè tiếng ở nhiều trình duyệt. Nay: lệch NHỎ (0.08-0.35s) chỉ
+     * chỉnh nhẹ `playbackRate` (êm tai hơn nhiều, tự từ từ bắt kịp) — CHỈ lệch LỚN (>0.35s, vd vừa
+     * tua) mới nhảy thẳng `currentTime`. Cũng kẹp `targetTime` trong biên hợp lệ [0, songDuration]
+     * — gán currentTime ra ngoài biên có thể khiến 1 số trình duyệt phát lỗi/im/rè. */
     _syncAudioClips(outputTime) {
         const active = this._audioClips.find((c) => outputTime >= c.timelineStart && outputTime < c.timelineEnd);
-        if (!active) { videoEditorSongAudioEl.pause(); this._activePreviewAudioClipId = null; return; }
+        if (!active) { videoEditorSongAudioEl.pause(); videoEditorSongAudioEl.playbackRate = 1; this._activePreviewAudioClipId = null; return; }
         if (this._activePreviewAudioClipId !== active.id) {
             this._activePreviewAudioClipId = active.id;
             videoEditorSongAudioEl.src = URL.createObjectURL(active.record.blob);
             videoEditorSongAudioEl.volume = Math.min(1, active.volume);
+            videoEditorSongAudioEl.playbackRate = 1;
         }
-        const targetTime = active.offsetInSong + (outputTime - active.timelineStart);
-        if (Math.abs(videoEditorSongAudioEl.currentTime - targetTime) > 0.2) videoEditorSongAudioEl.currentTime = targetTime;
+        const songDuration = active.record.duration || 0;
+        const targetTime = Math.max(0, Math.min(active.offsetInSong + (outputTime - active.timelineStart), Math.max(0, songDuration - 0.02)));
+        const drift = videoEditorSongAudioEl.currentTime - targetTime;
+        if (Math.abs(drift) > 0.35) {
+            videoEditorSongAudioEl.currentTime = targetTime;
+            videoEditorSongAudioEl.playbackRate = 1;
+        } else if (Math.abs(drift) > 0.08) {
+            videoEditorSongAudioEl.playbackRate = drift > 0 ? 0.96 : 1.04;
+        } else {
+            videoEditorSongAudioEl.playbackRate = 1;
+        }
         if (this._isPlaying && videoEditorSongAudioEl.paused) videoEditorSongAudioEl.play().catch(() => {});
     },
 
@@ -265,14 +296,16 @@ const workflowVideoEditor = {
         this._seekToOutputTime(sec);
     },
 
-    /** MỚI — Giang yêu cầu: nhấn vào chữ trên preview phải kéo di chuyển được (trước đây chỉ chỉnh
-     * được `posY` qua slider trong modal Sửa chữ). Chạm gần dòng chữ nào (đang hiển thị tại thời
-     * điểm hiện tại) thì chọn + kéo dòng đó, đổi `posY` theo % chiều cao canvas. */
-    handlePreviewTextDragStart(canvasY) {
+    /** MỚI — Giang yêu cầu: nhấn vào chữ trên preview phải kéo di chuyển được (2 chiều — trước chỉ
+     * chỉnh được `posY`). Chạm gần dòng chữ nào (đang hiển thị tại thời điểm hiện tại) thì chọn +
+     * kéo dòng đó, đổi `posX`/`posY` theo % kích thước canvas. */
+    handlePreviewTextDragStart(canvasX, canvasY) {
         const outputTime = this._computeCurrentOutputTime();
+        const canvasW = videoEditorPreviewCanvasEl.width || 1;
         const canvasH = videoEditorPreviewCanvasEl.height || 1;
-        const touchPercent = (canvasY / canvasH) * 100;
-        const index = findNearestActiveTextClip(this._textClips, outputTime, touchPercent, 15); // core/video-editor/timeline-calc.js
+        const touchXPercent = (canvasX / canvasW) * 100;
+        const touchYPercent = (canvasY / canvasH) * 100;
+        const index = findNearestActiveTextClip(this._textClips, outputTime, touchXPercent, touchYPercent, 20); // core/video-editor/timeline-calc.js
         if (index == null) { this._previewTextDragIndex = null; return; }
         this._previewTextDragIndex = index;
         this._selected = { track: 'text', index };
@@ -280,23 +313,48 @@ const workflowVideoEditor = {
         this._renderToolbar();
     },
 
-    handlePreviewTextDragMove(canvasY) {
+    handlePreviewTextDragMove(canvasX, canvasY) {
         if (this._previewTextDragIndex == null) return;
         const clip = this._textClips[this._previewTextDragIndex];
         if (!clip) return;
+        const canvasW = videoEditorPreviewCanvasEl.width || 1;
         const canvasH = videoEditorPreviewCanvasEl.height || 1;
-        clip.posY = Math.max(5, Math.min(95, Math.round((canvasY / canvasH) * 100)));
+        clip.posX = Math.max(2, Math.min(98, Math.round((canvasX / canvasW) * 100)));
+        clip.posY = Math.max(2, Math.min(98, Math.round((canvasY / canvasH) * 100)));
         this._hasUnsavedChanges = true;
         this._drawFrame();
-        if (!videoEditorTextEditModalEl.classList.contains('hidden')) {
-            sliderVeTextPosY.value = clip.posY;
-            videoEditorTextPosYDisplayEl.textContent = `${clip.posY}%`;
-        }
     },
 
     handlePreviewTextDragEnd() {
         if (this._previewTextDragIndex != null) this._renderAllTracks();
         this._previewTextDragIndex = null;
+    },
+
+    /** MỚI — Giang yêu cầu: co giãn kích cỡ + xoay Text trên preview. Cử chỉ 2 ngón (pinch):
+     * khoảng cách 2 ngón đổi = co giãn `size`, góc 2 ngón đổi = xoay `rotation`. Toán tính ở Core
+     * (`computePinchTransform()`, core/video-editor/preview-draw.js) — Workflow chỉ giữ giá trị
+     * GỐC lúc bắt đầu cử chỉ (`_pinchState`) rồi áp kết quả mới vào clip đang chọn. */
+    handlePreviewTextPinchStart() {
+        if (!this._selected || this._selected.track !== 'text') { this._pinchState = null; return; }
+        const clip = this._textClips[this._selected.index];
+        if (!clip) { this._pinchState = null; return; }
+        this._pinchState = { baseSize: clip.size, baseRotation: clip.rotation || 0 };
+    },
+
+    handlePreviewTextPinchMove(startDist, startAngleDeg, currentDist, currentAngleDeg) {
+        if (!this._pinchState || !this._selected || this._selected.track !== 'text') return;
+        const clip = this._textClips[this._selected.index];
+        if (!clip) return;
+        const result = computePinchTransform(startDist, startAngleDeg, currentDist, currentAngleDeg, this._pinchState.baseSize, this._pinchState.baseRotation); // core/video-editor/preview-draw.js
+        clip.size = result.newSize;
+        clip.rotation = result.newRotation;
+        this._hasUnsavedChanges = true;
+        this._drawFrame();
+    },
+
+    handlePreviewTextPinchEnd() {
+        this._pinchState = null;
+        this._renderAllTracks();
     },
 
     // ===================== Chọn clip (viền + toolbar theo ngữ cảnh) =====================
@@ -742,30 +800,83 @@ const workflowVideoEditor = {
 
     handleRotateLeft() { this._rotateDeg = ((this._rotateDeg - 90) % 360 + 360) % 360; this._hasUnsavedChanges = true; this._drawFrame(); },
     handleRotateRight() { this._rotateDeg = (this._rotateDeg + 90) % 360; this._hasUnsavedChanges = true; this._drawFrame(); },
-    handleFilterChange() { this._hasUnsavedChanges = true; if (!this._isPlaying) this._drawFrame(); },
-
-    // LƯU Ý: preview qua <video>/<audio> chỉ hỗ trợ .volume tối đa 1.0 — khuếch đại >100% chỉ áp
-    // dụng ĐÚNG lúc "nướng" thật (processVideo() dùng GainNode, không giới hạn 1.0).
-    handleVolVideoChange(value) {
-        this._volumeVideo = parseInt(value, 10) || 0;
-        videoEditorVolVideoValEl.textContent = `${this._volumeVideo}%`;
-        videoEditorSourceEl.volume = Math.min(1, this._volumeVideo / 100);
-        this._hasUnsavedChanges = true;
-    },
 
     handleReset() {
         this._cropFraction = null;
         this._rotateDeg = 0;
         this._volumeVideo = 100;
-        sliderVeBrightness.value = 100; sliderVeContrast.value = 100; sliderVeSaturation.value = 100; sliderVeVolVideo.value = 100;
-        videoEditorFilterBrightnessValEl.textContent = '100%'; videoEditorFilterContrastValEl.textContent = '100%'; videoEditorFilterSaturationValEl.textContent = '100%'; videoEditorVolVideoValEl.textContent = '100%';
+        this._brightness = 100;
+        this._contrast = 100;
+        this._saturation = 100;
         videoEditorSourceEl.volume = 1;
         this._hasUnsavedChanges = true;
         this._drawFrame();
     },
 
-    handlePropsOpen() { videoEditorPropsModalEl.classList.remove('hidden'); videoEditorPropsModalEl.classList.add('flex'); },
-    handlePropsClose() { videoEditorPropsModalEl.classList.add('hidden'); videoEditorPropsModalEl.classList.remove('flex'); },
+    // ===================== Generic Drawer — khung DÙNG CHUNG cho Chỉnh/Sửa chữ/Chọn nhạc/Dịch
+    // chuyển đoạn (core/generic-drawer.js, TÁI SỬ DỤNG THẬT theo yêu cầu Giang — cấm dựng modal
+    // mới lặp lại). Nội dung động (bodyHtml) do CHÍNH các hàm handleXxxOpen() dưới đây tự viết +
+    // querySelector lại NGAY SAU khi gọi openGenericDrawer() để wire trực tiếp (KHÔNG qua
+    // eventBus.send() cho các phần tử NÀY — đúng quy ước đã có của Generic Drawer trong toàn app,
+    // xem event/workflow/document-reader.js, KHÁC với quy ước Rule 5a áp cho DOM do CHÍNH file này
+    // tự dựng ở nơi khác như toolbar/track — 2 quy ước độc lập, không mâu thuẫn). =====================
+
+    _buildDrawerHeaderHtml(title) {
+        return `<div class="flex items-center justify-between px-4 pt-1 pb-3 border-b border-slate-100"><h3 class="font-bold text-sm text-slate-900">${_escapeVideoEditorHtml(title)}</h3><button id="ve-gd-close-btn" type="button" class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-sm leading-none">&times;</button></div>`;
+    },
+
+    _wireDrawerCloseButton() {
+        const btn = genericDrawerHeader.querySelector('#ve-gd-close-btn');
+        if (btn) btn.addEventListener('click', () => this._closeGenericDrawerFully());
+    },
+
+    /** Đóng Generic Drawer (dùng CHUNG cho cả 4 loại nội dung) — cùng mẫu `document-reader.js`:
+     * `closeGenericDrawer()` chỉ trượt xuống, tự nghe `transitionend` rồi mới `hideGenericDrawerImmediately()`
+     * ẩn hẳn (core KHÔNG tự addEventListener cho DOM tĩnh, Rule 5a). Luôn refresh lại toolbar/track/
+     * preview sau khi đóng — AN TOÀN dù vừa đóng loại nội dung nào (đổi filter/text/nhạc đều cần). */
+    _closeGenericDrawerFully() {
+        closeGenericDrawer(); // core/generic-drawer.js
+        genericDrawerPanel.addEventListener('transitionend', function onTransitionEnd() {
+            genericDrawerPanel.removeEventListener('transitionend', onTransitionEnd);
+            hideGenericDrawerImmediately(); // core/generic-drawer.js
+        }, { once: true });
+        this._renderAllTracks();
+        this._renderToolbar();
+        this._drawFrame();
+    },
+
+    // ===================== "Chỉnh" (Filter + Volume gốc, toàn cục) =====================
+
+    handlePropsOpen() {
+        const bodyHtml = `
+            <div class="px-4 pb-6 flex flex-col gap-5">
+                <div><label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.volVideo'))}</span><span id="ve-gd-vol-video-val">${this._volumeVideo}%</span></label><input type="range" id="ve-gd-vol-video" min="0" max="200" value="${this._volumeVideo}" class="w-full"></div>
+                <div><label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.filterBrightness'))}</span><span id="ve-gd-brightness-val">${this._brightness}%</span></label><input type="range" id="ve-gd-brightness" min="50" max="150" value="${this._brightness}" class="w-full"></div>
+                <div><label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.filterContrast'))}</span><span id="ve-gd-contrast-val">${this._contrast}%</span></label><input type="range" id="ve-gd-contrast" min="50" max="150" value="${this._contrast}" class="w-full"></div>
+                <div><label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.filterSaturation'))}</span><span id="ve-gd-saturation-val">${this._saturation}%</span></label><input type="range" id="ve-gd-saturation" min="0" max="200" value="${this._saturation}" class="w-full"></div>
+            </div>`;
+        openGenericDrawer({ height: 'auto', maxHeight: '60vh', headerHtml: this._buildDrawerHeaderHtml(t('videoEdit.propsModal.title')), bodyHtml });
+        this._wireDrawerCloseButton();
+
+        const volEl = genericDrawerBody.querySelector('#ve-gd-vol-video');
+        const volValEl = genericDrawerBody.querySelector('#ve-gd-vol-video-val');
+        volEl.addEventListener('input', () => {
+            this._volumeVideo = parseInt(volEl.value, 10) || 0;
+            volValEl.textContent = `${this._volumeVideo}%`;
+            videoEditorSourceEl.volume = Math.min(1, this._volumeVideo / 100);
+            this._hasUnsavedChanges = true;
+        });
+        [['brightness', '_brightness'], ['contrast', '_contrast'], ['saturation', '_saturation']].forEach(([domName, field]) => {
+            const el = genericDrawerBody.querySelector(`#ve-gd-${domName}`);
+            const valEl = genericDrawerBody.querySelector(`#ve-gd-${domName}-val`);
+            el.addEventListener('input', () => {
+                this[field] = parseInt(el.value, 10) || 100;
+                valEl.textContent = `${this[field]}%`;
+                this._hasUnsavedChanges = true;
+                if (!this._isPlaying) this._drawFrame();
+            });
+        });
+    },
 
     // ===================== Trích xuất ảnh (không đổi) =====================
 
@@ -780,16 +891,42 @@ const workflowVideoEditor = {
         await alertModal(t('videoEdit.extractFrame.success'));
     },
 
-    // ===================== Thêm nhạc (modal chọn — thay panel bottom-sheet cũ) =====================
+    // ===================== Thêm nhạc (Generic Drawer — chỉ hiện thanh tìm kiếm, KHÔNG tự hiện cả
+    // danh sách; chưa gõ gì báo "gõ để tìm", gõ mà không khớp báo "không tìm thấy" — Giang yêu cầu) =====================
 
     handleAddMusicOpen() {
-        videoEditorSongPickerModalEl.classList.remove('hidden'); videoEditorSongPickerModalEl.classList.add('flex');
+        const bodyHtml = `
+            <div class="px-4 pb-4 flex flex-col gap-2.5 h-full">
+                <div class="relative shrink-0">
+                    <input id="ve-gd-song-search" type="text" inputmode="search" autocomplete="off" placeholder="${_escapeVideoEditorHtml(t('videoEdit.songSearch.placeholder'))}" class="w-full bg-slate-100 border border-slate-200 rounded-xl pl-3 pr-8 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none">
+                    <button id="ve-gd-song-search-clear" type="button" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm leading-none">&times;</button>
+                </div>
+                <div id="ve-gd-song-list" class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1"></div>
+            </div>`;
+        openGenericDrawer({ height: '70vh', headerHtml: this._buildDrawerHeaderHtml(t('videoEdit.songPicker.title')), bodyHtml, bodyClass: 'overflow-hidden flex flex-col' });
+        this._wireDrawerCloseButton();
+
+        this._songSearchQuery = ''; // MỖI LẦN MỞ reset rỗng — không tự hiện toàn bộ danh sách
+        const searchEl = genericDrawerBody.querySelector('#ve-gd-song-search');
+        const clearBtn = genericDrawerBody.querySelector('#ve-gd-song-search-clear');
+        searchEl.addEventListener('input', () => {
+            this._songSearchQuery = normalizeSongName(searchEl.value); // core/song-search.js
+            clearBtn.classList.toggle('hidden', !searchEl.value);
+            this._renderSongList();
+        });
+        clearBtn.addEventListener('click', () => {
+            searchEl.value = '';
+            clearBtn.classList.add('hidden');
+            this._songSearchQuery = '';
+            this._renderSongList();
+            searchEl.focus();
+        });
         this._ensureSongListLoaded();
+        this._renderSongList(); // hiện NGAY thông báo "gõ để tìm" trước khi danh sách tải xong
     },
-    handleSongPickerClose() { videoEditorSongPickerModalEl.classList.add('hidden'); videoEditorSongPickerModalEl.classList.remove('flex'); },
 
     async _ensureSongListLoaded() {
-        if (this._songListCache) { this._renderSongList(); return; }
+        if (this._songListCache) return;
         const keys = await getAllSongKeys();
         const records = await Promise.all(keys.map(async (key) => {
             const record = await getSongRecord(key);
@@ -800,51 +937,52 @@ const workflowVideoEditor = {
     },
 
     _renderSongList() {
+        const listEl = genericDrawerBody.querySelector('#ve-gd-song-list');
+        if (!listEl) return; // drawer đã đóng/đổi nội dung khác trong lúc đang tải — bỏ qua an toàn
         const query = this._songSearchQuery;
-        const filtered = this._songListCache.filter((item) => songMatchesQuery(query, item.tag.title, item.tag.artist, item.tag.album)); // core/song-search.js
-        videoEditorSongListEl.innerHTML = '';
+        if (!query) {
+            listEl.innerHTML = `<p class="text-center text-xs text-slate-400 py-8">${_escapeVideoEditorHtml(t('videoEdit.songSearch.emptyPrompt'))}</p>`;
+            return;
+        }
+        const filtered = (this._songListCache || []).filter((item) => songMatchesQuery(query, item.tag.title, item.tag.artist, item.tag.album)); // core/song-search.js
+        if (!filtered.length) {
+            listEl.innerHTML = `<p class="text-center text-xs text-slate-400 py-8">${_escapeVideoEditorHtml(t('videoEdit.songSearch.noResults'))}</p>`;
+            return;
+        }
+        listEl.innerHTML = '';
         filtered.forEach((item) => {
             const row = document.createElement('button');
             row.type = 'button';
-            row.className = 'w-full text-left px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 flex flex-col';
-            row.innerHTML = `<span class="text-xs font-semibold text-white truncate">${_escapeVideoEditorHtml(item.tag.title || item.key)}</span><span class="text-[10px] text-slate-400 truncate">${_escapeVideoEditorHtml(item.tag.artist || '')}</span>`;
-            row.addEventListener('click', () => eventBus.send({ router: 'videoEdit', type: 'videoEdit.songPicker.select', payload: { songKey: item.key } }));
-            videoEditorSongListEl.appendChild(row);
+            row.className = 'w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 flex flex-col';
+            row.innerHTML = `<span class="text-xs font-semibold text-slate-900 truncate">${_escapeVideoEditorHtml(item.tag.title || item.key)}</span><span class="text-[10px] text-slate-400 truncate">${_escapeVideoEditorHtml(item.tag.artist || '')}</span>`;
+            row.addEventListener('click', () => this._handleSongPickerSelect(item.key));
+            listEl.appendChild(row);
         });
     },
 
-    handleSongSearchInput(value) {
-        this._songSearchQuery = normalizeSongName(value); // core/song-search.js
-        btnVeSongSearchClear.classList.toggle('hidden', !value);
-        this._renderSongList();
-    },
-
-    handleSongSearchClear() {
-        videoEditorSongSearchInputEl.value = '';
-        btnVeSongSearchClear.classList.add('hidden');
-        this._songSearchQuery = '';
-        this._renderSongList();
-        videoEditorSongSearchInputEl.focus();
-    },
-
-    async handleSongPickerSelect(songKey) {
+    async _handleSongPickerSelect(songKey) {
         const record = await getSongRecord(songKey);
         if (!record) return;
         const outputTime = this._computeCurrentOutputTime();
         const length = Math.min(10, record.duration || 10);
         this._audioClips.push({ id: this._nextId(), songKey, record, timelineStart: outputTime, timelineEnd: outputTime + length, offsetInSong: 0, volume: 1 });
         this._selected = { track: 'audio', index: this._audioClips.length - 1 };
-        this.handleSongPickerClose();
         this._hasUnsavedChanges = true;
-        this._renderAllTracks();
-        this._renderToolbar();
+        this._closeGenericDrawerFully();
     },
 
-    // ===================== Chữ (Text overlay đa-clip) =====================
+    // ===================== Chữ (Text overlay đa-clip — MỞ RỘNG: phông Google Fonts, đậm/nghiêng,
+    // blur, đổ bóng bật/tắt, transition fade cơ bản; vị trí/kích cỡ/góc xoay giờ chỉnh trực tiếp
+    // trên preview bằng cử chỉ, xem handlePreviewTextDrag*/handlePreviewTextPinch*) =====================
 
     handleAddText() {
         const outputTime = this._computeCurrentOutputTime();
-        this._textClips.push({ id: this._nextId(), val: t('videoEdit.text.defaultValue'), size: 60, color: '#ffffff', posY: 80, timelineStart: outputTime, timelineEnd: outputTime + 3 });
+        this._textClips.push({
+            id: this._nextId(), val: t('videoEdit.text.defaultValue'),
+            size: 60, color: '#ffffff', posX: 50, posY: 80, rotation: 0,
+            bold: false, italic: false, fontFamily: 'system-ui', blur: 0, shadow: true, transition: 'none',
+            timelineStart: outputTime, timelineEnd: outputTime + 3,
+        });
         this._selected = { track: 'text', index: this._textClips.length - 1 };
         this._hasUnsavedChanges = true;
         this._renderAllTracks();
@@ -857,28 +995,67 @@ const workflowVideoEditor = {
     handleTextEditOpen() {
         const clip = this._activeTextClip();
         if (!clip) return;
-        videoEditorTextValueEl.value = clip.val;
-        sliderVeTextSize.value = clip.size;
-        videoEditorTextColorEl.value = clip.color;
-        sliderVeTextPosY.value = clip.posY;
-        videoEditorTextPosYDisplayEl.textContent = `${clip.posY}%`;
-        videoEditorTextEditModalEl.classList.remove('hidden'); videoEditorTextEditModalEl.classList.add('flex');
-    },
+        const fontOptionsHtml = VIDEO_EDITOR_FONTS.map((f) => `<option value="${_escapeVideoEditorHtml(f.value)}" ${clip.fontFamily === f.value ? 'selected' : ''}>${_escapeVideoEditorHtml(f.label)}</option>`).join('');
+        const boldClass = (on) => `py-2 rounded-xl text-xs font-bold border ${on ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-100 text-slate-600 border-slate-200'}`;
+        const italicClass = (on) => `py-2 rounded-xl text-xs italic font-semibold border ${on ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-100 text-slate-600 border-slate-200'}`;
+        const bodyHtml = `
+            <div class="px-4 pb-6 flex flex-col gap-3">
+                <input type="text" id="ve-gd-text-value" value="${_escapeVideoEditorHtml(clip.val)}" class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 outline-none">
+                <select id="ve-gd-text-font" class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 outline-none" style="font-family:'${clip.fontFamily}'">${fontOptionsHtml}</select>
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" id="ve-gd-text-bold" class="${boldClass(clip.bold)}">B</button>
+                    <button type="button" id="ve-gd-text-italic" class="${italicClass(clip.italic)}">I</button>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <label class="block text-[10px] text-slate-500 mb-1.5">${_escapeVideoEditorHtml(t('videoEdit.text.size'))}</label>
+                        <input type="range" id="ve-gd-text-size" min="20" max="150" value="${clip.size}">
+                    </div>
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <label class="block text-[10px] text-slate-500 mb-1.5">${_escapeVideoEditorHtml(t('videoEdit.text.color'))}</label>
+                        <input type="color" id="ve-gd-text-color" value="${clip.color}" class="w-full h-7 bg-transparent border-0 rounded cursor-pointer p-0">
+                    </div>
+                </div>
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <label class="flex justify-between text-[10px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.text.blur'))}</span><span id="ve-gd-text-blur-val">${clip.blur || 0}px</span></label>
+                    <input type="range" id="ve-gd-text-blur" min="0" max="20" value="${clip.blur || 0}">
+                </div>
+                <label class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span class="text-[11px] text-slate-600">${_escapeVideoEditorHtml(t('videoEdit.text.shadow'))}</span>
+                    <input type="checkbox" id="ve-gd-text-shadow" ${clip.shadow !== false ? 'checked' : ''}>
+                </label>
+                <div>
+                    <label class="block text-[10px] text-slate-500 mb-1.5">${_escapeVideoEditorHtml(t('videoEdit.text.transition'))}</label>
+                    <select id="ve-gd-text-transition" class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 outline-none">
+                        <option value="none" ${clip.transition !== 'fade' ? 'selected' : ''}>${_escapeVideoEditorHtml(t('videoEdit.text.transitionNone'))}</option>
+                        <option value="fade" ${clip.transition === 'fade' ? 'selected' : ''}>${_escapeVideoEditorHtml(t('videoEdit.text.transitionFade'))}</option>
+                    </select>
+                </div>
+                <p class="text-[10px] text-slate-400 text-center">${_escapeVideoEditorHtml(t('videoEdit.text.gestureHint'))}</p>
+            </div>`;
+        openGenericDrawer({ height: 'auto', maxHeight: '85vh', headerHtml: this._buildDrawerHeaderHtml(t('videoEdit.textEdit.title')), bodyHtml });
+        this._wireDrawerCloseButton();
 
-    handleTextEditClose() {
-        videoEditorTextEditModalEl.classList.add('hidden'); videoEditorTextEditModalEl.classList.remove('flex');
-        this._renderAllTracks();
-        this._drawFrame();
-    },
+        const valueEl = genericDrawerBody.querySelector('#ve-gd-text-value');
+        const fontEl = genericDrawerBody.querySelector('#ve-gd-text-font');
+        const boldBtn = genericDrawerBody.querySelector('#ve-gd-text-bold');
+        const italicBtn = genericDrawerBody.querySelector('#ve-gd-text-italic');
+        const sizeEl = genericDrawerBody.querySelector('#ve-gd-text-size');
+        const colorEl = genericDrawerBody.querySelector('#ve-gd-text-color');
+        const blurEl = genericDrawerBody.querySelector('#ve-gd-text-blur');
+        const blurValEl = genericDrawerBody.querySelector('#ve-gd-text-blur-val');
+        const shadowEl = genericDrawerBody.querySelector('#ve-gd-text-shadow');
+        const transitionEl = genericDrawerBody.querySelector('#ve-gd-text-transition');
 
-    handleTextValueInput(value) { const c = this._activeTextClip(); if (!c) return; c.val = value; this._hasUnsavedChanges = true; },
-    handleTextSizeChange(value) { const c = this._activeTextClip(); if (!c) return; c.size = parseInt(value, 10) || 60; this._hasUnsavedChanges = true; this._drawFrame(); },
-    handleTextColorChange(value) { const c = this._activeTextClip(); if (!c) return; c.color = value; this._hasUnsavedChanges = true; this._drawFrame(); },
-    handleTextPosYChange(value) {
-        const c = this._activeTextClip(); if (!c) return;
-        c.posY = parseInt(value, 10) || 80;
-        videoEditorTextPosYDisplayEl.textContent = `${c.posY}%`;
-        this._hasUnsavedChanges = true; this._drawFrame();
+        valueEl.addEventListener('input', () => { const c = this._activeTextClip(); if (!c) return; c.val = valueEl.value; this._hasUnsavedChanges = true; this._drawFrame(); });
+        fontEl.addEventListener('change', () => { const c = this._activeTextClip(); if (!c) return; c.fontFamily = fontEl.value; fontEl.style.fontFamily = `'${fontEl.value}'`; this._hasUnsavedChanges = true; this._drawFrame(); });
+        boldBtn.addEventListener('click', () => { const c = this._activeTextClip(); if (!c) return; c.bold = !c.bold; boldBtn.className = boldClass(c.bold); this._hasUnsavedChanges = true; this._drawFrame(); });
+        italicBtn.addEventListener('click', () => { const c = this._activeTextClip(); if (!c) return; c.italic = !c.italic; italicBtn.className = italicClass(c.italic); this._hasUnsavedChanges = true; this._drawFrame(); });
+        sizeEl.addEventListener('input', () => { const c = this._activeTextClip(); if (!c) return; c.size = parseInt(sizeEl.value, 10) || 60; this._hasUnsavedChanges = true; this._drawFrame(); });
+        colorEl.addEventListener('input', () => { const c = this._activeTextClip(); if (!c) return; c.color = colorEl.value; this._hasUnsavedChanges = true; this._drawFrame(); });
+        blurEl.addEventListener('input', () => { const c = this._activeTextClip(); if (!c) return; c.blur = parseInt(blurEl.value, 10) || 0; blurValEl.textContent = `${c.blur}px`; this._hasUnsavedChanges = true; this._drawFrame(); });
+        shadowEl.addEventListener('change', () => { const c = this._activeTextClip(); if (!c) return; c.shadow = shadowEl.checked; this._hasUnsavedChanges = true; this._drawFrame(); });
+        transitionEl.addEventListener('change', () => { const c = this._activeTextClip(); if (!c) return; c.transition = transitionEl.value; this._hasUnsavedChanges = true; this._drawFrame(); });
     },
 
     // ===================== "Dịch chuyển tới đoạn" (chọn đoạn nhạc gốc + âm lượng riêng clip) =====================
@@ -888,51 +1065,73 @@ const workflowVideoEditor = {
     handleSongShiftOpen() {
         const clip = this._activeAudioClip();
         if (!clip) return;
-        videoEditorSongShiftModalEl.classList.remove('hidden'); videoEditorSongShiftModalEl.classList.add('flex');
-        sliderVeClipVolume.value = Math.round(clip.volume * 100);
-        videoEditorClipVolumeValEl.textContent = `${Math.round(clip.volume * 100)}%`;
-        this._renderSongShiftBar();
-    },
+        const bodyHtml = `
+            <div class="px-4 pb-6 flex flex-col gap-4">
+                <p class="text-center text-[11px] text-slate-500">${_escapeVideoEditorHtml(t('videoEdit.songShift.positionLabel'))}: ${formatClipTimeLabel(clip.timelineStart)} – ${formatClipTimeLabel(clip.timelineEnd)} / ${formatClipTimeLabel(this._totalDuration())}</p>
+                <div>
+                    <div id="ve-gd-shift-time-label" class="text-center text-[11px] font-mono text-emerald-600 mb-2"></div>
+                    <div id="ve-gd-shift-bar-wrap" class="relative h-14 rounded-lg overflow-hidden bg-slate-100 select-none" style="touch-action:none;">
+                        <div id="ve-gd-shift-window" class="absolute top-0 bottom-0 bg-emerald-500/80 border-2 border-emerald-600 rounded" style="touch-action:none;"></div>
+                    </div>
+                </div>
+                <div>
+                    <label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.clipVolume.label'))}</span><span id="ve-gd-clip-vol-val">${Math.round(clip.volume * 100)}%</span></label>
+                    <input type="range" id="ve-gd-clip-vol" min="0" max="200" value="${Math.round(clip.volume * 100)}">
+                </div>
+            </div>`;
+        openGenericDrawer({ height: 'auto', maxHeight: '65vh', headerHtml: this._buildDrawerHeaderHtml(t('videoEdit.songShift.title')), bodyHtml });
+        this._wireDrawerCloseButton();
 
-    _renderSongShiftBar() {
-        const clip = this._activeAudioClip();
-        if (!clip) return;
-        const barWidth = videoEditorSongShiftBarWrapEl.clientWidth || 300;
-        const songDuration = clip.record.duration || 1;
-        this._songShiftPxPerSec = barWidth / songDuration;
-        const clipLength = clip.timelineEnd - clip.timelineStart;
-        videoEditorSongShiftWindowEl.style.left = `${clip.offsetInSong * this._songShiftPxPerSec}px`;
-        videoEditorSongShiftWindowEl.style.width = `${Math.max(8, clipLength * this._songShiftPxPerSec)}px`;
-        videoEditorSongShiftTimeLabelEl.textContent = `${formatClipTimeLabel(clip.offsetInSong)} / ${formatClipTimeLabel(songDuration)}`;
-    },
+        const wrapEl = genericDrawerBody.querySelector('#ve-gd-shift-bar-wrap');
+        const windowEl = genericDrawerBody.querySelector('#ve-gd-shift-window');
+        const timeLabelEl = genericDrawerBody.querySelector('#ve-gd-shift-time-label');
+        const volEl = genericDrawerBody.querySelector('#ve-gd-clip-vol');
+        const volValEl = genericDrawerBody.querySelector('#ve-gd-clip-vol-val');
 
-    handleSongShiftDragStart(clientX) { this._dragLastClientX = clientX; this._draggingSongShift = true; },
+        const renderBar = () => {
+            const c = this._activeAudioClip();
+            if (!c) return;
+            const barWidth = wrapEl.clientWidth || 300;
+            const songDuration = c.record.duration || 1;
+            this._songShiftPxPerSec = barWidth / songDuration;
+            const clipLength = c.timelineEnd - c.timelineStart;
+            windowEl.style.left = `${c.offsetInSong * this._songShiftPxPerSec}px`;
+            windowEl.style.width = `${Math.max(10, clipLength * this._songShiftPxPerSec)}px`;
+            timeLabelEl.textContent = `${formatClipTimeLabel(c.offsetInSong)} / ${formatClipTimeLabel(songDuration)}`;
+        };
+        // SỬA (Giang báo "chưa chọn được") — đợi 1 khung `requestAnimationFrame` trước khi đo
+        // `clientWidth`, tránh đọc trúng lúc panel VỪA hiện (chưa layout xong, có thể trả 0/sai).
+        requestAnimationFrame(renderBar);
 
-    handleSongShiftDragMove(clientX) {
-        if (!this._draggingSongShift) return;
-        const clip = this._activeAudioClip();
-        if (!clip) return;
-        const deltaSec = (clientX - this._dragLastClientX) / (this._songShiftPxPerSec || 1);
-        this._dragLastClientX = clientX;
-        const clipLength = clip.timelineEnd - clip.timelineStart;
-        clip.offsetInSong = clampSongOffsetDrag(clip.offsetInSong + deltaSec, clipLength, clip.record.duration || 0); // core/video-editor/audio-sync.js
-        this._renderSongShiftBar();
-        this._hasUnsavedChanges = true;
-    },
+        let dragging = false;
+        let lastX = 0;
+        windowEl.addEventListener('pointerdown', (e) => {
+            dragging = true;
+            lastX = e.clientX;
+            try { windowEl.setPointerCapture(e.pointerId); } catch (err) { /* không sao — vẫn kéo qua cờ dragging */ }
+        });
+        windowEl.addEventListener('pointermove', (e) => {
+            if (!dragging) return;
+            const c = this._activeAudioClip();
+            if (!c) return;
+            const deltaSec = (e.clientX - lastX) / (this._songShiftPxPerSec || 1);
+            lastX = e.clientX;
+            const clipLength = c.timelineEnd - c.timelineStart;
+            c.offsetInSong = clampSongOffsetDrag(c.offsetInSong + deltaSec, clipLength, c.record.duration || 0); // core/video-editor/audio-sync.js
+            this._hasUnsavedChanges = true;
+            renderBar();
+        });
+        const endDrag = (e) => { dragging = false; try { windowEl.releasePointerCapture(e.pointerId); } catch (err) { /* không sao */ } };
+        windowEl.addEventListener('pointerup', endDrag);
+        windowEl.addEventListener('pointercancel', () => { dragging = false; });
 
-    handleSongShiftDragEnd() { this._draggingSongShift = false; },
-
-    handleClipVolumeChange(value) {
-        const clip = this._activeAudioClip();
-        if (!clip) return;
-        clip.volume = (parseInt(value, 10) || 0) / 100;
-        videoEditorClipVolumeValEl.textContent = `${value}%`;
-        this._hasUnsavedChanges = true;
-    },
-
-    handleSongShiftClose() {
-        videoEditorSongShiftModalEl.classList.add('hidden'); videoEditorSongShiftModalEl.classList.remove('flex');
-        this._renderAllTracks();
+        volEl.addEventListener('input', () => {
+            const c = this._activeAudioClip();
+            if (!c) return;
+            c.volume = (parseInt(volEl.value, 10) || 0) / 100;
+            volValEl.textContent = `${volEl.value}%`;
+            this._hasUnsavedChanges = true;
+        });
     },
 
     // ===================== Lưu (dropdown Ghi đè | Lưu mới) =====================
