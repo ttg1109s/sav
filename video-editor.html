@@ -32,9 +32,19 @@
        pattern đã dùng ở subtitle-editor.html, xem 2 <script> CDN mới ngay dưới đây). Vùng chọn
        (Region) LUÔN giữ NGUYÊN độ rộng (= độ dài clip trên timeline, đúng logic cũ) — kéo CHỈ dịch
        offset trong bài hát (`resize:false`, `drag:true`). Thêm nút Play chỉ phát ĐÚNG vùng chọn.
-       Slider Volume (0-200%) SỬA để cập nhật NGAY lúc kéo (trước chỉ áp lúc đổi bài hát) + dùng
-       GainNode (core/video-editor/media-gain.js, MỚI) để mức >100% ra ĐÚNG cả lúc xem trước lẫn lúc
-       xuất thật (thẻ <audio>/<video> gốc không thể khuếch đại vượt 100%).
+       Slider Volume (0-200%) SỬA để cập nhật NGAY lúc kéo (trước chỉ áp lúc đổi bài hát).
+
+    [SỬA CÙNG NGÀY 24/07/2026 — Giang báo 2 bug]
+    1) "Mất tiếng cả video cả nhạc" — bản đầu mục e có dùng GainNode (core/video-editor/media-gain.js,
+       `createMediaElementSource()`) để Volume >100% ra đúng cả preview lẫn xuất thật — ĐÃ BỎ HẲN
+       (file `media-gain.js` không còn dùng, Giang XOÁ thủ công được — script <script> nạp file này
+       cũng đã gỡ khỏi <head>). Nguyên nhân: AudioContext tự tạo NGOÀI user-gesture mặc định
+       'suspended', không hề được `.resume()` ở đâu, câm HẲN toàn bộ đường phát audio đi qua nó (chi
+       tiết đầy đủ xem docstring đầu event/workflow/video-editor.js). Quay lại `.volume` gốc — chấp
+       nhận giới hạn preview >100% không to hơn 100%, nhưng xuất thật (Lưu) vẫn khuếch đại đúng.
+    2) Clip Nhạc mới thêm mặc định 10 giây tại vị trí con trỏ — SỬA thành LUÔN phủ toàn bộ video
+       (timelineStart:0 → timelineEnd = tổng thời lượng video, kẹp theo độ dài thật của bài hát nếu
+       ngắn hơn) — xem event/workflow/video-editor.js::_handleSongPickerSelect().
 -->
 <html lang="en">
 <head>
@@ -254,13 +264,10 @@
     <script src="core/video-editor/timeline-calc.js?v=20260723v2"></script>
     <script src="core/video-editor/preview-draw.js?v=20260724v1"></script>
     <script src="core/video-editor/audio-sync.js?v=20260723v2"></script>
-    <!-- MỚI (24/07/2026, mục e — Giang) — GainNode Web Audio cho thẻ <video>/<audio>, để mức Volume
-         >100% ra ĐÚNG cả lúc xem trước lẫn lúc xuất thật (thẻ media gốc chỉ nhận .volume 0-1). -->
-    <script src="core/video-editor/media-gain.js?v=20260724v1"></script>
     <script src="core/image-editor/cropper-engine.js?v=20260723v1"></script>
     <script src="core/file-manager/image.js?v=20260714v2"></script>
     <script src="core/file-manager/video.js?v=20260714v1"></script>
-    <script src="event/workflow/video-editor.js?v=20260724v1"></script>
+    <script src="event/workflow/video-editor.js?v=20260724v2"></script>
     <script src="event/router/video-editor.js?v=20260724v1"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowVideoEditor.init() ngay khi chạy. -->
     <script src="event/listener/video-editor.js?v=20260724v1"></script>
