@@ -309,6 +309,15 @@
             // event/workflow,router,listener/virtual-list.js — picker ảnh Generic Drawer giờ dùng
             // event/workflow/photo-gallery-window.js (IntersectionObserver, không cần cờ gate nào).
             isGenericDrawerOpen: 'boolean',
+            // MỚI (24/07/2026, phản hồi Giang mục 2) — CHỈ dùng ở `video-editor.html` (account
+            // 'videoEditor'). event/workflow/video-editor.js tự ghi lại 2 field này MỖI LẦN
+            // `_audioClips`/`_textClips` đổi (thêm/nhân bản/xoá/trim/tách) — true khi track đó đã
+            // "phủ kín" tới hết `_totalDuration()` (không còn khoảng trống nào để thêm clip mới có
+            // nghĩa). Event/block.js đọc 2 field này để CHẶN hẳn `videoEdit.addMusic.open`/
+            // `videoEdit.addText.click` kèm `notify` báo lý do — xem docstring
+            // `_recomputeTrackFullFlags()` trong workflow.
+            videoEditAudioTrackFull: 'boolean',
+            videoEditTextTrackFull: 'boolean',
             // MỚI (14/07/2026, Giang yêu cầu) — trang ĐANG xem của danh sách folder ở File Manager
             // -> Song (0-based, 10 folder/trang, xem event/workflow/file-manager-song.js +
             // core/pagination.js). Workflow tự đọc field này rồi TRUYỀN vào computePage() (core
@@ -529,6 +538,10 @@
                 pageCurrentFolderDetailSongList: 0,
                 pageCurrentDocumentList: 0,
                 staleFolderListRowId: null,
+
+                // ── video editor (trang riêng, account 'videoEditor') ────────────
+                videoEditAudioTrackFull: false,
+                videoEditTextTrackFull: false,
             };
         }
 
