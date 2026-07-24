@@ -8,6 +8,14 @@
  * trong toolbar theo lựa chọn) và `videoEdit.volSong` (nay Nhạc là NHIỀU clip, âm lượng riêng từng
  * clip — xem `videoEdit.clipVolume.label`). Thêm key cho toolbar icon động + 4 modal mới (Chỉnh/Sửa
  * chữ/Chọn nhạc/Dịch chuyển đoạn).
+ *
+ * [v4, 24/07/2026, phản hồi Giang]
+ * d) BỎ `videoEdit.btnAdjust.title`/`videoEdit.propsModal.title`/`videoEdit.volVideo`/
+ *    `videoEdit.filterBrightness`/`videoEdit.filterContrast`/`videoEdit.filterSaturation` ("Chỉnh"
+ *    bỏ hẳn) — THÊM `videoEdit.btnVolume.title`/`videoEdit.videoClipVolume.label`/
+ *    `videoEdit.videoClipVolume.title` (Volume RIÊNG từng đoạn Video, mở từ toolbar lúc đang chọn).
+ * e) THÊM `videoEdit.songShift.waveformError` (WaveSurfer tải/giải mã lỗi, cùng tinh thần
+ *    `subtitleEditor.waveformError` ở patch-subtitle-editor.js).
  */
 const LANG_PATCH_VIDEO_EDITOR = {
     'videoEdit.invalidLink': 'This link is invalid or has expired.',
@@ -27,7 +35,6 @@ const LANG_PATCH_VIDEO_EDITOR = {
     'videoEdit.btnCrop.title': 'Crop',
     'videoEdit.btnRotateLeft.title': 'Rotate left',
     'videoEdit.btnRotateRight.title': 'Rotate right',
-    'videoEdit.btnAdjust.title': 'Adjust',
     'videoEdit.btnReset.title': 'Reset',
     'videoEdit.btnExtractFrame.title': 'Extract photo',
     'videoEdit.btnAddMusic.title': 'Add music',
@@ -40,15 +47,13 @@ const LANG_PATCH_VIDEO_EDITOR = {
     'videoEdit.btnDelete.title': 'Delete',
     'videoEdit.btnMoveEarlier.title': 'Move earlier',
     'videoEdit.btnMoveLater.title': 'Move later',
+    'videoEdit.btnVolume.title': 'Volume',
     'videoEdit.btnShiftSegment.title': 'Adjust music',
     'videoEdit.btnEditText.title': 'Edit text',
 
-    // Modal "Chỉnh" (Filter + Volume gốc, toàn cục).
-    'videoEdit.propsModal.title': 'Adjust',
-    'videoEdit.volVideo': 'Original audio volume',
-    'videoEdit.filterBrightness': 'Brightness',
-    'videoEdit.filterContrast': 'Contrast',
-    'videoEdit.filterSaturation': 'Saturation',
+    // Drawer Volume — RIÊNG của 1 đoạn Video đang chọn (MỚI, mục d — thay "Chỉnh" toàn cục đã bỏ).
+    'videoEdit.videoClipVolume.title': 'Clip volume',
+    'videoEdit.videoClipVolume.label': 'Volume',
 
     // Overlay Crop (Cropper.js).
     'videoEdit.cropOverlay.title': 'Crop video',
@@ -82,6 +87,7 @@ const LANG_PATCH_VIDEO_EDITOR = {
     // Modal "Dịch chuyển tới đoạn" (chọn đoạn nhạc gốc + âm lượng riêng clip nhạc đang chọn).
     'videoEdit.songShift.title': 'Adjust music clip',
     'videoEdit.songShift.positionLabel': 'Position on video',
+    'videoEdit.songShift.waveformError': 'Could not load the waveform (check your connection and try again).',
     'videoEdit.clipVolume.label': 'Clip volume',
 
     // Lưu (dropdown).
