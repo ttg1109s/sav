@@ -34,10 +34,19 @@
  *    (WaveSurfer.js v7 + Regions, tái dùng đúng thư viện/pattern đã có ở subtitle-editor.html).
  *    Region LUÔN giữ NGUYÊN độ rộng (= độ dài clip) — kéo chỉ dịch `offsetInSong` (đúng logic cũ,
  *    `clampSongOffsetDrag()`, core/video-editor/audio-sync.js). Thêm nút Play phát ĐÚNG vùng chọn.
- * Volume >100% (Video lẫn Nhạc) dùng GainNode (`core/video-editor/media-gain.js`, MỚI) thay vì gán
- * thẳng `.volume` (thẻ media gốc kẹp ở 1.0 = 100%, không khớp bản xuất thật dùng GainNode) — 2 gain
- * node sống suốt vòng đời trang: `_videoGainBoost` (cho `videoEditorSourceEl`), `_songGainBoost`
- * (cho `videoEditorSongAudioEl`), tạo lười 1 LẦN DUY NHẤT lúc metadata sẵn sàng.
+ *
+ * [SỬA CÙNG NGÀY 24/07/2026 — Giang báo "mất tiếng cả video cả nhạc"] Bản đầu mục e có dùng GainNode
+ * (`core/video-editor/media-gain.js`, `createMediaElementSource()`) để Volume >100% ra ĐÚNG cả
+ * preview lẫn xuất thật — ĐÃ BỎ HẲN (file `media-gain.js` không còn dùng, XOÁ được). NGUYÊN NHÂN
+ * câm tiếng: `createMediaElementSource()` tự NGẮT đường phát mặc định của thẻ media, âm thanh CHỈ
+ * còn ra qua graph Web Audio tự nối — graph đó CHỈ chạy khi AudioContext ở trạng thái 'running',
+ * trong khi context được tạo trong `_onMetadataReady()` (do sự kiện 'loadedmetadata', KHÔNG phải
+ * user-gesture) MẶC ĐỊNH 'suspended' và KHÔNG hề được `.resume()` ở đâu — câm HẲN cả video lẫn nhạc,
+ * kể cả volume=100% (không liên quan gì >100% nữa, toàn bộ đường phát bị khoá). Quay lại `.volume`
+ * gốc kẹp [0,1] cho cả `videoEditorSourceEl`/`videoEditorSongAudioEl`/waveform preview — CHẤP NHẬN
+ * giới hạn: volume >100% ở PREVIEW nghe như đúng 100% (thẻ media gốc không khuếch đại được), nhưng
+ * lúc XUẤT THẬT (Lưu) vẫn khuếch đại ĐÚNG >100% (webcodecs-engine.js dùng OfflineAudioContext —
+ * KHÔNG cần user-gesture vì không phát ra loa lúc dựng, không bị chính sách autoplay chặn).
  */
 /** Danh sách phông chọn cho Text overlay — KHỚP với thẻ <link> Google Fonts nạp ở đầu video-editor.html. */
 const VIDEO_EDITOR_FONTS = [
@@ -80,18 +89,24 @@ const workflowVideoEditor = {
     _dragLastClientX: 0,
     _pinchState: null, // {startDist,startAngleDeg,baseSize,baseRotation}|null — MỚI, kéo-giãn/xoay Text 2 ngón trên preview
 
-    // MỚI (24/07/2026, mục e) — GainNode Web Audio cho `videoEditorSourceEl`/`videoEditorSongAudioEl`,
-    // tạo lười 1 LẦN lúc metadata sẵn sàng (xem core/video-editor/media-gain.js). `null` nếu trình
-    // duyệt không hỗ trợ AudioContext — Workflow tự fallback về `.volume` kẹp [0,1] lúc đó.
-    _videoGainBoost: null,
-    _songGainBoost: null,
+    // [XOÁ 24/07/2026 — Giang báo "mất tiếng cả video cả nhạc"] _videoGainBoost/_songGainBoost đã bỏ
+    // hẳn. NGUYÊN NHÂN: `createMediaElementSource()` (core/video-editor/media-gain.js) tự động NGẮT
+    // đường phát mặc định của thẻ media, âm thanh CHỈ còn phát qua đúng graph Web Audio mình tự nối
+    // — graph đó CHỈ chạy khi AudioContext ở trạng thái 'running'. `new AudioContext()` tạo NGOÀI 1
+    // user-gesture (ở đây là trong `_onMetadataReady()`, chạy do sự kiện 'loadedmetadata', KHÔNG
+    // phải do người dùng bấm) MẶC ĐỊNH ở trạng thái 'suspended' — và code trước đó KHÔNG hề gọi
+    // `.resume()` ở đâu cả, nên graph ĐỨNG YÊN MÃI MÃI, câm hẳn CẢ video CẢ nhạc, kể cả volume=100%
+    // (không liên quan gì volume >100% nữa — toàn bộ đường phát bị "khoá" luôn). Quay lại `.volume`
+    // gốc của thẻ media (đơn giản, luôn chạy được, ĐÚNG như trước lúc chưa có GainNode) — CHẤP NHẬN
+    // giới hạn: volume >100% ở PREVIEW sẽ nghe như đúng 100% (không to hơn được, thẻ media gốc kẹp ở
+    // 1.0), nhưng lúc XUẤT THẬT (Lưu) vẫn khuếch đại ĐÚNG >100% (webcodecs-engine.js dùng
+    // OfflineAudioContext — KHÔNG cần user-gesture/không bị suspend vì không phát ra loa lúc dựng).
 
     // MỚI (24/07/2026, mục e) — waveform "Dịch chuyển đoạn" (handleSongShiftOpen()), sống trong lúc
     // Generic Drawer nội dung đó đang mở, huỷ lúc đóng (xem _closeGenericDrawerFully()).
     _shiftWavesurfer: null,
     _shiftRegionsPlugin: null,
     _shiftRegion: null,
-    _shiftGainBoost: null,
     _shiftIsPlayingRegion: false,
     _shiftStopHandler: null,
 
@@ -149,14 +164,7 @@ const workflowVideoEditor = {
         videoEditorPreviewCanvasEl.height = this._nativeH;
         videoEditorEmptyStateEl.classList.add('hidden');
         videoEditorPlayheadEl.classList.remove('hidden');
-
-        // MỚI (24/07/2026, mục e) — GainNode cho Volume >100% (xem docstring đầu file + core/
-        // video-editor/media-gain.js). `createMediaGainBoost()` chỉ được gọi ĐÚNG 1 LẦN mỗi phần tử
-        // — làm ở đây, ngay khi trang có 1 video thật để phát, bọc try/catch (không được phép chặn
-        // phần còn lại của app nếu trình duyệt chặn AudioContext lúc chưa có cử chỉ người dùng).
-        try { this._videoGainBoost = createMediaGainBoost(videoEditorSourceEl); } catch (err) { console.warn('[_onMetadataReady] Không tạo được GainNode cho video (fallback .volume, tối đa 100%):', err); }
-        try { this._songGainBoost = createMediaGainBoost(videoEditorSongAudioEl); } catch (err) { console.warn('[_onMetadataReady] Không tạo được GainNode cho nhạc (fallback .volume, tối đa 100%):', err); }
-        this._syncCurrentClipVolume();
+        this._syncCurrentClipVolume(); // MỚI (mục d) — áp volume 100% mặc định của đoạn Video đầu tiên
 
         // Dựng UI CỐT LÕI TRƯỚC (toolbar/timeline/thời gian) — KHÔNG chờ filmstrip. Bug đã gặp: lỗi
         // ném ra trong lúc trích filmstrip (Mediabunny, xem catch dưới) làm cả hàm dừng NGANG, khiến
@@ -225,16 +233,16 @@ const workflowVideoEditor = {
         return outputStart + Math.max(0, videoEditorSourceEl.currentTime - clip.sourceStart);
     },
 
-    /** MỚI (24/07/2026, mục d) — áp volume của đoạn Video ĐANG active (`_currentClipIndex`) lên
-     * `videoEditorSourceEl`, qua GainNode nếu có (`_videoGainBoost`, cho phép >100%) hoặc fallback
-     * `.volume` kẹp [0,1]. Gọi mỗi khi `_currentClipIndex` đổi (`_tick()`/`_seekToOutputTime()`/
-     * `_previewVideoAtSourceTime()`) VÀ mỗi khi slider Volume của đoạn đang chọn thay đổi (đúng lúc,
-     * xem `handleVideoClipVolumeOpen()`). */
+    /** [SỬA 24/07/2026 — Giang báo "mất tiếng cả video cả nhạc"] Áp volume của đoạn Video ĐANG
+     * active (`_currentClipIndex`) lên `videoEditorSourceEl`. BỎ GainNode (xem docstring state field
+     * đầu file) — quay lại `.volume` gốc, kẹp [0,1] (giới hạn CHẤP NHẬN ĐƯỢC: >100% ở preview nghe
+     * như 100%, lúc xuất thật vẫn khuếch đại đúng). Gọi mỗi khi `_currentClipIndex` đổi
+     * (`_tick()`/`_seekToOutputTime()`/`_previewVideoAtSourceTime()`) VÀ mỗi khi slider Volume của
+     * đoạn đang chọn thay đổi (đúng lúc, xem `handleVideoClipVolumeOpen()`). */
     _syncCurrentClipVolume() {
         const clip = this._currentClipIndex != null ? this._videoClips[this._currentClipIndex] : null;
         const volume = clip && typeof clip.volume === 'number' ? clip.volume : 1;
-        if (this._videoGainBoost) applyMediaGainBoost(this._videoGainBoost, volume); // core/video-editor/media-gain.js
-        else videoEditorSourceEl.volume = Math.min(1, Math.max(0, volume));
+        videoEditorSourceEl.volume = Math.min(1, Math.max(0, volume));
     },
 
     _drawFrame() {
@@ -261,8 +269,10 @@ const workflowVideoEditor = {
      * được gán ĐÚNG 1 LẦN lúc đổi bài hát (`_activePreviewAudioClipId !== active.id`) — nếu người
      * dùng kéo slider Volume trong Drawer "Dịch chuyển đoạn" TRONG LÚC clip đó đang là clip active,
      * âm lượng nghe được KHÔNG đổi cho tới lần đổi bài hát kế tiếp. Nay gán MỖI LẦN gọi hàm (mỗi
-     * frame lúc đang phát) — rẻ, không có side-effect gì đáng kể. Cũng đổi sang GainNode
-     * (`_songGainBoost`) để >100% ra ĐÚNG (thẻ audio gốc kẹp ở 100%). */
+     * frame lúc đang phát) — rẻ, không có side-effect gì đáng kể.
+     * [SỬA THÊM 24/07/2026 — Giang báo "mất tiếng cả video cả nhạc"] — BỎ GainNode (`_songGainBoost`,
+     * xem docstring state field đầu file — AudioContext bị 'suspended' do tạo NGOÀI user-gesture,
+     * KHÔNG hề gọi `.resume()` ở đâu, câm tiếng vĩnh viễn) — quay lại `.volume` gốc kẹp [0,1]. */
     _syncAudioClips(outputTime) {
         const active = this._audioClips.find((c) => outputTime >= c.timelineStart && outputTime < c.timelineEnd);
         if (!active) { videoEditorSongAudioEl.pause(); videoEditorSongAudioEl.playbackRate = 1; this._activePreviewAudioClipId = null; return; }
@@ -271,8 +281,7 @@ const workflowVideoEditor = {
             videoEditorSongAudioEl.src = URL.createObjectURL(active.record.blob);
             videoEditorSongAudioEl.playbackRate = 1;
         }
-        if (this._songGainBoost) applyMediaGainBoost(this._songGainBoost, active.volume); // core/video-editor/media-gain.js
-        else videoEditorSongAudioEl.volume = Math.min(1, Math.max(0, active.volume));
+        videoEditorSongAudioEl.volume = Math.min(1, Math.max(0, active.volume));
         const songDuration = active.record.duration || 0;
         const targetTime = Math.max(0, Math.min(active.offsetInSong + (outputTime - active.timelineStart), Math.max(0, songDuration - 0.02)));
         const drift = videoEditorSongAudioEl.currentTime - targetTime;
@@ -1013,12 +1022,17 @@ const workflowVideoEditor = {
         });
     },
 
+    /** [SỬA 24/07/2026 — Giang báo "mặc định min time khi add nhạc là 10s"] Clip Nhạc MỚI THÊM giờ
+     * LUÔN mặc định phủ TOÀN BỘ video (`timelineStart:0` tới `timelineEnd:this._totalDuration()`),
+     * KHÔNG còn 10 giây cố định tại vị trí con trỏ (`outputTime`) như trước — kẹp lại theo đúng độ
+     * dài THẬT của bài hát nếu bài NGẮN HƠN video (không thể kéo dài hơn nội dung âm thanh sẵn có,
+     * chưa có tính năng lặp lại bài hát). */
     async _handleSongPickerSelect(songKey) {
         const record = await getSongRecord(songKey);
         if (!record) return;
-        const outputTime = this._computeCurrentOutputTime();
-        const length = Math.min(10, record.duration || 10);
-        this._audioClips.push({ id: this._nextId(), songKey, record, timelineStart: outputTime, timelineEnd: outputTime + length, offsetInSong: 0, volume: 1 });
+        const totalDuration = this._totalDuration();
+        const length = Math.min(totalDuration, record.duration || totalDuration);
+        this._audioClips.push({ id: this._nextId(), songKey, record, timelineStart: 0, timelineEnd: length, offsetInSong: 0, volume: 1 });
         this._selected = { track: 'audio', index: this._audioClips.length - 1 };
         this._hasUnsavedChanges = true;
         this._closeGenericDrawerFully();
@@ -1120,10 +1134,13 @@ const workflowVideoEditor = {
     // video-editor/audio-sync.js — TÁI DÙNG NGUYÊN, không viết lại). Thêm nút Play phát ĐÚNG vùng
     // chọn (tự dừng ở cuối, cùng cơ chế 'timeupdate' như subtitle-editor.html, ĐƠN GIẢN HOÁ — bỏ lớp
     // seek-retry nhiều tầng của bản subtitle-editor vì đây chỉ là preview trong 1 Drawer phụ, không
-    // phải công cụ chính). Volume (0-200%) SỬA để cập nhật NGAY lúc kéo — cả GainNode của waveform
-    // preview (`_shiftGainBoost`) LẪN của preview chính đang phát nếu ĐÚNG clip này đang active
+    // phải công cụ chính). Volume (0-200%) SỬA để cập nhật NGAY lúc kéo — cả `wavesurfer.setVolume()`
+    // của waveform preview LẪN của preview chính đang phát nếu ĐÚNG clip này đang active
     // (`_syncAudioClips()`), khớp yêu cầu "áp dụng cho cả preview lẫn thật" (lúc xuất thật đã đúng
-    // sẵn từ trước, xem `_buildMixedAudioTrack()`, webcodecs-engine.js).
+    // sẵn từ trước, xem `_buildMixedAudioTrack()`, webcodecs-engine.js). [SỬA THÊM 24/07/2026 — Giang
+    // báo "mất tiếng cả video cả nhạc"] — BỎ HẲN GainNode (`_shiftGainBoost`, `core/video-editor/
+    // media-gain.js` — file này KHÔNG dùng nữa, có thể xoá) — quay lại `wavesurfer.setVolume()` gốc,
+    // kẹp [0,1] (AudioContext tự tạo bị 'suspended' ngoài user-gesture, không hề resume(), câm hẳn).
 
     _activeAudioClip() { return this._selected && this._selected.track === 'audio' ? this._audioClips[this._selected.index] : null; },
 
@@ -1169,7 +1186,7 @@ const workflowVideoEditor = {
             c.volume = (parseInt(volEl.value, 10) || 0) / 100;
             volValEl.textContent = `${volEl.value}%`;
             this._hasUnsavedChanges = true;
-            if (this._shiftGainBoost) applyMediaGainBoost(this._shiftGainBoost, c.volume); // core/video-editor/media-gain.js — nghe thấy NGAY trong waveform preview
+            if (this._shiftWavesurfer) this._shiftWavesurfer.setVolume(Math.min(1, Math.max(0, c.volume))); // nghe thấy NGAY trong waveform preview
             if (this._activePreviewAudioClipId === c.id) this._syncAudioClips(this._computeCurrentOutputTime()); // ĐANG là clip active ở preview chính -> áp NGAY luôn (SỬA bug mục e)
         });
 
@@ -1233,12 +1250,10 @@ const workflowVideoEditor = {
                     this._hasUnsavedChanges = true;
                     updateTimeLabel();
                 });
-                // GainNode cho waveform preview — Volume >100% (mục e). `getMediaElement()` trả về
-                // đúng thẻ <audio> nội bộ của WaveSurfer (v7, chế độ mặc định MediaElement).
-                try { this._shiftGainBoost = createMediaGainBoost(this._shiftWavesurfer.getMediaElement()); } catch (err) { console.warn('[handleSongShiftOpen] Không tạo được GainNode cho waveform preview (fallback setVolume, tối đa 100%):', err); }
+                // Volume — quay lại `wavesurfer.setVolume()` gốc, kẹp [0,1] (BỎ GainNode, xem
+                // docstring khối "Dịch chuyển tới đoạn" ở trên — Giang báo mất tiếng).
                 const volNow = typeof c.volume === 'number' ? c.volume : 1;
-                if (this._shiftGainBoost) applyMediaGainBoost(this._shiftGainBoost, volNow); // core/video-editor/media-gain.js
-                else this._shiftWavesurfer.setVolume(Math.min(1, Math.max(0, volNow)));
+                this._shiftWavesurfer.setVolume(Math.min(1, Math.max(0, volNow)));
             });
             // load() trả về Promise — LUÔN .catch() (WaveSurfer.js v7 có bug dangling-promise đã
             // biết, cùng lý do subtitle-editor.html).
@@ -1288,15 +1303,11 @@ const workflowVideoEditor = {
         if (playIconEl) playIconEl.textContent = '\u25B6'; // ▶
     },
 
-    /** Dọn sạch WaveSurfer/GainNode của "Dịch chuyển đoạn" — gọi từ `_closeGenericDrawerFully()`
-     * (an toàn, no-op nếu đang không mở đúng Drawer này) MỖI LẦN đóng Generic Drawer, tránh rò rỉ
-     * nhiều instance WaveSurfer/AudioContext qua nhiều lần mở/đóng. */
+    /** Dọn sạch WaveSurfer của "Dịch chuyển đoạn" — gọi từ `_closeGenericDrawerFully()` (an toàn,
+     * no-op nếu đang không mở đúng Drawer này) MỖI LẦN đóng Generic Drawer, tránh rò rỉ nhiều
+     * instance WaveSurfer qua nhiều lần mở/đóng. */
     _destroyShiftWaveform() {
         this._clearShiftStopHandler(null);
-        if (this._shiftGainBoost && this._shiftGainBoost.audioCtx) {
-            try { this._shiftGainBoost.audioCtx.close(); } catch (err) { /* không sao — đóng AudioContext lỗi không ảnh hưởng gì thêm */ }
-        }
-        this._shiftGainBoost = null;
         if (this._shiftWavesurfer) {
             try { this._shiftWavesurfer.destroy(); } catch (err) { console.warn('[_destroyShiftWaveform] Lỗi destroy() WaveSurfer (bỏ qua):', err); }
         }
