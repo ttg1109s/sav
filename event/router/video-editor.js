@@ -5,9 +5,11 @@
  * [23/07/2026] — BỎ các case của nội dung BÊN TRONG Generic Drawer (Chỉnh/Sửa chữ/Chọn nhạc/Dịch
  * chuyển đoạn) — nay Workflow tự querySelector + addEventListener TRỰC TIẾP ngay sau khi gọi
  * `openGenericDrawer()` (đúng quy ước sẵn có của Generic Drawer trong toàn app, xem
- * event/workflow/video-editor.js::handlePropsOpen()/handleTextEditOpen()/...), KHÔNG qua
- * eventBus.send() nữa. CHỈ giữ lại case MỞ (props.open/addMusic.open/textEdit.open/songShift.open
- * — do TOOLBAR dispatch qua eventBus như bình thường).
+ * event/workflow/video-editor.js::handleVideoClipVolumeOpen()/handleTextEditOpen()/...), KHÔNG qua
+ * eventBus.send() nữa. CHỈ giữ lại case MỞ (videoClipVolume.open/addMusic.open/textEdit.open/
+ * songShift.open — do TOOLBAR dispatch qua eventBus như bình thường).
+ * [SỬA 24/07/2026, mục d] — `videoEdit.props.open` ("Chỉnh" toàn cục, bỏ hẳn) đổi thành
+ * `videoEdit.videoClipVolume.open` (Volume RIÊNG của đoạn Video đang chọn).
  */
 const routerVideoEdit = (() => {
     function handle(msg) {
@@ -45,7 +47,7 @@ const routerVideoEdit = (() => {
             case 'videoEdit.rotateLeft.click': { workflowVideoEditor.handleRotateLeft(); break; }
             case 'videoEdit.rotateRight.click': { workflowVideoEditor.handleRotateRight(); break; }
             case 'videoEdit.reset.click': { workflowVideoEditor.handleReset(); break; }
-            case 'videoEdit.props.open': { workflowVideoEditor.handlePropsOpen(); break; }
+            case 'videoEdit.videoClipVolume.open': { workflowVideoEditor.handleVideoClipVolumeOpen(); break; }
             case 'videoEdit.extractFrame.click': { workflowVideoEditor.handleExtractFrame(); break; }
 
             case 'videoEdit.addMusic.open': { workflowVideoEditor.handleAddMusicOpen(); break; }
