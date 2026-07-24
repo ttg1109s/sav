@@ -47,6 +47,19 @@
  * giới hạn: volume >100% ở PREVIEW nghe như đúng 100% (thẻ media gốc không khuếch đại được), nhưng
  * lúc XUẤT THẬT (Lưu) vẫn khuếch đại ĐÚNG >100% (webcodecs-engine.js dùng OfflineAudioContext —
  * KHÔNG cần user-gesture vì không phát ra loa lúc dựng, không bị chính sách autoplay chặn).
+ *
+ * [SỬA THÊM 24/07/2026, phản hồi Giang — 2 việc]
+ * 1) "Chỉ cần cân bằng Video/Nhạc, không cần khuếch đại vượt gốc" — 2 slider Volume (Video clip lẫn
+ *    Nhạc clip) đổi từ 0-200% xuống 0-100% (mặc định 100%) — khớp ĐÚNG khả năng thật của `.volume`
+ *    thẻ media gốc, không còn lý do giữ khoảng 100-200% (vốn chỉ hoạt động lúc xuất thật, không
+ *    phải preview, xem đoạn trên) — dùng để MIX (kéo bên nào xuống cho bên kia nổi hơn).
+ * 2) Clip Nhạc/Chữ THÊM MỚI hoặc NHÂN BẢN tự CẮT (`timelineEnd` kẹp lại) nếu vượt quá tổng thời
+ *    lượng video hiện tại (`_totalDuration()`, xem `_recomputeTrackFullFlags()`,
+ *    `_handleSongPickerSelect()`, `handleAddText()`, `handleDuplicateClip()`). Khi track Nhạc/Chữ đã
+ *    "phủ kín" tới hết video (không còn chỗ có nghĩa để thêm), nút "Thêm nhạc"/"Thêm chữ" bị CHẶN
+ *    HẲN kèm modal thông báo — dùng Block gate (event/block.js, đọc `videoEditAudioTrackFull`/
+ *    `videoEditTextTrackFull` ở `service/state.js`, KHÔNG rẽ nhánh if/else ở Router/Workflow, đúng
+ *    yêu cầu Giang "dùng Block thay vì Router, Block có notify sẵn").
  */
 /** Danh sách phông chọn cho Text overlay — KHỚP với thẻ <link> Google Fonts nạp ở đầu video-editor.html. */
 const VIDEO_EDITOR_FONTS = [
@@ -165,6 +178,7 @@ const workflowVideoEditor = {
         videoEditorEmptyStateEl.classList.add('hidden');
         videoEditorPlayheadEl.classList.remove('hidden');
         this._syncCurrentClipVolume(); // MỚI (mục d) — áp volume 100% mặc định của đoạn Video đầu tiên
+        this._recomputeTrackFullFlags(); // MỚI (mục 2) — khởi tạo đúng cờ ban đầu (rỗng -> false)
 
         // Dựng UI CỐT LÕI TRƯỚC (toolbar/timeline/thời gian) — KHÔNG chờ filmstrip. Bug đã gặp: lỗi
         // ném ra trong lúc trích filmstrip (Mediabunny, xem catch dưới) làm cả hàm dừng NGANG, khiến
@@ -196,6 +210,24 @@ const workflowVideoEditor = {
     },
 
     _totalDuration() { return computeVideoTotalDuration(this._videoClips); }, // core/video-editor/timeline-calc.js
+
+    /** [MỚI 24/07/2026, phản hồi Giang mục 2] Tính lại 2 cờ "track đã phủ kín video" — ghi vào
+     * `appState` (service/state.js) để Block gate (event/block.js) đọc, CHẶN HẲN
+     * `videoEdit.addMusic.open`/`videoEdit.addText.click` kèm `notify` khi đúng. "Phủ kín" = tồn
+     * tại ÍT NHẤT 1 clip trong track đó có `timelineEnd` đã chạm/vượt tổng thời lượng video hiện
+     * tại (`_totalDuration()`) — không còn khoảng trống Ý NGHĨA nào sau điểm đó để thêm 1 clip mới
+     * (clip Nhạc/Chữ mới luôn mặc định phủ hết phần còn lại/toàn bộ video, xem
+     * `_handleSongPickerSelect()`/`handleAddText()`).
+     * GỌI LẠI mỗi khi `_audioClips`/`_textClips`/`_videoClips` đổi hình dạng (thêm/nhân bản/xoá/
+     * tách/kéo trim clip BẤT KỲ track nào — kể cả Video, vì `_totalDuration()` phụ thuộc
+     * `_videoClips`). */
+    _recomputeTrackFullFlags() {
+        const total = this._totalDuration();
+        const audioFull = total > 0 && this._audioClips.some((c) => c.timelineEnd >= total - 0.01);
+        const textFull = total > 0 && this._textClips.some((c) => c.timelineEnd >= total - 0.01);
+        appState.set('videoEditAudioTrackFull', audioFull);
+        appState.set('videoEditTextTrackFull', textFull);
+    },
     _nextId() { return `c${this._idCounter++}`; },
 
     _totalRenderWidthSeconds() {
@@ -643,6 +675,7 @@ const workflowVideoEditor = {
     handleTimelineDragEnd() {
         if (!this._dragHandle) return;
         this._dragHandle = null;
+        this._recomputeTrackFullFlags(); // MỚI (mục 2) — trim Video đổi _totalDuration(), trim/dời Nhạc/Chữ đổi timelineEnd
         this._drawFrame();
         this._renderAllTracks(); // đồng bộ đầy đủ (viền chọn, marker, độ rộng) — filmstrip KHÔNG trích lại (đã cache _masterFilmstripFrames, chỉ lọc theo range)
     },
@@ -675,6 +708,7 @@ const workflowVideoEditor = {
             list.splice(index + 1, 0, cloneB);
         }
         this._hasUnsavedChanges = true;
+        this._recomputeTrackFullFlags(); // MỚI (mục 2)
         this._renderAllTracks();
         this._renderToolbar();
     },
@@ -689,11 +723,20 @@ const workflowVideoEditor = {
             const list = track === 'audio' ? this._audioClips : this._textClips;
             const clip = list[index];
             const length = clip.timelineEnd - clip.timelineStart;
-            const dup = Object.assign({}, clip, { id: this._nextId(), timelineStart: clip.timelineEnd, timelineEnd: clip.timelineEnd + length });
+            // [SỬA 24/07/2026, phản hồi Giang mục 2] Nhân bản đặt NGAY SAU bản gốc — TỰ CẮT nếu vượt
+            // quá tổng thời lượng video hiện tại (không thể có Nhạc/Chữ kéo dài hơn chính video).
+            // Nếu KHÔNG còn đủ chỗ (< MIN_CLIP_GAP_SEC) sau bản gốc, bỏ qua hẳn (không tạo bản trùng
+            // gần như 0 giây, vô nghĩa) — CHẶN modal đã lo phần "Thêm nhạc/Thêm chữ" (event/block.js),
+            // đây chỉ là 1 guard câm lặng cho riêng hành động Nhân bản (khác msg.type, không qua Block gate).
+            const total = this._totalDuration();
+            const room = total - clip.timelineEnd;
+            if (room <= this.MIN_CLIP_GAP_SEC) return; // guard — hết chỗ, không nhân bản
+            const dup = Object.assign({}, clip, { id: this._nextId(), timelineStart: clip.timelineEnd, timelineEnd: Math.min(clip.timelineEnd + length, total) });
             list.splice(index + 1, 0, dup);
             this._selected = { track, index: index + 1 };
         }
         this._hasUnsavedChanges = true;
+        this._recomputeTrackFullFlags(); // MỚI (mục 2)
         this._renderAllTracks();
         this._renderToolbar();
     },
@@ -711,6 +754,7 @@ const workflowVideoEditor = {
         }
         this._selected = null;
         this._hasUnsavedChanges = true;
+        this._recomputeTrackFullFlags(); // MỚI (mục 2)
         this._renderAllTracks();
         this._renderToolbar();
     },
@@ -912,18 +956,20 @@ const workflowVideoEditor = {
 
     _activeVideoClip() { return this._selected && this._selected.track === 'video' ? this._videoClips[this._selected.index] : null; },
 
-    /** Drawer 1 slider DUY NHẤT — Volume của ĐÚNG đoạn Video đang chọn (0-200%, mặc định 100% —
-     * KHÁC "Chỉnh" cũ đã bỏ hẳn, không còn Brightness/Contrast/Saturation, không còn toàn cục). Nếu
-     * đoạn đang chọn CŨNG là đoạn đang phát (`_currentClipIndex`), áp NGAY qua `_syncCurrentClipVolume()`
-     * để nghe thấy thay đổi tức thời — nếu KHÔNG phải đoạn đang phát, chỉ ghi vào `clip.volume`,
-     * lần tới đoạn đó active `_syncCurrentClipVolume()` tự đọc đúng giá trị mới. */
+    /** [SỬA 24/07/2026, phản hồi Giang mục 1] "Có thể tăng giảm âm thanh để mix video với nhạc" —
+     * chỉ cần CÂN BẰNG 2 track (kéo bên nào xuống cho bên kia nổi hơn), KHÔNG cần khuếch đại vượt
+     * mức gốc — bỏ hẳn 0-200%, giờ 0-100% (mặc định 100%), khớp ĐÚNG khả năng thật của `.volume`
+     * thẻ media gốc (không còn GainNode — xem docstring đầu file, mục "mất tiếng"). Nếu đoạn đang
+     * chọn CŨNG là đoạn đang phát (`_currentClipIndex`), áp NGAY qua `_syncCurrentClipVolume()` để
+     * nghe thấy thay đổi tức thời — nếu KHÔNG phải đoạn đang phát, chỉ ghi vào `clip.volume`, lần
+     * tới đoạn đó active `_syncCurrentClipVolume()` tự đọc đúng giá trị mới. */
     handleVideoClipVolumeOpen() {
         const clip = this._activeVideoClip();
         if (!clip) return;
         const volumePercent = Math.round((typeof clip.volume === 'number' ? clip.volume : 1) * 100);
         const bodyHtml = `
             <div class="px-4 flex flex-col gap-5 video-editor-gd-body-pb">
-                <div><label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.videoClipVolume.label'))}</span><span id="ve-gd-video-vol-val">${volumePercent}%</span></label><input type="range" id="ve-gd-video-vol" min="0" max="200" value="${volumePercent}" class="w-full"></div>
+                <div><label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.videoClipVolume.label'))}</span><span id="ve-gd-video-vol-val">${volumePercent}%</span></label><input type="range" id="ve-gd-video-vol" min="0" max="100" value="${volumePercent}" class="w-full"></div>
             </div>`;
         openGenericDrawer({ height: 'auto', maxHeight: '40vh', headerHtml: this._buildDrawerHeaderHtml(t('videoEdit.videoClipVolume.title')), bodyHtml });
         this._wireDrawerCloseButton();
@@ -1035,6 +1081,7 @@ const workflowVideoEditor = {
         this._audioClips.push({ id: this._nextId(), songKey, record, timelineStart: 0, timelineEnd: length, offsetInSong: 0, volume: 1 });
         this._selected = { track: 'audio', index: this._audioClips.length - 1 };
         this._hasUnsavedChanges = true;
+        this._recomputeTrackFullFlags(); // MỚI (mục 2) — clip mới luôn phủ hết -> track Nhạc thành "đầy" ngay
         this._closeGenericDrawerFully();
     },
 
@@ -1042,16 +1089,24 @@ const workflowVideoEditor = {
     // blur, đổ bóng bật/tắt, transition fade cơ bản; vị trí/kích cỡ/góc xoay giờ chỉnh trực tiếp
     // trên preview bằng cử chỉ, xem handlePreviewTextDrag*/handlePreviewTextPinch*) =====================
 
+    /** [SỬA 24/07/2026, phản hồi Giang mục 2] Clip Chữ mới mặc định dài 3 giây tại vị trí con trỏ —
+     * KẸP `timelineEnd` không vượt quá tổng thời lượng video hiện tại (`_totalDuration()`, không thể
+     * có Chữ kéo dài hơn chính video), lùi `timelineStart` lại nếu cần để vẫn giữ ĐỘ DÀI tối thiểu
+     * `MIN_CLIP_GAP_SEC` (trường hợp con trỏ đang ở rất sát cuối video). */
     handleAddText() {
         const outputTime = this._computeCurrentOutputTime();
+        const total = this._totalDuration();
+        const timelineEnd = Math.min(outputTime + 3, total);
+        const timelineStart = Math.max(0, Math.min(outputTime, timelineEnd - this.MIN_CLIP_GAP_SEC));
         this._textClips.push({
             id: this._nextId(), val: t('videoEdit.text.defaultValue'),
             size: 60, color: '#ffffff', posX: 50, posY: 80, rotation: 0,
             bold: false, italic: false, fontFamily: 'system-ui', blur: 0, shadow: true, transition: 'none',
-            timelineStart: outputTime, timelineEnd: outputTime + 3,
+            timelineStart, timelineEnd,
         });
         this._selected = { track: 'text', index: this._textClips.length - 1 };
         this._hasUnsavedChanges = true;
+        this._recomputeTrackFullFlags(); // MỚI (mục 2)
         this._renderAllTracks();
         this._renderToolbar();
         this.handleTextEditOpen();
@@ -1159,7 +1214,7 @@ const workflowVideoEditor = {
                 <p id="ve-gd-shift-error" class="hidden text-center text-[11px] text-rose-500"></p>
                 <div>
                     <label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.clipVolume.label'))}</span><span id="ve-gd-clip-vol-val">${Math.round(clip.volume * 100)}%</span></label>
-                    <input type="range" id="ve-gd-clip-vol" min="0" max="200" value="${Math.round(clip.volume * 100)}">
+                    <input type="range" id="ve-gd-clip-vol" min="0" max="100" value="${Math.round(clip.volume * 100)}">
                 </div>
             </div>`;
         openGenericDrawer({ height: 'auto', maxHeight: '70vh', headerHtml: this._buildDrawerHeaderHtml(t('videoEdit.songShift.title')), bodyHtml });
