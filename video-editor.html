@@ -64,7 +64,7 @@
         tailwind.config = { future: { hoverOnlyWhenSupported: true } };
     </script>
     <link rel="stylesheet" href="assets/css/style.css?v=20260715v1">
-    <link rel="stylesheet" href="assets/css/video-editor.css?v=20260724v1">
+    <link rel="stylesheet" href="assets/css/video-editor.css?v=20260724v2">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
     <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -269,10 +269,14 @@
     <script src="core/video-editor/timeline-calc.js?v=20260723v2"></script>
     <script src="core/video-editor/preview-draw.js?v=20260724v1"></script>
     <script src="core/video-editor/audio-sync.js?v=20260723v2"></script>
+    <!-- TÁI TẠO (24/07/2026, round 4 — Giang báo volume video/nhạc vẫn không có tác dụng) — tra cứu
+         tìm ra nguyên nhân THẬT: iOS khoá cứng .volume của <video>/<audio> (tài liệu Apple xác
+         nhận), PHẢI đi qua GainNode mới chỉnh được — xem docstring đầu file này. -->
+    <script src="core/video-editor/media-gain.js?v=20260724v2"></script>
     <script src="core/image-editor/cropper-engine.js?v=20260723v1"></script>
     <script src="core/file-manager/image.js?v=20260714v2"></script>
     <script src="core/file-manager/video.js?v=20260714v1"></script>
-    <script src="event/workflow/video-editor.js?v=20260724v3"></script>
+    <script src="event/workflow/video-editor.js?v=20260724v4"></script>
     <script src="event/router/video-editor.js?v=20260724v1"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowVideoEditor.init() ngay khi chạy. -->
     <script src="event/listener/video-editor.js?v=20260724v1"></script>
