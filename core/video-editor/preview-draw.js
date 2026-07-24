@@ -12,8 +12,10 @@
  *
  * [v3, 24/07/2026, phản hồi Giang mục d] — bỏ hẳn `buildFilterCss()` + tham số `filterCss` của
  * `drawVideoPreviewFrame()` (tính năng "Chỉnh" — Brightness/Contrast/Saturation toàn cục — bỏ hẳn).
- * Volume giờ là thuộc tính RIÊNG từng đoạn Video (`_videoClips[i].volume`), không liên quan file này
- * (không vẽ pixel nào cho Volume) — xem event/workflow/video-editor.js + core/video-editor/media-gain.js.
+ * Volume audio giờ là thuộc tính RIÊNG từng đoạn Video (`_videoClips[i].volume`), không liên quan
+ * file này (không vẽ pixel nào cho Volume) — xem event/workflow/video-editor.js (`.volume` gốc kẹp
+ * [0,1], KHÔNG dùng GainNode nữa — bản GainNode đã bị bỏ, Giang báo mất tiếng, xem docstring đầu
+ * event/workflow/video-editor.js).
  */
 
 /** Vùng crop theo PX (từ tỉ lệ 0-1) so với kích thước gốc video. @returns {{x,y,w,h}} */
