@@ -9,6 +9,11 @@
  * Cùng công thức toạ độ (translate/rotate/translate) để preview khớp CHÍNH XÁC kết quả xuất thật.
  *
  * Rule 2 — không đọc appState. Rule 3 — không gọi core nào khác của project (Canvas API chuẩn).
+ *
+ * [v3, 24/07/2026, phản hồi Giang mục d] — bỏ hẳn `buildFilterCss()` + tham số `filterCss` của
+ * `drawVideoPreviewFrame()` (tính năng "Chỉnh" — Brightness/Contrast/Saturation toàn cục — bỏ hẳn).
+ * Volume giờ là thuộc tính RIÊNG từng đoạn Video (`_videoClips[i].volume`), không liên quan file này
+ * (không vẽ pixel nào cho Volume) — xem event/workflow/video-editor.js + core/video-editor/media-gain.js.
  */
 
 /** Vùng crop theo PX (từ tỉ lệ 0-1) so với kích thước gốc video. @returns {{x,y,w,h}} */
@@ -26,12 +31,14 @@ function computeRotatedOutputSize(cropPx, rotateDeg) {
 }
 
 /**
- * Vẽ ĐÚNG 1 khung hình hiện tại của `<video>` vào canvas đích, áp crop+rotate+filter cùng lúc.
+ * Vẽ ĐÚNG 1 khung hình hiện tại của `<video>` vào canvas đích, áp crop+rotate.
+ * [SỬA 24/07/2026, phản hồi Giang mục d] — bỏ tham số `filterCss` (tính năng "Chỉnh" — Brightness/
+ * Contrast/Saturation — bỏ hẳn, xem event/workflow/video-editor.js).
  * @param {CanvasRenderingContext2D} ctx @param {HTMLVideoElement} videoEl
- * @param {{x,y,w,h}} cropPx @param {number} rotateDeg @param {string} filterCss
+ * @param {{x,y,w,h}} cropPx @param {number} rotateDeg
  * @param {number} outW @param {number} outH
  */
-function drawVideoPreviewFrame(ctx, videoEl, cropPx, rotateDeg, filterCss, outW, outH) {
+function drawVideoPreviewFrame(ctx, videoEl, cropPx, rotateDeg, outW, outH) {
     if (!videoEl.videoWidth) return; // guard — video chưa có khung hình nào để vẽ
     ctx.save();
     ctx.clearRect(0, 0, outW, outH);
@@ -39,7 +46,6 @@ function drawVideoPreviewFrame(ctx, videoEl, cropPx, rotateDeg, filterCss, outW,
     ctx.rotate((rotateDeg * Math.PI) / 180);
     ctx.translate(-cropPx.w / 2, -cropPx.h / 2);
     ctx.translate(-cropPx.x, -cropPx.y);
-    ctx.filter = filterCss || 'none';
     ctx.drawImage(videoEl, 0, 0, videoEl.videoWidth, videoEl.videoHeight);
     ctx.restore();
 }
@@ -141,11 +147,6 @@ function findTextClipAtPoint(ctx, textClips, outputTime, touchX, touchY, canvasW
         if (Math.abs(localX) <= halfW && Math.abs(localY) <= halfH) return i;
     }
     return null;
-}
-
-/** Chuỗi CSS filter từ 3 giá trị slider (0-200%, brightness/contrast mặc định 50-150). */
-function buildFilterCss(brightness, contrast, saturation) {
-    return `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
 }
 
 /**

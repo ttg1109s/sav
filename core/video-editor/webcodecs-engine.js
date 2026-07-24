@@ -10,9 +10,11 @@
  *     `timelineStart`/`timelineEnd` riêng theo giây OUTPUT) — KHÔNG còn neo cứng theo Video.
  *   - GIỚI HẠN TỔNG (Giang yêu cầu): mọi phần Nhạc/Chữ vượt quá tổng thời lượng Video (tính từ
  *     `videoClips`) bị CẮT BỎ ở bước này — giao diện cho phép kéo vượt, nhưng xuất ra thì không.
- *   - Crop/Rotate/Filter/Volume gốc (`volumeVideo`) vẫn là GIÁ TRỊ TOÀN CỤC (áp cho toàn bộ Video,
- *     KHÔNG tách riêng theo từng đoạn) — đơn giản hoá có chủ đích, Giang chưa yêu cầu chỉnh màu/xoay
- *     riêng từng đoạn.
+ *   - Crop/Rotate vẫn là GIÁ TRỊ TOÀN CỤC (áp cho toàn bộ Video, KHÔNG tách riêng theo từng đoạn) —
+ *     đơn giản hoá có chủ đích, Giang chưa yêu cầu xoay/crop riêng từng đoạn.
+ *   - [SỬA 24/07/2026, mục d] — Filter (Brightness/Contrast/Saturation, `filterCss`) BỎ HẲN. Volume
+ *     audio gốc (`volumeVideo`) KHÔNG còn toàn cục — mỗi đoạn Video (`videoClips[i].volume`) tự
+ *     mang volume RIÊNG của nó (0-2, 1 = 100%), xem `_buildMixedAudioTrack()`.
  *   - BỎ `_passThroughAudioTrack()` (copy packet không decode) — với nhiều đoạn Video nối tiếp,
  *     pass-through packet-level phức tạp hơn nhiều lợi ích mang lại; guard clause đầu hàm đã lo
  *     đúng trường hợp "không sửa gì cả" (trả nguyên bản gốc, không đụng Mediabunny) — mọi trường hợp
@@ -29,15 +31,15 @@
  * Rule 2 — không đọc `appState`.
  */
 
-/** Vẽ ĐÚNG 1 khung (VideoSample) vào canvas, áp crop+rotate+filter. @param {CanvasRenderingContext2D} ctx */
-function _drawFrameToCanvas(ctx, sample, cropPx, rotateDeg, filterCss, outW, outH) {
+/** Vẽ ĐÚNG 1 khung (VideoSample) vào canvas, áp crop+rotate. [SỬA 24/07/2026, mục d] — bỏ tham số
+ * `filterCss` (tính năng "Chỉnh" bỏ hẳn). @param {CanvasRenderingContext2D} ctx */
+function _drawFrameToCanvas(ctx, sample, cropPx, rotateDeg, outW, outH) {
     ctx.save();
     ctx.clearRect(0, 0, outW, outH);
     ctx.translate(outW / 2, outH / 2);
     ctx.rotate((rotateDeg * Math.PI) / 180);
     ctx.translate(-cropPx.w / 2, -cropPx.h / 2);
     ctx.translate(-cropPx.x, -cropPx.y);
-    ctx.filter = filterCss || 'none';
     sample.draw(ctx, 0, 0);
     ctx.restore();
 }
@@ -85,17 +87,20 @@ function _drawTextOverlayToCanvas(ctx, outW, outH, text, outputTime) {
 
 /**
  * Trộn TOÀN BỘ audio cho output: audio gốc của Video (lát theo từng đoạn `videoClips`, mỗi đoạn đặt
- * đúng vị trí OUTPUT của nó) + mọi clip trong `audioClips` (đặt theo `timelineStart` riêng, cắt bớt
- * nếu vượt `totalDuration` hoặc vượt chính độ dài file nhạc gốc). Ghi kết quả vào `output` qua
- * `Mediabunny.AudioBufferSource`. Hàm con phục vụ `processVideo()` (Rule 3c).
+ * đúng vị trí OUTPUT của nó, KHUẾCH ĐẠI theo `clip.volume` RIÊNG của chính đoạn đó) + mọi clip trong
+ * `audioClips` (đặt theo `timelineStart` riêng, cắt bớt nếu vượt `totalDuration` hoặc vượt chính độ
+ * dài file nhạc gốc). Ghi kết quả vào `output` qua `Mediabunny.AudioBufferSource`. Hàm con phục vụ
+ * `processVideo()` (Rule 3c).
+ * [SỬA 24/07/2026, phản hồi Giang mục d] — Volume audio gốc của Video KHÔNG còn là 1 giá trị TOÀN
+ * CỤC (`volumeVideo`, đã bỏ) — mỗi đoạn trong `videoClips` tự mang `volume` RIÊNG của nó (0-2, 1 =
+ * 100%, mặc định 1 nếu thiếu — clip cũ trước bản cập nhật này chưa có field này).
  * @param {Blob} sourceBlob @param {boolean} hasOriginalAudio
- * @param {Array<{sourceStart:number,sourceEnd:number}>} videoClips
+ * @param {Array<{sourceStart:number,sourceEnd:number,volume:number}>} videoClips
  * @param {Array<{blob:Blob,offsetInSong:number,timelineStart:number,timelineEnd:number,volume:number}>} audioClips
- * @param {number} volumeVideo - 0-2, áp cho TOÀN BỘ audio gốc.
  * @param {number} totalDuration - giây, tổng thời lượng OUTPUT (từ videoClips).
  * @param {any} output - Output (Mediabunny), CHƯA start().
  */
-async function _buildMixedAudioTrack(sourceBlob, hasOriginalAudio, videoClips, audioClips, volumeVideo, totalDuration, output) {
+async function _buildMixedAudioTrack(sourceBlob, hasOriginalAudio, videoClips, audioClips, totalDuration, output) {
     if (totalDuration <= 0) return; // guard — không có gì để ghép
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const sampleRate = audioCtx.sampleRate;
@@ -110,7 +115,7 @@ async function _buildMixedAudioTrack(sourceBlob, hasOriginalAudio, videoClips, a
                 const src = offline.createBufferSource();
                 src.buffer = originalBuffer;
                 const gain = offline.createGain();
-                gain.gain.value = volumeVideo;
+                gain.gain.value = clip.volume === undefined || clip.volume === null ? 1 : clip.volume;
                 src.connect(gain).connect(offline.destination);
                 const playDur = Math.min(dur, Math.max(0, originalBuffer.duration - clip.sourceStart));
                 if (playDur > 0) src.start(cursor, clip.sourceStart, playDur);
@@ -152,33 +157,33 @@ async function _buildMixedAudioTrack(sourceBlob, hasOriginalAudio, videoClips, a
 /**
  * CỔNG DUY NHẤT xử lý video. Workflow gọi hàm này với tham số đã chuẩn bị sẵn (Rule 2).
  *
+ * [SỬA 24/07/2026, phản hồi Giang mục d] — bỏ hẳn `filterCss`/`volumeVideo` TOÀN CỤC (tính năng
+ * "Chỉnh" bỏ hẳn) — Volume audio gốc giờ đọc TRỰC TIẾP từ `clip.volume` của từng đoạn trong
+ * `videoClips` (xem `_buildMixedAudioTrack()`).
+ *
  * @param {object} params
  * @param {Blob} params.sourceBlob - video gốc.
- * @param {Array<{sourceStart:number,sourceEnd:number}>} params.videoClips - các đoạn Video, THEO THỨ TỰ, nối tiếp nhau trên output.
+ * @param {Array<{sourceStart:number,sourceEnd:number,volume:number}>} params.videoClips - các đoạn Video, THEO THỨ TỰ, nối tiếp nhau trên output, mỗi đoạn tự mang volume RIÊNG (0-2, 1 = 100%).
  * @param {{x,y,w,h}|null} params.cropFraction - toàn cục, tỉ lệ 0-1, null = không crop.
  * @param {number} params.rotateDeg - toàn cục, 0/90/180/270.
- * @param {string} params.filterCss - toàn cục, CSS filter đã "nướng".
- * @param {number} params.volumeVideo - toàn cục, 0-2 (1 = 100%).
  * @param {Array<{val,size,color,posY,timelineStart,timelineEnd}>} params.textClips - giây OUTPUT, có thể rỗng.
  * @param {Array<{blob,offsetInSong,timelineStart,timelineEnd,volume}>} params.audioClips - giây OUTPUT, có thể rỗng.
  * @returns {Promise<Blob>} video mp4 đã xử lý.
  */
-async function processVideo({ sourceBlob, videoClips, cropFraction, rotateDeg, filterCss, volumeVideo, textClips, audioClips }) {
+async function processVideo({ sourceBlob, videoClips, cropFraction, rotateDeg, textClips, audioClips }) {
     const clips = videoClips && videoClips.length ? videoClips : [];
     const noCrop = !cropFraction;
     const noRotate = !rotateDeg || rotateDeg % 360 === 0;
-    const noFilter = !filterCss || filterCss === 'none' || filterCss.trim() === '';
     const noText = !textClips || textClips.length === 0;
     const noAudioClips = !audioClips || audioClips.length === 0;
-    const vol1 = volumeVideo === undefined || volumeVideo === null ? 1 : volumeVideo;
-    const noVolumeChange = vol1 === 1;
+    const noVolumeChange = clips.every((c) => (c.volume === undefined || c.volume === null ? 1 : c.volume) === 1);
 
     const input = new Mediabunny.Input({ source: new Mediabunny.BlobSource(sourceBlob), formats: Mediabunny.ALL_FORMATS });
     const videoTrack = await input.getPrimaryVideoTrack();
     if (!videoTrack) throw new Error('[processVideo] file không có track video.');
     const fullSourceDuration = await videoTrack.computeDuration();
     const isSingleFullClip = clips.length === 1 && clips[0].sourceStart <= 0.001 && Math.abs(clips[0].sourceEnd - fullSourceDuration) <= 0.001;
-    if (noCrop && noRotate && noFilter && noText && noAudioClips && noVolumeChange && isSingleFullClip) return sourceBlob; // guard clause — không có gì để xử lý
+    if (noCrop && noRotate && noText && noAudioClips && noVolumeChange && isSingleFullClip) return sourceBlob; // guard clause — không có gì để xử lý
 
     const audioTrack = await input.getPrimaryAudioTrack();
     const nativeW = await videoTrack.getDisplayWidth();
@@ -200,7 +205,7 @@ async function processVideo({ sourceBlob, videoClips, cropFraction, rotateDeg, f
     const output = new Mediabunny.Output({ format: new Mediabunny.Mp4OutputFormat(), target: new Mediabunny.BufferTarget() });
     const videoSource = new Mediabunny.CanvasSource(canvas, { codec: 'avc', bitrate: Mediabunny.QUALITY_HIGH });
     output.addVideoTrack(videoSource);
-    await _buildMixedAudioTrack(sourceBlob, !!audioTrack, clips, audioClips || [], vol1, totalDuration, output); // addAudioTrack() PHẢI xong TRƯỚC output.start()
+    await _buildMixedAudioTrack(sourceBlob, !!audioTrack, clips, audioClips || [], totalDuration, output); // addAudioTrack() PHẢI xong TRƯỚC output.start()
 
     await output.start();
     const sink = new Mediabunny.VideoSampleSink(videoTrack);
@@ -209,7 +214,7 @@ async function processVideo({ sourceBlob, videoClips, cropFraction, rotateDeg, f
         const clipDuration = Math.max(0, clip.sourceEnd - clip.sourceStart);
         for await (const sample of sink.samples(clip.sourceStart, clip.sourceEnd)) {
             const outputTime = outputCursor + (sample.timestamp - clip.sourceStart);
-            _drawFrameToCanvas(ctx, sample, cropPx, deg, filterCss, outW, outH);
+            _drawFrameToCanvas(ctx, sample, cropPx, deg, outW, outH);
             if (!noText) {
                 for (const text of textClips) {
                     if (outputTime >= text.timelineStart && outputTime < text.timelineEnd) _drawTextOverlayToCanvas(ctx, outW, outH, text, outputTime);
