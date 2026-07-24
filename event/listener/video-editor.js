@@ -10,8 +10,8 @@
  * [23/07/2026] — Thêm ref `generic-drawer-*` (core/generic-drawer.js, TÁI SỬ DỤNG THẬT — Giang yêu
  * cầu cấm dựng modal mới lặp lại) THAY 4 modal viết tay cũ (đã xoá khỏi HTML). Bỏ toàn bộ wiring
  * của 4 modal đó (nay Workflow tự querySelector+wire ngay khi mở, xem
- * event/workflow/video-editor.js::handlePropsOpen()/...). Kéo Text trên preview đổi sang 2 CHIỀU
- * (posX+posY, trước chỉ Y) + THÊM cử chỉ 2 ngón (pinch) co giãn/xoay.
+ * event/workflow/video-editor.js::handleVideoClipVolumeOpen()/...). Kéo Text trên preview đổi sang
+ * 2 CHIỀU (posX+posY, trước chỉ Y) + THÊM cử chỉ 2 ngón (pinch) co giãn/xoay.
  *
  * NẠP SAU: DOM tĩnh của video-editor.html đã render, event/bus.js, event/router/video-editor.js,
  * event/workflow/video-editor.js. Tự gọi workflowVideoEditor.init() ngay khi chạy (dòng cuối file).
@@ -49,9 +49,9 @@ const btnVideoEditorCropCancel = document.getElementById('btn-video-editor-crop-
 const btnVideoEditorCropConfirm = document.getElementById('btn-video-editor-crop-confirm');
 
 // Generic Drawer — TÁI SỬ DỤNG component dùng chung toàn app (core/generic-drawer.js), thay 4
-// modal viết tay cũ (Chỉnh/Sửa chữ/Chọn nhạc/Dịch chuyển đoạn). Nội dung header/body do Workflow tự
-// gán + wire mỗi lần mở (xem handlePropsOpen()/handleTextEditOpen()/handleAddMusicOpen()/
-// handleSongShiftOpen()) — ở đây CHỈ khai ref, không wire gì thêm.
+// modal viết tay cũ (Volume Video/Sửa chữ/Chọn nhạc/Dịch chuyển đoạn). Nội dung header/body do
+// Workflow tự gán + wire mỗi lần mở (xem handleVideoClipVolumeOpen()/handleTextEditOpen()/
+// handleAddMusicOpen()/handleSongShiftOpen()) — ở đây CHỈ khai ref, không wire gì thêm.
 const genericDrawerOverlay = document.getElementById('generic-drawer-overlay');
 const genericDrawerPanel = document.getElementById('generic-drawer-panel');
 const genericDrawerHeader = document.getElementById('generic-drawer-header');
