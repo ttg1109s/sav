@@ -102,18 +102,14 @@ const workflowVideoEditor = {
     _dragLastClientX: 0,
     _pinchState: null, // {startDist,startAngleDeg,baseSize,baseRotation}|null — MỚI, kéo-giãn/xoay Text 2 ngón trên preview
 
-    // [XOÁ 24/07/2026 — Giang báo "mất tiếng cả video cả nhạc"] _videoGainBoost/_songGainBoost đã bỏ
-    // hẳn. NGUYÊN NHÂN: `createMediaElementSource()` (core/video-editor/media-gain.js) tự động NGẮT
-    // đường phát mặc định của thẻ media, âm thanh CHỈ còn phát qua đúng graph Web Audio mình tự nối
-    // — graph đó CHỈ chạy khi AudioContext ở trạng thái 'running'. `new AudioContext()` tạo NGOÀI 1
-    // user-gesture (ở đây là trong `_onMetadataReady()`, chạy do sự kiện 'loadedmetadata', KHÔNG
-    // phải do người dùng bấm) MẶC ĐỊNH ở trạng thái 'suspended' — và code trước đó KHÔNG hề gọi
-    // `.resume()` ở đâu cả, nên graph ĐỨNG YÊN MÃI MÃI, câm hẳn CẢ video CẢ nhạc, kể cả volume=100%
-    // (không liên quan gì volume >100% nữa — toàn bộ đường phát bị "khoá" luôn). Quay lại `.volume`
-    // gốc của thẻ media (đơn giản, luôn chạy được, ĐÚNG như trước lúc chưa có GainNode) — CHẤP NHẬN
-    // giới hạn: volume >100% ở PREVIEW sẽ nghe như đúng 100% (không to hơn được, thẻ media gốc kẹp ở
-    // 1.0), nhưng lúc XUẤT THẬT (Lưu) vẫn khuếch đại ĐÚNG >100% (webcodecs-engine.js dùng
-    // OfflineAudioContext — KHÔNG cần user-gesture/không bị suspend vì không phát ra loa lúc dựng).
+    // [BẢN THỬ 24/07/2026 sáng — Giang báo "mất tiếng cả video cả nhạc" — ĐÃ BỎ] Lần đầu thử
+    // GainNode: `createMediaElementSource()` tự động NGẮT đường phát mặc định của thẻ media, âm
+    // thanh CHỈ còn phát qua graph Web Audio tự nối — graph đó CHỈ chạy khi AudioContext ở trạng
+    // thái 'running'. Tạo context trong `_onMetadataReady()` (do sự kiện 'loadedmetadata', KHÔNG
+    // phải cử chỉ người dùng) → MẶC ĐỊNH 'suspended', KHÔNG hề gọi `.resume()` ở đâu → câm HẲN cả
+    // video cả nhạc. Đã quay lại `.volume` gốc — nhưng round SAU (Giang báo "vẫn không chỉnh được
+    // volume") tra cứu ra: iOS KHOÁ CỨNG `.volume` (không phải bug JS, xem docstring
+    // media-gain.js) — `.volume` gốc KHÔNG BAO GIỜ hoạt động được trên iOS dù sửa cách nào.
 
     // MỚI (24/07/2026, mục e) — waveform "Dịch chuyển đoạn" (handleSongShiftOpen()), sống trong lúc
     // Generic Drawer nội dung đó đang mở, huỷ lúc đóng (xem _closeGenericDrawerFully()).
@@ -122,6 +118,14 @@ const workflowVideoEditor = {
     _shiftRegion: null,
     _shiftIsPlayingRegion: false,
     _shiftStopHandler: null,
+
+    // [TÁI TẠO 24/07/2026, round 4] `_videoGainBoost`/`_songGainBoost` (core/video-editor/
+    // media-gain.js) — QUAY LẠI GainNode (bắt buộc trên iOS, xem docstring media-gain.js), lần này
+    // tạo LƯỜI + `.resume()` từ 1 user-gesture THẬT (nút Play/mở Drawer Volume, xem
+    // `_ensureGainBoosts()`) — KHÔNG tạo lúc `_onMetadataReady()` nữa (đúng nguyên nhân gây câm
+    // tiếng ở bản thử trước).
+    _videoGainBoost: null,
+    _songGainBoost: null,
 
     _songListCache: null,
     _songSearchQuery: '',
@@ -220,15 +224,47 @@ const workflowVideoEditor = {
      * `_handleSongPickerSelect()`/`handleAddText()`).
      * GỌI LẠI mỗi khi `_audioClips`/`_textClips`/`_videoClips` đổi hình dạng (thêm/nhân bản/xoá/
      * tách/kéo trim clip BẤT KỲ track nào — kể cả Video, vì `_totalDuration()` phụ thuộc
-     * `_videoClips`). */
+     * `_videoClips`).
+     * [SỬA 24/07/2026, Giang báo "không ấn được Thêm nhạc/Thêm chữ dù chưa có track nào"] — đã dò
+     * lại kỹ toàn bộ logic (kể cả mô phỏng chạy thử eventBus.send() qua node) và KHÔNG tìm ra được
+     * đường nào khiến cờ này sai thành `true` khi 2 mảng clip đang RỖNG — `.some()` trên mảng rỗng
+     * LUÔN trả `false` bất kể `total` là gì. Bọc try/catch phòng thủ ở đây (không để 1 lỗi ngoài dự
+     * kiến của appState — vd sai lệch bản deploy — làm hỏng LUÔN thao tác thêm/nhân bản/xoá clip
+     * chính, vốn quan trọng hơn việc chặn khi đầy) — nếu Giang vẫn gặp lại, rất có thể do cache cũ
+     * (SAV là PWA, xem ghi chú ở core/video-editor/media-gain.js) chứ không phải logic sai — cần mở
+     * console kiểm tra có warning "[AppState.get]/[AppState.set] Account ... không có quyền" hay
+     * không (dấu hiệu bản deploy thiếu file `service/state.js`/`video-editor.html` mới nhất). */
     _recomputeTrackFullFlags() {
-        const total = this._totalDuration();
-        const audioFull = total > 0 && this._audioClips.some((c) => c.timelineEnd >= total - 0.01);
-        const textFull = total > 0 && this._textClips.some((c) => c.timelineEnd >= total - 0.01);
-        appState.set('videoEditAudioTrackFull', audioFull);
-        appState.set('videoEditTextTrackFull', textFull);
+        try {
+            const total = this._totalDuration();
+            const audioFull = total > 0 && this._audioClips.some((c) => c.timelineEnd >= total - 0.01);
+            const textFull = total > 0 && this._textClips.some((c) => c.timelineEnd >= total - 0.01);
+            appState.set('videoEditAudioTrackFull', audioFull);
+            appState.set('videoEditTextTrackFull', textFull);
+        } catch (err) {
+            console.error('[_recomputeTrackFullFlags] Lỗi không lường trước — BỎ QUA, không để chặn thao tác chính:', err);
+        }
     },
+
+    /** [TÁI TẠO 24/07/2026, round 4] Tạo (đúng 1 LẦN) + `.resume()` 2 GainNode boost cho video/nhạc
+     * — bắt buộc PHẢI gọi từ 1 user-gesture THẬT (nút Play/nút mở Drawer Volume) để trình duyệt cho
+     * phép AudioContext chạy (chính sách autoplay) — xem docstring core/video-editor/media-gain.js.
+     * Idempotent — gọi nhiều lần chỉ tạo 1 lần (guard `if (!this._xGainBoost)`), các lần sau chỉ
+     * resume() lại (rẻ, cần thiết vì mobile Safari có thể tự suspend lại context sau khi app xuống
+     * nền/bị gián đoạn — ngắt cuộc gọi tới, chuyển app...). */
+    _ensureGainBoosts() {
+        if (!this._videoGainBoost) {
+            try { this._videoGainBoost = createMediaGainBoost(videoEditorSourceEl); } catch (err) { console.warn('[_ensureGainBoosts] Không tạo được GainNode cho video (volume sẽ không chỉnh được trên iOS):', err); }
+        }
+        if (!this._songGainBoost) {
+            try { this._songGainBoost = createMediaGainBoost(videoEditorSongAudioEl); } catch (err) { console.warn('[_ensureGainBoosts] Không tạo được GainNode cho nhạc (volume sẽ không chỉnh được trên iOS):', err); }
+        }
+        if (this._videoGainBoost) this._videoGainBoost.audioCtx.resume().catch((err) => console.warn('[_ensureGainBoosts] resume() video bị reject:', err));
+        if (this._songGainBoost) this._songGainBoost.audioCtx.resume().catch((err) => console.warn('[_ensureGainBoosts] resume() nhạc bị reject:', err));
+    },
+
     _nextId() { return `c${this._idCounter++}`; },
+
 
     _totalRenderWidthSeconds() {
         return computeTimelineRenderWidthSeconds(this._videoClips, this._audioClips, this._textClips); // core/video-editor/timeline-calc.js
@@ -265,16 +301,19 @@ const workflowVideoEditor = {
         return outputStart + Math.max(0, videoEditorSourceEl.currentTime - clip.sourceStart);
     },
 
-    /** [SỬA 24/07/2026 — Giang báo "mất tiếng cả video cả nhạc"] Áp volume của đoạn Video ĐANG
-     * active (`_currentClipIndex`) lên `videoEditorSourceEl`. BỎ GainNode (xem docstring state field
-     * đầu file) — quay lại `.volume` gốc, kẹp [0,1] (giới hạn CHẤP NHẬN ĐƯỢC: >100% ở preview nghe
-     * như 100%, lúc xuất thật vẫn khuếch đại đúng). Gọi mỗi khi `_currentClipIndex` đổi
-     * (`_tick()`/`_seekToOutputTime()`/`_previewVideoAtSourceTime()`) VÀ mỗi khi slider Volume của
-     * đoạn đang chọn thay đổi (đúng lúc, xem `handleVideoClipVolumeOpen()`). */
+    /** [SỬA 24/07/2026, round 4 — Giang báo "vẫn chưa chỉnh được volume"] Áp volume của đoạn Video
+     * ĐANG active (`_currentClipIndex`) — QUA GainNode (`_videoGainBoost`) nếu đã sẵn sàng (BẮT
+     * BUỘC trên iOS — `.volume` gốc bị khoá cứng, xem docstring core/video-editor/media-gain.js),
+     * fallback `.volume` gốc kẹp [0,1] nếu trình duyệt không hỗ trợ AudioContext (hiếm — trên iOS
+     * fallback này sẽ KHÔNG có tác dụng, nhưng không throw). Gọi mỗi khi `_currentClipIndex` đổi
+     * (`_tick()`/`_seekToOutputTime()`/`_previewVideoAtSourceTime()`), mỗi khi slider Volume của
+     * đoạn đang chọn thay đổi, VÀ mỗi khi bấm Play (`_play()`, xem đó — trước đây THIẾU, khiến
+     * volume vừa sửa không áp lại lúc bấm Play nếu đoạn hiện tại KHÔNG đổi). */
     _syncCurrentClipVolume() {
         const clip = this._currentClipIndex != null ? this._videoClips[this._currentClipIndex] : null;
         const volume = clip && typeof clip.volume === 'number' ? clip.volume : 1;
-        videoEditorSourceEl.volume = Math.min(1, Math.max(0, volume));
+        if (this._videoGainBoost) applyMediaGainBoost(this._videoGainBoost, volume); // core/video-editor/media-gain.js
+        else videoEditorSourceEl.volume = Math.min(1, Math.max(0, volume));
     },
 
     _drawFrame() {
@@ -302,9 +341,10 @@ const workflowVideoEditor = {
      * dùng kéo slider Volume trong Drawer "Dịch chuyển đoạn" TRONG LÚC clip đó đang là clip active,
      * âm lượng nghe được KHÔNG đổi cho tới lần đổi bài hát kế tiếp. Nay gán MỖI LẦN gọi hàm (mỗi
      * frame lúc đang phát) — rẻ, không có side-effect gì đáng kể.
-     * [SỬA THÊM 24/07/2026 — Giang báo "mất tiếng cả video cả nhạc"] — BỎ GainNode (`_songGainBoost`,
-     * xem docstring state field đầu file — AudioContext bị 'suspended' do tạo NGOÀI user-gesture,
-     * KHÔNG hề gọi `.resume()` ở đâu, câm tiếng vĩnh viễn) — quay lại `.volume` gốc kẹp [0,1]. */
+     * [SỬA THÊM 24/07/2026, round 4 — Giang báo "vẫn chưa chỉnh được volume"] Quay lại GainNode
+     * (`_songGainBoost`) — BẮT BUỘC trên iOS (`.volume` gốc bị khoá cứng, xem docstring core/
+     * video-editor/media-gain.js), lần này tạo lười + resume() từ user-gesture thật (`_ensureGainBoosts()`,
+     * gọi ở `_play()`/`handleSongShiftOpen()`) nên KHÔNG còn bug câm tiếng của bản thử trước. */
     _syncAudioClips(outputTime) {
         const active = this._audioClips.find((c) => outputTime >= c.timelineStart && outputTime < c.timelineEnd);
         if (!active) { videoEditorSongAudioEl.pause(); videoEditorSongAudioEl.playbackRate = 1; this._activePreviewAudioClipId = null; return; }
@@ -313,7 +353,8 @@ const workflowVideoEditor = {
             videoEditorSongAudioEl.src = URL.createObjectURL(active.record.blob);
             videoEditorSongAudioEl.playbackRate = 1;
         }
-        videoEditorSongAudioEl.volume = Math.min(1, Math.max(0, active.volume));
+        if (this._songGainBoost) applyMediaGainBoost(this._songGainBoost, active.volume); // core/video-editor/media-gain.js
+        else videoEditorSongAudioEl.volume = Math.min(1, Math.max(0, active.volume));
         const songDuration = active.record.duration || 0;
         const targetTime = Math.max(0, Math.min(active.offsetInSong + (outputTime - active.timelineStart), Math.max(0, songDuration - 0.02)));
         const drift = videoEditorSongAudioEl.currentTime - targetTime;
@@ -354,6 +395,12 @@ const workflowVideoEditor = {
 
     handleTogglePlay() { if (this._isPlaying) this._pause(); else this._play(); },
 
+    /** [SỬA 24/07/2026, round 4] Bấm Play là 1 user-gesture THẬT — đúng chỗ để
+     * `_ensureGainBoosts()` tạo/`.resume()` GainNode (bắt buộc trên iOS). CŨNG SỬA 1 bug thật tìm ra
+     * lúc rà lại: hàm này TRƯỚC ĐÂY KHÔNG hề gọi `_syncCurrentClipVolume()` — nếu người dùng chỉnh
+     * Volume của đoạn Video trong lúc ĐANG TẠM DỪNG (không phải đoạn đang active lúc đó theo
+     * `_currentClipIndex`) rồi bấm Play, giá trị mới KHÔNG BAO GIỜ được áp lại (chỉ áp khi
+     * `_currentClipIndex` ĐỔI SANG đoạn khác, không áp lại khi Play LẠI đúng đoạn cũ vừa sửa). */
     _play() {
         if (!this._videoClips.length) return;
         const total = this._totalDuration();
@@ -361,6 +408,8 @@ const workflowVideoEditor = {
         if (cur >= total - 0.05 || this._currentClipIndex == null) this._seekToOutputTime(0);
         this._isPlaying = true;
         videoEditorPlayIconEl.textContent = '❚❚';
+        this._ensureGainBoosts(); // MỚI (mục 2, iOS) — PHẢI gọi trong user-gesture này, không được trễ hơn
+        this._syncCurrentClipVolume(); // SỬA — áp ĐÚNG volume đoạn hiện tại NGAY LÚC BẤM PLAY
         videoEditorSourceEl.play().catch(() => {});
         this._syncAudioClips(this._computeCurrentOutputTime());
         taskManager.resume('videoEditorPreviewRender');
@@ -958,29 +1007,34 @@ const workflowVideoEditor = {
 
     /** [SỬA 24/07/2026, phản hồi Giang mục 1] "Có thể tăng giảm âm thanh để mix video với nhạc" —
      * chỉ cần CÂN BẰNG 2 track (kéo bên nào xuống cho bên kia nổi hơn), KHÔNG cần khuếch đại vượt
-     * mức gốc — bỏ hẳn 0-200%, giờ 0-100% (mặc định 100%), khớp ĐÚNG khả năng thật của `.volume`
-     * thẻ media gốc (không còn GainNode — xem docstring đầu file, mục "mất tiếng"). Nếu đoạn đang
-     * chọn CŨNG là đoạn đang phát (`_currentClipIndex`), áp NGAY qua `_syncCurrentClipVolume()` để
-     * nghe thấy thay đổi tức thời — nếu KHÔNG phải đoạn đang phát, chỉ ghi vào `clip.volume`, lần
-     * tới đoạn đó active `_syncCurrentClipVolume()` tự đọc đúng giá trị mới. */
+     * mức gốc — bỏ hẳn 0-200%, giờ 0-100% (mặc định 100%).
+     * [SỬA THÊM round 4] Mở Drawer này CŨNG là 1 user-gesture thật — gọi `_ensureGainBoosts()` ngay
+     * (bắt buộc trên iOS, xem core/video-editor/media-gain.js) để chắc chắn AudioContext đã chạy
+     * trước khi người dùng kéo slider. Nếu đoạn đang chọn CŨNG là đoạn đang phát
+     * (`_currentClipIndex`), áp NGAY qua `_syncCurrentClipVolume()` để nghe thấy thay đổi tức thời —
+     * nếu KHÔNG phải đoạn đang phát, chỉ ghi vào `clip.volume`, lần tới đoạn đó active
+     * `_syncCurrentClipVolume()` tự đọc đúng giá trị mới (và `_play()` cũng tự áp lại lúc bấm Play). */
     handleVideoClipVolumeOpen() {
         const clip = this._activeVideoClip();
         if (!clip) return;
+        this._ensureGainBoosts(); // MỚI (mục 2, iOS) — mở Drawer Volume = user-gesture thật
         const volumePercent = Math.round((typeof clip.volume === 'number' ? clip.volume : 1) * 100);
         const bodyHtml = `
             <div class="px-4 flex flex-col gap-5 video-editor-gd-body-pb">
-                <div><label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.videoClipVolume.label'))}</span><span id="ve-gd-video-vol-val">${volumePercent}%</span></label><input type="range" id="ve-gd-video-vol" min="0" max="100" value="${volumePercent}" class="w-full"></div>
+                <div><label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.videoClipVolume.label'))}</span><span id="ve-gd-video-vol-val">${volumePercent}%</span></label><input type="range" id="ve-gd-video-vol" min="0" max="100" value="${volumePercent}" class="w-full ve-range"></div>
             </div>`;
         openGenericDrawer({ height: 'auto', maxHeight: '40vh', headerHtml: this._buildDrawerHeaderHtml(t('videoEdit.videoClipVolume.title')), bodyHtml });
         this._wireDrawerCloseButton();
 
         const volEl = genericDrawerBody.querySelector('#ve-gd-video-vol');
         const volValEl = genericDrawerBody.querySelector('#ve-gd-video-vol-val');
+        _paintRangeFill(volEl); // MỚI (mục 3) — tô màu dải đã kéo ngay lúc mở, không đợi tới lần 'input' đầu tiên
         volEl.addEventListener('input', () => {
             const c = this._activeVideoClip();
             if (!c) return;
             c.volume = (parseInt(volEl.value, 10) || 0) / 100;
             volValEl.textContent = `${volEl.value}%`;
+            _paintRangeFill(volEl); // MỚI (mục 3)
             this._hasUnsavedChanges = true;
             if (this._currentClipIndex === this._selected.index) this._syncCurrentClipVolume(); // nghe thấy NGAY nếu đúng đoạn đang phát
         });
@@ -1202,6 +1256,7 @@ const workflowVideoEditor = {
     handleSongShiftOpen() {
         const clip = this._activeAudioClip();
         if (!clip) return;
+        this._ensureGainBoosts(); // MỚI (mục 2, iOS) — mở Drawer này CŨNG là user-gesture thật
         const clipLength = clip.timelineEnd - clip.timelineStart;
         const bodyHtml = `
             <div class="px-4 flex flex-col gap-4 video-editor-gd-body-pb">
@@ -1214,7 +1269,7 @@ const workflowVideoEditor = {
                 <p id="ve-gd-shift-error" class="hidden text-center text-[11px] text-rose-500"></p>
                 <div>
                     <label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.clipVolume.label'))}</span><span id="ve-gd-clip-vol-val">${Math.round(clip.volume * 100)}%</span></label>
-                    <input type="range" id="ve-gd-clip-vol" min="0" max="100" value="${Math.round(clip.volume * 100)}">
+                    <input type="range" id="ve-gd-clip-vol" min="0" max="100" value="${Math.round(clip.volume * 100)}" class="ve-range">
                 </div>
             </div>`;
         openGenericDrawer({ height: 'auto', maxHeight: '70vh', headerHtml: this._buildDrawerHeaderHtml(t('videoEdit.songShift.title')), bodyHtml });
@@ -1227,6 +1282,7 @@ const workflowVideoEditor = {
         const playIconEl = genericDrawerBody.querySelector('#ve-gd-shift-play-icon');
         const waveformEl = genericDrawerBody.querySelector('#ve-gd-shift-waveform');
         const errorEl = genericDrawerBody.querySelector('#ve-gd-shift-error');
+        _paintRangeFill(volEl); // MỚI (mục 3) — tô màu dải đã kéo ngay lúc mở
 
         const updateTimeLabel = () => {
             const c = this._activeAudioClip();
@@ -1240,6 +1296,7 @@ const workflowVideoEditor = {
             if (!c) return;
             c.volume = (parseInt(volEl.value, 10) || 0) / 100;
             volValEl.textContent = `${volEl.value}%`;
+            _paintRangeFill(volEl); // MỚI (mục 3)
             this._hasUnsavedChanges = true;
             if (this._shiftWavesurfer) this._shiftWavesurfer.setVolume(Math.min(1, Math.max(0, c.volume))); // nghe thấy NGAY trong waveform preview
             if (this._activePreviewAudioClipId === c.id) this._syncAudioClips(this._computeCurrentOutputTime()); // ĐANG là clip active ở preview chính -> áp NGAY luôn (SỬA bug mục e)
@@ -1460,6 +1517,22 @@ const workflowVideoEditor = {
 /** Escape HTML tối thiểu cho tên bài hát/nghệ sĩ hiển thị trong danh sách chọn nhạc. */
 function _escapeVideoEditorHtml(str) {
     return (str || '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/** [MỚI 24/07/2026, mục 3 — Giang báo "slider volume không phân biệt được dải current với dải
+ * chưa kéo tới, đồng màu với nhau"] Tô màu phần ĐÃ kéo qua (min -> value) khác màu phần CÒN LẠI
+ * (value -> max) bằng CSS gradient trên chính `background` của `input[type=range]` — kỹ thuật
+ * cross-browser phổ biến nhất (track/thumb là pseudo-element riêng của TỪNG engine, style rất khó
+ * đồng bộ; gradient nền thì mọi trình duyệt vẽ giống nhau). Gọi 1 lần lúc dựng slider (giá trị mặc
+ * định) + lại mỗi lần 'input' bắn ra (xem 2 nơi gọi: handleVideoClipVolumeOpen()/handleSongShiftOpen()).
+ * Cần đi kèm class `.ve-range` (assets/css/video-editor.css) để tắt style track mặc định của trình
+ * duyệt — nếu không, gradient bị chính track mặc định của trình duyệt vẽ đè lên, không thấy được. */
+function _paintRangeFill(el) {
+    const min = parseFloat(el.min) || 0;
+    const max = parseFloat(el.max) || 100;
+    const val = parseFloat(el.value) || 0;
+    const pct = max > min ? ((val - min) / (max - min)) * 100 : 0;
+    el.style.background = `linear-gradient(to right, #10b981 0%, #10b981 ${pct}%, #e2e8f0 ${pct}%, #e2e8f0 100%)`;
 }
 
 /** Icon SVG dùng cho toolbar/dropdown (Workflow, KHÔNG thuộc core/ — không bị ràng buộc Rule 5). */
