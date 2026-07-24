@@ -8,7 +8,30 @@
  * ẨN SCROLLBAR TOÀN TRANG — mâu thuẫn `assets/css/style.css` (đã có thanh scroll 4px dùng chung
  * toàn app) + tiền lệ `.time-picker-col` (style.css) chỉ ẩn SCOPE RIÊNG. Ở ĐÂY chỉ ẩn scrollbar
  * trong đúng khu vực timeline/bottom-sheet (không cần thanh cuộn lộ ra ở đó, kéo-thả là chính).
+ *
+ * [v2, 24/07/2026, phản hồi Giang]
+ * - Mục a: bố cục đổi từ flex tỉ lệ sang `position:fixed` — xem biến `--ve-header-h`/`--ve-timeline-h`/
+ *   `--ve-toolbar-h` + rule `#video-editor-root > header`/`#video-editor-preview-section`/
+ *   `#video-editor-timeline-section`/`#video-editor-toolbar` ở cuối file.
+ * - Mục c: TÌM RA nguyên nhân "không bấm được vào Text trên preview" — `assets/css/style.css`
+ *   (dùng CHUNG mọi trang) có rule KHÔNG SCOPE `canvas { position:absolute; width:100vw;
+ *   height:100dvh; pointer-events:none; }` (viết cho canvas visualizer toàn màn hình ở
+ *   `index.html`) — vì chọn theo TAG `canvas` trần, rule đó áp LUÔN lên
+ *   `#video-editor-preview-canvas` (trang này cũng nạp chung style.css), khiến MỌI pointerdown/
+ *   move/up trên canvas preview không bao giờ tới tay trình duyệt (logic kéo/pinch đã viết đúng ở
+ *   event/listener,workflow/video-editor.js nhưng chưa từng có cơ hội chạy) — cộng thêm kích thước/
+ *   vị trí canvas cũng bị phá theo. Sửa bằng 1 override SCOPE riêng theo ID ngay dưới đây — AN TOÀN,
+ *   không đụng `style.css` dùng chung (không ảnh hưởng canvas visualizer ở `index.html`).
  */
+
+/* ===================== [c] Fix root cause — canvas preview bị đè bởi rule `canvas` trần của
+   style.css dùng chung (xem docstring đầu file) ===================== */
+#video-editor-preview-canvas {
+    position: static;
+    width: auto;
+    height: auto;
+    pointer-events: auto;
+}
 
 /* ===================== Custom range slider (filter/volume) ===================== */
 /* [SỬA 24/07/2026, Giang báo "slider ở Chỉnh/Nhạc không kích hoạt được"] — BỎ scope
@@ -88,3 +111,61 @@ input[type="range"]::-moz-range-thumb {
 .video-editor-gd-body-pb { padding-bottom: max(56px, calc(env(safe-area-inset-bottom, 16px) + 40px)); }
 
 .video-editor-file-upload-hidden { display: none; }
+
+/* ===================== [a] Bố cục fixed — MỚI, 24/07/2026, phản hồi Giang =====================
+   Trước đây header/preview/timeline/toolbar là 4 khối flex-col tỉ lệ (3/1/1 + header/transport bar
+   cố định ngoài tỉ lệ) bên trong `#video-editor-root` (flex flex-col h-full). Giờ CẢ 4 khối chuyển
+   sang `position:fixed` (rời khỏi luồng flex của #video-editor-root — không còn phụ thuộc chiều cao
+   nhau qua flex-grow nữa, tự tính theo biến CSS dưới đây): toolbar bottom:0, timeline áp sát ngay
+   trên toolbar, preview lấp phần còn lại giữa header và timeline. safe-area (tai thỏ/thanh điều
+   hướng) GỘP THẲNG vào 2 biến --ve-header-h/--ve-toolbar-h qua calc() — KHÔNG cộng thêm
+   `.video-editor-pt-safe`/`.video-editor-pb-safe` (2 class đó vẫn còn dùng ở nơi khác trong file,
+   ví dụ Generic Drawer — chỉ bỏ khỏi 2 phần tử header/toolbar để tránh cộng dồn 2 lần). */
+#video-editor-root {
+    --ve-header-h: calc(44px + env(safe-area-inset-top, 0px));
+    --ve-toolbar-h: calc(64px + env(safe-area-inset-bottom, 0px));
+    --ve-timeline-h: 168px;
+}
+#video-editor-root > header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: var(--ve-header-h);
+    padding-top: env(safe-area-inset-top, 0px);
+    box-sizing: border-box;
+}
+#video-editor-preview-section {
+    position: fixed;
+    left: 0; right: 0;
+    top: var(--ve-header-h);
+    bottom: calc(var(--ve-timeline-h) + var(--ve-toolbar-h));
+}
+#video-editor-timeline-section {
+    position: fixed;
+    left: 0; right: 0;
+    bottom: var(--ve-toolbar-h);
+    height: var(--ve-timeline-h);
+}
+#video-editor-toolbar {
+    position: fixed;
+    left: 0; right: 0;
+    bottom: 0;
+    height: var(--ve-toolbar-h);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-sizing: border-box;
+}
+
+/* ===================== [e] Waveform "Dịch chuyển đoạn" — MỚI, 24/07/2026 =====================
+   Khung chứa WaveSurfer bên trong Generic Drawer (handleSongShiftOpen(),
+   event/workflow/video-editor.js) — chiều cao CỐ ĐỊNH (cùng tinh thần `#waveform-frame` ở
+   subtitle-editor.html), tránh khung co giật lúc WaveSurfer đang decode/vẽ xong. */
+#ve-gd-shift-waveform {
+    height: 72px;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: #f1f5f9; /* slate-100 — Generic Drawer nền trắng, khác nền đen toàn trang */
+}
+/* Region kéo-dịch offset (drag:true, resize:false — độ rộng LUÔN cố định = độ dài clip, xem
+   docstring handleSongShiftOpen()) — con trỏ "kéo ngang" thay vì con trỏ resize mặc định của
+   WaveSurfer Regions (dễ hiểu nhầm là co giãn được). */
+#ve-gd-shift-waveform .wavesurfer-region { cursor: grab !important; }
+#ve-gd-shift-waveform .wavesurfer-region:active { cursor: grabbing !important; }
