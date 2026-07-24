@@ -169,3 +169,41 @@ input[type="range"]::-moz-range-thumb {
    WaveSurfer Regions (dễ hiểu nhầm là co giãn được). */
 #ve-gd-shift-waveform .wavesurfer-region { cursor: grab !important; }
 #ve-gd-shift-waveform .wavesurfer-region:active { cursor: grabbing !important; }
+
+/* ===================== [3] Slider Volume — tô màu dải đã kéo/chưa kéo =====================
+   MỚI, 24/07/2026, Giang báo "slider volume không phân biệt được dải current với dải chưa kéo
+   đến, đồng màu với nhau". `background` (gradient) được JS set lại mỗi lần giá trị đổi (xem
+   `_paintRangeFill()`, event/workflow/video-editor.js) — CSS ở đây chỉ tắt style track mặc định
+   của từng trình duyệt (nếu không tắt, track mặc định vẽ ĐÈ LÊN gradient, không thấy được) + style
+   thumb cho đồng bộ 3 engine (Chrome/Safari dùng -webkit-*, Firefox dùng -moz-*). */
+.ve-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    outline: none;
+    background: #e2e8f0; /* fallback trước khi JS tô màu lần đầu (_paintRangeFill() gọi ngay lúc mở Drawer) */
+}
+.ve-range::-webkit-slider-runnable-track { background: transparent; } /* để lộ gradient nền của chính input, không bị track mặc định Chrome/Safari vẽ đè */
+.ve-range::-moz-range-track { background: transparent; } /* Firefox vẽ track riêng — tắt đi cùng lý do trên */
+.ve-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #10b981;
+    border: 2px solid #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    margin-top: -6px; /* căn giữa thumb theo track cao 6px (Chrome/Safari không tự căn giữa như Firefox) */
+}
+.ve-range::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #10b981;
+    border: 2px solid #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+}
