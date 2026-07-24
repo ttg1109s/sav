@@ -24,6 +24,20 @@
  * (đổi `<audio>` src theo clip nào đang active tại thời điểm phát) — nếu 2 clip Nhạc chồng nhau trên
  * timeline, preview chỉ nghe được 1 trong 2; lúc XUẤT THẬT (Lưu) vẫn trộn ĐẦY ĐỦ mọi clip chồng nhau
  * (qua OfflineAudioContext, xem webcodecs-engine.js) — chỉ preview bị giới hạn.
+ *
+ * [v4, 24/07/2026, phản hồi Giang]
+ * d) Bỏ hẳn "Chỉnh" (Brightness/Contrast/Saturation/Volume TOÀN CỤC — `_brightness/_contrast/
+ *    _saturation/_volumeVideo` đã xoá). Volume giờ là thuộc tính RIÊNG của TỪNG đoạn trong
+ *    `_videoClips[i].volume` (0-2, 1 = 100%, cùng thang đo `_audioClips[i].volume` đã có sẵn) — mở
+ *    qua toolbar lúc đang CHỌN 1 đoạn Video (xem `handleVideoClipVolumeOpen()`).
+ * e) "Dịch chuyển đoạn" (`handleSongShiftOpen()`) đổi từ thanh màu kéo tay sang waveform thật
+ *    (WaveSurfer.js v7 + Regions, tái dùng đúng thư viện/pattern đã có ở subtitle-editor.html).
+ *    Region LUÔN giữ NGUYÊN độ rộng (= độ dài clip) — kéo chỉ dịch `offsetInSong` (đúng logic cũ,
+ *    `clampSongOffsetDrag()`, core/video-editor/audio-sync.js). Thêm nút Play phát ĐÚNG vùng chọn.
+ * Volume >100% (Video lẫn Nhạc) dùng GainNode (`core/video-editor/media-gain.js`, MỚI) thay vì gán
+ * thẳng `.volume` (thẻ media gốc kẹp ở 1.0 = 100%, không khớp bản xuất thật dùng GainNode) — 2 gain
+ * node sống suốt vòng đời trang: `_videoGainBoost` (cho `videoEditorSourceEl`), `_songGainBoost`
+ * (cho `videoEditorSongAudioEl`), tạo lười 1 LẦN DUY NHẤT lúc metadata sẵn sàng.
  */
 /** Danh sách phông chọn cho Text overlay — KHỚP với thẻ <link> Google Fonts nạp ở đầu video-editor.html. */
 const VIDEO_EDITOR_FONTS = [
@@ -57,16 +71,29 @@ const workflowVideoEditor = {
     _rotateDeg: 0,
     _cropFraction: null,
     _cropper: null,
-    _volumeVideo: 100, // % — toàn cục
-    _brightness: 100, _contrast: 100, _saturation: 100, // % — toàn cục (MỚI: trước đọc thẳng DOM slider của modal cũ làm state, nay modal là Generic Drawer — nội dung mất đi mỗi lần đóng, PHẢI có field riêng làm nguồn sự thật)
+    // [XOÁ 24/07/2026, mục d] _volumeVideo/_brightness/_contrast/_saturation (toàn cục) — "Chỉnh"
+    // bỏ hẳn. Volume giờ là `_videoClips[i].volume` (per-clip, xem docstring đầu file).
 
     _selected: null, // {track:'video'|'audio'|'text', index}|null
     _isPlaying: false,
     _dragHandle: null, // {track,index,handleType:'start'|'end'|'move'}|null
     _dragLastClientX: 0,
-    _draggingSongShift: false,
-    _songShiftPxPerSec: 0,
     _pinchState: null, // {startDist,startAngleDeg,baseSize,baseRotation}|null — MỚI, kéo-giãn/xoay Text 2 ngón trên preview
+
+    // MỚI (24/07/2026, mục e) — GainNode Web Audio cho `videoEditorSourceEl`/`videoEditorSongAudioEl`,
+    // tạo lười 1 LẦN lúc metadata sẵn sàng (xem core/video-editor/media-gain.js). `null` nếu trình
+    // duyệt không hỗ trợ AudioContext — Workflow tự fallback về `.volume` kẹp [0,1] lúc đó.
+    _videoGainBoost: null,
+    _songGainBoost: null,
+
+    // MỚI (24/07/2026, mục e) — waveform "Dịch chuyển đoạn" (handleSongShiftOpen()), sống trong lúc
+    // Generic Drawer nội dung đó đang mở, huỷ lúc đóng (xem _closeGenericDrawerFully()).
+    _shiftWavesurfer: null,
+    _shiftRegionsPlugin: null,
+    _shiftRegion: null,
+    _shiftGainBoost: null,
+    _shiftIsPlayingRegion: false,
+    _shiftStopHandler: null,
 
     _songListCache: null,
     _songSearchQuery: '',
@@ -116,12 +143,20 @@ const workflowVideoEditor = {
         this._nativeW = videoEditorSourceEl.videoWidth || 16;
         this._nativeH = videoEditorSourceEl.videoHeight || 9;
         this._fullSourceDuration = videoEditorSourceEl.duration || 0;
-        this._videoClips = [{ sourceStart: 0, sourceEnd: this._fullSourceDuration }];
+        this._videoClips = [{ sourceStart: 0, sourceEnd: this._fullSourceDuration, volume: 1 }]; // volume MỚI (mục d) — mặc định 100%
         this._currentClipIndex = 0;
         videoEditorPreviewCanvasEl.width = this._nativeW;
         videoEditorPreviewCanvasEl.height = this._nativeH;
         videoEditorEmptyStateEl.classList.add('hidden');
         videoEditorPlayheadEl.classList.remove('hidden');
+
+        // MỚI (24/07/2026, mục e) — GainNode cho Volume >100% (xem docstring đầu file + core/
+        // video-editor/media-gain.js). `createMediaGainBoost()` chỉ được gọi ĐÚNG 1 LẦN mỗi phần tử
+        // — làm ở đây, ngay khi trang có 1 video thật để phát, bọc try/catch (không được phép chặn
+        // phần còn lại của app nếu trình duyệt chặn AudioContext lúc chưa có cử chỉ người dùng).
+        try { this._videoGainBoost = createMediaGainBoost(videoEditorSourceEl); } catch (err) { console.warn('[_onMetadataReady] Không tạo được GainNode cho video (fallback .volume, tối đa 100%):', err); }
+        try { this._songGainBoost = createMediaGainBoost(videoEditorSongAudioEl); } catch (err) { console.warn('[_onMetadataReady] Không tạo được GainNode cho nhạc (fallback .volume, tối đa 100%):', err); }
+        this._syncCurrentClipVolume();
 
         // Dựng UI CỐT LÕI TRƯỚC (toolbar/timeline/thời gian) — KHÔNG chờ filmstrip. Bug đã gặp: lỗi
         // ném ra trong lúc trích filmstrip (Mediabunny, xem catch dưới) làm cả hàm dừng NGANG, khiến
@@ -170,6 +205,7 @@ const workflowVideoEditor = {
                 this._currentClipIndex++;
                 videoEditorSourceEl.currentTime = this._videoClips[this._currentClipIndex].sourceStart;
                 videoEditorSourceEl.play().catch(() => {});
+                this._syncCurrentClipVolume(); // MỚI (mục d) — đoạn Video mới có thể có volume khác đoạn vừa hết
             } else {
                 this._pause();
                 this._seekToOutputTime(this._totalDuration());
@@ -189,8 +225,16 @@ const workflowVideoEditor = {
         return outputStart + Math.max(0, videoEditorSourceEl.currentTime - clip.sourceStart);
     },
 
-    _currentFilterCss() {
-        return buildFilterCss(this._brightness, this._contrast, this._saturation); // core/video-editor/preview-draw.js
+    /** MỚI (24/07/2026, mục d) — áp volume của đoạn Video ĐANG active (`_currentClipIndex`) lên
+     * `videoEditorSourceEl`, qua GainNode nếu có (`_videoGainBoost`, cho phép >100%) hoặc fallback
+     * `.volume` kẹp [0,1]. Gọi mỗi khi `_currentClipIndex` đổi (`_tick()`/`_seekToOutputTime()`/
+     * `_previewVideoAtSourceTime()`) VÀ mỗi khi slider Volume của đoạn đang chọn thay đổi (đúng lúc,
+     * xem `handleVideoClipVolumeOpen()`). */
+    _syncCurrentClipVolume() {
+        const clip = this._currentClipIndex != null ? this._videoClips[this._currentClipIndex] : null;
+        const volume = clip && typeof clip.volume === 'number' ? clip.volume : 1;
+        if (this._videoGainBoost) applyMediaGainBoost(this._videoGainBoost, volume); // core/video-editor/media-gain.js
+        else videoEditorSourceEl.volume = Math.min(1, Math.max(0, volume));
     },
 
     _drawFrame() {
@@ -199,7 +243,7 @@ const workflowVideoEditor = {
         const { outW, outH, deg } = computeRotatedOutputSize(cropPx, this._rotateDeg);
         if (videoEditorPreviewCanvasEl.width !== outW) videoEditorPreviewCanvasEl.width = outW;
         if (videoEditorPreviewCanvasEl.height !== outH) videoEditorPreviewCanvasEl.height = outH;
-        drawVideoPreviewFrame(ctx, videoEditorSourceEl, cropPx, deg, this._currentFilterCss(), outW, outH);
+        drawVideoPreviewFrame(ctx, videoEditorSourceEl, cropPx, deg, outW, outH);
         const outputTime = this._computeCurrentOutputTime();
         this._textClips.forEach((tc) => {
             if (outputTime >= tc.timelineStart && outputTime < tc.timelineEnd) drawTextOverlay(ctx, outW, outH, tc, outputTime);
@@ -212,16 +256,23 @@ const workflowVideoEditor = {
      * currentTime liên tục gây giật/rè tiếng ở nhiều trình duyệt. Nay: lệch NHỎ (0.08-0.35s) chỉ
      * chỉnh nhẹ `playbackRate` (êm tai hơn nhiều, tự từ từ bắt kịp) — CHỈ lệch LỚN (>0.35s, vd vừa
      * tua) mới nhảy thẳng `currentTime`. Cũng kẹp `targetTime` trong biên hợp lệ [0, songDuration]
-     * — gán currentTime ra ngoài biên có thể khiến 1 số trình duyệt phát lỗi/im/rè. */
+     * — gán currentTime ra ngoài biên có thể khiến 1 số trình duyệt phát lỗi/im/rè.
+     * [SỬA 24/07/2026, phản hồi Giang mục e — "kiểm tra âm lượng"] — BUG: trước đây `.volume` CHỈ
+     * được gán ĐÚNG 1 LẦN lúc đổi bài hát (`_activePreviewAudioClipId !== active.id`) — nếu người
+     * dùng kéo slider Volume trong Drawer "Dịch chuyển đoạn" TRONG LÚC clip đó đang là clip active,
+     * âm lượng nghe được KHÔNG đổi cho tới lần đổi bài hát kế tiếp. Nay gán MỖI LẦN gọi hàm (mỗi
+     * frame lúc đang phát) — rẻ, không có side-effect gì đáng kể. Cũng đổi sang GainNode
+     * (`_songGainBoost`) để >100% ra ĐÚNG (thẻ audio gốc kẹp ở 100%). */
     _syncAudioClips(outputTime) {
         const active = this._audioClips.find((c) => outputTime >= c.timelineStart && outputTime < c.timelineEnd);
         if (!active) { videoEditorSongAudioEl.pause(); videoEditorSongAudioEl.playbackRate = 1; this._activePreviewAudioClipId = null; return; }
         if (this._activePreviewAudioClipId !== active.id) {
             this._activePreviewAudioClipId = active.id;
             videoEditorSongAudioEl.src = URL.createObjectURL(active.record.blob);
-            videoEditorSongAudioEl.volume = Math.min(1, active.volume);
             videoEditorSongAudioEl.playbackRate = 1;
         }
+        if (this._songGainBoost) applyMediaGainBoost(this._songGainBoost, active.volume); // core/video-editor/media-gain.js
+        else videoEditorSongAudioEl.volume = Math.min(1, Math.max(0, active.volume));
         const songDuration = active.record.duration || 0;
         const targetTime = Math.max(0, Math.min(active.offsetInSong + (outputTime - active.timelineStart), Math.max(0, songDuration - 0.02)));
         const drift = videoEditorSongAudioEl.currentTime - targetTime;
@@ -252,6 +303,7 @@ const workflowVideoEditor = {
         if (!found) return;
         this._currentClipIndex = found.index;
         videoEditorSourceEl.currentTime = found.sourceSplitPoint;
+        this._syncCurrentClipVolume(); // MỚI (mục d) — đoạn Video có thể đổi sau khi tua
         this._syncAudioClips(clamped);
         this._updateTimeDisplay(clamped);
         this._drawFrame();
@@ -572,6 +624,7 @@ const workflowVideoEditor = {
     _previewVideoAtSourceTime(clipIndex, sourceTime) {
         this._currentClipIndex = clipIndex;
         videoEditorSourceEl.currentTime = Math.max(0, Math.min(sourceTime, Math.max(0, this._fullSourceDuration - 0.01)));
+        this._syncCurrentClipVolume(); // MỚI (mục d) — đang xem trước đoạn nào thì áp đúng volume đoạn đó
         videoEditorSourceEl.addEventListener('seeked', () => {
             this._drawFrame();
             this._updateTimeDisplay(this._computeCurrentOutputTime());
@@ -599,7 +652,7 @@ const workflowVideoEditor = {
             const clip = this._videoClips[index];
             if (found.sourceSplitPoint <= clip.sourceStart + MIN_GAP || found.sourceSplitPoint >= clip.sourceEnd - MIN_GAP) return; // guard — quá sát mép
             const [a, b] = splitRangeAt(clip.sourceStart, clip.sourceEnd, found.sourceSplitPoint); // core/video-editor/timeline-calc.js
-            this._videoClips.splice(index, 1, { sourceStart: a.start, sourceEnd: a.end }, { sourceStart: b.start, sourceEnd: b.end });
+            this._videoClips.splice(index, 1, { sourceStart: a.start, sourceEnd: a.end, volume: clip.volume }, { sourceStart: b.start, sourceEnd: b.end, volume: clip.volume }); // volume (mục d) — GIỮ NGUYÊN cho cả 2 nửa
             this._selected = { track: 'video', index };
         } else {
             const list = track === 'audio' ? this._audioClips : this._textClips;
@@ -694,7 +747,6 @@ const workflowVideoEditor = {
             addBtn(_veIcon('crop'), 'videoEdit.btnCrop.title', 'videoEdit.crop.click');
             addBtn(_veIcon('rotateLeft'), 'videoEdit.btnRotateLeft.title', 'videoEdit.rotateLeft.click');
             addBtn(_veIcon('rotateRight'), 'videoEdit.btnRotateRight.title', 'videoEdit.rotateRight.click');
-            addBtn(_veIcon('adjust'), 'videoEdit.btnAdjust.title', 'videoEdit.props.open');
             addBtn(_veIcon('reset'), 'videoEdit.btnReset.title', 'videoEdit.reset.click');
             addBtn(_veIcon('extractFrame'), 'videoEdit.btnExtractFrame.title', 'videoEdit.extractFrame.click');
             addBtn(_veIcon('addMusic'), 'videoEdit.btnAddMusic.title', 'videoEdit.addMusic.open');
@@ -708,6 +760,8 @@ const workflowVideoEditor = {
         addBtn(_veIcon('duplicate'), 'videoEdit.btnDuplicate.title', 'videoEdit.duplicateClip.click');
 
         if (track === 'video') {
+            // MỚI (24/07/2026, mục d) — Volume RIÊNG của đoạn Video đang chọn (thay "Chỉnh" toàn cục đã bỏ).
+            addBtn(_veIcon('volume'), 'videoEdit.btnVolume.title', 'videoEdit.videoClipVolume.open');
             if (this._videoClips.length > 1) {
                 addBtn(_veIcon('delete'), 'videoEdit.btnDelete.title', 'videoEdit.deleteClip.click');
                 if (this._selected.index > 0) addBtn(_veIcon('moveLeft'), 'videoEdit.btnMoveEarlier.title', 'videoEdit.moveClipEarlier.click');
@@ -795,24 +849,22 @@ const workflowVideoEditor = {
 
     handleCropReset() { this._cropFraction = null; this._hasUnsavedChanges = true; this._drawFrame(); },
 
-    // ===================== Rotate / Filter / Volume gốc / Reset (toàn cục) =====================
+    // ===================== Rotate / Reset (toàn cục) =====================
 
     handleRotateLeft() { this._rotateDeg = ((this._rotateDeg - 90) % 360 + 360) % 360; this._hasUnsavedChanges = true; this._drawFrame(); },
     handleRotateRight() { this._rotateDeg = (this._rotateDeg + 90) % 360; this._hasUnsavedChanges = true; this._drawFrame(); },
 
+    /** [SỬA 24/07/2026, mục d] — bỏ reset Brightness/Contrast/Saturation/Volume toàn cục ("Chỉnh"
+     * đã bỏ hẳn). Volume giờ RIÊNG từng đoạn Video — không có ý nghĩa "reset toàn cục" nữa, muốn về
+     * 100% thì kéo lại slider trong Drawer Volume của đúng đoạn đó (handleVideoClipVolumeOpen()). */
     handleReset() {
         this._cropFraction = null;
         this._rotateDeg = 0;
-        this._volumeVideo = 100;
-        this._brightness = 100;
-        this._contrast = 100;
-        this._saturation = 100;
-        videoEditorSourceEl.volume = 1;
         this._hasUnsavedChanges = true;
         this._drawFrame();
     },
 
-    // ===================== Generic Drawer — khung DÙNG CHUNG cho Chỉnh/Sửa chữ/Chọn nhạc/Dịch
+    // ===================== Generic Drawer — khung DÙNG CHUNG cho Volume Video/Sửa chữ/Chọn nhạc/Dịch
     // chuyển đoạn (core/generic-drawer.js, TÁI SỬ DỤNG THẬT theo yêu cầu Giang — cấm dựng modal
     // mới lặp lại). Nội dung động (bodyHtml) do CHÍNH các hàm handleXxxOpen() dưới đây tự viết +
     // querySelector lại NGAY SAU khi gọi openGenericDrawer() để wire trực tiếp (KHÔNG qua
@@ -832,8 +884,11 @@ const workflowVideoEditor = {
     /** Đóng Generic Drawer (dùng CHUNG cho cả 4 loại nội dung) — cùng mẫu `document-reader.js`:
      * `closeGenericDrawer()` chỉ trượt xuống, tự nghe `transitionend` rồi mới `hideGenericDrawerImmediately()`
      * ẩn hẳn (core KHÔNG tự addEventListener cho DOM tĩnh, Rule 5a). Luôn refresh lại toolbar/track/
-     * preview sau khi đóng — AN TOÀN dù vừa đóng loại nội dung nào (đổi filter/text/nhạc đều cần). */
+     * preview sau khi đóng — AN TOÀN dù vừa đóng loại nội dung nào (đổi volume/text/nhạc đều cần).
+     * [SỬA 24/07/2026, mục e] — luôn dọn WaveSurfer của "Dịch chuyển đoạn" nếu đang sống (an toàn
+     * dù đóng từ loại nội dung Drawer nào — no-op nếu không phải đang mở "Dịch chuyển đoạn"). */
     _closeGenericDrawerFully() {
+        this._destroyShiftWaveform();
         closeGenericDrawer(); // core/generic-drawer.js
         genericDrawerPanel.addEventListener('transitionend', function onTransitionEnd() {
             genericDrawerPanel.removeEventListener('transitionend', onTransitionEnd);
@@ -844,36 +899,35 @@ const workflowVideoEditor = {
         this._drawFrame();
     },
 
-    // ===================== "Chỉnh" (Filter + Volume gốc, toàn cục) =====================
+    // ===================== Volume RIÊNG từng đoạn Video — MỚI (24/07/2026, mục d, thay "Chỉnh") =====================
 
-    handlePropsOpen() {
+    _activeVideoClip() { return this._selected && this._selected.track === 'video' ? this._videoClips[this._selected.index] : null; },
+
+    /** Drawer 1 slider DUY NHẤT — Volume của ĐÚNG đoạn Video đang chọn (0-200%, mặc định 100% —
+     * KHÁC "Chỉnh" cũ đã bỏ hẳn, không còn Brightness/Contrast/Saturation, không còn toàn cục). Nếu
+     * đoạn đang chọn CŨNG là đoạn đang phát (`_currentClipIndex`), áp NGAY qua `_syncCurrentClipVolume()`
+     * để nghe thấy thay đổi tức thời — nếu KHÔNG phải đoạn đang phát, chỉ ghi vào `clip.volume`,
+     * lần tới đoạn đó active `_syncCurrentClipVolume()` tự đọc đúng giá trị mới. */
+    handleVideoClipVolumeOpen() {
+        const clip = this._activeVideoClip();
+        if (!clip) return;
+        const volumePercent = Math.round((typeof clip.volume === 'number' ? clip.volume : 1) * 100);
         const bodyHtml = `
             <div class="px-4 flex flex-col gap-5 video-editor-gd-body-pb">
-                <div><label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.volVideo'))}</span><span id="ve-gd-vol-video-val">${this._volumeVideo}%</span></label><input type="range" id="ve-gd-vol-video" min="0" max="200" value="${this._volumeVideo}" class="w-full"></div>
-                <div><label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.filterBrightness'))}</span><span id="ve-gd-brightness-val">${this._brightness}%</span></label><input type="range" id="ve-gd-brightness" min="50" max="150" value="${this._brightness}" class="w-full"></div>
-                <div><label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.filterContrast'))}</span><span id="ve-gd-contrast-val">${this._contrast}%</span></label><input type="range" id="ve-gd-contrast" min="50" max="150" value="${this._contrast}" class="w-full"></div>
-                <div><label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.filterSaturation'))}</span><span id="ve-gd-saturation-val">${this._saturation}%</span></label><input type="range" id="ve-gd-saturation" min="0" max="200" value="${this._saturation}" class="w-full"></div>
+                <div><label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.videoClipVolume.label'))}</span><span id="ve-gd-video-vol-val">${volumePercent}%</span></label><input type="range" id="ve-gd-video-vol" min="0" max="200" value="${volumePercent}" class="w-full"></div>
             </div>`;
-        openGenericDrawer({ height: 'auto', maxHeight: '60vh', headerHtml: this._buildDrawerHeaderHtml(t('videoEdit.propsModal.title')), bodyHtml });
+        openGenericDrawer({ height: 'auto', maxHeight: '40vh', headerHtml: this._buildDrawerHeaderHtml(t('videoEdit.videoClipVolume.title')), bodyHtml });
         this._wireDrawerCloseButton();
 
-        const volEl = genericDrawerBody.querySelector('#ve-gd-vol-video');
-        const volValEl = genericDrawerBody.querySelector('#ve-gd-vol-video-val');
+        const volEl = genericDrawerBody.querySelector('#ve-gd-video-vol');
+        const volValEl = genericDrawerBody.querySelector('#ve-gd-video-vol-val');
         volEl.addEventListener('input', () => {
-            this._volumeVideo = parseInt(volEl.value, 10) || 0;
-            volValEl.textContent = `${this._volumeVideo}%`;
-            videoEditorSourceEl.volume = Math.min(1, this._volumeVideo / 100);
+            const c = this._activeVideoClip();
+            if (!c) return;
+            c.volume = (parseInt(volEl.value, 10) || 0) / 100;
+            volValEl.textContent = `${volEl.value}%`;
             this._hasUnsavedChanges = true;
-        });
-        [['brightness', '_brightness'], ['contrast', '_contrast'], ['saturation', '_saturation']].forEach(([domName, field]) => {
-            const el = genericDrawerBody.querySelector(`#ve-gd-${domName}`);
-            const valEl = genericDrawerBody.querySelector(`#ve-gd-${domName}-val`);
-            el.addEventListener('input', () => {
-                this[field] = parseInt(el.value, 10) || 100;
-                valEl.textContent = `${this[field]}%`;
-                this._hasUnsavedChanges = true;
-                if (!this._isPlaying) this._drawFrame();
-            });
+            if (this._currentClipIndex === this._selected.index) this._syncCurrentClipVolume(); // nghe thấy NGAY nếu đúng đoạn đang phát
         });
     },
 
@@ -1058,71 +1112,56 @@ const workflowVideoEditor = {
     },
 
     // ===================== "Dịch chuyển tới đoạn" (chọn đoạn nhạc gốc + âm lượng riêng clip) =====================
+    // [SỬA TOÀN BỘ, 24/07/2026, phản hồi Giang mục e] — BỎ thanh màu kéo tay trừu tượng cũ, thay
+    // bằng WAVEFORM THẬT (WaveSurfer.js v7 + Regions, tái dùng đúng thư viện/pattern đã có ở
+    // subtitle-editor.html — xem event/workflow/subtitle-editor.js::_initWaveform()). Region LUÔN
+    // giữ NGUYÊN độ rộng = độ dài clip trên timeline (đúng logic cũ, Giang yêu cầu KHÔNG cho co
+    // giãn) — `resize:false`, kéo CHỈ dịch `offsetInSong` (kẹp qua `clampSongOffsetDrag()`, core/
+    // video-editor/audio-sync.js — TÁI DÙNG NGUYÊN, không viết lại). Thêm nút Play phát ĐÚNG vùng
+    // chọn (tự dừng ở cuối, cùng cơ chế 'timeupdate' như subtitle-editor.html, ĐƠN GIẢN HOÁ — bỏ lớp
+    // seek-retry nhiều tầng của bản subtitle-editor vì đây chỉ là preview trong 1 Drawer phụ, không
+    // phải công cụ chính). Volume (0-200%) SỬA để cập nhật NGAY lúc kéo — cả GainNode của waveform
+    // preview (`_shiftGainBoost`) LẪN của preview chính đang phát nếu ĐÚNG clip này đang active
+    // (`_syncAudioClips()`), khớp yêu cầu "áp dụng cho cả preview lẫn thật" (lúc xuất thật đã đúng
+    // sẵn từ trước, xem `_buildMixedAudioTrack()`, webcodecs-engine.js).
 
     _activeAudioClip() { return this._selected && this._selected.track === 'audio' ? this._audioClips[this._selected.index] : null; },
 
     handleSongShiftOpen() {
         const clip = this._activeAudioClip();
         if (!clip) return;
+        const clipLength = clip.timelineEnd - clip.timelineStart;
         const bodyHtml = `
             <div class="px-4 flex flex-col gap-4 video-editor-gd-body-pb">
                 <p class="text-center text-[11px] text-slate-500">${_escapeVideoEditorHtml(t('videoEdit.songShift.positionLabel'))}: ${formatClipTimeLabel(clip.timelineStart)} – ${formatClipTimeLabel(clip.timelineEnd)} / ${formatClipTimeLabel(this._totalDuration())}</p>
-                <div>
-                    <div id="ve-gd-shift-time-label" class="text-center text-[11px] font-mono text-emerald-600 mb-2"></div>
-                    <div id="ve-gd-shift-bar-wrap" class="relative h-14 rounded-lg overflow-hidden bg-slate-100 select-none" style="touch-action:none;">
-                        <div id="ve-gd-shift-window" class="absolute top-0 bottom-0 bg-emerald-500/80 border-2 border-emerald-600 rounded" style="touch-action:none;"></div>
-                    </div>
+                <div class="flex items-center gap-3">
+                    <button type="button" id="ve-gd-shift-play" class="shrink-0 w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm"><span id="ve-gd-shift-play-icon">&#9654;</span></button>
+                    <div id="ve-gd-shift-time-label" class="flex-1 text-center text-[11px] font-mono text-emerald-600"></div>
                 </div>
+                <div id="ve-gd-shift-waveform"></div>
+                <p id="ve-gd-shift-error" class="hidden text-center text-[11px] text-rose-500"></p>
                 <div>
                     <label class="flex justify-between text-[11px] text-slate-500 mb-1.5"><span>${_escapeVideoEditorHtml(t('videoEdit.clipVolume.label'))}</span><span id="ve-gd-clip-vol-val">${Math.round(clip.volume * 100)}%</span></label>
                     <input type="range" id="ve-gd-clip-vol" min="0" max="200" value="${Math.round(clip.volume * 100)}">
                 </div>
             </div>`;
-        openGenericDrawer({ height: 'auto', maxHeight: '65vh', headerHtml: this._buildDrawerHeaderHtml(t('videoEdit.songShift.title')), bodyHtml });
+        openGenericDrawer({ height: 'auto', maxHeight: '70vh', headerHtml: this._buildDrawerHeaderHtml(t('videoEdit.songShift.title')), bodyHtml });
         this._wireDrawerCloseButton();
 
-        const wrapEl = genericDrawerBody.querySelector('#ve-gd-shift-bar-wrap');
-        const windowEl = genericDrawerBody.querySelector('#ve-gd-shift-window');
         const timeLabelEl = genericDrawerBody.querySelector('#ve-gd-shift-time-label');
         const volEl = genericDrawerBody.querySelector('#ve-gd-clip-vol');
         const volValEl = genericDrawerBody.querySelector('#ve-gd-clip-vol-val');
+        const playBtn = genericDrawerBody.querySelector('#ve-gd-shift-play');
+        const playIconEl = genericDrawerBody.querySelector('#ve-gd-shift-play-icon');
+        const waveformEl = genericDrawerBody.querySelector('#ve-gd-shift-waveform');
+        const errorEl = genericDrawerBody.querySelector('#ve-gd-shift-error');
 
-        const renderBar = () => {
+        const updateTimeLabel = () => {
             const c = this._activeAudioClip();
             if (!c) return;
-            const barWidth = wrapEl.clientWidth || 300;
-            const songDuration = c.record.duration || 1;
-            this._songShiftPxPerSec = barWidth / songDuration;
-            const clipLength = c.timelineEnd - c.timelineStart;
-            windowEl.style.left = `${c.offsetInSong * this._songShiftPxPerSec}px`;
-            windowEl.style.width = `${Math.max(10, clipLength * this._songShiftPxPerSec)}px`;
-            timeLabelEl.textContent = `${formatClipTimeLabel(c.offsetInSong)} / ${formatClipTimeLabel(songDuration)}`;
+            timeLabelEl.textContent = `${formatClipTimeLabel(c.offsetInSong)} / ${formatClipTimeLabel(c.record.duration || 0)}`;
         };
-        // SỬA (Giang báo "chưa chọn được") — đợi 1 khung `requestAnimationFrame` trước khi đo
-        // `clientWidth`, tránh đọc trúng lúc panel VỪA hiện (chưa layout xong, có thể trả 0/sai).
-        requestAnimationFrame(renderBar);
-
-        let dragging = false;
-        let lastX = 0;
-        windowEl.addEventListener('pointerdown', (e) => {
-            dragging = true;
-            lastX = e.clientX;
-            try { windowEl.setPointerCapture(e.pointerId); } catch (err) { /* không sao — vẫn kéo qua cờ dragging */ }
-        });
-        windowEl.addEventListener('pointermove', (e) => {
-            if (!dragging) return;
-            const c = this._activeAudioClip();
-            if (!c) return;
-            const deltaSec = (e.clientX - lastX) / (this._songShiftPxPerSec || 1);
-            lastX = e.clientX;
-            const clipLength = c.timelineEnd - c.timelineStart;
-            c.offsetInSong = clampSongOffsetDrag(c.offsetInSong + deltaSec, clipLength, c.record.duration || 0); // core/video-editor/audio-sync.js
-            this._hasUnsavedChanges = true;
-            renderBar();
-        });
-        const endDrag = (e) => { dragging = false; try { windowEl.releasePointerCapture(e.pointerId); } catch (err) { /* không sao */ } };
-        windowEl.addEventListener('pointerup', endDrag);
-        windowEl.addEventListener('pointercancel', () => { dragging = false; });
+        updateTimeLabel();
 
         volEl.addEventListener('input', () => {
             const c = this._activeAudioClip();
@@ -1130,7 +1169,140 @@ const workflowVideoEditor = {
             c.volume = (parseInt(volEl.value, 10) || 0) / 100;
             volValEl.textContent = `${volEl.value}%`;
             this._hasUnsavedChanges = true;
+            if (this._shiftGainBoost) applyMediaGainBoost(this._shiftGainBoost, c.volume); // core/video-editor/media-gain.js — nghe thấy NGAY trong waveform preview
+            if (this._activePreviewAudioClipId === c.id) this._syncAudioClips(this._computeCurrentOutputTime()); // ĐANG là clip active ở preview chính -> áp NGAY luôn (SỬA bug mục e)
         });
+
+        playBtn.addEventListener('click', () => this._toggleShiftRegionPlay(playIconEl));
+
+        if (typeof WaveSurfer === 'undefined' || typeof WaveSurfer.Regions === 'undefined') {
+            console.error('[handleSongShiftOpen] WaveSurfer.js không tải được (CDN chặn/lỗi mạng?).');
+            errorEl.textContent = t('videoEdit.songShift.waveformError');
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        // Đợi 1 khung requestAnimationFrame trước khi dựng WaveSurfer — cùng lý do bản cũ ("chưa
+        // chọn được", panel vừa hiện chưa layout xong, container có thể đo được width=0).
+        requestAnimationFrame(() => this._initShiftWaveform(clip.record.blob, clipLength, waveformEl, errorEl, updateTimeLabel));
+    },
+
+    /** Dựng WaveSurfer + Region cho waveform "Dịch chuyển đoạn" — tách riêng khỏi handleSongShiftOpen()
+     * cho gọn (Rule 3c — hàm con phục vụ 1 nghiệp vụ duy nhất của handleSongShiftOpen(), không dùng
+     * độc lập ở đâu khác). */
+    _initShiftWaveform(blob, clipLength, waveformEl, errorEl, updateTimeLabel) {
+        try {
+            this._shiftRegionsPlugin = WaveSurfer.Regions.create();
+            this._shiftWavesurfer = WaveSurfer.create({
+                container: waveformEl,
+                height: 72,
+                waveColor: '#94a3b8',
+                progressColor: '#0ea5e9',
+                cursorColor: '#0f172a',
+                normalize: true,
+                plugins: [this._shiftRegionsPlugin],
+            });
+            this._shiftWavesurfer.on('error', (err) => {
+                console.error('[handleSongShiftOpen] WaveSurfer lỗi tải/giải mã audio:', err);
+                errorEl.textContent = t('videoEdit.songShift.waveformError');
+                errorEl.classList.remove('hidden');
+            });
+            this._shiftWavesurfer.on('decode', () => {
+                const c = this._activeAudioClip();
+                if (!c || !this._shiftWavesurfer) return;
+                const songDuration = this._shiftWavesurfer.getDuration();
+                const clampedOffset = clampSongOffsetDrag(c.offsetInSong, clipLength, songDuration); // core/video-editor/audio-sync.js — TÁI DÙNG, đúng logic cũ
+                this._shiftRegion = this._shiftRegionsPlugin.addRegion({
+                    start: clampedOffset,
+                    end: clampedOffset + Math.min(clipLength, songDuration),
+                    color: 'rgba(16, 185, 129, 0.28)',
+                    drag: true,
+                    resize: false, // MỤC e, Giang yêu cầu — ĐỘ RỘNG LUÔN CỐ ĐỊNH, kéo CHỈ dịch offset
+                });
+                c.offsetInSong = clampedOffset;
+                updateTimeLabel();
+                // Kéo Region -> dịch offset, kẹp lại đúng biên [0, songDuration-clipLength] (giữ
+                // NGUYÊN độ rộng — nếu WaveSurfer cho kéo vượt biên, tự ép region.setOptions() về lại
+                // giá trị đã kẹp, tránh region "trôi" ra ngoài phạm vi hợp lệ của bài hát).
+                this._shiftRegion.on('update', () => {
+                    const cc = this._activeAudioClip();
+                    if (!cc) return;
+                    const desired = this._shiftRegion.start;
+                    const clamped = clampSongOffsetDrag(desired, clipLength, songDuration); // core/video-editor/audio-sync.js
+                    if (Math.abs(clamped - desired) > 0.001) this._shiftRegion.setOptions({ start: clamped, end: clamped + clipLength });
+                    cc.offsetInSong = clamped;
+                    this._hasUnsavedChanges = true;
+                    updateTimeLabel();
+                });
+                // GainNode cho waveform preview — Volume >100% (mục e). `getMediaElement()` trả về
+                // đúng thẻ <audio> nội bộ của WaveSurfer (v7, chế độ mặc định MediaElement).
+                try { this._shiftGainBoost = createMediaGainBoost(this._shiftWavesurfer.getMediaElement()); } catch (err) { console.warn('[handleSongShiftOpen] Không tạo được GainNode cho waveform preview (fallback setVolume, tối đa 100%):', err); }
+                const volNow = typeof c.volume === 'number' ? c.volume : 1;
+                if (this._shiftGainBoost) applyMediaGainBoost(this._shiftGainBoost, volNow); // core/video-editor/media-gain.js
+                else this._shiftWavesurfer.setVolume(Math.min(1, Math.max(0, volNow)));
+            });
+            // load() trả về Promise — LUÔN .catch() (WaveSurfer.js v7 có bug dangling-promise đã
+            // biết, cùng lý do subtitle-editor.html).
+            this._shiftWavesurfer.load(URL.createObjectURL(blob)).catch((err) => {
+                console.error('[handleSongShiftOpen] wavesurfer.load() bị reject:', err);
+                errorEl.textContent = t('videoEdit.songShift.waveformError');
+                errorEl.classList.remove('hidden');
+            });
+        } catch (err) {
+            console.error('[handleSongShiftOpen] Lỗi khởi tạo WaveSurfer:', err);
+            errorEl.textContent = t('videoEdit.songShift.waveformError');
+            errorEl.classList.remove('hidden');
+        }
+    },
+
+    /** Toggle Play/Pause nút "▶" — phát ĐÚNG vùng chọn (Region), tự dừng ở `region.end` (nghe
+     * 'timeupdate', cùng cơ chế subtitle-editor.html nhưng ĐƠN GIẢN HOÁ — không lặp lại lớp seek-
+     * retry nhiều tầng của trang đó, chấp nhận được vì đây chỉ là preview phụ trong 1 Drawer). */
+    _toggleShiftRegionPlay(playIconEl) {
+        if (!this._shiftWavesurfer || !this._shiftRegion) return;
+        if (this._shiftIsPlayingRegion && this._shiftWavesurfer.isPlaying()) {
+            this._shiftWavesurfer.pause();
+            this._clearShiftStopHandler(playIconEl);
+            return;
+        }
+        this._playShiftRegion(playIconEl);
+    },
+
+    _playShiftRegion(playIconEl) {
+        this._clearShiftStopHandler(playIconEl);
+        const region = this._shiftRegion;
+        if (!region || !this._shiftWavesurfer) return;
+        this._shiftIsPlayingRegion = true;
+        playIconEl.textContent = '\u275A\u275A'; // ❚❚ — cùng ký hiệu transport bar chính
+        this._shiftStopHandler = (currentTime) => {
+            if (currentTime >= region.end) { this._shiftWavesurfer.pause(); this._clearShiftStopHandler(playIconEl); }
+        };
+        this._shiftWavesurfer.on('timeupdate', this._shiftStopHandler);
+        this._shiftWavesurfer.setTime(region.start);
+        const playResult = this._shiftWavesurfer.play();
+        if (playResult && typeof playResult.catch === 'function') playResult.catch((err) => console.warn('[handleSongShiftOpen] play() bị reject:', err));
+    },
+
+    _clearShiftStopHandler(playIconEl) {
+        if (this._shiftStopHandler && this._shiftWavesurfer) { this._shiftWavesurfer.un('timeupdate', this._shiftStopHandler); this._shiftStopHandler = null; }
+        this._shiftIsPlayingRegion = false;
+        if (playIconEl) playIconEl.textContent = '\u25B6'; // ▶
+    },
+
+    /** Dọn sạch WaveSurfer/GainNode của "Dịch chuyển đoạn" — gọi từ `_closeGenericDrawerFully()`
+     * (an toàn, no-op nếu đang không mở đúng Drawer này) MỖI LẦN đóng Generic Drawer, tránh rò rỉ
+     * nhiều instance WaveSurfer/AudioContext qua nhiều lần mở/đóng. */
+    _destroyShiftWaveform() {
+        this._clearShiftStopHandler(null);
+        if (this._shiftGainBoost && this._shiftGainBoost.audioCtx) {
+            try { this._shiftGainBoost.audioCtx.close(); } catch (err) { /* không sao — đóng AudioContext lỗi không ảnh hưởng gì thêm */ }
+        }
+        this._shiftGainBoost = null;
+        if (this._shiftWavesurfer) {
+            try { this._shiftWavesurfer.destroy(); } catch (err) { console.warn('[_destroyShiftWaveform] Lỗi destroy() WaveSurfer (bỏ qua):', err); }
+        }
+        this._shiftWavesurfer = null;
+        this._shiftRegionsPlugin = null;
+        this._shiftRegion = null;
     },
 
     // ===================== Lưu (dropdown Ghi đè | Lưu mới) =====================
@@ -1142,14 +1314,14 @@ const workflowVideoEditor = {
         ]);
     },
 
+    /** [SỬA 24/07/2026, mục d] — bỏ `filterCss`/`volumeVideo` TOÀN CỤC ("Chỉnh" bỏ hẳn). `videoClips`
+     * (`this._videoClips`) đã tự mang `volume` RIÊNG từng đoạn — webcodecs-engine.js đọc thẳng từ đó. */
     _buildProcessParams() {
         return {
             sourceBlob: this._record.blob,
             videoClips: this._videoClips,
             cropFraction: this._cropFraction,
             rotateDeg: this._rotateDeg,
-            filterCss: this._currentFilterCss(),
-            volumeVideo: this._volumeVideo / 100,
             textClips: this._textClips,
             audioClips: this._audioClips.map((c) => ({ blob: c.record.blob, offsetInSong: c.offsetInSong, timelineStart: c.timelineStart, timelineEnd: c.timelineEnd, volume: c.volume })),
         };
@@ -1230,7 +1402,7 @@ function _veIcon(name) {
         crop: 'M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3',
         rotateLeft: 'M9 15L3 9m0 0l6-6M3 9h11a6 6 0 010 12h-2',
         rotateRight: 'M15 15l6-6m0 0l-6-6m6 6H10a6 6 0 000 12h2',
-        adjust: 'M4 6h16M6 6a2 2 0 104 0 2 2 0 00-4 0zM4 12h16M14 12a2 2 0 104 0 2 2 0 00-4 0zM4 18h16M8 18a2 2 0 104 0 2 2 0 00-4 0z',
+        volume: 'M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14',
         reset: 'M4 4v5h.6M20 20v-5h-.6M19.4 9A8 8 0 006 6.6M4.6 15a8 8 0 0013.4 2.4',
         extractFrame: 'M4 7h3l1.5-2h7L17 7h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1zM12 17a4 4 0 100-8 4 4 0 000 8z',
         addMusic: 'M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-2a3 3 0 11-6 0 3 3 0 016 0z',
