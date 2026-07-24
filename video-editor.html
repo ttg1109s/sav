@@ -8,10 +8,33 @@
       dung ĐỔI THEO đang chọn Video/Nhạc/Chữ nào (dựng động trong event/workflow/video-editor.js).
     - Split (nút riêng + modal nhập giây) BỎ HẲN — thay bằng "Cắt" trong toolbar, tách đoạn ĐANG CHỌN
       tại đúng vị trí con trỏ hiện tại.
-    - Bố cục: 2/5 preview video, 2/5 timeline, 1/5 toolbar (header + transport bar là dải nhỏ cố định
-      ngoài tỉ lệ này).
     - Fix bug "phải Play mới hiện khung/time đầu" (thẻ <video> ẩn bằng display:none trước đây khiến
       1 số trình duyệt mobile trì hoãn decode) — xem thẻ <video id="video-editor-source"> cuối file.
+
+    [v4, 24/07/2026, phản hồi Giang — 5 việc]
+    a) Bố cục ĐỔI HẲN từ flex tỉ lệ (3/1/1) sang `position:fixed` (xem assets/css/video-editor.css,
+       biến `--ve-header-h`/`--ve-timeline-h`/`--ve-toolbar-h`): toolbar `bottom:0`, timeline áp sát
+       ngay trên toolbar, preview lấp phần còn lại giữa header và timeline. 2 <section> preview/
+       timeline nay có id riêng (`video-editor-preview-section`/`video-editor-timeline-section`) để
+       CSS nhắm đúng — trước đây vô danh, chỉ set qua style="flex:...".
+    b) Track Chữ chuyển xuống vị trí THỨ 3 (dưới cùng) — thứ tự mới: Video → Nhạc → Chữ (trước:
+       Chữ → Video → Nhạc).
+    c) BUG "không bấm được vào Text trên preview" — KHÔNG phải do logic kéo/pinch (đã đúng), mà do
+       `assets/css/style.css` (dùng CHUNG mọi trang) có rule KHÔNG SCOPE `canvas { position:absolute;
+       width:100vw; height:100dvh; pointer-events:none; }` (viết cho canvas visualizer ở index.html)
+       — áp lộn lên LUÔN `#video-editor-preview-canvas` vì trang này cũng nạp chung style.css. Sửa
+       bằng 1 override SCOPE riêng theo ID trong video-editor.css (không đụng style.css dùng chung).
+    d) Bỏ hẳn "Chỉnh" (Brightness/Contrast/Saturation/Volume toàn cục) — Volume nay là THUỘC TÍNH
+       RIÊNG của TỪNG đoạn Video (`_videoClips[i].volume`), mở qua toolbar lúc đang CHỌN 1 đoạn Video
+       (nút Volume mới, xem event/workflow/video-editor.js::handleVideoClipVolumeOpen()).
+    e) "Dịch chuyển đoạn" (chọn khúc nào của bài hát phát trong khoảng clip) đổi từ thanh màu kéo tay
+       trừu tượng sang WAVEFORM THẬT — tái dùng WaveSurfer.js v7 + Regions plugin (đúng thư viện/
+       pattern đã dùng ở subtitle-editor.html, xem 2 <script> CDN mới ngay dưới đây). Vùng chọn
+       (Region) LUÔN giữ NGUYÊN độ rộng (= độ dài clip trên timeline, đúng logic cũ) — kéo CHỈ dịch
+       offset trong bài hát (`resize:false`, `drag:true`). Thêm nút Play chỉ phát ĐÚNG vùng chọn.
+       Slider Volume (0-200%) SỬA để cập nhật NGAY lúc kéo (trước chỉ áp lúc đổi bài hát) + dùng
+       GainNode (core/video-editor/media-gain.js, MỚI) để mức >100% ra ĐÚNG cả lúc xem trước lẫn lúc
+       xuất thật (thẻ <audio>/<video> gốc không thể khuếch đại vượt 100%).
 -->
 <html lang="en">
 <head>
@@ -31,10 +54,16 @@
         tailwind.config = { future: { hoverOnlyWhenSupported: true } };
     </script>
     <link rel="stylesheet" href="assets/css/style.css?v=20260715v1">
-    <link rel="stylesheet" href="assets/css/video-editor.css?v=20260723v2">
+    <link rel="stylesheet" href="assets/css/video-editor.css?v=20260724v1">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
     <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <!-- WaveSurfer.js v7 (UMD, global `WaveSurfer`) + Regions plugin — MỚI (24/07/2026, phản hồi
+         Giang, mục e) — dùng cho waveform + vùng chọn (Region) kéo tay trong Generic Drawer "Dịch
+         chuyển đoạn" (event/workflow/video-editor.js::handleSongShiftOpen()). Đúng CDN/version như
+         subtitle-editor.html — giữ nhất quán 1 nguồn duy nhất trong toàn app. -->
+    <script src="https://unpkg.com/wavesurfer.js@7"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.min.js"></script>
     <!-- Google Fonts — danh sách chọn phông cho Text overlay (event/workflow/video-editor.js::VIDEO_EDITOR_FONTS). -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -82,8 +111,9 @@
         </div>
     </header>
 
-    <!-- 2/5 — Preview (canvas) + transport bar (dải nhỏ, không tính vào tỉ lệ) -->
-    <section class="relative flex flex-col bg-[#0a0a0a] shrink-0 overflow-hidden border-b border-white/10" style="flex: 3 1 0%;">
+    <!-- Preview (canvas) + transport bar — MỚI (24/07/2026, mục a): `position:fixed`, id riêng để
+         video-editor.css tính đúng vùng còn lại giữa header và timeline (xem biến --ve-*-h). -->
+    <section id="video-editor-preview-section" class="relative flex flex-col bg-[#0a0a0a] overflow-hidden border-b border-white/10">
         <div class="relative flex-1 min-h-0 flex items-center justify-center">
             <canvas id="video-editor-preview-canvas" class="max-w-full max-h-full object-contain touch-none"></canvas>
             <div id="video-editor-empty-state" class="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-center px-6">
@@ -102,8 +132,9 @@
         </div>
     </section>
 
-    <!-- 2/5 — Timeline đa-clip (3 track song song: Chữ / Video / Nhạc) -->
-    <section class="relative min-h-0 bg-black overflow-hidden" style="flex: 1 1 0%;">
+    <!-- Timeline đa-clip — MỚI (24/07/2026, mục a): `position:fixed`, áp sát ngay trên toolbar.
+         Thứ tự track ĐỔI (mục b): Video → Nhạc → Chữ (Chữ xuống vị trí thứ 3, trước ở vị trí 1). -->
+    <section id="video-editor-timeline-section" class="relative bg-black overflow-hidden">
         <div id="video-editor-timeline-container" class="h-full overflow-auto relative p-2 pt-4">
             <div id="video-editor-timeline-content" class="relative h-full min-h-[120px]" style="width: 100%; min-width: 100%;">
                 <div id="video-editor-playhead" class="absolute top-0 bottom-0 left-0 w-4 -ml-2 z-40 hidden touch-none cursor-ew-resize" style="touch-action: none;">
@@ -113,10 +144,6 @@
                 <div id="video-editor-duration-end-marker" class="absolute top-0 bottom-0 w-0 border-l-2 border-dashed border-amber-400/70 z-30 pointer-events-none hidden"></div>
 
                 <div class="absolute top-0 left-0 w-full flex flex-col gap-1.5">
-                    <!-- Track Chữ — clip TỰ DO, dựng động -->
-                    <div class="h-7 relative rounded-lg bg-white/5 border border-white/10">
-                        <div id="video-editor-track-text" class="relative h-full"></div>
-                    </div>
                     <!-- Track Video — mảng đoạn nối tiếp, dựng động -->
                     <div class="h-12 relative rounded-lg bg-white/5 border border-white/10">
                         <div id="video-editor-track-video" class="relative h-full"></div>
@@ -125,13 +152,19 @@
                     <div class="h-9 relative rounded-lg bg-white/5 border border-white/10">
                         <div id="video-editor-track-audio" class="relative h-full"></div>
                     </div>
+                    <!-- Track Chữ — clip TỰ DO, dựng động — vị trí thứ 3 (mục b) -->
+                    <div class="h-7 relative rounded-lg bg-white/5 border border-white/10">
+                        <div id="video-editor-track-text" class="relative h-full"></div>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- 1/5 — Toolbar (icon SVG, nội dung đổi theo lựa chọn — dựng động trong Workflow) -->
-    <nav id="video-editor-toolbar" class="video-editor-pb-safe bg-[#121212] border-t border-white/10 flex items-center gap-1 overflow-x-auto px-2 shrink-0" style="flex: 1 1 0%;"></nav>
+    <!-- Toolbar (icon SVG, nội dung đổi theo lựa chọn — dựng động trong Workflow) — MỚI (mục a):
+         `position:fixed;bottom:0`. Bỏ `video-editor-pb-safe` — safe-area nay gộp thẳng vào biến
+         `--ve-toolbar-h` (video-editor.css), tránh cộng dồn 2 lần. -->
+    <nav id="video-editor-toolbar" class="bg-[#121212] border-t border-white/10 flex items-center gap-1 overflow-x-auto px-2"></nav>
 
     <!-- Overlay Crop (Cropper.js) — không đổi so với v2. -->
     <div id="video-editor-crop-overlay" class="hidden fixed inset-0 z-[70] bg-black flex flex-col">
@@ -186,7 +219,7 @@
     <script src="lang/patch/patch-file-manager.js?v=20260718v1"></script>
     <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
     <script src="lang/patch/patch-image-edit.js?v=20260714v1"></script>
-    <script src="lang/patch/patch-video-editor.js?v=20260723v2"></script>
+    <script src="lang/patch/patch-video-editor.js?v=20260724v1"></script>
     <script src="lang/lang.js?v=20260723v2"></script>
     <script src="core/modal-choice.js?v=20260625v9"></script>
     <script src="core/dropdown-menu.js?v=20260716v1"></script>
@@ -215,19 +248,22 @@
     <script src="service/song-key-cipher.js?v=20260710v1"></script>
     <script src="core/song-search.js?v=20260723v1"></script>
     <script src="core/video-editor/compat-guard.js?v=20260722v1"></script>
-    <script src="core/video-editor/webcodecs-engine.js?v=20260723v2"></script>
+    <script src="core/video-editor/webcodecs-engine.js?v=20260724v1"></script>
     <script src="core/video-editor/filmstrip.js?v=20260722v1"></script>
     <script src="core/video-editor/frame-extract.js?v=20260722v1"></script>
     <script src="core/video-editor/timeline-calc.js?v=20260723v2"></script>
-    <script src="core/video-editor/preview-draw.js?v=20260723v1"></script>
+    <script src="core/video-editor/preview-draw.js?v=20260724v1"></script>
     <script src="core/video-editor/audio-sync.js?v=20260723v2"></script>
+    <!-- MỚI (24/07/2026, mục e — Giang) — GainNode Web Audio cho thẻ <video>/<audio>, để mức Volume
+         >100% ra ĐÚNG cả lúc xem trước lẫn lúc xuất thật (thẻ media gốc chỉ nhận .volume 0-1). -->
+    <script src="core/video-editor/media-gain.js?v=20260724v1"></script>
     <script src="core/image-editor/cropper-engine.js?v=20260723v1"></script>
     <script src="core/file-manager/image.js?v=20260714v2"></script>
     <script src="core/file-manager/video.js?v=20260714v1"></script>
-    <script src="event/workflow/video-editor.js?v=20260723v2"></script>
-    <script src="event/router/video-editor.js?v=20260723v2"></script>
+    <script src="event/workflow/video-editor.js?v=20260724v1"></script>
+    <script src="event/router/video-editor.js?v=20260724v1"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowVideoEditor.init() ngay khi chạy. -->
-    <script src="event/listener/video-editor.js?v=20260723v2"></script>
+    <script src="event/listener/video-editor.js?v=20260724v1"></script>
     <script>
         document.getElementById('btn-ve-save').textContent = t('videoEdit.btnSave.title');
         document.getElementById('video-editor-empty-state-text').textContent = t('videoEdit.loading');
