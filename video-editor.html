@@ -229,7 +229,7 @@
     <script src="lang/patch/patch-file-manager.js?v=20260718v1"></script>
     <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
     <script src="lang/patch/patch-image-edit.js?v=20260714v1"></script>
-    <script src="lang/patch/patch-video-editor.js?v=20260724v1"></script>
+    <script src="lang/patch/patch-video-editor.js?v=20260724v2"></script>
     <script src="lang/lang.js?v=20260723v2"></script>
     <script src="core/modal-choice.js?v=20260625v9"></script>
     <script src="core/dropdown-menu.js?v=20260716v1"></script>
@@ -237,7 +237,7 @@
          NGAY trong chính file đó, KHÔNG cần core/config.js — xem đầu file), an toàn nạp riêng ở
          trang này. Đăng ký account 'videoEditor' NGAY sau, CHỈ xin quyền đúng 1 key cần thật
          (isGenericDrawerOpen, core/generic-drawer.js dùng) — xem AppState::registry(). -->
-    <script src="service/state.js?v=20260721v9"></script>
+    <script src="service/state.js?v=20260724v1"></script>
     <script>
         const APP_ACCOUNT = 'videoEditor';
         // 'dbReadyPromise' — service/db.js TỰ PHÁT HIỆN `appState` có tồn tại hay không
@@ -246,7 +246,7 @@
         // này giờ CÓ nạp state.js -> appState tồn tại -> db.js tự chuyển sang nhánh dùng appState —
         // PHẢI đăng ký key này, thiếu sẽ bị chặn ghi/đọc, khiến getVideoRecord()/getSongRecord()...
         // không bao giờ resolve (đúng bug "treo ở loading video" Giang báo).
-        appState.registry(APP_ACCOUNT, ['isGenericDrawerOpen', 'dbReadyPromise']);
+        appState.registry(APP_ACCOUNT, ['isGenericDrawerOpen', 'dbReadyPromise', 'videoEditAudioTrackFull', 'videoEditTextTrackFull']);
     </script>
     <!-- Tái sử dụng Generic Drawer CÓ SẴN (core/generic-drawer.js) — CẤM tự dựng modal mới lặp
          lại, xem khung HTML #generic-drawer-* cuối file (chép NGUYÊN từ components/generic-
@@ -254,6 +254,11 @@
     <script src="core/generic-drawer.js?v=20260716v2"></script>
     <script src="service/task-manager.js?v=20260720v1"></script>
     <script src="event/bus.js?v=20260625v10"></script>
+    <!-- MỚI (24/07/2026, mục 2 — Giang yêu cầu dùng Block gate thay vì rẽ nhánh Router) — trang này
+         trước đây KHÔNG cần event/block.js (chưa có điều kiện chặn nào). Nạp NGAY SAU event/bus.js,
+         TRƯỚC router/workflow/listener (đúng yêu cầu nạp của chính file đó) — cũng cần `t()` (đã nạp
+         ở lang/lang.js phía trên) vì registerBlock() gọi `t()` NGAY lúc đăng ký (module load time). -->
+    <script src="event/block.js?v=20260724v1"></script>
     <script src="service/db.js?v=20260711v1"></script>
     <script src="service/song-key-cipher.js?v=20260710v1"></script>
     <script src="core/song-search.js?v=20260723v1"></script>
@@ -267,7 +272,7 @@
     <script src="core/image-editor/cropper-engine.js?v=20260723v1"></script>
     <script src="core/file-manager/image.js?v=20260714v2"></script>
     <script src="core/file-manager/video.js?v=20260714v1"></script>
-    <script src="event/workflow/video-editor.js?v=20260724v2"></script>
+    <script src="event/workflow/video-editor.js?v=20260724v3"></script>
     <script src="event/router/video-editor.js?v=20260724v1"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowVideoEditor.init() ngay khi chạy. -->
     <script src="event/listener/video-editor.js?v=20260724v1"></script>
