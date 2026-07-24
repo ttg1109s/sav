@@ -90,3 +90,23 @@ eventBus.registerBlock('visualizerControlCenter.videoEnable.enable.click', [
         { field: 'isVideoPlayerMode', operator: '===', value: true },
     ],
 ], { notify: t('settingsPlaylistBg.videoEnable.blockedByPlayerMode') });
+
+// ===================== video-editor.html — chặn Thêm nhạc/Thêm chữ khi track đã phủ kín video =====================
+// MỚI (24/07/2026, Giang yêu cầu "dùng Block thay vì Router", mục 2). `videoEditAudioTrackFull`/
+// `videoEditTextTrackFull` (service/state.js) do event/workflow/video-editor.js tự ghi lại MỖI LẦN
+// `_audioClips`/`_textClips` đổi (thêm/nhân bản/xoá/trim/tách) — true khi track đó đã phủ kín tới
+// hết tổng thời lượng video hiện tại (`_totalDuration()`), không còn khoảng trống nào để thêm 1 clip
+// mới có nghĩa (xem `_recomputeTrackFullFlags()`, event/workflow/video-editor.js). Bản chất CHẶN HẲN
+// (không chọn giữa nhiều workflow khác nhau) — đúng tiêu chí dùng Block gate thay vì rẽ nhánh
+// Router/Workflow.
+eventBus.registerBlock('videoEdit.addMusic.open', [
+    [
+        { field: 'videoEditAudioTrackFull', operator: '===', value: true },
+    ],
+], { notify: t('videoEdit.addMusic.blockedTrackFull') });
+
+eventBus.registerBlock('videoEdit.addText.click', [
+    [
+        { field: 'videoEditTextTrackFull', operator: '===', value: true },
+    ],
+], { notify: t('videoEdit.addText.blockedTrackFull') });
