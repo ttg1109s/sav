@@ -70,6 +70,8 @@ const LANG_PATCH_VIDEO_EDITOR = {
     'videoEdit.songSearch.placeholder': 'Search songs…',
     'videoEdit.songSearch.emptyPrompt': 'Type a song name to search.',
     'videoEdit.songSearch.noResults': 'No songs found.',
+    'videoEdit.addMusic.blockedTrackFull': 'The music track already covers the whole video. Trim or delete a clip first to make room.',
+    'videoEdit.addText.blockedTrackFull': 'The text track already covers the whole video. Trim or delete a clip first to make room.',
 
     // Modal Sửa chữ (clip Chữ đang chọn).
     'videoEdit.textEdit.title': 'Edit text',
