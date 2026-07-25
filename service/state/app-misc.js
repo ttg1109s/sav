@@ -1,0 +1,34 @@
+/**
+ * service/state/app-misc.js — Package STATE domain "app-misc": cờ UI/trạng thái tổng của app
+ * không thuộc domain nào khác cụ thể. Xem cơ chế package ở service/state.js.
+ * PHẢI nạp SAU service/state.js.
+ */
+        AppState.definePackage('app-misc', {
+            schema: {
+                isGridView: 'boolean',
+                // true = đang ở màn Visualizer (không phải Playlist) lúc này. Set ở
+                // core/player-controls.js::switchToVisualizer() (true)/forceBackToPlaylistUI()+
+                // setVisualizerActiveFalse() (false).
+                isVisualizerActive: 'boolean',
+                isStatsPanelVisible: 'boolean',
+                savLogoExpanded: 'boolean',
+                isShieldBusy: 'boolean',
+                isDestructiveTaskInProgress: 'boolean',
+                _pendingResumeSnapshot: 'any',  // object | null
+                dbReadyPromise: 'any',          // Promise — gán thật ở db.js bằng appState.set('dbReadyPromise', openDatabase())
+            },
+            buildDefaults() {
+                return {
+                    isGridView: false,
+                    isVisualizerActive: false,
+                    isStatsPanelVisible: true,
+                    savLogoExpanded: false,
+                    isShieldBusy: false,
+                    isDestructiveTaskInProgress: false,
+                    _pendingResumeSnapshot: null,
+                    dbReadyPromise: null,
+                };
+            },
+        });
+
+        const SHIELD_FADE_MS = 200;
