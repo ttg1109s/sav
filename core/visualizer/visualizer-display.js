@@ -82,7 +82,7 @@
         }
 
         function updateProgressBarCSS() {
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             const percentage = (progressBar.value / (progressBar.max || 100)) * 100;
             const color = cfg.mode === 'solid' ? cfg.solidColor : (cfg.mode === 'dynamic' ? cfg.dynB : '#38bdf8');
             progressBar.style.background = `linear-gradient(to right, ${color} 0%, ${color} ${percentage}%, rgba(255,255,255,0.2) ${percentage}%, rgba(255,255,255,0.2) 100%)`;
@@ -104,7 +104,7 @@
          * Ứng với msg.type 'visualizerDisplay.cycleMode.click'.
          */
         function cycleVisualizerType() {
-            if (appState.get('vizConfig').autoSwitchVisualEnabled) return;
+            if (appConfigViz.getAll().autoSwitchVisualEnabled) return;
             appState.set('currentModeIndex', (appState.get('currentModeIndex') + 1) % MODES.length); updateTypeUI(); saveConfig();
         }
 
@@ -123,9 +123,9 @@
             const currentModeIndex = appState.get('currentModeIndex');
             // MỚI (Phần B, Galaxy) — bắt lại kiểu CŨ TRƯỚC khi ghi đè, cần biết có đang RỜI KHỎI
             // 'space' hay không (trả tone mapping renderer dùng chung về mặc định của Vortex).
-            const previousType = appState.get('vizConfig').type;
-            appState.mutate('vizConfig', cfg => { cfg.type = MODES[currentModeIndex]; });
-            const cfg = appState.get('vizConfig');
+            const previousType = appConfigViz.getAll().type;
+            appConfigViz.mutateAll(cfg => { cfg.type = MODES[currentModeIndex]; });
+            const cfg = appConfigViz.getAll();
             modeBadge.textContent = `${currentModeIndex + 1}/${MODES.length}`;
             // Đồng bộ select "Kiểu hiệu ứng" trong Settings (ver 8 refine) — updateTypeUI() là
             // điểm DUY NHẤT mọi đường đổi kiểu hiệu ứng đều đi qua (cycle button HOẶC select), nên
@@ -257,7 +257,7 @@
         function updateBarStyleUI() {
             const barMirrorOptionsEl = document.getElementById('bar-mirror-options');
             if (!barMirrorOptionsEl) return;
-            const isMirror = appState.get('vizConfig').barStyle === 'mirror';
+            const isMirror = appConfigViz.getAll().barStyle === 'mirror';
             barMirrorOptionsEl.classList.toggle('hidden', !isMirror);
             barMirrorOptionsEl.classList.toggle('flex', isMirror);
         }
@@ -268,7 +268,7 @@
         /** HOTFIX 2 (07/07/2026) — cùng sửa như updateTypeUI()/updateBarStyleUI(): `solidColorContainer`/
          * `dynColorContainer` KHÔNG tồn tại nữa — đổi sang `document.getElementById()` truy vấn tươi. */
         function updateColorMenuUI() {
-            const mode = appState.get('vizConfig').mode;
+            const mode = appConfigViz.getAll().mode;
             const solidColorContainerEl = document.getElementById('solid-color-container');
             if (solidColorContainerEl) {
                 const dynColorContainerEl = document.getElementById('dynamic-color-container');
@@ -282,7 +282,7 @@
         function applyEQPreset(mode) {
             const eqBandNodes = appState.get('eqBandNodes');
             if (!eqBandNodes || eqBandNodes.length === 0) return;
-            const gains = mode === 'manual' ? appState.get('vizConfig').manualEq : (EQ_PRESETS[mode] || EQ_PRESETS['flat']);
+            const gains = mode === 'manual' ? appConfigViz.getAll().manualEq : (EQ_PRESETS[mode] || EQ_PRESETS['flat']);
             for(let i = 0; i < eqBandNodes.length; i++) { if(eqBandNodes[i]) eqBandNodes[i].gain.value = gains[i] || 0; }
         }
 
@@ -291,7 +291,7 @@
          * `saveConfig()` nội bộ (Rule 3), dời ra `workflowVisualizerDisplay.setQuality()`.
          */
         function setVisualizerQuality(value) {
-            appState.mutate('vizConfig', cfg => { cfg.quality = value; });
+            appConfigViz.mutateAll(cfg => { cfg.quality = value; });
         }
 
         /**
@@ -311,7 +311,7 @@
          */
         async function applyBgImage(file) {
             await setMeta('bgImage', file);
-            appState.mutate('vizConfig', cfg => {
+            appConfigViz.mutateAll(cfg => {
                 if (cfg.bgImage && cfg.bgImage.startsWith('blob:')) URL.revokeObjectURL(cfg.bgImage);
                 cfg.bgImage = URL.createObjectURL(file);
                 cfg.bgImageEnabled = true;
@@ -329,7 +329,7 @@
          * @param {boolean} enabled
          */
         function applyBgImageEnabled(enabled) {
-            appState.mutate('vizConfig', cfg => {
+            appConfigViz.mutateAll(cfg => {
                 cfg.bgImageEnabled = enabled;
                 if (!enabled) {
                     if (cfg.bgImage && cfg.bgImage.startsWith('blob:')) URL.revokeObjectURL(cfg.bgImage);
@@ -341,7 +341,7 @@
         /** Độ mờ ảnh nền. msg.type 'visualizerDisplay.bgBlur.input'. Batch "nền chung" — BỎ
          * `updatePlaylistBg()`/`saveConfig()` nội bộ, dời ra Workflow. @param {string} value */
         function setBgBlur(value) {
-            appState.mutate('vizConfig', cfg => { cfg.bgBlur = value; });
+            appConfigViz.mutateAll(cfg => { cfg.bgBlur = value; });
             valBgBlurDisplay.textContent = value + 'px';
         }
 
@@ -350,7 +350,7 @@
          * `saveConfig()` nội bộ, dời ra `workflowVisualizerDisplay.setBgColor()`.
          */
         function setBgColor(value) {
-            appState.mutate('vizConfig', cfg => { cfg.bgColor = value; });
+            appConfigViz.mutateAll(cfg => { cfg.bgColor = value; });
         }
 
         /**
@@ -358,7 +358,7 @@
          * `saveConfig()` nội bộ, dời ra Workflow.
          */
         function setColorMode(value) {
-            appState.mutate('vizConfig', cfg => { cfg.mode = value; });
+            appConfigViz.mutateAll(cfg => { cfg.mode = value; });
         }
 
         /**
@@ -367,7 +367,7 @@
          * @param {string} value @param {HTMLElement} [crossEl]
          */
         function setSolidColorFromPicker(value, crossEl) {
-            appState.mutate('vizConfig', cfg => { cfg.solidColor = value; });
+            appConfigViz.mutateAll(cfg => { cfg.solidColor = value; });
             if (crossEl) crossEl.value = value;
         }
 
@@ -380,46 +380,46 @@
          */
         function setSolidColorFromText(value, crossEl) {
             if (!/^#[0-9A-F]{6}$/i.test(value)) return false;
-            appState.mutate('vizConfig', cfg => { cfg.solidColor = value; });
+            appConfigViz.mutateAll(cfg => { cfg.solidColor = value; });
             if (crossEl) crossEl.value = value;
             return true;
         }
 
         /** Core thuần: màu A của gradient động. Batch D3 — BỎ `saveConfig()` nội bộ. */
         function setDynColorA(value) {
-            appState.mutate('vizConfig', cfg => { cfg.dynA = value; });
+            appConfigViz.mutateAll(cfg => { cfg.dynA = value; });
         }
 
         /** Core thuần: màu B của gradient động. Batch D3 — BỎ `updateProgressBarCSS()`/`saveConfig()`. */
         function setDynColorB(value) {
-            appState.mutate('vizConfig', cfg => { cfg.dynB = value; });
+            appConfigViz.mutateAll(cfg => { cfg.dynB = value; });
         }
 
         /** Core thuần: màu bắt đầu (from) của Theme mode "Gradient" (MỚI 09/07/2026) — KHÁC
          * `dynA`/`dynB` ở trên (đó là màu thanh Visualizer, đây là màu nền app) — xem docstring
          * DEFAULT_VIZ_CONFIG.gradientFrom, core/config.js. */
         function setThemeGradientFrom(value) {
-            appState.mutate('vizConfig', cfg => { cfg.gradientFrom = value; });
+            appConfigViz.mutateAll(cfg => { cfg.gradientFrom = value; });
         }
 
         /** Core thuần: màu kết thúc (to) của Theme mode "Gradient" (MỚI 09/07/2026). */
         function setThemeGradientTo(value) {
-            appState.mutate('vizConfig', cfg => { cfg.gradientTo = value; });
+            appConfigViz.mutateAll(cfg => { cfg.gradientTo = value; });
         }
 
         /** Core thuần: kiểu hiệu ứng Vortex con. Batch D3 — BỎ `updateVortexVisibility()`/`saveConfig()`. */
         function setVortexStyle(value) {
-            appState.mutate('vizConfig', cfg => { cfg.vortexStyle = value; });
+            appConfigViz.mutateAll(cfg => { cfg.vortexStyle = value; });
         }
 
         /** Core thuần: kiểu hiệu ứng Bar con (mirror/cascade). Batch D3 — BỎ `updateBarStyleUI()`/`saveConfig()`. */
         function setBarStyle(value) {
-            appState.mutate('vizConfig', cfg => { cfg.barStyle = value; });
+            appConfigViz.mutateAll(cfg => { cfg.barStyle = value; });
         }
 
         /** Core thuần: kiểu hiệu ứng Rain con. Batch D3 — BỎ `resizeCanvas()`/`saveConfig()`. */
         function setRainStyle(value) {
-            appState.mutate('vizConfig', cfg => { cfg.rainStyle = value; });
+            appConfigViz.mutateAll(cfg => { cfg.rainStyle = value; });
         }
 
         // (Phần B, Galaxy — setSpaceStyle()/setSpaceRerollThreshold()/setSpaceRerollChance()/
@@ -429,39 +429,39 @@
 
         /** Core thuần: bật/tắt hiệu ứng chớp kính (Rain). Batch D3 — BỎ `saveConfig()` nội bộ. */
         function setGlassFlash(checked) {
-            appState.mutate('vizConfig', cfg => { cfg.glassFlash = checked; });
+            appConfigViz.mutateAll(cfg => { cfg.glassFlash = checked; });
         }
 
         /** Core thuần: độ cao tối đa của bar. Batch D3 — nhận `displayEl` qua tham số. @param {string} value @param {HTMLElement} [displayEl] */
         function setMaxHeight(value, displayEl) {
             const v = parseInt(value);
-            appState.mutate('vizConfig', cfg => { cfg.maxH = v; });
+            appConfigViz.mutateAll(cfg => { cfg.maxH = v; });
             if (displayEl) displayEl.textContent = v;
         }
 
         /** Core thuần: độ dày thanh (Black Hole). Batch D3 — nhận `displayEl` qua tham số. @param {string} value @param {HTMLElement} [displayEl] */
         function setBarWidth(value, displayEl) {
             const v = parseInt(value);
-            appState.mutate('vizConfig', cfg => { cfg.barWidth = v; });
+            appConfigViz.mutateAll(cfg => { cfg.barWidth = v; });
             if (displayEl) displayEl.textContent = v;
         }
 
         /** Core thuần: số lượng thanh mirror. Batch D3 — nhận `displayEl` qua tham số. @param {string} value @param {HTMLElement} [displayEl] */
         function setMirrorCount(value, displayEl) {
             const v = parseInt(value);
-            appState.mutate('vizConfig', cfg => { cfg.mirrorBarCount = v; });
+            appConfigViz.mutateAll(cfg => { cfg.mirrorBarCount = v; });
             if (displayEl) displayEl.textContent = v;
         }
 
         /** Âm lượng tổng (masterGainNode). msg.type 'visualizerDisplay.volume.input'. @param {string} value */
         function setVolume(value) {
-            appState.mutate('vizConfig', cfg => { cfg.volume = parseInt(value); });
-            const volume = appState.get('vizConfig').volume;
+            appConfigViz.mutateAll(cfg => { cfg.volume = parseInt(value); });
+            const volume = appConfigViz.getAll().volume;
             valVolumeDisplay.textContent = volume + '%'; 
             if(appState.get('masterGainNode')) appState.get('masterGainNode').gain.value = volume / 100; saveConfig();
         }
 
         /** Đổi preset EQ (hoặc 'manual'). msg.type 'visualizerDisplay.eqMode.change'. @param {string} value */
         function setEQMode(value) {
-            appState.mutate('vizConfig', cfg => { cfg.eqMode = value; }); updateEQSlidersUI(value); applyEQPreset(value); saveConfig();
+            appConfigViz.mutateAll(cfg => { cfg.eqMode = value; }); updateEQSlidersUI(value); applyEQPreset(value); saveConfig();
         }
