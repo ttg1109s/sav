@@ -68,9 +68,9 @@
         // không có video thật phía sau. "Tắt Visual" (ver 8 refine) KHÔNG còn phụ thuộc video bg
         // nên không tắt theo nữa.
         function validateVideoBgOnClose() {
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             if (cfg.videoBgEnabled && !cfg.videoBgUrl) {
-                appState.mutate('vizConfig', c => { c.videoBgEnabled = false; });
+                appConfigViz.mutateAll(c => { c.videoBgEnabled = false; });
                 videoEnableToggle.checked = false;
                 handleVideoBackground(); saveConfig();
             }
@@ -85,13 +85,13 @@
          * (bật/tắt, upload, nạp lại lúc mở trang) — KHÔNG gọi mỗi lần chuyển bài.
          */
         function setupVideoBgSource() {
-            const videoBgUrl = appState.get('vizConfig').videoBgUrl;
+            const videoBgUrl = appConfigViz.getAll().videoBgUrl;
             // Đã đúng URL và đã fade xong rồi -> không làm gì (tránh fade lặp lại khi Next/Prev).
             if (bgVideoElement.getAttribute('src') === videoBgUrl && appState.get('_videoBgLoadedUrl') === videoBgUrl) return;
             appState.set('_videoBgLoadedUrl', null);
             bgVideoElement.style.opacity = '0'; // ẩn cho tới khi có khung hình thật -> không chớp trắng
             bgVideoElement.src = videoBgUrl;
-            const fadeVideoIn = () => { bgVideoElement.style.opacity = '1'; appState.set('_videoBgLoadedUrl', appState.get('vizConfig').videoBgUrl); };
+            const fadeVideoIn = () => { bgVideoElement.style.opacity = '1'; appState.set('_videoBgLoadedUrl', appConfigViz.getAll().videoBgUrl); };
             // Listener NỘI BỘ tự gỡ sau 1 lần (mục 2b.6) — KHÔNG thuộc /event/.
             bgVideoElement.addEventListener('loadeddata', fadeVideoIn, { once: true });
             bgVideoElement.addEventListener('playing', fadeVideoIn, { once: true });
@@ -103,7 +103,7 @@
          * gây ra cú "nền đen rồi fade video" lần nữa.
          */
         function syncVideoBgToAudio() {
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             if (!(cfg.videoBgEnabled && cfg.videoBgUrl)) return;
             if (!audioPlayer.paused) { bgVideoElement.play().catch(() => {}); } else { bgVideoElement.pause(); }
         }
@@ -115,7 +115,7 @@
             //  - NGUỒN + fade chỉ thiết lập MỘT LẦN cho mỗi URL (setupVideoBgSource). Next/Prev chỉ
             //    gọi syncVideoBgToAudio() (xem player-controls.js) nên KHÔNG fade lại nữa.
             //  - Nền đen cưỡng chế phía sau video.
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             if (cfg.videoBgEnabled && cfg.videoBgUrl) {
                 visualizerSolidBg.style.backgroundColor = '#000000'; // FIX (04/07/2026, mục 1a) — nền đen cưỡng chế sau video, đổi target khỏi document.body
                 bgVideoElement.classList.remove('hidden');
@@ -127,7 +127,7 @@
                 bgVideoElement.pause();
                 appState.set('_videoBgLoadedUrl', null);
                 taskManager.once(() => {
-                    if (!appState.get('vizConfig').videoBgEnabled) { bgVideoElement.classList.add('hidden'); bgVideoElement.removeAttribute('src'); bgVideoElement.src = ''; }
+                    if (!appConfigViz.getAll().videoBgEnabled) { bgVideoElement.classList.add('hidden'); bgVideoElement.removeAttribute('src'); bgVideoElement.src = ''; }
                 }, 500, 'hideVideoBgAfterFade');
                 updateDOMBackground();
             }
@@ -135,7 +135,7 @@
 
         /** Core thuần: thực thi BẬT video nền (đã biết chắc videoBgUrl đã có sẵn từ trước). */
         function enableVideoBackground() {
-            appState.mutate('vizConfig', cfg => { cfg.videoBgEnabled = true; });
+            appConfigViz.mutateAll(cfg => { cfg.videoBgEnabled = true; });
             handleVideoBackground(); saveConfig();
         }
 
@@ -145,7 +145,7 @@
          *  tiếp kích hoạt lại NGAY qua `applyUploadedVideoBg()` (đọc lại chính blob này) mà KHÔNG
          *  cần mở lại hộp thoại chọn file. */
         function disableVideoBackgroundState() {
-            appState.mutate('vizConfig', cfg => {
+            appConfigViz.mutateAll(cfg => {
                 cfg.videoBgEnabled = false;
                 if (cfg.videoBgUrl && cfg.videoBgUrl.startsWith('blob:')) URL.revokeObjectURL(cfg.videoBgUrl);
                 cfg.videoBgUrl = '';
@@ -155,7 +155,7 @@
 
         /** Core thuần: ứng với toggle "Tắt Visual" — độc lập hoàn toàn khỏi video nền. */
         function setVisualEnabled(checked) {
-            appState.mutate('vizConfig', cfg => { cfg.visualEnabled = checked; });
+            appConfigViz.mutateAll(cfg => { cfg.visualEnabled = checked; });
             saveConfig();
         }
 
@@ -165,7 +165,7 @@
         function applyUploadedVideoBg(file) {
             const check = validateVideoFile(file);
             if (!check.valid) return { status: 'invalid', reason: check.reason };
-            appState.mutate('vizConfig', cfg => {
+            appConfigViz.mutateAll(cfg => {
                 if (cfg.videoBgUrl && cfg.videoBgUrl.startsWith('blob:')) URL.revokeObjectURL(cfg.videoBgUrl);
                 cfg.videoBgUrl = URL.createObjectURL(file);
                 cfg.videoBgEnabled = true;
@@ -228,7 +228,7 @@
         async function applyVisualBgImage(blob) {
             await setMeta('visualBgImage', blob);
             let objectUrl;
-            appState.mutate('vizConfig', cfg => {
+            appConfigViz.mutateAll(cfg => {
                 if (cfg.visualBgImage && cfg.visualBgImage.startsWith('blob:')) URL.revokeObjectURL(cfg.visualBgImage);
                 objectUrl = URL.createObjectURL(blob);
                 cfg.visualBgImage = objectUrl;
@@ -251,7 +251,7 @@
          * quán — vô hại).
          */
         function disableVisualBgImageState() {
-            appState.mutate('vizConfig', cfg => {
+            appConfigViz.mutateAll(cfg => {
                 if (cfg.visualBgImage && cfg.visualBgImage.startsWith('blob:')) URL.revokeObjectURL(cfg.visualBgImage);
                 cfg.visualBgImageEnabled = false;
                 cfg.visualBgImage = '';

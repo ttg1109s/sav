@@ -14,7 +14,7 @@
  * PHẢI nạp SAU: core/config.js (vizConfig), core/dom-refs.js (audioPlayer).
  */
         async function requestWakeLock() {
-            if (typeof appState !== 'undefined' && appState.get('vizConfig').keepScreenOn === false) { releaseWakeLock(); return; }
+            if (typeof appState !== 'undefined' && appConfigViz.getAll().keepScreenOn === false) { releaseWakeLock(); return; }
             try {
                 if ('wakeLock' in navigator) { appState.set('nativeWakeLock', await navigator.wakeLock.request('screen')); appState.get('nativeWakeLock').addEventListener('release', () => {}); }
                 else { try { if (!noSleep.isEnabled) noSleep.enable(); } catch(e) {} }

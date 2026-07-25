@@ -77,11 +77,11 @@
                     repeatMode: appState.get('repeatMode'),
                     shuffleIndices: appState.get('shuffleIndices').slice(),
                     displayOrder: appState.get('displayOrder').slice(),
-                    videoCurrentTime: (appState.get('vizConfig') && appState.get('vizConfig').videoBgEnabled && appState.get('vizConfig').videoBgUrl
+                    videoCurrentTime: (appConfigViz.getAll() && appConfigViz.getAll().videoBgEnabled && appConfigViz.getAll().videoBgUrl
                         && typeof bgVideoElement !== 'undefined' && bgVideoElement)
                         ? (bgVideoElement.currentTime || 0) : null,
-                    autoSwitchVisualMarksSnapshot: (appState.get('vizConfig') && appState.get('vizConfig').autoSwitchVisualEnabled
-                        && appState.get('vizConfig').autoSwitchVisualTimeMode === 'duration'
+                    autoSwitchVisualMarksSnapshot: (appConfigViz.getAll() && appConfigViz.getAll().autoSwitchVisualEnabled
+                        && appConfigViz.getAll().autoSwitchVisualTimeMode === 'duration'
                         && Array.isArray(appState.get('autoSwitchVisualMarks')) && appState.get('autoSwitchVisualMarks').length > 0)
                         ? appState.get('autoSwitchVisualMarks').slice() : null,
                 };
@@ -223,7 +223,7 @@
             // ---- 2. Video nền — khôi phục đúng vị trí đang xem ----
             if (snapshot.videoCurrentTime !== null && snapshot.videoCurrentTime !== undefined
                 && typeof bgVideoElement !== 'undefined' && bgVideoElement
-                && appState.get('vizConfig').videoBgEnabled && appState.get('vizConfig').videoBgUrl) {
+                && appConfigViz.getAll().videoBgEnabled && appConfigViz.getAll().videoBgUrl) {
                 const targetTime = snapshot.videoCurrentTime;
                 const trySeek = () => { try { bgVideoElement.currentTime = targetTime; } catch (e) {} };
                 if (bgVideoElement.readyState >= 1) trySeek();

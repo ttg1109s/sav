@@ -59,7 +59,7 @@
         /** Chọn 1 giá trị MODES MỚI theo đúng autoSwitchVisualMode hiện tại (KHÔNG tự áp dụng/lưu gì cả). */
         function pickNextAutoSwitchVisualType() {
             const currentModeIndex = appState.get('currentModeIndex');
-            if (appState.get('vizConfig').autoSwitchVisualMode === 'random' && MODES.length > 1) {
+            if (appConfigViz.getAll().autoSwitchVisualMode === 'random' && MODES.length > 1) {
                 let idx = currentModeIndex;
                 while (idx === currentModeIndex) idx = Math.floor(Math.random() * MODES.length);
                 return MODES[idx];
@@ -83,7 +83,7 @@
 
         /** Tính số giây (ms) cho LẦN ĐẾM KẾ TIẾP — chỉ gọi lúc bắt đầu 1 vòng đếm mới. */
         function computeAutoSwitchVisualTimerDelayMs() {
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             if (cfg.autoSwitchVisualTimeMode === 'random') {
                 // (c2) Random LẠI mỗi vòng trong [10, X người điền] — không phải 1 số cố định.
                 const maxSeconds = Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, cfg.autoSwitchVisualSecondsRandom);
@@ -106,7 +106,7 @@
                     // Chỉ tự tái tạo vòng đếm nếu tính năng VẪN đang ở đúng nhánh 1 VÀ nhạc VẪN
                     // đang phát — tránh tái tạo vô nghĩa nếu người dùng vừa tắt/đổi mode/dừng nhạc
                     // đúng lúc callback này chạy.
-                    if (appState.get('vizConfig').autoSwitchVisualEnabled && appState.get('vizConfig').autoSwitchVisualTimeMode !== 'duration'
+                    if (appConfigViz.getAll().autoSwitchVisualEnabled && appConfigViz.getAll().autoSwitchVisualTimeMode !== 'duration'
                         && typeof audioPlayer !== 'undefined' && !audioPlayer.paused) {
                         scheduleNextAutoSwitchVisualTimer();
                     }
@@ -146,7 +146,7 @@
             if (duration <= 0) { appState.set('autoSwitchVisualMarks', marks); return false; }
 
             const maxAllowed = Math.round(duration / 2);
-            const step = Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, Math.min(appState.get('vizConfig').autoSwitchVisualSecondsDuration, maxAllowed));
+            const step = Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, Math.min(appConfigViz.getAll().autoSwitchVisualSecondsDuration, maxAllowed));
             let t = step;
             while (t < duration) { marks.push({ time: t, visual: null }); t += step; }
             appState.set('autoSwitchVisualMarks', marks);
@@ -224,7 +224,7 @@
          */
         function startAutoSwitchVisualBranch() {
             killAllAutoSwitchVisualTasks();
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             const currentKey = appState.get('currentKey');
             if (!cfg.autoSwitchVisualEnabled || !currentKey) return;
 
@@ -292,7 +292,7 @@
          * từ đây), nên lần gọi thứ 2 (nếu có, cho CÙNG 1 bài) sẽ tự nhận ra không cần làm lại.
          */
         function onAutoSwitchVisualSongChanged() {
-            if (appState.get('vizConfig').autoSwitchVisualTimeMode === 'duration' && appState.get('_lastMarksBuiltForKey') !== appState.get('currentKey')) {
+            if (appConfigViz.getAll().autoSwitchVisualTimeMode === 'duration' && appState.get('_lastMarksBuiltForKey') !== appState.get('currentKey')) {
                 startAutoSwitchVisualBranch();
             }
             // Nhánh 1: không làm gì — task vẫn đang đếm tiếp, không liên quan việc đổi bài.
@@ -306,7 +306,7 @@
          * sự có trong taskManager.plan mới được pause/resume, task không tồn tại thì no-op).
          */
         function syncAutoSwitchVisualPlayState() {
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             if (!cfg.autoSwitchVisualEnabled || !appState.get('currentKey')) { killAllAutoSwitchVisualTasks(); return; }
             const taskName = (cfg.autoSwitchVisualTimeMode === 'duration') ? AUTO_SWITCH_VISUAL_TASK_MARKS : AUTO_SWITCH_VISUAL_TASK_TIMER;
             if (!taskManager.plan[taskName]) { startAutoSwitchVisualBranch(); return; } // chưa từng bắt đầu -> bắt đầu mới
@@ -339,7 +339,7 @@
          */
         function updateCycleModeButtonState() {
             if (typeof btnCycleMode === 'undefined' || !btnCycleMode) return;
-            const locked = appState.get('vizConfig').autoSwitchVisualEnabled === true;
+            const locked = appConfigViz.getAll().autoSwitchVisualEnabled === true;
             btnCycleMode.disabled = locked;
             btnCycleMode.classList.toggle('opacity-40', locked);
             btnCycleMode.classList.toggle('cursor-not-allowed', locked);
@@ -361,7 +361,7 @@
         function updateVisualizerTypeSelectState() {
             const selectEl = document.getElementById('setting-visualizer-type');
             if (!selectEl) return;
-            const locked = appState.get('vizConfig').autoSwitchVisualEnabled === true;
+            const locked = appConfigViz.getAll().autoSwitchVisualEnabled === true;
             selectEl.disabled = locked;
             selectEl.classList.toggle('opacity-40', locked);
             selectEl.classList.toggle('cursor-not-allowed', locked);
@@ -405,19 +405,19 @@
          * dời ra `workflowVisualizerDisplay.setAutoSwitchEnabled()` (Rule 3).
          * @param {boolean} checked @param {HTMLElement} [optionsEl] */
         function setAutoSwitchVisualEnabled(checked, optionsEl) {
-            appState.mutate('vizConfig', cfg => { cfg.autoSwitchVisualEnabled = checked; });
+            appConfigViz.mutateAll(cfg => { cfg.autoSwitchVisualEnabled = checked; });
             if (optionsEl) optionsEl.classList.toggle('hidden', !checked);
         }
 
         /** Core thuần: ứng với select "Cách chọn kiểu kế tiếp" (sequential/random). Batch D3 — BỎ `saveConfig()`. */
         function setAutoSwitchVisualMode(value) {
-            appState.mutate('vizConfig', cfg => { cfg.autoSwitchVisualMode = value; });
+            appConfigViz.mutateAll(cfg => { cfg.autoSwitchVisualMode = value; });
         }
 
         /** Core thuần: ứng với select "Cách tính thời gian" (fixed/random/duration). Batch D3 — BỎ
          * `syncAutoSwitchTimeModeBlocks()`/`saveConfig()`/`startAutoSwitchVisualBranch()` nội bộ. */
         function setAutoSwitchVisualTimeMode(value) {
-            appState.mutate('vizConfig', cfg => { cfg.autoSwitchVisualTimeMode = value; });
+            appConfigViz.mutateAll(cfg => { cfg.autoSwitchVisualTimeMode = value; });
         }
 
         /** Core thuần: ứng với 1 trong 3 input số giây (fieldName tương ứng đúng field vizConfig).
@@ -426,7 +426,7 @@
             let v = parseInt(rawValue, 10);
             if (!Number.isFinite(v) || v < AUTO_SWITCH_VISUAL_MIN_SECONDS) v = AUTO_SWITCH_VISUAL_MIN_SECONDS;
             if (inputEl) inputEl.value = v;
-            appState.mutate('vizConfig', cfg => { cfg[fieldName] = v; });
+            appConfigViz.mutateAll(cfg => { cfg[fieldName] = v; });
         }
 
         // ===================== Liên kết với trạng thái phát nhạc =====================

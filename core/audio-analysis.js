@@ -41,7 +41,7 @@
         }
 
         function getComputedColor(i, totalLength, dataValue) {
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             if (cfg.mode === 'dynamic') return { fill: interpolateColor(cfg.dynA, cfg.dynB, i / totalLength), glow: interpolateColor(cfg.dynA, cfg.dynB, i / totalLength) };
             else if (cfg.mode === 'gradient') {
                 let baseHue = (appState.get('globalHueOffset') + (i / totalLength) * 240) % 360;

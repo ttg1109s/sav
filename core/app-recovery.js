@@ -8,9 +8,10 @@
  * executeRestartApp(): xoá hết state RAM TẠM (resume snapshot + cờ trong localStorage — xem
  * resume-state-storage.js) rồi reload — KHÔNG đụng tới nhạc/playlist (IndexedDB) hay vizConfig.
  *
- * executeRestoreDefaults(): CHỈ reset vizConfig về CONST.DEFAULT_VIZ_CONFIG (service/state.js) —
- * GIỮ NGUYÊN nhạc/playlist đã upload. Sau khi reset, vẫn cần reload để UI tự đồng bộ lại qua
- * loadConfig().
+ * executeRestoreDefaults(): CHỈ reset vizConfig về default (SỬA 25/07/2026, đợt tái cấu trúc
+ * state — bước reset thật giờ nằm ở core/config.js::restoreDefaultVizConfig(), hàm này chỉ gọi
+ * sang rồi lo saveConfig()+reload(), xem comment tại chỗ) — GIỮ NGUYÊN nhạc/playlist đã upload.
+ * Sau khi reset, vẫn cần reload để UI tự đồng bộ lại qua loadConfig().
  *
  * executeClearCache() (MỚI 14/07/2026): xoá Cache Storage API (nếu có) RỒI điều hướng lại trang
  * với query cache-bust mới — mạnh hơn `location.reload()` đơn thuần, xem docstring tại hàm.
@@ -22,8 +23,7 @@
  * gì cả.
  *
  * PHẢI nạp SAU: resume-state-storage.js (cần clearResumeFlag/clearResumeStateFromLocalStorage),
- * service/state.js (cần CONST.DEFAULT_VIZ_CONFIG), config.js (cần vizConfig),
- * equalizer-settings.js (cần saveConfig()).
+ * core/config.js (cần restoreDefaultVizConfig()/saveConfig()).
  */
         /** Core thuần: dọn state RAM tạm (resume) rồi reload. Không hỏi xác nhận gì ở đây. */
         function executeRestartApp() {
@@ -33,14 +33,13 @@
         }
 
         /** Core thuần: reset vizConfig về default rồi reload. Không hỏi xác nhận gì ở đây.
-         * FIX (cùng bug "chỉnh EQ không có kết quả", xem comment đầy đủ ở service/state.js chỗ khởi
-         * tạo vizConfig lần đầu) — { ...CONST.DEFAULT_VIZ_CONFIG } là spread NÔNG, field `manualEq`
-         * (mảng, bị Object.freeze() trong CONST.DEFAULT_VIZ_CONFIG — bản mẫu, ĐÚNG nên đóng băng)
-         * copy theo REFERENCE chứ không phải bản sao — tự tạo mảng MỚI độc lập cho chắc, dù
-         * saveConfig()+reload() ngay sau đó thường "tự gột" lại đúng qua loadConfig() (JSON.parse
-         * luôn trả mảng thường), phòng hờ nếu có gì đó đọc vizConfig TRƯỚC lúc reload kịp chạy. */
+         * SỬA (25/07/2026, đợt tái cấu trúc state) — bước reset thật giờ uỷ quyền hẳn cho
+         * core/config.js::restoreDefaultVizConfig() (gọi appConfigViz.restoreDefaults(), deep-clone
+         * lại từ DEFAULT_VIZ_CONFIG qua AppConfig.seed() — xem service/state.js — giải quyết TẬN
+         * GỐC lớp bug "spread nông giữ reference field con bị Object.freeze()" đã từng gặp với
+         * `manualEq`, không cần xử lý riêng field đó ở đây nữa). */
         function executeRestoreDefaults() {
-            appState.set('vizConfig', { ...CONST.DEFAULT_VIZ_CONFIG, manualEq: [...CONST.DEFAULT_VIZ_CONFIG.manualEq] });
+            restoreDefaultVizConfig();
             saveConfig();
             location.reload();
         }

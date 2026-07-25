@@ -23,7 +23,7 @@
          * duyệt tự suy màu vùng đó từ nền `<body>` bất kể có gì đè lên trên). `body` giờ giữ
          * NGUYÊN #000000 tĩnh khai báo thuần trong CSS, không còn bị JS đụng vào nữa. */
         function updateDOMBackground() { 
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             if(!cfg.videoBgEnabled) visualizerSolidBg.style.backgroundColor = cfg.bgColor; 
             else visualizerSolidBg.style.backgroundColor = '#000000';
         }
@@ -54,7 +54,7 @@
          * event/workflow/theme.js::applyNonBackgroundMode()).
          */
         function updatePlaylistBg() {
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             if (cfg.bgImage) {
                 appBg.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url(${cfg.bgImage})`;
                 appBg.style.filter = `blur(${cfg.bgBlur}px)`;

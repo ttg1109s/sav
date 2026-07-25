@@ -24,7 +24,7 @@
         }
 
         function updateEQSlidersUI(mode) {
-            const gains = mode === 'manual' ? appState.get('vizConfig').manualEq : (EQ_PRESETS[mode] || EQ_PRESETS['flat']);
+            const gains = mode === 'manual' ? appConfigViz.getAll().manualEq : (EQ_PRESETS[mode] || EQ_PRESETS['flat']);
             const sliders = document.querySelectorAll('.eq-slider');
             for(let i=0; i<10; i++) { if(sliders[i]) { sliders[i].value = gains[i]; document.getElementById(`eq-val-${i}`).textContent = gains[i] > 0 ? `+${gains[i]}` : gains[i]; } }
         }
@@ -37,7 +37,7 @@
          */
         function initEqualizerUIFromConfig() {
             initEQSliders();
-            eqSelect.value = appState.get('vizConfig').eqMode;
-            updateEQSlidersUI(appState.get('vizConfig').eqMode);
-            applyEQPreset(appState.get('vizConfig').eqMode);
+            eqSelect.value = appConfigViz.getAll().eqMode;
+            updateEQSlidersUI(appConfigViz.getAll().eqMode);
+            applyEQPreset(appConfigViz.getAll().eqMode);
         }

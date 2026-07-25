@@ -316,7 +316,7 @@
             // (video chỉ bám theo trạng thái nhạc). Playlist đè z-[60] tự che video khi cần.
             taskManager.once(() => { 
                 visualizerUI.classList.add('fade-enter-active'); canvas.classList.remove('opacity-0'); 
-                if (appState.get('vizConfig').type === 'vortex') document.getElementById('webgl-canvas').classList.remove('opacity-0');
+                if (appConfigViz.getAll().type === 'vortex') document.getElementById('webgl-canvas').classList.remove('opacity-0');
             }, 50, 'showVisualizerFadeIn');
         }
 

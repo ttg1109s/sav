@@ -35,7 +35,7 @@
             appState.set('ripples', []);
             appState.set('glassStaticDrops', []); appState.set('glassStreaks', []); appState.set('activeLightnings', []); appState.set('starFlashes', []);
             
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             const perfProfile = PERFORMANCE_PROFILES[cfg.quality];
 
             for(let i=0; i < perfProfile.glassDrops; i++) appState.mutate('glassStaticDrops', arr => arr.push({x: Math.random() * canvas.width, y: Math.random() * canvas.height, r: (Math.random() * 1.5 + 0.5) * dpr}));
@@ -82,7 +82,7 @@
 
             // Mưa phố: các hạt mưa rơi xiên nhẹ, mật độ/độ dài sẽ được điều biến theo nhạc lúc vẽ.
             // Số lượng hạt khởi tạo theo PERFORMANCE_PROFILES để giảm tải ở chế độ hiệu năng thấp.
-            const perfProfile = PERFORMANCE_PROFILES[appState.get('vizConfig').quality];
+            const perfProfile = PERFORMANCE_PROFILES[appConfigViz.getAll().quality];
             let rain = [];
             for (let i = 0; i < perfProfile.streetRain; i++) {
                 rain.push({
@@ -97,7 +97,7 @@
 
         function initStars() {
             const dpr = appState.get('dpr');
-            let starList = []; const maxDist = Math.max(canvas.width, canvas.height); const count = PERFORMANCE_PROFILES[appState.get('vizConfig').quality].stars;
+            let starList = []; const maxDist = Math.max(canvas.width, canvas.height); const count = PERFORMANCE_PROFILES[appConfigViz.getAll().quality].stars;
             for(let i=0; i < count; i++) {
                 let clusterAngle = (Math.floor(Math.random() * 5) / 5) * Math.PI * 2; let angle = clusterAngle + (Math.random() * 1.5 - 0.75); 
                 let layer = Math.random(); let baseSpeed, sizeMult;

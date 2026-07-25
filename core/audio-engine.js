@@ -81,7 +81,7 @@
                 appState.set('analyser', appState.get('audioContext').createAnalyser()); appState.get('analyser').fftSize = APP_CONFIG.fftSizeStandard;
                 appState.set('analyserPitch', appState.get('audioContext').createAnalyser()); appState.get('analyserPitch').fftSize = APP_CONFIG.fftSizePitch;
 
-                appState.set('masterGainNode', appState.get('audioContext').createGain()); appState.get('masterGainNode').gain.value = appState.get('vizConfig').volume / 100;
+                appState.set('masterGainNode', appState.get('audioContext').createGain()); appState.get('masterGainNode').gain.value = appConfigViz.getAll().volume / 100;
 
                 let prevNode = source; appState.set('eqBandNodes', []);
                 EQ_FREQS.forEach(freq => {
@@ -90,7 +90,7 @@
                     prevNode.connect(filter); prevNode = filter; appState.mutate('eqBandNodes', arr => arr.push(filter));
                 });
 
-                applyEQPreset(appState.get('vizConfig').eqMode);
+                applyEQPreset(appConfigViz.getAll().eqMode);
                 prevNode.connect(appState.get('masterGainNode')); appState.get('masterGainNode').connect(appState.get('analyser')); appState.get('masterGainNode').connect(appState.get('analyserPitch')); appState.get('analyser').connect(appState.get('audioContext').destination);
 
                 initPitchWorker();
