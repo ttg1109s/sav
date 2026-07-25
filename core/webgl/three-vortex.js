@@ -66,7 +66,7 @@
             }
             appState.get('tRenderer').setSize(window.innerWidth, window.innerHeight);
 
-            const perf = PERFORMANCE_PROFILES[appState.get('vizConfig').quality];
+            const perf = PERFORMANCE_PROFILES[appConfigViz.getAll().quality];
 
             // Nhóm 1: Vòng Ring
             appState.set('tGroupRings', new THREE.Group(), { skipCheck: true });
@@ -138,7 +138,7 @@
 
         function updateVortexVisibility() {
             if(!appState.get('tInitialized')) return;
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             appState.get('tGroupRings').visible = (cfg.vortexStyle === 'rings');
             appState.get('tGroupBars').visible = (cfg.vortexStyle === 'bars');
             appState.get('tGroupWaves').visible = (cfg.vortexStyle === 'wave');
