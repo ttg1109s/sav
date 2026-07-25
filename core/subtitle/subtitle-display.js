@@ -27,7 +27,7 @@
         // Áp style khung (nền/viền/bo góc) + style chữ phụ đề từ vizConfig.subtitleStyle
         // lên DOM thật. Được gọi lúc loadConfig() và mỗi khi người dùng đổi 1 setting.
         function applySubtitleStyle() {
-            const s = appState.get('vizConfig').subtitleStyle;
+            const s = appConfigViz.getAll().subtitleStyle;
             const bgRgb = hexToRgb(s.bgColor);
             subtitleFrame.style.backgroundColor = `rgba(${bgRgb.r}, ${bgRgb.g}, ${bgRgb.b}, ${s.bgOpacity})`;
             const borderRgb = hexToRgb(s.borderColor);

@@ -17,70 +17,70 @@
 
 function setSubtitlesEnabled(checked) {
     appState.set('isSubtitlesEnabled', checked);
-    appState.mutate('vizConfig', cfg => { cfg.subtitlesEnabled = appState.get('isSubtitlesEnabled'); });
+    appConfigViz.mutateAll(cfg => { cfg.subtitlesEnabled = appState.get('isSubtitlesEnabled'); });
     saveConfig();
     updateSubToggleUI();
     if (!appState.get('isSubtitlesEnabled')) clearAllActiveSubBlocks();
 }
 
 function setSubtitleStyleBgColor(value) {
-    appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.bgColor = value; });
+    appConfigViz.mutateAll(cfg => { cfg.subtitleStyle.bgColor = value; });
 }
 
 /** @param {string} rawValue @param {HTMLElement} [displayEl] */
 function setSubtitleStyleBgOpacity(rawValue, displayEl) {
     const v = parseInt(rawValue);
-    appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.bgOpacity = v / 100; });
+    appConfigViz.mutateAll(cfg => { cfg.subtitleStyle.bgOpacity = v / 100; });
     if (displayEl) displayEl.textContent = v + '%';
 }
 
 function setSubtitleStyleBorderColor(value) {
-    appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.borderColor = value; });
+    appConfigViz.mutateAll(cfg => { cfg.subtitleStyle.borderColor = value; });
 }
 
 /** @param {HTMLElement} [displayEl] */
 function setSubtitleStyleBorderOpacity(rawValue, displayEl) {
     const v = parseInt(rawValue);
-    appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.borderOpacity = v / 100; });
+    appConfigViz.mutateAll(cfg => { cfg.subtitleStyle.borderOpacity = v / 100; });
     if (displayEl) displayEl.textContent = v + '%';
 }
 
 /** @param {HTMLElement} [displayEl] */
 function setSubtitleStyleBorderWidth(rawValue, displayEl) {
     const v = parseInt(rawValue);
-    appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.borderWidth = v; });
+    appConfigViz.mutateAll(cfg => { cfg.subtitleStyle.borderWidth = v; });
     if (displayEl) displayEl.textContent = v;
 }
 
 /** @param {HTMLElement} [displayEl] */
 function setSubtitleStyleBorderRadius(rawValue, displayEl) {
     const v = parseInt(rawValue);
-    appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.borderRadius = v; });
+    appConfigViz.mutateAll(cfg => { cfg.subtitleStyle.borderRadius = v; });
     if (displayEl) displayEl.textContent = v;
 }
 
 function setSubtitleStyleTextColor(value) {
-    appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.textColor = value; });
+    appConfigViz.mutateAll(cfg => { cfg.subtitleStyle.textColor = value; });
 }
 
 /** @param {HTMLElement} [displayEl] */
 function setSubtitleStyleFontSize(rawValue, displayEl) {
     const v = parseInt(rawValue);
-    appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.fontSize = v; });
+    appConfigViz.mutateAll(cfg => { cfg.subtitleStyle.fontSize = v; });
     if (displayEl) displayEl.textContent = v;
 }
 
 /** @param {HTMLElement} [displayEl] */
 function setSubtitleStyleLineHeight(rawValue, displayEl) {
     const v = parseFloat(rawValue);
-    appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.lineHeight = v; });
+    appConfigViz.mutateAll(cfg => { cfg.subtitleStyle.lineHeight = v; });
     if (displayEl) displayEl.textContent = v;
 }
 
 /** @param {HTMLElement} [displayEl] */
 function setSubtitleStyleLetterSpacing(rawValue, displayEl) {
     const v = parseFloat(rawValue);
-    appState.mutate('vizConfig', cfg => { cfg.subtitleStyle.letterSpacing = v; });
+    appConfigViz.mutateAll(cfg => { cfg.subtitleStyle.letterSpacing = v; });
     if (displayEl) displayEl.textContent = v;
 }
 
@@ -89,7 +89,7 @@ function setSubtitleStyleLetterSpacing(rawValue, displayEl) {
  * `#sub-toggle-badge` ở Visualizer overlay). Gọi từ loadConfig() (core/config.js).
  */
 function initSubtitleToggleUIFromConfig() {
-    appState.set('isSubtitlesEnabled', appState.get('vizConfig').subtitlesEnabled !== false);
+    appState.set('isSubtitlesEnabled', appConfigViz.getAll().subtitlesEnabled !== false);
     if (typeof settingSubtitlesEnabled !== 'undefined' && settingSubtitlesEnabled) settingSubtitlesEnabled.checked = appState.get('isSubtitlesEnabled');
     updateSubToggleUI();
     applySubtitleStyle();
