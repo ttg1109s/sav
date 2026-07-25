@@ -71,6 +71,19 @@ danh sách 18, hay bị bỏ sót khi chỉ đọc lướt): `core/modal-choice.
 MỌI modal động) và vài chỗ dò `duration`/seek media 1 lần (`core/playlist/loader.js`/`render.js`,
 `core/resume-state-storage.js`, `core/state-and-video-bg.js`).
 
+> **[SỬA, 25/07/2026, đợt tái cấu trúc state]** `DOMContentLoaded`/`error`/`unhandledrejection`
+> (app-boot) TRƯỚC ĐÂY gọi trực tiếp, với comment viện dẫn "cùng quy ước lifecycle boot (mục 1)" —
+> rà lại danh sách 18/18 đã audit chính thức ở trên thì `DOMContentLoaded`/app-boot **CHƯA TỪNG**
+> nằm trong đó (comment cũ tự nhận ngoại lệ nhưng KHÔNG qua audit — cùng lỗi mà mục "Vì sao
+> `core/modal-choice.js` được miễn" bên dưới cảnh báo tránh). SỬA lại cho ĐÚNG: `app.boot` và
+> `app.fatalError` giờ đi qua `eventBus` như mọi cụm khác (`event/listener,router,workflow/
+> app-boot.js`) — KHÔNG còn là ngoại lệ. Riêng 2 listener `error`/`unhandledrejection` vẫn PHẢI
+> đăng ký SỚM (đầu tài liệu, trước `event/bus.js`) để bắt lỗi xảy ra trong lúc phần còn lại của
+> app đang nạp — tự kiểm tra `typeof eventBus` để gửi qua bus (có) hoặc gọi thẳng
+> `_reportFatalError()` làm lưới an toàn (chưa có) — xem comment đầy đủ ở
+> `event/listener/app-boot.js`.
+
+
 **Vì sao `core/modal-choice.js` được miễn — PHẢI ĐỦ CẢ 3 điều kiện, không phải "là UI nên miễn"**
 (xem thêm [core-function-conventions.md Rule 5](./core-function-conventions.md)):
 
