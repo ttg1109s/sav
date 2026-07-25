@@ -406,6 +406,10 @@
             state-and-video-bg.js/about-stats.js/id3-export.js vì các file đó gọi
             hàm helper định nghĩa trong 2 file này.
          ===================================================================== -->
+    <!-- service/z-index.js — bảng z-index TẬP TRUNG (dời từ core/config.js, đợt tái cấu trúc
+         state 25/07/2026) — PHẢI nạp TRƯỚC core/modal-choice.js (dùng Z_INDEX.MODAL_CHOICE) và
+         mọi core/ có dùng z-index. Zero dependency — an toàn đứng đầu tiên. -->
+    <script src="service/z-index.js?v=20260725v1"></script>
     <!-- modalChoice() — hàm dùng chung cho mọi modal "hỏi quyết định" (text + N nút tuỳ biến),
          tự dựng/xoá DOM động (không cần template tĩnh) — xem comment đầu file để biết cách dùng.
          NẠP SỚM Ở ĐÂY (trước core/config.js): service/state.js (dòng dưới) yêu cầu modal-choice.js
@@ -418,25 +422,58 @@
          picker, xem docstring đầu file) — CHỈ phụ thuộc t() (lang/lang.js, đã nạp SỚM ở trên),
          KHÔNG đụng DOM tĩnh/appState/eventBus nào khác — an toàn đứng ngay sau modal-choice.js. -->
     <script src="core/time-picker-modal.js?v=20260718v1"></script>
+    <!-- core/fatal-error.js + event/listener/app-boot.js (đợt tái cấu trúc state 25/07/2026) —
+         dời NGUYÊN VỊ TRÍ SỚM của global error-handler cũ (trước đây sống trong core/config.js,
+         đăng ký ngay từ đầu để bắt lỗi của mọi core/ nạp SAU nó) — GIỮ ĐÚNG vị trí sớm này, chỉ
+         đổi cách gọi: 2 listener error/unhandledrejection tự kiểm tra `typeof eventBus` — CÓ (sau
+         khi event/bus.js nạp ở khối /event/ cuối tài liệu) thì gửi qua eventBus cho
+         event/router/app-boot.js xử lý; CHƯA CÓ (lỗi xảy ra sớm hơn) thì gọi thẳng
+         _reportFatalError() làm lưới an toàn — xem comment đầy đủ ở event/listener/app-boot.js.
+         Listener DOMContentLoaded trong CÙNG file này thì vị trí không quan trọng (chỉ thực sự
+         chạy sau khi toàn tài liệu đã nạp xong). -->
+    <script src="core/fatal-error.js?v=20260725v1"></script>
+    <script src="event/listener/app-boot.js?v=20260725v1"></script>
     <!-- service/operation.js — so sánh toán tử (===/!==/>/</>=/<=/in/notIn) DÙNG CHUNG cho
          event/block.js và event/virtual-machine-state.js (nạp cuối cùng, xem khối /event/ phía
          dưới). Đặt SỚM ở đây cho cùng nhóm "service/" với service/state.js — không phụ thuộc gì
          (không đụng DOM/appState/eventBus), an toàn đứng ở bất kỳ đâu TRƯỚC event/bus.js. -->
     <script src="service/operation.js?v=20260701v1"></script>
-    <!-- service/state.js — STATE + CONST tập trung của toàn app (appState). PHẢI nạp TRƯỚC
-         core/config.js (vizConfig khởi tạo bằng { ...CONST.DEFAULT_VIZ_CONFIG }) và trước toàn bộ
-         core/ còn lại; PHẢI nạp SAU core/modal-choice.js (alertModal, dùng cho option notifyUI).
-         Xem comment đầu file service/state.js. -->
-    <script src="service/state.js?v=20260721v9"></script>
-    <script>
-        // [MỚI, 23/07/2026] Đăng ký account cho trang này — MỖI HTML là 1 "owner" riêng, muốn
-        // đọc/ghi appState (kể cả trang chính này) cũng phải đăng ký qua registry(), xem docstring
-        // đầy đủ ở service/state.js::AppState::registry(). index.html vẫn cần hầu hết ~90 key hiện
-        // có -> đăng ký 'all' (không giới hạn) — giữ NGUYÊN hành vi hiện tại, KHÔNG đổi gì.
-        const APP_ACCOUNT = 'player';
-        appState.registry(APP_ACCOUNT, 'all');
-    </script>
-    <script src="core/config.js?v=20260721v3"></script>
+    <!-- service/state.js — TÁI CẤU TRÚC 25/07/2026: giờ CHỈ còn lõi (class AppState + class
+         AppConfig MỚI) — KHÔNG còn tự chứa STATE_SCHEMA/CONST của mọi domain (đã tách ra 18 file
+         service/state/*.js ngay dưới đây). PHẢI nạp TRƯỚC mọi file service/state/*.js (cần
+         AppState.definePackage() đã tồn tại) và core/config.js (cần AppConfig); PHẢI nạp SAU
+         core/modal-choice.js (alertModal, dùng cho option notifyUI). Xem comment đầu file. -->
+    <script src="service/state.js?v=20260725v1"></script>
+    <!-- 18 package STATE theo domain (đợt tái cấu trúc 25/07/2026) — mỗi file tự
+         AppState.definePackage(...) lúc nạp, CHƯA dựng STATE sống (chỉ đăng ký metadata). PHẢI
+         nạp TRƯỚC service/state/record/index.js (dòng registry() cần mọi package đã đăng ký). -->
+    <script src="service/state/playlist.js?v=20260725v1"></script>
+    <script src="service/state/player.js?v=20260725v1"></script>
+    <script src="service/state/visualizer-runtime.js?v=20260725v1"></script>
+    <script src="service/state/visualizer-scenes.js?v=20260725v1"></script>
+    <script src="service/state/three-vortex.js?v=20260725v1"></script>
+    <script src="service/state/three-space.js?v=20260725v1"></script>
+    <script src="service/state/audio-engine.js?v=20260725v1"></script>
+    <script src="service/state/subtitle.js?v=20260725v1"></script>
+    <script src="service/state/shuffle-repeat.js?v=20260725v1"></script>
+    <script src="service/state/video-bg.js?v=20260725v1"></script>
+    <script src="service/state/video-player-mode.js?v=20260725v1"></script>
+    <script src="service/state/wakelock-tab.js?v=20260725v1"></script>
+    <script src="service/state/auto-switch.js?v=20260725v1"></script>
+    <script src="service/state/listen-stats.js?v=20260725v1"></script>
+    <script src="service/state/app-misc.js?v=20260725v1"></script>
+    <script src="service/state/file-manager.js?v=20260725v1"></script>
+    <script src="service/state/generic-drawer.js?v=20260725v1"></script>
+    <script src="service/state/video-editor.js?v=20260725v1"></script>
+    <!-- service/state/record/index.js — đăng ký account 'player' (thay đoạn <script> inline cũ)
+         — xem service/state/record/index.js. -->
+    <script src="service/state/record/index.js?v=20260725v1"></script>
+    <!-- core/config.js — TÁI CẤU TRÚC 25/07/2026: giờ CHỈ giữ 3 bản default (viz/slideshow/
+         reader, đã GỘP CHUẨN — xem comment đầu file) + hàm nghiệp vụ thuần (seedConfig/
+         restoreDefaultVizConfig/saveConfig/loadConfig) — KHÔNG còn giữ Z_INDEX/global
+         error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
+         service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
+    <script src="core/config.js?v=20260725v1"></script>
     <!-- event/store.js (class EventStore) — CHỈ riêng file NÀY trong toàn bộ /event/ được nạp SỚM
          ở đây, KHÔNG đợi xuống cuối cùng cùng bus/workflow/router/listener. Lý do: playlist/
          actions.js (core, dòng dưới) cần khai báo `const playlistStore = new EventStore(...)`
@@ -908,14 +945,14 @@
          beforeunload). Gọi thẳng hàm, không qua bus. Nạp CUỐI CÙNG trong toàn bộ /event/
          vì phụ thuộc core/tab-hide-reload.js + core/app-cleanup.js đã nạp từ trên. -->
     <script src="event/tab.js?v=20260630v1"></script>
-    <!-- event/router/app-boot.js (MỚI, 20/07/2026, plan-space-galaxy.md Phần A, mục A2/A3) — dời
-         NGUYÊN VẸN đoạn DOMContentLoaded TRƯỚC ĐÂY sống chung file với vòng lặp render
-         (core/visualizer/draw-visualizer.js, nay đã RỖNG). Đặt SAU CÙNG TUYỆT ĐỐI (kể cả sau
-         event/tab.js) — script này CHỈ đăng ký 1 listener 'DOMContentLoaded' (không chạy logic
-         bên trong ngay), nên vị trí không bắt buộc về mặt kỹ thuật, nhưng đặt cuối cùng để mọi
-         workflowXxx/VirtualMachineState/hàm core mà callback bên trong cần tới đều CHẮC CHẮN đã
-         được định nghĩa ở phía TRÊN nó trong tài liệu — dễ đọc/dễ audit hơn. -->
-    <script src="event/router/app-boot.js?v=20260720v1"></script>
+    <!-- event/workflow/app-boot.js + event/router/app-boot.js (SỬA 25/07/2026, đợt tái cấu trúc
+         state) — router giờ CHỈ eventBus.register('appBoot', ...) (KHÔNG còn tự đăng ký
+         DOMContentLoaded — việc đó dời sang event/listener/app-boot.js, nạp SỚM ở đầu tài liệu,
+         xem comment ở đó). Chuỗi boot thật (~15 bước) nay ở workflow. Đặt SAU CÙNG TUYỆT ĐỐI (kể
+         cả sau event/tab.js) để mọi workflowXxx/VirtualMachineState/hàm core mà
+         workflowAppBoot.boot() cần tới đều CHẮC CHẮN đã được định nghĩa ở phía TRÊN nó. -->
+    <script src="event/workflow/app-boot.js?v=20260725v1"></script>
+    <script src="event/router/app-boot.js?v=20260725v1"></script>
 
 </body>
 </html>
