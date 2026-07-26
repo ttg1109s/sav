@@ -21,7 +21,7 @@ const routerTheme = (() => {
         switch (msg.type) {
             case 'theme.selectMode.click': {
                 const { mode } = msg.payload;
-                const cfg = appState.get('vizConfig'); // đọc 1 lần — cần cho VMState quyết định CHẠY GÌ (mục 4C)
+                const cfg = appConfigViz.getAll(); // đọc 1 lần — cần cho VMState quyết định CHẠY GÌ (mục 4C)
                 // "Cần ảnh MỚI" = chưa từng chọn ảnh (bgImage rỗng) HOẶC đang bấm lại ĐÚNG card
                 // Background trong lúc nó ĐANG active (muốn đổi ảnh khác) — xem docstring
                 // workflowTheme.pickNewBackgroundImage().
