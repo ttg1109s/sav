@@ -3,7 +3,7 @@
  * và dải cột tần số bao quanh viền hố đen. Logic gốc giữ nguyên 1:1.
  */
         function drawBlackHole(ctx, perf, isPlaying) {
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             const dpr = appState.get('dpr');
             const vizDataArray = appState.get('vizDataArray');
             const smoothedEnergy = appState.get('smoothedEnergy');

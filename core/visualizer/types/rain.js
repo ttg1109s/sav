@@ -17,7 +17,7 @@
         // năng lượng nhạc tức thời (energySpike) vượt ngưỡng. flashTint cho phép đổi màu chớp theo
         // ngữ cảnh (glass: ánh trăng hơi xanh; street: ánh đèn sấm chớp trung tính).
         function drawRainFlash(ctx, isPlaying, flashTint) {
-            if (!appState.get('vizConfig').glassFlash || !isPlaying) return;
+            if (!appConfigViz.getAll().glassFlash || !isPlaying) return;
             let energySpike = appState.get('smoothedEnergy') * ((appState.get('vizDataArray')[3] || 0) / 255);
             let flashAlpha = energySpike > 0.4 ? (energySpike - 0.4) * 1.2 : 0;
             if (flashAlpha > 0) {
@@ -27,7 +27,7 @@
         }
 
         function drawRainGlass(ctx, perf, isPlaying) {
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             const dpr = appState.get('dpr');
             const smoothedEnergy = appState.get('smoothedEnergy');
             const vizDataArray = appState.get('vizDataArray');
@@ -135,7 +135,7 @@
         }
 
         function drawRainStreet(ctx, perf, isPlaying) {
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             const dpr = appState.get('dpr');
             const smoothedEnergy = appState.get('smoothedEnergy');
             const beatScale = appState.get('beatScale');
@@ -269,6 +269,6 @@
 
         function drawRain(ctx, perf, isPlaying) {
             ctx.lineCap = 'round';
-            if (appState.get('vizConfig').rainStyle === 'street') drawRainStreet(ctx, perf, isPlaying);
+            if (appConfigViz.getAll().rainStyle === 'street') drawRainStreet(ctx, perf, isPlaying);
             else drawRainGlass(ctx, perf, isPlaying);
         }

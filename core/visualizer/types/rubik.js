@@ -22,7 +22,7 @@
             const smoothedEnergy = appState.get('smoothedEnergy');
             const beatScale = appState.get('beatScale');
             const vizDataArray = appState.get('vizDataArray');
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             // ----- Kiểu 1: xoay tự thân theo pitch (nhanh/chậm so với pha trung bình động) -----
             const currentMidi = appState.get('lastValidMidiNote');
             // Hệ số tốc độ: 1.0 = trung bình (giống tốc độ gốc); >1 khi nốt cao hơn pha, <1 khi thấp

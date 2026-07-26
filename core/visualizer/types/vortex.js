@@ -8,7 +8,7 @@
             if (!appState.get('tInitialized')) return;
             const bufferLength = appState.get('analyser').frequencyBinCount;
             const smoothedEnergy = appState.get('smoothedEnergy');
-            const cfg = appState.get('vizConfig');
+            const cfg = appConfigViz.getAll();
             const vizDataArray = appState.get('vizDataArray');
 
             // 1. Cập nhật đường ống bay (Cinematic Path) — đổi hướng thưa hơn và nhẹ nhàng hơn để tránh giật
