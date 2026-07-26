@@ -1,21 +1,18 @@
 /**
- * service/state/record/video-editor.js — Đăng ký account + EventStore cho video-editor.html
- * (đợt tái cấu trúc state, 25/07/2026). Thay cho đoạn `<script>` inline trước đây nằm ngay trong
+ * service/state/record/video-editor.js — Đăng ký account cho video-editor.html (đợt tái cấu
+ * trúc state, 25/07/2026, lượt 2). Thay cho đoạn `<script>` inline trước đây nằm ngay trong
  * video-editor.html.
  *
- * appState.registry(...) — CHỈ 3 package (thay vì "nạp trọn service/state.js rồi giới hạn quyền"
- * như bản cũ): 'generic-drawer' (isGenericDrawerOpen), 'app-misc' (dbReadyPromise),
- * 'video-editor' (videoEditAudioTrackFull/videoEditTextTrackFull) — ĐÚNG 4 key cũ, không thêm/bớt.
+ * appState.registry(...) — 3 package: 'generic-drawer' (isGenericDrawerOpen), 'app-misc'
+ * (dbReadyPromise), 'video-editor' (34 key — 2 key cross-cutting cũ + 32 field state riêng của
+ * trang, MỞ RỘNG lượt 2 — xem service/state/video-editor.js).
  *
- * `new EventStore('videoEditor')` — CHUẨN BỊ SẴN cho đợt SAU (chưa thuộc batch này): toàn bộ
- * ~30 field `_xxx` hiện đang nhúng thẳng làm property của `workflowVideoEditor` (event/workflow/
- * video-editor.js) sẽ dời qua đây (`videoEditorStore.get/set(...)` thay `this._xxx`) — TẠO instance
- * ngay bây giờ để sẵn sàng, nhưng CHƯA đổi gì bên trong event/workflow/video-editor.js ở batch này.
+ * KHÔNG còn EventStore ở trang này (lượt 1 dùng nhầm — EventStore chỉ dành cho "state context"
+ * nhỏ giữa 2 message, không phải state nghiệp vụ toàn trang, xem docstring event/store.js) — toàn
+ * bộ state của trang giờ qua đúng 1 cơ chế `appState` như mọi trang khác.
  *
  * PHẢI nạp SAU: service/state/generic-drawer.js, service/state/app-misc.js,
- * service/state/video-editor.js, event/store.js.
+ * service/state/video-editor.js.
  */
         const APP_ACCOUNT = 'videoEditor';
         appState.registry(APP_ACCOUNT, ['generic-drawer', 'app-misc', 'video-editor']);
-
-        const videoEditorStore = new EventStore('videoEditor');
