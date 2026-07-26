@@ -104,7 +104,8 @@ function openRenameAlbumModal(currentName, onConfirm) {
 
     const overlay = document.createElement('div');
     overlay.id = 'rename-album-overlay';
-    overlay.className = 'fixed inset-0 z-[130] bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+    overlay.className = 'fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+    overlay.style.zIndex = String(Z_INDEX.IMAGE_PREVIEW); // SỬA 25/07/2026 — trước đây hardcode class Tailwind tĩnh `z-[130]`
 
     const card = document.createElement('div');
     card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
@@ -196,7 +197,8 @@ function openImageCarouselPickerModal(images, onSelect, onCancel) {
 
     const overlay = document.createElement('div');
     overlay.id = 'image-carousel-picker-overlay';
-    overlay.className = 'fixed inset-0 z-[130] bg-black flex flex-col';
+    overlay.className = 'fixed inset-0 bg-black flex flex-col';
+    overlay.style.zIndex = String(Z_INDEX.IMAGE_CAROUSEL_PICKER); // SỬA 25/07/2026 — trước đây hardcode class Tailwind tĩnh `z-[130]`
 
     function closeModal() {
         loadedSlides.forEach(({ objectUrl }) => { try { URL.revokeObjectURL(objectUrl); } catch (e) {} });
@@ -328,7 +330,8 @@ function openImageCarouselViewModal(images, albumName, onRemoveFromAlbum, onClos
 
     const overlay = document.createElement('div');
     overlay.id = 'image-carousel-view-overlay';
-    overlay.className = 'fixed inset-0 z-[130] bg-black flex flex-col';
+    overlay.className = 'fixed inset-0 bg-black flex flex-col';
+    overlay.style.zIndex = String(Z_INDEX.IMAGE_PREVIEW); // SỬA 25/07/2026 — trước đây hardcode class Tailwind tĩnh `z-[130]`
 
     function closeModal() {
         loadedSlides.forEach(({ objectUrl }) => { try { URL.revokeObjectURL(objectUrl); } catch (e) {} });
@@ -478,7 +481,8 @@ function openImageLibraryPickerModal(images, onSelect, onCancel) {
 
     const overlay = document.createElement('div');
     overlay.id = 'image-library-picker-overlay';
-    overlay.className = 'fixed inset-0 z-[130] bg-black/85 backdrop-blur-sm flex flex-col';
+    overlay.className = 'fixed inset-0 bg-black/85 backdrop-blur-sm flex flex-col';
+    overlay.style.zIndex = String(Z_INDEX.IMAGE_PREVIEW); // SỬA 25/07/2026 — trước đây hardcode class Tailwind tĩnh `z-[130]`
 
     let hasSelected = false;
     function closeModal() {
@@ -601,7 +605,8 @@ function openCreateAlbumModal(onConfirm) {
 
     const overlay = document.createElement('div');
     overlay.id = 'create-album-overlay';
-    overlay.className = 'fixed inset-0 z-[130] bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+    overlay.className = 'fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+    overlay.style.zIndex = String(Z_INDEX.IMAGE_PREVIEW); // SỬA 25/07/2026 — trước đây hardcode class Tailwind tĩnh `z-[130]`
 
     const card = document.createElement('div');
     card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
@@ -668,7 +673,8 @@ function openImagePreviewModal(image, callbacks) {
 
     const overlay = document.createElement('div');
     overlay.id = 'image-preview-overlay';
-    overlay.className = 'fixed inset-0 z-[130] bg-black overflow-hidden';
+    overlay.className = 'fixed inset-0 bg-black overflow-hidden';
+    overlay.style.zIndex = String(Z_INDEX.IMAGE_PREVIEW); // SỬA 25/07/2026 — trước đây hardcode class Tailwind tĩnh `z-[130]`
 
     function closeModal() {
         try { URL.revokeObjectURL(objectUrl); } catch (e) {}
