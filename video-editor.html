@@ -238,21 +238,18 @@
     <script src="core/dropdown-menu.js?v=20260716v1"></script>
     <!-- service/state.js — TÁI CẤU TRÚC 25/07/2026: lõi (class AppState/AppConfig) tách khỏi
          package theo domain (service/state/*.js). Trang này CHỈ nạp đúng 3 package cần (thay vì
-         "nạp trọn service/state.js rồi registry() giới hạn quyền" như trước — giờ registry()
-         THẬT SỰ chỉ dựng đúng 4 key từ 3 package này, không còn dựng ~90 key thừa). Đăng ký qua
-         service/state/record/video-editor.js — xem file đó. -->
+         "nạp trọn service/state.js rồi registry() giới hạn quyền" như trước). SỬA (lượt 2, cùng
+         ngày) — package 'video-editor' giờ có ĐỦ 34 key (32 field state riêng của trang, trước đó
+         từng nhầm đưa qua EventStore — xem service/state/video-editor.js), không chỉ 2 key
+         cross-cutting như lượt 1. Đăng ký qua service/state/record/video-editor.js — xem file đó. -->
     <script src="service/state.js?v=20260725v1"></script>
     <script src="service/state/generic-drawer.js?v=20260725v1"></script>
     <script src="service/state/app-misc.js?v=20260725v1"></script>
-    <script src="service/state/video-editor.js?v=20260725v1"></script>
-    <!-- event/store.js (class EventStore) — MỚI nạp ở trang này (đợt tái cấu trúc 25/07/2026) —
-         service/state/record/video-editor.js cần `new EventStore('videoEditor')` (chuẩn bị cho
-         đợt sau, xem comment file đó). -->
-    <script src="event/store.js?v=20260627v1"></script>
-    <script src="service/state/record/video-editor.js?v=20260725v1"></script>
+    <script src="service/state/video-editor.js?v=20260725v2"></script>
+    <script src="service/state/record/video-editor.js?v=20260725v2"></script>
     <!-- 'dbReadyPromise' — service/db.js TỰ PHÁT HIỆN `appState` có tồn tại hay không
          (typeof appState !== 'undefined') để quyết định lưu promise "DB đã sẵn sàng" qua appState
-         hay biến module-scope riêng (thiết kế cho subtitle-editor.html KHÔNG nạp state.js). Trang
+         hay biến module-scope riêng (fallback cho các trang KHÔNG nạp state.js). Trang
          này CÓ nạp state.js -> appState tồn tại -> db.js tự chuyển sang nhánh dùng appState —
          PHẢI đăng ký key này (đã có trong package 'app-misc' registry ở trên), thiếu sẽ bị chặn
          ghi/đọc, khiến getVideoRecord()/getSongRecord()... không bao giờ resolve. -->

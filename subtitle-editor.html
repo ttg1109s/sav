@@ -348,7 +348,19 @@
          xem lang/lang.js) — KHÔNG được bớt file nào dù trang này chỉ thật sự DÙNG patch-common/
          patch-subtitle-editor. -->
     <script src="lang/lang.js?v=20260722v1"></script>
+    <!-- service/z-index.js — bảng z-index TẬP TRUNG (dời từ core/config.js, đợt tái cấu trúc
+         state 25/07/2026) — PHẢI nạp TRƯỚC core/modal-choice.js (dùng Z_INDEX.MODAL_CHOICE). -->
+    <script src="service/z-index.js?v=20260725v1"></script>
     <script src="core/modal-choice.js?v=20260625v9"></script>
+    <!-- service/state.js — TÁI CẤU TRÚC 25/07/2026, lượt 2: trang này TRƯỚC ĐÂY chưa từng nạp
+         appState (lượt 1 nhét 20 field state của trang vào EventStore — SAI ranh giới, xem
+         docstring event/store.js) — giờ nạp lõi (AppState) + đúng 2 package cần: 'subtitle-editor'
+         (20 field state riêng của trang) + 'app-misc' (CHỈ vì dbReadyPromise, xem
+         service/state/record/subtitle-editor.js). PHẢI nạp SAU core/modal-choice.js (alertModal). -->
+    <script src="service/state.js?v=20260725v1"></script>
+    <script src="service/state/subtitle-editor.js?v=20260725v1"></script>
+    <script src="service/state/app-misc.js?v=20260725v1"></script>
+    <script src="service/state/record/subtitle-editor.js?v=20260725v1"></script>
     <!-- MỚI (18/07/2026) — openTimePickerModal() dùng chung (tách từ event/workflow/
          subtitle-editor.js::openTimePickerModal() cũ, xem docstring file này). -->
     <script src="core/time-picker-modal.js?v=20260718v1"></script>
