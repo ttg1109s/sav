@@ -25,6 +25,8 @@
             },
         });
 
-        /** Key localStorage cho snapshot resume + cờ resume — chỉ core/resume-state-storage.js dùng. */
-        const RESUME_STATE_STORAGE_KEY = 'sav_pendingResumeState_v1';
-        const RESUME_FLAG_KEY = 'sav_resumeFlag_v1';
+        // RESUME_STATE_STORAGE_KEY/RESUME_FLAG_KEY — KHÔNG khai lại ở đây. Bản THẬT đã tồn tại sẵn
+        // (từ trước đợt tái cấu trúc) ngay trong core/resume-state-storage.js — file DUY NHẤT
+        // dùng 2 hằng số này. Đợt tái cấu trúc 25/07/2026 từng lỡ khai TRÙNG tên ở đây (2 `const`
+        // top-level cùng tên trong cùng 1 global scope không có module → SyntaxError "đã được
+        // khai báo" ngay lúc parse, sập cả app boot) — ĐÃ XOÁ bản trùng, giữ nguyên bản gốc.

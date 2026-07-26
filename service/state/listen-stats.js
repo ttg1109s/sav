@@ -15,4 +15,6 @@
             },
         });
 
-        const LISTEN_CLOCK_TASK = 'listenClock';
+        // LISTEN_CLOCK_TASK — KHÔNG khai lại ở đây. Bản THẬT đã tồn tại sẵn trong
+        // core/player-controls.js — ĐÃ XOÁ bản trùng gây SyntaxError lúc parse (xem giải thích đầy
+        // đủ ở service/state/player.js, cùng lỗi).

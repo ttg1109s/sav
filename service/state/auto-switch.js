@@ -19,5 +19,6 @@
         // Ngưỡng tối thiểu HARDCODE cho mọi cách tính thời gian giữa 2 lần đổi hiệu ứng — xem
         // core/config.js::DEFAULT_VIZ_CONFIG cho ý nghĩa chi tiết 3 mode fixed/random/duration.
         const AUTO_SWITCH_VISUAL_MIN_SECONDS = 10;
-        const AUTO_SWITCH_VISUAL_TASK_TIMER = 'autoSwitchVisualTimer';
-        const AUTO_SWITCH_VISUAL_TASK_MARKS = 'autoSwitchVisualMarks';
+        // AUTO_SWITCH_VISUAL_TASK_TIMER/AUTO_SWITCH_VISUAL_TASK_MARKS — KHÔNG khai lại ở đây. Bản
+        // THẬT đã tồn tại sẵn trong core/auto-switch-visual.js — ĐÃ XOÁ bản trùng gây SyntaxError
+        // lúc parse (xem giải thích đầy đủ ở service/state/player.js, cùng lỗi).

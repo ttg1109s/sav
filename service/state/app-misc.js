@@ -31,4 +31,6 @@
             },
         });
 
-        const SHIELD_FADE_MS = 200;
+        // SHIELD_FADE_MS — KHÔNG khai lại ở đây. Bản THẬT đã tồn tại sẵn trong
+        // core/loading-shield-util.js — ĐÃ XOÁ bản trùng gây SyntaxError lúc parse (xem giải thích
+        // đầy đủ ở service/state/player.js, cùng lỗi).

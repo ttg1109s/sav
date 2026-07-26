@@ -40,6 +40,6 @@
             },
         });
 
-        const TUNNEL_DEPTH = 3000;
-        const BARS_RINGS_COUNT = 40;
-        const BARS_PER_RING = 24;
+        // TUNNEL_DEPTH/BARS_RINGS_COUNT/BARS_PER_RING — KHÔNG khai lại ở đây. Bản THẬT đã tồn tại
+        // sẵn trong core/webgl/three-vortex.js — ĐÃ XOÁ bản trùng gây SyntaxError lúc parse (xem
+        // giải thích đầy đủ ở service/state/player.js, cùng lỗi).
