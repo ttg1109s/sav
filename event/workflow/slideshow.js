@@ -171,7 +171,7 @@ const workflowSlideshow = {
     },
 
     _computeIntervalMs() {
-        return Math.max(5, appState.get('slideshowConfig').intervalSeconds) * 1000;
+        return Math.max(5, appConfigSlideshow.getAll().intervalSeconds) * 1000;
     },
 
     /** MỚI (18/07/2026, phản hồi Giang — fix "Photo per song" dùng SAI thời gian cho Ken Burns) —
@@ -194,7 +194,7 @@ const workflowSlideshow = {
      * @returns {number}
      */
     _computeImageDisplayDurationMs() {
-        const cfg = appState.get('slideshowConfig');
+        const cfg = appConfigSlideshow.getAll();
         if (cfg.photoPerSong && audioPlayer && Number.isFinite(audioPlayer.duration) && audioPlayer.duration > 0) {
             const remainingMs = (audioPlayer.duration - audioPlayer.currentTime) * 1000;
             if (remainingMs > 0) return remainingMs;
@@ -238,7 +238,7 @@ const workflowSlideshow = {
             getMeta('activeBackgroundAlbum'),
         ]);
         if (savedConfig && typeof savedConfig === 'object') {
-            appState.mutate('slideshowConfig', (cfg) => {
+            appConfigSlideshow.mutateAll((cfg) => {
                 if (savedConfig.mode === 'sequential' || savedConfig.mode === 'random') cfg.mode = savedConfig.mode;
                 if (typeof savedConfig.intervalSeconds === 'number' && savedConfig.intervalSeconds >= 5) cfg.intervalSeconds = savedConfig.intervalSeconds;
                 if (SLIDESHOW_TRANSITION_TYPES.includes(savedConfig.transitionType)) cfg.transitionType = savedConfig.transitionType;
@@ -332,7 +332,7 @@ const workflowSlideshow = {
      * @returns {boolean}
      */
     _shouldBeRunning() {
-        return !audioPlayer.paused && !appState.get('vizConfig').videoBgEnabled;
+        return !audioPlayer.paused && !appConfigViz.getAll().videoBgEnabled;
     },
 
     /** MỚI (18/07/2026, mục 1 phản hồi Giang) — hiện container + ảnh đầu tiên + bắt đầu task lặp
@@ -348,12 +348,12 @@ const workflowSlideshow = {
     _reveal() {
         if (this._isRevealed) return;
         this._isRevealed = true;
-        if (visualBgImageElement && appState.get('vizConfig').visualBgImageEnabled) {
+        if (visualBgImageElement && appConfigViz.getAll().visualBgImageEnabled) {
             visualBgImageElement.style.opacity = '0'; // core dom-ref trực tiếp — CHỈ ẩn, KHÔNG tắt state
         }
         setSlideshowContainerVisible(slideshowContainer, true); // core
         this._showFirstImage();
-        if (appState.get('slideshowConfig').photoPerSong) {
+        if (appConfigSlideshow.getAll().photoPerSong) {
             this._startSongWatcher();
         } else {
             taskManager.kill(SLIDESHOW_TASK);
@@ -422,7 +422,7 @@ const workflowSlideshow = {
         this._currentIndex = -1;
         this._isRevealed = false;
         this._lastKenBurnsDirection = null;
-        if (visualBgImageElement && appState.get('vizConfig').visualBgImageEnabled) {
+        if (visualBgImageElement && appConfigViz.getAll().visualBgImageEnabled) {
             visualBgImageElement.style.opacity = '1'; // core dom-ref trực tiếp — khôi phục ĐÚNG trạng thái riêng của nó
         }
     },
@@ -443,7 +443,7 @@ const workflowSlideshow = {
         const panEl = this._currentPanLayer();
         setSlideshowLayerImage(panEl, objectUrl); // core — layer CON
         if (layerEl) layerEl.classList.add('ss-current');
-        const cfg = appState.get('slideshowConfig');
+        const cfg = appConfigSlideshow.getAll();
         setSlideshowTransitionType(slideshowContainer, cfg.transitionType); // core
         if (cfg.kenBurnsEnabled) this._activateKenBurns(panEl, cfg.kenBurnsMode, image);
     },
@@ -495,7 +495,7 @@ const workflowSlideshow = {
     _tick() {
         if (this._images.length === 0) return; // album rỗng (ảnh vừa bị xoá hết) -> chờ, không lỗi
 
-        const cfg = appState.get('slideshowConfig');
+        const cfg = appConfigSlideshow.getAll();
         const nextIndex = cfg.mode === 'random'
             ? pickNextSlideshowIndexRandom(this._currentIndex, this._images.length)      // core
             : pickNextSlideshowIndexSequential(this._currentIndex, this._images.length); // core
@@ -560,7 +560,7 @@ const workflowSlideshow = {
     async refreshDrawerUI() {
         if (!slideshowSettingsPanelEl) return; // panel đã đóng — an toàn bỏ qua (Batch D4)
         const albumId = appState.get('activeBackgroundAlbum');
-        const cfg = appState.get('slideshowConfig');
+        const cfg = appConfigSlideshow.getAll();
 
         const enableToggle = slideshowSettingsPanelEl.querySelector('#setting-slideshow-enable');
         const modeSelect = slideshowSettingsPanelEl.querySelector('#setting-slideshow-mode');
@@ -606,9 +606,9 @@ const workflowSlideshow = {
      * @param {boolean} checked
      */
     async changePhotoPerSong(checked) {
-        appState.mutate('slideshowConfig', (cfg) => { cfg.photoPerSong = checked; });
+        appConfigSlideshow.mutateAll((cfg) => { cfg.photoPerSong = checked; });
         console.log(`writer: "workflowSlideshow.changePhotoPerSong", page: "slideshowConfig", content: "photoPerSong=${checked}"`);
-        await setMeta('slideshowConfig', appState.get('slideshowConfig'));
+        await setMeta('slideshowConfig', appConfigSlideshow.getAll());
         if (slideshowSettingsPanelEl) {
             const intervalRow = slideshowSettingsPanelEl.querySelector('#slideshow-interval-row');
             if (intervalRow) intervalRow.classList.toggle('hidden', checked);
@@ -720,9 +720,9 @@ const workflowSlideshow = {
      */
     async changeMode(mode) {
         if (mode !== 'sequential' && mode !== 'random') return; // guard: giá trị lạ (không phải từ chính <select>) -> bỏ qua
-        appState.mutate('slideshowConfig', (cfg) => { cfg.mode = mode; });
+        appConfigSlideshow.mutateAll((cfg) => { cfg.mode = mode; });
         console.log(`writer: "workflowSlideshow.changeMode", page: "slideshowConfig", content: "mode=${mode}"`);
-        await setMeta('slideshowConfig', appState.get('slideshowConfig'));
+        await setMeta('slideshowConfig', appConfigSlideshow.getAll());
     },
 
     /** SỬA (18/07/2026, phản hồi Giang — "setting chọn thời gian mở modal picker y như cách
@@ -750,7 +750,7 @@ const workflowSlideshow = {
      * tầng nào khác. */
     openIntervalPicker() {
         if (!slideshowSettingsPanelEl) return;
-        const cfg = appState.get('slideshowConfig');
+        const cfg = appConfigSlideshow.getAll();
         openTimePickerModal({ // core/time-picker-modal.js
             title: t('slideshowSettingsDrawer.interval.pickerTitle'),
             format: 's',
@@ -761,13 +761,13 @@ const workflowSlideshow = {
                 const v = Math.max(5, Math.round(resultMs / 1000));
                 const newIntervalMs = v * 1000;
                 let correctedTransitionMs = null; // MỚI — null = không cần sửa gì, có giá trị = ĐÃ bị kẹp xuống
-                appState.mutate('slideshowConfig', (c) => {
+                appConfigSlideshow.mutateAll((c) => {
                     c.intervalSeconds = v;
                     const cappedMs = capSlideshowTransitionDurationMs(c.transitionDurationMs, newIntervalMs); // core — tái dùng NGUYÊN hàm đã có
                     if (cappedMs !== c.transitionDurationMs) { c.transitionDurationMs = cappedMs; correctedTransitionMs = cappedMs; }
                 });
                 console.log(`writer: "workflowSlideshow.openIntervalPicker", page: "slideshowConfig", content: "intervalSeconds=${v}${correctedTransitionMs !== null ? `, transitionDurationMs tự kẹp xuống ${correctedTransitionMs}` : ''}"`);
-                await setMeta('slideshowConfig', appState.get('slideshowConfig'));
+                await setMeta('slideshowConfig', appConfigSlideshow.getAll());
                 if (!slideshowSettingsPanelEl) return;
                 const intervalBtn = slideshowSettingsPanelEl.querySelector('#setting-slideshow-interval');
                 if (intervalBtn) intervalBtn.textContent = `${v}s`; // đồng bộ lại chữ trên nút
@@ -778,7 +778,7 @@ const workflowSlideshow = {
                     const transitionBtn = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-duration');
                     if (transitionBtn) transitionBtn.textContent = `${(correctedTransitionMs / 1000).toFixed(1)}s`;
                     const ratioSlider = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-ratio');
-                    this._updateTransitionRatioLabel(slideshowSettingsPanelEl, ratioSlider ? Number(ratioSlider.value) : appState.get('slideshowConfig').transitionInOutRatio);
+                    this._updateTransitionRatioLabel(slideshowSettingsPanelEl, ratioSlider ? Number(ratioSlider.value) : appConfigSlideshow.getAll().transitionInOutRatio);
                 }
                 // Loop (task-manager.js) KHÔNG hỗ trợ đổi `time` giữa chừng của task count vô hạn —
                 // tự kill + addNew lại với time mới, CÙNG lý do scheduleNextAutoSwitchVisualTimer()
@@ -806,9 +806,9 @@ const workflowSlideshow = {
      */
     async changeTransitionType(type) {
         if (!SLIDESHOW_TRANSITION_TYPES.includes(type)) return; // guard: giá trị lạ -> bỏ qua
-        appState.mutate('slideshowConfig', (cfg) => { cfg.transitionType = type; });
+        appConfigSlideshow.mutateAll((cfg) => { cfg.transitionType = type; });
         console.log(`writer: "workflowSlideshow.changeTransitionType", page: "slideshowConfig", content: "transitionType=${type}"`);
-        await setMeta('slideshowConfig', appState.get('slideshowConfig'));
+        await setMeta('slideshowConfig', appConfigSlideshow.getAll());
         setSlideshowTransitionType(slideshowContainer, type); // core — áp ngay cho lần chuyển cảnh kế tiếp
         if (slideshowSettingsPanelEl) {
             const ratioRow = slideshowSettingsPanelEl.querySelector('#slideshow-transition-ratio-row');
@@ -838,7 +838,7 @@ const workflowSlideshow = {
      * thời gian vừa đổi, xem `_updateTransitionRatioLabel()`). */
     openTransitionDurationPicker() {
         if (!slideshowSettingsPanelEl) return;
-        const cfg = appState.get('slideshowConfig');
+        const cfg = appConfigSlideshow.getAll();
         const maxMs = Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, Math.min(SLIDESHOW_TRANSITION_MAX_TIME_MS, this._computeImageDisplayDurationMs() - 1000));
         openTimePickerModal({ // core/time-picker-modal.js
             title: t('slideshowSettingsDrawer.transitionDuration.pickerTitle'),
@@ -848,9 +848,9 @@ const workflowSlideshow = {
             maxMs, // ĐỘNG theo thời gian ảnh hiển thị hiện tại — KHÔNG còn cố định 60s
             onConfirm: async (resultMs) => {
                 const v = Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, Math.min(maxMs, resultMs));
-                appState.mutate('slideshowConfig', (c) => { c.transitionDurationMs = v; });
+                appConfigSlideshow.mutateAll((c) => { c.transitionDurationMs = v; });
                 console.log(`writer: "workflowSlideshow.openTransitionDurationPicker", page: "slideshowConfig", content: "transitionDurationMs=${v}"`);
-                await setMeta('slideshowConfig', appState.get('slideshowConfig'));
+                await setMeta('slideshowConfig', appConfigSlideshow.getAll());
                 if (!slideshowSettingsPanelEl) return;
                 const btn = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-duration');
                 if (btn) btn.textContent = `${(v / 1000).toFixed(1)}s`;
@@ -869,7 +869,7 @@ const workflowSlideshow = {
     _updateTransitionRatioLabel(panelEl, ratioPercent) {
         const labelEl = panelEl ? panelEl.querySelector('#slideshow-transition-ratio-label') : null;
         if (!labelEl) return;
-        const cfg = appState.get('slideshowConfig');
+        const cfg = appConfigSlideshow.getAll();
         const { inMs, outMs } = computeSlideshowTransitionInOutMs(cfg.transitionDurationMs, ratioPercent); // core
         labelEl.textContent = tFormat('slideshowSettingsDrawer.transitionRatio.previewFormat', { in: (inMs / 1000).toFixed(1), out: (outMs / 1000).toFixed(1) });
     },
@@ -890,9 +890,9 @@ const workflowSlideshow = {
      */
     async changeTransitionRatio(ratioPercent) {
         const v = Math.max(0, Math.min(100, ratioPercent));
-        appState.mutate('slideshowConfig', (cfg) => { cfg.transitionInOutRatio = v; });
+        appConfigSlideshow.mutateAll((cfg) => { cfg.transitionInOutRatio = v; });
         console.log(`writer: "workflowSlideshow.changeTransitionRatio", page: "slideshowConfig", content: "transitionInOutRatio=${v}"`);
-        await setMeta('slideshowConfig', appState.get('slideshowConfig'));
+        await setMeta('slideshowConfig', appConfigSlideshow.getAll());
         if (slideshowSettingsPanelEl) this._updateTransitionRatioLabel(slideshowSettingsPanelEl, v);
     },
 
@@ -902,9 +902,9 @@ const workflowSlideshow = {
      */
     async changeTransitionEasing(easing) {
         if (!SLIDESHOW_TRANSITION_EASINGS.includes(easing)) return; // guard: giá trị lạ -> bỏ qua
-        appState.mutate('slideshowConfig', (cfg) => { cfg.transitionEasing = easing; });
+        appConfigSlideshow.mutateAll((cfg) => { cfg.transitionEasing = easing; });
         console.log(`writer: "workflowSlideshow.changeTransitionEasing", page: "slideshowConfig", content: "transitionEasing=${easing}"`);
-        await setMeta('slideshowConfig', appState.get('slideshowConfig'));
+        await setMeta('slideshowConfig', appConfigSlideshow.getAll());
     },
 
     /** MỚI (Ken Burns, 18/07/2026, phản hồi Giang) — ứng với toggle "Ken Burns" (ĐỘC LẬP với
@@ -922,9 +922,9 @@ const workflowSlideshow = {
      * @param {boolean} checked
      */
     async changeKenBurnsEnabled(checked) {
-        appState.mutate('slideshowConfig', (cfg) => { cfg.kenBurnsEnabled = checked; });
+        appConfigSlideshow.mutateAll((cfg) => { cfg.kenBurnsEnabled = checked; });
         console.log(`writer: "workflowSlideshow.changeKenBurnsEnabled", page: "slideshowConfig", content: "kenBurnsEnabled=${checked}"`);
-        await setMeta('slideshowConfig', appState.get('slideshowConfig'));
+        await setMeta('slideshowConfig', appConfigSlideshow.getAll());
         if (slideshowSettingsPanelEl) {
             const kenBurnsModeRow = slideshowSettingsPanelEl.querySelector('#slideshow-kenburns-mode-row');
             if (kenBurnsModeRow) kenBurnsModeRow.classList.toggle('hidden', !checked);
@@ -939,8 +939,8 @@ const workflowSlideshow = {
      */
     async changeKenBurnsMode(mode) {
         if (!SLIDESHOW_KENBURNS_MODES.includes(mode)) return; // guard: giá trị lạ -> bỏ qua
-        appState.mutate('slideshowConfig', (cfg) => { cfg.kenBurnsMode = mode; });
+        appConfigSlideshow.mutateAll((cfg) => { cfg.kenBurnsMode = mode; });
         console.log(`writer: "workflowSlideshow.changeKenBurnsMode", page: "slideshowConfig", content: "kenBurnsMode=${mode}"`);
-        await setMeta('slideshowConfig', appState.get('slideshowConfig'));
+        await setMeta('slideshowConfig', appConfigSlideshow.getAll());
     },
 };

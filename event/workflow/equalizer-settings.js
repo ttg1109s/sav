@@ -19,7 +19,7 @@ const workflowEqualizerSettings = {
     applyBandInput({ index, value }) {
         const valEl = document.getElementById(`eq-val-${index}`);
         if (valEl) valEl.textContent = value > 0 ? `+${value}` : value;
-        appState.mutate('vizConfig', cfg => {
+        appConfigViz.mutateAll(cfg => {
             cfg.manualEq[index] = value;
             if (cfg.eqMode !== 'manual') {
                 cfg.eqMode = 'manual';

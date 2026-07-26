@@ -1,6 +1,14 @@
 /**
- * event/workflow/video-editor.js — Workflow DUY NHẤT của `video-editor.html` v3 (23/07/2026). KHÔNG
- * dùng `appState` (cùng lý do `image-edit.html`) — state cục bộ sống trong object này.
+ * event/workflow/video-editor.js — Workflow DUY NHẤT của `video-editor.html` v3 (23/07/2026). 32
+ * field state RIÊNG của trang này sống trong `appState` (package `video-editor`, xem
+ * `service/state/video-editor.js` + `service/state/record/video-editor.js`) — SỬA 25/07/2026 (đợt
+ * tái cấu trúc state, 2 lượt: lượt 1 nhầm dùng EventStore cho state nghiệp vụ toàn trang — SAI
+ * ranh giới EventStore chỉ dành cho "state context" nhỏ giữa 2 message; lượt 2 sửa lại đúng —
+ * dùng CÙNG hạ tầng AppState/schema/registry() như mọi domain khác của app, KHÔNG phải cơ chế
+ * riêng). Trước đây nhúng thẳng làm property của object literal `workflowVideoEditor`, giờ đọc/ghi
+ * qua `appState.get('_xxx')`/`appState.set('_xxx', value)` trực tiếp trong từng method. (2 key
+ * cross-cutting khác — `isGenericDrawerOpen`/`dbReadyPromise`, thuộc package khác — đọc/ghi CÙNG
+ * `appState`, xem `service/state/record/video-editor.js`.)
  *
  * [v3] ĐỔI KIẾN TRÚC LỚN theo yêu cầu Giang — xem đầu `video-editor.html` để tóm tắt. Chi tiết mô
  * hình dữ liệu:
@@ -75,63 +83,13 @@ const VIDEO_EDITOR_FONTS = [
 ];
 
 const workflowVideoEditor = {
-    MIN_CLIP_GAP_SEC: 0.3, // độ dài tối thiểu 1 đoạn/khoảng cách tối thiểu tới mép khi trim/cắt — DÙNG CHUNG, tránh lặp `const MIN_GAP = 0.3` rải rác nhiều hàm.
+    MIN_CLIP_GAP_SEC: 0.3, // độ dài tối thiểu 1 đoạn/khoảng cách tối thiểu tới mép khi trim/cắt — DÙNG CHUNG, tránh lặp `const MIN_GAP = 0.3` rải rác nhiều hàm. HẰNG SỐ THẬT — không mutate, KHÔNG sống trong appState.
 
-    _videoKey: null,
-    _record: null,
-    _fullSourceDuration: 0,
-    _nativeW: 0,
-    _nativeH: 0,
-    _pixelsPerSecond: 40,
-
-    _videoClips: [],
-    _audioClips: [],
-    _textClips: [],
-    _currentClipIndex: null, // đoạn Video đang phát/xem (index trong _videoClips)
-    _idCounter: 1,
-
-    _rotateDeg: 0,
-    _cropFraction: null,
-    _cropper: null,
-    // [XOÁ 24/07/2026, mục d] _volumeVideo/_brightness/_contrast/_saturation (toàn cục) — "Chỉnh"
-    // bỏ hẳn. Volume giờ là `_videoClips[i].volume` (per-clip, xem docstring đầu file).
-
-    _selected: null, // {track:'video'|'audio'|'text', index}|null
-    _isPlaying: false,
-    _dragHandle: null, // {track,index,handleType:'start'|'end'|'move'}|null
-    _dragLastClientX: 0,
-    _pinchState: null, // {startDist,startAngleDeg,baseSize,baseRotation}|null — MỚI, kéo-giãn/xoay Text 2 ngón trên preview
-
-    // [BẢN THỬ 24/07/2026 sáng — Giang báo "mất tiếng cả video cả nhạc" — ĐÃ BỎ] Lần đầu thử
-    // GainNode: `createMediaElementSource()` tự động NGẮT đường phát mặc định của thẻ media, âm
-    // thanh CHỈ còn phát qua graph Web Audio tự nối — graph đó CHỈ chạy khi AudioContext ở trạng
-    // thái 'running'. Tạo context trong `_onMetadataReady()` (do sự kiện 'loadedmetadata', KHÔNG
-    // phải cử chỉ người dùng) → MẶC ĐỊNH 'suspended', KHÔNG hề gọi `.resume()` ở đâu → câm HẲN cả
-    // video cả nhạc. Đã quay lại `.volume` gốc — nhưng round SAU (Giang báo "vẫn không chỉnh được
-    // volume") tra cứu ra: iOS KHOÁ CỨNG `.volume` (không phải bug JS, xem docstring
-    // media-gain.js) — `.volume` gốc KHÔNG BAO GIỜ hoạt động được trên iOS dù sửa cách nào.
-
-    // MỚI (24/07/2026, mục e) — waveform "Dịch chuyển đoạn" (handleSongShiftOpen()), sống trong lúc
-    // Generic Drawer nội dung đó đang mở, huỷ lúc đóng (xem _closeGenericDrawerFully()).
-    _shiftWavesurfer: null,
-    _shiftRegionsPlugin: null,
-    _shiftRegion: null,
-    _shiftIsPlayingRegion: false,
-    _shiftStopHandler: null,
-
-    // [TÁI TẠO 24/07/2026, round 4] `_videoGainBoost`/`_songGainBoost` (core/video-editor/
-    // media-gain.js) — QUAY LẠI GainNode (bắt buộc trên iOS, xem docstring media-gain.js), lần này
-    // tạo LƯỜI + `.resume()` từ 1 user-gesture THẬT (nút Play/mở Drawer Volume, xem
-    // `_ensureGainBoosts()`) — KHÔNG tạo lúc `_onMetadataReady()` nữa (đúng nguyên nhân gây câm
-    // tiếng ở bản thử trước).
-    _videoGainBoost: null,
-    _songGainBoost: null,
-
-    _songListCache: null,
-    _songSearchQuery: '',
-    _masterFilmstripFrames: null,
-
-    _hasUnsavedChanges: false,
+    // SỬA (25/07/2026, đợt tái cấu trúc state, lượt 2) — 32 field state dưới đây KHÔNG còn là
+    // property của object literal này nữa — sống thật trong `appState` (package `video-editor`,
+    // xem `service/state/video-editor.js` + `service/state/record/video-editor.js`), CÙNG hạ tầng
+    // schema/registry() như mọi domain khác. MỌI method bên dưới đọc/ghi qua
+    // `appState.get('_xxx')`/`appState.set('_xxx', value)`.
 
     /** Chạy 1 LẦN lúc trang load xong (xem event/listener/video-editor.js). */
     async init() {
@@ -146,8 +104,8 @@ const workflowVideoEditor = {
         const compat = await checkVideoEditorCompat(record.blob);
         if (!compat.supported) { this._showFatalError(t(`videoEdit.compat.${compat.reason}`)); return; }
 
-        this._videoKey = videoKey;
-        this._record = record;
+        appState.set('_videoKey', videoKey);
+        appState.set('_record', record);
         videoEditorTitleEl.textContent = record.filename || videoKey;
 
         videoEditorSourceEl.src = URL.createObjectURL(record.blob);
@@ -172,13 +130,13 @@ const workflowVideoEditor = {
     },
 
     async _onMetadataReady() {
-        this._nativeW = videoEditorSourceEl.videoWidth || 16;
-        this._nativeH = videoEditorSourceEl.videoHeight || 9;
-        this._fullSourceDuration = videoEditorSourceEl.duration || 0;
-        this._videoClips = [{ sourceStart: 0, sourceEnd: this._fullSourceDuration, volume: 1 }]; // volume MỚI (mục d) — mặc định 100%
-        this._currentClipIndex = 0;
-        videoEditorPreviewCanvasEl.width = this._nativeW;
-        videoEditorPreviewCanvasEl.height = this._nativeH;
+        appState.set('_nativeW', videoEditorSourceEl.videoWidth || 16);
+        appState.set('_nativeH', videoEditorSourceEl.videoHeight || 9);
+        appState.set('_fullSourceDuration', videoEditorSourceEl.duration || 0);
+        appState.set('_videoClips', [{ sourceStart: 0, sourceEnd: appState.get('_fullSourceDuration'), volume: 1 }]); // volume MỚI (mục d) — mặc định 100%
+        appState.set('_currentClipIndex', 0);
+        videoEditorPreviewCanvasEl.width = appState.get('_nativeW');
+        videoEditorPreviewCanvasEl.height = appState.get('_nativeH');
         videoEditorEmptyStateEl.classList.add('hidden');
         videoEditorPlayheadEl.classList.remove('hidden');
         this._syncCurrentClipVolume(); // MỚI (mục d) — áp volume 100% mặc định của đoạn Video đầu tiên
@@ -205,15 +163,15 @@ const workflowVideoEditor = {
         if (videoEditorSourceEl.readyState >= 2) this._drawFrame();
 
         try {
-            this._masterFilmstripFrames = await buildCutFilmstripFrames(this._record.blob, 30, 60, 64); // core/video-editor/filmstrip.js — TRÍCH 1 LẦN duy nhất, dùng lại cho MỌI đoạn sau khi tách
+            appState.set('_masterFilmstripFrames', await buildCutFilmstripFrames(appState.get('_record').blob, 30, 60, 64)); // core/video-editor/filmstrip.js — TRÍCH 1 LẦN duy nhất, dùng lại cho MỌI đoạn sau khi tách
             this._renderVideoTrack(); // vẽ lại RIÊNG track Video để hiện ảnh minh hoạ vừa trích xong
         } catch (err) {
             console.error('[_onMetadataReady] Lỗi trích filmstrip — bỏ qua ảnh minh hoạ, KHÔNG chặn phần còn lại của app:', err);
-            this._masterFilmstripFrames = [];
+            appState.set('_masterFilmstripFrames', []);
         }
     },
 
-    _totalDuration() { return computeVideoTotalDuration(this._videoClips); }, // core/video-editor/timeline-calc.js
+    _totalDuration() { return computeVideoTotalDuration(appState.get('_videoClips')); }, // core/video-editor/timeline-calc.js
 
     /** [MỚI 24/07/2026, phản hồi Giang mục 2] Tính lại 2 cờ "track đã phủ kín video" — ghi vào
      * `appState` (service/state.js) để Block gate (event/block.js) đọc, CHẶN HẲN
@@ -237,8 +195,8 @@ const workflowVideoEditor = {
     _recomputeTrackFullFlags() {
         try {
             const total = this._totalDuration();
-            const audioFull = total > 0 && this._audioClips.some((c) => c.timelineEnd >= total - 0.01);
-            const textFull = total > 0 && this._textClips.some((c) => c.timelineEnd >= total - 0.01);
+            const audioFull = total > 0 && appState.get('_audioClips').some((c) => c.timelineEnd >= total - 0.01);
+            const textFull = total > 0 && appState.get('_textClips').some((c) => c.timelineEnd >= total - 0.01);
             appState.set('videoEditAudioTrackFull', audioFull);
             appState.set('videoEditTextTrackFull', textFull);
         } catch (err) {
@@ -253,33 +211,37 @@ const workflowVideoEditor = {
      * resume() lại (rẻ, cần thiết vì mobile Safari có thể tự suspend lại context sau khi app xuống
      * nền/bị gián đoạn — ngắt cuộc gọi tới, chuyển app...). */
     _ensureGainBoosts() {
-        if (!this._videoGainBoost) {
-            try { this._videoGainBoost = createMediaGainBoost(videoEditorSourceEl); } catch (err) { console.warn('[_ensureGainBoosts] Không tạo được GainNode cho video (volume sẽ không chỉnh được trên iOS):', err); }
+        if (!appState.get('_videoGainBoost')) {
+            try { appState.set('_videoGainBoost', createMediaGainBoost(videoEditorSourceEl)); } catch (err) { console.warn('[_ensureGainBoosts] Không tạo được GainNode cho video (volume sẽ không chỉnh được trên iOS):', err); }
         }
-        if (!this._songGainBoost) {
-            try { this._songGainBoost = createMediaGainBoost(videoEditorSongAudioEl); } catch (err) { console.warn('[_ensureGainBoosts] Không tạo được GainNode cho nhạc (volume sẽ không chỉnh được trên iOS):', err); }
+        if (!appState.get('_songGainBoost')) {
+            try { appState.set('_songGainBoost', createMediaGainBoost(videoEditorSongAudioEl)); } catch (err) { console.warn('[_ensureGainBoosts] Không tạo được GainNode cho nhạc (volume sẽ không chỉnh được trên iOS):', err); }
         }
-        if (this._videoGainBoost) this._videoGainBoost.audioCtx.resume().catch((err) => console.warn('[_ensureGainBoosts] resume() video bị reject:', err));
-        if (this._songGainBoost) this._songGainBoost.audioCtx.resume().catch((err) => console.warn('[_ensureGainBoosts] resume() nhạc bị reject:', err));
+        if (appState.get('_videoGainBoost')) appState.get('_videoGainBoost').audioCtx.resume().catch((err) => console.warn('[_ensureGainBoosts] resume() video bị reject:', err));
+        if (appState.get('_songGainBoost')) appState.get('_songGainBoost').audioCtx.resume().catch((err) => console.warn('[_ensureGainBoosts] resume() nhạc bị reject:', err));
     },
 
-    _nextId() { return `c${this._idCounter++}`; },
+    _nextId() {
+        const id = appState.get('_idCounter');
+        appState.set('_idCounter', id + 1);
+        return `c${id}`;
+    },
 
 
     _totalRenderWidthSeconds() {
-        return computeTimelineRenderWidthSeconds(this._videoClips, this._audioClips, this._textClips); // core/video-editor/timeline-calc.js
+        return computeTimelineRenderWidthSeconds(appState.get('_videoClips'), appState.get('_audioClips'), appState.get('_textClips')); // core/video-editor/timeline-calc.js
     },
 
     // ===================== Vòng lặp render (taskManager mode raf) =====================
 
     _tick() {
-        if (!this._isPlaying) return;
-        if (this._currentClipIndex == null || !this._videoClips[this._currentClipIndex]) { this._pause(); return; }
-        const clip = this._videoClips[this._currentClipIndex];
+        if (!appState.get('_isPlaying')) return;
+        if (appState.get('_currentClipIndex') == null || !appState.get('_videoClips')[appState.get('_currentClipIndex')]) { this._pause(); return; }
+        const clip = appState.get('_videoClips')[appState.get('_currentClipIndex')];
         if (videoEditorSourceEl.currentTime >= clip.sourceEnd - 0.03 || videoEditorSourceEl.ended) {
-            if (this._currentClipIndex + 1 < this._videoClips.length) {
-                this._currentClipIndex++;
-                videoEditorSourceEl.currentTime = this._videoClips[this._currentClipIndex].sourceStart;
+            if (appState.get('_currentClipIndex') + 1 < appState.get('_videoClips').length) {
+                appState.set('_currentClipIndex', appState.get('_currentClipIndex') + 1);
+                videoEditorSourceEl.currentTime = appState.get('_videoClips')[appState.get('_currentClipIndex')].sourceStart;
                 videoEditorSourceEl.play().catch(() => {});
                 this._syncCurrentClipVolume(); // MỚI (mục d) — đoạn Video mới có thể có volume khác đoạn vừa hết
             } else {
@@ -295,9 +257,9 @@ const workflowVideoEditor = {
     },
 
     _computeCurrentOutputTime() {
-        if (this._currentClipIndex == null || !this._videoClips[this._currentClipIndex]) return 0;
-        const clip = this._videoClips[this._currentClipIndex];
-        const outputStart = computeOutputStartForClipIndex(this._videoClips, this._currentClipIndex); // core/video-editor/timeline-calc.js
+        if (appState.get('_currentClipIndex') == null || !appState.get('_videoClips')[appState.get('_currentClipIndex')]) return 0;
+        const clip = appState.get('_videoClips')[appState.get('_currentClipIndex')];
+        const outputStart = computeOutputStartForClipIndex(appState.get('_videoClips'), appState.get('_currentClipIndex')); // core/video-editor/timeline-calc.js
         return outputStart + Math.max(0, videoEditorSourceEl.currentTime - clip.sourceStart);
     },
 
@@ -310,21 +272,21 @@ const workflowVideoEditor = {
      * đoạn đang chọn thay đổi, VÀ mỗi khi bấm Play (`_play()`, xem đó — trước đây THIẾU, khiến
      * volume vừa sửa không áp lại lúc bấm Play nếu đoạn hiện tại KHÔNG đổi). */
     _syncCurrentClipVolume() {
-        const clip = this._currentClipIndex != null ? this._videoClips[this._currentClipIndex] : null;
+        const clip = appState.get('_currentClipIndex') != null ? appState.get('_videoClips')[appState.get('_currentClipIndex')] : null;
         const volume = clip && typeof clip.volume === 'number' ? clip.volume : 1;
-        if (this._videoGainBoost) applyMediaGainBoost(this._videoGainBoost, volume); // core/video-editor/media-gain.js
+        if (appState.get('_videoGainBoost')) applyMediaGainBoost(appState.get('_videoGainBoost'), volume); // core/video-editor/media-gain.js
         else videoEditorSourceEl.volume = Math.min(1, Math.max(0, volume));
     },
 
     _drawFrame() {
         const ctx = videoEditorPreviewCanvasEl.getContext('2d');
-        const cropPx = computeCropPixels(this._cropFraction, this._nativeW, this._nativeH); // core/video-editor/preview-draw.js
-        const { outW, outH, deg } = computeRotatedOutputSize(cropPx, this._rotateDeg);
+        const cropPx = computeCropPixels(appState.get('_cropFraction'), appState.get('_nativeW'), appState.get('_nativeH')); // core/video-editor/preview-draw.js
+        const { outW, outH, deg } = computeRotatedOutputSize(cropPx, appState.get('_rotateDeg'));
         if (videoEditorPreviewCanvasEl.width !== outW) videoEditorPreviewCanvasEl.width = outW;
         if (videoEditorPreviewCanvasEl.height !== outH) videoEditorPreviewCanvasEl.height = outH;
         drawVideoPreviewFrame(ctx, videoEditorSourceEl, cropPx, deg, outW, outH);
         const outputTime = this._computeCurrentOutputTime();
-        this._textClips.forEach((tc) => {
+        appState.get('_textClips').forEach((tc) => {
             if (outputTime >= tc.timelineStart && outputTime < tc.timelineEnd) drawTextOverlay(ctx, outW, outH, tc, outputTime);
         });
     },
@@ -346,14 +308,14 @@ const workflowVideoEditor = {
      * video-editor/media-gain.js), lần này tạo lười + resume() từ user-gesture thật (`_ensureGainBoosts()`,
      * gọi ở `_play()`/`handleSongShiftOpen()`) nên KHÔNG còn bug câm tiếng của bản thử trước. */
     _syncAudioClips(outputTime) {
-        const active = this._audioClips.find((c) => outputTime >= c.timelineStart && outputTime < c.timelineEnd);
-        if (!active) { videoEditorSongAudioEl.pause(); videoEditorSongAudioEl.playbackRate = 1; this._activePreviewAudioClipId = null; return; }
-        if (this._activePreviewAudioClipId !== active.id) {
-            this._activePreviewAudioClipId = active.id;
+        const active = appState.get('_audioClips').find((c) => outputTime >= c.timelineStart && outputTime < c.timelineEnd);
+        if (!active) { videoEditorSongAudioEl.pause(); videoEditorSongAudioEl.playbackRate = 1; appState.set('_activePreviewAudioClipId', null); return; }
+        if (appState.get('_activePreviewAudioClipId') !== active.id) {
+            appState.set('_activePreviewAudioClipId', active.id);
             videoEditorSongAudioEl.src = URL.createObjectURL(active.record.blob);
             videoEditorSongAudioEl.playbackRate = 1;
         }
-        if (this._songGainBoost) applyMediaGainBoost(this._songGainBoost, active.volume); // core/video-editor/media-gain.js
+        if (appState.get('_songGainBoost')) applyMediaGainBoost(appState.get('_songGainBoost'), active.volume); // core/video-editor/media-gain.js
         else videoEditorSongAudioEl.volume = Math.min(1, Math.max(0, active.volume));
         const songDuration = active.record.duration || 0;
         const targetTime = Math.max(0, Math.min(active.offsetInSong + (outputTime - active.timelineStart), Math.max(0, songDuration - 0.02)));
@@ -366,24 +328,24 @@ const workflowVideoEditor = {
         } else {
             videoEditorSongAudioEl.playbackRate = 1;
         }
-        if (this._isPlaying && videoEditorSongAudioEl.paused) videoEditorSongAudioEl.play().catch(() => {});
+        if (appState.get('_isPlaying') && videoEditorSongAudioEl.paused) videoEditorSongAudioEl.play().catch(() => {});
     },
 
     _updateTimeDisplay(outputTime) {
         videoEditorCurrentTimeEl.textContent = formatClipTimeLabel(outputTime); // core/video-editor/timeline-calc.js
         videoEditorTotalTimeEl.textContent = formatClipTimeLabel(this._totalDuration());
-        videoEditorPlayheadEl.style.left = `${computePlayheadLeftPx(outputTime, this._pixelsPerSecond)}px`;
+        videoEditorPlayheadEl.style.left = `${computePlayheadLeftPx(outputTime, appState.get('_pixelsPerSecond'))}px`;
         videoEditorPlayheadTimeEl.textContent = formatClipTimeLabel(outputTime);
     },
 
     _seekToOutputTime(outputSeconds) {
         const total = this._totalDuration();
         const clamped = Math.max(0, Math.min(outputSeconds, total));
-        const lastClip = this._videoClips[this._videoClips.length - 1];
-        const found = findVideoClipAtOutputTime(this._videoClips, clamped) // core/video-editor/timeline-calc.js
-            || (lastClip ? { index: this._videoClips.length - 1, sourceSplitPoint: lastClip.sourceEnd } : null); // clamped === total (mép cuối cùng) — findVideoClipAtOutputTime dùng "<" nghiêm ngặt nên không khớp, tự rơi về cuối đoạn cuối
+        const lastClip = appState.get('_videoClips')[appState.get('_videoClips').length - 1];
+        const found = findVideoClipAtOutputTime(appState.get('_videoClips'), clamped) // core/video-editor/timeline-calc.js
+            || (lastClip ? { index: appState.get('_videoClips').length - 1, sourceSplitPoint: lastClip.sourceEnd } : null); // clamped === total (mép cuối cùng) — findVideoClipAtOutputTime dùng "<" nghiêm ngặt nên không khớp, tự rơi về cuối đoạn cuối
         if (!found) return;
-        this._currentClipIndex = found.index;
+        appState.set('_currentClipIndex', found.index);
         videoEditorSourceEl.currentTime = found.sourceSplitPoint;
         this._syncCurrentClipVolume(); // MỚI (mục d) — đoạn Video có thể đổi sau khi tua
         this._syncAudioClips(clamped);
@@ -393,7 +355,7 @@ const workflowVideoEditor = {
 
     // ===================== Transport =====================
 
-    handleTogglePlay() { if (this._isPlaying) this._pause(); else this._play(); },
+    handleTogglePlay() { if (appState.get('_isPlaying')) this._pause(); else this._play(); },
 
     /** [SỬA 24/07/2026, round 4] Bấm Play là 1 user-gesture THẬT — đúng chỗ để
      * `_ensureGainBoosts()` tạo/`.resume()` GainNode (bắt buộc trên iOS). CŨNG SỬA 1 bug thật tìm ra
@@ -402,11 +364,11 @@ const workflowVideoEditor = {
      * `_currentClipIndex`) rồi bấm Play, giá trị mới KHÔNG BAO GIỜ được áp lại (chỉ áp khi
      * `_currentClipIndex` ĐỔI SANG đoạn khác, không áp lại khi Play LẠI đúng đoạn cũ vừa sửa). */
     _play() {
-        if (!this._videoClips.length) return;
+        if (!appState.get('_videoClips').length) return;
         const total = this._totalDuration();
         const cur = this._computeCurrentOutputTime();
-        if (cur >= total - 0.05 || this._currentClipIndex == null) this._seekToOutputTime(0);
-        this._isPlaying = true;
+        if (cur >= total - 0.05 || appState.get('_currentClipIndex') == null) this._seekToOutputTime(0);
+        appState.set('_isPlaying', true);
         videoEditorPlayIconEl.textContent = '❚❚';
         this._ensureGainBoosts(); // MỚI (mục 2, iOS) — PHẢI gọi trong user-gesture này, không được trễ hơn
         this._syncCurrentClipVolume(); // SỬA — áp ĐÚNG volume đoạn hiện tại NGAY LÚC BẤM PLAY
@@ -416,7 +378,7 @@ const workflowVideoEditor = {
     },
 
     _pause() {
-        this._isPlaying = false;
+        appState.set('_isPlaying', false);
         videoEditorPlayIconEl.textContent = '▶';
         videoEditorSourceEl.pause();
         videoEditorSongAudioEl.pause();
@@ -432,9 +394,9 @@ const workflowVideoEditor = {
      * giữa 1 đoạn để "Cắt tại current" (Giang báo Cắt luôn không có tác dụng — do con trỏ hầu như
      * luôn dính sát mép 0, bị `MIN_GAP` trong `handleCutAtCurrent()` từ chối âm thầm). */
     handleScrub(clientX) {
-        if (this._isPlaying) this._pause();
+        if (appState.get('_isPlaying')) this._pause();
         const rect = videoEditorTimelineContentEl.getBoundingClientRect();
-        const sec = pxToSeconds(clientX - rect.left, this._pixelsPerSecond);
+        const sec = pxToSeconds(clientX - rect.left, appState.get('_pixelsPerSecond'));
         this._seekToOutputTime(sec);
     },
 
@@ -446,29 +408,29 @@ const workflowVideoEditor = {
         const ctx = videoEditorPreviewCanvasEl.getContext('2d');
         const canvasW = videoEditorPreviewCanvasEl.width || 1;
         const canvasH = videoEditorPreviewCanvasEl.height || 1;
-        const index = findTextClipAtPoint(ctx, this._textClips, outputTime, canvasX, canvasY, canvasW, canvasH, 28); // core/video-editor/preview-draw.js — hộp bao thật (đo ctx.measureText), có tính xoay
-        if (index == null) { this._previewTextDragIndex = null; return; }
-        this._previewTextDragIndex = index;
-        this._selected = { track: 'text', index };
+        const index = findTextClipAtPoint(ctx, appState.get('_textClips'), outputTime, canvasX, canvasY, canvasW, canvasH, 28); // core/video-editor/preview-draw.js — hộp bao thật (đo ctx.measureText), có tính xoay
+        if (index == null) { appState.set('_previewTextDragIndex', null); return; }
+        appState.set('_previewTextDragIndex', index);
+        appState.set('_selected', { track: 'text', index });
         this._renderAllTracks();
         this._renderToolbar();
     },
 
     handlePreviewTextDragMove(canvasX, canvasY) {
-        if (this._previewTextDragIndex == null) return;
-        const clip = this._textClips[this._previewTextDragIndex];
+        if (appState.get('_previewTextDragIndex') == null) return;
+        const clip = appState.get('_textClips')[appState.get('_previewTextDragIndex')];
         if (!clip) return;
         const canvasW = videoEditorPreviewCanvasEl.width || 1;
         const canvasH = videoEditorPreviewCanvasEl.height || 1;
         clip.posX = Math.max(2, Math.min(98, Math.round((canvasX / canvasW) * 100)));
         clip.posY = Math.max(2, Math.min(98, Math.round((canvasY / canvasH) * 100)));
-        this._hasUnsavedChanges = true;
+        appState.set('_hasUnsavedChanges', true);
         this._drawFrame();
     },
 
     handlePreviewTextDragEnd() {
-        if (this._previewTextDragIndex != null) this._renderAllTracks();
-        this._previewTextDragIndex = null;
+        if (appState.get('_previewTextDragIndex') != null) this._renderAllTracks();
+        appState.set('_previewTextDragIndex', null);
     },
 
     /** MỚI — Giang yêu cầu: co giãn kích cỡ + xoay Text trên preview. Cử chỉ 2 ngón (pinch):
@@ -476,40 +438,40 @@ const workflowVideoEditor = {
      * (`computePinchTransform()`, core/video-editor/preview-draw.js) — Workflow chỉ giữ giá trị
      * GỐC lúc bắt đầu cử chỉ (`_pinchState`) rồi áp kết quả mới vào clip đang chọn. */
     handlePreviewTextPinchStart() {
-        if (!this._selected || this._selected.track !== 'text') { this._pinchState = null; return; }
-        const clip = this._textClips[this._selected.index];
-        if (!clip) { this._pinchState = null; return; }
-        this._pinchState = { baseSize: clip.size, baseRotation: clip.rotation || 0 };
+        if (!appState.get('_selected') || appState.get('_selected').track !== 'text') { appState.set('_pinchState', null); return; }
+        const clip = appState.get('_textClips')[appState.get('_selected').index];
+        if (!clip) { appState.set('_pinchState', null); return; }
+        appState.set('_pinchState', { baseSize: clip.size, baseRotation: clip.rotation || 0 });
     },
 
     handlePreviewTextPinchMove(startDist, startAngleDeg, currentDist, currentAngleDeg) {
-        if (!this._pinchState || !this._selected || this._selected.track !== 'text') return;
-        const clip = this._textClips[this._selected.index];
+        if (!appState.get('_pinchState') || !appState.get('_selected') || appState.get('_selected').track !== 'text') return;
+        const clip = appState.get('_textClips')[appState.get('_selected').index];
         if (!clip) return;
-        const result = computePinchTransform(startDist, startAngleDeg, currentDist, currentAngleDeg, this._pinchState.baseSize, this._pinchState.baseRotation); // core/video-editor/preview-draw.js
+        const result = computePinchTransform(startDist, startAngleDeg, currentDist, currentAngleDeg, appState.get('_pinchState').baseSize, appState.get('_pinchState').baseRotation); // core/video-editor/preview-draw.js
         clip.size = result.newSize;
         clip.rotation = result.newRotation;
-        this._hasUnsavedChanges = true;
+        appState.set('_hasUnsavedChanges', true);
         this._drawFrame();
     },
 
     handlePreviewTextPinchEnd() {
-        this._pinchState = null;
+        appState.set('_pinchState', null);
         this._renderAllTracks();
     },
 
     // ===================== Chọn clip (viền + toolbar theo ngữ cảnh) =====================
 
-    _isSelected(track, index) { return !!this._selected && this._selected.track === track && this._selected.index === index; },
+    _isSelected(track, index) { return !!appState.get('_selected') && appState.get('_selected').track === track && appState.get('_selected').index === index; },
 
     handleSelectClip(track, index) {
-        this._selected = { track, index };
+        appState.set('_selected', { track, index });
         this._renderAllTracks();
         this._renderToolbar();
     },
 
     handleDeselect() {
-        this._selected = null;
+        appState.set('_selected', null);
         this._renderAllTracks();
         this._renderToolbar();
     },
@@ -525,10 +487,10 @@ const workflowVideoEditor = {
 
     _updateTimelineWidthAndMarker(totalDuration) {
         const renderWidthSec = this._totalRenderWidthSeconds();
-        videoEditorTimelineContentEl.style.width = `${Math.max(renderWidthSec, 1) * this._pixelsPerSecond}px`;
+        videoEditorTimelineContentEl.style.width = `${Math.max(renderWidthSec, 1) * appState.get('_pixelsPerSecond')}px`;
         if (renderWidthSec > totalDuration + 0.05) {
             videoEditorDurationEndMarkerEl.classList.remove('hidden');
-            videoEditorDurationEndMarkerEl.style.left = `${totalDuration * this._pixelsPerSecond}px`;
+            videoEditorDurationEndMarkerEl.style.left = `${totalDuration * appState.get('_pixelsPerSecond')}px`;
         } else {
             videoEditorDurationEndMarkerEl.classList.add('hidden');
         }
@@ -576,8 +538,8 @@ const workflowVideoEditor = {
 
     _renderVideoTrack() {
         videoEditorTrackVideoEl.innerHTML = '';
-        const layout = computeVideoClipsLayout(this._videoClips, this._pixelsPerSecond);
-        this._videoClips.forEach((clip, index) => {
+        const layout = computeVideoClipsLayout(appState.get('_videoClips'), appState.get('_pixelsPerSecond'));
+        appState.get('_videoClips').forEach((clip, index) => {
             const l = layout[index];
             const el = document.createElement('div');
             el.className = `absolute h-full top-0 bg-slate-800 rounded-lg overflow-hidden border-2 ${this._isSelected('video', index) ? 'border-white' : 'border-transparent'}`;
@@ -588,7 +550,7 @@ const workflowVideoEditor = {
             handleStart.className = 'video-editor-clip-handle absolute left-0 top-0 bottom-0 w-4 bg-white z-10 rounded-l-md';
             const filmstrip = document.createElement('div');
             filmstrip.className = 'absolute inset-0 flex pointer-events-none';
-            (this._masterFilmstripFrames || []).filter((f) => f.blob && f.timestamp >= clip.sourceStart && f.timestamp <= clip.sourceEnd).forEach((f) => {
+            (appState.get('_masterFilmstripFrames') || []).filter((f) => f.blob && f.timestamp >= clip.sourceStart && f.timestamp <= clip.sourceEnd).forEach((f) => {
                 const img = document.createElement('img');
                 img.className = 'h-full flex-1 object-cover opacity-70';
                 img.src = URL.createObjectURL(f.blob);
@@ -609,7 +571,7 @@ const workflowVideoEditor = {
 
     /** Chỉ CẬP NHẬT VỊ TRÍ (không dựng lại DOM/filmstrip) — dùng lúc đang kéo tay cầm Video, mượt hơn (Rule 5a: đây là Workflow, không phải Core, không bị ràng buộc). */
     _layoutVideoTrackLive() {
-        const layout = computeVideoClipsLayout(this._videoClips, this._pixelsPerSecond);
+        const layout = computeVideoClipsLayout(appState.get('_videoClips'), appState.get('_pixelsPerSecond'));
         const els = videoEditorTrackVideoEl.children;
         for (let i = 0; i < els.length && i < layout.length; i++) {
             els[i].style.left = `${layout[i].leftPx}px`;
@@ -621,7 +583,7 @@ const workflowVideoEditor = {
     _renderFreeClipTrack(containerEl, clips, track, colorClass, labelFn) {
         containerEl.innerHTML = '';
         clips.forEach((clip, index) => {
-            const { leftPx, widthPx } = computeClipLayoutPx(clip.timelineStart, clip.timelineEnd - clip.timelineStart, this._pixelsPerSecond);
+            const { leftPx, widthPx } = computeClipLayoutPx(clip.timelineStart, clip.timelineEnd - clip.timelineStart, appState.get('_pixelsPerSecond'));
             const el = document.createElement('div');
             el.className = `absolute h-full top-0 ${colorClass} rounded-lg overflow-hidden border-2 ${this._isSelected(track, index) ? 'border-white' : 'border-transparent'}`;
             el.style.left = `${leftPx}px`;
@@ -646,16 +608,16 @@ const workflowVideoEditor = {
         });
     },
 
-    _renderAudioTrack() { this._renderFreeClipTrack(videoEditorTrackAudioEl, this._audioClips, 'audio', 'bg-emerald-500/80', (c) => c.record.tag.title || c.songKey); },
-    _renderTextTrack() { this._renderFreeClipTrack(videoEditorTrackTextEl, this._textClips, 'text', 'bg-purple-500/80', (c) => c.val); },
+    _renderAudioTrack() { this._renderFreeClipTrack(videoEditorTrackAudioEl, appState.get('_audioClips'), 'audio', 'bg-emerald-500/80', (c) => c.record.tag.title || c.songKey); },
+    _renderTextTrack() { this._renderFreeClipTrack(videoEditorTrackTextEl, appState.get('_textClips'), 'text', 'bg-purple-500/80', (c) => c.val); },
 
     _layoutSingleFreeClip(track, index) {
-        const list = track === 'audio' ? this._audioClips : this._textClips;
+        const list = track === 'audio' ? appState.get('_audioClips') : appState.get('_textClips');
         const clip = list[index];
         const containerEl = track === 'audio' ? videoEditorTrackAudioEl : videoEditorTrackTextEl;
         const el = containerEl.children[index];
         if (!clip || !el) return;
-        const { leftPx, widthPx } = computeClipLayoutPx(clip.timelineStart, clip.timelineEnd - clip.timelineStart, this._pixelsPerSecond);
+        const { leftPx, widthPx } = computeClipLayoutPx(clip.timelineStart, clip.timelineEnd - clip.timelineStart, appState.get('_pixelsPerSecond'));
         el.style.left = `${leftPx}px`;
         el.style.width = `${Math.max(widthPx, 8)}px`;
         this._updateTimelineWidthAndMarker(this._totalDuration());
@@ -664,38 +626,38 @@ const workflowVideoEditor = {
     // ===================== Kéo-thả timeline (trim/move — chung cho cả 3 track) =====================
 
     handleTimelineDragStart(track, index, handleType, clientX) {
-        this._dragHandle = { track, index, handleType };
-        this._dragLastClientX = clientX;
+        appState.set('_dragHandle', { track, index, handleType });
+        appState.set('_dragLastClientX', clientX);
     },
 
     /** Delta-based (so với lần move TRƯỚC, không phải toạ độ tuyệt đối) — bền vững kể cả khi
      * `#video-editor-timeline-container` đang cuộn dở (không cần đo `getBoundingClientRect()`). */
     handleTimelineDragMove(clientX) {
-        if (!this._dragHandle) return;
-        const { track, index, handleType } = this._dragHandle;
-        const deltaSec = pxToSeconds(clientX - this._dragLastClientX, this._pixelsPerSecond); // core/video-editor/timeline-calc.js
-        this._dragLastClientX = clientX;
+        if (!appState.get('_dragHandle')) return;
+        const { track, index, handleType } = appState.get('_dragHandle');
+        const deltaSec = pxToSeconds(clientX - appState.get('_dragLastClientX'), appState.get('_pixelsPerSecond')); // core/video-editor/timeline-calc.js
+        appState.set('_dragLastClientX', clientX);
         const MIN_GAP = this.MIN_CLIP_GAP_SEC;
 
         if (track === 'video') {
-            const clip = this._videoClips[index];
+            const clip = appState.get('_videoClips')[index];
             if (!clip) return;
             // Toán RIPPLE (giữ cố định mép ĐỐI DIỆN — Giang yêu cầu) nằm ở Core, xem docstring
             // `computeVideoStartTrim()`/`computeVideoEndTrim()`, core/video-editor/timeline-calc.js.
             if (handleType === 'start') {
-                const result = computeVideoStartTrim(this._videoClips, index, deltaSec, MIN_GAP, this._fullSourceDuration);
+                const result = computeVideoStartTrim(appState.get('_videoClips'), index, deltaSec, MIN_GAP, appState.get('_fullSourceDuration'));
                 clip.sourceStart = result.newSourceStart;
-                if (result.prevSourceEnd != null) this._videoClips[index - 1].sourceEnd = result.prevSourceEnd;
+                if (result.prevSourceEnd != null) appState.get('_videoClips')[index - 1].sourceEnd = result.prevSourceEnd;
                 this._previewVideoAtSourceTime(index, clip.sourceStart);
             } else if (handleType === 'end') {
-                const result = computeVideoEndTrim(this._videoClips, index, deltaSec, MIN_GAP, this._fullSourceDuration);
+                const result = computeVideoEndTrim(appState.get('_videoClips'), index, deltaSec, MIN_GAP, appState.get('_fullSourceDuration'));
                 clip.sourceEnd = result.newSourceEnd;
-                if (result.nextSourceStart != null) this._videoClips[index + 1].sourceStart = result.nextSourceStart;
+                if (result.nextSourceStart != null) appState.get('_videoClips')[index + 1].sourceStart = result.nextSourceStart;
                 this._previewVideoAtSourceTime(index, Math.max(clip.sourceStart, clip.sourceEnd - 0.05));
             }
             this._layoutVideoTrackLive();
         } else {
-            const list = track === 'audio' ? this._audioClips : this._textClips;
+            const list = track === 'audio' ? appState.get('_audioClips') : appState.get('_textClips');
             const clip = list[index];
             if (!clip) return;
             const result = computeFreeClipDrag(clip, handleType, deltaSec, MIN_GAP); // core/video-editor/timeline-calc.js
@@ -705,15 +667,15 @@ const workflowVideoEditor = {
             if (handleType === 'start' || handleType === 'move') this._seekToOutputTime(clip.timelineStart);
             else this._seekToOutputTime(Math.max(clip.timelineStart, clip.timelineEnd - 0.05));
         }
-        this._hasUnsavedChanges = true;
+        appState.set('_hasUnsavedChanges', true);
     },
 
     /** Nhảy `<video>` tới đúng giây NGUỒN đang kéo (start/end) VÀ vẽ lại preview ngay khi khung đó
      * decode xong — MỚI (Giang báo trim không cập nhật preview). `clipIndex` cập nhật luôn
      * `_currentClipIndex` để current-time hiển thị đúng theo track Video đang chỉnh. */
     _previewVideoAtSourceTime(clipIndex, sourceTime) {
-        this._currentClipIndex = clipIndex;
-        videoEditorSourceEl.currentTime = Math.max(0, Math.min(sourceTime, Math.max(0, this._fullSourceDuration - 0.01)));
+        appState.set('_currentClipIndex', clipIndex);
+        videoEditorSourceEl.currentTime = Math.max(0, Math.min(sourceTime, Math.max(0, appState.get('_fullSourceDuration') - 0.01)));
         this._syncCurrentClipVolume(); // MỚI (mục d) — đang xem trước đoạn nào thì áp đúng volume đoạn đó
         videoEditorSourceEl.addEventListener('seeked', () => {
             this._drawFrame();
@@ -722,8 +684,8 @@ const workflowVideoEditor = {
     },
 
     handleTimelineDragEnd() {
-        if (!this._dragHandle) return;
-        this._dragHandle = null;
+        if (!appState.get('_dragHandle')) return;
+        appState.set('_dragHandle', null);
         this._recomputeTrackFullFlags(); // MỚI (mục 2) — trim Video đổi _totalDuration(), trim/dời Nhạc/Chữ đổi timelineEnd
         this._drawFrame();
         this._renderAllTracks(); // đồng bộ đầy đủ (viền chọn, marker, độ rộng) — filmstrip KHÔNG trích lại (đã cache _masterFilmstripFrames, chỉ lọc theo range)
@@ -732,21 +694,21 @@ const workflowVideoEditor = {
     // ===================== Cắt tại current / Nhân bản / Xoá / Đổi thứ tự =====================
 
     handleCutAtCurrent() {
-        if (!this._selected) return;
+        if (!appState.get('_selected')) return;
         const outputTime = this._computeCurrentOutputTime();
-        const { track, index } = this._selected;
+        const { track, index } = appState.get('_selected');
         const MIN_GAP = this.MIN_CLIP_GAP_SEC;
 
         if (track === 'video') {
-            const found = findVideoClipAtOutputTime(this._videoClips, outputTime); // core/video-editor/timeline-calc.js
+            const found = findVideoClipAtOutputTime(appState.get('_videoClips'), outputTime); // core/video-editor/timeline-calc.js
             if (!found || found.index !== index) return; // guard — con trỏ không nằm trong đúng đoạn đang chọn
-            const clip = this._videoClips[index];
+            const clip = appState.get('_videoClips')[index];
             if (found.sourceSplitPoint <= clip.sourceStart + MIN_GAP || found.sourceSplitPoint >= clip.sourceEnd - MIN_GAP) return; // guard — quá sát mép
             const [a, b] = splitRangeAt(clip.sourceStart, clip.sourceEnd, found.sourceSplitPoint); // core/video-editor/timeline-calc.js
-            this._videoClips.splice(index, 1, { sourceStart: a.start, sourceEnd: a.end, volume: clip.volume }, { sourceStart: b.start, sourceEnd: b.end, volume: clip.volume }); // volume (mục d) — GIỮ NGUYÊN cho cả 2 nửa
-            this._selected = { track: 'video', index };
+            appState.get('_videoClips').splice(index, 1, { sourceStart: a.start, sourceEnd: a.end, volume: clip.volume }, { sourceStart: b.start, sourceEnd: b.end, volume: clip.volume }); // volume (mục d) — GIỮ NGUYÊN cho cả 2 nửa
+            appState.set('_selected', { track: 'video', index });
         } else {
-            const list = track === 'audio' ? this._audioClips : this._textClips;
+            const list = track === 'audio' ? appState.get('_audioClips') : appState.get('_textClips');
             const clip = list[index];
             if (!clip || outputTime <= clip.timelineStart + MIN_GAP || outputTime >= clip.timelineEnd - MIN_GAP) return;
             const originalStart = clip.timelineStart;
@@ -756,20 +718,20 @@ const workflowVideoEditor = {
             clip.timelineStart = a.start; clip.timelineEnd = a.end;
             list.splice(index + 1, 0, cloneB);
         }
-        this._hasUnsavedChanges = true;
+        appState.set('_hasUnsavedChanges', true);
         this._recomputeTrackFullFlags(); // MỚI (mục 2)
         this._renderAllTracks();
         this._renderToolbar();
     },
 
     handleDuplicateClip() {
-        if (!this._selected) return;
-        const { track, index } = this._selected;
+        if (!appState.get('_selected')) return;
+        const { track, index } = appState.get('_selected');
         if (track === 'video') {
-            this._videoClips.splice(index + 1, 0, Object.assign({}, this._videoClips[index]));
-            this._selected = { track: 'video', index: index + 1 };
+            appState.get('_videoClips').splice(index + 1, 0, Object.assign({}, appState.get('_videoClips')[index]));
+            appState.set('_selected', { track: 'video', index: index + 1 });
         } else {
-            const list = track === 'audio' ? this._audioClips : this._textClips;
+            const list = track === 'audio' ? appState.get('_audioClips') : appState.get('_textClips');
             const clip = list[index];
             const length = clip.timelineEnd - clip.timelineStart;
             // [SỬA 24/07/2026, phản hồi Giang mục 2] Nhân bản đặt NGAY SAU bản gốc — TỰ CẮT nếu vượt
@@ -782,52 +744,52 @@ const workflowVideoEditor = {
             if (room <= this.MIN_CLIP_GAP_SEC) return; // guard — hết chỗ, không nhân bản
             const dup = Object.assign({}, clip, { id: this._nextId(), timelineStart: clip.timelineEnd, timelineEnd: Math.min(clip.timelineEnd + length, total) });
             list.splice(index + 1, 0, dup);
-            this._selected = { track, index: index + 1 };
+            appState.set('_selected', { track, index: index + 1 });
         }
-        this._hasUnsavedChanges = true;
+        appState.set('_hasUnsavedChanges', true);
         this._recomputeTrackFullFlags(); // MỚI (mục 2)
         this._renderAllTracks();
         this._renderToolbar();
     },
 
     handleDeleteClip() {
-        if (!this._selected) return;
-        const { track, index } = this._selected;
+        if (!appState.get('_selected')) return;
+        const { track, index } = appState.get('_selected');
         if (track === 'video') {
-            if (this._videoClips.length <= 1) return; // guard — KHÔNG được xoá đoạn Video DUY NHẤT còn lại (không thể có Video rỗng)
-            this._videoClips.splice(index, 1);
-            if (this._currentClipIndex != null && this._currentClipIndex >= this._videoClips.length) this._currentClipIndex = this._videoClips.length - 1;
+            if (appState.get('_videoClips').length <= 1) return; // guard — KHÔNG được xoá đoạn Video DUY NHẤT còn lại (không thể có Video rỗng)
+            appState.get('_videoClips').splice(index, 1);
+            if (appState.get('_currentClipIndex') != null && appState.get('_currentClipIndex') >= appState.get('_videoClips').length) appState.set('_currentClipIndex', appState.get('_videoClips').length - 1);
         } else {
-            const list = track === 'audio' ? this._audioClips : this._textClips;
+            const list = track === 'audio' ? appState.get('_audioClips') : appState.get('_textClips');
             list.splice(index, 1);
         }
-        this._selected = null;
-        this._hasUnsavedChanges = true;
+        appState.set('_selected', null);
+        appState.set('_hasUnsavedChanges', true);
         this._recomputeTrackFullFlags(); // MỚI (mục 2)
         this._renderAllTracks();
         this._renderToolbar();
     },
 
     handleMoveClipEarlier() {
-        if (!this._selected || this._selected.track !== 'video' || this._selected.index <= 0) return;
-        const { index } = this._selected;
-        const arr = this._videoClips;
+        if (!appState.get('_selected') || appState.get('_selected').track !== 'video' || appState.get('_selected').index <= 0) return;
+        const { index } = appState.get('_selected');
+        const arr = appState.get('_videoClips');
         [arr[index - 1], arr[index]] = [arr[index], arr[index - 1]];
-        this._selected = { track: 'video', index: index - 1 };
+        appState.set('_selected', { track: 'video', index: index - 1 });
         this._afterVideoClipsReordered();
     },
 
     handleMoveClipLater() {
-        if (!this._selected || this._selected.track !== 'video' || this._selected.index >= this._videoClips.length - 1) return;
-        const { index } = this._selected;
-        const arr = this._videoClips;
+        if (!appState.get('_selected') || appState.get('_selected').track !== 'video' || appState.get('_selected').index >= appState.get('_videoClips').length - 1) return;
+        const { index } = appState.get('_selected');
+        const arr = appState.get('_videoClips');
         [arr[index], arr[index + 1]] = [arr[index + 1], arr[index]];
-        this._selected = { track: 'video', index: index + 1 };
+        appState.set('_selected', { track: 'video', index: index + 1 });
         this._afterVideoClipsReordered();
     },
 
     _afterVideoClipsReordered() {
-        this._hasUnsavedChanges = true;
+        appState.set('_hasUnsavedChanges', true);
         this._renderAllTracks();
         this._renderToolbar();
     },
@@ -845,7 +807,7 @@ const workflowVideoEditor = {
             videoEditorToolbarEl.appendChild(btn);
         };
 
-        if (!this._selected) {
+        if (!appState.get('_selected')) {
             addBtn(_veIcon('crop'), 'videoEdit.btnCrop.title', 'videoEdit.crop.click');
             addBtn(_veIcon('rotateLeft'), 'videoEdit.btnRotateLeft.title', 'videoEdit.rotateLeft.click');
             addBtn(_veIcon('rotateRight'), 'videoEdit.btnRotateRight.title', 'videoEdit.rotateRight.click');
@@ -856,7 +818,7 @@ const workflowVideoEditor = {
             return;
         }
 
-        const { track } = this._selected;
+        const { track } = appState.get('_selected');
         addBtn(_veIcon('deselect'), 'videoEdit.btnDeselect.title', 'videoEdit.deselect.click');
         addBtn(_veIcon('cut'), 'videoEdit.btnCutCurrent.title', 'videoEdit.cutAtCurrent.click');
         addBtn(_veIcon('duplicate'), 'videoEdit.btnDuplicate.title', 'videoEdit.duplicateClip.click');
@@ -864,10 +826,10 @@ const workflowVideoEditor = {
         if (track === 'video') {
             // MỚI (24/07/2026, mục d) — Volume RIÊNG của đoạn Video đang chọn (thay "Chỉnh" toàn cục đã bỏ).
             addBtn(_veIcon('volume'), 'videoEdit.btnVolume.title', 'videoEdit.videoClipVolume.open');
-            if (this._videoClips.length > 1) {
+            if (appState.get('_videoClips').length > 1) {
                 addBtn(_veIcon('delete'), 'videoEdit.btnDelete.title', 'videoEdit.deleteClip.click');
-                if (this._selected.index > 0) addBtn(_veIcon('moveLeft'), 'videoEdit.btnMoveEarlier.title', 'videoEdit.moveClipEarlier.click');
-                if (this._selected.index < this._videoClips.length - 1) addBtn(_veIcon('moveRight'), 'videoEdit.btnMoveLater.title', 'videoEdit.moveClipLater.click');
+                if (appState.get('_selected').index > 0) addBtn(_veIcon('moveLeft'), 'videoEdit.btnMoveEarlier.title', 'videoEdit.moveClipEarlier.click');
+                if (appState.get('_selected').index < appState.get('_videoClips').length - 1) addBtn(_veIcon('moveRight'), 'videoEdit.btnMoveLater.title', 'videoEdit.moveClipLater.click');
             }
         } else {
             addBtn(_veIcon('delete'), 'videoEdit.btnDelete.title', 'videoEdit.deleteClip.click');
@@ -879,11 +841,11 @@ const workflowVideoEditor = {
     // ===================== Crop (Cropper.js — toàn cục, không đổi so với v2) =====================
 
     handleCropOpen() {
-        if (!this._nativeW) return;
+        if (!appState.get('_nativeW')) return;
         this._pause();
         const canvas = document.createElement('canvas');
-        canvas.width = this._nativeW;
-        canvas.height = this._nativeH;
+        canvas.width = appState.get('_nativeW');
+        canvas.height = appState.get('_nativeH');
         canvas.getContext('2d').drawImage(videoEditorSourceEl, 0, 0, canvas.width, canvas.height);
         videoEditorCropSourceEl.src = canvas.toDataURL('image/jpeg', 0.92);
         videoEditorCropOverlayEl.classList.remove('hidden');
@@ -913,14 +875,14 @@ const workflowVideoEditor = {
     },
 
     handleCropRatioSelect(ratio) {
-        if (!this._cropper) return;
-        setAspectRatioSession(this._cropper, ratio); // core/image-editor/cropper-engine.js — luôn tính lại từ ảnh gốc, đổi qua lại nhiều lần không biến dạng cộng dồn
+        if (!appState.get('_cropper')) return;
+        setAspectRatioSession(appState.get('_cropper'), ratio); // core/image-editor/cropper-engine.js — luôn tính lại từ ảnh gốc, đổi qua lại nhiều lần không biến dạng cộng dồn
     },
 
     _initCropper() {
-        if (this._cropper) destroyCropperSession(this._cropper); // core/image-editor/cropper-engine.js
-        const cropFraction = this._cropFraction;
-        this._cropper = initCropperSession(videoEditorCropSourceEl, {
+        if (appState.get('_cropper')) destroyCropperSession(appState.get('_cropper')); // core/image-editor/cropper-engine.js
+        const cropFraction = appState.get('_cropFraction');
+        appState.set('_cropper', initCropperSession(videoEditorCropSourceEl, {
             viewMode: 1, autoCropArea: 1, background: false, responsive: true,
             ready() {
                 if (!cropFraction) return;
@@ -928,16 +890,16 @@ const workflowVideoEditor = {
                 const h = videoEditorCropSourceEl.naturalHeight;
                 this.cropper.setData({ x: cropFraction.x * w, y: cropFraction.y * h, width: cropFraction.w * w, height: cropFraction.h * h });
             },
-        });
+        }));
     },
 
     handleCropConfirm() {
-        if (!this._cropper) return;
-        const data = getCropDataFromSession(this._cropper, true); // core/image-editor/cropper-engine.js
+        if (!appState.get('_cropper')) return;
+        const data = getCropDataFromSession(appState.get('_cropper'), true); // core/image-editor/cropper-engine.js
         const w = videoEditorCropSourceEl.naturalWidth;
         const h = videoEditorCropSourceEl.naturalHeight;
-        this._cropFraction = { x: data.x / w, y: data.y / h, w: data.width / w, h: data.height / h };
-        this._hasUnsavedChanges = true;
+        appState.set('_cropFraction', { x: data.x / w, y: data.y / h, w: data.width / w, h: data.height / h });
+        appState.set('_hasUnsavedChanges', true);
         this._closeCropOverlay();
         this._drawFrame();
     },
@@ -945,24 +907,24 @@ const workflowVideoEditor = {
     handleCropCancel() { this._closeCropOverlay(); },
 
     _closeCropOverlay() {
-        if (this._cropper) { destroyCropperSession(this._cropper); this._cropper = null; }
+        if (appState.get('_cropper')) { destroyCropperSession(appState.get('_cropper')); appState.set('_cropper', null); }
         videoEditorCropOverlayEl.classList.add('hidden');
     },
 
-    handleCropReset() { this._cropFraction = null; this._hasUnsavedChanges = true; this._drawFrame(); },
+    handleCropReset() { appState.set('_cropFraction', null); appState.set('_hasUnsavedChanges', true); this._drawFrame(); },
 
     // ===================== Rotate / Reset (toàn cục) =====================
 
-    handleRotateLeft() { this._rotateDeg = ((this._rotateDeg - 90) % 360 + 360) % 360; this._hasUnsavedChanges = true; this._drawFrame(); },
-    handleRotateRight() { this._rotateDeg = (this._rotateDeg + 90) % 360; this._hasUnsavedChanges = true; this._drawFrame(); },
+    handleRotateLeft() { appState.set('_rotateDeg', ((appState.get('_rotateDeg') - 90) % 360 + 360) % 360); appState.set('_hasUnsavedChanges', true); this._drawFrame(); },
+    handleRotateRight() { appState.set('_rotateDeg', (appState.get('_rotateDeg') + 90) % 360); appState.set('_hasUnsavedChanges', true); this._drawFrame(); },
 
     /** [SỬA 24/07/2026, mục d] — bỏ reset Brightness/Contrast/Saturation/Volume toàn cục ("Chỉnh"
      * đã bỏ hẳn). Volume giờ RIÊNG từng đoạn Video — không có ý nghĩa "reset toàn cục" nữa, muốn về
      * 100% thì kéo lại slider trong Drawer Volume của đúng đoạn đó (handleVideoClipVolumeOpen()). */
     handleReset() {
-        this._cropFraction = null;
-        this._rotateDeg = 0;
-        this._hasUnsavedChanges = true;
+        appState.set('_cropFraction', null);
+        appState.set('_rotateDeg', 0);
+        appState.set('_hasUnsavedChanges', true);
         this._drawFrame();
     },
 
@@ -1003,7 +965,7 @@ const workflowVideoEditor = {
 
     // ===================== Volume RIÊNG từng đoạn Video — MỚI (24/07/2026, mục d, thay "Chỉnh") =====================
 
-    _activeVideoClip() { return this._selected && this._selected.track === 'video' ? this._videoClips[this._selected.index] : null; },
+    _activeVideoClip() { return appState.get('_selected') && appState.get('_selected').track === 'video' ? appState.get('_videoClips')[appState.get('_selected').index] : null; },
 
     /** [SỬA 24/07/2026, phản hồi Giang mục 1] "Có thể tăng giảm âm thanh để mix video với nhạc" —
      * chỉ cần CÂN BẰNG 2 track (kéo bên nào xuống cho bên kia nổi hơn), KHÔNG cần khuếch đại vượt
@@ -1035,15 +997,15 @@ const workflowVideoEditor = {
             c.volume = (parseInt(volEl.value, 10) || 0) / 100;
             volValEl.textContent = `${volEl.value}%`;
             _paintRangeFill(volEl); // MỚI (mục 3)
-            this._hasUnsavedChanges = true;
-            if (this._currentClipIndex === this._selected.index) this._syncCurrentClipVolume(); // nghe thấy NGAY nếu đúng đoạn đang phát
+            appState.set('_hasUnsavedChanges', true);
+            if (appState.get('_currentClipIndex') === appState.get('_selected').index) this._syncCurrentClipVolume(); // nghe thấy NGAY nếu đúng đoạn đang phát
         });
     },
 
     // ===================== Trích xuất ảnh (không đổi) =====================
 
     async handleExtractFrame() {
-        if (!this._nativeW) return;
+        if (!appState.get('_nativeW')) return;
         const sourceCanvas = captureVideoFrameToCanvas(videoEditorSourceEl); // core/video-editor/frame-extract.js
         const blob = await new Promise((resolve) => sourceCanvas.toBlob(resolve, 'image/jpeg', 0.95));
         if (!blob) { await alertModal(t('videoEdit.extractFrame.failed')); return; }
@@ -1068,18 +1030,18 @@ const workflowVideoEditor = {
         openGenericDrawer({ height: '70vh', headerHtml: this._buildDrawerHeaderHtml(t('videoEdit.songPicker.title')), bodyHtml, bodyClass: 'overflow-hidden flex flex-col' });
         this._wireDrawerCloseButton();
 
-        this._songSearchQuery = ''; // MỖI LẦN MỞ reset rỗng — không tự hiện toàn bộ danh sách
+        appState.set('_songSearchQuery', ''); // MỖI LẦN MỞ reset rỗng — không tự hiện toàn bộ danh sách
         const searchEl = genericDrawerBody.querySelector('#ve-gd-song-search');
         const clearBtn = genericDrawerBody.querySelector('#ve-gd-song-search-clear');
         searchEl.addEventListener('input', () => {
-            this._songSearchQuery = normalizeSongName(searchEl.value); // core/song-search.js
+            appState.set('_songSearchQuery', normalizeSongName(searchEl.value)); // core/song-search.js
             clearBtn.classList.toggle('hidden', !searchEl.value);
             this._renderSongList();
         });
         clearBtn.addEventListener('click', () => {
             searchEl.value = '';
             clearBtn.classList.add('hidden');
-            this._songSearchQuery = '';
+            appState.set('_songSearchQuery', '');
             this._renderSongList();
             searchEl.focus();
         });
@@ -1088,25 +1050,25 @@ const workflowVideoEditor = {
     },
 
     async _ensureSongListLoaded() {
-        if (this._songListCache) return;
+        if (appState.get('_songListCache')) return;
         const keys = await getAllSongKeys();
         const records = await Promise.all(keys.map(async (key) => {
             const record = await getSongRecord(key);
             return record ? { key, tag: record.tag, duration: record.duration } : null;
         }));
-        this._songListCache = records.filter(Boolean);
+        appState.set('_songListCache', records.filter(Boolean));
         this._renderSongList();
     },
 
     _renderSongList() {
         const listEl = genericDrawerBody.querySelector('#ve-gd-song-list');
         if (!listEl) return; // drawer đã đóng/đổi nội dung khác trong lúc đang tải — bỏ qua an toàn
-        const query = this._songSearchQuery;
+        const query = appState.get('_songSearchQuery');
         if (!query) {
             listEl.innerHTML = `<p class="text-center text-xs text-slate-400 py-8">${_escapeVideoEditorHtml(t('videoEdit.songSearch.emptyPrompt'))}</p>`;
             return;
         }
-        const filtered = (this._songListCache || []).filter((item) => songMatchesQuery(query, item.tag.title, item.tag.artist, item.tag.album)); // core/song-search.js
+        const filtered = (appState.get('_songListCache') || []).filter((item) => songMatchesQuery(query, item.tag.title, item.tag.artist, item.tag.album)); // core/song-search.js
         if (!filtered.length) {
             listEl.innerHTML = `<p class="text-center text-xs text-slate-400 py-8">${_escapeVideoEditorHtml(t('videoEdit.songSearch.noResults'))}</p>`;
             return;
@@ -1132,9 +1094,9 @@ const workflowVideoEditor = {
         if (!record) return;
         const totalDuration = this._totalDuration();
         const length = Math.min(totalDuration, record.duration || totalDuration);
-        this._audioClips.push({ id: this._nextId(), songKey, record, timelineStart: 0, timelineEnd: length, offsetInSong: 0, volume: 1 });
-        this._selected = { track: 'audio', index: this._audioClips.length - 1 };
-        this._hasUnsavedChanges = true;
+        appState.get('_audioClips').push({ id: this._nextId(), songKey, record, timelineStart: 0, timelineEnd: length, offsetInSong: 0, volume: 1 });
+        appState.set('_selected', { track: 'audio', index: appState.get('_audioClips').length - 1 });
+        appState.set('_hasUnsavedChanges', true);
         this._recomputeTrackFullFlags(); // MỚI (mục 2) — clip mới luôn phủ hết -> track Nhạc thành "đầy" ngay
         this._closeGenericDrawerFully();
     },
@@ -1152,21 +1114,21 @@ const workflowVideoEditor = {
         const total = this._totalDuration();
         const timelineEnd = Math.min(outputTime + 3, total);
         const timelineStart = Math.max(0, Math.min(outputTime, timelineEnd - this.MIN_CLIP_GAP_SEC));
-        this._textClips.push({
+        appState.get('_textClips').push({
             id: this._nextId(), val: t('videoEdit.text.defaultValue'),
             size: 60, color: '#ffffff', posX: 50, posY: 80, rotation: 0,
             bold: false, italic: false, fontFamily: 'system-ui', blur: 0, shadow: true, transition: 'none',
             timelineStart, timelineEnd,
         });
-        this._selected = { track: 'text', index: this._textClips.length - 1 };
-        this._hasUnsavedChanges = true;
+        appState.set('_selected', { track: 'text', index: appState.get('_textClips').length - 1 });
+        appState.set('_hasUnsavedChanges', true);
         this._recomputeTrackFullFlags(); // MỚI (mục 2)
         this._renderAllTracks();
         this._renderToolbar();
         this.handleTextEditOpen();
     },
 
-    _activeTextClip() { return this._selected && this._selected.track === 'text' ? this._textClips[this._selected.index] : null; },
+    _activeTextClip() { return appState.get('_selected') && appState.get('_selected').track === 'text' ? appState.get('_textClips')[appState.get('_selected').index] : null; },
 
     handleTextEditOpen() {
         const clip = this._activeTextClip();
@@ -1223,15 +1185,15 @@ const workflowVideoEditor = {
         const shadowEl = genericDrawerBody.querySelector('#ve-gd-text-shadow');
         const transitionEl = genericDrawerBody.querySelector('#ve-gd-text-transition');
 
-        valueEl.addEventListener('input', () => { const c = this._activeTextClip(); if (!c) return; c.val = valueEl.value; this._hasUnsavedChanges = true; this._drawFrame(); });
-        fontEl.addEventListener('change', () => { const c = this._activeTextClip(); if (!c) return; c.fontFamily = fontEl.value; fontEl.style.fontFamily = `'${fontEl.value}'`; this._hasUnsavedChanges = true; this._drawFrame(); });
-        boldBtn.addEventListener('click', () => { const c = this._activeTextClip(); if (!c) return; c.bold = !c.bold; boldBtn.className = boldClass(c.bold); this._hasUnsavedChanges = true; this._drawFrame(); });
-        italicBtn.addEventListener('click', () => { const c = this._activeTextClip(); if (!c) return; c.italic = !c.italic; italicBtn.className = italicClass(c.italic); this._hasUnsavedChanges = true; this._drawFrame(); });
-        sizeEl.addEventListener('input', () => { const c = this._activeTextClip(); if (!c) return; c.size = parseInt(sizeEl.value, 10) || 60; this._hasUnsavedChanges = true; this._drawFrame(); });
-        colorEl.addEventListener('input', () => { const c = this._activeTextClip(); if (!c) return; c.color = colorEl.value; this._hasUnsavedChanges = true; this._drawFrame(); });
-        blurEl.addEventListener('input', () => { const c = this._activeTextClip(); if (!c) return; c.blur = parseInt(blurEl.value, 10) || 0; blurValEl.textContent = `${c.blur}px`; this._hasUnsavedChanges = true; this._drawFrame(); });
-        shadowEl.addEventListener('change', () => { const c = this._activeTextClip(); if (!c) return; c.shadow = shadowEl.checked; this._hasUnsavedChanges = true; this._drawFrame(); });
-        transitionEl.addEventListener('change', () => { const c = this._activeTextClip(); if (!c) return; c.transition = transitionEl.value; this._hasUnsavedChanges = true; this._drawFrame(); });
+        valueEl.addEventListener('input', () => { const c = this._activeTextClip(); if (!c) return; c.val = valueEl.value; appState.set('_hasUnsavedChanges', true); this._drawFrame(); });
+        fontEl.addEventListener('change', () => { const c = this._activeTextClip(); if (!c) return; c.fontFamily = fontEl.value; fontEl.style.fontFamily = `'${fontEl.value}'`; appState.set('_hasUnsavedChanges', true); this._drawFrame(); });
+        boldBtn.addEventListener('click', () => { const c = this._activeTextClip(); if (!c) return; c.bold = !c.bold; boldBtn.className = boldClass(c.bold); appState.set('_hasUnsavedChanges', true); this._drawFrame(); });
+        italicBtn.addEventListener('click', () => { const c = this._activeTextClip(); if (!c) return; c.italic = !c.italic; italicBtn.className = italicClass(c.italic); appState.set('_hasUnsavedChanges', true); this._drawFrame(); });
+        sizeEl.addEventListener('input', () => { const c = this._activeTextClip(); if (!c) return; c.size = parseInt(sizeEl.value, 10) || 60; appState.set('_hasUnsavedChanges', true); this._drawFrame(); });
+        colorEl.addEventListener('input', () => { const c = this._activeTextClip(); if (!c) return; c.color = colorEl.value; appState.set('_hasUnsavedChanges', true); this._drawFrame(); });
+        blurEl.addEventListener('input', () => { const c = this._activeTextClip(); if (!c) return; c.blur = parseInt(blurEl.value, 10) || 0; blurValEl.textContent = `${c.blur}px`; appState.set('_hasUnsavedChanges', true); this._drawFrame(); });
+        shadowEl.addEventListener('change', () => { const c = this._activeTextClip(); if (!c) return; c.shadow = shadowEl.checked; appState.set('_hasUnsavedChanges', true); this._drawFrame(); });
+        transitionEl.addEventListener('change', () => { const c = this._activeTextClip(); if (!c) return; c.transition = transitionEl.value; appState.set('_hasUnsavedChanges', true); this._drawFrame(); });
     },
 
     // ===================== "Dịch chuyển tới đoạn" (chọn đoạn nhạc gốc + âm lượng riêng clip) =====================
@@ -1251,7 +1213,7 @@ const workflowVideoEditor = {
     // media-gain.js` — file này KHÔNG dùng nữa, có thể xoá) — quay lại `wavesurfer.setVolume()` gốc,
     // kẹp [0,1] (AudioContext tự tạo bị 'suspended' ngoài user-gesture, không hề resume(), câm hẳn).
 
-    _activeAudioClip() { return this._selected && this._selected.track === 'audio' ? this._audioClips[this._selected.index] : null; },
+    _activeAudioClip() { return appState.get('_selected') && appState.get('_selected').track === 'audio' ? appState.get('_audioClips')[appState.get('_selected').index] : null; },
 
     handleSongShiftOpen() {
         const clip = this._activeAudioClip();
@@ -1297,9 +1259,9 @@ const workflowVideoEditor = {
             c.volume = (parseInt(volEl.value, 10) || 0) / 100;
             volValEl.textContent = `${volEl.value}%`;
             _paintRangeFill(volEl); // MỚI (mục 3)
-            this._hasUnsavedChanges = true;
-            if (this._shiftWavesurfer) this._shiftWavesurfer.setVolume(Math.min(1, Math.max(0, c.volume))); // nghe thấy NGAY trong waveform preview
-            if (this._activePreviewAudioClipId === c.id) this._syncAudioClips(this._computeCurrentOutputTime()); // ĐANG là clip active ở preview chính -> áp NGAY luôn (SỬA bug mục e)
+            appState.set('_hasUnsavedChanges', true);
+            if (appState.get('_shiftWavesurfer')) appState.get('_shiftWavesurfer').setVolume(Math.min(1, Math.max(0, c.volume))); // nghe thấy NGAY trong waveform preview
+            if (appState.get('_activePreviewAudioClipId') === c.id) this._syncAudioClips(this._computeCurrentOutputTime()); // ĐANG là clip active ở preview chính -> áp NGAY luôn (SỬA bug mục e)
         });
 
         playBtn.addEventListener('click', () => this._toggleShiftRegionPlay(playIconEl));
@@ -1320,56 +1282,56 @@ const workflowVideoEditor = {
      * độc lập ở đâu khác). */
     _initShiftWaveform(blob, clipLength, waveformEl, errorEl, updateTimeLabel) {
         try {
-            this._shiftRegionsPlugin = WaveSurfer.Regions.create();
-            this._shiftWavesurfer = WaveSurfer.create({
+            appState.set('_shiftRegionsPlugin', WaveSurfer.Regions.create());
+            appState.set('_shiftWavesurfer', WaveSurfer.create({
                 container: waveformEl,
                 height: 72,
                 waveColor: '#94a3b8',
                 progressColor: '#0ea5e9',
                 cursorColor: '#0f172a',
                 normalize: true,
-                plugins: [this._shiftRegionsPlugin],
-            });
-            this._shiftWavesurfer.on('error', (err) => {
+                plugins: [appState.get('_shiftRegionsPlugin')],
+            }));
+            appState.get('_shiftWavesurfer').on('error', (err) => {
                 console.error('[handleSongShiftOpen] WaveSurfer lỗi tải/giải mã audio:', err);
                 errorEl.textContent = t('videoEdit.songShift.waveformError');
                 errorEl.classList.remove('hidden');
             });
-            this._shiftWavesurfer.on('decode', () => {
+            appState.get('_shiftWavesurfer').on('decode', () => {
                 const c = this._activeAudioClip();
-                if (!c || !this._shiftWavesurfer) return;
-                const songDuration = this._shiftWavesurfer.getDuration();
+                if (!c || !appState.get('_shiftWavesurfer')) return;
+                const songDuration = appState.get('_shiftWavesurfer').getDuration();
                 const clampedOffset = clampSongOffsetDrag(c.offsetInSong, clipLength, songDuration); // core/video-editor/audio-sync.js — TÁI DÙNG, đúng logic cũ
-                this._shiftRegion = this._shiftRegionsPlugin.addRegion({
+                appState.set('_shiftRegion', appState.get('_shiftRegionsPlugin').addRegion({
                     start: clampedOffset,
                     end: clampedOffset + Math.min(clipLength, songDuration),
                     color: 'rgba(16, 185, 129, 0.28)',
                     drag: true,
                     resize: false, // MỤC e, Giang yêu cầu — ĐỘ RỘNG LUÔN CỐ ĐỊNH, kéo CHỈ dịch offset
-                });
+                }));
                 c.offsetInSong = clampedOffset;
                 updateTimeLabel();
                 // Kéo Region -> dịch offset, kẹp lại đúng biên [0, songDuration-clipLength] (giữ
                 // NGUYÊN độ rộng — nếu WaveSurfer cho kéo vượt biên, tự ép region.setOptions() về lại
                 // giá trị đã kẹp, tránh region "trôi" ra ngoài phạm vi hợp lệ của bài hát).
-                this._shiftRegion.on('update', () => {
+                appState.get('_shiftRegion').on('update', () => {
                     const cc = this._activeAudioClip();
                     if (!cc) return;
-                    const desired = this._shiftRegion.start;
+                    const desired = appState.get('_shiftRegion').start;
                     const clamped = clampSongOffsetDrag(desired, clipLength, songDuration); // core/video-editor/audio-sync.js
-                    if (Math.abs(clamped - desired) > 0.001) this._shiftRegion.setOptions({ start: clamped, end: clamped + clipLength });
+                    if (Math.abs(clamped - desired) > 0.001) appState.get('_shiftRegion').setOptions({ start: clamped, end: clamped + clipLength });
                     cc.offsetInSong = clamped;
-                    this._hasUnsavedChanges = true;
+                    appState.set('_hasUnsavedChanges', true);
                     updateTimeLabel();
                 });
                 // Volume — quay lại `wavesurfer.setVolume()` gốc, kẹp [0,1] (BỎ GainNode, xem
                 // docstring khối "Dịch chuyển tới đoạn" ở trên — Giang báo mất tiếng).
                 const volNow = typeof c.volume === 'number' ? c.volume : 1;
-                this._shiftWavesurfer.setVolume(Math.min(1, Math.max(0, volNow)));
+                appState.get('_shiftWavesurfer').setVolume(Math.min(1, Math.max(0, volNow)));
             });
             // load() trả về Promise — LUÔN .catch() (WaveSurfer.js v7 có bug dangling-promise đã
             // biết, cùng lý do subtitle-editor.html).
-            this._shiftWavesurfer.load(URL.createObjectURL(blob)).catch((err) => {
+            appState.get('_shiftWavesurfer').load(URL.createObjectURL(blob)).catch((err) => {
                 console.error('[handleSongShiftOpen] wavesurfer.load() bị reject:', err);
                 errorEl.textContent = t('videoEdit.songShift.waveformError');
                 errorEl.classList.remove('hidden');
@@ -1385,9 +1347,9 @@ const workflowVideoEditor = {
      * 'timeupdate', cùng cơ chế subtitle-editor.html nhưng ĐƠN GIẢN HOÁ — không lặp lại lớp seek-
      * retry nhiều tầng của trang đó, chấp nhận được vì đây chỉ là preview phụ trong 1 Drawer). */
     _toggleShiftRegionPlay(playIconEl) {
-        if (!this._shiftWavesurfer || !this._shiftRegion) return;
-        if (this._shiftIsPlayingRegion && this._shiftWavesurfer.isPlaying()) {
-            this._shiftWavesurfer.pause();
+        if (!appState.get('_shiftWavesurfer') || !appState.get('_shiftRegion')) return;
+        if (appState.get('_shiftIsPlayingRegion') && appState.get('_shiftWavesurfer').isPlaying()) {
+            appState.get('_shiftWavesurfer').pause();
             this._clearShiftStopHandler(playIconEl);
             return;
         }
@@ -1396,22 +1358,22 @@ const workflowVideoEditor = {
 
     _playShiftRegion(playIconEl) {
         this._clearShiftStopHandler(playIconEl);
-        const region = this._shiftRegion;
-        if (!region || !this._shiftWavesurfer) return;
-        this._shiftIsPlayingRegion = true;
+        const region = appState.get('_shiftRegion');
+        if (!region || !appState.get('_shiftWavesurfer')) return;
+        appState.set('_shiftIsPlayingRegion', true);
         playIconEl.textContent = '\u275A\u275A'; // ❚❚ — cùng ký hiệu transport bar chính
-        this._shiftStopHandler = (currentTime) => {
-            if (currentTime >= region.end) { this._shiftWavesurfer.pause(); this._clearShiftStopHandler(playIconEl); }
-        };
-        this._shiftWavesurfer.on('timeupdate', this._shiftStopHandler);
-        this._shiftWavesurfer.setTime(region.start);
-        const playResult = this._shiftWavesurfer.play();
+        appState.set('_shiftStopHandler', (currentTime) => {
+            if (currentTime >= region.end) { appState.get('_shiftWavesurfer').pause(); this._clearShiftStopHandler(playIconEl); }
+        });
+        appState.get('_shiftWavesurfer').on('timeupdate', appState.get('_shiftStopHandler'));
+        appState.get('_shiftWavesurfer').setTime(region.start);
+        const playResult = appState.get('_shiftWavesurfer').play();
         if (playResult && typeof playResult.catch === 'function') playResult.catch((err) => console.warn('[handleSongShiftOpen] play() bị reject:', err));
     },
 
     _clearShiftStopHandler(playIconEl) {
-        if (this._shiftStopHandler && this._shiftWavesurfer) { this._shiftWavesurfer.un('timeupdate', this._shiftStopHandler); this._shiftStopHandler = null; }
-        this._shiftIsPlayingRegion = false;
+        if (appState.get('_shiftStopHandler') && appState.get('_shiftWavesurfer')) { appState.get('_shiftWavesurfer').un('timeupdate', appState.get('_shiftStopHandler')); appState.set('_shiftStopHandler', null); }
+        appState.set('_shiftIsPlayingRegion', false);
         if (playIconEl) playIconEl.textContent = '\u25B6'; // ▶
     },
 
@@ -1420,12 +1382,12 @@ const workflowVideoEditor = {
      * instance WaveSurfer qua nhiều lần mở/đóng. */
     _destroyShiftWaveform() {
         this._clearShiftStopHandler(null);
-        if (this._shiftWavesurfer) {
-            try { this._shiftWavesurfer.destroy(); } catch (err) { console.warn('[_destroyShiftWaveform] Lỗi destroy() WaveSurfer (bỏ qua):', err); }
+        if (appState.get('_shiftWavesurfer')) {
+            try { appState.get('_shiftWavesurfer').destroy(); } catch (err) { console.warn('[_destroyShiftWaveform] Lỗi destroy() WaveSurfer (bỏ qua):', err); }
         }
-        this._shiftWavesurfer = null;
-        this._shiftRegionsPlugin = null;
-        this._shiftRegion = null;
+        appState.set('_shiftWavesurfer', null);
+        appState.set('_shiftRegionsPlugin', null);
+        appState.set('_shiftRegion', null);
     },
 
     // ===================== Lưu (dropdown Ghi đè | Lưu mới) =====================
@@ -1438,20 +1400,20 @@ const workflowVideoEditor = {
     },
 
     /** [SỬA 24/07/2026, mục d] — bỏ `filterCss`/`volumeVideo` TOÀN CỤC ("Chỉnh" bỏ hẳn). `videoClips`
-     * (`this._videoClips`) đã tự mang `volume` RIÊNG từng đoạn — webcodecs-engine.js đọc thẳng từ đó. */
+     * (`_videoClips`) đã tự mang `volume` RIÊNG từng đoạn — webcodecs-engine.js đọc thẳng từ đó. */
     _buildProcessParams() {
         return {
-            sourceBlob: this._record.blob,
-            videoClips: this._videoClips,
-            cropFraction: this._cropFraction,
-            rotateDeg: this._rotateDeg,
-            textClips: this._textClips,
-            audioClips: this._audioClips.map((c) => ({ blob: c.record.blob, offsetInSong: c.offsetInSong, timelineStart: c.timelineStart, timelineEnd: c.timelineEnd, volume: c.volume })),
+            sourceBlob: appState.get('_record').blob,
+            videoClips: appState.get('_videoClips'),
+            cropFraction: appState.get('_cropFraction'),
+            rotateDeg: appState.get('_rotateDeg'),
+            textClips: appState.get('_textClips'),
+            audioClips: appState.get('_audioClips').map((c) => ({ blob: c.record.blob, offsetInSong: c.offsetInSong, timelineStart: c.timelineStart, timelineEnd: c.timelineEnd, volume: c.volume })),
         };
     },
 
     _buildNewFilename(suffix) {
-        const original = this._record.filename || 'video';
+        const original = appState.get('_record').filename || 'video';
         const base = original.replace(/\.[^/.]+$/, '');
         const stamp = new Date();
         const pad = (n) => String(n).padStart(2, '0');
@@ -1475,8 +1437,8 @@ const workflowVideoEditor = {
         try {
             const blob = await processVideo(this._buildProcessParams());
             const { thumbBlob, width, height, duration } = await this._buildThumbForBlob(blob);
-            await setVideoRecord(this._videoKey, { blob, thumbBlob, width, height, duration, filename: this._record.filename, addedAt: this._record.addedAt });
-            this._hasUnsavedChanges = false;
+            await setVideoRecord(appState.get('_videoKey'), { blob, thumbBlob, width, height, duration, filename: appState.get('_record').filename, addedAt: appState.get('_record').addedAt });
+            appState.set('_hasUnsavedChanges', false);
             await alertModal(t('videoEdit.save.success'));
         } catch (err) {
             console.error('[handleSaveOverwrite] Lỗi xử lý/lưu video:', err);
@@ -1491,7 +1453,7 @@ const workflowVideoEditor = {
             const filename = this._buildNewFilename();
             const { thumbBlob, width, height, duration } = await this._buildThumbForBlob(blob);
             await saveVideo(blob, filename, thumbBlob, width, height, duration); // core/file-manager/video.js
-            this._hasUnsavedChanges = false;
+            appState.set('_hasUnsavedChanges', false);
             await alertModal(t('videoEdit.save.success'));
         } catch (err) {
             console.error('[handleSaveAsNew] Lỗi xử lý/lưu video mới:', err);
@@ -1502,7 +1464,7 @@ const workflowVideoEditor = {
     // ===================== Quay lại =====================
 
     handleBack() {
-        if (!this._hasUnsavedChanges) { window.location.href = 'index.html'; return; }
+        if (!appState.get('_hasUnsavedChanges')) { window.location.href = 'index.html'; return; }
         modalChoice(
             t('videoEdit.discardConfirm.desc'),
             [

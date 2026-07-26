@@ -45,7 +45,7 @@
  * (withLoadingShield), service/db.js (getImageRecord), core/dom-refs.js
  * (themeModeCardLight/Dark/Background/Gradient, themeBgBlurRow, themeGradientRow,
  * themeGradientFromPicker/ToPicker, themeMockupBackground/Icon, themeMockupGradient,
- * bgBlurSlider, valBgBlurDisplay). Việc đọc `appState.get('vizConfig')` để CHỌN method nào chạy
+ * bgBlurSlider, valBgBlurDisplay). Việc đọc `appConfigViz.getAll()` để CHỌN method nào chạy
  * (`applyNonBackgroundMode`/`pickNewBackgroundImage`/`reuseExistingBackgroundImage`) SỐNG Ở
  * ROUTER (event/router/theme.js, qua VirtualMachineState), KHÔNG phải file này — 3 method dưới
  * đây chỉ NHẬN kết quả đã được chọn sẵn, tự chúng không đọc appState để rẽ nhánh (đúng vai trò
@@ -121,7 +121,7 @@ const workflowTheme = {
      * @param {'light'|'dark'|'background'|'gradient'} mode
      */
     _commitThemeMode(mode) {
-        appState.mutate('vizConfig', cfg => { cfg.themeMode = mode; });
+        appConfigViz.mutateAll(cfg => { cfg.themeMode = mode; });
         saveConfig();
         updatePlaylistBg(); // ĐẶT SAU khi themeMode đã cập nhật — xem docstring đầu file.
         forceGlassRepaint(); // fix bug mục 3 (09/07/2026) — ép WebKit vẽ lại lớp kính NGAY, không đợi thao tác khác.
@@ -150,7 +150,7 @@ const workflowTheme = {
      * ảnh/màu THẬT đang cấu hình) + hiện/ẩn 2 hàng "Độ mờ nền"/"2 màu Gradient" — gọi lúc boot VÀ
      * sau mỗi lần đổi mode/màu. */
     refreshThemeCardUI() {
-        const cfg = appState.get('vizConfig');
+        const cfg = appConfigViz.getAll();
         const mode = cfg.themeMode;
 
         const cards = {

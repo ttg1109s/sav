@@ -30,7 +30,7 @@ const workflowSubtitleStyleSettings = {
     /** Đồng bộ 8 input theo vizConfig.subtitleStyle hiện tại — gọi lúc mở panel. */
     refresh() {
         if (!subtitleSettingsPanelEl) return; // guard: panel đã đóng
-        const ss = appState.get('vizConfig').subtitleStyle;
+        const ss = appConfigViz.getAll().subtitleStyle;
 
         subtitleSettingsPanelEl.querySelector('#setting-sub-bg-color').value = ss.bgColor;
         subtitleSettingsPanelEl.querySelector('#setting-sub-bg-opacity').value = Math.round(ss.bgOpacity * 100);

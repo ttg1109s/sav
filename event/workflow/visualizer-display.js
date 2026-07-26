@@ -39,7 +39,7 @@ const workflowVisualizerDisplay = {
      */
     openPanel() {
         const panelEl = pushSettingsPanel({ title: t('visualizerSettingsDrawer.title'), bodyHtml: renderVisualizerPanelBody() });
-        const cfg = appState.get('vizConfig');
+        const cfg = appConfigViz.getAll();
 
         panelEl.querySelector('#setting-quality').value = cfg.quality;
         panelEl.querySelector('#bg-color-picker').value = cfg.bgColor;

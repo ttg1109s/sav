@@ -32,9 +32,9 @@ const workflowVisualizerMiscSettings = {
      * `vizConfig` + lưu config, RỒI đọc lại giá trị vừa ghi để chọn xin (nếu đang phát nhạc) hay
      * nhả wake lock ngay theo đúng trạng thái mới. @param {boolean} checked */
     setKeepScreenOn(checked) {
-        appState.mutate('vizConfig', cfg => { cfg.keepScreenOn = checked; });
+        appConfigViz.mutateAll(cfg => { cfg.keepScreenOn = checked; });
         saveConfig(); // core/config.js
-        const keepScreenOn = appState.get('vizConfig').keepScreenOn;
+        const keepScreenOn = appConfigViz.getAll().keepScreenOn;
         VirtualMachineState.run([
             {
                 state: keepScreenOn, operation: '===', value: true, callback: () => {

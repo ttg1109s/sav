@@ -2,13 +2,18 @@
  * event/workflow/subtitle-editor.js — Workflow DUY NHẤT của trang `subtitle-editor.html` (KHÔNG
  * nạp ở `index.html`, chạy như 1 trang độc lập).
  *
- * Trang này KHÔNG dùng `appState` của app chính (không nạp `service/state.js`) — state RIÊNG sống
- * trong instance object này (giống tinh thần `EventStore` nhưng đơn giản hơn, chỉ 1 trang, 1
- * workflow duy nhất). Mọi timer/interval đều qua `taskManager` (`service/task-manager.js`, có nạp
- * ở trang này) — không dùng `setTimeout`/`setInterval` thô, xem `readme/task-manager-conventions.md`.
+ * Trang này TRƯỚC ĐÂY không dùng `appState` — SỬA 25/07/2026 (đợt tái cấu trúc state, lượt 2):
+ * trang này giờ CÓ nạp `service/state.js`, 20 field state sống trong `appState` (package
+ * 'subtitle-editor', xem `service/state/subtitle-editor.js` +
+ * `service/state/record/subtitle-editor.js`) — CÙNG hạ tầng schema/registry() như mọi trang khác
+ * (lượt 1 từng nhét 20 field này vào EventStore — SAI ranh giới, EventStore chỉ dành cho "state
+ * context" nhỏ giữa 2 message, không phải state nghiệp vụ toàn trang). Mọi method đọc/ghi qua
+ * `appState.get('_xxx')`/`appState.set('_xxx', value)` trực tiếp. Mọi timer/interval đều qua
+ * `taskManager` (`service/task-manager.js`, có nạp ở trang này) — không dùng
+ * `setTimeout`/`setInterval` thô, xem `readme/task-manager-conventions.md`.
  *
  * WaveSurfer.js (CDN) đảm nhiệm CẢ waveform LẪN phát âm thanh — không cần `<audio>`/Worker decode
- * riêng. Đúng 1 Region (`this._region`) DUY NHẤT tồn tại suốt vòng đời trang — mọi tool "theo vùng
+ * riêng. Đúng 1 Region (`_region`) DUY NHẤT tồn tại suốt vòng đời trang — mọi tool "theo vùng
  * chọn" đều thao tác lên chính region đó (không tạo region mới).
  *
  * Tính năng: Upload .srt, Auto-timing (2 nhịp bấm theo thời điểm phát), Thêm dòng, Xuất .srt, Lấy
@@ -20,26 +25,14 @@
  * service/db.js, lang/lang.js, WaveSurfer.js (CDN) + Regions plugin (CDN).
  */
 const workflowSubtitleEditor = {
-    _songKey: null,
-    _record: null, // record đầy đủ từ getSongRecord() (tag, blob, subtitles, duration...)
-    _subtitles: [], // mảng làm việc — chưa chắc đã lưu xuống DB (bấm "Lưu" mới ghi thật)
-    _autoSubStartTime: null, // đang "ghi" auto-timing hay không (khác null = đang ghi)
-    _wavesurfer: null,
-    _regionsPlugin: null,
-    _timelinePlugin: null, // dải mốc thời gian
-    _zoomLevel: 70, // px/giây hiện tại, zoomIn()/zoomOut() tự cập nhật
-    _region: null, // Region duy nhất, sống suốt vòng đời trang — mọi tool "vùng chọn" thao tác lên nó
-    _isDebugPanelOpen: false, // bảng debug log đang mở hay không
-    _lineRangeStopHandler: null, // handler 'timeupdate' đang canh dừng phát 1 dòng, null nếu không có dòng nào đang phát preview
-    _isPlayingRegion: false, // đang phát THEO VÙNG/DÒNG (tự dừng ở end) hay không — khác phát chung (Play/Pause) không giới hạn
-    _activePlaybackLineId: null, // null = đang phát theo vùng chung (this._region), id = đang phát đúng dòng đó
-    _isShiftSelectionMode: false, // đang ở chế độ chọn dòng để dịch giờ hàng loạt hay không
-    _shiftSelectedIds: new Set(), // tập id các dòng đang được chọn (tool Shift)
-    _lineCardNodesById: new Map(), // Map bền vững subId -> card DOM, giữ nguyên qua các lần render (diff thay vì rebuild toàn bộ, cùng thuật toán renderPlaylistDiff())
-    _editingLineId: null, // id dòng đang ở "chế độ sửa" (null = không dòng nào đang sửa)
-    _editingPendingStart: null, // giờ start đang sửa (giây, chưa Apply) của dòng _editingLineId
-    _editingPendingEnd: null, // giờ end đang sửa (giây, chưa Apply)
-    _editingCardEl: null, // cache tham chiếu DOM card đang sửa, cập nhật trực tiếp lúc kéo region (không qua render lại toàn bộ)
+    // SỬA (25/07/2026, đợt tái cấu trúc state) — 20 field state dưới đây KHÔNG còn là property
+    // của object literal này nữa — sống thật trong `appState` (package `subtitle-editor`, xem
+    // `service/state/subtitle-editor.js` + `service/state/record/subtitle-editor.js`), CÙNG hạ
+    // tầng schema/registry() như mọi domain khác của app — KHÔNG dùng EventStore (bản trước đó
+    // dùng nhầm EventStore cho state nghiệp vụ toàn trang, đã sửa lại theo đúng ranh giới đã chốt:
+    // EventStore chỉ dành cho "state context" nhỏ giữa 2 message, không phải state nghiệp vụ của
+    // cả 1 trang). MỌI method bên dưới đọc/ghi qua `appState.get('_xxx')`/`appState.set('_xxx',
+    // value)` — giữ nguyên tên field kèm dấu `_` làm key.
 
     /** Chạy 1 LẦN lúc trang load xong (xem event/listener/subtitle-editor.js). */
     async init() {
@@ -50,9 +43,9 @@ const workflowSubtitleEditor = {
         const record = await getSongRecord(songKey); // service/db.js
         if (!record) { this._showFatalError(t('subtitleEditor.songNotFound')); return; }
 
-        this._songKey = songKey;
-        this._record = record;
-        this._subtitles = sortSubtitlesByStart(record.subtitles ? record.subtitles.slice() : []); // core
+        appState.set('_songKey', songKey);
+        appState.set('_record', record);
+        appState.set('_subtitles', sortSubtitlesByStart(record.subtitles ? record.subtitles.slice() : [])); // core
 
         editorTitleEl.textContent = record.tag?.title || record.filename || songKey;
         this._renderLines();
@@ -93,48 +86,48 @@ const workflowSubtitleEditor = {
             // bỏ sót đúng bước này (saveToDatabase() ở dưới ĐÃ áp dụng đúng, nơi đây thì chưa).
             const freshBlob = await rematerializeBlob(blob); // service/db.js
             const url = URL.createObjectURL(freshBlob);
-            this._regionsPlugin = WaveSurfer.Regions.create();
+            appState.set('_regionsPlugin', WaveSurfer.Regions.create());
             // Dải mốc thời gian (Timeline plugin) — dùng CHUNG container với waveform chính (không
             // truyền `container` riêng) để 2 vùng luôn cuộn đồng bộ tuyệt đối.
-            this._timelinePlugin = typeof WaveSurfer.Timeline !== 'undefined'
+            appState.set('_timelinePlugin', typeof WaveSurfer.Timeline !== 'undefined'
                 ? WaveSurfer.Timeline.create({ height: 20 })
-                : null;
-            if (!this._timelinePlugin) console.warn('[subtitle-editor] Dải mốc thời gian (Timeline) không khởi tạo được (CDN chặn/lỗi mạng?) — waveform chính vẫn dùng được bình thường.');
-            this._wavesurfer = WaveSurfer.create({
+                : null);
+            if (!appState.get('_timelinePlugin')) console.warn('[subtitle-editor] Dải mốc thời gian (Timeline) không khởi tạo được (CDN chặn/lỗi mạng?) — waveform chính vẫn dùng được bình thường.');
+            appState.set('_wavesurfer', WaveSurfer.create({
                 container: waveformContainerEl,
                 height: 88,
                 waveColor: '#475569',
                 progressColor: '#0ea5e9',
                 cursorColor: '#f8fafc',
-                minPxPerSec: this._zoomLevel, // biến state để zoomIn()/zoomOut() có gốc theo dõi đúng
+                minPxPerSec: appState.get('_zoomLevel'), // biến state để zoomIn()/zoomOut() có gốc theo dõi đúng
                 normalize: true,
                 // Tự cuộn theo vị trí phát + giữ con trỏ ở giữa khung nhìn — khai rõ ràng, không
                 // phụ thuộc mặc định ẩn của thư viện.
                 autoScroll: true,
                 autoCenter: true,
-                plugins: this._timelinePlugin ? [this._regionsPlugin, this._timelinePlugin] : [this._regionsPlugin],
-            });
+                plugins: appState.get('_timelinePlugin') ? [appState.get('_regionsPlugin'), appState.get('_timelinePlugin')] : [appState.get('_regionsPlugin')],
+            }));
 
-            this._wavesurfer.on('error', (err) => {
+            appState.get('_wavesurfer').on('error', (err) => {
                 console.error('[subtitle-editor] WaveSurfer lỗi tải/giải mã audio:', err);
                 this._showWaveformError();
             });
 
-            this._wavesurfer.on('decode', () => {
-                const duration = this._wavesurfer.getDuration();
-                this._region = this._regionsPlugin.addRegion({
+            appState.get('_wavesurfer').on('decode', () => {
+                const duration = appState.get('_wavesurfer').getDuration();
+                appState.set('_region', appState.get('_regionsPlugin').addRegion({
                     start: 0,
                     end: Math.min(2, duration),
                     color: 'rgba(56, 189, 248, 0.25)',
                     drag: true,
                     resize: true,
-                });
+                }));
                 // Nhãn giờ start/end tự cập nhật mỗi lần kéo tay cầm. Nếu đang sửa 1 dòng, đồng bộ
                 // ngược region -> giờ pending của dòng đó, cập nhật trực tiếp DOM (không render lại
                 // toàn bộ — 'update' bắn rất nhiều lần/giây, render lại sẽ giật/mất focus).
-                this._region.on('update', () => {
+                appState.get('_region').on('update', () => {
                     this._updateRegionTimeDisplay();
-                    if (this._editingLineId !== null) this._syncPendingFromRegion();
+                    if (appState.get('_editingLineId') !== null) this._syncPendingFromRegion();
                 });
                 this._updateRegionTimeDisplay();
             });
@@ -142,30 +135,30 @@ const workflowSubtitleEditor = {
             // MỚI (11/07/2026, mục 2) — chỉ hiện thanh Play/Pause + giờ start/end SAU KHI waveform
             // thật sự sẵn sàng (decode xong + đã vẽ xong), tránh hiện điều khiển cho 1 waveform
             // chưa có gì để play/pause.
-            this._wavesurfer.on('ready', () => {
+            appState.get('_wavesurfer').on('ready', () => {
                 waveformControlsEl.classList.remove('hidden');
                 this._updateRegionTimeDisplay();
                 this._primeAudioPlayback(); // THỬ NGHIỆM (13/07/2026, yêu cầu Giang) — xem docstring hàm
             });
-            this._wavesurfer.on('play', () => {
+            appState.get('_wavesurfer').on('play', () => {
                 iconWaveformPlay.classList.add('hidden');
                 iconWaveformPause.classList.remove('hidden');
                 // Gọi NGAY trong sự kiện 'play' thật (không phải ngay sau lời gọi .play(), lúc đó
                 // isPlaying() vẫn có thể còn trả false) — đúng lúc phát THỰC SỰ bắt đầu.
                 this._updatePlaybackIcons();
             });
-            this._wavesurfer.on('pause', () => {
+            appState.get('_wavesurfer').on('pause', () => {
                 iconWaveformPause.classList.add('hidden');
                 iconWaveformPlay.classList.remove('hidden');
                 this._updatePlaybackIcons(); // cùng lý do ở trên — đồng bộ NGAY lúc phát THỰC SỰ dừng
             });
             // Giờ vị trí phát hiện tại — luôn bật, chạy suốt lúc đang phát.
-            this._wavesurfer.on('timeupdate', (currentTime) => this._updateCurrentTimeDisplay(currentTime));
+            appState.get('_wavesurfer').on('timeupdate', (currentTime) => this._updateCurrentTimeDisplay(currentTime));
 
             // load() trả về Promise — LUÔN .catch() để không bỏ lỡ lỗi giải mã audio (WaveSurfer.js
             // v7 có bug dangling-promise đã biết, GitHub issue #3126 — lỗi có thể không đi qua sự
             // kiện 'error' phía trên).
-            this._wavesurfer.load(url).catch((err) => {
+            appState.get('_wavesurfer').load(url).catch((err) => {
                 console.error('[subtitle-editor] wavesurfer.load() bị reject (lỗi tải/giải mã audio):', err);
                 this._showWaveformError();
             });
@@ -180,33 +173,33 @@ const workflowSubtitleEditor = {
      * tác hay không (không chắc chắn dứt điểm — _seekWithRetry() vẫn giữ làm lớp bảo vệ thứ 2).
      * .catch() nuốt lỗi "play() interrupted by pause()" và lỗi chặn autoplay — đều vô hại. */
     _primeAudioPlayback() {
-        if (!this._wavesurfer) return;
-        const wasMuted = (typeof this._wavesurfer.getMuted === 'function') ? this._wavesurfer.getMuted() : false;
-        this._wavesurfer.setMuted(true);
-        Promise.resolve(this._wavesurfer.play())
+        if (!appState.get('_wavesurfer')) return;
+        const wasMuted = (typeof appState.get('_wavesurfer').getMuted === 'function') ? appState.get('_wavesurfer').getMuted() : false;
+        appState.get('_wavesurfer').setMuted(true);
+        Promise.resolve(appState.get('_wavesurfer').play())
             .catch(() => {})
             .finally(() => {
-                if (!this._wavesurfer) return;
-                this._wavesurfer.pause();
-                this._wavesurfer.setMuted(wasMuted);
+                if (!appState.get('_wavesurfer')) return;
+                appState.get('_wavesurfer').pause();
+                appState.get('_wavesurfer').setMuted(wasMuted);
             });
     },
 
     /** Hiện thông báo lỗi NGAY TRONG khung waveform cố định (KHÔNG để khung biến mất/trống rỗng) —
-     * các tool cần vùng chọn (Lấy giờ từ vùng chọn/Phát vùng) sẽ không hoạt động (this._region vẫn
+     * các tool cần vùng chọn (Lấy giờ từ vùng chọn/Phát vùng) sẽ không hoạt động (`_region` vẫn
      * `null`) nhưng Auto-timing/Thêm dòng/Upload/Xuất .srt (không phụ thuộc waveform) vẫn dùng
      * được bình thường. */
     _showWaveformError() {
         waveformErrorEl.classList.remove('hidden');
     },
 
-    /** MỚI (11/07/2026, mục 2) — cập nhật 2 nhãn giờ start/end theo ĐÚNG this._region hiện tại,
+    /** MỚI (11/07/2026, mục 2) — cập nhật 2 nhãn giờ start/end theo ĐÚNG appState.get('_region') hiện tại,
      * cùng định dạng "HH:MM:SS,mmm" như ô giờ mỗi dòng phụ đề (secToStr(), core/subtitle/
      * subtitles.js) cho nhất quán. Gọi lại mỗi lần region 'update' (kéo tay cầm) + lúc 'ready'. */
     _updateRegionTimeDisplay() {
-        if (!this._region) return;
-        waveformRegionStartEl.textContent = secToStr(this._region.start); // core
-        waveformRegionEndEl.textContent = secToStr(this._region.end); // core
+        if (!appState.get('_region')) return;
+        waveformRegionStartEl.textContent = secToStr(appState.get('_region').start); // core
+        waveformRegionEndEl.textContent = secToStr(appState.get('_region').end); // core
     },
 
     /** MỚI (yêu cầu Giang, mục 2) — cập nhật nhãn giờ đang phát HIỆN TẠI (khác giờ start/end vùng
@@ -229,17 +222,17 @@ const workflowSubtitleEditor = {
      * `_seekWithRetry()` (xác minh + tự thử lại) thay vì `setTime()` trần trụi để né lỗi này.
      * @param {number} clickXInViewport vị trí bấm tính từ mép trái khung nhìn thấy (chưa cộng cuộn). */
     seekFromClick(clickXInViewport) {
-        if (!this._wavesurfer) return;
-        const duration = this._wavesurfer.getDuration();
+        if (!appState.get('_wavesurfer')) return;
+        const duration = appState.get('_wavesurfer').getDuration();
         if (!duration) return;
-        const pxPerSec = this._wavesurfer.options.minPxPerSec || 1;
-        const scrollPx = this._wavesurfer.getScroll(); // vị trí cuộn thật của chính WaveSurfer, không đoán qua div ngoài
+        const pxPerSec = appState.get('_wavesurfer').options.minPxPerSec || 1;
+        const scrollPx = appState.get('_wavesurfer').getScroll(); // vị trí cuộn thật của chính WaveSurfer, không đoán qua div ngoài
         const absolutePx = scrollPx + clickXInViewport;
         const time = Math.max(0, Math.min(duration, absolutePx / pxPerSec));
-        const wasPlaying = this._wavesurfer.isPlaying();
+        const wasPlaying = appState.get('_wavesurfer').isPlaying();
         this._updateCurrentTimeDisplay(time); // cập nhật hiển thị ngay (lạc quan) — 'timeupdate' sẽ tự sửa lại nếu lượt seek đầu bị lỡ
         this._seekWithRetry(time, 3, () => {
-            if (wasPlaying && !this._wavesurfer.isPlaying()) this._wavesurfer.play();
+            if (wasPlaying && !appState.get('_wavesurfer').isPlaying()) appState.get('_wavesurfer').play();
         });
     },
 
@@ -247,11 +240,11 @@ const workflowSubtitleEditor = {
      * (lệch > 150ms) thì tự thử lại tối đa `attemptsLeft` lần. Dùng chung cho seekFromClick() và
      * _playRangeAndStop() — cùng 1 lớp bug gốc (xem seekFromClick()), cùng 1 cách né. */
     _seekWithRetry(time, attemptsLeft, onSeeked) {
-        if (!this._wavesurfer) return;
-        this._wavesurfer.setTime(time);
+        if (!appState.get('_wavesurfer')) return;
+        appState.get('_wavesurfer').setTime(time);
         taskManager.once(() => {
-            if (!this._wavesurfer) return;
-            const matched = Math.abs(this._wavesurfer.getCurrentTime() - time) <= 0.15;
+            if (!appState.get('_wavesurfer')) return;
+            const matched = Math.abs(appState.get('_wavesurfer').getCurrentTime() - time) <= 0.15;
             if (matched || attemptsLeft <= 0) {
                 if (onSeeked) onSeeked();
             } else {
@@ -266,24 +259,24 @@ const workflowSubtitleEditor = {
      * từ "cả bài" (zoom out hết cỡ, bài dài vài phút vẫn gói gọn trong khung nhìn) tới "từng chữ"
      * (zoom in hết cỡ, canh mili-giây bằng mắt cũng được). */
     zoomIn() {
-        if (!this._wavesurfer) return;
-        this._zoomLevel = Math.min(500, Math.round(this._zoomLevel * 1.5));
-        this._wavesurfer.zoom(this._zoomLevel);
+        if (!appState.get('_wavesurfer')) return;
+        appState.set('_zoomLevel', Math.min(500, Math.round(appState.get('_zoomLevel') * 1.5)));
+        appState.get('_wavesurfer').zoom(appState.get('_zoomLevel'));
     },
 
     zoomOut() {
-        if (!this._wavesurfer) return;
-        this._zoomLevel = Math.max(20, Math.round(this._zoomLevel / 1.5));
-        this._wavesurfer.zoom(this._zoomLevel);
+        if (!appState.get('_wavesurfer')) return;
+        appState.set('_zoomLevel', Math.max(20, Math.round(appState.get('_zoomLevel') / 1.5)));
+        appState.get('_wavesurfer').zoom(appState.get('_zoomLevel'));
     },
 
     /** Bật/tắt bảng xem console.log/warn/error + lỗi promise không ai bắt (window.__sedLog, thu từ
      * đầu <head> subtitle-editor.html), phục vụ điều tra bug trên thiết bị không có devtools. Panel
      * tự làm mới (task lặp 500ms qua `taskManager`) trong lúc đang mở — dừng hẳn lúc đóng. */
     toggleDebugPanel() {
-        this._isDebugPanelOpen = !this._isDebugPanelOpen;
-        waveformDebugPanelEl.classList.toggle('hidden', !this._isDebugPanelOpen);
-        if (this._isDebugPanelOpen) {
+        appState.set('_isDebugPanelOpen', !appState.get('_isDebugPanelOpen'));
+        waveformDebugPanelEl.classList.toggle('hidden', !appState.get('_isDebugPanelOpen'));
+        if (appState.get('_isDebugPanelOpen')) {
             this._renderDebugLog();
             taskManager.addNew('subtitleEditorDebugLog', { time: 500, exe: () => this._renderDebugLog(), mode: 'timeout', count: 0 });
             taskManager.operator('subtitleEditorDebugLog', 'enabled');
@@ -354,9 +347,9 @@ const workflowSubtitleEditor = {
      * 3 giá trị ('normal'/'selecting'/'editing') — core/subtitle/subtitles-ui.js tự quyết cấu trúc
      * từng card theo mode này. */
     _renderLines() {
-        this._subtitles = sortSubtitlesByStart(this._subtitles); // core
-        const mode = this._editingLineId !== null ? 'editing' : this._isShiftSelectionMode ? 'selecting' : 'normal';
-        renderSubtitleLines(linesContainerEl, this._subtitles, { // core/subtitle/subtitles-ui.js
+        appState.set('_subtitles', sortSubtitlesByStart(appState.get('_subtitles'))); // core
+        const mode = appState.get('_editingLineId') !== null ? 'editing' : appState.get('_isShiftSelectionMode') ? 'selecting' : 'normal';
+        renderSubtitleLines(linesContainerEl, appState.get('_subtitles'), { // core/subtitle/subtitles-ui.js
             onEnterEdit: (id) => this.enterLineEditMode(id),
             onApplyEdit: (id, text) => this.applyLineEdit(id, text),
             onCancelEdit: () => this.cancelLineEdit(),
@@ -366,31 +359,31 @@ const workflowSubtitleEditor = {
             onToggleSelect: (id) => this.toggleLineSelection(id),
         }, {
             mode,
-            selectedIds: this._shiftSelectedIds,
-            editingId: this._editingLineId,
-            editingPendingStart: this._editingPendingStart,
-            editingPendingEnd: this._editingPendingEnd,
-        }, this._lineCardNodesById);
-        subEmptyStateEl.classList.toggle('hidden', this._subtitles.length > 0);
+            selectedIds: appState.get('_shiftSelectedIds'),
+            editingId: appState.get('_editingLineId'),
+            editingPendingStart: appState.get('_editingPendingStart'),
+            editingPendingEnd: appState.get('_editingPendingEnd'),
+        }, appState.get('_lineCardNodesById'));
+        subEmptyStateEl.classList.toggle('hidden', appState.get('_subtitles').length > 0);
     },
 
     /** Bấm nguyên 1 card (không phải Shift-selecting, không có dòng nào khác đang sửa) -> vào "chế
      * độ sửa" cho đúng dòng đó: cho phép gõ text, hiện nút giờ start/end (mở modal bánh xe) + nút
-     * ✓ Áp dụng/✕ Huỷ, và nhảy this._region theo đúng [start,end] dòng này để có thể kéo tay cầm/
+     * ✓ Áp dụng/✕ Huỷ, và nhảy `_region` theo đúng [start,end] dòng này để có thể kéo tay cầm/
      * chốt mốc {}/nghe trực tiếp trong lúc sửa. Chặn hẳn nếu đã có dòng khác đang sửa, hoặc đang ở
      * chế độ chọn Shift (2 chế độ loại trừ nhau). */
     enterLineEditMode(id) {
-        if (this._editingLineId !== null) return; // đã có dòng khác đang sửa -> chặn
-        if (this._isShiftSelectionMode) return; // đang chọn Shift -> chặn (2 chế độ loại trừ nhau)
-        const sub = this._subtitles.find((s) => s.id === id);
+        if (appState.get('_editingLineId') !== null) return; // đã có dòng khác đang sửa -> chặn
+        if (appState.get('_isShiftSelectionMode')) return; // đang chọn Shift -> chặn (2 chế độ loại trừ nhau)
+        const sub = appState.get('_subtitles').find((s) => s.id === id);
         if (!sub) return;
-        this._editingLineId = id;
-        this._editingPendingStart = sub.start;
-        this._editingPendingEnd = sub.end;
-        if (this._region) this._region.setOptions({ start: sub.start, end: sub.end }); // nhảy vùng theo dòng
-        this._lineCardNodesById.clear(); // đổi mode -> đổi cấu trúc MỌI card (khoá các dòng khác + hiện input/✓/✕ ở dòng đang sửa)
+        appState.set('_editingLineId', id);
+        appState.set('_editingPendingStart', sub.start);
+        appState.set('_editingPendingEnd', sub.end);
+        if (appState.get('_region')) appState.get('_region').setOptions({ start: sub.start, end: sub.end }); // nhảy vùng theo dòng
+        appState.get('_lineCardNodesById').clear(); // đổi mode -> đổi cấu trúc MỌI card (khoá các dòng khác + hiện input/✓/✕ ở dòng đang sửa)
         this._renderLines();
-        this._editingCardEl = this._lineCardNodesById.get(id); // cache để cập nhật trực tiếp lúc kéo region
+        appState.set('_editingCardEl', appState.get('_lineCardNodesById').get(id)); // cache để cập nhật trực tiếp lúc kéo region
         this._updateWaveformControlsBlockState();
     },
 
@@ -398,12 +391,12 @@ const workflowSubtitleEditor = {
      * region/modal, xem _syncPendingFromRegion()/openTimePickerModal()) vào ĐÚNG dòng đang sửa,
      * rồi thoát chế độ sửa. */
     applyLineEdit(id, text) {
-        if (this._editingLineId !== id) return;
-        this._subtitles = computeUpdatedSubtitles(this._subtitles, id, { // core
+        if (appState.get('_editingLineId') !== id) return;
+        appState.set('_subtitles', computeUpdatedSubtitles(appState.get('_subtitles'), id, { // core
             text,
-            start: this._editingPendingStart,
-            end: this._editingPendingEnd,
-        });
+            start: appState.get('_editingPendingStart'),
+            end: appState.get('_editingPendingEnd'),
+        }));
         this._exitLineEditMode();
     },
 
@@ -414,11 +407,11 @@ const workflowSubtitleEditor = {
     },
 
     _exitLineEditMode() {
-        this._editingLineId = null;
-        this._editingPendingStart = null;
-        this._editingPendingEnd = null;
-        this._editingCardEl = null;
-        this._lineCardNodesById.clear(); // đổi mode -> đổi cấu trúc MỌI card, mở khoá lại các dòng khác
+        appState.set('_editingLineId', null);
+        appState.set('_editingPendingStart', null);
+        appState.set('_editingPendingEnd', null);
+        appState.set('_editingCardEl', null);
+        appState.get('_lineCardNodesById').clear(); // đổi mode -> đổi cấu trúc MỌI card, mở khoá lại các dòng khác
         this._renderLines(); // tự sort lại rồi (xem _renderLines()) — giờ vừa Apply có thể đổi thứ tự
         this._updateWaveformControlsBlockState();
     },
@@ -426,9 +419,9 @@ const workflowSubtitleEditor = {
     /** Xoá 1 dòng phụ đề — tự dọn TRỰC TIẾP node khỏi cache/DOM ở đây luôn (không chỉ trông chờ
      * renderSubtitleLines() tự dọn qua diff) — phòng hờ mọi trường hợp lạ khác. */
     _removeLine(id) {
-        this._subtitles = computeRemovedSubtitles(this._subtitles, id); // core
-        const node = this._lineCardNodesById.get(id);
-        if (node) { node.remove(); this._lineCardNodesById.delete(id); }
+        appState.set('_subtitles', computeRemovedSubtitles(appState.get('_subtitles'), id)); // core
+        const node = appState.get('_lineCardNodesById').get(id);
+        if (node) { node.remove(); appState.get('_lineCardNodesById').delete(id); }
         this._renderLines();
     },
 
@@ -437,14 +430,14 @@ const workflowSubtitleEditor = {
      * của dòng đó, cập nhật hiển thị trực tiếp (không render lại toàn bộ — 'update' bắn liên tục
      * lúc kéo, render lại mỗi lần sẽ giật/mất focus ô text đang gõ). */
     _syncPendingFromRegion() {
-        if (!this._region || this._editingLineId === null) return;
-        this._editingPendingStart = this._region.start;
-        this._editingPendingEnd = this._region.end;
-        if (this._editingCardEl) {
-            const startBtn = this._editingCardEl.querySelector('.sub-line-start-btn');
-            const endBtn = this._editingCardEl.querySelector('.sub-line-end-btn');
-            if (startBtn) startBtn.textContent = secToStr(this._editingPendingStart); // core
-            if (endBtn) endBtn.textContent = secToStr(this._editingPendingEnd); // core
+        if (!appState.get('_region') || appState.get('_editingLineId') === null) return;
+        appState.set('_editingPendingStart', appState.get('_region').start);
+        appState.set('_editingPendingEnd', appState.get('_region').end);
+        if (appState.get('_editingCardEl')) {
+            const startBtn = appState.get('_editingCardEl').querySelector('.sub-line-start-btn');
+            const endBtn = appState.get('_editingCardEl').querySelector('.sub-line-end-btn');
+            if (startBtn) startBtn.textContent = secToStr(appState.get('_editingPendingStart')); // core
+            if (endBtn) endBtn.textContent = secToStr(appState.get('_editingPendingEnd')); // core
         }
     },
 
@@ -452,7 +445,7 @@ const workflowSubtitleEditor = {
      * start/end = current, vẫn cần dùng để đồng bộ giờ dòng đang sửa). Play/Pause chung + "[▶]"
      * phát vùng chung + tool "Shift" đều khoá lại lúc này. */
     _updateWaveformControlsBlockState() {
-        const blocked = this._editingLineId !== null;
+        const blocked = appState.get('_editingLineId') !== null;
         [btnWaveformPlayPause, btnPlayRegionControl, btnShift].forEach((el) => {
             if (!el) return;
             el.classList.toggle('opacity-40', blocked);
@@ -463,7 +456,7 @@ const workflowSubtitleEditor = {
 
     /** Modal "bánh xe cuộn số" chọn giờ start/end 1 dòng — CHỈ mở được lúc dòng đó đang ở chế độ
      * sửa (nút start/end chỉ hiện trong chế độ đó). Xác nhận -> cập nhật PENDING + đồng bộ ngược
-     * vào this._region, KHÔNG commit thẳng vào dòng (chờ bấm ✓ Áp dụng).
+     * vào `_region`, KHÔNG commit thẳng vào dòng (chờ bấm ✓ Áp dụng).
      *
      * TÁCH RA (18/07/2026, phản hồi Giang — "tách modal đó ra như 1 core thuần chung để tái sử
      * dụng") — cơ chế "bánh xe cuộn số" (scroll-snap, rubber-band, N cột phụ thuộc nhau theo tầng)
@@ -477,12 +470,12 @@ const workflowSubtitleEditor = {
      * @param {string} subId @param {'start'|'end'} kind @param {number} currentSeconds
      */
     openTimePickerModal(subId, kind, currentSeconds) {
-        if (!this._wavesurfer) return;
-        const totalDuration = this._wavesurfer.getDuration() || 0;
+        if (!appState.get('_wavesurfer')) return;
+        const totalDuration = appState.get('_wavesurfer').getDuration() || 0;
         // Giới hạn THẬT: start bị chặn bởi min(tổng bài hát, end PENDING hiện tại); end bị chặn
         // TRÊN bởi tổng bài hát, chặn DƯỚI bởi start PENDING hiện tại. (GIỮ NGUYÊN cách tính cũ.)
-        const minAllowed = kind === 'start' ? 0 : this._editingPendingStart;
-        const maxAllowed = kind === 'start' ? Math.min(totalDuration, this._editingPendingEnd) : totalDuration;
+        const minAllowed = kind === 'start' ? 0 : appState.get('_editingPendingStart');
+        const maxAllowed = kind === 'start' ? Math.min(totalDuration, appState.get('_editingPendingEnd')) : totalDuration;
 
         openTimePickerModal({ // core/time-picker-modal.js — DÙNG CHUNG
             title: kind === 'start' ? t('subtitleEditor.timePicker.titleStart') : t('subtitleEditor.timePicker.titleEnd'),
@@ -493,11 +486,11 @@ const workflowSubtitleEditor = {
             rangeHintText: tFormat('subtitleEditor.timePicker.rangeHint', { min: secToStr(minAllowed), max: secToStr(maxAllowed) }),
             onConfirm: (resultMs) => {
                 const seconds = resultMs / 1000;
-                if (this._editingLineId === subId) {
+                if (appState.get('_editingLineId') === subId) {
                     // Đang sửa ĐÚNG dòng này — chỉ cập nhật PENDING + đồng bộ NGƯỢC region (mục 5),
                     // KHÔNG commit thẳng (chờ bấm ✓ Áp dụng, xem applyLineEdit()).
-                    if (kind === 'start') this._editingPendingStart = seconds; else this._editingPendingEnd = seconds;
-                    if (this._region) this._region.setOptions({ [kind]: seconds });
+                    if (kind === 'start') appState.set('_editingPendingStart', seconds); else appState.set('_editingPendingEnd', seconds);
+                    if (appState.get('_region')) appState.get('_region').setOptions({ [kind]: seconds });
                     this._syncPendingFromRegion();
                 }
             },
@@ -507,29 +500,29 @@ const workflowSubtitleEditor = {
     // ============================== Toolbar: giữ nguyên tính năng cũ ==============================
 
     /** Auto-timing — 2 nhịp bấm dựa theo thời điểm phát (không dùng region). Có guard
-     * `this._wavesurfer` (waveform lỗi/chưa nạp xong thì bỏ qua). Icon tự đổi (idle <-> pulsing dot
+     * `_wavesurfer` (waveform lỗi/chưa nạp xong thì bỏ qua). Icon tự đổi (idle <-> pulsing dot
      * đỏ) báo hiệu "đang ghi" — không đổi màu nền nút. Bắt đầu ghi luôn dọn sẵn
      * `_lineRangeStopHandler` còn sót từ 1 lượt bấm ▶ dòng nào đó bị ngắt giữa chừng — nếu không
      * dọn, playback tình cờ chạy ngang qua mốc `end` cũ sẽ tự pause() im lặng, ngắt ngang buổi ghi. */
     handleAutoTimingClick() {
-        if (!this._wavesurfer) return; // (A)
-        if (this._autoSubStartTime === null) {
+        if (!appState.get('_wavesurfer')) return; // (A)
+        if (appState.get('_autoSubStartTime') === null) {
             this._clearLineRangeStopHandler(); // (C)
-            this._autoSubStartTime = this._wavesurfer.getCurrentTime();
+            appState.set('_autoSubStartTime', appState.get('_wavesurfer').getCurrentTime());
             iconAutoTimingIdle.classList.add('hidden'); iconAutoTimingRecording.classList.remove('hidden');
         } else {
-            let startTime = this._autoSubStartTime;
-            let endTime = this._wavesurfer.getCurrentTime();
+            let startTime = appState.get('_autoSubStartTime');
+            let endTime = appState.get('_wavesurfer').getCurrentTime();
             if (endTime < startTime) { const tmp = startTime; startTime = endTime; endTime = tmp; }
             const newSub = createSubtitleLine(t('subtitleEditor.autoTiming.defaultText'), startTime, endTime); // core
-            this._subtitles = sortSubtitlesByStart([...this._subtitles, newSub]); // core
+            appState.set('_subtitles', sortSubtitlesByStart([...appState.get('_subtitles'), newSub])); // core
             this._resetAutoTiming();
             this._renderLines();
         }
     },
 
     _resetAutoTiming() {
-        this._autoSubStartTime = null;
+        appState.set('_autoSubStartTime', null);
         iconAutoTimingRecording.classList.add('hidden'); iconAutoTimingIdle.classList.remove('hidden');
     },
 
@@ -538,10 +531,11 @@ const workflowSubtitleEditor = {
     /** SỬA (yêu cầu Giang) — khoảng cách tối thiểu 1s giữa start dòng MỚI và end dòng CUỐI hiện có
      * (trước đây chỉ +0.1s, quá sát — 2 dòng liền kề gần như dính nhau). */
     addNewLine() {
-        const last = this._subtitles[this._subtitles.length - 1];
+        const list = appState.get('_subtitles');
+        const last = list[list.length - 1];
         const startSec = last ? last.end + 1 : 0;
         const newSub = createSubtitleLine(t('subtitleEditor.newLine.defaultText'), startSec, startSec + 2); // core
-        this._subtitles = [...this._subtitles, newSub]; // đã ở cuối mảng, không cần sort lại
+        appState.set('_subtitles', [...appState.get('_subtitles'), newSub]); // đã ở cuối mảng, không cần sort lại
         this._renderLines();
         this._scrollLineIntoView(newSub.id); // cuộn tới đúng dòng vừa thêm, khỏi phải tự cuộn tay
     },
@@ -549,30 +543,30 @@ const workflowSubtitleEditor = {
     importSrtFile(file) {
         const reader = new FileReader();
         reader.onload = (evt) => {
-            this._subtitles = sortSubtitlesByStart(parseSRT(evt.target.result)); // core
+            appState.set('_subtitles', sortSubtitlesByStart(parseSRT(evt.target.result))); // core
             this._renderLines();
         };
         reader.readAsText(file);
     },
 
     async exportSrt() {
-        if (this._subtitles.length === 0) { await alertModal(t('common.subtitle.exportEmpty')); return; }
-        const srt = buildSRTString(this._subtitles); // core
+        if (appState.get('_subtitles').length === 0) { await alertModal(t('common.subtitle.exportEmpty')); return; }
+        const srt = buildSRTString(appState.get('_subtitles')); // core
         const blob = new Blob([srt], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = `${this._record.tag?.title || this._songKey}.srt`; a.click();
+        a.href = url; a.download = `${appState.get('_record').tag?.title || appState.get('_songKey')}.srt`; a.click();
         URL.revokeObjectURL(url);
     },
 
     // ============================== Toolbar: MỚI (yêu cầu Giang) ==============================
 
-    /** "Lấy giờ từ vùng chọn" — tạo dòng MỚI từ this._region hiện tại (KHÁC "+ Thêm dòng" — hàm đó
+    /** "Lấy giờ từ vùng chọn" — tạo dòng MỚI từ appState.get('_region') hiện tại (KHÁC "+ Thêm dòng" — hàm đó
      * vẫn nối sau dòng cuối, hàm này lấy ĐÚNG mốc đang kéo trên waveform). */
     createLineFromSelection() {
-        if (!this._region) return;
-        const newSub = createSubtitleLine(t('subtitleEditor.newLine.defaultText'), this._region.start, this._region.end); // core
-        this._subtitles = sortSubtitlesByStart([...this._subtitles, newSub]); // core
+        if (!appState.get('_region')) return;
+        const newSub = createSubtitleLine(t('subtitleEditor.newLine.defaultText'), appState.get('_region').start, appState.get('_region').end); // core
+        appState.set('_subtitles', sortSubtitlesByStart([...appState.get('_subtitles'), newSub])); // core
         this._renderLines();
         this._scrollLineIntoView(newSub.id); // cuộn tới đúng dòng vừa thêm, khỏi phải tự cuộn tay
     },
@@ -582,22 +576,22 @@ const workflowSubtitleEditor = {
      * thêm, đặc biệt khi danh sách dài và dòng mới nằm giữa sau khi sort lại theo start. Gọi SAU
      * _renderLines() (cần node đã dựng xong trong _lineCardNodesById). */
     _scrollLineIntoView(id) {
-        const node = this._lineCardNodesById.get(id);
+        const node = appState.get('_lineCardNodesById').get(id);
         if (node && typeof node.scrollIntoView === 'function') node.scrollIntoView({ behavior: 'smooth', block: 'center' });
     },
 
     /** "▶ Phát vùng chọn" — dùng CHUNG lõi `_togglePlayRange()` (mục 1: nút ▶ mỗi dòng phụ đề CŨNG
      * dùng đúng lõi này — hành vi toggle giống hệt nhau ở mọi nơi). */
     playSelection() {
-        if (!this._region) return;
-        this._togglePlayRange(this._region.start, this._region.end, null); // null = "vùng chọn chung", KHÁC 1 dòng cụ thể
+        if (!appState.get('_region')) return;
+        this._togglePlayRange(appState.get('_region').start, appState.get('_region').end, null); // null = "vùng chọn chung", KHÁC 1 dòng cụ thể
     },
 
-    /** "Split": mở modal hỏi số dòng (x) muốn chia this._region hiện tại thành. Dựng modal riêng
+    /** "Split": mở modal hỏi số dòng (x) muốn chia appState.get('_region') hiện tại thành. Dựng modal riêng
      * (không dùng modalChoice() vì cần ô nhập số) nhưng giữ cùng khuôn hình overlay/card/nút. Cần
-     * this._region tồn tại — nếu waveform lỗi/chưa nạp xong, im lặng không mở gì. */
+     * `_region` tồn tại — nếu waveform lỗi/chưa nạp xong, im lặng không mở gì. */
     openSplitModal() {
-        if (!this._region) return;
+        if (!appState.get('_region')) return;
 
         const overlay = document.createElement('div');
         overlay.id = 'split-modal-overlay';
@@ -613,7 +607,7 @@ const workflowSubtitleEditor = {
 
         const descEl = document.createElement('p');
         descEl.className = 'text-sm text-slate-300 leading-relaxed';
-        descEl.textContent = tFormat('subtitleEditor.split.desc', { start: secToStr(this._region.start), end: secToStr(this._region.end) }); // core secToStr
+        descEl.textContent = tFormat('subtitleEditor.split.desc', { start: secToStr(appState.get('_region').start), end: secToStr(appState.get('_region').end) }); // core secToStr
         card.appendChild(descEl);
 
         const countInput = document.createElement('input');
@@ -656,14 +650,14 @@ const workflowSubtitleEditor = {
         document.body.appendChild(overlay);
     },
 
-    /** Chia ĐỀU this._region hiện tại thành `count` dòng phụ đề LIỀN NHAU (dòng sau nối đúng mốc
+    /** Chia ĐỀU appState.get('_region') hiện tại thành `count` dòng phụ đề LIỀN NHAU (dòng sau nối đúng mốc
      * dòng trước, không hở/không đè) — text để RỖNG, placeholder có sẵn của textarea tự hiện (xem
      * core/subtitle/subtitles-ui.js), Giang tự gõ lời vào từng dòng sau khi chia. Dòng CUỐI lấy
-     * ĐÚNG this._region.end (không tính bằng cộng dồn perLine) để né sai số cộng dồn số thực. */
+     * ĐÚNG `_region.end` (không tính bằng cộng dồn perLine) để né sai số cộng dồn số thực. */
     _splitRegionIntoLines(count) {
-        if (!this._region) return;
-        const totalStart = this._region.start;
-        const totalEnd = this._region.end;
+        if (!appState.get('_region')) return;
+        const totalStart = appState.get('_region').start;
+        const totalEnd = appState.get('_region').end;
         const perLine = (totalEnd - totalStart) / count;
         const newLines = [];
         for (let i = 0; i < count; i++) {
@@ -671,19 +665,19 @@ const workflowSubtitleEditor = {
             const end = i === count - 1 ? totalEnd : totalStart + perLine * (i + 1);
             newLines.push(createSubtitleLine('', start, end)); // core — text rỗng, placeholder tự hiện
         }
-        this._subtitles = sortSubtitlesByStart([...this._subtitles, ...newLines]); // core
+        appState.set('_subtitles', sortSubtitlesByStart([...appState.get('_subtitles'), ...newLines])); // core
         this._renderLines();
     },
 
     /** Play/Pause CHUẨN của waveform tại vị trí con trỏ hiện tại, KHÁC "Phát vùng chọn" (nút đó
-     * luôn phát đúng this._region). Icon tự đổi qua sự kiện 'play'/'pause' đăng ký ở
+     * luôn phát đúng `_region`). Icon tự đổi qua sự kiện 'play'/'pause' đăng ký ở
      * _initWaveform(). Dọn `_lineRangeStopHandler` còn sót TRƯỚC KHI toggle — bấm nút play/pause
      * chính nghĩa là đang chủ động điều khiển, không còn liên quan 1 lượt nghe thử ▶ dòng dở dang. */
     togglePlayPause() {
-        if (!this._wavesurfer) return;
+        if (!appState.get('_wavesurfer')) return;
         this._clearLineRangeStopHandler();
         // playPause() có thể gọi .play() nội bộ, có thể bị reject nếu va chạm 1 lượt pause() vừa xảy ra.
-        const result = this._wavesurfer.playPause();
+        const result = appState.get('_wavesurfer').playPause();
         if (result && typeof result.catch === 'function') {
             result.catch((err) => console.warn('[subtitle-editor] playPause() bị reject:', err));
         }
@@ -691,15 +685,15 @@ const workflowSubtitleEditor = {
 
     /** Nút ▶ mỗi dòng phụ đề dùng chung `_togglePlayRange()` với "Phát vùng chọn" — cùng hành vi
      * toggle (bấm lại lúc đang phát đúng dòng này = dừng; bấm sau khi dừng/hết end = luôn phát lại
-     * từ đầu dòng). Nếu dòng NÀY đang được sửa (`this._editingLineId === id`), luôn ưu tiên đọc
-     * `this._editingPendingStart/End` (state sống, luôn đúng) thay vì startStr/endStr truyền vào
+     * từ đầu dòng). Nếu dòng NÀY đang được sửa (`_editingLineId === id`), luôn ưu tiên đọc
+     * `_editingPendingStart/End` (state sống, luôn đúng) thay vì startStr/endStr truyền vào
      * (đóng gói closure lúc dựng card, có thể đã cũ nếu dòng vừa được kéo/sửa sau đó). */
     playLineRange(id, startStr, endStr) {
-        if (!this._wavesurfer) return;
+        if (!appState.get('_wavesurfer')) return;
         let start, end;
-        if (this._editingLineId === id) {
-            start = this._editingPendingStart;
-            end = this._editingPendingEnd;
+        if (appState.get('_editingLineId') === id) {
+            start = appState.get('_editingPendingStart');
+            end = appState.get('_editingPendingEnd');
         } else {
             start = strToSec(startStr); // core
             end = strToSec(endStr); // core
@@ -712,8 +706,8 @@ const workflowSubtitleEditor = {
      * cùng 1 nguồn = dừng, bấm sau khi dừng = luôn phát lại từ đầu": "Phát vùng chọn"/"[▶]" khung
      * điều khiển (`lineId = null`) VÀ ▶ mỗi dòng phụ đề (`lineId = id` dòng đó). */
     _togglePlayRange(start, end, lineId) {
-        if (this._isPlayingRegion && this._activePlaybackLineId === lineId && this._wavesurfer.isPlaying()) {
-            this._wavesurfer.pause();
+        if (appState.get('_isPlayingRegion') && appState.get('_activePlaybackLineId') === lineId && appState.get('_wavesurfer').isPlaying()) {
+            appState.get('_wavesurfer').pause();
             this._clearLineRangeStopHandler(); // tự reset state + icon
             return;
         }
@@ -728,15 +722,15 @@ const workflowSubtitleEditor = {
      *   chung", id = 1 dòng cụ thể — dùng để cập nhật icon đúng nơi. */
     _playRangeAndStop(start, end, lineId = null) {
         this._clearLineRangeStopHandler(); // dọn state CŨ trước (reset _activePlaybackLineId về null)
-        this._isPlayingRegion = true;
-        this._activePlaybackLineId = lineId; // gán SAU khi _clearLineRangeStopHandler() đã reset xong
-        this._lineRangeStopHandler = (currentTime) => {
+        appState.set('_isPlayingRegion', true);
+        appState.set('_activePlaybackLineId', lineId); // gán SAU khi _clearLineRangeStopHandler() đã reset xong
+        appState.set('_lineRangeStopHandler', (currentTime) => {
             if (currentTime >= end) {
-                this._wavesurfer.pause();
+                appState.get('_wavesurfer').pause();
                 this._clearLineRangeStopHandler();
             }
-        };
-        this._wavesurfer.on('timeupdate', this._lineRangeStopHandler);
+        });
+        appState.get('_wavesurfer').on('timeupdate', appState.get('_lineRangeStopHandler'));
         // Gộp 2 lớp xác minh: (1) _seekWithRetry() đảm bảo seek tới `start` thật sự ăn trước khi
         // phát (cùng gốc bug với seekFromClick()); (2) _startPlaybackWithRetry() đảm bảo .play()
         // thật sự chạy sau đó. Chỉ gọi play() sau khi seek đã xác nhận xong.
@@ -750,17 +744,17 @@ const workflowSubtitleEditor = {
      * (cờ riêng, về false ngay khi dừng dù vì lý do gì) — chỉ dùng `lineId` không đủ vì `null`
      * vừa là "vùng chọn chung" vừa là giá trị reset sau khi phát xong, dễ nhầm 2 tình huống. */
     _startPlaybackWithRetry(lineId, start, attemptsLeft) {
-        if (!this._wavesurfer) return;
+        if (!appState.get('_wavesurfer')) return;
         let retried = false; // dedupe — .catch() VÀ lưới xác minh setTimeout có thể CÙNG muốn thử lại, chỉ cho phép 1 lần
-        const playResult = this._wavesurfer.play();
+        const playResult = appState.get('_wavesurfer').play();
         const retryIfStillWanted = (err) => {
             if (retried) return;
             retried = true;
             if (err) console.warn('[subtitle-editor] play() bị reject/chưa thật sự chạy — thử lại:', err);
             if (attemptsLeft <= 0) return;
             taskManager.once(() => {
-                const stillWanted = this._activePlaybackLineId === lineId && this._isPlayingRegion; // vẫn ĐÚNG phiên phát này, chưa bị hành động khác/tự dừng xong "cướp"
-                const neverActuallyStarted = this._wavesurfer && !this._wavesurfer.isPlaying() && this._wavesurfer.getCurrentTime() <= start + 0.05; // CHƯA TỪNG nhích lên khỏi start — không thể nhầm với "đã chạy xong"
+                const stillWanted = appState.get('_activePlaybackLineId') === lineId && appState.get('_isPlayingRegion'); // vẫn ĐÚNG phiên phát này, chưa bị hành động khác/tự dừng xong "cướp"
+                const neverActuallyStarted = appState.get('_wavesurfer') && !appState.get('_wavesurfer').isPlaying() && appState.get('_wavesurfer').getCurrentTime() <= start + 0.05; // CHƯA TỪNG nhích lên khỏi start — không thể nhầm với "đã chạy xong"
                 if (stillWanted && neverActuallyStarted) this._startPlaybackWithRetry(lineId, start, attemptsLeft - 1);
             }, 120);
         };
@@ -768,8 +762,8 @@ const workflowSubtitleEditor = {
         // Lưới xác minh BỔ SUNG — kể cả khi playResult "resolve" (không reject gì) — vẫn tự kiểm
         // tra THẬT xem đã phát chưa, chưa thì coi như thất bại âm thầm và thử lại.
         taskManager.once(() => {
-            const stillWanted = this._activePlaybackLineId === lineId && this._isPlayingRegion;
-            const neverActuallyStarted = this._wavesurfer && !this._wavesurfer.isPlaying() && this._wavesurfer.getCurrentTime() <= start + 0.05;
+            const stillWanted = appState.get('_activePlaybackLineId') === lineId && appState.get('_isPlayingRegion');
+            const neverActuallyStarted = appState.get('_wavesurfer') && !appState.get('_wavesurfer').isPlaying() && appState.get('_wavesurfer').getCurrentTime() <= start + 0.05;
             if (stillWanted && neverActuallyStarted) retryIfStillWanted(null);
         }, 150);
     },
@@ -778,13 +772,13 @@ const workflowSubtitleEditor = {
      * động phát lại độc lập khác. Luôn reset `_isPlayingRegion`/`_activePlaybackLineId` + icon (cả
      * control bar và dòng đang phát nếu có) mỗi khi bị gỡ, bất kể lý do. */
     _clearLineRangeStopHandler() {
-        if (this._lineRangeStopHandler) {
-            this._wavesurfer.un('timeupdate', this._lineRangeStopHandler);
-            this._lineRangeStopHandler = null;
+        if (appState.get('_lineRangeStopHandler')) {
+            appState.get('_wavesurfer').un('timeupdate', appState.get('_lineRangeStopHandler'));
+            appState.set('_lineRangeStopHandler', null);
         }
-        this._isPlayingRegion = false;
+        appState.set('_isPlayingRegion', false);
         this._updatePlaybackIcons(); // cập nhật TRƯỚC KHI xoá _activePlaybackLineId, để còn tìm đúng card mà tắt icon
-        this._activePlaybackLineId = null;
+        appState.set('_activePlaybackLineId', null);
     },
 
     /** Đổi icon "[▶]"/"[⏸]" ở khung điều khiển (khi đang phát vùng chung, `_activePlaybackLineId
@@ -792,14 +786,14 @@ const workflowSubtitleEditor = {
      * toàn bộ). Không dùng sự kiện 'play'/'pause' chung của WaveSurfer — sự kiện đó bắn cho mọi
      * kiểu phát, không phân biệt được "đang phát vùng/dòng bị chặn ở end" khỏi phát chung. */
     _updatePlaybackIcons() {
-        const isActive = this._isPlayingRegion && this._wavesurfer && this._wavesurfer.isPlaying();
-        const isRegionActive = isActive && this._activePlaybackLineId === null;
+        const isActive = appState.get('_isPlayingRegion') && appState.get('_wavesurfer') && appState.get('_wavesurfer').isPlaying();
+        const isRegionActive = isActive && appState.get('_activePlaybackLineId') === null;
         if (iconPlayRegionPlay && iconPlayRegionPause) {
             iconPlayRegionPlay.classList.toggle('hidden', isRegionActive);
             iconPlayRegionPause.classList.toggle('hidden', !isRegionActive);
         }
-        if (this._activePlaybackLineId !== null) {
-            const card = this._lineCardNodesById.get(this._activePlaybackLineId);
+        if (appState.get('_activePlaybackLineId') !== null) {
+            const card = appState.get('_lineCardNodesById').get(appState.get('_activePlaybackLineId'));
             if (card) {
                 const playIcon = card.querySelector('.sub-line-play-icon');
                 const pauseIcon = card.querySelector('.sub-line-pause-icon');
@@ -811,17 +805,17 @@ const workflowSubtitleEditor = {
         }
     },
 
-    /** Đặt this._region.start = vị trí phát hiện tại (getCurrentTime()) — "chốt mốc" thay thế kéo
+    /** Đặt appState.get('_region').start = vị trí phát hiện tại (getCurrentTime()) — "chốt mốc" thay thế kéo
      * tay cầm. Nếu current vẫn < end -> chỉ đổi start. Nếu current >= end (vị trí đang nghe nằm sau
      * end hiện tại) -> hoán đổi thông minh: end cũ thành start mới, current thành end mới — luôn ra
      * 1 region hợp lệ, không bao giờ im lặng từ chối. */
     setRegionStartToCurrentTime() {
-        if (!this._region || !this._wavesurfer) return;
-        const current = this._wavesurfer.getCurrentTime();
-        if (current < this._region.end) {
-            this._region.setOptions({ start: current });
+        if (!appState.get('_region') || !appState.get('_wavesurfer')) return;
+        const current = appState.get('_wavesurfer').getCurrentTime();
+        if (current < appState.get('_region').end) {
+            appState.get('_region').setOptions({ start: current });
         } else {
-            this._region.setOptions({ start: this._region.end, end: current });
+            appState.get('_region').setOptions({ start: appState.get('_region').end, end: current });
         }
         this._updateRegionTimeDisplay();
         // Không lệ thuộc vào sự kiện 'update' của region để đồng bộ ngược vào dòng đang sửa (không
@@ -833,12 +827,12 @@ const workflowSubtitleEditor = {
      * end" nhưng vị trí đang nghe lại NẰM TRƯỚC start hiện tại) -> HOÁN ĐỔI: start CŨ thành end
      * MỚI, current thành start MỚI. */
     setRegionEndToCurrentTime() {
-        if (!this._region || !this._wavesurfer) return;
-        const current = this._wavesurfer.getCurrentTime();
-        if (current > this._region.start) {
-            this._region.setOptions({ end: current });
+        if (!appState.get('_region') || !appState.get('_wavesurfer')) return;
+        const current = appState.get('_wavesurfer').getCurrentTime();
+        if (current > appState.get('_region').start) {
+            appState.get('_region').setOptions({ end: current });
         } else {
-            this._region.setOptions({ start: current, end: this._region.start });
+            appState.get('_region').setOptions({ start: current, end: appState.get('_region').start });
         }
         this._updateRegionTimeDisplay();
         this._syncPendingFromRegion(); // FIX (yêu cầu Giang, mục 1) — cùng lý do ở trên
@@ -846,12 +840,12 @@ const workflowSubtitleEditor = {
 
     // ============================== Toolbar: MỚI — tool "Cut MP3" (yêu cầu Giang, mục 1) ==============================
 
-    /** Bấm "Cut" — cắt ĐÚNG đoạn this._region hiện tại thành 1 file .mp3 thật, xong hiện modal 3
+    /** Bấm "Cut" — cắt ĐÚNG đoạn appState.get('_region') hiện tại thành 1 file .mp3 thật, xong hiện modal 3
      * lựa chọn (modalChoice() có sẵn, core/modal-choice.js) Huỷ/Tải xuống/Chèn. Tự khoá nút trong
      * lúc mã hoá (đề phòng bấm chồng — mã hoá lamejs chạy đồng bộ, chặn main thread 1 lúc tuỳ độ
      * dài vùng chọn). */
     async cutMp3FromRegion() {
-        if (!this._region || !this._wavesurfer) return;
+        if (!appState.get('_region') || !appState.get('_wavesurfer')) return;
         if (btnCutMp3.dataset.busy === '1') return;
         btnCutMp3.dataset.busy = '1';
         btnCutMp3.classList.add('opacity-40', 'pointer-events-none');
@@ -860,7 +854,7 @@ const workflowSubtitleEditor = {
             // khi bắt đầu việc mã hoá đồng bộ nặng — không làm vậy, nút sẽ trông như "không phản
             // hồi" suốt lúc mã hoá vì main thread bận, không kịp repaint.
             await new Promise((resolve) => requestAnimationFrame(resolve));
-            const blob = await this._encodeMp3FromRegion(this._region.start, this._region.end);
+            const blob = await this._encodeMp3FromRegion(appState.get('_region').start, appState.get('_region').end);
             this._showCutResultModal(blob);
         } catch (err) {
             console.error('[subtitle-editor] Cắt MP3 thất bại:', err);
@@ -877,7 +871,7 @@ const workflowSubtitleEditor = {
      * lamejs cần PCM 16-bit int — tự convert từ Float32Array (-1..1) của Web Audio API. Block size
      * 1152 = đúng 1 khung MPEG Layer III chuẩn (xem ví dụ chính thức của lamejs). */
     async _encodeMp3FromRegion(startSec, endSec) {
-        const buffer = this._wavesurfer.getDecodedData();
+        const buffer = appState.get('_wavesurfer').getDecodedData();
         if (!buffer) throw new Error('getDecodedData() null — chưa có dữ liệu audio đã giải mã.');
 
         const sampleRate = buffer.sampleRate;
@@ -919,9 +913,9 @@ const workflowSubtitleEditor = {
      * đúng yêu cầu Giang "modal choice") thay vì dựng modal riêng như Split/Shift (ở đây chỉ cần
      * chọn 1 trong 3 nút, không cần input gì thêm — modalChoice() vừa khớp, không cần viết thêm). */
     _showCutResultModal(blob) {
-        const startStr = secToStr(this._region.start); // core
-        const endStr = secToStr(this._region.end); // core
-        const baseTitle = this._record.tag?.title || this._songKey;
+        const startStr = secToStr(appState.get('_region').start); // core
+        const endStr = secToStr(appState.get('_region').end); // core
+        const baseTitle = appState.get('_record').tag?.title || appState.get('_songKey');
         const fileName = `${baseTitle} [cut ${startStr} - ${endStr}].mp3`.replace(/[:,]/g, '-');
 
         modalChoice( // core/modal-choice.js
@@ -948,18 +942,18 @@ const workflowSubtitleEditor = {
      * chân lý duy nhất, tự quét lại khi index.html mở, bài mới sẽ tự xuất hiện. */
     async _insertCutBlobAsNewSong(blob, fileName) {
         const key = await resolveSongKey(fileName); // service/db.js
-        const baseTitle = this._record.tag?.title || this._songKey;
+        const baseTitle = appState.get('_record').tag?.title || appState.get('_songKey');
         const record = {
             filename: fileName,
             blob,
             tag: {
                 title: tFormat('subtitleEditor.cutMp3.newSongTitle', { title: baseTitle }),
-                artist: this._record.tag?.artist || '',
-                album: this._record.tag?.album || '',
+                artist: appState.get('_record').tag?.artist || '',
+                album: appState.get('_record').tag?.album || '',
             },
-            cover: this._record.cover || null,
+            cover: appState.get('_record').cover || null,
             subtitles: [],
-            duration: this._region.end - this._region.start,
+            duration: appState.get('_region').end - appState.get('_region').start,
             addedAt: Date.now(),
         };
         await setSongRecord(key, record); // service/db.js
@@ -973,10 +967,10 @@ const workflowSubtitleEditor = {
      * nên phải xoá sạch cache, ép dựng lại toàn bộ danh sách. Chặn hẳn nếu đang sửa 1 dòng (2 chế
      * độ loại trừ nhau). */
     toggleShiftSelectionMode() {
-        if (this._editingLineId !== null) return;
-        this._isShiftSelectionMode = !this._isShiftSelectionMode;
-        if (!this._isShiftSelectionMode) this._shiftSelectedIds = new Set();
-        this._lineCardNodesById.clear();
+        if (appState.get('_editingLineId') !== null) return;
+        appState.set('_isShiftSelectionMode', !appState.get('_isShiftSelectionMode'));
+        if (!appState.get('_isShiftSelectionMode')) appState.set('_shiftSelectedIds', new Set());
+        appState.get('_lineCardNodesById').clear();
         this._renderLines();
         this._renderShiftBar();
     },
@@ -985,9 +979,9 @@ const workflowSubtitleEditor = {
      * MỚI (yêu cầu Giang, mục 7) — CHỈ card của ĐÚNG dòng vừa bấm cần dựng lại (đổi ô tròn chọn +
      * nền highlight) — các dòng khác giữ nguyên card cũ. */
     toggleLineSelection(id) {
-        if (this._shiftSelectedIds.has(id)) this._shiftSelectedIds.delete(id);
-        else this._shiftSelectedIds.add(id);
-        this._lineCardNodesById.delete(id);
+        if (appState.get('_shiftSelectedIds').has(id)) appState.get('_shiftSelectedIds').delete(id);
+        else appState.get('_shiftSelectedIds').add(id);
+        appState.get('_lineCardNodesById').delete(id);
         this._renderLines();
         this._renderShiftBar();
     },
@@ -996,9 +990,9 @@ const workflowSubtitleEditor = {
      * #shift-selection-bar) — hiện/ẩn theo `_isShiftSelectionMode`, disable "Tiếp tục" nếu chưa
      * chọn dòng nào (chọn 0 dòng thì không có gì để dịch giờ). */
     _renderShiftBar() {
-        shiftSelectionBarEl.classList.toggle('hidden', !this._isShiftSelectionMode);
-        shiftSelectionCountEl.textContent = tFormat('subtitleEditor.shift.selectedCount', { n: this._shiftSelectedIds.size });
-        const hasSelection = this._shiftSelectedIds.size > 0;
+        shiftSelectionBarEl.classList.toggle('hidden', !appState.get('_isShiftSelectionMode'));
+        shiftSelectionCountEl.textContent = tFormat('subtitleEditor.shift.selectedCount', { n: appState.get('_shiftSelectedIds').size });
+        const hasSelection = appState.get('_shiftSelectedIds').size > 0;
         btnShiftContinue.disabled = !hasSelection;
         btnShiftContinue.classList.toggle('opacity-40', !hasSelection);
     },
@@ -1007,7 +1001,7 @@ const workflowSubtitleEditor = {
      * modalChoice() — cần ô số + 3 lựa chọn không phải dạng "chọn 1 trong N nút đơn thuần"), giữ
      * CÙNG khuôn hình overlay/card như openSplitModal()/openTimePickerModal() cho đồng bộ. */
     openShiftModal() {
-        if (this._shiftSelectedIds.size === 0) return;
+        if (appState.get('_shiftSelectedIds').size === 0) return;
 
         const overlay = document.createElement('div');
         overlay.id = 'shift-modal-overlay';
@@ -1023,7 +1017,7 @@ const workflowSubtitleEditor = {
 
         const descEl = document.createElement('p');
         descEl.className = 'text-sm text-slate-300';
-        descEl.textContent = tFormat('subtitleEditor.shift.modalDesc', { n: this._shiftSelectedIds.size });
+        descEl.textContent = tFormat('subtitleEditor.shift.modalDesc', { n: appState.get('_shiftSelectedIds').size });
         card.appendChild(descEl);
 
         const amountLabel = document.createElement('label');
@@ -1111,10 +1105,10 @@ const workflowSubtitleEditor = {
      * độ chọn dòng (đổi CẤU TRÚC của MỌI card, không riêng các dòng bị dịch giờ) — xoá SẠCH cache
      * (không chỉ riêng các id đã chọn) để render lại đúng, cùng lý do toggleShiftSelectionMode(). */
     _applyShift(amountSec, target) {
-        this._subtitles = shiftSubtitleTimes(this._subtitles, this._shiftSelectedIds, amountSec, target); // core
-        this._isShiftSelectionMode = false;
-        this._shiftSelectedIds = new Set();
-        this._lineCardNodesById.clear();
+        appState.set('_subtitles', shiftSubtitleTimes(appState.get('_subtitles'), appState.get('_shiftSelectedIds'), amountSec, target)); // core
+        appState.set('_isShiftSelectionMode', false);
+        appState.set('_shiftSelectedIds', new Set());
+        appState.get('_lineCardNodesById').clear();
         this._renderLines(); // tự sort lại rồi (xem _renderLines())
         this._renderShiftBar();
     },
@@ -1125,11 +1119,11 @@ const workflowSubtitleEditor = {
      * "rời trang", đúng yêu cầu Giang thêm nút "←" RIÊNG). Cùng fix round-trip blob đã áp dụng ở
      * applySongEditAndSave()/applySubtitlesAndClose() cũ (xem rematerializeBlob(), service/db.js). */
     async saveToDatabase() {
-        const record = await getSongRecord(this._songKey); // service/db.js
+        const record = await getSongRecord(appState.get('_songKey')); // service/db.js
         if (!record) return;
-        record.subtitles = this._subtitles.slice();
+        record.subtitles = appState.get('_subtitles').slice();
         if (record.blob) record.blob = await rematerializeBlob(record.blob); // service/db.js
-        await setSongRecord(this._songKey, record); // service/db.js
+        await setSongRecord(appState.get('_songKey'), record); // service/db.js
         await alertModal(t('subtitleEditor.saved'));
     },
 
@@ -1140,9 +1134,9 @@ const workflowSubtitleEditor = {
      * scrollToSongIfPending() không bao giờ chạy) — `location.href` luôn ép tải trang mới. */
     back() {
         taskManager.kill('subtitleEditorDebugLog'); // dọn tay, dù rời trang cũng huỷ JS context (kill() tự no-op an toàn nếu task không tồn tại/chưa từng chạy)
-        if (this._songKey) {
+        if (appState.get('_songKey')) {
             localStorage.setItem('sav_editingSubtitle', 'true');
-            localStorage.setItem('sav_scrollToSongKey', this._songKey);
+            localStorage.setItem('sav_scrollToSongKey', appState.get('_songKey'));
         }
         window.location.href = 'index.html';
     },

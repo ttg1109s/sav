@@ -336,7 +336,7 @@ const workflowVisualizerRender = {
         clusters.forEach(c => c.dispose(spScene)); // core method — dọn sạch bản đồ CŨ trước khi dựng bản đồ MỚI
         appState.set('spGalaxyClusters', []);
 
-        const cfg = appState.get('vizConfig');
+        const cfg = appConfigViz.getAll();
         const perf = PERFORMANCE_PROFILES[cfg.quality];
         const spGlowTexture = appState.get('spGlowTexture');
         const spNebulaTexture = appState.get('spNebulaTexture');
@@ -373,7 +373,7 @@ const workflowVisualizerRender = {
     _computeTravelWaypoint(originPos, forward) {
         const spGalaxyClusters = appState.get('spGalaxyClusters');
         const mapCenter = appState.get('spMapCenter');
-        const perf = PERFORMANCE_PROFILES[appState.get('vizConfig').quality];
+        const perf = PERFORMANCE_PROFILES[appConfigViz.getAll().quality];
         const maxDist = perf.galaxyMapRadius * SPACE_TARGET_MAX_DIST_RATIO;
 
         let targetPos = findClusterTargetAhead(spGalaxyClusters, originPos, forward, SPACE_TARGET_CONE_COS, maxDist); // core
