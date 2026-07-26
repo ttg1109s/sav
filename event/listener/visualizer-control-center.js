@@ -37,7 +37,7 @@ if (visualizerControlCenter) {
 if (videoEnableToggle) {
     videoEnableToggle.addEventListener('change', (e) => {
         const intendedChecked = e.target.checked;
-        e.target.checked = appState.get('vizConfig').videoBgEnabled; // "controlled toggle"
+        e.target.checked = appConfigViz.getAll().videoBgEnabled; // "controlled toggle"
         eventBus.send({ router: 'visualizerControlCenter', type: intendedChecked ? 'visualizerControlCenter.videoEnable.enable.click' : 'visualizerControlCenter.videoEnable.disable.click', payload: {} });
     });
 }
