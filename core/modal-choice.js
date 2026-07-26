@@ -123,7 +123,8 @@
 
             const overlay = document.createElement('div');
             overlay.id = 'modal-choice-overlay';
-            overlay.className = 'fixed inset-0 z-[130] bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+            overlay.className = 'fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
+            overlay.style.zIndex = String(Z_INDEX.MODAL_CHOICE); // SỬA 25/07/2026 — trước đây hardcode class Tailwind tĩnh `z-[130]`
 
             const card = document.createElement('div');
             card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
