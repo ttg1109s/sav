@@ -21,9 +21,9 @@ const TPL_SETTINGS_PLAYLIST_VIEW = `
             <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="settingsPlaylistBg.sectionTitle">${t('settingsPlaylistBg.sectionTitle')}</h3>
             <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                 <!-- MỚI (ver12 "Song/Video Unification", Batch 1, mục 1) — chọn Nguồn browse cho
-                     Playlist. Đứng ĐẦU section (đổi Nguồn ảnh hưởng cả 2 dòng bên dưới: option list
-                     "Sắp xếp" dựng lại theo Nguồn, xem core/playlist/order.js::renderSongSortMode
-                     Options()/renderVideoSortModeOptions(), gọi từ event/workflow/playlist.js). -->
+                     Playlist. Đứng ĐẦU section. [SỬA — Giang chốt "dùng chung hết" sort mode]
+                     Option list "Sắp xếp" ngay dưới KHÔNG còn bị dựng lại theo Nguồn nữa — tĩnh cố
+                     định, dùng chung cho cả 2 nguồn (xem core/playlist/order.js::sortKeysByMode()). -->
                 <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                     <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.mediaSource.label">${t('settingsPlaylistBg.mediaSource.label')}</span>
                     <select id="setting-playlist-media-source" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
@@ -38,17 +38,18 @@ const TPL_SETTINGS_PLAYLIST_VIEW = `
                         <option value="grid" data-i18n="settingsPlaylistBg.viewMode.grid">${t('settingsPlaylistBg.viewMode.grid')}</option>
                     </select>
                 </div>
-                <!-- 3 <option> dưới đây là bản TĨNH cho Song (KHÔNG đổi gì, giữ nguyên 100% —
-                     nguyên tắc riêng plan-v12-song-video-unification.md). Khi Nguồn = Video, JS ghi
-                     đè innerHTML của #setting-playlist-sort-mode thành 2 option newest/oldest
-                     (renderVideoSortModeOptions()); đổi lại Song thì renderSongSortModeOptions()
-                     dựng lại ĐÚNG 3 option này. -->
+                <!-- [SỬA — Giang chốt "dùng chung hết" 4 kiểu sort cho CẢ Song lẫn Video, KHÔNG
+                     tách theo Nguồn nữa] Option list giờ TĨNH CỐ ĐỊNH — JS KHÔNG còn ghi đè
+                     innerHTML theo activeMediaSource nữa (renderSongSortModeOptions()/
+                     renderVideoSortModeOptions() đã xoá hẳn, core/playlist/order.js). Bỏ hẳn
+                     'default' (giữ nguyên thứ tự thêm) — vô nghĩa khi đã có az/za/newest/oldest. -->
                 <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
                     <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.sortMode.label">${t('settingsPlaylistBg.sortMode.label')}</span>
                     <select id="setting-playlist-sort-mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
-                        <option value="default" data-i18n="settingsPlaylistBg.sortMode.default">${t('settingsPlaylistBg.sortMode.default')}</option>
                         <option value="az" data-i18n="settingsPlaylistBg.sortMode.az">${t('settingsPlaylistBg.sortMode.az')}</option>
                         <option value="za" data-i18n="settingsPlaylistBg.sortMode.za">${t('settingsPlaylistBg.sortMode.za')}</option>
+                        <option value="newest" data-i18n="settingsPlaylistBg.sortMode.newest">${t('settingsPlaylistBg.sortMode.newest')}</option>
+                        <option value="oldest" data-i18n="settingsPlaylistBg.sortMode.oldest">${t('settingsPlaylistBg.sortMode.oldest')}</option>
                     </select>
                 </div>
             </div>
