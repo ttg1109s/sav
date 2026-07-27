@@ -304,6 +304,52 @@
             return validKeys;
         }
 
+        /**
+         * ===================== Ver 12 "Song/Video Unification" — Batch 1 (mục 1, Adapter) =====================
+         * Chuẩn hoá 1 mảng video record (đọc từ store `videos`) thành ĐÚNG shape mà `playlistCache`
+         * đang dùng cho Song — nhờ vậy `recomputeRenderOrder()`/`recomputeDisplayOrder()`/
+         * `songMatchesQuery()`/`core/playlist/render.js` chạy NGUYÊN VẸN, không cần biết gì về
+         * nguồn Video (xem plan-v12-song-video-unification.md mục 1).
+         *
+         * Rule 2 — nhận `videoRecords` qua THAM SỐ (KHÔNG tự gọi `listVideos()` ở đây — hàm đó
+         * sống ở `core/file-manager/video.js`, MỘT file core KHÁC, Rule 3 cấm core gọi core dù có
+         * return value hay không). Nơi gọi (Workflow — `event/workflow/playlist.js::
+         * switchToVideoSource()`) tự `await listVideos()` TRƯỚC rồi truyền kết quả vào đây.
+         *
+         * KHÔNG đụng gì tới `songNameIndex` (khái niệm A-Z riêng của Song — Video dùng sort
+         * newest/oldest theo `addedAt`, xem core/playlist/order.js::sortKeysByMode()) — giữ Set/Map
+         * đó nguyên trạng, đúng nguyên tắc "không gánh thêm điều kiện Video vào chỗ đang phục vụ
+         * riêng Song" của plan.
+         *
+         * Rule 4 ngoại lệ (cùng lý do hot-path 60fps ở core-function-conventions.md — bulk-populate
+         * 1 LƯỢT có thể hàng trăm/nghìn video, log MỖI vòng lặp gây spam console mà không thêm giá
+         * trị truy vết) — chỉ log 1 lần TRƯỚC vòng lặp (clear) + 1 lần SAU vòng lặp (tổng số đã nạp),
+         * không log riêng từng `mutate()` bên trong `for`.
+         *
+         * @param {Array<{key:string, blob:Blob, thumbBlob:Blob, duration:number, filename:string, addedAt:number}>} videoRecords
+         * @returns {string[]} danh sách videoKey hợp lệ (có blob gốc) vừa nạp vào playlistCache, theo ĐÚNG thứ tự videoRecords truyền vào (chưa sort — nơi gọi tự sortKeysByMode() sau).
+         */
+        function buildVideoPlaylistCache(videoRecords) {
+            appState.mutate('playlistCache', m => m.clear());
+            console.log(`writer: "buildVideoPlaylistCache", page: "playlistCache", content: "clear toàn bộ trước khi nạp Video"`);
+
+            const validKeys = [];
+            for (const record of videoRecords) {
+                if (!record.blob) continue; // guard — record hỏng/thiếu blob gốc, bỏ qua (giống isQuickValidMime() của Song)
+                validKeys.push(record.key);
+                appState.mutate('playlistCache', m => m.set(record.key, {
+                    filename: record.filename,
+                    tag: { title: record.filename, artist: '', album: '' }, // Adapter shape, xem docstring hàm
+                    cover: record.thumbBlob ? URL.createObjectURL(record.thumbBlob) : null,
+                    duration: record.duration,
+                    addedAt: record.addedAt,
+                    mediaType: 'video',
+                }));
+            }
+            console.log(`writer: "buildVideoPlaylistCache", page: "playlistCache", content: "đã nạp ${validKeys.length} video"`);
+            return validKeys;
+        }
+
         /** Khởi động app / quét lại: store `songs` là chân lý duy nhất — quét nhanh rồi dựng cả 2 thứ tự. */
         async function initPlaylistFromDB() {
             // PHÒNG THỦ "Clear All bị gián đoạn" (đóng tab/crash giữa lúc đang xoá — xem comment

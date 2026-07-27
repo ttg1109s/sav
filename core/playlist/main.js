@@ -45,9 +45,17 @@
                 viewModeSelect.value = appState.get('isGridView') ? 'grid' : 'list'; // đồng bộ giá trị hiện tại lúc Settings mở ra
             },
 
+            // ---- MỚI (ver12 "Song/Video Unification", Batch 1) — "Nguồn" (Song/Video), select
+            //      trong Settings, cùng khu vực Sắp xếp/Kiểu xem ngay trên. ----
+            initMediaSource() {
+                if (!mediaSourceSelect) return;
+                mediaSourceSelect.value = appState.get('activeMediaSource'); // đồng bộ giá trị hiện tại lúc Settings mở ra
+            },
+
             init() {
                 this.initSortMenu();
                 this.initViewMode();
+                this.initMediaSource();
             }
         };
 

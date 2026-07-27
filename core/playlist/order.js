@@ -18,13 +18,36 @@
             return appState.get('playlistOrder').filter(k => !appState.get('confirmedBrokenKeys').has(k));
         }
 
-        /** So sánh & trả về MẢNG MỚI đã sắp theo displaySortMode. 'default' giữ nguyên thứ tự thêm. */
-        function sortKeysByMode(keys) {
-            if (appState.get('displaySortMode') === 'az' || appState.get('displaySortMode') === 'za') {
+        /**
+         * So sánh & trả về MẢNG MỚI đã sắp theo `mode`. 'default' giữ nguyên thứ tự thêm.
+         *
+         * [SỬA — ver12 "Song/Video Unification", Batch 1] Hàm này bị đụng thật (thêm 2 nhánh
+         * newest/oldest cho Video, mục 2 plan) — theo đúng lưu ý bắt buộc đầu plan, SỬA LUÔN vi
+         * phạm Rule 2 sẵn có (trước đây tự `appState.get('displaySortMode')`/`get('songNameIndex')`
+         * bên trong) thay vì cộng thêm nhánh mới lên nền vi phạm cũ: giờ nhận `mode`/`songNameIndex`/
+         * `playlistCache` qua tham số — nơi gọi (`recomputeRenderOrder()`/`recomputeDisplayOrder()`
+         * ngay dưới, đã LÀ Workflow theo định nghĩa — xem docstring của chúng; và
+         * `event/workflow/playlist.js::playSelectedSongs()`) tự `appState.get()` trước khi gọi.
+         * 'az'/'za' (Song) đọc `songNameIndex` — KHÔNG đổi logic. 'newest'/'oldest' (Video, MỚI) đọc
+         * `addedAt` từ `playlistCache` thay vì `songNameIndex` (Video không có khái niệm tên A-Z).
+         * @param {string[]} keys
+         * @param {string} mode - displaySortMode hiện tại
+         * @param {Map} songNameIndex
+         * @param {Map} playlistCache
+         */
+        function sortKeysByMode(keys, mode, songNameIndex, playlistCache) {
+            if (mode === 'az' || mode === 'za') {
                 return keys.slice().sort((a, b) => {
-                    const nameA = appState.get('songNameIndex').get(a) || ''; const nameB = appState.get('songNameIndex').get(b) || '';
+                    const nameA = songNameIndex.get(a) || ''; const nameB = songNameIndex.get(b) || '';
                     const cmp = nameA.localeCompare(nameB, 'vi');
-                    return appState.get('displaySortMode') === 'az' ? cmp : -cmp;
+                    return mode === 'az' ? cmp : -cmp;
+                });
+            }
+            if (mode === 'newest' || mode === 'oldest') {
+                return keys.slice().sort((a, b) => {
+                    const dateA = (playlistCache.get(a) || {}).addedAt || 0;
+                    const dateB = (playlistCache.get(b) || {}).addedAt || 0;
+                    return mode === 'newest' ? dateB - dateA : dateA - dateB;
                 });
             }
             return keys.slice(); // 'default'
@@ -46,10 +69,13 @@
         function recomputeRenderOrder() {
             const query = appState.get('searchQuery'); // ĐÃ chuẩn hoá sẵn lúc gõ (applySearchQuery(), render.js)
             const cache = appState.get('playlistCache');
+            // MỚI (ver12 Batch1) — sortKeysByMode() giờ nhận tham số (Rule 2), gộp 2 giá trị còn
+            // lại vào 1 lần appState.get([...]) thay vì get() rời rạc.
+            const { displaySortMode: mode, songNameIndex } = appState.get(['displaySortMode', 'songNameIndex']);
             appState.set('renderOrder', sortKeysByMode(liveKeys().filter((key) => {
                 const cached = cache.get(key);
                 return songMatchesQuery(query, cached ? cached.tag.title : key, cached ? cached.tag.artist : '', cached ? cached.tag.album : '');
-            })));
+            }), mode, songNameIndex, cache));
         }
 
         // ===================== (B) HÀNG ĐỢI PHÁT =====================
@@ -64,7 +90,10 @@
          * 4 rule, kể cả phần code cũ không đổi logic).
          */
         function recomputeDisplayOrder() {
-            appState.set('displayOrder', sortKeysByMode(liveKeys()));
+            // MỚI (ver12 Batch1) — sortKeysByMode() giờ nhận tham số (Rule 2), xem comment tại
+            // định nghĩa hàm + recomputeRenderOrder() ngay trên.
+            const { displaySortMode: mode, songNameIndex, playlistCache: cache } = appState.get(['displaySortMode', 'songNameIndex', 'playlistCache']);
+            appState.set('displayOrder', sortKeysByMode(liveKeys(), mode, songNameIndex, cache));
             console.log(`writer: "recomputeDisplayOrder", page: "displayOrder", content: "resort lại theo displaySortMode, về top-level"`);
             appState.mutate('pendingResortKeys', s => s.clear());
             console.log(`writer: "recomputeDisplayOrder", page: "pendingResortKeys", content: "clear toàn bộ"`);
@@ -166,11 +195,44 @@
             }
         }
 
-        /** Đổi kiểu sắp xếp hiển thị (default/az/za) — cập nhật CẢ render lẫn hàng đợi phát rồi vẽ lại. */
+        /** Đổi kiểu sắp xếp hiển thị — cập nhật CẢ render lẫn hàng đợi phát rồi vẽ lại.
+         * default/az/za: Song. newest/oldest: MỚI (ver12 Batch1, mục 2) — Video. */
         function setDisplaySortMode(mode) {
-            if (!['default', 'az', 'za'].includes(mode)) return;
+            if (!['default', 'az', 'za', 'newest', 'oldest'].includes(mode)) return;
             appState.set('displaySortMode', mode);
             recomputeDisplayOrder();   // hàng đợi: resort thật (đổi mode là hành động chủ động)
             recomputeRenderOrder();    // UI: sắp lại ngay
             renderPlaylistDiff();
+        }
+
+        /**
+         * ===================== Ver 12 "Song/Video Unification" — Batch 1 (mục 2) =====================
+         * Dựng lại option list "Sắp xếp" của Song (default/az/za) — Y HỆT 3 <option> tĩnh gốc ở
+         * components/settings/playlist-view.js. CHỈ cần gọi khi ĐANG đứng ở option list Video (đổi
+         * Nguồn VỀ LẠI Song) — dựng lại về đúng bản gốc. Rule 2: nhận `mode` qua tham số (không tự
+         * appState.get()) — nơi gọi (event/workflow/playlist.js::switchToSongSource()) tự biết mode
+         * vừa đặt. Rule 5c: KHÔNG cần hậu tố `-ui.js` — chỉ ghi `innerHTML` lên <select> TĨNH có sẵn
+         * từ core/dom-refs.js, không tự `createElement` cụm DOM mới nào.
+         * @param {string} mode - 'default'|'az'|'za', giá trị cần chọn sẵn sau khi dựng lại option.
+         */
+        function renderSongSortModeOptions(mode) {
+            if (!sortSelect) return;
+            sortSelect.innerHTML = `
+                <option value="default">${t('settingsPlaylistBg.sortMode.default')}</option>
+                <option value="az">${t('settingsPlaylistBg.sortMode.az')}</option>
+                <option value="za">${t('settingsPlaylistBg.sortMode.za')}</option>
+            `;
+            sortSelect.value = mode;
+        }
+
+        /** Dựng option list "Sắp xếp" của Video (newest/oldest, mục 2) — thay hẳn 3 option Song khi
+         * đổi Nguồn sang Video. Cùng quy ước Rule 2/5c như renderSongSortModeOptions() ở trên.
+         * @param {string} mode - 'newest'|'oldest'. */
+        function renderVideoSortModeOptions(mode) {
+            if (!sortSelect) return;
+            sortSelect.innerHTML = `
+                <option value="newest">${t('settingsPlaylistBg.sortMode.newest')}</option>
+                <option value="oldest">${t('settingsPlaylistBg.sortMode.oldest')}</option>
+            `;
+            sortSelect.value = mode;
         }
