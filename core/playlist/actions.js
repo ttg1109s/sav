@@ -130,10 +130,12 @@
                 // mà checkbox cũ từng có (xem event/block.js). ĐẶT dispatch ở NGAY guard clause
                 // này (không phải ở từng nơi gọi window.playSong()) vì đây là điểm DUY NHẤT chắc
                 // chắn chặn được MỌI đường vào video: click 1 video trong Playlist, "Phát tất
-                // cả"/"Trộn bài"/resume lúc activeMediaSource='video' đều đi qua window.playSong()
-                // — riêng Next/Prev vật lý lúc ĐàNG ở Video Player mode đã tự tách nhánh sang
-                // workflowVideoPlayer.nextVideo()/prevVideo() từ trước (event/router/player-
-                // controls.js, VMState theo isVideoPlayerMode), không chạm dòng này.
+                // cả"/"Trộn bài"/resume lúc activeMediaSource='video', VÀ (Giang chốt tiếp: "video
+                // thừa hưởng cơ chế Playlist, không tạo cơ chế next/prev riêng") CẢ Next/Prev vật
+                // lý/cử chỉ vuốt (playNext()/playPrev(), core/player-controls.js, DÙNG CHUNG với
+                // Song) đều đi qua ĐÚNG dòng này mỗi lần chuyển bài — router 'videoPlayer' (event/
+                // router/video-player.js) tự phân biệt "đã ở mode, chỉ đổi video" hay "vào mode lần
+                // đầu" bằng VirtualMachineState theo isVideoPlayerMode.
                 eventBus.send({ router: 'videoPlayer', type: 'videoPlayer.startFromPlaylist.click', payload: { key } });
                 return;
             }
