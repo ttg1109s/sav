@@ -76,13 +76,19 @@ eventBus.registerBlock('playlist.actionMenu.addToFolder', [
 // MỚI (21/07/2026, Giang chỉ ra "Block đã có sẵn notify, sao phải tự viết alertModal") — 2 tính
 // năng dùng CHUNG `bgVideoElement`, KHÔNG được cùng bật.
 // [SỬA — ver12 "Song/Video Unification", Batch 2] Chiều "bật Video Player mode chặn bởi Video nền"
-// TỪNG đăng ký ở đây qua msg.type 'fileManagerVideo.playerModeToggle.enable.click' (checkbox trong
-// panel File Manager -> Video) — checkbox đó ĐÃ BỎ HẲN (xem plan-v12-song-video-unification.md mục
-// 3 + cleanup Batch 2), msg.type không còn tồn tại nên XOÁ rule tương ứng. Entry point MỚI vào Video
-// Player mode (`window.playSong()` dispatch theo mediaType, core/playlist/actions.js) KHÔNG đi qua
-// eventBus (gọi thẳng workflowVideoPlayer.startFromPlaylist() trong 1 hàm core) nên KHÔNG có msg.type
-// nào để đăng ký Block gate nữa — Giang cân nhắc có cần thêm guard tương đương ở tầng khác không
-// (CHƯA làm trong batch này, xem note cuối phiên).
+// TỪNG đăng ký ở msg.type 'fileManagerVideo.playerModeToggle.enable.click' (checkbox trong panel
+// File Manager -> Video, ĐÃ BỎ HẲN — xem plan-v12-song-video-unification.md mục 3 + cleanup Batch
+// 2). Entry point MỚI vào Video Player mode (`window.playSong()` dispatch theo `mediaType`,
+// core/playlist/actions.js) tự `eventBus.send()` đúng msg.type dưới đây (xem event/router/
+// video-player.js) — CHÍNH VÌ VẬY khôi phục lại được rule Block gate này (Giang chốt: "chọn Video
+// thì cũng phải kiểm tra block gate mới được cho chọn"), chỉ đổi msg.type + key i18n, điều kiện và
+// hành vi giữ NGUYÊN 100% so với chiều cũ.
+eventBus.registerBlock('videoPlayer.startFromPlaylist.click', [
+    [
+        { field: 'vizConfig.videoBgEnabled', operator: '===', value: true },
+    ],
+], { notify: t('videoPlayer.startFromPlaylist.blockedByBgVideo') });
+
 // Chiều CÒN LẠI (chặn bật Video nền khi Video Player mode đang chạy) GIỮ NGUYÊN, không đổi gì — vẫn
 // đúng bất kể Video Player mode được vào bằng cách nào.
 eventBus.registerBlock('visualizerControlCenter.videoEnable.enable.click', [
