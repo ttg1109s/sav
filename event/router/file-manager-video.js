@@ -74,20 +74,11 @@ const routerFileManagerVideo = (() => {
                 break;
             }
 
-            // MỚI (21/07/2026, Giang yêu cầu "toggle Video Player chuyển vào Video UI") — checkbox
-            // trong panel (components/file-manager.js::renderFileManagerVideoPanelBody()).
-            // SỬA (cùng ngày) — TÁCH 2 msg.type riêng (KHÔNG còn 1 msg.type '.change' + payload
-            // checked) — Block gate (event/block.js) đăng ký chặn NGAY tại msg.type
-            // 'playerModeToggle.enable.click' (điều kiện: vizConfig.videoBgEnabled===true), Router
-            // KHÔNG cần tự if/else kiểm tra nữa.
-            case 'fileManagerVideo.playerModeToggle.enable.click': {
-                workflowFileManagerVideo.enablePlayerModeFromPanel();
-                break;
-            }
-            case 'fileManagerVideo.playerModeToggle.disable.click': {
-                workflowFileManagerVideo.disablePlayerModeFromPanel();
-                break;
-            }
+            // [SỬA — ver12 "Song/Video Unification", Batch 2] 2 case dispatch checkbox "Video
+            // Player mode" (msg.type 'fileManagerVideo.playerModeToggle.enable/disable.click') ĐÃ
+            // XOÁ — checkbox trong panel (components/file-manager.js) đã bỏ hẳn, không còn ai gửi
+            // 2 msg.type này nữa. Entry point mới xem event/workflow/video-player.js::
+            // startFromPlaylist(), gọi thẳng từ core/playlist/actions.js::window.playSong().
 
             // ===================== Chế độ xoá nhanh — 3 nhánh loại trừ nhau, cùng khuôn Photo =====
             case 'fileManagerVideo.deleteMode.click': {
