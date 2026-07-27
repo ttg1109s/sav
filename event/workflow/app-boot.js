@@ -2,10 +2,13 @@
  * event/workflow/app-boot.js — MỚI (25/07/2026, đợt tái cấu trúc state, mục "app-boot đi qua
  * eventBus"). Chuỗi ~15 bước boot dời NGUYÊN VẸN từ event/router/app-boot.js bản cũ (vốn dời từ
  * core/visualizer/draw-visualizer.js, 20/07/2026, plan-space-galaxy.md Phần A) — KHÔNG đổi thứ tự/
- * logic bên trong, CHỈ thêm `seedConfig()` (MỚI — seed 3 domain AppConfig, xem core/config.js)
- * NGAY ĐẦU (TRƯỚC `loadConfig()`, đúng thứ tự cũ vốn có ở service/state.js) + đổi
- * `appState.get/mutate('vizConfig', ...)` sang `appConfigViz.getAll()/.mutateAll()` (cầu nối
- * tương thích AppConfig, xem service/state.js).
+ * logic bên trong, chỉ đổi `appState.get/mutate('vizConfig', ...)` sang
+ * `appConfigViz.getAll()/.mutateAll()` (cầu nối tương thích AppConfig, xem service/state.js).
+ * [SỬA 27/07/2026] `seedConfig()` — trước đây gọi NGAY ĐẦU boot() ở đây — giờ dời hẳn sang
+ * core/config.js (chạy ngay lúc nạp script, TRƯỚC khi accessor appConfigViz/... được tạo, xem
+ * comment tại đó, lý do: xoá warning "chưa seed()" bắn lúc boot). boot() KHÔNG còn gọi
+ * seedConfig() nữa — `loadConfig()` (dòng đầu tiên bên dưới) vẫn chạy SAU seed như cũ, chỉ khác
+ * là seed đã xảy ra từ rất sớm (lúc nạp script), không còn ở đây nữa.
  *
  * File này (kế thừa quy chế miễn audit của draw-visualizer.js/event/router/app-boot.js cũ, xem
  * readme/core-legacy-audit.md) — thêm dòng mới vào đây KHÔNG phát sinh nghĩa vụ refactor cho
@@ -13,7 +16,6 @@
  */
 const workflowAppBoot = {
     async boot() {
-        seedConfig();
         await loadConfig();
         // Resolve `meta.visualBgImage` (Blob thật, ghi bởi "Đặt làm nền Visual" —
         // event/workflow/file-manager-photo.js) NGAY SAU loadConfig(). "Đặt làm nền Playlist"
