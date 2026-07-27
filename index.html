@@ -866,11 +866,17 @@
          'audio.ended' gọi thẳng workflowVideoPlayer khi isVideoPlayerMode=true). CẦN
          core/video-player.js + core/file-manager/video.js (listVideos/sortVideosByAddedDateDesc,
          đã nạp ở nhóm CORE) + core/state-and-video-bg.js (handleVideoBackground, đã nạp từ đầu). -->
-    <!-- SỬA (21/07/2026, cùng ngày) — event/router/video-player.js ĐÃ XOÁ (file, xoá tay khỏi
-         repo) — router đó CHỈ có 1 case 'videoPlayer.toggle.click' cho nút header đã dời sang
-         checkbox trong panel File Manager -> Video (event/router/file-manager-video.js, case MỚI
-         'playerModeToggle.change') — không còn ai gửi message tới router 'videoPlayer' nữa. -->
+    <!-- [SỬA — ver12 "Song/Video Unification", Batch 2] event/router/video-player.js TỪNG bị gỡ
+         dòng <script> này (21/07/2026 — lúc đó router chỉ có 1 case 'videoPlayer.toggle.click'
+         cho 1 nút header đã dời sang checkbox File Manager -> Video, hết người gửi message) —
+         FILE VẬT LÝ vẫn còn nguyên trong repo (chưa từng bị xoá tay thật, chỉ mỗi dòng <script>
+         bị gỡ, comment cũ ghi "đã xoá" là KHÔNG chính xác). Router này giờ có lại ĐÚNG 1 caller
+         MỚI (`window.playSong()` dispatch theo mediaType khi click video trong Playlist, core/
+         playlist/actions.js — cần đi qua eventBus để Block gate kịp chặn khoá chéo với Video nền,
+         xem event/block.js) — NẠP LẠI dòng <script>, PHẢI nạp SAU event/workflow/video-player.js
+         (cần workflowVideoPlayer.startFromPlaylist() đã tồn tại) NGAY TRÊN. -->
     <script src="event/workflow/video-player.js?v=20260721v2"></script>
+    <script src="event/router/video-player.js?v=20260727v1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <script src="event/workflow/player-controls.js?v=20260708v4"></script>
     <script src="event/router/player-controls.js?v=20260708v2"></script>
