@@ -42,11 +42,20 @@
             renderPanel();
         }
         window.addEventListener('error', function (e) {
+            // Lỗi tải resource thất bại (404/network cho <script src>/<img>...) KHÔNG có e.error/
+            // e.message như lỗi JS thường — nhận diện qua e.target là 1 Element (không phải
+            // window/ErrorEvent thường), tách xử lý riêng để báo rõ URL nào tải lỗi.
+            if (e.target && e.target !== window && e.target.nodeType === 1) {
+                var tag = e.target.tagName;
+                var src = e.target.src || e.target.href || '(không rõ URL)';
+                addError('resource-load-failed', tag + ' tải lỗi (404/network)', src);
+                return;
+            }
             var context = (e.filename || 'script') + ':' + (e.lineno || '?') + ':' + (e.colno || '?');
             var err = e.error;
             var detail = err ? ((err.stack || err.message || String(err))) : (e.message || 'unknown error');
             addError('error', context, detail);
-        });
+        }, true); // capture:true — BẮT BUỘC để nhận được lỗi tải resource (không bubble lên window)
         window.addEventListener('unhandledrejection', function (e) {
             var reason = e.reason;
             var detail = reason ? ((reason.stack || reason.message || String(reason))) : String(reason);
@@ -55,12 +64,40 @@
         // Kiểm tra sau 3 giây: nếu #app-root vẫn rỗng (main.js chưa/không chạy được) hoặc thiếu 1
         // vài phần tử TĨNH quan trọng (loading-shield, playlist-container...) -> báo luôn, kể cả
         // KHÔNG có error/unhandledrejection nào bắn ra (trường hợp lỗi bị nuốt ở đâu đó).
+        function safeTypeofCheck(name, getter) {
+            try {
+                return getter() === 'undefined' ? name : null;
+            } catch (e) {
+                return name + ' (lỗi khi kiểm tra: ' + e.message + ')';
+            }
+        }
         setTimeout(function () {
             var appRoot = document.getElementById('app-root');
             var missing = [];
             if (!appRoot || !appRoot.innerHTML.trim()) missing.push('#app-root RỖNG — main.js (mountComponents) không chạy được hoặc TPL_* nào đó undefined.');
             if (!document.getElementById('loading-shield')) missing.push('#loading-shield không tồn tại trong DOM.');
             if (!document.getElementById('playlist-container')) missing.push('#playlist-container không tồn tại trong DOM.');
+            // Viết TƯỜNG MINH từng biến (không dùng eval động) — typeof không bao giờ throw kể cả
+            // identifier chưa từng khai báo, an toàn tuyệt đối trên mọi trình duyệt/WebKit.
+            var undefinedTpls = [];
+            var c;
+            c = safeTypeofCheck('TPL_LOADING_SHIELD', function () { return typeof TPL_LOADING_SHIELD; }); if (c) undefinedTpls.push(c);
+            c = safeTypeofCheck('TPL_APP_VIEW_STACK_OPEN', function () { return typeof TPL_APP_VIEW_STACK_OPEN; }); if (c) undefinedTpls.push(c);
+            c = safeTypeofCheck('TPL_PLAYLIST_VIEW', function () { return typeof TPL_PLAYLIST_VIEW; }); if (c) undefinedTpls.push(c);
+            c = safeTypeofCheck('TPL_SETTINGS_DRAWER', function () { return typeof TPL_SETTINGS_DRAWER; }); if (c) undefinedTpls.push(c);
+            c = safeTypeofCheck('TPL_APP_VIEW_STACK_CLOSE', function () { return typeof TPL_APP_VIEW_STACK_CLOSE; }); if (c) undefinedTpls.push(c);
+            c = safeTypeofCheck('TPL_VISUALIZER_OVERLAY', function () { return typeof TPL_VISUALIZER_OVERLAY; }); if (c) undefinedTpls.push(c);
+            c = safeTypeofCheck('TPL_BOTTOM_PLAYER', function () { return typeof TPL_BOTTOM_PLAYER; }); if (c) undefinedTpls.push(c);
+            c = safeTypeofCheck('TPL_GENERIC_DRAWER', function () { return typeof TPL_GENERIC_DRAWER; }); if (c) undefinedTpls.push(c);
+            c = safeTypeofCheck('TPL_SETTINGS_PLAYLIST_VIEW', function () { return typeof TPL_SETTINGS_PLAYLIST_VIEW; }); if (c) undefinedTpls.push(c);
+            c = safeTypeofCheck('TPL_SETTINGS_THEME', function () { return typeof TPL_SETTINGS_THEME; }); if (c) undefinedTpls.push(c);
+            c = safeTypeofCheck('TPL_SETTINGS_VISUALIZER', function () { return typeof TPL_SETTINGS_VISUALIZER; }); if (c) undefinedTpls.push(c);
+            c = safeTypeofCheck('TPL_SETTINGS_AUDIO_EQ', function () { return typeof TPL_SETTINGS_AUDIO_EQ; }); if (c) undefinedTpls.push(c);
+            c = safeTypeofCheck('TPL_SETTINGS_SUBTITLE_STYLE', function () { return typeof TPL_SETTINGS_SUBTITLE_STYLE; }); if (c) undefinedTpls.push(c);
+            c = safeTypeofCheck('TPL_SETTINGS_FILE_MANAGER', function () { return typeof TPL_SETTINGS_FILE_MANAGER; }); if (c) undefinedTpls.push(c);
+            c = safeTypeofCheck('TPL_SETTINGS_LANGUAGE', function () { return typeof TPL_SETTINGS_LANGUAGE; }); if (c) undefinedTpls.push(c);
+            c = safeTypeofCheck('TPL_SETTINGS_MISC', function () { return typeof TPL_SETTINGS_MISC; }); if (c) undefinedTpls.push(c);
+            if (undefinedTpls.length > 0) missing.push('Các biến TPL_ chưa được định nghĩa (file tương ứng chưa chạy/chạy lỗi):\n  - ' + undefinedTpls.join('\n  - '));
             if (missing.length > 0) {
                 addError('diagnostic', 'Sau 3s vẫn thiếu phần tử quan trọng', missing.join('\n'));
             } else if (errors.length === 0) {
