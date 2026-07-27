@@ -16,13 +16,19 @@
  */
 
 /**
- * Rule 1: đơn tuyến — reset playlistOrder về TOÀN BỘ bài đang có trong playlistCache (bỏ scope).
- * Rule 2: nhận playlistCache qua tham số, KHÔNG tự appState.get().
+ * Rule 1: đơn tuyến — reset playlistOrder về TOÀN BỘ bài đang có trong playlistCache (bỏ scope),
+ * TRỪ những bài đang bị Exclude (mục 5, Batch 4 — xem core/file-manager/folder.js::
+ * getExcludedSongKeysFromFolders()). Guard clause thuần: lọc bỏ key nằm trong excludedKeys không
+ * phải "rẽ nhánh tiến trình khác" — bỏ điều kiện đó đi, hàm vẫn còn NGUYÊN đúng 1 kịch bản duy
+ * nhất ("nạp toàn bộ playlistCache vào playlistOrder"), chỉ mất phần lọc.
+ * Rule 2: nhận playlistCache/excludedKeys qua tham số, KHÔNG tự appState.get().
  * @param {Map} playlistCache
+ * @param {Set<string>} excludedKeys
  */
-function loadAllSongs(playlistCache) {
-    appState.set('playlistOrder', Array.from(playlistCache.keys()));
-    console.log(`writer: "loadAllSongs", page: "playlistOrder", content: "toàn bộ ${playlistCache.size} bài (không scope)"`);
+function loadAllSongs(playlistCache, excludedKeys) {
+    const keys = Array.from(playlistCache.keys()).filter((k) => !excludedKeys.has(k));
+    appState.set('playlistOrder', keys);
+    console.log(`writer: "loadAllSongs", page: "playlistOrder", content: "${keys.length} bài (không scope, đã loại ${excludedKeys.size} bài exclude)"`);
 }
 
 /**
