@@ -11,9 +11,7 @@
 const LANG_PATCH_VISUALIZER = {
     'visualizerOverlay.btnBackPlaylist.title': 'Back to list',
     'visualizerOverlay.btnControlCenter.title': 'Quick controls',
-    'videoPlayer.empty': 'No videos yet. Add some in File Manager -> Video first.',
     'videoPlayer.untitled': 'Untitled video',
-    'videoPlayer.nowPlayingLabel': 'Video Player',
     'visualizerOverlay.cycleMode.title': 'Change effect',
     'visualizerOverlay.cycleMode.label': 'Effect',
     'visualizerOverlay.subtitle.title': 'Subtitles',
