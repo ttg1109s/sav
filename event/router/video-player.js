@@ -12,9 +12,18 @@
  * `core/playlist/actions.js::window.playSong()`) — TÁI DÙNG ĐÚNG router 'videoPlayer' có sẵn (tên
  * đã khớp đúng miền, không cần router mới) + Block gate mới (event/block.js) cho msg.type này.
  *
- * Nút Next/Prev/Play/Pause vật lý KHÔNG qua router này (xem event/router/player-controls.js —
- * VirtualMachineState branch theo `isVideoPlayerMode` ngay tại router đó, gọi thẳng
- * `workflowVideoPlayer`).
+ * [SỬA — cùng Batch 2, Giang chốt "video thừa hưởng cơ chế Playlist, không tạo cơ chế next/prev
+ * riêng"] `playNext()`/`playPrev()` (core/player-controls.js) giờ DÙNG CHUNG cho Video — nghĩa là
+ * MỖI LẦN chuyển bài (kể cả đang ở GIỮA session Video Player mode) đều đi qua `window.playSong()`
+ * -> gửi LẠI ĐÚNG msg.type này. VirtualMachineState bên dưới phân biệt 2 tình huống LOẠI TRỪ NHAU:
+ * đã ở Video Player mode từ trước (chỉ cần đổi video, KHÔNG lặp lại toàn bộ bước "vào mode" —
+ * pause Song cũ/nền đen/switchToVisualizer() một lần nữa là thừa/giật màn hình) HAY chưa (vào mode
+ * đầy đủ lần đầu, xem `startFromPlaylist()`).
+ *
+ * Nút Next/Prev vật lý (`playerControls.next/prev.click`) KHÔNG còn qua router này (đã bỏ branch
+ * theo `isVideoPlayerMode`, LUÔN gọi `playNext()`/`playPrev()` — xem event/router/player-controls.js).
+ * Play/Pause vật lý vẫn qua router "playerControls" riêng (khác biệt DUY NHẤT còn lại là element
+ * nào đang phát, không phải "danh sách phát tiếp theo").
  *
  * NẠP SAU: event/bus.js, event/workflow/video-player.js.
  */
@@ -23,7 +32,14 @@ const routerVideoPlayer = (() => {
         switch (msg.type) {
             case 'videoPlayer.startFromPlaylist.click': {
                 const { key } = msg.payload;
-                workflowVideoPlayer.startFromPlaylist(key); // >1 hàm core nối tiếp (đọc DB + mutate state + điều khiển nhiều element) -> workflow
+                VirtualMachineState.run([
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
+                        workflowVideoPlayer.playVideoByKey(key); // đã ở Video Player mode (vd Next/Prev/shuffle vừa gọi lại msg này) -> CHỈ đổi video, KHÔNG lặp lại bước "vào mode"
+                    } },
+                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
+                        workflowVideoPlayer.startFromPlaylist(key); // CHƯA ở mode -> vào mode đầy đủ (>1 hàm core nối tiếp: đọc DB + mutate state + điều khiển nhiều element) -> workflow
+                    } },
+                ]);
                 break;
             }
 

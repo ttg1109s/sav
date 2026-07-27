@@ -16,11 +16,15 @@
  * video nền + reset ngăn xếp panel con + cuộn) -> giao Workflow — xem
  * workflowPlayerControls.closeSettingsDrawer().
  *
- * MỚI (21/07/2026, mục 4 — Video Player mode, xem event/workflow/video-player.js) — 4 case
- * 'playPause.click'/'next.click'/'prev.click'/'backToPlaylist.click' ĐỌC
+ * MỚI (21/07/2026, mục 4 — Video Player mode, xem event/workflow/video-player.js) — 2 case
+ * 'playPause.click'/'backToPlaylist.click' ĐỌC
  * `appState.get('isVideoPlayerMode')` + VirtualMachineState 2 nhánh loại trừ nhau: true -> giao
  * `workflowVideoPlayer` (video đang "làm bài hát"); false -> gọi THẲNG core cũ y hệt trước đây,
  * KHÔNG đổi hành vi gốc dù chỉ 1 dòng.
+ * [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt: "video thừa hưởng cơ chế Playlist,
+ * không tạo cơ chế next/prev riêng"] 'next.click'/'prev.click' KHÔNG còn branch ở đây nữa — LUÔN
+ * gọi `playNext()`/`playPrev()` (core/player-controls.js) bất kể `isVideoPlayerMode`, xem case
+ * tương ứng bên dưới + docstring `event/workflow/video-player.js`.
  *
  * VIẾT LẠI LẦN 2 (21/07/2026, cùng ngày — Giang phát hiện qua video test: `audioPlayer` không thực
  * sự chạy khi nhận blob video làm src trên 1 số trình duyệt/thiết bị, dù `bgVideoElement` vẫn phát
@@ -92,28 +96,19 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.next.click': {
-                // MỚI (21/07/2026, mục 4 — Video Player mode), cùng khuôn 'playPause.click' ở trên.
-                VirtualMachineState.run([
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
-                        workflowVideoPlayer.nextVideo(); // >1 hàm core (đọc DB + đổi src 2 element) -> workflow
-                    } },
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
-                        playNext(true); // hàm core có sẵn, force=true giữ đúng hành vi gốc của nút Next
-                    } },
-                ]);
+                // [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt: "video thừa hưởng
+                // cơ chế Playlist, không tạo cơ chế next/prev riêng"] KHÔNG còn VirtualMachineState
+                // branch theo isVideoPlayerMode nữa — LUÔN gọi playNext() (core có sẵn, DÙNG CHUNG
+                // với Song, đọc displayOrder/shuffleIndices/currentKey — đã đúng cho Video từ Batch
+                // 1/2) rồi tự window.playSong() dispatch đúng mediaType. workflowVideoPlayer.
+                // nextVideo() (mảng videoPlaylist riêng) ĐÃ XOÁ HẲN, xem event/workflow/video-player.js.
+                playNext(true); // hàm core có sẵn, force=true giữ đúng hành vi gốc của nút Next
                 break;
             }
 
             case 'playerControls.prev.click': {
-                // MỚI (21/07/2026, mục 4 — Video Player mode), cùng khuôn 'next.click' ở trên.
-                VirtualMachineState.run([
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
-                        workflowVideoPlayer.prevVideo();
-                    } },
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
-                        playPrev();
-                    } },
-                ]);
+                // Cùng lý do 'next.click' ngay trên.
+                playPrev();
                 break;
             }
 
