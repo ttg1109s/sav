@@ -128,10 +128,19 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsPlaylistBg.viewMode.label': 'View',
     'settingsPlaylistBg.viewMode.list': 'List',
     'settingsPlaylistBg.viewMode.grid': 'Grid',
+    // MỚI (ver12 "Song/Video Unification", Batch 1) — select "Nguồn" (Song/Video).
+    'settingsPlaylistBg.mediaSource.label': 'Source',
+    'settingsPlaylistBg.mediaSource.song': 'Song',
+    'settingsPlaylistBg.mediaSource.video': 'Video',
     'settingsPlaylistBg.sortMode.label': 'Sort',
     'settingsPlaylistBg.sortMode.default': 'Default (recently added)',
     'settingsPlaylistBg.sortMode.az': 'Name A → Z',
     'settingsPlaylistBg.sortMode.za': 'Name Z → A',
+    // MỚI (ver12 "Song/Video Unification", Batch 1) — 2 sort mode RIÊNG của Video (mục 2), dựng
+    // qua renderVideoSortModeOptions() (core/playlist/order.js), thay hẳn 3 option Song ở trên khi
+    // Nguồn = Video.
+    'settingsPlaylistBg.sortMode.newest': 'Newest first',
+    'settingsPlaylistBg.sortMode.oldest': 'Oldest first',
     'settingsPlaylistBg.videoEnable.label': 'Use Video Background',
     'settingsPlaylistBg.videoEnable.hint': 'Toggle on to pick a video; toggle off just hides it (kept for next time)',
     'settingsPlaylistBg.videoEnable.blockedByPlayerMode': 'Turn off Video Player mode first (File Manager -> Video) before using a background video.',
