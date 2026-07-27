@@ -167,6 +167,13 @@ if (viewModeSelect) {
     });
 }
 
+// MỚI (ver12 "Song/Video Unification", Batch 1) — select "Nguồn" (Song/Video).
+if (mediaSourceSelect) {
+    mediaSourceSelect.addEventListener('change', (e) => {
+        eventBus.send({ router: 'playlist', type: 'playlist.mediaSource.change', payload: { source: e.target.value } });
+    });
+}
+
 if (playlistSearchInput) {
     playlistSearchInput.addEventListener('input', (e) => {
         eventBus.send({ router: 'playlist', type: 'playlist.search.input', payload: { value: e.target.value } });
