@@ -390,5 +390,8 @@
         // trong core/playlist/main.js — vi phạm quy ước CHUNG của project. Gom về đúng 1 chỗ.
         const sortSelect = document.getElementById('setting-playlist-sort-mode');
         const viewModeSelect = document.getElementById('setting-playlist-view-mode');
+        // MỚI (ver12 "Song/Video Unification", Batch 1) — select "Nguồn" (Song/Video), xem
+        // components/settings/playlist-view.js.
+        const mediaSourceSelect = document.getElementById('setting-playlist-media-source');
         const playlistSearchInput = document.getElementById('playlist-search-input');
         const playlistSearchClear = document.getElementById('playlist-search-clear');
