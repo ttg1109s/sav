@@ -112,6 +112,25 @@
          * @param {{switchScreen?: boolean}} [options]
          */
         window.playSong = function(key, options) {
+            // ===================== Ver 12 "Song/Video Unification" — Batch 2 (mục 3) =====================
+            // Guard clause ĐẦU hàm — hàm "phát nhạc hợp nhất" giờ đọc `cached.mediaType` (chuẩn hoá
+            // bởi buildVideoPlaylistCache(), Batch 1) để quyết định delegate hẳn sang Video Player
+            // mode hay tiếp tục luồng Song gốc bên dưới. Rule 1: đây là guard clause thuần — bỏ 2
+            // khối if này đi, phần còn lại của hàm vẫn giữ NGUYÊN 100% ĐÚNG 1 kịch bản (phát Song),
+            // không đổi bất kỳ dòng nào — đúng nguyên tắc riêng của plan "KHÔNG sửa/động code đang
+            // phục vụ RIÊNG cho Song".
+            const cachedForDispatch = appState.get('playlistCache').get(key);
+            if (cachedForDispatch && cachedForDispatch.mediaType === 'video') {
+                workflowVideoPlayer.startFromPlaylist(key); // event/workflow/video-player.js (MỚI, Batch 2) — Workflow gọi Workflow, tự do (event-bus-flow.md mục 4B)
+                return;
+            }
+            if (appState.get('isVideoPlayerMode')) {
+                // Đang ở Video Player mode nhưng vừa chọn phát 1 Song -> dọn sạch bgVideoElement/
+                // state Video Player TRƯỚC (exitVideoPlayerMode() không await được gì bên trong —
+                // an toàn gọi không chờ), rồi mới tiếp tục luồng Song y hệt bên dưới.
+                workflowVideoPlayer.exitVideoPlayerMode(); // event/workflow/video-player.js
+            }
+
             const switchScreen = !options || options.switchScreen !== false;
             if (key === appState.get('currentKey')) { if (switchScreen) switchToVisualizer(); if (audioPlayer.paused) audioPlayer.play(); return; }
             requestWakeLock();
