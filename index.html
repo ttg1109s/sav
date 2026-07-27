@@ -546,6 +546,15 @@
          CẦN core/dom-refs.js (đã nạp ở block DOM refs phía trên) + lang/lang.js (t()). -->
     <script src="core/file-manager/video.js?v=20260721v1"></script>
     <script src="core/file-manager/video-ui.js?v=20260721v1"></script>
+    <!-- ================================ TẠM THỜI — XOÁ Ở BATCH KẾ TIẾP ================================
+         MỚI (27/07/2026, ver12 "Song/Video Unification", Batch 3) — tự chạy 1 lần regen thumbnail
+         320x320 cho video CŨ (đã tự đánh dấu qua meta store, các lần boot sau tự bỏ qua ngay,
+         KHÔNG quét lại). CẦN service/db.js (đã nạp ở trên) + core/modal-choice.js (alertModal, đã
+         nạp ở trên, dòng 420) — chỉ dùng lúc THẬT SỰ chạy xong lần đầu.
+         SAU KHI XÁC NHẬN ĐÃ CHẠY XONG TỐT (xem alert/console lúc app mở) — XOÁ dòng <script> này +
+         file tools/migrate-video-thumbs-320.js, xem comment đầu file đó. -->
+    <script src="tools/migrate-video-thumbs-320.js?v=20260727v1"></script>
+    <!-- ================================ HẾT PHẦN TẠM THỜI ================================ -->
     <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer (core UI thuần), CẦN
          core/dom-refs.js (đã nạp ngay trên: genericDrawerOverlay/Panel/Header/Body). Đặt cạnh
          nhóm Documents cho dễ đọc dù bản thân KHÔNG phụ thuộc gì từ document.js/document-ui.js. -->
