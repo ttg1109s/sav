@@ -24,10 +24,11 @@
 let fileManagerVideoPanelEl = null; // panel Video đang mở — null nếu đang đóng (cùng khuôn fileManagerPhotoPanelEl)
 let _videoPickerSession = null; // MỚI (Batch 2) — session picker Generic Drawer (chọn 1 video làm nền), cùng khuôn _imagePickerSession (file-manager-photo.js)
 
-// Hệ số resize khung hình chụp làm thumbnail — CÙNG GIÁ TRỊ THUMBNAIL_SCALE_RATIO (file-manager-
-// photo.js) để nhất quán độ nặng dữ liệu giữa 2 module Ảnh/Video, viết riêng biến (Rule 3: mỗi
-// domain module tự chứa, không tham chiếu chéo file khác qua biến module-level).
-const VIDEO_THUMBNAIL_SCALE_RATIO = 0.2;
+/** MỚI (ver12 "Song/Video Unification", Batch 3, mục 4 plan) — cạnh thumbnail vuông cố định, THAY
+ * hẳn `VIDEO_THUMBNAIL_SCALE_RATIO` cũ (resize theo tỉ lệ gốc, không vuông — không đồng nhất với
+ * cover Song/thumbnail Photo, đều vuông). CHỈ áp dụng cho video upload MỚI từ đây trở đi (video cũ
+ * xem migration 1 lần riêng: tools/migrate-video-thumbs-320.js). */
+const VIDEO_THUMBNAIL_SIZE = 320;
 
 const workflowFileManagerVideo = {
 
@@ -118,12 +119,15 @@ const workflowFileManagerVideo = {
         });
     },
 
-    /** Chụp 1 khung hình + đọc thời lượng của 1 file video, resize khung hình theo
-     * `VIDEO_THUMBNAIL_SCALE_RATIO` — CÙNG lý do đặt ở Workflow (không phải core/file-manager/
-     * video.js) như `_resizeImageForThumbnail()` (file-manager-photo.js): cần `<video>`/`canvas` —
-     * DOM API, core không được đụng theo Rule 1-4.
+    /** Chụp 1 khung hình + đọc thời lượng của 1 file video, crop VUÔNG cố định
+     * `VIDEO_THUMBNAIL_SIZE`×`VIDEO_THUMBNAIL_SIZE` (center-crop cạnh dài về giữa — MỚI, ver12
+     * "Song/Video Unification", Batch 3, mục 4 plan, THAY hẳn resize theo tỉ lệ gốc cũ) — CÙNG lý
+     * do đặt ở Workflow (không phải core/file-manager/video.js) như `_resizeImageForThumbnail()`
+     * (file-manager-photo.js): cần `<video>`/`canvas` — DOM API, core không được đụng theo Rule 1-4.
      * Chụp khung hình tại giây `min(1, duration/2)` — tránh giây đầu tiên hay bị đen/mờ (video vừa
      * mở), cũng tránh vọt quá xa nếu video ngắn hơn 1 giây.
+     * `width`/`height` trả về là kích thước GỐC của video (KHÔNG phải kích thước thumb) — vẫn lưu
+     * riêng như cũ, dùng chỗ khác nếu cần tỉ lệ thật (đúng plan mục 4).
      * @param {File} file
      * @returns {Promise<{thumbBlob: Blob, width: number, height: number, duration: number}>}
      */
@@ -151,13 +155,17 @@ const workflowFileManagerVideo = {
             videoEl.addEventListener('seeked', () => {
                 const width = videoEl.videoWidth;
                 const height = videoEl.videoHeight;
-                const targetWidth = Math.max(1, Math.round(width * VIDEO_THUMBNAIL_SCALE_RATIO));
-                const targetHeight = Math.max(1, Math.round(height * VIDEO_THUMBNAIL_SCALE_RATIO));
+                // Center-crop cạnh dài về giữa — vùng crop nguồn LUÔN là 1 hình vuông cạnh
+                // min(width,height), lấy chính giữa cả 2 chiều, rồi vẽ lên canvas
+                // VIDEO_THUMBNAIL_SIZE×VIDEO_THUMBNAIL_SIZE (co giãn nếu vùng crop khác kích cỡ đó).
+                const cropSize = Math.min(width, height);
+                const sx = (width - cropSize) / 2;
+                const sy = (height - cropSize) / 2;
                 const canvas = document.createElement('canvas');
-                canvas.width = targetWidth;
-                canvas.height = targetHeight;
+                canvas.width = VIDEO_THUMBNAIL_SIZE;
+                canvas.height = VIDEO_THUMBNAIL_SIZE;
                 const ctx = canvas.getContext('2d');
-                ctx.drawImage(videoEl, 0, 0, targetWidth, targetHeight);
+                ctx.drawImage(videoEl, sx, sy, cropSize, cropSize, 0, 0, VIDEO_THUMBNAIL_SIZE, VIDEO_THUMBNAIL_SIZE);
                 URL.revokeObjectURL(objectUrl);
                 canvas.toBlob((thumbBlob) => {
                     if (!thumbBlob) { reject(new Error('[_extractVideoThumbAndMeta] canvas.toBlob trả về null')); return; }

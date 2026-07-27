@@ -515,10 +515,13 @@ const workflowPlaylist = {
 
     /**
      * Đổi Nguồn sang Video — nạp lại TOÀN BỘ playlistCache/playlistOrder từ store `videos` qua
-     * Adapter (buildVideoPlaylistCache(), core/playlist/loader.js), reset sort mode về mặc định
-     * hợp lý của Video ('newest', mục 2), dựng lại option list "Sắp xếp" tương ứng, rồi vẽ lại UI —
-     * TÁI DÙNG NGUYÊN các hàm core đã phục vụ Song (recomputeDisplayOrder/RenderOrder,
-     * renderPlaylistDiff, updateEmptyState, updateShuffleArray), không viết lại gì.
+     * Adapter (buildVideoPlaylistCache(), core/playlist/loader.js), rồi vẽ lại UI — TÁI DÙNG
+     * NGUYÊN các hàm core đã phục vụ Song (recomputeDisplayOrder/RenderOrder, renderPlaylistDiff,
+     * updateEmptyState, updateShuffleArray), không viết lại gì.
+     * [SỬA — Giang chốt "dùng chung hết" 4 kiểu sort (az/za/newest/oldest) cho CẢ 2 nguồn] KHÔNG
+     * còn reset `displaySortMode`/dựng lại option list nữa — sort mode giờ là 1 lựa chọn CHUNG,
+     * độc lập với Nguồn, giữ nguyên qua lại giữa Song/Video (renderSongSortModeOptions()/
+     * renderVideoSortModeOptions() ĐÃ XOÁ, core/playlist/order.js).
      */
     async switchToVideoSource() {
         appState.set('activeMediaSource', 'video');
@@ -529,10 +532,6 @@ const workflowPlaylist = {
         appState.set('playlistOrder', keys);
         console.log(`writer: "switchToVideoSource", page: "playlistOrder", content: "${keys.length} video"`);
 
-        appState.set('displaySortMode', 'newest');
-        console.log(`writer: "switchToVideoSource", page: "displaySortMode", content: "newest"`);
-        renderVideoSortModeOptions('newest'); // core/playlist/order.js (MỚI, Batch 1)
-
         updateShuffleArray();      // core có sẵn (core/playlist/order.js)
         recomputeDisplayOrder();   // core có sẵn (core/playlist/order.js)
         recomputeRenderOrder();    // core có sẵn (core/playlist/order.js)
@@ -542,8 +541,8 @@ const workflowPlaylist = {
 
     /**
      * Đổi Nguồn về lại Song — TÁI DÙNG NGUYÊN `scanValidSongsFromDB()` (core/playlist/loader.js,
-     * hàm Song hiện có, KHÔNG sửa gì — nguyên tắc riêng của plan), reset sort mode về mặc định
-     * Song ('az'), dựng lại 3 option Sắp xếp gốc của Song, rồi vẽ lại UI y hệt switchToVideoSource().
+     * hàm Song hiện có, KHÔNG sửa gì — nguyên tắc riêng của plan), rồi vẽ lại UI y hệt
+     * switchToVideoSource(). Cùng lý do KHÔNG reset displaySortMode — xem docstring hàm đó.
      */
     async switchToSongSource() {
         appState.set('activeMediaSource', 'song');
@@ -552,10 +551,6 @@ const workflowPlaylist = {
         const keys = await scanValidSongsFromDB(); // core có sẵn (core/playlist/loader.js, Song, KHÔNG đụng), CÓ return, DÙNG ngay dưới
         appState.set('playlistOrder', keys);
         console.log(`writer: "switchToSongSource", page: "playlistOrder", content: "${keys.length} bài hát"`);
-
-        appState.set('displaySortMode', 'az');
-        console.log(`writer: "switchToSongSource", page: "displaySortMode", content: "az"`);
-        renderSongSortModeOptions('az'); // core/playlist/order.js (MỚI, Batch 1)
 
         updateShuffleArray();
         recomputeDisplayOrder();
