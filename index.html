@@ -2,6 +2,74 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <!-- ================================ TẠM THỜI — DEBUG, XOÁ SAU KHI XONG ================================
+         MỚI (27/07/2026) — script bắt lỗi HIỂN THỊ TRỰC TIẾP lên màn hình (không chỉ console.error
+         như _reportFatalError() vốn SILENT theo thiết kế, core/fatal-error.js) — để xác định lỗi
+         runtime đang gây màn đen. Đặt NGAY ĐẦU <head> (chỉ sau meta charset — PHẢI đứng đầu tài
+         liệu để trình duyệt nhận diện encoding đúng), TRƯỚC MỌI <script> khác — bắt được cả lỗi
+         xảy ra rất sớm (lúc components/*.js hoặc main.js đang chạy). KHÔNG thay thế cơ chế
+         event/listener/app-boot.js hiện có (2 listener 'error'/'unhandledrejection' ở đó VẪN chạy
+         song song, browser cho phép nhiều listener cùng 1 event) — đây chỉ THÊM 1 lớp hiển thị.
+         XOÁ khối <script> này (từ đây tới "HẾT PHẦN DEBUG") sau khi đã xác định xong lỗi. -->
+    <script>
+    (function () {
+        var errors = [];
+        function renderPanel() {
+            var existing = document.getElementById('debug-error-panel');
+            if (existing) existing.remove();
+            var panel = document.createElement('div');
+            panel.id = 'debug-error-panel';
+            panel.style.cssText = 'position:fixed;inset:0;z-index:999999;background:#7f1d1d;color:#fff;'
+                + 'font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.5;'
+                + 'padding:16px;overflow:auto;white-space:pre-wrap;word-break:break-word;';
+            var html = '<div style="font-size:15px;font-weight:bold;margin-bottom:10px;">'
+                + '[DEBUG] ' + errors.length + ' lỗi runtime bắt được — chụp màn hình gửi lại:</div>';
+            errors.forEach(function (e, i) {
+                html += '<div style="margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.3);">'
+                    + '<b>#' + (i + 1) + ' [' + e.type + ']</b> ' + escapeText(e.context) + '\n'
+                    + escapeText(e.detail) + '</div>';
+            });
+            panel.innerHTML = html;
+            (document.body || document.documentElement).appendChild(panel);
+        }
+        function escapeText(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        function addError(type, context, detail) {
+            errors.push({ type: type, context: context, detail: detail });
+            console.error('[DEBUG-CATCH][' + type + ']', context, detail);
+            renderPanel();
+        }
+        window.addEventListener('error', function (e) {
+            var context = (e.filename || 'script') + ':' + (e.lineno || '?') + ':' + (e.colno || '?');
+            var err = e.error;
+            var detail = err ? ((err.stack || err.message || String(err))) : (e.message || 'unknown error');
+            addError('error', context, detail);
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+            var reason = e.reason;
+            var detail = reason ? ((reason.stack || reason.message || String(reason))) : String(reason);
+            addError('unhandledrejection', 'Promise bị reject không ai .catch()', detail);
+        });
+        // Kiểm tra sau 3 giây: nếu #app-root vẫn rỗng (main.js chưa/không chạy được) hoặc thiếu 1
+        // vài phần tử TĨNH quan trọng (loading-shield, playlist-container...) -> báo luôn, kể cả
+        // KHÔNG có error/unhandledrejection nào bắn ra (trường hợp lỗi bị nuốt ở đâu đó).
+        setTimeout(function () {
+            var appRoot = document.getElementById('app-root');
+            var missing = [];
+            if (!appRoot || !appRoot.innerHTML.trim()) missing.push('#app-root RỖNG — main.js (mountComponents) không chạy được hoặc TPL_* nào đó undefined.');
+            if (!document.getElementById('loading-shield')) missing.push('#loading-shield không tồn tại trong DOM.');
+            if (!document.getElementById('playlist-container')) missing.push('#playlist-container không tồn tại trong DOM.');
+            if (missing.length > 0) {
+                addError('diagnostic', 'Sau 3s vẫn thiếu phần tử quan trọng', missing.join('\n'));
+            } else if (errors.length === 0) {
+                console.log('[DEBUG-CATCH] Sau 3s: không bắt được lỗi nào, #app-root/#loading-shield/#playlist-container đều tồn tại — có vẻ boot bình thường.');
+            }
+        }, 3000);
+    })();
+    </script>
+    <!-- ================================ HẾT PHẦN DEBUG ================================ -->
     <meta
   name="viewport"
   content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
