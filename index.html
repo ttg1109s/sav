@@ -3,107 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <!-- ================================ TẠM THỜI — DEBUG, XOÁ SAU KHI XONG ================================
-         MỚI (27/07/2026) — script bắt lỗi HIỂN THỊ TRỰC TIẾP lên màn hình (không chỉ console.error
-         như _reportFatalError() vốn SILENT theo thiết kế, core/fatal-error.js) — để xác định lỗi
-         runtime đang gây màn đen. Đặt NGAY ĐẦU <head> (chỉ sau meta charset — PHẢI đứng đầu tài
-         liệu để trình duyệt nhận diện encoding đúng), TRƯỚC MỌI <script> khác — bắt được cả lỗi
-         xảy ra rất sớm (lúc components/*.js hoặc main.js đang chạy). KHÔNG thay thế cơ chế
-         event/listener/app-boot.js hiện có (2 listener 'error'/'unhandledrejection' ở đó VẪN chạy
-         song song, browser cho phép nhiều listener cùng 1 event) — đây chỉ THÊM 1 lớp hiển thị.
+         MỚI (27/07/2026, sửa lại theo góp ý Giang: "sao không tái dùng debug console đã có sẵn ở
+         Settings > Misc?") — TÁI DÙNG THẲNG `core/debug-console.js` (đã có sẵn, bọc console.log/
+         warn/error + lưu ring buffer, xem file đó) — KHÔNG tự viết lại window.onerror/
+         unhandledrejection song song (event/listener/app-boot.js đã có 2 handler đó rồi, routing
+         qua _reportFatalError() -> console.error() -> ĐÃ tự động lọt vào buffer của
+         core/debug-console.js, không cần bắt lại lần 2).
+         VẤN ĐỀ CẦN GIẢI: panel Debug Console THẬT (components/debug-console-drawer.js) nằm BÊN
+         TRONG Settings — nếu Settings không dựng được (đúng lúc đang debug) thì KHÔNG mở panel đó
+         lên được, dù buffer vẫn có đầy đủ log (core/debug-console.js không phụ thuộc gì DOM/
+         Settings). Khối dưới đây CHỈ làm 1 việc DUY NHẤT: sau 3 giây, gọi `getDebugConsoleLogs()`
+         (hàm CÓ SẴN) và in TOÀN BỘ ra 1 lớp phủ đơn giản — không bắt lỗi riêng, không format riêng,
+         dùng ĐÚNG dữ liệu + format core/debug-console.js đã chuẩn bị sẵn.
          XOÁ khối <script> này (từ đây tới "HẾT PHẦN DEBUG") sau khi đã xác định xong lỗi. -->
     <script>
     (function () {
-        var errors = [];
-        function renderPanel() {
-            var existing = document.getElementById('debug-error-panel');
-            if (existing) existing.remove();
-            var panel = document.createElement('div');
-            panel.id = 'debug-error-panel';
-            panel.style.cssText = 'position:fixed;inset:0;z-index:999999;background:#7f1d1d;color:#fff;'
-                + 'font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.5;'
-                + 'padding:16px;overflow:auto;white-space:pre-wrap;word-break:break-word;';
-            var html = '<div style="font-size:15px;font-weight:bold;margin-bottom:10px;">'
-                + '[DEBUG] ' + errors.length + ' lỗi runtime bắt được — chụp màn hình gửi lại:</div>';
-            errors.forEach(function (e, i) {
-                html += '<div style="margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.3);">'
-                    + '<b>#' + (i + 1) + ' [' + e.type + ']</b> ' + escapeText(e.context) + '\n'
-                    + escapeText(e.detail) + '</div>';
-            });
-            panel.innerHTML = html;
-            (document.body || document.documentElement).appendChild(panel);
-        }
-        function escapeText(s) {
-            return String(s == null ? '' : s)
-                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        }
-        function addError(type, context, detail) {
-            errors.push({ type: type, context: context, detail: detail });
-            console.error('[DEBUG-CATCH][' + type + ']', context, detail);
-            renderPanel();
-        }
-        window.addEventListener('error', function (e) {
-            // Lỗi tải resource thất bại (404/network cho <script src>/<img>...) KHÔNG có e.error/
-            // e.message như lỗi JS thường — nhận diện qua e.target là 1 Element (không phải
-            // window/ErrorEvent thường), tách xử lý riêng để báo rõ URL nào tải lỗi.
-            if (e.target && e.target !== window && e.target.nodeType === 1) {
-                var tag = e.target.tagName;
-                var src = e.target.src || e.target.href || '(không rõ URL)';
-                addError('resource-load-failed', tag + ' tải lỗi (404/network)', src);
+        function renderLogs() {
+            var overlay = document.getElementById('debug-dump-overlay');
+            if (overlay) overlay.remove();
+            overlay = document.createElement('div');
+            overlay.id = 'debug-dump-overlay';
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:999999;background:#000;color:#0f0;'
+                + 'font-family:ui-monospace,Menlo,monospace;font-size:11px;line-height:1.5;'
+                + 'padding:14px;overflow:auto;white-space:pre-wrap;word-break:break-word;';
+
+            if (typeof getDebugConsoleLogs !== 'function') {
+                overlay.textContent = '[DEBUG] getDebugConsoleLogs() không tồn tại — core/debug-console.js '
+                    + 'chưa chạy được (nghiêm trọng hơn dự tính, báo lại điều này).';
+                (document.body || document.documentElement).appendChild(overlay);
                 return;
             }
-            var context = (e.filename || 'script') + ':' + (e.lineno || '?') + ':' + (e.colno || '?');
-            var err = e.error;
-            var detail = err ? ((err.stack || err.message || String(err))) : (e.message || 'unknown error');
-            addError('error', context, detail);
-        }, true); // capture:true — BẮT BUỘC để nhận được lỗi tải resource (không bubble lên window)
-        window.addEventListener('unhandledrejection', function (e) {
-            var reason = e.reason;
-            var detail = reason ? ((reason.stack || reason.message || String(reason))) : String(reason);
-            addError('unhandledrejection', 'Promise bị reject không ai .catch()', detail);
-        });
-        // Kiểm tra sau 3 giây: nếu #app-root vẫn rỗng (main.js chưa/không chạy được) hoặc thiếu 1
-        // vài phần tử TĨNH quan trọng (loading-shield, playlist-container...) -> báo luôn, kể cả
-        // KHÔNG có error/unhandledrejection nào bắn ra (trường hợp lỗi bị nuốt ở đâu đó).
-        function safeTypeofCheck(name, getter) {
-            try {
-                return getter() === 'undefined' ? name : null;
-            } catch (e) {
-                return name + ' (lỗi khi kiểm tra: ' + e.message + ')';
-            }
+
+            var logs = getDebugConsoleLogs(); // core/debug-console.js — TOÀN BỘ log console.log/warn/error đã bắt từ đầu boot
+            var appRootEmpty = !document.getElementById('app-root') || !document.getElementById('app-root').innerHTML.trim();
+            var header = '[DEBUG] ' + logs.length + ' dòng log (console.log/warn/error, từ core/debug-console.js) — '
+                + (appRootEmpty ? '#app-root ĐANG RỖNG.' : '#app-root có nội dung.') + '\n'
+                + 'Chụp/cuộn màn hình gửi lại toàn bộ nội dung dưới đây:\n'
+                + '========================================\n';
+            var body = logs.map(function (entry) {
+                var d = new Date(entry.time);
+                var ts = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2);
+                return '[' + ts + '] ' + entry.level.toUpperCase() + ': ' + entry.text;
+            }).join('\n');
+
+            overlay.textContent = header + body;
+            (document.body || document.documentElement).appendChild(overlay);
         }
-        setTimeout(function () {
-            var appRoot = document.getElementById('app-root');
-            var missing = [];
-            if (!appRoot || !appRoot.innerHTML.trim()) missing.push('#app-root RỖNG — main.js (mountComponents) không chạy được hoặc TPL_* nào đó undefined.');
-            if (!document.getElementById('loading-shield')) missing.push('#loading-shield không tồn tại trong DOM.');
-            if (!document.getElementById('playlist-container')) missing.push('#playlist-container không tồn tại trong DOM.');
-            // Viết TƯỜNG MINH từng biến (không dùng eval động) — typeof không bao giờ throw kể cả
-            // identifier chưa từng khai báo, an toàn tuyệt đối trên mọi trình duyệt/WebKit.
-            var undefinedTpls = [];
-            var c;
-            c = safeTypeofCheck('TPL_LOADING_SHIELD', function () { return typeof TPL_LOADING_SHIELD; }); if (c) undefinedTpls.push(c);
-            c = safeTypeofCheck('TPL_APP_VIEW_STACK_OPEN', function () { return typeof TPL_APP_VIEW_STACK_OPEN; }); if (c) undefinedTpls.push(c);
-            c = safeTypeofCheck('TPL_PLAYLIST_VIEW', function () { return typeof TPL_PLAYLIST_VIEW; }); if (c) undefinedTpls.push(c);
-            c = safeTypeofCheck('TPL_SETTINGS_DRAWER', function () { return typeof TPL_SETTINGS_DRAWER; }); if (c) undefinedTpls.push(c);
-            c = safeTypeofCheck('TPL_APP_VIEW_STACK_CLOSE', function () { return typeof TPL_APP_VIEW_STACK_CLOSE; }); if (c) undefinedTpls.push(c);
-            c = safeTypeofCheck('TPL_VISUALIZER_OVERLAY', function () { return typeof TPL_VISUALIZER_OVERLAY; }); if (c) undefinedTpls.push(c);
-            c = safeTypeofCheck('TPL_BOTTOM_PLAYER', function () { return typeof TPL_BOTTOM_PLAYER; }); if (c) undefinedTpls.push(c);
-            c = safeTypeofCheck('TPL_GENERIC_DRAWER', function () { return typeof TPL_GENERIC_DRAWER; }); if (c) undefinedTpls.push(c);
-            c = safeTypeofCheck('TPL_SETTINGS_PLAYLIST_VIEW', function () { return typeof TPL_SETTINGS_PLAYLIST_VIEW; }); if (c) undefinedTpls.push(c);
-            c = safeTypeofCheck('TPL_SETTINGS_THEME', function () { return typeof TPL_SETTINGS_THEME; }); if (c) undefinedTpls.push(c);
-            c = safeTypeofCheck('TPL_SETTINGS_VISUALIZER', function () { return typeof TPL_SETTINGS_VISUALIZER; }); if (c) undefinedTpls.push(c);
-            c = safeTypeofCheck('TPL_SETTINGS_AUDIO_EQ', function () { return typeof TPL_SETTINGS_AUDIO_EQ; }); if (c) undefinedTpls.push(c);
-            c = safeTypeofCheck('TPL_SETTINGS_SUBTITLE_STYLE', function () { return typeof TPL_SETTINGS_SUBTITLE_STYLE; }); if (c) undefinedTpls.push(c);
-            c = safeTypeofCheck('TPL_SETTINGS_FILE_MANAGER', function () { return typeof TPL_SETTINGS_FILE_MANAGER; }); if (c) undefinedTpls.push(c);
-            c = safeTypeofCheck('TPL_SETTINGS_LANGUAGE', function () { return typeof TPL_SETTINGS_LANGUAGE; }); if (c) undefinedTpls.push(c);
-            c = safeTypeofCheck('TPL_SETTINGS_MISC', function () { return typeof TPL_SETTINGS_MISC; }); if (c) undefinedTpls.push(c);
-            if (undefinedTpls.length > 0) missing.push('Các biến TPL_ chưa được định nghĩa (file tương ứng chưa chạy/chạy lỗi):\n  - ' + undefinedTpls.join('\n  - '));
-            if (missing.length > 0) {
-                addError('diagnostic', 'Sau 3s vẫn thiếu phần tử quan trọng', missing.join('\n'));
-            } else if (errors.length === 0) {
-                console.log('[DEBUG-CATCH] Sau 3s: không bắt được lỗi nào, #app-root/#loading-shield/#playlist-container đều tồn tại — có vẻ boot bình thường.');
-            }
-        }, 3000);
+        setTimeout(renderLogs, 3000);
     })();
     </script>
     <!-- ================================ HẾT PHẦN DEBUG ================================ -->
