@@ -121,7 +121,20 @@
             // phục vụ RIÊNG cho Song".
             const cachedForDispatch = appState.get('playlistCache').get(key);
             if (cachedForDispatch && cachedForDispatch.mediaType === 'video') {
-                workflowVideoPlayer.startFromPlaylist(key); // event/workflow/video-player.js (MỚI, Batch 2) — Workflow gọi Workflow, tự do (event-bus-flow.md mục 4B)
+                // SỬA (Giang chốt: "chọn Video thì cũng phải kiểm tra block gate mới được cho
+                // chọn") — đi qua eventBus (router 'videoPlayer') THAY VÌ gọi thẳng
+                // workflowVideoPlayer.startFromPlaylist() như bản đầu. Block gate (event/block.js)
+                // CHỈ chặn được message đi qua eventBus.send(), không chặn được lời gọi hàm trực
+                // tiếp — nên đường vào Video Player mode BẮT BUỘC phải đi qua bus tại ĐÚNG điểm
+                // này để tái tạo khoá chéo với "Use Video Background" (vizConfig.videoBgEnabled)
+                // mà checkbox cũ từng có (xem event/block.js). ĐẶT dispatch ở NGAY guard clause
+                // này (không phải ở từng nơi gọi window.playSong()) vì đây là điểm DUY NHẤT chắc
+                // chắn chặn được MỌI đường vào video: click 1 video trong Playlist, "Phát tất
+                // cả"/"Trộn bài"/resume lúc activeMediaSource='video' đều đi qua window.playSong()
+                // — riêng Next/Prev vật lý lúc ĐàNG ở Video Player mode đã tự tách nhánh sang
+                // workflowVideoPlayer.nextVideo()/prevVideo() từ trước (event/router/player-
+                // controls.js, VMState theo isVideoPlayerMode), không chạm dòng này.
+                eventBus.send({ router: 'videoPlayer', type: 'videoPlayer.startFromPlaylist.click', payload: { key } });
                 return;
             }
             if (appState.get('isVideoPlayerMode')) {
