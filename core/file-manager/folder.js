@@ -15,9 +15,21 @@
  * vẫn là 1 tiến trình "xoá 1 folder", không phải nhiều tiến trình khác nhau.
  *
  * Schema (CHỐT — xem plan-v12-multimedia.md mục 4.b1):
- *   folders     : { [folderId]: { id, name } }
+ *   folders     : { [folderId]: { id, name, type, excludeFromMainPlaylist } }
  *   folder_song : { [folderId]: { list: [songKey|null, ...], empty: number } } — tombstone null
  *                 khi gỡ bài khỏi folder, KHÔNG splice (giữ nguyên index/position).
+ *
+ * MỚI (ver12 "Song/Video Unification", Batch 4, xem plan-v12-song-video-unification.md mục 5) —
+ * 2 field MỚI trên record `folders`:
+ *   - `type: 'song'|'video'|null` — folder mới/rỗng là `null` (chưa xác định); item ĐẦU TIÊN thêm
+ *     vào (qua addSongsToFolder()) khoá loại folder lại, từ đó chặn thêm loại KHÁC (xem
+ *     addSongsToFolder() bên dưới). Folder TẠO TRƯỚC batch này không có field này (undefined) —
+ *     nơi ĐỌC field này (addSongsToFolder(), event/workflow/file-manager-song.js hiển thị icon)
+ *     PHẢI tự suy luận ngầm `type ?? (có bài thật trong folder_song.list ? 'song' : null)` — KHÔNG
+ *     cần migration/backfill DB riêng, không ghi lại record cũ chỉ vì đọc.
+ *   - `excludeFromMainPlaylist: boolean` (default false, field vắng mặt = false) — Scope vs
+ *     Exclude (mục 5): CHỈ ảnh hưởng view "Tất cả" (core/playlist/scope.js::loadAllSongs()), không
+ *     đụng gì view Scope theo 1 folder cụ thể (loadSongsFromFolder() không đọc field này).
  *   songs (field mới trên record có sẵn) : record.folder = { [folderId]: position (number) } —
  *                 sự TỒN TẠI của key folderId đã đủ biết "từng thêm vào folder này chưa"; trạng
  *                 thái đang-ở-trong hay đã-gỡ đọc thẳng từ folder_song[folderId].list[position].
@@ -100,7 +112,9 @@ async function createFolder(folderId, name) {
     const existingFolders = (await Promise.all(existingIds.map((id) => getFolderRecord(id)))).filter(Boolean); // service/db.js
     if (existingFolders.some(f => f.name === name)) return { status: 'duplicateName' };
 
-    await setFolderRecord(folderId, { id: folderId, name });
+    // MỚI (Batch 4) — type: null tường minh (chưa xác định loại) — phân biệt với folder TẠO
+    // TRƯỚC batch này (field vắng mặt hoàn toàn) chỉ để rõ ý, cả 2 đọc ra đều falsy như nhau.
+    await setFolderRecord(folderId, { id: folderId, name, type: null });
     await setFolderSongMap(folderId, { list: [], empty: 0 });
     return { status: 'ok', folderId };
 }
@@ -205,13 +219,30 @@ function getFolderMembershipState(record, folderMap, folderId) {
 }
 
 /** Thêm NHIỀU bài vào 1 folder — đúng thuật toán CHỐT ở plan mục 4.b1 "Thêm vào folder".
+ *
+ * MỚI (Batch 4, "Song/Video Unification" mục 5) — tham số `mediaType` ('song'|'video') + validate
+ * cùng loại: 1 folder CHỈ chứa đúng 1 loại — item đầu tiên thêm vào quyết định `type`, từ đó chặn
+ * thêm loại KHÁC (guard clause thuần, Rule 1 — bỏ nhánh này đi hàm vẫn còn NGUYÊN đúng 1 tiến trình
+ * "thêm songKeys vào folder", chỉ mất phần "dừng sớm nếu khác loại"). Suy luận type HIỆU LỰC hiện
+ * tại (đã lưu, hoặc ngầm định từ nội dung nếu folder tạo TRƯỚC batch này) rồi INLINE ngay tại đây
+ * (KHÔNG tách hàm riêng — 1 biểu thức 3 phép toán, tách ra sẽ chỉ để lộ 1 lời gọi core→core không
+ * cần thiết, vi phạm Rule 3). Cả lô `songKeys` LUÔN cùng 1 `mediaType` (nơi gọi hiện tại — Song —
+ * chỉ truyền 'song'; video sẽ nối vào cùng cơ chế này ở batch sau) nên chỉ cần kiểm tra 1 LẦN,
+ * không phải per-item.
  * @param {string[]} songKeys
  * @param {string} folderId
- * @returns {Promise<{status: 'notFound'|'ok', addedCount: number}>}
+ * @param {'song'|'video'} mediaType
+ * @returns {Promise<{status: 'notFound'|'typeMismatch'|'ok', addedCount: number}>}
  */
-async function addSongsToFolder(songKeys, folderId) {
+async function addSongsToFolder(songKeys, folderId, mediaType) {
+    const folderRecord = await getFolderRecord(folderId);
+    if (!folderRecord) return { status: 'notFound', addedCount: 0 };
     const folderMap = await getFolderSongMap(folderId);
     if (!folderMap) return { status: 'notFound', addedCount: 0 };
+
+    const hasAnyMemberBefore = folderMap.list.some((k) => k != null);
+    const effectiveType = folderRecord.type ?? (hasAnyMemberBefore ? 'song' : null);
+    if (effectiveType && effectiveType !== mediaType) return { status: 'typeMismatch', addedCount: 0 };
 
     let addedCount = 0;
     for (const songKey of songKeys) {
@@ -241,6 +272,13 @@ async function addSongsToFolder(songKeys, folderId) {
         await setSongRecord(songKey, record);
     }
     await setFolderSongMap(folderId, folderMap);
+
+    // MỚI (Batch 4) — khoá `type` NGAY sau lần thêm thành công đầu tiên (chỉ ghi khi record CHƯA
+    // có type — tránh ghi lại vô ích mỗi lần thêm nếu đã khoá từ trước).
+    if (!folderRecord.type && addedCount > 0) {
+        folderRecord.type = mediaType;
+        await setFolderRecord(folderId, folderRecord);
+    }
     return { status: 'ok', addedCount };
 }
 
@@ -325,6 +363,44 @@ async function getFolderSongCount(folderId) {
     const folderMap = await getFolderSongMap(folderId);
     if (!folderMap) return 0;
     return folderMap.list.filter((k) => k != null).length; // inline, không gọi getFolderSongKeys() — xem giải thích ở deleteFolder()
+}
+
+/**
+ * Bật/tắt cờ "loại khỏi view Tất cả" của 1 folder (Scope vs Exclude, MỚI Batch 4, xem
+ * plan-v12-song-video-unification.md mục 5). Guard clause thuần (Rule 1) — folder không tồn tại
+ * thì dừng sớm, KHÔNG phải rẽ nhánh tiến trình khác.
+ * @param {string} folderId
+ * @param {boolean} enabled
+ * @returns {Promise<{status: 'notFound'|'ok'}>}
+ */
+async function setFolderExcludeFlag(folderId, enabled) {
+    const record = await getFolderRecord(folderId);
+    if (!record) return { status: 'notFound' };
+    record.excludeFromMainPlaylist = enabled;
+    await setFolderRecord(folderId, record);
+    return { status: 'ok' };
+}
+
+/**
+ * Gom OR (hợp) toàn bộ songKey đang bị loại khỏi view "Tất cả" — hợp của `folder_song.list` của
+ * MỌI folder có `excludeFromMainPlaylist === true` (mục 5, "Exclude là OR trên mọi folder chứa bài
+ * đó"). Rule 1: đơn tuyến — CHỈ tính 1 tập hợp duy nhất, không rẽ nhánh nghiệp vụ nào khác. Rule 3:
+ * chỉ gọi API `service/db.js` (data layer, ngoại lệ — xem docstring đầu file) — KHÔNG gọi core nào
+ * khác trong file này.
+ * @returns {Promise<Set<string>>}
+ */
+async function getExcludedSongKeysFromFolders() {
+    const ids = await getAllFolderKeys(); // service/db.js
+    const records = await Promise.all(ids.map((id) => getFolderRecord(id))); // service/db.js
+    const excludedFolderIds = records.filter((r) => r && r.excludeFromMainPlaylist).map((r) => r.id);
+
+    const excludedKeys = new Set();
+    for (const folderId of excludedFolderIds) {
+        const folderMap = await getFolderSongMap(folderId); // service/db.js
+        if (!folderMap) continue; // guard: folder vừa bị xoá giữa lúc đang gom — bỏ qua, không coi là lỗi
+        for (const key of folderMap.list) { if (key != null) excludedKeys.add(key); }
+    }
+    return excludedKeys;
 }
 
 /**

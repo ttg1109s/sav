@@ -41,21 +41,19 @@ function getFolderSongsForDisplay(folderMap, playlistCache) {
  * @param {Array<{key: string, title: string, artist: string}>} songs
  * @param {HTMLElement} listEl @param {HTMLElement} [emptyEl]
  * @param {HTMLElement} [removeAllBtnEl] - nút "Xoá hết bài", tự ẩn khi `songs.length === 0`
- *        (không có gì để xoá) — cùng điều kiện với `emptyEl`.
- * @param {HTMLElement} [applyBtnEl] - MỚI (14/07/2026, Giang yêu cầu — "không có song thì cũng
- *        không hiển thị nút active") — nút "Áp dụng"/"Bỏ áp dụng". Ẩn khi `songs.length === 0`
- *        **VÀ** `isActive` false (áp dụng 1 folder rỗng làm scope mới vô nghĩa — không có gì để
- *        phát). Vẫn HIỆN khi `isActive` true dù rỗng — user cần cách "Bỏ áp dụng" ra khỏi 1 folder
- *        VỪA bị xoá hết bài trong lúc đang là scope hiện tại, không được khoá luôn lối thoát đó.
- * @param {boolean} [isActive] - folder đang xem có phải activePlayListFolder hay không.
+ *        (không có gì để xoá).
+ *
+ * SỬA (Batch 4, "Song/Video Unification") — 2 tham số `applyBtnEl`/`isActive` ĐÃ BỎ: nút Áp dụng/
+ * Bỏ áp dụng cũ thay bằng toggle Scope ĐỘC LẬP, đồng bộ trạng thái riêng qua
+ * `event/workflow/file-manager-song.js::_updateScopeToggleUI()` (không còn phụ thuộc vào lần
+ * render danh sách bài này nữa).
  */
-function renderFolderDetailSongList(songs, listEl, emptyEl, removeAllBtnEl, applyBtnEl, isActive) {
+function renderFolderDetailSongList(songs, listEl, emptyEl, removeAllBtnEl) {
     if (!listEl) return; // guard: panel đang đóng
 
     listEl.innerHTML = '';
     if (emptyEl) emptyEl.classList.toggle('hidden', songs.length > 0);
     if (removeAllBtnEl) removeAllBtnEl.classList.toggle('hidden', songs.length === 0);
-    if (applyBtnEl) applyBtnEl.classList.toggle('hidden', songs.length === 0 && !isActive);
 
     songs.forEach((song) => {
         const row = document.createElement('div');

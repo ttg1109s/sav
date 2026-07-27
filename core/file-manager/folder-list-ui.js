@@ -12,10 +12,13 @@
  */
 
 /**
- * @param {Array<{id: string, name: string, songCount?: number}>} folders - MỚI (14/07/2026, Giang
+ * @param {Array<{id: string, name: string, type?: 'song'|'video'|null, songCount?: number}>} folders - MỚI (14/07/2026, Giang
  *        yêu cầu) — `songCount` tuỳ chọn: số bài THẬT SỰ đang có trong folder (nơi gọi tự
  *        getFolderSongCount() cho TỪNG folder rồi gắn vào, xem event/workflow/file-manager-song.js
- *        — hàm này KHÔNG tự tính, chỉ hiển thị nếu có, mặc định 0 nếu thiếu).
+ *        — hàm này KHÔNG tự tính, chỉ hiển thị nếu có, mặc định 0 nếu thiếu). MỚI (Batch 4,
+ *        "Song/Video Unification" mục 5) — `type` tuỳ chọn: folder tạo TRƯỚC batch này không có
+ *        field này (undefined) — suy luận NGẦM type hiệu lực = `type ?? (songCount > 0 ? 'song' :
+ *        null)` NGAY tại đây (biểu thức 1 dòng, KHÔNG tách hàm riêng — Rule 3 cấm core gọi core).
  * @param {string|null} activeFolderId - MỚI (sửa gap UX 03/07/2026): folder đang là
  *        activePlayListFolder (nếu có) — đánh dấu riêng để người dùng biết đang scope theo folder
  *        nào, tránh quên/nhầm sau khi F5 (scope giờ lưu bền qua meta, không còn "hiển nhiên thấy
@@ -43,6 +46,27 @@ function renderFolderListUI(folders, activeFolderId, listEl, emptyEl) {
             dotEl.title = t('fileManager.song.activeFolderBadge');
             row.appendChild(dotEl);
         }
+
+        // MỚI (Batch 4, "Song/Video Unification" mục 5) — icon thư mục + badge nhỏ góc dưới-phải
+        // thể hiện type hiệu lực: 'song' (chấm xanh lá), 'video' (chấm tím), null/chưa xác định
+        // (vòng tròn viền, không tô) — folder tạo TRƯỚC batch này suy luận ngầm qua songCount.
+        const effectiveType = folder.type ?? ((folder.songCount || 0) > 0 ? 'song' : null);
+        const iconWrapEl = document.createElement('div');
+        iconWrapEl.className = 'relative shrink-0 w-6 h-6 flex items-center justify-center';
+        iconWrapEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>';
+        const badgeEl = document.createElement('span');
+        if (effectiveType === 'song') {
+            badgeEl.className = 'absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400';
+            badgeEl.title = t('fileManager.song.folderTypeSong');
+        } else if (effectiveType === 'video') {
+            badgeEl.className = 'absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-violet-400';
+            badgeEl.title = t('fileManager.song.folderTypeVideo');
+        } else {
+            badgeEl.className = 'absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-transparent border border-slate-500';
+            badgeEl.title = t('fileManager.song.folderTypeUndetermined');
+        }
+        iconWrapEl.appendChild(badgeEl);
+        row.appendChild(iconWrapEl);
 
         // MỚI (14/07/2026, Giang yêu cầu) — bọc tên + số bài trong 1 cột dọc thay vì <span> đơn lẻ
         // như trước, để chèn thêm dòng phụ "X bài" mà không phá layout hàng ngang hiện có.
