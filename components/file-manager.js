@@ -307,22 +307,9 @@ function renderFileManagerDocumentPanelBody() {
 // panel mở, chèn TRƯỚC #file-manager-video-empty.
 function renderFileManagerVideoPanelBody() {
     return `
-        <!-- MỚI (21/07/2026, Giang yêu cầu "nút apply Video Player chuyển qua toggle ở Video UI,
-             ngay trên list video") — checked KHÔNG bake cứng ở template (tránh component tự đọc
-             appState — cùng quy ước Settings khác trong project, xem event/workflow/file-manager-
-             video.js::openPanel() tự đồng bộ .checked NGAY sau khi push). -->
-        <div class="flex flex-col border-b border-white/5 shrink-0">
-            <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
-                <div class="pr-3">
-                    <div class="text-sm font-medium truncate" data-i18n="fileManager.video.playerModeToggle.label">${t('fileManager.video.playerModeToggle.label')}</div>
-                    <div class="text-xs text-slate-400 mt-0.5" data-i18n="fileManager.video.playerModeToggle.hint">${t('fileManager.video.playerModeToggle.hint')}</div>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                    <input type="checkbox" id="setting-video-player-mode-enable" class="sr-only peer">
-                    <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
-                </label>
-            </div>
-        </div>
+        <!-- [SỬA — ver12 "Song/Video Unification", Batch 2] Checkbox "Video Player mode" (từng
+             đứng đầu panel này) ĐÃ BỎ HẲN — entry point vào Video Player mode giờ DUY NHẤT qua
+             Playlist + toggle Nguồn (xem plan-v12-song-video-unification.md mục 3, cleanup Batch 2). -->
         <div id="file-manager-video-scroll" class="flex-grow min-h-0 overflow-y-auto pb-20 relative">
             <p id="file-manager-video-empty" class="hidden text-sm text-slate-400 text-center py-10 px-6" data-i18n="fileManager.video.empty">${t('fileManager.video.empty')}</p>
         </div>
