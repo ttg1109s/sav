@@ -1,10 +1,14 @@
 /**
- * event/workflow/video-player.js — GỌI TỪ 2 nơi: (1) `workflowFileManagerVideo.
- * enablePlayerModeFromPanel()`/`disablePlayerModeFromPanel()` — checkbox "Video Player mode" trong
- * panel File Manager -> Video; (2) router "playerControls" — Next/Prev/Play-Pause (VirtualMachineState
- * theo `isVideoPlayerMode`) + 5 sự kiện RIÊNG của `bgVideoElement` (video.timeupdate/
- * loadedmetadata/play/pause/ended — xem event/listener/video-player.js) + progressBar seek
- * (VirtualMachineState).
+ * event/workflow/video-player.js — GỌI TỪ 2 nơi: (1) `window.playSong()` (core/playlist/actions.js,
+ * guard clause đầu hàm khi `cached.mediaType === 'video'` — MỚI, ver12 "Song/Video Unification"
+ * Batch 2, THAY hẳn checkbox "Video Player mode" cũ trong panel File Manager -> Video, ĐÃ BỎ HẲN,
+ * xem plan-v12-song-video-unification.md mục 3 + cleanup Batch 2) — `startFromPlaylist(startKey)`
+ * ngay dưới là entry point DUY NHẤT còn lại vào Video Player mode; (2) router "playerControls" —
+ * Next/Prev/Play-Pause (VirtualMachineState theo `isVideoPlayerMode`) + 5 sự kiện RIÊNG của
+ * `bgVideoElement` (video.timeupdate/loadedmetadata/play/pause/ended — xem event/listener/
+ * video-player.js) + progressBar seek (VirtualMachineState). `exitVideoPlayerMode()` giờ có THÊM 1
+ * caller MỚI — `window.playSong()` tự gọi khi phát Song lúc đang ở Video Player mode (dọn sạch
+ * trước khi chuyển hẳn về luồng Song).
  *
  * VIẾT LẠI LẦN 2 (21/07/2026, Giang phát hiện qua video test) — BỎ HẲN `audioPlayer` khỏi luồng
  * Video Player (xem docstring đầy đủ ở core/video-player.js vì sao — tóm tắt: `<audio src="video
@@ -31,34 +35,24 @@ const workflowVideoPlayer = {
     _thumbObjectUrl: null, // object URL của thumbBlob HIỆN TẠI (cover ở player bar, #record-container) — revoke trước khi tạo url mới
     _swipeStartY: null, // toạ độ Y lúc touchstart — dùng bởi event/listener/video-player.js (cử chỉ vuốt)
 
-    /** Vào Video Player mode: đọc danh sách video, phát video đầu tiên, CHUYỂN MÀN HÌNH sang
-     * Visualizer. GỌI TỪ `workflowFileManagerVideo.enablePlayerModeFromPanel()` (checkbox trong
-     * panel File Manager -> Video) — nơi gọi ĐÃ tự đảm bảo Video nền trang trí đang TẮT trước khi
-     * gọi hàm này (Block gate, xem event/block.js).
-     * SỬA (21/07/2026, Giang yêu cầu "khi enable Video Player, mọi trạng thái phát Song phải về
-     * gốc — pause + UI playlist sạch như mới load app — TRƯỚC KHI chuyển màn") — nếu đang có bài
-     * hát đang phát/tạm dừng dở (`currentKey` khác null): pause `audioPlayer` + xoá `currentKey` +
-     * refresh LẠI đúng 1 hàng đó (`refreshSongNode()`, core/playlist/render.js — patch DOM TRỰC
-     * TIẾP, không render lại cả danh sách) để xoá highlight "đang phát". LÀM TRƯỚC `switchToVisualizer()`
-     * — đúng thứ tự Giang yêu cầu.
-     * ĂN THEO MIỄN PHÍ (không cần code thêm) — `currentKey=null` khiến `saveResumeStateToLocalStorage()`
-     * (core/resume-state-storage.js, dòng đầu: `if (currentKey === null) return false;`) tự động
-     * KHÔNG lưu gì + KHÔNG set cờ resume nữa mỗi khi tab bị ẩn lúc đang ở Video Player mode — ĐÚNG
-     * ý Giang "phải skip chế độ resume tab", không cần sửa gì thêm ở core/tab-hide-reload.js.
-     * SỬA LẦN 2 (21/07/2026, Giang yêu cầu "so sánh bg video enable và luồng video player") — ĐỐI
-     * CHIẾU `handleVideoBackground()` (core/state-and-video-bg.js) phát hiện 1 dòng CÒN THIẾU:
-     * `visualizerSolidBg.style.backgroundColor = '#000000'` — nền đen cưỡng chế PHÍA SAU video
-     * (lớp `#visualizer-solid-bg`, z:-3, dưới cùng). KHÔNG set dòng này, nền solid vẫn giữ màu
-     * `cfg.bgColor` cũ (vd xanh đậm/tuỳ theme) — tuỳ mắt nhìn CÓ THỂ trông giống "video không che
-     * hết màn" hoặc lẫn với suy đoán z-index (đã bác bỏ). Thêm ĐÚNG dòng này, khớp 100% luồng bg
-     * video đã chứng minh hoạt động tốt.
-     * `switchToVisualizer()` (core/player-controls.js, hàm CÓ SẴN) — ẩn `#app-stack` (Playlist+
-     * Settings), hiện `#player-container` (bar dưới cùng — nếu không gọi hàm này, mang class
-     * `hidden` mãi mãi, mọi cập nhật UI bên trong dù đúng vẫn KHÔNG AI THẤY ĐƯỢC). CHỈ gọi 1 LẦN
-     * lúc VÀO mode. */
-    async enterVideoPlayerMode() {
+    /**
+     * ===================== Ver 12 "Song/Video Unification" — Batch 2 (mục 3) =====================
+     * [SỬA] Entry point DUY NHẤT còn lại để vào Video Player mode — TRƯỚC ĐÂY tên
+     * `enterVideoPlayerMode()`, gọi từ `workflowFileManagerVideo.enablePlayerModeFromPanel()`
+     * (checkbox "Video Player mode" trong panel File Manager -> Video, ĐÃ BỎ HẲN — xem cleanup mục
+     * Batch 2, plan-v12-song-video-unification.md). Checkbox đó là caller DUY NHẤT nên ĐỔI TÊN +
+     * ĐỔI CHỮ KÝ luôn tại đây (không phải rewrite hồi tố — hàm chỉ có đúng 1 caller, caller đó vừa
+     * bị xoá): giờ nhận `startKey` — videoKey CỤ THỂ vừa được chọn trong Playlist (thay vì LUÔN
+     * luôn phát `videoPlaylist[0]`, hành vi cũ của checkbox "bật mode = phát video mới nhất").
+     * Caller MỚI DUY NHẤT: `window.playSong()` (core/playlist/actions.js), guard clause đầu hàm khi
+     * `cached.mediaType === 'video'` — Workflow gọi Workflow, tự do (event-bus-flow.md mục 4B).
+     * Toàn bộ các bước dọn Song/bg/state bên dưới GIỮ NGUYÊN 100% so với `enterVideoPlayerMode()`
+     * cũ — CHỈ khác dòng phát video cuối cùng (`startKey` thay vì `videoPlaylist[0]`).
+     * @param {string} startKey - videoKey vừa được chọn để phát.
+     */
+    async startFromPlaylist(startKey) {
         const videos = await listVideos(); // core/file-manager/video.js
-        if (videos.length === 0) { await alertModal(t('videoPlayer.empty')); return; }
+        if (videos.length === 0) return; // guard hiếm — race: key vừa được click nhưng record đã mất khỏi DB
 
         const previousSongKey = appState.get('currentKey');
         if (previousSongKey !== null) {
@@ -67,17 +61,16 @@ const workflowVideoPlayer = {
             refreshSongNode(previousSongKey); // core/playlist/render.js — patch riêng đúng 1 hàng, xoá highlight "đang phát"
         }
 
-        // SỬA (21/07/2026, Giang yêu cầu "phải phát video mới nhất đầu tiên") — BỎ `.reverse()` —
-        // `sortVideosByAddedDateDesc()` (core/file-manager/video.js) đã trả SẴN mới -> cũ, dùng
-        // THẲNG luôn, video[0] = mới nhất. Next giờ đi từ mới -> cũ dần, quay vòng về mới nhất khi
-        // hết (hoặc dừng hẳn nếu repeatMode tắt — xem nextVideo()).
+        // videoPlaylist cho Next/Prev — TÁI DÙNG nguyên sortVideosByAddedDateDesc() (mới -> cũ) như
+        // enterVideoPlayerMode() cũ, KHÔNG đổi sang đọc theo sort mode Playlist (Batch 1) — ngoài
+        // phạm vi batch này, xem ghi chú cuối phiên làm việc nếu Giang muốn đồng bộ 2 thứ tự.
         const videoPlaylist = sortVideosByAddedDateDesc(videos).map((v) => v.key); // core/file-manager/video.js
 
         visualizerSolidBg.style.backgroundColor = '#000000'; // khớp handleVideoBackground() (core/state-and-video-bg.js) — nền đen cưỡng chế phía sau video
         enterVideoPlayerModeState(videoPlaylist); // core/video-player.js
         setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop + hiện + pointer-events
 
-        await this.playVideoByKey(videoPlaylist[0]);
+        await this.playVideoByKey(startKey);
         switchToVisualizer(); // core/player-controls.js, hàm CÓ SẴN
     },
 
@@ -134,11 +127,14 @@ const workflowVideoPlayer = {
         connectVideoElementToAnalyser(); // core/video-player.js
 
         playerTitle.textContent = record.filename || t('videoPlayer.untitled');
-        playerArtist.textContent = t('videoPlayer.nowPlayingLabel');
+        // MỚI (ver12 "Song/Video Unification", Batch 2, mục 3) — artist RỖNG thay vì nhãn
+        // "Video Player" cũ, khớp Adapter (Batch 1: playlistCache của Video có tag.artist='') —
+        // #player-title/#player-artist dùng CHUNG DOM giữa Playlist/Visualizer nên đồng bộ cả 2 màn.
+        playerArtist.textContent = '';
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: record.filename || t('videoPlayer.untitled'),
-                artist: t('videoPlayer.nowPlayingLabel'),
+                artist: '',
                 artwork: [],
             });
         }

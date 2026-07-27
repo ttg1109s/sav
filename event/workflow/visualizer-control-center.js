@@ -39,8 +39,12 @@ const workflowVisualizerControlCenter = {
      * gate ĐÃ tự chặn message 'visualizerControlCenter.videoEnable.enable.click' + tự bật notify
      * NẾU `isVideoPlayerMode===true` (đăng ký ở event/block.js) — hàm NÀY KHÔNG cần tự kiểm tra lại
      * điều kiện đó nữa (bỏ hẳn `if (...) { alertModal(...); return; }` cũ). 2 tính năng dùng CHUNG
-     * `bgVideoElement` — không được cùng bật (xem event/workflow/file-manager-video.js::
-     * enablePlayerModeFromPanel(), Block gate ĐỐI XỨNG ở chiều ngược lại).
+     * `bgVideoElement` — không được cùng bật.
+     * [SỬA — ver12 "Song/Video Unification", Batch 2] Chiều ĐỐI XỨNG (chặn bật Video Player mode
+     * khi Video nền đang bật) TỪNG đăng ký ở event/block.js cho checkbox cũ
+     * (`workflowFileManagerVideo.enablePlayerModeFromPanel()`, ĐÃ BỎ HẲN) — entry point MỚI vào
+     * Video Player mode (`window.playSong()` dispatch theo mediaType) KHÔNG đi qua eventBus nên
+     * KHÔNG còn msg.type nào để đăng ký Block gate chiều đó nữa (xem ghi chú ở event/block.js).
      *
      * Tái dùng THẲNG `applyUploadedVideoBg()` (core/state-and-video-bg.js, di sản — KHÔNG đụng file
      * đó) — hàm này nhận `File` NHƯNG chỉ đọc `.type`/gọi `URL.createObjectURL()`, hoàn toàn hoạt

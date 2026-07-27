@@ -13,8 +13,13 @@
  *
  * NẠP SAU: core/file-manager/video.js, core/dropdown-menu.js, core/settings-panel-stack-
  * ui.js (pushSettingsPanel), event/workflow/video-gallery-window.js, event/workflow/video-player.js
- * (workflowVideoPlayer — enablePlayerModeFromPanel()/disablePlayerModeFromPanel() gọi trực tiếp,
- * Workflow gọi Workflow).
+ * (workflowVideoPlayer — dùng bởi refreshVideoPlaylistIfActive() ngay dưới).
+ *
+ * [SỬA — ver12 "Song/Video Unification", Batch 2] Checkbox "Video Player mode" + 2 hàm
+ * `enablePlayerModeFromPanel()`/`disablePlayerModeFromPanel()` (từng gọi trực tiếp
+ * `workflowVideoPlayer.enterVideoPlayerMode()`/`exitVideoPlayerMode()`) ĐÃ BỎ HẲN khỏi file này —
+ * entry point vào Video Player mode giờ DUY NHẤT qua Playlist + toggle Nguồn, xem
+ * event/workflow/video-player.js::startFromPlaylist() + core/playlist/actions.js::window.playSong().
  */
 let fileManagerVideoPanelEl = null; // panel Video đang mở — null nếu đang đóng (cùng khuôn fileManagerPhotoPanelEl)
 let _videoPickerSession = null; // MỚI (Batch 2) — session picker Generic Drawer (chọn 1 video làm nền), cùng khuôn _imagePickerSession (file-manager-photo.js)
@@ -62,20 +67,12 @@ const workflowFileManagerVideo = {
      * eventBus (KHÔNG gọi thẳng `.click()` input — Router quyết định, cùng khuôn Photo dù ở Video
      * không có branching nào để quyết định — vẫn giữ round-trip qua Router cho nhất quán kiến trúc,
      * dễ audit "mọi tương tác đều qua eventBus").
-     * SỬA (21/07/2026, Giang yêu cầu "nút apply Video Player chuyển qua toggle ở Video UI") — thêm
-     * wire checkbox `#setting-video-player-mode-enable` (nằm trong BODY, không phải header, nhưng
-     * wire CHUNG ở đây cho đơn giản — panel push CHỈ 1 LẦN/lần mở).
-     * SỬA LẦN 2 (21/07/2026, Giang chỉ ra: "Block (event/block.js) có sẵn tính năng notify, sao
-     * phải tự viết alertModal?") — TÁCH message thành 2 loại RIÊNG `playerModeToggle.enable.click`/
-     * `.disable.click` (THAY 1 message `.change` + payload `checked`) — Block gate CHỈ đọc được
-     * appState (KHÔNG đọc được payload, xem docstring event/block.js/event/bus.js::evalCondition())
-     * nên PHẢI có msg.type RIÊNG cho chiều "bật" mới đăng ký block được — CÙNG tiền lệ đã có sẵn
-     * trong project (`fileManagerSong.folder.applyToPlaylist.click` KHÁC hẳn
-     * `folder.unapplyFromPlaylist.click`, xem event/block.js). Checkbox giờ là "controlled toggle"
-     * — LUÔN trả `.checked` về ĐÚNG giá trị THẬT (`appState.get('isVideoPlayerMode')`) NGAY trong
-     * listener TRƯỚC KHI dispatch (không đợi biết bị chặn hay không) — nếu Block gate chặn thật,
-     * checkbox đã về đúng trạng thái từ trước, KHÔNG nhấp nháy sai; nếu KHÔNG bị chặn và bật thành
-     * công, `enablePlayerModeFromPanel()` tự set lại `.checked=true` SAU. */
+     * [SỬA — ver12 "Song/Video Unification", Batch 2] Checkbox "Video Player mode" (từng wire
+     * CHUNG ở đây, cùng `enablePlayerModeFromPanel()`/`disablePlayerModeFromPanel()` ngay dưới) ĐÃ
+     * BỎ HẲN — entry point vào Video Player mode giờ DUY NHẤT qua Playlist + toggle Nguồn
+     * (`window.playSong()` dispatch theo `mediaType`, xem core/playlist/actions.js +
+     * event/workflow/video-player.js::startFromPlaylist(), tránh 2 đường vào cùng 1 mode — xem
+     * plan-v12-song-video-unification.md mục 3). */
     _wireHeaderActionEvents() {
         const uploadBtn = fileManagerVideoPanelEl.querySelector('#btn-file-manager-video-upload-trigger');
         if (uploadBtn) uploadBtn.addEventListener('click', () => {
@@ -86,37 +83,6 @@ const workflowFileManagerVideo = {
         if (deleteModeBtn) deleteModeBtn.addEventListener('click', () => {
             eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.deleteMode.click', payload: {} });
         });
-
-        const playerModeCheckbox = fileManagerVideoPanelEl.querySelector('#setting-video-player-mode-enable');
-        if (playerModeCheckbox) {
-            playerModeCheckbox.checked = appState.get('isVideoPlayerMode');
-            playerModeCheckbox.addEventListener('change', (e) => {
-                const intendedChecked = e.target.checked;
-                e.target.checked = appState.get('isVideoPlayerMode'); // "controlled toggle" — xem docstring hàm
-                eventBus.send({ router: 'fileManagerVideo', type: intendedChecked ? 'fileManagerVideo.playerModeToggle.enable.click' : 'fileManagerVideo.playerModeToggle.disable.click', payload: {} });
-            });
-        }
-    },
-
-    /** Ứng với 'fileManagerVideo.playerModeToggle.enable.click'. Block gate (event/block.js) ĐÃ tự
-     * chặn + báo lý do NẾU Video nền trang trí đang bật (`vizConfig.videoBgEnabled`) TRƯỚC KHI
-     * message này tới được đây — hàm NÀY không cần tự kiểm tra lại điều kiện đó nữa (SỬA 21/07/2026,
-     * bỏ hẳn `if (...) { alertModal(...); return; }` cũ, xem lịch sử patch). */
-    async enablePlayerModeFromPanel() {
-        await workflowVideoPlayer.enterVideoPlayerMode(); // event/workflow/video-player.js — Workflow gọi Workflow, tự do theo event-bus-flow.md mục 4B
-        if (fileManagerVideoPanelEl) {
-            const checkboxEl = fileManagerVideoPanelEl.querySelector('#setting-video-player-mode-enable');
-            if (checkboxEl) checkboxEl.checked = appState.get('isVideoPlayerMode'); // phản ánh ĐÚNG kết quả thật (có thể vẫn false nếu vd danh sách rỗng)
-        }
-    },
-
-    /** Ứng với 'fileManagerVideo.playerModeToggle.disable.click' — luôn cho phép, không có gì cần khoá khi TẮT. */
-    async disablePlayerModeFromPanel() {
-        await workflowVideoPlayer.exitVideoPlayerMode();
-        if (fileManagerVideoPanelEl) {
-            const checkboxEl = fileManagerVideoPanelEl.querySelector('#setting-video-player-mode-enable');
-            if (checkboxEl) checkboxEl.checked = false;
-        }
     },
 
     /** Ứng với 'fileManagerVideo.uploadTrigger.click' (Router gọi thẳng, không cần VirtualMachineState
