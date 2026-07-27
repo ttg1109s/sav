@@ -13,6 +13,11 @@
  * logic phân biệt hàng/nút bên trong GIỮ NGUYÊN 100%. `btnBackFileManagerSong`/
  * `btnBackFileManagerFolderDetail` ĐÃ XOÁ (Back dùng CHUNG cho cả 2 cấp).
  *
+ * === Batch 4 ("Song/Video Unification", mục 5) ===
+ * Thêm 1 delegate 'change' RIÊNG (`handleFileManagerSongDelegatedChange`, cùng anchor
+ * `settingsStackBody`) cho 2 toggle Scope/Exclude trong Folder Detail Drawer — nút Áp dụng/Bỏ áp
+ * dụng cũ (bắt qua 'click') ĐÃ BỎ.
+ *
  * NẠP SAU CÙNG (sau bus, core, workflow, router, VÀ SAU dom-refs.js).
  */
 
@@ -61,16 +66,6 @@ function handleFileManagerSongDelegatedClick(e) {
     // MỚI (14/07/2026, Giang yêu cầu layout lại) — icon Sửa tên NGAY cạnh tên folder.
     if (e.target.closest('#btn-file-manager-folder-detail-rename')) {
         eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.folder.detail.rename.click', payload: {} });
-        return;
-    }
-    if (e.target.closest('#btn-file-manager-folder-apply-to-playlist')) {
-        const btnApply = e.target.closest('#btn-file-manager-folder-apply-to-playlist');
-        // MỚI (03/07/2026, đợt 4, điểm 2) — 1 nút, 2 msg.type tuỳ data-mode (workflow tự đổi
-        // data-mode mỗi lần refresh, xem event/workflow/file-manager-song.js _updateApplyButtonMode()).
-        const type = btnApply.dataset.mode === 'unapply'
-            ? 'fileManagerSong.folder.unapplyFromPlaylist.click'
-            : 'fileManagerSong.folder.applyToPlaylist.click';
-        eventBus.send({ router: 'fileManagerSong', type, payload: {} });
         return;
     }
 
@@ -122,6 +117,31 @@ function handleFileManagerSongDelegatedClick(e) {
     }
 }
 
+/**
+ * MỚI (Batch 4, "Song/Video Unification" mục 5) — delegate RIÊNG cho sự kiện 'change' (2 toggle
+ * Scope/Exclude trong Folder Detail Drawer) — TÁCH khỏi handleFileManagerSongDelegatedClick() ở
+ * trên (sự kiện 'click' không bắt được đổi trạng thái checkbox theo đúng ngữ nghĩa "change", và
+ * input[type=checkbox] không bubble 'input'/'change' qua `closest()` khác selector nào ngoài chính
+ * nó nên kiểm tra thẳng `e.target.id`).
+ */
+function handleFileManagerSongDelegatedChange(e) {
+    if (e.target.id === 'toggle-file-manager-folder-scope') {
+        // MỚI (Batch 4) — THAY nút Áp dụng/Bỏ áp dụng cũ (1 nút đổi nhãn theo data-mode) bằng 1
+        // toggle switch, 2 msg.type CŨ GIỮ NGUYÊN (Block gate event/block.js vẫn khớp đúng, không
+        // cần đụng) tuỳ theo `checked` mới của checkbox.
+        const type = e.target.checked
+            ? 'fileManagerSong.folder.applyToPlaylist.click'
+            : 'fileManagerSong.folder.unapplyFromPlaylist.click';
+        eventBus.send({ router: 'fileManagerSong', type, payload: {} });
+        return;
+    }
+    if (e.target.id === 'toggle-file-manager-folder-exclude') {
+        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.folder.excludeToggle.change', payload: { enabled: e.target.checked } });
+        return;
+    }
+}
+
 if (settingsStackBody) {
     settingsStackBody.addEventListener('click', handleFileManagerSongDelegatedClick);
+    settingsStackBody.addEventListener('change', handleFileManagerSongDelegatedChange);
 }
