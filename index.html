@@ -2,57 +2,6 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <!-- ================================ TẠM THỜI — DEBUG, XOÁ SAU KHI XONG ================================
-         MỚI (27/07/2026, sửa lại theo góp ý Giang: "sao không tái dùng debug console đã có sẵn ở
-         Settings > Misc?") — TÁI DÙNG THẲNG `core/debug-console.js` (đã có sẵn, bọc console.log/
-         warn/error + lưu ring buffer, xem file đó) — KHÔNG tự viết lại window.onerror/
-         unhandledrejection song song (event/listener/app-boot.js đã có 2 handler đó rồi, routing
-         qua _reportFatalError() -> console.error() -> ĐÃ tự động lọt vào buffer của
-         core/debug-console.js, không cần bắt lại lần 2).
-         VẤN ĐỀ CẦN GIẢI: panel Debug Console THẬT (components/debug-console-drawer.js) nằm BÊN
-         TRONG Settings — nếu Settings không dựng được (đúng lúc đang debug) thì KHÔNG mở panel đó
-         lên được, dù buffer vẫn có đầy đủ log (core/debug-console.js không phụ thuộc gì DOM/
-         Settings). Khối dưới đây CHỈ làm 1 việc DUY NHẤT: sau 3 giây, gọi `getDebugConsoleLogs()`
-         (hàm CÓ SẴN) và in TOÀN BỘ ra 1 lớp phủ đơn giản — không bắt lỗi riêng, không format riêng,
-         dùng ĐÚNG dữ liệu + format core/debug-console.js đã chuẩn bị sẵn.
-         XOÁ khối <script> này (từ đây tới "HẾT PHẦN DEBUG") sau khi đã xác định xong lỗi. -->
-    <script>
-    (function () {
-        function renderLogs() {
-            var overlay = document.getElementById('debug-dump-overlay');
-            if (overlay) overlay.remove();
-            overlay = document.createElement('div');
-            overlay.id = 'debug-dump-overlay';
-            overlay.style.cssText = 'position:fixed;inset:0;z-index:999999;background:#000;color:#0f0;'
-                + 'font-family:ui-monospace,Menlo,monospace;font-size:11px;line-height:1.5;'
-                + 'padding:14px;overflow:auto;white-space:pre-wrap;word-break:break-word;';
-
-            if (typeof getDebugConsoleLogs !== 'function') {
-                overlay.textContent = '[DEBUG] getDebugConsoleLogs() không tồn tại — core/debug-console.js '
-                    + 'chưa chạy được (nghiêm trọng hơn dự tính, báo lại điều này).';
-                (document.body || document.documentElement).appendChild(overlay);
-                return;
-            }
-
-            var logs = getDebugConsoleLogs(); // core/debug-console.js — TOÀN BỘ log console.log/warn/error đã bắt từ đầu boot
-            var appRootEmpty = !document.getElementById('app-root') || !document.getElementById('app-root').innerHTML.trim();
-            var header = '[DEBUG] ' + logs.length + ' dòng log (console.log/warn/error, từ core/debug-console.js) — '
-                + (appRootEmpty ? '#app-root ĐANG RỖNG.' : '#app-root có nội dung.') + '\n'
-                + 'Chụp/cuộn màn hình gửi lại toàn bộ nội dung dưới đây:\n'
-                + '========================================\n';
-            var body = logs.map(function (entry) {
-                var d = new Date(entry.time);
-                var ts = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2);
-                return '[' + ts + '] ' + entry.level.toUpperCase() + ': ' + entry.text;
-            }).join('\n');
-
-            overlay.textContent = header + body;
-            (document.body || document.documentElement).appendChild(overlay);
-        }
-        setTimeout(renderLogs, 3000);
-    })();
-    </script>
-    <!-- ================================ HẾT PHẦN DEBUG ================================ -->
     <meta
   name="viewport"
   content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
