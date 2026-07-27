@@ -2,13 +2,23 @@
  * event/workflow/video-player.js — GỌI TỪ 2 nơi: (1) `window.playSong()` (core/playlist/actions.js,
  * guard clause đầu hàm khi `cached.mediaType === 'video'` — MỚI, ver12 "Song/Video Unification"
  * Batch 2, THAY hẳn checkbox "Video Player mode" cũ trong panel File Manager -> Video, ĐÃ BỎ HẲN,
- * xem plan-v12-song-video-unification.md mục 3 + cleanup Batch 2) — `startFromPlaylist(startKey)`
+ * xem plan-v12-song-video-unification.md mục 3 + cleanup Batch 2), đi qua eventBus router
+ * 'videoPlayer' (event/router/video-player.js) để Block gate kịp chặn — `startFromPlaylist(startKey)`
  * ngay dưới là entry point DUY NHẤT còn lại vào Video Player mode; (2) router "playerControls" —
- * Next/Prev/Play-Pause (VirtualMachineState theo `isVideoPlayerMode`) + 5 sự kiện RIÊNG của
- * `bgVideoElement` (video.timeupdate/loadedmetadata/play/pause/ended — xem event/listener/
- * video-player.js) + progressBar seek (VirtualMachineState). `exitVideoPlayerMode()` giờ có THÊM 1
- * caller MỚI — `window.playSong()` tự gọi khi phát Song lúc đang ở Video Player mode (dọn sạch
- * trước khi chuyển hẳn về luồng Song).
+ * Play-Pause + 5 sự kiện RIÊNG của `bgVideoElement` (video.timeupdate/loadedmetadata/play/pause/
+ * ended — xem event/listener/video-player.js) + progressBar seek (VirtualMachineState theo
+ * `isVideoPlayerMode`). `exitVideoPlayerMode()` giờ có THÊM 1 caller MỚI — `window.playSong()` tự
+ * gọi khi phát Song lúc đang ở Video Player mode (dọn sạch trước khi chuyển hẳn về luồng Song).
+ *
+ * [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt: "video thừa hưởng cơ chế Playlist
+ * sẵn có, không tạo cơ chế next/prev riêng — có là đang tạo exception"] Next/Prev (nút vật lý LẪN
+ * cử chỉ vuốt) KHÔNG còn qua router này/VirtualMachineState theo `isVideoPlayerMode` nữa — LUÔN
+ * gọi `playNext()`/`playPrev()` (core/player-controls.js, DÙNG CHUNG với Song, đọc `displayOrder`/
+ * `shuffleIndices`/`currentKey` — package `playlist`, đã đúng danh sách + sort mode Video từ Batch
+ * 1) bất kể nguồn nào, xem event/router/player-controls.js. `playVideoByKey()` ngay dưới giờ ghi
+ * `currentKey` (KHÔNG còn `currentVideoKey` riêng, đã xoá — service/state/video-player-mode.js) —
+ * chính là điểm khiến `playNext()`/`playPrev()` hoạt động đúng cho Video mà KHÔNG cần biết gì về
+ * "đang phát video". `nextVideo()`/`prevVideo()` (mảng `videoPlaylist` riêng) ĐÃ XOÁ HẲN.
  *
  * VIẾT LẠI LẦN 2 (21/07/2026, Giang phát hiện qua video test) — BỎ HẲN `audioPlayer` khỏi luồng
  * Video Player (xem docstring đầy đủ ở core/video-player.js vì sao — tóm tắt: `<audio src="video
@@ -27,7 +37,9 @@
  * `requestWakeLock()`/`releaseWakeLock()`/`startListenClock()`/`stopListenClock()` core/player-
  * controls.js — những hàm này THUẦN, không đụng `audioPlayer`, an toàn dùng lại nguyên).
  *
- * NẠP SAU: core/video-player.js, core/file-manager/video.js (listVideos/sortVideosByAddedDateDesc),
+ * NẠP SAU: core/video-player.js, core/file-manager/video.js (listVideos), core/playlist/loader.js
+ * (buildVideoPlaylistCache, dùng bởi refreshVideoPlaylistIfActive() — Batch 1), core/playlist/
+ * order.js (updateShuffleArray/recomputeDisplayOrder/recomputeRenderOrder, cùng lý do),
  * service/db.js (getVideoRecord), core/audio-engine.js (setupAudioContext).
  */
 const workflowVideoPlayer = {
@@ -42,18 +54,16 @@ const workflowVideoPlayer = {
      * (checkbox "Video Player mode" trong panel File Manager -> Video, ĐÃ BỎ HẲN — xem cleanup mục
      * Batch 2, plan-v12-song-video-unification.md). Checkbox đó là caller DUY NHẤT nên ĐỔI TÊN +
      * ĐỔI CHỮ KÝ luôn tại đây (không phải rewrite hồi tố — hàm chỉ có đúng 1 caller, caller đó vừa
-     * bị xoá): giờ nhận `startKey` — videoKey CỤ THỂ vừa được chọn trong Playlist (thay vì LUÔN
-     * luôn phát `videoPlaylist[0]`, hành vi cũ của checkbox "bật mode = phát video mới nhất").
-     * Caller MỚI DUY NHẤT: `window.playSong()` (core/playlist/actions.js), guard clause đầu hàm khi
-     * `cached.mediaType === 'video'` — Workflow gọi Workflow, tự do (event-bus-flow.md mục 4B).
-     * Toàn bộ các bước dọn Song/bg/state bên dưới GIỮ NGUYÊN 100% so với `enterVideoPlayerMode()`
-     * cũ — CHỈ khác dòng phát video cuối cùng (`startKey` thay vì `videoPlaylist[0]`).
+     * bị xoá): giờ nhận `startKey` — videoKey CỤ THỂ vừa được chọn trong Playlist.
+     * [SỬA LẦN 2 — Giang chốt: "video thừa hưởng cơ chế Playlist sẵn có, không tạo cơ chế next/
+     * prev riêng"] BỎ HẲN việc tự `listVideos()`/`sortVideosByAddedDateDesc()` dựng 1 mảng
+     * `videoPlaylist` RIÊNG — Next/Prev giờ đọc THẲNG `displayOrder`/`shuffleIndices` (package
+     * `playlist`, đã đúng danh sách + đúng sort mode Video từ Batch 1) qua `playNext()`/
+     * `playPrev()` (core/player-controls.js) DÙNG CHUNG với Song, nên hàm NÀY không cần tự dựng gì
+     * cho việc đó nữa — chỉ còn lo dọn Song cũ + bật state + phát ĐÚNG video vừa click.
      * @param {string} startKey - videoKey vừa được chọn để phát.
      */
     async startFromPlaylist(startKey) {
-        const videos = await listVideos(); // core/file-manager/video.js
-        if (videos.length === 0) return; // guard hiếm — race: key vừa được click nhưng record đã mất khỏi DB
-
         const previousSongKey = appState.get('currentKey');
         if (previousSongKey !== null) {
             audioPlayer.pause(); // bắn sự kiện 'pause' NGUYÊN BẢN -> handleAudioPause() (core/player-controls.js, KHÔNG đụng) tự lo icon/wake lock/Media Session cho Song
@@ -61,13 +71,8 @@ const workflowVideoPlayer = {
             refreshSongNode(previousSongKey); // core/playlist/render.js — patch riêng đúng 1 hàng, xoá highlight "đang phát"
         }
 
-        // videoPlaylist cho Next/Prev — TÁI DÙNG nguyên sortVideosByAddedDateDesc() (mới -> cũ) như
-        // enterVideoPlayerMode() cũ, KHÔNG đổi sang đọc theo sort mode Playlist (Batch 1) — ngoài
-        // phạm vi batch này, xem ghi chú cuối phiên làm việc nếu Giang muốn đồng bộ 2 thứ tự.
-        const videoPlaylist = sortVideosByAddedDateDesc(videos).map((v) => v.key); // core/file-manager/video.js
-
         visualizerSolidBg.style.backgroundColor = '#000000'; // khớp handleVideoBackground() (core/state-and-video-bg.js) — nền đen cưỡng chế phía sau video
-        enterVideoPlayerModeState(videoPlaylist); // core/video-player.js
+        enterVideoPlayerModeState(); // core/video-player.js — CHỈ còn set isVideoPlayerMode=true
         setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop + hiện + pointer-events
 
         await this.playVideoByKey(startKey);
@@ -97,9 +102,13 @@ const workflowVideoPlayer = {
      */
     async playVideoByKey(videoKey) {
         const record = await getVideoRecord(videoKey); // service/db.js
-        if (!record) { // guard: video vừa bị xoá ở nơi khác giữa lúc đang phát — thử bỏ qua sang video kế tiếp
-            const fallbackKey = computeNextVideoKey(appState.get('videoPlaylist'), videoKey); // core/video-player.js
-            if (fallbackKey && fallbackKey !== videoKey) await this.playVideoByKey(fallbackKey);
+        if (!record) {
+            // guard: video vừa bị xoá ở nơi khác giữa lúc đang phát — TRƯỚC ĐÂY tự tính fallback
+            // qua computeNextVideoKey(videoPlaylist,...) RIÊNG (đã xoá, Batch 2). Giờ dùng ĐÚNG cơ
+            // chế Next DÙNG CHUNG với Song (playNext(), core/player-controls.js) — hàm đó tự đọc
+            // displayOrder/shuffleIndices hiện tại (đã lọc key hỏng qua confirmedBrokenKeys nếu có)
+            // rồi tự gọi lại window.playSong() -> quay lại đúng dispatch mediaType từ đầu.
+            playNext(true); // core có sẵn (core/player-controls.js), dùng CHUNG với Song
             return;
         }
 
@@ -118,7 +127,14 @@ const workflowVideoPlayer = {
         bgVideoElement.addEventListener('loadeddata', fadeVideoIn, { once: true });
         bgVideoElement.addEventListener('playing', fadeVideoIn, { once: true });
 
-        setCurrentVideoKey(videoKey); // core/video-player.js
+        // MỚI (ver12 "Song/Video Unification", Batch 2, Giang chốt) — ghi `currentKey` (package
+        // `playlist`, DÙNG CHUNG với Song, THAY hẳn `currentVideoKey` riêng đã xoá) — ĐÂY là điểm
+        // mấu chốt để playNext()/playPrev() (core/player-controls.js, đọc displayOrder/
+        // shuffleIndices.indexOf(currentKey)) tính đúng vị trí hiện tại cho CẢ Video, không cần
+        // biết gì riêng về "đang phát video" — hành vi/tên field GIỐNG HỆT Song (`appState.set(
+        // 'currentKey', key)` trong window.playSong(), core/playlist/actions.js).
+        appState.set('currentKey', videoKey);
+        console.log(`writer: "playVideoByKey", page: "currentKey", content: "${videoKey}"`);
 
         // BẮT BUỘC — đảm bảo audioContext/analyser tồn tại (an toàn gọi lại nhiều lần, guard sẵn
         // trong chính 2 hàm) RỒI mới nối bgVideoElement vào — thứ tự ngược sẽ lỗi (analyser chưa
@@ -154,74 +170,28 @@ const workflowVideoPlayer = {
         bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
     },
 
-    /** MỚI (21/07/2026, Giang chỉ ra "không cập nhật lại list của video") — làm mới lại
-     * `videoPlaylist` (đọc lại DB) TRONG LÚC Video Player mode đang chạy — gọi khi video được
-     * thêm/xoá ở File Manager -> Video (vẫn tới được panel đó lúc video đang phát nền, xem
-     * `handleBackToPlaylistFromVideoMode()`) MÀ KHÔNG cần tắt/bật lại mode mới thấy video mới.
-     * KHÔNG đụng video ĐANG PHÁT (`currentVideoKey` giữ nguyên) — chỉ cập nhật lại MẢNG danh sách
-     * (in-place, `appState.mutate()`) để Next/Prev thấy được ngay video mới thêm.
-     * Guard `isVideoPlayerMode` — gọi lúc KHÔNG ở mode này (vd upload bình thường) là no-op.
-     */
+    /** MỚI (21/07/2026, Giang chỉ ra "không cập nhật lại list của video") — làm mới lại Playlist
+     * (đọc lại DB) TRONG LÚC đang browse nguồn Video — gọi khi video được thêm/xoá ở File Manager
+     * (vẫn tới được panel đó lúc Playlist đang mở ở nguồn Video, xem
+     * `handleBackToPlaylistFromVideoMode()`) MÀ KHÔNG cần đổi Nguồn tắt/bật lại mới thấy video mới.
+     * [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt "video thừa hưởng cơ chế
+     * Playlist, không tạo cơ chế riêng"] TRƯỚC ĐÂY hàm này tự quản lý mảng `videoPlaylist` RIÊNG
+     * (đã xoá, xem service/state/video-player-mode.js) — giờ refresh ĐÚNG `playlistCache`/
+     * `playlistOrder` hợp nhất (Batch 1: `buildVideoPlaylistCache()`, core/playlist/loader.js),
+     * TÁI DÙNG y hệt luồng `switchToVideoSource()` (event/workflow/playlist.js) trừ phần reset sort
+     * mode (không cần đổi sort mode đang chọn chỉ vì có video mới). Guard đổi từ `isVideoPlayerMode`
+     * sang `activeMediaSource` — đúng điều kiện thật cần refresh (Playlist đang browse Video, KHÔNG
+     * nhất thiết đang PHÁT — vd đang ở Settings mà vẫn cần list Playlist đúng khi quay lại). */
     async refreshVideoPlaylistIfActive() {
-        if (!appState.get('isVideoPlayerMode')) return;
-        const videos = await listVideos(); // core/file-manager/video.js
-        const videoPlaylist = sortVideosByAddedDateDesc(videos).map((v) => v.key); // mới -> cũ, core/file-manager/video.js
-        appState.mutate('videoPlaylist', (arr) => { arr.length = 0; arr.push(...videoPlaylist); }); // in-place — mutate() không nhận giá trị return
-    },
-
-    /** Ứng với 'playerControls.next.click' khi `isVideoPlayerMode=true` (xem event/router/
-     * player-controls.js) — `force=true` (mặc định, khớp `playNext(true)` của Song khi bấm nút).
-     * `handleVideoPlayerEnded()` (video hết TỰ NHIÊN) gọi `force=false` — CÙNG Ý NGHĨA
-     * `playNext(force)` (core/player-controls.js): `force=false` tôn trọng ranh giới cuối danh
-     * sách khi `repeatMode` TẮT (dừng hẳn thay vì tự quay vòng); `force=true` LUÔN quay vòng.
-     * MỚI (21/07/2026, Giang yêu cầu "shuffle/repeat chưa áp dụng cho video player") — thêm
-     * `isShuffle`/`repeatMode` (appState CHUNG với Song — tái dùng ĐÚNG 2 nút vật lý, xem docstring
-     * đầu file) — `repeatMode===2` (Lặp 1) + kết thúc tự nhiên -> lặp lại chính video, KHÔNG next.
-     * @param {boolean} [force]
-     */
-    async nextVideo(force = true) {
-        if (!force && appState.get('repeatMode') === 2) { // Lặp 1, kết thúc TỰ NHIÊN -> lặp lại chính video đó
-            bgVideoElement.currentTime = 0;
-            bgVideoElement.play().catch(() => {});
-            return;
-        }
-
-        const videoPlaylist = appState.get('videoPlaylist');
-        const currentVideoKey = appState.get('currentVideoKey');
-        let nextKey;
-
-        if (appState.get('isShuffle')) {
-            nextKey = pickRandomVideoKeyExcluding(videoPlaylist, currentVideoKey); // core/video-player.js — đơn giản hoá, xem docstring hàm đó
-        } else {
-            const currentPos = videoPlaylist.indexOf(currentVideoKey);
-            const isAtEnd = (currentPos === -1 || currentPos === videoPlaylist.length - 1);
-            if (isAtEnd && appState.get('repeatMode') === 0 && !force) {
-                bgVideoElement.pause(); // Tắt lặp + hết danh sách TỰ NHIÊN -> dừng hẳn, KHÔNG tự quay vòng (giống playNext() Song)
-                return;
-            }
-            nextKey = computeNextVideoKey(videoPlaylist, currentVideoKey); // core/video-player.js — tuần tự, LUÔN wrap (đúng cho force=true/repeatMode=1)
-        }
-
-        if (!nextKey) return; // guard: danh sách rỗng (hiếm — video vừa bị xoá hết giữa lúc đang ở mode)
-        await this.playVideoByKey(nextKey);
-    },
-
-    /** Ứng với 'playerControls.prev.click' khi `isVideoPlayerMode=true`.
-     * MỚI (21/07/2026, cùng đợt) — mirror ĐÚNG `playPrev()` (Song, core/player-controls.js): quá
-     * 3 giây vào video hiện tại -> "Prev" chỉ tua về đầu chính video đó (KHÔNG lùi video), quy ước
-     * chung của hầu hết trình phát nhạc/video. `isShuffle` bật -> chọn ngẫu nhiên (đơn giản hoá,
-     * xem `pickRandomVideoKeyExcluding()` core/video-player.js — KHÔNG áp dụng cho Prev lúc shuffle
-     * theo đúng "lịch sử vừa xem", chỉ random tương tự Next). */
-    async prevVideo() {
-        if (bgVideoElement.currentTime > 3) { bgVideoElement.currentTime = 0; return; }
-
-        const videoPlaylist = appState.get('videoPlaylist');
-        const currentVideoKey = appState.get('currentVideoKey');
-        const prevKey = appState.get('isShuffle')
-            ? pickRandomVideoKeyExcluding(videoPlaylist, currentVideoKey) // core/video-player.js
-            : computePrevVideoKey(videoPlaylist, currentVideoKey); // core/video-player.js
-        if (!prevKey) return;
-        await this.playVideoByKey(prevKey);
+        if (appState.get('activeMediaSource') !== 'video') return;
+        const videoRecords = await listVideos(); // core/file-manager/video.js
+        const keys = buildVideoPlaylistCache(videoRecords); // core/playlist/loader.js
+        appState.set('playlistOrder', keys);
+        console.log(`writer: "refreshVideoPlaylistIfActive", page: "playlistOrder", content: "${keys.length} video"`);
+        updateShuffleArray(); // core có sẵn (core/playlist/order.js)
+        recomputeDisplayOrder(); // core có sẵn (core/playlist/order.js)
+        recomputeRenderOrder(); // core có sẵn (core/playlist/order.js)
+        renderPlaylistDiff(); // core có sẵn (core/playlist/render.js)
     },
 
     /** Ứng với 'playerControls.playPause.click' khi `isVideoPlayerMode=true` — toggle
@@ -289,11 +259,14 @@ const workflowVideoPlayer = {
 
     /** Ứng với 'playerControls.video.ended' (sự kiện 'ended' NGUYÊN BẢN của `bgVideoElement` —
      * `loop=false` lúc ở Player mode nên sự kiện này CÓ bắn, xem `setBgVideoElementForPlayerMode()`
-     * core/video-player.js) — video hết, tự chuyển video kế tiếp (KHÔNG có repeatMode riêng cho
-     * video ở bản đầu — LUÔN tự next, quay vòng về đầu danh sách khi hết). */
+     * core/video-player.js) — video hết, tự chuyển video kế tiếp.
+     * [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt "video thừa hưởng cơ chế
+     * Playlist, không tạo cơ chế next riêng"] Gọi `playNext(false)` (core/player-controls.js) —
+     * DÙNG CHUNG với Song, THAY `this.nextVideo(false)` riêng đã xoá — tự đọc displayOrder/
+     * shuffleIndices/repeatMode, tự gọi lại window.playSong() -> quay lại dispatch mediaType. */
     async handleVideoPlayerEnded() {
         stopListenClock(); // core/player-controls.js, hàm có sẵn — dùng lại nguyên
-        await this.nextVideo(false); // force=false — kết thúc TỰ NHIÊN, tôn trọng repeatMode (xem docstring nextVideo())
+        playNext(false); // core có sẵn (core/player-controls.js), dùng CHUNG với Song — force=false, tôn trọng repeatMode
     },
 
     /** MỚI (21/07/2026, Giang chỉ ra: "nút về playlist UI ... cần quy trình khác, phải dùng

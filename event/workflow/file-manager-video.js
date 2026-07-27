@@ -195,11 +195,13 @@ const workflowFileManagerVideo = {
             if (uploadInput) uploadInput.value = ''; // cho phép chọn lại đúng file cũ ở lần sau
         }
         await this.refresh();
-        // MỚI (21/07/2026, Giang chỉ ra "không cập nhật lại list của video") — nếu Video Player
-        // mode ĐANG CHẠY (vẫn tới được panel này lúc video đang phát nền, xem event/workflow/
-        // video-player.js::handleBackToPlaylistFromVideoMode()), làm mới `videoPlaylist` NGAY để
-        // Next/Prev thấy được video vừa upload — KHÔNG cần tắt/bật lại mode.
-        await workflowVideoPlayer.refreshVideoPlaylistIfActive(); // event/workflow/video-player.js — tự guard isVideoPlayerMode, no-op nếu không ở mode này
+        // MỚI (21/07/2026, Giang chỉ ra "không cập nhật lại list của video") — nếu Playlist đang
+        // browse nguồn Video (vẫn tới được panel này lúc đó, xem event/workflow/video-player.js::
+        // handleBackToPlaylistFromVideoMode()), làm mới playlistCache/playlistOrder NGAY để
+        // Next/Prev thấy được video vừa upload — KHÔNG cần đổi Nguồn tắt/bật lại.
+        // [SỬA — ver12 "Song/Video Unification", Batch 2] Guard đổi từ isVideoPlayerMode sang
+        // activeMediaSource — xem docstring refreshVideoPlaylistIfActive().
+        await workflowVideoPlayer.refreshVideoPlaylistIfActive(); // event/workflow/video-player.js — tự guard activeMediaSource, no-op nếu Playlist không ở nguồn Video
         const successCount = fileArray.length - failedCount;
         await alertModal(tFormat('fileManager.video.uploadSuccess', { count: successCount }));
     },
@@ -277,18 +279,20 @@ const workflowFileManagerVideo = {
 
     /** Ứng với 'fileManagerVideo.tileMenu.action.click' action='delete' — hỏi xác nhận trước khi
      * xoá 1 video. SỬA (21/07/2026, Giang yêu cầu) — GUARD MỚI: video ĐANG PHÁT trong Video Player
-     * mode (`currentVideoKey` trùng) -> CHẶN HẲN, báo lý do + yêu cầu chuyển video khác/tắt Player
+     * mode (`currentKey` trùng) -> CHẶN HẲN, báo lý do + yêu cầu chuyển video khác/tắt Player
      * mode trước — KHÔNG cho xoá (xoá Blob đang được `bgVideoElement`/`audioPlayer` tham chiếu sẽ
      * làm hỏng phát ngay lập tức).
+     * [SỬA — ver12 "Song/Video Unification", Batch 2] `currentVideoKey` riêng ĐÃ XOÁ — dùng
+     * `currentKey` (package `playlist`, DÙNG CHUNG với Song, do `playVideoByKey()` ghi).
      * SAO KHÔNG DÙNG Block gate — 2 lý do: (1) msg.type dùng chung cho 3 action, xem docstring
-     * `setVideoAsBackground()` ngay trên; (2) điều kiện chặn cần SO SÁNH `currentVideoKey` (appState)
+     * `setVideoAsBackground()` ngay trên; (2) điều kiện chặn cần SO SÁNH `currentKey` (appState)
      * với `videoKey` (PAYLOAD của message) — Block gate chỉ so 1 field appState với 1 giá trị CỐ
      * ĐỊNH khai báo sẵn (`value`), KHÔNG so được appState với payload động — nằm ngoài khả năng biểu
      * đạt của Block gate, PHẢI giữ code thủ công.
      * @param {string} videoKey
      */
     async confirmDeleteSingleVideo(videoKey) {
-        if (appState.get('isVideoPlayerMode') && appState.get('currentVideoKey') === videoKey) {
+        if (appState.get('isVideoPlayerMode') && appState.get('currentKey') === videoKey) {
             await alertModal(t('fileManager.video.deleteConfirm.blockedByPlaying'));
             return;
         }
@@ -371,7 +375,7 @@ const workflowFileManagerVideo = {
      */
     async confirmQuickDeleteBatch(quickDeleteSelectedKeys, onConfirmed) {
         const keys = Array.from(quickDeleteSelectedKeys);
-        if (appState.get('isVideoPlayerMode') && keys.includes(appState.get('currentVideoKey'))) {
+        if (appState.get('isVideoPlayerMode') && keys.includes(appState.get('currentKey'))) {
             await alertModal(t('fileManager.video.deleteConfirm.blockedByPlaying'));
             return;
         }
