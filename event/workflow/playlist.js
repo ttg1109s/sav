@@ -257,9 +257,18 @@ const workflowPlaylist = {
         closeSongActionMenu();
 
         await this._openFolderPickerDrawer(async (folderId) => {
+            let result;
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                await addSongsToFolder([key], folderId); // core có sẵn (core/file-manager/folder.js)
+                // MỚI (Batch 4, "Song/Video Unification" mục 5) — tham số thứ 3 'song' (mediaType)
+                // + đọc result.status: hiện tại KHÔNG thể thật sự xảy ra typeMismatch qua đường này
+                // (chỉ Song mới gọi addSongsToFolder(), folder cũ chỉ toàn 'song'/null) — vẫn xử lý
+                // đầy đủ để không âm thầm coi typeMismatch là thành công nếu sau này có thay đổi.
+                result = await addSongsToFolder([key], folderId, 'song'); // core có sẵn (core/file-manager/folder.js)
             });
+            if (result.status === 'typeMismatch') {
+                await alertModal(t('fileManager.folderPicker.typeMismatch'));
+                return;
+            }
             // SỬA 03/07/2026 (đợt 3): KHÔNG còn tự áp dụng ngay vào Playlist đang chạy — thêm bài
             // không đổi "folder nào đang active", chỉ đổi DỮ LIỆU trong nó. Lần tải trang kế tiếp
             // (hoặc lần bấm "Áp dụng" kế tiếp) sẽ tự đọc đúng danh sách mới — xem
@@ -277,9 +286,14 @@ const workflowPlaylist = {
         if (keys.length === 0) return;
 
         await this._openFolderPickerDrawer(async (folderId) => {
+            let result;
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                await addSongsToFolder(keys, folderId); // core có sẵn (core/file-manager/folder.js)
+                result = await addSongsToFolder(keys, folderId, 'song'); // core có sẵn (core/file-manager/folder.js) — mediaType 'song', xem giải thích ở openAddToFolderPickerForSongMenu()
             });
+            if (result.status === 'typeMismatch') {
+                await alertModal(t('fileManager.folderPicker.typeMismatch'));
+                return;
+            }
             // SỬA 03/07/2026 (đợt 3): KHÔNG còn tự áp dụng ngay vào Playlist đang chạy — xem lý do
             // ở finishAdd() bản 1-bài phía trên (openAddToFolderPickerForSongMenu).
             this._exitSelectionMode();

@@ -57,7 +57,11 @@ const workflowAppBoot = {
         if (typeof getMeta === 'function' && typeof workflowPlaylistScope !== 'undefined') {
             const savedFolderId = await getMeta('activePlayListFolder');
             VirtualMachineState.run([
-                { state: savedFolderId, operation: 'in', value: [null, undefined], callback: () => {} }, // đã đúng "Tất cả bài" sẵn từ initPlaylistFromDB(), không cần làm gì thêm
+                // MỚI (Batch 4, "Song/Video Unification" mục 5) — trước đây no-op ("đã đúng Tất cả
+                // bài sẵn từ initPlaylistFromDB()") — giờ CẦN chạy applyAllSongsScope() để lọc
+                // Exclude (chỉ ảnh hưởng view "Tất cả") ngay từ lúc boot, xem
+                // event/workflow/playlist-scope.js.
+                { state: savedFolderId, operation: 'in', value: [null, undefined], callback: () => workflowPlaylistScope.applyAllSongsScope() },
                 { state: savedFolderId, operation: 'notIn', value: [null, undefined], callback: () => workflowPlaylistScope.applyFolderScope(savedFolderId) },
             ]);
         }

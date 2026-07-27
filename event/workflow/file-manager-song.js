@@ -7,7 +7,8 @@
  * 3 nhóm method:
  *   1. Folder (MỚI, mục 4.b1): refreshSongTab/createFolderFromInput/renameFolderById/deleteFolderById.
  *   2. Folder Detail Drawer (Phase 2, MỚI mục 1b/c, CHỐT 03/07/2026): openFolderDetail/
- *      refreshFolderDetail/removeSongFromFolderById/applyFolderToPlaylist/deleteActiveFolderById.
+ *      refreshFolderDetail/removeSongFromFolderById/enableFolderScope/disableFolderScope/
+ *      setFolderExclude (MỚI, Batch 4)/deleteActiveFolderById.
  *   3. Quản lý dung lượng (DỜI NGUYÊN VẸN từ event/workflow/settings-misc.js — nhánh storageDrawer
  *      cũ, xem comment đầu components/file-manager.js) — askDeleteBroken/executeDeleteBroken/
  *      askDownloadThenClear/executeDownloadThenClear/askClearNoDownload/executeClearNoDownload/
@@ -197,9 +198,9 @@ const workflowFileManagerSong = {
      * Header dùng CHUNG chỉ nhận title CỐ ĐỊNH lúc push (không tự cập nhật lại được sau) — tên
      * folder THẬT (chỉ biết sau khi đọc DB xong) hiển thị bằng 1 heading NGAY TRONG BODY panel
      * (`#file-manager-folder-detail-title`, xem components/file-manager.js), không phải ở header.
-     * SỬA (14/07/2026, đồng bộ Photo & Album) — ĐÚNG trình tự: trượt xong HẲN (chờ THẬT
-     * `SLIDER_PANEL_SCROLL_ESTIMATED_MS`, taskManager, Rule 3) -> RỒI MỚI bật shield -> tải DOM
-     * danh sách bài -> tắt shield. */
+     * SỬA (Batch 4, "Song/Video Unification" mục 5, ĐÃ CHỐT với Giang) — bỏ hẳn withLoadingShield()
+     * từng bọc quanh refreshFolderDetail() — không cần thiết. Vẫn giữ nguyên bước đợi trượt panel
+     * xong HẲN (`SLIDER_PANEL_SCROLL_ESTIMATED_MS`, taskManager) TRƯỚC khi tải DOM danh sách bài. */
     async openFolderDetail(folderId) {
         fileManagerFolderDetailPanelEl = pushSettingsPanel({ title: t('fileManager.song.folderDetail.headerTitle'), bodyHtml: renderFileManagerFolderDetailPanelBody() });
         // MỚI (14/07/2026, Giang yêu cầu) — mở 1 folder MỚI luôn về trang 1 của danh sách bài bên
@@ -209,14 +210,12 @@ const workflowFileManagerSong = {
 
         await new Promise((resolve) => taskManager.once(resolve, SLIDER_PANEL_SCROLL_ESTIMATED_MS, 'openFolderDetail')); // core/slider-panel-scroll.js — đợi trượt xong HẲN
 
-        await withLoadingShield(t('fileManager.song.folderDetail.loadingTitle'), async () => { // core/loading-shield-util.js
-            await this.refreshFolderDetail(folderId);
-        });
+        await this.refreshFolderDetail(folderId);
     },
 
-    /** Vẽ lại tiêu đề + danh sách bài (ĐÃ PHÂN TRANG, ~30 bài/trang, mode 'list') + nút Áp dụng/Bỏ
-     * áp dụng của Folder Detail Drawer đang mở — dùng lúc mở lần đầu, sau khi gỡ 1 bài, và sau khi
-     * đổi scope (Áp dụng/Bỏ áp dụng).
+    /** Vẽ lại tiêu đề + danh sách bài (ĐÃ PHÂN TRANG, ~30 bài/trang, mode 'list') + 2 toggle Scope/
+     * Exclude của Folder Detail Drawer đang mở — dùng lúc mở lần đầu, sau khi gỡ 1 bài, và sau khi
+     * đổi scope.
      * @returns {Promise<Object>} folderMap vừa đọc
      */
     async refreshFolderDetail(folderId) {
@@ -239,9 +238,7 @@ const workflowFileManagerSong = {
             pageResult.pageItems,
             fileManagerFolderDetailPanelEl.querySelector('#file-manager-folder-detail-song-list'),
             fileManagerFolderDetailPanelEl.querySelector('#file-manager-folder-detail-empty'),
-            fileManagerFolderDetailPanelEl.querySelector('#btn-file-manager-folder-detail-remove-all'), // tự ẩn khi rỗng — dùng allSongs.length (xem bên trong hàm, KHÔNG bị ảnh hưởng bởi phân trang)
-            fileManagerFolderDetailPanelEl.querySelector('#btn-file-manager-folder-apply-to-playlist'), // MỚI (14/07/2026) — tự ẩn khi rỗng VÀ chưa active
-            folderId === appState.get('activePlayListFolder') // isActive
+            fileManagerFolderDetailPanelEl.querySelector('#btn-file-manager-folder-detail-remove-all') // tự ẩn khi rỗng — dùng allSongs.length (xem bên trong hàm, KHÔNG bị ảnh hưởng bởi phân trang)
         );
         const paginationEl = fileManagerFolderDetailPanelEl.querySelector('#file-manager-folder-detail-song-pagination');
         // mode 'list' (dãy số trang, không mũi tên) theo đúng yêu cầu Giang.
@@ -250,7 +247,9 @@ const workflowFileManagerSong = {
         appState.set('folderDetailSongCount', allSongs.length); // TỔNG số bài THẬT (không phải chỉ trang đang xem) — Block gate 'applyToPlaylist.click' cần biết folder có rỗng HOÀN TOÀN hay không, xem event/block.js
         console.log(`writer: "refreshFolderDetail", page: "folderDetailSongCount", content: "${allSongs.length}"`);
 
-        this._updateApplyButtonMode(folderId);
+        // MỚI (Batch 4, "Song/Video Unification" mục 5) — 2 toggle ĐỘC LẬP thay _updateApplyButtonMode() cũ.
+        this._updateScopeToggleUI(folderId, allSongs.length === 0);
+        this._updateExcludeToggleUI(folderRecord);
         return folderMap;
     },
 
@@ -262,29 +261,40 @@ const workflowFileManagerSong = {
         await this.refreshFolderDetail(folderId);
     },
 
-    /** DOM-patch thuần (không I/O) — đổi nhãn/màu/`data-mode` nút Áp dụng/Bỏ áp dụng theo đúng
-     * folder đang xem có phải activePlayListFolder hay không. Tách riêng vì gọi lại nhiều lần
-     * (refreshFolderDetail, applyFolderToPlaylist, unapplyFolderFromPlaylist).
-     * SỬA (14/07/2026, Giang yêu cầu — bỏ icon ở header, đưa lại thành nút CHỮ đứng CẠNH "Xoá hết
-     * bài" ở cuối panel) — quay lại đổi `textContent` + set/bỏ class viền/nền/chữ theo cặp
-     * sky (chưa áp dụng) / rose (đã áp dụng), khớp đúng style pill của nút "Xoá hết bài" bên cạnh. */
-    _updateApplyButtonMode(folderId) {
+    /** DOM-patch thuần (không I/O) — đồng bộ checkbox toggle Scope theo đúng folder đang xem có
+     * phải activePlayListFolder hay không. THAY _updateApplyButtonMode() cũ (Batch 4, "Song/Video
+     * Unification" mục 5 — nút CHỮ đổi nhãn thay bằng toggle switch). Tách riêng vì gọi lại nhiều
+     * lần (refreshFolderDetail, enableFolderScope, disableFolderScope).
+     * @param {string} folderId
+     * @param {boolean} isEmpty - folder đang xem có đang RỖNG hoàn toàn hay không (allSongs.length
+     *        === 0, đọc TỪ NƠI GỌI — refreshFolderDetail() đã tính sẵn, KHÔNG tự tính lại ở đây).
+     *        Rỗng VÀ chưa active -> khoá hẳn toggle (`disabled`), không cho bật — tương đương lý do
+     *        Block gate cũ chặn 'applyToPlaylist.click' khi rỗng (event/block.js), nhưng khoá NGAY
+     *        tại UI để tránh checkbox tự hiện "đã bật" trên DOM rồi bị Block âm thầm huỷ phía sau
+     *        (browser luôn tự lật `checked` TRƯỚC khi bắn sự kiện 'change', Block gate không thể
+     *        "hoàn tác" lại việc đó). Vẫn HIỆN + BẬT ĐƯỢC (không disabled) khi `isActive` true dù
+     *        rỗng — user cần cách tắt Scope khỏi 1 folder VỪA bị xoá hết bài trong lúc đang active,
+     *        không được khoá luôn lối thoát đó.
+     */
+    _updateScopeToggleUI(folderId, isEmpty) {
         if (!fileManagerFolderDetailPanelEl) return; // guard
-        const btn = fileManagerFolderDetailPanelEl.querySelector('#btn-file-manager-folder-apply-to-playlist');
-        if (!btn) return;
+        const toggle = fileManagerFolderDetailPanelEl.querySelector('#toggle-file-manager-folder-scope');
+        if (!toggle) return;
         const isActive = folderId === appState.get('activePlayListFolder');
-        btn.textContent = isActive
-            ? t('fileManager.song.folderDetail.btnUnapply')
-            : t('fileManager.song.folderDetail.btnApply');
-        btn.dataset.mode = isActive ? 'unapply' : 'apply';
-        btn.classList.toggle('bg-sky-500/10', !isActive);
-        btn.classList.toggle('hover:bg-sky-500/20', !isActive);
-        btn.classList.toggle('border-sky-400/30', !isActive);
-        btn.classList.toggle('text-sky-300', !isActive);
-        btn.classList.toggle('bg-rose-600/10', isActive);
-        btn.classList.toggle('hover:bg-rose-600/20', isActive);
-        btn.classList.toggle('border-rose-500/30', isActive);
-        btn.classList.toggle('text-rose-400', isActive);
+        toggle.checked = isActive;
+        toggle.disabled = isEmpty && !isActive;
+    },
+
+    /** DOM-patch thuần (không I/O) — đồng bộ checkbox toggle Exclude theo field
+     * `excludeFromMainPlaylist` (field vắng mặt = false, mặc định) của record folder đang xem. MỚI
+     * (Batch 4, "Song/Video Unification" mục 5).
+     * @param {{excludeFromMainPlaylist?: boolean}|null} folderRecord
+     */
+    _updateExcludeToggleUI(folderRecord) {
+        if (!fileManagerFolderDetailPanelEl) return; // guard
+        const toggle = fileManagerFolderDetailPanelEl.querySelector('#toggle-file-manager-folder-exclude');
+        if (!toggle) return;
+        toggle.checked = !!(folderRecord && folderRecord.excludeFromMainPlaylist);
     },
 
     /** Ứng với 'fileManagerSong.folder.removeSong'. CHỈ gỡ khỏi folder, KHÔNG xoá bài.
@@ -300,7 +310,7 @@ const workflowFileManagerSong = {
 
         if (isFolderEmpty(folderMap) && folderId === appState.get('activePlayListFolder')) {
             await workflowPlaylistScope.persistScopeChoice(null);
-            await this.refreshFolderDetail(folderId); // vẽ lại nút (giờ về "Áp dụng", không còn "Bỏ áp dụng")
+            await this.refreshFolderDetail(folderId); // vẽ lại toggle (giờ về tắt)
             workflowPlaylistScope.askReloadToApplyNow(t('fileManager.song.folderDetail.autoUnapplyReloadBody'));
         }
     },
@@ -323,7 +333,7 @@ const workflowFileManagerSong = {
 
                     if (isFolderEmpty(folderMap) && folderId === appState.get('activePlayListFolder')) {
                         await workflowPlaylistScope.persistScopeChoice(null);
-                        await this.refreshFolderDetail(folderId); // vẽ lại icon (giờ về "Áp dụng", không còn "Bỏ áp dụng")
+                        await this.refreshFolderDetail(folderId); // vẽ lại toggle (giờ về tắt)
                         workflowPlaylistScope.askReloadToApplyNow(t('fileManager.song.folderDetail.autoUnapplyReloadBody'));
                     }
                 } }
@@ -332,21 +342,40 @@ const workflowFileManagerSong = {
         );
     },
 
-    /** Ứng với 'fileManagerSong.folder.applyToPlaylist.click'. */
-    async applyFolderToPlaylist(folderId) {
+    /** Ứng với 'fileManagerSong.folder.applyToPlaylist.click' (bật toggle Scope). THAY
+     * applyFolderToPlaylist() cũ (Batch 4, "Song/Video Unification" mục 5) — msg.type GIỮ NGUYÊN
+     * (Block gate event/block.js vẫn đăng ký đúng msg.type này, không cần đụng), chỉ đổi TÊN
+     * method + cách đồng bộ UI (toggle thay vì nút đổi nhãn). */
+    async enableFolderScope(folderId) {
         const folderRecord = await getFolderRecord(folderId); // core có sẵn (service/db.js)
         await workflowPlaylistScope.persistScopeChoice(folderId);
-        this._updateApplyButtonMode(folderId); // đổi nút sang "Bỏ áp dụng" ngay, không đợi reload
+        this._updateScopeToggleUI(folderId, appState.get('folderDetailSongCount') === 0); // bật NGAY, không đợi reload
         this._markFolderListRowStale(folderId); // MỚI (14/07/2026) — danh sách folder cần vá lại dấu chấm active
         workflowPlaylistScope.askReloadToApplyNow(tFormat('fileManager.song.folderDetail.applyReloadBody', { name: escapeHtml(folderRecord ? folderRecord.name : '') }));
     },
 
-    /** Ứng với 'fileManagerSong.folder.unapplyFromPlaylist.click'. */
-    async unapplyFolderFromPlaylist(folderId) {
+    /** Ứng với 'fileManagerSong.folder.unapplyFromPlaylist.click' (tắt toggle Scope). THAY
+     * unapplyFolderFromPlaylist() cũ — cùng lý do đổi tên ở enableFolderScope() ngay trên. */
+    async disableFolderScope(folderId) {
         await workflowPlaylistScope.persistScopeChoice(null);
-        this._updateApplyButtonMode(folderId); // đổi nút về "Áp dụng" ngay
+        this._updateScopeToggleUI(folderId, appState.get('folderDetailSongCount') === 0); // tắt NGAY
         this._markFolderListRowStale(folderId); // MỚI (14/07/2026) — danh sách folder cần vá lại dấu chấm active
         workflowPlaylistScope.askReloadToApplyNow(t('fileManager.song.folderDetail.unapplyReloadBody'));
+    },
+
+    /** Ứng với 'fileManagerSong.folder.excludeToggle.change'. MỚI (Batch 4, "Song/Video
+     * Unification" mục 5) — Exclude ĐỘC LẬP với Scope, CHỈ ảnh hưởng view "Tất cả"
+     * (core/playlist/scope.js::loadAllSongs(), áp dụng lúc boot — xem
+     * event/workflow/playlist-scope.js::applyAllSongsScope()). Cùng UX "lưu ý định rồi hỏi reload"
+     * với Scope — không áp dụng ngay vào Playlist đang chạy.
+     * @param {string} folderId
+     * @param {boolean} enabled
+     */
+    async setFolderExclude(folderId, enabled) {
+        await setFolderExcludeFlag(folderId, enabled); // core có sẵn (core/file-manager/folder.js)
+        workflowPlaylistScope.askReloadToApplyNow(enabled
+            ? t('fileManager.song.folderDetail.excludeOnReloadBody')
+            : t('fileManager.song.folderDetail.excludeOffReloadBody'));
     },
 
     /** MỚI (14/07/2026, Giang yêu cầu) — đánh dấu 1 folder VỪA đổi (xoá bài/remove-all/apply/

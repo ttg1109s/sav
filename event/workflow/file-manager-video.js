@@ -27,7 +27,8 @@ let _videoPickerSession = null; // MỚI (Batch 2) — session picker Generic Dr
 /** MỚI (ver12 "Song/Video Unification", Batch 3, mục 4 plan) — cạnh thumbnail vuông cố định, THAY
  * hẳn `VIDEO_THUMBNAIL_SCALE_RATIO` cũ (resize theo tỉ lệ gốc, không vuông — không đồng nhất với
  * cover Song/thumbnail Photo, đều vuông). CHỈ áp dụng cho video upload MỚI từ đây trở đi (video cũ
- * xem migration 1 lần riêng: tools/migrate-video-thumbs-320.js). */
+ * đã regen 1 lần qua tool `tools/migrate-video-thumbs-320.js` — Giang xác nhận chạy xong tốt, tool
+ * đó ĐÃ XOÁ ở Batch 4, xem readme/changelog/v12.md mục 20). */
 const VIDEO_THUMBNAIL_SIZE = 320;
 
 const workflowFileManagerVideo = {

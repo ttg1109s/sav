@@ -26,7 +26,9 @@
  *
  * NẠP SAU: core/playlist/scope.js (loadAllSongs/loadSongsFromFolder), service/db.js (setMeta),
  * core/playlist/order.js (updateShuffleArray/recomputeDisplayOrder/recomputeRenderOrder),
- * core/playlist/render.js (renderPlaylistDiff/updateEmptyState), core/modal-choice.js (modalChoice).
+ * core/playlist/render.js (renderPlaylistDiff/updateEmptyState), core/modal-choice.js (modalChoice),
+ * core/file-manager/folder.js (getExcludedSongKeysFromFolders() — MỚI, Batch 4, dùng bởi
+ * applyAllSongsScope()).
  */
 const workflowPlaylistScope = {
 
@@ -57,6 +59,25 @@ const workflowPlaylistScope = {
         console.log(`writer: "applyFolderScope", page: "activePlayListFolder", content: "${folderId}"`);
 
         await loadSongsFromFolder(folderId, appState.get('playlistCache'));
+        updateShuffleArray();
+        recomputeDisplayOrder();
+        recomputeRenderOrder();
+        renderPlaylistDiff();
+        updateEmptyState();
+    },
+
+    /**
+     * Áp "Tất cả bài" NGAY vào phiên đang chạy (RAM + DOM), có lọc Exclude — CHỈ dùng lúc BOOT khi
+     * KHÔNG có `activePlayListFolder` đã lưu (đối xứng applyFolderScope() ngay trên, xem
+     * event/workflow/app-boot.js). MỚI (Batch 4, "Song/Video Unification" mục 5) — TRƯỚC batch này
+     * nhánh "không có scope" của boot sequence là no-op (initPlaylistFromDB() tự nạp playlistOrder
+     * = toàn bộ playlistCache rồi, loadAllSongs() lúc đó CHƯA từng có nơi gọi) — giờ CẦN chạy lại
+     * để Exclude (mới, chỉ ảnh hưởng view "Tất cả") có tác dụng đúng ngay từ lúc boot.
+     */
+    async applyAllSongsScope() {
+        const excludedKeys = await getExcludedSongKeysFromFolders(); // core/file-manager/folder.js
+        loadAllSongs(appState.get('playlistCache'), excludedKeys); // core/playlist/scope.js
+
         updateShuffleArray();
         recomputeDisplayOrder();
         recomputeRenderOrder();
