@@ -19,30 +19,23 @@
         }
 
         /**
-         * So sánh & trả về MẢNG MỚI đã sắp theo `mode`. 'default' giữ nguyên thứ tự thêm.
+         * So sánh & trả về MẢNG MỚI đã sắp theo `mode`.
          *
-         * [SỬA — ver12 "Song/Video Unification", Batch 1] Hàm này bị đụng thật (thêm 2 nhánh
-         * newest/oldest cho Video, mục 2 plan) — theo đúng lưu ý bắt buộc đầu plan, SỬA LUÔN vi
-         * phạm Rule 2 sẵn có (trước đây tự `appState.get('displaySortMode')`/`get('songNameIndex')`
-         * bên trong) thay vì cộng thêm nhánh mới lên nền vi phạm cũ: giờ nhận `mode`/`songNameIndex`/
-         * `playlistCache` qua tham số — nơi gọi (`recomputeRenderOrder()`/`recomputeDisplayOrder()`
-         * ngay dưới, đã LÀ Workflow theo định nghĩa — xem docstring của chúng; và
-         * `event/workflow/playlist.js::playSelectedSongs()`) tự `appState.get()` trước khi gọi.
-         * 'az'/'za' (Song) đọc `songNameIndex` — KHÔNG đổi logic. 'newest'/'oldest' (Video, MỚI) đọc
-         * `addedAt` từ `playlistCache` thay vì `songNameIndex` (Video không có khái niệm tên A-Z).
+         * [SỬA — Giang chốt "dùng chung hết" 4 kiểu sort (az/za/newest/oldest) cho CẢ Song lẫn
+         * Video, KHÔNG tách riêng theo nguồn nữa — bỏ hẳn 'default' (giữ nguyên thứ tự thêm) vì
+         * "vô nghĩa"] `az`/`za` đọc `songNameIndex` — giờ populate cho CẢ Song (title) lẫn Video
+         * (filename, xem core/playlist/loader.js::buildVideoPlaylistCache()). `newest`/`oldest` đọc
+         * `addedAt` từ `playlistCache` — giờ CŨNG có ở Song (thêm vào scanValidSongsFromDB(), cùng
+         * đợt sửa). 'az' là NHÁNH MẶC ĐỊNH cho mọi `mode` không khớp 'za'/'newest'/'oldest' — bao
+         * gồm luôn giá trị `displaySortMode` cũ còn sót lại là 'default' từ TRƯỚC khi bỏ (state đã
+         * lưu ở IndexedDB/localStorage của người dùng cũ) — không cần migration riêng, tự rơi về
+         * az một cách an toàn.
          * @param {string[]} keys
          * @param {string} mode - displaySortMode hiện tại
          * @param {Map} songNameIndex
          * @param {Map} playlistCache
          */
         function sortKeysByMode(keys, mode, songNameIndex, playlistCache) {
-            if (mode === 'az' || mode === 'za') {
-                return keys.slice().sort((a, b) => {
-                    const nameA = songNameIndex.get(a) || ''; const nameB = songNameIndex.get(b) || '';
-                    const cmp = nameA.localeCompare(nameB, 'vi');
-                    return mode === 'az' ? cmp : -cmp;
-                });
-            }
             if (mode === 'newest' || mode === 'oldest') {
                 return keys.slice().sort((a, b) => {
                     const dateA = (playlistCache.get(a) || {}).addedAt || 0;
@@ -50,7 +43,12 @@
                     return mode === 'newest' ? dateB - dateA : dateA - dateB;
                 });
             }
-            return keys.slice(); // 'default'
+            // 'az' (mặc định) hoặc 'za' — cùng 1 phép so sánh, chỉ đổi dấu.
+            return keys.slice().sort((a, b) => {
+                const nameA = songNameIndex.get(a) || ''; const nameB = songNameIndex.get(b) || '';
+                const cmp = nameA.localeCompare(nameB, 'vi');
+                return mode === 'za' ? -cmp : cmp;
+            });
         }
 
         // ===================== (A) DANH SÁCH HIỂN THỊ =====================
@@ -196,43 +194,16 @@
         }
 
         /** Đổi kiểu sắp xếp hiển thị — cập nhật CẢ render lẫn hàng đợi phát rồi vẽ lại.
-         * default/az/za: Song. newest/oldest: MỚI (ver12 Batch1, mục 2) — Video. */
+         * [SỬA — Giang chốt "dùng chung hết"] az/za/newest/oldest — DÙNG CHUNG cho cả Song lẫn
+         * Video, không còn phân biệt theo nguồn. Bỏ 'default' khỏi danh sách hợp lệ (đã xoá khỏi
+         * option list tĩnh, components/settings/playlist-view.js) — giá trị cũ 'default' còn sót
+         * trong state lưu trữ của người dùng cũ vẫn được `sortKeysByMode()` tự rơi về az an toàn,
+         * chỉ là không set lại được NỮA qua hàm này (không sao, không ai còn chọn được 'default'
+         * từ UI để gọi lại hàm này với giá trị đó). */
         function setDisplaySortMode(mode) {
-            if (!['default', 'az', 'za', 'newest', 'oldest'].includes(mode)) return;
+            if (!['az', 'za', 'newest', 'oldest'].includes(mode)) return;
             appState.set('displaySortMode', mode);
             recomputeDisplayOrder();   // hàng đợi: resort thật (đổi mode là hành động chủ động)
             recomputeRenderOrder();    // UI: sắp lại ngay
             renderPlaylistDiff();
-        }
-
-        /**
-         * ===================== Ver 12 "Song/Video Unification" — Batch 1 (mục 2) =====================
-         * Dựng lại option list "Sắp xếp" của Song (default/az/za) — Y HỆT 3 <option> tĩnh gốc ở
-         * components/settings/playlist-view.js. CHỈ cần gọi khi ĐANG đứng ở option list Video (đổi
-         * Nguồn VỀ LẠI Song) — dựng lại về đúng bản gốc. Rule 2: nhận `mode` qua tham số (không tự
-         * appState.get()) — nơi gọi (event/workflow/playlist.js::switchToSongSource()) tự biết mode
-         * vừa đặt. Rule 5c: KHÔNG cần hậu tố `-ui.js` — chỉ ghi `innerHTML` lên <select> TĨNH có sẵn
-         * từ core/dom-refs.js, không tự `createElement` cụm DOM mới nào.
-         * @param {string} mode - 'default'|'az'|'za', giá trị cần chọn sẵn sau khi dựng lại option.
-         */
-        function renderSongSortModeOptions(mode) {
-            if (!sortSelect) return;
-            sortSelect.innerHTML = `
-                <option value="default">${t('settingsPlaylistBg.sortMode.default')}</option>
-                <option value="az">${t('settingsPlaylistBg.sortMode.az')}</option>
-                <option value="za">${t('settingsPlaylistBg.sortMode.za')}</option>
-            `;
-            sortSelect.value = mode;
-        }
-
-        /** Dựng option list "Sắp xếp" của Video (newest/oldest, mục 2) — thay hẳn 3 option Song khi
-         * đổi Nguồn sang Video. Cùng quy ước Rule 2/5c như renderSongSortModeOptions() ở trên.
-         * @param {string} mode - 'newest'|'oldest'. */
-        function renderVideoSortModeOptions(mode) {
-            if (!sortSelect) return;
-            sortSelect.innerHTML = `
-                <option value="newest">${t('settingsPlaylistBg.sortMode.newest')}</option>
-                <option value="oldest">${t('settingsPlaylistBg.sortMode.oldest')}</option>
-            `;
-            sortSelect.value = mode;
         }

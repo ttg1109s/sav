@@ -298,7 +298,7 @@
                 if (!record || !record.blob || !record.tag) continue;
                 if (!isQuickValidMime(record.blob.type)) continue;
                 validKeys.push(key);
-                appState.mutate('playlistCache', m => m.set(key, { filename: record.filename, tag: record.tag, cover: record.cover, duration: record.duration }));
+                appState.mutate('playlistCache', m => m.set(key, { filename: record.filename, tag: record.tag, cover: record.cover, duration: record.duration, addedAt: record.addedAt }));
                 appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(record.tag.title)));
             }
             return validKeys;
@@ -316,10 +316,11 @@
          * return value hay không). Nơi gọi (Workflow — `event/workflow/playlist.js::
          * switchToVideoSource()`) tự `await listVideos()` TRƯỚC rồi truyền kết quả vào đây.
          *
-         * KHÔNG đụng gì tới `songNameIndex` (khái niệm A-Z riêng của Song — Video dùng sort
-         * newest/oldest theo `addedAt`, xem core/playlist/order.js::sortKeysByMode()) — giữ Set/Map
-         * đó nguyên trạng, đúng nguyên tắc "không gánh thêm điều kiện Video vào chỗ đang phục vụ
-         * riêng Song" của plan.
+         * [SỬA — Giang chốt "dùng chung hết" 4 kiểu sort (az/za/newest/oldest) cho CẢ Song lẫn
+         * Video, không tách riêng theo nguồn nữa] `songNameIndex` giờ CŨNG populate cho Video —
+         * dùng `filename` làm "tên" để so az/za (Video không có tag.title riêng — filename chính là
+         * title, xem tag Adapter bên dưới) — CLEAR + rebuild lại TOÀN BỘ mỗi lần gọi hàm này, cùng
+         * cách `playlistCache` đang làm (source đổi = thay hẳn toàn bộ danh sách, không cộng dồn).
          *
          * Rule 4 ngoại lệ (cùng lý do hot-path 60fps ở core-function-conventions.md — bulk-populate
          * 1 LƯỢT có thể hàng trăm/nghìn video, log MỖI vòng lặp gây spam console mà không thêm giá
@@ -331,6 +332,7 @@
          */
         function buildVideoPlaylistCache(videoRecords) {
             appState.mutate('playlistCache', m => m.clear());
+            appState.mutate('songNameIndex', m => m.clear());
             console.log(`writer: "buildVideoPlaylistCache", page: "playlistCache", content: "clear toàn bộ trước khi nạp Video"`);
 
             const validKeys = [];
@@ -345,6 +347,7 @@
                     addedAt: record.addedAt,
                     mediaType: 'video',
                 }));
+                appState.mutate('songNameIndex', m => m.set(record.key, normalizeSongName(record.filename)));
             }
             console.log(`writer: "buildVideoPlaylistCache", page: "playlistCache", content: "đã nạp ${validKeys.length} video"`);
             return validKeys;
