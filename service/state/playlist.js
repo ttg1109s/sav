@@ -22,6 +22,12 @@
                 pendingResortKeys: 'set',
                 searchQuery: 'string',
                 domNodesByKey: 'map',
+                // MỚI (ver12 "Song/Video Unification", Batch 1, xem
+                // plan-v12-song-video-unification.md mục 1) — 'song' | 'video'. Quyết định Playlist
+                // đang browse nguồn nào (đổi qua Settings → Playlist → "Nguồn", xem event/workflow/
+                // playlist.js::switchToVideoSource()/switchToSongSource()). Mặc định 'song' — hành
+                // vi/UI hiện có của Song KHÔNG đổi gì khi field này giữ nguyên giá trị mặc định.
+                activeMediaSource: 'string',
             },
             buildDefaults() {
                 return {
@@ -36,6 +42,7 @@
                     pendingResortKeys: new Set(),
                     searchQuery: '',
                     domNodesByKey: new Map(),
+                    activeMediaSource: 'song',
                 };
             },
         });
