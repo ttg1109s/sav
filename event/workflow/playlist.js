@@ -175,7 +175,10 @@ const workflowPlaylist = {
         const keys = Array.from(appState.get('selectedSongKeys'));
         if (keys.length === 0) return; // guard — chưa chọn gì thì không làm gì
 
-        const sorted = sortKeysByMode(keys); // core có sẵn, CÓ return, DÙNG NGAY dưới -> hợp lệ Rule 3
+        // MỚI (ver12 Batch1) — sortKeysByMode() đổi chữ ký, nhận tham số thay vì tự appState.get()
+        // (Rule 2, xem comment tại định nghĩa hàm, core/playlist/order.js) — gộp 1 lần get([...]).
+        const { displaySortMode: mode, songNameIndex, playlistCache: cache } = appState.get(['displaySortMode', 'songNameIndex', 'playlistCache']);
+        const sorted = sortKeysByMode(keys, mode, songNameIndex, cache); // core có sẵn, CÓ return, DÙNG NGAY dưới -> hợp lệ Rule 3
         appState.set('displayOrder', sorted);
         console.log(`writer: "playSelectedSongs", page: "displayOrder", content: "${sorted.length} bài đã chọn, sort theo displaySortMode hiện tại"`);
         appState.mutate('pendingResortKeys', s => s.clear());
@@ -503,5 +506,61 @@ const workflowPlaylist = {
         this._exitSelectionMode();
         // Shield đã đóng HẲN tới đây — an toàn để hiện modal.
         await alertModal(tFormat('playlistView.selection.deleteSuccess', { count: deletedCount }));
+    },
+
+    // ===================== Ver 12 "Song/Video Unification" — Batch 1 (mục 1-2) =====================
+    // Ứng với select "Nguồn" ở Settings → Playlist đổi giá trị (event/router/playlist.js dùng
+    // VirtualMachineState chọn ĐÚNG 1 trong 2 method dưới đây, loại trừ nhau). CHỈ browse — CHƯA
+    // đụng gì tới dispatch phát nhạc (Batch 2, xem plan-v12-song-video-unification.md mục 3).
+
+    /**
+     * Đổi Nguồn sang Video — nạp lại TOÀN BỘ playlistCache/playlistOrder từ store `videos` qua
+     * Adapter (buildVideoPlaylistCache(), core/playlist/loader.js), reset sort mode về mặc định
+     * hợp lý của Video ('newest', mục 2), dựng lại option list "Sắp xếp" tương ứng, rồi vẽ lại UI —
+     * TÁI DÙNG NGUYÊN các hàm core đã phục vụ Song (recomputeDisplayOrder/RenderOrder,
+     * renderPlaylistDiff, updateEmptyState, updateShuffleArray), không viết lại gì.
+     */
+    async switchToVideoSource() {
+        appState.set('activeMediaSource', 'video');
+        console.log(`writer: "switchToVideoSource", page: "activeMediaSource", content: "video"`);
+
+        const videoRecords = await listVideos(); // core/file-manager/video.js, CÓ return, DÙNG ngay dưới -> Workflow gọi Core hợp lệ (Rule 3)
+        const keys = buildVideoPlaylistCache(videoRecords); // core/playlist/loader.js (MỚI, Batch 1), CÓ return, DÙNG ngay dưới
+        appState.set('playlistOrder', keys);
+        console.log(`writer: "switchToVideoSource", page: "playlistOrder", content: "${keys.length} video"`);
+
+        appState.set('displaySortMode', 'newest');
+        console.log(`writer: "switchToVideoSource", page: "displaySortMode", content: "newest"`);
+        renderVideoSortModeOptions('newest'); // core/playlist/order.js (MỚI, Batch 1)
+
+        updateShuffleArray();      // core có sẵn (core/playlist/order.js)
+        recomputeDisplayOrder();   // core có sẵn (core/playlist/order.js)
+        recomputeRenderOrder();    // core có sẵn (core/playlist/order.js)
+        renderPlaylistDiff();      // core có sẵn (core/playlist/render.js)
+        updateEmptyState();        // core có sẵn (core/playlist/render.js)
+    },
+
+    /**
+     * Đổi Nguồn về lại Song — TÁI DÙNG NGUYÊN `scanValidSongsFromDB()` (core/playlist/loader.js,
+     * hàm Song hiện có, KHÔNG sửa gì — nguyên tắc riêng của plan), reset sort mode về mặc định
+     * Song ('az'), dựng lại 3 option Sắp xếp gốc của Song, rồi vẽ lại UI y hệt switchToVideoSource().
+     */
+    async switchToSongSource() {
+        appState.set('activeMediaSource', 'song');
+        console.log(`writer: "switchToSongSource", page: "activeMediaSource", content: "song"`);
+
+        const keys = await scanValidSongsFromDB(); // core có sẵn (core/playlist/loader.js, Song, KHÔNG đụng), CÓ return, DÙNG ngay dưới
+        appState.set('playlistOrder', keys);
+        console.log(`writer: "switchToSongSource", page: "playlistOrder", content: "${keys.length} bài hát"`);
+
+        appState.set('displaySortMode', 'az');
+        console.log(`writer: "switchToSongSource", page: "displaySortMode", content: "az"`);
+        renderSongSortModeOptions('az'); // core/playlist/order.js (MỚI, Batch 1)
+
+        updateShuffleArray();
+        recomputeDisplayOrder();
+        recomputeRenderOrder();
+        renderPlaylistDiff();
+        updateEmptyState();
     }
 };
