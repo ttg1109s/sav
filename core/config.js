@@ -122,18 +122,25 @@
             defaults: DEFAULT_READER_CONFIG,
         });
 
-        /** Accessor tiện dụng, dùng khắp core/event cho 3 domain config — xem AppConfig.access(). */
-        const appConfigViz = appConfig.access('viz');
-        const appConfigSlideshow = appConfig.access('slideshow');
-        const appConfigReader = appConfig.access('reader');
-
-        /** Seed CẢ 3 domain config lần đầu lúc boot — gọi bởi event/workflow/app-boot.js, TRƯỚC
-         * khi loadConfig() merge lại từ localStorage. */
+        /** Seed CẢ 3 domain config NGAY TẠI ĐÂY — lúc nạp core/config.js (SỬA 27/07/2026, trước
+         * đây gọi trễ hơn từ event/workflow/app-boot.js lúc DOMContentLoaded, để hở 1 khoảng giữa
+         * lúc tạo accessor bên dưới và lúc seed thật sự -> access() console.warn "chưa seed()" 3
+         * lần mỗi lần boot dù KHÔNG có đọc/ghi nào thật sự xảy ra trong khoảng hở đó). Gọi TRƯỚC 3
+         * dòng tạo accessor ngay dưới đây, nên `appConfigViz`/`appConfigSlideshow`/`appConfigReader`
+         * luôn được tạo SAU KHI domain tương ứng đã seed — accessor không còn "rỗng" ngày nào nữa.
+         * VẪN chạy TRƯỚC `loadConfig()` (gọi từ event/workflow/app-boot.js, còn xa mới nạp/chạy tới
+         * — xem index.html) nên thứ tự "seed trước, merge localStorage đè lên sau" không đổi. */
         function seedConfig() {
             appConfig.seed('viz');
             appConfig.seed('slideshow');
             appConfig.seed('reader');
         }
+        seedConfig();
+
+        /** Accessor tiện dụng, dùng khắp core/event cho 3 domain config — xem AppConfig.access(). */
+        const appConfigViz = appConfig.access('viz');
+        const appConfigSlideshow = appConfig.access('slideshow');
+        const appConfigReader = appConfig.access('reader');
 
         /** Reset vizConfig về default (gộp từ core/app-recovery.js::executeRestoreDefaults() cũ —
          * CHỈ phần reset, KHÔNG gồm saveConfig()/reload(), 2 việc đó vẫn ở app-recovery.js). */
