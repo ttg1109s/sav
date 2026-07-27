@@ -340,7 +340,7 @@
                 appState.mutate('playlistCache', m => m.set(record.key, {
                     filename: record.filename,
                     tag: { title: record.filename, artist: '', album: '' }, // Adapter shape, xem docstring hàm
-                    cover: record.thumbBlob ? URL.createObjectURL(record.thumbBlob) : null,
+                    cover: record.thumbBlob || null, // Blob THÔ — giống HỆT Song (record.cover) — buildSongNode() (core/playlist/render.js, dùng CHUNG, KHÔNG đụng) tự URL.createObjectURL(cached.cover) lúc render + tự revoke qua node._coverObjectUrl. KHÔNG được tự tạo URL ở đây (trước đây làm sai chỗ này -> render gọi createObjectURL() LẦN 2 trên 1 string, ném TypeError).
                     duration: record.duration,
                     addedAt: record.addedAt,
                     mediaType: 'video',
