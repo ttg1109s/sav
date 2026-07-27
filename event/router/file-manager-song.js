@@ -5,7 +5,8 @@
  * 3 nhánh:
  *   - Folder (MỚI, mục 4.b1) — CRUD folder nhạc.
  *   - Folder Detail Drawer (Phase 2, MỚI mục 1b/c/e, CHỐT 03/07/2026) — xem/gỡ bài trong 1 folder,
- *     "Áp dụng cho Playlist" (scoping thật), xoá folder đang là scope hiện tại.
+ *     scoping Playlist (toggle Scope) + Exclude view "Tất cả" (toggle Exclude, MỚI Batch 4 "Song/
+ *     Video Unification" mục 5), xoá folder đang là scope hiện tại.
  *   - Quản lý dung lượng (DỜI NGUYÊN VẸN từ event/router/settings-misc.js — nhánh storageDrawer cũ,
  *     chỉ đổi tiền tố msg.type 'settingsMisc.' -> 'fileManagerSong.', xem bảng đối chiếu cuối file).
  *
@@ -139,16 +140,24 @@ const routerFileManagerSong = (() => {
 
             case 'fileManagerSong.folder.applyToPlaylist.click': {
                 if (!currentFolderDetailId) return; // guard: nút chỉ hiện trong drawer đã mở 1 folder cụ thể
-                workflowFileManagerSong.applyFolderToPlaylist(currentFolderDetailId); // >1 hàm core -> workflow
+                workflowFileManagerSong.enableFolderScope(currentFolderDetailId); // >1 hàm core -> workflow
                 break;
             }
 
-            // MỚI (03/07/2026, đợt 4, điểm 2) — "Bỏ áp dụng", nhánh còn lại của CÙNG 1 nút (đổi
-            // nhãn/msg.type theo data-mode, xem event/listener/file-manager-song.js). KHÔNG bị
-            // Block gate chặn (event/block.js chỉ đăng ký cho 'applyToPlaylist.click').
+            // MỚI (03/07/2026, đợt 4, điểm 2) — "Bỏ áp dụng", nhánh còn lại của CÙNG 1 toggle Scope
+            // (đổi msg.type theo checked, xem event/listener/file-manager-song.js). KHÔNG bị Block
+            // gate chặn (event/block.js chỉ đăng ký cho 'applyToPlaylist.click').
             case 'fileManagerSong.folder.unapplyFromPlaylist.click': {
                 if (!currentFolderDetailId) return; // guard: cùng lý do ở trên
-                workflowFileManagerSong.unapplyFolderFromPlaylist(currentFolderDetailId); // >1 hàm core -> workflow
+                workflowFileManagerSong.disableFolderScope(currentFolderDetailId); // >1 hàm core -> workflow
+                break;
+            }
+
+            // MỚI (Batch 4, "Song/Video Unification" mục 5) — toggle Exclude, ĐỘC LẬP với Scope,
+            // không bị Block gate chặn (loại 1 folder rỗng khỏi view Tất cả vô hại, không cần chặn).
+            case 'fileManagerSong.folder.excludeToggle.change': {
+                if (!currentFolderDetailId) return; // guard: cùng lý do ở trên
+                workflowFileManagerSong.setFolderExclude(currentFolderDetailId, msg.payload.enabled);
                 break;
             }
 
