@@ -17,6 +17,8 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.folderPicker.btnCreate': 'Create',
     'fileManager.folderPicker.addSuccess': 'Added {count} song(s) to the folder.',
     'fileManager.folderPicker.duplicateName': 'A folder named "{name}" already exists (folder names are case-sensitive — different capitalization counts as a different name).',
+    // MỚI (Batch 4, "Song/Video Unification" mục 5) — folder chỉ chứa đúng 1 loại (song/video).
+    'fileManager.folderPicker.typeMismatch': 'This folder already holds a different media type — pick another folder.',
     // MỚI (14/07/2026, tích hợp Generic Drawer grid — Giang yêu cầu, thay modal cũ) —
     // 'newTileLabel': nhãn dưới tile "+" cuối grid. 'defaultNewFolderName': tên tự sinh khi bấm
     // tile đó (createFolderInPicker(), event/workflow/playlist.js) — CÙNG chuỗi gốc, "newTileLabel"
@@ -212,11 +214,12 @@ const LANG_PATCH_FILE_MANAGER = {
     // hiển thị bằng 1 heading NGAY TRONG BODY panel (xem components/file-manager.js).
     'fileManager.song.folderDetail.headerTitle': 'Folder Detail',
     'fileManager.song.folderDetail.loadingTitle': 'Loading songs...',
-    'fileManager.song.folderDetail.btnApply': 'Apply to Playlist',
-    // SỬA (14/07/2026, Giang yêu cầu) — "Remove from Playlist" GÂY HIỂU NHẦM (nghe như xoá bài
-    // khỏi playlist, trong khi thật ra chỉ HUỶ scope "folder đang active" — playlist quay lại hiện
-    // TOÀN BỘ thư viện, không mất bài nào). Đổi tên rõ nghĩa hơn.
-    'fileManager.song.folderDetail.btnUnapply': 'Unset Active Playlist',
+    // MỚI (Batch 4, "Song/Video Unification" mục 5) — 2 toggle ĐỘC LẬP THAY nút Áp dụng/Bỏ áp
+    // dụng cũ ('btnApply'/'btnUnapply' XOÁ, không còn nút chữ đổi nhãn).
+    'fileManager.song.folderDetail.scopeToggle.label': 'Use as Playlist source',
+    'fileManager.song.folderDetail.scopeToggle.hint': 'When on, the Playlist only shows songs from this folder.',
+    'fileManager.song.folderDetail.excludeToggle.label': 'Hide from "All songs" view',
+    'fileManager.song.folderDetail.excludeToggle.hint': 'When on, songs in this folder are skipped while browsing all songs (does not affect any specific folder scope).',
     // 'songListTitle' XOÁ (14/07/2026, Giang yêu cầu — bỏ tiêu đề "SONGS IN THIS FOLDER") — KHÔNG
     // còn nơi nào dùng, xem components/file-manager.js::renderFileManagerFolderDetailPanelBody().
     'fileManager.song.folderDetail.empty': 'No songs in this folder yet.',
@@ -237,4 +240,11 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.folderDetail.deleteReloadBody': 'Folder deleted — the Playlist will show all songs again after reloading. Reload now?',
     'fileManager.song.folderDetail.applyBlockedEmpty': 'This folder is empty — add songs to it before applying it to the Playlist.',
     'fileManager.song.deleteActiveFolderConfirm': 'Delete folder "{name}"? This folder is currently applied to the Playlist.',
+    // MỚI (Batch 4, "Song/Video Unification" mục 5) — toggle Exclude.
+    'fileManager.song.folderDetail.excludeOnReloadBody': 'Saved — songs in this folder will be hidden from the "All songs" view after reloading. Reload now?',
+    'fileManager.song.folderDetail.excludeOffReloadBody': 'Saved — songs in this folder will show again in the "All songs" view after reloading. Reload now?',
+    // MỚI (Batch 4, mục 5) — icon + badge nhỏ thể hiện type folder (song/video/chưa xác định).
+    'fileManager.song.folderTypeSong': 'Song folder',
+    'fileManager.song.folderTypeVideo': 'Video folder',
+    'fileManager.song.folderTypeUndetermined': 'Type not set yet',
 };
