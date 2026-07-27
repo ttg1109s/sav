@@ -128,11 +128,12 @@ function renderFileManagerSongPanelBody() {
 function renderFileManagerFolderDetailPanelBody() {
     return `
                 <!-- SỬA (14/07/2026, Giang yêu cầu — bỏ icon Áp dụng khỏi header) — header giờ CHỈ
-                     còn tên folder + icon Sửa tên. "Áp dụng"/"Bỏ áp dụng" dời XUỐNG cuối panel,
-                     đứng CẠNH nút "Xoá hết bài" (xem cuối hàm này) — xem
-                     event/workflow/file-manager-song.js::_updateApplyButtonMode(). BỎ class
-                     "uppercase" ở tên (đợt 6, điểm 4 cũ) — đây là tên THẬT của folder, ép hoa toàn
-                     bộ khiến 2 folder khác tên chỉ do khác hoa/thường trông giống hệt nhau. -->
+                     còn tên folder + icon Sửa tên. BỎ class "uppercase" ở tên (đợt 6, điểm 4 cũ) —
+                     đây là tên THẬT của folder, ép hoa toàn bộ khiến 2 folder khác tên chỉ do khác
+                     hoa/thường trông giống hệt nhau.
+                     SỬA (Batch 4, "Song/Video Unification" mục 5) — nút "Áp dụng"/"Bỏ áp dụng" cũ
+                     ở cuối panel THAY bằng 2 toggle Scope/Exclude (xem cuối hàm này) — đồng bộ qua
+                     event/workflow/file-manager-song.js::_updateScopeToggleUI()/_updateExcludeToggleUI(). -->
                 <div class="flex items-center justify-between gap-2 -mt-2">
                     <h2 id="file-manager-folder-detail-title" class="flex-1 text-lg font-bold tracking-wider text-white truncate min-w-0">—</h2>
                     <button id="btn-file-manager-folder-detail-rename" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 shrink-0" title="${t('fileManager.song.folderDetail.renameTitle')}">
@@ -153,13 +154,36 @@ function renderFileManagerFolderDetailPanelBody() {
                     </div>
                 </div>
 
-                <!-- MỚI (14/07/2026, Giang yêu cầu) — "Áp dụng"/"Bỏ áp dụng" (dời từ icon ở header
-                     xuống đây) ĐỨNG CẠNH "Xoá hết bài" — 2 nút cùng hàng, căn giữa theo nhóm.
-                     "Xoá hết bài" (CHỈ dọn rỗng folder, KHÔNG xoá folder — khác hẳn "Xoá folder" ở
-                     panel Song) tự ẩn khi folder đã rỗng sẵn (renderFolderDetailSongList() toggle
-                     'hidden', xem core/file-manager/folder-detail-ui.js). -->
-                <div class="flex justify-center gap-3">
-                    <button id="btn-file-manager-folder-apply-to-playlist" data-mode="apply" class="px-5 py-2.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-400/30 text-sky-300 text-sm font-semibold transition-colors" data-i18n="fileManager.song.folderDetail.btnApply">${t('fileManager.song.folderDetail.btnApply')}</button>
+                <!-- SỬA (Batch 4, "Song/Video Unification" mục 5) — nút Áp dụng/Bỏ áp dụng CŨ
+                     (1 nút đổi nhãn theo data-mode) THAY bằng 2 TOGGLE ĐỘC LẬP: Scope (tương đương
+                     Apply/Unapply cũ) + Exclude (MỚI, chỉ ảnh hưởng view "Tất cả"). Cùng pattern
+                     toggle switch dùng chung toàn app (checkbox sr-only + peer, xem
+                     components/settings/misc.js). Đồng bộ trạng thái checked/disabled qua
+                     event/workflow/file-manager-song.js::_updateScopeToggleUI()/_updateExcludeToggleUI(). -->
+                <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
+                    <div class="flex justify-between items-center p-4 border-b border-white/5">
+                        <div class="pr-3">
+                            <div class="text-sm font-medium truncate" data-i18n="fileManager.song.folderDetail.scopeToggle.label">${t('fileManager.song.folderDetail.scopeToggle.label')}</div>
+                            <div class="text-xs text-slate-400 mt-0.5" data-i18n="fileManager.song.folderDetail.scopeToggle.hint">${t('fileManager.song.folderDetail.scopeToggle.hint')}</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                            <input type="checkbox" id="toggle-file-manager-folder-scope" class="sr-only peer">
+                            <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner peer-disabled:opacity-40"></div>
+                        </label>
+                    </div>
+                    <div class="flex justify-between items-center p-4">
+                        <div class="pr-3">
+                            <div class="text-sm font-medium truncate" data-i18n="fileManager.song.folderDetail.excludeToggle.label">${t('fileManager.song.folderDetail.excludeToggle.label')}</div>
+                            <div class="text-xs text-slate-400 mt-0.5" data-i18n="fileManager.song.folderDetail.excludeToggle.hint">${t('fileManager.song.folderDetail.excludeToggle.hint')}</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                            <input type="checkbox" id="toggle-file-manager-folder-exclude" class="sr-only peer">
+                            <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-500 shadow-inner"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex justify-center">
                     <button id="btn-file-manager-folder-detail-remove-all" class="hidden px-5 py-2.5 rounded-xl bg-rose-600/10 hover:bg-rose-600/20 border border-rose-500/30 text-rose-400 text-sm font-semibold transition-colors" data-i18n="fileManager.song.folderDetail.btnRemoveAll">${t('fileManager.song.folderDetail.btnRemoveAll')}</button>
                 </div>
 `;
