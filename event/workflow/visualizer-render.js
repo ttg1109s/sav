@@ -147,8 +147,9 @@ const workflowVisualizerRender = {
 
     /** Tick chính — 1 lần mỗi khung hình. Thay thế `drawVisualizer()` cũ. */
     _tick() {
-        const { vizConfig: cfg, vizDataArray, analyser, frameCounter, beatScale, smoothedEnergy, globalHueOffset } = appState.get([
-            'vizConfig', 'vizDataArray', 'analyser', 'frameCounter', 'beatScale', 'smoothedEnergy', 'globalHueOffset'
+        const cfg = appConfigViz.getAll();
+        const { vizDataArray, analyser, frameCounter, beatScale, smoothedEnergy, globalHueOffset } = appState.get([
+            'vizDataArray', 'analyser', 'frameCounter', 'beatScale', 'smoothedEnergy', 'globalHueOffset'
         ]);
 
         const isVisualOff = cfg.visualEnabled === false;
