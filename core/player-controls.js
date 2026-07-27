@@ -32,6 +32,19 @@
          * lại sort thật cho các bài mới thêm vào lúc đang nghe (`pendingResortKeys`, xem
          * applyNewSongsToDisplayOrder trong playlist.js) — chỉ áp dụng khi KHÔNG shuffle, vì khi
          * shuffle thì shuffleIndices đã là nguồn phát riêng, không liên quan displayOrder.
+         *
+         * [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt: "video thừa hưởng cơ chế
+         * Playlist sẵn có (displayOrder/shuffleIndices/currentKey), không tạo cơ chế next/prev
+         * riêng cho Video — có là đang tạo exception"] 2 hàm này giờ DÙNG CHUNG cho CẢ Song lẫn
+         * Video (trước đây Video có `nextVideo()`/`prevVideo()` riêng, mảng `videoPlaylist` riêng —
+         * ĐÃ XOÁ HẲN, xem event/workflow/video-player.js). `currentKey` được `playVideoByKey()`
+         * (event/workflow/video-player.js) ghi y hệt cách `window.playSong()` ghi cho Song, nên
+         * `displayOrder.indexOf(currentKey)`/`shuffleIndices.indexOf(currentKey)` bên dưới hoạt
+         * động ĐÚNG cho cả 2 nguồn mà KHÔNG cần biết gì về Song/Video. CHỈ 3 chỗ TRỰC TIẾP đụng tới
+         * element phát (repeat-1, 2 nhánh "hết danh sách -> dừng hẳn" trong playNext(); "quá 3s ->
+         * tua về đầu" trong playPrev()) mới cần chọn đúng `bgVideoElement`/`audioPlayer` theo
+         * `isVideoPlayerMode` — đây là khác biệt DUY NHẤT còn lại giữa 2 nguồn, KHÔNG phải khác
+         * biệt về "danh sách phát tiếp theo là gì".
          */
         /**
          * Fix (ver 8 refine): trước đây requestWakeLock() chỉ được gọi RIÊNG ở từng nơi BẤM nút
@@ -47,11 +60,24 @@
         function playNext(force = false) {
             requestWakeLock();
             if (appState.get('playlistOrder').length === 0) return;
-            if (!force && appState.get('repeatMode') === 2) { audioPlayer.currentTime = 0; audioPlayer.play(); return; }
+            // [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt: "video thừa hưởng cơ
+            // chế Playlist sẵn có, list next/prev phải theo Song, chỉ đổi nguồn source"] `activeEl`
+            // — element đang thực sự phát (bgVideoElement lúc isVideoPlayerMode=true, audioPlayer
+            // như cũ), dùng cho 3 chỗ TRỰC TIẾP đụng tới element bên dưới (repeat-1, 2 nhánh "hết
+            // danh sách -> dừng hẳn"). Phần TÍNH nextKey (displayOrder/shuffleIndices/repeatMode)
+            // GIỮ NGUYÊN 100%, KHÔNG đổi gì — dùng CHUNG cho cả Song lẫn Video.
+            const isVideo = appState.get('isVideoPlayerMode');
+            const activeEl = isVideo ? bgVideoElement : audioPlayer;
+            if (!force && appState.get('repeatMode') === 2) {
+                activeEl.currentTime = 0;
+                if (isVideo) activeEl.play().catch((err) => console.error('[player-controls] bgVideoElement.play() lỗi:', err));
+                else activeEl.play();
+                return;
+            }
             let nextKey;
             if (appState.get('isShuffle')) {
                 let currentPos = appState.get('shuffleIndices').indexOf(appState.get('currentKey'));
-                if (currentPos === -1 || currentPos === appState.get('playlistOrder').length - 1) { if (appState.get('repeatMode') === 1 || force) nextKey = appState.get('shuffleIndices')[0]; else { audioPlayer.pause(); return; } }
+                if (currentPos === -1 || currentPos === appState.get('playlistOrder').length - 1) { if (appState.get('repeatMode') === 1 || force) nextKey = appState.get('shuffleIndices')[0]; else { activeEl.pause(); return; } }
                 else nextKey = appState.get('shuffleIndices')[currentPos + 1];
             } else {
                 let currentPos = appState.get('displayOrder').indexOf(appState.get('currentKey'));
@@ -60,7 +86,7 @@
                     if (appState.get('repeatMode') === 1 || force) {
                         if (appState.get('pendingResortKeys').size > 0) recomputeDisplayOrder(); // chạm biên: áp lại sort thật cho bài mới thêm giữa lúc nghe
                         nextKey = appState.get('displayOrder')[0];
-                    } else { audioPlayer.pause(); return; }
+                    } else { activeEl.pause(); return; }
                 } else nextKey = appState.get('displayOrder')[currentPos + 1];
             }
             window.playSong(nextKey, { switchScreen: false }); // fix 03/07/2026 mục 5 — xem comment đầy đủ ở window.playSong (core/playlist/actions.js)
@@ -69,7 +95,10 @@
         function playPrev() {
             requestWakeLock();
             if (appState.get('playlistOrder').length === 0) return;
-            if (audioPlayer.currentTime > 3) { audioPlayer.currentTime = 0; return; }
+            // [SỬA — cùng lý do playNext() ngay trên] "quá 3s vào bài/video hiện tại -> chỉ tua về
+            // đầu" chọn ĐÚNG element đang thực sự phát.
+            if (appState.get('isVideoPlayerMode')) { if (bgVideoElement.currentTime > 3) { bgVideoElement.currentTime = 0; return; } }
+            else if (audioPlayer.currentTime > 3) { audioPlayer.currentTime = 0; return; }
             let prevKey;
             if (appState.get('isShuffle')) {
                 let currentPos = appState.get('shuffleIndices').indexOf(appState.get('currentKey')); prevKey = (currentPos <= 0) ? appState.get('shuffleIndices')[appState.get('playlistOrder').length - 1] : appState.get('shuffleIndices')[currentPos - 1];

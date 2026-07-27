@@ -1,11 +1,15 @@
 /**
  * core/video-player.js — MỚI (21/07/2026, mục 4). "Video Player mode": phát video làm nội dung
  * chính trên màn Visualizer (KHÁC hẳn "Video nền" trang trí — core/state-and-video-bg.js, file đó
- * KHÔNG đụng gì ở đây). Next/Prev/Play/Pause tái dùng ĐÚNG nút vật lý của Playlist nhạc (event/
- * router/player-controls.js branch qua VirtualMachineState theo `isVideoPlayerMode`) — file NÀY
- * chỉ chứa phần LÕI thuần: tính key kế tiếp/trước, mutate state, toggle UI nút — KHÔNG đụng
- * `bgVideoElement` trực tiếp cho việc phát (điều phối cần async đọc DB -> thuộc Workflow, xem
- * event/workflow/video-player.js).
+ * KHÔNG đụng gì ở đây).
+ * [SỬA — ver12 "Song/Video Unification", Batch 2] Next/Prev KHÔNG còn branch VirtualMachineState
+ * theo `isVideoPlayerMode` nữa — LUÔN gọi `playNext()`/`playPrev()` (core/player-controls.js,
+ * dùng CHUNG với Song) bất kể nguồn nào, xem event/router/player-controls.js. CHỈ Play/Pause + 5
+ * sự kiện DOM của `bgVideoElement` + progressBar seek CÒN branch theo `isVideoPlayerMode` (khác
+ * biệt DUY NHẤT còn lại là ELEMENT nào đang thực sự phát — `bgVideoElement` hay `audioPlayer` —
+ * KHÔNG phải "danh sách phát tiếp theo là gì", cái đó dùng chung 100%). File NÀY chỉ chứa phần LÕI
+ * thuần: mutate state, toggle UI nút — KHÔNG đụng `bgVideoElement` trực tiếp cho việc phát (điều
+ * phối cần async đọc DB -> thuộc Workflow, xem event/workflow/video-player.js).
  *
  * KIẾN TRÚC LẦN 2 (21/07/2026, VIẾT LẠI — Giang phát hiện qua video test: play/pause không phản
  * hồi, current time đứng yên, dù audio NGHE RÕ đang phát) — BẢN ĐẦU dùng `audioPlayer` (thẻ
@@ -46,76 +50,31 @@
  * ĐƠN GIẢN HOÁ Ở BẢN ĐẦU (đã báo Giang) — danh sách video phát TUẦN TỰ theo thứ tự thêm vào (cũ ->
  * mới), KHÔNG có shuffle/repeat riêng cho video.
  *
+ * [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt: "video thừa hưởng cơ chế Playlist
+ * sẵn có, không tạo cơ chế next/prev riêng — có là đang tạo exception"] TOÀN BỘ đoạn "ĐƠN GIẢN HOÁ
+ * Ở BẢN ĐẦU" trên ĐÃ LỖI THỜI — Next/Prev/shuffle/repeat của Video giờ KHÔNG còn mảng
+ * `videoPlaylist`/`currentVideoKey` RIÊNG nữa, dùng CHUNG `displayOrder`/`shuffleIndices`/
+ * `currentKey` (package `playlist`, đã có sẵn `sortKeysByMode()` newest/oldest cho Video từ Batch
+ * 1) qua ĐÚNG 1 cơ chế `playNext()`/`playPrev()` (core/player-controls.js, xem comment tại đó) —
+ * `computeNextVideoKey()`/`computePrevVideoKey()`/`pickRandomVideoKeyExcluding()` ĐÃ XOÁ (dead code,
+ * không còn ai gọi). `enterVideoPlayerModeState()`/`exitVideoPlayerModeState()` giờ CHỈ còn việc
+ * DUY NHẤT: toggle `isVideoPlayerMode` — cờ này vẫn cần riêng (quyết định `bgVideoElement` hay
+ * `audioPlayer` đang thực sự phát, dùng ở Router/nhiều Core khác), KHÔNG liên quan gì tới việc
+ * TÍNH key kế tiếp/trước nữa.
+ *
  * NẠP SAU: service/state.js.
  */
 
-/**
- * Tính videoKey kế tiếp trong `videoPlaylist` — tuần tự, quay vòng về đầu khi hết danh sách. Hàm
- * THUẦN (Rule 1-4) — nhận tham số, KHÔNG tự appState.get().
- * @param {string[]} videoPlaylist
- * @param {string|null} currentVideoKey
- * @returns {string|null} null nếu danh sách rỗng
- */
-function computeNextVideoKey(videoPlaylist, currentVideoKey) {
-    if (videoPlaylist.length === 0) return null;
-    const currentPos = videoPlaylist.indexOf(currentVideoKey);
-    if (currentPos === -1 || currentPos === videoPlaylist.length - 1) return videoPlaylist[0];
-    return videoPlaylist[currentPos + 1];
-}
-
-/**
- * Tính videoKey trước đó trong `videoPlaylist` — tuần tự, quay vòng về cuối khi ở đầu danh sách.
- * Hàm THUẦN, cùng khuôn `computeNextVideoKey()`.
- * @param {string[]} videoPlaylist
- * @param {string|null} currentVideoKey
- * @returns {string|null} null nếu danh sách rỗng
- */
-function computePrevVideoKey(videoPlaylist, currentVideoKey) {
-    if (videoPlaylist.length === 0) return null;
-    const currentPos = videoPlaylist.indexOf(currentVideoKey);
-    if (currentPos <= 0) return videoPlaylist[videoPlaylist.length - 1];
-    return videoPlaylist[currentPos - 1];
-}
-
-/**
- * MỚI (21/07/2026, Giang yêu cầu "shuffle/repeat chưa áp dụng cho video player") — chọn NGẪU
- * NHIÊN 1 videoKey trong `videoPlaylist`, LOẠI TRỪ `excludeKey` (video đang phát) — dùng cho
- * shuffle. ĐƠN GIẢN HOÁ (đã báo Giang) — chọn ngẫu nhiên MỖI LẦN gọi (KHÔNG duy trì 1 mảng
- * `videoShuffleIndices` cố định như Song, xem `shuffleIndices`/`updateShuffleArrayFromQueue()` —
- * đảm bảo KHÔNG lặp lại video vừa xem trong 2 lượt liên tiếp, nhưng KHÔNG đảm bảo "xem hết mọi
- * video 1 lượt rồi mới lặp lại" như thuật toán shuffle đầy đủ của Song).
- * @param {string[]} videoPlaylist
- * @param {string|null} excludeKey
- * @returns {string|null} null nếu danh sách rỗng
- */
-function pickRandomVideoKeyExcluding(videoPlaylist, excludeKey) {
-    if (videoPlaylist.length === 0) return null;
-    if (videoPlaylist.length === 1) return videoPlaylist[0]; // chỉ có 1 video -> chính nó, không có gì để loại trừ
-    const candidates = videoPlaylist.filter((k) => k !== excludeKey);
-    return candidates[Math.floor(Math.random() * candidates.length)];
-}
-
-/** Bật state Video Player mode + gán danh sách phát — gọi lúc BẮT ĐẦU vào mode (Workflow đã đọc
- * xong danh sách video từ DB trước khi gọi hàm này). `currentVideoKey` reset về null — Workflow tự
- * gọi `setCurrentVideoKey()` ngay sau khi phát video đầu tiên.
- * @param {string[]} videoPlaylist
- */
-function enterVideoPlayerModeState(videoPlaylist) {
-    appState.mutate('videoPlaylist', (arr) => { arr.length = 0; arr.push(...videoPlaylist); }); // in-place — mutate() không nhận giá trị return (xem service/state.js)
+/** Bật state Video Player mode — gọi lúc BẮT ĐẦU vào mode (event/workflow/video-player.js::
+ * startFromPlaylist()). `currentKey` (package `playlist`, DÙNG CHUNG với Song) do Workflow tự lo
+ * riêng (xem docstring startFromPlaylist()), KHÔNG thuộc phạm vi hàm này. */
+function enterVideoPlayerModeState() {
     appState.set('isVideoPlayerMode', true);
-    appState.set('currentVideoKey', null);
 }
 
-/** Tắt state Video Player mode + dọn sạch danh sách phát/video hiện tại. */
+/** Tắt state Video Player mode. */
 function exitVideoPlayerModeState() {
     appState.set('isVideoPlayerMode', false);
-    appState.mutate('videoPlaylist', (arr) => { arr.length = 0; });
-    appState.set('currentVideoKey', null);
-}
-
-/** @param {string} videoKey */
-function setCurrentVideoKey(videoKey) {
-    appState.set('currentVideoKey', videoKey);
 }
 
 /** Đổi `muted`/`loop`/`pointer-events`/`.hidden` của `bgVideoElement` (#bg-video, TÁI DÙNG — xem
