@@ -133,12 +133,11 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsPlaylistBg.mediaSource.song': 'Song',
     'settingsPlaylistBg.mediaSource.video': 'Video',
     'settingsPlaylistBg.sortMode.label': 'Sort',
-    'settingsPlaylistBg.sortMode.default': 'Default (recently added)',
     'settingsPlaylistBg.sortMode.az': 'Name A → Z',
     'settingsPlaylistBg.sortMode.za': 'Name Z → A',
-    // MỚI (ver12 "Song/Video Unification", Batch 1) — 2 sort mode RIÊNG của Video (mục 2), dựng
-    // qua renderVideoSortModeOptions() (core/playlist/order.js), thay hẳn 3 option Song ở trên khi
-    // Nguồn = Video.
+    // [SỬA — Giang chốt "dùng chung hết" 4 kiểu sort cho CẢ Song lẫn Video] newest/oldest giờ
+    // DÙNG CHUNG cho cả 2 nguồn (trước đây RIÊNG cho Video) — 'default' (giữ nguyên thứ tự thêm)
+    // ĐÃ XOÁ khỏi option list vì vô nghĩa khi đã có 4 kiểu rõ ràng này.
     'settingsPlaylistBg.sortMode.newest': 'Newest first',
     'settingsPlaylistBg.sortMode.oldest': 'Oldest first',
     'settingsPlaylistBg.videoEnable.label': 'Use Video Background',
