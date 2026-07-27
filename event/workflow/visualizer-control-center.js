@@ -43,8 +43,9 @@ const workflowVisualizerControlCenter = {
      * [SỬA — ver12 "Song/Video Unification", Batch 2] Chiều ĐỐI XỨNG (chặn bật Video Player mode
      * khi Video nền đang bật) TỪNG đăng ký ở event/block.js cho checkbox cũ
      * (`workflowFileManagerVideo.enablePlayerModeFromPanel()`, ĐÃ BỎ HẲN) — entry point MỚI vào
-     * Video Player mode (`window.playSong()` dispatch theo mediaType) KHÔNG đi qua eventBus nên
-     * KHÔNG còn msg.type nào để đăng ký Block gate chiều đó nữa (xem ghi chú ở event/block.js).
+     * Video Player mode (`window.playSong()` dispatch theo mediaType, core/playlist/actions.js) tự
+     * `eventBus.send()` msg.type 'videoPlayer.startFromPlaylist.click' (xem event/router/
+     * video-player.js) nên đăng ký LẠI được rule đối xứng ở đúng msg.type đó (event/block.js).
      *
      * Tái dùng THẲNG `applyUploadedVideoBg()` (core/state-and-video-bg.js, di sản — KHÔNG đụng file
      * đó) — hàm này nhận `File` NHƯNG chỉ đọc `.type`/gọi `URL.createObjectURL()`, hoàn toàn hoạt
