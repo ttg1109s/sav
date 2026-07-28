@@ -57,11 +57,18 @@ const LANG_PATCH_SETTINGS_MISC = {
     'storageDrawer.backToAbout.title': 'Back to About',
     'storageDrawer.title': 'Storage Management',
     'storageDrawer.statsSectionTitle': 'Statistics',
-    'storageDrawer.statTotalSongs': 'Total songs',
-    'storageDrawer.statTotalBytes': 'Storage used',
+    'storageDrawer.statTotalSongs': 'Songs',
+    // SỬA (phản hồi Giang, mục 1 — "UI dung lượng như Settings mobile OS") — giờ là TỔNG dung
+    // lượng CẢ Song lẫn Video (thanh chia đoạn bên dưới) — không còn riêng "Storage used" cho mỗi
+    // loại (2 dòng số byte tách rời cũ ĐÃ GỘP vào 1 thanh + chú giải, xem renderStorageStats()).
+    'storageDrawer.statTotalBytes': 'Total storage',
     // MỚI (ver12 "Song/Video Unification", Batch 5, mục 6a) — thống kê Video song song Song.
-    'storageDrawer.statTotalVideos': 'Total videos',
-    'storageDrawer.statTotalVideoBytes': 'Storage used (video)',
+    'storageDrawer.statTotalVideos': 'Videos',
+    // MỚI (phản hồi Giang, mục 1) — nhãn NGẮN cho chú giải dưới thanh chia đoạn dung lượng (khác
+    // statTotalSongs/statTotalVideos — 2 key đó giờ dùng làm nhãn dưới vòng tròn SỐ LƯỢNG, cần
+    // ngắn gọn nhưng không nhất thiết trùng chữ với chú giải dung lượng).
+    'storageDrawer.legendSongs': 'Music',
+    'storageDrawer.legendVideos': 'Video',
     'storageDrawer.freeSpaceSectionTitle': 'Free up storage',
     // SỬA (ver12 "Song/Video Unification", Batch 5, mục 6b) — 'downloadThenClear.label/hint' và
     // 'clearNoDownload.label/hint' (2 nút tách rời cũ) ĐÃ XOÁ, thay bằng key MỚI ở
