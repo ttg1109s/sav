@@ -73,7 +73,16 @@ const workflowAppBoot = {
         // ĐÚNG nguồn ở trên.
         if (typeof getMeta === 'function' && typeof workflowPlaylistScope !== 'undefined') {
             const savedFolderId = await getMeta('activePlayListFolder');
-            VirtualMachineState.run([
+            // SỬA (phản hồi Giang — "ai bảo file đấy được miễn, không đọc đầu plan à?") — bản
+            // trước Ở ĐÂY từng tự ý bỏ VirtualMachineState, thay bằng if/else thường, viện dẫn nhầm
+            // "file này miễn audit" (dòng miễn-audit đầu file CHỈ áp cho loadConfig()/
+            // loadBackgroundAssets() CŨ, không cấp phép cho code MỚI né rule) — SAI theo đúng "LƯU
+            // Ý BẮT BUỘC" đầu plan-v12-song-video-unification.md ("cần mở rộng 1 pattern kiến trúc
+            // — dừng lại hỏi Giang trước"). Đã hỏi lại, Giang chốt: mở rộng
+            // VirtualMachineState (thêm `runAsync()`, giữ nguyên `run()` đồng bộ — xem
+            // event/virtual-machine-state.js) — DÙNG LẠI ĐÚNG VMState ở đây, `await` được nhờ
+            // `runAsync()` trả `Promise.all()`.
+            await VirtualMachineState.runAsync([
                 // MỚI (Batch 4, "Song/Video Unification" mục 5) — trước đây no-op ("đã đúng Tất cả
                 // bài sẵn từ initPlaylistFromDB()") — giờ CẦN chạy applyAllSongsScope() để lọc
                 // Exclude (chỉ ảnh hưởng view "Tất cả") ngay từ lúc boot, xem
@@ -106,10 +115,12 @@ const workflowAppBoot = {
         // MỚI (fix bug #1, phản hồi Giang — "Active folder vẫn hiện none dù có folder đang active")
         // — PlaylistMain.init() (gọi TRONG loadPersistedPlaylistConfigOnBoot() ở trên VÀ lúc nạp
         // script core/playlist/main.js) đều chạy TRƯỚC KHI activePlayListFolder được khôi phục
-        // XONG ở khối VMState ngay trên (applyAllSongsScope()/applyFolderScope() mới THẬT SỰ set
-        // đúng giá trị) — badge/khoá Nguồn ở Settings → Playlist vì vậy luôn hiện sai (mặc định
-        // rỗng) cho tới khi Giang tự đổi Scope 1 lần trong phiên. Gọi LẠI đúng 1 lần Ở ĐÂY, SAU
-        // CÙNG khối quyết định Scope, để phản ánh đúng giá trị thật đã khôi phục.
+        // XONG ở khối VirtualMachineState.runAsync() ngay trên (applyAllSongsScope()/
+        // applyFolderScope() mới THẬT SỰ set đúng giá trị) — badge/khoá Nguồn ở Settings → Playlist
+        // vì vậy luôn hiện sai (mặc định rỗng) cho tới khi Giang tự đổi Scope 1 lần trong phiên. Gọi
+        // LẠI đúng 1 lần Ở ĐÂY, SAU CÙNG khối quyết định Scope (giờ đã `await` được nhờ
+        // `runAsync()`, xem event/virtual-machine-state.js), để phản ánh đúng giá trị thật đã khôi
+        // phục.
         if (typeof PlaylistMain !== 'undefined') await PlaylistMain.updateActiveFolderUI();
         if (typeof appState !== 'undefined') appState.set('_isPlaylistReadyForResumeModal', true);
         if (typeof enableResumeModalButtonsWhenPlaylistReady === 'function') enableResumeModalButtonsWhenPlaylistReady();
