@@ -92,9 +92,21 @@ eventBus.registerBlock('videoPlayer.startFromPlaylist.click', [
 
 // Chiều CÒN LẠI (chặn bật Video nền khi Video Player mode đang chạy) GIỮ NGUYÊN, không đổi gì — vẫn
 // đúng bất kể Video Player mode được vào bằng cách nào.
+// MỞ RỘNG (phản hồi Giang, mục 4 — "Use video background chưa block nếu source là video") — thêm 1
+// NHÓM ĐIỀU KIỆN nữa (OR — chỉ cần 1 nhóm đúng là chặn, xem format ở đầu file): Playlist đang browse
+// Nguồn Video (`activeMediaSource==='video'`) — KHÔNG chỉ lúc `isVideoPlayerMode` (đã thật sự phát 1
+// video) mới chặn, vì bgVideoElement dùng CHUNG cho cả 2 việc "phát Video nội dung chính" VÀ "làm
+// nền trang trí" — đang browse Video (dù chưa bấm phát) cũng nên chặn trước cho nhất quán, tránh
+// bật nền xong ngay sau đó bấm phát 1 video lại xung đột. `options.notify` CHỈ nhận 1 chuỗi DÙNG
+// CHUNG cho MỌI nhóm khớp (event/bus.js không hỗ trợ notify riêng theo từng nhóm) — đổi lại câu chữ
+// bao quát CẢ 2 lý do, đồng thời dọn luôn phần "(File Manager -> Video)" đã lỗi thời (panel đó xoá
+// hẳn từ Batch 6, "Song/Video Unification").
 eventBus.registerBlock('visualizerControlCenter.videoEnable.enable.click', [
     [
         { field: 'isVideoPlayerMode', operator: '===', value: true },
+    ],
+    [
+        { field: 'activeMediaSource', operator: '===', value: 'video' },
     ],
 ], { notify: t('settingsPlaylistBg.videoEnable.blockedByPlayerMode') });
 
