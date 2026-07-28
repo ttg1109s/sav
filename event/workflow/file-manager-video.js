@@ -179,6 +179,41 @@ const workflowFileManagerVideo = {
         });
     },
 
+    /** MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — chạy mediainfo.js (WASM, CDN unpkg,
+     * global `MediaInfo`, xem index.html) phân tích 1 file video, trả format/codec/fps/bitrate cho
+     * tab "Chi tiết" (đọc-chỉ). CÙNG lý do đặt ở Workflow (không phải core) như
+     * `_extractVideoThumbAndMeta()` ngay trên: thư viện ngoài + đọc Blob theo chunk, core không
+     * được đụng theo Rule 1-4. KHÔNG throw — trả object RỖNG nếu lỗi/CDN chưa tải kịp, để 1 file
+     * lỗi phân tích KHÔNG chặn cả lô upload (đúng tinh thần try/catch quanh
+     * `_extractVideoThumbAndMeta()` ở `uploadVideos()` ngay dưới — mediainfo chỉ là dữ liệu PHỤ,
+     * không có cũng không sao, khác hẳn thumbnail/duration là BẮT BUỘC).
+     * @param {Blob} blob - blob video GỐC.
+     * @returns {Promise<{format: string, codec: string, fps: string, bitrate: number}>}
+     */
+    async _extractVideoMediaInfo(blob) {
+        if (typeof MediaInfo === 'undefined') return {}; // guard: CDN lỗi mạng/chưa tải kịp — không chặn upload
+        let mediainfo;
+        try {
+            mediainfo = await MediaInfo.default({ format: 'object', coverData: false });
+            const readChunk = (chunkSize, offset) => blob.slice(offset, offset + chunkSize).arrayBuffer().then((buf) => new Uint8Array(buf));
+            const result = await mediainfo.analyzeData(blob.size, readChunk);
+            const tracks = (result && result.media && result.media.track) || [];
+            const generalTrack = tracks.find((tr) => tr['@type'] === 'General') || {};
+            const videoTrack = tracks.find((tr) => tr['@type'] === 'Video') || {};
+            return {
+                format: generalTrack.Format || '',
+                codec: videoTrack.Format || videoTrack.CodecID || '',
+                fps: videoTrack.FrameRate || generalTrack.FrameRate || '',
+                bitrate: Number(videoTrack.BitRate || generalTrack.OverallBitRate || 0) || 0,
+            };
+        } catch (err) {
+            console.error('[_extractVideoMediaInfo] mediainfo.js phân tích thất bại:', err);
+            return {};
+        } finally {
+            if (mediainfo) mediainfo.close();
+        }
+    },
+
     /** Ứng với 'fileManagerVideo.upload.change'. Lỗi 1 file (vd file hỏng) KHÔNG chặn cả lô upload
      * — bắt riêng, bỏ qua đúng file đó, tiếp tục file sau (Rule 1: vẫn 1 tiến trình "upload cả lô").
      * @param {FileList} files
@@ -192,7 +227,12 @@ const workflowFileManagerVideo = {
             for (const file of fileArray) {
                 try {
                     const { thumbBlob, width, height, duration } = await this._extractVideoThumbAndMeta(file);
-                    await saveVideo(file, file.name, thumbBlob, width, height, duration); // core/file-manager/video.js
+                    // MỚI (Batch 5, mục 6c) — mediaInfo là dữ liệu PHỤ (KHÔNG throw nếu lỗi, xem
+                    // docstring _extractVideoMediaInfo()) nên gọi TÁCH RIÊNG try/catch của bước
+                    // trên — 1 file lỗi phân tích mediainfo vẫn upload bình thường, chỉ thiếu
+                    // format/codec/fps/bitrate ở tab Chi tiết.
+                    const mediaInfo = await this._extractVideoMediaInfo(file);
+                    await saveVideo(file, file.name, thumbBlob, width, height, duration, mediaInfo); // core/file-manager/video.js
                 } catch (err) {
                     console.error(`[uploadVideos] chụp thumbnail/lưu thất bại cho file "${file.name}":`, err);
                     failedCount++;
@@ -218,13 +258,20 @@ const workflowFileManagerVideo = {
     /** Ứng với 'fileManagerVideo.video.click' khi videoQuickDeleteMode=false (xem router).
      * SỬA (21/07/2026, Giang yêu cầu "bấm vào video KHÔNG phát trình chạy, chỉ hiện dropdown menu")
      * — THAY HẲN `openVideoPreview()` (fullscreen player) cũ — giờ mở dropdown (core/dropdown-
-     * menu.js) NGAY tại tile, 3 lựa chọn: Set as bg video / Edit video (placeholder) / Xoá.
+     * menu.js) NGAY tại tile.
+     * SỬA (ver12 "Song/Video Unification", Batch 5, mục 6c) — thêm lựa chọn "Chi tiết" (Info) —
+     * giờ 4 lựa chọn: Chi tiết / Set as bg video / Edit video / Xoá.
      * @param {string} videoKey
      * @param {HTMLElement} anchorEl - tile vừa bấm, dùng để định vị dropdown.
      */
     openVideoTileActionMenu(videoKey, anchorEl) {
         const dispatch = (action) => eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.tileMenu.action.click', payload: { action, videoKey } });
         openDropdownMenu(anchorEl, [ // core/dropdown-menu.js
+            {
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+                name: t('fileManager.video.info.label'),
+                callback: () => dispatch('info'),
+            },
             {
                 icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg>',
                 name: t('fileManager.video.btnSetAsBgVideo'),
@@ -242,6 +289,23 @@ const workflowFileManagerVideo = {
                 destructive: true,
             },
         ]);
+    },
+
+    /** Ứng với 'fileManagerVideo.tileMenu.action.click' action='info' — MỚI (Batch 5, mục 6c). Mở
+     * modal "Chi tiết" (tên hiển thị sửa được + thông tin đọc-chỉ: định dạng/codec/fps/độ phân
+     * giải/thời lượng/bitrate/ngày tải) — xem core/file-manager/video-ui.js::openVideoInfoModal().
+     * @param {string} videoKey
+     */
+    async openVideoInfo(videoKey) {
+        const record = await getVideoRecord(videoKey); // service/db.js
+        if (!record) return; // guard: video vừa bị xoá ở nơi khác
+        openVideoInfoModal({ key: videoKey, ...record }); // core/file-manager/video-ui.js — tự bắn eventBus khi bấm Lưu
+    },
+
+    /** Ứng với 'fileManagerVideo.info.rename.confirm' (bấm "Lưu" trong modal Chi tiết). */
+    async confirmRenameVideo(videoKey, customName) {
+        await setVideoCustomName(videoKey, customName); // core/file-manager/video.js
+        await workflowVideoPlayer.refreshVideoPlaylistIfActive(); // event/workflow/video-player.js — tên hiển thị đổi, cần nạp lại playlistCache nếu Playlist đang browse nguồn Video
     },
 
     /** Ứng với 'fileManagerVideo.tileMenu.action.click' action='setAsBgVideo' — set THẲNG 1 video

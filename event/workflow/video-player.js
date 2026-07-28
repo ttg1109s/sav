@@ -142,14 +142,14 @@ const workflowVideoPlayer = {
         setupAudioContext(); // core/audio-engine.js
         connectVideoElementToAnalyser(); // core/video-player.js
 
-        playerTitle.textContent = record.filename || t('videoPlayer.untitled');
+        playerTitle.textContent = record.customName || record.filename || t('videoPlayer.untitled'); // MỚI (Batch 5, mục 6c) — ưu tiên tên hiển thị người dùng tự đặt
         // MỚI (ver12 "Song/Video Unification", Batch 2, mục 3) — artist RỖNG thay vì nhãn
         // "Video Player" cũ, khớp Adapter (Batch 1: playlistCache của Video có tag.artist='') —
         // #player-title/#player-artist dùng CHUNG DOM giữa Playlist/Visualizer nên đồng bộ cả 2 màn.
         playerArtist.textContent = '';
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
-                title: record.filename || t('videoPlayer.untitled'),
+                title: record.customName || record.filename || t('videoPlayer.untitled'),
                 artist: '',
                 artwork: [],
             });
