@@ -108,6 +108,23 @@
             isGridView: false,
         };
 
+        /**
+         * MỚI (phản hồi Giang, mục 3 — "thêm nhớ trạng thái shuffle/repeat/stats của icon Control
+         * Center visualizer") — domain config RIÊNG cho 3 icon toggle trong Visualizer Control
+         * Center (`#btn-shuffle`/`#btn-repeat`/`#btn-toggle-stats-panel`, components/visualizer-
+         * overlay.js) — trước đây `isShuffle`/`repeatMode` (package `shuffle-repeat`)/
+         * `isStatsPanelVisible` (package `app-misc`) CHỈ sống trong AppState runtime, KHÔNG hề được
+         * lưu bền, mất hết sau F5/mở lại app. Domain RIÊNG (không gộp vào `playlist`, dù cùng
+         * khuôn) vì đây là nhóm preference của TRÌNH PHÁT (player controls), khác hẳn "duyệt/sắp
+         * xếp Playlist" về mặt ý nghĩa — tách domain cho rõ, đúng tinh thần "chọn domain phù hợp"
+         * Giang đã chốt ở mục 5 (Playlist Settings) trước đó.
+         */
+        const DEFAULT_PLAYER_CONFIG = {
+            isShuffle: false,
+            repeatMode: 0,
+            isStatsPanelVisible: true,
+        };
+
         AppConfig.defineDomain('viz', {
             schema: {
                 quality: 'string', type: 'string', barStyle: 'string', vortexStyle: 'string', rainStyle: 'string', glassFlash: 'boolean', mode: 'string',
@@ -150,6 +167,13 @@
             defaults: DEFAULT_PLAYLIST_CONFIG,
         });
 
+        AppConfig.defineDomain('player', {
+            schema: {
+                isShuffle: 'boolean', repeatMode: 'number', isStatsPanelVisible: 'boolean',
+            },
+            defaults: DEFAULT_PLAYER_CONFIG,
+        });
+
         /** Seed CẢ 3 domain config NGAY TẠI ĐÂY — lúc nạp core/config.js (SỬA 27/07/2026, trước
          * đây gọi trễ hơn từ event/workflow/app-boot.js lúc DOMContentLoaded, để hở 1 khoảng giữa
          * lúc tạo accessor bên dưới và lúc seed thật sự -> access() console.warn "chưa seed()" 3
@@ -163,14 +187,16 @@
             appConfig.seed('slideshow');
             appConfig.seed('reader');
             appConfig.seed('playlist');
+            appConfig.seed('player');
         }
         seedConfig();
 
-        /** Accessor tiện dụng, dùng khắp core/event cho 4 domain config — xem AppConfig.access(). */
+        /** Accessor tiện dụng, dùng khắp core/event cho 5 domain config — xem AppConfig.access(). */
         const appConfigViz = appConfig.access('viz');
         const appConfigSlideshow = appConfig.access('slideshow');
         const appConfigReader = appConfig.access('reader');
         const appConfigPlaylist = appConfig.access('playlist');
+        const appConfigPlayer = appConfig.access('player');
 
         /** Reset vizConfig về default (gộp từ core/app-recovery.js::executeRestoreDefaults() cũ —
          * CHỈ phần reset, KHÔNG gồm saveConfig()/reload(), 2 việc đó vẫn ở app-recovery.js). */

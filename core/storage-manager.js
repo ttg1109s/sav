@@ -38,24 +38,36 @@
          * @param {{totalSongs: number, totalBytes: number}} stats
          * @param {HTMLElement} totalSongsEl @param {HTMLElement} totalBytesEl
          */
-        function renderStorageStats(stats, totalSongsEl, totalBytesEl) {
-            if (!totalSongsEl) return; // guard: panel Song đang đóng
-            totalSongsEl.textContent = `${stats.totalSongs}`;
-            totalBytesEl.textContent = formatBytes(stats.totalBytes);
-        }
-
         /**
-         * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6a) — mirror renderStorageStats() ngay
-         * trên, bản của Video (mediaScope riêng — cùng quy ước "mỗi domain 1 hàm", KHÔNG gộp chung
-         * 1 hàm nhận thêm tham số rẽ nhánh theo loại, đúng Rule 1). Nhận `stats` (kết quả
-         * `computeVideoStats()`, core/file-manager/video.js) qua tham số — Rule 2/3.
-         * @param {{totalVideos: number, totalBytes: number}} stats
-         * @param {HTMLElement} totalVideosEl @param {HTMLElement} totalVideoBytesEl
+         * VIẾT LẠI (phản hồi Giang, mục 1 — "UI dung lượng như Settings mobile OS, số lượng dạng
+         * vòng tròn") — GỘP `renderStorageStats()`/`renderVideoStorageStats()` cũ (2 hàm tách biệt
+         * theo domain, đúng Rule 1 gốc) thành 1 hàm DUY NHẤT: khối UI mới (thanh chia đoạn dung
+         * lượng) cần biết CẢ 2 tổng CÙNG LÚC để tính % mỗi đoạn — không còn cách nào tách 2 hàm độc
+         * lập mà vẫn đúng số liệu (đây là 1 hành động nghiệp vụ THẬT SỰ — "vẽ tổng quan dung lượng
+         * Song+Video" — không phải 2 hành động bị gộp gượng ép, đúng tinh thần Rule 1: "1 hàm = 1
+         * business action").
+         * @param {{totalSongs: number, totalBytes: number}} songStats - core/about-stats.js::computeStats()
+         * @param {{totalVideos: number, totalBytes: number}} videoStats - core/file-manager/video.js::computeVideoStats()
+         * @param {{totalBytesEl: HTMLElement, barSongsEl: HTMLElement, barVideosEl: HTMLElement,
+         *          songBytesEl: HTMLElement, videoBytesEl: HTMLElement, totalSongsEl: HTMLElement,
+         *          totalVideosEl: HTMLElement}} els - toàn bộ phần tử DOM cần cập nhật, querySelector
+         *          sẵn ở Workflow rồi truyền vào (Rule 2/3 — Core không tự đọc DOM ngoài tham số).
          */
-        function renderVideoStorageStats(stats, totalVideosEl, totalVideoBytesEl) {
-            if (!totalVideosEl) return; // guard: panel đang đóng
-            totalVideosEl.textContent = `${stats.totalVideos}`;
-            totalVideoBytesEl.textContent = formatBytes(stats.totalBytes);
+        function renderStorageStats(songStats, videoStats, els) {
+            const { totalBytesEl, barSongsEl, barVideosEl, songBytesEl, videoBytesEl, totalSongsEl, totalVideosEl } = els;
+            if (!totalSongsEl) return; // guard: panel Song & Video đang đóng
+            const totalBytes = songStats.totalBytes + videoStats.totalBytes;
+            if (totalBytesEl) totalBytesEl.textContent = formatBytes(totalBytes);
+            // totalBytes === 0 (chưa có Song lẫn Video nào) -> cả 2 đoạn 0%, thanh hiện trống (nền
+            // xám mờ có sẵn), KHÔNG chia 0/0 ra NaN.
+            const songPct = totalBytes > 0 ? (songStats.totalBytes / totalBytes) * 100 : 0;
+            const videoPct = totalBytes > 0 ? (videoStats.totalBytes / totalBytes) * 100 : 0;
+            if (barSongsEl) barSongsEl.style.width = `${songPct}%`;
+            if (barVideosEl) barVideosEl.style.width = `${videoPct}%`;
+            if (songBytesEl) songBytesEl.textContent = formatBytes(songStats.totalBytes);
+            if (videoBytesEl) videoBytesEl.textContent = formatBytes(videoStats.totalBytes);
+            totalSongsEl.textContent = `${songStats.totalSongs}`;
+            if (totalVideosEl) totalVideosEl.textContent = `${videoStats.totalVideos}`;
         }
 
         // ===================== Giải phóng bộ nhớ =====================

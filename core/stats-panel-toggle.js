@@ -12,8 +12,16 @@
  * audio-analysis.js tự đọc trước mỗi dòng ghi .textContent — không đụng/không bọc gì khác trong
  * luồng tính toán của hàm đó.
  *
- * Trạng thái ẨN/HIỆN không lưu vào vizConfig (không cần persist qua reload — đây là tuỳ chọn xem
- * tạm trong 1 phiên, giống độ scroll hay panel nào đang mở, không phải 1 cấu hình lâu dài).
+ * SỬA (phản hồi Giang, mục 3 — "thêm nhớ trạng thái shuffle/repeat/stats của icon Control Center")
+ * — ĐẢO quyết định cũ ngay dưới đây: trạng thái ẨN/HIỆN giờ CÓ lưu bền (domain AppConfig 'player',
+ * core/config.js — CÙNG khuôn `isShuffle`/`repeatMode`, xem event/workflow/player-controls.js::
+ * _persistPlayerConfig()/loadPersistedPlayerConfigOnBoot()) — Giang xác nhận đây giờ là 1 preference
+ * lâu dài như Shuffle/Repeat, không còn coi là "tuỳ chọn xem tạm trong phiên" như nhận định cũ ngay
+ * dưới (giữ nguyên đoạn cũ để đối chiếu lịch sử, không xoá).
+ *
+ * [Nhận định CŨ, KHÔNG còn áp dụng — giữ lại đối chiếu] Trạng thái ẨN/HIỆN không lưu vào vizConfig
+ * (không cần persist qua reload — đây là tuỳ chọn xem tạm trong 1 phiên, giống độ scroll hay panel
+ * nào đang mở, không phải 1 cấu hình lâu dài).
  *
  * PHẢI nạp TRƯỚC audio-analysis.js (file đó đọc isStatsPanelVisible) — xem index.html. Cần
  * dom-refs.js đã chạy (statsPanel/btnToggleStatsPanel/iconStatsPanelVisible/iconStatsPanelHidden).

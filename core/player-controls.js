@@ -393,12 +393,20 @@
          *          random lại shuffleIndices hay không (Rule 3: core-gọi-core hợp lệ vì workflow
          *          THẬT SỰ dùng giá trị trả về).
          */
+        /** Đồng bộ class/màu nút Shuffle theo ĐÚNG state hiện có — TÁCH từ toggleShuffle() (phần
+         * "đồng bộ UI", KHÔNG đụng phần đảo cờ), phản hồi Giang mục 3 ("nhớ trạng thái shuffle/
+         * repeat/stats") — cần "set thẳng" UI về giá trị ĐÃ LƯU lúc boot, không thể gọi
+         * toggleShuffle() cho việc này vì hàm đó LUÔN đảo ngược giá trị hiện tại. */
+        function syncShuffleUI(isShuffleNow) {
+            btnShuffle.classList.toggle('!text-sky-400', isShuffleNow);
+            btnShuffle.classList.toggle('text-slate-400', !isShuffleNow);
+        }
+
         function toggleShuffle(isShuffleCurrent) {
             const next = !isShuffleCurrent;
             appState.set('isShuffle', next);
             console.log(`writer: "toggleShuffle", page: "isShuffle", content: "${next}"`);
-            btnShuffle.classList.toggle('!text-sky-400', next);
-            btnShuffle.classList.toggle('text-slate-400', !next);
+            syncShuffleUI(next);
             return next;
         }
 
@@ -406,11 +414,17 @@
          * Xoay vòng 3 trạng thái Repeat (tắt -> lặp danh sách -> lặp 1 bài) + đồng bộ class/badge.
          * Ứng với msg.type 'playerControls.repeat.click'.
          */
+        /** Đồng bộ class/badge nút Repeat theo ĐÚNG state hiện có — TÁCH từ cycleRepeatMode(),
+         * CÙNG LÝ DO syncShuffleUI() ngay trên (phản hồi Giang mục 3). */
+        function syncRepeatUI(repeatModeNow) {
+            if (repeatModeNow === 0) { btnRepeat.classList.remove('!text-sky-400'); btnRepeat.classList.add('text-slate-400'); repeatBadge.classList.add('hidden'); }
+            else if (repeatModeNow === 1) { btnRepeat.classList.remove('text-slate-400'); btnRepeat.classList.add('!text-sky-400'); repeatBadge.classList.add('hidden'); }
+            else if (repeatModeNow === 2) { btnRepeat.classList.add('!text-sky-400'); repeatBadge.classList.remove('hidden'); }
+        }
+
         function cycleRepeatMode() {
             appState.set('repeatMode', (appState.get('repeatMode') + 1) % 3);
-            if (appState.get('repeatMode') === 0) { btnRepeat.classList.remove('!text-sky-400'); btnRepeat.classList.add('text-slate-400'); repeatBadge.classList.add('hidden'); } 
-            else if (appState.get('repeatMode') === 1) { btnRepeat.classList.remove('text-slate-400'); btnRepeat.classList.add('!text-sky-400'); repeatBadge.classList.add('hidden'); } 
-            else if (appState.get('repeatMode') === 2) { btnRepeat.classList.add('!text-sky-400'); repeatBadge.classList.remove('hidden'); }
+            syncRepeatUI(appState.get('repeatMode'));
         }
 
         /**
