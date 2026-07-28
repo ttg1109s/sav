@@ -13,13 +13,21 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.btnReturnVisual.title': 'Now playing (return)',
     'playlistView.btnUploadAudio.title': 'Add music',
     'playlistView.btnSettings.title': 'Settings',
-    'playlistView.heading': 'Songs',
     'playlistView.search.placeholder': 'Search songs, artists, albums...',
+    // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — placeholder RIÊNG cho Video
+    // (không có artist/album để tìm) — đổi qua JS khi Nguồn đổi, xem switchToVideoSource()/
+    // switchToSongSource() (event/workflow/playlist.js).
+    'playlistView.search.placeholderVideo': 'Search videos...',
     'playlistView.search.clear.title': 'Clear search',
     'playlistView.btnPlay': 'Play',
     'playlistView.btnShuffleAll': 'Shuffle',
     'playlistView.empty.noSongs': 'No songs yet. Add some music to get started.',
     'playlistView.empty.noSearchResults': 'No matching songs found.',
+    // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — Playlist rỗng khi đang browse
+    // Nguồn Video trước đây vẫn hiện "No songs yet" — đổi qua JS theo `activeMediaSource`, xem
+    // updateEmptyState() (core/playlist/render.js).
+    'playlistView.empty.noVideos': 'No videos yet. Add some videos to get started.',
+    'playlistView.empty.noSearchResultsVideo': 'No matching videos found.',
     'playlistView.loading.generic': 'Loading data...',
     'playlistView.loading.withCount': 'Loading {done} / {total} songs...',
     'playlistView.songEdit.title': 'Details',
@@ -75,16 +83,24 @@ const LANG_PATCH_PLAYLIST = {
     // MỚI (10/07/2026) — mở Subtitle Editor (trang riêng).
     'playlistView.songMenu.editSubtitles': 'Edit subtitles',
     'playlistView.songMenu.export': 'Export file',
-    // MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — 2 hành động RIÊNG
-    // của Video, THAY 2 lựa chọn tương ứng đã mất khi xoá dropdown tile "File Manager → Video".
-    'playlistView.songMenu.setAsBgVideo': 'Set as background video',
+    // MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — hành động RIÊNG của
+    // Video, THAY lựa chọn tương ứng đã mất khi xoá dropdown tile "File Manager → Video".
+    // 'playlistView.songMenu.setAsBgVideo' ĐÃ XOÁ (phản hồi Giang — bỏ hẳn "Set làm nền" khỏi
+    // dropdown Video).
     'playlistView.songMenu.editVideoFile': 'Edit video',
     'playlistView.songMenu.delete': 'Delete song',
+    // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — dropdown Video dùng chung
+    // template với Song (#song-action-menu) nhưng nhãn tĩnh vẫn luôn nói "song" — đổi chữ qua JS
+    // (openSongActionMenu(), core/playlist/actions.js) dựa vào 2 key song song này.
+    'playlistView.songMenu.deleteVideo': 'Delete video',
     'playlistView.songMenu.addToFolder': 'Add to Folder',
     'playlistView.songMenu.deleteBlockedPlaying': "Can't delete <b>{title}</b> while it's playing. Pause the song first, then try again.",
+    'playlistView.songMenu.deleteBlockedPlayingVideo': "Can't delete <b>{title}</b> while it's playing. Pause the video first, then try again.",
     'playlistView.songMenu.deleteSuccess': 'Deleted <b>{title}</b>.',
     // ── Chọn nhiều (ver 12 "Multi Media", plan-v12-multimedia.md mục 4.b1) ──────────────
-    'playlistView.selection.toggleTitle': 'Select songs',
+    // SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — nói chung "songs" dù đang
+    // browse Nguồn Video — đổi thành chữ trung lập, không cần thêm biến thể/JS riêng.
+    'playlistView.selection.toggleTitle': 'Select items',
     'playlistView.selection.exitTitle': 'Cancel selection',
     'playlistView.selection.moreTitle': 'More actions',
     'playlistView.selection.countLabel': '{count} selected',
@@ -94,6 +110,9 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.selection.btnDelete': 'Delete',
     'playlistView.selection.deleteSuccess': 'Deleted {count} song(s).',
     'playlistView.selection.exportZipFilename': 'songs.zip',
+    // MỚI (Batch "Export dọn nợ kiến trúc", phản hồi Giang) — tên file zip RIÊNG cho Video (bulk
+    // export selection, exportSelectedVideosZip() — event/workflow/playlist.js).
+    'playlistView.selection.exportZipFilenameVideo': 'videos.zip',
     'playlistView.selection.exportPartialFail': 'Some files could not be re-tagged and were exported using their original tag.',
     'playlistView.selection.uploadBlocked': 'Exit selection mode before uploading files.',
     'playlistView.playbackError.title': "Can't play this song",
@@ -101,7 +120,11 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.playbackError.btnKeep': 'Keep',
     'playlistView.playbackError.btnDelete': 'Delete now',
 
-    'bottomPlayer.noSongSelected': 'No song selected',
+    // SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — chuỗi này dùng lại y hệt khi
+    // dọn player Video (window.removeSong()/deleteSelectedSongs(), core/playlist/actions.js +
+    // event/workflow/playlist.js) — "No song selected" sai ngữ cảnh, đổi chữ trung lập thay vì
+    // thêm biến thể/JS riêng (đơn giản hơn, đúng cho cả 2 nguồn).
+    'bottomPlayer.noSongSelected': 'Nothing playing',
     'bottomPlayer.btnPrev.title': 'Previous',
     'bottomPlayer.btnNext.title': 'Next',
 };

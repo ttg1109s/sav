@@ -140,6 +140,10 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // ĐÃ XOÁ khỏi option list vì vô nghĩa khi đã có 4 kiểu rõ ràng này.
     'settingsPlaylistBg.sortMode.newest': 'Newest first',
     'settingsPlaylistBg.sortMode.oldest': 'Oldest first',
+    // MỚI (phản hồi Giang, mục 5 — "thêm dòng folder đang active source") — dòng đọc-thôi hiển thị
+    // thư mục đang Apply làm Scope cho Playlist (components/settings/playlist-view.js).
+    'settingsPlaylistBg.activeFolder.label': 'Active folder',
+    'settingsPlaylistBg.activeFolder.none': 'None',
     'settingsPlaylistBg.videoEnable.label': 'Use Video Background',
     'settingsPlaylistBg.videoEnable.hint': 'Toggle on to pick a video; toggle off just hides it (kept for next time)',
     'settingsPlaylistBg.videoEnable.blockedByPlayerMode': 'Turn off Video Player mode first (File Manager -> Video) before using a background video.',

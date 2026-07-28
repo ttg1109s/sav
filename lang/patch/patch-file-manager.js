@@ -16,6 +16,10 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.folderPicker.newNamePlaceholder': 'New folder name',
     'fileManager.folderPicker.btnCreate': 'Create',
     'fileManager.folderPicker.addSuccess': 'Added {count} song(s) to the folder.',
+    // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — "Thêm vào thư mục" (menu 3
+    // chấm Playlist) LUÔN hiển thị bất kể đang browse nguồn nào (không gate theo mediaType) nên
+    // Video cũng đi qua thông báo này — trước đây LUÔN nói "song(s)" kể cả khi vừa thêm Video.
+    'fileManager.folderPicker.addSuccessVideo': 'Added {count} video(s) to the folder.',
     'fileManager.folderPicker.duplicateName': 'A folder named "{name}" already exists (folder names are case-sensitive — different capitalization counts as a different name).',
     // MỚI (Batch 4, "Song/Video Unification" mục 5) — folder chỉ chứa đúng 1 loại (song/video).
     'fileManager.folderPicker.typeMismatch': 'This folder already holds a different media type — pick another folder.',
@@ -126,19 +130,19 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.album.addChoiceUploadTitle': 'Upload new photos',
     'fileManager.photo.album.addChoiceExistingTitle': 'Choose from library',
     // ── Drawer con: Video — ĐÃ XOÁ HẲN panel riêng (ver12 "Song/Video Unification", Batch 6, mục
-    // 6d, phản hồi Giang) — gộp vào "Song & Video" (Batch 5). CHỈ CÒN 5 key dưới đây (dùng bởi
-    // uploadVideos()/setVideoAsBackground()/picker "Use background video" — xem event/workflow/
-    // file-manager-video.js) — mọi key khác (title/loadingTitle/uploadTitle/quickDelete*/
-    // deleteConfirm.*/editVideo.label/btnSetAsBgVideo/btnDelete/info.* — modal Info riêng đã xoá ở
-    // mục trước) ĐÃ XOÁ, không còn nơi gọi. 2 hành động "Set làm nền"/"Sửa video" giờ ở menu 3
-    // chấm CHUNG Playlist, dùng key playlistView.songMenu.setAsBgVideo/editVideoFile
-    // (lang/patch/patch-playlist.js). Nút "Xoá" dùng chung window.removeSong(), key
-    // playlistView.songMenu.deleteBlockedPlaying/deleteSuccess (đã có sẵn, generic).
+    // 6d, phản hồi Giang) — gộp vào "Song & Video" (Batch 5). CHỈ CÒN 3 key dưới đây (dùng bởi
+    // uploadVideos()/picker "Use background video" — xem event/workflow/file-manager-video.js) —
+    // mọi key khác (title/loadingTitle/uploadTitle/quickDelete*/deleteConfirm.*/editVideo.label/
+    // btnSetAsBgVideo/btnDelete/info.* — modal Info riêng đã xoá ở mục trước) ĐÃ XOÁ, không còn nơi
+    // gọi. "Sửa video" giờ ở menu 3 chấm CHUNG Playlist, dùng key
+    // playlistView.songMenu.editVideoFile (lang/patch/patch-playlist.js) — "Set làm nền" (dropdown)
+    // ĐÃ BỎ HẲN (phản hồi Giang), `setAsBgVideo.blockedByPlayerMode`/`.success` mồ côi theo, XOÁ
+    // luôn (hàm setVideoAsBackground() dùng 2 key này cũng đã xoá, 0 lời gọi còn lại). Nút "Xoá"
+    // dùng chung window.removeSong(), key playlistView.songMenu.deleteBlockedPlaying(Video)/
+    // deleteSuccess (đã có sẵn ở patch-playlist.js).
     'fileManager.video.empty': 'No videos yet. Tap the + button above to add some.',
     'fileManager.video.uploadSuccess': 'Added {count} video(s).',
     'fileManager.video.pickerTitle': 'Choose a video',
-    'fileManager.video.setAsBgVideo.blockedByPlayerMode': 'Turn off Video Player mode first before setting a background video.',
-    'fileManager.video.setAsBgVideo.success': 'Set as background video.',
     // ── Drawer con: Documents (mục 4.b4, ĐÃ CODE THẬT 04/07/2026) ────────────────────────────
     'fileManager.document.title': 'Documents',
     // Batch D7 (06/07/2026, batch cuối Nhóm D) — 'fileManager.document.back.title' XOÁ, dùng
@@ -198,6 +202,11 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.renameFolderTitle': 'Rename folder',
     'fileManager.song.deleteFolderTitle': 'Delete folder',
     'fileManager.song.deleteFolderConfirm': 'Delete folder "{name}"? Songs inside stay in your library, only the folder is removed.',
+    // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — Folder Browser Read (Generic
+    // Drawer, event/workflow/file-manager-folder-browser.js::_folderText()) dùng CHUNG UI cho Song
+    // lẫn Video (Video ra đời SAU, bộ chuỗi gốc chỉ viết cho ngữ cảnh Song) — mọi key "...Video"
+    // dưới đây là biến thể áp dụng khi folder đang xem là Video, chọn qua `_folderText()`.
+    'fileManager.song.deleteFolderConfirmVideo': 'Delete folder "{name}"? Videos inside stay in your library, only the folder is removed.',
     'fileManager.song.btnDeleteFolder': 'Delete',
     // ── File Manager -> Song & Video: Giải phóng bộ nhớ, 3 chiều độc lập (Batch 5, mục 6b) ────
     // THAY 2 nút tách rời cũ (storageDrawer.downloadThenClear/clearNoDownload, lang/patch/
@@ -230,26 +239,39 @@ const LANG_PATCH_FILE_MANAGER = {
     // dụng cũ ('btnApply'/'btnUnapply' XOÁ, không còn nút chữ đổi nhãn).
     'fileManager.song.folderDetail.scopeToggle.label': 'Use as Playlist source',
     'fileManager.song.folderDetail.scopeToggle.hint': 'When on, the Playlist only shows songs from this folder.',
+    'fileManager.song.folderDetail.scopeToggle.hintVideo': 'When on, the Playlist only shows videos from this folder.',
     'fileManager.song.folderDetail.excludeToggle.label': 'Hide from "All songs" view',
+    'fileManager.song.folderDetail.excludeToggle.labelVideo': 'Hide from "All videos" view',
     'fileManager.song.folderDetail.excludeToggle.hint': 'When on, songs in this folder are skipped while browsing all songs (does not affect any specific folder scope).',
+    'fileManager.song.folderDetail.excludeToggle.hintVideo': 'When on, videos in this folder are skipped while browsing all videos (does not affect any specific folder scope).',
     'fileManager.song.folderDetail.empty': 'No songs in this folder yet.',
+    'fileManager.song.folderDetail.emptyVideo': 'No videos in this folder yet.',
     'fileManager.song.folderDetail.removeSongTitle': 'Remove from folder',
     // MỚI (14/07/2026, Giang yêu cầu layout lại — icon Sửa tên cạnh tên folder).
     'fileManager.song.folderDetail.renameTitle': 'Rename folder',
     // MỚI (14/07/2026, Giang yêu cầu — nút "Xoá hết bài" CĂN GIỮA cuối panel, CHỈ dọn rỗng folder,
     // KHÔNG xoá folder — khác hẳn "Xoá folder" ở panel Song, deleteActiveFolderById()).
     'fileManager.song.folderDetail.btnRemoveAll': 'Remove all songs',
+    'fileManager.song.folderDetail.btnRemoveAllVideo': 'Remove all videos',
     'fileManager.song.folderDetail.removeAllTitle': 'Remove all songs',
+    'fileManager.song.folderDetail.removeAllTitleVideo': 'Remove all videos',
     'fileManager.song.folderDetail.removeAllConfirm': 'Remove all songs from this folder? The folder itself stays — only its contents are cleared. Songs remain in your library.',
+    'fileManager.song.folderDetail.removeAllConfirmVideo': 'Remove all videos from this folder? The folder itself stays — only its contents are cleared. Videos remain in your library.',
     'fileManager.song.folderDetail.reloadTitle': 'Apply now?',
     'fileManager.song.folderDetail.reloadBtnNo': 'Not now',
     'fileManager.song.folderDetail.reloadBtnNow': 'Reload now',
     'fileManager.song.folderDetail.applyReloadBody': 'Saved — the Playlist will show songs from "{name}" after reloading. Reload now?',
+    'fileManager.song.folderDetail.applyReloadBodyVideo': 'Saved — the Playlist will show videos from "{name}" after reloading. Reload now?',
     'fileManager.song.folderDetail.unapplyReloadBody': 'Saved — the Playlist will show all songs again after reloading. Reload now?',
+    'fileManager.song.folderDetail.unapplyReloadBodyVideo': 'Saved — the Playlist will show all videos again after reloading. Reload now?',
     'fileManager.song.folderDetail.autoUnapplyReloadBody': 'This folder is now empty, so it was removed as the Playlist source. The Playlist will show all songs again after reloading. Reload now?',
+    'fileManager.song.folderDetail.autoUnapplyReloadBodyVideo': 'This folder is now empty, so it was removed as the Playlist source. The Playlist will show all videos again after reloading. Reload now?',
     'fileManager.song.folderDetail.deleteReloadBody': 'Folder deleted — the Playlist will show all songs again after reloading. Reload now?',
+    'fileManager.song.folderDetail.deleteReloadBodyVideo': 'Folder deleted — the Playlist will show all videos again after reloading. Reload now?',
     'fileManager.song.deleteActiveFolderConfirm': 'Delete folder "{name}"? This folder is currently applied to the Playlist.',
     // MỚI (Batch 4, "Song/Video Unification" mục 5) — toggle Exclude.
     'fileManager.song.folderDetail.excludeOnReloadBody': 'Saved — songs in this folder will be hidden from the "All songs" view after reloading. Reload now?',
+    'fileManager.song.folderDetail.excludeOnReloadBodyVideo': 'Saved — videos in this folder will be hidden from the "All videos" view after reloading. Reload now?',
     'fileManager.song.folderDetail.excludeOffReloadBody': 'Saved — songs in this folder will show again in the "All songs" view after reloading. Reload now?',
+    'fileManager.song.folderDetail.excludeOffReloadBodyVideo': 'Saved — videos in this folder will show again in the "All videos" view after reloading. Reload now?',
 };
