@@ -157,13 +157,29 @@ if (videoUploadInput) {
     });
 }
 
-if (videoUploadMenu) {
-    videoUploadMenu.addEventListener('click', (e) => {
-        // DÙNG CHUNG message 'playlist.uploadMenu.labelClick' với #upload-action-menu —
-        // handleUploadMenuLabelClick() (core/playlist/loader.js) chỉ kiểm tra `target.closest
-        // ('label')` chung chung, không quan tâm menu nào, và closeUploadActionMenu() (hàm nó gọi)
-        // giờ đã đóng CẢ 2 container — dùng lại nguyên vẹn, không cần message/hàm riêng.
-        eventBus.send({ router: 'playlist', type: 'playlist.uploadMenu.labelClick', payload: { target: e.target } });
+// SỬA (FIX 28/07/2026, phản hồi Giang "bỏ dropdown Video, input luôn") — #video-upload-menu (dropdown
+// trung gian) ĐÃ XOÁ, không còn gì để chuyển tiếp 'playlist.uploadMenu.labelClick' nữa. #btn-upload-
+// video giờ CHÍNH LÀ <label> bọc thẳng #video-upload-input (components/playlist-view.js) — click
+// NATIVE lên nó tự mở file picker qua hành vi HTML chuẩn, KHÔNG cần gửi eventBus gì cả. Listener DUY
+// NHẤT còn cần ở đây là chặn lúc đang "Chọn nhiều" (selectionMode) — check state THUẦN, ĐỒNG BỘ (đọc
+// appState ngay trong handler, không await gì) nên gọi e.preventDefault() ở đây VẪN kịp huỷ hành vi
+// mặc định của label TRƯỚC khi trình duyệt mở dialog — khác hẳn việc gọi input.click()/label.click()
+// bằng JS để tự MỞ picker (quy tắc "chỉ click native mới chắc chắn mở được input" ở #upload-action-
+// menu phía trên) — ở đây ta chỉ HUỶ 1 click thật đã xảy ra, không đụng gì tới quy tắc đó.
+if (btnUploadVideo) {
+    btnUploadVideo.addEventListener('click', (e) => {
+        // GHI CHÚ: click lên <label> bọc input sẽ khiến handler này chạy 2 LẦN mỗi lần bấm thật (1
+        // lần target=label, 1 lần target=input do trình duyệt tự forward click xuống input — hành
+        // vi chuẩn của label/input) — VÔ HẠI ở nhánh selectionMode===false (chỉ đọc state, không
+        // side-effect gì thêm). Ở nhánh selectionMode===true, preventDefault() CHẶN NGAY từ lần chạy
+        // đầu (target=label) nên trình duyệt KHÔNG forward click xuống input nữa -> KHÔNG có lần
+        // chạy thứ 2 -> KHÔNG gửi trùng message.
+        if (appState.get('selectionMode')) {
+            e.preventDefault();
+            eventBus.send({ router: 'playlist', type: 'playlist.uploadMenu.blockedBySelection', payload: {} });
+        }
+        // selectionMode === false: KHÔNG gửi gì cả — để hành vi mặc định của <label> tự mở
+        // #video-upload-input, đúng yêu cầu "bỏ dropdown, input luôn" cho Video.
     });
 }
 
