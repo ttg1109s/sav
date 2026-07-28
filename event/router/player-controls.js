@@ -1,255 +1,117 @@
 /**
- * event/router/player-controls.js — Router tên "playerControls", tự đăng ký với eventBus lúc nạp.
+ * event/workflow/player-controls.js — "THẰNG THỰC THI CUỐI" của router "playerControls".
  *
- * PHẠM VI: toàn bộ 17 `addEventListener` cũ của core/player-controls.js — 9 click UI (back-to-
- * playlist, play/pause, next/prev, shuffle, repeat, mở/đóng drawer Settings) + 8 audioPlayer/
- * progressBar event (play/pause/ended/loadedmetadata/error/timeupdate/seeked + progressBar
- * input/change). Quyết định CHỐT khác mục 2b.6 của plan.md: dù audioPlayer/progressBar là DOM cố
- * định (không phải listener nội bộ dùng-1-lần), VẪN đưa vào /event/ theo đúng nghĩa đen "DOM
- * listener cần tách" (quyết định của Giang, không áp dụng ngoại lệ 2b.6).
+ * MỚI (fix 03/07/2026, mục 3b yêu cầu — "Nút shuffle trong Control Center phải chỉ random cho
+ * playlist hiện hành"). File này TRƯỚC ĐÂY không tồn tại (comment cũ ở event/router/player-controls.js
+ * ghi rõ "17 msg.type chỉ cần ĐÚNG 1 HÀM CORE, KHÔNG có workflow") — giờ CẦN vì
+ * 'playerControls.shuffle.click' đã đổi hình dạng: toggleShuffle() (core/player-controls.js) giờ
+ * đơn tuyến, chỉ đảo cờ + đồng bộ UI, trả về giá trị MỚI; bước "tính lại shuffleIndices theo hiện
+ * hành" là 1 lời gọi core THỨ HAI (updateShuffleArrayFromQueue(), core/playlist/order.js) — 2 hàm
+ * core nối tiếp, có phụ thuộc thứ tự (bước 2 cần giá trị isShuffle MỚI từ bước 1) -> đúng hình dạng
+ * Workflow (event-bus-flow.md mục 4B), không còn "gọi thẳng core" 1 bước như 16 msg.type còn lại
+ * của cụm này.
  *
- * QUY TẮC RẼ NHÁNH: 11/17 msg.type ở đây chỉ cần ĐÚNG 1 HÀM CORE (không có shield/modal, không cần
- * phối hợp nhiều hàm, không cần đọc appState nào khác) -> router gọi THẲNG. 'playerControls.
- * shuffle.click' (fix 03/07/2026, mục 3b) cần 2 hàm core nối tiếp có phụ thuộc thứ tự
- * (toggleShuffle() rồi updateShuffleArrayFromQueue() theo giá trị MỚI) -> giao event/workflow/
- * player-controls.js. 'playerControls.settingsDrawer.close' cần ≥2 hàm core nối tiếp (validate
- * video nền + reset ngăn xếp panel con + cuộn) -> giao Workflow — xem
- * workflowPlayerControls.closeSettingsDrawer().
- *
- * MỚI (21/07/2026, mục 4 — Video Player mode, xem event/workflow/video-player.js) — case
- * 'playPause.click' ĐỌC `appState.get('isVideoPlayerMode')` + VirtualMachineState 2 nhánh loại trừ
- * nhau: true -> giao `workflowVideoPlayer` (video đang "làm bài hát"); false -> gọi THẲNG core cũ y
- * hệt trước đây, KHÔNG đổi hành vi gốc dù chỉ 1 dòng.
- * XOÁ (phản hồi Giang — "đã hợp nhất Video & Song vào Playlist, không cần nữa") — 'backToPlaylist.
- * click'/'settingsDrawer.close' TỪNG CŨNG branch theo `isVideoPlayerMode` (Video Player mode TỪNG
- * bật được từ 1 checkbox sâu trong Settings → File Manager → Video, đã xoá hẳn từ Batch 6) — giờ
- * Video LUÔN được chọn TỪ Playlist (y hệt Song) nên 2 case này gọi THẲNG hành vi gốc, không còn
- * nhánh nào để rẽ (xem docstring tại từng case + event/workflow/video-player.js).
- * [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt: "video thừa hưởng cơ chế Playlist,
- * không tạo cơ chế next/prev riêng"] 'next.click'/'prev.click' KHÔNG còn branch ở đây nữa — LUÔN
- * gọi `playNext()`/`playPrev()` (core/player-controls.js) bất kể `isVideoPlayerMode`, xem case
- * tương ứng bên dưới + docstring `event/workflow/video-player.js`.
- *
- * VIẾT LẠI LẦN 2 (21/07/2026, cùng ngày — Giang phát hiện qua video test: `audioPlayer` không thực
- * sự chạy khi nhận blob video làm src trên 1 số trình duyệt/thiết bị, dù `bgVideoElement` vẫn phát
- * tiếng bình thường — xem docstring đầy đủ core/video-player.js) — BỎ HẲN ý tưởng "audioPlayer câm
- * nuôi mọi thứ cho video" của bản đầu. `bgVideoElement` giờ tự bắn 5 sự kiện CỦA CHÍNH NÓ (play/
- * pause/loadedmetadata/timeupdate/ended), dispatch qua message type RIÊNG `playerControls.video.*`
- * (xem event/listener/video-player.js, guard `isVideoPlayerMode` NGAY trong listener) — 5 case
- * NÀY gọi THẲNG `workflowVideoPlayer`, KHÔNG cần VirtualMachineState (KHÔNG dùng chung nguồn sự
- * kiện với Song, chỉ bgVideoElement mới bắn ra được). CHỈ 'progressBar.seeking'/'seekCommit' MỚI
- * cần VirtualMachineState — đây là 2 case DUY NHẤT còn dùng CHUNG 1 DOM listener/message type giữa
- * Song và Video (chỉ có 1 thanh progress bar vật lý). Các case 'audio.play'/'audio.pause'/
- * 'audio.loadedmetadata'/'audio.timeupdate'/'audio.ended' (từ `audioPlayer`) giữ NGUYÊN hành vi
- * gốc, KHÔNG branch gì — `audioPlayer` giờ HOÀN TOÀN không liên quan tới Video Player mode nữa.
- *
- * LỊCH SỬ (không còn áp dụng, giữ lại để tra cứu nếu cần) — batch 07-08/07/2026 (HOTFIX 7-10) đã
- * từng cho phép mở Settings NGAY TỪ Visualizer (nút #btn-settings trong Control Center), khiến cả
- * 2 msg.type này phải đọc `appState.get('isVisualizerActive')` + VirtualMachineState để rẽ nhánh
- * "đang ở Playlist" / "đang ở Visualizer". HOTFIX 11 (08/07/2026, Giang chốt) BỎ HẲN nút đó (xem
- * components/visualizer-overlay.js) sau khi nhiều lần vá vẫn không ổn định trên thiết bị thật —
- * Settings giờ LUÔN mở từ Playlist, không còn nhánh nào để rẽ, dọn sạch VirtualMachineState khỏi
- * cả 2 case.
- *
- * STATE CONTEXT: không có state RIÊNG của router này — `isVideoPlayerMode` (đọc ở 4 case mới) sống
- * ở appState (service/state.js), KHÔNG phải context cục bộ của router (đúng nguyên tắc: state cần
- * đọc CHÉO giữa 2 router — "playerControls" đọc, "videoPlayer" ghi — PHẢI qua appState).
- *
- * NẠP SAU: event/bus.js, event/workflow/player-controls.js, event/workflow/video-player.js (MỚI),
- * core/player-controls.js (cần toàn bộ hàm core ở trên, gồm scrollSideLeftToSettingsSmooth/
- * scrollSideLeftToPlaylistSmooth — HOTFIX 8), playlist/* (cần playNext/playPrev/window.playSong —
- * đã có từ trước). NẠP TRƯỚC: event/listener/player-controls.js.
+ * NẠP SAU: core/player-controls.js (toggleShuffle, scrollSideLeftToSettingsSmooth/
+ * scrollSideLeftToPlaylistSmooth/validateVideoBgOnClose — HOTFIX 8, dọn lại HOTFIX 11),
+ * core/playlist/order.js (updateShuffleArrayFromQueue), core/settings-panel-stack.js
+ * (resetSettingsStackToMain).
+ * NẠP TRƯỚC: event/router/player-controls.js.
  */
-const routerPlayerControls = (() => {
+const workflowPlayerControls = {
 
-    /** @param {import('../bus.js').EventMessage} msg */
-    function handle(msg) {
-        switch (msg.type) {
+    /**
+     * Ứng với 'playerControls.shuffle.click' — đảo Shuffle rồi random lại shuffleIndices dựa trên
+     * "hiện hành" (displayOrder tại thời điểm bấm — có thể đang là 1 section vừa chọn-phát qua
+     * playSelectedSongs(), event/workflow/playlist.js, KHÁC hẳn top-level playlistOrder). So sánh
+     * với 2 nút to "Phát"/"Trộn bài" (event/workflow/playlist-empty-state.js) — 2 nút đó LUÔN ép về
+     * top-level trước khi phát/trộn (đúng ý mục 3a), còn Shuffle ở đây LUÔN tôn trọng hiện hành
+     * (đúng ý mục 3b) — 2 hành vi khác nhau CHỦ ĐÍCH, không phải thiếu nhất quán.
+     */
+    toggleShuffleAndReshuffle() {
+        const isShuffleCurrent = appState.get('isShuffle');
+        const next = toggleShuffle(isShuffleCurrent); // core có sẵn, CÓ return, DÙNG ngay dưới
 
-            // ===================== Click UI =====================
-            case 'playerControls.backToPlaylist.click': {
-                // XOÁ (phản hồi Giang — "đã hợp nhất Video & Song vào Playlist, không cần nữa") —
-                // nhánh isVideoPlayerMode===true (workflowVideoPlayer.handleBackToPlaylistFromVideoMode(),
-                // cuộn về Settings thay vì Playlist) TỪNG cần thiết vì Video Player mode CHỈ bật
-                // được từ checkbox SÂU trong Settings → File Manager → Video (đã xoá hẳn từ Batch
-                // 6). Giờ Video LUÔN được chọn TỪ Playlist (y hệt Song, dropdown/menu 3 chấm thống
-                // nhất) nên "Back" luôn đúng là về Playlist — KHÔNG còn 2 nhánh, gọi THẲNG.
-                handleBackToPlaylistClick();
-                break;
-            }
+        const activeQueueKeys = appState.get('displayOrder'); // "hiện hành" — section HOẶC top-level
+        const topLevelKeys = appState.get('playlistOrder');
+        updateShuffleArrayFromQueue(activeQueueKeys, topLevelKeys, next); // core mới (order.js), Rule 2 nhận qua tham số
+        this._persistPlayerConfig(); // MỚI (phản hồi Giang, mục 3) — nhớ trạng thái Shuffle
+    },
 
-            case 'playerControls.playPause.click': {
-                // MỚI (21/07/2026, mục 4 — Video Player mode) — VirtualMachineState branch theo
-                // `isVideoPlayerMode` (event/workflow/video-player.js). Nhánh false GỌI THẲNG
-                // `togglePlayPause()` (core có sẵn, KHÔNG đổi gì) — giữ NGUYÊN hành vi gốc.
-                VirtualMachineState.run([
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
-                        workflowVideoPlayer.togglePlayPauseVideo();
-                    } },
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
-                        togglePlayPause();
-                    } },
-                ]);
-                break;
-            }
+    /**
+     * Ứng với 'playerControls.repeat.click' — MỚI, tách khỏi router (phản hồi Giang, mục 3 "nhớ
+     * trạng thái shuffle/repeat/stats"): trước đây router gọi thẳng `cycleRepeatMode()` (đúng "1
+     * hàm core" theo quy ước router này) — giờ cần thêm bước lưu bền (`_persistPlayerConfig()`,
+     * async, đụng IndexedDB) NGAY SAU, thành ≥2 bước -> đúng quy ước router "giao cho Workflow"
+     * (xem docstring đầu event/router/player-controls.js).
+     */
+    cycleRepeatModeAndPersist() {
+        cycleRepeatMode(); // core có sẵn (core/player-controls.js)
+        this._persistPlayerConfig();
+    },
 
-            case 'playerControls.next.click': {
-                // [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt: "video thừa hưởng
-                // cơ chế Playlist, không tạo cơ chế next/prev riêng"] KHÔNG còn VirtualMachineState
-                // branch theo isVideoPlayerMode nữa — LUÔN gọi playNext() (core có sẵn, DÙNG CHUNG
-                // với Song, đọc displayOrder/shuffleIndices/currentKey — đã đúng cho Video từ Batch
-                // 1/2) rồi tự window.playSong() dispatch đúng mediaType. workflowVideoPlayer.
-                // nextVideo() (mảng videoPlaylist riêng) ĐÃ XOÁ HẲN, xem event/workflow/video-player.js.
-                playNext(true); // hàm core có sẵn, force=true giữ đúng hành vi gốc của nút Next
-                break;
-            }
+    /**
+     * Ghi bền 3 icon toggle Control Center (Shuffle/Repeat/Stats — `#btn-shuffle`/`#btn-repeat`/
+     * `#btn-toggle-stats-panel`, components/visualizer-overlay.js) vào `appConfigPlayer` +
+     * `meta.playerConfig` (IndexedDB) — CÙNG KHUÔN domain 'playlist' (`_persistPlaylistConfig()`,
+     * event/workflow/playlist.js) — `setMeta()` trực tiếp mỗi lần đổi, KHÔNG debounce (tần suất
+     * đổi thấp, thao tác bấm tay). DÙNG CHUNG bởi `workflowStatsPanel` (event/workflow/
+     * stats-panel.js — Workflow gọi Workflow miền khác, tự do) — tránh lặp logic ghi bền ở 2 nơi.
+     */
+    async _persistPlayerConfig() {
+        appConfigPlayer.setAll({
+            isShuffle: appState.get('isShuffle'),
+            repeatMode: appState.get('repeatMode'),
+            isStatsPanelVisible: appState.get('isStatsPanelVisible'),
+        });
+        await setMeta('playerConfig', appConfigPlayer.getAll());
+    },
 
-            case 'playerControls.prev.click': {
-                // Cùng lý do 'next.click' ngay trên.
-                playPrev();
-                break;
-            }
-
-            case 'playerControls.shuffle.click': {
-                workflowPlayerControls.toggleShuffleAndReshuffle(); // 2 hàm core nối tiếp, phụ thuộc thứ tự -> workflow (fix mục 3b)
-                break;
-            }
-
-            case 'playerControls.repeat.click': {
-                // SỬA (phản hồi Giang, mục 3 "nhớ trạng thái shuffle/repeat/stats") — trước đây
-                // gọi THẲNG 1 hàm core (cycleRepeatMode()) — giờ cần thêm bước lưu bền config
-                // (`_persistPlayerConfig()`, async, đụng IndexedDB) NGAY SAU, thành ≥2 bước phối
-                // hợp -> giao cho workflowPlayerControls đúng quy ước đầu file này.
-                workflowPlayerControls.cycleRepeatModeAndPersist();
-                break;
-            }
-
-            case 'playerControls.settingsDrawer.open': {
-                // VIẾT LẠI (08/07/2026, HOTFIX 11) — nút mở Settings từ Visualizer (#btn-settings,
-                // Control Center) ĐÃ BỎ HẲN (xem components/visualizer-overlay.js) — msg.type này
-                // giờ CHỈ có thể tới từ #btn-settings-playlist (đang ở Playlist), không còn cần
-                // đọc `isVisualizerActive`/VirtualMachineState để rẽ nhánh nữa — gọi THẲNG core,
-                // đúng (A) event-bus-flow.md (chỉ 1 hàm, message tự đủ nghĩa).
-                scrollSideLeftToSettingsSmooth();
-                break;
-            }
-
-            case 'playerControls.settingsDrawer.close': {
-                // XOÁ (phản hồi Giang — "đã hợp nhất Video & Song vào Playlist, không cần nữa") —
-                // nhánh isVideoPlayerMode===true (workflowVideoPlayer.closeSettingsDrawerToVisualizer(),
-                // ẩn Playlist + chuyển thẳng về Visualizer khi đóng Settings) TỪNG cần thiết vì
-                // Video Player mode CHỈ bật được từ checkbox SÂU trong Settings → File Manager →
-                // Video (đã xoá hẳn từ Batch 6) — đóng Settings lúc đó phải "về nơi video đang
-                // phát" (Visualizer), không phải Playlist. Giờ Video LUÔN được chọn TỪ Playlist (y
-                // hệt Song) nên đóng Settings luôn đúng là về Playlist — KHÔNG còn 2 nhánh, gọi
-                // THẲNG `closeSettingsDrawer()` (đã tự về Playlist, xem docstring hàm đó).
-                workflowPlayerControls.closeSettingsDrawer();
-                break;
-            }
-
-            // ===================== Sự kiện audioPlayer =====================
-            case 'playerControls.audio.play': {
-                handleAudioPlay();
-                break;
-            }
-
-            case 'playerControls.audio.pause': {
-                handleAudioPause();
-                break;
-            }
-
-            case 'playerControls.audio.ended': {
-                handleAudioEnded();
-                break;
-            }
-
-            case 'playerControls.audio.loadedmetadata': {
-                handleAudioLoadedMetadata();
-                break;
-            }
-
-            case 'playerControls.audio.error': {
-                handleAudioError();
-                break;
-            }
-
-            case 'playerControls.audio.timeupdate': {
-                handleAudioTimeUpdate();
-                break;
-            }
-
-            case 'playerControls.audio.seeked': {
-                updateMediaPositionState(); // hàm core có sẵn, dùng lại nguyên như listener cũ
-                break;
-            }
-
-            // ===================== Sự kiện bgVideoElement (Video Player mode, MỚI 21/07/2026,
-            // viết lại lần 2 — audioPlayer không còn dùng cho video) — 5 msg.type RIÊNG (KHÔNG
-            // trùng 'audio.*' của Song, xem event/listener/video-player.js), mỗi cái CHỈ tới từ
-            // bgVideoElement lúc isVideoPlayerMode=true (guard NGAY trong listener) -> gọi THẲNG,
-            // KHÔNG cần VirtualMachineState (không có nhánh nào khác để rẽ tại ĐÂY, khác progressBar
-            // seek ngay dưới — đó mới là nơi 2 nguồn thật sự DÙNG CHUNG 1 message type). =====
-            case 'playerControls.video.play': {
-                workflowVideoPlayer.handleVideoPlayState();
-                break;
-            }
-
-            case 'playerControls.video.pause': {
-                workflowVideoPlayer.handleVideoPauseState();
-                break;
-            }
-
-            case 'playerControls.video.loadedmetadata': {
-                workflowVideoPlayer.handleVideoLoadedMetadata();
-                break;
-            }
-
-            case 'playerControls.video.timeupdate': {
-                workflowVideoPlayer.handleVideoTimeUpdate();
-                break;
-            }
-
-            case 'playerControls.video.ended': {
-                workflowVideoPlayer.handleVideoPlayerEnded(); // >1 hàm core (stopListenClock + nextVideo async) -> workflow
-                break;
-            }
-
-            // ===================== progressBar (kéo tay) =====================
-            case 'playerControls.progressBar.seeking': {
-                // MỚI (21/07/2026, mục 4 — Video Player mode) — CÙNG 1 DOM listener/message type
-                // dùng chung giữa Song/Video (chỉ 1 thanh progress bar vật lý) -> BẮT BUỘC
-                // VirtualMachineState (khác 5 case video.* ở trên, mỗi cái có nguồn sự kiện RIÊNG).
-                const { value } = msg.payload;
-                VirtualMachineState.run([
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
-                        workflowVideoPlayer.handleVideoSeeking(value);
-                    } },
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
-                        handleProgressBarSeeking(value);
-                    } },
-                ]);
-                break;
-            }
-
-            case 'playerControls.progressBar.seekCommit': {
-                const { value } = msg.payload;
-                VirtualMachineState.run([
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
-                        workflowVideoPlayer.handleVideoSeekCommit(value);
-                    } },
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
-                        handleProgressBarSeekCommit(value);
-                    } },
-                ]);
-                break;
-            }
-
-            default:
-                console.warn(`[router:playerControls] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`);
+    /**
+     * Khôi phục 3 icon toggle Control Center đã lưu bền LÚC BOOT — gọi từ event/workflow/
+     * app-boot.js. Đồng bộ lại UI qua 2 hàm Core MỚI TÁCH RIÊNG (`syncShuffleUI()`/`syncRepeatUI()`,
+     * core/player-controls.js) — KHÔNG gọi `toggleShuffle()`/`cycleRepeatMode()` cho việc này vì 2
+     * hàm đó LUÔN đảo/xoay ngược giá trị HIỆN TẠI, không "set thẳng" được về giá trị đã lưu.
+     * `#stats-panel`/2 icon ẩn-hiện đồng bộ TRỰC TIẾP ở đây (không có hàm Core "set thẳng" riêng
+     * sẵn có cho stats panel như 2 icon kia — `toggleStatsPanelVisibility()` cũng LUÔN đảo ngược,
+     * cùng lý do — nhưng chỉ 3 dòng classList đơn giản nên viết thẳng tại đây thay vì tách thêm 1
+     * hàm Core chỉ dùng đúng 1 chỗ).
+     */
+    async loadPersistedPlayerConfigOnBoot() {
+        const saved = await getMeta('playerConfig');
+        if (saved && typeof saved === 'object') {
+            appConfigPlayer.mutateAll((cfg) => Object.assign(cfg, saved));
         }
-    }
+        const cfg = appConfigPlayer.getAll();
+        appState.set('isShuffle', !!cfg.isShuffle);
+        appState.set('repeatMode', cfg.repeatMode || 0);
+        appState.set('isStatsPanelVisible', cfg.isStatsPanelVisible !== false);
+        console.log(`writer: "loadPersistedPlayerConfigOnBoot", page: "isShuffle/repeatMode/isStatsPanelVisible", content: "khôi phục từ meta.playerConfig"`);
+        syncShuffleUI(appState.get('isShuffle')); // core mới (core/player-controls.js)
+        syncRepeatUI(appState.get('repeatMode')); // core mới (core/player-controls.js)
+        const visible = appState.get('isStatsPanelVisible');
+        if (typeof statsPanel !== 'undefined' && statsPanel) statsPanel.classList.toggle('hidden', !visible);
+        if (typeof iconStatsPanelVisible !== 'undefined' && iconStatsPanelVisible) iconStatsPanelVisible.classList.toggle('hidden', !visible);
+        if (typeof iconStatsPanelHidden !== 'undefined' && iconStatsPanelHidden) iconStatsPanelHidden.classList.toggle('hidden', visible);
+    },
 
-    return { handle };
-})();
-
-eventBus.register('playerControls', routerPlayerControls);
+    /**
+     * Ứng với 'playerControls.settingsDrawer.close' — trước batch HOTFIX 11 (08/07/2026) từng có
+     * 2 nhánh ("đang ở Playlist"/"đang ở Visualizer", xem lịch sử ở event/router/player-
+     * controls.js) — Settings giờ CHỈ mở được từ Playlist (nút #btn-settings trong Control Center
+     * của Visualizer đã bỏ hẳn, xem components/visualizer-overlay.js) nên đóng cũng LUÔN về
+     * Playlist, không còn nhánh nào để rẽ — đổi tên lại `closeSettingsDrawer()` cho khớp (trước
+     * đây `closeSettingsDrawerToPlaylist()`, phân biệt với `closeSettingsDrawerToVisualizer()` đã
+     * xoá).
+     *
+     * `#side-left-container` vẫn đang HIỂN THỊ SẴN suốt lúc đóng (không cần trượt cả khối ra/vào,
+     * chỉ cuộn nội bộ về lại trang Playlist). 3 hàm core side-effect nối tiếp (validate video nền +
+     * reset ngăn xếp panel con + cuộn về Playlist) — dù không phụ thuộc DỮ LIỆU lẫn nhau, vẫn đúng
+     * hình dạng Workflow theo event-bus-flow.md mục 4B ("≥2 lời gọi side-effect nối tiếp... LUÔN
+     * Workflow").
+     */
+    closeSettingsDrawer() {
+        validateVideoBgOnClose(); // core
+        resetSettingsStackToMain(); // core
+        scrollSideLeftToPlaylistSmooth(); // core
+    },
+};
