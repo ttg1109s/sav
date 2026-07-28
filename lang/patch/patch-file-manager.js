@@ -35,7 +35,9 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.sectionTitle': 'File Manager',
     'fileManager.entry.song': 'Song & Video',
     'fileManager.entry.photo': 'Photo & Album',
-    'fileManager.entry.video': 'Video', // MỚI (21/07/2026)
+    // XOÁ (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — 'fileManager.entry.
+    // video' (hàng Settings riêng cho panel Video) — đã gộp hẳn vào "Song & Video" ở trên, panel
+    // Video độc lập không còn tồn tại.
     'fileManager.entry.document': 'Documents',
     // MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager.
     'fileManager.cleanup.label': 'Clean up data',
@@ -123,36 +125,20 @@ const LANG_PATCH_FILE_MANAGER = {
     // workflowFileManagerPhoto.openAddToAlbumChoiceMenu()).
     'fileManager.photo.album.addChoiceUploadTitle': 'Upload new photos',
     'fileManager.photo.album.addChoiceExistingTitle': 'Choose from library',
-    // ── Drawer con: Video (MỚI, 21/07/2026) — KHÔNG có Album, đơn giản hơn hẳn Photo ─────────
-    'fileManager.video.title': 'Video',
-    'fileManager.video.loadingTitle': 'Loading videos...',
-    'fileManager.video.uploadTitle': 'Add videos',
+    // ── Drawer con: Video — ĐÃ XOÁ HẲN panel riêng (ver12 "Song/Video Unification", Batch 6, mục
+    // 6d, phản hồi Giang) — gộp vào "Song & Video" (Batch 5). CHỈ CÒN 5 key dưới đây (dùng bởi
+    // uploadVideos()/setVideoAsBackground()/picker "Use background video" — xem event/workflow/
+    // file-manager-video.js) — mọi key khác (title/loadingTitle/uploadTitle/quickDelete*/
+    // deleteConfirm.*/editVideo.label/btnSetAsBgVideo/btnDelete/info.* — modal Info riêng đã xoá ở
+    // mục trước) ĐÃ XOÁ, không còn nơi gọi. 2 hành động "Set làm nền"/"Sửa video" giờ ở menu 3
+    // chấm CHUNG Playlist, dùng key playlistView.songMenu.setAsBgVideo/editVideoFile
+    // (lang/patch/patch-playlist.js). Nút "Xoá" dùng chung window.removeSong(), key
+    // playlistView.songMenu.deleteBlockedPlaying/deleteSuccess (đã có sẵn, generic).
     'fileManager.video.empty': 'No videos yet. Tap the + button above to add some.',
     'fileManager.video.uploadSuccess': 'Added {count} video(s).',
     'fileManager.video.pickerTitle': 'Choose a video',
-    // Dropdown menu 1 tile (Chi tiết / Set as bg video / Edit video / Xoá) — THAY hẳn preview fullscreen cũ.
-    // MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — lựa chọn "Chi tiết" + modal Info.
-    // XOÁ (phản hồi Giang 28/07/2026) — 'fileManager.video.info.*' (modal "Chi tiết" riêng ở File
-    // Manager, core/file-manager/video-ui.js::openVideoInfoModal()) ĐÃ BỎ HẲN — "Chi tiết" giờ
-    // dùng CHUNG modal Playlist (core/playlist/actions.js::openSongEditModal(), đã video-aware) —
-    // xem key playlistView.songInfo.field* MỚI ở lang/patch/patch-playlist.js.
-    'fileManager.video.btnSetAsBgVideo': 'Set as background video',
     'fileManager.video.setAsBgVideo.blockedByPlayerMode': 'Turn off Video Player mode first before setting a background video.',
     'fileManager.video.setAsBgVideo.success': 'Set as background video.',
-    'fileManager.video.editVideo.label': 'Edit video',
-    'fileManager.video.editVideo.comingSoon': 'Video editing is coming soon.',
-    'fileManager.video.deleteConfirm.blockedByPlaying': 'This video is currently playing in Video Player mode. Switch to another video or turn off Video Player mode first.',
-    'fileManager.video.btnDelete': 'Delete video',
-    'fileManager.video.deleteConfirm.title': 'Delete video?',
-    'fileManager.video.deleteConfirm.desc': 'Delete this video? This cannot be undone.',
-    'fileManager.video.deleteConfirm.confirmBtn': 'Delete',
-    'fileManager.video.quickDeleteTitle': 'Quick delete',
-    'fileManager.video.quickDeleteConfirm.title': 'Enable quick delete?',
-    'fileManager.video.quickDeleteConfirm.desc': 'While enabled, tap videos to mark them for deletion. Tap the trash icon again to delete all marked videos at once.',
-    'fileManager.video.quickDeleteConfirm.confirmBtn': 'Enable',
-    'fileManager.video.quickDeleteBatchConfirm.title': 'Delete videos?',
-    'fileManager.video.quickDeleteBatchConfirm.confirm': 'Delete {count} videos? This cannot be undone.',
-    'fileManager.video.quickDeleteBatchConfirm.confirmBtn': 'Delete',
     // ── Drawer con: Documents (mục 4.b4, ĐÃ CODE THẬT 04/07/2026) ────────────────────────────
     'fileManager.document.title': 'Documents',
     // Batch D7 (06/07/2026, batch cuối Nhóm D) — 'fileManager.document.back.title' XOÁ, dùng

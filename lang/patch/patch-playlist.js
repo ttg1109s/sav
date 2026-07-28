@@ -67,11 +67,18 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.songInfo.fieldAddedAt': 'Added on',
     'playlistView.uploadMenu.pickFiles': 'Choose music files',
     'playlistView.uploadMenu.pickFolder': 'Choose a folder',
+    // MỚI (ver12 "Song/Video Unification", Batch 6, mục 7) — "Thêm video", KHÔNG có bản "chọn cả
+    // thư mục" cho Video (đã chốt — chỉ 1 lựa chọn).
+    'playlistView.uploadMenu.pickVideoFiles': 'Choose video files',
     'playlistView.songMenu.title': 'Options',
     'playlistView.songMenu.edit': 'Details',
     // MỚI (10/07/2026) — mở Subtitle Editor (trang riêng).
     'playlistView.songMenu.editSubtitles': 'Edit subtitles',
     'playlistView.songMenu.export': 'Export file',
+    // MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — 2 hành động RIÊNG
+    // của Video, THAY 2 lựa chọn tương ứng đã mất khi xoá dropdown tile "File Manager → Video".
+    'playlistView.songMenu.setAsBgVideo': 'Set as background video',
+    'playlistView.songMenu.editVideoFile': 'Edit video',
     'playlistView.songMenu.delete': 'Delete song',
     'playlistView.songMenu.addToFolder': 'Add to Folder',
     'playlistView.songMenu.deleteBlockedPlaying': "Can't delete <b>{title}</b> while it's playing. Pause the song first, then try again.",
