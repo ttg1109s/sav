@@ -77,21 +77,6 @@ const TPL_PLAYLIST_VIEW = `
                 <button id="btn-upload-audio" class="hover:text-sky-400 transition-colors" data-i18n-title="playlistView.btnUploadAudio.title" title="${t('playlistView.btnUploadAudio.title')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                 </button>
-                <!-- MỚI (FIX 28/07/2026, phản hồi Giang "Video chỉ 1 chế độ chọn nhiều file, bỏ
-                     dropdown, input luôn") — "Thêm video" TÁCH RIÊNG khỏi #btn-upload-audio, đổi chỗ
-                     ẩn/hiện cho nhau theo activeMediaSource (event/workflow/playlist.js::
-                     switchToVideoSource()/switchToSongSource(), toggle class 'hidden'). Bản thân
-                     phần tử này LÀ <label> BỌC TRỰC TIẾP <input type="file"> — CÙNG platform-compat
-                     pattern audio-upload/audio-upload-folder (xem comment #upload-action-menu bên
-                     dưới): click NATIVE thật lên label mới chắc chắn mở được file picker mọi nền
-                     tảng, KHÔNG gọi .click() qua JS. Video CHỈ 1 lựa chọn (chọn nhiều file, KHÔNG có
-                     "chọn cả thư mục") nên bấm 1 phát mở picker luôn, KHÔNG cần dropdown trung gian
-                     như Song (#upload-action-menu, 2 lựa chọn) — #video-upload-menu (dropdown 1 lựa
-                     chọn cũ, Batch 6 mục 7) ĐÃ XOÁ, input dời thẳng vào đây. -->
-                <label id="btn-upload-video" class="hidden hover:text-sky-400 transition-colors cursor-pointer" data-i18n-title="playlistView.uploadMenu.pickVideoFiles" title="${t('playlistView.uploadMenu.pickVideoFiles')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                    <input type="file" id="video-upload-input" accept="video/*" multiple class="hidden">
-                </label>
                 <button id="btn-settings-playlist" class="hover:text-sky-400 transition-colors" data-i18n-title="playlistView.btnSettings.title" title="${t('playlistView.btnSettings.title')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                 </button>
@@ -100,10 +85,12 @@ const TPL_PLAYLIST_VIEW = `
                 </div>
             </div>
 
-            <!-- Hàng 2: "Bài hát" nằm cạnh trái, thanh tìm kiếm chiếm phần còn lại. -->
-            <div class="flex items-center gap-3 mb-3">
-                <h1 class="text-[26px] leading-none font-bold tracking-tight text-white shrink-0" data-i18n="playlistView.heading">${t('playlistView.heading')}</h1>
-                <div class="relative flex-1">
+            <!-- Hàng 2 (SỬA, phản hồi Giang mục 4 — bỏ heading "Bài hát" cạnh trái, thanh tìm kiếm
+                 giờ chiếm TRỌN chiều ngang): heading cũ chỉ đúng ngữ cảnh Song, không còn hợp lý khi
+                 Playlist dùng chung cho cả Video (đổi Nguồn qua Settings) — bỏ hẳn thay vì đổi chữ
+                 theo nguồn, đơn giản hơn và khớp đúng yêu cầu "search full width". -->
+            <div class="mb-3">
+                <div class="relative">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     <input id="playlist-search-input" type="text" inputmode="search" autocomplete="off" data-i18n-placeholder="playlistView.search.placeholder" placeholder="${t('playlistView.search.placeholder')}" class="w-full bg-white/10 focus:bg-white/15 border border-white/10 focus:border-sky-500/60 rounded-2xl pl-10 pr-10 py-2.5 text-[15px] text-white placeholder-slate-400 outline-none transition-colors backdrop-blur-md">
                     <button id="playlist-search-clear" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors p-1" data-i18n-title="playlistView.search.clear.title" title="${t('playlistView.search.clear.title')}">
@@ -328,10 +315,22 @@ const TPL_PLAYLIST_VIEW = `
         </label>
     </div>
 
-    <!-- #video-upload-menu (dropdown 1 lựa chọn "Thêm video", ver12 Batch 6 mục 7) ĐÃ XOÁ (FIX
-         28/07/2026, phản hồi Giang "Video chỉ 1 chế độ chọn nhiều file, bỏ dropdown, input luôn") —
-         #video-upload-input dời thẳng vào <label id="btn-upload-video"> ở header phía trên (đổi chỗ
-         ẩn/hiện với #btn-upload-audio theo activeMediaSource), KHÔNG còn dropdown trung gian nào. -->
+    <!-- MỚI (ver12 "Song/Video Unification", Batch 6, mục 7) — "Thêm video", TÁCH RIÊNG hẳn khỏi
+         #upload-action-menu (không dùng chung 1 container rồi ẩn/hiện nội dung bên trong — mỗi
+         Nguồn 1 container ĐỘC LẬP, đơn giản hơn, không cần đồng bộ hiện/ẩn nhóm con). CHỈ 1 lựa
+         chọn (KHÔNG có "chọn cả thư mục" cho Video — đã chốt) — CÙNG PATTERN <label> bọc trực tiếp
+         <input type="file"> (xem giải thích platform-compat ở #upload-action-menu ngay trên — click
+         NATIVE thật lên label mới chắc chắn hoạt động mọi nền tảng, KHÔNG được gọi .click() qua JS). -->
+    <div id="video-upload-menu" class="hidden fixed z-[115] w-52 bg-[#171c2b] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
+        <!-- SỬA (phản hồi Giang — "icon phải giống btn-upload-audio") — icon ĐỔI từ máy quay riêng
+             sang ĐÚNG path/màu icon của nút header #btn-upload-audio (tray + mũi tên), tái sử dụng
+             y hệt, không tự vẽ icon khác cho cùng 1 hành động "thêm media". -->
+        <label class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+            <span data-i18n="playlistView.uploadMenu.pickVideoFiles">${t('playlistView.uploadMenu.pickVideoFiles')}</span>
+            <input type="file" id="video-upload-input" accept="video/*" multiple class="hidden">
+        </label>
+    </div>
 
     <!-- Menu 3 chấm dùng chung cho mọi bài hát (info / sửa / xuất file / xóa) — chỉ 1 phần tử duy
          nhất trong DOM, được JS định vị lại (position: fixed) ngay dưới nút "..." vừa bấm mỗi lần
@@ -363,17 +362,16 @@ const TPL_PLAYLIST_VIEW = `
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-8-4V4m0 0L8 8m4-4l4 4" /></svg>
             <span data-i18n="playlistView.songMenu.export">${t('playlistView.songMenu.export')}</span>
         </button>
-        <!-- MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang — "làm luôn 6d")
-             — 2 hành động RIÊNG của Video (Set làm nền / Sửa video, mở Video Editor) — THAY THẾ 2
-             lựa chọn tương ứng từng có ở dropdown tile "File Manager → Video" (đã xoá hẳn cùng lúc
-             xoá panel đó). ẨN MẶC ĐỊNH (class "hidden"), JS ("openSongActionMenu()") chỉ HIỆN khi
-             item đang mở menu là Video — cùng cặp Workflow đã có sẵn
-             ("workflowFileManagerVideo.setVideoAsBackground()"/"navigateToVideoEdit()"), KHÔNG viết
-             lại, chỉ đổi nơi gọi (đúng CHỐT mục 6d "giữ lại logic nghiệp vụ, chỉ đổi nơi gọi"). -->
-        <button id="song-menu-btn-set-bg-video" data-menu-action="setAsBgVideo" class="hidden flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 border-t border-white/5">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-fuchsia-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
-            <span data-i18n="playlistView.songMenu.setAsBgVideo">${t('playlistView.songMenu.setAsBgVideo')}</span>
-        </button>
+        <!-- XOÁ (phản hồi Giang — "bỏ luôn set background cho dropdown của video đi") —
+             "song-menu-btn-set-bg-video"/data-menu-action="setAsBgVideo" đã bỏ hẳn khỏi dropdown.
+             TỰ AUDIT LẠI lúc xoá: workflowFileManagerVideo.setVideoAsBackground() (core nghiệp vụ)
+             tưởng còn picker "Use background video" dùng — THỰC RA KHÔNG, picker đó tự inline logic
+             riêng — đã XOÁ THẲNG hàm này (0 lời gọi) cùng 2 lang key liên quan. -->
+        <!-- MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — "Sửa video"
+             (mở Video Editor) — THAY 1 trong 2 lựa chọn từng có ở dropdown tile "File Manager →
+             Video" (đã xoá hẳn cùng lúc xoá panel đó). ẨN MẶC ĐỊNH (class "hidden"), JS
+             ("openSongActionMenu()") chỉ HIỆN khi item đang mở menu là Video — tái dùng nguyên
+             navigateToVideoEdit(), KHÔNG viết lại, chỉ đổi nơi gọi. -->
         <button id="song-menu-btn-edit-video" data-menu-action="editVideoFile" class="hidden flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 border-t border-white/5">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3" /></svg>
             <span data-i18n="playlistView.songMenu.editVideoFile">${t('playlistView.songMenu.editVideoFile')}</span>
@@ -387,9 +385,12 @@ const TPL_PLAYLIST_VIEW = `
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
             <span data-i18n="playlistView.songMenu.addToFolder">${t('playlistView.songMenu.addToFolder')}</span>
         </button>
+        <!-- SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — id "song-menu-delete-
+             label" để JS ("openSongActionMenu()") đổi chữ "Xoá bài hát"/"Xoá video" đúng ngữ cảnh
+             item đang mở menu — nhãn tĩnh cũ luôn nói "song" kể cả khi đang xoá Video. -->
         <button data-menu-action="delete" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-rose-500/10 transition-colors text-rose-400 border-t border-white/5">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-            <span data-i18n="playlistView.songMenu.delete">${t('playlistView.songMenu.delete')}</span>
+            <span id="song-menu-delete-label" data-i18n="playlistView.songMenu.delete">${t('playlistView.songMenu.delete')}</span>
         </button>
     </div>
 
