@@ -201,7 +201,8 @@ function groupVideosByDay(sortedVideos) {
  * video (title lúc phát, danh sách folder, ô nhập customName...) khi CHƯA đặt customName riêng —
  * MỚI (phản hồi Giang 28/07/2026, "custom name phải bỏ đuôi mở rộng"). Pure, không I/O — coi như
  * ngoại lệ "hàm định dạng thuần" giống `formatVideoDuration()` ngay dưới (không phải core gọi core
- * nghiệp vụ, xem giải thích ở core/file-manager/video-ui.js).
+ * nghiệp vụ — xem giải thích đầy đủ ở core/playlist/actions.js::openSongEditModal(), nơi gọi hàm
+ * này cùng lý do; core/file-manager/video-ui.js — nơi giải thích GỐC — ĐÃ XOÁ ở Batch 6 mục 6d).
  * @param {string} filename
  * @returns {string}
  */
