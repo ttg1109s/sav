@@ -179,9 +179,9 @@ const workflowVideoPlayer = {
     },
 
     /** MỚI (21/07/2026, Giang chỉ ra "không cập nhật lại list của video") — làm mới lại Playlist
-     * (đọc lại DB) TRONG LÚC đang browse nguồn Video — gọi khi video được thêm/xoá ở File Manager
-     * (vẫn tới được panel đó lúc Playlist đang mở ở nguồn Video, xem
-     * `handleBackToPlaylistFromVideoMode()`) MÀ KHÔNG cần đổi Nguồn tắt/bật lại mới thấy video mới.
+     * (đọc lại DB) TRONG LÚC đang browse nguồn Video — gọi khi video được thêm/xoá (giờ luôn qua
+     * chính Playlist — nút "Thêm nhạc"/dropdown 3 chấm, xem event/workflow/file-manager-video.js::
+     * uploadVideos(), Batch 6) MÀ KHÔNG cần đổi Nguồn tắt/bật lại mới thấy video mới.
      * [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt "video thừa hưởng cơ chế
      * Playlist, không tạo cơ chế riêng"] TRƯỚC ĐÂY hàm này tự quản lý mảng `videoPlaylist` RIÊNG
      * (đã xoá, xem service/state/video-player-mode.js) — giờ refresh ĐÚNG `playlistCache`/
@@ -277,37 +277,19 @@ const workflowVideoPlayer = {
         playNext(false); // core có sẵn (core/player-controls.js), dùng CHUNG với Song — force=false, tôn trọng repeatMode
     },
 
-    /** MỚI (21/07/2026, Giang chỉ ra: "nút về playlist UI ... cần quy trình khác, phải dùng
-     * vmstate") — ứng với 'playerControls.backToPlaylist.click' khi `isVideoPlayerMode=true` (xem
-     * event/router/player-controls.js, VirtualMachineState branch theo cờ này — nhánh false vẫn
-     * gọi THẲNG `handleBackToPlaylistClick()` gốc, KHÔNG đổi gì).
-     * SỬA (21/07/2026, cùng ngày — Giang chỉnh lại: "từ visualizer bấm back -> phải chuyển ngay về
-     * SETTINGS", KHÔNG PHẢI Playlist như bản trước) — Video Player mode BẬT TỪ trang SETTINGS
-     * (checkbox trong File Manager -> Video, panel đang mở SÂU trong đó) — bấm "Back" hợp lý nhất
-     * là trở về ĐÚNG chỗ vừa bật nó (Settings/panel Video), KHÔNG PHẢI Playlist (khác hẳn hành vi
-     * "Back" của Song — Song luôn được chọn TỪ trang Playlist nên back về Playlist là đúng, nhưng
-     * Video Player không có tương đương "chọn từ trang Playlist" nào cả).
-     * `scrollSideLeftToSettingsSmooth()` (core/player-controls.js, hàm CÓ SẴN — cùng cặp với
-     * `scrollSideLeftToPlaylistSmooth()`) — tự cuộn `#side-left-container` về ĐÚNG trang Settings.
-     * KHÔNG dừng video (giữ ĐÚNG hành vi "quay lại không dừng phát" đã áp dụng cho Song). */
-    handleBackToPlaylistFromVideoMode() {
-        handleBackToPlaylistClick(); // core/player-controls.js — hành vi gốc (ẩn Visualizer, hiện lại #app-stack, KHÔNG dừng phát)
-        scrollSideLeftToSettingsSmooth(); // core/player-controls.js, hàm CÓ SẴN — tự cuộn về ĐÚNG trang Settings (KHÁC Song — xem docstring)
-    },
-
-    /** MỚI (21/07/2026, Giang yêu cầu "nút X Main Settings khi Video Player đang bật phải chuyển
-     * thẳng về Visualizer") — ứng với 'playerControls.settingsDrawer.close' khi
-     * `isVideoPlayerMode=true` (xem event/router/player-controls.js, VirtualMachineState branch —
-     * nhánh false vẫn gọi `workflowPlayerControls.closeSettingsDrawer()` gốc, KHÔNG đổi gì).
-     * `resetSettingsStackToMain()` (core, dùng lại nguyên từ `closeSettingsDrawer()` gốc) — dọn
-     * ngăn xếp panel con (File Manager -> Video đang mở SÂU) về lại trang gốc Settings, để lần mở
-     * lại sau LUÔN sạch — KHÔNG gọi `scrollSideLeftToPlaylistSmooth()` như nhánh Song (không cần,
-     * `switchToVisualizer()` NGAY SAU đã ẩn hẳn `#app-stack`, vị trí cuộn bên trong không còn ai
-     * nhìn thấy lúc này) — KHÔNG gọi `validateVideoBgOnClose()` (chỉ liên quan Video nền trang trí,
-     * Block gate đã đảm bảo tính năng đó luôn TẮT suốt lúc Video Player mode bật, xem event/
-     * block.js — gọi vào cũng chỉ no-op, bỏ cho gọn). */
-    closeSettingsDrawerToVisualizer() {
-        resetSettingsStackToMain(); // core, dùng lại nguyên
-        switchToVisualizer(); // core/player-controls.js, hàm CÓ SẴN
-    },
+    /**
+     * XOÁ (phản hồi Giang — "trước đây có video UI enable phải vào Settings, nên phải ẩn Playlist,
+     * switch về Visualizer ngay (bao gồm nút back của main Settings). Bây giờ đã hợp nhất Video &
+     * Song vào Playlist nên không cần nữa") — 2 hàm từng ở đây, `handleBackToPlaylistFromVideoMode()`
+     * (nút "Back" từ Visualizer → cuộn về Settings thay vì Playlist) và
+     * `closeSettingsDrawerToVisualizer()` (nút X Main Settings → ẩn Playlist, chuyển thẳng
+     * Visualizer) — CẢ HAI chỉ tồn tại vì Video Player mode TỪNG bật được từ 1 checkbox SÂU trong
+     * Settings → File Manager → Video (đã xoá hẳn từ Batch 6, "Song/Video Unification"). Giờ Video
+     * LUÔN được chọn TỪ Playlist (y hệt Song, qua dropdown/menu 3 chấm thống nhất) nên KHÔNG còn
+     * kịch bản "vừa bật Video Player mode trong lúc đang đứng giữa Settings" nữa — router
+     * (event/router/player-controls.js, case 'playerControls.backToPlaylist.click'/
+     * 'playerControls.settingsDrawer.close') đã bỏ nhánh VirtualMachineState theo `isVideoPlayerMode`
+     * tương ứng, gọi THẲNG hành vi gốc `handleBackToPlaylistClick()`/`workflowPlayerControls.
+     * closeSettingsDrawer()` — cả 2 đều LUÔN về Playlist đúng, giống hệt Song.
+     */
 };

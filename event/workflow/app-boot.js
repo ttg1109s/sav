@@ -103,6 +103,14 @@ const workflowAppBoot = {
                 } },
             ]);
         }
+        // MỚI (fix bug #1, phản hồi Giang — "Active folder vẫn hiện none dù có folder đang active")
+        // — PlaylistMain.init() (gọi TRONG loadPersistedPlaylistConfigOnBoot() ở trên VÀ lúc nạp
+        // script core/playlist/main.js) đều chạy TRƯỚC KHI activePlayListFolder được khôi phục
+        // XONG ở khối VMState ngay trên (applyAllSongsScope()/applyFolderScope() mới THẬT SỰ set
+        // đúng giá trị) — badge/khoá Nguồn ở Settings → Playlist vì vậy luôn hiện sai (mặc định
+        // rỗng) cho tới khi Giang tự đổi Scope 1 lần trong phiên. Gọi LẠI đúng 1 lần Ở ĐÂY, SAU
+        // CÙNG khối quyết định Scope, để phản ánh đúng giá trị thật đã khôi phục.
+        if (typeof PlaylistMain !== 'undefined') await PlaylistMain.updateActiveFolderUI();
         if (typeof appState !== 'undefined') appState.set('_isPlaylistReadyForResumeModal', true);
         if (typeof enableResumeModalButtonsWhenPlaylistReady === 'function') enableResumeModalButtonsWhenPlaylistReady();
         // Cuộn tới bài vừa sửa phụ đề xong (quay lại từ subtitle-editor.html qua nút "←") — đặt
