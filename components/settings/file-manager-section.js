@@ -32,15 +32,9 @@ const TPL_SETTINGS_FILE_MANAGER = `
                     </div>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </button>
-                <!-- MỚI (21/07/2026) — module Video, đặt SAU Photo & Album (cùng nhóm nội dung hình
-                     ảnh/media), TRƯỚC Documents. -->
-                <button id="setting-open-file-manager-video" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                        <span class="text-sm font-medium truncate" data-i18n="fileManager.entry.video">${t('fileManager.entry.video')}</span>
-                    </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                </button>
+                <!-- XOÁ (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — hàng
+                     "Video" riêng (từng đứng SAU Photo & Album, TRƯỚC Documents) đã gộp hẳn vào
+                     "Song & Video" (hàng đầu, Batch 5) — panel Video độc lập không còn tồn tại. -->
                 <button id="setting-open-file-manager-document" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
                     <div class="flex items-center gap-3 min-w-0">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
