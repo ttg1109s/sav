@@ -223,6 +223,12 @@
     <script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@4/dist/browser-id3-writer.js"></script>
     <!-- Đóng gói nhiều file mp3 thành 1 file .zip lúc "Tải toàn bộ rồi xóa" (Quản lý dung lượng) -->
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <!-- MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — mediainfo.js (WASM, tự tải kèm
+         qua CDN unpkg — global `MediaInfo`, dùng `MediaInfo.default(opts)`) — phân tích format/
+         codec/fps/bitrate video LÚC UPLOAD, xem event/workflow/file-manager-video.js::
+         _extractVideoMediaInfo(). File .wasm tự tải TỪ ĐÚNG cùng thư mục unpkg này (không cần
+         cấu hình thêm), xem docs mediainfo.js.org phần "Installation". -->
+    <script src="https://unpkg.com/mediainfo.js"></script>
     <!-- .docx -> HTML lúc upload (mammoth.js). VIẾT LẠI (10/07/2026, Nhóm A — mục 1
          plan-v12-extended.md): HTML này giờ chuyển THẲNG qua sanitizeDocumentHtml()
          (core/file-manager/document.js, tự viết) — Turndown + Toast UI Editor (từng dùng
@@ -546,8 +552,8 @@
     <!-- MỚI (21/07/2026) — File Manager -> Video. Độc lập với image.js/album.js/document.js (không
          dùng chung hàm nào ngoài slugify()/service/db.js) — chỉ cần SAU service/db.js. video-ui.js
          CẦN core/dom-refs.js (đã nạp ở block DOM refs phía trên) + lang/lang.js (t()). -->
-    <script src="core/file-manager/video.js?v=20260721v1"></script>
-    <script src="core/file-manager/video-ui.js?v=20260721v1"></script>
+    <script src="core/file-manager/video.js?v=20260728v1"></script>
+    <script src="core/file-manager/video-ui.js?v=20260728v1"></script>
     <!-- Tool migration thumbnail 320x320 (tools/migrate-video-thumbs-320.js, Batch 3) — Giang xác
          nhận đã chạy xong tốt, ĐÃ XOÁ (batch 4, 27/07/2026): dòng <script> này + file
          tools/migrate-video-thumbs-320.js (xoá tay thủ công, xem thông báo bàn giao). -->
@@ -620,7 +626,7 @@
     <script src="core/playlist/state.js?v=20260625v8e"></script>
     <script src="core/playlist/order.js?v=20260703v1"></script>
     <script src="core/playlist/render.js?v=20260712v2"></script>
-    <script src="core/playlist/loader.js?v=20260625v10"></script>
+    <script src="core/playlist/loader.js?v=20260728v1"></script>
     <script src="core/playlist/actions.js?v=20260721v2"></script>
     <script src="core/playlist/main.js?v=20260625v10"></script>
     <!-- Phase 2 (bước 3 scoping, CHỐT 03/07/2026) — loadAllSongs()/loadSongsFromFolder(), viết
@@ -831,8 +837,8 @@
          khuôn Photo) — CẦN core/file-manager/video-ui.js (đã nạp ở nhóm CORE). Gọi
          `workflowVideoGalleryWindow.mount()` (event/workflow/video-gallery-window.js, nạp SAU file
          này — AN TOÀN, chỉ THỰC SỰ gọi lúc user tương tác, cùng quy ước photo-gallery-window.js). -->
-    <script src="event/workflow/file-manager-video.js?v=20260721v1"></script>
-    <script src="event/router/file-manager-video.js?v=20260721v1"></script>
+    <script src="event/workflow/file-manager-video.js?v=20260728v1"></script>
+    <script src="event/router/file-manager-video.js?v=20260728v1"></script>
     <script src="event/listener/file-manager-video.js?v=20260721v1"></script>
     <!-- workflowFileManagerDocument CẦN tồn tại trước khi router gọi tới. Batch D7 (06/07/2026):
          panel Document push/pop động — CẦN core/settings-panel-stack-ui.js (đã nạp ở nhóm CORE).
@@ -891,7 +897,7 @@
          playlist/actions.js — cần đi qua eventBus để Block gate kịp chặn khoá chéo với Video nền,
          xem event/block.js) — NẠP LẠI dòng <script>, PHẢI nạp SAU event/workflow/video-player.js
          (cần workflowVideoPlayer.startFromPlaylist() đã tồn tại) NGAY TRÊN. -->
-    <script src="event/workflow/video-player.js?v=20260721v2"></script>
+    <script src="event/workflow/video-player.js?v=20260728v1"></script>
     <script src="event/router/video-player.js?v=20260727v1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <script src="event/workflow/player-controls.js?v=20260708v4"></script>
