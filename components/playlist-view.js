@@ -313,6 +313,20 @@ const TPL_PLAYLIST_VIEW = `
         </label>
     </div>
 
+    <!-- MỚI (ver12 "Song/Video Unification", Batch 6, mục 7) — "Thêm video", TÁCH RIÊNG hẳn khỏi
+         #upload-action-menu (không dùng chung 1 container rồi ẩn/hiện nội dung bên trong — mỗi
+         Nguồn 1 container ĐỘC LẬP, đơn giản hơn, không cần đồng bộ hiện/ẩn nhóm con). CHỈ 1 lựa
+         chọn (KHÔNG có "chọn cả thư mục" cho Video — đã chốt) — CÙNG PATTERN <label> bọc trực tiếp
+         <input type="file"> (xem giải thích platform-compat ở #upload-action-menu ngay trên — click
+         NATIVE thật lên label mới chắc chắn hoạt động mọi nền tảng, KHÔNG được gọi .click() qua JS). -->
+    <div id="video-upload-menu" class="hidden fixed z-[115] w-52 bg-[#171c2b] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
+        <label class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+            <span data-i18n="playlistView.uploadMenu.pickVideoFiles">${t('playlistView.uploadMenu.pickVideoFiles')}</span>
+            <input type="file" id="video-upload-input" accept="video/*" multiple class="hidden">
+        </label>
+    </div>
+
     <!-- Menu 3 chấm dùng chung cho mọi bài hát (info / sửa / xuất file / xóa) — chỉ 1 phần tử duy
          nhất trong DOM, được JS định vị lại (position: fixed) ngay dưới nút "..." vừa bấm mỗi lần
          mở, thay vì nhân bản dropdown riêng cho từng item trong danh sách (đỡ tốn DOM + dễ quản lý
@@ -330,14 +344,33 @@ const TPL_PLAYLIST_VIEW = `
         <!-- MỚI (10/07/2026) — mở Subtitle Editor (trang riêng, subtitle-editor.html?song=<mã hoá>)
              — message RIÊNG (data-menu-action="editSubtitles"), CÙNG PRECEDENT với addToFolder bên
              dưới, xem event/listener/playlist.js + event/workflow/playlist.js::
-             openSubtitleEditorForSongMenu(). -->
-        <button data-menu-action="editSubtitles" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 border-t border-white/5">
+             openSubtitleEditorForSongMenu(). SỬA (ver12 "Song/Video Unification", Batch 6, mục 6d,
+             phản hồi Giang) — thêm id "song-menu-btn-edit-subtitles" để JS ẩn khi item là Video
+             ("openSongActionMenu()", core/playlist/actions.js — phụ đề không áp dụng cho Video). -->
+        <button id="song-menu-btn-edit-subtitles" data-menu-action="editSubtitles" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 border-t border-white/5">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" /></svg>
             <span data-i18n="playlistView.songMenu.editSubtitles">${t('playlistView.songMenu.editSubtitles')}</span>
         </button>
-        <button data-menu-action="restore" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 border-t border-white/5">
+        <!-- SỬA (Batch 6, mục 6d, phản hồi Giang) — id "song-menu-btn-restore" để JS ẩn khi Video
+             (xuất file kèm tag ID3 — không áp dụng, Video không có 3 tag). -->
+        <button id="song-menu-btn-restore" data-menu-action="restore" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 border-t border-white/5">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-8-4V4m0 0L8 8m4-4l4 4" /></svg>
             <span data-i18n="playlistView.songMenu.export">${t('playlistView.songMenu.export')}</span>
+        </button>
+        <!-- MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang — "làm luôn 6d")
+             — 2 hành động RIÊNG của Video (Set làm nền / Sửa video, mở Video Editor) — THAY THẾ 2
+             lựa chọn tương ứng từng có ở dropdown tile "File Manager → Video" (đã xoá hẳn cùng lúc
+             xoá panel đó). ẨN MẶC ĐỊNH (class "hidden"), JS ("openSongActionMenu()") chỉ HIỆN khi
+             item đang mở menu là Video — cùng cặp Workflow đã có sẵn
+             ("workflowFileManagerVideo.setVideoAsBackground()"/"navigateToVideoEdit()"), KHÔNG viết
+             lại, chỉ đổi nơi gọi (đúng CHỐT mục 6d "giữ lại logic nghiệp vụ, chỉ đổi nơi gọi"). -->
+        <button id="song-menu-btn-set-bg-video" data-menu-action="setAsBgVideo" class="hidden flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 border-t border-white/5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-fuchsia-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
+            <span data-i18n="playlistView.songMenu.setAsBgVideo">${t('playlistView.songMenu.setAsBgVideo')}</span>
+        </button>
+        <button id="song-menu-btn-edit-video" data-menu-action="editVideoFile" class="hidden flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 border-t border-white/5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3" /></svg>
+            <span data-i18n="playlistView.songMenu.editVideoFile">${t('playlistView.songMenu.editVideoFile')}</span>
         </button>
         <!-- MỚI (mục 1d, CHỐT 03/07/2026) — dùng data-menu-action="addToFolder" RIÊNG, KHÔNG đi
              qua handleSongActionMenuSelect() (đã có sẵn 4 nhánh if/else — thêm nhánh thứ 5 vào đó

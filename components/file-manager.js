@@ -288,20 +288,10 @@ function renderFileManagerDocumentPanelBody() {
 `;
 }
 
-// ===================== Khu vực: Video (MỚI, 21/07/2026) =====================================
-// Mirror renderFileManagerPhotoPanelBody() — đơn giản hơn hẳn: KHÔNG có Album (không chip lọc,
-// không nút mở Album List). Nút upload + nút "xoá nhanh" ở headerActionHtml (xem
-// event/workflow/file-manager-video.js::openPanel()/_buildHeaderActionHtml() — không hardcode ở
-// đây, cùng khuôn Photo). Lưới video là CSS Grid full-width (KHÔNG fjGallery, xem
-// event/workflow/video-gallery-window.js) — Workflow tự dựng cấu trúc "day-group + grid" NGAY LÚC
-// panel mở, chèn TRƯỚC #file-manager-video-empty.
-function renderFileManagerVideoPanelBody() {
-    return `
-        <!-- [SỬA — ver12 "Song/Video Unification", Batch 2] Checkbox "Video Player mode" (từng
-             đứng đầu panel này) ĐÃ BỎ HẲN — entry point vào Video Player mode giờ DUY NHẤT qua
-             Playlist + toggle Nguồn (xem plan-v12-song-video-unification.md mục 3, cleanup Batch 2). -->
-        <div id="file-manager-video-scroll" class="flex-grow min-h-0 overflow-y-auto pb-20 relative">
-            <p id="file-manager-video-empty" class="hidden text-sm text-slate-400 text-center py-10 px-6" data-i18n="fileManager.video.empty">${t('fileManager.video.empty')}</p>
-        </div>
-`;
-}
+// ===================== Khu vực: Video — ĐÃ XOÁ (ver12 "Song/Video Unification", Batch 6, mục 6d,
+// phản hồi Giang) =====================================================
+// renderFileManagerVideoPanelBody() (panel riêng "File Manager → Video") ĐÃ XOÁ HẲN — gộp vào
+// "Song & Video" (renderFileManagerSongPanelBody() ở đầu file, Batch 5). Nghiệp vụ Video (upload/
+// set nền/mở Video Editor/xoá) giờ vào từ Playlist (Batch 6, mục 7 + menu 3 chấm) — xem
+// readme/changelog/v12.md.
+
