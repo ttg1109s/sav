@@ -143,46 +143,66 @@
         }
 
         /**
-         * NGHIỆP VỤ THUẦN: "Tải tất cả rồi xoá" — gộp build zip + download + clearAllStoredData
-         * thành 1 hàm core, KHÔNG biết shield/modal là gì. Trả kết quả qua object có `status` rõ
-         * ràng, KHÔNG throw cho lỗi build zip (đã thống nhất: core luôn resolve, không reject cho
-         * các lỗi nghiệp vụ đã biết trước).
-         *
-         * @param {(percent:number) => void} [onZipProgress]
-         * @returns {Promise<{status:'ok'} | {status:'noSongs'} | {status:'zipError', message:string}>}
+         * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6b) — mirror buildAllSongsZipBlob()
+         * ngay trên, bản của Video (mỗi domain viết riêng, cùng quy ước "mỗi domain 1 hàm" đã dùng
+         * cho renderVideoStorageStats()/computeVideoStats()).
          */
-        async function downloadAllSongsThenClear(onZipProgress) {
-            const keys = await getAllSongKeys();
-            if (keys.length === 0) return { status: 'noSongs' };
-
-            let zipBlob;
-            try {
-                zipBlob = await buildAllSongsZipBlob((done, total, percent) => {
-                    const pct = percent != null ? Math.round(percent) : Math.round((done / total) * 100);
-                    if (onZipProgress) onZipProgress(pct);
-                });
-            } catch (err) {
-                console.error('[storage-manager] Lỗi đóng gói zip:', err);
-                return { status: 'zipError', message: err && err.message ? err.message : String(err) };
+        async function buildAllVideosZipBlob(onProgress) {
+            if (typeof JSZip === 'undefined') {
+                throw new Error(t('common.storage.zipLibMissing'));
             }
-
-            const dateStr = new Date().toISOString().slice(0, 10);
-            triggerDownload(zipBlob, `nhac-da-luu-${dateStr}.zip`);
-
-            await clearAllStoredData();
-            // (renderStorageStats() nội bộ ĐÃ XOÁ — Batch D5: thừa, workflow luôn gọi lại
-            // this.refreshSongTab() ngay sau, tự vẽ lại stats với đúng phần tử panel đang mở.)
-            return { status: 'ok' };
+            const zip = new JSZip();
+            const keys = await getAllVideoKeys(); // service/db.js
+            const usedNames = new Map();
+            let done = 0;
+            for (const key of keys) {
+                const record = await getVideoRecord(key); // service/db.js
+                if (!record || !record.blob) { done++; continue; }
+                let name = record.filename || `${key}.mp4`;
+                if (usedNames.has(name)) {
+                    const count = usedNames.get(name) + 1; usedNames.set(name, count);
+                    const dot = name.lastIndexOf('.');
+                    name = dot > -1 ? `${name.slice(0, dot)} (${count})${name.slice(dot)}` : `${name} (${count})`;
+                } else { usedNames.set(name, 0); }
+                zip.file(name, record.blob);
+                done++;
+                if (onProgress) onProgress(done, keys.length);
+            }
+            return zip.generateAsync({ type: 'blob' }, (meta) => {
+                if (onProgress) onProgress(keys.length, keys.length, meta.percent);
+            });
         }
 
         /**
-         * NGHIỆP VỤ THUẦN: "Xoá tất cả, không tải" — chỉ gọi clearAllStoredData().
+         * MỚI (Batch 5, mục 6b) — xoá TOÀN BỘ record Video. CỐ Ý viết ĐƠN GIẢN + THUẦN (Rule 1-4
+         * đầy đủ — không appState, không DOM, không gọi core nào khác trong file này) — KHÔNG mirror
+         * đầy đủ độ phức tạp của `clearAllStoredData()` (Song) phía trên: hàm đó là code DI SẢN, tự
+         * làm rất nhiều việc (appState, DOM, gọi hàm khác, cờ an toàn khi bị gián đoạn giữa chừng) —
+         * VI PHẠM Rule 1-4 nhiều chỗ, nhưng KHÔNG bị đụng tới ở batch này (không "đụng phải" theo
+         * đúng nghĩa sửa thân hàm) nên GIỮ NGUYÊN, không tự ý sửa lại. Hàm Video MỚI này viết ĐÚNG
+         * chuẩn ngay từ đầu — phần đồng bộ RAM/UI (thoát Video Player mode nếu đang bật, rỗng hoá
+         * playlistCache nếu đang browse nguồn Video) đẩy hẳn sang Workflow gọi SAU khi hàm này chạy
+         * xong (xem event/workflow/file-manager-song.js::_resetVideoRuntimeStateAfterClear()).
+         * KHÔNG có cờ an toàn "clearingInProgress" như bản Song (tính năng mới, đơn giản hoá có chủ
+         * đích — nếu cần độ an toàn tương đương khi bị gián đoạn giữa chừng, cần yêu cầu riêng).
          * @returns {Promise<void>}
          */
-        async function clearAllSongsNoDownload() {
-            await clearAllStoredData();
-            // (renderStorageStats() nội bộ ĐÃ XOÁ — Batch D5: cùng lý do ở downloadAllSongsThenClear().)
+        async function clearAllVideosData() {
+            const keys = await getAllVideoKeys(); // service/db.js
+            for (const key of keys) await deleteVideoRecord(key); // service/db.js
         }
+
+        /**
+         * XOÁ (Batch 5, "Song/Video Unification" mục 6b) — `downloadAllSongsThenClear()`/
+         * `clearAllSongsNoDownload()` (2 hàm gộp sẵn "build zip + download + clear", TỪNG là core
+         * gọi core — chính hàm `downloadAllSongsThenClear()` tự gọi `buildAllSongsZipBlob()` VÀ
+         * `clearAllStoredData()` ngay bên trong nó, vi phạm Rule 3 y hệt kiểu đã sửa ở
+         * `addSongsToFolder()`/`renderStorageStats()`) ĐÃ XOÁ HẲN, không còn nơi nào gọi (2 tính
+         * năng tách rời cũ đã thay bằng 3 field cấu hình độc lập, mục 6b). Workflow
+         * (event/workflow/file-manager-song.js::_downloadZipFor()) giờ tự gọi `buildAllSongsZipBlob()`/
+         * `buildAllVideosZipBlob()` RỒI `clearAllStoredData()`/`clearAllVideosData()` TÁCH RỜI,
+         * đúng Rule 3 — KHÔNG viết lại 1 hàm gộp core mới để tránh lặp lại đúng lỗi vừa sửa.
+         */
 
         // ===================== Quét & dọn file lỗi =====================
 
