@@ -124,7 +124,14 @@ const routerFileManagerSong = (() => {
             }
 
             case 'fileManagerSong.scanBroken.click': {
+                // MỚI (phản hồi Giang 28/07/2026, "quét lỗi vẫn chưa theo scope") — truyền
+                // storageMediaScope (DÙNG CHUNG với 3 field Giải phóng bộ nhớ, mục 6b: "chỉ thêm
+                // scope selector dùng chung UI với Download") — quyết định "quét kho nào" xảy ra ở
+                // Workflow (đọc payload.mediaScope), KHÔNG rẽ nhánh tại đây (Router chỉ chuyển tiếp
+                // giá trị đang có, không tự if/else theo scope — nhánh thật nằm trong Workflow vì
+                // cần gọi core khác nhau theo TỪNG giá trị, không phải 1 lựa chọn đơn giản).
                 workflowFileManagerSong.executeScanBroken({
+                    mediaScope: storageMediaScope,
                     onScanComplete: (results) => { lastScanResults = results; }
                 });
                 break;
