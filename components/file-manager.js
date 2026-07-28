@@ -88,13 +88,17 @@ function renderFileManagerSongPanelBody() {
                 <div>
                     <h3 class="text-xs font-bold text-rose-400 uppercase tracking-widest mb-2 ml-2" data-i18n="fileManager.song.storageAction.sectionTitle">${t('fileManager.song.storageAction.sectionTitle')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                        <div class="p-4 border-b border-white/5">
-                            <div class="text-xs font-medium text-slate-400 mb-2" data-i18n="fileManager.song.storageAction.scopeLabel">${t('fileManager.song.storageAction.scopeLabel')}</div>
-                            <div class="flex gap-2">
-                                <button type="button" data-storage-scope="song" class="flex-1 py-2 rounded-lg text-sm font-semibold transition-colors bg-sky-500 text-white" data-i18n="fileManager.song.storageAction.scope.song">${t('fileManager.song.storageAction.scope.song')}</button>
-                                <button type="button" data-storage-scope="video" class="flex-1 py-2 rounded-lg text-sm font-semibold transition-colors bg-white/5 text-slate-300" data-i18n="fileManager.song.storageAction.scope.video">${t('fileManager.song.storageAction.scope.video')}</button>
-                                <button type="button" data-storage-scope="both" class="flex-1 py-2 rounded-lg text-sm font-semibold transition-colors bg-white/5 text-slate-300" data-i18n="fileManager.song.storageAction.scope.both">${t('fileManager.song.storageAction.scope.both')}</button>
-                            </div>
+                        <!-- SỬA (phản hồi Giang 28/07/2026, "hiển thị list source thành dropdown dạng
+                             section option") — 3 nút pill cũ THAY bằng row + <select>, ĐÚNG khuôn
+                             "Nguồn"/"Sắp xếp" đã dùng ở components/settings/playlist-view.js
+                             (label trái + select phải, cùng class). -->
+                        <div class="flex justify-between items-center p-4 border-b border-white/5">
+                            <span class="text-sm font-medium truncate" data-i18n="fileManager.song.storageAction.scopeLabel">${t('fileManager.song.storageAction.scopeLabel')}</span>
+                            <select id="setting-storage-scope" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
+                                <option value="song" data-i18n="fileManager.song.storageAction.scope.song">${t('fileManager.song.storageAction.scope.song')}</option>
+                                <option value="video" data-i18n="fileManager.song.storageAction.scope.video">${t('fileManager.song.storageAction.scope.video')}</option>
+                                <option value="both" data-i18n="fileManager.song.storageAction.scope.both">${t('fileManager.song.storageAction.scope.both')}</option>
+                            </select>
                         </div>
                         <div class="flex justify-between items-center p-4 border-b border-white/5">
                             <div class="pr-3">
