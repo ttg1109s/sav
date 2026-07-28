@@ -607,6 +607,13 @@ const workflowPlaylist = {
         appState.set('activeMediaSource', 'video');
         console.log(`writer: "switchToVideoSource", page: "activeMediaSource", content: "video"`);
 
+        // MỚI (FIX 28/07/2026, phản hồi Giang "Video chỉ 1 chế độ chọn nhiều file, bỏ dropdown,
+        // input luôn") — đổi chỗ 2 nút "Thêm" ở header: ẩn #btn-upload-audio (Song, mở dropdown 2
+        // lựa chọn), hiện #btn-upload-video (Video, <label> bọc thẳng input, mở picker NATIVE luôn,
+        // xem components/playlist-view.js + event/listener/playlist.js).
+        btnUploadAudio.classList.add('hidden');
+        btnUploadVideo.classList.remove('hidden');
+
         const videoRecords = await listVideos(); // core/file-manager/video.js, CÓ return, DÙNG ngay dưới -> Workflow gọi Core hợp lệ (Rule 3)
         const keys = buildVideoPlaylistCache(videoRecords); // core/playlist/loader.js (MỚI, Batch 1), CÓ return, DÙNG ngay dưới
         appState.set('playlistOrder', keys);
@@ -627,6 +634,11 @@ const workflowPlaylist = {
     async switchToSongSource() {
         appState.set('activeMediaSource', 'song');
         console.log(`writer: "switchToSongSource", page: "activeMediaSource", content: "song"`);
+
+        // MỚI (FIX 28/07/2026, "bỏ dropdown Video, input luôn") — đổi chỗ ngược lại với
+        // switchToVideoSource() ngay trên: hiện #btn-upload-audio, ẩn #btn-upload-video.
+        btnUploadVideo.classList.add('hidden');
+        btnUploadAudio.classList.remove('hidden');
 
         const keys = await scanValidSongsFromDB(); // core có sẵn (core/playlist/loader.js, Song, KHÔNG đụng), CÓ return, DÙNG ngay dưới
         appState.set('playlistOrder', keys);

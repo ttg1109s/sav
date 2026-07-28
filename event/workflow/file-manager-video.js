@@ -104,33 +104,58 @@ const workflowFileManagerVideo = {
      * lỗi phân tích KHÔNG chặn cả lô upload (đúng tinh thần try/catch quanh
      * `_extractVideoThumbAndMeta()` ở `uploadVideos()` ngay dưới — mediainfo chỉ là dữ liệu PHỤ,
      * không có cũng không sao, khác hẳn thumbnail/duration là BẮT BUỘC).
+     *
+     * FIX (28/07/2026, Giang báo "không upload được video, bị treo saving") — `MediaInfo.default()`
+     * (tải WASM qua CDN unpkg) VÀ `mediainfo.analyzeData()` (đọc blob theo chunk) trước đây KHÔNG
+     * có timeout nào — khác hẳn `_extractVideoThumbAndMeta()` ngay trên (đã có `safetyTimeout` 8s
+     * qua `taskManager.once()`). Mạng chậm/chập chờn lúc tải WASM hoặc phân tích khiến promise treo
+     * VÔ THỜI HẠN, kẹt cả `withLoadingShield()` ở `uploadVideos()` — KHÔNG BAO GIỜ chạy tới
+     * `saveVideo()`, dù mediainfo chỉ là dữ liệu PHỤ. SỬA: đua (`Promise.race`) với 1 timeout CÙNG
+     * PATTERN 8000ms — hết giờ thì coi như lỗi, trả object rỗng, KHÔNG chặn upload. Tác vụ WASM/
+     * analyze vẫn được PHÉP chạy tiếp ngầm sau khi đã "bỏ cuộc" (không hủy được `analyzeData()` giữa
+     * chừng) — tự đóng `mediainfo` (`.close()`) khi nó XONG THẬT SỰ, dù trước hay sau khi đã timeout,
+     * tránh rò rỉ instance WASM.
      * @param {Blob} blob - blob video GỐC.
      * @returns {Promise<{codec: string, fps: string, bitrate: number, audioCodec: string, audioBitrate: number}>}
      */
     async _extractVideoMediaInfo(blob) {
         if (typeof MediaInfo === 'undefined') return {}; // guard: CDN lỗi mạng/chưa tải kịp — không chặn upload
-        let mediainfo;
-        try {
-            mediainfo = await MediaInfo.default({ format: 'object', coverData: false });
-            const readChunk = (chunkSize, offset) => blob.slice(offset, offset + chunkSize).arrayBuffer().then((buf) => new Uint8Array(buf));
-            const result = await mediainfo.analyzeData(blob.size, readChunk);
-            const tracks = (result && result.media && result.media.track) || [];
-            const generalTrack = tracks.find((tr) => tr['@type'] === 'General') || {};
-            const videoTrack = tracks.find((tr) => tr['@type'] === 'Video') || {};
-            const audioTrack = tracks.find((tr) => tr['@type'] === 'Audio') || {};
-            return {
-                codec: videoTrack.Format || videoTrack.CodecID || '',
-                fps: videoTrack.FrameRate || generalTrack.FrameRate || '',
-                bitrate: Number(videoTrack.BitRate || generalTrack.OverallBitRate || 0) || 0,
-                audioCodec: audioTrack.Format || audioTrack.CodecID || '',
-                audioBitrate: Number(audioTrack.BitRate || 0) || 0,
-            };
-        } catch (err) {
+        let mediainfoInstance = null;
+        const readChunk = (chunkSize, offset) => blob.slice(offset, offset + chunkSize).arrayBuffer().then((buf) => new Uint8Array(buf));
+        const analyzeTask = (async () => {
+            mediainfoInstance = await MediaInfo.default({ format: 'object', coverData: false });
+            return await mediainfoInstance.analyzeData(blob.size, readChunk);
+        })();
+        // Đóng mediainfo NGAY KHI XONG THẬT SỰ (kể cả xong SAU khi nhánh timeout bên dưới đã trả về
+        // {} rồi) — tránh rò rỉ instance WASM nếu Promise.race chọn nhánh timeout trước.
+        analyzeTask.catch(() => {}).finally(() => { if (mediainfoInstance) mediainfoInstance.close(); });
+
+        let timeoutTimer;
+        const result = await Promise.race([
+            analyzeTask,
+            new Promise((resolve) => { timeoutTimer = taskManager.once(() => resolve(null), 8000); }),
+        ]).catch((err) => {
             console.error('[_extractVideoMediaInfo] mediainfo.js phân tích thất bại:', err);
+            return null;
+        });
+
+        if (!result) {
+            console.warn('[_extractVideoMediaInfo] timeout (>8s) hoặc lỗi lúc tải/phân tích mediainfo.js (mạng chậm/CDN không phản hồi) — bỏ qua, video vẫn upload bình thường, chỉ thiếu codec/fps/bitrate.');
             return {};
-        } finally {
-            if (mediainfo) mediainfo.close();
         }
+        timeoutTimer.kill(); // analyzeTask thắng cuộc đua -> dọn timer thừa, KHÔNG để nó tự bắn vô ích sau 8s
+
+        const tracks = (result.media && result.media.track) || [];
+        const generalTrack = tracks.find((tr) => tr['@type'] === 'General') || {};
+        const videoTrack = tracks.find((tr) => tr['@type'] === 'Video') || {};
+        const audioTrack = tracks.find((tr) => tr['@type'] === 'Audio') || {};
+        return {
+            codec: videoTrack.Format || videoTrack.CodecID || '',
+            fps: videoTrack.FrameRate || generalTrack.FrameRate || '',
+            bitrate: Number(videoTrack.BitRate || generalTrack.OverallBitRate || 0) || 0,
+            audioCodec: audioTrack.Format || audioTrack.CodecID || '',
+            audioBitrate: Number(audioTrack.BitRate || 0) || 0,
+        };
     },
 
     /** Ứng với 'playlist.upload.videoFileChange' (Batch 6, mục 7 — trước đây
