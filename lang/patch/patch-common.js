@@ -48,19 +48,12 @@ const LANG_PATCH_COMMON = {
     'common.export.tagWriteFailed': "Couldn't write the tag to the file, exporting the original file instead.",
 
     'common.storage.zipLibMissing': 'The JSZip library failed to load (check your network connection to the CDN).',
-    'common.storage.noSongsToDownload': 'No songs to download yet.',
-    'common.storage.zipBuildError': "Couldn't build the zip file: {message}",
     'common.storage.zippingProgress': 'Packing zip file ({percent}%)...',
     'common.storage.zippingStart': 'Packing zip file (0%)...',
     'common.storage.deletingData': 'Deleting data...',
-    'common.storage.downloadThenClearTitle': 'Download then delete',
-    'common.storage.downloadThenClearConfirm': 'Download all music as a zip file, then DELETE all SONGS from this device? (Background image/video is kept.) The delete action cannot be undone once the download finishes.',
-    'common.storage.downloadThenClearConfirmBtn': 'Download & delete',
-    'common.storage.downloadThenClearDone': 'Zip file downloaded and all songs deleted. Background image/video is kept.',
-    'common.storage.clearNoDownloadTitle': 'Delete all songs',
-    'common.storage.clearNoDownloadConfirm': 'Delete all SONGS saved on this device? (Background image/video is kept.) This action CANNOT be undone.',
-    'common.storage.clearNoDownloadConfirmBtn': 'Delete everything',
-    'common.storage.clearNoDownloadDone': 'All songs deleted. Background image/video is kept.',
+    // SỬA (ver12 "Song/Video Unification", Batch 5, mục 6b) — 'noSongsToDownload'/'zipBuildError'/
+    // 'downloadThenClear*'/'clearNoDownload*' (2 nút tách rời cũ) ĐÃ XOÁ, thay bằng
+    // fileManager.song.storageAction.* (lang/patch/patch-file-manager.js) — 3 field cấu hình độc lập.
     'common.storage.scanning': 'Scanning data...',
     'common.storage.scanningProgress': 'Scanning {n} / {total}...',
     'common.storage.scanNoneFound': 'No broken files found — all data is valid.',

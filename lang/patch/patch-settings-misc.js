@@ -63,10 +63,10 @@ const LANG_PATCH_SETTINGS_MISC = {
     'storageDrawer.statTotalVideos': 'Total videos',
     'storageDrawer.statTotalVideoBytes': 'Storage used (video)',
     'storageDrawer.freeSpaceSectionTitle': 'Free up storage',
-    'storageDrawer.downloadThenClear.label': 'Download all files (.zip) then delete',
-    'storageDrawer.downloadThenClear.hint': 'Packs all original music into one zip file to download, then deletes everything from this device',
-    'storageDrawer.clearNoDownload.label': 'Delete everything, no download',
-    'storageDrawer.clearNoDownload.hint': 'Deletes all saved songs (background image/video is kept) — CANNOT be undone',
+    // SỬA (ver12 "Song/Video Unification", Batch 5, mục 6b) — 'downloadThenClear.label/hint' và
+    // 'clearNoDownload.label/hint' (2 nút tách rời cũ) ĐÃ XOÁ, thay bằng key MỚI ở
+    // lang/patch/patch-file-manager.js (namespace fileManager.song.storageAction.*) — 3 field cấu
+    // hình độc lập (phạm vi/tải xuống/xoá) + 1 nút "Thực hiện".
     'storageDrawer.brokenSectionTitle': 'Corrupted data',
     'storageDrawer.scanBroken.label': 'Scan & clean broken files',
     'storageDrawer.scanBroken.hint': "Finds songs whose data isn't a valid mp3 or can't be played, asks before deleting",
