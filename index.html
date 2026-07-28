@@ -321,13 +321,13 @@
             hàm, chỉ lúc hàm thực sự được GỌI (luôn sau khi người dùng tương tác, lúc đó toàn bộ
             trang đã nạp xong từ lâu). Xem comment đầu file /lang/lang.js để biết đầy đủ kiến trúc. -->
     <script src="lang/patch/patch-common.js?v=20260714v1"></script>
-    <script src="lang/patch/patch-playlist.js?v=20260711v1"></script>
+    <script src="lang/patch/patch-playlist.js?v=20260728v1"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260721v1"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260720v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260714v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260718v1"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260728v2"></script>
     <!-- MỚI (10/07/2026) — dùng ở CẢ index.html LẪN subtitle-editor.html, xem lang/lang.js. -->
     <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
     <!-- MỚI (14/07/2026, mục cuối — trang image-edit.html) — cần nạp Ở ĐÂY dù index.html không
@@ -347,7 +347,7 @@
     <!-- MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings chung 1 container cuộn
          ngang) — chỉ định nghĩa 2 biến chuỗi mở/đóng khung bọc, xem components/app-view-stack.js. -->
     <script src="components/app-view-stack.js?v=20260708v3"></script>
-    <script src="components/playlist-view.js?v=20260711v1"></script>
+    <script src="components/playlist-view.js?v=20260728v2"></script>
     <script src="components/visualizer-overlay.js?v=20260708v1"></script>
     <!-- components/subtitle-modal.js ĐÃ XOÁ (10/07/2026) — Subtitle Editor chuyển sang trang riêng
          (subtitle-editor.html), KHÔNG còn modal ở trang chính. -->
@@ -388,7 +388,7 @@
          CŨ (ĐÃ XOÁ — xoá tay nếu còn sót trên máy). items.js (mục 3) ĐỘC LẬP với Generic Drawer
          (xem docstring đầu file) nhưng đặt cạnh nhau cho dễ đọc. -->
     <script src="components/generic-drawer.js?v=20260714v2"></script>
-    <script src="components/items.js?v=20260717v1"></script>
+    <script src="components/items.js?v=20260728v1"></script>
     <!-- Visualizer/Subtitle Settings Drawer (ver 8 refine, mục 3) — cùng pattern navigation
          stack với About/Storage Drawer, mở chồng lên #drawer-settings. -->
     <script src="components/visualizer-settings-drawer.js?v=20260721v1"></script>
@@ -491,7 +491,7 @@
          LẠI của /event/ (bus/workflow/router/listener vẫn nạp cuối cùng tuyệt đối như cũ, xem
          khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260714v1"></script>
+    <script src="core/dom-refs.js?v=20260728v1"></script>
     <!-- core/slider-panel-scroll.js (MỚI, 09/07/2026) — 2 hàm dùng CHUNG (getPositionStart/
          scrollSliderTo) + hằng số SLIDER_PANEL_SCROLL_ESTIMATED_MS cho MỌI khung cuộn ngang kiểu
          "slider panel" — core/settings-panel-stack-ui.js (ngay dưới) VÀ core/player-controls.js
@@ -526,7 +526,7 @@
          folder.js CẦN core/db.js (slugify + CRUD folders/folder_song/songs). folder-picker-ui.js
          CẦN t() (lang/lang.js, đã nạp từ rất sớm) — không phụ thuộc folder.js (chỉ dựng DOM +
          callback do nơi gọi truyền vào). -->
-    <script src="core/file-manager/folder.js?v=20260714v3"></script>
+    <script src="core/file-manager/folder.js?v=20260728v1"></script>
     <script src="core/file-manager/folder-picker-ui.js?v=20260714v3"></script>
     <!-- MỚI (14/07/2026, tích hợp Generic Drawer/Item/windowing) — pagination DÙNG CHUNG, KHÔNG
          phụ thuộc gì (core THUẦN) — dùng bởi danh sách folder (10 folder/trang), xem
@@ -552,8 +552,8 @@
     <!-- MỚI (21/07/2026) — File Manager -> Video. Độc lập với image.js/album.js/document.js (không
          dùng chung hàm nào ngoài slugify()/service/db.js) — chỉ cần SAU service/db.js. video-ui.js
          CẦN core/dom-refs.js (đã nạp ở block DOM refs phía trên) + lang/lang.js (t()). -->
-    <script src="core/file-manager/video.js?v=20260728v1"></script>
-    <script src="core/file-manager/video-ui.js?v=20260728v1"></script>
+    <script src="core/file-manager/video.js?v=20260728v2"></script>
+    <script src="core/file-manager/video-ui.js?v=20260728v2"></script>
     <!-- Tool migration thumbnail 320x320 (tools/migrate-video-thumbs-320.js, Batch 3) — Giang xác
          nhận đã chạy xong tốt, ĐÃ XOÁ (batch 4, 27/07/2026): dòng <script> này + file
          tools/migrate-video-thumbs-320.js (xoá tay thủ công, xem thông báo bàn giao). -->
@@ -626,8 +626,8 @@
     <script src="core/playlist/state.js?v=20260625v8e"></script>
     <script src="core/playlist/order.js?v=20260703v1"></script>
     <script src="core/playlist/render.js?v=20260712v2"></script>
-    <script src="core/playlist/loader.js?v=20260728v1"></script>
-    <script src="core/playlist/actions.js?v=20260721v2"></script>
+    <script src="core/playlist/loader.js?v=20260728v2"></script>
+    <script src="core/playlist/actions.js?v=20260728v1"></script>
     <script src="core/playlist/main.js?v=20260625v10"></script>
     <!-- Phase 2 (bước 3 scoping, CHỐT 03/07/2026) — loadAllSongs()/loadSongsFromFolder(), viết
          MỚI hoàn toàn, KHÔNG đụng loader.js — chỉ lọc trên playlistCache đã có sẵn trong RAM.
@@ -807,7 +807,7 @@
          (openRenameFolderModal), core/pagination.js, event/workflow/playlist-scope.js — TẤT CẢ đã
          nạp ở nhóm CORE/ngay trên. PHẢI nạp TRƯỚC event/listener/file-manager-song.js (nút "Duyệt
          thư mục" gửi eventBus tới router này). -->
-    <script src="event/workflow/file-manager-folder-browser.js?v=20260727v1"></script>
+    <script src="event/workflow/file-manager-folder-browser.js?v=20260728v1"></script>
     <script src="event/router/file-manager-folder-browser.js?v=20260727v1"></script>
     <script src="event/listener/file-manager-song.js?v=20260727v3"></script>
     <!-- Batch 8, ver 12 "Multi Media" — cụm "slideshowSettings" (Slideshow nền Visual). PHẢI nạp
@@ -837,8 +837,8 @@
          khuôn Photo) — CẦN core/file-manager/video-ui.js (đã nạp ở nhóm CORE). Gọi
          `workflowVideoGalleryWindow.mount()` (event/workflow/video-gallery-window.js, nạp SAU file
          này — AN TOÀN, chỉ THỰC SỰ gọi lúc user tương tác, cùng quy ước photo-gallery-window.js). -->
-    <script src="event/workflow/file-manager-video.js?v=20260728v1"></script>
-    <script src="event/router/file-manager-video.js?v=20260728v1"></script>
+    <script src="event/workflow/file-manager-video.js?v=20260728v2"></script>
+    <script src="event/router/file-manager-video.js?v=20260728v2"></script>
     <script src="event/listener/file-manager-video.js?v=20260721v1"></script>
     <!-- workflowFileManagerDocument CẦN tồn tại trước khi router gọi tới. Batch D7 (06/07/2026):
          panel Document push/pop động — CẦN core/settings-panel-stack-ui.js (đã nạp ở nhóm CORE).
@@ -876,7 +876,7 @@
          core/file-manager/video.js::sortVideosByAddedDateDesc()/groupVideosByDay()/
          formatVideoDayHeaderLabel()/formatVideoDuration() (đã nạp ở nhóm CORE, TRƯỚC file này). -->
     <script src="event/workflow/video-gallery-window.js?v=20260721v1"></script>
-    <script src="event/workflow/playlist.js?v=20260714v5"></script>
+    <script src="event/workflow/playlist.js?v=20260728v1"></script>
     <script src="event/router/playlist.js?v=20260704v1"></script>
     <script src="event/listener/playlist.js?v=20260704v1"></script>
     <!-- Cụm "playerControls" (ver 11, patch 3): 16/17 msg.type KHÔNG cần workflow (router gọi
@@ -897,7 +897,7 @@
          playlist/actions.js — cần đi qua eventBus để Block gate kịp chặn khoá chéo với Video nền,
          xem event/block.js) — NẠP LẠI dòng <script>, PHẢI nạp SAU event/workflow/video-player.js
          (cần workflowVideoPlayer.startFromPlaylist() đã tồn tại) NGAY TRÊN. -->
-    <script src="event/workflow/video-player.js?v=20260728v1"></script>
+    <script src="event/workflow/video-player.js?v=20260728v2"></script>
     <script src="event/router/video-player.js?v=20260727v1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <script src="event/workflow/player-controls.js?v=20260708v4"></script>
