@@ -1,16 +1,21 @@
 /**
  * core/file-manager/video.js — File Manager -> Video, MỚI (21/07/2026). Schema store 'videos' xem
  * comment DB_VERSION ở service/db.js: key = videoKey, value = { blob, thumbBlob, width, height,
- * duration, filename, addedAt, format, codec, fps, bitrate, customName }.
+ * duration, filename, addedAt, codec, fps, bitrate, audioCodec, audioBitrate, customName }.
  *
- * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — 5 field MỚI trên record:
- *   - `format`/`codec`/`fps`/`bitrate` — PHÂN TÍCH SẴN qua mediainfo.js lúc upload (event/workflow/
- *     file-manager-video.js::_extractVideoMediaInfo()), lưu thẳng, KHÔNG tính lại mỗi lần hiện tab
- *     "Chi tiết". Rỗng/0 nếu phân tích thất bại (KHÔNG chặn upload).
+ * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — 6 field MỚI trên record:
+ *   - `codec`/`fps`/`bitrate`/`audioCodec`/`audioBitrate` — PHÂN TÍCH SẴN qua mediainfo.js lúc
+ *     upload (event/workflow/file-manager-video.js::_extractVideoMediaInfo()), lưu thẳng, KHÔNG
+ *     tính lại mỗi lần hiện tab "Chi tiết". Rỗng/0 nếu phân tích thất bại (KHÔNG chặn upload).
+ *     SỬA (phản hồi Giang 28/07/2026) — BỎ HẲN field `format` (định dạng container, vd "MPEG-4" —
+ *     ít giá trị, hầu hết video đều .mp4) — THÊM `audioCodec`/`audioBitrate` (tab "Chi tiết" trước
+ *     đó thiếu thông tin âm thanh).
  *   - `customName` (string|null, mặc định null) — tên hiển thị người dùng TỰ đặt (tab "Chi tiết"),
  *     CHỈ hiển thị TRONG app (Playlist/Video Player/danh sách folder) — KHÔNG remux/nhúng vào file,
  *     download vẫn lấy theo `filename` GỐC. Video TẠO TRƯỚC batch này không có field này (undefined,
- *     coi như null) — mọi nơi ĐỌC để hiển thị PHẢI tự rơi về `customName || filename`.
+ *     coi như null) — mọi nơi ĐỌC để hiển thị PHẢI tự rơi về `customName || stripFileExtension(filename)`
+ *     (SỬA phản hồi Giang 28/07/2026 — bỏ đuôi mở rộng khỏi tên hiển thị mặc định, xem
+ *     stripFileExtension() bên dưới).
  *
  * CÙNG KHUÔN core/file-manager/image.js (Batch 3, Photo) — `thumbBlob`/`width`/`height` resize sẵn
  * lúc upload (event/workflow/file-manager-video.js::_extractVideoThumbAndMeta(), cần `<video>`/
@@ -48,8 +53,9 @@ async function resolveVideoKey(filename) {
  * `height`/`duration` PHẢI tính SẴN trước khi gọi hàm này (Workflow — event/workflow/file-manager-
  * video.js::_extractVideoThumbAndMeta()) — hàm này (core) CHỈ ghi lại nguyên xi.
  *
- * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — tham số `mediaInfo` (format/codec/fps/
- * bitrate, PHÂN TÍCH SẴN qua mediainfo.js — event/workflow/file-manager-video.js::
+ * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — tham số `mediaInfo` (codec/fps/bitrate/
+ * audioCodec/audioBitrate — SỬA phản hồi Giang 28/07/2026: bỏ hẳn `format`/container, thêm 2 field
+ * âm thanh cho "đủ thông tin", PHÂN TÍCH SẴN qua mediainfo.js — event/workflow/file-manager-video.js::
  * _extractVideoMediaInfo(), CÙNG lý do đặt ở Workflow như _extractVideoThumbAndMeta(): thư viện
  * ngoài + đọc Blob theo chunk, core không được đụng theo Rule 1-4). `customName` khởi tạo `null`
  * (chưa đặt tên hiển thị riêng — tab "Chi tiết" rơi về `filename` gốc khi hiện, xem
@@ -60,7 +66,7 @@ async function resolveVideoKey(filename) {
  * @param {number} width - chiều rộng video GỐC (px).
  * @param {number} height - chiều cao video GỐC (px).
  * @param {number} duration - thời lượng video (giây).
- * @param {{format?: string, codec?: string, fps?: string, bitrate?: number}} [mediaInfo] - rỗng
+ * @param {{codec?: string, fps?: string, bitrate?: number, audioCodec?: string, audioBitrate?: number}} [mediaInfo] - rỗng
  *        nếu mediainfo.js phân tích thất bại (KHÔNG chặn upload, xem _extractVideoMediaInfo()) —
  *        các field rơi về chuỗi/0 rỗng.
  * @returns {Promise<string>} videoKey vừa lưu
@@ -71,7 +77,8 @@ async function saveVideo(file, filename, thumbBlob, width, height, duration, med
     const info = mediaInfo || {};
     await setVideoRecord(videoKey, {
         blob: file, thumbBlob, width, height, duration, filename, addedAt: Date.now(),
-        format: info.format || '', codec: info.codec || '', fps: info.fps || '', bitrate: info.bitrate || 0,
+        codec: info.codec || '', fps: info.fps || '', bitrate: info.bitrate || 0,
+        audioCodec: info.audioCodec || '', audioBitrate: info.audioBitrate || 0, // MỚI (phản hồi Giang 28/07/2026) — bỏ hẳn `format`, thêm 2 field âm thanh
         customName: null,
     });
     return videoKey;
@@ -187,6 +194,21 @@ function groupVideosByDay(sortedVideos) {
         currentGroup.videos.push(video);
     }
     return groups;
+}
+
+/**
+ * Cắt bỏ đuôi mở rộng (".mp4"/".mov"/...) khỏi filename — dùng ở MỌI nơi hiện "tên hiển thị" của 1
+ * video (title lúc phát, danh sách folder, ô nhập customName...) khi CHƯA đặt customName riêng —
+ * MỚI (phản hồi Giang 28/07/2026, "custom name phải bỏ đuôi mở rộng"). Pure, không I/O — coi như
+ * ngoại lệ "hàm định dạng thuần" giống `formatVideoDuration()` ngay dưới (không phải core gọi core
+ * nghiệp vụ, xem giải thích ở core/file-manager/video-ui.js).
+ * @param {string} filename
+ * @returns {string}
+ */
+function stripFileExtension(filename) {
+    if (!filename) return '';
+    const dot = filename.lastIndexOf('.');
+    return dot > 0 ? filename.slice(0, dot) : filename;
 }
 
 /**

@@ -147,9 +147,24 @@ async function renameFolder(folderId, newName) {
  * @param {string} folderId
  * @returns {Promise<{status: 'notFound'|'ok'}>}
  */
-async function deleteFolder(folderId) {
+/**
+ * SỬA (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — thêm tham số `mediaType`
+ * ('song'|'video') — TRƯỚC ĐÂY hardcode `getSongRecord`/`setSongRecord`, khiến xoá 1 folder type
+ * 'video' không dọn được field `record.folder[folderId]` trên record Video (record đó nằm ở store
+ * KHÁC hẳn — `videos`, không phải `songs` — `getSongRecord()` trả `undefined` cho videoKey). Chọn
+ * ĐÚNG hàm đọc/ghi service/db.js theo `mediaType` (data layer, ngoại lệ Rule 3) — KHÔNG rẽ nhánh
+ * TỪNG item trong vòng lặp (1 folder LUÔN đúng 1 loại, chọn 1 LẦN trước vòng lặp là đủ).
+ * @param {string} folderId
+ * @param {'song'|'video'} [mediaType] - mặc định 'song' (an toàn cho folder rỗng/type null — vòng
+ *        lặp bên dưới khi đó cũng rỗng, không tham chiếu store nào).
+ * @returns {Promise<{status: 'notFound'|'ok'}>}
+ */
+async function deleteFolder(folderId, mediaType) {
     const folderMap = await getFolderSongMap(folderId);
     if (!folderMap) return { status: 'notFound' };
+
+    const getRecordFn = mediaType === 'video' ? getVideoRecord : getSongRecord; // service/db.js
+    const setRecordFn = mediaType === 'video' ? setVideoRecord : setSongRecord; // service/db.js
 
     // [TỰ SỬA 14/07/2026, tự audit lại Rule 3] — trước đây gọi getFolderSongKeys() (1 core KHÁC
     // trong CÙNG file) rồi biện minh "có return value nên hợp lệ" — SAI theo đúng Rule 3 hiện hành
@@ -158,10 +173,10 @@ async function deleteFolder(folderId) {
     // không gọi hàm đó nữa.
     const songKeys = folderMap.list.filter((k) => k != null);
     for (const songKey of songKeys) {
-        const record = await getSongRecord(songKey);
+        const record = await getRecordFn(songKey);
         if (!record || !record.folder) continue; // guard: record đã bị xoá/hỏng dữ liệu ở nơi khác — bỏ qua, không chặn xoá folder
         delete record.folder[folderId];
-        await setSongRecord(songKey, record);
+        await setRecordFn(songKey, record);
     }
 
     await deleteFolderSongMap(folderId);
@@ -240,8 +255,14 @@ async function addSongsToFolder(songKeys, folderId, mediaType) {
     if (effectiveType && effectiveType !== mediaType) return { status: 'typeMismatch', addedCount: 0 };
 
     let addedCount = 0;
+    // SỬA (phản hồi Giang 28/07/2026) — chọn ĐÚNG hàm đọc/ghi service/db.js theo `mediaType` MỘT
+    // LẦN trước vòng lặp (record Video nằm store `videos`, KHÁC hẳn `songs` — TRƯỚC ĐÂY hardcode
+    // getSongRecord/setSongRecord khiến thêm Video vào folder không lưu được gì, dù validate type ở
+    // trên đã đúng). Data layer, ngoại lệ Rule 3.
+    const getRecordFn = mediaType === 'video' ? getVideoRecord : getSongRecord;
+    const setRecordFn = mediaType === 'video' ? setVideoRecord : setSongRecord;
     for (const songKey of songKeys) {
-        const record = await getSongRecord(songKey);
+        const record = await getRecordFn(songKey);
         if (!record) continue; // guard: bài không còn tồn tại — bỏ qua, không chặn cả lô (early-exit thuần, đúng guard clause)
         if (!record.folder) record.folder = {};
 
@@ -268,7 +289,7 @@ async function addSongsToFolder(songKeys, folderId, mediaType) {
             } },
             { state: membershipState, operation: '===', value: 'active', callback: () => {} }, // đã ở trong rồi — no-op có chủ đích (khai báo rõ, tránh cảnh báo "không rule nào khớp")
         ]);
-        await setSongRecord(songKey, record);
+        await setRecordFn(songKey, record);
     }
     await setFolderSongMap(folderId, folderMap);
 
@@ -311,8 +332,17 @@ async function removeSongFromAllFolders(songRecord) {
  * @param {string} folderId
  * @returns {Promise<{status: 'notFound'|'ok'}>}
  */
-async function removeSongFromFolder(songKey, folderId) {
-    const record = await getSongRecord(songKey);
+/**
+ * SỬA (phản hồi Giang 28/07/2026) — thêm tham số `mediaType`, cùng lý do đã sửa ở deleteFolder()
+ * ngay trên (record Video nằm store KHÁC, `getSongRecord()` không đọc được).
+ * @param {string} songKey
+ * @param {string} folderId
+ * @param {'song'|'video'} [mediaType] - mặc định 'song'.
+ * @returns {Promise<{status: 'notFound'|'ok'}>}
+ */
+async function removeSongFromFolder(songKey, folderId, mediaType) {
+    const getRecordFn = mediaType === 'video' ? getVideoRecord : getSongRecord; // service/db.js
+    const record = await getRecordFn(songKey);
     if (!record || !record.folder || !(folderId in record.folder)) return { status: 'notFound' };
 
     const folderMap = await getFolderSongMap(folderId);
@@ -332,20 +362,26 @@ async function removeSongFromFolder(songKey, folderId) {
  * VẪN GIỮ NGUYÊN, chỉ dọn sạch danh sách bài BÊN TRONG. MỚI (14/07/2026, Giang yêu cầu — nút "Xoá
  * hết bài" trong Folder Detail). Cùng thứ tự AN TOÀN với deleteFolder(): dọn field
  * `record.folder[folderId]` khỏi TỪNG bài đang có TRƯỚC, rồi mới ghi `folder_song` rỗng.
+ * SỬA (phản hồi Giang 28/07/2026) — thêm tham số `mediaType`, cùng lý do deleteFolder()/
+ * removeSongFromFolder() ngay trên.
  * @param {string} folderId
+ * @param {'song'|'video'} [mediaType] - mặc định 'song'.
  * @returns {Promise<{status: 'notFound'|'ok'}>}
  */
-async function removeAllSongsFromFolder(folderId) {
+async function removeAllSongsFromFolder(folderId, mediaType) {
     const folderMap = await getFolderSongMap(folderId);
     if (!folderMap) return { status: 'notFound' };
+
+    const getRecordFn = mediaType === 'video' ? getVideoRecord : getSongRecord; // service/db.js
+    const setRecordFn = mediaType === 'video' ? setVideoRecord : setSongRecord; // service/db.js
 
     // Inline (không gọi getFolderSongKeys() — xem giải thích đầy đủ ở deleteFolder() phía trên).
     const songKeys = folderMap.list.filter((k) => k != null);
     for (const songKey of songKeys) {
-        const record = await getSongRecord(songKey);
+        const record = await getRecordFn(songKey);
         if (!record || !record.folder) continue; // guard: record đã bị xoá/hỏng dữ liệu ở nơi khác — bỏ qua
         delete record.folder[folderId];
-        await setSongRecord(songKey, record);
+        await setRecordFn(songKey, record);
     }
 
     await setFolderSongMap(folderId, { list: [], empty: 0 });
@@ -410,7 +446,7 @@ async function getFolderItemsForDisplay(folderMap, mediaType) {
     if (mediaType === 'video') {
         return Promise.all(keys.map(async (key) => {
             const record = await getVideoRecord(key); // service/db.js
-            return { key, title: record ? (record.customName || record.filename) : key, artist: '' };
+            return { key, title: record ? (record.customName || stripFileExtension(record.filename)) : key, artist: '' }; // SỬA (phản hồi Giang 28/07) — bỏ đuôi mở rộng khi rơi về filename gốc
         }));
     }
     return Promise.all(keys.map(async (key) => {
