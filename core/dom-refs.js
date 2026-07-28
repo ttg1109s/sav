@@ -382,6 +382,15 @@
         const songEditTabDetails = document.getElementById('song-edit-tab-details');
         const songEditTabFields = document.getElementById('song-edit-tab-fields');
         const songEditTabCover = document.getElementById('song-edit-tab-cover');
+        // MỚI (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — video-aware: tab "Sửa"
+        // giờ có 2 nhóm LOẠI TRỪ NHAU (song: 3 tag; video: 1 ô customName), tab "Ảnh bìa" ẨN HẲN
+        // cho video (nút riêng `songEditTabBtnCover` để toggle 'hidden', KHÔNG dùng chung
+        // `songEditTabButtons` — querySelectorAll trả NodeList tĩnh, ẩn 1 phần tử trong đó vẫn cần
+        // tham chiếu riêng).
+        const songEditFieldsSongGroup = document.getElementById('song-edit-fields-song-group');
+        const songEditFieldsVideoGroup = document.getElementById('song-edit-fields-video-group');
+        const songEditCustomNameInput = document.getElementById('song-edit-custom-name');
+        const songEditTabBtnCover = document.getElementById('song-edit-tab-btn-cover');
         const btnSongEditCancel = document.getElementById('song-edit-cancel');
         const btnSongEditSave = document.getElementById('song-edit-save');
 
