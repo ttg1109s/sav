@@ -398,31 +398,78 @@
             btnSongEditSave.classList.toggle('hidden', tab === 'details');
         }
 
+        /**
+         * SỬA (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — modal này DÙNG CHUNG
+         * cho cả Song lẫn Video (Batch 1: Adapter khiến playlistCache của Video có shape giống hệt
+         * Song, `cached.mediaType` phân biệt) — TRƯỚC ĐÂY luôn hiện Title/Artist/Album/tab Cover dù
+         * đang mở cho 1 VIDEO (rỗng vô nghĩa cho Artist/Album, tab Cover không áp dụng được cho
+         * Video). Giờ rẽ nhánh theo `cached.mediaType`:
+         *   - Video: tab "Chi tiết" đổi hẳn sang thông số kỹ thuật (tên file gốc/dung lượng/codec/
+         *     độ phân giải/fps/thời lượng/bitrate/codec+bitrate âm thanh/ngày tải) + GIỮ Lượt phát/
+         *     Đã nghe (dùng CHUNG songStatsMap, key-agnostic — xem core/listen-stats.js). Tab "Sửa"
+         *     chỉ còn 1 ô "Tên hiển thị" (customName). Tab "Ảnh bìa" ẨN HẲN (Video không có khái
+         *     niệm ảnh bìa tự chọn).
+         *   - Song: GIỮ NGUYÊN 100% hành vi cũ.
+         * Đọc `getVideoRecord()` (service/db.js, data layer — ngoại lệ Rule 3) để lấy field CHỈ có
+         * trên record thô (codec/fps/bitrate/audioCodec/audioBitrate/customName/blob.size) —
+         * `playlistCache` (Adapter shape) không có các field này.
+         */
         async function openSongEditModal(key) {
             const cached = appState.get('playlistCache').get(key); if (!cached) return;
             playlistStore.set({ songEditCurrentKey: key, songEditPendingCover: null });
-            songEditTitleInput.value = cached.tag.title || '';
-            songEditArtistInput.value = cached.tag.artist || '';
-            songEditAlbumInput.value = cached.tag.album || '';
+            revokeSongEditPendingPreview(); // an toàn cho CẢ 2 nhánh — dọn preview còn sót từ lần mở TRƯỚC (nếu có)
 
-            revokeSongEditPendingPreview();
-            setSongEditCoverPreview(cached.cover ? URL.createObjectURL(cached.cover) : DEFAULT_VINYL);
-            // Object URL trên chỉ sống trong lúc modal mở (preview ảnh HIỆN TẠI, không phải pending);
-            // gán vào songEditPendingCoverPreviewUrl để được revoke đồng bộ lúc đóng modal/đổi ảnh.
-            if (cached.cover) playlistStore.set({ songEditPendingCoverPreviewUrl: songEditCoverPreview.src });
+            const isVideo = cached.mediaType === 'video';
+            songEditTabBtnCover.classList.toggle('hidden', isVideo);
+            songEditFieldsSongGroup.classList.toggle('hidden', isVideo);
+            songEditFieldsVideoGroup.classList.toggle('hidden', !isVideo);
 
-            // MỚI (10/07/2026) — nội dung tab "Chi tiết" (gộp từ song-info-modal cũ, xem
-            // songInfoRowHtml() bên dưới) — giờ populate NGAY tại đây thay vì openSongInfoModal()
-            // riêng (đã xoá).
-            const stats = getSongStats(key); // { count, totalTime }
+            const stats = getSongStats(key); // core/listen-stats.js — key-agnostic (Map<string,...>), dùng chung được cho videoKey
             const emptyVal = t('playlistView.songInfo.empty');
-            songEditTabDetails.innerHTML =
-                songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0', 'bg-sky-500/15 text-sky-400', t('playlistView.songInfo.fieldTitle'), cached.tag.title || emptyVal) +
-                songInfoRowHtml('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', 'bg-violet-500/15 text-violet-400', t('playlistView.songInfo.fieldArtist'), cached.tag.artist || emptyVal) +
-                songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0', 'bg-emerald-500/15 text-emerald-400', t('playlistView.songInfo.fieldAlbum'), cached.tag.album || emptyVal) +
-                songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-amber-500/15 text-amber-400', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration)) +
-                songInfoRowHtml('M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', 'bg-rose-500/15 text-rose-400', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count })) +
-                songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-indigo-500/15 text-indigo-400', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime));
+
+            if (isVideo) {
+                const videoRecord = await getVideoRecord(key); // service/db.js
+                songEditCustomNameInput.value = videoRecord ? (videoRecord.customName || '') : '';
+                songEditCustomNameInput.placeholder = videoRecord ? stripFileExtension(videoRecord.filename) : ''; // core/file-manager/video.js — bỏ đuôi mở rộng khỏi gợi ý mặc định
+
+                const resolutionText = (videoRecord && videoRecord.width && videoRecord.height) ? `${videoRecord.width}×${videoRecord.height}` : emptyVal;
+                const fpsText = (videoRecord && videoRecord.fps) ? `${parseFloat(videoRecord.fps).toFixed(videoRecord.fps % 1 === 0 ? 0 : 2)}` : emptyVal;
+                const bitrateText = (videoRecord && videoRecord.bitrate) ? `${(videoRecord.bitrate / 1000000).toFixed(1)} Mbps` : emptyVal;
+                const audioBitrateText = (videoRecord && videoRecord.audioBitrate) ? `${Math.round(videoRecord.audioBitrate / 1000)} kbps` : emptyVal;
+                const fileSizeText = (videoRecord && videoRecord.blob) ? formatBytes(videoRecord.blob.size) : emptyVal; // core/about-stats.js — hàm định dạng thuần
+                const addedDateText = (videoRecord && videoRecord.addedAt) ? new Date(videoRecord.addedAt).toLocaleDateString(navigator.language) : emptyVal;
+
+                songEditTabDetails.innerHTML =
+                    songInfoRowHtml('M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'bg-sky-500/15 text-sky-400', t('playlistView.songInfo.fieldFilename'), (videoRecord && videoRecord.filename) ? escapeHtml(videoRecord.filename) : emptyVal) +
+                    songInfoRowHtml('M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4', 'bg-slate-500/15 text-slate-300', t('playlistView.songInfo.fieldFileSize'), fileSizeText) +
+                    songInfoRowHtml('M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3', 'bg-violet-500/15 text-violet-400', t('playlistView.songInfo.fieldCodec'), (videoRecord && videoRecord.codec) || emptyVal) +
+                    songInfoRowHtml('M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4', 'bg-emerald-500/15 text-emerald-400', t('playlistView.songInfo.fieldResolution'), resolutionText) +
+                    songInfoRowHtml('M13 10V3L4 14h7v7l9-11h-7z', 'bg-yellow-500/15 text-yellow-400', t('playlistView.songInfo.fieldFps'), fpsText) +
+                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-amber-500/15 text-amber-400', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration)) +
+                    songInfoRowHtml('M13 7h8m0 0v8m0-8l-8 8-4-4-6 6', 'bg-orange-500/15 text-orange-400', t('playlistView.songInfo.fieldBitrate'), bitrateText) +
+                    songInfoRowHtml('M9 9a3 3 0 106 0 3 3 0 00-6 0zm0 0v.01M15 9v.01M9 15a3 3 0 106 0 3 3 0 00-6 0z', 'bg-fuchsia-500/15 text-fuchsia-400', t('playlistView.songInfo.fieldAudioCodec'), (videoRecord && videoRecord.audioCodec) || emptyVal) +
+                    songInfoRowHtml('M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M6 8H4a1 1 0 00-1 1v6a1 1 0 001 1h2l4 4V4L6 8z', 'bg-cyan-500/15 text-cyan-400', t('playlistView.songInfo.fieldAudioBitrate'), audioBitrateText) +
+                    songInfoRowHtml('M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', 'bg-rose-500/15 text-rose-400', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count })) +
+                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-indigo-500/15 text-indigo-400', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime)) +
+                    songInfoRowHtml('M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', 'bg-teal-500/15 text-teal-400', t('playlistView.songInfo.fieldAddedAt'), addedDateText);
+            } else {
+                songEditTitleInput.value = cached.tag.title || '';
+                songEditArtistInput.value = cached.tag.artist || '';
+                songEditAlbumInput.value = cached.tag.album || '';
+
+                setSongEditCoverPreview(cached.cover ? URL.createObjectURL(cached.cover) : DEFAULT_VINYL);
+                // Object URL trên chỉ sống trong lúc modal mở (preview ảnh HIỆN TẠI, không phải pending);
+                // gán vào songEditPendingCoverPreviewUrl để được revoke đồng bộ lúc đóng modal/đổi ảnh.
+                if (cached.cover) playlistStore.set({ songEditPendingCoverPreviewUrl: songEditCoverPreview.src });
+
+                songEditTabDetails.innerHTML =
+                    songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z', 'bg-sky-500/15 text-sky-400', t('playlistView.songInfo.fieldTitle'), cached.tag.title || emptyVal) +
+                    songInfoRowHtml('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', 'bg-violet-500/15 text-violet-400', t('playlistView.songInfo.fieldArtist'), cached.tag.artist || emptyVal) +
+                    songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0', 'bg-emerald-500/15 text-emerald-400', t('playlistView.songInfo.fieldAlbum'), cached.tag.album || emptyVal) +
+                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-amber-500/15 text-amber-400', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration)) +
+                    songInfoRowHtml('M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', 'bg-rose-500/15 text-rose-400', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count })) +
+                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-indigo-500/15 text-indigo-400', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime));
+            }
 
             setSongEditTab('details'); // MẶC ĐỊNH mở tab "Chi tiết" trước (đúng yêu cầu Giang — Info là tab đầu)
             songEditModal.classList.remove('hidden');
@@ -475,6 +522,46 @@
             };
             const pendingCover = playlistStore.get('songEditPendingCover');
             return { key, newTag, pendingCover };
+        }
+
+        /**
+         * MỚI (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — bản Video của
+         * captureSongEditFormState() ngay trên — chỉ đọc 1 ô customName (không có tag/cover).
+         * @returns {{key: string|null, customName: string}}
+         */
+        function captureVideoEditFormState() {
+            const key = playlistStore.get('songEditCurrentKey');
+            return { key, customName: songEditCustomNameInput.value.trim() };
+        }
+
+        /**
+         * Bản Video của applySongEditAndSave() ngay trên — VIẾT RIÊNG (không gọi
+         * core/file-manager/video.js::setVideoCustomName(), core gọi core khác file VẪN là core
+         * gọi core — Rule 3 áp dụng bất kể ranh giới file) — inline 2 dòng ghi customName trực
+         * tiếp tại đây.
+         * @param {string} key
+         * @param {string} customName - rỗng = xoá tên riêng, rơi về filename gốc (đã bỏ đuôi mở
+         *        rộng) khi hiển thị.
+         * @returns {{status: 'notFound'|'ok'}}
+         */
+        async function applyVideoEditAndSave(key, customName) {
+            const record = await getVideoRecord(key); // service/db.js
+            if (!record) return { status: 'notFound' };
+            record.customName = customName || null;
+            await setVideoRecord(key, record); // service/db.js
+
+            const displayName = record.customName || stripFileExtension(record.filename); // core/file-manager/video.js
+            const cached = appState.get('playlistCache').get(key);
+            if (cached) cached.tag.title = displayName;
+            appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(displayName)));
+
+            if (key === appState.get('currentKey')) {
+                playerTitle.textContent = displayName;
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.metadata = new MediaMetadata({ title: displayName, artist: '', artwork: [] });
+                }
+            }
+            return { status: 'ok' };
         }
 
         /**

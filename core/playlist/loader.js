@@ -341,13 +341,13 @@
                 validKeys.push(record.key);
                 appState.mutate('playlistCache', m => m.set(record.key, {
                     filename: record.filename,
-                    tag: { title: record.customName || record.filename, artist: '', album: '' }, // Adapter shape — MỚI (Batch 5, mục 6c) ưu tiên customName (tên hiển thị người dùng tự đặt), rơi về filename gốc nếu chưa đặt
+                    tag: { title: record.customName || stripFileExtension(record.filename), artist: '', album: '' }, // Adapter shape — MỚI (Batch 5, mục 6c) ưu tiên customName; SỬA (phản hồi Giang 28/07) bỏ đuôi mở rộng khi rơi về filename gốc
                     cover: record.thumbBlob || null, // Blob THÔ — giống HỆT Song (record.cover) — buildSongNode() (core/playlist/render.js, dùng CHUNG, KHÔNG đụng) tự URL.createObjectURL(cached.cover) lúc render + tự revoke qua node._coverObjectUrl. KHÔNG được tự tạo URL ở đây (trước đây làm sai chỗ này -> render gọi createObjectURL() LẦN 2 trên 1 string, ném TypeError).
                     duration: record.duration,
                     addedAt: record.addedAt,
                     mediaType: 'video',
                 }));
-                appState.mutate('songNameIndex', m => m.set(record.key, normalizeSongName(record.customName || record.filename)));
+                appState.mutate('songNameIndex', m => m.set(record.key, normalizeSongName(record.customName || stripFileExtension(record.filename))));
             }
             console.log(`writer: "buildVideoPlaylistCache", page: "playlistCache", content: "đã nạp ${validKeys.length} video"`);
             return validKeys;
