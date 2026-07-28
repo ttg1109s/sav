@@ -206,7 +206,7 @@ const TPL_PLAYLIST_VIEW = `
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                         <span data-i18n="playlistView.songEdit.tabFields">${t('playlistView.songEdit.tabFields')}</span>
                     </button>
-                    <button data-edit-tab="cover" class="song-edit-tab-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400">
+                    <button id="song-edit-tab-btn-cover" data-edit-tab="cover" class="song-edit-tab-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M4 8h.01M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z" /></svg>
                         <span data-i18n="playlistView.songEdit.tabCover">${t('playlistView.songEdit.tabCover')}</span>
                     </button>
@@ -218,28 +218,42 @@ const TPL_PLAYLIST_VIEW = `
                  (core/playlist/actions.js::openSongEditModal(), dùng songInfoRowHtml()). -->
             <div id="song-edit-tab-details" class="flex flex-col gap-2 p-5"></div>
 
-            <!-- Tab 2: Sửa (title/artist/album, SỬA được) — ĐỔI TÊN từ "Thông tin" (tab đầu cũ) —
-                 mỗi input có icon trái nhỏ để dễ nhận diện trường ngay từ ánh nhìn đầu. -->
+            <!-- Tab 2: Sửa — ĐỔI TÊN từ "Thông tin" (tab đầu cũ) — 2 nhóm LOẠI TRỪ NHAU tuỳ media
+                 type (SỬA phản hồi Giang 28/07/2026, "video/song modal": Song = 3 field title/
+                 artist/album như cũ; Video = CHỈ 1 ô tên hiển thị, KHÔNG có 3 tag) — JS
+                 (core/playlist/actions.js::openSongEditModal()) tự ẩn/hiện ĐÚNG 1 group. -->
             <div id="song-edit-tab-fields" class="hidden flex-col gap-3 p-5">
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide ml-0.5" data-i18n="playlistView.songEdit.fieldTitle">${t('playlistView.songEdit.fieldTitle')}</label>
+                <div id="song-edit-fields-song-group" class="flex flex-col gap-3">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide ml-0.5" data-i18n="playlistView.songEdit.fieldTitle">${t('playlistView.songEdit.fieldTitle')}</label>
+                        <div class="relative">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
+                            <input type="text" id="song-edit-title" class="w-full bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors">
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide ml-0.5" data-i18n="playlistView.songEdit.fieldArtist">${t('playlistView.songEdit.fieldArtist')}</label>
+                        <div class="relative">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                            <input type="text" id="song-edit-artist" class="w-full bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors">
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide ml-0.5" data-i18n="playlistView.songEdit.fieldAlbum">${t('playlistView.songEdit.fieldAlbum')}</label>
+                        <div class="relative">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0" /></svg>
+                            <input type="text" id="song-edit-album" class="w-full bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors">
+                        </div>
+                    </div>
+                </div>
+                <!-- MỚI (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — nhóm Video:
+                     CHỈ 1 ô "Tên hiển thị" (customName) — KHÔNG có title/artist/album (Video không
+                     có 3 tag ID3 để sửa). -->
+                <div id="song-edit-fields-video-group" class="hidden flex-col gap-1.5">
+                    <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide ml-0.5" data-i18n="playlistView.songEdit.fieldCustomName">${t('playlistView.songEdit.fieldCustomName')}</label>
                     <div class="relative">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
-                        <input type="text" id="song-edit-title" class="w-full bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors">
-                    </div>
-                </div>
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide ml-0.5" data-i18n="playlistView.songEdit.fieldArtist">${t('playlistView.songEdit.fieldArtist')}</label>
-                    <div class="relative">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                        <input type="text" id="song-edit-artist" class="w-full bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors">
-                    </div>
-                </div>
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide ml-0.5" data-i18n="playlistView.songEdit.fieldAlbum">${t('playlistView.songEdit.fieldAlbum')}</label>
-                    <div class="relative">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0" /></svg>
-                        <input type="text" id="song-edit-album" class="w-full bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors">
+                        <input type="text" id="song-edit-custom-name" class="w-full bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors">
                     </div>
                 </div>
             </div>
