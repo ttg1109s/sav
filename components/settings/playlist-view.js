@@ -56,8 +56,9 @@ const TPL_SETTINGS_PLAYLIST_VIEW = `
                      ĐỌC-THÔI (không phải control), đặt CUỐI section (SAU "Sắp xếp" — 2 dòng trên là
                      control tương tác dùng thường xuyên, dòng thông tin phụ này đặt cuối theo đúng
                      nguyên tắc "mục dùng thường xuyên lên đầu" đã ghi ở docstring đầu file). JS
-                     (PlaylistMain.updateActiveFolderBadge(), core/playlist/main.js) tự đồng bộ chữ
-                     lúc mở Settings + ngay khi Scope đổi (không cần đợi reload). -->
+                     (PlaylistMain.updateActiveFolderUI(), core/playlist/main.js) tự đồng bộ chữ
+                     lúc mở Settings + ngay khi Scope đổi (không cần đợi reload) — CÙNG HÀM này còn
+                     khoá <select> "Nguồn" ngay phía trên khi đang có Scope (mục 2, phản hồi Giang). -->
                 <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
                     <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.activeFolder.label">${t('settingsPlaylistBg.activeFolder.label')}</span>
                     <span id="setting-playlist-active-folder" class="text-xs text-slate-400 truncate max-w-[128px]">${t('settingsPlaylistBg.activeFolder.none')}</span>
