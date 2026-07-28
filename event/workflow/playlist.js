@@ -273,6 +273,27 @@ const workflowPlaylist = {
         workflowSubtitleModal.navigateToEditor(key);
     },
 
+    /**
+     * MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — 2 hành động RIÊNG
+     * của Video trong menu 3 chấm (Set làm nền / Sửa video) — CÙNG PRECEDENT với
+     * openSubtitleEditorForSongMenu() ngay trên (đọc key đang mở menu, đóng menu, TÁI DÙNG NGUYÊN
+     * `workflowFileManagerVideo.setVideoAsBackground()`/`navigateToVideoEdit()` — 2 hàm nghiệp vụ
+     * ĐÃ CÓ SẴN từ "File Manager → Video" cũ, KHÔNG viết lại, chỉ đổi nơi gọi, đúng CHỐT mục 6d).
+     */
+    async setActiveMenuVideoAsBackground() {
+        const key = playlistStore.get('songActionMenuKey');
+        if (!key) return;
+        closeSongActionMenu();
+        await workflowFileManagerVideo.setVideoAsBackground(key); // event/workflow/file-manager-video.js — Workflow gọi Workflow miền khác, tự do
+    },
+
+    navigateToActiveMenuVideoEdit() {
+        const key = playlistStore.get('songActionMenuKey');
+        if (!key) return;
+        closeSongActionMenu();
+        workflowFileManagerVideo.navigateToVideoEdit(key);
+    },
+
     async openAddToFolderPickerForSongMenu() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return;
@@ -499,26 +520,40 @@ const workflowPlaylist = {
      * "Xoá hàng loạt" — ĐÚNG luồng bác chốt (câu 4 mục 6 plan): nếu bài đang phát nằm trong tập bị
      * xoá, ép DỪNG phát + về UI Playlist NGAY (không hỏi/không chặn, khác hẳn window.removeSong
      * đơn lẻ vốn chặn xoá nếu đang thực sự phát) -> bật shield -> xoá -> tắt shield -> modal "đã xoá".
+     * SỬA (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — media-aware: chọn
+     * nhiều CHỈ xảy ra trong ĐÚNG 1 nguồn tại 1 thời điểm (Playlist chỉ browse 1 nguồn) nên đọc
+     * `activeMediaSource` MỘT LẦN cho CẢ LÔ, không cần kiểm tra từng key. TRƯỚC ĐÂY hardcode
+     * getSongRecord/deleteSongRecord — Video sẽ ÂM THẦM không xoá được gì (record nằm store khác).
      */
     async deleteSelectedSongs() {
         const keys = Array.from(appState.get('selectedSongKeys'));
         if (keys.length === 0) return;
+        const isVideo = appState.get('activeMediaSource') === 'video';
 
         const currentKey = appState.get('currentKey');
         const wasPlayingSelected = currentKey != null && keys.includes(currentKey);
 
         if (wasPlayingSelected) {
-            // Dừng player + dọn RAM — GIỐNG HỆT khối tương ứng trong window.removeSong() (đơn lẻ)/
-            // clearAllStoredData() (storage-manager.js) khi currentKey biến mất, để không còn
-            // currentKey "ma". Khác 2 nơi đó: KHÔNG kiểm tra audioPlayer.paused — ép dừng vô điều
-            // kiện, đúng ý bác (không chặn/không hỏi, chỉ dừng rồi xoá).
-            if (appState.get('currentObjectURL')) { URL.revokeObjectURL(appState.get('currentObjectURL')); appState.set('currentObjectURL', null); }
-            if (appState.get('currentCoverObjectURL')) { URL.revokeObjectURL(appState.get('currentCoverObjectURL')); appState.set('currentCoverObjectURL', null); }
-            audioPlayer.pause(); audioPlayer.src = ''; appState.set('currentKey', null);
-            playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
-            if (typeof killAllAutoSwitchVisualTasks === 'function') killAllAutoSwitchVisualTasks();
-            forceBackToPlaylistUI(); // "về playui" — ép UI về màn Playlist ngay, TRƯỚC khi hiện shield
-            setVisualizerActiveFalse(); // MỚI (08/07/2026, HOTFIX 10) — forceBackToPlaylistUI() không còn tự set nữa
+            if (isVideo) {
+                // Dừng player Video + dọn RAM — dùng ĐÚNG hàm có sẵn (event/workflow/video-
+                // player.js), tránh tự inline lại logic cần _objectUrl riêng của Workflow đó.
+                if (appState.get('isVideoPlayerMode')) await workflowVideoPlayer.exitVideoPlayerMode();
+                appState.set('currentKey', null);
+                playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
+                forceBackToPlaylistUI();
+            } else {
+                // Dừng player + dọn RAM — GIỐNG HỆT khối tương ứng trong window.removeSong() (đơn lẻ)/
+                // clearAllStoredData() (storage-manager.js) khi currentKey biến mất, để không còn
+                // currentKey "ma". Khác 2 nơi đó: KHÔNG kiểm tra audioPlayer.paused — ép dừng vô điều
+                // kiện, đúng ý bác (không chặn/không hỏi, chỉ dừng rồi xoá).
+                if (appState.get('currentObjectURL')) { URL.revokeObjectURL(appState.get('currentObjectURL')); appState.set('currentObjectURL', null); }
+                if (appState.get('currentCoverObjectURL')) { URL.revokeObjectURL(appState.get('currentCoverObjectURL')); appState.set('currentCoverObjectURL', null); }
+                audioPlayer.pause(); audioPlayer.src = ''; appState.set('currentKey', null);
+                playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
+                if (typeof killAllAutoSwitchVisualTasks === 'function') killAllAutoSwitchVisualTasks();
+                forceBackToPlaylistUI(); // "về playui" — ép UI về màn Playlist ngay, TRƯỚC khi hiện shield
+                setVisualizerActiveFalse(); // MỚI (08/07/2026, HOTFIX 10) — forceBackToPlaylistUI() không còn tự set nữa
+            }
         }
 
         let deletedCount = 0;
@@ -526,12 +561,14 @@ const workflowPlaylist = {
             // Vòng lặp xoá ĐẶT THẲNG ở đây (workflow), KHÔNG bọc qua 1 lớp "core" giả — mỗi bước
             // (đọc record, cascade folder, xoá record, xoá stat) là 1 hàm core void nối tiếp nhau,
             // đúng vai trò workflow (Rule 3: core không được làm việc này, workflow thì được).
+            const getRecordFn = isVideo ? getVideoRecord : getSongRecord; // service/db.js
             const deletedKeys = [];
             for (const key of keys) {
-                const record = await getSongRecord(key);
+                const record = await getRecordFn(key);
                 if (!record) continue; // guard: đã bị xoá từ trước (hiếm, race) — bỏ qua, không chặn cả lô
-                await removeSongFromAllFolders(record); // core có sẵn (core/file-manager/folder.js)
-                await deleteSongRecord(key); // core CRUD thô (service/db.js)
+                await removeSongFromAllFolders(record); // core có sẵn (core/file-manager/folder.js) — nhận record THÔ qua tham số, generic cho cả Song/Video
+                if (isVideo) await deleteVideo(key); // core/file-manager/video.js
+                else await deleteSongRecord(key); // core CRUD thô (service/db.js)
                 removeSongStats(key); // core có sẵn (core/listen-stats.js)
                 deletedKeys.push(key);
             }

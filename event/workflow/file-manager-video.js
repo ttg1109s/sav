@@ -1,124 +1,49 @@
 /**
- * event/workflow/file-manager-video.js — MỚI (21/07/2026), File Manager -> Video. "THẰNG THỰC THI
- * CUỐI" cho panel Video. Mirror event/workflow/file-manager-photo.js — NHƯNG đơn giản hơn hẳn:
- * KHÔNG có Album (Giang chốt), lưới CSS Grid full-width thay fjGallery justified (xem
- * event/workflow/video-gallery-window.js).
+ * event/workflow/file-manager-video.js — MỚI (21/07/2026). Chỉ còn LOGIC NGHIỆP VỤ của Video
+ * (thêm/xoá, phân tích thumbnail+mediainfo lúc upload, set làm nền, mở Video Editor) + picker
+ * Generic Drawer "Use background video" (Visualizer Control Center) — KHÔNG còn UI panel riêng.
  *
- * SỬA (21/07/2026, cùng ngày, Giang yêu cầu "bấm video KHÔNG phát trình chạy, chỉ hiện dropdown
- * menu") — bấm 1 tile (ngoài chế độ xoá nhanh) giờ mở dropdown (core/dropdown-menu.js, xem
- * `openVideoTileActionMenu()`) với 3 lựa chọn (Set as bg video/Edit video/Xoá) — THAY HẲN
- * `openVideoPreview()` (fullscreen player, `core/file-manager/video-ui.js::openVideoPreviewModal()`)
- * — file đó giờ KHÔNG còn ai gọi tới (nợ kỹ thuật đã biết, chưa xoá hẳn file, cùng tinh thần
- * "setAsSlideshowBackground() chưa có UI gọi tới" đã áp dụng cho Photo trước đây).
+ * XOÁ (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang "làm luôn 6d") — TOÀN BỘ
+ * phần dựng UI/panel "File Manager → Video" (openPanel()/_buildHeaderActionHtml()/
+ * _wireHeaderActionEvents()/triggerUploadInput()/refresh() — lưới CSS Grid + nút xoá nhanh) ĐÃ XOÁ
+ * HẲN, cùng lúc:
+ *   - `openVideoTileActionMenu()` (dropdown 3 lựa chọn trên tile) — "Set as bg video"/"Edit video"
+ *     dời sang menu 3 chấm DÙNG CHUNG của Playlist (2 nút mới, ẩn/hiện theo mediaType —
+ *     `components/playlist-view.js` + `core/playlist/actions.js::openSongActionMenu()` +
+ *     `event/workflow/playlist.js::setActiveMenuVideoAsBackground()`/
+ *     `navigateToActiveMenuVideoEdit()`, TÁI DÙNG NGUYÊN `setVideoAsBackground()`/
+ *     `navigateToVideoEdit()` bên dưới, chỉ đổi nơi gọi). "Xoá" giờ dùng chung
+ *     `window.removeSong()` (core/playlist/actions.js, ĐÃ sửa media-aware) — `confirmDeleteSingleVideo()`
+ *     (modal confirm riêng, dùng `deleteVideo()`) ĐÃ XOÁ, không còn nơi gọi.
+ *   - Toàn bộ "chế độ xoá nhanh" (`promptQuickDeleteMode()`/`toggleQuickDeleteMarkInSet()`/
+ *     `updateQuickDeleteModeUI()`/`_updateQuickDeleteButtonTitle()`/`confirmQuickDeleteBatch()`) ĐÃ
+ *     XOÁ — tính năng CHỈ tồn tại trong lưới panel đã bỏ, không có UI nào khác dùng tới.
+ *   - Upload video giờ vào từ Playlist (Batch 6, mục 7 — `#video-upload-input`,
+ *     event/router/playlist.js case 'playlist.upload.videoFileChange') — `uploadVideos()` GIỮ
+ *     NGUYÊN 100% thân hàm (per-file error isolation, resolveVideoKey/saveVideo/extract thumb+
+ *     mediainfo, tự `refreshVideoPlaylistIfActive()`), chỉ bỏ đoạn dọn input CỦA PANEL CŨ (đã chết,
+ *     input mới ở Playlist tự dọn value trong chính listener của nó).
+ *   - Settings row "Video" riêng (components/settings/file-manager-section.js) ĐÃ BỎ — chỉ còn
+ *     "Song & Video" (đã gộp từ Batch 5).
  *
- * NẠP SAU: core/file-manager/video.js, core/dropdown-menu.js, core/settings-panel-stack-
- * ui.js (pushSettingsPanel), event/workflow/video-gallery-window.js, event/workflow/video-player.js
- * (workflowVideoPlayer — dùng bởi refreshVideoPlaylistIfActive() ngay dưới).
+ * `event/workflow/video-gallery-window.js` KHÔNG xoá — vẫn được dùng bởi
+ * `openVideoBgPicker()`/`_teardownVideoPicker()` bên dưới (mount/unmount 'genericDrawer'), chỉ
+ * riêng lời gọi `mount('videoGrid', ...)`/`setTileBadge()`/`setBadgeMode()` (của panel/lưới/xoá
+ * nhanh đã xoá) không còn ai gọi tới nữa.
  *
- * [SỬA — ver12 "Song/Video Unification", Batch 2] Checkbox "Video Player mode" + 2 hàm
- * `enablePlayerModeFromPanel()`/`disablePlayerModeFromPanel()` (từng gọi trực tiếp
- * `workflowVideoPlayer.enterVideoPlayerMode()`/`exitVideoPlayerMode()`) ĐÃ BỎ HẲN khỏi file này —
- * entry point vào Video Player mode giờ DUY NHẤT qua Playlist + toggle Nguồn, xem
- * event/workflow/video-player.js::startFromPlaylist() + core/playlist/actions.js::window.playSong().
+ * NẠP SAU: core/file-manager/video.js, core/generic-drawer.js, event/workflow/video-gallery-
+ * window.js, event/workflow/video-player.js (workflowVideoPlayer — dùng bởi
+ * refreshVideoPlaylistIfActive() ngay dưới).
  */
-let fileManagerVideoPanelEl = null; // panel Video đang mở — null nếu đang đóng (cùng khuôn fileManagerPhotoPanelEl)
-let _videoPickerSession = null; // MỚI (Batch 2) — session picker Generic Drawer (chọn 1 video làm nền), cùng khuôn _imagePickerSession (file-manager-photo.js)
+let _videoPickerSession = null; // session picker Generic Drawer (chọn 1 video làm nền), cùng khuôn _imagePickerSession (file-manager-photo.js)
 
 /** MỚI (ver12 "Song/Video Unification", Batch 3, mục 4 plan) — cạnh thumbnail vuông cố định, THAY
  * hẳn `VIDEO_THUMBNAIL_SCALE_RATIO` cũ (resize theo tỉ lệ gốc, không vuông — không đồng nhất với
  * cover Song/thumbnail Photo, đều vuông). CHỈ áp dụng cho video upload MỚI từ đây trở đi (video cũ
- * đã regen 1 lần qua tool `tools/migrate-video-thumbs-320.js` — Giang xác nhận chạy xong tốt, tool
- * đó ĐÃ XOÁ ở Batch 4, xem readme/changelog/v12.md mục 20). */
+ * đã regen 1 lần qua tool đã xoá ở Batch 4, xem readme/changelog/v12.md mục 20). */
 const VIDEO_THUMBNAIL_SIZE = 320;
 
 const workflowFileManagerVideo = {
-
-    /** Ứng với 'fileManagerVideo.openPanel.click'. `fullBleed: true` — lưới video tràn viền, cùng
-     * khuôn panel Photo. Trình tự: trượt xong HẲN -> bật shield -> tải DOM lưới -> tắt shield (cùng
-     * lý do đã áp dụng cho Photo — đo DOM lúc panel còn đang trượt vào cho kết quả sai). */
-    async openPanel() {
-        fileManagerVideoPanelEl = pushSettingsPanel({
-            title: t('fileManager.video.title'),
-            bodyHtml: renderFileManagerVideoPanelBody(),
-            fullBleed: true,
-            headerActionHtml: this._buildHeaderActionHtml(),
-        });
-        this._wireHeaderActionEvents();
-
-        await new Promise((resolve) => taskManager.once(resolve, SLIDER_PANEL_SCROLL_ESTIMATED_MS, 'fileManagerVideoOpenPanel')); // core/slider-panel-scroll.js
-
-        await withLoadingShield(t('fileManager.video.loadingTitle'), async () => { // core/loading-shield-util.js
-            await this.refresh();
-        });
-    },
-
-    _buildHeaderActionHtml() {
-        return `
-            <button id="btn-file-manager-video-upload-trigger" class="w-8 h-8 flex items-center justify-center rounded-full bg-sky-500 hover:bg-sky-400 transition-colors text-white shrink-0" title="${t('fileManager.video.uploadTitle')}">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-            </button>
-            <button id="btn-file-manager-video-delete-mode" class="hidden w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0" title="${t('fileManager.video.quickDeleteTitle')}">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-            </button>
-            <input type="file" id="file-manager-video-upload-input" accept="video/*" multiple class="hidden">
-        `;
-    },
-
-    /** Wire 2 nút vừa dựng trong header — panel push CHỈ 1 LẦN/lần mở, wire Ở ĐÂY (không phải
-     * `refresh()`, tránh gắn listener trùng nhiều lần lên CÙNG 1 nút tĩnh). Nút "+" dispatch qua
-     * eventBus (KHÔNG gọi thẳng `.click()` input — Router quyết định, cùng khuôn Photo dù ở Video
-     * không có branching nào để quyết định — vẫn giữ round-trip qua Router cho nhất quán kiến trúc,
-     * dễ audit "mọi tương tác đều qua eventBus").
-     * [SỬA — ver12 "Song/Video Unification", Batch 2] Checkbox "Video Player mode" (từng wire
-     * CHUNG ở đây, cùng `enablePlayerModeFromPanel()`/`disablePlayerModeFromPanel()` ngay dưới) ĐÃ
-     * BỎ HẲN — entry point vào Video Player mode giờ DUY NHẤT qua Playlist + toggle Nguồn
-     * (`window.playSong()` dispatch theo `mediaType`, xem core/playlist/actions.js +
-     * event/workflow/video-player.js::startFromPlaylist(), tránh 2 đường vào cùng 1 mode — xem
-     * plan-v12-song-video-unification.md mục 3). */
-    _wireHeaderActionEvents() {
-        const uploadBtn = fileManagerVideoPanelEl.querySelector('#btn-file-manager-video-upload-trigger');
-        if (uploadBtn) uploadBtn.addEventListener('click', () => {
-            eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.uploadTrigger.click', payload: {} });
-        });
-        // (change của uploadInput wire ở event/listener/file-manager-video.js — delegated qua settingsStackBody)
-        const deleteModeBtn = fileManagerVideoPanelEl.querySelector('#btn-file-manager-video-delete-mode');
-        if (deleteModeBtn) deleteModeBtn.addEventListener('click', () => {
-            eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.deleteMode.click', payload: {} });
-        });
-    },
-
-    /** Ứng với 'fileManagerVideo.uploadTrigger.click' (Router gọi thẳng, không cần VirtualMachineState
-     * — chỉ 1 đích duy nhất, khác Photo vốn cần rẽ nhánh theo đang lọc album hay không). */
-    triggerUploadInput() {
-        if (!fileManagerVideoPanelEl) return;
-        const uploadInput = fileManagerVideoPanelEl.querySelector('#file-manager-video-upload-input');
-        if (uploadInput) uploadInput.click();
-    },
-
-    /** Đọc lại toàn bộ video, vẽ lại lưới + nút xoá nhanh. Dùng lại ở MỌI nơi cần vẽ lại lưới (mở
-     * panel, upload xong, xoá xong, bật/tắt/xác nhận xoá nhanh) — cùng khuôn `refresh()` Photo.
-     * @param {boolean} [videoQuickDeleteMode]
-     * @param {Set<string>} [quickDeleteSelectedKeys]
-     */
-    async refresh(videoQuickDeleteMode = false, quickDeleteSelectedKeys = new Set()) {
-        if (!fileManagerVideoPanelEl) return; // guard: panel đã đóng
-        const videos = await listVideos(); // core/file-manager/video.js
-
-        const emptyEl = fileManagerVideoPanelEl.querySelector('#file-manager-video-empty');
-        if (emptyEl) emptyEl.classList.toggle('hidden', videos.length > 0);
-
-        const deleteModeBtn = fileManagerVideoPanelEl.querySelector('#btn-file-manager-video-delete-mode');
-        if (deleteModeBtn) deleteModeBtn.classList.toggle('hidden', videos.length === 0);
-        this._updateQuickDeleteButtonTitle(quickDeleteSelectedKeys, videoQuickDeleteMode);
-
-        const scrollEl = fileManagerVideoPanelEl.querySelector('#file-manager-video-scroll');
-        workflowVideoGalleryWindow.mount('videoGrid', { // event/workflow/video-gallery-window.js
-            scrollEl,
-            videos,
-            badgeMode: videoQuickDeleteMode ? 'quickDelete' : null,
-            selectedKeys: quickDeleteSelectedKeys,
-        });
-    },
 
     /** Chụp 1 khung hình + đọc thời lượng của 1 file video, crop VUÔNG cố định
      * `VIDEO_THUMBNAIL_SIZE`×`VIDEO_THUMBNAIL_SIZE` (center-crop cạnh dài về giữa — MỚI, ver12
@@ -136,42 +61,34 @@ const workflowFileManagerVideo = {
         return new Promise((resolve, reject) => {
             const objectUrl = URL.createObjectURL(file);
             const videoEl = document.createElement('video');
-            videoEl.preload = 'metadata';
-            videoEl.muted = true; // tránh xin quyền âm thanh không cần thiết lúc chỉ đọc metadata/chụp khung hình
+            videoEl.muted = true;
             videoEl.playsInline = true;
-
-            function cleanupAndReject(err) {
-                URL.revokeObjectURL(objectUrl);
-                reject(err);
-            }
+            let settled = false;
+            const cleanup = () => { try { URL.revokeObjectURL(objectUrl); } catch (e) {} };
+            const cleanupAndReject = (err) => { if (settled) return; settled = true; cleanup(); reject(err); };
+            const safetyTimeout = taskManager.once(() => cleanupAndReject(new Error('[_extractVideoThumbAndMeta] timeout đọc video')), 8000);
 
             videoEl.addEventListener('loadedmetadata', () => {
-                const duration = videoEl.duration;
-                const width = videoEl.videoWidth;
-                const height = videoEl.videoHeight;
+                const width = videoEl.videoWidth, height = videoEl.videoHeight;
                 if (!width || !height) { cleanupAndReject(new Error('[_extractVideoThumbAndMeta] video không có kích thước hợp lệ')); return; }
-                videoEl.currentTime = Math.min(1, (duration || 0) / 2);
+                videoEl.currentTime = Math.min(1, videoEl.duration / 2 || 0);
             }, { once: true });
 
             videoEl.addEventListener('seeked', () => {
-                const width = videoEl.videoWidth;
-                const height = videoEl.videoHeight;
-                // Center-crop cạnh dài về giữa — vùng crop nguồn LUÔN là 1 hình vuông cạnh
-                // min(width,height), lấy chính giữa cả 2 chiều, rồi vẽ lên canvas
-                // VIDEO_THUMBNAIL_SIZE×VIDEO_THUMBNAIL_SIZE (co giãn nếu vùng crop khác kích cỡ đó).
-                const cropSize = Math.min(width, height);
-                const sx = (width - cropSize) / 2;
-                const sy = (height - cropSize) / 2;
+                if (settled) return;
+                safetyTimeout.kill();
+                const width = videoEl.videoWidth, height = videoEl.videoHeight;
+                const side = Math.min(width, height);
+                const sx = (width - side) / 2, sy = (height - side) / 2;
                 const canvas = document.createElement('canvas');
-                canvas.width = VIDEO_THUMBNAIL_SIZE;
-                canvas.height = VIDEO_THUMBNAIL_SIZE;
+                canvas.width = VIDEO_THUMBNAIL_SIZE; canvas.height = VIDEO_THUMBNAIL_SIZE;
                 const ctx = canvas.getContext('2d');
-                ctx.drawImage(videoEl, sx, sy, cropSize, cropSize, 0, 0, VIDEO_THUMBNAIL_SIZE, VIDEO_THUMBNAIL_SIZE);
-                URL.revokeObjectURL(objectUrl);
+                ctx.drawImage(videoEl, sx, sy, side, side, 0, 0, VIDEO_THUMBNAIL_SIZE, VIDEO_THUMBNAIL_SIZE);
                 canvas.toBlob((thumbBlob) => {
+                    settled = true; cleanup();
                     if (!thumbBlob) { reject(new Error('[_extractVideoThumbAndMeta] canvas.toBlob trả về null')); return; }
                     resolve({ thumbBlob, width, height, duration: videoEl.duration || 0 });
-                }, 'image/jpeg', 0.82);
+                }, 'image/jpeg', 0.85);
             }, { once: true });
 
             videoEl.addEventListener('error', () => cleanupAndReject(new Error('[_extractVideoThumbAndMeta] không đọc được video')), { once: true });
@@ -188,7 +105,7 @@ const workflowFileManagerVideo = {
      * `_extractVideoThumbAndMeta()` ở `uploadVideos()` ngay dưới — mediainfo chỉ là dữ liệu PHỤ,
      * không có cũng không sao, khác hẳn thumbnail/duration là BẮT BUỘC).
      * @param {Blob} blob - blob video GỐC.
-     * @returns {Promise<{format: string, codec: string, fps: string, bitrate: number}>}
+     * @returns {Promise<{codec: string, fps: string, bitrate: number, audioCodec: string, audioBitrate: number}>}
      */
     async _extractVideoMediaInfo(blob) {
         if (typeof MediaInfo === 'undefined') return {}; // guard: CDN lỗi mạng/chưa tải kịp — không chặn upload
@@ -201,10 +118,6 @@ const workflowFileManagerVideo = {
             const generalTrack = tracks.find((tr) => tr['@type'] === 'General') || {};
             const videoTrack = tracks.find((tr) => tr['@type'] === 'Video') || {};
             const audioTrack = tracks.find((tr) => tr['@type'] === 'Audio') || {};
-            // SỬA (phản hồi Giang 28/07/2026) — bỏ hẳn `format` (định dạng container, vd "MPEG-4" —
-            // Giang yêu cầu bỏ, ít giá trị vì hầu hết video đều .mp4). THÊM audioCodec/audioBitrate
-            // (Giang: tab "Chi tiết" trước đó thiếu thông tin — video luôn có track âm thanh, hiện
-            // ĐỦ cả 2 track thay vì chỉ video).
             return {
                 codec: videoTrack.Format || videoTrack.CodecID || '',
                 fps: videoTrack.FrameRate || generalTrack.FrameRate || '',
@@ -220,9 +133,11 @@ const workflowFileManagerVideo = {
         }
     },
 
-    /** Ứng với 'fileManagerVideo.upload.change'. Lỗi 1 file (vd file hỏng) KHÔNG chặn cả lô upload
-     * — bắt riêng, bỏ qua đúng file đó, tiếp tục file sau (Rule 1: vẫn 1 tiến trình "upload cả lô").
-     * @param {FileList} files
+    /** Ứng với 'playlist.upload.videoFileChange' (Batch 6, mục 7 — trước đây
+     * 'fileManagerVideo.upload.change', gọi từ panel đã xoá). Lỗi 1 file (vd file hỏng) KHÔNG chặn
+     * cả lô upload — bắt riêng, bỏ qua đúng file đó, tiếp tục file sau (Rule 1: vẫn 1 tiến trình
+     * "upload cả lô").
+     * @param {FileList|File[]} files
      */
     async uploadVideos(files) {
         const fileArray = Array.from(files);
@@ -236,7 +151,7 @@ const workflowFileManagerVideo = {
                     // MỚI (Batch 5, mục 6c) — mediaInfo là dữ liệu PHỤ (KHÔNG throw nếu lỗi, xem
                     // docstring _extractVideoMediaInfo()) nên gọi TÁCH RIÊNG try/catch của bước
                     // trên — 1 file lỗi phân tích mediainfo vẫn upload bình thường, chỉ thiếu
-                    // format/codec/fps/bitrate ở tab Chi tiết.
+                    // codec/fps/bitrate ở tab Chi tiết.
                     const mediaInfo = await this._extractVideoMediaInfo(file);
                     await saveVideo(file, file.name, thumbBlob, width, height, duration, mediaInfo); // core/file-manager/video.js
                 } catch (err) {
@@ -245,70 +160,25 @@ const workflowFileManagerVideo = {
                 }
             }
         });
-        if (fileManagerVideoPanelEl) {
-            const uploadInput = fileManagerVideoPanelEl.querySelector('#file-manager-video-upload-input');
-            if (uploadInput) uploadInput.value = ''; // cho phép chọn lại đúng file cũ ở lần sau
-        }
-        await this.refresh();
+        // XOÁ (Batch 6, mục 6d) — đoạn dọn `#file-manager-video-upload-input` (input CỦA PANEL CŨ,
+        // đã xoá hẳn) từng nằm ở đây — input MỚI (`#video-upload-input`, Playlist) tự dọn value
+        // NGAY trong chính listener của nó (event/listener/playlist.js), không cần workflow lo.
         // MỚI (21/07/2026, Giang chỉ ra "không cập nhật lại list của video") — nếu Playlist đang
-        // browse nguồn Video (vẫn tới được panel này lúc đó, xem event/workflow/video-player.js::
-        // handleBackToPlaylistFromVideoMode()), làm mới playlistCache/playlistOrder NGAY để
-        // Next/Prev thấy được video vừa upload — KHÔNG cần đổi Nguồn tắt/bật lại.
-        // [SỬA — ver12 "Song/Video Unification", Batch 2] Guard đổi từ isVideoPlayerMode sang
-        // activeMediaSource — xem docstring refreshVideoPlaylistIfActive().
+        // browse nguồn Video, làm mới playlistCache/playlistOrder NGAY để Next/Prev thấy được video
+        // vừa upload — KHÔNG cần đổi Nguồn tắt/bật lại.
         await workflowVideoPlayer.refreshVideoPlaylistIfActive(); // event/workflow/video-player.js — tự guard activeMediaSource, no-op nếu Playlist không ở nguồn Video
         const successCount = fileArray.length - failedCount;
         await alertModal(tFormat('fileManager.video.uploadSuccess', { count: successCount }));
     },
 
-    /** Ứng với 'fileManagerVideo.video.click' khi videoQuickDeleteMode=false (xem router).
-     * SỬA (21/07/2026, Giang yêu cầu "bấm vào video KHÔNG phát trình chạy, chỉ hiện dropdown menu")
-     * — THAY HẲN `openVideoPreview()` (fullscreen player) cũ — giờ mở dropdown (core/dropdown-
-     * menu.js) NGAY tại tile.
-     * XOÁ (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — lựa chọn "Chi tiết"
-     * (`openVideoInfoModal()` riêng, core/file-manager/video-ui.js) ĐÃ BỎ HẲN, không viết lại nữa
-     * — "Chi tiết"/đổi tên giờ CHỈ còn 1 đường DUY NHẤT: menu 3 chấm ở Playlist (browse nguồn
-     * Video) → "Sửa" → `openSongEditModal()` (core/playlist/actions.js, đã video-aware) — panel
-     * File Manager → Video này SẼ BỊ XOÁ HẲN ở 6d (chờ Batch 6), không đáng xây/giữ 2 đường song
-     * song cho cùng 1 tính năng chỉ để dùng tạm. Còn lại 3 lựa chọn: Set as bg video / Edit video /
-     * Xoá.
-     * @param {string} videoKey
-     * @param {HTMLElement} anchorEl - tile vừa bấm, dùng để định vị dropdown.
-     */
-    openVideoTileActionMenu(videoKey, anchorEl) {
-        const dispatch = (action) => eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.tileMenu.action.click', payload: { action, videoKey } });
-        openDropdownMenu(anchorEl, [ // core/dropdown-menu.js
-            {
-                icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg>',
-                name: t('fileManager.video.btnSetAsBgVideo'),
-                callback: () => dispatch('setAsBgVideo'),
-            },
-            {
-                icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3"/></svg>',
-                name: t('fileManager.video.editVideo.label'),
-                callback: () => dispatch('editVideo'),
-            },
-            {
-                icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>',
-                name: t('fileManager.video.btnDelete'),
-                callback: () => dispatch('delete'),
-                destructive: true,
-            },
-        ]);
-    },
-
-    /** Ứng với 'fileManagerVideo.tileMenu.action.click' action='setAsBgVideo' — set THẲNG 1 video
-     * cụ thể làm "Use background video", KHÔNG qua picker Generic Drawer (Batch 2) — tắt hẳn 1 bước
-     * (đã đang xem đúng video này rồi, không cần chọn lại). Cùng KHOÁ CHÉO với Video Player mode
-     * (event/workflow/visualizer-control-center.js::enableVideoBackgroundToggle() — lý do đối
-     * xứng: 2 tính năng dùng chung `bgVideoElement`, không được cùng bật).
-     * SAO KHÔNG DÙNG Block gate (event/block.js) Ở ĐÂY (khác 2 chỗ enable.click kia) — msg.type
-     * 'fileManagerVideo.tileMenu.action.click' DÙNG CHUNG cho CẢ 3 action (setAsBgVideo/editVideo/
-     * delete) qua `payload.action` — đăng ký block trên msg.type này sẽ CHẶN NHẦM cả editVideo/
-     * delete (2 action đó KHÔNG liên quan gì Video Player mode) — ĐÚNG tình huống event/block.js đã
-     * tự ghi chú ("KHÔNG đăng ký block ở đây vì sẽ chặn nhầm cả hành động còn lại", xem entry
-     * 'playlist.actionMenu.addToFolder'/'playlist.selection.moreMenu.select'). Giữ nguyên kiểm tra
-     * thủ công trong hàm — ĐÚNG phạm vi Block gate không cover được, không phải bỏ sót.
+    /** Ứng với 'playlist.actionMenu.setAsBgVideo' (menu 3 chấm Playlist, chỉ hiện khi item là
+     * Video — xem event/workflow/playlist.js::setActiveMenuVideoAsBackground()). GIỮ NGUYÊN 100%
+     * thân hàm so với bản cũ (dropdown tile "File Manager → Video" đã xoá, Batch 6 mục 6d) — chỉ
+     * đổi NƠI GỌI.
+     * SAO KHÔNG DÙNG Block gate cho guard "đang ở Video Player mode" — điều kiện chặn cần đọc
+     * `appState.get('isVideoPlayerMode')` (1 field appState, không so với payload) — VỀ LÝ THUYẾT
+     * Block gate làm được, nhưng giữ code thủ công ở đây để CÙNG 1 chỗ với logic
+     * `withLoadingShield`/`alertModal` ngay sau, dễ đọc hơn tách rời 2 nơi.
      * @param {string} videoKey
      */
     async setVideoAsBackground(videoKey) {
@@ -326,9 +196,9 @@ const workflowFileManagerVideo = {
         await alertModal(t('fileManager.video.setAsBgVideo.success'));
     },
 
-    /** Ứng với 'fileManagerVideo.tileMenu.action.click' action='editVideo' — MỚI (Batch 1, module
-     * Video Editor), THAY placeholder cũ (`showEditVideoPlaceholder()`, chỉ alert "coming soon").
-     * Điều hướng sang trang `video-editor.html`, CÙNG KHUÔN `workflowFileManagerPhoto.
+    /** Ứng với 'playlist.actionMenu.editVideoFile' (menu 3 chấm Playlist, chỉ hiện khi item là
+     * Video). GIỮ NGUYÊN 100% — MỚI (Batch 1, module Video Editor), THAY placeholder cũ. Điều
+     * hướng sang trang `video-editor.html`, CÙNG KHUÔN `workflowFileManagerPhoto.
      * navigateToImageEdit()` (`window.location.href` toàn trang, KHÔNG iframe/popup — 2 trang cùng
      * origin `file://`, dùng chung IndexedDB). TÁI DÙNG NGUYÊN `encodeSongKeyForUrl()`
      * (service/song-key-cipher.js) — hàm đó chỉ mã hoá 1 chuỗi key bất kỳ, không có gì đặc thù
@@ -339,132 +209,14 @@ const workflowFileManagerVideo = {
         window.location.href = `video-editor.html?video=${encodeSongKeyForUrl(videoKey)}`; // service/song-key-cipher.js
     },
 
-    /** Ứng với 'fileManagerVideo.tileMenu.action.click' action='delete' — hỏi xác nhận trước khi
-     * xoá 1 video. SỬA (21/07/2026, Giang yêu cầu) — GUARD MỚI: video ĐANG PHÁT trong Video Player
-     * mode (`currentKey` trùng) -> CHẶN HẲN, báo lý do + yêu cầu chuyển video khác/tắt Player
-     * mode trước — KHÔNG cho xoá (xoá Blob đang được `bgVideoElement`/`audioPlayer` tham chiếu sẽ
-     * làm hỏng phát ngay lập tức).
-     * [SỬA — ver12 "Song/Video Unification", Batch 2] `currentVideoKey` riêng ĐÃ XOÁ — dùng
-     * `currentKey` (package `playlist`, DÙNG CHUNG với Song, do `playVideoByKey()` ghi).
-     * SAO KHÔNG DÙNG Block gate — 2 lý do: (1) msg.type dùng chung cho 3 action, xem docstring
-     * `setVideoAsBackground()` ngay trên; (2) điều kiện chặn cần SO SÁNH `currentKey` (appState)
-     * với `videoKey` (PAYLOAD của message) — Block gate chỉ so 1 field appState với 1 giá trị CỐ
-     * ĐỊNH khai báo sẵn (`value`), KHÔNG so được appState với payload động — nằm ngoài khả năng biểu
-     * đạt của Block gate, PHẢI giữ code thủ công.
-     * @param {string} videoKey
-     */
-    async confirmDeleteSingleVideo(videoKey) {
-        if (appState.get('isVideoPlayerMode') && appState.get('currentKey') === videoKey) {
-            await alertModal(t('fileManager.video.deleteConfirm.blockedByPlaying'));
-            return;
-        }
-        modalChoice( // core/modal-choice.js
-            t('fileManager.video.deleteConfirm.desc'),
-            [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
-                { label: t('fileManager.video.deleteConfirm.confirmBtn'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
-                    await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                        await deleteVideo(videoKey); // core/file-manager/video.js
-                    });
-                    await this.refresh();
-                } },
-            ],
-            { title: t('fileManager.video.deleteConfirm.title') }
-        );
-    },
-
-    /** Hỏi xác nhận TRƯỚC KHI bật chế độ xoá nhanh — cùng khuôn `promptQuickDeleteMode()` Photo. */
-    promptQuickDeleteMode(onConfirm) {
-        modalChoice( // core/modal-choice.js
-            t('fileManager.video.quickDeleteConfirm.desc'),
-            [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
-                { label: t('fileManager.video.quickDeleteConfirm.confirmBtn'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: onConfirm },
-            ],
-            { title: t('fileManager.video.quickDeleteConfirm.title') }
-        );
-    },
-
-    /** Bấm 1 video khi đang bật xoá nhanh — CHỈ toggle vào/ra Set, patch DOM TRỰC TIẾP đúng 1 tile,
-     * KHÔNG `refresh()`/KHÔNG đọc/ghi DB — cùng khuôn `toggleQuickDeleteMarkInSet()` Photo.
-     * @param {string} videoKey
-     * @param {Set<string>} quickDeleteSelectedKeys
-     */
-    toggleQuickDeleteMarkInSet(videoKey, quickDeleteSelectedKeys) {
-        const isNowMarked = !quickDeleteSelectedKeys.has(videoKey);
-        if (isNowMarked) quickDeleteSelectedKeys.add(videoKey);
-        else quickDeleteSelectedKeys.delete(videoKey);
-        workflowVideoGalleryWindow.setTileBadge('videoGrid', videoKey, isNowMarked); // event/workflow/video-gallery-window.js
-        this._updateQuickDeleteButtonTitle(quickDeleteSelectedKeys);
-    },
-
-    /** Bật/tắt chế độ xoá nhanh — CHỈ đổi màu/tiêu đề nút + badge trên tile đang hiển thị, KHÔNG đọc
-     * lại DB/dựng lại lưới (dữ liệu video không đổi lúc này) — cùng khuôn `updateQuickDeleteModeUI()` Photo.
-     * @param {boolean} videoQuickDeleteMode
-     * @param {Set<string>} quickDeleteSelectedKeys
-     */
-    updateQuickDeleteModeUI(videoQuickDeleteMode, quickDeleteSelectedKeys) {
-        if (!fileManagerVideoPanelEl) return;
-        const deleteModeBtn = fileManagerVideoPanelEl.querySelector('#btn-file-manager-video-delete-mode');
-        if (deleteModeBtn) {
-            deleteModeBtn.classList.toggle('bg-rose-500', videoQuickDeleteMode);
-            deleteModeBtn.classList.toggle('bg-white/10', !videoQuickDeleteMode);
-        }
-        this._updateQuickDeleteButtonTitle(quickDeleteSelectedKeys, videoQuickDeleteMode);
-        workflowVideoGalleryWindow.setBadgeMode('videoGrid', videoQuickDeleteMode ? 'quickDelete' : null, quickDeleteSelectedKeys); // event/workflow/video-gallery-window.js
-    },
-
-    /** Patch chuỗi text title nút xoá nhanh — DÙNG CHUNG, tránh lặp logic 2 nơi.
-     * @param {Set<string>} quickDeleteSelectedKeys
-     * @param {boolean} [videoQuickDeleteMode] - mặc định true (gọi từ toggleQuickDeleteMarkInSet chỉ khi ĐANG bật mode).
-     */
-    _updateQuickDeleteButtonTitle(quickDeleteSelectedKeys, videoQuickDeleteMode = true) {
-        if (!fileManagerVideoPanelEl) return;
-        const deleteModeBtn = fileManagerVideoPanelEl.querySelector('#btn-file-manager-video-delete-mode');
-        if (!deleteModeBtn) return;
-        const baseTitle = t('fileManager.video.quickDeleteTitle');
-        deleteModeBtn.title = (videoQuickDeleteMode && quickDeleteSelectedKeys.size > 0) ? `${baseTitle} (${quickDeleteSelectedKeys.size})` : baseTitle;
-    },
-
-    /** Xoá TOÀN BỘ video đã đánh dấu 1 LẦN (gộp N lần xoá thành đúng 1 round-trip + 1 `refresh()`
-     * duy nhất) — cùng khuôn `confirmQuickDeleteBatch()` Photo.
-     * SỬA (21/07/2026, Giang yêu cầu, mở rộng thêm guard cho batch — cùng lý do
-     * `confirmDeleteSingleVideo()`) — video ĐANG PHÁT trong Video Player mode nằm TRONG lô đánh dấu
-     * -> CHẶN HẲN cả lô (không xoá phần còn lại thay thế — đơn giản/an toàn hơn xoá 1 phần rồi báo
-     * riêng), báo lý do, KHÔNG tự bỏ video đó ra rồi xoá phần còn lại.
-     * @param {Set<string>} quickDeleteSelectedKeys
-     * @param {() => void} onConfirmed
-     */
-    async confirmQuickDeleteBatch(quickDeleteSelectedKeys, onConfirmed) {
-        const keys = Array.from(quickDeleteSelectedKeys);
-        if (appState.get('isVideoPlayerMode') && keys.includes(appState.get('currentKey'))) {
-            await alertModal(t('fileManager.video.deleteConfirm.blockedByPlaying'));
-            return;
-        }
-        modalChoice( // core/modal-choice.js
-            tFormat('fileManager.video.quickDeleteBatchConfirm.confirm', { count: keys.length }),
-            [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
-                { label: t('fileManager.video.quickDeleteBatchConfirm.confirmBtn'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
-                    await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                        for (const key of keys) await deleteVideo(key); // core/file-manager/video.js
-                    });
-                    quickDeleteSelectedKeys.clear();
-                    onConfirmed(); // Router tự đồng bộ videoQuickDeleteMode=false — ĐÚNG lúc này, không sớm hơn
-                    await this.refresh(false, quickDeleteSelectedKeys);
-                } },
-            ],
-            { title: t('fileManager.video.quickDeleteBatchConfirm.title') }
-        );
-    },
-
     // ===================== Batch 2 (21/07/2026) — Picker Generic Drawer cho "Use background
     // video" (event/workflow/visualizer-control-center.js::enableVideoBackgroundToggle()). Mirror
     // ĐÚNG `openCoverImagePicker()`/`_openImagePickerDrawer()` (file-manager-photo.js) — nhưng đơn
     // giản hơn hẳn: Video CHỈ có 1 chế độ picker DUY NHẤT (single-select, tap = chọn ngay) — Giang
     // chốt KHÔNG có "Upload mới ngay trong drawer" (khác Photo, đôi khi có confirmButton cho
     // multi-select album) — nên KHÔNG cần field `mode`/`showConfirmButton` nào trong session, đơn
-    // giản hoá tối đa so với bản Photo. =====================================================
+    // giản hoá tối đa so với bản Photo. KHÔNG bị đụng bởi Batch 6/6d — độc lập hoàn toàn với panel
+    // "File Manager → Video" đã xoá. =====================================================
 
     /** Mở Generic Drawer chọn 1 video CÓ SẴN trong thư viện Video — DÙNG CHUNG cho MỌI nơi cần
      * "chọn 1 video làm nền" (hiện tại chỉ có Settings -> "Use background video", nhưng viết tổng
