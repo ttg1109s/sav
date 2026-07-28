@@ -80,24 +80,43 @@ function renderFileManagerSongPanelBody() {
                     </div>
                 </div>
 
-                <!-- SECTION: GIẢI PHÓNG BỘ NHỚ (dời từ storage-drawer.js, id giữ nguyên) -->
+                <!-- SECTION: GIẢI PHÓNG BỘ NHỚ — SỬA (Batch 5, "Song/Video Unification" mục 6b):
+                     2 nút tách rời cũ (Tải xuống rồi xoá / Xoá không tải) THAY bằng 3 field cấu
+                     hình độc lập: phạm vi (Song/Video/Cả hai) + 2 toggle (Tải xuống trước/Xoá khỏi
+                     thư viện) + 1 nút Thực hiện (disable khi cả 2 toggle tắt). Đồng bộ qua
+                     event/workflow/file-manager-song.js::updateStorageActionUI(). -->
                 <div>
-                    <h3 class="text-xs font-bold text-rose-400 uppercase tracking-widest mb-2 ml-2" data-i18n="storageDrawer.freeSpaceSectionTitle">${t('storageDrawer.freeSpaceSectionTitle')}</h3>
+                    <h3 class="text-xs font-bold text-rose-400 uppercase tracking-widest mb-2 ml-2" data-i18n="fileManager.song.storageAction.sectionTitle">${t('fileManager.song.storageAction.sectionTitle')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                        <button id="btn-storage-download-then-clear" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
-                            <div>
-                                <div class="text-sm font-medium text-emerald-300" data-i18n="storageDrawer.downloadThenClear.label">${t('storageDrawer.downloadThenClear.label')}</div>
-                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="storageDrawer.downloadThenClear.hint">${t('storageDrawer.downloadThenClear.hint')}</div>
+                        <div class="p-4 border-b border-white/5">
+                            <div class="text-xs font-medium text-slate-400 mb-2" data-i18n="fileManager.song.storageAction.scopeLabel">${t('fileManager.song.storageAction.scopeLabel')}</div>
+                            <div class="flex gap-2">
+                                <button type="button" data-storage-scope="song" class="flex-1 py-2 rounded-lg text-sm font-semibold transition-colors bg-sky-500 text-white" data-i18n="fileManager.song.storageAction.scope.song">${t('fileManager.song.storageAction.scope.song')}</button>
+                                <button type="button" data-storage-scope="video" class="flex-1 py-2 rounded-lg text-sm font-semibold transition-colors bg-white/5 text-slate-300" data-i18n="fileManager.song.storageAction.scope.video">${t('fileManager.song.storageAction.scope.video')}</button>
+                                <button type="button" data-storage-scope="both" class="flex-1 py-2 rounded-lg text-sm font-semibold transition-colors bg-white/5 text-slate-300" data-i18n="fileManager.song.storageAction.scope.both">${t('fileManager.song.storageAction.scope.both')}</button>
                             </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-8-4V4m0 0L8 8m4-4l4 4" /></svg>
-                        </button>
-                        <button id="btn-storage-clear-no-download" class="flex justify-between items-center p-4 hover:bg-rose-500/10 transition-colors w-full text-left">
-                            <div>
-                                <div class="text-sm font-medium text-rose-400" data-i18n="storageDrawer.clearNoDownload.label">${t('storageDrawer.clearNoDownload.label')}</div>
-                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="storageDrawer.clearNoDownload.hint">${t('storageDrawer.clearNoDownload.hint')}</div>
+                        </div>
+                        <div class="flex justify-between items-center p-4 border-b border-white/5">
+                            <div class="pr-3">
+                                <div class="text-sm font-medium" data-i18n="fileManager.song.storageAction.downloadToggle.label">${t('fileManager.song.storageAction.downloadToggle.label')}</div>
+                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="fileManager.song.storageAction.downloadToggle.hint">${t('fileManager.song.storageAction.downloadToggle.hint')}</div>
                             </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="toggle-storage-download" class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 shadow-inner"></div>
+                            </label>
+                        </div>
+                        <div class="flex justify-between items-center p-4 border-b border-white/5">
+                            <div class="pr-3">
+                                <div class="text-sm font-medium text-rose-300" data-i18n="fileManager.song.storageAction.deleteToggle.label">${t('fileManager.song.storageAction.deleteToggle.label')}</div>
+                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="fileManager.song.storageAction.deleteToggle.hint">${t('fileManager.song.storageAction.deleteToggle.hint')}</div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="toggle-storage-delete" class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-500 shadow-inner"></div>
+                            </label>
+                        </div>
+                        <button id="btn-storage-execute" disabled class="p-4 text-sm font-bold text-slate-300 hover:bg-white/5 transition-colors disabled:opacity-40 disabled:pointer-events-none" data-i18n="fileManager.song.storageAction.btnExecute">${t('fileManager.song.storageAction.btnExecute')}</button>
                     </div>
                 </div>
 
