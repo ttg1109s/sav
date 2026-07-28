@@ -14,6 +14,11 @@
         // động). Cùng xử lý chung qua handleAudioFiles() ở core/playlist/loader.js.
         const folderInput = document.getElementById('audio-upload-folder');
         const btnUploadAudio = document.getElementById('btn-upload-audio'), uploadActionMenu = document.getElementById('upload-action-menu');
+        // MỚI (ver12 "Song/Video Unification", Batch 6, mục 7) — "Thêm video" TÁCH RIÊNG hẳn khỏi
+        // #upload-action-menu (container ĐỘC LẬP, không phải cùng 1 container ẩn/hiện nội dung con)
+        // — CÙNG lý do platform-compat <label> bọc input thật ở fileInput/folderInput phía trên.
+        const videoUploadInput = document.getElementById('video-upload-input');
+        const videoUploadMenu = document.getElementById('video-upload-menu');
         // Ver 12 "Multi Media" (plan-v12-multimedia.md mục 4.b1) — "Chọn nhiều" trong Playlist.
         const btnToggleSelection = document.getElementById('btn-toggle-selection');
         const selectionActionBar = document.getElementById('selection-action-bar'), selectionCountLabel = document.getElementById('selection-count-label');
@@ -25,7 +30,8 @@
         // triệu chứng "không tải được file/thư mục" (và mọi thứ khác) mà không rõ nguyên nhân. Log
         // rõ NGAY TẠI ĐÂY (đúng phần tử nào bị thiếu) trước khi lỗi mơ hồ xảy ra ở file khác.
         [['fileInput', fileInput, 'audio-upload'], ['folderInput', folderInput, 'audio-upload-folder'],
-         ['btnUploadAudio', btnUploadAudio, 'btn-upload-audio'], ['uploadActionMenu', uploadActionMenu, 'upload-action-menu']]
+         ['btnUploadAudio', btnUploadAudio, 'btn-upload-audio'], ['uploadActionMenu', uploadActionMenu, 'upload-action-menu'],
+         ['videoUploadInput', videoUploadInput, 'video-upload-input'], ['videoUploadMenu', videoUploadMenu, 'video-upload-menu']]
             .forEach(([varName, el, id]) => {
                 if (!el) console.error(`[dom-refs] KHÔNG tìm thấy #${id} trong DOM (biến ${varName} = null) — chức năng nạp nhạc sẽ lỗi ngay khi loader.js gắn event listener.`);
             });
@@ -294,7 +300,9 @@
         // plan-v12-multimedia-decisions.md mục 1a/7. Không còn overlay/tab-bar cấp cao nữa.
         const btnOpenFileManagerSong = document.getElementById('setting-open-file-manager-song');
         const btnOpenFileManagerPhoto = document.getElementById('setting-open-file-manager-photo');
-        const btnOpenFileManagerVideo = document.getElementById('setting-open-file-manager-video'); // MỚI (21/07/2026)
+        // XOÁ (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) —
+        // btnOpenFileManagerVideo (hàng Settings riêng cho panel Video) — panel đó đã gộp hẳn vào
+        // "Song & Video" (btnOpenFileManagerSong ngay trên), không còn tồn tại độc lập.
         const btnOpenFileManagerDocument = document.getElementById('setting-open-file-manager-document');
         // MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager.
         const btnFileManagerCleanupRun = document.getElementById('btn-file-manager-cleanup-run');
@@ -362,6 +370,12 @@
         // nơi DUY NHẤT gọi getElementById", áp dụng riêng cho phần tử bị tái tạo động qua innerHTML.
         const songActionMenu = document.getElementById('song-action-menu');
         const songActionOverlay = document.getElementById('song-action-overlay');
+        // MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — 4 nút cần gate
+        // hiện/ẩn theo mediaType trong openSongActionMenu() (core/playlist/actions.js).
+        const songMenuBtnEditSubtitles = document.getElementById('song-menu-btn-edit-subtitles');
+        const songMenuBtnRestore = document.getElementById('song-menu-btn-restore');
+        const songMenuBtnSetBgVideo = document.getElementById('song-menu-btn-set-bg-video');
+        const songMenuBtnEditVideo = document.getElementById('song-menu-btn-edit-video');
         const playbackErrorModal = document.getElementById('playback-error-modal');
         const playbackErrorFilename = document.getElementById('playback-error-filename');
         const btnPlaybackErrorKeep = document.getElementById('playback-error-keep');
