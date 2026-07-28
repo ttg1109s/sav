@@ -53,22 +53,56 @@
          * rõ vì sao.
          * @param {string} key
          */
+        /**
+         * SỬA (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — TRƯỚC ĐÂY hàm
+         * này hardcode `deleteSongRecord()` + kiểm tra "đang thực sự phát" qua `audioPlayer.paused`
+         * — cả 2 SAI cho Video (record Video nằm store khác hẳn `deleteSongRecord()` không đọc
+         * được — xoá ÂM THẦM KHÔNG THÀNH CÔNG dù UI tưởng đã xoá xong; Video phát qua
+         * `bgVideoElement`, không phải `audioPlayer`, nên chốt chặn "đang phát" chưa từng kích hoạt
+         * cho Video). Phát hiện lúc xoá dropdown tile "File Manager → Video" (đường xoá Video DUY
+         * NHẤT từng hoạt động đúng, qua `confirmDeleteSingleVideo()` → `deleteVideo()`) — giờ nút
+         * "Xoá" DÙNG CHUNG trong menu 3 chấm Playlist là đường xoá Video DUY NHẤT còn lại, phải
+         * hoạt động đúng. Hàm này VỐN ĐÃ mixed core/workflow (dùng alertModal/withLoadingShield —
+         * "core không biết shield/modal" không áp dụng ở đây từ trước) nên gọi thẳng
+         * `workflowVideoPlayer.exitVideoPlayerMode()` (thay vì tự inline lại y hệt logic đó, vốn
+         * cần đọc `_objectUrl`/`_thumbObjectUrl` riêng của Workflow đó) — nhất quán với cách file
+         * này VỐN đã không tuân Rule 1-4 nghiêm ngặt cho hàm cụ thể này.
+         */
         window.removeSong = function(key) {
             const cached = appState.get('playlistCache').get(key);
             const title = cached && cached.tag && cached.tag.title ? cached.tag.title : (cached ? cached.filename : key);
+            const isVideo = !!(cached && cached.mediaType === 'video');
             const isCurrent = key === appState.get('currentKey');
+            const isActuallyPlaying = isVideo ? (appState.get('isVideoPlayerMode') && !bgVideoElement.paused) : !audioPlayer.paused;
 
-            if (isCurrent && !audioPlayer.paused) {
+            if (isCurrent && isActuallyPlaying) {
                 alertModal(tFormat('playlistView.songMenu.deleteBlockedPlaying', { title }));
                 return;
             }
 
             return withLoadingShield(t('common.loading.deleting'), async () => {
-                await deleteSongRecord(key);
-                removeSongStats(key); // dọn luôn thống kê nghe của bài đã xoá
+                // MỚI (phát hiện thêm lúc sửa Video, phản hồi Giang) — TRƯỚC ĐÂY hàm này (kể cả
+                // nhánh Song) KHÔNG dọn tham chiếu folder trước khi xoá record, khác hẳn
+                // deleteSelectedSongs() (xoá hàng loạt, event/workflow/playlist.js) VỐN ĐÃ gọi
+                // removeSongFromAllFolders() đúng thứ tự — để lại "ghost" trong folder_song nếu
+                // bài/video đó đang nằm trong 1 folder. Sửa đối xứng cho CẢ 2 nhánh.
+                const getRecordFn = isVideo ? getVideoRecord : getSongRecord;
+                const record = await getRecordFn(key);
+                if (record) await removeSongFromAllFolders(record); // core/file-manager/folder.js
+
+                if (isVideo) await deleteVideo(key); // core/file-manager/video.js
+                else await deleteSongRecord(key);
+                removeSongStats(key); // dọn luôn thống kê nghe của bài đã xoá — key-agnostic, dùng chung được cho Video
                 removeKeyFromDisplay(key);
 
-                if (isCurrent) {
+                if (isCurrent && isVideo) {
+                    // Video đang là currentKey (đã pause, hoặc chưa từng phát) — dọn bgVideoElement/
+                    // trạng thái Video Player mode qua ĐÚNG hàm đã có sẵn (event/workflow/
+                    // video-player.js), tránh tự inline lại (cần _objectUrl riêng của Workflow đó).
+                    if (appState.get('isVideoPlayerMode')) await workflowVideoPlayer.exitVideoPlayerMode();
+                    appState.set('currentKey', null);
+                    playerTitle.textContent = t('bottomPlayer.noSongSelected'); playerArtist.textContent = '---';
+                } else if (isCurrent) {
                     // Bài vừa xoá là currentKey (đang pause) — dọn player/UI giống hệt khối tương ứng
                     // trong clearAllStoredData() (storage-manager.js) để không còn currentKey "ma".
                     if (appState.get('currentObjectURL')) { URL.revokeObjectURL(appState.get('currentObjectURL')); appState.set('currentObjectURL', null); }
@@ -259,8 +293,24 @@
         // (event/store.js), KHÔNG còn là biến `let` closure riêng của file này, để router (khi
         // cần đọc/ghi cùng state) và core đều thấy ĐÚNG 1 nguồn duy nhất.
 
+        /**
+         * SỬA (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — gate hiện/ẩn 4
+         * nút theo `cached.mediaType`: Video ẩn "Sửa phụ đề"/"Xuất file" (không áp dụng — Video
+         * không có ID3 tag/không dùng subtitle-editor kiểu Song), HIỆN "Set làm nền"/"Sửa video"
+         * (mới, THAY 2 lựa chọn tương ứng đã mất khi xoá dropdown tile "File Manager → Video").
+         * Song giữ NGUYÊN 4 nút cũ, ẩn 2 nút Video. Đọc thẳng `playlistCache` (đã có sẵn ngay tại
+         * đây, KHÔNG cần fetch gì thêm) — guard `cached` rỗng thì coi như Song (giữ hành vi cũ,
+         * không chặn mở menu chỉ vì thiếu cache).
+         */
         function openSongActionMenu(key, anchorBtn) {
             playlistStore.set({ songActionMenuKey: key });
+            const cached = appState.get('playlistCache').get(key);
+            const isVideo = !!(cached && cached.mediaType === 'video');
+            songMenuBtnEditSubtitles.classList.toggle('hidden', isVideo);
+            songMenuBtnRestore.classList.toggle('hidden', isVideo);
+            songMenuBtnSetBgVideo.classList.toggle('hidden', !isVideo);
+            songMenuBtnEditVideo.classList.toggle('hidden', !isVideo);
+
             const rect = anchorBtn.getBoundingClientRect();
             const menuWidth = 192;
             let left = rect.right - menuWidth;

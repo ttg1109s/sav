@@ -207,8 +207,12 @@
         // — click tự nhiên lên label đã trigger input qua hành vi HTML chuẩn, KHÔNG cần gọi
         // fileInput.click()/folderInput.click() bằng JS nữa (cách cũ "treo" trên một số nền tảng,
         // xem comment ở playlist-view.js).
+        // SỬA (ver12 "Song/Video Unification", Batch 6, mục 7) — đóng CẢ #video-upload-menu (MỚI)
+        // cùng lúc — dùng CHUNG 1 overlay (songActionOverlay) + 1 nút "bấm ra ngoài" cho MỌI menu
+        // nổi trong Playlist, nên đóng menu nào đang mở đều phải qua đúng hàm này.
         function closeUploadActionMenu() {
             uploadActionMenu.classList.add('hidden');
+            videoUploadMenu.classList.add('hidden');
             songActionOverlay.classList.add('hidden');
         }
 
@@ -224,6 +228,27 @@
             uploadActionMenu.style.left = `${left}px`;
             uploadActionMenu.style.top = `${top}px`;
             uploadActionMenu.classList.remove('hidden');
+            songActionOverlay.classList.remove('hidden');
+        }
+
+        /**
+         * MỚI (ver12 "Song/Video Unification", Batch 6, mục 7) — bản Video của
+         * openUploadActionMenu() ngay trên, viết RIÊNG (container ĐỘC LẬP #video-upload-menu, KHÔNG
+         * dùng chung #upload-action-menu — mỗi Nguồn 1 container, không cần đồng bộ ẩn/hiện nhóm
+         * con bên trong 1 container dùng chung). CHỈ 1 mục (chọn file video) nên chiều cao ước
+         * lượng thấp hơn hẳn bản Song (56 so với 110).
+         */
+        function openVideoUploadMenu() {
+            const rect = btnUploadAudio.getBoundingClientRect();
+            const menuWidth = 208;
+            let left = rect.right - menuWidth;
+            if (left < 8) left = 8;
+            let top = rect.bottom + 8;
+            const viewportH = window.innerHeight || 800;
+            if (top + 56 > viewportH) top = rect.top - 56 - 8;
+            videoUploadMenu.style.left = `${left}px`;
+            videoUploadMenu.style.top = `${top}px`;
+            videoUploadMenu.classList.remove('hidden');
             songActionOverlay.classList.remove('hidden');
         }
 
