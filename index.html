@@ -528,8 +528,10 @@
     <script src="core/pagination.js?v=20260714v1"></script>
     <!-- core/file-manager/nav.js ĐÃ XOÁ khỏi đây (Batch D7, batch CUỐI Nhóm D) — file đó giờ
          RỖNG (0 hàm, cả 4 khu vực Song/Folder Detail/Photo/Documents đã chuyển hết sang push/pop
-         động) — XOÁ TAY file core/file-manager/nav.js, không tự động xoá. -->
-    <script src="core/file-manager/folder-list-ui.js?v=20260714v3"></script>
+         động) — XOÁ TAY file core/file-manager/nav.js, không tự động xoá.
+         core/file-manager/folder-list-ui.js ĐÃ XOÁ (Batch 5, "Song/Video Unification" mục 6e) —
+         danh sách folder giờ là grid Generic Drawer, tái dùng components/items.js
+         (itemTemplateFolderTile), xem event/workflow/file-manager-folder-browser.js. -->
     <!-- Phase 2 (mục 1b/c, CHỐT 03/07/2026) — Folder Detail Drawer. CẦN core/file-manager/folder.js
          (getFolderSongKeys) + core/dom-refs.js (đã nạp ngay trên). -->
     <script src="core/file-manager/folder-detail-ui.js?v=20260714v3"></script>
@@ -784,13 +786,24 @@
          scope.js (loadAllSongs/loadSongsFromFolder) + core/db.js (setMeta) + core/playlist/order.js
          + core/playlist/render.js (đã nạp ở nhóm CORE, phía trên nhóm EVENT này). -->
     <script src="event/workflow/playlist-scope.js?v=20260703v3"></script>
-    <!-- Batch D5 (Settings restructure, 06/07/2026) — Song + Folder Detail nay 2 cấp push/pop
-         động TRONG CÙNG 1 ngăn xếp (core/settings-panel-stack-ui.js, đã nạp ở nhóm CORE) — CẦN
-         core/file-manager/folder-list-ui.js/folder-detail-ui.js/core/storage-manager.js (đã đổi
-         sang nhận phần tử qua tham số, đã nạp ở nhóm CORE). -->
-    <script src="event/workflow/file-manager-song.js?v=20260714v5"></script>
-    <script src="event/router/file-manager-song.js?v=20260714v3"></script>
-    <script src="event/listener/file-manager-song.js?v=20260714v2"></script>
+    <!-- Batch D5 (Settings restructure, 06/07/2026) — Song & Video nay push/pop động, CẦN
+         core/storage-manager.js (đã đổi sang nhận phần tử qua tham số, đã nạp ở nhóm CORE).
+         SỬA (Batch 5, "Song/Video Unification" mục 6e) — Folder Detail (folder-detail-ui.js) KHÔNG
+         còn "2 cấp push/pop" — quản lý folder giờ ở Generic Drawer riêng (event/workflow/
+         file-manager-folder-browser.js, nạp NGAY DƯỚI). -->
+    <script src="event/workflow/file-manager-song.js?v=20260727v6"></script>
+    <script src="event/router/file-manager-song.js?v=20260727v4"></script>
+    <!-- MỚI (Batch 5, "Song/Video Unification" mục 6e) — Folder Browser, Generic Drawer List↔Read
+         THAY Folder List/Detail kiểu Settings-panel-stack cũ. CẦN core/generic-drawer.js,
+         components/items.js (renderItemList/itemTemplateFolderTile/buildAddFolderTileHtml),
+         core/file-manager/folder.js, core/file-manager/folder-detail-ui.js (renderFolderDetailSongList/
+         setFolderDetailTitle — TÁI DÙNG NGUYÊN), core/file-manager/folder-picker-ui.js
+         (openRenameFolderModal), core/pagination.js, event/workflow/playlist-scope.js — TẤT CẢ đã
+         nạp ở nhóm CORE/ngay trên. PHẢI nạp TRƯỚC event/listener/file-manager-song.js (nút "Duyệt
+         thư mục" gửi eventBus tới router này). -->
+    <script src="event/workflow/file-manager-folder-browser.js?v=20260727v1"></script>
+    <script src="event/router/file-manager-folder-browser.js?v=20260727v1"></script>
+    <script src="event/listener/file-manager-song.js?v=20260727v3"></script>
     <!-- Batch 8, ver 12 "Multi Media" — cụm "slideshowSettings" (Slideshow nền Visual). PHẢI nạp
          TRƯỚC event/workflow/file-manager-photo.js (gọi workflowSlideshow.clearActiveAlbum() +
          setAsSlideshowBackground() trong cascade/nút "Dùng làm nền Slideshow"). Batch D4 (Settings

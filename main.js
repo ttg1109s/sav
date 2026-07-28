@@ -67,10 +67,12 @@
         // (subtitle-editor.html), không còn modal ở trang chính.
         TPL_BOTTOM_PLAYER +
         // Batch D5 (Settings restructure, 06/07/2026) — TPL_FILE_MANAGER_SONG_DRAWER/
-        // _FOLDER_DETAIL_DRAWER ĐÃ BỎ khỏi mount tĩnh: nội dung giờ là 2 HÀM
-        // (components/file-manager.js::renderFileManagerSongPanelBody()/
-        // renderFileManagerFolderDetailPanelBody()), PUSH ĐỘNG vào ngăn xếp (2 cấp) — xem
-        // event/workflow/file-manager-song.js::openPanel()/openFolderDetail().
+        // _FOLDER_DETAIL_DRAWER ĐÃ BỎ khỏi mount tĩnh: nội dung giờ là 1 HÀM
+        // (components/file-manager.js::renderFileManagerSongPanelBody()), PUSH ĐỘNG vào ngăn xếp —
+        // xem event/workflow/file-manager-song.js::openPanel(). SỬA (Batch 5, "Song/Video
+        // Unification" mục 6e) — panel này giờ tên "Song & Video"; folder giờ quản lý qua Generic
+        // Drawer riêng (renderFileManagerFolderDetailPanelBody()/openFolderDetail() ĐÃ XOÁ hẳn, xem
+        // event/workflow/file-manager-folder-browser.js).
         // Batch D6 (Settings restructure, 06/07/2026) — TPL_FILE_MANAGER_PHOTO_DRAWER ĐÃ BỎ khỏi
         // mount tĩnh: nội dung giờ là 1 HÀM (components/file-manager.js::
         // renderFileManagerPhotoPanelBody()), PUSH ĐỘNG (fullBleed) — xem event/workflow/file-
