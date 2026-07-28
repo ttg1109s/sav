@@ -382,7 +382,7 @@
          3 drawer con (Song/Photo & Album/Documents) mở thẳng từ section "File Manager" vừa thêm
          ở settings/file-manager-section.js, cùng cấp nav-stack với About/Visualizer Settings
          Drawer bên dưới. THAY components/storage-drawer.js (About -> Storage cũ, không còn mount). -->
-    <script src="components/file-manager.js?v=20260715v1"></script>
+    <script src="components/file-manager.js?v=20260728v1"></script>
     <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer, khung TRẮNG dùng CHUNG
          cho Document List+Reader — THAY components/document-reader.js/document-picker-drawer.js
          CŨ (ĐÃ XOÁ — xoá tay nếu còn sót trên máy). items.js (mục 3) ĐỘC LẬP với Generic Drawer
@@ -673,7 +673,7 @@
          modalChoice() hỏi xác nhận trước khi xóa). Xem comment đầu file lang/language-settings.js. -->
     <script src="lang/language-settings.js?v=20260627v1"></script>
     <script src="core/id3-export.js?v=20260625v8e"></script>
-    <script src="core/storage-manager.js?v=20260708v1"></script>
+    <script src="core/storage-manager.js?v=20260728v1"></script>
 
     <!-- =====================================================================
          4) VISUALIZERS: hàm vẽ canvas dùng chung (core/visualizer/draw/, mỗi hàm 1 file, MỚI
@@ -797,8 +797,8 @@
          SỬA (Batch 5, "Song/Video Unification" mục 6e) — Folder Detail (folder-detail-ui.js) KHÔNG
          còn "2 cấp push/pop" — quản lý folder giờ ở Generic Drawer riêng (event/workflow/
          file-manager-folder-browser.js, nạp NGAY DƯỚI). -->
-    <script src="event/workflow/file-manager-song.js?v=20260727v6"></script>
-    <script src="event/router/file-manager-song.js?v=20260727v4"></script>
+    <script src="event/workflow/file-manager-song.js?v=20260728v1"></script>
+    <script src="event/router/file-manager-song.js?v=20260728v1"></script>
     <!-- MỚI (Batch 5, "Song/Video Unification" mục 6e) — Folder Browser, Generic Drawer List↔Read
          THAY Folder List/Detail kiểu Settings-panel-stack cũ. CẦN core/generic-drawer.js,
          components/items.js (renderItemList/itemTemplateFolderTile/buildAddFolderTileHtml),
@@ -809,7 +809,7 @@
          thư mục" gửi eventBus tới router này). -->
     <script src="event/workflow/file-manager-folder-browser.js?v=20260728v1"></script>
     <script src="event/router/file-manager-folder-browser.js?v=20260727v1"></script>
-    <script src="event/listener/file-manager-song.js?v=20260727v3"></script>
+    <script src="event/listener/file-manager-song.js?v=20260728v1"></script>
     <!-- Batch 8, ver 12 "Multi Media" — cụm "slideshowSettings" (Slideshow nền Visual). PHẢI nạp
          TRƯỚC event/workflow/file-manager-photo.js (gọi workflowSlideshow.clearActiveAlbum() +
          setAsSlideshowBackground() trong cascade/nút "Dùng làm nền Slideshow"). Batch D4 (Settings
