@@ -21,10 +21,12 @@
  * CŨ của `modalChoice()`, nhưng khuôn đó giờ CHỈ còn là ngoại lệ ĐÃ AUDIT riêng cho chính
  * `modalChoice()` (readme/core-function-conventions.md mục 5a) — file NÀY (docstring bản cũ) từng
  * tự nhận "CÙNG PATTERN với modalChoice()" để suy ra miễn trừ tương tự, ĐÃ bị coi KHÔNG hợp lệ
- * (chưa qua audit chính thức, xem readme/event-bus-flow.md). Giờ nút "Lưu" CHỈ bắn
- * `eventBus.send({router:'fileManagerSong', type:'fileManagerSong.folder.rename.confirm', ...})`
- * — nơi gọi (event/workflow/file-manager-song.js) không còn truyền callback, chỉ truyền `folderId`
- * để đính kèm vào payload.
+ * (chưa qua audit chính thức, xem readme/event-bus-flow.md). Giờ nút "Lưu" CHỈ bắn eventBus.send().
+ *
+ * SỬA (Batch 5, "Song/Video Unification" mục 6e) — router đích đổi từ 'fileManagerSong' sang
+ * 'fileManagerFolderBrowser' (Folder List/Detail cũ kiểu Settings-panel ĐÃ THAY bằng Generic Drawer
+ * List↔Read, xem event/workflow/file-manager-folder-browser.js) — chỉ nơi gọi này là nơi DUY NHẤT
+ * còn dùng modal đổi tên, không cần giữ 2 đích.
  * @param {string} currentName
  * @param {string} folderId
  */
@@ -75,6 +77,6 @@ function openRenameFolderModal(currentName, folderId) {
         const name = inputEl.value.trim();
         if (!name) return; // guard clause thuần — chưa nhập tên thì không làm gì
         closeModal();
-        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.folder.rename.confirm', payload: { folderId, name } });
+        eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.rename.confirm', payload: { folderId, name } });
     });
 }

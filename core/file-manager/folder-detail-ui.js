@@ -1,41 +1,17 @@
 /**
- * core/file-manager/folder-detail-ui.js — Vẽ Folder Detail Drawer (Phase 2, CHỐT 03/07/2026 —
- * mục 1b/c của yêu cầu). Cùng nguyên tắc với core/file-manager/folder-list-ui.js: hàm THUẦN
- * (không I/O, không appState), nhận dữ liệu đã đọc sẵn qua tham số (Rule 2), nơi gọi (workflow)
- * tự đọc IndexedDB/playlistCache rồi truyền vào.
+ * core/file-manager/folder-detail-ui.js — Vẽ danh sách item + tiêu đề Folder Detail (Phase 2, CHỐT
+ * 03/07/2026 — mục 1b/c). Hàm THUẦN (không I/O, không appState), nhận dữ liệu đã đọc sẵn qua tham
+ * số (Rule 2), nơi gọi (workflow) tự đọc IndexedDB rồi truyền vào.
  *
- * Batch D5 (Settings restructure, 06/07/2026) — panel Folder Detail giờ push/pop động (core/
- * settings-panel-stack.js), 3 dom-refs tĩnh cũ (fileManagerFolderDetailSongList/Empty/Title) ĐÃ
- * XOÁ khỏi core/dom-refs.js — 2 hàm dưới đây giờ nhận phần tử qua tham số.
+ * SỬA (Batch 5, "Song/Video Unification" mục 6e) — `getFolderSongsForDisplay()` (đọc tên/nghệ sĩ
+ * qua `playlistCache`, CHỈ đúng khi Playlist đang browse ĐÚNG loại của folder) ĐÃ XOÁ khỏi file
+ * này — thay bằng `getFolderItemsForDisplay()` (core/file-manager/folder.js, đọc TRỰC TIẾP
+ * `service/db.js`, ĐÚNG bất kể Playlist đang browse nguồn nào). File này giờ CHỈ còn 2 hàm render
+ * thuần — tái dùng NGUYÊN cho cả Folder Browser mới (Generic Drawer, event/workflow/
+ * file-manager-folder-browser.js) lẫn mọi nơi khác cần render y hệt shape này.
  *
  * NẠP SAU: lang/lang.js (t()).
  */
-
-/**
- * Rule 1/2 (pure) — gộp danh sách songKey thật trong 1 folder với thông tin hiển thị (tên/nghệ sĩ)
- * đã có sẵn trong playlistCache. Bài nào không còn trong playlistCache (đã xoá/lỗi, còn sót key
- * trong folder_song) vẫn hiển thị bằng chính songKey làm tên tạm — KHÔNG loại bỏ khỏi danh sách,
- * để người dùng vẫn gỡ được tham chiếu rác đó ra khỏi folder.
- * @param {Object} folderMap - { list, empty } của 1 folder
- * @param {Map} playlistCache
- * @returns {Array<{key: string, title: string, artist: string}>}
- */
-function getFolderSongsForDisplay(folderMap, playlistCache) {
-    // [TỰ SỬA 14/07/2026, tự audit lại Rule 3] — trước đây gọi getFolderSongKeys() (1 core KHÁC ở
-    // core/file-manager/folder.js) rồi biện minh "có return value nên hợp lệ" — SAI theo Rule 3
-    // hiện hành (xem giải thích đầy đủ ở core/file-manager/folder.js::deleteFolder()). Inline TRỰC
-    // TIẾP logic 1 dòng (lọc tombstone null) tại đây, không gọi hàm đó nữa.
-    const keys = folderMap.list.filter((k) => k != null);
-
-    return keys.map((key) => {
-        const cached = playlistCache.get(key);
-        return {
-            key,
-            title: cached ? cached.tag.title : key,
-            artist: cached ? cached.tag.artist : '',
-        };
-    });
-}
 
 /**
  * @param {Array<{key: string, title: string, artist: string}>} songs

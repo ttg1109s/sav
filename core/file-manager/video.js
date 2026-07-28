@@ -79,6 +79,25 @@ async function listVideos() {
     return records.filter(Boolean);
 }
 
+/**
+ * Thống kê Video (số lượng, dung lượng) — MỚI (ver12 "Song/Video Unification", Batch 5, mục 6a),
+ * mirror `computeStats()` (core/about-stats.js, Song) — CỐ Ý viết riêng bản của Video (Rule 3: core
+ * cấm gọi core khác, kể cả hàm gần giống — cùng quy ước đã áp dụng cho `formatVideoDuration()`/
+ * `groupVideosByDay()` trong chính file này).
+ * @returns {Promise<{totalVideos: number, totalBytes: number}>}
+ */
+async function computeVideoStats() {
+    const keys = await getAllVideoKeys();
+    let totalVideos = 0, totalBytes = 0;
+    for (const key of keys) {
+        const record = await getVideoRecord(key);
+        if (!record || !record.blob) continue;
+        totalVideos++;
+        totalBytes += record.blob.size + (record.thumbBlob ? record.thumbBlob.size : 0);
+    }
+    return { totalVideos, totalBytes };
+}
+
 // ===================== Group theo ngày (windowing IntersectionObserver, cùng khuôn Photo) =========
 // 2 hàm THUẦN dưới đây CHUẨN BỊ dữ liệu cho lưới Video — xem event/workflow/video-gallery-window.js.
 // TRÙNG LOGIC với sortImagesByAddedDateDesc()/groupImagesByDay()/formatPhotoDayHeaderLabel() (core/

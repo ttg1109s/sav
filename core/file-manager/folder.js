@@ -203,21 +203,16 @@ async function clearAllFolderSongData() {
  * addSongsToFolder(), KHÔNG gọi ra hàm nào khác — không còn là "core gọi core" nữa nên Rule 3 không
  * áp dụng, đồng thời vẫn giữ đúng Rule 1 (điều phối qua VMState, không if/else tay).
  *
- * `getFolderMembershipState()` GIỮ LẠI là hàm core riêng vì nó CÓ return value và addSongsToFolder
- * DÙNG NGAY giá trị đó để chọn nhánh VMState — đúng tiêu chí "ĐƯỢC" của Rule 3 (kèm console.log
- * callTo bắt buộc, xem bên dưới).
+ * [TỰ SỬA LẦN 3, 27/07/2026, phản hồi Giang — tự audit lại phát hiện SAI Ở LẦN SỬA TRƯỚC]
+ * `getFolderMembershipState()` TỪNG được giữ lại như 1 hàm core RIÊNG (top-level), biện minh
+ * "CÓ return value, đúng tiêu chí Rule 3c" — SAI: điều kiện ĐẦU TIÊN của Rule 3c là hàm con PHẢI là
+ * "closure lồng bên trong, KHÔNG PHẢI hàm top-level riêng" — hàm đó khai `function
+ * getFolderMembershipState(...)` Ở TOP-LEVEL file, không phải closure bên trong
+ * `addSongsToFolder()`, nên KHÔNG đạt điều kiện này — đây VẪN LÀ core gọi core (Rule 3 vi phạm
+ * thật, không phải trường hợp ngoại lệ). Sửa: xoá hẳn hàm top-level đó, INLINE logic 2 dòng của nó
+ * trực tiếp vào bên trong vòng lặp `addSongsToFolder()` (xem bên dưới) — giờ mới thật sự là "code
+ * nội bộ", không gọi ra hàm nào khác, đúng cả Rule 1 lẫn Rule 3.
  */
-
-/**
- * Xác định 1 trong 3 trạng thái LOẠI TRỪ NHAU của "songKey đối với folderId" — pure, không I/O,
- * không mutate gì (chỉ đọc tham số truyền vào, KHÔNG phải appState.get()).
- * @returns {'new'|'tombstoned'|'active'}
- */
-function getFolderMembershipState(record, folderMap, folderId) {
-    if (!(folderId in record.folder)) return 'new';
-    return folderMap.list[record.folder[folderId]] === null ? 'tombstoned' : 'active';
-}
-
 /** Thêm NHIỀU bài vào 1 folder — đúng thuật toán CHỐT ở plan mục 4.b1 "Thêm vào folder".
  *
  * MỚI (Batch 4, "Song/Video Unification" mục 5) — tham số `mediaType` ('song'|'video') + validate
@@ -250,8 +245,12 @@ async function addSongsToFolder(songKeys, folderId, mediaType) {
         if (!record) continue; // guard: bài không còn tồn tại — bỏ qua, không chặn cả lô (early-exit thuần, đúng guard clause)
         if (!record.folder) record.folder = {};
 
-        const membershipState = getFolderMembershipState(record, folderMap, folderId); // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
-        console.log(`[addSongsToFolder] callTo: "getFolderMembershipState", request: "xác định trạng thái thành viên của ${songKey} trong folder ${folderId}"`);
+        // [TỰ SỬA 27/07/2026] INLINE trực tiếp (trước đây gọi getFolderMembershipState(), 1 hàm
+        // core top-level RIÊNG — SAI Rule 3, xem docstring phía trên) — cùng đúng 2 dòng logic,
+        // giờ là CODE NỘI BỘ của addSongsToFolder(), không gọi ra hàm nào khác.
+        const membershipState = !(folderId in record.folder)
+            ? 'new'
+            : (folderMap.list[record.folder[folderId]] === null ? 'tombstoned' : 'active');
         VirtualMachineState.run([
             // 2 callback dưới đây là CODE NỘI BỘ (đóng gói trong chính addSongsToFolder), KHÔNG
             // gọi ra hàm core nào khác -> không phải "core gọi core", Rule 3 không áp dụng.
@@ -354,18 +353,6 @@ async function removeAllSongsFromFolder(folderId) {
 }
 
 /**
- * Đếm số bài THẬT SỰ (không tính tombstone-null) trong 1 folder — dùng hiển thị "X bài" ở danh
- * sách folder (Settings -> File Manager -> Song). MỚI (14/07/2026, Giang yêu cầu).
- * @param {string} folderId
- * @returns {Promise<number>}
- */
-async function getFolderSongCount(folderId) {
-    const folderMap = await getFolderSongMap(folderId);
-    if (!folderMap) return 0;
-    return folderMap.list.filter((k) => k != null).length; // inline, không gọi getFolderSongKeys() — xem giải thích ở deleteFolder()
-}
-
-/**
  * Bật/tắt cờ "loại khỏi view Tất cả" của 1 folder (Scope vs Exclude, MỚI Batch 4, xem
  * plan-v12-song-video-unification.md mục 5). Guard clause thuần (Rule 1) — folder không tồn tại
  * thì dừng sớm, KHÔNG phải rẽ nhánh tiến trình khác.
@@ -401,6 +388,35 @@ async function getExcludedSongKeysFromFolders() {
         for (const key of folderMap.list) { if (key != null) excludedKeys.add(key); }
     }
     return excludedKeys;
+}
+
+/**
+ * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6e) — THAY getFolderSongsForDisplay() cũ
+ * (core/file-manager/folder-detail-ui.js, đọc tên/nghệ sĩ qua `playlistCache` — CHỈ đúng khi
+ * Playlist đang browse ĐÚNG loại của folder đó, vì `playlistCache` chỉ chứa 1 nguồn tại 1 thời
+ * điểm). Đọc TRỰC TIẾP `service/db.js` theo `mediaType` của folder — ĐÚNG bất kể Playlist đang
+ * browse nguồn nào. 1 folder KHÔNG BAO GIỜ trộn 2 loại (khoá type ngay từ item đầu tiên, xem
+ * addSongsToFolder()) nên chỉ cần đọc ĐÚNG 1 store cho toàn bộ danh sách, không phải phán đoán
+ * từng item riêng lẻ.
+ * Bài/video không còn tồn tại (đã xoá, còn sót key trong folder_song) vẫn hiển thị bằng chính key
+ * làm tên tạm — KHÔNG loại khỏi danh sách, để người dùng vẫn gỡ được tham chiếu rác đó.
+ * @param {Object} folderMap - { list, empty } của 1 folder
+ * @param {'song'|'video'|null} mediaType - `folder.type` (hiệu lực) — `null`/rỗng thì folder chưa
+ *        có nội dung, `folderMap.list` lúc đó cũng luôn rỗng nên nhánh nào cũng cho kết quả `[]`.
+ * @returns {Promise<Array<{key: string, title: string, artist: string}>>}
+ */
+async function getFolderItemsForDisplay(folderMap, mediaType) {
+    const keys = folderMap.list.filter((k) => k != null);
+    if (mediaType === 'video') {
+        return Promise.all(keys.map(async (key) => {
+            const record = await getVideoRecord(key); // service/db.js
+            return { key, title: record ? (record.customName || record.filename) : key, artist: '' };
+        }));
+    }
+    return Promise.all(keys.map(async (key) => {
+        const record = await getSongRecord(key); // service/db.js
+        return { key, title: record ? record.tag.title : key, artist: record ? record.tag.artist : '' };
+    }));
 }
 
 /**
