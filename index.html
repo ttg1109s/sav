@@ -347,7 +347,7 @@
     <!-- MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings chung 1 container cuộn
          ngang) — chỉ định nghĩa 2 biến chuỗi mở/đóng khung bọc, xem components/app-view-stack.js. -->
     <script src="components/app-view-stack.js?v=20260708v3"></script>
-    <script src="components/playlist-view.js?v=20260728v3"></script>
+    <script src="components/playlist-view.js?v=20260728v4"></script>
     <script src="components/visualizer-overlay.js?v=20260708v1"></script>
     <!-- components/subtitle-modal.js ĐÃ XOÁ (10/07/2026) — Subtitle Editor chuyển sang trang riêng
          (subtitle-editor.html), KHÔNG còn modal ở trang chính. -->
@@ -491,7 +491,7 @@
          LẠI của /event/ (bus/workflow/router/listener vẫn nạp cuối cùng tuyệt đối như cũ, xem
          khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260728v2"></script>
+    <script src="core/dom-refs.js?v=20260728v3"></script>
     <!-- core/slider-panel-scroll.js (MỚI, 09/07/2026) — 2 hàm dùng CHUNG (getPositionStart/
          scrollSliderTo) + hằng số SLIDER_PANEL_SCROLL_ESTIMATED_MS cho MỌI khung cuộn ngang kiểu
          "slider panel" — core/settings-panel-stack-ui.js (ngay dưới) VÀ core/player-controls.js
@@ -626,7 +626,7 @@
     <script src="core/playlist/state.js?v=20260625v8e"></script>
     <script src="core/playlist/order.js?v=20260703v1"></script>
     <script src="core/playlist/render.js?v=20260712v2"></script>
-    <script src="core/playlist/loader.js?v=20260728v2"></script>
+    <script src="core/playlist/loader.js?v=20260728v3"></script>
     <script src="core/playlist/actions.js?v=20260728v2"></script>
     <script src="core/playlist/main.js?v=20260625v10"></script>
     <!-- Phase 2 (bước 3 scoping, CHỐT 03/07/2026) — loadAllSongs()/loadSongsFromFolder(), viết
@@ -838,7 +838,7 @@
          Gọi `workflowVideoGalleryWindow.mount('genericDrawer', ...)` (event/workflow/video-gallery-
          window.js, nạp SAU file này — AN TOÀN, chỉ THỰC SỰ gọi lúc user tương tác, cùng quy ước
          photo-gallery-window.js) — CHỈ còn dùng bởi picker, KHÔNG còn lưới panel nào gọi. -->
-    <script src="event/workflow/file-manager-video.js?v=20260728v3"></script>
+    <script src="event/workflow/file-manager-video.js?v=20260728v4"></script>
     <script src="event/router/file-manager-video.js?v=20260728v3"></script>
     <script src="event/listener/file-manager-video.js?v=20260728v2"></script>
     <!-- workflowFileManagerDocument CẦN tồn tại trước khi router gọi tới. Batch D7 (06/07/2026):
@@ -877,9 +877,9 @@
          core/file-manager/video.js::sortVideosByAddedDateDesc()/groupVideosByDay()/
          formatVideoDayHeaderLabel()/formatVideoDuration() (đã nạp ở nhóm CORE, TRƯỚC file này). -->
     <script src="event/workflow/video-gallery-window.js?v=20260721v1"></script>
-    <script src="event/workflow/playlist.js?v=20260728v2"></script>
-    <script src="event/router/playlist.js?v=20260728v2"></script>
-    <script src="event/listener/playlist.js?v=20260728v2"></script>
+    <script src="event/workflow/playlist.js?v=20260728v3"></script>
+    <script src="event/router/playlist.js?v=20260728v3"></script>
+    <script src="event/listener/playlist.js?v=20260728v3"></script>
     <!-- Cụm "playerControls" (ver 11, patch 3): 16/17 msg.type KHÔNG cần workflow (router gọi
          THẲNG). MỚI (fix 03/07/2026, mục 3b): 'playerControls.shuffle.click' giờ cần
          event/workflow/player-controls.js (2 hàm core nối tiếp, phụ thuộc thứ tự — xem comment đầu
