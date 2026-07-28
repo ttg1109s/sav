@@ -75,22 +75,42 @@ const workflowFileManagerSong = {
     },
 
     /** Ứng với msg.type = 'fileManagerSong.deleteBroken.confirm'.
+     * SỬA (phản hồi Giang 28/07/2026) — `scanResults` giờ CÓ THỂ chứa CẢ Song lẫn Video (scope
+     * 'both') — tách theo `mediaType` (gắn sẵn ở executeScanBroken()), xoá ĐÚNG store cho từng
+     * phần. Phần Song GIỮ NGUYÊN `deleteCorruptedSongs()` cũ (đã tự `removeKeyFromDisplay()` bên
+     * trong, không đụng). Phần Video dùng `deleteCorruptedVideos()` (MỚI, core/storage-manager.js)
+     * — hàm đó KHÔNG tự gọi `removeKeyFromDisplay()` (tránh core gọi core khác file, Rule 3) nên
+     * Workflow (đây) tự gọi cho TỪNG key trả về.
      * @param {{scanResults: Array, currentKey: string|null}} payload
      */
     async executeDeleteBroken(payload) {
         const { scanResults, currentKey } = payload;
+        const songResults = scanResults.filter((r) => r.mediaType !== 'video');
+        const videoResults = scanResults.filter((r) => r.mediaType === 'video');
 
         await withLoadingShield(t('common.storage.deletingBroken'), async () => {
-            await deleteCorruptedSongs(scanResults, currentKey);
+            if (songResults.length > 0) {
+                await deleteCorruptedSongs(songResults, currentKey); // core/storage-manager.js — tự removeKeyFromDisplay() bên trong (GIỮ NGUYÊN, không đụng)
+            }
+            if (videoResults.length > 0) {
+                const deletedVideoKeys = await deleteCorruptedVideos(videoResults, currentKey); // core/storage-manager.js
+                deletedVideoKeys.forEach((key) => removeKeyFromDisplay(key)); // core/playlist/actions.js — Workflow gọi core, không phải core gọi core
+            }
             if (fileManagerSongPanelEl) {
                 resetScanResultUI(
                     fileManagerSongPanelEl.querySelector('#storage-scan-result'),
                     fileManagerSongPanelEl.querySelector('#storage-scan-list')
                 );
+                const [songStats, videoStats] = await Promise.all([computeStats(), computeVideoStats()]); // core/about-stats.js, core/file-manager/video.js
                 renderStorageStats(
-                    await computeStats(), // core/about-stats.js — Workflow tự gọi trước, truyền vào (Rule 2/3)
+                    songStats,
                     fileManagerSongPanelEl.querySelector('#stat-storage-total-songs'),
                     fileManagerSongPanelEl.querySelector('#stat-storage-total-bytes')
+                );
+                renderVideoStorageStats(
+                    videoStats,
+                    fileManagerSongPanelEl.querySelector('#stat-storage-total-videos'),
+                    fileManagerSongPanelEl.querySelector('#stat-storage-total-video-bytes')
                 );
             }
         });
@@ -108,17 +128,15 @@ const workflowFileManagerSong = {
     // tự bằng if bình thường (Workflow không bị Rule 1 — download/delete chỉ là 2 BƯỚC tuần tự
     // trong CÙNG 1 tiến trình "thực hiện", không phải 2 tiến trình cần Router chọn riêng).
 
-    /** DOM-patch thuần — đồng bộ 3 nút phạm vi (active/không active) + checked 2 toggle + disabled
-     * + nhãn nút Thực hiện, gọi lại SAU MỖI lần đổi 1 trong 3 field (Router tự gọi). */
+    /** DOM-patch thuần — đồng bộ select phạm vi + checked 2 toggle + disabled + nhãn nút Thực
+     * hiện, gọi lại SAU MỖI lần đổi 1 trong 3 field (Router tự gọi).
+     * SỬA (phản hồi Giang 28/07/2026, "dropdown dạng section option") — 3 nút pill cũ (Song/Video/
+     * Cả hai) THAY bằng 1 `<select>` (`#setting-storage-scope`) — chỉ cần gán `.value`, không cần
+     * toggle class qua `querySelectorAll('[data-storage-scope]')` như trước nữa. */
     updateStorageActionUI(mediaScope, downloadEnabled, deleteEnabled) {
         if (!fileManagerSongPanelEl) return; // guard
-        fileManagerSongPanelEl.querySelectorAll('[data-storage-scope]').forEach((btn) => {
-            const isActive = btn.dataset.storageScope === mediaScope;
-            btn.classList.toggle('bg-sky-500', isActive);
-            btn.classList.toggle('text-white', isActive);
-            btn.classList.toggle('bg-white/5', !isActive);
-            btn.classList.toggle('text-slate-300', !isActive);
-        });
+        const scopeSelect = fileManagerSongPanelEl.querySelector('#setting-storage-scope');
+        if (scopeSelect) scopeSelect.value = mediaScope;
 
         const downloadToggle = fileManagerSongPanelEl.querySelector('#toggle-storage-download');
         if (downloadToggle) downloadToggle.checked = downloadEnabled;
@@ -269,15 +287,28 @@ const workflowFileManagerSong = {
     },
 
     /** Ứng với msg.type = 'fileManagerSong.scanBroken.click'.
-     * @param {{onScanComplete: (results: Array) => void}} payload
+     * SỬA (phản hồi Giang 28/07/2026, "quét lỗi vẫn chưa theo scope") — đọc `payload.mediaScope`
+     * ('song'|'video'|'both', DÙNG CHUNG với 3 field Giải phóng bộ nhớ mục 6b) — quyết định gọi
+     * `scanAllSongsForCorruption()`/`scanAllVideosForCorruption()` (2 core RIÊNG, Rule 3 cấm quét
+     * Video qua lại hàm scan Song) nào, hoặc CẢ HAI nối tiếp cho 'both'. Mỗi kết quả gắn thêm
+     * `mediaType` — `executeDeleteBroken()` cần biết để xoá ĐÚNG store (Song hay Video).
+     * @param {{mediaScope: string, onScanComplete: (results: Array) => void}} payload
      */
     async executeScanBroken(payload) {
-        const { onScanComplete } = payload;
+        const { mediaScope, onScanComplete } = payload;
         let results;
         await withLoadingShield(t('common.storage.scanning'), async () => {
-            results = await scanAllSongsForCorruption((current, total) => {
+            const scanSong = async () => (await scanAllSongsForCorruption((current, total) => {
                 loadingText.textContent = tFormat('common.storage.scanningProgress', { n: current, total });
-            });
+            })).map((r) => ({ ...r, mediaType: 'song' }));
+            const scanVideo = async () => (await scanAllVideosForCorruption((current, total) => {
+                loadingText.textContent = tFormat('common.storage.scanningProgress', { n: current, total });
+            })).map((r) => ({ ...r, mediaType: 'video' }));
+
+            if (mediaScope === 'video') results = await scanVideo();
+            else if (mediaScope === 'both') results = [...(await scanSong()), ...(await scanVideo())]; // nối tiếp, KHÔNG gộp % tiến trình chung (2 pha riêng, đơn giản + đúng)
+            else results = await scanSong(); // mặc định 'song'
+
             if (fileManagerSongPanelEl) {
                 renderScanResultUI(
                     results,
