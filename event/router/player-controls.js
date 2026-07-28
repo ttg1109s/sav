@@ -16,11 +16,15 @@
  * video nền + reset ngăn xếp panel con + cuộn) -> giao Workflow — xem
  * workflowPlayerControls.closeSettingsDrawer().
  *
- * MỚI (21/07/2026, mục 4 — Video Player mode, xem event/workflow/video-player.js) — 2 case
- * 'playPause.click'/'backToPlaylist.click' ĐỌC
- * `appState.get('isVideoPlayerMode')` + VirtualMachineState 2 nhánh loại trừ nhau: true -> giao
- * `workflowVideoPlayer` (video đang "làm bài hát"); false -> gọi THẲNG core cũ y hệt trước đây,
- * KHÔNG đổi hành vi gốc dù chỉ 1 dòng.
+ * MỚI (21/07/2026, mục 4 — Video Player mode, xem event/workflow/video-player.js) — case
+ * 'playPause.click' ĐỌC `appState.get('isVideoPlayerMode')` + VirtualMachineState 2 nhánh loại trừ
+ * nhau: true -> giao `workflowVideoPlayer` (video đang "làm bài hát"); false -> gọi THẲNG core cũ y
+ * hệt trước đây, KHÔNG đổi hành vi gốc dù chỉ 1 dòng.
+ * XOÁ (phản hồi Giang — "đã hợp nhất Video & Song vào Playlist, không cần nữa") — 'backToPlaylist.
+ * click'/'settingsDrawer.close' TỪNG CŨNG branch theo `isVideoPlayerMode` (Video Player mode TỪNG
+ * bật được từ 1 checkbox sâu trong Settings → File Manager → Video, đã xoá hẳn từ Batch 6) — giờ
+ * Video LUÔN được chọn TỪ Playlist (y hệt Song) nên 2 case này gọi THẲNG hành vi gốc, không còn
+ * nhánh nào để rẽ (xem docstring tại từng case + event/workflow/video-player.js).
  * [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt: "video thừa hưởng cơ chế Playlist,
  * không tạo cơ chế next/prev riêng"] 'next.click'/'prev.click' KHÔNG còn branch ở đây nữa — LUÔN
  * gọi `playNext()`/`playPrev()` (core/player-controls.js) bất kể `isVideoPlayerMode`, xem case
@@ -64,19 +68,13 @@ const routerPlayerControls = (() => {
 
             // ===================== Click UI =====================
             case 'playerControls.backToPlaylist.click': {
-                // MỚI (21/07/2026, mục 4 — Video Player mode, Giang chỉ ra "cần quy trình khác,
-                // phải dùng vmstate") — Video Player mode BẬT TỪ trang Settings (khác mọi lần gọi
-                // switchToVisualizer() khác, LUÔN từ trang Playlist đang hiện sẵn) nên "Back" cần
-                // tự cuộn lại về trang Playlist, xem event/workflow/video-player.js::
-                // handleBackToPlaylistFromVideoMode(). Nhánh false GIỮ NGUYÊN hành vi gốc.
-                VirtualMachineState.run([
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
-                        workflowVideoPlayer.handleBackToPlaylistFromVideoMode();
-                    } },
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
-                        handleBackToPlaylistClick();
-                    } },
-                ]);
+                // XOÁ (phản hồi Giang — "đã hợp nhất Video & Song vào Playlist, không cần nữa") —
+                // nhánh isVideoPlayerMode===true (workflowVideoPlayer.handleBackToPlaylistFromVideoMode(),
+                // cuộn về Settings thay vì Playlist) TỪNG cần thiết vì Video Player mode CHỈ bật
+                // được từ checkbox SÂU trong Settings → File Manager → Video (đã xoá hẳn từ Batch
+                // 6). Giờ Video LUÔN được chọn TỪ Playlist (y hệt Song, dropdown/menu 3 chấm thống
+                // nhất) nên "Back" luôn đúng là về Playlist — KHÔNG còn 2 nhánh, gọi THẲNG.
+                handleBackToPlaylistClick();
                 break;
             }
 
@@ -133,20 +131,15 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.settingsDrawer.close': {
-                // SỬA (21/07/2026, Giang yêu cầu "nút X Main Settings khi Video Player đang bật
-                // phải chuyển thẳng về Visualizer, nhớ dùng vmstate") — HOTFIX 11 (08/07/2026) từng
-                // bỏ nhánh "về Visualizer" vì lúc đó Settings CHỈ mở được từ Playlist (đúng cho
-                // Song) — nhưng giờ Settings CÒN mở được để bật Video Player mode (checkbox trong
-                // File Manager -> Video), nên đóng Settings lúc `isVideoPlayerMode=true` phải về
-                // THẲNG Visualizer (xem video đang phát), KHÔNG PHẢI Playlist như bình thường.
-                VirtualMachineState.run([
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
-                        workflowVideoPlayer.closeSettingsDrawerToVisualizer();
-                    } },
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
-                        workflowPlayerControls.closeSettingsDrawer(); // hành vi gốc HOTFIX 11 — KHÔNG đổi gì
-                    } },
-                ]);
+                // XOÁ (phản hồi Giang — "đã hợp nhất Video & Song vào Playlist, không cần nữa") —
+                // nhánh isVideoPlayerMode===true (workflowVideoPlayer.closeSettingsDrawerToVisualizer(),
+                // ẩn Playlist + chuyển thẳng về Visualizer khi đóng Settings) TỪNG cần thiết vì
+                // Video Player mode CHỈ bật được từ checkbox SÂU trong Settings → File Manager →
+                // Video (đã xoá hẳn từ Batch 6) — đóng Settings lúc đó phải "về nơi video đang
+                // phát" (Visualizer), không phải Playlist. Giờ Video LUÔN được chọn TỪ Playlist (y
+                // hệt Song) nên đóng Settings luôn đúng là về Playlist — KHÔNG còn 2 nhánh, gọi
+                // THẲNG `closeSettingsDrawer()` (đã tự về Playlist, xem docstring hàm đó).
+                workflowPlayerControls.closeSettingsDrawer();
                 break;
             }
 
