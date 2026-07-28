@@ -76,7 +76,9 @@
             const isActuallyPlaying = isVideo ? (appState.get('isVideoPlayerMode') && !bgVideoElement.paused) : !audioPlayer.paused;
 
             if (isCurrent && isActuallyPlaying) {
-                alertModal(tFormat('playlistView.songMenu.deleteBlockedPlaying', { title }));
+                // SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — bản Song nói
+                // "Pause the song first" — sai ngữ cảnh khi chặn xoá 1 Video đang phát.
+                alertModal(tFormat(isVideo ? 'playlistView.songMenu.deleteBlockedPlayingVideo' : 'playlistView.songMenu.deleteBlockedPlaying', { title }));
                 return;
             }
 
@@ -294,22 +296,31 @@
         // cần đọc/ghi cùng state) và core đều thấy ĐÚNG 1 nguồn duy nhất.
 
         /**
-         * SỬA (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — gate hiện/ẩn 4
-         * nút theo `cached.mediaType`: Video ẩn "Sửa phụ đề"/"Xuất file" (không áp dụng — Video
-         * không có ID3 tag/không dùng subtitle-editor kiểu Song), HIỆN "Set làm nền"/"Sửa video"
-         * (mới, THAY 2 lựa chọn tương ứng đã mất khi xoá dropdown tile "File Manager → Video").
-         * Song giữ NGUYÊN 4 nút cũ, ẩn 2 nút Video. Đọc thẳng `playlistCache` (đã có sẵn ngay tại
-         * đây, KHÔNG cần fetch gì thêm) — guard `cached` rỗng thì coi như Song (giữ hành vi cũ,
-         * không chặn mở menu chỉ vì thiếu cache).
+         * Gate hiện/ẩn theo `cached.mediaType`: Video ẩn "Sửa phụ đề" (không áp dụng — Video không
+         * dùng subtitle-editor kiểu Song), HIỆN "Sửa video" (mở Video Editor). Đọc thẳng
+         * `playlistCache` (đã có sẵn ngay tại đây, KHÔNG cần fetch gì thêm) — guard `cached` rỗng
+         * thì coi như Song (giữ hành vi cũ, không chặn mở menu chỉ vì thiếu cache).
+         * SỬA (Batch "Export dọn nợ kiến trúc", phản hồi Giang) — "Xuất file" giờ LUÔN hiện (áp
+         * dụng được cho cả Video, xem exportVideoFile()) — không còn ẩn theo isVideo nữa.
+         * XOÁ (phản hồi Giang — "bỏ luôn set background cho dropdown của video đi") — "Set làm nền"
+         * đã bỏ hẳn khỏi dropdown Video.
+         * MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — nhãn "Xoá" đổi chữ động
+         * (Song/Video) qua `#song-menu-delete-label`.
          */
         function openSongActionMenu(key, anchorBtn) {
             playlistStore.set({ songActionMenuKey: key });
             const cached = appState.get('playlistCache').get(key);
             const isVideo = !!(cached && cached.mediaType === 'video');
             songMenuBtnEditSubtitles.classList.toggle('hidden', isVideo);
-            songMenuBtnRestore.classList.toggle('hidden', isVideo);
-            songMenuBtnSetBgVideo.classList.toggle('hidden', !isVideo);
+            // SỬA (phản hồi Giang — Batch "Export dọn nợ kiến trúc") — "Xuất file" giờ áp dụng CHO
+            // CẢ Video (exportVideoFile(), bỏ qua bước gắn tag ID3 — xem event/workflow/playlist.js)
+            // — KHÔNG còn ẩn khi isVideo nữa.
+            // songMenuBtnSetBgVideo ĐÃ XOÁ khỏi dropdown (phản hồi Giang — bỏ hẳn "Set làm nền").
             songMenuBtnEditVideo.classList.toggle('hidden', !isVideo);
+            // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — nhãn nút "Xoá" đổi
+            // chữ đúng loại item đang mở menu (trước đây LUÔN nói "Delete song" kể cả khi xoá Video).
+            const deleteLabelEl = songActionMenu.querySelector('#song-menu-delete-label');
+            if (deleteLabelEl) deleteLabelEl.textContent = t(isVideo ? 'playlistView.songMenu.deleteVideo' : 'playlistView.songMenu.delete');
 
             const rect = anchorBtn.getBoundingClientRect();
             const menuWidth = 192;
@@ -337,7 +348,12 @@
          * tab đầu của song-edit-modal, xem openSongEditModal()) — nút "info" cũng đã xoá khỏi
          * template nên nhánh đó vốn không còn cách nào để kích hoạt, chỉ dọn cho khỏi gọi nhầm 1
          * hàm không tồn tại nếu sau này có ai lỡ thêm lại nút cũ.
-         * @param {string} action - 'delete' | 'edit' | 'restore'
+         * SỬA (Batch "Export dọn nợ kiến trúc", phản hồi Giang) — nhánh 'restore' ĐÃ CHUYỂN ra khỏi
+         * hàm này (message riêng 'playlist.actionMenu.restore' + `workflowPlaylist.
+         * exportActiveMenuItem()`, CÙNG PRECEDENT với addToFolder/editSubtitles ở trên) — hàm này
+         * vốn đã có sẵn nhánh if/else vi phạm Rule 1 (nợ kiến trúc cũ, xem core-legacy-audit.md),
+         * KHÔNG mở rộng thêm quyết định "Song hay Video" vào đây, tránh phát sinh thêm nghĩa vụ.
+         * @param {string} action - 'delete' | 'edit'
          * @returns {{status: string}} 'noop' nếu không có menu nào đang mở, 'ok' nếu đã xử lý
          */
         function handleSongActionMenuSelect(action) {
@@ -346,7 +362,6 @@
             closeSongActionMenu();
             if (action === 'delete') window.removeSong(key);
             else if (action === 'edit') openSongEditModal(key);
-            else if (action === 'restore') exportSongWithTag(key);
             return { status: 'ok' };
         }
 
@@ -688,8 +703,9 @@
         // `songEditTabDetails` bên trong openSongEditModal() (xem phía trên). `songInfoRowHtml()`
         // GIỮ NGUYÊN (vẫn được dùng, chỉ đổi NƠI GỌI). `openSongInfoModal()`/`closeSongInfoModal()`/
         // `exportCurrentSongInfo()` ĐÃ XOÁ — không còn modal riêng nên không còn "đóng"/"xuất file
-        // riêng từ modal thông tin" (xuất file vẫn làm được qua "Khôi phục" trong menu 3 chấm,
-        // exportSongWithTag() — không mất tính năng, chỉ gộp điểm vào).
+        // riêng từ modal thông tin" (xuất file vẫn làm được qua "Xuất file" trong menu 3 chấm,
+        // workflowPlaylist.exportSongWithTag()/exportVideoFile() — event/workflow/playlist.js,
+        // Batch "Export dọn nợ kiến trúc" — không mất tính năng, chỉ gộp điểm vào).
 
         /**
          * Dựng 1 dòng thông tin dạng "card" nhỏ (icon tròn màu + label + giá trị) — dùng trong tab

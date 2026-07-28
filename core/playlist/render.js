@@ -80,6 +80,12 @@
             const cached = appState.get('playlistCache').get(key);
             const title = cached ? cached.tag.title : key;
             const artist = cached ? cached.tag.artist : '';
+            // MỚI (phản hồi Giang, mục 8 — "thêm duration tại playlist của cả hai song và video") —
+            // `cached.duration` (giây) đã có sẵn cho CẢ Song (core/playlist/loader.js::
+            // scanValidSongsFromDB()) lẫn Video (buildVideoPlaylistCache()) — chỉ cần hiển thị,
+            // KHÔNG cần đọc thêm gì. Tái dùng NGUYÊN formatTime() (core/playlist/state.js, đã dùng
+            // ở tab "Chi tiết") — formatTime(undefined) tự trả "0:00", an toàn khi cached rỗng.
+            const durationLabel = formatTime(cached ? cached.duration : 0);
             // Chỉ Blob cover (record.cover) mới cần tạo + theo dõi object URL để revoke sau; ảnh
             // DEFAULT_VINYL là data: URI tĩnh, không phải object URL — node._coverObjectUrl giữ
             // null cho trường hợp này để revokeNodeCoverUrl() không vô tình revoke nhầm data: URI.
@@ -105,6 +111,7 @@
                         ${isPlaying ? `<div class="absolute inset-0 bg-black/30 rounded-2xl flex items-center justify-center backdrop-blur-[2px]">${eqIconHtml}</div>` : ''}
                         ${selectionMode ? `<div class="absolute top-2 left-2">${selectionIndicatorHtml(isSelected)}</div>` : ''}
                         <div class="absolute top-2 right-2 flex bg-black/40 rounded-full">${menuBtnHtml}</div>
+                        <span class="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[11px] leading-none font-medium text-white tabular-nums">${durationLabel}</span>
                     </div>
                     <h3 class="text-white text-[15px] font-semibold leading-tight line-clamp-1 px-1">${title}</h3>
                     <p class="text-slate-400 text-[13px] font-medium line-clamp-1 px-1 mt-0.5">${artist}</p>`;
@@ -118,6 +125,7 @@
                         <div class="flex items-center gap-2"><h3 class="text-[16px] leading-tight font-semibold truncate ${isPlaying ? 'text-sky-300' : 'text-slate-100'}">${title}</h3>${isPlaying ? eqIconHtml : ''}</div>
                         <p class="text-[13px] text-slate-400 truncate font-medium">${artist}</p>
                     </div>
+                    <span class="text-[12px] text-slate-500 font-medium tabular-nums shrink-0">${durationLabel}</span>
                     <div class="flex">${menuBtnHtml}</div>`;
             }
             attachCoverFallback(wrapper.querySelector('img'));
@@ -152,6 +160,16 @@
             const totalSongs = liveKeys().length;
             const emptyEl = playlistEmpty;
             const searchEmptyEl = document.getElementById('playlist-search-empty');
+            // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — 2 chuỗi rỗng/không-
+            // kết-quả trước đây LUÔN nói "song" kể cả khi đang browse Nguồn Video — đổi chữ theo
+            // `activeMediaSource` mỗi lần hàm này chạy (rẻ, chỉ 2 dòng textContent).
+            const isVideo = appState.get('activeMediaSource') === 'video';
+            const emptyTextEl = emptyEl.querySelector('p');
+            if (emptyTextEl) emptyTextEl.textContent = t(isVideo ? 'playlistView.empty.noVideos' : 'playlistView.empty.noSongs');
+            if (searchEmptyEl) {
+                const searchTextEl = searchEmptyEl.querySelector('p');
+                if (searchTextEl) searchTextEl.textContent = t(isVideo ? 'playlistView.empty.noSearchResultsVideo' : 'playlistView.empty.noSearchResults');
+            }
             // Khi đã có dữ liệu thật để dựng list (renderOrder > 0) thì lớp "đang nạp" không còn cần
             // -> fade out (an toàn nếu nó đang hiện; no-op nếu đã ẩn).
             if (appState.get('renderOrder').length > 0) hidePlaylistLoading();
