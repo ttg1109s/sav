@@ -42,23 +42,18 @@
 // ===================== Khu vực: Song (ĐẦY ĐỦ — dời nguyên nội dung từ bản overlay cũ) =====================
 function renderFileManagerSongPanelBody() {
     return `
-                <!-- SECTION: FOLDER (mục 4.b1) -->
-                <div>
-                    <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2 ml-2" data-i18n="fileManager.song.folderSectionTitle">${t('fileManager.song.folderSectionTitle')}</h3>
-                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                        <div class="flex gap-2 p-3 border-b border-white/5">
-                            <input id="file-manager-new-folder-input" type="text" placeholder="${t('fileManager.song.newFolderPlaceholder')}" class="flex-1 min-w-0 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sky-500 transition-colors">
-                            <button id="btn-file-manager-create-folder" class="px-3.5 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors shrink-0" data-i18n="fileManager.song.btnCreateFolder">${t('fileManager.song.btnCreateFolder')}</button>
-                        </div>
-                        <div id="file-manager-folder-list" class="flex flex-col divide-y divide-white/5"></div>
-                        <p id="file-manager-folder-empty" class="hidden text-sm text-slate-400 p-4 text-center" data-i18n="fileManager.song.folderEmpty">${t('fileManager.song.folderEmpty')}</p>
-                        <!-- MỚI (14/07/2026, tích hợp pagination — Giang yêu cầu, 10 folder/trang,
-                             control "full": ‹ trang/tổng ›) — xem core/pagination.js +
-                             event/workflow/file-manager-song.js::refreshSongTab(). Rỗng nếu
-                             totalPages <= 1 (buildPaginationFullHtml() tự trả chuỗi rỗng). -->
-                        <div id="file-manager-folder-pagination" class="border-t border-white/5"></div>
+                <!-- SECTION: FOLDER — SỬA (Batch 5, "Song/Video Unification" mục 6e): danh sách
+                     folder inline (tạo/phân trang/rename/xoá) ĐÃ THAY bằng 1 nút mở Generic Drawer
+                     List↔Read ("Duyệt thư mục") — xem event/workflow/file-manager-folder-
+                     browser.js. Cùng khuôn nút "Album List" của panel Photo
+                     (#btn-file-manager-open-album-list). -->
+                <button id="btn-file-manager-folder-browser-open" class="flex justify-between items-center p-4 rounded-2xl glass-modal hover:bg-white/5 transition-colors w-full text-left">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>
+                        <span class="text-sm font-medium truncate" data-i18n="fileManager.folderBrowser.entryButton">${t('fileManager.folderBrowser.entryButton')}</span>
                     </div>
-                </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                </button>
 
                 <!-- SECTION: THỐNG KÊ DUNG LƯỢNG (dời từ storage-drawer.js, id giữ nguyên) -->
                 <div>
@@ -68,9 +63,19 @@ function renderFileManagerSongPanelBody() {
                             <span class="text-sm font-medium text-slate-300" data-i18n="storageDrawer.statTotalSongs">${t('storageDrawer.statTotalSongs')}</span>
                             <span id="stat-storage-total-songs" class="text-sm font-mono text-sky-300">—</span>
                         </div>
-                        <div class="flex justify-between items-center p-4">
+                        <div class="flex justify-between items-center p-4 border-b border-white/5">
                             <span class="text-sm font-medium text-slate-300" data-i18n="storageDrawer.statTotalBytes">${t('storageDrawer.statTotalBytes')}</span>
                             <span id="stat-storage-total-bytes" class="text-sm font-mono text-sky-300">—</span>
+                        </div>
+                        <!-- MỚI (ver12 "Song/Video Unification", Batch 5, mục 6a) — thống kê Video
+                             song song thống kê Song, cùng khối (đã gộp panel "Song & Video"). -->
+                        <div class="flex justify-between items-center p-4 border-b border-white/5">
+                            <span class="text-sm font-medium text-slate-300" data-i18n="storageDrawer.statTotalVideos">${t('storageDrawer.statTotalVideos')}</span>
+                            <span id="stat-storage-total-videos" class="text-sm font-mono text-violet-300">—</span>
+                        </div>
+                        <div class="flex justify-between items-center p-4">
+                            <span class="text-sm font-medium text-slate-300" data-i18n="storageDrawer.statTotalVideoBytes">${t('storageDrawer.statTotalVideoBytes')}</span>
+                            <span id="stat-storage-total-video-bytes" class="text-sm font-mono text-violet-300">—</span>
                         </div>
                     </div>
                 </div>
@@ -121,73 +126,11 @@ function renderFileManagerSongPanelBody() {
 `;
 }
 
-// ===================== Khu vực: Folder Detail (Phase 2, MỚI — mục 1b/c) =====================
-// Cấp 2 trong ngăn xếp (đè lên panel Song) — mở khi bấm vào 1 hàng folder trong
-// renderFileManagerSongPanelBody() ở trên. Back (dùng chung) chỉ lùi về panel Song, KHÔNG đóng
-// cả 2 — core/settings-panel-stack.js tự quản lý thứ tự pop đúng theo ngăn xếp.
-function renderFileManagerFolderDetailPanelBody() {
-    return `
-                <!-- SỬA (14/07/2026, Giang yêu cầu — bỏ icon Áp dụng khỏi header) — header giờ CHỈ
-                     còn tên folder + icon Sửa tên. BỎ class "uppercase" ở tên (đợt 6, điểm 4 cũ) —
-                     đây là tên THẬT của folder, ép hoa toàn bộ khiến 2 folder khác tên chỉ do khác
-                     hoa/thường trông giống hệt nhau.
-                     SỬA (Batch 4, "Song/Video Unification" mục 5) — nút "Áp dụng"/"Bỏ áp dụng" cũ
-                     ở cuối panel THAY bằng 2 toggle Scope/Exclude (xem cuối hàm này) — đồng bộ qua
-                     event/workflow/file-manager-song.js::_updateScopeToggleUI()/_updateExcludeToggleUI(). -->
-                <div class="flex items-center justify-between gap-2 -mt-2">
-                    <h2 id="file-manager-folder-detail-title" class="flex-1 text-lg font-bold tracking-wider text-white truncate min-w-0">—</h2>
-                    <button id="btn-file-manager-folder-detail-rename" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-slate-300 shrink-0" title="${t('fileManager.song.folderDetail.renameTitle')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                    </button>
-                </div>
-
-                <!-- BỎ tiêu đề "SONGS IN THIS FOLDER" (Giang yêu cầu 14/07/2026) — danh sách bài
-                     đứng thẳng dưới header, không cần nhãn giới thiệu riêng. -->
-                <div>
-                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                        <div id="file-manager-folder-detail-song-list" class="flex flex-col divide-y divide-white/5"></div>
-                        <p id="file-manager-folder-detail-empty" class="hidden text-sm text-slate-400 p-4 text-center" data-i18n="fileManager.song.folderDetail.empty">${t('fileManager.song.folderDetail.empty')}</p>
-                        <!-- MỚI (14/07/2026, Giang yêu cầu — ~30 bài/trang, mode 'list') — xem
-                             core/pagination.js + event/workflow/file-manager-song.js::refreshFolderDetail().
-                             Rỗng nếu totalPages <= 1 (buildPaginationListHtml() tự trả chuỗi rỗng). -->
-                        <div id="file-manager-folder-detail-song-pagination" class="border-t border-white/5"></div>
-                    </div>
-                </div>
-
-                <!-- SỬA (Batch 4, "Song/Video Unification" mục 5) — nút Áp dụng/Bỏ áp dụng CŨ
-                     (1 nút đổi nhãn theo data-mode) THAY bằng 2 TOGGLE ĐỘC LẬP: Scope (tương đương
-                     Apply/Unapply cũ) + Exclude (MỚI, chỉ ảnh hưởng view "Tất cả"). Cùng pattern
-                     toggle switch dùng chung toàn app (checkbox sr-only + peer, xem
-                     components/settings/misc.js). Đồng bộ trạng thái checked/disabled qua
-                     event/workflow/file-manager-song.js::_updateScopeToggleUI()/_updateExcludeToggleUI(). -->
-                <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                    <div class="flex justify-between items-center p-4 border-b border-white/5">
-                        <div class="pr-3">
-                            <div class="text-sm font-medium truncate" data-i18n="fileManager.song.folderDetail.scopeToggle.label">${t('fileManager.song.folderDetail.scopeToggle.label')}</div>
-                            <div class="text-xs text-slate-400 mt-0.5" data-i18n="fileManager.song.folderDetail.scopeToggle.hint">${t('fileManager.song.folderDetail.scopeToggle.hint')}</div>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                            <input type="checkbox" id="toggle-file-manager-folder-scope" class="sr-only peer">
-                            <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner peer-disabled:opacity-40"></div>
-                        </label>
-                    </div>
-                    <div class="flex justify-between items-center p-4">
-                        <div class="pr-3">
-                            <div class="text-sm font-medium truncate" data-i18n="fileManager.song.folderDetail.excludeToggle.label">${t('fileManager.song.folderDetail.excludeToggle.label')}</div>
-                            <div class="text-xs text-slate-400 mt-0.5" data-i18n="fileManager.song.folderDetail.excludeToggle.hint">${t('fileManager.song.folderDetail.excludeToggle.hint')}</div>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                            <input type="checkbox" id="toggle-file-manager-folder-exclude" class="sr-only peer">
-                            <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-500 shadow-inner"></div>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="flex justify-center">
-                    <button id="btn-file-manager-folder-detail-remove-all" class="hidden px-5 py-2.5 rounded-xl bg-rose-600/10 hover:bg-rose-600/20 border border-rose-500/30 text-rose-400 text-sm font-semibold transition-colors" data-i18n="fileManager.song.folderDetail.btnRemoveAll">${t('fileManager.song.folderDetail.btnRemoveAll')}</button>
-                </div>
-`;
-}
+// ===================== Khu vực: Folder (Phase 2, MỚI — mục 1b/c) — ĐÃ THAY =====================
+// SỬA (Batch 5, "Song/Video Unification" mục 6e) — renderFileManagerFolderDetailPanelBody() (panel
+// cấp 2 kiểu Settings-panel-stack, đè lên panel Song) ĐÃ XOÁ HẲN — nội dung tương đương giờ dựng
+// TRỰC TIẾP bên trong event/workflow/file-manager-folder-browser.js (Generic Drawer, trạng thái
+// Read — _buildReadHeaderHtml()/_buildReadBodyHtml()), không còn ở file template này nữa.
 
 // ===================== Khu vực: Photo & Album (Batch 3, 03/07/2026 — code thật) =====================
 // Batch D6 (Settings restructure, 06/07/2026): TPL_FILE_MANAGER_PHOTO_DRAWER (khung `fixed
