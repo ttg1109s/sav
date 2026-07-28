@@ -170,6 +170,18 @@ const routerPlaylist = (() => {
                 break;
             }
 
+            // MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — 2 hành động
+            // RIÊNG của Video trong menu 3 chấm, CÙNG PRECEDENT với 'editSubtitles' ngay trên.
+            case 'playlist.actionMenu.setAsBgVideo': {
+                workflowPlaylist.setActiveMenuVideoAsBackground();
+                break;
+            }
+
+            case 'playlist.actionMenu.editVideoFile': {
+                workflowPlaylist.navigateToActiveMenuVideoEdit();
+                break;
+            }
+
             // ===================== Nạp nhạc mới (file rời / cả thư mục) =====================
             case 'playlist.upload.fileChange': {
                 const { fileList } = msg.payload;
@@ -189,10 +201,22 @@ const routerPlaylist = (() => {
                 // "chặn hẳn, không chạy gì cả" (xem comment đầu event/block.js); ở đây cần CHẠY 1
                 // thứ khi bị chặn (hiện modal thông báo), nên đúng là việc của switch/if/VMState
                 // trong router, không phải block gate.
+                // SỬA (ver12 "Song/Video Unification", Batch 6, mục 7) — LỒNG thêm 1
+                // VirtualMachineState.run() nữa NGAY TRONG callback 'selectionMode === false' đọc
+                // `activeMediaSource` (2 giá trị LOẠI TRỪ NHAU, quyết định mở container NÀO — Song:
+                // #upload-action-menu 2 lựa chọn KHÔNG đổi gì; Video: #video-upload-menu MỚI, chỉ 1
+                // lựa chọn) — cùng khuôn nested VMState đã dùng ở 'fileManagerSong.folder.
+                // actionClick' cũ (callback là code Router bình thường, được phép chứa VMState tiếp).
                 const selectionMode = appState.get('selectionMode');
                 VirtualMachineState.run([
                     { state: selectionMode, operation: '===', value: true, callback: () => workflowPlaylist.showUploadBlockedBySelectionModal() },
-                    { state: selectionMode, operation: '===', value: false, callback: () => openUploadActionMenu() },
+                    { state: selectionMode, operation: '===', value: false, callback: () => {
+                        const mediaSource = appState.get('activeMediaSource');
+                        VirtualMachineState.run([
+                            { state: mediaSource, operation: '===', value: 'video', callback: () => openVideoUploadMenu() },
+                            { state: mediaSource, operation: 'notIn', value: ['video'], callback: () => openUploadActionMenu() },
+                        ]);
+                    } },
                 ]);
                 break;
             }
@@ -205,6 +229,17 @@ const routerPlaylist = (() => {
             case 'playlist.uploadMenu.labelClick': {
                 const { target } = msg.payload;
                 handleUploadMenuLabelClick(target); // CHỈ 1 hàm core -> gọi thẳng
+                break;
+            }
+
+            // MỚI (ver12 "Song/Video Unification", Batch 6, mục 7) — file(s) video đã chọn xong từ
+            // #video-upload-input. Tái dùng NGUYÊN `uploadVideos()` (event/workflow/file-manager-
+            // video.js — hàm nghiệp vụ ĐÃ CÓ SẴN từ File Manager → Video, per-file error isolation,
+            // resolveVideoKey/saveVideo/extract thumb+mediainfo, tự refreshVideoPlaylistIfActive()
+            // ở cuối) — KHÔNG viết lại, chỉ đổi NƠI GỌI (đúng CHỐT mục 7 của plan).
+            case 'playlist.upload.videoFileChange': {
+                const { fileList } = msg.payload;
+                workflowFileManagerVideo.uploadVideos(fileList);
                 break;
             }
 
