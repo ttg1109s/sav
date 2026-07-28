@@ -43,6 +43,16 @@ if (songActionMenu) {
             eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.editSubtitles', payload: {} });
             return;
         }
+        // MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — 2 hành động
+        // RIÊNG của Video, CÙNG PRECEDENT (message riêng, không qua handleSongActionMenuSelect()).
+        if (btn.dataset.menuAction === 'setAsBgVideo') {
+            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.setAsBgVideo', payload: {} });
+            return;
+        }
+        if (btn.dataset.menuAction === 'editVideoFile') {
+            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.editVideoFile', payload: {} });
+            return;
+        }
         eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.select', payload: { action: btn.dataset.menuAction } });
     });
 }
@@ -133,6 +143,27 @@ if (folderInput) {
         const fileList = Array.from(e.target.files || []);
         e.target.value = '';
         eventBus.send({ router: 'playlist', type: 'playlist.upload.folderChange', payload: { fileList } });
+    });
+}
+
+// MỚI (ver12 "Song/Video Unification", Batch 6, mục 7) — "Thêm video", CÙNG PATTERN
+// fileInput/folderInput ngay trên (chốt FileList ra Array TRƯỚC khi đụng input.value — 1 số
+// trình duyệt/WebView làm rỗng FileList sống ngay khi input.value bị set lại).
+if (videoUploadInput) {
+    videoUploadInput.addEventListener('change', (e) => {
+        const fileList = Array.from(e.target.files || []);
+        e.target.value = '';
+        eventBus.send({ router: 'playlist', type: 'playlist.upload.videoFileChange', payload: { fileList } });
+    });
+}
+
+if (videoUploadMenu) {
+    videoUploadMenu.addEventListener('click', (e) => {
+        // DÙNG CHUNG message 'playlist.uploadMenu.labelClick' với #upload-action-menu —
+        // handleUploadMenuLabelClick() (core/playlist/loader.js) chỉ kiểm tra `target.closest
+        // ('label')` chung chung, không quan tâm menu nào, và closeUploadActionMenu() (hàm nó gọi)
+        // giờ đã đóng CẢ 2 container — dùng lại nguyên vẹn, không cần message/hàm riêng.
+        eventBus.send({ router: 'playlist', type: 'playlist.uploadMenu.labelClick', payload: { target: e.target } });
     });
 }
 

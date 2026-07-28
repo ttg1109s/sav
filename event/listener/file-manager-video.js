@@ -1,42 +1,16 @@
 /**
- * event/listener/file-manager-video.js — TẤT CẢ listener của cụm "fileManagerVideo". MỚI
- * (21/07/2026). Panel Video push/pop động (core/settings-panel-stack.js), TOÀN BỘ listener bên
- * dưới (trừ `btnOpenFileManagerVideo`, Main tĩnh) delegation trên `settingsStackBody` — cùng CHUẨN
- * `event/listener/file-manager-photo.js`.
+ * event/listener/file-manager-video.js — MỚI (21/07/2026).
  *
- * 2 nút header ("+"/thùng rác xoá nhanh) wire TRỰC TIẾP trong Workflow
- * (`workflowFileManagerVideo._wireHeaderActionEvents()`) — KHÔNG delegated ở đây (đúng quy ước "nút
- * động do Workflow tự dựng thì Workflow tự wire").
+ * XOÁ (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — TOÀN BỘ listener của
+ * panel "File Manager → Video" (nút mở panel `btnOpenFileManagerVideo`, delegate click lưới video,
+ * delegate change input upload) ĐÃ XOÁ cùng lúc xoá panel đó — không còn phần tử DOM nào để wire.
+ * Router "fileManagerVideo" (event/router/file-manager-video.js) giờ CHỈ còn 2 case của picker
+ * Generic Drawer "Use background video" — picker đó tự wire TRỰC TIẾP trong Workflow
+ * (event/workflow/file-manager-video.js::openVideoBgPicker(), gắn thẳng lên genericDrawerHeader/
+ * Body lúc mở, KHÔNG qua delegate `settingsStackBody` — Generic Drawer là ANH EM của #app-stack,
+ * không nằm trong đó) nên KHÔNG cần file listener riêng nào nữa.
  *
- * NẠP SAU CÙNG (sau bus, core, workflow, router, VÀ SAU dom-refs.js).
+ * File này hiện KHÔNG có gì để wire — giữ lại (rỗng) để không phải sửa index.html nếu sau này
+ * panel "File Manager → Video" (hoặc tương đương) cần listener riêng trở lại. Xoá tay nếu Giang
+ * muốn dọn hẳn.
  */
-
-if (btnOpenFileManagerVideo) {
-    btnOpenFileManagerVideo.addEventListener('click', () => {
-        eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.openPanel.click', payload: {} });
-    });
-}
-
-function handleFileManagerVideoDelegatedClick(e) {
-    // ===================== Lưới video (event/workflow/video-gallery-window.js) =====================
-    // SỬA (21/07/2026) — thêm `anchorEl: tile` trong payload — workflowFileManagerVideo.
-    // openVideoTileActionMenu() (dropdown, core/dropdown-menu.js) cần 1 anchorEl để định vị menu
-    // sát tile vừa bấm (KHÁC hẳn preview fullscreen cũ, không cần biết vị trí gì).
-    const tile = e.target.closest('[data-video-key]');
-    if (tile && e.target.closest('.video-gallery-window')) {
-        eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.video.click', payload: { videoKey: tile.dataset.videoKey, anchorEl: tile } });
-        return;
-    }
-}
-
-function handleFileManagerVideoDelegatedChange(e) {
-    if (e.target.id === 'file-manager-video-upload-input') {
-        if (e.target.files.length === 0) return; // bấm Huỷ trên hộp thoại chọn file
-        eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.upload.change', payload: { files: e.target.files } });
-    }
-}
-
-if (settingsStackBody) {
-    settingsStackBody.addEventListener('click', handleFileManagerVideoDelegatedClick);
-    settingsStackBody.addEventListener('change', handleFileManagerVideoDelegatedChange);
-}
