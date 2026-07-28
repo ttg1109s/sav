@@ -35,11 +35,6 @@ function handleFileManagerSongDelegatedClick(e) {
     }
 
     // ===================== Giải phóng bộ nhớ — 3 chiều độc lập (Batch 5, mục 6b) =====================
-    const scopeBtn = e.target.closest('button[data-storage-scope]');
-    if (scopeBtn) {
-        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.storageScope.change', payload: { scope: scopeBtn.dataset.storageScope } });
-        return;
-    }
     if (e.target.closest('#btn-storage-execute')) {
         eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.storageExecute.click', payload: {} });
         return;
@@ -68,6 +63,12 @@ function handleFileManagerSongDelegatedClick(e) {
  * nghĩa "change".
  */
 function handleFileManagerSongDelegatedChange(e) {
+    // MỚI (phản hồi Giang 28/07/2026, "dropdown dạng section option") — THAY 3 nút pill cũ
+    // (data-storage-scope, bắt qua 'click') bằng <select>, bắt qua 'change'.
+    if (e.target.id === 'setting-storage-scope') {
+        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.storageScope.change', payload: { scope: e.target.value } });
+        return;
+    }
     if (e.target.id === 'toggle-storage-download') {
         eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.storageDownloadToggle.change', payload: { checked: e.target.checked } });
         return;
