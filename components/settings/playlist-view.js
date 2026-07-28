@@ -43,7 +43,7 @@ const TPL_SETTINGS_PLAYLIST_VIEW = `
                      innerHTML theo activeMediaSource nữa (renderSongSortModeOptions()/
                      renderVideoSortModeOptions() đã xoá hẳn, core/playlist/order.js). Bỏ hẳn
                      'default' (giữ nguyên thứ tự thêm) — vô nghĩa khi đã có az/za/newest/oldest. -->
-                <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
+                <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                     <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.sortMode.label">${t('settingsPlaylistBg.sortMode.label')}</span>
                     <select id="setting-playlist-sort-mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
                         <option value="az" data-i18n="settingsPlaylistBg.sortMode.az">${t('settingsPlaylistBg.sortMode.az')}</option>
@@ -51,6 +51,16 @@ const TPL_SETTINGS_PLAYLIST_VIEW = `
                         <option value="newest" data-i18n="settingsPlaylistBg.sortMode.newest">${t('settingsPlaylistBg.sortMode.newest')}</option>
                         <option value="oldest" data-i18n="settingsPlaylistBg.sortMode.oldest">${t('settingsPlaylistBg.sortMode.oldest')}</option>
                     </select>
+                </div>
+                <!-- MỚI (phản hồi Giang, mục 5 — "thêm dòng folder đang active source") — dòng
+                     ĐỌC-THÔI (không phải control), đặt CUỐI section (SAU "Sắp xếp" — 2 dòng trên là
+                     control tương tác dùng thường xuyên, dòng thông tin phụ này đặt cuối theo đúng
+                     nguyên tắc "mục dùng thường xuyên lên đầu" đã ghi ở docstring đầu file). JS
+                     (PlaylistMain.updateActiveFolderBadge(), core/playlist/main.js) tự đồng bộ chữ
+                     lúc mở Settings + ngay khi Scope đổi (không cần đợi reload). -->
+                <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
+                    <span class="text-sm font-medium truncate" data-i18n="settingsPlaylistBg.activeFolder.label">${t('settingsPlaylistBg.activeFolder.label')}</span>
+                    <span id="setting-playlist-active-folder" class="text-xs text-slate-400 truncate max-w-[128px]">${t('settingsPlaylistBg.activeFolder.none')}</span>
                 </div>
             </div>
         </div>
