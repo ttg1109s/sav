@@ -87,6 +87,27 @@
             opacity: 0.85,
         };
 
+        /**
+         * MỚI (phản hồi Giang, mục 5 "Đồng bộ lại config Playlist Settings") — domain config RIÊNG
+         * cho 3 lựa chọn ở Settings → Playlist (Nguồn/Kiểu xem/Sắp xếp, components/settings/
+         * playlist-view.js) — trước đây 3 field này CHỈ sống trong AppState runtime
+         * (activeMediaSource/isGridView/displaySortMode — service/state/playlist.js,
+         * service/state/app-misc.js), KHÔNG hề được lưu bền, mất hết sau F5/mở lại app.
+         * CHỦ Ý KHÔNG gồm 3 field "Giải phóng bộ nhớ" (mediaScope/downloadEnabled/deleteEnabled,
+         * event/router/file-manager-song.js) — router đó ĐÃ CHỦ ĐỘNG reset 3 field này về mặc định
+         * an toàn mỗi lần mở lại panel (comment gốc: "tránh quên đã bật sẵn 2 toggle nguy hiểm từ
+         * lần mở trước") — đây là quyết định AN TOÀN đã có chủ đích cho 1 hành động PHÁ HUỶ DỮ LIỆU
+         * (xoá/tải rồi xoá), lưu bền lại sẽ VÔ HIỆU HOÁ đúng lớp bảo vệ đó. Persist qua IndexedDB
+         * trực tiếp (`meta.playlistConfig`), KHÔNG qua localStorage debounce như domain 'viz' — tần
+         * suất đổi 3 field này thấp (thao tác Settings thủ công), cùng khuôn domain 'slideshow'
+         * (event/workflow/slideshow.js::loadPersistedSettingsOnBoot()).
+         */
+        const DEFAULT_PLAYLIST_CONFIG = {
+            activeMediaSource: 'song',
+            displaySortMode: 'az',
+            isGridView: false,
+        };
+
         AppConfig.defineDomain('viz', {
             schema: {
                 quality: 'string', type: 'string', barStyle: 'string', vortexStyle: 'string', rainStyle: 'string', glassFlash: 'boolean', mode: 'string',
@@ -122,6 +143,13 @@
             defaults: DEFAULT_READER_CONFIG,
         });
 
+        AppConfig.defineDomain('playlist', {
+            schema: {
+                activeMediaSource: 'string', displaySortMode: 'string', isGridView: 'boolean',
+            },
+            defaults: DEFAULT_PLAYLIST_CONFIG,
+        });
+
         /** Seed CẢ 3 domain config NGAY TẠI ĐÂY — lúc nạp core/config.js (SỬA 27/07/2026, trước
          * đây gọi trễ hơn từ event/workflow/app-boot.js lúc DOMContentLoaded, để hở 1 khoảng giữa
          * lúc tạo accessor bên dưới và lúc seed thật sự -> access() console.warn "chưa seed()" 3
@@ -134,13 +162,15 @@
             appConfig.seed('viz');
             appConfig.seed('slideshow');
             appConfig.seed('reader');
+            appConfig.seed('playlist');
         }
         seedConfig();
 
-        /** Accessor tiện dụng, dùng khắp core/event cho 3 domain config — xem AppConfig.access(). */
+        /** Accessor tiện dụng, dùng khắp core/event cho 4 domain config — xem AppConfig.access(). */
         const appConfigViz = appConfig.access('viz');
         const appConfigSlideshow = appConfig.access('slideshow');
         const appConfigReader = appConfig.access('reader');
+        const appConfigPlaylist = appConfig.access('playlist');
 
         /** Reset vizConfig về default (gộp từ core/app-recovery.js::executeRestoreDefaults() cũ —
          * CHỈ phần reset, KHÔNG gồm saveConfig()/reload(), 2 việc đó vẫn ở app-recovery.js). */
