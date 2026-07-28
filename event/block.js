@@ -30,19 +30,13 @@
  * trước khi thêm vào đây, chưa làm trong patch này.]
  */
 
-// ===================== fileManagerSong — chặn "Áp dụng cho Playlist" khi folder rỗng =====================
-// MỚI (03/07/2026, đợt 4). `folderDetailSongCount` (service/state.js) được workflow
-// (event/workflow/file-manager-song.js, refreshFolderDetail()) cập nhật MỖI LẦN vẽ lại Folder
-// Detail Drawer — luôn khớp đúng số bài ĐANG hiển thị lúc người dùng có thể bấm nút, nên dùng được
-// trực tiếp qua Block gate (chỉ đọc appState, không cần biết I/O IndexedDB nào). CHỈ chặn chiều
-// "Áp dụng" (folder rỗng thì áp dụng vô nghĩa) — chiều "Bỏ áp dụng"
-// (fileManagerSong.folder.unapplyFromPlaylist.click) KHÔNG bị chặn, luôn cho phép bất kể rỗng hay
-// không (bỏ scope thì không có lý do gì cần chặn).
-eventBus.registerBlock('fileManagerSong.folder.applyToPlaylist.click', [
-    [
-        { field: 'folderDetailSongCount', operator: '===', value: 0 },
-    ],
-], { notify: t('fileManager.song.folderDetail.applyBlockedEmpty') });
+// ===================== fileManagerFolderBrowser — chặn "Áp dụng cho Playlist" khi folder rỗng =====
+// XOÁ (Batch 5, "Song/Video Unification" mục 6e) — msg.type 'fileManagerSong.folder.
+// applyToPlaylist.click' KHÔNG CÒN TỒN TẠI: toggle Scope trong Folder Browser (Generic Drawer) giờ
+// gọi THẲNG `workflowFileManagerFolderBrowser._enableScope()`, không qua eventBus nữa — Block gate
+// không còn message nào để chặn. Thay bằng guard clause thẳng trong `_enableScope()` (cùng điều
+// kiện cũ) + `disabled` attribute trên checkbox (đã có từ Batch 4), xem docstring đầu
+// event/workflow/file-manager-folder-browser.js.
 
 // ===================== Generic Drawer — chặn mở chồng khi đang mở =====================
 // MỚI (13/07/2026, Giang yêu cầu) — Generic Drawer dùng CHUNG cho nhiều tính năng (hiện Document
@@ -52,10 +46,17 @@ eventBus.registerBlock('fileManagerSong.folder.applyToPlaylist.click', [
 // TRƯỚC — âm thầm hỏng cả 2. Bản chất là CHẶN HẲN (không chọn giữa nhiều tiến trình khác nhau, chỉ
 // không cho chạy khi đã mở) — đúng tiêu chí dùng Block gate. `isGenericDrawerOpen`
 // (service/state.js) do core/generic-drawer.js tự ghi true/false đúng nhịp mở/đóng thật (xem
-// docstring ở đó). CHỈ có đúng 1 msg.type "mở" hiện tại ('documentPicker.open.click') — tính năng
-// MỚI nào sau này cũng mở Generic Drawer PHẢI tự đăng ký thêm 1 dòng tương tự ở đây cho msg.type
-// của nó, KHÔNG tự suy luận miễn trừ.
+// docstring ở đó). Tính năng MỚI nào sau này cũng mở Generic Drawer PHẢI tự đăng ký thêm 1 dòng
+// tương tự ở đây cho msg.type của nó, KHÔNG tự suy luận miễn trừ.
 eventBus.registerBlock('documentPicker.open.click', [
+    [
+        { field: 'isGenericDrawerOpen', operator: '===', value: true },
+    ],
+]);
+
+// MỚI (Batch 5, "Song/Video Unification" mục 6e) — Folder Browser cũng mở Generic Drawer, đúng quy
+// định ngay phía trên (mỗi msg.type "mở" tự đăng ký riêng 1 dòng).
+eventBus.registerBlock('fileManagerFolderBrowser.open.click', [
     [
         { field: 'isGenericDrawerOpen', operator: '===', value: true },
     ],
