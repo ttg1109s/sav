@@ -61,6 +61,10 @@ const routerFileManagerVideo = (() => {
             case 'fileManagerVideo.tileMenu.action.click': {
                 const { action, videoKey } = msg.payload;
                 VirtualMachineState.run([
+                    // MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — mở modal "Chi tiết".
+                    { state: action, operation: '===', value: 'info', callback: () => {
+                        workflowFileManagerVideo.openVideoInfo(videoKey);
+                    } },
                     { state: action, operation: '===', value: 'setAsBgVideo', callback: () => {
                         workflowFileManagerVideo.setVideoAsBackground(videoKey);
                     } },
@@ -71,6 +75,14 @@ const routerFileManagerVideo = (() => {
                         workflowFileManagerVideo.confirmDeleteSingleVideo(videoKey);
                     } },
                 ]);
+                break;
+            }
+
+            // MỚI (Batch 5, mục 6c) — bấm "Lưu" trong modal "Chi tiết" (core/file-manager/
+            // video-ui.js::openVideoInfoModal()).
+            case 'fileManagerVideo.info.rename.confirm': {
+                const { videoKey, customName } = msg.payload;
+                workflowFileManagerVideo.confirmRenameVideo(videoKey, customName); // >1 hàm core -> workflow
                 break;
             }
 
