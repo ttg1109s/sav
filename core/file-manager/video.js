@@ -1,7 +1,16 @@
 /**
  * core/file-manager/video.js — File Manager -> Video, MỚI (21/07/2026). Schema store 'videos' xem
  * comment DB_VERSION ở service/db.js: key = videoKey, value = { blob, thumbBlob, width, height,
- * duration, filename, addedAt }.
+ * duration, filename, addedAt, format, codec, fps, bitrate, customName }.
+ *
+ * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — 5 field MỚI trên record:
+ *   - `format`/`codec`/`fps`/`bitrate` — PHÂN TÍCH SẴN qua mediainfo.js lúc upload (event/workflow/
+ *     file-manager-video.js::_extractVideoMediaInfo()), lưu thẳng, KHÔNG tính lại mỗi lần hiện tab
+ *     "Chi tiết". Rỗng/0 nếu phân tích thất bại (KHÔNG chặn upload).
+ *   - `customName` (string|null, mặc định null) — tên hiển thị người dùng TỰ đặt (tab "Chi tiết"),
+ *     CHỈ hiển thị TRONG app (Playlist/Video Player/danh sách folder) — KHÔNG remux/nhúng vào file,
+ *     download vẫn lấy theo `filename` GỐC. Video TẠO TRƯỚC batch này không có field này (undefined,
+ *     coi như null) — mọi nơi ĐỌC để hiển thị PHẢI tự rơi về `customName || filename`.
  *
  * CÙNG KHUÔN core/file-manager/image.js (Batch 3, Photo) — `thumbBlob`/`width`/`height` resize sẵn
  * lúc upload (event/workflow/file-manager-video.js::_extractVideoThumbAndMeta(), cần `<video>`/
@@ -38,19 +47,51 @@ async function resolveVideoKey(filename) {
  * Lưu 1 video mới (hoặc ghi đè nếu trùng filename — xem resolveVideoKey()). `thumbBlob`/`width`/
  * `height`/`duration` PHẢI tính SẴN trước khi gọi hàm này (Workflow — event/workflow/file-manager-
  * video.js::_extractVideoThumbAndMeta()) — hàm này (core) CHỈ ghi lại nguyên xi.
+ *
+ * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — tham số `mediaInfo` (format/codec/fps/
+ * bitrate, PHÂN TÍCH SẴN qua mediainfo.js — event/workflow/file-manager-video.js::
+ * _extractVideoMediaInfo(), CÙNG lý do đặt ở Workflow như _extractVideoThumbAndMeta(): thư viện
+ * ngoài + đọc Blob theo chunk, core không được đụng theo Rule 1-4). `customName` khởi tạo `null`
+ * (chưa đặt tên hiển thị riêng — tab "Chi tiết" rơi về `filename` gốc khi hiện, xem
+ * core/file-manager/folder.js::getFolderItemsForDisplay()/event/workflow/video-player.js).
  * @param {File|Blob} file - blob video GỐC (không resize).
  * @param {string} filename
  * @param {Blob} thumbBlob - khung hình đã chụp + resize sẵn, dùng cho lưới.
  * @param {number} width - chiều rộng video GỐC (px).
  * @param {number} height - chiều cao video GỐC (px).
  * @param {number} duration - thời lượng video (giây).
+ * @param {{format?: string, codec?: string, fps?: string, bitrate?: number}} [mediaInfo] - rỗng
+ *        nếu mediainfo.js phân tích thất bại (KHÔNG chặn upload, xem _extractVideoMediaInfo()) —
+ *        các field rơi về chuỗi/0 rỗng.
  * @returns {Promise<string>} videoKey vừa lưu
  */
-async function saveVideo(file, filename, thumbBlob, width, height, duration) {
+async function saveVideo(file, filename, thumbBlob, width, height, duration, mediaInfo) {
     const videoKey = await resolveVideoKey(filename); // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
     console.log(`[saveVideo] callTo: "resolveVideoKey", request: "sinh/tái dùng key duy nhất từ tên file '${filename}'"`);
-    await setVideoRecord(videoKey, { blob: file, thumbBlob, width, height, duration, filename, addedAt: Date.now() });
+    const info = mediaInfo || {};
+    await setVideoRecord(videoKey, {
+        blob: file, thumbBlob, width, height, duration, filename, addedAt: Date.now(),
+        format: info.format || '', codec: info.codec || '', fps: info.fps || '', bitrate: info.bitrate || 0,
+        customName: null,
+    });
     return videoKey;
+}
+
+/**
+ * Đặt/xoá tên hiển thị riêng (customName) cho 1 video — MỚI (Batch 5, mục 6c). CHỈ hiển thị TRONG
+ * app (Playlist/Video Player/tab Chi tiết) — KHÔNG remux/nhúng vào file khi export (download vẫn
+ * lấy theo `filename` GỐC, xem event/router/file-manager-video.js). Guard clause thuần (Rule 1):
+ * video không tồn tại thì dừng sớm, KHÔNG phải rẽ nhánh tiến trình khác.
+ * @param {string} videoKey
+ * @param {string|null} customName - `null`/rỗng = xoá tên riêng, rơi về `filename` gốc khi hiện.
+ * @returns {Promise<{status: 'notFound'|'ok'}>}
+ */
+async function setVideoCustomName(videoKey, customName) {
+    const record = await getVideoRecord(videoKey);
+    if (!record) return { status: 'notFound' };
+    record.customName = customName || null;
+    await setVideoRecord(videoKey, record);
+    return { status: 'ok' };
 }
 
 /**
