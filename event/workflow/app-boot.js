@@ -51,9 +51,26 @@ const workflowAppBoot = {
         updateSubToggleUI();
         if (typeof checkPendingResumeStateOnBoot === 'function') checkPendingResumeStateOnBoot();
         if (typeof loadSongStats === 'function') await loadSongStats();
-        await initPlaylistFromDB();
-        // Khôi phục activePlayListFolder đã lưu bền (nếu có) NGAY SAU initPlaylistFromDB()
-        // (playlistCache đã đầy đủ).
+
+        // MỚI (phản hồi Giang, mục 5 "Đồng bộ lại config Playlist Settings") — khôi phục
+        // Nguồn/Sắp xếp/Kiểu xem đã lưu bền TRƯỚC KHI quyết định nạp playlistCache theo nguồn nào
+        // ngay dưới đây (LƯU Ý THỨ TỰ, phản hồi Giang: bắt buộc biết `activeMediaSource` đã lưu
+        // TRƯỚC khi chọn initPlaylistFromDB() hay tương đương Video — đảo ngược thứ tự sẽ tái diễn
+        // đúng bug ở mục 7 dưới đây).
+        if (typeof workflowPlaylist !== 'undefined') await workflowPlaylist.loadPersistedPlaylistConfigOnBoot();
+
+        // SỬA (fix bug "folder Video Apply -> Playlist trống", phản hồi Giang mục 7) — TRƯỚC ĐÂY
+        // LUÔN initPlaylistFromDB() (chỉ nạp Song) bất kể activeMediaSource là gì, khiến
+        // applyFolderScope() bên dưới so sánh key Video với 1 playlistCache toàn Song -> luôn lọc
+        // ra 0 kết quả. Giờ nạp ĐÚNG playlistCache theo activeMediaSource vừa khôi phục ở trên.
+        const bootMediaSource = (typeof appState !== 'undefined') ? appState.get('activeMediaSource') : 'song';
+        if (bootMediaSource === 'video' && typeof listVideos === 'function' && typeof buildVideoPlaylistCache === 'function') {
+            buildVideoPlaylistCache(await listVideos()); // core có sẵn (core/playlist/loader.js)
+        } else {
+            await initPlaylistFromDB();
+        }
+        // Khôi phục activePlayListFolder đã lưu bền (nếu có) NGAY SAU khi playlistCache đã đầy đủ
+        // ĐÚNG nguồn ở trên.
         if (typeof getMeta === 'function' && typeof workflowPlaylistScope !== 'undefined') {
             const savedFolderId = await getMeta('activePlayListFolder');
             VirtualMachineState.run([
@@ -62,7 +79,28 @@ const workflowAppBoot = {
                 // Exclude (chỉ ảnh hưởng view "Tất cả") ngay từ lúc boot, xem
                 // event/workflow/playlist-scope.js.
                 { state: savedFolderId, operation: 'in', value: [null, undefined], callback: () => workflowPlaylistScope.applyAllSongsScope() },
-                { state: savedFolderId, operation: 'notIn', value: [null, undefined], callback: () => workflowPlaylistScope.applyFolderScope(savedFolderId) },
+                { state: savedFolderId, operation: 'notIn', value: [null, undefined], callback: async () => {
+                    // MỚI (fix mục 7) — folder đã lưu HIẾM KHI lệch loại với activeMediaSource vừa
+                    // khôi phục (dữ liệu cũ/lệch), nhưng nếu có thì TYPE CỦA FOLDER thắng tuyệt đối
+                    // (tín hiệu cụ thể hơn 1 lựa chọn Nguồn chung chung) — tự sửa lại
+                    // playlistCache/activeMediaSource TRƯỚC KHI applyFolderScope() so sánh key,
+                    // tránh lặp lại đúng bug mục 7.
+                    const folderRecord = typeof getFolderRecord === 'function' ? await getFolderRecord(savedFolderId) : null;
+                    const folderType = folderRecord ? folderRecord.type : null;
+                    const currentSource = appState.get('activeMediaSource');
+                    if (folderType === 'video' && currentSource !== 'video') {
+                        appState.set('activeMediaSource', 'video');
+                        console.log(`writer: "boot", page: "activeMediaSource", content: "video (sửa lệch theo type folder đã Apply)"`);
+                        buildVideoPlaylistCache(await listVideos());
+                        if (typeof PlaylistMain !== 'undefined') PlaylistMain.init();
+                    } else if (folderType === 'song' && currentSource !== 'song') {
+                        appState.set('activeMediaSource', 'song');
+                        console.log(`writer: "boot", page: "activeMediaSource", content: "song (sửa lệch theo type folder đã Apply)"`);
+                        await initPlaylistFromDB();
+                        if (typeof PlaylistMain !== 'undefined') PlaylistMain.init();
+                    }
+                    await workflowPlaylistScope.applyFolderScope(savedFolderId);
+                } },
             ]);
         }
         if (typeof appState !== 'undefined') appState.set('_isPlaylistReadyForResumeModal', true);

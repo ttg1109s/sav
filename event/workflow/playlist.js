@@ -250,6 +250,107 @@ const workflowPlaylist = {
     },
 
     /**
+     * "Xuất file" — bản 1 file lẻ, dành cho Song. DỜI từ `core/id3-export.js::exportSongWithTag()`
+     * (Batch "Export dọn nợ kiến trúc", phản hồi Giang) — hàm này tự đọc DB + tự bọc
+     * `withLoadingShield()` + tự gọi `alertModal()`, đúng HÌNH DẠNG WORKFLOW, KHÔNG đổi 1 dòng logic
+     * bên trong, chỉ đổi NƠI Ở cho đúng kiến trúc.
+     */
+    async exportSongWithTag(key) {
+        // FIX (xung đột shield/modal): KHÔNG await alertModal() bên trong fn() của
+        // withLoadingShield() — xem giải thích chi tiết ở core/playlist/actions.js (window.playSong).
+        // Tóm tắt: isShieldBusy chỉ giải phóng SAU KHI fn() resolve, còn alertModal() chỉ resolve
+        // khi người dùng bấm OK -> lồng vào nhau làm #loading-shield (z-[200]) treo, đè lên trên
+        // modalChoice() (z-[130]) suốt thời gian chờ. Dùng cờ mang thông tin ra ngoài, hiện modal
+        // SAU KHI withLoadingShield() đã resolve hoàn toàn.
+        let resultFlag = null; // null = ổn (không cần báo gì) | 'notFound' | 'tagWriteFailed'
+        let failedRecord = null; // giữ lại record gốc khi ghi tag lỗi — dùng để triggerDownload(record.blob,...) ở ngoài, tránh query lại DB lần 2
+        await withLoadingShield(t('common.loading.exportingFile'), async () => {
+            const record = await getSongRecord(key);
+            if (!record) { resultFlag = 'notFound'; return; }
+            try {
+                const taggedBlob = await buildTaggedBlob(record); // core có sẵn (core/id3-export.js)
+                triggerDownload(taggedBlob, record.filename); // core có sẵn (core/id3-export.js)
+            } catch (e) {
+                console.error('[workflow:playlist] Lỗi ghi tag lúc xuất file:', e);
+                resultFlag = 'tagWriteFailed';
+                failedRecord = record;
+                // Giữ ĐÚNG thứ tự hành vi gốc: alertModal() chạy XONG rồi mới tới
+                // triggerDownload(record.blob,...) — người dùng đọc thông báo lỗi TRƯỚC khi file
+                // (chưa ghi tag) được tải xuống. Đưa triggerDownload này ra ngoài CÙNG với
+                // alertModal() (xem dưới) để giữ đúng thứ tự đó.
+            }
+        });
+
+        // Shield đã đóng HẲN tới đây — an toàn để hiện modal.
+        if (resultFlag === 'notFound') {
+            await alertModal(t('common.export.notFound'));
+        } else if (resultFlag === 'tagWriteFailed') {
+            await alertModal(t('common.export.tagWriteFailed'));
+            triggerDownload(failedRecord.blob, failedRecord.filename);
+        }
+    },
+
+    /**
+     * "Xuất file" cho Video — bản 1 file lẻ, MỚI (Batch "Export dọn nợ kiến trúc", phản hồi Giang,
+     * plan-v12-song-video-unification.md mục 6f) — CÙNG CẤU TRÚC exportSongWithTag() ngay trên,
+     * CHỈ BỎ bước buildTaggedBlob() (Video không có 3 tag ID3, `customName` KHÔNG remux vào file —
+     * đã chốt ở mục 6c/6f) — tải thẳng record.blob/record.filename GỐC.
+     */
+    async exportVideoFile(key) {
+        let notFound = false;
+        await withLoadingShield(t('common.loading.exportingFile'), async () => {
+            const record = await getVideoRecord(key); // service/db.js
+            if (!record) { notFound = true; return; }
+            triggerDownload(record.blob, record.filename); // core có sẵn (core/id3-export.js)
+        });
+        if (notFound) await alertModal(t('common.export.notFound'));
+    },
+
+    /**
+     * "Xuất ZIP" cho Video — bản hàng loạt, MỚI (cùng batch với exportVideoFile() ngay trên) — CÙNG
+     * CẤU TRÚC exportSelectedSongsZip(), CHỈ BỎ bước gắn tag (zip thẳng record.blob/filename gốc,
+     * không cần try/catch riêng vì không có bước ghi tag nào có thể lỗi).
+     */
+    async exportSelectedVideosZip() {
+        const keys = Array.from(appState.get('selectedSongKeys'));
+        if (keys.length === 0) return;
+
+        let failedCount = 0;
+        await withLoadingShield(t('common.loading.exportingFile'), async () => {
+            const zip = new JSZip();
+            for (const key of keys) {
+                const record = await getVideoRecord(key); // service/db.js
+                if (!record) { failedCount++; continue; } // guard: video không còn tồn tại (race) — bỏ qua
+                zip.file(record.filename, record.blob);
+            }
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            triggerDownload(zipBlob, t('playlistView.selection.exportZipFilenameVideo')); // core có sẵn ở id3-export.js
+        });
+
+        this._exitSelectionMode();
+        if (failedCount > 0) await alertModal(t('playlistView.selection.exportPartialFail'));
+    },
+
+    /**
+     * "Xuất file" cho ĐÚNG 1 item đang mở menu 3 chấm — MỚI (Batch "Export dọn nợ kiến trúc", phản
+     * hồi Giang) — TÁCH RIÊNG khỏi handleSongActionMenuSelect() cũ (core/playlist/actions.js, đã có
+     * sẵn nhánh if/else vi phạm Rule 1 — không mở rộng thêm, CÙNG PRECEDENT với addToFolder/
+     * editSubtitles/navigateToActiveMenuVideoEdit ở trên: đọc key đang mở menu, đóng menu, rồi rẽ
+     * theo `activeMediaSource` — CÙNG CÔNG THỨC openAddToFolderPickerForSongMenu() phía trên
+     * (Playlist chỉ browse ĐÚNG 1 nguồn tại 1 thời điểm, item đang mở menu luôn cùng loại với nguồn
+     * đang active) — Song -> exportSongWithTag() (kèm bước ghi tag ID3), Video -> exportVideoFile()
+     * (bỏ qua bước tag).
+     */
+    async exportActiveMenuItem() {
+        const key = playlistStore.get('songActionMenuKey');
+        if (!key) return;
+        closeSongActionMenu();
+        const mediaType = appState.get('activeMediaSource') === 'video' ? 'video' : 'song';
+        if (mediaType === 'video') await this.exportVideoFile(key);
+        else await this.exportSongWithTag(key);
+    },
+
+    /**
      * MỚI (mục 1d, CHỐT 03/07/2026) — "Thêm vào thư mục" cho ĐÚNG 1 bài từ menu 3 chấm đơn lẻ.
      * Song song với openAddToFolderPicker() ở dưới (chọn nhiều) — KHÔNG gộp chung 1 method vì 2
      * message trigger khác nhau (đơn lẻ đọc `songActionMenuKey` trong playlistStore, chọn nhiều
@@ -274,19 +375,16 @@ const workflowPlaylist = {
     },
 
     /**
-     * MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — 2 hành động RIÊNG
-     * của Video trong menu 3 chấm (Set làm nền / Sửa video) — CÙNG PRECEDENT với
-     * openSubtitleEditorForSongMenu() ngay trên (đọc key đang mở menu, đóng menu, TÁI DÙNG NGUYÊN
-     * `workflowFileManagerVideo.setVideoAsBackground()`/`navigateToVideoEdit()` — 2 hàm nghiệp vụ
-     * ĐÃ CÓ SẴN từ "File Manager → Video" cũ, KHÔNG viết lại, chỉ đổi nơi gọi, đúng CHỐT mục 6d).
+     * MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — "Sửa video" trong
+     * menu 3 chấm — CÙNG PRECEDENT với openSubtitleEditorForSongMenu() ngay trên (đọc key đang mở
+     * menu, đóng menu, TÁI DÙNG NGUYÊN `navigateToVideoEdit()` — hàm nghiệp vụ ĐÃ CÓ SẴN từ
+     * "File Manager → Video" cũ, KHÔNG viết lại, chỉ đổi nơi gọi, đúng CHỐT mục 6d).
+     * XOÁ (phản hồi Giang — "bỏ luôn set background cho dropdown của video đi") —
+     * `setActiveMenuVideoAsBackground()` (action "setAsBgVideo") đã bỏ hẳn cùng lúc với nút dropdown
+     * tương ứng. TỰ AUDIT LẠI lúc xoá: `workflowFileManagerVideo.setVideoAsBackground()` tưởng còn
+     * picker "Use background video" dùng — THỰC RA KHÔNG (picker tự inline logic riêng) — đã XOÁ
+     * THẲNG hàm đó (0 lời gọi) cùng 2 lang key liên quan, xem event/workflow/file-manager-video.js.
      */
-    async setActiveMenuVideoAsBackground() {
-        const key = playlistStore.get('songActionMenuKey');
-        if (!key) return;
-        closeSongActionMenu();
-        await workflowFileManagerVideo.setVideoAsBackground(key); // event/workflow/file-manager-video.js — Workflow gọi Workflow miền khác, tự do
-    },
-
     navigateToActiveMenuVideoEdit() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return;
@@ -320,7 +418,9 @@ const workflowPlaylist = {
             // không đổi "folder nào đang active", chỉ đổi DỮ LIỆU trong nó. Lần tải trang kế tiếp
             // (hoặc lần bấm "Áp dụng" kế tiếp) sẽ tự đọc đúng danh sách mới — xem
             // event/workflow/playlist-scope.js.
-            await alertModal(tFormat('fileManager.folderPicker.addSuccess', { count: 1 }));
+            // SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — trước đây LUÔN
+            // "Added X song(s)" kể cả khi vừa thêm Video.
+            await alertModal(tFormat(mediaType === 'video' ? 'fileManager.folderPicker.addSuccessVideo' : 'fileManager.folderPicker.addSuccess', { count: 1 }));
         });
     },
 
@@ -347,7 +447,7 @@ const workflowPlaylist = {
             // SỬA 03/07/2026 (đợt 3): KHÔNG còn tự áp dụng ngay vào Playlist đang chạy — xem lý do
             // ở finishAdd() bản 1-bài phía trên (openAddToFolderPickerForSongMenu).
             this._exitSelectionMode();
-            await alertModal(tFormat('fileManager.folderPicker.addSuccess', { count: keys.length }));
+            await alertModal(tFormat(mediaType === 'video' ? 'fileManager.folderPicker.addSuccessVideo' : 'fileManager.folderPicker.addSuccess', { count: keys.length }));
         });
     },
 
@@ -607,13 +707,6 @@ const workflowPlaylist = {
         appState.set('activeMediaSource', 'video');
         console.log(`writer: "switchToVideoSource", page: "activeMediaSource", content: "video"`);
 
-        // MỚI (FIX 28/07/2026, phản hồi Giang "Video chỉ 1 chế độ chọn nhiều file, bỏ dropdown,
-        // input luôn") — đổi chỗ 2 nút "Thêm" ở header: ẩn #btn-upload-audio (Song, mở dropdown 2
-        // lựa chọn), hiện #btn-upload-video (Video, <label> bọc thẳng input, mở picker NATIVE luôn,
-        // xem components/playlist-view.js + event/listener/playlist.js).
-        btnUploadAudio.classList.add('hidden');
-        btnUploadVideo.classList.remove('hidden');
-
         const videoRecords = await listVideos(); // core/file-manager/video.js, CÓ return, DÙNG ngay dưới -> Workflow gọi Core hợp lệ (Rule 3)
         const keys = buildVideoPlaylistCache(videoRecords); // core/playlist/loader.js (MỚI, Batch 1), CÓ return, DÙNG ngay dưới
         appState.set('playlistOrder', keys);
@@ -624,6 +717,10 @@ const workflowPlaylist = {
         recomputeRenderOrder();    // core có sẵn (core/playlist/order.js)
         renderPlaylistDiff();      // core có sẵn (core/playlist/render.js)
         updateEmptyState();        // core có sẵn (core/playlist/render.js)
+        // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — placeholder ô tìm kiếm
+        // đổi theo Nguồn (Song có artist/album để tìm, Video thì không).
+        if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholderVideo');
+        await this._persistPlaylistConfig(); // MỚI (phản hồi Giang, mục 5) — lưu bền Nguồn để không mất sau reload
     },
 
     /**
@@ -635,11 +732,6 @@ const workflowPlaylist = {
         appState.set('activeMediaSource', 'song');
         console.log(`writer: "switchToSongSource", page: "activeMediaSource", content: "song"`);
 
-        // MỚI (FIX 28/07/2026, "bỏ dropdown Video, input luôn") — đổi chỗ ngược lại với
-        // switchToVideoSource() ngay trên: hiện #btn-upload-audio, ẩn #btn-upload-video.
-        btnUploadVideo.classList.add('hidden');
-        btnUploadAudio.classList.remove('hidden');
-
         const keys = await scanValidSongsFromDB(); // core có sẵn (core/playlist/loader.js, Song, KHÔNG đụng), CÓ return, DÙNG ngay dưới
         appState.set('playlistOrder', keys);
         console.log(`writer: "switchToSongSource", page: "playlistOrder", content: "${keys.length} bài hát"`);
@@ -649,5 +741,67 @@ const workflowPlaylist = {
         recomputeRenderOrder();
         renderPlaylistDiff();
         updateEmptyState();
+        if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholder');
+        await this._persistPlaylistConfig(); // MỚI (phản hồi Giang, mục 5) — lưu bền Nguồn để không mất sau reload
+    },
+
+    /**
+     * "Sắp xếp" đổi giá trị (Settings → Playlist) — MỚI, tách khỏi router (phản hồi Giang, mục 5
+     * "Đồng bộ lại config Playlist Settings"): trước đây router gọi thẳng `setDisplaySortMode()`
+     * (đúng "1 hàm core" theo quy ước router này) — giờ cần thêm bước lưu bền
+     * (`_persistPlaylistConfig()`), thành ≥2 bước -> đúng quy ước router "giao cho Workflow" (xem
+     * docstring đầu event/router/playlist.js).
+     */
+    async changeSortMode(mode) {
+        setDisplaySortMode(mode); // core có sẵn (core/playlist/order.js)
+        await this._persistPlaylistConfig();
+    },
+
+    /** "Kiểu xem" đổi giá trị (Settings → Playlist) — CÙNG LÝ DO tách khỏi router như changeSortMode() ngay trên. */
+    async changeViewMode(mode) {
+        setPlaylistViewMode(mode); // core có sẵn (core/playlist/main.js)
+        await this._persistPlaylistConfig();
+    },
+
+    /**
+     * Ghi bền 3 lựa chọn "Playlist Settings" (Nguồn/Sắp xếp/Kiểu xem) vào `appConfigPlaylist` +
+     * `meta.playlistConfig` (IndexedDB) — CÙNG KHUÔN domain 'slideshow' (event/workflow/
+     * slideshow.js, setMeta trực tiếp mỗi lần đổi, KHÔNG debounce như domain 'viz' vì tần suất đổi
+     * thấp). CHỦ Ý KHÔNG gồm 3 field "Giải phóng bộ nhớ" (mediaScope/downloadEnabled/deleteEnabled,
+     * event/router/file-manager-song.js) — xem giải thích đầy đủ ở core/config.js::
+     * DEFAULT_PLAYLIST_CONFIG (lưu bền sẽ vô hiệu hoá 1 lớp an toàn đã có chủ đích cho hành động
+     * phá huỷ dữ liệu — router đó CHỦ ĐỘNG reset 3 field này mỗi lần mở panel).
+     */
+    async _persistPlaylistConfig() {
+        appConfigPlaylist.setAll({
+            activeMediaSource: appState.get('activeMediaSource'),
+            displaySortMode: appState.get('displaySortMode'),
+            isGridView: appState.get('isGridView'),
+        });
+        await setMeta('playlistConfig', appConfigPlaylist.getAll());
+    },
+
+    /**
+     * Khôi phục 3 lựa chọn "Playlist Settings" đã lưu bền LÚC BOOT — gọi từ event/workflow/
+     * app-boot.js, TRƯỚC bước quyết định nạp playlistCache theo nguồn nào (LƯU Ý THỨ TỰ, phản hồi
+     * Giang: phải biết `activeMediaSource` đã lưu TRƯỚC khi quyết định gọi initPlaylistFromDB()
+     * (Song) hay tương đương switchToVideoSource() (Video) — xem app-boot.js). Đồng bộ lại UI 3
+     * <select> qua `PlaylistMain.init()` (đã có sẵn, chỉ gán lại .value theo appState) vì lần gọi
+     * ĐẦU của nó (cuối core/playlist/main.js, lúc nạp script) chạy TRƯỚC khi hàm này kịp đọc xong
+     * IndexedDB (bất đồng bộ) — không gọi lại thì <select> hiện sai giá trị dù state runtime đã đúng.
+     */
+    async loadPersistedPlaylistConfigOnBoot() {
+        const saved = await getMeta('playlistConfig');
+        if (saved && typeof saved === 'object') {
+            appConfigPlaylist.mutateAll((cfg) => Object.assign(cfg, saved));
+        }
+        const cfg = appConfigPlaylist.getAll();
+        appState.set('activeMediaSource', cfg.activeMediaSource === 'video' ? 'video' : 'song');
+        appState.set('displaySortMode', cfg.displaySortMode || 'az');
+        appState.set('isGridView', !!cfg.isGridView);
+        console.log(`writer: "loadPersistedPlaylistConfigOnBoot", page: "activeMediaSource/displaySortMode/isGridView", content: "khôi phục từ meta.playlistConfig"`);
+        if (playlistSearchInput) playlistSearchInput.placeholder = t(cfg.activeMediaSource === 'video' ? 'playlistView.search.placeholderVideo' : 'playlistView.search.placeholder');
+        if (typeof PlaylistMain !== 'undefined') PlaylistMain.init();
     }
 };
+

@@ -1,18 +1,22 @@
 /**
  * event/workflow/file-manager-video.js — MỚI (21/07/2026). Chỉ còn LOGIC NGHIỆP VỤ của Video
- * (thêm/xoá, phân tích thumbnail+mediainfo lúc upload, set làm nền, mở Video Editor) + picker
- * Generic Drawer "Use background video" (Visualizer Control Center) — KHÔNG còn UI panel riêng.
+ * (thêm/xoá, phân tích thumbnail+mediainfo lúc upload, mở Video Editor) + picker Generic Drawer
+ * "Use background video" (Visualizer Control Center, tự inline logic riêng, KHÔNG qua hàm nào
+ * dưới đây — xem `event/workflow/visualizer-control-center.js::enableVideoBackgroundToggle()`) —
+ * KHÔNG còn UI panel riêng.
  *
  * XOÁ (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang "làm luôn 6d") — TOÀN BỘ
  * phần dựng UI/panel "File Manager → Video" (openPanel()/_buildHeaderActionHtml()/
  * _wireHeaderActionEvents()/triggerUploadInput()/refresh() — lưới CSS Grid + nút xoá nhanh) ĐÃ XOÁ
  * HẲN, cùng lúc:
  *   - `openVideoTileActionMenu()` (dropdown 3 lựa chọn trên tile) — "Set as bg video"/"Edit video"
- *     dời sang menu 3 chấm DÙNG CHUNG của Playlist (2 nút mới, ẩn/hiện theo mediaType —
- *     `components/playlist-view.js` + `core/playlist/actions.js::openSongActionMenu()` +
- *     `event/workflow/playlist.js::setActiveMenuVideoAsBackground()`/
- *     `navigateToActiveMenuVideoEdit()`, TÁI DÙNG NGUYÊN `setVideoAsBackground()`/
- *     `navigateToVideoEdit()` bên dưới, chỉ đổi nơi gọi). "Xoá" giờ dùng chung
+ *     dời sang menu 3 chấm DÙNG CHUNG của Playlist (`components/playlist-view.js` +
+ *     `core/playlist/actions.js::openSongActionMenu()` + `event/workflow/playlist.js::
+ *     navigateToActiveMenuVideoEdit()`, TÁI DÙNG NGUYÊN `navigateToVideoEdit()` bên dưới, chỉ đổi
+ *     nơi gọi). ["Set làm nền" sau đó ĐÃ BỎ HẲN khỏi dropdown này, phản hồi Giang — TỰ AUDIT LẠI lúc
+ *     xoá phát hiện `setVideoAsBackground()` (hàm từng ở file này) tưởng picker "Use background
+ *     video" còn dùng nhưng THỰC RA KHÔNG — picker đó tự inline logic riêng, hàm này 0 lời gọi sau
+ *     khi bỏ dropdown -> XOÁ THẲNG cùng 2 lang key liên quan, không giữ code chết.] "Xoá" giờ dùng chung
  *     `window.removeSong()` (core/playlist/actions.js, ĐÃ sửa media-aware) — `confirmDeleteSingleVideo()`
  *     (modal confirm riêng, dùng `deleteVideo()`) ĐÃ XOÁ, không còn nơi gọi.
  *   - Toàn bộ "chế độ xoá nhanh" (`promptQuickDeleteMode()`/`toggleQuickDeleteMarkInSet()`/
@@ -104,58 +108,33 @@ const workflowFileManagerVideo = {
      * lỗi phân tích KHÔNG chặn cả lô upload (đúng tinh thần try/catch quanh
      * `_extractVideoThumbAndMeta()` ở `uploadVideos()` ngay dưới — mediainfo chỉ là dữ liệu PHỤ,
      * không có cũng không sao, khác hẳn thumbnail/duration là BẮT BUỘC).
-     *
-     * FIX (28/07/2026, Giang báo "không upload được video, bị treo saving") — `MediaInfo.default()`
-     * (tải WASM qua CDN unpkg) VÀ `mediainfo.analyzeData()` (đọc blob theo chunk) trước đây KHÔNG
-     * có timeout nào — khác hẳn `_extractVideoThumbAndMeta()` ngay trên (đã có `safetyTimeout` 8s
-     * qua `taskManager.once()`). Mạng chậm/chập chờn lúc tải WASM hoặc phân tích khiến promise treo
-     * VÔ THỜI HẠN, kẹt cả `withLoadingShield()` ở `uploadVideos()` — KHÔNG BAO GIỜ chạy tới
-     * `saveVideo()`, dù mediainfo chỉ là dữ liệu PHỤ. SỬA: đua (`Promise.race`) với 1 timeout CÙNG
-     * PATTERN 8000ms — hết giờ thì coi như lỗi, trả object rỗng, KHÔNG chặn upload. Tác vụ WASM/
-     * analyze vẫn được PHÉP chạy tiếp ngầm sau khi đã "bỏ cuộc" (không hủy được `analyzeData()` giữa
-     * chừng) — tự đóng `mediainfo` (`.close()`) khi nó XONG THẬT SỰ, dù trước hay sau khi đã timeout,
-     * tránh rò rỉ instance WASM.
      * @param {Blob} blob - blob video GỐC.
      * @returns {Promise<{codec: string, fps: string, bitrate: number, audioCodec: string, audioBitrate: number}>}
      */
     async _extractVideoMediaInfo(blob) {
         if (typeof MediaInfo === 'undefined') return {}; // guard: CDN lỗi mạng/chưa tải kịp — không chặn upload
-        let mediainfoInstance = null;
-        const readChunk = (chunkSize, offset) => blob.slice(offset, offset + chunkSize).arrayBuffer().then((buf) => new Uint8Array(buf));
-        const analyzeTask = (async () => {
-            mediainfoInstance = await MediaInfo.default({ format: 'object', coverData: false });
-            return await mediainfoInstance.analyzeData(blob.size, readChunk);
-        })();
-        // Đóng mediainfo NGAY KHI XONG THẬT SỰ (kể cả xong SAU khi nhánh timeout bên dưới đã trả về
-        // {} rồi) — tránh rò rỉ instance WASM nếu Promise.race chọn nhánh timeout trước.
-        analyzeTask.catch(() => {}).finally(() => { if (mediainfoInstance) mediainfoInstance.close(); });
-
-        let timeoutTimer;
-        const result = await Promise.race([
-            analyzeTask,
-            new Promise((resolve) => { timeoutTimer = taskManager.once(() => resolve(null), 8000); }),
-        ]).catch((err) => {
+        let mediainfo;
+        try {
+            mediainfo = await MediaInfo.default({ format: 'object', coverData: false });
+            const readChunk = (chunkSize, offset) => blob.slice(offset, offset + chunkSize).arrayBuffer().then((buf) => new Uint8Array(buf));
+            const result = await mediainfo.analyzeData(blob.size, readChunk);
+            const tracks = (result && result.media && result.media.track) || [];
+            const generalTrack = tracks.find((tr) => tr['@type'] === 'General') || {};
+            const videoTrack = tracks.find((tr) => tr['@type'] === 'Video') || {};
+            const audioTrack = tracks.find((tr) => tr['@type'] === 'Audio') || {};
+            return {
+                codec: videoTrack.Format || videoTrack.CodecID || '',
+                fps: videoTrack.FrameRate || generalTrack.FrameRate || '',
+                bitrate: Number(videoTrack.BitRate || generalTrack.OverallBitRate || 0) || 0,
+                audioCodec: audioTrack.Format || audioTrack.CodecID || '',
+                audioBitrate: Number(audioTrack.BitRate || 0) || 0,
+            };
+        } catch (err) {
             console.error('[_extractVideoMediaInfo] mediainfo.js phân tích thất bại:', err);
-            return null;
-        });
-
-        if (!result) {
-            console.warn('[_extractVideoMediaInfo] timeout (>8s) hoặc lỗi lúc tải/phân tích mediainfo.js (mạng chậm/CDN không phản hồi) — bỏ qua, video vẫn upload bình thường, chỉ thiếu codec/fps/bitrate.');
             return {};
+        } finally {
+            if (mediainfo) mediainfo.close();
         }
-        timeoutTimer.kill(); // analyzeTask thắng cuộc đua -> dọn timer thừa, KHÔNG để nó tự bắn vô ích sau 8s
-
-        const tracks = (result.media && result.media.track) || [];
-        const generalTrack = tracks.find((tr) => tr['@type'] === 'General') || {};
-        const videoTrack = tracks.find((tr) => tr['@type'] === 'Video') || {};
-        const audioTrack = tracks.find((tr) => tr['@type'] === 'Audio') || {};
-        return {
-            codec: videoTrack.Format || videoTrack.CodecID || '',
-            fps: videoTrack.FrameRate || generalTrack.FrameRate || '',
-            bitrate: Number(videoTrack.BitRate || generalTrack.OverallBitRate || 0) || 0,
-            audioCodec: audioTrack.Format || audioTrack.CodecID || '',
-            audioBitrate: Number(audioTrack.BitRate || 0) || 0,
-        };
     },
 
     /** Ứng với 'playlist.upload.videoFileChange' (Batch 6, mục 7 — trước đây
@@ -196,30 +175,17 @@ const workflowFileManagerVideo = {
         await alertModal(tFormat('fileManager.video.uploadSuccess', { count: successCount }));
     },
 
-    /** Ứng với 'playlist.actionMenu.setAsBgVideo' (menu 3 chấm Playlist, chỉ hiện khi item là
-     * Video — xem event/workflow/playlist.js::setActiveMenuVideoAsBackground()). GIỮ NGUYÊN 100%
-     * thân hàm so với bản cũ (dropdown tile "File Manager → Video" đã xoá, Batch 6 mục 6d) — chỉ
-     * đổi NƠI GỌI.
-     * SAO KHÔNG DÙNG Block gate cho guard "đang ở Video Player mode" — điều kiện chặn cần đọc
-     * `appState.get('isVideoPlayerMode')` (1 field appState, không so với payload) — VỀ LÝ THUYẾT
-     * Block gate làm được, nhưng giữ code thủ công ở đây để CÙNG 1 chỗ với logic
-     * `withLoadingShield`/`alertModal` ngay sau, dễ đọc hơn tách rời 2 nơi.
-     * @param {string} videoKey
+    /**
+     * XOÁ (phản hồi Giang — "bỏ luôn set background cho dropdown của video đi") — TỰ AUDIT LẠI
+     * (phát hiện lúc xoá): `setVideoAsBackground()` (hàm cũ từng ở đây) tưởng vẫn còn 1 nơi gọi là
+     * picker "Use background video" — SAI, grep toàn project xác nhận picker đó (`enableVideoBackgroundToggle()`,
+     * event/workflow/visualizer-control-center.js) tự inline nguyên logic riêng của nó (đọc record/
+     * withLoadingShield/setMeta('videoBg',...)/applyUploadedVideoBg()), KHÔNG hề gọi hàm này —
+     * `setVideoAsBackground()` chỉ từng có ĐÚNG 1 nơi gọi là dropdown "Set làm nền" (Playlist, action
+     * 'setAsBgVideo') đã bỏ hẳn. XOÁ THẲNG cả hàm (0 lời gọi còn lại, đúng nguyên tắc "làm mới UI,
+     * không mang code chết theo" đã áp dụng xuyên suốt Batch 6) — cùng lúc xoá 2 lang key
+     * `fileManager.video.setAsBgVideo.blockedByPlayerMode`/`.success` (lang/patch/patch-file-manager.js).
      */
-    async setVideoAsBackground(videoKey) {
-        if (appState.get('isVideoPlayerMode')) {
-            await alertModal(t('fileManager.video.setAsBgVideo.blockedByPlayerMode'));
-            return;
-        }
-        const record = await getVideoRecord(videoKey); // service/db.js
-        if (!record) return; // guard: video vừa bị xoá ở nơi khác
-        await withLoadingShield(t('common.loading.savingVideoBg'), async () => {
-            await setMeta('videoBg', record.blob); // service/db.js
-            applyUploadedVideoBg(record.blob); // core/state-and-video-bg.js, di sản — tự set videoBgEnabled=true + đồng bộ UI + saveConfig()
-        });
-        if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.syncPlaybackGate();
-        await alertModal(t('fileManager.video.setAsBgVideo.success'));
-    },
 
     /** Ứng với 'playlist.actionMenu.editVideoFile' (menu 3 chấm Playlist, chỉ hiện khi item là
      * Video). GIỮ NGUYÊN 100% — MỚI (Batch 1, module Video Editor), THAY placeholder cũ. Điều

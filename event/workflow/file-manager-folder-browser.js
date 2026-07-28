@@ -61,6 +61,22 @@ const workflowFileManagerFolderBrowser = {
     _readFolderRecord: null, // { id, name, type, excludeFromMainPlaylist }
     _readAllItems: [],       // TOÀN BỘ item (chưa phân trang) của folder đang xem — dùng tính lại count mỗi lần
 
+    /** MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — true nếu folder đang xem ở
+     * Read là Video (`_readFolderRecord.type === 'video'`). UI Folder Browser Read DÙNG CHUNG 1
+     * bộ chuỗi cho cả Song lẫn Video (ra đời TRƯỚC Video, xem lang/patch/patch-file-manager.js) —
+     * nhiều chuỗi hardcode "song" dù áp dụng được cho folder Video (empty/removeAll/reload...). */
+    _folderIsVideo() {
+        return !!(this._readFolderRecord && this._readFolderRecord.type === 'video');
+    },
+
+    /** Chọn ĐÚNG biến thể Song/Video của 1 key (key gốc = Song, key + "Video" = Video) — chỉ dùng
+     * cho các key ĐÃ CÓ biến thể Video tương ứng (xem lang/patch/patch-file-manager.js), KHÔNG dùng
+     * cho key trung lập/không cần biến thể (ví dụ renameTitle/btnDeleteFolder). */
+    _folderText(baseKey, params) {
+        const fullKey = this._folderIsVideo() ? `${baseKey}Video` : baseKey;
+        return params ? tFormat(fullKey, params) : t(fullKey);
+    },
+
     // ============================== LIST (grid folder) ==============================
 
     /** Ứng với 'fileManagerFolderBrowser.open.click' — ĐIỂM VÀO DUY NHẤT (nút "Duyệt thư mục" ở
@@ -240,7 +256,7 @@ const workflowFileManagerFolderBrowser = {
             <div class="px-4 pt-4 flex flex-col gap-4">
                 <div class="rounded-2xl border border-slate-200 flex flex-col overflow-hidden">
                     <div id="folder-browser-read-item-list" class="flex flex-col divide-y divide-slate-100 text-slate-800"></div>
-                    <p id="folder-browser-read-empty" class="hidden text-sm text-slate-400 p-4 text-center">${t('fileManager.song.folderDetail.empty')}</p>
+                    <p id="folder-browser-read-empty" class="hidden text-sm text-slate-400 p-4 text-center">${this._folderText('fileManager.song.folderDetail.empty')}</p>
                     <div id="folder-browser-read-pagination" class="border-t border-slate-100">${buildPaginationListHtml(pageResult.pageIndex, pageResult.totalPages)}</div>
                 </div>
 
@@ -248,7 +264,7 @@ const workflowFileManagerFolderBrowser = {
                     <div class="flex justify-between items-center p-4 border-b border-slate-100">
                         <div class="pr-3">
                             <div class="text-sm font-medium text-slate-800 truncate">${t('fileManager.song.folderDetail.scopeToggle.label')}</div>
-                            <div class="text-xs text-slate-400 mt-0.5">${t('fileManager.song.folderDetail.scopeToggle.hint')}</div>
+                            <div class="text-xs text-slate-400 mt-0.5">${this._folderText('fileManager.song.folderDetail.scopeToggle.hint')}</div>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer shrink-0">
                             <input type="checkbox" id="toggle-folder-browser-read-scope" class="sr-only peer">
@@ -257,8 +273,8 @@ const workflowFileManagerFolderBrowser = {
                     </div>
                     <div class="flex justify-between items-center p-4">
                         <div class="pr-3">
-                            <div class="text-sm font-medium text-slate-800 truncate">${t('fileManager.song.folderDetail.excludeToggle.label')}</div>
-                            <div class="text-xs text-slate-400 mt-0.5">${t('fileManager.song.folderDetail.excludeToggle.hint')}</div>
+                            <div class="text-sm font-medium text-slate-800 truncate">${this._folderText('fileManager.song.folderDetail.excludeToggle.label')}</div>
+                            <div class="text-xs text-slate-400 mt-0.5">${this._folderText('fileManager.song.folderDetail.excludeToggle.hint')}</div>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer shrink-0">
                             <input type="checkbox" id="toggle-folder-browser-read-exclude" class="sr-only peer">
@@ -268,7 +284,7 @@ const workflowFileManagerFolderBrowser = {
                 </div>
 
                 <div class="flex justify-center pb-2">
-                    <button id="btn-folder-browser-read-remove-all" class="hidden px-5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 text-sm font-semibold transition-colors">${t('fileManager.song.folderDetail.btnRemoveAll')}</button>
+                    <button id="btn-folder-browser-read-remove-all" class="hidden px-5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 text-sm font-semibold transition-colors">${this._folderText('fileManager.song.folderDetail.btnRemoveAll')}</button>
                 </div>
             </div>
         `;
@@ -343,20 +359,20 @@ const workflowFileManagerFolderBrowser = {
         const folderId = this._readFolderId;
         await workflowPlaylistScope.persistScopeChoice(folderId);
         this._updateScopeToggleUI(this._readAllItems.length === 0);
-        workflowPlaylistScope.askReloadToApplyNow(tFormat('fileManager.song.folderDetail.applyReloadBody', { name: escapeHtml(this._readFolderRecord ? this._readFolderRecord.name : '') }));
+        workflowPlaylistScope.askReloadToApplyNow(this._folderText('fileManager.song.folderDetail.applyReloadBody', { name: escapeHtml(this._readFolderRecord ? this._readFolderRecord.name : '') }));
     },
 
     async _disableScope() {
         await workflowPlaylistScope.persistScopeChoice(null);
         this._updateScopeToggleUI(this._readAllItems.length === 0);
-        workflowPlaylistScope.askReloadToApplyNow(t('fileManager.song.folderDetail.unapplyReloadBody'));
+        workflowPlaylistScope.askReloadToApplyNow(this._folderText('fileManager.song.folderDetail.unapplyReloadBody'));
     },
 
     async _setExclude(enabled) {
         await setFolderExcludeFlag(this._readFolderId, enabled); // core/file-manager/folder.js
         workflowPlaylistScope.askReloadToApplyNow(enabled
-            ? t('fileManager.song.folderDetail.excludeOnReloadBody')
-            : t('fileManager.song.folderDetail.excludeOffReloadBody'));
+            ? this._folderText('fileManager.song.folderDetail.excludeOnReloadBody')
+            : this._folderText('fileManager.song.folderDetail.excludeOffReloadBody'));
     },
 
     /** Gỡ 1 item khỏi folder (KHÔNG xoá bài/video thật). Rỗng hoàn toàn + đang là scope hiện tại ->
@@ -370,28 +386,28 @@ const workflowFileManagerFolderBrowser = {
         if (isFolderEmpty(folderMap) && folderId === appState.get('activePlayListFolder')) { // core/file-manager/folder.js
             await workflowPlaylistScope.persistScopeChoice(null);
             await this._refreshRead();
-            workflowPlaylistScope.askReloadToApplyNow(t('fileManager.song.folderDetail.autoUnapplyReloadBody'));
+            workflowPlaylistScope.askReloadToApplyNow(this._folderText('fileManager.song.folderDetail.autoUnapplyReloadBody'));
         }
     },
 
     _confirmRemoveAllItems() {
         const folderId = this._readFolderId;
         modalChoice( // core/modal-choice.js
-            t('fileManager.song.folderDetail.removeAllConfirm'),
+            this._folderText('fileManager.song.folderDetail.removeAllConfirm'),
             [
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
-                { label: t('fileManager.song.folderDetail.btnRemoveAll'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
+                { label: this._folderText('fileManager.song.folderDetail.btnRemoveAll'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
                     const mediaType = this._readFolderRecord && this._readFolderRecord.type; // xem SỬA 28/07/2026 ở core/file-manager/folder.js
                     await removeAllSongsFromFolder(folderId, mediaType); // core/file-manager/folder.js
                     await this._refreshRead();
                     if (folderId === appState.get('activePlayListFolder')) {
                         await workflowPlaylistScope.persistScopeChoice(null);
                         await this._refreshRead();
-                        workflowPlaylistScope.askReloadToApplyNow(t('fileManager.song.folderDetail.autoUnapplyReloadBody'));
+                        workflowPlaylistScope.askReloadToApplyNow(this._folderText('fileManager.song.folderDetail.autoUnapplyReloadBody'));
                     }
                 } }
             ],
-            { title: t('fileManager.song.folderDetail.removeAllTitle') }
+            { title: this._folderText('fileManager.song.folderDetail.removeAllTitle') }
         );
     },
 
@@ -417,15 +433,21 @@ const workflowFileManagerFolderBrowser = {
         const folderName = this._readFolderRecord.name;
         const folderType = this._readFolderRecord.type; // capture NGAY — xem SỬA 28/07/2026 ở core/file-manager/folder.js
         const isActiveFolder = folderId === appState.get('activePlayListFolder');
+        // SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — 'deleteActiveFolderConfirm'
+        // vốn đã trung lập (không nói "song"), CHỈ 'deleteFolderConfirm' cần biến thể Video
+        // ("Songs inside stay in your library..." — dùng _folderText() thay vì tFormat() thẳng).
+        const confirmBody = isActiveFolder
+            ? tFormat('fileManager.song.deleteActiveFolderConfirm', { name: escapeHtml(folderName) })
+            : this._folderText('fileManager.song.deleteFolderConfirm', { name: escapeHtml(folderName) });
         modalChoice( // core/modal-choice.js
-            tFormat(isActiveFolder ? 'fileManager.song.deleteActiveFolderConfirm' : 'fileManager.song.deleteFolderConfirm', { name: escapeHtml(folderName) }),
+            confirmBody,
             [
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('fileManager.song.btnDeleteFolder'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
                     await deleteFolder(folderId, folderType); // core/file-manager/folder.js
                     if (isActiveFolder) await workflowPlaylistScope.persistScopeChoice(null);
                     await this.openList(); // folder đã mất -> luôn quay về List
-                    if (isActiveFolder) workflowPlaylistScope.askReloadToApplyNow(t('fileManager.song.folderDetail.deleteReloadBody'));
+                    if (isActiveFolder) workflowPlaylistScope.askReloadToApplyNow(this._folderText('fileManager.song.folderDetail.deleteReloadBody'));
                 } }
             ],
             { title: t('fileManager.song.deleteFolderTitle') }

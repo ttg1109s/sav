@@ -45,6 +45,10 @@ const workflowPlaylistScope = {
         appState.set('activePlayListFolder', folderId ?? null);
         console.log(`writer: "persistScopeChoice", page: "activePlayListFolder", content: "${folderId ?? 'null'}"`);
         await setMeta('activePlayListFolder', folderId ?? null);
+        // MỚI (phản hồi Giang, mục 5 — "thêm dòng folder đang active source") — phản ánh đúng NGAY
+        // dòng hiển thị ở Settings → Playlist, không cần đợi reload (đúng tinh thần "badge phản ánh
+        // đúng NGAY" đã ghi ở docstring hàm này).
+        if (typeof PlaylistMain !== 'undefined') await PlaylistMain.updateActiveFolderBadge();
     },
 
     /**
