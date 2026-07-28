@@ -9,9 +9,13 @@
  * (list, phân trang, rename/xoá, remove item, 2 toggle Scope/Exclude...) ĐÃ XOÁ khỏi file này —
  * chuyển hẳn sang event/workflow/file-manager-folder-browser.js (Generic Drawer, tự wire
  * addEventListener trực tiếp lên genericDrawerHeader/Body, KHÔNG qua delegate settingsStackBody
- * nữa — xem docstring đầu file đó). Delegate 'change' (2 toggle) ĐÃ BỎ HẲN cùng lý do — không còn
- * gì cần bắt sự kiện 'change' ở ĐÂY nữa. Panel Song & Video giờ chỉ còn 1 nút MỚI mở Drawer đó
- * ("Duyệt thư mục", `#btn-file-manager-folder-browser-open`).
+ * nữa — xem docstring đầu file đó). Panel Song & Video giờ có 1 nút MỚI mở Drawer đó ("Duyệt thư
+ * mục", `#btn-file-manager-folder-browser-open`).
+ *
+ * SỬA (Batch 5, mục 6b) — 2 handler nút cũ (download-then-clear/clear-no-download) ĐÃ XOÁ, thay
+ * bằng delegate 'change' MỚI (`handleFileManagerSongDelegatedChange`, cùng anchor
+ * `settingsStackBody`) cho 2 toggle "Giải phóng bộ nhớ" (Tải xuống/Xoá) + 3 nút phạm vi vẫn bắt
+ * qua 'click' (handleFileManagerSongDelegatedClick).
  *
  * NẠP SAU CÙNG (sau bus, core, workflow, router, VÀ SAU dom-refs.js).
  */
@@ -30,15 +34,18 @@ function handleFileManagerSongDelegatedClick(e) {
         return;
     }
 
-    // ===================== Quản lý dung lượng (DỜI từ event/listener/settings-misc.js) =====================
-    if (e.target.closest('#btn-storage-download-then-clear')) {
-        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.downloadThenClear.click', payload: {} });
+    // ===================== Giải phóng bộ nhớ — 3 chiều độc lập (Batch 5, mục 6b) =====================
+    const scopeBtn = e.target.closest('button[data-storage-scope]');
+    if (scopeBtn) {
+        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.storageScope.change', payload: { scope: scopeBtn.dataset.storageScope } });
         return;
     }
-    if (e.target.closest('#btn-storage-clear-no-download')) {
-        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.clearNoDownload.click', payload: {} });
+    if (e.target.closest('#btn-storage-execute')) {
+        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.storageExecute.click', payload: {} });
         return;
     }
+
+    // ===================== Dọn file lỗi (DỜI từ event/listener/settings-misc.js) =====================
     if (e.target.closest('#btn-storage-scan-broken')) {
         eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.scanBroken.click', payload: {} });
         return;
@@ -54,6 +61,24 @@ function handleFileManagerSongDelegatedClick(e) {
     }
 }
 
+/**
+ * MỚI (Batch 5, mục 6b) — delegate RIÊNG cho sự kiện 'change' (2 toggle "Giải phóng bộ nhớ") —
+ * cùng lý do đã áp dụng cho 2 toggle Scope/Exclude ở Batch 4 (đã dời sang Generic Drawer từ Batch
+ * 5 mục 6e, không còn ở file này nữa) — 'click' không bắt được đổi trạng thái checkbox đúng ngữ
+ * nghĩa "change".
+ */
+function handleFileManagerSongDelegatedChange(e) {
+    if (e.target.id === 'toggle-storage-download') {
+        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.storageDownloadToggle.change', payload: { checked: e.target.checked } });
+        return;
+    }
+    if (e.target.id === 'toggle-storage-delete') {
+        eventBus.send({ router: 'fileManagerSong', type: 'fileManagerSong.storageDeleteToggle.change', payload: { checked: e.target.checked } });
+        return;
+    }
+}
+
 if (settingsStackBody) {
     settingsStackBody.addEventListener('click', handleFileManagerSongDelegatedClick);
+    settingsStackBody.addEventListener('change', handleFileManagerSongDelegatedChange);
 }
