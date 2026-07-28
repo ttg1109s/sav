@@ -116,7 +116,11 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.repeat.click': {
-                cycleRepeatMode();
+                // SỬA (phản hồi Giang, mục 3 "nhớ trạng thái shuffle/repeat/stats") — trước đây
+                // gọi THẲNG 1 hàm core (cycleRepeatMode()) — giờ cần thêm bước lưu bền config
+                // (`_persistPlayerConfig()`, async, đụng IndexedDB) NGAY SAU, thành ≥2 bước phối
+                // hợp -> giao cho workflowPlayerControls đúng quy ước đầu file này.
+                workflowPlayerControls.cycleRepeatModeAndPersist();
                 break;
             }
 
