@@ -259,6 +259,81 @@
             }
         }
 
+        /**
+         * MỚI (ver12 "Song/Video Unification", mục 6b, phản hồi Giang 28/07/2026 — "quét lỗi vẫn
+         * chưa theo scope") — bản Video của isRecordCorrupted() ngay trên. Viết RIÊNG (Rule 3 cấm
+         * gọi lại hàm scan của Song) — nạp blob vào <video> ẩn tạm, dựa 'error' vs 'loadedmetadata'
+         * (ĐÚNG như plan mục 6b chỉ định), CÙNG khuôn `readAudioDuration()` (core/playlist/
+         * loader.js, bản Song — timeout an toàn 8s cho Safari iOS).
+         * @param {Object} record
+         * @returns {Promise<{corrupted: boolean, reason?: string}>}
+         */
+        function isVideoRecordCorrupted(record) {
+            if (!record || !record.blob) return Promise.resolve({ corrupted: true, reason: t('common.storage.scanReasonBrokenBlob') });
+            return new Promise((resolve) => {
+                let settled = false;
+                const safeResolve = (val) => { if (!settled) { settled = true; resolve(val); } };
+                let tempUrl;
+                try { tempUrl = URL.createObjectURL(record.blob); }
+                catch (err) { return safeResolve({ corrupted: true, reason: t('common.storage.scanReasonBrokenBlob') }); }
+                const tempVideo = document.createElement('video');
+                const cleanup = () => { try { URL.revokeObjectURL(tempUrl); } catch (e) {} };
+                const safetyTimeout = taskManager.once(() => { cleanup(); safeResolve({ corrupted: true, reason: t('common.storage.scanReasonNoDecode') }); }, 8000);
+                tempVideo.addEventListener('loadedmetadata', () => { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: false }); }, { once: true });
+                tempVideo.addEventListener('error', () => { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: true, reason: t('common.storage.scanReasonNoDecode') }); }, { once: true });
+                try { tempVideo.src = tempUrl; }
+                catch (err) { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: true, reason: t('common.storage.scanReasonBrokenBlob') }); }
+            });
+        }
+
+        /**
+         * Bản Video của scanAllSongsForCorruption() ngay trên — NGHIỆP VỤ THUẦN, không tự render
+         * UI/gán biến toàn cục.
+         * @param {(current:number, total:number) => void} [onScanProgress]
+         * @returns {Promise<Array<{key:string, filename:string, reason:string}>>}
+         */
+        async function scanAllVideosForCorruption(onScanProgress) {
+            const keys = await getAllVideoKeys();
+            const results = [];
+            for (let i = 0; i < keys.length; i++) {
+                const key = keys[i];
+                if (onScanProgress) onScanProgress(i + 1, keys.length);
+                const record = await getVideoRecord(key);
+                if (appState.get('confirmedBrokenKeys').has(key)) {
+                    results.push({ key, filename: record ? record.filename : key, reason: t('common.storage.scanReasonKeptFromError') });
+                    continue;
+                }
+                const check = await isVideoRecordCorrupted(record);
+                if (check.corrupted) {
+                    results.push({ key, filename: record ? record.filename : key, reason: check.reason });
+                }
+            }
+            return results;
+        }
+
+        /**
+         * Bản Video của deleteCorruptedSongs() ngay trên — KHÁC 1 điểm CÓ CHỦ ĐÍCH: KHÔNG tự gọi
+         * `removeKeyFromDisplay()` bên trong (hàm đó ở core/playlist/actions.js — FILE KHÁC, gọi
+         * thẳng từ đây sẽ là core gọi core, Rule 3 — bản Song ĐÃ vi phạm y hệt kiểu này từ trước,
+         * nhưng không "đụng phải" theo đúng nghĩa sửa thân hàm nên KHÔNG tự ý sửa lại; hàm MỚI này
+         * viết ĐÚNG chuẩn ngay từ đầu). Trả về danh sách key ĐÃ xoá — Workflow (event/workflow/
+         * file-manager-song.js) tự gọi `removeKeyFromDisplay()` cho TỪNG key sau khi hàm này chạy
+         * xong.
+         * @param {Array<{key:string}>} scanResults
+         * @param {string|null} currentKeyNow
+         * @returns {Promise<string[]>} danh sách videoKey đã xoá thật (currentKeyNow bị loại trừ)
+         */
+        async function deleteCorruptedVideos(scanResults, currentKeyNow) {
+            const deletedKeys = [];
+            for (const { key } of scanResults) {
+                if (key === currentKeyNow) continue;
+                await deleteVideoRecord(key);
+                appState.mutate('confirmedBrokenKeys', s => s.delete(key));
+                deletedKeys.push(key);
+            }
+            return deletedKeys;
+        }
+
         /** @param {HTMLElement} resultEl @param {HTMLElement} listEl */
         function resetScanResultUI(resultEl, listEl) {
             if (!resultEl) return; // guard: panel đang đóng
