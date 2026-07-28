@@ -1,37 +1,24 @@
 /**
  * event/router/file-manager-song.js — Router tên "fileManagerSong", tự đăng ký với eventBus lúc
- * nạp. Ver 12 "Multi Media" (plan-v12-multimedia.md mục 3/4.b1).
+ * nạp. Panel này giờ tên hiển thị "Song & Video" (ver12 "Song/Video Unification").
  *
- * 3 nhánh:
- *   - Folder (MỚI, mục 4.b1) — CRUD folder nhạc.
- *   - Folder Detail Drawer (Phase 2, MỚI mục 1b/c/e, CHỐT 03/07/2026) — xem/gỡ bài trong 1 folder,
- *     scoping Playlist (toggle Scope) + Exclude view "Tất cả" (toggle Exclude, MỚI Batch 4 "Song/
- *     Video Unification" mục 5), xoá folder đang là scope hiện tại.
+ * SỬA (Batch 5, "Song/Video Unification" mục 6e) — TOÀN BỘ case Folder/Folder Detail Drawer ĐÃ XOÁ
+ * khỏi router này, chuyển sang router MỚI "fileManagerFolderBrowser" (Generic Drawer List↔Read,
+ * xem event/router/file-manager-folder-browser.js) — router này giờ CHỈ còn 2 nhánh:
+ *   - Mở panel ('openPanel.click').
  *   - Quản lý dung lượng (DỜI NGUYÊN VẸN từ event/router/settings-misc.js — nhánh storageDrawer cũ,
  *     chỉ đổi tiền tố msg.type 'settingsMisc.' -> 'fileManagerSong.', xem bảng đối chiếu cuối file).
  *
- * === Batch D5 (Settings restructure, 06/07/2026) ===
- * 'open' ĐỔI TÊN 'openPanel.click' (khớp quy ước push panel dùng CHUNG). Case 'close'/
- * 'folder.closeDetail' ĐÃ XOÁ — đóng dùng CHUNG 'settingsStackNav.back.click' cho MỌI cấp (Song
- * VÀ Folder Detail đều pop qua CÙNG 1 nút Back, ngăn xếp tự biết lùi đúng 1 cấp). `currentFolder-
- * DetailId` KHÔNG cần null-hoá khi đóng (vô hại — không listener nào bắn sự kiện tới khi panel đã
- * đóng, panel MỞ LẠI SAU sẽ set giá trị mới ngay ở case 'folder.openDetail'). 'dismissScan.click'
- * giờ CẦN workflow (cần querySelector bên trong panel Song đang mở, không còn dom-refs tĩnh).
+ * STATE CONTEXT: `lastScanResults` (nhánh quét lỗi) sống Ở ĐÂY — GIỮ NGUYÊN cách router
+ * "settingsMisc" cũ làm (closure `let`, không dùng EventStore).
  *
- * STATE CONTEXT: `lastScanResults` (nhánh quét lỗi) + `currentFolderDetailId` (Phase 2, folder
- * đang mở trong Folder Detail Drawer) sống Ở ĐÂY — GIỮ NGUYÊN cách router "settingsMisc" cũ làm
- * (closure `let`, không dùng EventStore).
- *
- * NẠP SAU: event/bus.js, core/file-manager/folder.js, core/file-manager/folder-list-ui.js,
- * core/file-manager/folder-detail-ui.js, core/file-manager/folder-picker-ui.js,
- * core/playlist/scope.js, event/workflow/playlist-scope.js (workflowPlaylistScope),
- * core/storage-manager.js (cần các hàm core), core/settings-panel-stack.js (pushSettingsPanel),
- * event/workflow/file-manager-song.js (cần workflowFileManagerSong tồn tại).
+ * NẠP SAU: event/bus.js, core/storage-manager.js (cần các hàm core), core/settings-panel-
+ * stack.js (pushSettingsPanel), event/workflow/file-manager-song.js (cần workflowFileManagerSong
+ * tồn tại).
  * NẠP TRƯỚC: event/listener/file-manager-song.js.
  */
 const routerFileManagerSong = (() => {
     let lastScanResults = []; // context state CỦA RIÊNG nhánh quét lỗi — KHÔNG export ra ngoài
-    let currentFolderDetailId = null; // Phase 2, MỚI — folder đang mở trong Folder Detail Drawer
 
     function handle(msg) {
         switch (msg.type) {
@@ -40,124 +27,6 @@ const routerFileManagerSong = (() => {
 
             case 'fileManagerSong.openPanel.click': {
                 workflowFileManagerSong.openPanel(); // >1 hàm core (push + refresh) -> workflow
-                break;
-            }
-
-            // ===================== Folder (mục 4.b1) =====================
-
-            case 'fileManagerSong.folder.create': {
-                workflowFileManagerSong.createFolderFromInput(); // CẦN đọc input + I/O + vẽ lại -> workflow
-                break;
-            }
-
-            case 'fileManagerSong.folder.actionClick': {
-                const { action, folderId } = msg.payload;
-                // 2 giá trị LOẠI TRỪ NHAU (đúng data-folder-action ở core/file-manager/folder-list-ui.js)
-                // -> BẮT BUỘC qua VirtualMachineState.
-                VirtualMachineState.run([
-                    { state: action, operation: '===', value: 'rename', callback: () => workflowFileManagerSong.renameFolderById(folderId) },
-                    // Phase 2, MỚI (mục 1e, CHỐT 03/07/2026): nhánh 'delete' cần biết folder sắp
-                    // xoá có ĐANG là activePlayListFolder hay không — đọc appState KHÁC -> LỒNG
-                    // thêm 1 VirtualMachineState nữa NGAY TRONG callback này (callback là code
-                    // Router bình thường, được phép chứa VMState tiếp — xem event-bus-flow.md
-                    // mục 5: "callback là 1 arrow function router tự viết").
-                    { state: action, operation: '===', value: 'delete', callback: () => {
-                        const isActiveFolder = folderId === appState.get('activePlayListFolder');
-                        VirtualMachineState.run([
-                            { state: isActiveFolder, operation: '===', value: true, callback: () => workflowFileManagerSong.deleteActiveFolderById(folderId) },
-                            { state: isActiveFolder, operation: '===', value: false, callback: () => workflowFileManagerSong.deleteFolderById(folderId) },
-                        ]);
-                    } },
-                ]);
-                break;
-            }
-
-            // MỚI (14/07/2026, tích hợp pagination — Giang yêu cầu) — danh sách folder 10/trang,
-            // control 'full' (‹ trang/tổng ›), 2 nút prev/next đều CHỈ 1 hàm core
-            // (computePage(), core/pagination.js) nhưng workflow CẦN đọc lại listFolders() +
-            // querySelector bên trong panel -> workflow, không gọi thẳng.
-            case 'fileManagerSong.folder.page.prev': {
-                workflowFileManagerSong.changeFolderListPage(-1);
-                break;
-            }
-
-            case 'fileManagerSong.folder.page.next': {
-                workflowFileManagerSong.changeFolderListPage(1);
-                break;
-            }
-
-            // ===================== Folder Detail Drawer (Phase 2, MỚI — mục 1b/c, CHỐT 03/07/2026) =====================
-
-            case 'fileManagerSong.folder.openDetail': {
-                const { folderId } = msg.payload;
-                currentFolderDetailId = folderId; // context CỦA RIÊNG nhánh này — cùng pattern lastScanResults
-                workflowFileManagerSong.openFolderDetail(folderId); // >1 hàm core nối tiếp -> workflow
-                break;
-            }
-
-            case 'fileManagerSong.folder.removeSong': {
-                if (!currentFolderDetailId) return; // guard: không có context nào đang mở (không nên xảy ra)
-                const { songKey } = msg.payload;
-                workflowFileManagerSong.removeSongFromFolderById(currentFolderDetailId, songKey); // >1 hàm core -> workflow
-                break;
-            }
-
-            // MỚI (14/07/2026, tích hợp pagination — Giang yêu cầu) — danh sách bài trong Folder
-            // Detail, ~30 bài/trang, mode 'list' (bấm THẲNG vào số trang, khác 'arrow' prev/next
-            // của danh sách folder).
-            case 'fileManagerSong.folder.detail.song.page.goto': {
-                if (!currentFolderDetailId) return; // guard
-                workflowFileManagerSong.goToFolderDetailSongPage(currentFolderDetailId, msg.payload.pageIndex);
-                break;
-            }
-
-            // MỚI (14/07/2026, Giang yêu cầu layout lại Folder Detail) — icon Sửa tên NGAY cạnh
-            // tên folder (khác renameFolderById() ở nhánh panel Song ngay trên — 2 NGUỒN đọc
-            // currentName khác nhau, workflowFileManagerSong tự gộp qua _promptRenameFolder()
-            // dùng chung, xem event/workflow/file-manager-song.js).
-            case 'fileManagerSong.folder.detail.rename.click': {
-                if (!currentFolderDetailId) return; // guard: nút chỉ hiện trong drawer đã mở 1 folder cụ thể
-                workflowFileManagerSong.renameActiveFolderDetail(currentFolderDetailId);
-                break;
-            }
-
-            // MỚI (14/07/2026, tự audit lại Rule 5a) — bấm "Lưu" trong modal đổi tên
-            // (openRenameFolderModal(), core/file-manager/folder-picker-ui.js) — DÙNG CHUNG cho cả
-            // 2 nguồn mở modal (renameFolderById() ở panel Song, renameActiveFolderDetail() ở
-            // Folder Detail) vì payload đã có sẵn `folderId`, không cần phân biệt nguồn nào gọi tới.
-            case 'fileManagerSong.folder.rename.confirm': {
-                workflowFileManagerSong.confirmRenameFolder(msg.payload.folderId, msg.payload.name);
-                break;
-            }
-
-            // MỚI (14/07/2026, Giang yêu cầu) — "Xoá hết bài" trong folder đang xem — CHỈ dọn
-            // rỗng, KHÔNG xoá folder (khác hẳn 'folder.actionClick' action='delete' ở trên).
-            case 'fileManagerSong.folder.removeAllSongs.click': {
-                if (!currentFolderDetailId) return; // guard: cùng lý do ở trên
-                workflowFileManagerSong.removeAllSongsFromActiveFolder(currentFolderDetailId);
-                break;
-            }
-
-            case 'fileManagerSong.folder.applyToPlaylist.click': {
-                if (!currentFolderDetailId) return; // guard: nút chỉ hiện trong drawer đã mở 1 folder cụ thể
-                workflowFileManagerSong.enableFolderScope(currentFolderDetailId); // >1 hàm core -> workflow
-                break;
-            }
-
-            // MỚI (03/07/2026, đợt 4, điểm 2) — "Bỏ áp dụng", nhánh còn lại của CÙNG 1 toggle Scope
-            // (đổi msg.type theo checked, xem event/listener/file-manager-song.js). KHÔNG bị Block
-            // gate chặn (event/block.js chỉ đăng ký cho 'applyToPlaylist.click').
-            case 'fileManagerSong.folder.unapplyFromPlaylist.click': {
-                if (!currentFolderDetailId) return; // guard: cùng lý do ở trên
-                workflowFileManagerSong.disableFolderScope(currentFolderDetailId); // >1 hàm core -> workflow
-                break;
-            }
-
-            // MỚI (Batch 4, "Song/Video Unification" mục 5) — toggle Exclude, ĐỘC LẬP với Scope,
-            // không bị Block gate chặn (loại 1 folder rỗng khỏi view Tất cả vô hại, không cần chặn).
-            case 'fileManagerSong.folder.excludeToggle.change': {
-                if (!currentFolderDetailId) return; // guard: cùng lý do ở trên
-                workflowFileManagerSong.setFolderExclude(currentFolderDetailId, msg.payload.enabled);
                 break;
             }
 
