@@ -132,6 +132,9 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsPlaylistBg.mediaSource.label': 'Source',
     'settingsPlaylistBg.mediaSource.song': 'Song',
     'settingsPlaylistBg.mediaSource.video': 'Video',
+    // MỚI (phản hồi Giang, mục 2 — "có folder active thì phải ẩn/block đổi Nguồn") — tooltip giải
+    // thích lý do <select> bị khoá khi đang Apply 1 folder làm Scope cho Playlist.
+    'settingsPlaylistBg.mediaSource.lockedByFolderScope': 'Turn off the active folder scope before changing Source.',
     'settingsPlaylistBg.sortMode.label': 'Sort',
     'settingsPlaylistBg.sortMode.az': 'Name A → Z',
     'settingsPlaylistBg.sortMode.za': 'Name Z → A',
@@ -146,7 +149,10 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsPlaylistBg.activeFolder.none': 'None',
     'settingsPlaylistBg.videoEnable.label': 'Use Video Background',
     'settingsPlaylistBg.videoEnable.hint': 'Toggle on to pick a video; toggle off just hides it (kept for next time)',
-    'settingsPlaylistBg.videoEnable.blockedByPlayerMode': 'Turn off Video Player mode first (File Manager -> Video) before using a background video.',
+    // SỬA (phản hồi Giang, mục 4 — "Use video background chưa block nếu source là video") — dùng
+    // CHUNG cho CẢ 2 lý do chặn (event/block.js không hỗ trợ notify riêng theo từng điều kiện) —
+    // bỏ luôn tham chiếu "(File Manager -> Video)" đã lỗi thời (panel đó xoá hẳn từ Batch 6).
+    'settingsPlaylistBg.videoEnable.blockedByPlayerMode': 'Turn off Video Player mode, or switch the Playlist source away from Video, before using a background video.',
     // MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer, KHÁC ảnh nền Playlist ngay dưới.
     'settingsPlaylistBg.visualBgImage.label': 'Use Visualizer background image',
     'settingsPlaylistBg.visualBgImage.hint': 'Toggle on to pick a photo; toggle off just hides it (kept for next time)',
