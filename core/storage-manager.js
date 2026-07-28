@@ -24,16 +24,38 @@
  *
  * PHẢI nạp SAU: db.js (CRUD, isQuickValidMime), about-stats.js (computeStats/formatBytes),
  * id3-export.js (triggerDownload), playlist.js (readAudioDuration, playlistOrder,
- * renderPlaylistDiff, removeKeyFromDisplay, songNameIndex, playlistCache, confirmedBrokenKeys).
+ * renderPlaylistDiff, removeKeyFromDisplay, songNameIndex, playlistCache, confirmedBrokenKeys),
+ * core/file-manager/video.js (computeVideoStats() — MỚI, Batch 5, dùng bởi
+ * renderVideoStorageStats()).
  */
 
-        /** @param {HTMLElement} totalSongsEl @param {HTMLElement} totalBytesEl */
-        async function renderStorageStats(totalSongsEl, totalBytesEl) {
+        /** [TỰ SỬA 27/07/2026, phản hồi Giang — tự audit lại phát hiện SAI] Trước đây hàm này tự
+         * gọi `computeStats()` (1 hàm core KHÁC, `core/about-stats.js`) ngay bên trong — core gọi
+         * core, vi phạm Rule 3 (dù không hề nhận ra lúc viết, vì đây là hàm "render" — vẫn PHẢI
+         * tuân đủ Rule 1-4, xem core-function-conventions.md Rule 5). Sửa: nhận `stats` (kết quả
+         * `computeStats()` ĐÃ TÍNH SẴN) qua tham số — nơi gọi (Workflow, event/workflow/
+         * file-manager-song.js) tự gọi `computeStats()` TRƯỚC rồi truyền vào.
+         * @param {{totalSongs: number, totalBytes: number}} stats
+         * @param {HTMLElement} totalSongsEl @param {HTMLElement} totalBytesEl
+         */
+        function renderStorageStats(stats, totalSongsEl, totalBytesEl) {
             if (!totalSongsEl) return; // guard: panel Song đang đóng
-            totalSongsEl.textContent = '...'; totalBytesEl.textContent = '...';
-            const stats = await computeStats();
             totalSongsEl.textContent = `${stats.totalSongs}`;
             totalBytesEl.textContent = formatBytes(stats.totalBytes);
+        }
+
+        /**
+         * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6a) — mirror renderStorageStats() ngay
+         * trên, bản của Video (mediaScope riêng — cùng quy ước "mỗi domain 1 hàm", KHÔNG gộp chung
+         * 1 hàm nhận thêm tham số rẽ nhánh theo loại, đúng Rule 1). Nhận `stats` (kết quả
+         * `computeVideoStats()`, core/file-manager/video.js) qua tham số — Rule 2/3.
+         * @param {{totalVideos: number, totalBytes: number}} stats
+         * @param {HTMLElement} totalVideosEl @param {HTMLElement} totalVideoBytesEl
+         */
+        function renderVideoStorageStats(stats, totalVideosEl, totalVideoBytesEl) {
+            if (!totalVideosEl) return; // guard: panel đang đóng
+            totalVideosEl.textContent = `${stats.totalVideos}`;
+            totalVideoBytesEl.textContent = formatBytes(stats.totalBytes);
         }
 
         // ===================== Giải phóng bộ nhớ =====================
