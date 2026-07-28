@@ -31,6 +31,9 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.songEdit.fieldTitle': 'Title',
     'playlistView.songEdit.fieldArtist': 'Artist',
     'playlistView.songEdit.fieldAlbum': 'Album',
+    // MỚI (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — nhóm field Video (tab
+    // "Sửa"), THAY 3 field Song ở trên khi cached.mediaType === 'video'.
+    'playlistView.songEdit.fieldCustomName': 'Display name',
     'playlistView.songEdit.coverAlt': 'Cover art',
     // VIẾT LẠI (04/07/2026, mục 3 phản hồi Giang) — bỏ hẳn nút Upload riêng (key 'coverChoose' cũ
     // đã xoá) — chỉ còn 1 nút DUY NHẤT, đổi tên "Choose photo".
@@ -50,6 +53,18 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.songInfo.fieldPlayCountValue': '{n} times',
     'playlistView.songInfo.fieldListened': 'Listened',
     'playlistView.songInfo.empty': '—',
+    // MỚI (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — tab "Chi tiết" của Video,
+    // THAY Title/Artist/Album (giữ Duration/PlayCount/Listened — dùng chung key ở trên). Bỏ hẳn
+    // field "Format" (định dạng container, Giang yêu cầu bỏ — ít giá trị, hầu hết video .mp4).
+    'playlistView.songInfo.fieldFilename': 'Original filename',
+    'playlistView.songInfo.fieldFileSize': 'File size',
+    'playlistView.songInfo.fieldCodec': 'Video codec',
+    'playlistView.songInfo.fieldResolution': 'Resolution',
+    'playlistView.songInfo.fieldFps': 'Frame rate',
+    'playlistView.songInfo.fieldBitrate': 'Video bitrate',
+    'playlistView.songInfo.fieldAudioCodec': 'Audio codec',
+    'playlistView.songInfo.fieldAudioBitrate': 'Audio bitrate',
+    'playlistView.songInfo.fieldAddedAt': 'Added on',
     'playlistView.uploadMenu.pickFiles': 'Choose music files',
     'playlistView.uploadMenu.pickFolder': 'Choose a folder',
     'playlistView.songMenu.title': 'Options',

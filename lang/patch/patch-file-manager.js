@@ -132,17 +132,10 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.video.pickerTitle': 'Choose a video',
     // Dropdown menu 1 tile (Chi tiết / Set as bg video / Edit video / Xoá) — THAY hẳn preview fullscreen cũ.
     // MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — lựa chọn "Chi tiết" + modal Info.
-    'fileManager.video.info.label': 'Details',
-    'fileManager.video.info.title': 'Video details',
-    'fileManager.video.info.customNameLabel': 'Display name',
-    'fileManager.video.info.rowFilename': 'Original filename',
-    'fileManager.video.info.rowFormat': 'Format',
-    'fileManager.video.info.rowCodec': 'Codec',
-    'fileManager.video.info.rowResolution': 'Resolution',
-    'fileManager.video.info.rowFps': 'Frame rate',
-    'fileManager.video.info.rowDuration': 'Duration',
-    'fileManager.video.info.rowBitrate': 'Bitrate',
-    'fileManager.video.info.rowAddedAt': 'Added on',
+    // XOÁ (phản hồi Giang 28/07/2026) — 'fileManager.video.info.*' (modal "Chi tiết" riêng ở File
+    // Manager, core/file-manager/video-ui.js::openVideoInfoModal()) ĐÃ BỎ HẲN — "Chi tiết" giờ
+    // dùng CHUNG modal Playlist (core/playlist/actions.js::openSongEditModal(), đã video-aware) —
+    // xem key playlistView.songInfo.field* MỚI ở lang/patch/patch-playlist.js.
     'fileManager.video.btnSetAsBgVideo': 'Set as background video',
     'fileManager.video.setAsBgVideo.blockedByPlayerMode': 'Turn off Video Player mode first before setting a background video.',
     'fileManager.video.setAsBgVideo.success': 'Set as background video.',
