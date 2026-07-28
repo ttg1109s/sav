@@ -135,6 +135,14 @@ const workflowVideoPlayer = {
         // 'currentKey', key)` trong window.playSong(), core/playlist/actions.js).
         appState.set('currentKey', videoKey);
         console.log(`writer: "playVideoByKey", page: "currentKey", content: "${videoKey}"`);
+        // MỚI (phản hồi Giang 28/07/2026) — `bumpSongPlayCount()` (core/listen-stats.js) TRƯỚC ĐÂY
+        // CHỈ được gọi trong window.playSong() (core/playlist/actions.js) — nhánh Video dispatch ra
+        // KHỎI hàm đó TRƯỚC khi tới dòng gọi, nên Play Count chưa từng tăng cho Video (trong khi
+        // "Listened" — addSongListenTime(), core/player-controls.js — vẫn chạy vì đọc thẳng
+        // `currentKey` chung, không phân biệt loại). `songStatsMap` (core/listen-stats.js) vốn đã
+        // key-agnostic (Map<string,...>, không quan tâm key là songKey hay videoKey) nên gọi thẳng
+        // ở đây là đủ, không cần sửa gì thêm ở listen-stats.js.
+        bumpSongPlayCount(videoKey); // core/listen-stats.js
 
         // BẮT BUỘC — đảm bảo audioContext/analyser tồn tại (an toàn gọi lại nhiều lần, guard sẵn
         // trong chính 2 hàm) RỒI mới nối bgVideoElement vào — thứ tự ngược sẽ lỗi (analyser chưa
@@ -142,14 +150,14 @@ const workflowVideoPlayer = {
         setupAudioContext(); // core/audio-engine.js
         connectVideoElementToAnalyser(); // core/video-player.js
 
-        playerTitle.textContent = record.customName || record.filename || t('videoPlayer.untitled'); // MỚI (Batch 5, mục 6c) — ưu tiên tên hiển thị người dùng tự đặt
+        playerTitle.textContent = record.customName || stripFileExtension(record.filename) || t('videoPlayer.untitled'); // MỚI (Batch 5, mục 6c) — ưu tiên tên hiển thị người dùng tự đặt; SỬA (phản hồi Giang 28/07) — bỏ đuôi mở rộng khi rơi về filename gốc
         // MỚI (ver12 "Song/Video Unification", Batch 2, mục 3) — artist RỖNG thay vì nhãn
         // "Video Player" cũ, khớp Adapter (Batch 1: playlistCache của Video có tag.artist='') —
         // #player-title/#player-artist dùng CHUNG DOM giữa Playlist/Visualizer nên đồng bộ cả 2 màn.
         playerArtist.textContent = '';
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
-                title: record.customName || record.filename || t('videoPlayer.untitled'),
+                title: record.customName || stripFileExtension(record.filename) || t('videoPlayer.untitled'), // xem giải thích ngay trên
                 artist: '',
                 artwork: [],
             });

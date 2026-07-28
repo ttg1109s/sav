@@ -33,13 +33,14 @@
  * còn message nào để chặn. Thay bằng guard clause THẲNG trong `_enableScope()` (cùng điều kiện cũ:
  * rỗng + chưa active) + `disabled` attribute trên checkbox (đã có từ Batch 4) làm lớp phòng vệ UI.
  *
- * VIDEO — `folder.type === 'video'` được xử lý ĐÚNG ở tầng hiển thị (getFolderItemsForDisplay()) và
- * xoá folder/gỡ item VẪN gọi `removeSongFromFolder()`/`removeAllSongsFromFolder()`/`deleteFolder()`
- * (core/file-manager/folder.js) — 3 hàm đó HIỆN CHỈ thao tác đúng trên record Song (`getSongRecord`/
- * `setSongRecord`, record Video CHƯA có field `.folder`). KHÔNG PHẢI thiếu sót ở đây — chưa có
- * đường nào thêm Video vào folder được (mục 6f, Batch sau) nên nhánh Video của 3 hàm đó hiện KHÔNG
- * THỂ xảy ra trong thực tế; 3 hàm đó sẽ cần thêm tham số mediaType lúc 6f thật sự nối "thêm Video
- * vào folder" vào UI.
+ * VIDEO — SỬA (phản hồi Giang 28/07/2026, HOÀN THIỆN "thêm Video vào folder") — `folder.type ===
+ * 'video'` giờ hoạt động ĐẦY ĐỦ: `addSongsToFolder()`/`removeSongFromFolder()`/
+ * `removeAllSongsFromFolder()`/`deleteFolder()` (core/file-manager/folder.js) ĐÃ thêm tham số
+ * `mediaType`, tự chọn ĐÚNG `getVideoRecord`/`setVideoRecord` (thay vì hardcode Song) — record
+ * Video giờ CŨNG có field `.folder` (thêm ĐỘNG lúc gọi, không cần đổi schema). "Thêm Video vào
+ * folder" đã nối vào menu 3 chấm Playlist (event/workflow/playlist.js::
+ * openAddToFolderPickerForSongMenu()/openAddToFolderPicker(), đọc `activeMediaSource` để chọn
+ * đúng mediaType, KHÔNG hardcode 'song' nữa).
  *
  * NẠP SAU: core/file-manager/folder.js, core/file-manager/folder-detail-ui.js, core/generic-
  * drawer.js, components/items.js (renderItemList/itemTemplateFolderTile/buildAddFolderTileHtml),
@@ -362,7 +363,8 @@ const workflowFileManagerFolderBrowser = {
      * tự bỏ áp dụng (cùng logic đã có từ trước Batch 4). */
     async _removeItem(key) {
         const folderId = this._readFolderId;
-        await removeSongFromFolder(key, folderId); // core/file-manager/folder.js — hiện CHỈ đúng cho Song, xem docstring đầu file
+        const mediaType = this._readFolderRecord && this._readFolderRecord.type; // xem SỬA 28/07/2026 ở core/file-manager/folder.js — đọc đúng type đã khoá của folder
+        await removeSongFromFolder(key, folderId, mediaType); // core/file-manager/folder.js
         const folderMap = await getFolderSongMap(folderId); // service/db.js — CÓ return, DÙNG ngay dưới để check rỗng
         await this._refreshRead();
         if (isFolderEmpty(folderMap) && folderId === appState.get('activePlayListFolder')) { // core/file-manager/folder.js
@@ -379,7 +381,8 @@ const workflowFileManagerFolderBrowser = {
             [
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('fileManager.song.folderDetail.btnRemoveAll'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
-                    await removeAllSongsFromFolder(folderId); // core/file-manager/folder.js — hiện CHỈ đúng cho Song, xem docstring đầu file
+                    const mediaType = this._readFolderRecord && this._readFolderRecord.type; // xem SỬA 28/07/2026 ở core/file-manager/folder.js
+                    await removeAllSongsFromFolder(folderId, mediaType); // core/file-manager/folder.js
                     await this._refreshRead();
                     if (folderId === appState.get('activePlayListFolder')) {
                         await workflowPlaylistScope.persistScopeChoice(null);
@@ -412,13 +415,14 @@ const workflowFileManagerFolderBrowser = {
         if (!this._readFolderRecord) return;
         const folderId = this._readFolderId;
         const folderName = this._readFolderRecord.name;
+        const folderType = this._readFolderRecord.type; // capture NGAY — xem SỬA 28/07/2026 ở core/file-manager/folder.js
         const isActiveFolder = folderId === appState.get('activePlayListFolder');
         modalChoice( // core/modal-choice.js
             tFormat(isActiveFolder ? 'fileManager.song.deleteActiveFolderConfirm' : 'fileManager.song.deleteFolderConfirm', { name: escapeHtml(folderName) }),
             [
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('fileManager.song.btnDeleteFolder'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
-                    await deleteFolder(folderId); // core/file-manager/folder.js — hiện CHỈ đúng cho Song, xem docstring đầu file
+                    await deleteFolder(folderId, folderType); // core/file-manager/folder.js
                     if (isActiveFolder) await workflowPlaylistScope.persistScopeChoice(null);
                     await this.openList(); // folder đã mất -> luôn quay về List
                     if (isActiveFolder) workflowPlaylistScope.askReloadToApplyNow(t('fileManager.song.folderDetail.deleteReloadBody'));

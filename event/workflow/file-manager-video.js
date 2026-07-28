@@ -200,11 +200,17 @@ const workflowFileManagerVideo = {
             const tracks = (result && result.media && result.media.track) || [];
             const generalTrack = tracks.find((tr) => tr['@type'] === 'General') || {};
             const videoTrack = tracks.find((tr) => tr['@type'] === 'Video') || {};
+            const audioTrack = tracks.find((tr) => tr['@type'] === 'Audio') || {};
+            // SỬA (phản hồi Giang 28/07/2026) — bỏ hẳn `format` (định dạng container, vd "MPEG-4" —
+            // Giang yêu cầu bỏ, ít giá trị vì hầu hết video đều .mp4). THÊM audioCodec/audioBitrate
+            // (Giang: tab "Chi tiết" trước đó thiếu thông tin — video luôn có track âm thanh, hiện
+            // ĐỦ cả 2 track thay vì chỉ video).
             return {
-                format: generalTrack.Format || '',
                 codec: videoTrack.Format || videoTrack.CodecID || '',
                 fps: videoTrack.FrameRate || generalTrack.FrameRate || '',
                 bitrate: Number(videoTrack.BitRate || generalTrack.OverallBitRate || 0) || 0,
+                audioCodec: audioTrack.Format || audioTrack.CodecID || '',
+                audioBitrate: Number(audioTrack.BitRate || 0) || 0,
             };
         } catch (err) {
             console.error('[_extractVideoMediaInfo] mediainfo.js phân tích thất bại:', err);
@@ -259,19 +265,19 @@ const workflowFileManagerVideo = {
      * SỬA (21/07/2026, Giang yêu cầu "bấm vào video KHÔNG phát trình chạy, chỉ hiện dropdown menu")
      * — THAY HẲN `openVideoPreview()` (fullscreen player) cũ — giờ mở dropdown (core/dropdown-
      * menu.js) NGAY tại tile.
-     * SỬA (ver12 "Song/Video Unification", Batch 5, mục 6c) — thêm lựa chọn "Chi tiết" (Info) —
-     * giờ 4 lựa chọn: Chi tiết / Set as bg video / Edit video / Xoá.
+     * XOÁ (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — lựa chọn "Chi tiết"
+     * (`openVideoInfoModal()` riêng, core/file-manager/video-ui.js) ĐÃ BỎ HẲN, không viết lại nữa
+     * — "Chi tiết"/đổi tên giờ CHỈ còn 1 đường DUY NHẤT: menu 3 chấm ở Playlist (browse nguồn
+     * Video) → "Sửa" → `openSongEditModal()` (core/playlist/actions.js, đã video-aware) — panel
+     * File Manager → Video này SẼ BỊ XOÁ HẲN ở 6d (chờ Batch 6), không đáng xây/giữ 2 đường song
+     * song cho cùng 1 tính năng chỉ để dùng tạm. Còn lại 3 lựa chọn: Set as bg video / Edit video /
+     * Xoá.
      * @param {string} videoKey
      * @param {HTMLElement} anchorEl - tile vừa bấm, dùng để định vị dropdown.
      */
     openVideoTileActionMenu(videoKey, anchorEl) {
         const dispatch = (action) => eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.tileMenu.action.click', payload: { action, videoKey } });
         openDropdownMenu(anchorEl, [ // core/dropdown-menu.js
-            {
-                icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
-                name: t('fileManager.video.info.label'),
-                callback: () => dispatch('info'),
-            },
             {
                 icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg>',
                 name: t('fileManager.video.btnSetAsBgVideo'),
@@ -289,23 +295,6 @@ const workflowFileManagerVideo = {
                 destructive: true,
             },
         ]);
-    },
-
-    /** Ứng với 'fileManagerVideo.tileMenu.action.click' action='info' — MỚI (Batch 5, mục 6c). Mở
-     * modal "Chi tiết" (tên hiển thị sửa được + thông tin đọc-chỉ: định dạng/codec/fps/độ phân
-     * giải/thời lượng/bitrate/ngày tải) — xem core/file-manager/video-ui.js::openVideoInfoModal().
-     * @param {string} videoKey
-     */
-    async openVideoInfo(videoKey) {
-        const record = await getVideoRecord(videoKey); // service/db.js
-        if (!record) return; // guard: video vừa bị xoá ở nơi khác
-        openVideoInfoModal({ key: videoKey, ...record }); // core/file-manager/video-ui.js — tự bắn eventBus khi bấm Lưu
-    },
-
-    /** Ứng với 'fileManagerVideo.info.rename.confirm' (bấm "Lưu" trong modal Chi tiết). */
-    async confirmRenameVideo(videoKey, customName) {
-        await setVideoCustomName(videoKey, customName); // core/file-manager/video.js
-        await workflowVideoPlayer.refreshVideoPlaylistIfActive(); // event/workflow/video-player.js — tên hiển thị đổi, cần nạp lại playlistCache nếu Playlist đang browse nguồn Video
     },
 
     /** Ứng với 'fileManagerVideo.tileMenu.action.click' action='setAsBgVideo' — set THẲNG 1 video

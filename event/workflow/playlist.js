@@ -70,12 +70,34 @@ const workflowPlaylist = {
      * Ứng với msg.type = 'playlist.edit.save' — cần ĐỌC state form (key/newTag/pendingCover) rồi
      * PHỐI HỢP shield + hàm core lưu + (có thể) alertModal not-found + dọn dẹp UI sau khi lưu ->
      * rõ ràng là workflow (nhiều hàm, có rẽ nhánh theo status).
+     * SỬA (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — rẽ nhánh Song/Video NGAY
+     * ĐẦU (đọc `cached.mediaType` — quyết định "gọi cặp core nào", đúng tinh thần VMState ở Router
+     * cho cấp Song/Video, nhưng đặt Ở ĐÂY vì cần đọc playlistStore.songEditCurrentKey TRƯỚC —
+     * Router không có context đó). 2 nhánh gọi 2 CẶP core HOÀN TOÀN riêng (không core nào gọi core
+     * khác) — song vẫn dùng chung `closeSongEditModal()`/`refreshAfterSongEditSave()` (2 hàm đó
+     * hoàn toàn trung lập, không có gì "của riêng Song").
      */
     async executeSaveEdit() {
+        const key = playlistStore.get('songEditCurrentKey');
+        if (!key) return; // không có modal nào đang mở -> no-op, giống hành vi gốc
+        const cached = appState.get('playlistCache').get(key);
+        const isVideo = cached && cached.mediaType === 'video';
+
+        if (isVideo) {
+            const { customName } = captureVideoEditFormState(); // core THUẦN
+            let result;
+            await withLoadingShield(t('common.loading.savingInfo'), async () => {
+                result = await applyVideoEditAndSave(key, customName); // core THUẦN, nhận key/customName qua tham số
+            });
+            if (result.status === 'notFound') await alertModal(t('common.songEdit.notFound'));
+            closeSongEditModal();
+            refreshAfterSongEditSave(key); // core thuần, DÙNG CHUNG — không có gì "của riêng Song"
+            return;
+        }
+
         // captureSongEditFormState() là core THUẦN, không shield — chỉ đọc dữ liệu hiện có của
         // form + playlistStore, không ghi gì cả.
-        const { key, newTag, pendingCover } = captureSongEditFormState();
-        if (!key) return; // không có modal nào đang mở -> no-op, giống hành vi gốc (if (!key) return;)
+        const { newTag, pendingCover } = captureSongEditFormState();
 
         let result;
         await withLoadingShield(t('common.loading.savingInfo'), async () => {
@@ -258,12 +280,16 @@ const workflowPlaylist = {
 
         await this._openFolderPickerDrawer(async (folderId) => {
             let result;
+            // SỬA (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — TRƯỚC ĐÂY hardcode
+            // 'song' (giải thích cũ: "chỉ Song mới gọi addSongsToFolder()") — SAI, thực ra nút
+            // "Thêm vào thư mục" trong menu 3 chấm LUÔN hiển thị bất kể đang browse nguồn nào
+            // (template KHÔNG gate theo mediaType), nên Video CŨNG đi qua đúng đường này. Đọc
+            // `activeMediaSource` (Batch 1, service/state/playlist.js) — Playlist chỉ browse ĐÚNG 1
+            // nguồn tại 1 thời điểm nên toàn bộ item đang hiển thị (kể cả `key` 1-bài này) luôn
+            // cùng loại với nguồn đang active.
+            const mediaType = appState.get('activeMediaSource') === 'video' ? 'video' : 'song';
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                // MỚI (Batch 4, "Song/Video Unification" mục 5) — tham số thứ 3 'song' (mediaType)
-                // + đọc result.status: hiện tại KHÔNG thể thật sự xảy ra typeMismatch qua đường này
-                // (chỉ Song mới gọi addSongsToFolder(), folder cũ chỉ toàn 'song'/null) — vẫn xử lý
-                // đầy đủ để không âm thầm coi typeMismatch là thành công nếu sau này có thay đổi.
-                result = await addSongsToFolder([key], folderId, 'song'); // core có sẵn (core/file-manager/folder.js)
+                result = await addSongsToFolder([key], folderId, mediaType); // core có sẵn (core/file-manager/folder.js)
             });
             if (result.status === 'typeMismatch') {
                 await alertModal(t('fileManager.folderPicker.typeMismatch'));
@@ -287,8 +313,11 @@ const workflowPlaylist = {
 
         await this._openFolderPickerDrawer(async (folderId) => {
             let result;
+            // SỬA (phản hồi Giang 28/07/2026) — cùng lý do ở openAddToFolderPickerForSongMenu()
+            // ngay trên: đọc activeMediaSource thay vì hardcode 'song'.
+            const mediaType = appState.get('activeMediaSource') === 'video' ? 'video' : 'song';
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                result = await addSongsToFolder(keys, folderId, 'song'); // core có sẵn (core/file-manager/folder.js) — mediaType 'song', xem giải thích ở openAddToFolderPickerForSongMenu()
+                result = await addSongsToFolder(keys, folderId, mediaType); // core có sẵn (core/file-manager/folder.js)
             });
             if (result.status === 'typeMismatch') {
                 await alertModal(t('fileManager.folderPicker.typeMismatch'));
