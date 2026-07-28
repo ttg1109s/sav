@@ -33,7 +33,7 @@ const LANG_PATCH_FILE_MANAGER = {
     // bấm vào push thẳng sang drawer con tương ứng (nav-stack, cùng pattern About/Visualizer
     // Settings), KHÔNG qua màn trung gian nào.
     'fileManager.sectionTitle': 'File Manager',
-    'fileManager.entry.song': 'Song',
+    'fileManager.entry.song': 'Song & Video',
     'fileManager.entry.photo': 'Photo & Album',
     'fileManager.entry.video': 'Video', // MỚI (21/07/2026)
     'fileManager.entry.document': 'Documents',
@@ -49,7 +49,7 @@ const LANG_PATCH_FILE_MANAGER = {
     // (Song/Photo & Album/Documents): tiêu đề section cha "File Manager" đã hiện rõ ở hàng Settings
     // trước khi push vào, lặp lại tiền tố trên thanh bar tiêu đề của chính drawer con là thừa —
     // khớp đúng các key `fileManager.entry.*` (nhãn hàng trong Settings) vốn đã KHÔNG có tiền tố.
-    'fileManager.song.title': 'Song',
+    'fileManager.song.title': 'Song & Video',
     // Batch D5 (06/07/2026) — 'fileManager.song.back.title' XOÁ, dùng CHUNG
     // 'settingsDrawer.back.title' (Batch D1) cho mọi panel.
     // ── Drawer con: Photo & Album (placeholder, chưa code — b2/b3) ──────────────────────────
@@ -195,33 +195,26 @@ const LANG_PATCH_FILE_MANAGER = {
     'documentEditor.toolbar.numberedList': 'Numbered list',
     'documentEditor.toolbar.link': 'Link',
     'documentEditor.linkPrompt': 'Enter the link URL',
-    // ── File Manager -> Song: Folder (mục 4.b1) ──────────────────────────────────────────────
-    'fileManager.song.folderSectionTitle': 'Folders',
-    'fileManager.song.newFolderPlaceholder': 'New folder name',
-    'fileManager.song.btnCreateFolder': 'Create',
-    'fileManager.song.folderEmpty': 'No folders yet.',
-    // MỚI (14/07/2026, Giang yêu cầu) — hiển thị số bài trong mỗi hàng folder.
-    'fileManager.song.folderSongCount': '{count} songs',
-    'fileManager.song.activeFolderBadge': 'Currently applied to Playlist',
+    // ── File Manager -> Song & Video: Folder Browser (Generic Drawer, Batch 5 mục 6e) ─────────
+    // SỬA (Batch 5) — 'folderSectionTitle'/'newFolderPlaceholder'/'btnCreateFolder'/'folderEmpty'/
+    // 'folderSongCount'/'activeFolderBadge'/'folderDetail.headerTitle'/'folderDetail.loadingTitle'/
+    // 'folderTypeSong'/'folderTypeVideo'/'folderTypeUndetermined' ĐÃ XOÁ — thuộc
+    // core/file-manager/folder-list-ui.js (ĐÃ XOÁ HẲN, thay bằng grid Generic Drawer tái dùng
+    // itemTemplateFolderTile() có sẵn — không hiện số bài/type badge nữa, đúng "không mở rộng gì").
+    'fileManager.folderBrowser.entryButton': 'Browse folders',
+    'fileManager.folderBrowser.listTitle': 'Folders',
+    'fileManager.folderBrowser.defaultNewFolderName': 'Folder {n}',
     'fileManager.song.renameFolderTitle': 'Rename folder',
     'fileManager.song.deleteFolderTitle': 'Delete folder',
     'fileManager.song.deleteFolderConfirm': 'Delete folder "{name}"? Songs inside stay in your library, only the folder is removed.',
     'fileManager.song.btnDeleteFolder': 'Delete',
-    // ── File Manager -> Song -> Folder Detail Drawer (Phase 2, CHỐT 03/07/2026) ──────────────
-    // Batch D5 (06/07/2026) — 'fileManager.song.folderDetail.back.title' XOÁ, dùng CHUNG
-    // 'settingsDrawer.back.title'. THÊM 'headerTitle' — header dùng chung chỉ nhận title CỐ ĐỊNH
-    // lúc push (không tự cập nhật lại được sau khi biết tên folder thật) — tên folder thật giờ
-    // hiển thị bằng 1 heading NGAY TRONG BODY panel (xem components/file-manager.js).
-    'fileManager.song.folderDetail.headerTitle': 'Folder Detail',
-    'fileManager.song.folderDetail.loadingTitle': 'Loading songs...',
+    // ── File Manager -> Song & Video -> Folder Browser Read (nội dung 1 folder) ───────────────
     // MỚI (Batch 4, "Song/Video Unification" mục 5) — 2 toggle ĐỘC LẬP THAY nút Áp dụng/Bỏ áp
     // dụng cũ ('btnApply'/'btnUnapply' XOÁ, không còn nút chữ đổi nhãn).
     'fileManager.song.folderDetail.scopeToggle.label': 'Use as Playlist source',
     'fileManager.song.folderDetail.scopeToggle.hint': 'When on, the Playlist only shows songs from this folder.',
     'fileManager.song.folderDetail.excludeToggle.label': 'Hide from "All songs" view',
     'fileManager.song.folderDetail.excludeToggle.hint': 'When on, songs in this folder are skipped while browsing all songs (does not affect any specific folder scope).',
-    // 'songListTitle' XOÁ (14/07/2026, Giang yêu cầu — bỏ tiêu đề "SONGS IN THIS FOLDER") — KHÔNG
-    // còn nơi nào dùng, xem components/file-manager.js::renderFileManagerFolderDetailPanelBody().
     'fileManager.song.folderDetail.empty': 'No songs in this folder yet.',
     'fileManager.song.folderDetail.removeSongTitle': 'Remove from folder',
     // MỚI (14/07/2026, Giang yêu cầu layout lại — icon Sửa tên cạnh tên folder).
@@ -238,13 +231,8 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.folderDetail.unapplyReloadBody': 'Saved — the Playlist will show all songs again after reloading. Reload now?',
     'fileManager.song.folderDetail.autoUnapplyReloadBody': 'This folder is now empty, so it was removed as the Playlist source. The Playlist will show all songs again after reloading. Reload now?',
     'fileManager.song.folderDetail.deleteReloadBody': 'Folder deleted — the Playlist will show all songs again after reloading. Reload now?',
-    'fileManager.song.folderDetail.applyBlockedEmpty': 'This folder is empty — add songs to it before applying it to the Playlist.',
     'fileManager.song.deleteActiveFolderConfirm': 'Delete folder "{name}"? This folder is currently applied to the Playlist.',
     // MỚI (Batch 4, "Song/Video Unification" mục 5) — toggle Exclude.
     'fileManager.song.folderDetail.excludeOnReloadBody': 'Saved — songs in this folder will be hidden from the "All songs" view after reloading. Reload now?',
     'fileManager.song.folderDetail.excludeOffReloadBody': 'Saved — songs in this folder will show again in the "All songs" view after reloading. Reload now?',
-    // MỚI (Batch 4, mục 5) — icon + badge nhỏ thể hiện type folder (song/video/chưa xác định).
-    'fileManager.song.folderTypeSong': 'Song folder',
-    'fileManager.song.folderTypeVideo': 'Video folder',
-    'fileManager.song.folderTypeUndetermined': 'Type not set yet',
 };

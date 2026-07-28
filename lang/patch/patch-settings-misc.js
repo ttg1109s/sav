@@ -59,6 +59,9 @@ const LANG_PATCH_SETTINGS_MISC = {
     'storageDrawer.statsSectionTitle': 'Statistics',
     'storageDrawer.statTotalSongs': 'Total songs',
     'storageDrawer.statTotalBytes': 'Storage used',
+    // MỚI (ver12 "Song/Video Unification", Batch 5, mục 6a) — thống kê Video song song Song.
+    'storageDrawer.statTotalVideos': 'Total videos',
+    'storageDrawer.statTotalVideoBytes': 'Storage used (video)',
     'storageDrawer.freeSpaceSectionTitle': 'Free up storage',
     'storageDrawer.downloadThenClear.label': 'Download all files (.zip) then delete',
     'storageDrawer.downloadThenClear.hint': 'Packs all original music into one zip file to download, then deletes everything from this device',
