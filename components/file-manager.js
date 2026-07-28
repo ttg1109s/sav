@@ -55,27 +55,55 @@ function renderFileManagerSongPanelBody() {
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </button>
 
-                <!-- SECTION: THỐNG KÊ DUNG LƯỢNG (dời từ storage-drawer.js, id giữ nguyên) -->
+                <!-- SECTION: THỐNG KÊ DUNG LƯỢNG — VIẾT LẠI (phản hồi Giang, mục 1 — "UI dung
+                     lượng như Settings mobile OS, số lượng dạng vòng tròn"). Thanh chia đoạn
+                     (segmented bar, kiểu iOS/Android Settings → Storage) THAY 4 dòng số byte tách
+                     rời cũ — 1 thanh DUY NHẤT, 2 đoạn màu tỉ lệ theo dung lượng thật (Nhạc/Video),
+                     chú giải chấm màu bên dưới. Số lượng bài hát/video giờ ở 2 "vòng tròn" riêng,
+                     KHÔNG còn nằm chung khối với byte. Toàn bộ tính toán % + set nội dung vẫn ở
+                     Core (renderStorageStats(), core/storage-manager.js — GỘP renderStorageStats()/
+                     renderVideoStorageStats() cũ làm 1, vì giờ là 1 khối UI phụ thuộc CẢ 2 nguồn
+                     cùng lúc để tính %, không còn tách độc lập theo domain được nữa — xem docstring
+                     hàm đó). id các phần tử tái dùng lại ĐÚNG tên field cũ (stat-storage-total-
+                     songs/stat-storage-total-bytes/stat-storage-total-videos) — chỉ 4 id MỚI
+                     thêm (2 thanh màu + 2 số byte chú giải), event/workflow/file-manager-song.js
+                     KHÔNG cần đổi cách gọi, chỉ đổi tham số truyền vào renderStorageStats(). -->
                 <div>
                     <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="storageDrawer.statsSectionTitle">${t('storageDrawer.statsSectionTitle')}</h3>
-                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                        <div class="flex justify-between items-center p-4 border-b border-white/5">
-                            <span class="text-sm font-medium text-slate-300" data-i18n="storageDrawer.statTotalSongs">${t('storageDrawer.statTotalSongs')}</span>
-                            <span id="stat-storage-total-songs" class="text-sm font-mono text-sky-300">—</span>
-                        </div>
-                        <div class="flex justify-between items-center p-4 border-b border-white/5">
+                    <div class="glass-modal rounded-2xl p-4 flex flex-col gap-3">
+                        <div class="flex items-baseline justify-between">
                             <span class="text-sm font-medium text-slate-300" data-i18n="storageDrawer.statTotalBytes">${t('storageDrawer.statTotalBytes')}</span>
-                            <span id="stat-storage-total-bytes" class="text-sm font-mono text-sky-300">—</span>
+                            <span id="stat-storage-total-bytes" class="text-lg font-bold text-white font-mono tabular-nums">—</span>
                         </div>
-                        <!-- MỚI (ver12 "Song/Video Unification", Batch 5, mục 6a) — thống kê Video
-                             song song thống kê Song, cùng khối (đã gộp panel "Song & Video"). -->
-                        <div class="flex justify-between items-center p-4 border-b border-white/5">
-                            <span class="text-sm font-medium text-slate-300" data-i18n="storageDrawer.statTotalVideos">${t('storageDrawer.statTotalVideos')}</span>
-                            <span id="stat-storage-total-videos" class="text-sm font-mono text-violet-300">—</span>
+                        <div class="h-2.5 w-full rounded-full overflow-hidden flex bg-white/10">
+                            <div id="stat-storage-bar-songs" class="h-full bg-sky-400 transition-[width] duration-500" style="width:0%"></div>
+                            <div id="stat-storage-bar-videos" class="h-full bg-violet-400 transition-[width] duration-500" style="width:0%"></div>
                         </div>
-                        <div class="flex justify-between items-center p-4">
-                            <span class="text-sm font-medium text-slate-300" data-i18n="storageDrawer.statTotalVideoBytes">${t('storageDrawer.statTotalVideoBytes')}</span>
-                            <span id="stat-storage-total-video-bytes" class="text-sm font-mono text-violet-300">—</span>
+                        <div class="flex items-center justify-between text-xs">
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <span class="w-2 h-2 rounded-full bg-sky-400 shrink-0"></span>
+                                <span class="text-slate-400 truncate" data-i18n="storageDrawer.legendSongs">${t('storageDrawer.legendSongs')}</span>
+                                <span id="stat-storage-song-bytes" class="text-slate-200 font-mono tabular-nums shrink-0">—</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <span class="w-2 h-2 rounded-full bg-violet-400 shrink-0"></span>
+                                <span class="text-slate-400 truncate" data-i18n="storageDrawer.legendVideos">${t('storageDrawer.legendVideos')}</span>
+                                <span id="stat-storage-video-bytes" class="text-slate-200 font-mono tabular-nums shrink-0">—</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex gap-3 mt-3">
+                        <div class="flex-1 glass-modal rounded-2xl p-4 flex flex-col items-center gap-2">
+                            <div class="w-16 h-16 rounded-full border-4 border-sky-400/30 flex items-center justify-center bg-sky-400/10">
+                                <span id="stat-storage-total-songs" class="text-lg font-bold text-sky-300 font-mono tabular-nums">—</span>
+                            </div>
+                            <span class="text-xs font-medium text-slate-400" data-i18n="storageDrawer.statTotalSongs">${t('storageDrawer.statTotalSongs')}</span>
+                        </div>
+                        <div class="flex-1 glass-modal rounded-2xl p-4 flex flex-col items-center gap-2">
+                            <div class="w-16 h-16 rounded-full border-4 border-violet-400/30 flex items-center justify-center bg-violet-400/10">
+                                <span id="stat-storage-total-videos" class="text-lg font-bold text-violet-300 font-mono tabular-nums">—</span>
+                            </div>
+                            <span class="text-xs font-medium text-slate-400" data-i18n="storageDrawer.statTotalVideos">${t('storageDrawer.statTotalVideos')}</span>
                         </div>
                     </div>
                 </div>
