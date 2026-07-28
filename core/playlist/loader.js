@@ -327,7 +327,7 @@
          * trị truy vết) — chỉ log 1 lần TRƯỚC vòng lặp (clear) + 1 lần SAU vòng lặp (tổng số đã nạp),
          * không log riêng từng `mutate()` bên trong `for`.
          *
-         * @param {Array<{key:string, blob:Blob, thumbBlob:Blob, duration:number, filename:string, addedAt:number}>} videoRecords
+         * @param {Array<{key:string, blob:Blob, thumbBlob:Blob, duration:number, filename:string, customName?:string|null, addedAt:number}>} videoRecords
          * @returns {string[]} danh sách videoKey hợp lệ (có blob gốc) vừa nạp vào playlistCache, theo ĐÚNG thứ tự videoRecords truyền vào (chưa sort — nơi gọi tự sortKeysByMode() sau).
          */
         function buildVideoPlaylistCache(videoRecords) {
@@ -341,13 +341,13 @@
                 validKeys.push(record.key);
                 appState.mutate('playlistCache', m => m.set(record.key, {
                     filename: record.filename,
-                    tag: { title: record.filename, artist: '', album: '' }, // Adapter shape, xem docstring hàm
+                    tag: { title: record.customName || record.filename, artist: '', album: '' }, // Adapter shape — MỚI (Batch 5, mục 6c) ưu tiên customName (tên hiển thị người dùng tự đặt), rơi về filename gốc nếu chưa đặt
                     cover: record.thumbBlob || null, // Blob THÔ — giống HỆT Song (record.cover) — buildSongNode() (core/playlist/render.js, dùng CHUNG, KHÔNG đụng) tự URL.createObjectURL(cached.cover) lúc render + tự revoke qua node._coverObjectUrl. KHÔNG được tự tạo URL ở đây (trước đây làm sai chỗ này -> render gọi createObjectURL() LẦN 2 trên 1 string, ném TypeError).
                     duration: record.duration,
                     addedAt: record.addedAt,
                     mediaType: 'video',
                 }));
-                appState.mutate('songNameIndex', m => m.set(record.key, normalizeSongName(record.filename)));
+                appState.mutate('songNameIndex', m => m.set(record.key, normalizeSongName(record.customName || record.filename)));
             }
             console.log(`writer: "buildVideoPlaylistCache", page: "playlistCache", content: "đã nạp ${validKeys.length} video"`);
             return validKeys;
