@@ -85,7 +85,16 @@
             // scanValidSongsFromDB()) lẫn Video (buildVideoPlaylistCache()) — chỉ cần hiển thị,
             // KHÔNG cần đọc thêm gì. Tái dùng NGUYÊN formatTime() (core/playlist/state.js, đã dùng
             // ở tab "Chi tiết") — formatTime(undefined) tự trả "0:00", an toàn khi cached rỗng.
+            // SỬA (phản hồi Giang, mục 3 — "duration phải ở row cùng với artist, video ở hàng dưới
+            // tên") — bỏ hẳn vị trí RIÊNG (badge góc ảnh ở grid / cột lề phải ở list), GỘP vào
+            // đúng dòng thứ 2 (dòng artist) — Song: "Artist · 3:45"; Video: artist rỗng nên dòng
+            // này chỉ còn "3:45" (đúng "hàng dưới của tên" Giang yêu cầu, dùng CHUNG 1 dòng, không
+            // cần 2 dòng riêng). Dùng CHUNG 1 biến cho cả list lẫn grid (2 nơi có cùng ý nghĩa "dòng
+            // phụ dưới tên").
             const durationLabel = formatTime(cached ? cached.duration : 0);
+            const secondLineHtml = artist
+                ? `${artist} <span class="opacity-50">·</span> ${durationLabel}`
+                : durationLabel;
             // Chỉ Blob cover (record.cover) mới cần tạo + theo dõi object URL để revoke sau; ảnh
             // DEFAULT_VINYL là data: URI tĩnh, không phải object URL — node._coverObjectUrl giữ
             // null cho trường hợp này để revokeNodeCoverUrl() không vô tình revoke nhầm data: URI.
@@ -111,10 +120,9 @@
                         ${isPlaying ? `<div class="absolute inset-0 bg-black/30 rounded-2xl flex items-center justify-center backdrop-blur-[2px]">${eqIconHtml}</div>` : ''}
                         ${selectionMode ? `<div class="absolute top-2 left-2">${selectionIndicatorHtml(isSelected)}</div>` : ''}
                         <div class="absolute top-2 right-2 flex bg-black/40 rounded-full">${menuBtnHtml}</div>
-                        <span class="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[11px] leading-none font-medium text-white tabular-nums">${durationLabel}</span>
                     </div>
                     <h3 class="text-white text-[15px] font-semibold leading-tight line-clamp-1 px-1">${title}</h3>
-                    <p class="text-slate-400 text-[13px] font-medium line-clamp-1 px-1 mt-0.5">${artist}</p>`;
+                    <p class="text-slate-400 text-[13px] font-medium line-clamp-1 px-1 mt-0.5">${secondLineHtml}</p>`;
             } else {
                 wrapper.className = `flex items-center gap-4 px-5 py-3 hover:bg-white/5 active:bg-white/10 transition-colors cursor-pointer w-full group border-b border-white/5 ${isSelected ? 'bg-sky-500/10' : ''}`;
                 wrapper.dataset.role = 'play-item';
@@ -123,9 +131,8 @@
                     <img src="${coverUrl}" class="w-12 h-12 rounded-lg flex-shrink-0 object-cover shadow-md">
                     <div class="flex-grow flex flex-col justify-center overflow-hidden gap-0.5">
                         <div class="flex items-center gap-2"><h3 class="text-[16px] leading-tight font-semibold truncate ${isPlaying ? 'text-sky-300' : 'text-slate-100'}">${title}</h3>${isPlaying ? eqIconHtml : ''}</div>
-                        <p class="text-[13px] text-slate-400 truncate font-medium">${artist}</p>
+                        <p class="text-[13px] text-slate-400 truncate font-medium">${secondLineHtml}</p>
                     </div>
-                    <span class="text-[12px] text-slate-500 font-medium tabular-nums shrink-0">${durationLabel}</span>
                     <div class="flex">${menuBtnHtml}</div>`;
             }
             attachCoverFallback(wrapper.querySelector('img'));

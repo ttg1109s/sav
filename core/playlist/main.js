@@ -55,15 +55,27 @@
             /**
              * MỚI (phản hồi Giang, mục 5 — "thêm dòng folder đang active source") — dòng đọc-thôi
              * hiển thị thư mục đang được Apply làm Scope cho Playlist (đọc `activePlayListFolder`,
-             * service/state/file-manager.js) — "chưa kích hoạt thư mục nào" nếu rỗng. Gọi lúc
-             * init() (boot/mở Settings) VÀ ngay sau mỗi lần `persistScopeChoice()` đổi (workflowPlaylistScope)
-             * để phản ánh đúng NGAY, không cần đợi reload — cùng tinh thần "badge phản ánh đúng
-             * NGAY" đã ghi trong docstring persistScopeChoice().
+             * service/state/file-manager.js) — "chưa kích hoạt thư mục nào" nếu rỗng.
+             * MỞ RỘNG (phản hồi Giang, mục 2 — "có folder active thì phải ẩn/block đổi Nguồn") —
+             * ĐỔI TÊN từ `updateActiveFolderBadge()`: giờ CÙNG LÚC khoá `<select>` "Nguồn" (thêm
+             * `disabled` + class mờ) khi đang có Scope — folder Scope CHỈ chứa 1 loại (song/video),
+             * đổi Nguồn giữa chừng sẽ làm `playlistOrder` (đã lọc theo folder) lệch hẳn với
+             * `playlistCache` (đổi hết sang loại khác) — coi 2 việc "hiện tên folder"/"khoá đổi
+             * Nguồn" là 1 cụm UI phản ứng CÙNG 1 state (`activePlayListFolder`), gộp lại tránh quên
+             * gọi 1 trong 2 ở chỗ nào đó.
+             * Gọi lúc init() (boot/mở Settings) VÀ ngay sau mỗi lần `persistScopeChoice()` đổi
+             * (workflowPlaylistScope) để phản ánh đúng NGAY, không cần đợi reload — cùng tinh thần
+             * "badge phản ánh đúng NGAY" đã ghi trong docstring persistScopeChoice().
              */
-            async updateActiveFolderBadge() {
+            async updateActiveFolderUI() {
+                const folderId = appState.get('activePlayListFolder');
+                if (mediaSourceSelect) {
+                    mediaSourceSelect.disabled = !!folderId;
+                    mediaSourceSelect.classList.toggle('opacity-40', !!folderId);
+                    mediaSourceSelect.title = folderId ? t('settingsPlaylistBg.mediaSource.lockedByFolderScope') : '';
+                }
                 const el = document.getElementById('setting-playlist-active-folder');
                 if (!el) return;
-                const folderId = appState.get('activePlayListFolder');
                 if (!folderId) { el.textContent = t('settingsPlaylistBg.activeFolder.none'); return; }
                 const folderRecord = typeof getFolderRecord === 'function' ? await getFolderRecord(folderId) : null;
                 el.textContent = folderRecord ? folderRecord.name : t('settingsPlaylistBg.activeFolder.none');
@@ -73,7 +85,7 @@
                 this.initSortMenu();
                 this.initViewMode();
                 this.initMediaSource();
-                this.updateActiveFolderBadge();
+                this.updateActiveFolderUI();
             }
         };
 
