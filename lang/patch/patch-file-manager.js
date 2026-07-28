@@ -130,7 +130,19 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.video.empty': 'No videos yet. Tap the + button above to add some.',
     'fileManager.video.uploadSuccess': 'Added {count} video(s).',
     'fileManager.video.pickerTitle': 'Choose a video',
-    // Dropdown menu 1 tile (Set as bg video / Edit video / Xoá) — THAY hẳn preview fullscreen cũ.
+    // Dropdown menu 1 tile (Chi tiết / Set as bg video / Edit video / Xoá) — THAY hẳn preview fullscreen cũ.
+    // MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — lựa chọn "Chi tiết" + modal Info.
+    'fileManager.video.info.label': 'Details',
+    'fileManager.video.info.title': 'Video details',
+    'fileManager.video.info.customNameLabel': 'Display name',
+    'fileManager.video.info.rowFilename': 'Original filename',
+    'fileManager.video.info.rowFormat': 'Format',
+    'fileManager.video.info.rowCodec': 'Codec',
+    'fileManager.video.info.rowResolution': 'Resolution',
+    'fileManager.video.info.rowFps': 'Frame rate',
+    'fileManager.video.info.rowDuration': 'Duration',
+    'fileManager.video.info.rowBitrate': 'Bitrate',
+    'fileManager.video.info.rowAddedAt': 'Added on',
     'fileManager.video.btnSetAsBgVideo': 'Set as background video',
     'fileManager.video.setAsBgVideo.blockedByPlayerMode': 'Turn off Video Player mode first before setting a background video.',
     'fileManager.video.setAsBgVideo.success': 'Set as background video.',
@@ -208,6 +220,32 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.deleteFolderTitle': 'Delete folder',
     'fileManager.song.deleteFolderConfirm': 'Delete folder "{name}"? Songs inside stay in your library, only the folder is removed.',
     'fileManager.song.btnDeleteFolder': 'Delete',
+    // ── File Manager -> Song & Video: Giải phóng bộ nhớ, 3 chiều độc lập (Batch 5, mục 6b) ────
+    // THAY 2 nút tách rời cũ (storageDrawer.downloadThenClear/clearNoDownload, lang/patch/
+    // patch-settings-misc.js) bằng: phạm vi (Song/Video/Cả hai) + 2 toggle (Tải xuống/Xoá) + 1 nút
+    // Thực hiện.
+    'fileManager.song.storageAction.sectionTitle': 'Free up storage',
+    'fileManager.song.storageAction.scopeLabel': 'Scope',
+    'fileManager.song.storageAction.scope.song': 'Songs',
+    'fileManager.song.storageAction.scope.video': 'Videos',
+    'fileManager.song.storageAction.scope.both': 'Songs & videos',
+    'fileManager.song.storageAction.downloadToggle.label': 'Download first',
+    'fileManager.song.storageAction.downloadToggle.hint': 'Pack the original files into a zip and download them before doing anything else.',
+    'fileManager.song.storageAction.deleteToggle.label': 'Delete from library',
+    'fileManager.song.storageAction.deleteToggle.hint': 'Remove the selected files from this device — cannot be undone.',
+    'fileManager.song.storageAction.btnExecute': 'Execute',
+    'fileManager.song.storageAction.confirmTitle': 'Confirm',
+    'fileManager.song.storageAction.confirmDownloadAndDelete': 'Download all {scope} as a zip file, then DELETE them from this device? The delete action cannot be undone once the download finishes.',
+    'fileManager.song.storageAction.confirmDownloadOnly': 'Download all {scope} as a zip file? Nothing will be deleted.',
+    'fileManager.song.storageAction.confirmDeleteOnly': 'Delete all {scope} from this device? This action CANNOT be undone.',
+    'fileManager.song.storageAction.confirmBtnDownload': 'Download',
+    'fileManager.song.storageAction.confirmBtnDelete': 'Delete',
+    'fileManager.song.storageAction.zipNameSong': 'songs',
+    'fileManager.song.storageAction.zipNameVideo': 'videos',
+    'fileManager.song.storageAction.doneDownloadAndDelete': 'Zip file(s) downloaded and {scope} deleted from this device.',
+    'fileManager.song.storageAction.doneDownloadOnly': 'Zip file(s) downloaded.',
+    'fileManager.song.storageAction.doneDeleteOnly': '{scope} deleted from this device.',
+    'fileManager.song.storageAction.zipErrorSkippedDelete': "Couldn't build the zip file: {message}. Deletion was skipped to avoid losing data without a backup.",
     // ── File Manager -> Song & Video -> Folder Browser Read (nội dung 1 folder) ───────────────
     // MỚI (Batch 4, "Song/Video Unification" mục 5) — 2 toggle ĐỘC LẬP THAY nút Áp dụng/Bỏ áp
     // dụng cũ ('btnApply'/'btnUnapply' XOÁ, không còn nút chữ đổi nhãn).
