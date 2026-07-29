@@ -206,22 +206,18 @@ const routerPlaylist = (() => {
                 // "chặn hẳn, không chạy gì cả" (xem comment đầu event/block.js); ở đây cần CHẠY 1
                 // thứ khi bị chặn (hiện modal thông báo), nên đúng là việc của switch/if/VMState
                 // trong router, không phải block gate.
-                // SỬA (ver12 "Song/Video Unification", Batch 6, mục 7) — LỒNG thêm 1
-                // VirtualMachineState.run() nữa NGAY TRONG callback 'selectionMode === false' đọc
-                // `activeMediaSource` (2 giá trị LOẠI TRỪ NHAU, quyết định mở container NÀO — Song:
-                // #upload-action-menu 2 lựa chọn KHÔNG đổi gì; Video: #video-upload-menu MỚI, chỉ 1
-                // lựa chọn) — cùng khuôn nested VMState đã dùng ở 'fileManagerSong.folder.
-                // actionClick' cũ (callback là code Router bình thường, được phép chứa VMState tiếp).
+                // SỬA (FIX 28/07/2026, "bỏ dropdown Video, input luôn", khôi phục 29/07/2026) —
+                // BỎ nhánh VMState lồng theo `activeMediaSource` (`openVideoUploadMenu()` — hàm đó
+                // đã xoá cùng đợt fix này, KHÔNG còn cần nữa) — #btn-upload-audio giờ CHỈ hiện khi
+                // activeMediaSource='song' (đổi ẩn/hiện với #btn-upload-video ở
+                // switchToSongSource()/switchToVideoSource(), event/workflow/playlist.js), nên
+                // msg.type này CHỈ CÒN bắn ra được từ ngữ cảnh Song — Video giờ có nút RIÊNG
+                // (<label id="btn-upload-video">, components/playlist-view.js) mở file picker
+                // NATIVE thẳng, không qua eventBus/router nào cả.
                 const selectionMode = appState.get('selectionMode');
                 VirtualMachineState.run([
                     { state: selectionMode, operation: '===', value: true, callback: () => workflowPlaylist.showUploadBlockedBySelectionModal() },
-                    { state: selectionMode, operation: '===', value: false, callback: () => {
-                        const mediaSource = appState.get('activeMediaSource');
-                        VirtualMachineState.run([
-                            { state: mediaSource, operation: '===', value: 'video', callback: () => openVideoUploadMenu() },
-                            { state: mediaSource, operation: 'notIn', value: ['video'], callback: () => openUploadActionMenu() },
-                        ]);
-                    } },
+                    { state: selectionMode, operation: '===', value: false, callback: () => openUploadActionMenu() },
                 ]);
                 break;
             }
