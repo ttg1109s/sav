@@ -73,10 +73,24 @@ const eventBus = (() => {
         routers.set(name, routerObject);
     }
 
-    /** Đọc field theo path lồng bất kỳ độ sâu qua appState (vd 'vizConfig.autoSwitchVisualEnabled'). */
+    /** Đọc field theo path lồng bất kỳ độ sâu qua appState (vd 'vizConfig.autoSwitchVisualEnabled').
+     * SỬA (fix bus, phản hồi Giang 29/07/2026) — TỪ đợt tách AppConfig (25/07/2026, service/state.js),
+     * 5 "config" (vizConfig/slideshowConfig/readerConfig/playlistConfig/playerConfig) KHÔNG còn sống
+     * trong AppState nữa (đã dời qua AppConfig, domain riêng — xem AppConfig.defineDomain()/appConfig
+     * .access() ở service/state.js) — `appState.get(rootKey)` cho 5 key này giờ luôn trả undefined +
+     * console.warn (key không thuộc package nào), khiến MỌI block condition dùng path dạng
+     * 'xxxConfig.field' (vd 'vizConfig.videoBgEnabled', event/block.js) ÂM THẦM luôn = undefined, tức
+     * KHÔNG BAO GIỜ chặn dù field thật đang đúng điều kiện.
+     * FIX: nhận diện rootKey có phải tên 1 domain AppConfig đã đăng ký không (quy ước domain + hậu tố
+     * 'Config' — ĐÚNG cho cả 5 domain hiện có: viz/slideshow/reader/playlist/player) — nếu đúng, đọc
+     * qua appConfig.access(domain).getAll() thay vì appState.get(). GENERIC theo AppConfig._domains
+     * đã đăng ký — domain Config nào thêm sau này cũng tự được nhận diện, không cần sửa lại hàm này. */
     function resolveFieldPath(field) {
         const [rootKey, ...rest] = field.split('.');
-        let cur = appState.get(rootKey);
+        const configDomain = rootKey.endsWith('Config') ? rootKey.slice(0, -'Config'.length) : null;
+        let cur = (configDomain && AppConfig._domains[configDomain])
+            ? appConfig.access(configDomain).getAll()
+            : appState.get(rootKey);
         for (const key of rest) {
             if (cur == null) return undefined;
             cur = cur[key];
