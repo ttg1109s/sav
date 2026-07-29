@@ -94,9 +94,12 @@ const LANG_PATCH_SETTINGS_MISC = {
     'storageDrawer.brokenSectionTitle': 'Corrupted data',
     'storageDrawer.scanBroken.label': 'Scan & clean broken files',
     'storageDrawer.scanBroken.hint': "Finds songs whose data isn't a valid mp3 or can't be played, asks before deleting",
-    // MỚI (29/07/2026, yêu cầu Giang) — Block gate (event/block.js) hiện khi bấm "Scan" mà cả 4
-    // toggle nguồn (Music/Video/Photos/Documents) ở "Delete & Backup" đều đang tắt.
-    'storageDrawer.scanBroken.blockedNoSource': 'Select at least one item above (Music/Video/Photos/Documents) before scanning.',
+    // MỚI (29/07/2026, yêu cầu Giang — "mở modal choice có dropdown chọn loại scan") — nội dung
+    // modal + option "Tất cả" của dropdown, xem event/workflow/file-manager-storage.js::
+    // askScanBrokenScope(). XOÁ (cùng ngày) — key "blockedNoSource" (Block gate cũ chặn "chưa
+    // chọn nguồn nào") không còn cần thiết — dropdown LUÔN có 1 giá trị, không có khái niệm rỗng.
+    'storageDrawer.scanBroken.modalBody': 'Choose what to scan for broken/corrupted files:',
+    'storageDrawer.scanBroken.scopeAll': 'Everything (Music, Video, Photos, Documents)',
     'storageDrawer.btnDeleteBroken': 'Delete these broken files',
     'storageDrawer.btnDismissScan': 'Dismiss',
 
