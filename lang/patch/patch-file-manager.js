@@ -142,6 +142,12 @@ const LANG_PATCH_FILE_MANAGER = {
     // deleteSuccess (đã có sẵn ở patch-playlist.js).
     'fileManager.video.empty': 'No videos yet. Tap the + button above to add some.',
     'fileManager.video.uploadSuccess': 'Added {count} video(s).',
+    // MỚI (29/07/2026, yêu cầu Giang — "có alertModal") — báo kết quả backfillMissingVideoThumbFull()
+    // (event/workflow/file-manager-video.js, chạy ngầm lúc boot) — CHỈ hiện khi thực sự có video
+    // được xử lý, xem docstring hàm đó.
+    'fileManager.video.thumbFullBackfillDone': 'Generated full-size preview images for {count} existing video(s).',
+    'fileManager.video.thumbFullBackfillPartial': 'Generated full-size preview images for {count} video(s) — {failedCount} failed (couldn\u2019t be read).',
+    'fileManager.video.thumbFullBackfillFailed': 'Couldn\u2019t generate full-size preview images for {failedCount} video(s) (couldn\u2019t be read).',
     'fileManager.video.pickerTitle': 'Choose a video',
     // ── Drawer con: Documents (mục 4.b4, ĐÃ CODE THẬT 04/07/2026) ────────────────────────────
     'fileManager.document.title': 'Documents',
