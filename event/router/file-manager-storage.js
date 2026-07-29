@@ -22,6 +22,13 @@
  * NẠP SAU: event/bus.js, core/storage-manager.js, core/settings-panel-stack.js, event/workflow/
  * file-manager-storage.js.
  * NẠP TRƯỚC: event/listener/file-manager-storage.js.
+ *
+ * MỚI (29/07/2026, yêu cầu Giang — "Scan khi không bật nguồn nào thì bị block") —
+ * `fileManagerStorage.scanBroken.click` giờ có Block gate đăng ký ở event/block.js (chặn HẲN +
+ * notify khi cả 4 nguồn đều tắt) — ĐÚNG tiêu chí dùng Block (chặn hẳn, không chọn giữa nhiều
+ * workflow khác nhau). Block gate CHỈ đọc được `appState`, KHÔNG đọc được closure `storageSources`
+ * của router này — nên router tự gương (mirror) 1 field dẫn xuất `appState.storageAnySourceEnabled`
+ * (service/state/file-manager.js) mỗi khi `storageSources` đổi, xem `syncAnySourceEnabledToAppState()`.
  */
 const routerFileManagerStorage = (() => {
     let lastScanResults = []; // context state CỦA RIÊNG nhánh quét lỗi
@@ -31,6 +38,16 @@ const routerFileManagerStorage = (() => {
     let storageSources = { song: false, video: false, photo: false, document: false };
     let storageDownloadEnabled = false;
     let storageDeleteEnabled = false;
+
+    /** MỚI (29/07/2026, yêu cầu Giang — "Scan khi không bật nguồn nào thì bị block") — gương lại
+     * "có ít nhất 1/4 nguồn đang bật" từ `storageSources` (closure RIÊNG của router này) lên
+     * `appState.storageAnySourceEnabled` — CHỈ field NÀY cần lên appState, vì Block gate
+     * (event/block.js -> event/bus.js::resolveFieldPath()) BẮT BUỘC đọc điều kiện qua appState,
+     * không đọc được closure của router. Gọi lại SAU MỖI lần `storageSources` đổi (sourceToggle,
+     * reset lúc mở panel, reset sau khi Thực hiện xong). */
+    function syncAnySourceEnabledToAppState() {
+        appState.set('storageAnySourceEnabled', storageSources.song || storageSources.video || storageSources.photo || storageSources.document);
+    }
 
     function handle(msg) {
         switch (msg.type) {
@@ -42,6 +59,7 @@ const routerFileManagerStorage = (() => {
                 storageSources = { song: false, video: false, photo: false, document: false };
                 storageDownloadEnabled = false; storageDeleteEnabled = false;
                 lastScanResults = [];
+                syncAnySourceEnabledToAppState();
                 workflowFileManagerStorage.openPanel(); // >1 hàm core (push + refresh) -> workflow
                 break;
             }
@@ -51,6 +69,7 @@ const routerFileManagerStorage = (() => {
             case 'fileManagerStorage.sourceToggle.change': {
                 const { source, checked } = msg.payload; // source: 'song'|'video'|'photo'|'document'
                 if (source in storageSources) storageSources[source] = checked;
+                syncAnySourceEnabledToAppState();
                 workflowFileManagerStorage.updateStorageActionUI(storageSources, storageDownloadEnabled, storageDeleteEnabled);
                 break;
             }
@@ -85,6 +104,7 @@ const routerFileManagerStorage = (() => {
                 // trước khi reset, dùng đúng giá trị lúc bấm xác nhận cho lời gọi bên dưới.
                 storageSources = { song: false, video: false, photo: false, document: false };
                 storageDownloadEnabled = false; storageDeleteEnabled = false;
+                syncAnySourceEnabledToAppState();
                 workflowFileManagerStorage.updateStorageActionUI(storageSources, storageDownloadEnabled, storageDeleteEnabled);
                 // Gọi THẲNG 1 method (KHÔNG VirtualMachineState) — xem giải thích đầy đủ ở docstring đầu file.
                 workflowFileManagerStorage.executeStorageAction(sources, download, del);
@@ -112,6 +132,10 @@ const routerFileManagerStorage = (() => {
                 break;
             }
 
+            // MỚI (29/07/2026, yêu cầu Giang) — Block gate (event/block.js) đã chặn CASE NÀY THẲNG
+            // TỪ eventBus.send() nếu KHÔNG có nguồn nào đang bật (`storageAnySourceEnabled===false`)
+            // — tự bật alertModal() báo lý do, xem event/block.js — case bên dưới CHỈ còn chạy tới
+            // khi ĐÃ chắc chắn có ít nhất 1 nguồn được chọn, không cần guard lại lần nữa ở đây.
             case 'fileManagerStorage.scanBroken.click': {
                 // Quét ĐÚNG các nguồn đang bật ở "Chọn mục xoá" — DÙNG CHUNG storageSources, KHÔNG
                 // rẽ nhánh tại đây (nhánh thật nằm trong Workflow, xem executeScanBroken()).
