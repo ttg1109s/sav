@@ -126,7 +126,11 @@ function renderFileManagerStorageManagementPanelBody() {
                     </div>
                 </div>
 
-                <!-- SECTION: DỌN FILE LỖI — quét theo ĐÚNG các nguồn đang bật ở "Chọn mục xoá" trên. -->
+                <!-- SECTION: DỌN FILE LỖI — SỬA (29/07/2026, yêu cầu Giang) — KHÔNG còn dùng chung
+                     4 toggle nguồn của "Delete & Backup" ở trên nữa (dễ nhầm/quên đang bật gì) —
+                     bấm nút này giờ tự mở modalChoice() RIÊNG với 1 dropdown chọn loại quét
+                     (Tất cả/Song/Video/Photo/Document) ngay trong modal, có nút Huỷ/Thực hiện —
+                     xem event/workflow/file-manager-storage.js::askScanBrokenScope(). -->
                 <div>
                     <h3 class="text-xs font-bold text-amber-400 uppercase tracking-widest mb-2 ml-2" data-i18n="storageDrawer.brokenSectionTitle">${t('storageDrawer.brokenSectionTitle')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
