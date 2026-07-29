@@ -68,6 +68,19 @@ const workflowFileManagerStorage = {
         );
     },
 
+    /** Ứng với 'fileManagerStorage.storageBarSegment.click' — MỚI (29/07/2026, yêu cầu Giang mục 2
+     * — "thêm phần số dung lượng khi ấn vào mỗi phần của thanh dung lượng") — hiện `alertModal()`
+     * với ĐÚNG số byte của đoạn vừa ấn (đọc từ `dataset.bytes`, gắn sẵn lúc `renderStorageStats()`
+     * vẽ lại thanh — core/storage-manager.js). `legendKey` là 1 trong 4 key
+     * `storageDrawer.legend{Songs,Videos,Photos,Documents}` (TÁI DÙNG NGUYÊN — không cần label
+     * riêng cho việc này).
+     * @param {{bytes: number, legendKey: string}} payload
+     */
+    showSegmentBytes(payload) {
+        const { bytes, legendKey } = payload;
+        alertModal(`${t(legendKey)}: ${formatBytes(bytes)}`); // formatBytes() — core/about-stats.js
+    },
+
     // ===================== Chọn mục xoá — 4 nguồn độc lập + 2 toggle hành động =================
 
     /** DOM-patch thuần — đồng bộ 4 toggle nguồn + 2 toggle hành động + disabled/nhãn nút Thực
