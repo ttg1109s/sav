@@ -101,7 +101,14 @@
             const hasRealCover = !!(cached && cached.cover);
             const coverUrl = hasRealCover ? URL.createObjectURL(cached.cover) : DEFAULT_VINYL;
 
-            const isPlaying = (key === appState.get('currentKey')); const isActuallyPlaying = isPlaying && !audioPlayer.paused;
+            const isPlaying = (key === appState.get('currentKey'));
+            // SỬA (fix bar animation, phản hồi Giang 29/07/2026, "làm nốt") — TRƯỚC ĐÂY hard-code
+            // `!audioPlayer.paused`, vô nghĩa với dòng Video (Video Player mode dùng `bgVideoElement`
+            // làm nguồn phát THẬT, `audioPlayer` không chạy — xem docstring đầu event/workflow/
+            // video-player.js) nên dòng Video LUÔN rơi vào nhánh "đã chọn nhưng coi như đang tạm
+            // dừng" (chấm xanh, KHÔNG BAO GIỜ có bar animation) dù đang phát thật. Đọc ĐÚNG element
+            // theo `cached.mediaType` — GIỮ NGUYÊN 100% hành vi cũ cho Song (audioPlayer.paused).
+            const isActuallyPlaying = isPlaying && !((cached && cached.mediaType === 'video') ? bgVideoElement.paused : audioPlayer.paused);
             const eqIconHtml = isActuallyPlaying ? `<div class="flex items-end gap-[2px] h-3 w-3"><div class="w-[3px] bg-sky-400 eq-1"></div><div class="w-[3px] bg-sky-400 eq-2"></div><div class="w-[3px] bg-sky-400 eq-3"></div></div>` : (isPlaying ? `<div class="w-2 h-2 rounded-full bg-sky-500 shadow-[0_0_5px_rgba(14,165,233,0.8)]"></div>` : '');
             const selectionMode = appState.get('selectionMode');
             const isSelected = selectionMode && appState.get('selectedSongKeys').has(key);
