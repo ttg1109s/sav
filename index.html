@@ -51,118 +51,6 @@
 <body class="text-white h-screen flex flex-col relative overflow-hidden bg-[#000000]">
 
     <!-- ===================================================================
-         DEBUG ERROR PANEL (phản hồi Giang — "điều tra lâu thế? tạo một index và bảng debug hiện
-         thị lỗi runtime js ngay trong là được", rồi "phải cho ngay lên hàng đầu trước bất kỳ
-         script nào") — TRƯỚC ĐÂY `_reportFatalError()` (core/fatal-error.js, nạp SÂU trong danh
-         sách <script>) SILENT HOÀN TOÀN (chỉ console.error — quyết định cũ của Giang để tránh
-         phiền) — Giang KHÔNG CÓ CÁCH nào tự xem lỗi runtime nếu không mở được DevTools (nhất là
-         test trên điện thoại/PWA qua file://). Bảng này hiện TRỰC TIẾP trong app: badge tròn góc
-         trên-phải LUÔN hiện (xám = 0 lỗi, đỏ = có lỗi, phản hồi Giang "phải hiện thị lên ngay cả
-         khi không có" — không còn ẩn mặc định như bản đầu) — bấm mở panel liệt kê ĐẦY ĐỦ từng lỗi
-         (đánh số thứ tự = "index" Giang yêu cầu, kèm giờ + context + message + stack), nút Copy
-         (dán thẳng lại cho Claude debug) + Clear.
-
-         SỬA (phản hồi Giang, đợt này — "phải cho ngay lên hàng đầu trước bất kỳ script nào") —
-         TOÀN BỘ cơ chế (badge/panel HTML + `_reportFatalError()`/`_renderDebugErrorPanel()` +
-         2 listener `error`/`unhandledrejection`) dời NGUYÊN VÀO ĐÂY — dòng ĐẦU TIÊN trong <body>,
-         TRƯỚC CẢ Preloader — thay vì nằm rải rác (HTML sau Preloader, logic ở core/fatal-error.js
-         nạp tận dòng ~480). Lý do: bản trước bỏ lọt lỗi xảy ra TRONG lúc Preloader/11 thẻ CDN/các
-         core/ nạp sớm chạy — window.addEventListener('error'/'unhandledrejection') phải đăng ký
-         TRƯỚC MỌI THẺ <script> KHÁC mới chắc chắn không bỏ sót lỗi nào trong suốt vòng đời trang.
-         100% HTML/CSS/JS THUẦN INLINE (KHÔNG dùng class Tailwind — Tailwind CDN nạp SAU khối này
-         rất xa) — đây là LƯỚI AN TOÀN ĐẦU TIÊN VÀ CUỐI CÙNG của cả trang, không phụ thuộc BẤT KỲ
-         thứ gì nạp sau nó (kể cả eventBus) — gọi THẲNG `_reportFatalError()`, không qua eventBus
-         (khác thiết kế cũ ở event/listener/app-boot.js — đã BỎ HẲN 2 listener trùng lặp ở đó,
-         xem comment tại file đó, tránh 1 lỗi bị đếm 2 lần nếu vẫn giữ cả 2 nơi đăng ký). -->
-    <style>
-        #debug-error-badge { position: fixed; top: 8px; right: 8px; z-index: 2147483647; width: 32px; height: 32px; border-radius: 999px; background: #475569; color: #ffffff; font: bold 13px/32px system-ui, sans-serif; text-align: center; border: 2px solid #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.5); cursor: pointer; }
-        #debug-error-badge.debug-error-has-errors { background: #dc2626; }
-        #debug-error-panel { position: fixed; inset: 0; z-index: 2147483646; background: rgba(0,0,0,0.95); color: #e2e8f0; overflow-y: auto; padding: 16px; font-family: ui-monospace, monospace; font-size: 12px; }
-        #debug-error-panel.debug-error-hidden { display: none; }
-        #debug-error-panel-header { position: sticky; top: 0; background: rgba(0,0,0,0.95); display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid #334155; }
-        #debug-error-panel-header h2 { font: bold 16px system-ui, sans-serif; color: #f87171; margin: 0; }
-        #debug-error-panel-header div { display: flex; gap: 8px; }
-        #debug-error-panel-header button { font: bold 11px system-ui, sans-serif; padding: 6px 10px; border-radius: 6px; border: none; cursor: pointer; color: #ffffff; }
-        #debug-error-copy { background: #0284c7; }
-        #debug-error-clear { background: #475569; }
-        #debug-error-close { background: #334155; }
-        #debug-error-list { white-space: pre-wrap; word-break: break-all; line-height: 1.5; }
-        #debug-error-list:empty::before { content: "Chưa có lỗi runtime nào được ghi nhận trong phiên này."; color: #64748b; }
-    </style>
-    <button id="debug-error-badge" title="Debug — lỗi runtime JS (bấm để xem)">0</button>
-    <div id="debug-error-panel" class="debug-error-hidden">
-        <div id="debug-error-panel-header">
-            <h2>Debug — Runtime Errors</h2>
-            <div>
-                <button id="debug-error-copy" type="button">Copy</button>
-                <button id="debug-error-clear" type="button">Clear</button>
-                <button id="debug-error-close" type="button">Close</button>
-            </div>
-        </div>
-        <div id="debug-error-list"></div>
-    </div>
-    <script>
-        (function () {
-            var _fatalErrorLog = []; // { index, time, context, message, stack }[] — reset mỗi phiên, không persist
-
-            window._reportFatalError = function (context, err) {
-                console.error('[FATAL] ' + context + ':', err);
-                _fatalErrorLog.push({
-                    index: _fatalErrorLog.length + 1,
-                    time: new Date().toLocaleTimeString(),
-                    context: String(context),
-                    message: (err && err.message) ? err.message : String(err),
-                    stack: (err && err.stack) ? err.stack : '',
-                });
-                _renderDebugErrorPanel();
-            };
-
-            window._renderDebugErrorPanel = function () {
-                var badge = document.getElementById('debug-error-badge');
-                if (badge) {
-                    badge.textContent = String(_fatalErrorLog.length);
-                    badge.classList.toggle('debug-error-has-errors', _fatalErrorLog.length > 0);
-                }
-                var list = document.getElementById('debug-error-list');
-                if (list) {
-                    list.textContent = _fatalErrorLog.map(function (e) {
-                        return '#' + e.index + ' [' + e.time + '] ' + e.context + '\n' + e.message + '\n' + e.stack + '\n' + new Array(49).join('-');
-                    }).join('\n');
-                }
-            };
-
-            window.addEventListener('error', function (e) {
-                var context = (e.filename || 'script') + ':' + (e.lineno || '?');
-                window._reportFatalError(context, e.error || e.message);
-            });
-            window.addEventListener('unhandledrejection', function (e) {
-                window._reportFatalError('Promise bị reject nhưng không ai .catch()', e.reason);
-            });
-
-            var badge = document.getElementById('debug-error-badge');
-            var panel = document.getElementById('debug-error-panel');
-            var copyBtn = document.getElementById('debug-error-copy');
-            var clearBtn = document.getElementById('debug-error-clear');
-            var closeBtn = document.getElementById('debug-error-close');
-            if (badge && panel) badge.addEventListener('click', function () { panel.classList.remove('debug-error-hidden'); });
-            if (closeBtn && panel) closeBtn.addEventListener('click', function () { panel.classList.add('debug-error-hidden'); });
-            if (copyBtn) {
-                copyBtn.addEventListener('click', function () {
-                    var text = _fatalErrorLog.map(function (e) { return '#' + e.index + ' [' + e.time + '] ' + e.context + '\n' + e.message + '\n' + e.stack; }).join('\n\n');
-                    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(function () {});
-                });
-            }
-            if (clearBtn) {
-                clearBtn.addEventListener('click', function () {
-                    _fatalErrorLog.length = 0;
-                    window._renderDebugErrorPanel();
-                    if (panel) panel.classList.add('debug-error-hidden');
-                });
-            }
-        })();
-    </script>
-
-    <!-- ===================================================================
          PRELOADER (07/07/2026, phản hồi Giang mục 2 — LÀM LẠI, HOTFIX 5) — HTML/CSS/JS THUẦN, ĐẶT
          NGAY ĐẦU <body>, TRƯỚC MỌI THỨ KHÁC (kể cả CDN) — hiện ra NGAY LẬP TỨC lúc trình duyệt bắt
          đầu parse <body>, che toàn bộ màn hình trong lúc 176 file script tuần tự nạp (app này
@@ -540,14 +428,17 @@
          picker, xem docstring đầu file) — CHỈ phụ thuộc t() (lang/lang.js, đã nạp SỚM ở trên),
          KHÔNG đụng DOM tĩnh/appState/eventBus nào khác — an toàn đứng ngay sau modal-choice.js. -->
     <script src="core/time-picker-modal.js?v=20260718v1"></script>
-    <!-- SỬA (phản hồi Giang — "phải cho ngay lên hàng đầu trước bất kỳ script nào") —
-         core/fatal-error.js ĐÃ RÚT NỘI DUNG (xem file đó) — toàn bộ dời vào 1 khối <script> inline
-         NGAY ĐẦU <body> (trước cả Preloader) — thẻ <script src="core/fatal-error.js"> vì vậy ĐÃ
-         XOÁ ở đây. event/listener/app-boot.js giờ CHỈ còn đúng 1 việc: gửi 'app.boot' lúc
-         DOMContentLoaded — 2 listener error/unhandledrejection (từng ở đây) ĐÃ BỎ HẲN khỏi file đó
-         (trùng lặp với bản inline mới, sẽ đếm 1 lỗi thành 2 nếu giữ cả hai) — xem comment đầy đủ ở
-         event/listener/app-boot.js. -->
-    <script src="event/listener/app-boot.js?v=20260729v2"></script>
+    <!-- core/fatal-error.js + event/listener/app-boot.js (đợt tái cấu trúc state 25/07/2026) —
+         dời NGUYÊN VỊ TRÍ SỚM của global error-handler cũ (trước đây sống trong core/config.js,
+         đăng ký ngay từ đầu để bắt lỗi của mọi core/ nạp SAU nó) — GIỮ ĐÚNG vị trí sớm này, chỉ
+         đổi cách gọi: 2 listener error/unhandledrejection tự kiểm tra `typeof eventBus` — CÓ (sau
+         khi event/bus.js nạp ở khối /event/ cuối tài liệu) thì gửi qua eventBus cho
+         event/router/app-boot.js xử lý; CHƯA CÓ (lỗi xảy ra sớm hơn) thì gọi thẳng
+         _reportFatalError() làm lưới an toàn — xem comment đầy đủ ở event/listener/app-boot.js.
+         Listener DOMContentLoaded trong CÙNG file này thì vị trí không quan trọng (chỉ thực sự
+         chạy sau khi toàn tài liệu đã nạp xong). -->
+    <script src="core/fatal-error.js?v=20260725v1"></script>
+    <script src="event/listener/app-boot.js?v=20260725v1"></script>
     <!-- service/operation.js — so sánh toán tử (===/!==/>/</>=/<=/in/notIn) DÙNG CHUNG cho
          event/block.js và event/virtual-machine-state.js (nạp cuối cùng, xem khối /event/ phía
          dưới). Đặt SỚM ở đây cho cùng nhóm "service/" với service/state.js — không phụ thuộc gì
@@ -1094,7 +985,7 @@
          cả sau event/tab.js) để mọi workflowXxx/VirtualMachineState/hàm core mà
          workflowAppBoot.boot() cần tới đều CHẮC CHẮN đã được định nghĩa ở phía TRÊN nó. -->
     <script src="event/workflow/app-boot.js?v=20260729v1"></script>
-    <script src="event/router/app-boot.js?v=20260729v2"></script>
+    <script src="event/router/app-boot.js?v=20260725v1"></script>
 
 </body>
 </html>
