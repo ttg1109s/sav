@@ -160,15 +160,10 @@ if (videoUploadInput) {
     });
 }
 
-if (videoUploadMenu) {
-    videoUploadMenu.addEventListener('click', (e) => {
-        // DÙNG CHUNG message 'playlist.uploadMenu.labelClick' với #upload-action-menu —
-        // handleUploadMenuLabelClick() (core/playlist/loader.js) chỉ kiểm tra `target.closest
-        // ('label')` chung chung, không quan tâm menu nào, và closeUploadActionMenu() (hàm nó gọi)
-        // giờ đã đóng CẢ 2 container — dùng lại nguyên vẹn, không cần message/hàm riêng.
-        eventBus.send({ router: 'playlist', type: 'playlist.uploadMenu.labelClick', payload: { target: e.target } });
-    });
-}
+// videoUploadMenu (dropdown "Thêm video" cũ) ĐÃ XOÁ (FIX 28/07/2026, "bỏ dropdown Video, input
+// luôn") — #btn-upload-video giờ LÀ <label> bọc thẳng #video-upload-input (components/
+// playlist-view.js) — click NATIVE lên label tự trigger input, KHÔNG cần listener JS nào ở đây,
+// đúng pattern 2 label trong #upload-action-menu (Song) vốn cũng không có click listener riêng.
 
 if (btnUploadAudio) {
     btnUploadAudio.addEventListener('click', () => {
