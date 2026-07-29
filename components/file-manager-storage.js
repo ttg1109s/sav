@@ -34,11 +34,15 @@ function renderFileManagerStorageManagementPanelBody() {
                             <span class="text-sm font-medium text-slate-300" data-i18n="storageDrawer.statTotalBytes">${t('storageDrawer.statTotalBytes')}</span>
                             <span id="stat-storage-total-bytes" class="text-lg font-bold text-white font-mono tabular-nums">—</span>
                         </div>
+                        <!-- MỚI (29/07/2026, yêu cầu Giang mục 2) — mỗi đoạn giờ ấn được (cursor-
+                             pointer + data-legend-key, đọc bởi event/listener/file-manager-
+                             storage.js) — hiện số byte THẬT của đúng đoạn đó qua alertModal (xem
+                             event/workflow/file-manager-storage.js::showSegmentBytes()). -->
                         <div class="h-2.5 w-full rounded-full overflow-hidden flex bg-white/10">
-                            <div id="stat-storage-bar-songs" class="h-full bg-sky-400 transition-[width] duration-500" style="width:0%"></div>
-                            <div id="stat-storage-bar-videos" class="h-full bg-violet-400 transition-[width] duration-500" style="width:0%"></div>
-                            <div id="stat-storage-bar-photos" class="h-full bg-emerald-400 transition-[width] duration-500" style="width:0%"></div>
-                            <div id="stat-storage-bar-documents" class="h-full bg-amber-400 transition-[width] duration-500" style="width:0%"></div>
+                            <div id="stat-storage-bar-songs" class="h-full bg-sky-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendSongs" style="width:0%"></div>
+                            <div id="stat-storage-bar-videos" class="h-full bg-violet-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendVideos" style="width:0%"></div>
+                            <div id="stat-storage-bar-photos" class="h-full bg-emerald-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendPhotos" style="width:0%"></div>
+                            <div id="stat-storage-bar-documents" class="h-full bg-amber-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendDocuments" style="width:0%"></div>
                         </div>
                         <!-- MỚI (mục 2b, phản hồi Giang "list ngay dưới song/video/photo/document
                              (bên trái) - count items (bên phải)") — THAY hẳn 2 "vòng tròn số lượng"
