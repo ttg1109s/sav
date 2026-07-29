@@ -144,6 +144,25 @@ async function listImages() {
     return records.filter(Boolean);
 }
 
+/**
+ * MỚI (29/07/2026, yêu cầu Giang — panel "Quản lý lưu trữ" MỚI, mục 2a "bổ sung thống kê dung
+ * lượng Photo/Document vào thanh dung lượng") — mirror `computeVideoStats()` (core/file-manager/
+ * video.js) — viết RIÊNG bản của Photo (Rule 3 cấm core gọi core, kể cả hàm "giống nhau" ở domain
+ * khác).
+ * @returns {Promise<{totalImages: number, totalBytes: number}>}
+ */
+async function computeImageStats() {
+    const keys = await getAllImageKeys();
+    let totalImages = 0, totalBytes = 0;
+    for (const key of keys) {
+        const record = await getImageRecord(key);
+        if (!record || !record.blob) continue;
+        totalImages++;
+        totalBytes += record.blob.size + (record.thumbBlob ? record.thumbBlob.size : 0);
+    }
+    return { totalImages, totalBytes };
+}
+
 // ===================== Group theo ngày + Window ảo (Patch mục 1/2, 14/07/2026) ====================
 // 2 hàm THUẦN dưới đây CHUẨN BỊ dữ liệu cho lưới ảnh Photo & Album — xem event/workflow/
 // file-manager-photo.js::setupPhotoGridWindow() (Workflow gọi CẢ HAI, RỒI mới giao

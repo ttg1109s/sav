@@ -335,3 +335,26 @@ async function listDocuments() {
     }));
     return records.filter(Boolean).sort((a, b) => b.addedAt - a.addedAt);
 }
+
+/**
+ * MỚI (29/07/2026, yêu cầu Giang — panel "Quản lý lưu trữ" MỚI, mục 2a) — mirror
+ * `computeVideoStats()`/`computeImageStats()`, viết RIÊNG bản của Document (Rule 3). Document
+ * KHÔNG có Blob riêng — `content` (string hoặc string[]) LÀ dữ liệu thật lưu trong DB, nên đo bằng
+ * `new Blob([...]).size` trên chuỗi ĐÃ NỐI (mảng đoạn .txt nối lại thô, KHÔNG bọc `<p>` — bọc `<p>`
+ * là việc của `resolveDocumentHtml()`, core KHÁC file, KHÔNG được tự gọi ở đây theo Rule 3) — ước
+ * lượng đủ dùng cho mục đích hiển thị thanh dung lượng, không cần chính xác tuyệt đối byte-for-byte
+ * so với IndexedDB thật.
+ * @returns {Promise<{totalDocuments: number, totalBytes: number}>}
+ */
+async function computeDocumentStats() {
+    const keys = await getAllDocumentKeys(); // data layer
+    let totalDocuments = 0, totalBytes = 0;
+    for (const key of keys) {
+        const record = await getDocumentRecord(key); // data layer
+        if (!record) continue;
+        totalDocuments++;
+        const raw = Array.isArray(record.content) ? record.content.join('') : (record.content || '');
+        totalBytes += new Blob([raw]).size;
+    }
+    return { totalDocuments, totalBytes };
+}
