@@ -62,17 +62,13 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.songInfo.fieldListened': 'Listened',
     'playlistView.songInfo.empty': '—',
     // MỚI (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — tab "Chi tiết" của Video,
-    // THAY Title/Artist/Album (giữ Duration/PlayCount/Listened — dùng chung key ở trên). Bỏ hẳn
-    // field "Format" (định dạng container, Giang yêu cầu bỏ — ít giá trị, hầu hết video .mp4).
+    // THAY Title/Artist/Album (giữ PlayCount/Listened — dùng chung key ở trên).
+    // XOÁ (29/07/2026, yêu cầu Giang mục 1) — tab "Chi tiết" của Video RÚT GỌN chỉ còn filename/
+    // resolution/playcount/listened — 7 key fieldFileSize/fieldCodec/fieldFps/fieldBitrate/
+    // fieldAudioCodec/fieldAudioBitrate/fieldAddedAt (và fieldDuration riêng cho Video — Song vẫn
+    // dùng chung field đó ở trên) không còn nơi nào dùng tới nữa, ĐÃ XOÁ khỏi đây — tránh key mồ côi.
     'playlistView.songInfo.fieldFilename': 'Original filename',
-    'playlistView.songInfo.fieldFileSize': 'File size',
-    'playlistView.songInfo.fieldCodec': 'Video codec',
     'playlistView.songInfo.fieldResolution': 'Resolution',
-    'playlistView.songInfo.fieldFps': 'Frame rate',
-    'playlistView.songInfo.fieldBitrate': 'Video bitrate',
-    'playlistView.songInfo.fieldAudioCodec': 'Audio codec',
-    'playlistView.songInfo.fieldAudioBitrate': 'Audio bitrate',
-    'playlistView.songInfo.fieldAddedAt': 'Added on',
     'playlistView.uploadMenu.pickFiles': 'Choose music files',
     'playlistView.uploadMenu.pickFolder': 'Choose a folder',
     // MỚI (ver12 "Song/Video Unification", Batch 6, mục 7) — "Thêm video", KHÔNG có bản "chọn cả
