@@ -59,13 +59,38 @@
             if (!totalBytesEl) return; // guard: panel "Quản lý lưu trữ" đang đóng
             const totalBytes = songStats.totalBytes + videoStats.totalBytes + photoStats.totalBytes + documentStats.totalBytes;
             totalBytesEl.textContent = formatBytes(totalBytes);
-            // totalBytes === 0 (chưa có gì cả) -> mọi đoạn 0%, thanh hiện trống (nền xám mờ có sẵn),
-            // KHÔNG chia 0/0 ra NaN.
-            const pct = (n) => totalBytes > 0 ? (n / totalBytes) * 100 : 0;
-            if (barSongsEl) barSongsEl.style.width = `${pct(songStats.totalBytes)}%`;
-            if (barVideosEl) barVideosEl.style.width = `${pct(videoStats.totalBytes)}%`;
-            if (barPhotosEl) barPhotosEl.style.width = `${pct(photoStats.totalBytes)}%`;
-            if (barDocumentsEl) barDocumentsEl.style.width = `${pct(documentStats.totalBytes)}%`;
+
+            // FIX (29/07/2026, Giang phát hiện qua ảnh chụp màn hình — "Photo có 7 ảnh nhưng không
+            // thấy chỉ báo dung lượng") — công thức % THUẦN theo tỉ lệ (bản cũ) khiến đoạn nào có
+            // bytes RẤT NHỎ so với tổng (Photo/Document thường nhỏ hơn Song/Video rất nhiều lần)
+            // render ra chưa tới 1px — về mặt hình ảnh coi như "biến mất" dù dữ liệu đếm số lượng
+            // (countPhotosEl...) vẫn đúng (2 phép tính hoàn toàn tách biệt — số lượng không liên
+            // quan gì tới % độ rộng thanh). Closure THUẦN ngay dưới (Rule 3: nested bên trong hàm
+            // này, KHÔNG tính là "gọi core khác") đảm bảo MỌI đoạn có bytes > 0 LUÔN được 1 độ rộng
+            // % TỐI THIỂU nhìn thấy được (giống cách Settings -> Storage của iOS/Android xử lý danh
+            // mục nhỏ cạnh danh mục khổng lồ) — phần "vay" thêm để đủ mức tối thiểu đó được RÚT BỚT
+            // TỈ LỆ THUẬN từ (các) đoạn còn lại (đủ lớn, không cần bump) — tổng luôn giữ nguyên
+            // 100%, KHÔNG đổi ý nghĩa số liệu, chỉ đổi cách QUY ĐỔI ra độ rộng hiển thị.
+            const MIN_VISIBLE_PERCENT = 2;
+            function computeBarPercents(byteValues) {
+                const total = byteValues.reduce((a, b) => a + b, 0);
+                if (total <= 0) return byteValues.map(() => 0); // KHÔNG chia 0/0 ra NaN — mọi đoạn 0%
+                const raw = byteValues.map((v) => (v / total) * 100);
+                const isBoosted = raw.map((p, i) => byteValues[i] > 0 && p < MIN_VISIBLE_PERCENT);
+                const boostedTotal = raw.reduce((sum, p, i) => sum + (isBoosted[i] ? MIN_VISIBLE_PERCENT : 0), 0);
+                const unboostedRawTotal = raw.reduce((sum, p, i) => sum + (isBoosted[i] ? 0 : p), 0);
+                if (boostedTotal === 0 || unboostedRawTotal <= 0) return raw; // không đoạn nào cần bump, hoặc không còn chỗ để rút (cực hiếm)
+                const shrinkFactor = Math.max(0, (100 - boostedTotal) / unboostedRawTotal);
+                return raw.map((p, i) => (isBoosted[i] ? MIN_VISIBLE_PERCENT : p * shrinkFactor));
+            }
+
+            const [songPct, videoPct, photoPct, documentPct] = computeBarPercents([
+                songStats.totalBytes, videoStats.totalBytes, photoStats.totalBytes, documentStats.totalBytes
+            ]);
+            if (barSongsEl) barSongsEl.style.width = `${songPct}%`;
+            if (barVideosEl) barVideosEl.style.width = `${videoPct}%`;
+            if (barPhotosEl) barPhotosEl.style.width = `${photoPct}%`;
+            if (barDocumentsEl) barDocumentsEl.style.width = `${documentPct}%`;
             if (countSongsEl) countSongsEl.textContent = `${songStats.totalSongs}`;
             if (countVideosEl) countVideosEl.textContent = `${videoStats.totalVideos}`;
             if (countPhotosEl) countPhotosEl.textContent = `${photoStats.totalImages}`;
