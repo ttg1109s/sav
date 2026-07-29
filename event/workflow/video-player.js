@@ -141,6 +141,15 @@ const workflowVideoPlayer = {
         bgVideoElement.style.opacity = '1';
         bgVideoElement.src = this._objectUrl;
 
+        // MỚI (fix indicator/tray icon, phản hồi Giang 29/07/2026, "làm nốt") — đọc currentKey
+        // CŨ trước khi ghi đè, để refresh đúng 2 dòng bên dưới (giống hệt window.playSong() Song
+        // đang làm — previousKey/refreshSongNode(), core/playlist/actions.js). Có thể là video
+        // TRƯỚC ĐÓ (Next/Prev, hoặc bấm 1 video khác trong lúc đang phát) hoặc CHÍNH videoKey này
+        // (bấm lại đúng video đang phát — startFromPlaylist() đã null-hoá currentKey trước khi
+        // gọi hàm này nếu vào mode LẦN ĐẦU, nên previousKey CHỈ trùng videoKey khi router gọi
+        // THẲNG playVideoByKey() lúc đã ở mode, xem event/router/video-player.js).
+        const previousKey = appState.get('currentKey');
+
         // MỚI (ver12 "Song/Video Unification", Batch 2, Giang chốt) — ghi `currentKey` (package
         // `playlist`, DÙNG CHUNG với Song, THAY hẳn `currentVideoKey` riêng đã xoá) — ĐÂY là điểm
         // mấu chốt để playNext()/playPrev() (core/player-controls.js, đọc displayOrder/
@@ -149,6 +158,20 @@ const workflowVideoPlayer = {
         // 'currentKey', key)` trong window.playSong(), core/playlist/actions.js).
         appState.set('currentKey', videoKey);
         console.log(`writer: "playVideoByKey", page: "currentKey", content: "${videoKey}"`);
+
+        // MỚI (fix bar animation/chấm xanh + tray icon trễ, phản hồi Giang 29/07/2026, "làm nốt")
+        // — TRƯỚC ĐÂY hàm này KHÔNG hề gọi refreshSongNode() dòng nào (khác hẳn window.playSong()
+        // Song, LUÔN refresh dòng cũ + dòng mới ngay sau khi đổi currentKey) — dòng Video trong
+        // Playlist vì vậy giữ NGUYÊN trạng thái lúc render lần cuối (isPlaying vẫn false), không
+        // tự cập nhật dù đang phát thật, kể cả bấm lại ĐÚNG dòng đang phát (router gọi THẲNG hàm
+        // này, không qua startFromPlaylist() — nơi DUY NHẤT đang refresh dòng CŨ, xem trên). Tray
+        // icon (btnReturnVisual) cùng gốc — TRƯỚC ĐÂY chỉ được bật trong renderPlaylistFull()/
+        // renderPlaylistDiff() (core/playlist/render.js), KHÔNG chạy lại mỗi lần phát video, phải
+        // đợi 1 lần render toàn bộ TIẾP THEO (lúc quay về Playlist đổi gì đó khác) mới thấy — đúng
+        // hiện tượng "trễ x ms" Giang báo.
+        if (previousKey && previousKey !== videoKey) refreshSongNode(previousKey); // core/playlist/render.js — dòng video/song TRƯỚC đó, CHỈ khi khác videoKey (tránh refresh trùng khi bấm lại đúng video đang phát)
+        refreshSongNode(videoKey); // core/playlist/render.js — dòng video NÀY, cập nhật isPlaying/eq indicator NGAY (kể cả bấm lại đúng video đang phát)
+        if (appState.get('currentKey')) btnReturnVisual.classList.remove('hidden'); // core/dom-refs.js — hiện tray icon NGAY, không đợi renderPlaylistDiff() kế tiếp
         // MỚI (phản hồi Giang 28/07/2026) — `bumpSongPlayCount()` (core/listen-stats.js) TRƯỚC ĐÂY
         // CHỈ được gọi trong window.playSong() (core/playlist/actions.js) — nhánh Video dispatch ra
         // KHỎI hàm đó TRƯỚC khi tới dòng gọi, nên Play Count chưa từng tăng cho Video (trong khi
