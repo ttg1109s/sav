@@ -42,15 +42,19 @@ const TPL_SETTINGS_FILE_MANAGER = `
                     </div>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </button>
-                <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager,
-                     CỐ Ý đặt cuối cùng (sau mọi tính năng khác) — xem core/file-manager/cleanup.js
-                     (registry) + event/workflow/file-manager-cleanup.js. -->
-                <button id="btn-file-manager-cleanup-run" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
-                    <div>
-                        <div class="text-sm font-medium truncate" data-i18n="fileManager.cleanup.label">${t('fileManager.cleanup.label')}</div>
-                        <div class="text-xs text-slate-400 mt-0.5" data-i18n="fileManager.cleanup.hint">${t('fileManager.cleanup.hint')}</div>
+                <!-- MỚI (29/07/2026, yêu cầu Giang mục 2) — "Quản lý lưu trữ": panel MỚI gộp thống
+                     kê dung lượng (4 domain) + chọn mục xoá + dọn file lỗi + dọn dẹp dữ liệu — xem
+                     components/file-manager-storage.js. THAY panel "Song & Video" cũ đã xoá (hàng
+                     "Song & Video" phía trên giờ mở THẲNG Generic Drawer duyệt thư mục, không còn
+                     panel trung gian nào để chứa các mục này nữa). Nút "Dọn dẹp dữ liệu" (trước ở
+                     cuối section này, mục 04/07/2026) ĐÃ DỜI HẲN vào bên trong panel MỚI — hàng NÀY
+                     giờ là hàng cuối thật sự của section. -->
+                <button id="setting-open-file-manager-storage" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4" /></svg>
+                        <span class="text-sm font-medium truncate" data-i18n="storageDrawer.title">${t('storageDrawer.title')}</span>
                     </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </button>
             </div>
         </div>
