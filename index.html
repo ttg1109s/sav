@@ -223,12 +223,10 @@
     <script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@4/dist/browser-id3-writer.js"></script>
     <!-- Đóng gói nhiều file mp3 thành 1 file .zip lúc "Tải toàn bộ rồi xóa" (Quản lý dung lượng) -->
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <!-- MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — mediainfo.js (WASM, tự tải kèm
-         qua CDN unpkg — global `MediaInfo`, dùng `MediaInfo.default(opts)`) — phân tích format/
-         codec/fps/bitrate video LÚC UPLOAD, xem event/workflow/file-manager-video.js::
-         _extractVideoMediaInfo(). File .wasm tự tải TỪ ĐÚNG cùng thư mục unpkg này (không cần
-         cấu hình thêm), xem docs mediainfo.js.org phần "Installation". -->
-    <script src="https://unpkg.com/mediainfo.js"></script>
+    <!-- XOÁ (29/07/2026, yêu cầu Giang mục 1/2) — mediainfo.js (WASM, CDN unpkg) từng dùng phân
+         tích codec/fps/bitrate video lúc upload (event/workflow/file-manager-video.js::
+         _extractVideoMediaInfo(), ĐÃ XOÁ) — tab "Chi tiết" không còn hiển thị các field này nữa
+         nên không cần phân tích, bỏ hẳn thẻ <script> CDN này. -->
     <!-- .docx -> HTML lúc upload (mammoth.js). VIẾT LẠI (10/07/2026, Nhóm A — mục 1
          plan-v12-extended.md): HTML này giờ chuyển THẲNG qua sanitizeDocumentHtml()
          (core/file-manager/document.js, tự viết) — Turndown + Toast UI Editor (từng dùng
@@ -383,6 +381,12 @@
          ở settings/file-manager-section.js, cùng cấp nav-stack với About/Visualizer Settings
          Drawer bên dưới. THAY components/storage-drawer.js (About -> Storage cũ, không còn mount). -->
     <script src="components/file-manager.js?v=20260729v1"></script>
+    <!-- MỚI (29/07/2026, yêu cầu Giang mục 2) — panel "Quản lý lưu trữ" (renderFileManagerStorage
+         ManagementPanelBody()), THAY nội dung thống kê/giải phóng bộ nhớ/dọn file lỗi từng nằm
+         trong renderFileManagerSongPanelBody() (components/file-manager.js, function đó đã xoá) —
+         giờ gộp ĐỦ 4 domain Song/Video/Photo/Document, KHÔNG còn phụ thuộc panel "Song & Video"
+         (đã xoá) nữa. -->
+    <script src="components/file-manager-storage.js?v=20260729v1"></script>
     <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer, khung TRẮNG dùng CHUNG
          cho Document List+Reader — THAY components/document-reader.js/document-picker-drawer.js
          CŨ (ĐÃ XOÁ — xoá tay nếu còn sót trên máy). items.js (mục 3) ĐỘC LẬP với Generic Drawer
@@ -529,8 +533,9 @@
     <script src="core/file-manager/folder.js?v=20260728v1"></script>
     <script src="core/file-manager/folder-picker-ui.js?v=20260714v3"></script>
     <!-- MỚI (14/07/2026, tích hợp Generic Drawer/Item/windowing) — pagination DÙNG CHUNG, KHÔNG
-         phụ thuộc gì (core THUẦN) — dùng bởi danh sách folder (10 folder/trang), xem
-         event/workflow/file-manager-song.js. -->
+         phụ thuộc gì (core THUẦN) — dùng bởi danh sách folder (10 folder/trang) VÀ album (ver12
+         Batch 5 mục 6e đã dời Folder List sang Generic Drawer — xem event/workflow/file-manager-
+         folder-browser.js — comment cũ ở đây từng trỏ nhầm sang file-manager-song.js đã xoá). -->
     <script src="core/pagination.js?v=20260714v1"></script>
     <!-- core/file-manager/nav.js ĐÃ XOÁ khỏi đây (Batch D7, batch CUỐI Nhóm D) — file đó giờ
          RỖNG (0 hàm, cả 4 khu vực Song/Folder Detail/Photo/Documents đã chuyển hết sang push/pop
@@ -796,20 +801,26 @@
          core/storage-manager.js (đã đổi sang nhận phần tử qua tham số, đã nạp ở nhóm CORE).
          SỬA (Batch 5, "Song/Video Unification" mục 6e) — Folder Detail (folder-detail-ui.js) KHÔNG
          còn "2 cấp push/pop" — quản lý folder giờ ở Generic Drawer riêng (event/workflow/
-         file-manager-folder-browser.js, nạp NGAY DƯỚI). -->
-    <script src="event/workflow/file-manager-song.js?v=20260728v1"></script>
-    <script src="event/router/file-manager-song.js?v=20260728v1"></script>
+         file-manager-folder-browser.js, nạp NGAY DƯỚI).
+         XOÁ (29/07/2026, yêu cầu Giang) — event/workflow/file-manager-song.js + event/router/
+         file-manager-song.js (panel "Song & Video" cũ) ĐÃ XOÁ HẲN, THAY bằng event/workflow/
+         file-manager-storage.js + event/router/file-manager-storage.js ngay dưới (panel "Quản lý
+         lưu trữ" MỚI, gộp 4 domain) — CẦN THÊM core/file-manager/image.js, core/file-manager/
+         album.js, core/file-manager/document.js (đã nạp ở nhóm CORE), components/file-manager-
+         storage.js (template, đã nạp ở nhóm COMPONENTS). -->
+    <script src="event/workflow/file-manager-storage.js?v=20260729v1"></script>
+    <script src="event/router/file-manager-storage.js?v=20260729v1"></script>
     <!-- MỚI (Batch 5, "Song/Video Unification" mục 6e) — Folder Browser, Generic Drawer List↔Read
          THAY Folder List/Detail kiểu Settings-panel-stack cũ. CẦN core/generic-drawer.js,
          components/items.js (renderItemList/itemTemplateFolderTile/buildAddFolderTileHtml),
          core/file-manager/folder.js, core/file-manager/folder-detail-ui.js (renderFolderDetailSongList/
          setFolderDetailTitle — TÁI DÙNG NGUYÊN), core/file-manager/folder-picker-ui.js
          (openRenameFolderModal), core/pagination.js, event/workflow/playlist-scope.js — TẤT CẢ đã
-         nạp ở nhóm CORE/ngay trên. PHẢI nạp TRƯỚC event/listener/file-manager-song.js (nút "Duyệt
-         thư mục" gửi eventBus tới router này). -->
+         nạp ở nhóm CORE/ngay trên. PHẢI nạp TRƯỚC event/listener/file-manager-storage.js (hàng
+         "Song & Video" ở section chính giờ gửi eventBus THẲNG tới router này, xem file đó). -->
     <script src="event/workflow/file-manager-folder-browser.js?v=20260728v1"></script>
     <script src="event/router/file-manager-folder-browser.js?v=20260727v1"></script>
-    <script src="event/listener/file-manager-song.js?v=20260728v1"></script>
+    <script src="event/listener/file-manager-storage.js?v=20260729v1"></script>
     <!-- Batch 8, ver 12 "Multi Media" — cụm "slideshowSettings" (Slideshow nền Visual). PHẢI nạp
          TRƯỚC event/workflow/file-manager-photo.js (gọi workflowSlideshow.clearActiveAlbum() +
          setAsSlideshowBackground() trong cascade/nút "Dùng làm nền Slideshow"). Batch D4 (Settings
@@ -851,10 +862,12 @@
     <script src="event/router/file-manager-document.js?v=20260714v2"></script>
     <script src="event/listener/file-manager-document.js?v=20260714v2"></script>
     <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — cụm "fileManagerCleanup" (nút "Dọn dẹp dữ liệu",
-         section File Manager trong Settings). -->
+         giờ nằm TRONG panel "Quản lý lưu trữ" — router/workflow/core GIỮ NGUYÊN 100%, CHỈ đổi nơi
+         wiring click: XOÁ (29/07/2026) event/listener/file-manager-cleanup.js (static binding cũ,
+         nút đã dời khỏi section tĩnh) — giờ delegate qua event/listener/file-manager-storage.js
+         (đã nạp Ở TRÊN, cùng khối settingsStackBody). -->
     <script src="event/workflow/file-manager-cleanup.js?v=20260704v2"></script>
     <script src="event/router/file-manager-cleanup.js?v=20260704v1"></script>
-    <script src="event/listener/file-manager-cleanup.js?v=20260704v1"></script>
     <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 5/6) — VIẾT LẠI HOÀN TOÀN: workflow cụm
          "documentPicker" (event/workflow/document-picker.js CŨ) ĐÃ GỘP VÀO workflowDocumentReader
          (event/workflow/document-reader.js, file DUY NHẤT còn lại — List+Read dùng CHUNG 1 Generic
