@@ -1,20 +1,25 @@
 /**
- * event/workflow/stats-panel.js — MỚI (phản hồi Giang, mục 3 — "thêm nhớ trạng thái shuffle/
- * repeat/stats của icon Control Center"). File này TRƯỚC ĐÂY không tồn tại (docstring cũ ở
- * event/router/stats-panel.js ghi rõ "chỉ 1 msg.type, chỉ cần đúng 1 hàm core -> gọi THẲNG, KHÔNG
- * có event/workflow/stats-panel.js") — giờ CẦN vì `toggleStatsPanelVisibility()` (core/stats-
- * panel-toggle.js) đơn tuyến vẫn giữ NGUYÊN, nhưng router cần thêm bước lưu bền
- * (`workflowPlayerControls._persistPlayerConfig()`, async, đụng IndexedDB) NGAY SAU — 2 bước nối
- * tiếp -> đúng hình dạng Workflow (event-bus-flow.md mục 4B), không còn "gọi thẳng core" 1 bước.
+ * event/router/stats-panel.js — Router cho cụm "Stats Panel Toggle" (dải BPM/Pitch/Energy).
  *
- * NẠP SAU: core/stats-panel-toggle.js (toggleStatsPanelVisibility), event/workflow/
- * player-controls.js (_persistPlayerConfig() — Workflow gọi Workflow miền khác, tự do).
- * NẠP TRƯỚC: event/router/stats-panel.js.
+ * SỬA (phản hồi Giang, mục 3 — "nhớ trạng thái shuffle/repeat/stats") — TỪNG chỉ cần đúng 1 hàm
+ * core (toggleStatsPanelVisibility()) -> gọi THẲNG, KHÔNG có workflow. Giờ cần thêm bước lưu bền
+ * config (đụng IndexedDB, async) NGAY SAU — 2 bước nối tiếp -> giao workflowStatsPanel (event/
+ * workflow/stats-panel.js, MỚI).
+ * KHÔNG giữ state context riêng (isStatsPanelVisible là global ở core, không phải state context
+ * của router — xem mục 2b.1).
  */
-const workflowStatsPanel = {
-    /** Ứng với 'statsPanel.toggle.click'. */
-    toggleAndPersist() {
-        toggleStatsPanelVisibility(); // core có sẵn (core/stats-panel-toggle.js)
-        workflowPlayerControls._persistPlayerConfig(); // event/workflow/player-controls.js
-    },
-};
+const routerStatsPanel = (() => {
+    function handle(msg) {
+        switch (msg.type) {
+            case 'statsPanel.toggle.click':
+                workflowStatsPanel.toggleAndPersist();
+                break;
+            default:
+                console.warn(`[routerStatsPanel] msg.type không xác định: "${msg.type}"`, msg);
+        }
+    }
+
+    return { handle };
+})();
+
+eventBus.register('statsPanel', routerStatsPanel);
