@@ -232,7 +232,9 @@
         // openVideoUploadMenu() (ver12 "Song/Video Unification", Batch 6, mục 7) ĐÃ XOÁ (FIX
         // 28/07/2026, "bỏ dropdown Video, input luôn") — #btn-upload-video giờ LÀ <label> bọc thẳng
         // input ở header (components/playlist-view.js), mở file picker NATIVE, không qua hàm này
-        // nữa.
+        // nữa. [KHÔI PHỤC 29/07/2026] — khối <label> đó bị thiếu ở 1 lần đóng gói trước, đã chèn
+        // lại đúng vị trí + nối lại toggle ẩn/hiện với #btn-upload-audio (switchToVideoSource()/
+        // switchToSongSource(), event/workflow/playlist.js).
 
         /**
          * Đóng menu sau khi bấm vào 1 trong 2 label — dùng taskManager.once(...,10) để KHÔNG ẩn

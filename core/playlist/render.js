@@ -284,6 +284,29 @@
             });
         }
 
+        /** MỚI (fix/tính năng, phản hồi Giang 29/07/2026, "scroll tức thì trước khi ra vào
+         * playlist ngay tại vị trí song/video là current") — cuộn TỨC THÌ (KHÔNG animation, khác
+         * scrollToSongIfPending() ngay trên — hàm đó CỐ Ý smooth vì dùng lúc quay về từ trang
+         * KHÁC hẳn, subtitle-editor.html) tới đúng dòng của `currentKey`, gọi từ CẢ 2 hướng
+         * chuyển màn Playlist<->Visualizer (switchToVisualizer()/forceBackToPlaylistUI(), core/
+         * player-controls.js) — LUÔN gọi lúc Playlist đang bị `transform` dịch ra ngoài khung nhìn
+         * (class 'playlist-hidden', KHÔNG phải display:none — vẫn scroll được bình thường dù đang
+         * lệch khỏi khung nhìn), nên cuộn xong TRƯỚC khi slide-in/slide-out kịp lộ ra, đúng nghĩa
+         * "tức thì" — không phải cuộn nhanh, mà là đã ở ĐÚNG vị trí từ trước khi người dùng kịp
+         * thấy. KHÔNG truyền `behavior` (mặc định 'auto' — cuộn ngay, không animation, khác hẳn
+         * 'smooth' phía trên).
+         * Guard 3 lớp (giống hệt scrollToSongIfPending()): `currentKey` rỗng (chưa phát gì) ->
+         * bỏ qua; key không có trong `domNodesByKey` (đang khác scope/folder/kết quả tìm kiếm) ->
+         * bỏ qua êm; node có nhưng KHÔNG còn gắn DOM thật (isConnected=false, hiếm, lệch nhịp
+         * render) -> bỏ qua. */
+        function scrollToCurrentKeyInstant() {
+            const key = appState.get('currentKey');
+            if (!key) return;
+            const node = appState.get('domNodesByKey').get(key);
+            if (!node || !node.isConnected) return;
+            node.scrollIntoView({ block: 'center' });
+        }
+
         /** Ô tìm kiếm thay đổi: CHỈ lọc lại danh sách hiển thị (renderOrder) — KHÔNG đụng hàng đợi phát. */
         function applySearchQuery(raw) {
             appState.set('searchQuery', normalizeSongName(raw));
