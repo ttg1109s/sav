@@ -130,6 +130,27 @@ const workflowVideoPlayer = {
      * @param {boolean} [switchScreen=true]
      */
     async playVideoByKey(videoKey, switchScreen = true) {
+        // FIX (29/07/2026, yêu cầu Giang mục 3 — "chọn lại video đang phát bị restart sai, chỉ cần
+        // switch lại visualizer") — Router (event/router/video-player.js, nhánh
+        // isVideoPlayerMode===true) gọi THẲNG hàm này cho CẢ 2 tình huống: Next/Prev vật lý (key
+        // khác) LẪN bấm lại đúng video ĐANG PHÁT từ Playlist (key giống hệt currentKey) — trước đây
+        // KHÔNG hề phân biệt, luôn chạy lại toàn bộ (1)(2)(3) bên dưới -> revoke/tạo lại object URL,
+        // gán lại `src` -> video bị RESTART từ đầu dù đang phát đúng bài đó (sai, giống hệt bug cũ
+        // của Song trước khi có guard `key === currentKey` ở window.playSong(), core/playlist/
+        // actions.js — audio VẫN giữ nguyên vị trí đang phát, chỉ chuyển màn hình).
+        // Guard tương tự Song, NHƯNG KHÔNG được chỉ dựa `videoKey === currentKey` đơn thuần: sau
+        // `exitVideoPlayerMode()` (revoke `this._objectUrl` -> null, `bgVideoElement.removeAttribute
+        // ('src')`), `currentKey` KHÔNG bị xoá theo (xem docstring hàm đó) — nếu chọn lại ĐÚNG video
+        // vừa thoát mode, `startFromPlaylist()` vẫn gọi lại hàm này với `videoKey === currentKey`
+        // (stale) trong khi `bgVideoElement` đã KHÔNG còn src thật nào -> guard kiểu Song đơn thuần
+        // sẽ bỏ qua nhầm, để lại màn hình đen không có video. Điều kiện ĐỦ 3 vế dưới đây phân biệt
+        // đúng "đang thật sự tải/phát video này" (this._objectUrl còn tồn tại VÀ khớp đúng src hiện
+        // tại của bgVideoElement) với "chỉ trùng currentKey do state cũ chưa dọn".
+        if (videoKey === appState.get('currentKey') && this._objectUrl && bgVideoElement.getAttribute('src') === this._objectUrl) {
+            if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated();
+            if (bgVideoElement.paused) bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
+            return;
+        }
         return withLoadingShield(t('common.loading.switchingSong'), async () => {
             bgVideoElement.pause(); // (1) đứng hình NGAY — CHƯA đụng src, khung hình cũ giữ nguyên
 

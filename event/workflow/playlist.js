@@ -716,6 +716,7 @@ const workflowPlaylist = {
         recomputeDisplayOrder();   // core có sẵn (core/playlist/order.js)
         recomputeRenderOrder();    // core có sẵn (core/playlist/order.js)
         renderPlaylistDiff();      // core có sẵn (core/playlist/render.js)
+        resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
         updateEmptyState();        // core có sẵn (core/playlist/render.js)
         // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — placeholder ô tìm kiếm
         // đổi theo Nguồn (Song có artist/album để tìm, Video thì không).
@@ -745,6 +746,7 @@ const workflowPlaylist = {
         recomputeDisplayOrder();
         recomputeRenderOrder();
         renderPlaylistDiff();
+        resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — cùng lý do switchToVideoSource(), scrollTop cũ vô nghĩa với danh sách vừa đổi hẳn Nguồn
         updateEmptyState();
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholder');
         // KHÔI PHỤC 29/07/2026 (phản hồi Giang) — chiều ngược lại của toggle ở switchToVideoSource().
