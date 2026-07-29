@@ -87,10 +87,15 @@
             const [songPct, videoPct, photoPct, documentPct] = computeBarPercents([
                 songStats.totalBytes, videoStats.totalBytes, photoStats.totalBytes, documentStats.totalBytes
             ]);
-            if (barSongsEl) barSongsEl.style.width = `${songPct}%`;
-            if (barVideosEl) barVideosEl.style.width = `${videoPct}%`;
-            if (barPhotosEl) barPhotosEl.style.width = `${photoPct}%`;
-            if (barDocumentsEl) barDocumentsEl.style.width = `${documentPct}%`;
+            // MỚI (29/07/2026, yêu cầu Giang mục 2 — "thêm phần số dung lượng khi ấn vào mỗi phần
+            // của thanh") — gắn `dataset.bytes` (số byte THẬT, KHÔNG phải %) vào từng đoạn — đọc lại
+            // lúc người dùng ấn vào (event/listener/file-manager-storage.js -> event/workflow/
+            // file-manager-storage.js::showSegmentBytes()) để hiện đúng số byte của ĐÚNG đoạn đó,
+            // không cần tính lại/đọc lại DB lúc bấm.
+            if (barSongsEl) { barSongsEl.style.width = `${songPct}%`; barSongsEl.dataset.bytes = String(songStats.totalBytes); }
+            if (barVideosEl) { barVideosEl.style.width = `${videoPct}%`; barVideosEl.dataset.bytes = String(videoStats.totalBytes); }
+            if (barPhotosEl) { barPhotosEl.style.width = `${photoPct}%`; barPhotosEl.dataset.bytes = String(photoStats.totalBytes); }
+            if (barDocumentsEl) { barDocumentsEl.style.width = `${documentPct}%`; barDocumentsEl.dataset.bytes = String(documentStats.totalBytes); }
             if (countSongsEl) countSongsEl.textContent = `${songStats.totalSongs}`;
             if (countVideosEl) countVideosEl.textContent = `${videoStats.totalVideos}`;
             if (countPhotosEl) countPhotosEl.textContent = `${photoStats.totalImages}`;
