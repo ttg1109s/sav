@@ -37,6 +37,19 @@ if (btnOpenFileManagerStorage) {
 }
 
 function handleFileManagerStorageDelegatedClick(e) {
+    // MỚI (29/07/2026, yêu cầu Giang mục 2) — ấn vào 1 đoạn thanh dung lượng (4 div màu, mỗi đoạn
+    // có sẵn data-legend-key + dataset.bytes gắn lúc renderStorageStats() vẽ lại — core/storage-
+    // manager.js) -> hiện số byte thật của đúng đoạn đó.
+    const barSegment = e.target.closest('[data-legend-key]');
+    if (barSegment && barSegment.id.startsWith('stat-storage-bar-')) {
+        eventBus.send({
+            router: 'fileManagerStorage',
+            type: 'fileManagerStorage.storageBarSegment.click',
+            payload: { bytes: Number(barSegment.dataset.bytes || 0), legendKey: barSegment.dataset.legendKey }
+        });
+        return;
+    }
+
     // ===================== Dọn dẹp dữ liệu (DỜI từ event/listener/file-manager-cleanup.js) =====
     if (e.target.closest('#btn-file-manager-cleanup-run')) {
         eventBus.send({ router: 'fileManagerCleanup', type: 'fileManagerCleanup.run.click', payload: {} });
