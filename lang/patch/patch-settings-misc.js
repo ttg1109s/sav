@@ -77,7 +77,10 @@ const LANG_PATCH_SETTINGS_MISC = {
     'storageDrawer.legendDocuments': 'Documents',
     // MỚI (29/07/2026, mục 2c) — tiêu đề section "Chọn mục xoá" (THAY "Free up storage" — giờ
     // gồm CẢ phần chọn nguồn LẪN 2 toggle hành động trong CÙNG 1 khối, không tách riêng nữa).
-    'storageDrawer.selectSourceSectionTitle': 'Select items to delete',
+    // SỬA (29/07/2026, yêu cầu Giang) — đổi tên hiển thị thành "Delete & Backup" (khớp đúng ý
+    // nghĩa 2 hành động chính của section: tải xuống SAO LƯU + xoá) — key TÊN giữ nguyên
+    // ("selectSourceSectionTitle"), CHỈ đổi chuỗi hiển thị.
+    'storageDrawer.selectSourceSectionTitle': 'Delete & Backup',
     // MỚI (29/07/2026) — tiền tố tên file .zip khi tải Photo/Document (Song/Video dùng
     // fileManager.song.storageAction.zipNameSong/zipNameVideo có sẵn, lang/patch/patch-file-
     // manager.js — GIỮ NGUYÊN, không đổi namespace cũ).
@@ -91,6 +94,9 @@ const LANG_PATCH_SETTINGS_MISC = {
     'storageDrawer.brokenSectionTitle': 'Corrupted data',
     'storageDrawer.scanBroken.label': 'Scan & clean broken files',
     'storageDrawer.scanBroken.hint': "Finds songs whose data isn't a valid mp3 or can't be played, asks before deleting",
+    // MỚI (29/07/2026, yêu cầu Giang) — Block gate (event/block.js) hiện khi bấm "Scan" mà cả 4
+    // toggle nguồn (Music/Video/Photos/Documents) ở "Delete & Backup" đều đang tắt.
+    'storageDrawer.scanBroken.blockedNoSource': 'Select at least one item above (Music/Video/Photos/Documents) before scanning.',
     'storageDrawer.btnDeleteBroken': 'Delete these broken files',
     'storageDrawer.btnDismissScan': 'Dismiss',
 
