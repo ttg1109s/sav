@@ -1,15 +1,24 @@
 /**
  * core/file-manager/video.js — File Manager -> Video, MỚI (21/07/2026). Schema store 'videos' xem
- * comment DB_VERSION ở service/db.js: key = videoKey, value = { blob, thumbBlob, width, height,
- * duration, filename, addedAt, codec, fps, bitrate, audioCodec, audioBitrate, customName }.
+ * comment DB_VERSION ở service/db.js: key = videoKey, value = { blob, thumbBlob, thumbFullBlob,
+ * width, height, duration, filename, addedAt, customName }.
  *
- * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — 6 field MỚI trên record:
- *   - `codec`/`fps`/`bitrate`/`audioCodec`/`audioBitrate` — PHÂN TÍCH SẴN qua mediainfo.js lúc
- *     upload (event/workflow/file-manager-video.js::_extractVideoMediaInfo()), lưu thẳng, KHÔNG
- *     tính lại mỗi lần hiện tab "Chi tiết". Rỗng/0 nếu phân tích thất bại (KHÔNG chặn upload).
- *     SỬA (phản hồi Giang 28/07/2026) — BỎ HẲN field `format` (định dạng container, vd "MPEG-4" —
- *     ít giá trị, hầu hết video đều .mp4) — THÊM `audioCodec`/`audioBitrate` (tab "Chi tiết" trước
- *     đó thiếu thông tin âm thanh).
+ * XOÁ (29/07/2026, yêu cầu Giang mục 1/2 — "chỉ giữ filename/RESOLUTION/playcount/listened ở tab
+ * Chi tiết") — 6 field mediainfo.js cũ (`format` đã bỏ trước đó 28/07, giờ bỏ NỐT `codec`/`fps`/
+ * `bitrate`/`audioCodec`/`audioBitrate`) ĐÃ XOÁ HẲN khỏi schema — tab "Chi tiết" không còn hiện các
+ * field này nữa (core/playlist/actions.js::openSongEditModal()) nên phân tích mediainfo.js (WASM,
+ * CDN unpkg) lúc upload cũng bỏ theo (event/workflow/file-manager-video.js::
+ * _extractVideoMediaInfo() ĐÃ XOÁ, cùng thẻ `<script>` CDN ở index.html). `saveVideo()` KHÔNG còn
+ * tham số `mediaInfo` nữa.
+ *
+ * MỚI (29/07/2026, yêu cầu Giang mục 2 — "thêm thumbnail blob full RESOLUTION tại frame 1") —
+ * `thumbFullBlob` (Blob|null): khung hình ĐẦU TIÊN (time=0) của video, chụp ở ĐÚNG kích thước GỐC
+ * (KHÔNG center-crop vuông, KHÔNG resize) — TÁCH RIÊNG hoàn toàn với `thumbBlob` (vuông
+ * `VIDEO_THUMBNAIL_SIZE`×`VIDEO_THUMBNAIL_SIZE`, chụp tại giây `min(1, duration/2)`, dùng cho lưới/
+ * cover — GIỮ NGUYÊN 100%, KHÔNG bị thay thế). `null` cho video cũ (trước batch này) hoặc nếu
+ * `canvas.toBlob()` hiếm khi lỗi — field PHỤ, không có cũng không chặn phát/hiển thị video.
+ *
+ * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — `customName`:
  *   - `customName` (string|null, mặc định null) — tên hiển thị người dùng TỰ đặt (tab "Chi tiết"),
  *     CHỈ hiển thị TRONG app (Playlist/Video Player/danh sách folder) — KHÔNG remux/nhúng vào file,
  *     download vẫn lấy theo `filename` GỐC. Video TẠO TRƯỚC batch này không có field này (undefined,
@@ -50,35 +59,33 @@ async function resolveVideoKey(filename) {
 
 /**
  * Lưu 1 video mới (hoặc ghi đè nếu trùng filename — xem resolveVideoKey()). `thumbBlob`/`width`/
- * `height`/`duration` PHẢI tính SẴN trước khi gọi hàm này (Workflow — event/workflow/file-manager-
- * video.js::_extractVideoThumbAndMeta()) — hàm này (core) CHỈ ghi lại nguyên xi.
+ * `height`/`duration`/`thumbFullBlob` PHẢI tính SẴN trước khi gọi hàm này (Workflow — event/
+ * workflow/file-manager-video.js::_extractVideoThumbAndMeta()) — hàm này (core) CHỈ ghi lại nguyên
+ * xi.
  *
- * MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — tham số `mediaInfo` (codec/fps/bitrate/
- * audioCodec/audioBitrate — SỬA phản hồi Giang 28/07/2026: bỏ hẳn `format`/container, thêm 2 field
- * âm thanh cho "đủ thông tin", PHÂN TÍCH SẴN qua mediainfo.js — event/workflow/file-manager-video.js::
- * _extractVideoMediaInfo(), CÙNG lý do đặt ở Workflow như _extractVideoThumbAndMeta(): thư viện
- * ngoài + đọc Blob theo chunk, core không được đụng theo Rule 1-4). `customName` khởi tạo `null`
- * (chưa đặt tên hiển thị riêng — tab "Chi tiết" rơi về `filename` gốc khi hiện, xem
- * core/file-manager/folder.js::getFolderItemsForDisplay()/event/workflow/video-player.js).
+ * XOÁ (29/07/2026, yêu cầu Giang) — tham số `mediaInfo` (codec/fps/bitrate/audioCodec/
+ * audioBitrate, PHÂN TÍCH qua mediainfo.js) ĐÃ BỎ HẲN cùng lúc 5 field tương ứng trong schema — tab
+ * "Chi tiết" không còn hiển thị các field này nữa (core/playlist/actions.js), phân tích mediainfo.js
+ * lúc upload cũng bỏ theo (không còn ai tiêu thụ kết quả).
+ * `customName` khởi tạo `null` (chưa đặt tên hiển thị riêng — tab "Chi tiết" rơi về `filename` gốc
+ * khi hiện, xem core/file-manager/folder.js::getFolderItemsForDisplay()/event/workflow/video-
+ * player.js).
  * @param {File|Blob} file - blob video GỐC (không resize).
  * @param {string} filename
- * @param {Blob} thumbBlob - khung hình đã chụp + resize sẵn, dùng cho lưới.
+ * @param {Blob} thumbBlob - khung hình đã chụp + center-crop vuông + resize sẵn, dùng cho lưới/cover.
  * @param {number} width - chiều rộng video GỐC (px).
  * @param {number} height - chiều cao video GỐC (px).
  * @param {number} duration - thời lượng video (giây).
- * @param {{codec?: string, fps?: string, bitrate?: number, audioCodec?: string, audioBitrate?: number}} [mediaInfo] - rỗng
- *        nếu mediainfo.js phân tích thất bại (KHÔNG chặn upload, xem _extractVideoMediaInfo()) —
- *        các field rơi về chuỗi/0 rỗng.
+ * @param {Blob} [thumbFullBlob] - MỚI (29/07/2026) khung hình ĐẦU TIÊN (time=0), FULL RESOLUTION
+ *        (không crop/resize) — TÁCH RIÊNG với `thumbBlob`, KHÔNG thay thế. `undefined`/`null` nếu
+ *        nơi gọi không tính (vd video-editor.js ghi đè lại video đã chỉnh sửa) — rơi về `null`.
  * @returns {Promise<string>} videoKey vừa lưu
  */
-async function saveVideo(file, filename, thumbBlob, width, height, duration, mediaInfo) {
+async function saveVideo(file, filename, thumbBlob, width, height, duration, thumbFullBlob) {
     const videoKey = await resolveVideoKey(filename); // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
     console.log(`[saveVideo] callTo: "resolveVideoKey", request: "sinh/tái dùng key duy nhất từ tên file '${filename}'"`);
-    const info = mediaInfo || {};
     await setVideoRecord(videoKey, {
-        blob: file, thumbBlob, width, height, duration, filename, addedAt: Date.now(),
-        codec: info.codec || '', fps: info.fps || '', bitrate: info.bitrate || 0,
-        audioCodec: info.audioCodec || '', audioBitrate: info.audioBitrate || 0, // MỚI (phản hồi Giang 28/07/2026) — bỏ hẳn `format`, thêm 2 field âm thanh
+        blob: file, thumbBlob, thumbFullBlob: thumbFullBlob || null, width, height, duration, filename, addedAt: Date.now(),
         customName: null,
     });
     return videoKey;
@@ -116,7 +123,7 @@ async function deleteVideo(videoKey) {
 
 /**
  * Liệt kê toàn bộ video hiện có.
- * @returns {Promise<Array<{key: string, blob: Blob, thumbBlob: Blob, width: number, height: number, duration: number, filename: string, addedAt: number}>>}
+ * @returns {Promise<Array<{key: string, blob: Blob, thumbBlob: Blob, thumbFullBlob: (Blob|null), width: number, height: number, duration: number, filename: string, addedAt: number}>>}
  */
 async function listVideos() {
     const keys = await getAllVideoKeys();
@@ -141,7 +148,7 @@ async function computeVideoStats() {
         const record = await getVideoRecord(key);
         if (!record || !record.blob) continue;
         totalVideos++;
-        totalBytes += record.blob.size + (record.thumbBlob ? record.thumbBlob.size : 0);
+        totalBytes += record.blob.size + (record.thumbBlob ? record.thumbBlob.size : 0) + (record.thumbFullBlob ? record.thumbFullBlob.size : 0); // MỚI (29/07/2026) — cộng thêm thumbFullBlob (full-res, thường nặng hơn hẳn thumbBlob vuông) vào tổng dung lượng thật
     }
     return { totalVideos, totalBytes };
 }
