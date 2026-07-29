@@ -172,7 +172,20 @@
                 // Song) đều đi qua ĐÚNG dòng này mỗi lần chuyển bài — router 'videoPlayer' (event/
                 // router/video-player.js) tự phân biệt "đã ở mode, chỉ đổi video" hay "vào mode lần
                 // đầu" bằng VirtualMachineState theo isVideoPlayerMode.
-                eventBus.send({ router: 'videoPlayer', type: 'videoPlayer.startFromPlaylist.click', payload: { key } });
+                //
+                // SỬA (fix router video, phản hồi Giang 29/07/2026, "về visualizer không hoạt
+                // động") — TRƯỚC ĐÂY payload chỉ có `key`, làm rớt mất `options.switchScreen`
+                // (Next/Prev truyền `{switchScreen:false}`, xem core/player-controls.js) — router
+                // không có cách nào biết "có cần chuyển màn hình không", nên tự conflate việc đó
+                // với `isVideoPlayerMode` (nhánh "đã ở mode" gọi thẳng playVideoByKey(), KHÔNG bao
+                // giờ switchToVisualizer() — đúng cho Next/Prev vật lý vì đang đứng sẵn ở
+                // Visualizer, nhưng SAI khi Giang bấm lại video đang phát TỪ màn Playlist — mode
+                // vẫn `true` do video chạy nền, nên rơi đúng nhánh đó, không quay lại Visualizer
+                // được). Tính `switchScreen` GIỐNG HỆT công thức Song ở dòng dưới (`!options ||
+                // options.switchScreen !== false`) rồi gửi kèm — router giờ quyết định switch màn
+                // hình dựa vào ĐÚNG ý định của người gọi, không dựa vào isVideoPlayerMode nữa.
+                const switchScreen = !options || options.switchScreen !== false;
+                eventBus.send({ router: 'videoPlayer', type: 'videoPlayer.startFromPlaylist.click', payload: { key, switchScreen } });
                 return;
             }
             if (appState.get('isVideoPlayerMode')) {
