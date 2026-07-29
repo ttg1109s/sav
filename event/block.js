@@ -130,18 +130,10 @@ eventBus.registerBlock('videoEdit.addText.click', [
     ],
 ], { notify: t('videoEdit.addText.blockedTrackFull') });
 
-// ===================== fileManagerStorage — chặn "Quét file lỗi" khi chưa chọn nguồn nào =====================
-// MỚI (29/07/2026, yêu cầu Giang) — panel "Quản lý lưu trữ" (event/workflow/file-manager-
-// storage.js), section "Delete & Backup": 4 toggle nguồn Song/Video/Photo/Document ĐỘC LẬP (không
-// loại trừ nhau, event/router/file-manager-storage.js). Bấm "Quét file lỗi" mà CẢ 4 đều tắt thì
-// không biết quét kho nào — bản chất CHẶN HẲN (không chọn giữa nhiều workflow khác nhau, chỉ 1
-// tiến trình "quét" duy nhất, không đủ điều kiện tiên quyết để chạy) — đúng tiêu chí dùng Block
-// gate thay vì guard clause rải rác ở Router/Workflow. `storageAnySourceEnabled` (service/state/
-// file-manager.js) do router "fileManagerStorage" tự gương lại từ closure `storageSources` mỗi lần
-// đổi (Block gate CHỈ đọc được appState, không đọc được closure của router — xem
-// event/bus.js::resolveFieldPath()).
-eventBus.registerBlock('fileManagerStorage.scanBroken.click', [
-    [
-        { field: 'storageAnySourceEnabled', operator: '===', value: false },
-    ],
-], { notify: t('storageDrawer.scanBroken.blockedNoSource') });
+// XOÁ (29/07/2026, yêu cầu Giang) — Block gate cho 'fileManagerStorage.scanBroken.click' (chặn khi
+// storageAnySourceEnabled===false) ĐÃ BỎ HẲN — nhánh "Dọn file lỗi" giờ tự hỏi phạm vi quét qua
+// modalChoice() + dropdown RIÊNG (event/workflow/file-manager-storage.js::askScanBrokenScope()),
+// KHÔNG còn phụ thuộc 4 toggle "Delete & Backup" nữa — tình huống "chưa chọn nguồn nào" KHÔNG THỂ
+// xảy ra nữa vì <select> LUÔN có 1 giá trị (mặc định "Tất cả"), không có khái niệm rỗng. Field
+// `appState.storageAnySourceEnabled` (service/state/file-manager.js) cũng đã bỏ theo — không còn
+// ai đọc/ghi.
