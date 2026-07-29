@@ -69,6 +69,20 @@ const LANG_PATCH_SETTINGS_MISC = {
     // ngắn gọn nhưng không nhất thiết trùng chữ với chú giải dung lượng).
     'storageDrawer.legendSongs': 'Music',
     'storageDrawer.legendVideos': 'Video',
+    // MỚI (29/07/2026, yêu cầu Giang — panel "Quản lý lưu trữ" MỚI, mục 2a/2b) — legendSongs/
+    // legendVideos ngay trên GIỜ DÙNG CHUNG cho CẢ chú giải thanh chia đoạn LẪN nhãn hàng trong
+    // list số lượng (list 4 hàng THAY 2 "vòng tròn" cũ, xem components/file-manager-storage.js) —
+    // 2 key MỚI này bổ sung cho ĐỦ 4 domain.
+    'storageDrawer.legendPhotos': 'Photos',
+    'storageDrawer.legendDocuments': 'Documents',
+    // MỚI (29/07/2026, mục 2c) — tiêu đề section "Chọn mục xoá" (THAY "Free up storage" — giờ
+    // gồm CẢ phần chọn nguồn LẪN 2 toggle hành động trong CÙNG 1 khối, không tách riêng nữa).
+    'storageDrawer.selectSourceSectionTitle': 'Select items to delete',
+    // MỚI (29/07/2026) — tiền tố tên file .zip khi tải Photo/Document (Song/Video dùng
+    // fileManager.song.storageAction.zipNameSong/zipNameVideo có sẵn, lang/patch/patch-file-
+    // manager.js — GIỮ NGUYÊN, không đổi namespace cũ).
+    'storageDrawer.zipNamePhoto': 'photos',
+    'storageDrawer.zipNameDocument': 'documents',
     'storageDrawer.freeSpaceSectionTitle': 'Free up storage',
     // SỬA (ver12 "Song/Video Unification", Batch 5, mục 6b) — 'downloadThenClear.label/hint' và
     // 'clearNoDownload.label/hint' (2 nút tách rời cũ) ĐÃ XOÁ, thay bằng key MỚI ở

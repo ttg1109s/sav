@@ -62,6 +62,10 @@ const LANG_PATCH_COMMON = {
     'common.storage.scanReasonBadMime': 'Not a valid mp3 format (MIME: "{mime}")',
     'common.storage.scanReasonBadMimeEmpty': '(empty)',
     'common.storage.scanReasonNoDecode': "Browser couldn't read/decode the audio content",
+    // MỚI (29/07/2026, yêu cầu Giang — panel "Quản lý lưu trữ" MỚI) — Document KHÔNG có Blob nhị
+    // phân để decode (khác Song/Video/Photo) — "hỏng" nghĩa là content rỗng/mất hẳn, xem
+    // core/storage-manager.js::isDocumentRecordCorrupted().
+    'common.storage.scanReasonEmptyContent': 'Document has no content',
     'common.storage.scanReasonKeptFromError': 'Playback error — chose to "Keep" for later',
     'common.storage.deleteBrokenTitle': 'Delete broken files',
     'common.storage.deleteBrokenConfirm': 'Delete the {n} broken file(s) found? This cannot be undone.',
