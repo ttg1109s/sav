@@ -294,7 +294,56 @@ const workflowFileManagerStorage = {
         this._reportStorageActionResult(sources, downloadEnabled, deleteEnabled, results);
     },
 
-    // ===================== Dọn file lỗi — quét theo ĐÚNG 4 toggle nguồn đang bật =================
+    // ===================== Dọn file lỗi — tự hỏi phạm vi quét qua modal riêng (KHÔNG còn dùng
+    // chung 4 toggle nguồn của "Delete & Backup" nữa) =========================================
+
+    /** Ứng với msg.type = 'fileManagerStorage.scanBroken.click' — MỚI (29/07/2026, yêu cầu Giang,
+     * THAY hẳn cách cũ dùng chung `storageSources` của "Delete & Backup") — mở modalChoice() với 1
+     * `<select>` (dropdown) NHÚNG THẲNG vào phần `text` (modalChoice() gán `innerHTML`, xem
+     * core/modal-choice.js — `<select>` là "phrasing content", hợp lệ nằm trong `<p>`) để người
+     * dùng tự chọn phạm vi quét, tách BIỆT hẳn khỏi lựa chọn nguồn ở "Delete & Backup" (tránh nhầm/
+     * quên đang bật gì ở đó). Nút "Huỷ" không làm gì; nút "Thực hiện" đọc `select.value` lúc bấm
+     * (đọc SAU khi modalChoice() đã đóng + `overlay.remove()` khỏi DOM — vẫn đọc được `.value` bình
+     * thường vì gỡ khỏi cây DOM KHÔNG xoá state nội bộ của phần tử `<select>`, chỉ mất kết nối hiển
+     * thị) rồi gửi tiếp `onConfirmSend(scope)`.
+     * @param {{onConfirmSend: (scope: 'all'|'song'|'video'|'photo'|'document') => void}} payload
+     */
+    askScanBrokenScope(payload) {
+        const { onConfirmSend } = payload;
+        const bodyHtml = `${t('storageDrawer.scanBroken.modalBody')}
+<select id="modal-scan-scope" class="mt-3 w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white outline-none">
+    <option value="all">${t('storageDrawer.scanBroken.scopeAll')}</option>
+    <option value="song">${t('storageDrawer.legendSongs')}</option>
+    <option value="video">${t('storageDrawer.legendVideos')}</option>
+    <option value="photo">${t('storageDrawer.legendPhotos')}</option>
+    <option value="document">${t('storageDrawer.legendDocuments')}</option>
+</select>`;
+        modalChoice(
+            bodyHtml,
+            [
+                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
+                { label: t('fileManager.song.storageAction.btnExecute'), className: 'flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-sm font-semibold transition-colors', onClick: () => onConfirmSend(selectEl.value) }
+            ],
+            { title: t('storageDrawer.scanBroken.label') }
+        );
+        // Lấy ref NGAY SAU khi modalChoice() đã gắn DOM (đồng bộ, xong trước khi hàm này return) —
+        // KHÔNG khai báo trước lời gọi modalChoice() được vì lúc đó <select> CHƯA tồn tại trong
+        // DOM. Nút "Thực hiện" ở trên chỉ THỰC SỰ đọc `selectEl.value` lúc người dùng bấm (sau khi
+        // dòng này đã chạy xong từ lâu) nên thứ tự khai báo KHÔNG gây lỗi.
+        const selectEl = document.getElementById('modal-scan-scope');
+    },
+
+    /** Quy đổi 1 giá trị dropdown ('all'|'song'|'video'|'photo'|'document') thành object 4 nguồn
+     * ĐÚNG shape mà `executeScanBroken()` cần — DÙNG CHUNG được với `executeScanBroken()` không đổi
+     * gì (hàm đó vốn đã nhận `sources` dạng object, không quan tâm object đó tới từ 4 checkbox hay
+     * 1 dropdown).
+     * @param {string} scope
+     * @returns {{song:boolean,video:boolean,photo:boolean,document:boolean}}
+     */
+    _scopeToSources(scope) {
+        if (scope === 'all') return { song: true, video: true, photo: true, document: true };
+        return { song: scope === 'song', video: scope === 'video', photo: scope === 'photo', document: scope === 'document' };
+    },
 
     /** Ứng với msg.type = 'fileManagerStorage.deleteBroken.click'.
      * @param {{scanResults: Array, onConfirmSend: function}} payload
@@ -352,8 +401,13 @@ const workflowFileManagerStorage = {
 
     /** Ứng với msg.type = 'fileManagerStorage.scanBroken.click' — đọc `payload.sources` (DÙNG
      * CHUNG đúng 4 toggle của "Chọn mục xoá") — quét TUẦN TỰ từng nguồn đang bật (KHÔNG VMState,
-     * cùng lý do executeStorageAction() ở trên — tổ hợp boolean độc lập, không phải enum). Mỗi kết
-     * quả gắn thêm `mediaType` — executeDeleteBroken() cần biết để xoá ĐÚNG store.
+    /** Ứng với msg.type = 'fileManagerStorage.scanBroken.confirm' — đọc `payload.sources` (MỚI,
+     * 29/07/2026: giờ tới từ dropdown của askScanBrokenScope() qua Router::_scopeToSources(), KHÔNG
+     * còn tới từ `storageSources` của "Delete & Backup" nữa) — quét TUẦN TỰ từng nguồn đang bật
+     * (KHÔNG VMState, cùng lý do executeStorageAction() ở trên — tổ hợp boolean độc lập, không phải
+     * enum). Mỗi kết quả gắn thêm `mediaType` — executeDeleteBroken() cần biết để xoá ĐÚNG store.
+     * Hàm này GIỮ NGUYÊN 100% — chỉ đổi NƠI `sources` tới từ (dropdown thay vì checkbox chia sẻ),
+     * bản thân hàm không quan tâm nguồn gốc của tham số.
      * @param {{sources: Object, onScanComplete: (results: Array) => void}} payload
      */
     async executeScanBroken(payload) {

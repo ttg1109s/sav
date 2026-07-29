@@ -43,6 +43,11 @@
  * riêng lời gọi `mount('videoGrid', ...)`/`setTileBadge()`/`setBadgeMode()` (của panel/lưới/xoá
  * nhanh đã xoá) không còn ai gọi tới nữa.
  *
+ * MỚI (29/07/2026, yêu cầu Giang mục 2 — "toàn bộ video đã có sẵn -> tạo thumb full một lần") —
+ * `backfillMissingVideoThumbFull()` (cuối file) quét TOÀN BỘ video đã có SẴN trong DB (upload
+ * TRƯỚC khi field `thumbFullBlob` ra đời ở batch trước), tự bổ sung field còn thiếu — gọi 1 lần lúc
+ * boot, KHÔNG chặn boot (xem event/workflow/app-boot.js::boot(), dòng cuối cùng, KHÔNG `await`).
+ *
  * NẠP SAU: core/file-manager/video.js, core/generic-drawer.js, event/workflow/video-gallery-
  * window.js, event/workflow/video-player.js (workflowVideoPlayer — dùng bởi
  * refreshVideoPlaylistIfActive() ngay dưới).
@@ -138,6 +143,85 @@ const workflowFileManagerVideo = {
             videoEl.addEventListener('error', () => cleanupAndReject(new Error('[_extractVideoThumbAndMeta] không đọc được video')), { once: true });
             videoEl.src = objectUrl;
         });
+    },
+
+    // ===================== Backfill thumbFullBlob cho video ĐÃ CÓ SẴN trước khi field này ra đời
+    // ===================== MỚI (29/07/2026, yêu cầu Giang mục 2 — "toàn bộ video đã có sẵn -> tạo
+    // thumb full một lần") =========================================================================
+
+    /** Chụp RIÊNG `thumbFullBlob` (full-res, frame 1/time=0) cho 1 video ĐÃ CÓ SẴN trong DB — CHỈ
+     * đúng 1 bước seek (KHÁC `_extractVideoThumbAndMeta()` ở trên — hàm đó dùng lúc UPLOAD, luôn
+     * cần chụp ĐỦ 5 field 2-bước-seek nối tiếp; video cũ đã có sẵn `thumbBlob`/`width`/`height`/
+     * `duration` từ trước, không cần tính lại, nên tách hẳn 1 hàm gọn hơn thay vì tái dùng hàm kia
+     * rồi vứt bớt 4 field không cần).
+     * @param {Blob} blob - video GỐC (record.blob).
+     * @returns {Promise<Blob|null>} null nếu lỗi (KHÔNG throw) — nơi gọi (backfillMissingVideoThumbFull()
+     *          ngay dưới) tự bỏ qua video đó, tiếp tục video sau, cùng tinh thần "1 file lỗi không
+     *          chặn cả lô" của uploadVideos().
+     */
+    _captureFullResFrame1(blob) {
+        return new Promise((resolve) => {
+            const objectUrl = URL.createObjectURL(blob);
+            const videoEl = document.createElement('video');
+            videoEl.muted = true;
+            videoEl.playsInline = true;
+            let settled = false;
+            const cleanup = () => { try { URL.revokeObjectURL(objectUrl); } catch (e) {} };
+            const safeResolve = (val) => { if (settled) return; settled = true; cleanup(); resolve(val); };
+            const safetyTimeout = taskManager.once(() => safeResolve(null), 8000);
+
+            videoEl.addEventListener('loadedmetadata', () => {
+                const width = videoEl.videoWidth, height = videoEl.videoHeight;
+                if (!width || !height) { safetyTimeout.kill(); safeResolve(null); return; }
+                videoEl.currentTime = 0; // frame 1
+            }, { once: true });
+
+            videoEl.addEventListener('seeked', () => {
+                if (settled) return;
+                safetyTimeout.kill();
+                const width = videoEl.videoWidth, height = videoEl.videoHeight;
+                const fullCanvas = document.createElement('canvas');
+                fullCanvas.width = width; fullCanvas.height = height;
+                fullCanvas.getContext('2d').drawImage(videoEl, 0, 0, width, height);
+                fullCanvas.toBlob((thumbFullBlob) => safeResolve(thumbFullBlob), 'image/jpeg', 0.92);
+            }, { once: true });
+
+            videoEl.addEventListener('error', () => safeResolve(null), { once: true });
+            videoEl.src = objectUrl;
+        });
+    },
+
+    /** MỚI (29/07/2026, yêu cầu Giang mục 2) — BACKFILL 1 LẦN cho MỌI video ĐÃ CÓ SẴN trong DB
+     * (upload TRƯỚC khi field `thumbFullBlob` ra đời, batch trước — xem `_extractVideoThumbAndMeta()`
+     * ở trên). Gọi 1 LẦN lúc boot (event/workflow/app-boot.js::boot(), cuối cùng, KHÔNG `await` —
+     * chạy NGẦM, không chặn boot vì đọc/giải mã từng video có thể chậm nếu thư viện nhiều video).
+     *
+     * KHÔNG CẦN cờ "đã chạy" riêng lưu bền: video ĐÃ CÓ `thumbFullBlob` rồi (mọi video upload TỪ
+     * SAU khi field này ra đời) tự bị guard `record.thumbFullBlob` bỏ qua NGAY — chỉ tốn 1 lượt đọc
+     * record rất rẻ, KHÔNG tốn công decode video — nên vòng lặp tự "cạn" chi phí thật ngay sau ĐÚNG
+     * 1 lần chạy thành công cho từng video, những lần boot SAU chỉ còn quét qua rồi bỏ qua tất cả.
+     * 1 video lỗi (hiếm — file hỏng, không đọc được) KHÔNG chặn các video còn lại (cùng tinh thần
+     * "1 file lỗi không chặn cả lô" của `uploadVideos()`).
+     */
+    async backfillMissingVideoThumbFull() {
+        const keys = await getAllVideoKeys(); // service/db.js
+        let filled = 0, failed = 0;
+        for (const key of keys) {
+            const record = await getVideoRecord(key); // service/db.js
+            if (!record || !record.blob || record.thumbFullBlob) continue; // đã có rồi/record hỏng -> bỏ qua NGAY, không tốn công decode video
+            try {
+                const thumbFullBlob = await this._captureFullResFrame1(record.blob);
+                if (!thumbFullBlob) { failed++; continue; }
+                await setVideoRecord(key, { ...record, thumbFullBlob }); // service/db.js — giữ NGUYÊN mọi field khác, chỉ thêm field mới
+                filled++;
+            } catch (err) {
+                console.error(`[backfillMissingVideoThumbFull] lỗi chụp full-res cho video "${key}":`, err);
+                failed++;
+            }
+        }
+        if (filled > 0 || failed > 0) {
+            console.log(`[backfillMissingVideoThumbFull] xong — đã bổ sung ${filled} video, lỗi ${failed} video.`);
+        }
     },
 
     /** Ứng với 'playlist.upload.videoFileChange' (Batch 6, mục 7 — trước đây
