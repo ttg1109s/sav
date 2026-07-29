@@ -33,30 +33,26 @@ const routerVideoPlayer = (() => {
             case 'videoPlayer.startFromPlaylist.click': {
                 // SỬA (fix router video, phản hồi Giang 29/07/2026, "về visualizer không hoạt
                 // động") — `switchScreen` (MỚI, core/playlist/actions.js gửi kèm, mặc định `true`
-                // nếu không có trong payload — giữ tương thích ngược cho bất kỳ caller cũ nào lỡ
-                // chưa gửi field này) giờ là thứ QUYẾT ĐỊNH có switchToVisualizer() hay không —
-                // TÁCH HẲN khỏi việc chọn playVideoByKey() hay startFromPlaylist() (việc đó VẪN
-                // chỉ dựa isVideoPlayerMode như cũ, đúng ý nghĩa "gọi hàm nào"). 2 nhánh dưới đây
-                // độc lập với nhau: "đã ở mode hay chưa" (chọn hàm) và "có cần chuyển màn hình
-                // không" (switchScreen) — TRƯỚC ĐÂY 2 khái niệm này bị gộp làm 1 (nhánh "đã ở
-                // mode" không bao giờ switchToVisualizer(), đúng cho Next/Prev vật lý nhưng sai
-                // khi bấm lại video đang phát TỪ màn Playlist — mode vẫn true do video chạy nền).
+                // nếu không có trong payload) — TÁCH HẲN khỏi việc chọn playVideoByKey() hay
+                // startFromPlaylist() (việc đó VẪN chỉ dựa isVideoPlayerMode, đúng ý nghĩa "gọi
+                // hàm nào"). "Có cần chuyển màn hình/cuộn không" là việc RIÊNG, độc lập.
+                //
+                // SỬA LẦN 2 (fix "chớp đen next/prev" + "chờ video mới thật sự hiện ra mới đổi
+                // UI", phản hồi Giang 29/07/2026) — router KHÔNG còn tự gọi switchToVisualizer()/
+                // scrollToCurrentKeyAnimated() ngay tại đây nữa (TRƯỚC ĐÂY gọi ngay sau
+                // playVideoByKey(key), KHÔNG đợi gì — video còn đang tải/giải mã thì UI đã nhảy
+                // sang bài mới rồi, sai yêu cầu "UI chỉ đổi khi hình đã đổi"). Quyết định switch
+                // màn hình/cuộn giờ NẰM HẲN TRONG playVideoByKey()/startFromPlaylist() (event/
+                // workflow/video-player.js), chạy đúng lúc video mới đã thật sự sẵn sàng — router
+                // chỉ còn việc CHỌN HÀM NÀO rồi truyền `switchScreen` xuống, không tự quyết định gì
+                // thêm ở tầng này nữa.
                 const { key, switchScreen = true } = msg.payload;
                 VirtualMachineState.run([
                     { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
-                        // Đã ở Video Player mode (Next/Prev/shuffle, hoặc bấm lại video đang phát
-                        // từ Playlist) -> CHỈ đổi video, KHÔNG lặp lại bước "vào mode" — nhưng vẫn
-                        // switchToVisualizer() nếu switchScreen=true (Next/Prev vật lý truyền
-                        // false vì đã đứng sẵn ở Visualizer, gọi lại vô hại nhưng thừa).
-                        workflowVideoPlayer.playVideoByKey(key);
-                        // SỬA (phản hồi Giang 29/07/2026, mục 2) — switchScreen=false (Next/Prev)
-                        // giờ gọi scrollToCurrentKeyAnimated() (core/playlist/render.js) THAY vì
-                        // không làm gì — tự no-op nếu Playlist đang ẩn (đứng ở Visualizer), chỉ
-                        // thật sự cuộn khi Playlist đang hiển thị lúc Next/Prev được bấm.
-                        if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated();
+                        workflowVideoPlayer.playVideoByKey(key, switchScreen); // đã ở Video Player mode (Next/Prev/shuffle, hoặc bấm lại video đang phát từ Playlist) -> CHỈ đổi video, KHÔNG lặp lại bước "vào mode"
                     } },
                     { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
-                        workflowVideoPlayer.startFromPlaylist(key); // CHƯA ở mode -> vào mode đầy đủ (>1 hàm core nối tiếp: đọc DB + mutate state + điều khiển nhiều element) -> workflow, TỰ switchToVisualizer() bên trong (giữ nguyên, không đổi)
+                        workflowVideoPlayer.startFromPlaylist(key); // CHƯA ở mode -> vào mode đầy đủ (>1 hàm core nối tiếp: đọc DB + mutate state + điều khiển nhiều element) -> workflow, luôn switchScreen=true (vào mode lần đầu luôn cần chuyển màn), xem playVideoByKey() bên trong
                     } },
                 ]);
                 break;
