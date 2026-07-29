@@ -37,145 +37,24 @@
  * `#btn-file-manager-album-set-slideshow-bg` ("Dùng làm nền Slideshow" cho album đang lọc). Xem
  * event/workflow/slideshow.js (engine) + components/slideshow-settings-drawer.js (Settings Drawer
  * riêng, mở từ Settings chính — plan-v12-multimedia-update-3.md mục 3).
+ *
+ * XOÁ (29/07/2026, yêu cầu Giang mục 1/2) — `renderFileManagerSongPanelBody()` (panel "Song &
+ * Video" — nút "Duyệt thư mục" + thống kê + giải phóng bộ nhớ + dọn file lỗi) ĐÃ XOÁ HẲN khỏi file
+ * này. Xem components/file-manager-storage.js (panel MỚI "Quản lý lưu trữ", THAY nội dung thống
+ * kê/giải phóng bộ nhớ/dọn file lỗi, giờ gồm ĐỦ 4 domain) + components/settings/file-manager-
+ * section.js (hàng "Song & Video" giờ mở THẲNG Generic Drawer duyệt thư mục).
  */
 
-// ===================== Khu vực: Song (ĐẦY ĐỦ — dời nguyên nội dung từ bản overlay cũ) =====================
-function renderFileManagerSongPanelBody() {
-    return `
-                <!-- SECTION: FOLDER — SỬA (Batch 5, "Song/Video Unification" mục 6e): danh sách
-                     folder inline (tạo/phân trang/rename/xoá) ĐÃ THAY bằng 1 nút mở Generic Drawer
-                     List↔Read ("Duyệt thư mục") — xem event/workflow/file-manager-folder-
-                     browser.js. Cùng khuôn nút "Album List" của panel Photo
-                     (#btn-file-manager-open-album-list). -->
-                <button id="btn-file-manager-folder-browser-open" class="flex justify-between items-center p-4 rounded-2xl glass-modal hover:bg-white/5 transition-colors w-full text-left">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>
-                        <span class="text-sm font-medium truncate" data-i18n="fileManager.folderBrowser.entryButton">${t('fileManager.folderBrowser.entryButton')}</span>
-                    </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                </button>
-
-                <!-- SECTION: THỐNG KÊ DUNG LƯỢNG — VIẾT LẠI (phản hồi Giang, mục 1 — "UI dung
-                     lượng như Settings mobile OS, số lượng dạng vòng tròn"). Thanh chia đoạn
-                     (segmented bar, kiểu iOS/Android Settings → Storage) THAY 4 dòng số byte tách
-                     rời cũ — 1 thanh DUY NHẤT, 2 đoạn màu tỉ lệ theo dung lượng thật (Nhạc/Video),
-                     chú giải chấm màu bên dưới. Số lượng bài hát/video giờ ở 2 "vòng tròn" riêng,
-                     KHÔNG còn nằm chung khối với byte. Toàn bộ tính toán % + set nội dung vẫn ở
-                     Core (renderStorageStats(), core/storage-manager.js — GỘP renderStorageStats()/
-                     renderVideoStorageStats() cũ làm 1, vì giờ là 1 khối UI phụ thuộc CẢ 2 nguồn
-                     cùng lúc để tính %, không còn tách độc lập theo domain được nữa — xem docstring
-                     hàm đó). id các phần tử tái dùng lại ĐÚNG tên field cũ (stat-storage-total-
-                     songs/stat-storage-total-bytes/stat-storage-total-videos) — chỉ 4 id MỚI
-                     thêm (2 thanh màu + 2 số byte chú giải), event/workflow/file-manager-song.js
-                     KHÔNG cần đổi cách gọi, chỉ đổi tham số truyền vào renderStorageStats(). -->
-                <div>
-                    <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="storageDrawer.statsSectionTitle">${t('storageDrawer.statsSectionTitle')}</h3>
-                    <div class="glass-modal rounded-2xl p-4 flex flex-col gap-3">
-                        <div class="flex items-baseline justify-between">
-                            <span class="text-sm font-medium text-slate-300" data-i18n="storageDrawer.statTotalBytes">${t('storageDrawer.statTotalBytes')}</span>
-                            <span id="stat-storage-total-bytes" class="text-lg font-bold text-white font-mono tabular-nums">—</span>
-                        </div>
-                        <div class="h-2.5 w-full rounded-full overflow-hidden flex bg-white/10">
-                            <div id="stat-storage-bar-songs" class="h-full bg-sky-400 transition-[width] duration-500" style="width:0%"></div>
-                            <div id="stat-storage-bar-videos" class="h-full bg-violet-400 transition-[width] duration-500" style="width:0%"></div>
-                        </div>
-                        <div class="flex items-center justify-between text-xs">
-                            <div class="flex items-center gap-1.5 min-w-0">
-                                <span class="w-2 h-2 rounded-full bg-sky-400 shrink-0"></span>
-                                <span class="text-slate-400 truncate" data-i18n="storageDrawer.legendSongs">${t('storageDrawer.legendSongs')}</span>
-                                <span id="stat-storage-song-bytes" class="text-slate-200 font-mono tabular-nums shrink-0">—</span>
-                            </div>
-                            <div class="flex items-center gap-1.5 min-w-0">
-                                <span class="w-2 h-2 rounded-full bg-violet-400 shrink-0"></span>
-                                <span class="text-slate-400 truncate" data-i18n="storageDrawer.legendVideos">${t('storageDrawer.legendVideos')}</span>
-                                <span id="stat-storage-video-bytes" class="text-slate-200 font-mono tabular-nums shrink-0">—</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex gap-3 mt-3">
-                        <div class="flex-1 glass-modal rounded-2xl p-4 flex flex-col items-center gap-2">
-                            <div class="w-16 h-16 rounded-full border-4 border-sky-400/30 flex items-center justify-center bg-sky-400/10">
-                                <span id="stat-storage-total-songs" class="text-lg font-bold text-sky-300 font-mono tabular-nums">—</span>
-                            </div>
-                            <span class="text-xs font-medium text-slate-400" data-i18n="storageDrawer.statTotalSongs">${t('storageDrawer.statTotalSongs')}</span>
-                        </div>
-                        <div class="flex-1 glass-modal rounded-2xl p-4 flex flex-col items-center gap-2">
-                            <div class="w-16 h-16 rounded-full border-4 border-violet-400/30 flex items-center justify-center bg-violet-400/10">
-                                <span id="stat-storage-total-videos" class="text-lg font-bold text-violet-300 font-mono tabular-nums">—</span>
-                            </div>
-                            <span class="text-xs font-medium text-slate-400" data-i18n="storageDrawer.statTotalVideos">${t('storageDrawer.statTotalVideos')}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- SECTION: GIẢI PHÓNG BỘ NHỚ — SỬA (Batch 5, "Song/Video Unification" mục 6b):
-                     2 nút tách rời cũ (Tải xuống rồi xoá / Xoá không tải) THAY bằng 3 field cấu
-                     hình độc lập: phạm vi (Song/Video/Cả hai) + 2 toggle (Tải xuống trước/Xoá khỏi
-                     thư viện) + 1 nút Thực hiện (disable khi cả 2 toggle tắt). Đồng bộ qua
-                     event/workflow/file-manager-song.js::updateStorageActionUI(). -->
-                <div>
-                    <h3 class="text-xs font-bold text-rose-400 uppercase tracking-widest mb-2 ml-2" data-i18n="fileManager.song.storageAction.sectionTitle">${t('fileManager.song.storageAction.sectionTitle')}</h3>
-                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                        <!-- SỬA (phản hồi Giang 28/07/2026, "hiển thị list source thành dropdown dạng
-                             section option") — 3 nút pill cũ THAY bằng row + <select>, ĐÚNG khuôn
-                             "Nguồn"/"Sắp xếp" đã dùng ở components/settings/playlist-view.js
-                             (label trái + select phải, cùng class). -->
-                        <div class="flex justify-between items-center p-4 border-b border-white/5">
-                            <span class="text-sm font-medium truncate" data-i18n="fileManager.song.storageAction.scopeLabel">${t('fileManager.song.storageAction.scopeLabel')}</span>
-                            <select id="setting-storage-scope" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
-                                <option value="song" data-i18n="fileManager.song.storageAction.scope.song">${t('fileManager.song.storageAction.scope.song')}</option>
-                                <option value="video" data-i18n="fileManager.song.storageAction.scope.video">${t('fileManager.song.storageAction.scope.video')}</option>
-                                <option value="both" data-i18n="fileManager.song.storageAction.scope.both">${t('fileManager.song.storageAction.scope.both')}</option>
-                            </select>
-                        </div>
-                        <div class="flex justify-between items-center p-4 border-b border-white/5">
-                            <div class="pr-3">
-                                <div class="text-sm font-medium" data-i18n="fileManager.song.storageAction.downloadToggle.label">${t('fileManager.song.storageAction.downloadToggle.label')}</div>
-                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="fileManager.song.storageAction.downloadToggle.hint">${t('fileManager.song.storageAction.downloadToggle.hint')}</div>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="toggle-storage-download" class="sr-only peer">
-                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 shadow-inner"></div>
-                            </label>
-                        </div>
-                        <div class="flex justify-between items-center p-4 border-b border-white/5">
-                            <div class="pr-3">
-                                <div class="text-sm font-medium text-rose-300" data-i18n="fileManager.song.storageAction.deleteToggle.label">${t('fileManager.song.storageAction.deleteToggle.label')}</div>
-                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="fileManager.song.storageAction.deleteToggle.hint">${t('fileManager.song.storageAction.deleteToggle.hint')}</div>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="toggle-storage-delete" class="sr-only peer">
-                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-500 shadow-inner"></div>
-                            </label>
-                        </div>
-                        <button id="btn-storage-execute" disabled class="p-4 text-sm font-bold text-slate-300 hover:bg-white/5 transition-colors disabled:opacity-40 disabled:pointer-events-none" data-i18n="fileManager.song.storageAction.btnExecute">${t('fileManager.song.storageAction.btnExecute')}</button>
-                    </div>
-                </div>
-
-                <!-- SECTION: DỌN FILE LỖI (dời từ storage-drawer.js, id giữ nguyên) -->
-                <div>
-                    <h3 class="text-xs font-bold text-amber-400 uppercase tracking-widest mb-2 ml-2" data-i18n="storageDrawer.brokenSectionTitle">${t('storageDrawer.brokenSectionTitle')}</h3>
-                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                        <button id="btn-storage-scan-broken" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
-                            <div>
-                                <div class="text-sm font-medium" data-i18n="storageDrawer.scanBroken.label">${t('storageDrawer.scanBroken.label')}</div>
-                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="storageDrawer.scanBroken.hint">${t('storageDrawer.scanBroken.hint')}</div>
-                            </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
-                        </button>
-                        <div id="storage-scan-result" class="hidden border-t border-white/5 p-4 flex flex-col gap-3">
-                            <p id="storage-scan-summary" class="text-sm text-slate-300"></p>
-                            <div id="storage-scan-list" class="flex flex-col gap-1.5 max-h-48 overflow-y-auto text-xs text-slate-400"></div>
-                            <div class="flex gap-3 mt-1">
-                                <button id="btn-storage-delete-broken" class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors" data-i18n="storageDrawer.btnDeleteBroken">${t('storageDrawer.btnDeleteBroken')}</button>
-                                <button id="btn-storage-dismiss-scan" class="flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors" data-i18n="storageDrawer.btnDismissScan">${t('storageDrawer.btnDismissScan')}</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-`;
-}
+// ===================== Khu vực: Song — ĐÃ XOÁ (29/07/2026, yêu cầu Giang mục 1) =====================
+// renderFileManagerSongPanelBody() (panel "Song & Video" — nút "Duyệt thư mục" + thống kê dung
+// lượng + giải phóng bộ nhớ + dọn file lỗi) ĐÃ XOÁ HẲN. Hàng "Song & Video" ở section chính
+// (components/settings/file-manager-section.js) giờ mở THẲNG Generic Drawer duyệt thư mục
+// (event/workflow/file-manager-folder-browser.js::openList()) — nút "Duyệt thư mục" (từng đứng bên
+// trong panel này) không còn cần thiết, panel bị bỏ hoàn toàn thay vì chỉ rút gọn. Thống kê dung
+// lượng/giải phóng bộ nhớ/dọn file lỗi dồn sang panel MỚI "Quản lý lưu trữ" (renderFileManager
+// StorageManagementPanelBody(), components/file-manager-storage.js — giờ gồm ĐỦ 4 domain Song/
+// Video/Photo/Document, không riêng Song/Video như panel cũ) — xem event/workflow/file-manager-
+// storage.js (workflow MỚI, THAY event/workflow/file-manager-song.js đã xoá).
 
 // ===================== Khu vực: Folder (Phase 2, MỚI — mục 1b/c) — ĐÃ THAY =====================
 // SỬA (Batch 5, "Song/Video Unification" mục 6e) — renderFileManagerFolderDetailPanelBody() (panel
