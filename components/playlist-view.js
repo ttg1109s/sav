@@ -91,8 +91,12 @@ const TPL_PLAYLIST_VIEW = `
                      [KHÔI PHỤC 29/07/2026, phản hồi Giang] — khối <label> này bị THIẾU trong 1 lần
                      đóng gói trước (patch đè lên bản playlist-view.js CŨ, trước lúc khối này được
                      thêm) — Giang tự phát hiện qua diff bản gốc, chèn lại NGUYÊN VẸN từ bản gốc. -->
+                <!-- FIX (29/07/2026, yêu cầu Giang mục 1 — "icon giống upload song") — đổi hẳn path
+                     SVG (trước đây icon máy quay video) sang ĐÚNG NGUYÊN path đang dùng ở
+                     #btn-upload-audio phía trên (icon "cloud upload") — CHỈ đổi icon hiển thị,
+                     KHÔNG đổi id/class/behaviour/input picker gì khác. -->
                 <label id="btn-upload-video" class="hidden hover:text-sky-400 transition-colors cursor-pointer" data-i18n-title="playlistView.uploadMenu.pickVideoFiles" title="${t('playlistView.uploadMenu.pickVideoFiles')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                     <input type="file" id="video-upload-input" accept="video/*" multiple class="hidden">
                 </label>
                 <button id="btn-settings-playlist" class="hover:text-sky-400 transition-colors" data-i18n-title="playlistView.btnSettings.title" title="${t('playlistView.btnSettings.title')}">
