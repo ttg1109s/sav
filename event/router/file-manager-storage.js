@@ -6,7 +6,9 @@
  * "fileManagerSong" cũ làm):
  *   - `lastScanResults` — nhánh quét lỗi.
  *   - `storageSources = {song,video,photo,document}` (MỚI — THAY `storageMediaScope` enum
- *     'song'|'video'|'both' cũ) — 4 toggle ĐỘC LẬP, không loại trừ nhau.
+ *     'song'|'video'|'both' cũ) — 4 toggle ĐỘC LẬP, không loại trừ nhau. CHỈ dùng cho section
+ *     "Delete & Backup" (tải xuống/xoá) — KHÔNG còn dùng chung cho nhánh quét lỗi nữa (xem mục
+ *     "Dọn file lỗi" ngay dưới).
  *   - `storageDownloadEnabled`/`storageDeleteEnabled` — 2 toggle hành động, GIỮ NGUYÊN ý nghĩa cũ.
  *
  * KHÁC BIỆT KIẾN TRÚC quan trọng so với router cũ — case 'storageExecute.confirm' KHÔNG còn dùng
@@ -19,16 +21,19 @@
  * đây là case (A)/(B) bình thường theo event-bus-flow.md mục 4 (Router chuyển tiếp cho Workflow xử
  * lý ≥2 bước nối tiếp), KHÔNG phải case (C) (Router tự đọc state KHÁC để chọn đích).
  *
+ * SỬA (29/07/2026, yêu cầu Giang — "Scan Broken File: thay vì dùng toggle của Delete & Backup ->
+ * mở modal choice có dropdown chọn loại scan") — nhánh "Dọn file lỗi" giờ TÁCH HẲN khỏi
+ * `storageSources` ở trên: bấm nút Quét mở `askScanBrokenScope()` (modalChoice() + `<select>` nhúng
+ * trong modal, event/workflow/file-manager-storage.js) hỏi phạm vi RIÊNG (Tất cả/Song/Video/Photo/
+ * Document), Huỷ hoặc Thực hiện NGAY TRONG modal đó — KHÔNG còn phụ thuộc trạng thái 4 toggle ở
+ * "Delete & Backup" nữa (dễ nhầm/quên đang bật gì ở đó trước khi quét). ĐỒNG THỜI bỏ hẳn Block gate
+ * + field `appState.storageAnySourceEnabled` từng đăng ký riêng cho tình huống "quét khi chưa chọn
+ * nguồn nào" (đợt trước) — tình huống đó KHÔNG CÒN THỂ XẢY RA nữa vì `<select>` LUÔN có 1 giá trị
+ * được chọn (mặc định "Tất cả"), không có khái niệm "rỗng" như 4 checkbox độc lập từng có.
+ *
  * NẠP SAU: event/bus.js, core/storage-manager.js, core/settings-panel-stack.js, event/workflow/
  * file-manager-storage.js.
  * NẠP TRƯỚC: event/listener/file-manager-storage.js.
- *
- * MỚI (29/07/2026, yêu cầu Giang — "Scan khi không bật nguồn nào thì bị block") —
- * `fileManagerStorage.scanBroken.click` giờ có Block gate đăng ký ở event/block.js (chặn HẲN +
- * notify khi cả 4 nguồn đều tắt) — ĐÚNG tiêu chí dùng Block (chặn hẳn, không chọn giữa nhiều
- * workflow khác nhau). Block gate CHỈ đọc được `appState`, KHÔNG đọc được closure `storageSources`
- * của router này — nên router tự gương (mirror) 1 field dẫn xuất `appState.storageAnySourceEnabled`
- * (service/state/file-manager.js) mỗi khi `storageSources` đổi, xem `syncAnySourceEnabledToAppState()`.
  */
 const routerFileManagerStorage = (() => {
     let lastScanResults = []; // context state CỦA RIÊNG nhánh quét lỗi
@@ -38,16 +43,6 @@ const routerFileManagerStorage = (() => {
     let storageSources = { song: false, video: false, photo: false, document: false };
     let storageDownloadEnabled = false;
     let storageDeleteEnabled = false;
-
-    /** MỚI (29/07/2026, yêu cầu Giang — "Scan khi không bật nguồn nào thì bị block") — gương lại
-     * "có ít nhất 1/4 nguồn đang bật" từ `storageSources` (closure RIÊNG của router này) lên
-     * `appState.storageAnySourceEnabled` — CHỈ field NÀY cần lên appState, vì Block gate
-     * (event/block.js -> event/bus.js::resolveFieldPath()) BẮT BUỘC đọc điều kiện qua appState,
-     * không đọc được closure của router. Gọi lại SAU MỖI lần `storageSources` đổi (sourceToggle,
-     * reset lúc mở panel, reset sau khi Thực hiện xong). */
-    function syncAnySourceEnabledToAppState() {
-        appState.set('storageAnySourceEnabled', storageSources.song || storageSources.video || storageSources.photo || storageSources.document);
-    }
 
     function handle(msg) {
         switch (msg.type) {
@@ -59,17 +54,15 @@ const routerFileManagerStorage = (() => {
                 storageSources = { song: false, video: false, photo: false, document: false };
                 storageDownloadEnabled = false; storageDeleteEnabled = false;
                 lastScanResults = [];
-                syncAnySourceEnabledToAppState();
                 workflowFileManagerStorage.openPanel(); // >1 hàm core (push + refresh) -> workflow
                 break;
             }
 
-            // ===================== Chọn mục xoá — 4 nguồn độc lập + 2 toggle hành động =========
+            // ===================== Delete & Backup — 4 nguồn độc lập + 2 toggle hành động =====
 
             case 'fileManagerStorage.sourceToggle.change': {
                 const { source, checked } = msg.payload; // source: 'song'|'video'|'photo'|'document'
                 if (source in storageSources) storageSources[source] = checked;
-                syncAnySourceEnabledToAppState();
                 workflowFileManagerStorage.updateStorageActionUI(storageSources, storageDownloadEnabled, storageDeleteEnabled);
                 break;
             }
@@ -104,14 +97,34 @@ const routerFileManagerStorage = (() => {
                 // trước khi reset, dùng đúng giá trị lúc bấm xác nhận cho lời gọi bên dưới.
                 storageSources = { song: false, video: false, photo: false, document: false };
                 storageDownloadEnabled = false; storageDeleteEnabled = false;
-                syncAnySourceEnabledToAppState();
                 workflowFileManagerStorage.updateStorageActionUI(storageSources, storageDownloadEnabled, storageDeleteEnabled);
                 // Gọi THẲNG 1 method (KHÔNG VirtualMachineState) — xem giải thích đầy đủ ở docstring đầu file.
                 workflowFileManagerStorage.executeStorageAction(sources, download, del);
                 break;
             }
 
-            // ===================== Dọn file lỗi =====================
+            // ===================== Dọn file lỗi — tự hỏi phạm vi qua modal riêng =====================
+
+            case 'fileManagerStorage.scanBroken.click': {
+                // SỬA (29/07/2026) — KHÔNG còn đọc storageSources ở đây nữa — mở modal hỏi phạm vi
+                // RIÊNG (Huỷ/Thực hiện nằm ngay trong modal đó, xem askScanBrokenScope()).
+                workflowFileManagerStorage.askScanBrokenScope({
+                    onConfirmSend: (scope) => eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.scanBroken.confirm', payload: { scope } })
+                });
+                break;
+            }
+
+            case 'fileManagerStorage.scanBroken.confirm': {
+                // MỚI — quy đổi lựa chọn dropdown ('all'|'song'|'video'|'photo'|'document') thành
+                // đúng shape `sources` mà executeScanBroken() cần (hàm đó GIỮ NGUYÊN, không quan
+                // tâm sources tới từ đâu).
+                const sources = workflowFileManagerStorage._scopeToSources(msg.payload.scope);
+                workflowFileManagerStorage.executeScanBroken({
+                    sources,
+                    onScanComplete: (results) => { lastScanResults = results; }
+                });
+                break;
+            }
 
             case 'fileManagerStorage.deleteBroken.click': {
                 if (lastScanResults.length === 0) return;
@@ -129,20 +142,6 @@ const routerFileManagerStorage = (() => {
                     currentKey: appState.get('currentKey')
                 });
                 lastScanResults = [];
-                break;
-            }
-
-            // MỚI (29/07/2026, yêu cầu Giang) — Block gate (event/block.js) đã chặn CASE NÀY THẲNG
-            // TỪ eventBus.send() nếu KHÔNG có nguồn nào đang bật (`storageAnySourceEnabled===false`)
-            // — tự bật alertModal() báo lý do, xem event/block.js — case bên dưới CHỈ còn chạy tới
-            // khi ĐÃ chắc chắn có ít nhất 1 nguồn được chọn, không cần guard lại lần nữa ở đây.
-            case 'fileManagerStorage.scanBroken.click': {
-                // Quét ĐÚNG các nguồn đang bật ở "Chọn mục xoá" — DÙNG CHUNG storageSources, KHÔNG
-                // rẽ nhánh tại đây (nhánh thật nằm trong Workflow, xem executeScanBroken()).
-                workflowFileManagerStorage.executeScanBroken({
-                    sources: storageSources,
-                    onScanComplete: (results) => { lastScanResults = results; }
-                });
                 break;
             }
 
