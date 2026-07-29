@@ -129,3 +129,19 @@ eventBus.registerBlock('videoEdit.addText.click', [
         { field: 'videoEditTextTrackFull', operator: '===', value: true },
     ],
 ], { notify: t('videoEdit.addText.blockedTrackFull') });
+
+// ===================== fileManagerStorage — chặn "Quét file lỗi" khi chưa chọn nguồn nào =====================
+// MỚI (29/07/2026, yêu cầu Giang) — panel "Quản lý lưu trữ" (event/workflow/file-manager-
+// storage.js), section "Delete & Backup": 4 toggle nguồn Song/Video/Photo/Document ĐỘC LẬP (không
+// loại trừ nhau, event/router/file-manager-storage.js). Bấm "Quét file lỗi" mà CẢ 4 đều tắt thì
+// không biết quét kho nào — bản chất CHẶN HẲN (không chọn giữa nhiều workflow khác nhau, chỉ 1
+// tiến trình "quét" duy nhất, không đủ điều kiện tiên quyết để chạy) — đúng tiêu chí dùng Block
+// gate thay vì guard clause rải rác ở Router/Workflow. `storageAnySourceEnabled` (service/state/
+// file-manager.js) do router "fileManagerStorage" tự gương lại từ closure `storageSources` mỗi lần
+// đổi (Block gate CHỈ đọc được appState, không đọc được closure của router — xem
+// event/bus.js::resolveFieldPath()).
+eventBus.registerBlock('fileManagerStorage.scanBroken.click', [
+    [
+        { field: 'storageAnySourceEnabled', operator: '===', value: false },
+    ],
+], { notify: t('storageDrawer.scanBroken.blockedNoSource') });
