@@ -154,6 +154,12 @@
          * việc tách state ra khỏi hàm ở HOTFIX 10 vẫn giữ nguyên vì tự nó đã đúng Rule 1.)
          */
         function forceBackToPlaylistUI() {
+            // MỚI (phản hồi Giang 29/07/2026, "scroll tức thì trước khi ra vào playlist") — gọi
+            // NGAY ĐẦU hàm, lúc `#app-stack` VẪN còn class 'playlist-hidden' (dịch ra ngoài khung
+            // nhìn qua transform, KHÔNG phải display:none — scrollIntoView() vẫn hoạt động bình
+            // thường) — cuộn xong TRƯỚC dòng gỡ class ngay dưới, nên lúc Playlist TRƯỢT VÀO thấy
+            // ĐÃ ở đúng vị trí dòng đang phát từ đầu, không có pha nhảy/cuộn nào lộ ra mắt.
+            scrollToCurrentKeyInstant(); // core/playlist/render.js
             visualizerUI.classList.remove('fade-enter-active');
             canvas.classList.add('opacity-0');
             const webglCanvasEl = document.getElementById('webgl-canvas');
@@ -321,6 +327,12 @@
             // HOTFIX 16 (08/07/2026) — dời TIẾP sang `#app-stack` (xem forceBackToPlaylistUI() ở
             // trên, cùng lý do).
             appStack.classList.add('playlist-hidden');
+            // MỚI (phản hồi Giang 29/07/2026, "scroll tức thì trước khi ra vào playlist") — cuộn
+            // NGAY SAU khi bắt đầu dịch Playlist ra khỏi khung nhìn (transform vừa thêm ở trên) —
+            // đảm bảo lần quay lại TIẾP THEO (kể cả không đi qua forceBackToPlaylistUI(), hiếm khi
+            // xảy ra nhưng để đối xứng đúng yêu cầu "cả 2 chiều ra/vào") danh sách đã sẵn đúng vị
+            // trí dòng đang phát, không cần đợi thêm bước nào khác.
+            scrollToCurrentKeyInstant(); // core/playlist/render.js
             // HOTFIX 12 (08/07/2026, Giang truy đúng gốc) — ĐÃ XOÁ dòng `sideLeftContainer.
             // scrollLeft = 0;` từng nằm ở đây (thêm HOTFIX 7/8, tưởng "phòng thủ rẻ, vô hại" —
             // SAI). `#side-left-container` có CSS `scroll-behavior: smooth` (assets/css/

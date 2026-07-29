@@ -17,8 +17,11 @@
         // MỚI (ver12 "Song/Video Unification", Batch 6, mục 7) — "Thêm video" TÁCH RIÊNG hẳn khỏi
         // #upload-action-menu (container ĐỘC LẬP, không phải cùng 1 container ẩn/hiện nội dung con)
         // — CÙNG lý do platform-compat <label> bọc input thật ở fileInput/folderInput phía trên.
+        // SỬA (FIX 28/07/2026, "bỏ dropdown Video, input luôn") — #video-upload-menu (dropdown)
+        // ĐÃ XOÁ, `videoUploadMenu` ref bỏ theo — THAY bằng `btnUploadVideo` (<label> bọc thẳng
+        // #video-upload-input ở header, đổi ẩn/hiện với btnUploadAudio theo activeMediaSource).
         const videoUploadInput = document.getElementById('video-upload-input');
-        const videoUploadMenu = document.getElementById('video-upload-menu');
+        const btnUploadVideo = document.getElementById('btn-upload-video');
         // Ver 12 "Multi Media" (plan-v12-multimedia.md mục 4.b1) — "Chọn nhiều" trong Playlist.
         const btnToggleSelection = document.getElementById('btn-toggle-selection');
         const selectionActionBar = document.getElementById('selection-action-bar'), selectionCountLabel = document.getElementById('selection-count-label');
@@ -31,7 +34,7 @@
         // rõ NGAY TẠI ĐÂY (đúng phần tử nào bị thiếu) trước khi lỗi mơ hồ xảy ra ở file khác.
         [['fileInput', fileInput, 'audio-upload'], ['folderInput', folderInput, 'audio-upload-folder'],
          ['btnUploadAudio', btnUploadAudio, 'btn-upload-audio'], ['uploadActionMenu', uploadActionMenu, 'upload-action-menu'],
-         ['videoUploadInput', videoUploadInput, 'video-upload-input'], ['videoUploadMenu', videoUploadMenu, 'video-upload-menu']]
+         ['videoUploadInput', videoUploadInput, 'video-upload-input'], ['btnUploadVideo', btnUploadVideo, 'btn-upload-video']]
             .forEach(([varName, el, id]) => {
                 if (!el) console.error(`[dom-refs] KHÔNG tìm thấy #${id} trong DOM (biến ${varName} = null) — chức năng nạp nhạc sẽ lỗi ngay khi loader.js gắn event listener.`);
             });
