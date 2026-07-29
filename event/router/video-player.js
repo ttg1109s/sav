@@ -49,7 +49,11 @@ const routerVideoPlayer = (() => {
                         // switchToVisualizer() nếu switchScreen=true (Next/Prev vật lý truyền
                         // false vì đã đứng sẵn ở Visualizer, gọi lại vô hại nhưng thừa).
                         workflowVideoPlayer.playVideoByKey(key);
-                        if (switchScreen) switchToVisualizer();
+                        // SỬA (phản hồi Giang 29/07/2026, mục 2) — switchScreen=false (Next/Prev)
+                        // giờ gọi scrollToCurrentKeyAnimated() (core/playlist/render.js) THAY vì
+                        // không làm gì — tự no-op nếu Playlist đang ẩn (đứng ở Visualizer), chỉ
+                        // thật sự cuộn khi Playlist đang hiển thị lúc Next/Prev được bấm.
+                        if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated();
                     } },
                     { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
                         workflowVideoPlayer.startFromPlaylist(key); // CHƯA ở mode -> vào mode đầy đủ (>1 hàm core nối tiếp: đọc DB + mutate state + điều khiển nhiều element) -> workflow, TỰ switchToVisualizer() bên trong (giữ nguyên, không đổi)
