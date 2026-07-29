@@ -7,9 +7,13 @@
  * — XOÁ HẲN 21/07/2026, dọn dẹp sau Batch 2 module Video, xem event/workflow/file-manager-video.js).
  * 2 nhánh cần shield/modal (đổi videoEnableToggle, upload video) đặt ở
  * event/workflow/visualizer-control-center.js — core không biết withLoadingShield/alertModal tồn
- * tại. `bgVideoElement.addEventListener('loadeddata'/'playing', fadeVideoIn, {once:true})` GIỮ
- * NGUYÊN ở setupVideoBgSource() — đây là listener nội bộ tự gỡ sau 1 lần (mục 2b.6), KHÔNG thuộc
- * `/event/`.
+ * tại.
+ *
+ * XOÁ (29/07/2026, yêu cầu Giang mục 4 — "xoá bỏ logic fade in out của bg video") — bỏ hẳn cơ chế
+ * fade-in/fade-out cũ của Video nền (opacity 0->1 chờ 'loadeddata'/'playing' của `bgVideoElement` +
+ * CSS `transition: opacity 0.5s` + độ trễ 500ms trước khi ẩn hẳn) — `setupVideoBgSource()`/
+ * `handleVideoBackground()` giờ hiện/ẩn Video nền TỨC THÌ, không còn animation/listener nội bộ nào
+ * cho việc này nữa.
  *
  * MỚI (batch 03/07/2026, hạ tầng z-index nền Visual) — thêm `applyVisualBgImageToDOM()` cuối file:
  * nền tĩnh (ảnh) cho màn Visualizer, tham chiếu qua `imageKey` vào store `images` (Batch 3). CẢ 4
@@ -76,25 +80,21 @@
             }
         }
 
-        // URL đã thực sự nạp xong + fade vào <video>. Dùng để KHÔNG fade lại khi Next/Prev:
-        // cú "nền đen -> hiện video" chỉ xảy ra MỘT LẦN cho mỗi URL video, lúc nạp lần đầu.
-        // STATE — xem service/state.js.
-
         /**
-         * Chỉ lo NGUỒN video + fade-in MỘT LẦN cho mỗi URL. Gọi khi cấu hình video đổi
-         * (bật/tắt, upload, nạp lại lúc mở trang) — KHÔNG gọi mỗi lần chuyển bài.
+         * Chỉ lo NGUỒN video — thiết lập MỘT LẦN cho mỗi URL. Gọi khi cấu hình video đổi (bật/tắt,
+         * upload, nạp lại lúc mở trang) — KHÔNG gọi mỗi lần chuyển bài.
+         * XOÁ (29/07/2026, yêu cầu Giang mục 4 — "xoá bỏ logic fade in out của bg video") — bỏ hẳn
+         * cơ chế fade-in cũ (opacity giữ 0 cho tới khi bắt được sự kiện 'loadeddata'/'playing' của
+         * chính `bgVideoElement` rồi mới nhảy lên 1) — video nền giờ hiện NGAY khi gán `src`, không
+         * còn khoảng đen chờ khung hình đầu tiên/không còn 2 listener nội bộ tự gỡ sau 1 lần nữa.
          */
         function setupVideoBgSource() {
             const videoBgUrl = appConfigViz.getAll().videoBgUrl;
-            // Đã đúng URL và đã fade xong rồi -> không làm gì (tránh fade lặp lại khi Next/Prev).
+            // Đã đúng URL và đã gán rồi -> không làm gì (tránh gán lại src thừa mỗi lần Next/Prev).
             if (bgVideoElement.getAttribute('src') === videoBgUrl && appState.get('_videoBgLoadedUrl') === videoBgUrl) return;
-            appState.set('_videoBgLoadedUrl', null);
-            bgVideoElement.style.opacity = '0'; // ẩn cho tới khi có khung hình thật -> không chớp trắng
             bgVideoElement.src = videoBgUrl;
-            const fadeVideoIn = () => { bgVideoElement.style.opacity = '1'; appState.set('_videoBgLoadedUrl', appConfigViz.getAll().videoBgUrl); };
-            // Listener NỘI BỘ tự gỡ sau 1 lần (mục 2b.6) — KHÔNG thuộc /event/.
-            bgVideoElement.addEventListener('loadeddata', fadeVideoIn, { once: true });
-            bgVideoElement.addEventListener('playing', fadeVideoIn, { once: true });
+            bgVideoElement.style.opacity = '1';
+            appState.set('_videoBgLoadedUrl', videoBgUrl);
         }
 
         /**
@@ -112,23 +112,25 @@
             // QUY TẮC v6 (đã sửa):
             //  - Video nền BẬT/TẮT chỉ phụ thuộc cấu hình + trạng thái NHẠC, KHÔNG phụ thuộc đang ở
             //    màn Playlist hay Visualizer.
-            //  - NGUỒN + fade chỉ thiết lập MỘT LẦN cho mỗi URL (setupVideoBgSource). Next/Prev chỉ
-            //    gọi syncVideoBgToAudio() (xem player-controls.js) nên KHÔNG fade lại nữa.
+            //  - NGUỒN chỉ thiết lập MỘT LẦN cho mỗi URL (setupVideoBgSource). Next/Prev chỉ
+            //    gọi syncVideoBgToAudio() (xem player-controls.js) nên KHÔNG gán lại src nữa.
             //  - Nền đen cưỡng chế phía sau video.
+            // XOÁ (29/07/2026, yêu cầu Giang mục 4) — bỏ hẳn fade in/out: KHÔNG còn set opacity
+            // riêng ở nhánh bật (setupVideoBgSource() tự lo opacity='1' ngay khi gán src), và nhánh
+            // tắt ẩn/dọn src NGAY LẬP TỨC — KHÔNG còn `taskManager.once(...500ms...)` chờ animation
+            // opacity 0.5s chạy xong mới ẩn hẳn (không còn animation nào để chờ nữa).
             const cfg = appConfigViz.getAll();
             if (cfg.videoBgEnabled && cfg.videoBgUrl) {
                 visualizerSolidBg.style.backgroundColor = '#000000'; // FIX (04/07/2026, mục 1a) — nền đen cưỡng chế sau video, đổi target khỏi document.body
                 bgVideoElement.classList.remove('hidden');
-                setupVideoBgSource(); // nạp nguồn + fade nếu là URL mới; no-op nếu đã sẵn sàng
-                if (appState.get('_videoBgLoadedUrl') === cfg.videoBgUrl) bgVideoElement.style.opacity = '1'; // đã sẵn sàng -> hiện ngay
+                setupVideoBgSource(); // nạp nguồn nếu là URL mới; no-op nếu đã sẵn sàng
                 syncVideoBgToAudio();
             } else {
-                bgVideoElement.style.opacity = '0';
                 bgVideoElement.pause();
+                bgVideoElement.classList.add('hidden');
+                bgVideoElement.removeAttribute('src');
+                bgVideoElement.src = '';
                 appState.set('_videoBgLoadedUrl', null);
-                taskManager.once(() => {
-                    if (!appConfigViz.getAll().videoBgEnabled) { bgVideoElement.classList.add('hidden'); bgVideoElement.removeAttribute('src'); bgVideoElement.src = ''; }
-                }, 500, 'hideVideoBgAfterFade');
                 updateDOMBackground();
             }
         }
