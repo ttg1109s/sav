@@ -276,10 +276,22 @@
                 // hàm đó tự no-op nếu Playlist đang ẩn (đứng ở Visualizer), chỉ thật sự cuộn khi
                 // Playlist đang hiển thị (vd bấm Next/Prev từ thanh player mini trong lúc đang
                 // xem Playlist).
-                audioPlayer.play(); if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated();
+                // FIX (29/07/2026, "scroll tại playlist đang không đúng vị trí") — TRƯỚC ĐÂY gọi
+                // scrollToCurrentKeyAnimated() NGAY TẠI ĐÂY, tức là TRƯỚC cả refreshSongNode(key)/
+                // renderPlaylistDiff() ngay dưới — hàm đó tự tra `domNodesByKey.get(key)` (xem
+                // render.js), mà lúc này `key` có thể CHƯA có node nào trong `domNodesByKey` (bài
+                // vừa lọc/chưa từng render, renderPlaylistDiff() dưới đây mới là chỗ thật sự thêm
+                // node cho nó) -> guard `if (!node) return` của hàm đó lặng lẽ bỏ qua, cuộn KHÔNG hề
+                // chạy, Playlist đứng yên ở vị trí CŨ (đúng triệu chứng "không đúng vị trí"). Dời
+                // xuống SAU refreshSongNode()/renderPlaylistDiff() để `domNodesByKey` chắc chắn đã
+                // có node ĐÚNG (mới nhất) cho `key` trước khi tính offset cuộn — cùng thứ tự đã đúng
+                // ở luồng Video (event/workflow/video-player.js::playVideoByKey(), refreshSongNode()
+                // xong rồi mới switchToVisualizer()/scrollToCurrentKeyAnimated()).
+                audioPlayer.play(); if (switchScreen) switchToVisualizer();
                 if (previousKey) refreshSongNode(previousKey);
                 refreshSongNode(key);
                 if (!appState.get('domNodesByKey').has(key)) renderPlaylistDiff();
+                if (!switchScreen) scrollToCurrentKeyAnimated();
                 if (appState.get('currentKey')) btnReturnVisual.classList.remove('hidden');
                 appState.set('beatTimes', []); appState.set('fluxHistory', []); appState.set('currentCalculatedBpm', "---"); statBpm.textContent = "---"; statNote.textContent = "---";
                 // Reset trạng thái pitch worker — tránh hiện sót nốt nhạc của bài VỪA đổi trong vài

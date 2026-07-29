@@ -355,6 +355,18 @@
             requestAnimationFrame(step);
         }
 
+        /** MỚI (29/07/2026, yêu cầu Giang mục 2 — "đổi song <-> video playlist thì scroll = 0
+         * ngay") — đổi Nguồn (switchToVideoSource()/switchToSongSource(), event/workflow/
+         * playlist.js) dựng lại TOÀN BỘ danh sách khác hẳn nhau (renderPlaylistDiff() với
+         * `renderOrder` hoàn toàn mới) — `scrollTop` CŨ (từ danh sách trước đó) không còn ý nghĩa
+         * gì với danh sách MỚI, giữ nguyên trông như "cuộn dở/lệch" ngay khi vừa đổi Nguồn. Đây là
+         * đổi TOÀN BỘ nội dung (không phải nhảy tới 1 bài cụ thể), nên về thẳng 0 TỨC THÌ (không
+         * animation, không cần offset/tính toán gì) — KHÔNG dùng chung 2 hàm cuộn-tới-current ở
+         * trên (2 hàm đó phục vụ mục đích khác: nhắm tới ĐÚNG 1 dòng `currentKey`). */
+        function resetPlaylistScrollTop() {
+            playlistContainer.parentElement.scrollTop = 0;
+        }
+
         /** Ô tìm kiếm thay đổi: CHỈ lọc lại danh sách hiển thị (renderOrder) — KHÔNG đụng hàng đợi phát. */
         function applySearchQuery(raw) {
             appState.set('searchQuery', normalizeSongName(raw));
