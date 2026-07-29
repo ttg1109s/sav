@@ -159,19 +159,7 @@ const workflowVideoPlayer = {
         appState.set('currentKey', videoKey);
         console.log(`writer: "playVideoByKey", page: "currentKey", content: "${videoKey}"`);
 
-        // MỚI (fix bar animation/chấm xanh + tray icon trễ, phản hồi Giang 29/07/2026, "làm nốt")
-        // — TRƯỚC ĐÂY hàm này KHÔNG hề gọi refreshSongNode() dòng nào (khác hẳn window.playSong()
-        // Song, LUÔN refresh dòng cũ + dòng mới ngay sau khi đổi currentKey) — dòng Video trong
-        // Playlist vì vậy giữ NGUYÊN trạng thái lúc render lần cuối (isPlaying vẫn false), không
-        // tự cập nhật dù đang phát thật, kể cả bấm lại ĐÚNG dòng đang phát (router gọi THẲNG hàm
-        // này, không qua startFromPlaylist() — nơi DUY NHẤT đang refresh dòng CŨ, xem trên). Tray
-        // icon (btnReturnVisual) cùng gốc — TRƯỚC ĐÂY chỉ được bật trong renderPlaylistFull()/
-        // renderPlaylistDiff() (core/playlist/render.js), KHÔNG chạy lại mỗi lần phát video, phải
-        // đợi 1 lần render toàn bộ TIẾP THEO (lúc quay về Playlist đổi gì đó khác) mới thấy — đúng
-        // hiện tượng "trễ x ms" Giang báo.
-        if (previousKey && previousKey !== videoKey) refreshSongNode(previousKey); // core/playlist/render.js — dòng video/song TRƯỚC đó, CHỈ khi khác videoKey (tránh refresh trùng khi bấm lại đúng video đang phát)
-        refreshSongNode(videoKey); // core/playlist/render.js — dòng video NÀY, cập nhật isPlaying/eq indicator NGAY (kể cả bấm lại đúng video đang phát)
-        if (appState.get('currentKey')) btnReturnVisual.classList.remove('hidden'); // core/dom-refs.js — hiện tray icon NGAY, không đợi renderPlaylistDiff() kế tiếp
+
         // MỚI (phản hồi Giang 28/07/2026) — `bumpSongPlayCount()` (core/listen-stats.js) TRƯỚC ĐÂY
         // CHỈ được gọi trong window.playSong() (core/playlist/actions.js) — nhánh Video dispatch ra
         // KHỎI hàm đó TRƯỚC khi tới dòng gọi, nên Play Count chưa từng tăng cho Video (trong khi
@@ -214,6 +202,20 @@ const workflowVideoPlayer = {
 
         requestWakeLock(); // core/player-controls.js — cùng khuôn playNext()/playPrev()/togglePlayPause() của Song
         bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
+
+        // SỬA (fix "bar animation chỉ là 1 cột dọc", phản hồi Giang 29/07/2026) — LẦN ĐẦU đặt các
+        // dòng refresh này NGAY SAU appState.set('currentKey', videoKey) — TRƯỚC bgVideoElement.
+        // play() ở trên — nên lúc buildSongNode() (render.js) đọc bgVideoElement.paused, video
+        // CHƯA thực sự play() (còn `true`) -> isActuallyPlaying luôn tính SAI thành false -> vẽ
+        // nhánh "chấm xanh tạm dừng" (không phải 3 bar bật/tắt) NGAY TỪ ĐẦU, và KHÔNG có gì refresh
+        // lại sau khi video thật sự chạy (sự kiện 'play' -> handleVideoPlayState() không đụng
+        // refreshSongNode()) -> dòng playlist kẹt mãi ở trạng thái "tạm dừng" dù đang phát thật.
+        // GIỐNG HỆT thứ tự Song (`audioPlayer.play(); ... refreshSongNode(key);` — core/playlist/
+        // actions.js): `.play()` là lệnh ĐỒNG BỘ set `.paused = false` NGAY LẬP TỨC (trước khi
+        // Promise trả về resolve) — refresh PHẢI đứng SAU dòng play() ở trên để đọc đúng giá trị.
+        if (previousKey && previousKey !== videoKey) refreshSongNode(previousKey); // core/playlist/render.js — dòng video/song TRƯỚC đó, CHỈ khi khác videoKey (tránh refresh trùng khi bấm lại đúng video đang phát)
+        refreshSongNode(videoKey); // core/playlist/render.js — dòng video NÀY, cập nhật isPlaying/eq indicator NGAY, ĐỌC ĐÚNG bgVideoElement.paused=false (kể cả bấm lại đúng video đang phát)
+        if (appState.get('currentKey')) btnReturnVisual.classList.remove('hidden'); // core/dom-refs.js — hiện tray icon NGAY, không đợi renderPlaylistDiff() kế tiếp
     },
 
     /** MỚI (21/07/2026, Giang chỉ ra "không cập nhật lại list của video") — làm mới lại Playlist

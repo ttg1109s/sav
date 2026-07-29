@@ -720,6 +720,11 @@ const workflowPlaylist = {
         // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — placeholder ô tìm kiếm
         // đổi theo Nguồn (Song có artist/album để tìm, Video thì không).
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholderVideo');
+        // KHÔI PHỤC 29/07/2026 (phản hồi Giang) — #btn-upload-audio/#btn-upload-video đổi chỗ
+        // ẩn/hiện cho nhau theo Nguồn (2 nút RIÊNG từ FIX 28/07/2026 "bỏ dropdown Video, input
+        // luôn" — #btn-upload-video giờ LÀ <label> bọc thẳng input, không qua dropdown/router nào).
+        if (btnUploadAudio) btnUploadAudio.classList.add('hidden');
+        if (btnUploadVideo) btnUploadVideo.classList.remove('hidden');
         await this._persistPlaylistConfig(); // MỚI (phản hồi Giang, mục 5) — lưu bền Nguồn để không mất sau reload
     },
 
@@ -742,6 +747,9 @@ const workflowPlaylist = {
         renderPlaylistDiff();
         updateEmptyState();
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholder');
+        // KHÔI PHỤC 29/07/2026 (phản hồi Giang) — chiều ngược lại của toggle ở switchToVideoSource().
+        if (btnUploadVideo) btnUploadVideo.classList.add('hidden');
+        if (btnUploadAudio) btnUploadAudio.classList.remove('hidden');
         await this._persistPlaylistConfig(); // MỚI (phản hồi Giang, mục 5) — lưu bền Nguồn để không mất sau reload
     },
 
@@ -801,6 +809,11 @@ const workflowPlaylist = {
         appState.set('isGridView', !!cfg.isGridView);
         console.log(`writer: "loadPersistedPlaylistConfigOnBoot", page: "activeMediaSource/displaySortMode/isGridView", content: "khôi phục từ meta.playlistConfig"`);
         if (playlistSearchInput) playlistSearchInput.placeholder = t(cfg.activeMediaSource === 'video' ? 'playlistView.search.placeholderVideo' : 'playlistView.search.placeholder');
+        // KHÔI PHỤC 29/07/2026 (phản hồi Giang) — cùng lý do placeholder ngay trên: boot KHÔNG đi
+        // qua switchToVideoSource()/switchToSongSource() (2 nơi DUY NHẤT khác đang toggle 2 nút
+        // này) nên phải tự đồng bộ lại ở đây, đúng activeMediaSource vừa khôi phục.
+        if (btnUploadAudio) btnUploadAudio.classList.toggle('hidden', cfg.activeMediaSource === 'video');
+        if (btnUploadVideo) btnUploadVideo.classList.toggle('hidden', cfg.activeMediaSource !== 'video');
         if (typeof PlaylistMain !== 'undefined') PlaylistMain.init();
     }
 };
