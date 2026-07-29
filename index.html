@@ -192,6 +192,50 @@
         })();
     </script>
 
+    <!-- ===================================================================
+         DEBUG ERROR PANEL (phản hồi Giang — "điều tra lâu thế? tạo một index và bảng debug hiện
+         thị lỗi runtime js ngay trong là được") — TRƯỚC ĐÂY `_reportFatalError()` (core/fatal-
+         error.js) SILENT HOÀN TOÀN (chỉ console.error, không alert người dùng — quyết định cũ của
+         Giang để tránh phiền vì lỗi vụn vặt) — nghĩa là Giang KHÔNG CÓ CÁCH nào tự xem lỗi runtime
+         nếu không mở được DevTools (nhất là test trên điện thoại/PWA qua file://). Bảng này hiện
+         TRỰC TIẾP trong app: badge tròn góc trên-phải (ẩn khi 0 lỗi, hiện số đếm khi có lỗi) — bấm
+         mở ra panel liệt kê ĐẦY ĐỦ từng lỗi đã bắt được (đánh số thứ tự = "index" Giang yêu cầu,
+         kèm giờ + context + message + stack), có nút Copy (dán thẳng lại cho Claude debug) + Clear.
+
+         ĐẶT NGAY SAU Preloader, TRƯỚC MỌI THƯ VIỆN CDN — 100% HTML/CSS/JS THUẦN INLINE (KHÔNG
+         dùng class Tailwind — Tailwind CDN nạp SAU khối này, và đây phải là LƯỚI AN TOÀN CUỐI
+         CÙNG, phải tự hiển thị được ngay cả khi Tailwind/mạng/CDN nào đó phía sau hỏng hẳn — cùng
+         triết lý "tự đứng độc lập" mà Preloader phía trên đã áp dụng). Vẽ/cập nhật lại HOÀN TOÀN ở
+         core/fatal-error.js (_renderDebugErrorPanel(), gọi mỗi lần _reportFatalError() chạy) —
+         KHÔNG qua eventBus/AppState (cùng lý do _reportFatalError() tự guard `typeof eventBus`:
+         đây là lưới an toàn, không được phép phụ thuộc kiến trúc có thể đang hỏng). -->
+    <style>
+        #debug-error-badge { position: fixed; top: 8px; right: 8px; z-index: 99999; width: 32px; height: 32px; border-radius: 999px; background: #dc2626; color: #ffffff; font: bold 13px/32px system-ui, sans-serif; text-align: center; border: 2px solid #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.5); cursor: pointer; }
+        #debug-error-badge.debug-error-hidden { display: none; }
+        #debug-error-panel { position: fixed; inset: 0; z-index: 99998; background: rgba(0,0,0,0.95); color: #e2e8f0; overflow-y: auto; padding: 16px; font-family: ui-monospace, monospace; font-size: 12px; }
+        #debug-error-panel.debug-error-hidden { display: none; }
+        #debug-error-panel-header { position: sticky; top: 0; background: rgba(0,0,0,0.95); display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid #334155; }
+        #debug-error-panel-header h2 { font: bold 16px system-ui, sans-serif; color: #f87171; margin: 0; }
+        #debug-error-panel-header div { display: flex; gap: 8px; }
+        #debug-error-panel-header button { font: bold 11px system-ui, sans-serif; padding: 6px 10px; border-radius: 6px; border: none; cursor: pointer; color: #ffffff; }
+        #debug-error-copy { background: #0284c7; }
+        #debug-error-clear { background: #475569; }
+        #debug-error-close { background: #334155; }
+        #debug-error-list { white-space: pre-wrap; word-break: break-all; line-height: 1.5; }
+    </style>
+    <button id="debug-error-badge" class="debug-error-hidden" title="Lỗi runtime JS — bấm để xem">0</button>
+    <div id="debug-error-panel" class="debug-error-hidden">
+        <div id="debug-error-panel-header">
+            <h2>Debug — Runtime Errors</h2>
+            <div>
+                <button id="debug-error-copy" type="button">Copy</button>
+                <button id="debug-error-clear" type="button">Clear</button>
+                <button id="debug-error-close" type="button">Close</button>
+            </div>
+        </div>
+        <div id="debug-error-list"></div>
+    </div>
+
     <!-- Thư viện bên thứ 3 (CDN) — DỜI TỪ <head> XUỐNG ĐÂY (xem giải thích đầy đủ ở comment đầu
          khối Preloader phía trên) — giữ NGUYÊN THỨ TỰ TƯƠNG ĐỐI với nhau như bản gốc, chỉ đổi vị
          trí vật lý trong tài liệu. -->
@@ -437,7 +481,7 @@
          _reportFatalError() làm lưới an toàn — xem comment đầy đủ ở event/listener/app-boot.js.
          Listener DOMContentLoaded trong CÙNG file này thì vị trí không quan trọng (chỉ thực sự
          chạy sau khi toàn tài liệu đã nạp xong). -->
-    <script src="core/fatal-error.js?v=20260725v1"></script>
+    <script src="core/fatal-error.js?v=20260729v2"></script>
     <script src="event/listener/app-boot.js?v=20260725v1"></script>
     <!-- service/operation.js — so sánh toán tử (===/!==/>/</>=/<=/in/notIn) DÙNG CHUNG cho
          event/block.js và event/virtual-machine-state.js (nạp cuối cùng, xem khối /event/ phía
