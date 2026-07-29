@@ -307,8 +307,13 @@
         // btnOpenFileManagerVideo (hàng Settings riêng cho panel Video) — panel đó đã gộp hẳn vào
         // "Song & Video" (btnOpenFileManagerSong ngay trên), không còn tồn tại độc lập.
         const btnOpenFileManagerDocument = document.getElementById('setting-open-file-manager-document');
-        // MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager.
-        const btnFileManagerCleanupRun = document.getElementById('btn-file-manager-cleanup-run');
+        // MỚI (29/07/2026, yêu cầu Giang mục 2) — hàng "Quản lý lưu trữ" MỚI, section chính File
+        // Manager (components/settings/file-manager-section.js) — mở panel components/file-
+        // manager-storage.js. XOÁ (cùng ngày) — `btnFileManagerCleanupRun` (dom-ref TĨNH cũ) —
+        // nút "Dọn dẹp dữ liệu" giờ nằm TRONG panel push động này (không còn ở section tĩnh), tra
+        // qua delegate `settingsStackBody` thay vì querySelector tĩnh lúc boot (xem event/
+        // listener/file-manager-storage.js).
+        const btnOpenFileManagerStorage = document.getElementById('setting-open-file-manager-storage');
         // (drawerFileManagerSong/btnBackFileManagerSong ĐÃ XOÁ — Batch D5: panel Song giờ động,
         // Back dùng CHUNG btnSettingsStackBack.)
         // (drawerFileManagerPhoto/btnBackFileManagerPhoto ĐÃ XOÁ — Batch D6: panel Photo giờ

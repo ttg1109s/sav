@@ -27,47 +27,49 @@
  * renderPlaylistDiff, removeKeyFromDisplay, songNameIndex, playlistCache, confirmedBrokenKeys),
  * core/file-manager/video.js (computeVideoStats() — MỚI, Batch 5, dùng bởi
  * renderVideoStorageStats()).
+ *
+ * MỚI (29/07/2026, yêu cầu Giang — panel "Quản lý lưu trữ" MỚI, THAY panel "Song & Video" cũ) —
+ * `renderStorageStats()` giờ nhận ĐỦ 4 domain (Song/Video/Photo/Document) — THÊM phụ thuộc:
+ * core/file-manager/image.js (getAllImageKeys/getImageRecord/deleteImageRecord), core/file-
+ * manager/album.js (getAllAlbumKeys/getAlbumRecord/setAlbumRecord — dọn `imageKeys` khi xoá tất
+ * cả ảnh, CHỐT Giang: giữ Album, chỉ rỗng hoá), core/file-manager/document.js (getAllDocumentKeys/
+ * getDocumentRecord/deleteDocumentRecord). Xem event/workflow/file-manager-storage.js (workflow
+ * MỚI, THAY event/workflow/file-manager-song.js đã xoá) để biết nơi các hàm Photo/Document mới
+ * được gọi.
  */
 
-        /** [TỰ SỬA 27/07/2026, phản hồi Giang — tự audit lại phát hiện SAI] Trước đây hàm này tự
-         * gọi `computeStats()` (1 hàm core KHÁC, `core/about-stats.js`) ngay bên trong — core gọi
-         * core, vi phạm Rule 3 (dù không hề nhận ra lúc viết, vì đây là hàm "render" — vẫn PHẢI
-         * tuân đủ Rule 1-4, xem core-function-conventions.md Rule 5). Sửa: nhận `stats` (kết quả
-         * `computeStats()` ĐÃ TÍNH SẴN) qua tham số — nơi gọi (Workflow, event/workflow/
-         * file-manager-song.js) tự gọi `computeStats()` TRƯỚC rồi truyền vào.
-         * @param {{totalSongs: number, totalBytes: number}} stats
-         * @param {HTMLElement} totalSongsEl @param {HTMLElement} totalBytesEl
-         */
         /**
-         * VIẾT LẠI (phản hồi Giang, mục 1 — "UI dung lượng như Settings mobile OS, số lượng dạng
-         * vòng tròn") — GỘP `renderStorageStats()`/`renderVideoStorageStats()` cũ (2 hàm tách biệt
-         * theo domain, đúng Rule 1 gốc) thành 1 hàm DUY NHẤT: khối UI mới (thanh chia đoạn dung
-         * lượng) cần biết CẢ 2 tổng CÙNG LÚC để tính % mỗi đoạn — không còn cách nào tách 2 hàm độc
-         * lập mà vẫn đúng số liệu (đây là 1 hành động nghiệp vụ THẬT SỰ — "vẽ tổng quan dung lượng
-         * Song+Video" — không phải 2 hành động bị gộp gượng ép, đúng tinh thần Rule 1: "1 hàm = 1
-         * business action").
+         * VIẾT LẠI (29/07/2026, yêu cầu Giang — panel "Quản lý lưu trữ" MỚI, mục 2a/2b) — panel
+         * Song & Video cũ ĐÃ XOÁ (xem event/workflow/file-manager-storage.js, panel MỚI DÙNG
+         * CHUNG cho CẢ 4 domain) — hàm này giờ nhận ĐỦ 4 stats (Song/Video/Photo/Document), vẽ 1
+         * thanh chia đoạn 4 màu (THAY 2 màu cũ) + ghi số lượng vào LIST 4 hàng (nhãn trái - số
+         * lượng phải, THAY hẳn 2 "vòng tròn" cũ, mục 2b) — KHÔNG còn circle nào.
          * @param {{totalSongs: number, totalBytes: number}} songStats - core/about-stats.js::computeStats()
          * @param {{totalVideos: number, totalBytes: number}} videoStats - core/file-manager/video.js::computeVideoStats()
+         * @param {{totalImages: number, totalBytes: number}} photoStats - core/file-manager/image.js::computeImageStats()
+         * @param {{totalDocuments: number, totalBytes: number}} documentStats - core/file-manager/document.js::computeDocumentStats()
          * @param {{totalBytesEl: HTMLElement, barSongsEl: HTMLElement, barVideosEl: HTMLElement,
-         *          songBytesEl: HTMLElement, videoBytesEl: HTMLElement, totalSongsEl: HTMLElement,
-         *          totalVideosEl: HTMLElement}} els - toàn bộ phần tử DOM cần cập nhật, querySelector
-         *          sẵn ở Workflow rồi truyền vào (Rule 2/3 — Core không tự đọc DOM ngoài tham số).
+         *          barPhotosEl: HTMLElement, barDocumentsEl: HTMLElement, countSongsEl: HTMLElement,
+         *          countVideosEl: HTMLElement, countPhotosEl: HTMLElement, countDocumentsEl: HTMLElement}} els
+         *          toàn bộ phần tử DOM cần cập nhật, querySelector sẵn ở Workflow rồi truyền vào
+         *          (Rule 2/3 — Core không tự đọc DOM ngoài tham số).
          */
-        function renderStorageStats(songStats, videoStats, els) {
-            const { totalBytesEl, barSongsEl, barVideosEl, songBytesEl, videoBytesEl, totalSongsEl, totalVideosEl } = els;
-            if (!totalSongsEl) return; // guard: panel Song & Video đang đóng
-            const totalBytes = songStats.totalBytes + videoStats.totalBytes;
-            if (totalBytesEl) totalBytesEl.textContent = formatBytes(totalBytes);
-            // totalBytes === 0 (chưa có Song lẫn Video nào) -> cả 2 đoạn 0%, thanh hiện trống (nền
-            // xám mờ có sẵn), KHÔNG chia 0/0 ra NaN.
-            const songPct = totalBytes > 0 ? (songStats.totalBytes / totalBytes) * 100 : 0;
-            const videoPct = totalBytes > 0 ? (videoStats.totalBytes / totalBytes) * 100 : 0;
-            if (barSongsEl) barSongsEl.style.width = `${songPct}%`;
-            if (barVideosEl) barVideosEl.style.width = `${videoPct}%`;
-            if (songBytesEl) songBytesEl.textContent = formatBytes(songStats.totalBytes);
-            if (videoBytesEl) videoBytesEl.textContent = formatBytes(videoStats.totalBytes);
-            totalSongsEl.textContent = `${songStats.totalSongs}`;
-            if (totalVideosEl) totalVideosEl.textContent = `${videoStats.totalVideos}`;
+        function renderStorageStats(songStats, videoStats, photoStats, documentStats, els) {
+            const { totalBytesEl, barSongsEl, barVideosEl, barPhotosEl, barDocumentsEl, countSongsEl, countVideosEl, countPhotosEl, countDocumentsEl } = els;
+            if (!totalBytesEl) return; // guard: panel "Quản lý lưu trữ" đang đóng
+            const totalBytes = songStats.totalBytes + videoStats.totalBytes + photoStats.totalBytes + documentStats.totalBytes;
+            totalBytesEl.textContent = formatBytes(totalBytes);
+            // totalBytes === 0 (chưa có gì cả) -> mọi đoạn 0%, thanh hiện trống (nền xám mờ có sẵn),
+            // KHÔNG chia 0/0 ra NaN.
+            const pct = (n) => totalBytes > 0 ? (n / totalBytes) * 100 : 0;
+            if (barSongsEl) barSongsEl.style.width = `${pct(songStats.totalBytes)}%`;
+            if (barVideosEl) barVideosEl.style.width = `${pct(videoStats.totalBytes)}%`;
+            if (barPhotosEl) barPhotosEl.style.width = `${pct(photoStats.totalBytes)}%`;
+            if (barDocumentsEl) barDocumentsEl.style.width = `${pct(documentStats.totalBytes)}%`;
+            if (countSongsEl) countSongsEl.textContent = `${songStats.totalSongs}`;
+            if (countVideosEl) countVideosEl.textContent = `${videoStats.totalVideos}`;
+            if (countPhotosEl) countPhotosEl.textContent = `${photoStats.totalImages}`;
+            if (countDocumentsEl) countDocumentsEl.textContent = `${documentStats.totalDocuments}`;
         }
 
         // ===================== Giải phóng bộ nhớ =====================
@@ -373,4 +375,228 @@
                 listEl.innerHTML = results.map(r => `<div class="truncate"><span class="text-amber-400">●</span> ${escapeHtml(r.filename)} — ${escapeHtml(r.reason)}</div>`).join('');
                 deleteBtnEl.classList.remove('hidden');
             }
+        }
+
+        // ===================== Photo — MỚI (29/07/2026, yêu cầu Giang mục "checkbox Photo/Document
+        // đầy đủ như Song/Video") — mirror ĐẦY ĐỦ bộ hàm zip/xoá tất cả/quét lỗi/xoá lỗi của
+        // Video ngay trên, viết RIÊNG bản của Photo (Rule 3 — mỗi domain 1 bộ hàm riêng, không gọi
+        // chéo). NẠP THÊM: core/file-manager/image.js (getAllImageKeys/getImageRecord/
+        // deleteImageRecord), core/file-manager/album.js (getAllAlbumKeys/getAlbumRecord/
+        // setAlbumRecord — dọn `imageKeys` mồ côi sau khi xoá tất cả ảnh). =====================
+
+        /** Đóng gói TOÀN BỘ ảnh GỐC (blob thật, không phải thumbBlob) thành 1 file .zip. Mirror
+         * `buildAllVideosZipBlob()` ngay trên. */
+        async function buildAllPhotosZipBlob(onProgress) {
+            if (typeof JSZip === 'undefined') {
+                throw new Error(t('common.storage.zipLibMissing'));
+            }
+            const zip = new JSZip();
+            const keys = await getAllImageKeys(); // service/db.js
+            const usedNames = new Map();
+            let done = 0;
+            for (const key of keys) {
+                const record = await getImageRecord(key); // service/db.js
+                if (!record || !record.blob) { done++; continue; }
+                let name = record.filename || `${key}.jpg`;
+                if (usedNames.has(name)) {
+                    const count = usedNames.get(name) + 1; usedNames.set(name, count);
+                    const dot = name.lastIndexOf('.');
+                    name = dot > -1 ? `${name.slice(0, dot)} (${count})${name.slice(dot)}` : `${name} (${count})`;
+                } else { usedNames.set(name, 0); }
+                zip.file(name, record.blob);
+                done++;
+                if (onProgress) onProgress(done, keys.length);
+            }
+            return zip.generateAsync({ type: 'blob' }, (meta) => {
+                if (onProgress) onProgress(keys.length, keys.length, meta.percent);
+            });
+        }
+
+        /**
+         * Xoá TOÀN BỘ ảnh — CHỐT Giang (29/07/2026): Album GIỮ NGUYÊN (không xoá), chỉ RỖNG HOÁ
+         * `imageKeys` của TỪNG album (album là khái niệm nhóm ảnh, không phải "nơi chứa" — xoá hết
+         * ảnh bên trong không có nghĩa album phải biến mất theo, cùng triết lý `deleteAlbum()`
+         * KHÔNG đụng ảnh, core/file-manager/album.js). Viết ĐƠN GIẢN + THUẦN — không appState,
+         * không DOM (cùng tinh thần `clearAllVideosData()` ngay trên, KHÔNG mirror độ phức tạp/cờ
+         * an toàn của `clearAllStoredData()` bản Song di sản).
+         * @returns {Promise<void>}
+         */
+        async function clearAllPhotosData() {
+            const keys = await getAllImageKeys(); // service/db.js
+            for (const key of keys) await deleteImageRecord(key); // service/db.js
+
+            const albumIds = await getAllAlbumKeys(); // service/db.js
+            for (const albumId of albumIds) {
+                const record = await getAlbumRecord(albumId); // service/db.js
+                if (record && Array.isArray(record.imageKeys) && record.imageKeys.length > 0) {
+                    await setAlbumRecord(albumId, { ...record, imageKeys: [] }); // service/db.js
+                }
+            }
+        }
+
+        /** Bản Photo của `isRecordCorrupted()`/`isVideoRecordCorrupted()` — thử decode ảnh qua
+         * `Image()` (DOM API cho việc TÍNH TOÁN thuần, KHÔNG phải dựng UI — cùng tiền lệ dùng
+         * `<video>` ẩn tạm ở `isVideoRecordCorrupted()` ngay trên). */
+        function isImageRecordCorrupted(record) {
+            if (!record || !record.blob) return Promise.resolve({ corrupted: true, reason: t('common.storage.scanReasonBrokenBlob') });
+            return new Promise((resolve) => {
+                let settled = false;
+                const safeResolve = (val) => { if (!settled) { settled = true; resolve(val); } };
+                let tempUrl;
+                try { tempUrl = URL.createObjectURL(record.blob); }
+                catch (err) { return safeResolve({ corrupted: true, reason: t('common.storage.scanReasonBrokenBlob') }); }
+                const img = new Image();
+                const cleanup = () => { try { URL.revokeObjectURL(tempUrl); } catch (e) {} };
+                const safetyTimeout = taskManager.once(() => { cleanup(); safeResolve({ corrupted: true, reason: t('common.storage.scanReasonNoDecode') }); }, 8000);
+                img.addEventListener('load', () => { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: false }); }, { once: true });
+                img.addEventListener('error', () => { safetyTimeout.kill(); cleanup(); safeResolve({ corrupted: true, reason: t('common.storage.scanReasonNoDecode') }); }, { once: true });
+                img.src = tempUrl;
+            });
+        }
+
+        /** Bản Photo của `scanAllVideosForCorruption()` — NGHIỆP VỤ THUẦN, không tự render UI. */
+        async function scanAllPhotosForCorruption(onScanProgress) {
+            const keys = await getAllImageKeys();
+            const results = [];
+            for (let i = 0; i < keys.length; i++) {
+                const key = keys[i];
+                if (onScanProgress) onScanProgress(i + 1, keys.length);
+                const record = await getImageRecord(key);
+                if (appState.get('confirmedBrokenKeys').has(key)) {
+                    results.push({ key, filename: record ? record.filename : key, reason: t('common.storage.scanReasonKeptFromError') });
+                    continue;
+                }
+                const check = await isImageRecordCorrupted(record);
+                if (check.corrupted) {
+                    results.push({ key, filename: record ? record.filename : key, reason: check.reason });
+                }
+            }
+            return results;
+        }
+
+        /** Bản Photo của `deleteCorruptedVideos()` — CỘNG THÊM dọn cascade khỏi MỌI album đang
+         * chứa ảnh vừa xoá (cùng nguyên tắc `deleteImage()`, core/file-manager/image.js — KHÔNG gọi
+         * thẳng hàm đó, Rule 3, tự lặp lại logic dọn cascade tại đây).
+         * @param {Array<{key:string}>} scanResults
+         * @returns {Promise<string[]>} danh sách imageKey đã xoá thật.
+         */
+        async function deleteCorruptedPhotos(scanResults) {
+            const deletedKeys = [];
+            const albumIds = await getAllAlbumKeys();
+            for (const { key } of scanResults) {
+                await deleteImageRecord(key);
+                appState.mutate('confirmedBrokenKeys', s => s.delete(key));
+                for (const albumId of albumIds) {
+                    const albumRecord = await getAlbumRecord(albumId);
+                    if (albumRecord && Array.isArray(albumRecord.imageKeys) && albumRecord.imageKeys.includes(key)) {
+                        await setAlbumRecord(albumId, { ...albumRecord, imageKeys: albumRecord.imageKeys.filter(k => k !== key) });
+                    }
+                }
+                deletedKeys.push(key);
+            }
+            return deletedKeys;
+        }
+
+        // ===================== Document — MỚI (29/07/2026) — mirror CÙNG BỘ 4 hàm Photo ngay trên,
+        // viết RIÊNG bản Document (Rule 3). Document KHÔNG có Blob nhị phân thật (`content` là
+        // string|string[], xem core/file-manager/document.js) nên "zip" đóng gói TEXT ĐÃ QUY ĐỔI
+        // SẴN (Workflow tự gọi `resolveDocumentHtml()`/`convertDocumentHtmlToPlainText()` — 2 core
+        // KHÁC FILE, core này KHÔNG được tự gọi theo Rule 3 — nên hàm dưới đây CHỈ nhận
+        // `entries` ĐÃ CHUẨN BỊ SẴN, thuần đóng gói zip, không tự quy đổi gì) — "corrupted" cũng
+        // KHÁC hẳn Song/Video/Photo (không có blob để decode) — coi là hỏng khi `content` rỗng/mất.
+        // NẠP THÊM: core/file-manager/document.js (getAllDocumentKeys/getDocumentRecord/
+        // deleteDocumentRecord). ================================================================
+
+        /**
+         * Đóng gói `entries` (ĐÃ quy đổi sẵn TỪ WORKFLOW, mỗi tài liệu 1 chuỗi text .txt) thành 1
+         * file .zip — KHÁC 3 hàm zip domain khác (Song/Video/Photo, tự đọc DB + đóng gói Blob GỐC
+         * trực tiếp): Document không có Blob nhị phân, nội dung cần quy đổi qua core KHÁC FILE
+         * (document.js) TRƯỚC — core này (Rule 3) không được tự gọi, nên phần chuẩn bị `entries`
+         * PHẢI làm ở Workflow (event/workflow/file-manager-storage.js), hàm này CHỈ còn lo đóng gói
+         * zip thuần từ dữ liệu ĐÃ SẴN SÀNG.
+         * @param {Array<{filename: string, text: string}>} entries
+         * @param {(done:number,total:number,percent?:number) => void} [onProgress]
+         * @returns {Promise<Blob>}
+         */
+        async function buildAllDocumentsZipBlob(entries, onProgress) {
+            if (typeof JSZip === 'undefined') {
+                throw new Error(t('common.storage.zipLibMissing'));
+            }
+            const zip = new JSZip();
+            const usedNames = new Map();
+            let done = 0;
+            for (const entry of entries) {
+                let name = entry.filename;
+                if (usedNames.has(name)) {
+                    const count = usedNames.get(name) + 1; usedNames.set(name, count);
+                    const dot = name.lastIndexOf('.');
+                    name = dot > -1 ? `${name.slice(0, dot)} (${count})${name.slice(dot)}` : `${name} (${count})`;
+                } else { usedNames.set(name, 0); }
+                zip.file(name, entry.text);
+                done++;
+                if (onProgress) onProgress(done, entries.length);
+            }
+            return zip.generateAsync({ type: 'blob' }, (meta) => {
+                if (onProgress) onProgress(entries.length, entries.length, meta.percent);
+            });
+        }
+
+        /** Xoá TOÀN BỘ tài liệu. Viết ĐƠN GIẢN + THUẦN, cùng tinh thần `clearAllVideosData()`/
+         * `clearAllPhotosData()` ngay trên. */
+        async function clearAllDocumentsData() {
+            const keys = await getAllDocumentKeys(); // service/db.js
+            for (const key of keys) await deleteDocumentRecord(key); // service/db.js
+        }
+
+        /** Bản Document của `isRecordCorrupted()` — KHÔNG có Blob để decode, "hỏng" = `content`
+         * rỗng/mất hẳn (tài liệu 'user' tạo dở bỏ ngang RỒI ai đó xoá luôn field content, hoặc dữ
+         * liệu cũ bị hỏng theo cách khác). Đồng bộ (không cần decode bất đồng bộ như media), NHƯNG
+         * vẫn viết dạng có thể `await` được bình thường (trả giá trị thô, KHÔNG bọc Promise —
+         * `await` trên giá trị thường vẫn hợp lệ, giữ chữ ký gọi ĐỒNG NHẤT với 3 hàm domain khác).
+         * @param {Object} record
+         * @returns {{corrupted: boolean, reason?: string}}
+         */
+        function isDocumentRecordCorrupted(record) {
+            if (!record) return { corrupted: true, reason: t('common.storage.scanReasonBrokenBlob') };
+            const isEmptyArray = Array.isArray(record.content) && record.content.length === 0;
+            const isEmptyString = typeof record.content === 'string' && record.content.trim() === '';
+            if (record.content == null || isEmptyArray || isEmptyString) {
+                return { corrupted: true, reason: t('common.storage.scanReasonEmptyContent') };
+            }
+            return { corrupted: false };
+        }
+
+        /** Bản Document của `scanAllVideosForCorruption()` — NGHIỆP VỤ THUẦN. */
+        async function scanAllDocumentsForCorruption(onScanProgress) {
+            const keys = await getAllDocumentKeys();
+            const results = [];
+            for (let i = 0; i < keys.length; i++) {
+                const key = keys[i];
+                if (onScanProgress) onScanProgress(i + 1, keys.length);
+                const record = await getDocumentRecord(key);
+                const label = record ? (record.title || record.filename || key) : key;
+                if (appState.get('confirmedBrokenKeys').has(key)) {
+                    results.push({ key, filename: label, reason: t('common.storage.scanReasonKeptFromError') });
+                    continue;
+                }
+                const check = isDocumentRecordCorrupted(record);
+                if (check.corrupted) {
+                    results.push({ key, filename: label, reason: check.reason });
+                }
+            }
+            return results;
+        }
+
+        /** Bản Document của `deleteCorruptedVideos()`.
+         * @param {Array<{key:string}>} scanResults
+         * @returns {Promise<string[]>} danh sách documentKey đã xoá thật.
+         */
+        async function deleteCorruptedDocuments(scanResults) {
+            const deletedKeys = [];
+            for (const { key } of scanResults) {
+                await deleteDocumentRecord(key);
+                appState.mutate('confirmedBrokenKeys', s => s.delete(key));
+                deletedKeys.push(key);
+            }
+            return deletedKeys;
         }
