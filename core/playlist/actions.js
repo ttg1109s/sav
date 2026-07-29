@@ -507,8 +507,15 @@
          *     niệm ảnh bìa tự chọn).
          *   - Song: GIỮ NGUYÊN 100% hành vi cũ.
          * Đọc `getVideoRecord()` (service/db.js, data layer — ngoại lệ Rule 3) để lấy field CHỈ có
-         * trên record thô (codec/fps/bitrate/audioCodec/audioBitrate/customName/blob.size) —
-         * `playlistCache` (Adapter shape) không có các field này.
+         * trên record thô (customName/blob.size) — `playlistCache` (Adapter shape) không có field này.
+         *
+         * XOÁ (29/07/2026, yêu cầu Giang mục 1 — "chỉ giữ filename/RESOLUTION/playcount/listened")
+         * — tab "Chi tiết" của Video RÚT GỌN CHỈ CÒN 4 field: tên file gốc, độ phân giải, lượt
+         * phát, đã nghe — bỏ hẳn dung lượng/codec/fps/thời lượng/bitrate/codec+bitrate âm thanh/
+         * ngày tải (7 field). Vì 5 trong số đó (codec/fps/bitrate/audioCodec/audioBitrate) CHỈ tồn
+         * tại để phục vụ hiển thị ở đây, việc phân tích mediainfo.js (WASM) lúc upload cũng bỏ theo
+         * (event/workflow/file-manager-video.js::_extractVideoMediaInfo() ĐÃ XOÁ) — `getVideoRecord()`
+         * không còn trả các field đó nữa.
          */
         async function openSongEditModal(key) {
             const cached = appState.get('playlistCache').get(key); if (!cached) return;
@@ -529,25 +536,12 @@
                 songEditCustomNameInput.placeholder = videoRecord ? stripFileExtension(videoRecord.filename) : ''; // core/file-manager/video.js — bỏ đuôi mở rộng khỏi gợi ý mặc định
 
                 const resolutionText = (videoRecord && videoRecord.width && videoRecord.height) ? `${videoRecord.width}×${videoRecord.height}` : emptyVal;
-                const fpsText = (videoRecord && videoRecord.fps) ? `${parseFloat(videoRecord.fps).toFixed(videoRecord.fps % 1 === 0 ? 0 : 2)}` : emptyVal;
-                const bitrateText = (videoRecord && videoRecord.bitrate) ? `${(videoRecord.bitrate / 1000000).toFixed(1)} Mbps` : emptyVal;
-                const audioBitrateText = (videoRecord && videoRecord.audioBitrate) ? `${Math.round(videoRecord.audioBitrate / 1000)} kbps` : emptyVal;
-                const fileSizeText = (videoRecord && videoRecord.blob) ? formatBytes(videoRecord.blob.size) : emptyVal; // core/about-stats.js — hàm định dạng thuần
-                const addedDateText = (videoRecord && videoRecord.addedAt) ? new Date(videoRecord.addedAt).toLocaleDateString(navigator.language) : emptyVal;
 
                 songEditTabDetails.innerHTML =
                     songInfoRowHtml('M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'bg-sky-500/15 text-sky-400', t('playlistView.songInfo.fieldFilename'), (videoRecord && videoRecord.filename) ? escapeHtml(videoRecord.filename) : emptyVal) +
-                    songInfoRowHtml('M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4', 'bg-slate-500/15 text-slate-300', t('playlistView.songInfo.fieldFileSize'), fileSizeText) +
-                    songInfoRowHtml('M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3', 'bg-violet-500/15 text-violet-400', t('playlistView.songInfo.fieldCodec'), (videoRecord && videoRecord.codec) || emptyVal) +
                     songInfoRowHtml('M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4', 'bg-emerald-500/15 text-emerald-400', t('playlistView.songInfo.fieldResolution'), resolutionText) +
-                    songInfoRowHtml('M13 10V3L4 14h7v7l9-11h-7z', 'bg-yellow-500/15 text-yellow-400', t('playlistView.songInfo.fieldFps'), fpsText) +
-                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-amber-500/15 text-amber-400', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration)) +
-                    songInfoRowHtml('M13 7h8m0 0v8m0-8l-8 8-4-4-6 6', 'bg-orange-500/15 text-orange-400', t('playlistView.songInfo.fieldBitrate'), bitrateText) +
-                    songInfoRowHtml('M9 9a3 3 0 106 0 3 3 0 00-6 0zm0 0v.01M15 9v.01M9 15a3 3 0 106 0 3 3 0 00-6 0z', 'bg-fuchsia-500/15 text-fuchsia-400', t('playlistView.songInfo.fieldAudioCodec'), (videoRecord && videoRecord.audioCodec) || emptyVal) +
-                    songInfoRowHtml('M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M6 8H4a1 1 0 00-1 1v6a1 1 0 001 1h2l4 4V4L6 8z', 'bg-cyan-500/15 text-cyan-400', t('playlistView.songInfo.fieldAudioBitrate'), audioBitrateText) +
                     songInfoRowHtml('M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', 'bg-rose-500/15 text-rose-400', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count })) +
-                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-indigo-500/15 text-indigo-400', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime)) +
-                    songInfoRowHtml('M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', 'bg-teal-500/15 text-teal-400', t('playlistView.songInfo.fieldAddedAt'), addedDateText);
+                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-indigo-500/15 text-indigo-400', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime));
             } else {
                 songEditTitleInput.value = cached.tag.title || '';
                 songEditArtistInput.value = cached.tag.artist || '';
