@@ -1,9 +1,16 @@
 /**
  * event/workflow/file-manager-video.js — MỚI (21/07/2026). Chỉ còn LOGIC NGHIỆP VỤ của Video
- * (thêm/xoá, phân tích thumbnail+mediainfo lúc upload, mở Video Editor) + picker Generic Drawer
+ * (thêm/xoá, phân tích thumbnail lúc upload, mở Video Editor) + picker Generic Drawer
  * "Use background video" (Visualizer Control Center, tự inline logic riêng, KHÔNG qua hàm nào
  * dưới đây — xem `event/workflow/visualizer-control-center.js::enableVideoBackgroundToggle()`) —
  * KHÔNG còn UI panel riêng.
+ *
+ * XOÁ (29/07/2026, yêu cầu Giang mục 1/2 — "chỉ giữ filename/RESOLUTION/playcount/listened ở tab
+ * Chi tiết") — `_extractVideoMediaInfo()` (mediainfo.js, WASM, CDN unpkg) ĐÃ XOÁ HẲN cùng thẻ
+ * `<script>` CDN ở index.html — tab "Chi tiết" không còn hiển thị codec/fps/bitrate/audioCodec/
+ * audioBitrate nữa nên không cần phân tích các field này lúc upload. `_extractVideoThumbAndMeta()`
+ * ngay dưới giờ chụp THÊM `thumbFullBlob` (full-res, frame 1) — field MỚI, TÁCH RIÊNG với
+ * `thumbBlob` (vuông, dùng lưới/cover) — KHÔNG thay thế.
  *
  * XOÁ (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang "làm luôn 6d") — TOÀN BỘ
  * phần dựng UI/panel "File Manager → Video" (openPanel()/_buildHeaderActionHtml()/
@@ -24,9 +31,10 @@
  *     XOÁ — tính năng CHỈ tồn tại trong lưới panel đã bỏ, không có UI nào khác dùng tới.
  *   - Upload video giờ vào từ Playlist (Batch 6, mục 7 — `#video-upload-input`,
  *     event/router/playlist.js case 'playlist.upload.videoFileChange') — `uploadVideos()` GIỮ
- *     NGUYÊN 100% thân hàm (per-file error isolation, resolveVideoKey/saveVideo/extract thumb+
+ *     NGUYÊN 100% thân hàm lúc đó (per-file error isolation, resolveVideoKey/saveVideo/extract thumb+
  *     mediainfo, tự `refreshVideoPlaylistIfActive()`), chỉ bỏ đoạn dọn input CỦA PANEL CŨ (đã chết,
- *     input mới ở Playlist tự dọn value trong chính listener của nó).
+ *     input mới ở Playlist tự dọn value trong chính listener của nó). [CẬP NHẬT 29/07/2026: bước
+ *     "mediainfo" trong mô tả lịch sử này ĐÃ XOÁ HẲN khỏi `uploadVideos()`, xem đầu file.]
  *   - Settings row "Video" riêng (components/settings/file-manager-section.js) ĐÃ BỎ — chỉ còn
  *     "Song & Video" (đã gộp từ Batch 5).
  *
@@ -58,8 +66,18 @@ const workflowFileManagerVideo = {
      * mở), cũng tránh vọt quá xa nếu video ngắn hơn 1 giây.
      * `width`/`height` trả về là kích thước GỐC của video (KHÔNG phải kích thước thumb) — vẫn lưu
      * riêng như cũ, dùng chỗ khác nếu cần tỉ lệ thật (đúng plan mục 4).
+     *
+     * MỚI (29/07/2026, yêu cầu Giang mục 2 — "thêm thumbnail blob full RESOLUTION tại frame 1") —
+     * ĐỒNG THỜI chụp THÊM `thumbFullBlob`: khung hình ĐẦU TIÊN (time=0, "frame 1") ở ĐÚNG kích
+     * thước GỐC (KHÔNG center-crop vuông, KHÔNG resize) — TÁCH RIÊNG HẲN với `thumbBlob` phía trên
+     * (vuông, chụp ở giây `min(1, duration/2)`, dùng cho lưới/cover) — KHÔNG thay thế bất cứ phần
+     * nào của luồng cũ, chỉ thêm 1 field mới. Thứ tự: seek về 0 trước (chụp full-res) RỒI seek tiếp
+     * sang mốc cũ (chụp thumb vuông) — 2 bước `seeked` NỐI TIẾP trên CÙNG 1 `<video>`, không tạo
+     * thêm phần tử nào khác. `thumbFullBlob` là field PHỤ (`null` nếu `canvas.toBlob()` hiếm khi
+     * lỗi) — KHÔNG chặn toàn bộ Promise nếu bước này thất bại, khác `thumbBlob`/`width`/`height`/
+     * `duration` vẫn là BẮT BUỘC như cũ.
      * @param {File} file
-     * @returns {Promise<{thumbBlob: Blob, width: number, height: number, duration: number}>}
+     * @returns {Promise<{thumbBlob: Blob, thumbFullBlob: (Blob|null), width: number, height: number, duration: number}>}
      */
     _extractVideoThumbAndMeta(file) {
         return new Promise((resolve, reject) => {
@@ -68,6 +86,7 @@ const workflowFileManagerVideo = {
             videoEl.muted = true;
             videoEl.playsInline = true;
             let settled = false;
+            let thumbFullBlob = null; // MỚI — full-res frame 1, gán ở bước seek ĐẦU (trước thumb vuông)
             const cleanup = () => { try { URL.revokeObjectURL(objectUrl); } catch (e) {} };
             const cleanupAndReject = (err) => { if (settled) return; settled = true; cleanup(); reject(err); };
             const safetyTimeout = taskManager.once(() => cleanupAndReject(new Error('[_extractVideoThumbAndMeta] timeout đọc video')), 8000);
@@ -75,10 +94,31 @@ const workflowFileManagerVideo = {
             videoEl.addEventListener('loadedmetadata', () => {
                 const width = videoEl.videoWidth, height = videoEl.videoHeight;
                 if (!width || !height) { cleanupAndReject(new Error('[_extractVideoThumbAndMeta] video không có kích thước hợp lệ')); return; }
-                videoEl.currentTime = Math.min(1, videoEl.duration / 2 || 0);
+                videoEl.currentTime = 0; // Bước 1/2 — seek về frame 1 TRƯỚC (chụp full-res)
             }, { once: true });
 
-            videoEl.addEventListener('seeked', () => {
+            // Bước seek 1/2 — time=0 ("frame 1"), chụp thumbFullBlob FULL RESOLUTION (không crop/
+            // resize). QUAN TRỌNG: listener bước 2/2 (onSquareThumbSeeked) chỉ được `addEventListener`
+            // BÊN TRONG callback này (ngay trước khi seek tiếp) — KHÔNG đăng ký sẵn cùng lúc với bước
+            // 1 ngay từ đầu, nếu không cả 2 listener sẽ CÙNG khớp đúng sự kiện 'seeked' ĐẦU TIÊN (lúc
+            // time vừa về 0), khiến thumb vuông vô tình chụp nhầm frame 1 thay vì mốc `min(1,
+            // duration/2)` như thiết kế.
+            videoEl.addEventListener('seeked', function onFrameOneSeeked() {
+                if (settled) return;
+                const width = videoEl.videoWidth, height = videoEl.videoHeight;
+                const fullCanvas = document.createElement('canvas');
+                fullCanvas.width = width; fullCanvas.height = height;
+                fullCanvas.getContext('2d').drawImage(videoEl, 0, 0, width, height);
+                fullCanvas.toBlob((blob) => {
+                    if (settled) return;
+                    thumbFullBlob = blob; // Blob|null — field PHỤ, không chặn nếu null
+                    videoEl.addEventListener('seeked', onSquareThumbSeeked, { once: true }); // Bước 2/2 — đăng ký NGAY TRƯỚC lúc seek tiếp, không sớm hơn
+                    videoEl.currentTime = Math.min(1, videoEl.duration / 2 || 0); // seek bước 2/2 — mốc cũ, cho thumb vuông
+                }, 'image/jpeg', 0.92);
+            }, { once: true });
+
+            // Bước seek 2/2 — mốc cũ `min(1, duration/2)`, chụp thumbBlob VUÔNG (GIỮ NGUYÊN 100% như cũ).
+            function onSquareThumbSeeked() {
                 if (settled) return;
                 safetyTimeout.kill();
                 const width = videoEl.videoWidth, height = videoEl.videoHeight;
@@ -91,56 +131,23 @@ const workflowFileManagerVideo = {
                 canvas.toBlob((thumbBlob) => {
                     settled = true; cleanup();
                     if (!thumbBlob) { reject(new Error('[_extractVideoThumbAndMeta] canvas.toBlob trả về null')); return; }
-                    resolve({ thumbBlob, width, height, duration: videoEl.duration || 0 });
+                    resolve({ thumbBlob, thumbFullBlob, width, height, duration: videoEl.duration || 0 });
                 }, 'image/jpeg', 0.85);
-            }, { once: true });
+            }
 
             videoEl.addEventListener('error', () => cleanupAndReject(new Error('[_extractVideoThumbAndMeta] không đọc được video')), { once: true });
             videoEl.src = objectUrl;
         });
     },
 
-    /** MỚI (ver12 "Song/Video Unification", Batch 5, mục 6c) — chạy mediainfo.js (WASM, CDN unpkg,
-     * global `MediaInfo`, xem index.html) phân tích 1 file video, trả format/codec/fps/bitrate cho
-     * tab "Chi tiết" (đọc-chỉ). CÙNG lý do đặt ở Workflow (không phải core) như
-     * `_extractVideoThumbAndMeta()` ngay trên: thư viện ngoài + đọc Blob theo chunk, core không
-     * được đụng theo Rule 1-4. KHÔNG throw — trả object RỖNG nếu lỗi/CDN chưa tải kịp, để 1 file
-     * lỗi phân tích KHÔNG chặn cả lô upload (đúng tinh thần try/catch quanh
-     * `_extractVideoThumbAndMeta()` ở `uploadVideos()` ngay dưới — mediainfo chỉ là dữ liệu PHỤ,
-     * không có cũng không sao, khác hẳn thumbnail/duration là BẮT BUỘC).
-     * @param {Blob} blob - blob video GỐC.
-     * @returns {Promise<{codec: string, fps: string, bitrate: number, audioCodec: string, audioBitrate: number}>}
-     */
-    async _extractVideoMediaInfo(blob) {
-        if (typeof MediaInfo === 'undefined') return {}; // guard: CDN lỗi mạng/chưa tải kịp — không chặn upload
-        let mediainfo;
-        try {
-            mediainfo = await MediaInfo.default({ format: 'object', coverData: false });
-            const readChunk = (chunkSize, offset) => blob.slice(offset, offset + chunkSize).arrayBuffer().then((buf) => new Uint8Array(buf));
-            const result = await mediainfo.analyzeData(blob.size, readChunk);
-            const tracks = (result && result.media && result.media.track) || [];
-            const generalTrack = tracks.find((tr) => tr['@type'] === 'General') || {};
-            const videoTrack = tracks.find((tr) => tr['@type'] === 'Video') || {};
-            const audioTrack = tracks.find((tr) => tr['@type'] === 'Audio') || {};
-            return {
-                codec: videoTrack.Format || videoTrack.CodecID || '',
-                fps: videoTrack.FrameRate || generalTrack.FrameRate || '',
-                bitrate: Number(videoTrack.BitRate || generalTrack.OverallBitRate || 0) || 0,
-                audioCodec: audioTrack.Format || audioTrack.CodecID || '',
-                audioBitrate: Number(audioTrack.BitRate || 0) || 0,
-            };
-        } catch (err) {
-            console.error('[_extractVideoMediaInfo] mediainfo.js phân tích thất bại:', err);
-            return {};
-        } finally {
-            if (mediainfo) mediainfo.close();
-        }
-    },
-
     /** Ứng với 'playlist.upload.videoFileChange' (Batch 6, mục 7 — trước đây
      * 'fileManagerVideo.upload.change', gọi từ panel đã xoá). Lỗi 1 file (vd file hỏng) KHÔNG chặn
      * cả lô upload — bắt riêng, bỏ qua đúng file đó, tiếp tục file sau (Rule 1: vẫn 1 tiến trình
      * "upload cả lô").
+     * XOÁ (29/07/2026, yêu cầu Giang mục 1/2) — bỏ hẳn bước `_extractVideoMediaInfo()` (mediainfo.js
+     * WASM) — tab "Chi tiết" không còn hiển thị codec/fps/bitrate/audioCodec/audioBitrate nữa nên
+     * không cần phân tích các field này lúc upload. `_extractVideoThumbAndMeta()` giờ trả THÊM
+     * `thumbFullBlob` (full-res, frame 1) — truyền thẳng vào `saveVideo()`.
      * @param {FileList|File[]} files
      */
     async uploadVideos(files) {
@@ -151,13 +158,8 @@ const workflowFileManagerVideo = {
         await withLoadingShield(t('common.loading.savingInfo'), async () => {
             for (const file of fileArray) {
                 try {
-                    const { thumbBlob, width, height, duration } = await this._extractVideoThumbAndMeta(file);
-                    // MỚI (Batch 5, mục 6c) — mediaInfo là dữ liệu PHỤ (KHÔNG throw nếu lỗi, xem
-                    // docstring _extractVideoMediaInfo()) nên gọi TÁCH RIÊNG try/catch của bước
-                    // trên — 1 file lỗi phân tích mediainfo vẫn upload bình thường, chỉ thiếu
-                    // codec/fps/bitrate ở tab Chi tiết.
-                    const mediaInfo = await this._extractVideoMediaInfo(file);
-                    await saveVideo(file, file.name, thumbBlob, width, height, duration, mediaInfo); // core/file-manager/video.js
+                    const { thumbBlob, thumbFullBlob, width, height, duration } = await this._extractVideoThumbAndMeta(file);
+                    await saveVideo(file, file.name, thumbBlob, width, height, duration, thumbFullBlob); // core/file-manager/video.js
                 } catch (err) {
                     console.error(`[uploadVideos] chụp thumbnail/lưu thất bại cho file "${file.name}":`, err);
                     failedCount++;
