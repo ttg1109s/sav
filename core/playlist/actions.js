@@ -196,7 +196,7 @@
             }
 
             const switchScreen = !options || options.switchScreen !== false;
-            if (key === appState.get('currentKey')) { if (switchScreen) switchToVisualizer(); if (audioPlayer.paused) audioPlayer.play(); return; }
+            if (key === appState.get('currentKey')) { if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated(); if (audioPlayer.paused) audioPlayer.play(); return; }
             requestWakeLock();
 
             // display=false: chuyển bài chạy logic trong shield (khoá chồng lệnh) nhưng KHÔNG hiện
@@ -270,7 +270,13 @@
 
                 bumpSongPlayCount(key); // +1 số lần nghe ngay khi bắt đầu phát bài mới
 
-                audioPlayer.play(); if (switchScreen) switchToVisualizer();
+                // SỬA (phản hồi Giang 29/07/2026, mục 2 — "next/prev... phải scroll tới nhưng có
+                // hiệu ứng cuộn") — nhánh switchScreen=false (Next/Prev vật lý) giờ gọi
+                // scrollToCurrentKeyAnimated() (core/playlist/render.js) THAY vì không làm gì cả —
+                // hàm đó tự no-op nếu Playlist đang ẩn (đứng ở Visualizer), chỉ thật sự cuộn khi
+                // Playlist đang hiển thị (vd bấm Next/Prev từ thanh player mini trong lúc đang
+                // xem Playlist).
+                audioPlayer.play(); if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated();
                 if (previousKey) refreshSongNode(previousKey);
                 refreshSongNode(key);
                 if (!appState.get('domNodesByKey').has(key)) renderPlaylistDiff();

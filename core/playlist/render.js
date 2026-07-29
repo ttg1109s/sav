@@ -307,6 +307,54 @@
             node.scrollIntoView({ block: 'center' });
         }
 
+        /** MỚI (phản hồi Giang 29/07/2026, mục 2 — "next/prev... phải scroll tới nhưng có hiệu
+         * ứng cuộn, thời gian tính theo độ dài playlist chứ không hard-code") — cuộn CÓ ANIMATION,
+         * dùng lúc Playlist ĐANG HIỂN THỊ SẴN ngay lúc Next/Prev đổi bài (nhảy tức thì lúc đang
+         * nhìn thẳng vào danh sách sẽ giật mắt — khác hẳn scrollToCurrentKeyInstant() ở trên, hàm
+         * đó CỐ Ý tức thì vì luôn chạy lúc Playlist còn đang ẩn/dịch ra ngoài khung nhìn).
+         * KHÔNG dùng `node.scrollIntoView({behavior:'smooth'})` — browser tự quyết định thời
+         * lượng animation, KHÔNG tỉ lệ theo khoảng cách thật cần cuộn (playlist càng dài/vị trí
+         * bài đang phát càng xa vị trí cuộn hiện tại thì càng thấy "bay" nhanh giật cục hoặc
+         * "lết" chậm bất nhất, tuỳ browser). Tự đo khoảng cách thật (scrollTop đích - scrollTop
+         * hiện tại) rồi suy ra thời lượng TỈ LỆ THUẬN khoảng cách đó (tốc độ cuộn px/ms CỐ ĐỊNH —
+         * playlist dài/cuộn xa chạy lâu hơn tương ứng, playlist ngắn/cuộn gần chạy nhanh hơn tương
+         * ứng, cảm giác tốc độ luôn nhất quán bất kể độ dài danh sách), clamp lại 2 đầu (200ms-
+         * 800ms) để không quá giật (quá ngắn) hay quá ì (quá dài) ở 2 thái cực.
+         * CHỈ chạy khi Playlist ĐANG hiển thị (`#app-stack` KHÔNG có class 'playlist-hidden') —
+         * đang ở Visualizer thì không có gì để cuộn NGAY, xem scrollToCurrentKeyInstant() lo lúc
+         * quay lại. Gọi từ core/playlist/actions.js (Song) + event/router/video-player.js (Video),
+         * ĐÚNG nhánh switchScreen===false (Next/Prev, KHÔNG phải bấm tay 1 dòng trong Playlist —
+         * bấm tay đã switchToVisualizer() luôn, không cần cuộn gì thêm). */
+        function scrollToCurrentKeyAnimated() {
+            if (appStack.classList.contains('playlist-hidden')) return; // đang ở Visualizer -> không cuộn gì cả
+            const key = appState.get('currentKey');
+            if (!key) return;
+            const node = appState.get('domNodesByKey').get(key);
+            if (!node || !node.isConnected) return;
+
+            const scrollEl = playlistContainer.parentElement; // div bọc ngoài "overflow-y-auto" thật sự cuộn (components/playlist-view.js) — #playlist-container chỉ chứa nội dung, không tự cuộn
+            const containerRect = scrollEl.getBoundingClientRect();
+            const nodeRect = node.getBoundingClientRect();
+            const nodeOffsetTop = (nodeRect.top - containerRect.top) + scrollEl.scrollTop;
+            const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+            const targetScrollTop = Math.max(0, Math.min(maxScroll, nodeOffsetTop - (scrollEl.clientHeight / 2) + (nodeRect.height / 2)));
+
+            const startScrollTop = scrollEl.scrollTop;
+            const distance = targetScrollTop - startScrollTop;
+            if (Math.abs(distance) < 1) return; // đã sẵn đúng vị trí -> khỏi animate
+
+            const PX_PER_MS = 2.2; // tốc độ cuộn cố định -> thời lượng tự tỉ lệ theo khoảng cách thật, KHÔNG hard-code 1 mốc chung cho mọi độ dài playlist
+            const duration = Math.max(200, Math.min(800, Math.abs(distance) / PX_PER_MS));
+            const startTime = performance.now();
+            function step(now) {
+                const t = Math.min(1, (now - startTime) / duration);
+                const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // ease-in-out-quad
+                scrollEl.scrollTop = startScrollTop + distance * eased;
+                if (t < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+        }
+
         /** Ô tìm kiếm thay đổi: CHỈ lọc lại danh sách hiển thị (renderOrder) — KHÔNG đụng hàng đợi phát. */
         function applySearchQuery(raw) {
             appState.set('searchQuery', normalizeSongName(raw));
