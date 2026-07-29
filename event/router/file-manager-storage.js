@@ -58,6 +58,14 @@ const routerFileManagerStorage = (() => {
                 break;
             }
 
+            // MỚI (29/07/2026, yêu cầu Giang mục 2) — ấn vào 1 đoạn thanh dung lượng -> hiện số
+            // byte thật của ĐÚNG đoạn đó (alertModal, xem showSegmentBytes()) — hành động THUẦN
+            // đọc, không đụng state gì của router này.
+            case 'fileManagerStorage.storageBarSegment.click': {
+                workflowFileManagerStorage.showSegmentBytes(msg.payload);
+                break;
+            }
+
             // ===================== Delete & Backup — 4 nguồn độc lập + 2 toggle hành động =====
 
             case 'fileManagerStorage.sourceToggle.change': {
