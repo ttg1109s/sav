@@ -202,6 +202,13 @@ const workflowFileManagerVideo = {
      * 1 lần chạy thành công cho từng video, những lần boot SAU chỉ còn quét qua rồi bỏ qua tất cả.
      * 1 video lỗi (hiếm — file hỏng, không đọc được) KHÔNG chặn các video còn lại (cùng tinh thần
      * "1 file lỗi không chặn cả lô" của `uploadVideos()`).
+     *
+     * MỚI (phản hồi Giang — "có alertModal") — báo kết quả qua `alertModal()` SAU KHI xong, NHƯNG
+     * CHỈ khi thực sự có việc để báo (`filled > 0 || failed > 0`) — những lần boot SAU (mọi video
+     * đã đủ `thumbFullBlob` từ lần chạy trước) sẽ KHÔNG hiện gì cả, tránh làm phiền lặp lại vô hạn
+     * mỗi lần mở app dù chẳng còn video nào cần xử lý. Chạy KHÔNG `await` từ boot() (xem đó) nên
+     * alertModal() ở đây có thể bật lên VÀO BẤT KỲ lúc nào sau khi app đã tương tác được — chấp
+     * nhận được vì đây vốn là việc "báo 1 lần xong hẳn", không phải tình huống cần chặn thao tác gì.
      */
     async backfillMissingVideoThumbFull() {
         const keys = await getAllVideoKeys(); // service/db.js
@@ -219,8 +226,14 @@ const workflowFileManagerVideo = {
                 failed++;
             }
         }
-        if (filled > 0 || failed > 0) {
-            console.log(`[backfillMissingVideoThumbFull] xong — đã bổ sung ${filled} video, lỗi ${failed} video.`);
+        if (filled === 0 && failed === 0) return; // KHÔNG có gì để báo — im lặng hoàn toàn, kể cả console.log
+        console.log(`[backfillMissingVideoThumbFull] xong — đã bổ sung ${filled} video, lỗi ${failed} video.`);
+        if (filled > 0 && failed === 0) {
+            await alertModal(tFormat('fileManager.video.thumbFullBackfillDone', { count: filled }));
+        } else if (filled > 0 && failed > 0) {
+            await alertModal(tFormat('fileManager.video.thumbFullBackfillPartial', { count: filled, failedCount: failed }));
+        } else {
+            await alertModal(tFormat('fileManager.video.thumbFullBackfillFailed', { failedCount: failed }));
         }
     },
 
