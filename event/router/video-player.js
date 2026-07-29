@@ -31,13 +31,28 @@ const routerVideoPlayer = (() => {
     function handle(msg) {
         switch (msg.type) {
             case 'videoPlayer.startFromPlaylist.click': {
-                const { key } = msg.payload;
+                // SỬA (fix router video, phản hồi Giang 29/07/2026, "về visualizer không hoạt
+                // động") — `switchScreen` (MỚI, core/playlist/actions.js gửi kèm, mặc định `true`
+                // nếu không có trong payload — giữ tương thích ngược cho bất kỳ caller cũ nào lỡ
+                // chưa gửi field này) giờ là thứ QUYẾT ĐỊNH có switchToVisualizer() hay không —
+                // TÁCH HẲN khỏi việc chọn playVideoByKey() hay startFromPlaylist() (việc đó VẪN
+                // chỉ dựa isVideoPlayerMode như cũ, đúng ý nghĩa "gọi hàm nào"). 2 nhánh dưới đây
+                // độc lập với nhau: "đã ở mode hay chưa" (chọn hàm) và "có cần chuyển màn hình
+                // không" (switchScreen) — TRƯỚC ĐÂY 2 khái niệm này bị gộp làm 1 (nhánh "đã ở
+                // mode" không bao giờ switchToVisualizer(), đúng cho Next/Prev vật lý nhưng sai
+                // khi bấm lại video đang phát TỪ màn Playlist — mode vẫn true do video chạy nền).
+                const { key, switchScreen = true } = msg.payload;
                 VirtualMachineState.run([
                     { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
-                        workflowVideoPlayer.playVideoByKey(key); // đã ở Video Player mode (vd Next/Prev/shuffle vừa gọi lại msg này) -> CHỈ đổi video, KHÔNG lặp lại bước "vào mode"
+                        // Đã ở Video Player mode (Next/Prev/shuffle, hoặc bấm lại video đang phát
+                        // từ Playlist) -> CHỈ đổi video, KHÔNG lặp lại bước "vào mode" — nhưng vẫn
+                        // switchToVisualizer() nếu switchScreen=true (Next/Prev vật lý truyền
+                        // false vì đã đứng sẵn ở Visualizer, gọi lại vô hại nhưng thừa).
+                        workflowVideoPlayer.playVideoByKey(key);
+                        if (switchScreen) switchToVisualizer();
                     } },
                     { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
-                        workflowVideoPlayer.startFromPlaylist(key); // CHƯA ở mode -> vào mode đầy đủ (>1 hàm core nối tiếp: đọc DB + mutate state + điều khiển nhiều element) -> workflow
+                        workflowVideoPlayer.startFromPlaylist(key); // CHƯA ở mode -> vào mode đầy đủ (>1 hàm core nối tiếp: đọc DB + mutate state + điều khiển nhiều element) -> workflow, TỰ switchToVisualizer() bên trong (giữ nguyên, không đổi)
                     } },
                 ]);
                 break;
