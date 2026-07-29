@@ -37,19 +37,25 @@ const workflowFileManagerSong = {
         if (!fileManagerSongPanelEl) return; // panel đã đóng — an toàn bỏ qua
 
         // MỚI (Batch 5, mục 6a) — Workflow tự gọi computeStats()/computeVideoStats() (2 core khác
-        // nhau, chạy song song) RỒI truyền kết quả vào render — renderStorageStats()/
-        // renderVideoStorageStats() giờ THUẦN nhận tham số, không tự gọi core nào (Rule 2/3, tự
-        // sửa cùng lúc phát hiện core-gọi-core cũ ở renderStorageStats()).
+        // nhau, chạy song song) RỒI truyền kết quả vào render — renderStorageStats() giờ THUẦN
+        // nhận tham số, không tự gọi core nào (Rule 2/3, tự sửa cùng lúc phát hiện core-gọi-core cũ
+        // ở renderStorageStats()).
         const [songStats, videoStats] = await Promise.all([computeStats(), computeVideoStats()]); // core/about-stats.js, core/file-manager/video.js
+        // SỬA (phản hồi Giang, mục 1 — "UI dung lượng như Settings mobile OS") —
+        // renderStorageStats()/renderVideoStorageStats() cũ ĐÃ GỘP làm 1 (core/storage-manager.js),
+        // nhận CẢ 2 stats CÙNG LÚC (cần cả 2 để tính % thanh chia đoạn) + object els gom hết phần
+        // tử DOM liên quan (thay vì truyền rời từng tham số như trước).
         renderStorageStats( // core có sẵn (core/storage-manager.js)
-            songStats,
-            fileManagerSongPanelEl.querySelector('#stat-storage-total-songs'),
-            fileManagerSongPanelEl.querySelector('#stat-storage-total-bytes')
-        );
-        renderVideoStorageStats( // core có sẵn (core/storage-manager.js)
-            videoStats,
-            fileManagerSongPanelEl.querySelector('#stat-storage-total-videos'),
-            fileManagerSongPanelEl.querySelector('#stat-storage-total-video-bytes')
+            songStats, videoStats,
+            {
+                totalBytesEl: fileManagerSongPanelEl.querySelector('#stat-storage-total-bytes'),
+                barSongsEl: fileManagerSongPanelEl.querySelector('#stat-storage-bar-songs'),
+                barVideosEl: fileManagerSongPanelEl.querySelector('#stat-storage-bar-videos'),
+                songBytesEl: fileManagerSongPanelEl.querySelector('#stat-storage-song-bytes'),
+                videoBytesEl: fileManagerSongPanelEl.querySelector('#stat-storage-video-bytes'),
+                totalSongsEl: fileManagerSongPanelEl.querySelector('#stat-storage-total-songs'),
+                totalVideosEl: fileManagerSongPanelEl.querySelector('#stat-storage-total-videos'),
+            }
         );
         resetScanResultUI( // core có sẵn (core/storage-manager.js)
             fileManagerSongPanelEl.querySelector('#storage-scan-result'),
@@ -103,14 +109,16 @@ const workflowFileManagerSong = {
                 );
                 const [songStats, videoStats] = await Promise.all([computeStats(), computeVideoStats()]); // core/about-stats.js, core/file-manager/video.js
                 renderStorageStats(
-                    songStats,
-                    fileManagerSongPanelEl.querySelector('#stat-storage-total-songs'),
-                    fileManagerSongPanelEl.querySelector('#stat-storage-total-bytes')
-                );
-                renderVideoStorageStats(
-                    videoStats,
-                    fileManagerSongPanelEl.querySelector('#stat-storage-total-videos'),
-                    fileManagerSongPanelEl.querySelector('#stat-storage-total-video-bytes')
+                    songStats, videoStats,
+                    {
+                        totalBytesEl: fileManagerSongPanelEl.querySelector('#stat-storage-total-bytes'),
+                        barSongsEl: fileManagerSongPanelEl.querySelector('#stat-storage-bar-songs'),
+                        barVideosEl: fileManagerSongPanelEl.querySelector('#stat-storage-bar-videos'),
+                        songBytesEl: fileManagerSongPanelEl.querySelector('#stat-storage-song-bytes'),
+                        videoBytesEl: fileManagerSongPanelEl.querySelector('#stat-storage-video-bytes'),
+                        totalSongsEl: fileManagerSongPanelEl.querySelector('#stat-storage-total-songs'),
+                        totalVideosEl: fileManagerSongPanelEl.querySelector('#stat-storage-total-videos'),
+                    }
                 );
             }
         });

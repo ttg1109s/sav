@@ -115,17 +115,31 @@ const workflowVideoPlayer = {
         if (this._objectUrl) { try { URL.revokeObjectURL(this._objectUrl); } catch (e) {} }
         this._objectUrl = URL.createObjectURL(record.blob);
 
-        // SỬA (21/07/2026, đợt so sánh 2 luồng — Giang yêu cầu) — mirror ĐÚNG `setupVideoBgSource()`
-        // (core/state-and-video-bg.js, luồng bg video THAM CHIẾU): ẩn TRƯỚC (opacity=0) tránh chớp
-        // khung hình cũ/đen, gán `src`, RỒI chờ 'loadeddata'/'playing' (bất kỳ cái nào bắn trước,
-        // {once:true} tự gỡ) mới fade hiện — KHÁC bản trước set opacity=1 NGAY LẬP TỨC (từ
-        // `setBgVideoElementForPlayerMode()`, giờ đã bỏ hẳn phần opacity ở đó, xem core/video-
-        // player.js) khi khung hình THẬT chưa chắc đã sẵn sàng.
-        bgVideoElement.style.opacity = '0';
+        // SỬA (fix "chớp/nháy đen khi chuyển video", phản hồi Giang mục 2) — bản trước ẩn hẳn
+        // (opacity:0) rồi CHỜ 'loadeddata'/'playing' mới fade hiện lại, đúng ý đồ "tránh lộ khung
+        // hình cũ/rác" — nhưng CHÍNH khoảng chờ đó (đổi `src` LUÔN reset readyState về HAVE_NOTHING
+        // — browser xoá sạch khung hình đang hiện NGAY LẬP TỨC bất kể opacity) lại là thứ gây ra
+        // "nháy đen": `bgVideoElement` trong suốt (opacity:0) trong lúc video mới còn đang tải/giải
+        // mã, để lộ `#visualizer-solid-bg` (nền đen cưỡng chế, z-index -3) phía sau xuyên qua toàn
+        // bộ khoảng chờ đó + thêm 0.5s CSS transition khi fade lại — cộng dồn thành 1 khoảng đen rõ
+        // rệt, nhất là Next/Prev liên tục.
+        // FIX THẬT: dùng thuộc tính `poster` GỐC của HTML5 <video> — trình duyệt TỰ hiện ảnh này
+        // ngay khi phần tử không có khung hình thật để vẽ (đúng lúc readyState vừa reset do đổi
+        // src), và TỰ nhường chỗ cho khung hình thật ngay khi có, KHÔNG cần JS can thiệp gì thêm.
+        // Dùng CHÍNH `record.thumbBlob` (đã có sẵn, tạo 1 lần, DÙNG CHUNG cho cả poster LẪN ảnh
+        // #record-art bên dưới — bỏ hẳn việc tạo object URL trùng lặp của bản trước) làm poster —
+        // thay vì "nháy đen", giờ là "chuyển thẳng sang đúng thumbnail của video sắp phát" (giống
+        // cách hầu hết trình phát video làm lúc đang tải). Giữ `bgVideoElement` LUÔN opacity:1
+        // (KHÔNG còn ẩn/chờ) — CSS `transition: opacity 0.5s` (#bg-video, style.css) vẫn còn đó,
+        // chỉ còn tác dụng cho ĐÚNG 1 lần fade-in lúc MỚI VÀO Video Player mode (opacity đang là 0
+        // từ trạng thái tắt trước đó, xem setBgVideoElementForPlayerMode()) — lúc CHUYỂN GIỮA các
+        // video (opacity đã sẵn là 1 từ trước) thì set lại '1' vô hại (không đổi giá trị, không
+        // trigger transition nào, không có gì để fade).
+        if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} }
+        this._thumbObjectUrl = URL.createObjectURL(record.thumbBlob);
+        bgVideoElement.poster = this._thumbObjectUrl;
+        bgVideoElement.style.opacity = '1';
         bgVideoElement.src = this._objectUrl;
-        const fadeVideoIn = () => { bgVideoElement.style.opacity = '1'; };
-        bgVideoElement.addEventListener('loadeddata', fadeVideoIn, { once: true });
-        bgVideoElement.addEventListener('playing', fadeVideoIn, { once: true });
 
         // MỚI (ver12 "Song/Video Unification", Batch 2, Giang chốt) — ghi `currentKey` (package
         // `playlist`, DÙNG CHUNG với Song, THAY hẳn `currentVideoKey` riêng đã xoá) — ĐÂY là điểm
@@ -170,8 +184,9 @@ const workflowVideoPlayer = {
         // `bgVideoElement.play()` ngay dưới), lớp `.paused` (nếu cần) do `handleVideoPlayState()`/
         // `handleVideoPauseState()` tự toggle sau, cùng cách Song đang làm (core/player-
         // controls.js, KHÔNG đụng).
-        if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} }
-        this._thumbObjectUrl = URL.createObjectURL(record.thumbBlob);
+        // SỬA (fix mục 2, cùng đợt) — TÁI DÙNG `this._thumbObjectUrl` vừa tạo ở trên (poster) thay
+        // vì tạo + revoke thêm 1 object URL riêng cho cùng 1 Blob — KHÔNG đổi gì về kết quả hiển
+        // thị, chỉ đỡ tốn 1 object URL dư thừa mỗi lần chuyển video.
         recordContainer.innerHTML = `<img id="record-art" src="${this._thumbObjectUrl}" class="w-full h-full rounded-full object-cover shadow-lg relative z-20 animate-spin-slow" alt="${t('videoPlayer.untitled')}"><div class="absolute inset-0 m-auto w-3 h-3 bg-slate-900 rounded-full border border-slate-700 z-30"></div>`;
 
         requestWakeLock(); // core/player-controls.js — cùng khuôn playNext()/playPrev()/togglePlayPause() của Song

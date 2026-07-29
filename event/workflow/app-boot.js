@@ -59,6 +59,11 @@ const workflowAppBoot = {
         // đúng bug ở mục 7 dưới đây).
         if (typeof workflowPlaylist !== 'undefined') await workflowPlaylist.loadPersistedPlaylistConfigOnBoot();
 
+        // MỚI (phản hồi Giang, mục 3 "thêm nhớ trạng thái shuffle/repeat/stats") — khôi phục 3
+        // icon toggle Control Center đã lưu bền — CÙNG NHÓM "khôi phục config đã lưu bền lúc boot"
+        // với dòng playlist ngay trên, không phụ thuộc thứ tự với nhau (2 domain độc lập).
+        if (typeof workflowPlayerControls !== 'undefined') await workflowPlayerControls.loadPersistedPlayerConfigOnBoot();
+
         // SỬA (fix bug "folder Video Apply -> Playlist trống", phản hồi Giang mục 7) — TRƯỚC ĐÂY
         // LUÔN initPlaylistFromDB() (chỉ nạp Song) bất kể activeMediaSource là gì, khiến
         // applyFolderScope() bên dưới so sánh key Video với 1 playlistCache toàn Song -> luôn lọc
