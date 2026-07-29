@@ -17,14 +17,10 @@
                 activeBackgroundAlbum: 'nullable-string', // albumId đang dùng làm nền slideshow, null = không dùng
                 pageCurrentFolderDetailSongList: 'number',   // trang ĐANG xem của danh sách item BÊN TRONG 1 folder (Folder Browser Read, event/workflow/file-manager-folder-browser.js)
                 pageCurrentDocumentList: 'number',           // trang ĐANG xem của danh sách tài liệu Documents
-                // MỚI (29/07/2026, yêu cầu Giang — "Scan khi không bật nguồn nào thì bị block") —
-                // gương lại (mirror) trạng thái "có ít nhất 1/4 toggle nguồn (song/video/photo/
-                // document) đang bật" từ closure `storageSources` (event/router/file-manager-
-                // storage.js — vẫn sống ở đó, KHÔNG dời hẳn vào appState) — CHỈ field NÀY cần lên
-                // appState vì Block gate (event/block.js) BẮT BUỘC đọc điều kiện qua appState (xem
-                // event/bus.js::resolveFieldPath()), không đọc được closure của router. Router tự
-                // `appState.set()` lại đúng field này mỗi khi 1 trong 4 toggle nguồn đổi.
-                storageAnySourceEnabled: 'boolean',
+                // XOÁ (29/07/2026, yêu cầu Giang) — storageAnySourceEnabled (từng phục vụ Block gate
+                // chặn "Quét file lỗi khi chưa chọn nguồn nào") ĐÃ BỎ — nhánh quét giờ tự hỏi phạm
+                // vi qua modalChoice()+dropdown riêng (event/workflow/file-manager-storage.js::
+                // askScanBrokenScope()), không còn tình huống "rỗng" cần chặn nữa.
             },
             buildDefaults() {
                 return {
@@ -35,7 +31,6 @@
                     activeBackgroundAlbum: null,
                     pageCurrentFolderDetailSongList: 0,
                     pageCurrentDocumentList: 0,
-                    storageAnySourceEnabled: false,
                 };
             },
         });
