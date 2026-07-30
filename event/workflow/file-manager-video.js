@@ -77,14 +77,26 @@ const workflowFileManagerVideo = {
      * riêng như cũ, dùng chỗ khác nếu cần tỉ lệ thật (đúng plan mục 4).
      *
      * MỚI (29/07/2026, yêu cầu Giang mục 2 — "thêm thumbnail blob full RESOLUTION tại frame 1") —
-     * ĐỒNG THỜI chụp THÊM `thumbFullBlob`: khung hình ĐẦU TIÊN (time=0, "frame 1") ở ĐÚNG kích
-     * thước GỐC (KHÔNG center-crop vuông, KHÔNG resize) — TÁCH RIÊNG HẲN với `thumbBlob` phía trên
-     * (vuông, chụp ở giây `min(1, duration/2)`, dùng cho lưới/cover) — KHÔNG thay thế bất cứ phần
-     * nào của luồng cũ, chỉ thêm 1 field mới. Thứ tự: seek về 0 trước (chụp full-res) RỒI seek tiếp
-     * sang mốc cũ (chụp thumb vuông) — 2 bước `seeked` NỐI TIẾP trên CÙNG 1 `<video>`, không tạo
-     * thêm phần tử nào khác. `thumbFullBlob` là field PHỤ (`null` nếu `canvas.toBlob()` hiếm khi
-     * lỗi) — KHÔNG chặn toàn bộ Promise nếu bước này thất bại, khác `thumbBlob`/`width`/`height`/
-     * `duration` vẫn là BẮT BUỘC như cũ.
+     * ĐỒNG THỜI chụp THÊM `thumbFullBlob`: khung hình ĐẦU VIDEO ở ĐÚNG kích thước GỐC (KHÔNG
+     * center-crop vuông, KHÔNG resize) — TÁCH RIÊNG HẲN với `thumbBlob` phía trên (vuông, chụp ở
+     * giây `min(1, duration/2)`, dùng cho lưới/cover) — KHÔNG thay thế bất cứ phần nào của luồng cũ,
+     * chỉ thêm 1 field mới.
+     *
+     * SỬA (30/07/2026, phản hồi Giang — "có tồn tại ảnh full res nhưng đen xì, frame đầu phải khớp
+     * đầu video, đừng để duration/2") — bản đầu chụp thumbFullBlob bằng `currentTime = 0` + đợi 1
+     * mình sự kiện `seeked` — KHÔNG đủ chắc: nhiều engine/thiết bị không bắn `seeked` đáng tin cậy
+     * ngay tại time=0 (video chưa từng seek lần nào), khiến canvas vẽ ra khung TRẮNG/ĐEN của
+     * `<video>` chưa kịp có dữ liệu thật, chứ KHÔNG PHẢI nội dung thật của video tại đó — ĐÚNG kỹ
+     * thuật đã dùng ở `event/workflow/video-editor.js::_onMetadataReady()` (vẽ khung đầu tiên,
+     * cùng vấn đề): nghe CẢ 3 sự kiện (`loadeddata`/`canplay`/`seeked`, cái nào tới trước chụp
+     * trước, chụp thêm lần cũng vô hại nhờ cờ `fullFrameCaptured`) + ép trình duyệt SEEK THẬT bằng
+     * cách gán `currentTime = 0.0001` RỒI `= 0` ngay sau (một số engine bỏ qua yêu cầu seek nếu
+     * `currentTime` đang SẴN LÀ giá trị đích) + vẽ NGAY nếu khung hình đã sẵn có
+     * (`readyState >= 2`, HAVE_CURRENT_DATA — phòng cả 3 sự kiện trên đã bắn TRƯỚC khi kịp đăng ký).
+     * Thứ tự: chụp full-res ĐÚNG khung đầu TRƯỚC, RỒI mới seek tiếp sang mốc cũ (chụp thumb vuông) —
+     * vẫn CHỈ 1 `<video>` duy nhất, không tạo thêm phần tử nào khác. `thumbFullBlob` là field PHỤ
+     * (`null` nếu `canvas.toBlob()` hiếm khi lỗi) — KHÔNG chặn toàn bộ Promise nếu bước này thất
+     * bại, khác `thumbBlob`/`width`/`height`/`duration` vẫn là BẮT BUỘC như cũ.
      * @param {File} file
      * @returns {Promise<{thumbBlob: Blob, thumbFullBlob: (Blob|null), width: number, height: number, duration: number}>}
      */
@@ -95,25 +107,20 @@ const workflowFileManagerVideo = {
             videoEl.muted = true;
             videoEl.playsInline = true;
             let settled = false;
-            let thumbFullBlob = null; // MỚI — full-res frame 1, gán ở bước seek ĐẦU (trước thumb vuông)
+            let thumbFullBlob = null; // gán ở bước chụp full-res ĐẦU (trước thumb vuông)
+            let fullFrameCaptured = false; // chặn chụp full-res quá 1 lần (3 sự kiện CÙNG nghe, xem docstring)
             const cleanup = () => { try { URL.revokeObjectURL(objectUrl); } catch (e) {} };
             const cleanupAndReject = (err) => { if (settled) return; settled = true; cleanup(); reject(err); };
             const safetyTimeout = taskManager.once(() => cleanupAndReject(new Error('[_extractVideoThumbAndMeta] timeout đọc video')), 8000);
 
-            videoEl.addEventListener('loadedmetadata', () => {
-                const width = videoEl.videoWidth, height = videoEl.videoHeight;
-                if (!width || !height) { cleanupAndReject(new Error('[_extractVideoThumbAndMeta] video không có kích thước hợp lệ')); return; }
-                videoEl.currentTime = 0; // Bước 1/2 — seek về frame 1 TRƯỚC (chụp full-res)
-            }, { once: true });
-
-            // Bước seek 1/2 — time=0 ("frame 1"), chụp thumbFullBlob FULL RESOLUTION (không crop/
-            // resize). QUAN TRỌNG: listener bước 2/2 (onSquareThumbSeeked) chỉ được `addEventListener`
-            // BÊN TRONG callback này (ngay trước khi seek tiếp) — KHÔNG đăng ký sẵn cùng lúc với bước
-            // 1 ngay từ đầu, nếu không cả 2 listener sẽ CÙNG khớp đúng sự kiện 'seeked' ĐẦU TIÊN (lúc
-            // time vừa về 0), khiến thumb vuông vô tình chụp nhầm frame 1 thay vì mốc `min(1,
-            // duration/2)` như thiết kế.
-            videoEl.addEventListener('seeked', function onFrameOneSeeked() {
-                if (settled) return;
+            // Bước 1/2 — chụp full-res ĐÚNG khung đầu video thật (CÙNG kỹ thuật event/workflow/
+            // video-editor.js::_onMetadataReady(), xem docstring trên vì sao cần robust hơn 1 mình
+            // 'seeked'). QUAN TRỌNG: seek bước 2/2 (onSquareThumbSeeked) chỉ được đăng ký BÊN TRONG
+            // callback này (ngay trước khi seek tiếp) — không đăng ký sẵn từ đầu, tránh khớp nhầm
+            // đúng sự kiện 'seeked' của bước 1.
+            function captureFullResFrame() {
+                if (settled || fullFrameCaptured) return;
+                fullFrameCaptured = true;
                 const width = videoEl.videoWidth, height = videoEl.videoHeight;
                 const fullCanvas = document.createElement('canvas');
                 fullCanvas.width = width; fullCanvas.height = height;
@@ -124,6 +131,17 @@ const workflowFileManagerVideo = {
                     videoEl.addEventListener('seeked', onSquareThumbSeeked, { once: true }); // Bước 2/2 — đăng ký NGAY TRƯỚC lúc seek tiếp, không sớm hơn
                     videoEl.currentTime = Math.min(1, videoEl.duration / 2 || 0); // seek bước 2/2 — mốc cũ, cho thumb vuông
                 }, 'image/jpeg', 0.92);
+            }
+
+            videoEl.addEventListener('loadedmetadata', () => {
+                const width = videoEl.videoWidth, height = videoEl.videoHeight;
+                if (!width || !height) { cleanupAndReject(new Error('[_extractVideoThumbAndMeta] video không có kích thước hợp lệ')); return; }
+                videoEl.addEventListener('loadeddata', captureFullResFrame, { once: true });
+                videoEl.addEventListener('canplay', captureFullResFrame, { once: true });
+                videoEl.addEventListener('seeked', captureFullResFrame, { once: true });
+                videoEl.currentTime = 0.0001; // ép trình duyệt SEEK THẬT (một số engine bỏ qua nếu currentTime đã sẵn là 0)
+                videoEl.currentTime = 0; // rồi về ĐÚNG khung đầu tiên thật sự
+                if (videoEl.readyState >= 2) captureFullResFrame(); // đã có sẵn khung hình (HAVE_CURRENT_DATA) — chụp ngay, phòng 3 sự kiện trên đã bắn TRƯỚC khi kịp đăng ký
             }, { once: true });
 
             // Bước seek 2/2 — mốc cũ `min(1, duration/2)`, chụp thumbBlob VUÔNG (GIỮ NGUYÊN 100% như cũ).
@@ -154,23 +172,35 @@ const workflowFileManagerVideo = {
     // KHÁC bản backfill cũ đã xoá (chỉ vá video THIẾU field) — bản NÀY chụp lại + GHI ĐÈ
     // `thumbFullBlob` cho TOÀN BỘ video đang có trong DB, bất kể đã có field đó hay chưa.
 
-    /** Chụp khung hình ĐẦU TIÊN (time=0, "frame 1"), FULL RESOLUTION (không crop/resize) từ 1 Blob
-     * video BẤT KỲ — TÁCH RIÊNG khỏi `_extractVideoThumbAndMeta()` ở trên: hàm đó chạy lúc UPLOAD,
-     * cần tính CẢ thumbBlob vuông + width/height/duration cùng lúc; ở đây video ĐÃ CÓ SẴN trong DB
-     * (đã có đủ mọi field khác rồi) nên CHỈ cần đúng 1 việc — chụp lại `thumbFullBlob` — viết hàm
-     * riêng, gọn hơn, đúng Rule 1 (1 tiến trình rõ ràng, không gánh thêm việc không liên quan).
+    /** ĐỔI TÊN + SỬA LẦN 2 (30/07/2026, phản hồi Giang) — LẦN 1 (cùng ngày) từng đổi mốc seek từ
+     * `time=0` sang `min(1, duration/2)` để né khung đen ở giây đầu — Giang chỉ ra ĐÚNG: full-res
+     * PHẢI khớp với ĐẦU video thật (không phải giữa video, UX tệ hơn với video dài) — nguyên nhân
+     * đen KHÔNG PHẢI "giây đầu video là nội dung đen thật" mà là kỹ thuật seek KHÔNG đủ chắc (chỉ
+     * đợi 1 mình 'seeked' tại time=0 — nhiều engine/thiết bị không bắn sự kiện đó đáng tin cậy ngay
+     * lúc chưa từng seek lần nào). SỬA: dùng ĐÚNG kỹ thuật đã có sẵn + đã chứng minh hoạt động ở
+     * `event/workflow/video-editor.js::_onMetadataReady()` (vẽ khung đầu tiên, CÙNG vấn đề) — nghe
+     * CẢ 3 sự kiện (`loadeddata`/`canplay`/`seeked`) + ép seek THẬT bằng `currentTime = 0.0001` rồi
+     * `= 0` ngay sau + vẽ NGAY nếu đã sẵn khung hình (`readyState >= 2`) — xem
+     * `_extractVideoThumbAndMeta()` ở trên, ÁP DỤNG LẠI y hệt.
+     *
+     * Chụp khung ĐẦU video, FULL RESOLUTION (không crop/resize) từ 1 Blob video BẤT KỲ — TÁCH RIÊNG
+     * khỏi `_extractVideoThumbAndMeta()` ở trên: hàm đó chạy lúc UPLOAD, cần tính CẢ thumbBlob vuông
+     * + width/height/duration cùng lúc; ở đây video ĐÃ CÓ SẴN trong DB (đã có đủ mọi field khác
+     * rồi) nên CHỈ cần đúng 1 việc — chụp lại `thumbFullBlob` — viết hàm riêng, gọn hơn, đúng Rule
+     * 1 (1 tiến trình rõ ràng, không gánh thêm việc không liên quan).
      * KHÔNG throw — trả `null` nếu lỗi/timeout (field phụ, 1 video lỗi không được chặn cả lô, xem
      * `regenerateAllVideoThumbFull()` ngay dưới).
      * @param {Blob} blob - blob video GỐC (record.blob, service/db.js).
      * @returns {Promise<Blob|null>}
      */
-    _captureFullResFrame1(blob) {
+    _captureFullResThumbFrame(blob) {
         return new Promise((resolve) => {
             const objectUrl = URL.createObjectURL(blob);
             const videoEl = document.createElement('video');
             videoEl.muted = true;
             videoEl.playsInline = true;
             let settled = false;
+            let frameCaptured = false; // chặn chụp quá 1 lần (3 sự kiện CÙNG nghe, xem docstring)
             const finish = (result) => {
                 if (settled) return;
                 settled = true;
@@ -179,20 +209,29 @@ const workflowFileManagerVideo = {
             };
             const safetyTimeout = taskManager.once(() => finish(null), 8000);
 
-            videoEl.addEventListener('loadedmetadata', () => {
-                const width = videoEl.videoWidth, height = videoEl.videoHeight;
-                if (!width || !height) { finish(null); return; }
-                videoEl.currentTime = 0; // seek về frame 1 — sự kiện 'seeked' bên dưới mới thật sự chụp
-            }, { once: true });
-
-            videoEl.addEventListener('seeked', () => {
-                if (settled) return;
+            function captureFrame() {
+                if (settled || frameCaptured) return;
+                frameCaptured = true;
                 safetyTimeout.kill();
                 const width = videoEl.videoWidth, height = videoEl.videoHeight;
+                if (!width || !height) { finish(null); return; }
                 const canvas = document.createElement('canvas');
                 canvas.width = width; canvas.height = height;
                 canvas.getContext('2d').drawImage(videoEl, 0, 0, width, height);
                 canvas.toBlob((thumbFullBlob) => finish(thumbFullBlob || null), 'image/jpeg', 0.92);
+            }
+
+            videoEl.addEventListener('loadedmetadata', () => {
+                const width = videoEl.videoWidth, height = videoEl.videoHeight;
+                if (!width || !height) { finish(null); return; }
+                // CÙNG khuôn event/workflow/video-editor.js::_onMetadataReady() — 1 mình 'seeked'
+                // KHÔNG đủ chắc ở mọi trình duyệt/thiết bị.
+                videoEl.addEventListener('loadeddata', captureFrame, { once: true });
+                videoEl.addEventListener('canplay', captureFrame, { once: true });
+                videoEl.addEventListener('seeked', captureFrame, { once: true });
+                videoEl.currentTime = 0.0001; // ép trình duyệt SEEK THẬT (một số engine bỏ qua nếu currentTime đã sẵn là 0)
+                videoEl.currentTime = 0; // rồi về ĐÚNG khung đầu tiên thật sự
+                if (videoEl.readyState >= 2) captureFrame(); // đã có sẵn khung hình — chụp ngay, phòng 3 sự kiện trên đã bắn TRƯỚC khi kịp đăng ký
             }, { once: true });
 
             videoEl.addEventListener('error', () => finish(null), { once: true });
@@ -220,7 +259,13 @@ const workflowFileManagerVideo = {
      * có video lỗi giữa chừng — không lặp lại mãi mãi mỗi lần mở app chỉ vì 1 video hỏng.
      */
     async regenerateAllVideoThumbFull() {
-        const FLAG_KEY = 'sav_videoThumbFullRegenV1Done';
+        // SỬA (30/07/2026, phản hồi Giang — "frame đầu phải khớp đầu video, đừng để duration/2" +
+        // "tạo ra key local store mới để update") — ĐỔI key sang V2: key V1 CŨ đã bị video test lần
+        // đầu ghi "xong" dù `_captureFullResThumbFrame()` lúc đó dùng logic SAI (đen xì/mốc giữa
+        // video) — nếu giữ nguyên key cũ, hàm sẽ no-op ngay dòng dưới (tưởng đã xong), KHÔNG BAO
+        // GIỜ chụp lại bằng logic ĐÚNG vừa sửa cho những video đã lỡ chạy qua bản lỗi. Key MỚI ép
+        // TOÀN BỘ video chạy lại ĐÚNG 1 lần nữa với kỹ thuật chụp khung đầu robust mới.
+        const FLAG_KEY = 'sav_videoThumbFullRegenV2Done';
         try { if (localStorage.getItem(FLAG_KEY) === '1') return; } catch (e) { return; } // đã chạy xong 1 lần, HOẶC localStorage không đọc được -> an toàn bỏ qua, không lặp lại
 
         const videos = await listVideos(); // core/file-manager/video.js
@@ -232,8 +277,8 @@ const workflowFileManagerVideo = {
                 const video = videos[i];
                 loadingText.textContent = tFormat('fileManager.video.thumbFullRegenProgress', { done: i + 1, total: videos.length });
                 try {
-                    const thumbFullBlob = await this._captureFullResFrame1(video.blob);
-                    if (!thumbFullBlob) { console.warn(`[regenerateAllVideoThumbFull] _captureFullResFrame1() trả về null cho video "${video.key}" (timeout/lỗi decode/canvas.toBlob thất bại) — video này sẽ vẫn thiếu thumbFullBlob.`); continue; }
+                    const thumbFullBlob = await this._captureFullResThumbFrame(video.blob);
+                    if (!thumbFullBlob) { console.warn(`[regenerateAllVideoThumbFull] _captureFullResThumbFrame() trả về null cho video "${video.key}" (timeout/lỗi decode/canvas.toBlob thất bại) — video này sẽ vẫn thiếu thumbFullBlob.`); continue; }
                     const record = await getVideoRecord(video.key); // service/db.js — đọc lại MỚI NHẤT, phòng video vừa bị xoá/sửa ở nơi khác giữa lúc vòng lặp dài đang chạy
                     if (!record) continue; // guard: video vừa bị xoá ở nơi khác giữa chừng — bỏ qua, không lỗi
                     record.thumbFullBlob = thumbFullBlob; // CHỈ ghi đè ĐÚNG field này, giữ nguyên mọi field khác (blob/thumbBlob/customName/...)
