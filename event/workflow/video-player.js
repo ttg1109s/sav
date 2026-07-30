@@ -37,7 +37,7 @@
  * `requestWakeLock()`/`releaseWakeLock()`/`startListenClock()`/`stopListenClock()` core/player-
  * controls.js — những hàm này THUẦN, không đụng `audioPlayer`, an toàn dùng lại nguyên).
  *
- * NẠP SAU: core/video-player.js, core/file-manager/video.js (listVideos), core/playlist/loader.js
+ * NẠP SAU: core/video-player.js (setVideoThumbOverlay — MỚI 30/07/2026), core/file-manager/video.js (listVideos), core/playlist/loader.js
  * (buildVideoPlaylistCache, dùng bởi refreshVideoPlaylistIfActive() — Batch 1), core/playlist/
  * order.js (updateShuffleArray/recomputeDisplayOrder/recomputeRenderOrder, cùng lý do),
  * service/db.js (getVideoRecord), core/audio-engine.js (setupAudioContext).
@@ -45,6 +45,7 @@
 const workflowVideoPlayer = {
     _objectUrl: null, // object URL HIỆN TẠI đang gán cho bgVideoElement (revoke trước khi tạo url mới)
     _thumbObjectUrl: null, // object URL của thumbBlob HIỆN TẠI (cover ở player bar, #record-container) — revoke trước khi tạo url mới
+    _thumbFullObjectUrl: null, // MỚI (30/07/2026) — object URL của thumbFullBlob HIỆN TẠI (overlay chớp đen Next/Prev, core/video-player.js::setVideoThumbOverlay()) — revoke trước khi tạo url mới, CÙNG khuôn 2 dòng trên
     _swipeStartY: null, // toạ độ Y lúc touchstart — dùng bởi event/listener/video-player.js (cử chỉ vuốt)
 
     /**
@@ -85,8 +86,10 @@ const workflowVideoPlayer = {
     async exitVideoPlayerMode() {
         bgVideoElement.pause();
         setBgVideoElementForPlayerMode(false); // core/video-player.js — trả lại muted+loop=true, ẩn, pointer-events mặc định
+        setVideoThumbOverlay(null); // core/video-player.js — MỚI (30/07/2026) — dọn overlay phòng lúc thoát mode giữa chừng đang hiện dở (hiếm nhưng có thể)
         if (this._objectUrl) { try { URL.revokeObjectURL(this._objectUrl); } catch (e) {} this._objectUrl = null; }
         if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} this._thumbObjectUrl = null; }
+        if (this._thumbFullObjectUrl) { try { URL.revokeObjectURL(this._thumbFullObjectUrl); } catch (e) {} this._thumbFullObjectUrl = null; }
         bgVideoElement.removeAttribute('src');
         bgVideoElement.load(); // buộc <video> bỏ hẳn tham chiếu blob URL vừa revoke (tránh giữ RAM)
         updateDOMBackground(); // core/color-utils.js, hàm CÓ SẴN — trả visualizerSolidBg về cfg.bgColor
@@ -171,12 +174,23 @@ const workflowVideoPlayer = {
             this._objectUrl = URL.createObjectURL(record.blob);
             if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} }
             this._thumbObjectUrl = URL.createObjectURL(record.thumbBlob);
+            // MỚI (30/07/2026, yêu cầu Giang) — thumbFullBlob ĐI KÈM cùng record vừa getVideoRecord()
+            // ở (2) rồi, KHÔNG tốn thêm 1 fetch nào — tạo object URL NGAY (record cũ trước 29/07 có
+            // thể chưa có field này, guard null: record.thumbFullBlob || null).
+            if (this._thumbFullObjectUrl) { try { URL.revokeObjectURL(this._thumbFullObjectUrl); } catch (e) {} this._thumbFullObjectUrl = null; }
+            if (record.thumbFullBlob) this._thumbFullObjectUrl = URL.createObjectURL(record.thumbFullBlob);
 
             // BẮT BUỘC — đảm bảo audioContext/analyser tồn tại (an toàn gọi lại nhiều lần, guard sẵn
             // trong chính 2 hàm) RỒI mới nối bgVideoElement vào — thứ tự ngược sẽ lỗi (analyser chưa
             // có để nối vào).
             setupAudioContext(); // core/audio-engine.js
             connectVideoElementToAnalyser(); // core/video-player.js
+
+            // MỚI (30/07/2026) — hiện overlay thumb full-res NGAY TRƯỚC khi gán src (dòng dưới) —
+            // đúng lúc bgVideoElement chuẩn bị reset readyState về HAVE_NOTHING, overlay đã kịp che
+            // đúng khung hình video MỚI (không phải video cũ) — null nếu record không có
+            // thumbFullBlob thì setVideoThumbOverlay() tự ẩn/no-op (guard clause bên trong hàm đó).
+            setVideoThumbOverlay(this._thumbFullObjectUrl); // core/video-player.js
 
             // (3) Gán 1 lần liền mạch — KHÔNG còn khoảng hở giữa các dòng để lộ trạng thái dở dang.
             // SỬA (30/07/2026, yêu cầu Giang) — bỏ hẳn việc đụng opacity/hidden ở ĐÂY: bgVideoElement
@@ -194,6 +208,7 @@ const workflowVideoPlayer = {
                 new Promise((resolve) => bgVideoElement.addEventListener('playing', resolve, { once: true })),
                 new Promise((resolve) => taskManager.once(resolve, 2000, 'videoPlayingReadyFallback')),
             ]);
+            setVideoThumbOverlay(null); // core/video-player.js — ẩn NGAY, bgVideoElement đã có khung hình thật (hoặc hết timeout) phía dưới rồi
 
             // ===== TỪ ĐÂY: video MỚI đã thật sự hiện ra (hoặc hết 2s chờ) — mới đổi UI =====
             appState.set('currentKey', videoKey);
