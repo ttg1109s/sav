@@ -87,36 +87,21 @@ const workflowVisualizerControlCenter = {
      * Manager. Huỷ/đóng picker không chọn gì -> `onCancel` tự trả toggle về "off" (tham số của
      * openImageCarouselPickerModal, core/file-manager/photo-ui.js — fix đúng bug đã báo).
      *
-     * THỬ NGHIỆM (30/07/2026, yêu cầu Giang — "test xem thực sự có full res video hay không") —
-     * TẠM ĐỔI nguồn từ Photo (`listImages()`/`getImageRecord()`) sang Video full-res
-     * (`listVideos()`/`thumbFullBlob`) — KHÔNG thêm entry point/UI nào khác, dùng ĐÚNG 1 điểm vào
-     * cũ (gạt toggle Settings). `openImageCarouselPickerModal()` (core/file-manager/photo-ui.js)
-     * KHÔNG đổi gì — hàm đó vốn đã generic, chỉ cần mảng `{key, blob, filename}` bất kỳ. Video
-     * KHÔNG có `thumbFullBlob` (chưa regen xong/lỗi) bị LỌC BỎ khỏi carousel (Rule 1 — carousel chỉ
-     * hiện đúng những gì thật sự chọn được, không hiện rồi báo lỗi sau khi bấm).
-     * ĐÂY LÀ BẢN TEST — CHƯA quyết định giữ lại lâu dài, chưa quyết định entry point thật sự (báo
-     * lại Giang trước khi làm bản chính thức).
+     * HOÀN TÁC (30/07/2026, cùng ngày) — từng đổi tạm nguồn sang Video full-res (`thumbFullBlob`)
+     * để TEST xem full-res video có thực sự dùng được không (đã xác nhận CÓ, xem lịch sử patch) —
+     * Giang chốt: giữ nguyên tính năng này CHỈ dùng Photo như bản gốc, KHÔNG đổi sang Video qua
+     * đường này. `openImageCarouselPickerModal()` (core/file-manager/photo-ui.js) KHÔNG hề đổi gì
+     * trong suốt đợt test — hàm đó vốn đã generic.
      */
     async pickVisualBgImageFromLibrary() {
-        const allVideos = await listVideos(); // core có sẵn (core/file-manager/video.js)
-        const videos = allVideos.filter(v => v.thumbFullBlob); // LỌC video CÓ thumbFullBlob (Blob null bị bỏ qua)
-        // THÊM (30/07/2026, phản hồi Giang — "vẫn là ảnh của photo") — log rõ ràng SỐ LƯỢNG để chẩn
-        // đoán trực tiếp qua console: nếu `videos.length` = 0 dù `allVideos.length` > 0, nghĩa là
-        // CHƯA video nào có thumbFullBlob thật (regen chưa chạy/chưa xong/lỗi toàn bộ — xem
-        // event/workflow/file-manager-video.js::regenerateAllVideoThumbFull(), đã sửa để KHÔNG ghi
-        // cờ "xong" vĩnh viễn nếu lần chạy đầu lỗi hết, sẽ tự thử lại lần boot sau).
-        console.log(`[pickVisualBgImageFromLibrary] tổng video: ${allVideos.length} | có thumbFullBlob: ${videos.length}`);
-        if (videos.length === 0) {
-            settingVisualBgImageEnableToggle.checked = false; // huỷ, KHÔNG mở modal rỗng — tự trả toggle về "off"
-            alertModal(t('fileManager.video.noFullResThumbForBgImage')); // MỚI — thông báo RIÊNG cho nhánh test này, KHÔNG dùng lại 'fileManager.photo.image.empty' (dễ gây hiểu lầm đang nói về Photo)
-            return;
-        }
-        const items = videos.map(v => ({ key: v.key, blob: v.thumbFullBlob, filename: v.customName || v.filename })); // khớp shape {key, blob, filename} openImageCarouselPickerModal() cần
-        openImageCarouselPickerModal(items, async (videoKey) => { // core/file-manager/photo-ui.js
-            const record = await getVideoRecord(videoKey); // service/db.js
-            if (!record || !record.thumbFullBlob) { settingVisualBgImageEnableToggle.checked = false; return; } // guard: video vừa bị xoá/mất field giữa lúc đang chọn -> coi như huỷ
+        const images = await listImages(); // core có sẵn (core/file-manager/image.js), CÓ return, DÙNG ngay dưới
+        // FIX (04/07/2026, mục 2 phản hồi Giang) — đổi sang carousel (1 ảnh/lúc, windowed DOM)
+        // THAY lưới ảnh cũ, xem core/file-manager/photo-ui.js::openImageCarouselPickerModal.
+        openImageCarouselPickerModal(images, async (imageKey) => { // core/file-manager/photo-ui.js
+            const record = await getImageRecord(imageKey); // core có sẵn (service/db.js)
+            if (!record) { settingVisualBgImageEnableToggle.checked = false; return; } // guard: ảnh vừa bị xoá -> coi như huỷ
             await withLoadingShield(t('common.loading.savingImageBg'), async () => {
-                await applyVisualBgImage(record.thumbFullBlob); // core có sẵn (core/state-and-video-bg.js) — KHÔNG đổi gì, hàm đó chỉ nhận Blob bất kỳ
+                await applyVisualBgImage(record.blob); // core có sẵn (core/state-and-video-bg.js)
             });
         }, () => {
             settingVisualBgImageEnableToggle.checked = false; // MỚI — huỷ/đóng modal không chọn gì -> tự trả về "off"

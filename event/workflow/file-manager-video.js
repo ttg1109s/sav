@@ -47,10 +47,13 @@
  * `backfillMissingVideoThumbFull()`/`_captureFullResFrame1()` (thêm cùng ngày, chạy ngầm 1 lần lúc
  * boot backfill `thumbFullBlob` cho video cũ) ĐÃ XOÁ HẲN — đã hoàn thành nhiệm vụ, không giữ code
  * chỉ chạy 1 lần rồi mãi mãi no-op về sau. Xem cuối file cũ (đã xoá) nếu cần đối chiếu lại logic.
- * THÊM LẠI (30/07/2026, yêu cầu Giang "tạo lại thumb full res frame 1 cho toàn bộ video hiện có") —
- * `_captureFullResFrame1()`/`regenerateAllVideoThumbFull()` (cuối file) — KHÁC bản cũ ở trên: bản
- * NÀY GHI ĐÈ cho TOÀN BỘ video (không chỉ video thiếu field), cờ 1-lần đổi sang `localStorage`
- * (bản cũ dùng gì thì đã xoá, không đối chiếu được nữa).
+ * THÊM LẠI RỒI XOÁ HẲN (30/07/2026, cùng ngày) — `_captureFullResThumbFrame()`/
+ * `regenerateAllVideoThumbFull()` (chạy ngầm lúc boot, quét lại TOÀN BỘ video cũ) từng thêm rồi xoá
+ * lại NGAY TRONG CÙNG NGÀY sau khi Giang xác nhận kỹ thuật chụp khung đầu (readyState>=2 +
+ * play()/pause() nudge, xem `_extractVideoThumbAndMeta()` bên dưới) hoạt động đúng qua test thật —
+ * quyết định CHỈ áp dụng kỹ thuật đó cho video UPLOAD MỚI, không cần thêm 1 lượt quét lại video cũ
+ * nữa. Video cũ (upload trước batch này) nếu vẫn thiếu/lỗi `thumbFullBlob` sẽ KHÔNG được vá lại trừ
+ * khi tự re-upload.
  *
  * NẠP SAU: core/file-manager/video.js, core/generic-drawer.js, event/workflow/video-gallery-
  * window.js, event/workflow/video-player.js (workflowVideoPlayer — dùng bởi
@@ -113,13 +116,30 @@ const workflowFileManagerVideo = {
             const cleanupAndReject = (err) => { if (settled) return; settled = true; cleanup(); reject(err); };
             const safetyTimeout = taskManager.once(() => cleanupAndReject(new Error('[_extractVideoThumbAndMeta] timeout đọc video')), 8000);
 
+            let nudgedFullRes = false; // chặn play()/pause() ép decode quá 1 lần
+
             // Bước 1/2 — chụp full-res ĐÚNG khung đầu video thật (CÙNG kỹ thuật event/workflow/
             // video-editor.js::_onMetadataReady(), xem docstring trên vì sao cần robust hơn 1 mình
             // 'seeked'). QUAN TRỌNG: seek bước 2/2 (onSquareThumbSeeked) chỉ được đăng ký BÊN TRONG
             // callback này (ngay trước khi seek tiếp) — không đăng ký sẵn từ đầu, tránh khớp nhầm
             // đúng sự kiện 'seeked' của bước 1.
+            // SỬA (30/07/2026, Giang test thật xác nhận qua log — 3 sự kiện có thể bắn TRƯỚC khi
+            // `readyState` thật sự đạt HAVE_CURRENT_DATA, canvas vẽ ra rỗng dù đã seek "xong" theo
+            // sự kiện) — THÊM guard `readyState >= 2` NGAY TRONG hàm, chưa đủ thì KHÔNG vẽ vội, ép
+            // "nhá" `play()`/`pause()` 1 lần (muted, không bị chặn autoplay) để buộc trình duyệt bắt
+            // đầu decode thật, nghe thêm `playing` làm cơ hội chụp lại — ÁP DỤNG LẠI y hệt
+            // `_captureFullResThumbFrame()` (đã xoá, dùng lúc regen — xem lịch sử patch) vì đã xác
+            // nhận hoạt động đúng qua test thật.
             function captureFullResFrame() {
                 if (settled || fullFrameCaptured) return;
+                if (videoEl.readyState < 2) {
+                    if (!nudgedFullRes) {
+                        nudgedFullRes = true;
+                        videoEl.addEventListener('playing', captureFullResFrame, { once: true });
+                        videoEl.play().then(() => videoEl.pause()).catch(() => {});
+                    }
+                    return; // còn cơ hội ở lần bắn sau, KHÔNG set fullFrameCaptured
+                }
                 fullFrameCaptured = true;
                 const width = videoEl.videoWidth, height = videoEl.videoHeight;
                 const fullCanvas = document.createElement('canvas');
@@ -167,176 +187,13 @@ const workflowFileManagerVideo = {
         });
     },
 
-    // ===================== Regen TOÀN BỘ thumbFullBlob — THÊM (30/07/2026, yêu cầu Giang "tạo lại
-    // thumb full res frame 1 cho toàn bộ video hiện có") =====================================
-    // KHÁC bản backfill cũ đã xoá (chỉ vá video THIẾU field) — bản NÀY chụp lại + GHI ĐÈ
-    // `thumbFullBlob` cho TOÀN BỘ video đang có trong DB, bất kể đã có field đó hay chưa.
-
-    /** ĐỔI TÊN + SỬA LẦN 2 (30/07/2026, phản hồi Giang) — LẦN 1 (cùng ngày) từng đổi mốc seek từ
-     * `time=0` sang `min(1, duration/2)` để né khung đen ở giây đầu — Giang chỉ ra ĐÚNG: full-res
-     * PHẢI khớp với ĐẦU video thật (không phải giữa video, UX tệ hơn với video dài) — nguyên nhân
-     * đen KHÔNG PHẢI "giây đầu video là nội dung đen thật" mà là kỹ thuật seek KHÔNG đủ chắc (chỉ
-     * đợi 1 mình 'seeked' tại time=0 — nhiều engine/thiết bị không bắn sự kiện đó đáng tin cậy ngay
-     * lúc chưa từng seek lần nào). SỬA: dùng ĐÚNG kỹ thuật đã có sẵn + đã chứng minh hoạt động ở
-     * `event/workflow/video-editor.js::_onMetadataReady()` (vẽ khung đầu tiên, CÙNG vấn đề) — nghe
-     * CẢ 3 sự kiện (`loadeddata`/`canplay`/`seeked`) + ép seek THẬT bằng `currentTime = 0.0001` rồi
-     * `= 0` ngay sau + vẽ NGAY nếu đã sẵn khung hình (`readyState >= 2`) — xem
-     * `_extractVideoThumbAndMeta()` ở trên, ÁP DỤNG LẠI y hệt.
-     *
-     * Chụp khung ĐẦU video, FULL RESOLUTION (không crop/resize) từ 1 Blob video BẤT KỲ — TÁCH RIÊNG
-     * khỏi `_extractVideoThumbAndMeta()` ở trên: hàm đó chạy lúc UPLOAD, cần tính CẢ thumbBlob vuông
-     * + width/height/duration cùng lúc; ở đây video ĐÃ CÓ SẴN trong DB (đã có đủ mọi field khác
-     * rồi) nên CHỈ cần đúng 1 việc — chụp lại `thumbFullBlob` — viết hàm riêng, gọn hơn, đúng Rule
-     * 1 (1 tiến trình rõ ràng, không gánh thêm việc không liên quan).
-     * KHÔNG throw — trả `null` nếu lỗi/timeout (field phụ, 1 video lỗi không được chặn cả lô, xem
-     * `regenerateAllVideoThumbFull()` ngay dưới).
-     * @param {Blob} blob - blob video GỐC (record.blob, service/db.js).
-     * @returns {Promise<Blob|null>}
-     */
-    _captureFullResThumbFrame(blob) {
-        return new Promise((resolve) => {
-            const objectUrl = URL.createObjectURL(blob);
-            const videoEl = document.createElement('video');
-            videoEl.muted = true;
-            videoEl.playsInline = true;
-            let settled = false;
-            let frameCaptured = false; // chặn chụp quá 1 lần (3 sự kiện CÙNG nghe, xem docstring)
-            let nudged = false; // chặn gọi play()/pause() ép decode quá 1 lần
-            const finish = (result) => {
-                if (settled) return;
-                settled = true;
-                try { URL.revokeObjectURL(objectUrl); } catch (e) {}
-                resolve(result);
-            };
-            const safetyTimeout = taskManager.once(() => { console.warn('[_captureFullResThumbFrame][DBG] TIMEOUT 8s.'); finish(null); }, 8000);
-
-            // SỬA LẦN 3 (30/07/2026, phản hồi Giang "vẫn không được" — log chẩn đoán xác nhận:
-            // MỌI video đều bị chụp lúc `readyState=1` (HAVE_METADATA), pixel toàn [0,0,0,0] —
-            // nghĩa là `seeked` bắn ra TRƯỚC khi có bất kỳ khung hình thật nào được giải mã, KHÔNG
-            // phải lỗi mốc seek nữa) — KHÔNG còn tin `seeked`/`loadeddata`/`canplay` mù quáng: THÊM
-            // guard `readyState >= 2` (HAVE_CURRENT_DATA) NGAY TRONG captureFrame() — nếu sự kiện
-            // bắn mà readyState CHƯA đủ, KHÔNG vẽ vội (giữ `frameCaptured=false` để lần bắn sau còn
-            // cơ hội) — đồng thời "nhá" `play()` rồi `pause()` ngay (muted nên autoplay không bị
-            // chặn) để ÉP trình duyệt bắt đầu decode thật (một số engine lười decode nếu chỉ seek
-            // thụ động, không hề play() lần nào) — nghe thêm sự kiện `playing` làm cơ hội thử lại.
-            function captureFrame(triggeredBy) {
-                if (settled || frameCaptured) return;
-                if (videoEl.readyState < 2) {
-                    console.warn(`[_captureFullResThumbFrame][DBG] "${triggeredBy}" bắn nhưng readyState=${videoEl.readyState} (<2, CHƯA có frame thật) — bỏ qua, thử ép play()/pause().`);
-                    if (!nudged) {
-                        nudged = true;
-                        videoEl.addEventListener('playing', () => captureFrame('playing (sau nudge)'), { once: true });
-                        videoEl.play().then(() => videoEl.pause()).catch((err) => console.warn('[_captureFullResThumbFrame][DBG] play() nudge lỗi (autoplay bị chặn?):', err));
-                    }
-                    return; // KHÔNG set frameCaptured — còn cơ hội ở lần bắn sau
-                }
-                frameCaptured = true;
-                safetyTimeout.kill();
-                const width = videoEl.videoWidth, height = videoEl.videoHeight;
-                console.log(`[_captureFullResThumbFrame][DBG] captureFrame() — kích hoạt bởi: "${triggeredBy}" | currentTime: ${videoEl.currentTime} | readyState: ${videoEl.readyState} | videoWidth/Height: ${width}x${height}`);
-                if (!width || !height) { console.warn('[_captureFullResThumbFrame][DBG] width/height = 0 -> finish(null)'); finish(null); return; }
-                const canvas = document.createElement('canvas');
-                canvas.width = width; canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(videoEl, 0, 0, width, height);
-                // Lấy mẫu 5 điểm (4 góc + giữa) — in ra RGB thật để xác nhận có phải toàn đen không.
-                try {
-                    const samplePoints = [[0, 0], [width - 1, 0], [0, height - 1], [width - 1, height - 1], [Math.floor(width / 2), Math.floor(height / 2)]];
-                    const samples = samplePoints.map(([x, y]) => Array.from(ctx.getImageData(x, y, 1, 1).data));
-                    console.log('[_captureFullResThumbFrame][DBG] mẫu pixel [R,G,B,A] tại 4 góc + giữa:', JSON.stringify(samples));
-                } catch (e) {
-                    console.warn('[_captureFullResThumbFrame][DBG] getImageData() lỗi (canvas có thể bị "tainted"):', e);
-                }
-                canvas.toBlob((thumbFullBlob) => {
-                    console.log(`[_captureFullResThumbFrame][DBG] canvas.toBlob() xong — thumbFullBlob: ${thumbFullBlob ? thumbFullBlob.size + ' bytes' : 'null'}`);
-                    finish(thumbFullBlob || null);
-                }, 'image/jpeg', 0.92);
-            }
-
-            videoEl.addEventListener('loadedmetadata', () => {
-                const width = videoEl.videoWidth, height = videoEl.videoHeight;
-                console.log(`[_captureFullResThumbFrame][DBG] loadedmetadata — readyState: ${videoEl.readyState} | duration: ${videoEl.duration} | videoWidth/Height: ${width}x${height}`);
-                if (!width || !height) { finish(null); return; }
-                // CÙNG khuôn event/workflow/video-editor.js::_onMetadataReady() — 1 mình 'seeked'
-                // KHÔNG đủ chắc ở mọi trình duyệt/thiết bị.
-                videoEl.addEventListener('loadeddata', () => captureFrame('loadeddata'), { once: true });
-                videoEl.addEventListener('canplay', () => captureFrame('canplay'), { once: true });
-                videoEl.addEventListener('seeked', () => captureFrame('seeked'), { once: true });
-                videoEl.currentTime = 0.0001; // ép trình duyệt SEEK THẬT (một số engine bỏ qua nếu currentTime đã sẵn là 0)
-                videoEl.currentTime = 0; // rồi về ĐÚNG khung đầu tiên thật sự
-                if (videoEl.readyState >= 2) captureFrame('readyState>=2 (ngay lập tức)'); // đã có sẵn khung hình — chụp ngay, phòng 3 sự kiện trên đã bắn TRƯỚC khi kịp đăng ký
-            }, { once: true });
-
-            videoEl.addEventListener('error', (e) => { console.error('[_captureFullResThumbFrame][DBG] sự kiện error:', videoEl.error); finish(null); }, { once: true });
-            videoEl.src = objectUrl;
-        });
-    },
-
-    /** Chạy NGẦM ĐÚNG 1 LẦN lúc boot (gọi từ `event/workflow/app-boot.js::boot()`) — chụp LẠI
-     * `thumbFullBlob` cho TOÀN BỘ video đang có trong DB, GHI ĐÈ cả video đã có sẵn field này (khác
-     * hẳn bản backfill cũ đã xoá 29/07/2026, bản đó CHỈ vá video thiếu field).
-     *
-     * Cờ 1-lần ghi vào `localStorage` (KHÔNG qua IndexedDB/meta như phần lớn state khác của app —
-     * Giang yêu cầu cụ thể `localStorage`, đơn giản/đồng bộ, đọc được NGAY lúc hàm này chạy mà
-     * không cần mở IndexedDB trước) — CÙNG khuôn `core/resume-state-storage.js` (key `sav_..._v1`,
-     * wrap try/catch phòng localStorage đầy/bị chặn — Safari riêng tư...).
-     *
-     * "Đồng bộ" (Giang yêu cầu) — xử lý TUẦN TỰ từng video 1 (`for` + `await`, KHÔNG `Promise.all`
-     * song song) — tránh mở hàng chục `<video>` giải mã cùng lúc, tốn RAM/CPU nặng trên máy yếu/di
-     * động. Bọc `withLoadingShield()` (khoá thao tác khác trong lúc chạy, CÙNG khuôn `uploadVideos()`
-     * ở trên) + hiện tiến trình `x/total` qua `loadingText.textContent`, CẬP NHẬT NGAY TRONG vòng
-     * lặp — CÙNG PATTERN `core/playlist/loader.js::window.loadSongsFromFiles()`.
-     *
-     * Lỗi 1 video (file hỏng/không đọc được) KHÔNG chặn cả lô — bắt riêng, bỏ qua đúng video đó
-     * (`_captureFullResFrame1()` tự trả `null` thay vì throw). VẪN ghi cờ xong khi hết vòng lặp dù
-     * có video lỗi giữa chừng — không lặp lại mãi mãi mỗi lần mở app chỉ vì 1 video hỏng.
-     */
-    async regenerateAllVideoThumbFull() {
-        // SỬA (30/07/2026, phản hồi Giang — "frame đầu phải khớp đầu video, đừng để duration/2" +
-        // "tạo ra key local store mới để update") — ĐỔI key sang V2: key V1 CŨ đã bị video test lần
-        // đầu ghi "xong" dù `_captureFullResThumbFrame()` lúc đó dùng logic SAI (đen xì/mốc giữa
-        // video) — nếu giữ nguyên key cũ, hàm sẽ no-op ngay dòng dưới (tưởng đã xong), KHÔNG BAO
-        // GIỜ chụp lại bằng logic ĐÚNG vừa sửa cho những video đã lỡ chạy qua bản lỗi. Key MỚI ép
-        // TOÀN BỘ video chạy lại ĐÚNG 1 lần nữa với kỹ thuật chụp khung đầu robust mới.
-        // SỬA LẦN 2 (30/07/2026, phản hồi Giang "vẫn không được") — ĐỔI sang V3: cần chạy lại để
-        // log chẩn đoán mới (currentTime/readyState/mẫu pixel thật) thực sự thực thi, thay vì bị
-        // no-op do cờ V2 đã lỡ ghi "xong" ở lần chạy trước (dù ảnh vẫn đen).
-        // SỬA LẦN 3 (30/07/2026) — ĐỔI sang V4: log xác nhận MỌI video bị chụp ở readyState=1 (chưa
-        // có frame thật) — cần chạy lại với guard readyState>=2 + play()/pause() nudge mới.
-        const FLAG_KEY = 'sav_videoThumbFullRegenV4Done';
-        try { if (localStorage.getItem(FLAG_KEY) === '1') return; } catch (e) { return; } // đã chạy xong 1 lần, HOẶC localStorage không đọc được -> an toàn bỏ qua, không lặp lại
-
-        const videos = await listVideos(); // core/file-manager/video.js
-        if (videos.length === 0) { try { localStorage.setItem(FLAG_KEY, '1'); } catch (e) {} return; } // không có video nào -> đánh dấu xong luôn, khỏi chờ lần sau
-
-        let successCount = 0; // SỬA (30/07/2026, phản hồi Giang — picker chọn nền Visual từ full-res video luôn rỗng) — theo dõi để quyết định có ghi cờ hay không, xem lý do ngay dưới
-        await withLoadingShield(tFormat('fileManager.video.thumbFullRegenProgress', { done: 0, total: videos.length }), async () => {
-            for (let i = 0; i < videos.length; i++) {
-                const video = videos[i];
-                loadingText.textContent = tFormat('fileManager.video.thumbFullRegenProgress', { done: i + 1, total: videos.length });
-                try {
-                    const thumbFullBlob = await this._captureFullResThumbFrame(video.blob);
-                    if (!thumbFullBlob) { console.warn(`[regenerateAllVideoThumbFull] _captureFullResThumbFrame() trả về null cho video "${video.key}" (timeout/lỗi decode/canvas.toBlob thất bại) — video này sẽ vẫn thiếu thumbFullBlob.`); continue; }
-                    const record = await getVideoRecord(video.key); // service/db.js — đọc lại MỚI NHẤT, phòng video vừa bị xoá/sửa ở nơi khác giữa lúc vòng lặp dài đang chạy
-                    if (!record) continue; // guard: video vừa bị xoá ở nơi khác giữa chừng — bỏ qua, không lỗi
-                    record.thumbFullBlob = thumbFullBlob; // CHỈ ghi đè ĐÚNG field này, giữ nguyên mọi field khác (blob/thumbBlob/customName/...)
-                    await setVideoRecord(video.key, record); // service/db.js
-                    successCount++;
-                } catch (err) {
-                    console.error(`[regenerateAllVideoThumbFull] chụp lại thumbFullBlob thất bại cho video "${video.key}":`, err);
-                }
-            }
-        });
-
-        // SỬA (30/07/2026, phản hồi Giang — "vẫn là ảnh của photo" lúc chọn nền Visual từ video, nghi
-        // do TOÀN BỘ video regen lỗi ở lần chạy ĐẦU TIÊN rồi cờ ghi "xong" vĩnh viễn, không bao giờ
-        // thử lại) — CHỈ ghi cờ 1-lần nếu có ÍT NHẤT 1 video thành công. `videos.length > 0` mà
-        // `successCount === 0` nghĩa là MỌI video đều lỗi (môi trường/thiết bị có vấn đề chung, vd
-        // canvas.toBlob()/decode video không hoạt động) — KHÔNG ghi cờ, để lần boot SAU thử lại,
-        // thay vì kẹt vĩnh viễn ở trạng thái "đã chạy nhưng không video nào có thumbFullBlob".
-        console.log(`[regenerateAllVideoThumbFull] hoàn tất — thành công ${successCount}/${videos.length} video.`);
-        if (successCount > 0) { try { localStorage.setItem(FLAG_KEY, '1'); } catch (e) {} } // ghi cờ SAU KHI xong hẳn vòng lặp, CHỈ khi có tiến triển thật — không chạy lại nữa
-    },
+    // XOÁ (30/07/2026, yêu cầu Giang — kỹ thuật readyState>=2 + play()/pause() nudge đã áp dụng
+    // THẲNG vào `_extractVideoThumbAndMeta()` ở trên cho video upload MỚI, không cần thêm 1 lượt
+    // "quét lại toàn bộ video cũ" nữa) — `_captureFullResThumbFrame()`/`regenerateAllVideoThumbFull()`
+    // (thêm cùng ngày, chạy ngầm lúc boot) ĐÃ XOÁ HẲN — không giữ code chết. Video ĐÃ CÓ trong DB
+    // trước batch này (nếu thumbFullBlob vẫn null/đen do 3 lần fix trước) sẽ KHÔNG được vá lại nữa
+    // trừ khi tự re-upload — lang key `fileManager.video.thumbFullRegenProgress` (lang/patch/
+    // patch-file-manager.js) xoá theo, không còn ai dùng.
 
     /** Ứng với 'playlist.upload.videoFileChange' (Batch 6, mục 7 — trước đây
      * 'fileManagerVideo.upload.change', gọi từ panel đã xoá). Lỗi 1 file (vd file hỏng) KHÔNG chặn
