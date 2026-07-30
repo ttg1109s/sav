@@ -59,7 +59,6 @@
          */
         function playNext(force = false) {
             requestWakeLock();
-            console.log('[DBG-video] playNext() gọi — force:', force, '| isVideoPlayerMode:', appState.get('isVideoPlayerMode'));
             if (appState.get('playlistOrder').length === 0) return;
             // [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt: "video thừa hưởng cơ
             // chế Playlist sẵn có, list next/prev phải theo Song, chỉ đổi nguồn source"] `activeEl`
@@ -90,13 +89,11 @@
                     } else { activeEl.pause(); return; }
                 } else nextKey = appState.get('displayOrder')[currentPos + 1];
             }
-            console.log('[DBG-video] playNext() -> window.playSong(nextKey=', nextKey, ')');
             window.playSong(nextKey, { switchScreen: false }); // fix 03/07/2026 mục 5 — xem comment đầy đủ ở window.playSong (core/playlist/actions.js)
         }
 
         function playPrev() {
             requestWakeLock();
-            console.log('[DBG-video] playPrev() gọi — isVideoPlayerMode:', appState.get('isVideoPlayerMode'));
             if (appState.get('playlistOrder').length === 0) return;
             // [SỬA — cùng lý do playNext() ngay trên] "quá 3s vào bài/video hiện tại -> chỉ tua về
             // đầu" chọn ĐÚNG element đang thực sự phát.
@@ -113,7 +110,6 @@
                     prevKey = appState.get('displayOrder')[appState.get('displayOrder').length - 1];
                 } else prevKey = appState.get('displayOrder')[currentPos - 1];
             }
-            console.log('[DBG-video] playPrev() -> window.playSong(prevKey=', prevKey, ')');
             window.playSong(prevKey, { switchScreen: false }); // fix 03/07/2026 mục 5 — xem comment đầy đủ ở window.playSong (core/playlist/actions.js)
         }
 

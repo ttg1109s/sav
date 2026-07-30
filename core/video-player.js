@@ -114,40 +114,20 @@ function setBgVideoElementForPlayerMode(enabled) {
     bgVideoElement.style.pointerEvents = enabled ? 'auto' : '';
 }
 
-/** Core thuần — hiện/ẩn overlay thumb full-res (`videoThumbOverlay`, #video-player-thumb-overlay,
- * core/dom-refs.js) nằm NGAY TRÊN `bgVideoElement` (z-index, xem assets/css/style.css). MỚI
- * (30/07/2026, yêu cầu Giang — lấp khoảng chớp đen lúc Next/Prev Video Player mode): `bgVideoElement`
- * đổi `src` LUÔN reset readyState về HAVE_NOTHING tức thời (xem docstring `playVideoByKey()`,
- * event/workflow/video-player.js) — trong khoảng đó overlay này hiện tạm khung `thumbFullBlob`
- * (full-res, frame 1, service/db.js) của ĐÚNG video mới đang tải, che đúng chỗ đen lộ ra.
- *
- * KHÔNG tự `URL.createObjectURL`/`revokeObjectURL` — lifecycle object URL do Workflow tự quản lý
- * (`_thumbFullObjectUrl`, event/workflow/video-player.js), giống hệt cách `_objectUrl`/
- * `_thumbObjectUrl` đã làm — hàm này CHỈ nhận `url` (string đã tạo sẵn, hoặc `null`) qua tham số
- * (Rule 2 — không tự đọc gì), guard clause đơn tuyến (Rule 1 — `null` thì ẩn+xoá, có giá trị thì
- * hiện+gán, CÙNG 1 nghiệp vụ "đồng bộ overlay theo url truyền vào", không phải 2 tiến trình khác
- * nhau — cùng khuôn `setBgVideoElementForPlayerMode()` ở trên).
- * @param {string|null} url - object URL của thumbFullBlob, hoặc `null` để ẩn/xoá.
+/** XOÁ (30/07/2026, Giang chốt sau điều tra "chớp đen next/prev") — `setVideoThumbOverlay()` (2 bản
+ * thử nghiệm: overlay `<div>` riêng #video-player-thumb-overlay, rồi background-image thẳng lên
+ * `bgVideoElement`) từng đứng ở đây, ĐÃ BỎ HẲN. Nguyên nhân: `<video>` giải mã hardware trên
+ * WKWebView/iOS Safari được đẩy vào 1 compositing layer RIÊNG do OS media pipeline quản lý, nằm
+ * ngoài cây paint/composite bình thường của trang — không tuân z-index/DOM order (đã thử #1),
+ * không tuân dù z-index chênh hẳn (đã thử #2), và đè luôn cả CSS (background-image) của CHÍNH
+ * element chứa nó (đã thử #3) — cả 3 lần thử đều xác nhận: đây là giới hạn nền tảng, KHÔNG có cách
+ * nào che/lấp bằng CSS lên trên/vào `<video>` đang decode. Next/Prev trở lại bình thường, không còn
+ * can thiệp gì cho khoảng chớp đen/lộ layer lúc đổi `src` (xem `playVideoByKey()`,
+ * event/workflow/video-player.js). `#video-player-thumb-overlay` (index.html/style.css) +
+ * `videoThumbOverlay` (core/dom-refs.js) + `_thumbFullObjectUrl` (event/workflow/video-player.js)
+ * cùng đợt xoá — `thumbFullBlob` (service/db.js, core/file-manager/video.js) VẪN GIỮ NGUYÊN (dữ liệu
+ * đã lưu sẵn từ lúc upload, không liên quan gì tới Video Player Next/Prev, có thể còn dùng lại sau).
  */
-/** Core thuần — THỬ NGHIỆM (30/07/2026, yêu cầu Giang, sau khi overlay `<div>` riêng
- * (`#video-player-thumb-overlay`) không ăn thua dù log DOM đúng — nghi compositing-layer riêng của
- * `<video>` trên WKWebView không composite đúng thứ tự với 1 ELEMENT KHÁC đứng cạnh nó dù z-index
- * cao hơn) — gán/xoá `background-image` THẲNG lên CHÍNH `bgVideoElement` (không qua `videoThumbOverlay`
- * nữa — element đó tạm thời KHÔNG dùng, còn nguyên trong DOM/CSS, chưa xoá vì đây mới là thử
- * nghiệm). `<video>` là "replaced element": lúc `readyState=HAVE_NOTHING` (chưa có khung hình),
- * `background-image` của CHÍNH nó hiện ra thay thế — không có 2 element khác nhau để trình duyệt
- * "đấu" thứ tự compositing nữa, né hẳn nghi vấn quirk ở trên.
- *
- * KHÔNG tự `URL.createObjectURL`/`revokeObjectURL` — lifecycle object URL do Workflow tự quản lý
- * (`_thumbFullObjectUrl`, event/workflow/video-player.js). Guard clause đơn tuyến (Rule 1) — `null`
- * thì xoá, có giá trị thì gán, cùng 1 nghiệp vụ "đồng bộ background-image theo url truyền vào".
- * @param {string|null} url - object URL của thumbFullBlob, hoặc `null` để xoá.
- */
-function setVideoThumbOverlay(url) {
-    console.log('[DBG-video] setVideoThumbOverlay(url=', url, ') — trước — bgVideoElement.style.backgroundImage:', bgVideoElement.style.backgroundImage);
-    bgVideoElement.style.backgroundImage = url ? `url(${url})` : '';
-    console.log('[DBG-video] setVideoThumbOverlay() — sau — bgVideoElement.style.backgroundImage:', bgVideoElement.style.backgroundImage);
-}
 
 let _videoAnalyserSourceNode = null; // MediaElementSourceNode của bgVideoElement — tạo ĐÚNG 1 LẦN (trình duyệt cấm tạo lại trên CÙNG 1 element, KHÁC audioPlayer đã có source riêng của nó)
 
