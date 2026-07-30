@@ -212,6 +212,12 @@
         /** Core thuần: hiện/ẩn + set `background-image` DOM cho nền tĩnh Visual — KHÔNG biết gì về
          * IndexedDB/store `images` (nơi gọi tự resolve Blob -> objectUrl trước, xem
          * event/workflow/file-manager-photo.js).
+         * SỬA (30/07/2026, yêu cầu Giang — "dùng toggle hidden/unhidden thay vì opacity cho bg
+         * image") — bỏ hẳn `style.opacity`, CHỈ còn `.hidden` (display:none) quyết định hiện/ẩn,
+         * CÙNG lý do/khuôn đã áp dụng cho `bgVideoElement` (core/video-player.js) — bắt buộc phải
+         * đổi vì Video Player mode giờ cần "cưỡng chế hiện" lớp này tức thời làm khung chớp thumb
+         * (xem assets/css/style.css cho đầy đủ lý do + core/video-player.js::
+         * forceShowVisualBgImageForVideoPlayer()).
          * Rule 2: nhận objectUrl qua tham số, KHÔNG tự appState.get().
          * @param {boolean} enabled
          * @param {string} objectUrl - '' hoặc URL không hợp lệ -> coi như ẩn (guard clause thuần)
@@ -220,9 +226,9 @@
             if (!visualBgImageElement) return; // guard: DOM chưa sẵn sàng (hiếm, race lúc mount)
             if (enabled && objectUrl) {
                 visualBgImageElement.style.backgroundImage = `url(${objectUrl})`;
-                visualBgImageElement.style.opacity = '1';
+                visualBgImageElement.classList.remove('hidden');
             } else {
-                visualBgImageElement.style.opacity = '0';
+                visualBgImageElement.classList.add('hidden');
             }
         }
 
