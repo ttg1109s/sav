@@ -254,11 +254,10 @@
     <link rel="stylesheet" href="assets/css/slideshow.css?v=20260703v2">
 
     <video id="bg-video" loop muted playsinline class="hidden"></video>
-    <!-- XOÁ (30/07/2026, Giang chốt sau điều tra "chớp đen next/prev") — từng có 1
-         #video-player-thumb-overlay ở đây (overlay thumb full-res, lấp khoảng chớp đen lúc
-         Next/Prev) — ĐÃ BỎ HẲN: <video> giải mã hardware trên WKWebView/iOS Safari nằm ở 1
-         compositing layer riêng, không CSS nào (kể cả z-index chênh hẳn) đè/lấp lên được — xem
-         core/video-player.js cho đầy đủ lý do. Next/Prev trở về bình thường, không còn overlay. -->
+    <!-- Từng thử 1 #video-player-thumb-overlay riêng ở đây (đè LÊN video) — BỎ, <video> hardware-
+         decode trên WKWebView/iOS nằm ở compositing layer riêng, không CSS nào đè lên được (xem
+         core/video-player.js). MỚI (31/07/2026) — lớp dự phòng multi-browser giờ chèn vào
+         #visual-bg-image NẰM DƯỚI thay vào đó (xem event/workflow/video-player.js::playVideoByKey()). -->
     <!-- FIX (04/07/2026, mục 1a phản hồi Giang) — nền màu Settings (bgColor) tách hẳn khỏi
          `document.body` (trước đây `document.body.style.backgroundColor = cfg.bgColor` — nghi
          ngờ 1 phần nguyên nhân màu tràn vào status bar/tai thỏ OS). `<body>` ở trên giữ NGUYÊN
@@ -659,7 +658,7 @@
     <!-- MỚI (21/07/2026, mục 4 — Video Player mode) — core/video-player.js: tính next/prev key,
          mutate state, toggle UI nút. Đặt CẠNH core/player-controls.js cho dễ đọc (2 tính năng liên
          quan chặt, dù KHÔNG đụng chung file nào). NẠP SAU service/state.js (đã nạp từ đầu). -->
-    <script src="core/video-player.js?v=20260730v1"></script>
+    <script src="core/video-player.js?v=20260731v1"></script>
     <script src="core/audio-engine.js?v=20260720v1"></script>
     <script src="core/app-cleanup.js?v=20260630v1"></script>
     <!-- Toggle ẩn/hiện dải BPM/Pitch/Energy (ver 10 refine, bổ sung) — PHẢI nạp TRƯỚC
@@ -916,8 +915,8 @@
          playlist/actions.js — cần đi qua eventBus để Block gate kịp chặn khoá chéo với Video nền,
          xem event/block.js) — NẠP LẠI dòng <script>, PHẢI nạp SAU event/workflow/video-player.js
          (cần workflowVideoPlayer.startFromPlaylist() đã tồn tại) NGAY TRÊN. -->
-    <script src="event/workflow/video-player.js?v=20260730v2"></script>
-    <script src="event/router/video-player.js?v=20260730v1"></script>
+    <script src="event/workflow/video-player.js?v=20260731v1"></script>
+    <script src="event/router/video-player.js?v=20260731v1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <script src="event/workflow/player-controls.js?v=20260729v1"></script>
     <script src="event/router/player-controls.js?v=20260729v1"></script>
