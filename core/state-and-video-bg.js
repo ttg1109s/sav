@@ -223,15 +223,13 @@
          * @param {string} objectUrl - '' hoặc URL không hợp lệ -> coi như ẩn (guard clause thuần)
          */
         function applyVisualBgImageToDOM(enabled, objectUrl) {
-            if (!visualBgImageElement) { console.warn('[DBG-visualbg] applyVisualBgImageToDOM() — visualBgImageElement KHÔNG tồn tại (DOM chưa sẵn sàng?)'); return; } // guard: DOM chưa sẵn sàng (hiếm, race lúc mount)
-            console.log(`[DBG-visualbg] applyVisualBgImageToDOM(enabled=${enabled}, objectUrl=${objectUrl})`);
+            if (!visualBgImageElement) return; // guard: DOM chưa sẵn sàng (hiếm, race lúc mount)
             if (enabled && objectUrl) {
                 visualBgImageElement.style.backgroundImage = `url(${objectUrl})`;
                 visualBgImageElement.classList.remove('hidden');
             } else {
                 visualBgImageElement.classList.add('hidden');
             }
-            console.log(`[DBG-visualbg] SAU khi áp dụng — classList: "${visualBgImageElement.className}" | computed display: "${getComputedStyle(visualBgImageElement).display}" | style.backgroundImage: "${visualBgImageElement.style.backgroundImage}"`);
         }
 
         /**
@@ -244,7 +242,6 @@
          * @param {Blob} blob
          */
         async function applyVisualBgImage(blob) {
-            console.log(`[DBG-visualbg] applyVisualBgImage() gọi — blob: ${blob ? `size=${blob.size}, type=${blob.type}` : 'null/undefined!'}`);
             await setMeta('visualBgImage', blob);
             let objectUrl;
             appConfigViz.mutateAll(cfg => {
@@ -253,7 +250,6 @@
                 cfg.visualBgImage = objectUrl;
                 cfg.visualBgImageEnabled = true;
             });
-            console.log(`[DBG-visualbg] applyVisualBgImage() — objectUrl mới tạo: ${objectUrl}`);
             if (typeof settingVisualBgImageEnableToggle !== 'undefined' && settingVisualBgImageEnableToggle) settingVisualBgImageEnableToggle.checked = true;
             applyVisualBgImageToDOM(true, objectUrl);
             saveConfig();
