@@ -226,23 +226,33 @@ const workflowFileManagerVideo = {
         const videos = await listVideos(); // core/file-manager/video.js
         if (videos.length === 0) { try { localStorage.setItem(FLAG_KEY, '1'); } catch (e) {} return; } // không có video nào -> đánh dấu xong luôn, khỏi chờ lần sau
 
+        let successCount = 0; // SỬA (30/07/2026, phản hồi Giang — picker chọn nền Visual từ full-res video luôn rỗng) — theo dõi để quyết định có ghi cờ hay không, xem lý do ngay dưới
         await withLoadingShield(tFormat('fileManager.video.thumbFullRegenProgress', { done: 0, total: videos.length }), async () => {
             for (let i = 0; i < videos.length; i++) {
                 const video = videos[i];
                 loadingText.textContent = tFormat('fileManager.video.thumbFullRegenProgress', { done: i + 1, total: videos.length });
                 try {
                     const thumbFullBlob = await this._captureFullResFrame1(video.blob);
+                    if (!thumbFullBlob) { console.warn(`[regenerateAllVideoThumbFull] _captureFullResFrame1() trả về null cho video "${video.key}" (timeout/lỗi decode/canvas.toBlob thất bại) — video này sẽ vẫn thiếu thumbFullBlob.`); continue; }
                     const record = await getVideoRecord(video.key); // service/db.js — đọc lại MỚI NHẤT, phòng video vừa bị xoá/sửa ở nơi khác giữa lúc vòng lặp dài đang chạy
                     if (!record) continue; // guard: video vừa bị xoá ở nơi khác giữa chừng — bỏ qua, không lỗi
                     record.thumbFullBlob = thumbFullBlob; // CHỈ ghi đè ĐÚNG field này, giữ nguyên mọi field khác (blob/thumbBlob/customName/...)
                     await setVideoRecord(video.key, record); // service/db.js
+                    successCount++;
                 } catch (err) {
                     console.error(`[regenerateAllVideoThumbFull] chụp lại thumbFullBlob thất bại cho video "${video.key}":`, err);
                 }
             }
         });
 
-        try { localStorage.setItem(FLAG_KEY, '1'); } catch (e) {} // ghi cờ SAU KHI xong hẳn vòng lặp (kể cả có video lỗi giữa chừng) — không chạy lại nữa
+        // SỬA (30/07/2026, phản hồi Giang — "vẫn là ảnh của photo" lúc chọn nền Visual từ video, nghi
+        // do TOÀN BỘ video regen lỗi ở lần chạy ĐẦU TIÊN rồi cờ ghi "xong" vĩnh viễn, không bao giờ
+        // thử lại) — CHỈ ghi cờ 1-lần nếu có ÍT NHẤT 1 video thành công. `videos.length > 0` mà
+        // `successCount === 0` nghĩa là MỌI video đều lỗi (môi trường/thiết bị có vấn đề chung, vd
+        // canvas.toBlob()/decode video không hoạt động) — KHÔNG ghi cờ, để lần boot SAU thử lại,
+        // thay vì kẹt vĩnh viễn ở trạng thái "đã chạy nhưng không video nào có thumbFullBlob".
+        console.log(`[regenerateAllVideoThumbFull] hoàn tất — thành công ${successCount}/${videos.length} video.`);
+        if (successCount > 0) { try { localStorage.setItem(FLAG_KEY, '1'); } catch (e) {} } // ghi cờ SAU KHI xong hẳn vòng lặp, CHỈ khi có tiến triển thật — không chạy lại nữa
     },
 
     /** Ứng với 'playlist.upload.videoFileChange' (Batch 6, mục 7 — trước đây
