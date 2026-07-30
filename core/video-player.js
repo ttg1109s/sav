@@ -105,7 +105,12 @@ function setBgVideoElementForPlayerMode(enabled) {
     bgVideoElement.muted = !enabled;
     bgVideoElement.loop = !enabled;
     bgVideoElement.classList.toggle('hidden', !enabled); // BẮT BUỘC — display:none thắng tuyệt đối opacity
-    if (!enabled) bgVideoElement.style.opacity = '0'; // khớp handleVideoBackground() nhánh tắt — enabled=true KHÔNG đụng opacity, xem docstring
+    // SỬA (30/07/2026, yêu cầu Giang — "bgVideo un-hidden/opacity phải gắn với vào/thoát mode, KHÔNG
+    // liên quan gì Next/Prev") — TRƯỚC ĐÂY chỉ nhánh !enabled đụng opacity, nhánh enabled=true để
+    // trống (dồn việc set opacity='1' sang tận playVideoByKey(), chạy lại MỖI LẦN Next/Prev — sai
+    // chỗ). Giờ CẢ 2 chiều xử lý NGAY TẠI ĐÂY, đúng 1 lần lúc vào/thoát mode — playVideoByKey()
+    // không còn đụng gì tới opacity/hidden của bgVideoElement nữa (xem event/workflow/video-player.js).
+    bgVideoElement.style.opacity = enabled ? '1' : '0';
     bgVideoElement.style.pointerEvents = enabled ? 'auto' : '';
 }
 
