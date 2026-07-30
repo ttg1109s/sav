@@ -62,7 +62,7 @@ body {
            setBgVideoElementForPlayerMode()) giờ CHỈ dùng `.hidden` (display:none, Tailwind) để
            hiện/ẩn. Trạng thái ẩn MẶC ĐỊNH (trước khi JS chạy) chuyển sang `class="hidden"` NGAY
            TỪ HTML (index.html) thay cho `opacity: 0` từng đứng ở đây. */
-        #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; object-fit: cover; z-index: 0; pointer-events: none; }
+        #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; object-fit: cover; z-index: 0; pointer-events: none; background-size: cover; background-position: center; }
         /* MỚI (30/07/2026) — overlay thumb full-res cho Video Player mode (xem comment index.html
            ngay trên thẻ này). SỬA (30/07/2026, Giang phát hiện qua test thật trên iOS — overlay vẫn
            bị <video> đè lên dù đứng SAU trong DOM cùng z-index 0) — <video> giải mã bằng hardware
