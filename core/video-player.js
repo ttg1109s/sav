@@ -114,48 +114,6 @@ function setBgVideoElementForPlayerMode(enabled) {
     bgVideoElement.style.pointerEvents = enabled ? 'auto' : '';
 }
 
-/** Core thuần — THÊM (30/07/2026, yêu cầu Giang, sau khi 3 lần thử overlay/background-image lên
- * CHÍNH `bgVideoElement` đều thất bại — xem lịch sử điều tra ở `setBgVideoElementForPlayerMode()`/
- * commit trước đó) — cưỡng chế GỠ `.hidden` của `#visual-bg-image` NGAY LÚC VỪA VÀO Video Player
- * mode, KHÔNG LIÊN QUAN GÌ tới `vizConfig.visualBgImageEnabled` thật của Settings (Rule 2 — hàm
- * không tự đọc config, chỉ làm ĐÚNG 1 việc).
- *
- * Ý TƯỞNG (KHÁC HẲN 3 lần thử trước — không còn cố che/đè lên CHÍNH `bgVideoElement`): `#visual-
- * bg-image` (z-index -2, assets/css/style.css) nằm NGAY DƯỚI `#bg-video` (z-index 0) trong thứ tự
- * DOM/z-index bình thường — lúc `bgVideoElement` đổi `src` và layer giải mã hardware của nó (WKWebView/
- * iOS Safari) thoáng trong suốt/tháo dỡ giữa chừng (xem điều tra "chớp đen next/prev"), CHÍNH lớp
- * NÀY mới là thứ thật sự lộ ra — TRƯNG DỤNG nó làm "khung chờ" sẵn ĐÚNG thumbFullBlob của video sắp
- * chuyển tới (setVideoTransitionThumb() ngay dưới), thay vì cố nhồi 1 CSS nào lên trên/vào chính
- * `<video>` (đã xác nhận KHÔNG khả thi trên nền tảng này).
- *
- * Gọi ĐÚNG 1 LẦN lúc vào mode (`startFromPlaylist()`, event/workflow/video-player.js) — giữ hiện
- * SUỐT cả phiên Video Player mode (không tắt/bật lại theo từng Next/Prev, chỉ nội dung
- * background-image đổi qua `setVideoTransitionThumb()`). Lúc THOÁT mode, Workflow tự gọi
- * `applyVisualBgImageToDOM()` (core/state-and-video-bg.js, hàm CÓ SẴN) để khôi phục ĐÚNG trạng thái
- * thật theo Cài đặt — KHÔNG dùng hàm này để tắt (không đối xứng, xem docstring
- * `exitVideoPlayerMode()`).
- */
-function forceShowVisualBgImageForVideoPlayer() {
-    visualBgImageElement.classList.remove('hidden');
-}
-
-/** Core thuần — gán/xoá `background-image` của `#visual-bg-image` trong lúc Video Player mode —
- * dùng làm khung hiện tạm `thumbFullBlob` của video SẮP chuyển tới, gọi NGAY TRƯỚC khi
- * `bgVideoElement` đổi `src` (xem docstring đầy đủ ở `playVideoByKey()`, event/workflow/
- * video-player.js, vì sao cần bước này — cùng bối cảnh `forceShowVisualBgImageForVideoPlayer()`
- * ngay trên).
- *
- * KHÔNG tự `URL.createObjectURL`/`revokeObjectURL` — lifecycle object URL do Workflow tự quản lý
- * (`_thumbFullObjectUrl`, event/workflow/video-player.js), giống hệt cách `_objectUrl`/
- * `_thumbObjectUrl` đã làm. Guard clause đơn tuyến (Rule 1) — `null` thì xoá, có giá trị thì gán,
- * CÙNG 1 nghiệp vụ "đồng bộ background-image theo url truyền vào".
- * @param {string|null} url - object URL của thumbFullBlob, hoặc `null` để xoá (video không có field
- *        này — video cũ/regen lỗi, xem event/workflow/file-manager-video.js).
- */
-function setVideoTransitionThumb(url) {
-    visualBgImageElement.style.backgroundImage = url ? `url(${url})` : '';
-}
-
 /** XOÁ (30/07/2026, Giang chốt sau điều tra "chớp đen next/prev") — `setVideoThumbOverlay()` (2 bản
  * thử nghiệm: overlay `<div>` riêng #video-player-thumb-overlay, rồi background-image thẳng lên
  * `bgVideoElement`) từng đứng ở đây, ĐÃ BỎ HẲN. Nguyên nhân: `<video>` giải mã hardware trên
