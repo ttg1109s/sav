@@ -199,10 +199,10 @@ const workflowFileManagerVideo = {
      * 'fileManagerVideo.upload.change', gọi từ panel đã xoá). Lỗi 1 file (vd file hỏng) KHÔNG chặn
      * cả lô upload — bắt riêng, bỏ qua đúng file đó, tiếp tục file sau (Rule 1: vẫn 1 tiến trình
      * "upload cả lô").
-     * XOÁ (29/07/2026, yêu cầu Giang mục 1/2) — bỏ hẳn bước `_extractVideoMediaInfo()` (mediainfo.js
-     * WASM) — tab "Chi tiết" không còn hiển thị codec/fps/bitrate/audioCodec/audioBitrate nữa nên
-     * không cần phân tích các field này lúc upload. `_extractVideoThumbAndMeta()` giờ trả THÊM
-     * `thumbFullBlob` (full-res, frame 1) — truyền thẳng vào `saveVideo()`.
+     * MỚI (31/07/2026) — hiện tiến trình "X/Y" qua `loadingText.textContent`, ĐÚNG pattern
+     * `handleAudioFiles()` (Song, core/playlist/loader.js) — tái dùng NGUYÊN lang key
+     * `common.upload.loadingProgress` (đã generic sẵn, không riêng "song"), TRƯỚC ĐÂY chỉ hiện
+     * text tĩnh `common.loading.savingInfo` suốt cả lô, không biết đang xử lý tới đâu.
      * @param {FileList|File[]} files
      */
     async uploadVideos(files) {
@@ -210,8 +210,10 @@ const workflowFileManagerVideo = {
         if (fileArray.length === 0) return;
 
         let failedCount = 0;
-        await withLoadingShield(t('common.loading.savingInfo'), async () => {
-            for (const file of fileArray) {
+        await withLoadingShield(tFormat('common.upload.loadingProgress', { done: 1, total: fileArray.length }), async () => {
+            for (let i = 0; i < fileArray.length; i++) {
+                const file = fileArray[i];
+                loadingText.textContent = tFormat('common.upload.loadingProgress', { done: i + 1, total: fileArray.length });
                 try {
                     const { thumbBlob, thumbFullBlob, width, height, duration } = await this._extractVideoThumbAndMeta(file);
                     await saveVideo(file, file.name, thumbBlob, width, height, duration, thumbFullBlob); // core/file-manager/video.js
