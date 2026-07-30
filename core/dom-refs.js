@@ -155,6 +155,9 @@
         // — đường chết thật từ khi `enableVideoBackgroundToggle()` đổi sang mở Generic Drawer picker
         // (event/workflow/file-manager-video.js) thay vì `.click()` input này.
         const videoEnableToggle = document.getElementById('setting-video-enable'), bgVideoElement = document.getElementById('bg-video');
+        // Overlay thumb full-res cho Video Player mode — MỚI (30/07/2026), xem core/video-player.js
+        // (setVideoThumbOverlay) + event/workflow/video-player.js (playVideoByKey).
+        const videoThumbOverlay = document.getElementById('video-player-thumb-overlay');
         // Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual).
         // FIX (04/07/2026, mục 1a) — nền màu Settings (bgColor), TÁCH khỏi document.body.
         const visualizerSolidBg = document.getElementById('visualizer-solid-bg');

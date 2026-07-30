@@ -77,41 +77,57 @@ function exitVideoPlayerModeState() {
     appState.set('isVideoPlayerMode', false);
 }
 
-/** Đổi `muted`/`loop`/`pointer-events`/`.hidden` của `bgVideoElement` (#bg-video, TÁI DÙNG — xem
- * docstring đầu file) giữa 2 chế độ. KHÔNG đụng `opacity` ở ĐÂY nữa (SỬA 21/07/2026, đợt so sánh
- * 2 luồng — xem event/workflow/video-player.js::playVideoByKey()) — `handleVideoBackground()`
- * (core/state-and-video-bg.js, luồng bg video THAM CHIẾU) cũng KHÔNG set opacity trong nhánh bật,
- * mà giao hẳn cho `setupVideoBgSource()` (gọi RIÊNG mỗi lần đổi URL) tự quản lý fade-in — file NÀY
- * mirror ĐÚNG cách chia việc đó: hàm này (gọi 1 LẦN lúc vào/ra mode) chỉ lo phần "khung"
- * (hidden/muted/loop/pointer-events), còn "nội dung" (opacity theo TỪNG video) do
- * `playVideoByKey()` tự lo (gọi mỗi lần đổi video, kể cả Next/Prev).
+/** Đổi `muted`/`loop`/`pointer-events`/`.hidden`/`opacity` của `bgVideoElement` (#bg-video, TÁI
+ * DÙNG — xem docstring đầu file) giữa 2 chế độ — gọi ĐÚNG 1 LẦN lúc vào/thoát Video Player mode,
+ * KHÔNG liên quan gì tới Next/Prev bên trong mode (xem `playVideoByKey()`, event/workflow/
+ * video-player.js — hàm đó KHÔNG đụng opacity/hidden của `bgVideoElement` nữa, chỉ đổi `src`).
+ *
+ * LỊCH SỬ (đã lỗi thời, giữ lại để hiểu vì sao có SỬA LẦN 3 dưới) — bản 21/07/2026 CHỦ ĐỊNH tách
+ * "khung" (hàm này, muted/loop/hidden) khỏi "nội dung" (opacity, để `playVideoByKey()` tự set MỖI
+ * LẦN đổi video) — SỬA LẦN 3 (30/07/2026, yêu cầu Giang — "opacity/hidden phải gắn với vào/thoát
+ * mode, KHÔNG phải Next/Prev") gộp lại: `playVideoByKey()` chạy lặp lại opacity='1' MỖI LẦN
+ * Next/Prev là SAI CHỖ (opacity không đổi giá trị giữa các lần, vô nghĩa) — giờ CẢ opacity LẪN
+ * hidden đều xử lý DUY NHẤT tại đây.
  * SỬA (21/07/2026, Giang chỉ ra video vẫn không hiện dù đã tắt cả Visual — z-index/canvas KHÔNG
  * PHẢI nguyên nhân) — ĐỐI CHIẾU với `handleVideoBackground()` phát hiện dòng
- * `bgVideoElement.classList.remove('hidden')` (bật)/`classList.add('hidden')` (tắt) — bản trước
- * của hàm NÀY CHỈ đổi `style.opacity`, KHÔNG BAO GIỜ gỡ class `.hidden` (Tailwind, `display:
- * none`) — `display:none` THẮNG TUYỆT ĐỐI mọi `opacity` khác.
+ * `bgVideoElement.classList.remove('hidden')` (bật)/`classList.add('hidden')` (tắt) — `display:
+ * none` THẮNG TUYỆT ĐỐI mọi `opacity` khác, nên PHẢI gỡ/thêm `.hidden` ở đây, không chỉ đổi opacity.
  * SỬA LẦN 2 (cùng ngày — Giang chỉnh lại: "index đang nằm TRÊN visual effect, phải đưa xuống THẤP
  * HƠN visual") — bỏ HẲN việc set `z-index` qua inline style — trả về ĐÚNG z-index TĨNH mặc định
  * của CSS (`#bg-video { z-index: 0; }`, GIỐNG HỆT cách "Video nền" trang trí vẫn dùng).
- * `enabled=true`: gỡ `.hidden` + bỏ muted + tắt loop (BẮT BUỘC — cần `bgVideoElement` tự bắn
- * 'ended' để tự chuyển video kế tiếp) + bật lại `pointer-events:auto` (nhận cử chỉ vuốt).
+ * `enabled=true`: gỡ `.hidden` + hiện (`opacity:1`) + bỏ muted + tắt loop (BẮT BUỘC — cần
+ * `bgVideoElement` tự bắn 'ended' để tự chuyển video kế tiếp) + bật lại `pointer-events:auto`
+ * (nhận cử chỉ vuốt).
  * `enabled=false`: thêm lại `.hidden` (an toàn — Block gate đảm bảo Video nền THẬT không hề bật
- * lúc này) + trả lại muted+loop=true + ẩn hẳn (`opacity:0`, CHỈ trường hợp NÀY hàm mới đụng
- * opacity — khớp `handleVideoBackground()` nhánh tắt: `bgVideoElement.style.opacity = '0';` ngay
- * dòng đầu) + pointer-events mặc định (`''`).
+ * lúc này) + ẩn hẳn (`opacity:0`) + trả lại muted+loop=true + pointer-events mặc định (`''`).
  * @param {boolean} enabled
  */
 function setBgVideoElementForPlayerMode(enabled) {
     bgVideoElement.muted = !enabled;
     bgVideoElement.loop = !enabled;
     bgVideoElement.classList.toggle('hidden', !enabled); // BẮT BUỘC — display:none thắng tuyệt đối opacity
-    // SỬA (30/07/2026, yêu cầu Giang — "bgVideo un-hidden/opacity phải gắn với vào/thoát mode, KHÔNG
-    // liên quan gì Next/Prev") — TRƯỚC ĐÂY chỉ nhánh !enabled đụng opacity, nhánh enabled=true để
-    // trống (dồn việc set opacity='1' sang tận playVideoByKey(), chạy lại MỖI LẦN Next/Prev — sai
-    // chỗ). Giờ CẢ 2 chiều xử lý NGAY TẠI ĐÂY, đúng 1 lần lúc vào/thoát mode — playVideoByKey()
-    // không còn đụng gì tới opacity/hidden của bgVideoElement nữa (xem event/workflow/video-player.js).
     bgVideoElement.style.opacity = enabled ? '1' : '0';
     bgVideoElement.style.pointerEvents = enabled ? 'auto' : '';
+}
+
+/** Core thuần — hiện/ẩn overlay thumb full-res (`videoThumbOverlay`, #video-player-thumb-overlay,
+ * core/dom-refs.js) nằm NGAY TRÊN `bgVideoElement` (z-index, xem assets/css/style.css). MỚI
+ * (30/07/2026, yêu cầu Giang — lấp khoảng chớp đen lúc Next/Prev Video Player mode): `bgVideoElement`
+ * đổi `src` LUÔN reset readyState về HAVE_NOTHING tức thời (xem docstring `playVideoByKey()`,
+ * event/workflow/video-player.js) — trong khoảng đó overlay này hiện tạm khung `thumbFullBlob`
+ * (full-res, frame 1, service/db.js) của ĐÚNG video mới đang tải, che đúng chỗ đen lộ ra.
+ *
+ * KHÔNG tự `URL.createObjectURL`/`revokeObjectURL` — lifecycle object URL do Workflow tự quản lý
+ * (`_thumbFullObjectUrl`, event/workflow/video-player.js), giống hệt cách `_objectUrl`/
+ * `_thumbObjectUrl` đã làm — hàm này CHỈ nhận `url` (string đã tạo sẵn, hoặc `null`) qua tham số
+ * (Rule 2 — không tự đọc gì), guard clause đơn tuyến (Rule 1 — `null` thì ẩn+xoá, có giá trị thì
+ * hiện+gán, CÙNG 1 nghiệp vụ "đồng bộ overlay theo url truyền vào", không phải 2 tiến trình khác
+ * nhau — cùng khuôn `setBgVideoElementForPlayerMode()` ở trên).
+ * @param {string|null} url - object URL của thumbFullBlob, hoặc `null` để ẩn/xoá.
+ */
+function setVideoThumbOverlay(url) {
+    videoThumbOverlay.classList.toggle('hidden', !url);
+    videoThumbOverlay.style.backgroundImage = url ? `url(${url})` : '';
 }
 
 let _videoAnalyserSourceNode = null; // MediaElementSourceNode của bgVideoElement — tạo ĐÚNG 1 LẦN (trình duyệt cấm tạo lại trên CÙNG 1 element, KHÁC audioPlayer đã có source riêng của nó)
