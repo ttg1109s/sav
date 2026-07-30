@@ -254,6 +254,14 @@
     <link rel="stylesheet" href="assets/css/slideshow.css?v=20260703v2">
 
     <video id="bg-video" loop muted playsinline></video>
+    <!-- MỚI (30/07/2026, yêu cầu Giang) — overlay thumb full-res (thumbFullBlob, service/db.js) cho
+         Video Player mode, lấp khoảng chớp đen lúc Next/Prev (bgVideoElement đổi src -> reset
+         readyState tức thời). z-index CÙNG 0 với #bg-video NHƯNG đứng SAU trong DOM -> vẽ đè lên
+         (cùng stacking context, không cần z-index riêng). Ẩn mặc định (.hidden) — CHỈ Video Player
+         mode đụng tới (core/video-player.js::setVideoThumbOverlay(), event/workflow/video-player.js
+         ::playVideoByKey()) — Video nền trang trí (core/state-and-video-bg.js) KHÔNG đụng gì tới
+         element này. -->
+    <div id="video-player-thumb-overlay" class="hidden"></div>
     <!-- FIX (04/07/2026, mục 1a phản hồi Giang) — nền màu Settings (bgColor) tách hẳn khỏi
          `document.body` (trước đây `document.body.style.backgroundColor = cfg.bgColor` — nghi
          ngờ 1 phần nguyên nhân màu tràn vào status bar/tai thỏ OS). `<body>` ở trên giữ NGUYÊN
