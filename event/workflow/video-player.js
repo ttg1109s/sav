@@ -133,6 +133,7 @@ const workflowVideoPlayer = {
      * @param {boolean} [switchScreen=true]
      */
     async playVideoByKey(videoKey, switchScreen = true) {
+        console.log('[DBG-video] playVideoByKey() gọi — videoKey:', videoKey, '| currentKey:', appState.get('currentKey'), '| this._objectUrl:', this._objectUrl, '| bgVideoElement.src:', bgVideoElement.getAttribute('src'));
         // FIX (29/07/2026, yêu cầu Giang mục 3 — "chọn lại video đang phát bị restart sai, chỉ cần
         // switch lại visualizer") — Router (event/router/video-player.js, nhánh
         // isVideoPlayerMode===true) gọi THẲNG hàm này cho CẢ 2 tình huống: Next/Prev vật lý (key
@@ -150,6 +151,7 @@ const workflowVideoPlayer = {
         // đúng "đang thật sự tải/phát video này" (this._objectUrl còn tồn tại VÀ khớp đúng src hiện
         // tại của bgVideoElement) với "chỉ trùng currentKey do state cũ chưa dọn".
         if (videoKey === appState.get('currentKey') && this._objectUrl && bgVideoElement.getAttribute('src') === this._objectUrl) {
+            console.log('[DBG-video] playVideoByKey() — GUARD: chọn lại đúng video đang phát, KHÔNG load lại gì cả');
             if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated();
             if (bgVideoElement.paused) bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
             return;
@@ -158,6 +160,7 @@ const workflowVideoPlayer = {
             bgVideoElement.pause(); // (1) đứng hình NGAY — CHƯA đụng src, khung hình cũ giữ nguyên
 
             const record = await getVideoRecord(videoKey); // (2) service/db.js — trong lúc đợi, màn hình vẫn đứng yên ở khung hình cũ
+            console.log('[DBG-video] getVideoRecord() xong — record:', record && record.key, '| có thumbBlob:', !!(record && record.thumbBlob), '| có thumbFullBlob:', !!(record && record.thumbFullBlob));
             if (!record) {
                 // guard: video vừa bị xoá ở nơi khác giữa lúc đang phát. KHÔNG gọi playNext(true)
                 // NGAY TẠI ĐÂY — vẫn đang ở TRONG withLoadingShield() này (isShieldBusy chỉ được
@@ -179,6 +182,7 @@ const workflowVideoPlayer = {
             // thể chưa có field này, guard null: record.thumbFullBlob || null).
             if (this._thumbFullObjectUrl) { try { URL.revokeObjectURL(this._thumbFullObjectUrl); } catch (e) {} this._thumbFullObjectUrl = null; }
             if (record.thumbFullBlob) this._thumbFullObjectUrl = URL.createObjectURL(record.thumbFullBlob);
+            console.log('[DBG-video] this._thumbFullObjectUrl sau khi tạo:', this._thumbFullObjectUrl);
 
             // BẮT BUỘC — đảm bảo audioContext/analyser tồn tại (an toàn gọi lại nhiều lần, guard sẵn
             // trong chính 2 hàm) RỒI mới nối bgVideoElement vào — thứ tự ngược sẽ lỗi (analyser chưa
@@ -190,7 +194,9 @@ const workflowVideoPlayer = {
             // đúng lúc bgVideoElement chuẩn bị reset readyState về HAVE_NOTHING, overlay đã kịp che
             // đúng khung hình video MỚI (không phải video cũ) — null nếu record không có
             // thumbFullBlob thì setVideoThumbOverlay() tự ẩn/no-op (guard clause bên trong hàm đó).
+            console.log('[DBG-video] gọi setVideoThumbOverlay(', this._thumbFullObjectUrl, ') TRƯỚC khi gán src');
             setVideoThumbOverlay(this._thumbFullObjectUrl); // core/video-player.js
+            console.log('[DBG-video] videoThumbOverlay sau khi gọi — class list:', videoThumbOverlay.className, '| backgroundImage:', videoThumbOverlay.style.backgroundImage);
 
             // (3) Gán 1 lần liền mạch — KHÔNG còn khoảng hở giữa các dòng để lộ trạng thái dở dang.
             // SỬA (30/07/2026, yêu cầu Giang) — bỏ hẳn việc đụng opacity/hidden ở ĐÂY: bgVideoElement
@@ -199,16 +205,19 @@ const workflowVideoPlayer = {
             // DUNG (src) bên trong đúng 1 khung đang hiển thị, không phải bật/tắt cái khung đó.
             bgVideoElement.poster = this._thumbObjectUrl;
             bgVideoElement.src = this._objectUrl;
+            console.log('[DBG-video] đã gán src mới cho bgVideoElement — class list bgVideoElement:', bgVideoElement.className, '| readyState:', bgVideoElement.readyState);
             bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
 
             // Đợi ĐÚNG lúc video MỚI thật sự có khung hình (sự kiện 'playing') rồi mới đổi bất kỳ
             // gì lên UI — kèm timeout an toàn (2s) phòng 'playing' không bao giờ bắn (autoplay bị
             // chặn/lỗi định dạng lạ) để không kẹt vĩnh viễn.
-            await Promise.race([
-                new Promise((resolve) => bgVideoElement.addEventListener('playing', resolve, { once: true })),
-                new Promise((resolve) => taskManager.once(resolve, 2000, 'videoPlayingReadyFallback')),
+            const which = await Promise.race([
+                new Promise((resolve) => bgVideoElement.addEventListener('playing', resolve, { once: true })).then(() => 'playing'),
+                new Promise((resolve) => taskManager.once(resolve, 2000, 'videoPlayingReadyFallback')).then(() => 'timeout'),
             ]);
+            console.log('[DBG-video] Promise.race kết thúc do:', which, '— gọi setVideoThumbOverlay(null) để ẩn overlay');
             setVideoThumbOverlay(null); // core/video-player.js — ẩn NGAY, bgVideoElement đã có khung hình thật (hoặc hết timeout) phía dưới rồi
+            console.log('[DBG-video] videoThumbOverlay sau khi ẩn — class list:', videoThumbOverlay.className);
 
             // ===== TỪ ĐÂY: video MỚI đã thật sự hiện ra (hoặc hết 2s chờ) — mới đổi UI =====
             appState.set('currentKey', videoKey);
@@ -355,6 +364,7 @@ const workflowVideoPlayer = {
      * DÙNG CHUNG với Song, THAY `this.nextVideo(false)` riêng đã xoá — tự đọc displayOrder/
      * shuffleIndices/repeatMode, tự gọi lại window.playSong() -> quay lại dispatch mediaType. */
     async handleVideoPlayerEnded() {
+        console.log('[DBG-video] handleVideoPlayerEnded() — video tự hết, gọi playNext(false)');
         stopListenClock(); // core/player-controls.js, hàm có sẵn — dùng lại nguyên
         playNext(false); // core có sẵn (core/player-controls.js), dùng CHUNG với Song — force=false, tôn trọng repeatMode
     },
