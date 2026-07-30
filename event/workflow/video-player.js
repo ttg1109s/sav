@@ -179,8 +179,11 @@ const workflowVideoPlayer = {
             connectVideoElementToAnalyser(); // core/video-player.js
 
             // (3) Gán 1 lần liền mạch — KHÔNG còn khoảng hở giữa các dòng để lộ trạng thái dở dang.
+            // SỬA (30/07/2026, yêu cầu Giang) — bỏ hẳn việc đụng opacity/hidden ở ĐÂY: bgVideoElement
+            // đã un-hidden + opacity='1' NGAY từ lúc vào Video Player mode (setBgVideoElementForPlayerMode
+            // ở startFromPlaylist(), CHỈ 1 lần) và giữ nguyên vậy tới lúc thoát — Next/Prev đổi NỘI
+            // DUNG (src) bên trong đúng 1 khung đang hiển thị, không phải bật/tắt cái khung đó.
             bgVideoElement.poster = this._thumbObjectUrl;
-            bgVideoElement.style.opacity = '1';
             bgVideoElement.src = this._objectUrl;
             bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
 
