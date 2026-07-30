@@ -55,13 +55,14 @@ body {
       dưới, y hệt Giang mô tả. SỬA: đồng bộ CẢ 4 lớp nền LẪN `#app-root` (ngay trên, height đổi
       thẳng sang `100dvh`, KHÔNG còn dựa cascade `%` mong manh qua body/html nữa) về CÙNG 1 đơn vị
       — không còn ai "lớn hơn" ai để hở ra khoảng trống nào cả. */
-        /* XOÁ (30/07/2026, theo yêu cầu Giang) — bỏ `transition: opacity 0.5s` vestigial: cả 2 nơi
-           dùng bgVideoElement (Video nền decoration — core/state-and-video-bg.js, XOÁ fade 29/07
-           mục 4; Video Player mode — event/workflow/video-player.js, chớp đen next/prev) đều set
-           opacity thẳng 0/1 tức thời, KHÔNG còn chỗ nào dựa vào animation này — để lại CSS sẽ vô
-           tình animate bất kỳ lần đổi opacity nào trong tương lai (ví dụ cơ chế ẩn/hiện tức thời
-           dự tính cho fix "chớp đen" sắp tới), ngược đúng chủ trương "không fade" Giang đã chốt. */
-        #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; object-fit: cover; z-index: 0; pointer-events: none; opacity: 0; }
+        /* XOÁ (30/07/2026, theo yêu cầu Giang) — bỏ `transition: opacity 0.5s` vestigial (bước 1),
+           RỒI BỎ LUÔN CẢ THUỘC TÍNH `opacity` (bước 2, cùng ngày, sau khi nhận ra opacity chưa từng
+           có tác dụng THẬT riêng biệt nào) — cả 2 nơi dùng bgVideoElement (Video nền decoration —
+           core/state-and-video-bg.js; Video Player mode — core/video-player.js::
+           setBgVideoElementForPlayerMode()) giờ CHỈ dùng `.hidden` (display:none, Tailwind) để
+           hiện/ẩn. Trạng thái ẩn MẶC ĐỊNH (trước khi JS chạy) chuyển sang `class="hidden"` NGAY
+           TỪ HTML (index.html) thay cho `opacity: 0` từng đứng ở đây. */
+        #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; object-fit: cover; z-index: 0; pointer-events: none; }
         /* MỚI (30/07/2026) — overlay thumb full-res cho Video Player mode (xem comment index.html
            ngay trên thẻ này). SỬA (30/07/2026, Giang phát hiện qua test thật trên iOS — overlay vẫn
            bị <video> đè lên dù đứng SAU trong DOM cùng z-index 0) — <video> giải mã bằng hardware
