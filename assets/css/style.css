@@ -63,18 +63,26 @@ body {
            dự tính cho fix "chớp đen" sắp tới), ngược đúng chủ trương "không fade" Giang đã chốt. */
         #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; object-fit: cover; z-index: 0; pointer-events: none; opacity: 0; }
         /* MỚI (30/07/2026) — overlay thumb full-res cho Video Player mode (xem comment index.html
-           ngay trên thẻ này) — z-index CÙNG 0 với #bg-video, đứng SAU trong DOM nên vẽ đè lên, KHÔNG
-           cần số z-index riêng. Không transition — ẩn/hiện tức thời theo đúng yêu cầu Giang (không
-           fade). background-size cover khớp object-fit cover của #bg-video, cùng cách lấp khung hình. */
-        #video-player-thumb-overlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; background-size: cover; background-position: center; z-index: 0; pointer-events: none; }
+           ngay trên thẻ này). SỬA (30/07/2026, Giang phát hiện qua test thật trên iOS — overlay vẫn
+           bị <video> đè lên dù đứng SAU trong DOM cùng z-index 0) — <video> giải mã bằng hardware
+           trên WKWebView/Safari iOS thường được đẩy vào 1 compositing layer RIÊNG, có thể PHỚT LỜ
+           tie-break theo thứ tự DOM khi z-index BẰNG NHAU. Nâng hẳn z-index overlay lên 5 (khác biệt
+           rõ ràng, không dựa tie-break nữa) — vẫn DƯỚI #visualizer (10), không đụng gì #webgl-canvas
+           (1, luôn trong suốt lúc Video Player mode đang bật nên không có gì để che dù overlay giờ ở
+           trên nó). Không transition — ẩn/hiện tức thời theo đúng yêu cầu Giang (không fade).
+           background-size cover khớp object-fit cover của #bg-video, cùng cách lấp khung hình. */
+        #video-player-thumb-overlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; background-size: cover; background-position: center; z-index: 5; pointer-events: none; }
         /* Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). CHỐT
            03/07/2026 (Giang xác nhận): 4 lớp nền màn Visualizer ĐỀU BẬT SONG SONG được (không loại
            trừ nhau) — thứ tự z-index thấp -> cao: nền màu Settings (bgColor, FIX 04/07/2026:
            `#visualizer-solid-bg` riêng — KHÔNG còn là DOM body như trước, xem comment ngay trên)
            < ẢNH TĨNH NÀY (#visual-bg-image, -2) < nền slideshow album (-1, ĐÃ CODE — Batch 8, xem
            assets/css/slideshow.css) < video nền (#bg-video, 0) <
-           chính visualizer đang vẽ (#webgl-canvas z-index 1/#visualizer z-index 10, luôn trên
-           cùng, KHÔNG đổi). Xem core/state-and-video-bg.js (applyVisualBgImageToDOM) cho đầy đủ lý
+           #video-player-thumb-overlay (5, MỚI 30/07/2026 — CHỈ Video Player mode, xem comment ngay
+           trên #bg-video) < chính visualizer đang vẽ (#webgl-canvas z-index 1/#visualizer z-index
+           10, luôn trên cùng, KHÔNG đổi — LƯU Ý: #webgl-canvas (1) giờ THẤP HƠN overlay thumb (5),
+           nhưng luôn trong suốt lúc Video Player mode bật nên không xung đột thị giác gì). Xem
+           core/state-and-video-bg.js (applyVisualBgImageToDOM) cho đầy đủ lý
            do + lưu ý hiệu năng riêng cho slideshow (task lặp, KHÁC ảnh tĩnh DOM ở đây). */
         #visualizer-solid-bg { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: -3; pointer-events: none; background-color: #000000; }
         #visual-bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; background-size: cover; background-position: center; z-index: -2; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
