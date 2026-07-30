@@ -47,6 +47,10 @@
  * `backfillMissingVideoThumbFull()`/`_captureFullResFrame1()` (thêm cùng ngày, chạy ngầm 1 lần lúc
  * boot backfill `thumbFullBlob` cho video cũ) ĐÃ XOÁ HẲN — đã hoàn thành nhiệm vụ, không giữ code
  * chỉ chạy 1 lần rồi mãi mãi no-op về sau. Xem cuối file cũ (đã xoá) nếu cần đối chiếu lại logic.
+ * THÊM LẠI (30/07/2026, yêu cầu Giang "tạo lại thumb full res frame 1 cho toàn bộ video hiện có") —
+ * `_captureFullResFrame1()`/`regenerateAllVideoThumbFull()` (cuối file) — KHÁC bản cũ ở trên: bản
+ * NÀY GHI ĐÈ cho TOÀN BỘ video (không chỉ video thiếu field), cờ 1-lần đổi sang `localStorage`
+ * (bản cũ dùng gì thì đã xoá, không đối chiếu được nữa).
  *
  * NẠP SAU: core/file-manager/video.js, core/generic-drawer.js, event/workflow/video-gallery-
  * window.js, event/workflow/video-player.js (workflowVideoPlayer — dùng bởi
@@ -145,16 +149,101 @@ const workflowFileManagerVideo = {
         });
     },
 
-    // ===================== Backfill thumbFullBlob cho video ĐÃ CÓ SẴN — XOÁ (29/07/2026, yêu cầu
-    // Giang "loại bỏ phần boot up thumb full cho video cũ, vì đã xong") =====================
-    // `_captureFullResFrame1()`/`backfillMissingVideoThumbFull()` (thêm 29/07/2026 sáng cùng ngày,
-    // chạy ngầm 1 lần lúc boot — event/workflow/app-boot.js::boot() — backfill `thumbFullBlob` cho
-    // video upload TRƯỚC khi field đó ra đời) ĐÃ XOÁ HẲN — đã hoàn thành nhiệm vụ 1 lần, TOÀN BỘ
-    // video hiện có trong DB đã đủ field, không cần giữ lại code chỉ chạy đúng 1 lần rồi luôn no-op
-    // mãi mãi về sau. Video MỚI upload từ giờ vẫn tự có `thumbFullBlob` như thường qua
-    // `_extractVideoThumbAndMeta()` ở trên (không đổi gì, hàm đó không liên quan tới phần vừa xoá).
-    // 3 lang key báo kết quả (`fileManager.video.thumbFullBackfillDone/Partial/Failed`,
-    // lang/patch/patch-file-manager.js) cũng xoá theo, không còn ai dùng.
+    // ===================== Regen TOÀN BỘ thumbFullBlob — THÊM (30/07/2026, yêu cầu Giang "tạo lại
+    // thumb full res frame 1 cho toàn bộ video hiện có") =====================================
+    // KHÁC bản backfill cũ đã xoá (chỉ vá video THIẾU field) — bản NÀY chụp lại + GHI ĐÈ
+    // `thumbFullBlob` cho TOÀN BỘ video đang có trong DB, bất kể đã có field đó hay chưa.
+
+    /** Chụp khung hình ĐẦU TIÊN (time=0, "frame 1"), FULL RESOLUTION (không crop/resize) từ 1 Blob
+     * video BẤT KỲ — TÁCH RIÊNG khỏi `_extractVideoThumbAndMeta()` ở trên: hàm đó chạy lúc UPLOAD,
+     * cần tính CẢ thumbBlob vuông + width/height/duration cùng lúc; ở đây video ĐÃ CÓ SẴN trong DB
+     * (đã có đủ mọi field khác rồi) nên CHỈ cần đúng 1 việc — chụp lại `thumbFullBlob` — viết hàm
+     * riêng, gọn hơn, đúng Rule 1 (1 tiến trình rõ ràng, không gánh thêm việc không liên quan).
+     * KHÔNG throw — trả `null` nếu lỗi/timeout (field phụ, 1 video lỗi không được chặn cả lô, xem
+     * `regenerateAllVideoThumbFull()` ngay dưới).
+     * @param {Blob} blob - blob video GỐC (record.blob, service/db.js).
+     * @returns {Promise<Blob|null>}
+     */
+    _captureFullResFrame1(blob) {
+        return new Promise((resolve) => {
+            const objectUrl = URL.createObjectURL(blob);
+            const videoEl = document.createElement('video');
+            videoEl.muted = true;
+            videoEl.playsInline = true;
+            let settled = false;
+            const finish = (result) => {
+                if (settled) return;
+                settled = true;
+                try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+                resolve(result);
+            };
+            const safetyTimeout = taskManager.once(() => finish(null), 8000);
+
+            videoEl.addEventListener('loadedmetadata', () => {
+                const width = videoEl.videoWidth, height = videoEl.videoHeight;
+                if (!width || !height) { finish(null); return; }
+                videoEl.currentTime = 0; // seek về frame 1 — sự kiện 'seeked' bên dưới mới thật sự chụp
+            }, { once: true });
+
+            videoEl.addEventListener('seeked', () => {
+                if (settled) return;
+                safetyTimeout.kill();
+                const width = videoEl.videoWidth, height = videoEl.videoHeight;
+                const canvas = document.createElement('canvas');
+                canvas.width = width; canvas.height = height;
+                canvas.getContext('2d').drawImage(videoEl, 0, 0, width, height);
+                canvas.toBlob((thumbFullBlob) => finish(thumbFullBlob || null), 'image/jpeg', 0.92);
+            }, { once: true });
+
+            videoEl.addEventListener('error', () => finish(null), { once: true });
+            videoEl.src = objectUrl;
+        });
+    },
+
+    /** Chạy NGẦM ĐÚNG 1 LẦN lúc boot (gọi từ `event/workflow/app-boot.js::boot()`) — chụp LẠI
+     * `thumbFullBlob` cho TOÀN BỘ video đang có trong DB, GHI ĐÈ cả video đã có sẵn field này (khác
+     * hẳn bản backfill cũ đã xoá 29/07/2026, bản đó CHỈ vá video thiếu field).
+     *
+     * Cờ 1-lần ghi vào `localStorage` (KHÔNG qua IndexedDB/meta như phần lớn state khác của app —
+     * Giang yêu cầu cụ thể `localStorage`, đơn giản/đồng bộ, đọc được NGAY lúc hàm này chạy mà
+     * không cần mở IndexedDB trước) — CÙNG khuôn `core/resume-state-storage.js` (key `sav_..._v1`,
+     * wrap try/catch phòng localStorage đầy/bị chặn — Safari riêng tư...).
+     *
+     * "Đồng bộ" (Giang yêu cầu) — xử lý TUẦN TỰ từng video 1 (`for` + `await`, KHÔNG `Promise.all`
+     * song song) — tránh mở hàng chục `<video>` giải mã cùng lúc, tốn RAM/CPU nặng trên máy yếu/di
+     * động. Bọc `withLoadingShield()` (khoá thao tác khác trong lúc chạy, CÙNG khuôn `uploadVideos()`
+     * ở trên) + hiện tiến trình `x/total` qua `loadingText.textContent`, CẬP NHẬT NGAY TRONG vòng
+     * lặp — CÙNG PATTERN `core/playlist/loader.js::window.loadSongsFromFiles()`.
+     *
+     * Lỗi 1 video (file hỏng/không đọc được) KHÔNG chặn cả lô — bắt riêng, bỏ qua đúng video đó
+     * (`_captureFullResFrame1()` tự trả `null` thay vì throw). VẪN ghi cờ xong khi hết vòng lặp dù
+     * có video lỗi giữa chừng — không lặp lại mãi mãi mỗi lần mở app chỉ vì 1 video hỏng.
+     */
+    async regenerateAllVideoThumbFull() {
+        const FLAG_KEY = 'sav_videoThumbFullRegenV1Done';
+        try { if (localStorage.getItem(FLAG_KEY) === '1') return; } catch (e) { return; } // đã chạy xong 1 lần, HOẶC localStorage không đọc được -> an toàn bỏ qua, không lặp lại
+
+        const videos = await listVideos(); // core/file-manager/video.js
+        if (videos.length === 0) { try { localStorage.setItem(FLAG_KEY, '1'); } catch (e) {} return; } // không có video nào -> đánh dấu xong luôn, khỏi chờ lần sau
+
+        await withLoadingShield(tFormat('fileManager.video.thumbFullRegenProgress', { done: 0, total: videos.length }), async () => {
+            for (let i = 0; i < videos.length; i++) {
+                const video = videos[i];
+                loadingText.textContent = tFormat('fileManager.video.thumbFullRegenProgress', { done: i + 1, total: videos.length });
+                try {
+                    const thumbFullBlob = await this._captureFullResFrame1(video.blob);
+                    const record = await getVideoRecord(video.key); // service/db.js — đọc lại MỚI NHẤT, phòng video vừa bị xoá/sửa ở nơi khác giữa lúc vòng lặp dài đang chạy
+                    if (!record) continue; // guard: video vừa bị xoá ở nơi khác giữa chừng — bỏ qua, không lỗi
+                    record.thumbFullBlob = thumbFullBlob; // CHỈ ghi đè ĐÚNG field này, giữ nguyên mọi field khác (blob/thumbBlob/customName/...)
+                    await setVideoRecord(video.key, record); // service/db.js
+                } catch (err) {
+                    console.error(`[regenerateAllVideoThumbFull] chụp lại thumbFullBlob thất bại cho video "${video.key}":`, err);
+                }
+            }
+        });
+
+        try { localStorage.setItem(FLAG_KEY, '1'); } catch (e) {} // ghi cờ SAU KHI xong hẳn vòng lặp (kể cả có video lỗi giữa chừng) — không chạy lại nữa
+    },
 
     /** Ứng với 'playlist.upload.videoFileChange' (Batch 6, mục 7 — trước đây
      * 'fileManagerVideo.upload.change', gọi từ panel đã xoá). Lỗi 1 file (vd file hỏng) KHÔNG chặn

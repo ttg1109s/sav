@@ -133,11 +133,11 @@ const workflowAppBoot = {
         // SAU CÙNG (đã initPlaylistFromDB() + khôi phục activePlayListFolder xong).
         if (typeof scrollToSongIfPending === 'function') scrollToSongIfPending();
 
-        // XOÁ (29/07/2026, yêu cầu Giang — "loại bỏ phần boot up thumb full cho video cũ, vì đã
-        // xong") — `workflowFileManagerVideo.backfillMissingVideoThumbFull()` (chạy ngầm 1 lần lúc
-        // boot, backfill `thumbFullBlob` cho video cũ) đã hoàn thành nhiệm vụ 1 lần — TOÀN BỘ video
-        // hiện có trong DB đã đủ field. Hàm đó + `_captureFullResFrame1()` ĐÃ XOÁ HẲN khỏi
-        // event/workflow/file-manager-video.js (không giữ code chết) — video MỚI upload từ giờ vẫn
-        // tự có `thumbFullBlob` như thường qua `_extractVideoThumbAndMeta()` (không đổi gì).
+        // THÊM LẠI (30/07/2026, yêu cầu Giang "tạo lại thumb full res frame 1 cho toàn bộ video
+        // hiện có") — chạy ngầm, workflowFileManagerVideo.regenerateAllVideoThumbFull() (event/
+        // workflow/file-manager-video.js) tự guard cờ localStorage bên trong (no-op nếu đã chạy
+        // xong 1 lần trước đó) — KHÁC bản backfill cũ đã xoá 29/07/2026 (bản cũ chỉ vá video thiếu
+        // field, bản này GHI ĐÈ toàn bộ). Đặt Ở CUỐI boot() — sau khi Playlist/UI đã sẵn sàng.
+        if (typeof workflowFileManagerVideo !== 'undefined') await workflowFileManagerVideo.regenerateAllVideoThumbFull();
     },
 };
