@@ -150,6 +150,11 @@ const LANG_PATCH_FILE_MANAGER = {
     // — hiện trong loadingShield lúc chạy ngầm 1 lần lúc boot, xem workflowFileManagerVideo.
     // regenerateAllVideoThumbFull() (event/workflow/file-manager-video.js).
     'fileManager.video.thumbFullRegenProgress': 'Rebuilding video thumbnails {done} / {total}...',
+    // THÊM (30/07/2026, THỬ NGHIỆM — picker chọn nền Visual từ full-res video, xem
+    // event/workflow/visualizer-control-center.js::pickVisualBgImageFromLibrary()) — riêng biệt
+    // với 'fileManager.video.empty' (không có video nào) — trường hợp này CÓ video nhưng CHƯA video
+    // nào có thumbFullBlob (đang chờ regen chạy ngầm lúc boot, hoặc regen lỗi).
+    'fileManager.video.noFullResThumbForBgImage': 'No video has a full-res thumbnail yet. Try reopening the app to let it finish generating, then try again.',
     // ── Drawer con: Documents (mục 4.b4, ĐÃ CODE THẬT 04/07/2026) ────────────────────────────
     'fileManager.document.title': 'Documents',
     // Batch D7 (06/07/2026, batch cuối Nhóm D) — 'fileManager.document.back.title' XOÁ, dùng
