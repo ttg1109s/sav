@@ -207,34 +207,53 @@ const workflowFileManagerVideo = {
                 try { URL.revokeObjectURL(objectUrl); } catch (e) {}
                 resolve(result);
             };
-            const safetyTimeout = taskManager.once(() => finish(null), 8000);
+            const safetyTimeout = taskManager.once(() => { console.warn('[_captureFullResThumbFrame][DBG] TIMEOUT 8s — không sự kiện nào bắn.'); finish(null); }, 8000);
 
-            function captureFrame() {
+            // THÊM (30/07/2026, phản hồi Giang "vẫn không được" — 2 lần sửa theo suy đoán đều
+            // không ăn thua) — log CHI TIẾT thay vì đoán tiếp lần 3: in ra ĐÚNG sự kiện nào kích
+            // hoạt chụp, `currentTime`/`readyState` tại thời điểm đó, VÀ lấy mẫu pixel thật từ
+            // canvas (getImageData) để XÁC NHẬN bằng số liệu xem ảnh có thực sự toàn đen hay không
+            // (loại trừ khả năng ảnh KHÔNG đen nhưng lỗi nằm ở khâu hiển thị/CSS phía sau).
+            function captureFrame(triggeredBy) {
                 if (settled || frameCaptured) return;
                 frameCaptured = true;
                 safetyTimeout.kill();
                 const width = videoEl.videoWidth, height = videoEl.videoHeight;
-                if (!width || !height) { finish(null); return; }
+                console.log(`[_captureFullResThumbFrame][DBG] captureFrame() — kích hoạt bởi: "${triggeredBy}" | currentTime: ${videoEl.currentTime} | readyState: ${videoEl.readyState} | videoWidth/Height: ${width}x${height}`);
+                if (!width || !height) { console.warn('[_captureFullResThumbFrame][DBG] width/height = 0 -> finish(null)'); finish(null); return; }
                 const canvas = document.createElement('canvas');
                 canvas.width = width; canvas.height = height;
-                canvas.getContext('2d').drawImage(videoEl, 0, 0, width, height);
-                canvas.toBlob((thumbFullBlob) => finish(thumbFullBlob || null), 'image/jpeg', 0.92);
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(videoEl, 0, 0, width, height);
+                // Lấy mẫu 5 điểm (4 góc + giữa) — in ra RGB thật để xác nhận có phải toàn đen không.
+                try {
+                    const samplePoints = [[0, 0], [width - 1, 0], [0, height - 1], [width - 1, height - 1], [Math.floor(width / 2), Math.floor(height / 2)]];
+                    const samples = samplePoints.map(([x, y]) => Array.from(ctx.getImageData(x, y, 1, 1).data));
+                    console.log('[_captureFullResThumbFrame][DBG] mẫu pixel [R,G,B,A] tại 4 góc + giữa:', JSON.stringify(samples));
+                } catch (e) {
+                    console.warn('[_captureFullResThumbFrame][DBG] getImageData() lỗi (canvas có thể bị "tainted"):', e);
+                }
+                canvas.toBlob((thumbFullBlob) => {
+                    console.log(`[_captureFullResThumbFrame][DBG] canvas.toBlob() xong — thumbFullBlob: ${thumbFullBlob ? thumbFullBlob.size + ' bytes' : 'null'}`);
+                    finish(thumbFullBlob || null);
+                }, 'image/jpeg', 0.92);
             }
 
             videoEl.addEventListener('loadedmetadata', () => {
                 const width = videoEl.videoWidth, height = videoEl.videoHeight;
+                console.log(`[_captureFullResThumbFrame][DBG] loadedmetadata — readyState: ${videoEl.readyState} | duration: ${videoEl.duration} | videoWidth/Height: ${width}x${height}`);
                 if (!width || !height) { finish(null); return; }
                 // CÙNG khuôn event/workflow/video-editor.js::_onMetadataReady() — 1 mình 'seeked'
                 // KHÔNG đủ chắc ở mọi trình duyệt/thiết bị.
-                videoEl.addEventListener('loadeddata', captureFrame, { once: true });
-                videoEl.addEventListener('canplay', captureFrame, { once: true });
-                videoEl.addEventListener('seeked', captureFrame, { once: true });
+                videoEl.addEventListener('loadeddata', () => captureFrame('loadeddata'), { once: true });
+                videoEl.addEventListener('canplay', () => captureFrame('canplay'), { once: true });
+                videoEl.addEventListener('seeked', () => captureFrame('seeked'), { once: true });
                 videoEl.currentTime = 0.0001; // ép trình duyệt SEEK THẬT (một số engine bỏ qua nếu currentTime đã sẵn là 0)
                 videoEl.currentTime = 0; // rồi về ĐÚNG khung đầu tiên thật sự
-                if (videoEl.readyState >= 2) captureFrame(); // đã có sẵn khung hình — chụp ngay, phòng 3 sự kiện trên đã bắn TRƯỚC khi kịp đăng ký
+                if (videoEl.readyState >= 2) captureFrame('readyState>=2 (ngay lập tức)'); // đã có sẵn khung hình — chụp ngay, phòng 3 sự kiện trên đã bắn TRƯỚC khi kịp đăng ký
             }, { once: true });
 
-            videoEl.addEventListener('error', () => finish(null), { once: true });
+            videoEl.addEventListener('error', (e) => { console.error('[_captureFullResThumbFrame][DBG] sự kiện error:', videoEl.error); finish(null); }, { once: true });
             videoEl.src = objectUrl;
         });
     },
@@ -265,7 +284,10 @@ const workflowFileManagerVideo = {
         // video) — nếu giữ nguyên key cũ, hàm sẽ no-op ngay dòng dưới (tưởng đã xong), KHÔNG BAO
         // GIỜ chụp lại bằng logic ĐÚNG vừa sửa cho những video đã lỡ chạy qua bản lỗi. Key MỚI ép
         // TOÀN BỘ video chạy lại ĐÚNG 1 lần nữa với kỹ thuật chụp khung đầu robust mới.
-        const FLAG_KEY = 'sav_videoThumbFullRegenV2Done';
+        // SỬA LẦN 2 (30/07/2026, phản hồi Giang "vẫn không được") — ĐỔI sang V3: cần chạy lại để
+        // log chẩn đoán mới (currentTime/readyState/mẫu pixel thật) thực sự thực thi, thay vì bị
+        // no-op do cờ V2 đã lỡ ghi "xong" ở lần chạy trước (dù ảnh vẫn đen).
+        const FLAG_KEY = 'sav_videoThumbFullRegenV3Done';
         try { if (localStorage.getItem(FLAG_KEY) === '1') return; } catch (e) { return; } // đã chạy xong 1 lần, HOẶC localStorage không đọc được -> an toàn bỏ qua, không lặp lại
 
         const videos = await listVideos(); // core/file-manager/video.js
