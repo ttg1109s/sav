@@ -87,13 +87,18 @@
          * cơ chế fade-in cũ (opacity giữ 0 cho tới khi bắt được sự kiện 'loadeddata'/'playing' của
          * chính `bgVideoElement` rồi mới nhảy lên 1) — video nền giờ hiện NGAY khi gán `src`, không
          * còn khoảng đen chờ khung hình đầu tiên/không còn 2 listener nội bộ tự gỡ sau 1 lần nữa.
+         * SỬA (30/07/2026, yêu cầu Giang — "đồng nhất hidden/opacity") — bỏ hẳn dòng
+         * `bgVideoElement.style.opacity = '1'` từng nằm ở ĐÂY: hàm này CHỈ còn 1 caller DUY NHẤT
+         * (`handleVideoBackground()` nhánh bật, ngay dưới) — dồn opacity LÊN ĐÓ, đứng CÙNG CHỖ với
+         * `classList.remove('hidden')`, khớp đúng cách `setBgVideoElementForPlayerMode()` (core/
+         * video-player.js) đang làm cho Video Player mode — hidden+opacity LUÔN xử lý CÙNG NHAU tại
+         * 1 điểm bật/tắt DUY NHẤT, không tách rời 2 nơi nữa.
          */
         function setupVideoBgSource() {
             const videoBgUrl = appConfigViz.getAll().videoBgUrl;
             // Đã đúng URL và đã gán rồi -> không làm gì (tránh gán lại src thừa mỗi lần Next/Prev).
             if (bgVideoElement.getAttribute('src') === videoBgUrl && appState.get('_videoBgLoadedUrl') === videoBgUrl) return;
             bgVideoElement.src = videoBgUrl;
-            bgVideoElement.style.opacity = '1';
             appState.set('_videoBgLoadedUrl', videoBgUrl);
         }
 
@@ -115,10 +120,13 @@
             //  - NGUỒN chỉ thiết lập MỘT LẦN cho mỗi URL (setupVideoBgSource). Next/Prev chỉ
             //    gọi syncVideoBgToAudio() (xem player-controls.js) nên KHÔNG gán lại src nữa.
             //  - Nền đen cưỡng chế phía sau video.
-            // XOÁ (29/07/2026, yêu cầu Giang mục 4) — bỏ hẳn fade in/out: KHÔNG còn set opacity
-            // riêng ở nhánh bật (setupVideoBgSource() tự lo opacity='1' ngay khi gán src), và nhánh
-            // tắt ẩn/dọn src NGAY LẬP TỨC — KHÔNG còn `taskManager.once(...500ms...)` chờ animation
-            // opacity 0.5s chạy xong mới ẩn hẳn (không còn animation nào để chờ nữa).
+            // XOÁ (30/07/2026, yêu cầu Giang — "bỏ hẳn opacity") — opacity BỊ XOÁ HOÀN TOÀN khỏi
+            // bgVideoElement (CẢ 2 nhánh dưới đây, LẪN setBgVideoElementForPlayerMode() bên Video
+            // Player mode, core/video-player.js) — `.hidden` (display:none) ĐÃ TỰ ĐỦ để hiện/ẩn,
+            // opacity chỉ là dư thừa (display:none khiến opacity vô nghĩa hoàn toàn khi ẩn, và lúc
+            // hiện luôn set '1' ngay cạnh hidden nên chưa từng có tác dụng thật riêng biệt nào).
+            // CSS `#bg-video` cũng bỏ `opacity: 0` mặc định (assets/css/style.css) — thêm `class=
+            // "hidden"` NGAY TỪ HTML (index.html) làm trạng thái ẩn mặc định thay thế.
             const cfg = appConfigViz.getAll();
             if (cfg.videoBgEnabled && cfg.videoBgUrl) {
                 visualizerSolidBg.style.backgroundColor = '#000000'; // FIX (04/07/2026, mục 1a) — nền đen cưỡng chế sau video, đổi target khỏi document.body

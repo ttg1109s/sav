@@ -77,36 +77,40 @@ function exitVideoPlayerModeState() {
     appState.set('isVideoPlayerMode', false);
 }
 
-/** Đổi `muted`/`loop`/`pointer-events`/`.hidden`/`opacity` của `bgVideoElement` (#bg-video, TÁI
- * DÙNG — xem docstring đầu file) giữa 2 chế độ — gọi ĐÚNG 1 LẦN lúc vào/thoát Video Player mode,
- * KHÔNG liên quan gì tới Next/Prev bên trong mode (xem `playVideoByKey()`, event/workflow/
- * video-player.js — hàm đó KHÔNG đụng opacity/hidden của `bgVideoElement` nữa, chỉ đổi `src`).
+/** Đổi `muted`/`loop`/`pointer-events`/`.hidden` của `bgVideoElement` (#bg-video, TÁI DÙNG — xem
+ * docstring đầu file) giữa 2 chế độ — gọi ĐÚNG 1 LẦN lúc vào/thoát Video Player mode, KHÔNG liên
+ * quan gì tới Next/Prev bên trong mode (xem `playVideoByKey()`, event/workflow/video-player.js).
  *
- * LỊCH SỬ (đã lỗi thời, giữ lại để hiểu vì sao có SỬA LẦN 3 dưới) — bản 21/07/2026 CHỦ ĐỊNH tách
- * "khung" (hàm này, muted/loop/hidden) khỏi "nội dung" (opacity, để `playVideoByKey()` tự set MỖI
- * LẦN đổi video) — SỬA LẦN 3 (30/07/2026, yêu cầu Giang — "opacity/hidden phải gắn với vào/thoát
- * mode, KHÔNG phải Next/Prev") gộp lại: `playVideoByKey()` chạy lặp lại opacity='1' MỖI LẦN
- * Next/Prev là SAI CHỖ (opacity không đổi giá trị giữa các lần, vô nghĩa) — giờ CẢ opacity LẪN
- * hidden đều xử lý DUY NHẤT tại đây.
+ * SỬA (30/07/2026, yêu cầu Giang — "bỏ hẳn opacity") — XOÁ HOÀN TOÀN `style.opacity` khỏi hàm này
+ * (LẪN khỏi `handleVideoBackground()`/`setupVideoBgSource()`, core/state-and-video-bg.js — Video
+ * nền decoration, cùng đợt sửa) — CHỈ còn `.hidden` (display:none) quyết định hiện/ẩn. Opacity
+ * chưa từng có tác dụng THẬT nào riêng biệt: `display:none` đã khiến opacity vô nghĩa hoàn toàn lúc
+ * ẩn, còn lúc hiện luôn set '1' NGAY CẠNH việc gỡ `.hidden` nên không có khoảng nào opacity một
+ * mình quyết định trạng thái hiện/ẩn cả — thuần dư thừa, giữ lại chỉ gây hiểu nhầm có 2 cơ chế độc
+ * lập trong khi thực chất chỉ 1 (`hidden`). CSS `#bg-video` cũng bỏ `opacity: 0` mặc định (assets/
+ * css/style.css) — thêm `class="hidden"` NGAY TỪ HTML (index.html) làm trạng thái ẩn mặc định.
+ *
+ * LỊCH SỬ opacity (đã xoá, giữ lại để hiểu bối cảnh) — 21/07 tách "khung" (hàm này)/"nội dung"
+ * (opacity, để `playVideoByKey()` tự set); 30/07 LẦN 1 gộp opacity vào lại đây (SAI CHỖ — chạy lặp
+ * ở `playVideoByKey()` mỗi Next/Prev, vô nghĩa vì giá trị không đổi); 30/07 LẦN 2 (bản NÀY) — nhận
+ * ra opacity CHƯA TỪNG cần thiết dù ở đâu, xoá hẳn, không dời đi đâu nữa.
  * SỬA (21/07/2026, Giang chỉ ra video vẫn không hiện dù đã tắt cả Visual — z-index/canvas KHÔNG
  * PHẢI nguyên nhân) — ĐỐI CHIẾU với `handleVideoBackground()` phát hiện dòng
  * `bgVideoElement.classList.remove('hidden')` (bật)/`classList.add('hidden')` (tắt) — `display:
- * none` THẮNG TUYỆT ĐỐI mọi `opacity` khác, nên PHẢI gỡ/thêm `.hidden` ở đây, không chỉ đổi opacity.
+ * none` THẮNG TUYỆT ĐỐI mọi `opacity` khác.
  * SỬA LẦN 2 (cùng ngày — Giang chỉnh lại: "index đang nằm TRÊN visual effect, phải đưa xuống THẤP
  * HƠN visual") — bỏ HẲN việc set `z-index` qua inline style — trả về ĐÚNG z-index TĨNH mặc định
  * của CSS (`#bg-video { z-index: 0; }`, GIỐNG HỆT cách "Video nền" trang trí vẫn dùng).
- * `enabled=true`: gỡ `.hidden` + hiện (`opacity:1`) + bỏ muted + tắt loop (BẮT BUỘC — cần
- * `bgVideoElement` tự bắn 'ended' để tự chuyển video kế tiếp) + bật lại `pointer-events:auto`
- * (nhận cử chỉ vuốt).
+ * `enabled=true`: gỡ `.hidden` + bỏ muted + tắt loop (BẮT BUỘC — cần `bgVideoElement` tự bắn
+ * 'ended' để tự chuyển video kế tiếp) + bật lại `pointer-events:auto` (nhận cử chỉ vuốt).
  * `enabled=false`: thêm lại `.hidden` (an toàn — Block gate đảm bảo Video nền THẬT không hề bật
- * lúc này) + ẩn hẳn (`opacity:0`) + trả lại muted+loop=true + pointer-events mặc định (`''`).
+ * lúc này) + trả lại muted+loop=true + pointer-events mặc định (`''`).
  * @param {boolean} enabled
  */
 function setBgVideoElementForPlayerMode(enabled) {
     bgVideoElement.muted = !enabled;
     bgVideoElement.loop = !enabled;
-    bgVideoElement.classList.toggle('hidden', !enabled); // BẮT BUỘC — display:none thắng tuyệt đối opacity
-    bgVideoElement.style.opacity = enabled ? '1' : '0';
+    bgVideoElement.classList.toggle('hidden', !enabled); // BẮT BUỘC — display:none thắng tuyệt đối opacity — DUY NHẤT cơ chế hiện/ẩn, KHÔNG còn opacity
     bgVideoElement.style.pointerEvents = enabled ? 'auto' : '';
 }
 
