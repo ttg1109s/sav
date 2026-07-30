@@ -254,15 +254,11 @@
     <link rel="stylesheet" href="assets/css/slideshow.css?v=20260703v2">
 
     <video id="bg-video" loop muted playsinline class="hidden"></video>
-    <!-- MỚI (30/07/2026, yêu cầu Giang) — overlay thumb full-res (thumbFullBlob, service/db.js) cho
-         Video Player mode, lấp khoảng chớp đen lúc Next/Prev (bgVideoElement đổi src -> reset
-         readyState tức thời). z-index 5 (assets/css/style.css) — CAO HẲN #bg-video (0), KHÔNG dựa
-         tie-break DOM order nữa (iOS WKWebView đẩy <video> giải mã hardware vào compositing layer
-         riêng, có thể phớt lờ tie-break khi z-index bằng nhau). Ẩn mặc định (.hidden) — CHỈ Video
-         Player mode đụng tới (core/video-player.js::setVideoThumbOverlay(), event/workflow/
-         video-player.js::playVideoByKey()) — Video nền trang trí (core/state-and-video-bg.js)
-         KHÔNG đụng gì tới element này. -->
-    <div id="video-player-thumb-overlay" class="hidden"></div>
+    <!-- XOÁ (30/07/2026, Giang chốt sau điều tra "chớp đen next/prev") — từng có 1
+         #video-player-thumb-overlay ở đây (overlay thumb full-res, lấp khoảng chớp đen lúc
+         Next/Prev) — ĐÃ BỎ HẲN: <video> giải mã hardware trên WKWebView/iOS Safari nằm ở 1
+         compositing layer riêng, không CSS nào (kể cả z-index chênh hẳn) đè/lấp lên được — xem
+         core/video-player.js cho đầy đủ lý do. Next/Prev trở về bình thường, không còn overlay. -->
     <!-- FIX (04/07/2026, mục 1a phản hồi Giang) — nền màu Settings (bgColor) tách hẳn khỏi
          `document.body` (trước đây `document.body.style.backgroundColor = cfg.bgColor` — nghi
          ngờ 1 phần nguyên nhân màu tràn vào status bar/tai thỏ OS). `<body>` ở trên giữ NGUYÊN
