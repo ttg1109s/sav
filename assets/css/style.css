@@ -73,7 +73,19 @@ body {
            core/state-and-video-bg.js (applyVisualBgImageToDOM) cho đầy đủ lý
            do + lưu ý hiệu năng riêng cho slideshow (task lặp, KHÁC ảnh tĩnh DOM ở đây). */
         #visualizer-solid-bg { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: -3; pointer-events: none; background-color: #000000; }
-        #visual-bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; background-size: cover; background-position: center; z-index: -2; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
+        /* SỬA (30/07/2026, yêu cầu Giang — "dùng toggle hidden/unhidden thay vì opacity cho bg
+           image") — XOÁ opacity/transition khỏi #visual-bg-image, CHỈ còn `.hidden` (display:none)
+           quyết định hiện/ẩn — CÙNG lý do đã áp dụng cho #bg-video (opacity dư thừa, display:none
+           thắng tuyệt đối). Bắt buộc phải đổi: Video Player mode giờ TRƯNG DỤNG tạm lớp này làm
+           khung hiện thumbFullBlob của video sắp chuyển tới (che khoảng chớp đen/lộ layer lúc
+           bgVideoElement đổi src — xem core/video-player.js::forceShowVisualBgImageForVideoPlayer()/
+           setVideoTransitionThumb(), event/workflow/video-player.js::playVideoByKey()) — nếu còn
+           opacity residual (vd đang '0' vì tắt trong Settings) thì gỡ `.hidden` cũng KHÔNG hiện
+           được gì (opacity thắng), làm hỏng cơ chế "cưỡng chế hiện" cần thiết. `applyVisualBgImageToDOM()`
+           (core/state-and-video-bg.js) + 2 chỗ ẩn/hiện tạm của Slideshow (event/workflow/
+           slideshow.js::_reveal()/stop()) cùng đợt đổi sang `.hidden`. `class="hidden"` thêm NGAY
+           TỪ HTML (index.html) làm trạng thái ẩn mặc định trước khi JS chạy. */
+        #visual-bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; background-size: cover; background-position: center; z-index: -2; pointer-events: none; }
         /* Slideshow album (nền thứ 3, z-index -1) — Batch 8, ver 12 "Multi Media": ĐÃ TRIỂN KHAI
            THẬT ở assets/css/slideshow.css (#visual-slideshow-container), file CSS TÁCH RIÊNG THEO
            DOMAIN ĐẦU TIÊN của project (plan-v12-multimedia.md mục 2 — phá quy ước "1 file CSS"
