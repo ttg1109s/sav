@@ -47,6 +47,7 @@ const routerVideoPlayer = (() => {
                 // chỉ còn việc CHỌN HÀM NÀO rồi truyền `switchScreen` xuống, không tự quyết định gì
                 // thêm ở tầng này nữa.
                 const { key, switchScreen = true } = msg.payload;
+                console.log('[DBG-video] router videoPlayer.startFromPlaylist.click — key:', key, 'switchScreen:', switchScreen, 'isVideoPlayerMode:', appState.get('isVideoPlayerMode'));
                 VirtualMachineState.run([
                     { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
                         workflowVideoPlayer.playVideoByKey(key, switchScreen); // đã ở Video Player mode (Next/Prev/shuffle, hoặc bấm lại video đang phát từ Playlist) -> CHỈ đổi video, KHÔNG lặp lại bước "vào mode"
