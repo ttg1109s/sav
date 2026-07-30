@@ -1,50 +1,28 @@
 /**
- * event/workflow/video-player.js — GỌI TỪ 2 nơi: (1) `window.playSong()` (core/playlist/actions.js,
- * guard clause đầu hàm khi `cached.mediaType === 'video'` — MỚI, ver12 "Song/Video Unification"
- * Batch 2, THAY hẳn checkbox "Video Player mode" cũ trong panel File Manager -> Video, ĐÃ BỎ HẲN,
- * xem plan-v12-song-video-unification.md mục 3 + cleanup Batch 2), đi qua eventBus router
- * 'videoPlayer' (event/router/video-player.js) để Block gate kịp chặn — `startFromPlaylist(startKey)`
- * ngay dưới là entry point DUY NHẤT còn lại vào Video Player mode; (2) router "playerControls" —
- * Play-Pause + 5 sự kiện RIÊNG của `bgVideoElement` (video.timeupdate/loadedmetadata/play/pause/
- * ended — xem event/listener/video-player.js) + progressBar seek (VirtualMachineState theo
- * `isVideoPlayerMode`). `exitVideoPlayerMode()` giờ có THÊM 1 caller MỚI — `window.playSong()` tự
- * gọi khi phát Song lúc đang ở Video Player mode (dọn sạch trước khi chuyển hẳn về luồng Song).
+ * event/workflow/video-player.js — orchestrator (Workflow) cho Video Player mode.
  *
- * [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt: "video thừa hưởng cơ chế Playlist
- * sẵn có, không tạo cơ chế next/prev riêng — có là đang tạo exception"] Next/Prev (nút vật lý LẪN
- * cử chỉ vuốt) KHÔNG còn qua router này/VirtualMachineState theo `isVideoPlayerMode` nữa — LUÔN
- * gọi `playNext()`/`playPrev()` (core/player-controls.js, DÙNG CHUNG với Song, đọc `displayOrder`/
- * `shuffleIndices`/`currentKey` — package `playlist`, đã đúng danh sách + sort mode Video từ Batch
- * 1) bất kể nguồn nào, xem event/router/player-controls.js. `playVideoByKey()` ngay dưới giờ ghi
- * `currentKey` (KHÔNG còn `currentVideoKey` riêng, đã xoá — service/state/video-player-mode.js) —
- * chính là điểm khiến `playNext()`/`playPrev()` hoạt động đúng cho Video mà KHÔNG cần biết gì về
- * "đang phát video". `nextVideo()`/`prevVideo()` (mảng `videoPlaylist` riêng) ĐÃ XOÁ HẲN.
+ * Entry point DUY NHẤT vào mode: `startFromPlaylist(startKey)`, gọi từ `window.playSong()`
+ * (core/playlist/actions.js) qua eventBus router 'videoPlayer' (event/router/video-player.js —
+ * Block gate chặn ở đó). Next/Prev (nút vật lý/cử chỉ vuốt) LUÔN đi qua `playNext()`/`playPrev()`
+ * (core/player-controls.js, DÙNG CHUNG với Song) → `window.playSong()` → router này lần nữa →
+ * VirtualMachineState chọn `playVideoByKey()` (đã ở mode) thay vì `startFromPlaylist()` (vào mode
+ * lần đầu). `exitVideoPlayerMode()` có 2 caller: `window.playSong()` (chọn Song khi đang ở mode)
+ * và `workflowPlaylist` (đổi Nguồn).
  *
- * VIẾT LẠI LẦN 2 (21/07/2026, Giang phát hiện qua video test) — BỎ HẲN `audioPlayer` khỏi luồng
- * Video Player (xem docstring đầy đủ ở core/video-player.js vì sao — tóm tắt: `<audio src="video
- * blob">` không đáng tin cậy cross-browser, đặc biệt Safari/iOS, khiến `audioPlayer` không thực sự
- * chạy dù `bgVideoElement` vẫn phát tiếng bình thường). `bgVideoElement` giờ là NGUỒN DUY NHẤT: vừa
- * hiện hình + phát tiếng thật (native), vừa nuôi analyser qua `connectVideoElementToAnalyser()`
- * (core/video-player.js — source RIÊNG, KHÔNG phải nguồn của audioPlayer).
- *
- * Progress bar/current time/duration/seek/play-pause-icon/ended giờ có handler RIÊNG trong CHÍNH
- * file này (đọc/ghi THẲNG `bgVideoElement`) — KHÔNG dùng lại `handleAudioTimeUpdate()`/
- * `handleAudioPlay()`/... (core/player-controls.js, các hàm đó CHỈ đụng `audioPlayer`, giữ NGUYÊN
- * KHÔNG đổi gì cho Song).
- *
- * ĐƠN GIẢN HOÁ Ở BẢN ĐẦU (đã báo Giang) — KHÔNG có shuffle/repeat riêng cho video (danh sách phát
- * TUẦN TỰ theo thứ tự thêm vào, cũ -> mới). CÓ wake lock + Media Session (mirror Song, dùng lại
- * `requestWakeLock()`/`releaseWakeLock()`/`startListenClock()`/`stopListenClock()` core/player-
- * controls.js — những hàm này THUẦN, không đụng `audioPlayer`, an toàn dùng lại nguyên).
+ * `bgVideoElement` là NGUỒN DUY NHẤT (không `audioPlayer`) — progress bar/current time/duration/
+ * seek/play-pause/ended có handler riêng trong file này, đọc/ghi thẳng `bgVideoElement`, gắn qua
+ * sự kiện nguyên bản của chính nó (event/listener/video-player.js). Next/Prev/shuffle/repeat DÙNG
+ * CHUNG cơ chế Playlist (`displayOrder`/`shuffleIndices`/`currentKey`) — không có mảng/cơ chế
+ * riêng cho Video.
  *
  * NẠP SAU: core/video-player.js, core/file-manager/video.js (listVideos), core/playlist/loader.js
- * (buildVideoPlaylistCache, dùng bởi refreshVideoPlaylistIfActive() — Batch 1), core/playlist/
- * order.js (updateShuffleArray/recomputeDisplayOrder/recomputeRenderOrder, cùng lý do),
- * service/db.js (getVideoRecord), core/audio-engine.js (setupAudioContext).
+ * (buildVideoPlaylistCache), core/playlist/order.js (updateShuffleArray/recomputeDisplayOrder/
+ * recomputeRenderOrder), service/db.js (getVideoRecord), core/audio-engine.js (setupAudioContext).
  */
 const workflowVideoPlayer = {
     _objectUrl: null, // object URL HIỆN TẠI đang gán cho bgVideoElement (revoke trước khi tạo url mới)
     _thumbObjectUrl: null, // object URL của thumbBlob HIỆN TẠI (cover ở player bar, #record-container) — revoke trước khi tạo url mới
+    _forcedBgObjectUrl: null, // object URL của thumbFullBlob đang chèn cưỡng chế vào #visual-bg-image (xem playVideoByKey()) — revoke trước khi tạo url mới
     _swipeStartY: null, // toạ độ Y lúc touchstart — dùng bởi event/listener/video-player.js (cử chỉ vuốt)
 
     /**
@@ -78,10 +56,11 @@ const workflowVideoPlayer = {
         await this.playVideoByKey(startKey); // switchScreen mặc định true — TỰ switchToVisualizer() BÊN TRONG (sau khi video mới thật sự sẵn sàng), xem docstring playVideoByKey()
     },
 
-    /** Thoát Video Player mode: dừng + dọn `bgVideoElement`, trả về mặc định trang trí.
-     * SỬA (21/07/2026, cùng đợt so sánh 2 luồng) — thêm `updateDOMBackground()` (core/color-
-     * utils.js, hàm CÓ SẴN) — trả `visualizerSolidBg` về ĐÚNG `cfg.bgColor` (hàm đó tự đọc
-     * `cfg.videoBgEnabled`, LUÔN false cho Video Player mode — không cần biết gì thêm, tự làm đúng). */
+    /** Thoát Video Player mode: dừng + dọn `bgVideoElement`, trả về mặc định trang trí + khôi phục
+     * `#visual-bg-image` về ĐÚNG cài đặt Settings thật (trong lúc ở mode, lớp này bị chèn cưỡng chế
+     * thumb của video hiện tại — xem `playVideoByKey()` — KHÔNG phản ánh `cfg.visualBgImageEnabled`
+     * nữa, phải trả lại đúng lúc thoát). `updateDOMBackground()` (core/color-utils.js) trả
+     * `visualizerSolidBg` về `cfg.bgColor`. */
     async exitVideoPlayerMode() {
         bgVideoElement.pause();
         setBgVideoElementForPlayerMode(false); // core/video-player.js — trả lại muted+loop=true, ẩn, pointer-events mặc định
@@ -91,6 +70,10 @@ const workflowVideoPlayer = {
         bgVideoElement.load(); // buộc <video> bỏ hẳn tham chiếu blob URL vừa revoke (tránh giữ RAM)
         updateDOMBackground(); // core/color-utils.js, hàm CÓ SẴN — trả visualizerSolidBg về cfg.bgColor
 
+        if (this._forcedBgObjectUrl) { try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {} this._forcedBgObjectUrl = null; }
+        const cfg = appConfigViz.getAll();
+        applyVisualBgImageToDOM(cfg.visualBgImageEnabled, cfg.visualBgImageEnabled ? cfg.visualBgImage : ''); // core/state-and-video-bg.js — trả #visual-bg-image về đúng cài đặt thật
+
         exitVideoPlayerModeState(); // core/video-player.js
         releaseWakeLock(); stopListenClock(); // core/player-controls.js — dọn nốt 2 cơ chế đã bật lúc phát
     },
@@ -98,54 +81,32 @@ const workflowVideoPlayer = {
     /** Nạp 1 video vào `bgVideoElement` (DUY NHẤT — xem docstring đầu file) + phát ngay + cập nhật
      * title/artist/MediaSession + nuôi analyser.
      *
-     * VIẾT LẠI (phản hồi Giang 29/07/2026, "chớp đen next/prev") — luồng cũ: fetch record ->
-     * NGAY LẬP TỨC đổi `poster`/`src` -> đổi UI (currentKey/title/refreshSongNode/switchToVisualizer)
-     * TRONG LÚC video còn đang tải/giải mã. Vấn đề: đổi `src` LUÔN reset readyState về HAVE_NOTHING
-     * NGAY LẬP TỨC (trình duyệt xoá khung hình đang hiện, bất kể `poster` có gán hay không — hành vi
-     * hiện lại `poster` sau khi <video> ĐÃ phát ít nhất 1 lần KHÔNG đáng tin cậy trên nhiều
-     * engine/di động) -> lộ nền đen phía sau suốt khoảng đợi giải mã, rõ nhất khi Next/Prev liên tục.
+     * Chống chớp đen lúc đổi `src` (đổi `src` LUÔN reset readyState về HAVE_NOTHING ngay lập tức,
+     * xoá khung hình đang hiện) — 3 bước: (1) `bgVideoElement.pause()` NGAY khi hàm bắt đầu, CHƯA
+     * đụng `src` — video CŨ đứng hình. (2) `await getVideoRecord()` xong xuôi rồi mới đụng
+     * `bgVideoElement`. (3) Gán `poster`+`src`+`play()` ĐÚNG 1 lần liền mạch, rồi đợi THẬT SỰ có
+     * khung hình mới (sự kiện 'playing', kèm timeout an toàn 2s) mới đổi `currentKey`/title/
+     * `refreshSongNode()`/`switchToVisualizer()` — UI chỉ nhảy bài khi hình đã thật sự đổi.
      *
-     * FIX (chốt cùng Giang, 3 bước rõ ràng):
-     *   1. `bgVideoElement.pause()` NGAY LẬP TỨC lúc hàm bắt đầu — CHƯA đụng `src` — video CŨ đứng
-     *      hình (giữ nguyên khung hình cuối, KHÔNG đen) trong lúc (2) đang chạy.
-     *   2. `await getVideoRecord()` (đọc IndexedDB) CHẠY XONG XUÔI rồi mới đụng `bgVideoElement` —
-     *      trong lúc đợi, màn hình vẫn đứng yên ở khung hình cũ (không có gì để "nháy").
-     *   3. Chỉ ĐÚNG 1 lần gán `poster`+`src`+`play()` (không còn khoảng hở giữa các bước), rồi ĐỢI
-     *      THẬT SỰ có khung hình mới (sự kiện 'playing', kèm timeout an toàn 2s phòng autoplay bị
-     *      chặn/lỗi lạ) rồi MỚI đổi `currentKey`/title/refreshSongNode()/switchToVisualizer() —
-     *      UI (kể cả progress bar/tên bài) chỉ nhảy sang bài MỚI đúng lúc hình đã thật sự đổi, không
-     *      đổi sớm hơn (theo đúng yêu cầu Giang).
+     * BỌC `withLoadingShield(..., false)` (không hiện lớp che, CÙNG PATTERN `window.playSong()`,
+     * core/playlist/actions.js) — khoá chống bấm Next/Prev chồng lên nhau lúc đang đợi.
      *
-     * BỌC `withLoadingShield(..., false)` (display=false — không hiện lớp che, CÙNG PATTERN
-     * `window.playSong()` Song đang dùng, core/playlist/actions.js) — khoá chống bấm Next/Prev
-     * chồng lên nhau lúc đang đợi (gọi lại giữa chừng bị chính shield này im lặng bỏ qua, KHÔNG
-     * race 2 lần fetch/gán `src` cùng lúc).
-     *
-     * `switchScreen` (MỚI — TRƯỚC ĐÂY do router/`startFromPlaylist()` tự gọi switchToVisualizer()
-     * ngay sau khi gọi hàm này KHÔNG ĐỢI gì — giờ PHẢI dời quyết định switch màn hình/cuộn animated
-     * vào ĐÚNG thời điểm sau khi video mới thật sự sẵn sàng, nên dời hẳn logic đó vào TRONG đây,
-     * nhận qua tham số thay vì để caller tự gọi tách rời) — mặc định `true` (bấm 1 dòng trong
-     * Playlist/vào mode lần đầu); Next/Prev vật lý truyền `false` (core/router/video-player.js).
      * @param {string} videoKey
-     * @param {boolean} [switchScreen=true]
+     * @param {boolean} [switchScreen=true] - đổi màn hình/cuộn animated sau khi video sẵn sàng —
+     *        `true` (bấm 1 dòng trong Playlist/vào mode lần đầu); Next/Prev vật lý truyền `false`.
+     * @param {boolean} [isTransition=false] - MỚI (31/07/2026) — `true` khi hàm này chạy do
+     *        Next/Prev/end lúc ĐÃ ở Video Player mode (event/router/video-player.js truyền vào),
+     *        `false` lúc vào mode lần đầu (`startFromPlaylist()` không truyền). CHỈ khi `true` mới
+     *        chèn `record.thumbFullBlob` (decode + double-rAF, `decodeForcedBgThumb()` core/video-
+     *        player.js) làm lớp dự phòng multi-browser cho `#visual-bg-image` — KHÔNG chủ động ẩn/
+     *        hiện `bgVideoElement` (xem docstring `setBgVideoElementForPlayerMode()`), KHÔNG ẩn lại
+     *        sau khi video mới đã phát (Giang chốt: cứ để đó, lần transition kế tiếp tự ghi đè).
      */
-    async playVideoByKey(videoKey, switchScreen = true) {
-        // FIX (29/07/2026, yêu cầu Giang mục 3 — "chọn lại video đang phát bị restart sai, chỉ cần
-        // switch lại visualizer") — Router (event/router/video-player.js, nhánh
-        // isVideoPlayerMode===true) gọi THẲNG hàm này cho CẢ 2 tình huống: Next/Prev vật lý (key
-        // khác) LẪN bấm lại đúng video ĐANG PHÁT từ Playlist (key giống hệt currentKey) — trước đây
-        // KHÔNG hề phân biệt, luôn chạy lại toàn bộ (1)(2)(3) bên dưới -> revoke/tạo lại object URL,
-        // gán lại `src` -> video bị RESTART từ đầu dù đang phát đúng bài đó (sai, giống hệt bug cũ
-        // của Song trước khi có guard `key === currentKey` ở window.playSong(), core/playlist/
-        // actions.js — audio VẫN giữ nguyên vị trí đang phát, chỉ chuyển màn hình).
-        // Guard tương tự Song, NHƯNG KHÔNG được chỉ dựa `videoKey === currentKey` đơn thuần: sau
-        // `exitVideoPlayerMode()` (revoke `this._objectUrl` -> null, `bgVideoElement.removeAttribute
-        // ('src')`), `currentKey` KHÔNG bị xoá theo (xem docstring hàm đó) — nếu chọn lại ĐÚNG video
-        // vừa thoát mode, `startFromPlaylist()` vẫn gọi lại hàm này với `videoKey === currentKey`
-        // (stale) trong khi `bgVideoElement` đã KHÔNG còn src thật nào -> guard kiểu Song đơn thuần
-        // sẽ bỏ qua nhầm, để lại màn hình đen không có video. Điều kiện ĐỦ 3 vế dưới đây phân biệt
-        // đúng "đang thật sự tải/phát video này" (this._objectUrl còn tồn tại VÀ khớp đúng src hiện
-        // tại của bgVideoElement) với "chỉ trùng currentKey do state cũ chưa dọn".
+    async playVideoByKey(videoKey, switchScreen = true, isTransition = false) {
+        // Guard "bấm lại đúng video đang phát" (chỉ đổi màn hình, KHÔNG restart) — 3 vế bắt buộc,
+        // không chỉ `videoKey === currentKey`: sau `exitVideoPlayerMode()`, `currentKey` KHÔNG bị
+        // xoá theo dù `bgVideoElement` đã mất src thật — phải xác nhận `this._objectUrl` còn khớp
+        // đúng src hiện tại mới coi là "đang thật sự phát", tránh bỏ qua nhầm để lại màn đen.
         if (videoKey === appState.get('currentKey') && this._objectUrl && bgVideoElement.getAttribute('src') === this._objectUrl) {
             if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated();
             if (bgVideoElement.paused) bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
@@ -167,6 +128,17 @@ const workflowVideoPlayer = {
 
             const previousKey = appState.get('currentKey'); // đọc TRƯỚC khi ghi đè — refresh đúng dòng cũ sau khi video mới sẵn sàng
 
+            // MỚI (31/07/2026) — CHỈ lúc Next/Prev/end (isTransition=true, KHÔNG áp dụng lần đầu
+            // vào mode): chèn thumbFullBlob của video SẮP chuyển tới làm lớp dự phòng multi-browser
+            // cho #visual-bg-image — xem docstring tham số isTransition + core/video-player.js::
+            // setBgVideoElementForPlayerMode() (vì sao không ẩn/hiện bgVideoElement thay vào đó).
+            if (isTransition && record.thumbFullBlob) {
+                const forcedUrl = await decodeForcedBgThumb(record.thumbFullBlob); // core/video-player.js
+                if (this._forcedBgObjectUrl) { try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {} }
+                this._forcedBgObjectUrl = forcedUrl;
+                applyVisualBgImageToDOM(true, forcedUrl); // core/state-and-video-bg.js
+            }
+
             if (this._objectUrl) { try { URL.revokeObjectURL(this._objectUrl); } catch (e) {} }
             this._objectUrl = URL.createObjectURL(record.blob);
             if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} }
@@ -178,11 +150,9 @@ const workflowVideoPlayer = {
             setupAudioContext(); // core/audio-engine.js
             connectVideoElementToAnalyser(); // core/video-player.js
 
-            // (3) Gán 1 lần liền mạch — KHÔNG còn khoảng hở giữa các dòng để lộ trạng thái dở dang.
-            // SỬA (30/07/2026, yêu cầu Giang) — bỏ hẳn việc đụng opacity/hidden ở ĐÂY: bgVideoElement
-            // đã un-hidden + opacity='1' NGAY từ lúc vào Video Player mode (setBgVideoElementForPlayerMode
-            // ở startFromPlaylist(), CHỈ 1 lần) và giữ nguyên vậy tới lúc thoát — Next/Prev đổi NỘI
-            // DUNG (src) bên trong đúng 1 khung đang hiển thị, không phải bật/tắt cái khung đó.
+            // (3) Gán 1 lần liền mạch — KHÔNG còn khoảng hở giữa các dòng. bgVideoElement đã hiện +
+            // KHÔNG bị đụng hidden/opacity ở đây — chỉ đổi NỘI DUNG (src) bên trong đúng 1 khung
+            // đang hiển thị (xem setBgVideoElementForPlayerMode(), core/video-player.js).
             bgVideoElement.poster = this._thumbObjectUrl;
             bgVideoElement.src = this._objectUrl;
             bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
