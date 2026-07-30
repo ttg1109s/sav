@@ -25,6 +25,7 @@ const workflowAppBoot = {
             const cfg = appConfigViz.getAll();
             if (cfg.visualBgImageEnabled) {
                 const visualBgBlob = await getMeta('visualBgImage');
+                console.log(`[DBG-visualbg] boot resolve — visualBgImageEnabled=true, meta.visualBgImage tồn tại: ${!!visualBgBlob}${visualBgBlob ? `, size=${visualBgBlob.size}, type=${visualBgBlob.type}` : ''}`);
                 if (visualBgBlob) {
                     const url = URL.createObjectURL(visualBgBlob);
                     appConfigViz.mutateAll(c => { c.visualBgImage = url; });
@@ -41,6 +42,7 @@ const workflowAppBoot = {
                     if (typeof settingVisualBgImageEnableToggle !== 'undefined' && settingVisualBgImageEnableToggle) settingVisualBgImageEnableToggle.checked = false;
                 }
             } else if (typeof settingVisualBgImageEnableToggle !== 'undefined' && settingVisualBgImageEnableToggle) {
+                console.log('[DBG-visualbg] boot resolve — visualBgImageEnabled=false, KHÔNG resolve/hiện gì (đúng thiết kế nếu đang tắt trong Settings).');
                 settingVisualBgImageEnableToggle.checked = false; // đồng bộ rõ ràng cả nhánh "off"
             }
         }
