@@ -156,7 +156,6 @@
             // không đổi bất kỳ dòng nào — đúng nguyên tắc riêng của plan "KHÔNG sửa/động code đang
             // phục vụ RIÊNG cho Song".
             const cachedForDispatch = appState.get('playlistCache').get(key);
-            console.log('[DBG-video] window.playSong(key=', key, ') — mediaType:', cachedForDispatch && cachedForDispatch.mediaType);
             if (cachedForDispatch && cachedForDispatch.mediaType === 'video') {
                 // SỬA (Giang chốt: "chọn Video thì cũng phải kiểm tra block gate mới được cho
                 // chọn") — đi qua eventBus (router 'videoPlayer') THAY VÌ gọi thẳng
@@ -186,7 +185,6 @@
                 // options.switchScreen !== false`) rồi gửi kèm — router giờ quyết định switch màn
                 // hình dựa vào ĐÚNG ý định của người gọi, không dựa vào isVideoPlayerMode nữa.
                 const switchScreen = !options || options.switchScreen !== false;
-                console.log('[DBG-video] window.playSong -> eventBus.send videoPlayer.startFromPlaylist.click, key=', key, 'switchScreen=', switchScreen);
                 eventBus.send({ router: 'videoPlayer', type: 'videoPlayer.startFromPlaylist.click', payload: { key, switchScreen } });
                 return;
             }
