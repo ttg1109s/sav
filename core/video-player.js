@@ -130,8 +130,10 @@ function setBgVideoElementForPlayerMode(enabled) {
  * @param {string|null} url - object URL của thumbFullBlob, hoặc `null` để ẩn/xoá.
  */
 function setVideoThumbOverlay(url) {
+    console.log('[DBG-video] setVideoThumbOverlay(url=', url, ') — trước:', videoThumbOverlay.className, videoThumbOverlay.style.backgroundImage);
     videoThumbOverlay.classList.toggle('hidden', !url);
     videoThumbOverlay.style.backgroundImage = url ? `url(${url})` : '';
+    console.log('[DBG-video] setVideoThumbOverlay() — sau:', videoThumbOverlay.className, videoThumbOverlay.style.backgroundImage);
 }
 
 let _videoAnalyserSourceNode = null; // MediaElementSourceNode của bgVideoElement — tạo ĐÚNG 1 LẦN (trình duyệt cấm tạo lại trên CÙNG 1 element, KHÁC audioPlayer đã có source riêng của nó)
