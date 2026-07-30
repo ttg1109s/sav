@@ -1,66 +1,19 @@
 /**
- * core/video-player.js — MỚI (21/07/2026, mục 4). "Video Player mode": phát video làm nội dung
- * chính trên màn Visualizer (KHÁC hẳn "Video nền" trang trí — core/state-and-video-bg.js, file đó
- * KHÔNG đụng gì ở đây).
- * [SỬA — ver12 "Song/Video Unification", Batch 2] Next/Prev KHÔNG còn branch VirtualMachineState
- * theo `isVideoPlayerMode` nữa — LUÔN gọi `playNext()`/`playPrev()` (core/player-controls.js,
- * dùng CHUNG với Song) bất kể nguồn nào, xem event/router/player-controls.js. CHỈ Play/Pause + 5
- * sự kiện DOM của `bgVideoElement` + progressBar seek CÒN branch theo `isVideoPlayerMode` (khác
- * biệt DUY NHẤT còn lại là ELEMENT nào đang thực sự phát — `bgVideoElement` hay `audioPlayer` —
- * KHÔNG phải "danh sách phát tiếp theo là gì", cái đó dùng chung 100%). File NÀY chỉ chứa phần LÕI
- * thuần: mutate state, toggle UI nút — KHÔNG đụng `bgVideoElement` trực tiếp cho việc phát (điều
- * phối cần async đọc DB -> thuộc Workflow, xem event/workflow/video-player.js).
+ * core/video-player.js — "Video Player mode": phát video làm nội dung chính trên màn Visualizer
+ * (KHÁC "Video nền" trang trí — core/state-and-video-bg.js, không đụng gì ở đây).
  *
- * KIẾN TRÚC LẦN 2 (21/07/2026, VIẾT LẠI — Giang phát hiện qua video test: play/pause không phản
- * hồi, current time đứng yên, dù audio NGHE RÕ đang phát) — BẢN ĐẦU dùng `audioPlayer` (thẻ
- * `<audio>`) làm nguồn "câm, chỉ nuôi analyser" bằng cách gán thẳng blob VIDEO vào `src` của nó
- * (dựa trên giả định `<audio>` tự động chỉ giải mã track âm thanh của file video) — GIẢ ĐỊNH NÀY
- * KHÔNG ĐÁNG TIN CẬY trên mọi trình duyệt/thiết bị (đặc biệt Safari/iOS vốn nổi tiếng khắt khe hơn
- * Chrome về khớp định dạng container-với-thẻ-media — `<audio src="video.mp4">` có thể bị từ chối
- * giải mã/phát hoàn toàn, `audioPlayer.play()` fail ÂM THẦM vì có `.catch(() => {})` nuốt lỗi) —
- * ĐÚNG các triệu chứng Giang báo: `bgVideoElement` (thẻ `<video>` thật, LUÔN giải mã được chính nó)
- * phát tiếng bình thường, nhưng `audioPlayer` (nguồn DUY NHẤT nuôi progress bar/current time/
- * analyser/icon play-pause qua các sự kiện 'play'/'pause'/'timeupdate'/'ended' của CHÍNH NÓ) không
- * hề chạy -> mọi UI phụ thuộc nó đứng yên, nút Play/Pause bấm vào chỉ gọi lại `.play()` y hệt, vẫn
- * fail y hệt, im lặng.
+ * `bgVideoElement` (#bg-video, TÁI DÙNG chung với Video nền, KHÔNG tạo element mới) là NGUỒN DUY
+ * NHẤT vừa hiển thị + phát tiếng thật (native) vừa nuôi analyser qua 1 `MediaElementSourceNode`
+ * riêng (`connectVideoElementToAnalyser()`) — KHÔNG dùng `audioPlayer` (đã thử, không đáng tin cậy
+ * cross-browser cho `<audio src="video">`). Progress bar/seek/play-pause/ended có handler riêng ở
+ * event/workflow/video-player.js, đọc/ghi thẳng `bgVideoElement`.
  *
- * SỬA: BỎ HẲN `audioPlayer` khỏi luồng Video Player — `bgVideoElement` giờ là NGUỒN DUY NHẤT, vừa
- * hiển thị + phát tiếng thật (native, không qua Web Audio) VỪA nuôi analyser qua 1
- * `MediaElementSourceNode` RIÊNG tạo trực tiếp từ chính nó (`connectVideoElementToAnalyser()` ngay
- * dưới) — dùng CHUNG `audioContext`/`analyser`/`analyserPitch` đã có sẵn từ `setupAudioContext()`
- * (core/audio-engine.js, KHÔNG đụng file đó, KHÔNG tạo AudioContext thứ 2), chỉ thêm ĐÚNG 1 source
- * node mới (browser cho phép — giới hạn "1 lần" là theo TỪNG element, `audioPlayer` đã có source
- * riêng của nó rồi, KHÔNG liên quan gì tới việc tạo thêm 1 source cho `bgVideoElement`).
- * `createMediaElementSource()` "CHIẾM" audio output mặc định của element — BẮT BUỘC phải tự
- * `.connect(audioContext.destination)` thêm, nếu không `bgVideoElement` sẽ CÂM hoàn toàn (mất tiếng
- * vẫn đang phát bình thường trước đó).
- * Progress bar/current time/duration/seek/play-pause-icon/ended giờ có bộ handler RIÊNG trong
- * event/workflow/video-player.js (đọc/ghi THẲNG `bgVideoElement`, KHÔNG phải `audioPlayer`), gắn
- * qua sự kiện NGUYÊN BẢN của chính `bgVideoElement` (event/listener/video-player.js) — KHÔNG còn
- * lẫn lộn với luồng Song (audioPlayer) nữa, tách bạch hoàn toàn 2 nguồn.
+ * Next/Prev/shuffle/repeat DÙNG CHUNG cơ chế Playlist (`playNext()`/`playPrev()`, core/player-
+ * controls.js) — không có logic riêng cho Video. `isVideoPlayerMode` là cờ DUY NHẤT còn cần riêng
+ * (biết `bgVideoElement` hay `audioPlayer` đang thực sự phát).
  *
- * `bgVideoElement` (#bg-video, TÁI DÙNG — không tạo element mới, "giống cách bg video" đúng yêu cầu
- * Giang) — `muted`/`loop`/`opacity`/`z-index`/`pointer-events` đổi qua lại giữa 2 chế độ (nền trang
- * trí: muted+loop=true, z-index/pointer-events mặc định CSS; Player mode: muted=false+loop=false,
- * z-index nâng lên trên canvas, pointer-events bật lại để nhận cử chỉ vuốt) — xem
- * `setBgVideoElementForPlayerMode()` ngay dưới. KHÔNG dùng chung cơ chế `videoBgEnabled`/
- * `videoBgUrl`/`syncVideoBgToAudio()` của Video nền (cố ý TÁCH HẲN, tránh rò rỉ state giữa 2 tính
- * năng — khoá chéo qua Block gate, xem event/block.js).
- *
- * ĐƠN GIẢN HOÁ Ở BẢN ĐẦU (đã báo Giang) — danh sách video phát TUẦN TỰ theo thứ tự thêm vào (cũ ->
- * mới), KHÔNG có shuffle/repeat riêng cho video.
- *
- * [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt: "video thừa hưởng cơ chế Playlist
- * sẵn có, không tạo cơ chế next/prev riêng — có là đang tạo exception"] TOÀN BỘ đoạn "ĐƠN GIẢN HOÁ
- * Ở BẢN ĐẦU" trên ĐÃ LỖI THỜI — Next/Prev/shuffle/repeat của Video giờ KHÔNG còn mảng
- * `videoPlaylist`/`currentVideoKey` RIÊNG nữa, dùng CHUNG `displayOrder`/`shuffleIndices`/
- * `currentKey` (package `playlist`, đã có sẵn `sortKeysByMode()` newest/oldest cho Video từ Batch
- * 1) qua ĐÚNG 1 cơ chế `playNext()`/`playPrev()` (core/player-controls.js, xem comment tại đó) —
- * `computeNextVideoKey()`/`computePrevVideoKey()`/`pickRandomVideoKeyExcluding()` ĐÃ XOÁ (dead code,
- * không còn ai gọi). `enterVideoPlayerModeState()`/`exitVideoPlayerModeState()` giờ CHỈ còn việc
- * DUY NHẤT: toggle `isVideoPlayerMode` — cờ này vẫn cần riêng (quyết định `bgVideoElement` hay
- * `audioPlayer` đang thực sự phát, dùng ở Router/nhiều Core khác), KHÔNG liên quan gì tới việc
- * TÍNH key kế tiếp/trước nữa.
+ * File này chỉ chứa phần LÕI thuần (mutate state, toggle UI/DOM tức thời) — điều phối async (đọc
+ * DB, đợi sự kiện) thuộc event/workflow/video-player.js.
  *
  * NẠP SAU: service/state.js.
  */
@@ -77,79 +30,66 @@ function exitVideoPlayerModeState() {
     appState.set('isVideoPlayerMode', false);
 }
 
-/** Đổi `muted`/`loop`/`pointer-events`/`.hidden` của `bgVideoElement` (#bg-video, TÁI DÙNG — xem
- * docstring đầu file) giữa 2 chế độ — gọi ĐÚNG 1 LẦN lúc vào/thoát Video Player mode, KHÔNG liên
- * quan gì tới Next/Prev bên trong mode (xem `playVideoByKey()`, event/workflow/video-player.js).
- *
- * SỬA (30/07/2026, yêu cầu Giang — "bỏ hẳn opacity") — XOÁ HOÀN TOÀN `style.opacity` khỏi hàm này
- * (LẪN khỏi `handleVideoBackground()`/`setupVideoBgSource()`, core/state-and-video-bg.js — Video
- * nền decoration, cùng đợt sửa) — CHỈ còn `.hidden` (display:none) quyết định hiện/ẩn. Opacity
- * chưa từng có tác dụng THẬT nào riêng biệt: `display:none` đã khiến opacity vô nghĩa hoàn toàn lúc
- * ẩn, còn lúc hiện luôn set '1' NGAY CẠNH việc gỡ `.hidden` nên không có khoảng nào opacity một
- * mình quyết định trạng thái hiện/ẩn cả — thuần dư thừa, giữ lại chỉ gây hiểu nhầm có 2 cơ chế độc
- * lập trong khi thực chất chỉ 1 (`hidden`). CSS `#bg-video` cũng bỏ `opacity: 0` mặc định (assets/
- * css/style.css) — thêm `class="hidden"` NGAY TỪ HTML (index.html) làm trạng thái ẩn mặc định.
- *
- * LỊCH SỬ opacity (đã xoá, giữ lại để hiểu bối cảnh) — 21/07 tách "khung" (hàm này)/"nội dung"
- * (opacity, để `playVideoByKey()` tự set); 30/07 LẦN 1 gộp opacity vào lại đây (SAI CHỖ — chạy lặp
- * ở `playVideoByKey()` mỗi Next/Prev, vô nghĩa vì giá trị không đổi); 30/07 LẦN 2 (bản NÀY) — nhận
- * ra opacity CHƯA TỪNG cần thiết dù ở đâu, xoá hẳn, không dời đi đâu nữa.
- * SỬA (21/07/2026, Giang chỉ ra video vẫn không hiện dù đã tắt cả Visual — z-index/canvas KHÔNG
- * PHẢI nguyên nhân) — ĐỐI CHIẾU với `handleVideoBackground()` phát hiện dòng
- * `bgVideoElement.classList.remove('hidden')` (bật)/`classList.add('hidden')` (tắt) — `display:
- * none` THẮNG TUYỆT ĐỐI mọi `opacity` khác.
- * SỬA LẦN 2 (cùng ngày — Giang chỉnh lại: "index đang nằm TRÊN visual effect, phải đưa xuống THẤP
- * HƠN visual") — bỏ HẲN việc set `z-index` qua inline style — trả về ĐÚNG z-index TĨNH mặc định
- * của CSS (`#bg-video { z-index: 0; }`, GIỐNG HỆT cách "Video nền" trang trí vẫn dùng).
- * `enabled=true`: gỡ `.hidden` + bỏ muted + tắt loop (BẮT BUỘC — cần `bgVideoElement` tự bắn
- * 'ended' để tự chuyển video kế tiếp) + bật lại `pointer-events:auto` (nhận cử chỉ vuốt).
- * `enabled=false`: thêm lại `.hidden` (an toàn — Block gate đảm bảo Video nền THẬT không hề bật
- * lúc này) + trả lại muted+loop=true + pointer-events mặc định (`''`).
+/** Đổi `muted`/`loop`/`pointer-events`/`.hidden` của `bgVideoElement` giữa 2 chế độ — gọi ĐÚNG 1
+ * LẦN lúc vào/thoát Video Player mode, KHÔNG đụng gì tới Next/Prev bên trong mode (xem
+ * `playVideoByKey()`, event/workflow/video-player.js — Next/Prev chỉ đổi `src`, không toggle hàm
+ * này). `.hidden` (display:none) là cơ chế hiện/ẩn DUY NHẤT (không dùng opacity — display:none
+ * thắng tuyệt đối). `enabled=true`: gỡ `.hidden` + bỏ muted + tắt loop (cần `bgVideoElement` tự
+ * bắn 'ended' để chuyển video kế tiếp) + bật pointer-events. `enabled=false`: ngược lại, về mặc
+ * định CSS tĩnh (`#bg-video { z-index: 0; }`, giống Video nền trang trí).
  * @param {boolean} enabled
  */
 function setBgVideoElementForPlayerMode(enabled) {
     bgVideoElement.muted = !enabled;
     bgVideoElement.loop = !enabled;
-    bgVideoElement.classList.toggle('hidden', !enabled); // BẮT BUỘC — display:none thắng tuyệt đối opacity — DUY NHẤT cơ chế hiện/ẩn, KHÔNG còn opacity
+    bgVideoElement.classList.toggle('hidden', !enabled);
     bgVideoElement.style.pointerEvents = enabled ? 'auto' : '';
 }
 
-/** XOÁ (30/07/2026, Giang chốt sau điều tra "chớp đen next/prev") — `setVideoThumbOverlay()` (2 bản
- * thử nghiệm: overlay `<div>` riêng #video-player-thumb-overlay, rồi background-image thẳng lên
- * `bgVideoElement`) từng đứng ở đây, ĐÃ BỎ HẲN. Nguyên nhân: `<video>` giải mã hardware trên
- * WKWebView/iOS Safari được đẩy vào 1 compositing layer RIÊNG do OS media pipeline quản lý, nằm
- * ngoài cây paint/composite bình thường của trang — không tuân z-index/DOM order (đã thử #1),
- * không tuân dù z-index chênh hẳn (đã thử #2), và đè luôn cả CSS (background-image) của CHÍNH
- * element chứa nó (đã thử #3) — cả 3 lần thử đều xác nhận: đây là giới hạn nền tảng, KHÔNG có cách
- * nào che/lấp bằng CSS lên trên/vào `<video>` đang decode. Next/Prev trở lại bình thường, không còn
- * can thiệp gì cho khoảng chớp đen/lộ layer lúc đổi `src` (xem `playVideoByKey()`,
- * event/workflow/video-player.js). `#video-player-thumb-overlay` (index.html/style.css) +
- * `videoThumbOverlay` (core/dom-refs.js) + `_thumbFullObjectUrl` (event/workflow/video-player.js)
- * cùng đợt xoá — `thumbFullBlob` (service/db.js, core/file-manager/video.js) VẪN GIỮ NGUYÊN (dữ liệu
- * đã lưu sẵn từ lúc upload, không liên quan gì tới Video Player Next/Prev, có thể còn dùng lại sau).
- */
+/** BÀI HỌC giữ lại (đã thử 3 cách che ảnh LÊN TRÊN `bgVideoElement` đang decode — overlay div
+ * riêng, background-image thẳng lên chính nó — cả 3 đều thất bại): `<video>` decode hardware trên
+ * WKWebView/iOS Safari nằm trong 1 compositing layer riêng do OS quản lý, không tuân z-index/DOM
+ * order, đè cả CSS của chính nó. KHÔNG thể che/lấp bằng CSS lên TRÊN 1 `<video>` đang hiển thị —
+ * chỉ có thể lộ ra thứ NẰM DƯỚI nó bằng cách ẩn hẳn (`.hidden`) chính `bgVideoElement`. Đây là lý
+ * do `decodeForcedBgThumb()` (event/workflow/video-player.js gọi) chỉ chèn ảnh vào lớp
+ * `#visual-bg-image` NẰM DƯỚI (z-index -2, luôn bị `bgVideoElement` che khi nó đang hiện) làm lớp
+ * dự phòng — KHÔNG chủ động ẩn/hiện `bgVideoElement` giữa Next/Prev (Giang chốt 31/07/2026: chỉ
+ * cần multi-browser an toàn, không cần chớp-đen-zero tuyệt đối bằng active toggle). */
 
 let _videoAnalyserSourceNode = null; // MediaElementSourceNode của bgVideoElement — tạo ĐÚNG 1 LẦN (trình duyệt cấm tạo lại trên CÙNG 1 element, KHÁC audioPlayer đã có source riêng của nó)
 
 /**
- * Nối `bgVideoElement` (KHÔNG PHẢI `audioPlayer`) trực tiếp vào analyser đã có sẵn — THAY hẳn
- * kiến trúc "audioPlayer câm nuôi analyser" cũ (xem docstring đầu file vì sao bỏ). PHẢI gọi
- * `setupAudioContext()` (core/audio-engine.js) TRƯỚC hàm này ít nhất 1 lần trong phiên (đảm bảo
- * `audioContext`/`masterGainNode`/`analyser`/`analyserPitch` tồn tại — dùng CHUNG, KHÔNG tạo
- * AudioContext thứ 2).
- * Nối qua `masterGainNode` (KHÔNG nối thẳng `analyser`/`destination`) — `masterGainNode` ĐÃ sẵn
- * `.connect(analyser)`/`.connect(analyserPitch)`/(qua analyser) `.connect(destination)` từ
- * `setupAudioContext()`, nên chỉ cần nối 1 ĐƯỜNG DUY NHẤT là có đủ CẢ 3. Nối thẳng `destination`
- * (bỏ qua `masterGainNode`) sẽ khiến video LUÔN phát ở gain mặc định (100%), KHÔNG tôn trọng thanh
- * trượt Âm lượng (`vizConfig.volume`) người dùng đã chỉnh cho Song — video cũng nên theo ĐÚNG mức
- * âm lượng chung của app.
- * `createMediaElementSource()` "chiếm" luôn audio output mặc định của element — nối qua
- * `masterGainNode` (rồi tới analyser rồi tới destination) chính là cách duy nhất để nghe lại được
- * tiếng — KHÔNG nối gì cả thì `bgVideoElement` sẽ CÂM HOÀN TOÀN dù trước đó đang phát bình thường.
+ * Nối `bgVideoElement` (KHÔNG PHẢI `audioPlayer`) trực tiếp vào analyser đã có sẵn. PHẢI gọi
+ * `setupAudioContext()` (core/audio-engine.js) trước hàm này ít nhất 1 lần trong phiên. Nối qua
+ * `masterGainNode` (KHÔNG nối thẳng `analyser`/`destination`) — node đó đã sẵn `.connect(analyser)`/
+ * `.connect(analyserPitch)`/`.connect(destination)` từ `setupAudioContext()`, nên video cũng tôn
+ * trọng thanh Âm lượng chung thay vì luôn phát gain mặc định 100%. `createMediaElementSource()`
+ * chiếm audio output mặc định của element — KHÔNG nối gì thì `bgVideoElement` sẽ câm hoàn toàn.
  */
 function connectVideoElementToAnalyser() {
     if (_videoAnalyserSourceNode) return; // guard — chỉ tạo 1 lần, gọi lại nhiều lần vô hại
     const audioContext = appState.get('audioContext');
     _videoAnalyserSourceNode = audioContext.createMediaElementSource(bgVideoElement);
     _videoAnalyserSourceNode.connect(appState.get('masterGainNode')); // -> analyser/analyserPitch/destination đã nối sẵn từ setupAudioContext()
+}
+
+/**
+ * MỚI (31/07/2026) — decode `thumbFullBlob` (full-res, frame 1) của video SẮP chuyển tới + xác
+ * nhận trình duyệt đã thực sự PAINT (không chỉ decode xong) qua double-`requestAnimationFrame`.
+ * Dùng làm lớp dự phòng multi-browser cho `#visual-bg-image` lúc Next/Prev/end (xem docstring
+ * `setBgVideoElementForPlayerMode()` ngay trên — KHÔNG chủ động ẩn/hiện `bgVideoElement`, chỉ chèn
+ * sẵn ảnh vào lớp NẰM DƯỚI đề phòng thiết bị nào đó lộ khoảng hở lúc đổi `src`).
+ * Core thuần — không đụng appState/taskManager (1 lần chờ paint, không phải task lặp).
+ * @param {Blob} blob - `record.thumbFullBlob`, có thể null (video cũ/lỗi capture)
+ * @returns {Promise<string|null>} object URL đã sẵn sàng paint, hoặc `null` nếu `blob` rỗng —
+ *          nơi gọi tự revoke khi không cần nữa (KHÔNG tự revoke trong hàm này).
+ */
+function decodeForcedBgThumb(blob) {
+    if (!blob) return Promise.resolve(null);
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.src = url;
+    return (img.decode ? img.decode() : Promise.resolve()).catch(() => {}).then(() => new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve(url)));
+    }));
 }
