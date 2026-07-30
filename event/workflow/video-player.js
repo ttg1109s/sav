@@ -37,7 +37,7 @@
  * `requestWakeLock()`/`releaseWakeLock()`/`startListenClock()`/`stopListenClock()` core/player-
  * controls.js — những hàm này THUẦN, không đụng `audioPlayer`, an toàn dùng lại nguyên).
  *
- * NẠP SAU: core/video-player.js (setVideoThumbOverlay — MỚI 30/07/2026), core/file-manager/video.js (listVideos), core/playlist/loader.js
+ * NẠP SAU: core/video-player.js, core/file-manager/video.js (listVideos), core/playlist/loader.js
  * (buildVideoPlaylistCache, dùng bởi refreshVideoPlaylistIfActive() — Batch 1), core/playlist/
  * order.js (updateShuffleArray/recomputeDisplayOrder/recomputeRenderOrder, cùng lý do),
  * service/db.js (getVideoRecord), core/audio-engine.js (setupAudioContext).
@@ -45,7 +45,6 @@
 const workflowVideoPlayer = {
     _objectUrl: null, // object URL HIỆN TẠI đang gán cho bgVideoElement (revoke trước khi tạo url mới)
     _thumbObjectUrl: null, // object URL của thumbBlob HIỆN TẠI (cover ở player bar, #record-container) — revoke trước khi tạo url mới
-    _thumbFullObjectUrl: null, // MỚI (30/07/2026) — object URL của thumbFullBlob HIỆN TẠI (overlay chớp đen Next/Prev, core/video-player.js::setVideoThumbOverlay()) — revoke trước khi tạo url mới, CÙNG khuôn 2 dòng trên
     _swipeStartY: null, // toạ độ Y lúc touchstart — dùng bởi event/listener/video-player.js (cử chỉ vuốt)
 
     /**
@@ -65,25 +64,18 @@ const workflowVideoPlayer = {
      * @param {string} startKey - videoKey vừa được chọn để phát.
      */
     async startFromPlaylist(startKey) {
-        console.log('[DBG-video] startFromPlaylist(startKey=', startKey, ') bắt đầu');
         const previousSongKey = appState.get('currentKey');
         if (previousSongKey !== null) {
             audioPlayer.pause(); // bắn sự kiện 'pause' NGUYÊN BẢN -> handleAudioPause() (core/player-controls.js, KHÔNG đụng) tự lo icon/wake lock/Media Session cho Song
-            console.log('[DBG-video] startFromPlaylist() — audioPlayer.pause() xong');
             appState.set('currentKey', null);
             refreshSongNode(previousSongKey); // core/playlist/render.js — patch riêng đúng 1 hàng, xoá highlight "đang phát"
-            console.log('[DBG-video] startFromPlaylist() — refreshSongNode(previousSongKey) xong');
         }
 
         visualizerSolidBg.style.backgroundColor = '#000000'; // khớp handleVideoBackground() (core/state-and-video-bg.js) — nền đen cưỡng chế phía sau video
-        console.log('[DBG-video] startFromPlaylist() — visualizerSolidBg = #000000 xong');
         enterVideoPlayerModeState(); // core/video-player.js — CHỈ còn set isVideoPlayerMode=true
-        console.log('[DBG-video] startFromPlaylist() — enterVideoPlayerModeState() xong — isVideoPlayerMode:', appState.get('isVideoPlayerMode'));
         setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop + hiện + pointer-events
-        console.log('[DBG-video] startFromPlaylist() — setBgVideoElementForPlayerMode(true) xong — bgVideoElement.className:', bgVideoElement.className);
 
         await this.playVideoByKey(startKey); // switchScreen mặc định true — TỰ switchToVisualizer() BÊN TRONG (sau khi video mới thật sự sẵn sàng), xem docstring playVideoByKey()
-        console.log('[DBG-video] startFromPlaylist() — this.playVideoByKey(startKey) xong');
     },
 
     /** Thoát Video Player mode: dừng + dọn `bgVideoElement`, trả về mặc định trang trí.
@@ -93,11 +85,8 @@ const workflowVideoPlayer = {
     async exitVideoPlayerMode() {
         bgVideoElement.pause();
         setBgVideoElementForPlayerMode(false); // core/video-player.js — trả lại muted+loop=true, ẩn, pointer-events mặc định
-        taskManager.kill('videoThumbOverlayTestDelay'); // THỬ NGHIỆM (30/07/2026) — huỷ timer delay 3s nếu đang treo giữa chừng lúc thoát mode
-        setVideoThumbOverlay(null); // core/video-player.js — MỚI (30/07/2026) — dọn overlay phòng lúc thoát mode giữa chừng đang hiện dở (hiếm nhưng có thể)
         if (this._objectUrl) { try { URL.revokeObjectURL(this._objectUrl); } catch (e) {} this._objectUrl = null; }
         if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} this._thumbObjectUrl = null; }
-        if (this._thumbFullObjectUrl) { try { URL.revokeObjectURL(this._thumbFullObjectUrl); } catch (e) {} this._thumbFullObjectUrl = null; }
         bgVideoElement.removeAttribute('src');
         bgVideoElement.load(); // buộc <video> bỏ hẳn tham chiếu blob URL vừa revoke (tránh giữ RAM)
         updateDOMBackground(); // core/color-utils.js, hàm CÓ SẴN — trả visualizerSolidBg về cfg.bgColor
@@ -141,7 +130,6 @@ const workflowVideoPlayer = {
      * @param {boolean} [switchScreen=true]
      */
     async playVideoByKey(videoKey, switchScreen = true) {
-        console.log('[DBG-video] playVideoByKey() gọi — videoKey:', videoKey, '| currentKey:', appState.get('currentKey'), '| this._objectUrl:', this._objectUrl, '| bgVideoElement.src:', bgVideoElement.getAttribute('src'));
         // FIX (29/07/2026, yêu cầu Giang mục 3 — "chọn lại video đang phát bị restart sai, chỉ cần
         // switch lại visualizer") — Router (event/router/video-player.js, nhánh
         // isVideoPlayerMode===true) gọi THẲNG hàm này cho CẢ 2 tình huống: Next/Prev vật lý (key
@@ -159,7 +147,6 @@ const workflowVideoPlayer = {
         // đúng "đang thật sự tải/phát video này" (this._objectUrl còn tồn tại VÀ khớp đúng src hiện
         // tại của bgVideoElement) với "chỉ trùng currentKey do state cũ chưa dọn".
         if (videoKey === appState.get('currentKey') && this._objectUrl && bgVideoElement.getAttribute('src') === this._objectUrl) {
-            console.log('[DBG-video] playVideoByKey() — GUARD: chọn lại đúng video đang phát, KHÔNG load lại gì cả');
             if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated();
             if (bgVideoElement.paused) bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
             return;
@@ -168,7 +155,6 @@ const workflowVideoPlayer = {
             bgVideoElement.pause(); // (1) đứng hình NGAY — CHƯA đụng src, khung hình cũ giữ nguyên
 
             const record = await getVideoRecord(videoKey); // (2) service/db.js — trong lúc đợi, màn hình vẫn đứng yên ở khung hình cũ
-            console.log('[DBG-video] getVideoRecord() xong — record:', record && record.key, '| có thumbBlob:', !!(record && record.thumbBlob), '| có thumbFullBlob:', !!(record && record.thumbFullBlob));
             if (!record) {
                 // guard: video vừa bị xoá ở nơi khác giữa lúc đang phát. KHÔNG gọi playNext(true)
                 // NGAY TẠI ĐÂY — vẫn đang ở TRONG withLoadingShield() này (isShieldBusy chỉ được
@@ -185,26 +171,12 @@ const workflowVideoPlayer = {
             this._objectUrl = URL.createObjectURL(record.blob);
             if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} }
             this._thumbObjectUrl = URL.createObjectURL(record.thumbBlob);
-            // MỚI (30/07/2026, yêu cầu Giang) — thumbFullBlob ĐI KÈM cùng record vừa getVideoRecord()
-            // ở (2) rồi, KHÔNG tốn thêm 1 fetch nào — tạo object URL NGAY (record cũ trước 29/07 có
-            // thể chưa có field này, guard null: record.thumbFullBlob || null).
-            if (this._thumbFullObjectUrl) { try { URL.revokeObjectURL(this._thumbFullObjectUrl); } catch (e) {} this._thumbFullObjectUrl = null; }
-            if (record.thumbFullBlob) this._thumbFullObjectUrl = URL.createObjectURL(record.thumbFullBlob);
-            console.log('[DBG-video] this._thumbFullObjectUrl sau khi tạo:', this._thumbFullObjectUrl);
 
             // BẮT BUỘC — đảm bảo audioContext/analyser tồn tại (an toàn gọi lại nhiều lần, guard sẵn
             // trong chính 2 hàm) RỒI mới nối bgVideoElement vào — thứ tự ngược sẽ lỗi (analyser chưa
             // có để nối vào).
             setupAudioContext(); // core/audio-engine.js
             connectVideoElementToAnalyser(); // core/video-player.js
-
-            // MỚI (30/07/2026) — hiện overlay thumb full-res NGAY TRƯỚC khi gán src (dòng dưới) —
-            // đúng lúc bgVideoElement chuẩn bị reset readyState về HAVE_NOTHING, overlay đã kịp che
-            // đúng khung hình video MỚI (không phải video cũ) — null nếu record không có
-            // thumbFullBlob thì setVideoThumbOverlay() tự ẩn/no-op (guard clause bên trong hàm đó).
-            console.log('[DBG-video] gọi setVideoThumbOverlay(', this._thumbFullObjectUrl, ') TRƯỚC khi gán src (THỬ NGHIỆM — gán thẳng lên bgVideoElement)');
-            setVideoThumbOverlay(this._thumbFullObjectUrl); // core/video-player.js
-            console.log('[DBG-video] bgVideoElement sau khi gọi setVideoThumbOverlay — backgroundImage:', bgVideoElement.style.backgroundImage);
 
             // (3) Gán 1 lần liền mạch — KHÔNG còn khoảng hở giữa các dòng để lộ trạng thái dở dang.
             // SỬA (30/07/2026, yêu cầu Giang) — bỏ hẳn việc đụng opacity/hidden ở ĐÂY: bgVideoElement
@@ -213,25 +185,15 @@ const workflowVideoPlayer = {
             // DUNG (src) bên trong đúng 1 khung đang hiển thị, không phải bật/tắt cái khung đó.
             bgVideoElement.poster = this._thumbObjectUrl;
             bgVideoElement.src = this._objectUrl;
-            console.log('[DBG-video] đã gán src mới cho bgVideoElement — class list bgVideoElement:', bgVideoElement.className, '| readyState:', bgVideoElement.readyState);
             bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
 
             // Đợi ĐÚNG lúc video MỚI thật sự có khung hình (sự kiện 'playing') rồi mới đổi bất kỳ
             // gì lên UI — kèm timeout an toàn (2s) phòng 'playing' không bao giờ bắn (autoplay bị
             // chặn/lỗi định dạng lạ) để không kẹt vĩnh viễn.
-            const which = await Promise.race([
-                new Promise((resolve) => bgVideoElement.addEventListener('playing', resolve, { once: true })).then(() => 'playing'),
-                new Promise((resolve) => taskManager.once(resolve, 2000, 'videoPlayingReadyFallback')).then(() => 'timeout'),
+            await Promise.race([
+                new Promise((resolve) => bgVideoElement.addEventListener('playing', resolve, { once: true })),
+                new Promise((resolve) => taskManager.once(resolve, 2000, 'videoPlayingReadyFallback')),
             ]);
-            console.log('[DBG-video] Promise.race kết thúc do:', which, '— THỬ NGHIỆM: delay 3s rồi mới gọi setVideoThumbOverlay(null), KHÔNG xoá ngay');
-            // THỬ NGHIỆM (30/07/2026, yêu cầu Giang) — KHÔNG xoá background-image ngay sau 'playing'
-            // nữa, delay 3s để quan sát/xác nhận cơ chế gán thẳng lên bgVideoElement có thật sự ăn
-            // (không bị đè/lộ layer khác) hay không — taskManager CHỈ Workflow được dùng (readme/
-            // task-manager-conventions.md mục 2), tên cố định tự huỷ bản cũ nếu gọi lại giữa chừng.
-            taskManager.once(() => {
-                setVideoThumbOverlay(null); // core/video-player.js
-                console.log('[DBG-video] (sau delay 3s) đã gọi setVideoThumbOverlay(null) — bgVideoElement.style.backgroundImage:', bgVideoElement.style.backgroundImage);
-            }, 3000, 'videoThumbOverlayTestDelay');
 
             // ===== TỪ ĐÂY: video MỚI đã thật sự hiện ra (hoặc hết 2s chờ) — mới đổi UI =====
             appState.set('currentKey', videoKey);
@@ -378,7 +340,6 @@ const workflowVideoPlayer = {
      * DÙNG CHUNG với Song, THAY `this.nextVideo(false)` riêng đã xoá — tự đọc displayOrder/
      * shuffleIndices/repeatMode, tự gọi lại window.playSong() -> quay lại dispatch mediaType. */
     async handleVideoPlayerEnded() {
-        console.log('[DBG-video] handleVideoPlayerEnded() — video tự hết, gọi playNext(false)');
         stopListenClock(); // core/player-controls.js, hàm có sẵn — dùng lại nguyên
         playNext(false); // core có sẵn (core/player-controls.js), dùng CHUNG với Song — force=false, tôn trọng repeatMode
     },
