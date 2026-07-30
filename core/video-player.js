@@ -129,11 +129,24 @@ function setBgVideoElementForPlayerMode(enabled) {
  * nhau — cùng khuôn `setBgVideoElementForPlayerMode()` ở trên).
  * @param {string|null} url - object URL của thumbFullBlob, hoặc `null` để ẩn/xoá.
  */
+/** Core thuần — THỬ NGHIỆM (30/07/2026, yêu cầu Giang, sau khi overlay `<div>` riêng
+ * (`#video-player-thumb-overlay`) không ăn thua dù log DOM đúng — nghi compositing-layer riêng của
+ * `<video>` trên WKWebView không composite đúng thứ tự với 1 ELEMENT KHÁC đứng cạnh nó dù z-index
+ * cao hơn) — gán/xoá `background-image` THẲNG lên CHÍNH `bgVideoElement` (không qua `videoThumbOverlay`
+ * nữa — element đó tạm thời KHÔNG dùng, còn nguyên trong DOM/CSS, chưa xoá vì đây mới là thử
+ * nghiệm). `<video>` là "replaced element": lúc `readyState=HAVE_NOTHING` (chưa có khung hình),
+ * `background-image` của CHÍNH nó hiện ra thay thế — không có 2 element khác nhau để trình duyệt
+ * "đấu" thứ tự compositing nữa, né hẳn nghi vấn quirk ở trên.
+ *
+ * KHÔNG tự `URL.createObjectURL`/`revokeObjectURL` — lifecycle object URL do Workflow tự quản lý
+ * (`_thumbFullObjectUrl`, event/workflow/video-player.js). Guard clause đơn tuyến (Rule 1) — `null`
+ * thì xoá, có giá trị thì gán, cùng 1 nghiệp vụ "đồng bộ background-image theo url truyền vào".
+ * @param {string|null} url - object URL của thumbFullBlob, hoặc `null` để xoá.
+ */
 function setVideoThumbOverlay(url) {
-    console.log('[DBG-video] setVideoThumbOverlay(url=', url, ') — trước:', videoThumbOverlay.className, videoThumbOverlay.style.backgroundImage);
-    videoThumbOverlay.classList.toggle('hidden', !url);
-    videoThumbOverlay.style.backgroundImage = url ? `url(${url})` : '';
-    console.log('[DBG-video] setVideoThumbOverlay() — sau:', videoThumbOverlay.className, videoThumbOverlay.style.backgroundImage);
+    console.log('[DBG-video] setVideoThumbOverlay(url=', url, ') — trước — bgVideoElement.style.backgroundImage:', bgVideoElement.style.backgroundImage);
+    bgVideoElement.style.backgroundImage = url ? `url(${url})` : '';
+    console.log('[DBG-video] setVideoThumbOverlay() — sau — bgVideoElement.style.backgroundImage:', bgVideoElement.style.backgroundImage);
 }
 
 let _videoAnalyserSourceNode = null; // MediaElementSourceNode của bgVideoElement — tạo ĐÚNG 1 LẦN (trình duyệt cấm tạo lại trên CÙNG 1 element, KHÁC audioPlayer đã có source riêng của nó)
