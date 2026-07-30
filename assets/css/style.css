@@ -55,7 +55,13 @@ body {
       dưới, y hệt Giang mô tả. SỬA: đồng bộ CẢ 4 lớp nền LẪN `#app-root` (ngay trên, height đổi
       thẳng sang `100dvh`, KHÔNG còn dựa cascade `%` mong manh qua body/html nữa) về CÙNG 1 đơn vị
       — không còn ai "lớn hơn" ai để hở ra khoảng trống nào cả. */
-        #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; object-fit: cover; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
+        /* XOÁ (30/07/2026, theo yêu cầu Giang) — bỏ `transition: opacity 0.5s` vestigial: cả 2 nơi
+           dùng bgVideoElement (Video nền decoration — core/state-and-video-bg.js, XOÁ fade 29/07
+           mục 4; Video Player mode — event/workflow/video-player.js, chớp đen next/prev) đều set
+           opacity thẳng 0/1 tức thời, KHÔNG còn chỗ nào dựa vào animation này — để lại CSS sẽ vô
+           tình animate bất kỳ lần đổi opacity nào trong tương lai (ví dụ cơ chế ẩn/hiện tức thời
+           dự tính cho fix "chớp đen" sắp tới), ngược đúng chủ trương "không fade" Giang đã chốt. */
+        #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; object-fit: cover; z-index: 0; pointer-events: none; opacity: 0; }
         /* Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). CHỐT
            03/07/2026 (Giang xác nhận): 4 lớp nền màn Visualizer ĐỀU BẬT SONG SONG được (không loại
            trừ nhau) — thứ tự z-index thấp -> cao: nền màu Settings (bgColor, FIX 04/07/2026:
