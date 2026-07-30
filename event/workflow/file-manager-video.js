@@ -201,21 +201,35 @@ const workflowFileManagerVideo = {
             videoEl.playsInline = true;
             let settled = false;
             let frameCaptured = false; // chặn chụp quá 1 lần (3 sự kiện CÙNG nghe, xem docstring)
+            let nudged = false; // chặn gọi play()/pause() ép decode quá 1 lần
             const finish = (result) => {
                 if (settled) return;
                 settled = true;
                 try { URL.revokeObjectURL(objectUrl); } catch (e) {}
                 resolve(result);
             };
-            const safetyTimeout = taskManager.once(() => { console.warn('[_captureFullResThumbFrame][DBG] TIMEOUT 8s — không sự kiện nào bắn.'); finish(null); }, 8000);
+            const safetyTimeout = taskManager.once(() => { console.warn('[_captureFullResThumbFrame][DBG] TIMEOUT 8s.'); finish(null); }, 8000);
 
-            // THÊM (30/07/2026, phản hồi Giang "vẫn không được" — 2 lần sửa theo suy đoán đều
-            // không ăn thua) — log CHI TIẾT thay vì đoán tiếp lần 3: in ra ĐÚNG sự kiện nào kích
-            // hoạt chụp, `currentTime`/`readyState` tại thời điểm đó, VÀ lấy mẫu pixel thật từ
-            // canvas (getImageData) để XÁC NHẬN bằng số liệu xem ảnh có thực sự toàn đen hay không
-            // (loại trừ khả năng ảnh KHÔNG đen nhưng lỗi nằm ở khâu hiển thị/CSS phía sau).
+            // SỬA LẦN 3 (30/07/2026, phản hồi Giang "vẫn không được" — log chẩn đoán xác nhận:
+            // MỌI video đều bị chụp lúc `readyState=1` (HAVE_METADATA), pixel toàn [0,0,0,0] —
+            // nghĩa là `seeked` bắn ra TRƯỚC khi có bất kỳ khung hình thật nào được giải mã, KHÔNG
+            // phải lỗi mốc seek nữa) — KHÔNG còn tin `seeked`/`loadeddata`/`canplay` mù quáng: THÊM
+            // guard `readyState >= 2` (HAVE_CURRENT_DATA) NGAY TRONG captureFrame() — nếu sự kiện
+            // bắn mà readyState CHƯA đủ, KHÔNG vẽ vội (giữ `frameCaptured=false` để lần bắn sau còn
+            // cơ hội) — đồng thời "nhá" `play()` rồi `pause()` ngay (muted nên autoplay không bị
+            // chặn) để ÉP trình duyệt bắt đầu decode thật (một số engine lười decode nếu chỉ seek
+            // thụ động, không hề play() lần nào) — nghe thêm sự kiện `playing` làm cơ hội thử lại.
             function captureFrame(triggeredBy) {
                 if (settled || frameCaptured) return;
+                if (videoEl.readyState < 2) {
+                    console.warn(`[_captureFullResThumbFrame][DBG] "${triggeredBy}" bắn nhưng readyState=${videoEl.readyState} (<2, CHƯA có frame thật) — bỏ qua, thử ép play()/pause().`);
+                    if (!nudged) {
+                        nudged = true;
+                        videoEl.addEventListener('playing', () => captureFrame('playing (sau nudge)'), { once: true });
+                        videoEl.play().then(() => videoEl.pause()).catch((err) => console.warn('[_captureFullResThumbFrame][DBG] play() nudge lỗi (autoplay bị chặn?):', err));
+                    }
+                    return; // KHÔNG set frameCaptured — còn cơ hội ở lần bắn sau
+                }
                 frameCaptured = true;
                 safetyTimeout.kill();
                 const width = videoEl.videoWidth, height = videoEl.videoHeight;
@@ -287,7 +301,9 @@ const workflowFileManagerVideo = {
         // SỬA LẦN 2 (30/07/2026, phản hồi Giang "vẫn không được") — ĐỔI sang V3: cần chạy lại để
         // log chẩn đoán mới (currentTime/readyState/mẫu pixel thật) thực sự thực thi, thay vì bị
         // no-op do cờ V2 đã lỡ ghi "xong" ở lần chạy trước (dù ảnh vẫn đen).
-        const FLAG_KEY = 'sav_videoThumbFullRegenV3Done';
+        // SỬA LẦN 3 (30/07/2026) — ĐỔI sang V4: log xác nhận MỌI video bị chụp ở readyState=1 (chưa
+        // có frame thật) — cần chạy lại với guard readyState>=2 + play()/pause() nudge mới.
+        const FLAG_KEY = 'sav_videoThumbFullRegenV4Done';
         try { if (localStorage.getItem(FLAG_KEY) === '1') return; } catch (e) { return; } // đã chạy xong 1 lần, HOẶC localStorage không đọc được -> an toàn bỏ qua, không lặp lại
 
         const videos = await listVideos(); // core/file-manager/video.js
