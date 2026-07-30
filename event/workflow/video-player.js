@@ -108,6 +108,41 @@ const workflowVideoPlayer = {
         releaseWakeLock(); stopListenClock(); // core/player-controls.js — dọn nốt 2 cơ chế đã bật lúc phát
     },
 
+    /** Chờ 1 object URL ảnh DECODE XONG (không chỉ tải xong network) — dùng TRƯỚC khi gán vào
+     * background-image của `#visual-bg-image` (`setVideoTransitionThumb()`, core/video-player.js).
+     *
+     * BỐI CẢNH (phản hồi Giang 30/07/2026, "vẫn nháy đen dù đã chèn thumb vào #visual-bg-image") —
+     * `bgVideoElement` đổi `src` gần như TỨC THỜI (bỏ khung hình cũ ngay), trong khi trình duyệt
+     * decode 1 ảnh JPEG full-res MỚI (object URL vừa tạo lúc đầu playVideoByKey()) KHÔNG tức thời —
+     * nếu bước decode chậm hơn, `#visual-bg-image` CŨNG chưa có gì để hiện đúng lúc cần -> lộ tiếp
+     * xuống `visualizerSolidBg` (đen, cưỡng chế suốt Video Player mode) — vẫn là 1 cuộc đua, chỉ
+     * đổi đối thủ. `Image().decode()` (Promise-based, có mặt rộng rãi từ Safari 13.1) giải quyết
+     * ĐÚNG race này: "mồi" decode qua 1 `Image()` RỜI (KHÔNG gắn DOM) — trình duyệt cache bản đã
+     * decode, gán CÙNG url đó vào CSS `background-image` SAU ĐÓ không decode lại lần 2.
+     *
+     * Kèm timeout an toàn (1s, `taskManager` — CHỈ Workflow được dùng, tên cố định tự huỷ bản cũ
+     * nếu gọi lại giữa chừng) — `decode()` hiếm khi treo nhưng không phải không thể (ảnh hỏng/
+     * edge-case engine) — 1 ảnh lỗi KHÔNG được làm kẹt Next/Prev vĩnh viễn. `null`/rỗng -> resolve
+     * ngay (guard clause thuần, Rule 1) — KHÔNG throw dù `decode()` lỗi (field phụ, coi như "xong",
+     * xem `setVideoTransitionThumb()` tự no-op nếu url rỗng).
+     *
+     * GIỚI HẠN (đã báo Giang) — chỉ xử lý ĐÚNG trường hợp `<video>` trong suốt lộ layer dưới lúc
+     * đổi `src`. Nếu layer decode hardware của `<video>` tự vẽ ĐEN ĐẶC (placeholder buffer rỗng,
+     * nhánh còn lại đã điều tra) thì decode ảnh nhanh cỡ nào cũng vô nghĩa — layer đó nằm TRÊN,
+     * không phải khoảng trống để ảnh lộ ra.
+     * @param {string|null} url
+     * @returns {Promise<void>}
+     */
+    async _decodeThumbOrTimeout(url) {
+        if (!url) return;
+        const img = new Image();
+        img.src = url;
+        await Promise.race([
+            img.decode().catch(() => {}), // ảnh hỏng/format lạ — coi như "xong", không chặn
+            new Promise((resolve) => taskManager.once(resolve, 1000, 'videoTransitionThumbDecodeTimeout')),
+        ]);
+    },
+
     /** Nạp 1 video vào `bgVideoElement` (DUY NHẤT — xem docstring đầu file) + phát ngay + cập nhật
      * title/artist/MediaSession + nuôi analyser.
      *
@@ -203,6 +238,11 @@ const workflowVideoPlayer = {
             // xoá/no-op (guard clause bên trong hàm đó). Xem core/video-player.js cho đầy đủ lý do
             // #visual-bg-image (KHÔNG phải overlay riêng/background-image trên chính bgVideoElement
             // — cả 2 cách đó đã thử và thất bại, xem lịch sử điều tra).
+            // SỬA (30/07/2026, phản hồi Giang "vẫn nháy đen") — `await` decode xong THẬT SỰ trước
+            // khi gán (xem docstring `_decodeThumbOrTimeout()` ngay trên) — tránh gán CSS
+            // background-image lúc ảnh CHƯA decode xong, đúng lúc bgVideoElement cũng đang đổi src
+            // (2 tiến trình đua nhau, không có bước này thì thua ngay chính race đang cố né).
+            await this._decodeThumbOrTimeout(this._thumbFullObjectUrl);
             setVideoTransitionThumb(this._thumbFullObjectUrl); // core/video-player.js
 
             // (3) Gán 1 lần liền mạch — KHÔNG còn khoảng hở giữa các dòng để lộ trạng thái dở dang.
