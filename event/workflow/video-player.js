@@ -256,6 +256,12 @@ const workflowVideoPlayer = {
         iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden');
         const recordArtDynamic = document.getElementById('record-art'); if (recordArtDynamic) recordArtDynamic.classList.remove('paused'); // cùng khuôn handleAudioPlay() core/player-controls.js
         if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+        // FIX (31/07/2026) — THIẾU dòng này so với handleAudioPlay() (core/player-controls.js) —
+        // refreshSongNode() (core/playlist/render.js, ĐÃ video-aware từ ver12 Unification, đọc
+        // bgVideoElement.paused cho row mediaType='video') mới là nơi vẽ lại EQ bars (đang phát)
+        // hay chấm tròn xanh (đang pause) cho dòng Playlist — thiếu nó khiến dòng đứng yên ở trạng
+        // thái lúc `playVideoByKey()` gọi lần cuối (lúc 'playing'), không cập nhật theo Play/Pause.
+        if (appState.get('currentKey')) refreshSongNode(appState.get('currentKey'));
         requestWakeLock(); startListenClock(); // core/player-controls.js
     },
 
@@ -264,6 +270,7 @@ const workflowVideoPlayer = {
         iconPlay.classList.remove('hidden'); iconPause.classList.add('hidden');
         const recordArtDynamic = document.getElementById('record-art'); if (recordArtDynamic) recordArtDynamic.classList.add('paused'); // cùng khuôn handleAudioPause() core/player-controls.js
         if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+        if (appState.get('currentKey')) refreshSongNode(appState.get('currentKey')); // FIX (31/07/2026) — xem giải thích ở handleVideoPlayState()
         releaseWakeLock(); stopListenClock(); // core/player-controls.js
     },
 
