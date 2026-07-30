@@ -45,6 +45,7 @@
 const workflowVideoPlayer = {
     _objectUrl: null, // object URL HIỆN TẠI đang gán cho bgVideoElement (revoke trước khi tạo url mới)
     _thumbObjectUrl: null, // object URL của thumbBlob HIỆN TẠI (cover ở player bar, #record-container) — revoke trước khi tạo url mới
+    _thumbFullObjectUrl: null, // THÊM (30/07/2026) — object URL của thumbFullBlob HIỆN TẠI (khung chớp thumb #visual-bg-image lúc Next/Prev/End, core/video-player.js::setVideoTransitionThumb()) — revoke trước khi tạo url mới, CÙNG khuôn 2 dòng trên
     _swipeStartY: null, // toạ độ Y lúc touchstart — dùng bởi event/listener/video-player.js (cử chỉ vuốt)
 
     /**
@@ -74,6 +75,7 @@ const workflowVideoPlayer = {
         visualizerSolidBg.style.backgroundColor = '#000000'; // khớp handleVideoBackground() (core/state-and-video-bg.js) — nền đen cưỡng chế phía sau video
         enterVideoPlayerModeState(); // core/video-player.js — CHỈ còn set isVideoPlayerMode=true
         setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop + hiện + pointer-events
+        forceShowVisualBgImageForVideoPlayer(); // core/video-player.js — THÊM (30/07/2026) — cưỡng chế hiện #visual-bg-image, trưng dụng làm khung chớp thumb Next/Prev/End (xem docstring hàm đó)
 
         await this.playVideoByKey(startKey); // switchScreen mặc định true — TỰ switchToVisualizer() BÊN TRONG (sau khi video mới thật sự sẵn sàng), xem docstring playVideoByKey()
     },
@@ -87,9 +89,20 @@ const workflowVideoPlayer = {
         setBgVideoElementForPlayerMode(false); // core/video-player.js — trả lại muted+loop=true, ẩn, pointer-events mặc định
         if (this._objectUrl) { try { URL.revokeObjectURL(this._objectUrl); } catch (e) {} this._objectUrl = null; }
         if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} this._thumbObjectUrl = null; }
+        if (this._thumbFullObjectUrl) { try { URL.revokeObjectURL(this._thumbFullObjectUrl); } catch (e) {} this._thumbFullObjectUrl = null; }
         bgVideoElement.removeAttribute('src');
         bgVideoElement.load(); // buộc <video> bỏ hẳn tham chiếu blob URL vừa revoke (tránh giữ RAM)
         updateDOMBackground(); // core/color-utils.js, hàm CÓ SẴN — trả visualizerSolidBg về cfg.bgColor
+
+        // THÊM (30/07/2026) — #visual-bg-image bị TRƯNG DỤNG tạm làm khung chớp thumb suốt phiên
+        // Video Player mode (forceShowVisualBgImageForVideoPlayer(), lúc vào mode) — thoát mode
+        // PHẢI khôi phục lại ĐÚNG trạng thái thật theo Cài đặt "Visual Background Image", KHÔNG để
+        // nguyên thumb video cuối cùng còn sót lại: bật -> trả lại đúng ảnh đã cấu hình (TÁI DÙNG
+        // `cfg.visualBgImage` — object URL đã tạo sẵn từ trước, KHÔNG cần đọc lại Blob từ DB); tắt
+        // -> ẩn lại (`.hidden`, applyVisualBgImageToDOM() tự lo nhánh này). CÙNG 1 lời gọi duy nhất
+        // xử lý ĐỦ cả 2 nhánh (Rule 1 — 1 tiến trình "đồng bộ lại DOM theo state thật").
+        const cfg = appConfigViz.getAll();
+        applyVisualBgImageToDOM(cfg.visualBgImageEnabled, cfg.visualBgImageEnabled ? cfg.visualBgImage : ''); // core/state-and-video-bg.js
 
         exitVideoPlayerModeState(); // core/video-player.js
         releaseWakeLock(); stopListenClock(); // core/player-controls.js — dọn nốt 2 cơ chế đã bật lúc phát
@@ -171,12 +184,26 @@ const workflowVideoPlayer = {
             this._objectUrl = URL.createObjectURL(record.blob);
             if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} }
             this._thumbObjectUrl = URL.createObjectURL(record.thumbBlob);
+            // THÊM (30/07/2026, yêu cầu Giang) — thumbFullBlob ĐI KÈM cùng record vừa getVideoRecord()
+            // ở (2) rồi, KHÔNG tốn thêm 1 fetch nào — tạo object URL NGAY (record cũ trước 29/07 có
+            // thể chưa có field này, guard null: record.thumbFullBlob || null).
+            if (this._thumbFullObjectUrl) { try { URL.revokeObjectURL(this._thumbFullObjectUrl); } catch (e) {} this._thumbFullObjectUrl = null; }
+            if (record.thumbFullBlob) this._thumbFullObjectUrl = URL.createObjectURL(record.thumbFullBlob);
 
             // BẮT BUỘC — đảm bảo audioContext/analyser tồn tại (an toàn gọi lại nhiều lần, guard sẵn
             // trong chính 2 hàm) RỒI mới nối bgVideoElement vào — thứ tự ngược sẽ lỗi (analyser chưa
             // có để nối vào).
             setupAudioContext(); // core/audio-engine.js
             connectVideoElementToAnalyser(); // core/video-player.js
+
+            // THÊM (30/07/2026) — chèn thumbFullBlob của video B (SẮP chuyển tới) vào #visual-bg-image
+            // NGAY TRƯỚC khi gán src (dòng dưới) — đúng lúc bgVideoElement chuẩn bị reset readyState
+            // về HAVE_NOTHING, khung chờ NÀY đã kịp có sẵn đúng nội dung của video MỚI (không phải
+            // video A cũ) — null nếu record không có thumbFullBlob thì setVideoTransitionThumb() tự
+            // xoá/no-op (guard clause bên trong hàm đó). Xem core/video-player.js cho đầy đủ lý do
+            // #visual-bg-image (KHÔNG phải overlay riêng/background-image trên chính bgVideoElement
+            // — cả 2 cách đó đã thử và thất bại, xem lịch sử điều tra).
+            setVideoTransitionThumb(this._thumbFullObjectUrl); // core/video-player.js
 
             // (3) Gán 1 lần liền mạch — KHÔNG còn khoảng hở giữa các dòng để lộ trạng thái dở dang.
             // SỬA (30/07/2026, yêu cầu Giang) — bỏ hẳn việc đụng opacity/hidden ở ĐÂY: bgVideoElement

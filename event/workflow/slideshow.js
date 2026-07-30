@@ -340,8 +340,9 @@ const workflowSlideshow = {
      * `start()` nếu nhạc ĐÃ phát sẵn, hoặc từ `syncPlaybackGate()` lúc nhạc BẮT ĐẦU phát). KHÔNG
      * gọi lại nếu ĐÃ revealed rồi (dùng `_resumeTicking()` thay — xem `syncPlaybackGate()`).
      * MỚI (mục 4 phản hồi Giang — "khi áp dụng slideshow thì phải ẩn background image, không tắt")
-     * — ẨN `#visual-bg-image` (opacity 0, KHÔNG đụng `vizConfig.visualBgImageEnabled`/`visualBgImage`
-     * trong state) — slideshow ĐÃ che nó bằng z-index rồi (xem core/state-and-video-bg.js), nhưng
+     * — ẨN `#visual-bg-image` (`.hidden`, KHÔNG đụng `vizConfig.visualBgImageEnabled`/`visualBgImage`
+     * trong state — SỬA 30/07/2026, đổi từ opacity sang `.hidden`, xem core/state-and-video-bg.js)
+     * — slideshow ĐÃ che nó bằng z-index rồi (xem core/state-and-video-bg.js), nhưng
      * ẩn tường minh để tránh lớp đó vẫn "sống" ngầm dưới lúc slideshow hiện. `stop()` tự khôi phục
      * lại ĐÚNG theo trạng thái `visualBgImageEnabled` của chính nó (KHÔNG tự ép bật lại nếu người
      * dùng vốn dĩ đã tắt nó từ trước). */
@@ -349,7 +350,7 @@ const workflowSlideshow = {
         if (this._isRevealed) return;
         this._isRevealed = true;
         if (visualBgImageElement && appConfigViz.getAll().visualBgImageEnabled) {
-            visualBgImageElement.style.opacity = '0'; // core dom-ref trực tiếp — CHỈ ẩn, KHÔNG tắt state
+            visualBgImageElement.classList.add('hidden'); // core dom-ref trực tiếp — CHỈ ẩn, KHÔNG tắt state
         }
         setSlideshowContainerVisible(slideshowContainer, true); // core
         this._showFirstImage();
@@ -423,7 +424,7 @@ const workflowSlideshow = {
         this._isRevealed = false;
         this._lastKenBurnsDirection = null;
         if (visualBgImageElement && appConfigViz.getAll().visualBgImageEnabled) {
-            visualBgImageElement.style.opacity = '1'; // core dom-ref trực tiếp — khôi phục ĐÚNG trạng thái riêng của nó
+            visualBgImageElement.classList.remove('hidden'); // core dom-ref trực tiếp — khôi phục ĐÚNG trạng thái riêng của nó (SỬA 30/07/2026, đổi từ opacity sang .hidden)
         }
     },
 
