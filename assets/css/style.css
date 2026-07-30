@@ -62,6 +62,11 @@ body {
            tình animate bất kỳ lần đổi opacity nào trong tương lai (ví dụ cơ chế ẩn/hiện tức thời
            dự tính cho fix "chớp đen" sắp tới), ngược đúng chủ trương "không fade" Giang đã chốt. */
         #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; object-fit: cover; z-index: 0; pointer-events: none; opacity: 0; }
+        /* MỚI (30/07/2026) — overlay thumb full-res cho Video Player mode (xem comment index.html
+           ngay trên thẻ này) — z-index CÙNG 0 với #bg-video, đứng SAU trong DOM nên vẽ đè lên, KHÔNG
+           cần số z-index riêng. Không transition — ẩn/hiện tức thời theo đúng yêu cầu Giang (không
+           fade). background-size cover khớp object-fit cover của #bg-video, cùng cách lấp khung hình. */
+        #video-player-thumb-overlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; background-size: cover; background-position: center; z-index: 0; pointer-events: none; }
         /* Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). CHỐT
            03/07/2026 (Giang xác nhận): 4 lớp nền màn Visualizer ĐỀU BẬT SONG SONG được (không loại
            trừ nhau) — thứ tự z-index thấp -> cao: nền màu Settings (bgColor, FIX 04/07/2026:
