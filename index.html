@@ -254,7 +254,7 @@
          file local của project (CSS/JS riêng), KHÔNG đụng tới các thư viện CDN bên thứ 3 ở trên —
          những file đó đã tự có version riêng trong URL (@6, @4, r128, 3.9.5...) nên cache của
          chúng không liên quan tới cache "cứng đầu" của riêng project trên GitHub Pages. -->
-    <link rel="stylesheet" href="assets/css/style.css?v=20260730v1">
+    <link rel="stylesheet" href="assets/css/style.css?v=20260731v2">
     <!-- Batch 8, ver 12 "Multi Media" — file CSS TÁCH RIÊNG THEO DOMAIN đầu tiên của project (xem
          comment đầu file) — Slideshow nền Visual (2 lớp ảnh xen kẽ + 13 kiểu transition). -->
     <link rel="stylesheet" href="assets/css/slideshow.css?v=20260703v2">
@@ -335,7 +335,7 @@
     <script src="lang/patch/patch-settings-misc.js?v=20260729v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260731v1"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260731v2"></script>
     <!-- MỚI (10/07/2026) — dùng ở CẢ index.html LẪN subtitle-editor.html, xem lang/lang.js. -->
     <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
     <!-- MỚI (14/07/2026, mục cuối — trang image-edit.html) — cần nạp Ở ĐÂY dù index.html không
@@ -563,11 +563,15 @@
          tiếp ở đây, nhưng gom nhóm cho dễ đọc). -->
     <script src="core/file-manager/image.js?v=20260714v2"></script>
     <script src="core/file-manager/album.js?v=20260703v1"></script>
-    <script src="core/file-manager/photo-ui.js?v=20260731v1"></script>
+    <script src="core/file-manager/photo-ui.js?v=20260731v2"></script>
     <!-- MỚI (31/07/2026) — Zoom mode modal xem ảnh. Core thuần bọc Panzoom (CDN, đã nạp ở <head>),
          xem core/image-zoom.js. Không phụ thuộc image.js/album.js/photo-ui.js (Rule 3 — chỉ gọi
          Panzoom), gom cạnh đây cho dễ đọc theo cụm Photo & Album. -->
     <script src="core/image-zoom.js?v=20260731v1"></script>
+    <!-- MỚI (31/07/2026) — Edit mode modal xem ảnh. Core thuần xử lý pixel (decode/adjust/sharpen),
+         port từ prototype "Lumina Pro" Giang cung cấp — CHỈ phần Engine, không lấy UI, xem
+         core/photo-editor-engine.js. Cùng lý do gom cạnh đây như core/image-zoom.js. -->
+    <script src="core/photo-editor-engine.js?v=20260731v1"></script>
     <!-- MỚI (21/07/2026) — File Manager -> Video. Độc lập với image.js/album.js/document.js (không
          dùng chung hàm nào ngoài slugify()/service/db.js) — chỉ cần SAU service/db.js.
          core/file-manager/video-ui.js ĐÃ XOÁ HẲN (Batch 6, mục 6d, phản hồi Giang — modal "Chi
@@ -854,8 +858,8 @@
          sau khi mọi script đã nạp xong hết, cùng quy ước load-order đã dùng cho popSettingsPanel()
          và nhiều global khác trong project) + core/file-manager/image.js::sortImagesByAddedDateDesc()/
          groupImagesByDay() (đã nạp ở nhóm CORE, TRƯỚC file này, an toàn). -->
-    <script src="event/workflow/file-manager-photo.js?v=20260731v1"></script>
-    <script src="event/router/file-manager-photo.js?v=20260731v1"></script>
+    <script src="event/workflow/file-manager-photo.js?v=20260731v2"></script>
+    <script src="event/router/file-manager-photo.js?v=20260731v2"></script>
     <script src="event/listener/file-manager-photo.js?v=20260718v1"></script>
     <!-- MỚI (21/07/2026) — cụm "fileManagerVideo". SỬA (Batch 6, mục 6d, phản hồi Giang) — panel
          Video (push/pop động, `fullBleed: true`) ĐÃ XOÁ HẲN — Workflow/Router giờ CHỈ còn logic
