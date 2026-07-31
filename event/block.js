@@ -144,6 +144,29 @@ eventBus.registerBlock('fileManagerPhoto.imagePreview.close.click', [
     ],
 ], { notify: t('fileManager.photo.image.closeBlockedByMode') });
 
+// ===================== Modal xem ảnh Photo — khoá chéo Zoom view <-> Edit =====================
+// MỚI (31/07/2026, mục 3 phản hồi Giang) — 2 mode dùng CHUNG cụm DOM của modal xem ảnh (Edit decode
+// ảnh vào canvas + ẩn hẳn `<img>`, Zoom lại cần init Panzoom NGAY trên chính `<img>` đó — bật đồng
+// thời sẽ hỏng cả 2), KHÔNG được cùng bật — đúng tiêu chí dùng Block gate (chặn HẲN, không chọn
+// giữa nhiều workflow khác nhau). "Zoom view"/"Edit" giờ đã tách msg.type RIÊNG (event/router/
+// file-manager-photo.js, case 'imagePreview.zoomToggle.click'/'imagePreview.editToggle.click' — TÁCH
+// khỏi msg.type dùng chung 'imageMenu.action.click' ĐÚNG VÌ LÝ DO NÀY: Block gate chỉ chặn được
+// NGUYÊN 1 msg.type, không tách được theo `payload.action`, chặn msg.type dùng chung sẽ chặn NHẦM cả
+// setPlaylistBg/saveOverwrite/saveNew/removeFromAlbum/delete). Người dùng phải tự thoát mode đang bật
+// TRƯỚC (bấm lại đúng item đó trong dropdown, toggle về 'view') rồi mới bấm được mode còn lại — cùng
+// tinh thần "KHÔNG tự động lùi mode giúp" đã áp cho block chặn nút X ngay trên.
+eventBus.registerBlock('fileManagerPhoto.imagePreview.zoomToggle.click', [
+    [
+        { field: 'imagePreviewMode', operator: '===', value: 'edit' },
+    ],
+], { notify: t('fileManager.photo.image.zoomBlockedByEdit') });
+
+eventBus.registerBlock('fileManagerPhoto.imagePreview.editToggle.click', [
+    [
+        { field: 'imagePreviewMode', operator: '===', value: 'zoom' },
+    ],
+], { notify: t('fileManager.photo.image.editBlockedByZoom') });
+
 
 // XOÁ (29/07/2026, yêu cầu Giang) — Block gate cho 'fileManagerStorage.scanBroken.click' (chặn khi
 // storageAnySourceEnabled===false) ĐÃ BỎ HẲN — nhánh "Dọn file lỗi" giờ tự hỏi phạm vi quét qua
