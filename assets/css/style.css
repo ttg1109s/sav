@@ -470,6 +470,13 @@ body {
     background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
     padding-bottom: 24px;
 }
+/* MỚI (31/07/2026, Edit mode — slider popup "Điều chỉnh") — đối xứng .photo-preview-scrim-top,
+   gradient NGƯỢC hướng (đậm dần xuống đáy) để chữ/slider trắng luôn đọc được trên nền ảnh bất kỳ. */
+.photo-preview-scrim-bottom {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+}
 
 /* ============================================================================================
    MỚI (14/07/2026, Giang chỉnh lại — "dùng THẲNG buildPaginationArrowsHtml() core/pagination.js,
