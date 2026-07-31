@@ -80,6 +80,9 @@ const THUMBNAIL_SCALE_RATIO = 0.2;
 
 const workflowFileManagerPhoto = {
 
+    _activeImageModalHandle: null, // { close, imgEl } của modal xem ảnh đang mở — null khi không mở modal nào (openImagePreview()/closeImagePreview())
+    _activePanzoomSession: null,   // session Panzoom đang chạy khi ở Zoom mode — null khi không ở Zoom mode (core/image-zoom.js)
+
     /** Ứng với 'fileManagerPhoto.openPanel.click'. `fullBleed: true` — masonry/story slider vốn
      * thiết kế tràn viền (edge-to-edge), KHÔNG dùng khung "max-w-2xl mx-auto" mặc định của mọi
      * panel khác (xem core/settings-panel-stack.js::pushSettingsPanel(), Batch D6).
@@ -874,6 +877,9 @@ const workflowFileManagerPhoto = {
      * SỬA (21/07/2026, Giang yêu cầu "menu action ảnh chuyển từ Generic Drawer sang dropdown") —
      * `callbacks.onOpenMenu` giờ NHẬN `menuBtn` (nút "..." vừa bấm, xem core/file-manager/photo-
      * ui.js::openImagePreviewModal()) — dùng làm `anchorEl` cho `openDropdownMenu()`.
+     * MỚI (31/07/2026, Zoom mode) — giữ `modalHandle` ở `this._activeImageModalHandle` (Router cần
+     * lại lúc xử lý toggle Zoom/nút X đóng — xem enterZoomMode()/exitImagePreviewMode()/
+     * closeImagePreview()). `imagePreviewMode` reset về 'view' mỗi lần mở modal MỚI.
      * @param {string} imageKey
      * @param {string|null} activeAlbumId
      */
@@ -882,8 +888,12 @@ const workflowFileManagerPhoto = {
         if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
         const image = { key: imageKey, ...record };
 
-        const modalHandle = openImagePreviewModal(image, { // core/file-manager/photo-ui.js
-            onOpenMenu: (menuBtn) => this._openImageActionMenu(image, activeAlbumId, modalHandle, menuBtn),
+        appState.set('imagePreviewMode', 'view');
+        console.log(`writer: "openImagePreview", page: "imagePreviewMode", content: "view"`);
+
+        this._activeImageModalHandle = openImagePreviewModal(image, { // core/file-manager/photo-ui.js
+            onOpenMenu: (menuBtn) => this._openImageActionMenu(image, activeAlbumId, menuBtn),
+            onCloseClick: () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.close.click' }),
         });
     },
 
@@ -892,28 +902,71 @@ const workflowFileManagerPhoto = {
      * chính file này). `zIndex: 132` — TRÊN modal xem ảnh full-screen (`#image-preview-overlay`,
      * z-130) — dropdown MẶC ĐỊNH (126/127) chỉ đủ nổi trên nội dung panel thường, KHÔNG đủ nổi trên
      * 1 modal full-screen khác (xem docstring openDropdownMenu(), core/dropdown-menu.js).
-     * `dispatch()` đóng CẢ modal xem ảnh (`modalHandle`, đóng NGAY — KHÔNG qua eventBus, đây là dọn
-     * UI của CHÍNH lần mở menu này, không phải nghiệp vụ) LẪN bắn action THẬT qua eventBus (Rule 5a
-     * — nghiệp vụ thật luôn qua Router, KHÔNG viết thẳng trong callback dropdown).
+     * MỚI (31/07/2026, Zoom mode, xoá item "Đặt làm nền Visual") — `dispatch()` giờ nhận thêm
+     * `closePreview` (mặc định `true`, GIỮ NGUYÊN hành vi cũ cho setPlaylistBg/removeFromAlbum/
+     * delete — đóng modal xem ảnh NGAY, KHÔNG qua eventBus/Block gate, đây là dọn UI của CHÍNH lần
+     * mở menu này chứ không phải nghiệp vụ, xem `closeImagePreview()`). Riêng "Zoom" truyền
+     * `closePreview: false` — đây là TOGGLE (bấm lại khi đang ở Zoom mode -> về 'view'), modal PHẢI
+     * ở nguyên, không đóng — Router xử lý toggle qua VirtualMachineState đọc `imagePreviewMode`
+     * (event/router/file-manager-photo.js). Nhãn item đổi theo mode hiện tại (đang Zoom -> "Thoát
+     * Zoom") — KHÔNG tạo nút/DOM riêng nào để thoát (đúng chốt Giang: dùng lại chính item đó).
      * @param {{key: string, blob: Blob, filename: string}} image
      * @param {string|null} activeAlbumId
-     * @param {{close: () => void}} modalHandle
      * @param {HTMLElement} anchorEl - nút "..." vừa bấm.
      */
-    _openImageActionMenu(image, activeAlbumId, modalHandle, anchorEl) {
-        const dispatch = (action) => {
-            modalHandle.close();
+    _openImageActionMenu(image, activeAlbumId, anchorEl) {
+        const dispatch = (action, closePreview = true) => {
+            if (closePreview) this.closeImagePreview();
             eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imageMenu.action.click', payload: { action, imageKey: image.key } });
         };
+        const isZooming = appState.get('imagePreviewMode') === 'zoom';
         const items = [
             { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>', name: t('fileManager.photo.image.btnSetPlaylistBg'), callback: () => dispatch('setPlaylistBg') },
-            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg>', name: t('fileManager.photo.image.btnSetVisualBg'), callback: () => dispatch('setVisualBg') },
+            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"/></svg>', name: t(isZooming ? 'fileManager.photo.image.btnExitZoom' : 'fileManager.photo.image.btnZoom'), callback: () => dispatch('zoom', false) },
             { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3"/></svg>', name: t('fileManager.photo.image.btnEditImage'), callback: () => dispatch('editImage') },
         ];
         if (activeAlbumId) items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6"/></svg>', name: t('fileManager.photo.image.btnRemoveFromAlbum'), callback: () => dispatch('removeFromAlbum') });
         items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>', name: t('fileManager.photo.image.btnDelete'), callback: () => dispatch('delete'), destructive: true });
 
         openDropdownMenu(anchorEl, items, { zIndex: 132 }); // core/dropdown-menu.js
+    },
+
+    /** Vào Zoom mode (bấm "Zoom" trong dropdown lúc `imagePreviewMode==='view'`) — init Panzoom
+     * (core/image-zoom.js) thẳng trên `<img>` của modal đang mở. Ứng với 1 nhánh
+     * VirtualMachineState ở Router (event/router/file-manager-photo.js, case
+     * 'fileManagerPhoto.imageMenu.action.click', action==='zoom').
+     */
+    enterZoomMode() {
+        if (!this._activeImageModalHandle) return; // guard: hiếm, modal đã đóng ở đâu đó trước khi tới đây
+        appState.set('imagePreviewMode', 'zoom');
+        console.log(`writer: "enterZoomMode", page: "imagePreviewMode", content: "zoom"`);
+        this._activePanzoomSession = initPanzoomSession(this._activeImageModalHandle.imgEl, { // core/image-zoom.js
+            maxScale: 4,
+            minScale: 1,
+            contain: 'outside',
+        });
+    },
+
+    /** Thoát Zoom mode về 'view' (bấm lại "Zoom" lúc đang ở 'zoom') — huỷ phiên Panzoom, KHÔNG đóng
+     * modal. An toàn gọi khi không có phiên nào đang chạy (guard `_activePanzoomSession`).
+     */
+    exitImagePreviewMode() {
+        if (this._activePanzoomSession) { destroyPanzoomSession(this._activePanzoomSession); this._activePanzoomSession = null; } // core/image-zoom.js
+        appState.set('imagePreviewMode', 'view');
+        console.log(`writer: "exitImagePreviewMode", page: "imagePreviewMode", content: "view"`);
+    },
+
+    /** Đóng THẬT modal xem ảnh — dọn phiên Panzoom nếu còn (Zoom mode) + đóng handle + reset
+     * `imagePreviewMode` về 'view'. Dùng ở 2 nơi: (1) Router gọi khi bấm X KHÔNG bị Block gate chặn
+     * (`imagePreviewMode==='view'` lúc đó, xem event/block.js), (2) `_openImageActionMenu()` cho 3
+     * action "quyết định" (setPlaylistBg/removeFromAlbum/delete) — LUÔN đóng bất kể mode hiện tại,
+     * không cần thoát Zoom trước (khác nút X — 3 action này chủ động, không phải bấm nhầm).
+     */
+    closeImagePreview() {
+        if (this._activePanzoomSession) { destroyPanzoomSession(this._activePanzoomSession); this._activePanzoomSession = null; } // core/image-zoom.js
+        if (this._activeImageModalHandle) { this._activeImageModalHandle.close(); this._activeImageModalHandle = null; }
+        appState.set('imagePreviewMode', 'view');
+        console.log(`writer: "closeImagePreview", page: "imagePreviewMode", content: "view"`);
     },
 
     _buildImageMenuHeaderHtml(title) {
@@ -966,19 +1019,6 @@ const workflowFileManagerPhoto = {
         forceGlassRepaint(); // fix bug 09/07/2026 (mục 3, xem docstring core/color-utils.js)
         saveConfig();
         await alertModal(t('fileManager.photo.image.setPlaylistBgSuccess'));
-    },
-
-    /** Ứng với nút "Đặt làm nền Visual" trong modal xem ảnh — TÁI DÙNG NGUYÊN applyVisualBgImage().
-     * @param {string} imageKey
-     */
-    async setAsVisualBackground(imageKey) {
-        const record = await getImageRecord(imageKey); // data layer (service/db.js)
-        if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
-
-        await withLoadingShield(t('common.loading.savingImageBg'), async () => {
-            await applyVisualBgImage(record.blob); // core có sẵn (core/state-and-video-bg.js)
-        });
-        await alertModal(t('fileManager.photo.image.setVisualBgSuccess'));
     },
 
     /** Ứng với nút "Dùng làm nền Slideshow" ở thanh quản lý album (MỚI, Batch 8).
