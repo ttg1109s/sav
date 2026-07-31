@@ -231,9 +231,8 @@
     <script src="lang/patch/patch-settings-misc.js?v=20260714v1"></script>
     <script src="lang/patch/patch-file-manager.js?v=20260718v1"></script>
     <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
-    <script src="lang/patch/patch-image-edit.js?v=20260714v1"></script>
     <script src="lang/patch/patch-video-editor.js?v=20260724v2"></script>
-    <script src="lang/lang.js?v=20260723v2"></script>
+    <script src="lang/lang.js?v=20260731v1"></script>
     <!-- service/z-index.js — bảng z-index TẬP TRUNG (dời từ core/config.js, đợt tái cấu trúc
          state 25/07/2026) — PHẢI nạp TRƯỚC core/modal-choice.js (dùng Z_INDEX.MODAL_CHOICE). -->
     <script src="service/z-index.js?v=20260725v1"></script>
@@ -270,10 +269,10 @@
     <script src="service/db.js?v=20260711v1"></script>
     <script src="service/song-key-cipher.js?v=20260710v1"></script>
     <script src="core/song-search.js?v=20260723v1"></script>
-    <script src="core/video-editor/compat-guard.js?v=20260722v1"></script>
+    <script src="core/video-editor/compat-guard.js?v=20260731v1"></script>
     <script src="core/video-editor/webcodecs-engine.js?v=20260724v1"></script>
     <script src="core/video-editor/filmstrip.js?v=20260722v1"></script>
-    <script src="core/video-editor/frame-extract.js?v=20260722v1"></script>
+    <script src="core/video-editor/frame-extract.js?v=20260731v1"></script>
     <script src="core/video-editor/timeline-calc.js?v=20260723v2"></script>
     <script src="core/video-editor/preview-draw.js?v=20260724v1"></script>
     <script src="core/video-editor/audio-sync.js?v=20260723v2"></script>
@@ -284,10 +283,10 @@
     <!-- SỬA (31/07/2026, Giang chốt "tái sử dụng, không dùng hai thứ lại cùng tính năng") — bỏ
          Cropper.js/core/image-editor/cropper-engine.js, dùng core/crop-selector.js (cơ chế tương
          tác thuần, DÙNG CHUNG với Photo Edit mode — event/workflow/file-manager-photo.js). -->
-    <script src="core/crop-selector.js?v=20260731v1"></script>
-    <script src="core/file-manager/image.js?v=20260714v2"></script>
+    <script src="core/crop-selector.js?v=20260731v2"></script>
+    <script src="core/file-manager/image.js?v=20260731v1"></script>
     <script src="core/file-manager/video.js?v=20260714v1"></script>
-    <script src="event/workflow/video-editor.js?v=20260731v1"></script>
+    <script src="event/workflow/video-editor.js?v=20260731v2"></script>
     <script src="event/router/video-editor.js?v=20260724v1"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowVideoEditor.init() ngay khi chạy. -->
     <script src="event/listener/video-editor.js?v=20260731v1"></script>
