@@ -33,7 +33,8 @@
 
                 _rotateDeg: 'number',
                 _cropFraction: 'any',         // {x,y,w,h} | null
-                _cropper: 'any',              // Cropper.js instance | null
+                _cropSession: 'any',          // session core/crop-selector.js | null — SỬA (31/07/2026) THAY _cropper (Cropper.js instance), bỏ Cropper.js
+                _cropPointerCleanup: 'any',    // hàm gỡ Pointer Events của _initCropSelector() | null
 
                 _selected: 'any',             // {track:'video'|'audio'|'text', index} | null
                 _isPlaying: 'boolean',
@@ -79,7 +80,8 @@
 
                     _rotateDeg: 0,
                     _cropFraction: null,
-                    _cropper: null,
+                    _cropSession: null,
+                    _cropPointerCleanup: null,
 
                     _selected: null,
                     _isPlaying: false,
