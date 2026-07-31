@@ -1042,12 +1042,22 @@ const workflowFileManagerPhoto = {
      * chọn tool nào — TRƯỚC bản sửa này KHÔNG có cách nào mở lại. Thêm guard clause (Rule 1, core-
      * function-conventions.md — vẫn ĐÚNG 1 tiến trình, chỉ dừng sớm khi chưa đủ điều kiện) phòng
      * Router gọi lúc modal đã đóng.
+     * SỬA TIẾP (31/07/2026, mục 1 phản hồi Giang — "vẫn không thấy Generic Drawer đâu cả" SAU bản
+     * sửa mục 4 trên) — NGUYÊN NHÂN THẬT: dùng NHẦM `Z_INDEX.GENERIC_DRAWER` (128) — THẤP HƠN
+     * `Z_INDEX.IMAGE_PREVIEW` (130, chính modal xem ảnh `#image-preview-overlay` — nền `bg-black`
+     * ĐẶC, không trong suốt) — comment CŨ ở dòng `zIndex` "Drawer luôn nổi trên nó" SAI (128 < 130,
+     * Drawer bị vẽ NGẦM phía SAU nền đen của modal ảnh — `isGenericDrawerOpen` vẫn ghi `true` đúng
+     * nhưng KHÔNG hề thấy gì, đúng triệu chứng log Giang gửi: `openGenericDrawer` bắn liên tục mà
+     * UI không đổi). `service/z-index.js` ĐÃ CÓ SẴN hằng số ĐÚNG cho ca này từ trước —
+     * `Z_INDEX.IMAGE_ACTION_MENU_DRAWER` (131, giữa 130 và dropdown "..." 132) — chỉ chưa file nào
+     * THẬT SỰ dùng tới (dead constant, comment cũ ở service/z-index.js trỏ tên hàm SAI/lỗi thời).
+     * Đổi sang dùng ĐÚNG hằng số đó.
      */
     openEditToolGrid() {
         if (!this._activeImageModalHandle || !this._activeEditParams) return; // guard: hiếm, modal đóng/chưa ở Edit mode giữa lúc bấm toolsBtn
         openGenericDrawer({ // core/generic-drawer.js
             height: 'auto', maxHeight: '70vh',
-            zIndex: Z_INDEX.GENERIC_DRAWER, // core/config.js — không có modal nào khác mở đồng thời (chính modal xem ảnh KHÔNG tính, Drawer luôn nổi trên nó, xem Z_INDEX)
+            zIndex: Z_INDEX.IMAGE_ACTION_MENU_DRAWER, // service/z-index.js (131) — TRÊN modal xem ảnh (#image-preview-overlay, 130), DƯỚI dropdown "..." (132)
             headerHtml: this._buildImageMenuHeaderHtml(t('fileManager.photo.image.editGridTitle')),
             bodyHtml: this._buildEditToolGridHtml(),
             bodyClass: 'overflow-y-auto',
