@@ -243,6 +243,12 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flickr-justified-gallery@2.1/dist/fjGallery.css">
     <script src="https://cdn.jsdelivr.net/npm/flickr-justified-gallery@2.1/dist/fjGallery.min.js"></script>
 
+    <!-- MỚI (31/07/2026) — Panzoom (timmywil), pan/pinch-zoom cho modal xem ảnh Photo (Zoom mode,
+         xem core/image-zoom.js + event/workflow/file-manager-photo.js). ~3.7kb, KHÔNG cần CSS riêng
+         (thuần CSS transform), dùng Pointer Events mặc định — không tự vẽ toolbar/UI gì (khác
+         Viewer.js), chỉ đúng phần cơ chế, khớp modal đã tự vẽ UI riêng sẵn. -->
+    <script src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.6.2/dist/panzoom.min.js"></script>
+
     <!-- CSS tách riêng — DỜI TỪ <head> XUỐNG ĐÂY (cùng lý do). -->
     <!-- ?v=APP_VERSION (đặt cố định ngay dưới đây, đổi mỗi lần deploy): chỉ ÉP TRÌNH DUYỆT TẢI LẠI
          file local của project (CSS/JS riêng), KHÔNG đụng tới các thư viện CDN bên thứ 3 ở trên —
@@ -329,7 +335,7 @@
     <script src="lang/patch/patch-settings-misc.js?v=20260729v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260730v3"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260731v1"></script>
     <!-- MỚI (10/07/2026) — dùng ở CẢ index.html LẪN subtitle-editor.html, xem lang/lang.js. -->
     <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
     <!-- MỚI (14/07/2026, mục cuối — trang image-edit.html) — cần nạp Ở ĐÂY dù index.html không
@@ -476,7 +482,7 @@
     <script src="service/state/auto-switch.js?v=20260725v1"></script>
     <script src="service/state/listen-stats.js?v=20260725v1"></script>
     <script src="service/state/app-misc.js?v=20260725v1"></script>
-    <script src="service/state/file-manager.js?v=20260725v1"></script>
+    <script src="service/state/file-manager.js?v=20260731v1"></script>
     <script src="service/state/generic-drawer.js?v=20260725v1"></script>
     <script src="service/state/video-editor.js?v=20260725v1"></script>
     <!-- service/state/record/index.js — đăng ký account 'player' (thay đoạn <script> inline cũ)
@@ -557,7 +563,11 @@
          tiếp ở đây, nhưng gom nhóm cho dễ đọc). -->
     <script src="core/file-manager/image.js?v=20260714v2"></script>
     <script src="core/file-manager/album.js?v=20260703v1"></script>
-    <script src="core/file-manager/photo-ui.js?v=20260714v5"></script>
+    <script src="core/file-manager/photo-ui.js?v=20260731v1"></script>
+    <!-- MỚI (31/07/2026) — Zoom mode modal xem ảnh. Core thuần bọc Panzoom (CDN, đã nạp ở <head>),
+         xem core/image-zoom.js. Không phụ thuộc image.js/album.js/photo-ui.js (Rule 3 — chỉ gọi
+         Panzoom), gom cạnh đây cho dễ đọc theo cụm Photo & Album. -->
+    <script src="core/image-zoom.js?v=20260731v1"></script>
     <!-- MỚI (21/07/2026) — File Manager -> Video. Độc lập với image.js/album.js/document.js (không
          dùng chung hàm nào ngoài slugify()/service/db.js) — chỉ cần SAU service/db.js.
          core/file-manager/video-ui.js ĐÃ XOÁ HẲN (Batch 6, mục 6d, phản hồi Giang — modal "Chi
@@ -773,7 +783,7 @@
                                           router đã đăng ký xong (3) sẵn sàng nhận message.
     -->
     <script src="event/bus.js?v=20260703v1"></script>
-    <script src="event/block.js?v=20260703v1"></script>
+    <script src="event/block.js?v=20260731v1"></script>
     <script src="event/virtual-machine-state.js?v=20260701v1"></script>
     <!-- Cụm "settingsStackNav" (Batch D1, Settings restructure, 06/07/2026) — nút Back DÙNG CHUNG
          cho MỌI panel con Settings (About/Visualizer/.../File Manager, bất kể panel nào đang mở).
@@ -844,8 +854,8 @@
          sau khi mọi script đã nạp xong hết, cùng quy ước load-order đã dùng cho popSettingsPanel()
          và nhiều global khác trong project) + core/file-manager/image.js::sortImagesByAddedDateDesc()/
          groupImagesByDay() (đã nạp ở nhóm CORE, TRƯỚC file này, an toàn). -->
-    <script src="event/workflow/file-manager-photo.js?v=20260718v1"></script>
-    <script src="event/router/file-manager-photo.js?v=20260718v1"></script>
+    <script src="event/workflow/file-manager-photo.js?v=20260731v1"></script>
+    <script src="event/router/file-manager-photo.js?v=20260731v1"></script>
     <script src="event/listener/file-manager-photo.js?v=20260718v1"></script>
     <!-- MỚI (21/07/2026) — cụm "fileManagerVideo". SỬA (Batch 6, mục 6d, phản hồi Giang) — panel
          Video (push/pop động, `fullBleed: true`) ĐÃ XOÁ HẲN — Workflow/Router giờ CHỈ còn logic
