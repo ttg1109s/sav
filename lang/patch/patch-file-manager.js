@@ -98,6 +98,23 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.image.btnZoom': 'Zoom',
     'fileManager.photo.image.btnExitZoom': 'Exit zoom',
     'fileManager.photo.image.closeBlockedByMode': 'Exit Zoom/Edit mode first (tap the same button again in the menu) before closing.',
+    // MỚI (31/07/2026, Edit mode) — tiêu đề Generic Drawer + tên nhóm/tool trong lưới + thông báo
+    // nhóm chưa port (Công cụ/Vẽ/Tách nền).
+    'fileManager.photo.image.editGridTitle': 'Edit tools',
+    'fileManager.photo.image.editGroupAdjust': 'Adjust',
+    'fileManager.photo.image.editGroupTools': 'Tools',
+    'fileManager.photo.image.editGroupDraw': 'Draw',
+    'fileManager.photo.image.editToolBrightness': 'Brightness',
+    'fileManager.photo.image.editToolContrast': 'Contrast',
+    'fileManager.photo.image.editToolSaturation': 'Saturation',
+    'fileManager.photo.image.editToolTemperature': 'Temperature',
+    'fileManager.photo.image.editToolTint': 'Tint',
+    'fileManager.photo.image.editToolSharpen': 'Sharpen',
+    'fileManager.photo.image.editToolCrop': 'Crop',
+    'fileManager.photo.image.editToolText': 'Text',
+    'fileManager.photo.image.editToolDraw': 'Draw',
+    'fileManager.photo.image.editToolMagic': 'Cutout',
+    'fileManager.photo.image.editToolComingSoon': 'This tool is not available yet.',
     // MỚI (14/07/2026, mục cuối, mục 2.2) — chế độ xoá nhanh.
     'fileManager.photo.image.quickDeleteTitle': 'Quick delete',
     'fileManager.photo.image.quickDeleteConfirm.title': 'Enable quick delete?',
