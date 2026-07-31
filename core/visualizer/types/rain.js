@@ -31,45 +31,40 @@
             const dpr = appState.get('dpr');
             const smoothedEnergy = appState.get('smoothedEnergy');
             const vizDataArray = appState.get('vizDataArray');
-            // FIX (04/07/2026, mục 5 phản hồi Giang) — bản cũ chỉ chừa video nền
-            // (`!cfg.videoBgEnabled`), nên khi bật ẢNH nền Visual hoặc SLIDESHOW (2 lớp nằm ở
-            // z-index THẤP HƠN canvas — xem assets/css/style.css) thì lớp phủ `cfg.bgColor` DƯỚI
-            // ĐÂY vẽ ĐÈ KÍN lên chúng, che mất hoàn toàn. `hasCustomBg` gộp CẢ 3 nguồn nền (video/
-            // ảnh Visual/slideshow) — có bất kỳ nguồn nào đang bật thì bỏ qua lớp phủ màu này, để
-            // nền thật hiện xuyên qua canvas (canvas trong suốt ở vùng không vẽ gì). Trăng + thành
-            // phố NGAY DƯỚI vẫn giữ nguyên điều kiện `!cfg.videoBgEnabled` (KHÔNG đổi) — vẫn vẽ
-            // bình thường khi dùng ảnh/slideshow, nên tự động nằm ĐÈ LÊN 2 nguồn nền đó (đúng yêu
-            // cầu "phải luôn đặt sau trăng + big city").
-            // SỬA (21/07/2026, Giang xác nhận qua test — Video Player mode cũng cần hiện xuyên qua
-            // canvas kiểu "rain", CÙNG ý nghĩa Video nền trang trí, dù cố ý KHÔNG dùng chung cờ
-            // `videoBgEnabled` — thêm `appState.get('isVideoPlayerMode')` làm điều kiện thứ 4.
+            // `hasCustomBg` CHỈ quyết định có tô lớp phủ `cfg.bgColor` (dòng dưới) hay không — có
+            // BẤT KỲ nguồn nền tuỳ chỉnh nào (video/ảnh Visual/slideshow) thì bỏ tô, để nền thật
+            // hiện xuyên qua canvas (canvas trong suốt ở vùng không vẽ gì).
             const hasCustomBg = cfg.videoBgEnabled || cfg.visualBgImageEnabled || !!appState.get('activeBackgroundAlbum') || appState.get('isVideoPlayerMode');
             if (!hasCustomBg) { ctx.fillStyle = cfg.bgColor; ctx.fillRect(0, 0, canvas.width, canvas.height); }
             let progress = 0; if (audioPlayer && isFinite(audioPlayer.duration) && audioPlayer.duration > 0) progress = audioPlayer.currentTime / audioPlayer.duration;
             let moonX = canvas.width * 0.70; let moonY = canvas.height * 0.35; let baseScale = 4 + Math.sin(progress * Math.PI) * 1; let baseMoonRadius = baseScale * 8 * dpr; 
             let dynamicMoonRadius = baseMoonRadius + (smoothedEnergy * 8 * dpr);
 
-            if(!cfg.videoBgEnabled && !appState.get('isVideoPlayerMode')) {
-                ctx.beginPath(); ctx.arc(moonX, moonY, Math.max(0.1, dynamicMoonRadius), 0, Math.PI * 2); ctx.fillStyle = '#e0e8ff';
-                if (perf.blurMult > 0) { ctx.shadowBlur = (30 + smoothedEnergy * 20) * dpr * perf.blurMult; ctx.shadowColor = '#aaccff'; }
-                ctx.globalAlpha = 0.6 + (smoothedEnergy * 0.3); ctx.fill(); ctx.shadowBlur = 0;
-            }
+            // FIX (31/07/2026, Giang chốt) — Trăng + BigCity giờ LUÔN vẽ, kể cả khi videoBgEnabled/
+            // isVideoPlayerMode (TRƯỚC ĐÂY 2 khối này tự bỏ qua khi có video, ĐÈ ngược lại đúng thứ
+            // tự z-index vốn có — canvas ('chính visualizer đang vẽ') vốn z-index CAO HƠN #bg-video,
+            // xem assets/css/style.css — nên 2 lớp này phải luôn hiện TRÊN video, không phải video
+            // che mất chúng). LƯU Ý: trên WKWebView/iOS Safari, `<video>` giải mã hardware nằm ở
+            // compositing layer riêng do OS quản lý, có thể vẫn đè lên bất kể z-index (đã xác nhận
+            // qua 3 lần thử ở tình huống khác — xem core/video-player.js) — cần Giang tự kiểm tra
+            // trên thiết bị thật; nếu vẫn bị che, đây là giới hạn nền tảng, không phải sai chỗ này.
+            ctx.beginPath(); ctx.arc(moonX, moonY, Math.max(0.1, dynamicMoonRadius), 0, Math.PI * 2); ctx.fillStyle = '#e0e8ff';
+            if (perf.blurMult > 0) { ctx.shadowBlur = (30 + smoothedEnergy * 20) * dpr * perf.blurMult; ctx.shadowColor = '#aaccff'; }
+            ctx.globalAlpha = 0.6 + (smoothedEnergy * 0.3); ctx.fill(); ctx.shadowBlur = 0;
 
             drawRainFlash(ctx, isPlaying, (a) => `rgba(200, 220, 255, ${a})`);
 
-            if(!cfg.videoBgEnabled && !appState.get('isVideoPlayerMode')) {
-                ctx.globalAlpha = 0.4; 
-                appState.get('cityBuildings').forEach(b => {
-                    ctx.fillStyle = '#03060a'; ctx.fillRect(b.x, canvas.height - b.h, b.w, b.h);
-                    let winW = 3 * dpr; let winH = 5 * dpr; let paddingX = (b.w - (b.cols * winW)) / (b.cols + 1); let paddingY = (b.h - (b.rows * winH)) / (b.rows + 1);
-                    b.windows.forEach(win => {
-                        let wx = b.x + paddingX + win.c * (winW + paddingX); let wy = canvas.height - b.h + paddingY + win.r * (winH + paddingY);
-                        let isLit = win.isAlwaysOn; let alpha = isLit ? 0.3 : 0;
-                        if (isPlaying) { let audioVal = vizDataArray[win.fftBin] || 0; if (audioVal > 140) { isLit = true; alpha = Math.max(alpha, (audioVal / 255) * 0.9); } }
-                        if (isLit) { ctx.fillStyle = win.colorType; ctx.globalAlpha = alpha * 0.6; ctx.fillRect(wx, wy, winW, winH); }
-                    }); ctx.globalAlpha = 0.4;
-                });
-            }
+            ctx.globalAlpha = 0.4;
+            appState.get('cityBuildings').forEach(b => {
+                ctx.fillStyle = '#03060a'; ctx.fillRect(b.x, canvas.height - b.h, b.w, b.h);
+                let winW = 3 * dpr; let winH = 5 * dpr; let paddingX = (b.w - (b.cols * winW)) / (b.cols + 1); let paddingY = (b.h - (b.rows * winH)) / (b.rows + 1);
+                b.windows.forEach(win => {
+                    let wx = b.x + paddingX + win.c * (winW + paddingX); let wy = canvas.height - b.h + paddingY + win.r * (winH + paddingY);
+                    let isLit = win.isAlwaysOn; let alpha = isLit ? 0.3 : 0;
+                    if (isPlaying) { let audioVal = vizDataArray[win.fftBin] || 0; if (audioVal > 140) { isLit = true; alpha = Math.max(alpha, (audioVal / 255) * 0.9); } }
+                    if (isLit) { ctx.fillStyle = win.colorType; ctx.globalAlpha = alpha * 0.6; ctx.fillRect(wx, wy, winW, winH); }
+                }); ctx.globalAlpha = 0.4;
+            });
             ctx.globalAlpha = 1.0; ctx.fillStyle = 'rgba(10, 15, 25, 0.2)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
             const glassStaticDropsRead = appState.get('glassStaticDrops');
             for (let i = 0; i < glassStaticDropsRead.length; i++) { let drop = glassStaticDropsRead[i]; drawWaterDrop(ctx, drop.x, drop.y, drop.r, 0.6); }
