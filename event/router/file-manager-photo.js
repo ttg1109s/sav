@@ -335,22 +335,17 @@ const routerFileManagerPhoto = (() => {
             // hơn truyền qua payload lúc mở menu).
             case 'fileManagerPhoto.imageMenu.action.click': {
                 const { action, imageKey } = msg.payload;
-                // MỚI (31/07/2026, Zoom mode) — TOGGLE: cùng 1 action='zoom' cho cả vào/thoát, dùng
-                // ĐÚNG 1 lần imagePreviewMode đọc TRƯỚC, gộp thẳng vào `state` của rule thành biểu
-                // thức boolean loại trừ nhau — VirtualMachineState.run() chạy TẤT CẢ rule khớp
-                // (không dừng ở rule đầu tiên, xem docstring event/virtual-machine-state.js), nên
-                // KHÔNG thể tách "action==='zoom'" và "imagePreviewMode==='zoom'" thành 2 rule riêng
-                // (sẽ khớp CÙNG LÚC khi cả 2 đúng, chạy nhầm cả enter LẪN exit).
-                const isCurrentlyZooming = appState.get('imagePreviewMode') === 'zoom';
+                // SỬA (31/07/2026, mục 1/2/3 phản hồi Giang) — "Zoom view"/"Edit" (TOGGLE, loại trừ
+                // nhau) KHÔNG còn dispatch qua ĐÂY nữa — đã tách hẳn ra 2 msg.type RIÊNG
+                // ('imagePreview.zoomToggle.click'/'imagePreview.editToggle.click', xem 2 case dưới)
+                // để event/block.js khoá chéo được: Block gate chặn theo NGUYÊN msg.type, không tách
+                // được theo `payload.action` — msg.type NÀY còn dùng CHUNG cho setPlaylistBg/
+                // saveOverwrite/saveNew/removeFromAlbum/delete, chặn cả msg.type sẽ chặn NHẦM 4
+                // action còn lại. case này giờ CHỈ còn các action "quyết định", không còn logic
+                // toggle mode nào.
                 VirtualMachineState.run([
                     { state: action, operation: '===', value: 'setPlaylistBg', callback: () => {
                         workflowFileManagerPhoto.setAsPlaylistBackground(imageKey);
-                    } },
-                    { state: (action === 'zoom' && isCurrentlyZooming), operation: '===', value: true, callback: () => {
-                        workflowFileManagerPhoto.exitImagePreviewMode();
-                    } },
-                    { state: (action === 'zoom' && !isCurrentlyZooming), operation: '===', value: true, callback: () => {
-                        workflowFileManagerPhoto.enterZoomMode();
                     } },
                     // MỚI (31/07/2026) — "Lưu đè"/"Lưu mới", CHỈ hiện trong dropdown khi
                     // imagePreviewMode==='edit' (xem openImageActionMenu()) nên không cần thêm
@@ -387,10 +382,31 @@ const routerFileManagerPhoto = (() => {
                 break;
             }
 
-            // MỚI (31/07/2026, Edit mode) — icon Edit RIÊNG ở header modal (KHÁC "Sửa ảnh" trong
-            // dropdown ở case trên) — cùng cơ chế TOGGLE với action='zoom' phía trên: đọc
-            // imagePreviewMode 1 lần, gộp vào state của rule thành boolean loại trừ nhau (LÝ DO
-            // giống hệt — xem comment ở case 'imageMenu.action.click').
+            // MỚI (31/07/2026, mục 1/3 phản hồi Giang) — item "Zoom view" trong dropdown "...",
+            // TÁCH RIÊNG khỏi msg.type dùng chung 'imageMenu.action.click' (lý do xem comment case
+            // đó) — cùng cơ chế TOGGLE cũ: đọc imagePreviewMode 1 lần, gộp vào `state` của rule
+            // thành boolean loại trừ nhau (VirtualMachineState.run() chạy TẤT CẢ rule khớp, không
+            // dừng ở rule đầu tiên — phải loại trừ nhau tự nhiên, không tách "đang zoom"/"chưa zoom"
+            // thành 2 msg.type riêng). event/block.js chặn HẲN msg.type này khi đang Edit mode (khoá
+            // chéo mục 3, 1 chiều).
+            case 'fileManagerPhoto.imagePreview.zoomToggle.click': {
+                const isCurrentlyZooming = appState.get('imagePreviewMode') === 'zoom';
+                VirtualMachineState.run([
+                    { state: isCurrentlyZooming, operation: '===', value: true, callback: () => {
+                        workflowFileManagerPhoto.exitImagePreviewMode();
+                    } },
+                    { state: isCurrentlyZooming, operation: '===', value: false, callback: () => {
+                        workflowFileManagerPhoto.enterZoomMode();
+                    } },
+                ]);
+                break;
+            }
+
+            // MỚI (31/07/2026, mục 2 phản hồi Giang) — item "Edit"/"Thoát Edit" trong dropdown
+            // "...", THAY nút Edit RIÊNG cũ ở header modal (đã xoá, xem core/file-manager/photo-
+            // ui.js) — msg.type GIỮ NGUYÊN tên cũ (không đổi gì ở đây ngoài nguồn bắn), cùng cơ chế
+            // TOGGLE với case zoomToggle phía trên. event/block.js chặn HẲN msg.type này khi đang
+            // Zoom mode (khoá chéo mục 3, chiều còn lại).
             case 'fileManagerPhoto.imagePreview.editToggle.click': {
                 const isCurrentlyEditing = appState.get('imagePreviewMode') === 'edit';
                 VirtualMachineState.run([
@@ -410,6 +426,18 @@ const routerFileManagerPhoto = (() => {
             case 'fileManagerPhoto.editToolGrid.tile.click': {
                 const { tool } = msg.payload;
                 workflowFileManagerPhoto.openEditTool(tool);
+                break;
+            }
+
+            // MỚI (31/07/2026, mục 4 phản hồi Giang) — nút `toolsBtn` RIÊNG ở header modal (thay
+            // chỗ nút Edit cũ vừa dời đi, xem core/file-manager/photo-ui.js) — mở LẠI lưới tool Edit
+            // mode (Generic Drawer) sau khi người dùng tự tay đóng Drawer đi (nút X trên Drawer) mà
+            // KHÔNG chọn tool nào — TRƯỚC bản sửa này KHÔNG có cách nào mở lại, "kẹt" ở canvas
+            // trống. Không cần đọc `appState` để quyết định gì (đích luôn CỐ ĐỊNH) -> gọi thẳng
+            // Workflow (mục 4A/6, event-bus-flow.md), guard clause nằm trong chính
+            // `openEditToolGrid()`.
+            case 'fileManagerPhoto.imagePreview.tools.click': {
+                workflowFileManagerPhoto.openEditToolGrid();
                 break;
             }
 
