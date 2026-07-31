@@ -329,7 +329,7 @@ const routerFileManagerPhoto = (() => {
 
             // MỚI (21/07/2026, Giang yêu cầu "menu action ảnh chuyển từ Generic Drawer sang
             // dropdown") — đích dispatch của dropdown (event/workflow/file-manager-photo.js::
-            // _openImageActionMenu()) — dùng `activeAlbumId` CỦA ROUTER (closure, KHÔNG qua
+            // openImageActionMenu()) — dùng `activeAlbumId` CỦA ROUTER (closure, KHÔNG qua
             // payload) — luôn phản ánh ĐÚNG ngữ cảnh đang lọc lúc action THẬT SỰ chạy, tránh lệch
             // nếu người dùng đổi ngữ cảnh giữa lúc mở menu và lúc bấm action (hiếm, nhưng an toàn
             // hơn truyền qua payload lúc mở menu).
@@ -352,11 +352,8 @@ const routerFileManagerPhoto = (() => {
                     { state: (action === 'zoom' && !isCurrentlyZooming), operation: '===', value: true, callback: () => {
                         workflowFileManagerPhoto.enterZoomMode();
                     } },
-                    { state: action, operation: '===', value: 'editImage', callback: () => {
-                        workflowFileManagerPhoto.navigateToImageEdit(imageKey);
-                    } },
                     // MỚI (31/07/2026) — "Lưu đè"/"Lưu mới", CHỈ hiện trong dropdown khi
-                    // imagePreviewMode==='edit' (xem _openImageActionMenu()) nên không cần thêm
+                    // imagePreviewMode==='edit' (xem openImageActionMenu()) nên không cần thêm
                     // điều kiện mode ở đây (action này KHÔNG THỂ bắn ra ở mode khác).
                     { state: action, operation: '===', value: 'saveOverwrite', callback: () => {
                         workflowFileManagerPhoto.saveEditOverwrite();
@@ -380,6 +377,13 @@ const routerFileManagerPhoto = (() => {
             // chạy gì cả — chỉ khi KHÔNG bị chặn (đang 'view') mới thật sự chạy tới đây.
             case 'fileManagerPhoto.imagePreview.close.click': {
                 workflowFileManagerPhoto.closeImagePreview();
+                break;
+            }
+
+            // MỚI (31/07/2026, Rule 5a) — nút "..." giờ bắn eventBus thay vì gọi callback tham số
+            // trực tiếp (xem docstring openImagePreviewModal(), core/file-manager/photo-ui.js).
+            case 'fileManagerPhoto.imagePreview.menu.click': {
+                workflowFileManagerPhoto.openImageActionMenu(msg.payload.menuBtn);
                 break;
             }
 
