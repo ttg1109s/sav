@@ -335,12 +335,22 @@ const routerFileManagerPhoto = (() => {
             // hơn truyền qua payload lúc mở menu).
             case 'fileManagerPhoto.imageMenu.action.click': {
                 const { action, imageKey } = msg.payload;
+                // MỚI (31/07/2026, Zoom mode) — TOGGLE: cùng 1 action='zoom' cho cả vào/thoát, dùng
+                // ĐÚNG 1 lần imagePreviewMode đọc TRƯỚC, gộp thẳng vào `state` của rule thành biểu
+                // thức boolean loại trừ nhau — VirtualMachineState.run() chạy TẤT CẢ rule khớp
+                // (không dừng ở rule đầu tiên, xem docstring event/virtual-machine-state.js), nên
+                // KHÔNG thể tách "action==='zoom'" và "imagePreviewMode==='zoom'" thành 2 rule riêng
+                // (sẽ khớp CÙNG LÚC khi cả 2 đúng, chạy nhầm cả enter LẪN exit).
+                const isCurrentlyZooming = appState.get('imagePreviewMode') === 'zoom';
                 VirtualMachineState.run([
                     { state: action, operation: '===', value: 'setPlaylistBg', callback: () => {
                         workflowFileManagerPhoto.setAsPlaylistBackground(imageKey);
                     } },
-                    { state: action, operation: '===', value: 'setVisualBg', callback: () => {
-                        workflowFileManagerPhoto.setAsVisualBackground(imageKey);
+                    { state: (action === 'zoom' && isCurrentlyZooming), operation: '===', value: true, callback: () => {
+                        workflowFileManagerPhoto.exitImagePreviewMode();
+                    } },
+                    { state: (action === 'zoom' && !isCurrentlyZooming), operation: '===', value: true, callback: () => {
+                        workflowFileManagerPhoto.enterZoomMode();
                     } },
                     { state: action, operation: '===', value: 'editImage', callback: () => {
                         workflowFileManagerPhoto.navigateToImageEdit(imageKey);
@@ -352,6 +362,15 @@ const routerFileManagerPhoto = (() => {
                         deleteImage(imageKey).then(() => workflowFileManagerPhoto.refresh(activeAlbumId)); // core/file-manager/image.js — cascade dọn album
                     } },
                 ]);
+                break;
+            }
+
+            // MỚI (31/07/2026, Zoom mode) — nút X của modal xem ảnh, giờ đi qua eventBus (TRƯỚC ĐÂY
+            // đóng thẳng, core/file-manager/photo-ui.js) — Block gate (event/block.js) chặn HẲN
+            // msg.type này khi imagePreviewMode !== 'view' (đang Zoom/Edit), tự hiện notify, KHÔNG
+            // chạy gì cả — chỉ khi KHÔNG bị chặn (đang 'view') mới thật sự chạy tới đây.
+            case 'fileManagerPhoto.imagePreview.close.click': {
+                workflowFileManagerPhoto.closeImagePreview();
                 break;
             }
 
