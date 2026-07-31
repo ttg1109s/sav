@@ -741,11 +741,73 @@ function openImagePreviewModal(image, callbacks) {
     adjustPopup.innerHTML = `
         <div class="flex justify-between items-center mb-3 text-sm">
             <span id="image-edit-adjust-label" class="text-white/90 font-medium"></span>
-            <span id="image-edit-adjust-value" class="text-primary font-mono bg-white/10 px-2 py-0.5 rounded"></span>
+            <div class="flex items-center gap-2">
+                <span id="image-edit-adjust-value" class="text-primary font-mono bg-white/10 px-2 py-0.5 rounded"></span>
+                <button id="image-edit-adjust-done" type="button" class="w-7 h-7 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </button>
+            </div>
         </div>
         <input type="range" id="image-edit-adjust-slider" min="-100" max="100" value="0" class="w-full">
     `;
     overlay.appendChild(adjustPopup);
+
+    // ---- Context bar (Huỷ / tiêu đề / Áp dụng) — MỚI (31/07/2026), thay THẾ header lúc đang ở
+    // Crop/Vẽ/Text (3 tool CẦN bước xác nhận riêng, khác "Điều chỉnh" live-preview không cần) —
+    // Workflow tự ẩn header + hiện contextBar lúc vào 1 trong 3 tool này, đổi lại lúc thoát.
+    const contextBar = document.createElement('div');
+    contextBar.id = 'image-edit-context-bar';
+    contextBar.className = 'hidden photo-preview-scrim-top flex justify-between items-center px-4 pt-4 pb-3';
+    contextBar.innerHTML = `
+        <button id="image-edit-context-cancel" type="button" class="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+        <span id="image-edit-context-title" class="text-white text-sm font-semibold tracking-wide"></span>
+        <button id="image-edit-context-apply" type="button" class="w-9 h-9 flex items-center justify-center rounded-full bg-primary hover:bg-blue-500 transition-colors text-white shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        </button>
+    `;
+    overlay.appendChild(contextBar);
+
+    // ---- Khung gõ chữ nổi (tool Text) — MỚI (31/07/2026), ẩn mặc định, kéo tay di chuyển được.
+    const floatingText = document.createElement('div');
+    floatingText.id = 'image-edit-floating-text';
+    floatingText.contentEditable = 'true';
+    floatingText.spellcheck = false;
+    floatingText.className = 'hidden absolute z-20 bg-black/40 border border-dashed border-white text-white font-bold text-3xl px-4 py-2 min-w-[60px] text-center whitespace-pre-wrap break-words rounded-lg shadow-lg';
+    floatingText.style.cursor = 'move';
+    floatingText.textContent = t('fileManager.photo.image.editTextPlaceholder');
+    overlay.appendChild(floatingText);
+
+    // ---- Popup điều khiển Vẽ (Cọ/Tẩy + màu + cỡ nét) — MỚI (31/07/2026), ẩn mặc định.
+    const drawControlsPopup = document.createElement('div');
+    drawControlsPopup.id = 'image-edit-draw-popup';
+    drawControlsPopup.className = 'hidden absolute bottom-0 left-0 w-full photo-preview-scrim-bottom p-5 pb-8';
+    drawControlsPopup.innerHTML = `
+        <div class="flex justify-between items-center w-full mb-3">
+            <div class="flex gap-4">
+                <button id="image-edit-draw-brush" type="button" class="text-primary text-sm font-medium">${t('fileManager.photo.image.editDrawBrush')}</button>
+                <button id="image-edit-draw-eraser" type="button" class="text-white/60 text-sm font-medium">${t('fileManager.photo.image.editDrawEraser')}</button>
+            </div>
+            <input type="color" id="image-edit-draw-color" value="#0A84FF" class="w-7 h-7 rounded-full p-0 border-0 bg-transparent overflow-hidden">
+        </div>
+        <input type="range" id="image-edit-draw-size" min="1" max="100" value="10" class="w-full">
+    `;
+    overlay.appendChild(drawControlsPopup);
+
+    // ---- Popup dung sai màu (tool Tách nền) — MỚI (31/07/2026), ẩn mặc định.
+    const magicPopup = document.createElement('div');
+    magicPopup.id = 'image-edit-magic-popup';
+    magicPopup.className = 'hidden absolute bottom-0 left-0 w-full photo-preview-scrim-bottom p-5 pb-8';
+    magicPopup.innerHTML = `
+        <div class="flex justify-between text-xs text-white/70 mb-2">
+            <span>${t('fileManager.photo.image.editMagicTolerance')}</span>
+            <span id="image-edit-magic-value" class="font-mono">30</span>
+        </div>
+        <input type="range" id="image-edit-magic-slider" min="1" max="150" value="30" class="w-full">
+        <p class="text-[11px] text-center text-white/50 mt-2">${t('fileManager.photo.image.editMagicHint')}</p>
+    `;
+    overlay.appendChild(magicPopup);
 
     // ---- Header nổi: X đóng (trái) + Edit/"..." (phải, gộp nhóm) ----
     const header = document.createElement('div');
@@ -783,9 +845,21 @@ function openImagePreviewModal(image, callbacks) {
     // canvasWrap, xem enterEditMode()/exitImagePreviewMode() (event/workflow/file-manager-photo.js).
     return {
         close: closeModal, imgEl: img, canvasWrap, baseCanvas, renderCanvas, interactCanvas, editBtn,
+        header,
         adjustPopup, adjustLabelEl: adjustPopup.querySelector('#image-edit-adjust-label'),
         adjustValueEl: adjustPopup.querySelector('#image-edit-adjust-value'),
         adjustSliderEl: adjustPopup.querySelector('#image-edit-adjust-slider'),
+        adjustDoneBtn: adjustPopup.querySelector('#image-edit-adjust-done'),
+        contextBar, contextCancelBtn: contextBar.querySelector('#image-edit-context-cancel'),
+        contextTitleEl: contextBar.querySelector('#image-edit-context-title'),
+        contextApplyBtn: contextBar.querySelector('#image-edit-context-apply'),
+        floatingText,
+        drawControlsPopup, drawBrushBtn: drawControlsPopup.querySelector('#image-edit-draw-brush'),
+        drawEraserBtn: drawControlsPopup.querySelector('#image-edit-draw-eraser'),
+        drawColorEl: drawControlsPopup.querySelector('#image-edit-draw-color'),
+        drawSizeEl: drawControlsPopup.querySelector('#image-edit-draw-size'),
+        magicPopup, magicValueEl: magicPopup.querySelector('#image-edit-magic-value'),
+        magicSliderEl: magicPopup.querySelector('#image-edit-magic-slider'),
     };
 }
 
