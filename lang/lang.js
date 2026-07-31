@@ -60,10 +60,11 @@
 
 /**
  * LANG_EN_KEYS — NGÔN NGỮ GỐC, NẰM CỨNG TRONG RAM. Đây là nguồn key chuẩn duy nhất của toàn app —
- * mọi ngôn ngữ khác được validate (diff) dựa trên chính object này. Gộp từ 7 biến LANG_PATCH_*
- * (mỗi biến do 1 file /lang/patch/*.js nạp trước tạo ra — MỚI 10/07/2026: thêm
- * LANG_PATCH_SUBTITLE_EDITOR cho trang subtitle-editor.html) — bản thân file này không tự khai báo
- * key nào, chỉ Object.assign lại.
+ * mọi ngôn ngữ khác được validate (diff) dựa trên chính object này. Gộp từ 8 biến LANG_PATCH_*
+ * (mỗi biến do 1 file /lang/patch/*.js nạp trước tạo ra) — bản thân file này không tự khai báo key
+ * nào, chỉ Object.assign lại.
+ * SỬA (31/07/2026) — bỏ `LANG_PATCH_IMAGE_EDIT` (image-edit.html đã xoá, xem lang/patch/patch-
+ * image-edit.js — file đó cũng xoá theo, KHÔNG còn nạp ở bất kỳ trang nào).
  */
 const LANG_EN_KEYS = Object.assign(
     {},
@@ -74,7 +75,6 @@ const LANG_EN_KEYS = Object.assign(
     LANG_PATCH_SETTINGS_MISC,
     LANG_PATCH_FILE_MANAGER,
     LANG_PATCH_SUBTITLE_EDITOR,
-    LANG_PATCH_IMAGE_EDIT,
     LANG_PATCH_VIDEO_EDITOR // MỚI (Batch 1, module Video Editor) — xem lang/patch/patch-video-editor.js
 );
 
