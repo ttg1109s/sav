@@ -646,36 +646,23 @@ function openCreateAlbumModal(onConfirm) {
     document.body.appendChild(overlay);
     inputEl.focus();
 }
-// Hàm dựng UI thuần (giống openRenameFolderModal/openFolderPickerModal ở
-// core/file-manager/folder-picker-ui.js) — KHÔNG thuộc phạm vi 4 rule core-function-conventions.md
-// (rule đó áp cho hàm NGHIỆP VỤ, không áp cho hàm dựng UI).
 /**
- * SỬA (14/07/2026, mục cuối — menu action ảnh) — bỏ hẳn dropdown menu tự vẽ (text list, absolute
- * positioned). Menu giờ là Generic Drawer (icon hoá, xem
- * `buildPhotoActionMenuHtml()` ngay dưới) — KHÔNG dựng được ở ĐÂY (Generic Drawer là DOM TĨNH có
- * sẵn từ `dom-refs.js`, không phải "cụm DOM mới tự tạo", Rule 5a CẤM Core tự `addEventListener` cho
- * nó) — nên "..." CHỈ gọi `callbacks.onOpenMenu()`, Workflow (`event/workflow/file-manager-photo.js::
- * _openImageActionMenu()`) tự mở/wire Generic Drawer. Trả về `{ close }` để Workflow tự đóng modal
- * này SAU KHI 1 action được chọn từ menu.
- * SỬA (21/07/2026, Giang yêu cầu "menu action ảnh chuyển từ Generic Drawer sang dropdown") —
- * `callbacks.onOpenMenu` giờ NHẬN THAM SỐ `menuBtn` (chính nút "..." vừa bấm) — dropdown
- * (core/dropdown-menu.js::openDropdownMenu()) cần 1 `anchorEl` để định vị menu SÁT nút, khác hẳn
- * Generic Drawer cũ (bottom sheet toàn chiều rộng, không cần biết vị trí nút).
- * MỚI (31/07/2026, Zoom mode) — nút X giờ gọi `callbacks.onCloseClick()` (KHÔNG tự đóng modal nữa)
- * — nghiệp vụ thật đi qua eventBus/Router để Block gate (event/block.js) chặn được lúc đang ở
- * Zoom/Edit mode (`imagePreviewMode !== 'view'`). `close` trong handle trả về VẪN LÀ đóng THẬT —
- * Workflow tự gọi khi Router xác nhận không bị chặn, hoặc khi 1 action khác (xoá/đặt nền...) cần
- * đóng modal ngay. `imgEl` MỚI — Zoom mode cần element `<img>` thật để init Panzoom.
- * MỚI (31/07/2026, Edit mode) — thêm nút Edit RIÊNG ở header (cạnh trái "..."), `callbacks.
- * onEditClick()` — Workflow tự toggle class active lên `editBtn` trả về (đúng chốt Giang: icon đổi
- * trạng thái sửa/không sửa). Thêm khung `canvasWrap` (base/render/interact, ẩn mặc định) — Edit
- * mode dùng để thay thế `imgEl` (ẩn `<img>`, hiện canvas) khi vào mode, KHÔNG mở overlay mới (đúng
- * chốt: không vỡ UI modal đang có).
+ * Modal xem ảnh full-screen — dựng cụm DOM MỚI (Rule 5a: cụm DOM mới tự tạo bằng `createElement`,
+ * ĐƯỢC PHÉP tự `addEventListener`, miễn callback CHỈ bắn `eventBus.send()` + gom cuối hàm — xem
+ * đúng khuôn ở cuối hàm này). Menu "..." mở dropdown (core/dropdown-menu.js) do Workflow tự dựng
+ * SAU khi nhận eventBus — không dựng ở đây (dropdown cần biết đang ở mode nào/có đang trong album
+ * hay không, dữ liệu đó Core không được tự đọc, xem Rule 2).
+ * SỬA (31/07/2026, Rule 5a — audit lại theo yêu cầu Giang) — TRƯỚC ĐÂY nhận `callbacks` (onOpenMenu/
+ * onCloseClick/onEditClick) rồi gọi THẲNG tham số đó trong addEventListener — vi phạm điều kiện 1
+ * Rule 5a ("callback CHỈ được bắn eventBus.send(), không gọi tham số/hàm khác"), xem readme/core-
+ * function-conventions.md. Giờ KHÔNG còn nhận `callbacks` nữa — cả 3 nút tự bắn thẳng eventBus
+ * NGAY TRONG hàm này (gom cuối hàm, sau khi cây DOM dựng xong hoàn toàn — đúng điều kiện 2), Workflow
+ * (event/workflow/file-manager-photo.js) đọc `_activeImageKey`/`_activeAlbumId` (instance field đã
+ * lưu sẵn lúc mở modal) thay vì phải truyền qua closure tham số như trước.
  * @param {{key: string, blob: Blob, filename: string}} image
- * @param {{onOpenMenu: (menuBtn: HTMLElement) => void, onCloseClick: () => void, onEditClick: () => void}} callbacks
  * @returns {{close: () => void, imgEl: HTMLImageElement, canvasWrap: HTMLElement, baseCanvas: HTMLCanvasElement, renderCanvas: HTMLCanvasElement, interactCanvas: HTMLCanvasElement, editBtn: HTMLElement}}
  */
-function openImagePreviewModal(image, callbacks) {
+function openImagePreviewModal(image) {
     const stale = document.getElementById('image-preview-overlay');
     if (stale) stale.remove();
 
@@ -703,11 +690,6 @@ function openImagePreviewModal(image, callbacks) {
     const img = document.createElement('img');
     img.alt = image.filename;
     img.className = 'photo-preview-image';
-    img.addEventListener('load', () => {
-        const imageIsLandscape = img.naturalWidth >= img.naturalHeight;
-        const screenIsLandscape = window.innerWidth >= window.innerHeight;
-        img.style.objectFit = (imageIsLandscape === screenIsLandscape) ? 'cover' : 'contain';
-    }, { once: true });
     img.src = objectUrl;
     overlay.appendChild(img);
 
@@ -815,31 +797,42 @@ function openImagePreviewModal(image, callbacks) {
     const closeBtn = document.createElement('button');
     closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
     closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
-    closeBtn.addEventListener('click', () => callbacks.onCloseClick()); // MỚI (31/07/2026) — KHÔNG gọi closeModal() thẳng nữa — nghiệp vụ thật (có bị Block gate chặn hay không, xem event/block.js) thuộc Router, xem docstring hàm này
     header.appendChild(closeBtn);
 
-    // MỚI (31/07/2026) — nút Edit RIÊNG, ngay cạnh TRÁI "...", KHÁC hẳn item "Sửa ảnh" trong dropdown
-    // (cái đó vẫn giữ, điều hướng sang image-edit.html — xem docstring enterEditMode(),
-    // event/workflow/file-manager-photo.js, vì sao 2 đường vào cùng tồn tại tạm thời). Icon KHÔNG
-    // đổi hình — chỉ đổi màu nền (class) theo đang/không đang Edit mode, Workflow tự toggle qua
-    // `editBtn` trả về trong handle (đúng chốt Giang: "icon chuyển qua lại trạng thái sửa/không sửa").
+    // MỚI (31/07/2026) — nút Edit RIÊNG, ngay cạnh TRÁI "...". Icon KHÔNG đổi hình — chỉ đổi màu
+    // nền (class) theo đang/không đang Edit mode, Workflow tự toggle qua `editBtn` trả về trong
+    // handle (đúng chốt Giang: "icon chuyển qua lại trạng thái sửa/không sửa").
     const rightGroup = document.createElement('div');
     rightGroup.className = 'flex items-center gap-2';
     const editBtn = document.createElement('button');
     editBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
     editBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
-    editBtn.addEventListener('click', () => callbacks.onEditClick());
     rightGroup.appendChild(editBtn);
 
     const menuBtn = document.createElement('button');
     menuBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
     menuBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg>';
-    menuBtn.addEventListener('click', () => callbacks.onOpenMenu(menuBtn));
     rightGroup.appendChild(menuBtn);
     header.appendChild(rightGroup);
     overlay.appendChild(header);
 
     document.body.appendChild(overlay);
+
+    // --- addEventListener: gom cuối hàm, sau khi cây DOM đã dựng xong hoàn toàn (Rule 5a) ---
+    // `img` 'load' KHÔNG bắn eventBus — đây không phải quyết định nghiệp vụ theo tương tác người
+    // dùng (Rule 5a chỉ áp cho đó), chỉ là chỉnh object-fit thuần trình bày dựa trên kích thước ảnh
+    // vừa đo được, không ai cần biết/quyết định gì thêm ở Router/Workflow.
+    img.addEventListener('load', () => {
+        const imageIsLandscape = img.naturalWidth >= img.naturalHeight;
+        const screenIsLandscape = window.innerWidth >= window.innerHeight;
+        img.style.objectFit = (imageIsLandscape === screenIsLandscape) ? 'cover' : 'contain';
+    }, { once: true });
+    // KHÔNG gọi closeModal()/callback tham số nữa (SAI Rule 5a, xem docstring) — bắn thẳng eventBus,
+    // Router (event/router/file-manager-photo.js) quyết định có bị Block gate chặn hay không.
+    closeBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.close.click', payload: {} }));
+    editBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.editToggle.click', payload: {} }));
+    menuBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.menu.click', payload: { menuBtn } }));
+
     // MỚI (31/07/2026) — thêm canvasWrap/base/render/interact/editBtn cho Zoom→giữ nguyên, Edit mode
     // MỚI dùng. imgEl vẫn trả nguyên (Zoom mode/view thường đọc) — Edit mode tự ẩn imgEl, hiện
     // canvasWrap, xem enterEditMode()/exitImagePreviewMode() (event/workflow/file-manager-photo.js).
@@ -866,5 +859,5 @@ function openImagePreviewModal(image, callbacks) {
 // SỬA (21/07/2026, Giang yêu cầu "menu action ảnh chuyển từ Generic Drawer sang dropdown") —
 // `buildPhotoActionMenuHtml()` (bodyHtml cho Generic Drawer, icon hoá) ĐÃ XOÁ HẲN — menu action giờ
 // dùng `openDropdownMenu()` (core/dropdown-menu.js), xem event/workflow/file-manager-photo.js::
-// _openImageActionMenu() (5 icon SVG dời sang thẳng đó, dùng lại nguyên văn).
+// openImageActionMenu() (5 icon SVG dời sang thẳng đó, dùng lại nguyên văn).
 

@@ -54,8 +54,8 @@ async function resolveImageKey(filename) {
  * Lưu 1 ảnh mới (hoặc ghi đè nếu trùng filename — xem resolveImageKey()). 1 tiến trình duy nhất:
  * sinh key -> ghi record. `thumbBlob`/`width`/`height` PHẢI tính SẴN trước khi gọi hàm này (Workflow
  * — event/workflow/file-manager-photo.js::_resizeImageForThumbnail(), cần Image/canvas là DOM API,
- * core KHÔNG được đụng theo Rule 1-4, đúng tiền lệ event/workflow/image-edit.js đang xử lý canvas
- * riêng ở Workflow) — hàm này (core) CHỈ ghi lại nguyên xi, không tự resize/decode gì thêm.
+ * core KHÔNG được đụng theo Rule 1-4) — hàm này (core) CHỈ ghi lại nguyên xi, không tự resize/decode
+ * gì thêm.
  * @param {File|Blob} file - blob ẢNH GỐC (không resize).
  * @param {string} filename
  * @param {Blob} thumbBlob - ảnh đã resize sẵn, dùng cho lưới (Giai đoạn 1, mục 3d).
@@ -71,9 +71,10 @@ async function saveImage(file, filename, thumbBlob, width, height) {
 }
 
 /**
- * MỚI (14/07/2026, mục cuối — tính năng Edit ảnh) — ghi đè `blob` sau khi sửa ở trang
- * `image-edit.html`, giữ nguyên `filename`/`addedAt` (đọc record đầy đủ, ghi đè ĐÚNG các field cần
- * đổi, lưu lại nguyên record).
+ * MỚI (14/07/2026, mục cuối — tính năng Edit ảnh, TRANG GỐC `image-edit.html` đã XOÁ 31/07/2026,
+ * hàm này giờ phục vụ Edit mode MỚI trong modal xem ảnh — event/workflow/file-manager-photo.js::
+ * saveEditOverwrite()) — ghi đè `blob` sau khi sửa, giữ nguyên `filename`/`addedAt` (đọc record đầy
+ * đủ, ghi đè ĐÚNG các field cần đổi, lưu lại nguyên record).
  *
  * HOÀN THIỆN (Giai đoạn 5, rewrite Photo/Album — trả nợ kỹ thuật ghi ở Giai đoạn 1) — nhận thêm
  * `thumbBlob`/`width`/`height`, ghi đè CẢ 3 cùng lúc với `blob` — trước đây chỉ ghi `blob`, khiến
@@ -85,8 +86,8 @@ async function saveImage(file, filename, thumbBlob, width, height) {
  * `image.thumbBlob || image.blob`) + tỉ lệ 1/1 (fjGallery không có attribute width/height thật để
  * đọc), không tự sửa dù đã mở full-view — cần Giang xác nhận có cần implement
  * backfill thật hay chấp nhận giữ nguyên cho tới khi ảnh được re-upload/edit). Nơi gọi
- * (event/workflow/image-edit.js::handleSave()) PHẢI tự resize thumbnail TRƯỚC khi gọi hàm này —
- * core không được đụng canvas (Rule 1-4, DOM API).
+ * (event/workflow/file-manager-photo.js::saveEditOverwrite()) PHẢI tự resize thumbnail TRƯỚC khi
+ * gọi hàm này — core không được đụng canvas (Rule 1-4, DOM API).
  * @param {string} imageKey
  * @param {Blob} newBlob - ảnh GỐC đã sửa.
  * @param {Blob} thumbBlob - thumbnail đã resize sẵn, cùng công thức lúc upload.
