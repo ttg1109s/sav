@@ -660,7 +660,7 @@ function openCreateAlbumModal(onConfirm) {
  * (event/workflow/file-manager-photo.js) đọc `_activeImageKey`/`_activeAlbumId` (instance field đã
  * lưu sẵn lúc mở modal) thay vì phải truyền qua closure tham số như trước.
  * @param {{key: string, blob: Blob, filename: string}} image
- * @returns {{close: () => void, imgEl: HTMLImageElement, canvasWrap: HTMLElement, baseCanvas: HTMLCanvasElement, renderCanvas: HTMLCanvasElement, interactCanvas: HTMLCanvasElement, editBtn: HTMLElement}}
+ * @returns {{close: () => void, imgEl: HTMLImageElement, canvasWrap: HTMLElement, baseCanvas: HTMLCanvasElement, renderCanvas: HTMLCanvasElement, interactCanvas: HTMLCanvasElement, toolsBtn: HTMLElement}}
  */
 function openImagePreviewModal(image) {
     const stale = document.getElementById('image-preview-overlay');
@@ -799,15 +799,20 @@ function openImagePreviewModal(image) {
     closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
     header.appendChild(closeBtn);
 
-    // MỚI (31/07/2026) — nút Edit RIÊNG, ngay cạnh TRÁI "...". Icon KHÔNG đổi hình — chỉ đổi màu
-    // nền (class) theo đang/không đang Edit mode, Workflow tự toggle qua `editBtn` trả về trong
-    // handle (đúng chốt Giang: "icon chuyển qua lại trạng thái sửa/không sửa").
+    // SỬA (31/07/2026, mục 2/4 phản hồi Giang) — nút Edit RIÊNG (`editBtn` toggle mode) ĐÃ XOÁ khỏi
+    // header — "Edit" giờ là 1 item TOGGLE trong dropdown "...", cùng khuôn "Zoom view" (xem
+    // openImageActionMenu(), event/workflow/file-manager-photo.js). THAY vào chỗ đó: `toolsBtn` —
+    // nút mở LẠI lưới tool Edit mode (Generic Drawer) sau khi người dùng tự tay đóng Drawer đi (nút
+    // X trên Drawer) — TRƯỚC bản sửa này KHÔNG có cách nào mở lại (mục 4 Giang chỉ ra). ẨN mặc định
+    // (`hidden`) — CHỈ Workflow hiện ra lúc `enterEditMode()`/ẩn lại lúc thoát Edit mode (xem
+    // `_exitEditMode()`, event/workflow/file-manager-photo.js), cùng khuôn ẩn/hiện `canvasWrap`.
     const rightGroup = document.createElement('div');
     rightGroup.className = 'flex items-center gap-2';
-    const editBtn = document.createElement('button');
-    editBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
-    editBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
-    rightGroup.appendChild(editBtn);
+    const toolsBtn = document.createElement('button');
+    toolsBtn.className = 'hidden w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
+    toolsBtn.title = t('fileManager.photo.image.editGridTitle');
+    toolsBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>';
+    rightGroup.appendChild(toolsBtn);
 
     const menuBtn = document.createElement('button');
     menuBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
@@ -830,14 +835,15 @@ function openImagePreviewModal(image) {
     // KHÔNG gọi closeModal()/callback tham số nữa (SAI Rule 5a, xem docstring) — bắn thẳng eventBus,
     // Router (event/router/file-manager-photo.js) quyết định có bị Block gate chặn hay không.
     closeBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.close.click', payload: {} }));
-    editBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.editToggle.click', payload: {} }));
+    toolsBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.tools.click', payload: {} }));
     menuBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.menu.click', payload: { menuBtn } }));
 
-    // MỚI (31/07/2026) — thêm canvasWrap/base/render/interact/editBtn cho Zoom→giữ nguyên, Edit mode
-    // MỚI dùng. imgEl vẫn trả nguyên (Zoom mode/view thường đọc) — Edit mode tự ẩn imgEl, hiện
-    // canvasWrap, xem enterEditMode()/exitImagePreviewMode() (event/workflow/file-manager-photo.js).
+    // SỬA (31/07/2026, mục 2/4 phản hồi Giang) — thêm canvasWrap/base/render/interact/toolsBtn
+    // (THAY `editBtn` đã xoá) cho Zoom→giữ nguyên, Edit mode dùng. imgEl vẫn trả nguyên (Zoom
+    // mode/view thường đọc) — Edit mode tự ẩn imgEl, hiện canvasWrap + toolsBtn, xem
+    // enterEditMode()/exitImagePreviewMode() (event/workflow/file-manager-photo.js).
     return {
-        close: closeModal, imgEl: img, canvasWrap, baseCanvas, renderCanvas, interactCanvas, editBtn,
+        close: closeModal, imgEl: img, canvasWrap, baseCanvas, renderCanvas, interactCanvas, toolsBtn,
         header,
         adjustPopup, adjustLabelEl: adjustPopup.querySelector('#image-edit-adjust-label'),
         adjustValueEl: adjustPopup.querySelector('#image-edit-adjust-value'),
