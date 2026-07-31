@@ -355,6 +355,15 @@ const routerFileManagerPhoto = (() => {
                     { state: action, operation: '===', value: 'editImage', callback: () => {
                         workflowFileManagerPhoto.navigateToImageEdit(imageKey);
                     } },
+                    // MỚI (31/07/2026) — "Lưu đè"/"Lưu mới", CHỈ hiện trong dropdown khi
+                    // imagePreviewMode==='edit' (xem _openImageActionMenu()) nên không cần thêm
+                    // điều kiện mode ở đây (action này KHÔNG THỂ bắn ra ở mode khác).
+                    { state: action, operation: '===', value: 'saveOverwrite', callback: () => {
+                        workflowFileManagerPhoto.saveEditOverwrite();
+                    } },
+                    { state: action, operation: '===', value: 'saveNew', callback: () => {
+                        workflowFileManagerPhoto.saveEditAsNew();
+                    } },
                     { state: action, operation: '===', value: 'removeFromAlbum', callback: () => {
                         removeImageFromAlbum(imageKey, activeAlbumId).then(() => workflowFileManagerPhoto.refresh(activeAlbumId)); // core/file-manager/album.js
                     } },
