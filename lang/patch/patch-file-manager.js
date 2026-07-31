@@ -115,6 +115,10 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.image.editToolDraw': 'Draw',
     'fileManager.photo.image.editToolMagic': 'Cutout',
     'fileManager.photo.image.editToolComingSoon': 'This tool is not available yet.',
+    'fileManager.photo.image.btnSaveOverwrite': 'Save (overwrite)',
+    'fileManager.photo.image.btnSaveNew': 'Save as new',
+    'fileManager.photo.image.editSaveOverwriteSuccess': 'Saved — original photo updated.',
+    'fileManager.photo.image.editSaveNewSuccess': 'Saved as a new photo.',
     // MỚI (14/07/2026, mục cuối, mục 2.2) — chế độ xoá nhanh.
     'fileManager.photo.image.quickDeleteTitle': 'Quick delete',
     'fileManager.photo.image.quickDeleteConfirm.title': 'Enable quick delete?',

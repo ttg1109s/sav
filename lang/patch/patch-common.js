@@ -79,6 +79,7 @@ const LANG_PATCH_COMMON = {
     'common.loading.savingInfo': 'Saving info...',
     'common.loading.savingVideoBg': 'Saving background video...',
     'common.loading.savingImageBg': 'Saving background image...',
+    'common.loading.savingImageEdit': 'Saving edited photo...',
     'common.loading.exportingFile': 'Exporting file...',
     'common.loading.deletingVideoBg': 'Removing background video...',
     'common.loading.deletingImageBg': 'Removing background image...',
