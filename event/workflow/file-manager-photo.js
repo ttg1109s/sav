@@ -83,6 +83,7 @@ const workflowFileManagerPhoto = {
     _activeImageModalHandle: null, // { close, imgEl, canvasWrap, baseCanvas, renderCanvas, interactCanvas, editBtn, adjustPopup, ... } của modal xem ảnh đang mở — null khi không mở modal nào (openImagePreview()/closeImagePreview())
     _activePanzoomSession: null,   // session Panzoom đang chạy khi ở Zoom mode — null khi không ở Zoom mode (core/image-zoom.js)
     _activeImageKey: null,         // key ảnh đang mở modal — Edit mode cần lại (enterEditMode()) để decode từ record thật
+    _activeAlbumId: null,          // albumId đang lọc lúc mở modal (có thể null) — Lưu đè/Lưu mới cần lại để refresh() đúng lưới + thêm ảnh mới vào ĐÚNG album
     _activeEditParams: null,       // {brightness,contrast,saturation,temperature,tint,sharpen} đang chỉnh khi ở Edit mode — null khi không ở Edit mode
     _activeAdjustParam: null,      // key param đang mở slider ('brightness'/'contrast'/...) — null khi popup adjust đang ẩn
 
@@ -892,6 +893,7 @@ const workflowFileManagerPhoto = {
         const image = { key: imageKey, ...record };
 
         this._activeImageKey = imageKey; // MỚI (31/07/2026) — Edit mode cần lại lúc decode canvas (enterEditMode())
+        this._activeAlbumId = activeAlbumId; // MỚI (31/07/2026) — Lưu đè/Lưu mới cần lại (saveEditOverwrite()/saveEditAsNew())
         appState.set('imagePreviewMode', 'view');
         console.log(`writer: "openImagePreview", page: "imagePreviewMode", content: "view"`);
 
@@ -925,11 +927,20 @@ const workflowFileManagerPhoto = {
             eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imageMenu.action.click', payload: { action, imageKey: image.key } });
         };
         const isZooming = appState.get('imagePreviewMode') === 'zoom';
+        const isEditing = appState.get('imagePreviewMode') === 'edit';
         const items = [
             { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>', name: t('fileManager.photo.image.btnSetPlaylistBg'), callback: () => dispatch('setPlaylistBg') },
             { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"/></svg>', name: t(isZooming ? 'fileManager.photo.image.btnExitZoom' : 'fileManager.photo.image.btnZoom'), callback: () => dispatch('zoom', false) },
             { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3"/></svg>', name: t('fileManager.photo.image.btnEditImage'), callback: () => dispatch('editImage') },
         ];
+        // MỚI (31/07/2026) — CHỈ hiện khi đang ở Edit mode (đúng chốt Giang: "thêm dropdown action
+        // cho lưu đè, lưu mới" — ĐÚNG 2 action MỚI duy nhất, còn lại các item khác giữ nguyên bất kể
+        // mode). `closePreview: false` — saveEditOverwrite()/saveEditAsNew() tự đóng modal SAU KHI
+        // lưu xong (cần handle.renderCanvas còn sống lúc chạy), không đóng NGAY như setPlaylistBg.
+        if (isEditing) {
+            items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4l-4 4m0 0L7 3m4 4V1"/></svg>', name: t('fileManager.photo.image.btnSaveOverwrite'), callback: () => dispatch('saveOverwrite', false) });
+            items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>', name: t('fileManager.photo.image.btnSaveNew'), callback: () => dispatch('saveNew', false) });
+        }
         if (activeAlbumId) items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6"/></svg>', name: t('fileManager.photo.image.btnRemoveFromAlbum'), callback: () => dispatch('removeFromAlbum') });
         items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>', name: t('fileManager.photo.image.btnDelete'), callback: () => dispatch('delete'), destructive: true });
 
@@ -1090,6 +1101,74 @@ const workflowFileManagerPhoto = {
         let imageData = applyColorAdjustments(handle.baseCanvas, this._activeEditParams); // core/photo-editor-engine.js
         if (this._activeEditParams.sharpen > 0) imageData = applySharpenFilter(imageData, this._activeEditParams.sharpen); // core/photo-editor-engine.js
         handle.renderCanvas.getContext('2d').putImageData(imageData, 0, 0);
+    },
+
+    /** Xuất `renderCanvas` (kết quả đã áp Điều chỉnh) ra 1 Blob JPEG chất lượng cao — dùng chung
+     * bởi cả `saveEditOverwrite()`/`saveEditAsNew()`. @returns {Promise<Blob>} */
+    _exportEditedBlob() {
+        return new Promise((resolve, reject) => {
+            this._activeImageModalHandle.renderCanvas.toBlob((blob) => {
+                if (!blob) { reject(new Error('[_exportEditedBlob] canvas.toBlob trả về null')); return; }
+                resolve(blob);
+            }, 'image/jpeg', 0.92);
+        });
+    },
+
+    /** Sinh tên file MỚI cho "Lưu mới" — BẮT BUỘC khác tên gốc: `resolveImageKey()` (core/file-
+     * manager/image.js) coi TRÙNG tên là "cùng ảnh, ghi đè đúng key cũ" — dùng nguyên tên gốc ở đây
+     * sẽ vô tình ghi đè thay vì tạo ảnh mới, PHÁ hẳn ý nghĩa "Lưu mới" khác "Lưu đè".
+     * @param {string} originalFilename @returns {string} */
+    _buildEditedNewFilename(originalFilename) {
+        const dotIndex = originalFilename.lastIndexOf('.');
+        const base = dotIndex > 0 ? originalFilename.slice(0, dotIndex) : originalFilename;
+        const ext = dotIndex > 0 ? originalFilename.slice(dotIndex) : '.jpg';
+        return `${base}_edited_${Date.now()}${ext}`;
+    },
+
+    /** Ứng với item "Lưu đè" trong dropdown (CHỈ hiện khi `imagePreviewMode==='edit'`) — xuất
+     * `renderCanvas` -> resize thumbnail (`_resizeImageForThumbnail()`, đã có sẵn, dùng chung upload)
+     * -> `updateImageBlob()` (core/file-manager/image.js, ĐÃ CÓ SẴN, vốn viết cho image-edit.html —
+     * TÁI DÙNG NGUYÊN, không viết lại) ghi đè ĐÚNG key đang mở, giữ nguyên vị trí/album. Đóng modal
+     * + refresh lưới SAU KHI lưu xong.
+     */
+    async saveEditOverwrite() {
+        const handle = this._activeImageModalHandle;
+        if (!handle || !this._activeEditParams) return; // guard: hiếm, không ở Edit mode nữa
+        const imageKey = this._activeImageKey, activeAlbumId = this._activeAlbumId;
+
+        await withLoadingShield(t('common.loading.savingImageEdit'), async () => {
+            const finalBlob = await this._exportEditedBlob();
+            const { thumbBlob, width, height } = await this._resizeImageForThumbnail(finalBlob);
+            await updateImageBlob(imageKey, finalBlob, thumbBlob, width, height); // core/file-manager/image.js
+        });
+        this.closeImagePreview();
+        await this.refresh(activeAlbumId);
+        await alertModal(t('fileManager.photo.image.editSaveOverwriteSuccess'));
+    },
+
+    /** Ứng với item "Lưu mới" trong dropdown (CHỈ hiện khi `imagePreviewMode==='edit'`) — xuất
+     * `renderCanvas` -> resize thumbnail -> `saveImage()` (core/file-manager/image.js, ĐÃ CÓ SẴN,
+     * dùng CHUNG hàm upload) với tên file MỚI (`_buildEditedNewFilename()`, tránh vô tình ghi đè
+     * bản gốc) -> nếu đang lọc theo 1 album, thêm luôn ảnh mới vào ĐÚNG album đó (đúng kỳ vọng "sửa
+     * từ trong album thì ảnh mới cũng nằm trong album", không rơi ra thư viện chung). Đóng modal +
+     * refresh lưới SAU KHI lưu xong.
+     */
+    async saveEditAsNew() {
+        const handle = this._activeImageModalHandle;
+        if (!handle || !this._activeEditParams) return; // guard: hiếm, không ở Edit mode nữa
+        const activeAlbumId = this._activeAlbumId;
+
+        await withLoadingShield(t('common.loading.savingImageEdit'), async () => {
+            const originalRecord = await getImageRecord(this._activeImageKey); // data layer (service/db.js)
+            const finalBlob = await this._exportEditedBlob();
+            const { thumbBlob, width, height } = await this._resizeImageForThumbnail(finalBlob);
+            const newFilename = this._buildEditedNewFilename(originalRecord ? originalRecord.filename : 'photo.jpg');
+            const newKey = await saveImage(finalBlob, newFilename, thumbBlob, width, height); // core/file-manager/image.js
+            if (activeAlbumId) await addImagesToAlbum([newKey], activeAlbumId); // core/file-manager/album.js
+        });
+        this.closeImagePreview();
+        await this.refresh(activeAlbumId);
+        await alertModal(t('fileManager.photo.image.editSaveNewSuccess'));
     },
 
     /** Thoát Zoom mode về 'view' (bấm lại "Zoom" lúc đang ở 'zoom') — huỷ phiên Panzoom, KHÔNG đóng
