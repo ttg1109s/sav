@@ -88,12 +88,16 @@ const LANG_PATCH_FILE_MANAGER = {
     // ── Batch tiếp theo (03/07/2026, hạ tầng z-index nền Visual) — "Đặt làm nền" trên ảnh ─────
     // RÚT GỌN (14/07/2026, mục cuối — icon hoá menu action ảnh, Giang yêu cầu tên ngắn gọn).
     'fileManager.photo.image.btnSetPlaylistBg': 'Set as background',
-    'fileManager.photo.image.btnSetVisualBg': 'Set as background visualizer',
     'fileManager.photo.image.setPlaylistBgSuccess': 'Set as Playlist background.',
-    'fileManager.photo.image.setVisualBgSuccess': 'Set as Visualizer background.',
     // MỚI (14/07/2026, mục cuối) — action mới trong menu (đã icon hoá) + tiêu đề Generic Drawer.
     'fileManager.photo.image.btnEditImage': 'Edit image',
     'fileManager.photo.image.menuTitle': 'Photo options',
+    // MỚI (31/07/2026, Zoom mode) — item TOGGLE trong dropdown, đổi nhãn theo imagePreviewMode
+    // hiện tại (xem event/workflow/file-manager-photo.js::_openImageActionMenu()). Notify của Block
+    // gate (event/block.js) khi bấm X lúc đang Zoom/Edit mode.
+    'fileManager.photo.image.btnZoom': 'Zoom',
+    'fileManager.photo.image.btnExitZoom': 'Exit zoom',
+    'fileManager.photo.image.closeBlockedByMode': 'Exit Zoom/Edit mode first (tap the same button again in the menu) before closing.',
     // MỚI (14/07/2026, mục cuối, mục 2.2) — chế độ xoá nhanh.
     'fileManager.photo.image.quickDeleteTitle': 'Quick delete',
     'fileManager.photo.image.quickDeleteConfirm.title': 'Enable quick delete?',
