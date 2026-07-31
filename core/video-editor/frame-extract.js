@@ -26,9 +26,9 @@ function captureVideoFrameToCanvas(videoEl) {
 
 /**
  * Resize xuống làm thumbnail cho lưới Photo & Album — CÙNG CÔNG THỨC `THUMBNAIL_SCALE_RATIO`
- * (0.2) đã dùng ở `event/workflow/image-edit.js`/`event/workflow/file-manager-photo.js` — 3 nơi
- * PHẢI ra kết quả tương đương (đổi 1 trong 3 chỗ PHẢI đổi luôn 2 chỗ kia, mỗi trang là 1 bundle
- * độc lập nên không import chung hằng số được, cùng lý do đã ghi ở image-edit.js).
+ * (0.2) đã dùng ở `event/workflow/file-manager-photo.js` — 2 nơi PHẢI ra kết quả tương đương (đổi
+ * 1 trong 2 chỗ PHẢI đổi luôn chỗ kia, mỗi trang là 1 bundle độc lập nên không import chung hằng
+ * số được).
  * @param {HTMLCanvasElement} sourceCanvas - từ `captureVideoFrameToCanvas()`.
  * @param {number} scaleRatio
  * @returns {Promise<Blob|null>}

@@ -14,8 +14,8 @@
  *
  * Rule 3 — file này KHÔNG gọi core nào khác của project, chỉ gọi API thư viện ngoài (Mediabunny,
  * WebCodecs) — không tính là "core gọi core" (Rule 3 chỉ cấm gọi core TỰ VIẾT của project).
- * Rule 2 — không đọc `appState` (trang `video-editor.html` không dùng `appState`, cùng lý do
- * `image-edit.html`/`subtitle-editor.html` — state của trang này sống trong `workflowVideoEditor`).
+ * Rule 2 — không đọc `appState` (dù `event/workflow/video-editor.js` CÓ dùng `appState` — đợt tái
+ * cấu trúc 25/07/2026 — file NÀY vẫn cố ý giữ thuần, không đọc gì cả, chỉ nhận qua tham số).
  */
 
 /**
