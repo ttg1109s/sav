@@ -666,9 +666,14 @@ function openCreateAlbumModal(onConfirm) {
  * Zoom/Edit mode (`imagePreviewMode !== 'view'`). `close` trong handle trả về VẪN LÀ đóng THẬT —
  * Workflow tự gọi khi Router xác nhận không bị chặn, hoặc khi 1 action khác (xoá/đặt nền...) cần
  * đóng modal ngay. `imgEl` MỚI — Zoom mode cần element `<img>` thật để init Panzoom.
+ * MỚI (31/07/2026, Edit mode) — thêm nút Edit RIÊNG ở header (cạnh trái "..."), `callbacks.
+ * onEditClick()` — Workflow tự toggle class active lên `editBtn` trả về (đúng chốt Giang: icon đổi
+ * trạng thái sửa/không sửa). Thêm khung `canvasWrap` (base/render/interact, ẩn mặc định) — Edit
+ * mode dùng để thay thế `imgEl` (ẩn `<img>`, hiện canvas) khi vào mode, KHÔNG mở overlay mới (đúng
+ * chốt: không vỡ UI modal đang có).
  * @param {{key: string, blob: Blob, filename: string}} image
- * @param {{onOpenMenu: (menuBtn: HTMLElement) => void, onCloseClick: () => void}} callbacks
- * @returns {{close: () => void, imgEl: HTMLImageElement}}
+ * @param {{onOpenMenu: (menuBtn: HTMLElement) => void, onCloseClick: () => void, onEditClick: () => void}} callbacks
+ * @returns {{close: () => void, imgEl: HTMLImageElement, canvasWrap: HTMLElement, baseCanvas: HTMLCanvasElement, renderCanvas: HTMLCanvasElement, interactCanvas: HTMLCanvasElement, editBtn: HTMLElement}}
  */
 function openImagePreviewModal(image, callbacks) {
     const stale = document.getElementById('image-preview-overlay');
@@ -706,7 +711,43 @@ function openImagePreviewModal(image, callbacks) {
     img.src = objectUrl;
     overlay.appendChild(img);
 
-    // ---- Header nổi: X đóng (trái) + "..." mở menu (phải) ----
+    // ---- Khung canvas cho Edit mode (base/render/interact) — MỚI (31/07/2026), ẩn mặc định, chỉ
+    // hiện khi vào Edit mode (workflowFileManagerPhoto.enterEditMode() dựng nội dung + gỡ 'hidden').
+    // Đúng khuôn prototype "Lumina Pro" Giang cung cấp: base = pixel gốc sau thao tác vĩnh viễn,
+    // render = kết quả filter hiện tại (không phá base, cho phép chỉnh lại), interact = overlay
+    // tương tác (khung crop/nét vẽ nháp — CHƯA dùng ở bản đầu, chỉ mục "Điều chỉnh").
+    const canvasWrap = document.createElement('div');
+    canvasWrap.id = 'image-edit-canvas-wrap';
+    canvasWrap.className = 'hidden absolute inset-0 flex items-center justify-center';
+    const baseCanvas = document.createElement('canvas');
+    baseCanvas.id = 'image-edit-base-canvas';
+    baseCanvas.className = 'absolute max-w-full max-h-full';
+    const renderCanvas = document.createElement('canvas');
+    renderCanvas.id = 'image-edit-render-canvas';
+    renderCanvas.className = 'absolute max-w-full max-h-full';
+    const interactCanvas = document.createElement('canvas');
+    interactCanvas.id = 'image-edit-interact-canvas';
+    interactCanvas.className = 'absolute max-w-full max-h-full';
+    canvasWrap.append(baseCanvas, renderCanvas, interactCanvas);
+    overlay.appendChild(canvasWrap);
+
+    // ---- Slider popup cho nhóm "Điều chỉnh" (brightness/contrast/...) — MỚI (31/07/2026), ẩn mặc
+    // định, Workflow tự hiện lúc chọn 1 tool điều chỉnh từ Generic Drawer grid. Live-preview trực
+    // tiếp (không có bước Cancel/Apply riêng như Crop — kéo tới đâu áp tới đó vào renderCanvas,
+    // đúng khuôn "Lumina Pro" — đóng popup KHÔNG hoàn tác giá trị vừa chỉnh).
+    const adjustPopup = document.createElement('div');
+    adjustPopup.id = 'image-edit-adjust-popup';
+    adjustPopup.className = 'hidden absolute bottom-0 left-0 w-full photo-preview-scrim-bottom p-5 pb-8';
+    adjustPopup.innerHTML = `
+        <div class="flex justify-between items-center mb-3 text-sm">
+            <span id="image-edit-adjust-label" class="text-white/90 font-medium"></span>
+            <span id="image-edit-adjust-value" class="text-primary font-mono bg-white/10 px-2 py-0.5 rounded"></span>
+        </div>
+        <input type="range" id="image-edit-adjust-slider" min="-100" max="100" value="0" class="w-full">
+    `;
+    overlay.appendChild(adjustPopup);
+
+    // ---- Header nổi: X đóng (trái) + Edit/"..." (phải, gộp nhóm) ----
     const header = document.createElement('div');
     header.className = 'photo-preview-scrim-top flex justify-between items-center px-4 pt-4 pb-3 gap-2';
     const closeBtn = document.createElement('button');
@@ -715,15 +756,37 @@ function openImagePreviewModal(image, callbacks) {
     closeBtn.addEventListener('click', () => callbacks.onCloseClick()); // MỚI (31/07/2026) — KHÔNG gọi closeModal() thẳng nữa — nghiệp vụ thật (có bị Block gate chặn hay không, xem event/block.js) thuộc Router, xem docstring hàm này
     header.appendChild(closeBtn);
 
+    // MỚI (31/07/2026) — nút Edit RIÊNG, ngay cạnh TRÁI "...", KHÁC hẳn item "Sửa ảnh" trong dropdown
+    // (cái đó vẫn giữ, điều hướng sang image-edit.html — xem docstring enterEditMode(),
+    // event/workflow/file-manager-photo.js, vì sao 2 đường vào cùng tồn tại tạm thời). Icon KHÔNG
+    // đổi hình — chỉ đổi màu nền (class) theo đang/không đang Edit mode, Workflow tự toggle qua
+    // `editBtn` trả về trong handle (đúng chốt Giang: "icon chuyển qua lại trạng thái sửa/không sửa").
+    const rightGroup = document.createElement('div');
+    rightGroup.className = 'flex items-center gap-2';
+    const editBtn = document.createElement('button');
+    editBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
+    editBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
+    editBtn.addEventListener('click', () => callbacks.onEditClick());
+    rightGroup.appendChild(editBtn);
+
     const menuBtn = document.createElement('button');
     menuBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
     menuBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg>';
     menuBtn.addEventListener('click', () => callbacks.onOpenMenu(menuBtn));
-    header.appendChild(menuBtn);
+    rightGroup.appendChild(menuBtn);
+    header.appendChild(rightGroup);
     overlay.appendChild(header);
 
     document.body.appendChild(overlay);
-    return { close: closeModal, imgEl: img }; // imgEl MỚI (31/07/2026) — Zoom mode cần element thật để init Panzoom (event/workflow/file-manager-photo.js)
+    // MỚI (31/07/2026) — thêm canvasWrap/base/render/interact/editBtn cho Zoom→giữ nguyên, Edit mode
+    // MỚI dùng. imgEl vẫn trả nguyên (Zoom mode/view thường đọc) — Edit mode tự ẩn imgEl, hiện
+    // canvasWrap, xem enterEditMode()/exitImagePreviewMode() (event/workflow/file-manager-photo.js).
+    return {
+        close: closeModal, imgEl: img, canvasWrap, baseCanvas, renderCanvas, interactCanvas, editBtn,
+        adjustPopup, adjustLabelEl: adjustPopup.querySelector('#image-edit-adjust-label'),
+        adjustValueEl: adjustPopup.querySelector('#image-edit-adjust-value'),
+        adjustSliderEl: adjustPopup.querySelector('#image-edit-adjust-slider'),
+    };
 }
 
 // SỬA (21/07/2026, Giang yêu cầu "menu action ảnh chuyển từ Generic Drawer sang dropdown") —
