@@ -328,14 +328,14 @@
             được bình thường ở đây dù db.js nạp sau — JS không resolve tham chiếu lúc định nghĩa
             hàm, chỉ lúc hàm thực sự được GỌI (luôn sau khi người dùng tương tác, lúc đó toàn bộ
             trang đã nạp xong từ lâu). Xem comment đầu file /lang/lang.js để biết đầy đủ kiến trúc. -->
-    <script src="lang/patch/patch-common.js?v=20260714v1"></script>
+    <script src="lang/patch/patch-common.js?v=20260731v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260728v2"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260721v1"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260720v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260729v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
-    <script src="lang/patch/patch-file-manager.js?v=20260731v2"></script>
+    <script src="lang/patch/patch-file-manager.js?v=20260731v3"></script>
     <!-- MỚI (10/07/2026) — dùng ở CẢ index.html LẪN subtitle-editor.html, xem lang/lang.js. -->
     <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
     <!-- MỚI (14/07/2026, mục cuối — trang image-edit.html) — cần nạp Ở ĐÂY dù index.html không
@@ -858,8 +858,8 @@
          sau khi mọi script đã nạp xong hết, cùng quy ước load-order đã dùng cho popSettingsPanel()
          và nhiều global khác trong project) + core/file-manager/image.js::sortImagesByAddedDateDesc()/
          groupImagesByDay() (đã nạp ở nhóm CORE, TRƯỚC file này, an toàn). -->
-    <script src="event/workflow/file-manager-photo.js?v=20260731v2"></script>
-    <script src="event/router/file-manager-photo.js?v=20260731v2"></script>
+    <script src="event/workflow/file-manager-photo.js?v=20260731v3"></script>
+    <script src="event/router/file-manager-photo.js?v=20260731v3"></script>
     <script src="event/listener/file-manager-photo.js?v=20260718v1"></script>
     <!-- MỚI (21/07/2026) — cụm "fileManagerVideo". SỬA (Batch 6, mục 6d, phản hồi Giang) — panel
          Video (push/pop động, `fullBleed: true`) ĐÃ XOÁ HẲN — Workflow/Router giờ CHỈ còn logic
