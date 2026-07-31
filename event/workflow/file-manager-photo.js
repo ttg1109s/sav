@@ -90,9 +90,7 @@ const workflowFileManagerPhoto = {
     _subToolPointerCleanup: null,  // hàm gỡ Pointer Events đã gắn cho interactCanvas của sub-tool đang mở — null khi không có
     _textDragCleanup: null,        // hàm gỡ Pointer Events kéo-thả floatingText (tool Text) — null khi không có
     _editToolGridClickHandler: null, // handler delegated click trên genericDrawerBody, wire 1 lần/phiên Edit mode (xem _wireEditToolGridDelegation())
-    _cropRect: null,               // {x,y,w,h} khung crop hiện tại (hệ toạ độ pixel canvas) — chỉ có nghĩa khi _activeSubTool==='crop'
-    _cropActiveHandle: null,       // handle đang kéo ('tl'|'tr'|'bl'|'br'|'center'|null)
-    _cropDragStart: null,          // {x,y,rx,ry,rw,rh} snapshot lúc bắt đầu kéo 1 handle
+    _cropSession: null,            // session của core/crop-selector.js — chỉ có nghĩa khi _activeSubTool==='crop'
     _drawType: 'brush',            // 'brush'|'eraser' — công cụ Vẽ đang chọn
 
     /** Ứng với 'fileManagerPhoto.openPanel.click'. `fullBleed: true` — masonry/story slider vốn
@@ -1214,14 +1212,18 @@ const workflowFileManagerPhoto = {
         handle.drawControlsPopup.classList.add('hidden');
         handle.magicPopup.classList.add('hidden');
         this._activeSubTool = 'none';
+        this._cropSession = null;
         this._openEditToolGrid();
     },
 
     // ===================== Crop =====================
+    // Cơ chế tương tác (khung/handle/lưới, kéo tay) giờ ở core/crop-selector.js — DÙNG CHUNG với
+    // Video Editor (Giang chốt 31/07/2026: không giữ 2 cơ chế cùng làm 1 việc). File này chỉ giữ
+    // `_cropSession` (session của core đó) + phần "Áp dụng" RIÊNG của Photo (cắt pixel thật ngay —
+    // khác Video Editor, xem docstring đầu core/crop-selector.js).
 
-    /** Vào tool Crop — khung mặc định chừa 10% mỗi cạnh (đúng khuôn Lumina Pro), vẽ overlay
-     * (nền tối + khung trắng + lưới rule-of-thirds + 4 handle góc) lên `interactCanvas`.
-     */
+    /** Vào tool Crop — Photo KHÔNG khoá tỉ lệ khung hình (aspectRatio mặc định NaN = Tự do, khác
+     * Video Editor có preset 16:9/9:16/...). */
     _startCropTool() {
         const handle = this._activeImageModalHandle;
         this._activeSubTool = 'crop';
@@ -1230,118 +1232,38 @@ const workflowFileManagerPhoto = {
         handle.contextApplyBtn.classList.remove('hidden');
         handle.contextTitleEl.textContent = t('fileManager.photo.image.editToolCrop');
 
-        const pad = Math.min(handle.baseCanvas.width, handle.baseCanvas.height) * 0.1;
-        this._cropRect = { x: pad, y: pad, w: handle.baseCanvas.width - pad * 2, h: handle.baseCanvas.height - pad * 2 };
-        this._cropActiveHandle = null;
+        this._cropSession = initCropSession(handle.baseCanvas.width, handle.baseCanvas.height); // core/crop-selector.js
         this._drawCropOverlay();
 
         this._wireSubToolPointerEvents(
-            (pos) => this._cropPointerDown(pos),
-            (pos) => this._cropPointerMove(pos),
-            () => { this._cropActiveHandle = null; },
+            (pos) => cropSessionPointerDown(this._cropSession, pos, 30 * this._editScale()), // core/crop-selector.js
+            (pos) => { cropSessionPointerMove(this._cropSession, pos, 50 * this._editScale()); this._drawCropOverlay(); }, // core/crop-selector.js
+            () => cropSessionPointerUp(this._cropSession), // core/crop-selector.js
         );
 
         handle.contextCancelBtn.onclick = () => this._exitSubTool();
         handle.contextApplyBtn.onclick = () => this._applyCropTool();
     },
 
-    /** Vẽ lại toàn bộ overlay Crop (nền tối/khung/lưới/handle) lên `interactCanvas` — gọi lại MỖI
-     * LẦN `_cropRect` đổi (kéo tay). Kích thước nét/handle nhân `_editScale()` — canvas độ phân
-     * giải cao hơn hẳn kích thước hiển thị CSS, không nhân sẽ ra nét/handle tí hin trên màn hình.
-     */
+    /** Vẽ lại overlay Crop — gọi lại mỗi lần `_cropSession.rect` đổi (kéo tay). */
     _drawCropOverlay() {
         const handle = this._activeImageModalHandle;
-        const ctx = handle.interactCanvas.getContext('2d');
-        const scale = this._editScale();
-        const r = this._cropRect;
-        ctx.clearRect(0, 0, handle.interactCanvas.width, handle.interactCanvas.height);
-
-        ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        ctx.fillRect(0, 0, handle.interactCanvas.width, handle.interactCanvas.height);
-        ctx.clearRect(r.x, r.y, r.w, r.h);
-
-        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2 * scale;
-        ctx.strokeRect(r.x, r.y, r.w, r.h);
-
-        ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1 * scale;
-        ctx.beginPath();
-        ctx.moveTo(r.x + r.w / 3, r.y); ctx.lineTo(r.x + r.w / 3, r.y + r.h);
-        ctx.moveTo(r.x + (r.w / 3) * 2, r.y); ctx.lineTo(r.x + (r.w / 3) * 2, r.y + r.h);
-        ctx.moveTo(r.x, r.y + r.h / 3); ctx.lineTo(r.x + r.w, r.y + r.h / 3);
-        ctx.moveTo(r.x, r.y + (r.h / 3) * 2); ctx.lineTo(r.x + r.w, r.y + (r.h / 3) * 2);
-        ctx.stroke();
-
-        const hw = 15 * scale;
-        ctx.fillStyle = 'white';
-        ctx.fillRect(r.x - hw / 2, r.y - hw / 2, hw, hw);
-        ctx.fillRect(r.x + r.w - hw / 2, r.y - hw / 2, hw, hw);
-        ctx.fillRect(r.x - hw / 2, r.y + r.h - hw / 2, hw, hw);
-        ctx.fillRect(r.x + r.w - hw / 2, r.y + r.h - hw / 2, hw, hw);
-    },
-
-    /** @param {{x:number,y:number}} pos */
-    _cropPointerDown(pos) {
-        const hw = 30 * this._editScale(); // touch target LỚN HƠN hẳn kích thước vẽ thật — dễ bấm trúng tay
-        const r = this._cropRect;
-        if (Math.abs(pos.x - r.x) < hw && Math.abs(pos.y - r.y) < hw) this._cropActiveHandle = 'tl';
-        else if (Math.abs(pos.x - (r.x + r.w)) < hw && Math.abs(pos.y - r.y) < hw) this._cropActiveHandle = 'tr';
-        else if (Math.abs(pos.x - r.x) < hw && Math.abs(pos.y - (r.y + r.h)) < hw) this._cropActiveHandle = 'bl';
-        else if (Math.abs(pos.x - (r.x + r.w)) < hw && Math.abs(pos.y - (r.y + r.h)) < hw) this._cropActiveHandle = 'br';
-        else if (pos.x > r.x && pos.x < r.x + r.w && pos.y > r.y && pos.y < r.y + r.h) this._cropActiveHandle = 'center';
-        else this._cropActiveHandle = null;
-        if (this._cropActiveHandle) this._cropDragStart = { x: pos.x, y: pos.y, rx: r.x, ry: r.y, rw: r.w, rh: r.h };
-    },
-
-    /** @param {{x:number,y:number}} pos
-     * SỬA so với prototype Lumina Pro gốc — bản đó CHỈ xử lý handle 'center'/'br' thật (comment gốc
-     * "Viết gộp TL/TR/BL logic để tối ưu mã cho di động" — 3 handle góc còn lại nhận diện được lúc
-     * chạm NHƯNG kéo không phản hồi gì, dở dang). Bản này hoàn thiện đủ 4 góc, đối xứng nhau.
-     */
-    _cropPointerMove(pos) {
-        if (!this._cropActiveHandle) return;
-        const handle = this._activeImageModalHandle;
-        const dx = pos.x - this._cropDragStart.x, dy = pos.y - this._cropDragStart.y;
-        const min = 50 * this._editScale();
-        const s = this._cropDragStart;
-        const maxW = handle.baseCanvas.width, maxH = handle.baseCanvas.height;
-
-        if (this._cropActiveHandle === 'center') {
-            this._cropRect.x = Math.min(maxW - s.rw, Math.max(0, s.rx + dx));
-            this._cropRect.y = Math.min(maxH - s.rh, Math.max(0, s.ry + dy));
-        } else if (this._cropActiveHandle === 'br') {
-            this._cropRect.w = Math.max(min, Math.min(maxW - s.rx, s.rw + dx));
-            this._cropRect.h = Math.max(min, Math.min(maxH - s.ry, s.rh + dy));
-        } else if (this._cropActiveHandle === 'tl') {
-            const newX = Math.max(0, Math.min(s.rx + s.rw - min, s.rx + dx));
-            const newY = Math.max(0, Math.min(s.ry + s.rh - min, s.ry + dy));
-            this._cropRect.x = newX; this._cropRect.y = newY;
-            this._cropRect.w = s.rx + s.rw - newX; this._cropRect.h = s.ry + s.rh - newY;
-        } else if (this._cropActiveHandle === 'tr') {
-            const newY = Math.max(0, Math.min(s.ry + s.rh - min, s.ry + dy));
-            this._cropRect.y = newY; this._cropRect.h = s.ry + s.rh - newY;
-            this._cropRect.w = Math.max(min, Math.min(maxW - s.rx, s.rw + dx));
-        } else if (this._cropActiveHandle === 'bl') {
-            const newX = Math.max(0, Math.min(s.rx + s.rw - min, s.rx + dx));
-            this._cropRect.x = newX; this._cropRect.w = s.rx + s.rw - newX;
-            this._cropRect.h = Math.max(min, Math.min(maxH - s.ry, s.rh + dy));
-        }
-        this._drawCropOverlay();
+        drawCropSessionOverlay(handle.interactCanvas.getContext('2d'), this._cropSession, handle.interactCanvas.width, handle.interactCanvas.height, this._editScale()); // core/crop-selector.js
     },
 
     /** Áp dụng Crop — cắt từ `renderCanvas` (đã gồm Điều chỉnh hiện tại, đúng khuôn Lumina Pro
      * "gộp filter vào base mới lúc crop") -> resize CẢ 3 canvas về kích thước MỚI -> reset params
-     * (đã gộp vào pixel thật). */
+     * (đã gộp vào pixel thật). RIÊNG của Photo (Video Editor không cắt pixel ở bước này, xem
+     * docstring đầu core/crop-selector.js). */
     _applyCropTool() {
         const handle = this._activeImageModalHandle;
-        const rect = {
-            x: Math.round(this._cropRect.x), y: Math.round(this._cropRect.y),
-            w: Math.round(this._cropRect.w), h: Math.round(this._cropRect.h),
-        };
+        const rect = getCropSessionRect(this._cropSession); // core/crop-selector.js
         const cropped = cropCanvas(handle.renderCanvas, rect); // core/photo-editor-engine.js
         [handle.baseCanvas, handle.renderCanvas, handle.interactCanvas].forEach(c => { c.width = rect.w; c.height = rect.h; });
         handle.baseCanvas.getContext('2d').drawImage(cropped, 0, 0);
         handle.renderCanvas.getContext('2d').drawImage(cropped, 0, 0);
         this._activeEditParams = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, sharpen: 0 };
+        this._cropSession = null;
         this._exitSubTool();
     },
 
