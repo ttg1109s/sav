@@ -65,8 +65,6 @@
     </script>
     <link rel="stylesheet" href="assets/css/style.css?v=20260715v1">
     <link rel="stylesheet" href="assets/css/video-editor.css?v=20260724v2">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <!-- WaveSurfer.js v7 (UMD, global `WaveSurfer`) + Regions plugin — MỚI (24/07/2026, phản hồi
          Giang, mục e) — dùng cho waveform + vùng chọn (Region) kéo tay trong Generic Drawer "Dịch
@@ -176,14 +174,19 @@
          `--ve-toolbar-h` (video-editor.css), tránh cộng dồn 2 lần. -->
     <nav id="video-editor-toolbar" class="bg-[#121212] border-t border-white/10 flex items-center gap-1 overflow-x-auto px-2"></nav>
 
-    <!-- Overlay Crop (Cropper.js) — không đổi so với v2. -->
+    <!-- SỬA (31/07/2026) — bỏ Cropper.js, giờ dùng core/crop-selector.js (kéo tay thuần trên
+         canvas) — 2 canvas thay cho <img> + Cropper.js tự vẽ DOM riêng trước đây: source = khung
+         hình đang crop (vẽ 1 lần lúc mở), interact = overlay khung/handle/lưới (vẽ lại mỗi lần kéo). -->
     <div id="video-editor-crop-overlay" class="hidden fixed inset-0 z-[70] bg-black flex flex-col">
         <div class="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
             <button id="btn-video-editor-crop-cancel" class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold transition-colors"></button>
             <span id="video-editor-crop-title" class="text-sm font-semibold"></span>
             <button id="btn-video-editor-crop-confirm" class="px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-sm font-bold transition-colors"></button>
         </div>
-        <div class="flex-1 min-h-0 relative bg-black"><img id="video-editor-crop-source" class="max-w-full block" alt=""></div>
+        <div class="flex-1 min-h-0 relative bg-black flex items-center justify-center">
+            <canvas id="video-editor-crop-source-canvas" class="absolute max-w-full max-h-full"></canvas>
+            <canvas id="video-editor-crop-interact-canvas" class="absolute max-w-full max-h-full"></canvas>
+        </div>
         <div id="video-editor-crop-ratio-row" class="video-editor-pb-safe flex items-center justify-center gap-2 py-3 px-2 bg-black border-t border-white/10 overflow-x-auto shrink-0"></div>
     </div>
 
@@ -245,7 +248,7 @@
     <script src="service/state.js?v=20260725v1"></script>
     <script src="service/state/generic-drawer.js?v=20260725v1"></script>
     <script src="service/state/app-misc.js?v=20260725v1"></script>
-    <script src="service/state/video-editor.js?v=20260725v2"></script>
+    <script src="service/state/video-editor.js?v=20260731v1"></script>
     <script src="service/state/record/video-editor.js?v=20260725v2"></script>
     <!-- 'dbReadyPromise' — service/db.js TỰ PHÁT HIỆN `appState` có tồn tại hay không
          (typeof appState !== 'undefined') để quyết định lưu promise "DB đã sẵn sàng" qua appState
@@ -278,13 +281,16 @@
          tìm ra nguyên nhân THẬT: iOS khoá cứng .volume của <video>/<audio> (tài liệu Apple xác
          nhận), PHẢI đi qua GainNode mới chỉnh được — xem docstring đầu file này. -->
     <script src="core/video-editor/media-gain.js?v=20260724v2"></script>
-    <script src="core/image-editor/cropper-engine.js?v=20260723v1"></script>
+    <!-- SỬA (31/07/2026, Giang chốt "tái sử dụng, không dùng hai thứ lại cùng tính năng") — bỏ
+         Cropper.js/core/image-editor/cropper-engine.js, dùng core/crop-selector.js (cơ chế tương
+         tác thuần, DÙNG CHUNG với Photo Edit mode — event/workflow/file-manager-photo.js). -->
+    <script src="core/crop-selector.js?v=20260731v1"></script>
     <script src="core/file-manager/image.js?v=20260714v2"></script>
     <script src="core/file-manager/video.js?v=20260714v1"></script>
-    <script src="event/workflow/video-editor.js?v=20260724v4"></script>
+    <script src="event/workflow/video-editor.js?v=20260731v1"></script>
     <script src="event/router/video-editor.js?v=20260724v1"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowVideoEditor.init() ngay khi chạy. -->
-    <script src="event/listener/video-editor.js?v=20260724v1"></script>
+    <script src="event/listener/video-editor.js?v=20260731v1"></script>
     <script>
         document.getElementById('btn-ve-save').textContent = t('videoEdit.btnSave.title');
         document.getElementById('video-editor-empty-state-text').textContent = t('videoEdit.loading');

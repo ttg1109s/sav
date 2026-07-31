@@ -572,6 +572,10 @@
          port từ prototype "Lumina Pro" Giang cung cấp — CHỈ phần Engine, không lấy UI, xem
          core/photo-editor-engine.js. Cùng lý do gom cạnh đây như core/image-zoom.js. -->
     <script src="core/photo-editor-engine.js?v=20260731v2"></script>
+    <!-- MỚI (31/07/2026) — cơ chế chọn vùng crop tương tác DÙNG CHUNG Photo Edit mode + Video
+         Editor (video-editor.html nạp file NÀY riêng, xem <script> ở đó) — xem core/crop-
+         selector.js, thay Cropper.js cho cả 2 nơi (cropper-engine.js chỉ còn image-edit.html). -->
+    <script src="core/crop-selector.js?v=20260731v1"></script>
     <!-- MỚI (21/07/2026) — File Manager -> Video. Độc lập với image.js/album.js/document.js (không
          dùng chung hàm nào ngoài slugify()/service/db.js) — chỉ cần SAU service/db.js.
          core/file-manager/video-ui.js ĐÃ XOÁ HẲN (Batch 6, mục 6d, phản hồi Giang — modal "Chi
@@ -858,7 +862,7 @@
          sau khi mọi script đã nạp xong hết, cùng quy ước load-order đã dùng cho popSettingsPanel()
          và nhiều global khác trong project) + core/file-manager/image.js::sortImagesByAddedDateDesc()/
          groupImagesByDay() (đã nạp ở nhóm CORE, TRƯỚC file này, an toàn). -->
-    <script src="event/workflow/file-manager-photo.js?v=20260731v4"></script>
+    <script src="event/workflow/file-manager-photo.js?v=20260731v5"></script>
     <script src="event/router/file-manager-photo.js?v=20260731v4"></script>
     <script src="event/listener/file-manager-photo.js?v=20260718v1"></script>
     <!-- MỚI (21/07/2026) — cụm "fileManagerVideo". SỬA (Batch 6, mục 6d, phản hồi Giang) — panel
