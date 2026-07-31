@@ -130,6 +130,21 @@ eventBus.registerBlock('videoEdit.addText.click', [
     ],
 ], { notify: t('videoEdit.addText.blockedTrackFull') });
 
+// ===================== Modal xem ảnh Photo — chặn đóng khi đang Zoom/Edit mode =====================
+// MỚI (31/07/2026) — nút "..." dropdown LUÔN bấm được ở CẢ 3 mode (view/zoom/edit, KHÔNG disable),
+// nên bản chất đúng "CHẶN HẲN" (không chạy gì cả khi điều kiện đúng, không phải chọn giữa nhiều
+// workflow khác nhau — trường hợp đó dùng VirtualMachineState, xem event/router/file-manager-
+// photo.js case 'fileManagerPhoto.imageMenu.action.click') — đúng tiêu chí dùng Block gate. Người
+// dùng phải tự thoát Zoom/Edit qua dropdown TRƯỚC (bấm lại "Zoom"/"Edit", toggle về 'view') rồi mới
+// bấm X đóng được — KHÔNG tự động lùi mode giúp (đơn giản hoá, nhất quán 1 quy tắc cho cả 2 mode
+// thay vì Zoom/Edit xử lý khác nhau).
+eventBus.registerBlock('fileManagerPhoto.imagePreview.close.click', [
+    [
+        { field: 'imagePreviewMode', operator: '!==', value: 'view' },
+    ],
+], { notify: t('fileManager.photo.image.closeBlockedByMode') });
+
+
 // XOÁ (29/07/2026, yêu cầu Giang) — Block gate cho 'fileManagerStorage.scanBroken.click' (chặn khi
 // storageAnySourceEnabled===false) ĐÃ BỎ HẲN — nhánh "Dọn file lỗi" giờ tự hỏi phạm vi quét qua
 // modalChoice() + dropdown RIÊNG (event/workflow/file-manager-storage.js::askScanBrokenScope()),
