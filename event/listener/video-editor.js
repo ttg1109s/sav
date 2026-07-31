@@ -43,7 +43,8 @@ const videoEditorTrackAudioEl = document.getElementById('video-editor-track-audi
 const videoEditorToolbarEl = document.getElementById('video-editor-toolbar');
 
 const videoEditorCropOverlayEl = document.getElementById('video-editor-crop-overlay');
-const videoEditorCropSourceEl = document.getElementById('video-editor-crop-source');
+const videoEditorCropSourceCanvasEl = document.getElementById('video-editor-crop-source-canvas'); // SỬA (31/07/2026) — thay <img> Cropper.js
+const videoEditorCropInteractCanvasEl = document.getElementById('video-editor-crop-interact-canvas'); // MỚI (31/07/2026)
 const videoEditorCropRatioRowEl = document.getElementById('video-editor-crop-ratio-row');
 const btnVideoEditorCropCancel = document.getElementById('btn-video-editor-crop-cancel');
 const btnVideoEditorCropConfirm = document.getElementById('btn-video-editor-crop-confirm');
