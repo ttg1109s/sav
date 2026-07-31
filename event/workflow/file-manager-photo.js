@@ -79,7 +79,7 @@ const THUMBNAIL_SCALE_RATIO = 0.2;
 
 const workflowFileManagerPhoto = {
 
-    _activeImageModalHandle: null, // { close, imgEl, canvasWrap, baseCanvas, renderCanvas, interactCanvas, editBtn, adjustPopup, ... } của modal xem ảnh đang mở — null khi không mở modal nào (openImagePreview()/closeImagePreview())
+    _activeImageModalHandle: null, // { close, imgEl, canvasWrap, baseCanvas, renderCanvas, interactCanvas, toolsBtn, adjustPopup, ... } của modal xem ảnh đang mở — null khi không mở modal nào (openImagePreview()/closeImagePreview())
     _activePanzoomSession: null,   // session Panzoom đang chạy khi ở Zoom mode — null khi không ở Zoom mode (core/image-zoom.js)
     _activeImageKey: null,         // key ảnh đang mở modal — Edit mode cần lại (enterEditMode()) để decode từ record thật
     _activeAlbumId: null,          // albumId đang lọc lúc mở modal (có thể null) — Lưu đè/Lưu mới cần lại để refresh() đúng lưới + thêm ảnh mới vào ĐÚNG album
@@ -916,11 +916,18 @@ const workflowFileManagerPhoto = {
      * MỚI (31/07/2026, Zoom mode, xoá item "Đặt làm nền Visual") — `dispatch()` giờ nhận thêm
      * `closePreview` (mặc định `true`, GIỮ NGUYÊN hành vi cũ cho setPlaylistBg/removeFromAlbum/
      * delete — đóng modal xem ảnh NGAY, KHÔNG qua eventBus/Block gate, đây là dọn UI của CHÍNH lần
-     * mở menu này chứ không phải nghiệp vụ, xem `closeImagePreview()`). Riêng "Zoom" truyền
-     * `closePreview: false` — đây là TOGGLE (bấm lại khi đang ở Zoom mode -> về 'view'), modal PHẢI
-     * ở nguyên, không đóng — Router xử lý toggle qua VirtualMachineState đọc `imagePreviewMode`
-     * (event/router/file-manager-photo.js). Nhãn item đổi theo mode hiện tại (đang Zoom -> "Thoát
-     * Zoom") — KHÔNG tạo nút/DOM riêng nào để thoát (đúng chốt Giang: dùng lại chính item đó).
+     * mở menu này chứ không phải nghiệp vụ, xem `closeImagePreview()`).
+     * SỬA (31/07/2026, mục 1/2/3 phản hồi Giang) — "Zoom view"/"Edit" (2 mode TOGGLE, loại trừ
+     * nhau) KHÔNG còn qua `dispatch()` + msg.type dùng chung 'imageMenu.action.click' nữa — msg.type
+     * đó CHUNG cho nhiều action khác nhau (setPlaylistBg/saveOverwrite/saveNew/removeFromAlbum/
+     * delete), Block gate (event/block.js) chỉ chặn được NGUYÊN 1 msg.type chứ không tách được theo
+     * `payload.action`, nên KHÔNG thể khoá chéo 2 mode này qua msg.type dùng chung (sẽ chặn NHẦM cả
+     * 4 action còn lại). 2 item này giờ TỰ bắn thẳng 2 msg.type RIÊNG
+     * ('imagePreview.zoomToggle.click'/'imagePreview.editToggle.click' — msg.type sau THAY nút Edit
+     * cũ ở header, dời vào đây, TÊN GIỮ NGUYÊN), KHÔNG đóng modal (đều là TOGGLE, modal phải ở
+     * nguyên) — event/block.js khoá chéo được ĐÚNG 2 msg.type này (mục 3). Nhãn item đổi theo mode
+     * hiện tại (đang Zoom -> "Thoát Zoom view", đang Edit -> "Thoát Edit") — KHÔNG tạo nút/DOM riêng
+     * nào để thoát (đúng chốt Giang: dùng lại chính item đó).
      * @param {HTMLElement} anchorEl - nút "..." vừa bấm.
      */
     openImageActionMenu(anchorEl) {
@@ -933,7 +940,8 @@ const workflowFileManagerPhoto = {
         const isEditing = appState.get('imagePreviewMode') === 'edit';
         const items = [
             { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>', name: t('fileManager.photo.image.btnSetPlaylistBg'), callback: () => dispatch('setPlaylistBg') },
-            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"/></svg>', name: t(isZooming ? 'fileManager.photo.image.btnExitZoom' : 'fileManager.photo.image.btnZoom'), callback: () => dispatch('zoom', false) },
+            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"/></svg>', name: t(isZooming ? 'fileManager.photo.image.btnExitZoom' : 'fileManager.photo.image.btnZoom'), callback: () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.zoomToggle.click', payload: {} }) },
+            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>', name: t(isEditing ? 'fileManager.photo.image.btnExitEdit' : 'fileManager.photo.image.btnEditImage'), callback: () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.editToggle.click', payload: {} }) },
         ];
         // MỚI (31/07/2026) — CHỈ hiện khi đang ở Edit mode (đúng chốt Giang: "thêm dropdown action
         // cho lưu đè, lưu mới" — ĐÚNG 2 action MỚI duy nhất, còn lại các item khác giữ nguyên bất kể
@@ -949,10 +957,13 @@ const workflowFileManagerPhoto = {
         openDropdownMenu(anchorEl, items, { zIndex: 132 }); // core/dropdown-menu.js
     },
 
-    /** Vào Zoom mode (bấm "Zoom" trong dropdown lúc `imagePreviewMode==='view'`) — init Panzoom
+    /** Vào Zoom mode (bấm "Zoom view" trong dropdown lúc `imagePreviewMode==='view'`) — init Panzoom
      * (core/image-zoom.js) thẳng trên `<img>` của modal đang mở. Ứng với 1 nhánh
      * VirtualMachineState ở Router (event/router/file-manager-photo.js, case
-     * 'fileManagerPhoto.imageMenu.action.click', action==='zoom').
+     * 'fileManagerPhoto.imagePreview.zoomToggle.click').
+     * SỬA (31/07/2026, mục 1/3 phản hồi Giang) — trước đây case là 'imageMenu.action.click',
+     * action==='zoom' (msg.type dùng chung) — đã tách ra msg.type RIÊNG (xem docstring
+     * `openImageActionMenu()`), cập nhật lại tham chiếu ở đây cho khớp.
      */
     enterZoomMode() {
         if (!this._activeImageModalHandle) return; // guard: hiếm, modal đã đóng ở đâu đó trước khi tới đây
@@ -965,12 +976,16 @@ const workflowFileManagerPhoto = {
         });
     },
 
-    /** Vào Edit mode (bấm icon Edit RIÊNG ở header modal) — decode ảnh vào canvas (core/photo-
+    /** Vào Edit mode (bấm item "Edit" trong dropdown "...") — decode ảnh vào canvas (core/photo-
      * editor-engine.js::decodeImageToCanvas()) — ẩn `<img>`, hiện `canvasWrap`, mở Generic Drawer
      * hiện lưới tool theo nhóm (đúng chốt Giang: "generic tool grid, nhóm theo Xxx header / list
      * tool for xxx, thay vì vào từng sub menu"). Toàn bộ nhóm (Điều chỉnh/Crop/Vẽ/Text/Tách nền) đã
      * port xong — `image-edit.html` (trang cũ, dropdown item "Sửa ảnh" trỏ tới đó) đã XOÁ HẲN
      * (31/07/2026), đây là đường vào Edit DUY NHẤT còn lại.
+     * SỬA (31/07/2026, mục 2/4 phản hồi Giang) — nút `editBtn` RIÊNG ở header (đổi màu báo trạng
+     * thái) ĐÃ XOÁ (dời vào dropdown, xem `openImageActionMenu()`) — THAY vào đó hiện `toolsBtn`
+     * (nút mở LẠI lưới tool, xem `openEditToolGrid()`) — CHỈ hiện trong Edit mode, ẩn lại lúc thoát
+     * (`_exitEditMode()`).
      */
     async enterEditMode() {
         const handle = this._activeImageModalHandle;
@@ -978,7 +993,7 @@ const workflowFileManagerPhoto = {
 
         appState.set('imagePreviewMode', 'edit');
         console.log(`writer: "enterEditMode", page: "imagePreviewMode", content: "edit"`);
-        handle.editBtn.classList.remove('bg-white/10'); handle.editBtn.classList.add('bg-primary'); // đổi màu icon — "trạng thái sửa" (Giang chốt)
+        handle.toolsBtn.classList.remove('hidden'); // hiện nút mở lại lưới tool (Edit mode mới có)
 
         const record = await getImageRecord(this._activeImageKey); // data layer (service/db.js) — đọc lại BLOB gốc thật, không dùng lại objectUrl <img> (tránh phụ thuộc trạng thái DOM của img)
         if (!record) { this.exitImagePreviewMode(); return; } // guard hiếm: ảnh vừa bị xoá ở tab khác giữa lúc bấm Edit
@@ -994,13 +1009,13 @@ const workflowFileManagerPhoto = {
         handle.canvasWrap.classList.remove('hidden');
 
         this._activeEditParams = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, sharpen: 0 };
-        this._wireEditToolGridDelegation(); // ĐÚNG 1 LẦN cho cả phiên Edit mode — xem docstring hàm đó vì sao không wire lại mỗi lần _openEditToolGrid()
-        this._openEditToolGrid();
+        this._wireEditToolGridDelegation(); // ĐÚNG 1 LẦN cho cả phiên Edit mode — xem docstring hàm đó vì sao không wire lại mỗi lần openEditToolGrid()
+        this.openEditToolGrid();
     },
 
     /** Gắn delegated click listener LÊN `genericDrawerBody` (phần tử TĨNH, dom-refs.js — chỉ đổi
      * `innerHTML` mỗi lần `openGenericDrawer()`, KHÔNG bị tạo lại) — CHỈ gắn 1 LẦN mỗi phiên Edit
-     * mode (gọi từ `enterEditMode()`), KHÔNG gắn lại mỗi lần `_openEditToolGrid()` mở lại lưới (sau
+     * mode (gọi từ `enterEditMode()`), KHÔNG gắn lại mỗi lần `openEditToolGrid()` mở lại lưới (sau
      * mỗi lần Huỷ/Áp dụng 1 tool) — nếu gắn lại mỗi lần, listener CŨ vẫn còn nguyên trên cùng phần
      * tử (KHÔNG tự mất theo `innerHTML`), chồng chất dần -> 1 lần bấm tile kích hoạt N lần bắn
      * event. Gỡ lại ở `_exitEditMode()`.
@@ -1020,8 +1035,16 @@ const workflowFileManagerPhoto = {
      * — CHỈ dựng lại header/bodyHtml (`openGenericDrawer()` tự làm), KHÔNG wire lại delegated click
      * (đã wire 1 lần ở `enterEditMode()`, xem `_wireEditToolGridDelegation()`) — riêng nút X đóng
      * (`closeBtn`) PHẢI wire lại mỗi lần vì nó là phần tử MỚI (nằm trong headerHtml, bị thay hẳn).
+     * SỬA (31/07/2026, mục 4 phản hồi Giang) — ĐỔI TÊN từ `_openEditToolGrid` (private, gọi nội bộ)
+     * sang `openEditToolGrid` (public) — giờ CÒN được Router gọi thẳng lúc bấm `toolsBtn` (header
+     * modal, case 'imagePreview.tools.click', event/router/file-manager-photo.js), THAY nút Edit
+     * cũ, để mở LẠI lưới tool sau khi người dùng tự tay đóng Drawer đi (nút X trên Drawer) mà không
+     * chọn tool nào — TRƯỚC bản sửa này KHÔNG có cách nào mở lại. Thêm guard clause (Rule 1, core-
+     * function-conventions.md — vẫn ĐÚNG 1 tiến trình, chỉ dừng sớm khi chưa đủ điều kiện) phòng
+     * Router gọi lúc modal đã đóng.
      */
-    _openEditToolGrid() {
+    openEditToolGrid() {
+        if (!this._activeImageModalHandle || !this._activeEditParams) return; // guard: hiếm, modal đóng/chưa ở Edit mode giữa lúc bấm toolsBtn
         openGenericDrawer({ // core/generic-drawer.js
             height: 'auto', maxHeight: '70vh',
             zIndex: Z_INDEX.GENERIC_DRAWER, // core/config.js — không có modal nào khác mở đồng thời (chính modal xem ảnh KHÔNG tính, Drawer luôn nổi trên nó, xem Z_INDEX)
@@ -1123,7 +1146,7 @@ const workflowFileManagerPhoto = {
         handle.adjustDoneBtn.onclick = () => {
             handle.adjustPopup.classList.add('hidden');
             this._activeAdjustParam = null;
-            this._openEditToolGrid();
+            this.openEditToolGrid();
         };
     },
 
@@ -1207,7 +1230,7 @@ const workflowFileManagerPhoto = {
         handle.magicPopup.classList.add('hidden');
         this._activeSubTool = 'none';
         this._cropSession = null;
-        this._openEditToolGrid();
+        this.openEditToolGrid();
     },
 
     // ===================== Crop =====================
@@ -1572,11 +1595,13 @@ const workflowFileManagerPhoto = {
 
     /** Dọn Edit mode (nếu đang ở đó) — gỡ pointer listener của sub-tool + kéo-thả text (nếu còn),
      * gỡ delegated click của lưới tool, ẩn canvasWrap, hiện lại `<img>`, đóng MỌI popup/contextBar
-     * riêng từng tool + Generic Drawer (nếu đang mở), gỡ class active khỏi `editBtn`, xoá params
-     * đang chỉnh. An toàn gọi khi KHÔNG đang ở Edit mode (guard `_activeEditParams`) — dùng chung
-     * bởi `exitImagePreviewMode()`/`closeImagePreview()`, KHÔNG tự đổi `imagePreviewMode` (2 hàm
-     * gọi nó tự set 'view' sau). Xử lý được cả trường hợp thoát GIỮA CHỪNG 1 sub-tool (vd đang crop
-     * dở mà bấm X đóng modal) — không "kẹt" listener nào lại.
+     * riêng từng tool + Generic Drawer (nếu đang mở), ẩn lại `toolsBtn`, xoá params đang chỉnh. An
+     * toàn gọi khi KHÔNG đang ở Edit mode (guard `_activeEditParams`) — dùng chung bởi
+     * `exitImagePreviewMode()`/`closeImagePreview()`, KHÔNG tự đổi `imagePreviewMode` (2 hàm gọi nó
+     * tự set 'view' sau). Xử lý được cả trường hợp thoát GIỮA CHỪNG 1 sub-tool (vd đang crop dở mà
+     * bấm X đóng modal) — không "kẹt" listener nào lại.
+     * SỬA (31/07/2026, mục 2/4 phản hồi Giang) — gỡ class active khỏi `editBtn` (đã xoá) THAY bằng
+     * ẩn `toolsBtn` (`hidden`) — nút này CHỈ có nghĩa trong Edit mode.
      */
     _exitEditMode() {
         if (!this._activeEditParams) return;
@@ -1593,7 +1618,7 @@ const workflowFileManagerPhoto = {
             handle.floatingText.classList.add('hidden');
             handle.drawControlsPopup.classList.add('hidden');
             handle.magicPopup.classList.add('hidden');
-            handle.editBtn.classList.remove('bg-primary'); handle.editBtn.classList.add('bg-white/10');
+            handle.toolsBtn.classList.add('hidden');
         }
         if (appState.get('isGenericDrawerOpen')) this._closeGenericDrawerFully();
         this._activeEditParams = null;
