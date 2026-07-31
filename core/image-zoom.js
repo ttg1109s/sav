@@ -38,9 +38,19 @@ function initPanzoomSession(el, options) {
  * phần tử cha) Panzoom đã set. `session.destroy()` MỘT MÌNH KHÔNG dọn style (bug đã biết của thư
  * viện, GitHub issue timmywil/panzoom#554) — bắt buộc gọi thêm `resetStyle()` ngay sau, nếu không
  * phần tử vẫn "kẹt" ở trạng thái đã zoom/pan (transform còn nguyên) dù session đã huỷ.
+ * SỬA (31/07/2026, mục 2 phản hồi Giang — "thoát Zoom không khôi phục vị trí") — RÀ LẠI SOURCE THẬT
+ * của `resetStyle()` (@panzoom/panzoom@4.6.2, types.ts): hàm đó CHỈ xoá `overflow`/`userSelect`/
+ * `touchAction`/`cursor`/`transformOrigin` — KHÔNG hề đụng tới `transform` (chính thứ mang giá trị
+ * scale/pan đã kéo) — issue #554 gốc chỉ phàn nàn về cursor/overflow "kẹt lại", KHÔNG phải về
+ * transform. Comment cũ ở đây hiểu SAI phạm vi `resetStyle()`, nên "phần tử vẫn kẹt ở trạng thái đã
+ * zoom/pan" ĐÚNG NHƯ MÔ TẢ nhưng bị chẩn đoán nhầm nguyên nhân → chưa sửa tận gốc. SỬA ĐÚNG: gọi
+ * `session.reset({ animate: false })` TRƯỚC `destroy()` — `reset()` mới là hàm đưa scale/pan
+ * (transform) về mặc định (KHÔNG animate — sắp huỷ session ngay, animate chỉ tốn thời gian vô ích),
+ * `resetStyle()` sau đó dọn nốt phần overflow/cursor còn lại.
  * @param {any} session
  */
 function destroyPanzoomSession(session) {
+    session.reset({ animate: false });
     session.destroy();
     session.resetStyle();
 }
