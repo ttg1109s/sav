@@ -69,10 +69,9 @@ let _imagePickerSession = null; // MỚI (Giai đoạn 4) — session picker ả
 // Giá trị 120 là mặc định hợp lý — đổi tuỳ ý, chỉ cần đổi ĐÚNG 1 chỗ (hằng số dùng chung).
 const PHOTO_ROW_HEIGHT_PX = 120;
 // MỚI (Giang yêu cầu — "resize thumb theo tỉ lệ 20% width và 20% height") — hệ số co CẢ 2 chiều lúc
-// resize `thumbBlob` (_resizeImageForThumbnail() ngay dưới/event/workflow/image-edit.js::
-// _buildThumbnailBlob() — PHẢI khớp nhau, đổi 1 trong 2 chỗ PHẢI đổi luôn chỗ kia). TÁCH BIỆT hẳn
-// khỏi PHOTO_ROW_HEIGHT_PX (chỉ còn ý nghĩa "chiều cao HIỂN THỊ trong lưới" truyền cho fjGallery,
-// KHÔNG còn liên quan gì tới kích thước THẬT của file thumbBlob lưu trong DB nữa).
+// resize `thumbBlob` (`_resizeImageForThumbnail()` ngay dưới). TÁCH BIỆT hẳn khỏi
+// PHOTO_ROW_HEIGHT_PX (chỉ còn ý nghĩa "chiều cao HIỂN THỊ trong lưới" truyền cho fjGallery, KHÔNG
+// còn liên quan gì tới kích thước THẬT của file thumbBlob lưu trong DB nữa).
 const THUMBNAIL_SCALE_RATIO = 0.2;
 // Khớp w-16 (64px) + gap-4 (16px) ở album story (components/file-manager.js) — đổi CSS thì phải đổi luôn.
 // ĐÃ GỠ (Giai đoạn 3b) — ALBUM_STORY_TILE_WIDTH_PX/ALBUM_STORY_GAP_PX không còn dùng sau khi bỏ
@@ -806,8 +805,9 @@ const workflowFileManagerPhoto = {
      * Trả thêm `width`/`height` GỐC (trước resize) để fjGallery (thư viện, xem event/workflow/
      * photo-gallery-window.js) tính tỉ lệ hiển thị MÀ KHÔNG cần decode ảnh lại lúc dựng lưới.
      * Đặt ở Workflow (KHÔNG phải core/file-manager/image.js) vì cần `Image`/`canvas` — DOM API, core
-     * không được đụng theo Rule 1-4 — đúng tiền lệ `event/workflow/image-edit.js` đang xử lý canvas
-     * riêng ở Workflow, core chỉ nhận `Blob` đã xong việc.
+     * không được đụng theo Rule 1-4 (`Image`/`canvas` scratch ở đây phục vụ TÍNH TOÁN dựng lưới,
+     * không phải nghiệp vụ pixel thuần như core/photo-editor-engine.js), core chỉ nhận `Blob` đã
+     * xong việc.
      * @param {File} file
      * @returns {Promise<{thumbBlob: Blob, width: number, height: number}>}
      */
@@ -884,9 +884,6 @@ const workflowFileManagerPhoto = {
     },
 
     /** Ứng với 'fileManagerPhoto.image.click' khi imageQuickDeleteMode=false (xem router).
-     * SỬA (21/07/2026, Giang yêu cầu "menu action ảnh chuyển từ Generic Drawer sang dropdown") —
-     * `callbacks.onOpenMenu` giờ NHẬN `menuBtn` (nút "..." vừa bấm, xem core/file-manager/photo-
-     * ui.js::openImagePreviewModal()) — dùng làm `anchorEl` cho `openDropdownMenu()`.
      * MỚI (31/07/2026, Zoom mode) — giữ `modalHandle` ở `this._activeImageModalHandle` (Router cần
      * lại lúc xử lý toggle Zoom/nút X đóng — xem enterZoomMode()/exitImagePreviewMode()/
      * closeImagePreview()). `imagePreviewMode` reset về 'view' mỗi lần mở modal MỚI.
@@ -903,18 +900,19 @@ const workflowFileManagerPhoto = {
         appState.set('imagePreviewMode', 'view');
         console.log(`writer: "openImagePreview", page: "imagePreviewMode", content: "view"`);
 
-        this._activeImageModalHandle = openImagePreviewModal(image, { // core/file-manager/photo-ui.js
-            onOpenMenu: (menuBtn) => this._openImageActionMenu(image, activeAlbumId, menuBtn),
-            onCloseClick: () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.close.click' }),
-            onEditClick: () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.editToggle.click' }),
-        });
+        this._activeImageModalHandle = openImagePreviewModal(image); // core/file-manager/photo-ui.js — KHÔNG còn callbacks (Rule 5a, Core tự bắn eventBus cố định), Router gọi lại các hàm dưới đây, đọc _activeImageKey/_activeAlbumId thay vì closure
     },
 
-    /** SỬA (21/07/2026, Giang yêu cầu) — menu action giờ là dropdown (core/dropdown-menu.js), THAY
-     * Generic Drawer icon hoá cũ (đơn giản hoá, cùng khuôn `openAlbumActionMenu()` đã có sẵn trong
-     * chính file này). `zIndex: 132` — TRÊN modal xem ảnh full-screen (`#image-preview-overlay`,
-     * z-130) — dropdown MẶC ĐỊNH (126/127) chỉ đủ nổi trên nội dung panel thường, KHÔNG đủ nổi trên
-     * 1 modal full-screen khác (xem docstring openDropdownMenu(), core/dropdown-menu.js).
+    /** Ứng với 'fileManagerPhoto.imagePreview.menu.click' — SỬA (21/07/2026, Giang yêu cầu) — menu
+     * action giờ là dropdown (core/dropdown-menu.js), THAY Generic Drawer icon hoá cũ (đơn giản
+     * hoá, cùng khuôn `openAlbumActionMenu()` đã có sẵn trong chính file này). `zIndex: 132` — TRÊN
+     * modal xem ảnh full-screen (`#image-preview-overlay`, z-130) — dropdown MẶC ĐỊNH (126/127) chỉ
+     * đủ nổi trên nội dung panel thường, KHÔNG đủ nổi trên 1 modal full-screen khác (xem docstring
+     * openDropdownMenu(), core/dropdown-menu.js).
+     * SỬA (31/07/2026, Rule 5a) — TRƯỚC ĐÂY nhận `image`/`activeAlbumId` qua tham số (closure lúc
+     * `openImagePreview()` gọi `openImagePreviewModal()`) — đã bỏ callbacks ở Core (xem docstring
+     * `openImagePreviewModal()`), giờ đọc thẳng `this._activeImageKey`/`this._activeAlbumId`
+     * (instance field lưu sẵn từ `openImagePreview()`), Router chỉ truyền `anchorEl`.
      * MỚI (31/07/2026, Zoom mode, xoá item "Đặt làm nền Visual") — `dispatch()` giờ nhận thêm
      * `closePreview` (mặc định `true`, GIỮ NGUYÊN hành vi cũ cho setPlaylistBg/removeFromAlbum/
      * delete — đóng modal xem ảnh NGAY, KHÔNG qua eventBus/Block gate, đây là dọn UI của CHÍNH lần
@@ -923,21 +921,19 @@ const workflowFileManagerPhoto = {
      * ở nguyên, không đóng — Router xử lý toggle qua VirtualMachineState đọc `imagePreviewMode`
      * (event/router/file-manager-photo.js). Nhãn item đổi theo mode hiện tại (đang Zoom -> "Thoát
      * Zoom") — KHÔNG tạo nút/DOM riêng nào để thoát (đúng chốt Giang: dùng lại chính item đó).
-     * @param {{key: string, blob: Blob, filename: string}} image
-     * @param {string|null} activeAlbumId
      * @param {HTMLElement} anchorEl - nút "..." vừa bấm.
      */
-    _openImageActionMenu(image, activeAlbumId, anchorEl) {
+    openImageActionMenu(anchorEl) {
+        const imageKey = this._activeImageKey, activeAlbumId = this._activeAlbumId;
         const dispatch = (action, closePreview = true) => {
             if (closePreview) this.closeImagePreview();
-            eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imageMenu.action.click', payload: { action, imageKey: image.key } });
+            eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imageMenu.action.click', payload: { action, imageKey } });
         };
         const isZooming = appState.get('imagePreviewMode') === 'zoom';
         const isEditing = appState.get('imagePreviewMode') === 'edit';
         const items = [
             { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>', name: t('fileManager.photo.image.btnSetPlaylistBg'), callback: () => dispatch('setPlaylistBg') },
             { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"/></svg>', name: t(isZooming ? 'fileManager.photo.image.btnExitZoom' : 'fileManager.photo.image.btnZoom'), callback: () => dispatch('zoom', false) },
-            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3"/></svg>', name: t('fileManager.photo.image.btnEditImage'), callback: () => dispatch('editImage') },
         ];
         // MỚI (31/07/2026) — CHỈ hiện khi đang ở Edit mode (đúng chốt Giang: "thêm dropdown action
         // cho lưu đè, lưu mới" — ĐÚNG 2 action MỚI duy nhất, còn lại các item khác giữ nguyên bất kể
@@ -969,14 +965,12 @@ const workflowFileManagerPhoto = {
         });
     },
 
-    /** Vào Edit mode (bấm icon Edit RIÊNG ở header modal — KHÁC "Sửa ảnh" trong dropdown, cái đó
-     * TẠM THỜI vẫn giữ nguyên, điều hướng sang image-edit.html, xem `navigateToImageEdit()` — 2
-     * đường vào cùng tồn tại vì bản Edit mode MỚI này (31/07/2026) mới chỉ làm xong nhóm "Điều
-     * chỉnh", Crop/Vẽ/Text/Tách nền chưa port — xoá "Sửa ảnh" ngay bây giờ sẽ mất khả năng crop/xoay
-     * thật cho tới khi port xong các nhóm còn lại).
-     * decode ảnh vào canvas (core/photo-editor-engine.js::decodeImageToCanvas()) — ẩn `<img>`, hiện
-     * `canvasWrap`, mở Generic Drawer hiện lưới tool theo nhóm (đúng chốt Giang: "generic tool grid,
-     * nhóm theo Xxx header / list tool for xxx, thay vì vào từng sub menu").
+    /** Vào Edit mode (bấm icon Edit RIÊNG ở header modal) — decode ảnh vào canvas (core/photo-
+     * editor-engine.js::decodeImageToCanvas()) — ẩn `<img>`, hiện `canvasWrap`, mở Generic Drawer
+     * hiện lưới tool theo nhóm (đúng chốt Giang: "generic tool grid, nhóm theo Xxx header / list
+     * tool for xxx, thay vì vào từng sub menu"). Toàn bộ nhóm (Điều chỉnh/Crop/Vẽ/Text/Tách nền) đã
+     * port xong — `image-edit.html` (trang cũ, dropdown item "Sửa ảnh" trỏ tới đó) đã XOÁ HẲN
+     * (31/07/2026), đây là đường vào Edit DUY NHẤT còn lại.
      */
     async enterEditMode() {
         const handle = this._activeImageModalHandle;
@@ -1237,12 +1231,40 @@ const workflowFileManagerPhoto = {
 
         this._wireSubToolPointerEvents(
             (pos) => cropSessionPointerDown(this._cropSession, pos, 30 * this._editScale()), // core/crop-selector.js
-            (pos) => { cropSessionPointerMove(this._cropSession, pos, 50 * this._editScale()); this._drawCropOverlay(); }, // core/crop-selector.js
+            (pos) => { this._moveOrResizeCropSession(pos); this._drawCropOverlay(); },
             () => cropSessionPointerUp(this._cropSession), // core/crop-selector.js
         );
 
         handle.contextCancelBtn.onclick = () => this._exitSubTool();
         handle.contextApplyBtn.onclick = () => this._applyCropTool();
+    },
+
+    /** Đọc `session.activeHandle` rồi CHỌN gọi ĐÚNG 1 trong 3 hàm tính rect thuần của core/crop-
+     * selector.js (move/resize-tự-do/resize-khoá-tỉ-lệ) — việc CHỌN này thuộc Workflow (Rule 1, xem
+     * docstring đầu core/crop-selector.js — core không được tự dispatch giữa các tiến trình).
+     * Photo KHÔNG khoá tỉ lệ (`_cropSession.aspectRatio` luôn NaN, `_startCropTool()` không gọi
+     * `setCropSessionAspectRatio()`) nên nhánh `computeRatioLockedResizedRect()` không bao giờ chạy
+     * ở Photo — vẫn viết đủ ở đây cho đúng/y hệt Video Editor (event/workflow/video-editor.js),
+     * tránh code 2 nơi lệch nhau nếu sau này Photo cũng thêm khoá tỉ lệ.
+     * @param {{x:number,y:number}} pos
+     */
+    _moveOrResizeCropSession(pos) {
+        const session = this._cropSession;
+        if (!session.activeHandle) return;
+        const s = session.dragStart;
+        const dx = pos.x - s.x, dy = pos.y - s.y;
+        const minSize = 50 * this._editScale();
+
+        if (session.activeHandle === 'center') {
+            session.rect = moveCropRect({ x: s.rx, y: s.ry, w: s.rw, h: s.rh }, dx, dy, session.sourceWidth, session.sourceHeight); // core/crop-selector.js
+            return;
+        }
+        const flipX = session.activeHandle === 'tl' || session.activeHandle === 'bl';
+        const flipY = session.activeHandle === 'tl' || session.activeHandle === 'tr';
+        const rect = { x: s.rx, y: s.ry, w: s.rw, h: s.rh };
+        session.rect = Number.isNaN(session.aspectRatio)
+            ? computeFreeResizedRect(rect, flipX, flipY, dx, dy, minSize, session.sourceWidth, session.sourceHeight) // core/crop-selector.js
+            : computeRatioLockedResizedRect(rect, flipX, flipY, dx, session.aspectRatio, minSize, session.sourceWidth, session.sourceHeight); // core/crop-selector.js
     },
 
     /** Vẽ lại overlay Crop — gọi lại mỗi lần `_cropSession.rect` đổi (kéo tay). */
@@ -1582,7 +1604,7 @@ const workflowFileManagerPhoto = {
     /** Đóng THẬT modal xem ảnh — dọn phiên Panzoom nếu còn (Zoom mode) + dọn Edit mode nếu còn +
      * đóng handle + reset `imagePreviewMode` về 'view'. Dùng ở 2 nơi: (1) Router gọi khi bấm X
      * KHÔNG bị Block gate chặn (`imagePreviewMode==='view'` lúc đó, xem event/block.js), (2)
-     * `_openImageActionMenu()` cho 3 action "quyết định" (setPlaylistBg/removeFromAlbum/delete) —
+     * `openImageActionMenu()` cho 3 action "quyết định" (setPlaylistBg/removeFromAlbum/delete) —
      * LUÔN đóng bất kể mode hiện tại, không cần thoát Zoom/Edit trước (khác nút X — 3 action này
      * chủ động, không phải bấm nhầm).
      */
@@ -1614,17 +1636,6 @@ const workflowFileManagerPhoto = {
             genericDrawerPanel.removeEventListener('transitionend', onTransitionEnd);
             hideGenericDrawerImmediately(); // core/generic-drawer.js
         }, { once: true });
-    },
-
-    /** MỚI (14/07/2026, mục cuối) — điều hướng sang trang `image-edit.html` cho 1 ảnh, cùng khuôn
-     * `workflowSubtitleModal.navigateToEditor()` (`window.location.href` toàn trang, KHÔNG
-     * iframe/popup — 2 trang cùng origin `file://`, dùng chung IndexedDB, không cần postMessage).
-     * TÁI DÙNG NGUYÊN `encodeSongKeyForUrl()` (service/song-key-cipher.js) — hàm đó CHỈ mã hoá 1
-     * chuỗi key bất kỳ, không có gì "song" riêng trong thuật toán, không cần viết cipher thứ 2.
-     * @param {string} imageKey
-     */
-    navigateToImageEdit(imageKey) {
-        window.location.href = `image-edit.html?image=${encodeSongKeyForUrl(imageKey)}`; // service/song-key-cipher.js
     },
 
     /** Ứng với nút "Đặt làm nền Playlist" trong modal xem ảnh — TÁI DÙNG NGUYÊN applyBgImage().
