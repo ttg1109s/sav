@@ -401,13 +401,11 @@ const routerFileManagerPhoto = (() => {
             }
 
             // MỚI (31/07/2026, Edit mode) — bấm 1 tile trong lưới tool (Generic Drawer,
-            // workflowFileManagerPhoto::_buildEditToolGridHtml()). `available=false` = nhóm CHƯA
-            // port (Công cụ/Vẽ/Tách nền, xem docstring core/photo-editor-engine.js) — báo tạm,
-            // KHÔNG mở gì cả.
+            // workflowFileManagerPhoto::_buildEditToolGridHtml()) — TOÀN BỘ tool đã port xong,
+            // openEditTool() tự phân luồng theo toolKey (Điều chỉnh/Crop/Vẽ/Text/Tách nền).
             case 'fileManagerPhoto.editToolGrid.tile.click': {
-                const { tool, available } = msg.payload;
-                if (available) workflowFileManagerPhoto.openAdjustTool(tool);
-                else alertModal(t('fileManager.photo.image.editToolComingSoon'));
+                const { tool } = msg.payload;
+                workflowFileManagerPhoto.openEditTool(tool);
                 break;
             }
 
