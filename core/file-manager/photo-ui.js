@@ -661,9 +661,14 @@ function openCreateAlbumModal(onConfirm) {
  * `callbacks.onOpenMenu` giờ NHẬN THAM SỐ `menuBtn` (chính nút "..." vừa bấm) — dropdown
  * (core/dropdown-menu.js::openDropdownMenu()) cần 1 `anchorEl` để định vị menu SÁT nút, khác hẳn
  * Generic Drawer cũ (bottom sheet toàn chiều rộng, không cần biết vị trí nút).
+ * MỚI (31/07/2026, Zoom mode) — nút X giờ gọi `callbacks.onCloseClick()` (KHÔNG tự đóng modal nữa)
+ * — nghiệp vụ thật đi qua eventBus/Router để Block gate (event/block.js) chặn được lúc đang ở
+ * Zoom/Edit mode (`imagePreviewMode !== 'view'`). `close` trong handle trả về VẪN LÀ đóng THẬT —
+ * Workflow tự gọi khi Router xác nhận không bị chặn, hoặc khi 1 action khác (xoá/đặt nền...) cần
+ * đóng modal ngay. `imgEl` MỚI — Zoom mode cần element `<img>` thật để init Panzoom.
  * @param {{key: string, blob: Blob, filename: string}} image
- * @param {{onOpenMenu: (menuBtn: HTMLElement) => void}} callbacks
- * @returns {{close: () => void}}
+ * @param {{onOpenMenu: (menuBtn: HTMLElement) => void, onCloseClick: () => void}} callbacks
+ * @returns {{close: () => void, imgEl: HTMLImageElement}}
  */
 function openImagePreviewModal(image, callbacks) {
     const stale = document.getElementById('image-preview-overlay');
@@ -707,7 +712,7 @@ function openImagePreviewModal(image, callbacks) {
     const closeBtn = document.createElement('button');
     closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
     closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
-    closeBtn.addEventListener('click', closeModal);
+    closeBtn.addEventListener('click', () => callbacks.onCloseClick()); // MỚI (31/07/2026) — KHÔNG gọi closeModal() thẳng nữa — nghiệp vụ thật (có bị Block gate chặn hay không, xem event/block.js) thuộc Router, xem docstring hàm này
     header.appendChild(closeBtn);
 
     const menuBtn = document.createElement('button');
@@ -718,7 +723,7 @@ function openImagePreviewModal(image, callbacks) {
     overlay.appendChild(header);
 
     document.body.appendChild(overlay);
-    return { close: closeModal };
+    return { close: closeModal, imgEl: img }; // imgEl MỚI (31/07/2026) — Zoom mode cần element thật để init Panzoom (event/workflow/file-manager-photo.js)
 }
 
 // SỬA (21/07/2026, Giang yêu cầu "menu action ảnh chuyển từ Generic Drawer sang dropdown") —
