@@ -132,3 +132,89 @@ function applySharpenFilter(srcImageData, amount) {
     for (let i = 0; i < w * 4; i++) { d[i] = s[i]; d[(h - 1) * w * 4 + i] = s[(h - 1) * w * 4 + i]; }
     return dst;
 }
+
+/**
+ * Cắt 1 vùng chữ nhật ra khỏi canvas nguồn, trả về canvas MỚI đúng kích thước vùng cắt — dùng khi
+ * "Áp dụng" tool Crop. Toạ độ/kích thước LÀM TRÒN sẵn ở nơi gọi (Workflow) trước khi truyền vào —
+ * hàm này không tự làm tròn để tránh lệch 1px giữa toạ độ Workflow đang vẽ overlay và toạ độ THẬT
+ * SỰ dùng để cắt.
+ * @param {HTMLCanvasElement} srcCanvas
+ * @param {{x:number,y:number,w:number,h:number}} rect - toạ độ nguyên (px), theo hệ toạ độ srcCanvas.
+ * @returns {HTMLCanvasElement}
+ */
+function cropCanvas(srcCanvas, rect) {
+    const out = document.createElement('canvas');
+    out.width = rect.w; out.height = rect.h;
+    out.getContext('2d').drawImage(srcCanvas, rect.x, rect.y, rect.w, rect.h, 0, 0, rect.w, rect.h);
+    return out;
+}
+
+/**
+ * Vẽ chồng `overlayCanvas` LÊN TRÊN `baseCanvas` (cùng kích thước) theo 1 composite operation cho
+ * trước, trả về canvas MỚI đã gộp — dùng khi "Áp dụng" tool Vẽ (gộp nét cọ/tẩy từ `interactCanvas`
+ * vào ảnh gốc) — KHÔNG mutate 2 canvas nhận vào (Rule 1 — hàm thuần input->output).
+ * @param {HTMLCanvasElement} baseCanvas
+ * @param {HTMLCanvasElement} overlayCanvas
+ * @param {GlobalCompositeOperation} [compositeOp='source-over'] - 'source-over' (vẽ đè, cọ) hoặc
+ *        'destination-out' (đục thủng, tẩy).
+ * @returns {HTMLCanvasElement}
+ */
+function mergeCanvases(baseCanvas, overlayCanvas, compositeOp = 'source-over') {
+    const out = document.createElement('canvas');
+    out.width = baseCanvas.width; out.height = baseCanvas.height;
+    const ctx = out.getContext('2d');
+    ctx.drawImage(baseCanvas, 0, 0);
+    ctx.globalCompositeOperation = compositeOp;
+    ctx.drawImage(overlayCanvas, 0, 0);
+    return out;
+}
+
+/**
+ * Tách nền màu trơn ("Tách nền"/Magic cutout) — quét TOÀN BỘ ảnh, pixel nào lệch màu tại điểm chạm
+ * (`startX`,`startY`) trong khoảng `tolerance` thì đặt alpha=0. Thuật toán chromakey đơn giản (KHÔNG
+ * phải flood-fill đệ quy theo vùng liền kề — quét toàn ảnh nhanh hơn hẳn trên di động, đúng khuôn
+ * Lumina Pro) — phù hợp nền TRƠN 1 màu, không phù hợp nền có gradient/hoạ tiết phức tạp.
+ * @param {HTMLCanvasElement} canvas
+ * @param {number} startX @param {number} startY - toạ độ điểm chạm, hệ toạ độ canvas (nguyên).
+ * @param {number} tolerance - 0-255-ish, độ lệch màu tối đa vẫn tính là "cùng vùng".
+ * @returns {ImageData|null} `null` nếu điểm chạm nằm ngoài canvas hoặc đã trong suốt sẵn.
+ */
+function applyMagicCutout(canvas, startX, startY, tolerance) {
+    const w = canvas.width, h = canvas.height;
+    if (startX < 0 || startY < 0 || startX >= w || startY >= h) return null;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const data = imageData.data;
+
+    const targetPos = (startY * w + startX) * 4;
+    const tR = data[targetPos], tG = data[targetPos + 1], tB = data[targetPos + 2];
+    if (data[targetPos + 3] === 0) return null; // điểm chạm đã trong suốt sẵn — không có gì để tách
+
+    for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] === 0) continue;
+        const diff = Math.max(Math.abs(data[i] - tR), Math.abs(data[i + 1] - tG), Math.abs(data[i + 2] - tB));
+        if (diff <= tolerance) data[i + 3] = 0;
+    }
+    return imageData;
+}
+
+/**
+ * "Nướng" 1 đoạn văn bản thẳng lên canvas TẠI ĐÚNG vị trí — mutate `canvas` nhận vào TRỰC TIẾP
+ * (KHÁC các hàm khác ở file này — chữ là thao tác "vẽ thêm 1 lần", không có ý nghĩa giữ bản canvas
+ * cũ để so sánh lại, nên không cần tách input/output riêng, đỡ 1 lần copy canvas tốn kém trên ảnh
+ * lớn). Hỗ trợ xuống dòng (`\n`), tự canh giữa each dòng quanh (x,y).
+ * @param {HTMLCanvasElement} canvas
+ * @param {string} text @param {number} x @param {number} y - tâm khối chữ, hệ toạ độ canvas.
+ * @param {number} fontSizePx @param {string} color
+ */
+function drawTextOnCanvas(canvas, text, x, y, fontSizePx, color) {
+    const ctx = canvas.getContext('2d');
+    ctx.font = `bold ${fontSizePx}px Inter, sans-serif`;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const lines = text.split('\n');
+    lines.forEach((line, i) => {
+        ctx.fillText(line, x, y + (i - (lines.length - 1) / 2) * fontSizePx * 1.2);
+    });
+}
