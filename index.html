@@ -50,6 +50,62 @@
 </head>
 <body class="text-white h-screen flex flex-col relative overflow-hidden bg-[#000000]">
 
+    <!-- DEBUG KHẨN CẤP (31/07/2026, đang bị đen màn hình) — TẠM THỜI, xoá khi hết cần. Chèn NGAY
+         ĐẦU <body>, TRƯỚC MỌI THỨ — nếu script nào sau đó throw/treo, overlay NÀY đã hiện sẵn rồi,
+         không phụ thuộc file nạp sau. Tự bắt window 'error'/'unhandledrejection' NGAY (không chờ
+         core/debug-console.js), gộp thêm getDebugConsoleLogs() khi hàm đó đã sẵn sàng. -->
+    <div id="emergency-debug-overlay" style="position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;padding:10px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;">
+        <div style="color:#fff;font-weight:bold;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span>DEBUG</span>
+            <button id="btn-emergency-debug-toggle" style="background:#333;color:#fff;padding:4px 10px;border:none;border-radius:4px;">Ẩn</button>
+        </div>
+        <div id="emergency-debug-content">Đang chờ log...</div>
+    </div>
+    <script>
+    (function () {
+        var localLog = [];
+        function pushLocal(level, text) {
+            localLog.push('[' + level + '] ' + text);
+            if (localLog.length > 500) localLog.shift();
+        }
+        window.addEventListener('error', function (e) {
+            pushLocal('UNCAUGHT', (e.message || '') + ' @ ' + (e.filename || '') + ':' + (e.lineno || '') + ':' + (e.colno || ''));
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+            var reason = e.reason;
+            pushLocal('UNHANDLED PROMISE', reason && reason.message ? reason.message : String(reason));
+        });
+
+        function render() {
+            var contentEl = document.getElementById('emergency-debug-content');
+            if (!contentEl) return;
+            var lines = localLog.slice();
+            if (typeof getDebugConsoleLogs === 'function') {
+                try {
+                    getDebugConsoleLogs().forEach(function (l) {
+                        lines.push('[' + l.level.toUpperCase() + '] ' + l.text);
+                    });
+                } catch (e) {}
+            }
+            contentEl.textContent = lines.length ? lines.join('\n') : '(chưa có log nào)';
+            contentEl.scrollTop = contentEl.scrollHeight;
+        }
+        setInterval(render, 500);
+
+        document.addEventListener('click', function (e) {
+            if (!e.target || e.target.id !== 'btn-emergency-debug-toggle') return;
+            var overlay = document.getElementById('emergency-debug-overlay');
+            var contentEl = document.getElementById('emergency-debug-content');
+            var btn = e.target;
+            var hidden = contentEl.style.display === 'none';
+            contentEl.style.display = hidden ? 'block' : 'none';
+            if (hidden) { overlay.style.background = 'rgba(0,0,0,0.95)'; overlay.style.inset = '0'; overlay.style.width = ''; overlay.style.height = ''; btn.textContent = 'Ẩn'; }
+            else { overlay.style.background = 'transparent'; overlay.style.top = '0'; overlay.style.right = '0'; overlay.style.left = 'auto'; overlay.style.bottom = 'auto'; overlay.style.width = 'auto'; overlay.style.height = 'auto'; btn.textContent = 'Debug'; }
+        });
+    })();
+    </script>
+
+
     <!-- ===================================================================
          PRELOADER (07/07/2026, phản hồi Giang mục 2 — LÀM LẠI, HOTFIX 5) — HTML/CSS/JS THUẦN, ĐẶT
          NGAY ĐẦU <body>, TRƯỚC MỌI THỨ KHÁC (kể cả CDN) — hiện ra NGAY LẬP TỨC lúc trình duyệt bắt
