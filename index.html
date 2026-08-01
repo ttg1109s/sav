@@ -559,7 +559,7 @@
          tiếp ở đây, nhưng gom nhóm cho dễ đọc). -->
     <script src="core/file-manager/image.js?v=20260731v2"></script>
     <script src="core/file-manager/album.js?v=20260703v1"></script>
-    <script src="core/file-manager/photo-ui.js?v=20260731v8"></script>
+    <script src="core/file-manager/photo-ui.js?v=20260731v9"></script>
     <!-- MỚI (31/07/2026) — Zoom mode modal xem ảnh. Core thuần bọc Panzoom (CDN, đã nạp ở <head>),
          xem core/image-zoom.js. Không phụ thuộc image.js/album.js/photo-ui.js (Rule 3 — chỉ gọi
          Panzoom), gom cạnh đây cho dễ đọc theo cụm Photo & Album. -->
@@ -807,8 +807,9 @@
          nhỏ để xứng đáng 1 router/listener riêng. Ver 12 "Multi Media": nhánh storageDrawer đã DỜI
          sang cụm "fileManagerSong" ngay dưới (plan-v12-multimedia.md mục 3). Batch D1: aboutDrawer
          giờ CẦN workflow (push panel + tính thống kê), xem event/workflow/settings-misc.js. -->
-    <script src="event/workflow/settings-misc.js?v=20260714v1"></script>
-    <script src="event/router/settings-misc.js?v=20260714v1"></script>
+    <script src="core/settings-misc-ui.js?v=20260731v1"></script>
+    <script src="event/workflow/settings-misc.js?v=20260731v1"></script>
+    <script src="event/router/settings-misc.js?v=20260731v1"></script>
     <script src="event/listener/settings-misc.js?v=20260714v1"></script>
     <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): cụm
          "fileManager" (khung điều hướng cấp cao cũ) ĐÃ BỎ HẲN — thay bằng 3 cụm ĐỘC LẬP, mỗi cụm
@@ -851,8 +852,8 @@
          restructure, 06/07/2026): panel Settings (6 input) nay push/pop động — CẦN core/settings-
          panel-stack.js (đã nạp ở nhóm CORE). Panel chọn Album ("notify center") KHÔNG đổi, vẫn
          tĩnh, độc lập Settings Stack. -->
-    <script src="event/workflow/slideshow.js?v=20260731v1"></script>
-    <script src="event/router/slideshow.js?v=20260706v1"></script>
+    <script src="event/workflow/slideshow.js?v=20260731v2"></script>
+    <script src="event/router/slideshow.js?v=20260731v1"></script>
     <script src="event/listener/slideshow.js?v=20260706v1"></script>
     <!-- Batch 3 (03/07/2026) — workflowFileManagerPhoto CẦN tồn tại trước khi router gọi tới.
          Batch D6 (Settings restructure, 06/07/2026): panel Photo nay push/pop động, `fullBleed:
