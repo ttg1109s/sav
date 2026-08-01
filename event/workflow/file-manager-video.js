@@ -247,16 +247,15 @@ const workflowFileManagerVideo = {
      */
 
     /** Ứng với 'playlist.actionMenu.editVideoFile' (menu 3 chấm Playlist, chỉ hiện khi item là
-     * Video). GIỮ NGUYÊN 100% — MỚI (Batch 1, module Video Editor), THAY placeholder cũ. Điều
-     * hướng sang trang `video-editor.html`, CÙNG KHUÔN `workflowFileManagerPhoto.
-     * navigateToImageEdit()` (`window.location.href` toàn trang, KHÔNG iframe/popup — 2 trang cùng
-     * origin `file://`, dùng chung IndexedDB). TÁI DÙNG NGUYÊN `encodeSongKeyForUrl()`
-     * (service/song-key-cipher.js) — hàm đó chỉ mã hoá 1 chuỗi key bất kỳ, không có gì đặc thù
-     * "video".
+     * Video). SỬA ("Song/Video Unification" v12, gộp Video Editor vào Modal xem Video) — TRƯỚC
+     * ĐÂY điều hướng sang trang `video-editor.html` (window.location.href, ĐÃ XOÁ HẲN cùng trang
+     * đó) — GIỜ mở thẳng modal xem Video tại chỗ (đúng khuôn modal xem Ảnh — mục 2 yêu cầu Giang),
+     * KHÔNG còn điều hướng trang nào cả. Đổi tên hàm giữ NGUYÊN (nơi gọi — event/workflow/
+     * playlist.js::navigateToActiveMenuVideoEdit() — không cần sửa gì).
      * @param {string} videoKey
      */
     navigateToVideoEdit(videoKey) {
-        window.location.href = `video-editor.html?video=${encodeSongKeyForUrl(videoKey)}`; // service/song-key-cipher.js
+        workflowVideoPreview.open(videoKey); // event/workflow/video-preview.js
     },
 
     // ===================== Batch 2 (21/07/2026) — Picker Generic Drawer cho "Use background
