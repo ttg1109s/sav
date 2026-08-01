@@ -2,19 +2,26 @@
  * event/workflow/generic-drawer-helpers.js — GỘP LẠI (31/07/2026, Giang chỉ ra: "xây Generic Drawer
  * mà vẫn phải nhân bản là vô lý") — `closeFully()` từng bị chép nguyên văn ở 7 file Workflow
  * (document-reader/file-manager-photo/file-manager-video/file-manager-folder-browser/playlist/
- * image-edit/video-editor); `buildSimpleHeaderHtml()` chép ở 2 file (file-manager-photo/image-edit).
- * Gộp về ĐÚNG 1 chỗ, mọi nơi gọi qua `workflowGenericDrawerHelpers.xxx()`.
+ * image-edit/video-editor). Gộp về ĐÚNG 1 chỗ, mọi nơi gọi qua `workflowGenericDrawerHelpers.xxx()`.
  *
- * VẪN phải là Workflow (không phải core/generic-drawer.js) — Rule 5a: Core không được tự
- * `addEventListener` cho DOM tĩnh (`genericDrawerPanel`), trừ 3 điều kiện hạ tầng dùng chung ĐÃ QUA
- * AUDIT chính thức (xem readme/event-bus-flow.md, mục "Vì sao core/modal-choice.js được miễn") —
- * file này CHƯA qua audit đó, không tự nhận miễn trừ.
+ * SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow") —
+ * `buildSimpleHeaderHtml()` (trả headerHtml "tiêu đề + nút X", dùng bởi picker Ảnh/lưới tool Edit)
+ * ĐÃ XOÁ khỏi đây — phần WIRE nút X đó bắt buộc là Core (Rule 5a), nên header HTML gộp LUÔN vào
+ * chính hàm Core dựng+wire Drawer đó (core/file-manager/photo-ui.js::
+ * openPhotoImagePickerDrawerUi()/openPhotoEditToolGridDrawerUi(), mỗi hàm tự có bản HTML riêng,
+ * chấp nhận trùng lặp nhỏ — tránh 1 hàm Core gọi hàm Core khác chỉ để lấy string, Rule 3a không có
+ * ngoại lệ nào cho việc đó).
+ *
+ * `closeFully()` VẪN ở Workflow (không phải core/generic-drawer.js) — đây KHÔNG phải wiring cho
+ * tương tác người dùng (Rule 5a không áp) mà là ĐIỀU PHỐI tuần tự 2 lời gọi Core (`closeGenericDrawer()`
+ * -> đợi `transitionend` -> `hideGenericDrawerImmediately()`) — đúng vai trò Workflow (cùng vai trò
+ * `taskManager`, Rule 3b cấm `taskManager` trong Core).
  *
  * `video-editor.js` KHÔNG gọi thẳng `closeFully()` — nó cần thêm side-effect riêng
  * (`_destroyShiftWaveform()`/`_renderAllTracks()`/...) quanh cùng lõi này, vẫn giữ
  * `_closeGenericDrawerFully()` riêng nhưng thân hàm giờ gọi `closeFully()` thay vì chép lại lõi.
  *
- * NẠP SAU: core/generic-drawer.js, dom-refs.js (genericDrawerPanel), lang/lang.js (t()).
+ * NẠP SAU: core/generic-drawer.js, dom-refs.js (genericDrawerPanel).
  */
 const workflowGenericDrawerHelpers = {
 
@@ -26,19 +33,5 @@ const workflowGenericDrawerHelpers = {
             genericDrawerPanel.removeEventListener('transitionend', onTransitionEnd);
             hideGenericDrawerImmediately(); // core/generic-drawer.js
         }, { once: true });
-    },
-
-    /** headerHtml đơn giản "tiêu đề + nút X đóng" — dùng cho Generic Drawer không cần action nào
-     * khác ở header (List/Read của Document Reader có header riêng, phức tạp hơn, KHÔNG dùng hàm
-     * này). @param {string} title @returns {string} */
-    buildSimpleHeaderHtml(title) {
-        return `
-            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
-                <h3 class="text-base font-bold text-slate-900">${title}</h3>
-                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-        `;
     },
 };

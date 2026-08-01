@@ -25,7 +25,7 @@ const workflowImageEdit = {
     _activeSubTool: 'none',        // 'none'|'crop'|'draw'|'text'|'magic' — KHÁC 'adjust' (live-preview trực tiếp, không có sub-tool mode riêng)
     _subToolPointerCleanup: null,  // hàm gỡ Pointer Events của sub-tool đang mở
     _textDragCleanup: null,        // hàm gỡ Pointer Events kéo-thả floatingText (tool Text)
-    _editToolGridClickHandler: null, // handler delegated click trên genericDrawerBody, wire 1 lần/phiên
+    _editToolGridClickHandler: null, // hàm GỠ trả về từ wirePhotoEditToolGridDelegation() (core/file-manager/photo-ui.js), wire 1 lần/phiên
     _cropSession: null,            // session core/crop-selector.js — chỉ có nghĩa khi _activeSubTool==='crop'
     _drawType: 'brush',            // 'brush'|'eraser'
 
@@ -68,17 +68,16 @@ const workflowImageEdit = {
         this.openEditToolGrid();
     },
 
-    /** Gắn delegated click trên `genericDrawerBody` (phần tử TĨNH, dom-refs.js) — CHỈ 1 lần/phiên
-     * Edit mode, KHÔNG gắn lại mỗi lần `openEditToolGrid()` mở lại lưới (listener cũ không tự mất
-     * theo `innerHTML`, gắn lại sẽ chồng chất). Gỡ lại ở `exitEditMode()`.
+    /** Gắn delegated click trên `genericDrawerBody` — CHỈ 1 lần/phiên Edit mode, KHÔNG gắn lại mỗi
+     * lần `openEditToolGrid()` mở lại lưới (listener cũ không tự mất theo `innerHTML`, gắn lại sẽ
+     * chồng chất). Gỡ lại ở `exitEditMode()` (tự gọi hàm gỡ trả về từ Core).
+     * SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow") — lệnh
+     * `addEventListener` thật ĐÃ DỜI sang core/file-manager/photo-ui.js::
+     * wirePhotoEditToolGridDelegation() (Rule 5a — quyền của Core), hàm này giờ CHỈ gọi Core rồi
+     * giữ lại hàm gỡ trả về.
      */
     _wireEditToolGridDelegation() {
-        this._editToolGridClickHandler = (e) => {
-            const tile = e.target.closest('[data-edit-tool]');
-            if (!tile) return;
-            eventBus.send({ router: 'imageEdit', type: 'imageEdit.toolGrid.tile.click', payload: { tool: tile.dataset.editTool } });
-        };
-        genericDrawerBody.addEventListener('click', this._editToolGridClickHandler);
+        this._editToolGridClickHandler = wirePhotoEditToolGridDelegation(); // core/file-manager/photo-ui.js
     },
 
     /** Mở Generic Drawer hiện lưới tool Edit mode, nhóm theo header + grid. Gọi lại NHIỀU LẦN
@@ -86,20 +85,13 @@ const workflowImageEdit = {
      * header/bodyHtml, KHÔNG wire lại delegated click (đã wire ở `enterEditMode()`); nút X đóng
      * PHẢI wire lại mỗi lần (phần tử MỚI trong headerHtml). Public — Router gọi trực tiếp lúc bấm
      * `toolsBtn` (case 'imageEdit.tools.click') để mở lại lưới sau khi người dùng tự đóng Drawer.
-     * `zIndex: Z_INDEX.IMAGE_ACTION_MENU_DRAWER` (131) — TRÊN modal xem ảnh (130), DƯỚI dropdown
-     * "..." (132), xem service/z-index.js.
+     * SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow") — phần
+     * dựng Generic Drawer + wire closeBtn ĐÃ DỜI sang core/file-manager/photo-ui.js::
+     * openPhotoEditToolGridDrawerUi() (Rule 5a, cùng lý do `_wireEditToolGridDelegation()`).
      */
     openEditToolGrid() {
         if (!this._activeImageModalHandle || !this._activeEditParams) return; // guard: modal đóng/chưa ở Edit mode
-        openGenericDrawer({ // core/generic-drawer.js
-            height: 'auto', maxHeight: '70vh',
-            zIndex: Z_INDEX.IMAGE_ACTION_MENU_DRAWER,
-            headerHtml: workflowGenericDrawerHelpers.buildSimpleHeaderHtml(t('fileManager.photo.image.editGridTitle')),
-            bodyHtml: this._buildEditToolGridHtml(),
-            bodyClass: 'overflow-y-auto',
-        });
-        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-        if (closeBtn) closeBtn.addEventListener('click', () => workflowGenericDrawerHelpers.closeFully());
+        openPhotoEditToolGridDrawerUi(t('fileManager.photo.image.editGridTitle'), this._buildEditToolGridHtml()); // core/file-manager/photo-ui.js
     },
 
     /** @returns {string} bodyHtml lưới tool, nhóm theo header ("Xxx header / list tool for xxx"),
@@ -630,7 +622,7 @@ const workflowImageEdit = {
         if (this._textDragCleanup) { this._textDragCleanup(); this._textDragCleanup = null; }
         const handle = this._activeImageModalHandle;
         if (handle) {
-            if (this._editToolGridClickHandler) { genericDrawerBody.removeEventListener('click', this._editToolGridClickHandler); this._editToolGridClickHandler = null; }
+            if (this._editToolGridClickHandler) { this._editToolGridClickHandler(); this._editToolGridClickHandler = null; }
             handle.canvasWrap.classList.add('hidden');
             handle.imgEl.classList.remove('hidden');
             handle.adjustPopup.classList.add('hidden');

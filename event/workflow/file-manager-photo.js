@@ -109,7 +109,7 @@ const workflowFileManagerPhoto = {
             fullBleed: true,
             headerActionHtml: this._buildHeaderActionHtml(),
         });
-        this._wireHeaderActionEvents();
+        wirePhotoPanelHeaderActions(fileManagerPhotoPanelEl); // core/file-manager/photo-ui.js
 
         await new Promise((resolve) => taskManager.once(resolve, SLIDER_PANEL_SCROLL_ESTIMATED_MS, 'fileManagerPhotoOpenPanel')); // core/slider-panel-scroll.js — đợi trượt xong HẲN
 
@@ -130,30 +130,10 @@ const workflowFileManagerPhoto = {
         `;
     },
 
-    /** Wire 2 nút vừa dựng trong header (`headerActionHtml`) — panel push CHỈ 1 LẦN/lần mở (khác
-     * `refresh()` gọi lại nhiều lần), nên wire Ở ĐÂY, KHÔNG phải trong `refresh()` (tránh gắn listener
-     * trùng nhiều lần lên CÙNG 1 nút tĩnh).
-     * SỬA (18/07/2026, Giang yêu cầu "khôi phục add photo vào album, bấm + ra 2 lựa chọn") — nút
-     * "+" KHÔNG còn gọi thẳng `uploadInput.click()` nữa (hành vi đó CỐ ĐỊNH, không biết `activeAlbumId`
-     * đang là gì) — giờ dispatch qua eventBus (`uploadTrigger.click`), để Router tự đọc `activeAlbumId`
-     * (state RIÊNG của nó) rồi quyết định: đang lọc album -> mở dropdown 2 lựa chọn; không lọc -> mở
-     * thẳng hộp thoại chọn file (giữ NGUYÊN hành vi cũ) — xem event/router/file-manager-photo.js. */
-    _wireHeaderActionEvents() {
-        const uploadBtn = fileManagerPhotoPanelEl.querySelector('#btn-file-manager-image-upload-trigger');
-        if (uploadBtn) uploadBtn.addEventListener('click', () => {
-            eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.uploadTrigger.click', payload: {} });
-        });
-        // (change của uploadInput đã wire ở event/listener/file-manager-photo.js — delegated qua settingsStackBody)
-        const deleteModeBtn = fileManagerPhotoPanelEl.querySelector('#btn-file-manager-image-delete-mode');
-        if (deleteModeBtn) deleteModeBtn.addEventListener('click', () => {
-            eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.image.deleteMode.click', payload: {} });
-        });
-    },
-
     /** Ứng với 'fileManagerPhoto.uploadTrigger.click' khi KHÔNG đang lọc theo album (activeAlbumId
      * null, Router tự đọc rồi quyết định gọi hàm này — xem event/router/file-manager-photo.js) —
      * mở thẳng hộp thoại chọn file, giữ NGUYÊN hành vi cũ (trước 18/07/2026, lúc nút "+" còn gọi
-     * thẳng `uploadInput.click()` ngay trong `_wireHeaderActionEvents()`). CŨNG là đích dispatch khi
+     * thẳng `uploadInput.click()` ngay trong hàm wire cũ). CŨNG là đích dispatch khi
      * chọn "Tải ảnh lên" trong dropdown 2 lựa chọn (`openAddToAlbumChoiceMenu()` ngay dưới) — DÙNG
      * CHUNG, không viết 2 lần. */
     triggerUploadInput() {
@@ -421,10 +401,7 @@ const workflowFileManagerPhoto = {
             fullBleed: true,
             headerActionHtml: this._buildAlbumListHeaderActionHtml(),
         });
-        const createBtn = albumListPanelEl.querySelector('#btn-file-manager-album-list-create');
-        if (createBtn) createBtn.addEventListener('click', () => {
-            eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.create.click', payload: {} });
-        });
+        wireAlbumListPanelHeaderActions(albumListPanelEl); // core/file-manager/photo-ui.js
 
         await new Promise((resolve) => taskManager.once(resolve, SLIDER_PANEL_SCROLL_ESTIMATED_MS, 'fileManagerAlbumListOpenPanel')); // core/slider-panel-scroll.js — đợi trượt xong HẲN, cùng lý do openPanel()
         await this.refreshAlbumListPanel(0); // KHÔNG shield (fix bug 4) — list nhẹ, không windowing
@@ -656,37 +633,12 @@ const workflowFileManagerPhoto = {
      * @param {boolean} showConfirmButton
      */
     async _openImagePickerDrawer(title, showConfirmButton) {
-        openGenericDrawer({ // core/generic-drawer.js
-            height: '90vh',
-            zIndex: Z_INDEX.GENERIC_DRAWER, // core/config.js — mặc định, KHÔNG có modal xem ảnh nào mở đồng thời với picker này (khác action-menu cần z=131)
-            headerHtml: workflowGenericDrawerHelpers.buildSimpleHeaderHtml(title),
-            bodyHtml: this._buildImagePickerBodyHtml(showConfirmButton),
-            bodyClass: 'flex flex-col',
-        });
-
-        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-        if (closeBtn) closeBtn.addEventListener('click', () => {
-            eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePicker.close.click', payload: {} });
-        });
-        if (showConfirmButton) {
-            const confirmBtn = genericDrawerBody.querySelector('#btn-file-manager-image-picker-confirm');
-            if (confirmBtn) confirmBtn.addEventListener('click', () => {
-                eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePicker.confirm.click', payload: {} });
-            });
-        }
-        // Click tile — delegated NGAY TRÊN genericDrawerBody (KHÔNG đi qua settingsStackBody, Generic
-        // Drawer là ANH EM của #app-stack trong #app-root — cấu trúc DOM tách biệt hẳn, xem docstring
-        // core/generic-drawer.js — nên PHẢI tự wire riêng ở đây). Callback gọi eventBus.send() — ĐÚNG
-        // yêu cầu Giang, KHÔNG gọi thẳng workflow method như `_wireImageMenuEvents()` đang làm (đó là
-        // tiền lệ CŨ, chấp nhận được vì Workflow-gọi-Workflow-của-chính-mình không bị Rule 5a chi
-        // phối, nhưng ở ĐÂY đi qua eventBus cho nhất quán với toàn bộ luồng ảnh còn lại).
-        // SỬA (rewrite Photo/Album, dùng fjGallery) — tile giờ là `<div class="fj-gallery-item">`,
-        // KHÔNG còn `<button>` — selector đổi theo, bỏ ràng buộc tag.
-        genericDrawerBody.addEventListener('click', (e) => {
-            const tile = e.target.closest('[data-image-key]');
-            if (!tile) return;
-            eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePicker.tile.click', payload: { imageKey: tile.dataset.imageKey } });
-        });
+        // SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow") —
+        // TOÀN BỘ phần dựng Generic Drawer + wire closeBtn/confirmBtn/delegated click lưới ảnh ĐÃ
+        // DỜI sang core/file-manager/photo-ui.js::openPhotoImagePickerDrawerUi() — Rule 5a cấp
+        // quyền addEventListener cho DOM động là quyền CỦA CORE, Workflow chỉ gọi Core với data đã
+        // chuẩn bị sẵn (title/bodyHtml/showConfirmButton), không tự cầm DOM API nữa.
+        openPhotoImagePickerDrawerUi(title, this._buildImagePickerBodyHtml(showConfirmButton), showConfirmButton); // core/file-manager/photo-ui.js
 
         await new Promise((resolve) => {
             genericDrawerPanel.addEventListener('transitionend', function onOpenTransitionEnd() {
@@ -711,9 +663,10 @@ const workflowFileManagerPhoto = {
     },
 
     /** HTML khung picker: scroll container (grid windowing sẽ chèn vào TRONG đây) + nút xác nhận cố
-     * định đáy CHỈ khi `showConfirmButton` (mode multiSelectAlbum). Đặt ở Workflow (không phải
-     * core) — cùng khuôn `_buildImageMenuHeaderHtml()` bên dưới, glue riêng cho feature này, không
-     * đủ "substantial" để tách core.
+     * định đáy CHỈ khi `showConfirmButton` (mode multiSelectAlbum). Đặt ở Workflow — hàm THUẦN chỉ
+     * trả string (không `createElement`/`addEventListener`), KHÔNG thuộc phạm vi Rule 5a/5c, khác
+     * hẳn phần dựng+wire Generic Drawer thật (đã dời sang core/file-manager/photo-ui.js::
+     * openPhotoImagePickerDrawerUi()).
      * SỬA (17/07/2026, Giang yêu cầu "bỏ loading đi") — XOÁ HẲN khối icon loading
      * (`#file-manager-image-picker-loading`, spinner phủ lên trong lúc đọc DB) — xem
      * `_openImagePickerDrawer()`. Nút xác nhận cố định đáy RESTORE lại 18/07/2026 (xem đầu khối này).
