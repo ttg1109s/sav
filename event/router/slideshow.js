@@ -43,6 +43,13 @@ const routerSlideshowSettings = (() => {
                 workflowSlideshow.cancelAlbumPicker(); // >1 hàm core (đóng panel + có thể trả toggle) -> workflow
                 break;
 
+            // MỚI (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải
+            // workflow") — bấm 1 album trong lưới picker (core/file-manager/photo-ui.js::
+            // renderSlideshowAlbumPickerGrid(), KHÔNG còn nhận callback `onSelect` đục nữa).
+            case 'slideshowSettings.albumPicker.tile.click':
+                workflowSlideshow.selectAlbumFromPicker(msg.payload.albumId);
+                break;
+
             case 'slideshowSettings.mode.change':
                 workflowSlideshow.changeMode(msg.payload.value); // >1 bước (set + persist) -> workflow
                 break;

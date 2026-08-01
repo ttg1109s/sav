@@ -43,6 +43,18 @@ const routerSettingsMisc = (() => {
                 break;
             }
 
+            // MỚI (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow")
+            // — nút Copy/Xoá wire 1 lần ở core/settings-misc-ui.js, KHÔNG còn gán trực tiếp trong
+            // Workflow.
+            case 'settingsMisc.debugConsole.copy.click': {
+                workflowSettingsMisc.copyDebugConsoleLog();
+                break;
+            }
+            case 'settingsMisc.debugConsole.clear.click': {
+                workflowSettingsMisc.clearDebugConsoleLog();
+                break;
+            }
+
             // (aboutDrawer.close ĐÃ XOÁ — đóng About giờ dùng CHUNG 'settingsStackNav.back.click'
             // cho MỌI panel, xem event/router,workflow/settings-stack-nav.js)
 
