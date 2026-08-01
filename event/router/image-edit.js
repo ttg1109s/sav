@@ -129,49 +129,38 @@ const routerImageEdit = (() => {
             // sai Tách nền) TRƯỚC ĐÂY Workflow tự `addEventListener`/`removeEventListener` theo
             // vòng đời từng sub-tool. Core (`interactCanvas`/`floatingText`/2 slider` — DOM ĐỘNG,
             // photo-ui.js) + Listener (`document` — DOM TĨNH, event/listener/image-edit.js) giờ wire
-            // VĨNH VIỄN 1 lần, bắn eventBus BẤT KỂ tool nào đang mở — Router tự đọc
-            // `getActiveSubTool()` mỗi lần nhận để CHỌN đúng hàm (kể cả không chọn hàm nào nếu
-            // 'none'/tool không liên quan — VirtualMachineState không khớp rule nào, an toàn).
+            // VĨNH VIỄN 1 lần, bắn eventBus BẤT KỂ tool nào đang mở.
+            // SỬA (31/07/2026, phát hiện lúc rà chi phí hiệu năng) — 3 case dưới đây CỐ Ý dùng
+            // `switch` THƯỜNG thay vì `VirtualMachineState.run()`: `run()` coi "0 rule khớp" là BẤT
+            // THƯỜNG, tự `console.warn()` (xem event/virtual-machine-state.js::run()) — ĐÚNG cho
+            // dispatch business luôn phải khớp 1 nhánh, nhưng SAI CHỖ ở đây — "không tool nào liên
+            // quan đang mở" là trạng thái BÌNH THƯỜNG, XẢY RA LIÊN TỤC (rê chuột qua ảnh lúc đang mở
+            // lưới tool/Text/Magic) — dùng `run()` sẽ SPAM console mỗi lần đó, tốn thật (serialize
+            // object để DevTools hiển thị), không phải lý thuyết.
 
             case 'imageEdit.interactCanvas.pointerDown': {
-                const activeSubTool = workflowImageEdit.getActiveSubTool();
-                VirtualMachineState.run([
-                    { state: activeSubTool, operation: '===', value: 'crop', callback: () => {
-                        workflowImageEdit.cropPointerDown(msg.payload);
-                    } },
-                    { state: activeSubTool, operation: '===', value: 'draw', callback: () => {
-                        workflowImageEdit.drawPointerDown(msg.payload);
-                    } },
-                    { state: activeSubTool, operation: '===', value: 'magic', callback: () => {
-                        workflowImageEdit.magicPointerDown(msg.payload);
-                    } },
-                ]);
+                switch (workflowImageEdit.getActiveSubTool()) {
+                    case 'crop': workflowImageEdit.cropPointerDown(msg.payload); break;
+                    case 'draw': workflowImageEdit.drawPointerDown(msg.payload); break;
+                    case 'magic': workflowImageEdit.magicPointerDown(msg.payload); break;
+                    // 'none'/'text' -> không làm gì, KHÔNG cảnh báo (bình thường).
+                }
                 break;
             }
             case 'imageEdit.interactCanvas.pointerMove': {
-                const activeSubTool = workflowImageEdit.getActiveSubTool();
-                VirtualMachineState.run([
-                    { state: activeSubTool, operation: '===', value: 'crop', callback: () => {
-                        workflowImageEdit.cropPointerMove(msg.payload);
-                    } },
-                    { state: activeSubTool, operation: '===', value: 'draw', callback: () => {
-                        workflowImageEdit.drawPointerMove(msg.payload);
-                    } },
-                    // Tách nền KHÔNG cần theo dõi pointermove (chỉ 1 điểm chạm là đủ, xem
-                    // magicPointerDown()) — KHÔNG có rule 'magic' ở đây, cố ý.
-                ]);
+                switch (workflowImageEdit.getActiveSubTool()) {
+                    case 'crop': workflowImageEdit.cropPointerMove(msg.payload); break;
+                    case 'draw': workflowImageEdit.drawPointerMove(msg.payload); break;
+                    // 'magic' KHÔNG cần theo dõi pointermove (chỉ 1 điểm chạm là đủ, xem
+                    // magicPointerDown()) — cố ý không có case.
+                }
                 break;
             }
             case 'imageEdit.interactCanvas.pointerUp': {
-                const activeSubTool = workflowImageEdit.getActiveSubTool();
-                VirtualMachineState.run([
-                    { state: activeSubTool, operation: '===', value: 'crop', callback: () => {
-                        workflowImageEdit.cropPointerUp();
-                    } },
-                    { state: activeSubTool, operation: '===', value: 'draw', callback: () => {
-                        workflowImageEdit.drawPointerUp();
-                    } },
-                ]);
+                switch (workflowImageEdit.getActiveSubTool()) {
+                    case 'crop': workflowImageEdit.cropPointerUp(); break;
+                    case 'draw': workflowImageEdit.drawPointerUp(); break;
+                }
                 break;
             }
 
