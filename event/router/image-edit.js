@@ -123,6 +123,84 @@ const routerImageEdit = (() => {
                 break;
             }
 
+            // MỚI (31/07/2026, Giang chỉ ra "Nhóm B không có ngoại lệ trong tài liệu — Rule 5a
+            // không phân biệt theo loại/tần suất event") — pointer Crop/Vẽ/Tách nền
+            // (`interactCanvas`) + kéo Text (`floatingText`/`document`) + 2 slider (Điều chỉnh/dung
+            // sai Tách nền) TRƯỚC ĐÂY Workflow tự `addEventListener`/`removeEventListener` theo
+            // vòng đời từng sub-tool. Core (`interactCanvas`/`floatingText`/2 slider` — DOM ĐỘNG,
+            // photo-ui.js) + Listener (`document` — DOM TĨNH, event/listener/image-edit.js) giờ wire
+            // VĨNH VIỄN 1 lần, bắn eventBus BẤT KỂ tool nào đang mở — Router tự đọc
+            // `getActiveSubTool()` mỗi lần nhận để CHỌN đúng hàm (kể cả không chọn hàm nào nếu
+            // 'none'/tool không liên quan — VirtualMachineState không khớp rule nào, an toàn).
+
+            case 'imageEdit.interactCanvas.pointerDown': {
+                const activeSubTool = workflowImageEdit.getActiveSubTool();
+                VirtualMachineState.run([
+                    { state: activeSubTool, operation: '===', value: 'crop', callback: () => {
+                        workflowImageEdit.cropPointerDown(msg.payload);
+                    } },
+                    { state: activeSubTool, operation: '===', value: 'draw', callback: () => {
+                        workflowImageEdit.drawPointerDown(msg.payload);
+                    } },
+                    { state: activeSubTool, operation: '===', value: 'magic', callback: () => {
+                        workflowImageEdit.magicPointerDown(msg.payload);
+                    } },
+                ]);
+                break;
+            }
+            case 'imageEdit.interactCanvas.pointerMove': {
+                const activeSubTool = workflowImageEdit.getActiveSubTool();
+                VirtualMachineState.run([
+                    { state: activeSubTool, operation: '===', value: 'crop', callback: () => {
+                        workflowImageEdit.cropPointerMove(msg.payload);
+                    } },
+                    { state: activeSubTool, operation: '===', value: 'draw', callback: () => {
+                        workflowImageEdit.drawPointerMove(msg.payload);
+                    } },
+                    // Tách nền KHÔNG cần theo dõi pointermove (chỉ 1 điểm chạm là đủ, xem
+                    // magicPointerDown()) — KHÔNG có rule 'magic' ở đây, cố ý.
+                ]);
+                break;
+            }
+            case 'imageEdit.interactCanvas.pointerUp': {
+                const activeSubTool = workflowImageEdit.getActiveSubTool();
+                VirtualMachineState.run([
+                    { state: activeSubTool, operation: '===', value: 'crop', callback: () => {
+                        workflowImageEdit.cropPointerUp();
+                    } },
+                    { state: activeSubTool, operation: '===', value: 'draw', callback: () => {
+                        workflowImageEdit.drawPointerUp();
+                    } },
+                ]);
+                break;
+            }
+
+            // Đích CỐ ĐỊNH (không phân theo `_activeSubTool` — chính 3 hàm này tự guard bằng
+            // `_activeSubTool`/`_textDragging` bên trong, xem docstring từng hàm,
+            // event/workflow/image-edit.js). `pointerMove`/`pointerUp` bắn TỪ `document` TOÀN APP,
+            // không chỉ lúc Photo Edit mở — 2 hàm Workflow tương ứng return sớm gần như luôn luôn.
+            case 'imageEdit.floatingText.pointerDown': {
+                workflowImageEdit.startTextDrag();
+                break;
+            }
+            case 'imageEdit.floatingText.pointerMove': {
+                workflowImageEdit.updateTextDrag(msg.payload.x, msg.payload.y);
+                break;
+            }
+            case 'imageEdit.floatingText.pointerUp': {
+                workflowImageEdit.endTextDrag();
+                break;
+            }
+
+            case 'imageEdit.adjust.slider.input': {
+                workflowImageEdit.updateAdjustSlider(msg.payload.value);
+                break;
+            }
+            case 'imageEdit.magic.slider.input': {
+                workflowImageEdit.updateMagicSlider(msg.payload.value);
+                break;
+            }
+
             default:
                 console.warn(`[router:imageEdit] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`, msg);
         }
