@@ -499,7 +499,7 @@ const workflowPlaylist = {
         };
         if (isFirstOpen) openGenericDrawer(config); // core/generic-drawer.js
         else updateGenericDrawer(config); // core/generic-drawer.js
-        this._wireFolderPickerEvents();
+        wirePlaylistFolderPickerEvents(); // core/file-manager/folder-picker-ui.js
     },
 
     _buildFolderPickerHeaderHtml() {
@@ -511,39 +511,6 @@ const workflowPlaylist = {
                 </button>
             </div>
         `;
-    },
-
-    /** Wire lại TOÀN BỘ sự kiện SAU MỖI lần vẽ grid (nội dung genericDrawerBody bị thay hoàn
-     * toàn mỗi lần) — mọi callback CHỈ bắn eventBus.send(), KHÔNG gọi thẳng tên hàm nào (Rule 5a
-     * MỚI). Input sửa tên (nếu đang có) tự focus + select ngay — KHÔNG qua eventBus (đây là hành
-     * vi UI thuần "đặt con trỏ vào ô vừa hiện ra", không phải 1 hành động nghiệp vụ). */
-    _wireFolderPickerEvents() {
-        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-        if (closeBtn) closeBtn.addEventListener('click', () => {
-            eventBus.send({ router: 'playlist', type: 'playlist.folderPicker.close.click', payload: {} });
-        });
-
-        genericDrawerBody.querySelectorAll('.generic-item-folder-tile').forEach((tileEl) => {
-            tileEl.addEventListener('click', () => {
-                eventBus.send({ router: 'playlist', type: 'playlist.folderPicker.tile.click', payload: { folderId: tileEl.dataset.folderId } });
-            });
-        });
-
-        const addTileEl = genericDrawerBody.querySelector('#generic-folder-picker-add-tile');
-        if (addTileEl) addTileEl.addEventListener('click', () => {
-            eventBus.send({ router: 'playlist', type: 'playlist.folderPicker.addTile.click', payload: {} });
-        });
-
-        const renameInputEl = genericDrawerBody.querySelector('.generic-folder-tile-rename-input');
-        if (renameInputEl) {
-            renameInputEl.focus();
-            renameInputEl.select();
-            const commit = () => {
-                eventBus.send({ router: 'playlist', type: 'playlist.folderPicker.rename.commit', payload: { folderId: renameInputEl.closest('[data-folder-id]').dataset.folderId, name: renameInputEl.value } });
-            };
-            renameInputEl.addEventListener('blur', commit);
-            renameInputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') renameInputEl.blur(); }); // Enter -> blur -> tự trigger commit ở trên, không lặp lại logic
-        }
     },
 
     /** msg.type = 'playlist.folderPicker.tile.click' — user CHỌN xong 1 folder (có sẵn hoặc vừa

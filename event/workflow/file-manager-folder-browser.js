@@ -19,19 +19,18 @@
  * browse Song sẽ hiện sai tên. Đã thay `getFolderItemsForDisplay()` (core/file-manager/folder.js,
  * MỚI) đọc TRỰC TIẾP `service/db.js` theo `folder.type`.
  *
- * WIRING SỰ KIỆN — ĐÚNG khuôn document-reader.js (KHÁC hẳn Settings Panel Stack cũ): mọi tương tác
- * BÊN TRONG Generic Drawer (tile/back/đóng/sửa tên/xoá/remove item/toggle/phân trang) gọi THẲNG
- * `this.xxx()` (Workflow tự gọi Workflow, không bị Rule 3 — rule đó CHỈ áp cho Core), KHÔNG qua
- * eventBus — nội dung `genericDrawerBody` bị thay HOÀN TOÀN mỗi lần render lại nên không cần tự gỡ
- * listener cũ. CHỈ 2 msg.type còn qua eventBus/Router thật: nút "Duyệt thư mục" (nằm NGOÀI Generic
- * Drawer, trong panel Song & Video — event/listener/file-manager-song.js delegate như mọi nút tĩnh
- * khác) và modal đổi tên folder (core/file-manager/folder-picker-ui.js::openRenameFolderModal(),
- * DOM overlay riêng NGOÀI genericDrawerBody, giữ nguyên cơ chế eventBus đã có).
+ * WIRING SỰ KIỆN — SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải
+ * workflow") — TRƯỚC ĐÂY mọi tương tác BÊN TRONG Generic Drawer (tile/back/đóng/sửa tên/xoá/remove
+ * item/toggle/phân trang) gọi THẲNG `this.xxx()`, KHÔNG qua eventBus (tự nhận "Workflow tự gọi
+ * Workflow, không bị Rule 3" để biện minh) — SAI: vấn đề không phải Rule 3 (Core gọi Core), mà là
+ * Rule 5a (DOM động phải do CORE wire, callback CHỈ được `eventBus.send()`). Toàn bộ wiring ĐÃ DỜI
+ * sang core/file-manager/folder-picker-ui.js::wireFolderBrowserListEvents()/
+ * wireFolderBrowserReadEvents() — đi qua ĐÚNG Router (event/router/file-manager-folder-browser.js)
+ * như mọi domain khác, KHÔNG còn ngoại lệ nào.
  *
- * BLOCK GATE (event/block.js) — KHÔNG còn đăng ký cho toggle Scope ở đây (khác Batch 4): Block gate
- * chỉ chặn được message ĐI QUA eventBus.send() — toggle giờ gọi thẳng `this._enableScope()`, không
- * còn message nào để chặn. Thay bằng guard clause THẲNG trong `_enableScope()` (cùng điều kiện cũ:
- * rỗng + chưa active) + `disabled` attribute trên checkbox (đã có từ Batch 4) làm lớp phòng vệ UI.
+ * BLOCK GATE (event/block.js) — VẪN chưa đăng ký lại cho toggle Scope (nay lại đi qua eventBus,
+ * có thể đăng ký được) — giữ nguyên guard clause trong `enableScope()` làm lớp phòng vệ chính (đủ
+ * dùng, không bắt buộc phải có Block gate) + `disabled` attribute trên checkbox (Batch 4).
  *
  * VIDEO — SỬA (phản hồi Giang 28/07/2026, HOÀN THIỆN "thêm Video vào folder") — `folder.type ===
  * 'video'` giờ hoạt động ĐẦY ĐỦ: `addSongsToFolder()`/`removeSongFromFolder()`/
@@ -102,7 +101,7 @@ const workflowFileManagerFolderBrowser = {
             bodyClass: 'overflow-y-auto',
         };
         if (isFirstOpen) openGenericDrawer(config); else updateGenericDrawer(config); // core/generic-drawer.js
-        this._wireListEvents();
+        wireFolderBrowserListEvents(); // core/file-manager/folder-picker-ui.js
     },
 
     _buildListHeaderHtml() {
@@ -116,30 +115,9 @@ const workflowFileManagerFolderBrowser = {
         `;
     },
 
-    _wireListEvents() {
-        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-        if (closeBtn) closeBtn.addEventListener('click', () => this.closeBrowser());
-
-        genericDrawerBody.querySelectorAll('.generic-item-folder-tile').forEach((tileEl) => {
-            tileEl.addEventListener('click', () => this.openRead(tileEl.dataset.folderId));
-        });
-
-        const addTileEl = genericDrawerBody.querySelector('#generic-folder-picker-add-tile');
-        if (addTileEl) addTileEl.addEventListener('click', () => this._createFolderInBrowser());
-
-        const renameInputEl = genericDrawerBody.querySelector('.generic-folder-tile-rename-input');
-        if (renameInputEl) {
-            renameInputEl.focus();
-            renameInputEl.select();
-            const commit = () => this._commitListRename(renameInputEl.closest('[data-folder-id]').dataset.folderId, renameInputEl.value);
-            renameInputEl.addEventListener('blur', commit);
-            renameInputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') renameInputEl.blur(); }); // Enter -> blur -> tự trigger commit, không lặp logic
-        }
-    },
-
     /** Tạo NGAY 1 folder tên tự động (không trùng tên bất kỳ folder nào đang có), vào thẳng chế độ
      * sửa tên (focus sẵn) — cùng khuôn `createFolderInPicker()` (event/workflow/playlist.js). */
-    async _createFolderInBrowser() {
+    async createFolderInBrowser() {
         const defaultName = this._computeDefaultFolderName();
         const folderId = await resolveFolderId(defaultName); // core/file-manager/folder.js
         const result = await createFolder(folderId, defaultName); // core/file-manager/folder.js
@@ -158,7 +136,7 @@ const workflowFileManagerFolderBrowser = {
         return name;
     },
 
-    async _commitListRename(folderId, rawName) {
+    async commitListRename(folderId, rawName) {
         this._editingFolderId = null;
         const name = rawName.trim();
         if (!name) { this._renderList(false); return; } // guard: bỏ trống -> huỷ sửa, giữ tên mặc định vừa tạo
@@ -291,46 +269,12 @@ const workflowFileManagerFolderBrowser = {
     },
 
     _wireReadEvents() {
-        const backBtn = genericDrawerHeader.querySelector('#btn-folder-browser-read-back');
-        if (backBtn) backBtn.addEventListener('click', () => this.openList());
-
-        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-        if (closeBtn) closeBtn.addEventListener('click', () => this.closeBrowser());
-
-        const renameBtn = genericDrawerHeader.querySelector('#btn-folder-browser-read-rename');
-        if (renameBtn) renameBtn.addEventListener('click', () => this._promptRename());
-
-        const deleteBtn = genericDrawerHeader.querySelector('#btn-folder-browser-read-delete');
-        if (deleteBtn) deleteBtn.addEventListener('click', () => this._confirmDeleteFolder());
-
-        genericDrawerBody.querySelectorAll('[data-remove-song-key]').forEach((btn) => {
-            btn.addEventListener('click', () => this._removeItem(btn.dataset.removeSongKey));
-        });
-
-        const removeAllBtn = genericDrawerBody.querySelector('#btn-folder-browser-read-remove-all');
-        if (removeAllBtn) removeAllBtn.addEventListener('click', () => this._confirmRemoveAllItems());
-
-        const paginationEl = genericDrawerBody.querySelector('#folder-browser-read-pagination');
-        // data-pagination-action="goto" + data-page-index="N" — ĐÚNG thuộc tính thật core/
-        // pagination.js phát ra (mode 'list', xem buildPaginationListHtml()). LƯU Ý thẩm mỹ (KHÔNG
-        // phải lỗi chức năng): hàm này tô màu sẵn cho nền TỐI (Settings panel) — text-slate-300 trên
-        // nền TRẮNG của Generic Drawer sẽ hơi nhạt, chấp nhận được vì đây là component DÙNG CHUNG,
-        // không sửa riêng cho 1 nơi gọi (core/pagination.js phục vụ nhiều nơi khác nền tối).
-        if (paginationEl) paginationEl.querySelectorAll('[data-pagination-action="goto"]').forEach((btn) => {
-            btn.addEventListener('click', () => this._goToReadPage(parseInt(btn.dataset.pageIndex, 10)));
-        });
-
-        const scopeToggle = genericDrawerBody.querySelector('#toggle-folder-browser-read-scope');
-        if (scopeToggle) scopeToggle.addEventListener('change', (e) => {
-            if (e.target.checked) this._enableScope(); else this._disableScope();
-        });
-        const excludeToggle = genericDrawerBody.querySelector('#toggle-folder-browser-read-exclude');
-        if (excludeToggle) excludeToggle.addEventListener('change', (e) => this._setExclude(e.target.checked));
+        wireFolderBrowserReadEvents(); // core/file-manager/folder-picker-ui.js
     },
 
-    async _goToReadPage(pageIndex) {
+    async goToReadPage(pageIndex) {
         appState.set('pageCurrentFolderDetailSongList', pageIndex);
-        console.log(`writer: "_goToReadPage", page: "pageCurrentFolderDetailSongList", content: "${pageIndex}"`);
+        console.log(`writer: "goToReadPage", page: "pageCurrentFolderDetailSongList", content: "${pageIndex}"`);
         await this._refreshRead();
     },
 
@@ -354,7 +298,7 @@ const workflowFileManagerFolderBrowser = {
     /** Bật Scope. Guard THẲNG (thay Block gate cũ, xem docstring đầu file): rỗng + chưa active ->
      * không làm gì (checkbox đã `disabled` nên bình thường không tới được đây, guard này là lớp
      * phòng vệ thứ 2). */
-    async _enableScope() {
+    async enableScope() {
         if (this._readAllItems.length === 0 && this._readFolderId !== appState.get('activePlayListFolder')) return;
         const folderId = this._readFolderId;
         await workflowPlaylistScope.persistScopeChoice(folderId);
@@ -362,13 +306,13 @@ const workflowFileManagerFolderBrowser = {
         workflowPlaylistScope.askReloadToApplyNow(this._folderText('fileManager.song.folderDetail.applyReloadBody', { name: escapeHtml(this._readFolderRecord ? this._readFolderRecord.name : '') }));
     },
 
-    async _disableScope() {
+    async disableScope() {
         await workflowPlaylistScope.persistScopeChoice(null);
         this._updateScopeToggleUI(this._readAllItems.length === 0);
         workflowPlaylistScope.askReloadToApplyNow(this._folderText('fileManager.song.folderDetail.unapplyReloadBody'));
     },
 
-    async _setExclude(enabled) {
+    async setExclude(enabled) {
         await setFolderExcludeFlag(this._readFolderId, enabled); // core/file-manager/folder.js
         workflowPlaylistScope.askReloadToApplyNow(enabled
             ? this._folderText('fileManager.song.folderDetail.excludeOnReloadBody')
@@ -377,7 +321,7 @@ const workflowFileManagerFolderBrowser = {
 
     /** Gỡ 1 item khỏi folder (KHÔNG xoá bài/video thật). Rỗng hoàn toàn + đang là scope hiện tại ->
      * tự bỏ áp dụng (cùng logic đã có từ trước Batch 4). */
-    async _removeItem(key) {
+    async removeItem(key) {
         const folderId = this._readFolderId;
         const mediaType = this._readFolderRecord && this._readFolderRecord.type; // xem SỬA 28/07/2026 ở core/file-manager/folder.js — đọc đúng type đã khoá của folder
         await removeSongFromFolder(key, folderId, mediaType); // core/file-manager/folder.js
@@ -390,7 +334,7 @@ const workflowFileManagerFolderBrowser = {
         }
     },
 
-    _confirmRemoveAllItems() {
+    confirmRemoveAllItems() {
         const folderId = this._readFolderId;
         modalChoice( // core/modal-choice.js
             this._folderText('fileManager.song.folderDetail.removeAllConfirm'),
@@ -411,7 +355,7 @@ const workflowFileManagerFolderBrowser = {
         );
     },
 
-    _promptRename() {
+    promptRename() {
         if (!this._readFolderRecord) return;
         openRenameFolderModal(this._readFolderRecord.name, this._readFolderId); // core/file-manager/folder-picker-ui.js — tự bắn eventBus router 'fileManagerFolderBrowser' khi bấm Lưu
     },
@@ -427,7 +371,7 @@ const workflowFileManagerFolderBrowser = {
         if (this._mode === 'read' && this._readFolderId === folderId) await this._refreshRead();
     },
 
-    _confirmDeleteFolder() {
+    confirmDeleteFolder() {
         if (!this._readFolderRecord) return;
         const folderId = this._readFolderId;
         const folderName = this._readFolderRecord.name;
