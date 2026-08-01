@@ -23,11 +23,12 @@ const workflowImageEdit = {
     _activeEditParams: null,       // {brightness,contrast,saturation,temperature,tint,sharpen} — null khi không ở Edit mode
     _activeAdjustParam: null,      // key param đang mở slider — null khi popup adjust đang ẩn
     _activeSubTool: 'none',        // 'none'|'crop'|'draw'|'text'|'magic' — KHÁC 'adjust' (live-preview trực tiếp, không có sub-tool mode riêng)
-    _subToolPointerCleanup: null,  // hàm gỡ Pointer Events của sub-tool đang mở
-    _textDragCleanup: null,        // hàm gỡ Pointer Events kéo-thả floatingText (tool Text)
     _editToolGridClickHandler: null, // hàm GỠ trả về từ wirePhotoEditToolGridDelegation() (core/file-manager/photo-ui.js), wire 1 lần/phiên
     _cropSession: null,            // session core/crop-selector.js — chỉ có nghĩa khi _activeSubTool==='crop'
     _drawType: 'brush',            // 'brush'|'eraser'
+    _drawSessionActive: false,     // SỬA (31/07/2026, Nhóm B) — THAY biến `isDrawing` closure cũ (đã xoá cùng _wireSubToolPointerEvents()) — true trong lúc đang kéo vẽ 1 nét
+    _drawLastPos: null,            // THAY biến `lastPos` closure cũ — điểm cuối cùng đã vẽ, nối tiếp nét kế tiếp
+    _textDragging: false,          // SỬA (31/07/2026, Nhóm B) — THAY biến `dragging` closure cũ (đã xoá cùng _wireFloatingTextDrag()) — true trong lúc đang kéo floatingText. Router gọi updateTextDrag()/endTextDrag() TỪ document pointermove/pointerup TOÀN APP (event/listener/image-edit.js) — field này là "cổng" duy nhất quyết định có làm gì hay không
 
     /** Cấu hình min/max mỗi param điều chỉnh — sharpen từ 0 (không "âm"), còn lại -100..100. */
     _adjustParamConfig: {
@@ -148,11 +149,6 @@ const workflowImageEdit = {
      * `exitAdjustTool()`) — nút đó giờ wire ĐÚNG 1 LẦN lúc dựng modal (core/file-manager/photo-
      * ui.js), bắn `imageEdit.adjust.done.click` cố định.
      * `adjustSliderEl.oninput` VẪN gọi thẳng `this._renderEditPreview()` (không qua eventBus) —
-     * ĐÂY KHÔNG PHẢI ngoại lệ đã audit chính thức nào (Rule 4 CHỈ miễn `console.log` hot-path
-     * 60fps, KHÔNG miễn eventBus — xem readme/core-function-conventions.md). Giữ tạm vì lý do hiệu
-     * năng thực tế (kéo tay bắn hàng chục event/giây), NHƯNG đây là nợ kỹ thuật CHƯA qua audit,
-     * không phải pattern được duyệt — cần Giang chốt có audit chính thức (như `modalChoice()`) hay
-     * bắt buộc route qua eventBus.
      * @param {string} paramKey - 'brightness'|'contrast'|'saturation'|'temperature'|'tint'|'sharpen'
      */
     openAdjustTool(paramKey) {
@@ -168,13 +164,19 @@ const workflowImageEdit = {
         handle.adjustSliderEl.value = this._activeEditParams[paramKey];
         handle.adjustValueEl.textContent = this._activeEditParams[paramKey];
         handle.adjustPopup.classList.remove('hidden');
+    },
 
-        handle.adjustSliderEl.oninput = (e) => {
-            const val = parseInt(e.target.value, 10);
-            this._activeEditParams[paramKey] = val;
-            handle.adjustValueEl.textContent = val;
-            taskManager.once(() => this._renderEditPreview(), 60, 'photoEditAdjustPreview'); // service/task-manager.js — debounce
-        };
+    /** Ứng với `imageEdit.adjust.slider.input` (kéo slider popup Điều chỉnh, wire 1 lần ở photo-
+     * ui.js — SỬA 31/07/2026, Giang chỉ ra Nhóm B không có ngoại lệ, dời khỏi `.oninput=` gán lại
+     * mỗi lần mở tool). Debounce qua `taskManager.once()`. Public — Router gọi trực tiếp.
+     * @param {number} value
+     */
+    updateAdjustSlider(value) {
+        const handle = this._activeImageModalHandle;
+        if (!handle || !this._activeAdjustParam) return; // guard: bắn tới lúc không có slider nào đang mở
+        this._activeEditParams[this._activeAdjustParam] = value;
+        handle.adjustValueEl.textContent = value;
+        taskManager.once(() => this._renderEditPreview(), 60, 'photoEditAdjustPreview'); // service/task-manager.js — debounce
     },
 
     /** Ứng với `imageEdit.adjust.done.click` (nút "xong" ở popup Điều chỉnh, wire 1 lần ở photo-
@@ -198,65 +200,36 @@ const workflowImageEdit = {
     },
 
     /** @returns {string} 'none'|'crop'|'draw'|'text'|'magic' — khe ĐỌC cho Router (`imageEdit`)
-     * chọn đúng hàm Áp dụng khi bấm `contextApplyBtn` (dùng CHUNG cho cả 4 sub-tool, hành vi khác
-     * nhau theo tool đang mở — xem case 'imageEdit.subTool.apply.click'). */
+     * chọn đúng hàm khi bấm `contextApplyBtn` HOẶC khi nhận pointer event trên `interactCanvas`
+     * (dùng CHUNG cho cả 4 sub-tool, hành vi khác nhau theo tool đang mở). */
     getActiveSubTool() { return this._activeSubTool; },
 
-    // ===================== Hạ tầng dùng chung cho Crop/Vẽ/Text/Tách nền =====================
-    // 4 tool này (khác "Điều chỉnh" — live-preview, không cần UI riêng) đều: ẩn header/hiện
-    // contextBar, gắn Pointer Events lên interactCanvas, lúc Huỷ/Áp dụng xong -> exitSubTool() dọn
-    // sạch + mở lại lưới tool.
-
-    /** Toạ độ CSS hiển thị -> pixel THẬT của canvas (canvas có thể hiện nhỏ/lớn hơn độ phân giải
-     * nội bộ tuỳ màn hình). @returns {number} */
+    /** Toạ độ CSS hiển thị -> pixel THẬT của canvas — Workflow tự tính lại khi cần (vẽ overlay, bán
+     * kính chạm handle...), KHÁC với toạ độ Core đã tính sẵn gửi kèm payload pointer event (2 nơi
+     * cần tính, không đáng gộp thành 1 hàm dùng chung xuyên Core/Workflow — Rule 3a không cho Core
+     * gọi Core, nên Core tự có bản tính riêng trong chính photo-ui.js). @returns {number} */
     _editScale() {
         const canvas = this._activeImageModalHandle.interactCanvas;
         const rect = canvas.getBoundingClientRect();
         return canvas.width / (rect.width || canvas.width || 1); // guard chia 0 hiếm (canvas chưa layout xong)
     },
 
-    /** @param {number} clientX @param {number} clientY @returns {{x:number,y:number}} */
-    _editPointerToCanvas(clientX, clientY) {
-        const canvas = this._activeImageModalHandle.interactCanvas;
-        const rect = canvas.getBoundingClientRect();
-        const scale = this._editScale();
-        return { x: (clientX - rect.left) * scale, y: (clientY - rect.top) * scale };
-    },
-
-    /** Gắn Pointer Events lên `interactCanvas`, tự map toạ độ CSS -> pixel canvas. Lưu hàm gỡ vào
-     * `_subToolPointerCleanup`. KHÔNG qua eventBus (như `adjustSliderEl.oninput` ở trên) — CÙNG
-     * nợ kỹ thuật CHƯA qua audit, giữ tạm vì lý do hiệu năng (pointermove bắn liên tục lúc kéo).
-     * @param {(pos:{x:number,y:number}) => void} onDown
-     * @param {(pos:{x:number,y:number}) => void} onMove
-     * @param {() => void} onUp
-     */
-    _wireSubToolPointerEvents(onDown, onMove, onUp) {
-        const canvas = this._activeImageModalHandle.interactCanvas;
-        const handleDown = (e) => onDown(this._editPointerToCanvas(e.clientX, e.clientY));
-        const handleMove = (e) => onMove(this._editPointerToCanvas(e.clientX, e.clientY));
-        const handleUp = () => onUp();
-        canvas.addEventListener('pointerdown', handleDown);
-        canvas.addEventListener('pointermove', handleMove);
-        canvas.addEventListener('pointerup', handleUp);
-        canvas.addEventListener('pointerleave', handleUp);
-        this._subToolPointerCleanup = () => {
-            canvas.removeEventListener('pointerdown', handleDown);
-            canvas.removeEventListener('pointermove', handleMove);
-            canvas.removeEventListener('pointerup', handleUp);
-            canvas.removeEventListener('pointerleave', handleUp);
-        };
-    },
-
     /** Ứng với `imageEdit.subTool.cancel.click` (nút Huỷ ở contextBar, wire 1 lần ở photo-ui.js,
      * DÙNG CHUNG cho cả 4 sub-tool — hành vi GIỐNG HỆT nhau bất kể tool nào đang mở, nên KHÔNG cần
-     * Router phân theo `_activeSubTool` như `apply`). Thoát 1 sub-tool VỀ lưới tool — gỡ listener,
-     * xoá `interactCanvas`, ẩn contextBar/floatingText/popup riêng từng tool, hiện lại header, mở
-     * lại Generic Drawer. Public — Router gọi trực tiếp. */
+     * Router phân theo `_activeSubTool` như `apply`). Thoát 1 sub-tool VỀ lưới tool — xoá
+     * `interactCanvas`, ẩn contextBar/floatingText/popup riêng từng tool, hiện lại header, mở lại
+     * Generic Drawer. Public — Router gọi trực tiếp.
+     * SỬA (31/07/2026, Giang chỉ ra Nhóm B không có ngoại lệ) — KHÔNG còn gỡ
+     * `_subToolPointerCleanup`/`_textDragCleanup` (2 field đó đã XOÁ) — `interactCanvas`/
+     * `floatingText`/`document` giờ wire VĨNH VIỄN 1 lần ở photo-ui.js/listener, KHÔNG theo vòng
+     * đời sub-tool nữa (Router tự gate theo `_activeSubTool`/`_textDragging`, xem
+     * `getActiveSubTool()`/2 case pointer/floatingText ở event/router/image-edit.js). Vẫn phải
+     * dừng phiên kéo Text đang dở (nếu có) — set `_textDragging = false`, KHÔNG có DOM listener nào
+     * để gỡ cả. */
     exitSubTool() {
         const handle = this._activeImageModalHandle;
         if (!handle) return;
-        if (this._subToolPointerCleanup) { this._subToolPointerCleanup(); this._subToolPointerCleanup = null; }
-        if (this._textDragCleanup) { this._textDragCleanup(); this._textDragCleanup = null; }
+        this._textDragging = false;
         handle.interactCanvas.getContext('2d').clearRect(0, 0, handle.interactCanvas.width, handle.interactCanvas.height);
         handle.contextBar.classList.add('hidden');
         handle.contextApplyBtn.classList.remove('hidden'); // reset — _startMagicTool() tự ẩn nút này
@@ -273,7 +246,9 @@ const workflowImageEdit = {
     // Tương tác (khung/handle/kéo tay) ở core/crop-selector.js — DÙNG CHUNG với Video Editor. File
     // này chỉ giữ `_cropSession` + phần "Áp dụng" riêng của Photo (cắt pixel thật ngay).
 
-    /** Vào tool Crop — Photo KHÔNG khoá tỉ lệ khung hình (aspectRatio NaN = Tự do). */
+    /** Vào tool Crop — Photo KHÔNG khoá tỉ lệ khung hình (aspectRatio NaN = Tự do). Pointer events
+     * KHÔNG wire ở đây nữa (Core đã wire vĩnh viễn, xem `cropPointerDown()`/`cropPointerMove()`/
+     * `cropPointerUp()` — Router tự gọi khi `getActiveSubTool()==='crop'`). */
     _startCropTool() {
         const handle = this._activeImageModalHandle;
         this._activeSubTool = 'crop';
@@ -284,12 +259,28 @@ const workflowImageEdit = {
 
         this._cropSession = initCropSession(handle.baseCanvas.width, handle.baseCanvas.height); // core/crop-selector.js
         this._drawCropOverlay();
+    },
 
-        this._wireSubToolPointerEvents(
-            (pos) => cropSessionPointerDown(this._cropSession, pos, 30 * this._editScale()), // core/crop-selector.js
-            (pos) => { this._moveOrResizeCropSession(pos); this._drawCropOverlay(); },
-            () => cropSessionPointerUp(this._cropSession), // core/crop-selector.js
-        );
+    /** Ứng với `imageEdit.interactCanvas.pointerDown` lúc `getActiveSubTool()==='crop'`. Public —
+     * Router gọi trực tiếp. @param {{x:number,y:number}} pos */
+    cropPointerDown(pos) {
+        if (!this._cropSession) return; // guard: hiếm, lệch nhịp giữa Router đọc state và lúc hàm này thật sự chạy
+        cropSessionPointerDown(this._cropSession, pos, 30 * this._editScale()); // core/crop-selector.js
+    },
+
+    /** Ứng với `imageEdit.interactCanvas.pointerMove` lúc `getActiveSubTool()==='crop'`. Public —
+     * Router gọi trực tiếp. @param {{x:number,y:number}} pos */
+    cropPointerMove(pos) {
+        if (!this._cropSession) return;
+        this._moveOrResizeCropSession(pos);
+        this._drawCropOverlay();
+    },
+
+    /** Ứng với `imageEdit.interactCanvas.pointerUp` lúc `getActiveSubTool()==='crop'`. Public —
+     * Router gọi trực tiếp. */
+    cropPointerUp() {
+        if (!this._cropSession) return;
+        cropSessionPointerUp(this._cropSession); // core/crop-selector.js
     },
 
     /** Đọc `session.activeHandle` rồi chọn ĐÚNG 1 trong 3 hàm tính rect thuần của core/crop-
@@ -344,11 +335,14 @@ const workflowImageEdit = {
 
     /** Vào tool Vẽ — mặc định Cọ, gắn Pointer Events vẽ nét trực tiếp lên `interactCanvas` (nháp,
      * chưa gộp vào base tới khi bấm Áp dụng). Nút Cọ/Tẩy wire 1 lần ở photo-ui.js (xem
-     * `selectDrawBrush()`/`selectDrawEraser()`). */
+     * `selectDrawBrush()`/`selectDrawEraser()`). Pointer events KHÔNG wire ở đây nữa (Core đã wire
+     * vĩnh viễn, xem `drawPointerDown()`/`drawPointerMove()`/`drawPointerUp()`). */
     _startDrawTool() {
         const handle = this._activeImageModalHandle;
         this._activeSubTool = 'draw';
         this._drawType = 'brush';
+        this._drawSessionActive = false;
+        this._drawLastPos = null;
         handle.header.classList.add('hidden');
         handle.contextBar.classList.remove('hidden');
         handle.contextApplyBtn.classList.remove('hidden');
@@ -356,13 +350,29 @@ const workflowImageEdit = {
         handle.drawControlsPopup.classList.remove('hidden');
         handle.drawBrushBtn.classList.add('text-primary'); handle.drawBrushBtn.classList.remove('text-white/60');
         handle.drawEraserBtn.classList.add('text-white/60'); handle.drawEraserBtn.classList.remove('text-primary');
+    },
 
-        let isDrawing = false, lastPos = null;
-        this._wireSubToolPointerEvents(
-            (pos) => { isDrawing = true; lastPos = pos; this._drawStroke(handle, pos, pos); },
-            (pos) => { if (isDrawing) { this._drawStroke(handle, lastPos, pos); lastPos = pos; } },
-            () => { isDrawing = false; },
-        );
+    /** Ứng với `imageEdit.interactCanvas.pointerDown` lúc `getActiveSubTool()==='draw'` — bắt đầu 1
+     * nét vẽ MỚI. Public — Router gọi trực tiếp. @param {{x:number,y:number}} pos */
+    drawPointerDown(pos) {
+        this._drawSessionActive = true;
+        this._drawLastPos = pos;
+        this._drawStroke(this._activeImageModalHandle, pos, pos);
+    },
+
+    /** Ứng với `imageEdit.interactCanvas.pointerMove` lúc `getActiveSubTool()==='draw'`. Public —
+     * Router gọi trực tiếp (mọi lúc, kể cả KHÔNG đang vẽ — tự guard `_drawSessionActive`, RẺ, an
+     * toàn). @param {{x:number,y:number}} pos */
+    drawPointerMove(pos) {
+        if (!this._drawSessionActive) return;
+        this._drawStroke(this._activeImageModalHandle, this._drawLastPos, pos);
+        this._drawLastPos = pos;
+    },
+
+    /** Ứng với `imageEdit.interactCanvas.pointerUp` lúc `getActiveSubTool()==='draw'` — kết thúc
+     * nét vẽ hiện tại. Public — Router gọi trực tiếp. */
+    drawPointerUp() {
+        this._drawSessionActive = false;
     },
 
     /** Ứng với `imageEdit.draw.selectBrush.click` (wire 1 lần ở photo-ui.js). Guard theo
@@ -425,12 +435,15 @@ const workflowImageEdit = {
 
     // ===================== Văn bản =====================
 
-    /** Vào tool Text — khung chữ nổi (`floatingText`) hiện giữa màn hình, kéo-thả bằng Pointer
-     * Events trên chính nó + `document` (KHÁC `interactCanvas` — không cần vẽ pixel lúc kéo). Nút
-     * Huỷ/Áp dụng wire 1 lần ở photo-ui.js. */
+    /** Vào tool Text — khung chữ nổi (`floatingText`) hiện giữa màn hình, kéo-thả được (Pointer
+     * events KHÔNG wire ở đây nữa — Core wire `floatingText.pointerdown` vĩnh viễn, `document`
+     * pointermove/pointerup wire vĩnh viễn ở event/listener/image-edit.js, xem
+     * `startTextDrag()`/`updateTextDrag()`/`endTextDrag()`). Nút Huỷ/Áp dụng wire 1 lần ở
+     * photo-ui.js. */
     _startTextTool() {
         const handle = this._activeImageModalHandle;
         this._activeSubTool = 'text';
+        this._textDragging = false;
         handle.header.classList.add('hidden');
         handle.contextBar.classList.remove('hidden');
         handle.contextApplyBtn.classList.remove('hidden');
@@ -448,33 +461,33 @@ const workflowImageEdit = {
         const sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(range);
-
-        this._wireFloatingTextDrag(handle);
     },
 
-    /** Kéo-thả `floatingText` bằng Pointer Events — nghe `pointermove`/`pointerup` trên `document`
-     * (không chỉ trên chính phần tử — ngón tay/chuột trượt ra ngoài vẫn phải theo dõi tiếp). Lưu
-     * hàm gỡ vào `_textDragCleanup` — `exitSubTool()` tự gọi khi thoát tool. CÙNG nợ kỹ thuật hiệu
-     * năng như `_wireSubToolPointerEvents()` (chưa qua audit, xem docstring hàm đó).
-     */
-    _wireFloatingTextDrag(handle) {
-        let dragging = false;
-        const onDown = () => { dragging = true; };
-        const onMove = (e) => {
-            if (!dragging) return;
-            handle.floatingText.style.left = e.clientX + 'px';
-            handle.floatingText.style.top = e.clientY + 'px';
-            handle.floatingText.style.transform = 'translate(-50%, -50%)';
-        };
-        const onUp = () => { dragging = false; };
-        handle.floatingText.addEventListener('pointerdown', onDown);
-        document.addEventListener('pointermove', onMove);
-        document.addEventListener('pointerup', onUp);
-        this._textDragCleanup = () => {
-            handle.floatingText.removeEventListener('pointerdown', onDown);
-            document.removeEventListener('pointermove', onMove);
-            document.removeEventListener('pointerup', onUp);
-        };
+    /** Ứng với `imageEdit.floatingText.pointerDown` (chạm vào `floatingText`, wire vĩnh viễn ở
+     * photo-ui.js) — bắt đầu phiên kéo. Public — Router gọi trực tiếp. Guard `_activeSubTool` —
+     * `floatingText` chỉ HIỆN/hit-test được lúc tool Text đang mở nên hiếm khi cần, vẫn tự vệ. */
+    startTextDrag() {
+        if (this._activeSubTool !== 'text') return;
+        this._textDragging = true;
+    },
+
+    /** Ứng với `imageEdit.floatingText.pointerMove` — bắn LIÊN TỤC từ `document` TOÀN APP (event/
+     * listener/image-edit.js, KHÔNG chỉ lúc Photo Edit mở) — guard `_textDragging` là "cổng" DUY
+     * NHẤT, phần lớn lời gọi return ngay ở đây. Public — Router gọi trực tiếp.
+     * @param {number} x @param {number} y */
+    updateTextDrag(x, y) {
+        if (!this._textDragging) return;
+        const handle = this._activeImageModalHandle;
+        if (!handle) return;
+        handle.floatingText.style.left = x + 'px';
+        handle.floatingText.style.top = y + 'px';
+        handle.floatingText.style.transform = 'translate(-50%, -50%)';
+    },
+
+    /** Ứng với `imageEdit.floatingText.pointerUp` — CÙNG bắn liên tục toàn app như
+     * `updateTextDrag()`. Public — Router gọi trực tiếp. */
+    endTextDrag() {
+        this._textDragging = false;
     },
 
     /** Áp dụng Text — "nướng" thẳng lên `base` MỚI (gồm Điều chỉnh hiện tại gộp vào trước), tại
@@ -507,7 +520,8 @@ const workflowImageEdit = {
 
     /** Vào tool Tách nền — CHỈ hiện nút Huỷ ở contextBar (mỗi lần chạm áp dụng NGAY vào base,
      * không có bước xác nhận riêng, KHÔNG cần `applyMagicTool()` riêng). Popup dưới đáy chỉnh dung
-     * sai màu TRƯỚC khi chạm. Nút Huỷ wire 1 lần ở photo-ui.js. */
+     * sai màu TRƯỚC khi chạm. Nút Huỷ wire 1 lần ở photo-ui.js. Slider dung sai + pointer down
+     * KHÔNG wire ở đây nữa (Core wire vĩnh viễn, xem `updateMagicSlider()`/`magicPointerDown()`). */
     _startMagicTool() {
         const handle = this._activeImageModalHandle;
         this._activeSubTool = 'magic';
@@ -516,23 +530,23 @@ const workflowImageEdit = {
         handle.contextApplyBtn.classList.add('hidden');
         handle.contextTitleEl.textContent = t('fileManager.photo.image.editToolMagic');
         handle.magicPopup.classList.remove('hidden');
-
-        handle.magicSliderEl.oninput = (e) => { handle.magicValueEl.textContent = e.target.value; };
-
-        this._wireSubToolPointerEvents(
-            (pos) => this._magicPointerDown(pos),
-            () => {},
-            () => {},
-        );
     },
 
-    /** Chạm 1 điểm — tách MÀU TRƠN quanh điểm đó khỏi TOÀN ẢNH (không phải flood-fill theo vùng
-     * liền kề, xem `applyMagicCutout()`, core/photo-editor-engine.js), áp NGAY vào `base` + vẽ lại
-     * `render`. `taskManager.once(fn, 10, ...)` — nhường 1 tick trước khi quét toàn ảnh (có thể vài
-     * chục-trăm ms với ảnh lớn), tránh cảm giác "đứng hình" lúc chạm.
+    /** Ứng với `imageEdit.magic.slider.input` (kéo slider dung sai màu, wire 1 lần ở photo-ui.js).
+     * Public — Router gọi trực tiếp. @param {number} value */
+    updateMagicSlider(value) {
+        if (this._activeSubTool !== 'magic') return; // guard: slider chỉ HIỆN lúc tool Tách nền mở
+        this._activeImageModalHandle.magicValueEl.textContent = value;
+    },
+
+    /** Ứng với `imageEdit.interactCanvas.pointerDown` lúc `getActiveSubTool()==='magic'` — chạm 1
+     * điểm, tách MÀU TRƠN quanh điểm đó khỏi TOÀN ẢNH (không phải flood-fill theo vùng liền kề, xem
+     * `applyMagicCutout()`, core/photo-editor-engine.js), áp NGAY vào `base` + vẽ lại `render`.
+     * `taskManager.once(fn, 10, ...)` — nhường 1 tick trước khi quét toàn ảnh (có thể vài chục-trăm
+     * ms với ảnh lớn), tránh cảm giác "đứng hình" lúc chạm. Public — Router gọi trực tiếp.
      * @param {{x:number,y:number}} pos
      */
-    _magicPointerDown(pos) {
+    magicPointerDown(pos) {
         const handle = this._activeImageModalHandle;
         const tolerance = parseInt(handle.magicSliderEl.value, 10);
         taskManager.once(() => { // service/task-manager.js
@@ -609,17 +623,21 @@ const workflowImageEdit = {
         await alertModal(t('fileManager.photo.image.editSaveNewSuccess'));
     },
 
-    /** Dọn Edit mode (nếu đang ở đó) — gỡ pointer listener sub-tool + kéo-thả text, gỡ delegated
-     * click lưới tool, ẩn canvasWrap, hiện lại `<img>`, đóng popup/contextBar từng tool + Generic
-     * Drawer, ẩn `toolsBtn`, xoá sạch state/snapshot. An toàn gọi khi KHÔNG đang Edit mode (guard
-     * `_activeEditParams`). Public — `workflowFileManagerPhoto` gọi ngược lại lúc thoát Zoom/Edit
-     * hoặc đóng hẳn modal (KHÔNG tự đổi `imagePreviewMode`, nơi gọi tự set 'view' sau). Xử lý được
-     * cả trường hợp thoát GIỮA CHỪNG 1 sub-tool.
+    /** Dọn Edit mode (nếu đang ở đó) — ẩn canvasWrap, hiện lại `<img>`, gỡ delegated click lưới
+     * tool, đóng popup/contextBar từng tool + Generic Drawer, ẩn `toolsBtn`, xoá sạch state/
+     * snapshot. An toàn gọi khi KHÔNG đang Edit mode (guard `_activeEditParams`). Public —
+     * `workflowFileManagerPhoto` gọi ngược lại lúc thoát Zoom/Edit hoặc đóng hẳn modal (KHÔNG tự
+     * đổi `imagePreviewMode`, nơi gọi tự set 'view' sau). Xử lý được cả trường hợp thoát GIỮA CHỪNG
+     * 1 sub-tool.
+     * SỬA (31/07/2026, Nhóm B) — KHÔNG còn gỡ `_subToolPointerCleanup`/`_textDragCleanup` (2 field
+     * đó đã XOÁ, `interactCanvas`/`floatingText`/`document` wire VĨNH VIỄN 1 lần, không theo vòng
+     * đời sub-tool nữa) — chỉ cần reset `_drawSessionActive`/`_textDragging` về false (dừng MỌI
+     * phiên kéo/vẽ đang dở, nếu có).
      */
     exitEditMode() {
         if (!this._activeEditParams) return;
-        if (this._subToolPointerCleanup) { this._subToolPointerCleanup(); this._subToolPointerCleanup = null; }
-        if (this._textDragCleanup) { this._textDragCleanup(); this._textDragCleanup = null; }
+        this._drawSessionActive = false;
+        this._textDragging = false;
         const handle = this._activeImageModalHandle;
         if (handle) {
             if (this._editToolGridClickHandler) { this._editToolGridClickHandler(); this._editToolGridClickHandler = null; }
