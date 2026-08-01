@@ -597,15 +597,80 @@ body {
     opacity: 0.5;
 }
 
-/* Modal xem/phát video full-screen (core/file-manager/video-ui.js::openVideoPreviewModal()) — cùng
-   khuôn .photo-preview-image/.photo-preview-scrim-top, nhưng `<video>` tự có letterbox tự nhiên
-   (object-fit: contain — KHÔNG cắt mất khung hình, khác Photo không cần đo hướng vì <video> native
-   controls đã quen thuộc với letterbox). */
-.video-preview-player {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
+/* .video-preview-player ĐÃ XOÁ ("Song/Video Unification" v12) — class cũ (`object-fit: contain`
+   phủ kín khung) KHÔNG dùng được cho modal xem Video mới: `videoEl` cần co theo kích thước THẬT
+   (max-w-full max-h-full, cùng chiến lược `cropCanvasEl`) để 2 hộp CSS canh khớp tuyệt đối cho
+   khung Crop vẽ đúng vị trí — xem core/file-manager/video-ui.js::openVideoPreviewModal(). */
+
+/* MỚI ("Song/Video Unification" v12) — dải phim (filmstrip) + 2 điểm Start/End kéo tay của modal
+   xem Video (core/file-manager/video-ui.js::openVideoPreviewModal()). Track chứa N khung hình nền
+   (đã trích qua buildCutFilmstripFrames(), core/video-editor/filmstrip.js) trải ĐỀU, phủ kín
+   100% chiều rộng — chiều rộng khối cha (`.video-preview-filmstrip-wrap`, có padding ngang) + chính
+   padding đó = khớp đúng chiều rộng màn hình (yêu cầu Giang mục 2a). */
+.video-preview-filmstrip-track {
+    position: relative;
+    height: 56px;
+    border-radius: 10px;
+    overflow: hidden;
     background: #000;
+    display: flex;
+}
+.video-preview-filmstrip-track > div {
+    flex: 1 1 0;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    background-color: rgba(255,255,255,0.06);
+}
+/* Phần NGOÀI [start,end] — phủ tối, cho thấy rõ đoạn sẽ bị cắt bỏ. */
+.video-preview-filmstrip-dim {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: rgba(0,0,0,0.65);
+    pointer-events: none;
+}
+/* Viền sáng bao quanh đúng đoạn [start,end] đang chọn. */
+.video-preview-filmstrip-range-border {
+    position: absolute;
+    top: 0; bottom: 0;
+    border-top: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    pointer-events: none;
+}
+/* 2 tay cầm Start/End — hình chữ nhật đứng, đúng yêu cầu Giang ("kéo dùng hình chữ nhật thẳng
+   đứng như phần mềm biên tập mobile", cùng tinh thần đã áp dụng ở core/video-editor/filmstrip.js). */
+.video-preview-trim-handle {
+    position: absolute;
+    top: -4px; bottom: -4px;
+    width: 18px;
+    margin-left: -9px;
+    background: #fff;
+    border-radius: 5px;
+    touch-action: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 6px rgba(0,0,0,0.5);
+}
+.video-preview-trim-handle::after {
+    content: '';
+    width: 3px;
+    height: 18px;
+    border-radius: 2px;
+    background: rgba(0,0,0,0.5);
+}
+
+/* Dải tỉ lệ Crop + toolbar dưới preview — nút tròn nhỏ, cùng khuôn header modal xem Ảnh. */
+.video-preview-ratio-btn {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.1);
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 600;
+}
+.video-preview-ratio-btn.is-active {
+    background: #fff;
+    color: #000;
 }
