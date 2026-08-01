@@ -708,11 +708,7 @@ const workflowSlideshow = {
             genericDrawerOverlay.removeEventListener('click', _albumPickerOverlayClickHandler);
             _albumPickerOverlayClickHandler = null;
         }
-        closeGenericDrawer(); // core/generic-drawer.js
-        genericDrawerPanel.addEventListener('transitionend', function onTransitionEnd() {
-            genericDrawerPanel.removeEventListener('transitionend', onTransitionEnd);
-            hideGenericDrawerImmediately(); // core/generic-drawer.js
-        }, { once: true });
+        workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
     },
 
     /** Ứng với select "Cách chọn ảnh kế tiếp" (sequential/random).

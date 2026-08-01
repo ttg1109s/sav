@@ -557,7 +557,7 @@ const workflowPlaylist = {
     /** msg.type = 'playlist.folderPicker.close.click'. */
     closeFolderPicker() {
         this._folderPickerOnPick = null;
-        this._closeGenericDrawerFully();
+        workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
     },
 
     /** msg.type = 'playlist.folderPicker.addTile.click' — tạo NGAY 1 folder tên tự động (không
@@ -602,18 +602,6 @@ const workflowPlaylist = {
             // Settings -> File Manager -> Song, nơi đó VẪN báo lỗi rõ ràng).
         }
         this._renderFolderPickerGrid(false);
-    },
-
-    /** Cùng pattern `_closeGenericDrawerFully()` ở event/workflow/document-reader.js —
-     * `closeGenericDrawer()` (core) CHỈ trượt xuống + mờ overlay, KHÔNG tự ẩn hẳn (Rule 5a: core
-     * không được tự addEventListener cho DOM TĨNH) — Workflow tự nghe `transitionend` rồi gọi
-     * `hideGenericDrawerImmediately()` để ẩn hẳn. */
-    _closeGenericDrawerFully() {
-        closeGenericDrawer(); // core/generic-drawer.js
-        genericDrawerPanel.addEventListener('transitionend', function onTransitionEnd() {
-            genericDrawerPanel.removeEventListener('transitionend', onTransitionEnd);
-            hideGenericDrawerImmediately(); // core/generic-drawer.js
-        }, { once: true });
     },
 
     /**

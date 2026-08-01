@@ -1005,19 +1005,15 @@ const workflowVideoEditor = {
         if (btn) btn.addEventListener('click', () => this._closeGenericDrawerFully());
     },
 
-    /** Đóng Generic Drawer (dùng CHUNG cho cả 4 loại nội dung) — cùng mẫu `document-reader.js`:
-     * `closeGenericDrawer()` chỉ trượt xuống, tự nghe `transitionend` rồi mới `hideGenericDrawerImmediately()`
-     * ẩn hẳn (core KHÔNG tự addEventListener cho DOM tĩnh, Rule 5a). Luôn refresh lại toolbar/track/
-     * preview sau khi đóng — AN TOÀN dù vừa đóng loại nội dung nào (đổi volume/text/nhạc đều cần).
-     * [SỬA 24/07/2026, mục e] — luôn dọn WaveSurfer của "Dịch chuyển đoạn" nếu đang sống (an toàn
-     * dù đóng từ loại nội dung Drawer nào — no-op nếu không phải đang mở "Dịch chuyển đoạn"). */
+    /** Đóng Generic Drawer (dùng CHUNG cho cả 4 loại nội dung) — lõi trượt xuống/ẩn hẳn dùng
+     * `workflowGenericDrawerHelpers.closeFully()` (event/workflow/generic-drawer-helpers.js). Luôn
+     * refresh lại toolbar/track/preview sau khi đóng — AN TOÀN dù vừa đóng loại nội dung nào (đổi
+     * volume/text/nhạc đều cần). Luôn dọn WaveSurfer của "Dịch chuyển đoạn" nếu đang sống trước đó
+     * (an toàn dù đóng từ loại nội dung Drawer nào — no-op nếu không phải đang mở "Dịch chuyển
+     * đoạn"). */
     _closeGenericDrawerFully() {
         this._destroyShiftWaveform();
-        closeGenericDrawer(); // core/generic-drawer.js
-        genericDrawerPanel.addEventListener('transitionend', function onTransitionEnd() {
-            genericDrawerPanel.removeEventListener('transitionend', onTransitionEnd);
-            hideGenericDrawerImmediately(); // core/generic-drawer.js
-        }, { once: true });
+        workflowGenericDrawerHelpers.closeFully();
         this._renderAllTracks();
         this._renderToolbar();
         this._drawFrame();

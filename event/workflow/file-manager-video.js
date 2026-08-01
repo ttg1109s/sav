@@ -72,7 +72,7 @@ const workflowFileManagerVideo = {
     /** Chụp 1 khung hình + đọc thời lượng của 1 file video, crop VUÔNG cố định
      * `VIDEO_THUMBNAIL_SIZE`×`VIDEO_THUMBNAIL_SIZE` (center-crop cạnh dài về giữa — MỚI, ver12
      * "Song/Video Unification", Batch 3, mục 4 plan, THAY hẳn resize theo tỉ lệ gốc cũ) — CÙNG lý
-     * do đặt ở Workflow (không phải core/file-manager/video.js) như `_resizeImageForThumbnail()`
+     * do đặt ở Workflow (không phải core/file-manager/video.js) như `resizeImageForThumbnail()`
      * (file-manager-photo.js): cần `<video>`/`canvas` — DOM API, core không được đụng theo Rule 1-4.
      * Chụp khung hình tại giây `min(1, duration/2)` — tránh giây đầu tiên hay bị đen/mờ (video vừa
      * mở), cũng tránh vọt quá xa nếu video ngắn hơn 1 giây.
@@ -360,19 +360,7 @@ const workflowFileManagerVideo = {
      * lối thoát picker (chọn xong/huỷ). */
     _teardownVideoPicker() {
         workflowVideoGalleryWindow.unmount('genericDrawer'); // event/workflow/video-gallery-window.js
-        this._closeGenericDrawerFully();
+        workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
         _videoPickerSession = null;
-    },
-
-    /** Trượt Generic Drawer xuống RỒI ẩn hẳn sau `transitionend` — cùng khuôn `_closeGenericDrawerFully()`
-     * ở event/workflow/file-manager-photo.js (Core `core/generic-drawer.js` KHÔNG được tự
-     * `addEventListener` cho DOM tĩnh, Rule 5a — chỉ Workflow được làm). Viết riêng bản của Video
-     * (Rule 3: mỗi domain module tự chứa, không gọi chéo Workflow khác cho tiện ích nhỏ này). */
-    _closeGenericDrawerFully() {
-        closeGenericDrawer(); // core/generic-drawer.js
-        genericDrawerPanel.addEventListener('transitionend', function onTransitionEnd() {
-            genericDrawerPanel.removeEventListener('transitionend', onTransitionEnd);
-            hideGenericDrawerImmediately(); // core/generic-drawer.js
-        }, { once: true });
     },
 };

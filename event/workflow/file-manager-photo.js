@@ -62,14 +62,14 @@ let _imagePickerSession = null; // MỚI (Giai đoạn 4) — session picker ả
 // event/workflow/photo-gallery-window.js::_loadGroup()), không cần hằng số riêng ở đây.
 // MỚI (Giai đoạn 1, rewrite Photo/Album, mục 3b/3c) — chiều cao CỐ ĐỊNH (px) của 1 hàng ảnh kiểu
 // "justified row" (Google Photos thật). Dùng ở 2 chỗ, BẮT BUỘC khớp nhau:
-//   1. `_resizeImageForThumbnail()` (ngay dưới) — resize `thumbBlob` lúc upload đúng chiều cao này.
+//   1. `resizeImageForThumbnail()` (ngay dưới) — resize `thumbBlob` lúc upload đúng chiều cao này.
 //   2. `rowHeight` truyền vào fjGallery (event/workflow/photo-gallery-window.js) — thư viện tự nong/
 //      co MỖI HÀNG THẬT quanh giá trị này (KHÔNG cố định tuyệt đối như bản windowing tự viết cũ —
 //      đây chính là đúng thuật toán Flickr/Google Photos, khác hẳn "mọi hàng cao ĐÚNG N px").
 // Giá trị 120 là mặc định hợp lý — đổi tuỳ ý, chỉ cần đổi ĐÚNG 1 chỗ (hằng số dùng chung).
 const PHOTO_ROW_HEIGHT_PX = 120;
 // MỚI (Giang yêu cầu — "resize thumb theo tỉ lệ 20% width và 20% height") — hệ số co CẢ 2 chiều lúc
-// resize `thumbBlob` (`_resizeImageForThumbnail()` ngay dưới). TÁCH BIỆT hẳn khỏi
+// resize `thumbBlob` (`resizeImageForThumbnail()` ngay dưới). TÁCH BIỆT hẳn khỏi
 // PHOTO_ROW_HEIGHT_PX (chỉ còn ý nghĩa "chiều cao HIỂN THỊ trong lưới" truyền cho fjGallery, KHÔNG
 // còn liên quan gì tới kích thước THẬT của file thumbBlob lưu trong DB nữa).
 const THUMBNAIL_SCALE_RATIO = 0.2;
@@ -79,18 +79,17 @@ const THUMBNAIL_SCALE_RATIO = 0.2;
 
 const workflowFileManagerPhoto = {
 
-    _activeImageModalHandle: null, // { close, imgEl, canvasWrap, baseCanvas, renderCanvas, interactCanvas, toolsBtn, adjustPopup, ... } của modal xem ảnh đang mở — null khi không mở modal nào (openImagePreview()/closeImagePreview())
+    _activeImageModalHandle: null, // { close, imgEl, canvasWrap, baseCanvas, renderCanvas, interactCanvas, toolsBtn, adjustPopup, ... } của modal xem ảnh đang mở — null khi không mở modal nào
     _activePanzoomSession: null,   // session Panzoom đang chạy khi ở Zoom mode — null khi không ở Zoom mode (core/image-zoom.js)
-    _activeImageKey: null,         // key ảnh đang mở modal — Edit mode cần lại (enterEditMode()) để decode từ record thật
-    _activeAlbumId: null,          // albumId đang lọc lúc mở modal (có thể null) — Lưu đè/Lưu mới cần lại để refresh() đúng lưới + thêm ảnh mới vào ĐÚNG album
-    _activeEditParams: null,       // {brightness,contrast,saturation,temperature,tint,sharpen} đang chỉnh khi ở Edit mode — null khi không ở Edit mode
-    _activeAdjustParam: null,      // key param đang mở slider ('brightness'/'contrast'/...) — null khi popup adjust đang ẩn
-    _activeSubTool: 'none',        // 'none'|'crop'|'draw'|'text'|'magic' — sub-tool ĐANG mở trong Edit mode (KHÁC 'adjust', tool đó không có "sub-tool mode" riêng — live-preview trực tiếp)
-    _subToolPointerCleanup: null,  // hàm gỡ Pointer Events đã gắn cho interactCanvas của sub-tool đang mở — null khi không có
-    _textDragCleanup: null,        // hàm gỡ Pointer Events kéo-thả floatingText (tool Text) — null khi không có
-    _editToolGridClickHandler: null, // handler delegated click trên genericDrawerBody, wire 1 lần/phiên Edit mode (xem _wireEditToolGridDelegation())
-    _cropSession: null,            // session của core/crop-selector.js — chỉ có nghĩa khi _activeSubTool==='crop'
-    _drawType: 'brush',            // 'brush'|'eraser' — công cụ Vẽ đang chọn
+    _activeImageKey: null,         // key ảnh đang mở modal — workflowImageEdit đọc lại qua getActiveImageKey()
+    _activeAlbumId: null,          // albumId đang lọc lúc mở modal (có thể null) — workflowImageEdit đọc lại qua getActiveModalAlbumId()
+
+    /** 3 khe ĐỌC hẹp cho workflowImageEdit (miền khác — event/workflow/image-edit.js) tự lấy
+     * lại handle/imageKey/albumId của modal đang mở lúc `enterEditMode()`, KHÔNG cần workflow đó
+     * tự giữ tham chiếu riêng đến vòng đời modal (GHI vẫn CHỈ qua các hàm ở file này). */
+    getActiveImageModalHandle() { return this._activeImageModalHandle; },
+    getActiveImageKey() { return this._activeImageKey; },
+    getActiveModalAlbumId() { return this._activeAlbumId; },
 
     /** Ứng với 'fileManagerPhoto.openPanel.click'. `fullBleed: true` — masonry/story slider vốn
      * thiết kế tràn viền (edge-to-edge), KHÔNG dùng khung "max-w-2xl mx-auto" mặc định của mọi
@@ -660,7 +659,7 @@ const workflowFileManagerPhoto = {
         openGenericDrawer({ // core/generic-drawer.js
             height: '90vh',
             zIndex: Z_INDEX.GENERIC_DRAWER, // core/config.js — mặc định, KHÔNG có modal xem ảnh nào mở đồng thời với picker này (khác action-menu cần z=131)
-            headerHtml: this._buildImageMenuHeaderHtml(title),
+            headerHtml: workflowGenericDrawerHelpers.buildSimpleHeaderHtml(title),
             bodyHtml: this._buildImagePickerBodyHtml(showConfirmButton),
             bodyClass: 'flex flex-col',
         });
@@ -791,7 +790,7 @@ const workflowFileManagerPhoto = {
      * tự dọn) + đóng drawer — DÙNG CHUNG cho MỌI lối thoát picker (chọn xong/xác nhận/huỷ). */
     _teardownImagePicker() {
         workflowPhotoGalleryWindow.unmount('genericDrawer'); // event/workflow/photo-gallery-window.js
-        this._closeGenericDrawerFully();
+        workflowGenericDrawerHelpers.closeFully();
         _imagePickerSession = null;
     },
 
@@ -806,12 +805,12 @@ const workflowFileManagerPhoto = {
      * photo-gallery-window.js) tính tỉ lệ hiển thị MÀ KHÔNG cần decode ảnh lại lúc dựng lưới.
      * Đặt ở Workflow (KHÔNG phải core/file-manager/image.js) vì cần `Image`/`canvas` — DOM API, core
      * không được đụng theo Rule 1-4 (`Image`/`canvas` scratch ở đây phục vụ TÍNH TOÁN dựng lưới,
-     * không phải nghiệp vụ pixel thuần như core/photo-editor-engine.js), core chỉ nhận `Blob` đã
-     * xong việc.
+     * KHÔNG có underscore — dùng CHUNG bởi `uploadImages()` (dưới) VÀ `workflowImageEdit` (miền
+     * khác, event/workflow/image-edit.js — Lưu đè/Lưu mới cũng cần resize thumbnail).
      * @param {File} file
      * @returns {Promise<{thumbBlob: Blob, width: number, height: number}>}
      */
-    _resizeImageForThumbnail(file) {
+    resizeImageForThumbnail(file) {
         return new Promise((resolve, reject) => {
             const objectUrl = URL.createObjectURL(file);
             const img = new Image();
@@ -827,17 +826,17 @@ const workflowFileManagerPhoto = {
                 ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
                 URL.revokeObjectURL(objectUrl);
                 canvas.toBlob((thumbBlob) => {
-                    if (!thumbBlob) { reject(new Error('[_resizeImageForThumbnail] canvas.toBlob trả về null')); return; }
+                    if (!thumbBlob) { reject(new Error('[resizeImageForThumbnail] canvas.toBlob trả về null')); return; }
                     resolve({ thumbBlob, width, height });
                 }, 'image/jpeg', 0.82);
             };
-            img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('[_resizeImageForThumbnail] không đọc được ảnh để resize')); };
+            img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('[resizeImageForThumbnail] không đọc được ảnh để resize')); };
             img.src = objectUrl;
         });
     },
 
     /** Ứng với 'fileManagerPhoto.upload.change'.
-     * SỬA (Giai đoạn 1, rewrite Photo/Album, mục 3c/3d) — resize `thumbBlob` (`_resizeImageForThumbnail()`
+     * SỬA (Giai đoạn 1, rewrite Photo/Album, mục 3c/3d) — resize `thumbBlob` (`resizeImageForThumbnail()`
      * ngay trên) TRƯỚC khi gọi `saveImage()` (core/file-manager/image.js — đổi chữ ký, nhận thêm
      * `thumbBlob`/`width`/`height`). Lỗi resize 1 ảnh (vd file hỏng) KHÔNG được chặn cả lô upload —
      * bắt riêng, bỏ qua đúng ảnh đó, tiếp tục ảnh sau (Rule 1: vẫn 1 tiến trình "upload cả lô", guard
@@ -862,7 +861,7 @@ const workflowFileManagerPhoto = {
         await withLoadingShield(t('common.loading.savingInfo'), async () => {
             for (const file of fileArray) {
                 try {
-                    const { thumbBlob, width, height } = await this._resizeImageForThumbnail(file);
+                    const { thumbBlob, width, height } = await this.resizeImageForThumbnail(file);
                     const imageKey = await saveImage(file, file.name, thumbBlob, width, height); // core/file-manager/image.js — chữ ký MỚI, CÓ return (imageKey)
                     uploadedKeys.push(imageKey);
                 } catch (err) {
@@ -903,31 +902,16 @@ const workflowFileManagerPhoto = {
         this._activeImageModalHandle = openImagePreviewModal(image); // core/file-manager/photo-ui.js — KHÔNG còn callbacks (Rule 5a, Core tự bắn eventBus cố định), Router gọi lại các hàm dưới đây, đọc _activeImageKey/_activeAlbumId thay vì closure
     },
 
-    /** Ứng với 'fileManagerPhoto.imagePreview.menu.click' — SỬA (21/07/2026, Giang yêu cầu) — menu
-     * action giờ là dropdown (core/dropdown-menu.js), THAY Generic Drawer icon hoá cũ (đơn giản
-     * hoá, cùng khuôn `openAlbumActionMenu()` đã có sẵn trong chính file này). `zIndex: 132` — TRÊN
-     * modal xem ảnh full-screen (`#image-preview-overlay`, z-130) — dropdown MẶC ĐỊNH (126/127) chỉ
-     * đủ nổi trên nội dung panel thường, KHÔNG đủ nổi trên 1 modal full-screen khác (xem docstring
-     * openDropdownMenu(), core/dropdown-menu.js).
-     * SỬA (31/07/2026, Rule 5a) — TRƯỚC ĐÂY nhận `image`/`activeAlbumId` qua tham số (closure lúc
-     * `openImagePreview()` gọi `openImagePreviewModal()`) — đã bỏ callbacks ở Core (xem docstring
-     * `openImagePreviewModal()`), giờ đọc thẳng `this._activeImageKey`/`this._activeAlbumId`
-     * (instance field lưu sẵn từ `openImagePreview()`), Router chỉ truyền `anchorEl`.
-     * MỚI (31/07/2026, Zoom mode, xoá item "Đặt làm nền Visual") — `dispatch()` giờ nhận thêm
-     * `closePreview` (mặc định `true`, GIỮ NGUYÊN hành vi cũ cho setPlaylistBg/removeFromAlbum/
-     * delete — đóng modal xem ảnh NGAY, KHÔNG qua eventBus/Block gate, đây là dọn UI của CHÍNH lần
-     * mở menu này chứ không phải nghiệp vụ, xem `closeImagePreview()`).
-     * SỬA (31/07/2026, mục 1/2/3 phản hồi Giang) — "Zoom view"/"Edit" (2 mode TOGGLE, loại trừ
-     * nhau) KHÔNG còn qua `dispatch()` + msg.type dùng chung 'imageMenu.action.click' nữa — msg.type
-     * đó CHUNG cho nhiều action khác nhau (setPlaylistBg/saveOverwrite/saveNew/removeFromAlbum/
-     * delete), Block gate (event/block.js) chỉ chặn được NGUYÊN 1 msg.type chứ không tách được theo
-     * `payload.action`, nên KHÔNG thể khoá chéo 2 mode này qua msg.type dùng chung (sẽ chặn NHẦM cả
-     * 4 action còn lại). 2 item này giờ TỰ bắn thẳng 2 msg.type RIÊNG
-     * ('imagePreview.zoomToggle.click'/'imagePreview.editToggle.click' — msg.type sau THAY nút Edit
-     * cũ ở header, dời vào đây, TÊN GIỮ NGUYÊN), KHÔNG đóng modal (đều là TOGGLE, modal phải ở
-     * nguyên) — event/block.js khoá chéo được ĐÚNG 2 msg.type này (mục 3). Nhãn item đổi theo mode
-     * hiện tại (đang Zoom -> "Thoát Zoom view", đang Edit -> "Thoát Edit") — KHÔNG tạo nút/DOM riêng
-     * nào để thoát (đúng chốt Giang: dùng lại chính item đó).
+    /** Ứng với 'fileManagerPhoto.imagePreview.menu.click' — dropdown "..." của modal xem ảnh
+     * (core/dropdown-menu.js), `zIndex: 132` — TRÊN modal xem ảnh (`Z_INDEX.IMAGE_PREVIEW`, 130).
+     * `dispatch(action, closePreview=true)` bắn `imageMenu.action.click` (Router file này xử lý) —
+     * `closePreview:false` cho action KHÔNG đóng modal ngay (saveOverwrite/saveNew tự đóng SAU khi
+     * lưu xong). "Zoom view"/"Edit" là 2 mode TOGGLE, loại trừ nhau — bắn 2 msg.type RIÊNG (không
+     * qua `dispatch()`, KHÔNG đóng modal) để `event/block.js` khoá chéo được theo ĐÚNG msg.type
+     * (Block gate chặn theo msg.type, không tách được theo `payload.action` dùng chung). "Edit" bắn
+     * sang router `imageEdit` (miền khác, event/router/image-edit.js) — "Zoom view" vẫn ở router
+     * này. Nhãn item đổi theo mode hiện tại (đang Zoom -> "Thoát Zoom view", đang Edit -> "Thoát
+     * Edit").
      * @param {HTMLElement} anchorEl - nút "..." vừa bấm.
      */
     openImageActionMenu(anchorEl) {
@@ -941,7 +925,7 @@ const workflowFileManagerPhoto = {
         const items = [
             { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>', name: t('fileManager.photo.image.btnSetPlaylistBg'), callback: () => dispatch('setPlaylistBg') },
             { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"/></svg>', name: t(isZooming ? 'fileManager.photo.image.btnExitZoom' : 'fileManager.photo.image.btnZoom'), callback: () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.zoomToggle.click', payload: {} }) },
-            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>', name: t(isEditing ? 'fileManager.photo.image.btnExitEdit' : 'fileManager.photo.image.btnEditImage'), callback: () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.editToggle.click', payload: {} }) },
+            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>', name: t(isEditing ? 'fileManager.photo.image.btnExitEdit' : 'fileManager.photo.image.btnEditImage'), callback: () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.toggle.click', payload: {} }) },
         ];
         // MỚI (31/07/2026) — CHỈ hiện khi đang ở Edit mode (đúng chốt Giang: "thêm dropdown action
         // cho lưu đè, lưu mới" — ĐÚNG 2 action MỚI duy nhất, còn lại các item khác giữ nguyên bất kể
@@ -976,701 +960,29 @@ const workflowFileManagerPhoto = {
         });
     },
 
-    /** Vào Edit mode (bấm item "Edit" trong dropdown "...") — decode ảnh vào canvas (core/photo-
-     * editor-engine.js::decodeImageToCanvas()) — ẩn `<img>`, hiện `canvasWrap`, mở Generic Drawer
-     * hiện lưới tool theo nhóm (đúng chốt Giang: "generic tool grid, nhóm theo Xxx header / list
-     * tool for xxx, thay vì vào từng sub menu"). Toàn bộ nhóm (Điều chỉnh/Crop/Vẽ/Text/Tách nền) đã
-     * port xong — `image-edit.html` (trang cũ, dropdown item "Sửa ảnh" trỏ tới đó) đã XOÁ HẲN
-     * (31/07/2026), đây là đường vào Edit DUY NHẤT còn lại.
-     * SỬA (31/07/2026, mục 2/4 phản hồi Giang) — nút `editBtn` RIÊNG ở header (đổi màu báo trạng
-     * thái) ĐÃ XOÁ (dời vào dropdown, xem `openImageActionMenu()`) — THAY vào đó hiện `toolsBtn`
-     * (nút mở LẠI lưới tool, xem `openEditToolGrid()`) — CHỈ hiện trong Edit mode, ẩn lại lúc thoát
-     * (`_exitEditMode()`).
-     */
-    async enterEditMode() {
-        const handle = this._activeImageModalHandle;
-        if (!handle) return; // guard: hiếm, modal đã đóng ở đâu đó trước khi tới đây
-
-        appState.set('imagePreviewMode', 'edit');
-        console.log(`writer: "enterEditMode", page: "imagePreviewMode", content: "edit"`);
-        handle.toolsBtn.classList.remove('hidden'); // hiện nút mở lại lưới tool (Edit mode mới có)
-
-        const record = await getImageRecord(this._activeImageKey); // data layer (service/db.js) — đọc lại BLOB gốc thật, không dùng lại objectUrl <img> (tránh phụ thuộc trạng thái DOM của img)
-        if (!record) { this.exitImagePreviewMode(); return; } // guard hiếm: ảnh vừa bị xoá ở tab khác giữa lúc bấm Edit
-
-        const decoded = await decodeImageToCanvas(record.blob); // core/photo-editor-engine.js
-        [handle.baseCanvas, handle.renderCanvas, handle.interactCanvas].forEach(c => {
-            c.width = decoded.width; c.height = decoded.height;
-        });
-        handle.baseCanvas.getContext('2d').drawImage(decoded, 0, 0);
-        handle.renderCanvas.getContext('2d').drawImage(decoded, 0, 0);
-
-        handle.imgEl.classList.add('hidden');
-        handle.canvasWrap.classList.remove('hidden');
-
-        this._activeEditParams = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, sharpen: 0 };
-        this._wireEditToolGridDelegation(); // ĐÚNG 1 LẦN cho cả phiên Edit mode — xem docstring hàm đó vì sao không wire lại mỗi lần openEditToolGrid()
-        this.openEditToolGrid();
-    },
-
-    /** Gắn delegated click listener LÊN `genericDrawerBody` (phần tử TĨNH, dom-refs.js — chỉ đổi
-     * `innerHTML` mỗi lần `openGenericDrawer()`, KHÔNG bị tạo lại) — CHỈ gắn 1 LẦN mỗi phiên Edit
-     * mode (gọi từ `enterEditMode()`), KHÔNG gắn lại mỗi lần `openEditToolGrid()` mở lại lưới (sau
-     * mỗi lần Huỷ/Áp dụng 1 tool) — nếu gắn lại mỗi lần, listener CŨ vẫn còn nguyên trên cùng phần
-     * tử (KHÔNG tự mất theo `innerHTML`), chồng chất dần -> 1 lần bấm tile kích hoạt N lần bắn
-     * event. Gỡ lại ở `_exitEditMode()`.
-     */
-    _wireEditToolGridDelegation() {
-        this._editToolGridClickHandler = (e) => {
-            const tile = e.target.closest('[data-edit-tool]');
-            if (!tile) return;
-            eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.editToolGrid.tile.click', payload: { tool: tile.dataset.editTool } });
-        };
-        genericDrawerBody.addEventListener('click', this._editToolGridClickHandler);
-    },
-
-    /** Mở Generic Drawer hiện lưới tool Edit mode, nhóm theo header + grid — đúng chốt Giang:
-     * "generic tool grid, nhóm theo Xxx header / list tool for xxx, thay vì vào từng sub menu". Gọi
-     * lại NHIỀU LẦN trong 1 phiên Edit mode (mỗi lần Huỷ/Áp dụng xong 1 tool, xem `_exitSubTool()`)
-     * — CHỈ dựng lại header/bodyHtml (`openGenericDrawer()` tự làm), KHÔNG wire lại delegated click
-     * (đã wire 1 lần ở `enterEditMode()`, xem `_wireEditToolGridDelegation()`) — riêng nút X đóng
-     * (`closeBtn`) PHẢI wire lại mỗi lần vì nó là phần tử MỚI (nằm trong headerHtml, bị thay hẳn).
-     * SỬA (31/07/2026, mục 4 phản hồi Giang) — ĐỔI TÊN từ `_openEditToolGrid` (private, gọi nội bộ)
-     * sang `openEditToolGrid` (public) — giờ CÒN được Router gọi thẳng lúc bấm `toolsBtn` (header
-     * modal, case 'imagePreview.tools.click', event/router/file-manager-photo.js), THAY nút Edit
-     * cũ, để mở LẠI lưới tool sau khi người dùng tự tay đóng Drawer đi (nút X trên Drawer) mà không
-     * chọn tool nào — TRƯỚC bản sửa này KHÔNG có cách nào mở lại. Thêm guard clause (Rule 1, core-
-     * function-conventions.md — vẫn ĐÚNG 1 tiến trình, chỉ dừng sớm khi chưa đủ điều kiện) phòng
-     * Router gọi lúc modal đã đóng.
-     * SỬA TIẾP (31/07/2026, mục 1 phản hồi Giang — "vẫn không thấy Generic Drawer đâu cả" SAU bản
-     * sửa mục 4 trên) — NGUYÊN NHÂN THẬT: dùng NHẦM `Z_INDEX.GENERIC_DRAWER` (128) — THẤP HƠN
-     * `Z_INDEX.IMAGE_PREVIEW` (130, chính modal xem ảnh `#image-preview-overlay` — nền `bg-black`
-     * ĐẶC, không trong suốt) — comment CŨ ở dòng `zIndex` "Drawer luôn nổi trên nó" SAI (128 < 130,
-     * Drawer bị vẽ NGẦM phía SAU nền đen của modal ảnh — `isGenericDrawerOpen` vẫn ghi `true` đúng
-     * nhưng KHÔNG hề thấy gì, đúng triệu chứng log Giang gửi: `openGenericDrawer` bắn liên tục mà
-     * UI không đổi). `service/z-index.js` ĐÃ CÓ SẴN hằng số ĐÚNG cho ca này từ trước —
-     * `Z_INDEX.IMAGE_ACTION_MENU_DRAWER` (131, giữa 130 và dropdown "..." 132) — chỉ chưa file nào
-     * THẬT SỰ dùng tới (dead constant, comment cũ ở service/z-index.js trỏ tên hàm SAI/lỗi thời).
-     * Đổi sang dùng ĐÚNG hằng số đó.
-     */
-    openEditToolGrid() {
-        if (!this._activeImageModalHandle || !this._activeEditParams) return; // guard: hiếm, modal đóng/chưa ở Edit mode giữa lúc bấm toolsBtn
-        openGenericDrawer({ // core/generic-drawer.js
-            height: 'auto', maxHeight: '70vh',
-            zIndex: Z_INDEX.IMAGE_ACTION_MENU_DRAWER, // service/z-index.js (131) — TRÊN modal xem ảnh (#image-preview-overlay, 130), DƯỚI dropdown "..." (132)
-            headerHtml: this._buildImageMenuHeaderHtml(t('fileManager.photo.image.editGridTitle')),
-            bodyHtml: this._buildEditToolGridHtml(),
-            bodyClass: 'overflow-y-auto',
-        });
-        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-        if (closeBtn) closeBtn.addEventListener('click', () => this._closeGenericDrawerFully());
-    },
-
-    /** @returns {string} bodyHtml lưới tool, nhóm theo header — đúng cấu trúc Giang yêu cầu: "Xxx
-     * header / list tool for xxx", KHÔNG có bước drill-down vào sub-menu riêng như Lumina Pro gốc.
-     * TOÀN BỘ tool đã port xong (31/07/2026) — không còn nhóm "chưa khả dụng" nào. */
-    _buildEditToolGridHtml() {
-        const buildGroup = (titleKey, tools) => `
-            <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wide px-5 mt-5 mb-2.5 first:mt-0">${t(titleKey)}</h4>
-            <div class="grid grid-cols-4 gap-2 px-5">
-                ${tools.map(tool => `
-                    <button type="button" data-edit-tool="${tool.key}" class="flex flex-col items-center gap-1.5 py-3 rounded-xl hover:bg-slate-100 active:bg-slate-200 transition-colors">
-                        <span class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 text-slate-700">${tool.icon}</span>
-                        <span class="text-[11px] font-medium text-slate-600 text-center leading-tight">${t(tool.labelKey)}</span>
-                    </button>
-                `).join('')}
-            </div>
-        `;
-        const svg = (path) => `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${path}"/></svg>`;
-        return [
-            buildGroup('fileManager.photo.image.editGroupAdjust', [
-                { key: 'brightness', icon: svg('M12 3v2m0 14v2m9-9h-2M5 12H3m15.364-6.364l-1.414 1.414M7.05 16.95l-1.414 1.414m12.728 0l-1.414-1.414M7.05 7.05L5.636 5.636M16 12a4 4 0 11-8 0 4 4 0 018 0z'), labelKey: 'fileManager.photo.image.editToolBrightness' },
-                { key: 'contrast', icon: svg('M12 21a9 9 0 100-18 9 9 0 000 18zM12 3v18'), labelKey: 'fileManager.photo.image.editToolContrast' },
-                { key: 'saturation', icon: svg('M12 2.69l5.66 5.66a8 8 0 11-11.31 0z'), labelKey: 'fileManager.photo.image.editToolSaturation' },
-                { key: 'temperature', icon: svg('M10 2a2 2 0 00-2 2v9.17a4 4 0 104 0V4a2 2 0 00-2-2z'), labelKey: 'fileManager.photo.image.editToolTemperature' },
-                { key: 'tint', icon: svg('M7 21a4 4 0 01-4-4V5a2 2 0 012-2h10a2 2 0 012 2v3M7 21h10a2 2 0 002-2v-3a4 4 0 00-4-4H9'), labelKey: 'fileManager.photo.image.editToolTint' },
-                { key: 'sharpen', icon: svg('M3 20h18L12 4 3 20z'), labelKey: 'fileManager.photo.image.editToolSharpen' },
-            ]),
-            buildGroup('fileManager.photo.image.editGroupTools', [
-                { key: 'crop', icon: svg('M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3'), labelKey: 'fileManager.photo.image.editToolCrop' },
-                { key: 'text', icon: svg('M4 7V4h16v3M9 20h6M12 4v16'), labelKey: 'fileManager.photo.image.editToolText' },
-            ]),
-            buildGroup('fileManager.photo.image.editGroupDraw', [
-                { key: 'draw', icon: svg('M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z'), labelKey: 'fileManager.photo.image.editToolDraw' },
-                { key: 'magic', icon: svg('M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z'), labelKey: 'fileManager.photo.image.editToolMagic' },
-            ]),
-        ].join('');
-    },
-
-    /** Cấu hình min/max mỗi param điều chỉnh — sharpen bắt đầu từ 0 (không có "âm"), còn lại
-     * -100..100 (0 = không đổi) — đúng khuôn Lumina Pro. */
-    _adjustParamConfig: {
-        brightness: { min: -100, max: 100 }, contrast: { min: -100, max: 100 }, saturation: { min: -100, max: 100 },
-        temperature: { min: -100, max: 100 }, tint: { min: -100, max: 100 }, sharpen: { min: 0, max: 100 },
-    },
-
-    /** Ứng với 1 tile trong lưới Edit mode được bấm — phân luồng theo `toolKey`: 6 tool "Điều
-     * chỉnh" -> `openAdjustTool()`, còn lại -> hàm khởi động riêng từng tool. ĐÚNG 1 điểm vào DUY
-     * NHẤT từ Router (event/router/file-manager-photo.js, case 'editToolGrid.tile.click').
-     * @param {string} toolKey
-     */
-    openEditTool(toolKey) {
-        const adjustKeys = ['brightness', 'contrast', 'saturation', 'temperature', 'tint', 'sharpen'];
-        if (adjustKeys.includes(toolKey)) { this.openAdjustTool(toolKey); return; }
-        if (toolKey === 'crop') { this._startCropTool(); return; }
-        if (toolKey === 'draw') { this._startDrawTool(); return; }
-        if (toolKey === 'text') { this._startTextTool(); return; }
-        if (toolKey === 'magic') { this._startMagicTool(); return; }
-    },
-
-    /** Ứng với 1 tile "Điều chỉnh" trong lưới Edit mode được bấm — đóng Generic Drawer, hiện popup
-     * slider tương ứng, gắn `oninput` trực tiếp (KHÔNG qua eventBus mỗi lần kéo — tần suất quá cao
-     * cho mỗi lần kéo tay, cùng ngoại lệ "hot path" Rule 4 đã chốt cho vòng vẽ visualizer 60fps —
-     * Workflow tự gắn thẳng, chỉ nghiệp vụ THẬT (mở tool/đóng modal...) mới qua Router). Debounce
-     * qua `taskManager.once(fn, ms, name)` — CÙNG name mỗi lần gọi lại = tự huỷ bản cũ + đặt lại
-     * (đúng hành vi debounce, xem docstring service/task-manager.js). Nút "xong" nhỏ trên popup
-     * (`adjustDoneBtn`) quay lại lưới tool — KHÔNG cần Cancel/Apply riêng như Crop/Vẽ/Text (live-
-     * preview đã áp ngay lúc kéo, không có gì để "huỷ").
-     * @param {string} paramKey - 'brightness'|'contrast'|'saturation'|'temperature'|'tint'|'sharpen'
-     */
-    openAdjustTool(paramKey) {
-        const handle = this._activeImageModalHandle;
-        if (!handle || !this._activeEditParams) return; // guard: hiếm, thoát Edit mode ngay giữa lúc tap tile
-
-        this._closeGenericDrawerFully();
-        this._activeAdjustParam = paramKey;
-
-        const config = this._adjustParamConfig[paramKey];
-        handle.adjustLabelEl.textContent = t(`fileManager.photo.image.editTool${paramKey.charAt(0).toUpperCase()}${paramKey.slice(1)}`);
-        handle.adjustSliderEl.min = config.min; handle.adjustSliderEl.max = config.max;
-        handle.adjustSliderEl.value = this._activeEditParams[paramKey];
-        handle.adjustValueEl.textContent = this._activeEditParams[paramKey];
-        handle.adjustPopup.classList.remove('hidden');
-
-        handle.adjustSliderEl.oninput = (e) => {
-            const val = parseInt(e.target.value, 10);
-            this._activeEditParams[paramKey] = val;
-            handle.adjustValueEl.textContent = val;
-            taskManager.once(() => this._renderEditPreview(), 60, 'photoEditAdjustPreview'); // service/task-manager.js — debounce, tránh tính lại pixel mỗi tick kéo tay
-        };
-        handle.adjustDoneBtn.onclick = () => {
-            handle.adjustPopup.classList.add('hidden');
-            this._activeAdjustParam = null;
-            this.openEditToolGrid();
-        };
-    },
-
-    /** Tính lại `renderCanvas` từ `baseCanvas` + `_activeEditParams` hiện tại (core/photo-editor-
-     * engine.js) — KHÔNG đụng `baseCanvas` (giữ nguyên pixel gốc, cho phép chỉnh đi chỉnh lại tự
-     * do trước khi Lưu đè/Lưu mới). */
-    _renderEditPreview() {
-        const handle = this._activeImageModalHandle;
-        if (!handle || !this._activeEditParams) return;
-        let imageData = applyColorAdjustments(handle.baseCanvas, this._activeEditParams); // core/photo-editor-engine.js
-        if (this._activeEditParams.sharpen > 0) imageData = applySharpenFilter(imageData, this._activeEditParams.sharpen); // core/photo-editor-engine.js
-        handle.renderCanvas.getContext('2d').putImageData(imageData, 0, 0);
-    },
-
-    // ===================== Hạ tầng dùng chung cho Crop/Vẽ/Text/Tách nền =====================
-    // 4 tool này (KHÁC "Điều chỉnh" — live-preview, không cần UI riêng) đều: (1) ẩn header, hiện
-    // contextBar (Huỷ/tiêu đề/Áp dụng — riêng Tách nền ẩn nút Áp dụng, xem _startMagicTool()), (2)
-    // gắn Pointer Events lên interactCanvas (unified touch+mouse, đúng convention dự án), (3) lúc
-    // Huỷ/Áp dụng xong -> _exitSubTool() dọn sạch + MỞ LẠI lưới tool (cho phép nối tiếp tool khác
-    // ngay, không phải thoát/vào lại Edit mode).
-
-    /** Toạ độ CSS hiển thị -> toạ độ pixel THẬT của canvas (canvas có thể hiện nhỏ hơn/lớn hơn độ
-     * phân giải nội bộ tuỳ màn hình — object-fit qua max-w-full/max-h-full). Giả định tỉ lệ X/Y
-     * giống nhau (luôn đúng vì canvas giữ nguyên aspect-ratio gốc) — dùng 1 hệ số DUY NHẤT, đúng
-     * khuôn `Viewport.scale` của Lumina Pro (ở đó KHÔNG có pan/zoom, chỉ 1 hệ số fit-to-screen).
-     * @returns {number}
-     */
-    _editScale() {
-        const canvas = this._activeImageModalHandle.interactCanvas;
-        const rect = canvas.getBoundingClientRect();
-        return canvas.width / (rect.width || canvas.width || 1); // guard chia 0 hiếm (canvas chưa layout xong)
-    },
-
-    /** @param {number} clientX @param {number} clientY @returns {{x:number,y:number}} */
-    _editPointerToCanvas(clientX, clientY) {
-        const canvas = this._activeImageModalHandle.interactCanvas;
-        const rect = canvas.getBoundingClientRect();
-        const scale = this._editScale();
-        return { x: (clientX - rect.left) * scale, y: (clientY - rect.top) * scale };
-    },
-
-    /** Gắn Pointer Events lên `interactCanvas`, tự map toạ độ CSS -> pixel canvas trước khi gọi
-     * callback (nơi gọi không cần tự tính). Lưu hàm gỡ vào `_subToolPointerCleanup` — gọi lại được
-     * nhiều lần an toàn (mỗi tool mới tự gỡ tool cũ trước khi gắn, xem `_exitSubTool()`).
-     * @param {(pos:{x:number,y:number}) => void} onDown
-     * @param {(pos:{x:number,y:number}) => void} onMove
-     * @param {() => void} onUp
-     */
-    _wireSubToolPointerEvents(onDown, onMove, onUp) {
-        const canvas = this._activeImageModalHandle.interactCanvas;
-        const handleDown = (e) => onDown(this._editPointerToCanvas(e.clientX, e.clientY));
-        const handleMove = (e) => onMove(this._editPointerToCanvas(e.clientX, e.clientY));
-        const handleUp = () => onUp();
-        canvas.addEventListener('pointerdown', handleDown);
-        canvas.addEventListener('pointermove', handleMove);
-        canvas.addEventListener('pointerup', handleUp);
-        canvas.addEventListener('pointerleave', handleUp);
-        this._subToolPointerCleanup = () => {
-            canvas.removeEventListener('pointerdown', handleDown);
-            canvas.removeEventListener('pointermove', handleMove);
-            canvas.removeEventListener('pointerup', handleUp);
-            canvas.removeEventListener('pointerleave', handleUp);
-        };
-    },
-
-    /** Thoát 1 sub-tool (Crop/Vẽ/Text/Tách nền) VỀ lưới tool — gỡ pointer listener +
-     * kéo-thả-chữ-nổi (nếu còn), xoá sạch `interactCanvas`, ẩn contextBar/floatingText/popup riêng
-     * từng tool, hiện lại header, rồi MỞ LẠI Generic Drawer (cho chọn tool kế tiếp ngay).
-     */
-    _exitSubTool() {
-        const handle = this._activeImageModalHandle;
-        if (!handle) return;
-        if (this._subToolPointerCleanup) { this._subToolPointerCleanup(); this._subToolPointerCleanup = null; }
-        if (this._textDragCleanup) { this._textDragCleanup(); this._textDragCleanup = null; }
-        handle.interactCanvas.getContext('2d').clearRect(0, 0, handle.interactCanvas.width, handle.interactCanvas.height);
-        handle.contextBar.classList.add('hidden');
-        handle.contextApplyBtn.classList.remove('hidden'); // reset — _startMagicTool() tự ẩn nút này, trả lại mặc định cho tool kế tiếp
-        handle.header.classList.remove('hidden');
-        handle.floatingText.classList.add('hidden');
-        handle.drawControlsPopup.classList.add('hidden');
-        handle.magicPopup.classList.add('hidden');
-        this._activeSubTool = 'none';
-        this._cropSession = null;
-        this.openEditToolGrid();
-    },
-
-    // ===================== Crop =====================
-    // Cơ chế tương tác (khung/handle/lưới, kéo tay) giờ ở core/crop-selector.js — DÙNG CHUNG với
-    // Video Editor (Giang chốt 31/07/2026: không giữ 2 cơ chế cùng làm 1 việc). File này chỉ giữ
-    // `_cropSession` (session của core đó) + phần "Áp dụng" RIÊNG của Photo (cắt pixel thật ngay —
-    // khác Video Editor, xem docstring đầu core/crop-selector.js).
-
-    /** Vào tool Crop — Photo KHÔNG khoá tỉ lệ khung hình (aspectRatio mặc định NaN = Tự do, khác
-     * Video Editor có preset 16:9/9:16/...). */
-    _startCropTool() {
-        const handle = this._activeImageModalHandle;
-        this._activeSubTool = 'crop';
-        handle.header.classList.add('hidden');
-        handle.contextBar.classList.remove('hidden');
-        handle.contextApplyBtn.classList.remove('hidden');
-        handle.contextTitleEl.textContent = t('fileManager.photo.image.editToolCrop');
-
-        this._cropSession = initCropSession(handle.baseCanvas.width, handle.baseCanvas.height); // core/crop-selector.js
-        this._drawCropOverlay();
-
-        this._wireSubToolPointerEvents(
-            (pos) => cropSessionPointerDown(this._cropSession, pos, 30 * this._editScale()), // core/crop-selector.js
-            (pos) => { this._moveOrResizeCropSession(pos); this._drawCropOverlay(); },
-            () => cropSessionPointerUp(this._cropSession), // core/crop-selector.js
-        );
-
-        handle.contextCancelBtn.onclick = () => this._exitSubTool();
-        handle.contextApplyBtn.onclick = () => this._applyCropTool();
-    },
-
-    /** Đọc `session.activeHandle` rồi CHỌN gọi ĐÚNG 1 trong 3 hàm tính rect thuần của core/crop-
-     * selector.js (move/resize-tự-do/resize-khoá-tỉ-lệ) — việc CHỌN này thuộc Workflow (Rule 1, xem
-     * docstring đầu core/crop-selector.js — core không được tự dispatch giữa các tiến trình).
-     * Photo KHÔNG khoá tỉ lệ (`_cropSession.aspectRatio` luôn NaN, `_startCropTool()` không gọi
-     * `setCropSessionAspectRatio()`) nên nhánh `computeRatioLockedResizedRect()` không bao giờ chạy
-     * ở Photo — vẫn viết đủ ở đây cho đúng/y hệt Video Editor (event/workflow/video-editor.js),
-     * tránh code 2 nơi lệch nhau nếu sau này Photo cũng thêm khoá tỉ lệ.
-     * @param {{x:number,y:number}} pos
-     */
-    _moveOrResizeCropSession(pos) {
-        const session = this._cropSession;
-        if (!session.activeHandle) return;
-        const s = session.dragStart;
-        const dx = pos.x - s.x, dy = pos.y - s.y;
-        const minSize = 50 * this._editScale();
-
-        if (session.activeHandle === 'center') {
-            session.rect = moveCropRect({ x: s.rx, y: s.ry, w: s.rw, h: s.rh }, dx, dy, session.sourceWidth, session.sourceHeight); // core/crop-selector.js
-            return;
-        }
-        const flipX = session.activeHandle === 'tl' || session.activeHandle === 'bl';
-        const flipY = session.activeHandle === 'tl' || session.activeHandle === 'tr';
-        const rect = { x: s.rx, y: s.ry, w: s.rw, h: s.rh };
-        session.rect = Number.isNaN(session.aspectRatio)
-            ? computeFreeResizedRect(rect, flipX, flipY, dx, dy, minSize, session.sourceWidth, session.sourceHeight) // core/crop-selector.js
-            : computeRatioLockedResizedRect(rect, flipX, flipY, dx, session.aspectRatio, minSize, session.sourceWidth, session.sourceHeight); // core/crop-selector.js
-    },
-
-    /** Vẽ lại overlay Crop — gọi lại mỗi lần `_cropSession.rect` đổi (kéo tay). */
-    _drawCropOverlay() {
-        const handle = this._activeImageModalHandle;
-        drawCropSessionOverlay(handle.interactCanvas.getContext('2d'), this._cropSession, handle.interactCanvas.width, handle.interactCanvas.height, this._editScale()); // core/crop-selector.js
-    },
-
-    /** Áp dụng Crop — cắt từ `renderCanvas` (đã gồm Điều chỉnh hiện tại, đúng khuôn Lumina Pro
-     * "gộp filter vào base mới lúc crop") -> resize CẢ 3 canvas về kích thước MỚI -> reset params
-     * (đã gộp vào pixel thật). RIÊNG của Photo (Video Editor không cắt pixel ở bước này, xem
-     * docstring đầu core/crop-selector.js). */
-    _applyCropTool() {
-        const handle = this._activeImageModalHandle;
-        const rect = getCropSessionRect(this._cropSession); // core/crop-selector.js
-        const cropped = cropCanvas(handle.renderCanvas, rect); // core/photo-editor-engine.js
-        [handle.baseCanvas, handle.renderCanvas, handle.interactCanvas].forEach(c => { c.width = rect.w; c.height = rect.h; });
-        handle.baseCanvas.getContext('2d').drawImage(cropped, 0, 0);
-        handle.renderCanvas.getContext('2d').drawImage(cropped, 0, 0);
-        this._activeEditParams = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, sharpen: 0 };
-        this._cropSession = null;
-        this._exitSubTool();
-    },
-
-    // ===================== Vẽ (Cọ/Tẩy) =====================
-
-    /** Vào tool Vẽ — mặc định Cọ, gắn toggle Cọ/Tẩy + màu + cỡ nét, gắn Pointer Events vẽ nét trực
-     * tiếp lên `interactCanvas` (nháp, CHƯA gộp vào base tới khi bấm Áp dụng). */
-    _startDrawTool() {
-        const handle = this._activeImageModalHandle;
-        this._activeSubTool = 'draw';
-        this._drawType = 'brush';
-        handle.header.classList.add('hidden');
-        handle.contextBar.classList.remove('hidden');
-        handle.contextApplyBtn.classList.remove('hidden');
-        handle.contextTitleEl.textContent = t('fileManager.photo.image.editToolDraw');
-        handle.drawControlsPopup.classList.remove('hidden');
-        handle.drawBrushBtn.classList.add('text-primary'); handle.drawBrushBtn.classList.remove('text-white/60');
-        handle.drawEraserBtn.classList.add('text-white/60'); handle.drawEraserBtn.classList.remove('text-primary');
-
-        handle.drawBrushBtn.onclick = () => {
-            this._drawType = 'brush';
-            handle.drawBrushBtn.classList.replace('text-white/60', 'text-primary');
-            handle.drawEraserBtn.classList.replace('text-primary', 'text-white/60');
-        };
-        handle.drawEraserBtn.onclick = () => {
-            this._drawType = 'eraser';
-            handle.drawEraserBtn.classList.replace('text-white/60', 'text-primary');
-            handle.drawBrushBtn.classList.replace('text-primary', 'text-white/60');
-        };
-
-        let isDrawing = false, lastPos = null;
-        this._wireSubToolPointerEvents(
-            (pos) => { isDrawing = true; lastPos = pos; this._drawStroke(handle, pos, pos); },
-            (pos) => { if (isDrawing) { this._drawStroke(handle, lastPos, pos); lastPos = pos; } },
-            () => { isDrawing = false; },
-        );
-
-        handle.contextCancelBtn.onclick = () => this._exitSubTool();
-        handle.contextApplyBtn.onclick = () => this._applyDrawTool();
-    },
-
-    /** Vẽ 1 đoạn nét (từ `fromPos` tới `toPos`) lên `interactCanvas` — Cọ = `source-over` (vẽ đè
-     * màu đang chọn), Tẩy = `destination-out` (đục thủng, hiện lại pixel gốc phía dưới lúc "Áp
-     * dụng" gộp — xem `_applyDrawTool()`/`mergeCanvases()`, core/photo-editor-engine.js). */
-    _drawStroke(handle, fromPos, toPos) {
-        const ctx = handle.interactCanvas.getContext('2d');
-        ctx.beginPath();
-        ctx.moveTo(fromPos.x, fromPos.y);
-        ctx.lineTo(toPos.x, toPos.y);
-        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        const sizeBase = Math.max(handle.baseCanvas.width, handle.baseCanvas.height) / 1000;
-        ctx.lineWidth = parseInt(handle.drawSizeEl.value, 10) * sizeBase;
-        if (this._drawType === 'brush') {
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.strokeStyle = handle.drawColorEl.value;
-        } else {
-            ctx.globalCompositeOperation = 'destination-out';
-            ctx.strokeStyle = 'rgba(0,0,0,1)';
-        }
-        ctx.stroke();
-    },
-
-    /** Áp dụng Vẽ — gộp `interactCanvas` (nét nháp) LÊN `renderCanvas` (đã gồm Điều chỉnh hiện tại)
-     * thành base MỚI, đúng composite operation theo Cọ/Tẩy. */
-    _applyDrawTool() {
-        const handle = this._activeImageModalHandle;
-        const compositeOp = this._drawType === 'eraser' ? 'destination-out' : 'source-over';
-        const merged = mergeCanvases(handle.renderCanvas, handle.interactCanvas, compositeOp); // core/photo-editor-engine.js
-        const baseCtx = handle.baseCanvas.getContext('2d');
-        baseCtx.clearRect(0, 0, handle.baseCanvas.width, handle.baseCanvas.height);
-        baseCtx.drawImage(merged, 0, 0);
-        const renderCtx = handle.renderCanvas.getContext('2d');
-        renderCtx.clearRect(0, 0, handle.renderCanvas.width, handle.renderCanvas.height);
-        renderCtx.drawImage(merged, 0, 0);
-        this._activeEditParams = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, sharpen: 0 };
-        this._exitSubTool();
-    },
-
-    // ===================== Văn bản =====================
-
-    /** Vào tool Text — khung chữ nổi (`floatingText`) hiện giữa màn hình, kéo-thả di chuyển được
-     * (Pointer Events trên chính nó + `document`, KHÁC `interactCanvas` — text không cần vẽ pixel
-     * trong lúc kéo, chỉ cần di chuyển 1 phần tử DOM thường). */
-    _startTextTool() {
-        const handle = this._activeImageModalHandle;
-        this._activeSubTool = 'text';
-        handle.header.classList.add('hidden');
-        handle.contextBar.classList.remove('hidden');
-        handle.contextApplyBtn.classList.remove('hidden');
-        handle.contextTitleEl.textContent = t('fileManager.photo.image.editToolText');
-
-        handle.floatingText.textContent = t('fileManager.photo.image.editTextPlaceholder');
-        handle.floatingText.style.color = '#ffffff';
-        handle.floatingText.style.left = '50%';
-        handle.floatingText.style.top = '50%';
-        handle.floatingText.style.transform = 'translate(-50%, -50%)';
-        handle.floatingText.classList.remove('hidden');
-        handle.floatingText.focus();
-        const range = document.createRange(); // chọn sẵn toàn bộ placeholder — gõ là thay ngay, không cần tự bôi đen trước
-        range.selectNodeContents(handle.floatingText);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-
-        this._wireFloatingTextDrag(handle);
-
-        handle.contextCancelBtn.onclick = () => this._exitSubTool();
-        handle.contextApplyBtn.onclick = () => this._applyTextTool();
-    },
-
-    /** Kéo-thả `floatingText` bằng Pointer Events — lắng nghe `pointermove`/`pointerup` trên
-     * `document` (KHÔNG chỉ trên chính phần tử — ngón tay/chuột trượt ra ngoài khung chữ trong lúc
-     * kéo vẫn phải tiếp tục theo dõi được). Lưu hàm gỡ vào `_textDragCleanup` — `_exitSubTool()` tự
-     * gọi khi thoát tool, tránh rò rỉ listener gắn ở `document`.
-     */
-    _wireFloatingTextDrag(handle) {
-        let dragging = false;
-        const onDown = () => { dragging = true; };
-        const onMove = (e) => {
-            if (!dragging) return;
-            handle.floatingText.style.left = e.clientX + 'px';
-            handle.floatingText.style.top = e.clientY + 'px';
-            handle.floatingText.style.transform = 'translate(-50%, -50%)';
-        };
-        const onUp = () => { dragging = false; };
-        handle.floatingText.addEventListener('pointerdown', onDown);
-        document.addEventListener('pointermove', onMove);
-        document.addEventListener('pointerup', onUp);
-        this._textDragCleanup = () => {
-            handle.floatingText.removeEventListener('pointerdown', onDown);
-            document.removeEventListener('pointermove', onMove);
-            document.removeEventListener('pointerup', onUp);
-        };
-    },
-
-    /** Áp dụng Text — "nướng" thẳng lên `base` MỚI (gồm Điều chỉnh hiện tại gộp vào trước, đúng
-     * khuôn Crop/Vẽ), tại ĐÚNG vị trí `floatingText` đang hiện trên màn hình (quy đổi toạ độ CSS ->
-     * canvas qua `_editScale()`). Bỏ qua nếu rỗng/toàn khoảng trắng.
-     */
-    _applyTextTool() {
-        const handle = this._activeImageModalHandle;
-        const text = handle.floatingText.textContent;
-        if (!text || !text.trim()) { this._exitSubTool(); return; }
-
-        const canvasRect = handle.renderCanvas.getBoundingClientRect();
-        const textRect = handle.floatingText.getBoundingClientRect();
-        const scale = this._editScale();
-        const cx = (textRect.left - canvasRect.left + textRect.width / 2) * scale;
-        const cy = (textRect.top - canvasRect.top + textRect.height / 2) * scale;
-        const fontSizePx = 30 * scale;
-
-        const baseCtx = handle.baseCanvas.getContext('2d');
-        baseCtx.clearRect(0, 0, handle.baseCanvas.width, handle.baseCanvas.height);
-        baseCtx.drawImage(handle.renderCanvas, 0, 0); // gộp Điều chỉnh hiện tại vào base trước khi vẽ chữ đè lên
-        drawTextOnCanvas(handle.baseCanvas, text, cx, cy, fontSizePx, handle.floatingText.style.color); // core/photo-editor-engine.js
-
-        this._activeEditParams = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, sharpen: 0 };
-        this._renderEditPreview(); // params vừa reset về 0 -> chỉ copy base (đã có chữ) sang render, không đổi gì thêm
-        this._exitSubTool();
-    },
-
-    // ===================== Tách nền (Magic cutout) =====================
-
-    /** Vào tool Tách nền — CHỈ hiện nút Huỷ ở contextBar (ẩn nút Áp dụng — mỗi lần chạm ÁP DỤNG
-     * NGAY vào base, không có bước xác nhận riêng, đúng khuôn Lumina Pro). Popup dưới đáy chỉnh
-     * dung sai màu TRƯỚC khi chạm.
-     */
-    _startMagicTool() {
-        const handle = this._activeImageModalHandle;
-        this._activeSubTool = 'magic';
-        handle.header.classList.add('hidden');
-        handle.contextBar.classList.remove('hidden');
-        handle.contextApplyBtn.classList.add('hidden');
-        handle.contextTitleEl.textContent = t('fileManager.photo.image.editToolMagic');
-        handle.magicPopup.classList.remove('hidden');
-
-        handle.magicSliderEl.oninput = (e) => { handle.magicValueEl.textContent = e.target.value; };
-
-        this._wireSubToolPointerEvents(
-            (pos) => this._magicPointerDown(pos),
-            () => {},
-            () => {},
-        );
-
-        handle.contextCancelBtn.onclick = () => this._exitSubTool();
-    },
-
-    /** Chạm 1 điểm — tách MÀU TRƠN quanh điểm đó khỏi TOÀN ẢNH (không phải flood-fill theo vùng
-     * liền kề, đúng khuôn Lumina Pro — xem docstring `applyMagicCutout()`, core/photo-editor-
-     * engine.js), áp NGAY vào `base` + vẽ lại `render`. `taskManager.once(fn, 10, ...)` — nhường 1
-     * tick cho trình duyệt trước khi chạy vòng quét toàn ảnh (có thể vài chục-trăm ms với ảnh lớn),
-     * tránh cảm giác "đứng hình" ngay lúc chạm.
-     * @param {{x:number,y:number}} pos
-     */
-    _magicPointerDown(pos) {
-        const handle = this._activeImageModalHandle;
-        const tolerance = parseInt(handle.magicSliderEl.value, 10);
-        taskManager.once(() => { // service/task-manager.js
-            const imageData = applyMagicCutout(handle.baseCanvas, Math.floor(pos.x), Math.floor(pos.y), tolerance); // core/photo-editor-engine.js
-            if (!imageData) return; // guard: chạm ngoài canvas hoặc điểm đã trong suốt sẵn
-            handle.baseCanvas.getContext('2d').putImageData(imageData, 0, 0);
-            this._renderEditPreview();
-        }, 10, 'photoEditMagicCutout');
-    },
-
-    /** Xuất `renderCanvas` (kết quả đã áp Điều chỉnh) ra 1 Blob JPEG chất lượng cao — dùng chung
-     * bởi cả `saveEditOverwrite()`/`saveEditAsNew()`. @returns {Promise<Blob>} */
-    _exportEditedBlob() {
-        return new Promise((resolve, reject) => {
-            this._activeImageModalHandle.renderCanvas.toBlob((blob) => {
-                if (!blob) { reject(new Error('[_exportEditedBlob] canvas.toBlob trả về null')); return; }
-                resolve(blob);
-            }, 'image/jpeg', 0.92);
-        });
-    },
-
-    /** Sinh tên file MỚI cho "Lưu mới" — BẮT BUỘC khác tên gốc: `resolveImageKey()` (core/file-
-     * manager/image.js) coi TRÙNG tên là "cùng ảnh, ghi đè đúng key cũ" — dùng nguyên tên gốc ở đây
-     * sẽ vô tình ghi đè thay vì tạo ảnh mới, PHÁ hẳn ý nghĩa "Lưu mới" khác "Lưu đè".
-     * @param {string} originalFilename @returns {string} */
-    _buildEditedNewFilename(originalFilename) {
-        const dotIndex = originalFilename.lastIndexOf('.');
-        const base = dotIndex > 0 ? originalFilename.slice(0, dotIndex) : originalFilename;
-        const ext = dotIndex > 0 ? originalFilename.slice(dotIndex) : '.jpg';
-        return `${base}_edited_${Date.now()}${ext}`;
-    },
-
-    /** Ứng với item "Lưu đè" trong dropdown (CHỈ hiện khi `imagePreviewMode==='edit'`) — xuất
-     * `renderCanvas` -> resize thumbnail (`_resizeImageForThumbnail()`, đã có sẵn, dùng chung upload)
-     * -> `updateImageBlob()` (core/file-manager/image.js, ĐÃ CÓ SẴN, vốn viết cho image-edit.html —
-     * TÁI DÙNG NGUYÊN, không viết lại) ghi đè ĐÚNG key đang mở, giữ nguyên vị trí/album. Đóng modal
-     * + refresh lưới SAU KHI lưu xong.
-     */
-    async saveEditOverwrite() {
-        const handle = this._activeImageModalHandle;
-        if (!handle || !this._activeEditParams) return; // guard: hiếm, không ở Edit mode nữa
-        const imageKey = this._activeImageKey, activeAlbumId = this._activeAlbumId;
-
-        await withLoadingShield(t('common.loading.savingImageEdit'), async () => {
-            const finalBlob = await this._exportEditedBlob();
-            const { thumbBlob, width, height } = await this._resizeImageForThumbnail(finalBlob);
-            await updateImageBlob(imageKey, finalBlob, thumbBlob, width, height); // core/file-manager/image.js
-        });
-        this.closeImagePreview();
-        await this.refresh(activeAlbumId);
-        await alertModal(t('fileManager.photo.image.editSaveOverwriteSuccess'));
-    },
-
-    /** Ứng với item "Lưu mới" trong dropdown (CHỈ hiện khi `imagePreviewMode==='edit'`) — xuất
-     * `renderCanvas` -> resize thumbnail -> `saveImage()` (core/file-manager/image.js, ĐÃ CÓ SẴN,
-     * dùng CHUNG hàm upload) với tên file MỚI (`_buildEditedNewFilename()`, tránh vô tình ghi đè
-     * bản gốc) -> nếu đang lọc theo 1 album, thêm luôn ảnh mới vào ĐÚNG album đó (đúng kỳ vọng "sửa
-     * từ trong album thì ảnh mới cũng nằm trong album", không rơi ra thư viện chung). Đóng modal +
-     * refresh lưới SAU KHI lưu xong.
-     */
-    async saveEditAsNew() {
-        const handle = this._activeImageModalHandle;
-        if (!handle || !this._activeEditParams) return; // guard: hiếm, không ở Edit mode nữa
-        const activeAlbumId = this._activeAlbumId;
-
-        await withLoadingShield(t('common.loading.savingImageEdit'), async () => {
-            const originalRecord = await getImageRecord(this._activeImageKey); // data layer (service/db.js)
-            const finalBlob = await this._exportEditedBlob();
-            const { thumbBlob, width, height } = await this._resizeImageForThumbnail(finalBlob);
-            const newFilename = this._buildEditedNewFilename(originalRecord ? originalRecord.filename : 'photo.jpg');
-            const newKey = await saveImage(finalBlob, newFilename, thumbBlob, width, height); // core/file-manager/image.js
-            if (activeAlbumId) await addImagesToAlbum([newKey], activeAlbumId); // core/file-manager/album.js
-        });
-        this.closeImagePreview();
-        await this.refresh(activeAlbumId);
-        await alertModal(t('fileManager.photo.image.editSaveNewSuccess'));
-    },
-
-    /** Thoát Zoom mode về 'view' (bấm lại "Zoom" lúc đang ở 'zoom') — huỷ phiên Panzoom, KHÔNG đóng
-     * modal. An toàn gọi khi không có phiên nào đang chạy (guard `_activePanzoomSession`). Cũng
-     * dùng cho Edit mode (bấm lại icon Edit lúc đang ở 'edit') — xem `_exitEditMode()`.
+    /** Thoát Zoom/Edit mode về 'view' (bấm lại item TOGGLE tương ứng trong dropdown lúc đang ở mode
+     * đó) — huỷ phiên Panzoom nếu còn, dọn Edit mode qua `workflowImageEdit.exitEditMode()` (miền
+     * khác, event/workflow/image-edit.js — Workflow-gọi-Workflow tự do, không qua Router lại). Cả 2
+     * hàm dọn đều tự guard AN TOÀN gọi khi không ở mode tương ứng.
      */
     exitImagePreviewMode() {
         if (this._activePanzoomSession) { destroyPanzoomSession(this._activePanzoomSession); this._activePanzoomSession = null; } // core/image-zoom.js
-        this._exitEditMode();
+        workflowImageEdit.exitEditMode();
         appState.set('imagePreviewMode', 'view');
         console.log(`writer: "exitImagePreviewMode", page: "imagePreviewMode", content: "view"`);
     },
 
-    /** Dọn Edit mode (nếu đang ở đó) — gỡ pointer listener của sub-tool + kéo-thả text (nếu còn),
-     * gỡ delegated click của lưới tool, ẩn canvasWrap, hiện lại `<img>`, đóng MỌI popup/contextBar
-     * riêng từng tool + Generic Drawer (nếu đang mở), ẩn lại `toolsBtn`, xoá params đang chỉnh. An
-     * toàn gọi khi KHÔNG đang ở Edit mode (guard `_activeEditParams`) — dùng chung bởi
-     * `exitImagePreviewMode()`/`closeImagePreview()`, KHÔNG tự đổi `imagePreviewMode` (2 hàm gọi nó
-     * tự set 'view' sau). Xử lý được cả trường hợp thoát GIỮA CHỪNG 1 sub-tool (vd đang crop dở mà
-     * bấm X đóng modal) — không "kẹt" listener nào lại.
-     * SỬA (31/07/2026, mục 2/4 phản hồi Giang) — gỡ class active khỏi `editBtn` (đã xoá) THAY bằng
-     * ẩn `toolsBtn` (`hidden`) — nút này CHỈ có nghĩa trong Edit mode.
-     */
-    _exitEditMode() {
-        if (!this._activeEditParams) return;
-        if (this._subToolPointerCleanup) { this._subToolPointerCleanup(); this._subToolPointerCleanup = null; }
-        if (this._textDragCleanup) { this._textDragCleanup(); this._textDragCleanup = null; }
-        const handle = this._activeImageModalHandle;
-        if (handle) {
-            if (this._editToolGridClickHandler) { genericDrawerBody.removeEventListener('click', this._editToolGridClickHandler); this._editToolGridClickHandler = null; }
-            handle.canvasWrap.classList.add('hidden');
-            handle.imgEl.classList.remove('hidden');
-            handle.adjustPopup.classList.add('hidden');
-            handle.contextBar.classList.add('hidden');
-            handle.contextApplyBtn.classList.remove('hidden'); // reset (Magic tự ẩn nút này)
-            handle.floatingText.classList.add('hidden');
-            handle.drawControlsPopup.classList.add('hidden');
-            handle.magicPopup.classList.add('hidden');
-            handle.toolsBtn.classList.add('hidden');
-        }
-        if (appState.get('isGenericDrawerOpen')) this._closeGenericDrawerFully();
-        this._activeEditParams = null;
-        this._activeAdjustParam = null;
-        this._activeSubTool = 'none';
-    },
-
-    /** Đóng THẬT modal xem ảnh — dọn phiên Panzoom nếu còn (Zoom mode) + dọn Edit mode nếu còn +
-     * đóng handle + reset `imagePreviewMode` về 'view'. Dùng ở 2 nơi: (1) Router gọi khi bấm X
-     * KHÔNG bị Block gate chặn (`imagePreviewMode==='view'` lúc đó, xem event/block.js), (2)
-     * `openImageActionMenu()` cho 3 action "quyết định" (setPlaylistBg/removeFromAlbum/delete) —
-     * LUÔN đóng bất kể mode hiện tại, không cần thoát Zoom/Edit trước (khác nút X — 3 action này
-     * chủ động, không phải bấm nhầm).
+    /** Đóng THẬT modal xem ảnh — dọn phiên Panzoom nếu còn + dọn Edit mode nếu còn + đóng handle +
+     * reset `imagePreviewMode` về 'view'. Dùng ở 2 nơi: (1) Router gọi khi bấm X KHÔNG bị Block gate
+     * chặn (`imagePreviewMode==='view'` lúc đó, xem event/block.js), (2) `openImageActionMenu()` cho
+     * 3 action "quyết định" (setPlaylistBg/removeFromAlbum/delete) — LUÔN đóng bất kể mode hiện tại.
      */
     closeImagePreview() {
         if (this._activePanzoomSession) { destroyPanzoomSession(this._activePanzoomSession); this._activePanzoomSession = null; } // core/image-zoom.js
-        this._exitEditMode();
+        workflowImageEdit.exitEditMode();
         if (this._activeImageModalHandle) { this._activeImageModalHandle.close(); this._activeImageModalHandle = null; }
         appState.set('imagePreviewMode', 'view');
         console.log(`writer: "closeImagePreview", page: "imagePreviewMode", content: "view"`);
-    },
-
-    _buildImageMenuHeaderHtml(title) {
-        return `
-            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
-                <h3 class="text-base font-bold text-slate-900">${title}</h3>
-                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-        `;
-    },
-
-    /** Trượt Generic Drawer xuống RỒI ẩn hẳn sau `transitionend` — cùng khuôn `_closeGenericDrawerFully()`
-     * ở event/workflow/document-reader.js (Core `core/generic-drawer.js` KHÔNG được tự
-     * `addEventListener` cho DOM tĩnh, Rule 5a — chỉ Workflow được làm). */
-    _closeGenericDrawerFully() {
-        closeGenericDrawer(); // core/generic-drawer.js
-        genericDrawerPanel.addEventListener('transitionend', function onTransitionEnd() {
-            genericDrawerPanel.removeEventListener('transitionend', onTransitionEnd);
-            hideGenericDrawerImmediately(); // core/generic-drawer.js
-        }, { once: true });
     },
 
     /** Ứng với nút "Đặt làm nền Playlist" trong modal xem ảnh — TÁI DÙNG NGUYÊN applyBgImage().

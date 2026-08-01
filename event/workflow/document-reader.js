@@ -100,7 +100,7 @@ const workflowDocumentReader = {
 
     closePicker() {
         this._mode = null;
-        this._closeGenericDrawerFully();
+        workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
     },
 
     _buildListHeaderHtml() {
@@ -174,21 +174,7 @@ const workflowDocumentReader = {
         this._mode = null;
         this._currentDocumentKey = null;
         this._editorApi = null;
-        this._closeGenericDrawerFully();
-    },
-
-    /** FIX (10/07/2026, phản hồi Giang — bug "đóng Generic Drawer không xoá overlay, che chắn UI
-     * mãi mãi"): `closeGenericDrawer()` (core) CHỈ trượt panel xuống, KHÔNG tự thêm lại `hidden`
-     * (core/generic-drawer.js không được tự `addEventListener` cho DOM tĩnh — Rule 5a). Workflow
-     * NÀY tự nghe `transitionend` rồi gọi `hideGenericDrawerImmediately()` (core) để ẩn hẳn — dùng
-     * CHUNG bởi cả `closePicker()` VÀ `_closeNow()`. (Lớp overlay riêng đã BỎ HẲN theo yêu cầu
-     * Giang — xem components/generic-drawer.js — nên giờ chỉ còn panel cần xử lý.) */
-    _closeGenericDrawerFully() {
-        closeGenericDrawer(); // core/generic-drawer.js — trượt xuống
-        genericDrawerPanel.addEventListener('transitionend', function onTransitionEnd() {
-            genericDrawerPanel.removeEventListener('transitionend', onTransitionEnd);
-            hideGenericDrawerImmediately(); // core/generic-drawer.js — ẩn hẳn
-        }, { once: true });
+        workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
     },
 
     /** Chạy `onProceed` NGAY nếu KHÔNG đang dở chế độ Sửa; nếu ĐANG dở, hỏi Lưu/Huỷ TRƯỚC (dùng

@@ -174,7 +174,7 @@ const workflowFileManagerFolderBrowser = {
     closeBrowser() {
         this._mode = null;
         this._readFolderId = null;
-        this._closeGenericDrawerFully();
+        workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
     },
 
     // ============================== READ (nội dung 1 folder) ==============================
@@ -452,18 +452,5 @@ const workflowFileManagerFolderBrowser = {
             ],
             { title: t('fileManager.song.deleteFolderTitle') }
         );
-    },
-
-    /** Trượt Generic Drawer xuống RỒI ẩn hẳn sau `transitionend` — cùng khuôn
-     * `_closeGenericDrawerFully()` ở event/workflow/file-manager-photo.js/file-manager-video.js
-     * (mỗi domain tự viết bản riêng, Rule 3 — core không gọi core, và đây còn là Workflow-tự-đóng-
-     * Workflow nên thực ra không bị Rule 3 ràng buộc, nhưng viết riêng cho nhất quán với các domain
-     * khác trong project). */
-    _closeGenericDrawerFully() {
-        closeGenericDrawer(); // core/generic-drawer.js
-        genericDrawerPanel.addEventListener('transitionend', function onTransitionEnd() {
-            genericDrawerPanel.removeEventListener('transitionend', onTransitionEnd);
-            hideGenericDrawerImmediately(); // core/generic-drawer.js
-        }, { once: true });
     },
 };
