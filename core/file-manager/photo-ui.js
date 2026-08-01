@@ -851,6 +851,36 @@ function openImagePreviewModal(image) {
     drawControlsPopup.querySelector('#image-edit-draw-brush').addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.draw.selectBrush.click', payload: {} }));
     drawControlsPopup.querySelector('#image-edit-draw-eraser').addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.draw.selectEraser.click', payload: {} }));
 
+    // SỬA (31/07/2026, Giang chỉ ra "Nhóm B không có ngoại lệ nào trong tài liệu") — pointer
+    // Crop/Vẽ/Tách nền (`interactCanvas`) + kéo Text (`floatingText`) + 2 slider (Điều chỉnh/dung
+    // sai Tách nền) TRƯỚC ĐÂY bị Workflow tự `addEventListener`/`removeEventListener` theo vòng đời
+    // từng sub-tool — SAI Rule 5a y hệt 5 nút phía trên, KHÔNG có ngoại lệ nào miễn cho tần suất
+    // event cao (Rule 4 chỉ miễn `console.log`, không miễn `addEventListener`/`eventBus`). Wire
+    // ĐÚNG 1 LẦN ở đây, callback tính sẵn toạ độ/giá trị rồi CHỈ `eventBus.send()` — Router
+    // (`imageEdit`) tự đọc `getActiveSubTool()` mỗi lần nhận để quyết định chạy gì (kể cả KHÔNG
+    // chạy gì nếu đang 'none'/tool không liên quan — an toàn, hàm rẻ).
+    const computeInteractPos = (clientX, clientY) => {
+        const rect = interactCanvas.getBoundingClientRect();
+        const scale = interactCanvas.width / (rect.width || interactCanvas.width || 1); // guard chia 0 hiếm (canvas chưa layout xong)
+        return { x: (clientX - rect.left) * scale, y: (clientY - rect.top) * scale };
+    };
+    interactCanvas.addEventListener('pointerdown', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.interactCanvas.pointerDown', payload: computeInteractPos(e.clientX, e.clientY) }));
+    interactCanvas.addEventListener('pointermove', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.interactCanvas.pointerMove', payload: computeInteractPos(e.clientX, e.clientY) }));
+    interactCanvas.addEventListener('pointerup', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.interactCanvas.pointerUp', payload: {} }));
+    interactCanvas.addEventListener('pointerleave', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.interactCanvas.pointerUp', payload: {} })); // trượt ra ngoài canvas lúc đang kéo = coi như nhả tay, cùng msg.type
+
+    // `floatingText.pointerdown` wire Ở ĐÂY (phần tử ĐỘNG, tạo mới mỗi lần mở modal — đúng chỗ).
+    // `document.pointermove`/`pointerup` theo dõi TIẾP quá trình kéo KHÔNG được wire ở đây — `document`
+    // KHÔNG phải phần tử động của modal này (không tự mất khi modal đóng), wire lại mỗi lần mở modal
+    // sẽ CHỒNG CHẤT listener qua nhiều lần mở/đóng — 2 listener đó wire ĐÚNG 1 LẦN DUY NHẤT ở
+    // event/listener/image-edit.js (DOM tĩnh thật sự, đúng tầng Listener — xem file đó).
+    floatingText.addEventListener('pointerdown', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.floatingText.pointerDown', payload: {} }));
+
+    const adjustSliderEl = adjustPopup.querySelector('#image-edit-adjust-slider');
+    adjustSliderEl.addEventListener('input', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.adjust.slider.input', payload: { value: parseInt(e.target.value, 10) } }));
+    const magicSliderEl = magicPopup.querySelector('#image-edit-magic-slider');
+    magicSliderEl.addEventListener('input', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.magic.slider.input', payload: { value: parseInt(e.target.value, 10) } }));
+
     // SỬA (31/07/2026, mục 2/4 phản hồi Giang) — thêm canvasWrap/base/render/interact/toolsBtn
     // (THAY `editBtn` đã xoá) cho Zoom→giữ nguyên, Edit mode dùng. imgEl vẫn trả nguyên (Zoom
     // mode/view thường đọc) — Edit mode tự ẩn imgEl, hiện canvasWrap + toolsBtn, xem
@@ -860,7 +890,7 @@ function openImagePreviewModal(image) {
         header,
         adjustPopup, adjustLabelEl: adjustPopup.querySelector('#image-edit-adjust-label'),
         adjustValueEl: adjustPopup.querySelector('#image-edit-adjust-value'),
-        adjustSliderEl: adjustPopup.querySelector('#image-edit-adjust-slider'),
+        adjustSliderEl,
         adjustDoneBtn: adjustPopup.querySelector('#image-edit-adjust-done'),
         contextBar, contextCancelBtn: contextBar.querySelector('#image-edit-context-cancel'),
         contextTitleEl: contextBar.querySelector('#image-edit-context-title'),
@@ -871,7 +901,7 @@ function openImagePreviewModal(image) {
         drawColorEl: drawControlsPopup.querySelector('#image-edit-draw-color'),
         drawSizeEl: drawControlsPopup.querySelector('#image-edit-draw-size'),
         magicPopup, magicValueEl: magicPopup.querySelector('#image-edit-magic-value'),
-        magicSliderEl: magicPopup.querySelector('#image-edit-magic-slider'),
+        magicSliderEl,
     };
 }
 
