@@ -329,22 +329,15 @@ const routerFileManagerPhoto = (() => {
 
             // Đích dispatch của dropdown (openImageActionMenu()) — dùng `activeAlbumId` CỦA ROUTER
             // (closure, không qua payload) để luôn khớp ngữ cảnh lọc lúc action THẬT SỰ chạy.
+            // SỬA (31/07/2026, Giang chỉ ra "đừng viện dẫn workflow xuyên miền để biện minh giữ
+            // routing sai chỗ") — "Lưu đè"/"Lưu mới" ĐÃ CHUYỂN hẳn sang router `imageEdit` (msg.type
+            // riêng, xem event/router/image-edit.js) — case này giờ CHỈ còn 3 action là trách nhiệm
+            // THẬT của miền Photo (setPlaylistBg/removeFromAlbum/delete).
             case 'fileManagerPhoto.imageMenu.action.click': {
                 const { action, imageKey } = msg.payload;
                 VirtualMachineState.run([
                     { state: action, operation: '===', value: 'setPlaylistBg', callback: () => {
                         workflowFileManagerPhoto.setAsPlaylistBackground(imageKey);
-                    } },
-                    // "Lưu đè"/"Lưu mới" — CHỈ hiện trong dropdown khi imagePreviewMode==='edit'
-                    // (openImageActionMenu()) — logic thật sống ở workflowImageEdit (miền khác, xem
-                    // event/workflow/image-edit.js), Router miền này gọi thẳng qua (Workflow-gọi-
-                    // Workflow tự do — cùng đường "Lưu đè" là action chung msg.type với
-                    // setPlaylistBg/removeFromAlbum/delete, không tách router riêng cho nó được).
-                    { state: action, operation: '===', value: 'saveOverwrite', callback: () => {
-                        workflowImageEdit.saveEditOverwrite();
-                    } },
-                    { state: action, operation: '===', value: 'saveNew', callback: () => {
-                        workflowImageEdit.saveEditAsNew();
                     } },
                     { state: action, operation: '===', value: 'removeFromAlbum', callback: () => {
                         removeImageFromAlbum(imageKey, activeAlbumId).then(() => workflowFileManagerPhoto.refresh(activeAlbumId)); // core/file-manager/album.js
