@@ -336,10 +336,11 @@
     <script src="lang/patch/patch-settings-misc.js?v=20260714v1"></script>
     <script src="lang/patch/patch-file-manager.js?v=20260710v1"></script>
     <script src="lang/patch/patch-subtitle-editor.js?v=20260712v5"></script>
-    <!-- MỚI (Batch 1, module Video Editor) — cần nạp Ở ĐÂY dù trang này không dùng key nào trong
-         đó — lang.js (dùng CHUNG nhiều trang) Object.assign() 8 biến LANG_PATCH_*, THIẾU file này
-         -> ReferenceError khi parse lang.js, VỠ CẢ TRANG. -->
-    <script src="lang/patch/patch-video-editor.js?v=20260722v1"></script>
+    <!-- SỬA ("Song/Video Unification" v12, gộp Video Editor vào Modal xem Video, patch-video-
+         editor.js ĐÃ XOÁ cùng video-editor.html) — cần nạp Ở ĐÂY dù trang này không dùng key nào
+         trong đó — lang.js (dùng CHUNG nhiều trang) Object.assign() 8 biến LANG_PATCH_*, THIẾU
+         file này -> ReferenceError khi parse lang.js, VỠ CẢ TRANG. -->
+    <script src="lang/patch/patch-video-preview.js?v=20260802v1"></script>
     <!-- lang.js hardcode Object.assign() cả 8 biến LANG_PATCH_* trên — THIẾU BẤT KỲ FILE NÀO Ở
          TRÊN đều làm lang.js ReferenceError ngay khi parse (chạy TRÊN CẢ index.html LẪN trang này,
          xem lang/lang.js) — KHÔNG được bớt file nào dù trang này chỉ thật sự DÙNG patch-common/
