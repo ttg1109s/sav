@@ -837,6 +837,19 @@ function openImagePreviewModal(image) {
     closeBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.close.click', payload: {} }));
     toolsBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.tools.click', payload: {} }));
     menuBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.menu.click', payload: { menuBtn } }));
+    // SỬA (31/07/2026, Giang chỉ ra vi phạm Rule 5a mục 5) — 5 nút Edit mode dưới đây TRƯỚC ĐÂY bị
+    // `event/workflow/image-edit.js` tự gán LẠI `.onclick` mỗi lần vào/thoát sub-tool khác nhau
+    // (rải rác ở 4 hàm `_startXxxTool()` khác nhau, KHÔNG "gom cuối hàm", callback gọi thẳng
+    // `this.xxx()` thay vì `eventBus.send()`) — SAI CẢ 2 điều kiện Rule 5a. Giờ wire ĐÚNG 1 LẦN ở
+    // đây, msg.type CỐ ĐỊNH bất kể tool nào đang mở — Router (`imageEdit`) tự đọc
+    // `workflowImageEdit.getActiveSubTool()` qua VirtualMachineState để chọn hàm Áp dụng đúng (Rule
+    // 1: nơi gọi chọn hàm, không phải nút tự đổi nghĩa). `contextCancelBtn`/`adjustDoneBtn` hành vi
+    // GIỐNG HỆT bất kể tool nào (`exitSubTool()`/`exitAdjustTool()`), không cần Router phân nhánh.
+    contextBar.querySelector('#image-edit-context-cancel').addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.subTool.cancel.click', payload: {} }));
+    contextBar.querySelector('#image-edit-context-apply').addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.subTool.apply.click', payload: {} }));
+    adjustPopup.querySelector('#image-edit-adjust-done').addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.adjust.done.click', payload: {} }));
+    drawControlsPopup.querySelector('#image-edit-draw-brush').addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.draw.selectBrush.click', payload: {} }));
+    drawControlsPopup.querySelector('#image-edit-draw-eraser').addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.draw.selectEraser.click', payload: {} }));
 
     // SỬA (31/07/2026, mục 2/4 phản hồi Giang) — thêm canvasWrap/base/render/interact/toolsBtn
     // (THAY `editBtn` đã xoá) cho Zoom→giữ nguyên, Edit mode dùng. imgEl vẫn trả nguyên (Zoom
