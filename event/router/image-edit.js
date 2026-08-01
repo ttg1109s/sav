@@ -47,6 +47,16 @@ const routerImageEdit = (() => {
                 break;
             }
 
+            // MỚI (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow")
+            // — nút X TRÊN CHÍNH Generic Drawer (header lưới tool, core/file-manager/photo-ui.js::
+            // openPhotoEditToolGridDrawerUi()) — đóng hẳn Drawer, KHÔNG mở lại (khác `tools.click` ở
+            // trên). Đích cố định, hạ tầng dùng chung nhiều domain -> gọi thẳng
+            // `workflowGenericDrawerHelpers` (event/workflow/generic-drawer-helpers.js).
+            case 'imageEdit.toolGrid.close.click': {
+                workflowGenericDrawerHelpers.closeFully();
+                break;
+            }
+
             // MỚI (31/07/2026, Giang chỉ ra vi phạm Rule 5a) — `contextCancelBtn`/`contextApplyBtn`/
             // `adjustDoneBtn`/`drawBrushBtn`/`drawEraserBtn` (core/file-manager/photo-ui.js) TRƯỚC
             // ĐÂY bị workflowImageEdit tự gán LẠI `.onclick` mỗi lần đổi sub-tool — SAI Rule 5a (nội
