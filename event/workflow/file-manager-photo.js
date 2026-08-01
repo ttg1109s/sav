@@ -904,20 +904,18 @@ const workflowFileManagerPhoto = {
 
     /** Ứng với 'fileManagerPhoto.imagePreview.menu.click' — dropdown "..." của modal xem ảnh
      * (core/dropdown-menu.js), `zIndex: 132` — TRÊN modal xem ảnh (`Z_INDEX.IMAGE_PREVIEW`, 130).
-     * `dispatch(action, closePreview=true)` bắn `imageMenu.action.click` (Router file này xử lý) —
-     * `closePreview:false` cho action KHÔNG đóng modal ngay (saveOverwrite/saveNew tự đóng SAU khi
-     * lưu xong). "Zoom view"/"Edit" là 2 mode TOGGLE, loại trừ nhau — bắn 2 msg.type RIÊNG (không
-     * qua `dispatch()`, KHÔNG đóng modal) để `event/block.js` khoá chéo được theo ĐÚNG msg.type
-     * (Block gate chặn theo msg.type, không tách được theo `payload.action` dùng chung). "Edit" bắn
-     * sang router `imageEdit` (miền khác, event/router/image-edit.js) — "Zoom view" vẫn ở router
-     * này. Nhãn item đổi theo mode hiện tại (đang Zoom -> "Thoát Zoom view", đang Edit -> "Thoát
-     * Edit").
+     * `dispatch(action)` bắn `imageMenu.action.click` (Router file này xử lý — CHỈ 3 action còn lại
+     * là trách nhiệm THẬT của miền Photo: setPlaylistBg/removeFromAlbum/delete, đóng modal NGAY).
+     * "Zoom view" (miền Photo)/"Edit" (miền `imageEdit`)/"Lưu đè"/"Lưu mới" (miền `imageEdit`) đều
+     * bắn eventBus TRỰC TIẾP theo ĐÚNG router chịu trách nhiệm — KHÔNG qua `dispatch()`, KHÔNG đóng
+     * modal (đều tự đóng/tự toggle ở nơi xử lý thật). Nhãn "Zoom view"/"Edit" đổi theo mode hiện tại
+     * (đang Zoom -> "Thoát Zoom view", đang Edit -> "Thoát Edit").
      * @param {HTMLElement} anchorEl - nút "..." vừa bấm.
      */
     openImageActionMenu(anchorEl) {
         const imageKey = this._activeImageKey, activeAlbumId = this._activeAlbumId;
-        const dispatch = (action, closePreview = true) => {
-            if (closePreview) this.closeImagePreview();
+        const dispatch = (action) => {
+            this.closeImagePreview();
             eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imageMenu.action.click', payload: { action, imageKey } });
         };
         const isZooming = appState.get('imagePreviewMode') === 'zoom';
@@ -929,11 +927,16 @@ const workflowFileManagerPhoto = {
         ];
         // MỚI (31/07/2026) — CHỈ hiện khi đang ở Edit mode (đúng chốt Giang: "thêm dropdown action
         // cho lưu đè, lưu mới" — ĐÚNG 2 action MỚI duy nhất, còn lại các item khác giữ nguyên bất kể
-        // mode). `closePreview: false` — saveEditOverwrite()/saveEditAsNew() tự đóng modal SAU KHI
-        // lưu xong (cần handle.renderCanvas còn sống lúc chạy), không đóng NGAY như setPlaylistBg.
+        // mode).
+        // SỬA (31/07/2026, Giang chỉ ra "đừng viện dẫn workflow xuyên miền để biện minh giữ routing
+        // sai chỗ") — 2 item này KHÔNG còn qua `dispatch()` (msg.type dùng chung 'imageMenu.action.
+        // click', router `fileManagerPhoto`) nữa — bắn THẲNG sang router `imageEdit` (đúng miền
+        // trách nhiệm của "Lưu đè"/"Lưu mới", xem event/router/image-edit.js), KHÔNG đóng modal
+        // (saveEditOverwrite()/saveEditAsNew() tự đóng SAU KHI lưu xong — cần handle.renderCanvas
+        // còn sống lúc chạy).
         if (isEditing) {
-            items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4l-4 4m0 0L7 3m4 4V1"/></svg>', name: t('fileManager.photo.image.btnSaveOverwrite'), callback: () => dispatch('saveOverwrite', false) });
-            items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>', name: t('fileManager.photo.image.btnSaveNew'), callback: () => dispatch('saveNew', false) });
+            items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4l-4 4m0 0L7 3m4 4V1"/></svg>', name: t('fileManager.photo.image.btnSaveOverwrite'), callback: () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.saveOverwrite.click', payload: {} }) });
+            items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>', name: t('fileManager.photo.image.btnSaveNew'), callback: () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.saveAsNew.click', payload: {} }) });
         }
         if (activeAlbumId) items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6"/></svg>', name: t('fileManager.photo.image.btnRemoveFromAlbum'), callback: () => dispatch('removeFromAlbum') });
         items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>', name: t('fileManager.photo.image.btnDelete'), callback: () => dispatch('delete'), destructive: true });

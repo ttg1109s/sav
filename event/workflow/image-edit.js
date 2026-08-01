@@ -82,7 +82,7 @@ const workflowImageEdit = {
     },
 
     /** Mở Generic Drawer hiện lưới tool Edit mode, nhóm theo header + grid. Gọi lại NHIỀU LẦN
-     * trong 1 phiên (mỗi lần Huỷ/Áp dụng xong 1 tool, xem `_exitSubTool()`) — chỉ dựng lại
+     * trong 1 phiên (mỗi lần Huỷ/Áp dụng xong 1 tool, xem `exitSubTool()`) — chỉ dựng lại
      * header/bodyHtml, KHÔNG wire lại delegated click (đã wire ở `enterEditMode()`); nút X đóng
      * PHẢI wire lại mỗi lần (phần tử MỚI trong headerHtml). Public — Router gọi trực tiếp lúc bấm
      * `toolsBtn` (case 'imageEdit.tools.click') để mở lại lưới sau khi người dùng tự đóng Drawer.
@@ -150,9 +150,17 @@ const workflowImageEdit = {
         if (toolKey === 'magic') { this._startMagicTool(); return; }
     },
 
-    /** 1 tile "Điều chỉnh" được bấm — đóng Generic Drawer, hiện popup slider, gắn `oninput` trực
-     * tiếp (KHÔNG qua eventBus mỗi lần kéo — hot path, cùng ngoại lệ Rule 4 đã chốt cho vòng vẽ
-     * visualizer). Debounce qua `taskManager.once()`. Nút "xong" quay lại lưới tool.
+    /** 1 tile "Điều chỉnh" được bấm — đóng Generic Drawer, hiện popup slider.
+     * SỬA (31/07/2026, Giang chỉ ra vi phạm Rule 5a) — `adjustDoneBtn.onclick` KHÔNG còn gán ở đây
+     * nữa (từng bị gán LẠI mỗi lần mở tool khác nhau — vi phạm "gom cuối hàm", xem docstring
+     * `exitAdjustTool()`) — nút đó giờ wire ĐÚNG 1 LẦN lúc dựng modal (core/file-manager/photo-
+     * ui.js), bắn `imageEdit.adjust.done.click` cố định.
+     * `adjustSliderEl.oninput` VẪN gọi thẳng `this._renderEditPreview()` (không qua eventBus) —
+     * ĐÂY KHÔNG PHẢI ngoại lệ đã audit chính thức nào (Rule 4 CHỈ miễn `console.log` hot-path
+     * 60fps, KHÔNG miễn eventBus — xem readme/core-function-conventions.md). Giữ tạm vì lý do hiệu
+     * năng thực tế (kéo tay bắn hàng chục event/giây), NHƯNG đây là nợ kỹ thuật CHƯA qua audit,
+     * không phải pattern được duyệt — cần Giang chốt có audit chính thức (như `modalChoice()`) hay
+     * bắt buộc route qua eventBus.
      * @param {string} paramKey - 'brightness'|'contrast'|'saturation'|'temperature'|'tint'|'sharpen'
      */
     openAdjustTool(paramKey) {
@@ -175,11 +183,16 @@ const workflowImageEdit = {
             handle.adjustValueEl.textContent = val;
             taskManager.once(() => this._renderEditPreview(), 60, 'photoEditAdjustPreview'); // service/task-manager.js — debounce
         };
-        handle.adjustDoneBtn.onclick = () => {
-            handle.adjustPopup.classList.add('hidden');
-            this._activeAdjustParam = null;
-            this.openEditToolGrid();
-        };
+    },
+
+    /** Ứng với `imageEdit.adjust.done.click` (nút "xong" ở popup Điều chỉnh, wire 1 lần ở photo-
+     * ui.js) — đóng popup, quay lại lưới tool. Public — Router gọi trực tiếp. */
+    exitAdjustTool() {
+        const handle = this._activeImageModalHandle;
+        if (!handle || !this._activeAdjustParam) return; // guard: bấm lúc popup đã ẩn/đã thoát Edit mode
+        handle.adjustPopup.classList.add('hidden');
+        this._activeAdjustParam = null;
+        this.openEditToolGrid();
     },
 
     /** Tính lại `renderCanvas` từ `baseCanvas` + `_activeEditParams` hiện tại — KHÔNG đụng
@@ -192,9 +205,14 @@ const workflowImageEdit = {
         handle.renderCanvas.getContext('2d').putImageData(imageData, 0, 0);
     },
 
+    /** @returns {string} 'none'|'crop'|'draw'|'text'|'magic' — khe ĐỌC cho Router (`imageEdit`)
+     * chọn đúng hàm Áp dụng khi bấm `contextApplyBtn` (dùng CHUNG cho cả 4 sub-tool, hành vi khác
+     * nhau theo tool đang mở — xem case 'imageEdit.subTool.apply.click'). */
+    getActiveSubTool() { return this._activeSubTool; },
+
     // ===================== Hạ tầng dùng chung cho Crop/Vẽ/Text/Tách nền =====================
     // 4 tool này (khác "Điều chỉnh" — live-preview, không cần UI riêng) đều: ẩn header/hiện
-    // contextBar, gắn Pointer Events lên interactCanvas, lúc Huỷ/Áp dụng xong -> _exitSubTool() dọn
+    // contextBar, gắn Pointer Events lên interactCanvas, lúc Huỷ/Áp dụng xong -> exitSubTool() dọn
     // sạch + mở lại lưới tool.
 
     /** Toạ độ CSS hiển thị -> pixel THẬT của canvas (canvas có thể hiện nhỏ/lớn hơn độ phân giải
@@ -214,7 +232,8 @@ const workflowImageEdit = {
     },
 
     /** Gắn Pointer Events lên `interactCanvas`, tự map toạ độ CSS -> pixel canvas. Lưu hàm gỡ vào
-     * `_subToolPointerCleanup`.
+     * `_subToolPointerCleanup`. KHÔNG qua eventBus (như `adjustSliderEl.oninput` ở trên) — CÙNG
+     * nợ kỹ thuật CHƯA qua audit, giữ tạm vì lý do hiệu năng (pointermove bắn liên tục lúc kéo).
      * @param {(pos:{x:number,y:number}) => void} onDown
      * @param {(pos:{x:number,y:number}) => void} onMove
      * @param {() => void} onUp
@@ -236,9 +255,12 @@ const workflowImageEdit = {
         };
     },
 
-    /** Thoát 1 sub-tool (Crop/Vẽ/Text/Tách nền) VỀ lưới tool — gỡ listener, xoá `interactCanvas`, ẩn
-     * contextBar/floatingText/popup riêng từng tool, hiện lại header, mở lại Generic Drawer. */
-    _exitSubTool() {
+    /** Ứng với `imageEdit.subTool.cancel.click` (nút Huỷ ở contextBar, wire 1 lần ở photo-ui.js,
+     * DÙNG CHUNG cho cả 4 sub-tool — hành vi GIỐNG HỆT nhau bất kể tool nào đang mở, nên KHÔNG cần
+     * Router phân theo `_activeSubTool` như `apply`). Thoát 1 sub-tool VỀ lưới tool — gỡ listener,
+     * xoá `interactCanvas`, ẩn contextBar/floatingText/popup riêng từng tool, hiện lại header, mở
+     * lại Generic Drawer. Public — Router gọi trực tiếp. */
+    exitSubTool() {
         const handle = this._activeImageModalHandle;
         if (!handle) return;
         if (this._subToolPointerCleanup) { this._subToolPointerCleanup(); this._subToolPointerCleanup = null; }
@@ -276,9 +298,6 @@ const workflowImageEdit = {
             (pos) => { this._moveOrResizeCropSession(pos); this._drawCropOverlay(); },
             () => cropSessionPointerUp(this._cropSession), // core/crop-selector.js
         );
-
-        handle.contextCancelBtn.onclick = () => this._exitSubTool();
-        handle.contextApplyBtn.onclick = () => this._applyCropTool();
     },
 
     /** Đọc `session.activeHandle` rồi chọn ĐÚNG 1 trong 3 hàm tính rect thuần của core/crop-
@@ -315,8 +334,9 @@ const workflowImageEdit = {
 
     /** Áp dụng Crop — cắt từ `renderCanvas` (đã gồm Điều chỉnh hiện tại) -> resize cả 3 canvas ->
      * reset params (đã gộp vào pixel thật). Riêng của Photo (Video Editor không cắt pixel ở bước
-     * này, xem docstring đầu core/crop-selector.js). */
-    _applyCropTool() {
+     * này, xem docstring đầu core/crop-selector.js). Public — Router gọi qua case
+     * 'imageEdit.subTool.apply.click' (phân theo `getActiveSubTool()`). */
+    applyCropTool() {
         const handle = this._activeImageModalHandle;
         const rect = getCropSessionRect(this._cropSession); // core/crop-selector.js
         const cropped = cropCanvas(handle.renderCanvas, rect); // core/photo-editor-engine.js
@@ -325,13 +345,14 @@ const workflowImageEdit = {
         handle.renderCanvas.getContext('2d').drawImage(cropped, 0, 0);
         this._activeEditParams = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, sharpen: 0 };
         this._cropSession = null;
-        this._exitSubTool();
+        this.exitSubTool();
     },
 
     // ===================== Vẽ (Cọ/Tẩy) =====================
 
-    /** Vào tool Vẽ — mặc định Cọ, gắn toggle Cọ/Tẩy + màu + cỡ nét, gắn Pointer Events vẽ nét
-     * trực tiếp lên `interactCanvas` (nháp, chưa gộp vào base tới khi bấm Áp dụng). */
+    /** Vào tool Vẽ — mặc định Cọ, gắn Pointer Events vẽ nét trực tiếp lên `interactCanvas` (nháp,
+     * chưa gộp vào base tới khi bấm Áp dụng). Nút Cọ/Tẩy wire 1 lần ở photo-ui.js (xem
+     * `selectDrawBrush()`/`selectDrawEraser()`). */
     _startDrawTool() {
         const handle = this._activeImageModalHandle;
         this._activeSubTool = 'draw';
@@ -344,30 +365,37 @@ const workflowImageEdit = {
         handle.drawBrushBtn.classList.add('text-primary'); handle.drawBrushBtn.classList.remove('text-white/60');
         handle.drawEraserBtn.classList.add('text-white/60'); handle.drawEraserBtn.classList.remove('text-primary');
 
-        handle.drawBrushBtn.onclick = () => {
-            this._drawType = 'brush';
-            handle.drawBrushBtn.classList.replace('text-white/60', 'text-primary');
-            handle.drawEraserBtn.classList.replace('text-primary', 'text-white/60');
-        };
-        handle.drawEraserBtn.onclick = () => {
-            this._drawType = 'eraser';
-            handle.drawEraserBtn.classList.replace('text-white/60', 'text-primary');
-            handle.drawBrushBtn.classList.replace('text-primary', 'text-white/60');
-        };
-
         let isDrawing = false, lastPos = null;
         this._wireSubToolPointerEvents(
             (pos) => { isDrawing = true; lastPos = pos; this._drawStroke(handle, pos, pos); },
             (pos) => { if (isDrawing) { this._drawStroke(handle, lastPos, pos); lastPos = pos; } },
             () => { isDrawing = false; },
         );
+    },
 
-        handle.contextCancelBtn.onclick = () => this._exitSubTool();
-        handle.contextApplyBtn.onclick = () => this._applyDrawTool();
+    /** Ứng với `imageEdit.draw.selectBrush.click` (wire 1 lần ở photo-ui.js). Guard theo
+     * `_activeSubTool` — nút chỉ HIỆN lúc tool Vẽ đang mở (`drawControlsPopup`), nhưng vẫn tự vệ
+     * phòng bấm lọt lúc đang chuyển tool. Public — Router gọi trực tiếp. */
+    selectDrawBrush() {
+        const handle = this._activeImageModalHandle;
+        if (!handle || this._activeSubTool !== 'draw') return;
+        this._drawType = 'brush';
+        handle.drawBrushBtn.classList.replace('text-white/60', 'text-primary');
+        handle.drawEraserBtn.classList.replace('text-primary', 'text-white/60');
+    },
+
+    /** Ứng với `imageEdit.draw.selectEraser.click` — xem `selectDrawBrush()`. Public — Router gọi
+     * trực tiếp. */
+    selectDrawEraser() {
+        const handle = this._activeImageModalHandle;
+        if (!handle || this._activeSubTool !== 'draw') return;
+        this._drawType = 'eraser';
+        handle.drawEraserBtn.classList.replace('text-white/60', 'text-primary');
+        handle.drawBrushBtn.classList.replace('text-primary', 'text-white/60');
     },
 
     /** Vẽ 1 đoạn nét lên `interactCanvas` — Cọ = `source-over`, Tẩy = `destination-out` (đục
-     * thủng, hiện lại pixel gốc phía dưới lúc "Áp dụng" gộp, xem `_applyDrawTool()`). */
+     * thủng, hiện lại pixel gốc phía dưới lúc "Áp dụng" gộp, xem `applyDrawTool()`). */
     _drawStroke(handle, fromPos, toPos) {
         const ctx = handle.interactCanvas.getContext('2d');
         ctx.beginPath();
@@ -387,8 +415,9 @@ const workflowImageEdit = {
     },
 
     /** Áp dụng Vẽ — gộp `interactCanvas` (nét nháp) lên `renderCanvas` thành base MỚI, đúng
-     * composite operation theo Cọ/Tẩy. */
-    _applyDrawTool() {
+     * composite operation theo Cọ/Tẩy. Public — Router gọi qua case 'imageEdit.subTool.apply.click'
+     * (phân theo `getActiveSubTool()`). */
+    applyDrawTool() {
         const handle = this._activeImageModalHandle;
         const compositeOp = this._drawType === 'eraser' ? 'destination-out' : 'source-over';
         const merged = mergeCanvases(handle.renderCanvas, handle.interactCanvas, compositeOp); // core/photo-editor-engine.js
@@ -399,13 +428,14 @@ const workflowImageEdit = {
         renderCtx.clearRect(0, 0, handle.renderCanvas.width, handle.renderCanvas.height);
         renderCtx.drawImage(merged, 0, 0);
         this._activeEditParams = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, sharpen: 0 };
-        this._exitSubTool();
+        this.exitSubTool();
     },
 
     // ===================== Văn bản =====================
 
     /** Vào tool Text — khung chữ nổi (`floatingText`) hiện giữa màn hình, kéo-thả bằng Pointer
-     * Events trên chính nó + `document` (KHÁC `interactCanvas` — không cần vẽ pixel lúc kéo). */
+     * Events trên chính nó + `document` (KHÁC `interactCanvas` — không cần vẽ pixel lúc kéo). Nút
+     * Huỷ/Áp dụng wire 1 lần ở photo-ui.js. */
     _startTextTool() {
         const handle = this._activeImageModalHandle;
         this._activeSubTool = 'text';
@@ -428,14 +458,12 @@ const workflowImageEdit = {
         sel.addRange(range);
 
         this._wireFloatingTextDrag(handle);
-
-        handle.contextCancelBtn.onclick = () => this._exitSubTool();
-        handle.contextApplyBtn.onclick = () => this._applyTextTool();
     },
 
     /** Kéo-thả `floatingText` bằng Pointer Events — nghe `pointermove`/`pointerup` trên `document`
      * (không chỉ trên chính phần tử — ngón tay/chuột trượt ra ngoài vẫn phải theo dõi tiếp). Lưu
-     * hàm gỡ vào `_textDragCleanup` — `_exitSubTool()` tự gọi khi thoát tool.
+     * hàm gỡ vào `_textDragCleanup` — `exitSubTool()` tự gọi khi thoát tool. CÙNG nợ kỹ thuật hiệu
+     * năng như `_wireSubToolPointerEvents()` (chưa qua audit, xem docstring hàm đó).
      */
     _wireFloatingTextDrag(handle) {
         let dragging = false;
@@ -459,12 +487,12 @@ const workflowImageEdit = {
 
     /** Áp dụng Text — "nướng" thẳng lên `base` MỚI (gồm Điều chỉnh hiện tại gộp vào trước), tại
      * ĐÚNG vị trí `floatingText` đang hiện (quy đổi CSS -> canvas qua `_editScale()`). Bỏ qua nếu
-     * rỗng/toàn khoảng trắng.
+     * rỗng/toàn khoảng trắng. Public — Router gọi qua case 'imageEdit.subTool.apply.click'.
      */
-    _applyTextTool() {
+    applyTextTool() {
         const handle = this._activeImageModalHandle;
         const text = handle.floatingText.textContent;
-        if (!text || !text.trim()) { this._exitSubTool(); return; }
+        if (!text || !text.trim()) { this.exitSubTool(); return; }
 
         const canvasRect = handle.renderCanvas.getBoundingClientRect();
         const textRect = handle.floatingText.getBoundingClientRect();
@@ -480,13 +508,14 @@ const workflowImageEdit = {
 
         this._activeEditParams = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, sharpen: 0 };
         this._renderEditPreview(); // params vừa reset về 0 -> chỉ copy base (đã có chữ) sang render
-        this._exitSubTool();
+        this.exitSubTool();
     },
 
     // ===================== Tách nền (Magic cutout) =====================
 
     /** Vào tool Tách nền — CHỈ hiện nút Huỷ ở contextBar (mỗi lần chạm áp dụng NGAY vào base,
-     * không có bước xác nhận riêng). Popup dưới đáy chỉnh dung sai màu TRƯỚC khi chạm. */
+     * không có bước xác nhận riêng, KHÔNG cần `applyMagicTool()` riêng). Popup dưới đáy chỉnh dung
+     * sai màu TRƯỚC khi chạm. Nút Huỷ wire 1 lần ở photo-ui.js. */
     _startMagicTool() {
         const handle = this._activeImageModalHandle;
         this._activeSubTool = 'magic';
@@ -503,8 +532,6 @@ const workflowImageEdit = {
             () => {},
             () => {},
         );
-
-        handle.contextCancelBtn.onclick = () => this._exitSubTool();
     },
 
     /** Chạm 1 điểm — tách MÀU TRƠN quanh điểm đó khỏi TOÀN ẢNH (không phải flood-fill theo vùng
@@ -546,8 +573,8 @@ const workflowImageEdit = {
         return `${base}_edited_${Date.now()}${ext}`;
     },
 
-    /** Item "Lưu đè" (dropdown, CHỈ hiện khi `imagePreviewMode==='edit'`, gọi từ router
-     * `fileManagerPhoto` — Workflow-gọi-Workflow) — xuất `renderCanvas` -> resize thumbnail
+    /** Item "Lưu đè" (dropdown, CHỈ hiện khi `imagePreviewMode==='edit'`, bắn thẳng router
+     * `imageEdit`, case 'imageEdit.saveOverwrite.click') — xuất `renderCanvas` -> resize thumbnail
      * (`workflowFileManagerPhoto.resizeImageForThumbnail()`, dùng chung upload) ->
      * `updateImageBlob()` (core/file-manager/image.js) ghi đè ĐÚNG key đang mở. Đóng modal + refresh
      * lưới SAU KHI lưu xong (cả 2 việc này thuộc miền fileManagerPhoto).
