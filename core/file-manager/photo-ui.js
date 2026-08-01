@@ -875,6 +875,122 @@ function openImagePreviewModal(image) {
     };
 }
 
+// ===================== "Nhóm A" (31/07/2026, Giang chỉ ra) =====================
+// `event/workflow/file-manager-photo.js`/`image-edit.js` TRƯỚC ĐÂY tự `addEventListener` cho DOM
+// ĐỘNG (panel push bởi `pushSettingsPanel()`, Generic Drawer bởi `openGenericDrawer()`) — SAI: Rule
+// 5a cấp quyền `addEventListener` cho DOM động là quyền của CORE (hàm dựng ra cụm DOM đó), KHÔNG
+// phải Workflow, dù callback có tuân đúng "chỉ gọi eventBus.send()" hay không — vấn đề là NƠI ĐẶT
+// lệnh `addEventListener`, không phải nội dung callback. 5 hàm dưới đây dời TOÀN BỘ phần
+// wire/`addEventListener` từ Workflow sang đây — Workflow giờ CHỈ còn gọi các hàm này NGAY SAU khi
+// gọi `pushSettingsPanel()`/`openGenericDrawer()` (Workflow gọi Core, không tự cầm DOM API).
+// KHÔNG dời phần "đợi transitionend rồi resolve/gọi tiếp" (mở picker, đóng Drawer) — đó là ĐIỀU PHỐI
+// tuần tự giữa 2 lời gọi Core (cùng vai trò `taskManager` — Rule 3b cấm `taskManager` trong Core),
+// vẫn ĐÚNG chỗ ở Workflow (xem `event/workflow/generic-drawer-helpers.js::closeFully()` — cùng lý
+// do, KHÔNG đổi).
+
+/** Wire 2 nút header panel Photo (upload/xoá nhanh, `headerActionHtml` của `pushSettingsPanel()`) —
+ * gọi NGAY SAU `pushSettingsPanel()`, CHỈ 1 lần/lần mở panel.
+ * @param {HTMLElement} panelEl
+ */
+function wirePhotoPanelHeaderActions(panelEl) {
+    const uploadBtn = panelEl.querySelector('#btn-file-manager-image-upload-trigger');
+    if (uploadBtn) uploadBtn.addEventListener('click', () => {
+        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.uploadTrigger.click', payload: {} });
+    });
+    const deleteModeBtn = panelEl.querySelector('#btn-file-manager-image-delete-mode');
+    if (deleteModeBtn) deleteModeBtn.addEventListener('click', () => {
+        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.image.deleteMode.click', payload: {} });
+    });
+}
+
+/** Wire nút "+" tạo album (`headerActionHtml` panel Album List) — gọi NGAY SAU `pushSettingsPanel()`.
+ * @param {HTMLElement} panelEl
+ */
+function wireAlbumListPanelHeaderActions(panelEl) {
+    const createBtn = panelEl.querySelector('#btn-file-manager-album-list-create');
+    if (createBtn) createBtn.addEventListener('click', () => {
+        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.create.click', payload: {} });
+    });
+}
+
+/** Mở Generic Drawer picker chọn Ảnh (Album cover/nền Playlist) — dựng headerHtml (tiêu đề + nút
+ * X) + gọi `openGenericDrawer()` + wire NGAY closeBtn/confirmBtn/delegated click lưới ảnh, TẤT CẢ Ở
+ * ĐÂY (Rule 5a — DOM động, callback CHỈ `eventBus.send()`, gom cuối hàm). `bodyHtml` nhận SẴN từ
+ * Workflow (Rule 2 — Core không tự đọc `appState`/session, Workflow tự chuẩn bị data trước).
+ * @param {string} title @param {string} bodyHtml @param {boolean} showConfirmButton
+ */
+function openPhotoImagePickerDrawerUi(title, bodyHtml, showConfirmButton) {
+    openGenericDrawer({ // core/generic-drawer.js
+        height: '90vh',
+        zIndex: Z_INDEX.GENERIC_DRAWER, // service/z-index.js — mặc định, KHÔNG có modal xem ảnh nào mở đồng thời với picker này (khác action-menu cần z=131)
+        headerHtml: `
+            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
+                <h3 class="text-base font-bold text-slate-900">${title}</h3>
+                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+        `,
+        bodyHtml,
+        bodyClass: 'flex flex-col',
+    });
+    const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
+    if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePicker.close.click', payload: {} }));
+    if (showConfirmButton) {
+        const confirmBtn = genericDrawerBody.querySelector('#btn-file-manager-image-picker-confirm');
+        if (confirmBtn) confirmBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePicker.confirm.click', payload: {} }));
+    }
+    // Click tile — delegated NGAY TRÊN genericDrawerBody (phần tử TĨNH DÙNG CHUNG nhiều feature,
+    // dom-refs.js — nội dung bên trong bị nhiều feature không liên quan thay phiên chiếm dụng, xem
+    // docstring core/generic-drawer.js — nên PHẢI tự wire/gỡ đúng theo vòng đời phiên picker, KHÔNG
+    // wire tĩnh 1 lần cho toàn app). `<div class="fj-gallery-item">`, KHÔNG phải `<button>`.
+    genericDrawerBody.addEventListener('click', (e) => {
+        const tile = e.target.closest('[data-image-key]');
+        if (!tile) return;
+        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePicker.tile.click', payload: { imageKey: tile.dataset.imageKey } });
+    });
+}
+
+/** Mở Generic Drawer lưới tool Edit mode — dựng headerHtml + gọi `openGenericDrawer()` + wire NGAY
+ * closeBtn, TẤT CẢ Ở ĐÂY (Rule 5a, cùng lý do `openPhotoImagePickerDrawerUi()`).
+ * @param {string} title @param {string} bodyHtml
+ */
+function openPhotoEditToolGridDrawerUi(title, bodyHtml) {
+    openGenericDrawer({ // core/generic-drawer.js
+        height: 'auto', maxHeight: '70vh',
+        zIndex: Z_INDEX.IMAGE_ACTION_MENU_DRAWER, // service/z-index.js (131) — TRÊN modal xem ảnh (130), DƯỚI dropdown "..." (132)
+        headerHtml: `
+            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
+                <h3 class="text-base font-bold text-slate-900">${title}</h3>
+                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+        `,
+        bodyHtml,
+        bodyClass: 'overflow-y-auto',
+    });
+    const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
+    if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.toolGrid.close.click', payload: {} }));
+}
+
+/** Wire delegated click trên `genericDrawerBody` cho tile lưới tool Edit mode (`[data-edit-tool]`)
+ * — gọi ĐÚNG 1 lần/phiên Edit mode (`enterEditMode()`), KHÔNG gọi lại mỗi lần
+ * `openPhotoEditToolGridDrawerUi()` mở lại lưới (listener cũ không tự mất theo `innerHTML`, gắn lại
+ * sẽ chồng chất — xem cách dùng ở `event/workflow/image-edit.js::_wireEditToolGridDelegation()`).
+ * Cùng lý do "PHẢI tự wire/gỡ theo vòng đời" như `openPhotoImagePickerDrawerUi()` ở trên.
+ * @returns {() => void} hàm gỡ — Workflow tự lưu, gọi lúc thoát Edit mode.
+ */
+function wirePhotoEditToolGridDelegation() {
+    const handler = (e) => {
+        const tile = e.target.closest('[data-edit-tool]');
+        if (!tile) return;
+        eventBus.send({ router: 'imageEdit', type: 'imageEdit.toolGrid.tile.click', payload: { tool: tile.dataset.editTool } });
+    };
+    genericDrawerBody.addEventListener('click', handler);
+    return () => genericDrawerBody.removeEventListener('click', handler);
+}
+
 // SỬA (21/07/2026, Giang yêu cầu "menu action ảnh chuyển từ Generic Drawer sang dropdown") —
 // `buildPhotoActionMenuHtml()` (bodyHtml cho Generic Drawer, icon hoá) ĐÃ XOÁ HẲN — menu action giờ
 // dùng `openDropdownMenu()` (core/dropdown-menu.js), xem event/workflow/file-manager-photo.js::
