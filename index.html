@@ -338,9 +338,10 @@
     <script src="lang/patch/patch-file-manager.js?v=20260731v4"></script>
     <!-- MỚI (10/07/2026) — dùng ở CẢ index.html LẪN subtitle-editor.html, xem lang/lang.js. -->
     <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
-    <!-- MỚI (Batch 1, module Video Editor) — dùng ở CẢ index.html (menu video gọi
-         navigateToVideoEdit()) LẪN video-editor.html, xem lang/lang.js. -->
-    <script src="lang/patch/patch-video-editor.js?v=20260722v1"></script>
+    <!-- MỚI ("Song/Video Unification" v12, gộp Video Editor vào Modal xem Video) — modal xem Video
+         mới sống NGAY trong trang này (KHÔNG còn trang riêng video-editor.html, ĐÃ XOÁ), xem
+         lang/lang.js. -->
+    <script src="lang/patch/patch-video-preview.js?v=20260802v1"></script>
     <script src="lang/lang.js?v=20260731v1"></script>
 
     <!-- =====================================================================
@@ -480,7 +481,9 @@
     <script src="service/state/app-misc.js?v=20260725v1"></script>
     <script src="service/state/file-manager.js?v=20260731v1"></script>
     <script src="service/state/generic-drawer.js?v=20260725v1"></script>
-    <script src="service/state/video-editor.js?v=20260725v1"></script>
+    <!-- THAY service/state/video-editor.js (ĐÃ XOÁ cùng video-editor.html — "Song/Video
+         Unification" v12, gộp vào Modal xem Video). -->
+    <script src="service/state/video-preview.js?v=20260802v1"></script>
     <!-- service/state/record/index.js — đăng ký account 'player' (thay đoạn <script> inline cũ)
          — xem service/state/record/index.js. -->
     <script src="service/state/record/index.js?v=20260725v1"></script>
@@ -568,10 +571,23 @@
          port từ prototype "Lumina Pro" Giang cung cấp — CHỈ phần Engine, không lấy UI, xem
          core/photo-editor-engine.js. Cùng lý do gom cạnh đây như core/image-zoom.js. -->
     <script src="core/photo-editor-engine.js?v=20260731v2"></script>
-    <!-- MỚI (31/07/2026) — cơ chế chọn vùng crop tương tác DÙNG CHUNG Photo Edit mode + Video
-         Editor (video-editor.html nạp file NÀY riêng, xem <script> ở đó) — xem core/crop-
+    <!-- MỚI (31/07/2026) — cơ chế chọn vùng crop tương tác DÙNG CHUNG Photo Edit mode + modal xem
+         Video (core/file-manager/video-ui.js::openVideoPreviewModal() — THAY video-editor.html đã
+         xoá, "Song/Video Unification" v12, CẢ 2 giờ cùng sống trong trang này) — xem core/crop-
          selector.js, thay Cropper.js cho cả 2 nơi (cropper-engine.js chỉ còn image-edit.html). -->
     <script src="core/crop-selector.js?v=20260731v2"></script>
+    <!-- MỚI ("Song/Video Unification" v12) — 4 core của Video Editor NLE cũ (video-editor.html,
+         ĐÃ XOÁ) GIỮ LẠI để dùng cho modal xem Video mới (core/file-manager/video-ui.js::
+         openVideoPreviewModal(), event/workflow/video-preview.js) — Cắt 1 đoạn/Crop/Rotate/Trích
+         xuất ảnh. 4 core CHỈ phục vụ NLE đa track/đa đoạn (timeline-calc.js/preview-draw.js/
+         media-gain.js/audio-sync.js) ĐÃ XOÁ THEO cùng đợt, KHÔNG nạp ở đây. Mediabunny (thư viện
+         WebCodecs, CDN) tải LƯỜI lúc thật sự mở modal (event/workflow/video-preview.js::
+         _ensureMediabunnyLoaded()), KHÔNG nạp <script> cứng ở đây — tránh nặng tải trang chính
+         cho người không dùng tính năng Video. -->
+    <script src="core/video-editor/compat-guard.js?v=20260802v1"></script>
+    <script src="core/video-editor/webcodecs-engine.js?v=20260802v1"></script>
+    <script src="core/video-editor/filmstrip.js?v=20260722v1"></script>
+    <script src="core/video-editor/frame-extract.js?v=20260731v1"></script>
     <!-- MỚI (21/07/2026) — File Manager -> Video. Độc lập với image.js/album.js/document.js (không
          dùng chung hàm nào ngoài slugify()/service/db.js) — chỉ cần SAU service/db.js.
          core/file-manager/video-ui.js ĐÃ XOÁ HẲN (Batch 6, mục 6d, phản hồi Giang — modal "Chi
@@ -885,6 +901,16 @@
     <script src="event/workflow/file-manager-video.js?v=20260731v4"></script>
     <script src="event/router/file-manager-video.js?v=20260728v3"></script>
     <script src="event/listener/file-manager-video.js?v=20260728v2"></script>
+    <!-- MỚI ("Song/Video Unification" v12, gộp Video Editor vào Modal xem Video) — cụm
+         "videoPreview". THAY router "videoEdit"/event/workflow/video-editor.js (Video Editor NLE
+         đa track, ĐÃ XOÁ HẲN cùng video-editor.html). `workflowFileManagerVideo.
+         navigateToVideoEdit()` (ngay trên) giờ gọi `workflowVideoPreview.open()` thay vì điều
+         hướng trang — CẦN core/file-manager/video-ui.js/core/crop-selector.js/core/video-editor/
+         {compat-guard,webcodecs-engine,filmstrip,frame-extract}.js/core/file-manager/video.js
+         (đã nạp ở nhóm CORE) + service/state/video-preview.js (đã nạp ở nhóm STATE). -->
+    <script src="event/workflow/video-preview.js?v=20260802v1"></script>
+    <script src="event/router/video-preview.js?v=20260802v1"></script>
+    <script src="event/listener/video-preview.js?v=20260802v1"></script>
     <!-- workflowFileManagerDocument CẦN tồn tại trước khi router gọi tới. Batch D7 (06/07/2026):
          panel Document push/pop động — CẦN core/settings-panel-stack-ui.js (đã nạp ở nhóm CORE).
          VIẾT LẠI (10/07/2026, Nhóm A, CẬP NHẬT cùng ngày sau phản hồi Giang) — .txt upload lưu
