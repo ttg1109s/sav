@@ -545,9 +545,13 @@ function openImageLibraryPickerModal(images, onSelect, onCancel) {
  * @param {string|null} activeAlbumId
  * @param {Map<string, Object>} imageRecordsByKey - key -> {blob,...}, dùng lấy ảnh đại diện đầu
  *        tiên của mỗi album mà KHÔNG cần đọc DB lại (cùng pattern lấy ảnh đại diện đầu tiên đã dùng ở Album List sub-panel).
- * @param {(albumId: string) => void} onSelect
  */
-function renderSlideshowAlbumPickerGrid(gridEl, albums, activeAlbumId, imageRecordsByKey, onSelect) {
+/** SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow" — rà rộng
+ * ra ngoài Photo/Edit) — bỏ tham số `onSelect` (callback ĐỤC nhận từ nơi gọi — CHỈ được phép cho
+ * ĐÚNG `core/modal-choice.js::modalChoice()`, đã audit riêng, KHÔNG tự nhận lây, xem readme/core-
+ * function-conventions.md) — tile giờ tự bắn `eventBus.send()` cố định, CHỈ 1 nơi gọi
+ * (event/workflow/slideshow.js::openAlbumPicker()) nên không cần tham số hoá đích đến. */
+function renderSlideshowAlbumPickerGrid(gridEl, albums, activeAlbumId, imageRecordsByKey) {
     if (!gridEl) return;
 
     gridEl.querySelectorAll('[data-has-object-url]').forEach((node) => {
@@ -582,9 +586,23 @@ function renderSlideshowAlbumPickerGrid(gridEl, albums, activeAlbumId, imageReco
         label.textContent = album.name;
         tile.appendChild(label);
 
-        tile.addEventListener('click', () => onSelect(album.id));
+        tile.addEventListener('click', () => eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.albumPicker.tile.click', payload: { albumId: album.id } }));
         gridEl.appendChild(tile);
     });
+}
+
+/** Wire closeBtn + `genericDrawerOverlay` click cho picker Album của Slideshow — dùng CHUNG 1
+ * msg.type với "bấm ra ngoài" (cùng ý nghĩa "huỷ"). `genericDrawerOverlay` DÙNG CHUNG nhiều feature
+ * (menu action ảnh, picker ảnh Photo & Album...) — PHẢI trả về hàm GỠ, Workflow tự gọi lúc đóng
+ * (không gỡ sẽ dính sang lần mở Drawer TIẾP THEO của feature khác, bắn nhầm msg.type này).
+ * @returns {() => void}
+ */
+function wireSlideshowAlbumPickerDrawerActions() {
+    const cancel = () => eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.albumPicker.overlay.click', payload: {} });
+    const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
+    if (closeBtn) closeBtn.addEventListener('click', cancel);
+    genericDrawerOverlay.addEventListener('click', cancel);
+    return () => genericDrawerOverlay.removeEventListener('click', cancel);
 }
 
 // ===================== ĐÃ GỠ (Giai đoạn 3b, rewrite Photo/Album, mục 3a/4) — Đếm số ảnh đang chọn
