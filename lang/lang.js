@@ -65,6 +65,9 @@
  * nào, chỉ Object.assign lại.
  * SỬA (31/07/2026) — bỏ `LANG_PATCH_IMAGE_EDIT` (image-edit.html đã xoá, xem lang/patch/patch-
  * image-edit.js — file đó cũng xoá theo, KHÔNG còn nạp ở bất kỳ trang nào).
+ * SỬA ("Song/Video Unification" v12, gộp Video Editor vào Modal xem Video) — `LANG_PATCH_VIDEO_EDITOR`
+ * (video-editor.html, NLE đa track, ĐÃ XOÁ HẲN) đổi thành `LANG_PATCH_VIDEO_PREVIEW` (modal xem
+ * Video mới, đúng khuôn modal xem Ảnh — xem lang/patch/patch-video-preview.js).
  */
 const LANG_EN_KEYS = Object.assign(
     {},
@@ -75,7 +78,7 @@ const LANG_EN_KEYS = Object.assign(
     LANG_PATCH_SETTINGS_MISC,
     LANG_PATCH_FILE_MANAGER,
     LANG_PATCH_SUBTITLE_EDITOR,
-    LANG_PATCH_VIDEO_EDITOR // MỚI (Batch 1, module Video Editor) — xem lang/patch/patch-video-editor.js
+    LANG_PATCH_VIDEO_PREVIEW // MỚI — xem lang/patch/patch-video-preview.js
 );
 
 /**
