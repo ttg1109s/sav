@@ -278,27 +278,10 @@ const workflowFileManagerVideo = {
     async openVideoBgPicker(onSelect, onCancel) {
         _videoPickerSession = { onSelect, onCancel, hasSelected: false };
 
-        openGenericDrawer({ // core/generic-drawer.js
-            height: '90vh',
-            zIndex: Z_INDEX.GENERIC_DRAWER, // core/config.js — mặc định, không có modal nào khác mở đồng thời picker này
-            headerHtml: this._buildVideoPickerHeaderHtml(t('fileManager.video.pickerTitle')),
-            bodyHtml: this._buildVideoPickerBodyHtml(),
-            bodyClass: 'flex flex-col',
-        });
-
-        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-        if (closeBtn) closeBtn.addEventListener('click', () => {
-            eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.videoPicker.close.click', payload: {} });
-        });
-
-        // Click tile — delegated NGAY TRÊN genericDrawerBody (Generic Drawer là ANH EM của
-        // #app-stack, KHÔNG nằm trong settingsStackBody — PHẢI tự wire riêng ở đây, cùng khuôn
-        // `_openImagePickerDrawer()` Photo).
-        genericDrawerBody.addEventListener('click', (e) => {
-            const tile = e.target.closest('[data-video-key]');
-            if (!tile) return;
-            eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.videoPicker.tile.click', payload: { videoKey: tile.dataset.videoKey } });
-        });
+        // SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow") —
+        // TOÀN BỘ phần dựng Generic Drawer + wire closeBtn/delegated click tile ĐÃ DỜI sang
+        // core/file-manager/video-ui.js::openVideoPickerDrawerUi().
+        openVideoPickerDrawerUi(t('fileManager.video.pickerTitle'), this._buildVideoPickerBodyHtml()); // core/file-manager/video-ui.js
 
         await new Promise((resolve) => {
             genericDrawerPanel.addEventListener('transitionend', function onOpenTransitionEnd() {
@@ -314,17 +297,6 @@ const workflowFileManagerVideo = {
         const emptyEl = genericDrawerBody.querySelector('#file-manager-video-picker-empty');
         if (emptyEl) emptyEl.classList.toggle('hidden', videos.length > 0);
         workflowVideoGalleryWindow.mount('genericDrawer', { scrollEl, videos, badgeMode: null, selectedKeys: new Set() }); // event/workflow/video-gallery-window.js — single-select, KHÔNG badge, tap = chọn ngay
-    },
-
-    _buildVideoPickerHeaderHtml(title) {
-        return `
-            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
-                <h3 class="text-base font-bold text-slate-900">${title}</h3>
-                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-        `;
     },
 
     _buildVideoPickerBodyHtml() {
