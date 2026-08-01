@@ -259,6 +259,11 @@
          lại, xem khung HTML #generic-drawer-* cuối file (chép NGUYÊN từ components/generic-
          drawer.js, trang này KHÔNG qua main.js nên gắn thẳng vào markup, không cần mount JS). -->
     <script src="core/generic-drawer.js?v=20260716v2"></script>
+    <!-- GỘP LẠI (31/07/2026) — `_closeGenericDrawerFully()` của trang này giờ gọi
+         `workflowGenericDrawerHelpers.closeFully()` (event/workflow/generic-drawer-helpers.js) cho
+         phần lõi, thay vì tự chép lại — xem docstring file đó. NẠP NGAY SAU core/generic-drawer.js,
+         TRƯỚC event/workflow/video-editor.js. -->
+    <script src="event/workflow/generic-drawer-helpers.js?v=20260731v1"></script>
     <script src="service/task-manager.js?v=20260720v1"></script>
     <script src="event/bus.js?v=20260625v10"></script>
     <!-- MỚI (24/07/2026, mục 2 — Giang yêu cầu dùng Block gate thay vì rẽ nhánh Router) — trang này
@@ -282,11 +287,11 @@
     <script src="core/video-editor/media-gain.js?v=20260724v2"></script>
     <!-- SỬA (31/07/2026, Giang chốt "tái sử dụng, không dùng hai thứ lại cùng tính năng") — bỏ
          Cropper.js/core/image-editor/cropper-engine.js, dùng core/crop-selector.js (cơ chế tương
-         tác thuần, DÙNG CHUNG với Photo Edit mode — event/workflow/file-manager-photo.js). -->
+         tác thuần, DÙNG CHUNG với Photo Edit mode — event/workflow/image-edit.js). -->
     <script src="core/crop-selector.js?v=20260731v2"></script>
-    <script src="core/file-manager/image.js?v=20260731v1"></script>
+    <script src="core/file-manager/image.js?v=20260731v2"></script>
     <script src="core/file-manager/video.js?v=20260714v1"></script>
-    <script src="event/workflow/video-editor.js?v=20260731v2"></script>
+    <script src="event/workflow/video-editor.js?v=20260731v3"></script>
     <script src="event/router/video-editor.js?v=20260724v1"></script>
     <!-- listener PHẢI nạp CUỐI CÙNG — tự gọi workflowVideoEditor.init() ngay khi chạy. -->
     <script src="event/listener/video-editor.js?v=20260731v1"></script>

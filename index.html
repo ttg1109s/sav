@@ -425,7 +425,7 @@
     <!-- service/z-index.js — bảng z-index TẬP TRUNG (dời từ core/config.js, đợt tái cấu trúc
          state 25/07/2026) — PHẢI nạp TRƯỚC core/modal-choice.js (dùng Z_INDEX.MODAL_CHOICE) và
          mọi core/ có dùng z-index. Zero dependency — an toàn đứng đầu tiên. -->
-    <script src="service/z-index.js?v=20260725v1"></script>
+    <script src="service/z-index.js?v=20260731v1"></script>
     <!-- modalChoice() — hàm dùng chung cho mọi modal "hỏi quyết định" (text + N nút tuỳ biến),
          tự dựng/xoá DOM động (không cần template tĩnh) — xem comment đầu file để biết cách dùng.
          NẠP SỚM Ở ĐÂY (trước core/config.js): service/state.js (dòng dưới) yêu cầu modal-choice.js
@@ -557,13 +557,13 @@
          với nhau không quan trọng, chỉ cần SAU core/db.js. photo-ui.js CẦN dom-refs.js (đã nạp ở
          block DOM refs phía trên) + image.js/album.js (dùng trong workflow, không tham chiếu trực
          tiếp ở đây, nhưng gom nhóm cho dễ đọc). -->
-    <script src="core/file-manager/image.js?v=20260731v1"></script>
+    <script src="core/file-manager/image.js?v=20260731v2"></script>
     <script src="core/file-manager/album.js?v=20260703v1"></script>
-    <script src="core/file-manager/photo-ui.js?v=20260731v4"></script>
+    <script src="core/file-manager/photo-ui.js?v=20260731v5"></script>
     <!-- MỚI (31/07/2026) — Zoom mode modal xem ảnh. Core thuần bọc Panzoom (CDN, đã nạp ở <head>),
          xem core/image-zoom.js. Không phụ thuộc image.js/album.js/photo-ui.js (Rule 3 — chỉ gọi
          Panzoom), gom cạnh đây cho dễ đọc theo cụm Photo & Album. -->
-    <script src="core/image-zoom.js?v=20260731v1"></script>
+    <script src="core/image-zoom.js?v=20260731v2"></script>
     <!-- MỚI (31/07/2026) — Edit mode modal xem ảnh. Core thuần xử lý pixel (decode/adjust/sharpen),
          port từ prototype "Lumina Pro" Giang cung cấp — CHỈ phần Engine, không lấy UI, xem
          core/photo-editor-engine.js. Cùng lý do gom cạnh đây như core/image-zoom.js. -->
@@ -584,6 +584,12 @@
          core/dom-refs.js (đã nạp ngay trên: genericDrawerOverlay/Panel/Header/Body). Đặt cạnh
          nhóm Documents cho dễ đọc dù bản thân KHÔNG phụ thuộc gì từ document.js/document-ui.js. -->
     <script src="core/generic-drawer.js?v=20260714v3"></script>
+    <!-- GỘP LẠI (31/07/2026, Giang chỉ ra "xây Generic Drawer mà vẫn phải nhân bản là vô lý") — 2
+         helper Workflow (closeFully()/buildSimpleHeaderHtml()) từng chép tay ở 7 file khác nhau
+         (document-reader/file-manager-photo/file-manager-video/file-manager-folder-browser/
+         playlist/image-edit/slideshow), gộp về 1 chỗ. NẠP NGAY SAU core/generic-drawer.js, TRƯỚC
+         mọi Workflow ở dưới có dùng tới. -->
+    <script src="event/workflow/generic-drawer-helpers.js?v=20260731v1"></script>
     <!-- MỚI (rewrite Photo/Album, Giang yêu cầu tách dropdown menu 3 chấm để tái dùng) — component
          dùng CHUNG cho mọi nút "..." cần menu ngắn neo cạnh nút (KHÁC Generic Drawer — bottom sheet
          toàn màn hình). Áp dụng đầu tiên cho Album List (event/workflow/file-manager-photo.js). -->
@@ -787,7 +793,7 @@
                                           router đã đăng ký xong (3) sẵn sàng nhận message.
     -->
     <script src="event/bus.js?v=20260703v1"></script>
-    <script src="event/block.js?v=20260731v1"></script>
+    <script src="event/block.js?v=20260731v2"></script>
     <script src="event/virtual-machine-state.js?v=20260701v1"></script>
     <!-- Cụm "settingsStackNav" (Batch D1, Settings restructure, 06/07/2026) — nút Back DÙNG CHUNG
          cho MỌI panel con Settings (About/Visualizer/.../File Manager, bất kể panel nào đang mở).
@@ -836,7 +842,7 @@
          (openRenameFolderModal), core/pagination.js, event/workflow/playlist-scope.js — TẤT CẢ đã
          nạp ở nhóm CORE/ngay trên. PHẢI nạp TRƯỚC event/listener/file-manager-storage.js (hàng
          "Song & Video" ở section chính giờ gửi eventBus THẲNG tới router này, xem file đó). -->
-    <script src="event/workflow/file-manager-folder-browser.js?v=20260728v1"></script>
+    <script src="event/workflow/file-manager-folder-browser.js?v=20260731v1"></script>
     <script src="event/router/file-manager-folder-browser.js?v=20260727v1"></script>
     <script src="event/listener/file-manager-storage.js?v=20260729v2"></script>
     <!-- Batch 8, ver 12 "Multi Media" — cụm "slideshowSettings" (Slideshow nền Visual). PHẢI nạp
@@ -845,7 +851,7 @@
          restructure, 06/07/2026): panel Settings (6 input) nay push/pop động — CẦN core/settings-
          panel-stack.js (đã nạp ở nhóm CORE). Panel chọn Album ("notify center") KHÔNG đổi, vẫn
          tĩnh, độc lập Settings Stack. -->
-    <script src="event/workflow/slideshow.js?v=20260730v1"></script>
+    <script src="event/workflow/slideshow.js?v=20260731v1"></script>
     <script src="event/router/slideshow.js?v=20260706v1"></script>
     <script src="event/listener/slideshow.js?v=20260706v1"></script>
     <!-- Batch 3 (03/07/2026) — workflowFileManagerPhoto CẦN tồn tại trước khi router gọi tới.
@@ -858,16 +864,23 @@
          sau khi mọi script đã nạp xong hết, cùng quy ước load-order đã dùng cho popSettingsPanel()
          và nhiều global khác trong project) + core/file-manager/image.js::sortImagesByAddedDateDesc()/
          groupImagesByDay() (đã nạp ở nhóm CORE, TRƯỚC file này, an toàn). -->
-    <script src="event/workflow/file-manager-photo.js?v=20260731v6"></script>
-    <script src="event/router/file-manager-photo.js?v=20260731v5"></script>
+    <script src="event/workflow/file-manager-photo.js?v=20260731v8"></script>
+    <script src="event/router/file-manager-photo.js?v=20260731v6"></script>
     <script src="event/listener/file-manager-photo.js?v=20260718v1"></script>
+    <!-- TÁCH RA (31/07/2026, yêu cầu Giang) — cụm "imageEdit", Edit mode của modal xem ảnh Photo
+         (trước đây sống chung trong file-manager-photo.js). CẦN workflowFileManagerPhoto (3 khe đọc
+         handle/imageKey/albumId) + core/photo-editor-engine.js/core/crop-selector.js/core/generic-
+         drawer.js/service/z-index.js (đã nạp ở nhóm CORE). -->
+    <script src="event/workflow/image-edit.js?v=20260731v2"></script>
+    <script src="event/router/image-edit.js?v=20260731v1"></script>
+    <script src="event/listener/image-edit.js?v=20260731v1"></script>
     <!-- MỚI (21/07/2026) — cụm "fileManagerVideo". SỬA (Batch 6, mục 6d, phản hồi Giang) — panel
          Video (push/pop động, `fullBleed: true`) ĐÃ XOÁ HẲN — Workflow/Router giờ CHỈ còn logic
          nghiệp vụ (upload/set nền/mở Video Editor) + picker Generic Drawer "Use background video".
          Gọi `workflowVideoGalleryWindow.mount('genericDrawer', ...)` (event/workflow/video-gallery-
          window.js, nạp SAU file này — AN TOÀN, chỉ THỰC SỰ gọi lúc user tương tác, cùng quy ước
          photo-gallery-window.js) — CHỈ còn dùng bởi picker, KHÔNG còn lưới panel nào gọi. -->
-    <script src="event/workflow/file-manager-video.js?v=20260731v1"></script>
+    <script src="event/workflow/file-manager-video.js?v=20260731v3"></script>
     <script src="event/router/file-manager-video.js?v=20260728v3"></script>
     <script src="event/listener/file-manager-video.js?v=20260728v2"></script>
     <!-- workflowFileManagerDocument CẦN tồn tại trước khi router gọi tới. Batch D7 (06/07/2026):
@@ -894,7 +907,7 @@
          (KHÔNG qua eventBus), xem docstring đầu core/generic-drawer.js. router/listener
          "documentPicker" CHỈ còn 1 msg.type ('open.click', nút "Reader" ở Control Center) — PHẢI
          nạp TRƯỚC vì router gọi thẳng workflowDocumentReader.openPicker(). -->
-    <script src="event/workflow/document-reader.js?v=20260710v4"></script>
+    <script src="event/workflow/document-reader.js?v=20260731v1"></script>
     <script src="event/router/document-picker.js?v=20260710v1"></script>
     <script src="event/listener/document-picker.js?v=20260710v1"></script>
     <!-- ĐẬP ĐI LÀM LẠI (rewrite Photo/Album, Giang yêu cầu "không dùng window virtual tự tạo nữa") —
@@ -908,7 +921,7 @@
          core/file-manager/video.js::sortVideosByAddedDateDesc()/groupVideosByDay()/
          formatVideoDayHeaderLabel()/formatVideoDuration() (đã nạp ở nhóm CORE, TRƯỚC file này). -->
     <script src="event/workflow/video-gallery-window.js?v=20260721v1"></script>
-    <script src="event/workflow/playlist.js?v=20260728v2"></script>
+    <script src="event/workflow/playlist.js?v=20260731v1"></script>
     <script src="event/router/playlist.js?v=20260728v2"></script>
     <script src="event/listener/playlist.js?v=20260728v2"></script>
     <!-- Cụm "playerControls" (ver 11, patch 3): 16/17 msg.type KHÔNG cần workflow (router gọi
