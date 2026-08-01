@@ -127,6 +127,60 @@ Mỗi cụm (`storage`, `playlist`, `visualizerDisplay`...) có đúng 1 router,
 `eventBus.register(name, routerObject)` lúc nạp. `handle(msg)` switch theo `msg.type`
 (namespace `<router>.<action>.<event>`), mỗi case đi 1 trong 3 hướng ở mục 4 dưới.
 
+### 3a. Đơn tuyến vs liên tuyến domain
+
+Event bus hoàn toàn có thể hoạt động XUYÊN MIỀN — cần phân biệt rạch ròi 2 khái niệm khác nhau:
+
+- **Namespace/quản lý** (message của miền nào đăng ký ở đâu, router nào sở hữu tên đó, ai chịu
+  trách nhiệm bảo trì) — đây là chuyện "nơi chứa, thuộc về".
+- **Khả năng phối hợp xuyên miền** (1 listener/router/workflow của miền này có được gọi sang miền
+  khác không) — đây là chuyện "có làm được, có nên làm không".
+
+2 khái niệm này KHÔNG đồng nhất. Giống như trong 1 công ty có nhiều phòng ban: mỗi phòng ban tự
+quản lý nhân viên của mình, và nhân viên phải đứng đúng phòng ban phù hợp với chức trách/nhiệm
+vụ/chuyên môn của họ (đó là "namespace/quản lý") — nhưng điều đó KHÔNG có nghĩa công ty cấm các
+phòng ban phối hợp với nhau để hoàn thành 1 nghiệp vụ chung. Việc phối hợp đó gọi là **nghiệp vụ
+liên domain**, và nó là chuyện bình thường, được thiết kế cho phép xảy ra — miễn luồng thực thi vẫn
+LUÔN đi đúng thứ tự **Listener → Router → Workflow** (không đảo ngược, không nhảy cóc tầng).
+
+Có 2 trường hợp phối hợp:
+
+**TH1 — Đơn tuyến domain:** Listener của miền X gửi message tới Router của ĐÚNG miền X, Router gọi
+Core/Workflow của ĐÚNG miền X. Toàn bộ chuỗi nằm trong 1 miền — đây là trường hợp phổ biến nhất,
+mặc định nên dùng khi không có lý do cụ thể để đi liên tuyến.
+
+```
+Listener(X) ──▶ Router(X) ──▶ Workflow(X) ──▶ Core(X)
+```
+
+**TH2 — Liên tuyến domain:** Listener của miền X hoàn toàn có thể gửi message tới Router của miền
+B (khác X); Router(B) gọi Workflow(C); trong thân Workflow(C), hoàn toàn có thể gọi tiếp
+Workflow(D) mà KHÔNG cần D cùng miền với C — miễn mỗi bước chuyển tầng vẫn đúng vai trò của tầng đó
+(Router vẫn chỉ điều phối, Workflow vẫn là nơi duy nhất được đọc `appState`/gọi `service` rồi quyết
+định gọi Core nào).
+
+```
+Listener(X) ──▶ Router(B) ──▶ Workflow(C) ──▶ Workflow(D) ──▶ Core(D)
+                (khác X)      (khác B)        (khác C)
+```
+
+Ví dụ thật của TH2 đã có trong codebase — xem "Tái dùng Workflow giữa các miền khác nhau" ở mục 4B
+dưới đây (`workflowPlaylist` gọi thẳng `workflowSubtitleModal.navigateToEditor()`).
+
+**KHÔNG được lạm dụng liên tuyến domain.** Trước khi quyết định 1 luồng nên đi đơn tuyến (TH1) hay
+liên tuyến (TH2), phải xác định rõ và đánh giá CẦN/NÊN, không phải cứ tiện tay là gọi chéo. Vài
+câu hỏi để đánh giá:
+
+- Hành vi ở đích đến có thật sự là 1 nghiệp vụ ĐỘC LẬP, đã có sẵn và đúng là thứ mình cần tái dùng
+  nguyên vẹn — hay chỉ đang muốn "tiện đường" gọi sang cho đỡ viết lại?
+- Nếu tách msg.type RIÊNG cho đúng miền của nó rồi định tuyến (TH1) thì có thực sự phức tạp hơn,
+  hay chỉ là ngại tạo thêm 1 case/1 hàm nhỏ?
+- Việc gọi chéo có làm người đọc code SAU NÀY khó lần ra "hành vi này bắt nguồn từ đâu, ai sở hữu
+  nó" không — nếu chuỗi gọi chéo càng dài (X→B→C→D→...), khả năng truy vết càng giảm.
+
+Liên tuyến domain là công cụ hợp lệ cho nghiệp vụ liên domain THẬT SỰ tồn tại — không phải lối tắt
+mặc định để né việc định tuyến đúng chỗ.
+
 ## 4. Trong 1 case — 3 hướng có thể đi (không loại trừ nhau, chọn tuỳ nhu cầu case đó)
 
 ### (A) Gọi thẳng Core — message tự đủ nghĩa, KHÔNG cần đọc `appState` nào cho core
@@ -185,13 +239,15 @@ case 'cluster.action.change':
     break;
 ```
 
-**Tái dùng Workflow giữa các miền khác nhau** [MỚI, 10/07/2026] — nếu 2 router KHÁC MIỀN (2 nguồn
-listener khác nhau, vd `playlist` và `subtitleModal`) cần chạy **CÙNG 1 logic điều phối** (không
-phải trùng hợp bề ngoài — thật sự cùng các bước, cùng thứ tự), KHÔNG bắt buộc mỗi miền phải tự viết
-1 bản Workflow RIÊNG của chính nó — router miền A có thể gọi THẲNG method của `workflowB` (miền
-khác), Workflow-gọi-Workflow là tự do, không bị Rule 3 (rule đó CHỈ áp cho Core). Chuyển 1 hàm từ
-"riêng của workflowA" thành "dùng chung" khi phát hiện ≥2 nơi cần y hệt — KHÔNG cần đoán trước, viết
-trùng lặp trước rồi gộp lại lúc phát hiện trùng vẫn ổn hơn tách sai chỗ từ đầu.
+**Tái dùng Workflow giữa các miền khác nhau** — trường hợp cụ thể của liên tuyến domain (TH2, xem
+mục 3a): nếu 2 router KHÁC MIỀN (2 nguồn listener khác nhau, vd `playlist` và `subtitleModal`) cần
+chạy **CÙNG 1 logic điều phối** (không phải trùng hợp bề ngoài — thật sự cùng các bước, cùng thứ
+tự), KHÔNG bắt buộc mỗi miền phải tự viết 1 bản Workflow RIÊNG của chính nó — router miền A có thể
+gọi THẲNG method của `workflowB` (miền khác), Workflow-gọi-Workflow là tự do, không bị Rule 3 (rule
+đó CHỈ áp cho Core). Chuyển 1 hàm từ "riêng của workflowA" thành "dùng chung" khi phát hiện ≥2 nơi
+cần y hệt — KHÔNG cần đoán trước, viết trùng lặp trước rồi gộp lại lúc phát hiện trùng vẫn ổn hơn
+tách sai chỗ từ đầu. Vẫn phải qua bước đánh giá CẦN/NÊN ở mục 3a trước khi chọn hướng này thay vì
+tách msg.type riêng cho đúng miền.
 
 Ví dụ THẬT (Subtitle Editor, `event/workflow/subtitle-modal.js` + `event/workflow/playlist.js`) —
 **CẬP NHẬT 10/07/2026 lần 2:** nút "Sub" ở Control Center (miền `subtitleModal`) đã đổi thành TOGGLE
