@@ -327,34 +327,24 @@ const routerFileManagerPhoto = (() => {
                 break;
             }
 
-            // MỚI (21/07/2026, Giang yêu cầu "menu action ảnh chuyển từ Generic Drawer sang
-            // dropdown") — đích dispatch của dropdown (event/workflow/file-manager-photo.js::
-            // openImageActionMenu()) — dùng `activeAlbumId` CỦA ROUTER (closure, KHÔNG qua
-            // payload) — luôn phản ánh ĐÚNG ngữ cảnh đang lọc lúc action THẬT SỰ chạy, tránh lệch
-            // nếu người dùng đổi ngữ cảnh giữa lúc mở menu và lúc bấm action (hiếm, nhưng an toàn
-            // hơn truyền qua payload lúc mở menu).
+            // Đích dispatch của dropdown (openImageActionMenu()) — dùng `activeAlbumId` CỦA ROUTER
+            // (closure, không qua payload) để luôn khớp ngữ cảnh lọc lúc action THẬT SỰ chạy.
             case 'fileManagerPhoto.imageMenu.action.click': {
                 const { action, imageKey } = msg.payload;
-                // SỬA (31/07/2026, mục 1/2/3 phản hồi Giang) — "Zoom view"/"Edit" (TOGGLE, loại trừ
-                // nhau) KHÔNG còn dispatch qua ĐÂY nữa — đã tách hẳn ra 2 msg.type RIÊNG
-                // ('imagePreview.zoomToggle.click'/'imagePreview.editToggle.click', xem 2 case dưới)
-                // để event/block.js khoá chéo được: Block gate chặn theo NGUYÊN msg.type, không tách
-                // được theo `payload.action` — msg.type NÀY còn dùng CHUNG cho setPlaylistBg/
-                // saveOverwrite/saveNew/removeFromAlbum/delete, chặn cả msg.type sẽ chặn NHẦM 4
-                // action còn lại. case này giờ CHỈ còn các action "quyết định", không còn logic
-                // toggle mode nào.
                 VirtualMachineState.run([
                     { state: action, operation: '===', value: 'setPlaylistBg', callback: () => {
                         workflowFileManagerPhoto.setAsPlaylistBackground(imageKey);
                     } },
-                    // MỚI (31/07/2026) — "Lưu đè"/"Lưu mới", CHỈ hiện trong dropdown khi
-                    // imagePreviewMode==='edit' (xem openImageActionMenu()) nên không cần thêm
-                    // điều kiện mode ở đây (action này KHÔNG THỂ bắn ra ở mode khác).
+                    // "Lưu đè"/"Lưu mới" — CHỈ hiện trong dropdown khi imagePreviewMode==='edit'
+                    // (openImageActionMenu()) — logic thật sống ở workflowImageEdit (miền khác, xem
+                    // event/workflow/image-edit.js), Router miền này gọi thẳng qua (Workflow-gọi-
+                    // Workflow tự do — cùng đường "Lưu đè" là action chung msg.type với
+                    // setPlaylistBg/removeFromAlbum/delete, không tách router riêng cho nó được).
                     { state: action, operation: '===', value: 'saveOverwrite', callback: () => {
-                        workflowFileManagerPhoto.saveEditOverwrite();
+                        workflowImageEdit.saveEditOverwrite();
                     } },
                     { state: action, operation: '===', value: 'saveNew', callback: () => {
-                        workflowFileManagerPhoto.saveEditAsNew();
+                        workflowImageEdit.saveEditAsNew();
                     } },
                     { state: action, operation: '===', value: 'removeFromAlbum', callback: () => {
                         removeImageFromAlbum(imageKey, activeAlbumId).then(() => workflowFileManagerPhoto.refresh(activeAlbumId)); // core/file-manager/album.js
@@ -366,29 +356,21 @@ const routerFileManagerPhoto = (() => {
                 break;
             }
 
-            // MỚI (31/07/2026, Zoom mode) — nút X của modal xem ảnh, giờ đi qua eventBus (TRƯỚC ĐÂY
-            // đóng thẳng, core/file-manager/photo-ui.js) — Block gate (event/block.js) chặn HẲN
-            // msg.type này khi imagePreviewMode !== 'view' (đang Zoom/Edit), tự hiện notify, KHÔNG
-            // chạy gì cả — chỉ khi KHÔNG bị chặn (đang 'view') mới thật sự chạy tới đây.
+            // Nút X modal xem ảnh — Block gate (event/block.js) chặn HẲN msg.type này khi
+            // imagePreviewMode !== 'view' (đang Zoom/Edit), tự hiện notify.
             case 'fileManagerPhoto.imagePreview.close.click': {
                 workflowFileManagerPhoto.closeImagePreview();
                 break;
             }
 
-            // MỚI (31/07/2026, Rule 5a) — nút "..." giờ bắn eventBus thay vì gọi callback tham số
-            // trực tiếp (xem docstring openImagePreviewModal(), core/file-manager/photo-ui.js).
             case 'fileManagerPhoto.imagePreview.menu.click': {
                 workflowFileManagerPhoto.openImageActionMenu(msg.payload.menuBtn);
                 break;
             }
 
-            // MỚI (31/07/2026, mục 1/3 phản hồi Giang) — item "Zoom view" trong dropdown "...",
-            // TÁCH RIÊNG khỏi msg.type dùng chung 'imageMenu.action.click' (lý do xem comment case
-            // đó) — cùng cơ chế TOGGLE cũ: đọc imagePreviewMode 1 lần, gộp vào `state` của rule
-            // thành boolean loại trừ nhau (VirtualMachineState.run() chạy TẤT CẢ rule khớp, không
-            // dừng ở rule đầu tiên — phải loại trừ nhau tự nhiên, không tách "đang zoom"/"chưa zoom"
-            // thành 2 msg.type riêng). event/block.js chặn HẲN msg.type này khi đang Edit mode (khoá
-            // chéo mục 3, 1 chiều).
+            // Item "Zoom view" trong dropdown "..." — TOGGLE, đọc imagePreviewMode 1 lần, gộp vào
+            // `state` thành boolean loại trừ nhau. "Edit" là mode khác (router `imageEdit`, khoá
+            // chéo qua event/block.js) — nên KHÔNG gộp chung case dù cùng là toggle imagePreviewMode.
             case 'fileManagerPhoto.imagePreview.zoomToggle.click': {
                 const isCurrentlyZooming = appState.get('imagePreviewMode') === 'zoom';
                 VirtualMachineState.run([
@@ -399,45 +381,6 @@ const routerFileManagerPhoto = (() => {
                         workflowFileManagerPhoto.enterZoomMode();
                     } },
                 ]);
-                break;
-            }
-
-            // MỚI (31/07/2026, mục 2 phản hồi Giang) — item "Edit"/"Thoát Edit" trong dropdown
-            // "...", THAY nút Edit RIÊNG cũ ở header modal (đã xoá, xem core/file-manager/photo-
-            // ui.js) — msg.type GIỮ NGUYÊN tên cũ (không đổi gì ở đây ngoài nguồn bắn), cùng cơ chế
-            // TOGGLE với case zoomToggle phía trên. event/block.js chặn HẲN msg.type này khi đang
-            // Zoom mode (khoá chéo mục 3, chiều còn lại).
-            case 'fileManagerPhoto.imagePreview.editToggle.click': {
-                const isCurrentlyEditing = appState.get('imagePreviewMode') === 'edit';
-                VirtualMachineState.run([
-                    { state: isCurrentlyEditing, operation: '===', value: true, callback: () => {
-                        workflowFileManagerPhoto.exitImagePreviewMode();
-                    } },
-                    { state: isCurrentlyEditing, operation: '===', value: false, callback: () => {
-                        workflowFileManagerPhoto.enterEditMode();
-                    } },
-                ]);
-                break;
-            }
-
-            // MỚI (31/07/2026, Edit mode) — bấm 1 tile trong lưới tool (Generic Drawer,
-            // workflowFileManagerPhoto::_buildEditToolGridHtml()) — TOÀN BỘ tool đã port xong,
-            // openEditTool() tự phân luồng theo toolKey (Điều chỉnh/Crop/Vẽ/Text/Tách nền).
-            case 'fileManagerPhoto.editToolGrid.tile.click': {
-                const { tool } = msg.payload;
-                workflowFileManagerPhoto.openEditTool(tool);
-                break;
-            }
-
-            // MỚI (31/07/2026, mục 4 phản hồi Giang) — nút `toolsBtn` RIÊNG ở header modal (thay
-            // chỗ nút Edit cũ vừa dời đi, xem core/file-manager/photo-ui.js) — mở LẠI lưới tool Edit
-            // mode (Generic Drawer) sau khi người dùng tự tay đóng Drawer đi (nút X trên Drawer) mà
-            // KHÔNG chọn tool nào — TRƯỚC bản sửa này KHÔNG có cách nào mở lại, "kẹt" ở canvas
-            // trống. Không cần đọc `appState` để quyết định gì (đích luôn CỐ ĐỊNH) -> gọi thẳng
-            // Workflow (mục 4A/6, event-bus-flow.md), guard clause nằm trong chính
-            // `openEditToolGrid()`.
-            case 'fileManagerPhoto.imagePreview.tools.click': {
-                workflowFileManagerPhoto.openEditToolGrid();
                 break;
             }
 
