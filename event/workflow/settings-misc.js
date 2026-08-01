@@ -20,6 +20,8 @@
  */
 const workflowSettingsMisc = {
 
+    _debugConsolePanelEl: null, // panel Debug Console đang mở (pushSettingsPanel() dựng mới mỗi lần) — clearDebugConsoleLog() cần vẽ lại danh sách
+
     // ===================== aboutDrawer =====================
 
     /**
@@ -47,26 +49,28 @@ const workflowSettingsMisc = {
      */
     async openDebugConsole() {
         const panelEl = pushSettingsPanel({ title: t('settingsMisc.debugConsole.title'), bodyHtml: renderDebugConsolePanelBody() });
+        this._debugConsolePanelEl = panelEl; // SỬA (31/07/2026) — lưu lại, clearDebugConsoleLog() cần vẽ lại danh sách sau khi Router gọi
         this._renderDebugConsoleList(panelEl);
+        wireDebugConsolePanelActions(panelEl); // core/settings-misc-ui.js
+    },
 
-        const copyBtn = panelEl.querySelector('#btn-debug-console-copy');
-        const clearBtn = panelEl.querySelector('#btn-debug-console-clear');
+    /** Ứng với `settingsMisc.debugConsole.copy.click` (nút Copy, wire 1 lần ở core/settings-misc-
+     * ui.js). Public — Router gọi trực tiếp. */
+    async copyDebugConsoleLog() {
+        const logs = getDebugConsoleLogs(); // core/debug-console.js
+        const text = logs.map((l) => `[${new Date(l.time).toLocaleTimeString()}] ${l.level.toUpperCase()}: ${l.text}`).join('\n');
+        try {
+            await navigator.clipboard.writeText(text);
+            alertModal(t('settingsMisc.debugConsole.copiedMsg'));
+        } catch (e) {
+            alertModal(t('settingsMisc.debugConsole.copyFailedMsg'));
+        }
+    },
 
-        if (copyBtn) copyBtn.addEventListener('click', async () => {
-            const logs = getDebugConsoleLogs(); // core
-            const text = logs.map((l) => `[${new Date(l.time).toLocaleTimeString()}] ${l.level.toUpperCase()}: ${l.text}`).join('\n');
-            try {
-                await navigator.clipboard.writeText(text);
-                alertModal(t('settingsMisc.debugConsole.copiedMsg'));
-            } catch (e) {
-                alertModal(t('settingsMisc.debugConsole.copyFailedMsg'));
-            }
-        });
-
-        if (clearBtn) clearBtn.addEventListener('click', () => {
-            clearDebugConsoleLogs(); // core
-            this._renderDebugConsoleList(panelEl);
-        });
+    /** Ứng với `settingsMisc.debugConsole.clear.click` (nút Xoá). Public — Router gọi trực tiếp. */
+    clearDebugConsoleLog() {
+        clearDebugConsoleLogs(); // core/debug-console.js
+        if (this._debugConsolePanelEl) this._renderDebugConsoleList(this._debugConsolePanelEl);
     },
 
     /** Vẽ lại TOÀN BỘ danh sách log vào `#debug-console-list` bên trong `panelEl` — gọi lúc mở

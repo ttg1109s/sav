@@ -122,7 +122,6 @@
  * hàm core (core vẫn "thuần", chỉ tham số truyền vào đổi ý nghĩa — Rule 2 vẫn giữ).
  */
 let slideshowSettingsPanelEl = null; // panel Settings Slideshow đang mở — null nếu đang đóng (Batch D4)
-let _albumPickerOverlayClickHandler = null; // MỚI (Giai đoạn 4) — tham chiếu handler đang gắn trên genericDrawerOverlay (element DÙNG CHUNG nhiều feature) để tự gỡ đúng lúc đóng picker Album, xem openAlbumPicker()/_closeAlbumPickerDrawer()
 
 const SLIDESHOW_TASK = 'slideshowTimer';
 // MỚI (04/07/2026, mục 5 phản hồi Giang) — task "canh chừng" đổi bài hát cho chế độ "Photo per
@@ -139,6 +138,7 @@ const workflowSlideshow = {
     _images: [],           // Array<{key, blob, filename}> của album đang active, nạp lại mỗi start()
     _currentIndex: -1,     // index trong _images đang hiển thị ("current"), -1 = chưa có gì
     _currentObjectUrl: null,
+    _albumPickerOverlayCleanup: null, // hàm GỠ trả về từ wireSlideshowAlbumPickerDrawerActions() (core/file-manager/photo-ui.js), null khi picker đang đóng
     _layerToggle: false,   // false = layer1 đang 'current', true = layer2 đang 'current'
     _lastSeenSongKey: null, // MỚI (mục 5) — bookkeeping riêng của _startSongWatcher(), xem hàm đó
     // MỚI (18/07/2026, mục 1 phản hồi Giang — "chưa phát nhạc slideshow đã tự chạy") — có đang
@@ -664,23 +664,25 @@ const workflowSlideshow = {
             bodyClass: 'overflow-y-auto px-4 pb-6 pt-2',
         });
 
-        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-        if (closeBtn) closeBtn.addEventListener('click', () => {
-            eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.albumPicker.overlay.click', payload: {} }); // dùng CHUNG message với bấm ra ngoài — cùng ý nghĩa "huỷ"
-        });
-        _albumPickerOverlayClickHandler = () => {
-            eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.albumPicker.overlay.click', payload: {} });
-        };
-        genericDrawerOverlay.addEventListener('click', _albumPickerOverlayClickHandler);
+        // SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow") —
+        // closeBtn/overlay ĐÃ DỜI sang core/file-manager/photo-ui.js::
+        // wireSlideshowAlbumPickerDrawerActions() — trả hàm gỡ, lưu lại cho _closeAlbumPickerDrawer().
+        this._albumPickerOverlayCleanup = wireSlideshowAlbumPickerDrawerActions(); // core/file-manager/photo-ui.js
 
         const gridEl = genericDrawerBody.querySelector('#slideshow-album-picker-grid');
         const emptyEl = genericDrawerBody.querySelector('#slideshow-album-picker-empty');
-        renderSlideshowAlbumPickerGrid(gridEl, albums, activeAlbumId, imageRecordsByKey, async (albumId) => { // core/file-manager/photo-ui.js — GIỮ NGUYÊN, chỉ đổi nơi vẽ vào
-            this._closeAlbumPickerDrawer();
-            await this.setActiveAlbum(albumId);
-            await this.refreshDrawerUI();
-        });
+        renderSlideshowAlbumPickerGrid(gridEl, albums, activeAlbumId, imageRecordsByKey); // core/file-manager/photo-ui.js — GIỮ NGUYÊN, chỉ đổi nơi vẽ vào; KHÔNG còn nhận callback onSelect (xem docstring hàm đó)
         if (emptyEl) emptyEl.classList.toggle('hidden', albums.length > 0);
+    },
+
+    /** Ứng với `slideshowSettings.albumPicker.tile.click` (bấm 1 album trong picker). Public —
+     * Router gọi trực tiếp.
+     * @param {string} albumId
+     */
+    async selectAlbumFromPicker(albumId) {
+        this._closeAlbumPickerDrawer();
+        await this.setActiveAlbum(albumId);
+        await this.refreshDrawerUI();
     },
 
     /** MỚI (Batch 9, mục 4) — ứng với bấm ra ngoài panel (overlay) mà KHÔNG chọn album nào. Nếu
@@ -699,15 +701,13 @@ const workflowSlideshow = {
     },
 
     /** MỚI (Giai đoạn 4, rewrite Photo/Album, mục 1) — đóng Generic Drawer picker Album, DÙNG CHUNG
-     * cho mọi lối thoát (chọn xong/huỷ nút X/bấm ra ngoài). Gỡ `_albumPickerOverlayClickHandler` khỏi
-     * `genericDrawerOverlay` TRƯỚC KHI đóng — element đó DÙNG CHUNG nhiều feature khác (menu action
-     * ảnh, picker ảnh Photo & Album...), KHÔNG gỡ sẽ dính sang lần mở drawer TIẾP THEO của feature
-     * khác, bắn nhầm `slideshowSettings.albumPicker.overlay.click` không liên quan gì. */
+     * cho mọi lối thoát (chọn xong/huỷ nút X/bấm ra ngoài). Gọi hàm gỡ trả về từ
+     * `wireSlideshowAlbumPickerDrawerActions()` TRƯỚC KHI đóng — `genericDrawerOverlay` DÙNG CHUNG
+     * nhiều feature khác (menu action ảnh, picker ảnh Photo & Album...), KHÔNG gỡ sẽ dính sang lần
+     * mở drawer TIẾP THEO của feature khác, bắn nhầm `slideshowSettings.albumPicker.overlay.click`
+     * không liên quan gì. */
     _closeAlbumPickerDrawer() {
-        if (_albumPickerOverlayClickHandler) {
-            genericDrawerOverlay.removeEventListener('click', _albumPickerOverlayClickHandler);
-            _albumPickerOverlayClickHandler = null;
-        }
+        if (this._albumPickerOverlayCleanup) { this._albumPickerOverlayCleanup(); this._albumPickerOverlayCleanup = null; }
         workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
     },
 
