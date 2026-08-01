@@ -153,6 +153,33 @@ mặc định nên dùng khi không có lý do cụ thể để đi liên tuyế
 Listener(X) ──▶ Router(X) ──▶ Workflow(X) ──▶ Core(X)
 ```
 
+Ví dụ thật (miền `settingsMisc`, nút "Xoá" của panel Debug Console) — cả 4 tầng đều `settingsMisc`:
+
+```js
+// core/settings-misc-ui.js — Listener (DOM động, wire lúc dựng panel)
+function wireDebugConsolePanelActions(panelEl) {
+    const clearBtn = panelEl.querySelector('#btn-debug-console-clear');
+    if (clearBtn) clearBtn.addEventListener('click', () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.debugConsole.clear.click', payload: {} }));
+}
+
+// event/router/settings-misc.js — Router
+case 'settingsMisc.debugConsole.clear.click': {
+    workflowSettingsMisc.clearDebugConsoleLog();
+    break;
+}
+
+// event/workflow/settings-misc.js — Workflow
+clearDebugConsoleLog() {
+    clearDebugConsoleLogs(); // core/debug-console.js
+    if (this._debugConsolePanelEl) this._renderDebugConsoleList(this._debugConsolePanelEl);
+},
+
+// core/debug-console.js — Core
+function clearDebugConsoleLogs() {
+    _debugConsoleBuffer.length = 0;
+}
+```
+
 **TH2 — Liên tuyến domain:** Listener của miền X hoàn toàn có thể gửi message tới Router của miền
 B (khác X); Router(B) gọi Workflow(C); trong thân Workflow(C), hoàn toàn có thể gọi tiếp
 Workflow(D) mà KHÔNG cần D cùng miền với C — miễn mỗi bước chuyển tầng vẫn đúng vai trò của tầng đó
@@ -164,12 +191,63 @@ Listener(X) ──▶ Router(B) ──▶ Workflow(C) ──▶ Workflow(D) ─�
                 (khác X)      (khác B)        (khác C)
 ```
 
+Ví dụ thật (Workflow miền `fileManagerFolderBrowser` gọi thẳng Workflow miền `playlistScope` khác
+hẳn) — `enableScope()` KHÔNG tự viết lại logic lưu scope, tái dùng nguyên `persistScopeChoice()` đã
+có sẵn ở miền khác:
+
+```js
+// event/workflow/file-manager-folder-browser.js (miền "fileManagerFolderBrowser")
+async enableScope() {
+    if (this._readAllItems.length === 0 && this._readFolderId !== appState.get('activePlayListFolder')) return;
+    const folderId = this._readFolderId;
+    await workflowPlaylistScope.persistScopeChoice(folderId); // tái dùng THẲNG Workflow miền khác
+    this._updateScopeToggleUI(this._readAllItems.length === 0);
+    workflowPlaylistScope.askReloadToApplyNow(/* ... */);
+},
+```
+
+**Workflow gọi thẳng Core của miền khác cũng CÙNG thuộc TH2** — không bắt buộc phải đi qua 1
+Workflow trung gian của đúng miền Core đó rồi mới được gọi. Nhiều file Core vốn được viết ra để
+DÙNG CHUNG xuyên miền ngay từ đầu:
+
+```
+Listener(X) ──▶ Router(B) ──▶ Workflow(C) ──▶ Core(E)
+                (khác X)      (khác B)        (khác C)
+```
+
+Ví dụ thật 1 (`core/crop-selector.js` — cơ chế tương tác crop thuần, viết ra để dùng chung bởi CẢ
+Photo Edit lẫn Video Editor, không thuộc riêng miền nào cả):
+
+```js
+// event/workflow/image-edit.js (miền "imageEdit")
+_startCropTool() {
+    // ...
+    this._cropSession = initCropSession(handle.baseCanvas.width, handle.baseCanvas.height); // core/crop-selector.js — Core DÙNG CHUNG, không phải Core riêng của imageEdit
+    this._drawCropOverlay();
+},
+```
+
+Ví dụ thật 2 (`workflowSlideshow`, miền `slideshowSettings`, gọi thẳng 1 hàm Core sống trong domain
+Photo):
+
+```js
+// event/workflow/slideshow.js (miền "slideshowSettings")
+async openAlbumPicker() {
+    // ...
+    renderSlideshowAlbumPickerGrid(gridEl, albums, activeAlbumId, imageRecordsByKey); // core/file-manager/photo-ui.js — Core của miền "Photo", KHÔNG phải "slideshowSettings"
+},
+```
+
+Ràng buộc DUY NHẤT không đổi dù đi tuyến nào: bản thân **Core vẫn tuyệt đối không được gọi Core
+khác** (Rule 3, core-function-conventions.md) — liên tuyến domain nới lỏng ai được gọi tới Core từ
+tầng Workflow/Router, KHÔNG nới lỏng việc Core tự gọi lẫn nhau.
+
 Ví dụ thật của TH2 đã có trong codebase — xem "Tái dùng Workflow giữa các miền khác nhau" ở mục 4B
 dưới đây (`workflowPlaylist` gọi thẳng `workflowSubtitleModal.navigateToEditor()`).
 
 **KHÔNG được lạm dụng liên tuyến domain.** Trước khi quyết định 1 luồng nên đi đơn tuyến (TH1) hay
-liên tuyến (TH2), phải xác định rõ và đánh giá CẦN/NÊN, không phải cứ tiện tay là gọi chéo. Vài
-câu hỏi để đánh giá:
+liên tuyến (TH2) — dù là Workflow gọi Workflow khác miền hay Workflow gọi thẳng Core khác miền —
+phải xác định rõ và đánh giá CẦN/NÊN, không phải cứ tiện tay là gọi chéo. Vài câu hỏi để đánh giá:
 
 - Hành vi ở đích đến có thật sự là 1 nghiệp vụ ĐỘC LẬP, đã có sẵn và đúng là thứ mình cần tái dùng
   nguyên vẹn — hay chỉ đang muốn "tiện đường" gọi sang cho đỡ viết lại?
