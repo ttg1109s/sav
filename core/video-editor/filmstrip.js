@@ -3,7 +3,9 @@
  * hồi Giang — "kéo dùng hình chữ nhật thẳng đứng như phần mềm biên tập mobile", thay hẳn cơ chế
  * time-picker-modal cũ cho Cut). Dùng `Mediabunny.CanvasSink` (đã có sẵn, không cần thư viện mới)
  * để trích N khung hình rải đều theo thời gian — Workflow ghép thành dải ảnh nền (filmstrip) cho
- * thanh kéo cắt video, để người dùng THẤY được cảnh tại mỗi điểm thay vì chỉ gõ số.
+ * thanh kéo cắt video, để người dùng THẤY được cảnh tại mỗi điểm thay vì chỉ gõ số. GIỮ NGUYÊN sau
+ * khi Video Editor NLE xoá hẳn — nơi gọi giờ là `event/workflow/video-preview.js::open()`
+ * ("Song/Video Unification" v12, gộp vào Modal xem Video, đúng khuôn modal xem Ảnh).
  *
  * NẠP SAU: Mediabunny (CDN/vendor, script tag, global `Mediabunny`).
  * Rule 3 — chỉ gọi API thư viện ngoài (Mediabunny), không gọi core nào khác của project.

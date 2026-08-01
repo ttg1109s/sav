@@ -5,8 +5,9 @@
  * (Rule 3 — chỉ dùng DOM/Canvas API chuẩn của trình duyệt).
  *
  * Lưu ảnh trích xuất TÁI DÙNG THẲNG `core/file-manager/image.js::saveImage()` (Workflow tự gọi,
- * xem `event/workflow/video-editor.js::handleExtractFrame()`) — file này CHỈ lo phần "tạo ra dữ
- * liệu ảnh" (canvas/blob/tên file), KHÔNG tự lưu DB (đúng Rule 1 — 1 core = 1 việc).
+ * xem `event/workflow/video-preview.js::handleExtractFrame()` — THAY `event/workflow/video-
+ * editor.js` đã xoá, "Song/Video Unification" v12, gộp vào Modal xem Video) — file này CHỈ lo
+ * phần "tạo ra dữ liệu ảnh" (canvas/blob/tên file), KHÔNG tự lưu DB (đúng Rule 1 — 1 core = 1 việc).
  */
 
 /**

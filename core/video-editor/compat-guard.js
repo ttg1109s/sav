@@ -1,7 +1,9 @@
 /**
  * core/video-editor/compat-guard.js — Core THUẦN (Rule 1-5 core-function-conventions.md), MỚI
- * (Batch 1, module Video Editor). Kiểm tra 1 file video CÓ giải mã được bằng WebCodecs (qua
- * Mediabunny) hay không — chạy lúc MỞ `video-editor.html`, TÁCH BIỆT HẲN với guard lúc upload
+ * (Batch 1, module Video Editor). GIỮ NGUYÊN sau khi Video Editor NLE (`video-editor.html`) xoá
+ * hẳn ("Song/Video Unification" v12, gộp vào Modal xem Video) — nơi gọi giờ là
+ * `event/workflow/video-preview.js::open()`, chạy lúc MỞ modal xem Video (đúng khuôn modal xem
+ * Ảnh), TÁCH BIỆT HẲN với guard lúc upload
  * (`event/workflow/file-manager-video.js::_extractVideoThumbAndMeta()` — guard đó chỉ kiểm tra thẻ
  * `<video>` PHÁT được, KHÔNG đảm bảo WebCodecs giải mã được cùng file, xem thảo luận đã chốt với
  * Giang trước khi viết Batch này).
