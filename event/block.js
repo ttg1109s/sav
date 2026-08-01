@@ -32,11 +32,13 @@
 
 // ===================== fileManagerFolderBrowser — chặn "Áp dụng cho Playlist" khi folder rỗng =====
 // XOÁ (Batch 5, "Song/Video Unification" mục 6e) — msg.type 'fileManagerSong.folder.
-// applyToPlaylist.click' KHÔNG CÒN TỒN TẠI: toggle Scope trong Folder Browser (Generic Drawer) giờ
-// gọi THẲNG `workflowFileManagerFolderBrowser._enableScope()`, không qua eventBus nữa — Block gate
-// không còn message nào để chặn. Thay bằng guard clause thẳng trong `_enableScope()` (cùng điều
-// kiện cũ) + `disabled` attribute trên checkbox (đã có từ Batch 4), xem docstring đầu
-// event/workflow/file-manager-folder-browser.js.
+// applyToPlaylist.click' KHÔNG CÒN TỒN TẠI: toggle Scope trong Folder Browser (Generic Drawer) từng
+// gọi THẲNG `workflowFileManagerFolderBrowser.enableScope()` (bỏ qua eventBus) một thời gian — Block
+// gate không còn message nào để chặn lúc đó. SỬA (31/07/2026, Giang chỉ ra "core tạo ra
+// addEventListener chứ không phải workflow") — đã khôi phục đi qua eventBus/Router
+// ('fileManagerFolderBrowser.read.scope.change'), NHƯNG Block gate ở đây CHƯA đăng ký lại — guard
+// clause thẳng trong `enableScope()` (cùng điều kiện cũ) + `disabled` attribute trên checkbox (Batch
+// 4) vẫn đang là lớp phòng vệ chính, xem docstring đầu event/workflow/file-manager-folder-browser.js.
 
 // ===================== Generic Drawer — chặn mở chồng khi đang mở =====================
 // MỚI (13/07/2026, Giang yêu cầu) — Generic Drawer dùng CHUNG cho nhiều tính năng (hiện Document
