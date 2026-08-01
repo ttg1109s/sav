@@ -694,7 +694,7 @@ function openImagePreviewModal(image) {
     overlay.appendChild(img);
 
     // ---- Khung canvas cho Edit mode (base/render/interact) — MỚI (31/07/2026), ẩn mặc định, chỉ
-    // hiện khi vào Edit mode (workflowFileManagerPhoto.enterEditMode() dựng nội dung + gỡ 'hidden').
+    // hiện khi vào Edit mode (workflowImageEdit.enterEditMode() dựng nội dung + gỡ 'hidden').
     // Đúng khuôn prototype "Lumina Pro" Giang cung cấp: base = pixel gốc sau thao tác vĩnh viễn,
     // render = kết quả filter hiện tại (không phá base, cho phép chỉnh lại), interact = overlay
     // tương tác (khung crop/nét vẽ nháp — CHƯA dùng ở bản đầu, chỉ mục "Điều chỉnh").
@@ -805,7 +805,7 @@ function openImagePreviewModal(image) {
     // nút mở LẠI lưới tool Edit mode (Generic Drawer) sau khi người dùng tự tay đóng Drawer đi (nút
     // X trên Drawer) — TRƯỚC bản sửa này KHÔNG có cách nào mở lại (mục 4 Giang chỉ ra). ẨN mặc định
     // (`hidden`) — CHỈ Workflow hiện ra lúc `enterEditMode()`/ẩn lại lúc thoát Edit mode (xem
-    // `_exitEditMode()`, event/workflow/file-manager-photo.js), cùng khuôn ẩn/hiện `canvasWrap`.
+    // `exitEditMode()`, event/workflow/image-edit.js), cùng khuôn ẩn/hiện `canvasWrap`.
     const rightGroup = document.createElement('div');
     rightGroup.className = 'flex items-center gap-2';
     const toolsBtn = document.createElement('button');
@@ -835,7 +835,7 @@ function openImagePreviewModal(image) {
     // KHÔNG gọi closeModal()/callback tham số nữa (SAI Rule 5a, xem docstring) — bắn thẳng eventBus,
     // Router (event/router/file-manager-photo.js) quyết định có bị Block gate chặn hay không.
     closeBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.close.click', payload: {} }));
-    toolsBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.tools.click', payload: {} }));
+    toolsBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.tools.click', payload: {} }));
     menuBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.menu.click', payload: { menuBtn } }));
 
     // SỬA (31/07/2026, mục 2/4 phản hồi Giang) — thêm canvasWrap/base/render/interact/toolsBtn

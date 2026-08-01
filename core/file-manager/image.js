@@ -4,7 +4,7 @@
  * service/db.js): store 'images', key = imageKey, value = { blob, filename, addedAt }.
  *
  * MỚI (Giai đoạn 1, rewrite Photo/Album — mục 3c/3d) — record thêm 3 field: `thumbBlob` (ảnh đã
- * resize lúc upload, height cố định — event/workflow/file-manager-photo.js::_resizeImageForThumbnail(),
+ * resize lúc upload, height cố định — event/workflow/file-manager-photo.js::resizeImageForThumbnail(),
  * DÙNG cho lưới ảnh), `width`/`height` (kích thước ẢNH GỐC, đo lúc resize — DÙNG làm attribute
  * width/height thật trên thẻ <img> để fjGallery (thư viện, event/workflow/photo-gallery-window.js)
  * tính tỉ lệ hiển thị mà KHÔNG cần đợi ảnh decode xong mới layout được). `blob` gốc CHỈ dùng khi
@@ -53,7 +53,7 @@ async function resolveImageKey(filename) {
 /**
  * Lưu 1 ảnh mới (hoặc ghi đè nếu trùng filename — xem resolveImageKey()). 1 tiến trình duy nhất:
  * sinh key -> ghi record. `thumbBlob`/`width`/`height` PHẢI tính SẴN trước khi gọi hàm này (Workflow
- * — event/workflow/file-manager-photo.js::_resizeImageForThumbnail(), cần Image/canvas là DOM API,
+ * — event/workflow/file-manager-photo.js::resizeImageForThumbnail(), cần Image/canvas là DOM API,
  * core KHÔNG được đụng theo Rule 1-4) — hàm này (core) CHỈ ghi lại nguyên xi, không tự resize/decode
  * gì thêm.
  * @param {File|Blob} file - blob ẢNH GỐC (không resize).
