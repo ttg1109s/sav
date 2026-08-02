@@ -16,6 +16,10 @@
  * chọn/Xuất ZIP/Thêm vào thư mục/Xoá hàng loạt) — xem khối riêng cuối file. Mọi msg.type còn lại
  * router tự gọi thẳng 1 hàm core, KHÔNG đi qua workflow (xem router/playlist.js).
  */
+/** DỜI từ event/workflow/file-manager-video.js (file đó đã xoá) — cạnh thumbnail vuông cố định
+ * cho video upload, dùng bởi `uploadVideos()`/`_extractVideoThumbAndMeta()` bên dưới. */
+const VIDEO_THUMBNAIL_SIZE = 320;
+
 const workflowPlaylist = {
 
     /**
@@ -178,6 +182,138 @@ const workflowPlaylist = {
      * 1 lời gọi vẫn thuộc workflow, không thể gọi thẳng từ router. */
     async showUploadBlockedBySelectionModal() {
         await alertModal(t('playlistView.selection.uploadBlocked'));
+    },
+
+    // ===================== Upload Video — DỜI từ event/workflow/file-manager-video.js (phản hồi
+    // Giang — file đó đã xoá hẳn, cụm này CHỈ được gọi từ input `#video-upload-input` ở Playlist,
+    // xem event/router/playlist.js case 'playlist.upload.videoFileChange', nên chuyển thẳng về
+    // đây thay vì giữ 1 file/router/listener riêng chỉ để relay). GIỮ NGUYÊN 100% thân hàm. =====
+
+    /** Chụp 1 khung hình + đọc thời lượng của 1 file video, crop VUÔNG cố định
+     * `VIDEO_THUMBNAIL_SIZE`×`VIDEO_THUMBNAIL_SIZE` (center-crop cạnh dài về giữa) — đặt ở Workflow
+     * (không phải core) vì cần `<video>`/`canvas` — DOM API, core không được đụng theo Rule 1-4.
+     * Chụp khung hình tại giây `min(1, duration/2)` — tránh giây đầu tiên hay bị đen/mờ.
+     * `width`/`height` trả về là kích thước GỐC của video (KHÔNG phải kích thước thumb).
+     *
+     * ĐỒNG THỜI chụp THÊM `thumbFullBlob`: khung hình ĐẦU VIDEO ở ĐÚNG kích thước GỐC (KHÔNG
+     * center-crop vuông, KHÔNG resize) — TÁCH RIÊNG HẲN với `thumbBlob` (vuông, chụp ở giây
+     * `min(1, duration/2)`, dùng cho lưới/cover).
+     *
+     * Kỹ thuật chụp full-res: nghe CẢ 3 sự kiện (`loadeddata`/`canplay`/`seeked`, cái nào tới trước
+     * chụp trước, chụp thêm lần cũng vô hại nhờ cờ `fullFrameCaptured`) + ép trình duyệt SEEK THẬT
+     * bằng cách gán `currentTime = 0.0001` RỒI `= 0` ngay sau + vẽ NGAY nếu khung hình đã sẵn có
+     * (`readyState >= 2`) + "nhá" `play()`/`pause()` 1 lần nếu chưa đủ dữ liệu để ép trình duyệt
+     * decode thật (một số engine không bắn `seeked` đáng tin cậy ngay tại time=0).
+     * @param {File} file
+     * @returns {Promise<{thumbBlob: Blob, thumbFullBlob: (Blob|null), width: number, height: number, duration: number}>}
+     */
+    _extractVideoThumbAndMeta(file) {
+        return new Promise((resolve, reject) => {
+            const objectUrl = URL.createObjectURL(file);
+            const videoEl = document.createElement('video');
+            videoEl.muted = true;
+            videoEl.playsInline = true;
+            let settled = false;
+            let thumbFullBlob = null; // gán ở bước chụp full-res ĐẦU (trước thumb vuông)
+            let fullFrameCaptured = false; // chặn chụp full-res quá 1 lần (3 sự kiện CÙNG nghe, xem docstring)
+            const cleanup = () => { try { URL.revokeObjectURL(objectUrl); } catch (e) {} };
+            const cleanupAndReject = (err) => { if (settled) return; settled = true; cleanup(); reject(err); };
+            const safetyTimeout = taskManager.once(() => cleanupAndReject(new Error('[_extractVideoThumbAndMeta] timeout đọc video')), 8000);
+
+            let nudgedFullRes = false; // chặn play()/pause() ép decode quá 1 lần
+
+            // Bước 1/2 — chụp full-res ĐÚNG khung đầu video thật. QUAN TRỌNG: seek bước 2/2
+            // (onSquareThumbSeeked) chỉ được đăng ký BÊN TRONG callback này (ngay trước khi seek
+            // tiếp) — không đăng ký sẵn từ đầu, tránh khớp nhầm đúng sự kiện 'seeked' của bước 1.
+            function captureFullResFrame() {
+                if (settled || fullFrameCaptured) return;
+                if (videoEl.readyState < 2) {
+                    if (!nudgedFullRes) {
+                        nudgedFullRes = true;
+                        videoEl.addEventListener('playing', captureFullResFrame, { once: true });
+                        videoEl.play().then(() => videoEl.pause()).catch(() => {});
+                    }
+                    return; // còn cơ hội ở lần bắn sau, KHÔNG set fullFrameCaptured
+                }
+                fullFrameCaptured = true;
+                const width = videoEl.videoWidth, height = videoEl.videoHeight;
+                const fullCanvas = document.createElement('canvas');
+                fullCanvas.width = width; fullCanvas.height = height;
+                fullCanvas.getContext('2d').drawImage(videoEl, 0, 0, width, height);
+                fullCanvas.toBlob((blob) => {
+                    if (settled) return;
+                    thumbFullBlob = blob; // Blob|null — field PHỤ, không chặn nếu null
+                    videoEl.addEventListener('seeked', onSquareThumbSeeked, { once: true }); // Bước 2/2 — đăng ký NGAY TRƯỚC lúc seek tiếp, không sớm hơn
+                    videoEl.currentTime = Math.min(1, videoEl.duration / 2 || 0); // seek bước 2/2 — mốc cũ, cho thumb vuông
+                }, 'image/jpeg', 0.92);
+            }
+
+            videoEl.addEventListener('loadedmetadata', () => {
+                const width = videoEl.videoWidth, height = videoEl.videoHeight;
+                if (!width || !height) { cleanupAndReject(new Error('[_extractVideoThumbAndMeta] video không có kích thước hợp lệ')); return; }
+                videoEl.addEventListener('loadeddata', captureFullResFrame, { once: true });
+                videoEl.addEventListener('canplay', captureFullResFrame, { once: true });
+                videoEl.addEventListener('seeked', captureFullResFrame, { once: true });
+                videoEl.currentTime = 0.0001; // ép trình duyệt SEEK THẬT (một số engine bỏ qua nếu currentTime đã sẵn là 0)
+                videoEl.currentTime = 0; // rồi về ĐÚNG khung đầu tiên thật sự
+                if (videoEl.readyState >= 2) captureFullResFrame(); // đã có sẵn khung hình (HAVE_CURRENT_DATA) — chụp ngay, phòng 3 sự kiện trên đã bắn TRƯỚC khi kịp đăng ký
+            }, { once: true });
+
+            // Bước seek 2/2 — mốc cũ `min(1, duration/2)`, chụp thumbBlob VUÔNG.
+            function onSquareThumbSeeked() {
+                if (settled) return;
+                safetyTimeout.kill();
+                const width = videoEl.videoWidth, height = videoEl.videoHeight;
+                const side = Math.min(width, height);
+                const sx = (width - side) / 2, sy = (height - side) / 2;
+                const canvas = document.createElement('canvas');
+                canvas.width = VIDEO_THUMBNAIL_SIZE; canvas.height = VIDEO_THUMBNAIL_SIZE;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(videoEl, sx, sy, side, side, 0, 0, VIDEO_THUMBNAIL_SIZE, VIDEO_THUMBNAIL_SIZE);
+                canvas.toBlob((thumbBlob) => {
+                    settled = true; cleanup();
+                    if (!thumbBlob) { reject(new Error('[_extractVideoThumbAndMeta] canvas.toBlob trả về null')); return; }
+                    resolve({ thumbBlob, thumbFullBlob, width, height, duration: videoEl.duration || 0 });
+                }, 'image/jpeg', 0.85);
+            }
+
+            videoEl.addEventListener('error', () => cleanupAndReject(new Error('[_extractVideoThumbAndMeta] không đọc được video')), { once: true });
+            videoEl.src = objectUrl;
+        });
+    },
+
+    /** Ứng với 'playlist.upload.videoFileChange'. Lỗi 1 file (vd file hỏng) KHÔNG chặn cả lô
+     * upload — bắt riêng, bỏ qua đúng file đó, tiếp tục file sau (Rule 1: vẫn 1 tiến trình "upload
+     * cả lô"). Hiện tiến trình "X/Y" qua `loadingText.textContent`, ĐÚNG pattern
+     * `handleAudioFiles()` (Song, core/playlist/loader.js) — tái dùng NGUYÊN lang key
+     * `common.upload.loadingProgress`.
+     * @param {FileList|File[]} files
+     */
+    async uploadVideos(files) {
+        const fileArray = Array.from(files);
+        if (fileArray.length === 0) return;
+
+        let failedCount = 0;
+        await withLoadingShield(tFormat('common.upload.loadingProgress', { done: 1, total: fileArray.length }), async () => {
+            for (let i = 0; i < fileArray.length; i++) {
+                const file = fileArray[i];
+                loadingText.textContent = tFormat('common.upload.loadingProgress', { done: i + 1, total: fileArray.length });
+                try {
+                    const { thumbBlob, thumbFullBlob, width, height, duration } = await this._extractVideoThumbAndMeta(file);
+                    await saveVideo(file, file.name, thumbBlob, width, height, duration, thumbFullBlob); // core/file-manager/video.js
+                } catch (err) {
+                    console.error(`[uploadVideos] chụp thumbnail/lưu thất bại cho file "${file.name}":`, err);
+                    failedCount++;
+                }
+            }
+        });
+        // input `#video-upload-input` tự dọn value trong chính listener của nó (event/listener/playlist.js).
+        // MỚI (21/07/2026, Giang chỉ ra "không cập nhật lại list của video") — nếu Playlist đang
+        // browse nguồn Video, làm mới playlistCache/playlistOrder NGAY để Next/Prev thấy được video
+        // vừa upload — KHÔNG cần đổi Nguồn tắt/bật lại.
+        await workflowVideoPlayer.refreshVideoPlaylistIfActive(); // event/workflow/video-player.js — tự guard activeMediaSource, no-op nếu Playlist không ở nguồn Video
+        const successCount = fileArray.length - failedCount;
+        await alertModal(tFormat('fileManager.video.uploadSuccess', { count: successCount }));
     },
 
     /**
@@ -375,21 +511,22 @@ const workflowPlaylist = {
     },
 
     /**
-     * MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — "Sửa video" trong
-     * menu 3 chấm — CÙNG PRECEDENT với openSubtitleEditorForSongMenu() ngay trên (đọc key đang mở
-     * menu, đóng menu, TÁI DÙNG NGUYÊN `navigateToVideoEdit()` — hàm nghiệp vụ ĐÃ CÓ SẴN từ
-     * "File Manager → Video" cũ, KHÔNG viết lại, chỉ đổi nơi gọi, đúng CHỐT mục 6d).
+     * "Sửa video" trong menu 3 chấm. SỬA (phản hồi Giang — dẹp tầng trung gian) — TRƯỚC ĐÂY gọi
+     * `workflowFileManagerVideo.navigateToVideoEdit()` (hàm 1 dòng, chỉ relay tiếp sang
+     * `workflowVideoPreview.open()`, KHÔNG làm gì thêm) — file `file-manager-video.js` đã xoá hẳn
+     * (mọi logic thật của nó dời sang playlist.js/visualizer-control-center.js theo đúng người gọi
+     * thật) nên gọi THẲNG `workflowVideoPreview.open()` ở đây, bỏ hẳn 1 tầng relay vô nghĩa.
      * XOÁ (phản hồi Giang — "bỏ luôn set background cho dropdown của video đi") —
      * `setActiveMenuVideoAsBackground()` (action "setAsBgVideo") đã bỏ hẳn cùng lúc với nút dropdown
      * tương ứng. TỰ AUDIT LẠI lúc xoá: `workflowFileManagerVideo.setVideoAsBackground()` tưởng còn
      * picker "Use background video" dùng — THỰC RA KHÔNG (picker tự inline logic riêng) — đã XOÁ
-     * THẲNG hàm đó (0 lời gọi) cùng 2 lang key liên quan, xem event/workflow/file-manager-video.js.
+     * THẲNG hàm đó (0 lời gọi) cùng 2 lang key liên quan.
      */
     navigateToActiveMenuVideoEdit() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return;
         closeSongActionMenu();
-        workflowFileManagerVideo.navigateToVideoEdit(key);
+        workflowVideoPreview.open(key); // event/workflow/video-preview.js
     },
 
     async openAddToFolderPickerForSongMenu() {

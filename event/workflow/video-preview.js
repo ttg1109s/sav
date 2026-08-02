@@ -67,7 +67,9 @@ function _formatVideoPreviewTime(seconds) {
 const workflowVideoPreview = {
     _modalHandle: null,
 
-    /** Ứng với `workflowFileManagerVideo.navigateToVideoEdit(videoKey)`. @param {string} videoKey */
+    /** Ứng với `workflowPlaylist.navigateToActiveMenuVideoEdit()` (menu 3 chấm Playlist) — gọi
+     * THẲNG, không qua tầng trung gian nào (file-manager-video.js đã xoá hẳn, phản hồi Giang).
+     * @param {string} videoKey */
     async open(videoKey) {
         const record = await getVideoRecord(videoKey); // service/db.js
         if (!record) { await alertModal(t('videoPreview.videoNotFound')); return; } // guard: video vừa bị xoá ở tab/thao tác khác

@@ -20,6 +20,8 @@
  *     CŨNG tự kiểm tra thêm điều kiện nhạc đang phát (mục 1, 18/07/2026) — KHÔNG chỉ riêng video
  *     nền nữa, nên gọi TỪ ĐÂY vẫn đúng dù lý do gọi ban đầu chỉ là video nền.
  */
+let _videoBgPickerSession = null; // session picker Generic Drawer "Use background video" — DỜI từ event/workflow/file-manager-video.js (phản hồi Giang, file đó đã xoá — picker này CHỈ được gọi từ đây, không liên quan File Manager), đổi tên khỏi `_videoPickerSession` cho rõ domain. Cùng khuôn `_imagePickerSession` (file-manager-photo.js)
+
 const workflowVisualizerControlCenter = {
 
     /** SỬA (21/07/2026, Batch 2 module Video — Giang yêu cầu "Use background video -> mở generic
@@ -53,7 +55,7 @@ const workflowVisualizerControlCenter = {
      * `validateVideoFile()` (core/upload-validation.js) chỉ fallback đọc `.name` khi `.type` RỖNG,
      * mà Blob lưu qua IndexedDB LUÔN giữ nguyên `.type`. */
     async enableVideoBackgroundToggle() {
-        workflowFileManagerVideo.openVideoBgPicker(async (videoKey) => { // event/workflow/file-manager-video.js
+        this.openVideoBgPicker(async (videoKey) => {
             const record = await getVideoRecord(videoKey); // service/db.js
             if (!record) { videoEnableToggle.checked = false; return; } // guard: video vừa bị xoá ở nơi khác -> coi như huỷ
             await withLoadingShield(t('common.loading.savingVideoBg'), async () => {
@@ -112,5 +114,82 @@ const workflowVisualizerControlCenter = {
      * core `disableVisualBgImageState()` không còn đụng IndexedDB -> không cần shield nữa. */
     async disableVisualBgImage() {
         disableVisualBgImageState(); // core có sẵn (core/state-and-video-bg.js)
+    },
+
+    // ===================== Picker Generic Drawer "Use background video" — DỜI từ event/workflow/
+    // file-manager-video.js (phản hồi Giang — file đó đã xoá hẳn, picker này CHỈ được gọi từ
+    // enableVideoBackgroundToggle() ở trên, không có nơi nào khác dùng, nên chuyển thẳng về đây
+    // thay vì giữ 1 file/router/listener riêng chỉ để relay). GIỮ NGUYÊN 100% thân hàm — chỉ đổi
+    // msg.type gửi đi ('fileManagerVideo.videoPicker.*' -> 'visualizerControlCenter.videoBgPicker.*',
+    // xem core/file-manager/video-ui.js::openVideoBgPickerDrawerUi()) + đổi router 2 case tương ứng
+    // (event/router/visualizer-control-center.js) + đổi tên biến session
+    // (`_videoPickerSession` -> `_videoBgPickerSession`, khai báo đầu file). =====================
+
+    /** Mở Generic Drawer chọn 1 video CÓ SẴN trong thư viện Video — DÙNG CHUNG cho MỌI nơi cần
+     * "chọn 1 video làm nền" (hiện tại chỉ có Settings -> "Use background video", nhưng viết tổng
+     * quát qua tham số `onSelect`/`onCancel`, không hardcode nghiệp vụ video nền ở ĐÂY — cùng triết
+     * lý `openCoverImagePicker()` Photo).
+     * @param {(videoKey: string) => void} onSelect
+     * @param {() => void} [onCancel] - gọi khi đóng picker MÀ CHƯA chọn gì (nút X).
+     */
+    async openVideoBgPicker(onSelect, onCancel) {
+        _videoBgPickerSession = { onSelect, onCancel, hasSelected: false };
+
+        // "core tạo ra addEventListener chứ không phải workflow" — TOÀN BỘ phần dựng Generic
+        // Drawer + wire closeBtn/delegated click tile ở core/file-manager/video-ui.js::
+        // openVideoBgPickerDrawerUi().
+        openVideoBgPickerDrawerUi(t('fileManager.video.pickerTitle'), this._buildVideoBgPickerBodyHtml()); // core/file-manager/video-ui.js
+
+        await new Promise((resolve) => {
+            genericDrawerPanel.addEventListener('transitionend', function onOpenTransitionEnd() {
+                genericDrawerPanel.removeEventListener('transitionend', onOpenTransitionEnd);
+                resolve();
+            }, { once: true });
+        });
+
+        const videos = await listVideos(); // core/file-manager/video.js
+        if (!_videoBgPickerSession) return; // guard — user đóng picker RẤT NHANH trong lúc đang đọc DB
+
+        const scrollEl = genericDrawerBody.querySelector('#file-manager-video-picker-scroll');
+        const emptyEl = genericDrawerBody.querySelector('#file-manager-video-picker-empty');
+        if (emptyEl) emptyEl.classList.toggle('hidden', videos.length > 0);
+        workflowVideoGalleryWindow.mount('genericDrawer', { scrollEl, videos, badgeMode: null, selectedKeys: new Set() }); // event/workflow/video-gallery-window.js — single-select, KHÔNG badge, tap = chọn ngay
+    },
+
+    _buildVideoBgPickerBodyHtml() {
+        return `
+            <div class="flex-1 min-h-0 overflow-y-auto relative" id="file-manager-video-picker-scroll">
+                <p id="file-manager-video-picker-empty" class="hidden text-sm text-slate-400 text-center py-10 px-6">${t('fileManager.video.empty')}</p>
+            </div>
+        `;
+    },
+
+    /** Ứng với 'visualizerControlCenter.videoBgPicker.tile.click' — LUÔN single-select — bấm là
+     * chọn NGAY, đóng drawer luôn.
+     * @param {string} videoKey
+     */
+    handleVideoBgPickerTileClick(videoKey) {
+        if (!_videoBgPickerSession) return; // guard: picker đã đóng (race hiếm, vd đóng đúng lúc tap)
+        _videoBgPickerSession.hasSelected = true;
+        const onSelect = _videoBgPickerSession.onSelect;
+        this._teardownVideoBgPicker();
+        onSelect(videoKey);
+    },
+
+    /** Ứng với 'visualizerControlCenter.videoBgPicker.close.click' — đóng picker qua nút X (huỷ,
+     * chưa chọn gì) — `onCancel` CHỈ gọi khi CHƯA `hasSelected` (tránh gọi 2 lần nếu race hiếm). */
+    handleVideoBgPickerCloseClick() {
+        if (!_videoBgPickerSession) return;
+        const { onCancel, hasSelected } = _videoBgPickerSession;
+        this._teardownVideoBgPicker();
+        if (!hasSelected && typeof onCancel === 'function') onCancel();
+    },
+
+    /** Dọn session + unmount windowing (revoke object URL NGAY) + đóng drawer — DÙNG CHUNG cho MỌI
+     * lối thoát picker (chọn xong/huỷ). */
+    _teardownVideoBgPicker() {
+        workflowVideoGalleryWindow.unmount('genericDrawer'); // event/workflow/video-gallery-window.js
+        workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
+        _videoBgPickerSession = null;
     },
 };
