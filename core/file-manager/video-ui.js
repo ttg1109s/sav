@@ -260,9 +260,14 @@ function openVideoPreviewModal(video) {
  * cùng khuôn `openPhotoImagePickerDrawerUi()` (core/file-manager/photo-ui.js) — dựng headerHtml +
  * gọi `openGenericDrawer()` + wire NGAY closeBtn/delegated click tile, TẤT CẢ Ở ĐÂY (Rule 5a — DOM
  * động, callback CHỈ `eventBus.send()`, gom cuối hàm). `bodyHtml` nhận SẴN từ Workflow (Rule 2).
+ *
+ * ĐỔI TÊN + đổi router (phản hồi Giang — dẹp file-manager-video.js) — `openVideoPickerDrawerUi()`
+ * -> `openVideoBgPickerDrawerUi()`, router đích đổi từ 'fileManagerVideo' (file đã xoá) sang
+ * 'visualizerControlCenter' (đúng domain gọi picker này — "Use background video", Settings/
+ * Visualizer Control Center), msg.type đổi 'fileManagerVideo.videoPicker.*' -> 'visualizerControlCenter.videoBgPicker.*'.
  * @param {string} title @param {string} bodyHtml
  */
-function openVideoPickerDrawerUi(title, bodyHtml) {
+function openVideoBgPickerDrawerUi(title, bodyHtml) {
     openGenericDrawer({ // core/generic-drawer.js
         height: '90vh',
         zIndex: Z_INDEX.GENERIC_DRAWER, // service/z-index.js — mặc định, không có modal nào khác mở đồng thời picker này
@@ -278,7 +283,7 @@ function openVideoPickerDrawerUi(title, bodyHtml) {
         bodyClass: 'flex flex-col',
     });
     const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-    if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.videoPicker.close.click', payload: {} }));
+    if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'visualizerControlCenter', type: 'visualizerControlCenter.videoBgPicker.close.click', payload: {} }));
 
     // Click tile — delegated NGAY TRÊN genericDrawerBody (phần tử TĨNH DÙNG CHUNG nhiều feature,
     // dom-refs.js — cùng lý do PHẢI tự wire ở đây thay vì Listener tĩnh, xem docstring
@@ -286,7 +291,7 @@ function openVideoPickerDrawerUi(title, bodyHtml) {
     genericDrawerBody.addEventListener('click', (e) => {
         const tile = e.target.closest('[data-video-key]');
         if (!tile) return;
-        eventBus.send({ router: 'fileManagerVideo', type: 'fileManagerVideo.videoPicker.tile.click', payload: { videoKey: tile.dataset.videoKey } });
+        eventBus.send({ router: 'visualizerControlCenter', type: 'visualizerControlCenter.videoBgPicker.tile.click', payload: { videoKey: tile.dataset.videoKey } });
     });
 }
 
