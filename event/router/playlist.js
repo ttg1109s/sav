@@ -235,13 +235,12 @@ const routerPlaylist = (() => {
 
             // MỚI (ver12 "Song/Video Unification", Batch 6, mục 7) — file(s) video đã chọn xong từ
             // #video-upload-input. Tái dùng NGUYÊN `uploadVideos()` (event/workflow/file-manager-
-            // video.js — hàm nghiệp vụ ĐÃ CÓ SẴN từ File Manager → Video, per-file error isolation,
-            // resolveVideoKey/saveVideo/extract thumb (+ thumbFullBlob, MỚI 29/07/2026 — mediainfo
-            // ĐÃ XOÁ, xem file đó), tự refreshVideoPlaylistIfActive()
-            // ở cuối) — KHÔNG viết lại, chỉ đổi NƠI GỌI (đúng CHỐT mục 7 của plan).
+            // SỬA (phản hồi Giang — dẹp tầng trung gian) — `uploadVideos()`/`_extractVideoThumbAndMeta()`
+            // đã DỜI THẲNG vào workflowPlaylist (event/workflow/playlist.js) — file-manager-video.js
+            // (workflow/router/listener) đã xoá hẳn, vì cụm này CHỈ được gọi từ đây.
             case 'playlist.upload.videoFileChange': {
                 const { fileList } = msg.payload;
-                workflowFileManagerVideo.uploadVideos(fileList);
+                workflowPlaylist.uploadVideos(fileList);
                 break;
             }
 

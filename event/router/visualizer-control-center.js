@@ -63,6 +63,20 @@ const routerVisualizerControlCenter = (() => {
                 break;
             }
 
+            // DỜI từ event/router/file-manager-video.js (phản hồi Giang — file đó đã xoá hẳn,
+            // picker "Use background video" CHỈ được gọi từ đây) — Router CHỈ relay message, KHÔNG
+            // giữ state picker nào (session sống trong Workflow, `_videoBgPickerSession`), cùng
+            // nguyên tắc đã áp dụng cho picker ảnh (file-manager-photo.js).
+            case 'visualizerControlCenter.videoBgPicker.tile.click': {
+                const { videoKey } = msg.payload;
+                workflowVisualizerControlCenter.handleVideoBgPickerTileClick(videoKey);
+                break;
+            }
+            case 'visualizerControlCenter.videoBgPicker.close.click': {
+                workflowVisualizerControlCenter.handleVideoBgPickerCloseClick();
+                break;
+            }
+
             default:
                 console.warn(`[routerVisualizerControlCenter] msg.type không xác định: "${msg.type}"`, msg);
         }
