@@ -892,20 +892,25 @@
     <script src="event/workflow/image-edit.js?v=20260731v5"></script>
     <script src="event/router/image-edit.js?v=20260731v5"></script>
     <script src="event/listener/image-edit.js?v=20260731v2"></script>
-    <!-- MỚI (21/07/2026) — cụm "fileManagerVideo". SỬA (Batch 6, mục 6d, phản hồi Giang) — panel
-         Video (push/pop động, `fullBleed: true`) ĐÃ XOÁ HẲN — Workflow/Router giờ CHỈ còn logic
-         nghiệp vụ (upload/set nền/mở Video Editor) + picker Generic Drawer "Use background video".
-         Gọi `workflowVideoGalleryWindow.mount('genericDrawer', ...)` (event/workflow/video-gallery-
-         window.js, nạp SAU file này — AN TOÀN, chỉ THỰC SỰ gọi lúc user tương tác, cùng quy ước
-         photo-gallery-window.js) — CHỈ còn dùng bởi picker, KHÔNG còn lưới panel nào gọi. -->
-    <script src="event/workflow/file-manager-video.js?v=20260731v4"></script>
-    <script src="event/router/file-manager-video.js?v=20260728v3"></script>
-    <script src="event/listener/file-manager-video.js?v=20260728v2"></script>
+    <!-- XOÁ HẲN (phản hồi Giang — "gộp thêm vào playlist", đánh giá lại tên "fileManagerVideo"
+         không còn đúng bản chất vì mọi lời gọi thật đều đến từ Playlist/Settings, không còn từ File
+         Manager) — cụm "fileManagerVideo" (event/workflow/router/listener/file-manager-video.js) ĐÃ
+         XOÁ HẲN, chia làm 2 nơi đúng người gọi thật:
+           - uploadVideos()/_extractVideoThumbAndMeta() (upload video từ input Playlist) -> DỜI vào
+             workflowPlaylist (event/workflow/playlist.js, đã nạp ở nhóm trên).
+           - openVideoBgPicker() + 4 hàm liên quan (picker "Use background video") -> DỜI vào
+             workflowVisualizerControlCenter (event/workflow/visualizer-control-center.js, đã nạp ở
+             nhóm trên) — router 2 case tương ứng cũng dời sang event/router/visualizer-control-
+             center.js (msg.type đổi 'fileManagerVideo.videoPicker.*' -> 'visualizerControlCenter.videoBgPicker.*').
+         `navigateToVideoEdit()` (hàm 1 dòng, chỉ relay) XOÁ LUÔN — workflowPlaylist.
+         navigateToActiveMenuVideoEdit() giờ gọi THẲNG workflowVideoPreview.open() (ngay dưới), bỏ
+         hẳn 1 tầng trung gian vô nghĩa. -->
     <!-- MỚI ("Song/Video Unification" v12, gộp Video Editor vào Modal xem Video) — cụm
          "videoPreview". THAY router "videoEdit"/event/workflow/video-editor.js (Video Editor NLE
-         đa track, ĐÃ XOÁ HẲN cùng video-editor.html). `workflowFileManagerVideo.
-         navigateToVideoEdit()` (ngay trên) giờ gọi `workflowVideoPreview.open()` thay vì điều
-         hướng trang — CẦN core/file-manager/video-ui.js/core/crop-selector.js/core/video-editor/
+         đa track, ĐÃ XOÁ HẲN cùng video-editor.html). `workflowPlaylist.
+         navigateToActiveMenuVideoEdit()` (menu 3 chấm Playlist) gọi THẲNG `workflowVideoPreview.
+         open()` ở đây (không qua tầng trung gian nào) thay vì điều hướng trang — CẦN
+         core/file-manager/video-ui.js/core/crop-selector.js/core/video-editor/
          {compat-guard,webcodecs-engine,filmstrip,frame-extract}.js/core/file-manager/video.js
          (đã nạp ở nhóm CORE) + service/state/video-preview.js (đã nạp ở nhóm STATE). -->
     <script src="event/workflow/video-preview.js?v=20260802v1"></script>
