@@ -10,10 +10,11 @@
  * `this._modalHandle`/`this._beforeCropSnapshot`/`this._resolveMetadataReady` giữ TRỰC TIẾP trên
  * object Workflow (KHÔNG qua appState — không phải dữ liệu nghiệp vụ tuần tự hoá được).
  *
- * NẠP SAU: core/file-manager/video-ui.js, core/crop-selector.js, core/image-zoom.js,
- * core/edit-history.js, core/video-editor/compat-guard.js/filmstrip.js/frame-extract.js/
- * webcodecs-engine.js, core/file-manager/video.js/image.js, service/state/video-preview.js,
- * service/blob-url.js, event/workflow/crop-ratio-helpers.js.
+ * NẠP SAU: core/file-manager/video-ui.js, core/media-transform.js (gộp crop-selector.js +
+ * image-zoom.js + cycleRotation(), 04/08/2026), core/edit-history.js, core/video-editor/
+ * compat-guard.js/filmstrip.js/frame-extract.js/webcodecs-engine.js, core/file-manager/video.js/
+ * image.js, service/state/video-preview.js, service/blob-url.js,
+ * event/workflow/media-transform-helpers.js (đổi tên từ crop-ratio-helpers.js).
  */
 const FILMSTRIP_FRAME_COUNT = 14;
 const MIN_TRIM_DURATION = 0.3; // giây — khoảng cách tối thiểu giữa Start/End
@@ -75,7 +76,7 @@ const workflowVideoPreview = {
 
             const videoUrl = createBlobUrl(record.blob); // service/blob-url.js — Workflow tạo (Rule 3b)
             const posterUrl = createBlobUrl(record.thumbBlob); // service/blob-url.js
-            const ratioPresets = workflowCropRatioHelpers.getPresets(); // event/workflow/crop-ratio-helpers.js
+            const ratioPresets = workflowMediaTransformHelpers.getPresets(); // event/workflow/media-transform-helpers.js
 
             appState.set('videoPreviewVideoKey', videoKey);
             appState.set('videoPreviewRecord', record);
@@ -108,14 +109,14 @@ const workflowVideoPreview = {
 
         this._modalHandle.cropCanvasEl.width = w;
         this._modalHandle.cropCanvasEl.height = h;
-        const cropSession = initCropSession(w, h, { padRatio: 0 }); // core/crop-selector.js — full-frame, không crop cho tới khi tự kéo
+        const cropSession = initCropSession(w, h, { padRatio: 0 }); // core/media-transform.js — full-frame, không crop cho tới khi tự kéo
         appState.set('videoPreviewCropSession', cropSession);
 
-        const zoomPanSession = initPanzoomSession(videoEl, { maxScale: 4, minScale: 1, contain: 'outside', cursor: 'default' }); // core/image-zoom.js — luôn sống, không thuộc mode nào
+        const zoomPanSession = initPanzoomSession(videoEl, { maxScale: 4, minScale: 1, contain: 'outside', cursor: 'default' }); // core/media-transform.js — luôn sống, không thuộc mode nào
         appState.set('videoPreviewZoomPanSession', zoomPanSession);
 
         const initialSnapshot = {
-            cropRect: getCropSessionRect(cropSession), aspectRatio: cropSession.aspectRatio, // core/crop-selector.js
+            cropRect: getCropSessionRect(cropSession), aspectRatio: cropSession.aspectRatio, // core/media-transform.js
             rotateDeg: 0, cutStart: 0, cutEnd: duration, zoomPan: { scale: 1, x: 0, y: 0 },
         };
         appState.set('videoPreviewHistorySession', initHistorySession(initialSnapshot)); // core/edit-history.js
@@ -303,14 +304,14 @@ const workflowVideoPreview = {
     /** @param {number} ratio */
     handleCropRatioSelect(ratio) {
         const session = appState.get('videoPreviewCropSession');
-        setCropSessionAspectRatio(session, ratio); // core/crop-selector.js
+        setCropSessionAspectRatio(session, ratio); // core/media-transform.js
         this._drawCropOverlay();
         this._renderRatioButtonsActiveState();
     },
 
     handleCropRatioFlip() {
         const session = appState.get('videoPreviewCropSession');
-        workflowCropRatioHelpers.applyFlip(session); // event/workflow/crop-ratio-helpers.js
+        workflowMediaTransformHelpers.applyFlip(session); // event/workflow/media-transform-helpers.js
         this._drawCropOverlay();
         this._renderRatioButtonsActiveState();
     },
@@ -338,7 +339,7 @@ const workflowVideoPreview = {
         const session = appState.get('videoPreviewCropSession');
         const canvas = this._modalHandle.cropCanvasEl;
         const scale = canvas.width / (canvas.getBoundingClientRect().width || 1);
-        cropSessionPointerDown(session, this._toCropCanvasCoords(clientX, clientY), 30 * scale); // core/crop-selector.js
+        cropSessionPointerDown(session, this._toCropCanvasCoords(clientX, clientY), 30 * scale); // core/media-transform.js
     },
 
     /** @param {number} clientX @param {number} clientY */
@@ -352,7 +353,7 @@ const workflowVideoPreview = {
     handleCropCanvasPointerUp() {
         const session = appState.get('videoPreviewCropSession');
         const wasDragging = !!session.activeHandle;
-        cropSessionPointerUp(session); // core/crop-selector.js
+        cropSessionPointerUp(session); // core/media-transform.js
         if (wasDragging) this._commitHistory();
     },
 
@@ -366,45 +367,42 @@ const workflowVideoPreview = {
         const minSize = 50 * scale;
 
         if (session.activeHandle === 'center') {
-            session.rect = moveCropRect({ x: s.rx, y: s.ry, w: s.rw, h: s.rh }, dx, dy, session.sourceWidth, session.sourceHeight); // core/crop-selector.js
+            session.rect = moveCropRect({ x: s.rx, y: s.ry, w: s.rw, h: s.rh }, dx, dy, session.sourceWidth, session.sourceHeight); // core/media-transform.js
             return;
         }
         const flipX = session.activeHandle === 'tl' || session.activeHandle === 'bl';
         const flipY = session.activeHandle === 'tl' || session.activeHandle === 'tr';
         const startRect = { x: s.rx, y: s.ry, w: s.rw, h: s.rh };
         session.rect = Number.isNaN(session.aspectRatio)
-            ? computeFreeResizedRect(startRect, flipX, flipY, dx, dy, minSize, session.sourceWidth, session.sourceHeight) // core/crop-selector.js
-            : computeRatioLockedResizedRect(startRect, flipX, flipY, dx, session.aspectRatio, minSize, session.sourceWidth, session.sourceHeight); // core/crop-selector.js
+            ? computeFreeResizedRect(startRect, flipX, flipY, dx, dy, minSize, session.sourceWidth, session.sourceHeight) // core/media-transform.js
+            : computeRatioLockedResizedRect(startRect, flipX, flipY, dx, session.aspectRatio, minSize, session.sourceWidth, session.sourceHeight); // core/media-transform.js
     },
 
     _drawCropOverlay() {
         const session = appState.get('videoPreviewCropSession');
         const canvas = this._modalHandle.cropCanvasEl;
         const scale = canvas.width / (canvas.getBoundingClientRect().width || 1);
-        drawCropSessionOverlay(canvas.getContext('2d'), session, canvas.width, canvas.height, scale); // core/crop-selector.js
+        drawCropSessionOverlay(canvas.getContext('2d'), session, canvas.width, canvas.height, scale); // core/media-transform.js
     },
 
     // ===================== Rotate / Reset =====================
 
-    handleRotateLeft() {
-        appState.set('videoPreviewRotateDeg', ((appState.get('videoPreviewRotateDeg') - 90) % 360 + 360) % 360);
-        this._commitHistory();
-    },
-    handleRotateRight() {
-        appState.set('videoPreviewRotateDeg', (appState.get('videoPreviewRotateDeg') + 90) % 360);
+    /** Xoay tới góc kế tiếp (0→90→180→270→0...) — nút DUY NHẤT, không còn tách trái/phải. */
+    handleRotateClick() {
+        appState.set('videoPreviewRotateDeg', cycleRotation(appState.get('videoPreviewRotateDeg'))); // core/media-transform.js
         this._commitHistory();
     },
 
     handleReset() {
         const w = appState.get('videoPreviewNativeW'), h = appState.get('videoPreviewNativeH');
         const cropSession = appState.get('videoPreviewCropSession');
-        setCropSessionRect(cropSession, { x: 0, y: 0, w, h }); // core/crop-selector.js
+        setCropSessionRect(cropSession, { x: 0, y: 0, w, h }); // core/media-transform.js
         cropSession.aspectRatio = NaN;
         appState.set('videoPreviewRotateDeg', 0);
         appState.set('videoPreviewCutStart', 0);
         appState.set('videoPreviewCutEnd', appState.get('videoPreviewSourceDuration'));
         const zoomPanSession = appState.get('videoPreviewZoomPanSession');
-        resetPanzoomSession(zoomPanSession); // core/image-zoom.js
+        resetPanzoomSession(zoomPanSession); // core/media-transform.js
         this._drawCropOverlay();
         this._renderTrimPositions();
         this._renderRatioButtonsActiveState();
@@ -418,17 +416,17 @@ const workflowVideoPreview = {
         const cropSession = appState.get('videoPreviewCropSession');
         const zoomPanSession = appState.get('videoPreviewZoomPanSession');
         return {
-            cropRect: getCropSessionRect(cropSession), aspectRatio: cropSession.aspectRatio, // core/crop-selector.js
+            cropRect: getCropSessionRect(cropSession), aspectRatio: cropSession.aspectRatio, // core/media-transform.js
             rotateDeg: appState.get('videoPreviewRotateDeg'),
             cutStart: appState.get('videoPreviewCutStart'), cutEnd: appState.get('videoPreviewCutEnd'),
-            zoomPan: getPanzoomState(zoomPanSession), // core/image-zoom.js
+            zoomPan: getPanzoomState(zoomPanSession), // core/media-transform.js
         };
     },
 
     /** @param {object} snapshot */
     _applySnapshot(snapshot) {
         const cropSession = appState.get('videoPreviewCropSession');
-        setCropSessionRect(cropSession, snapshot.cropRect); // core/crop-selector.js
+        setCropSessionRect(cropSession, snapshot.cropRect); // core/media-transform.js
         cropSession.aspectRatio = snapshot.aspectRatio;
         appState.set('videoPreviewRotateDeg', snapshot.rotateDeg);
         appState.set('videoPreviewCutStart', snapshot.cutStart);
@@ -494,8 +492,8 @@ const workflowVideoPreview = {
     _computeCropFraction() {
         const cropSession = appState.get('videoPreviewCropSession');
         const zoomPanSession = appState.get('videoPreviewZoomPanSession');
-        const rect = getCropSessionRect(cropSession); // core/crop-selector.js
-        const { scale, x, y } = getPanzoomState(zoomPanSession); // core/image-zoom.js
+        const rect = getCropSessionRect(cropSession); // core/media-transform.js
+        const { scale, x, y } = getPanzoomState(zoomPanSession); // core/media-transform.js
         const w = appState.get('videoPreviewNativeW'), h = appState.get('videoPreviewNativeH');
 
         const isFullFrame = rect.x <= 0 && rect.y <= 0 && rect.w >= w && rect.h >= h;
@@ -583,7 +581,7 @@ const workflowVideoPreview = {
 
     _reallyClose() {
         const zoomPanSession = appState.get('videoPreviewZoomPanSession');
-        if (zoomPanSession) destroyPanzoomSession(zoomPanSession); // core/image-zoom.js
+        if (zoomPanSession) destroyPanzoomSession(zoomPanSession); // core/media-transform.js
         if (this._modalHandle) { this._modalHandle.close(); this._modalHandle = null; }
         appState.set('videoPreviewVideoKey', null);
         appState.set('videoPreviewRecord', null);
