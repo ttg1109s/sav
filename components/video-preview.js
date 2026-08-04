@@ -16,6 +16,10 @@
  *  4. Track dải phim tách `#video-preview-filmstrip-frames` (overflow:hidden riêng, chỉ bo góc ảnh
  *     nền) khỏi `#video-preview-filmstrip-track` (KHÔNG overflow:hidden nữa) — 2 tay cầm ở đúng
  *     0%/100% không còn bị cắt mất nửa.
+ *
+ * SỬA (04/08/2026, phản hồi Giang) — gộp 2 nút xoay trái/phải thành 1 nút DUY NHẤT (xoay kế 90° mỗi
+ * lần ấn, `cycleRotation()` core/media-transform.js); icon lật tỉ lệ đổi sang icon "trái/phải"
+ * chuyên dụng (2 mũi tên ngang ngược chiều), khác hẳn icon mũi tên dọc cũ.
  */
 const TPL_VIDEO_PREVIEW = `
     <div id="video-preview-overlay" class="fixed inset-0 bg-black flex flex-col hidden">
@@ -42,11 +46,8 @@ const TPL_VIDEO_PREVIEW = `
                     <button id="video-preview-reset-btn" type="button" class="video-preview-tool-btn">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.6M20 20v-5h-.6M19.4 9A8 8 0 006 6.6M4.6 15a8 8 0 0013.4 2.4"/></svg>
                     </button>
-                    <button id="video-preview-rotate-left-btn" type="button" class="video-preview-tool-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="6" y="6" width="11" height="11" rx="1.5" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 10V6.5a2 2 0 012-2H10"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4.2l2.3 2.3-2.3 2.3"/></svg>
-                    </button>
-                    <button id="video-preview-rotate-right-btn" type="button" class="video-preview-tool-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="7" y="6" width="11" height="11" rx="1.5" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 10V6.5a2 2 0 00-2-2H14"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 4.2l-2.3 2.3 2.3 2.3"/></svg>
+                    <button id="video-preview-rotate-btn" type="button" class="video-preview-tool-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="6" y="6" width="11" height="11" rx="1.5" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 10V6.5a2 2 0 00-2-2H14"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 4.2l-2.3 2.3 2.3 2.3"/></svg>
                     </button>
                 </div>
 
@@ -57,7 +58,7 @@ const TPL_VIDEO_PREVIEW = `
                     <button type="button" class="video-preview-tool-btn video-preview-ratio-btn" data-ratio-idx="3"></button>
                     <button type="button" class="video-preview-tool-btn video-preview-ratio-btn" data-ratio-idx="4"></button>
                     <button id="video-preview-ratio-flip" type="button" class="video-preview-tool-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 4v12m0 0l4-4m-4 4l-4-4"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8h13m0 0l-3-3m3 3l-3 3M21 16H8m0 0l3 3m-3-3l3-3"/></svg>
                     </button>
                 </div>
             </div>
