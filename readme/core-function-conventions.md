@@ -83,6 +83,10 @@ khác), việc chọn hàm không thuộc về bên trong 1 function core.
 
 ## Rule 2 — Chỉ nhận tham số, không tự đọc `appState` — chỉ được GHI qua `set()`/`mutate()`
 
+**Nguyên lý gốc (xem thêm Rule 3b):** Core là tầng THI HÀNH, không phải tầng CHUẨN BỊ — nó không tự
+đi lấy/tạo cái mình cần dưới bất kỳ hình thức nào, mọi thứ cần đã phải có sẵn trong tham số. Rule
+này áp dụng nguyên lý đó riêng cho `appState`.
+
 Function nghiệp vụ **KHÔNG được gọi `appState.get()`** trong thân hàm. Mọi dữ liệu cần dùng phải
 được truyền vào qua tham số — nơi GỌI (router, callback trong `VirtualMachineState`, hoặc 1
 function core khác) chịu trách nhiệm `appState.get()` trước, rồi truyền giá trị vào.
@@ -121,20 +125,43 @@ có return value hay không, dù A có dùng giá trị trả về hay không, d
 dù có `await` hay không. Không còn tiêu chí nào để "hợp lệ hoá" 1 lời gọi core→core nữa — **mọi
 lời gọi core→core, bất kể hình dạng gì, đều phải chuyển ra Workflow.**
 
-### 3b — Chỉ được gọi các API ngoại lệ đã có, tuân thủ console.log
+### 3b — Nguyên lý: Core là tầng THI HÀNH, Workflow là tầng CHUẨN BỊ (viết lại 03/08/2026, phản hồi Giang)
 
-**NGOẠI LỆ DUY NHẤT — gọi API `service/` (hạ tầng, KHÔNG tính là "gọi hàm core khác"):**
-- `service/db.js` — mọi hàm data layer (`getMeta`/`setMeta`/`getSongRecord`/`getAlbumRecord`/
-  `getImageRecord`/`slugify`...).
-- `appState.set(key, value)` / `appState.mutate(key, fn)` — **chỉ 2 hàm GHI này**, kèm
-  `console.log` theo Rule 4 như cũ.
-- **KHÔNG bao gồm** `appState.get()` (vẫn cấm theo Rule 2, không đổi) và **KHÔNG bao gồm
-  `taskManager`** (xem lý do ngay dưới) — 2 thứ này KHÔNG nằm trong danh sách ngoại lệ.
+**Core không có chức năng tự đi lấy/tạo cái mình cần dưới bất kỳ hình thức nào** — mọi input phải
+đã có sẵn trong tham số, do Workflow chuẩn bị trước. Phép thử phân loại 1 lời gọi `service/`/
+`appState`:
 
-Lý do tách riêng nhóm này: `service/db.js`/`appState.set`/`mutate` là **dịch vụ hạ tầng phục vụ
-nghiệp vụ của core** (lưu trữ, ghi state) — bản thân chúng không chứa quyết định nghiệp vụ nào,
-chỉ là công cụ core dùng để hoàn thành nghiệp vụ CỦA CHÍNH NÓ. Khác hẳn việc gọi 1 function core
-KHÁC — nơi quyết định/nghiệp vụ nằm Ở BÊN TRONG hàm được gọi, không phải bên trong A.
+- **ĐỌC** (lấy về nguyên vẹn 1 giá trị để dùng/quyết định — dù nguồn là `appState`, DB, hay bất kỳ
+  đâu) → CHUẨN BỊ, **cấm Core**, thuộc Workflow.
+- **GHI/SỬA** (ghi đè lên state, hoặc sửa ngay tại chỗ lên chính cái vừa nhận — vd
+  `instantiateComponent()` clone xong GHI ĐÈ slot, cùng bản chất `appState.mutate()`) → **Core được
+  gọi**.
+- **TẠO MỚI 1 tài nguyên/tham chiếu sống độc lập** (cần dọn sau — vd `createBlobUrl()`) → CHUẨN BỊ,
+  **cấm Core**, thuộc Workflow. Việc DỌN tài nguyên đó lúc Core tự đóng vòng đời nó sở hữu
+  (`revokeBlobUrl()`) vẫn được Core gọi — đó là dọn, không phải chuẩn bị.
+
+Áp dụng NHẤT QUÁN mọi nguồn (appState/`service/db.js`/API trình duyệt...) và CẢ 2 loại core (thuần
+lẫn `-ui.js`, Rule 5c) — không có ngoại lệ theo nguồn hay theo loại core.
+
+**Danh sách cụ thể ĐƯỢC Core gọi (thuộc nhóm Ghi/Sửa):**
+- `service/db.js` — CHỈ hàm ghi/xoá (`setMeta`/`setSongRecord`/`setImageRecord`/`setAlbumRecord`/
+  `setDocumentRecord`/`setVideoRecord`/`setFolderRecord`/`setFolderSongMap`/`deleteXxxRecord`...).
+  **CẤM** mọi hàm đọc (`getMeta`/`getSongRecord`/`getAlbumRecord`/`getImageRecord`/
+  `getDocumentRecord`/`getVideoRecord`/`getFolderRecord`/`getFolderSongMap`/`getAll*Keys`...).
+- `service/db.js::slugify(filename)` — sửa/biến đổi thẳng tham số nhận vào, không lấy thêm gì.
+- `service/component-dynamic.js::instantiateComponent(html, slotMap)` — clone rồi GHI ĐÈ slot, cùng
+  bản chất `mutate()`.
+- `appState.set(key, value)` / `appState.mutate(key, fn)` — kèm `console.log` theo Rule 4.
+- `service/blob-url.js::revokeBlobUrl(url)` — CHỈ hàm này, KHÔNG gồm `createBlobUrl()` (tạo mới tài
+  nguyên → thuộc Workflow, truyền url xuống Core làm tham số).
+
+> **Nợ kỹ thuật (phát hiện lúc siết rule):** nhiều file `core/` hiện có (`playlist/loader.js`,
+> `player-controls.js`, `storage-manager.js`, `file-manager/*.js`...) đang gọi thẳng `get*`/
+> `getAll*Keys` của `service/db.js` — vi phạm rule mới. Không bắt sửa ngay (Rule 0.5,
+> `core-legacy-audit.md`), chỉ bắt buộc khi đụng lại file đó.
+
+**KHÔNG bao gồm** `appState.get()` và **KHÔNG bao gồm `taskManager`** (xem lý do ngay dưới) — 2 thứ
+này KHÔNG nằm trong danh sách được Core gọi.
 
 **`taskManager` CẤM HOÀN TOÀN trong core — CHỈ Workflow được dùng.** Trước đây core được phép dùng
 `taskManager.once()` cho lời gọi "bất đồng bộ không chờ" (ví dụ `beginSlideshowTransition()` cũ) —
@@ -168,6 +195,58 @@ sliceBlockByTextRange()`/`splitOversizedBlockToFit()`/`findWordBoundaryBefore()`
 lặp/đệ quy nội bộ, kết quả trả về là giá trị trung gian — vd `findWordBoundaryBefore()` chỉ trả 1
 chỉ số, vô nghĩa nếu đứng riêng, phải phối hợp với `sliceBlockByTextRange()` mới thành 1 đoạn text
 thật — xem `core/file-manager/document-pagination.js`).
+
+### 3d — Wrapper cho API thư viện ngoài: hợp lệ có điều kiện, KHÔNG áp dụng được cho core khác (MỚI, 03/08/2026, phản hồi Giang)
+
+Rule 3a/3b chỉ nói "core/nghiệp vụ của project" — KHÔNG cấm 1 function core gọi thẳng API 1 thư
+viện NGOÀI project (CDN/vendor, vd Panzoom, Mediabunny). Nhưng đây KHÔNG PHẢI ngoại lệ MẶC ĐỊNH cho
+mọi lời gọi thư viện — chỉ hợp lệ khi CẢ 2 đúng:
+
+1. **Có lý do thật để cô lập thư viện** — dự tính CÓ THỂ đổi thư viện sau này mà không muốn mọi nơi
+   gọi (Workflow) phải sửa theo — wrapper giữ NGUYÊN chữ ký hàm, chỉ viết lại THÂN khi đổi thư viện
+   (xem `core/image-zoom.js`, đầu file).
+2. **Được chỉ định/audit rõ trong docstring đầu file** (không suy diễn ngầm) — đúng tinh thần
+   "Ngoại lệ ĐÃ audit chính thức" ở Rule 5a (`modalChoice()`) — không được tự nhận "giống file X đã
+   có" để suy ra miễn trừ.
+
+**KHÔNG áp dụng được lý do "cô lập thư viện" cho việc gọi 1 core KHÁC của project** — Rule 3a vẫn
+CẤM TUYỆT ĐỐI, kể cả khi lời gọi đó núp dưới 1 hàm/file "trông như core" ở vị trí khác (Workflow,
+`*-helpers.js`...). Đặt ở `event/workflow/` chỉ hợp lệ nếu hàm có ĐIỀU PHỐI/NGHIỆP VỤ THẬT (khuôn
+`generic-drawer-helpers.js::closeFully()` — điều phối 2 lời gọi Core + đợi `transitionend`) — KHÔNG
+hợp lệ nếu hàm CHỈ relay nguyên văn tham số sang 1 hàm khác (core hay thư viện ngoài) mà không thêm
+quyết định/logic gì — đó là **hàm vô nghĩa**, PHẢI xoá, nơi cần gọi thẳng đích.
+
+**Phép thử nhanh:** xoá hàm wrapper đi, thay mọi nơi gọi nó bằng gọi THẲNG hàm đích — hành vi có đổi
+không?
+- KHÔNG đổi (chỉ relay tham số 1:1) → **hàm vô nghĩa, xoá**.
+- CÓ đổi (có logic/guard riêng, hoặc đích là thư viện ngoài ĐÃ audit theo mục 1-2 trên) → **hợp lệ,
+  giữ**.
+
+```js
+// SAI — relay 1:1 sang core khác, "trông như Workflow" nhưng không điều phối gì
+applySelect(session, ratio) {
+    setCropSessionAspectRatio(session, ratio); // core/crop-selector.js — relay rỗng
+},
+```
+```js
+// ĐÚNG — có logic thật (guard clause + phép tính), không chỉ relay
+applyFlip(session) {
+    if (Number.isNaN(session.aspectRatio) || session.aspectRatio === 1) return;
+    setCropSessionAspectRatio(session, 1 / session.aspectRatio); // core/crop-selector.js
+},
+```
+```js
+// ĐÚNG — wrapper thư viện ngoài ĐÃ audit (docstring nêu rõ lý do cô lập để sau này đổi thư viện)
+function initPanzoomSession(el, options) {
+    return Panzoom(el, options); // core/image-zoom.js, xem docstring đầu file
+}
+```
+```js
+// SAI — wrapper thư viện ngoài không có lý do/chưa audit, chỉ relay tiện tay
+function playSound(src) {
+    return Howler.play(src); // không có docstring nào nêu lý do cô lập
+}
+```
 
 ### Hệ quả — Workflow giờ PHẢI làm nhiều việc hơn: chuẩn bị data + gọi core + (nếu cần) lặp qua taskManager
 
@@ -386,6 +465,24 @@ không tự tạo phần tử mới) KHÔNG cần hậu tố này.
 > (`core-legacy-audit.md`): không bắt buộc đổi tên ngay, chỉ bắt buộc khi file đó bị đụng/sửa thật
 > lần tới (đổi tên + cập nhật mọi nơi `<script src="core/modal-choice.js">` tham chiếu tới).
 
+### 5d — Khung HTML tĩnh (không đổi giữa các lần mở) → `components/*.js`, không dựng bằng `createElement` (MỚI, 03/08/2026, phản hồi Giang)
+
+Phần DOM của 1 modal/panel KHÔNG đổi giữa các lần mở/đóng (cùng cấu trúc, chỉ khác data hiển thị)
+PHẢI tách thành template ở `components/*.js` — hoặc 1 hằng số chuỗi HTML tĩnh (khuôn
+`TPL_GENERIC_DRAWER`, dùng khi mount 1 lần lúc boot), hoặc 1 hàm `render*()` trả về chuỗi HTML (khuôn
+`renderAboutPanelBody()`, dùng khi tạo mới mỗi lần mở — hàm này được phép nội suy `t()`/data KHÔNG
+đổi theo instance trực tiếp vào chuỗi, vì luôn chạy lại lúc mở, không bị "đông cứng" như hằng số
+tĩnh). Phần THẬT SỰ khác theo từng instance (dữ liệu người dùng như filename, hay giá trị chỉ biết
+sau khi có metadata) vẫn phải là slot rỗng, gán qua DOM API sau khi instantiate — không nội suy
+thẳng vào chuỗi (tránh HTML injection).
+
+**Instantiate template** (biến chuỗi HTML thành DOM thật) qua `service/component-dynamic.js::
+instantiateComponent(html, slotMap)` (Rule 3b) — Core-ui tự soạn `slotMap` (nó biết cấu trúc DOM của
+chính nó), gọi service này để clone + điền, rồi làm tiếp việc vốn có: append vào DOM, `addEventListener`
+gom cuối hàm (Rule 5a), trả `handle`. KHÔNG tự viết lại `createElement`/`appendChild` để dựng cấu
+trúc TĨNH nữa — chỉ còn cần cho phần THẬT SỰ động về số lượng (vd danh sách khung hình filmstrip,
+tạo bằng vòng lặp runtime, chèn vào container đã có sẵn từ template).
+
 ---
 
 ## Bảng tổng hợp
@@ -396,13 +493,19 @@ không tự tạo phần tử mới) KHÔNG cần hậu tố này.
 | Function có guard clause thuần (validate, early-return, vẫn chỉ 1 tiến trình)? | **ĐƯỢC** — không phải Rule 1 |
 | Function có tự `appState.get()` bên trong (kể cả dạng `get([...])` mới)? | **KHÔNG được** — nhận qua tham số |
 | Function có tự `appState.set()`/`mutate()`? | **ĐƯỢC** — coi là API `service/`, không tính "gọi hàm core khác" |
-| Function có tự gọi `service/db.js` (getMeta/setMeta/...)? | **ĐƯỢC** — cùng lý do trên |
+| Function có tự gọi `service/db.js` để GHI/XOÁ (`setMeta`/`setSongRecord`/`deleteXxxRecord`...)? | **ĐƯỢC** — cùng lý do trên |
+| Function có tự gọi `service/db.js` để ĐỌC (`getMeta`/`getSongRecord`/`getAll*Keys`...)? | **CẤM TUYỆT ĐỐI** (siết 03/08/2026) — cùng lý do `appState.get()`, Workflow tự đọc rồi truyền tham số xuống. Áp dụng cả 2 loại core (thuần lẫn `-ui.js`) |
+| Function core có tự gọi `service/component-dynamic.js::instantiateComponent()`? | **ĐƯỢC** — coi là API `service/` (Rule 3b), thuần cơ chế, không quyết định nghiệp vụ |
+| Ai tạo Object URL cho Blob (`createBlobUrl()`)? | **Workflow** — nơi có Blob, truyền url xuống Core-ui làm tham số. Core-ui chỉ được gọi `revokeBlobUrl()` (dọn lúc đóng modal, gắn liền vòng đời DOM nó sở hữu) |
 | Function gọi 1 function core/nghiệp vụ KHÁC — bất kể có return value, có dùng giá trị đó, đồng bộ hay bất đồng bộ, có `await` hay không? | **CẤM TUYỆT ĐỐI** — mọi hình dạng đều chuyển ra Workflow, không còn ngoại lệ nào |
 | Function core có `taskManager` (once/addNew/...)? | **CẤM TUYỆT ĐỐI** — `taskManager` CHỈ dùng ở Workflow |
+| Function core gọi thẳng API 1 thư viện NGOÀI project (CDN/vendor)? | **ĐƯỢC, có điều kiện** — chỉ khi có lý do cô lập để sau này đổi thư viện VÀ được audit rõ trong docstring (Rule 3d) |
+| 1 hàm (dù đặt ở core hay Workflow) chỉ relay nguyên văn tham số sang 1 hàm khác, không thêm logic/điều phối gì? | **Hàm vô nghĩa — xoá**, gọi thẳng đích (Rule 3d) |
 | Function có `appState.set()`/`mutate()`? | Bắt buộc `console.log` `writer/page/content` ngay dưới, TRỪ hot path 60fps |
 | Function dựng UI (modal/drawer/toolbar) có được coi là "core UI thuần, ngoài phạm vi rule"? | **KHÔNG** — dựng UI VẪN là hàm nghiệp vụ, chịu ĐẦY ĐỦ Rule 1-4 + Rule 5 (xem Rule 5) |
 | Function có `addEventListener`? | **CẤM**, TRỪ hàm dựng ra cụm DOM MỚI (không tĩnh) — khi đó ĐƯỢC, nhưng callback chỉ gọi tham số (không gọi core khác) VÀ phải gom hết ở CUỐI hàm (Rule 5a) |
 | Function dùng `classList`/`dataset`/`querySelector(...)` tồn tại hay không làm điều kiện chọn giữa ≥2 tiến trình khác nhau? | **KHÔNG được** — cùng vi phạm Rule 1, chỉ khác nguồn đọc là DOM thay vì `appState` (Rule 5b) |
 | File core có hàm tự `createElement` dựng cụm DOM mới (modal/drawer/toolbar) — tên file cần gì? | **PHẢI kết thúc bằng `-ui.js`** (vd `document-ui.js`) — file chỉ thao tác DOM tĩnh có sẵn (`dom-refs.js`) thì KHÔNG cần (Rule 5c) |
+| Phần DOM không đổi giữa các lần mở/đóng (cùng cấu trúc, khác data) đặt ở đâu? | **`components/*.js`** (TPL_* tĩnh hoặc hàm `render*()`) — Core-ui KHÔNG tự `createElement` dựng lại, chỉ soạn `slotMap` rồi gọi `instantiateComponent()` (Rule 5d) |
 
 ← [Quay lại README](../README.md)
