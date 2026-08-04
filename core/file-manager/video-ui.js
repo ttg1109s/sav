@@ -72,12 +72,6 @@ function openVideoPreviewModal(data) {
         overlayEl.remove();
     }
 
-    function _cropCanvasPos(clientX, clientY) {
-        const rect = cropCanvasEl.getBoundingClientRect();
-        const scale = cropCanvasEl.width / (rect.width || cropCanvasEl.width || 1);
-        return { x: (clientX - rect.left) * scale, y: (clientY - rect.top) * scale };
-    }
-
     // --- addEventListener: gom cuối hàm, callback CHỈ eventBus.send() (Rule 5a) ---
     videoEl.addEventListener('loadedmetadata', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.metadata.loaded', payload: {} }), { once: true });
     videoEl.addEventListener('timeupdate', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.video.timeUpdate', payload: { currentTime: videoEl.currentTime } }));
@@ -102,8 +96,8 @@ function openVideoPreviewModal(data) {
     startHandleEl.addEventListener('pointerdown', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.trimDrag.start', payload: { handle: 'start' } }));
     endHandleEl.addEventListener('pointerdown', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.trimDrag.start', payload: { handle: 'end' } }));
 
-    cropCanvasEl.addEventListener('pointerdown', (e) => eventBus.send({ router: 'videoPreview', type: 'videoPreview.cropCanvas.pointerDown', payload: _cropCanvasPos(e.clientX, e.clientY) }));
-    cropCanvasEl.addEventListener('pointermove', (e) => eventBus.send({ router: 'videoPreview', type: 'videoPreview.cropCanvas.pointerMove', payload: _cropCanvasPos(e.clientX, e.clientY) }));
+    cropCanvasEl.addEventListener('pointerdown', (e) => eventBus.send({ router: 'videoPreview', type: 'videoPreview.cropCanvas.pointerDown', payload: { clientX: e.clientX, clientY: e.clientY } }));
+    cropCanvasEl.addEventListener('pointermove', (e) => eventBus.send({ router: 'videoPreview', type: 'videoPreview.cropCanvas.pointerMove', payload: { clientX: e.clientX, clientY: e.clientY } }));
     cropCanvasEl.addEventListener('pointerup', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.cropCanvas.pointerUp', payload: {} }));
     cropCanvasEl.addEventListener('pointerleave', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.cropCanvas.pointerUp', payload: {} }));
 
