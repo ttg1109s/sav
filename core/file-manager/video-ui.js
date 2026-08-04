@@ -8,6 +8,10 @@
  * Toàn bộ dữ liệu động (videoUrl/posterUrl/filename/ratioPresets) PHẢI đã được Workflow chuẩn bị
  * sẵn (Rule 3b — Core là tầng thi hành, không tự đọc/tạo gì) — hàm này CHỈ nhận qua tham số.
  *
+ * `mediaWrapEl` trả về trong handle để Workflow tự đo hộp video thật (`_syncCropCanvasBox()`) rồi
+ * đặt CSS `cropCanvasEl` khớp — SỬA (04/08/2026) lỗi `<video>`/`<canvas>` lệch nhau do `absolute` +
+ * flex cha không tương thích (xem docstring components/video-preview.js).
+ *
  * NẠP SAU: components/video-preview.js, service/component-dynamic.js, service/z-index.js,
  * lang/lang.js.
  */
@@ -38,14 +42,17 @@ function openVideoPreviewModal(data) {
     const overlayEl = fragment.querySelector('#video-preview-overlay');
     overlayEl.style.zIndex = String(Z_INDEX.VIDEO_PREVIEW); // service/z-index.js
 
+    const mediaWrapEl = fragment.querySelector('#video-preview-media-wrap');
     const videoEl = fragment.querySelector('#video-preview-video');
     const posterEl = fragment.querySelector('#video-preview-poster');
     const cropLayerEl = fragment.querySelector('#video-preview-crop-layer');
     const cropCanvasEl = fragment.querySelector('#video-preview-crop-canvas');
-    const ratioRowEl = fragment.querySelector('#video-preview-ratio-row');
+    const toolsGroupEl = fragment.querySelector('#video-preview-tools-group');
+    const ratioGroupEl = fragment.querySelector('#video-preview-ratio-group');
     const ratioButtons = data.ratioPresets.map((preset, i) => ({ btn: fragment.querySelector(`[data-ratio-idx="${i}"]`), ratio: preset.ratio }));
     const ratioFlipBtn = fragment.querySelector('#video-preview-ratio-flip');
     const filmstripTrackEl = fragment.querySelector('#video-preview-filmstrip-track');
+    const filmstripFramesEl = fragment.querySelector('#video-preview-filmstrip-frames');
     const startHandleEl = fragment.querySelector('#video-preview-start-handle');
     const endHandleEl = fragment.querySelector('#video-preview-end-handle');
     const dimLeftEl = fragment.querySelector('#video-preview-dim-left');
@@ -103,8 +110,8 @@ function openVideoPreviewModal(data) {
 
     return {
         close: closeModal,
-        overlayEl, videoEl, posterEl, cropLayerEl, cropCanvasEl, ratioRowEl, ratioButtons, ratioFlipBtn,
-        filmstripTrackEl, startHandleEl, endHandleEl, dimLeftEl, dimRightEl, rangeBorderEl, playheadEl,
+        overlayEl, mediaWrapEl, videoEl, posterEl, cropLayerEl, cropCanvasEl, toolsGroupEl, ratioGroupEl, ratioButtons, ratioFlipBtn,
+        filmstripTrackEl, filmstripFramesEl, startHandleEl, endHandleEl, dimLeftEl, dimRightEl, rangeBorderEl, playheadEl,
         currentTimeLabelEl, closeBtn, saveBtn, cropToggleBtn, extractBtn, undoBtn, redoBtn, resetBtn,
         rotateLeftBtn, rotateRightBtn,
     };
