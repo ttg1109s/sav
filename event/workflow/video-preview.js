@@ -297,18 +297,29 @@ const workflowVideoPreview = {
         });
     },
 
-    /** @param {{x:number,y:number}} pos */
-    handleCropCanvasPointerDown(pos) {
-        const session = appState.get('videoPreviewCropSession');
-        const scale = this._modalHandle.cropCanvasEl.width / (this._modalHandle.cropCanvasEl.getBoundingClientRect().width || 1);
-        cropSessionPointerDown(session, pos, 30 * scale); // core/crop-selector.js
+    /** Quy đổi toạ độ màn hình -> toạ độ canvas (px nguồn) — dùng chung cho pointerDown/Move VÀ
+     * `_moveOrResizeCropSession()` (tránh lặp lại phép tính `scale` ở nhiều chỗ).
+     * @param {number} clientX @param {number} clientY @returns {{x:number,y:number}} */
+    _toCropCanvasCoords(clientX, clientY) {
+        const canvas = this._modalHandle.cropCanvasEl;
+        const rect = canvas.getBoundingClientRect();
+        const scale = canvas.width / (rect.width || canvas.width || 1);
+        return { x: (clientX - rect.left) * scale, y: (clientY - rect.top) * scale };
     },
 
-    /** @param {{x:number,y:number}} pos */
-    handleCropCanvasPointerMove(pos) {
+    /** @param {number} clientX @param {number} clientY */
+    handleCropCanvasPointerDown(clientX, clientY) {
+        const session = appState.get('videoPreviewCropSession');
+        const canvas = this._modalHandle.cropCanvasEl;
+        const scale = canvas.width / (canvas.getBoundingClientRect().width || 1);
+        cropSessionPointerDown(session, this._toCropCanvasCoords(clientX, clientY), 30 * scale); // core/crop-selector.js
+    },
+
+    /** @param {number} clientX @param {number} clientY */
+    handleCropCanvasPointerMove(clientX, clientY) {
         const session = appState.get('videoPreviewCropSession');
         if (!session.activeHandle) return;
-        this._moveOrResizeCropSession(pos);
+        this._moveOrResizeCropSession(this._toCropCanvasCoords(clientX, clientY));
         this._drawCropOverlay();
     },
 
