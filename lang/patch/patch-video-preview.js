@@ -1,14 +1,7 @@
 /**
- * lang/patch/patch-video-preview.js — i18n cho modal xem Video (core/file-manager/video-ui.js::
- * openVideoPreviewModal(), event/workflow/video-preview.js) — nạp CHỈ ở `index.html` (modal sống
- * ngay trong trang chính, KHÔNG còn trang riêng như `video-editor.html` cũ).
- *
- * MỚI ("Song/Video Unification" v12, gộp Video Editor vào Modal xem Video) — THAY THẾ
- * `patch-video-editor.js` (ĐÃ XOÁ, cùng `video-editor.html`). Modal mới đúng khuôn modal xem Ảnh
- * + CHỈ còn Cắt (1 đoạn duy nhất)/Crop/Rotate/Trích xuất ảnh/Lưu — KHÔNG còn Nhạc/Chữ/nhiều đoạn
- * Video/Volume riêng từng đoạn. Giữ lại NGUYÊN VĂN các key vẫn còn ý nghĩa (compat/crop/rotate/
- * extractFrame/save) từ patch-video-editor.js cũ, bỏ hẳn key của tính năng đã xoá (Nhạc/Chữ/
- * Volume/multi-clip), thêm key MỚI cho dải cắt + tỉ lệ crop mới (1:1/9:19/2:3/3:4/xoay hướng).
+ * lang/patch/patch-video-preview.js — i18n cho modal xem/sửa Video (core/file-manager/video-ui.js,
+ * event/workflow/video-preview.js). Nhãn dải tỉ lệ Crop dùng key CHUNG `cropRatio.*`
+ * (lang/patch/patch-common.js), không lặp lại ở đây.
  */
 const LANG_PATCH_VIDEO_PREVIEW = {
     'videoPreview.videoNotFound': 'Video not found — it may have been deleted.',
@@ -20,27 +13,20 @@ const LANG_PATCH_VIDEO_PREVIEW = {
     'videoPreview.compat.unreadableFile': 'This video file could not be read.',
     'videoPreview.loading': 'Loading video…',
 
-    // Header.
     'videoPreview.btnSave.title': 'Save',
     'videoPreview.discardConfirm.title': 'Discard changes?',
     'videoPreview.discardConfirm.desc': 'Your edits have not been saved. Leave without saving?',
 
-    // Dải tỉ lệ Crop (luôn mở sẵn phía trên preview).
-    'videoPreview.ratio.free': 'Free',
-    'videoPreview.ratio.flip.title': 'Swap orientation',
+    // Toggle Crop — bấm lại khi đang bật (mục "Crop toggle độc lập", phản hồi Giang).
+    'videoPreview.cropExit.title': 'Crop',
+    'videoPreview.cropExit.desc': 'Apply this crop, discard it, or keep editing?',
+    'videoPreview.cropExit.apply': 'Apply',
+    'videoPreview.cropExit.discard': 'Discard',
+    'videoPreview.cropExit.cancel': 'Keep editing',
 
-    // Toolbar dưới preview (Xoay/Reset/Trích xuất ảnh).
-    'videoPreview.btnRotateLeft.title': 'Rotate left',
-    'videoPreview.btnRotateRight.title': 'Rotate right',
-    'videoPreview.btnReset.title': 'Reset',
-    'videoPreview.btnExtractFrame.title': 'Extract photo',
     'videoPreview.extractFrame.success': 'Photo saved to your library.',
     'videoPreview.extractFrame.failed': 'Could not extract this frame.',
 
-    // Dải phim (filmstrip) + 2 điểm Start/End.
-    'videoPreview.filmstrip.loading': 'Loading filmstrip…',
-
-    // Lưu (dropdown).
     'videoPreview.save.overwrite': 'Overwrite',
     'videoPreview.save.asNew': 'Save as new video',
     'videoPreview.save.success': 'Video saved.',

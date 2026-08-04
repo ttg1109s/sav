@@ -117,4 +117,12 @@ const LANG_PATCH_COMMON = {
     'common.resumeModal.btnNo': 'No',
     'common.resumeModal.btnResume': 'Resume',
     'common.resumeModal.btnRestart': 'Restart',
+
+    // MỚI (03/08/2026) — dải tỉ lệ Crop dùng CHUNG (event/workflow/crop-ratio-helpers.js) — hiện
+    // Video Preview dùng, Photo Edit chưa có dải tỉ lệ nào (Crop Photo luôn Tự do).
+    'cropRatio.free': 'Free',
+    'cropRatio.square': '1:1',
+    'cropRatio.portrait919': '9:19',
+    'cropRatio.portrait23': '2:3',
+    'cropRatio.portrait34': '3:4',
 };
