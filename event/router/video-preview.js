@@ -18,8 +18,8 @@ const routerVideoPreview = (() => {
             case 'videoPreview.cropToggle.click': { workflowVideoPreview.handleCropToggleClick(); break; }
             case 'videoPreview.cropRatio.select': { workflowVideoPreview.handleCropRatioSelect(msg.payload.ratio); break; }
             case 'videoPreview.cropRatio.flip.click': { workflowVideoPreview.handleCropRatioFlip(); break; }
-            case 'videoPreview.cropCanvas.pointerDown': { workflowVideoPreview.handleCropCanvasPointerDown(msg.payload); break; }
-            case 'videoPreview.cropCanvas.pointerMove': { workflowVideoPreview.handleCropCanvasPointerMove(msg.payload); break; }
+            case 'videoPreview.cropCanvas.pointerDown': { workflowVideoPreview.handleCropCanvasPointerDown(msg.payload.clientX, msg.payload.clientY); break; }
+            case 'videoPreview.cropCanvas.pointerMove': { workflowVideoPreview.handleCropCanvasPointerMove(msg.payload.clientX, msg.payload.clientY); break; }
             case 'videoPreview.cropCanvas.pointerUp': { workflowVideoPreview.handleCropCanvasPointerUp(); break; }
 
             case 'videoPreview.rotateLeft.click': { workflowVideoPreview.handleRotateLeft(); break; }
