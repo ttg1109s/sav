@@ -602,11 +602,46 @@ body {
    (max-w-full max-h-full, cùng chiến lược `cropCanvasEl`) để 2 hộp CSS canh khớp tuyệt đối cho
    khung Crop vẽ đúng vị trí — xem core/file-manager/video-ui.js::openVideoPreviewModal(). */
 
-/* MỚI ("Song/Video Unification" v12) — dải phim (filmstrip) + 2 điểm Start/End kéo tay của modal
-   xem Video (core/file-manager/video-ui.js::openVideoPreviewModal()). Track chứa N khung hình nền
-   (đã trích qua buildCutFilmstripFrames(), core/video-editor/filmstrip.js) trải ĐỀU, phủ kín
-   100% chiều rộng — chiều rộng khối cha (`.video-preview-filmstrip-wrap`, có padding ngang) + chính
-   padding đó = khớp đúng chiều rộng màn hình (yêu cầu Giang mục 2a). */
+/* Modal xem/sửa Video (core/file-manager/video-ui.js, components/video-preview.js). */
+
+/* Lớp Crop (canvas + dải tỉ lệ) — ẩn mặc định, chỉ hiện khi toggle bật (Rule 5b: KHÔNG dùng
+   classList tồn tại hay không làm điều kiện rẽ nhánh nghiệp vụ trong Core — việc toggle class này
+   do Workflow quyết định, đây chỉ là CSS thuần tả 2 trạng thái hiển thị). */
+.video-preview-crop-layer {
+    position: absolute;
+    inset: 0;
+    display: none;
+}
+.video-preview-crop-layer.is-visible {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Nút toolbar (Crop/Chụp/Undo/Redo/Reset/Rotate) — tròn nhỏ, giống nút header modal xem Ảnh. */
+.video-preview-tool-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    transition: transform 0.15s;
+}
+.video-preview-tool-btn:active {
+    transform: scale(0.9);
+}
+.video-preview-tool-btn.is-active {
+    background: #fff;
+    color: #000;
+}
+
+/* Dải phim (filmstrip) + 2 tay cầm Start/End + playhead. Track chứa N khung hình nền (class RIÊNG
+   `.video-preview-filmstrip-frame` — KHÔNG dùng selector `> div` chung chung nữa, tránh áp nhầm
+   flex/background lên các phần tử tĩnh (dim/border/handle/playhead) cũng là div con trực tiếp). */
 .video-preview-filmstrip-track {
     position: relative;
     height: 56px;
@@ -615,7 +650,7 @@ body {
     background: #000;
     display: flex;
 }
-.video-preview-filmstrip-track > div {
+.video-preview-filmstrip-frame {
     flex: 1 1 0;
     height: 100%;
     background-size: cover;
@@ -637,8 +672,7 @@ body {
     border-bottom: 2px solid #fff;
     pointer-events: none;
 }
-/* 2 tay cầm Start/End — hình chữ nhật đứng, đúng yêu cầu Giang ("kéo dùng hình chữ nhật thẳng
-   đứng như phần mềm biên tập mobile", cùng tinh thần đã áp dụng ở core/video-editor/filmstrip.js). */
+/* 2 tay cầm Start/End — hình chữ nhật đứng. */
 .video-preview-trim-handle {
     position: absolute;
     top: -4px; bottom: -4px;
@@ -659,8 +693,19 @@ body {
     border-radius: 2px;
     background: rgba(0,0,0,0.5);
 }
+/* Playhead — vạch mảnh chạy trong dải phim, theo `videoEl.currentTime` (khác 2 tay cầm — không kéo
+   được trực tiếp, chỉ hiển thị vị trí đang phát). */
+.video-preview-playhead {
+    position: absolute;
+    top: -2px; bottom: -2px;
+    width: 2px;
+    margin-left: -1px;
+    background: #fbbf24;
+    pointer-events: none;
+    box-shadow: 0 0 4px rgba(251,191,36,0.8);
+}
 
-/* Dải tỉ lệ Crop + toolbar dưới preview — nút tròn nhỏ, cùng khuôn header modal xem Ảnh. */
+/* Dải tỉ lệ Crop — nút tròn nhỏ, đè lên canvas (absolute, xem components/video-preview.js). */
 .video-preview-ratio-btn {
     flex-shrink: 0;
     padding: 6px 12px;
