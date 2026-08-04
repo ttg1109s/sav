@@ -12,16 +12,17 @@
  * đặt CSS `cropCanvasEl` khớp — SỬA (04/08/2026) lỗi `<video>`/`<canvas>` lệch nhau do `absolute` +
  * flex cha không tương thích (xem docstring components/video-preview.js).
  *
- * NẠP SAU: components/video-preview.js, service/component-dynamic.js, service/z-index.js,
- * lang/lang.js.
+ * NẠP SAU: components/video-preview.js, service/component-dynamic.js, service/blob-url.js,
+ * service/z-index.js, lang/lang.js.
  */
 
 /**
  * @param {{videoUrl: string, posterUrl: string, filename: string, ratioPresets: Array<{labelKey: string, ratio: number}>}} data
- * @returns {object} handle — { close, overlayEl, videoEl, posterEl, cropLayerEl, cropCanvasEl,
- *   ratioButtons, ratioFlipBtn, filmstripTrackEl, startHandleEl, endHandleEl, dimLeftEl, dimRightEl,
- *   rangeBorderEl, playheadEl, currentTimeLabelEl, saveBtn, closeBtn, cropToggleBtn, extractBtn,
- *   undoBtn, redoBtn, resetBtn, rotateLeftBtn, rotateRightBtn }
+ * @returns {object} handle — { close, overlayEl, mediaWrapEl, videoEl, posterEl, cropLayerEl,
+ *   cropCanvasEl, toolsGroupEl, ratioGroupEl, ratioButtons, ratioFlipBtn, filmstripTrackEl,
+ *   filmstripFramesEl, startHandleEl, endHandleEl, dimLeftEl, dimRightEl, rangeBorderEl, playheadEl,
+ *   currentTimeLabelEl, saveBtn, closeBtn, cropToggleBtn, extractBtn, undoBtn, redoBtn, resetBtn,
+ *   rotateBtn }
  */
 function openVideoPreviewModal(data) {
     const stale = document.getElementById('video-preview-overlay');
@@ -67,8 +68,7 @@ function openVideoPreviewModal(data) {
     const undoBtn = fragment.querySelector('#video-preview-undo-btn');
     const redoBtn = fragment.querySelector('#video-preview-redo-btn');
     const resetBtn = fragment.querySelector('#video-preview-reset-btn');
-    const rotateLeftBtn = fragment.querySelector('#video-preview-rotate-left-btn');
-    const rotateRightBtn = fragment.querySelector('#video-preview-rotate-right-btn');
+    const rotateBtn = fragment.querySelector('#video-preview-rotate-btn');
 
     document.body.appendChild(fragment);
     overlayEl.classList.remove('hidden');
@@ -92,8 +92,7 @@ function openVideoPreviewModal(data) {
     undoBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.undo.click', payload: {} }));
     redoBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.redo.click', payload: {} }));
     resetBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.reset.click', payload: {} }));
-    rotateLeftBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.rotateLeft.click', payload: {} }));
-    rotateRightBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.rotateRight.click', payload: {} }));
+    rotateBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.rotate.click', payload: {} }));
 
     ratioButtons.forEach(({ btn, ratio }) => {
         btn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.cropRatio.select', payload: { ratio } }));
@@ -112,7 +111,6 @@ function openVideoPreviewModal(data) {
         close: closeModal,
         overlayEl, mediaWrapEl, videoEl, posterEl, cropLayerEl, cropCanvasEl, toolsGroupEl, ratioGroupEl, ratioButtons, ratioFlipBtn,
         filmstripTrackEl, filmstripFramesEl, startHandleEl, endHandleEl, dimLeftEl, dimRightEl, rangeBorderEl, playheadEl,
-        currentTimeLabelEl, closeBtn, saveBtn, cropToggleBtn, extractBtn, undoBtn, redoBtn, resetBtn,
-        rotateLeftBtn, rotateRightBtn,
+        currentTimeLabelEl, closeBtn, saveBtn, cropToggleBtn, extractBtn, undoBtn, redoBtn, resetBtn, rotateBtn,
     };
 }
