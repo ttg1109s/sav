@@ -22,8 +22,7 @@ const routerVideoPreview = (() => {
             case 'videoPreview.cropCanvas.pointerMove': { workflowVideoPreview.handleCropCanvasPointerMove(msg.payload.clientX, msg.payload.clientY); break; }
             case 'videoPreview.cropCanvas.pointerUp': { workflowVideoPreview.handleCropCanvasPointerUp(); break; }
 
-            case 'videoPreview.rotateLeft.click': { workflowVideoPreview.handleRotateLeft(); break; }
-            case 'videoPreview.rotateRight.click': { workflowVideoPreview.handleRotateRight(); break; }
+            case 'videoPreview.rotate.click': { workflowVideoPreview.handleRotateClick(); break; }
             case 'videoPreview.reset.click': { workflowVideoPreview.handleReset(); break; }
             case 'videoPreview.extractFrame.click': { workflowVideoPreview.handleExtractFrame(); break; }
 
