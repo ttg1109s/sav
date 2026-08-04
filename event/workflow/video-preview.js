@@ -1,33 +1,23 @@
 /**
- * event/workflow/video-preview.js — Router "videoPreview". THAY `event/workflow/video-editor.js`
- * (Video Editor NLE đa track/đa đoạn, ĐÃ XOÁ HẲN, "Song/Video Unification" v12, gộp vào modal xem
- * Video đúng khuôn modal xem Ảnh — xem plan-v12-song-video-unification.md).
+ * event/workflow/video-preview.js — Router "videoPreview". Modal xem/sửa Video: Cut (dải phim + 2
+ * tay cầm + playhead) LUÔN hiện, mặc định; Crop là TOGGLE độc lập chạy song song (không loại trừ
+ * Cut); Zoom-pan (Panzoom trên chính videoEl) luôn sống, không thuộc mode nào.
  *
- * Vòng đời: `open(videoKey)` (gọi từ `event/workflow/file-manager-video.js::navigateToVideoEdit()`,
- * ĐỔI từ điều hướng sang `video-editor.html` sang mở modal tại chỗ) -> load record + compat-guard
- * (core/video-editor/compat-guard.js, GIỮ NGUYÊN) -> `openVideoPreviewModal()` (core/file-manager/
- * video-ui.js) -> đợi `loadedmetadata` mới biết kích thước/thời lượng thật -> khởi crop session
- * (core/crop-selector.js, TÁI DÙNG NGUYÊN — dùng chung Photo Edit) full-frame (padRatio:0, KHÁC
- * mặc định 10% của `initCropSession()` — mục 2b "mở sẵn, chỉ cần kéo thả" nghĩa là KHÔNG crop gì
- * cho tới khi người dùng tự kéo, xem `_computeCropFraction()`) + dải phim (core/video-editor/
- * filmstrip.js, TÁI DÙNG NGUYÊN).
+ * `open()` bọc TOÀN BỘ trong `withLoadingShield()` (core/loading-shield-util.js) — chỉ tắt shield
+ * SAU KHI modal đã dựng xong VÀ đã có metadata thật (crop/trim/zoom-pan/history sẵn sàng tương tác),
+ * không chỉ sau khi DOM append xong.
  *
- * `this._modalHandle` — DOM refs/hàm đóng của modal đang mở, giữ TRỰC TIẾP trên object Workflow
- * (KHÔNG qua appState — cùng lý do `_activeImageModalHandle` ở event/workflow/file-manager-
- * photo.js: DOM handle không phải dữ liệu nghiệp vụ tuần tự hoá được).
+ * `this._modalHandle`/`this._beforeCropSnapshot`/`this._resolveMetadataReady` giữ TRỰC TIẾP trên
+ * object Workflow (KHÔNG qua appState — không phải dữ liệu nghiệp vụ tuần tự hoá được).
  *
- * NẠP SAU: core/file-manager/video-ui.js, core/crop-selector.js, core/video-editor/compat-guard.js/
- * filmstrip.js/frame-extract.js/webcodecs-engine.js, core/file-manager/video.js, core/file-manager/
- * image.js, service/state/video-preview.js.
+ * NẠP SAU: core/file-manager/video-ui.js, core/crop-selector.js, core/image-zoom.js,
+ * core/edit-history.js, core/video-editor/compat-guard.js/filmstrip.js/frame-extract.js/
+ * webcodecs-engine.js, core/file-manager/video.js/image.js, service/state/video-preview.js,
+ * service/blob-url.js, event/workflow/crop-ratio-helpers.js.
  */
-const FILMSTRIP_FRAME_COUNT = 14; // số khung hình nền dải phim — không phải yêu cầu chính xác của Giang, chọn đủ dày cho 1 màn hình điện thoại
-const MIN_TRIM_DURATION = 0.3; // giây — khoảng cách tối thiểu giữa Start/End, tránh đoạn cắt rỗng
+const FILMSTRIP_FRAME_COUNT = 14;
+const MIN_TRIM_DURATION = 0.3; // giây — khoảng cách tối thiểu giữa Start/End
 
-/** Tải Mediabunny NGẦM, CHỈ 1 LẦN — KHÁC `video-editor.html` cũ (tải sẵn ngay lúc trang load, vì
- * trang đó CHỈ mở khi thật sự sửa video). Modal xem Video giờ sống trong `index.html` (luôn mở dù
- * người dùng không đụng tới Video) — tải lười ĐÚNG lúc `open()` gọi mới hợp lý, tránh nặng tải
- * trang chính cho người không dùng tính năng này. Danh sách URL fallback GIỮ NGUYÊN từ
- * `video-editor.html` cũ (đã xoá). @returns {Promise<boolean>} */
 function _ensureMediabunnyLoaded() {
     if (window.Mediabunny) return Promise.resolve(true);
     if (window._mediabunnyLoadPromise) return window._mediabunnyLoadPromise;
@@ -41,12 +31,12 @@ function _ensureMediabunnyLoaded() {
         ];
         let i = 0;
         function tryNext() {
-            if (i >= candidates.length) { console.error('[_ensureMediabunnyLoaded] Đã thử hết ' + candidates.length + ' URL, KHÔNG url nào tải được Mediabunny.'); resolve(false); return; }
+            if (i >= candidates.length) { console.error('[_ensureMediabunnyLoaded] Đã thử hết URL, không tải được Mediabunny.'); resolve(false); return; }
             const url = candidates[i++];
             const el = document.createElement('script');
             el.src = url;
-            el.onload = () => { console.log(`[_ensureMediabunnyLoaded] Tải được Mediabunny từ: ${url}`); resolve(true); };
-            el.onerror = () => { console.warn(`[_ensureMediabunnyLoaded] Fail: ${url} — thử URL kế tiếp.`); tryNext(); };
+            el.onload = () => resolve(true);
+            el.onerror = () => tryNext();
             document.head.appendChild(el);
         }
         tryNext();
@@ -54,9 +44,6 @@ function _ensureMediabunnyLoaded() {
     return window._mediabunnyLoadPromise;
 }
 
-/** Định dạng giây -> "mm:ss" — mỗi trang tự viết riêng (cùng tiền lệ `_formatSeconds` ở
- * webcodecs-engine.js — Rule 3, Workflow không bị ràng buộc nhưng giữ nhất quán không tạo hằng số
- * dùng chung cho 1 hàm bé). */
 function _formatVideoPreviewTime(seconds) {
     const s = Math.max(0, Math.floor(seconds || 0));
     const m = Math.floor(s / 60);
@@ -64,37 +51,52 @@ function _formatVideoPreviewTime(seconds) {
     return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
+/** Icon dùng riêng cho dropdown Lưu (core/dropdown-menu.js — nhận sẵn chuỗi SVG, không tự build). */
+function _svgIcon(d) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${d}"/></svg>`;
+}
+
 const workflowVideoPreview = {
     _modalHandle: null,
+    _beforeCropSnapshot: null, // snapshot lúc bật Crop — khôi phục nếu bấm Huỷ (KHÁC lịch sử Undo/Redo)
+    _resolveMetadataReady: null,
 
-    /** Ứng với `workflowPlaylist.navigateToActiveMenuVideoEdit()` (menu 3 chấm Playlist) — gọi
-     * THẲNG, không qua tầng trung gian nào (file-manager-video.js đã xoá hẳn, phản hồi Giang).
-     * @param {string} videoKey */
+    /** @param {string} videoKey */
     async open(videoKey) {
-        const record = await getVideoRecord(videoKey); // service/db.js
-        if (!record) { await alertModal(t('videoPreview.videoNotFound')); return; } // guard: video vừa bị xoá ở tab/thao tác khác
+        await withLoadingShield(t('videoPreview.loading'), async () => { // core/loading-shield-util.js
+            const record = await getVideoRecord(videoKey); // service/db.js — Workflow đọc (Rule 3b)
+            if (!record) { await alertModal(t('videoPreview.videoNotFound')); return; }
 
-        const mediabunnyOk = await _ensureMediabunnyLoaded();
-        if (!mediabunnyOk) { await alertModal(t('videoPreview.compat.mediabunnyNotLoaded')); return; }
+            const mediabunnyOk = await _ensureMediabunnyLoaded();
+            if (!mediabunnyOk) { await alertModal(t('videoPreview.compat.mediabunnyNotLoaded')); return; }
 
-        const compat = await checkVideoEditorCompat(record.blob); // core/video-editor/compat-guard.js
-        if (!compat.supported) { await alertModal(t(`videoPreview.compat.${compat.reason}`)); return; }
+            const compat = await checkVideoEditorCompat(record.blob); // core/video-editor/compat-guard.js
+            if (!compat.supported) { await alertModal(t(`videoPreview.compat.${compat.reason}`)); return; }
 
-        appState.set('videoPreviewVideoKey', videoKey);
-        appState.set('videoPreviewRecord', record);
-        appState.set('videoPreviewRotateDeg', 0);
-        appState.set('videoPreviewHasUnsavedChanges', false);
-        appState.set('videoPreviewFilmstripFrames', []);
-        appState.set('videoPreviewCropSession', null);
-        appState.set('videoPreviewActiveDrag', null);
+            const videoUrl = createBlobUrl(record.blob); // service/blob-url.js — Workflow tạo (Rule 3b)
+            const posterUrl = createBlobUrl(record.thumbBlob); // service/blob-url.js
+            const ratioPresets = workflowCropRatioHelpers.getPresets(); // event/workflow/crop-ratio-helpers.js
 
-        this._modalHandle = openVideoPreviewModal({ key: videoKey, blob: record.blob, filename: record.filename }); // core/file-manager/video-ui.js
+            appState.set('videoPreviewVideoKey', videoKey);
+            appState.set('videoPreviewRecord', record);
+            appState.set('videoPreviewRotateDeg', 0);
+            appState.set('videoPreviewHasUnsavedChanges', false);
+            appState.set('videoPreviewFilmstripFrames', []);
+            appState.set('videoPreviewCropSession', null);
+            appState.set('videoPreviewActiveDrag', null);
+            appState.set('videoPreviewCropVisible', false);
+            appState.set('videoPreviewZoomPanSession', null);
+            appState.set('videoPreviewHistorySession', null);
+            appState.set('videoPreviewIsPlaying', false);
+
+            const metadataReadyPromise = new Promise((resolve) => { this._resolveMetadataReady = resolve; });
+            this._modalHandle = openVideoPreviewModal({ videoUrl, posterUrl, filename: record.filename, ratioPresets }); // core/file-manager/video-ui.js
+
+            await metadataReadyPromise; // shield chỉ tắt sau khi crop/trim/zoom-pan/history đã dựng xong
+        });
     },
 
-    /** Ứng với 'videoPreview.metadata.loaded' — `<video>` vừa biết xong kích thước/thời lượng
-     * thật. Nudge play()/pause() ngay (iOS Safari cần user-gesture + bước này mới chắc chắn vẽ
-     * được khung hình đầu, cùng kỹ thuật `_extractVideoThumbAndMeta()` — event/workflow/file-
-     * manager-video.js). */
+    /** Ứng với 'videoPreview.metadata.loaded' — `<video>` vừa biết xong kích thước/thời lượng thật. */
     async handleMetadataLoaded() {
         const videoEl = this._modalHandle.videoEl;
         const w = videoEl.videoWidth, h = videoEl.videoHeight, duration = videoEl.duration || 0;
@@ -103,49 +105,55 @@ const workflowVideoPreview = {
         appState.set('videoPreviewSourceDuration', duration);
         appState.set('videoPreviewCutStart', 0);
         appState.set('videoPreviewCutEnd', duration);
-        appState.set('videoPreviewScrubTime', 0);
-
-        try { await videoEl.play(); videoEl.pause(); } catch (err) { /* im lặng — chỉ là nudge trình bày, không chặn luồng chính */ }
-        videoEl.currentTime = 0;
 
         this._modalHandle.cropCanvasEl.width = w;
         this._modalHandle.cropCanvasEl.height = h;
-        const session = initCropSession(w, h, { padRatio: 0 }); // core/crop-selector.js — full-frame mặc định (KHÁC 10% mặc định của hàm, xem docstring đầu file)
-        appState.set('videoPreviewCropSession', session);
-        this._drawCropOverlay();
+        const cropSession = initCropSession(w, h, { padRatio: 0 }); // core/crop-selector.js — full-frame, không crop cho tới khi tự kéo
+        appState.set('videoPreviewCropSession', cropSession);
 
-        this._modalHandle.scrubInputEl.max = String(duration);
+        const zoomPanSession = initPanzoomSession(videoEl, { maxScale: 4, minScale: 1, contain: 'outside', cursor: 'default' }); // core/image-zoom.js — luôn sống, không thuộc mode nào
+        appState.set('videoPreviewZoomPanSession', zoomPanSession);
+
+        const initialSnapshot = {
+            cropRect: getCropSessionRect(cropSession), aspectRatio: cropSession.aspectRatio, // core/crop-selector.js
+            rotateDeg: 0, cutStart: 0, cutEnd: duration, zoomPan: { scale: 1, x: 0, y: 0 },
+        };
+        appState.set('videoPreviewHistorySession', initHistorySession(initialSnapshot)); // core/edit-history.js
+
+        // Chuyển từ poster tĩnh sang video thật (đứng yên tại khung hình 0 — KHÔNG auto-play).
+        this._modalHandle.posterEl.classList.add('hidden');
+        this._modalHandle.videoEl.classList.remove('hidden');
+
         this._renderTrimPositions();
-        this._renderFilmstripFrames(); // async, không await — chạy nền, tự cập nhật DOM khi xong
+        this._renderFilmstripFrames(); // async, chạy nền — KHÔNG chặn thao tác/tắt shield
+
+        if (this._resolveMetadataReady) { this._resolveMetadataReady(); this._resolveMetadataReady = null; }
     },
 
-    /** Trích N khung hình rải đều làm nền dải phim (core/video-editor/filmstrip.js, TÁI DÙNG
-     * NGUYÊN) — chạy NGẦM sau khi modal đã mở, không chặn thao tác Cắt/Crop/Xoay/Lưu (những việc
-     * đó không cần dải phim đã tải xong). */
+    /** Trích N khung hình nền dải phim — chạy NGẦM sau khi shield đã tắt. */
     async _renderFilmstripFrames() {
         const record = appState.get('videoPreviewRecord');
         const w = appState.get('videoPreviewNativeW'), h = appState.get('videoPreviewNativeH');
-        const thumbH = 112;
-        const thumbW = Math.max(60, Math.round(thumbH * (w / (h || 1))));
+        const thumbH = 56;
+        const thumbW = Math.max(30, Math.round(thumbH * (w / (h || 1))));
         const frames = await buildCutFilmstripFrames(record.blob, FILMSTRIP_FRAME_COUNT, thumbW, thumbH); // core/video-editor/filmstrip.js
         if (!this._modalHandle) return; // guard: modal đã đóng trước khi trích xong
         appState.set('videoPreviewFilmstripFrames', frames);
 
         const trackEl = this._modalHandle.filmstripTrackEl;
-        // Xoá 5 phần tử tĩnh (2 dim/1 border/2 handle) tạm thời để chèn khung hình nền VÀO GIỮA
-        // (trước 5 phần tử đó, đúng thứ tự z DOM — 5 phần tử kia absolute nên không ảnh hưởng layout).
-        const staticChildren = [this._modalHandle.dimLeftEl, this._modalHandle.dimRightEl, this._modalHandle.rangeBorderEl, this._modalHandle.startHandleEl, this._modalHandle.endHandleEl];
+        const firstStaticChild = this._modalHandle.dimLeftEl; // con TĨNH đầu tiên trong track (components/video-preview.js)
         frames.forEach(({ blob }) => {
             const cell = document.createElement('div');
-            if (blob) cell.style.backgroundImage = `url(${URL.createObjectURL(blob)})`; // KHÔNG revoke — sống cùng vòng đời modal, tự mất theo GC khi overlay.remove()
-            trackEl.insertBefore(cell, staticChildren[0]);
+            cell.className = 'video-preview-filmstrip-frame'; // class RIÊNG cho khung hình nền — SỬA bug CSS cũ (`> div` áp nhầm lên cả tay cầm/dim)
+            if (blob) cell.style.backgroundImage = `url(${createBlobUrl(blob)})`; // service/blob-url.js — KHÔNG revoke, sống cùng vòng đời modal
+            trackEl.insertBefore(cell, firstStaticChild);
         });
     },
 
     /** Vị trí 2 tay cầm Start/End + 2 dim + viền — tính lại mỗi lần cutStart/cutEnd đổi. */
     _renderTrimPositions() {
         const duration = appState.get('videoPreviewSourceDuration');
-        if (duration <= 0) return; // guard — chưa có metadata
+        if (duration <= 0) return;
         const cutStart = appState.get('videoPreviewCutStart'), cutEnd = appState.get('videoPreviewCutEnd');
         const trackWidth = this._modalHandle.filmstripTrackEl.getBoundingClientRect().width || 1;
         const leftPx = (cutStart / duration) * trackWidth;
@@ -159,70 +167,130 @@ const workflowVideoPreview = {
         this._modalHandle.endHandleEl.style.left = `${trackWidth - rightPx}px`;
     },
 
-    /** Ứng với tay cầm Start/End 'pointerdown' (core/file-manager/video-ui.js). Theo dõi TIẾP
-     * ở `videoPreview.trimDrag.move`/`.end` — 2 msg.type đó bắn LIÊN TỤC từ `document` (event/
-     * listener/video-preview.js, DOM TĨNH thật sự), guard bằng chính field này. */
-    handleTrimDragStart(handle) { appState.set('videoPreviewActiveDrag', handle); },
+    // ===================== Cut: tay cầm Start/End =====================
 
-    /** Ứng với 'videoPreview.trimDrag.move' — bắn LIÊN TỤC bất kể có đang kéo hay không (Rule 5a
-     * không có ngoại lệ theo tần suất). @param {number} clientX */
+    handleTrimDragStart(handle) {
+        appState.set('videoPreviewActiveDrag', handle);
+        this._modalHandle.videoEl.pause();
+        appState.set('videoPreviewIsPlaying', false);
+    },
+
+    /** @param {number} clientX */
     handleTrimDragMove(clientX) {
         const activeDrag = appState.get('videoPreviewActiveDrag');
-        if (!activeDrag) return; // guard clause — không đang kéo gì cả
+        if (!activeDrag) return; // bắn liên tục từ document, guard bình thường
         const duration = appState.get('videoPreviewSourceDuration');
         const rect = this._modalHandle.filmstripTrackEl.getBoundingClientRect();
         const fraction = Math.max(0, Math.min(1, (clientX - rect.left) / (rect.width || 1)));
         const time = fraction * duration;
-
         const cutStart = appState.get('videoPreviewCutStart'), cutEnd = appState.get('videoPreviewCutEnd');
+
         if (activeDrag === 'start') {
-            appState.set('videoPreviewCutStart', Math.min(time, cutEnd - MIN_TRIM_DURATION));
+            const newStart = Math.min(time, cutEnd - MIN_TRIM_DURATION);
+            appState.set('videoPreviewCutStart', newStart);
+            this._modalHandle.videoEl.currentTime = newStart; // seek thật — hiện khung hình thật, không phải ảnh tĩnh
         } else {
-            appState.set('videoPreviewCutEnd', Math.max(time, cutStart + MIN_TRIM_DURATION));
+            const newEnd = Math.max(time, cutStart + MIN_TRIM_DURATION);
+            appState.set('videoPreviewCutEnd', newEnd);
+            this._modalHandle.videoEl.currentTime = newEnd;
         }
-        appState.set('videoPreviewHasUnsavedChanges', true);
         this._renderTrimPositions();
     },
 
-    /** Ứng với 'videoPreview.trimDrag.end' — bắn LIÊN TỤC (cùng lý do `handleTrimDragMove()`). */
-    handleTrimDragEnd() { appState.set('videoPreviewActiveDrag', null); },
-
-    /** Ứng với thanh kéo "current" (mục 2c) — chỉ xem khung hình tại thời điểm đó, KHÔNG phát.
-     * @param {number} value */
-    handleScrubInput(value) {
-        appState.set('videoPreviewScrubTime', value);
-        this._modalHandle.videoEl.currentTime = value;
-        this._modalHandle.currentTimeLabelEl.textContent = _formatVideoPreviewTime(value);
+    handleTrimDragEnd() {
+        const wasDragging = !!appState.get('videoPreviewActiveDrag');
+        appState.set('videoPreviewActiveDrag', null);
+        if (!wasDragging) return;
+        this._commitHistory();
+        this._modalHandle.videoEl.play().catch(() => {});
+        appState.set('videoPreviewIsPlaying', true);
     },
 
-    // ===================== Crop (core/crop-selector.js, TÁI DÙNG NGUYÊN — dùng chung Photo Edit) =====================
+    // ===================== Cut: phát/tạm dừng =====================
 
-    /** Preset tỉ lệ (1:1/9:19/2:3/3:4/Tự do). @param {number} ratio */
+    /** @param {number} currentTime */
+    handleVideoTimeUpdate(currentTime) {
+        const cutEnd = appState.get('videoPreviewCutEnd');
+        const cutStart = appState.get('videoPreviewCutStart');
+        if (currentTime >= cutEnd) this._modalHandle.videoEl.currentTime = cutStart; // lặp trong đoạn cắt
+        this._renderPlayheadPosition(currentTime);
+    },
+
+    /** @param {number} currentTime */
+    _renderPlayheadPosition(currentTime) {
+        const duration = appState.get('videoPreviewSourceDuration');
+        if (duration <= 0) return;
+        const trackWidth = this._modalHandle.filmstripTrackEl.getBoundingClientRect().width || 1;
+        this._modalHandle.playheadEl.style.left = `${(currentTime / duration) * trackWidth}px`;
+        this._modalHandle.currentTimeLabelEl.textContent = _formatVideoPreviewTime(currentTime);
+    },
+
+    /** Tap màn hình — đảo phát/dừng (mục 1, phản hồi Giang). */
+    handleMediaTapClick() {
+        const videoEl = this._modalHandle.videoEl;
+        if (videoEl.paused) { videoEl.play().catch(() => {}); appState.set('videoPreviewIsPlaying', true); }
+        else { videoEl.pause(); appState.set('videoPreviewIsPlaying', false); }
+    },
+
+    // ===================== Crop: toggle độc lập =====================
+
+    handleCropToggleClick() {
+        const visible = appState.get('videoPreviewCropVisible');
+        if (!visible) { this._enterCropVisible(); return; }
+        this._promptExitCropVisible();
+    },
+
+    _enterCropVisible() {
+        this._beforeCropSnapshot = this._buildSnapshot();
+        appState.set('videoPreviewCropVisible', true);
+        this._modalHandle.videoEl.pause();
+        appState.set('videoPreviewIsPlaying', false);
+        this._modalHandle.cropLayerEl.classList.add('is-visible');
+        this._modalHandle.cropToggleBtn.classList.add('is-active');
+        this._drawCropOverlay();
+        this._renderRatioButtonsActiveState();
+    },
+
+    _promptExitCropVisible() {
+        modalChoice( // core/modal-choice.js
+            t('videoPreview.cropExit.desc'),
+            [
+                { label: t('videoPreview.cropExit.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
+                { label: t('videoPreview.cropExit.discard'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: () => this._exitCropVisible(false) },
+                { label: t('videoPreview.cropExit.apply'), className: 'flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold transition-colors', onClick: () => this._exitCropVisible(true) },
+            ],
+            { title: t('videoPreview.cropExit.title') }
+        );
+    },
+
+    /** @param {boolean} apply */
+    _exitCropVisible(apply) {
+        if (apply) { this._commitHistory(); } else { this._applySnapshot(this._beforeCropSnapshot); }
+        this._beforeCropSnapshot = null;
+        appState.set('videoPreviewCropVisible', false);
+        this._modalHandle.cropLayerEl.classList.remove('is-visible');
+        this._modalHandle.cropToggleBtn.classList.remove('is-active');
+    },
+
+    // ===================== Crop: tỉ lệ + kéo khung =====================
+
+    /** @param {number} ratio */
     handleCropRatioSelect(ratio) {
         const session = appState.get('videoPreviewCropSession');
-        if (!session) return;
         setCropSessionAspectRatio(session, ratio); // core/crop-selector.js
-        appState.set('videoPreviewHasUnsavedChanges', true);
         this._drawCropOverlay();
         this._renderRatioButtonsActiveState();
     },
 
-    /** Nút đổi hướng ngang/dọc — đảo NGHỊCH ĐẢO tỉ lệ hiện tại (3:4 <-> 4:3). Vô nghĩa với Tự do
-     * (NaN) hay 1:1 — guard clause thuần, không phải rẽ nhánh tiến trình khác (đổi hay không đổi
-     * vẫn cùng 1 việc: gọi lại `setCropSessionAspectRatio()`). */
     handleCropRatioFlip() {
         const session = appState.get('videoPreviewCropSession');
-        if (!session || Number.isNaN(session.aspectRatio) || session.aspectRatio === 1) return;
-        setCropSessionAspectRatio(session, 1 / session.aspectRatio); // core/crop-selector.js
-        appState.set('videoPreviewHasUnsavedChanges', true);
+        workflowCropRatioHelpers.applyFlip(session); // event/workflow/crop-ratio-helpers.js
         this._drawCropOverlay();
         this._renderRatioButtonsActiveState();
     },
 
-    /** Tô sáng nút preset khớp `session.aspectRatio` hiện tại (so `NaN` bằng `Number.isNaN()`). */
     _renderRatioButtonsActiveState() {
         const session = appState.get('videoPreviewCropSession');
-        if (!session) return;
         this._modalHandle.ratioButtons.forEach(({ btn, ratio }) => {
             const matches = Number.isNaN(ratio) ? Number.isNaN(session.aspectRatio) : ratio === session.aspectRatio;
             btn.classList.toggle('is-active', matches);
@@ -232,7 +300,6 @@ const workflowVideoPreview = {
     /** @param {{x:number,y:number}} pos */
     handleCropCanvasPointerDown(pos) {
         const session = appState.get('videoPreviewCropSession');
-        if (!session) return;
         const scale = this._modalHandle.cropCanvasEl.width / (this._modalHandle.cropCanvasEl.getBoundingClientRect().width || 1);
         cropSessionPointerDown(session, pos, 30 * scale); // core/crop-selector.js
     },
@@ -240,20 +307,19 @@ const workflowVideoPreview = {
     /** @param {{x:number,y:number}} pos */
     handleCropCanvasPointerMove(pos) {
         const session = appState.get('videoPreviewCropSession');
-        if (!session || !session.activeHandle) return; // guard clause — không đang kéo handle nào
+        if (!session.activeHandle) return;
         this._moveOrResizeCropSession(pos);
-        appState.set('videoPreviewHasUnsavedChanges', true);
         this._drawCropOverlay();
     },
 
     handleCropCanvasPointerUp() {
         const session = appState.get('videoPreviewCropSession');
-        if (session) cropSessionPointerUp(session); // core/crop-selector.js
+        const wasDragging = !!session.activeHandle;
+        cropSessionPointerUp(session); // core/crop-selector.js
+        if (wasDragging) this._commitHistory();
     },
 
-    /** Đọc `session.activeHandle` rồi CHỌN gọi ĐÚNG 1 trong 3 hàm tính rect thuần của core/crop-
-     * selector.js — việc CHỌN thuộc Workflow (Rule 1, đúng khuôn `_moveOrResizeCropSession()` cũ ở
-     * event/workflow/video-editor.js/file-manager-photo.js). @param {{x:number,y:number}} pos */
+    /** @param {{x:number,y:number}} pos */
     _moveOrResizeCropSession(pos) {
         const session = appState.get('videoPreviewCropSession');
         const s = session.dragStart;
@@ -276,31 +342,93 @@ const workflowVideoPreview = {
 
     _drawCropOverlay() {
         const session = appState.get('videoPreviewCropSession');
-        if (!session) return;
         const canvas = this._modalHandle.cropCanvasEl;
         const scale = canvas.width / (canvas.getBoundingClientRect().width || 1);
         drawCropSessionOverlay(canvas.getContext('2d'), session, canvas.width, canvas.height, scale); // core/crop-selector.js
     },
 
-    // ===================== Xoay / Reset =====================
+    // ===================== Rotate / Reset =====================
 
-    handleRotateLeft() { appState.set('videoPreviewRotateDeg', ((appState.get('videoPreviewRotateDeg') - 90) % 360 + 360) % 360); appState.set('videoPreviewHasUnsavedChanges', true); },
-    handleRotateRight() { appState.set('videoPreviewRotateDeg', (appState.get('videoPreviewRotateDeg') + 90) % 360); appState.set('videoPreviewHasUnsavedChanges', true); },
+    handleRotateLeft() {
+        appState.set('videoPreviewRotateDeg', ((appState.get('videoPreviewRotateDeg') - 90) % 360 + 360) % 360);
+        this._commitHistory();
+    },
+    handleRotateRight() {
+        appState.set('videoPreviewRotateDeg', (appState.get('videoPreviewRotateDeg') + 90) % 360);
+        this._commitHistory();
+    },
 
-    /** Về mặc định: Crop full-frame (KHÔNG crop) + Rotate 0 + Cắt = toàn bộ video. */
     handleReset() {
         const w = appState.get('videoPreviewNativeW'), h = appState.get('videoPreviewNativeH');
-        appState.set('videoPreviewCropSession', initCropSession(w, h, { padRatio: 0 })); // core/crop-selector.js
+        const cropSession = appState.get('videoPreviewCropSession');
+        setCropSessionRect(cropSession, { x: 0, y: 0, w, h }); // core/crop-selector.js
+        cropSession.aspectRatio = NaN;
         appState.set('videoPreviewRotateDeg', 0);
         appState.set('videoPreviewCutStart', 0);
         appState.set('videoPreviewCutEnd', appState.get('videoPreviewSourceDuration'));
-        appState.set('videoPreviewHasUnsavedChanges', true);
+        const zoomPanSession = appState.get('videoPreviewZoomPanSession');
+        resetPanzoomSession(zoomPanSession); // core/image-zoom.js
         this._drawCropOverlay();
-        this._renderRatioButtonsActiveState();
         this._renderTrimPositions();
+        this._renderRatioButtonsActiveState();
+        this._commitHistory();
     },
 
-    // ===================== Trích xuất ảnh (core/video-editor/frame-extract.js, TÁI DÙNG NGUYÊN) =====================
+    // ===================== Undo/Redo (core/edit-history.js) =====================
+
+    /** @returns {object} snapshot — crop rect/tỉ lệ + rotate + cut + zoom-pan hiện tại. */
+    _buildSnapshot() {
+        const cropSession = appState.get('videoPreviewCropSession');
+        const zoomPanSession = appState.get('videoPreviewZoomPanSession');
+        return {
+            cropRect: getCropSessionRect(cropSession), aspectRatio: cropSession.aspectRatio, // core/crop-selector.js
+            rotateDeg: appState.get('videoPreviewRotateDeg'),
+            cutStart: appState.get('videoPreviewCutStart'), cutEnd: appState.get('videoPreviewCutEnd'),
+            zoomPan: getPanzoomState(zoomPanSession), // core/image-zoom.js
+        };
+    },
+
+    /** @param {object} snapshot */
+    _applySnapshot(snapshot) {
+        const cropSession = appState.get('videoPreviewCropSession');
+        setCropSessionRect(cropSession, snapshot.cropRect); // core/crop-selector.js
+        cropSession.aspectRatio = snapshot.aspectRatio;
+        appState.set('videoPreviewRotateDeg', snapshot.rotateDeg);
+        appState.set('videoPreviewCutStart', snapshot.cutStart);
+        appState.set('videoPreviewCutEnd', snapshot.cutEnd);
+        const zoomPanSession = appState.get('videoPreviewZoomPanSession');
+        zoomPanSession.zoom(snapshot.zoomPan.scale, { animate: false });
+        zoomPanSession.pan(snapshot.zoomPan.x, snapshot.zoomPan.y, { animate: false });
+        this._drawCropOverlay();
+        this._renderTrimPositions();
+        this._renderRatioButtonsActiveState();
+        appState.set('videoPreviewHasUnsavedChanges', true);
+    },
+
+    /** Đẩy 1 mốc lịch sử — gọi SAU MỖI thao tác đã "chốt" (Áp dụng Crop/Rotate/thả tay cầm/Reset). */
+    _commitHistory() {
+        const session = appState.get('videoPreviewHistorySession');
+        appState.set('videoPreviewHistorySession', pushHistoryEntry(session, this._buildSnapshot())); // core/edit-history.js
+        appState.set('videoPreviewHasUnsavedChanges', true);
+    },
+
+    handleUndoClick() {
+        const session = appState.get('videoPreviewHistorySession');
+        if (!canUndoHistory(session)) return; // core/edit-history.js
+        const updated = undoHistory(session); // core/edit-history.js
+        appState.set('videoPreviewHistorySession', updated);
+        this._applySnapshot(getCurrentHistorySnapshot(updated)); // core/edit-history.js
+    },
+
+    handleRedoClick() {
+        const session = appState.get('videoPreviewHistorySession');
+        if (!canRedoHistory(session)) return; // core/edit-history.js
+        const updated = redoHistory(session); // core/edit-history.js
+        appState.set('videoPreviewHistorySession', updated);
+        this._applySnapshot(getCurrentHistorySnapshot(updated)); // core/edit-history.js
+    },
+
+    // ===================== Trích xuất ảnh =====================
 
     async handleExtractFrame() {
         const sourceCanvas = captureVideoFrameToCanvas(this._modalHandle.videoEl); // core/video-editor/frame-extract.js
@@ -308,31 +436,37 @@ const workflowVideoPreview = {
         if (!blob) { await alertModal(t('videoPreview.extractFrame.failed')); return; }
         const thumbBlob = await buildExtractedPhotoThumbnail(sourceCanvas, 0.2); // core/video-editor/frame-extract.js
         const filename = `${buildExtractedPhotoFilename()}.jpg`; // core/video-editor/frame-extract.js
-        await saveImage(blob, filename, thumbBlob, sourceCanvas.width, sourceCanvas.height); // core/file-manager/image.js
+        saveImage(blob, filename, thumbBlob, sourceCanvas.width, sourceCanvas.height); // core/file-manager/image.js
         await alertModal(t('videoPreview.extractFrame.success'));
     },
 
-    // ===================== Lưu (dropdown Lưu đè/Lưu mới) =====================
+    // ===================== Lưu =====================
 
     /** @param {HTMLElement} anchorEl */
     handleSaveClick(anchorEl) {
         openDropdownMenu(anchorEl, [ // core/dropdown-menu.js
-            { icon: _videoPreviewIcon('overwrite'), name: t('videoPreview.save.overwrite'), callback: () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.saveOverwrite.click', payload: {} }) },
-            { icon: _videoPreviewIcon('saveAsNew'), name: t('videoPreview.save.asNew'), callback: () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.saveAsNew.click', payload: {} }) },
+            { icon: _svgIcon('M4 7h16M9 7V4h6v3m-7 0v13a1 1 0 001 1h8a1 1 0 001-1V7H7z'), name: t('videoPreview.save.overwrite'), callback: () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.saveOverwrite.click', payload: {} }) },
+            { icon: _svgIcon('M8 16V5a1 1 0 011-1h9a1 1 0 011 1v9a1 1 0 01-1 1H9M8 16H5a1 1 0 01-1-1V6a1 1 0 011-1h3m0 11v3a1 1 0 001 1h9a1 1 0 001-1v-9a1 1 0 00-1-1h-3'), name: t('videoPreview.save.asNew'), callback: () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.saveAsNew.click', payload: {} }) },
         ], { zIndex: Z_INDEX.VIDEO_PREVIEW_MENU }); // service/z-index.js
     },
 
-    /** Quy đổi `session.rect` hiện tại ra tỉ lệ 0-1 — trả `null` nếu ĐÚNG bằng full-frame (chưa
-     * chỉnh gì, kể cả trường hợp mặc định `padRatio:0` lúc mở modal) để `processVideo()` nhận biết
-     * "không crop" (guard clause bỏ qua bước decode/re-encode nếu mọi thứ khác cũng không đổi). */
+    /** Quy đổi crop rect + zoom/pan hiện tại ra 1 rect nguồn DUY NHẤT (fraction 0-1) — GIẢ ĐỊNH cần
+     * kiểm chứng thật trên thiết bị (dấu/hệ quy chiếu `pan()` của Panzoom): rect (toạ độ px nguồn,
+     * TRƯỚC zoom) hợp với nghịch đảo scale/pan để ra vùng nguồn thật đang hiển thị.
+     * @returns {{x:number,y:number,w:number,h:number}|null} null nếu không crop/zoom gì (full-frame). */
     _computeCropFraction() {
-        const session = appState.get('videoPreviewCropSession');
-        if (!session) return null;
-        const rect = getCropSessionRect(session); // core/crop-selector.js
+        const cropSession = appState.get('videoPreviewCropSession');
+        const zoomPanSession = appState.get('videoPreviewZoomPanSession');
+        const rect = getCropSessionRect(cropSession); // core/crop-selector.js
+        const { scale, x, y } = getPanzoomState(zoomPanSession); // core/image-zoom.js
         const w = appState.get('videoPreviewNativeW'), h = appState.get('videoPreviewNativeH');
+
         const isFullFrame = rect.x <= 0 && rect.y <= 0 && rect.w >= w && rect.h >= h;
-        if (isFullFrame) return null;
-        return { x: rect.x / w, y: rect.y / h, w: rect.w / w, h: rect.h / h };
+        if (isFullFrame && scale === 1 && x === 0 && y === 0) return null;
+
+        const finalW = rect.w / scale, finalH = rect.h / scale;
+        const finalX = rect.x - x / scale, finalY = rect.y - y / scale;
+        return { x: finalX / w, y: finalY / h, w: finalW / w, h: finalH / h };
     },
 
     _buildProcessParams() {
@@ -357,7 +491,7 @@ const workflowVideoPreview = {
     async _buildThumbForBlob(blob) {
         const tmp = document.createElement('video');
         tmp.muted = true;
-        tmp.src = URL.createObjectURL(blob);
+        tmp.src = createBlobUrl(blob); // service/blob-url.js
         await new Promise((resolve) => { tmp.addEventListener('loadeddata', resolve, { once: true }); });
         const canvas = document.createElement('canvas');
         canvas.width = tmp.videoWidth; canvas.height = tmp.videoHeight;
@@ -372,7 +506,7 @@ const workflowVideoPreview = {
             const blob = await processVideo(this._buildProcessParams()); // core/video-editor/webcodecs-engine.js
             const { thumbBlob, width, height, duration } = await this._buildThumbForBlob(blob);
             const record = appState.get('videoPreviewRecord');
-            await setVideoRecord(appState.get('videoPreviewVideoKey'), { blob, thumbBlob, width, height, duration, filename: record.filename, addedAt: record.addedAt }); // service/db.js
+            setVideoRecord(appState.get('videoPreviewVideoKey'), { blob, thumbBlob, width, height, duration, filename: record.filename, addedAt: record.addedAt }); // service/db.js
             appState.set('videoPreviewHasUnsavedChanges', false);
             await alertModal(t('videoPreview.save.success'));
         } catch (err) {
@@ -387,7 +521,7 @@ const workflowVideoPreview = {
             const blob = await processVideo(this._buildProcessParams()); // core/video-editor/webcodecs-engine.js
             const filename = this._buildNewFilename();
             const { thumbBlob, width, height, duration } = await this._buildThumbForBlob(blob);
-            await saveVideo(blob, filename, thumbBlob, width, height, duration); // core/file-manager/video.js
+            saveVideo(blob, filename, thumbBlob, width, height, duration); // core/file-manager/video.js
             appState.set('videoPreviewHasUnsavedChanges', false);
             await alertModal(t('videoPreview.save.success'));
         } catch (err) {
@@ -411,11 +545,17 @@ const workflowVideoPreview = {
     },
 
     _reallyClose() {
+        const zoomPanSession = appState.get('videoPreviewZoomPanSession');
+        if (zoomPanSession) destroyPanzoomSession(zoomPanSession); // core/image-zoom.js
         if (this._modalHandle) { this._modalHandle.close(); this._modalHandle = null; }
         appState.set('videoPreviewVideoKey', null);
         appState.set('videoPreviewRecord', null);
         appState.set('videoPreviewCropSession', null);
         appState.set('videoPreviewActiveDrag', null);
         appState.set('videoPreviewFilmstripFrames', []);
+        appState.set('videoPreviewCropVisible', false);
+        appState.set('videoPreviewZoomPanSession', null);
+        appState.set('videoPreviewHistorySession', null);
+        appState.set('videoPreviewIsPlaying', false);
     },
 };
