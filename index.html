@@ -254,7 +254,7 @@
          file local của project (CSS/JS riêng), KHÔNG đụng tới các thư viện CDN bên thứ 3 ở trên —
          những file đó đã tự có version riêng trong URL (@6, @4, r128, 3.9.5...) nên cache của
          chúng không liên quan tới cache "cứng đầu" của riêng project trên GitHub Pages. -->
-    <link rel="stylesheet" href="assets/css/style.css?v=20260731v2">
+    <link rel="stylesheet" href="assets/css/style.css?v=20260803v1">
     <!-- Batch 8, ver 12 "Multi Media" — file CSS TÁCH RIÊNG THEO DOMAIN đầu tiên của project (xem
          comment đầu file) — Slideshow nền Visual (2 lớp ảnh xen kẽ + 13 kiểu transition). -->
     <link rel="stylesheet" href="assets/css/slideshow.css?v=20260703v2">
@@ -328,7 +328,7 @@
             được bình thường ở đây dù db.js nạp sau — JS không resolve tham chiếu lúc định nghĩa
             hàm, chỉ lúc hàm thực sự được GỌI (luôn sau khi người dùng tương tác, lúc đó toàn bộ
             trang đã nạp xong từ lâu). Xem comment đầu file /lang/lang.js để biết đầy đủ kiến trúc. -->
-    <script src="lang/patch/patch-common.js?v=20260731v1"></script>
+    <script src="lang/patch/patch-common.js?v=20260803v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260728v2"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260721v1"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260720v1"></script>
@@ -341,7 +341,7 @@
     <!-- MỚI ("Song/Video Unification" v12, gộp Video Editor vào Modal xem Video) — modal xem Video
          mới sống NGAY trong trang này (KHÔNG còn trang riêng video-editor.html, ĐÃ XOÁ), xem
          lang/lang.js. -->
-    <script src="lang/patch/patch-video-preview.js?v=20260802v1"></script>
+    <script src="lang/patch/patch-video-preview.js?v=20260803v1"></script>
     <script src="lang/lang.js?v=20260731v1"></script>
 
     <!-- =====================================================================
@@ -399,6 +399,11 @@
          CŨ (ĐÃ XOÁ — xoá tay nếu còn sót trên máy). items.js (mục 3) ĐỘC LẬP với Generic Drawer
          (xem docstring đầu file) nhưng đặt cạnh nhau cho dễ đọc. -->
     <script src="components/generic-drawer.js?v=20260714v2"></script>
+    <!-- MỚI (03/08/2026) — khung tĩnh modal xem/sửa Video (Rule 5d, readme/core-function-
+         conventions.md) — CHỈ chuỗi HTML (TPL_VIDEO_PREVIEW), không addEventListener. Đặt cạnh
+         generic-drawer.js (cùng vai trò "component tĩnh"), dù bản thân được clone MỖI LẦN MỞ
+         (core/file-manager/video-ui.js) chứ không mount 1 lần lúc boot như generic-drawer.js. -->
+    <script src="components/video-preview.js?v=20260803v1"></script>
     <script src="components/items.js?v=20260728v1"></script>
     <!-- Visualizer/Subtitle Settings Drawer (ver 8 refine, mục 3) — cùng pattern navigation
          stack với About/Storage Drawer, mở chồng lên #drawer-settings. -->
@@ -435,6 +440,11 @@
          hay task-manager.js (chỉ dùng document.* sẵn có toàn cục + t()/tFormat() đã nạp từ
          lang/lang.js ở rất sớm) nên an toàn khi đứng trước toàn bộ nhóm core/ còn lại. -->
     <script src="core/modal-choice.js?v=20260625v9"></script>
+    <!-- MỚI (03/08/2026) — Undo/Redo PHỔ QUÁT (Rule 3, readme/core-function-conventions.md), không
+         biết gì về nghiệp vụ cụ thể (video/crop/...) — zero-dependency (chỉ thao tác mảng/object
+         thuần), an toàn đứng cạnh modal-choice.js dù nơi dùng ĐẦU TIÊN là Video Preview (nạp ở
+         nhóm CORE chung này, không dính riêng module nào, đúng bản chất "core dùng chung"). -->
+    <script src="core/edit-history.js?v=20260803v1"></script>
     <!-- MỚI (18/07/2026) — openTimePickerModal() dùng chung (Subtitle Editor + Slideshow interval
          picker, xem docstring đầu file) — CHỈ phụ thuộc t() (lang/lang.js, đã nạp SỚM ở trên),
          KHÔNG đụng DOM tĩnh/appState/eventBus nào khác — an toàn đứng ngay sau modal-choice.js. -->
@@ -483,7 +493,7 @@
     <script src="service/state/generic-drawer.js?v=20260725v1"></script>
     <!-- THAY service/state/video-editor.js (ĐÃ XOÁ cùng video-editor.html — "Song/Video
          Unification" v12, gộp vào Modal xem Video). -->
-    <script src="service/state/video-preview.js?v=20260802v1"></script>
+    <script src="service/state/video-preview.js?v=20260803v1"></script>
     <!-- service/state/record/index.js — đăng ký account 'player' (thay đoạn <script> inline cũ)
          — xem service/state/record/index.js. -->
     <script src="service/state/record/index.js?v=20260725v1"></script>
@@ -532,6 +542,14 @@
     <script src="service/task-manager.js?v=20260720v1"></script>
     <!-- service/db.js — CHUYỂN từ `core/db.js` cùng lý do trên (dịch vụ hạ tầng IndexedDB thuần). -->
     <script src="service/db.js?v=20260711v1"></script>
+    <!-- MỚI (03/08/2026) — 2 hạ tầng dùng CHUNG, KHÔNG thuộc riêng module nào (Rule 3b, readme/
+         core-function-conventions.md) — đặt cạnh service/db.js đúng vai trò "service/", không tách
+         nhóm theo nơi dùng đầu tiên (Video Preview chỉ là nơi dùng ĐẦU TIÊN, không phải chủ sở
+         hữu). component-dynamic.js: clone template (components/*.js) + điền slot. blob-url.js:
+         tạo/thu hồi Object URL cho Blob. Cả 2 zero-dependency (chỉ dùng API built-in), an toàn nạp
+         sớm ngay đây. -->
+    <script src="service/component-dynamic.js?v=20260803v1"></script>
+    <script src="service/blob-url.js?v=20260803v1"></script>
     <!-- MỚI (10/07/2026) — TÁCH RIÊNG khỏi service/db.js (phản hồi Giang: db.js chỉ nên thuần
          IndexedDB, cipher không phải I/O). Dùng ở CẢ index.html LẪN subtitle-editor.html. -->
     <script src="service/song-key-cipher.js?v=20260710v1"></script>
@@ -593,7 +611,7 @@
          core/file-manager/video-ui.js ĐÃ XOÁ HẲN (Batch 6, mục 6d, phản hồi Giang — modal "Chi
          tiết" riêng nó từng chứa đã bỏ, dùng chung modal Playlist đã video-aware). -->
     <script src="core/file-manager/video.js?v=20260728v2"></script>
-    <script src="core/file-manager/video-ui.js?v=20260731v1"></script>
+    <script src="core/file-manager/video-ui.js?v=20260803v1"></script>
     <!-- Tool migration thumbnail 320x320 (tools/migrate-video-thumbs-320.js, Batch 3) — Giang xác
          nhận đã chạy xong tốt, ĐÃ XOÁ (batch 4, 27/07/2026): dòng <script> này + file
          tools/migrate-video-thumbs-320.js (xoá tay thủ công, xem thông báo bàn giao). -->
@@ -607,6 +625,11 @@
          playlist/image-edit/slideshow), gộp về 1 chỗ. NẠP NGAY SAU core/generic-drawer.js, TRƯỚC
          mọi Workflow ở dưới có dùng tới. -->
     <script src="event/workflow/generic-drawer-helpers.js?v=20260731v2"></script>
+    <!-- MỚI (03/08/2026) — dải tỉ lệ Crop dùng CHUNG (hiện Video Preview dùng, Photo Edit sẵn sàng
+         dùng sau nếu thêm dải tỉ lệ) — CẦN core/crop-selector.js (đã nạp ở nhóm CORE, dòng ~578,
+         TRƯỚC dòng này). Đặt cạnh generic-drawer-helpers.js, cùng vai trò "Workflow helper dùng
+         chung nhiều domain". -->
+    <script src="event/workflow/crop-ratio-helpers.js?v=20260803v1"></script>
     <!-- MỚI (rewrite Photo/Album, Giang yêu cầu tách dropdown menu 3 chấm để tái dùng) — component
          dùng CHUNG cho mọi nút "..." cần menu ngắn neo cạnh nút (KHÁC Generic Drawer — bottom sheet
          toàn màn hình). Áp dụng đầu tiên cho Album List (event/workflow/file-manager-photo.js). -->
@@ -913,8 +936,8 @@
          core/file-manager/video-ui.js/core/crop-selector.js/core/video-editor/
          {compat-guard,webcodecs-engine,filmstrip,frame-extract}.js/core/file-manager/video.js
          (đã nạp ở nhóm CORE) + service/state/video-preview.js (đã nạp ở nhóm STATE). -->
-    <script src="event/workflow/video-preview.js?v=20260802v1"></script>
-    <script src="event/router/video-preview.js?v=20260802v1"></script>
+    <script src="event/workflow/video-preview.js?v=20260803v1"></script>
+    <script src="event/router/video-preview.js?v=20260803v1"></script>
     <script src="event/listener/video-preview.js?v=20260802v1"></script>
     <!-- workflowFileManagerDocument CẦN tồn tại trước khi router gọi tới. Batch D7 (06/07/2026):
          panel Document push/pop động — CẦN core/settings-panel-stack-ui.js (đã nạp ở nhóm CORE).
