@@ -140,13 +140,16 @@ const workflowVideoPreview = {
         if (!this._modalHandle) return; // guard: modal đã đóng trước khi trích xong
         appState.set('videoPreviewFilmstripFrames', frames);
 
-        const trackEl = this._modalHandle.filmstripTrackEl;
-        const firstStaticChild = this._modalHandle.dimLeftEl; // con TĨNH đầu tiên trong track (components/video-preview.js)
+        // #video-preview-filmstrip-frames TÁCH RIÊNG khỏi #video-preview-filmstrip-track (SỬA
+        // 04/08/2026) — track không còn overflow:hidden nên 2 tay cầm ở 0%/100% không bị cắt mất
+        // nửa; container riêng này mới overflow:hidden để bo góc ảnh nền.
+        const framesEl = this._modalHandle.filmstripFramesEl;
+        framesEl.innerHTML = '';
         frames.forEach(({ blob }) => {
             const cell = document.createElement('div');
-            cell.className = 'video-preview-filmstrip-frame'; // class RIÊNG cho khung hình nền — SỬA bug CSS cũ (`> div` áp nhầm lên cả tay cầm/dim)
+            cell.className = 'video-preview-filmstrip-frame';
             if (blob) cell.style.backgroundImage = `url(${createBlobUrl(blob)})`; // service/blob-url.js — KHÔNG revoke, sống cùng vòng đời modal
-            trackEl.insertBefore(cell, firstStaticChild);
+            framesEl.appendChild(cell);
         });
     },
 
@@ -247,8 +250,29 @@ const workflowVideoPreview = {
         appState.set('videoPreviewIsPlaying', false);
         this._modalHandle.cropLayerEl.classList.add('is-visible');
         this._modalHandle.cropToggleBtn.classList.add('is-active');
+        this._modalHandle.toolsGroupEl.classList.add('is-hidden'); // hoán đổi trong CÙNG hàng toolbar (mục 4, phản hồi Giang)
+        this._modalHandle.ratioGroupEl.classList.add('is-visible');
+        this._syncCropCanvasBox();
         this._drawCropOverlay();
         this._renderRatioButtonsActiveState();
+    },
+
+    /** Đo hộp `<video>` THẬT (đã canh giữa bằng `object-contain`) rồi đặt CSS `cropCanvasEl` khớp
+     * TUYỆT ĐỐI theo đúng hộp đó — SỬA (04/08/2026) lỗi `absolute` + flex cha không tương thích
+     * khiến canvas lệch khỏi video (xem docstring components/video-preview.js). Gọi lại mỗi lần
+     * vào Crop — CHƯA xử lý resize/xoay màn hình giữa chừng (nợ kỹ thuật nhỏ, ít gặp trên mobile
+     * PWA đang mở modal). */
+    _syncCropCanvasBox() {
+        const videoEl = this._modalHandle.videoEl;
+        const wrapEl = this._modalHandle.mediaWrapEl;
+        const canvas = this._modalHandle.cropCanvasEl;
+        const videoRect = videoEl.getBoundingClientRect();
+        const wrapRect = wrapEl.getBoundingClientRect();
+        canvas.style.position = 'absolute';
+        canvas.style.left = `${videoRect.left - wrapRect.left}px`;
+        canvas.style.top = `${videoRect.top - wrapRect.top}px`;
+        canvas.style.width = `${videoRect.width}px`;
+        canvas.style.height = `${videoRect.height}px`;
     },
 
     _promptExitCropVisible() {
@@ -270,6 +294,8 @@ const workflowVideoPreview = {
         appState.set('videoPreviewCropVisible', false);
         this._modalHandle.cropLayerEl.classList.remove('is-visible');
         this._modalHandle.cropToggleBtn.classList.remove('is-active');
+        this._modalHandle.toolsGroupEl.classList.remove('is-hidden');
+        this._modalHandle.ratioGroupEl.classList.remove('is-visible');
     },
 
     // ===================== Crop: tỉ lệ + kéo khung =====================
