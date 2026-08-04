@@ -244,7 +244,7 @@
     <script src="https://cdn.jsdelivr.net/npm/flickr-justified-gallery@2.1/dist/fjGallery.min.js"></script>
 
     <!-- MỚI (31/07/2026) — Panzoom (timmywil), pan/pinch-zoom cho modal xem ảnh Photo (Zoom mode,
-         xem core/image-zoom.js + event/workflow/file-manager-photo.js). ~3.7kb, KHÔNG cần CSS riêng
+         xem core/media-transform.js + event/workflow/file-manager-photo.js). ~3.7kb, KHÔNG cần CSS riêng
          (thuần CSS transform), dùng Pointer Events mặc định — không tự vẽ toolbar/UI gì (khác
          Viewer.js), chỉ đúng phần cơ chế, khớp modal đã tự vẽ UI riêng sẵn. -->
     <script src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.6.2/dist/panzoom.min.js"></script>
@@ -581,19 +581,19 @@
     <script src="core/file-manager/image.js?v=20260731v2"></script>
     <script src="core/file-manager/album.js?v=20260703v1"></script>
     <script src="core/file-manager/photo-ui.js?v=20260731v9"></script>
-    <!-- MỚI (31/07/2026) — Zoom mode modal xem ảnh. Core thuần bọc Panzoom (CDN, đã nạp ở <head>),
-         xem core/image-zoom.js. Không phụ thuộc image.js/album.js/photo-ui.js (Rule 3 — chỉ gọi
-         Panzoom), gom cạnh đây cho dễ đọc theo cụm Photo & Album. -->
-    <script src="core/image-zoom.js?v=20260731v2"></script>
+    <!-- MỚI (04/08/2026) — Zoom mode modal xem ảnh dùng core/media-transform.js (gộp crop-selector.js
+         + image-zoom.js, xem comment đầy đủ ở vị trí nạp bên dưới, cùng cụm Video Preview). -->
     <!-- MỚI (31/07/2026) — Edit mode modal xem ảnh. Core thuần xử lý pixel (decode/adjust/sharpen),
          port từ prototype "Lumina Pro" Giang cung cấp — CHỈ phần Engine, không lấy UI, xem
-         core/photo-editor-engine.js. Cùng lý do gom cạnh đây như core/image-zoom.js. -->
+         core/photo-editor-engine.js. Cùng lý do gom cạnh đây như core/media-transform.js. -->
     <script src="core/photo-editor-engine.js?v=20260731v2"></script>
-    <!-- MỚI (31/07/2026) — cơ chế chọn vùng crop tương tác DÙNG CHUNG Photo Edit mode + modal xem
-         Video (core/file-manager/video-ui.js::openVideoPreviewModal() — THAY video-editor.html đã
-         xoá, "Song/Video Unification" v12, CẢ 2 giờ cùng sống trong trang này) — xem core/crop-
-         selector.js, thay Cropper.js cho cả 2 nơi (cropper-engine.js chỉ còn image-edit.html). -->
-    <script src="core/crop-selector.js?v=20260731v2"></script>
+    <!-- GỘP (04/08/2026, phản hồi Giang "gộp crop, zoompan vào 1 file core, workflow chung nhất")
+         core/crop-selector.js + core/image-zoom.js + cycleRotation() mới → core/media-transform.js
+         — DÙNG CHUNG Photo Edit mode (event/workflow/file-manager-photo.js) + Zoom mode xem Ảnh +
+         modal xem Video (core/file-manager/video-ui.js::openVideoPreviewModal(),
+         event/workflow/video-preview.js). Tên hàm giữ nguyên như 2 file cũ, nơi gọi không cần sửa
+         gì ngoài đường dẫn <script> này. -->
+    <script src="core/media-transform.js?v=20260804v1"></script>
     <!-- MỚI ("Song/Video Unification" v12) — 4 core của Video Editor NLE cũ (video-editor.html,
          ĐÃ XOÁ) GIỮ LẠI để dùng cho modal xem Video mới (core/file-manager/video-ui.js::
          openVideoPreviewModal(), event/workflow/video-preview.js) — Cắt 1 đoạn/Crop/Rotate/Trích
@@ -625,11 +625,11 @@
          playlist/image-edit/slideshow), gộp về 1 chỗ. NẠP NGAY SAU core/generic-drawer.js, TRƯỚC
          mọi Workflow ở dưới có dùng tới. -->
     <script src="event/workflow/generic-drawer-helpers.js?v=20260731v2"></script>
-    <!-- MỚI (03/08/2026) — dải tỉ lệ Crop dùng CHUNG (hiện Video Preview dùng, Photo Edit sẵn sàng
-         dùng sau nếu thêm dải tỉ lệ) — CẦN core/crop-selector.js (đã nạp ở nhóm CORE, dòng ~578,
-         TRƯỚC dòng này). Đặt cạnh generic-drawer-helpers.js, cùng vai trò "Workflow helper dùng
-         chung nhiều domain". -->
-    <script src="event/workflow/crop-ratio-helpers.js?v=20260803v1"></script>
+    <!-- ĐỔI TÊN (04/08/2026) từ event/workflow/crop-ratio-helpers.js, khớp core/media-transform.js
+         (dải tỉ lệ Crop dùng CHUNG — hiện Video Preview dùng, Photo Edit sẵn sàng dùng sau nếu thêm
+         dải tỉ lệ) — CẦN core/media-transform.js (đã nạp ở nhóm CORE, dòng ~578, TRƯỚC dòng này).
+         Đặt cạnh generic-drawer-helpers.js, cùng vai trò "Workflow helper dùng chung nhiều domain". -->
+    <script src="event/workflow/media-transform-helpers.js?v=20260804v1"></script>
     <!-- MỚI (rewrite Photo/Album, Giang yêu cầu tách dropdown menu 3 chấm để tái dùng) — component
          dùng CHUNG cho mọi nút "..." cần menu ngắn neo cạnh nút (KHÁC Generic Drawer — bottom sheet
          toàn màn hình). Áp dụng đầu tiên cho Album List (event/workflow/file-manager-photo.js). -->
@@ -910,7 +910,7 @@
     <script src="event/listener/file-manager-photo.js?v=20260718v1"></script>
     <!-- TÁCH RA (31/07/2026, yêu cầu Giang) — cụm "imageEdit", Edit mode của modal xem ảnh Photo
          (trước đây sống chung trong file-manager-photo.js). CẦN workflowFileManagerPhoto (3 khe đọc
-         handle/imageKey/albumId) + core/photo-editor-engine.js/core/crop-selector.js/core/generic-
+         handle/imageKey/albumId) + core/photo-editor-engine.js/core/media-transform.js/core/generic-
          drawer.js/service/z-index.js (đã nạp ở nhóm CORE). -->
     <script src="event/workflow/image-edit.js?v=20260731v5"></script>
     <script src="event/router/image-edit.js?v=20260731v5"></script>
@@ -933,7 +933,7 @@
          đa track, ĐÃ XOÁ HẲN cùng video-editor.html). `workflowPlaylist.
          navigateToActiveMenuVideoEdit()` (menu 3 chấm Playlist) gọi THẲNG `workflowVideoPreview.
          open()` ở đây (không qua tầng trung gian nào) thay vì điều hướng trang — CẦN
-         core/file-manager/video-ui.js/core/crop-selector.js/core/video-editor/
+         core/file-manager/video-ui.js/core/media-transform.js/core/video-editor/
          {compat-guard,webcodecs-engine,filmstrip,frame-extract}.js/core/file-manager/video.js
          (đã nạp ở nhóm CORE) + service/state/video-preview.js (đã nạp ở nhóm STATE). -->
     <script src="event/workflow/video-preview.js?v=20260803v1"></script>
