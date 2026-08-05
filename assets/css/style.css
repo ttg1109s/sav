@@ -604,32 +604,18 @@ body {
 
 /* Modal xem/sửa Video (core/file-manager/video-ui.js, components/video-preview.js). */
 
-/* SỬA (04/08/2026, đợt 2) — Header/dải cắt NỔI ĐÈ lên video full màn hình (đúng model "Video 1,
-   Crop 2, Header+dải cắt 3", KHÔNG chia hàng flex như bản trước khiến video bị "khép" giữa 2 khối
-   này). Nền gradient mờ dần để chữ/icon còn đọc được trên nền video bất kỳ. */
-.video-preview-overlay-bar {
-    position: absolute;
-    left: 0;
-    right: 0;
-    z-index: 20;
-}
-.video-preview-overlay-bar-top {
-    top: 0;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
-}
-.video-preview-overlay-bar-bottom {
-    bottom: 0;
-    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
-    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
-}
+/* SỬA (05/08/2026, đợt 4, phản hồi Giang) — BỎ model đè lớp (`.video-preview-overlay-bar*` đã xoá) —
+   header/`#video-preview-filmstrip-wrap` giờ là hàng flex THẬT trong `flex flex-col` của overlay
+   (class Tailwind ngay trong template), KHÔNG còn `position:absolute`/gradient/z-index riêng nữa.
+   Video co lại đúng phần còn lại (`#video-preview-media-wrap` — `flex-1 min-h-0 relative`), 3 vùng
+   không còn đè lên nhau — xem lý do đảo quyết định đợt 2 ở docstring components/video-preview.js. */
 
-/* Lớp Crop (canvas) — ẩn mặc định. `<canvas>` được Workflow đặt width/height/left/top TRỎ THẲNG
-   theo hộp video thật lúc vào Crop (`_syncCropCanvasBox()`) — KHÔNG dùng flex tự canh giữa nữa (lý
-   do: absolute + flex cha không tương thích, xem docstring components/video-preview.js). */
+/* Lớp Crop (canvas) — ẩn mặc định, giờ là CON THẬT của `#video-preview-media-wrap` (trước là sibling
+   đứng ngoài, canh khớp chỉ nhờ trùng `inset:0` tình cờ) — `inset:0` ở đây tính ĐÚNG theo khung chứa
+   video thật, không cần z-index cao hơn header/filmstrip nữa vì không còn ở chung 1 lớp đè nhau. */
 .video-preview-crop-layer {
     position: absolute;
     inset: 0;
-    z-index: 10;
     display: none;
 }
 .video-preview-crop-layer.is-visible {
@@ -659,6 +645,12 @@ body {
 .video-preview-tool-btn.is-active {
     background: #fff;
     color: #000;
+}
+/* Nút Flip khi tỉ lệ đang Tự do/1:1 — vô nghĩa (không có chiều để đảo), khoá hẳn thay vì bấm được mà
+   không đổi gì (mục 3, phản hồi Giang 05/08/2026). */
+.video-preview-tool-btn.is-disabled {
+    opacity: 0.35;
+    pointer-events: none;
 }
 
 /* 2 nhóm HOÁN ĐỔI ngay trong cùng hàng toolbar — bật Crop thì ẩn tools-group, hiện ratio-group. */
