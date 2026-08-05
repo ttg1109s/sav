@@ -3,8 +3,8 @@
  * Đăng ký cùng account 'player' qua service/state/record/index.js (registry('all')). PHẢI nạp SAU
  * service/state.js.
  *
- * `_cropSession`/`_zoomPanSession`/`_historySession` kiểu 'any' — object nội bộ của core/crop-
- * selector.js, core/image-zoom.js, core/edit-history.js, KHÔNG phải dữ liệu nghiệp vụ thuần.
+ * `_cropSession`/`_zoomPanSession` kiểu 'any' — object nội bộ của core/media-transform.js, KHÔNG
+ * phải dữ liệu nghiệp vụ thuần.
  *
  * `videoPreviewCropVisible` — Crop là TOGGLE độc lập, chạy song song Cut (không loại trừ nhau,
  * KHÔNG có khái niệm "toolMode" duy nhất). Bật → hiện dải tỉ lệ + khung crop đè lên video, tạm
@@ -12,6 +12,10 @@
  *
  * KHÔNG có field lưu vị trí phát hiện tại — `videoEl.currentTime` là nguồn thật duy nhất, Workflow
  * đọc trực tiếp từ payload 'videoPreview.video.timeUpdate' (tần suất cao, không phù hợp appState).
+ *
+ * SỬA (05/08/2026, đợt 5, phản hồi Giang mục 1 — "loại bỏ toàn bộ tính năng undo/redo") — bỏ hẳn
+ * `videoPreviewHistorySession` (session core/edit-history.js — file đó giờ KHÔNG còn ai dùng, RÁC,
+ * đề nghị Giang tự xoá). Thêm `videoPreviewFlipH` (mục 4 — nút Lật ngang mới trên toolbar).
  */
 AppState.definePackage('video-preview', {
     schema: {
@@ -23,13 +27,13 @@ AppState.definePackage('video-preview', {
         videoPreviewCutStart: 'number',             // giây, điểm Start đang chọn trên dải phim
         videoPreviewCutEnd: 'number',               // giây, điểm End đang chọn trên dải phim
         videoPreviewRotateDeg: 'number',            // 0/90/180/270
+        videoPreviewFlipH: 'boolean',               // lật ngang (mục 4, phản hồi Giang 05/08/2026)
         videoPreviewHasUnsavedChanges: 'boolean',
         videoPreviewFilmstripFrames: 'array',       // [{timestamp, blob}] từ buildCutFilmstripFrames()
-        videoPreviewCropSession: 'any',             // session core/crop-selector.js, null khi đóng
-        videoPreviewActiveDrag: 'nullable-string',  // 'start' | 'end' | null — đang kéo tay cầm Start/End nào
+        videoPreviewCropSession: 'any',             // session core/media-transform.js, null khi đóng
+        videoPreviewActiveDrag: 'nullable-string',  // 'start' | 'end' | 'seek' | null — đang kéo/tua gì trên dải phim
         videoPreviewCropVisible: 'boolean',         // Crop toggle đang bật hay không
-        videoPreviewZoomPanSession: 'any',          // session core/image-zoom.js, null khi đóng
-        videoPreviewHistorySession: 'any',          // session core/edit-history.js, null khi đóng
+        videoPreviewZoomPanSession: 'any',          // session core/media-transform.js, null khi đóng
         videoPreviewIsPlaying: 'boolean',           // đang phát hay đang pause (tap màn hình để đảo)
     },
     buildDefaults() {
@@ -42,13 +46,13 @@ AppState.definePackage('video-preview', {
             videoPreviewCutStart: 0,
             videoPreviewCutEnd: 0,
             videoPreviewRotateDeg: 0,
+            videoPreviewFlipH: false,
             videoPreviewHasUnsavedChanges: false,
             videoPreviewFilmstripFrames: [],
             videoPreviewCropSession: null,
             videoPreviewActiveDrag: null,
             videoPreviewCropVisible: false,
             videoPreviewZoomPanSession: null,
-            videoPreviewHistorySession: null,
             videoPreviewIsPlaying: false,
         };
     },
