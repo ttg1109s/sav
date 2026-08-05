@@ -22,12 +22,19 @@
  * Rule 2 — không đọc `appState`.
  */
 
-/** Vẽ ĐÚNG 1 khung (VideoSample) vào canvas, áp crop+rotate. @param {CanvasRenderingContext2D} ctx */
-function _drawFrameToCanvas(ctx, sample, cropPx, rotateDeg, outW, outH) {
+/** Vẽ ĐÚNG 1 khung (VideoSample) vào canvas, áp crop+rotate+flip. THỨ TỰ ghép transform khớp preview
+ * LIVE trong modal (`event/workflow/video-preview.js::_getRotateTransform()`, CSS `rotate(deg)
+ * scale(fit) scaleX(-1)`) — Canvas2D compose theo thứ tự GỌI (lệnh gọi trước = áp SAU cùng lên điểm
+ * vẽ), nên gọi `ctx.rotate()` TRƯỚC rồi `ctx.scale(-1,1)` SAU sẽ cho đúng kết quả "lật theo hướng
+ * GỐC video, xoay xảy ra sau" — khớp 1-1 với CSS `rotate(...) scaleX(-1)` (mục 4, phản hồi Giang
+ * 05/08/2026 — trước đó nút Lật ngang hoàn toàn chưa tồn tại, XUẤT file không có gì để áp).
+ * @param {CanvasRenderingContext2D} ctx @param {boolean} flipH */
+function _drawFrameToCanvas(ctx, sample, cropPx, rotateDeg, outW, outH, flipH) {
     ctx.save();
     ctx.clearRect(0, 0, outW, outH);
     ctx.translate(outW / 2, outH / 2);
     ctx.rotate((rotateDeg * Math.PI) / 180);
+    if (flipH) ctx.scale(-1, 1);
     ctx.translate(-cropPx.w / 2, -cropPx.h / 2);
     ctx.translate(-cropPx.x, -cropPx.y);
     sample.draw(ctx, 0, 0);
@@ -64,26 +71,28 @@ async function _buildTrimmedAudioTrack(sourceBlob, cutStart, cutEnd, output) {
 }
 
 /**
- * CỔNG DUY NHẤT xử lý video — cắt 1 đoạn [cutStart,cutEnd) + crop + rotate (toàn cục, áp cho cả
- * đoạn đã cắt). Guard clause trả nguyên `sourceBlob` nếu không có gì thay đổi (không crop/rotate,
- * và cutStart/cutEnd trùng khít toàn bộ video gốc) — tránh decode/encode lại vô ích.
+ * CỔNG DUY NHẤT xử lý video — cắt 1 đoạn [cutStart,cutEnd) + crop + rotate + lật ngang (toàn cục, áp
+ * cho cả đoạn đã cắt). Guard clause trả nguyên `sourceBlob` nếu không có gì thay đổi (không crop/
+ * rotate/lật, và cutStart/cutEnd trùng khít toàn bộ video gốc) — tránh decode/encode lại vô ích.
  * @param {object} params
  * @param {Blob} params.sourceBlob - video gốc.
  * @param {number} params.cutStart @param {number} params.cutEnd - giây, trong hệ toạ độ file gốc.
  * @param {{x,y,w,h}|null} params.cropFraction - tỉ lệ 0-1, null = không crop.
  * @param {number} params.rotateDeg - 0/90/180/270.
+ * @param {boolean} params.flipH - lật ngang (mục 4, phản hồi Giang 05/08/2026).
  * @returns {Promise<Blob>} video mp4 đã xử lý.
  */
-async function processVideo({ sourceBlob, cutStart, cutEnd, cropFraction, rotateDeg }) {
+async function processVideo({ sourceBlob, cutStart, cutEnd, cropFraction, rotateDeg, flipH }) {
     const noCrop = !cropFraction;
     const noRotate = !rotateDeg || rotateDeg % 360 === 0;
+    const noFlip = !flipH;
 
     const input = new Mediabunny.Input({ source: new Mediabunny.BlobSource(sourceBlob), formats: Mediabunny.ALL_FORMATS });
     const videoTrack = await input.getPrimaryVideoTrack();
     if (!videoTrack) throw new Error('[processVideo] file không có track video.');
     const fullSourceDuration = await videoTrack.computeDuration();
     const isFullRange = cutStart <= 0.001 && Math.abs(cutEnd - fullSourceDuration) <= 0.001;
-    if (noCrop && noRotate && isFullRange) return sourceBlob; // guard clause — không có gì để xử lý
+    if (noCrop && noRotate && noFlip && isFullRange) return sourceBlob; // guard clause — không có gì để xử lý
 
     const nativeW = await videoTrack.getDisplayWidth();
     const nativeH = await videoTrack.getDisplayHeight();
@@ -110,7 +119,7 @@ async function processVideo({ sourceBlob, cutStart, cutEnd, cropFraction, rotate
     const sink = new Mediabunny.VideoSampleSink(videoTrack);
     for await (const sample of sink.samples(cutStart, cutEnd)) {
         const outputTime = sample.timestamp - cutStart;
-        _drawFrameToCanvas(ctx, sample, cropPx, deg, outW, outH);
+        _drawFrameToCanvas(ctx, sample, cropPx, deg, outW, outH, flipH);
         await videoSource.add(outputTime, sample.duration);
         if (typeof sample.close === 'function') sample.close();
     }
