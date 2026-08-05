@@ -61,6 +61,7 @@ const workflowVideoPreview = {
     _modalHandle: null,
     _beforeCropSnapshot: null, // snapshot lúc bật Crop — khôi phục nếu bấm Huỷ (KHÁC lịch sử Undo/Redo)
     _resolveMetadataReady: null,
+    _dragResumePlay: false, // SỬA (05/08/2026, mục 6) — nhớ lại video đang play hay pause TRƯỚC khi kéo tay cầm/tua, để nhả tay cầm KHÔNG tự auto-play nếu trước đó đang pause
 
     /** @param {string} videoKey */
     async open(videoKey) {
@@ -173,16 +174,45 @@ const workflowVideoPreview = {
 
     // ===================== Cut: tay cầm Start/End =====================
 
+    /** @param {string} handle - 'start' | 'end' */
     handleTrimDragStart(handle) {
+        this._dragResumePlay = appState.get('videoPreviewIsPlaying'); // nhớ lại TRƯỚC khi pause (mục 6)
         appState.set('videoPreviewActiveDrag', handle);
         this._modalHandle.videoEl.pause();
         appState.set('videoPreviewIsPlaying', false);
+    },
+
+    /** Ấn/tua trong dải phim (NGOÀI 2 tay cầm Start/End) — nhảy playhead tới đó ngay, kéo tiếp thì
+     * tua tiếp (mục 7, phản hồi Giang). Bắn TỪ `filmstripTrackEl` nên bubbling qua CẢ click trên tay
+     * cầm Start/End (do 2 tay cầm là con của track) — Workflow tự đọc `videoPreviewActiveDrag` đã bị
+     * handler của tay cầm (chạy TRƯỚC, cùng sự kiện pointerdown) chiếm chưa để bỏ qua, KHÔNG tua đè.
+     * @param {number} clientX */
+    handleTrimTrackPointerDown(clientX) {
+        if (appState.get('videoPreviewActiveDrag')) return; // tay cầm Start/End đã xử lý trước đó rồi
+        this._dragResumePlay = appState.get('videoPreviewIsPlaying');
+        appState.set('videoPreviewActiveDrag', 'seek');
+        this._modalHandle.videoEl.pause();
+        appState.set('videoPreviewIsPlaying', false);
+        this._seekToClientX(clientX);
+    },
+
+    /** @param {number} clientX */
+    _seekToClientX(clientX) {
+        const duration = appState.get('videoPreviewSourceDuration');
+        const cutStart = appState.get('videoPreviewCutStart'), cutEnd = appState.get('videoPreviewCutEnd');
+        const rect = this._modalHandle.filmstripTrackEl.getBoundingClientRect();
+        const fraction = Math.max(0, Math.min(1, (clientX - rect.left) / (rect.width || 1)));
+        const time = Math.max(cutStart, Math.min(cutEnd, fraction * duration)); // giới hạn trong đoạn đang cắt, khớp hành vi lặp ở handleVideoTimeUpdate
+        this._modalHandle.videoEl.currentTime = time;
+        this._renderPlayheadPosition(time);
     },
 
     /** @param {number} clientX */
     handleTrimDragMove(clientX) {
         const activeDrag = appState.get('videoPreviewActiveDrag');
         if (!activeDrag) return; // bắn liên tục từ document, guard bình thường
+        if (activeDrag === 'seek') { this._seekToClientX(clientX); return; }
+
         const duration = appState.get('videoPreviewSourceDuration');
         const rect = this._modalHandle.filmstripTrackEl.getBoundingClientRect();
         const fraction = Math.max(0, Math.min(1, (clientX - rect.left) / (rect.width || 1)));
@@ -202,12 +232,14 @@ const workflowVideoPreview = {
     },
 
     handleTrimDragEnd() {
-        const wasDragging = !!appState.get('videoPreviewActiveDrag');
+        const activeDrag = appState.get('videoPreviewActiveDrag');
         appState.set('videoPreviewActiveDrag', null);
-        if (!wasDragging) return;
-        this._commitHistory();
-        this._modalHandle.videoEl.play().catch(() => {});
-        appState.set('videoPreviewIsPlaying', true);
+        if (!activeDrag) return;
+        if (activeDrag !== 'seek') this._commitHistory(); // tua thuần không phải thao tác sửa, không đẩy lịch sử Undo/Redo
+        if (this._dragResumePlay) { // CHỈ tự play lại nếu TRƯỚC đó đang play (mục 6 — không còn auto-play mặc định)
+            this._modalHandle.videoEl.play().catch(() => {});
+            appState.set('videoPreviewIsPlaying', true);
+        }
     },
 
     // ===================== Cut: phát/tạm dừng =====================
@@ -258,22 +290,37 @@ const workflowVideoPreview = {
         this._renderRatioButtonsActiveState();
     },
 
-    /** Đo hộp `<video>` THẬT (đã canh giữa bằng `object-contain`) rồi đặt CSS `cropCanvasEl` khớp
-     * TUYỆT ĐỐI theo đúng hộp đó — SỬA (04/08/2026) lỗi `absolute` + flex cha không tương thích
-     * khiến canvas lệch khỏi video (xem docstring components/video-preview.js). Gọi lại mỗi lần
-     * vào Crop — CHƯA xử lý resize/xoay màn hình giữa chừng (nợ kỹ thuật nhỏ, ít gặp trên mobile
-     * PWA đang mở modal). */
+    /** Tính lại + đặt CSS `cropCanvasEl` khớp TUYỆT ĐỐI vùng ảnh THẬT đang hiển thị của `<video
+     * object-contain>` (không phải khung layout của nó).
+     *
+     * SỬA (05/08/2026, phản hồi Giang đợt 4) — BUG THẬT #2 trong 2 bug độc lập với layout (Giang chỉ
+     * ra: chọn tỉ lệ co nhỏ nằm giữa màn hình, cách xa header/dải cắt, vẫn không kéo được — tức
+     * KHÔNG PHẢI do chồng lấn). Bản CŨ dùng thẳng `videoEl.getBoundingClientRect()` — SAI, vì
+     * `object-contain` KHÔNG đổi kích thước layout của phần tử, chỉ đổi cách ảnh VẼ BÊN TRONG khung
+     * đó — `getBoundingClientRect()` trả về khung LAYOUT (ở đây luôn bằng `mediaWrapEl` do class
+     * `w-full h-full`), KHÔNG trừ phần letterbox đen 2 bên/trên-dưới khi tỉ lệ video khác tỉ lệ
+     * container. Canvas vì vậy có thể bị đặt to/lệch hơn vùng pixel video thật đang hiển thị, khiến
+     * phép quy đổi toạ độ ở `_toCropCanvasCoords()` (dựa 1 hệ số `scale` DUY NHẤT theo bề rộng) sai
+     * theo trục còn lại — tự tính lại bằng công thức `object-contain` chuẩn (so khung chứa với tỉ lệ
+     * native W/H) thay vì tin `getBoundingClientRect()` của chính `<video>`.
+     *
+     * Gọi lại mỗi lần vào Crop — CHƯA xử lý resize/xoay màn hình giữa chừng (nợ kỹ thuật nhỏ, ít gặp
+     * trên mobile PWA đang mở modal) — CŨNG CHƯA xử lý trường hợp `videoPreviewRotateDeg != 0` (đang
+     * xoay live-preview) lúc vào Crop, xem `_renderRotatePreview()`, cần bàn riêng với Giang. */
     _syncCropCanvasBox() {
-        const videoEl = this._modalHandle.videoEl;
-        const wrapEl = this._modalHandle.mediaWrapEl;
+        const w = appState.get('videoPreviewNativeW'), h = appState.get('videoPreviewNativeH');
         const canvas = this._modalHandle.cropCanvasEl;
-        const videoRect = videoEl.getBoundingClientRect();
-        const wrapRect = wrapEl.getBoundingClientRect();
+        const wrapRect = this._modalHandle.mediaWrapEl.getBoundingClientRect();
+        const containerRatio = wrapRect.width / (wrapRect.height || 1);
+        const videoRatio = w / (h || 1);
+        let boxW, boxH;
+        if (videoRatio > containerRatio) { boxW = wrapRect.width; boxH = boxW / videoRatio; } // video "nằm ngang" hơn container — khít theo bề rộng, letterbox trên/dưới
+        else { boxH = wrapRect.height; boxW = boxH * videoRatio; } // video "đứng" hơn container — khít theo chiều cao, letterbox 2 bên
         canvas.style.position = 'absolute';
-        canvas.style.left = `${videoRect.left - wrapRect.left}px`;
-        canvas.style.top = `${videoRect.top - wrapRect.top}px`;
-        canvas.style.width = `${videoRect.width}px`;
-        canvas.style.height = `${videoRect.height}px`;
+        canvas.style.left = `${(wrapRect.width - boxW) / 2}px`;
+        canvas.style.top = `${(wrapRect.height - boxH) / 2}px`;
+        canvas.style.width = `${boxW}px`;
+        canvas.style.height = `${boxH}px`;
     },
 
     _promptExitCropVisible() {
@@ -322,6 +369,11 @@ const workflowVideoPreview = {
             const matches = Number.isNaN(ratio) ? Number.isNaN(session.aspectRatio) : ratio === session.aspectRatio;
             btn.classList.toggle('is-active', matches);
         });
+        // Flip vô nghĩa với Tự do/1:1 (workflowMediaTransformHelpers.applyFlip() cũng guard clause y hệt,
+        // xem event/workflow/media-transform-helpers.js) — mục 3, phản hồi Giang: TRƯỚC ĐÓ nút vẫn bấm
+        // được bình thường nhưng không đổi gì, nhìn như lỗi "không kích hoạt gì" — giờ khoá + làm mờ hẳn.
+        const flipDisabled = Number.isNaN(session.aspectRatio) || session.aspectRatio === 1;
+        this._modalHandle.ratioFlipBtn.classList.toggle('is-disabled', flipDisabled);
     },
 
     /** Quy đổi toạ độ màn hình -> toạ độ canvas (px nguồn) — dùng chung cho pointerDown/Move VÀ
@@ -334,7 +386,17 @@ const workflowVideoPreview = {
         return { x: (clientX - rect.left) * scale, y: (clientY - rect.top) * scale };
     },
 
-    /** @param {number} clientX @param {number} clientY */
+    /** SỬA (05/08/2026, phản hồi Giang đợt 4) — BUG THẬT #1 trong 2 bug độc lập với layout: trước đó
+     * `pointermove`/`pointerup` chỉ lắng nghe TRÊN CHÍNH `cropCanvasEl` (docstring cũ tự nhận "canvas
+     * phủ kín preview nên không cần theo dõi qua `document`, giống `interactCanvas` core/file-manager/
+     * photo-ui.js") — SAI: canvas chỉ khớp đúng vùng ảnh THẬT của video (`_syncCropCanvasBox()`), có
+     * thể nhỏ hơn màn hình nhiều tuỳ tỉ lệ, ngón tay chỉ cần trượt ra khỏi biên canvas 1 chút giữa
+     * chừng là MẤT DẤU hoàn toàn (không có `setPointerCapture`) — ĐÚNG lý do 2 tay cầm Start/End đã
+     * theo dõi qua `document` từ trước (xem event/listener/video-preview.js), Crop lại KHÔNG được áp
+     * dụng cùng lý do đó dù cùng bản chất. Giờ `pointerdown` vẫn ở canvas (cần biết chạm khởi điểm có
+     * trúng khung/tay cầm hay không), `pointermove`/`pointerup` chuyển hẳn sang `document` — xem
+     * event/listener/video-preview.js.
+     * @param {number} clientX @param {number} clientY */
     handleCropCanvasPointerDown(clientX, clientY) {
         const session = appState.get('videoPreviewCropSession');
         const canvas = this._modalHandle.cropCanvasEl;
@@ -390,7 +452,28 @@ const workflowVideoPreview = {
     /** Xoay tới góc kế tiếp (0→90→180→270→0...) — nút DUY NHẤT, không còn tách trái/phải. */
     handleRotateClick() {
         appState.set('videoPreviewRotateDeg', cycleRotation(appState.get('videoPreviewRotateDeg'))); // core/media-transform.js
+        this._renderRotatePreview(); // SỬA (05/08/2026, mục 3) — TRƯỚC ĐÓ chỉ đổi appState, không có phản hồi hình ảnh gì trong modal (rotateDeg chỉ được webcodecs-engine.js đọc lúc XUẤT file) — bấm nút nhìn như "không kích hoạt gì"
         this._commitHistory();
+    },
+
+    /** Áp CSS xoay LIVE lên `<video>` ngay trong modal (mục 3 — trước đây bấm Xoay không thấy gì đổi
+     * cho tới khi Lưu/mở lại). 90°/270° cần `scale()` bù lại vì `object-contain` đã tính khít theo
+     * W×H GỐC (chưa xoay) — không bù thì video xoay ngang sẽ tràn ra ngoài `mediaWrapEl` hoặc bé tí.
+     * NỢ KỸ THUẬT đã biết, CHƯA xử lý: khung Crop (`_syncCropCanvasBox`/toạ độ) chưa tính tới
+     * trường hợp video đang xoay — vào Crop khi rotateDeg != 0 có thể lệch, cần bàn riêng với Giang. */
+    _renderRotatePreview() {
+        const deg = appState.get('videoPreviewRotateDeg');
+        const videoEl = this._modalHandle.videoEl;
+        if (deg === 0) { videoEl.style.transform = ''; return; }
+        if (deg === 90 || deg === 270) {
+            const w = appState.get('videoPreviewNativeW'), h = appState.get('videoPreviewNativeH');
+            const wrapRect = this._modalHandle.mediaWrapEl.getBoundingClientRect();
+            const fitBefore = Math.min(wrapRect.width / w, wrapRect.height / h);
+            const fitAfter = Math.min(wrapRect.width / h, wrapRect.height / w);
+            videoEl.style.transform = `rotate(${deg}deg) scale(${fitAfter / fitBefore})`;
+        } else {
+            videoEl.style.transform = 'rotate(180deg)';
+        }
     },
 
     handleReset() {
@@ -403,6 +486,7 @@ const workflowVideoPreview = {
         appState.set('videoPreviewCutEnd', appState.get('videoPreviewSourceDuration'));
         const zoomPanSession = appState.get('videoPreviewZoomPanSession');
         resetPanzoomSession(zoomPanSession); // core/media-transform.js
+        this._renderRotatePreview();
         this._drawCropOverlay();
         this._renderTrimPositions();
         this._renderRatioButtonsActiveState();
@@ -434,6 +518,7 @@ const workflowVideoPreview = {
         const zoomPanSession = appState.get('videoPreviewZoomPanSession');
         zoomPanSession.zoom(snapshot.zoomPan.scale, { animate: false });
         zoomPanSession.pan(snapshot.zoomPan.x, snapshot.zoomPan.y, { animate: false });
+        this._renderRotatePreview();
         this._drawCropOverlay();
         this._renderTrimPositions();
         this._renderRatioButtonsActiveState();

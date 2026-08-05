@@ -15,7 +15,7 @@
 const CROP_RATIO_PRESETS = [
     { labelKey: 'cropRatio.free', ratio: NaN },
     { labelKey: 'cropRatio.square', ratio: 1 },
-    { labelKey: 'cropRatio.portrait919', ratio: 9 / 19 },
+    { labelKey: 'cropRatio.portrait916', ratio: 9 / 16 }, // SỬA (05/08/2026, mục 4) — giá trị cũ 9/19 sai, tỉ lệ dọc phổ biến là 9:16
     { labelKey: 'cropRatio.portrait23', ratio: 2 / 3 },
     { labelKey: 'cropRatio.portrait34', ratio: 3 / 4 },
 ];
