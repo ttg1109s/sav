@@ -8,9 +8,12 @@
  * Toàn bộ dữ liệu động (videoUrl/posterUrl/filename/ratioPresets) PHẢI đã được Workflow chuẩn bị
  * sẵn (Rule 3b — Core là tầng thi hành, không tự đọc/tạo gì) — hàm này CHỈ nhận qua tham số.
  *
- * `mediaWrapEl` trả về trong handle để Workflow tự đo hộp video thật (`_syncCropCanvasBox()`) rồi
- * đặt CSS `cropCanvasEl` khớp — SỬA (04/08/2026) lỗi `<video>`/`<canvas>` lệch nhau do `absolute` +
- * flex cha không tương thích (xem docstring components/video-preview.js).
+ * `mediaWrapEl` trả về trong handle để Workflow tự đo (`_syncCropCanvasBox()`) rồi đặt CSS
+ * `cropCanvasEl` khớp vùng ảnh THẬT của video (công thức `object-contain` chuẩn, KHÔNG còn dựa
+ * `videoEl.getBoundingClientRect()` — xem lý do ở event/workflow/video-preview.js). SỬA (05/08/2026,
+ * đợt 4) — `#video-preview-crop-layer` giờ nằm BÊN TRONG `#video-preview-media-wrap` trong template
+ * (trước là sibling đứng ngoài), layout đổi từ model đè lớp sang 3 vùng flex-col không chồng nhau —
+ * xem docstring components/video-preview.js.
  *
  * NẠP SAU: components/video-preview.js, service/component-dynamic.js, service/blob-url.js,
  * service/z-index.js, lang/lang.js.
@@ -101,11 +104,14 @@ function openVideoPreviewModal(data) {
 
     startHandleEl.addEventListener('pointerdown', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.trimDrag.start', payload: { handle: 'start' } }));
     endHandleEl.addEventListener('pointerdown', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.trimDrag.start', payload: { handle: 'end' } }));
+    // Ấn/kéo bất kỳ đâu trong dải phim (kể cả trúng tay cầm — bubble lên từ 2 listener trên, Workflow
+    // tự đọc videoPreviewActiveDrag đã bị chiếm chưa để bỏ qua) — tua tới đó ngay (mục 7, phản hồi Giang).
+    filmstripTrackEl.addEventListener('pointerdown', (e) => eventBus.send({ router: 'videoPreview', type: 'videoPreview.trimTrack.pointerDown', payload: { clientX: e.clientX } }));
 
+    // pointermove/pointerup KHÔNG còn ở đây — chuyển sang document (event/listener/video-preview.js,
+    // SỬA 05/08/2026, mục "crop không kéo được") — canvas chỉ khớp vùng ảnh thật của video, ngón tay
+    // trượt ra khỏi biên canvas giữa chừng sẽ mất dấu nếu chỉ lắng nghe trên chính nó.
     cropCanvasEl.addEventListener('pointerdown', (e) => eventBus.send({ router: 'videoPreview', type: 'videoPreview.cropCanvas.pointerDown', payload: { clientX: e.clientX, clientY: e.clientY } }));
-    cropCanvasEl.addEventListener('pointermove', (e) => eventBus.send({ router: 'videoPreview', type: 'videoPreview.cropCanvas.pointerMove', payload: { clientX: e.clientX, clientY: e.clientY } }));
-    cropCanvasEl.addEventListener('pointerup', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.cropCanvas.pointerUp', payload: {} }));
-    cropCanvasEl.addEventListener('pointerleave', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.cropCanvas.pointerUp', payload: {} }));
 
     return {
         close: closeModal,
