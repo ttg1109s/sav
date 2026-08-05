@@ -859,9 +859,15 @@ const workflowPlaylist = {
         await this._persistPlaylistConfig();
     },
 
-    /** "Kiểu xem" đổi giá trị (Settings → Playlist) — CÙNG LÝ DO tách khỏi router như changeSortMode() ngay trên. */
+    /**
+     * "Kiểu xem" đổi giá trị (Settings → Playlist) — CÙNG LÝ DO tách khỏi router như changeSortMode() ngay trên.
+     * SỬA (05/08/2026, Rule 3a, phản hồi Giang "xử lý triệt để") — `setPlaylistViewMode()` (core/
+     * playlist/main.js) KHÔNG còn tự gọi `renderPlaylistFull()` nội bộ (core gọi core, cấm) — 2
+     * lời gọi core độc lập này giờ đứng CẠNH NHAU ở đây, đúng vai Workflow điều phối.
+     */
     async changeViewMode(mode) {
-        setPlaylistViewMode(mode); // core có sẵn (core/playlist/main.js)
+        setPlaylistViewMode(mode); // core (core/playlist/main.js) — chỉ ghi isGridView + className
+        renderPlaylistFull(); // core (core/playlist/render.js) — layout grid/list đổi cấu trúc node hoàn toàn, không diff được
         await this._persistPlaylistConfig();
     },
 
@@ -887,10 +893,10 @@ const workflowPlaylist = {
      * Khôi phục 3 lựa chọn "Playlist Settings" đã lưu bền LÚC BOOT — gọi từ event/workflow/
      * app-boot.js, TRƯỚC bước quyết định nạp playlistCache theo nguồn nào (LƯU Ý THỨ TỰ, phản hồi
      * Giang: phải biết `activeMediaSource` đã lưu TRƯỚC khi quyết định gọi initPlaylistFromDB()
-     * (Song) hay tương đương switchToVideoSource() (Video) — xem app-boot.js). Đồng bộ lại UI 3
-     * <select> qua `PlaylistMain.init()` (đã có sẵn, chỉ gán lại .value theo appState) vì lần gọi
-     * ĐẦU của nó (cuối core/playlist/main.js, lúc nạp script) chạy TRƯỚC khi hàm này kịp đọc xong
-     * IndexedDB (bất đồng bộ) — không gọi lại thì <select> hiện sai giá trị dù state runtime đã đúng.
+     * (Song) hay tương đương switchToVideoSource() (Video) — xem app-boot.js). Đồng bộ lại UI 4
+     * <select>/badge qua `this.syncPlaylistSettingsUI()` (đã có sẵn, chỉ gán lại theo appState) vì
+     * lần gọi ĐẦU của nó (cuối core/playlist/main.js, lúc nạp script) chạy TRƯỚC khi hàm này kịp
+     * đọc xong IndexedDB (bất đồng bộ) — không gọi lại thì UI hiện sai giá trị dù state runtime đã đúng.
      */
     async loadPersistedPlaylistConfigOnBoot() {
         const saved = await getMeta('playlistConfig');
@@ -908,7 +914,24 @@ const workflowPlaylist = {
         // này) nên phải tự đồng bộ lại ở đây, đúng activeMediaSource vừa khôi phục.
         if (btnUploadAudio) btnUploadAudio.classList.toggle('hidden', cfg.activeMediaSource === 'video');
         if (btnUploadVideo) btnUploadVideo.classList.toggle('hidden', cfg.activeMediaSource !== 'video');
-        if (typeof PlaylistMain !== 'undefined') PlaylistMain.init();
+        await this.syncPlaylistSettingsUI();
+    },
+
+    /**
+     * MỚI (05/08/2026, Rule 3a, phản hồi Giang "xử lý triệt để... theo event bus, rule core") —
+     * thay thế `PlaylistMain.init()` đã BỊ BỎ (core/playlist/main.js): hàm đó cũ gọi lần lượt 4
+     * method core khác NGAY BÊN TRONG chính nó — core gọi core, vi phạm Rule 3a. Việc GỌI TUẦN TỰ
+     * 4 method (điều phối, không phải nghiệp vụ) giờ chuyển hẳn ra đây — Workflow CHUẨN BỊ tham số
+     * (`appState.get('isGridView')`) rồi gọi từng Core method riêng biệt, đúng Rule 3b.
+     * Dùng lại ở MỌI nơi trước đây gọi `PlaylistMain.init()`: loadPersistedPlaylistConfigOnBoot()
+     * ngay trên, và event/workflow/app-boot.js (2 chỗ khôi phục lệch loại folder Scope).
+     */
+    async syncPlaylistSettingsUI() {
+        if (typeof PlaylistMain === 'undefined') return; // guard clause thuần (Rule 1) — giữ đúng kiểu phòng thủ cũ ở mọi nơi từng gọi PlaylistMain.init()
+        PlaylistMain.initSortMenu();
+        PlaylistMain.initViewMode(appState.get('isGridView'));
+        PlaylistMain.initMediaSource();
+        await PlaylistMain.updateActiveFolderUI();
     }
 };
 

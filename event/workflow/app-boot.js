@@ -106,20 +106,25 @@ const workflowAppBoot = {
                         appState.set('activeMediaSource', 'video');
                         console.log(`writer: "boot", page: "activeMediaSource", content: "video (sửa lệch theo type folder đã Apply)"`);
                         buildVideoPlaylistCache(await listVideos());
-                        if (typeof PlaylistMain !== 'undefined') PlaylistMain.init();
+                        // SỬA (05/08/2026, Rule 3a, phản hồi Giang "xử lý triệt để") — thay
+                        // `PlaylistMain.init()` (đã BỎ, xem event/workflow/playlist.js) bằng
+                        // `workflowPlaylist.syncPlaylistSettingsUI()`, cùng chỗ Workflow-to-Workflow
+                        // được phép (khác domain: app-boot -> playlist).
+                        if (typeof workflowPlaylist !== 'undefined') await workflowPlaylist.syncPlaylistSettingsUI();
                     } else if (folderType === 'song' && currentSource !== 'song') {
                         appState.set('activeMediaSource', 'song');
                         console.log(`writer: "boot", page: "activeMediaSource", content: "song (sửa lệch theo type folder đã Apply)"`);
                         await initPlaylistFromDB();
-                        if (typeof PlaylistMain !== 'undefined') PlaylistMain.init();
+                        if (typeof workflowPlaylist !== 'undefined') await workflowPlaylist.syncPlaylistSettingsUI();
                     }
                     await workflowPlaylistScope.applyFolderScope(savedFolderId);
                 } },
             ]);
         }
         // MỚI (fix bug #1, phản hồi Giang — "Active folder vẫn hiện none dù có folder đang active")
-        // — PlaylistMain.init() (gọi TRONG loadPersistedPlaylistConfigOnBoot() ở trên VÀ lúc nạp
-        // script core/playlist/main.js) đều chạy TRƯỚC KHI activePlayListFolder được khôi phục
+        // — workflowPlaylist.syncPlaylistSettingsUI() (gọi TRONG loadPersistedPlaylistConfigOnBoot()
+        // ở trên VÀ lúc nạp script core/playlist/main.js — tên cũ PlaylistMain.init(), đã BỎ 05/08/2026
+        // theo Rule 3a) đều chạy TRƯỚC KHI activePlayListFolder được khôi phục
         // XONG ở khối VirtualMachineState.runAsync() ngay trên (applyAllSongsScope()/
         // applyFolderScope() mới THẬT SỰ set đúng giá trị) — badge/khoá Nguồn ở Settings → Playlist
         // vì vậy luôn hiện sai (mặc định rỗng) cho tới khi Giang tự đổi Scope 1 lần trong phiên. Gọi
