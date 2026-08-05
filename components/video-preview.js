@@ -26,6 +26,20 @@
  * SỬA (05/08/2026, đợt 3) — `<video>` bỏ `muted` (mục 5, không liên quan autoplay policy — modal này
  * không auto-play). Icon Flip tỉ lệ đổi sang 2 khung ngang/dọc lệch nhau (chuẩn Google Photos/
  * Snapseed, tự thể hiện đang đổi ngang<->dọc, không cần mũi tên).
+ *
+ * SỬA (05/08/2026, đợt 5, phản hồi Giang):
+ * - Bỏ hẳn nút Undo/Redo (mục 1 — Giang: "loại bỏ toàn bộ tính năng undo/redo, giữ nút reset").
+ * - `<img>`/`<video>` thêm `absolute inset-0` (mục 2, đúng khuôn `.photo-preview-image`
+ *   core/file-manager/photo-ui.js — nơi Panzoom đã chạy ĐÚNG) — trước đó là block tĩnh thường, KHÔNG
+ *   pin cứng theo `inset:0`, khác Photo. Xem lý do đầy đủ ở event/workflow/video-preview.js
+ *   (`handleMetadataLoaded()` — thời điểm init Panzoom cũng sửa).
+ * - Icon Rotate đổi hẳn sang cung tròn cong (chuẩn phổ biến — tìm thấy khi search icon "rotate" trên
+ *   mạng: cung tròn + mũi tên, KHÔNG phải khung vuông + mũi tên góc như bản cũ, bản cũ không đủ rõ
+ *   nghĩa "xoay" — phản hồi Giang mục 3).
+ * - Thêm nút Lật ngang MỚI trong `toolsGroupEl` (mục 4 — Giang: "không có nút lật trái phải trên
+ *   toolbar" — KHÁC nút Flip trong `ratioGroupEl`, cái đó chỉ đảo CHIỀU khung Crop, không lật NỘI
+ *   DUNG video). Icon: vạch dọc giữa + 2 mũi tên ngược chiều 2 bên — chuẩn phổ biến (Word/Photoshop/
+ *   Canva), tìm thấy khi search icon "flip horizontal".
  */
 const TPL_VIDEO_PREVIEW = `
     <div id="video-preview-overlay" class="fixed inset-0 bg-black hidden flex flex-col">
@@ -43,17 +57,14 @@ const TPL_VIDEO_PREVIEW = `
                     <button id="video-preview-extract-btn" type="button" class="video-preview-tool-btn">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h3l1.5-2h7L17 7h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1zM12 17a4 4 0 100-8 4 4 0 000 8z"/></svg>
                     </button>
-                    <button id="video-preview-undo-btn" type="button" class="video-preview-tool-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7L3 11l4 4M3 11h12a5 5 0 000-10"/></svg>
-                    </button>
-                    <button id="video-preview-redo-btn" type="button" class="video-preview-tool-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 7l4 4-4 4M21 11H9a5 5 0 010-10"/></svg>
-                    </button>
                     <button id="video-preview-reset-btn" type="button" class="video-preview-tool-btn">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.6M20 20v-5h-.6M19.4 9A8 8 0 006 6.6M4.6 15a8 8 0 0013.4 2.4"/></svg>
                     </button>
+                    <button id="video-preview-flip-btn" type="button" class="video-preview-tool-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 8L4 12l4 4M16 8l4 4-4 4"/></svg>
+                    </button>
                     <button id="video-preview-rotate-btn" type="button" class="video-preview-tool-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="6" y="6" width="11" height="11" rx="1.5" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 10V6.5a2 2 0 00-2-2H14"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 4.2l-2.3 2.3 2.3 2.3"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4a8 8 0 018 8a8 8 0 01-8 8a8 8 0 01-8-8"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1.5 9.5L4 12l3.5-1.5"/></svg>
                     </button>
                 </div>
 
@@ -73,8 +84,8 @@ const TPL_VIDEO_PREVIEW = `
         </div>
 
         <div id="video-preview-media-wrap" class="relative flex-1 min-h-0 overflow-hidden bg-black">
-            <img id="video-preview-poster" class="w-full h-full object-contain" alt="">
-            <video id="video-preview-video" class="w-full h-full object-contain hidden" playsinline preload="auto"></video>
+            <img id="video-preview-poster" class="absolute inset-0 w-full h-full object-contain" alt="">
+            <video id="video-preview-video" class="absolute inset-0 w-full h-full object-contain hidden" playsinline preload="auto"></video>
 
             <div id="video-preview-crop-layer" class="video-preview-crop-layer">
                 <canvas id="video-preview-crop-canvas" class="touch-none"></canvas>
