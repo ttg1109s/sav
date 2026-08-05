@@ -14,6 +14,7 @@ const routerVideoPreview = (() => {
             case 'videoPreview.trimDrag.start': { workflowVideoPreview.handleTrimDragStart(msg.payload.handle); break; }
             case 'videoPreview.trimDrag.move': { workflowVideoPreview.handleTrimDragMove(msg.payload.clientX); break; }
             case 'videoPreview.trimDrag.end': { workflowVideoPreview.handleTrimDragEnd(); break; }
+            case 'videoPreview.trimTrack.pointerDown': { workflowVideoPreview.handleTrimTrackPointerDown(msg.payload.clientX); break; }
 
             case 'videoPreview.cropToggle.click': { workflowVideoPreview.handleCropToggleClick(); break; }
             case 'videoPreview.cropRatio.select': { workflowVideoPreview.handleCropRatioSelect(msg.payload.ratio); break; }
