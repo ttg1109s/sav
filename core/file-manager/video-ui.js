@@ -24,8 +24,7 @@
  * @returns {object} handle — { close, overlayEl, mediaWrapEl, videoEl, posterEl, cropLayerEl,
  *   cropCanvasEl, toolsGroupEl, ratioGroupEl, ratioButtons, ratioFlipBtn, filmstripTrackEl,
  *   filmstripFramesEl, startHandleEl, endHandleEl, dimLeftEl, dimRightEl, rangeBorderEl, playheadEl,
- *   currentTimeLabelEl, saveBtn, closeBtn, cropToggleBtn, extractBtn, undoBtn, redoBtn, resetBtn,
- *   rotateBtn }
+ *   currentTimeLabelEl, saveBtn, closeBtn, cropToggleBtn, extractBtn, resetBtn, flipBtn, rotateBtn }
  */
 function openVideoPreviewModal(data) {
     const stale = document.getElementById('video-preview-overlay');
@@ -68,9 +67,8 @@ function openVideoPreviewModal(data) {
     const saveBtn = fragment.querySelector('#video-preview-save-btn');
     const cropToggleBtn = fragment.querySelector('#video-preview-crop-toggle-btn');
     const extractBtn = fragment.querySelector('#video-preview-extract-btn');
-    const undoBtn = fragment.querySelector('#video-preview-undo-btn');
-    const redoBtn = fragment.querySelector('#video-preview-redo-btn');
     const resetBtn = fragment.querySelector('#video-preview-reset-btn');
+    const flipBtn = fragment.querySelector('#video-preview-flip-btn');
     const rotateBtn = fragment.querySelector('#video-preview-rotate-btn');
 
     document.body.appendChild(fragment);
@@ -92,15 +90,14 @@ function openVideoPreviewModal(data) {
 
     cropToggleBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.cropToggle.click', payload: {} }));
     extractBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.extractFrame.click', payload: {} }));
-    undoBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.undo.click', payload: {} }));
-    redoBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.redo.click', payload: {} }));
     resetBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.reset.click', payload: {} }));
+    flipBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.flip.click', payload: {} }));
     rotateBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.rotate.click', payload: {} }));
 
     ratioButtons.forEach(({ btn, ratio }) => {
         btn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.cropRatio.select', payload: { ratio } }));
     });
-    ratioFlipBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.cropRatio.flip.click', payload: {} }));
+    ratioFlipBtn.addEventListener('click', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.flip.click', payload: {} })); // SỬA (05/08/2026, phản hồi Giang) — TRƯỚC ĐÓ 'videoPreview.cropRatio.flip.click' (chỉ đảo tỉ lệ khung Crop) — Giang chỉ ra "flip" phải lật CẢ ảnh/video, không phải riêng crop — giờ bắn CÙNG event với nút Flip toolbar (videoPreview.flip.click), 2 nút cùng 1 hành động thật, chỉ khác chỗ hiện ra (toolsGroupEl lúc thường / ratioGroupEl lúc đang Crop, 2 nhóm luôn loại trừ nhau)
 
     startHandleEl.addEventListener('pointerdown', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.trimDrag.start', payload: { handle: 'start' } }));
     endHandleEl.addEventListener('pointerdown', () => eventBus.send({ router: 'videoPreview', type: 'videoPreview.trimDrag.start', payload: { handle: 'end' } }));
@@ -117,6 +114,6 @@ function openVideoPreviewModal(data) {
         close: closeModal,
         overlayEl, mediaWrapEl, videoEl, posterEl, cropLayerEl, cropCanvasEl, toolsGroupEl, ratioGroupEl, ratioButtons, ratioFlipBtn,
         filmstripTrackEl, filmstripFramesEl, startHandleEl, endHandleEl, dimLeftEl, dimRightEl, rangeBorderEl, playheadEl,
-        currentTimeLabelEl, closeBtn, saveBtn, cropToggleBtn, extractBtn, undoBtn, redoBtn, resetBtn, rotateBtn,
+        currentTimeLabelEl, closeBtn, saveBtn, cropToggleBtn, extractBtn, resetBtn, flipBtn, rotateBtn,
     };
 }
