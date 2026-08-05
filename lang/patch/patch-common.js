@@ -122,7 +122,7 @@ const LANG_PATCH_COMMON = {
     // Video Preview dùng, Photo Edit chưa có dải tỉ lệ nào (Crop Photo luôn Tự do).
     'cropRatio.free': 'Free',
     'cropRatio.square': '1:1',
-    'cropRatio.portrait919': '9:19',
+    'cropRatio.portrait916': '9:16',
     'cropRatio.portrait23': '2:3',
     'cropRatio.portrait34': '3:4',
 };
