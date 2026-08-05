@@ -11,6 +11,12 @@
  *
  * Nhãn preset qua i18n key (`cropRatio.*`, lang/patch/patch-common.js).
  * NẠP SAU: core/media-transform.js.
+ *
+ * SỬA (05/08/2026, phản hồi Giang) — bỏ `applyFlip()` (đảo nghịch đảo tỉ lệ Crop, vd 3:4↔4:3) — Giang
+ * chỉ ra "flip" phải lật CẢ ảnh/video, không phải riêng khung Crop. Nút flip trong `ratioGroupEl`
+ * giờ bắn CHUNG event với nút Flip toolbar (`videoPreview.flip.click` →
+ * `workflowVideoPreview.handleFlipClick()`, lật `videoPreviewFlipH` — event/workflow/
+ * video-preview.js), không còn liên quan tỉ lệ Crop nữa.
  */
 const CROP_RATIO_PRESETS = [
     { labelKey: 'cropRatio.free', ratio: NaN },
@@ -24,13 +30,6 @@ const workflowMediaTransformHelpers = {
     /** @returns {Array<{labelKey: string, ratio: number}>} */
     getPresets() {
         return CROP_RATIO_PRESETS;
-    },
-
-    /** Đảo nghịch đảo tỉ lệ hiện tại (vd 3:4 <-> 4:3) — vô nghĩa với Tự do/1:1, guard clause thuần.
-     * @param {object} session */
-    applyFlip(session) {
-        if (Number.isNaN(session.aspectRatio) || session.aspectRatio === 1) return;
-        setCropSessionAspectRatio(session, 1 / session.aspectRatio); // core/media-transform.js
     },
 
     /** @param {object} session @returns {{labelKey: string, ratio: number}|null} preset khớp `session.aspectRatio` hiện tại, null nếu không khớp preset nào (tỉ lệ tự kéo tay). */
