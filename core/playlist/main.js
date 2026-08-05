@@ -40,9 +40,24 @@
 
             // ---- "Kiểu xem" (Danh sách / Lưới) — select trong Settings, thay cho #btn-toggle-view
             //      cũ (logic chuyển nguyên từ state-and-video-bg.js, không đổi gì về hành vi). ----
+            // FIX (05/08/2026, phản hồi Giang — "List -> Grid -> thoát app -> nạp lại -> Grid ->
+            // vỡ layout"): TRƯỚC ĐÂY hàm này CHỈ gán lại <select>, KHÔNG đụng className của
+            // #playlist-container. Lúc đang chạy, đổi "Kiểu xem" luôn đi qua setPlaylistViewMode()
+            // ngay dưới — hàm đó gán CẢ isGridView LẪN className CÙNG LÚC nên không vỡ. Nhưng lúc
+            // boot, event/workflow/playlist.js::loadPersistedPlaylistConfigOnBoot() khôi phục
+            // isGridView từ IndexedDB rồi gọi PlaylistMain.init() (→ initViewMode()) để đồng bộ lại
+            // UI — hàm này trước đây chỉ sửa <select>, còn #playlist-container vẫn giữ nguyên
+            // className "list" gán sẵn trong HTML tĩnh (components/playlist-view.js, luôn là
+            // "flex flex-col pb-32" bất kể isGridView). Kết quả: buildSongNode() (core/playlist/
+            // render.js) dựng từng node theo cấu trúc LƯỚI (ảnh aspect-square, w-full) trong khi
+            // container cha vẫn là flex-col (không phải grid grid-cols-*) — mỗi node lưới xếp
+            // chồng full-width theo chiều dọc, đúng y hệt ảnh lỗi Giang gửi. Gọi thêm
+            // syncPlaylistContainerClass() ở đây để className LUÔN khớp isGridView bất kể qua
+            // đường nào (đổi tay lúc đang chạy, hay khôi phục lúc boot).
             initViewMode() {
                 if (!viewModeSelect) return;
                 viewModeSelect.value = appState.get('isGridView') ? 'grid' : 'list'; // đồng bộ giá trị hiện tại lúc Settings mở ra
+                syncPlaylistContainerClass();
             },
 
             // ---- MỚI (ver12 "Song/Video Unification", Batch 1) — "Nguồn" (Song/Video), select
@@ -90,15 +105,29 @@
         };
 
         /**
+         * Gán className của #playlist-container ĐÚNG theo `isGridView` hiện tại trong appState —
+         * TÁCH riêng khỏi setPlaylistViewMode() (05/08/2026, phản hồi Giang, xem docstring
+         * initViewMode() ở trên) để PlaylistMain.initViewMode() gọi lại được lúc boot mà KHÔNG cần
+         * kéo theo renderPlaylistFull() (loader.js đã tự lo render lần đầu theo đúng luồng riêng
+         * của nó — gọi renderPlaylistFull() thêm ở đây sẽ render trùng, thậm chí render SỚM hơn
+         * lúc renderOrder/domNodesByKey chưa sẵn sàng vì initViewMode() chạy trước khi loader nạp
+         * xong DB). Hàm THUẦN, không side-effect nào khác ngoài className.
+         */
+        function syncPlaylistContainerClass() {
+            playlistContainer.className = appState.get('isGridView')
+                ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-6 px-5 pb-32'
+                : 'flex flex-col pb-32';
+        }
+
+        /**
          * Ứng với select "Kiểu xem" đổi giá trị — đổi isGridView + className của playlistContainer
-         * + vẽ lại toàn bộ (layout grid/list khác cấu trúc node hoàn toàn -> không diff được).
+         * (qua syncPlaylistContainerClass()) + vẽ lại toàn bộ (layout grid/list khác cấu trúc node
+         * hoàn toàn -> không diff được).
          * @param {string} mode - 'grid' | 'list'
          */
         function setPlaylistViewMode(mode) {
             appState.set('isGridView', mode === 'grid');
-            playlistContainer.className = appState.get('isGridView')
-                ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-6 px-5 pb-32'
-                : 'flex flex-col pb-32';
+            syncPlaylistContainerClass();
             renderPlaylistFull();
         }
 
