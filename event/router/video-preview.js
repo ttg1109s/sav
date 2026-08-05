@@ -18,17 +18,14 @@ const routerVideoPreview = (() => {
 
             case 'videoPreview.cropToggle.click': { workflowVideoPreview.handleCropToggleClick(); break; }
             case 'videoPreview.cropRatio.select': { workflowVideoPreview.handleCropRatioSelect(msg.payload.ratio); break; }
-            case 'videoPreview.cropRatio.flip.click': { workflowVideoPreview.handleCropRatioFlip(); break; }
             case 'videoPreview.cropCanvas.pointerDown': { workflowVideoPreview.handleCropCanvasPointerDown(msg.payload.clientX, msg.payload.clientY); break; }
             case 'videoPreview.cropCanvas.pointerMove': { workflowVideoPreview.handleCropCanvasPointerMove(msg.payload.clientX, msg.payload.clientY); break; }
             case 'videoPreview.cropCanvas.pointerUp': { workflowVideoPreview.handleCropCanvasPointerUp(); break; }
 
             case 'videoPreview.rotate.click': { workflowVideoPreview.handleRotateClick(); break; }
+            case 'videoPreview.flip.click': { workflowVideoPreview.handleFlipClick(); break; }
             case 'videoPreview.reset.click': { workflowVideoPreview.handleReset(); break; }
             case 'videoPreview.extractFrame.click': { workflowVideoPreview.handleExtractFrame(); break; }
-
-            case 'videoPreview.undo.click': { workflowVideoPreview.handleUndoClick(); break; }
-            case 'videoPreview.redo.click': { workflowVideoPreview.handleRedoClick(); break; }
 
             case 'videoPreview.save.click': { workflowVideoPreview.handleSaveClick(msg.payload.anchorEl); break; }
             case 'videoPreview.saveOverwrite.click': { workflowVideoPreview.handleSaveOverwrite(); break; }
