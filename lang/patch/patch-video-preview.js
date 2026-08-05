@@ -24,6 +24,12 @@ const LANG_PATCH_VIDEO_PREVIEW = {
     'videoPreview.cropExit.discard': 'Discard',
     'videoPreview.cropExit.cancel': 'Keep editing',
 
+    // Reset — MỚI (05/08/2026, phản hồi Giang mục 1: "loại bỏ toàn bộ undo/redo, giữ nút reset và
+    // cảnh báo modal") — Reset không còn Undo cứu lại nên bắt buộc hỏi trước khi chạy.
+    'videoPreview.resetConfirm.title': 'Reset all edits?',
+    'videoPreview.resetConfirm.desc': 'This clears crop, rotate, flip, zoom/pan and trim, back to the original. This cannot be undone.',
+    'videoPreview.resetConfirm.confirm': 'Reset',
+
     'videoPreview.extractFrame.success': 'Photo saved to your library.',
     'videoPreview.extractFrame.failed': 'Could not extract this frame.',
 
