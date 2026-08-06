@@ -22,20 +22,21 @@
  * wire tĩnh 1 lần ở đây nữa (sẽ dính sang mọi Generic Drawer khác, không riêng gì Slideshow).
  */
 
-if (btnOpenSlideshowSettings) {
-    btnOpenSlideshowSettings.addEventListener('click', () => {
-        eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.openPanel.click', payload: {} });
-    });
-}
-
+// XOÁ (v13 Batch A) — listener tĩnh cho `btnOpenSlideshowSettings` (#setting-open-slideshow-settings)
+// ĐÃ BỎ HẲN cùng chính nút đó: 3 entry nền cũ trong TPL_SETTINGS_VISUALIZER được thay bằng 1 nút
+// "Visual Background" duy nhất. Lối vào panel Slideshow giờ là nút "Tuỳ chỉnh Trình chiếu..." NẰM
+// TRONG panel Visual Background (DOM ĐỘNG) — bắn 'visualBg.openSlideshowPanel.click', router cụm
+// `visualBg` gọi thẳng `workflowSlideshow.openPanel()` (liên tuyến domain, tái dùng nguyên panel
+// đã có). Xem event/listener,router/visual-bg.js.
 // (btnBackSlideshowSettings ĐÃ XOÁ — Batch D4: Back dùng CHUNG btnSettingsStackBack.)
 
 // ===================== 10 input BÊN TRONG panel Settings (delegate) =====================
 // Key = "id:eventType" (SỬA 18/07/2026 — xem docstring đầu file).
 const SLIDESHOW_SETTINGS_INPUT_MAP = {
-    'setting-slideshow-enable:change': { type: 'slideshowSettings.enable.change', checkbox: true },
-    'setting-slideshow-mode:change': { type: 'slideshowSettings.mode.change' },
-    'setting-slideshow-photo-per-song:change': { type: 'slideshowSettings.photoPerSong.change', checkbox: true },
+    // ('setting-slideshow-enable:change' XOÁ — v13 Batch B: toggle bật/tắt + chọn Album đã dời
+    //  sang panel Visual Background, xem event/listener/visual-bg.js.)
+    // ('setting-slideshow-mode' + 'setting-slideshow-photo-per-song' XOÁ — v13 Batch C: thay bằng
+    //  `nextOrder` + `listPlaybackMode` ở panel cha Visual Background.)
     // SỬA (18/07/2026, phản hồi Giang — "setting chọn thời gian mở modal picker") — input số cũ
     // (<input type="number">, event 'change') ĐỔI thành nút bấm (<button>, event 'click') mở modal
     // "bánh xe cuộn số" dùng chung (core/time-picker-modal.js) — KHÔNG còn đọc .value trực tiếp từ

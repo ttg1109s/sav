@@ -56,7 +56,23 @@ if (songActionMenu) {
             eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.restore', payload: {} });
             return;
         }
-        eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.select', payload: { action: btn.dataset.menuAction } });
+        // SỬA (v13 Batch F) — 2 hành động cuối ('delete'/'edit') TÁCH thành msg.type RIÊNG, xoá
+        // hẳn 'playlist.actionMenu.select' dùng chung. Đây là bước cuối của xu hướng đã chạy suốt
+        // file này (addToFolder/editSubtitles/editVideoFile/restore lần lượt tách ra trước đó vì
+        // `handleSongActionMenuSelect()` có if/else vi phạm Rule 1) — giờ hàm core đó không còn
+        // nhánh nào, xoá luôn.
+        // `songKey` ĐƯA VÀO PAYLOAD: message phải tự mô tả đối tượng nó tác động lên. Trước đây key
+        // chỉ nằm trong `playlistStore` và core tự đọc — Block gate (chỉ với tới appState/appConfig/
+        // payload) không kiểm được "bài sắp xoá có đang làm Visual Background không". Đọc 1 giá trị
+        // để DỰNG payload cùng loại với đọc `btn.dataset`, không phải nghiệp vụ (Rule 5a).
+        if (btn.dataset.menuAction === 'delete') {
+            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.delete.click', payload: { songKey: playlistStore.get('songActionMenuKey') } });
+            return;
+        }
+        if (btn.dataset.menuAction === 'edit') {
+            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.edit.click', payload: {} });
+            return;
+        }
     });
 }
 
