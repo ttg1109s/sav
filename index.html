@@ -271,7 +271,7 @@
          Settings. Xem core/color-utils.js (updateDOMBackground) + assets/css/style.css. -->
     <div id="visualizer-solid-bg"></div>
     <!-- Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). Xem
-         assets/css/style.css (#visual-bg-image) + core/state-and-video-bg.js (applyVisualBgImageToDOM). -->
+         assets/css/style.css (#visual-bg-image) + core/visual-bg.js (applyVisualBgImageToDOM). -->
     <div id="visual-bg-image" class="hidden"></div>
     <!-- Slideshow nền Visual (nguồn nền thứ 3, Batch 8, ver 12 "Multi Media") — 2 lớp ảnh xen kẽ,
          JS điều khiển ở core/file-manager/slideshow.js (hàm thuần) + event/workflow/slideshow.js
@@ -410,7 +410,8 @@
     <script src="components/visualizer-settings-drawer.js?v=20260721v1"></script>
     <script src="components/subtitle-settings-drawer.js?v=20260707v3"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Slideshow Settings Drawer (nền Visual, nguồn thứ 3). -->
-    <script src="components/slideshow-settings-drawer.js?v=20260707v1"></script>
+    <script src="components/slideshow-settings-drawer.js?v=20260806v1"></script>
+    <script src="components/visual-bg-settings-drawer.js?v=20260806v1"></script>
 
     <!-- =====================================================================
          2) MAIN (bootstrap): lắp toàn bộ component vào #app-root.
@@ -425,7 +426,7 @@
             db.js và loading-shield-util.js nạp NGAY SAU dom-refs.js: cần
             #loading-shield/#loading-text đã có trong DOM (loading-shield-util.js),
             và phải có mặt TRƯỚC core/playlist/*.js/core/equalizer.js/core/subtitle/*.js/
-            state-and-video-bg.js/about-stats.js/id3-export.js vì các file đó gọi
+            visualizer-control-center.js/about-stats.js/id3-export.js vì các file đó gọi
             hàm helper định nghĩa trong 2 file này.
          ===================================================================== -->
     <!-- service/z-index.js — bảng z-index TẬP TRUNG (dời từ core/config.js, đợt tái cấu trúc
@@ -483,7 +484,7 @@
     <script src="service/state/audio-engine.js?v=20260725v1"></script>
     <script src="service/state/subtitle.js?v=20260725v1"></script>
     <script src="service/state/shuffle-repeat.js?v=20260725v1"></script>
-    <script src="service/state/video-bg.js?v=20260725v1"></script>
+    <script src="service/state/visual-bg.js?v=20260806v1"></script>
     <script src="service/state/video-player-mode.js?v=20260725v1"></script>
     <script src="service/state/wakelock-tab.js?v=20260725v1"></script>
     <script src="service/state/auto-switch.js?v=20260725v1"></script>
@@ -665,7 +666,10 @@
          "Galaxy Journey") — không còn rỗng. Engine dùng CHUNG canvas/renderer với Vortex (dòng
          script ngay trên) — KHÔNG tạo WebGLRenderer/resize listener riêng, xem initThreeSpace(). -->
     <script src="core/webgl/three-space.js?v=20260721v11"></script>
-    <script src="core/state-and-video-bg.js?v=20260730v2"></script>
+    <script src="core/visualizer-control-center.js?v=20260806v1"></script>
+    <!-- MỚI (v13 Batch A) — Core THUẦN domain "Visual Background" (gộp video nền/ảnh nền tĩnh/
+         slideshow). Nạp SAU service/state.js + core/dom-refs.js. -->
+    <script src="core/visual-bg.js?v=20260806v1"></script>
     <!-- core/subtitle/subtitles.js ĐÃ CHUYỂN (10/07/2026) — CHỈ nạp ở subtitle-editor.html giờ
          (soạn phụ đề chuyển sang trang riêng). core/subtitle/subtitle-display.js (hiển thị phụ đề
          lúc phát, đọc appState.get('subtitles')) và subtitle-style-settings.js (toggle nhanh)
@@ -892,9 +896,15 @@
          restructure, 06/07/2026): panel Settings (6 input) nay push/pop động — CẦN core/settings-
          panel-stack.js (đã nạp ở nhóm CORE). Panel chọn Album ("notify center") KHÔNG đổi, vẫn
          tĩnh, độc lập Settings Stack. -->
-    <script src="event/workflow/slideshow.js?v=20260731v2"></script>
+    <script src="event/workflow/slideshow.js?v=20260806v1"></script>
     <script src="event/router/slideshow.js?v=20260731v1"></script>
-    <script src="event/listener/slideshow.js?v=20260706v1"></script>
+    <script src="event/listener/slideshow.js?v=20260806v1"></script>
+
+    <!-- MỚI (v13 Batch A) — cụm "visualBg". NẠP SAU cụm slideshow (router gọi chéo
+         workflowSlideshow.openPanel() cho sub-panel Trình chiếu). -->
+    <script src="event/workflow/visual-bg.js?v=20260806v1"></script>
+    <script src="event/router/visual-bg.js?v=20260806v1"></script>
+    <script src="event/listener/visual-bg.js?v=20260806v1"></script>
     <!-- Batch 3 (03/07/2026) — workflowFileManagerPhoto CẦN tồn tại trước khi router gọi tới.
          Batch D6 (Settings restructure, 06/07/2026): panel Photo nay push/pop động, `fullBleed:
          true` (lưới ảnh tràn viền, xem core/settings-panel-stack-ui.js đã nạp ở nhóm CORE) — CẦN
@@ -988,7 +998,7 @@
          event/router/player-controls.js (case 'playPause.click'/'next.click'/'prev.click'/
          'audio.ended' gọi thẳng workflowVideoPlayer khi isVideoPlayerMode=true). CẦN
          core/video-player.js + core/file-manager/video.js (listVideos/sortVideosByAddedDateDesc,
-         đã nạp ở nhóm CORE) + core/state-and-video-bg.js (handleVideoBackground, đã nạp từ đầu). -->
+         đã nạp ở nhóm CORE) + core/visual-bg.js (showVisualBgVideoElement..., đã nạp từ đầu). -->
     <!-- [SỬA — ver12 "Song/Video Unification", Batch 2] event/router/video-player.js TỪNG bị gỡ
          dòng <script> này (21/07/2026 — lúc đó router chỉ có 1 case 'videoPlayer.toggle.click'
          cho 1 nút header đã dời sang checkbox File Manager -> Video, hết người gửi message) —
@@ -1052,7 +1062,10 @@
     <script src="event/router/auto-switch-visual.js?v=20260706v1"></script>
     <script src="event/listener/auto-switch-visual.js?v=20260706v1"></script>
     <!-- Cụm "visualizerControlCenter" (ver 11, patch 11). -->
-    <script src="event/workflow/visualizer-control-center.js?v=20260730v3"></script>
+    <!-- XOÁ (v13 Batch B) — event/workflow/visualizer-control-center.js: object Workflow của
+         cụm này đã RỖNG sau khi 2 toggle nền (Batch A) + cụm picker video (Batch B) dời sang
+         domain `visualBg`. 4 case còn lại của router gọi THẲNG Core (core/visualizer-control-
+         center.js) — không còn tầng Workflow nào để giữ. -->
     <script src="event/router/visualizer-control-center.js?v=20260703v2"></script>
     <script src="event/listener/visualizer-control-center.js?v=20260703v2"></script>
     <!-- Cụm "subtitleStyleSettings" — Batch D2 (Settings restructure, 06/07/2026): GIỜ CẦN
