@@ -37,26 +37,48 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // components/slideshow-settings-drawer.js.
     // Batch D4 (06/07/2026) — 'slideshowSettingsDrawer.backToSettings.title' XOÁ, dùng CHUNG
     // 'settingsDrawer.back.title' (Batch D1) cho mọi panel.
+    // ===================== MỚI (v13 Batch A) — namespace `visualBgSettingsDrawer.*` =========
+    // Panel "Visual Background" — GỘP 3 tính năng nền màn Visualizer (video nền loop / ảnh nền
+    // tĩnh / slideshow album) thành 1. 3 key `settingsPlaylistBg.videoEnable.*` +
+    // `settingsPlaylistBg.visualBgImage.*` + `settingsVisualizer.slideshowSetting.*` cũ ĐÃ XOÁ
+    // (2 toggle + 1 nút tương ứng không còn tồn tại trong Settings).
+    'settingsVisualizer.visualBg.label': 'Visual Background',
+    'settingsVisualizer.visualBg.hint': 'Photo or video behind the visualizer',
+    'visualBgSettingsDrawer.title': 'Visual Background',
+    'visualBgSettingsDrawer.groupSource.title': 'Source',
+    'visualBgSettingsDrawer.enable.label': 'Use Visual Background',
+    'visualBgSettingsDrawer.enable.hint': 'Show a photo or video behind the visualizer',
+    'visualBgSettingsDrawer.mediaType.label': 'Type',
+    'visualBgSettingsDrawer.mediaType.image': 'Photo',
+    'visualBgSettingsDrawer.mediaType.video': 'Video',
+    'visualBgSettingsDrawer.sourceMode.label': 'Use a list',
+    'visualBgSettingsDrawer.sourceMode.hint': 'Off: one fixed item. On: pick from an album/folder',
+    'visualBgSettingsDrawer.pickSource.label': 'Choose source...',
+    'visualBgSettingsDrawer.pickSource.none': 'Not selected yet',
+    'visualBgSettingsDrawer.listPlaybackMode.label': 'Playback',
+    'visualBgSettingsDrawer.listPlaybackMode.perSong': 'One per song',
+    'visualBgSettingsDrawer.listPlaybackMode.slideshow': 'Slideshow',
+    'visualBgSettingsDrawer.nextOrder.label': 'Next item order',
+    'visualBgSettingsDrawer.nextOrder.random': 'Random',
+    'visualBgSettingsDrawer.nextOrder.sequential': 'Sequential',
+    'visualBgSettingsDrawer.nextOrder.playlist': 'Follow Playlist',
+    'visualBgSettingsDrawer.albumPicker.title': 'Choose an album',
+    'visualBgSettingsDrawer.albumPicker.empty': 'No album has more than one photo yet. Add photos in Photo & Album first.',
+    'visualBgSettingsDrawer.folderPicker.title': 'Choose a video folder',
+    'visualBgSettingsDrawer.folderPicker.empty': 'No video folder has more than one video yet. Add videos to a folder first.',
+    'visualBgSettingsDrawer.openSlideshow.label': 'Slideshow options...',
+    'visualBgSettingsDrawer.openSlideshow.hint': 'Transition + Ken Burns',
+
     'slideshowSettingsDrawer.title': 'Slideshow Background',
     // VIẾT LẠI (Batch 9, 04/07/2026, mục 4) — gộp 2 section cũ ("Album"/"Playback") thành 1; 2 nút
     // "Choose album"/"Turn off" thay bằng 1 toggle "enable" duy nhất + hàng "album đang chạy".
     // SỬA (18/07/2026, phản hồi Giang — "tái cấu trúc panel theo nhóm mục") — 'sectionTitle' (1
     // tiêu đề DUY NHẤT cho cả panel) ĐÃ XOÁ, thay bằng 3 tiêu đề nhóm riêng.
-    'slideshowSettingsDrawer.groupAlbum.title': 'Album',
     'slideshowSettingsDrawer.groupTransition.title': 'Transition',
     'slideshowSettingsDrawer.groupKenBurns.title': 'Ken Burns',
-    'slideshowSettingsDrawer.enable.label': 'Use slideshow',
-    'slideshowSettingsDrawer.enable.hint': 'Toggle on to pick an album; toggle off just stops it',
-    'slideshowSettingsDrawer.albumPicker.title': 'Choose an album',
-    'slideshowSettingsDrawer.albumPicker.empty': 'No albums yet. Create one in Photo & Album first.',
-    'slideshowSettingsDrawer.mode.label': 'Next photo order',
-    'slideshowSettingsDrawer.mode.sequential': 'Sequential',
-    'slideshowSettingsDrawer.mode.random': 'Random',
     // MỚI (04/07/2026, mục 5 phản hồi Giang).
-    'slideshowSettingsDrawer.photoPerSong.label': 'Photo per song',
-    'slideshowSettingsDrawer.photoPerSong.hint': 'Change photo when the song changes, not on a timer',
     'slideshowSettingsDrawer.interval.label': 'Seconds per photo',
-    'slideshowSettingsDrawer.interval.hint': 'Minimum 5 seconds',
+    'slideshowSettingsDrawer.interval.hint': 'Minimum 5 seconds — transition below is always kept shorter than this',
     // MỚI (18/07/2026, phản hồi Giang) — tiêu đề modal picker (core/time-picker-modal.js).
     'slideshowSettingsDrawer.interval.pickerTitle': 'Seconds per photo',
     'slideshowSettingsDrawer.transition.label': 'Transition effect',
@@ -147,15 +169,15 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // thư mục đang Apply làm Scope cho Playlist (components/settings/playlist-view.js).
     'settingsPlaylistBg.activeFolder.label': 'Active folder',
     'settingsPlaylistBg.activeFolder.none': 'None',
-    'settingsPlaylistBg.videoEnable.label': 'Use Video Background',
-    'settingsPlaylistBg.videoEnable.hint': 'Toggle on to pick a video; toggle off just hides it (kept for next time)',
     // SỬA (phản hồi Giang, mục 4 — "Use video background chưa block nếu source là video") — dùng
     // CHUNG cho CẢ 2 lý do chặn (event/block.js không hỗ trợ notify riêng theo từng điều kiện) —
     // bỏ luôn tham chiếu "(File Manager -> Video)" đã lỗi thời (panel đó xoá hẳn từ Batch 6).
-    'settingsPlaylistBg.videoEnable.blockedByPlayerMode': 'Turn off Video Player mode, or switch the Playlist source away from Video, before using a background video.',
+    'visualBgSettingsDrawer.blockedDeleteInUse': 'This item is currently used as your Visual Background. Open Settings > Visualizer > Visual Background and tap Release source first.',
+    'visualBgSettingsDrawer.blockedBySourceVideo': 'Turn off the Visual Background video first — it uses the same player as Video mode.',
+    'visualBgSettingsDrawer.keptDeleteInUse': 'One item was kept because it is currently used as your Visual Background. Release it in Settings > Visualizer > Visual Background to delete it.',
+    'visualBgSettingsDrawer.clearSource.title': 'Release source',
+    'visualBgSettingsDrawer.blockedByPlayerMode': 'Turn off Video Player mode, or switch the Playlist source away from Video, before using a background video.',
     // MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer, KHÁC ảnh nền Playlist ngay dưới.
-    'settingsPlaylistBg.visualBgImage.label': 'Use Visualizer background image',
-    'settingsPlaylistBg.visualBgImage.hint': 'Toggle on to pick a photo; toggle off just hides it (kept for next time)',
     // Đổi tên (07/07/2026, phản hồi Giang mục 3) — tên cũ "Use playlist background image" không
     // còn đúng bản chất từ sau batch "nền chung" (06/07/2026): ảnh này giờ hiện CẢ Playlist LẪN
     // Settings, không riêng Playlist nữa.
@@ -177,8 +199,6 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsVisualizer.visualEnable.label': 'Show visual',
     'settingsVisualizer.visualEnable.hint': 'Turn off to show only the background (video/image/color), hiding the visualizer effect without touching Video Background.',
     // MỚI (Batch 8, 03/07/2026, slideshow nền Visual) — nút mở Slideshow Settings Drawer.
-    'settingsVisualizer.slideshowSetting.label': 'Slideshow background',
-    'settingsVisualizer.slideshowSetting.hint': 'Cycle through an album as an animated background',
 
     'settingsAudioEq.sectionTitle': 'Audio & Equalizer',
     'settingsAudioEq.volume.label': 'Master volume',
