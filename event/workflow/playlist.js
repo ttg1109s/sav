@@ -22,6 +22,27 @@ const VIDEO_THUMBNAIL_SIZE = 320;
 
 const workflowPlaylist = {
 
+    /** MỚI (v13 Batch F) — ứng với 'playlist.actionMenu.delete.click'. THAY nhánh `action==='delete'`
+     * của core `handleSongActionMenuSelect()` (đã xoá).
+     * @param {string} songKey - key do listener đọc sẵn từ `playlistStore` và đặt vào payload.
+     */
+    deleteSongFromActionMenu(songKey) {
+        if (!songKey) return; // guard: menu không mở/không xác định được bài nào
+        closeSongActionMenu(); // core/playlist/actions.js
+        window.removeSong(songKey);
+    },
+
+    /** MỚI (v13 Batch F) — ứng với 'playlist.actionMenu.edit.click'. THAY nhánh `action==='edit'`.
+     * KHÔNG nhận key qua payload: chỉ nhánh XOÁ mới cần key trong payload (để Block gate kiểm được
+     * "bài này có đang làm Visual Background không"); nhánh sửa đọc thẳng `playlistStore` tại đây —
+     * Workflow được phép đọc store. */
+    openSongEditFromActionMenu() {
+        const key = playlistStore.get('songActionMenuKey');
+        if (!key) return; // guard: menu không mở
+        closeSongActionMenu(); // core/playlist/actions.js
+        openSongEditModal(key); // core/playlist/actions.js
+    },
+
     /**
      * Ứng với msg.type = 'playlist.playbackError.delete' — cần ĐỌC state (key đang chờ xoá) rồi
      * PHỐI HỢP shield + hàm core xoá -> rõ ràng là workflow (>1 hàm).
@@ -636,7 +657,7 @@ const workflowPlaylist = {
         };
         if (isFirstOpen) openGenericDrawer(config); // core/generic-drawer.js
         else updateGenericDrawer(config); // core/generic-drawer.js
-        wirePlaylistFolderPickerEvents(); // core/file-manager/folder-picker-ui.js
+        wireFolderPickerDrawerEvents('playlist', 'playlist.folderPicker'); // core/file-manager/folder-picker-ui.js — hàm GỘP (v13 Batch B), msg.type KHÔNG đổi
     },
 
     _buildFolderPickerHeaderHtml() {
@@ -755,7 +776,12 @@ const workflowPlaylist = {
             // đúng vai trò workflow (Rule 3: core không được làm việc này, workflow thì được).
             const getRecordFn = isVideo ? getVideoRecord : getSongRecord; // service/db.js
             const deletedKeys = [];
-            for (const key of keys) {
+            // SỬA (v13 Batch F) — loại video đang làm Visual Background ra khỏi lô xoá. Target của
+            // luồng này là 1 TẬP nên KHÔNG chặn cả lô (khác 'playlist.actionMenu.delete.click' —
+            // xoá ĐƠN, chặn hẳn ở event/block.js): xoá phần còn lại, báo phần giữ lại. Chỉ nhánh
+            // Video mới có thể bị tham chiếu (Visual Background không dùng file nhạc).
+            const { allowed, blocked } = splitVisualBgProtectedKeys([...keys], isVideo ? appConfigVisualBg.getAll().singleVideoKey : ''); // core/visual-bg.js
+            for (const key of allowed) {
                 const record = await getRecordFn(key);
                 if (!record) continue; // guard: đã bị xoá từ trước (hiếm, race) — bỏ qua, không chặn cả lô
                 await removeSongFromAllFolders(record); // core có sẵn (core/file-manager/folder.js) — nhận record THÔ qua tham số, generic cho cả Song/Video
@@ -764,6 +790,7 @@ const workflowPlaylist = {
                 removeSongStats(key); // core có sẵn (core/listen-stats.js)
                 deletedKeys.push(key);
             }
+            if (blocked.length > 0) await alertModal(t('visualBgSettingsDrawer.keptDeleteInUse')); // báo phần bị giữ lại
             deletedCount = deletedKeys.length;
 
             // Đồng bộ appState (core THUẦN, xem core/playlist/bulk-actions.js) rồi vẽ lại — đọc

@@ -49,7 +49,7 @@ const workflowVideoPlayer = {
             refreshSongNode(previousSongKey); // core/playlist/render.js — patch riêng đúng 1 hàng, xoá highlight "đang phát"
         }
 
-        visualizerSolidBg.style.backgroundColor = '#000000'; // khớp handleVideoBackground() (core/state-and-video-bg.js) — nền đen cưỡng chế phía sau video
+        visualizerSolidBg.style.backgroundColor = '#000000'; // nền đen cưỡng chế phía sau video — cùng kết quả updateDOMBackground() (core/color-utils.js) cho nhánh video nền
         enterVideoPlayerModeState(); // core/video-player.js — CHỈ còn set isVideoPlayerMode=true
         setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop + hiện + pointer-events
 
@@ -71,8 +71,13 @@ const workflowVideoPlayer = {
         updateDOMBackground(); // core/color-utils.js, hàm CÓ SẴN — trả visualizerSolidBg về cfg.bgColor
 
         if (this._forcedBgObjectUrl) { try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {} this._forcedBgObjectUrl = null; }
-        const cfg = appConfigViz.getAll();
-        applyVisualBgImageToDOM(cfg.visualBgImageEnabled, cfg.visualBgImageEnabled ? cfg.visualBgImage : ''); // core/state-and-video-bg.js — trả #visual-bg-image về đúng cài đặt thật
+        // SỬA (v13 Batch A) — `vizConfig.visualBgImageEnabled/visualBgImage` ĐÃ GỘP vào
+        // `visualBgConfig`; blob: URL runtime giờ sống ở `appState.visualBgImageObjectUrl`
+        // (service/state/visual-bg.js). Điều kiện "ảnh nền tĩnh đang bật" = toggle tổng bật + đúng
+        // tổ hợp 1-ảnh (`mediaType='image'` + `sourceMode='single'`).
+        const visualBgCfg = appConfigVisualBg.getAll();
+        const bgImageActive = visualBgCfg.enabled && visualBgCfg.mediaType === 'image' && visualBgCfg.sourceMode === 'single';
+        applyVisualBgImageToDOM(bgImageActive, bgImageActive ? appState.get('visualBgImageObjectUrl') : ''); // core/visual-bg.js — trả #visual-bg-image về đúng cài đặt thật
 
         exitVideoPlayerModeState(); // core/video-player.js
         releaseWakeLock(); stopListenClock(); // core/player-controls.js — dọn nốt 2 cơ chế đã bật lúc phát
@@ -136,7 +141,7 @@ const workflowVideoPlayer = {
                 const forcedUrl = await decodeForcedBgThumb(record.thumbFullBlob); // core/video-player.js
                 if (this._forcedBgObjectUrl) { try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {} }
                 this._forcedBgObjectUrl = forcedUrl;
-                applyVisualBgImageToDOM(true, forcedUrl); // core/state-and-video-bg.js
+                applyVisualBgImageToDOM(true, forcedUrl); // core/visual-bg.js
             }
 
             if (this._objectUrl) { try { URL.revokeObjectURL(this._objectUrl); } catch (e) {} }

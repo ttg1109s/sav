@@ -319,8 +319,13 @@ const workflowFileManagerPhoto = {
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('fileManager.photo.image.quickDeleteBatchConfirm.confirmBtn'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
                     await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                        for (const key of keys) await deleteImage(key); // core/file-manager/image.js — cascade dọn album, TỪNG ảnh vẫn phải gọi riêng (deleteImage() không có bản batch) nhưng CHỈ 1 refresh() sau CÙNG, không phải N lần
+                        // SỬA (v13 Batch F) — loại ảnh đang làm Visual Background ra khỏi lô xoá.
+                        // Luồng này có target là 1 TẬP nên KHÔNG chặn cả lô (khác 4 luồng xoá đơn
+                        // đăng ký ở event/block.js) — xoá phần còn lại, báo phần giữ lại.
+                        const { allowed, blocked } = splitVisualBgProtectedKeys([...keys], appConfigVisualBg.getAll().singleImageKey); // core/visual-bg.js
+                        for (const key of allowed) await deleteImage(key); // core/file-manager/image.js — cascade dọn album, TỪNG ảnh vẫn phải gọi riêng (deleteImage() không có bản batch) nhưng CHỈ 1 refresh() sau CÙNG, không phải N lần
                     });
+                    if (blocked.length > 0) await alertModal(t('visualBgSettingsDrawer.keptDeleteInUse')); // báo phần bị giữ lại
                     quickDeleteSelectedKeys.clear();
                     onConfirmed(); // Router tự đồng bộ imageQuickDeleteMode=false — ĐÚNG lúc này, không sớm hơn
                     await this.refresh(activeAlbumId, false, quickDeleteSelectedKeys);
@@ -465,17 +470,24 @@ const workflowFileManagerPhoto = {
      * @param {number} albumListPageIndex
      */
     openAlbumActionMenu(albumId, anchorBtn, albumListPageIndex) {
-        const dispatch = (action) => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.action.click', payload: { action, albumId } });
+        // SỬA (v13 Batch F) — TÁCH 1 msg.type chung thành 2 msg.type RIÊNG theo hành động.
+        // Lý do KIẾN TRÚC (không phải để chiều Block gate): router đang
+        // `VirtualMachineState.run({ state: msg.payload.action })`, mà readme/event-bus-flow.md mục
+        // 4C nói rõ VMState dành cho rẽ nhánh theo `appState` KHÁC — "không phải `msg.payload` của
+        // chính nó"; trường hợp chỉ dùng payload của chính message thuộc nhánh (A) gọi thẳng Core.
+        // Tách xong thì mỗi msg.type mô tả ĐÚNG 1 hành động, và Block gate đăng ký được vào đúng
+        // hành động xoá mà không phải kèm điều kiện `payload.action`.
+        const dispatch = (type) => eventBus.send({ router: 'fileManagerPhoto', type, payload: { albumId } });
         openDropdownMenu(anchorBtn, [ // core/dropdown-menu.js
             {
                 icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>',
                 name: t('fileManager.photo.album.renameTitle'),
-                callback: () => dispatch('rename'),
+                callback: () => dispatch('fileManagerPhoto.albumList.rename.click'),
             },
             {
                 icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>',
                 name: t('fileManager.photo.album.deleteTitle'),
-                callback: () => dispatch('delete'),
+                callback: () => dispatch('fileManagerPhoto.albumList.delete.click'),
                 destructive: true,
             },
         ]);
@@ -502,7 +514,7 @@ const workflowFileManagerPhoto = {
         });
     },
 
-    /** Ứng với 'fileManagerPhoto.albumList.action.click' action='rename'. Đọc tên hiện tại từ core
+    /** Ứng với 'fileManagerPhoto.albumList.rename.click'. Đọc tên hiện tại từ core
      * (KHÔNG có sẵn trong DOM gọn như thanh quản lý cũ — hàng list không giữ tên riêng ngoài text
      * đang hiển thị, đọc lại DB rẻ, số album nhỏ).
      * @param {string} albumId
@@ -522,7 +534,7 @@ const workflowFileManagerPhoto = {
         });
     },
 
-    /** Ứng với 'fileManagerPhoto.albumList.action.click' action='delete'.
+    /** Ứng với 'fileManagerPhoto.albumList.delete.click'.
      * @param {string} albumId
      * @param {number} pageIndex
      * @param {() => void} onDeleted - reset `activeAlbumId` Ở TẦNG ROUTER nếu album vừa xoá đang là
@@ -538,8 +550,10 @@ const workflowFileManagerPhoto = {
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('fileManager.photo.album.btnDelete'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
                     await deleteAlbum(albumId); // core/file-manager/album.js — KHÔNG đụng ảnh bên trong, chỉ mất liên kết
-                    if (appState.get('activeBackgroundAlbum') === albumId && typeof workflowSlideshow !== 'undefined') {
-                        await workflowSlideshow.clearActiveAlbum(); // cascade "xoá album đang dùng làm nguồn slideshow" (Batch 8, giữ nguyên hành vi cũ)
+                    if (typeof workflowVisualBg !== 'undefined') {
+                        // SỬA (v13 Batch B) — nguồn sự thật đổi sang `visualBgConfig.listAlbumId`
+                        // (workflowSlideshow không còn sở hữu "album đang làm nền").
+                        await workflowVisualBg.clearListAlbumIfMatches(albumId);
                     }
                     onDeleted();
                     await this.refreshAlbumListPanel(pageIndex);
@@ -553,7 +567,7 @@ const workflowFileManagerPhoto = {
     // (bấm tên/số lượng album -> lọc lưới ảnh chính + pop về panel Photo) XOÁ HẲN — vùng tên/số
     // lượng KHÔNG còn bấm được nữa, xem itemTemplateAlbumListRow() (components/items.js).
 
-    /** Ứng với 'fileManagerPhoto.albumList.action.click' action='view'.
+    /** Ứng với 'fileManagerPhoto.albumList.row.click'.
      * SỬA (17/07/2026, Giang yêu cầu "bỏ carousel, đổi sang view xem giống File Manager -> Photo
      * nhưng chỉ ảnh trong album") — THAY HẲN carousel xem+xoá cũ (`openImageCarouselViewModal()`,
      * core/file-manager/photo-ui.js — HÀM VẪN GIỮ NGUYÊN trên đĩa, KHÔNG xoá, chỉ không còn gọi ở
@@ -867,14 +881,16 @@ const workflowFileManagerPhoto = {
      */
     openImageActionMenu(anchorEl) {
         const imageKey = this._activeImageKey, activeAlbumId = this._activeAlbumId;
-        const dispatch = (action) => {
+        // SỬA (v13 Batch F) — TÁCH 3 msg.type RIÊNG, cùng lý do như `openAlbumActionMenu()` ngay
+        // trên (VMState đang rẽ theo `msg.payload`, trái mục 4C event-bus-flow.md).
+        const dispatch = (type) => {
             this.closeImagePreview();
-            eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imageMenu.action.click', payload: { action, imageKey } });
+            eventBus.send({ router: 'fileManagerPhoto', type, payload: { imageKey } });
         };
         const isZooming = appState.get('imagePreviewMode') === 'zoom';
         const isEditing = appState.get('imagePreviewMode') === 'edit';
         const items = [
-            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>', name: t('fileManager.photo.image.btnSetPlaylistBg'), callback: () => dispatch('setPlaylistBg') },
+            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>', name: t('fileManager.photo.image.btnSetPlaylistBg'), callback: () => dispatch('fileManagerPhoto.imageMenu.setPlaylistBg.click') },
             { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"/></svg>', name: t(isZooming ? 'fileManager.photo.image.btnExitZoom' : 'fileManager.photo.image.btnZoom'), callback: () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.zoomToggle.click', payload: {} }) },
             { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>', name: t(isEditing ? 'fileManager.photo.image.btnExitEdit' : 'fileManager.photo.image.btnEditImage'), callback: () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.toggle.click', payload: {} }) },
         ];
@@ -891,8 +907,8 @@ const workflowFileManagerPhoto = {
             items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4l-4 4m0 0L7 3m4 4V1"/></svg>', name: t('fileManager.photo.image.btnSaveOverwrite'), callback: () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.saveOverwrite.click', payload: {} }) });
             items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>', name: t('fileManager.photo.image.btnSaveNew'), callback: () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.saveAsNew.click', payload: {} }) });
         }
-        if (activeAlbumId) items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6"/></svg>', name: t('fileManager.photo.image.btnRemoveFromAlbum'), callback: () => dispatch('removeFromAlbum') });
-        items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>', name: t('fileManager.photo.image.btnDelete'), callback: () => dispatch('delete'), destructive: true });
+        if (activeAlbumId) items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6"/></svg>', name: t('fileManager.photo.image.btnRemoveFromAlbum'), callback: () => dispatch('fileManagerPhoto.imageMenu.removeFromAlbum.click') });
+        items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>', name: t('fileManager.photo.image.btnDelete'), callback: () => dispatch('fileManagerPhoto.imageMenu.delete.click'), destructive: true });
 
         openDropdownMenu(anchorEl, items, { zIndex: 132 }); // core/dropdown-menu.js
     },
@@ -961,10 +977,14 @@ const workflowFileManagerPhoto = {
     },
 
     /** Ứng với nút "Dùng làm nền Slideshow" ở thanh quản lý album (MỚI, Batch 8).
+     * SỬA (v13 Batch B) — `workflowSlideshow.setActiveAlbum()` ĐÃ XOÁ (state `activeBackgroundAlbum`
+     * bỏ theo). Lối tắt này giờ đặt ĐỦ tổ hợp Visual Background tương ứng (bật + ảnh + danh sách +
+     * album vừa chọn) qua Workflow chéo domain — 1 lời gọi DUY NHẤT, KHÔNG tự viết lại logic
+     * persist/áp nền ở đây.
      * @param {string} albumId
      */
     async setAsSlideshowBackground(albumId) {
-        await workflowSlideshow.setActiveAlbum(albumId);
+        await workflowVisualBg.applyAlbumAsBackground(albumId); // event/workflow/visual-bg.js
         await alertModal(t('fileManager.photo.album.setSlideshowBgSuccess'));
     },
 };

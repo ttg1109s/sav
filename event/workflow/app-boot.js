@@ -12,42 +12,28 @@
  *
  * File này (kế thừa quy chế miễn audit của draw-visualizer.js/event/router/app-boot.js cũ, xem
  * readme/core-legacy-audit.md) — thêm dòng mới vào đây KHÔNG phát sinh nghĩa vụ refactor cho
- * loadConfig()/loadBackgroundAssets().
+ * loadConfig()/loadPlaylistBgImageAsset().
  */
 const workflowAppBoot = {
     async boot() {
         await loadConfig();
-        // Resolve `meta.visualBgImage` (Blob thật, ghi bởi "Đặt làm nền Visual" —
-        // event/workflow/file-manager-photo.js) NGAY SAU loadConfig(). "Đặt làm nền Playlist"
-        // ghi thẳng vào `meta.bgImage` — CÙNG Ô mà loadConfig()/loadBackgroundAssets() đã tự
-        // resolve sẵn rồi, nên KHÔNG cần thêm dòng nào cho `bgImage` ở đây, chỉ còn `visualBgImage`.
-        if (typeof getMeta === 'function') {
-            const cfg = appConfigViz.getAll();
-            if (cfg.visualBgImageEnabled) {
-                const visualBgBlob = await getMeta('visualBgImage');
-                if (visualBgBlob) {
-                    const url = URL.createObjectURL(visualBgBlob);
-                    appConfigViz.mutateAll(c => { c.visualBgImage = url; });
-                    if (typeof applyVisualBgImageToDOM === 'function') applyVisualBgImageToDOM(true, url);
-                    // Khối resolve lúc boot này set DOM/state trực tiếp thay vì gọi qua
-                    // applyVisualBgImage() (hàm ĐÓ mới có dòng đồng bộ toggle.checked), nên tự
-                    // đồng bộ lại toggle ở đây.
-                    if (typeof settingVisualBgImageEnableToggle !== 'undefined' && settingVisualBgImageEnableToggle) settingVisualBgImageEnableToggle.checked = true;
-                } else {
-                    // Bật "on" nhưng không còn Blob (hiếm — xoá tay IndexedDB, hoặc dữ liệu
-                    // lệch) -> tự sửa về "off ảo", cùng nguyên tắc loadBackgroundAssets() áp
-                    // dụng cho bgImage/videoBgUrl.
-                    appConfigViz.mutateAll(c => { c.visualBgImageEnabled = false; });
-                    if (typeof settingVisualBgImageEnableToggle !== 'undefined' && settingVisualBgImageEnableToggle) settingVisualBgImageEnableToggle.checked = false;
-                }
-            } else if (typeof settingVisualBgImageEnableToggle !== 'undefined' && settingVisualBgImageEnableToggle) {
-                settingVisualBgImageEnableToggle.checked = false; // đồng bộ rõ ràng cả nhánh "off"
-            }
-        }
+        // VIẾT LẠI (v13 Batch A, plan-v13-visual-background-unification.md) — khối resolve
+        // `meta.visualBgImage` cũ (~22 dòng: tự đọc Blob, tự createObjectURL, tự set
+        // `vizConfig.visualBgImage`, tự đồng bộ `settingVisualBgImageEnableToggle.checked`) ĐÃ XOÁ
+        // HẲN: cả 4 field cũ lẫn toggle tĩnh đó đều không còn tồn tại. Domain `visualBg` tự lo
+        // TOÀN BỘ việc khôi phục nền lúc boot — đọc `meta.visualBgConfig`, resolve nguồn theo
+        // KEY (không phải bản sao Blob), áp đúng lớp DOM tương ứng.
+        if (typeof workflowVisualBg !== 'undefined') await workflowVisualBg.loadPersistedSettingsOnBoot();
+
+        // MỚI (v13 Batch F) — dọn 4 khoá meta mồ côi của cơ chế nền cũ (2 trong đó là BẢN SAO Blob
+        // ảnh/video, có thể hàng trăm MB). Chạy SAU khi đã nạp xong cấu hình mới, không await chặn
+        // phần còn lại của boot vì nó không ảnh hưởng gì tới hiển thị.
+        purgeVisualBgLegacyMeta(); // core/file-manager/cleanup.js
         // Đọc lại slideshowConfig/activeBackgroundAlbum đã lưu (meta) + tự khởi động engine nếu
-        // có album active — NGAY SAU khối resolve visualBgImage ở trên (cùng nhóm "khôi phục nền
-        // lúc boot").
-        if (typeof workflowSlideshow !== 'undefined') await workflowSlideshow.loadPersistedSettingsOnBoot();
+        // có album active — NGAY SAU khối khôi phục Visual Background ở trên (cùng nhóm "khôi phục
+        // nền lúc boot"). (Domain `slideshow` sẽ được gộp nốt vào `visualBg` ở Batch C.)
+        // (v13 Batch C — `workflowSlideshow.loadPersistedSettingsOnBoot()` ĐÃ XOÁ: domain config
+        //  `slideshow` gộp vào `visualBgConfig.slideshow`, đọc lại 1 lần duy nhất ở dòng trên.)
         updateSubToggleUI();
         if (typeof checkPendingResumeStateOnBoot === 'function') checkPendingResumeStateOnBoot();
         if (typeof loadSongStats === 'function') await loadSongStats();
@@ -81,7 +67,7 @@ const workflowAppBoot = {
             // SỬA (phản hồi Giang — "ai bảo file đấy được miễn, không đọc đầu plan à?") — bản
             // trước Ở ĐÂY từng tự ý bỏ VirtualMachineState, thay bằng if/else thường, viện dẫn nhầm
             // "file này miễn audit" (dòng miễn-audit đầu file CHỈ áp cho loadConfig()/
-            // loadBackgroundAssets() CŨ, không cấp phép cho code MỚI né rule) — SAI theo đúng "LƯU
+            // loadPlaylistBgImageAsset() CŨ, không cấp phép cho code MỚI né rule) — SAI theo đúng "LƯU
             // Ý BẮT BUỘC" đầu plan-v12-song-video-unification.md ("cần mở rộng 1 pattern kiến trúc
             // — dừng lại hỏi Giang trước"). Đã hỏi lại, Giang chốt: mở rộng
             // VirtualMachineState (thêm `runAsync()`, giữ nguyên `run()` đồng bộ — xem

@@ -101,7 +101,7 @@ const workflowFileManagerFolderBrowser = {
             bodyClass: 'overflow-y-auto',
         };
         if (isFirstOpen) openGenericDrawer(config); else updateGenericDrawer(config); // core/generic-drawer.js
-        wireFolderBrowserListEvents(); // core/file-manager/folder-picker-ui.js
+        wireFolderPickerDrawerEvents('fileManagerFolderBrowser', 'fileManagerFolderBrowser.list'); // core/file-manager/folder-picker-ui.js — hàm GỘP (v13 Batch B), msg.type KHÔNG đổi // core/file-manager/folder-picker-ui.js
     },
 
     _buildListHeaderHtml() {
@@ -269,7 +269,7 @@ const workflowFileManagerFolderBrowser = {
     },
 
     _wireReadEvents() {
-        wireFolderBrowserReadEvents(); // core/file-manager/folder-picker-ui.js
+        wireFolderBrowserReadEvents(this._readFolderId); // core/file-manager/folder-picker-ui.js
     },
 
     async goToReadPage(pageIndex) {
