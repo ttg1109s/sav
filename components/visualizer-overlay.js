@@ -126,7 +126,7 @@ const TPL_VISUALIZER_OVERLAY = `
                     </button>
                     <!-- Toggle ẩn/hiện dải BPM/Pitch/Energy (#stats-panel, mới) — xem
                          js/core/stats-panel-toggle.js. data-cc-action ĐỂ NGUYÊN giống 5 nút trên
-                         (đóng Control Center sau khi bấm, xem state-and-video-bg.js) vì đây cũng là
+                         (đóng Control Center sau khi bấm, xem core/visualizer-control-center.js) vì đây cũng là
                          1 thao tác "chọn xong rồi đóng panel", không phải toggle cần giữ panel mở
                          để xem ngay hiệu ứng (khác Trộn bài/Lặp lại có badge trạng thái ngay trên
                          icon — icon nút này tự đổi giữa "mắt mở"/"mắt gạch chéo" ĐÚNG LÚC mở lại

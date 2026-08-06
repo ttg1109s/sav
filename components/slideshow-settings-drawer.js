@@ -19,7 +19,13 @@
  *   - Panel chọn Album — ĐÃ ĐỔI SANG Generic Drawer động (Giai đoạn 4, xem mục 3 ngay trên) —
  *     KHÔNG còn `TPL_SLIDESHOW_ALBUM_PICKER` mount tĩnh nào ở file này nữa.
  *
- * TÁI CẤU TRÚC THEO NHÓM (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh" +
+ * === v13 Batch C (plan-v13-visual-background-unification.md mục 2c) — THU GỌN ===
+ * "NHÓM 1: ALBUM" (enable/mode/photoPerSong/interval) XOÁ HẲN — 4 input đó không còn ý nghĩa ở đây:
+ * `enable` + chọn Album gộp vào panel cha "Visual Background", `mode`/`photoPerSong` thay bằng
+ * `nextOrder`/`listPlaybackMode` cũng ở panel cha, riêng `intervalSeconds` DỜI xuống đứng ĐẦU nhóm
+ * "Chuyển cảnh". Panel này giờ CHỈ còn 2 nhóm — thuần "chiếu ra sao", không còn "chiếu cái gì".
+ *
+ * (LỊCH SỬ) TÁI CẤU TRÚC THEO NHÓM (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh" +
  * "tái cấu trúc lại panel theo nhóm mục") — 10 input trước đây nằm CHUNG 1 danh sách dài, giờ chia
  * 3 NHÓM (`<h3>` + card riêng, CÙNG khuôn hình các section khác trong Settings — vd
  * components/settings/misc.js):
@@ -34,59 +40,23 @@
  */
 function renderSlideshowPanelBody() {
     return `
-                <!-- ===================== NHÓM 1: ALBUM ===================== -->
+                <!-- ===================== NHÓM 1: CHUYỂN CẢNH ===================== -->
                 <div>
-                    <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2" data-i18n="slideshowSettingsDrawer.groupAlbum.title">${t('slideshowSettingsDrawer.groupAlbum.title')}</h3>
+                    <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2" data-i18n="slideshowSettingsDrawer.groupTransition.title">${t('slideshowSettingsDrawer.groupTransition.title')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
 
+                        <!-- DỜI VÀO ĐÂY (v13 Batch C, yêu cầu Giang "đem Seconds per photo vào mục
+                             transition") — đứng ĐẦU nhóm, TRƯỚC transitionType: "ảnh hiện bao lâu"
+                             là mốc mà mọi thời lượng chuyển cảnh bên dưới bị kẹp theo. Hàng này
+                             LUÔN hiện (không còn ẩn theo photoPerSong — panel này chỉ mở được khi
+                             đang ở chế độ Trình chiếu). -->
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <div class="pr-3">
-                                <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.enable.label">${t('slideshowSettingsDrawer.enable.label')}</div>
-                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="slideshowSettingsDrawer.enable.hint">${t('slideshowSettingsDrawer.enable.hint')}</div>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="setting-slideshow-enable" class="sr-only peer">
-                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-fuchsia-500 shadow-inner"></div>
-                            </label>
-                        </div>
-
-                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <span class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.mode.label">${t('slideshowSettingsDrawer.mode.label')}</span>
-                            <select id="setting-slideshow-mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
-                                <option value="sequential" data-i18n="slideshowSettingsDrawer.mode.sequential">${t('slideshowSettingsDrawer.mode.sequential')}</option>
-                                <option value="random" data-i18n="slideshowSettingsDrawer.mode.random">${t('slideshowSettingsDrawer.mode.random')}</option>
-                            </select>
-                        </div>
-                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <div class="pr-3">
-                                <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.photoPerSong.label">${t('slideshowSettingsDrawer.photoPerSong.label')}</div>
-                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="slideshowSettingsDrawer.photoPerSong.hint">${t('slideshowSettingsDrawer.photoPerSong.hint')}</div>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="setting-slideshow-photo-per-song" class="sr-only peer">
-                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-fuchsia-500 shadow-inner"></div>
-                            </label>
-                        </div>
-                        <!-- SỬA (18/07/2026, phản hồi Giang — "setting chọn thời gian mở modal picker
-                             y như cách subtitles làm") — THAY <input type="number"> cũ bằng nút bấm,
-                             click mở modal "bánh xe cuộn số" dùng chung (core/time-picker-modal.js,
-                             xem workflowSlideshow.openIntervalPicker()). "5s" chỉ là placeholder TĨNH
-                             — refreshDrawerUI() ghi đè ĐÚNG giá trị thật ngay sau khi panel mở. -->
-                        <div id="slideshow-interval-row" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
                             <div>
                                 <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.interval.label">${t('slideshowSettingsDrawer.interval.label')}</div>
                                 <div class="text-xs text-slate-400 mt-0.5" data-i18n="slideshowSettingsDrawer.interval.hint">${t('slideshowSettingsDrawer.interval.hint')}</div>
                             </div>
                             <button type="button" id="setting-slideshow-interval" class="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none w-20 text-right shrink-0 hover:bg-white/10 transition-colors">5s</button>
                         </div>
-                    </div>
-                </div>
-
-                <!-- ===================== NHÓM 2: CHUYỂN CẢNH ===================== -->
-                <div>
-                    <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="slideshowSettingsDrawer.groupTransition.title">${t('slideshowSettingsDrawer.groupTransition.title')}</h3>
-                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <span class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.transition.label">${t('slideshowSettingsDrawer.transition.label')}</span>
                             <select id="setting-slideshow-transition" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-40 text-right">
@@ -139,7 +109,7 @@ function renderSlideshowPanelBody() {
                     </div>
                 </div>
 
-                <!-- ===================== NHÓM 3: KEN BURNS ===================== -->
+                <!-- ===================== NHÓM 2: KEN BURNS ===================== -->
                 <div>
                     <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="slideshowSettingsDrawer.groupKenBurns.title">${t('slideshowSettingsDrawer.groupKenBurns.title')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
