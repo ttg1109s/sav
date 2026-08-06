@@ -75,6 +75,66 @@ eventBus.registerBlock('playlist.actionMenu.addToFolder', [
     ],
 ]);
 
+// MỚI (v13 Batch B) — nút "Chọn nguồn" của Visual Background mở Generic Drawer ở 3/4 tổ hợp
+// (video+single, image+list, video+list). Tổ hợp còn lại (image+single) mở modal RIÊNG
+// (`openImageLibraryPickerModal()`), không đụng Generic Drawer — nhưng chỉ có ĐÚNG 1 msg.type cho
+// cả 4 nhánh (Router mới rẽ bằng VirtualMachineState) nên đăng ký 1 dòng là đủ, và chặn nhánh
+// image+single lúc Drawer đang mở cũng đúng ý (không mở chồng 2 picker).
+eventBus.registerBlock('visualBg.pickSource.click', [
+    [
+        { field: 'isGenericDrawerOpen', operator: '===', value: true },
+    ],
+]);
+
+// ===================== Visual Background — chặn xoá NGUỒN ĐANG THAM CHIẾU (v13 Batch F) =========
+// Quy tắc nghiệp vụ: thứ đang được `visualBgConfig` trỏ tới thì KHÔNG xoá được — phải bấm nút "Gỡ
+// nguồn" trong Settings -> Visual Background trước. Áp dụng BẤT KỂ Visual Background đang bật hay
+// tắt (Giang chốt): tham chiếu vẫn còn thì vẫn phải bảo vệ.
+//
+// CHỈ 4 msg.type dưới đây — đều là hành động có TARGET NGUYÊN KHỐI (đúng 1 đối tượng), nên chặn cả
+// hành động là đúng nghĩa. Các đường xoá HÀNG LOẠT (delete mode ảnh, selection mode Playlist,
+// clearAllPhotosData/clearAllVideosData) KHÔNG đăng ký ở đây: target của chúng là 1 TẬP, ref chỉ
+// làm hỏng vài phần tử chứ không hỏng cả thao tác — Workflow tự loại phần tử bị tham chiếu ra khỏi
+// tập rồi xoá phần còn lại (chuẩn bị dữ liệu, Rule 3b). Cùng 1 quy tắc, 2 điểm thực thi khác nhau
+// vì hành động chia được hay không.
+//
+// Cả 4 đều so 1 id với 1 id qua `valueField` (vế phải cũng là đường dẫn — xem event/bus.js).
+eventBus.registerBlock('playlist.actionMenu.delete.click', [
+    [
+        { field: 'payload.songKey', operator: '===', valueField: 'visualBgConfig.singleVideoKey' },
+    ],
+], { notify: t('visualBgSettingsDrawer.blockedDeleteInUse') });
+
+eventBus.registerBlock('fileManagerPhoto.imageMenu.delete.click', [
+    [
+        { field: 'payload.imageKey', operator: '===', valueField: 'visualBgConfig.singleImageKey' },
+    ],
+], { notify: t('visualBgSettingsDrawer.blockedDeleteInUse') });
+
+eventBus.registerBlock('fileManagerPhoto.albumList.delete.click', [
+    [
+        { field: 'payload.albumId', operator: '===', valueField: 'visualBgConfig.listAlbumId' },
+    ],
+], { notify: t('visualBgSettingsDrawer.blockedDeleteInUse') });
+
+eventBus.registerBlock('fileManagerFolderBrowser.read.delete.click', [
+    [
+        { field: 'payload.folderId', operator: '===', valueField: 'visualBgConfig.listFolderId' },
+    ],
+], { notify: t('visualBgSettingsDrawer.blockedDeleteInUse') });
+
+// SỬA (v13 Batch F, plan mục 4) — CHIỀU NGƯỢC LẠI của khoá chéo: đang bật Visual Background thì
+// không cho chuyển nguồn Playlist sang Video (Video Player mode chiếm dụng CÙNG thẻ `#bg-video`).
+// Trước v13 chỉ có 1 chiều (chặn bật video nền khi đang ở nguồn Video); chiều này thiếu nên vẫn
+// vào được trạng thái xung đột bằng đường vòng.
+eventBus.registerBlock('playlist.mediaSource.change', [
+    [
+        { field: 'payload.source', operator: '===', value: 'video' },
+        { field: 'visualBgConfig.enabled', operator: '===', value: true },
+        { field: 'visualBgConfig.mediaType', operator: '===', value: 'video' },
+    ],
+], { notify: t('visualBgSettingsDrawer.blockedBySourceVideo') });
+
 // ===================== Video Player mode <-> Use background video — khoá chéo 2 chiều =====================
 // MỚI (21/07/2026, Giang chỉ ra "Block đã có sẵn notify, sao phải tự viết alertModal") — 2 tính
 // năng dùng CHUNG `bgVideoElement`, KHÔNG được cùng bật.
@@ -88,7 +148,10 @@ eventBus.registerBlock('playlist.actionMenu.addToFolder', [
 // hành vi giữ NGUYÊN 100% so với chiều cũ.
 eventBus.registerBlock('videoPlayer.startFromPlaylist.click', [
     [
-        { field: 'vizConfig.videoBgEnabled', operator: '===', value: true },
+        // SỬA (v13 Batch A) — `vizConfig.videoBgEnabled` ĐÃ GỘP vào domain config `visualBg`.
+        // `resolveFieldPath()` (event/bus.js) tự nhận diện mọi domain AppConfig theo quy ước
+        // `<domain>Config` nên path mới chạy được ngay, không cần sửa bus.
+        { field: 'visualBgConfig.enabled', operator: '===', value: true },
     ],
 ], { notify: t('videoPlayer.startFromPlaylist.blockedByBgVideo') });
 
@@ -103,14 +166,16 @@ eventBus.registerBlock('videoPlayer.startFromPlaylist.click', [
 // CHUNG cho MỌI nhóm khớp (event/bus.js không hỗ trợ notify riêng theo từng nhóm) — đổi lại câu chữ
 // bao quát CẢ 2 lý do, đồng thời dọn luôn phần "(File Manager -> Video)" đã lỗi thời (panel đó xoá
 // hẳn từ Batch 6, "Song/Video Unification").
-eventBus.registerBlock('visualizerControlCenter.videoEnable.enable.click', [
+// SỬA (v13 Batch A) — msg.type ĐỔI theo cụm router MỚI `visualBg` (toggle #setting-video-enable
+// đã xoá; "Video nền" giờ là 1 tổ hợp của Visual Background). Điều kiện + notify GIỮ NGUYÊN 100%.
+eventBus.registerBlock('visualBg.enable.on.click', [
     [
         { field: 'isVideoPlayerMode', operator: '===', value: true },
     ],
     [
         { field: 'activeMediaSource', operator: '===', value: 'video' },
     ],
-], { notify: t('settingsPlaylistBg.videoEnable.blockedByPlayerMode') });
+], { notify: t('visualBgSettingsDrawer.blockedByPlayerMode') });
 
 // ===================== Modal xem ảnh Photo — chặn đóng khi đang Zoom/Edit mode =====================
 // MỚI (31/07/2026) — nút "..." dropdown LUÔN bấm được ở CẢ 3 mode (view/zoom/edit, KHÔNG disable),

@@ -85,8 +85,21 @@ const eventBus = (() => {
      * 'Config' — ĐÚNG cho cả 5 domain hiện có: viz/slideshow/reader/playlist/player) — nếu đúng, đọc
      * qua appConfig.access(domain).getAll() thay vì appState.get(). GENERIC theo AppConfig._domains
      * đã đăng ký — domain Config nào thêm sau này cũng tự được nhận diện, không cần sửa lại hàm này. */
-    function resolveFieldPath(field) {
+    function resolveFieldPath(field, payload) {
         const [rootKey, ...rest] = field.split('.');
+        // MỚI (v13 Batch F) — gốc 'payload': đọc THẲNG dữ liệu của chính message đang xét. Cần cho
+        // lớp điều kiện "thứ sắp bị xoá có phải thứ đang được tham chiếu không" — thông tin đó chỉ
+        // tồn tại trong payload, không có trong appState/appConfig.
+        // Payload KHÔNG phải ngoại lệ về bản chất: nó cũng là 1 giá trị dùng để quyết định chặn hay
+        // không, y hệt state (Giang chốt) — chỉ khác vòng đời (sống đúng 1 lượt gửi).
+        if (rootKey === 'payload') {
+            let curPayload = payload;
+            for (const key of rest) {
+                if (curPayload == null) return undefined;
+                curPayload = curPayload[key];
+            }
+            return curPayload;
+        }
         const configDomain = rootKey.endsWith('Config') ? rootKey.slice(0, -'Config'.length) : null;
         let cur = (configDomain && AppConfig._domains[configDomain])
             ? appConfig.access(configDomain).getAll()
@@ -101,11 +114,19 @@ const eventBus = (() => {
     /**
      * Đánh giá 1 điều kiện block. Tách riêng + export để event/virtual-machine-state.js hoặc
      * router có thể tái dùng khi cần AND/OR phức tạp mà không phải viết lại bộ so sánh khác.
-     * @param {{field: string, operator: string, value: *}} condition
+     * MỚI (v13 Batch F) — `valueField`: vế PHẢI cũng là 1 đường dẫn, resolve qua CÙNG
+     * `resolveFieldPath()`. `operation.evaluate(a, op, b)` vốn chỉ so 2 GIÁ TRỊ, nó không biết và
+     * không cần biết mỗi vế từ đâu ra — nên đây là ĐỐI XỨNG HOÁ, không phải năng lực mới.
+     * Phải tách thành khoá RIÊNG (không tái dùng `value`) vì 2 thứ cùng kiểu string không tự phân
+     * biệt được: `value: 'delete'` là giá trị thật, `valueField: 'visualBgConfig.listAlbumId'` là
+     * đường dẫn. Điều kiện cũ chỉ dùng `value` -> hành vi KHÔNG đổi.
+     * @param {{field: string, operator: string, value?: *, valueField?: string}} condition
+     * @param {object} payload - payload của message đang xét (cho gốc 'payload').
      * @returns {boolean}
      */
-    function evalCondition({ field, operator, value }) {
-        return operation.evaluate(resolveFieldPath(field), operator, value);
+    function evalCondition({ field, operator, value, valueField }, payload) {
+        const right = valueField !== undefined ? resolveFieldPath(valueField, payload) : value;
+        return operation.evaluate(resolveFieldPath(field, payload), operator, right);
     }
 
     /**
@@ -126,12 +147,12 @@ const eventBus = (() => {
         blocks.set(msgType, { groups, notify: options?.notify ?? null });
     }
 
-    /** @param {string} msgType @returns {boolean} true nếu msgType này đang bị chặn ngay lúc gọi.
+    /** @param {string} msgType @param {object} [payload] @returns {boolean} true nếu đang bị chặn.
      * MỚI: tự bật notify (nếu đăng ký có) đúng lúc chặn thật xảy ra — xem registerBlock() ở trên. */
-    function isBlocked(msgType) {
+    function isBlocked(msgType, payload) {
         const entry = blocks.get(msgType);
         if (!entry) return false;
-        const blocked = entry.groups.some(group => group.every(evalCondition)); // OR giữa nhóm, AND trong nhóm
+        const blocked = entry.groups.some(group => group.every((cond) => evalCondition(cond, payload))); // OR giữa nhóm, AND trong nhóm
         if (blocked && entry.notify) {
             alertModal(entry.notify); // KHÔNG await — isBlocked() phải trả boolean NGAY, không chờ modal đóng
         }
@@ -147,7 +168,7 @@ const eventBus = (() => {
             console.warn('[eventBus] send() bị bỏ qua: message thiếu field "router" hợp lệ.', msg);
             return;
         }
-        if (isBlocked(msg.type)) {
+        if (isBlocked(msg.type, msg.payload)) {
             return; // bị chặn ĐÚNG THIẾT KẾ theo event/block.js — im lặng, KHÔNG console.warn (không phải lỗi)
         }
         const router = routers.get(msg.router);
