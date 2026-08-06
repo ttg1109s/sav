@@ -308,6 +308,17 @@
                 // clearAllActiveSubBlocks() GIỮ NGUYÊN (core/subtitle/subtitle-display.js — hiển
                 // thị phụ đề lúc phát, KHÔNG liên quan gì tới việc soạn nội dung).
                 clearAllActiveSubBlocks();
+
+                // MỚI (v13 Batch D, hoàn thiện ở Batch E) — báo cho domain "Visual Background" biết
+                // bài hát vừa ĐỔI THẬT, thay cho task poll `currentKey` mỗi 1s mà engine slideshow
+                // từng tự dựng (`_startSongWatcher()`, đã xoá). So sánh KEY chứ không phải
+                // currentTime: seek trong CÙNG bài KHÔNG lọt vào đây, đúng hành vi cũ.
+                // Đây là NƠI DUY NHẤT biết chắc "bài hát vừa đổi" (next/prev/hết bài tự next/chọn
+                // bài khác đều đi qua đúng hàm này), nên hook đặt ở đây thay vì rải 3 chỗ.
+                // Gửi QUA BUS (không gọi thẳng Workflow): việc quyết định nguồn nền nào cần phản
+                // ứng là rẽ nhánh theo state -> thuộc tầng Router, xử lý bằng
+                // `VirtualMachineState.run()` ở event/router/visual-bg.js.
+                if (previousKey !== key) eventBus.send({ router: 'visualBg', type: 'visualBg.songChanged', payload: {} });
             }, false).then(async () => {
                 // Shield đã đóng HẲN (isShieldBusy = false) tới đây — an toàn để hiện modal, không
                 // còn lớp che z-[200] nào đè lên modalChoice() (z-[130]) nữa.
@@ -371,30 +382,11 @@
             playlistStore.set({ songActionMenuKey: null });
         }
 
-        /**
-         * Xử lý 1 lựa chọn trong menu 3 chấm (Xoá/Sửa/Khôi phục). Đọc key đang mở từ
-         * playlistStore (KHÔNG nhận key qua tham số — menu chỉ có thể mở cho ĐÚNG 1 bài tại 1
-         * thời điểm, state context này đã được openSongActionMenu() ghi lúc mở).
-         * SỬA (10/07/2026): nhánh 'info' ĐÃ XOÁ — openSongInfoModal() không còn tồn tại (gộp vào
-         * tab đầu của song-edit-modal, xem openSongEditModal()) — nút "info" cũng đã xoá khỏi
-         * template nên nhánh đó vốn không còn cách nào để kích hoạt, chỉ dọn cho khỏi gọi nhầm 1
-         * hàm không tồn tại nếu sau này có ai lỡ thêm lại nút cũ.
-         * SỬA (Batch "Export dọn nợ kiến trúc", phản hồi Giang) — nhánh 'restore' ĐÃ CHUYỂN ra khỏi
-         * hàm này (message riêng 'playlist.actionMenu.restore' + `workflowPlaylist.
-         * exportActiveMenuItem()`, CÙNG PRECEDENT với addToFolder/editSubtitles ở trên) — hàm này
-         * vốn đã có sẵn nhánh if/else vi phạm Rule 1 (nợ kiến trúc cũ, xem core-legacy-audit.md),
-         * KHÔNG mở rộng thêm quyết định "Song hay Video" vào đây, tránh phát sinh thêm nghĩa vụ.
-         * @param {string} action - 'delete' | 'edit'
-         * @returns {{status: string}} 'noop' nếu không có menu nào đang mở, 'ok' nếu đã xử lý
-         */
-        function handleSongActionMenuSelect(action) {
-            const key = playlistStore.get('songActionMenuKey');
-            if (!key) return { status: 'noop' };
-            closeSongActionMenu();
-            if (action === 'delete') window.removeSong(key);
-            else if (action === 'edit') openSongEditModal(key);
-            return { status: 'ok' };
-        }
+        // XOÁ (v13 Batch F) — `handleSongActionMenuSelect(action)`: vừa TỰ ĐỌC `playlistStore`
+        // (Rule 2) vừa if/else giữa 2 nghiệp vụ khác hẳn nhau — xoá bài / mở modal sửa (Rule 1).
+        // 4 hành động trước đó (addToFolder/editSubtitles/editVideoFile/restore) đã lần lượt tách ra
+        // msg.type riêng để NÉ hàm này thay vì sửa; nay 2 hành động cuối tách nốt
+        // ('playlist.actionMenu.delete.click'/'.edit.click' -> workflowPlaylist), hàm hết lý do tồn tại.
 
         // ===================== Modal: Bài hát lỗi lúc phát =====================
         // playbackErrorModal/playbackErrorFilename: dùng lại biến từ core/dom-refs.js.
