@@ -77,7 +77,9 @@
                     repeatMode: appState.get('repeatMode'),
                     shuffleIndices: appState.get('shuffleIndices').slice(),
                     displayOrder: appState.get('displayOrder').slice(),
-                    videoCurrentTime: (appConfigViz.getAll() && appConfigViz.getAll().videoBgEnabled && appConfigViz.getAll().videoBgUrl
+                    // SỬA (v13 Batch A) — điều kiện "đang có video nền chạy" đọc từ domain config
+                    // MỚI `visualBg` (`videoBgEnabled`/`videoBgUrl` của vizConfig đã xoá).
+                    videoCurrentTime: (appConfigVisualBg.getAll().enabled && appConfigVisualBg.getAll().mediaType === 'video'
                         && typeof bgVideoElement !== 'undefined' && bgVideoElement)
                         ? (bgVideoElement.currentTime || 0) : null,
                     autoSwitchVisualMarksSnapshot: (appConfigViz.getAll() && appConfigViz.getAll().autoSwitchVisualEnabled
@@ -223,7 +225,7 @@
             // ---- 2. Video nền — khôi phục đúng vị trí đang xem ----
             if (snapshot.videoCurrentTime !== null && snapshot.videoCurrentTime !== undefined
                 && typeof bgVideoElement !== 'undefined' && bgVideoElement
-                && appConfigViz.getAll().videoBgEnabled && appConfigViz.getAll().videoBgUrl) {
+                && appConfigVisualBg.getAll().enabled && appConfigVisualBg.getAll().mediaType === 'video') { // SỬA (v13 Batch A)
                 const targetTime = snapshot.videoCurrentTime;
                 const trySeek = () => { try { bgVideoElement.currentTime = targetTime; } catch (e) {} };
                 if (bgVideoElement.readyState >= 1) trySeek();

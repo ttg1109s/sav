@@ -40,12 +40,10 @@
             gradientFrom: '#6366f1', gradientTo: '#ec4899',
             mirrorBarCount: 32,
             volume: 100, eqMode: 'flat', manualEq: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            videoBgEnabled: false, videoBgUrl: '',
-            // Nền tĩnh CHO MÀN VISUALIZER (khác hẳn bgImage ở trên — nền cho màn Playlist). CÙNG
-            // CƠ CHẾ HỆT bgImage/videoBgUrl: Blob thật lưu ở meta.visualBgImage (service/db.js),
-            // field này CHỈ là blob: URL runtime resolve lại mỗi session (KHÔNG lưu trực tiếp, xem
-            // flushConfigBackup() bên dưới).
-            visualBgImageEnabled: false, visualBgImage: '',
+            // XOÁ (v13 Batch A — "Visual Background unification"): videoBgEnabled/videoBgUrl/
+            // visualBgImageEnabled/visualBgImage ĐÃ DỜI HẲN sang domain config RIÊNG `visualBg`
+            // (DEFAULT_VISUAL_BG_CONFIG bên dưới) — 3 tính năng nền màn Visualizer (video nền/ảnh
+            // nền tĩnh/slideshow album) gộp thành 1. KHÔNG giữ lại field cũ song song.
             visualEnabled: true,
             keepScreenOn: true,
             // Tự động đổi hiệu ứng Visualizer theo thời gian (ver 10) — xem core/auto-switch-visual.js.
@@ -67,16 +65,65 @@
             },
         };
 
-        const DEFAULT_SLIDESHOW_CONFIG = {
-            mode: 'sequential', // 'sequential' | 'random'
-            intervalSeconds: 5, // tối thiểu 5s — CHỈ dùng khi photoPerSong=false
-            transitionType: 'fade',
-            photoPerSong: false, // true: đổi ảnh THEO bài hát (1 ảnh/1 bài), bỏ qua intervalSeconds
-            kenBurnsEnabled: false, // pan/zoom chậm SUỐT thời gian hiển thị, ĐỘC LẬP với transitionType
-            kenBurnsMode: 'zoomPanRandom', // 1 trong 13 SLIDESHOW_KENBURNS_MODES (core/file-manager/slideshow.js)
-            transitionDurationMs: 1000, // TỔNG thời gian 1 lượt chuyển cảnh (1-60s)
-            transitionInOutRatio: 50, // % thời gian dành cho pha "in" (layer mới)
-            transitionEasing: 'ease', // 1 trong SLIDESHOW_TRANSITION_EASINGS
+        // XOÁ (v13 Batch C) — `DEFAULT_SLIDESHOW_CONFIG` + domain `slideshow` ĐÃ GỘP HẲN vào
+        // `DEFAULT_VISUAL_BG_CONFIG.slideshow` ngay bên dưới. 2 field `mode`/`photoPerSong` KHÔNG
+        // được mang theo: chúng đã bị thay bởi `nextOrder`/`listPlaybackMode` ở PANEL CHA (Visual
+        // Background) — dùng chung cho cả nhánh "theo từng bài" lẫn "trình chiếu", thay vì mỗi
+        // nhánh một field riêng như trước.
+
+        /**
+         * MỚI (v13, plan-v13-visual-background-unification.md mục 1) — domain config RIÊNG cho
+         * "Visual Background": GỘP 3 tính năng nền màn Visualizer từng rời rạc thành 1
+         *   (1) Video nền tĩnh loop      — `vizConfig.videoBgEnabled/videoBgUrl` (ĐÃ XOÁ)
+         *   (2) Ảnh nền tĩnh             — `vizConfig.visualBgImageEnabled/visualBgImage` (ĐÃ XOÁ)
+         *   (3) Slideshow album ảnh      — domain `slideshow` + `appState.activeBackgroundAlbum` (ĐÃ XOÁ)
+         * Domain RIÊNG (KHÔNG nhét lại vào `vizConfig`) đúng tinh thần "chọn domain phù hợp" đã
+         * chốt ở DEFAULT_PLAYLIST_CONFIG/DEFAULT_PLAYER_CONFIG.
+         *
+         * KHÔNG MIGRATE dữ liệu cũ (Giang chốt) — người dùng cũ mở lại app sẽ thấy Visual
+         * Background TẮT, chọn lại nguồn từ đầu. Lý do kỹ thuật cộng thêm: cơ chế cũ COPY Blob thô
+         * vào `meta.videoBg`/`meta.visualBgImage` mà KHÔNG lưu key nguồn, nên `singleVideoKey`/
+         * `singleImageKey` (tham chiếu bằng KEY, không phải bản sao Blob) vốn dĩ không thể suy ra
+         * ngược từ dữ liệu cũ.
+         *
+         * PERSIST: `meta.visualBgConfig` (IndexedDB, cùng khuôn domain `slideshow` cũ) — đọc lại
+         * lúc boot qua `workflowVisualBg.loadPersistedSettingsOnBoot()`. KHÔNG dùng lớp
+         * localStorage như domain `viz` (tần suất đổi thấp, chỉ thao tác Settings thủ công).
+         * KHÔNG field nào ở đây là blob: URL runtime — 2 object URL sống trong AppState
+         * (`visualBgVideoObjectUrl`/`visualBgImageObjectUrl`, service/state/visual-bg.js), tạo lại
+         * mỗi session từ KEY, nên toàn bộ object này persist được nguyên vẹn.
+         */
+        const DEFAULT_VISUAL_BG_CONFIG = {
+            enabled: false,                 // toggle TỔNG — thay 3 toggle rời cũ
+            mediaType: 'image',             // 'image' | 'video'
+            sourceMode: 'single',           // 'single' | 'list'
+
+            // Nguồn đã chọn. CHỈ field khớp mediaType×sourceMode hiện tại có ý nghĩa; 3 field còn
+            // lại GIỮ NGUYÊN giá trị (không xoá) để đổi qua đổi lại không mất lựa chọn trước đó.
+            singleImageKey: '',             // imageKey  — single + image
+            singleVideoKey: '',             // videoKey  — single + video
+            listAlbumId: null,              // albumId   — list + image (thay `activeBackgroundAlbum` cũ)
+            listFolderId: null,             // folderId (type='video') — list + video
+
+            // CHỈ đọc khi mediaType='image'. Video "list" chỉ có ĐÚNG 1 kiểu phát (loop + đổi theo
+            // next/prev/end bài hát) nên KHÔNG có lựa chọn này.
+            listPlaybackMode: 'perSong',    // 'perSong' | 'slideshow'
+            // Quy tắc chọn NGUỒN KẾ TIẾP trong list — DÙNG CHUNG cho perSong/slideshow (ảnh) LẪN
+            // list video. 'playlist' = áp cùng tiêu chí `appConfigPlaylist.displaySortMode`.
+            nextOrder: 'random',            // 'random' | 'sequential' | 'playlist'
+
+            // Sub-setting CHỈ dùng khi mediaType='image' + sourceMode='list' +
+            // listPlaybackMode='slideshow' — thu gọn từ DEFAULT_SLIDESHOW_CONFIG cũ (BỎ mode/
+            // photoPerSong: thay bằng nextOrder/listPlaybackMode ở trên).
+            slideshow: {
+                intervalSeconds: 5,
+                transitionType: 'fade',
+                transitionDurationMs: 1000,
+                transitionInOutRatio: 50,
+                transitionEasing: 'ease',
+                kenBurnsEnabled: false,
+                kenBurnsMode: 'zoomPanRandom',
+            },
         };
 
         const DEFAULT_READER_CONFIG = {
@@ -133,8 +180,6 @@
                 themeMode: 'string', gradientFrom: 'string', gradientTo: 'string',
                 mirrorBarCount: 'number',
                 volume: 'number', eqMode: 'string', manualEq: 'array',
-                videoBgEnabled: 'boolean', videoBgUrl: 'string',
-                visualBgImageEnabled: 'boolean', visualBgImage: 'string',
                 visualEnabled: 'boolean',
                 keepScreenOn: 'boolean',
                 autoSwitchVisualEnabled: 'boolean', autoSwitchVisualMode: 'string', autoSwitchVisualTimeMode: 'string',
@@ -144,13 +189,15 @@
             defaults: DEFAULT_VIZ_CONFIG,
         });
 
-        AppConfig.defineDomain('slideshow', {
+        AppConfig.defineDomain('visualBg', {
             schema: {
-                mode: 'string', intervalSeconds: 'number', transitionType: 'string', photoPerSong: 'boolean',
-                kenBurnsEnabled: 'boolean', kenBurnsMode: 'string', transitionDurationMs: 'number',
-                transitionInOutRatio: 'number', transitionEasing: 'string',
+                enabled: 'boolean', mediaType: 'string', sourceMode: 'string',
+                singleImageKey: 'string', singleVideoKey: 'string',
+                listAlbumId: 'nullable-string', listFolderId: 'nullable-string',
+                listPlaybackMode: 'string', nextOrder: 'string',
+                slideshow: 'object',
             },
-            defaults: DEFAULT_SLIDESHOW_CONFIG,
+            defaults: DEFAULT_VISUAL_BG_CONFIG,
         });
 
         AppConfig.defineDomain('reader', {
@@ -184,7 +231,7 @@
          * — xem index.html) nên thứ tự "seed trước, merge localStorage đè lên sau" không đổi. */
         function seedConfig() {
             appConfig.seed('viz');
-            appConfig.seed('slideshow');
+            appConfig.seed('visualBg');
             appConfig.seed('reader');
             appConfig.seed('playlist');
             appConfig.seed('player');
@@ -193,7 +240,7 @@
 
         /** Accessor tiện dụng, dùng khắp core/event cho 5 domain config — xem AppConfig.access(). */
         const appConfigViz = appConfig.access('viz');
-        const appConfigSlideshow = appConfig.access('slideshow');
+        const appConfigVisualBg = appConfig.access('visualBg');
         const appConfigReader = appConfig.access('reader');
         const appConfigPlaylist = appConfig.access('playlist');
         const appConfigPlayer = appConfig.access('player');
@@ -219,35 +266,28 @@
         }
         function flushConfigBackup() {
             taskManager.kill('configBackupFlush');
-            const { bgImage, videoBgUrl, ...persistable } = appConfigViz.getAll(); // loại trừ blob: URL runtime
+            const { bgImage, ...persistable } = appConfigViz.getAll(); // loại trừ blob: URL runtime
             setMeta('configBackup', persistable).catch(e => console.warn('[config] Lưu configBackup (IndexedDB) lỗi:', e));
         }
 
         /**
-         * Đọc lại ảnh nền & video nền từ IndexedDB (meta.bgImage / meta.videoBg), tự sửa trạng
-         * thái "on ảo" nếu config nói đang bật nhưng IndexedDB không còn Blob tương ứng.
+         * Đọc lại ẢNH NỀN PLAYLIST/APP từ IndexedDB (meta.bgImage), tự sửa trạng thái "on ảo" nếu
+         * config nói đang bật nhưng IndexedDB không còn Blob tương ứng.
+         * ĐỔI TÊN + THU HẸP (v13 Batch A) — trước đây tên `loadBackgroundAssets()` (số nhiều) vì
+         * lo CẢ `meta.videoBg` (video nền màn Visualizer) — nhánh đó ĐÃ DỜI sang domain `visualBg`
+         * (workflowVisualBg.loadPersistedSettingsOnBoot(), resolve từ `singleVideoKey` chứ không
+         * còn đọc 1 bản sao Blob ở `meta.videoBg`). Tên mới phản ánh ĐÚNG việc còn lại: chỉ 1 asset,
+         * chỉ ảnh nền Playlist.
          */
-        async function loadBackgroundAssets() {
-            const [imgBlob, videoBlob] = await Promise.all([
-                getMeta('bgImage'),
-                getMeta('videoBg')
-            ]);
-
+        async function loadPlaylistBgImageAsset() {
+            const imgBlob = await getMeta('bgImage');
             appConfigViz.mutateAll(cfg => {
                 if (cfg.bgImageEnabled && !imgBlob) {
                     cfg.bgImageEnabled = false;
                 } else if (imgBlob && cfg.bgImageEnabled) {
                     cfg.bgImage = URL.createObjectURL(imgBlob);
                 }
-
-                if (cfg.videoBgEnabled && !videoBlob) {
-                    cfg.videoBgEnabled = false;
-                } else if (videoBlob && cfg.videoBgEnabled) {
-                    cfg.videoBgUrl = URL.createObjectURL(videoBlob);
-                }
             });
-
-            videoEnableToggle.checked = appConfigViz.getAll().videoBgEnabled;
         }
 
         /**
@@ -312,14 +352,15 @@
 
             bgBlurSlider.value = appConfigViz.getAll().bgBlur; valBgBlurDisplay.textContent = appConfigViz.getAll().bgBlur + 'px';
 
-            // bgImage/videoBgUrl giờ là blob: URL runtime, tạo lại mỗi session từ IndexedDB — luôn
-            // reset về rỗng TRƯỚC khi loadBackgroundAssets() đọc lại Blob thật.
-            appConfigViz.mutateAll(cfg => { cfg.bgImage = ''; cfg.videoBgUrl = ''; });
-            await loadBackgroundAssets();
+            // bgImage là blob: URL runtime, tạo lại mỗi session từ IndexedDB — luôn reset về rỗng
+            // TRƯỚC khi loadPlaylistBgImageAsset() đọc lại Blob thật.
+            // (v13 Batch A — `videoBgUrl` KHÔNG còn ở đây; video nền màn Visualizer do domain
+            // `visualBg` tự resolve/áp dụng, xem event/workflow/visual-bg.js.)
+            appConfigViz.mutateAll(cfg => { cfg.bgImage = ''; });
+            await loadPlaylistBgImageAsset();
             saveConfig();
             updatePlaylistBg();
             workflowTheme.refreshThemeCardUI();
-            handleVideoBackground();
 
             volumeSlider.value = appConfigViz.getAll().volume; valVolumeDisplay.textContent = appConfigViz.getAll().volume + '%';
             if(appState.get('masterGainNode')) appState.get('masterGainNode').gain.value = appConfigViz.getAll().volume / 100;

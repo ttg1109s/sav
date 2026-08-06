@@ -121,9 +121,8 @@
         // BÊN TRONG panel Visualizer Settings, không còn DOM tĩnh — event/listener/auto-switch-
         // visual.js dùng delegation trên settingsStackBody thay vì đọc const ở đây.)
         const bgBlurSlider = document.getElementById('setting-bg-blur'), valBgBlurDisplay = document.getElementById('val-bg-blur');
-        // MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer. FIX (04/07/2026, mục 1) — bỏ
-        // ref nút "Chọn ảnh" riêng (đã xoá khỏi HTML, xem components/settings/playlist-background.js).
-        const settingVisualBgImageEnableToggle = document.getElementById('setting-visual-bg-image-enable');
+        // (settingVisualBgImageEnableToggle ĐÃ XOÁ — v13 Batch A: toggle "#setting-visual-bg-image-enable"
+        // không còn tồn tại, gộp vào panel "Visual Background" — xem btnOpenVisualBgSettings bên dưới.)
         // (bgImageEnableToggle ĐÃ XOÁ — 07/07/2026: checkbox "App background image" cũ không còn,
         // thay bằng 3 card Theme loại trừ nhau — xem components/settings/theme.js.)
         const themeModeCardLight = document.getElementById('theme-mode-card-light');
@@ -154,7 +153,10 @@
         // DOM element `#setting-video-upload`, xem components/settings/visualizer-geometry-color.js)
         // — đường chết thật từ khi `enableVideoBackgroundToggle()` đổi sang mở Generic Drawer picker
         // (event/workflow/file-manager-video.js) thay vì `.click()` input này.
-        const videoEnableToggle = document.getElementById('setting-video-enable'), bgVideoElement = document.getElementById('bg-video');
+        // (videoEnableToggle ĐÃ XOÁ — v13 Batch A: toggle "#setting-video-enable" không còn tồn tại,
+        // gộp vào panel "Visual Background". `bgVideoElement` GIỮ NGUYÊN — thẻ <video> dùng CHUNG
+        // cho CẢ Video nền LẪN Video Player mode, không liên quan tới việc gộp 3 toggle.)
+        const bgVideoElement = document.getElementById('bg-video');
         // Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual).
         // FIX (04/07/2026, mục 1a) — nền màu Settings (bgColor), TÁCH khỏi document.body.
         const visualizerSolidBg = document.getElementById('visualizer-solid-bg');
@@ -169,7 +171,9 @@
         // còn lo animation chuyển cảnh, xem docstring index.html/assets/css/slideshow.css).
         const slideshowLayer1Pan = document.getElementById('visual-slideshow-layer-1-pan');
         const slideshowLayer2Pan = document.getElementById('visual-slideshow-layer-2-pan');
-        const btnOpenSlideshowSettings = document.getElementById('setting-open-slideshow-settings');
+        // MỚI (v13 Batch A) — nút điều hướng DUY NHẤT mở panel "Visual Background", THAY 3 entry
+        // cũ (#setting-video-enable, #setting-visual-bg-image-enable, #setting-open-slideshow-settings).
+        const btnOpenVisualBgSettings = document.getElementById('setting-open-visual-bg-settings');
         // (drawerSlideshowSettings/btnBackSlideshowSettings ĐÃ XOÁ — Batch D4: panel Slideshow
         // Settings giờ động, không còn drawer tĩnh riêng; Back dùng CHUNG btnSettingsStackBack.)
         //

@@ -22,10 +22,16 @@
          * nghi ngờ là 1 phần nguyên nhân màu Settings tràn vào status bar/tai thỏ OS (1 số trình
          * duyệt tự suy màu vùng đó từ nền `<body>` bất kể có gì đè lên trên). `body` giờ giữ
          * NGUYÊN #000000 tĩnh khai báo thuần trong CSS, không còn bị JS đụng vào nữa. */
+        /** SỬA (v13 Batch A) — `vizConfig.videoBgEnabled` ĐÃ GỘP vào domain config `visualBg`;
+         * điều kiện "có video nền đang che lên" giờ = `enabled && mediaType==='video'`. Hàm này là
+         * CHỦ SỞ HỮU DUY NHẤT của màu `#visualizer-solid-bg` (Workflow domain `visualBg` gọi THẲNG
+         * hàm này thay vì tự viết 1 core song song — tránh 2 nơi cùng ghi 1 thuộc tính).
+         * Rule 1 KHÔNG vi phạm: vẫn ĐÚNG 1 tiến trình (gán màu nền), chỉ khác GIÁ TRỊ gán — viết
+         * lại thành 1 biểu thức 3 ngôi cho rõ điều đó. Rule 2 vẫn là nợ DI SẢN của file này (tự
+         * `appConfigViz.getAll()`) — KHÔNG mở rộng thêm, chỉ đổi đúng field bị gộp. */
         function updateDOMBackground() { 
-            const cfg = appConfigViz.getAll();
-            if(!cfg.videoBgEnabled) visualizerSolidBg.style.backgroundColor = cfg.bgColor; 
-            else visualizerSolidBg.style.backgroundColor = '#000000';
+            const videoBgActive = appConfigVisualBg.getAll().enabled && appConfigVisualBg.getAll().mediaType === 'video';
+            visualizerSolidBg.style.backgroundColor = videoBgActive ? '#000000' : appConfigViz.getAll().bgColor;
         }
         
         /**

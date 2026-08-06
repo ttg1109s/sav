@@ -557,9 +557,14 @@
             if (appState.get('currentKey')) refreshSongNode(appState.get('currentKey'));
             startListenClock();
             if (typeof syncAutoSwitchVisualPlayState === 'function') syncAutoSwitchVisualPlayState(); // ver 10: xem auto-switch-visual.js
-            // Chỉ ĐỒNG BỘ phát video theo nhạc — KHÔNG fade lại. Nguồn + fade đã thiết lập 1 lần
-            // lúc bật/upload/nạp trang (handleVideoBackground), nên Next/Prev không lặp lại cú fade.
-            syncVideoBgToAudio();
+            // Chỉ ĐỒNG BỘ phát video nền theo nhạc — nguồn đã thiết lập 1 lần lúc bật/chọn nguồn/
+            // nạp trang (workflowVisualBg.applyCurrentVisualBg()), nên Next/Prev không nạp lại src.
+            // SỬA (v13 Batch A) — `syncVideoBgToAudio()` (core cũ, tự đọc `vizConfig.videoBgEnabled`
+            // — vi phạm Rule 2) ĐÃ XOÁ; thay bằng Workflow domain `visualBg` (nó tự đọc
+            // `audioPlayer.paused` rồi gọi core thuần `syncVisualBgVideoPlayback(isPaused)`).
+            // CÙNG hình dạng lời gọi core->workflow đã có sẵn ở dòng ngay dưới (nợ kỹ thuật di sản
+            // của chính hàm này, KHÔNG phát sinh mới — file này không thuộc phạm vi viết lại đợt v13).
+            if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.syncPlaybackToAudio();
             if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.syncPlaybackGate();
         }
 
@@ -576,7 +581,7 @@
             if (appState.get('currentKey')) refreshSongNode(appState.get('currentKey'));
             stopListenClock();
             if (typeof syncAutoSwitchVisualPlayState === 'function') syncAutoSwitchVisualPlayState(); // ver 10: xem auto-switch-visual.js
-            syncVideoBgToAudio();
+            if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.syncPlaybackToAudio(); // v13 Batch A — xem handleAudioPlay() ngay trên
             if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.syncPlaybackGate();
         }
 
