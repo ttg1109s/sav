@@ -34,7 +34,7 @@
             // `hasCustomBg` CHỈ quyết định có tô lớp phủ `cfg.bgColor` (dòng dưới) hay không — có
             // BẤT KỲ nguồn nền tuỳ chỉnh nào (video/ảnh Visual/slideshow) thì bỏ tô, để nền thật
             // hiện xuyên qua canvas (canvas trong suốt ở vùng không vẽ gì).
-            const hasCustomBg = cfg.videoBgEnabled || cfg.visualBgImageEnabled || !!appState.get('activeBackgroundAlbum') || appState.get('isVideoPlayerMode');
+            const hasCustomBg = appConfigVisualBg.getAll().enabled || appState.get('isVideoPlayerMode'); // SỬA (v13 Batch A) — 3 điều kiện rời (videoBgEnabled/visualBgImageEnabled/activeBackgroundAlbum) ĐÃ GỘP thành 1 toggle tổng `visualBgConfig.enabled`
             if (!hasCustomBg) { ctx.fillStyle = cfg.bgColor; ctx.fillRect(0, 0, canvas.width, canvas.height); }
             let progress = 0; if (audioPlayer && isFinite(audioPlayer.duration) && audioPlayer.duration > 0) progress = audioPlayer.currentTime / audioPlayer.duration;
             let moonX = canvas.width * 0.70; let moonY = canvas.height * 0.35; let baseScale = 4 + Math.sin(progress * Math.PI) * 1; let baseMoonRadius = baseScale * 8 * dpr; 
@@ -143,7 +143,7 @@
             // phủ `skyGrad` hay để trống cho nền thật hiện xuyên qua. Cảnh công viên (đất/đèn/mưa)
             // vẫn vẽ đè lên như cũ — tự động nằm TRƯỚC (đè lên) nền ảnh/slideshow.
             // SỬA (21/07/2026, cùng lý do đã sửa ở drawRainGlass() phía trên) — thêm isVideoPlayerMode.
-            const hasCustomBg = cfg.videoBgEnabled || cfg.visualBgImageEnabled || !!appState.get('activeBackgroundAlbum') || appState.get('isVideoPlayerMode');
+            const hasCustomBg = appConfigVisualBg.getAll().enabled || appState.get('isVideoPlayerMode'); // SỬA (v13 Batch A) — 3 điều kiện rời (videoBgEnabled/visualBgImageEnabled/activeBackgroundAlbum) ĐÃ GỘP thành 1 toggle tổng `visualBgConfig.enabled`
             if (!hasCustomBg) {
                 const nightColors = getComputedColor(0, 1, 60);
                 let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
