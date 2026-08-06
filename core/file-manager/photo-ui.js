@@ -551,7 +551,7 @@ function openImageLibraryPickerModal(images, onSelect, onCancel) {
  * ĐÚNG `core/modal-choice.js::modalChoice()`, đã audit riêng, KHÔNG tự nhận lây, xem readme/core-
  * function-conventions.md) — tile giờ tự bắn `eventBus.send()` cố định, CHỈ 1 nơi gọi
  * (event/workflow/slideshow.js::openAlbumPicker()) nên không cần tham số hoá đích đến. */
-function renderSlideshowAlbumPickerGrid(gridEl, albums, activeAlbumId, imageRecordsByKey) {
+function renderAlbumPickerGrid(gridEl, albums, activeAlbumId, imageRecordsByKey, routerName, msgPrefix) {
     if (!gridEl) return;
 
     gridEl.querySelectorAll('[data-has-object-url]').forEach((node) => {
@@ -586,19 +586,25 @@ function renderSlideshowAlbumPickerGrid(gridEl, albums, activeAlbumId, imageReco
         label.textContent = album.name;
         tile.appendChild(label);
 
-        tile.addEventListener('click', () => eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.albumPicker.tile.click', payload: { albumId: album.id } }));
+        tile.addEventListener('click', () => eventBus.send({ router: routerName, type: `${msgPrefix}.tile.click`, payload: { albumId: album.id } }));
         gridEl.appendChild(tile);
     });
 }
 
-/** Wire closeBtn + `genericDrawerOverlay` click cho picker Album của Slideshow — dùng CHUNG 1
- * msg.type với "bấm ra ngoài" (cùng ý nghĩa "huỷ"). `genericDrawerOverlay` DÙNG CHUNG nhiều feature
- * (menu action ảnh, picker ảnh Photo & Album...) — PHẢI trả về hàm GỠ, Workflow tự gọi lúc đóng
- * (không gỡ sẽ dính sang lần mở Drawer TIẾP THEO của feature khác, bắn nhầm msg.type này).
+/** Wire closeBtn + `genericDrawerOverlay` click cho picker Album — dùng CHUNG 1 msg.type với "bấm
+ * ra ngoài" (cùng ý nghĩa "huỷ"). `genericDrawerOverlay` DÙNG CHUNG nhiều feature (menu action ảnh,
+ * picker ảnh Photo & Album...) — PHẢI trả về hàm GỠ, Workflow tự gọi lúc đóng (không gỡ sẽ dính
+ * sang lần mở Drawer TIẾP THEO của feature khác, bắn nhầm msg.type này).
+ * SỬA (v13 Batch B) — bỏ tiền tố `Slideshow` khỏi tên + nhận `routerName`/`msgPrefix` làm THAM SỐ:
+ * picker Album giờ thuộc "Chọn nguồn" của Visual Background, nhưng bản thân LƯỚI + WIRE là hạ tầng
+ * dùng chung, không thuộc riêng miền nào. Truyền tên router là truyền GIÁ TRỊ, không rẽ nhánh tiến
+ * trình — Rule 1 không bị đụng.
+ * @param {string} routerName
+ * @param {string} msgPrefix
  * @returns {() => void}
  */
-function wireSlideshowAlbumPickerDrawerActions() {
-    const cancel = () => eventBus.send({ router: 'slideshowSettings', type: 'slideshowSettings.albumPicker.overlay.click', payload: {} });
+function wireAlbumPickerDrawerActions(routerName, msgPrefix) {
+    const cancel = () => eventBus.send({ router: routerName, type: `${msgPrefix}.cancel.click`, payload: {} });
     const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
     if (closeBtn) closeBtn.addEventListener('click', cancel);
     genericDrawerOverlay.addEventListener('click', cancel);

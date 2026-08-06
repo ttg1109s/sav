@@ -113,7 +113,11 @@ async function cleanupOrphanedAlbumImageKeys() {
  * @returns {Promise<number>} 0 hoặc 1.
  */
 async function cleanupOrphanedActiveBackgroundAlbum() {
-    const activeAlbumId = await getMeta('activeBackgroundAlbum'); // data layer
+    // SỬA (v13 Batch F) — đổi đích sang `meta.visualBgConfig.listAlbumId`. Khoá cũ
+    // `meta.activeBackgroundAlbum` đã NGỪNG GHI từ v13 Batch B (cùng `meta.slideshowConfig`,
+    // `meta.videoBg`, `meta.visualBgImage` — 4 khoá mồ côi, dọn ở `purgeVisualBgLegacyMeta()`).
+    const visualBgCfg = await getMeta('visualBgConfig'); // data layer
+    const activeAlbumId = visualBgCfg ? visualBgCfg.listAlbumId : null
     if (!activeAlbumId) return 0;
     const record = await getAlbumRecord(activeAlbumId); // data layer
     if (record) return 0; // vẫn còn tồn tại -> không mồ côi
@@ -146,3 +150,22 @@ registerCleanupCheck('orphanedFolderSongMaps', cleanupOrphanedFolderSongMaps);
 registerCleanupCheck('orphanedAlbumImageKeys', cleanupOrphanedAlbumImageKeys);
 registerCleanupCheck('orphanedActiveBackgroundAlbum', cleanupOrphanedActiveBackgroundAlbum);
 registerCleanupCheck('emptyUserDocuments', cleanupEmptyUserDocuments);
+
+/**
+ * Dọn 4 khoá `meta` MỒ CÔI của cơ chế nền cũ (v13 Batch F) — đều đã ngừng ghi từ Batch A/B/C:
+ *   meta.videoBg            — BẢN SAO Blob video nền (cơ chế cũ copy blob; v13 chỉ lưu KEY)
+ *   meta.visualBgImage      — BẢN SAO Blob ảnh nền tĩnh (như trên)
+ *   meta.activeBackgroundAlbum — album nền, thay bằng `visualBgConfig.listAlbumId`
+ *   meta.slideshowConfig    — domain config riêng, gộp vào `visualBgConfig.slideshow`
+ * 2 khoá đầu là Blob THẬT, có thể chiếm hàng trăm MB — đây mới là phần đáng giá của việc dọn.
+ * Gọi 1 LẦN lúc boot (event/workflow/app-boot.js). Idempotent: chạy lại không sao.
+ * @returns {Promise<void>}
+ */
+async function purgeVisualBgLegacyMeta() {
+    await Promise.all([
+        delMeta('videoBg'),
+        delMeta('visualBgImage'),
+        delMeta('activeBackgroundAlbum'),
+        delMeta('slideshowConfig'),
+    ]); // service/db.js
+}

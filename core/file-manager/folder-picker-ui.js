@@ -90,59 +90,58 @@ function openRenameFolderModal(currentName, folderId) {
 // bài hát VS file-manager-folder-browser duyệt/quản lý folder) nên đặt chung 1 file, nhưng vẫn 2
 // hàm RIÊNG (router đích khác nhau, không gộp thành 1 hàm nhận tham số router).
 
-/** Wire lại TOÀN BỘ sự kiện picker Folder của Playlist SAU MỖI lần vẽ grid (nội dung
- * `genericDrawerBody` bị thay hoàn toàn mỗi lần — xem event/workflow/playlist.js::
- * _openFolderPickerDrawer()). Input sửa tên (nếu đang có) tự focus + select — KHÔNG qua eventBus
- * (hành vi UI thuần "đặt con trỏ vào ô vừa hiện ra", không phải 1 quyết định nghiệp vụ). */
-function wirePlaylistFolderPickerEvents() {
+/**
+ * Wire lại TOÀN BỘ sự kiện 1 lưới chọn Folder trong Generic Drawer, SAU MỖI lần vẽ lại grid (nội
+ * dung `genericDrawerBody` bị thay hoàn toàn mỗi lần).
+ *
+ * GỘP (v13 Batch B, phản hồi Giang "tại sao phải thêm hàm logic trùng lặp?") — TRƯỚC ĐÂY là 2 hàm
+ * `wirePlaylistFolderPickerEvents()` + `wireFolderBrowserListEvents()` GIỐNG NHAU TỪNG DÒNG, chỉ
+ * khác tên router + tiền tố msg.type. Comment cũ tự biện minh "vẫn 2 hàm RIÊNG (router đích khác
+ * nhau, không gộp thành 1 hàm nhận tham số router)" — LÝ LẼ ĐÓ SAI: truyền tên router/tiền tố là
+ * truyền GIÁ TRỊ, KHÔNG phải rẽ nhánh giữa ≥2 tiến trình nghiệp vụ, nên Rule 1 không hề bị đụng tới
+ * (cùng bản chất `setImage(el, url)`). Hàm này vẫn ĐÚNG 1 tiến trình duy nhất: "gắn sự kiện cho
+ * lưới folder vừa vẽ" — không có if/else nào chọn giữa 2 kịch bản khác nhau.
+ *
+ * Nơi gọi tự quyết định LƯỚI CHỨA GÌ (lọc theo `folder.type`, ẩn tile "Tạo mới"...) TRƯỚC khi vẽ —
+ * hàm này KHÔNG nhận tham số lọc nào, KHÔNG tự đọc DB (Rule 2/3b: chuẩn bị dữ liệu là việc của
+ * Workflow, core chỉ thi hành trên đúng thứ đã được đưa cho).
+ *
+ * Input sửa tên (nếu đang có) tự focus + select — KHÔNG qua eventBus (hành vi UI thuần "đặt con trỏ
+ * vào ô vừa hiện ra", không phải 1 quyết định nghiệp vụ).
+ *
+ * @param {string} routerName - tên router đích, vd 'playlist' | 'fileManagerFolderBrowser' | 'visualBg'.
+ * @param {string} msgPrefix - tiền tố msg.type, vd 'playlist.folderPicker' | 'fileManagerFolderBrowser.list'.
+ */
+function wireFolderPickerDrawerEvents(routerName, msgPrefix) {
     const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-    if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'playlist', type: 'playlist.folderPicker.close.click', payload: {} }));
+    if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: routerName, type: `${msgPrefix}.close.click`, payload: {} }));
 
     genericDrawerBody.querySelectorAll('.generic-item-folder-tile').forEach((tileEl) => {
-        tileEl.addEventListener('click', () => eventBus.send({ router: 'playlist', type: 'playlist.folderPicker.tile.click', payload: { folderId: tileEl.dataset.folderId } }));
+        tileEl.addEventListener('click', () => eventBus.send({ router: routerName, type: `${msgPrefix}.tile.click`, payload: { folderId: tileEl.dataset.folderId } }));
     });
 
     const addTileEl = genericDrawerBody.querySelector('#generic-folder-picker-add-tile');
-    if (addTileEl) addTileEl.addEventListener('click', () => eventBus.send({ router: 'playlist', type: 'playlist.folderPicker.addTile.click', payload: {} }));
+    if (addTileEl) addTileEl.addEventListener('click', () => eventBus.send({ router: routerName, type: `${msgPrefix}.addTile.click`, payload: {} }));
 
     const renameInputEl = genericDrawerBody.querySelector('.generic-folder-tile-rename-input');
     if (renameInputEl) {
         renameInputEl.focus();
         renameInputEl.select();
-        const commit = () => eventBus.send({ router: 'playlist', type: 'playlist.folderPicker.rename.commit', payload: { folderId: renameInputEl.closest('[data-folder-id]').dataset.folderId, name: renameInputEl.value } });
+        const commit = () => eventBus.send({ router: routerName, type: `${msgPrefix}.rename.commit`, payload: { folderId: renameInputEl.closest('[data-folder-id]').dataset.folderId, name: renameInputEl.value } });
         renameInputEl.addEventListener('blur', commit);
         renameInputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') renameInputEl.blur(); }); // Enter -> blur -> tự trigger commit ở trên, không lặp lại logic
     }
 }
 
-/** Wire lại List (danh sách folder) của File Manager Folder Browser — cùng khuôn
- * `wirePlaylistFolderPickerEvents()`, khác router đích. SỬA (31/07/2026) — TRƯỚC ĐÂY callback gọi
- * THẲNG `this.xxx()` (docstring cũ event/workflow/file-manager-folder-browser.js tự nhận "bỏ qua
- * Router" — SAI Rule 5a) — giờ CHỈ `eventBus.send()`. */
-function wireFolderBrowserListEvents() {
-    const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-    if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.list.close.click', payload: {} }));
-
-    genericDrawerBody.querySelectorAll('.generic-item-folder-tile').forEach((tileEl) => {
-        tileEl.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.list.tile.click', payload: { folderId: tileEl.dataset.folderId } }));
-    });
-
-    const addTileEl = genericDrawerBody.querySelector('#generic-folder-picker-add-tile');
-    if (addTileEl) addTileEl.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.list.addTile.click', payload: {} }));
-
-    const renameInputEl = genericDrawerBody.querySelector('.generic-folder-tile-rename-input');
-    if (renameInputEl) {
-        renameInputEl.focus();
-        renameInputEl.select();
-        const commit = () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.list.rename.commit', payload: { folderId: renameInputEl.closest('[data-folder-id]').dataset.folderId, name: renameInputEl.value } });
-        renameInputEl.addEventListener('blur', commit);
-        renameInputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') renameInputEl.blur(); });
-    }
-}
-
 /** Wire lại Read (nội dung 1 folder) của File Manager Folder Browser — cùng lý do SỬA như
- * `wireFolderBrowserListEvents()`. */
-function wireFolderBrowserReadEvents() {
+ * `wireFolderPickerDrawerEvents()`.
+ * SỬA (v13 Batch F) — thêm tham số `folderId` để 'read.delete.click' MANG THEO id folder đang mở.
+ * Trước đây payload rỗng, id chỉ nằm ở biến closure `workflowFileManagerFolderBrowser._readFolderId`
+ * — Block gate không với tới được (nó chỉ đọc `appState`/`appConfig`/`payload`). Message phải TỰ MÔ
+ * TẢ đối tượng nó tác động lên; đây là sửa thiếu sót sẵn có, không phải chiều theo Block.
+ * @param {string} folderId - folder đang mở ở khung Read.
+ */
+function wireFolderBrowserReadEvents(folderId) {
     const backBtn = genericDrawerHeader.querySelector('#btn-folder-browser-read-back');
     if (backBtn) backBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.back.click', payload: {} }));
 
@@ -153,7 +152,7 @@ function wireFolderBrowserReadEvents() {
     if (renameBtn) renameBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.rename.click', payload: {} }));
 
     const deleteBtn = genericDrawerHeader.querySelector('#btn-folder-browser-read-delete');
-    if (deleteBtn) deleteBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.delete.click', payload: {} }));
+    if (deleteBtn) deleteBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.delete.click', payload: { folderId } }));
 
     genericDrawerBody.querySelectorAll('[data-remove-song-key]').forEach((btn) => {
         btn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.removeItem.click', payload: { songKey: btn.dataset.removeSongKey } }));

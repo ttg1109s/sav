@@ -32,7 +32,7 @@
  * của Video, đo cùng lúc lấy thumbnail.
  *
  * KHÔNG có Album cho Video (Giang chốt — chỉ Photo mới có khái niệm Album) — `deleteVideo()` do đó
- * KHÔNG cần dọn cascade nào, đơn giản hơn `deleteImage()`.
+ * `deleteVideo()` dọn cascade folder (đối xứng `deleteImage()` dọn cascade album) — xem hàm đó.
  *
  * NẠP SAU: service/db.js (getVideoRecord/setVideoRecord/deleteVideoRecord/getAllVideoKeys/slugify).
  */
@@ -109,14 +109,22 @@ async function setVideoCustomName(videoKey, customName) {
 }
 
 /**
- * Xoá hẳn 1 video khỏi thư viện. KHÔNG có cascade nào (Video không có Album) — khác hẳn
- * `deleteImage()` (core/file-manager/image.js).
+ * Xoá hẳn 1 video khỏi thư viện + GỠ key khỏi MỌI folder đang chứa nó.
+ * SỬA (v13 Batch F) — docstring cũ ghi "KHÔNG có cascade nào (Video không có Album)", viết từ trước
+ * khi Video có Folder (v12). Thiếu cascade này để lại KEY CHẾT trong `folderSongMap`, gây 3 triệu
+ * chứng: (1) Visual Background nguồn Folder trúng key chết -> guard `!record` nuốt -> nền đứng im
+ * không nhảy tiếp; (2) đếm số item của Folder tính cả key chết -> folder rỗng vẫn báo đủ; (3) picker
+ * Folder liệt kê cả folder thực chất đã rỗng.
+ * TÁI DÙNG `removeSongFromAllFolders()` (core/file-manager/folder.js) — hàm ĐÃ CÓ SẴN, chính là thứ
+ * luồng xoá hàng loạt ở event/workflow/playlist.js gọi ngay TRƯỚC `deleteVideo()`; sau sửa này thì
+ * `deleteVideo()` tự đủ, không phụ thuộc nơi gọi có nhớ gọi kèm hay không.
  * @param {string} videoKey
  * @returns {Promise<{status: 'notFound'|'ok'}>}
  */
 async function deleteVideo(videoKey) {
     const record = await getVideoRecord(videoKey);
     if (!record) return { status: 'notFound' };
+    await removeSongFromAllFolders(record); // core/file-manager/folder.js — nhận record THÔ qua tham số
     await deleteVideoRecord(videoKey);
     return { status: 'ok' };
 }
