@@ -53,9 +53,18 @@ const routerPlaylist = (() => {
                 break;
             }
 
-            case 'playlist.actionMenu.select': {
-                const { action } = msg.payload;
-                handleSongActionMenuSelect(action); // core thuần tự đọc songActionMenuKey trong playlistStore
+            // SỬA (v13 Batch F) — 'playlist.actionMenu.select' + core `handleSongActionMenuSelect()`
+            // ĐÃ XOÁ HẲN. Hàm core đó vừa tự đọc `playlistStore` (Rule 2) vừa if/else giữa 2 nghiệp
+            // vụ khác hẳn nhau — xoá bài / mở modal sửa (Rule 1); comment ở event/listener/playlist.js
+            // đã 3 lần né nó thay vì sửa. Mỗi hành động giờ là 1 msg.type + 1 Workflow riêng.
+            // Cả 2 đều cần ≥2 lời gọi side-effect nối tiếp (đóng menu + hành động) -> (B) Workflow.
+            case 'playlist.actionMenu.delete.click': {
+                workflowPlaylist.deleteSongFromActionMenu(msg.payload.songKey);
+                break;
+            }
+
+            case 'playlist.actionMenu.edit.click': {
+                workflowPlaylist.openSongEditFromActionMenu();
                 break;
             }
 

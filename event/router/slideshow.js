@@ -33,31 +33,13 @@ const routerSlideshowSettings = (() => {
 
             // (case 'close' ĐÃ XOÁ — Batch D4, dùng CHUNG 'settingsStackNav.back.click')
 
-            // MỚI (Batch 9, mục 4) — 1 toggle DUY NHẤT thay 2 nút Chọn/Tắt cũ.
-            case 'slideshowSettings.enable.change':
-                workflowSlideshow.onEnableToggleChange(msg.payload.checked); // >1 hàm core -> workflow
-                break;
+            // XOÁ (v13 Batch B) — 3 case 'enable.change'/'albumPicker.overlay.click'/
+            // 'albumPicker.tile.click' ĐÃ DỜI sang cụm router `visualBg` (bảng "Chọn nguồn"):
+            // chọn Album = chọn NGUỒN NỀN, không phải cấu hình engine trình chiếu. Panel này giờ
+            // CHỈ còn các tuỳ chọn cách chiếu (mode/interval/transition/Ken Burns).
 
-            // MỚI (Batch 9, mục 4) — bấm ra ngoài panel chọn Album (huỷ, không chọn gì).
-            case 'slideshowSettings.albumPicker.overlay.click':
-                workflowSlideshow.cancelAlbumPicker(); // >1 hàm core (đóng panel + có thể trả toggle) -> workflow
-                break;
-
-            // MỚI (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải
-            // workflow") — bấm 1 album trong lưới picker (core/file-manager/photo-ui.js::
-            // renderSlideshowAlbumPickerGrid(), KHÔNG còn nhận callback `onSelect` đục nữa).
-            case 'slideshowSettings.albumPicker.tile.click':
-                workflowSlideshow.selectAlbumFromPicker(msg.payload.albumId);
-                break;
-
-            case 'slideshowSettings.mode.change':
-                workflowSlideshow.changeMode(msg.payload.value); // >1 bước (set + persist) -> workflow
-                break;
-
-            // MỚI (04/07/2026, mục 5) — toggle "Photo per song".
-            case 'slideshowSettings.photoPerSong.change':
-                workflowSlideshow.changePhotoPerSong(msg.payload.checked); // >1 bước (set + persist + đổi cơ chế tick) -> workflow
-                break;
+            // XOÁ (v13 Batch C) — 2 case 'mode.change'/'photoPerSong.change' ĐÃ BỎ: thay bằng
+            // `nextOrder`/`listPlaybackMode` ở cụm router `visualBg` (panel cha).
 
             // SỬA (18/07/2026, phản hồi Giang) — input số cũ ĐỔI thành nút bấm mở modal picker
             // (core/time-picker-modal.js) — workflow tự mở modal + tự xử lý kết quả trong 1 hàm.

@@ -175,22 +175,24 @@ const routerFileManagerPhoto = (() => {
             //   - 'addImages' XOÁ HẲN — nút "Tải ảnh lên" ở header panel Photo giờ TỰ thêm ảnh vừa
             //     tải vào album đang lọc (nếu có), xem workflowFileManagerPhoto.uploadImages() —
             //     không cần picker "thêm ảnh có sẵn" riêng nữa.
-            case 'fileManagerPhoto.albumList.action.click': {
-                const { action, albumId } = msg.payload;
-                VirtualMachineState.run([
-                    { state: action, operation: '===', value: 'rename', callback: () => {
-                        workflowFileManagerPhoto.renameAlbumFromList(albumId, albumListPageIndex); // >1 hàm core -> workflow
-                    } },
-                    { state: action, operation: '===', value: 'delete', callback: () => {
-                        // onDeleted: nếu album vừa xoá đang là album đang lọc lưới chính -> bỏ lọc +
-                        // vẽ lại lưới (Tất cả) NGAY (MỚI 17/07/2026, Giang yêu cầu "back về Album List
-                        // phải render lại all photo") — dùng chung clearActiveAlbumFilter() (đầu file),
-                        // workflow không tự mutate được biến closure primitive của router.
-                        workflowFileManagerPhoto.deleteAlbumFromList(albumId, albumListPageIndex, () => {
-                            if (activeAlbumId === albumId) clearActiveAlbumFilter();
-                        });
-                    } },
-                ]);
+            // SỬA (v13 Batch F) — TÁCH khỏi 'albumList.action.click' chung. `VirtualMachineState`
+            // cũ ở đây rẽ theo `msg.payload.action`, trong khi event-bus-flow.md mục 4C giới hạn
+            // VMState cho rẽ nhánh theo `appState` KHÁC ("không phải msg.payload của chính nó") —
+            // dùng payload của chính message thì thuộc nhánh (A)/(B) thường. Tách xong mỗi case chỉ
+            // còn 1 đích, không còn rẽ nhánh nào.
+            case 'fileManagerPhoto.albumList.rename.click': {
+                workflowFileManagerPhoto.renameAlbumFromList(msg.payload.albumId, albumListPageIndex); // >1 hàm core -> workflow
+                break;
+            }
+
+            case 'fileManagerPhoto.albumList.delete.click': {
+                // onDeleted: nếu album vừa xoá đang là album đang lọc lưới chính -> bỏ lọc + vẽ lại
+                // lưới (Tất cả) NGAY — dùng chung clearActiveAlbumFilter() (đầu file), workflow
+                // không tự mutate được biến closure primitive của router.
+                const { albumId } = msg.payload;
+                workflowFileManagerPhoto.deleteAlbumFromList(albumId, albumListPageIndex, () => {
+                    if (activeAlbumId === albumId) clearActiveAlbumFilter();
+                });
                 break;
             }
 
@@ -333,19 +335,21 @@ const routerFileManagerPhoto = (() => {
             // routing sai chỗ") — "Lưu đè"/"Lưu mới" ĐÃ CHUYỂN hẳn sang router `imageEdit` (msg.type
             // riêng, xem event/router/image-edit.js) — case này giờ CHỈ còn 3 action là trách nhiệm
             // THẬT của miền Photo (setPlaylistBg/removeFromAlbum/delete).
-            case 'fileManagerPhoto.imageMenu.action.click': {
-                const { action, imageKey } = msg.payload;
-                VirtualMachineState.run([
-                    { state: action, operation: '===', value: 'setPlaylistBg', callback: () => {
-                        workflowFileManagerPhoto.setAsPlaylistBackground(imageKey);
-                    } },
-                    { state: action, operation: '===', value: 'removeFromAlbum', callback: () => {
-                        removeImageFromAlbum(imageKey, activeAlbumId).then(() => workflowFileManagerPhoto.refresh(activeAlbumId)); // core/file-manager/album.js
-                    } },
-                    { state: action, operation: '===', value: 'delete', callback: () => {
-                        deleteImage(imageKey).then(() => workflowFileManagerPhoto.refresh(activeAlbumId)); // core/file-manager/image.js — cascade dọn album
-                    } },
-                ]);
+            // SỬA (v13 Batch F) — TÁCH thành 3 case riêng, cùng lý do như cụm albumList ở trên.
+            // `activeAlbumId` vẫn lấy từ closure router (không qua payload) để khớp ngữ cảnh lọc
+            // tại thời điểm action THẬT SỰ chạy.
+            case 'fileManagerPhoto.imageMenu.setPlaylistBg.click': {
+                workflowFileManagerPhoto.setAsPlaylistBackground(msg.payload.imageKey);
+                break;
+            }
+
+            case 'fileManagerPhoto.imageMenu.removeFromAlbum.click': {
+                removeImageFromAlbum(msg.payload.imageKey, activeAlbumId).then(() => workflowFileManagerPhoto.refresh(activeAlbumId)); // core/file-manager/album.js
+                break;
+            }
+
+            case 'fileManagerPhoto.imageMenu.delete.click': {
+                deleteImage(msg.payload.imageKey).then(() => workflowFileManagerPhoto.refresh(activeAlbumId)); // core/file-manager/image.js — cascade dọn album bên trong
                 break;
             }
 
