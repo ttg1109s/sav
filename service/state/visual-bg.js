@@ -4,7 +4,7 @@
  * gộp vào "Visual Background" chung với ảnh nền tĩnh + slideshow album.
  *
  * CHỈ chứa giá trị RUNTIME (không persist được): 2 blob: URL đang áp dụng thật lên DOM. Bản thân
- * LỰA CHỌN của người dùng (bật/tắt, mediaType, key nguồn...) sống ở CONFIG domain `visualBg`
+ * LỰA CHỌN của người dùng (type, nguồn...) sống ở CONFIG domain `visualBg`
  * (core/config.js::DEFAULT_VISUAL_BG_CONFIG, persist qua `meta.visualBgConfig`) — 2 nơi KHÁC nhau
  * về bản chất, không trộn: config lưu KEY (bền vững qua nhiều session), state giữ object URL
  * (chết theo session, phải resolve lại từ key mỗi lần boot).
@@ -22,20 +22,12 @@
                 // src thừa mỗi lần Next/Prev) — GIỮ NGUYÊN vai trò của `_videoBgLoadedUrl` cũ ở
                 // package "video-bg", chỉ đổi tên cho khớp domain mới.
                 visualBgVideoLoadedUrl: 'nullable-string',
-                // MỚI (v14) — "Visual Background đang hiện ảnh/video thật" (source.list còn ≥1 item
-                // sống), CHỈ để event/block.js đọc (registerBlock() chỉ so field đơn qua appState,
-                // không biểu diễn được "mảng còn phần tử" trực tiếp trên appConfigVisualBg). Nguồn
-                // sự thật vẫn là `source.list`; field này CHỈ LÀ BẢN SAO PHÁI SINH, do
-                // `workflowVisualBg.applyCurrentVisualBg()` tự đồng bộ mỗi lần áp lại nền — KHÔNG
-                // nơi nào khác được ghi field này.
-                isVisualBgMediaActive: 'boolean',
             },
             buildDefaults() {
                 return {
                     visualBgVideoObjectUrl: '',
                     visualBgImageObjectUrl: '',
                     visualBgVideoLoadedUrl: null,
-                    isVisualBgMediaActive: false,
                 };
             },
         });
