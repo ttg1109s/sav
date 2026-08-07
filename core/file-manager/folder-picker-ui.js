@@ -139,9 +139,13 @@ function wireFolderPickerDrawerEvents(routerName, msgPrefix) {
  * Trước đây payload rỗng, id chỉ nằm ở biến closure `workflowFileManagerFolderBrowser._readFolderId`
  * — Block gate không với tới được (nó chỉ đọc `appState`/`appConfig`/`payload`). Message phải TỰ MÔ
  * TẢ đối tượng nó tác động lên; đây là sửa thiếu sót sẵn có, không phải chiều theo Block.
+ * SỬA (v13) — thêm `folderType`: bật Scope cho folder VIDEO khi Visual Background đang on sẽ đẩy
+ * app vào trạng thái xung đột SAU KHI RELOAD (nguồn Playlist thành Video mà nền vẫn bật). Block gate
+ * cần biết LOẠI folder ngay trong payload mới chặn được.
  * @param {string} folderId - folder đang mở ở khung Read.
+ * @param {string|null} folderType - 'song' | 'video' | null (folder rỗng, chưa xác định).
  */
-function wireFolderBrowserReadEvents(folderId) {
+function wireFolderBrowserReadEvents(folderId, folderType) {
     const backBtn = genericDrawerHeader.querySelector('#btn-folder-browser-read-back');
     if (backBtn) backBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.back.click', payload: {} }));
 
@@ -169,7 +173,7 @@ function wireFolderBrowserReadEvents(folderId) {
     });
 
     const scopeToggle = genericDrawerBody.querySelector('#toggle-folder-browser-read-scope');
-    if (scopeToggle) scopeToggle.addEventListener('change', (e) => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.scope.change', payload: { checked: e.target.checked } }));
+    if (scopeToggle) scopeToggle.addEventListener('change', (e) => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.scope.change', payload: { checked: e.target.checked, folderType } }));
 
     const excludeToggle = genericDrawerBody.querySelector('#toggle-folder-browser-read-exclude');
     if (excludeToggle) excludeToggle.addEventListener('change', (e) => eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.read.exclude.change', payload: { checked: e.target.checked } }));
