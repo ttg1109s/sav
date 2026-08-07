@@ -97,7 +97,7 @@
                 // modal và không đổi thật — trông như lỗi. Khoá thẳng trên UI (disabled + mờ +
                 // title) đúng cách đã làm sẵn cho Folder Scope, Block gate vẫn giữ làm chốt chặn
                 // cuối (bàn phím/luồng khác).
-                const visualBgOn = typeof appConfigVisualBg !== 'undefined' && appConfigVisualBg.getAll().enabled;
+                const visualBgOn = typeof appState !== 'undefined' && appState.get('isVisualBgMediaActive'); // service/state/visual-bg.js — cùng flag block.js dùng
                 const locked = !!folderId || visualBgOn;
                 if (mediaSourceSelect) {
                     mediaSourceSelect.disabled = locked;
