@@ -42,7 +42,6 @@ const workflowVisualizerDisplay = {
         const cfg = appConfigViz.getAll();
 
         panelEl.querySelector('#setting-quality').value = cfg.quality;
-        panelEl.querySelector('#bg-color-picker').value = cfg.bgColor;
         panelEl.querySelector('#setting-color-mode').value = cfg.mode;
         panelEl.querySelector('#solid-color-text').value = cfg.solidColor;
         panelEl.querySelector('#solid-color-picker').value = cfg.solidColor;
@@ -89,11 +88,7 @@ const workflowVisualizerDisplay = {
         resizeCanvas();
         saveConfig();
     },
-    setBgColor(value) {
-        setBgColor(value);
-        updateDOMBackground();
-        saveConfig();
-    },
+    // (setBgColor XOÁ — v13: màu nền dời sang `workflowVisualBg.changeSolidColor()`.)
     setColorMode(value) {
         setColorMode(value);
         updateColorMenuUI();

@@ -57,6 +57,10 @@ const workflowVisualBg = {
                 if (saved.listFolderId === null || typeof saved.listFolderId === 'string') cfg.listFolderId = saved.listFolderId;
                 if (VISUAL_BG_LIST_PLAYBACK_MODES.includes(saved.listPlaybackMode)) cfg.listPlaybackMode = saved.listPlaybackMode;
                 if (VISUAL_BG_NEXT_ORDERS.includes(saved.nextOrder)) cfg.nextOrder = saved.nextOrder;
+                if (VISUAL_BG_COLOR_MODES.includes(saved.colorMode)) cfg.colorMode = saved.colorMode;
+                if (typeof saved.solidColor === 'string') cfg.solidColor = saved.solidColor;
+                if (typeof saved.gradientAngleDeg === 'number') cfg.gradientAngleDeg = saved.gradientAngleDeg;
+                if (Array.isArray(saved.gradientStops) && saved.gradientStops.length >= VISUAL_BG_GRADIENT_MIN_STOPS && saved.gradientStops.length <= VISUAL_BG_GRADIENT_MAX_STOPS) cfg.gradientStops = saved.gradientStops;
                 if (saved.slideshow && typeof saved.slideshow === 'object') {
                     // Validate TỪNG field (khuôn cũ workflowSlideshow.loadPersistedSettingsOnBoot()
                     // — hàm đó đã xoá ở Batch C, domain `slideshow` gộp vào đây).
@@ -120,7 +124,10 @@ const workflowVisualBg = {
     async applyCurrentVisualBg() {
         this._clearVisualBgLayers();
         const cfg = appConfigVisualBg.getAll();
-        if (!cfg.enabled) return; // guard: đang tắt -> chỉ dọn, không áp gì
+        // Nền MÀU luôn được sơn (kể cả khi toggle tổng đang tắt) — nó là lớp dưới cùng, thay chỗ
+        // của `vizConfig.bgColor` cũ vốn cũng luôn có hiệu lực.
+        updateDOMBackground(); // core/color-utils.js
+        if (!cfg.enabled || cfg.mediaType === 'color') return; // guard: không có ảnh/video nào để áp
         if (cfg.sourceMode === 'single' && cfg.mediaType === 'image') return this._applySingleImage(cfg.singleImageKey);
         if (cfg.sourceMode === 'single' && cfg.mediaType === 'video') return this._applySingleVideo(cfg.singleVideoKey);
         if (cfg.sourceMode === 'list' && cfg.mediaType === 'image') return this._applyListAlbum(cfg.listAlbumId);
@@ -381,6 +388,7 @@ const workflowVisualBg = {
         if (bodyEl) bodyEl.classList.toggle('hidden', !cfg.enabled);
         if (mediaTypeSelect) mediaTypeSelect.value = cfg.mediaType;
         if (sourceModeToggle) sourceModeToggle.checked = cfg.sourceMode === 'list';
+        if (sourceModeToggle) sourceModeToggle.closest('div').classList.toggle('hidden', cfg.mediaType === 'color');
         if (listPlaybackSelect) listPlaybackSelect.value = cfg.listPlaybackMode;
         if (nextOrderSelect) nextOrderSelect.value = cfg.nextOrder;
 
@@ -390,13 +398,103 @@ const workflowVisualBg = {
         // phát DUY NHẤT rồi ẩn luôn lựa chọn — sai.
         // Nút "Tuỳ chỉnh Trình chiếu" (transition + Ken Burns) VẪN chỉ cho ảnh — 2 thứ đó không áp
         // dụng được cho video.
-        const isList = cfg.sourceMode === 'list';
+        // Nhánh MÀU không có "nguồn" để chọn -> ẩn toàn bộ cụm nguồn/danh sách, hiện cụm màu.
+        const isColor = cfg.mediaType === 'color';
+        const isGradient = isColor && cfg.colorMode === 'gradient';
+        const q2 = (sel) => visualBgSettingsPanelEl.querySelector(sel);
+        if (q2('#setting-visual-bg-pick-source')) q2('#setting-visual-bg-pick-source').closest('div').classList.toggle('hidden', isColor);
+        if (q2('#visual-bg-color-mode-row')) q2('#visual-bg-color-mode-row').classList.toggle('hidden', !isColor);
+        if (q2('#visual-bg-solid-color-row')) q2('#visual-bg-solid-color-row').classList.toggle('hidden', !(isColor && !isGradient));
+        if (q2('#visual-bg-gradient-angle-row')) q2('#visual-bg-gradient-angle-row').classList.toggle('hidden', !isGradient);
+        if (q2('#visual-bg-gradient-stops-row')) q2('#visual-bg-gradient-stops-row').classList.toggle('hidden', !isGradient);
+        if (q2('#setting-visual-bg-color-mode')) q2('#setting-visual-bg-color-mode').value = cfg.colorMode;
+        if (q2('#setting-visual-bg-solid-color')) q2('#setting-visual-bg-solid-color').value = cfg.solidColor;
+        if (q2('#setting-visual-bg-gradient-angle')) q2('#setting-visual-bg-gradient-angle').value = cfg.gradientAngleDeg;
+        if (q2('#visual-bg-gradient-angle-value')) q2('#visual-bg-gradient-angle-value').textContent = `${cfg.gradientAngleDeg}°`;
+        if (isGradient) this._refreshGradientStopRows(cfg);
+
+        const isList = !isColor && cfg.sourceMode === 'list';
         const isListImage = isList && cfg.mediaType === 'image';
         if (listPlaybackRow) listPlaybackRow.classList.toggle('hidden', !isList);
         if (nextOrderRow) nextOrderRow.classList.toggle('hidden', !isList);
         if (slideshowRow) slideshowRow.classList.toggle('hidden', !(isListImage && cfg.listPlaybackMode === 'slideshow'));
 
         await this._refreshSourceNameLabel(cfg);
+    },
+
+    /** Vẽ lại danh sách chặng màu gradient (2-7 hàng) + ô xem trước. DOM ĐỘNG nên dựng ở Workflow
+     * rồi giao Core gắn sự kiện? — KHÔNG: 3 control mỗi hàng đều là input tĩnh về bản chất, listener
+     * đã DELEGATE sẵn trên `settingsStackBody` (event/listener/visual-bg.js) theo `data-*`, nên ở
+     * đây chỉ dựng HTML, không `addEventListener` dòng nào (Rule 5a).
+     * @param {object} cfg
+     */
+    _refreshGradientStopRows(cfg) {
+        const listEl = visualBgSettingsPanelEl.querySelector('#visual-bg-gradient-stop-list');
+        const previewEl = visualBgSettingsPanelEl.querySelector('#visual-bg-gradient-preview');
+        if (!listEl) return;
+        const canRemove = cfg.gradientStops.length > VISUAL_BG_GRADIENT_MIN_STOPS; // core/visual-bg.js
+        listEl.innerHTML = cfg.gradientStops.map((stop, i) => `
+            <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-full border border-white/20 overflow-hidden shrink-0"><input type="color" data-visual-bg-stop-color="${i}" value="${stop.color}" class="w-11 h-11 -m-2 cursor-pointer bg-transparent border-0"></div>
+                <input type="range" data-visual-bg-stop-position="${i}" min="0" max="100" step="1" value="${stop.position}" class="flex-1 accent-fuchsia-500">
+                <span class="text-xs text-slate-400 w-10 text-right tabular-nums">${stop.position}%</span>
+                <button type="button" data-visual-bg-stop-remove="${i}" class="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-rose-400 hover:bg-white/10 transition-colors shrink-0 ${canRemove ? '' : 'opacity-30 pointer-events-none'}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+        `).join('');
+        if (previewEl) previewEl.style.backgroundImage = buildVisualBgGradientCss(cfg.gradientStops, cfg.gradientAngleDeg); // core/visual-bg.js
+
+        const addBtn = visualBgSettingsPanelEl.querySelector('#setting-visual-bg-gradient-add');
+        if (addBtn) addBtn.classList.toggle('opacity-30', cfg.gradientStops.length >= VISUAL_BG_GRADIENT_MAX_STOPS);
+    },
+
+    /** Ghi 1 thay đổi thuộc nhóm MÀU + persist + vẽ lại nền. DÙNG CHUNG cho 5 method bên dưới —
+     * chúng chỉ khác đúng phép gán, phần còn lại (persist + sơn lại nền + đồng bộ panel) y hệt. */
+    async _commitColorChange(mutatorFn, logContent) {
+        appConfigVisualBg.mutateAll(mutatorFn);
+        console.log(`writer: "workflowVisualBg._commitColorChange", page: "visualBgConfig", content: "${logContent}"`);
+        await this._persist();
+        updateDOMBackground(); // core/color-utils.js — chủ sở hữu duy nhất của nền `#visualizer-solid-bg`
+        await this.refreshPanelUI();
+    },
+
+    /** Ứng với select "Chế độ màu" (Đơn sắc / Chuyển sắc). */
+    async changeColorMode(value) {
+        if (!VISUAL_BG_COLOR_MODES.includes(value)) return; // guard: giá trị lạ
+        await this._commitColorChange((cfg) => { cfg.colorMode = value; }, `colorMode=${value}`);
+    },
+
+    /** Ứng với ô chọn màu nền đơn sắc. */
+    async changeSolidColor(value) {
+        await this._commitColorChange((cfg) => { cfg.solidColor = value; }, `solidColor=${value}`);
+    },
+
+    /** Ứng với thanh trượt góc xoay gradient. */
+    async changeGradientAngle(value) {
+        const deg = Number(value);
+        if (!Number.isFinite(deg)) return; // guard
+        await this._commitColorChange((cfg) => { cfg.gradientAngleDeg = deg; }, `gradientAngleDeg=${deg}`);
+    },
+
+    /** Ứng với ô màu / thanh trượt vị trí của 1 chặng. */
+    async changeGradientStop(index, field, value) {
+        const parsed = field === 'position' ? Number(value) : value;
+        if (field === 'position' && !Number.isFinite(parsed)) return; // guard
+        await this._commitColorChange((cfg) => {
+            if (!cfg.gradientStops[index]) return; // guard: hàng vừa bị xoá ở thao tác khác
+            cfg.gradientStops[index] = { ...cfg.gradientStops[index], [field]: parsed };
+        }, `gradientStops[${index}].${field}=${parsed}`);
+    },
+
+    /** Ứng với nút "Thêm chặng màu" — Core tự chặn khi đã đủ 7. */
+    async addGradientStop() {
+        await this._commitColorChange((cfg) => { cfg.gradientStops = addVisualBgGradientStop(cfg.gradientStops); }, 'gradientStops +1'); // core/visual-bg.js
+    },
+
+    /** Ứng với nút X của 1 chặng — Core tự chặn khi chỉ còn 2. */
+    async removeGradientStop(index) {
+        await this._commitColorChange((cfg) => { cfg.gradientStops = removeVisualBgGradientStop(cfg.gradientStops, index); }, `gradientStops -1 (index ${index})`); // core/visual-bg.js
     },
 
     /** Ứng với 'visualBg.clearSource.click' — GỠ nguồn của ĐÚNG tổ hợp hiện tại (3 field còn lại
@@ -518,7 +616,7 @@ const workflowVisualBg = {
      * delegated click, chỉ khác selector tile. Lưới video do `workflowVideoGalleryWindow` mount
      * (windowing theo ngày + revoke object URL đúng lúc). */
     async openSingleVideoPicker() {
-        this._pickerCleanup = openPhotoImagePickerDrawerUi('visualBg', 'visualBg.videoPicker', t('fileManager.video.pickerTitle'), `
+        this._pickerCleanup = openMediaPickerDrawerUi('visualBg', 'visualBg.videoPicker', t('fileManager.video.pickerTitle'), `
             <div class="flex-1 min-h-0 overflow-y-auto relative" id="file-manager-video-picker-scroll">
                 <p id="file-manager-video-picker-empty" class="hidden text-sm text-slate-400 text-center py-10 px-6">${t('fileManager.video.empty')}</p>
             </div>

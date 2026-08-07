@@ -652,7 +652,7 @@ const workflowFileManagerPhoto = {
         // DỜI sang core/file-manager/photo-ui.js::openPhotoImagePickerDrawerUi() — Rule 5a cấp
         // quyền addEventListener cho DOM động là quyền CỦA CORE, Workflow chỉ gọi Core với data đã
         // chuẩn bị sẵn (title/bodyHtml/showConfirmButton), không tự cầm DOM API nữa.
-        openPhotoImagePickerDrawerUi('fileManagerPhoto', 'fileManagerPhoto.imagePicker', title, this._buildImagePickerBodyHtml(showConfirmButton), '[data-image-key]', 'imageKey', showConfirmButton); // core/file-manager/photo-ui.js
+        openMediaPickerDrawerUi('fileManagerPhoto', 'fileManagerPhoto.imagePicker', title, this._buildImagePickerBodyHtml(showConfirmButton), '[data-image-key]', 'imageKey', showConfirmButton); // core/file-manager/photo-ui.js
 
         await new Promise((resolve) => {
             genericDrawerPanel.addEventListener('transitionend', function onOpenTransitionEnd() {
