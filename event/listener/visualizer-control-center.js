@@ -28,10 +28,10 @@ if (visualizerControlCenter) {
 }
 
 // XOÁ (v13 Batch A) — listener cho `videoEnableToggle` (#setting-video-enable) ĐÃ BỎ HẲN cùng
-// chính toggle đó: "Video nền" giờ là 1 tổ hợp (mediaType='video') bên trong panel "Visual
+// chính toggle đó: "Video nền" giờ là 1 tổ hợp (`type='video'`) bên trong panel "Visual
 // Background", điều khiển qua cụm router `visualBg` (event/listener,router,workflow/visual-bg.js).
-// Cơ chế "controlled toggle" + Block gate khoá chéo với Video Player mode KHÔNG mất — chuyển sang
-// đúng msg.type mới của cụm đó (xem event/block.js, field 'visualBgConfig.enabled').
+// Cơ chế Block gate khoá chéo với Video Player mode KHÔNG mất — v14 chuyển sang chặn thẳng ở 2
+// msg.type "Chọn nguồn" (`visualBg.pickSingleSource.click`/`pickGroupSource.click`, xem event/block.js).
 
 if (typeof visualEnabledToggle !== 'undefined' && visualEnabledToggle) {
     visualEnabledToggle.addEventListener('change', (e) => {
