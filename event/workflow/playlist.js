@@ -789,14 +789,13 @@ const workflowPlaylist = {
             // Vòng lặp xoá ĐẶT THẲNG ở đây (workflow), KHÔNG bọc qua 1 lớp "core" giả — mỗi bước
             // (đọc record, cascade folder, xoá record, xoá stat) là 1 hàm core void nối tiếp nhau,
             // đúng vai trò workflow (Rule 3: core không được làm việc này, workflow thì được).
+            // XOÁ (v14) — `splitVisualBgProtectedKeys()`/chặn video đang làm Visual Background:
+            // nguồn giờ là 1 mảng key riêng của workflowVisualBg (đã copy tách khỏi Playlist), xoá
+            // video gốc ở đây không cần biết gì tới nó — lần advance()/apply() kế tiếp bên đó tự
+            // phát hiện record mất + tự chữa lành.
             const getRecordFn = isVideo ? getVideoRecord : getSongRecord; // service/db.js
             const deletedKeys = [];
-            // SỬA (v13 Batch F) — loại video đang làm Visual Background ra khỏi lô xoá. Target của
-            // luồng này là 1 TẬP nên KHÔNG chặn cả lô (khác 'playlist.actionMenu.delete.click' —
-            // xoá ĐƠN, chặn hẳn ở event/block.js): xoá phần còn lại, báo phần giữ lại. Chỉ nhánh
-            // Video mới có thể bị tham chiếu (Visual Background không dùng file nhạc).
-            const { allowed, blocked } = splitVisualBgProtectedKeys([...keys], isVideo ? appConfigVisualBg.getAll().singleVideoKey : ''); // core/visual-bg.js
-            for (const key of allowed) {
+            for (const key of keys) {
                 const record = await getRecordFn(key);
                 if (!record) continue; // guard: đã bị xoá từ trước (hiếm, race) — bỏ qua, không chặn cả lô
                 await removeSongFromAllFolders(record); // core có sẵn (core/file-manager/folder.js) — nhận record THÔ qua tham số, generic cho cả Song/Video
@@ -805,7 +804,6 @@ const workflowPlaylist = {
                 removeSongStats(key); // core có sẵn (core/listen-stats.js)
                 deletedKeys.push(key);
             }
-            if (blocked.length > 0) await alertModal(t('visualBgSettingsDrawer.keptDeleteInUse')); // báo phần bị giữ lại
             deletedCount = deletedKeys.length;
 
             // Đồng bộ appState (core THUẦN, xem core/playlist/bulk-actions.js) rồi vẽ lại — đọc

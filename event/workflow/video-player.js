@@ -71,12 +71,12 @@ const workflowVideoPlayer = {
         updateDOMBackground(); // core/color-utils.js, hàm CÓ SẴN — trả visualizerSolidBg về cfg.bgColor
 
         if (this._forcedBgObjectUrl) { try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {} this._forcedBgObjectUrl = null; }
-        // SỬA (v13 Batch A) — `vizConfig.visualBgImageEnabled/visualBgImage` ĐÃ GỘP vào
-        // `visualBgConfig`; blob: URL runtime giờ sống ở `appState.visualBgImageObjectUrl`
-        // (service/state/visual-bg.js). Điều kiện "ảnh nền tĩnh đang bật" = toggle tổng bật + đúng
-        // tổ hợp 1-ảnh (`mediaType='image'` + `sourceMode='single'`).
+        // SỬA (v14) — `visualBgConfig` đổi schema: "ảnh nền tĩnh 1 tấm đang bật" giờ là
+        // `type==='photo'` + `source.list` còn ĐÚNG 1 item (list>1 dùng layer riêng của
+        // workflowSlideshow, không đụng `#visual-bg-image` trực tiếp ở đây).
         const visualBgCfg = appConfigVisualBg.getAll();
-        const bgImageActive = visualBgCfg.enabled && visualBgCfg.mediaType === 'image' && visualBgCfg.sourceMode === 'single';
+        const singlePhotoKey = visualBgCfg.type === 'photo' && visualBgCfg.source.list.length <= 1 ? visualBgCfg.source.list[0] : null;
+        const bgImageActive = !!singlePhotoKey;
         applyVisualBgImageToDOM(bgImageActive, bgImageActive ? appState.get('visualBgImageObjectUrl') : ''); // core/visual-bg.js — trả #visual-bg-image về đúng cài đặt thật
 
         exitVideoPlayerModeState(); // core/video-player.js

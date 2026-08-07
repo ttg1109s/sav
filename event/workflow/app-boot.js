@@ -17,13 +17,11 @@
 const workflowAppBoot = {
     async boot() {
         await loadConfig();
-        // VIẾT LẠI (v13 Batch A, plan-v13-visual-background-unification.md) — khối resolve
-        // `meta.visualBgImage` cũ (~22 dòng: tự đọc Blob, tự createObjectURL, tự set
-        // `vizConfig.visualBgImage`, tự đồng bộ `settingVisualBgImageEnableToggle.checked`) ĐÃ XOÁ
-        // HẲN: cả 4 field cũ lẫn toggle tĩnh đó đều không còn tồn tại. Domain `visualBg` tự lo
-        // TOÀN BỘ việc khôi phục nền lúc boot — đọc `meta.visualBgConfig`, resolve nguồn theo
-        // KEY (không phải bản sao Blob), áp đúng lớp DOM tương ứng.
-        if (typeof workflowVisualBg !== 'undefined') await workflowVisualBg.loadPersistedSettingsOnBoot();
+        // SỬA (fix bug "bật vbg nguồn video -> playlist mãi mới render") — KHÔNG await ở đây nữa.
+        // `loadPersistedSettingsOnBoot()` tự áp nền ngầm (video không còn chặn chờ 'playing' lúc
+        // boot — xem event/workflow/visual-bg.js::_playVideoKey()); boot() chạy thẳng xuống playlist
+        // ngay, không đứng chờ nền video nạp xong nữa.
+        if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.loadPersistedSettingsOnBoot();
 
         // MỚI (v13 Batch F) — dọn 4 khoá meta mồ côi của cơ chế nền cũ (2 trong đó là BẢN SAO Blob
         // ảnh/video, có thể hàng trăm MB). Chạy SAU khi đã nạp xong cấu hình mới, không await chặn

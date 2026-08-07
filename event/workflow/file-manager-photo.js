@@ -318,14 +318,13 @@ const workflowFileManagerPhoto = {
             [
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('fileManager.photo.image.quickDeleteBatchConfirm.confirmBtn'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
+                    // SỬA (v14) — bỏ hẳn `splitVisualBgProtectedKeys()`/chặn ảnh đang làm Visual
+                    // Background: nguồn giờ là 1 mảng key riêng của workflowVisualBg, xoá ảnh gốc ở
+                    // đây không cần biết gì tới nó — lần advance()/apply() kế tiếp bên đó tự phát
+                    // hiện record mất + tự chữa lành (xem core/visual-bg.js::advanceVisualBgList()).
                     await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                        // SỬA (v13 Batch F) — loại ảnh đang làm Visual Background ra khỏi lô xoá.
-                        // Luồng này có target là 1 TẬP nên KHÔNG chặn cả lô (khác 4 luồng xoá đơn
-                        // đăng ký ở event/block.js) — xoá phần còn lại, báo phần giữ lại.
-                        const { allowed, blocked } = splitVisualBgProtectedKeys([...keys], appConfigVisualBg.getAll().singleImageKey); // core/visual-bg.js
-                        for (const key of allowed) await deleteImage(key); // core/file-manager/image.js — cascade dọn album, TỪNG ảnh vẫn phải gọi riêng (deleteImage() không có bản batch) nhưng CHỈ 1 refresh() sau CÙNG, không phải N lần
+                        for (const key of keys) await deleteImage(key); // core/file-manager/image.js — cascade dọn album
                     });
-                    if (blocked.length > 0) await alertModal(t('visualBgSettingsDrawer.keptDeleteInUse')); // báo phần bị giữ lại
                     quickDeleteSelectedKeys.clear();
                     onConfirmed(); // Router tự đồng bộ imageQuickDeleteMode=false — ĐÚNG lúc này, không sớm hơn
                     await this.refresh(activeAlbumId, false, quickDeleteSelectedKeys);
@@ -550,11 +549,10 @@ const workflowFileManagerPhoto = {
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('fileManager.photo.album.btnDelete'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
                     await deleteAlbum(albumId); // core/file-manager/album.js — KHÔNG đụng ảnh bên trong, chỉ mất liên kết
-                    if (typeof workflowVisualBg !== 'undefined') {
-                        // SỬA (v13 Batch B) — nguồn sự thật đổi sang `visualBgConfig.listAlbumId`
-                        // (workflowSlideshow không còn sở hữu "album đang làm nền").
-                        await workflowVisualBg.clearListAlbumIfMatches(albumId);
-                    }
+                    // XOÁ (v14) — `workflowVisualBg.clearListAlbumIfMatches()` không còn cần: nguồn
+                    // của Visual Background giờ là 1 mảng key ĐÃ COPY tách khỏi album gốc, xoá album
+                    // này không đụng gì tới mảng đó. Album còn được dùng làm "origin" cho nút "Làm
+                    // tươi" -> lần bấm sau tự phát hiện album mất + tự gỡ (workflowVisualBg._resolveAndCommitSource()).
                     onDeleted();
                     await this.refreshAlbumListPanel(pageIndex);
                 } }

@@ -110,13 +110,9 @@ const workflowPlayerControls = {
      * Workflow").
      */
     closeSettingsDrawer() {
-        // SỬA (v13 Batch A, plan mục 8) — `validateVideoBgOnClose()` (core/state-and-video-bg.js)
-        // ĐÃ XOÁ HẲN: hàm đó vi phạm Rule 2 (tự `appConfigViz.getAll()`) + Rule 3a (tự gọi
-        // `handleVideoBackground()`/`saveConfig()`), và field `videoBgEnabled` nó validate cũng đã
-        // gộp vào `visualBgConfig`. TÁI DÙNG hook "lúc đóng Settings" có sẵn NÀY (không tạo sự kiện
-        // "Settings closed" mới song song), nhưng logic Visual Background SỐNG trong domain của
-        // chính nó — 1 lời gọi Workflow->Workflow chéo domain (event-bus-flow.md mục 3a, TH2).
-        workflowVisualBg.validateOnClose(); // event/workflow/visual-bg.js — chéo domain
+        // XOÁ (v14) — `workflowVisualBg.validateOnClose()` (validate enabled/sourceMode khớp
+        // nguồn thật) không còn cần thiết: schema mới (source.list + type) tự nhất quán ở MỌI
+        // thời điểm, không có tổ hợp "bật nhưng rỗng"/"list nhưng <2 item" nào cần dọn lúc đóng nữa.
         resetSettingsStackToMain(); // core
         scrollSideLeftToPlaylistSmooth(); // core
     },
