@@ -33,6 +33,7 @@ const VISUAL_BG_SETTINGS_INPUT_MAP = {
     'setting-visual-bg-solid-color:input': { type: 'visualBg.solidColor.input' },
     'setting-visual-bg-gradient-angle:input': { type: 'visualBg.gradientAngle.input' },
     'setting-visual-bg-gradient-add:click': { type: 'visualBg.gradientStop.add.click', bare: true },
+    'setting-visual-bg-open-gradient:click': { type: 'visualBg.openGradientPanel.click', bare: true },
     'setting-visual-bg-open-slideshow:click': { type: 'visualBg.openSlideshowPanel.click', bare: true },
 };
 
