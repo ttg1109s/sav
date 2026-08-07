@@ -43,6 +43,10 @@ const routerVisualBg = (() => {
                 workflowVisualBg.changeListPlaybackMode(msg.payload.value);
                 break;
 
+            case 'visualBg.openGradientPanel.click':
+                workflowVisualBg.openGradientPanel();
+                break;
+
             case 'visualBg.colorMode.change':
                 workflowVisualBg.changeColorMode(msg.payload.value);
                 break;
