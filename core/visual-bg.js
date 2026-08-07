@@ -80,6 +80,12 @@ function applyVisualBgImageToDOM(enabled, objectUrl) {
  */
 function showVisualBgVideoElement(objectUrl, loadedUrl) {
     if (!bgVideoElement || !objectUrl) return; // guard: chưa có nguồn -> không làm gì
+    // SỬA (phản hồi Giang, mục 2 — "phát tiếng lúc đầu rồi mới mute") — ép `muted=true` NGAY TẠI
+    // ĐÂY, mỗi lần hiện: `bgVideoElement` dùng CHUNG với Video Player mode (setBgVideoElementForPlayerMode()
+    // đặt `muted=false` lúc phát THẬT), nên nếu phiên trước có PHÁT video thật rồi mới quay lại
+    // dùng làm nền trang trí, cờ `muted` cũ có thể còn sót `false` — không được để phụ thuộc thứ tự
+    // gọi từ nơi khác, hàm "hiện video nền trang trí" phải TỰ đảm bảo luôn câm.
+    bgVideoElement.muted = true;
     bgVideoElement.loop = true;
     bgVideoElement.classList.remove('hidden');
     if (loadedUrl === objectUrl && bgVideoElement.getAttribute('src') === objectUrl) return; // guard: đã đúng nguồn
