@@ -464,81 +464,10 @@ function openImageCarouselViewModal(images, albumName, onRemoveFromAlbum, onClos
  * @param {Array<{key: string, blob: Blob, filename: string}>} images
  * @param {(imageKey: string) => void} onSelect
  */
-/**
- * FIX (04/07/2026, mục 1 phản hồi Giang) — thêm tham số `onCancel` (tuỳ chọn): gọi khi modal bị
- * đóng qua nút X hoặc bấm ra ngoài overlay MÀ CHƯA chọn ảnh nào — trước đây KHÔNG có, nên khi dùng
- * picker này để mở TỪ 1 CÔNG TẮC (gạt On -> mở picker), đóng modal mà không chọn gì khiến công tắc
- * kẹt ở "on" dù chưa thật sự có ảnh nào được set (bug đã báo). Nơi gọi (workflow) dùng `onCancel`
- * để tự trả công tắc về "off". KHÔNG đổi hành vi cũ của các nơi gọi không cần `onCancel` (tham số
- * tuỳ chọn, bỏ qua nếu không truyền).
- * @param {Array<{key: string, blob: Blob, filename: string}>} images
- * @param {(imageKey: string) => void} onSelect
- * @param {() => void} [onCancel]
- */
-function openImageLibraryPickerModal(images, onSelect, onCancel) {
-    const stale = document.getElementById('image-library-picker-overlay');
-    if (stale) stale.remove();
+// XOÁ (v13, dọn dead code) — `openImageLibraryPickerModal()`: 0 nơi gọi NGAY TRONG BẢN GỐC
+// (đã kiểm bằng grep toàn repo), là tàn dư của luồng chọn ảnh cũ trước khi Generic Drawer picker
+// (`openPhotoImagePickerDrawerUi()` + `workflowFileManagerPhoto.openCoverImagePicker()`) thay thế.
 
-    const overlay = document.createElement('div');
-    overlay.id = 'image-library-picker-overlay';
-    overlay.className = 'fixed inset-0 bg-black/85 backdrop-blur-sm flex flex-col';
-    overlay.style.zIndex = String(Z_INDEX.IMAGE_PREVIEW); // SỬA 25/07/2026 — trước đây hardcode class Tailwind tĩnh `z-[130]`
-
-    let hasSelected = false;
-    function closeModal() {
-        overlay.remove();
-        if (!hasSelected && typeof onCancel === 'function') onCancel();
-    }
-
-    const header = document.createElement('div');
-    header.className = 'flex justify-between items-center px-4 py-3 shrink-0';
-    const titleEl = document.createElement('h3');
-    titleEl.className = 'text-base font-bold text-white';
-    titleEl.textContent = t('playlistView.songEdit.coverPickLibrary');
-    header.appendChild(titleEl);
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white';
-    closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
-    closeBtn.addEventListener('click', closeModal);
-    header.appendChild(closeBtn);
-    overlay.appendChild(header);
-
-    const grid = document.createElement('div');
-    grid.className = 'flex-1 overflow-y-auto px-3 pb-6 columns-2 sm:columns-3 gap-2';
-    if (images.length === 0) {
-        const emptyEl = document.createElement('p');
-        emptyEl.className = 'text-sm text-slate-400 text-center py-10';
-        emptyEl.textContent = t('fileManager.photo.image.empty');
-        overlay.appendChild(emptyEl);
-    } else {
-        images.forEach((image) => {
-            const tile = document.createElement('button');
-            tile.dataset.hasObjectUrl = '1';
-            tile.className = 'block w-full mb-2 break-inside-avoid rounded-xl overflow-hidden bg-white/5 border border-white/10';
-            const img = document.createElement('img');
-            img.className = 'w-full h-auto block';
-            img.alt = image.filename;
-            tile.appendChild(img);
-            _observeLazyThumbnail(tile, image.blob, img);
-            tile.addEventListener('click', () => { hasSelected = true; overlay.remove(); onSelect(image.key); });
-            grid.appendChild(tile);
-        });
-    }
-    overlay.appendChild(grid);
-
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
-
-    document.body.appendChild(overlay);
-}
-
-// ===================== Grid chọn Album kiểu "notify center" (Batch 9, 04/07/2026, mục 4) ========
-// THAY openAlbumPickerModal() cũ (modal tối toàn màn hình, Batch 8) — panel container tĩnh
-// (#slideshow-album-picker-panel, components/slideshow-settings-drawer.js) đã mount sẵn, hàm này
-// CHỈ vẽ lại GRID bên trong mỗi lần mở (event/workflow/slideshow.js::openAlbumPicker). Album hình
-// TRÒN — cùng shape avatar ở itemTemplateAlbumListRow() (components/items.js, Giai đoạn 3b). Album ĐANG active có viền sáng + vòng
-// "đang chạy" quay quanh (.ss-picker-active, assets/css/slideshow.css); các album KHÁC bị blur mờ
-// (.ss-picker-blurred) — CHỈ áp dụng khi CÓ 1 album đang active (chưa chọn gì thì hiện bình thường
-// hết, không có gì để "làm nổi bật" so với phần còn lại).
 /**
  * @param {HTMLElement} gridEl
  * @param {Array<{id: string, name: string, imageKeys: string[]}>} albums
@@ -971,9 +900,21 @@ function wireAlbumListPanelHeaderActions(panelEl) {
  * X) + gọi `openGenericDrawer()` + wire NGAY closeBtn/confirmBtn/delegated click lưới ảnh, TẤT CẢ Ở
  * ĐÂY (Rule 5a — DOM động, callback CHỈ `eventBus.send()`, gom cuối hàm). `bodyHtml` nhận SẴN từ
  * Workflow (Rule 2 — Core không tự đọc `appState`/session, Workflow tự chuẩn bị data trước).
- * @param {string} title @param {string} bodyHtml @param {boolean} showConfirmButton
+ * SỬA (v13) — thêm `routerName`/`msgPrefix`/`tileSelector`/`tileDataKey`. TRƯỚC ĐÂY hardcode router
+ * `fileManagerPhoto` + selector `[data-image-key]`, nên picker chọn 1 VIDEO (cùng bản chất: lưới
+ * media trong Generic Drawer, cùng header, cùng closeBtn, cùng delegated click) không dùng lại được
+ * và đã bị viết thành bản sao riêng — nay bản sao đó xoá, mọi lưới media dùng CHUNG hàm này.
+ * KHÔNG gộp picker FOLDER vào đây: tile folder khác loại và đã có `wireFolderPickerDrawerEvents()`
+ * + `_openFolderPickerDrawer()` riêng.
+ * Truyền tên router/selector là truyền GIÁ TRỊ, không rẽ nhánh tiến trình -> Rule 1 không bị đụng.
+ * @param {string} routerName @param {string} msgPrefix
+ * @param {string} title @param {string} bodyHtml
+ * @param {string} tileSelector - '[data-image-key]' | '.video-tile'
+ * @param {string} tileDataKey - 'imageKey' | 'videoKey'
+ * @param {boolean} showConfirmButton
+ * @returns {() => void} hàm GỠ listener delegated trên `genericDrawerBody` (DOM TĨNH dùng chung).
  */
-function openPhotoImagePickerDrawerUi(title, bodyHtml, showConfirmButton) {
+function openPhotoImagePickerDrawerUi(routerName, msgPrefix, title, bodyHtml, tileSelector, tileDataKey, showConfirmButton) {
     openGenericDrawer({ // core/generic-drawer.js
         height: '90vh',
         zIndex: Z_INDEX.GENERIC_DRAWER, // service/z-index.js — mặc định, KHÔNG có modal xem ảnh nào mở đồng thời với picker này (khác action-menu cần z=131)
@@ -989,20 +930,22 @@ function openPhotoImagePickerDrawerUi(title, bodyHtml, showConfirmButton) {
         bodyClass: 'flex flex-col',
     });
     const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-    if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePicker.close.click', payload: {} }));
+    if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: routerName, type: `${msgPrefix}.close.click`, payload: {} }));
     if (showConfirmButton) {
         const confirmBtn = genericDrawerBody.querySelector('#btn-file-manager-image-picker-confirm');
-        if (confirmBtn) confirmBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePicker.confirm.click', payload: {} }));
+        if (confirmBtn) confirmBtn.addEventListener('click', () => eventBus.send({ router: routerName, type: `${msgPrefix}.confirm.click`, payload: {} }));
     }
     // Click tile — delegated NGAY TRÊN genericDrawerBody (phần tử TĨNH DÙNG CHUNG nhiều feature,
     // dom-refs.js — nội dung bên trong bị nhiều feature không liên quan thay phiên chiếm dụng, xem
     // docstring core/generic-drawer.js — nên PHẢI tự wire/gỡ đúng theo vòng đời phiên picker, KHÔNG
     // wire tĩnh 1 lần cho toàn app). `<div class="fj-gallery-item">`, KHÔNG phải `<button>`.
-    genericDrawerBody.addEventListener('click', (e) => {
-        const tile = e.target.closest('[data-image-key]');
+    const onBodyClick = (e) => {
+        const tile = e.target.closest(tileSelector);
         if (!tile) return;
-        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePicker.tile.click', payload: { imageKey: tile.dataset.imageKey } });
-    });
+        eventBus.send({ router: routerName, type: `${msgPrefix}.tile.click`, payload: { [tileDataKey]: tile.dataset[tileDataKey] } });
+    };
+    genericDrawerBody.addEventListener('click', onBodyClick);
+    return () => genericDrawerBody.removeEventListener('click', onBodyClick);
 }
 
 /** Mở Generic Drawer lưới tool Edit mode — dựng headerHtml + gọi `openGenericDrawer()` + wire NGAY

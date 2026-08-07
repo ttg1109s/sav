@@ -118,60 +118,9 @@ function openVideoPreviewModal(data) {
     };
 }
 
-/**
- * Mở Generic Drawer "chọn 1 video có sẵn trong thư viện" + wire toàn bộ tương tác của nó.
- *
- * VIẾT BÙ (v13 Batch B) — hàm này TỪNG tồn tại nhưng bị xoá nhầm trong đợt dissolve cụm
- * `fileManagerVideo`, trong khi CẢ HAI nơi gọi vẫn giữ nguyên lời gọi tới nó
- * (`openVideoPickerDrawerUi()` ở bản mồ côi event/workflow/file-manager-video.js — file đó KHÔNG
- * còn được nạp, đã xoá; và `openVideoBgPickerDrawerUi()` ở event/workflow/visualizer-control-
- * center.js — bản đang SỐNG) => picker "Use background video" ném ReferenceError từ đợt đó tới nay.
- * Viết lại ĐÚNG 1 bản DUY NHẤT, nhận `routerName`/`msgPrefix` làm THAM SỐ ngay từ đầu để mọi nơi
- * cần "chọn 1 video" đều dùng chung, KHÔNG đẻ thêm bản sao theo từng miền.
- *
- * Rule 5a — `addEventListener` gom CUỐI hàm, callback CHỈ `eventBus.send()`. Lưới video KHÔNG dựng
- * ở đây (workflowVideoGalleryWindow tự mount vào `#file-manager-video-picker-scroll` sau khi Drawer
- * mở xong) nên click tile phải đi qua DELEGATION trên `genericDrawerBody`.
- * `genericDrawerBody`/`genericDrawerOverlay` là DOM TĨNH DÙNG CHUNG nhiều feature — PHẢI trả về hàm
- * GỠ để Workflow gọi lúc đóng, nếu không sẽ dính sang lần mở Drawer tiếp theo của feature khác
- * (cùng lý do đã ghi ở `wireVisualBgAlbumPickerDrawerActions()`, core/file-manager/photo-ui.js).
- *
- * @param {string} routerName - router đích, vd 'visualBg'.
- * @param {string} msgPrefix - tiền tố msg.type, vd 'visualBg.videoPicker'.
- * @param {string} title - ĐÃ dịch sẵn qua t() (core không biết `lang/`).
- * @param {string} bodyHtml - khung rỗng chứa `#file-manager-video-picker-scroll`.
- * @returns {() => void} hàm GỠ listener delegation.
- */
-function openVideoPickerDrawerUi(routerName, msgPrefix, title, bodyHtml) {
-    openGenericDrawer({ // core/generic-drawer.js
-        zIndex: Z_INDEX.GENERIC_DRAWER,
-        headerHtml: `
-            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
-                <h3 class="text-base font-bold text-slate-900">${title}</h3>
-                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-        `,
-        bodyHtml,
-        bodyClass: 'flex flex-col',
-    });
-
-    const onBodyClick = (e) => {
-        const tileEl = e.target.closest('.video-tile');
-        if (!tileEl) return; // guard: click vào khoảng trống/tiêu đề ngày, không phải 1 video
-        eventBus.send({ router: routerName, type: `${msgPrefix}.tile.click`, payload: { videoKey: tileEl.dataset.videoKey } });
-    };
-    const onCancel = () => eventBus.send({ router: routerName, type: `${msgPrefix}.close.click`, payload: {} });
-
-    // --- addEventListener: gom cuối hàm (Rule 5a) ---
-    const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-    if (closeBtn) closeBtn.addEventListener('click', onCancel); // header dựng lại mỗi lần mở -> không cần gỡ
-    genericDrawerBody.addEventListener('click', onBodyClick);
-    genericDrawerOverlay.addEventListener('click', onCancel);
-
-    return () => {
-        genericDrawerBody.removeEventListener('click', onBodyClick);
-        genericDrawerOverlay.removeEventListener('click', onCancel);
-    };
-}
+// (v13) — KHÔNG có hàm mở picker video ở file này. Picker "chọn 1 video" dùng CHUNG khung Generic
+// Drawer của picker ảnh: `openPhotoImagePickerDrawerUi(routerName, msgPrefix, title, bodyHtml,
+// tileSelector, tileDataKey, showConfirmButton)` (core/file-manager/photo-ui.js) — cùng header,
+// cùng closeBtn, cùng delegated click, chỉ khác selector tile. Hàm `openVideoBgPickerDrawerUi()`/
+// `openVideoPickerDrawerUi()` mà code cũ từng gọi KHÔNG bao giờ tồn tại trong repo (0 định nghĩa,
+// 5 lời gọi mồ côi) — không viết lại bản sao.
