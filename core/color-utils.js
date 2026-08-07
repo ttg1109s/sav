@@ -30,8 +30,21 @@
          * lại thành 1 biểu thức 3 ngôi cho rõ điều đó. Rule 2 vẫn là nợ DI SẢN của file này (tự
          * `appConfigViz.getAll()`) — KHÔNG mở rộng thêm, chỉ đổi đúng field bị gộp. */
         function updateDOMBackground() { 
-            const videoBgActive = appConfigVisualBg.getAll().enabled && appConfigVisualBg.getAll().mediaType === 'video';
-            visualizerSolidBg.style.backgroundColor = videoBgActive ? '#000000' : appConfigViz.getAll().bgColor;
+            const cfg = appConfigVisualBg.getAll();
+            // Video nền che kín -> ép đen (nền màu bên dưới không ai thấy, vẽ gradient là phí).
+            if (cfg.enabled && cfg.mediaType === 'video') {
+                visualizerSolidBg.style.backgroundImage = '';
+                visualizerSolidBg.style.backgroundColor = '#000000';
+                return;
+            }
+            // SỬA (v13) — `vizConfig.bgColor` ĐÃ DỜI sang `visualBgConfig.solidColor`, và thêm chế
+            // độ gradient. Vẫn ĐÚNG 1 tiến trình (sơn nền `#visualizer-solid-bg`), chỉ khác thuộc
+            // tính CSS dùng để sơn — gradient bắt buộc đi qua `background-image`.
+            const gradientCss = cfg.colorMode === 'gradient'
+                ? buildVisualBgGradientCss(cfg.gradientStops, cfg.gradientAngleDeg) // core/visual-bg.js
+                : '';
+            visualizerSolidBg.style.backgroundImage = gradientCss;
+            visualizerSolidBg.style.backgroundColor = gradientCss ? '' : cfg.solidColor;
         }
         
         /**

@@ -19,7 +19,11 @@
  */
 
 /** 4 tổ hợp nguồn hợp lệ — dùng bởi Router (VirtualMachineState) + panel Settings. */
-const VISUAL_BG_MEDIA_TYPES = ['image', 'video'];
+const VISUAL_BG_MEDIA_TYPES = ['color', 'image', 'video'];
+const VISUAL_BG_COLOR_MODES = ['solid', 'gradient'];
+/** Số chặng màu gradient tối thiểu/tối đa (Giang chốt: min 2, max 7). */
+const VISUAL_BG_GRADIENT_MIN_STOPS = 2;
+const VISUAL_BG_GRADIENT_MAX_STOPS = 7;
 const VISUAL_BG_SOURCE_MODES = ['single', 'list'];
 const VISUAL_BG_LIST_PLAYBACK_MODES = ['perSong', 'slideshow'];
 const VISUAL_BG_NEXT_ORDERS = ['random', 'sequential', 'playlist'];
@@ -54,6 +58,7 @@ const VISUAL_BG_MIN_LIST_ITEMS = 2;
 function reconcileVisualBgConfigOnClose(cfg, listSourceItemCount) {
     const next = { ...cfg };
     if (!next.enabled) return next; // guard clause: đang tắt sẵn -> không có gì để làm sạch
+    if (next.mediaType === 'color') return next; // guard: nền MÀU luôn có sẵn nguồn, không bao giờ "on ảo"
 
     const listRefEmpty = next.mediaType === 'video' ? !next.listFolderId : !next.listAlbumId;
     const listSourceEmpty = listRefEmpty || listSourceItemCount <= 1; // <=1 item: xem VISUAL_BG_MIN_LIST_ITEMS
@@ -206,4 +211,56 @@ function splitVisualBgProtectedKeys(keys, protectedKey) {
         allowed: keys.filter((k) => k !== protectedKey),
         blocked: keys.filter((k) => k === protectedKey),
     };
+}
+
+/**
+ * Core THUẦN — dựng chuỗi CSS `linear-gradient(...)` từ danh sách chặng màu.
+ * Tự sắp theo `position` tăng dần TRƯỚC khi ghép: CSS đọc các chặng theo đúng thứ tự viết ra, nếu
+ * người dùng kéo chặng thứ 3 về trước chặng thứ 2 mà không sắp lại thì trình duyệt kẹp chúng dính
+ * vào nhau (ra vạch cứng thay vì chuyển màu). Sắp xếp là MỘT PHẦN của việc dựng chuỗi, không phải
+ * tiến trình thứ hai — vẫn đúng Rule 1.
+ * @param {Array<{color: string, position: number}>} stops - 2..7 chặng, `position` là % (0-100).
+ * @param {number} angleDeg - góc xoay, chuẩn CSS (0deg = từ dưới lên trên).
+ * @returns {string} '' nếu chưa đủ 2 chặng (nơi gọi tự rơi về nền đơn sắc).
+ */
+function buildVisualBgGradientCss(stops, angleDeg) {
+    if (!Array.isArray(stops) || stops.length < VISUAL_BG_GRADIENT_MIN_STOPS) return ''; // guard
+    const parts = stops.slice()
+        .sort((a, b) => a.position - b.position)
+        .map((s) => `${s.color} ${s.position}%`);
+    return `linear-gradient(${angleDeg}deg, ${parts.join(', ')})`;
+}
+
+/**
+ * Core THUẦN — chèn 1 chặng màu mới vào danh sách, đặt ở KHOẢNG TRỐNG RỘNG NHẤT giữa 2 chặng liền
+ * nhau (màu lấy trung bình 2 đầu mút thì phải nội suy — không làm, chỉ lặp màu chặng bên trái để
+ * người dùng tự đổi). Trả mảng MỚI; trả nguyên mảng cũ nếu đã chạm trần.
+ * @param {Array<{color: string, position: number}>} stops
+ * @returns {Array<{color: string, position: number}>}
+ */
+function addVisualBgGradientStop(stops) {
+    if (stops.length >= VISUAL_BG_GRADIENT_MAX_STOPS) return stops.slice(); // guard: đã đủ 7
+    const sorted = stops.slice().sort((a, b) => a.position - b.position);
+    let gapIndex = 0;
+    let gapSize = -1;
+    for (let i = 0; i < sorted.length - 1; i++) {
+        const size = sorted[i + 1].position - sorted[i].position;
+        if (size > gapSize) { gapSize = size; gapIndex = i; }
+    }
+    const left = sorted[gapIndex];
+    const inserted = { color: left.color, position: Math.round(left.position + gapSize / 2) };
+    sorted.splice(gapIndex + 1, 0, inserted);
+    return sorted;
+}
+
+/**
+ * Core THUẦN — bỏ 1 chặng màu theo vị trí trong mảng. Trả nguyên mảng cũ nếu đang ở mức tối thiểu
+ * (gradient cần ít nhất 2 chặng mới có nghĩa).
+ * @param {Array<{color: string, position: number}>} stops
+ * @param {number} index
+ * @returns {Array<{color: string, position: number}>}
+ */
+function removeVisualBgGradientStop(stops, index) {
+    if (stops.length <= VISUAL_BG_GRADIENT_MIN_STOPS) return stops.slice(); // guard: không xuống dưới 2
+    return stops.filter((_, i) => i !== index);
 }

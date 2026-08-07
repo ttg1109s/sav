@@ -31,7 +31,10 @@
 
         const DEFAULT_VIZ_CONFIG = {
             quality: 'high', type: 'bar', barStyle: 'mirror', vortexStyle: 'rings', rainStyle: 'glass', glassFlash: true, mode: 'solid',
-            bgColor: '#000000', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
+            // (bgColor XOÁ — v13: "màu nền màn Visualizer" đã dời sang `visualBgConfig` cùng 3
+            //  nguồn nền kia, xem DEFAULT_VISUAL_BG_CONFIG. `solidColor` bên dưới là thứ KHÁC HẲN —
+            //  màu vẽ của visualizer, không phải nền.)
+            solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
             minH: 4, maxH: 400, barWidth: 4, bgImage: '', bgBlur: 0, bgImageEnabled: false,
             // 'light' | 'dark' | 'background' (ảnh nền tuỳ chỉnh, TỰ kéo theo bgImageEnabled=true) |
             // 'gradient' (2 màu gradientFrom/gradientTo ngay dưới) — chọn qua event/router/theme.js,
@@ -95,7 +98,10 @@
          */
         const DEFAULT_VISUAL_BG_CONFIG = {
             enabled: false,                 // toggle TỔNG — thay 3 toggle rời cũ
-            mediaType: 'image',             // 'image' | 'video'
+            // 'color' = KHÔNG ảnh/video, chỉ nền màu (đơn sắc hoặc gradient) — mặc định, thay chỗ
+            // của `vizConfig.bgColor` cũ. Nền màu LUÔN được vẽ làm lớp dưới cùng kể cả khi đang
+            // dùng ảnh/video, nên 3 field màu bên dưới có ý nghĩa ở MỌI mediaType.
+            mediaType: 'color',             // 'color' | 'image' | 'video'
             sourceMode: 'single',           // 'single' | 'list'
 
             // Nguồn đã chọn. CHỈ field khớp mediaType×sourceMode hiện tại có ý nghĩa; 3 field còn
@@ -115,6 +121,18 @@
             // Sub-setting CHỈ dùng khi mediaType='image' + sourceMode='list' +
             // listPlaybackMode='slideshow' — thu gọn từ DEFAULT_SLIDESHOW_CONFIG cũ (BỎ mode/
             // photoPerSong: thay bằng nextOrder/listPlaybackMode ở trên).
+            // ---- Nền MÀU (dời từ `vizConfig.bgColor`, mở rộng thêm gradient) ----
+            colorMode: 'solid',             // 'solid' | 'gradient'
+            solidColor: '#000000',          // == giá trị mặc định cũ của vizConfig.bgColor
+            gradientAngleDeg: 180,          // góc xoay linear-gradient, 0 = từ dưới lên (chuẩn CSS)
+            // 2..7 chặng màu. `position` là % TUYỆT ĐỐI trên trục gradient (0-100) — Giang chốt
+            // dùng %, nên "tỉ lệ dải này so với dải kia" = hiệu 2 position liền nhau, người dùng
+            // chỉnh trực tiếp bằng con số thay vì nhập tỉ lệ tương đối.
+            gradientStops: [
+                { color: '#000000', position: 0 },
+                { color: '#1e3a8a', position: 100 },
+            ],
+
             slideshow: {
                 intervalSeconds: 5,
                 transitionType: 'fade',
@@ -175,7 +193,7 @@
         AppConfig.defineDomain('viz', {
             schema: {
                 quality: 'string', type: 'string', barStyle: 'string', vortexStyle: 'string', rainStyle: 'string', glassFlash: 'boolean', mode: 'string',
-                bgColor: 'string', solidColor: 'string', dynA: 'string', dynB: 'string',
+                solidColor: 'string', dynA: 'string', dynB: 'string',
                 minH: 'number', maxH: 'number', barWidth: 'number', bgImage: 'string', bgBlur: 'number', bgImageEnabled: 'boolean',
                 themeMode: 'string', gradientFrom: 'string', gradientTo: 'string',
                 mirrorBarCount: 'number',
@@ -195,6 +213,8 @@
                 singleImageKey: 'string', singleVideoKey: 'string',
                 listAlbumId: 'nullable-string', listFolderId: 'nullable-string',
                 listPlaybackMode: 'string', nextOrder: 'string',
+                colorMode: 'string', solidColor: 'string', gradientAngleDeg: 'number',
+                gradientStops: 'object',
                 slideshow: 'object',
             },
             defaults: DEFAULT_VISUAL_BG_CONFIG,
