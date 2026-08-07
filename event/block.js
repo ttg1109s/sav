@@ -134,6 +134,19 @@ eventBus.registerBlock('playlist.mediaSource.change', [
     ],
 ], { notify: t('visualBgSettingsDrawer.blockedByVisualBgOn') });
 
+// LỖ HỔNG BIÊN (v13, Giang phát hiện) — khoá `mediaSourceSelect` + block 'playlist.mediaSource.change'
+// KHÔNG phủ hết: bật Scope cho 1 folder VIDEO rồi CHỌN "không tải lại ngay" thì phiên hiện tại vẫn
+// đang ở nguồn Song (select chưa bị khoá) -> bật được Visual Background -> lần khởi động sau boot
+// sequence áp Scope, nguồn thành Video trong khi nền vẫn đang on. Chặn ngay tại gốc: không cho bật
+// Scope folder video khi Visual Background đang bật.
+eventBus.registerBlock('fileManagerFolderBrowser.read.scope.change', [
+    [
+        { field: 'payload.checked', operator: '===', value: true },
+        { field: 'payload.folderType', operator: '===', value: 'video' },
+        { field: 'visualBgConfig.enabled', operator: '===', value: true },
+    ],
+], { notify: t('visualBgSettingsDrawer.blockedByVisualBgOn') });
+
 // ===================== Video Player mode <-> Use background video — khoá chéo 2 chiều =====================
 // MỚI (21/07/2026, Giang chỉ ra "Block đã có sẵn notify, sao phải tự viết alertModal") — 2 tính
 // năng dùng CHUNG `bgVideoElement`, KHÔNG được cùng bật.
