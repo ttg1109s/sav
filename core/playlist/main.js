@@ -91,10 +91,20 @@
              */
             async updateActiveFolderUI() {
                 const folderId = appState.get('activePlayListFolder');
+                // SỬA (v13) — thêm LÝ DO KHOÁ THỨ HAI: Visual Background đang bật. Video phát toàn
+                // màn hình nên sẽ che hẳn nền, y như Block gate đã chặn ở event/block.js. Trước đây
+                // chỉ chặn ở Block: người dùng vẫn bấm được, dropdown NHẢY sang Video rồi mới hiện
+                // modal và không đổi thật — trông như lỗi. Khoá thẳng trên UI (disabled + mờ +
+                // title) đúng cách đã làm sẵn cho Folder Scope, Block gate vẫn giữ làm chốt chặn
+                // cuối (bàn phím/luồng khác).
+                const visualBgOn = typeof appConfigVisualBg !== 'undefined' && appConfigVisualBg.getAll().enabled;
+                const locked = !!folderId || visualBgOn;
                 if (mediaSourceSelect) {
-                    mediaSourceSelect.disabled = !!folderId;
-                    mediaSourceSelect.classList.toggle('opacity-40', !!folderId);
-                    mediaSourceSelect.title = folderId ? t('settingsPlaylistBg.mediaSource.lockedByFolderScope') : '';
+                    mediaSourceSelect.disabled = locked;
+                    mediaSourceSelect.classList.toggle('opacity-40', locked);
+                    mediaSourceSelect.title = folderId
+                        ? t('settingsPlaylistBg.mediaSource.lockedByFolderScope')
+                        : (visualBgOn ? t('visualBgSettingsDrawer.blockedByVisualBgOn') : '');
                 }
                 const el = document.getElementById('setting-playlist-active-folder');
                 if (!el) return;
