@@ -37,8 +37,8 @@ function renderVisualBgPanelBody() {
                                 </div>
                             </div>
                             <div class="flex gap-2">
-                                <button type="button" id="setting-visual-bg-pick-single" class="flex-1 text-xs font-medium text-center py-2.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors" data-i18n="visualBgSettingsDrawer.pickSingle.label">${t('visualBgSettingsDrawer.pickSingle.label')}</button>
-                                <button type="button" id="setting-visual-bg-pick-group" class="flex-1 text-xs font-medium text-center py-2.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors" data-i18n="visualBgSettingsDrawer.pickGroup.label">${t('visualBgSettingsDrawer.pickGroup.label')}</button>
+                                <button type="button" id="setting-visual-bg-pick-single" class="flex-1 text-xs font-medium text-center py-2.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"></button>
+                                <button type="button" id="setting-visual-bg-pick-group" class="flex-1 text-xs font-medium text-center py-2.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"></button>
                             </div>
                         </div>
 
