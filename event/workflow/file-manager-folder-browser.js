@@ -269,7 +269,7 @@ const workflowFileManagerFolderBrowser = {
     },
 
     _wireReadEvents() {
-        wireFolderBrowserReadEvents(this._readFolderId); // core/file-manager/folder-picker-ui.js
+        wireFolderBrowserReadEvents(this._readFolderId, this._readFolderRecord ? this._readFolderRecord.type : null); // core/file-manager/folder-picker-ui.js
     },
 
     async goToReadPage(pageIndex) {

@@ -23,7 +23,8 @@
  * service/state.js (appState).
  * NẠP TRƯỚC: event/router/visual-bg.js.
  */
-let visualBgSettingsPanelEl = null; // panel Settings đang mở — null nếu đang đóng (cùng khuôn slideshowSettingsPanelEl)
+let visualBgSettingsPanelEl = null;
+let visualBgGradientPanelEl = null; // sub-panel gradient đang mở — null nếu đang đóng // panel Settings đang mở — null nếu đang đóng (cùng khuôn slideshowSettingsPanelEl)
 
 /** Task đếm giờ của nhánh "danh sách VIDEO" ở chế độ 'slideshow' (đổi video theo chu kỳ giây).
  * Chế độ 'perSong' KHÔNG dùng task nào — nhịp do sự kiện đổi bài đẩy tới, video tự loop giữa chừng. */
@@ -36,6 +37,7 @@ const workflowVisualBg = {
     // `visualBgConfig`) — cùng cách `workflowSlideshow` giữ `_images`/`_currentIndex`.
     _listVideoKeys: [],        // thứ tự videoKey ĐÃ DỰNG theo `nextOrder`, nạp lại mỗi lần áp nguồn
     _listVideoIndex: -1,       // vị trí đang phát trong `_listVideoKeys`, -1 = chưa phát gì
+    _colorPersistTimer: null,  // hoãn ghi IndexedDB trong lúc kéo thanh trượt/chọn màu (xem _commitColorChange)
     _forcedBgThumbUrl: null,   // object URL thumb đang chèn ở lớp dự phòng `#visual-bg-image` lúc chuyển video
 
     // ===================== Boot / persist =====================
@@ -405,13 +407,10 @@ const workflowVisualBg = {
         if (q2('#setting-visual-bg-pick-source')) q2('#setting-visual-bg-pick-source').closest('div').classList.toggle('hidden', isColor);
         if (q2('#visual-bg-color-mode-row')) q2('#visual-bg-color-mode-row').classList.toggle('hidden', !isColor);
         if (q2('#visual-bg-solid-color-row')) q2('#visual-bg-solid-color-row').classList.toggle('hidden', !(isColor && !isGradient));
-        if (q2('#visual-bg-gradient-angle-row')) q2('#visual-bg-gradient-angle-row').classList.toggle('hidden', !isGradient);
-        if (q2('#visual-bg-gradient-stops-row')) q2('#visual-bg-gradient-stops-row').classList.toggle('hidden', !isGradient);
+        if (q2('#setting-visual-bg-open-gradient')) q2('#setting-visual-bg-open-gradient').classList.toggle('hidden', !isGradient);
         if (q2('#setting-visual-bg-color-mode')) q2('#setting-visual-bg-color-mode').value = cfg.colorMode;
         if (q2('#setting-visual-bg-solid-color')) q2('#setting-visual-bg-solid-color').value = cfg.solidColor;
-        if (q2('#setting-visual-bg-gradient-angle')) q2('#setting-visual-bg-gradient-angle').value = cfg.gradientAngleDeg;
-        if (q2('#visual-bg-gradient-angle-value')) q2('#visual-bg-gradient-angle-value').textContent = `${cfg.gradientAngleDeg}°`;
-        if (isGradient) this._refreshGradientStopRows(cfg);
+        if (q2('#visual-bg-gradient-swatch')) q2('#visual-bg-gradient-swatch').style.backgroundImage = buildVisualBgGradientCss(cfg.gradientStops, cfg.gradientAngleDeg); // core/visual-bg.js
 
         const isList = !isColor && cfg.sourceMode === 'list';
         const isListImage = isList && cfg.mediaType === 'image';
@@ -422,41 +421,57 @@ const workflowVisualBg = {
         await this._refreshSourceNameLabel(cfg);
     },
 
-    /** Vẽ lại danh sách chặng màu gradient (2-7 hàng) + ô xem trước. DOM ĐỘNG nên dựng ở Workflow
-     * rồi giao Core gắn sự kiện? — KHÔNG: 3 control mỗi hàng đều là input tĩnh về bản chất, listener
-     * đã DELEGATE sẵn trên `settingsStackBody` (event/listener/visual-bg.js) theo `data-*`, nên ở
-     * đây chỉ dựng HTML, không `addEventListener` dòng nào (Rule 5a).
-     * @param {object} cfg
-     */
-    _refreshGradientStopRows(cfg) {
-        const listEl = visualBgSettingsPanelEl.querySelector('#visual-bg-gradient-stop-list');
-        const previewEl = visualBgSettingsPanelEl.querySelector('#visual-bg-gradient-preview');
-        if (!listEl) return;
-        const canRemove = cfg.gradientStops.length > VISUAL_BG_GRADIENT_MIN_STOPS; // core/visual-bg.js
-        listEl.innerHTML = cfg.gradientStops.map((stop, i) => `
-            <div class="flex items-center gap-2">
-                <div class="w-7 h-7 rounded-full border border-white/20 overflow-hidden shrink-0"><input type="color" data-visual-bg-stop-color="${i}" value="${stop.color}" class="w-11 h-11 -m-2 cursor-pointer bg-transparent border-0"></div>
-                <input type="range" data-visual-bg-stop-position="${i}" min="0" max="100" step="1" value="${stop.position}" class="flex-1 accent-fuchsia-500">
-                <span class="text-xs text-slate-400 w-10 text-right tabular-nums">${stop.position}%</span>
-                <button type="button" data-visual-bg-stop-remove="${i}" class="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-rose-400 hover:bg-white/10 transition-colors shrink-0 ${canRemove ? '' : 'opacity-30 pointer-events-none'}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-        `).join('');
-        if (previewEl) previewEl.style.backgroundImage = buildVisualBgGradientCss(cfg.gradientStops, cfg.gradientAngleDeg); // core/visual-bg.js
-
-        const addBtn = visualBgSettingsPanelEl.querySelector('#setting-visual-bg-gradient-add');
-        if (addBtn) addBtn.classList.toggle('opacity-30', cfg.gradientStops.length >= VISUAL_BG_GRADIENT_MAX_STOPS);
+    /** Ứng với 'visualBg.openGradientPanel.click' — push sub-panel gradient (preview vuông ở trên,
+     * các thanh tinh chỉnh ở dưới). Cùng khuôn `openPanel()`. */
+    openGradientPanel() {
+        visualBgGradientPanelEl = pushSettingsPanel({ title: t('visualBgSettingsDrawer.openGradient.label'), bodyHtml: renderVisualBgGradientPanelBody() }); // core/settings-panel-stack-ui.js
+        this._refreshGradientPanelUI();
     },
 
-    /** Ghi 1 thay đổi thuộc nhóm MÀU + persist + vẽ lại nền. DÙNG CHUNG cho 5 method bên dưới —
-     * chúng chỉ khác đúng phép gán, phần còn lại (persist + sơn lại nền + đồng bộ panel) y hệt. */
-    async _commitColorChange(mutatorFn, logContent) {
-        appConfigVisualBg.mutateAll(mutatorFn);
-        console.log(`writer: "workflowVisualBg._commitColorChange", page: "visualBgConfig", content: "${logContent}"`);
-        await this._persist();
-        updateDOMBackground(); // core/color-utils.js — chủ sở hữu duy nhất của nền `#visualizer-solid-bg`
-        await this.refreshPanelUI();
+    /** Vẽ LẠI TOÀN BỘ sub-panel gradient (dựng lại các hàng chặng màu). CHỈ gọi khi SỐ HÀNG đổi
+     * (thêm/bớt chặng) hoặc lúc mở panel — TUYỆT ĐỐI KHÔNG gọi trong lúc kéo thanh trượt/chọn màu:
+     * `innerHTML = ...` huỷ luôn chính phần tử đang được kéo, làm thanh trượt khựng từng nấc và
+     * bảng chọn màu đóng ngay sau cú bấm đầu tiên (lỗi Giang báo, mục 1+2). */
+    _refreshGradientPanelUI() {
+        if (!visualBgGradientPanelEl) return; // sub-panel đang đóng
+        const cfg = appConfigVisualBg.getAll();
+        const angleEl = visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-angle');
+        if (angleEl) angleEl.value = cfg.gradientAngleDeg;
+
+        const listEl = visualBgGradientPanelEl.querySelector('#visual-bg-gradient-stop-list');
+        if (listEl) {
+            const canRemove = cfg.gradientStops.length > VISUAL_BG_GRADIENT_MIN_STOPS; // core/visual-bg.js
+            listEl.innerHTML = cfg.gradientStops.map((stop, i) => `
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-full border border-white/20 overflow-hidden shrink-0"><input type="color" data-visual-bg-stop-color="${i}" value="${stop.color}" class="w-11 h-11 -m-2 cursor-pointer bg-transparent border-0"></div>
+                    <input type="range" data-visual-bg-stop-position="${i}" min="0" max="100" step="1" value="${stop.position}" class="flex-1 accent-sky-500">
+                    <span data-visual-bg-stop-label="${i}" class="text-xs text-slate-400 w-10 text-right tabular-nums">${stop.position}%</span>
+                    <button type="button" data-visual-bg-stop-remove="${i}" class="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-rose-400 hover:bg-white/10 transition-colors shrink-0 ${canRemove ? '' : 'opacity-30 pointer-events-none'}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+        const addBtn = visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-add');
+        if (addBtn) addBtn.classList.toggle('opacity-30', cfg.gradientStops.length >= VISUAL_BG_GRADIENT_MAX_STOPS);
+        this._refreshGradientLive(cfg);
+    },
+
+    /** Cập nhật phần "sống" của sub-panel: ô xem trước + nhãn góc + nhãn % của từng chặng. KHÔNG
+     * đụng `innerHTML`, KHÔNG gán lại `value` của control đang được người dùng kéo — nhờ vậy kéo
+     * thanh trượt và rê trong bảng chọn màu đều mượt, cập nhật liên tục.
+     * @param {object} cfg
+     */
+    _refreshGradientLive(cfg) {
+        if (!visualBgGradientPanelEl) return;
+        const previewEl = visualBgGradientPanelEl.querySelector('#visual-bg-gradient-preview');
+        if (previewEl) previewEl.style.backgroundImage = buildVisualBgGradientCss(cfg.gradientStops, cfg.gradientAngleDeg); // core/visual-bg.js
+        const angleValueEl = visualBgGradientPanelEl.querySelector('#visual-bg-gradient-angle-value');
+        if (angleValueEl) angleValueEl.textContent = `${cfg.gradientAngleDeg}°`;
+        cfg.gradientStops.forEach((stop, i) => {
+            const labelEl = visualBgGradientPanelEl.querySelector(`[data-visual-bg-stop-label="${i}"]`);
+            if (labelEl) labelEl.textContent = `${stop.position}%`;
+        });
     },
 
     /** Ứng với select "Chế độ màu" (Đơn sắc / Chuyển sắc). */
@@ -467,14 +482,14 @@ const workflowVisualBg = {
 
     /** Ứng với ô chọn màu nền đơn sắc. */
     async changeSolidColor(value) {
-        await this._commitColorChange((cfg) => { cfg.solidColor = value; }, `solidColor=${value}`);
+        await this._commitColorChange((cfg) => { cfg.solidColor = value; }, `solidColor=${value}`, { live: true });
     },
 
     /** Ứng với thanh trượt góc xoay gradient. */
     async changeGradientAngle(value) {
         const deg = Number(value);
         if (!Number.isFinite(deg)) return; // guard
-        await this._commitColorChange((cfg) => { cfg.gradientAngleDeg = deg; }, `gradientAngleDeg=${deg}`);
+        await this._commitColorChange((cfg) => { cfg.gradientAngleDeg = deg; }, `gradientAngleDeg=${deg}`, { live: true });
     },
 
     /** Ứng với ô màu / thanh trượt vị trí của 1 chặng. */
@@ -484,7 +499,7 @@ const workflowVisualBg = {
         await this._commitColorChange((cfg) => {
             if (!cfg.gradientStops[index]) return; // guard: hàng vừa bị xoá ở thao tác khác
             cfg.gradientStops[index] = { ...cfg.gradientStops[index], [field]: parsed };
-        }, `gradientStops[${index}].${field}=${parsed}`);
+        }, `gradientStops[${index}].${field}=${parsed}`, { live: true });
     },
 
     /** Ứng với nút "Thêm chặng màu" — Core tự chặn khi đã đủ 7. */
