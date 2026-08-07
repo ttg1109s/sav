@@ -294,27 +294,46 @@ const workflowVisualBg = {
      * Origin đọc ra rỗng (album/folder/ảnh/video không còn tồn tại) -> gỡ hẳn (Giang chốt mục 2).
      * @param {'single'|'group'} originKind
      * @param {string} originId
+     * @returns {Promise<{added: number, removed: number, total: number}|null>} diff so với
+     *   `source.list` TRƯỚC lúc gọi — CHỈ có ý nghĩa khi origin GIỮ NGUYÊN (nút "Làm tươi"); lúc
+     *   chọn nguồn MỚI (origin khác), diff này không mang nghĩa gì, caller tự bỏ qua. `null` nếu bị
+     *   gỡ hẳn (origin rỗng).
      */
     async _resolveAndCommitSource(originKind, originId) {
         const cfg = appConfigVisualBg.getAll();
+        const previousKeys = new Set(cfg.source.list.filter((k) => k !== null));
         const keys = await this._readOriginKeys(cfg.type, originKind, originId);
-        if (keys.length === 0) { await this.clearSource(); return; }
+        if (keys.length === 0) { await this.clearSource(); return null; }
+        const newKeysSet = new Set(keys);
+        const added = keys.filter((k) => !previousKeys.has(k)).length;
+        const removed = [...previousKeys].filter((k) => !newKeysSet.has(k)).length;
         appConfigVisualBg.mutateAll((c) => {
             c.source.originKind = originKind;
             c.source.originId = originId;
             c.source.list = keys;
         });
-        console.log(`writer: "workflowVisualBg._resolveAndCommitSource", page: "visualBgConfig", content: "source=${originKind}:${originId}, count=${keys.length}"`);
+        console.log(`writer: "workflowVisualBg._resolveAndCommitSource", page: "visualBgConfig", content: "source=${originKind}:${originId}, count=${keys.length}, +${added}/-${removed}"`);
         await this._persist();
         await this.refreshPanelUI();
         await this.applyCurrentVisualBg();
+        return { added, removed, total: keys.length };
     },
 
-    /** Ứng nút "Làm tươi" — đọc lại ĐÚNG origin đã lưu, ghi đè `source.list`. */
+    /** Ứng nút "Làm tươi" — đọc lại ĐÚNG origin đã lưu, ghi đè `source.list`. Có hiệu ứng xoay trên
+     * nút trong lúc đọc DB + modal báo THAY ĐỔI GÌ sau khi xong (Giang chốt mục 2). */
     async refreshSource() {
         const { originKind, originId } = appConfigVisualBg.getAll().source;
         if (!originKind || !originId) return; // guard: chưa có nguồn
-        await this._resolveAndCommitSource(originKind, originId);
+        const btn = visualBgSettingsPanelEl ? visualBgSettingsPanelEl.querySelector('#setting-visual-bg-refresh-source') : null;
+        if (btn) { btn.disabled = true; btn.classList.add('animate-spin'); }
+        try {
+            const result = await this._resolveAndCommitSource(originKind, originId);
+            if (!result) { await alertModal(t('visualBgSettingsDrawer.refreshSource.resultCleared')); return; }
+            if (result.added === 0 && result.removed === 0) { await alertModal(tFormat('visualBgSettingsDrawer.refreshSource.resultUnchanged', { total: result.total })); return; }
+            await alertModal(tFormat('visualBgSettingsDrawer.refreshSource.result', { added: result.added, removed: result.removed, total: result.total }));
+        } finally {
+            if (btn) { btn.disabled = false; btn.classList.remove('animate-spin'); }
+        }
     },
 
     /** Gỡ hẳn nguồn hiện tại — về "chưa chọn" (đường DUY NHẤT, không còn Block gate chặn xoá ảnh/

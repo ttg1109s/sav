@@ -867,6 +867,12 @@ const workflowPlaylist = {
      * switchToVideoSource(). Cùng lý do KHÔNG reset displaySortMode — xem docstring hàm đó.
      */
     async switchToSongSource() {
+        // SỬA (phản hồi Giang, mục 1 — "chuyển về Song vẫn bị chặn Visual Background, phải reload
+        // mới hết") — thiếu đúng 1 dòng: đổi Nguồn đi không tự thoát Video Player mode nếu đang có
+        // video PHÁT THẬT, `isVideoPlayerMode` kẹt mãi ở `true` (chỉ activeMediaSource đổi) ->
+        // event/block.js::'visualBg.openPanel.click' cứ chặn hoài vì còn 1 trong 2 điều kiện đúng.
+        // CÙNG khuôn `core/playlist/actions.js` đã làm cho lượt playSong(Song) khi đang ở mode.
+        if (appState.get('isVideoPlayerMode')) await workflowVideoPlayer.exitVideoPlayerMode(); // event/workflow/video-player.js — liên tuyến domain, tự nhả bgVideoElement + khôi phục Visual Background
         appState.set('activeMediaSource', 'song');
         console.log(`writer: "switchToSongSource", page: "activeMediaSource", content: "song"`);
 
