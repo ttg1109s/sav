@@ -123,17 +123,16 @@ eventBus.registerBlock('fileManagerFolderBrowser.read.delete.click', [
     ],
 ], { notify: t('visualBgSettingsDrawer.blockedDeleteInUse') });
 
-// SỬA (v13 Batch F, plan mục 4) — CHIỀU NGƯỢC LẠI của khoá chéo: đang bật Visual Background thì
-// không cho chuyển nguồn Playlist sang Video (Video Player mode chiếm dụng CÙNG thẻ `#bg-video`).
-// Trước v13 chỉ có 1 chiều (chặn bật video nền khi đang ở nguồn Video); chiều này thiếu nên vẫn
-// vào được trạng thái xung đột bằng đường vòng.
+// CHIỀU NGƯỢC LẠI của khoá chéo (v13 Batch F, plan mục 4; SỬA Batch G) — Visual Background ĐANG BẬT
+// thì không đổi nguồn Playlist sang Video được. ĐỐI XỨNG HOÀN TOÀN với luật ngay trên: cùng 1 xung
+// đột (nguồn Video chiếm cả `#bg-video` lẫn `#visual-bg-image`), nên cùng KHÔNG kiểm `mediaType` —
+// bật Visual Background bằng nguồn ảnh cũng xung đột y hệt.
 eventBus.registerBlock('playlist.mediaSource.change', [
     [
         { field: 'payload.source', operator: '===', value: 'video' },
         { field: 'visualBgConfig.enabled', operator: '===', value: true },
-        { field: 'visualBgConfig.mediaType', operator: '===', value: 'video' },
     ],
-], { notify: t('visualBgSettingsDrawer.blockedBySourceVideo') });
+], { notify: t('visualBgSettingsDrawer.blockedByVisualBgOn') });
 
 // ===================== Video Player mode <-> Use background video — khoá chéo 2 chiều =====================
 // MỚI (21/07/2026, Giang chỉ ra "Block đã có sẵn notify, sao phải tự viết alertModal") — 2 tính
@@ -168,6 +167,10 @@ eventBus.registerBlock('videoPlayer.startFromPlaylist.click', [
 // hẳn từ Batch 6, "Song/Video Unification").
 // SỬA (v13 Batch A) — msg.type ĐỔI theo cụm router MỚI `visualBg` (toggle #setting-video-enable
 // đã xoá; "Video nền" giờ là 1 tổ hợp của Visual Background). Điều kiện + notify GIỮ NGUYÊN 100%.
+// Điều kiện GIỮ NGUYÊN (v13 Batch G) — KHÔNG kiểm `mediaType`, và đó là ĐÚNG: khi Playlist ở nguồn
+// Video, video đang phát chiếm `#bg-video` VÀ bị cưỡng chế đặt thumb full-size vào `#visual-bg-image`
+// (core/video-player.js::forceShowVisualBgImageForVideoPlayer()). CẢ HAI lớp mà Visual Background
+// cần đều bị chiếm, nên KHÔNG nguồn nào dùng được — ảnh cũng vậy, không riêng video.
 eventBus.registerBlock('visualBg.enable.on.click', [
     [
         { field: 'isVideoPlayerMode', operator: '===', value: true },
@@ -175,7 +178,7 @@ eventBus.registerBlock('visualBg.enable.on.click', [
     [
         { field: 'activeMediaSource', operator: '===', value: 'video' },
     ],
-], { notify: t('visualBgSettingsDrawer.blockedByPlayerMode') });
+], { notify: t('visualBgSettingsDrawer.blockedBySourceVideo') });
 
 // ===================== Modal xem ảnh Photo — chặn đóng khi đang Zoom/Edit mode =====================
 // MỚI (31/07/2026) — nút "..." dropdown LUÔN bấm được ở CẢ 3 mode (view/zoom/edit, KHÔNG disable),
