@@ -86,10 +86,10 @@ function renderVisualizerPanelBody() {
         
                     <h3 class="text-xs font-bold text-rose-400 uppercase tracking-widest mb-2 ml-2" data-i18n="visualizerSettingsDrawer.colorSectionTitle">${t('visualizerSettingsDrawer.colorSectionTitle')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <span class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.bgColor.label">${t('visualizerSettingsDrawer.bgColor.label')}</span>
-                            <div class="w-8 h-8 rounded-full border border-white/20 overflow-hidden shrink-0"><input type="color" id="bg-color-picker" class="w-10 h-10 -m-1 cursor-pointer"></div>
-                        </div>
+                        <!-- XOÁ (v13) — hàng "Màu nền đen" (#bg-color-picker) ĐÃ DỜI sang panel
+                             "Visual Background": nền màn Visualizer giờ gom về đúng 1 nơi (màu/ảnh/
+                             video), và có thêm chế độ gradient. Card này chỉ còn màu VẼ của
+                             visualizer, không còn màu NỀN. -->
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <span class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.colorMode.label">${t('visualizerSettingsDrawer.colorMode.label')}</span>
                             <select id="setting-color-mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">

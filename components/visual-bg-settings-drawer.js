@@ -55,6 +55,7 @@ function renderVisualBgPanelBody() {
                             <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                                 <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.mediaType.label">${t('visualBgSettingsDrawer.mediaType.label')}</span>
                                 <select id="setting-visual-bg-media-type" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
+                                    <option value="color" data-i18n="visualBgSettingsDrawer.mediaType.color">${t('visualBgSettingsDrawer.mediaType.color')}</option>
                                     <option value="image" data-i18n="visualBgSettingsDrawer.mediaType.image">${t('visualBgSettingsDrawer.mediaType.image')}</option>
                                     <option value="video" data-i18n="visualBgSettingsDrawer.mediaType.video">${t('visualBgSettingsDrawer.mediaType.video')}</option>
                                 </select>
@@ -89,6 +90,38 @@ function renderVisualBgPanelBody() {
                                 <button type="button" id="setting-visual-bg-clear-source" title="${t('visualBgSettingsDrawer.clearSource.title')}" class="hidden px-4 flex items-center justify-center border-l border-white/5 text-slate-400 hover:text-rose-400 hover:bg-white/5 transition-colors shrink-0">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 01-5.656-5.656l1.5-1.5M10.172 13.828a4 4 0 010-5.656l3-3a4 4 0 015.656 5.656l-1.5 1.5M3 3l18 18" /></svg>
                                 </button>
+                            </div>
+
+                            <!-- ===== Nền MÀU (mediaType='color') — dời từ card Visualizer + thêm gradient ===== -->
+                            <div id="visual-bg-color-mode-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors hidden">
+                                <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.colorMode.label">${t('visualBgSettingsDrawer.colorMode.label')}</span>
+                                <select id="setting-visual-bg-color-mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
+                                    <option value="solid" data-i18n="visualBgSettingsDrawer.colorMode.solid">${t('visualBgSettingsDrawer.colorMode.solid')}</option>
+                                    <option value="gradient" data-i18n="visualBgSettingsDrawer.colorMode.gradient">${t('visualBgSettingsDrawer.colorMode.gradient')}</option>
+                                </select>
+                            </div>
+
+                            <div id="visual-bg-solid-color-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors hidden">
+                                <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.solidColor.label">${t('visualBgSettingsDrawer.solidColor.label')}</span>
+                                <div class="w-8 h-8 rounded-full border border-white/20 overflow-hidden shrink-0"><input type="color" id="setting-visual-bg-solid-color" class="w-12 h-12 -m-2 cursor-pointer bg-transparent border-0"></div>
+                            </div>
+
+                            <div id="visual-bg-gradient-angle-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors hidden">
+                                <div class="pr-3">
+                                    <div class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.gradientAngle.label">${t('visualBgSettingsDrawer.gradientAngle.label')}</div>
+                                    <div id="visual-bg-gradient-angle-value" class="text-xs text-slate-400 mt-0.5"></div>
+                                </div>
+                                <input type="range" id="setting-visual-bg-gradient-angle" min="0" max="360" step="1" class="w-32 shrink-0 accent-fuchsia-500">
+                            </div>
+
+                            <!-- Danh sách chặng màu (2-7): vẽ động bởi workflowVisualBg._refreshGradientStopRows() -->
+                            <div id="visual-bg-gradient-stops-row" class="p-4 border-b border-white/5 hidden">
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.gradientStops.label">${t('visualBgSettingsDrawer.gradientStops.label')}</span>
+                                    <button type="button" id="setting-visual-bg-gradient-add" class="text-xs px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors" data-i18n="visualBgSettingsDrawer.gradientStops.add">${t('visualBgSettingsDrawer.gradientStops.add')}</button>
+                                </div>
+                                <div id="visual-bg-gradient-stop-list" class="flex flex-col gap-2"></div>
+                                <div id="visual-bg-gradient-preview" class="mt-3 h-8 rounded-lg border border-white/10"></div>
                             </div>
 
                             <div id="visual-bg-list-playback-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors hidden">
