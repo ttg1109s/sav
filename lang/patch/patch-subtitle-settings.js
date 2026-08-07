@@ -55,6 +55,7 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'visualBgSettingsDrawer.colorMode.gradient': 'Gradient',
     'visualBgSettingsDrawer.solidColor.label': 'Background colour',
     'visualBgSettingsDrawer.gradientAngle.label': 'Gradient angle',
+    'visualBgSettingsDrawer.openGradient.label': 'Gradient settings...',
     'visualBgSettingsDrawer.gradientStops.label': 'Colour stops (2-7)',
     'visualBgSettingsDrawer.gradientStops.add': '+ Add stop',
     'visualBgSettingsDrawer.mediaType.image': 'Photo',
