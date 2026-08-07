@@ -29,10 +29,36 @@ const VISUAL_BG_SETTINGS_INPUT_MAP = {
     'setting-visual-bg-next-order:change': { type: 'visualBg.nextOrder.change' },
     'setting-visual-bg-pick-source:click': { type: 'visualBg.pickSource.click', bare: true },
     'setting-visual-bg-clear-source:click': { type: 'visualBg.clearSource.click', bare: true },
+    'setting-visual-bg-color-mode:change': { type: 'visualBg.colorMode.change' },
+    'setting-visual-bg-solid-color:input': { type: 'visualBg.solidColor.input' },
+    'setting-visual-bg-gradient-angle:input': { type: 'visualBg.gradientAngle.input' },
+    'setting-visual-bg-gradient-add:click': { type: 'visualBg.gradientStop.add.click', bare: true },
     'setting-visual-bg-open-slideshow:click': { type: 'visualBg.openSlideshowPanel.click', bare: true },
 };
 
+/** 3 control của MỖI HÀNG chặng màu gradient được vẽ ĐỘNG (số hàng đổi theo 2..7) nên không thể
+ * liệt kê theo `id` như MAP trên — nhận diện bằng thuộc tính `data-*` kèm CHỈ SỐ hàng. Vẫn dùng
+ * chung 2 listener delegation sẵn có, không thêm listener nào. */
+function handleVisualBgGradientStopEvent(e) {
+    const el = e.target.closest('[data-visual-bg-stop-color], [data-visual-bg-stop-position], [data-visual-bg-stop-remove]');
+    if (!el) return false;
+    if (el.dataset.visualBgStopRemove !== undefined && e.type === 'click') {
+        eventBus.send({ router: 'visualBg', type: 'visualBg.gradientStop.remove.click', payload: { index: Number(el.dataset.visualBgStopRemove) } });
+        return true;
+    }
+    if (el.dataset.visualBgStopColor !== undefined && e.type === 'input') {
+        eventBus.send({ router: 'visualBg', type: 'visualBg.gradientStop.change', payload: { index: Number(el.dataset.visualBgStopColor), field: 'color', value: el.value } });
+        return true;
+    }
+    if (el.dataset.visualBgStopPosition !== undefined && e.type === 'input') {
+        eventBus.send({ router: 'visualBg', type: 'visualBg.gradientStop.change', payload: { index: Number(el.dataset.visualBgStopPosition), field: 'position', value: el.value } });
+        return true;
+    }
+    return false;
+}
+
 function handleVisualBgSettingsDelegatedEvent(e) {
+    if (handleVisualBgGradientStopEvent(e)) return; // hàng chặng màu động — xử lý riêng ở trên
     // `closest()` (không phải `e.target.id` thuần) — 2 entry dạng NÚT có phần tử con (svg/div),
     // click thật thường rơi vào con chứ không phải chính <button>.
     const hostEl = e.target.closest('[id]');
@@ -58,4 +84,6 @@ function handleVisualBgSettingsDelegatedEvent(e) {
 if (settingsStackBody) {
     settingsStackBody.addEventListener('change', handleVisualBgSettingsDelegatedEvent);
     settingsStackBody.addEventListener('click', handleVisualBgSettingsDelegatedEvent);
+    // `input` (không phải `change`) cho ô màu + 2 thanh trượt: cần cập nhật nền NGAY lúc kéo.
+    settingsStackBody.addEventListener('input', handleVisualBgSettingsDelegatedEvent);
 }

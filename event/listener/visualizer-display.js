@@ -72,7 +72,7 @@ if (eqSelect) {
 // (input+change) thay vì 14 listener riêng lẻ trên dom-refs tĩnh (nay không còn tồn tại tĩnh nữa).
 const VISUALIZER_DISPLAY_INPUT_MAP = {
     'setting-quality': { type: 'visualizerDisplay.quality.change', event: 'change' },
-    'bg-color-picker': { type: 'visualizerDisplay.bgColor.input', event: 'input' },
+    // ('bg-color-picker' XOÁ — v13: màu nền dời sang panel Visual Background.)
     'setting-color-mode': { type: 'visualizerDisplay.colorMode.change', event: 'change' },
     'solid-color-picker': { type: 'visualizerDisplay.solidColor.pickerInput', event: 'input', cross: true },
     'solid-color-text': { type: 'visualizerDisplay.solidColor.textInput', event: 'input', cross: true },
