@@ -109,57 +109,30 @@ eventBus.registerBlock('visualBg.pickGroupSource.click', [
 // core/visual-bg.js::advanceVisualBgList(), event/workflow/visual-bg.js::_markCurrentMissing()).
 // Không còn nút "Gỡ nguồn" nào bị bắt buộc bấm trước khi xoá nữa.
 
-// CHIỀU NGƯỢC LẠI của khoá chéo (v13 Batch F, plan mục 4; SỬA Batch G) — Visual Background ĐANG
-// hiện media (ảnh/video) thì không đổi nguồn Playlist sang Video được. ĐỐI XỨNG HOÀN TOÀN với luật
-// ngay trên: cùng 1 xung đột (nguồn Video chiếm cả `#bg-video` lẫn `#visual-bg-image`).
-// SỬA (v14) — field cũ `visualBgConfig.enabled` không còn tồn tại; `registerBlock()` chỉ so được 1
-// field đơn qua appState, không biểu diễn được "source.list còn item hay không" trực tiếp trên
-// appConfigVisualBg — đổi sang đọc `isVisualBgMediaActive` (appState, service/state/visual-bg.js),
-// do `workflowVisualBg.applyCurrentVisualBg()` tự đồng bộ mỗi lần áp lại nền.
-eventBus.registerBlock('playlist.mediaSource.change', [
-    [
-        { field: 'payload.source', operator: '===', value: 'video' },
-        { field: 'isVisualBgMediaActive', operator: '===', value: true },
-    ],
-], { notify: t('visualBgSettingsDrawer.blockedByVisualBgOn') });
-
-// LỖ HỔNG BIÊN (v13, Giang phát hiện) — khoá `mediaSourceSelect` + block 'playlist.mediaSource.change'
-// KHÔNG phủ hết: bật Scope cho 1 folder VIDEO rồi CHỌN "không tải lại ngay" thì phiên hiện tại vẫn
-// đang ở nguồn Song (select chưa bị khoá) -> bật được Visual Background -> lần khởi động sau boot
-// sequence áp Scope, nguồn thành Video trong khi nền vẫn đang on. Chặn ngay tại gốc: không cho bật
-// Scope folder video khi Visual Background đang hiện media.
-eventBus.registerBlock('fileManagerFolderBrowser.read.scope.change', [
-    [
-        { field: 'payload.checked', operator: '===', value: true },
-        { field: 'payload.folderType', operator: '===', value: 'video' },
-        { field: 'isVisualBgMediaActive', operator: '===', value: true },
-    ],
-], { notify: t('visualBgSettingsDrawer.blockedByVisualBgOn') });
+// XOÁ (v14, Giang chốt mục 2) — khoá chéo "Visual Background đang hiện media -> không đổi Nguồn
+// Playlist sang Video" bỏ hẳn (đây từng là 2 block: 'playlist.mediaSource.change' +
+// 'fileManagerFolderBrowser.read.scope.change' phòng lỗ hổng biên của nó). Đổi Nguồn/bật Scope
+// Video giờ được phép tự do dù Visual Background đang hiện gì — xung đột giải quyết ở CHIỀU NGƯỢC
+// LẠI, đúng lúc THẬT SỰ vào Video Player mode (`workflowVisualBg.clearMediaLayers()`, gọi từ
+// event/workflow/video-player.js::startFromPlaylist() — dùng LUÔN cơ chế nhường `#bg-video` sẵn có
+// của Video Player mode, không cần khoá phòng ngừa từ phía Playlist nữa).
 
 // ===================== Video Player mode <-> Use background video — khoá chéo 2 chiều =====================
-// MỚI (21/07/2026, Giang chỉ ra "Block đã có sẵn notify, sao phải tự viết alertModal") — 2 tính
-// năng dùng CHUNG `bgVideoElement`, KHÔNG được cùng bật.
-// [SỬA — ver12 "Song/Video Unification", Batch 2] Chiều "bật Video Player mode chặn bởi Video nền"
-// TỪNG đăng ký ở msg.type 'fileManagerVideo.playerModeToggle.enable.click' (checkbox trong panel
-// File Manager -> Video, ĐÃ BỎ HẲN — xem plan-v12-song-video-unification.md mục 3 + cleanup Batch
-// 2). Entry point MỚI vào Video Player mode (`window.playSong()` dispatch theo `mediaType`,
-// core/playlist/actions.js) tự `eventBus.send()` đúng msg.type dưới đây (xem event/router/
-// video-player.js) — CHÍNH VÌ VẬY khôi phục lại được rule Block gate này (Giang chốt: "chọn Video
-// thì cũng phải kiểm tra block gate mới được cho chọn"), chỉ đổi msg.type + key i18n, điều kiện và
-// hành vi giữ NGUYÊN 100% so với chiều cũ.
-eventBus.registerBlock('videoPlayer.startFromPlaylist.click', [
-    [
-        // SỬA (v14) — `visualBgConfig.enabled` không còn tồn tại, đổi sang `isVisualBgMediaActive`
-        // (appState, đồng bộ bởi workflowVisualBg.applyCurrentVisualBg() — xem docstring field ở
-        // service/state/visual-bg.js).
-        { field: 'isVisualBgMediaActive', operator: '===', value: true },
-    ],
-], { notify: t('videoPlayer.startFromPlaylist.blockedByBgVideo') });
+// 2 tính năng dùng CHUNG `bgVideoElement`, KHÔNG được cùng bật.
+// XOÁ (v14, Giang chốt mục 2) — chiều "chặn VÀO Video Player mode khi Visual Background đang hiện
+// media" ('videoPlayer.startFromPlaylist.click') bỏ hẳn: vào Video Player mode giờ LUÔN được phép,
+// `startFromPlaylist()` tự gọi `workflowVisualBg.clearMediaLayers()` để nhường `bgVideoElement`
+// (không đợi Block gate chặn trước nữa).
+//
+// Chiều CÒN LẠI (chặn MỞ panel/chọn nguồn Visual Background khi đang ở Video Player mode/Playlist
+// đang browse Video) — GIỮ, đổi msg.type theo router mới `visualBg` (không còn toggle bật/tắt
+// riêng, chọn nguồn CHÍNH LÀ hành động cần chặn) + thêm chặn NGAY TỪ LÚC MỞ PANEL (Giang chốt mục 2
+// — "khoá vào sub setting visual background"), không chỉ chặn lúc bấm nút chọn nguồn bên trong.
+eventBus.registerBlock('visualBg.openPanel.click', [
+    [{ field: 'isVideoPlayerMode', operator: '===', value: true }],
+    [{ field: 'activeMediaSource', operator: '===', value: 'video' }],
+], { notify: t('visualBgSettingsDrawer.blockedBySourceVideo') });
 
-// Chiều CÒN LẠI (chặn dùng Video nền khi Video Player mode đang chạy/Playlist đang browse Video) —
-// ĐÃ GỘP vào 2 block '"visualBg.pickSingleSource.click"'/'"visualBg.pickGroupSource.click"' phía trên
-// (v14): không còn action "bật" riêng biệt ('"visualBg.enable.on.click"' đã xoá cùng toggle) — chọn
-// nguồn giờ CHÍNH LÀ hành động cần chặn, nên chặn thẳng tại đó.
 
 // ===================== Modal xem ảnh Photo — chặn đóng khi đang Zoom/Edit mode =====================
 // MỚI (31/07/2026) — nút "..." dropdown LUÔN bấm được ở CẢ 3 mode (view/zoom/edit, KHÔNG disable),
