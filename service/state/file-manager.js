@@ -14,8 +14,8 @@
                 // playSelectedSongs(), event/workflow/playlist.js), KHÁC hẳn displayOrder
                 // top-level. Tự về false khi recomputeDisplayOrder() chạy.
                 sectionQueueActive: 'boolean',
-                // (activeBackgroundAlbum XOÁ — v13 Batch B: "album nào đang làm nền" giờ là
-                //  `visualBgConfig.listAlbumId`, KHÔNG còn bản sao trong AppState.)
+                // (activeBackgroundAlbum XOÁ — v13 Batch B: "album nào đang làm nền" giờ nằm
+                //  trong `visualBgConfig.source` (v14: originId/list), KHÔNG còn bản sao trong AppState.)
                 pageCurrentFolderDetailSongList: 'number',   // trang ĐANG xem của danh sách item BÊN TRONG 1 folder (Folder Browser Read, event/workflow/file-manager-folder-browser.js)
                 pageCurrentDocumentList: 'number',           // trang ĐANG xem của danh sách tài liệu Documents
                 // MỚI (31/07/2026) — mode hiện tại của modal xem ảnh Photo ('view'/'zoom'/'edit').

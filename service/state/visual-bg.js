@@ -22,12 +22,20 @@
                 // src thừa mỗi lần Next/Prev) — GIỮ NGUYÊN vai trò của `_videoBgLoadedUrl` cũ ở
                 // package "video-bg", chỉ đổi tên cho khớp domain mới.
                 visualBgVideoLoadedUrl: 'nullable-string',
+                // MỚI (v14) — "Visual Background đang hiện ảnh/video thật" (source.list còn ≥1 item
+                // sống), CHỈ để event/block.js đọc (registerBlock() chỉ so field đơn qua appState,
+                // không biểu diễn được "mảng còn phần tử" trực tiếp trên appConfigVisualBg). Nguồn
+                // sự thật vẫn là `source.list`; field này CHỈ LÀ BẢN SAO PHÁI SINH, do
+                // `workflowVisualBg.applyCurrentVisualBg()` tự đồng bộ mỗi lần áp lại nền — KHÔNG
+                // nơi nào khác được ghi field này.
+                isVisualBgMediaActive: 'boolean',
             },
             buildDefaults() {
                 return {
                     visualBgVideoObjectUrl: '',
                     visualBgImageObjectUrl: '',
                     visualBgVideoLoadedUrl: null,
+                    isVisualBgMediaActive: false,
                 };
             },
         });
