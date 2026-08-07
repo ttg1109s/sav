@@ -42,7 +42,7 @@ function renderSlideshowPanelBody() {
     return `
                 <!-- ===================== NHÓM 1: CHUYỂN CẢNH ===================== -->
                 <div>
-                    <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2" data-i18n="slideshowSettingsDrawer.groupTransition.title">${t('slideshowSettingsDrawer.groupTransition.title')}</h3>
+                    <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="slideshowSettingsDrawer.groupTransition.title">${t('slideshowSettingsDrawer.groupTransition.title')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
 
                         <!-- DỜI VÀO ĐÂY (v13 Batch C, yêu cầu Giang "đem Seconds per photo vào mục
@@ -94,7 +94,7 @@ function renderSlideshowPanelBody() {
                                 <span class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.transitionRatio.label">${t('slideshowSettingsDrawer.transitionRatio.label')}</span>
                                 <span id="slideshow-transition-ratio-label" class="text-xs text-slate-400 font-mono"></span>
                             </div>
-                            <input type="range" id="setting-slideshow-transition-ratio" min="0" max="100" step="5" class="w-full accent-fuchsia-500">
+                            <input type="range" id="setting-slideshow-transition-ratio" min="0" max="100" step="5" class="w-full accent-sky-500">
                         </div>
                         <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
                             <span class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.transitionEasing.label">${t('slideshowSettingsDrawer.transitionEasing.label')}</span>
@@ -111,7 +111,7 @@ function renderSlideshowPanelBody() {
 
                 <!-- ===================== NHÓM 2: KEN BURNS ===================== -->
                 <div>
-                    <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="slideshowSettingsDrawer.groupKenBurns.title">${t('slideshowSettingsDrawer.groupKenBurns.title')}</h3>
+                    <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="slideshowSettingsDrawer.groupKenBurns.title">${t('slideshowSettingsDrawer.groupKenBurns.title')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                         <!-- MỚI (Ken Burns, 18/07/2026, phản hồi Giang) — toggle ĐỘC LẬP, TÁCH khỏi
                              select Transition (trước đây 'kenburns' là 1 option trong đó, chọn nó
@@ -124,7 +124,7 @@ function renderSlideshowPanelBody() {
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                 <input type="checkbox" id="setting-slideshow-kenburns" class="sr-only peer">
-                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-fuchsia-500 shadow-inner"></div>
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                             </label>
                         </div>
                         <!-- MỚI ("Nhóm 2", 18/07/2026, phản hồi Giang) — THAY HẲN "Nhóm 1" (8 biến

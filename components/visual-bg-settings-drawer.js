@@ -35,7 +35,7 @@ function renderVisualBgPanelBody() {
     return `
                 <!-- ===================== NHÓM 1: NGUỒN ===================== -->
                 <div>
-                    <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-widest mb-2 ml-2" data-i18n="visualBgSettingsDrawer.groupSource.title">${t('visualBgSettingsDrawer.groupSource.title')}</h3>
+                    <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="visualBgSettingsDrawer.groupSource.title">${t('visualBgSettingsDrawer.groupSource.title')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
 
                         <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
@@ -45,7 +45,7 @@ function renderVisualBgPanelBody() {
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                 <input type="checkbox" id="setting-visual-bg-enable" class="sr-only peer">
-                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-fuchsia-500 shadow-inner"></div>
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                             </label>
                         </div>
 
@@ -68,7 +68,7 @@ function renderVisualBgPanelBody() {
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                     <input type="checkbox" id="setting-visual-bg-source-mode" class="sr-only peer">
-                                    <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-fuchsia-500 shadow-inner"></div>
+                                    <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                                 </label>
                             </div>
 
@@ -106,23 +106,13 @@ function renderVisualBgPanelBody() {
                                 <div class="w-8 h-8 rounded-full border border-white/20 overflow-hidden shrink-0"><input type="color" id="setting-visual-bg-solid-color" class="w-12 h-12 -m-2 cursor-pointer bg-transparent border-0"></div>
                             </div>
 
-                            <div id="visual-bg-gradient-angle-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors hidden">
-                                <div class="pr-3">
-                                    <div class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.gradientAngle.label">${t('visualBgSettingsDrawer.gradientAngle.label')}</div>
-                                    <div id="visual-bg-gradient-angle-value" class="text-xs text-slate-400 mt-0.5"></div>
+                            <button id="setting-visual-bg-open-gradient" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left hidden">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <div id="visual-bg-gradient-swatch" class="w-8 h-8 rounded-lg border border-white/20 shrink-0"></div>
+                                    <div class="text-sm font-medium truncate" data-i18n="visualBgSettingsDrawer.openGradient.label">${t('visualBgSettingsDrawer.openGradient.label')}</div>
                                 </div>
-                                <input type="range" id="setting-visual-bg-gradient-angle" min="0" max="360" step="1" class="w-32 shrink-0 accent-fuchsia-500">
-                            </div>
-
-                            <!-- Danh sách chặng màu (2-7): vẽ động bởi workflowVisualBg._refreshGradientStopRows() -->
-                            <div id="visual-bg-gradient-stops-row" class="p-4 border-b border-white/5 hidden">
-                                <div class="flex justify-between items-center mb-3">
-                                    <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.gradientStops.label">${t('visualBgSettingsDrawer.gradientStops.label')}</span>
-                                    <button type="button" id="setting-visual-bg-gradient-add" class="text-xs px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors" data-i18n="visualBgSettingsDrawer.gradientStops.add">${t('visualBgSettingsDrawer.gradientStops.add')}</button>
-                                </div>
-                                <div id="visual-bg-gradient-stop-list" class="flex flex-col gap-2"></div>
-                                <div id="visual-bg-gradient-preview" class="mt-3 h-8 rounded-lg border border-white/10"></div>
-                            </div>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                            </button>
 
                             <div id="visual-bg-list-playback-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors hidden">
                                 <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.listPlaybackMode.label">${t('visualBgSettingsDrawer.listPlaybackMode.label')}</span>
@@ -143,7 +133,7 @@ function renderVisualBgPanelBody() {
 
                             <button id="setting-visual-bg-open-slideshow" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left hidden">
                                 <div class="flex items-center gap-3 min-w-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-fuchsia-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4h10a2 2 0 012 2v10M4 8v10a2 2 0 002 2h10a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2z" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-sky-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4h10a2 2 0 012 2v10M4 8v10a2 2 0 002 2h10a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2z" /></svg>
                                     <div class="min-w-0">
                                         <div class="text-sm font-medium truncate" data-i18n="visualBgSettingsDrawer.openSlideshow.label">${t('visualBgSettingsDrawer.openSlideshow.label')}</div>
                                         <div class="text-xs text-slate-400 mt-0.5 truncate" data-i18n="visualBgSettingsDrawer.openSlideshow.hint">${t('visualBgSettingsDrawer.openSlideshow.hint')}</div>
