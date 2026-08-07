@@ -80,57 +80,46 @@ eventBus.registerBlock('playlist.actionMenu.addToFolder', [
 // (`openImageLibraryPickerModal()`), không đụng Generic Drawer — nhưng chỉ có ĐÚNG 1 msg.type cho
 // cả 4 nhánh (Router mới rẽ bằng VirtualMachineState) nên đăng ký 1 dòng là đủ, và chặn nhánh
 // image+single lúc Drawer đang mở cũng đúng ý (không mở chồng 2 picker).
-eventBus.registerBlock('visualBg.pickSource.click', [
-    [
-        { field: 'isGenericDrawerOpen', operator: '===', value: true },
-    ],
-]);
+// SỬA (v14) — 1 msg.type 'visualBg.pickSource.click' cũ tách thành 2 ('pickSingleSource'/
+// 'pickGroupSource', không còn tổ hợp sourceMode) — đăng ký lại cho CẢ HAI. Gộp LUÔN điều kiện
+// "xung đột Video Player mode" (trước ở 'visualBg.enable.on.click', msg.type đó không còn tồn tại
+// vì không còn toggle bật/tắt riêng — chọn nguồn giờ CHÍNH LÀ hành động "bật") vào CÙNG 2 dòng này
+// — `options.notify` chỉ nhận 1 chuỗi dùng chung mọi nhóm khớp, chọn thông báo của nhóm PHỔ BIẾN
+// hơn (xung đột Video Player), nhóm `isGenericDrawerOpen` vốn hiếm khi tự người dùng bấm trúng lúc
+// picker đã mở nên chấp nhận đánh đổi nhỏ này (cùng đánh đổi đã có sẵn ở dòng cũ).
+eventBus.registerBlock('visualBg.pickSingleSource.click', [
+    [{ field: 'isGenericDrawerOpen', operator: '===', value: true }],
+    [{ field: 'isVideoPlayerMode', operator: '===', value: true }],
+    [{ field: 'activeMediaSource', operator: '===', value: 'video' }],
+], { notify: t('visualBgSettingsDrawer.blockedBySourceVideo') });
 
-// ===================== Visual Background — chặn xoá NGUỒN ĐANG THAM CHIẾU (v13 Batch F) =========
-// Quy tắc nghiệp vụ: thứ đang được `visualBgConfig` trỏ tới thì KHÔNG xoá được — phải bấm nút "Gỡ
-// nguồn" trong Settings -> Visual Background trước. Áp dụng BẤT KỂ Visual Background đang bật hay
-// tắt (Giang chốt): tham chiếu vẫn còn thì vẫn phải bảo vệ.
-//
-// CHỈ 4 msg.type dưới đây — đều là hành động có TARGET NGUYÊN KHỐI (đúng 1 đối tượng), nên chặn cả
-// hành động là đúng nghĩa. Các đường xoá HÀNG LOẠT (delete mode ảnh, selection mode Playlist,
-// clearAllPhotosData/clearAllVideosData) KHÔNG đăng ký ở đây: target của chúng là 1 TẬP, ref chỉ
-// làm hỏng vài phần tử chứ không hỏng cả thao tác — Workflow tự loại phần tử bị tham chiếu ra khỏi
-// tập rồi xoá phần còn lại (chuẩn bị dữ liệu, Rule 3b). Cùng 1 quy tắc, 2 điểm thực thi khác nhau
-// vì hành động chia được hay không.
-//
-// Cả 4 đều so 1 id với 1 id qua `valueField` (vế phải cũng là đường dẫn — xem event/bus.js).
-eventBus.registerBlock('playlist.actionMenu.delete.click', [
-    [
-        { field: 'payload.songKey', operator: '===', valueField: 'visualBgConfig.singleVideoKey' },
-    ],
-], { notify: t('visualBgSettingsDrawer.blockedDeleteInUse') });
+eventBus.registerBlock('visualBg.pickGroupSource.click', [
+    [{ field: 'isGenericDrawerOpen', operator: '===', value: true }],
+    [{ field: 'isVideoPlayerMode', operator: '===', value: true }],
+    [{ field: 'activeMediaSource', operator: '===', value: 'video' }],
+], { notify: t('visualBgSettingsDrawer.blockedBySourceVideo') });
 
-eventBus.registerBlock('fileManagerPhoto.imageMenu.delete.click', [
-    [
-        { field: 'payload.imageKey', operator: '===', valueField: 'visualBgConfig.singleImageKey' },
-    ],
-], { notify: t('visualBgSettingsDrawer.blockedDeleteInUse') });
+// ===================== Visual Background — chặn XOÁ nguồn đang tham chiếu =====================
+// XOÁ HẲN (v14, Giang chốt mục 2) — 4 block cũ ('playlist.actionMenu.delete.click'/
+// 'fileManagerPhoto.imageMenu.delete.click'/'fileManagerPhoto.albumList.delete.click'/
+// 'fileManagerFolderBrowser.read.delete.click') từng chặn xoá ảnh/video/album/folder đang được
+// Visual Background tham chiếu. KHÔNG còn cần: `source.list` giờ là bản COPY key tách hẳn khỏi
+// nguồn gốc, xoá nguồn gốc không đụng gì tới bản copy đó — record mất được phát hiện LƯỜI (lazy)
+// đúng lúc advance()/apply() cần tới, tự đánh dấu null rồi tự chữa lành (xem
+// core/visual-bg.js::advanceVisualBgList(), event/workflow/visual-bg.js::_markCurrentMissing()).
+// Không còn nút "Gỡ nguồn" nào bị bắt buộc bấm trước khi xoá nữa.
 
-eventBus.registerBlock('fileManagerPhoto.albumList.delete.click', [
-    [
-        { field: 'payload.albumId', operator: '===', valueField: 'visualBgConfig.listAlbumId' },
-    ],
-], { notify: t('visualBgSettingsDrawer.blockedDeleteInUse') });
-
-eventBus.registerBlock('fileManagerFolderBrowser.read.delete.click', [
-    [
-        { field: 'payload.folderId', operator: '===', valueField: 'visualBgConfig.listFolderId' },
-    ],
-], { notify: t('visualBgSettingsDrawer.blockedDeleteInUse') });
-
-// CHIỀU NGƯỢC LẠI của khoá chéo (v13 Batch F, plan mục 4; SỬA Batch G) — Visual Background ĐANG BẬT
-// thì không đổi nguồn Playlist sang Video được. ĐỐI XỨNG HOÀN TOÀN với luật ngay trên: cùng 1 xung
-// đột (nguồn Video chiếm cả `#bg-video` lẫn `#visual-bg-image`), nên cùng KHÔNG kiểm `mediaType` —
-// bật Visual Background bằng nguồn ảnh cũng xung đột y hệt.
+// CHIỀU NGƯỢC LẠI của khoá chéo (v13 Batch F, plan mục 4; SỬA Batch G) — Visual Background ĐANG
+// hiện media (ảnh/video) thì không đổi nguồn Playlist sang Video được. ĐỐI XỨNG HOÀN TOÀN với luật
+// ngay trên: cùng 1 xung đột (nguồn Video chiếm cả `#bg-video` lẫn `#visual-bg-image`).
+// SỬA (v14) — field cũ `visualBgConfig.enabled` không còn tồn tại; `registerBlock()` chỉ so được 1
+// field đơn qua appState, không biểu diễn được "source.list còn item hay không" trực tiếp trên
+// appConfigVisualBg — đổi sang đọc `isVisualBgMediaActive` (appState, service/state/visual-bg.js),
+// do `workflowVisualBg.applyCurrentVisualBg()` tự đồng bộ mỗi lần áp lại nền.
 eventBus.registerBlock('playlist.mediaSource.change', [
     [
         { field: 'payload.source', operator: '===', value: 'video' },
-        { field: 'visualBgConfig.enabled', operator: '===', value: true },
+        { field: 'isVisualBgMediaActive', operator: '===', value: true },
     ],
 ], { notify: t('visualBgSettingsDrawer.blockedByVisualBgOn') });
 
@@ -138,12 +127,12 @@ eventBus.registerBlock('playlist.mediaSource.change', [
 // KHÔNG phủ hết: bật Scope cho 1 folder VIDEO rồi CHỌN "không tải lại ngay" thì phiên hiện tại vẫn
 // đang ở nguồn Song (select chưa bị khoá) -> bật được Visual Background -> lần khởi động sau boot
 // sequence áp Scope, nguồn thành Video trong khi nền vẫn đang on. Chặn ngay tại gốc: không cho bật
-// Scope folder video khi Visual Background đang bật.
+// Scope folder video khi Visual Background đang hiện media.
 eventBus.registerBlock('fileManagerFolderBrowser.read.scope.change', [
     [
         { field: 'payload.checked', operator: '===', value: true },
         { field: 'payload.folderType', operator: '===', value: 'video' },
-        { field: 'visualBgConfig.enabled', operator: '===', value: true },
+        { field: 'isVisualBgMediaActive', operator: '===', value: true },
     ],
 ], { notify: t('visualBgSettingsDrawer.blockedByVisualBgOn') });
 
@@ -160,38 +149,17 @@ eventBus.registerBlock('fileManagerFolderBrowser.read.scope.change', [
 // hành vi giữ NGUYÊN 100% so với chiều cũ.
 eventBus.registerBlock('videoPlayer.startFromPlaylist.click', [
     [
-        // SỬA (v13 Batch A) — `vizConfig.videoBgEnabled` ĐÃ GỘP vào domain config `visualBg`.
-        // `resolveFieldPath()` (event/bus.js) tự nhận diện mọi domain AppConfig theo quy ước
-        // `<domain>Config` nên path mới chạy được ngay, không cần sửa bus.
-        { field: 'visualBgConfig.enabled', operator: '===', value: true },
+        // SỬA (v14) — `visualBgConfig.enabled` không còn tồn tại, đổi sang `isVisualBgMediaActive`
+        // (appState, đồng bộ bởi workflowVisualBg.applyCurrentVisualBg() — xem docstring field ở
+        // service/state/visual-bg.js).
+        { field: 'isVisualBgMediaActive', operator: '===', value: true },
     ],
 ], { notify: t('videoPlayer.startFromPlaylist.blockedByBgVideo') });
 
-// Chiều CÒN LẠI (chặn bật Video nền khi Video Player mode đang chạy) GIỮ NGUYÊN, không đổi gì — vẫn
-// đúng bất kể Video Player mode được vào bằng cách nào.
-// MỞ RỘNG (phản hồi Giang, mục 4 — "Use video background chưa block nếu source là video") — thêm 1
-// NHÓM ĐIỀU KIỆN nữa (OR — chỉ cần 1 nhóm đúng là chặn, xem format ở đầu file): Playlist đang browse
-// Nguồn Video (`activeMediaSource==='video'`) — KHÔNG chỉ lúc `isVideoPlayerMode` (đã thật sự phát 1
-// video) mới chặn, vì bgVideoElement dùng CHUNG cho cả 2 việc "phát Video nội dung chính" VÀ "làm
-// nền trang trí" — đang browse Video (dù chưa bấm phát) cũng nên chặn trước cho nhất quán, tránh
-// bật nền xong ngay sau đó bấm phát 1 video lại xung đột. `options.notify` CHỈ nhận 1 chuỗi DÙNG
-// CHUNG cho MỌI nhóm khớp (event/bus.js không hỗ trợ notify riêng theo từng nhóm) — đổi lại câu chữ
-// bao quát CẢ 2 lý do, đồng thời dọn luôn phần "(File Manager -> Video)" đã lỗi thời (panel đó xoá
-// hẳn từ Batch 6, "Song/Video Unification").
-// SỬA (v13 Batch A) — msg.type ĐỔI theo cụm router MỚI `visualBg` (toggle #setting-video-enable
-// đã xoá; "Video nền" giờ là 1 tổ hợp của Visual Background). Điều kiện + notify GIỮ NGUYÊN 100%.
-// Điều kiện GIỮ NGUYÊN (v13 Batch G) — KHÔNG kiểm `mediaType`, và đó là ĐÚNG: khi Playlist ở nguồn
-// Video, video đang phát chiếm `#bg-video` VÀ bị cưỡng chế đặt thumb full-size vào `#visual-bg-image`
-// (core/video-player.js::forceShowVisualBgImageForVideoPlayer()). CẢ HAI lớp mà Visual Background
-// cần đều bị chiếm, nên KHÔNG nguồn nào dùng được — ảnh cũng vậy, không riêng video.
-eventBus.registerBlock('visualBg.enable.on.click', [
-    [
-        { field: 'isVideoPlayerMode', operator: '===', value: true },
-    ],
-    [
-        { field: 'activeMediaSource', operator: '===', value: 'video' },
-    ],
-], { notify: t('visualBgSettingsDrawer.blockedBySourceVideo') });
+// Chiều CÒN LẠI (chặn dùng Video nền khi Video Player mode đang chạy/Playlist đang browse Video) —
+// ĐÃ GỘP vào 2 block '"visualBg.pickSingleSource.click"'/'"visualBg.pickGroupSource.click"' phía trên
+// (v14): không còn action "bật" riêng biệt ('"visualBg.enable.on.click"' đã xoá cùng toggle) — chọn
+// nguồn giờ CHÍNH LÀ hành động cần chặn, nên chặn thẳng tại đó.
 
 // ===================== Modal xem ảnh Photo — chặn đóng khi đang Zoom/Edit mode =====================
 // MỚI (31/07/2026) — nút "..." dropdown LUÔN bấm được ở CẢ 3 mode (view/zoom/edit, KHÔNG disable),

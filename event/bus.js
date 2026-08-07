@@ -118,7 +118,7 @@ const eventBus = (() => {
      * `resolveFieldPath()`. `operation.evaluate(a, op, b)` vốn chỉ so 2 GIÁ TRỊ, nó không biết và
      * không cần biết mỗi vế từ đâu ra — nên đây là ĐỐI XỨNG HOÁ, không phải năng lực mới.
      * Phải tách thành khoá RIÊNG (không tái dùng `value`) vì 2 thứ cùng kiểu string không tự phân
-     * biệt được: `value: 'delete'` là giá trị thật, `valueField: 'visualBgConfig.listAlbumId'` là
+     * biệt được: `value: 'delete'` là giá trị thật, `valueField: 'somePath.someField'` là
      * đường dẫn. Điều kiện cũ chỉ dùng `value` -> hành vi KHÔNG đổi.
      * @param {{field: string, operator: string, value?: *, valueField?: string}} condition
      * @param {object} payload - payload của message đang xét (cho gốc 'payload').
