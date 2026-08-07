@@ -345,13 +345,8 @@
             valBgBlurDisplay.textContent = value + 'px';
         }
 
-        /**
-         * Core thuần: màu nền Visualizer (khi không dùng ảnh). Batch D3 — BỎ `updateDOMBackground()`/
-         * `saveConfig()` nội bộ, dời ra `workflowVisualizerDisplay.setBgColor()`.
-         */
-        function setBgColor(value) {
-            appConfigViz.mutateAll(cfg => { cfg.bgColor = value; });
-        }
+        // XOÁ (v13) — `setBgColor()`: `vizConfig.bgColor` đã dời sang `visualBgConfig.solidColor`,
+        // do `workflowVisualBg.changeSolidColor()` ghi. Không còn nơi gọi.
 
         /**
          * Core thuần: chế độ màu visualizer (solid/dynamic/none). Batch D3 — BỎ `updateColorMenuUI()`/
