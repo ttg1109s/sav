@@ -106,24 +106,11 @@ async function cleanupOrphanedAlbumImageKeys() {
     return fixedCount;
 }
 
-/**
- * MỒ CÔI #4 — `meta.activeBackgroundAlbum` (nguồn nền Slideshow) trỏ tới 1 album đã bị xoá (lẽ ra
- * `deleteAlbumFromList()` (đổi tên ở Giai đoạn 3b, rewrite Photo/Album) đã cascade dọn ngay lúc xoá — xem event/workflow/file-manager-photo.js —
- * safety net phòng đường xoá khác/lỗi đồng bộ).
- * @returns {Promise<number>} 0 hoặc 1.
- */
-async function cleanupOrphanedActiveBackgroundAlbum() {
-    // SỬA (v13 Batch F) — đổi đích sang `meta.visualBgConfig.listAlbumId`. Khoá cũ
-    // `meta.activeBackgroundAlbum` đã NGỪNG GHI từ v13 Batch B (cùng `meta.slideshowConfig`,
-    // `meta.videoBg`, `meta.visualBgImage` — 4 khoá mồ côi, dọn ở `purgeVisualBgLegacyMeta()`).
-    const visualBgCfg = await getMeta('visualBgConfig'); // data layer
-    const activeAlbumId = visualBgCfg ? visualBgCfg.listAlbumId : null
-    if (!activeAlbumId) return 0;
-    const record = await getAlbumRecord(activeAlbumId); // data layer
-    if (record) return 0; // vẫn còn tồn tại -> không mồ côi
-    await setMeta('activeBackgroundAlbum', null); // data layer
-    return 1;
-}
+// XOÁ (v14) — `cleanupOrphanedActiveBackgroundAlbum()` (mồ côi #4, safety net cho
+// `meta.activeBackgroundAlbum`) bỏ hẳn: khoá đó đã NGỪNG GHI từ v13 Batch B, và field nó tự đọc để
+// so sánh (`visualBgConfig.listAlbumId`) cũng không còn tồn tại ở schema v14 — hàm đã thành no-op
+// kép (đọc field không tồn tại -> luôn null -> luôn return 0). `purgeVisualBgLegacyMeta()` bên dưới
+// đã tự xoá khoá này khỏi meta lúc boot, không cần cascade riêng nữa.
 
 /**
  * MỒ CÔI #5 — tài liệu 'user' tạo RỒI BỎ DỞ (nội dung vẫn rỗng — "Tạo tài liệu mới" xong đóng
@@ -148,14 +135,13 @@ async function cleanupEmptyUserDocuments() {
 registerCleanupCheck('orphanedSongFolderFields', cleanupOrphanedSongFolderFields);
 registerCleanupCheck('orphanedFolderSongMaps', cleanupOrphanedFolderSongMaps);
 registerCleanupCheck('orphanedAlbumImageKeys', cleanupOrphanedAlbumImageKeys);
-registerCleanupCheck('orphanedActiveBackgroundAlbum', cleanupOrphanedActiveBackgroundAlbum);
 registerCleanupCheck('emptyUserDocuments', cleanupEmptyUserDocuments);
 
 /**
  * Dọn 4 khoá `meta` MỒ CÔI của cơ chế nền cũ (v13 Batch F) — đều đã ngừng ghi từ Batch A/B/C:
  *   meta.videoBg            — BẢN SAO Blob video nền (cơ chế cũ copy blob; v13 chỉ lưu KEY)
  *   meta.visualBgImage      — BẢN SAO Blob ảnh nền tĩnh (như trên)
- *   meta.activeBackgroundAlbum — album nền, thay bằng `visualBgConfig.listAlbumId`
+ *   meta.activeBackgroundAlbum — album nền, thay bằng `visualBgConfig.source` (v14)
  *   meta.slideshowConfig    — domain config riêng, gộp vào `visualBgConfig.slideshow`
  * 2 khoá đầu là Blob THẬT, có thể chiếm hàng trăm MB — đây mới là phần đáng giá của việc dọn.
  * Gọi 1 LẦN lúc boot (event/workflow/app-boot.js). Idempotent: chạy lại không sao.
