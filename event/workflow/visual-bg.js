@@ -1,9 +1,8 @@
 /**
  * event/workflow/visual-bg.js — Workflow domain "Visual Background" (v14, source hợp nhất 1 mảng).
- * BATCH 3/3 XONG — event/block.js (4 block xoá nguồn cũ bỏ hẳn, 3 block còn lại đổi sang đọc
- * `isVisualBgMediaActive` ở appState) + 5 file hệ quả (color-utils.js/rain.js/resume-state-
- * storage.js/playlist/main.js/video-player.js/file-manager-cleanup.js) + `splitVisualBgProtectedKeys`
- * đã bỏ (2 caller ở file-manager-photo.js/playlist.js) đã đồng bộ theo schema mới.
+ * Xung đột Video Player mode <-> Visual Background giải quyết bằng `clearMediaLayers()` (PUBLIC,
+ * gọi chéo domain từ event/workflow/video-player.js lúc vào mode) + `applyCurrentVisualBg()` (gọi
+ * lại lúc thoát) — KHÔNG còn Block gate chặn 2 chiều nào cho cặp này (Giang chốt).
  *
  * NẠP SAU: core/config.js, core/visual-bg.js, core/color-utils.js, service/db.js, service/state.js.
  * NẠP TRƯỚC: event/router/visual-bg.js.
@@ -79,20 +78,21 @@ const workflowVisualBg = {
     /** Điểm đồng bộ DUY NHẤT giữa config và DOM — gọi lúc boot + sau mọi thay đổi. Màu LUÔN sơn
      * (kể cả media rỗng); media chỉ áp khi `source.list` còn ít nhất 1 item sống. */
     async applyCurrentVisualBg() {
-        this._clearMediaLayers();
+        this.clearMediaLayers();
         updateDOMBackground(); // core/color-utils.js — độc lập, luôn vẽ
         const cfg = appConfigVisualBg.getAll();
         const count = this._effectiveCount(cfg);
-        // Đồng bộ cho event/block.js đọc (xem docstring field ở service/state/visual-bg.js) — ĐÚNG
-        // 1 chỗ ghi, ngay tại điểm đồng bộ DUY NHẤT config<->DOM.
-        appState.set('isVisualBgMediaActive', count > 0);
         if (count === 0) return; // guard: chưa có nguồn/nguồn rỗng -> chỉ còn màu
         if (cfg.type === 'video') return this._applyVideo(cfg);
         return this._applyPhoto(cfg);
     },
 
-    /** Dọn sạch lớp media đang hiện (video + ảnh dự phòng) — gọi TRƯỚC mọi lần áp lại. */
-    _clearMediaLayers() {
+    /** Dọn sạch lớp media đang hiện (video + ảnh dự phòng) — gọi TRƯỚC mọi lần áp lại. PUBLIC
+     * (không dấu `_`) — `workflowVideoPlayer` cũng gọi được lúc vào Video Player mode, để nhường
+     * `bgVideoElement` (liên tuyến domain, KHÔNG đụng `visualBgConfig` đã lưu — chỉ dọn DOM/task/
+     * object URL runtime, resume lại nguyên vẹn lúc thoát Video Player mode qua
+     * `applyCurrentVisualBg()`). */
+    clearMediaLayers() {
         const { visualBgVideoObjectUrl, visualBgImageObjectUrl } = appState.get(['visualBgVideoObjectUrl', 'visualBgImageObjectUrl']);
         if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.stop();
         taskManager.kill(VISUAL_BG_VIDEO_TASK);
@@ -463,6 +463,13 @@ const workflowVisualBg = {
 
         const typeSelect = q('#setting-visual-bg-type');
         if (typeSelect) typeSelect.value = cfg.type;
+
+        // Nhãn 2 nút Chọn phải đúng ngữ cảnh Ảnh/Video (Giang chốt) — gán qua DOM API (Rule 5d),
+        // không phải data-i18n tĩnh vì phụ thuộc `cfg.type`.
+        const pickSingleBtn = q('#setting-visual-bg-pick-single');
+        const pickGroupBtn = q('#setting-visual-bg-pick-group');
+        if (pickSingleBtn) pickSingleBtn.textContent = t(cfg.type === 'video' ? 'visualBgSettingsDrawer.pickSingle.video' : 'visualBgSettingsDrawer.pickSingle.photo');
+        if (pickGroupBtn) pickGroupBtn.textContent = t(cfg.type === 'video' ? 'visualBgSettingsDrawer.pickGroup.video' : 'visualBgSettingsDrawer.pickGroup.photo');
 
         const listPlaybackSelect = q('#setting-visual-bg-list-playback-mode');
         const listPlaybackRow = q('#visual-bg-list-playback-row');

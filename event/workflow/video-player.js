@@ -51,6 +51,10 @@ const workflowVideoPlayer = {
 
         visualizerSolidBg.style.backgroundColor = '#000000'; // nền đen cưỡng chế phía sau video — cùng kết quả updateDOMBackground() (core/color-utils.js) cho nhánh video nền
         enterVideoPlayerModeState(); // core/video-player.js — CHỈ còn set isVideoPlayerMode=true
+        // MỚI (v14, Giang chốt mục 2) — nhường bgVideoElement cho Video Player mode NGAY tại đây
+        // (dọn task/object URL/DOM của Visual Background, KHÔNG đụng visualBgConfig đã lưu) — thay
+        // cho Block gate cũ từng chặn HẲN việc vào mode này khi Visual Background đang hiện media.
+        if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.clearMediaLayers(); // event/workflow/visual-bg.js — liên tuyến domain
         setBgVideoElementForPlayerMode(true); // core/video-player.js — bỏ muted + tắt loop + hiện + pointer-events
 
         await this.playVideoByKey(startKey); // switchScreen mặc định true — TỰ switchToVisualizer() BÊN TRONG (sau khi video mới thật sự sẵn sàng), xem docstring playVideoByKey()
@@ -71,13 +75,11 @@ const workflowVideoPlayer = {
         updateDOMBackground(); // core/color-utils.js, hàm CÓ SẴN — trả visualizerSolidBg về cfg.bgColor
 
         if (this._forcedBgObjectUrl) { try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {} this._forcedBgObjectUrl = null; }
-        // SỬA (v14) — `visualBgConfig` đổi schema: "ảnh nền tĩnh 1 tấm đang bật" giờ là
-        // `type==='photo'` + `source.list` còn ĐÚNG 1 item (list>1 dùng layer riêng của
-        // workflowSlideshow, không đụng `#visual-bg-image` trực tiếp ở đây).
-        const visualBgCfg = appConfigVisualBg.getAll();
-        const singlePhotoKey = visualBgCfg.type === 'photo' && visualBgCfg.source.list.length <= 1 ? visualBgCfg.source.list[0] : null;
-        const bgImageActive = !!singlePhotoKey;
-        applyVisualBgImageToDOM(bgImageActive, bgImageActive ? appState.get('visualBgImageObjectUrl') : ''); // core/visual-bg.js — trả #visual-bg-image về đúng cài đặt thật
+        // SỬA (v14, Giang chốt mục 2) — thay bản patch hẹp "chỉ khôi phục ảnh tĩnh 1 tấm" bằng gọi
+        // THẲNG `applyCurrentVisualBg()` (điểm đồng bộ DUY NHẤT của domain, event/workflow/visual-
+        // bg.js) — khôi phục ĐÚNG bất kể đang cấu hình gì (video/ảnh đơn/ảnh danh sách), đúng cặp
+        // với `clearMediaLayers()` đã gọi lúc VÀO mode ở `startFromPlaylist()`.
+        if (typeof workflowVisualBg !== 'undefined') await workflowVisualBg.applyCurrentVisualBg(); // liên tuyến domain
 
         exitVideoPlayerModeState(); // core/video-player.js
         releaseWakeLock(); stopListenClock(); // core/player-controls.js — dọn nốt 2 cơ chế đã bật lúc phát
