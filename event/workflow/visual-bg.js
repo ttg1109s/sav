@@ -513,6 +513,33 @@ const workflowVisualBg = {
         );
     },
 
+    /** Picker "chọn 1 video": TÁI DÙNG khung Generic Drawer của picker ảnh
+     * (`openPhotoImagePickerDrawerUi()`, core/file-manager/photo-ui.js) — cùng header/closeBtn/
+     * delegated click, chỉ khác selector tile. Lưới video do `workflowVideoGalleryWindow` mount
+     * (windowing theo ngày + revoke object URL đúng lúc). */
+    async openSingleVideoPicker() {
+        this._pickerCleanup = openPhotoImagePickerDrawerUi('visualBg', 'visualBg.videoPicker', t('fileManager.video.pickerTitle'), `
+            <div class="flex-1 min-h-0 overflow-y-auto relative" id="file-manager-video-picker-scroll">
+                <p id="file-manager-video-picker-empty" class="hidden text-sm text-slate-400 text-center py-10 px-6">${t('fileManager.video.empty')}</p>
+            </div>
+        `, '.video-tile', 'videoKey', false); // core/file-manager/photo-ui.js
+
+        await new Promise((resolve) => {
+            genericDrawerPanel.addEventListener('transitionend', function onOpenTransitionEnd() {
+                genericDrawerPanel.removeEventListener('transitionend', onOpenTransitionEnd);
+                resolve();
+            }, { once: true });
+        });
+
+        const videos = await listVideos(); // core/file-manager/video.js
+        if (!this._pickerCleanup) return; // guard: người dùng đóng picker rất nhanh trong lúc đang đọc DB
+
+        const scrollEl = genericDrawerBody.querySelector('#file-manager-video-picker-scroll');
+        const emptyEl = genericDrawerBody.querySelector('#file-manager-video-picker-empty');
+        if (emptyEl) emptyEl.classList.toggle('hidden', videos.length > 0);
+        workflowVideoGalleryWindow.mount('genericDrawer', { scrollEl, videos, badgeMode: null, selectedKeys: new Set() }); // event/workflow/video-gallery-window.js
+    },
+
     /** Ứng với 'visualBg.videoPicker.tile.click'. */
     async selectVideoFromPicker(videoKey) {
         workflowVideoGalleryWindow.unmount('genericDrawer'); // revoke object URL NGAY
@@ -573,9 +600,26 @@ const workflowVisualBg = {
      * onPick callback". Truyền thêm `typeFilter='video'` (tham số MỚI, mặc định giữ hành vi cũ).
      * KHÔNG tự dựng Drawer/grid/wire nào ở đây. */
     async openListFolderPicker() {
+        const folders = await listFolders(); // core/file-manager/folder.js
+        const videoFolders = folders.filter((f) => f.type === 'video');
+        // Đếm item THẬT của từng folder rồi CHỈ giữ folder đủ số tối thiểu — 1 folder có <=1 video
+        // không phải nguồn "danh sách" hợp lệ (không có gì để chuyển sang), nên KHÔNG được bày ra
+        // cho chọn. Lọc ở đây vì đây là tiêu chí riêng của miền này (Rule 3b).
+        const counts = await Promise.all(videoFolders.map(async (f) => {
+            const map = await getFolderSongMap(f.id); // service/db.js
+            return map ? getFolderSongKeys(map).length : 0; // core/file-manager/folder.js — hàm thuần
+        }));
+        const eligible = videoFolders.filter((_, i) => counts[i] >= VISUAL_BG_MIN_LIST_ITEMS);
+
         await workflowPlaylist._openFolderPickerDrawer(
             (folderId) => this._commitPickedSource('listFolderId', folderId),
-            'video',
+            {
+                folders: eligible,
+                showAddTile: false, // folder mới luôn rỗng -> không bao giờ hợp lệ ở đây
+                emptyMsg: videoFolders.length === 0
+                    ? t('visualBgSettingsDrawer.folderPicker.emptyNoFolder')
+                    : tFormat('visualBgSettingsDrawer.folderPicker.emptyTooFew', { count: VISUAL_BG_MIN_LIST_ITEMS }),
+            },
         );
     },
 
@@ -609,6 +653,7 @@ const workflowVisualBg = {
         await this._persist();
         await this.refreshPanelUI();
         await this.applyCurrentVisualBg();
+        if (typeof PlaylistMain !== 'undefined') await PlaylistMain.updateActiveFolderUI(); // core/playlist/main.js — khoá/mở select "Nguồn" NGAY, không đợi mở lại Settings
     },
 
     /** Ứng với select "Kiểu: Ảnh/Video". Nguồn của kiểu KIA giữ nguyên (không xoá) để đổi qua đổi

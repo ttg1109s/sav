@@ -619,17 +619,25 @@ const workflowPlaylist = {
     // ĐỀU bắn qua eventBus (Rule 5a MỚI, readme/core-function-conventions.md — code MỚI viết từ
     // 13/07/2026 không còn ngoại lệ "gọi thẳng tham số" như modalChoice()).
 
+    _folderPickerShowAddTile: true, // v13 — false khi nơi gọi không cho tạo folder mới giữa chừng
+    _folderPickerEmptyMsg: '',      // v13 — câu hiển thị khi danh sách rỗng (rỗng = dùng grid trống như cũ)
     _folderPickerFolders: [], // danh sách folder ĐANG hiển thị trong grid — cache RAM, chỉ dùng lúc Drawer đang mở
     _folderPickerEditingId: null, // folderId đang ở chế độ sửa tên (null = không có)
     _folderPickerOnPick: null, // callback(folderId) — set bởi entry method (openAddToFolderPickerForSongMenu/openAddToFolderPicker), gọi khi user CHỌN xong 1 folder
 
     /** Mở Drawer lần đầu — đọc danh sách folder, vẽ grid, wire sự kiện. */
-    async _openFolderPickerDrawer(onPick, typeFilter) {
-        const all = await listFolders(); // core có sẵn, CÓ return, DÙNG ngay dưới
-        // SỬA (v13) — `typeFilter` tuỳ chọn: Visual Background chỉ được chọn folder VIDEO, trong khi
-        // 2 luồng "Thêm vào thư mục" của Playlist vẫn liệt kê tất cả. Lọc là CHUẨN BỊ DỮ LIỆU nên
-        // nằm ở Workflow; không truyền -> giữ nguyên hành vi cũ.
-        this._folderPickerFolders = typeFilter ? all.filter((f) => f.type === typeFilter) : all;
+    async _openFolderPickerDrawer(onPick, options) {
+        // SỬA (v13) — thêm `options` TUỲ CHỌN (không truyền -> hành vi CŨ y nguyên cho 2 luồng
+        // "Thêm vào thư mục" của Playlist):
+        //   `folders`     — danh sách ĐÃ LỌC SẴN do nơi gọi chuẩn bị (Rule 3b: lọc là chuẩn bị dữ
+        //                   liệu, thuộc Workflow gọi; hàm này không tự biết tiêu chí của từng miền).
+        //   `showAddTile` — false để bỏ tile "Tạo folder mới" (Visual Background: folder vừa tạo
+        //                   luôn rỗng nên không bao giờ là nguồn hợp lệ, bày ra chỉ gây hiểu nhầm).
+        //   `emptyMsg`    — câu hiển thị khi danh sách rỗng, thay vì grid trống trơn.
+        const opts = options || {};
+        this._folderPickerFolders = opts.folders || await listFolders(); // core có sẵn, CÓ return, DÙNG ngay dưới
+        this._folderPickerShowAddTile = opts.showAddTile !== false;
+        this._folderPickerEmptyMsg = opts.emptyMsg || '';
         this._folderPickerEditingId = null;
         this._folderPickerOnPick = onPick;
         this._renderFolderPickerGrid(true);
@@ -642,7 +650,10 @@ const workflowPlaylist = {
         const itemsHtml = renderItemList(null, this._folderPickerFolders, itemTemplateFolderTile, { editingFolderId: this._folderPickerEditingId }); // components/items.js
         // SỬA (14/07/2026, Giang yêu cầu) — justify-center -> justify-start (căn trái thay vì căn
         // giữa cả cụm khi hàng cuối chưa đầy).
-        const bodyHtml = `<div class="flex flex-wrap justify-start gap-4 p-5">${itemsHtml}${buildAddFolderTileHtml()}</div>`; // components/items.js
+        const addTileHtml = this._folderPickerShowAddTile ? buildAddFolderTileHtml() : ''; // components/items.js
+        const bodyHtml = (this._folderPickerFolders.length === 0 && !this._folderPickerShowAddTile && this._folderPickerEmptyMsg)
+            ? `<p class="text-sm text-slate-500 text-center py-10 px-6">${this._folderPickerEmptyMsg}</p>`
+            : `<div class="flex flex-wrap justify-start gap-4 p-5">${itemsHtml}${addTileHtml}</div>`; // components/items.js
         const config = {
             // SỬA (14/07/2026, Giang báo — "layout grid thừa khoảng trống") — TRƯỚC ĐÂY height cố
             // định '60vh' bất kể có bao nhiêu folder, để lại khoảng trống lớn phía dưới khi chỉ có
