@@ -87,20 +87,10 @@ const routerVisualBg = (() => {
                 workflowVisualBg.cancelAlbumPicker();
                 break;
 
-            case 'visualBg.folderPicker.tile.click':
-                workflowVisualBg.selectFolderFromPicker(msg.payload.folderId);
-                break;
-
-            case 'visualBg.folderPicker.close.click':
-                workflowVisualBg.cancelFolderPicker();
-                break;
-
-            // Bài hát vừa ĐỔI THẬT (next/prev/hết bài tự next/chọn bài khác) — gửi từ
-            // core/playlist/actions.js::playSong(), CHỈ khi key mới khác key cũ (seek trong cùng
-            // bài không gửi). THAY task poll `currentKey` mỗi 1s mà engine slideshow từng tự dựng.
+            // Bài hát vừa ĐỔI THẬT — gửi từ core/playlist/actions.js::playSong(), CHỈ khi key mới
+            // khác key cũ (seek trong cùng bài không gửi). THAY task poll `currentKey` mỗi 1s.
             // `enabled` + `sourceMode` là ĐIỀU KIỆN CHUNG cho cả 2 nhánh -> guard clause; phần rẽ
-            // theo `mediaType` mới là 2 nhánh ĐỘC LẬP THẬT -> VirtualMachineState (plan mục 4:
-            // VMState dành cho >=2 nhánh thật, guard clause vẫn hợp lý hơn cho điều kiện đơn).
+            // theo `mediaType` mới là 2 nhánh ĐỘC LẬP THẬT -> VirtualMachineState.
             case 'visualBg.songChanged': {
                 const bgCfg = appConfigVisualBg.getAll();
                 if (!bgCfg.enabled || bgCfg.sourceMode !== 'list') break; // chỉ nguồn DANH SÁCH mới đổi theo bài
@@ -110,6 +100,10 @@ const routerVisualBg = (() => {
                 ]);
                 break;
             }
+
+            // (2 case 'folderPicker.*' ĐÃ XOÁ — picker folder dùng
+            // `workflowPlaylist._openFolderPickerDrawer()`, nó tự đóng Drawer + gọi onPick callback,
+            // không đi qua bus của miền này.)
 
             // Sub-panel "Tuỳ chỉnh Trình chiếu" — tái dùng THẲNG Workflow miền `slideshowSettings`
             // (liên tuyến domain TH2, event-bus-flow.md mục 3a): panel đó là 1 nghiệp vụ ĐỘC LẬP đã
