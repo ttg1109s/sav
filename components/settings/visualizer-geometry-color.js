@@ -105,7 +105,7 @@ const TPL_SETTINGS_VISUALIZER = `
                      sách + Ảnh + Trình chiếu), không còn đứng ngang hàng ở đây nữa. -->
                 <button id="setting-open-visual-bg-settings" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
                     <div class="flex items-center gap-3 min-w-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-fuchsia-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-sky-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                         <div class="min-w-0">
                             <div class="text-sm font-medium truncate" data-i18n="settingsVisualizer.visualBg.label">${t('settingsVisualizer.visualBg.label')}</div>
                             <div class="text-xs text-slate-400 mt-0.5 truncate" data-i18n="settingsVisualizer.visualBg.hint">${t('settingsVisualizer.visualBg.hint')}</div>
