@@ -75,59 +75,41 @@
         // nhánh một field riêng như trước.
 
         /**
-         * MỚI (v13, plan-v13-visual-background-unification.md mục 1) — domain config RIÊNG cho
-         * "Visual Background": GỘP 3 tính năng nền màn Visualizer từng rời rạc thành 1
-         *   (1) Video nền tĩnh loop      — `vizConfig.videoBgEnabled/videoBgUrl` (ĐÃ XOÁ)
-         *   (2) Ảnh nền tĩnh             — `vizConfig.visualBgImageEnabled/visualBgImage` (ĐÃ XOÁ)
-         *   (3) Slideshow album ảnh      — domain `slideshow` + `appState.activeBackgroundAlbum` (ĐÃ XOÁ)
-         * Domain RIÊNG (KHÔNG nhét lại vào `vizConfig`) đúng tinh thần "chọn domain phù hợp" đã
-         * chốt ở DEFAULT_PLAYLIST_CONFIG/DEFAULT_PLAYER_CONFIG.
+         * v14 — Visual Background hợp nhất về ĐÚNG 1 đường source (Giang chốt, thay bản v13 4-field
+         * song song enabled/mediaType/sourceMode/single*Key/list*Id).
          *
-         * KHÔNG MIGRATE dữ liệu cũ (Giang chốt) — người dùng cũ mở lại app sẽ thấy Visual
-         * Background TẮT, chọn lại nguồn từ đầu. Lý do kỹ thuật cộng thêm: cơ chế cũ COPY Blob thô
-         * vào `meta.videoBg`/`meta.visualBgImage` mà KHÔNG lưu key nguồn, nên `singleVideoKey`/
-         * `singleImageKey` (tham chiếu bằng KEY, không phải bản sao Blob) vốn dĩ không thể suy ra
-         * ngược từ dữ liệu cũ.
+         * `source.list` là bản COPY key (imageKey/videoKey) tại THỜI ĐIỂM chọn — tách hẳn khỏi
+         * album/folder gốc, chỉ đổi khi bấm "Làm tươi". 3 trạng thái tự suy ra từ SỐ LƯỢNG phần tử
+         * còn sống trong list (không có field `enabled` riêng nữa):
+         *   0 item  -> ẩn hẳn media, chỉ còn nền màu
+         *   1 item  -> phát tĩnh, không cycle (dù origin là group)
+         *   >1 item -> cycle theo `listPlaybackMode`/`nextOrder`
+         * `source.list` có thể chứa `null` (key đã bị xoá, chờ dọn — xem advanceVisualBgList() core/
+         * visual-bg.js).
          *
-         * PERSIST: `meta.visualBgConfig` (IndexedDB, cùng khuôn domain `slideshow` cũ) — đọc lại
-         * lúc boot qua `workflowVisualBg.loadPersistedSettingsOnBoot()`. KHÔNG dùng lớp
-         * localStorage như domain `viz` (tần suất đổi thấp, chỉ thao tác Settings thủ công).
-         * KHÔNG field nào ở đây là blob: URL runtime — 2 object URL sống trong AppState
-         * (`visualBgVideoObjectUrl`/`visualBgImageObjectUrl`, service/state/visual-bg.js), tạo lại
-         * mỗi session từ KEY, nên toàn bộ object này persist được nguyên vẹn.
+         * Màu (colorMode/solidColor/gradient*) tách hẳn khỏi source ảnh/video — mục riêng, LUÔN có
+         * hiệu lực làm lớp dưới cùng, không phụ thuộc `type`/source rỗng hay không.
+         *
+         * KHÔNG MIGRATE dữ liệu v13 (đổi cấu trúc field hoàn toàn) — mở lại app sẽ thấy chưa chọn
+         * nguồn, chọn lại từ đầu. PERSIST: `meta.visualBgConfig`, đọc lại lúc boot qua
+         * `workflowVisualBg.loadPersistedSettingsOnBoot()`.
          */
         const DEFAULT_VISUAL_BG_CONFIG = {
-            enabled: false,                 // toggle TỔNG — thay 3 toggle rời cũ
-            // 'color' = KHÔNG ảnh/video, chỉ nền màu (đơn sắc hoặc gradient) — mặc định, thay chỗ
-            // của `vizConfig.bgColor` cũ. Nền màu LUÔN được vẽ làm lớp dưới cùng kể cả khi đang
-            // dùng ảnh/video, nên 3 field màu bên dưới có ý nghĩa ở MỌI mediaType.
-            mediaType: 'color',             // 'color' | 'image' | 'video'
-            sourceMode: 'single',           // 'single' | 'list'
+            type: 'photo',                  // 'photo' | 'video' — đổi type = gỡ hẳn source cũ (khác kiểu key)
 
-            // Nguồn đã chọn. CHỈ field khớp mediaType×sourceMode hiện tại có ý nghĩa; 3 field còn
-            // lại GIỮ NGUYÊN giá trị (không xoá) để đổi qua đổi lại không mất lựa chọn trước đó.
-            singleImageKey: '',             // imageKey  — single + image
-            singleVideoKey: '',             // videoKey  — single + video
-            listAlbumId: null,              // albumId   — list + image (thay `activeBackgroundAlbum` cũ)
-            listFolderId: null,             // folderId (type='video') — list + video
+            source: {
+                originKind: null,           // null | 'single' | 'group' — CHỈ để nút "Làm tươi" biết đọc lại từ đâu
+                originId: null,             // imageKey/videoKey/albumId/folderId của origin
+                list: [],                   // bản copy key thật đang phát/hiện
+            },
 
-            // CHỈ đọc khi mediaType='image'. Video "list" chỉ có ĐÚNG 1 kiểu phát (loop + đổi theo
-            // next/prev/end bài hát) nên KHÔNG có lựa chọn này.
-            listPlaybackMode: 'perSong',    // 'perSong' | 'slideshow'
-            // Quy tắc chọn NGUỒN KẾ TIẾP trong list — DÙNG CHUNG cho perSong/slideshow (ảnh) LẪN
-            // list video. 'playlist' = áp cùng tiêu chí `appConfigPlaylist.displaySortMode`.
-            nextOrder: 'random',            // 'random' | 'sequential' | 'playlist'
+            listPlaybackMode: 'perSong',    // 'perSong' | 'slideshow' — chỉ có ý nghĩa khi list.length > 1
+            nextOrder: 'random',            // 'random' | 'sequential' | 'playlist' — thứ tự dựng list lúc chọn/Làm tươi + bước cycle
 
-            // Sub-setting CHỈ dùng khi mediaType='image' + sourceMode='list' +
-            // listPlaybackMode='slideshow' — thu gọn từ DEFAULT_SLIDESHOW_CONFIG cũ (BỎ mode/
-            // photoPerSong: thay bằng nextOrder/listPlaybackMode ở trên).
-            // ---- Nền MÀU (dời từ `vizConfig.bgColor`, mở rộng thêm gradient) ----
+            // ---- Nền MÀU — độc lập, luôn active ----
             colorMode: 'solid',             // 'solid' | 'gradient'
-            solidColor: '#000000',          // == giá trị mặc định cũ của vizConfig.bgColor
-            gradientAngleDeg: 180,          // góc xoay linear-gradient, 0 = từ dưới lên (chuẩn CSS)
-            // 2..7 chặng màu. `position` là % TUYỆT ĐỐI trên trục gradient (0-100) — Giang chốt
-            // dùng %, nên "tỉ lệ dải này so với dải kia" = hiệu 2 position liền nhau, người dùng
-            // chỉnh trực tiếp bằng con số thay vì nhập tỉ lệ tương đối.
+            solidColor: '#000000',
+            gradientAngleDeg: 180,
             gradientStops: [
                 { color: '#000000', position: 0 },
                 { color: '#1e3a8a', position: 100 },
@@ -209,9 +191,8 @@
 
         AppConfig.defineDomain('visualBg', {
             schema: {
-                enabled: 'boolean', mediaType: 'string', sourceMode: 'string',
-                singleImageKey: 'string', singleVideoKey: 'string',
-                listAlbumId: 'nullable-string', listFolderId: 'nullable-string',
+                type: 'string',
+                source: 'object', // { originKind: nullable-string, originId: nullable-string, list: array }
                 listPlaybackMode: 'string', nextOrder: 'string',
                 colorMode: 'string', solidColor: 'string', gradientAngleDeg: 'number',
                 gradientStops: 'object',

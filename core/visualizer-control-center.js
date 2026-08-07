@@ -65,14 +65,16 @@
         // =====================================================================================
         // 7 hàm video/ảnh nền màn Visualizer từng sống ở đây ĐÃ BỊ THAY THẾ HOÀN TOÀN bởi domain
         // "Visual Background" (core/visual-bg.js + event/workflow,router,listener/visual-bg.js):
-        //   validateVideoBgOnClose()  -> workflowVisualBg.validateOnClose() + reconcileVisualBgConfigOnClose() (core thuần)
+        //   validateVideoBgOnClose()  -> (v14: không còn cần — schema mới tự nhất quán, xem
+        //                                event/workflow/player-controls.js::closeSettingsDrawer())
         //   setupVideoBgSource()      -> showVisualBgVideoElement(objectUrl, loadedUrl)
         //   syncVideoBgToAudio()      -> syncVisualBgVideoPlayback(isAudioPaused)
         //   handleVideoBackground()   -> workflowVisualBg.applyCurrentVisualBg() (+ hide/show core)
-        //   enableVideoBackground()   -> workflowVisualBg.changeEnabled(true)
-        //   disableVideoBackgroundState() -> workflowVisualBg.changeEnabled(false)
+        //   enableVideoBackground()   -> (v14: không còn toggle riêng — chọn nguồn = bật, xem
+        //                                workflowVisualBg._resolveAndCommitSource())
+        //   disableVideoBackgroundState() -> workflowVisualBg.clearSource()
         //   applyUploadedVideoBg()    -> KHÔNG còn khái niệm "upload/copy Blob làm nền": nguồn giờ
-        //                                tham chiếu bằng KEY (`visualBgConfig.singleVideoKey`),
+        //                                tham chiếu bằng KEY (`visualBgConfig.source.list`),
         //                                Blob gốc nằm nguyên trong store `videos`.
         // Lý do KHÔNG giữ lại/không kế thừa: 2 vi phạm cụ thể (Core tự `appConfigViz.getAll()` —
         // Rule 2; Core gọi Core khác `handleVideoBackground()`/`saveConfig()` — Rule 3a) phải được

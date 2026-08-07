@@ -32,7 +32,9 @@
         function updateDOMBackground() { 
             const cfg = appConfigVisualBg.getAll();
             // Video nền che kín -> ép đen (nền màu bên dưới không ai thấy, vẽ gradient là phí).
-            if (cfg.enabled && cfg.mediaType === 'video') {
+            // SỬA (v14) — `enabled && mediaType==='video'` (2 field đã xoá) -> `type==='video'` +
+            // còn ≥1 item sống trong `source.list`.
+            if (cfg.type === 'video' && cfg.source.list.some((k) => k !== null)) {
                 visualizerSolidBg.style.backgroundImage = '';
                 visualizerSolidBg.style.backgroundColor = '#000000';
                 return;

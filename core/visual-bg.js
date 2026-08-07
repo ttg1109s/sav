@@ -1,88 +1,46 @@
 /**
- * core/visual-bg.js — Core THUẦN của domain "Visual Background" (v13, plan-v13-visual-background-
- * unification.md). Gộp phần thi hành của 3 tính năng nền màn Visualizer từng rời rạc (video nền
- * loop / ảnh nền tĩnh / slideshow album) — phần ĐIỀU PHỐI nằm ở event/workflow/visual-bg.js.
- *
- * File này KHÔNG có hậu tố `-ui` (Rule 5c) vì KHÔNG tự `createElement` cụm DOM nào — chỉ đọc/ghi
- * `classList`/`style`/`src` lên phần tử TĨNH có sẵn từ core/dom-refs.js (`bgVideoElement`,
- * `visualBgImageElement`, `visualizerSolidBg`).
- *
- * TUÂN THỦ Rule 1-5 (readme/core-function-conventions.md) — viết mới hoàn toàn, KHÔNG kế thừa nợ
- * kỹ thuật của `core/state-and-video-bg.js` cũ (các hàm `handleVideoBackground()`/
- * `enableVideoBackground()`/`disableVideoBackgroundState()`/`applyUploadedVideoBg()`/
- * `validateVideoBgOnClose()`/`applyVisualBgImage()`/`disableVisualBgImageState()` ĐÃ XOÁ HẲN — 2
- * vi phạm cụ thể bị loại bỏ: Core tự `appConfigViz.getAll()` (Rule 2) và Core gọi Core khác
- * (`handleVideoBackground()`/`saveConfig()`, Rule 3a)).
- *
- * NẠP SAU: service/state.js (appState), core/dom-refs.js (3 dom-ref trên).
- * NẠP TRƯỚC: event/workflow/visual-bg.js.
+ * core/visual-bg.js — Core thuần domain "Visual Background". Phần điều phối ở event/workflow/
+ * visual-bg.js (+ event/workflow/slideshow.js cho riêng render ảnh).
+ * NẠP SAU: service/state.js, core/dom-refs.js. NẠP TRƯỚC: event/workflow/visual-bg.js.
  */
 
-/** 4 tổ hợp nguồn hợp lệ — dùng bởi Router (VirtualMachineState) + panel Settings. */
-const VISUAL_BG_MEDIA_TYPES = ['color', 'image', 'video'];
+const VISUAL_BG_TYPES = ['photo', 'video'];
 const VISUAL_BG_COLOR_MODES = ['solid', 'gradient'];
-/** Số chặng màu gradient tối thiểu/tối đa (Giang chốt: min 2, max 7). */
 const VISUAL_BG_GRADIENT_MIN_STOPS = 2;
 const VISUAL_BG_GRADIENT_MAX_STOPS = 7;
-const VISUAL_BG_SOURCE_MODES = ['single', 'list'];
 const VISUAL_BG_LIST_PLAYBACK_MODES = ['perSong', 'slideshow'];
 const VISUAL_BG_NEXT_ORDERS = ['random', 'sequential', 'playlist'];
-/** Số item TỐI THIỂU để 1 Album/Folder được coi là nguồn "danh sách" hợp lệ (Giang chốt, v13 Batch
- * B) — đúng 1 item thì không có gì để chuyển sang, bản chất vẫn là "1 ảnh/video cố định", nên phải
- * chọn nhánh `single` chứ không phải `list`. Dùng bởi CẢ Workflow (lọc danh sách trong picker) LẪN
- * `reconcileVisualBgConfigOnClose()` (làm sạch lúc đóng Settings). */
+/** Số item tối thiểu để 1 Album/Folder đủ điều kiện làm nguồn "group" trong picker (Giang chốt: 2 —
+ * đúng 1 item thì không có gì để chuyển sang, để chọn cũng chỉ thành `list.length===1` = phát tĩnh). */
 const VISUAL_BG_MIN_LIST_ITEMS = 2;
 
 /**
- * Core THUẦN (không I/O, không đọc state, không gọi core khác) — "làm sạch" config Visual
- * Background lúc ĐÓNG Settings, gộp 2 tình huống Giang nêu thành 1 quy trình cascade DUY NHẤT
- * (plan mục 8):
- *   1. Bật `enabled` nhưng chưa chọn nguồn nào -> tự tắt `enabled`.
- *   2. Bật `sourceMode='list'` nhưng chưa chọn nguồn list -> lùi về `'single'`, RỒI kiểm tra tiếp:
- *      single có nguồn hợp lệ (đã chọn từ trước) -> giữ bật; single cũng rỗng -> tắt `enabled`.
- * Tình huống 1 chính là trường hợp riêng của 2 khi `sourceMode` vẫn đang là `'single'`.
- *
- * Rule 1 — ĐÚNG 1 tiến trình ("làm sạch config trước khi đóng"): 1 guard clause + 2 bước sửa NỐI
- * TIẾP cùng mục đích, KHÔNG phải rẽ nhánh giữa 2 nghiệp vụ khác nhau.
- * Rule 2 — nhận `cfg` qua tham số, KHÔNG tự `appConfigVisualBg.getAll()`; KHÔNG tự ghi lại state
- * (trả về bản đã sửa, Workflow tự `setAll()` nếu khác bản gốc).
- *
- * SỬA (v13 Batch B, yêu cầu Giang) — thêm `listSourceItemCount`: 1 Album/Folder chỉ là nguồn LIST
- * HỢP LỆ khi có > 1 item; đúng 1 item (hoặc 0) thì "danh sách" không còn ý nghĩa (không có gì để
- * chuyển sang) -> coi như chưa chọn, cascade tự lùi về `'single'`. Core KHÔNG tự đếm (Rule 2/3b:
- * đếm phải đọc DB = CHUẨN BỊ, việc của Workflow) — nhận sẵn con số qua tham số.
- * @param {object} cfg - snapshot `visualBgConfig` hiện tại (KHÔNG bị sửa tại chỗ).
- * @param {number} listSourceItemCount - số item THẬT của nguồn list đang chọn (0 nếu chưa chọn/mồ côi).
- * @returns {object} bản cfg MỚI đã làm sạch.
+ * Core thuần — bước 1 nhịp trong `source.list` (mảng key, có thể lẫn `null` = đã bị xoá, chờ dọn).
+ * Gặp null: KHÔNG tự thử index kế (Giang chốt) — trả nguyên, chờ lần advance() sau (Workflow tự
+ * đánh dấu null qua markVisualBgListItemMissing() sau khi đọc DB không thấy record).
+ * Index tính ra rơi về 0 (hết 1 vòng): dọn null trong mảng TRƯỚC khi trả — "mảng mới, chạy lại từ đầu".
+ * @param {Array<string|null>} list
+ * @param {number} currentIndex - -1 nếu chưa phát gì
+ * @param {boolean} isRandom - true nếu `nextOrder==='random'`; 'sequential'/'playlist' cùng bước tuần tự
+ *   (chỉ khác THỨ TỰ mảng đã dựng sẵn lúc chọn/Làm tươi, không khác cách bước tiếp).
+ * @returns {{ list: Array<string|null>, index: number }} `index=-1` nếu mảng rỗng sau dọn (self-heal).
  */
-function reconcileVisualBgConfigOnClose(cfg, listSourceItemCount) {
-    const next = { ...cfg };
-    if (!next.enabled) return next; // guard clause: đang tắt sẵn -> không có gì để làm sạch
-    if (next.mediaType === 'color') return next; // guard: nền MÀU luôn có sẵn nguồn, không bao giờ "on ảo"
-
-    const listRefEmpty = next.mediaType === 'video' ? !next.listFolderId : !next.listAlbumId;
-    const listSourceEmpty = listRefEmpty || listSourceItemCount <= 1; // <=1 item: xem VISUAL_BG_MIN_LIST_ITEMS
-    if (next.sourceMode === 'list' && listSourceEmpty) next.sourceMode = 'single';
-
-    const singleSourceEmpty = next.mediaType === 'video' ? !next.singleVideoKey : !next.singleImageKey;
-    if (next.sourceMode === 'single' && singleSourceEmpty) next.enabled = false;
-
-    return next;
+function advanceVisualBgList(list, currentIndex, isRandom) {
+    if (list.length === 0) return { list, index: -1 };
+    const nextIndex = isRandom
+        ? pickNextSlideshowIndexRandom(currentIndex, list.length)      // core/file-manager/slideshow.js
+        : pickNextSlideshowIndexSequential(currentIndex, list.length); // core/file-manager/slideshow.js
+    if (nextIndex !== 0) return { list, index: nextIndex };
+    const swept = list.filter((key) => key !== null);
+    return { list: swept, index: swept.length > 0 ? 0 : -1 };
 }
 
-/**
- * Core THUẦN — nguồn hiện tại (theo `mediaType`×`sourceMode`) đã được chọn hay chưa. Dùng bởi
- * Workflow để quyết định có áp dụng nền hay chỉ hiển thị "Chưa chọn" trong panel Settings.
- * KHÔNG gọi từ `reconcileVisualBgConfigOnClose()` (Rule 3a cấm core gọi core) — logic ở đó viết
- * tường minh 2 dòng riêng, chấp nhận trùng lặp nhỏ đổi lấy ranh giới rõ ràng.
- * @param {object} cfg
- * @returns {string|null} key/id nguồn đang chọn, `null` nếu chưa chọn.
- */
-function readVisualBgActiveSourceRef(cfg) {
-    if (cfg.mediaType === 'video') {
-        return cfg.sourceMode === 'list' ? (cfg.listFolderId || null) : (cfg.singleVideoKey || null);
-    }
-    return cfg.sourceMode === 'list' ? (cfg.listAlbumId || null) : (cfg.singleImageKey || null);
+/** Core thuần — đánh dấu 1 vị trí trong `source.list` là mất (record không còn tồn tại). Trả mảng MỚI. */
+function markVisualBgListItemMissing(list, index) {
+    if (index < 0 || index >= list.length) return list;
+    const next = list.slice();
+    next[index] = null;
+    return next;
 }
 
 // ===================== Áp DOM — nền ẢNH tĩnh (#visual-bg-image) =====================
@@ -194,24 +152,9 @@ function sortVisualBgItemsByAddedAt(items, newestFirst) {
     });
 }
 
-/**
- * Core THUẦN — tách 1 tập key thành phần ĐƯỢC PHÉP xoá và phần BỊ GIỮ LẠI vì đang làm Visual
- * Background. Dùng bởi các luồng xoá HÀNG LOẠT (delete mode ảnh, selection mode Playlist, xoá sạch
- * thư viện) — những luồng có target là 1 TẬP nên KHÔNG đăng ký Block gate: ref chỉ làm hỏng vài
- * phần tử, không hỏng cả thao tác, nên loại phần tử đó ra rồi xoá phần còn lại mới đúng.
- * (Ngược lại 4 luồng xoá ĐƠN — target nguyên khối — chặn hẳn ở event/block.js.)
- * Rule 2: nhận `protectedKey` qua tham số, KHÔNG tự đọc `appConfigVisualBg`.
- * @param {string[]} keys - tập key người dùng chọn xoá.
- * @param {string} protectedKey - key đang được tham chiếu ('' nếu không có).
- * @returns {{allowed: string[], blocked: string[]}}
- */
-function splitVisualBgProtectedKeys(keys, protectedKey) {
-    if (!protectedKey) return { allowed: keys.slice(), blocked: [] }; // guard: không có gì phải giữ
-    return {
-        allowed: keys.filter((k) => k !== protectedKey),
-        blocked: keys.filter((k) => k === protectedKey),
-    };
-}
+// XOÁ (v14) — `splitVisualBgProtectedKeys()` không còn ai gọi: 2 luồng xoá hàng loạt
+// (file-manager-photo.js/playlist.js) đã bỏ hẳn khái niệm "bảo vệ item đang tham chiếu" (self-heal
+// lười thay thế, xem event/workflow/visual-bg.js::_markCurrentMissing()).
 
 /**
  * Core THUẦN — dựng chuỗi CSS `linear-gradient(...)` từ danh sách chặng màu.
