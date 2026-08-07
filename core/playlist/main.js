@@ -91,20 +91,16 @@
              */
             async updateActiveFolderUI() {
                 const folderId = appState.get('activePlayListFolder');
-                // SỬA (v13) — thêm LÝ DO KHOÁ THỨ HAI: Visual Background đang bật. Video phát toàn
-                // màn hình nên sẽ che hẳn nền, y như Block gate đã chặn ở event/block.js. Trước đây
-                // chỉ chặn ở Block: người dùng vẫn bấm được, dropdown NHẢY sang Video rồi mới hiện
-                // modal và không đổi thật — trông như lỗi. Khoá thẳng trên UI (disabled + mờ +
-                // title) đúng cách đã làm sẵn cho Folder Scope, Block gate vẫn giữ làm chốt chặn
-                // cuối (bàn phím/luồng khác).
-                const visualBgOn = typeof appState !== 'undefined' && appState.get('isVisualBgMediaActive'); // service/state/visual-bg.js — cùng flag block.js dùng
-                const locked = !!folderId || visualBgOn;
+                // XOÁ (v14, Giang chốt mục 2) — khoá thứ hai "Visual Background đang bật" bỏ hẳn:
+                // đổi Nguồn Playlist sang Video giờ được phép tự do; xung đột giải quyết ở CHIỀU
+                // NGƯỢC LẠI lúc thật sự VÀO Video Player mode (workflowVisualBg.clearMediaLayers(),
+                // event/workflow/video-player.js::startFromPlaylist()) — không cần khoá select này
+                // nữa, chỉ còn đúng 1 lý do khoá (Folder Scope).
+                const locked = !!folderId;
                 if (mediaSourceSelect) {
                     mediaSourceSelect.disabled = locked;
                     mediaSourceSelect.classList.toggle('opacity-40', locked);
-                    mediaSourceSelect.title = folderId
-                        ? t('settingsPlaylistBg.mediaSource.lockedByFolderScope')
-                        : (visualBgOn ? t('visualBgSettingsDrawer.blockedByVisualBgOn') : '');
+                    mediaSourceSelect.title = folderId ? t('settingsPlaylistBg.mediaSource.lockedByFolderScope') : '';
                 }
                 const el = document.getElementById('setting-playlist-active-folder');
                 if (!el) return;
