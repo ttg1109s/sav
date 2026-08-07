@@ -65,7 +65,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'visualBgSettingsDrawer.albumPicker.title': 'Choose an album',
     'visualBgSettingsDrawer.albumPicker.empty': 'No album has more than one photo yet. Add photos in Photo & Album first.',
     'visualBgSettingsDrawer.folderPicker.title': 'Choose a video folder',
-    'visualBgSettingsDrawer.folderPicker.empty': 'No video folder has more than one video yet. Add videos to a folder first.',
+    'visualBgSettingsDrawer.folderPicker.emptyNoFolder': 'You have no video folders yet. Create one in File Manager > Folders and add videos to it first.',
+    'visualBgSettingsDrawer.folderPicker.emptyTooFew': 'You have video folders, but none holds at least {count} videos yet. A list needs more than one video to rotate through — add more, or pick a single video instead.',
     'visualBgSettingsDrawer.openSlideshow.label': 'Slideshow options...',
     'visualBgSettingsDrawer.openSlideshow.hint': 'Transition + Ken Burns',
 
@@ -173,10 +174,10 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // CHUNG cho CẢ 2 lý do chặn (event/block.js không hỗ trợ notify riêng theo từng điều kiện) —
     // bỏ luôn tham chiếu "(File Manager -> Video)" đã lỗi thời (panel đó xoá hẳn từ Batch 6).
     'visualBgSettingsDrawer.blockedDeleteInUse': 'This item is currently used as your Visual Background. Open Settings > Visualizer > Visual Background and tap Release source first.',
-    'visualBgSettingsDrawer.blockedBySourceVideo': 'Turn off the Visual Background video first — it uses the same player as Video mode.',
+    'visualBgSettingsDrawer.blockedBySourceVideo': 'Your Playlist is set to Video. While playing videos they fill the whole screen, so Visual Background cannot show. Switch the Playlist source back to Songs first.',
+    'visualBgSettingsDrawer.blockedByVisualBgOn': 'Visual Background is on. Videos play full screen, so they would cover it. Turn Visual Background off first.',
     'visualBgSettingsDrawer.keptDeleteInUse': 'One item was kept because it is currently used as your Visual Background. Release it in Settings > Visualizer > Visual Background to delete it.',
     'visualBgSettingsDrawer.clearSource.title': 'Release source',
-    'visualBgSettingsDrawer.blockedByPlayerMode': 'Turn off Video Player mode, or switch the Playlist source away from Video, before using a background video.',
     // MỚI (03/07/2026, mục 2) — Ảnh nền tĩnh cho màn Visualizer, KHÁC ảnh nền Playlist ngay dưới.
     // Đổi tên (07/07/2026, phản hồi Giang mục 3) — tên cũ "Use playlist background image" không
     // còn đúng bản chất từ sau batch "nền chung" (06/07/2026): ảnh này giờ hiện CẢ Playlist LẪN
