@@ -180,13 +180,17 @@ const workflowVisualBg = {
      * thật sự sẵn sàng, không chặn gì phía gọi). Dùng CHUNG cho áp lần đầu (boot/chọn nguồn) LẪN
      * đổi giữa phiên — trước đây tách 2 hàm vì chỉ lúc đổi giữa phiên mới cần che thumb, giờ boot
      * cũng cần nên gộp làm 1.
+     * SỬA (phản hồi Giang, mục 1 — "áp dụng giống Next/Prev/end ở Video Player mode") — `pause()`
+     * dời lên NGAY ĐẦU HÀM, TRƯỚC `getVideoRecord()` (giống hệt thứ tự `playVideoByKey()`,
+     * event/workflow/video-player.js): khung hình CŨ đứng yên trong lúc đợi DB, không bị đọc DB
+     * chậm làm video cũ tiếp tục chạy thêm 1 đoạn rồi mới "cắt cảnh" đột ngột.
      * @param {string} videoKey
      */
     async _playVideoKey(videoKey) {
-        const record = await getVideoRecord(videoKey); // service/db.js
+        bgVideoElement.pause(); // (1) đứng hình NGAY — CHƯA đụng src/DB, khung hình cũ giữ nguyên
+        const record = await getVideoRecord(videoKey); // (2) service/db.js — trong lúc đợi, màn hình vẫn đứng yên
         if (!record || !record.blob) { await this._markCurrentMissing(); return; }
 
-        bgVideoElement.pause();
         if (record.thumbFullBlob) {
             const thumbUrl = await decodeForcedBgThumb(record.thumbFullBlob); // core/video-player.js
             if (this._forcedBgThumbUrl) revokeBlobUrl(this._forcedBgThumbUrl);

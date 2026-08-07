@@ -66,6 +66,11 @@ const workflowSettingsStackNav = {
 
         const removedPanelEl = popSettingsPanel();
         if (!removedPanelEl) return; // đã ở Main, không có gì để pop (nút Back không tồn tại ở Main nên khó xảy ra, guard cho chắc)
+        // MỚI (phản hồi Giang, mục 3 — "gradient sub-panel chỉnh xong, back ra panel chính chưa cập
+        // nhật swatch") — panel chính (`visualBgSettingsPanelEl`) chỉ tự vẽ swatch lúc mở/lúc chính
+        // nó đổi field, KHÔNG tự biết sub-panel Gradient (`visualBgGradientPanelEl`, event/workflow/
+        // visual-bg.js) vừa chỉnh gì — refresh lại NGAY khi xác định đúng panel vừa rời đi là nó.
+        if (removedPanelEl === visualBgGradientPanelEl && typeof workflowVisualBg !== 'undefined') workflowVisualBg.refreshPanelUI();
         taskManager.once(() => { removedPanelEl.remove(); }, SLIDER_PANEL_SCROLL_ESTIMATED_MS, 'popSettingsPanel');
     }
 };
