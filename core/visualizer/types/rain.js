@@ -35,7 +35,9 @@
             // BẤT KỲ nguồn nền tuỳ chỉnh nào (video/ảnh Visual/slideshow) thì bỏ tô, để nền thật
             // hiện xuyên qua canvas (canvas trong suốt ở vùng không vẽ gì).
             const hasCustomBg = appConfigVisualBg.getAll().enabled || appState.get('isVideoPlayerMode'); // SỬA (v13 Batch A) — 3 điều kiện rời (videoBgEnabled/visualBgImageEnabled/activeBackgroundAlbum) ĐÃ GỘP thành 1 toggle tổng `visualBgConfig.enabled`
-            if (!hasCustomBg) { ctx.fillStyle = cfg.bgColor; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+            // SỬA (v13) — `vizConfig.bgColor` -> `visualBgConfig.solidColor`. Canvas không nhận
+            // chuỗi CSS gradient, nên chế độ gradient dùng màu chặng ĐẦU làm màu nền canvas.
+            if (!hasCustomBg) { const vb = appConfigVisualBg.getAll(); ctx.fillStyle = vb.colorMode === 'gradient' && vb.gradientStops.length ? vb.gradientStops[0].color : vb.solidColor; ctx.fillRect(0, 0, canvas.width, canvas.height); }
             let progress = 0; if (audioPlayer && isFinite(audioPlayer.duration) && audioPlayer.duration > 0) progress = audioPlayer.currentTime / audioPlayer.duration;
             let moonX = canvas.width * 0.70; let moonY = canvas.height * 0.35; let baseScale = 4 + Math.sin(progress * Math.PI) * 1; let baseMoonRadius = baseScale * 8 * dpr; 
             let dynamicMoonRadius = baseMoonRadius + (smoothedEnergy * 8 * dpr);
