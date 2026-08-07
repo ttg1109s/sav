@@ -624,8 +624,12 @@ const workflowPlaylist = {
     _folderPickerOnPick: null, // callback(folderId) — set bởi entry method (openAddToFolderPickerForSongMenu/openAddToFolderPicker), gọi khi user CHỌN xong 1 folder
 
     /** Mở Drawer lần đầu — đọc danh sách folder, vẽ grid, wire sự kiện. */
-    async _openFolderPickerDrawer(onPick) {
-        this._folderPickerFolders = await listFolders(); // core có sẵn, CÓ return, DÙNG ngay dưới
+    async _openFolderPickerDrawer(onPick, typeFilter) {
+        const all = await listFolders(); // core có sẵn, CÓ return, DÙNG ngay dưới
+        // SỬA (v13) — `typeFilter` tuỳ chọn: Visual Background chỉ được chọn folder VIDEO, trong khi
+        // 2 luồng "Thêm vào thư mục" của Playlist vẫn liệt kê tất cả. Lọc là CHUẨN BỊ DỮ LIỆU nên
+        // nằm ở Workflow; không truyền -> giữ nguyên hành vi cũ.
+        this._folderPickerFolders = typeFilter ? all.filter((f) => f.type === typeFilter) : all;
         this._folderPickerEditingId = null;
         this._folderPickerOnPick = onPick;
         this._renderFolderPickerGrid(true);

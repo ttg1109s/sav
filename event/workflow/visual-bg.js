@@ -25,6 +25,10 @@
  */
 let visualBgSettingsPanelEl = null; // panel Settings đang mở — null nếu đang đóng (cùng khuôn slideshowSettingsPanelEl)
 
+/** Task đếm giờ của nhánh "danh sách VIDEO" ở chế độ 'slideshow' (đổi video theo chu kỳ giây).
+ * Chế độ 'perSong' KHÔNG dùng task nào — nhịp do sự kiện đổi bài đẩy tới, video tự loop giữa chừng. */
+const VISUAL_BG_VIDEO_TASK = 'visualBgVideoRotate';
+
 const workflowVisualBg = {
 
     // ===================== Context RUNTIME của nhánh "danh sách VIDEO" (v13 Batch E) =============
@@ -97,6 +101,7 @@ const workflowVisualBg = {
     _clearVisualBgLayers() {
         const { visualBgVideoObjectUrl, visualBgImageObjectUrl } = appState.get(['visualBgVideoObjectUrl', 'visualBgImageObjectUrl']);
         workflowSlideshow.stop(); // event/workflow/slideshow.js — dừng engine trình chiếu (nếu đang chạy)
+        taskManager.kill(VISUAL_BG_VIDEO_TASK); // service/task-manager.js
         this._listVideoKeys = [];
         this._listVideoIndex = -1;
         if (this._forcedBgThumbUrl) { revokeBlobUrl(this._forcedBgThumbUrl); this._forcedBgThumbUrl = null; } // service/blob-url.js
@@ -209,6 +214,26 @@ const workflowVisualBg = {
             : pickNextSlideshowIndexSequential(-1, this._listVideoKeys.length); // core/file-manager/slideshow.js
         this._listVideoIndex = firstIndex;
         await this._playListVideo(this._listVideoKeys[firstIndex]);
+
+        // Chế độ 'slideshow' cho VIDEO: đổi video theo CHU KỲ GIÂY, dùng chung
+        // `visualBgConfig.slideshow.intervalSeconds` với nhánh ảnh (KHÔNG thêm field mới).
+        // CÙNG khuôn task của `workflowSlideshow._reveal()` (mode 'timeout', count 0 = lặp vô hạn).
+        if (appConfigVisualBg.getAll().listPlaybackMode === 'slideshow') {
+            taskManager.addNew(VISUAL_BG_VIDEO_TASK, { time: appConfigVisualBg.getAll().slideshow.intervalSeconds * 1000, exe: () => this._tickListVideo(), mode: 'timeout', count: 0 }); // service/task-manager.js
+            taskManager.operator(VISUAL_BG_VIDEO_TASK, 'enabled');
+        }
+    },
+
+    /** 1 nhịp của chế độ 'slideshow' cho video — đổi sang video kế theo `nextOrder`. Tách khỏi
+     * `advanceListVideo()` để guard `listPlaybackMode` của hàm kia không chặn nhầm chính nó. */
+    async _tickListVideo() {
+        if (this._listVideoKeys.length === 0) return; // guard
+        const nextIndex = appConfigVisualBg.getAll().nextOrder === 'random'
+            ? pickNextSlideshowIndexRandom(this._listVideoIndex, this._listVideoKeys.length)      // core
+            : pickNextSlideshowIndexSequential(this._listVideoIndex, this._listVideoKeys.length); // core
+        if (nextIndex < 0) return; // guard
+        this._listVideoIndex = nextIndex;
+        await this._playListVideo(this._listVideoKeys[nextIndex]);
     },
 
     /** Dựng THỨ TỰ videoKey trong Folder theo `visualBgConfig.nextOrder` — CÙNG quy tắc và CÙNG 2
@@ -240,6 +265,7 @@ const workflowVisualBg = {
     /** Đổi sang video kế tiếp trong danh sách — gọi từ Router lúc BÀI HÁT đổi thật
      * ('visualBg.songChanged', event/router/visual-bg.js). */
     async advanceListVideo() {
+        if (appConfigVisualBg.getAll().listPlaybackMode !== 'perSong') return; // guard: chế độ đếm giờ -> đổi theo task, không theo bài
         if (this._listVideoKeys.length === 0) return; // guard: chưa có danh sách (chưa áp nguồn/folder rỗng)
         const nextIndex = appConfigVisualBg.getAll().nextOrder === 'random'
             ? pickNextSlideshowIndexRandom(this._listVideoIndex, this._listVideoKeys.length)      // core
@@ -358,9 +384,15 @@ const workflowVisualBg = {
         if (listPlaybackSelect) listPlaybackSelect.value = cfg.listPlaybackMode;
         if (nextOrderSelect) nextOrderSelect.value = cfg.nextOrder;
 
+        // SỬA (v13 Batch G, Giang chỉ ra) — `listPlaybackMode` hiện cho CẢ mediaType='video'. Với
+        // video, "1 mỗi bài" có nghĩa RIÊNG và cần thiết: video nền LOOP suốt bài hát (video thường
+        // ngắn hơn bài), chỉ đổi sang video khác khi SANG BÀI MỚI. Bản trước tôi biến đó thành kiểu
+        // phát DUY NHẤT rồi ẩn luôn lựa chọn — sai.
+        // Nút "Tuỳ chỉnh Trình chiếu" (transition + Ken Burns) VẪN chỉ cho ảnh — 2 thứ đó không áp
+        // dụng được cho video.
         const isList = cfg.sourceMode === 'list';
         const isListImage = isList && cfg.mediaType === 'image';
-        if (listPlaybackRow) listPlaybackRow.classList.toggle('hidden', !isListImage);
+        if (listPlaybackRow) listPlaybackRow.classList.toggle('hidden', !isList);
         if (nextOrderRow) nextOrderRow.classList.toggle('hidden', !isList);
         if (slideshowRow) slideshowRow.classList.toggle('hidden', !(isListImage && cfg.listPlaybackMode === 'slideshow'));
 
@@ -437,13 +469,12 @@ const workflowVisualBg = {
     // ===================== "Chọn nguồn" — 4 tổ hợp, 4 picker CÓ SẴN =====================
     // KHÔNG viết picker mới nào cho đợt này (phản hồi Giang) — cả 4 nhánh đều tái dùng hạ tầng đã
     // tồn tại, chỉ truyền THAM SỐ router/msgPrefix để chúng bắn message về đúng cụm này:
-    //   image+single -> openImageLibraryPickerModal()      (core/file-manager/photo-ui.js, callback-based)
-    //   video+single -> openVideoPickerDrawerUi()          (core/file-manager/video-ui.js) + workflowVideoGalleryWindow
-    //   image+list   -> renderAlbumPickerGrid()/wireAlbumPickerDrawerActions() (core/file-manager/photo-ui.js)
-    //   video+list   -> itemTemplateFolderTile()/renderItemList()/wireFolderPickerDrawerEvents()
-    //                   (components/items.js + core/file-manager/folder-picker-ui.js) — CÙNG hạ tầng
-    //                   picker Folder của Playlist, chỉ lọc `type==='video'` TẠI ĐÂY (Workflow chuẩn
-    //                   bị dữ liệu, core không nhận tham số lọc nào).
+    //   image+single -> workflowFileManagerPhoto.openCoverImagePicker()   (picker ảnh bìa bài hát)
+    //   video+single -> openPhotoImagePickerDrawerUi()                    (CÙNG khung drawer, khác selector tile)
+    //   image+list   -> renderAlbumPickerGrid()/wireAlbumPickerDrawerActions()
+    //   video+list   -> workflowPlaylist._openFolderPickerDrawer(onPick, 'video')
+    // KHÔNG hàm picker nào được viết mới trong đợt này — 4 nhánh đều gọi thứ đã tồn tại, chỗ nào
+    // chưa vừa thì THÊM THAM SỐ vào hàm cũ (router/msgPrefix/selector tile/typeFilter).
     // Router chọn nhánh nào bằng VirtualMachineState (rẽ theo state) — xem event/router/visual-bg.js.
 
     /** Hàm GỠ listener của picker Generic Drawer đang mở (null khi không có picker nào). */
@@ -471,42 +502,15 @@ const workflowVisualBg = {
 
     // ---- image + single ----
 
-    /** TÁI DÙNG NGUYÊN `openImageLibraryPickerModal()` (lưới ảnh chỉ-đọc, đang dùng cho "Ảnh bìa"
-     * bài hát). Hàm đó là modal TỰ DỰNG callback-based có sẵn từ trước Rule 5a bản 13/07/2026
-     * (không hồi tố) — giữ nguyên interface `onSelect`/`onCancel`, KHÔNG sửa file đó. */
-    async openSingleImagePicker() {
-        const images = await listImages(); // core/file-manager/image.js
-        openImageLibraryPickerModal(images, (imageKey) => { // core/file-manager/photo-ui.js
-            this._commitPickedSource('singleImageKey', imageKey);
-        }, () => {}); // huỷ -> không đổi gì (khác toggle cũ: nút "Chọn nguồn" không có trạng thái nào để trả về)
-    },
-
-    // ---- video + single ----
-
-    /** TÁI DÙNG cụm picker video Generic Drawer (trước sống ở `workflowVisualizerControlCenter`,
-     * DỜI về đây — nơi gọi duy nhất giờ là "Chọn nguồn" của chính domain này). Lưới video do
-     * `workflowVideoGalleryWindow` mount (windowing theo ngày, revoke object URL đúng lúc). */
-    async openSingleVideoPicker() {
-        this._pickerCleanup = openVideoPickerDrawerUi('visualBg', 'visualBg.videoPicker', t('fileManager.video.pickerTitle'), `
-            <div class="flex-1 min-h-0 overflow-y-auto relative" id="file-manager-video-picker-scroll">
-                <p id="file-manager-video-picker-empty" class="hidden text-sm text-slate-400 text-center py-10 px-6">${t('fileManager.video.empty')}</p>
-            </div>
-        `); // core/file-manager/video-ui.js
-
-        await new Promise((resolve) => {
-            genericDrawerPanel.addEventListener('transitionend', function onOpenTransitionEnd() {
-                genericDrawerPanel.removeEventListener('transitionend', onOpenTransitionEnd);
-                resolve();
-            }, { once: true });
-        });
-
-        const videos = await listVideos(); // core/file-manager/video.js
-        if (!this._pickerCleanup) return; // guard — người dùng đóng picker RẤT NHANH trong lúc đang đọc DB
-
-        const scrollEl = genericDrawerBody.querySelector('#file-manager-video-picker-scroll');
-        const emptyEl = genericDrawerBody.querySelector('#file-manager-video-picker-empty');
-        if (emptyEl) emptyEl.classList.toggle('hidden', videos.length > 0);
-        workflowVideoGalleryWindow.mount('genericDrawer', { scrollEl, videos, badgeMode: null, selectedKeys: new Set() }); // event/workflow/video-gallery-window.js — single-select, tap = chọn ngay
+    /** TÁI DÙNG NGUYÊN picker "chọn ảnh bìa bài hát" — `workflowFileManagerPhoto.openCoverImagePicker()`
+     * (event/workflow/file-manager-photo.js), đúng nghiệp vụ "chọn ĐÚNG 1 ảnh từ thư viện", đã có
+     * sẵn session + Generic Drawer + windowing. Gọi chéo domain Workflow->Workflow, KHÔNG tự dựng
+     * picker riêng. */
+    openSingleImagePicker() {
+        workflowFileManagerPhoto.openCoverImagePicker(
+            (imageKey) => this._commitPickedSource('singleImageKey', imageKey),
+            () => {}, // huỷ -> không đổi gì
+        );
     },
 
     /** Ứng với 'visualBg.videoPicker.tile.click'. */
@@ -564,53 +568,27 @@ const workflowVisualBg = {
 
     // ---- video + list (Folder type='video') ----
 
-    /** TÁI DÙNG hạ tầng picker Folder của Playlist NGUYÊN VẸN — `itemTemplateFolderTile()` +
-     * `renderItemList()` (components/items.js) + `wireFolderPickerDrawerEvents()` (core/file-manager/
-     * folder-picker-ui.js, hàm GỘP nhận router/msgPrefix). KHÔNG có file picker mới nào.
-     * KHÁC picker Playlist đúng 2 điểm, cả 2 đều là việc CHUẨN BỊ DỮ LIỆU của Workflow (không phải
-     * tham số rẽ nhánh nhét vào core): (1) chỉ lấy folder `type === 'video'`; (2) chỉ lấy folder có
-     * >= VISUAL_BG_MIN_LIST_ITEMS item. KHÔNG kèm tile "Tạo folder mới" (`buildAddFolderTileHtml()`)
-     * — tạo folder rỗng ở đây vô nghĩa vì nó không thể là nguồn hợp lệ. */
+    /** TÁI DÙNG NGUYÊN `workflowPlaylist._openFolderPickerDrawer(onPick, typeFilter)` — grid folder
+     * Generic Drawer đã có sẵn, 2 luồng "Thêm vào thư mục" của Playlist đang dùng chung, "chỉ khác
+     * onPick callback". Truyền thêm `typeFilter='video'` (tham số MỚI, mặc định giữ hành vi cũ).
+     * KHÔNG tự dựng Drawer/grid/wire nào ở đây. */
     async openListFolderPicker() {
-        const folders = await listFolders(); // core/file-manager/folder.js
-        const videoFolders = folders.filter((f) => f.type === 'video');
-        const counts = await Promise.all(videoFolders.map(async (f) => {
-            const map = await getFolderSongMap(f.id); // service/db.js
-            return map ? getFolderSongKeys(map).length : 0; // core/file-manager/folder.js — hàm thuần
-        }));
-        const eligibleFolders = videoFolders.filter((_, i) => counts[i] >= VISUAL_BG_MIN_LIST_ITEMS);
-
-        const itemsHtml = renderItemList(null, eligibleFolders, itemTemplateFolderTile, {}); // components/items.js
-        openGenericDrawer({ // core/generic-drawer.js
-            height: 'auto',
-            maxHeight: '60vh',
-            headerHtml: this._buildPickerHeaderHtml(t('visualBgSettingsDrawer.folderPicker.title')),
-            bodyHtml: eligibleFolders.length > 0
-                ? `<div class="flex flex-wrap justify-start gap-4 p-5">${itemsHtml}</div>`
-                : `<p class="text-sm text-slate-500 text-center py-10 px-6">${t('visualBgSettingsDrawer.folderPicker.empty')}</p>`,
-            bodyClass: 'overflow-y-auto',
-        });
-        wireFolderPickerDrawerEvents('visualBg', 'visualBg.folderPicker'); // core/file-manager/folder-picker-ui.js
-        // Hàm trên gắn listener lên chính các tile (DOM dựng lại mỗi lần mở) + closeBtn trong
-        // header (cũng dựng lại) -> KHÔNG có listener nào bám vào DOM tĩnh dùng chung, không cần
-        // hàm gỡ như 2 picker trên.
-        this._pickerCleanup = null;
+        await workflowPlaylist._openFolderPickerDrawer(
+            (folderId) => this._commitPickedSource('listFolderId', folderId),
+            'video',
+        );
     },
 
-    /** Ứng với 'visualBg.folderPicker.tile.click'. */
-    async selectFolderFromPicker(folderId) {
-        this._closePickerDrawer();
-        await this._commitPickedSource('listFolderId', folderId);
-    },
+    // XOÁ (v13) — `selectFolderFromPicker()`/`cancelFolderPicker()` KHÔNG còn: picker folder giờ là
+    // `workflowPlaylist._openFolderPickerDrawer()`, nó TỰ đóng Drawer và gọi `onPick(folderId)`,
+    // không đi qua msg.type riêng của miền này (2 case tương ứng ở event/router/visual-bg.js cũng
+    // đã xoá).
 
-    /** Ứng với 'visualBg.folderPicker.close.click'. */
-    cancelFolderPicker() {
-        this._closePickerDrawer();
-    },
-
-    /** Header Generic Drawer dùng chung cho 3 picker trên — cùng khuôn header Generic Drawer của
-     * Photo/Folder (viết tại chỗ thay vì gọi chéo workflow khác vì chỉ 8 dòng HTML, không đáng ghép
-     * phụ thuộc — cùng tinh thần đã ghi ở event/workflow/slideshow.js::openAlbumPicker() bản cũ). */
+    /** Header Generic Drawer của picker Album — picker này tự `openGenericDrawer()` (khác 2 picker
+     * kia: chúng dùng `openPhotoImagePickerDrawerUi()`/`_openFolderPickerDrawer()` đã tự dựng header
+     * bên trong) nên vẫn cần khối header riêng ở đây.
+     * @param {string} title
+     */
     _buildPickerHeaderHtml(title) {
         return `
             <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
