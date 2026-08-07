@@ -72,11 +72,7 @@ const routerVisualizerDisplay = (() => {
             }
 
             // ===================== Màu sắc =====================
-            case 'visualizerDisplay.bgColor.input': {
-                const { value } = msg.payload;
-                workflowVisualizerDisplay.setBgColor(value);
-                break;
-            }
+            // (case 'bgColor.input' XOÁ — v13: màu nền dời sang cụm router `visualBg`.)
 
             case 'visualizerDisplay.colorMode.change': {
                 const { value } = msg.payload;

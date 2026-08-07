@@ -43,6 +43,30 @@ const routerVisualBg = (() => {
                 workflowVisualBg.changeListPlaybackMode(msg.payload.value);
                 break;
 
+            case 'visualBg.colorMode.change':
+                workflowVisualBg.changeColorMode(msg.payload.value);
+                break;
+
+            case 'visualBg.solidColor.input':
+                workflowVisualBg.changeSolidColor(msg.payload.value);
+                break;
+
+            case 'visualBg.gradientAngle.input':
+                workflowVisualBg.changeGradientAngle(msg.payload.value);
+                break;
+
+            case 'visualBg.gradientStop.change':
+                workflowVisualBg.changeGradientStop(msg.payload.index, msg.payload.field, msg.payload.value);
+                break;
+
+            case 'visualBg.gradientStop.add.click':
+                workflowVisualBg.addGradientStop();
+                break;
+
+            case 'visualBg.gradientStop.remove.click':
+                workflowVisualBg.removeGradientStop(msg.payload.index);
+                break;
+
             case 'visualBg.nextOrder.change':
                 workflowVisualBg.changeNextOrder(msg.payload.value);
                 break;
