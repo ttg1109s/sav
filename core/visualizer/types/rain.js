@@ -34,7 +34,7 @@
             // `hasCustomBg` CHỈ quyết định có tô lớp phủ `cfg.bgColor` (dòng dưới) hay không — có
             // BẤT KỲ nguồn nền tuỳ chỉnh nào (video/ảnh Visual/slideshow) thì bỏ tô, để nền thật
             // hiện xuyên qua canvas (canvas trong suốt ở vùng không vẽ gì).
-            const hasCustomBg = appConfigVisualBg.getAll().enabled || appState.get('isVideoPlayerMode'); // SỬA (v13 Batch A) — 3 điều kiện rời (videoBgEnabled/visualBgImageEnabled/activeBackgroundAlbum) ĐÃ GỘP thành 1 toggle tổng `visualBgConfig.enabled`
+            const hasCustomBg = appConfigVisualBg.getAll().source.list.some((k) => k !== null) || appState.get('isVideoPlayerMode'); // SỬA (v14) — `enabled` đã xoá, đổi sang đọc thẳng `source.list` còn item sống hay không
             // SỬA (v13) — `vizConfig.bgColor` -> `visualBgConfig.solidColor`. Canvas không nhận
             // chuỗi CSS gradient, nên chế độ gradient dùng màu chặng ĐẦU làm màu nền canvas.
             if (!hasCustomBg) { const vb = appConfigVisualBg.getAll(); ctx.fillStyle = vb.colorMode === 'gradient' && vb.gradientStops.length ? vb.gradientStops[0].color : vb.solidColor; ctx.fillRect(0, 0, canvas.width, canvas.height); }
@@ -145,7 +145,7 @@
             // phủ `skyGrad` hay để trống cho nền thật hiện xuyên qua. Cảnh công viên (đất/đèn/mưa)
             // vẫn vẽ đè lên như cũ — tự động nằm TRƯỚC (đè lên) nền ảnh/slideshow.
             // SỬA (21/07/2026, cùng lý do đã sửa ở drawRainGlass() phía trên) — thêm isVideoPlayerMode.
-            const hasCustomBg = appConfigVisualBg.getAll().enabled || appState.get('isVideoPlayerMode'); // SỬA (v13 Batch A) — 3 điều kiện rời (videoBgEnabled/visualBgImageEnabled/activeBackgroundAlbum) ĐÃ GỘP thành 1 toggle tổng `visualBgConfig.enabled`
+            const hasCustomBg = appConfigVisualBg.getAll().source.list.some((k) => k !== null) || appState.get('isVideoPlayerMode'); // SỬA (v14) — `enabled` đã xoá, đổi sang đọc thẳng `source.list` còn item sống hay không
             if (!hasCustomBg) {
                 const nightColors = getComputedColor(0, 1, 60);
                 let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
