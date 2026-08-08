@@ -42,9 +42,9 @@ const workflowVideoPlayer = {
      *
      * KHÔNG đợi 'playing' ở đây — trả `record` ngay để caller biết CÓ đọc được hay không (Visual
      * Background cần biết SỚM để tự chữa lành, không phải đợi hết khung hình mới biết). Gọi
-     * `waitBgVideoReady()` riêng (có thể KHÔNG await) để đợi khung hình thật + dọn lớp thumb dự
-     * phòng. KHÔNG đụng muted/loop/pointer-events/currentKey/title/MediaSession/analyser — việc
-     * riêng của TỪNG nơi gọi (Video Player mode thật cần, Visual Background trang trí không cần).
+     * `waitBgVideoReady()` riêng (có thể KHÔNG await) để đợi khung hình thật. KHÔNG đụng muted/loop/
+     * pointer-events/currentKey/title/MediaSession — việc riêng của TỪNG nơi gọi (Video Player mode
+     * thật cần, Visual Background trang trí không cần).
      *
      * @param {string} videoKey
      * @param {boolean} [isTransition=false] - chèn `record.thumbFullBlob` (decode + double-rAF,
@@ -53,13 +53,15 @@ const workflowVideoPlayer = {
      *   đang hiện để mà "chớp"), `true` lúc Next/Prev/end. Visual Background: LUÔN `true` (áp lần
      *   đầu cũng cần — thumb đứng yên tới khi video thật sự sẵn sàng, xem docstring
      *   `workflowVisualBg._playVideoKey()`).
-     * @returns {Promise<object|null>} record đã đọc (`null` nếu không tồn tại/hết `blob` — caller
-     *   tự lo, KHÔNG throw).
+     * @param {Function} [beforePlay=null] - hook chạy NGAY TRƯỚC khi gán `poster`/`src`/`play()` —
+     *   CHỈ để `playVideoByKey()` chèn `setupAudioContext()`/`connectVideoElementToAnalyser()`
+     *   ĐÚNG VỊ TRÍ như bản gốc (Visual Background không cần, không truyền).
+     * @returns {Promise<object|null>} record đã đọc (`null` nếu không tồn tại — caller tự lo, KHÔNG throw).
      */
-    async swapBgVideoSource(videoKey, isTransition = false) {
+    async swapBgVideoSource(videoKey, isTransition = false, beforePlay = null) {
         bgVideoElement.pause(); // (1) đứng hình NGAY — CHƯA đụng src, khung hình cũ giữ nguyên
         const record = await getVideoRecord(videoKey); // (2) service/db.js — trong lúc đợi, màn hình vẫn đứng yên ở khung hình cũ
-        if (!record || !record.blob) return null;
+        if (!record) return null;
 
         if (isTransition && record.thumbFullBlob) {
             const forcedUrl = await decodeForcedBgThumb(record.thumbFullBlob); // core/video-player.js
@@ -73,21 +75,22 @@ const workflowVideoPlayer = {
         if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} }
         this._thumbObjectUrl = URL.createObjectURL(record.thumbBlob);
 
+        if (beforePlay) beforePlay(); // ĐÚNG vị trí bản gốc: sau khi tạo object URL, TRƯỚC khi gán poster/src/play()
+
         // (3) Gán 1 lần liền mạch — KHÔNG còn khoảng hở giữa các dòng.
         bgVideoElement.poster = this._thumbObjectUrl;
         bgVideoElement.src = this._objectUrl;
         bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
 
+        // KHÔNG dọn/ẩn `_forcedBgObjectUrl` ở đây sau khi 'playing' bắn — GIỮ NGUYÊN quyết định gốc
+        // (31/07/2026): cứ để đó, lần transition/swap KẾ TIẾP tự ghi đè (đầu hàm này, guard revoke
+        // phía trên) — layer đó z-index -2, NẰM DƯỚI `bgVideoElement` (z-index 0), vô hại khi video
+        // đang phát thật đè lên trên, không cần dọn ngay.
         this._swapReadyPromise = new Promise((resolve) => {
             let done = false;
             const finish = () => {
                 if (done) return;
                 done = true;
-                if (this._forcedBgObjectUrl) {
-                    applyVisualBgImageToDOM(false, ''); // core/visual-bg.js
-                    try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {}
-                    this._forcedBgObjectUrl = null;
-                }
                 resolve();
             };
             bgVideoElement.addEventListener('playing', finish, { once: true });
@@ -209,7 +212,14 @@ const workflowVideoPlayer = {
         return withLoadingShield(t('common.loading.switchingSong'), async () => {
             const previousKey = appState.get('currentKey'); // đọc TRƯỚC khi ghi đè — refresh đúng dòng cũ sau khi video mới sẵn sàng
 
-            const record = await this.swapBgVideoSource(videoKey, isTransition); // (1)(2)(3) — CƠ CHẾ DÙNG CHUNG, xem docstring
+            // BẮT BUỘC — đảm bảo audioContext/analyser tồn tại (an toàn gọi lại nhiều lần, guard sẵn
+            // trong chính 2 hàm) RỒI mới nối bgVideoElement vào — thứ tự ngược sẽ lỗi (analyser chưa
+            // có để nối vào). Truyền qua `beforePlay` để chạy ĐÚNG vị trí bản gốc: sau khi tạo object
+            // URL, TRƯỚC khi gán poster/src/play() — Visual Background không cần nên không truyền.
+            const record = await this.swapBgVideoSource(videoKey, isTransition, () => {
+                setupAudioContext(); // core/audio-engine.js
+                connectVideoElementToAnalyser(); // core/video-player.js
+            });
             if (!record) {
                 // guard: video vừa bị xoá ở nơi khác giữa lúc đang phát. KHÔNG gọi playNext(true)
                 // NGAY TẠI ĐÂY — vẫn đang ở TRONG withLoadingShield() này (isShieldBusy chỉ được
@@ -219,12 +229,6 @@ const workflowVideoPlayer = {
                 this._skipToNextAfterShield = true;
                 return;
             }
-
-            // BẮT BUỘC — đảm bảo audioContext/analyser tồn tại (an toàn gọi lại nhiều lần, guard sẵn
-            // trong chính 2 hàm) RỒI mới nối bgVideoElement vào — thứ tự ngược sẽ lỗi (analyser chưa
-            // có để nối vào).
-            setupAudioContext(); // core/audio-engine.js
-            connectVideoElementToAnalyser(); // core/video-player.js
 
             // Đợi ĐÚNG lúc video MỚI thật sự có khung hình (sự kiện 'playing') rồi mới đổi bất kỳ
             // gì lên UI — kèm timeout an toàn (2s) phòng 'playing' không bao giờ bắn (autoplay bị
