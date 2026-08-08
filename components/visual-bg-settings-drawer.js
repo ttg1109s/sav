@@ -70,6 +70,20 @@ function renderVisualBgPanelBody() {
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                         </button>
+
+                        <!-- MỚI (08/08/2026) — hiện khi type='video' VÀ ≥1 item sống (CẢ single lẫn
+                             list, khác hàng Slideshow ở trên chỉ dành cho list ảnh) — Workflow tự
+                             toggle qua refreshPanelUI(). -->
+                        <button id="setting-visual-bg-open-video-audio" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left hidden">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-sky-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M12 6v12M6 9v6a2 2 0 002 2h2l4 4V3l-4 4H8a2 2 0 00-2 2z" /></svg>
+                                <div class="min-w-0">
+                                    <div class="text-sm font-medium truncate" data-i18n="visualBgSettingsDrawer.openVideoAudio.label">${t('visualBgSettingsDrawer.openVideoAudio.label')}</div>
+                                    <div class="text-xs text-slate-400 mt-0.5 truncate" data-i18n="visualBgSettingsDrawer.openVideoAudio.hint">${t('visualBgSettingsDrawer.openVideoAudio.hint')}</div>
+                                </div>
+                            </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        </button>
                     </div>
                 </div>
 
