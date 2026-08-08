@@ -15,24 +15,50 @@ const VISUAL_BG_NEXT_ORDERS = ['random', 'sequential', 'playlist'];
 const VISUAL_BG_MIN_LIST_ITEMS = 2;
 
 /**
- * Core thuần — bước 1 nhịp trong `source.list` (mảng key, có thể lẫn `null` = đã bị xoá, chờ dọn).
- * Gặp null: KHÔNG tự thử index kế (Giang chốt) — trả nguyên, chờ lần advance() sau (Workflow tự
- * đánh dấu null qua markVisualBgListItemMissing() sau khi đọc DB không thấy record).
- * Index tính ra rơi về 0 (hết 1 vòng): dọn null trong mảng TRƯỚC khi trả — "mảng mới, chạy lại từ đầu".
+ * Core thuần — áp `nextIndex` ĐÃ TÍNH SẴN (Workflow tự chọn `pickNextSlideshowIndexRandom`/
+ * `Sequential` theo `nextOrder` rồi truyền vào — SỬA 08/08/2026, phản hồi Giang: trước đây hàm này
+ * TỰ gọi 2 hàm đó, core-gọi-core vi phạm Rule 3, dời việc chọn thuật toán ra
+ * `workflowVisualBg.advanceList()`/`firstIndex()`, xem event/workflow/visual-bg.js) vào
+ * `source.list` (mảng key, có thể lẫn `null` = đã bị xoá, chờ dọn).
+ * `nextIndex===0` (vừa hết 1 vòng — mọi `nextOrder` giờ đều bước tuần tự qua mảng theo cùng 1 quy
+ * ước, chỉ khác THỨ TỰ mảng đã dựng/xáo sẵn TRƯỚC lúc gọi hàm này): dọn null trong mảng TRƯỚC khi
+ * trả — "mảng mới, chạy lại từ đầu". Gặp null: KHÔNG tự thử index kế (Giang chốt) — trả nguyên, chờ
+ * lần advance() sau (Workflow tự đánh dấu null qua markVisualBgListItemMissing() sau khi đọc DB
+ * không thấy record).
  * @param {Array<string|null>} list
- * @param {number} currentIndex - -1 nếu chưa phát gì
- * @param {boolean} isRandom - true nếu `nextOrder==='random'`; 'sequential'/'playlist' cùng bước tuần tự
- *   (chỉ khác THỨ TỰ mảng đã dựng sẵn lúc chọn/Làm tươi, không khác cách bước tiếp).
+ * @param {number} nextIndex - do Workflow tính sẵn (Rule 3 — core không tự chọn thuật toán).
  * @returns {{ list: Array<string|null>, index: number }} `index=-1` nếu mảng rỗng sau dọn (self-heal).
  */
-function advanceVisualBgList(list, currentIndex, isRandom) {
+function advanceVisualBgList(list, nextIndex) {
     if (list.length === 0) return { list, index: -1 };
-    const nextIndex = isRandom
-        ? pickNextSlideshowIndexRandom(currentIndex, list.length)      // core/file-manager/slideshow.js
-        : pickNextSlideshowIndexSequential(currentIndex, list.length); // core/file-manager/slideshow.js
     if (nextIndex !== 0) return { list, index: nextIndex };
     const swept = list.filter((key) => key !== null);
     return { list: swept, index: swept.length > 0 ? 0 : -1 };
+}
+
+/**
+ * Core thuần — xáo ngẫu nhiên (Fisher-Yates) toàn bộ `list`, TRỪ vị trí `keepIndex` (giữ NGUYÊN key
+ * đang được phát tại đó — không đổi ảnh/video đang hiện ngay lúc xáo). MỚI 08/08/2026, Giang chốt:
+ * riêng `nextOrder==='random'`, ngay khi PHÁT tới item ở vị trí CUỐI mảng (trước khi bước kế tiếp)
+ * thì xáo lại mảng cho vòng sau — tránh kiểu "random thuần mỗi bước" có thể bỏ sót/lặp cụm 1 vài
+ * item nhiều vòng liền (dùng CHUNG mô hình shuffle-bag như Space visualizer). Nơi gọi
+ * (`workflowVisualBg.advanceList()`/`firstIndex()`) tự phát hiện thời điểm "chạm vị trí cuối" rồi
+ * truyền `keepIndex` = index đó vào.
+ * @param {Array<string|null>} list
+ * @param {number} keepIndex - vị trí GIỮ NGUYÊN, không tham gia xáo.
+ * @returns {Array<string|null>} mảng MỚI.
+ */
+function shuffleVisualBgListKeepingIndex(list, keepIndex) {
+    const positions = list.map((_, i) => i).filter((i) => i !== keepIndex);
+    if (positions.length <= 1) return list.slice(); // guard: không đủ 2 vị trí để xáo có ý nghĩa
+    const values = positions.map((i) => list[i]);
+    for (let i = values.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [values[i], values[j]] = [values[j], values[i]];
+    }
+    const result = list.slice();
+    positions.forEach((pos, k) => { result[pos] = values[k]; });
+    return result;
 }
 
 /** Core thuần — đánh dấu 1 vị trí trong `source.list` là mất (record không còn tồn tại). Trả mảng MỚI. */
