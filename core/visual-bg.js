@@ -15,9 +15,10 @@ const VISUAL_BG_NEXT_ORDERS = ['random', 'sequential', 'playlist'];
 const VISUAL_BG_MIN_LIST_ITEMS = 2;
 
 /**
- * Core thuần — áp `nextIndex` ĐÃ TÍNH SẴN (Workflow tự chọn `pickNextSlideshowIndexRandom`/
- * `Sequential` theo `nextOrder` rồi truyền vào — SỬA 08/08/2026, phản hồi Giang: trước đây hàm này
- * TỰ gọi 2 hàm đó, core-gọi-core vi phạm Rule 3, dời việc chọn thuật toán ra
+ * Core thuần — áp `nextIndex` ĐÃ TÍNH SẴN (Workflow tự gọi `pickNextSlideshowIndexSequential()` —
+ * DÙNG CHUNG cho CẢ 2 nextOrder từ 08/08/2026, xem docstring `shuffleVisualBgList()` ngay dưới —
+ * rồi truyền vào đây. SỬA 08/08/2026, phản hồi Giang: trước đây hàm này TỰ gọi thuật toán chọn
+ * index, core-gọi-core vi phạm Rule 3, dời việc chọn thuật toán ra
  * `workflowVisualBg.advanceList()`/`firstIndex()`, xem event/workflow/visual-bg.js) vào
  * `source.list` (mảng key, có thể lẫn `null` = đã bị xoá, chờ dọn).
  * `nextIndex===0` (vừa hết 1 vòng — mọi `nextOrder` giờ đều bước tuần tự qua mảng theo cùng 1 quy
@@ -37,27 +38,26 @@ function advanceVisualBgList(list, nextIndex) {
 }
 
 /**
- * Core thuần — xáo ngẫu nhiên (Fisher-Yates) toàn bộ `list`, TRỪ vị trí `keepIndex` (giữ NGUYÊN key
- * đang được phát tại đó — không đổi ảnh/video đang hiện ngay lúc xáo). MỚI 08/08/2026, Giang chốt:
- * riêng `nextOrder==='random'`, ngay khi PHÁT tới item ở vị trí CUỐI mảng (trước khi bước kế tiếp)
- * thì xáo lại mảng cho vòng sau — tránh kiểu "random thuần mỗi bước" có thể bỏ sót/lặp cụm 1 vài
- * item nhiều vòng liền (dùng CHUNG mô hình shuffle-bag như Space visualizer). Nơi gọi
- * (`workflowVisualBg.advanceList()`/`firstIndex()`) tự phát hiện thời điểm "chạm vị trí cuối" rồi
- * truyền `keepIndex` = index đó vào.
+ * Core thuần — xáo ngẫu nhiên (Fisher-Yates) TOÀN BỘ `list`. VIẾT LẠI (08/08/2026, phản hồi Giang —
+ * phát hiện bản `shuffleVisualBgListKeepingIndex()` cũ ("giữ nguyên vị trí đang phát rồi xáo phần
+ * còn lại") KHÔNG có tác dụng thật: nơi gọi vẫn chọn item KẾ TIẾP bằng random ĐỀU trên TOÀN mảng mỗi
+ * bước (`pickNextSlideshowIndexRandom()`, ĐÃ XOÁ cùng đợt — xem `workflowVisualBg.advanceList()`) —
+ * xáo lại VỊ TRÍ LƯU TRỮ không đổi được phân phối của `Math.random()*length`, item nằm ở đâu trong
+ * mảng không ảnh hưởng gì tới việc nó có được RÚT hay không. Với mảng nhỏ (2-3 item, trường hợp phổ
+ * biến nhất của "Chọn nguồn") kiểu random-loại-trừ-liền-kề đó suy biến gần như tuần tự thuần (N=2:
+ * BẮT BUỘC luân phiên, không có lựa chọn nào khác về mặt toán học) — đúng hiện tượng Giang báo "list
+ * không hề random, lặp lại liên tục". Thay hẳn bằng shuffle-bag ĐÚNG NGHĨA: xáo cả mảng 1 lần, bước
+ * TUẦN TỰ qua mảng đã xáo (dùng chung `pickNextSlideshowIndexSequential()`), hết 1 vòng mới xáo lại
+ * — đảm bảo mọi item được phát ĐỦ 1 lượt trước khi lặp, xem `workflowVisualBg.advanceList()`.
  * @param {Array<string|null>} list
- * @param {number} keepIndex - vị trí GIỮ NGUYÊN, không tham gia xáo.
  * @returns {Array<string|null>} mảng MỚI.
  */
-function shuffleVisualBgListKeepingIndex(list, keepIndex) {
-    const positions = list.map((_, i) => i).filter((i) => i !== keepIndex);
-    if (positions.length <= 1) return list.slice(); // guard: không đủ 2 vị trí để xáo có ý nghĩa
-    const values = positions.map((i) => list[i]);
-    for (let i = values.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [values[i], values[j]] = [values[j], values[i]];
-    }
+function shuffleVisualBgList(list) {
     const result = list.slice();
-    positions.forEach((pos, k) => { result[pos] = values[k]; });
+    for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+    }
     return result;
 }
 
