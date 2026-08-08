@@ -21,9 +21,109 @@
  */
 const workflowVideoPlayer = {
     _objectUrl: null, // object URL HIỆN TẠI đang gán cho bgVideoElement (revoke trước khi tạo url mới)
-    _thumbObjectUrl: null, // object URL của thumbBlob HIỆN TẠI (cover ở player bar, #record-container) — revoke trước khi tạo url mới
-    _forcedBgObjectUrl: null, // object URL của thumbFullBlob đang chèn cưỡng chế vào #visual-bg-image (xem playVideoByKey()) — revoke trước khi tạo url mới
+    _thumbObjectUrl: null, // object URL của thumbBlob HIỆN TẠI (poster + cover ở player bar, #record-container) — revoke trước khi tạo url mới
+    _forcedBgObjectUrl: null, // object URL của thumbFullBlob đang chèn cưỡng chế vào #visual-bg-image (xem swapBgVideoSource()) — revoke trước khi tạo url mới
+    _swapReadyPromise: null, // Promise đợi 'playing' (hoặc timeout) của lần swapBgVideoSource() gần nhất — xem waitBgVideoReady()
     _swipeStartY: null, // toạ độ Y lúc touchstart — dùng bởi event/listener/video-player.js (cử chỉ vuốt)
+
+    /**
+     * Nạp `videoKey` vào `bgVideoElement` — CƠ CHẾ SWAP DUY NHẤT, DÙNG CHUNG giữa Video Player mode
+     * THẬT (`playVideoByKey()` bên dưới) và Visual Background TRANG TRÍ (event/workflow/visual-
+     * bg.js — liên tuyến domain, KHÔNG tự viết lại logic này nữa, Giang chốt: bỏ hẳn bản VBG tự
+     * làm, tránh lệch hành vi/bug lặp lại giữa 2 nơi).
+     *
+     * Chống chớp đen lúc đổi `src` (đổi `src` LUÔN reset readyState về HAVE_NOTHING ngay lập tức,
+     * xoá khung hình đang hiện) — 3 bước: (1) `bgVideoElement.pause()` NGAY khi hàm bắt đầu, CHƯA
+     * đụng `src` — video CŨ đứng hình. (2) `await getVideoRecord()` xong xuôi rồi mới đụng
+     * `bgVideoElement`. (3) Gán `poster`+`src`+`play()` ĐÚNG 1 lần liền mạch — KHÔNG chủ động ẩn/
+     * hiện `bgVideoElement` (xem BÀI HỌC ở core/video-player.js — hardware compositing layer trên
+     * WKWebView/iOS không tuân z-index/CSS, active-toggle không giải quyết được gì thêm mà còn tự
+     * tạo 1 nhịp giật riêng — chấp nhận best-effort, không chớp-đen-zero tuyệt đối).
+     *
+     * KHÔNG đợi 'playing' ở đây — trả `record` ngay để caller biết CÓ đọc được hay không (Visual
+     * Background cần biết SỚM để tự chữa lành, không phải đợi hết khung hình mới biết). Gọi
+     * `waitBgVideoReady()` riêng (có thể KHÔNG await) để đợi khung hình thật + dọn lớp thumb dự
+     * phòng. KHÔNG đụng muted/loop/pointer-events/currentKey/title/MediaSession/analyser — việc
+     * riêng của TỪNG nơi gọi (Video Player mode thật cần, Visual Background trang trí không cần).
+     *
+     * @param {string} videoKey
+     * @param {boolean} [isTransition=false] - chèn `record.thumbFullBlob` (decode + double-rAF,
+     *   `decodeForcedBgThumb()` core/video-player.js) làm lớp dự phòng multi-browser cho
+     *   `#visual-bg-image` hay không. Video Player mode: `false` lúc vào mode lần đầu (chưa có gì
+     *   đang hiện để mà "chớp"), `true` lúc Next/Prev/end. Visual Background: LUÔN `true` (áp lần
+     *   đầu cũng cần — thumb đứng yên tới khi video thật sự sẵn sàng, xem docstring
+     *   `workflowVisualBg._playVideoKey()`).
+     * @returns {Promise<object|null>} record đã đọc (`null` nếu không tồn tại/hết `blob` — caller
+     *   tự lo, KHÔNG throw).
+     */
+    async swapBgVideoSource(videoKey, isTransition = false) {
+        bgVideoElement.pause(); // (1) đứng hình NGAY — CHƯA đụng src, khung hình cũ giữ nguyên
+        const record = await getVideoRecord(videoKey); // (2) service/db.js — trong lúc đợi, màn hình vẫn đứng yên ở khung hình cũ
+        if (!record || !record.blob) return null;
+
+        if (isTransition && record.thumbFullBlob) {
+            const forcedUrl = await decodeForcedBgThumb(record.thumbFullBlob); // core/video-player.js
+            if (this._forcedBgObjectUrl) { try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {} }
+            this._forcedBgObjectUrl = forcedUrl;
+            applyVisualBgImageToDOM(true, forcedUrl); // core/visual-bg.js
+        }
+
+        if (this._objectUrl) { try { URL.revokeObjectURL(this._objectUrl); } catch (e) {} }
+        this._objectUrl = URL.createObjectURL(record.blob);
+        if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} }
+        this._thumbObjectUrl = URL.createObjectURL(record.thumbBlob);
+
+        // (3) Gán 1 lần liền mạch — KHÔNG còn khoảng hở giữa các dòng.
+        bgVideoElement.poster = this._thumbObjectUrl;
+        bgVideoElement.src = this._objectUrl;
+        bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
+
+        this._swapReadyPromise = new Promise((resolve) => {
+            let done = false;
+            const finish = () => {
+                if (done) return;
+                done = true;
+                if (this._forcedBgObjectUrl) {
+                    applyVisualBgImageToDOM(false, ''); // core/visual-bg.js
+                    try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {}
+                    this._forcedBgObjectUrl = null;
+                }
+                resolve();
+            };
+            bgVideoElement.addEventListener('playing', finish, { once: true });
+            taskManager.once(finish, 2000, 'videoPlayingReadyFallback');
+        });
+
+        return record;
+    },
+
+    /** Đợi khung hình thật (sự kiện 'playing', kèm timeout an toàn 2s) từ lần `swapBgVideoSource()`
+     * GẦN NHẤT. Video Player mode LUÔN await (cần biết chắc mới đổi UI); Visual Background KHÔNG
+     * await lúc boot/áp lần đầu (fix bug chặn playlist, mục 4 — không ai chờ Promise không await
+     * cả, an toàn bỏ qua). */
+    async waitBgVideoReady() {
+        if (this._swapReadyPromise) await this._swapReadyPromise;
+    },
+
+    /** Dừng + dọn HẲN `bgVideoElement` (pause, ẩn, gỡ `src`/`poster`, revoke cả 3 object URL đang
+     * giữ) — CƠ CHẾ DÙNG CHUNG giữa `exitVideoPlayerMode()` (thoát mode thật) và Visual Background
+     * (dừng nhánh video trang trí, event/workflow/visual-bg.js). KHÔNG đụng muted/loop/pointer-
+     * events/currentKey/isVideoPlayerMode/wake-lock — việc riêng của `exitVideoPlayerMode()`. */
+    clearBgVideoSource() {
+        bgVideoElement.pause();
+        bgVideoElement.classList.add('hidden');
+        bgVideoElement.removeAttribute('poster');
+        bgVideoElement.removeAttribute('src');
+        bgVideoElement.src = '';
+        if (this._objectUrl) { try { URL.revokeObjectURL(this._objectUrl); } catch (e) {} this._objectUrl = null; }
+        if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} this._thumbObjectUrl = null; }
+        if (this._forcedBgObjectUrl) {
+            applyVisualBgImageToDOM(false, ''); // core/visual-bg.js
+            try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {}
+            this._forcedBgObjectUrl = null;
+        }
+        this._swapReadyPromise = null;
+    },
 
     /**
      * ===================== Ver 12 "Song/Video Unification" — Batch 2 (mục 3) =====================
@@ -62,23 +162,19 @@ const workflowVideoPlayer = {
 
     /** Thoát Video Player mode: dừng + dọn `bgVideoElement`, trả về mặc định trang trí + khôi phục
      * `#visual-bg-image` về ĐÚNG cài đặt Settings thật (trong lúc ở mode, lớp này bị chèn cưỡng chế
-     * thumb của video hiện tại — xem `playVideoByKey()` — KHÔNG phản ánh `cfg.visualBgImageEnabled`
-     * nữa, phải trả lại đúng lúc thoát). `updateDOMBackground()` (core/color-utils.js) trả
-     * `visualizerSolidBg` về `cfg.bgColor`. */
+     * thumb của video hiện tại — xem `swapBgVideoSource()` — KHÔNG phản ánh cấu hình Visual
+     * Background thật, phải trả lại đúng lúc thoát). `updateDOMBackground()` (core/color-utils.js)
+     * trả `visualizerSolidBg` về đúng màu/gradient cấu hình. */
     async exitVideoPlayerMode() {
-        bgVideoElement.pause();
-        setBgVideoElementForPlayerMode(false); // core/video-player.js — trả lại muted+loop=true, ẩn, pointer-events mặc định
-        if (this._objectUrl) { try { URL.revokeObjectURL(this._objectUrl); } catch (e) {} this._objectUrl = null; }
-        if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} this._thumbObjectUrl = null; }
-        bgVideoElement.removeAttribute('src');
+        setBgVideoElementForPlayerMode(false); // core/video-player.js — trả lại muted+loop=true, pointer-events mặc định
+        this.clearBgVideoSource(); // dừng + dọn HẲN (pause, ẩn, gỡ src/poster, revoke cả 3 URL) — CƠ CHẾ DÙNG CHUNG
         bgVideoElement.load(); // buộc <video> bỏ hẳn tham chiếu blob URL vừa revoke (tránh giữ RAM)
         updateDOMBackground(); // core/color-utils.js, hàm CÓ SẴN — trả visualizerSolidBg về cfg.bgColor
 
-        if (this._forcedBgObjectUrl) { try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {} this._forcedBgObjectUrl = null; }
-        // SỬA (v14, Giang chốt mục 2) — thay bản patch hẹp "chỉ khôi phục ảnh tĩnh 1 tấm" bằng gọi
-        // THẲNG `applyCurrentVisualBg()` (điểm đồng bộ DUY NHẤT của domain, event/workflow/visual-
-        // bg.js) — khôi phục ĐÚNG bất kể đang cấu hình gì (video/ảnh đơn/ảnh danh sách), đúng cặp
-        // với `clearMediaLayers()` đã gọi lúc VÀO mode ở `startFromPlaylist()`.
+        // SỬA (v14, Giang chốt mục 2) — gọi THẲNG `applyCurrentVisualBg()` (điểm đồng bộ DUY NHẤT
+        // của domain, event/workflow/visual-bg.js) — khôi phục ĐÚNG bất kể đang cấu hình gì (video/
+        // ảnh đơn/ảnh danh sách), đúng cặp với `clearMediaLayers()` đã gọi lúc VÀO mode ở
+        // `startFromPlaylist()`.
         if (typeof workflowVisualBg !== 'undefined') await workflowVisualBg.applyCurrentVisualBg(); // liên tuyến domain
 
         exitVideoPlayerModeState(); // core/video-player.js
@@ -86,14 +182,9 @@ const workflowVideoPlayer = {
     },
 
     /** Nạp 1 video vào `bgVideoElement` (DUY NHẤT — xem docstring đầu file) + phát ngay + cập nhật
-     * title/artist/MediaSession + nuôi analyser.
-     *
-     * Chống chớp đen lúc đổi `src` (đổi `src` LUÔN reset readyState về HAVE_NOTHING ngay lập tức,
-     * xoá khung hình đang hiện) — 3 bước: (1) `bgVideoElement.pause()` NGAY khi hàm bắt đầu, CHƯA
-     * đụng `src` — video CŨ đứng hình. (2) `await getVideoRecord()` xong xuôi rồi mới đụng
-     * `bgVideoElement`. (3) Gán `poster`+`src`+`play()` ĐÚNG 1 lần liền mạch, rồi đợi THẬT SỰ có
-     * khung hình mới (sự kiện 'playing', kèm timeout an toàn 2s) mới đổi `currentKey`/title/
-     * `refreshSongNode()`/`switchToVisualizer()` — UI chỉ nhảy bài khi hình đã thật sự đổi.
+     * title/artist/MediaSession + nuôi analyser. Cơ chế chống chớp đen ĐÃ TÁCH RIÊNG ở
+     * `swapBgVideoSource()`/`waitBgVideoReady()` (dùng chung với Visual Background) — hàm này chỉ
+     * còn lo phần RIÊNG của Video Player mode THẬT: currentKey/UI/analyser/wake lock.
      *
      * BỌC `withLoadingShield(..., false)` (không hiện lớp che, CÙNG PATTERN `window.playSong()`,
      * core/playlist/actions.js) — khoá chống bấm Next/Prev chồng lên nhau lúc đang đợi.
@@ -101,13 +192,9 @@ const workflowVideoPlayer = {
      * @param {string} videoKey
      * @param {boolean} [switchScreen=true] - đổi màn hình/cuộn animated sau khi video sẵn sàng —
      *        `true` (bấm 1 dòng trong Playlist/vào mode lần đầu); Next/Prev vật lý truyền `false`.
-     * @param {boolean} [isTransition=false] - MỚI (31/07/2026) — `true` khi hàm này chạy do
-     *        Next/Prev/end lúc ĐÃ ở Video Player mode (event/router/video-player.js truyền vào),
-     *        `false` lúc vào mode lần đầu (`startFromPlaylist()` không truyền). CHỈ khi `true` mới
-     *        chèn `record.thumbFullBlob` (decode + double-rAF, `decodeForcedBgThumb()` core/video-
-     *        player.js) làm lớp dự phòng multi-browser cho `#visual-bg-image` — KHÔNG chủ động ẩn/
-     *        hiện `bgVideoElement` (xem docstring `setBgVideoElementForPlayerMode()`), KHÔNG ẩn lại
-     *        sau khi video mới đã phát (Giang chốt: cứ để đó, lần transition kế tiếp tự ghi đè).
+     * @param {boolean} [isTransition=false] - `true` khi hàm này chạy do Next/Prev/end lúc ĐÃ ở
+     *        Video Player mode (event/router/video-player.js truyền vào), `false` lúc vào mode lần
+     *        đầu (`startFromPlaylist()` không truyền) — xem docstring `swapBgVideoSource()`.
      */
     async playVideoByKey(videoKey, switchScreen = true, isTransition = false) {
         // Guard "bấm lại đúng video đang phát" (chỉ đổi màn hình, KHÔNG restart) — 3 vế bắt buộc,
@@ -120,9 +207,9 @@ const workflowVideoPlayer = {
             return;
         }
         return withLoadingShield(t('common.loading.switchingSong'), async () => {
-            bgVideoElement.pause(); // (1) đứng hình NGAY — CHƯA đụng src, khung hình cũ giữ nguyên
+            const previousKey = appState.get('currentKey'); // đọc TRƯỚC khi ghi đè — refresh đúng dòng cũ sau khi video mới sẵn sàng
 
-            const record = await getVideoRecord(videoKey); // (2) service/db.js — trong lúc đợi, màn hình vẫn đứng yên ở khung hình cũ
+            const record = await this.swapBgVideoSource(videoKey, isTransition); // (1)(2)(3) — CƠ CHẾ DÙNG CHUNG, xem docstring
             if (!record) {
                 // guard: video vừa bị xoá ở nơi khác giữa lúc đang phát. KHÔNG gọi playNext(true)
                 // NGAY TẠI ĐÂY — vẫn đang ở TRONG withLoadingShield() này (isShieldBusy chỉ được
@@ -133,44 +220,16 @@ const workflowVideoPlayer = {
                 return;
             }
 
-            const previousKey = appState.get('currentKey'); // đọc TRƯỚC khi ghi đè — refresh đúng dòng cũ sau khi video mới sẵn sàng
-
-            // MỚI (31/07/2026) — CHỈ lúc Next/Prev/end (isTransition=true, KHÔNG áp dụng lần đầu
-            // vào mode): chèn thumbFullBlob của video SẮP chuyển tới làm lớp dự phòng multi-browser
-            // cho #visual-bg-image — xem docstring tham số isTransition + core/video-player.js::
-            // setBgVideoElementForPlayerMode() (vì sao không ẩn/hiện bgVideoElement thay vào đó).
-            if (isTransition && record.thumbFullBlob) {
-                const forcedUrl = await decodeForcedBgThumb(record.thumbFullBlob); // core/video-player.js
-                if (this._forcedBgObjectUrl) { try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {} }
-                this._forcedBgObjectUrl = forcedUrl;
-                applyVisualBgImageToDOM(true, forcedUrl); // core/visual-bg.js
-            }
-
-            if (this._objectUrl) { try { URL.revokeObjectURL(this._objectUrl); } catch (e) {} }
-            this._objectUrl = URL.createObjectURL(record.blob);
-            if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} }
-            this._thumbObjectUrl = URL.createObjectURL(record.thumbBlob);
-
             // BẮT BUỘC — đảm bảo audioContext/analyser tồn tại (an toàn gọi lại nhiều lần, guard sẵn
             // trong chính 2 hàm) RỒI mới nối bgVideoElement vào — thứ tự ngược sẽ lỗi (analyser chưa
             // có để nối vào).
             setupAudioContext(); // core/audio-engine.js
             connectVideoElementToAnalyser(); // core/video-player.js
 
-            // (3) Gán 1 lần liền mạch — KHÔNG còn khoảng hở giữa các dòng. bgVideoElement đã hiện +
-            // KHÔNG bị đụng hidden/opacity ở đây — chỉ đổi NỘI DUNG (src) bên trong đúng 1 khung
-            // đang hiển thị (xem setBgVideoElementForPlayerMode(), core/video-player.js).
-            bgVideoElement.poster = this._thumbObjectUrl;
-            bgVideoElement.src = this._objectUrl;
-            bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
-
             // Đợi ĐÚNG lúc video MỚI thật sự có khung hình (sự kiện 'playing') rồi mới đổi bất kỳ
             // gì lên UI — kèm timeout an toàn (2s) phòng 'playing' không bao giờ bắn (autoplay bị
             // chặn/lỗi định dạng lạ) để không kẹt vĩnh viễn.
-            await Promise.race([
-                new Promise((resolve) => bgVideoElement.addEventListener('playing', resolve, { once: true })),
-                new Promise((resolve) => taskManager.once(resolve, 2000, 'videoPlayingReadyFallback')),
-            ]);
+            await this.waitBgVideoReady();
 
             // ===== TỪ ĐÂY: video MỚI đã thật sự hiện ra (hoặc hết 2s chờ) — mới đổi UI =====
             appState.set('currentKey', videoKey);

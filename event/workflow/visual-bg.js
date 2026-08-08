@@ -16,8 +16,6 @@ const VISUAL_BG_VIDEO_TASK = 'visualBgVideoRotate';
 const workflowVisualBg = {
     _listIndex: -1,            // vị trí hiện tại trong `source.list` — CHỈ dùng cho nhánh video ở đây
     _colorPersistTimer: null,
-    _forcedBgThumbUrl: null,   // object URL thumb full-res che tạm ở #visual-bg-image (dự phòng WKWebView) lúc đổi/nạp video
-    _posterObjectUrl: null,    // object URL thumb NHỎ (thumbBlob) gán vào bgVideoElement.poster — cơ chế CHÍNH chống chớp đen, xem showVisualBgVideoElement()
 
     // ===================== Boot / persist =====================
 
@@ -94,17 +92,17 @@ const workflowVisualBg = {
      * object URL runtime, resume lại nguyên vẹn lúc thoát Video Player mode qua
      * `applyCurrentVisualBg()`). */
     clearMediaLayers() {
-        const { visualBgVideoObjectUrl, visualBgImageObjectUrl } = appState.get(['visualBgVideoObjectUrl', 'visualBgImageObjectUrl']);
+        const { visualBgImageObjectUrl } = appState.get(['visualBgImageObjectUrl']);
         if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.stop();
         taskManager.kill(VISUAL_BG_VIDEO_TASK);
         this._listIndex = -1;
-        if (this._forcedBgThumbUrl) { revokeBlobUrl(this._forcedBgThumbUrl); this._forcedBgThumbUrl = null; }
-        if (this._posterObjectUrl) { revokeBlobUrl(this._posterObjectUrl); this._posterObjectUrl = null; }
-        hideVisualBgVideoElement(); // core/visual-bg.js
-        applyVisualBgImageToDOM(false, ''); // core/visual-bg.js
-        if (visualBgVideoObjectUrl) revokeBlobUrl(visualBgVideoObjectUrl);
+        // SỬA (Giang chốt — bỏ hẳn logic video tự viết ở VBG, dùng THẲNG cơ chế dùng chung của
+        // workflowVideoPlayer) — thay `hideVisualBgVideoElement()` (core/visual-bg.js, ĐÃ XOÁ) bằng
+        // `clearBgVideoSource()`: cùng 1 nơi sở hữu vòng đời `bgVideoElement`/object URL của nó,
+        // KHÔNG còn 2 bản logic lệch nhau giữa VBG và Video Player mode nữa.
+        if (typeof workflowVideoPlayer !== 'undefined') workflowVideoPlayer.clearBgVideoSource(); // event/workflow/video-player.js — liên tuyến domain
+        applyVisualBgImageToDOM(false, ''); // core/visual-bg.js — lớp ẢNH TĨNH (single photo); lớp thumb-dự-phòng-video workflowVideoPlayer tự lo riêng ở clearBgVideoSource()
         if (visualBgImageObjectUrl) revokeBlobUrl(visualBgImageObjectUrl);
-        appState.set('visualBgVideoObjectUrl', '');
         appState.set('visualBgImageObjectUrl', '');
     },
 
@@ -172,58 +170,28 @@ const workflowVisualBg = {
 
     /** Chỉ ẩn video (KHÔNG đụng task/index) — dùng khi item hiện tại là null giữa lúc đang cycle. */
     _hideVideoOnly() {
-        hideVisualBgVideoElement(); // core/visual-bg.js
-        if (this._forcedBgThumbUrl) { revokeBlobUrl(this._forcedBgThumbUrl); this._forcedBgThumbUrl = null; }
-        if (this._posterObjectUrl) { revokeBlobUrl(this._posterObjectUrl); this._posterObjectUrl = null; }
+        if (typeof workflowVideoPlayer !== 'undefined') workflowVideoPlayer.clearBgVideoSource(); // event/workflow/video-player.js — liên tuyến domain
     },
 
     /**
-     * Nạp/đổi video nền — chống nháy đen bằng CHỦ ĐỘNG ẩn/hiện (Giang chốt, KHÁC Video Player mode
-     * — nơi đó chấp nhận best-effort dựa `poster`/trình duyệt tự lộ lớp dưới, VBG cần chắc chắn
-     * 100%): (1) pause + đọc DB. (2) chèn + XÁC NHẬN đã paint xong thumb full-res vào `#visual-bg-
-     * image` (NẰM DƯỚI, z-index -2). (3) ẨN HẲN `bgVideoElement` (`setVisualBgVideoVisible(false)`)
-     * — lộ CHẮC CHẮN lớp thumb vừa chèn, không phụ thuộc đen/trong suốt gì cả. (4) đổi src/poster,
-     * play() trong lúc ĐANG ẨN — khoảng hở HAVE_NOTHING xảy ra trên phần tử người dùng không thấy.
-     * (5) đợi 'playing' (kèm timeout an toàn 2s, KHÔNG await ở phía gọi — fix bug boot chặn
-     * playlist, mục 4) rồi mới hiện lại + gỡ lớp thumb.
+     * Nạp/đổi video nền — KHÔNG tự viết logic đổi src/poster/thumb nữa (Giang chốt: bỏ hẳn bản VBG
+     * tự làm, dùng THẲNG cơ chế dùng chung với Video Player mode thật —
+     * `workflowVideoPlayer.swapBgVideoSource()`/`waitBgVideoReady()`, event/workflow/video-
+     * player.js). Hàm này chỉ còn lo phần RIÊNG của VBG: muted/loop luôn true (trang trí, KHÁC Video
+     * Player mode thật — nơi đó `setBgVideoElementForPlayerMode(true)` lo phần này), tôn trọng
+     * play/pause của nhạc, và KHÔNG await bước chờ 'playing' (fix bug boot chặn playlist, mục 4 —
+     * Video Player mode LUÔN đợi vì cần biết chắc mới đổi UI, VBG không có UI nào phải đợi cả).
      * @param {string} videoKey
      */
     async _playVideoKey(videoKey) {
-        bgVideoElement.pause(); // (1) đứng hình NGAY — CHƯA đụng src/DB, khung hình cũ giữ nguyên
-        const record = await getVideoRecord(videoKey); // service/db.js — trong lúc đợi, màn hình vẫn đứng yên
-        if (!record || !record.blob) { await this._markCurrentMissing(); return; }
-
-        if (record.thumbFullBlob) {
-            const thumbUrl = await decodeForcedBgThumb(record.thumbFullBlob); // (2) core/video-player.js — await tới khi THẬT SỰ paint xong (double-rAF), không chỉ decode xong
-            if (this._forcedBgThumbUrl) revokeBlobUrl(this._forcedBgThumbUrl);
-            this._forcedBgThumbUrl = thumbUrl;
-            applyVisualBgImageToDOM(true, thumbUrl); // core/visual-bg.js
-        }
-
-        setVisualBgVideoVisible(false); // (3) core/visual-bg.js — ẩn hẳn NGAY, lộ chắc chắn lớp thumb bên dưới, TRƯỚC khi đụng src
-
-        if (this._posterObjectUrl) revokeBlobUrl(this._posterObjectUrl); // an toàn revoke ngay — trình duyệt giữ nguyên ảnh đã decode dù URL hết hiệu lực (giống thumbObjectUrl ở playVideoByKey())
-        this._posterObjectUrl = record.thumbBlob ? createBlobUrl(record.thumbBlob) : null; // service/blob-url.js
-
-        const previousObjectUrl = appState.get('visualBgVideoObjectUrl');
-        const objectUrl = createBlobUrl(record.blob); // service/blob-url.js
-        appState.set('visualBgVideoObjectUrl', objectUrl);
+        bgVideoElement.muted = true;
+        bgVideoElement.loop = true;
+        bgVideoElement.classList.remove('hidden');
+        const record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true); // event/workflow/video-player.js — liên tuyến domain, isTransition=true LUÔN (VBG cần lớp dự phòng cả lúc áp lần đầu, không phân biệt như Video Player mode)
+        if (!record) { await this._markCurrentMissing(); return; }
         updateDOMBackground(); // core/color-utils.js
-        showVisualBgVideoElement(objectUrl, appState.get('visualBgVideoLoadedUrl'), this._posterObjectUrl); // (4) core/visual-bg.js — đổi src/poster trong lúc ĐANG ẨN
-        syncVisualBgVideoPlayback(audioPlayer.paused); // core/visual-bg.js
-
-        let swapped = false;
-        const finishSwap = () => { // (5)
-            if (swapped) return;
-            swapped = true;
-            setVisualBgVideoVisible(true); // core/visual-bg.js — hiện lại, khung hình mới đã có (hoặc hết timeout, poster đỡ lưng)
-            if (previousObjectUrl) revokeBlobUrl(previousObjectUrl);
-            if (this._forcedBgThumbUrl) { applyVisualBgImageToDOM(false, ''); revokeBlobUrl(this._forcedBgThumbUrl); this._forcedBgThumbUrl = null; }
-        };
-        bgVideoElement.addEventListener('playing', finishSwap, { once: true });
-        // Backstop KHÔNG chặn (không await) — chỉ để tránh kẹt ẩn mãi nếu 'playing' không bao giờ
-        // bắn (autoplay bị chặn/định dạng lạ).
-        taskManager.once(finishSwap, 2000, 'visualBgVideoPlayingFallback'); // service/task-manager.js
+        syncVisualBgVideoPlayback(audioPlayer.paused); // core/visual-bg.js — video trang trí phải tôn trọng trạng thái pause/play của nhạc
+        workflowVideoPlayer.waitBgVideoReady(); // KHÔNG await (fix bug boot chặn playlist, mục 4) — chỉ để dọn lớp thumb dự phòng đúng lúc
     },
 
     /** Đánh dấu vị trí hiện tại là mất + ẩn — KHÔNG reset index/task, chờ advance() lần sau tự bước
