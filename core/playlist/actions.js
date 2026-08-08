@@ -188,13 +188,6 @@
                 eventBus.send({ router: 'videoPlayer', type: 'videoPlayer.startFromPlaylist.click', payload: { key, switchScreen } });
                 return;
             }
-            if (appState.get('isVideoPlayerMode')) {
-                // Đang ở Video Player mode nhưng vừa chọn phát 1 Song -> dọn sạch bgVideoElement/
-                // state Video Player TRƯỚC (exitVideoPlayerMode() không await được gì bên trong —
-                // an toàn gọi không chờ), rồi mới tiếp tục luồng Song y hệt bên dưới.
-                workflowVideoPlayer.exitVideoPlayerMode(); // event/workflow/video-player.js
-            }
-
             const switchScreen = !options || options.switchScreen !== false;
             if (key === appState.get('currentKey')) { if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated(); if (audioPlayer.paused) audioPlayer.play(); return; }
             requestWakeLock();
@@ -219,6 +212,14 @@
             // #loading-shield khác đang chạy (alert() native từng gây "đứng" cảm giác app crash).
             let notFoundAlert = false; // cờ mang ra ngoài withLoadingShield — KHÔNG await alertModal() ngay trong fn() của shield (xem giải thích dưới)
             return withLoadingShield(t('common.loading.switchingSong'), async () => {
+                // FIX (09/08/2026, mục 1 phản hồi Giang — "video bg vẫn không mute, phát đè tới lúc
+                // song chèn vào") — TRƯỚC ĐÂY exitVideoPlayerMode() gọi KHÔNG await NGAY TRƯỚC shield
+                // này: phần đồng bộ (mute/pause bgVideoElement) chạy kịp, nhưng phần BẤT ĐỒNG BỘ của
+                // nó (applyCurrentVisualBg() — nạp lại Audio B của VBG nếu type='video') chạy ngầm,
+                // không đồng bộ với audioPlayer.play() bên dưới. AWAIT ngay đầu shield — đảm bảo dọn
+                // Video Player mode + tái áp VBG XONG HẲN trước khi Song bắt đầu phát.
+                if (appState.get('isVideoPlayerMode')) await workflowVideoPlayer.exitVideoPlayerMode(); // event/workflow/video-player.js
+
                 if (appState.get('currentObjectURL')) { URL.revokeObjectURL(appState.get('currentObjectURL')); appState.set('currentObjectURL', null); }
                 if (appState.get('currentCoverObjectURL')) { URL.revokeObjectURL(appState.get('currentCoverObjectURL')); appState.set('currentCoverObjectURL', null); }
                 audioPlayer.pause();
