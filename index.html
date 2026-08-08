@@ -328,10 +328,10 @@
             được bình thường ở đây dù db.js nạp sau — JS không resolve tham chiếu lúc định nghĩa
             hàm, chỉ lúc hàm thực sự được GỌI (luôn sau khi người dùng tương tác, lúc đó toàn bộ
             trang đã nạp xong từ lâu). Xem comment đầu file /lang/lang.js để biết đầy đủ kiến trúc. -->
-    <script src="lang/patch/patch-common.js?v=20260803v1"></script>
+    <script src="lang/patch/patch-common.js?v=20260808v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260728v2"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260721v1"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260808v1"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260808v2"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260729v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
@@ -452,6 +452,9 @@
          picker, xem docstring đầu file) — CHỈ phụ thuộc t() (lang/lang.js, đã nạp SỚM ở trên),
          KHÔNG đụng DOM tĩnh/appState/eventBus nào khác — an toàn đứng ngay sau modal-choice.js. -->
     <script src="core/time-picker-modal.js?v=20260718v1"></script>
+    <!-- MỚI (08/08/2026) — openSliderInputModal() dùng chung (VBG "Âm thanh Video" là nơi dùng đầu
+         tiên) — CÙNG khuôn time-picker-modal.js, chỉ phụ thuộc t(), an toàn đứng ngay sau nó. -->
+    <script src="core/slider-input-modal.js?v=20260808v1"></script>
     <!-- core/fatal-error.js + event/listener/app-boot.js (đợt tái cấu trúc state 25/07/2026) —
          dời NGUYÊN VỊ TRÍ SỚM của global error-handler cũ (trước đây sống trong core/config.js,
          đăng ký ngay từ đầu để bắt lỗi của mọi core/ nạp SAU nó) — GIỮ ĐÚNG vị trí sớm này, chỉ
@@ -906,9 +909,9 @@
 
     <!-- MỚI (v13 Batch A) — cụm "visualBg". NẠP SAU cụm slideshow (router gọi chéo
          workflowSlideshow.openPanel() cho sub-panel Trình chiếu). -->
-    <script src="event/workflow/visual-bg.js?v=20260808v2"></script>
-    <script src="event/router/visual-bg.js?v=20260808v2"></script>
-    <script src="event/listener/visual-bg.js?v=20260808v2"></script>
+    <script src="event/workflow/visual-bg.js?v=20260808v3"></script>
+    <script src="event/router/visual-bg.js?v=20260808v3"></script>
+    <script src="event/listener/visual-bg.js?v=20260808v3"></script>
     <!-- Batch 3 (03/07/2026) — workflowFileManagerPhoto CẦN tồn tại trước khi router gọi tới.
          Batch D6 (Settings restructure, 06/07/2026): panel Photo nay push/pop động, `fullBleed:
          true` (lưới ảnh tràn viền, xem core/settings-panel-stack-ui.js đã nạp ở nhóm CORE) — CẦN
