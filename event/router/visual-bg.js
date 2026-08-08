@@ -132,8 +132,10 @@ const routerVisualBg = (() => {
                 workflowVisualBg.setVideoAudioEnabled(msg.payload.videoKey, msg.payload.checked);
                 break;
 
-            case 'visualBg.videoAudio.volume.input':
-                workflowVisualBg.setVideoAudioVolume(msg.payload.videoKey, msg.payload.value);
+            // SỬA (08/08/2026, phản hồi Giang mục 2) — thay case 'visualBg.videoAudio.volume.input'
+            // (slider inline cũ, đã bỏ) bằng mở modal dùng chung.
+            case 'visualBg.videoAudio.openVolumeModal.click':
+                workflowVisualBg.openVideoAudioVolumeModal(msg.payload.videoKey);
                 break;
 
             default:
