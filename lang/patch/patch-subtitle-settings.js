@@ -88,8 +88,6 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'visualBgSettingsDrawer.videoAudio.empty': 'No video in the current source yet.',
     // MỚI (08/08/2026, phản hồi Giang mục 2) — tiêu đề modal chọn volume dùng chung (core/slider-input-modal.js).
     'visualBgSettingsDrawer.videoAudio.volumeModal.title': 'Video volume',
-    // MỚI (08/08/2026, phản hồi Giang mục "bỏ checkbox") — nhãn công tắc bật/tắt bên trong modal.
-    'visualBgSettingsDrawer.videoAudio.volumeModal.toggleLabel': 'Play this video\'s audio',
 
     'slideshowSettingsDrawer.title': 'Slideshow Background',
     // VIẾT LẠI (Batch 9, 04/07/2026, mục 4) — gộp 2 section cũ ("Album"/"Playback") thành 1; 2 nút
