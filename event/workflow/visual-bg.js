@@ -571,11 +571,10 @@ const workflowVisualBg = {
         this._renderVideoAudioRows(this._videoAudioRows, appConfigVisualBg.getAll().source.videoAudio);
     },
 
-    /** SỬA (08/08/2026, phản hồi Giang mục "bỏ checkbox") — bỏ hẳn checkbox rời khỏi hàng, GỘP vào
-     * 1 nút icon+% DUY NHẤT: icon đổi hình theo `enabled` (loa thường/loa gạch chéo — THUẦN hiển
-     * thị, không tự bấm-là-đổi), bấm vào mở modal chung (`openVideoAudioVolumeModal()`) — modal đó
-     * giờ có thêm 1 công tắc bật/tắt (xem `config.toggle` của `openSliderInputModal()`,
-     * core/slider-input-modal.js) để gộp CẢ 2 việc (bật/tắt + chỉnh %) vào đúng 1 lần Áp dụng. */
+    /** SỬA (08/08/2026, phản hồi Giang — "Name video | icon (1) | x% (2), nhấn (1) toggle, nhấn (2)
+     * mở modal") — TÁCH lại thành 2 control riêng biệt (khác bản gộp-1-nút-mở-modal-có-công-tắc lượt
+     * trước): (1) icon loa — bấm là TOGGLE bật/tắt NGAY, không qua modal; (2) "x%" — bấm mở modal
+     * dùng chung CHỈ để chỉnh %, không còn công tắc bên trong (đã dời hẳn ra icon (1)). */
     _renderVideoAudioRows(rows, videoAudioMap) {
         const listEl = visualBgVideoAudioPanelEl.querySelector('#visual-bg-video-audio-list');
         if (rows.length === 0) {
@@ -585,49 +584,54 @@ const workflowVisualBg = {
         listEl.innerHTML = rows.map(({ key, name }) => {
             const { enabled, volumePercent } = getVisualBgVideoAudioSetting(videoAudioMap, key); // core/visual-bg.js
             return `
-            <div class="p-4 border-b border-white/5 last:border-b-0 flex items-center gap-3">
+            <div class="p-4 border-b border-white/5 last:border-b-0 flex items-center gap-2">
                 <span class="text-sm font-medium truncate min-w-0 flex-1">${escapeHtml(name)}</span>
-                <button type="button" data-visual-bg-video-audio-open-volume="${escapeHtml(key)}" class="flex items-center gap-1.5 shrink-0 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">${this._videoAudioButtonInnerHtml(key, enabled, volumePercent)}</button>
+                <button type="button" data-visual-bg-video-audio-toggle="${escapeHtml(key)}" class="shrink-0 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">${this._videoAudioIconInnerHtml(enabled)}</button>
+                <button type="button" data-visual-bg-video-audio-open-volume="${escapeHtml(key)}" class="shrink-0 px-2.5 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"><span data-visual-bg-video-audio-volume-display="${escapeHtml(key)}" class="text-xs font-mono tabular-nums ${enabled ? 'text-slate-300' : 'text-slate-500'}">${volumePercent}%</span></button>
             </div>`;
         }).join('');
     },
 
-    /** Icon (loa thường khi bật / loa gạch chéo khi tắt) + "x%" — DÙNG CHUNG cho cả lúc vẽ hàng lần
-     * đầu (`_renderVideoAudioRows()`) LẪN lúc cập nhật lại đúng 1 nút sau khi Áp dụng
-     * (`_refreshVideoAudioRowButton()`) — tránh viết trùng markup 2 chỗ. */
-    _videoAudioButtonInnerHtml(key, enabled, volumePercent) {
+    /** Icon loa thường (bật) / loa gạch chéo (tắt) — DÙNG CHUNG lúc vẽ hàng lần đầu
+     * (`_renderVideoAudioRows()`) LẪN lúc cập nhật lại đúng 1 nút sau khi toggle
+     * (`_refreshVideoAudioRowButtons()`) — tránh viết trùng markup 2 chỗ. */
+    _videoAudioIconInnerHtml(enabled) {
         const iconPath = enabled
             ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M12 6v12M6 9v6a2 2 0 002 2h2l4 4V3l-4 4H8a2 2 0 00-2 2z" />' // loa thường (2 vòng sóng)
             : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12M6 9v6a2 2 0 002 2h2l4 4V3l-4 4H8a2 2 0 00-2 2z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9l4 6m0-6l-4 6" />'; // loa GẠCH CHÉO (thay vòng sóng bằng dấu X)
-        return `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 ${enabled ? 'text-sky-400' : 'text-slate-500'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">${iconPath}</svg>
-                    <span data-visual-bg-video-audio-volume-display="${escapeHtml(key)}" class="text-xs font-mono tabular-nums ${enabled ? 'text-slate-300' : 'text-slate-500'}">${volumePercent}%</span>`;
+        return `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ${enabled ? 'text-sky-400' : 'text-slate-500'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">${iconPath}</svg>`;
     },
 
-    /** Bấm nút icon+% của 1 hàng — mở modal chung (core/slider-input-modal.js) kèm CÔNG TẮC bật/tắt
-     * (`config.toggle`, THAY cho checkbox rời đã bỏ) + slider/nhập % — Áp dụng 1 lần commit CẢ 2.
-     * Đọc TÊN từ cache `_videoAudioRows` (đọc sẵn lúc mở panel, xem `openVideoAudioPanel()`) —
-     * không đọc DB lần 2. */
+    /** MỚI (08/08/2026) — bấm icon (1): toggle bật/tắt NGAY, không qua modal. Đọc trạng thái hiện
+     * tại rồi đảo ngược — Rule 3b (tự đọc current qua core A rồi truyền patch vào core B, xem
+     * `setVideoAudioSetting()`). */
+    async toggleVideoAudioEnabled(videoKey) {
+        const { enabled } = getVisualBgVideoAudioSetting(appConfigVisualBg.getAll().source.videoAudio, videoKey); // core/visual-bg.js
+        await this.setVideoAudioSetting(videoKey, { enabled: !enabled });
+    },
+
+    /** Bấm "%" (2) của 1 hàng — mở modal dùng chung (core/slider-input-modal.js) CHỈ để chỉnh mức
+     * âm lượng (không còn công tắc bật/tắt bên trong — đã dời ra icon (1), xem
+     * `toggleVideoAudioEnabled()`). Đọc TÊN từ cache `_videoAudioRows` (đọc sẵn lúc mở panel, xem
+     * `openVideoAudioPanel()`) — không đọc DB lần 2. */
     openVideoAudioVolumeModal(videoKey) {
         const row = (this._videoAudioRows || []).find((r) => r.key === videoKey);
-        const { enabled, volumePercent } = getVisualBgVideoAudioSetting(appConfigVisualBg.getAll().source.videoAudio, videoKey); // core/visual-bg.js
+        const { volumePercent } = getVisualBgVideoAudioSetting(appConfigVisualBg.getAll().source.videoAudio, videoKey); // core/visual-bg.js
         openSliderInputModal({ // core/slider-input-modal.js
             title: t('visualBgSettingsDrawer.videoAudio.volumeModal.title'),
             hintText: row ? row.name : videoKey,
-            toggle: { label: t('visualBgSettingsDrawer.videoAudio.volumeModal.toggleLabel'), initialValue: enabled },
             min: 0,
             max: 100,
             step: 1,
             initialValue: volumePercent,
             unitSuffix: '%',
-            onConfirm: (value, toggleValue) => this.setVideoAudioSetting(videoKey, { enabled: toggleValue, volumePercent: value }),
+            onConfirm: (value) => this.setVideoAudioSetting(videoKey, { volumePercent: value }),
         });
     },
 
-    /** Bấm "Áp dụng" trong `openSliderInputModal()` — Rule 3b: tự đọc `current` qua core A rồi
-     * truyền vào core B. SỬA (08/08/2026, phản hồi Giang mục "bỏ checkbox") — GỘP 2 hàm
-     * `setVideoAudioEnabled()`/`setVideoAudioVolume()` cũ (gọi tách rời, mỗi cái tự mutate+persist
-     * riêng) thành 1 hàm DUY NHẤT, ghi CẢ `enabled` LẪN `volumePercent` trong 1 lần mutate + 1 lần
-     * persist + 1 lần cập nhật DOM (đúng khớp việc modal giờ Áp dụng cả 2 giá trị 1 lượt). */
+    /** Ghi 1 phần (`enabled` HOẶC `volumePercent`, hoặc cả 2) vào `source.videoAudio[videoKey]` —
+     * dùng CHUNG cho cả toggle icon LẪN Áp dụng modal volume. Rule 3b: tự đọc `current` qua core A
+     * rồi truyền vào core B. */
     async setVideoAudioSetting(videoKey, patch) {
         const cfg = appConfigVisualBg.getAll();
         const current = getVisualBgVideoAudioSetting(cfg.source.videoAudio, videoKey); // core/visual-bg.js
@@ -635,16 +639,23 @@ const workflowVisualBg = {
         appConfigVisualBg.mutateAll((c) => { c.source.videoAudio = nextMap; });
         console.log(`writer: "workflowVisualBg.setVideoAudioSetting", page: "visualBgConfig", content: "source.videoAudio[${videoKey}]=${JSON.stringify(nextMap[videoKey])}"`);
         await this._persist();
-        this._refreshVideoAudioRowButton(videoKey, nextMap[videoKey]);
+        this._refreshVideoAudioRowButtons(videoKey, nextMap[videoKey]);
         this._applyLiveIfCurrentVideo(videoKey);
     },
 
-    /** Cập nhật lại ĐÚNG 1 nút icon+% sau khi Áp dụng (thay nguyên `innerHTML` bằng
-     * `_videoAudioButtonInnerHtml()` — tái dùng đúng markup lúc vẽ hàng lần đầu). */
-    _refreshVideoAudioRowButton(videoKey, setting) {
+    /** Cập nhật lại ĐÚNG 2 nút (icon + %) của 1 hàng sau khi toggle/Áp dụng — thay `innerHTML`
+     * icon qua `_videoAudioIconInnerHtml()` (tái dùng đúng markup lúc vẽ hàng lần đầu) + màu chữ %
+     * theo `enabled` mới. */
+    _refreshVideoAudioRowButtons(videoKey, setting) {
         if (!visualBgVideoAudioPanelEl) return;
-        const btn = visualBgVideoAudioPanelEl.querySelector(`[data-visual-bg-video-audio-open-volume="${CSS.escape(videoKey)}"]`);
-        if (btn) btn.innerHTML = this._videoAudioButtonInnerHtml(videoKey, setting.enabled, setting.volumePercent);
+        const iconBtn = visualBgVideoAudioPanelEl.querySelector(`[data-visual-bg-video-audio-toggle="${CSS.escape(videoKey)}"]`);
+        if (iconBtn) iconBtn.innerHTML = this._videoAudioIconInnerHtml(setting.enabled);
+        const display = visualBgVideoAudioPanelEl.querySelector(`[data-visual-bg-video-audio-volume-display="${CSS.escape(videoKey)}"]`);
+        if (display) {
+            display.textContent = `${setting.volumePercent}%`;
+            display.classList.toggle('text-slate-300', setting.enabled);
+            display.classList.toggle('text-slate-500', !setting.enabled);
+        }
     },
 
     /** `videoKey` vừa sửa audio TRÙNG video đang phát ngay lúc này -> áp lên DOM NGAY, không đợi
