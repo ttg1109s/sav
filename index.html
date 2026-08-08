@@ -331,7 +331,7 @@
     <script src="lang/patch/patch-common.js?v=20260803v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260728v2"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260721v1"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260720v1"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260808v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260729v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
@@ -411,8 +411,9 @@
     <script src="components/subtitle-settings-drawer.js?v=20260707v3"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Slideshow Settings Drawer (nền Visual, nguồn thứ 3). -->
     <script src="components/slideshow-settings-drawer.js?v=20260806v1"></script>
-    <script src="components/visual-bg-settings-drawer.js?v=20260806v1"></script>
+    <script src="components/visual-bg-settings-drawer.js?v=20260808v1"></script>
     <script src="components/visual-bg-gradient-drawer.js?v=20260807v1"></script>
+    <script src="components/visual-bg-video-audio-drawer.js?v=20260808v1"></script>
 
     <!-- =====================================================================
          2) MAIN (bootstrap): lắp toàn bộ component vào #app-root.
@@ -504,7 +505,7 @@
          restoreDefaultVizConfig/saveConfig/loadConfig) — KHÔNG còn giữ Z_INDEX/global
          error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
          service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
-    <script src="core/config.js?v=20260729v1"></script>
+    <script src="core/config.js?v=20260808v1"></script>
     <!-- event/store.js (class EventStore) — CHỈ riêng file NÀY trong toàn bộ /event/ được nạp SỚM
          ở đây, KHÔNG đợi xuống cuối cùng cùng bus/workflow/router/listener. Lý do: playlist/
          actions.js (core, dòng dưới) cần khai báo `const playlistStore = new EventStore(...)`
@@ -672,7 +673,7 @@
     <script src="core/visualizer-control-center.js?v=20260806v1"></script>
     <!-- MỚI (v13 Batch A) — Core THUẦN domain "Visual Background" (gộp video nền/ảnh nền tĩnh/
          slideshow). Nạp SAU service/state.js + core/dom-refs.js. -->
-    <script src="core/visual-bg.js?v=20260806v1"></script>
+    <script src="core/visual-bg.js?v=20260808v1"></script>
     <!-- core/subtitle/subtitles.js ĐÃ CHUYỂN (10/07/2026) — CHỈ nạp ở subtitle-editor.html giờ
          (soạn phụ đề chuyển sang trang riêng). core/subtitle/subtitle-display.js (hiển thị phụ đề
          lúc phát, đọc appState.get('subtitles')) và subtitle-style-settings.js (toggle nhanh)
@@ -899,15 +900,15 @@
          restructure, 06/07/2026): panel Settings (6 input) nay push/pop động — CẦN core/settings-
          panel-stack.js (đã nạp ở nhóm CORE). Panel chọn Album ("notify center") KHÔNG đổi, vẫn
          tĩnh, độc lập Settings Stack. -->
-    <script src="event/workflow/slideshow.js?v=20260806v1"></script>
+    <script src="event/workflow/slideshow.js?v=20260808v1"></script>
     <script src="event/router/slideshow.js?v=20260731v1"></script>
     <script src="event/listener/slideshow.js?v=20260806v1"></script>
 
     <!-- MỚI (v13 Batch A) — cụm "visualBg". NẠP SAU cụm slideshow (router gọi chéo
          workflowSlideshow.openPanel() cho sub-panel Trình chiếu). -->
-    <script src="event/workflow/visual-bg.js?v=20260806v1"></script>
-    <script src="event/router/visual-bg.js?v=20260806v1"></script>
-    <script src="event/listener/visual-bg.js?v=20260806v1"></script>
+    <script src="event/workflow/visual-bg.js?v=20260808v1"></script>
+    <script src="event/router/visual-bg.js?v=20260808v1"></script>
+    <script src="event/listener/visual-bg.js?v=20260808v1"></script>
     <!-- Batch 3 (03/07/2026) — workflowFileManagerPhoto CẦN tồn tại trước khi router gọi tới.
          Batch D6 (Settings restructure, 06/07/2026): panel Photo nay push/pop động, `fullBleed:
          true` (lưới ảnh tràn viền, xem core/settings-panel-stack-ui.js đã nạp ở nhóm CORE) — CẦN
