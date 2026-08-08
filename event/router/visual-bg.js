@@ -113,6 +113,12 @@ const routerVisualBg = (() => {
                 break;
             }
 
+            // MỚI (08/08/2026, phản hồi Giang — mục "video chạy/dừng/lặp/đen màn thất thường") — THAY
+            // cho taskManager hẹn giờ cố định đã bỏ, xem event/listener/visual-bg.js + _onVideoEnded().
+            case 'visualBg.video.ended':
+                workflowVisualBg._onVideoEnded();
+                break;
+
             case 'visualBg.openSlideshowPanel.click':
                 workflowSlideshow.openPanel();
                 break;
