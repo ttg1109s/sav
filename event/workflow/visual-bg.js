@@ -11,9 +11,6 @@ let visualBgSettingsPanelEl = null;
 let visualBgGradientPanelEl = null;
 let visualBgVideoAudioPanelEl = null;
 
-/** Task của nhánh video khi `listPlaybackMode='slideshow'` (đổi video theo chu kỳ giây). */
-const VISUAL_BG_VIDEO_TASK = 'visualBgVideoRotate';
-
 const workflowVisualBg = {
     _listIndex: -1,            // vị trí hiện tại trong `source.list` — CHỈ dùng cho nhánh video ở đây
     _colorPersistTimer: null,
@@ -155,7 +152,6 @@ const workflowVisualBg = {
     clearMediaLayers() {
         const { visualBgImageObjectUrl } = appState.get(['visualBgImageObjectUrl']);
         if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.stop();
-        taskManager.kill(VISUAL_BG_VIDEO_TASK);
         this._listIndex = -1;
         // SỬA (Giang chốt — bỏ hẳn logic video tự viết ở VBG, dùng THẲNG cơ chế dùng chung của
         // workflowVideoPlayer) — thay `hideVisualBgVideoElement()` (core/visual-bg.js, ĐÃ XOÁ) bằng
@@ -201,16 +197,33 @@ const workflowVisualBg = {
         }
         this._listIndex = index;
         await this._playVideoKey(startList[this._listIndex]);
-        if (cfg.listPlaybackMode === 'slideshow') {
-            taskManager.addNew(VISUAL_BG_VIDEO_TASK, { time: cfg.slideshow.intervalSeconds * 1000, exe: () => this._advanceVideo(), mode: 'timeout', count: 0 }); // service/task-manager.js
-            taskManager.operator(VISUAL_BG_VIDEO_TASK, 'enabled');
-        }
+        // SỬA (08/08/2026, phản hồi Giang — mục "video chạy/dừng/lặp/đen màn thất thường") — BỎ HẲN
+        // taskManager hẹn giờ cố định (`cfg.slideshow.intervalSeconds`) từng dùng để tự chuyển video
+        // kế. Field đó vốn thiết kế cho ẢNH (không có độ dài riêng, hẹn giờ CHÍNH LÀ định nghĩa "hiện
+        // bao lâu"), bê nguyên sang VIDEO là sai — video có độ dài thật, hẹn giờ cố định không khớp
+        // độ dài đó gây 3 kiểu lỗi tuỳ video ngắn/dài/vừa hơn mốc (xem báo cáo). Giang chốt: mode
+        // 'slideshow' giờ đợi video tự phát HẾT thật (`loop=false`, xem `_playVideoKey()`), advance
+        // qua sự kiện `ended` thật (`bgVideoElement` 'ended' -> event/listener/visual-bg.js ->
+        // `visualBg.video.ended` -> `_onVideoEnded()` dưới) — KHÔNG còn hẹn giờ nào ở đây nữa.
     },
 
     /** Ứng với bài hát đổi thật ('visualBg.songChanged', router) khi type='video' + perSong. */
     async advanceForSongChange() {
         const cfg = appConfigVisualBg.getAll();
         if (cfg.type !== 'video' || cfg.listPlaybackMode !== 'perSong') return;
+        await this._advanceVideo();
+    },
+
+    /** Ứng với `bgVideoElement` tự bắn 'ended' khi KHÔNG ở Video Player mode (guard đã lọc ở
+     * event/listener/visual-bg.js, xem comment ở đó). MỚI (08/08/2026, phản hồi Giang) — THAY cho
+     * taskManager hẹn giờ cố định đã bỏ (xem `_applyVideo()`) — video mode 'slideshow' giờ advance
+     * đúng lúc video ĐÓ THẬT SỰ phát hết (`loop=false`, xem `_playVideoKey()`).
+     * Guard `listPlaybackMode==='slideshow'` phòng thủ: `perSong`/`list.length<=1` luôn `loop=true`
+     * nên trình duyệt vốn KHÔNG BAO GIỜ bắn `ended` cho 2 trường hợp đó — nhánh dưới chỉ chạy khi
+     * đổi cấu hình đúng lúc sự kiện đang bay tới (hiếm, phòng thủ thuần, không phải luồng chính). */
+    async _onVideoEnded() {
+        const cfg = appConfigVisualBg.getAll();
+        if (cfg.type !== 'video' || cfg.listPlaybackMode !== 'slideshow' || cfg.source.list.length <= 1) return;
         await this._advanceVideo();
     },
 
@@ -229,7 +242,6 @@ const workflowVisualBg = {
         const key = list[index];
         if (!key) { this._hideVideoOnly(); return; } // null -> ẩn, chờ advance() lần sau
         await this._playVideoKey(key);
-        if (list.length === 1) taskManager.kill(VISUAL_BG_VIDEO_TASK); // sweep vừa đưa về 1 item -> dừng cycle
     },
 
     /** Chỉ ẩn video (KHÔNG đụng task/index) — dùng khi item hiện tại là null giữa lúc đang cycle. */
@@ -241,10 +253,14 @@ const workflowVisualBg = {
      * Nạp/đổi video nền — KHÔNG tự viết logic đổi src/poster/thumb nữa (Giang chốt: bỏ hẳn bản VBG
      * tự làm, dùng THẲNG cơ chế dùng chung với Video Player mode thật —
      * `workflowVideoPlayer.swapBgVideoSource()`/`waitBgVideoReady()`, event/workflow/video-
-     * player.js). Hàm này chỉ còn lo phần RIÊNG của VBG: `loop` luôn true (trang trí, KHÁC Video
-     * Player mode thật — nơi đó `setBgVideoElementForPlayerMode(true)` lo phần này), tôn trọng
-     * play/pause của nhạc, và KHÔNG await bước chờ 'playing' (fix bug boot chặn playlist, mục 4 —
-     * Video Player mode LUÔN đợi vì cần biết chắc mới đổi UI, VBG không có UI nào phải đợi cả).
+     * player.js). Hàm này chỉ còn lo phần RIÊNG của VBG: tôn trọng play/pause của nhạc, và KHÔNG
+     * await bước chờ 'playing' (fix bug boot chặn playlist, mục 4 — Video Player mode LUÔN đợi vì
+     * cần biết chắc mới đổi UI, VBG không có UI nào phải đợi cả).
+     * SỬA (08/08/2026, phản hồi Giang — mục "video chạy/dừng/lặp/đen màn thất thường") — `loop`
+     * KHÔNG còn cứng `true`: CHỈ `true` khi KHÔNG phải cycle nhiều video theo mode 'slideshow' (tức
+     * `perSong` hoặc chỉ 1 item — video ĐÓ là toàn bộ nội dung, phải tự lặp mãi, không có gì để
+     * chuyển sang). Cycle nhiều video mode 'slideshow' -> `loop=false`, đợi `ended` thật (xem
+     * `_onVideoEnded()`) mới chuyển video kế — THAY cho taskManager hẹn giờ cố định đã bỏ.
      * SỬA (08/08/2026, phản hồi Giang) — `muted` KHÔNG còn cứng `true`: áp `_applyVideoAudioSettingToElement()`
      * TRƯỚC `swapBgVideoSource()` (đúng thứ tự cũ, để trình duyệt nhận đúng trạng thái muted NGAY
      * lúc `play()` bên trong hàm đó chạy — gỡ muted SAU khi play() đã gọi có thể vẫn bị autoplay
@@ -254,7 +270,9 @@ const workflowVisualBg = {
      */
     async _playVideoKey(videoKey) {
         this._applyVideoAudioSettingToElement(videoKey); // core/visual-bg.js lookup + gán muted/volume — xem docstring trên
-        bgVideoElement.loop = true;
+        const cfg = appConfigVisualBg.getAll();
+        const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && this._effectiveCount(cfg) > 1;
+        bgVideoElement.loop = !isCyclingSlideshow; // xem docstring trên — SỬA 08/08/2026
         bgVideoElement.classList.remove('hidden');
         const record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true); // event/workflow/video-player.js — liên tuyến domain, isTransition=true LUÔN (VBG cần lớp dự phòng cả lúc áp lần đầu, không phân biệt như Video Player mode)
         if (!record) { await this._markCurrentMissing(); return; }
