@@ -49,18 +49,18 @@ function handleVisualBgGradientStopEvent(e) {
     return false;
 }
 
-/** MỚI (08/08/2026) — 2 control của MỖI HÀNG video trong sub-panel "Âm thanh Video" (số hàng đổi
- * theo `source.list`, key theo videoKey chứ không phải index — cùng khuôn `handleVisualBgGradientStopEvent()`
- * ngay trên, đổi từ số sang chuỗi vì đây là key thật, không phải vị trí mảng). */
+/** SỬA (08/08/2026, phản hồi Giang mục 2) — bỏ handler `input` của slider inline cũ (đã xoá), thay
+ * bằng 1 control DUY NHẤT: nút icon+% mở modal dùng chung (`openSliderInputModal()`,
+ * core/slider-input-modal.js). Checkbox bật/tắt audio giữ NGUYÊN không đổi. */
 function handleVisualBgVideoAudioEvent(e) {
-    const el = e.target.closest('[data-visual-bg-video-audio-enable], [data-visual-bg-video-audio-volume]');
+    const el = e.target.closest('[data-visual-bg-video-audio-enable], [data-visual-bg-video-audio-open-volume]');
     if (!el) return false;
     if (el.dataset.visualBgVideoAudioEnable !== undefined && e.type === 'change') {
         eventBus.send({ router: 'visualBg', type: 'visualBg.videoAudio.enable.change', payload: { videoKey: el.dataset.visualBgVideoAudioEnable, checked: el.checked } });
         return true;
     }
-    if (el.dataset.visualBgVideoAudioVolume !== undefined && e.type === 'input') {
-        eventBus.send({ router: 'visualBg', type: 'visualBg.videoAudio.volume.input', payload: { videoKey: el.dataset.visualBgVideoAudioVolume, value: el.value } });
+    if (el.dataset.visualBgVideoAudioOpenVolume !== undefined && e.type === 'click') {
+        eventBus.send({ router: 'visualBg', type: 'visualBg.videoAudio.openVolumeModal.click', payload: { videoKey: el.dataset.visualBgVideoAudioOpenVolume } });
         return true;
     }
     return false;
