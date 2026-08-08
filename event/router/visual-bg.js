@@ -128,12 +128,8 @@ const routerVisualBg = (() => {
                 workflowVisualBg.openVideoAudioPanel();
                 break;
 
-            case 'visualBg.videoAudio.enable.change':
-                workflowVisualBg.setVideoAudioEnabled(msg.payload.videoKey, msg.payload.checked);
-                break;
-
-            // SỬA (08/08/2026, phản hồi Giang mục 2) — thay case 'visualBg.videoAudio.volume.input'
-            // (slider inline cũ, đã bỏ) bằng mở modal dùng chung.
+            // SỬA (08/08/2026, phản hồi Giang mục "bỏ checkbox") — bỏ case
+            // 'visualBg.videoAudio.enable.change' (checkbox rời đã gộp vào công tắc trong modal).
             case 'visualBg.videoAudio.openVolumeModal.click':
                 workflowVisualBg.openVideoAudioVolumeModal(msg.payload.videoKey);
                 break;
