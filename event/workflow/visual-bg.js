@@ -13,6 +13,7 @@ let visualBgVideoAudioPanelEl = null;
 
 const workflowVisualBg = {
     _listIndex: -1,            // vị trí hiện tại trong `source.list` — CHỈ dùng cho nhánh video ở đây
+    _isSwappingVideo: false,   // MỚI (08/08/2026, fix race "video chạy/lặp/đen màn thất thường") — xem docstring _playVideoKey()/syncPlaybackToAudio()
     _colorPersistTimer: null,
     _videoAudioRows: null,     // MỚI (08/08/2026) — cache {key,name}[] đọc lúc mở panel "Âm thanh Video", xem openVideoAudioPanel()/openVideoAudioVolumeModal()
 
@@ -275,7 +276,21 @@ const workflowVisualBg = {
         const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && this._effectiveCount(cfg) > 1;
         bgVideoElement.loop = !isCyclingSlideshow; // xem docstring trên — SỬA 08/08/2026
         bgVideoElement.classList.remove('hidden');
+        // MỚI (08/08/2026, fix "video chạy/hết/lặp lại chính nó/đen màn thất thường") — bọc
+        // `_isSwappingVideo` quanh TOÀN BỘ khoảng chờ `swapBgVideoSource()` (có `await
+        // getVideoRecord()` bên trong, độ trễ đọc DB thật, không phải 0ms). Video vừa hết
+        // (`ended`) nhưng CHƯA đổi `src` xong (đang ở khoảng chờ này) mà `syncPlaybackToAudio()`
+        // bắn TRÙNG lúc (bài hát đang nghe tự play/pause — HOÀN TOÀN độc lập với video, không liên
+        // quan gì tới việc video vừa hết) sẽ gọi `bgVideoElement.play()` lên video VỪA HẾT đó —
+        // theo đúng spec HTML, `play()` trên 1 `<video>` đã ở cuối (currentTime=duration, loop=
+        // false) tự động SEEK VỀ 0 rồi phát lại — đúng hiện tượng "lặp lại chính nó vài giây" đã
+        // báo cáo. Guard ở `syncPlaybackToAudio()` (ngay dưới) chặn lời gọi rơi đúng khoảng chờ
+        // này — trạng thái play/pause của nhạc vẫn được áp lại ĐÚNG ngay sau khi swap xong (dòng
+        // `syncVisualBgVideoPlayback()` cuối hàm này), không mất hiệu lực, chỉ dời lại đúng lúc an
+        // toàn.
+        this._isSwappingVideo = true;
         const record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true); // event/workflow/video-player.js — liên tuyến domain, isTransition=true LUÔN (VBG cần lớp dự phòng cả lúc áp lần đầu, không phân biệt như Video Player mode)
+        this._isSwappingVideo = false;
         if (!record) { await this._markCurrentMissing(); return; }
         updateDOMBackground(); // core/color-utils.js
         syncVisualBgVideoPlayback(audioPlayer.paused); // core/visual-bg.js — video trang trí phải tôn trọng trạng thái pause/play của nhạc
@@ -320,8 +335,13 @@ const workflowVisualBg = {
         await this._persist();
     },
 
-    /** Đồng bộ play/pause video nền theo nhạc — gọi từ core/player-controls.js + mỗi lần Next/Prev. */
+    /** Đồng bộ play/pause video nền theo nhạc — gọi từ core/player-controls.js + mỗi lần Next/Prev.
+     * Guard `_isSwappingVideo` (xem docstring `_playVideoKey()`) — bỏ qua lời gọi rơi đúng lúc đang
+     * đổi src video (video CŨ vừa hết, video MỚI chưa gán xong): gọi `play()`/`pause()` lên
+     * `bgVideoElement` lúc này sẽ nhắm NHẦM vào video CŨ đã ở cuối, gây phát lại từ đầu ngoài ý
+     * muốn. An toàn bỏ qua — `_playVideoKey()` tự áp lại ĐÚNG trạng thái này ngay khi swap xong. */
     syncPlaybackToAudio() {
+        if (this._isSwappingVideo) return;
         syncVisualBgVideoPlayback(audioPlayer.paused); // core/visual-bg.js
     },
 
@@ -594,8 +614,8 @@ const workflowVisualBg = {
             return `
             <div class="p-4 border-b border-white/5 last:border-b-0 flex items-center gap-2">
                 <span class="text-sm font-medium truncate min-w-0 flex-1">${escapeHtml(name)}</span>
-                <button type="button" data-visual-bg-video-audio-toggle="${escapeHtml(key)}" class="shrink-0 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">${this._videoAudioIconInnerHtml(enabled)}</button>
-                <button type="button" data-visual-bg-video-audio-open-volume="${escapeHtml(key)}" class="shrink-0 px-2.5 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"><span data-visual-bg-video-audio-volume-display="${escapeHtml(key)}" class="text-xs font-mono tabular-nums ${enabled ? 'text-slate-300' : 'text-slate-500'}">${volumePercent}%</span></button>
+                <button type="button" data-visual-bg-video-audio-toggle="${escapeHtml(key)}" class="shrink-0 p-2 transition-colors">${this._videoAudioIconInnerHtml(enabled)}</button>
+                <button type="button" data-visual-bg-video-audio-open-volume="${escapeHtml(key)}" class="shrink-0 px-1 py-2 transition-colors"><span data-visual-bg-video-audio-volume-display="${escapeHtml(key)}" class="text-xs font-mono tabular-nums ${enabled ? 'text-sky-400' : 'text-slate-500'}">${volumePercent}%</span></button>
             </div>`;
         }).join('');
     },
@@ -661,7 +681,7 @@ const workflowVisualBg = {
         const display = visualBgVideoAudioPanelEl.querySelector(`[data-visual-bg-video-audio-volume-display="${CSS.escape(videoKey)}"]`);
         if (display) {
             display.textContent = `${setting.volumePercent}%`;
-            display.classList.toggle('text-slate-300', setting.enabled);
+            display.classList.toggle('text-sky-400', setting.enabled);
             display.classList.toggle('text-slate-500', !setting.enabled);
         }
     },
