@@ -371,6 +371,13 @@ const workflowVisualBg = {
 
     /** Đọc lại origin + ghi đè `source.list` — dùng CHUNG cho lúc CHỌN nguồn lẫn bấm "Làm tươi".
      * Origin đọc ra rỗng (album/folder/ảnh/video không còn tồn tại) -> gỡ hẳn (Giang chốt mục 2).
+     * SỬA (08/08/2026, phản hồi Giang — "video key không còn tồn tại nữa là lưu trữ không cần
+     * thiết") — XOÁ HẲN `source.videoAudio` (không giữ lại bất kỳ entry nào, kể cả video vẫn còn
+     * mặt trong list mới) mỗi lần gọi hàm này — tức CẢ chọn nguồn MỚI lẫn "Làm tươi" nguồn CŨ đều
+     * làm sạch. Trước đây field này sống ĐỘC LẬP với `source.list`/`originKind`/`originId` (chỉ bị
+     * xoá lúc đổi `type`/`clearSource()`) — Giang chốt: KHÔNG còn "nhớ mãi theo video" nữa, ghi đè
+     * lại từ đầu theo ĐÚNG source hiện tại mỗi lần origin được đọc lại, tránh tích luỹ rác của
+     * video key không còn dùng.
      * @param {'single'|'group'} originKind
      * @param {string} originId
      * @returns {Promise<{added: number, removed: number, total: number}|null>} diff so với
@@ -390,8 +397,9 @@ const workflowVisualBg = {
             c.source.originKind = originKind;
             c.source.originId = originId;
             c.source.list = keys;
+            c.source.videoAudio = {}; // xem docstring trên — Giang chốt, xoá sạch mỗi lần đọc lại origin
         });
-        console.log(`writer: "workflowVisualBg._resolveAndCommitSource", page: "visualBgConfig", content: "source=${originKind}:${originId}, count=${keys.length}, +${added}/-${removed}"`);
+        console.log(`writer: "workflowVisualBg._resolveAndCommitSource", page: "visualBgConfig", content: "source=${originKind}:${originId}, count=${keys.length}, +${added}/-${removed}, videoAudio=cleared"`);
         await this._persist();
         await this.refreshPanelUI();
         await this.applyCurrentVisualBg();
