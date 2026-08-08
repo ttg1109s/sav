@@ -1,6 +1,8 @@
 /**
- * event/listener/visual-bg.js — Listener cụm "visualBg". 2 nguồn trigger: nút mở Settings (DOM
- * tĩnh) + control BÊN TRONG panel (delegation trên `settingsStackBody`, cùng khuôn slideshowSettings).
+ * event/listener/visual-bg.js — Listener cụm "visualBg". 3 nguồn trigger: nút mở Settings (DOM
+ * tĩnh) + control BÊN TRONG panel (delegation trên `settingsStackBody`, cùng khuôn slideshowSettings)
+ * + `bgVideoElement` tự bắn 'ended' nguyên bản (MỚI 08/08/2026 — video cycle mode 'slideshow' đợi
+ * hết thật, xem cuối file).
  * NẠP SAU CÙNG (sau bus, core, workflow, router, và core/dom-refs.js).
  */
 
@@ -83,4 +85,19 @@ if (settingsStackBody) {
     settingsStackBody.addEventListener('click', handleVisualBgSettingsDelegatedEvent);
     // `input` (không phải `change`) cho ô màu + 2 thanh trượt — cập nhật NGAY lúc kéo.
     settingsStackBody.addEventListener('input', handleVisualBgSettingsDelegatedEvent);
+}
+
+// MỚI (08/08/2026, phản hồi Giang — mục "video chạy/dừng/lặp/đen màn thất thường") — `bgVideoElement`
+// tự bắn 'ended' nguyên bản của trình duyệt. Guard `isVideoPlayerMode` NGƯỢC với listener ở
+// event/listener/video-player.js (nơi đó CHỈ xử lý khi player mode TRUE, dispatch playNext()) — ở
+// đây CHỈ xử lý khi player mode FALSE (đang dùng bgVideoElement để trang trí VBG), tránh dispatch 2
+// message cho cùng 1 sự kiện gốc. Chỉ THẬT SỰ bắn được khi `loop=false` — tức đúng lúc VBG đang
+// cycle nhiều video theo mode 'slideshow' (xem `_playVideoKey()`, event/workflow/visual-bg.js) —
+// perSong/1 item luôn loop=true nên trình duyệt không bao giờ bắn 'ended' cho 2 case đó, không cần
+// lọc thêm ở Listener (Workflow tự guard lại 1 lần nữa trong `_onVideoEnded()`, phòng thủ kép).
+if (bgVideoElement) {
+    bgVideoElement.addEventListener('ended', () => {
+        if (appState.get('isVideoPlayerMode')) return;
+        eventBus.send({ router: 'visualBg', type: 'visualBg.video.ended', payload: {} });
+    });
 }
