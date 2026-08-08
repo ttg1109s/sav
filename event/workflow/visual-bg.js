@@ -14,6 +14,7 @@ let visualBgVideoAudioPanelEl = null;
 const workflowVisualBg = {
     _listIndex: -1,            // vị trí hiện tại trong `source.list` — CHỈ dùng cho nhánh video ở đây
     _isSwappingVideo: false,   // MỚI (08/08/2026, fix race "video chạy/lặp/đen màn thất thường") — xem docstring _playVideoKey()/syncPlaybackToAudio()
+    _currentVideoKey: null,    // MỚI (08/08/2026, viết lại theo đúng khuôn Play mode) — key video ĐANG THẬT SỰ nạp trong bgVideoElement, RIÊNG của domain này (KHÔNG dùng appState.currentKey — khoá đó thuộc bài hát/video ĐANG PHÁT THẬT, video nền trang trí không được đụng, xem ver12 Song/Video Unification). Dùng làm nguồn so sánh cho guard "đã đúng video này rồi" ở _playVideoKey(), y hệt cách playVideoByKey() so appState.currentKey.
     _colorPersistTimer: null,
     _videoAudioRows: null,     // MỚI (08/08/2026) — cache {key,name}[] đọc lúc mở panel "Âm thanh Video", xem openVideoAudioPanel()/openVideoAudioVolumeModal()
 
@@ -155,6 +156,7 @@ const workflowVisualBg = {
         const { visualBgImageObjectUrl } = appState.get(['visualBgImageObjectUrl']);
         if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.stop();
         this._listIndex = -1;
+        this._currentVideoKey = null; // MỚI — dọn theo, xem docstring khai báo field ở đầu object
         // SỬA (Giang chốt — bỏ hẳn logic video tự viết ở VBG, dùng THẲNG cơ chế dùng chung của
         // workflowVideoPlayer) — thay `hideVisualBgVideoElement()` (core/visual-bg.js, ĐÃ XOÁ) bằng
         // `clearBgVideoSource()`: cùng 1 nơi sở hữu vòng đời `bgVideoElement`/object URL của nó,
@@ -229,18 +231,30 @@ const workflowVisualBg = {
         await this._advanceVideo();
     },
 
-    /** 1 nhịp cycle nhánh video: bước index (dọn null nếu vừa hết 1 vòng) rồi phát/ẩn theo kết quả.
-     * list.length<=1 -> không cycle (phát tĩnh, xem `_applyVideo`). */
+    /**
+     * VIẾT LẠI (08/08/2026, fix "video chạy/hết/lặp lại chính nó/đen màn thất thường", đợt 2) —
+     * coi `source.list` tương đương `displayOrder` của Playlist, "video hết" tương đương "có key
+     * mới -> nạp nó" — ĐÚNG quy trình `playNext()` (core/player-controls.js): tính XONG HẲN, ĐỒNG
+     * BỘ, "đứng ở đâu -> key kế tiếp là gì" TRƯỚC, không còn khoảng hở `await` nào chen giữa lúc
+     * tính `index` và lúc gán `this._listIndex` như bản trước (`await this._persist()` từng nằm
+     * TRƯỚC dòng gán `this._listIndex = index` — nếu bị gọi chồng đúng lúc đó, lượt gọi sau đọc
+     * `this._listIndex` CŨ, tính lại trúng đúng video vừa phát -> `_playVideoKey()` nạp lại y hệt
+     * video đó từ đầu, đúng hiện tượng "lặp lại chính nó"). Việc ghi lại `source.list` đã sweep/
+     * reshuffle (nếu chạm biên) giờ chạy NGẦM (không `await`) — Play mode không hề persist gì
+     * xuống DB mỗi lần next() cả, VBG cũng không được phép chặn/làm chậm việc phát video kế chỉ vì
+     * đang ghi DB.
+     * list.length<=1 -> không cycle (phát tĩnh, xem `_applyVideo`).
+     */
     async _advanceVideo() {
         const cfg = appConfigVisualBg.getAll();
         if (cfg.source.list.length <= 1) return;
         const { list, index } = this.advanceList(cfg.source.list, this._listIndex, cfg.nextOrder === 'random');
         if (index === -1) { await this.selfHealEmptySource(); return; }
+        this._listIndex = index; // gán NGAY, đồng bộ — TRƯỚC bất kỳ việc gì khác (kể cả persist ngầm ngay dưới)
         if (list !== cfg.source.list) {
             appConfigVisualBg.mutateAll((c) => { c.source.list = list; });
-            await this._persist();
+            this._persist(); // KHÔNG await — ghi ngầm, không chặn việc phát video kế tiếp
         }
-        this._listIndex = index;
         const key = list[index];
         if (!key) { this._hideVideoOnly(); return; } // null -> ẩn, chờ advance() lần sau
         await this._playVideoKey(key);
@@ -248,6 +262,7 @@ const workflowVisualBg = {
 
     /** Chỉ ẩn video (KHÔNG đụng task/index) — dùng khi item hiện tại là null giữa lúc đang cycle. */
     _hideVideoOnly() {
+        this._currentVideoKey = null;
         if (typeof workflowVideoPlayer !== 'undefined') workflowVideoPlayer.clearBgVideoSource(); // event/workflow/video-player.js — liên tuyến domain
     },
 
@@ -271,27 +286,28 @@ const workflowVisualBg = {
      * @param {string} videoKey
      */
     async _playVideoKey(videoKey) {
+        // MỚI (08/08/2026, viết lại theo đúng khuôn Play mode) — guard "đã đúng video này rồi" — Y
+        // HỆT check đầu `playVideoByKey()` (event/workflow/video-player.js): gọi lại hàm này với
+        // key ĐANG THẬT SỰ nạp (so cả `_currentVideoKey` lẫn `src` thật trên DOM, phòng lệch do nơi
+        // khác vừa dọn `bgVideoElement`) thì KHÔNG được nạp lại từ đầu — nạp lại = object URL mới +
+        // gán lại `src` = video restart về 0, đúng hiện tượng "lặp lại chính nó" đã báo cáo.
+        // Guard "khoá chống gọi chồng" — Y HỆT tinh thần `withLoadingShield` của Play mode (không
+        // cần lớp che UI vì VBG không có UI nào phải chờ) — 1 lượt swap đang dở dang thì lượt gọi
+        // chồng lên phải bỏ qua, không được phép cùng lúc đụng `bgVideoElement`.
+        if (
+            (videoKey === this._currentVideoKey && workflowVideoPlayer._objectUrl && bgVideoElement.getAttribute('src') === workflowVideoPlayer._objectUrl)
+            || this._isSwappingVideo
+        ) return;
         this._applyVideoAudioSettingToElement(videoKey); // core/visual-bg.js lookup + gán muted/volume — xem docstring trên
         const cfg = appConfigVisualBg.getAll();
         const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && this._effectiveCount(cfg) > 1;
         bgVideoElement.loop = !isCyclingSlideshow; // xem docstring trên — SỬA 08/08/2026
         bgVideoElement.classList.remove('hidden');
-        // MỚI (08/08/2026, fix "video chạy/hết/lặp lại chính nó/đen màn thất thường") — bọc
-        // `_isSwappingVideo` quanh TOÀN BỘ khoảng chờ `swapBgVideoSource()` (có `await
-        // getVideoRecord()` bên trong, độ trễ đọc DB thật, không phải 0ms). Video vừa hết
-        // (`ended`) nhưng CHƯA đổi `src` xong (đang ở khoảng chờ này) mà `syncPlaybackToAudio()`
-        // bắn TRÙNG lúc (bài hát đang nghe tự play/pause — HOÀN TOÀN độc lập với video, không liên
-        // quan gì tới việc video vừa hết) sẽ gọi `bgVideoElement.play()` lên video VỪA HẾT đó —
-        // theo đúng spec HTML, `play()` trên 1 `<video>` đã ở cuối (currentTime=duration, loop=
-        // false) tự động SEEK VỀ 0 rồi phát lại — đúng hiện tượng "lặp lại chính nó vài giây" đã
-        // báo cáo. Guard ở `syncPlaybackToAudio()` (ngay dưới) chặn lời gọi rơi đúng khoảng chờ
-        // này — trạng thái play/pause của nhạc vẫn được áp lại ĐÚNG ngay sau khi swap xong (dòng
-        // `syncVisualBgVideoPlayback()` cuối hàm này), không mất hiệu lực, chỉ dời lại đúng lúc an
-        // toàn.
         this._isSwappingVideo = true;
-        const record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true); // event/workflow/video-player.js — liên tuyến domain, isTransition=true LUÔN (VBG cần lớp dự phòng cả lúc áp lần đầu, không phân biệt như Video Player mode)
+        const record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true); // event/workflow/video-player.js — liên tuyến domain, isTransition=true LUÔN (VBG cần lớp dự phòng cả lúc áp lần đầu, không phân biệt như Video Player mode) — bên trong: pause video cũ -> đọc record -> chèn full-res thumb dự phòng -> nạp blob mới -> gán poster/src -> play()
         this._isSwappingVideo = false;
         if (!record) { await this._markCurrentMissing(); return; }
+        this._currentVideoKey = videoKey; // MỚI — ghi NGAY sau khi swap thành công, làm nguồn so sánh cho guard dedupe ở đầu hàm
         updateDOMBackground(); // core/color-utils.js
         syncVisualBgVideoPlayback(audioPlayer.paused); // core/visual-bg.js — video trang trí phải tôn trọng trạng thái pause/play của nhạc
         workflowVideoPlayer.waitBgVideoReady(); // KHÔNG await (fix bug boot chặn playlist, mục 4) — chỉ để dọn lớp thumb dự phòng đúng lúc
