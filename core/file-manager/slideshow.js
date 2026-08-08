@@ -138,21 +138,11 @@ function pickNextSlideshowIndexSequential(currentIndex, length) {
     return (currentIndex + 1) % length;
 }
 
-/**
- * Core thuần: chọn index KẾ TIẾP NGẪU NHIÊN, khác currentIndex nếu length>1 — TÁCH RIÊNG khỏi bản
- * sequential ở trên (Rule 1: xem giải thích đầu file). Nơi gọi tự chọn gọi hàm nào theo đúng
- * slideshowConfig.mode hiện tại.
- * @param {number} currentIndex
- * @param {number} length
- * @returns {number} -1 nếu length<=0.
- */
-function pickNextSlideshowIndexRandom(currentIndex, length) {
-    if (length <= 0) return -1;
-    if (length === 1) return 0;
-    let idx = currentIndex;
-    while (idx === currentIndex) idx = Math.floor(Math.random() * length);
-    return idx;
-}
+// XOÁ (08/08/2026, phản hồi Giang) — `pickNextSlideshowIndexRandom()` (random-loại-trừ-liền-kề trên
+// TOÀN mảng mỗi bước) đã bỏ hẳn — thay bằng shuffle-bag (`shuffleVisualBgList()`, core/visual-bg.js
+// + `pickNextSlideshowIndexSequential()` DÙNG CHUNG cho cả 2 nextOrder, xem
+// `workflowVisualBg.advanceList()`/`firstIndex()`) — xem docstring `shuffleVisualBgList()` cho lý do
+// đổi hẳn thuật toán, không phải xoá suông.
 
 /** Core thuần: hiện/ẩn toàn bộ container slideshow. */
 function setSlideshowContainerVisible(containerEl, visible) {
