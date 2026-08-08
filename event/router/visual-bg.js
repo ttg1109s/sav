@@ -117,6 +117,19 @@ const routerVisualBg = (() => {
                 workflowSlideshow.openPanel();
                 break;
 
+            // MỚI (08/08/2026) — sub-panel "Âm thanh Video".
+            case 'visualBg.openVideoAudioPanel.click':
+                workflowVisualBg.openVideoAudioPanel();
+                break;
+
+            case 'visualBg.videoAudio.enable.change':
+                workflowVisualBg.setVideoAudioEnabled(msg.payload.videoKey, msg.payload.checked);
+                break;
+
+            case 'visualBg.videoAudio.volume.input':
+                workflowVisualBg.setVideoAudioVolume(msg.payload.videoKey, msg.payload.value);
+                break;
+
             default:
                 console.warn(`[routerVisualBg] msg.type không xác định: "${msg.type}"`, msg);
         }
