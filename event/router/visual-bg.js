@@ -128,8 +128,11 @@ const routerVisualBg = (() => {
                 workflowVisualBg.openVideoAudioPanel();
                 break;
 
-            // SỬA (08/08/2026, phản hồi Giang mục "bỏ checkbox") — bỏ case
-            // 'visualBg.videoAudio.enable.change' (checkbox rời đã gộp vào công tắc trong modal).
+            // SỬA (08/08/2026, phản hồi Giang — icon(1) toggle ngay, %(2) mở modal — 2 case riêng).
+            case 'visualBg.videoAudio.toggle.click':
+                workflowVisualBg.toggleVideoAudioEnabled(msg.payload.videoKey);
+                break;
+
             case 'visualBg.videoAudio.openVolumeModal.click':
                 workflowVisualBg.openVideoAudioVolumeModal(msg.payload.videoKey);
                 break;
