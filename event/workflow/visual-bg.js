@@ -87,51 +87,56 @@ const workflowVisualBg = {
     },
 
     // ===================== Bước index trong source.list — DÙNG CHUNG ảnh + video =====================
-    // 3 hàm dưới đây là ĐIỂM TÍNH TOÁN DUY NHẤT cho "bước tiếp theo/lượt đầu" trong `source.list` —
+    // 2 hàm dưới đây là ĐIỂM TÍNH TOÁN DUY NHẤT cho "bước tiếp theo/lượt đầu" trong `source.list` —
     // nhánh video (_applyVideo/_advanceVideo ngay dưới) gọi NỘI BỘ, nhánh ảnh (workflowSlideshow,
     // event/workflow/slideshow.js) gọi LIÊN TUYẾN DOMAIN sang đây thay vì tự viết lại (nguồn sự thật
     // `source.list` vẫn thuộc domain này — cùng nguyên tắc ownership đã áp cho
     // persistSourceListMutation()/selfHealEmptySource() ở dưới).
-    // SỬA 08/08/2026 (phản hồi Giang, thay cho core `advanceVisualBgList()` TỰ gọi
-    // pickNextSlideshowIndexRandom/Sequential — core-gọi-core, vi phạm Rule 3): Workflow đứng NGOÀI,
-    // tự gọi core A (`pickNext...`) lấy index, rồi tự chọn gọi core B nào (`advanceVisualBgList()`
-    // hay `shuffleVisualBgListKeepingIndex()`) — đúng Rule 3b.
+    //
+    // VIẾT LẠI HẲN (08/08/2026, phản hồi Giang — "list không hề random, lặp lại liên tục", verify
+    // bằng cách chạy thử: N=2/3 item, random-loại-trừ-liền-kề cũ suy biến gần hệt tuần tự thuần) —
+    // BỎ `pickNextSlideshowIndexRandom()` (đã xoá, core/file-manager/slideshow.js) + block
+    // `shuffleVisualBgListKeepingIndex()` cũ (xáo VỊ TRÍ LƯU TRỮ không đổi được PHÂN PHỐI của
+    // `Math.random()*length` — code chết, không có tác dụng thật). Đổi hẳn sang shuffle-bag ĐÚNG
+    // NGHĨA: `nextOrder==='random'` giờ CŨNG bước TUẦN TỰ (`pickNextSlideshowIndexSequential()`,
+    // DÙNG CHUNG với `sequential`) qua mảng — chỉ khác `sequential` ở chỗ mảng được XÁO LẠI
+    // (`shuffleVisualBgList()`, core/visual-bg.js — Fisher-Yates TOÀN mảng) mỗi khi vừa đi hết 1
+    // vòng (`nextIndex===0`), đảm bảo mọi item được phát ĐỦ 1 lượt trước khi có item nào lặp lại —
+    // đúng tinh thần "mô hình shuffle-bag như Space visualizer" đã định làm từ đầu nhưng bản cũ chưa
+    // đạt được. Item VỪA phát (cuối vòng cũ) được loại trừ khỏi vị trí ĐẦU mảng mới xáo (nếu random
+    // rơi trúng) — tránh lặp liền kề ngay điểm nối 2 vòng, cùng convention đã dùng cho
+    // `resolveSlideshowKenBurnsDirection()` (core/file-manager/slideshow.js).
 
-    /** RIÊNG `nextOrder==='random'`: index vừa tính rơi ĐÚNG vị trí CUỐI mảng -> xáo lại mảng NGAY
-     * cho vòng sau (Giang chốt, core `shuffleVisualBgListKeepingIndex()` — giữ nguyên key tại vị trí
-     * đó, không đổi ảnh/video đang phát). `sequential`/`playlist` không qua nhánh này. */
-    _maybeReshuffleAtBoundary(list, index, isRandom) {
-        if (!isRandom || index !== list.length - 1) return list;
-        return shuffleVisualBgListKeepingIndex(list, index); // core/visual-bg.js
-    },
-
-    /** Chọn index LƯỢT ĐẦU (`currentIndex=-1`) — không qua `advanceVisualBgList()` (mảng vừa đọc từ
-     * origin luôn sạch, chưa lẫn null nào cần dọn). Vẫn áp `_maybeReshuffleAtBoundary()` — lượt đầu
-     * bốc trúng đúng vị trí cuối mảng thì cũng xáo lại như mọi lượt khác (đối xứng).
+    /** Chọn index LƯỢT ĐẦU (`currentIndex=-1`). `sequential`: index 0, mảng giữ nguyên thứ tự gốc.
+     * `random`: xáo cả mảng 1 lần rồi bắt đầu từ index 0 của mảng đã xáo.
      * @param {Array<string|null>} list
      * @param {boolean} isRandom
      * @returns {{ list: Array<string|null>, index: number }}
      */
     firstIndex(list, isRandom) {
-        const index = isRandom
-            ? pickNextSlideshowIndexRandom(-1, list.length)      // core/file-manager/slideshow.js
-            : pickNextSlideshowIndexSequential(-1, list.length); // core/file-manager/slideshow.js
-        return { list: this._maybeReshuffleAtBoundary(list, index, isRandom), index };
+        if (!isRandom) return { list, index: pickNextSlideshowIndexSequential(-1, list.length) }; // core/file-manager/slideshow.js
+        return { list: shuffleVisualBgList(list), index: 0 }; // core/visual-bg.js — lượt đầu, chưa có gì để loại trừ
     },
 
-    /** Chọn index MỖI LƯỢT SAU (cycle) — tính `nextIndex` rồi hoặc xáo lại (chạm vị trí cuối, random)
-     * hoặc áp bình thường qua core `advanceVisualBgList()` (tự sweep null nếu vừa hết 1 vòng).
+    /** Chọn index MỖI LƯỢT SAU (cycle) — bước tuần tự qua mảng hiện tại; `random` xáo lại TOÀN mảng
+     * (loại trừ item vừa phát khỏi vị trí đầu mảng mới) đúng lúc vừa đi hết 1 vòng, rồi mới sweep
+     * null qua `advanceVisualBgList()` (core, không đổi — vẫn ĐÚNG chỗ dọn null cho cả 2 nextOrder).
      * @param {Array<string|null>} list
      * @param {number} currentIndex
      * @param {boolean} isRandom
      * @returns {{ list: Array<string|null>, index: number }} `index=-1` nếu mảng rỗng sau dọn.
      */
     advanceList(list, currentIndex, isRandom) {
-        const nextIndex = isRandom
-            ? pickNextSlideshowIndexRandom(currentIndex, list.length)      // core/file-manager/slideshow.js
-            : pickNextSlideshowIndexSequential(currentIndex, list.length); // core/file-manager/slideshow.js
-        const reshuffled = this._maybeReshuffleAtBoundary(list, nextIndex, isRandom);
-        if (reshuffled !== list) return { list: reshuffled, index: nextIndex };
+        const nextIndex = pickNextSlideshowIndexSequential(currentIndex, list.length); // core/file-manager/slideshow.js — DÙNG CHUNG cho cả 2 nextOrder, khác nhau ở việc random có xáo lại mảng hay không
+        if (isRandom && nextIndex === 0 && list.length > 1) {
+            const justPlayedKey = currentIndex >= 0 ? list[currentIndex] : null;
+            let reshuffled = shuffleVisualBgList(list); // core/visual-bg.js
+            if (reshuffled[0] === justPlayedKey) { // tránh lặp liền kề ngay điểm nối 2 vòng
+                const swapWith = 1 + Math.floor(Math.random() * (reshuffled.length - 1));
+                [reshuffled[0], reshuffled[swapWith]] = [reshuffled[swapWith], reshuffled[0]];
+            }
+            return advanceVisualBgList(reshuffled, nextIndex); // core/visual-bg.js — vẫn sweep null như cũ
+        }
         return advanceVisualBgList(list, nextIndex); // core/visual-bg.js
     },
 
@@ -304,7 +309,11 @@ const workflowVisualBg = {
         bgVideoElement.loop = !isCyclingSlideshow; // xem docstring trên — SỬA 08/08/2026
         bgVideoElement.classList.remove('hidden');
         this._isSwappingVideo = true;
-        const record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true); // event/workflow/video-player.js — liên tuyến domain, isTransition=true LUÔN (VBG cần lớp dự phòng cả lúc áp lần đầu, không phân biệt như Video Player mode) — bên trong: pause video cũ -> đọc record -> chèn full-res thumb dự phòng -> nạp blob mới -> gán poster/src -> play()
+        // SỬA (08/08/2026, phản hồi Giang — màn đen ở video cuối `source.list`) — thêm tham số thứ 4
+        // `hideUntilReady=true`: VBG (KHÁC Video Player mode thật — nhánh đó vẫn ổn định, KHÔNG
+        // truyền tham số này, giữ nguyên hành vi) ẩn hẳn `bgVideoElement` quanh lúc đổi src, lộ đúng
+        // lớp thumb full-res đã chèn (bên trong swapBgVideoSource), tự gỡ ẩn khi video mới sẵn sàng.
+        const record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true, null, true); // event/workflow/video-player.js — liên tuyến domain, isTransition=true LUÔN (VBG cần lớp dự phòng cả lúc áp lần đầu, không phân biệt như Video Player mode) — bên trong: pause video cũ -> đọc record -> chèn full-res thumb dự phòng -> ẩn bgVideoElement -> nạp blob mới -> gán poster/src -> play() -> gỡ ẩn khi sẵn sàng
         this._isSwappingVideo = false;
         if (!record) { await this._markCurrentMissing(); return; }
         this._currentVideoKey = videoKey; // MỚI — ghi NGAY sau khi swap thành công, làm nguồn so sánh cho guard dedupe ở đầu hàm

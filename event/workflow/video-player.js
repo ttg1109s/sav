@@ -56,19 +56,35 @@ const workflowVideoPlayer = {
      * @param {Function} [beforePlay=null] - hook chạy NGAY TRƯỚC khi gán `poster`/`src`/`play()` —
      *   CHỈ để `playVideoByKey()` chèn `setupAudioContext()`/`connectVideoElementToAnalyser()`
      *   ĐÚNG VỊ TRÍ như bản gốc (Visual Background không cần, không truyền).
+     * @param {boolean} [hideUntilReady=false] - MỚI (08/08/2026, phản hồi Giang — màn đen ở VBG
+     *   video slideshow, RIÊNG video cuối `source.list`) — ẩn hẳn `bgVideoElement` (`.hidden`,
+     *   display:none) NGAY TRƯỚC khi đụng `src` (đúng lúc `#visual-bg-image` đã có sẵn thumb full-
+     *   res PAINT XONG ở bước trên — decodeForcedBgThumb() đã tự đợi double-rAF, KHÔNG cần đợi thêm
+     *   gì nữa, xem BÀI HỌC core/video-player.js: KHÔNG thể che 1 `<video>` đang hiện bằng lớp ĐÈ
+     *   LÊN TRÊN nó trên WKWebView/iOS — chỉ có thể lộ lớp NẰM DƯỚI bằng cách ẩn hẳn chính nó), rồi
+     *   tự gỡ `.hidden` NGAY khi `_swapReadyPromise` xong (sự kiện 'playing' hoặc timeout 2s ĐÃ CÓ
+     *   SẴN — không thêm cơ chế chờ nào khác). Video Player mode KHÔNG truyền (mặc định `false`,
+     *   giữ NGUYÊN hành vi đang ổn định — Giang chốt lấy nhánh đó làm chuẩn, không đụng) — CHỈ
+     *   `workflowVisualBg._playVideoKey()` truyền `true`.
      * @returns {Promise<object|null>} record đã đọc (`null` nếu không tồn tại — caller tự lo, KHÔNG throw).
      */
-    async swapBgVideoSource(videoKey, isTransition = false, beforePlay = null) {
+    async swapBgVideoSource(videoKey, isTransition = false, beforePlay = null, hideUntilReady = false) {
         bgVideoElement.pause(); // (1) đứng hình NGAY — CHƯA đụng src, khung hình cũ giữ nguyên
         const record = await getVideoRecord(videoKey); // (2) service/db.js — trong lúc đợi, màn hình vẫn đứng yên ở khung hình cũ
         if (!record) return null;
 
         if (isTransition && record.thumbFullBlob) {
-            const forcedUrl = await decodeForcedBgThumb(record.thumbFullBlob); // core/video-player.js
+            const forcedUrl = await decodeForcedBgThumb(record.thumbFullBlob); // core/video-player.js — TỰ đợi double-rAF, đảm bảo đã PAINT xong tới đây
             if (this._forcedBgObjectUrl) { try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {} }
             this._forcedBgObjectUrl = forcedUrl;
             applyVisualBgImageToDOM(true, forcedUrl); // core/visual-bg.js
         }
+
+        // Lớp thumb full-res (nếu có) đã PAINT xong ở bước trên — ẩn `bgVideoElement` ngay bây giờ
+        // là an toàn, lộ đúng thumb đó (KHÔNG có khoảng hở đen giữa 2 lớp). Đặt SAU bước chèn thumb,
+        // TRƯỚC khi đụng src — đúng thứ tự Giang yêu cầu (pause khung cũ -> gán thumb full res -> ẩn
+        // video -> gán src mới -> gỡ ẩn khi sẵn sàng).
+        if (hideUntilReady) bgVideoElement.classList.add('hidden');
 
         if (this._objectUrl) { try { URL.revokeObjectURL(this._objectUrl); } catch (e) {} }
         this._objectUrl = URL.createObjectURL(record.blob);
@@ -91,6 +107,7 @@ const workflowVideoPlayer = {
             const finish = () => {
                 if (done) return;
                 done = true;
+                if (hideUntilReady) bgVideoElement.classList.remove('hidden'); // video thật đã có khung hình (hoặc hết 2s chờ) -> gỡ ẩn, dùng CHUNG đúng 1 mốc sẵn có, không thêm cơ chế chờ riêng
                 resolve();
             };
             bgVideoElement.addEventListener('playing', finish, { once: true });
