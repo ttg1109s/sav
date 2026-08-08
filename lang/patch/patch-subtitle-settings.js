@@ -81,6 +81,11 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'visualBgSettingsDrawer.folderPicker.emptyTooFew': 'You have video folders, but none holds at least {count} videos yet. A list needs more than one video to rotate through — add more, or pick a single video instead.',
     'visualBgSettingsDrawer.openSlideshow.label': 'Slideshow options...',
     'visualBgSettingsDrawer.openSlideshow.hint': 'Transition + Ken Burns',
+    // MỚI (08/08/2026) — sub-panel "Âm thanh Video" (bật/tắt + volume% audio riêng từng video).
+    'visualBgSettingsDrawer.openVideoAudio.label': 'Video audio...',
+    'visualBgSettingsDrawer.openVideoAudio.hint': 'Per-video sound, mixed under the main audio',
+    'visualBgSettingsDrawer.videoAudio.hint': 'Turn on a video\'s own audio to play it alongside the main song, at the volume you set.',
+    'visualBgSettingsDrawer.videoAudio.empty': 'No video in the current source yet.',
 
     'slideshowSettingsDrawer.title': 'Slideshow Background',
     // VIẾT LẠI (Batch 9, 04/07/2026, mục 4) — gộp 2 section cũ ("Album"/"Playback") thành 1; 2 nút
