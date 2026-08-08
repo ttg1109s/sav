@@ -9,6 +9,7 @@
  */
 let visualBgSettingsPanelEl = null;
 let visualBgGradientPanelEl = null;
+let visualBgVideoAudioPanelEl = null;
 
 /** Task của nhánh video khi `listPlaybackMode='slideshow'` (đổi video theo chu kỳ giây). */
 const VISUAL_BG_VIDEO_TASK = 'visualBgVideoRotate';
@@ -29,6 +30,17 @@ const workflowVisualBg = {
                     if (saved.source.originKind === null || ['single', 'group'].includes(saved.source.originKind)) cfg.source.originKind = saved.source.originKind;
                     if (saved.source.originId === null || typeof saved.source.originId === 'string') cfg.source.originId = saved.source.originId;
                     if (Array.isArray(saved.source.list)) cfg.source.list = saved.source.list.filter((k) => k === null || typeof k === 'string');
+                    if (saved.source.videoAudio && typeof saved.source.videoAudio === 'object') {
+                        // Validate TỪNG entry qua chính core getVisualBgVideoAudioSetting() (Rule 3b:
+                        // Workflow tự gọi, không để core tự lặp/tự đọc object ngoài tham số) — clamp
+                        // volumePercent + fallback enabled hỏng, loại key không phải string.
+                        const cleaned = {};
+                        Object.keys(saved.source.videoAudio).forEach((k) => {
+                            if (typeof k !== 'string') return;
+                            cleaned[k] = getVisualBgVideoAudioSetting(saved.source.videoAudio, k); // core/visual-bg.js
+                        });
+                        cfg.source.videoAudio = cleaned;
+                    }
                 }
                 if (VISUAL_BG_LIST_PLAYBACK_MODES.includes(saved.listPlaybackMode)) cfg.listPlaybackMode = saved.listPlaybackMode;
                 if (VISUAL_BG_NEXT_ORDERS.includes(saved.nextOrder)) cfg.nextOrder = saved.nextOrder;
@@ -229,14 +241,19 @@ const workflowVisualBg = {
      * Nạp/đổi video nền — KHÔNG tự viết logic đổi src/poster/thumb nữa (Giang chốt: bỏ hẳn bản VBG
      * tự làm, dùng THẲNG cơ chế dùng chung với Video Player mode thật —
      * `workflowVideoPlayer.swapBgVideoSource()`/`waitBgVideoReady()`, event/workflow/video-
-     * player.js). Hàm này chỉ còn lo phần RIÊNG của VBG: muted/loop luôn true (trang trí, KHÁC Video
+     * player.js). Hàm này chỉ còn lo phần RIÊNG của VBG: `loop` luôn true (trang trí, KHÁC Video
      * Player mode thật — nơi đó `setBgVideoElementForPlayerMode(true)` lo phần này), tôn trọng
      * play/pause của nhạc, và KHÔNG await bước chờ 'playing' (fix bug boot chặn playlist, mục 4 —
      * Video Player mode LUÔN đợi vì cần biết chắc mới đổi UI, VBG không có UI nào phải đợi cả).
+     * SỬA (08/08/2026, phản hồi Giang) — `muted` KHÔNG còn cứng `true`: áp `_applyVideoAudioSettingToElement()`
+     * TRƯỚC `swapBgVideoSource()` (đúng thứ tự cũ, để trình duyệt nhận đúng trạng thái muted NGAY
+     * lúc `play()` bên trong hàm đó chạy — gỡ muted SAU khi play() đã gọi có thể vẫn bị autoplay
+     * policy chặn âm). Coi việc người dùng đã bấm Play nhạc chính là đủ điều kiện tương tác để gỡ
+     * muted an toàn (Giang chốt) — không thêm gate/catch riêng.
      * @param {string} videoKey
      */
     async _playVideoKey(videoKey) {
-        bgVideoElement.muted = true;
+        this._applyVideoAudioSettingToElement(videoKey); // core/visual-bg.js lookup + gán muted/volume — xem docstring trên
         bgVideoElement.loop = true;
         bgVideoElement.classList.remove('hidden');
         const record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true); // event/workflow/video-player.js — liên tuyến domain, isTransition=true LUÔN (VBG cần lớp dự phòng cả lúc áp lần đầu, không phân biệt như Video Player mode)
@@ -244,6 +261,17 @@ const workflowVisualBg = {
         updateDOMBackground(); // core/color-utils.js
         syncVisualBgVideoPlayback(audioPlayer.paused); // core/visual-bg.js — video trang trí phải tôn trọng trạng thái pause/play của nhạc
         workflowVideoPlayer.waitBgVideoReady(); // KHÔNG await (fix bug boot chặn playlist, mục 4) — chỉ để dọn lớp thumb dự phòng đúng lúc
+    },
+
+    /** Đọc cấu hình audio riêng của `videoKey` (core `getVisualBgVideoAudioSetting()`) rồi gán thẳng
+     * `bgVideoElement.muted`/`.volume` — DOM 1 dòng, không cần core DOM riêng (cùng khuôn `.loop`/
+     * `.classList` viết thẳng ở Workflow trước giờ). Gọi lúc phát video (TRƯỚC play(), xem
+     * `_playVideoKey()`) VÀ lúc user tick/sửa volume ngay khi video đó đang là video ĐANG PHÁT (áp
+     * live, không cần đợi vòng cycle sau — xem `setVideoAudioEnabled()`/`setVideoAudioVolume()`). */
+    _applyVideoAudioSettingToElement(videoKey) {
+        const { enabled, volumePercent } = getVisualBgVideoAudioSetting(appConfigVisualBg.getAll().source.videoAudio, videoKey); // core/visual-bg.js
+        bgVideoElement.muted = !enabled;
+        bgVideoElement.volume = volumePercent / 100;
     },
 
     /** Đánh dấu vị trí hiện tại là mất + ẩn — KHÔNG reset index/task, chờ advance() lần sau tự bước
@@ -371,7 +399,7 @@ const workflowVisualBg = {
     /** Gỡ hẳn nguồn hiện tại — về "chưa chọn" (đường DUY NHẤT, không còn Block gate chặn xoá ảnh/
      * video/album/folder — Batch 3). */
     async clearSource() {
-        appConfigVisualBg.mutateAll((cfg) => { cfg.source = { originKind: null, originId: null, list: [] }; });
+        appConfigVisualBg.mutateAll((cfg) => { cfg.source = { originKind: null, originId: null, list: [], videoAudio: {} }; });
         console.log(`writer: "workflowVisualBg.clearSource", page: "visualBgConfig", content: "source=cleared"`);
         await this._persist();
         await this.refreshPanelUI();
@@ -382,7 +410,7 @@ const workflowVisualBg = {
      * (key khác kiểu vô nghĩa ở type mới), chọn lại từ đầu. */
     async changeType(value) {
         if (!VISUAL_BG_TYPES.includes(value)) return;
-        appConfigVisualBg.mutateAll((cfg) => { cfg.type = value; cfg.source = { originKind: null, originId: null, list: [] }; });
+        appConfigVisualBg.mutateAll((cfg) => { cfg.type = value; cfg.source = { originKind: null, originId: null, list: [], videoAudio: {} }; });
         console.log(`writer: "workflowVisualBg.changeType", page: "visualBgConfig", content: "type=${value} (gỡ source cũ)"`);
         await this._persist();
         await this.refreshPanelUI();
@@ -499,6 +527,87 @@ const workflowVisualBg = {
         visualBgGradientPanelEl.querySelector('#visual-bg-gradient-preview').style.backgroundImage = buildVisualBgGradientCss(cfg.gradientStops, cfg.gradientAngleDeg); // core/visual-bg.js
     },
 
+    // ===================== Sub-panel "Âm thanh Video" (MỚI, 08/08/2026, phản hồi Giang) =====================
+    // Bật/tắt + volume% audio RIÊNG cho từng video trong `source.list` — áp dụng CẢ single lẫn list
+    // (Giang chốt). CÙNG khuôn sub-panel Gradient ngay trên: push/pop qua Settings Stack, danh sách
+    // hàng vẽ ĐỘNG bởi `_renderVideoAudioRows()`, template khung rỗng ở
+    // components/visual-bg-video-audio-drawer.js.
+
+    /** Mở panel — đọc TÊN từng video (song song, giống `_applyNextOrderToKeys()`) rồi vẽ hàng. */
+    async openVideoAudioPanel() {
+        visualBgVideoAudioPanelEl = pushSettingsPanel({ title: t('visualBgSettingsDrawer.openVideoAudio.label'), bodyHtml: renderVisualBgVideoAudioPanelBody() }); // core/settings-panel-stack-ui.js
+        const cfg = appConfigVisualBg.getAll();
+        const keys = cfg.source.list.filter((k) => k !== null);
+        const records = await Promise.all(keys.map((k) => getVideoRecord(k))); // service/db.js
+        const rows = keys.map((key, i) => ({
+            key,
+            name: records[i] ? (records[i].customName || stripFileExtension(records[i].filename)) : key, // core/file-manager/video.js
+        }));
+        this._renderVideoAudioRows(rows, appConfigVisualBg.getAll().source.videoAudio);
+    },
+
+    _renderVideoAudioRows(rows, videoAudioMap) {
+        const listEl = visualBgVideoAudioPanelEl.querySelector('#visual-bg-video-audio-list');
+        if (rows.length === 0) {
+            listEl.innerHTML = `<div class="p-4 text-sm text-slate-400 text-center">${t('visualBgSettingsDrawer.videoAudio.empty')}</div>`;
+            return;
+        }
+        listEl.innerHTML = rows.map(({ key, name }) => {
+            const { enabled, volumePercent } = getVisualBgVideoAudioSetting(videoAudioMap, key); // core/visual-bg.js
+            return `
+            <div class="p-4 border-b border-white/5 last:border-b-0">
+                <label class="flex items-center justify-between gap-3 cursor-pointer">
+                    <span class="text-sm font-medium truncate min-w-0">${escapeHtml(name)}</span>
+                    <input type="checkbox" data-visual-bg-video-audio-enable="${escapeHtml(key)}" class="w-5 h-5 accent-sky-500 shrink-0" ${enabled ? 'checked' : ''}>
+                </label>
+                <div class="flex items-center gap-3 mt-3 ${enabled ? '' : 'hidden'}" data-visual-bg-video-audio-volume-row="${escapeHtml(key)}">
+                    <input type="range" data-visual-bg-video-audio-volume="${escapeHtml(key)}" min="0" max="100" step="1" value="${volumePercent}" class="flex-1 accent-sky-500">
+                    <span data-visual-bg-video-audio-volume-label="${escapeHtml(key)}" class="text-xs text-slate-400 w-10 text-right tabular-nums">${volumePercent}%</span>
+                </div>
+            </div>`;
+        }).join('');
+    },
+
+    /** Tick bật/tắt audio 1 video — Rule 3b: tự đọc `current` qua core A rồi truyền vào core B. */
+    async setVideoAudioEnabled(videoKey, enabled) {
+        const cfg = appConfigVisualBg.getAll();
+        const current = getVisualBgVideoAudioSetting(cfg.source.videoAudio, videoKey); // core/visual-bg.js
+        const nextMap = setVisualBgVideoAudioSetting(cfg.source.videoAudio, videoKey, current, { enabled }); // core/visual-bg.js
+        appConfigVisualBg.mutateAll((c) => { c.source.videoAudio = nextMap; });
+        console.log(`writer: "workflowVisualBg.setVideoAudioEnabled", page: "visualBgConfig", content: "source.videoAudio[${videoKey}].enabled=${enabled}"`);
+        await this._persist();
+        if (visualBgVideoAudioPanelEl) {
+            const row = visualBgVideoAudioPanelEl.querySelector(`[data-visual-bg-video-audio-volume-row="${CSS.escape(videoKey)}"]`);
+            if (row) row.classList.toggle('hidden', !enabled);
+        }
+        this._applyLiveIfCurrentVideo(videoKey);
+    },
+
+    /** Kéo thanh trượt volume 1 video — cùng khuôn Rule 3b như trên. */
+    async setVideoAudioVolume(videoKey, volumePercent) {
+        const parsed = Number(volumePercent);
+        if (!Number.isFinite(parsed)) return; // guard clause thuần
+        const cfg = appConfigVisualBg.getAll();
+        const current = getVisualBgVideoAudioSetting(cfg.source.videoAudio, videoKey); // core/visual-bg.js
+        const nextMap = setVisualBgVideoAudioSetting(cfg.source.videoAudio, videoKey, current, { volumePercent: parsed }); // core/visual-bg.js
+        appConfigVisualBg.mutateAll((c) => { c.source.videoAudio = nextMap; });
+        console.log(`writer: "workflowVisualBg.setVideoAudioVolume", page: "visualBgConfig", content: "source.videoAudio[${videoKey}].volumePercent=${parsed}"`);
+        await this._persist();
+        if (visualBgVideoAudioPanelEl) {
+            const label = visualBgVideoAudioPanelEl.querySelector(`[data-visual-bg-video-audio-volume-label="${CSS.escape(videoKey)}"]`);
+            if (label) label.textContent = `${Math.min(100, Math.max(0, parsed))}%`;
+        }
+        this._applyLiveIfCurrentVideo(videoKey);
+    },
+
+    /** `videoKey` vừa sửa audio TRÙNG video đang phát ngay lúc này -> áp lên DOM NGAY, không đợi
+     * vòng cycle sau mới nghe thấy hiệu lực. */
+    _applyLiveIfCurrentVideo(videoKey) {
+        if (this._listIndex < 0) return;
+        const cfg = appConfigVisualBg.getAll();
+        if (cfg.type === 'video' && cfg.source.list[this._listIndex] === videoKey) this._applyVideoAudioSettingToElement(videoKey);
+    },
+
     // ===================== Panel Settings =====================
 
     async openPanel() {
@@ -536,6 +645,11 @@ const workflowVisualBg = {
         if (listPlaybackRow) listPlaybackRow.classList.toggle('hidden', !isList);
         if (nextOrderRow) nextOrderRow.classList.toggle('hidden', !isList);
         if (slideshowRow) slideshowRow.classList.toggle('hidden', !(isListPhoto && cfg.listPlaybackMode === 'slideshow'));
+
+        // MỚI (08/08/2026) — hàng mở panel "Âm thanh Video": hiện khi type='video' VÀ còn ≥1 item
+        // sống (Giang chốt — áp dụng CẢ single lẫn list, khác `slideshowRow` chỉ dành cho list ảnh).
+        const videoAudioRow = q('#setting-visual-bg-open-video-audio');
+        if (videoAudioRow) videoAudioRow.classList.toggle('hidden', !(cfg.type === 'video' && count >= 1));
 
         const colorModeSelect = q('#setting-visual-bg-color-mode');
         const openGradientBtn = q('#setting-visual-bg-open-gradient');
