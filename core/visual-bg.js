@@ -65,62 +65,14 @@ function applyVisualBgImageToDOM(enabled, objectUrl) {
     }
 }
 
-// ===================== Áp DOM — nền VIDEO (#bg-video) =====================
-
-/**
- * Hiện video nền + gán nguồn. THAY nhánh "bật" của `handleVideoBackground()` cũ (di sản, đã xoá) —
- * khác 3 điểm: (1) nhận `objectUrl` qua tham số thay vì tự `appConfigViz.getAll()` (Rule 2);
- * (2) KHÔNG tự gọi `setupVideoBgSource()`/`syncVideoBgToAudio()`/`saveConfig()` (Rule 3a — Workflow
- * tự gọi từng hàm theo thứ tự); (3) LUÔN bật `loop` (Visual Background video LOOP liên tục, chỉ đổi
- * video khi bài hát đổi — plan mục 3).
- * Gán lại `src` chỉ khi URL THẬT SỰ đổi (`loadedUrl` do Workflow truyền vào) — tránh reload video
- * thừa mỗi lần Next/Prev, đúng ý đồ `setupVideoBgSource()` cũ.
- * @param {string} objectUrl - blob: URL của video nền.
- * @param {string|null} loadedUrl - URL đang gán sẵn trên thẻ (appState.visualBgVideoLoadedUrl).
- * @param {string|null} [posterUrl] - blob: URL của `thumbBlob` — xem ghi chú `poster` bên dưới.
- */
-function showVisualBgVideoElement(objectUrl, loadedUrl, posterUrl) {
-    if (!bgVideoElement || !objectUrl) return; // guard: chưa có nguồn -> không làm gì
-    // SỬA (phản hồi Giang, mục 2 — "phát tiếng lúc đầu rồi mới mute") — ép `muted=true` NGAY TẠI
-    // ĐÂY, mỗi lần hiện: `bgVideoElement` dùng CHUNG với Video Player mode (setBgVideoElementForPlayerMode()
-    // đặt `muted=false` lúc phát THẬT), nên nếu phiên trước có PHÁT video thật rồi mới quay lại
-    // dùng làm nền trang trí, cờ `muted` cũ có thể còn sót `false` — không được để phụ thuộc thứ tự
-    // gọi từ nơi khác, hàm "hiện video nền trang trí" phải TỰ đảm bảo luôn câm.
-    bgVideoElement.muted = true;
-    bgVideoElement.loop = true;
-    // SỬA (phản hồi Giang — chủ động ẩn/hiện, không chấp nhận nháy đen best-effort như Video Player
-    // mode) — KHÔNG còn tự `classList.remove('hidden')` ở đây nữa. Workflow tự điều khiển hiện/ẩn
-    // qua `setVisualBgVideoVisible()` NGAY TRƯỚC khi gọi hàm này (ẩn hẳn lúc đổi `src`, lộ chắc chắn
-    // lớp `#visual-bg-image` NẰM DƯỚI đã chèn sẵn thumb — không phải "hy vọng" trình duyệt tự vẽ
-    // đúng), rồi mới hiện lại SAU KHI có khung hình mới thật ('playing').
-    if (posterUrl) bgVideoElement.poster = posterUrl; // an toàn dự phòng nếu timeout hiện lại trước khi kịp có khung hình thật
-    if (loadedUrl === objectUrl && bgVideoElement.getAttribute('src') === objectUrl) return; // guard: đã đúng nguồn
-    bgVideoElement.src = objectUrl;
-    appState.set('visualBgVideoLoadedUrl', objectUrl);
-    console.log(`writer: "showVisualBgVideoElement", page: "visualBgVideoLoadedUrl", content: "${objectUrl}"`);
-}
-
-/** Ẩn/hiện THUẦN class `.hidden` trên `bgVideoElement` — KHÔNG đụng src/poster/pause (khác hẳn
- * `hideVisualBgVideoElement()` bên dưới, dọn HẲN toàn bộ). Dùng để lộ chắc chắn lớp `#visual-bg-
- * image` (z-index -2, NẰM DƯỚI — assets/css/style.css) ra thay chỗ trong lúc `bgVideoElement` đang
- * đổi `src` (readyState về HAVE_NOTHING, tự vẽ đen) — chủ động, không phụ thuộc trình duyệt/OS có
- * tự "lộ" lớp dưới hay không. */
-function setVisualBgVideoVisible(visible) {
-    if (!bgVideoElement) return;
-    bgVideoElement.classList.toggle('hidden', !visible);
-}
-
-/** Ẩn hẳn video nền + dọn nguồn khỏi thẻ. THAY nhánh "tắt" của `handleVideoBackground()` cũ. */
-function hideVisualBgVideoElement() {
-    if (!bgVideoElement) return; // guard: DOM chưa sẵn sàng
-    bgVideoElement.pause();
-    bgVideoElement.classList.add('hidden');
-    bgVideoElement.removeAttribute('poster'); // dọn theo — tránh poster cũ còn sót lúc hiện lại lần sau trước khi kịp gán poster mới
-    bgVideoElement.removeAttribute('src');
-    bgVideoElement.src = '';
-    appState.set('visualBgVideoLoadedUrl', null);
-    console.log(`writer: "hideVisualBgVideoElement", page: "visualBgVideoLoadedUrl", content: "null"`);
-}
+// ===================== Nền VIDEO (#bg-video) — XOÁ khỏi file này =====================
+// XOÁ (Giang chốt — bỏ hẳn hành vi video tự viết ở Visual Background) — `showVisualBgVideoElement()`/
+// `setVisualBgVideoVisible()`/`hideVisualBgVideoElement()` (3 hàm core DOM riêng cho `bgVideoElement`)
+// ĐÃ XOÁ HẲN khỏi file này. Toàn bộ vòng đời `bgVideoElement` (đổi nguồn/ẩn/hiện/dọn object URL) giờ
+// sống ĐÚNG 1 NƠI DUY NHẤT: `workflowVideoPlayer` (event/workflow/video-player.js —
+// `swapBgVideoSource()`/`waitBgVideoReady()`/`clearBgVideoSource()`), dùng CHUNG cho cả Video Player
+// mode thật LẪN Visual Background trang trí (event/workflow/visual-bg.js gọi liên tuyến domain) —
+// trước đây 2 nơi tự viết 2 bản riêng, lệch hành vi + lặp lại đúng loại bug (chớp đen) nhiều lần.
 
 /**
  * Đồng bộ play/pause của video nền theo nhạc — KHÔNG đụng src/hidden (2 việc khác nhau, tách hàm

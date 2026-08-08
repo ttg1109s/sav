@@ -67,7 +67,7 @@
         // "Visual Background" (core/visual-bg.js + event/workflow,router,listener/visual-bg.js):
         //   validateVideoBgOnClose()  -> (v14: không còn cần — schema mới tự nhất quán, xem
         //                                event/workflow/player-controls.js::closeSettingsDrawer())
-        //   setupVideoBgSource()      -> showVisualBgVideoElement(objectUrl, loadedUrl)
+        //   setupVideoBgSource()      -> workflowVideoPlayer.swapBgVideoSource() (event/workflow/video-player.js, dùng chung Video Player mode)
         //   syncVideoBgToAudio()      -> syncVisualBgVideoPlayback(isAudioPaused)
         //   handleVideoBackground()   -> workflowVisualBg.applyCurrentVisualBg() (+ hide/show core)
         //   enableVideoBackground()   -> (v14: không còn toggle riêng — chọn nguồn = bật, xem
