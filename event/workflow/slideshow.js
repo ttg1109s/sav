@@ -1,18 +1,20 @@
 /**
  * event/workflow/slideshow.js — Engine render ảnh (transition/Ken Burns) cho Visual Background khi
  * `type='photo'` + `source.list` > 1 item. KHÔNG còn tự chọn nguồn (album) — nhận thẳng danh sách
- * key đã dựng sẵn từ `workflowVisualBg.startFromList()`, đọc/ghi `source.list` qua 2 method public
- * của domain đó (`persistSourceListMutation()`/`selfHealEmptySource()`, Rule ownership: field vẫn
- * thuộc domain `visualBg`, file này chỉ BÁO thay đổi).
+ * key đã dựng sẵn từ `workflowVisualBg.startFromList()`, đọc/ghi `source.list` qua các method public
+ * của domain đó — `persistSourceListMutation()`/`selfHealEmptySource()` (Rule ownership: field vẫn
+ * thuộc domain `visualBg`, file này chỉ BÁO thay đổi), CỘNG `firstIndex()`/`advanceList()` (SỬA
+ * 08/08/2026 — bước index giờ tính CHUNG bên `workflowVisualBg`, file này không tự gọi
+ * `pickNextSlideshowIndexRandom/Sequential`/`advanceVisualBgList` nữa, xem comment 2 hàm đó).
  *
  * 2 vai trò: (1) Workflow bình thường cho router "slideshowSettings" (panel "Tuỳ chỉnh Trình
  * chiếu"); (2) "Router" cho task lặp tự sinh (`_tick()`, taskManager, ngoài eventBus — cùng khuôn
  * core/auto-switch-visual.js).
  *
- * NẠP SAU: core/file-manager/slideshow.js, core/visual-bg.js (advanceVisualBgList/
- * markVisualBgListItemMissing), core/file-manager/image.js, service/db.js, core/dom-refs.js
- * (slideshowContainer/slideshowLayer1,2/slideshowLayer1,2Pan), core/settings-panel-stack.js,
- * service/task-manager.js, event/workflow/visual-bg.js (workflowVisualBg).
+ * NẠP SAU: core/file-manager/slideshow.js, core/visual-bg.js (markVisualBgListItemMissing),
+ * core/file-manager/image.js, service/db.js, core/dom-refs.js (slideshowContainer/
+ * slideshowLayer1,2/slideshowLayer1,2Pan), core/settings-panel-stack.js, service/task-manager.js,
+ * event/workflow/visual-bg.js (workflowVisualBg).
  * NẠP TRƯỚC: event/router/slideshow.js.
  */
 let slideshowSettingsPanelEl = null;
@@ -67,9 +69,14 @@ const workflowSlideshow = {
             setSlideshowContainerVisible(slideshowContainer, false); // core
             return;
         }
-        this._sourceIndex = nextOrder === 'random'
-            ? pickNextSlideshowIndexRandom(-1, this._sourceKeys.length)      // core
-            : pickNextSlideshowIndexSequential(-1, this._sourceKeys.length); // core
+        // Bước index (lượt đầu) DÙNG CHUNG với nhánh video — nguồn sự thật source.list thuộc domain
+        // workflowVisualBg (liên tuyến domain, xem comment workflowVisualBg.firstIndex()).
+        const { list: startList, index } = workflowVisualBg.firstIndex(this._sourceKeys, nextOrder === 'random'); // event/workflow/visual-bg.js
+        if (startList !== this._sourceKeys) { // random bốc trúng vị trí cuối ngay lượt đầu -> đã xáo lại
+            this._sourceKeys = startList;
+            await workflowVisualBg.persistSourceListMutation(startList); // event/workflow/visual-bg.js
+        }
+        this._sourceIndex = index;
         this._layerToggle = false;
         if (this._shouldBeRunning()) await this._reveal();
         // Chưa đủ điều kiện (nhạc chưa phát/đang pause) -> để yên, chờ syncPlaybackGate().
@@ -161,15 +168,16 @@ const workflowSlideshow = {
         this._setKenBurnsAnim(panEl, anim);
     },
 
-    /** 1 nhịp cycle: bước index qua core `advanceVisualBgList()` (dọn null nếu vừa hết 1 vòng), rồi
-     * đọc DB cho vị trí đó. Null hoặc record mất -> đánh dấu/giữ nguyên ảnh cũ, KHÔNG tự thử tiếp —
-     * chờ tick/advance() sau (Giang chốt). `_sourceKeys.length<=1` (đã sweep về còn 1, hoặc vốn dĩ
-     * chỉ 1) -> dừng hẳn cycle, ảnh cuối cùng đứng yên. */
+    /** 1 nhịp cycle: bước index qua `workflowVisualBg.advanceList()` (dọn null nếu vừa hết 1 vòng;
+     * riêng random, xáo lại mảng nếu vừa chạm vị trí cuối — xem comment hàm đó), rồi đọc DB cho vị
+     * trí đó. Null hoặc record mất -> đánh dấu/giữ nguyên ảnh cũ, KHÔNG tự thử tiếp — chờ tick/
+     * advance() sau (Giang chốt). `_sourceKeys.length<=1` (đã sweep về còn 1, hoặc vốn dĩ chỉ 1) ->
+     * dừng hẳn cycle, ảnh cuối cùng đứng yên. */
     async _tick() {
         if (this._sourceKeys.length <= 1) { taskManager.kill(SLIDESHOW_TASK); return; }
 
         const isRandom = appConfigVisualBg.getAll().nextOrder === 'random';
-        const { list, index } = advanceVisualBgList(this._sourceKeys, this._sourceIndex, isRandom); // core/visual-bg.js
+        const { list, index } = workflowVisualBg.advanceList(this._sourceKeys, this._sourceIndex, isRandom); // event/workflow/visual-bg.js
         if (index === -1) { if (typeof workflowVisualBg !== 'undefined') await workflowVisualBg.selfHealEmptySource(); return; }
         if (list !== this._sourceKeys) {
             this._sourceKeys = list;

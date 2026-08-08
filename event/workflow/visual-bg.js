@@ -74,6 +74,55 @@ const workflowVisualBg = {
         return cfg.source.list.filter((k) => k !== null).length;
     },
 
+    // ===================== Bước index trong source.list — DÙNG CHUNG ảnh + video =====================
+    // 3 hàm dưới đây là ĐIỂM TÍNH TOÁN DUY NHẤT cho "bước tiếp theo/lượt đầu" trong `source.list` —
+    // nhánh video (_applyVideo/_advanceVideo ngay dưới) gọi NỘI BỘ, nhánh ảnh (workflowSlideshow,
+    // event/workflow/slideshow.js) gọi LIÊN TUYẾN DOMAIN sang đây thay vì tự viết lại (nguồn sự thật
+    // `source.list` vẫn thuộc domain này — cùng nguyên tắc ownership đã áp cho
+    // persistSourceListMutation()/selfHealEmptySource() ở dưới).
+    // SỬA 08/08/2026 (phản hồi Giang, thay cho core `advanceVisualBgList()` TỰ gọi
+    // pickNextSlideshowIndexRandom/Sequential — core-gọi-core, vi phạm Rule 3): Workflow đứng NGOÀI,
+    // tự gọi core A (`pickNext...`) lấy index, rồi tự chọn gọi core B nào (`advanceVisualBgList()`
+    // hay `shuffleVisualBgListKeepingIndex()`) — đúng Rule 3b.
+
+    /** RIÊNG `nextOrder==='random'`: index vừa tính rơi ĐÚNG vị trí CUỐI mảng -> xáo lại mảng NGAY
+     * cho vòng sau (Giang chốt, core `shuffleVisualBgListKeepingIndex()` — giữ nguyên key tại vị trí
+     * đó, không đổi ảnh/video đang phát). `sequential`/`playlist` không qua nhánh này. */
+    _maybeReshuffleAtBoundary(list, index, isRandom) {
+        if (!isRandom || index !== list.length - 1) return list;
+        return shuffleVisualBgListKeepingIndex(list, index); // core/visual-bg.js
+    },
+
+    /** Chọn index LƯỢT ĐẦU (`currentIndex=-1`) — không qua `advanceVisualBgList()` (mảng vừa đọc từ
+     * origin luôn sạch, chưa lẫn null nào cần dọn). Vẫn áp `_maybeReshuffleAtBoundary()` — lượt đầu
+     * bốc trúng đúng vị trí cuối mảng thì cũng xáo lại như mọi lượt khác (đối xứng).
+     * @param {Array<string|null>} list
+     * @param {boolean} isRandom
+     * @returns {{ list: Array<string|null>, index: number }}
+     */
+    firstIndex(list, isRandom) {
+        const index = isRandom
+            ? pickNextSlideshowIndexRandom(-1, list.length)      // core/file-manager/slideshow.js
+            : pickNextSlideshowIndexSequential(-1, list.length); // core/file-manager/slideshow.js
+        return { list: this._maybeReshuffleAtBoundary(list, index, isRandom), index };
+    },
+
+    /** Chọn index MỖI LƯỢT SAU (cycle) — tính `nextIndex` rồi hoặc xáo lại (chạm vị trí cuối, random)
+     * hoặc áp bình thường qua core `advanceVisualBgList()` (tự sweep null nếu vừa hết 1 vòng).
+     * @param {Array<string|null>} list
+     * @param {number} currentIndex
+     * @param {boolean} isRandom
+     * @returns {{ list: Array<string|null>, index: number }} `index=-1` nếu mảng rỗng sau dọn.
+     */
+    advanceList(list, currentIndex, isRandom) {
+        const nextIndex = isRandom
+            ? pickNextSlideshowIndexRandom(currentIndex, list.length)      // core/file-manager/slideshow.js
+            : pickNextSlideshowIndexSequential(currentIndex, list.length); // core/file-manager/slideshow.js
+        const reshuffled = this._maybeReshuffleAtBoundary(list, nextIndex, isRandom);
+        if (reshuffled !== list) return { list: reshuffled, index: nextIndex };
+        return advanceVisualBgList(list, nextIndex); // core/visual-bg.js
+    },
+
     /** Điểm đồng bộ DUY NHẤT giữa config và DOM — gọi lúc boot + sau mọi thay đổi. Màu LUÔN sơn
      * (kể cả media rỗng); media chỉ áp khi `source.list` còn ít nhất 1 item sống. */
     async applyCurrentVisualBg() {
@@ -133,10 +182,13 @@ const workflowVisualBg = {
             if (list[0]) { this._listIndex = 0; await this._playVideoKey(list[0]); }
             return;
         }
-        this._listIndex = cfg.nextOrder === 'random'
-            ? pickNextSlideshowIndexRandom(-1, list.length)      // core/file-manager/slideshow.js
-            : pickNextSlideshowIndexSequential(-1, list.length); // core/file-manager/slideshow.js
-        await this._playVideoKey(list[this._listIndex]);
+        const { list: startList, index } = this.firstIndex(list, cfg.nextOrder === 'random');
+        if (startList !== list) { // random bốc trúng vị trí cuối ngay lượt đầu -> đã xáo lại, ghi lại mảng mới
+            appConfigVisualBg.mutateAll((c) => { c.source.list = startList; });
+            await this._persist();
+        }
+        this._listIndex = index;
+        await this._playVideoKey(startList[this._listIndex]);
         if (cfg.listPlaybackMode === 'slideshow') {
             taskManager.addNew(VISUAL_BG_VIDEO_TASK, { time: cfg.slideshow.intervalSeconds * 1000, exe: () => this._advanceVideo(), mode: 'timeout', count: 0 }); // service/task-manager.js
             taskManager.operator(VISUAL_BG_VIDEO_TASK, 'enabled');
@@ -155,7 +207,7 @@ const workflowVisualBg = {
     async _advanceVideo() {
         const cfg = appConfigVisualBg.getAll();
         if (cfg.source.list.length <= 1) return;
-        const { list, index } = advanceVisualBgList(cfg.source.list, this._listIndex, cfg.nextOrder === 'random'); // core/visual-bg.js
+        const { list, index } = this.advanceList(cfg.source.list, this._listIndex, cfg.nextOrder === 'random');
         if (index === -1) { await this.selfHealEmptySource(); return; }
         if (list !== cfg.source.list) {
             appConfigVisualBg.mutateAll((c) => { c.source.list = list; });
