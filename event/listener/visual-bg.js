@@ -49,17 +49,13 @@ function handleVisualBgGradientStopEvent(e) {
     return false;
 }
 
-/** SỬA (08/08/2026, phản hồi Giang mục 2) — bỏ handler `input` của slider inline cũ (đã xoá), thay
- * bằng 1 control DUY NHẤT: nút icon+% mở modal dùng chung (`openSliderInputModal()`,
- * core/slider-input-modal.js). Checkbox bật/tắt audio giữ NGUYÊN không đổi. */
+/** SỬA (08/08/2026, phản hồi Giang mục "bỏ checkbox") — bỏ hẳn checkbox rời (đã gộp bật/tắt vào
+ * công tắc TRONG modal, xem `openVideoAudioVolumeModal()`) — hàng giờ chỉ còn 1 control: nút icon+%
+ * mở modal chung (`openSliderInputModal()`, core/slider-input-modal.js). */
 function handleVisualBgVideoAudioEvent(e) {
-    const el = e.target.closest('[data-visual-bg-video-audio-enable], [data-visual-bg-video-audio-open-volume]');
+    const el = e.target.closest('[data-visual-bg-video-audio-open-volume]');
     if (!el) return false;
-    if (el.dataset.visualBgVideoAudioEnable !== undefined && e.type === 'change') {
-        eventBus.send({ router: 'visualBg', type: 'visualBg.videoAudio.enable.change', payload: { videoKey: el.dataset.visualBgVideoAudioEnable, checked: el.checked } });
-        return true;
-    }
-    if (el.dataset.visualBgVideoAudioOpenVolume !== undefined && e.type === 'click') {
+    if (e.type === 'click') {
         eventBus.send({ router: 'visualBg', type: 'visualBg.videoAudio.openVolumeModal.click', payload: { videoKey: el.dataset.visualBgVideoAudioOpenVolume } });
         return true;
     }
