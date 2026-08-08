@@ -17,6 +17,7 @@ const workflowVisualBg = {
     _currentVideoKey: null,    // MỚI (08/08/2026, viết lại theo đúng khuôn Play mode) — key video ĐANG THẬT SỰ nạp trong bgVideoElement, RIÊNG của domain này (KHÔNG dùng appState.currentKey — khoá đó thuộc bài hát/video ĐANG PHÁT THẬT, video nền trang trí không được đụng, xem ver12 Song/Video Unification). Dùng làm nguồn so sánh cho guard "đã đúng video này rồi" ở _playVideoKey(), y hệt cách playVideoByKey() so appState.currentKey.
     _colorPersistTimer: null,
     _videoAudioRows: null,     // MỚI (08/08/2026) — cache {key,name}[] đọc lúc mở panel "Âm thanh Video", xem openVideoAudioPanel()/openVideoAudioVolumeModal()
+    _stuckRecoveryTimer: null, // MỚI (09/08/2026, mục 3) — fallback taskManager.once() khi key hiện tại !record/null giữa lúc cycle mode 'slideshow' (không video nào phát -> 'ended' không bao giờ bắn -> treo), xem _scheduleStuckRecoveryTimer()/_killStuckRecoveryTimer()
 
     // ===================== Boot / persist =====================
 
@@ -162,6 +163,7 @@ const workflowVisualBg = {
         if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.stop();
         this._listIndex = -1;
         this._currentVideoKey = null; // MỚI — dọn theo, xem docstring khai báo field ở đầu object
+        this._killStuckRecoveryTimer(); // MỚI (09/08/2026, mục 3) — VBG đang bị dọn hẳn, huỷ fallback đang chờ (nếu có)
         // SỬA (Giang chốt — bỏ hẳn logic video tự viết ở VBG, dùng THẲNG cơ chế dùng chung của
         // workflowVideoPlayer) — thay `hideVisualBgVideoElement()` (core/visual-bg.js, ĐÃ XOÁ) bằng
         // `clearBgVideoSource()`: cùng 1 nơi sở hữu vòng đời `bgVideoElement`/object URL của nó,
@@ -261,7 +263,9 @@ const workflowVisualBg = {
             this._persist(); // KHÔNG await — ghi ngầm, không chặn việc phát video kế tiếp
         }
         const key = list[index];
-        if (!key) { this._hideVideoOnly(); return; } // null -> ẩn, chờ advance() lần sau
+        // null -> ẩn, chờ advance() lần sau; MỚI (09/08/2026, mục 3) — mode 'slideshow' advance CHỈ
+        // qua 'ended' thật, không video nào đang phát thì KHÔNG bao giờ tự bắn -> đặt fallback timer.
+        if (!key) { this._hideVideoOnly(); this._scheduleStuckRecoveryTimer(cfg.listPlaybackMode, list); return; }
         await this._playVideoKey(key);
     },
 
@@ -269,6 +273,29 @@ const workflowVisualBg = {
     _hideVideoOnly() {
         this._currentVideoKey = null;
         if (typeof workflowVideoPlayer !== 'undefined') workflowVideoPlayer.clearBgVideoSource(); // event/workflow/video-player.js — liên tuyến domain
+    },
+
+    /**
+     * MỚI (09/08/2026, mục 3, phản hồi Giang — "key !record/undefined treo vĩnh viễn") — advance
+     * mode 'slideshow' CHỈ chạy qua sự kiện `ended` thật của `bgVideoElement` (xem `_onVideoEnded()`).
+     * Key hiện tại null/mất record -> `_hideVideoOnly()` -> KHÔNG video nào đang phát -> `ended`
+     * không bao giờ bắn -> treo vĩnh viễn. Đặt fallback `taskManager.once()` 5s — CÙNG khuôn
+     * `videoPlayingReadyFallback` đã có ở `swapBgVideoSource()` — tự gọi lại `_advanceVideo()` nếu
+     * chưa có video nào khác kịp nạp trong lúc chờ. CHỈ áp dụng mode 'slideshow' + còn >1 item sống
+     * (list.length<=1 hoặc hết sạch item sống đã tự xử lý riêng — clearSource()/không cycle gì cả,
+     * không phải ca "treo").
+     * @param {string} listPlaybackMode
+     * @param {Array<string|null>} list
+     */
+    _scheduleStuckRecoveryTimer(listPlaybackMode, list) {
+        this._killStuckRecoveryTimer();
+        if (listPlaybackMode !== 'slideshow' || list.filter((k) => k !== null).length <= 1) return;
+        this._stuckRecoveryTimer = taskManager.once(() => { this._stuckRecoveryTimer = null; this._advanceVideo(); }, 5000, 'visualBgVideoStuckRecovery');
+    },
+
+    /** Huỷ fallback timer đang chờ (nếu có) — gọi mỗi khi hết "treo" (video mới đã nạp) hoặc VBG bị dọn hẳn. */
+    _killStuckRecoveryTimer() {
+        if (this._stuckRecoveryTimer) { this._stuckRecoveryTimer.kill(); this._stuckRecoveryTimer = null; }
     },
 
     /**
@@ -303,6 +330,7 @@ const workflowVisualBg = {
             (videoKey === this._currentVideoKey && workflowVideoPlayer._objectUrl && bgVideoElement.getAttribute('src') === workflowVideoPlayer._objectUrl)
             || this._isSwappingVideo
         ) return;
+        this._killStuckRecoveryTimer(); // MỚI (09/08/2026, mục 3) — video mới thật sự bắt đầu nạp, không còn "treo" nữa
         this._applyVideoAudioSettingToElement(videoKey); // core/visual-bg.js lookup + gán muted/volume — xem docstring trên
         const cfg = appConfigVisualBg.getAll();
         const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && this._effectiveCount(cfg) > 1;
@@ -313,7 +341,18 @@ const workflowVisualBg = {
         // `hideUntilReady=true`: VBG (KHÁC Video Player mode thật — nhánh đó vẫn ổn định, KHÔNG
         // truyền tham số này, giữ nguyên hành vi) ẩn hẳn `bgVideoElement` quanh lúc đổi src, lộ đúng
         // lớp thumb full-res đã chèn (bên trong swapBgVideoSource), tự gỡ ẩn khi video mới sẵn sàng.
-        const record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true, null, true); // event/workflow/video-player.js — liên tuyến domain, isTransition=true LUÔN (VBG cần lớp dự phòng cả lúc áp lần đầu, không phân biệt như Video Player mode) — bên trong: pause video cũ -> đọc record -> chèn full-res thumb dự phòng -> ẩn bgVideoElement -> nạp blob mới -> gán poster/src -> play() -> gỡ ẩn khi sẵn sàng
+        // SỬA (09/08/2026, mục 2 — "Song bị đè audio không play được") — tham số thứ 3 `beforePlay`
+        // TRƯỚC ĐÂY truyền `null` ("VBG không cần"), khiến bgVideoElement không bao giờ được nối vào
+        // masterGainNode qua VBG (chỉ Video Player mode thật mới nối) — nếu phiên chưa từng vào Video
+        // Player mode, audio Audio B (video nền có bật âm lượng riêng) phát qua pipeline native TÁCH
+        // BIỆT khỏi audioPlayer (đã luôn qua Web Audio graph), 2 phiên audio native độc lập dễ bị
+        // trình duyệt/OS cưỡng chế loại trừ lẫn nhau (Song bị pause ngay khi bấm Play). Giờ LUÔN
+        // truyền hook này (connectVideoElementToAnalyser() tự guard chỉ tạo 1 lần, gọi lại vô hại) —
+        // gộp chung Audio B vào ĐÚNG 1 AudioContext/masterGainNode với Song.
+        const record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true, () => {
+            setupAudioContext(); // core/audio-engine.js
+            connectVideoElementToAnalyser(); // core/video-player.js
+        }, true); // event/workflow/video-player.js — liên tuyến domain, isTransition=true LUÔN (VBG cần lớp dự phòng cả lúc áp lần đầu, không phân biệt như Video Player mode) — bên trong: pause video cũ -> đọc record -> chèn full-res thumb dự phòng -> ẩn bgVideoElement -> nạp blob mới -> gán poster/src -> play() -> gỡ ẩn khi sẵn sàng
         this._isSwappingVideo = false;
         if (!record) { await this._markCurrentMissing(); return; }
         this._currentVideoKey = videoKey; // MỚI — ghi NGAY sau khi swap thành công, làm nguồn so sánh cho guard dedupe ở đầu hàm
@@ -335,14 +374,17 @@ const workflowVisualBg = {
 
     /** Đánh dấu vị trí hiện tại là mất + ẩn — KHÔNG reset index/task, chờ advance() lần sau tự bước
      * tiếp (Giang chốt, cơ chế null-sweep). Dọn xong mà KHÔNG còn item sống nào -> tự chữa lành hẳn
-     * (gỡ source) luôn, không đợi advance() phát hiện ra ở lượt sau. */
+     * (gỡ source) luôn, không đợi advance() phát hiện ra ở lượt sau. Còn item sống -> MỚI (09/08/2026,
+     * mục 3) đặt fallback timer tránh treo, xem `_scheduleStuckRecoveryTimer()`. */
     async _markCurrentMissing() {
-        const newList = markVisualBgListItemMissing(appConfigVisualBg.getAll().source.list, this._listIndex); // core/visual-bg.js
+        const cfg = appConfigVisualBg.getAll();
+        const newList = markVisualBgListItemMissing(cfg.source.list, this._listIndex); // core/visual-bg.js
         if (newList.filter((k) => k !== null).length === 0) { await this.clearSource(); return; }
-        appConfigVisualBg.mutateAll((cfg) => { cfg.source.list = newList; });
+        appConfigVisualBg.mutateAll((c) => { c.source.list = newList; });
         console.log(`writer: "workflowVisualBg._markCurrentMissing", page: "visualBgConfig", content: "source.list[${this._listIndex}]=null"`);
         await this._persist();
         this._hideVideoOnly();
+        this._scheduleStuckRecoveryTimer(cfg.listPlaybackMode, newList);
     },
 
     /** `source.list` rỗng sau sweep -> tự gỡ hẳn nguồn (cùng hành vi nút "Gỡ nguồn" thủ công). PUBLIC
