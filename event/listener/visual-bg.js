@@ -49,13 +49,16 @@ function handleVisualBgGradientStopEvent(e) {
     return false;
 }
 
-/** SỬA (08/08/2026, phản hồi Giang mục "bỏ checkbox") — bỏ hẳn checkbox rời (đã gộp bật/tắt vào
- * công tắc TRONG modal, xem `openVideoAudioVolumeModal()`) — hàng giờ chỉ còn 1 control: nút icon+%
- * mở modal chung (`openSliderInputModal()`, core/slider-input-modal.js). */
+/** SỬA (08/08/2026, phản hồi Giang — "icon(1) toggle ngay, %(2) mở modal") — 2 control TÁCH BIỆT
+ * mỗi hàng: icon loa (toggle NGAY, không qua modal) + nút "%" (mở modal chỉnh volume). */
 function handleVisualBgVideoAudioEvent(e) {
-    const el = e.target.closest('[data-visual-bg-video-audio-open-volume]');
+    const el = e.target.closest('[data-visual-bg-video-audio-toggle], [data-visual-bg-video-audio-open-volume]');
     if (!el) return false;
-    if (e.type === 'click') {
+    if (el.dataset.visualBgVideoAudioToggle !== undefined && e.type === 'click') {
+        eventBus.send({ router: 'visualBg', type: 'visualBg.videoAudio.toggle.click', payload: { videoKey: el.dataset.visualBgVideoAudioToggle } });
+        return true;
+    }
+    if (el.dataset.visualBgVideoAudioOpenVolume !== undefined && e.type === 'click') {
         eventBus.send({ router: 'visualBg', type: 'visualBg.videoAudio.openVolumeModal.click', payload: { videoKey: el.dataset.visualBgVideoAudioOpenVolume } });
         return true;
     }
