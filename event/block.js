@@ -124,12 +124,18 @@ eventBus.registerBlock('visualBg.pickGroupSource.click', [
 // `startFromPlaylist()` tự gọi `workflowVisualBg.clearMediaLayers()` để nhường `bgVideoElement`
 // (không đợi Block gate chặn trước nữa).
 //
-// Chiều CÒN LẠI (chặn MỞ panel/chọn nguồn Visual Background khi đang ở Video Player mode/Playlist
-// đang browse Video) — GIỮ, đổi msg.type theo router mới `visualBg` (không còn toggle bật/tắt
-// riêng, chọn nguồn CHÍNH LÀ hành động cần chặn) + thêm chặn NGAY TỪ LÚC MỞ PANEL (Giang chốt mục 2
-// — "khoá vào sub setting visual background"), không chỉ chặn lúc bấm nút chọn nguồn bên trong.
+// Chiều CÒN LẠI (chặn MỞ panel/chọn nguồn Visual Background khi Playlist đang browse Video) — GIỮ,
+// đổi msg.type theo router mới `visualBg` (không còn toggle bật/tắt riêng, chọn nguồn CHÍNH LÀ hành
+// động cần chặn) + thêm chặn NGAY TỪ LÚC MỞ PANEL (Giang chốt mục 2 — "khoá vào sub setting visual
+// background"), không chỉ chặn lúc bấm nút chọn nguồn bên trong.
+// SỬA (08/08/2026, phản hồi Giang — "đổi tab Playlist chỉ mở khoá panel, không có nghĩa video đang
+// phát bị VBG chèn ngay") — TÁCH riêng 2 việc: XEM panel (case này) chỉ còn phụ thuộc
+// `activeMediaSource` (đang browse tab nào), KHÔNG còn phụ thuộc `isVideoPlayerMode` — đổi tab
+// Playlist sang Song là mở khoá được panel ngay dù video vẫn đang phát nền thật. Việc ÁP DỤNG THẬT
+// (chiếm bgVideoElement) vẫn bị chặn riêng ở 2 block 'visualBg.pickSingleSource.click'/
+// 'pickGroupSource.click' ngay trên — 2 block ĐÓ mới là nơi cần giữ `isVideoPlayerMode`, xem
+// `_resolveAndCommitSource()` (event/workflow/visual-bg.js) gọi thẳng `applyCurrentVisualBg()`.
 eventBus.registerBlock('visualBg.openPanel.click', [
-    [{ field: 'isVideoPlayerMode', operator: '===', value: true }],
     [{ field: 'activeMediaSource', operator: '===', value: 'video' }],
 ], { notify: t('visualBgSettingsDrawer.blockedBySourceVideo') });
 
