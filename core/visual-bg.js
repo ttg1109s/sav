@@ -69,6 +69,50 @@ function markVisualBgListItemMissing(list, index) {
     return next;
 }
 
+// ===================== Audio riêng từng video trong source list (MỚI, 08/08/2026) =====================
+// `source.videoAudio` — map videoKey -> { enabled, volumePercent }. 2 hàm dưới đây THUẦN đọc/ghi map
+// đó (validate + clamp), KHÔNG đụng DOM/appState — Workflow (event/workflow/visual-bg.js) tự đọc
+// appConfigVisualBg + tự gán `bgVideoElement.muted`/`.volume` sau khi gọi 2 hàm này (DOM 1 dòng, cùng
+// khuôn `bgVideoElement.muted = true` cũ trước đây viết thẳng ở Workflow, không cần core riêng).
+
+const VISUAL_BG_VIDEO_AUDIO_VOLUME_MIN = 0;
+const VISUAL_BG_VIDEO_AUDIO_VOLUME_MAX = 100;
+const VISUAL_BG_VIDEO_AUDIO_DEFAULT = Object.freeze({ enabled: false, volumePercent: 50 });
+
+/**
+ * Core thuần — đọc cấu hình audio của 1 video trong map, trả mặc định (`enabled:false,
+ * volumePercent:50`) nếu chưa có/dữ liệu hỏng (guard clause thuần, KHÔNG phải rẽ nhánh nghiệp vụ).
+ * @param {Object<string, {enabled: boolean, volumePercent: number}>} videoAudioMap
+ * @param {string} videoKey
+ * @returns {{enabled: boolean, volumePercent: number}}
+ */
+function getVisualBgVideoAudioSetting(videoAudioMap, videoKey) {
+    const entry = videoAudioMap ? videoAudioMap[videoKey] : null;
+    if (!entry || typeof entry !== 'object') return { ...VISUAL_BG_VIDEO_AUDIO_DEFAULT };
+    const enabled = typeof entry.enabled === 'boolean' ? entry.enabled : VISUAL_BG_VIDEO_AUDIO_DEFAULT.enabled;
+    const rawVolume = typeof entry.volumePercent === 'number' ? entry.volumePercent : VISUAL_BG_VIDEO_AUDIO_DEFAULT.volumePercent;
+    const volumePercent = Math.min(VISUAL_BG_VIDEO_AUDIO_VOLUME_MAX, Math.max(VISUAL_BG_VIDEO_AUDIO_VOLUME_MIN, rawVolume));
+    return { enabled, volumePercent };
+}
+
+/**
+ * Core thuần — patch cấu hình audio của 1 video vào map, trả map MỚI (không sửa map gốc). Nhận
+ * `current` qua tham số (Workflow tự gọi `getVisualBgVideoAudioSetting()` trước — Rule 3b, core
+ * không được tự gọi core khác) làm nền, `patch` đè lên trên rồi mới validate/clamp lại.
+ * @param {Object<string, {enabled: boolean, volumePercent: number}>} videoAudioMap
+ * @param {string} videoKey
+ * @param {{enabled: boolean, volumePercent: number}} current - Workflow đọc sẵn qua getVisualBgVideoAudioSetting().
+ * @param {{enabled?: boolean, volumePercent?: number}} patch
+ * @returns {Object<string, {enabled: boolean, volumePercent: number}>} map MỚI.
+ */
+function setVisualBgVideoAudioSetting(videoAudioMap, videoKey, current, patch) {
+    const merged = { ...current, ...patch };
+    const enabled = typeof merged.enabled === 'boolean' ? merged.enabled : VISUAL_BG_VIDEO_AUDIO_DEFAULT.enabled;
+    const rawVolume = typeof merged.volumePercent === 'number' ? merged.volumePercent : VISUAL_BG_VIDEO_AUDIO_DEFAULT.volumePercent;
+    const volumePercent = Math.min(VISUAL_BG_VIDEO_AUDIO_VOLUME_MAX, Math.max(VISUAL_BG_VIDEO_AUDIO_VOLUME_MIN, rawVolume));
+    return { ...(videoAudioMap || {}), [videoKey]: { enabled, volumePercent } };
+}
+
 // ===================== Áp DOM — nền ẢNH tĩnh (#visual-bg-image) =====================
 
 /**

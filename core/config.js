@@ -101,6 +101,15 @@
                 originKind: null,           // null | 'single' | 'group' — CHỈ để nút "Làm tươi" biết đọc lại từ đâu
                 originId: null,             // imageKey/videoKey/albumId/folderId của origin
                 list: [],                   // bản copy key thật đang phát/hiện
+                // MỚI (08/08/2026, phản hồi Giang) — map videoKey -> { enabled, volumePercent }. CHỈ
+                // có ý nghĩa khi `type==='video'` (áp dụng CẢ single lẫn list, Giang chốt) — video
+                // đang phát nền có audio riêng (KHÔNG qua equalizer/audioEngine, phát native dưới
+                // audio chính) khi `enabled=true`. Giữ NGUYÊN khi đổi source (self-heal lười, key
+                // không còn dùng chỉ nằm im vô hại, không tự dọn — cùng triết lý null-sweep chỗ khác).
+                // XOÁ HẲN khi `type` đổi hoặc `clearSource()` (source bị reset toàn bộ, key video
+                // khác kiểu vô nghĩa). Xem core/visual-bg.js::getVisualBgVideoAudioSetting()/
+                // setVisualBgVideoAudioSetting(), event/workflow/visual-bg.js (panel "Âm thanh Video").
+                videoAudio: {},
             },
 
             listPlaybackMode: 'perSong',    // 'perSong' | 'slideshow' — chỉ có ý nghĩa khi list.length > 1
