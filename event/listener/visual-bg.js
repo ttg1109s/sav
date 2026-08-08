@@ -24,6 +24,7 @@ const VISUAL_BG_SETTINGS_INPUT_MAP = {
     'setting-visual-bg-gradient-add:click': { type: 'visualBg.gradientStop.add.click', bare: true },
     'setting-visual-bg-open-gradient:click': { type: 'visualBg.openGradientPanel.click', bare: true },
     'setting-visual-bg-open-slideshow:click': { type: 'visualBg.openSlideshowPanel.click', bare: true },
+    'setting-visual-bg-open-video-audio:click': { type: 'visualBg.openVideoAudioPanel.click', bare: true },
 };
 
 /** 3 control của MỖI HÀNG chặng màu gradient (số hàng đổi theo 2..7) — nhận diện bằng `data-*` kèm
@@ -46,8 +47,26 @@ function handleVisualBgGradientStopEvent(e) {
     return false;
 }
 
+/** MỚI (08/08/2026) — 2 control của MỖI HÀNG video trong sub-panel "Âm thanh Video" (số hàng đổi
+ * theo `source.list`, key theo videoKey chứ không phải index — cùng khuôn `handleVisualBgGradientStopEvent()`
+ * ngay trên, đổi từ số sang chuỗi vì đây là key thật, không phải vị trí mảng). */
+function handleVisualBgVideoAudioEvent(e) {
+    const el = e.target.closest('[data-visual-bg-video-audio-enable], [data-visual-bg-video-audio-volume]');
+    if (!el) return false;
+    if (el.dataset.visualBgVideoAudioEnable !== undefined && e.type === 'change') {
+        eventBus.send({ router: 'visualBg', type: 'visualBg.videoAudio.enable.change', payload: { videoKey: el.dataset.visualBgVideoAudioEnable, checked: el.checked } });
+        return true;
+    }
+    if (el.dataset.visualBgVideoAudioVolume !== undefined && e.type === 'input') {
+        eventBus.send({ router: 'visualBg', type: 'visualBg.videoAudio.volume.input', payload: { videoKey: el.dataset.visualBgVideoAudioVolume, value: el.value } });
+        return true;
+    }
+    return false;
+}
+
 function handleVisualBgSettingsDelegatedEvent(e) {
     if (handleVisualBgGradientStopEvent(e)) return;
+    if (handleVisualBgVideoAudioEvent(e)) return;
     const hostEl = e.target.closest('[id]'); // closest() vì 1 số entry là nút có phần tử con (svg/div)
     if (!hostEl) return;
     const entry = VISUAL_BG_SETTINGS_INPUT_MAP[`${hostEl.id}:${e.type}`];
