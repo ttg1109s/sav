@@ -26,12 +26,16 @@
  * @param {{
  *   title: string,
  *   hintText?: string,            // dòng phụ dưới tiêu đề (vd tên video đang chỉnh)
+ *   toggle?: { label: string, initialValue: boolean }, // MỚI (08/08/2026, phản hồi Giang — "bỏ
+ *     checkbox rời, gộp bật/tắt vào modal") — có truyền thì hiện thêm 1 công tắc bật/tắt phía trên
+ *     slider, `onConfirm` nhận thêm tham số 2 (giá trị công tắc lúc bấm Áp dụng). Không truyền —
+ *     giữ nguyên hành vi cũ (chỉ 1 giá trị số).
  *   min?: number,                  // mặc định 0
  *   max?: number,                  // mặc định 100
  *   step?: number,                  // mặc định 1
  *   initialValue: number,
  *   unitSuffix?: string,           // hậu tố hiển thị cạnh ô nhập số (vd '%') — mặc định ''
- *   onConfirm: (value: number) => void,
+ *   onConfirm: (value: number, toggleValue?: boolean) => void,
  *   zIndex?: number,                // mặc định 130 (ngang modalChoice()/time-picker-modal)
  * }} config
  */
@@ -62,6 +66,35 @@ function openSliderInputModal(config) {
         hintEl.className = 'text-xs text-slate-400 truncate';
         hintEl.textContent = config.hintText;
         card.appendChild(hintEl);
+    }
+
+    // MỚI (08/08/2026) — công tắc bật/tắt tuỳ chọn (checkbox ẩn + 2 lớp phủ tạo hình viên thuốc,
+    // pattern toggle-switch chuẩn Tailwind qua peer-checked:). ĐỨNG TRÊN slider — nhóm "bật/tắt cái
+    // gì đó" trước, "chỉnh mức bao nhiêu" sau, đúng thứ tự đọc tự nhiên.
+    let toggleCheckboxEl = null;
+    if (config.toggle) {
+        const toggleLabelEl = document.createElement('label');
+        toggleLabelEl.className = 'flex items-center justify-between gap-3 cursor-pointer';
+        const toggleTextEl = document.createElement('span');
+        toggleTextEl.className = 'text-sm text-slate-300';
+        toggleTextEl.textContent = config.toggle.label || '';
+        toggleLabelEl.appendChild(toggleTextEl);
+
+        const switchWrapEl = document.createElement('span');
+        switchWrapEl.className = 'relative inline-block w-11 h-6 shrink-0';
+        toggleCheckboxEl = document.createElement('input');
+        toggleCheckboxEl.type = 'checkbox';
+        toggleCheckboxEl.className = 'peer sr-only';
+        toggleCheckboxEl.checked = !!config.toggle.initialValue;
+        const trackEl = document.createElement('span');
+        trackEl.className = 'absolute inset-0 rounded-full bg-white/10 peer-checked:bg-sky-500 transition-colors pointer-events-none';
+        const knobEl = document.createElement('span');
+        knobEl.className = 'absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5 pointer-events-none';
+        switchWrapEl.appendChild(toggleCheckboxEl);
+        switchWrapEl.appendChild(trackEl);
+        switchWrapEl.appendChild(knobEl);
+        toggleLabelEl.appendChild(switchWrapEl);
+        card.appendChild(toggleLabelEl);
     }
 
     const row = document.createElement('div');
@@ -127,7 +160,8 @@ function openSliderInputModal(config) {
     cancelBtn.addEventListener('click', closeModal);
     applyBtn.addEventListener('click', () => {
         closeModal();
-        config.onConfirm(currentValue);
+        if (config.toggle) config.onConfirm(currentValue, toggleCheckboxEl.checked);
+        else config.onConfirm(currentValue);
     });
 
     document.body.appendChild(overlay);
