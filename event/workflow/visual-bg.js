@@ -14,6 +14,7 @@ let visualBgVideoAudioPanelEl = null;
 const workflowVisualBg = {
     _listIndex: -1,            // vị trí hiện tại trong `source.list` — CHỈ dùng cho nhánh video ở đây
     _colorPersistTimer: null,
+    _videoAudioRows: null,     // MỚI (08/08/2026) — cache {key,name}[] đọc lúc mở panel "Âm thanh Video", xem openVideoAudioPanel()/openVideoAudioVolumeModal()
 
     // ===================== Boot / persist =====================
 
@@ -551,19 +552,29 @@ const workflowVisualBg = {
     // hàng vẽ ĐỘNG bởi `_renderVideoAudioRows()`, template khung rỗng ở
     // components/visual-bg-video-audio-drawer.js.
 
-    /** Mở panel — đọc TÊN từng video (song song, giống `_applyNextOrderToKeys()`) rồi vẽ hàng. */
+    /** Mở panel — đọc TÊN từng video (song song, giống `_applyNextOrderToKeys()`) rồi vẽ hàng.
+     * SỬA (08/08/2026, phản hồi Giang, mục "kiểm tra" 1) — `_videoAudioRows` là bản CHỤP (snapshot)
+     * tại thời điểm mở, KHÔNG tự đổi theo nếu `source.list` đổi SAU đó trong lúc panel đang mở (ví
+     * dụ video tự cycle/null-sweep/reshuffle chạy NỀN — có thể xảy ra thật, không chỉ giả thuyết, kể
+     * từ khi video mode 'slideshow' tự advance qua `ended()` thay vì hẹn giờ). Giang CHƯA yêu cầu
+     * làm sống động real-time — giữ nguyên hành vi snapshot, đóng mở lại panel để thấy danh sách
+     * mới nếu source.list đã đổi. */
     async openVideoAudioPanel() {
         visualBgVideoAudioPanelEl = pushSettingsPanel({ title: t('visualBgSettingsDrawer.openVideoAudio.label'), bodyHtml: renderVisualBgVideoAudioPanelBody() }); // core/settings-panel-stack-ui.js
         const cfg = appConfigVisualBg.getAll();
         const keys = cfg.source.list.filter((k) => k !== null);
         const records = await Promise.all(keys.map((k) => getVideoRecord(k))); // service/db.js
-        const rows = keys.map((key, i) => ({
+        this._videoAudioRows = keys.map((key, i) => ({
             key,
             name: records[i] ? (records[i].customName || stripFileExtension(records[i].filename)) : key, // core/file-manager/video.js
-        }));
-        this._renderVideoAudioRows(rows, appConfigVisualBg.getAll().source.videoAudio);
+        })); // cache TÊN — dùng lại lúc mở modal volume (openVideoAudioVolumeModal()), tránh đọc DB lần 2
+        this._renderVideoAudioRows(this._videoAudioRows, appConfigVisualBg.getAll().source.videoAudio);
     },
 
+    /** SỬA (08/08/2026, phản hồi Giang mục 2) — THAY slider hiện/ẩn theo tick (mỗi hàng 1 <input
+     * range> riêng) bằng 1 NÚT icon+% LUÔN hiện (dù tick hay không tick checkbox) — bấm vào mở
+     * CHUNG 1 modal (`openSliderInputModal()`, core/slider-input-modal.js) thay vì phải dựng N
+     * thanh trượt cho N hàng. */
     _renderVideoAudioRows(rows, videoAudioMap) {
         const listEl = visualBgVideoAudioPanelEl.querySelector('#visual-bg-video-audio-list');
         if (rows.length === 0) {
@@ -573,17 +584,32 @@ const workflowVisualBg = {
         listEl.innerHTML = rows.map(({ key, name }) => {
             const { enabled, volumePercent } = getVisualBgVideoAudioSetting(videoAudioMap, key); // core/visual-bg.js
             return `
-            <div class="p-4 border-b border-white/5 last:border-b-0">
-                <label class="flex items-center justify-between gap-3 cursor-pointer">
-                    <span class="text-sm font-medium truncate min-w-0">${escapeHtml(name)}</span>
-                    <input type="checkbox" data-visual-bg-video-audio-enable="${escapeHtml(key)}" class="w-5 h-5 accent-sky-500 shrink-0" ${enabled ? 'checked' : ''}>
-                </label>
-                <div class="flex items-center gap-3 mt-3 ${enabled ? '' : 'hidden'}" data-visual-bg-video-audio-volume-row="${escapeHtml(key)}">
-                    <input type="range" data-visual-bg-video-audio-volume="${escapeHtml(key)}" min="0" max="100" step="1" value="${volumePercent}" class="flex-1 accent-sky-500">
-                    <span data-visual-bg-video-audio-volume-label="${escapeHtml(key)}" class="text-xs text-slate-400 w-10 text-right tabular-nums">${volumePercent}%</span>
-                </div>
+            <div class="p-4 border-b border-white/5 last:border-b-0 flex items-center gap-3">
+                <span class="text-sm font-medium truncate min-w-0 flex-1">${escapeHtml(name)}</span>
+                <button type="button" data-visual-bg-video-audio-open-volume="${escapeHtml(key)}" class="flex items-center gap-1.5 shrink-0 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M12 6v12M6 9v6a2 2 0 002 2h2l4 4V3l-4 4H8a2 2 0 00-2 2z" /></svg>
+                    <span data-visual-bg-video-audio-volume-display="${escapeHtml(key)}" class="text-xs font-mono tabular-nums text-slate-300">${volumePercent}%</span>
+                </button>
+                <input type="checkbox" data-visual-bg-video-audio-enable="${escapeHtml(key)}" class="w-5 h-5 accent-sky-500 shrink-0" ${enabled ? 'checked' : ''}>
             </div>`;
         }).join('');
+    },
+
+    /** MỚI (08/08/2026, phản hồi Giang mục 2) — bấm nút icon+% của 1 hàng. Đọc TÊN từ cache
+     * `_videoAudioRows` (đọc sẵn lúc mở panel, xem `openVideoAudioPanel()`) — không đọc DB lần 2. */
+    openVideoAudioVolumeModal(videoKey) {
+        const row = (this._videoAudioRows || []).find((r) => r.key === videoKey);
+        const { volumePercent } = getVisualBgVideoAudioSetting(appConfigVisualBg.getAll().source.videoAudio, videoKey); // core/visual-bg.js
+        openSliderInputModal({ // core/slider-input-modal.js
+            title: t('visualBgSettingsDrawer.videoAudio.volumeModal.title'),
+            hintText: row ? row.name : videoKey,
+            min: 0,
+            max: 100,
+            step: 1,
+            initialValue: volumePercent,
+            unitSuffix: '%',
+            onConfirm: (value) => this.setVideoAudioVolume(videoKey, value),
+        });
     },
 
     /** Tick bật/tắt audio 1 video — Rule 3b: tự đọc `current` qua core A rồi truyền vào core B. */
@@ -594,14 +620,12 @@ const workflowVisualBg = {
         appConfigVisualBg.mutateAll((c) => { c.source.videoAudio = nextMap; });
         console.log(`writer: "workflowVisualBg.setVideoAudioEnabled", page: "visualBgConfig", content: "source.videoAudio[${videoKey}].enabled=${enabled}"`);
         await this._persist();
-        if (visualBgVideoAudioPanelEl) {
-            const row = visualBgVideoAudioPanelEl.querySelector(`[data-visual-bg-video-audio-volume-row="${CSS.escape(videoKey)}"]`);
-            if (row) row.classList.toggle('hidden', !enabled);
-        }
         this._applyLiveIfCurrentVideo(videoKey);
     },
 
-    /** Kéo thanh trượt volume 1 video — cùng khuôn Rule 3b như trên. */
+    /** Bấm "Áp dụng" trong `openSliderInputModal()` — cùng khuôn Rule 3b như trên. SỬA (08/08/2026,
+     * phản hồi Giang mục 2) — cập nhật lại đúng NÚT icon+% của hàng đó (thay cho label cạnh slider
+     * inline cũ đã bỏ). */
     async setVideoAudioVolume(videoKey, volumePercent) {
         const parsed = Number(volumePercent);
         if (!Number.isFinite(parsed)) return; // guard clause thuần
@@ -612,8 +636,8 @@ const workflowVisualBg = {
         console.log(`writer: "workflowVisualBg.setVideoAudioVolume", page: "visualBgConfig", content: "source.videoAudio[${videoKey}].volumePercent=${parsed}"`);
         await this._persist();
         if (visualBgVideoAudioPanelEl) {
-            const label = visualBgVideoAudioPanelEl.querySelector(`[data-visual-bg-video-audio-volume-label="${CSS.escape(videoKey)}"]`);
-            if (label) label.textContent = `${Math.min(100, Math.max(0, parsed))}%`;
+            const display = visualBgVideoAudioPanelEl.querySelector(`[data-visual-bg-video-audio-volume-display="${CSS.escape(videoKey)}"]`);
+            if (display) display.textContent = `${Math.min(100, Math.max(0, parsed))}%`;
         }
         this._applyLiveIfCurrentVideo(videoKey);
     },
