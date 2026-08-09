@@ -341,24 +341,13 @@ const workflowVisualBg = {
         // `hideUntilReady=true`: VBG (KHÁC Video Player mode thật — nhánh đó vẫn ổn định, KHÔNG
         // truyền tham số này, giữ nguyên hành vi) ẩn hẳn `bgVideoElement` quanh lúc đổi src, lộ đúng
         // lớp thumb full-res đã chèn (bên trong swapBgVideoSource), tự gỡ ẩn khi video mới sẵn sàng.
-        // SỬA (09/08/2026, mục 2 — "Song bị đè audio không play được") — tham số thứ 3 `beforePlay`
-        // TRƯỚC ĐÂY truyền `null` ("VBG không cần"), khiến bgVideoElement không bao giờ được nối vào
-        // masterGainNode qua VBG (chỉ Video Player mode thật mới nối) — nếu phiên chưa từng vào Video
-        // Player mode, audio Audio B (video nền có bật âm lượng riêng) phát qua pipeline native TÁCH
-        // BIỆT khỏi audioPlayer (đã luôn qua Web Audio graph), 2 phiên audio native độc lập dễ bị
-        // trình duyệt/OS cưỡng chế loại trừ lẫn nhau (Song bị pause ngay khi bấm Play). Giờ LUÔN
-        // truyền hook này (connectVideoElementToAnalyser() tự guard chỉ tạo 1 lần, gọi lại vô hại) —
-        // gộp chung Audio B vào ĐÚNG 1 AudioContext/masterGainNode với Song.
-        // SỬA (09/08/2026, mục 1) — áp lại `_applyVideoAudioSettingToElement()` NGAY TRONG hook, SAU
-        // connectVideoElementToAnalyser(): lần đầu tiên trong phiên, GainNode vừa tạo mặc định câm
-        // (gain=0, xem core/video-player.js) — lời gọi TRƯỚC swap (dòng trên) chạy lúc graph CHƯA
-        // tồn tại nên chỉ áp được `.muted`/`.volume` (fallback), phải áp lại gain THẬT ở đây mới có
-        // hiệu lực, TRƯỚC khi `play()` chạy ngay sau hook này.
-        const record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true, () => {
-            setupAudioContext(); // core/audio-engine.js
-            connectVideoElementToAnalyser(); // core/video-player.js
-            this._applyVideoAudioSettingToElement(videoKey);
-        }, true); // event/workflow/video-player.js — liên tuyến domain, isTransition=true LUÔN (VBG cần lớp dự phòng cả lúc áp lần đầu, không phân biệt như Video Player mode) — bên trong: pause video cũ -> đọc record -> chèn full-res thumb dự phòng -> ẩn bgVideoElement -> nạp blob mới -> gán poster/src -> play() -> gỡ ẩn khi sẵn sàng
+        // SỬA (09/08/2026, mục 2 — "Song bị đè audio không play được") — TRƯỚC ĐÂY luôn truyền hook
+        // `connectVideoElementToAnalyser()` ở đây (kể cả lúc câm mặc định) — Giang chỉ ra không cần
+        // đụng Web Audio khi không có Audio B. Giờ việc nối graph đã chuyển vào NGAY trong
+        // `_applyVideoAudioSettingToElement()` ở trên (chạy TRƯỚC dòng này, LƯỜI — chỉ nối khi
+        // `enabled=true`) nên hàm này không còn cần `beforePlay` riêng nữa, trả về `null` như bản
+        // gốc — mặc định câm phát qua DOM bình thường, không đụng Web Audio gì cả.
+        const record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true, null, true); // event/workflow/video-player.js — liên tuyến domain, isTransition=true LUÔN (VBG cần lớp dự phòng cả lúc áp lần đầu, không phân biệt như Video Player mode) — bên trong: pause video cũ -> đọc record -> chèn full-res thumb dự phòng -> ẩn bgVideoElement -> nạp blob mới -> gán poster/src -> play() -> gỡ ẩn khi sẵn sàng
         this._isSwappingVideo = false;
         if (!record) { await this._markCurrentMissing(); return; }
         this._currentVideoKey = videoKey; // MỚI — ghi NGAY sau khi swap thành công, làm nguồn so sánh cho guard dedupe ở đầu hàm
@@ -368,19 +357,27 @@ const workflowVisualBg = {
     },
 
     /** Đọc cấu hình audio riêng của `videoKey` (core `getVisualBgVideoAudioSetting()`) rồi gán thẳng
-     * `bgVideoElement.muted`/`.volume` + gain thật (`setVideoBgGain()`) — DOM 1 dòng, không cần core
-     * DOM riêng (cùng khuôn `.loop`/`.classList` viết thẳng ở Workflow trước giờ). Gọi lúc phát video
-     * (TRƯỚC play(), xem `_playVideoKey()`) VÀ lúc user Áp dụng modal audio ngay khi video đó đang
-     * là video ĐANG PHÁT (áp live, không cần đợi vòng cycle sau — xem `setVideoAudioSetting()`).
-     * SỬA (09/08/2026, mục 1 — "video bg vẫn không mute") — `.muted`/`.volume` giờ CHỈ là fallback
-     * cho lúc graph Web Audio chưa nối; `setVideoBgGain()` (core/video-player.js, GainNode riêng)
-     * mới là nguồn tin cậy CHÍNH khi đã nối — luôn cưỡng chế câm (gain=0) TRỪ khi đúng `videoKey`
-     * này có audio đang bật trong panel "Âm thanh Video" (`enabled=true`). */
+     * `bgVideoElement.muted`/`.volume` — DOM 1 dòng, không cần core DOM riêng (cùng khuôn `.loop`/
+     * `.classList` viết thẳng ở Workflow trước giờ). Gọi lúc phát video (TRƯỚC play(), xem
+     * `_playVideoKey()`) VÀ lúc user Áp dụng modal audio ngay khi video đó đang là video ĐANG PHÁT
+     * (áp live, không cần đợi vòng cycle sau — xem `setVideoAudioSetting()`).
+     * SỬA (09/08/2026, mục 1+2, phản hồi Giang) — BỎ HẲN việc nối Web Audio (`connectVideoElementToAnalyser()`/
+     * `setVideoBgGain()`) đã thêm ở bản trước cho nhánh này — video nền Audio B KHÔNG có nhu cầu
+     * nuôi analyser (Song đã lo việc đó), nên không có lý do kỹ thuật nào cần đẩy nó vào Web Audio
+     * graph cả. Nghiên cứu: bug iOS "video native phát cùng lúc audio khiến audio bị hệ thống
+     * cưỡng chế pause" (Apple Developer Forums, thread "HTMLAudioElement on iOS is paused when
+     * video plays again") CHỈ xảy ra khi CẢ HAI cùng ở pipeline native — 1 trong 2 cách thoát chính
+     * thức là "đổi audio sang Web Audio API" — Song trong app này VỐN ĐÃ LUÔN qua Web Audio
+     * (`createMediaElementSource(audioPlayer)`, `core/audio-engine.js::setupAudioContext()`, có từ
+     * trước, không liên quan VBG) nên đã miễn nhiễm sẵn — video nền cứ để native, `.muted`/`.volume`
+     * đáng tin cậy (KHÔNG bị vấn đề Firefox bugzilla #966247 vì CHƯA từng qua
+     * `createMediaElementSource()`). Đơn giản hơn hẳn, đúng bản chất DOM bình thường như Giang yêu
+     * cầu. (GainNode/`connectVideoElementToAnalyser()` VẪN giữ nguyên cho Video Player mode —
+     * core/video-player.js — vì đó là nhu cầu THẬT: nuôi analyser khi video là nội dung chính.) */
     _applyVideoAudioSettingToElement(videoKey) {
         const { enabled, volumePercent } = getVisualBgVideoAudioSetting(appConfigVisualBg.getAll().source.videoAudio, videoKey); // core/visual-bg.js
         bgVideoElement.muted = !enabled;
         bgVideoElement.volume = volumePercent / 100;
-        setVideoBgGain(enabled ? volumePercent / 100 : 0); // core/video-player.js
     },
 
     /** Đánh dấu vị trí hiện tại là mất + ẩn — KHÔNG reset index/task, chờ advance() lần sau tự bước

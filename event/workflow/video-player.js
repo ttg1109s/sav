@@ -54,11 +54,10 @@ const workflowVideoPlayer = {
      *   đầu cũng cần — thumb đứng yên tới khi video thật sự sẵn sàng, xem docstring
      *   `workflowVisualBg._playVideoKey()`).
      * @param {Function} [beforePlay=null] - hook chạy NGAY TRƯỚC khi gán `poster`/`src`/`play()` —
-     *   chèn `setupAudioContext()`/`connectVideoElementToAnalyser()` ĐÚNG VỊ TRÍ như bản gốc. SỬA
-     *   (09/08/2026, mục 2 — "Song bị đè audio không play được") — TRƯỚC ĐÂY chỉ `playVideoByKey()`
-     *   truyền (Visual Background không cần); giờ `workflowVisualBg._playVideoKey()` CŨNG truyền —
-     *   video nền Audio B phải nối chung `masterGainNode` với `audioPlayer`, tránh 2 phiên audio
-     *   native độc lập bị trình duyệt/OS cưỡng chế loại trừ lẫn nhau.
+     *   CHỈ để `playVideoByKey()` chèn `setupAudioContext()`/`connectVideoElementToAnalyser()` ĐÚNG
+     *   VỊ TRÍ như bản gốc. Visual Background KHÔNG truyền (SỬA 09/08/2026, mục 1+2 — nối Web Audio
+     *   dời sang `workflowVisualBg._applyVideoAudioSettingToElement()`, chạy TRƯỚC lời gọi này, LƯỜI
+     *   — chỉ nối đúng lúc Audio B thật sự bật cho video đó, mặc định câm không đụng Web Audio).
      * @param {boolean} [hideUntilReady=false] - MỚI (08/08/2026, phản hồi Giang — màn đen ở VBG
      *   video slideshow, RIÊNG video cuối `source.list`) — ẩn hẳn `bgVideoElement` (`.hidden`,
      *   display:none) NGAY TRƯỚC khi đụng `src` (đúng lúc `#visual-bg-image` đã có sẵn thumb full-
