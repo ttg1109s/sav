@@ -112,6 +112,20 @@
                 videoAudio: {},
             },
 
+            // MỚI (09/08/2026, phản hồi Giang — "đổi nguồn giữa lúc đang cycle làm giật/mất khung
+            // đang phát") — nguồn MỚI chọn/Làm tươi TRONG LÚC đang có media active (photo/video)
+            // không ghi đè `source` ngay — xếp hàng ở đây, đợi đúng "lượt kế tiếp" (video hết/đổi
+            // bài hát, hoặc tick slideshow kế) mới thật sự thay `source`, xem
+            // `workflowVisualBg._checkAndApplyPendingSource()`. `originKind===null` = không có gì
+            // đang chờ. Chọn nguồn mới trong lúc pending cũ CHƯA kịp áp -> ĐÈ LUÔN (Giang chốt, chỉ
+            // giữ 1 pending duy nhất). List RỖNG (không có gì đang chạy) thì bỏ qua cơ chế này, áp
+            // thẳng như trước — không có gì để "chờ" cả.
+            pending: {
+                originKind: null,           // null | 'single' | 'group'
+                originId: null,
+                list: [],                   // đã resolve sẵn (key thật) lúc queue — áp KHÔNG đọc lại DB lần 2
+            },
+
             listPlaybackMode: 'perSong',    // 'perSong' | 'slideshow' — chỉ có ý nghĩa khi list.length > 1
             nextOrder: 'random',            // 'random' | 'sequential' | 'playlist' — thứ tự dựng list lúc chọn/Làm tươi + bước cycle
 
@@ -202,6 +216,7 @@
             schema: {
                 type: 'string',
                 source: 'object', // { originKind: nullable-string, originId: nullable-string, list: array }
+                pending: 'object', // { originKind: nullable-string, originId: nullable-string, list: array } — xem DEFAULT_VISUAL_BG_CONFIG.pending
                 listPlaybackMode: 'string', nextOrder: 'string',
                 colorMode: 'string', solidColor: 'string', gradientAngleDeg: 'number',
                 gradientStops: 'object',

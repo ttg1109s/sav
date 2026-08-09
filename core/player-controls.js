@@ -77,7 +77,21 @@
             let nextKey;
             if (appState.get('isShuffle')) {
                 let currentPos = appState.get('shuffleIndices').indexOf(appState.get('currentKey'));
-                if (currentPos === -1 || currentPos === appState.get('playlistOrder').length - 1) { if (appState.get('repeatMode') === 1 || force) nextKey = appState.get('shuffleIndices')[0]; else { activeEl.pause(); return; } }
+                if (currentPos === -1 || currentPos === appState.get('playlistOrder').length - 1) {
+                    if (appState.get('repeatMode') === 1 || force) nextKey = appState.get('shuffleIndices')[0];
+                    else {
+                        // MỚI (09/08/2026, phản hồi Giang — tín hiệu "hết hẳn playlist" cho domain
+                        // khác, vd `visualBg`) — inline TRỰC TIẾP (KHÔNG tách hàm riêng: `playNext()`
+                        // là Core, tách 1 hàm Core khác rồi gọi từ đây = Core gọi Core, vi phạm
+                        // Rule 3 tuyệt đối — `appState.set()` vốn dĩ ĐÃ hợp lệ ngay trong thân Core
+                        // (Rule 2 chỉ cấm `get()`), không cần bọc qua hàm nào cả). Rule 4: log ngay
+                        // dưới `set()`.
+                        appState.set('playbackStoppedAtPlaylistEnd', true);
+                        console.log(`writer: "playNext", page: "playbackStoppedAtPlaylistEnd", content: "true"`);
+                        activeEl.pause();
+                        return;
+                    }
+                }
                 else nextKey = appState.get('shuffleIndices')[currentPos + 1];
             } else {
                 let currentPos = appState.get('displayOrder').indexOf(appState.get('currentKey'));
@@ -86,7 +100,13 @@
                     if (appState.get('repeatMode') === 1 || force) {
                         if (appState.get('pendingResortKeys').size > 0) recomputeDisplayOrder(); // chạm biên: áp lại sort thật cho bài mới thêm giữa lúc nghe
                         nextKey = appState.get('displayOrder')[0];
-                    } else { activeEl.pause(); return; }
+                    } else {
+                        // MỚI (09/08/2026) — inline TRỰC TIẾP, cùng lý do nhánh shuffle ở trên (Rule 3 — Core không được gọi Core khác).
+                        appState.set('playbackStoppedAtPlaylistEnd', true);
+                        console.log(`writer: "playNext", page: "playbackStoppedAtPlaylistEnd", content: "true"`);
+                        activeEl.pause();
+                        return;
+                    }
                 } else nextKey = appState.get('displayOrder')[currentPos + 1];
             }
             window.playSong(nextKey, { switchScreen: false }); // fix 03/07/2026 mục 5 — xem comment đầy đủ ở window.playSong (core/playlist/actions.js)
@@ -551,6 +571,11 @@
          * chạy tiếp từ vị trí đã đóng băng (nếu đang pause) — xem workflowSlideshow.syncPlaybackGate().
          */
         function handleAudioPlay() {
+            // MỚI (09/08/2026) — bất kỳ lúc nào audio THẬT SỰ phát lại, trạng thái "hết hẳn
+            // playlist" không còn đúng nữa — reset ngay tại đây (nguồn signal DUY NHẤT, không cần
+            // rải rác chỗ khác). Rule 2: chỉ `set()`, không đọc. Rule 4: log ngay dưới.
+            appState.set('playbackStoppedAtPlaylistEnd', false);
+            console.log(`writer: "handleAudioPlay", page: "playbackStoppedAtPlaylistEnd", content: "false"`);
             iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden'); 
             let recordArtDynamic = document.getElementById('record-art'); if(recordArtDynamic) recordArtDynamic.classList.remove('paused');
             if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
