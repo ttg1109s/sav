@@ -357,27 +357,32 @@ const workflowVisualBg = {
     },
 
     /** Đọc cấu hình audio riêng của `videoKey` (core `getVisualBgVideoAudioSetting()`) rồi gán thẳng
-     * `bgVideoElement.muted`/`.volume` — DOM 1 dòng, không cần core DOM riêng (cùng khuôn `.loop`/
-     * `.classList` viết thẳng ở Workflow trước giờ). Gọi lúc phát video (TRƯỚC play(), xem
-     * `_playVideoKey()`) VÀ lúc user Áp dụng modal audio ngay khi video đó đang là video ĐANG PHÁT
-     * (áp live, không cần đợi vòng cycle sau — xem `setVideoAudioSetting()`).
-     * SỬA (09/08/2026, mục 1+2, phản hồi Giang) — BỎ HẲN việc nối Web Audio (`connectVideoElementToAnalyser()`/
-     * `setVideoBgGain()`) đã thêm ở bản trước cho nhánh này — video nền Audio B KHÔNG có nhu cầu
-     * nuôi analyser (Song đã lo việc đó), nên không có lý do kỹ thuật nào cần đẩy nó vào Web Audio
-     * graph cả. Nghiên cứu: bug iOS "video native phát cùng lúc audio khiến audio bị hệ thống
-     * cưỡng chế pause" (Apple Developer Forums, thread "HTMLAudioElement on iOS is paused when
-     * video plays again") CHỈ xảy ra khi CẢ HAI cùng ở pipeline native — 1 trong 2 cách thoát chính
-     * thức là "đổi audio sang Web Audio API" — Song trong app này VỐN ĐÃ LUÔN qua Web Audio
-     * (`createMediaElementSource(audioPlayer)`, `core/audio-engine.js::setupAudioContext()`, có từ
-     * trước, không liên quan VBG) nên đã miễn nhiễm sẵn — video nền cứ để native, `.muted`/`.volume`
-     * đáng tin cậy (KHÔNG bị vấn đề Firefox bugzilla #966247 vì CHƯA từng qua
-     * `createMediaElementSource()`). Đơn giản hơn hẳn, đúng bản chất DOM bình thường như Giang yêu
-     * cầu. (GainNode/`connectVideoElementToAnalyser()` VẪN giữ nguyên cho Video Player mode —
-     * core/video-player.js — vì đó là nhu cầu THẬT: nuôi analyser khi video là nội dung chính.) */
+     * `bgVideoElement.muted`/`.volume`. Gọi lúc phát video (TRƯỚC play(), xem `_playVideoKey()`) VÀ
+     * lúc user Áp dụng modal audio ngay khi video đó đang là video ĐANG PHÁT (áp live, không cần
+     * đợi vòng cycle sau — xem `setVideoAudioSetting()`).
+     * SỬA (09/08/2026, mục 1+2, phản hồi Giang) — RETRACT bản trước (native song song hoàn toàn,
+     * không đụng Web Audio): đã thử THẬT, Song vẫn bị cưỡng chế pause. Nghiên cứu trước dẫn thread
+     * Apple Developer Forums ("HTMLAudioElement on iOS is paused when video plays again") dùng demo
+     * Web Audio API THAY THẾ HOÀN TOÀN thẻ `<audio>` (buffer thuần, không còn element `<audio>` nào
+     * chạy dưới) — KHÁC app này: `audioPlayer` vẫn là 1 thẻ `<audio>` THẬT (chỉ tap tín hiệu ra qua
+     * `createMediaElementSource`), bản thân element đó iOS vẫn coi là 1 "phiên media" độc lập, vẫn
+     * bị video native cưỡng chế pause như thường — kết luận trước SAI cho đúng kiến trúc này.
+     * Quay lại nối `bgVideoElement` vào CHUNG graph với `audioPlayer` — nhưng LƯỜI, CHỈ đúng lúc
+     * `enabled=true` (Audio B thật sự cần phát cùng lúc Song) — mặc định câm (đa số) vẫn KHÔNG đụng
+     * Web Audio, giữ đúng tinh thần đơn giản Giang muốn cho trường hợp phổ biến nhất. Một khi đã nối
+     * graph thì `.muted`/`.volume` không đáng tin (Firefox bugzilla #966247) nên PHẢI dùng
+     * `setVideoBgGain()` (GainNode riêng, core/video-player.js) làm nguồn tin cậy chính. */
     _applyVideoAudioSettingToElement(videoKey) {
         const { enabled, volumePercent } = getVisualBgVideoAudioSetting(appConfigVisualBg.getAll().source.videoAudio, videoKey); // core/visual-bg.js
         bgVideoElement.muted = !enabled;
         bgVideoElement.volume = volumePercent / 100;
+        if (enabled) {
+            setupAudioContext(); // core/audio-engine.js — đảm bảo context tồn tại
+            connectVideoElementToAnalyser(); // core/video-player.js — LƯỜI, chỉ nối đúng lúc thật sự cần Audio B
+            setVideoBgGain(volumePercent / 100); // core/video-player.js
+        } else {
+            setVideoBgGain(0); // core/video-player.js — no-op nếu graph chưa nối (đa số trường hợp — không đụng gì tới Web Audio)
+        }
     },
 
     /** Đánh dấu vị trí hiện tại là mất + ẩn — KHÔNG reset index/task, chờ advance() lần sau tự bước
