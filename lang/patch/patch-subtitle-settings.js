@@ -66,6 +66,11 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'visualBgSettingsDrawer.refreshSource.result': 'Refreshed: +{added} added, -{removed} removed. {total} item(s) total now.',
     'visualBgSettingsDrawer.refreshSource.resultUnchanged': 'Refreshed: no changes. {total} item(s) total.',
     'visualBgSettingsDrawer.refreshSource.resultCleared': 'The source no longer exists — Visual Background has been cleared.',
+    // MỚI (09/08/2026, cơ chế pending) — modal thông báo khi chọn nguồn mới/Làm tươi TRONG LÚC
+    // đang có photo/video active: nguồn mới KHÔNG áp ngay, xếp hàng chờ đúng "lượt kế tiếp" (video
+    // hiện tại phát hết, hoặc ảnh chuyển cảnh kế) mới thay hẳn — 2 bản riêng theo ngữ cảnh type.
+    'visualBgSettingsDrawer.pendingSource.photo': 'Got it — the new source will take effect starting from the next photo.',
+    'visualBgSettingsDrawer.pendingSource.video': 'Got it — the new source will take effect once the current video finishes.',
     'visualBgSettingsDrawer.pickSource.none': 'Not selected yet',
     'visualBgSettingsDrawer.listPlaybackMode.label': 'Playback',
     'visualBgSettingsDrawer.listPlaybackMode.perSong': 'One per song',
