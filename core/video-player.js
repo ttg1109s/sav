@@ -37,10 +37,14 @@ function exitVideoPlayerModeState() {
  * thắng tuyệt đối). `enabled=true`: gỡ `.hidden` + bỏ muted + tắt loop (cần `bgVideoElement` tự
  * bắn 'ended' để chuyển video kế tiếp) + bật pointer-events. `enabled=false`: ngược lại, về mặc
  * định CSS tĩnh (`#bg-video { z-index: 0; }`, giống Video nền trang trí).
+ * SỬA (09/08/2026, mục 1 — "video bg vẫn không mute") — `.muted` GIỮ LẠI chỉ làm fallback cho lúc
+ * graph Web Audio CHƯA nối (trước `connectVideoElementToAnalyser()` chạy lần đầu trong phiên);
+ * nguồn tin cậy CHÍNH giờ là `setVideoBgGain()` (GainNode riêng) — xem docstring hàm đó.
  * @param {boolean} enabled
  */
 function setBgVideoElementForPlayerMode(enabled) {
     bgVideoElement.muted = !enabled;
+    setVideoBgGain(enabled ? 1 : 0);
     bgVideoElement.loop = !enabled;
     bgVideoElement.classList.toggle('hidden', !enabled);
     bgVideoElement.style.pointerEvents = enabled ? 'auto' : '';
@@ -57,20 +61,40 @@ function setBgVideoElementForPlayerMode(enabled) {
  * cần multi-browser an toàn, không cần chớp-đen-zero tuyệt đối bằng active toggle). */
 
 let _videoAnalyserSourceNode = null; // MediaElementSourceNode của bgVideoElement — tạo ĐÚNG 1 LẦN (trình duyệt cấm tạo lại trên CÙNG 1 element, KHÁC audioPlayer đã có source riêng của nó)
+let _videoBgGainNode = null; // MỚI (09/08/2026, mục 1) — xem docstring setVideoBgGain()
 
 /**
- * Nối `bgVideoElement` (KHÔNG PHẢI `audioPlayer`) trực tiếp vào analyser đã có sẵn. PHẢI gọi
- * `setupAudioContext()` (core/audio-engine.js) trước hàm này ít nhất 1 lần trong phiên. Nối qua
- * `masterGainNode` (KHÔNG nối thẳng `analyser`/`destination`) — node đó đã sẵn `.connect(analyser)`/
- * `.connect(analyserPitch)`/`.connect(destination)` từ `setupAudioContext()`, nên video cũng tôn
- * trọng thanh Âm lượng chung thay vì luôn phát gain mặc định 100%. `createMediaElementSource()`
- * chiếm audio output mặc định của element — KHÔNG nối gì thì `bgVideoElement` sẽ câm hoàn toàn.
+ * Nối `bgVideoElement` (KHÔNG PHẢI `audioPlayer`) vào analyser đã có sẵn, QUA 1 GainNode riêng
+ * (`_videoBgGainNode`) — KHÔNG nối thẳng `masterGainNode` như bản cũ. PHẢI gọi
+ * `setupAudioContext()` (core/audio-engine.js) trước hàm này ít nhất 1 lần trong phiên.
+ * SỬA (09/08/2026, mục 1, phản hồi Giang — "video bg vẫn không mute") — nghiên cứu: sau khi
+ * `createMediaElementSource()` "chiếm" audio output của 1 element, `.muted`/`.volume` của CHÍNH
+ * element đó KHÔNG đáng tin cậy trên mọi engine trình duyệt để câm/chỉnh âm lượng phần audio ĐÃ
+ * chảy vào Web Audio graph (Firefox bugzilla #966247 — `.volume` bị bỏ qua khi element đã đi vào
+ * MediaStreamGraph; MDN khuyến nghị chính thức dùng GainNode riêng thay vì phụ thuộc thuộc tính
+ * element, xem ví dụ chính thức ở trang `createMediaElementSource()`). GainNode mặc định
+ * `gain.value=0` (câm) — nơi gọi (`setBgVideoElementForPlayerMode()`/`setVideoBgGain()` từ
+ * `workflowVisualBg`) PHẢI tự set lại đúng mức NGAY sau khi hàm này chạy lần đầu trong phiên.
  */
 function connectVideoElementToAnalyser() {
     if (_videoAnalyserSourceNode) return; // guard — chỉ tạo 1 lần, gọi lại nhiều lần vô hại
     const audioContext = appState.get('audioContext');
     _videoAnalyserSourceNode = audioContext.createMediaElementSource(bgVideoElement);
-    _videoAnalyserSourceNode.connect(appState.get('masterGainNode')); // -> analyser/analyserPitch/destination đã nối sẵn từ setupAudioContext()
+    _videoBgGainNode = audioContext.createGain();
+    _videoBgGainNode.gain.value = 0; // câm mặc định — nơi gọi tự set lại đúng mức ngay sau, xem docstring
+    _videoAnalyserSourceNode.connect(_videoBgGainNode);
+    _videoBgGainNode.connect(appState.get('masterGainNode')); // -> analyser/analyserPitch/destination đã nối sẵn từ setupAudioContext()
+}
+
+/**
+ * Core thuần — nguồn tin cậy CHÍNH để câm/chỉnh âm lượng `bgVideoElement` MỘT KHI đã nối Web Audio
+ * graph (xem docstring `connectVideoElementToAnalyser()`). No-op an toàn nếu graph chưa nối (chưa
+ * gọi `connectVideoElementToAnalyser()` lần nào trong phiên) — nơi gọi vẫn giữ `.muted`/`.volume`
+ * làm fallback cho khoảng hở đó.
+ * @param {number} value - 0..1 (0 = câm hoàn toàn).
+ */
+function setVideoBgGain(value) {
+    if (_videoBgGainNode) _videoBgGainNode.gain.value = value;
 }
 
 /**
