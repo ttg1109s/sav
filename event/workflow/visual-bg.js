@@ -310,11 +310,19 @@ const workflowVisualBg = {
      * `perSong` hoặc chỉ 1 item — video ĐÓ là toàn bộ nội dung, phải tự lặp mãi, không có gì để
      * chuyển sang). Cycle nhiều video mode 'slideshow' -> `loop=false`, đợi `ended` thật (xem
      * `_onVideoEnded()`) mới chuyển video kế — THAY cho taskManager hẹn giờ cố định đã bỏ.
-     * SỬA (08/08/2026, phản hồi Giang) — `muted` KHÔNG còn cứng `true`: áp `_applyVideoAudioSettingToElement()`
-     * TRƯỚC `swapBgVideoSource()` (đúng thứ tự cũ, để trình duyệt nhận đúng trạng thái muted NGAY
-     * lúc `play()` bên trong hàm đó chạy — gỡ muted SAU khi play() đã gọi có thể vẫn bị autoplay
-     * policy chặn âm). Coi việc người dùng đã bấm Play nhạc chính là đủ điều kiện tương tác để gỡ
-     * muted an toàn (Giang chốt) — không thêm gate/catch riêng.
+     * SỬA (09/08/2026, mục 1+2 vòng 2, phản hồi Giang — "video kế tiếp đè Song/đơ cả hai" +
+     * "chưa phát Song nhưng bật audio VBG đã phát") — RETRACT thứ tự 08/08/2026 (áp
+     * `_applyVideoAudioSettingToElement()` TRƯỚC `swapBgVideoSource()`): `play()` bên trong swap là
+     * 1 LỆNH PLAY MỚI trên `<video>` native — gọi lệnh đó trong lúc video ĐÃ audible (muted đã gỡ ở
+     * dòng trước) đúng là điều kiện khiến iOS Safari/WKWebView cưỡng chế giành audio session (pause
+     * Song, hoặc đơ cả hai do race) — xem thread Apple Developer Forums đã dẫn ở docstring
+     * `_applyVideoAudioSettingToElement()` dưới. Trường hợp Giang tìm ra "lách" được (bật audio cho
+     * video ĐANG PHÁT SẴN, không qua swap) sống sót đúng vì KHÔNG có lệnh `play()` nào chạy lại lúc
+     * đó — chỉ đổi `gain.value`. Áp dụng lại đúng cùng nguyên tắc vào nhánh swap: video LUÔN vào
+     * `play()` ở trạng thái câm cứng (không đọc setting), setting audio THẬT chỉ áp SAU khi
+     * `waitBgVideoReady()` báo video đã ổn định ('playing' hoặc timeout 2s) — xem cuối hàm. Đánh đổi
+     * đã bàn với Giang: mất đúng đoạn audio [0, mốc 'playing'] (thường <1s, tối đa 2s ca hiếm) —
+     * CÙNG mốc `hideUntilReady` đang dùng để lộ hình thật, nên không tạo lệch hình/tiếng mới.
      * @param {string} videoKey
      */
     async _playVideoKey(videoKey) {
@@ -331,7 +339,10 @@ const workflowVisualBg = {
             || this._isSwappingVideo
         ) return;
         this._killStuckRecoveryTimer(); // MỚI (09/08/2026, mục 3) — video mới thật sự bắt đầu nạp, không còn "treo" nữa
-        this._applyVideoAudioSettingToElement(videoKey); // core/visual-bg.js lookup + gán muted/volume — xem docstring trên
+        // SỬA (09/08/2026, mục 1+2 vòng 2) — ép câm CỨNG, KHÔNG đọc setting của videoKey ở đây nữa
+        // (xem docstring trên). `setVideoBgGain(0)` an toàn no-op nếu graph Web Audio chưa từng nối.
+        bgVideoElement.muted = true;
+        setVideoBgGain(0); // core/video-player.js
         const cfg = appConfigVisualBg.getAll();
         const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && this._effectiveCount(cfg) > 1;
         bgVideoElement.loop = !isCyclingSlideshow; // xem docstring trên — SỬA 08/08/2026
@@ -341,25 +352,31 @@ const workflowVisualBg = {
         // `hideUntilReady=true`: VBG (KHÁC Video Player mode thật — nhánh đó vẫn ổn định, KHÔNG
         // truyền tham số này, giữ nguyên hành vi) ẩn hẳn `bgVideoElement` quanh lúc đổi src, lộ đúng
         // lớp thumb full-res đã chèn (bên trong swapBgVideoSource), tự gỡ ẩn khi video mới sẵn sàng.
-        // SỬA (09/08/2026, mục 2 — "Song bị đè audio không play được") — TRƯỚC ĐÂY luôn truyền hook
-        // `connectVideoElementToAnalyser()` ở đây (kể cả lúc câm mặc định) — Giang chỉ ra không cần
-        // đụng Web Audio khi không có Audio B. Giờ việc nối graph đã chuyển vào NGAY trong
-        // `_applyVideoAudioSettingToElement()` ở trên (chạy TRƯỚC dòng này, LƯỜI — chỉ nối khi
-        // `enabled=true`) nên hàm này không còn cần `beforePlay` riêng nữa, trả về `null` như bản
-        // gốc — mặc định câm phát qua DOM bình thường, không đụng Web Audio gì cả.
+        // `beforePlay` vẫn `null` — video vào play() lúc câm cứng ở trên, không cần hook nối Web
+        // Audio ngay lúc này (chỉ nối LƯỜI bên trong `_applyVideoAudioSettingToElement()`, chạy SAU
+        // khi ready — xem cuối hàm).
         const record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true, null, true); // event/workflow/video-player.js — liên tuyến domain, isTransition=true LUÔN (VBG cần lớp dự phòng cả lúc áp lần đầu, không phân biệt như Video Player mode) — bên trong: pause video cũ -> đọc record -> chèn full-res thumb dự phòng -> ẩn bgVideoElement -> nạp blob mới -> gán poster/src -> play() -> gỡ ẩn khi sẵn sàng
         this._isSwappingVideo = false;
         if (!record) { await this._markCurrentMissing(); return; }
         this._currentVideoKey = videoKey; // MỚI — ghi NGAY sau khi swap thành công, làm nguồn so sánh cho guard dedupe ở đầu hàm
         updateDOMBackground(); // core/color-utils.js
         syncVisualBgVideoPlayback(audioPlayer.paused); // core/visual-bg.js — video trang trí phải tôn trọng trạng thái pause/play của nhạc
-        workflowVideoPlayer.waitBgVideoReady(); // KHÔNG await (fix bug boot chặn playlist, mục 4) — chỉ để dọn lớp thumb dự phòng đúng lúc
+        // KHÔNG await (fix bug boot chặn playlist, mục 4) — nối `.then()` áp audio setting THẬT
+        // đúng mốc video đã ổn định ('playing' hoặc timeout 2s, xem docstring trên). Guard
+        // `_currentVideoKey === videoKey`: bỏ qua nếu đã có video KHÁC nạp đè lên trong lúc chờ
+        // (advance nhanh liên tiếp) — không áp nhầm setting của video cũ sang video hiện tại.
+        workflowVideoPlayer.waitBgVideoReady().then(() => {
+            if (this._currentVideoKey === videoKey) this._applyVideoAudioSettingToElement(videoKey); // core/visual-bg.js lookup + gán muted/volume
+        });
     },
 
     /** Đọc cấu hình audio riêng của `videoKey` (core `getVisualBgVideoAudioSetting()`) rồi gán thẳng
-     * `bgVideoElement.muted`/`.volume`. Gọi lúc phát video (TRƯỚC play(), xem `_playVideoKey()`) VÀ
-     * lúc user Áp dụng modal audio ngay khi video đó đang là video ĐANG PHÁT (áp live, không cần
-     * đợi vòng cycle sau — xem `setVideoAudioSetting()`).
+     * `bgVideoElement.muted`/`.volume`. 2 nơi gọi: (1) `_playVideoKey()` — SAU khi
+     * `waitBgVideoReady()` báo video đã ổn định (KHÔNG còn gọi TRƯỚC `play()` nữa, xem SỬA
+     * 09/08/2026 vòng 2 ở docstring `_playVideoKey()` — play() là lệnh play() MỚI, gọi lúc video đã
+     * audible mới là nguồn cưỡng chế giành audio session, không phải bản thân việc unmute); (2) lúc
+     * user Áp dụng modal audio ngay khi video đó đang là video ĐANG PHÁT, KHÔNG qua swap/play() nào
+     * cả (áp live, không cần đợi vòng cycle sau — xem `setVideoAudioSetting()`/`_applyLiveIfCurrentVideo()`).
      * SỬA (09/08/2026, mục 1+2, phản hồi Giang) — RETRACT bản trước (native song song hoàn toàn,
      * không đụng Web Audio): đã thử THẬT, Song vẫn bị cưỡng chế pause. Nghiên cứu trước dẫn thread
      * Apple Developer Forums ("HTMLAudioElement on iOS is paused when video plays again") dùng demo
