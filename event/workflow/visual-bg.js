@@ -43,6 +43,14 @@ const workflowVisualBg = {
                         cfg.source.videoAudio = cleaned;
                     }
                 }
+                // MỚI (09/08/2026, cơ chế pending) — validate CÙNG khuôn `saved.source` ở trên.
+                if (saved.pending && typeof saved.pending === 'object') {
+                    if ((saved.pending.originKind === null || ['single', 'group'].includes(saved.pending.originKind)) && Array.isArray(saved.pending.list)) {
+                        cfg.pending.originKind = saved.pending.originKind;
+                        cfg.pending.originId = typeof saved.pending.originId === 'string' ? saved.pending.originId : null;
+                        cfg.pending.list = saved.pending.list.filter((k) => k === null || typeof k === 'string');
+                    }
+                }
                 if (VISUAL_BG_LIST_PLAYBACK_MODES.includes(saved.listPlaybackMode)) cfg.listPlaybackMode = saved.listPlaybackMode;
                 if (VISUAL_BG_NEXT_ORDERS.includes(saved.nextOrder)) cfg.nextOrder = saved.nextOrder;
                 if (VISUAL_BG_COLOR_MODES.includes(saved.colorMode)) cfg.colorMode = saved.colorMode;
@@ -62,9 +70,15 @@ const workflowVisualBg = {
             });
             console.log(`writer: "workflowVisualBg.loadPersistedSettingsOnBoot", page: "visualBgConfig", content: "nạp lại từ meta"`);
         }
-        // KHÔNG await ở đây (fix bug boot chặn playlist, mục 4) — applyCurrentVisualBg() cho nhánh
-        // video tự nạp/phát nền ngầm, không giữ chuỗi boot() phía app-boot.js chờ nó.
-        this.applyCurrentVisualBg();
+        // MỚI (09/08/2026, phản hồi Giang mục 4 — "app boot tự check pending") — boot = tự coi như
+        // ĐÃ ở "lượt kế tiếp": phiên trước đóng app giữa lúc có pending chưa kịp áp (video chưa hết/
+        // chưa đổi bài hát) -> áp NGAY ở đây, đè `source` cũ, không đợi thêm sự kiện nào nữa (không
+        // còn media nào đang dở dang để mà "làm phiền" cả — app vừa mở lại từ đầu).
+        // KHÔNG await ở đây (fix bug boot chặn playlist, mục 4 cũ) — CẢ 2 nhánh
+        // (_checkAndApplyPendingSource() lẫn applyCurrentVisualBg()) đều tự lo phần video nạp/phát
+        // ngầm, không giữ chuỗi boot() phía app-boot.js chờ.
+        if (appConfigVisualBg.getAll().pending.originKind) this._checkAndApplyPendingSource();
+        else this.applyCurrentVisualBg();
     },
 
     async _persist() {
@@ -153,6 +167,40 @@ const workflowVisualBg = {
         return this._applyPhoto(cfg);
     },
 
+    /**
+     * MỚI (09/08/2026, cơ chế pending, phản hồi Giang) — kiểm tra + áp `cfg.pending` nếu có. Dùng
+     * CHUNG cho MỌI điểm "lượt kế tiếp" của CẢ 2 type (photo lẫn video) — video hết/đổi bài hát
+     * (`advanceForSongChange()`/`_onVideoEnded()` ở dưới), ảnh hết tick/đổi bài hát
+     * (`workflowSlideshow._tick()`/`advanceForSongChange()`, liên tuyến domain gọi NGAY hàm này),
+     * và boot (`loadPersistedSettingsOnBoot()` ở trên) — Giang chốt "1 cơ chế, không tách riêng
+     * theo listPlaybackMode/type". PUBLIC (không dấu `_`) vì `workflowSlideshow` cần gọi liên tuyến
+     * domain (nguồn sự thật `pending`/`source` vẫn thuộc domain này, cùng nguyên tắc ownership đã
+     * áp cho `persistSourceListMutation()`/`selfHealEmptySource()`).
+     * KHÔNG tự tính lại `firstIndex()`/mảng — giao thẳng cho `applyCurrentVisualBg()` (CHÍNH XÁC
+     * quy trình "chọn nguồn mới" đã có sẵn, tự `clearMediaLayers()` reset `_listIndex=-1`/
+     * `_currentVideoKey=null` rồi mới `firstIndex()` + phát item đầu — không viết lại logic đó ở
+     * đây, Rule 3c).
+     * @returns {Promise<boolean>} true nếu VỪA áp pending — nơi gọi PHẢI return ngay, KHÔNG chạy
+     *   tiếp logic advance()/tick() cũ (nguồn đã đổi hẳn, index/task cũ không còn ý nghĩa gì nữa).
+     */
+    async _checkAndApplyPendingSource() {
+        const cfg = appConfigVisualBg.getAll();
+        if (!cfg.pending.originKind) return false; // guard: không có gì đang chờ
+        const { originKind, originId, list } = cfg.pending;
+        appConfigVisualBg.mutateAll((c) => {
+            c.source.originKind = originKind;
+            c.source.originId = originId;
+            c.source.list = list;
+            c.source.videoAudio = {}; // xem docstring _resolveAndCommitSource() — đọc lại origin luôn xoá sạch
+            c.pending = { originKind: null, originId: null, list: [] };
+        });
+        console.log(`writer: "workflowVisualBg._checkAndApplyPendingSource", page: "visualBgConfig", content: "áp pending source=${originKind}:${originId}, count=${list.length}"`);
+        await this._persist();
+        await this.refreshPanelUI();
+        await this.applyCurrentVisualBg();
+        return true;
+    },
+
     /** Dọn sạch lớp media đang hiện (video + ảnh dự phòng) — gọi TRƯỚC mọi lần áp lại. PUBLIC
      * (không dấu `_`) — `workflowVideoPlayer` cũng gọi được lúc vào Video Player mode, để nhường
      * `bgVideoElement` (liên tuyến domain, KHÔNG đụng `visualBgConfig` đã lưu — chỉ dọn DOM/task/
@@ -195,19 +243,30 @@ const workflowVisualBg = {
         applyVisualBgImageToDOM(true, objectUrl); // core/visual-bg.js
     },
 
+    /** MỚI (09/08/2026, gate load video theo Song, phản hồi Giang — "video phát/audio trước khi
+     * Song từng phát là sai lầm thiết kế") — video THẬT (nạp `bgVideoElement`/`play()`) CHỈ nạp khi
+     * Song đang THẬT SỰ phát (`!audioPlayer.paused`); nếu chưa, hiện thumb full-res TĨNH của đúng
+     * item sẽ phát (`workflowVideoPlayer.showStaticBgThumb()`, liên tuyến domain) — KHÔNG đụng
+     * `bgVideoElement` gì cả, tức KHÔNG có `play()` nào chạy lúc Song còn im lặng. Lúc Song bắt đầu
+     * phát thật, `syncPlaybackToAudio()` (dưới) tự nạp lại THẬT cho đúng `list[_listIndex]` này.
+     */
     async _applyVideo(cfg) {
         const list = cfg.source.list;
-        if (list.length <= 1) {
-            if (list[0]) { this._listIndex = 0; await this._playVideoKey(list[0]); }
-            return;
-        }
-        const { list: startList, index } = this.firstIndex(list, cfg.nextOrder === 'random');
-        if (startList !== list) { // random bốc trúng vị trí cuối ngay lượt đầu -> đã xáo lại, ghi lại mảng mới
-            appConfigVisualBg.mutateAll((c) => { c.source.list = startList; });
-            await this._persist();
+        let startList = list;
+        let index = 0;
+        if (list.length > 1) {
+            const r = this.firstIndex(list, cfg.nextOrder === 'random');
+            startList = r.list; index = r.index;
+            if (startList !== list) { // random bốc trúng vị trí cuối ngay lượt đầu -> đã xáo lại, ghi lại mảng mới
+                appConfigVisualBg.mutateAll((c) => { c.source.list = startList; });
+                await this._persist();
+            }
         }
         this._listIndex = index;
-        await this._playVideoKey(startList[this._listIndex]);
+        const key = startList[index];
+        if (!key) return;
+        if (audioPlayer.paused) { if (typeof workflowVideoPlayer !== 'undefined') await workflowVideoPlayer.showStaticBgThumb(key); return; } // event/workflow/video-player.js
+        await this._playVideoKey(key);
         // SỬA (08/08/2026, phản hồi Giang — mục "video chạy/dừng/lặp/đen màn thất thường") — BỎ HẲN
         // taskManager hẹn giờ cố định (`cfg.slideshow.intervalSeconds`) từng dùng để tự chuyển video
         // kế. Field đó vốn thiết kế cho ẢNH (không có độ dài riêng, hẹn giờ CHÍNH LÀ định nghĩa "hiện
@@ -218,10 +277,16 @@ const workflowVisualBg = {
         // `visualBg.video.ended` -> `_onVideoEnded()` dưới) — KHÔNG còn hẹn giờ nào ở đây nữa.
     },
 
-    /** Ứng với bài hát đổi thật ('visualBg.songChanged', router) khi type='video' + perSong. */
+    /** Ứng với bài hát đổi thật ('visualBg.songChanged', router) khi type='video'. Check pending
+     * TRƯỚC guard `listPlaybackMode==='perSong'` — MỚI (09/08/2026, cơ chế pending) — đây là điểm
+     * "lượt kế tiếp" DUY NHẤT còn lại cho ca `source.list.length<=1` (phát tĩnh, không cycle gì cả
+     * -> `_advanceVideo()` luôn no-op cho ca đó, xem guard đầu hàm), nên phải check ở ĐÂY, KHÔNG
+     * được gộp chung điều kiện `perSong` phía dưới. */
     async advanceForSongChange() {
         const cfg = appConfigVisualBg.getAll();
-        if (cfg.type !== 'video' || cfg.listPlaybackMode !== 'perSong') return;
+        if (cfg.type !== 'video') return;
+        if (await this._checkAndApplyPendingSource()) return;
+        if (cfg.listPlaybackMode !== 'perSong') return;
         await this._advanceVideo();
     },
 
@@ -235,6 +300,7 @@ const workflowVisualBg = {
     async _onVideoEnded() {
         const cfg = appConfigVisualBg.getAll();
         if (cfg.type !== 'video' || cfg.listPlaybackMode !== 'slideshow' || cfg.source.list.length <= 1) return;
+        if (await this._checkAndApplyPendingSource()) return; // MỚI (09/08/2026, cơ chế pending) — video VỪA hết, đúng "lượt kế tiếp"
         await this._advanceVideo();
     },
 
@@ -360,13 +426,18 @@ const workflowVisualBg = {
         if (!record) { await this._markCurrentMissing(); return; }
         this._currentVideoKey = videoKey; // MỚI — ghi NGAY sau khi swap thành công, làm nguồn so sánh cho guard dedupe ở đầu hàm
         updateDOMBackground(); // core/color-utils.js
-        syncVisualBgVideoPlayback(audioPlayer.paused); // core/visual-bg.js — video trang trí phải tôn trọng trạng thái pause/play của nhạc
-        // KHÔNG await (fix bug boot chặn playlist, mục 4) — nối `.then()` áp audio setting THẬT
-        // đúng mốc video đã ổn định ('playing' hoặc timeout 2s, xem docstring trên). Guard
-        // `_currentVideoKey === videoKey`: bỏ qua nếu đã có video KHÁC nạp đè lên trong lúc chờ
-        // (advance nhanh liên tiếp) — không áp nhầm setting của video cũ sang video hiện tại.
+        // SỬA (09/08/2026, mục 1, phản hồi Giang — "guard .hidden nuốt mất lệnh pause") — DỜI
+        // `syncVisualBgVideoPlayback()` từ NGAY ĐÂY (lúc bgVideoElement CÒN `.hidden` do
+        // `hideUntilReady`, guard đầu hàm đó tự return sớm -> lệnh pause() KHÔNG BAO GIỜ chạy tới)
+        // sang TRONG `.then()` dưới — SAU khi `.hidden` đã gỡ (`waitBgVideoReady()` xong). Gọi
+        // TRƯỚC `_applyVideoAudioSettingToElement()`: quyết định play/pause theo Song trước, MỚI
+        // xét có unmute hay không — tránh unmute 1 video sắp bị pause ngay sau đó.
+        // KHÔNG await (fix bug boot chặn playlist, mục 4 cũ). Guard `_currentVideoKey === videoKey`:
+        // bỏ qua nếu đã có video KHÁC nạp đè lên trong lúc chờ (advance nhanh liên tiếp).
         workflowVideoPlayer.waitBgVideoReady().then(() => {
-            if (this._currentVideoKey === videoKey) this._applyVideoAudioSettingToElement(videoKey); // core/visual-bg.js lookup + gán muted/volume
+            if (this._currentVideoKey !== videoKey) return;
+            syncVisualBgVideoPlayback(audioPlayer.paused); // core/visual-bg.js — ĐÚNG mốc .hidden đã gỡ, guard không còn nuốt lệnh pause() nữa
+            this._applyVideoAudioSettingToElement(videoKey); // core/visual-bg.js lookup + gán muted/volume
         });
     },
 
@@ -433,13 +504,63 @@ const workflowVisualBg = {
     },
 
     /** Đồng bộ play/pause video nền theo nhạc — gọi từ core/player-controls.js + mỗi lần Next/Prev.
-     * Guard `_isSwappingVideo` (xem docstring `_playVideoKey()`) — bỏ qua lời gọi rơi đúng lúc đang
-     * đổi src video (video CŨ vừa hết, video MỚI chưa gán xong): gọi `play()`/`pause()` lên
-     * `bgVideoElement` lúc này sẽ nhắm NHẦM vào video CŨ đã ở cuối, gây phát lại từ đầu ngoài ý
-     * muốn. An toàn bỏ qua — `_playVideoKey()` tự áp lại ĐÚNG trạng thái này ngay khi swap xong. */
+     * VIẾT LẠI (09/08/2026, gate load video theo Song, phản hồi Giang mục 1+4) — `type==='photo'`
+     * GIỮ NGUYÊN hành vi cũ (`syncVisualBgVideoPlayback`, ngoài phạm vi gate lần này — Rule 1: đây
+     * là guard clause, KHÔNG phải "bớt việc", nhánh photo đơn thuần đi lối cũ). `type==='video'` có
+     * 4 khả năng:
+     * (1) Song ĐANG phát + video THẬT CHƯA từng nạp (`_currentVideoKey===null`, đang chỉ hiện
+     *     placeholder tĩnh hoặc chưa hiện gì cả) -> nạp THẬT lần đầu qua `_playVideoKey()` (tự câm
+     *     cứng lúc `play()`, unmute sau khi ổn định — xem docstring hàm đó).
+     * (2) Song ĐANG phát + video THẬT đã nạp rồi (đang đứng hình vì pause tạm) -> RESUME — CÙNG
+     *     nguyên tắc "câm cứng lúc `play()`, unmute sau khi ổn định" (tránh cưỡng chế giành audio
+     *     session iOS đúng lúc Song cũng vừa `.play()` — xem phân tích đã thống nhất với Giang),
+     *     nhưng KHÔNG qua `waitBgVideoReady()` (gắn với lần SWAP gần nhất, không hợp lệ cho resume
+     *     — xem docstring `workflowVideoPlayer.waitForNextPlaying()`).
+     * (3) Song vừa PAUSE TẠM (`playbackStoppedAtPlaylistEnd===false`) -> pause video, giữ nguyên
+     *     khung hình đang đứng (Giang chốt mục 1 — KHÔNG về placeholder).
+     * (4) Song vừa DỪNG HẲN (`playbackStoppedAtPlaylistEnd===true`, hết playlist thật — xem
+     *     `core/player-controls.js::stopPlaybackAtPlaylistEnd()`) -> quay về placeholder tĩnh CỦA
+     *     ĐÚNG video đang phát (Giang chốt mục 1 — "placeholder của chính video current đó", không
+     *     phải `list[0]`) — xem `_revertToPlaceholder()`.
+     * Guard `_isSwappingVideo` GIỮ NGUYÊN (xem docstring `_playVideoKey()`). */
     syncPlaybackToAudio() {
         if (this._isSwappingVideo) return;
-        syncVisualBgVideoPlayback(audioPlayer.paused); // core/visual-bg.js
+        const cfg = appConfigVisualBg.getAll();
+        if (cfg.type !== 'video') { syncVisualBgVideoPlayback(audioPlayer.paused); return; } // core/visual-bg.js — ảnh: giữ nguyên hành vi cũ
+        if (!audioPlayer.paused) {
+            if (this._currentVideoKey === null) { this._playVideoKey(cfg.source.list[this._listIndex]); return; } // (1)
+            this._resumeVideoWithDelayedAudio(this._currentVideoKey); // (2)
+            return;
+        }
+        if (appState.get('playbackStoppedAtPlaylistEnd')) { this._revertToPlaceholder(); return; } // (4)
+        syncVisualBgVideoPlayback(true); // core/visual-bg.js — (3) pause tạm, đứng hình
+    },
+
+    /** (2) trong `syncPlaybackToAudio()` — resume video ĐÃ nạp sẵn, câm cứng lúc `play()`, unmute
+     * SAU khi ổn định (`waitForNextPlaying()`) — CÙNG pattern `_playVideoKey()`, tránh cưỡng chế
+     * giành audio session iOS đúng lúc Song cũng vừa `.play()`. Guard `_currentVideoKey ===
+     * videoKey`: bỏ qua nếu đã có video KHÁC nạp đè lên trong lúc chờ.
+     * @param {string} videoKey
+     */
+    _resumeVideoWithDelayedAudio(videoKey) {
+        bgVideoElement.muted = true;
+        setVideoBgGain(0); // core/video-player.js
+        bgVideoElement.play().catch(() => {});
+        if (typeof workflowVideoPlayer === 'undefined') return; // liên tuyến domain
+        workflowVideoPlayer.waitForNextPlaying().then(() => {
+            if (this._currentVideoKey === videoKey) this._applyVideoAudioSettingToElement(videoKey); // core/visual-bg.js lookup + gán muted/volume
+        });
+    },
+
+    /** (4) trong `syncPlaybackToAudio()` — Song vừa dừng hẳn, video thật đang phát -> quay về
+     * placeholder tĩnh CỦA ĐÚNG video đó (KHÔNG phải `list[0]`). Video thật bị dỡ hẳn (không chỉ
+     * pause) — lần Song phát lại tiếp theo tự rơi vào nhánh (1), nạp lại từ đầu.
+     */
+    async _revertToPlaceholder() {
+        const key = this._currentVideoKey;
+        if (!key) return; // guard: không có video thật nào đang phát để mà "quay về" cả (đã là placeholder/chưa hiện gì)
+        this._currentVideoKey = null;
+        if (typeof workflowVideoPlayer !== 'undefined') await workflowVideoPlayer.showStaticBgThumb(key); // event/workflow/video-player.js — liên tuyến domain
     },
 
     // ===================== Chọn / Làm tươi / Gỡ nguồn =====================
@@ -482,7 +603,12 @@ const workflowVisualBg = {
      * @param {string} albumId
      */
     async applyAlbumAsBackground(albumId) {
-        appConfigVisualBg.mutateAll((cfg) => { cfg.type = 'photo'; });
+        // SỬA (09/08/2026, cơ chế pending) — dọn `source`/`pending` CŨ (có thể thuộc type KHÁC,
+        // ví dụ đang ở nhánh video) NGAY LÚC đổi `type` — KHÔNG để list mismatch-type còn sót lại
+        // khiến `_resolveAndCommitSource()` bên dưới đọc nhầm "đang có media active" (đếm trúng key
+        // VIDEO cũ) rồi xếp pending oan uổng, trong khi lối tắt này vốn dĩ là hành động "đổi hẳn
+        // ngay" — cùng tinh thần `changeType()` (đổi type luôn áp ngay, không qua pending).
+        appConfigVisualBg.mutateAll((cfg) => { cfg.type = 'photo'; cfg.source = { originKind: null, originId: null, list: [], videoAudio: {} }; cfg.pending = { originKind: null, originId: null, list: [] }; });
         await this._resolveAndCommitSource('group', albumId);
     },
 
@@ -497,16 +623,48 @@ const workflowVisualBg = {
      * video key không còn dùng.
      * @param {'single'|'group'} originKind
      * @param {string} originId
-     * @returns {Promise<{added: number, removed: number, total: number}|null>} diff so với
-     *   `source.list` TRƯỚC lúc gọi — CHỈ có ý nghĩa khi origin GIỮ NGUYÊN (nút "Làm tươi"); lúc
-     *   chọn nguồn MỚI (origin khác), diff này không mang nghĩa gì, caller tự bỏ qua. `null` nếu bị
-     *   gỡ hẳn (origin rỗng).
+     * @returns {Promise<{queued: false, added: number, removed: number, total: number}|{queued: true, total: number}|null>}
+     *   `queued:false` = đã áp NGAY, `added/removed` là diff so với `source.list` TRƯỚC lúc gọi (CHỈ
+     *   có ý nghĩa khi origin GIỮ NGUYÊN — nút "Làm tươi"; chọn nguồn MỚI thì diff không mang nghĩa
+     *   gì, caller tự bỏ qua). `queued:true` = đã xếp vào `pending`, CHƯA áp — modal thông báo đã tự
+     *   hiện BÊN TRONG hàm này (xem đoạn dưới), caller KHÔNG cần tự hiện modal nào thêm.
+     *   `null` nếu bị gỡ hẳn (origin rỗng).
      */
     async _resolveAndCommitSource(originKind, originId) {
         const cfg = appConfigVisualBg.getAll();
-        const previousKeys = new Set(cfg.source.list.filter((k) => k !== null));
         const keys = await this._readOriginKeys(cfg.type, originKind, originId);
-        if (keys.length === 0) { await this.clearSource(); return null; }
+        if (keys.length === 0) {
+            appConfigVisualBg.mutateAll((c) => { c.pending = { originKind: null, originId: null, list: [] }; }); // MỚI — origin mới đọc ra rỗng, huỷ luôn pending dở dang (nếu có), không còn gì để chờ áp nữa
+            await this.clearSource();
+            return null;
+        }
+        // MỚI (09/08/2026, cơ chế pending, phản hồi Giang — "đổi nguồn giữa lúc đang cycle làm giật/
+        // mất khung đang phát") — CÒN media đang active (photo lẫn video, Giang chốt áp dụng CẢ 2,
+        // không tách riêng theo type) -> KHÔNG ghi đè `source` ngay, xếp vào `pending`, đợi đúng
+        // "lượt kế tiếp" (video hết/tick ảnh kế/đổi bài hát — xem `_checkAndApplyPendingSource()`).
+        // KHÔNG có gì đang active (list rỗng, hoặc vừa gỡ nguồn) -> áp ngay, không có gì để "chờ" cả.
+        if (this._effectiveCount(cfg) > 0) {
+            appConfigVisualBg.mutateAll((c) => { c.pending = { originKind, originId, list: keys }; }); // đè lên pending cũ nếu có (Giang chốt, chỉ giữ 1 pending duy nhất)
+            console.log(`writer: "workflowVisualBg._resolveAndCommitSource", page: "visualBgConfig", content: "queued pending=${originKind}:${originId}, count=${keys.length}"`);
+            await this._persist();
+            await alertModal(t(cfg.type === 'video' ? 'visualBgSettingsDrawer.pendingSource.video' : 'visualBgSettingsDrawer.pendingSource.photo')); // core/modal-choice.js
+            return { queued: true, total: keys.length };
+        }
+        return await this._commitSourceNow(originKind, originId, keys, cfg);
+    },
+
+    /** Ghi đè `source` NGAY (không qua pending) — tách khỏi `_resolveAndCommitSource()` (09/08/2026,
+     * cơ chế pending) vì `_checkAndApplyPendingSource()` KHÔNG dùng nhánh này (áp thẳng, không cần
+     * tính lại diff added/removed — không có UI nào cần hiện diff lúc áp pending). Rule 3b: nhận
+     * `prevCfg` qua tham số, không tự đọc lại.
+     * @param {'single'|'group'} originKind
+     * @param {string} originId
+     * @param {string[]} keys
+     * @param {object} prevCfg - `appConfigVisualBg.getAll()` đọc TRƯỚC lúc gọi (Rule 3b).
+     * @returns {Promise<{queued: false, added: number, removed: number, total: number}>}
+     */
+    async _commitSourceNow(originKind, originId, keys, prevCfg) {
+        const previousKeys = new Set(prevCfg.source.list.filter((k) => k !== null));
         const newKeysSet = new Set(keys);
         const added = keys.filter((k) => !previousKeys.has(k)).length;
         const removed = [...previousKeys].filter((k) => !newKeysSet.has(k)).length;
@@ -514,17 +672,19 @@ const workflowVisualBg = {
             c.source.originKind = originKind;
             c.source.originId = originId;
             c.source.list = keys;
-            c.source.videoAudio = {}; // xem docstring trên — Giang chốt, xoá sạch mỗi lần đọc lại origin
+            c.source.videoAudio = {}; // xem docstring _resolveAndCommitSource() cũ — Giang chốt, xoá sạch mỗi lần đọc lại origin
+            c.pending = { originKind: null, originId: null, list: [] }; // huỷ pending cũ (nếu có) — cái mới đã áp thẳng, không còn gì chờ
         });
-        console.log(`writer: "workflowVisualBg._resolveAndCommitSource", page: "visualBgConfig", content: "source=${originKind}:${originId}, count=${keys.length}, +${added}/-${removed}, videoAudio=cleared"`);
+        console.log(`writer: "workflowVisualBg._commitSourceNow", page: "visualBgConfig", content: "source=${originKind}:${originId}, count=${keys.length}, +${added}/-${removed}, videoAudio=cleared"`);
         await this._persist();
         await this.refreshPanelUI();
         await this.applyCurrentVisualBg();
-        return { added, removed, total: keys.length };
+        return { queued: false, added, removed, total: keys.length };
     },
 
-    /** Ứng nút "Làm tươi" — đọc lại ĐÚNG origin đã lưu, ghi đè `source.list`. Có hiệu ứng xoay trên
-     * nút trong lúc đọc DB + modal báo THAY ĐỔI GÌ sau khi xong (Giang chốt mục 2). */
+    /** Ứng nút "Làm tươi" — đọc lại ĐÚNG origin đã lưu, ghi đè `source.list` (hoặc xếp pending nếu
+     * đang active — xem `_resolveAndCommitSource()`). Có hiệu ứng xoay trên nút trong lúc đọc DB +
+     * modal báo THAY ĐỔI GÌ sau khi xong (Giang chốt mục 2). */
     async refreshSource() {
         const { originKind, originId } = appConfigVisualBg.getAll().source;
         if (!originKind || !originId) return; // guard: chưa có nguồn
@@ -533,6 +693,7 @@ const workflowVisualBg = {
         try {
             const result = await this._resolveAndCommitSource(originKind, originId);
             if (!result) { await alertModal(t('visualBgSettingsDrawer.refreshSource.resultCleared')); return; }
+            if (result.queued) return; // MỚI — modal "sẽ áp ở lượt kế" đã tự hiện bên trong _resolveAndCommitSource(), khỏi hiện thêm modal diff nào nữa
             if (result.added === 0 && result.removed === 0) { await alertModal(tFormat('visualBgSettingsDrawer.refreshSource.resultUnchanged', { total: result.total })); return; }
             await alertModal(tFormat('visualBgSettingsDrawer.refreshSource.result', { added: result.added, removed: result.removed, total: result.total }));
         } finally {
@@ -543,8 +704,10 @@ const workflowVisualBg = {
     /** Gỡ hẳn nguồn hiện tại — về "chưa chọn" (đường DUY NHẤT, không còn Block gate chặn xoá ảnh/
      * video/album/folder — Batch 3). */
     async clearSource() {
-        appConfigVisualBg.mutateAll((cfg) => { cfg.source = { originKind: null, originId: null, list: [], videoAudio: {} }; });
-        console.log(`writer: "workflowVisualBg.clearSource", page: "visualBgConfig", content: "source=cleared"`);
+        // MỚI (09/08/2026, cơ chế pending, phản hồi Giang mục 2) — huỷ luôn pending dở dang (nếu
+        // có): user chủ động gỡ hẳn = không còn gì để "chờ áp" nữa, KHÔNG áp ngay như bình thường.
+        appConfigVisualBg.mutateAll((cfg) => { cfg.source = { originKind: null, originId: null, list: [], videoAudio: {} }; cfg.pending = { originKind: null, originId: null, list: [] }; });
+        console.log(`writer: "workflowVisualBg.clearSource", page: "visualBgConfig", content: "source=cleared, pending=cleared"`);
         await this._persist();
         await this.refreshPanelUI();
         await this.applyCurrentVisualBg();
@@ -554,8 +717,10 @@ const workflowVisualBg = {
      * (key khác kiểu vô nghĩa ở type mới), chọn lại từ đầu. */
     async changeType(value) {
         if (!VISUAL_BG_TYPES.includes(value)) return;
-        appConfigVisualBg.mutateAll((cfg) => { cfg.type = value; cfg.source = { originKind: null, originId: null, list: [], videoAudio: {} }; });
-        console.log(`writer: "workflowVisualBg.changeType", page: "visualBgConfig", content: "type=${value} (gỡ source cũ)"`);
+        // MỚI (09/08/2026, cơ chế pending, phản hồi Giang mục 2) — huỷ luôn pending dở dang (nếu
+        // có, thuộc type CŨ, vô nghĩa ở type mới) — cùng lý do `clearSource()`.
+        appConfigVisualBg.mutateAll((cfg) => { cfg.type = value; cfg.source = { originKind: null, originId: null, list: [], videoAudio: {} }; cfg.pending = { originKind: null, originId: null, list: [] }; });
+        console.log(`writer: "workflowVisualBg.changeType", page: "visualBgConfig", content: "type=${value} (gỡ source cũ, pending cũ)"`);
         await this._persist();
         await this.refreshPanelUI();
         await this.applyCurrentVisualBg();

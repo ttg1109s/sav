@@ -47,9 +47,17 @@ const workflowSlideshow = {
         return Math.max(5, appConfigVisualBg.getAll().slideshow.intervalSeconds) * 1000;
     },
 
-    /** Ứng với bài hát đổi thật, `listPlaybackMode='perSong'` — gọi chéo domain từ
-     * `workflowVisualBg.advanceForSongChange()` (điểm phân phối theo `type`, event/router/visual-bg.js). */
-    advanceForSongChange() {
+    /** Ứng với bài hát đổi thật — gọi TRỰC TIẾP từ router ('visualBg.songChanged', event/router/
+     * visual-bg.js) khi `type==='photo'`, KHÔNG còn qua `workflowVisualBg.advanceForSongChange()`
+     * nữa (2 nhánh type khác nhau hoàn toàn, router tự phân theo `type`).
+     * SỬA (09/08/2026, cơ chế pending, phản hồi Giang) — check `_checkAndApplyPendingSource()`
+     * (liên tuyến domain, nguồn sự thật `pending` thuộc `workflowVisualBg`) TRƯỚC CẢ guard
+     * `_isRevealed` — đây là điểm "lượt kế tiếp" DUY NHẤT còn lại cho ca `source.list.length<=1`
+     * (ảnh tĩnh, không qua engine này — `workflowVisualBg._applyPhoto()` tự áp thẳng,
+     * `_isRevealed` không bao giờ `true`), nên KHÔNG được gộp chung điều kiện `_isRevealed`/
+     * `perSong` phía dưới — cùng nguyên tắc đã áp cho `workflowVisualBg.advanceForSongChange()`. */
+    async advanceForSongChange() {
+        if (typeof workflowVisualBg !== 'undefined' && await workflowVisualBg._checkAndApplyPendingSource()) return;
         if (!this._isRevealed) return; // guard: chưa thật sự chiếu (lượt đầu do _reveal() lo)
         if (appConfigVisualBg.getAll().listPlaybackMode !== 'perSong') return;
         this._tick();
@@ -174,6 +182,12 @@ const workflowSlideshow = {
      * advance() sau (Giang chốt). `_sourceKeys.length<=1` (đã sweep về còn 1, hoặc vốn dĩ chỉ 1) ->
      * dừng hẳn cycle, ảnh cuối cùng đứng yên. */
     async _tick() {
+        // MỚI (09/08/2026, cơ chế pending, phản hồi Giang) — check TRƯỚC guard length<=1: nếu VỪA
+        // áp pending, `applyCurrentVisualBg()` bên trong `_checkAndApplyPendingSource()` đã tự
+        // `workflowSlideshow.stop()` (qua `clearMediaLayers()`) rồi dựng lại state MỚI từ đầu (hoặc
+        // chuyển hẳn sang nhánh video/áp tĩnh nếu pending đổi type/list<=1) — KHÔNG được chạy tiếp
+        // logic tick CŨ bên dưới (đọc `this._sourceKeys` lúc này đã lỗi thời/bị `stop()` reset).
+        if (typeof workflowVisualBg !== 'undefined' && await workflowVisualBg._checkAndApplyPendingSource()) return;
         if (this._sourceKeys.length <= 1) { taskManager.kill(SLIDESHOW_TASK); return; }
 
         const isRandom = appConfigVisualBg.getAll().nextOrder === 'random';

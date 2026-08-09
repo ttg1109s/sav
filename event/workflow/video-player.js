@@ -127,6 +127,59 @@ const workflowVideoPlayer = {
         if (this._swapReadyPromise) await this._swapReadyPromise;
     },
 
+    /** MỚI (09/08/2026, gate resume-play theo Song, phản hồi Giang mục 4) — đợi `bgVideoElement`
+     * bắn `'playing'` (hoặc timeout an toàn) cho lần `.play()` KẾ TIẾP. KHÁC `waitBgVideoReady()`
+     * ở trên (gắn với `_swapReadyPromise` — CHỈ hợp lệ ngay sau 1 lần `swapBgVideoSource()` thật):
+     * hàm NÀY dùng cho case RESUME — `.play()` lại video ĐÃ nạp sẵn, KHÔNG qua swap/đổi `src` nào
+     * (vd `workflowVisualBg.syncPlaybackToAudio()` lúc Song phát lại sau pause tạm) — nếu tái dùng
+     * `waitBgVideoReady()` cho case này sẽ đọc trúng Promise CŨ đã resolve từ lần swap trước, trả
+     * về ngay lập tức, không đợi đúng lần `.play()` MỚI.
+     * @param {number} [timeoutMs=2000]
+     * @returns {Promise<void>}
+     */
+    waitForNextPlaying(timeoutMs = 2000) {
+        return new Promise((resolve) => {
+            let done = false;
+            const finish = () => {
+                if (done) return;
+                done = true;
+                bgVideoElement.removeEventListener('playing', finish);
+                resolve();
+            };
+            bgVideoElement.addEventListener('playing', finish, { once: true });
+            taskManager.once(finish, timeoutMs, 'visualBgVideoResumePlayingFallback');
+        });
+    },
+
+    /** MỚI (09/08/2026, gate load video theo Song, phản hồi Giang) — hiện thumb full-res TĨNH của
+     * `videoKey` làm nền, KHÔNG chạm `bgVideoElement.src`/`play()` — video THẬT không hề được nạp.
+     * Dùng khi VBG `type==='video'` nhưng Song CHƯA thật sự phát (xem
+     * `workflowVisualBg._applyVideo()`/`syncPlaybackToAudio()`). Tái dùng ĐÚNG cơ chế lớp thumb dự
+     * phòng đã có sẵn trong `swapBgVideoSource()` (`record.thumbFullBlob` ->
+     * `decodeForcedBgThumb()` -> `applyVisualBgImageToDOM()`, core/video-player.js +
+     * core/visual-bg.js) — KHÔNG viết lại logic decode/paint đó, chỉ bỏ hẳn bước gán `src`/`play()`
+     * theo sau (Rule 3c: hàm con phục vụ tái dùng, không phải copy-paste).
+     * @param {string} videoKey
+     * @returns {Promise<boolean>} true nếu hiện được (record tồn tại + có `thumbFullBlob`).
+     */
+    async showStaticBgThumb(videoKey) {
+        const record = await getVideoRecord(videoKey); // service/db.js
+        if (!record || !record.thumbFullBlob) return false;
+        bgVideoElement.pause();
+        bgVideoElement.classList.add('hidden');
+        bgVideoElement.removeAttribute('poster');
+        bgVideoElement.removeAttribute('src');
+        bgVideoElement.src = '';
+        if (this._objectUrl) { try { URL.revokeObjectURL(this._objectUrl); } catch (e) {} this._objectUrl = null; }
+        if (this._thumbObjectUrl) { try { URL.revokeObjectURL(this._thumbObjectUrl); } catch (e) {} this._thumbObjectUrl = null; }
+        const forcedUrl = await decodeForcedBgThumb(record.thumbFullBlob); // core/video-player.js — tự đợi double-rAF, đảm bảo đã PAINT xong
+        if (this._forcedBgObjectUrl) { try { URL.revokeObjectURL(this._forcedBgObjectUrl); } catch (e) {} }
+        this._forcedBgObjectUrl = forcedUrl;
+        applyVisualBgImageToDOM(true, forcedUrl); // core/visual-bg.js
+        this._swapReadyPromise = null;
+        return true;
+    },
+
     /** Dừng + dọn HẲN `bgVideoElement` (pause, ẩn, gỡ `src`/`poster`, revoke cả 3 object URL đang
      * giữ) — CƠ CHẾ DÙNG CHUNG giữa `exitVideoPlayerMode()` (thoát mode thật) và Visual Background
      * (dừng nhánh video trang trí, event/workflow/visual-bg.js). KHÔNG đụng muted/loop/pointer-
