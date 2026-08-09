@@ -378,6 +378,13 @@ const workflowVisualBg = {
         bgVideoElement.volume = volumePercent / 100;
         if (enabled) {
             setupAudioContext(); // core/audio-engine.js — đảm bảo context tồn tại
+            // MỚI (09/08/2026) — context có thể đang 'suspended'/'interrupted' (chưa có gesture, hoặc
+            // đang auto-cycle/boot không phải click tay, xem core/audio-engine.js::setupAudioContext()
+            // docstring) — nối bgVideoElement vào graph lúc context chưa "running" khiến play() không
+            // bao giờ thật sự chạy được (cùng lý do togglePlayPause(), core/player-controls.js, đã tự
+            // resume()). Resume TƯỜNG MINH tại đây, không chờ nơi khác vô tình làm hộ.
+            const audioContext = appState.get('audioContext');
+            if (audioContext && (audioContext.state === 'suspended' || audioContext.state === 'interrupted')) audioContext.resume();
             connectVideoElementToAnalyser(); // core/video-player.js — LƯỜI, chỉ nối đúng lúc thật sự cần Audio B
             setVideoBgGain(volumePercent / 100); // core/video-player.js
         } else {
