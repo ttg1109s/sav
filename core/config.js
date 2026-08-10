@@ -405,4 +405,8 @@
             if (typeof initVisualizerMiscSettingsUIFromConfig === 'function') initVisualizerMiscSettingsUIFromConfig();
             if (typeof initSubtitleToggleUIFromConfig === 'function') initSubtitleToggleUIFromConfig();
             if (typeof initAutoSwitchCycleButtonFromConfig === 'function') initAutoSwitchCycleButtonFromConfig();
+            // MỚI (10/08/2026, Task 3) — "Chế độ xem toàn màn hình" phải TỰ áp lại lúc boot, không
+            // chỉ lúc đổi checkbox (khác setStatsPanelVisible() — domain 'player' RIÊNG, tự áp qua
+            // workflowPlayerControls.loadPersistedPlayerConfigOnBoot(), xem event/workflow/app-boot.js).
+            if (typeof setPlayerUiHidden === 'function') setPlayerUiHidden(appConfigViz.getAll().playerUiHidden === true);
         }
