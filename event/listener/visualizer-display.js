@@ -85,6 +85,8 @@ const VISUALIZER_DISPLAY_INPUT_MAP = {
     'setting-max-height': { type: 'visualizerDisplay.maxHeight.input', event: 'input', display: true },
     'setting-bar-width': { type: 'visualizerDisplay.barWidth.input', event: 'input', display: true },
     'setting-mirror-count': { type: 'visualizerDisplay.mirrorCount.input', event: 'input', display: true },
+    'setting-stats-panel-enable': { type: 'visualizerDisplay.statsPanelEnable.change', event: 'change', checkbox: true },
+    'setting-hide-player-ui': { type: 'visualizerDisplay.hidePlayerUi.change', event: 'change', checkbox: true },
     // (Phần B, Galaxy — 5 entry spaceStyle/4 slider tinh chỉnh ĐÃ BỎ 21/07/2026, phản hồi Giang
     // mục 1 — panel tinh chỉnh Space đã xoá khỏi components/visualizer-settings-drawer.js).
 };

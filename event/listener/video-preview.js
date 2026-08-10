@@ -21,7 +21,7 @@
  *
  * Mọi điểm bắn eventBus({ router: 'videoPreview', ... }) KHÁC đều là nút/canvas ĐỘNG, tự wire
  * TRỰC TIẾP tại nơi dựng ra nó (core/file-manager/video-ui.js::openVideoPreviewModal(), Rule 5a):
- * closeBtn/saveBtn/rotateBtn/resetBtn/extractBtn/startHandleEl/endHandleEl/filmstripTrackEl
+ * closeBtn/saveBtn/rotateBtn/resetBtn/startHandleEl/endHandleEl/filmstripTrackEl
  * ('pointerdown' — CHỈ báo bắt đầu kéo/tua, theo dõi tiếp mới ở đây)/cropCanvasEl ('pointerdown' —
  * CHỈ báo bắt đầu + hit-test, theo dõi tiếp mới ở đây).
  *
