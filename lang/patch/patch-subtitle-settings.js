@@ -44,6 +44,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // (2 toggle + 1 nút tương ứng không còn tồn tại trong Settings).
     'settingsVisualizer.visualBg.label': 'Visual Background',
     'settingsVisualizer.visualBg.hint': 'Photo or video behind the visualizer',
+    'settingsVisualizer.gesture.label': 'Gestures',
+    'settingsVisualizer.gesture.hint': 'Swipe/tap controls on the Visualizer screen',
     'visualBgSettingsDrawer.title': 'Visual Background',
     'visualBgSettingsDrawer.groupSource.title': 'Source',
     'visualBgSettingsDrawer.groupColor.title': 'Background colour',

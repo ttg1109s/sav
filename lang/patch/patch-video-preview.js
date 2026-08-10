@@ -30,9 +30,6 @@ const LANG_PATCH_VIDEO_PREVIEW = {
     'videoPreview.resetConfirm.desc': 'This clears crop, rotate, flip, zoom/pan and trim, back to the original. This cannot be undone.',
     'videoPreview.resetConfirm.confirm': 'Reset',
 
-    'videoPreview.extractFrame.success': 'Photo saved to your library.',
-    'videoPreview.extractFrame.failed': 'Could not extract this frame.',
-
     'videoPreview.save.overwrite': 'Overwrite',
     'videoPreview.save.asNew': 'Save as new video',
     'videoPreview.save.success': 'Video saved.',

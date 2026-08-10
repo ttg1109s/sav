@@ -22,11 +22,15 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerOverlay.shuffle.label': 'Shuffle',
     'visualizerOverlay.repeat.title': 'Repeat',
     'visualizerOverlay.repeat.label': 'Repeat',
-    'visualizerOverlay.statsToggle.title': 'Show/hide BPM-Pitch-Energy',
-    'visualizerOverlay.statsToggle.label': 'Stats',
     // MỚI (04/07/2026, tính năng Documents) — nút mở Reader trong Control Center.
     'visualizerOverlay.documentReader.title': 'Open document reader',
     'visualizerOverlay.documentReader.label': 'Reader',
+    // MỚI (10/08/2026) — chụp khung hình bgVideoElement đang phát, lưu vào Photo. Chỉ hiện lúc
+    // Video Player mode. (statsToggle.* ĐÃ XOÁ — toggle dời vào Settings, xem statsPanelEnable.*.)
+    'visualizerOverlay.captureFrame.title': 'Capture frame as photo',
+    'visualizerOverlay.captureFrame.label': 'Capture',
+    'videoPlayer.captureFrame.success': 'Photo saved to your library.',
+    'videoPlayer.captureFrame.failed': 'Could not capture this frame.',
 
     'visualizerSettingsDrawer.backToSettings.title': 'Back to Settings',
     'visualizerSettingsDrawer.title': 'Customize Visualizer',
@@ -73,6 +77,30 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.autoSwitchDuration.label': 'Divide song length by (minimum 10s)',
     'visualizerSettingsDrawer.autoSwitchDuration.hint': 'Time between switches = song length / the number entered, recalculated for each song. The system caps this at half the song length, ensuring at least one switch happens during playback. Seeking forward/back still remembers the correct effect for each segment.',
 
+    // MỚI (10/08/2026) — section "Hiển thị Visualizer": stats panel (dời từ nút Control Center) +
+    // chế độ xem toàn màn hình (Task 3).
+    'visualizerSettingsDrawer.displaySectionTitle': 'Visualizer display',
+    'visualizerSettingsDrawer.statsPanelEnable.label': 'Show music stats',
+    'visualizerSettingsDrawer.statsPanelEnable.hint': 'BPM, pitch and energy readout on the Visualizer screen',
+    'visualizerSettingsDrawer.hidePlayerUi.label': 'Full-screen mode',
+    'visualizerSettingsDrawer.hidePlayerUi.hint': 'Hide the bottom player bar, Playlist button and Control Center button. Reopen with a swipe from the top/bottom edge.',
+
     'loadingShield.text': 'Processing...',
+
+    // MỚI (10/08/2026) — panel Settings "Cử chỉ" (components/gesture-settings-drawer.js).
+    'gestureSettings.title': 'Gestures',
+    'gestureSettings.videoNav.label': 'Swipe up/down (video)',
+    'gestureSettings.videoNav.hint': 'Swipe up for next video, down for previous — Video Player mode only',
+    'gestureSettings.songNav.label': 'Swipe left/right (song)',
+    'gestureSettings.songNav.hint': 'Swipe left for previous song, right for next',
+    'gestureSettings.tapPlayPause.label': 'Tap to play/pause',
+    'gestureSettings.tapPlayPause.hint': 'Single tap on the Visualizer screen',
+    'gestureSettings.doubleTapPlaylist.label': 'Double-tap to open Playlist',
+    'gestureSettings.doubleTapPlaylist.hint': 'Double tap anywhere on the Visualizer screen',
+    'gestureSettings.edgeTop.label': 'Swipe from top edge',
+    'gestureSettings.edgeTop.hint': 'Opens the Control Center',
+    'gestureSettings.edgeBottom.label': 'Swipe from bottom edge',
+    'gestureSettings.edgeBottom.hint': 'Triggers the Control Center button chosen below',
+    'gestureSettings.edgeBottomTarget.label': 'Assign to',
 
 };
