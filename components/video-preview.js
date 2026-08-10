@@ -54,9 +54,9 @@ const TPL_VIDEO_PREVIEW = `
                 </button>
 
                 <div id="video-preview-tools-group" class="video-preview-tools-group">
-                    <button id="video-preview-extract-btn" type="button" class="video-preview-tool-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h3l1.5-2h7L17 7h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1zM12 17a4 4 0 100-8 4 4 0 000 8z"/></svg>
-                    </button>
+                    <!-- Nút "Trích xuất ảnh" ĐÃ BỎ HẲN — năng lực chụp khung hình dời sang Control
+                         Center của Visualizer (chụp khung hình ĐANG PHÁT, không phải đang edit), xem
+                         core/video-player-capture.js + workflowVideoPlayer.captureCurrentFrame(). -->
                     <button id="video-preview-reset-btn" type="button" class="video-preview-tool-btn">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.6M20 20v-5h-.6M19.4 9A8 8 0 006 6.6M4.6 15a8 8 0 0013.4 2.4"/></svg>
                     </button>
