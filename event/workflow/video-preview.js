@@ -32,7 +32,7 @@
  *
  * NẠP SAU: core/file-manager/video-ui.js, core/media-transform.js (gộp crop-selector.js +
  * image-zoom.js + cycleRotation(), 04/08/2026), core/video-editor/compat-guard.js/filmstrip.js/
- * frame-extract.js/webcodecs-engine.js, core/file-manager/video.js/image.js, service/state/
+ * webcodecs-engine.js, core/video-player-capture.js, core/file-manager/video.js/image.js, service/state/
  * video-preview.js, service/blob-url.js, event/workflow/media-transform-helpers.js (đổi tên từ
  * crop-ratio-helpers.js).
  */
@@ -597,18 +597,6 @@ const workflowVideoPreview = {
         appState.set('videoPreviewHasUnsavedChanges', true);
     },
 
-    // ===================== Trích xuất ảnh =====================
-
-    async handleExtractFrame() {
-        const sourceCanvas = captureVideoFrameToCanvas(this._modalHandle.videoEl); // core/video-editor/frame-extract.js
-        const blob = await new Promise((resolve) => sourceCanvas.toBlob(resolve, 'image/jpeg', 0.95));
-        if (!blob) { await alertModal(t('videoPreview.extractFrame.failed')); return; }
-        const thumbBlob = await buildExtractedPhotoThumbnail(sourceCanvas, 0.2); // core/video-editor/frame-extract.js
-        const filename = `${buildExtractedPhotoFilename()}.jpg`; // core/video-editor/frame-extract.js
-        saveImage(blob, filename, thumbBlob, sourceCanvas.width, sourceCanvas.height); // core/file-manager/image.js
-        await alertModal(t('videoPreview.extractFrame.success'));
-    },
-
     // ===================== Lưu =====================
 
     /** @param {HTMLElement} anchorEl */
@@ -666,7 +654,7 @@ const workflowVideoPreview = {
         const canvas = document.createElement('canvas');
         canvas.width = tmp.videoWidth; canvas.height = tmp.videoHeight;
         canvas.getContext('2d').drawImage(tmp, 0, 0, canvas.width, canvas.height);
-        const thumbBlob = await buildExtractedPhotoThumbnail(canvas, 0.2); // core/video-editor/frame-extract.js
+        const thumbBlob = await buildExtractedPhotoThumbnail(canvas, 0.2); // core/video-player-capture.js
         return { thumbBlob, width: tmp.videoWidth, height: tmp.videoHeight, duration: tmp.duration };
     },
 

@@ -81,6 +81,10 @@ const workflowVisualizerDisplay = {
             panelEl.querySelector('#auto-switch-time-random-block'),
             panelEl.querySelector('#auto-switch-time-duration-block')
         );
+
+        // ===== Section "Hiển thị Visualizer" =====
+        panelEl.querySelector('#setting-stats-panel-enable').checked = appConfigPlayer.getAll().isStatsPanelVisible !== false;
+        panelEl.querySelector('#setting-hide-player-ui').checked = cfg.playerUiHidden === true;
     },
 
     setQuality(value) {
@@ -226,6 +230,21 @@ const workflowVisualizerDisplay = {
         setBgBlur(value); // core cùng tên, gọi trần phân giải theo scope từ vựng (xem lưu ý đặt tên đầu file)
         updatePlaylistBg();
         forceGlassRepaint(); // fix bug 09/07/2026 (mục 3)
+        saveConfig();
+    },
+
+    /** Ứng với 'visualizerDisplay.statsPanelEnable.change' — checkbox dời từ nút Control Center
+     * (Task 2). Lưu bền qua domain 'player' (CÙNG Shuffle/Repeat, KHÔNG đổi domain — tái dùng
+     * workflowPlayerControls._persistPlayerConfig() thay vì viết lại logic ghi bền lần 2). */
+    setStatsPanelEnabled(checked) {
+        setStatsPanelVisible(checked); // core/stats-panel-toggle.js
+        workflowPlayerControls._persistPlayerConfig(); // event/workflow/player-controls.js — liên tuyến domain
+    },
+
+    /** Ứng với 'visualizerDisplay.hidePlayerUi.change' — "chế độ xem toàn màn hình" (Task 3). */
+    setHidePlayerUi(checked) {
+        setPlayerUiHidden(checked); // core/visualizer-ui-chrome.js
+        appConfigViz.mutateAll(cfg => { cfg.playerUiHidden = checked; });
         saveConfig();
     },
 };

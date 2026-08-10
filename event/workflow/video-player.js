@@ -24,7 +24,6 @@ const workflowVideoPlayer = {
     _thumbObjectUrl: null, // object URL của thumbBlob HIỆN TẠI (poster + cover ở player bar, #record-container) — revoke trước khi tạo url mới
     _forcedBgObjectUrl: null, // object URL của thumbFullBlob đang chèn cưỡng chế vào #visual-bg-image (xem swapBgVideoSource()) — revoke trước khi tạo url mới
     _swapReadyPromise: null, // Promise đợi 'playing' (hoặc timeout) của lần swapBgVideoSource() gần nhất — xem waitBgVideoReady()
-    _swipeStartY: null, // toạ độ Y lúc touchstart — dùng bởi event/listener/video-player.js (cử chỉ vuốt)
 
     /**
      * Nạp `videoKey` vào `bgVideoElement` — CƠ CHẾ SWAP DUY NHẤT, DÙNG CHUNG giữa Video Player mode
@@ -461,6 +460,21 @@ const workflowVideoPlayer = {
     async handleVideoPlayerEnded() {
         stopListenClock(); // core/player-controls.js, hàm có sẵn — dùng lại nguyên
         playNext(false); // core có sẵn (core/player-controls.js), dùng CHUNG với Song — force=false, tôn trọng repeatMode
+    },
+
+    /** Ứng với 'videoPlayer.captureFrame.click' (nút Control Center, chỉ hiện lúc Video Player
+     * mode — xem setBgVideoElementForPlayerMode(), core/video-player.js) — chụp khung hình ĐANG
+     * PHÁT của `bgVideoElement`, lưu vào thư viện Photo. Tái dùng core/video-player-capture.js
+     * (di dời từ core/video-editor/frame-extract.js, nút "Trích xuất ảnh" trong modal Video
+     * Preview đã bỏ hẳn — KHÔNG viết lại logic, chỉ đổi nguồn video từ modal sang bgVideoElement). */
+    async captureCurrentFrame() {
+        const sourceCanvas = captureVideoFrameToCanvas(bgVideoElement); // core/video-player-capture.js
+        const blob = await new Promise((resolve) => sourceCanvas.toBlob(resolve, 'image/jpeg', 0.95));
+        if (!blob) { await alertModal(t('videoPlayer.captureFrame.failed')); return; }
+        const thumbBlob = await buildExtractedPhotoThumbnail(sourceCanvas, 0.2); // core/video-player-capture.js
+        const filename = `${buildExtractedPhotoFilename()}.jpg`; // core/video-player-capture.js
+        saveImage(blob, filename, thumbBlob, sourceCanvas.width, sourceCanvas.height); // core/file-manager/image.js
+        await alertModal(t('videoPlayer.captureFrame.success'));
     },
 
     /**
