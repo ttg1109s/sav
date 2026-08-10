@@ -66,6 +66,14 @@
                 borderColor: '#ffffff', borderOpacity: 0.1, borderWidth: 1, borderRadius: 16,
                 textColor: '#ffffff', fontSize: 8, lineHeight: 1.3, letterSpacing: 0,
             },
+            // "Chế độ xem toàn màn hình" (Task 3) — ẩn player-container/btnBackPlaylist/
+            // btnOpenControlCenter, xem core/visualizer-ui-chrome.js.
+            playerUiHidden: false,
+            // Cử chỉ (event/workflow/visualizer-gesture.js) — bật hết mặc định. gestureEdgeBottomTarget
+            // khớp key ở components/gesture-settings-drawer.js/GESTURE_EDGE_BOTTOM_TARGET_ELS.
+            gestureVideoNavEnabled: true, gestureSongNavEnabled: true,
+            gestureTapPlayPauseEnabled: true, gestureDoubleTapPlaylistEnabled: true,
+            gestureEdgeTopEnabled: true, gestureEdgeBottomEnabled: true, gestureEdgeBottomTarget: 'cycleMode',
         };
 
         // XOÁ (v13 Batch C) — `DEFAULT_SLIDESHOW_CONFIG` + domain `slideshow` ĐÃ GỘP HẲN vào
@@ -179,15 +187,11 @@
         };
 
         /**
-         * MỚI (phản hồi Giang, mục 3 — "thêm nhớ trạng thái shuffle/repeat/stats của icon Control
-         * Center visualizer") — domain config RIÊNG cho 3 icon toggle trong Visualizer Control
-         * Center (`#btn-shuffle`/`#btn-repeat`/`#btn-toggle-stats-panel`, components/visualizer-
-         * overlay.js) — trước đây `isShuffle`/`repeatMode` (package `shuffle-repeat`)/
-         * `isStatsPanelVisible` (package `app-misc`) CHỈ sống trong AppState runtime, KHÔNG hề được
-         * lưu bền, mất hết sau F5/mở lại app. Domain RIÊNG (không gộp vào `playlist`, dù cùng
-         * khuôn) vì đây là nhóm preference của TRÌNH PHÁT (player controls), khác hẳn "duyệt/sắp
-         * xếp Playlist" về mặt ý nghĩa — tách domain cho rõ, đúng tinh thần "chọn domain phù hợp"
-         * Giang đã chốt ở mục 5 (Playlist Settings) trước đó.
+         * Domain config RIÊNG cho Shuffle/Repeat/Stats-panel-visible (`#btn-shuffle`/`#btn-repeat`,
+         * components/visualizer-overlay.js — checkbox Stats dời sang Settings, xem
+         * core/stats-panel-toggle.js) — trước đây `isShuffle`/`repeatMode`/`isStatsPanelVisible`
+         * CHỈ sống trong AppState runtime, KHÔNG lưu bền, mất hết sau F5. Domain RIÊNG (không gộp
+         * vào `playlist`) vì đây là nhóm preference của TRÌNH PHÁT, khác "duyệt/sắp xếp Playlist".
          */
         const DEFAULT_PLAYER_CONFIG = {
             isShuffle: false,
@@ -208,6 +212,10 @@
                 autoSwitchVisualEnabled: 'boolean', autoSwitchVisualMode: 'string', autoSwitchVisualTimeMode: 'string',
                 autoSwitchVisualSecondsFixed: 'number', autoSwitchVisualSecondsRandom: 'number', autoSwitchVisualSecondsDuration: 'number',
                 subtitlesEnabled: 'boolean', subtitleStyle: 'object',
+                playerUiHidden: 'boolean',
+                gestureVideoNavEnabled: 'boolean', gestureSongNavEnabled: 'boolean',
+                gestureTapPlayPauseEnabled: 'boolean', gestureDoubleTapPlaylistEnabled: 'boolean',
+                gestureEdgeTopEnabled: 'boolean', gestureEdgeBottomEnabled: 'boolean', gestureEdgeBottomTarget: 'string',
             },
             defaults: DEFAULT_VIZ_CONFIG,
         });

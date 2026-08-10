@@ -69,6 +69,8 @@
         const iconControlCenterDown = document.getElementById('icon-control-center-down');
         const controlCenterOverlay = document.getElementById('control-center-overlay');
         const visualizerControlCenter = document.getElementById('visualizer-control-center');
+        // Lớp phủ chạm RIÊNG cho toàn bộ cử chỉ (event/workflow/visualizer-gesture.js).
+        const visualizerGestureSurface = document.getElementById('visualizer-gesture-surface');
         
         const playPauseBtn = document.getElementById('play-pause-btn'), iconPlay = document.getElementById('icon-play'), iconPause = document.getElementById('icon-pause');
         const btnPrev = document.getElementById('btn-prev'), btnNext = document.getElementById('btn-next');
@@ -78,12 +80,13 @@
         const playerTitle = document.getElementById('player-title'), playerArtist = document.getElementById('player-artist');
         const recordArt = document.getElementById('record-art'), recordContainer = document.getElementById('record-container');
         const statBpm = document.getElementById('stat-bpm'), statNote = document.getElementById('stat-note'), statEnergy = document.getElementById('stat-energy');
-        // Toggle ẩn/hiện dải BPM/Pitch/Energy (ver 10 refine, bổ sung) — xem stats-panel-toggle.js.
+        // Dải BPM/Pitch/Energy — toggle ẩn/hiện giờ nằm ở Settings (checkbox), xem
+        // core/stats-panel-toggle.js + components/gesture-settings-drawer.js.
         const statsPanel = document.getElementById('stats-panel');
-        const btnToggleStatsPanel = document.getElementById('btn-toggle-stats-panel');
         // MỚI (04/07/2026, tính năng Documents) — nút mở Reader trong Control Center.
         const btnOpenDocumentReader = document.getElementById('btn-open-document-reader');
-        const iconStatsPanelVisible = document.getElementById('icon-stats-panel-visible'), iconStatsPanelHidden = document.getElementById('icon-stats-panel-hidden');
+        // Chụp khung hình bgVideoElement đang phát -> Photo (chỉ hiện lúc Video Player mode).
+        const btnCaptureVideoFrame = document.getElementById('btn-capture-video-frame');
         
         const drawerSettings = document.getElementById('drawer-settings'), btnSettingsPlaylist = document.getElementById('btn-settings-playlist'), closeDrawer = document.getElementById('close-drawer');
         // (btnSettings ĐÃ XOÁ — HOTFIX 11, 08/07/2026: nút "Cài đặt" trong Control Center của
@@ -174,6 +177,7 @@
         // MỚI (v13 Batch A) — nút điều hướng DUY NHẤT mở panel "Visual Background", THAY 3 entry
         // cũ (#setting-video-enable, #setting-visual-bg-image-enable, #setting-open-slideshow-settings).
         const btnOpenVisualBgSettings = document.getElementById('setting-open-visual-bg-settings');
+        const btnOpenGestureSettings = document.getElementById('setting-open-gesture-settings');
         // (drawerSlideshowSettings/btnBackSlideshowSettings ĐÃ XOÁ — Batch D4: panel Slideshow
         // Settings giờ động, không còn drawer tĩnh riêng; Back dùng CHUNG btnSettingsStackBack.)
         //

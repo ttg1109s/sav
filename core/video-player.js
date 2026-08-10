@@ -30,16 +30,17 @@ function exitVideoPlayerModeState() {
     appState.set('isVideoPlayerMode', false);
 }
 
-/** Đổi `muted`/`loop`/`pointer-events`/`.hidden` của `bgVideoElement` giữa 2 chế độ — gọi ĐÚNG 1
- * LẦN lúc vào/thoát Video Player mode, KHÔNG đụng gì tới Next/Prev bên trong mode (xem
- * `playVideoByKey()`, event/workflow/video-player.js — Next/Prev chỉ đổi `src`, không toggle hàm
- * này). `.hidden` (display:none) là cơ chế hiện/ẩn DUY NHẤT (không dùng opacity — display:none
- * thắng tuyệt đối). `enabled=true`: gỡ `.hidden` + bỏ muted + tắt loop (cần `bgVideoElement` tự
- * bắn 'ended' để chuyển video kế tiếp) + bật pointer-events. `enabled=false`: ngược lại, về mặc
- * định CSS tĩnh (`#bg-video { z-index: 0; }`, giống Video nền trang trí).
- * SỬA (09/08/2026, mục 1 — "video bg vẫn không mute") — `.muted` GIỮ LẠI chỉ làm fallback cho lúc
- * graph Web Audio CHƯA nối (trước `connectVideoElementToAnalyser()` chạy lần đầu trong phiên);
- * nguồn tin cậy CHÍNH giờ là `setVideoBgGain()` (GainNode riêng) — xem docstring hàm đó.
+/** Đổi `muted`/`loop`/`pointer-events`/`.hidden` của `bgVideoElement` (+ hiện/ẩn nút chụp khung
+ * hình Control Center) giữa 2 chế độ — gọi ĐÚNG 1 LẦN lúc vào/thoát Video Player mode, KHÔNG đụng
+ * gì tới Next/Prev bên trong mode (xem `playVideoByKey()`, event/workflow/video-player.js —
+ * Next/Prev chỉ đổi `src`, không toggle hàm này). `.hidden` (display:none) là cơ chế hiện/ẩn DUY
+ * NHẤT (không dùng opacity — display:none thắng tuyệt đối). `enabled=true`: gỡ `.hidden` + bỏ
+ * muted + tắt loop (cần `bgVideoElement` tự bắn 'ended' để chuyển video kế tiếp) + bật
+ * pointer-events + hiện nút chụp khung hình. `enabled=false`: ngược lại, về mặc định CSS tĩnh
+ * (`#bg-video { z-index: 0; }`, giống Video nền trang trí).
+ * `.muted` GIỮ LẠI chỉ làm fallback cho lúc graph Web Audio CHƯA nối (trước
+ * `connectVideoElementToAnalyser()` chạy lần đầu trong phiên); nguồn tin cậy CHÍNH giờ là
+ * `setVideoBgGain()` (GainNode riêng) — xem docstring hàm đó.
  * @param {boolean} enabled
  */
 function setBgVideoElementForPlayerMode(enabled) {
@@ -48,6 +49,7 @@ function setBgVideoElementForPlayerMode(enabled) {
     bgVideoElement.loop = !enabled;
     bgVideoElement.classList.toggle('hidden', !enabled);
     bgVideoElement.style.pointerEvents = enabled ? 'auto' : '';
+    if (typeof btnCaptureVideoFrame !== 'undefined' && btnCaptureVideoFrame) btnCaptureVideoFrame.classList.toggle('hidden', !enabled);
 }
 
 /** BÀI HỌC giữ lại (đã thử 3 cách che ảnh LÊN TRÊN `bgVideoElement` đang decode — overlay div
