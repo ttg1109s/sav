@@ -303,19 +303,27 @@ const workflowVisualBg = {
     async _onVideoEnded() {
         const cfg = appConfigVisualBg.getAll();
         if (cfg.type !== 'video') return;
-        const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && cfg.source.list.length > 1;
-        if (!isCyclingSlideshow) { this._restartCurrentVideoInPlace(); return; } // perSong hoặc list<=1 — CÙNG video, tự lặp lại thủ công
+        // SỬA (09/08/2026, mục 1 vòng 2, tự soát lại) — DÙNG `_effectiveCount()` (loại null) THAY
+        // vì `cfg.source.list.length` thô (tính cả null): `_playVideoKey()` tính `isCyclingSlideshow`
+        // bằng `_effectiveCount()` — nếu 1 trong N item bị đánh dấu null (record mất, xem
+        // `_markCurrentMissing()`) mà chỉ còn ĐÚNG 1 item sống, `_playVideoKey()` đã tự coi là
+        // "tĩnh" (`loop=!hasAudioB`) nhưng hàm NÀY (bản cũ dùng `.length` thô) vẫn coi là "đang
+        // cycle" nếu length thô >1 — 2 nơi tính LỆCH NHAU, dẫn `_onVideoEnded()` chọn nhầm nhánh
+        // advance thay vì tự lặp lại. Đồng bộ lại dùng CHUNG `_effectiveCount()`.
+        const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && this._effectiveCount(cfg) > 1;
+        if (!isCyclingSlideshow) { this._restartCurrentVideoInPlace(); return; } // perSong hoặc còn ≤1 item sống — CÙNG video, tự lặp lại thủ công
         if (await this._checkAndApplyPendingSource()) return; // MỚI (09/08/2026, cơ chế pending) — video VỪA hết, đúng "lượt kế tiếp"
         await this._advanceVideo();
     },
 
-    /** MỚI (09/08/2026, mục 1, phản hồi Giang — "video loop mà có Audio B bật thì tự pause Song")
-     * — video tự lặp lại CHÍNH NÓ (perSong, hoặc slideshow `list.length<=1`) khi `loop=false` (vì
-     * có Audio B bật — xem `_playVideoKey()`), THAY cho native `loop=true` (tránh loop-restart ngầm
-     * của trình duyệt bị iOS coi là giành audio session mới, tự pause Song). Câm cứng lúc seek+
-     * play() lại, unmute SAU khi ổn định — CÙNG pattern `_playVideoKey()`/
-     * `_resumeVideoWithDelayedAudio()`. KHÔNG qua `swapBgVideoSource()` (không cần tải lại record/
-     * object URL mới — vẫn CÙNG 1 video, chỉ seek về 0).
+    /** SỬA (09/08/2026, mục 1 vòng 4, phản hồi Giang — "không cần dùng lại cơ chế swap, vấn đề
+     * chung là phát 1 video có tiếng trong lúc audio khác đang phát, slideshow cũng dính rủi ro y
+     * hệt, chỉ là ca này lộ ra qua việc lặp lại chính nó") — video tự lặp lại CHÍNH NÓ (perSong,
+     * hoặc slideshow còn ≤1 item sống) khi `loop=false` (vì có Audio B bật — xem `_playVideoKey()`),
+     * THAY cho native `loop=true`. Đúng khuôn Giang chốt: video hết -> mute cưỡng chế -> seek 0 ->
+     * play() -> đợi 'playing' thật -> bỏ mute cưỡng chế -> áp theo setting đã lưu — CÙNG pattern
+     * `_playVideoKey()`. KHÔNG qua `swapBgVideoSource()`/tải lại record — vẫn CÙNG 1 video, chỉ
+     * seek về 0.
      */
     _restartCurrentVideoInPlace() {
         const videoKey = this._currentVideoKey;
@@ -693,6 +701,12 @@ const workflowVisualBg = {
             appConfigVisualBg.mutateAll((c) => { c.pending = { originKind, originId, list: keys }; }); // đè lên pending cũ nếu có (Giang chốt, chỉ giữ 1 pending duy nhất)
             console.log(`writer: "workflowVisualBg._resolveAndCommitSource", page: "visualBgConfig", content: "queued pending=${originKind}:${originId}, count=${keys.length}"`);
             await this._persist();
+            // MỚI (09/08/2026, mục 2, phản hồi Giang — "tên nguồn ở Settings phải cập nhật ngay dù
+            // còn pending") — TRƯỚC ĐÂY thiếu dòng này: queue xong nhưng panel KHÔNG tự vẽ lại, tên
+            // nguồn cũ vẫn đứng yên tới khi có lý do khác gọi `refreshPanelUI()`. Gọi NGAY ở đây,
+            // `_refreshSourceNameLabel()` giờ tự ưu tiên đọc `cfg.pending` (xem
+            // `_effectiveDisplayedOrigin()`) nên sẽ hiện đúng tên nguồn VỪA chọn ngay lập tức.
+            await this.refreshPanelUI();
             await alertModal(t(cfg.type === 'video' ? 'visualBgSettingsDrawer.pendingSource.video' : 'visualBgSettingsDrawer.pendingSource.photo')); // core/modal-choice.js
             return { queued: true, total: keys.length };
         }
@@ -728,11 +742,12 @@ const workflowVisualBg = {
         return { queued: false, added, removed, total: keys.length };
     },
 
-    /** Ứng nút "Làm tươi" — đọc lại ĐÚNG origin đã lưu, ghi đè `source.list` (hoặc xếp pending nếu
+    /** Ứng nút "Làm tươi" — đọc lại ĐÚNG origin ĐANG HIỂN THỊ (`_effectiveDisplayedOrigin()` — ưu
+     * tiên pending nếu có, xem docstring hàm đó), ghi đè `source.list` (hoặc xếp/đè pending nếu
      * đang active — xem `_resolveAndCommitSource()`). Có hiệu ứng xoay trên nút trong lúc đọc DB +
-     * modal báo THAY ĐỔI GÌ sau khi xong (Giang chốt mục 2). */
+     * modal báo THAY ĐỔI GÌ sau khi xong (Giang chốt mục 2 cũ). */
     async refreshSource() {
-        const { originKind, originId } = appConfigVisualBg.getAll().source;
+        const { originKind, originId } = this._effectiveDisplayedOrigin(appConfigVisualBg.getAll());
         if (!originKind || !originId) return; // guard: chưa có nguồn
         const btn = visualBgSettingsPanelEl ? visualBgSettingsPanelEl.querySelector('#setting-visual-bg-refresh-source') : null;
         if (btn) { btn.disabled = true; btn.classList.add('animate-spin'); }
@@ -1061,17 +1076,36 @@ const workflowVisualBg = {
     },
 
     /** Ghi tên nguồn đang chọn vào `#visual-bg-source-name` + hiện/ẩn nút Làm tươi/Gỡ nguồn theo
-     * có origin hay không. */
+     * có origin hay không.
+     * SỬA (09/08/2026, mục 2, phản hồi Giang — "đổi source list vẫn pending nhưng tên nguồn ở
+     * Settings phải cập nhật ngay") — ưu tiên đọc `cfg.pending` nếu có (origin VỪA chọn, CHƯA áp
+     * vào `source` thật vì đang có media active — xem `_resolveAndCommitSource()`): user đã chọn
+     * xong, panel PHẢI phản ánh lựa chọn đó ngay lập tức, không đợi tới lúc pending thật sự áp vào
+     * `source` (video/ảnh hiện tại VẪN tiếp tục phát bình thường, KHÔNG bị gián đoạn — chỉ có nhãn
+     * hiển thị "chạy trước" so với nội dung thật). Dùng CHUNG `_effectiveDisplayedOrigin()` với
+     * `refreshSource()` — "Làm tươi" lúc đang có pending PHẢI đọc lại ĐÚNG origin đang HIỂN THỊ
+     * (pending), không phải origin CŨ còn đang phát. */
     async _refreshSourceNameLabel(cfg) {
         const labelEl = visualBgSettingsPanelEl ? visualBgSettingsPanelEl.querySelector('#visual-bg-source-name') : null;
         const refreshBtn = visualBgSettingsPanelEl ? visualBgSettingsPanelEl.querySelector('#setting-visual-bg-refresh-source') : null;
         const clearBtn = visualBgSettingsPanelEl ? visualBgSettingsPanelEl.querySelector('#setting-visual-bg-clear-source') : null;
-        const { originKind, originId } = cfg.source;
+        const { originKind, originId } = this._effectiveDisplayedOrigin(cfg);
         if (refreshBtn) refreshBtn.classList.toggle('hidden', !originId);
         if (clearBtn) clearBtn.classList.toggle('hidden', !originId);
         if (!labelEl) return;
         if (!originId) { labelEl.textContent = t('visualBgSettingsDrawer.pickSource.none'); return; }
         labelEl.textContent = await this._readSourceDisplayName(cfg.type, originKind, originId);
+    },
+
+    /** MỚI (09/08/2026, mục 2, phản hồi Giang) — origin nên HIỂN THỊ ở Settings (KHÁC origin đang
+     * THẬT SỰ phát nếu có pending) — `cfg.pending` (nếu có) LUÔN thắng `cfg.source` (origin cũ đang
+     * phát chỉ còn ý nghĩa cho tới lúc pending áp xong). Dùng CHUNG cho `_refreshSourceNameLabel()`
+     * lẫn `refreshSource()` (Rule 3c — hàm con phục vụ tái dùng).
+     * @param {object} cfg
+     * @returns {{originKind: string|null, originId: string|null}}
+     */
+    _effectiveDisplayedOrigin(cfg) {
+        return cfg.pending.originKind ? { originKind: cfg.pending.originKind, originId: cfg.pending.originId } : { originKind: cfg.source.originKind, originId: cfg.source.originId };
     },
 
     /** Đọc tên hiển thị thật của 1 origin (imageKey/videoKey/albumId/folderId). */
