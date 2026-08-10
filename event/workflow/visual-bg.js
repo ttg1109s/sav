@@ -294,14 +294,40 @@ const workflowVisualBg = {
      * event/listener/visual-bg.js, xem comment ở đó). MỚI (08/08/2026, phản hồi Giang) — THAY cho
      * taskManager hẹn giờ cố định đã bỏ (xem `_applyVideo()`) — video mode 'slideshow' giờ advance
      * đúng lúc video ĐÓ THẬT SỰ phát hết (`loop=false`, xem `_playVideoKey()`).
-     * Guard `listPlaybackMode==='slideshow'` phòng thủ: `perSong`/`list.length<=1` luôn `loop=true`
-     * nên trình duyệt vốn KHÔNG BAO GIỜ bắn `ended` cho 2 trường hợp đó — nhánh dưới chỉ chạy khi
-     * đổi cấu hình đúng lúc sự kiện đang bay tới (hiếm, phòng thủ thuần, không phải luồng chính). */
+     * SỬA (09/08/2026, mục 1, phản hồi Giang — "video loop mà có Audio B bật thì tự pause Song") —
+     * BỎ giả định cũ "perSong/list.length<=1 luôn loop=true nên KHÔNG BAO GIỜ bắn ended": giả định
+     * đó SAI từ lúc `loop` phụ thuộc thêm Audio B (xem docstring `_playVideoKey()`) — video CÓ
+     * Audio B bật ở 2 case đó giờ `loop=false`, `ended` bắn THẬT, cần tự lặp lại CHÍNH NÓ (không
+     * advance sang video khác — vẫn cùng 1 video, chỉ khác là PHẢI dừng thật ở cuối rồi mình tự
+     * seek+play() lại thay vì native tự làm ngầm, xem `_restartCurrentVideoInPlace()`). */
     async _onVideoEnded() {
         const cfg = appConfigVisualBg.getAll();
-        if (cfg.type !== 'video' || cfg.listPlaybackMode !== 'slideshow' || cfg.source.list.length <= 1) return;
+        if (cfg.type !== 'video') return;
+        const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && cfg.source.list.length > 1;
+        if (!isCyclingSlideshow) { this._restartCurrentVideoInPlace(); return; } // perSong hoặc list<=1 — CÙNG video, tự lặp lại thủ công
         if (await this._checkAndApplyPendingSource()) return; // MỚI (09/08/2026, cơ chế pending) — video VỪA hết, đúng "lượt kế tiếp"
         await this._advanceVideo();
+    },
+
+    /** MỚI (09/08/2026, mục 1, phản hồi Giang — "video loop mà có Audio B bật thì tự pause Song")
+     * — video tự lặp lại CHÍNH NÓ (perSong, hoặc slideshow `list.length<=1`) khi `loop=false` (vì
+     * có Audio B bật — xem `_playVideoKey()`), THAY cho native `loop=true` (tránh loop-restart ngầm
+     * của trình duyệt bị iOS coi là giành audio session mới, tự pause Song). Câm cứng lúc seek+
+     * play() lại, unmute SAU khi ổn định — CÙNG pattern `_playVideoKey()`/
+     * `_resumeVideoWithDelayedAudio()`. KHÔNG qua `swapBgVideoSource()` (không cần tải lại record/
+     * object URL mới — vẫn CÙNG 1 video, chỉ seek về 0).
+     */
+    _restartCurrentVideoInPlace() {
+        const videoKey = this._currentVideoKey;
+        if (!videoKey) return; // guard: không có video thật nào đang phát (đang placeholder) — không có gì để lặp
+        bgVideoElement.muted = true;
+        setVideoBgGain(0); // core/video-player.js
+        bgVideoElement.currentTime = 0;
+        bgVideoElement.play().catch(() => {});
+        if (typeof workflowVideoPlayer === 'undefined') return; // liên tuyến domain
+        workflowVideoPlayer.waitForNextPlaying().then(() => {
+            if (this._currentVideoKey === videoKey) this._applyVideoAudioSettingToElement(videoKey); // core/visual-bg.js lookup + gán muted/volume
+        });
     },
 
     /**
@@ -376,6 +402,16 @@ const workflowVisualBg = {
      * `perSong` hoặc chỉ 1 item — video ĐÓ là toàn bộ nội dung, phải tự lặp mãi, không có gì để
      * chuyển sang). Cycle nhiều video mode 'slideshow' -> `loop=false`, đợi `ended` thật (xem
      * `_onVideoEnded()`) mới chuyển video kế — THAY cho taskManager hẹn giờ cố định đã bỏ.
+     * SỬA THÊM (09/08/2026, phản hồi Giang — "video loop mà có Audio B bật thì tự pause Song") —
+     * ĐIỀU KIỆN `loop=true` Ở TRÊN chỉ còn ĐÚNG khi video này KHÔNG bật Audio B: loop-restart NATIVE
+     * (trình duyệt tự seek về 0 + tiếp tục phát ngầm, KHÔNG bắn sự kiện `ended`, KHÔNG có lệnh
+     * `play()` nào lộ ra JS) VẪN bị iOS Safari/WKWebView coi là 1 lần giành audio session MỚI nếu
+     * video đó đang audible thật (cùng cơ chế đã phân tích ở docstring dưới — chỉ khác là lần này
+     * trình duyệt tự kích hoạt, không qua code của mình nên không có chỗ nào để câm-trước-play()
+     * được) — Song bị cưỡng chế pause. Video CÓ Audio B bật -> `loop=false`, tự lặp THỦ CÔNG qua
+     * `_onVideoEnded()`/`_restartCurrentVideoInPlace()` (câm cứng lúc seek+play() lại, unmute SAU
+     * khi ổn định — CÙNG pattern muted-rồi-confirm đã dùng khắp file này) — giành lại quyền kiểm
+     * soát đúng thời điểm "become audible", né được đúng cửa sổ trình duyệt tự ý giành session.
      * SỬA (09/08/2026, mục 1+2 vòng 2, phản hồi Giang — "video kế tiếp đè Song/đơ cả hai" +
      * "chưa phát Song nhưng bật audio VBG đã phát") — RETRACT thứ tự 08/08/2026 (áp
      * `_applyVideoAudioSettingToElement()` TRƯỚC `swapBgVideoSource()`): `play()` bên trong swap là
@@ -411,7 +447,8 @@ const workflowVisualBg = {
         setVideoBgGain(0); // core/video-player.js
         const cfg = appConfigVisualBg.getAll();
         const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && this._effectiveCount(cfg) > 1;
-        bgVideoElement.loop = !isCyclingSlideshow; // xem docstring trên — SỬA 08/08/2026
+        const { enabled: hasAudioB } = getVisualBgVideoAudioSetting(cfg.source.videoAudio, videoKey); // core/visual-bg.js
+        bgVideoElement.loop = !isCyclingSlideshow && !hasAudioB; // xem docstring trên — SỬA 08/08/2026 + 09/08/2026
         bgVideoElement.classList.remove('hidden');
         this._isSwappingVideo = true;
         // SỬA (08/08/2026, phản hồi Giang — màn đen ở video cuối `source.list`) — thêm tham số thứ 4
@@ -638,6 +675,15 @@ const workflowVisualBg = {
             await this.clearSource();
             return null;
         }
+        // MỚI (09/08/2026, mục 3, phản hồi Giang — "refresh làm mất modal thêm/bớt") — nguồn đọc ra
+        // GIỐNG HỆT `source.list` hiện tại (cùng thứ tự, cùng key) -> KHÔNG có gì thay đổi thật ->
+        // KHÔNG cần chế độ pending/modal "sẽ áp ở lượt kế" nào cả (không có gì để mà chờ áp) — trả
+        // thẳng "0 thay đổi", để `refreshSource()` tự hiện đúng modal "không có gì đổi" như cũ. Bug
+        // trước: dù danh sách y hệt vẫn bị coi là "có pending đang chờ" (vì `_effectiveCount>0`),
+        // nuốt mất modal diff thật — chỉ còn hiện modal pending chung chung, sai ngữ cảnh.
+        const oldList = cfg.source.list;
+        const isIdentical = keys.length === oldList.length && keys.every((k, i) => k === oldList[i]);
+        if (isIdentical) return { queued: false, added: 0, removed: 0, total: keys.length };
         // MỚI (09/08/2026, cơ chế pending, phản hồi Giang — "đổi nguồn giữa lúc đang cycle làm giật/
         // mất khung đang phát") — CÒN media đang active (photo lẫn video, Giang chốt áp dụng CẢ 2,
         // không tách riêng theo type) -> KHÔNG ghi đè `source` ngay, xếp vào `pending`, đợi đúng
