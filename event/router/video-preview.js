@@ -25,7 +25,6 @@ const routerVideoPreview = (() => {
             case 'videoPreview.rotate.click': { workflowVideoPreview.handleRotateClick(); break; }
             case 'videoPreview.flip.click': { workflowVideoPreview.handleFlipClick(); break; }
             case 'videoPreview.reset.click': { workflowVideoPreview.handleReset(); break; }
-            case 'videoPreview.extractFrame.click': { workflowVideoPreview.handleExtractFrame(); break; }
 
             case 'videoPreview.save.click': { workflowVideoPreview.handleSaveClick(msg.payload.anchorEl); break; }
             case 'videoPreview.saveOverwrite.click': { workflowVideoPreview.handleSaveOverwrite(); break; }

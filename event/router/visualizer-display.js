@@ -162,6 +162,16 @@ const routerVisualizerDisplay = (() => {
                 break;
             }
 
+            case 'visualizerDisplay.statsPanelEnable.change': {
+                workflowVisualizerDisplay.setStatsPanelEnabled(msg.payload.checked);
+                break;
+            }
+
+            case 'visualizerDisplay.hidePlayerUi.change': {
+                workflowVisualizerDisplay.setHidePlayerUi(msg.payload.checked);
+                break;
+            }
+
             default:
                 console.warn(`[router:visualizerDisplay] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`);
         }

@@ -33,6 +33,11 @@ const routerVideoPlayer = (() => {
                 break;
             }
 
+            case 'videoPlayer.captureFrame.click': {
+                workflowVideoPlayer.captureCurrentFrame();
+                break;
+            }
+
             default:
                 console.warn(`[router:videoPlayer] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`, msg);
         }
