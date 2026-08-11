@@ -13,8 +13,14 @@ const routerVisualizerGesture = (() => {
             case 'visualizerGesture.touch.start':
                 workflowVisualizerGesture.handleTouchStart(msg.payload.x, msg.payload.y);
                 break;
+            case 'visualizerGesture.touch.move':
+                workflowVisualizerGesture.handleTouchMove(msg.payload.x, msg.payload.y);
+                break;
             case 'visualizerGesture.touch.end':
                 workflowVisualizerGesture.handleTouchEnd(msg.payload.x, msg.payload.y);
+                break;
+            case 'visualizerGesture.touch.cancel':
+                workflowVisualizerGesture.handleTouchCancel();
                 break;
             default:
                 console.warn(`[routerVisualizerGesture] msg.type không xác định: "${msg.type}"`, msg);

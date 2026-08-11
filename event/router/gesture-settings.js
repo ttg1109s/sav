@@ -11,22 +11,28 @@ const routerGestureSettings = (() => {
                 workflowGestureSettings.openPanel();
                 break;
             case 'gestureSettings.swipeUp.change':
-                workflowGestureSettings.setSelectField('gestureActionSwipeUp', msg.payload.value);
+                workflowGestureSettings.setField('gestureActionSwipeUp', msg.payload.value);
                 break;
             case 'gestureSettings.swipeDown.change':
-                workflowGestureSettings.setSelectField('gestureActionSwipeDown', msg.payload.value);
+                workflowGestureSettings.setField('gestureActionSwipeDown', msg.payload.value);
                 break;
             case 'gestureSettings.swipeLeft.change':
-                workflowGestureSettings.setSelectField('gestureActionSwipeLeft', msg.payload.value);
+                workflowGestureSettings.setField('gestureActionSwipeLeft', msg.payload.value);
                 break;
             case 'gestureSettings.swipeRight.change':
-                workflowGestureSettings.setSelectField('gestureActionSwipeRight', msg.payload.value);
+                workflowGestureSettings.setField('gestureActionSwipeRight', msg.payload.value);
                 break;
             case 'gestureSettings.tapSingle.change':
-                workflowGestureSettings.setSelectField('gestureActionTapSingle', msg.payload.value);
+                workflowGestureSettings.setField('gestureActionTapSingle', msg.payload.value);
                 break;
             case 'gestureSettings.tapDouble.change':
-                workflowGestureSettings.setSelectField('gestureActionTapDouble', msg.payload.value);
+                workflowGestureSettings.setField('gestureActionTapDouble', msg.payload.value);
+                break;
+            case 'gestureSettings.seekHoldEnable.change':
+                workflowGestureSettings.setToggle('gestureSeekHoldEnabled', msg.payload.checked);
+                break;
+            case 'gestureSettings.openSeekStepPicker.click':
+                workflowGestureSettings.openSeekStepPicker();
                 break;
             case 'gestureSettings.edgeTop.change':
                 workflowGestureSettings.setToggle('gestureEdgeTopEnabled', msg.payload.checked);
@@ -35,7 +41,7 @@ const routerGestureSettings = (() => {
                 workflowGestureSettings.setToggle('gestureEdgeBottomEnabled', msg.payload.checked);
                 break;
             case 'gestureSettings.edgeBottomTarget.change':
-                workflowGestureSettings.setSelectField('gestureEdgeBottomTarget', msg.payload.value);
+                workflowGestureSettings.setField('gestureEdgeBottomTarget', msg.payload.value);
                 break;
             default:
                 console.warn(`[routerGestureSettings] msg.type không xác định: "${msg.type}"`, msg);
