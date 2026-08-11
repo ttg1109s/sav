@@ -175,18 +175,13 @@ const routerVisualizerDisplay = (() => {
             }
             // (Phần B, Galaxy — 5 case spaceStyle/4 slider ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1)
 
-            // ===================== Volume / EQ (Main, KHÔNG di chuyển) =====================
+            // ===================== Volume (Control Center HUD, event/workflow/volume-hud.js gửi tới) =====================
             case 'visualizerDisplay.volume.input': {
                 const { value } = msg.payload;
                 setVolume(value);
                 break;
             }
-
-            case 'visualizerDisplay.eqMode.change': {
-                const { value } = msg.payload;
-                setEQMode(value);
-                break;
-            }
+            // eqMode.change ĐÃ XOÁ HẲN — cụm "eqPresets" MỚI xử lý riêng (event/router/eq-presets.js).
 
             case 'visualizerDisplay.statsPanelEnable.change': {
                 workflowVisualizerDisplay.setStatsPanelEnabled(msg.payload.checked);
