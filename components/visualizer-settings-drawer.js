@@ -175,9 +175,9 @@ function renderVisualizerPanelBody() {
                 </div>
 
                 <!-- SECTION: HIỂN THỊ VISUALIZER — dải BPM/Pitch/Energy (dời từ nút Control
-                     Center) + chế độ xem toàn màn hình (ẩn thanh phát nhạc/nút Playlist/nút mở
-                     Control Center — vẫn mở lại được qua cử chỉ vuốt rìa, xem
-                     event/workflow/visualizer-gesture.js). -->
+                     Center) + 3 toggle RIÊNG ẩn/hiện từng thành phần UI cố định (bỏ hẳn "full
+                     mode" gộp chung) — vẫn mở lại được qua cử chỉ vuốt rìa dù đang ẩn, xem
+                     event/workflow/visualizer-gesture.js. -->
                 <div>
                     <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-2 ml-2" data-i18n="visualizerSettingsDrawer.displaySectionTitle">${t('visualizerSettingsDrawer.displaySectionTitle')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
@@ -191,13 +191,33 @@ function renderVisualizerPanelBody() {
                                 <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                             </label>
                         </div>
-                        <div class="flex justify-between items-center p-4">
+                        <div class="flex justify-between items-center p-4 border-b border-white/5">
                             <div class="pr-3">
-                                <div class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.hidePlayerUi.label">${t('visualizerSettingsDrawer.hidePlayerUi.label')}</div>
-                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="visualizerSettingsDrawer.hidePlayerUi.hint">${t('visualizerSettingsDrawer.hidePlayerUi.hint')}</div>
+                                <div class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.hideBottomPlayer.label">${t('visualizerSettingsDrawer.hideBottomPlayer.label')}</div>
+                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="visualizerSettingsDrawer.hideBottomPlayer.hint">${t('visualizerSettingsDrawer.hideBottomPlayer.hint')}</div>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="setting-hide-player-ui" class="sr-only peer">
+                                <input type="checkbox" id="setting-hide-bottom-player" class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                            </label>
+                        </div>
+                        <div class="flex justify-between items-center p-4 border-b border-white/5">
+                            <div class="pr-3">
+                                <div class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.hidePlaylistButton.label">${t('visualizerSettingsDrawer.hidePlaylistButton.label')}</div>
+                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="visualizerSettingsDrawer.hidePlaylistButton.hint">${t('visualizerSettingsDrawer.hidePlaylistButton.hint')}</div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="setting-hide-playlist-button" class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                            </label>
+                        </div>
+                        <div class="flex justify-between items-center p-4">
+                            <div class="pr-3">
+                                <div class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.hideControlCenterButton.label">${t('visualizerSettingsDrawer.hideControlCenterButton.label')}</div>
+                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="visualizerSettingsDrawer.hideControlCenterButton.hint">${t('visualizerSettingsDrawer.hideControlCenterButton.hint')}</div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="setting-hide-control-center-button" class="sr-only peer">
                                 <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                             </label>
                         </div>

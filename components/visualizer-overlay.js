@@ -1,6 +1,6 @@
 /**
  * Component: Visualizer UI Overlay — lớp giao diện đè lên canvas khi đang phát nhạc (stats,
- * phụ đề, cử chỉ, Control Center). Biến này chứa chuỗi HTML, main.js chèn vào DOM lúc khởi động.
+ * cử chỉ, Control Center). Biến này chứa chuỗi HTML, main.js chèn vào DOM lúc khởi động.
  *
  * #visualizer-gesture-surface: lớp phủ chạm RIÊNG cho toàn bộ cử chỉ (event/workflow/visualizer-
  * gesture.js) — nằm TRÊN canvas (#visualizer z-index 10) + bgVideoElement (#bg-video z-index 0)
@@ -8,14 +8,16 @@
  *
  * #btn-open-control-center mở panel #visualizer-control-center (grid icon, "PHÓNG RA TỪ TRUNG
  * TÂM" từ đúng vị trí nút bấm — logic mở/đóng ở core/visualizer-control-center.js).
- * #btn-back-playlist tách riêng, luôn cố định (thao tác dùng thường xuyên, không nằm trong panel
- * ẩn/hiện). Cả 2 nút này CÙNG #stats-panel và panel Control Center có thể bị ẩn qua toggle "Ẩn
- * thanh điều khiển" (Settings -> Visualizer -> Cử chỉ & hiển thị) — xem core/visualizer-ui-
- * chrome.js.
+ * #btn-back-playlist tách riêng, luôn cố định. #btn-open-control-center/#btn-back-playlist/
+ * #player-container (components/bottom-player.js) mỗi cái có 1 toggle ẩn/hiện RIÊNG trong Settings
+ * -> Visualizer -> Hiển thị Visualizer (KHÔNG còn 1 toggle "full mode" gộp chung) — xem
+ * core/visualizer-ui-visibility.js.
  *
- * #btn-toggle-stats-panel ĐÃ DỜI sang Settings (checkbox, Rule 2 compliant) — xem
- * components/gesture-settings-drawer.js + core/stats-panel-toggle.js. 3 giá trị BPM/Pitch/Energy
- * đổi từ 3 màu riêng (xanh lá/vàng/hồng) sang TRẮNG hết (phản hồi Giang).
+ * #btn-toggle-stats-panel ĐÃ DỜI sang Settings (checkbox) — xem core/visualizer-ui-visibility.js.
+ * 3 giá trị BPM/Pitch/Energy đổi từ 3 màu riêng (xanh lá/vàng/hồng) sang TRẮNG hết.
+ *
+ * #btn-subtitle ĐÃ BỎ HẲN — bật/tắt phụ đề chỉ còn qua checkbox có sẵn trong Settings
+ * (#setting-subtitles-enabled, components/settings/subtitle-style.js), không cần lối tắt trùng.
  *
  * #btn-capture-video-frame MỚI — chụp khung hình `bgVideoElement` đang phát, lưu vào Photo. CHỈ
  * hiện lúc Video Player mode (`.hidden` mặc định, gỡ trong setBgVideoElementForPlayerMode(),
@@ -57,11 +59,6 @@ const TPL_VISUALIZER_OVERLAY = `
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 11a9 9 0 019 9M4 11a9 9 0 019-9m9 9a9 9 0 01-9-9m9 9a9 9 0 01-9 9m-9-9h18" /></svg>
                         <span class="text-[10px] text-white font-medium" data-i18n="visualizerOverlay.cycleMode.label">${t('visualizerOverlay.cycleMode.label')}</span>
                         <span id="mode-badge" class="absolute top-1 right-3 bg-sky-500 text-[9px] font-bold px-1 rounded-full border border-slate-900 shadow-md">1/9</span>
-                    </button>
-                    <button id="btn-subtitle" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors relative" data-i18n-title="visualizerOverlay.subtitle.title" title="${t('visualizerOverlay.subtitle.title')}">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" /></svg>
-                        <span class="text-[10px] text-white font-medium" data-i18n="visualizerOverlay.subtitle.label">${t('visualizerOverlay.subtitle.label')}</span>
-                        <span id="sub-toggle-badge" class="hidden absolute top-1 right-3 bg-green-500 text-[9px] font-bold w-3.5 h-3.5 flex items-center justify-center rounded-full border border-slate-900 text-white shadow-md"></span>
                     </button>
                     <button id="btn-shuffle" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.shuffle.title" title="${t('visualizerOverlay.shuffle.title')}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
