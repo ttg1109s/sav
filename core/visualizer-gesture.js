@@ -1,24 +1,19 @@
 /**
  * core/visualizer-gesture.js — Core THUẦN (Rule 1-5), phân loại toạ độ 1 lần chạm/vuốt trên
  * #visualizer-gesture-surface (components/visualizer-overlay.js). Mỗi hàm chỉ tính TOÁN, không
- * đụng appState/DOM/taskManager — điều phối (đọc config, đếm double-tap, dispatch eventBus) thuộc
+ * đụng appState/DOM/taskManager — điều phối (đọc config, đếm tap, dispatch eventBus) thuộc
  * event/workflow/visualizer-gesture.js.
  *
- * Thiết kế: tách "chạm ở rìa" khỏi "vuốt lên/xuống thường" NGAY TỪ toạ độ Y lúc touchstart (không
- * suy đoán từ chiều vuốt) — Workflow gọi isInTopEdgeZone()/isInBottomEdgeZone() lúc touchstart để
- * quyết định luồng xử lý đi hẳn theo nhánh cạnh hay nhánh thường, 2 nhánh loại trừ nhau.
+ * Thiết kế: tách "chạm ở rìa TRÊN" khỏi "vuốt lên/xuống thường" NGAY TỪ toạ độ Y lúc touchstart
+ * (không suy đoán từ chiều vuốt) — Workflow gọi isInTopEdgeZone() lúc touchstart để quyết định
+ * luồng xử lý đi hẳn theo nhánh cạnh hay nhánh thường, 2 nhánh loại trừ nhau. Rìa DƯỚI đã bỏ hẳn
+ * (thay bằng tap 3 lần, event/workflow/visualizer-gesture.js).
  */
 
 /** true nếu toạ độ Y lúc chạm nằm trong dải rìa TRÊN màn hình.
  * @param {number} y @param {number} edgeZonePx @returns {boolean} */
 function isInTopEdgeZone(y, edgeZonePx) {
     return y <= edgeZonePx;
-}
-
-/** true nếu toạ độ Y lúc chạm nằm trong dải rìa DƯỚI màn hình.
- * @param {number} y @param {number} viewportHeight @param {number} edgeZonePx @returns {boolean} */
-function isInBottomEdgeZone(y, viewportHeight, edgeZonePx) {
-    return y >= viewportHeight - edgeZonePx;
 }
 
 /** true nếu cử chỉ đủ ngắn + đủ đứng yên để coi là 1 lần chạm (tap), không phải vuốt.
