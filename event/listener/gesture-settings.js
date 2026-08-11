@@ -36,6 +36,8 @@ if (settingsStackBody) {
     settingsStackBody.addEventListener('click', (e) => {
         if (e.target.closest('#setting-gesture-open-seek-step-picker')) {
             eventBus.send({ router: 'gestureSettings', type: 'gestureSettings.openSeekStepPicker.click', payload: {} });
+        } else if (e.target.closest('#setting-gesture-open-seek-hold-interval-picker')) {
+            eventBus.send({ router: 'gestureSettings', type: 'gestureSettings.openSeekHoldIntervalPicker.click', payload: {} });
         }
     });
 }
