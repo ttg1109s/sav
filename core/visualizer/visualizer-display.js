@@ -229,7 +229,7 @@
                 if (cfg.type === 'vortex') { blockVortexEl.classList.remove('hidden'); blockVortexEl.classList.add('flex'); }
                 // 'space' KHÔNG có panel tinh chỉnh riêng (đã bỏ 21/07/2026, phản hồi Giang mục 1)
                 // — không cần nhánh nào ở đây, engine Galaxy tự khởi tạo ở khối phía trên.
-                else if (cfg.type === 'rain') { blockRainEl.classList.remove('hidden'); blockRainEl.classList.add('flex'); }
+                else if (cfg.type === 'rain') { blockRainEl.classList.remove('hidden'); blockRainEl.classList.add('flex'); updateRainStyleUI(); }
                 else if (cfg.type === 'bar') {
                     // "Độ cao tối đa" vẫn dùng chung cho Bar (cả mirror/cascade); "Độ dày thanh" KHÔNG
                     // áp dụng cho Bar nữa (chỉ Black Hole) — xem updateBarStyleUI cho 2 setting riêng
@@ -260,6 +260,17 @@
             const isMirror = appConfigViz.getAll().barStyle === 'mirror';
             barMirrorOptionsEl.classList.toggle('hidden', !isMirror);
             barMirrorOptionsEl.classList.toggle('flex', isMirror);
+        }
+
+        /** MỚI (phản hồi Giang) — CÙNG khuôn updateBarStyleUI() ngay trên: 3 toggle + 1 slider
+         * riêng cho style 'glass' (Trăng/Big City/Khung cửa sổ) CHỈ áp dụng style đó, style
+         * 'street' không có 3 lớp cảnh này — ẩn/hiện theo rainStyle. */
+        function updateRainStyleUI() {
+            const rainGlassOptionsEl = document.getElementById('rain-glass-options');
+            if (!rainGlassOptionsEl) return;
+            const isGlass = appConfigViz.getAll().rainStyle === 'glass';
+            rainGlassOptionsEl.classList.toggle('hidden', !isGlass);
+            rainGlassOptionsEl.classList.toggle('flex', isGlass);
         }
 
         // (Phần B, Galaxy — updateSpaceStyleUI() ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1, cùng lúc
@@ -446,6 +457,34 @@
             const v = parseInt(value);
             appConfigViz.mutateAll(cfg => { cfg.mirrorBarCount = v; });
             if (displayEl) displayEl.textContent = v;
+        }
+
+        /** Core thuần: độ trong Big City (Rain, style 'glass'), 0-100. @param {string} value @param {HTMLElement} [displayEl] */
+        function setRainCityOpacity(value, displayEl) {
+            const v = parseInt(value);
+            appConfigViz.mutateAll(cfg => { cfg.rainGlassCityOpacity = v; });
+            if (displayEl) displayEl.textContent = v;
+        }
+
+        /** Core thuần: hiện/ẩn Big City (Rain, style 'glass'). @param {boolean} checked */
+        function setRainCityVisible(checked) {
+            appConfigViz.mutateAll(cfg => { cfg.rainGlassCityVisible = checked; });
+        }
+
+        /** Core thuần: hiện/ẩn Trăng (Rain, style 'glass'). @param {boolean} checked */
+        function setRainMoonVisible(checked) {
+            appConfigViz.mutateAll(cfg => { cfg.rainGlassMoonVisible = checked; });
+        }
+
+        /** Core thuần: hiện/ẩn khung cửa sổ (Rain, style 'glass'). @param {boolean} checked */
+        function setRainWindowVisible(checked) {
+            appConfigViz.mutateAll(cfg => { cfg.rainGlassWindowVisible = checked; });
+        }
+
+        /** Core thuần: bật/tắt blur — TÁCH RIÊNG khỏi quality (phản hồi Giang), xem
+         * event/workflow/visualizer-render.js::_tick(). @param {boolean} checked */
+        function setBlurEnabled(checked) {
+            appConfigViz.mutateAll(cfg => { cfg.blurEnabled = checked; });
         }
 
         /** Âm lượng tổng (masterGainNode). msg.type 'visualizerDisplay.volume.input'. @param {string} value */
