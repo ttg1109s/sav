@@ -87,6 +87,11 @@
         const btnOpenDocumentReader = document.getElementById('btn-open-document-reader');
         // Chụp khung hình bgVideoElement đang phát -> Photo (chỉ hiện lúc Video Player mode).
         const btnCaptureVideoFrame = document.getElementById('btn-capture-video-frame');
+        // Volume HUD (MỚI) — icon loa 5 mốc + slider, panel nổi riêng — xem core/volume-hud.js.
+        const btnOpenVolume = document.getElementById('btn-open-volume');
+        const visualizerVolumeHud = document.getElementById('visualizer-volume-hud');
+        const volumeHudSlider = document.getElementById('volume-hud-slider');
+        const volumeHudWave1 = document.getElementById('volume-hud-wave-1'), volumeHudWave2 = document.getElementById('volume-hud-wave-2'), volumeHudWave3 = document.getElementById('volume-hud-wave-3'), volumeHudMute = document.getElementById('volume-hud-mute');
         
         const drawerSettings = document.getElementById('drawer-settings'), btnSettingsPlaylist = document.getElementById('btn-settings-playlist'), closeDrawer = document.getElementById('close-drawer');
         // (btnSettings ĐÃ XOÁ — HOTFIX 11, 08/07/2026: nút "Cài đặt" trong Control Center của
