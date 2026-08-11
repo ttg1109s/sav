@@ -53,16 +53,26 @@ const workflowEqPresets = {
     /** Ứng với 'eqPresets.openDrawer.click' (#btn-edit-eq). */
     openListView() {
         this._editingId = null;
-        openGenericDrawer({ // core/generic-drawer.js
+        // SỬA (12/08/2026, Giang chỉ ra "khớp với generic drawer") — mở/chuyển view LUÔN dùng
+        // updateGenericDrawer() nếu drawer đang mở (List <-> Edit trong CÙNG drawer), CHỈ
+        // openGenericDrawer() (lần đầu) — trước đây gọi thẳng openGenericDrawer() bất kể trạng
+        // thái, khiến quay lại List từ Edit bị "mở lại từ đầu" thay vì chuyển mượt (đúng bug khuôn
+        // mẫu document-reader.js từng tránh, xem event/workflow/document-reader.js::openPicker()).
+        const config = {
             headerHtml: renderEqListHeader(), // components/eq-presets-drawer.js
             bodyHtml: renderEqListBody(appState.get('eqPresets'), appConfigViz.getAll().eqPresetId),
-            bodyClass: 'overflow-y-auto',
-        });
+            bodyClass: 'overflow-y-auto px-4 py-3',
+        };
+        if (genericDrawerPanel.classList.contains('hidden')) {
+            openGenericDrawer(config); // core/generic-drawer.js
+        } else {
+            updateGenericDrawer(config); // core/generic-drawer.js
+        }
         this._wireListView();
     },
 
     _wireListView() {
-        const closeBtn = genericDrawerHeader.querySelector('#eq-drawer-close');
+        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
         if (closeBtn) closeBtn.addEventListener('click', () => this.closeDrawer());
         const addBtn = genericDrawerBody.querySelector('#eq-drawer-add');
         const nameInput = genericDrawerBody.querySelector('#eq-drawer-new-name');
@@ -93,17 +103,17 @@ const workflowEqPresets = {
         updateGenericDrawer({ // core/generic-drawer.js — chuyển mượt, không đóng/mở lại
             headerHtml: renderEqEditHeader(preset), // components/eq-presets-drawer.js
             bodyHtml: renderEqEditBody(preset),
-            bodyClass: 'overflow-y-auto',
+            bodyClass: 'overflow-y-auto px-4 py-3',
         });
         this._wireEditView(preset);
     },
 
     _wireEditView(preset) {
-        const backBtn = genericDrawerHeader.querySelector('#eq-drawer-back');
+        const backBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-back');
         if (backBtn) backBtn.addEventListener('click', () => this.openListView());
         if (preset.locked) return; // Default — chỉ xem, không có nút Lưu/Xoá/input nào để wire thêm
 
-        const saveBtn = genericDrawerHeader.querySelector('#eq-drawer-save');
+        const saveBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-save');
         if (saveBtn) saveBtn.addEventListener('click', () => this._saveEdit());
 
         const nameInput = genericDrawerBody.querySelector('#eq-drawer-name');
