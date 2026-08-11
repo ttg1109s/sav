@@ -77,6 +77,9 @@
             gestureActionSwipeLeft: 'prev', gestureActionSwipeRight: 'next',
             gestureActionTapSingle: 'playPause', gestureActionTapDouble: 'openPlaylist',
             gestureEdgeTopEnabled: true, gestureEdgeBottomEnabled: true, gestureEdgeBottomTarget: 'cycleMode',
+            // Seek-hold: giữ tay 3s ở nửa trái/phải màn hình -> tua lùi/tiến lặp lại theo bước
+            // gestureSeekStepMs (mili giây), tới khi thả tay hoặc chạm biên 0/(thời lượng - 1s).
+            gestureSeekHoldEnabled: true, gestureSeekStepMs: 2000,
         };
 
         // XOÁ (v13 Batch C) — `DEFAULT_SLIDESHOW_CONFIG` + domain `slideshow` ĐÃ GỘP HẲN vào
@@ -220,6 +223,7 @@
                 gestureActionSwipeLeft: 'string', gestureActionSwipeRight: 'string',
                 gestureActionTapSingle: 'string', gestureActionTapDouble: 'string',
                 gestureEdgeTopEnabled: 'boolean', gestureEdgeBottomEnabled: 'boolean', gestureEdgeBottomTarget: 'string',
+                gestureSeekHoldEnabled: 'boolean', gestureSeekStepMs: 'number',
             },
             defaults: DEFAULT_VIZ_CONFIG,
         });

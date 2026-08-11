@@ -42,3 +42,20 @@ function resolveDominantSwipeAxis(deltaX, deltaY, minDistancePx) {
 function resolveSwipeDirection(delta) {
     return delta > 0 ? 1 : -1;
 }
+
+/** true nếu toạ độ X nằm ở nửa TRÁI màn hình — xác định chiều seek-hold (trái = lùi, phải = tiến)
+ * theo VỊ TRÍ chạm, không phải theo chiều di chuyển (giữ yên tay, không vuốt).
+ * @param {number} x @param {number} viewportWidth @returns {boolean} */
+function isInLeftHalf(x, viewportWidth) {
+    return x < viewportWidth / 2;
+}
+
+/** Kẹp vị trí seek đích vào [0, durationSec - 1] — biên dưới/trên kết thúc phiên seek-hold (thả
+ * tay hoặc chạm biên đều dừng, xem event/workflow/visualizer-gesture.js).
+ * @param {number} targetSec @param {number} durationSec
+ * @returns {{clampedSec: number, hitBoundary: boolean}} */
+function clampSeekPosition(targetSec, durationSec) {
+    const min = 0, max = Math.max(0, durationSec - 1);
+    const clampedSec = Math.max(min, Math.min(max, targetSec));
+    return { clampedSec, hitBoundary: clampedSec !== targetSec };
+}
