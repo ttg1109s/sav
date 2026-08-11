@@ -677,6 +677,8 @@
     <script src="core/visualizer-control-center.js?v=20260806v1"></script>
     <!-- Core thuần: phân loại toạ độ chạm cho hệ thống cử chỉ (event/workflow/visualizer-gesture.js). -->
     <script src="core/visualizer-gesture.js?v=20260811v4"></script>
+    <!-- Icon loa Volume HUD, 5 mốc 0-100% (event/workflow/volume-hud.js). -->
+    <script src="core/volume-hud.js?v=20260811v1"></script>
     <!-- MỚI (v13 Batch A) — Core THUẦN domain "Visual Background" (gộp video nền/ảnh nền tĩnh/
          slideshow). Nạp SAU service/state.js + core/dom-refs.js. -->
     <script src="core/visual-bg.js?v=20260808v1"></script>
@@ -1084,6 +1086,13 @@
          center.js) — không còn tầng Workflow nào để giữ. -->
     <script src="event/router/visualizer-control-center.js?v=20260703v2"></script>
     <script src="event/listener/visualizer-control-center.js?v=20260703v2"></script>
+    <!-- Cụm "volumeHud" — popup volume nổi (icon loa 5 mốc + slider), tự ẩn sau vài giây. Tái dùng
+         message 'visualizerDisplay.volume.input' có sẵn (router đã nạp ở trên) — không viết lại
+         logic áp âm lượng. CẦN core/volume-hud.js, core/dom-refs.js (btnOpenVolume,
+         visualizerVolumeHud, volumeHudSlider). -->
+    <script src="event/workflow/volume-hud.js?v=20260811v1"></script>
+    <script src="event/router/volume-hud.js?v=20260811v1"></script>
+    <script src="event/listener/volume-hud.js?v=20260811v1"></script>
     <!-- Cụm "visualizerGesture" — thay hẳn cử chỉ vuốt cũ gắn trên bgVideoElement. Dispatch tới
          router "playerControls"/"visualizerControlCenter" (đã nạp ở trên) + đọc appConfigViz
          (core/config.js) + taskManager (debounce tap/double-tap, seek-hold LẶP LẠI theo bước cấu
