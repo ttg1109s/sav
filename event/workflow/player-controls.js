@@ -71,7 +71,7 @@ const workflowPlayerControls = {
      * controls.js — 2 hàm đó LUÔN "set thẳng", khác toggleShuffle()/cycleRepeatMode() luôn đảo
      * ngược giá trị hiện tại). Stats panel dùng chung domain config này (KHÔNG còn là icon Control
      * Center — checkbox trong Settings, xem event/workflow/visualizer-display.js), đồng bộ qua
-     * setStatsPanelVisible() (core/stats-panel-toggle.js), cùng khuôn 2 icon kia.
+     * setStatsPanelVisible() (core/visualizer-ui-visibility.js), cùng khuôn 2 icon kia.
      */
     async loadPersistedPlayerConfigOnBoot() {
         const saved = await getMeta('playerConfig');
@@ -84,7 +84,7 @@ const workflowPlayerControls = {
         console.log(`writer: "loadPersistedPlayerConfigOnBoot", page: "isShuffle/repeatMode/isStatsPanelVisible", content: "khôi phục từ meta.playerConfig"`);
         syncShuffleUI(appState.get('isShuffle')); // core mới (core/player-controls.js)
         syncRepeatUI(appState.get('repeatMode')); // core mới (core/player-controls.js)
-        setStatsPanelVisible(cfg.isStatsPanelVisible !== false); // core/stats-panel-toggle.js
+        setStatsPanelVisible(cfg.isStatsPanelVisible !== false); // core/visualizer-ui-visibility.js
     },
 
     /**

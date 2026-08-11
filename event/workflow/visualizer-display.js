@@ -84,7 +84,9 @@ const workflowVisualizerDisplay = {
 
         // ===== Section "Hiển thị Visualizer" =====
         panelEl.querySelector('#setting-stats-panel-enable').checked = appConfigPlayer.getAll().isStatsPanelVisible !== false;
-        panelEl.querySelector('#setting-hide-player-ui').checked = cfg.playerUiHidden === true;
+        panelEl.querySelector('#setting-hide-bottom-player').checked = cfg.hideBottomPlayer === true;
+        panelEl.querySelector('#setting-hide-playlist-button').checked = cfg.hidePlaylistButton === true;
+        panelEl.querySelector('#setting-hide-control-center-button').checked = cfg.hideControlCenterButton === true;
     },
 
     setQuality(value) {
@@ -233,18 +235,30 @@ const workflowVisualizerDisplay = {
         saveConfig();
     },
 
-    /** Ứng với 'visualizerDisplay.statsPanelEnable.change' — checkbox dời từ nút Control Center
-     * (Task 2). Lưu bền qua domain 'player' (CÙNG Shuffle/Repeat, KHÔNG đổi domain — tái dùng
+    /** Ứng với 'visualizerDisplay.statsPanelEnable.change' — checkbox dời từ nút Control Center.
+     * Lưu bền qua domain 'player' (CÙNG Shuffle/Repeat, KHÔNG đổi domain — tái dùng
      * workflowPlayerControls._persistPlayerConfig() thay vì viết lại logic ghi bền lần 2). */
     setStatsPanelEnabled(checked) {
-        setStatsPanelVisible(checked); // core/stats-panel-toggle.js
+        setStatsPanelVisible(checked); // core/visualizer-ui-visibility.js
         workflowPlayerControls._persistPlayerConfig(); // event/workflow/player-controls.js — liên tuyến domain
     },
 
-    /** Ứng với 'visualizerDisplay.hidePlayerUi.change' — "chế độ xem toàn màn hình" (Task 3). */
-    setHidePlayerUi(checked) {
-        setPlayerUiHidden(checked); // core/visualizer-ui-chrome.js
-        appConfigViz.mutateAll(cfg => { cfg.playerUiHidden = checked; });
+    /** 3 toggle RIÊNG (bỏ hẳn "full mode" gộp chung) — CÙNG khuôn, khác field vizConfig + hàm core
+     * mục tiêu. Ứng với 'visualizerDisplay.hideBottomPlayer/hidePlaylistButton/
+     * hideControlCenterButton.change'. */
+    setBottomPlayerHidden(checked) {
+        setBottomPlayerVisible(!checked); // core/visualizer-ui-visibility.js
+        appConfigViz.mutateAll(cfg => { cfg.hideBottomPlayer = checked; });
+        saveConfig();
+    },
+    setPlaylistButtonHidden(checked) {
+        setPlaylistButtonVisible(!checked); // core/visualizer-ui-visibility.js
+        appConfigViz.mutateAll(cfg => { cfg.hidePlaylistButton = checked; });
+        saveConfig();
+    },
+    setControlCenterButtonHidden(checked) {
+        setControlCenterButtonVisible(!checked); // core/visualizer-ui-visibility.js
+        appConfigViz.mutateAll(cfg => { cfg.hideControlCenterButton = checked; });
         saveConfig();
     },
 };
