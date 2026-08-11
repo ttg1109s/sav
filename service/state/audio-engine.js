@@ -11,6 +11,7 @@
                 animationId: 'any',            // number (requestAnimationFrame id) | undefined
                 masterGainNode: 'any',         // GainNode | undefined
                 eqBandNodes: 'array',
+                eqPresets: 'array',
                 isSeeking: 'boolean',
                 currentObjectURL: 'nullable-string',
                 currentCoverObjectURL: 'nullable-string',
@@ -29,6 +30,7 @@
                     animationId: undefined,
                     masterGainNode: undefined,
                     eqBandNodes: [],
+                    eqPresets: [],
                     isSeeking: false,
                     currentObjectURL: null,
                     currentCoverObjectURL: null,
@@ -45,8 +47,5 @@
         const APP_CONFIG = Object.freeze({ fftSizeStandard: 256, fftSizeHighRes: 2048, fftSizePitch: 2048, bpmMinWaitTime: 250 });
         const EQ_FREQS = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
         const EQ_LABELS = ['32', '64', '125', '250', '500', '1K', '2K', '4K', '8K', '16K'];
-        const EQ_PRESETS = Object.freeze({
-            flat: Object.freeze([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), bass_boost: Object.freeze([6, 5, 4, 1, 0, 0, 0, 0, 0, 0]), pop: Object.freeze([-2, -1, 0, 2, 4, 4, 2, 0, -1, -2]),
-            rock: Object.freeze([5, 4, 3, 1, -1, -1, 1, 2, 3, 4]), acoustic: Object.freeze([2, 1, 0, 0, 1, 2, 3, 4, 3, 2]), electronic: Object.freeze([5, 4, 1, -1, -2, 0, 1, 3, 4, 5]),
-            manual: Object.freeze([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
-        });
+        // EQ_PRESETS (bảng tĩnh cũ) ĐÃ XOÁ — THAY bằng preset lưu DB, xem core/eq-presets.js::
+        // buildDefaultEqPresets() (seed lần đầu) + event/workflow/eq-presets.js (CRUD/áp dụng).
