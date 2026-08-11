@@ -125,6 +125,11 @@
         // "Kiểu xem" (grid/list) đã chuyển vào Settings (#setting-playlist-view-mode, xem
         // core/playlist/main.js: PlaylistMain.initViewMode()). Đã xoá 3 ref tương ứng ở đây.
         const btnCycleMode = document.getElementById('btn-cycle-mode'), modeBadge = document.getElementById('mode-badge');
+        // FIX (12/08/2026, Giang yêu cầu — "icon Effect đổi text theo tên effect đang chạy") —
+        // nhãn dưới icon #btn-cycle-mode TRƯỚC ĐÂY tĩnh cố định "Hiệu ứng" (data-i18n) — giờ
+        // updateTypeUI() (core/visualizer/visualizer-display.js) tự ghi tên hiệu ứng đang chạy vào
+        // đây, CÙNG khuôn #eq-badge-label (core/eq-presets.js::syncEqBadgeLabel()).
+        const modeCycleLabel = document.getElementById('mode-cycle-label');
         // "Tự động đổi hiệu ứng" (Settings, ver 10) — xem core/auto-switch-visual.js. FIX (kiến
         // trúc /event/, cụm "autoSwitchVisual"): 10 biến này TRƯỚC ĐÂY tự getElementById ngay
         // trong initAutoSwitchVisualUI() — vi phạm quy ước CHUNG. Gom về đây.
