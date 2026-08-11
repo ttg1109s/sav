@@ -66,9 +66,12 @@
                 borderColor: '#ffffff', borderOpacity: 0.1, borderWidth: 1, borderRadius: 16,
                 textColor: '#ffffff', fontSize: 8, lineHeight: 1.3, letterSpacing: 0,
             },
-            // 3 toggle RIÊNG ẩn/hiện UI chrome màn Visualizer (bỏ hẳn "full mode" gộp chung),
-            // Settings -> Hiển thị Visualizer. true = ĐANG ẨN. Xem core/visualizer-ui-visibility.js.
-            hideBottomPlayer: false, hidePlaylistButton: false, hideControlCenterButton: false,
+            // 3 toggle RIÊNG hiện/ẩn UI chrome màn Visualizer (bỏ hẳn "full mode" gộp chung),
+            // Settings -> Hiển thị Visualizer. NHẤT QUÁN với statsPanelVisible: đặt tên KHẲNG ĐỊNH
+            // ("hiện"), mặc định BẬT (true) — KHÔNG đặt tên phủ định "hideX" mặc định tắt (đã sửa,
+            // phản hồi Giang — "tên là hide Xxx rồi On/Off, không nhất quán với Stats"). Xem
+            // core/visualizer-ui-visibility.js.
+            bottomPlayerVisible: true, playlistButtonVisible: true, controlCenterButtonVisible: true,
             // Cử chỉ (event/workflow/visualizer-gesture.js). 4 hướng vuốt + 2 tap: mỗi cái 1 hành
             // động do người dùng chọn ('next'/'prev'/'playPause'/'openPlaylist'/'none') — chọn
             // 'none' là tắt cử chỉ đó, KHÔNG còn cờ boolean bật/tắt riêng. Cạnh trên/dưới KHÔNG đổi
@@ -226,7 +229,7 @@
                 autoSwitchVisualEnabled: 'boolean', autoSwitchVisualMode: 'string', autoSwitchVisualTimeMode: 'string',
                 autoSwitchVisualSecondsFixed: 'number', autoSwitchVisualSecondsRandom: 'number', autoSwitchVisualSecondsDuration: 'number',
                 subtitlesEnabled: 'boolean', subtitleStyle: 'object',
-                hideBottomPlayer: 'boolean', hidePlaylistButton: 'boolean', hideControlCenterButton: 'boolean',
+                bottomPlayerVisible: 'boolean', playlistButtonVisible: 'boolean', controlCenterButtonVisible: 'boolean',
                 gestureActionSwipeUp: 'string', gestureActionSwipeDown: 'string',
                 gestureActionSwipeLeft: 'string', gestureActionSwipeRight: 'string',
                 gestureActionTapSingle: 'string', gestureActionTapDouble: 'string',
@@ -424,7 +427,7 @@
             // 3 toggle ẩn/hiện UI chrome màn Visualizer, tự áp lại lúc boot (khác setStatsPanelVisible()
             // — domain 'player' RIÊNG, tự áp qua workflowPlayerControls.loadPersistedPlayerConfigOnBoot(),
             // xem event/workflow/app-boot.js).
-            if (typeof setBottomPlayerVisible === 'function') setBottomPlayerVisible(appConfigViz.getAll().hideBottomPlayer !== true);
-            if (typeof setPlaylistButtonVisible === 'function') setPlaylistButtonVisible(appConfigViz.getAll().hidePlaylistButton !== true);
-            if (typeof setControlCenterButtonVisible === 'function') setControlCenterButtonVisible(appConfigViz.getAll().hideControlCenterButton !== true);
+            if (typeof setBottomPlayerVisible === 'function') setBottomPlayerVisible(appConfigViz.getAll().bottomPlayerVisible !== false);
+            if (typeof setPlaylistButtonVisible === 'function') setPlaylistButtonVisible(appConfigViz.getAll().playlistButtonVisible !== false);
+            if (typeof setControlCenterButtonVisible === 'function') setControlCenterButtonVisible(appConfigViz.getAll().controlCenterButtonVisible !== false);
         }
