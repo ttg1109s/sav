@@ -148,10 +148,15 @@ body {
            trang trí, đổi lấy slide ngang hoạt động đúng. */
         .fade-enter { opacity: 0; pointer-events: none; }
         .fade-enter-active { opacity: 1; pointer-events: auto; transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        /* "Chế độ xem toàn màn hình" (core/visualizer-ui-chrome.js) — RIÊNG khỏi .hidden vì
+        /* "Chế độ xem toàn màn hình" (core/visualizer-ui-visibility.js) — RIÊNG khỏi .hidden vì
            #player-container/#btn-back-playlist/#btn-open-control-center có cơ chế hidden khác
            đang tự quản lý (chuyển Playlist<->Visualizer). */
         .force-hidden { display: none !important; }
+        /* Lớp cha màn Visualizer — chặn bôi đen/chọn chữ khi thao tác cử chỉ (vuốt/giữ/tap nhiều
+           lần, event/workflow/visualizer-gesture.js) — không có gì để chọn trên màn này, tránh
+           trình duyệt tự hiện menu chọn văn bản giữa chừng cử chỉ. -webkit-touch-callout chặn
+           thêm menu bật lên khi giữ tay lâu trên iOS (liên quan seek-hold, giữ ≥2s). */
+        #visualizer-ui { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 
         /* ==================== Responsive Playlist <-> Visualizer navigation (04/07/2026, mục 4) ====================
            MOBILE/TABLET (< 1024px, mặc định): #side-left-container (MỚI 07/07/2026 — xem ngay
