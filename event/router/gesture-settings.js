@@ -34,6 +34,9 @@ const routerGestureSettings = (() => {
             case 'gestureSettings.openSeekStepPicker.click':
                 workflowGestureSettings.openSeekStepPicker();
                 break;
+            case 'gestureSettings.openSeekHoldIntervalPicker.click':
+                workflowGestureSettings.openSeekHoldIntervalPicker();
+                break;
             case 'gestureSettings.edgeTop.change':
                 workflowGestureSettings.setToggle('gestureEdgeTopEnabled', msg.payload.checked);
                 break;
