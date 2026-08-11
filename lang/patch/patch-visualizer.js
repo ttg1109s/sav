@@ -80,12 +80,12 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.displaySectionTitle': 'Visualizer display',
     'visualizerSettingsDrawer.statsPanelEnable.label': 'Show music stats',
     'visualizerSettingsDrawer.statsPanelEnable.hint': 'BPM, pitch and energy readout on the Visualizer screen',
-    'visualizerSettingsDrawer.hideBottomPlayer.label': 'Hide bottom player bar',
-    'visualizerSettingsDrawer.hideBottomPlayer.hint': 'Reopen with a swipe from the top/bottom edge',
-    'visualizerSettingsDrawer.hidePlaylistButton.label': 'Hide Playlist button',
-    'visualizerSettingsDrawer.hidePlaylistButton.hint': 'Reopen with a swipe from the top/bottom edge',
-    'visualizerSettingsDrawer.hideControlCenterButton.label': 'Hide Control Center button',
-    'visualizerSettingsDrawer.hideControlCenterButton.hint': 'Reopen with a swipe from the top edge',
+    'visualizerSettingsDrawer.bottomPlayerEnable.label': 'Show bottom player bar',
+    'visualizerSettingsDrawer.bottomPlayerEnable.hint': 'Turn off to hide — still reopens with a swipe from the top/bottom edge',
+    'visualizerSettingsDrawer.playlistButtonEnable.label': 'Show Playlist button',
+    'visualizerSettingsDrawer.playlistButtonEnable.hint': 'Turn off to hide — still reopens with a swipe from the top/bottom edge',
+    'visualizerSettingsDrawer.controlCenterButtonEnable.label': 'Show Control Center button',
+    'visualizerSettingsDrawer.controlCenterButtonEnable.hint': 'Turn off to hide — still reopens with a swipe from the top edge',
 
     'loadingShield.text': 'Processing...',
 
