@@ -25,8 +25,10 @@
  *
  * #btn-open-volume MỚI — mở #visualizer-volume-hud (panel nổi riêng, giống popup volume hệ thống
  * iOS — icon loa 5 mốc + 1 slider) — xem core/volume-hud.js + event/workflow/volume-hud.js.
- * #btn-cycle-eq (đổi preset EQ, CÙNG khuôn #btn-cycle-mode) SẼ THÊM cùng lúc dựng hệ thống preset
- * EQ lưu DB (đợt sau).
+ * #btn-cycle-eq (đổi preset EQ, CÙNG khuôn #btn-cycle-mode) + #btn-edit-eq (mở Generic Drawer quản
+ * lý preset — components/eq-presets-drawer.js) MỚI — xem event/workflow/eq-presets.js. Preset EQ
+ * giờ lưu DB (meta.eqPresets, core/eq-presets.js), THAY HẲN bảng EQ_PRESETS tĩnh + chế độ 'manual'
+ * cũ (core/equalizer.js/event/workflow/equalizer-settings.js đã xoá cùng UI Settings tĩnh).
  */
 const TPL_VISUALIZER_OVERLAY = `
     <div id="visualizer-ui" class="fixed inset-0 z-30 pointer-events-none fade-enter hidden flex flex-col">
@@ -88,9 +90,17 @@ const TPL_VISUALIZER_OVERLAY = `
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5 6 9H3v6h3l5 4V5z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.5 8.5a5 5 0 010 7M18 6a9 9 0 010 12" /></svg>
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.volume.label">${t('visualizerOverlay.volume.label')}</span>
                     </button>
-                    <!-- #btn-cycle-eq (đổi preset EQ, giống #btn-cycle-mode) SẼ THÊM cùng lúc dựng
-                         hệ thống preset EQ lưu DB (mục 2&3, chưa làm ở đợt này — tránh để lại nút
-                         chưa có logic phía sau trong Control Center). -->
+                    <!-- #btn-cycle-eq (đổi preset EQ, giống #btn-cycle-mode) + #btn-edit-eq (mở
+                         Generic Drawer quản lý preset — components/eq-presets-drawer.js) — xem
+                         event/workflow/eq-presets.js. -->
+                    <button id="btn-cycle-eq" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.cycleEq.title" title="${t('visualizerOverlay.cycleEq.title')}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 6a2 2 0 104 0 2 2 0 00-4 0zm16 6H4m16 0a2 2 0 11-4 0 2 2 0 014 0zM4 18h16M4 18a2 2 0 104 0 2 2 0 00-4 0z" /></svg>
+                        <span id="eq-badge-label" class="text-[10px] font-medium truncate max-w-full">Default</span>
+                    </button>
+                    <button id="btn-edit-eq" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="eqPresets.editButton.title" title="${t('eqPresets.editButton.title')}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        <span class="text-[10px] font-medium" data-i18n="eqPresets.editButton.label">${t('eqPresets.editButton.label')}</span>
+                    </button>
                 </div>
             </div>
 

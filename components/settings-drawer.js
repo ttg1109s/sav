@@ -104,7 +104,6 @@
                     TPL_SETTINGS_PLAYLIST_VIEW +
                     TPL_SETTINGS_THEME +
                     TPL_SETTINGS_VISUALIZER +
-                    TPL_SETTINGS_AUDIO_EQ +
                     TPL_SETTINGS_SUBTITLE_STYLE +
                     TPL_SETTINGS_FILE_MANAGER +
                     TPL_SETTINGS_LANGUAGE +
