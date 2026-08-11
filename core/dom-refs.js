@@ -90,6 +90,9 @@
         // Volume HUD (MỚI) — icon loa 5 mốc + slider, panel nổi riêng — xem core/volume-hud.js.
         const btnOpenVolume = document.getElementById('btn-open-volume');
         const visualizerVolumeHud = document.getElementById('visualizer-volume-hud');
+        // EQ preset (MỚI) — cycle + mở Generic Drawer quản lý — xem core/eq-presets.js.
+        const btnCycleEq = document.getElementById('btn-cycle-eq'), eqBadgeLabel = document.getElementById('eq-badge-label');
+        const btnEditEq = document.getElementById('btn-edit-eq');
         const volumeHudSlider = document.getElementById('volume-hud-slider');
         const volumeHudWave1 = document.getElementById('volume-hud-wave-1'), volumeHudWave2 = document.getElementById('volume-hud-wave-2'), volumeHudWave3 = document.getElementById('volume-hud-wave-3'), volumeHudMute = document.getElementById('volume-hud-mute');
         
@@ -153,9 +156,10 @@
         // mirrorCountSlider/valMirrorCountDisplay ĐÃ XOÁ — Batch D3: toàn bộ panel Visualizer
         // Settings giờ sống động BÊN TRONG ngăn xếp, không còn DOM tĩnh — event/listener/
         // visualizer-display.js dùng delegation trên settingsStackBody thay vì đọc const ở đây.)
-        
-        const volumeSlider = document.getElementById('setting-volume'), valVolumeDisplay = document.getElementById('val-volume');
-        const eqSelect = document.getElementById('setting-eq'), eqSlidersWrapper = document.getElementById('eq-sliders-wrapper');
+
+        // volumeSlider/valVolumeDisplay/eqSelect/eqSlidersWrapper (Settings Volume/EQ tĩnh cũ) ĐÃ
+        // XOÁ HẲN — Volume giờ ở #visualizer-volume-hud (core/volume-hud.js), EQ giờ ở Control
+        // Center + Generic Drawer (core/eq-presets.js).
 
         // SỬA (21/07/2026, dọn dẹp sau Batch 2 module Video) — `videoUploadInput` XOÁ HẲN (biến +
         // DOM element `#setting-video-upload`, xem components/settings/visualizer-geometry-color.js)

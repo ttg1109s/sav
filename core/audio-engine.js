@@ -90,7 +90,17 @@
                     prevNode.connect(filter); prevNode = filter; appState.mutate('eqBandNodes', arr => arr.push(filter));
                 });
 
-                applyEQPreset(appConfigViz.getAll().eqMode);
+                // FIX (phản hồi Giang, hệ thống preset EQ mới) — applyEQPreset(mode) cũ (tra bảng
+                // EQ_PRESETS tĩnh) ĐÃ XOÁ HẲN — tra preset theo id trong appState.eqPresets (nạp
+                // lúc boot, event/workflow/eq-presets.js::loadPresetsOnBoot(), CHẮC CHẮN đã xong
+                // trước khi setupAudioContext() có thể chạy lần đầu — chỉ xảy ra sau 1 thao tác
+                // phát nhạc của người dùng, luôn SAU khi app-boot hoàn tất). Fallback [0*10] an
+                // toàn nếu vì lý do gì đó chưa nạp kịp (không có preset nào tên vậy vẫn không vỡ).
+                {
+                    const eqPresets = appState.get('eqPresets');
+                    const activePreset = findEqPresetById(eqPresets, appConfigViz.getAll().eqPresetId); // core/eq-presets.js
+                    applyEqGains(appState.get('eqBandNodes'), activePreset ? activePreset.gains : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // core/eq-presets.js
+                }
                 prevNode.connect(appState.get('masterGainNode')); appState.get('masterGainNode').connect(appState.get('analyser')); appState.get('masterGainNode').connect(appState.get('analyserPitch')); appState.get('analyser').connect(appState.get('audioContext').destination);
 
                 initPitchWorker();

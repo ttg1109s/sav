@@ -49,7 +49,11 @@
             themeMode: 'dark',
             gradientFrom: '#6366f1', gradientTo: '#ec4899',
             mirrorBarCount: 32,
-            volume: 100, eqMode: 'flat', manualEq: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // eqMode/manualEq (chế độ 'manual' + mảng gains riêng) ĐÃ BỎ HẲN — THAY bằng hệ thống
+            // preset EQ lưu DB (core/eq-presets.js), preset ĐANG CHỌN chỉ còn 1 id đơn giản. Sửa
+            // preset nào (kể cả "sửa thủ công") giờ ĐI QUA Edit EQ (Generic Drawer) áp dụng cho
+            // ĐÚNG preset đó, không còn khái niệm "chế độ manual" riêng.
+            volume: 100, eqPresetId: 'flat',
             // XOÁ (v13 Batch A — "Visual Background unification"): videoBgEnabled/videoBgUrl/
             // visualBgImageEnabled/visualBgImage ĐÃ DỜI HẲN sang domain config RIÊNG `visualBg`
             // (DEFAULT_VISUAL_BG_CONFIG bên dưới) — 3 tính năng nền màn Visualizer (video nền/ảnh
@@ -241,7 +245,7 @@
                 minH: 'number', maxH: 'number', barWidth: 'number', bgImage: 'string', bgBlur: 'number', bgImageEnabled: 'boolean',
                 themeMode: 'string', gradientFrom: 'string', gradientTo: 'string',
                 mirrorBarCount: 'number',
-                volume: 'number', eqMode: 'string', manualEq: 'array',
+                volume: 'number', eqPresetId: 'string',
                 visualEnabled: 'boolean',
                 keepScreenOn: 'boolean',
                 autoSwitchVisualEnabled: 'boolean', autoSwitchVisualMode: 'string', autoSwitchVisualTimeMode: 'string',
@@ -380,7 +384,13 @@
             }
             if (saved) { try { appConfigViz.setAll({ ...appConfigViz.getAll(), ...JSON.parse(saved) }); } catch(e) {} }
             appConfigViz.mutateAll(cfg => {
-                if(!cfg.manualEq) cfg.manualEq = [0,0,0,0,0,0,0,0,0,0];
+                // Di trú eqMode/manualEq cũ (ĐÃ BỎ HẲN, xem core/eq-presets.js) sang eqPresetId
+                // MỚI — 5 preset gốc giữ NGUYÊN id (flat/bass_boost/pop/rock/acoustic/electronic)
+                // nên chọn lại đúng preset cũ; riêng 'manual' không còn preset nào tên vậy nữa,
+                // về Default (gains riêng người dùng tự chỉnh trong 'manual' KHÔNG khôi phục được
+                // — đánh đổi chấp nhận được, dự án cá nhân, không cần lớp di trú phức tạp hơn).
+                if (!cfg.eqPresetId) cfg.eqPresetId = (cfg.eqMode && cfg.eqMode !== 'manual') ? cfg.eqMode : 'flat';
+                delete cfg.eqMode; delete cfg.manualEq;
                 if(cfg.vortexStyle === 'tardis' || cfg.vortexStyle === 'classic' || cfg.vortexStyle === 'dust') cfg.vortexStyle = 'rings';
                 // Cấu hình cũ từng có rainStyle 'classic', visualizer 'synthesia'/'firefly_forest'/'seasons'/'wave' đã
                 // bị loại bỏ — quy về giá trị tương đương gần nhất để không vỡ trải nghiệm của người dùng cũ.
@@ -432,13 +442,14 @@
             updatePlaylistBg();
             workflowTheme.refreshThemeCardUI();
 
-            volumeSlider.value = appConfigViz.getAll().volume; valVolumeDisplay.textContent = appConfigViz.getAll().volume + '%';
             if(appState.get('masterGainNode')) appState.get('masterGainNode').gain.value = appConfigViz.getAll().volume / 100;
+            // Volume HUD (core/volume-hud.js) tự đồng bộ icon+slider MỖI LẦN MỞ (workflowVolumeHud.
+            // open(), đọc appConfigViz tươi) — không cần đồng bộ UI tĩnh nào ở đây (khác bản cũ có
+            // #setting-volume tĩnh từ lúc boot, đã xoá cùng UI Settings EQ/Volume cũ).
 
             { let idx = MODES.indexOf(appConfigViz.getAll().type); if (idx === -1) idx = 0; appState.set('currentModeIndex', idx); }
             updateDOMBackground(); updatePlaylistBg(); updateColorMenuUI(); updateTypeUI();
 
-            if (typeof initEqualizerUIFromConfig === 'function') initEqualizerUIFromConfig();
             if (typeof initVisualizerMiscSettingsUIFromConfig === 'function') initVisualizerMiscSettingsUIFromConfig();
             if (typeof initSubtitleToggleUIFromConfig === 'function') initSubtitleToggleUIFromConfig();
             if (typeof initAutoSwitchCycleButtonFromConfig === 'function') initAutoSwitchCycleButtonFromConfig();
