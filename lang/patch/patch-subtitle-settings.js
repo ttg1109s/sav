@@ -227,17 +227,9 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsVisualizer.visualEnable.hint': 'Turn off to show only the background (video/image/color), hiding the visualizer effect without touching Video Background.',
     // MỚI (Batch 8, 03/07/2026, slideshow nền Visual) — nút mở Slideshow Settings Drawer.
 
-    'settingsAudioEq.sectionTitle': 'Audio & Equalizer',
-    'settingsAudioEq.volume.label': 'Master volume',
-    'settingsAudioEq.mode.label': 'Equalizer mode',
-    'settingsAudioEq.mode.flat': 'Default (Flat)',
-    'settingsAudioEq.mode.bassBoost': 'Bass boost',
-    'settingsAudioEq.mode.pop': 'Pop',
-    'settingsAudioEq.mode.rock': 'Rock',
-    'settingsAudioEq.mode.acoustic': 'Acoustic',
-    'settingsAudioEq.mode.electronic': 'Electronic (EDM)',
-    'settingsAudioEq.mode.manual': 'Manual',
-    'settingsAudioEq.manualHeading': 'Frequency bands (Hz)',
+    // settingsAudioEq.* (UI Settings Volume/EQ tĩnh cũ) ĐÃ XOÁ HẲN — chuyển sang Control Center
+    // (Volume HUD + EQ preset cycle/edit), xem lang/patch/patch-visualizer.js (eqPresets.*/
+    // visualizerOverlay.volume.*/cycleEq.*).
 
     'settingsSubtitleStyle.sectionTitle': 'Subtitles',
     'settingsSubtitleStyle.enable.label': 'Show subtitles',
