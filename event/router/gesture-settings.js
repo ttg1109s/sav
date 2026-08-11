@@ -28,9 +28,6 @@ const routerGestureSettings = (() => {
             case 'gestureSettings.tapDouble.change':
                 workflowGestureSettings.setField('gestureActionTapDouble', msg.payload.value);
                 break;
-            case 'gestureSettings.tripleTapEnable.change':
-                workflowGestureSettings.setToggle('gestureTripleTapEnabled', msg.payload.checked);
-                break;
             case 'gestureSettings.tripleTapTarget.change':
                 workflowGestureSettings.setField('gestureTripleTapTarget', msg.payload.value);
                 break;

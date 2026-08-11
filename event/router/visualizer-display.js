@@ -147,6 +147,32 @@ const routerVisualizerDisplay = (() => {
                 workflowVisualizerDisplay.setMirrorCount(value, displayEl);
                 break;
             }
+
+            case 'visualizerDisplay.blurEnable.change': {
+                workflowVisualizerDisplay.setBlurEnabled(msg.payload.checked);
+                break;
+            }
+
+            case 'visualizerDisplay.rainCityOpacity.input': {
+                const { value, displayEl } = msg.payload;
+                workflowVisualizerDisplay.setRainCityOpacity(value, displayEl);
+                break;
+            }
+
+            case 'visualizerDisplay.rainCityVisible.change': {
+                workflowVisualizerDisplay.setRainCityVisible(msg.payload.checked);
+                break;
+            }
+
+            case 'visualizerDisplay.rainMoonVisible.change': {
+                workflowVisualizerDisplay.setRainMoonVisible(msg.payload.checked);
+                break;
+            }
+
+            case 'visualizerDisplay.rainWindowVisible.change': {
+                workflowVisualizerDisplay.setRainWindowVisible(msg.payload.checked);
+                break;
+            }
             // (Phần B, Galaxy — 5 case spaceStyle/4 slider ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1)
 
             // ===================== Volume / EQ (Main, KHÔNG di chuyển) =====================
