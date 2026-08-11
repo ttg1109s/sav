@@ -167,8 +167,18 @@ const routerVisualizerDisplay = (() => {
                 break;
             }
 
-            case 'visualizerDisplay.hidePlayerUi.change': {
-                workflowVisualizerDisplay.setHidePlayerUi(msg.payload.checked);
+            case 'visualizerDisplay.hideBottomPlayer.change': {
+                workflowVisualizerDisplay.setBottomPlayerHidden(msg.payload.checked);
+                break;
+            }
+
+            case 'visualizerDisplay.hidePlaylistButton.change': {
+                workflowVisualizerDisplay.setPlaylistButtonHidden(msg.payload.checked);
+                break;
+            }
+
+            case 'visualizerDisplay.hideControlCenterButton.change': {
+                workflowVisualizerDisplay.setControlCenterButtonHidden(msg.payload.checked);
                 break;
             }
 
