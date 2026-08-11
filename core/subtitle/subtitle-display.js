@@ -3,16 +3,13 @@
  * (Trích từ file gốc, dòng 492-526 trong khối <script>)
  */
         /**
-         * Cập nhật UI theo trạng thái isSubtitlesEnabled — ver 8 refine: nút "Bật/Tắt Sub" (trước
-         * nằm trong modal quản lý phụ đề) đã chuyển thành checkbox #setting-subtitles-enabled
-         * trong Cài đặt, nên hàm này giờ chỉ còn lo 2 việc: (1) badge xanh nhỏ trên icon "Phụ đề"
-         * ở overlay (#sub-toggle-badge — vẫn là indicator hữu ích cho biết sub đang bật, KHÔNG
-         * phải nút điều khiển), và (2) đồng bộ ngược checkbox Settings nếu trạng thái đổi từ nơi
-         * khác (ví dụ subtitles.js tự bật lại sub khi người dùng tải file .srt mới — xem mục đó).
+         * Đồng bộ checkbox Settings (#setting-subtitles-enabled) theo isSubtitlesEnabled — dùng khi
+         * trạng thái đổi từ nơi khác (vd subtitles.js tự bật lại sub khi tải file .srt mới). Badge
+         * xanh trên icon Control Center ĐÃ BỎ (nút "Phụ đề" trong Control Center đã xoá hẳn, xem
+         * components/visualizer-overlay.js — bật/tắt phụ đề CHỈ còn qua checkbox này).
          */
         function updateSubToggleUI() {
             const enabled = appState.get('isSubtitlesEnabled');
-            subToggleBadge.classList.toggle('hidden', !enabled);
             if (typeof settingSubtitlesEnabled !== 'undefined' && settingSubtitlesEnabled) settingSubtitlesEnabled.checked = enabled;
         }
 
