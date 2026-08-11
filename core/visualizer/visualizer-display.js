@@ -493,6 +493,9 @@
             const volume = appConfigViz.getAll().volume;
             valVolumeDisplay.textContent = volume + '%'; 
             if(appState.get('masterGainNode')) appState.get('masterGainNode').gain.value = volume / 100; saveConfig();
+            // MỚI — icon loa Volume HUD (core/volume-hud.js) luôn khớp dù đổi âm lượng từ đâu (HUD
+            // hoặc bất kỳ nơi nào khác sau này).
+            if (typeof syncVolumeHudIcon === 'function') syncVolumeHudIcon(volume);
         }
 
         /** Đổi preset EQ (hoặc 'manual'). msg.type 'visualizerDisplay.eqMode.change'. @param {string} value */
