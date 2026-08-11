@@ -48,6 +48,13 @@ const workflowAppBoot = {
         // với dòng playlist ngay trên, không phụ thuộc thứ tự với nhau (2 domain độc lập).
         if (typeof workflowPlayerControls !== 'undefined') await workflowPlayerControls.loadPersistedPlayerConfigOnBoot();
 
+        // MỚI (phản hồi Giang — hệ thống preset EQ lưu DB) — nạp/seed meta.eqPresets TRƯỚC khi
+        // audio graph có thể tồn tại (setupAudioContext() chỉ chạy SAU thao tác phát nhạc đầu
+        // tiên của người dùng, luôn SAU boot() — không cần await chặn phần còn lại, nhưng vẫn await
+        // ở đây để CHẮC CHẮN appState.eqPresets sẵn sàng trước khi người dùng kịp bấm phát, tránh
+        // race hiếm gặp trên máy rất chậm).
+        if (typeof workflowEqPresets !== 'undefined') await workflowEqPresets.loadPresetsOnBoot();
+
         // SỬA (fix bug "folder Video Apply -> Playlist trống", phản hồi Giang mục 7) — TRƯỚC ĐÂY
         // LUÔN initPlaylistFromDB() (chỉ nạp Song) bất kể activeMediaSource là gì, khiến
         // applyFolderScope() bên dưới so sánh key Video với 1 playlistCache toàn Song -> luôn lọc
