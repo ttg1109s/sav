@@ -61,5 +61,10 @@
                 if (i !== usefulLength - 1) { ctx.beginPath(); ctx.moveTo(centerX + Math.cos(angleL) * currentRadius, centerY + Math.sin(angleL) * currentRadius); ctx.lineTo(centerX + Math.cos(angleL) * (currentRadius + barHeight), centerY + Math.sin(angleL) * (currentRadius + barHeight)); ctx.stroke(); }
             }
             ctx.shadowBlur = 0;
-            ctx.beginPath(); ctx.arc(centerX, centerY, Math.max(0.1, currentRadius), 0, 2 * Math.PI); ctx.fillStyle = cfg.bgColor; ctx.fill();
+            // FIX (phản hồi Giang — "mất nền đen của hình tròn, đang bị trong suốt") — TRƯỚC ĐÂY
+            // tô `cfg.bgColor` (màu nền TUỲ CHỈNH của người dùng cho toàn trang, Settings -> Màu
+            // sắc) — đúng ra hố đen PHẢI LUÔN đen tuyệt đối bất kể người dùng chọn màu nền gì
+            // (khái niệm "hố đen" đòi hỏi tâm phải tối, không phải theo màu tuỳ chỉnh). Đổi sang
+            // hằng số đen cố định.
+            ctx.beginPath(); ctx.arc(centerX, centerY, Math.max(0.1, currentRadius), 0, 2 * Math.PI); ctx.fillStyle = '#000000'; ctx.fill();
         }

@@ -50,23 +50,31 @@
             // compositing layer riêng do OS quản lý, có thể vẫn đè lên bất kể z-index (đã xác nhận
             // qua 3 lần thử ở tình huống khác — xem core/video-player.js) — cần Giang tự kiểm tra
             // trên thiết bị thật; nếu vẫn bị che, đây là giới hạn nền tảng, không phải sai chỗ này.
-            ctx.beginPath(); ctx.arc(moonX, moonY, Math.max(0.1, dynamicMoonRadius), 0, Math.PI * 2); ctx.fillStyle = '#e0e8ff';
-            if (perf.blurMult > 0) { ctx.shadowBlur = (30 + smoothedEnergy * 20) * dpr * perf.blurMult; ctx.shadowColor = '#aaccff'; }
-            ctx.globalAlpha = 0.6 + (smoothedEnergy * 0.3); ctx.fill(); ctx.shadowBlur = 0;
+            // MỚI (phản hồi Giang) — 3 lớp cảnh (Trăng/Big City/Khung cửa sổ) giờ hiện/ẩn RIÊNG qua
+            // rainGlassMoonVisible/rainGlassCityVisible/rainGlassWindowVisible, Big City thêm độ
+            // trong tuỳ chỉnh rainGlassCityOpacity (0-100, mặc định 40 — khớp alpha cố định cũ).
+            if (cfg.rainGlassMoonVisible !== false) {
+                ctx.beginPath(); ctx.arc(moonX, moonY, Math.max(0.1, dynamicMoonRadius), 0, Math.PI * 2); ctx.fillStyle = '#e0e8ff';
+                if (perf.blurMult > 0) { ctx.shadowBlur = (30 + smoothedEnergy * 20) * dpr * perf.blurMult; ctx.shadowColor = '#aaccff'; }
+                ctx.globalAlpha = 0.6 + (smoothedEnergy * 0.3); ctx.fill(); ctx.shadowBlur = 0;
+            }
 
             drawRainFlash(ctx, isPlaying, (a) => `rgba(200, 220, 255, ${a})`);
 
-            ctx.globalAlpha = 0.4;
-            appState.get('cityBuildings').forEach(b => {
-                ctx.fillStyle = '#03060a'; ctx.fillRect(b.x, canvas.height - b.h, b.w, b.h);
-                let winW = 3 * dpr; let winH = 5 * dpr; let paddingX = (b.w - (b.cols * winW)) / (b.cols + 1); let paddingY = (b.h - (b.rows * winH)) / (b.rows + 1);
-                b.windows.forEach(win => {
-                    let wx = b.x + paddingX + win.c * (winW + paddingX); let wy = canvas.height - b.h + paddingY + win.r * (winH + paddingY);
-                    let isLit = win.isAlwaysOn; let alpha = isLit ? 0.3 : 0;
-                    if (isPlaying) { let audioVal = vizDataArray[win.fftBin] || 0; if (audioVal > 140) { isLit = true; alpha = Math.max(alpha, (audioVal / 255) * 0.9); } }
-                    if (isLit) { ctx.fillStyle = win.colorType; ctx.globalAlpha = alpha * 0.6; ctx.fillRect(wx, wy, winW, winH); }
-                }); ctx.globalAlpha = 0.4;
-            });
+            if (cfg.rainGlassCityVisible !== false) {
+                const cityOpacity = (typeof cfg.rainGlassCityOpacity === 'number' ? cfg.rainGlassCityOpacity : 40) / 100;
+                ctx.globalAlpha = cityOpacity;
+                appState.get('cityBuildings').forEach(b => {
+                    ctx.fillStyle = '#03060a'; ctx.fillRect(b.x, canvas.height - b.h, b.w, b.h);
+                    let winW = 3 * dpr; let winH = 5 * dpr; let paddingX = (b.w - (b.cols * winW)) / (b.cols + 1); let paddingY = (b.h - (b.rows * winH)) / (b.rows + 1);
+                    b.windows.forEach(win => {
+                        let wx = b.x + paddingX + win.c * (winW + paddingX); let wy = canvas.height - b.h + paddingY + win.r * (winH + paddingY);
+                        let isLit = win.isAlwaysOn; let alpha = isLit ? 0.3 : 0;
+                        if (isPlaying) { let audioVal = vizDataArray[win.fftBin] || 0; if (audioVal > 140) { isLit = true; alpha = Math.max(alpha, (audioVal / 255) * 0.9); } }
+                        if (isLit) { ctx.fillStyle = win.colorType; ctx.globalAlpha = alpha * 0.6; ctx.fillRect(wx, wy, winW, winH); }
+                    }); ctx.globalAlpha = cityOpacity;
+                });
+            }
             ctx.globalAlpha = 1.0; ctx.fillStyle = 'rgba(10, 15, 25, 0.2)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
             const glassStaticDropsRead = appState.get('glassStaticDrops');
             for (let i = 0; i < glassStaticDropsRead.length; i++) { let drop = glassStaticDropsRead[i]; drawWaterDrop(ctx, drop.x, drop.y, drop.r, 0.6); }
@@ -98,7 +106,8 @@
             let glassGradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
             glassGradient.addColorStop(0, 'rgba(255, 255, 255, 0.0)'); glassGradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.02)');
             glassGradient.addColorStop(0.4, 'rgba(255, 255, 255, 0.08)'); glassGradient.addColorStop(0.41, 'transparent'); glassGradient.addColorStop(1, 'transparent');
-            ctx.fillStyle = glassGradient; ctx.fillRect(0, 0, canvas.width, canvas.height); drawWindowFrame(ctx);
+            ctx.fillStyle = glassGradient; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            if (cfg.rainGlassWindowVisible !== false) drawWindowFrame(ctx);
         }
 
         // Hàng rào kiểu cổng/rào công viên cổ điển — một dãy cọc thẳng đứng nối bằng 2 thanh
