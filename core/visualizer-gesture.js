@@ -55,24 +55,33 @@ function clampSeekPosition(targetSec, durationSec) {
     return { clampedSec, hitBoundary: clampedSec !== targetSec };
 }
 
-let _seekHoldIndicatorEl = null; // badge nổi "+X.Xs"/"-X.Xs" tại vị trí giữ tay — tạo 1 lần, tái dùng xuyên phiên
+let _seekHoldIndicatorEl = null; // mũi tên + badge "+X.Xs"/"-X.Xs" — tạo 1 lần, tái dùng xuyên phiên
 
-/** Hiện/cập nhật badge nổi tại toạ độ chạm — gọi lại nhiều lần trong 1 phiên seek-hold (mỗi tick)
- * chỉ đổi text, không tạo lại DOM. Neo giữa (translate -50%/-50%) đúng tại (x,y).
- * @param {number} x @param {number} y @param {string} text */
-function showSeekHoldIndicator(x, y, text) {
+/** Hiện/cập nhật mũi tên + số giây đã tua — CỐ ĐỊNH ở giữa theo chiều dọc màn hình, tại tâm nửa
+ * trái (lùi) hoặc nửa phải (tiến) tuỳ chiều — KHÔNG bám theo toạ độ chạm thật (khác bản cũ). Gọi
+ * lại nhiều lần trong 1 phiên seek-hold (mỗi tick), chỉ đổi text; chiều/mũi tên chỉ đổi thật sự
+ * khi bắt đầu phiên MỚI (object DOM tái dùng xuyên nhiều phiên, có thể khác chiều phiên trước).
+ * @param {1|-1} direction - 1 = tua tiến (nửa phải), -1 = tua lùi (nửa trái).
+ * @param {string} text - vd "+4.0s"/"-4.0s". */
+function showSeekHoldIndicator(direction, text) {
     if (!_seekHoldIndicatorEl) {
         _seekHoldIndicatorEl = document.createElement('div');
         _seekHoldIndicatorEl.id = 'visualizer-seek-hold-indicator';
-        _seekHoldIndicatorEl.className = 'fixed z-[70] -translate-x-1/2 -translate-y-1/2 pointer-events-none px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-sm border border-white/20 text-white text-sm font-mono font-bold shadow-lg';
+        _seekHoldIndicatorEl.className = 'fixed top-1/2 z-[70] pointer-events-none flex flex-col items-center gap-1';
+        _seekHoldIndicatorEl.style.transform = 'translate(-50%, -50%)';
+        _seekHoldIndicatorEl.innerHTML = `
+            <div class="seek-hold-arrow text-white" style="font-size: 3.25rem; line-height: 1; letter-spacing: -0.1em; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.45));"></div>
+            <div class="seek-hold-text text-white font-mono font-bold" style="font-size: 1.375rem; filter: drop-shadow(0 1px 4px rgba(0,0,0,0.45));"></div>
+        `;
         document.body.appendChild(_seekHoldIndicatorEl);
     }
-    _seekHoldIndicatorEl.style.left = `${x}px`;
-    _seekHoldIndicatorEl.style.top = `${y}px`;
-    _seekHoldIndicatorEl.textContent = text;
+    _seekHoldIndicatorEl.style.left = direction > 0 ? '75%' : '25%';
+    _seekHoldIndicatorEl.querySelector('.seek-hold-arrow').textContent = direction > 0 ? '››' : '‹‹';
+    _seekHoldIndicatorEl.querySelector('.seek-hold-arrow').style.setProperty('--seek-arrow-dx', direction > 0 ? '10px' : '-10px');
+    _seekHoldIndicatorEl.querySelector('.seek-hold-text').textContent = text;
 }
 
-/** Gỡ badge nổi (nếu đang hiện) — gọi lúc dừng seek-hold (thả tay/chạm biên/touchcancel). */
+/** Gỡ mũi tên/badge (nếu đang hiện) — gọi lúc dừng seek-hold (thả tay/chạm biên/touchcancel). */
 function hideSeekHoldIndicator() {
     if (_seekHoldIndicatorEl) { _seekHoldIndicatorEl.remove(); _seekHoldIndicatorEl = null; }
 }

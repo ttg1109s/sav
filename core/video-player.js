@@ -85,7 +85,16 @@ function connectVideoElementToAnalyser() {
     _videoBgGainNode = audioContext.createGain();
     _videoBgGainNode.gain.value = 0; // câm mặc định — nơi gọi tự set lại đúng mức ngay sau, xem docstring
     _videoAnalyserSourceNode.connect(_videoBgGainNode);
-    _videoBgGainNode.connect(appState.get('masterGainNode')); // -> analyser/analyserPitch/destination đã nối sẵn từ setupAudioContext()
+    // FIX (phản hồi Giang — "EQ không khả dụng cho Video Player mode") — TRƯỚC ĐÂY nối thẳng
+    // `_videoBgGainNode` -> `masterGainNode`, BỎ QUA hoàn toàn chuỗi EQ (BiquadFilter nối tiếp,
+    // core/audio-engine.js::setupAudioContext()) — chuỗi đó CHỈ xây từ `audioPlayer` (Song). Giờ
+    // nối vào ĐÚNG ĐIỂM VÀO của chuỗi EQ (`eqBandNodes[0]`, cùng điểm `audioPlayer` nối vào) thay
+    // vì thẳng masterGainNode — Song/Video không bao giờ phát đồng thời (isVideoPlayerMode loại
+    // trừ nhau) nên dùng chung 1 chuỗi EQ an toàn. Chuỗi EQ tự chảy tiếp ra masterGainNode ở cuối
+    // (đã nối sẵn trong setupAudioContext()) — không cần nối lại đoạn đó.
+    const eqBandNodes = appState.get('eqBandNodes');
+    const eqEntryNode = (eqBandNodes && eqBandNodes.length > 0) ? eqBandNodes[0] : appState.get('masterGainNode');
+    _videoBgGainNode.connect(eqEntryNode);
 }
 
 /**

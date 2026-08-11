@@ -31,6 +31,13 @@
 
         const DEFAULT_VIZ_CONFIG = {
             quality: 'high', type: 'bar', barStyle: 'mirror', vortexStyle: 'rings', rainStyle: 'glass', glassFlash: true, mode: 'solid',
+            // Blur TÁCH RIÊNG khỏi quality (phản hồi Giang) — trước đây blurMult CHỈ do
+            // PERFORMANCE_PROFILES[quality] quyết định (đóng băng theo tier), giờ blurEnabled=false
+            // ép blurMult=0 bất kể quality nào — xem event/workflow/visualizer-render.js::_tick().
+            blurEnabled: true,
+            // Rain — style 'glass': độ trong Big City (0-100, mặc định 40 khớp alpha cũ hardcode)
+            // + 3 toggle hiện/ẩn từng lớp cảnh riêng (phản hồi Giang) — xem core/visualizer/types/rain.js.
+            rainGlassCityOpacity: 40, rainGlassCityVisible: true, rainGlassMoonVisible: true, rainGlassWindowVisible: true,
             // (bgColor XOÁ — v13: "màu nền màn Visualizer" đã dời sang `visualBgConfig` cùng 3
             //  nguồn nền kia, xem DEFAULT_VISUAL_BG_CONFIG. `solidColor` bên dưới là thứ KHÁC HẲN —
             //  màu vẽ của visualizer, không phải nền.)
@@ -83,7 +90,12 @@
             // Tap 3 lần (MỚI, THAY THẾ vuốt cạnh dưới đã bỏ hẳn — phản hồi Giang) — bấm 1 nút
             // Control Center do người dùng chọn, key khớp GESTURE_TRIPLE_TAP_TARGET_ELS
             // (event/workflow/visualizer-gesture.js).
-            gestureTripleTapEnabled: true, gestureTripleTapTarget: 'cycleMode',
+            // Tap 3 lần — KHÔNG còn toggle bật/tắt riêng (phản hồi Giang) — chọn 'none' trong
+            // dropdown tự nghĩa là tắt, CÙNG khuôn action picker (next/prev/.../'none'). Mặc định
+            // 'none' (KHÁC picker 5-hành-động — pool này là DANH SÁCH NÚT, không có hành động mặc
+            // định hợp lý để tự bật sẵn). captureFrame CHỈ có tác dụng khi đang Video Player mode
+            // (nút đó ẩn ngoài mode đó — event/workflow/visualizer-gesture.js tự bỏ qua nếu ẩn).
+            gestureTripleTapTarget: 'none',
             // Seek-hold: giữ tay 3s ở nửa trái/phải màn hình -> tua lùi/tiến lặp lại theo bước
             // gestureSeekStepMs (mili giây), tới khi thả tay hoặc chạm biên 0/(thời lượng - 1s).
             // Seek-hold: giữ tay ở nửa trái/phải màn hình để tua lùi/tiến lặp lại. 3 THỜI GIAN
@@ -223,6 +235,8 @@
         AppConfig.defineDomain('viz', {
             schema: {
                 quality: 'string', type: 'string', barStyle: 'string', vortexStyle: 'string', rainStyle: 'string', glassFlash: 'boolean', mode: 'string',
+                blurEnabled: 'boolean',
+                rainGlassCityOpacity: 'number', rainGlassCityVisible: 'boolean', rainGlassMoonVisible: 'boolean', rainGlassWindowVisible: 'boolean',
                 solidColor: 'string', dynA: 'string', dynB: 'string',
                 minH: 'number', maxH: 'number', barWidth: 'number', bgImage: 'string', bgBlur: 'number', bgImageEnabled: 'boolean',
                 themeMode: 'string', gradientFrom: 'string', gradientTo: 'string',
@@ -237,7 +251,7 @@
                 gestureActionSwipeUp: 'string', gestureActionSwipeDown: 'string',
                 gestureActionSwipeLeft: 'string', gestureActionSwipeRight: 'string',
                 gestureActionTapSingle: 'string', gestureActionTapDouble: 'string',
-                gestureEdgeTopEnabled: 'boolean', gestureTripleTapEnabled: 'boolean', gestureTripleTapTarget: 'string',
+                gestureEdgeTopEnabled: 'boolean', gestureTripleTapTarget: 'string',
                 gestureSeekHoldEnabled: 'boolean', gestureSeekStepMs: 'number', gestureSeekHoldIntervalMs: 'number',
             },
             defaults: DEFAULT_VIZ_CONFIG,
