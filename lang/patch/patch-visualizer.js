@@ -37,6 +37,8 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.quality.high': 'High (smooth)',
     'visualizerSettingsDrawer.quality.medium': 'Medium',
     'visualizerSettingsDrawer.quality.low': 'Low (lightweight)',
+    'visualizerSettingsDrawer.blurEnable.label': 'Glow / blur effects',
+    'visualizerSettingsDrawer.blurEnable.hint': 'Independent from render quality — turn off for a crisper, flatter look',
     'visualizerSettingsDrawer.maxHeight.label': 'Max height',
     'visualizerSettingsDrawer.barWidth.label': 'Bar thickness (px)',
     'visualizerSettingsDrawer.vortexStyle.label': 'Vortex tunnel style',
@@ -51,6 +53,10 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.rainStyle.glass': 'Drips on glass',
     'visualizerSettingsDrawer.rainStyle.street': 'Street & park rain',
     'visualizerSettingsDrawer.glassFlash.label': 'Flash (glass & street lights)',
+    'visualizerSettingsDrawer.rainCityOpacity.label': 'Big City opacity',
+    'visualizerSettingsDrawer.rainCityVisible.label': 'Show Big City',
+    'visualizerSettingsDrawer.rainMoonVisible.label': 'Show Moon',
+    'visualizerSettingsDrawer.rainWindowVisible.label': 'Show window frame',
     // (Phần B, Galaxy — 6 key spaceStyle/4 slider tinh chỉnh ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1)
     'visualizerSettingsDrawer.colorSectionTitle': 'Visualizer colors',
     'visualizerSettingsDrawer.bgColor.label': 'Black background color',
@@ -81,11 +87,9 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.statsPanelEnable.label': 'Show music stats',
     'visualizerSettingsDrawer.statsPanelEnable.hint': 'BPM, pitch and energy readout on the Visualizer screen',
     'visualizerSettingsDrawer.bottomPlayerEnable.label': 'Show bottom player bar',
-    'visualizerSettingsDrawer.bottomPlayerEnable.hint': 'Turn off to hide — still reopens with a swipe from the top/bottom edge',
     'visualizerSettingsDrawer.playlistButtonEnable.label': 'Show Playlist button',
-    'visualizerSettingsDrawer.playlistButtonEnable.hint': 'Turn off to hide — still reopens with a swipe from the top/bottom edge',
     'visualizerSettingsDrawer.controlCenterButtonEnable.label': 'Show Control Center button',
-    'visualizerSettingsDrawer.controlCenterButtonEnable.hint': 'Turn off to hide — still reopens with a swipe from the top edge',
+    'visualizerSettingsDrawer.uiToggleGroupHint': 'Turned off elements still reopen with a swipe from the screen edge.',
 
     'loadingShield.text': 'Processing...',
 
@@ -114,8 +118,8 @@ const LANG_PATCH_VISUALIZER = {
     'gestureSettings.sectionEdge': 'Edge swipe',
     'gestureSettings.edgeTop.label': 'Swipe from top edge',
     'gestureSettings.edgeTop.hint': 'Opens the Control Center',
-    'gestureSettings.edgeBottom.label': 'Swipe from bottom edge',
-    'gestureSettings.edgeBottom.hint': 'Triggers the Control Center button chosen below',
-    'gestureSettings.edgeBottomTarget.label': 'Assign to',
+    'gestureSettings.tripleTapTarget.label': 'Triple tap',
+    'gestureSettings.tripleTapTarget.hint': 'Triggers the Control Center button chosen',
+    'gestureSettings.tripleTapTarget.captureFrameOption': 'Capture (video only)',
 
 };
