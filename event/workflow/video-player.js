@@ -288,8 +288,24 @@ const workflowVideoPlayer = {
             // có để nối vào). Truyền qua `beforePlay` để chạy ĐÚNG vị trí bản gốc: sau khi tạo object
             // URL, TRƯỚC khi gán poster/src/play() — Visual Background không cần nên không truyền.
             const record = await this.swapBgVideoSource(videoKey, isTransition, () => {
-                setupAudioContext(); // core/audio-engine.js
+                setupAudioContext(); // core/audio-engine.js — dùng CHUNG với Song/Visual BG, KHÔNG đụng file đó
+                // FIX (phản hồi Giang — tách riêng khỏi core/audio-engine.js, CHỈ áp cho luồng Video
+                // Player mode, không đụng luồng Visual BG video/Song dùng chung hàm setupAudioContext()
+                // ở trên) — nghi vấn: AudioContext mới tạo (lần đầu/phiên) có thể ở 'suspended' tuỳ
+                // trình duyệt/thời điểm gesture, khiến video câm + analyser đọc rỗng (BPM/Pitch/Energy
+                // không nhảy). resume() TƯỜNG MINH riêng ở ĐÂY — an toàn dù context đã 'running' (no-op).
+                appState.get('audioContext').resume().catch(() => {});
                 connectVideoElementToAnalyser(); // core/video-player.js
+                // `_videoBgGainNode` (core/video-player.js) mặc định gain=0 NGAY LÚC vừa tạo (đúng ý,
+                // dùng chung với "Audio B" nền trang trí — workflowVisualBg tự set mức riêng).
+                // `setBgVideoElementForPlayerMode(true)` (gọi ở startFromPlaylist(), TRƯỚC dòng này)
+                // đã LỠ gọi setVideoBgGain(1) rồi — nhưng lúc đó node CHƯA tồn tại (chỉ tạo ra ở dòng
+                // connectVideoElementToAnalyser() ngay trên) nên lệnh đó no-op, gain kẹt ở 0 vĩnh viễn
+                // (câm, dù bgVideoElement.muted=false — không đáng tin cậy 1 khi audio đã "chảy" qua
+                // Web Audio graph, xem docstring connectVideoElementToAnalyser()). Gọi LẠI ở ĐÂY, ngay
+                // sau khi node chắc chắn đã tồn tại — luôn đúng bất kể lần đầu tạo node hay node đã có
+                // sẵn từ trước (Next/Prev/vào lại mode).
+                setVideoBgGain(1); // core/video-player.js
             });
             if (!record) {
                 // guard: video vừa bị xoá ở nơi khác giữa lúc đang phát. KHÔNG gọi playNext(true)
