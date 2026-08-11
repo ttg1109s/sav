@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta
+  name="viewport"
+  content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
+    <!-- FIX (04/07/2026, mục 7 phản hồi Giang) + HOÀN TÁC (04/07/2026, phản hồi đợt 2, mục 4 — bug
+         "lòi modal subtitle" + tiêu đề Photo & Album bị đẩy lệch trên iOS Safari):
+         - `viewport-fit=cover` đã THÊM rồi GỠ HẲN: Giang xác nhận nguyên nhân — khi bàn phím trượt
+           lên (ô nhập liệu trong Settings) hoặc thanh Safari tự thu/giãn lúc cuộn (dynamic
+           toolbar), trình duyệt tính lại chiều cao khả dụng; các drawer/modal `fixed inset-0` +
+           `transform: translateY(100%)` có thể "lệch" 1 nhịp trong lúc đó, lòi ra 1 dải mỏng ở
+           cạnh dưới/đẩy lệch phần top — chỉ tạm ổn định lại sau "Restart App" ở chế độ Add to Home
+           Screen, RẤT KHÔNG ổn định ở Safari tab thường. QUYẾT ĐỊNH: bỏ hẳn `viewport-fit=cover`,
+           để trình duyệt tự CHỪA vùng notch/status bar theo cơ chế mặc định (ổn định tuyệt đối,
+           không phụ thuộc dynamic-toolbar/bàn phím) — KHÔNG CÓ giải pháp CSS nào ổn định hơn cho
+           layout, vì bản chất trình duyệt đã tự lo liệu khi tắt cover. `.safe-top`/`.safe-bottom`/
+           override `#visualizer-top-bar`/`#player-container` (từng thêm ở assets/css/style.css)
+           ĐÃ DỌN SẠCH (không chỉ để inert) — không còn ý nghĩa gì khi không dùng cover.
+         - Vùng notch/status bar giờ do CHÍNH TRÌNH DUYỆT vẽ (không phải nội dung trang) — CSS
+           KHÔNG còn khả năng ảnh hưởng màu của nó. Đòn bẩy DUY NHẤT còn lại là `theme-color` dưới
+           đây — GIỮ NGUYÊN #000000, KHÔNG đồng bộ theo `vizConfig.bgColor`, để màu vùng đó ổn định
+           tuyệt đối, không đổi theo màu nền Settings. Nếu bác VẪN thấy đỏ sau khi đã thử lại: (1)
+           rất có thể `index.html` CHÍNH NÓ đang bị cache (khác các file `.js`/`.css` có `?v=` để
+           ép tải lại, bản thân `index.html` KHÔNG có cơ chế đó — trình duyệt/GitHub Pages có thể
+           phục vụ bản cache cũ CHƯA có thẻ `theme-color` này) — thử mở bằng tab ẩn danh/xoá cache
+           Safari để loại trừ; (2) nếu vẫn đỏ ở tab ẩn danh, khả năng Safari đang lấy màu từ
+           `favicon.png` (một số bản Safari tự suy màu thanh địa chỉ từ icon trang khi không chắc
+           theme-color) — cần xem lại màu chủ đạo của chính file đó. -->
+    <meta name="theme-color" content="#000000">
+    <!-- Phòng thêm 1 lớp (một số bản Safari CHỈ áp dụng đúng theme-color khi có scope theo
+         color-scheme, bỏ qua thẻ không điều kiện ở trên trong 1 số trường hợp) — cùng giá trị
+         #000000 cho cả 2 scheme, không có ý nghĩa "đổi theo sáng/tối" ở đây, chỉ để tăng độ tin cậy
+         nhận diện của trình duyệt. -->
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    <!-- Phòng xa (KHÔNG ảnh hưởng gì tới chế độ Safari-tab thường, CHỈ áp dụng nếu bác từng "Thêm
+         vào MH chính" trang này) — đồng bộ luôn màu status bar cho chế độ standalone/PWA. -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <title>Simple Audio Visualizer</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+
+    <!-- (07/07/2026, HOTFIX 5 — Preloader làm lại, mục 2 phản hồi Giang) — TOÀN BỘ <script> CDN +
+         3 <link rel="stylesheet"> TRƯỚC ĐÂY nằm ở đây ĐÃ DỜI xuống <body>, NGAY SAU khối Preloader
+         — xem comment đầy đủ ở đó để biết lý do. KHÔNG còn <script>/<link> nặng nào ở <head> nữa —
+         <head> giờ chỉ còn meta/title/favicon (nhẹ, không chờ mạng), để trình duyệt chạm tới
+         <body> và vẽ Preloader ra màn hình CÀNG SỚM CÀNG TỐT. -->
+</head>
+<body class="text-white h-screen flex flex-col relative overflow-hidden bg-[#000000]">
+
+    <!-- ===================================================================
+         PRELOADER (07/07/2026, phản hồi Giang mục 2 — LÀM LẠI, HOTFIX 5) — HTML/CSS/JS THUẦN, ĐẶT
+         NGAY ĐẦU <body>, TRƯỚC MỌI THỨ KHÁC (kể cả CDN) — hiện ra NGAY LẬP TỨC lúc trình duyệt bắt
+         đầu parse <body>, che toàn bộ màn hình trong lúc 176 file script tuần tự nạp (app này
+         KHÔNG build/bundle, chạy trực tiếp qua file://).
+
+         BUG bản trước (đã sửa): 11 thẻ <script src> CDN (Tailwind/jsmediatags/NoSleep/Three.js/
+         idb-keyval/browser-id3-writer/JSZip/mammoth/turndown/toastui-editor) + 3 <link
+         rel="stylesheet"> TỪNG nằm ở <head>, PHÍA TRƯỚC preloader trong thứ tự tài liệu. Vì đây là
+         <script> ĐỒNG BỘ (không `async`/`defer`), trình duyệt BẮT BUỘC tải + chạy xong TOÀN BỘ 11
+         thẻ đó trước khi được phép rời khỏi `<head>` để bắt đầu parse `<body>` — nghĩa là Preloader
+         (nằm trong `<body>`) KHÔNG hề "hiện ra ngay lập tức" như docstring cũ mô tả: mạng chậm/CDN
+         chậm phản hồi bao lâu, màn hình đen trơn (không có gì, kể cả Preloader) hiện y NGẦN đó lâu
+         — đúng như Giang phản hồi. SỬA: dời NGUYÊN VẸN 11 <script>/3 <link> đó xuống ngay DƯỚI khối
+         Preloader này (xem ngay sau `</script>` của Preloader) — thứ tự thực thi giữa chúng với
+         nhau và với mọi file phía sau KHÔNG đổi (browser chỉ quan tâm thứ tự XUẤT HIỆN trong
+         document, không quan tâm nằm trong `<head>` hay `<body>`) — CHỈ khác duy nhất: giờ Preloader
+         (HTML/CSS/JS thuần, 100% inline, KHÔNG chờ mạng) đứng TRƯỚC 11 thẻ đó, nên được vẽ ra màn
+         hình xong xuôi TRƯỚC KHI trình duyệt chạm vào bất kỳ request mạng nào. `<head>` giờ chỉ còn
+         meta/title/favicon (không thẻ nào chặn parser).
+
+         % THẬT (không phải animation giả định thời gian cố định) — GIỮ NGUYÊN cơ chế cũ: đếm số
+         thẻ <script src> đã THỰC SỰ tải xong qua Resource Timing API
+         (`performance.getEntriesByType('resource')`) so với TỔNG số thẻ `<script src>` hiện có
+         trong DOM tại mỗi lần poll — vì mọi script ở app này đều nạp TUẦN TỰ, trình duyệt PARSE tới
+         đâu thêm thẻ `<script>` vào `document` tới đó nên tổng số này tự hội tụ đúng khi parser đi
+         hết trang — không cần hardcode số cụ thể. Tự ẩn (fade-out) khi `window.load` bắn.
+
+         PHẦN ANIMATION MỚI (mục 2 phản hồi Giang — "thêm animation, xem style rồi tách/thêm mới,
+         dùng thẻ style trực tiếp"): mọi animation định nghĩa NGAY TRONG <style> này (không tách
+         file .css riêng — Preloader phải tự đứng độc lập, không được phép chờ assets/css/style.css
+         qua mạng/cache mới hiển thị đúng). Mượn Ý TƯỞNG (không copy nguyên khối) từ 2 chỗ ĐÃ CÓ ở
+         assets/css/style.css: (1) `.eq-1/.eq-2/.eq-3` (mini cột nhạc nhảy khi bài đang phát, xem
+         core/playlist/render.js) — dựng lại thành logo 5 cột "EQ" nhảy lệch nhịp, cùng tông màu
+         sky-400→violet-500 với thanh tiến trình bên dưới, đúng bản sắc 1 app nghe nhạc/visualizer;
+         (2) `.animate-spin-slow` — không dùng xoay tròn, thay bằng 1 quầng sáng (`glow`) phập phồng
+         phía sau logo cho có chiều sâu. Thêm hiệu ứng "chạy sáng" (shimmer) quét ngang thanh tiến
+         trình cho đỡ khô, và tên app fade-in nhẹ lúc xuất hiện. Có `prefers-reduced-motion` tắt hết
+         phần TRANG TRÍ (giữ lại animation CHỨC NĂNG — width thanh tiến trình vẫn chạy bình thường,
+         chỉ do JS set trực tiếp, không phải `@keyframes`, nên không bị tắt theo). -->
+    <style>
+        #app-preloader { position: fixed; inset: 0; z-index: 9999; background: #000000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; transition: opacity 0.4s ease-out; }
+        #app-preloader.app-preloader-hidden { opacity: 0; pointer-events: none; }
+
+        #app-preloader-logo { position: relative; width: 84px; height: 52px; display: flex; align-items: flex-end; justify-content: center; gap: 6px; }
+        #app-preloader-glow { position: absolute; inset: -28px; border-radius: 999px; background: radial-gradient(circle, rgba(56,189,248,0.35) 0%, rgba(139,92,246,0.16) 45%, transparent 72%); animation: app-preloader-glow-pulse 2.6s ease-in-out infinite; }
+        .app-preloader-bar { position: relative; width: 8px; height: 22%; border-radius: 4px; background: linear-gradient(180deg, #38bdf8, #8b5cf6); box-shadow: 0 0 10px rgba(56,189,248,0.55); animation-name: app-preloader-eq; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+
+        #app-preloader-name { position: relative; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 26px; font-weight: 800; letter-spacing: 0.02em; color: #fff; text-align: center; padding: 0 24px; animation: app-preloader-fade-in 0.6s ease-out both; }
+        #app-preloader-bar-track { width: min(260px, 70vw); height: 4px; border-radius: 999px; background: rgba(255,255,255,0.12); overflow: hidden; }
+        #app-preloader-bar-fill { position: relative; height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, #38bdf8, #8b5cf6); transition: width 0.15s ease-out; overflow: hidden; }
+        #app-preloader-bar-fill::after { content: ''; position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.65), transparent); animation: app-preloader-shimmer 1.3s linear infinite; }
+        #app-preloader-percent { font-family: ui-monospace, monospace; font-size: 12px; color: rgba(255,255,255,0.5); }
+
+        @keyframes app-preloader-eq { 0%, 100% { height: 22%; } 50% { height: 100%; } }
+        @keyframes app-preloader-glow-pulse { 0%, 100% { transform: scale(1); opacity: 0.55; } 50% { transform: scale(1.12); opacity: 0.9; } }
+        @keyframes app-preloader-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes app-preloader-shimmer { from { transform: translateX(-130%); } to { transform: translateX(230%); } }
+
+        /* Tôn trọng lựa chọn hệ thống "giảm hiệu ứng chuyển động" — chỉ tắt phần TRANG TRÍ thuần
+           tuý, KHÔNG đụng #app-preloader-bar-fill (width do JS set trực tiếp mỗi 80ms, là animation
+           CHỨC NĂNG thể hiện % thật, không phải @keyframes trang trí). */
+        @media (prefers-reduced-motion: reduce) {
+            #app-preloader-glow, .app-preloader-bar, #app-preloader-name, #app-preloader-bar-fill::after { animation: none !important; }
+        }
+    </style>
+    <div id="app-preloader">
+        <div id="app-preloader-logo">
+            <div id="app-preloader-glow"></div>
+            <span class="app-preloader-bar" style="animation-duration:0.8s; animation-delay:0s;"></span>
+            <span class="app-preloader-bar" style="animation-duration:0.65s; animation-delay:0.12s;"></span>
+            <span class="app-preloader-bar" style="animation-duration:0.9s; animation-delay:0.04s;"></span>
+            <span class="app-preloader-bar" style="animation-duration:0.7s; animation-delay:0.18s;"></span>
+            <span class="app-preloader-bar" style="animation-duration:0.85s; animation-delay:0.08s;"></span>
+        </div>
+        <div id="app-preloader-name">Simple Audio Visualizer</div>
+        <div id="app-preloader-bar-track"><div id="app-preloader-bar-fill"></div></div>
+        <div id="app-preloader-percent">0%</div>
+    </div>
+    <script>
+        (function () {
+            var fillEl = document.getElementById('app-preloader-bar-fill');
+            var percentEl = document.getElementById('app-preloader-percent');
+            var preloaderEl = document.getElementById('app-preloader');
+
+            // FIX (yêu cầu Giang — "% không chạy thật, mặc định 0% hoặc 100%") — 2 NGUYÊN NHÂN GỐC
+            // tìm được, cả 2 đều liên quan tới cách đo % (đếm resource qua Performance API):
+            //
+            // (1) Resource Timing API có GIỚI HẠN BUFFER MẶC ĐỊNH (thường ~150-250 entry tuỳ trình
+            //     duyệt) — VƯỢT quá giới hạn này, entry MỚI bị ÂM THẦM BỎ QUA (không lỗi, không
+            //     cảnh báo). App này có tới ~176 file <script src> RIÊNG (chưa tính CSS/CDN/ảnh...) —
+            //     cộng dồn TOÀN BỘ resource khác của trang, tổng số entry rất dễ VƯỢT NGƯỠNG MẶC ĐỊNH
+            //     — `loaded` (đếm qua `performance.getEntriesByType('resource')`) NGỪNG TĂNG giữa
+            //     chừng dù script vẫn đang tải tiếp thật — % bị "đứng hình" ở 1 mức nào đó rồi nhảy
+            //     thẳng lên 100% khi `window.load` bắn (ép cứng, xem hidePreloader()) — ĐÚNG hiện
+            //     tượng "% không chạy thật, chỉ thấy 0%/100%". FIX: chủ động tăng buffer lên dư dả
+            //     (500, gấp gần 3 lần số script hiện có, chừa chỗ cho tăng trưởng sau này) NGAY LÚC
+            //     BẮT ĐẦU, trước khi bất kỳ resource nào kịp tải xong.
+            //
+            // (2) Trên mạng nhanh (hoặc cache trình duyệt còn hiệu lực từ lần ghé trước) — TOÀN BỘ
+            //     176+ script có thể tải xong trong CHƯA TỚI 80ms (chu kỳ poll đầu tiên) — `window.
+            //     load` bắn TRƯỚC KHI setInterval() kịp chạy lần nào — % thật (đang tăng dần) KHÔNG
+            //     BAO GIỜ kịp vẽ ra màn hình, người dùng chỉ thấy "0%" tĩnh (giá trị khởi tạo cứng
+            //     trong HTML) rồi NHẢY THẲNG "100%" (ép cứng bởi hidePreloader()) — ĐÚNG PHẦN CÒN
+            //     LẠI của hiện tượng Giang mô tả. FIX: tách phần đo % ra 1 hàm riêng, gọi NGAY LẬP
+            //     TỨC (đồng bộ, không đợi tick đầu của setInterval) TRƯỚC KHI đăng ký interval — dù
+            //     mạng nhanh cỡ nào, ít nhất 1 lần đo % thật cũng kịp render trước khi có gì ép 100%.
+            if (typeof performance.setResourceTimingBufferSize === 'function') {
+                performance.setResourceTimingBufferSize(500);
+            }
+
+            function measureProgress() {
+                var total = document.querySelectorAll('script[src]').length;
+                if (total === 0) return; // guard: parser chưa tới thẻ script nào (cực hiếm)
+                var loaded = 0;
+                try {
+                    var resources = performance.getEntriesByType('resource');
+                    for (var i = 0; i < resources.length; i++) {
+                        if (resources[i].initiatorType === 'script') loaded++;
+                    }
+                } catch (e) { loaded = 0; } // guard: trình duyệt cổ không có Resource Timing API
+                var percent = Math.min(100, Math.round((loaded / total) * 100));
+                fillEl.style.width = percent + '%';
+                percentEl.textContent = percent + '%';
+            }
+
+            measureProgress(); // (2) đo NGAY LẬP TỨC, không đợi tick đầu 80ms
+            var pollTimer = setInterval(measureProgress, 80);
+
+            function hidePreloader() {
+                clearInterval(pollTimer);
+                fillEl.style.width = '100%';
+                percentEl.textContent = '100%';
+                setTimeout(function () {
+                    preloaderEl.classList.add('app-preloader-hidden');
+                    setTimeout(function () { preloaderEl.remove(); }, 450); // sau khi fade xong hẳn (transition 0.4s + đệm)
+                }, 150);
+            }
+            window.addEventListener('load', hidePreloader);
+        })();
+    </script>
+
+    <!-- Thư viện bên thứ 3 (CDN) — DỜI TỪ <head> XUỐNG ĐÂY (xem giải thích đầy đủ ở comment đầu
+         khối Preloader phía trên) — giữ NGUYÊN THỨ TỰ TƯƠNG ĐỐI với nhau như bản gốc, chỉ đổi vị
+         trí vật lý trong tài liệu. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FIX (10/07/2026, phản hồi Giang) — trên mobile/touch, bấm 1 nút có class `hover:*` (rất
+         nhiều nút trong app dùng, vd `hover:bg-white/10`) làm class đó "kẹt" lại y như đang hover
+         thật, tới khi chạm ra chỗ khác mới hết — vì Tailwind mặc định áp `hover:` qua `:hover`
+         thuần, mà thiết bị cảm ứng không có khái niệm hover thật (trình duyệt giả lập hover ngay
+         khi chạm, không tự gỡ cho tới lần chạm KẾ TIẾP ở đâu đó khác). `hoverOnlyWhenSupported`
+         (cờ chính thức của Tailwind, mặc định BẬT từ Tailwind v3.4 khi build qua config file —
+         CDN Play KHÔNG tự bật, phải khai báo tay) đổi `hover:` sang chạy trong
+         `@media (hover: hover) and (pointer: fine)` — CHỈ áp dụng cho thiết bị có chuột/trackpad
+         THẬT SỰ hỗ trợ hover, thiết bị cảm ứng sẽ KHÔNG BAO GIờ thấy trạng thái hover "kẹt" nữa vì
+         media query không khớp trên thiết bị đó. Sửa 1 LẦN Ở ĐÂY áp dụng cho MỌI class `hover:*`
+         trong toàn bộ project (hàng trăm chỗ), không cần sửa từng file riêng lẻ. -->
+    <script>
+        tailwind.config = {
+            future: {
+                hoverOnlyWhenSupported: true,
+            },
+        };
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nosleep/0.12.0/NoSleep.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Lưu trữ IndexedDB cho nhạc/tag/cover/sub/ảnh-video nền (xem PLAN_INDEXEDDB.md) -->
+    <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
+    <!-- Ghi ID3 tag mới vào blob lúc Export/Restore (jsmediatags chỉ đọc, không viết) -->
+    <script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@4/dist/browser-id3-writer.js"></script>
+    <!-- Đóng gói nhiều file mp3 thành 1 file .zip lúc "Tải toàn bộ rồi xóa" (Quản lý dung lượng) -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <!-- XOÁ (29/07/2026, yêu cầu Giang mục 1/2) — mediainfo.js (WASM, CDN unpkg) từng dùng phân
+         tích codec/fps/bitrate video lúc upload (event/workflow/file-manager-video.js::
+         _extractVideoMediaInfo(), ĐÃ XOÁ) — tab "Chi tiết" không còn hiển thị các field này nữa
+         nên không cần phân tích, bỏ hẳn thẻ <script> CDN này. -->
+    <!-- .docx -> HTML lúc upload (mammoth.js). VIẾT LẠI (10/07/2026, Nhóm A — mục 1
+         plan-v12-extended.md): HTML này giờ chuyển THẲNG qua sanitizeDocumentHtml()
+         (core/file-manager/document.js, tự viết) — Turndown + Toast UI Editor (từng dùng
+         05/07-09/07/2026) ĐÃ GỠ KHỎI ĐÂY, xem event/workflow/file-manager-document.js::
+         _processDocxUpload() + core/file-manager/document-ui.js::buildDocumentEditorSurface()
+         (contentEditable + toolbar tự viết, thay Toast UI Editor). -->
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.7.2/mammoth.browser.min.js"></script>
+    <!-- MỚI (rewrite Photo/Album, "đập đi làm lại" — Giang yêu cầu dùng thư viện thật thay virtual
+         window tự viết) — fjGallery (flickr-justified-gallery), thuật toán justified layout ĐÚNG
+         bản Flickr/Google Photos dùng thật (flickr/justified-layout gốc, bọc UMD sẵn) — tự nong/co
+         chiều cao mỗi hàng để khít CHÍNH XÁC bề rộng container, KHÔNG cắt/KHÔNG thừa như bản tự viết
+         cũ. Dùng cho lưới ảnh Photo & Album (event/workflow/photo-gallery-window.js) LẪN picker ảnh
+         Generic Drawer (cùng hạ tầng, xem event/workflow/file-manager-photo.js). -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flickr-justified-gallery@2.1/dist/fjGallery.css">
+    <script src="https://cdn.jsdelivr.net/npm/flickr-justified-gallery@2.1/dist/fjGallery.min.js"></script>
+
+    <!-- MỚI (31/07/2026) — Panzoom (timmywil), pan/pinch-zoom cho modal xem ảnh Photo (Zoom mode,
+         xem core/media-transform.js + event/workflow/file-manager-photo.js). ~3.7kb, KHÔNG cần CSS riêng
+         (thuần CSS transform), dùng Pointer Events mặc định — không tự vẽ toolbar/UI gì (khác
+         Viewer.js), chỉ đúng phần cơ chế, khớp modal đã tự vẽ UI riêng sẵn. -->
+    <script src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.6.2/dist/panzoom.min.js"></script>
+
+    <!-- CSS tách riêng — DỜI TỪ <head> XUỐNG ĐÂY (cùng lý do). -->
+    <!-- ?v=APP_VERSION (đặt cố định ngay dưới đây, đổi mỗi lần deploy): chỉ ÉP TRÌNH DUYỆT TẢI LẠI
+         file local của project (CSS/JS riêng), KHÔNG đụng tới các thư viện CDN bên thứ 3 ở trên —
+         những file đó đã tự có version riêng trong URL (@6, @4, r128, 3.9.5...) nên cache của
+         chúng không liên quan tới cache "cứng đầu" của riêng project trên GitHub Pages. -->
+    <link rel="stylesheet" href="assets/css/style.css?v=20260811v2">
+    <!-- Batch 8, ver 12 "Multi Media" — file CSS TÁCH RIÊNG THEO DOMAIN đầu tiên của project (xem
+         comment đầu file) — Slideshow nền Visual (2 lớp ảnh xen kẽ + 13 kiểu transition). -->
+    <link rel="stylesheet" href="assets/css/slideshow.css?v=20260703v2">
+
+    <video id="bg-video" loop muted playsinline class="hidden"></video>
+    <!-- Từng thử 1 #video-player-thumb-overlay riêng ở đây (đè LÊN video) — BỎ, <video> hardware-
+         decode trên WKWebView/iOS nằm ở compositing layer riêng, không CSS nào đè lên được (xem
+         core/video-player.js). MỚI (31/07/2026) — lớp dự phòng multi-browser giờ chèn vào
+         #visual-bg-image NẰM DƯỚI thay vào đó (xem event/workflow/video-player.js::playVideoByKey()). -->
+    <!-- FIX (04/07/2026, mục 1a phản hồi Giang) — nền màu Settings (bgColor) tách hẳn khỏi
+         `document.body` (trước đây `document.body.style.backgroundColor = cfg.bgColor` — nghi
+         ngờ 1 phần nguyên nhân màu tràn vào status bar/tai thỏ OS). `<body>` ở trên giữ NGUYÊN
+         #000000 tĩnh (JS không đụng vào nữa) — element riêng này mới là nơi thật sự đổi màu theo
+         Settings. Xem core/color-utils.js (updateDOMBackground) + assets/css/style.css. -->
+    <div id="visualizer-solid-bg"></div>
+    <!-- Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). Xem
+         assets/css/style.css (#visual-bg-image) + core/visual-bg.js (applyVisualBgImageToDOM). -->
+    <div id="visual-bg-image" class="hidden"></div>
+    <!-- Slideshow nền Visual (nguồn nền thứ 3, Batch 8, ver 12 "Multi Media") — 2 lớp ảnh xen kẽ,
+         JS điều khiển ở core/file-manager/slideshow.js (hàm thuần) + event/workflow/slideshow.js
+         (orchestration). CSS: assets/css/slideshow.css (z-index -1, giữa #visual-bg-image và
+         #bg-video — xem comment ở assets/css/style.css).
+         VIẾT LẠI (Ken Burns, 18/07/2026) — mỗi layer NGOÀI (`.slideshow-layer`) giờ bọc 1 layer
+         CON (`.ss-kenburns-pan`) — layer ngoài CHỈ lo animation chuyển cảnh (opacity/transform/
+         clip-path tuỳ kiểu transition, class ss-current/ss-layer-enter/ss-layer-exit), layer con
+         CHỈ lo background-image + animation pan/zoom Ken Burns. TÁCH RIÊNG 2 phần tử vì CSS chỉ
+         giữ 1 `animation-name` hiệu lực/phần tử — gộp chung sẽ bị đè lẫn nhau lúc cả 2 animation
+         cùng chạy (xem giải thích đầy đủ ở assets/css/slideshow.css). -->
+    <div id="visual-slideshow-container" class="hidden">
+        <div id="visual-slideshow-layer-1" class="slideshow-layer">
+            <div id="visual-slideshow-layer-1-pan" class="ss-kenburns-pan"></div>
+        </div>
+        <div id="visual-slideshow-layer-2" class="slideshow-layer">
+            <div id="visual-slideshow-layer-2-pan" class="ss-kenburns-pan"></div>
+        </div>
+    </div>
+
+    <!-- Canvas WebGL (Three.js - Vortex Engine, dùng chung 1 canvas) -->
+    <canvas id="webgl-canvas" class="opacity-0 transition-opacity duration-700"></canvas>
+    <!-- Canvas 2D (toàn bộ các hiệu ứng visualizer khác) -->
+    <canvas id="visualizer" class="opacity-0 transition-opacity duration-700"></canvas>
+
+    <!-- Nơi các "component" HTML (xem js/components/) sẽ được lắp vào lúc khởi động -->
+    <div id="app-root"></div>
+
+    <!-- audio-upload / audio-upload-folder: ver 8 refine di chuyển vào trong template
+         js/components/playlist-view.js (mỗi input nằm trong 1 <label> riêng ở #upload-action-menu)
+         — xem comment ở đó để biết lý do (label native bọc input đáng tin cậy hơn .click() qua JS
+         trên mọi nền tảng, đặc biệt khi chạy qua file://). KHÔNG còn input nào ở đây nữa. -->
+    <audio id="audio-player" style="display: none;" playsinline></audio>
+
+    <!-- MỚI (18/07/2026, Giang yêu cầu — "mục mới Settings > Misc, vào hiện console log") — NẠP
+         SỚM NHẤT CÓ THỂ trong toàn bộ script NỘI BỘ (đứng TRƯỚC CẢ khối i18n dưới đây) — bọc
+         console.log/warn/error để bắt được CÀNG NHIỀU log càng tốt từ suốt quá trình boot, kể cả
+         log của MỌI file nạp SAU nó. Không phụ thuộc gì (không đụng DOM/appState/t()) — an toàn
+         đứng vị trí đầu tiên tuyệt đối. Xem docstring đầu file để biết lý do side-effect top-level. -->
+    <script src="core/debug-console.js?v=20260718v1"></script>
+
+    <!-- =====================================================================
+         0) I18N (batch i18n; tái cấu trúc /lang/ — xem readme/folder-structure.md): toàn bộ
+            default-language keys (LANG_EN_KEYS, ~312 key) đã được CHIA NHỎ thành 5 file patch
+            .js trong /lang/patch/ (không thể dùng .json — project chạy qua file://, không
+            fetch() được file tĩnh). Mỗi patch gán vào 1 biến global riêng (LANG_PATCH_*).
+            /lang/lang.js (đã dời từ js/core/lang.js) GỘP 5 patch lại bằng Object.assign() rồi
+            định nghĩa t()/tFormat() — PHẢI nạp TRƯỚC TOÀN BỘ components/*.js (bước 1 dưới đây),
+            vì các template TPL_* gọi t() NGAY LÚC PARSE (template literal cấp module, chạy đồng
+            bộ ngay khi file được nạp). Thứ tự NỘI BỘ giữa 5 file patch KHÔNG quan trọng (key
+            không trùng nhau giữa các patch), nhưng cả 5 PHẢI nạp TRƯỚC /lang/lang.js.
+            saveLanguagePack/applySavedLanguage/listAvailableLanguages (cần db.js:
+            getLanguagePack/setLanguagePack/deleteLanguagePack/getAllLanguageCodes) ĐỊNH NGHĨA
+            được bình thường ở đây dù db.js nạp sau — JS không resolve tham chiếu lúc định nghĩa
+            hàm, chỉ lúc hàm thực sự được GỌI (luôn sau khi người dùng tương tác, lúc đó toàn bộ
+            trang đã nạp xong từ lâu). Xem comment đầu file /lang/lang.js để biết đầy đủ kiến trúc. -->
+    <script src="lang/patch/patch-common.js?v=20260808v1"></script>
+    <script src="lang/patch/patch-playlist.js?v=20260728v2"></script>
+    <script src="lang/patch/patch-visualizer.js?v=20260811v7"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260808v4"></script>
+    <script src="lang/patch/patch-settings-misc.js?v=20260729v1"></script>
+    <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
+         + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
+    <script src="lang/patch/patch-file-manager.js?v=20260731v4"></script>
+    <!-- MỚI (10/07/2026) — dùng ở CẢ index.html LẪN subtitle-editor.html, xem lang/lang.js. -->
+    <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
+    <!-- MỚI ("Song/Video Unification" v12, gộp Video Editor vào Modal xem Video) — modal xem Video
+         mới sống NGAY trong trang này (KHÔNG còn trang riêng video-editor.html, ĐÃ XOÁ), xem
+         lang/lang.js. -->
+    <script src="lang/patch/patch-video-preview.js?v=20260803v1"></script>
+    <script src="lang/lang.js?v=20260731v1"></script>
+
+    <!-- =====================================================================
+         1) COMPONENTS: mỗi file chỉ định nghĩa một biến TPL_* chứa chuỗi HTML.
+            Chưa có gì được vẽ ra DOM ở bước này.
+         ===================================================================== -->
+    <script src="components/loading-shield.js?v=20260625v8e"></script>
+    <!-- MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings chung 1 container cuộn
+         ngang) — chỉ định nghĩa 2 biến chuỗi mở/đóng khung bọc, xem components/app-view-stack.js. -->
+    <script src="components/app-view-stack.js?v=20260708v3"></script>
+    <script src="components/playlist-view.js?v=20260728v3"></script>
+    <script src="components/visualizer-overlay.js?v=20260708v1"></script>
+    <!-- components/subtitle-modal.js ĐÃ XOÁ (10/07/2026) — Subtitle Editor chuyển sang trang riêng
+         (subtitle-editor.html), KHÔNG còn modal ở trang chính. -->
+    <script src="components/bottom-player.js?v=20260704v1"></script>
+    <!-- Settings Drawer (ver 8): 8 "section" HTML nhỏ PHẢI nạp TRƯỚC settings-drawer.js — file
+         đó chỉ còn là bộ điều phối (object SettingsDrawer) ghép 8 biến TPL_SETTINGS_* dưới đây
+         lại thành TPL_SETTINGS_DRAWER, không tự chứa HTML nào (thứ tự NẠP SCRIPT ở đây KHÔNG cần
+         khớp thứ tự HIỂN THỊ — settings-drawer.js tự sắp theo đúng thứ tự UX, xem file đó). Batch
+         i18n: thêm settings/language.js (TPL_SETTINGS_LANGUAGE — section "Ngôn ngữ"). Ver 12
+         "Multi Media" (CHỐT 03/07/2026): thêm settings/file-manager-section.js
+         (TPL_SETTINGS_FILE_MANAGER — section "File Manager", 3 hàng Song/Photo & Album/Documents).
+         Tái tổ chức (07/07/2026, phản hồi Giang mục 4): THÊM settings/playlist-view.js
+         (TPL_SETTINGS_PLAYLIST_VIEW — Kiểu xem/Sắp xếp, TÁCH khỏi playlist-background.js cũ) —
+         playlist-background.js ĐỔI biến xuất ra thành TPL_SETTINGS_BACKGROUND (chỉ còn Nền). -->
+    <script src="components/settings/playlist-view.js?v=20260707v3"></script>
+    <!-- MỞ ĐẦU THEME THẬT (07/07/2026, phản hồi Giang mục 3) — THAY components/settings/
+         playlist-background.js (TPL_SETTINGS_BACKGROUND, KHÔNG còn mount) bằng theme.js
+         (TPL_SETTINGS_THEME) — 3 card Sáng/Tối/Background loại trừ nhau. -->
+    <script src="components/settings/theme.js?v=20260709v2"></script>
+    <script src="components/settings/file-manager-section.js?v=20260728v1"></script>
+    <script src="components/settings/visualizer-geometry-color.js?v=20260720v1"></script>
+    <script src="components/settings/subtitle-style.js?v=20260707v2"></script>
+    <script src="components/settings/misc.js?v=20260714v1"></script>
+    <script src="components/settings/language.js?v=20260707v2"></script>
+    <script src="components/settings-drawer.js?v=20260708v2"></script>
+    <script src="components/about-drawer.js?v=20260707v1"></script>
+    <!-- MỚI (18/07/2026, Giang yêu cầu) — panel xem console log (Settings > Misc). -->
+    <script src="components/debug-console-drawer.js?v=20260718v1"></script>
+    <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): File
+         Manager KHÔNG còn là 1 overlay cấp cao mở từ Playlist nữa (bỏ patch 02/07/2026) — giờ là
+         3 drawer con (Song/Photo & Album/Documents) mở thẳng từ section "File Manager" vừa thêm
+         ở settings/file-manager-section.js, cùng cấp nav-stack với About/Visualizer Settings
+         Drawer bên dưới. THAY components/storage-drawer.js (About -> Storage cũ, không còn mount). -->
+    <script src="components/file-manager.js?v=20260729v1"></script>
+    <!-- MỚI (29/07/2026, yêu cầu Giang mục 2) — panel "Quản lý lưu trữ" (renderFileManagerStorage
+         ManagementPanelBody()), THAY nội dung thống kê/giải phóng bộ nhớ/dọn file lỗi từng nằm
+         trong renderFileManagerSongPanelBody() (components/file-manager.js, function đó đã xoá) —
+         giờ gộp ĐỦ 4 domain Song/Video/Photo/Document, KHÔNG còn phụ thuộc panel "Song & Video"
+         (đã xoá) nữa. -->
+    <script src="components/file-manager-storage.js?v=20260729v2"></script>
+    <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer, khung TRẮNG dùng CHUNG
+         cho Document List+Reader — THAY components/document-reader.js/document-picker-drawer.js
+         CŨ (ĐÃ XOÁ — xoá tay nếu còn sót trên máy). items.js (mục 3) ĐỘC LẬP với Generic Drawer
+         (xem docstring đầu file) nhưng đặt cạnh nhau cho dễ đọc. -->
+    <script src="components/generic-drawer.js?v=20260714v2"></script>
+    <!-- Nội dung Generic Drawer cho "Edit EQ" (list preset + view sửa) — components/
+         eq-presets-drawer.js, dùng bởi event/workflow/eq-presets.js. -->
+    <script src="components/eq-presets-drawer.js?v=20260811v1"></script>
+    <!-- MỚI (03/08/2026) — khung tĩnh modal xem/sửa Video (Rule 5d, readme/core-function-
+         conventions.md) — CHỈ chuỗi HTML (TPL_VIDEO_PREVIEW), không addEventListener. Đặt cạnh
+         generic-drawer.js (cùng vai trò "component tĩnh"), dù bản thân được clone MỖI LẦN MỞ
+         (core/file-manager/video-ui.js) chứ không mount 1 lần lúc boot như generic-drawer.js. -->
+    <script src="components/video-preview.js?v=20260803v1"></script>
+    <script src="components/items.js?v=20260728v1"></script>
+    <!-- Visualizer/Subtitle Settings Drawer (ver 8 refine, mục 3) — cùng pattern navigation
+         stack với About/Storage Drawer, mở chồng lên #drawer-settings. -->
+    <script src="components/visualizer-settings-drawer.js?v=20260811v2"></script>
+    <script src="components/subtitle-settings-drawer.js?v=20260707v3"></script>
+    <!-- Batch 8, ver 12 "Multi Media" — Slideshow Settings Drawer (nền Visual, nguồn thứ 3). -->
+    <script src="components/slideshow-settings-drawer.js?v=20260806v1"></script>
+    <script src="components/visual-bg-settings-drawer.js?v=20260808v1"></script>
+    <script src="components/visual-bg-gradient-drawer.js?v=20260807v1"></script>
+    <script src="components/visual-bg-video-audio-drawer.js?v=20260808v1"></script>
+    <!-- Panel Settings "Cử chỉ" (cụm gestureSettings) — cùng pattern push/pop Settings Stack. -->
+    <script src="components/gesture-settings-drawer.js?v=20260811v6"></script>
+
+    <!-- =====================================================================
+         2) MAIN (bootstrap): lắp toàn bộ component vào #app-root.
+            Sau dòng này, mọi phần tử (id="...") trong các component đã tồn tại
+            thật sự trong DOM và có thể dùng document.getElementById an toàn.
+         ===================================================================== -->
+    <script src="main.js?v=20260710v1"></script>
+
+    <!-- =====================================================================
+         3) CORE: logic nghiệp vụ. PHẢI nạp sau bước (2).
+            Thứ tự dưới đây giữ đúng thứ tự phụ thuộc / thứ tự xuất hiện gốc.
+            db.js và loading-shield-util.js nạp NGAY SAU dom-refs.js: cần
+            #loading-shield/#loading-text đã có trong DOM (loading-shield-util.js),
+            và phải có mặt TRƯỚC core/playlist/*.js/core/equalizer.js/core/subtitle/*.js/
+            visualizer-control-center.js/about-stats.js/id3-export.js vì các file đó gọi
+            hàm helper định nghĩa trong 2 file này.
+         ===================================================================== -->
+    <!-- service/z-index.js — bảng z-index TẬP TRUNG (dời từ core/config.js, đợt tái cấu trúc
+         state 25/07/2026) — PHẢI nạp TRƯỚC core/modal-choice.js (dùng Z_INDEX.MODAL_CHOICE) và
+         mọi core/ có dùng z-index. Zero dependency — an toàn đứng đầu tiên. -->
+    <script src="service/z-index.js?v=20260731v1"></script>
+    <!-- modalChoice() — hàm dùng chung cho mọi modal "hỏi quyết định" (text + N nút tuỳ biến),
+         tự dựng/xoá DOM động (không cần template tĩnh) — xem comment đầu file để biết cách dùng.
+         NẠP SỚM Ở ĐÂY (trước core/config.js): service/state.js (dòng dưới) yêu cầu modal-choice.js
+         đã sẵn sàng trước nó (dùng cho option notifyUI của appState.set/mutate), đồng thời
+         modal-choice.js tự nó không phụ thuộc gì từ event/store.js, dom-refs.js, sav-logo.js,
+         hay task-manager.js (chỉ dùng document.* sẵn có toàn cục + t()/tFormat() đã nạp từ
+         lang/lang.js ở rất sớm) nên an toàn khi đứng trước toàn bộ nhóm core/ còn lại. -->
+    <script src="core/modal-choice.js?v=20260625v9"></script>
+    <!-- MỚI (03/08/2026) — Undo/Redo PHỔ QUÁT (Rule 3, readme/core-function-conventions.md), không
+         biết gì về nghiệp vụ cụ thể (video/crop/...) — zero-dependency (chỉ thao tác mảng/object
+         thuần), an toàn đứng cạnh modal-choice.js dù nơi dùng ĐẦU TIÊN là Video Preview (nạp ở
+         nhóm CORE chung này, không dính riêng module nào, đúng bản chất "core dùng chung"). -->
+    <script src="core/edit-history.js?v=20260803v1"></script>
+    <!-- MỚI (18/07/2026) — openTimePickerModal() dùng chung (Subtitle Editor + Slideshow interval
+         picker, xem docstring đầu file) — CHỈ phụ thuộc t() (lang/lang.js, đã nạp SỚM ở trên),
+         KHÔNG đụng DOM tĩnh/appState/eventBus nào khác — an toàn đứng ngay sau modal-choice.js. -->
+    <script src="core/time-picker-modal.js?v=20260718v1"></script>
+    <!-- MỚI (08/08/2026) — openSliderInputModal() dùng chung (VBG "Âm thanh Video" là nơi dùng đầu
+         tiên) — CÙNG khuôn time-picker-modal.js, chỉ phụ thuộc t(), an toàn đứng ngay sau nó. -->
+    <script src="core/slider-input-modal.js?v=20260808v3"></script>
+    <!-- core/fatal-error.js + event/listener/app-boot.js (đợt tái cấu trúc state 25/07/2026) —
+         dời NGUYÊN VỊ TRÍ SỚM của global error-handler cũ (trước đây sống trong core/config.js,
+         đăng ký ngay từ đầu để bắt lỗi của mọi core/ nạp SAU nó) — GIỮ ĐÚNG vị trí sớm này, chỉ
+         đổi cách gọi: 2 listener error/unhandledrejection tự kiểm tra `typeof eventBus` — CÓ (sau
+         khi event/bus.js nạp ở khối /event/ cuối tài liệu) thì gửi qua eventBus cho
+         event/router/app-boot.js xử lý; CHƯA CÓ (lỗi xảy ra sớm hơn) thì gọi thẳng
+         _reportFatalError() làm lưới an toàn — xem comment đầy đủ ở event/listener/app-boot.js.
+         Listener DOMContentLoaded trong CÙNG file này thì vị trí không quan trọng (chỉ thực sự
+         chạy sau khi toàn tài liệu đã nạp xong). -->
+    <script src="core/fatal-error.js?v=20260725v1"></script>
+    <script src="event/listener/app-boot.js?v=20260725v1"></script>
+    <!-- service/operation.js — so sánh toán tử (===/!==/>/</>=/<=/in/notIn) DÙNG CHUNG cho
+         event/block.js và event/virtual-machine-state.js (nạp cuối cùng, xem khối /event/ phía
+         dưới). Đặt SỚM ở đây cho cùng nhóm "service/" với service/state.js — không phụ thuộc gì
+         (không đụng DOM/appState/eventBus), an toàn đứng ở bất kỳ đâu TRƯỚC event/bus.js. -->
+    <script src="service/operation.js?v=20260701v1"></script>
+    <!-- service/state.js — TÁI CẤU TRÚC 25/07/2026: giờ CHỈ còn lõi (class AppState + class
+         AppConfig MỚI) — KHÔNG còn tự chứa STATE_SCHEMA/CONST của mọi domain (đã tách ra 18 file
+         service/state/*.js ngay dưới đây). PHẢI nạp TRƯỚC mọi file service/state/*.js (cần
+         AppState.definePackage() đã tồn tại) và core/config.js (cần AppConfig); PHẢI nạp SAU
+         core/modal-choice.js (alertModal, dùng cho option notifyUI). Xem comment đầu file. -->
+    <script src="service/state.js?v=20260725v1"></script>
+    <!-- 18 package STATE theo domain (đợt tái cấu trúc 25/07/2026) — mỗi file tự
+         AppState.definePackage(...) lúc nạp, CHƯA dựng STATE sống (chỉ đăng ký metadata). PHẢI
+         nạp TRƯỚC service/state/record/index.js (dòng registry() cần mọi package đã đăng ký). -->
+    <script src="service/state/playlist.js?v=20260725v1"></script>
+    <script src="service/state/player.js?v=20260725v1"></script>
+    <script src="service/state/visualizer-runtime.js?v=20260725v1"></script>
+    <script src="service/state/visualizer-scenes.js?v=20260725v1"></script>
+    <script src="service/state/three-vortex.js?v=20260725v1"></script>
+    <script src="service/state/three-space.js?v=20260725v1"></script>
+    <script src="service/state/audio-engine.js?v=20260725v1"></script>
+    <script src="service/state/subtitle.js?v=20260725v1"></script>
+    <script src="service/state/shuffle-repeat.js?v=20260725v1"></script>
+    <script src="service/state/visual-bg.js?v=20260806v1"></script>
+    <script src="service/state/video-player-mode.js?v=20260725v1"></script>
+    <script src="service/state/wakelock-tab.js?v=20260725v1"></script>
+    <script src="service/state/auto-switch.js?v=20260725v1"></script>
+    <script src="service/state/listen-stats.js?v=20260725v1"></script>
+    <script src="service/state/app-misc.js?v=20260725v1"></script>
+    <script src="service/state/file-manager.js?v=20260731v1"></script>
+    <script src="service/state/generic-drawer.js?v=20260725v1"></script>
+    <!-- THAY service/state/video-editor.js (ĐÃ XOÁ cùng video-editor.html — "Song/Video
+         Unification" v12, gộp vào Modal xem Video). -->
+    <script src="service/state/video-preview.js?v=20260803v1"></script>
+    <!-- service/state/record/index.js — đăng ký account 'player' (thay đoạn <script> inline cũ)
+         — xem service/state/record/index.js. -->
+    <script src="service/state/record/index.js?v=20260725v1"></script>
+    <!-- core/config.js — TÁI CẤU TRÚC 25/07/2026: giờ CHỈ giữ 3 bản default (viz/slideshow/
+         reader, đã GỘP CHUẨN — xem comment đầu file) + hàm nghiệp vụ thuần (seedConfig/
+         restoreDefaultVizConfig/saveConfig/loadConfig) — KHÔNG còn giữ Z_INDEX/global
+         error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
+         service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
+    <script src="core/config.js?v=20260811v7"></script>
+    <!-- event/store.js (class EventStore) — CHỈ riêng file NÀY trong toàn bộ /event/ được nạp SỚM
+         ở đây, KHÔNG đợi xuống cuối cùng cùng bus/workflow/router/listener. Lý do: playlist/
+         actions.js (core, dòng dưới) cần khai báo `const playlistStore = new EventStore(...)`
+         ngay ở top-level của nó lúc nạp — nếu để event/store.js xuống cuối tuyệt đối (cùng khối
+         /event/ còn lại), playlist/actions.js sẽ ReferenceError vì class EventStore chưa tồn
+         tại tại thời điểm nó cần dùng. event/store.js KHÔNG phụ thuộc eventBus hay bất kỳ gì
+         khác trong /event/ (tự đứng độc lập, xem comment đầu file đó), nên tách riêng lên đây
+         là AN TOÀN — không phá vỡ nguyên tắc "core không cần biết /event/ tồn tại" cho phần CÒN
+         LẠI của /event/ (bus/workflow/router/listener vẫn nạp cuối cùng tuyệt đối như cũ, xem
+         khối "KIẾN TRÚC /event/" ở gần cuối file này). -->
+    <script src="event/store.js?v=20260627v1"></script>
+    <script src="core/dom-refs.js?v=20260730v1"></script>
+    <!-- core/slider-panel-scroll.js (MỚI, 09/07/2026) — 2 hàm dùng CHUNG (getPositionStart/
+         scrollSliderTo) + hằng số SLIDER_PANEL_SCROLL_ESTIMATED_MS cho MỌI khung cuộn ngang kiểu
+         "slider panel" — core/settings-panel-stack-ui.js (ngay dưới) VÀ core/player-controls.js
+         (xa hơn) đều cần 2 hàm này tồn tại sẵn. Core UI thuần, không phụ thuộc gì (không cần
+         dom-refs.js, đặt ngay sau chỉ vì đây là vị trí nhóm CORE bắt đầu). -->
+    <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
+    <!-- Batch D1 (Settings restructure, 06/07/2026) — ngăn xếp panel Settings (core UI thuần,
+         push/pop/reset). VIẾT LẠI 06/07/2026 (slider thật, header nhét vào từng panel). VIẾT LẠI
+         TIẾP 09/07/2026 (rút getPositionStart/scrollSliderTo dùng chung) — CẦN core/dom-refs.js
+         (settingsStackBody/settingsStackPanelMain/closeDrawer, đã nạp ngay trên) + core/slider-
+         panel-scroll.js (đã nạp ngay trên) — KHÔNG cần t()/taskManager (nhận title đã dịch sẵn qua
+         tham số, không tự chờ animation — xem docstring đầu file). ĐỔI TÊN 12/07/2026 (Rule 5c —
+         file này tự tạo panel DOM mới, bắt buộc hậu tố `-ui.js`; xoá thủ công file cũ
+         `core/settings-panel-stack.js` nếu còn trên đĩa). -->
+    <script src="core/settings-panel-stack-ui.js?v=20260717v1"></script>
+    <!-- Logo "SAV" (cụm /event/ "savLogo") — cần biến `savLogo` vừa nạp từ dom-refs.js ngay trên. -->
+    <script src="core/sav-logo.js?v=20260629v1"></script>
+    <!-- TaskManager (Loop/TaskManager) — quản lý TẬP TRUNG mọi setInterval/setTimeout của app
+         (kể cả timeout bắn-1-lần). Nạp NGAY SAU dom-refs.js, TRƯỚC modal-choice.js/db.js và mọi
+         file core khác — hầu hết chúng gọi taskManager.once()/addNew() ngay khi gắn listener lúc
+         parse, nên biến `taskManager` PHẢI tồn tại trước đó. Xem comment đầu file để biết cách dùng.
+         CHUYỂN (04/07/2026, phản hồi Giang mục 2) từ `core/task-manager.js` sang `service/` — dịch
+         vụ hạ tầng, không phải nghiệp vụ, cùng nhóm `service/state.js`/`operation.js`. Vị trí NẠP
+         trong file này KHÔNG đổi (vẫn ngay sau dom-refs.js, chỉ đổi đường dẫn). -->
+    <script src="service/task-manager.js?v=20260720v1"></script>
+    <!-- service/db.js — CHUYỂN từ `core/db.js` cùng lý do trên (dịch vụ hạ tầng IndexedDB thuần). -->
+    <script src="service/db.js?v=20260711v1"></script>
+    <!-- MỚI (03/08/2026) — 2 hạ tầng dùng CHUNG, KHÔNG thuộc riêng module nào (Rule 3b, readme/
+         core-function-conventions.md) — đặt cạnh service/db.js đúng vai trò "service/", không tách
+         nhóm theo nơi dùng đầu tiên (Video Preview chỉ là nơi dùng ĐẦU TIÊN, không phải chủ sở
+         hữu). component-dynamic.js: clone template (components/*.js) + điền slot. blob-url.js:
+         tạo/thu hồi Object URL cho Blob. Cả 2 zero-dependency (chỉ dùng API built-in), an toàn nạp
+         sớm ngay đây. -->
+    <script src="service/component-dynamic.js?v=20260803v1"></script>
+    <script src="service/blob-url.js?v=20260803v1"></script>
+    <!-- MỚI (10/07/2026) — TÁCH RIÊNG khỏi service/db.js (phản hồi Giang: db.js chỉ nên thuần
+         IndexedDB, cipher không phải I/O). Dùng ở CẢ index.html LẪN subtitle-editor.html. -->
+    <script src="service/song-key-cipher.js?v=20260710v1"></script>
+    <!-- Ver 12 "Multi Media" (plan-v12-multimedia.md mục 4.b1) — Folder nhạc (File Manager → Song).
+         folder.js CẦN core/db.js (slugify + CRUD folders/folder_song/songs). folder-picker-ui.js
+         CẦN t() (lang/lang.js, đã nạp từ rất sớm) — không phụ thuộc folder.js (chỉ dựng DOM +
+         callback do nơi gọi truyền vào). -->
+    <script src="core/file-manager/folder.js?v=20260728v1"></script>
+    <script src="core/file-manager/folder-picker-ui.js?v=20260731v1"></script>
+    <!-- MỚI (14/07/2026, tích hợp Generic Drawer/Item/windowing) — pagination DÙNG CHUNG, KHÔNG
+         phụ thuộc gì (core THUẦN) — dùng bởi danh sách folder (10 folder/trang) VÀ album (ver12
+         Batch 5 mục 6e đã dời Folder List sang Generic Drawer — xem event/workflow/file-manager-
+         folder-browser.js — comment cũ ở đây từng trỏ nhầm sang file-manager-song.js đã xoá). -->
+    <script src="core/pagination.js?v=20260714v1"></script>
+    <!-- core/file-manager/nav.js ĐÃ XOÁ khỏi đây (Batch D7, batch CUỐI Nhóm D) — file đó giờ
+         RỖNG (0 hàm, cả 4 khu vực Song/Folder Detail/Photo/Documents đã chuyển hết sang push/pop
+         động) — XOÁ TAY file core/file-manager/nav.js, không tự động xoá.
+         core/file-manager/folder-list-ui.js ĐÃ XOÁ (Batch 5, "Song/Video Unification" mục 6e) —
+         danh sách folder giờ là grid Generic Drawer, tái dùng components/items.js
+         (itemTemplateFolderTile), xem event/workflow/file-manager-folder-browser.js. -->
+    <!-- Phase 2 (mục 1b/c, CHỐT 03/07/2026) — Folder Detail Drawer. CẦN core/file-manager/folder.js
+         (getFolderSongKeys) + core/dom-refs.js (đã nạp ngay trên). -->
+    <script src="core/file-manager/folder-detail-ui.js?v=20260714v3"></script>
+    <!-- Batch 3 (03/07/2026) — Ảnh & Album. image.js/album.js độc lập với folder.js (không dùng
+         chung hàm nào ngoài slugify()/getMeta()/setMeta() ở core/db.js) — thứ tự giữa 2 file này
+         với nhau không quan trọng, chỉ cần SAU core/db.js. photo-ui.js CẦN dom-refs.js (đã nạp ở
+         block DOM refs phía trên) + image.js/album.js (dùng trong workflow, không tham chiếu trực
+         tiếp ở đây, nhưng gom nhóm cho dễ đọc). -->
+    <script src="core/file-manager/image.js?v=20260731v2"></script>
+    <script src="core/file-manager/album.js?v=20260703v1"></script>
+    <script src="core/file-manager/photo-ui.js?v=20260731v9"></script>
+    <!-- MỚI (v13) — picker Generic Drawer DÙNG CHUNG cho lưới ảnh lẫn lưới video. -->
+    <script src="core/media-picker-drawer-helper.js?v=20260807v1"></script>
+    <!-- MỚI (04/08/2026) — Zoom mode modal xem ảnh dùng core/media-transform.js (gộp crop-selector.js
+         + image-zoom.js, xem comment đầy đủ ở vị trí nạp bên dưới, cùng cụm Video Preview). -->
+    <!-- MỚI (31/07/2026) — Edit mode modal xem ảnh. Core thuần xử lý pixel (decode/adjust/sharpen),
+         port từ prototype "Lumina Pro" Giang cung cấp — CHỈ phần Engine, không lấy UI, xem
+         core/photo-editor-engine.js. Cùng lý do gom cạnh đây như core/media-transform.js. -->
+    <script src="core/photo-editor-engine.js?v=20260731v2"></script>
+    <!-- GỘP (04/08/2026, phản hồi Giang "gộp crop, zoompan vào 1 file core, workflow chung nhất")
+         core/crop-selector.js + core/image-zoom.js + cycleRotation() mới → core/media-transform.js
+         — DÙNG CHUNG Photo Edit mode (event/workflow/file-manager-photo.js) + Zoom mode xem Ảnh +
+         modal xem Video (core/file-manager/video-ui.js::openVideoPreviewModal(),
+         event/workflow/video-preview.js). Tên hàm giữ nguyên như 2 file cũ, nơi gọi không cần sửa
+         gì ngoài đường dẫn <script> này. -->
+    <script src="core/media-transform.js?v=20260804v1"></script>
+    <!-- MỚI ("Song/Video Unification" v12) — 4 core của Video Editor NLE cũ (video-editor.html,
+         ĐÃ XOÁ) GIỮ LẠI để dùng cho modal xem Video mới (core/file-manager/video-ui.js::
+         openVideoPreviewModal(), event/workflow/video-preview.js) — Cắt 1 đoạn/Crop/Rotate/Trích
+         xuất ảnh. 4 core CHỈ phục vụ NLE đa track/đa đoạn (timeline-calc.js/preview-draw.js/
+         media-gain.js/audio-sync.js) ĐÃ XOÁ THEO cùng đợt, KHÔNG nạp ở đây. Mediabunny (thư viện
+         WebCodecs, CDN) tải LƯỜI lúc thật sự mở modal (event/workflow/video-preview.js::
+         _ensureMediabunnyLoaded()), KHÔNG nạp <script> cứng ở đây — tránh nặng tải trang chính
+         cho người không dùng tính năng Video. -->
+    <script src="core/video-editor/compat-guard.js?v=20260802v1"></script>
+    <script src="core/video-editor/webcodecs-engine.js?v=20260802v1"></script>
+    <script src="core/video-editor/filmstrip.js?v=20260722v1"></script>
+    <!-- MỚI (21/07/2026) — File Manager -> Video. Độc lập với image.js/album.js/document.js (không
+         dùng chung hàm nào ngoài slugify()/service/db.js) — chỉ cần SAU service/db.js.
+         core/file-manager/video-ui.js ĐÃ XOÁ HẲN (Batch 6, mục 6d, phản hồi Giang — modal "Chi
+         tiết" riêng nó từng chứa đã bỏ, dùng chung modal Playlist đã video-aware). -->
+    <script src="core/file-manager/video.js?v=20260728v2"></script>
+    <script src="core/file-manager/video-ui.js?v=20260803v1"></script>
+    <!-- Tool migration thumbnail 320x320 (tools/migrate-video-thumbs-320.js, Batch 3) — Giang xác
+         nhận đã chạy xong tốt, ĐÃ XOÁ (batch 4, 27/07/2026): dòng <script> này + file
+         tools/migrate-video-thumbs-320.js (xoá tay thủ công, xem thông báo bàn giao). -->
+    <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer (core UI thuần), CẦN
+         core/dom-refs.js (đã nạp ngay trên: genericDrawerOverlay/Panel/Header/Body). Đặt cạnh
+         nhóm Documents cho dễ đọc dù bản thân KHÔNG phụ thuộc gì từ document.js/document-ui.js. -->
+    <script src="core/generic-drawer.js?v=20260714v3"></script>
+    <!-- GỘP LẠI (31/07/2026, Giang chỉ ra "xây Generic Drawer mà vẫn phải nhân bản là vô lý") — 2
+         helper Workflow (closeFully()/buildSimpleHeaderHtml()) từng chép tay ở 7 file khác nhau
+         (document-reader/file-manager-photo/file-manager-video/file-manager-folder-browser/
+         playlist/image-edit/slideshow), gộp về 1 chỗ. NẠP NGAY SAU core/generic-drawer.js, TRƯỚC
+         mọi Workflow ở dưới có dùng tới. -->
+    <script src="event/workflow/generic-drawer-helpers.js?v=20260731v2"></script>
+    <!-- ĐỔI TÊN (04/08/2026) từ event/workflow/crop-ratio-helpers.js, khớp core/media-transform.js
+         (dải tỉ lệ Crop dùng CHUNG — hiện Video Preview dùng, Photo Edit sẵn sàng dùng sau nếu thêm
+         dải tỉ lệ) — CẦN core/media-transform.js (đã nạp ở nhóm CORE, dòng ~578, TRƯỚC dòng này).
+         Đặt cạnh generic-drawer-helpers.js, cùng vai trò "Workflow helper dùng chung nhiều domain". -->
+    <script src="event/workflow/media-transform-helpers.js?v=20260804v1"></script>
+    <!-- MỚI (rewrite Photo/Album, Giang yêu cầu tách dropdown menu 3 chấm để tái dùng) — component
+         dùng CHUNG cho mọi nút "..." cần menu ngắn neo cạnh nút (KHÁC Generic Drawer — bottom sheet
+         toàn màn hình). Áp dụng đầu tiên cho Album List (event/workflow/file-manager-photo.js). -->
+    <script src="core/dropdown-menu.js?v=20260716v1"></script>
+    <!-- Documents — CRUD + lọc HTML whitelist (document.js, VIẾT LẠI 10/07/2026 Nhóm A — bỏ
+         Markdown/Turndown), hàm dựng UI + surface Sửa dùng chung (document-ui.js, VIẾT LẠI cùng
+         đợt — bỏ Toast UI Editor/kỹ thuật CSS multi-column cũ). document-pagination.js (MỚI, core
+         nghiệp vụ RIÊNG — cắt HTML thành slot cho Reader, xem readme Nhóm A). Không phụ thuộc lẫn
+         nhau, thứ tự giữa 3 file không quan trọng. -->
+    <script src="core/file-manager/document.js?v=20260710v2"></script>
+    <script src="core/file-manager/document-ui.js?v=20260710v5"></script>
+    <script src="core/file-manager/document-pagination.js?v=20260710v2"></script>
+    <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager (registry) —
+         CỐ Ý đặt cuối cùng trong nhóm core/file-manager/ (mọi tính năng khác đã có mặt trước đó,
+         registry chỉ cần service/db.js). -->
+    <script src="core/file-manager/cleanup.js?v=20260704v1"></script>
+    <!-- Batch 8, ver 12 "Multi Media" — Slideshow nền Visual (hàm THUẦN, xem comment đầu file).
+         FIX (04/07/2026, Rule 3 siết chặt) — KHÔNG còn dùng service/task-manager.js nữa (taskManager
+         giờ CẤM trong core, chỉ Workflow dùng) — không phụ thuộc gì trong nhóm này (mọi phần tử DOM
+         nhận qua tham số, không tự getElementById). -->
+    <script src="core/file-manager/slideshow.js?v=20260704v1"></script>
+    <!-- Resume State Storage (ver 10 refine #3) — lưu/đọc trạng thái phát qua localStorage khi tab
+         bị ẩn, dùng để "reload trang thật" lúc quay lại tab thay cho cố giữ runtime cũ sống sót
+         qua việc ẩn tab (xem comment đầu file). PHẢI nạp TRƯỚC wakelock.js (file đó gọi
+         saveResumeStateToLocalStorage()/readResumeStateFromLocalStorage() ngay trong listener
+         visibilitychange/pagehide/pageshow). -->
+    <script src="core/resume-state-storage.js?v=20260625v10"></script>
+    <script src="core/upload-validation.js?v=20260625v8e"></script>
+    <script src="core/listen-stats.js?v=20260625v10"></script>
+    <script src="core/loading-shield-util.js?v=20260625v10"></script>
+    <script src="core/webgl/three-vortex.js?v=20260719v1"></script>
+    <!-- core/webgl/three-space.js — VIẾT LẠI HOÀN TOÀN (20/07/2026, plan-space-galaxy.md Phần B,
+         "Galaxy Journey") — không còn rỗng. Engine dùng CHUNG canvas/renderer với Vortex (dòng
+         script ngay trên) — KHÔNG tạo WebGLRenderer/resize listener riêng, xem initThreeSpace(). -->
+    <script src="core/webgl/three-space.js?v=20260721v11"></script>
+    <script src="core/visualizer-control-center.js?v=20260806v1"></script>
+    <!-- Core thuần: phân loại toạ độ chạm cho hệ thống cử chỉ (event/workflow/visualizer-gesture.js). -->
+    <script src="core/visualizer-gesture.js?v=20260811v4"></script>
+    <!-- Icon loa Volume HUD, 5 mốc 0-100% (event/workflow/volume-hud.js). -->
+    <script src="core/volume-hud.js?v=20260811v1"></script>
+    <!-- MỚI (v13 Batch A) — Core THUẦN domain "Visual Background" (gộp video nền/ảnh nền tĩnh/
+         slideshow). Nạp SAU service/state.js + core/dom-refs.js. -->
+    <script src="core/visual-bg.js?v=20260808v1"></script>
+    <!-- core/subtitle/subtitles.js ĐÃ CHUYỂN (10/07/2026) — CHỈ nạp ở subtitle-editor.html giờ
+         (soạn phụ đề chuyển sang trang riêng). core/subtitle/subtitle-display.js (hiển thị phụ đề
+         lúc phát, đọc appState.get('subtitles')) và subtitle-style-settings.js (toggle nhanh)
+         GIỮ NGUYÊN Ở ĐÂY — không liên quan gì tới việc SOẠN nội dung.
+    <!-- core/equalizer.js (UI slider EQ tĩnh cũ) ĐÃ XOÁ HẲN — hệ thống preset EQ mới lưu DB, xem
+         core/eq-presets.js (nạp ở nhóm CORE Audio/Video, cùng khu core/audio-engine.js). -->
+    <script src="core/subtitle/subtitle-style-settings.js?v=20260707v2"></script>
+    <script src="core/visualizer/visualizer-misc-settings.js?v=20260629v1"></script>
+    <script src="core/subtitle/subtitle-display.js?v=20260625v10"></script>
+    <script src="core/tab-hide-reload.js?v=20260630v1"></script>
+    <script src="core/wakelock.js?v=20260630v1"></script>
+    <script src="core/color-utils.js?v=20260717v1"></script>
+    <script src="core/canvas-scene-setup.js?v=20260625v8e"></script>
+    <!-- MỚI (23/07/2026, refactor phản hồi Giang) — normalizeSongName()/songMatchesQuery() dùng
+         CHUNG Playlist + Video Editor, tách khỏi core/playlist/state.js để không kéo appState theo
+         khi module Video Editor cần tái dùng. PHẢI nạp TRƯỚC core/playlist/order.js. -->
+    <script src="core/song-search.js?v=20260723v1"></script>
+    <!-- Playlist tách module (v6): state -> order -> render -> loader -> actions -> main.
+         PHẢI nạp TRƯỚC player-controls.js (file đó tham chiếu playlistOrder/displayOrder/
+         recomputeDisplayOrder/renderPlaylistDiff...). main.js (object-function) gọi PlaylistMain.init()
+         ngay khi nạp — mọi #id đã có sẵn trong DOM vì js/main.js đã mount component trước nhóm core. -->
+    <script src="core/playlist/state.js?v=20260625v8e"></script>
+    <script src="core/playlist/order.js?v=20260703v1"></script>
+    <script src="core/playlist/render.js?v=20260712v2"></script>
+    <script src="core/playlist/loader.js?v=20260728v2"></script>
+    <script src="core/playlist/actions.js?v=20260730v1"></script>
+    <script src="core/playlist/main.js?v=20260625v10"></script>
+    <!-- Phase 2 (bước 3 scoping, CHỐT 03/07/2026) — loadAllSongs()/loadSongsFromFolder(), viết
+         MỚI hoàn toàn, KHÔNG đụng loader.js — chỉ lọc trên playlistCache đã có sẵn trong RAM.
+         CẦN core/file-manager/folder.js (getFolderSongKeys) + core/db.js (getFolderSongMap). -->
+    <script src="core/playlist/scope.js?v=20260714v2"></script>
+    <!-- Ver 12 "Multi Media" (plan-v12-multimedia.md mục 4.b1) — "Chọn nhiều". selection.js/
+         bulk-actions.js đều là hàm THUẦN (không gọi buildSongNode/renderPlaylistFull/
+         renderPlaylistDiff/removeSongFromAllFolders... — các lời gọi core void nối tiếp đó đã dời
+         hết sang event/workflow/playlist.js sau đợt rà soát Rule 3, xem comment đầu 2 file), chỉ
+         cần core/dom-refs.js (selectionActionBar...)/service/state.js (appState). Đặt ở đây (cuối
+         nhóm playlist) cho gọn, không bắt buộc thứ tự nào khác trong nhóm CORE. -->
+    <script src="core/playlist/selection.js?v=20260702v3"></script>
+    <script src="core/playlist/bulk-actions.js?v=20260702v2"></script>
+    <!-- core/player-controls.js (rút gọn ver 11): TÁCH RA khỏi đây phần "Settings hiệu ứng/màu/
+         EQ/volume" — giờ ở visualizers/visualizer-display.js (khu VISUALIZERS dưới), vì đúng
+         ranh giới nghiệp vụ là cấu hình Visualizer, không phải điều khiển phát nhạc. Xem comment
+         đầu core/player-controls.js để biết đầy đủ lý do tách + đảm bảo thứ tự nạp an toàn. -->
+    <script src="core/player-controls.js?v=20260730v1"></script>
+    <!-- MỚI (21/07/2026, mục 4 — Video Player mode) — core/video-player.js: tính next/prev key,
+         mutate state, toggle UI nút. Đặt CẠNH core/player-controls.js cho dễ đọc (2 tính năng liên
+         quan chặt, dù KHÔNG đụng chung file nào). NẠP SAU service/state.js (đã nạp từ đầu). -->
+    <script src="core/video-player.js?v=20260811v1"></script>
+    <!-- Chụp khung hình bgVideoElement đang phát -> lưu Photo (nút Control Center, Video Player
+         mode) — di dời từ core/video-editor/frame-extract.js (nút "Trích xuất ảnh" trong modal
+         Video Preview đã bỏ hẳn), dùng chung bởi workflowVideoPreview._buildThumbForBlob(). -->
+    <script src="core/video-player-capture.js?v=20260810v1"></script>
+    <!-- Preset EQ lưu DB (meta.eqPresets) — THAY EQ_PRESETS tĩnh cũ. PHẢI nạp TRƯỚC
+         core/audio-engine.js (setupAudioContext() gọi findEqPresetById()/applyEqGains()). -->
+    <script src="core/eq-presets.js?v=20260811v1"></script>
+    <script src="core/audio-engine.js?v=20260720v1"></script>
+    <script src="core/app-cleanup.js?v=20260630v1"></script>
+    <!-- GỘP (10/08/2026) toggle ẩn/hiện Stats panel + 3 nút chrome (bottom player/playlist/mở
+         Control Center, mỗi cái 1 toggle RIÊNG trong Settings -> Hiển thị Visualizer — bỏ hẳn
+         "full mode" gộp chung) vào 1 file — PHẢI nạp TRƯỚC audio-analysis.js (đọc biến
+         isStatsPanelVisible qua appState, không đụng file này trực tiếp, nhưng giữ thứ tự cũ). -->
+    <script src="core/visualizer-ui-visibility.js?v=20260810v2"></script>
+    <script src="core/audio-analysis.js?v=20260721v2"></script>
+    <script src="core/rubik-math.js?v=20260625v8e"></script>
+    <script src="core/about-stats.js?v=20260706v1"></script>
+    <!-- Khắc phục sự cố (ver 10 refine, bổ sung) — "Khởi động lại app"/"Khôi phục cài đặt mặc
+         định" trong Settings. PHẢI nạp SAU dom-refs.js/main.js (cần btnRestartApp/btnRestoreDefaults
+         đã có ref + HTML thật đã chèn), resume-state-storage.js, config.js (saveConfig/loadConfig
+         giờ ở đây), modal-choice.js. Xem comment đầu file app-recovery.js. -->
+    <script src="core/app-recovery.js?v=20260714v1"></script>
+    <!-- Settings "Ngôn ngữ" (batch i18n; tái cấu trúc /lang/ — đã dời từ js/core/language-settings.js
+         sang lang/language-settings.js, nội dung KHÔNG đổi, chỉ đổi đường dẫn) — xử lý
+         <select>/upload/xóa ngôn ngữ. PHẢI nạp SAU dom-refs.js/main.js (cần ref DOM của
+         select/input/button + HTML thật đã chèn), lang/lang.js (cần saveLanguagePack/
+         applySavedLanguage/listAvailableLanguages/applyLanguageToDom/currentLangCode — đã nạp
+         từ đầu <body>, luôn có mặt), db.js (cần deleteLanguagePack), modal-choice.js (cần
+         modalChoice() hỏi xác nhận trước khi xóa). Xem comment đầu file lang/language-settings.js. -->
+    <script src="lang/language-settings.js?v=20260627v1"></script>
+    <script src="core/id3-export.js?v=20260625v8e"></script>
+    <script src="core/storage-manager.js?v=20260729v2"></script>
+
+    <!-- =====================================================================
+         4) VISUALIZERS: hàm vẽ canvas dùng chung (core/visualizer/draw/, mỗi hàm 1 file, MỚI
+            19/07/2026 — trước đây gộp 1 file draw-helpers.js), từng visual riêng theo
+            file trong types/, rồi cuối cùng vòng lặp render chính (draw-visualizer.js) — file
+            này phải nạp SAU CÙNG vì nó tham chiếu tới các hàm draw* định nghĩa ở các file trên.
+         ===================================================================== -->
+    <!-- visualizers/visualizer-display.js (ver 11, MỚI — tách từ core/player-controls.js): Settings
+         hiệu ứng hình ảnh/màu/EQ/volume + nút Cycle hiệu ứng (#btn-cycle-mode). Đặt ĐẦU khu
+         VISUALIZERS (không cần đứng sau core/visualizer/draw/*.js/types/* — không tham chiếu chúng
+         lúc parse, chỉ trong callback lazy). PHẢI nạp SAU: core/dom-refs.js (ref DOM mọi
+         select/slider/toggle), core/config.js (EQ_PRESETS, APP_CONFIG), core/webgl/three-vortex.js
+         (initThreeJS, updateVortexVisibility), core/canvas-scene-setup.js (allocateBuffers,
+         resizeCanvas), core/upload-validation.js, core/loading-shield-util.js, core/modal-choice.js,
+         core/color-utils.js (updatePlaylistBg, updateDOMBackground) — TẤT CẢ đã nạp từ khu CORE
+         ở trên, nên an toàn đặt ở đây. Xem comment đầu file để biết đầy đủ. -->
+    <script src="core/visualizer/visualizer-display.js?v=20260811v1"></script>
+    <!-- Tự động đổi hiệu ứng Visualizer theo thời gian (ver 10, ĐỔI vị trí ver 11: trước đây nạp
+         ngay sau player-controls.js ở khu CORE — giờ PHẢI nạp SAU visualizer-display.js vì file
+         đó định nghĩa updateTypeUI/saveConfig mà auto-switch-visual.js cần, xem comment đầu file
+         auto-switch-visual.js) và sau task-manager.js (cần taskManager, đã nạp từ khu CORE). -->
+    <script src="core/auto-switch-visual.js?v=20260706v1"></script>
+    <!-- MỚI (19/07/2026, yêu cầu Giang) — core/visualizer/draw-helpers.js (file gộp) TÁCH thành 4
+         file riêng, mỗi hàm 1 file, trong core/visualizer/draw/ — thứ tự nạp giữa 4 file này KHÔNG
+         quan trọng (không phụ thuộc lẫn nhau, giống types/*.js). XOÁ TAY file cũ
+         core/visualizer/draw-helpers.js. -->
+    <script src="core/visualizer/draw/water-drop.js?v=20260719v1"></script>
+    <script src="core/visualizer/draw/window-frame.js?v=20260719v1"></script>
+    <script src="core/visualizer/draw/space-collision-flash.js?v=20260719v2"></script>
+    <script src="core/visualizer/draw/flying-note.js?v=20260719v1"></script>
+    <script src="core/visualizer/types/bar.js?v=20260625v8e"></script>
+    <script src="core/visualizer/types/lightning.js?v=20260625v8e"></script>
+    <script src="core/visualizer/types/rubik.js?v=20260625v8e"></script>
+    <script src="core/visualizer/types/vortex.js?v=20260625v8e"></script>
+    <!-- core/visualizer/types/space.js — VIẾT LẠI HOÀN TOÀN (20/07/2026, plan-space-galaxy.md
+         Phần B) — không còn rỗng. Vài hàm Core nhỏ chạy MỖI FRAME (camera/chain/render/dust),
+         gọi bởi event/workflow/visualizer-render.js::_tickSpace() — xem đầu file để biết quy tắc
+         "không hàm nào gọi hàm khác" áp dụng CẢ 2 file core/webgl/three-space.js lẫn file này. -->
+    <script src="core/visualizer/types/space.js?v=20260721v10"></script>
+    <script src="core/visualizer/types/black-hole.js?v=20260811v1"></script>
+    <script src="core/visualizer/types/rain.js?v=20260811v1"></script>
+    <!-- draw-visualizer.js GIẢI THỂ HOÀN TOÀN (0 byte, 20/07/2026, plan-space-galaxy.md Phần A) —
+         vai trò dispatch dời hết sang event/workflow/visualizer-render.js (script ngay dưới, NẠP
+         SAU CÙNG trong khu VISUALIZERS vì tham chiếu tới mọi hàm draw*/type*/webgl* ở trên). Tag
+         GIỮ NGUYÊN vị trí (file rỗng vô hại) để không đổi thứ tự nạp phần còn lại của index.html. -->
+    <script src="core/visualizer/draw-visualizer.js?v=20260720v1"></script>
+    <!-- event/workflow/visualizer-render.js (MỚI, plan-space-galaxy.md Phần A/B) — Workflow DUY
+         NHẤT sở hữu vòng lặp render (taskManager mode `raf`, MỚI — xem service/task-manager.js).
+         Điểm khởi động thật: core/audio-engine.js::setupAudioContext() gọi
+         workflowVisualizerRender.start() (đã nạp ở khu CORE phía trên — an toàn vì start() chỉ
+         THỰC SỰ chạy lúc người dùng phát bài đầu tiên, luôn SAU khi toàn bộ tài liệu — bao gồm
+         file này — đã parse xong). Đặt Ở ĐÂY (thay vì trong /event/ phía dưới) vì đây thuộc nhóm
+         "vòng lặp render 60fps tự taskManager", KHÔNG qua eventBus/Router — khác bản chất hẳn với
+         khối /event/ Listener→Router→Workflow bên dưới (xem readme/event-bus-flow.md). -->
+    <script src="event/workflow/visualizer-render.js?v=20260811v1"></script>
+
+
+    <!-- =====================================================================
+         KIẾN TRÚC /event/ (thử nghiệm) — NẠP CUỐI CÙNG TUYỆT ĐỐI, SAU TẤT CẢ js/* (kể cả
+         js/visualizers/*). Lý do: mọi router/workflow ở đây CHỈ GỌI LẠI các hàm core đã được
+         định nghĩa từ toàn bộ khối js/* phía trên — không có lý do gì để bất kỳ file js/* nào
+         phải biết tới /event/ tồn tại, nên /event/ luôn đứng sau, không chen vào giữa.
+         An toàn về thứ tự: mọi <script> thường (không async/defer) chạy ĐỒNG BỘ đúng thứ tự xuất
+         hiện — draw-visualizer.js (ngay trên) chỉ ĐĂNG KÝ 'DOMContentLoaded' (chưa CHẠY logic bên
+         trong), nên các dòng eventBus.register(...) dưới đây luôn hoàn tất TRƯỚC KHI
+         'DOMContentLoaded' thực sự bắn ra và bất kỳ logic khởi động nào của app được gọi.
+
+         THỨ TỰ NỘI BỘ trong khối này, đúng quy tắc đã thống nhất — "Workflow nạp trước -> router
+         đăng ký tiếp -> listener ở cuối, vì các function đã nạp trước đó":
+           1. event/bus.js             — TỔNG ĐÀI, phải có trước để router gọi register() được.
+              (event/store.js KHÔNG nằm trong khối này — đã nạp SỚM hơn nhiều, ngay sau
+              core/config.js, vì playlist/actions.js [core] cần `new EventStore(...)` ngay lúc
+              nạp. Xem comment chi tiết ở dòng nạp event/store.js phía trên.)
+           1b. event/block.js + event/virtual-machine-state.js — hạ tầng rẽ nhánh theo state (ver
+              12), nạp ngay sau bus.js, TRƯỚC toàn bộ workflow/router/listener theo cụm vì có thể
+              bị dùng xuyên nhiều cụm khác nhau, không gắn cố định 1 vị trí cụm nào:
+                - event/block.js: DATA đăng ký chặn msg.type qua eventBus.registerBlock() — hiện
+                  ĐANG RỖNG (chưa có entry nào), file tồn tại chỉ để CÓ SẴN chỗ đăng ký khi rà soát
+                  xong phạm vi migrate. Rỗng thì vô hại tuyệt đối (registerBlock không được gọi lần
+                  nào -> `blocks` Map rỗng -> `isBlocked()` luôn false -> send() chạy y hệt trước
+                  khi có file này).
+                - event/virtual-machine-state.js: object `VirtualMachineState` KHÔNG tự chạy gì lúc
+                  nạp (chỉ định nghĩa method `run()`, chờ router gọi tới) -> có mặt hay không cũng
+                  không ảnh hưởng luồng hiện tại cho tới khi 1 router thật sự gọi `run()`.
+           2. event/workflow/*.js      — chuỗi gọi hàm core, PHẢI có trước vì router gọi vào đó.
+           3. event/router/*.js        — đăng ký với bus (eventBus.register(...)) NGAY lúc nạp.
+           4. event/listener/*.js      — addEventListener cuối cùng, vì cần eventBus.send() (1) và
+                                          router đã đăng ký xong (3) sẵn sàng nhận message.
+    -->
+    <script src="event/bus.js?v=20260703v1"></script>
+    <script src="event/block.js?v=20260731v3"></script>
+    <script src="event/virtual-machine-state.js?v=20260701v1"></script>
+    <!-- Cụm "settingsStackNav" (Batch D1, Settings restructure, 06/07/2026) — nút Back DÙNG CHUNG
+         cho MỌI panel con Settings (About/Visualizer/.../File Manager, bất kể panel nào đang mở).
+         CẦN core/settings-panel-stack-ui.js (đã nạp ở nhóm CORE phía trên). NẠP TRƯỚC settingsMisc
+         (settingsMisc.openAbout() gọi pushSettingsPanel() — không thật sự phụ thuộc thứ tự, nhưng
+         đặt Back trước Open cho xuôi mạch đọc). -->
+    <script src="event/workflow/settings-stack-nav.js?v=20260717v1"></script>
+    <script src="event/router/settings-stack-nav.js?v=20260706v1"></script>
+    <script src="event/listener/settings-stack-nav.js?v=20260706v2"></script>
+    <!-- Cụm "settingsMisc" (ver 11, patch 5): gộp aboutDrawer + appRecovery — gộp vì mỗi nhánh quá
+         nhỏ để xứng đáng 1 router/listener riêng. Ver 12 "Multi Media": nhánh storageDrawer đã DỜI
+         sang cụm "fileManagerSong" ngay dưới (plan-v12-multimedia.md mục 3). Batch D1: aboutDrawer
+         giờ CẦN workflow (push panel + tính thống kê), xem event/workflow/settings-misc.js. -->
+    <script src="core/settings-misc-ui.js?v=20260731v1"></script>
+    <script src="event/workflow/settings-misc.js?v=20260731v1"></script>
+    <script src="event/router/settings-misc.js?v=20260731v1"></script>
+    <script src="event/listener/settings-misc.js?v=20260714v1"></script>
+    <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): cụm
+         "fileManager" (khung điều hướng cấp cao cũ) ĐÃ BỎ HẲN — thay bằng 3 cụm ĐỘC LẬP, mỗi cụm
+         tự mở/đóng drawer con của mình (folder.js/nav.js nạp trước, xem thứ tự script core/ phía
+         trên): "fileManagerSong" (folder CRUD + quản lý dung lượng, DỜI từ settingsMisc/
+         storageDrawer cũ, giữ nguyên vị trí nạp), "fileManagerPhoto" và "fileManagerDocument"
+         (MỚI — hiện chỉ có mở/đóng, nội dung thật b2/b3/b4 code sau). -->
+    <!-- Phase 2 (mục 2, CHỐT 03/07/2026) — workflowPlaylistScope, dùng CHUNG cho 3 nơi đổi scope
+         (Áp dụng cho Playlist / boot khôi phục / xoá folder đang active) — CẦN core/playlist/
+         scope.js (loadAllSongs/loadSongsFromFolder) + core/db.js (setMeta) + core/playlist/order.js
+         + core/playlist/render.js (đã nạp ở nhóm CORE, phía trên nhóm EVENT này). -->
+    <script src="event/workflow/playlist-scope.js?v=20260703v3"></script>
+    <!-- Batch D5 (Settings restructure, 06/07/2026) — Song & Video nay push/pop động, CẦN
+         core/storage-manager.js (đã đổi sang nhận phần tử qua tham số, đã nạp ở nhóm CORE).
+         SỬA (Batch 5, "Song/Video Unification" mục 6e) — Folder Detail (folder-detail-ui.js) KHÔNG
+         còn "2 cấp push/pop" — quản lý folder giờ ở Generic Drawer riêng (event/workflow/
+         file-manager-folder-browser.js, nạp NGAY DƯỚI).
+         XOÁ (29/07/2026, yêu cầu Giang) — event/workflow/file-manager-song.js + event/router/
+         file-manager-song.js (panel "Song & Video" cũ) ĐÃ XOÁ HẲN, THAY bằng event/workflow/
+         file-manager-storage.js + event/router/file-manager-storage.js ngay dưới (panel "Quản lý
+         lưu trữ" MỚI, gộp 4 domain) — CẦN THÊM core/file-manager/image.js, core/file-manager/
+         album.js, core/file-manager/document.js (đã nạp ở nhóm CORE), components/file-manager-
+         storage.js (template, đã nạp ở nhóm COMPONENTS). -->
+    <script src="event/workflow/file-manager-storage.js?v=20260729v2"></script>
+    <script src="event/router/file-manager-storage.js?v=20260729v2"></script>
+    <!-- MỚI (Batch 5, "Song/Video Unification" mục 6e) — Folder Browser, Generic Drawer List↔Read
+         THAY Folder List/Detail kiểu Settings-panel-stack cũ. CẦN core/generic-drawer.js,
+         components/items.js (renderItemList/itemTemplateFolderTile/buildAddFolderTileHtml),
+         core/file-manager/folder.js, core/file-manager/folder-detail-ui.js (renderFolderDetailSongList/
+         setFolderDetailTitle — TÁI DÙNG NGUYÊN), core/file-manager/folder-picker-ui.js
+         (openRenameFolderModal), core/pagination.js, event/workflow/playlist-scope.js — TẤT CẢ đã
+         nạp ở nhóm CORE/ngay trên. PHẢI nạp TRƯỚC event/listener/file-manager-storage.js (hàng
+         "Song & Video" ở section chính giờ gửi eventBus THẲNG tới router này, xem file đó). -->
+    <script src="event/workflow/file-manager-folder-browser.js?v=20260731v2"></script>
+    <script src="event/router/file-manager-folder-browser.js?v=20260731v1"></script>
+    <script src="event/listener/file-manager-storage.js?v=20260729v2"></script>
+    <!-- Batch 8, ver 12 "Multi Media" — cụm "slideshowSettings" (Slideshow nền Visual). PHẢI nạp
+         TRƯỚC event/workflow/file-manager-photo.js (gọi workflowSlideshow.clearActiveAlbum() +
+         setAsSlideshowBackground() trong cascade/nút "Dùng làm nền Slideshow"). Batch D4 (Settings
+         restructure, 06/07/2026): panel Settings (6 input) nay push/pop động — CẦN core/settings-
+         panel-stack.js (đã nạp ở nhóm CORE). Panel chọn Album ("notify center") KHÔNG đổi, vẫn
+         tĩnh, độc lập Settings Stack. -->
+    <script src="event/workflow/slideshow.js?v=20260808v1"></script>
+    <script src="event/router/slideshow.js?v=20260731v1"></script>
+    <script src="event/listener/slideshow.js?v=20260806v1"></script>
+
+    <!-- MỚI (v13 Batch A) — cụm "visualBg". NẠP SAU cụm slideshow (router gọi chéo
+         workflowSlideshow.openPanel() cho sub-panel Trình chiếu). -->
+    <script src="event/workflow/visual-bg.js?v=20260808v6"></script>
+    <script src="event/router/visual-bg.js?v=20260808v5"></script>
+    <script src="event/listener/visual-bg.js?v=20260808v5"></script>
+
+    <!-- Cụm "gestureSettings" — panel Settings "Cử chỉ", cùng khuôn push/pop Settings Stack. Chia
+         4 section (Điều hướng/Tap/Seek/Vuốt cạnh — components/gesture-settings-drawer.js).
+         openSeekStepPicker() cần core/time-picker-modal.js (đã nạp dòng ~456, DÙNG CHUNG, không
+         viết picker riêng). -->
+    <script src="event/workflow/gesture-settings.js?v=20260811v6"></script>
+    <script src="event/router/gesture-settings.js?v=20260811v6"></script>
+    <script src="event/listener/gesture-settings.js?v=20260811v6"></script>
+    <!-- Batch 3 (03/07/2026) — workflowFileManagerPhoto CẦN tồn tại trước khi router gọi tới.
+         Batch D6 (Settings restructure, 06/07/2026): panel Photo nay push/pop động, `fullBleed:
+         true` (lưới ảnh tràn viền, xem core/settings-panel-stack-ui.js đã nạp ở nhóm CORE) — CẦN
+         core/file-manager/photo-ui.js (đã nạp ở nhóm CORE).
+         ĐẬP ĐI LÀM LẠI (rewrite Photo/Album, dùng fjGallery) — workflowFileManagerPhoto::
+         setupPhotoGridWindow() giờ gọi thẳng `workflowPhotoGalleryWindow.mount()` (event/workflow/
+         photo-gallery-window.js, nạp SAU file này — AN TOÀN vì chỉ THỰC SỰ gọi lúc user tương tác,
+         sau khi mọi script đã nạp xong hết, cùng quy ước load-order đã dùng cho popSettingsPanel()
+         và nhiều global khác trong project) + core/file-manager/image.js::sortImagesByAddedDateDesc()/
+         groupImagesByDay() (đã nạp ở nhóm CORE, TRƯỚC file này, an toàn). -->
+    <script src="event/workflow/file-manager-photo.js?v=20260731v10"></script>
+    <script src="event/router/file-manager-photo.js?v=20260731v8"></script>
+    <script src="event/listener/file-manager-photo.js?v=20260718v1"></script>
+    <!-- TÁCH RA (31/07/2026, yêu cầu Giang) — cụm "imageEdit", Edit mode của modal xem ảnh Photo
+         (trước đây sống chung trong file-manager-photo.js). CẦN workflowFileManagerPhoto (3 khe đọc
+         handle/imageKey/albumId) + core/photo-editor-engine.js/core/media-transform.js/core/generic-
+         drawer.js/service/z-index.js (đã nạp ở nhóm CORE). -->
+    <script src="event/workflow/image-edit.js?v=20260731v5"></script>
+    <script src="event/router/image-edit.js?v=20260731v5"></script>
+    <script src="event/listener/image-edit.js?v=20260731v2"></script>
+    <!-- XOÁ HẲN (phản hồi Giang — "gộp thêm vào playlist", đánh giá lại tên "fileManagerVideo"
+         không còn đúng bản chất vì mọi lời gọi thật đều đến từ Playlist/Settings, không còn từ File
+         Manager) — cụm "fileManagerVideo" (event/workflow/router/listener/file-manager-video.js) ĐÃ
+         XOÁ HẲN, chia làm 2 nơi đúng người gọi thật:
+           - uploadVideos()/_extractVideoThumbAndMeta() (upload video từ input Playlist) -> DỜI vào
+             workflowPlaylist (event/workflow/playlist.js, đã nạp ở nhóm trên).
+           - openVideoBgPicker() + 4 hàm liên quan (picker "Use background video") -> DỜI vào
+             workflowVisualizerControlCenter (event/workflow/visualizer-control-center.js, đã nạp ở
+             nhóm trên) — router 2 case tương ứng cũng dời sang event/router/visualizer-control-
+             center.js (msg.type đổi 'fileManagerVideo.videoPicker.*' -> 'visualizerControlCenter.videoBgPicker.*').
+         `navigateToVideoEdit()` (hàm 1 dòng, chỉ relay) XOÁ LUÔN — workflowPlaylist.
+         navigateToActiveMenuVideoEdit() giờ gọi THẲNG workflowVideoPreview.open() (ngay dưới), bỏ
+         hẳn 1 tầng trung gian vô nghĩa. -->
+    <!-- MỚI ("Song/Video Unification" v12, gộp Video Editor vào Modal xem Video) — cụm
+         "videoPreview". THAY router "videoEdit"/event/workflow/video-editor.js (Video Editor NLE
+         đa track, ĐÃ XOÁ HẲN cùng video-editor.html). `workflowPlaylist.
+         navigateToActiveMenuVideoEdit()` (menu 3 chấm Playlist) gọi THẲNG `workflowVideoPreview.
+         open()` ở đây (không qua tầng trung gian nào) thay vì điều hướng trang — CẦN
+         core/file-manager/video-ui.js/core/media-transform.js/core/video-editor/
+         {compat-guard,webcodecs-engine,filmstrip}.js/core/video-player-capture.js/core/file-manager/
+         video.js (đã nạp ở nhóm CORE) + service/state/video-preview.js (đã nạp ở nhóm STATE). -->
+    <script src="event/workflow/video-preview.js?v=20260803v1"></script>
+    <script src="event/router/video-preview.js?v=20260803v1"></script>
+    <script src="event/listener/video-preview.js?v=20260802v1"></script>
+    <!-- workflowFileManagerDocument CẦN tồn tại trước khi router gọi tới. Batch D7 (06/07/2026):
+         panel Document push/pop động — CẦN core/settings-panel-stack-ui.js (đã nạp ở nhóm CORE).
+         VIẾT LẠI (10/07/2026, Nhóm A, CẬP NHẬT cùng ngày sau phản hồi Giang) — .txt upload lưu
+         string[] (splitPlainTextIntoParagraphs()), .docx/user-edited lưu HTML
+         (sanitizeDocumentHtml()), KHÔNG còn Markdown/Turndown. Toàn bộ mount+wire modal/drawer
+         Documents giờ ở workflow này (core/file-manager/document-ui.js chỉ dựng DOM tĩnh). -->
+    <script src="event/workflow/file-manager-document.js?v=20260714v2"></script>
+    <script src="event/router/file-manager-document.js?v=20260714v2"></script>
+    <script src="event/listener/file-manager-document.js?v=20260714v2"></script>
+    <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — cụm "fileManagerCleanup" (nút "Dọn dẹp dữ liệu",
+         giờ nằm TRONG panel "Quản lý lưu trữ" — router/workflow/core GIỮ NGUYÊN 100%, CHỈ đổi nơi
+         wiring click: XOÁ (29/07/2026) event/listener/file-manager-cleanup.js (static binding cũ,
+         nút đã dời khỏi section tĩnh) — giờ delegate qua event/listener/file-manager-storage.js
+         (đã nạp Ở TRÊN, cùng khối settingsStackBody). -->
+    <script src="event/workflow/file-manager-cleanup.js?v=20260704v2"></script>
+    <script src="event/router/file-manager-cleanup.js?v=20260704v1"></script>
+    <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 5/6) — VIẾT LẠI HOÀN TOÀN: workflow cụm
+         "documentPicker" (event/workflow/document-picker.js CŨ) ĐÃ GỘP VÀO workflowDocumentReader
+         (event/workflow/document-reader.js, file DUY NHẤT còn lại — List+Read dùng CHUNG 1 Generic
+         Drawer). event/router,listener/document-reader.js CŨ ĐÃ XOÁ HOÀN TOÀN (xoá tay nếu còn sót
+         trên máy) — mọi tương tác BÊN TRONG Generic Drawer giờ wire trực tiếp trong Workflow
+         (KHÔNG qua eventBus), xem docstring đầu core/generic-drawer.js. router/listener
+         "documentPicker" CHỈ còn 1 msg.type ('open.click', nút "Reader" ở Control Center) — PHẢI
+         nạp TRƯỚC vì router gọi thẳng workflowDocumentReader.openPicker(). -->
+    <script src="event/workflow/document-reader.js?v=20260731v1"></script>
+    <script src="event/router/document-picker.js?v=20260710v1"></script>
+    <script src="event/listener/document-picker.js?v=20260710v1"></script>
+    <!-- ĐẬP ĐI LÀM LẠI (rewrite Photo/Album, Giang yêu cầu "không dùng window virtual tự tạo nữa") —
+         event/workflow/virtual-list.js + event/router,listener/virtual-list.js (hạ tầng scroll-based
+         windowing tự viết, TỪNG gây hàng loạt bug layout/lệch cuộn) XOÁ HẲN. THAY bằng
+         event/workflow/photo-gallery-window.js — windowing cấp NHÓM NGÀY (KHÔNG cấp ảnh/pixel),
+         dùng IntersectionObserver (API trình duyệt gốc, không tự đo scrollTop/rowHeight nào nữa) +
+         fjGallery (thư viện thật, xem CDN ở trên) lo layout thật bên trong mỗi nhóm còn tải. -->
+    <script src="event/workflow/photo-gallery-window.js?v=20260717v1"></script>
+    <!-- MỚI (21/07/2026) — windowing lưới Video (CSS Grid, KHÔNG fjGallery), CẦN
+         core/file-manager/video.js::sortVideosByAddedDateDesc()/groupVideosByDay()/
+         formatVideoDayHeaderLabel()/formatVideoDuration() (đã nạp ở nhóm CORE, TRƯỚC file này). -->
+    <script src="event/workflow/video-gallery-window.js?v=20260721v1"></script>
+    <script src="event/workflow/playlist.js?v=20260731v2"></script>
+    <script src="event/router/playlist.js?v=20260731v1"></script>
+    <script src="event/listener/playlist.js?v=20260728v2"></script>
+    <!-- Cụm "playerControls" (ver 11, patch 3): 16/17 msg.type KHÔNG cần workflow (router gọi
+         THẲNG). MỚI (fix 03/07/2026, mục 3b): 'playerControls.shuffle.click' giờ cần
+         event/workflow/player-controls.js (2 hàm core nối tiếp, phụ thuộc thứ tự — xem comment đầu
+         file đó + event/router/player-controls.js). -->
+    <!-- MỚI (21/07/2026, mục 4 — Video Player mode) — cụm "videoPlayer". PHẢI nạp TRƯỚC
+         event/router/player-controls.js (case 'playPause.click'/'next.click'/'prev.click'/
+         'audio.ended' gọi thẳng workflowVideoPlayer khi isVideoPlayerMode=true). CẦN
+         core/video-player.js + core/file-manager/video.js (listVideos/sortVideosByAddedDateDesc,
+         đã nạp ở nhóm CORE) + core/visual-bg.js (showVisualBgVideoElement..., đã nạp từ đầu). -->
+    <!-- [SỬA — ver12 "Song/Video Unification", Batch 2] event/router/video-player.js TỪNG bị gỡ
+         dòng <script> này (21/07/2026 — lúc đó router chỉ có 1 case 'videoPlayer.toggle.click'
+         cho 1 nút header đã dời sang checkbox File Manager -> Video, hết người gửi message) —
+         FILE VẬT LÝ vẫn còn nguyên trong repo (chưa từng bị xoá tay thật, chỉ mỗi dòng <script>
+         bị gỡ, comment cũ ghi "đã xoá" là KHÔNG chính xác). Router này giờ có lại ĐÚNG 1 caller
+         MỚI (`window.playSong()` dispatch theo mediaType khi click video trong Playlist, core/
+         playlist/actions.js — cần đi qua eventBus để Block gate kịp chặn khoá chéo với Video nền,
+         xem event/block.js) — NẠP LẠI dòng <script>, PHẢI nạp SAU event/workflow/video-player.js
+         (cần workflowVideoPlayer.startFromPlaylist() đã tồn tại) NGAY TRÊN. -->
+    <script src="event/workflow/video-player.js?v=20260811v2"></script>
+    <script src="event/router/video-player.js?v=20260731v1"></script>
+    <script src="event/listener/video-player.js?v=20260721v2"></script>
+    <script src="event/workflow/player-controls.js?v=20260729v1"></script>
+    <script src="event/router/player-controls.js?v=20260729v1"></script>
+    <script src="event/listener/player-controls.js?v=20260708v1"></script>
+    <!-- Cụm "visualizerDisplay" — Batch D3 (Settings restructure, 06/07/2026): 14/20 msg.type
+         (panel Visualizer Settings, nay push/pop động) ĐỔI sang gọi workflow — xem
+         event/workflow/visualizer-display.js. THÊM case 'openPanel.click' (dời từ
+         "visualizerMiscSettings"). -->
+    <script src="event/workflow/visualizer-display.js?v=20260811v2"></script>
+    <script src="event/router/visualizer-display.js?v=20260811v2"></script>
+    <script src="event/listener/visualizer-display.js?v=20260811v2"></script>
+    <!-- MỞ ĐẦU THEME THẬT (07/07/2026, phản hồi Giang mục 3) — cụm "theme" (3 card Sáng/Tối/
+         Background, Main list TĨNH). CẦN workflowVisualizerDisplay.toggleBgImage() (đã nạp ngay
+         trên) + applyBgImageEnabled()/updatePlaylistBg() (đã nạp ở nhóm CORE). -->
+    <script src="event/workflow/theme.js?v=20260717v1"></script>
+    <script src="event/router/theme.js?v=20260717v1"></script>
+    <script src="event/listener/theme.js?v=20260709v1"></script>
+    <!-- Cụm "statsPanel" ĐÃ XOÁ (checkbox toggle stats panel dời vào Settings, dùng chung
+         cụm "visualizerDisplay" — xem event/workflow/visualizer-display.js::setStatsPanelEnabled()). -->
+    <!-- Cụm "savLogo" (ver 11, patch 6) — MỚI (12/07/2026): giờ CÓ event/workflow/sav-logo.js
+         (xem comment đầu file — case 'toggle' cần Workflow vì tự chuẩn bị appState cho Core). -->
+    <script src="event/workflow/sav-logo.js?v=20260712v1"></script>
+    <script src="event/router/sav-logo.js?v=20260712v1"></script>
+    <script src="event/listener/sav-logo.js?v=20260629v1"></script>
+    <!-- Cụm "languageSettings" (ver 11, patch 7). -->
+    <script src="event/workflow/language-settings.js?v=20260629v1"></script>
+    <script src="event/router/language-settings.js?v=20260629v1"></script>
+    <script src="event/listener/language-settings.js?v=20260629v1"></script>
+    <!-- Cụm "playlistEmptyState" (ver 11, patch 8) — MỚI (fix 03/07/2026, mục 3a): giờ CÓ workflow
+         (xem comment đầu event/workflow/playlist-empty-state.js) — nhánh sectionQueueActive=true
+         cần chuỗi ≥2 bước phụ thuộc thứ tự (reset top-level RỒI MỚI phát), nhánh false vẫn gọi
+         thẳng như cũ (VirtualMachineState chọn nhánh trong router). -->
+    <script src="event/workflow/playlist-empty-state.js?v=20260703v1"></script>
+    <script src="event/router/playlist-empty-state.js?v=20260703v1"></script>
+    <script src="event/listener/playlist-empty-state.js?v=20260629v1"></script>
+    <!-- Cụm "subtitleModal" ĐÃ RÚT GỌN (10/08/2026) — nút "Sub" ở Control Center đã bỏ hẳn, router
+         + listener mồ côi hoàn toàn nên xoá. workflowSubtitleModal.navigateToEditor() vẫn dùng
+         chung bởi workflowPlaylist (gọi thẳng, không qua router) nên giữ lại workflow. -->
+    <script src="event/workflow/subtitle-modal.js?v=20260810v1"></script>
+    <!-- Cụm "autoSwitchVisual" — Batch D3 (06/07/2026): core đã refactor Rule 1-4 đầy đủ, GIỜ CẦN
+         workflow (event/workflow/auto-switch-visual.js) — không còn gọi thẳng core như trước. -->
+    <script src="event/workflow/auto-switch-visual.js?v=20260706v1"></script>
+    <script src="event/router/auto-switch-visual.js?v=20260706v1"></script>
+    <script src="event/listener/auto-switch-visual.js?v=20260706v1"></script>
+    <!-- Cụm "visualizerControlCenter" (ver 11, patch 11). -->
+    <!-- XOÁ (v13 Batch B) — event/workflow/visualizer-control-center.js: object Workflow của
+         cụm này đã RỖNG sau khi 2 toggle nền (Batch A) + cụm picker video (Batch B) dời sang
+         domain `visualBg`. 4 case còn lại của router gọi THẲNG Core (core/visualizer-control-
+         center.js) — không còn tầng Workflow nào để giữ. -->
+    <script src="event/router/visualizer-control-center.js?v=20260703v2"></script>
+    <script src="event/listener/visualizer-control-center.js?v=20260703v2"></script>
+    <!-- Cụm "volumeHud" — popup volume nổi (icon loa 5 mốc + slider), tự ẩn sau vài giây. Tái dùng
+         message 'visualizerDisplay.volume.input' có sẵn (router đã nạp ở trên) — không viết lại
+         logic áp âm lượng. CẦN core/volume-hud.js, core/dom-refs.js (btnOpenVolume,
+         visualizerVolumeHud, volumeHudSlider). -->
+    <script src="event/workflow/volume-hud.js?v=20260811v1"></script>
+    <script src="event/router/volume-hud.js?v=20260811v1"></script>
+    <script src="event/listener/volume-hud.js?v=20260811v1"></script>
+    <!-- Cụm "visualizerGesture" — thay hẳn cử chỉ vuốt cũ gắn trên bgVideoElement. Dispatch tới
+         router "playerControls"/"visualizerControlCenter" (đã nạp ở trên) + đọc appConfigViz
+         (core/config.js) + taskManager (debounce tap/double-tap, seek-hold LẶP LẠI theo bước cấu
+         hình — cùng khuôn listenClock, core/player-controls.js). CẦN core/visualizer-gesture.js,
+         core/dom-refs.js (visualizerGestureSurface, bgVideoElement/audioPlayer cho seek). -->
+    <script src="event/workflow/visualizer-gesture.js?v=20260811v7"></script>
+    <script src="event/router/visualizer-gesture.js?v=20260811v2"></script>
+    <script src="event/listener/visualizer-gesture.js?v=20260811v2"></script>
+    <!-- Cụm "subtitleStyleSettings" — Batch D2 (Settings restructure, 06/07/2026): GIỜ CẦN
+         workflow (openPanel() push động + 8 hàm set* nay Rule 1-4 đầy đủ, không còn tự gọi core
+         khác — xem event/workflow/subtitle-style-settings.js). CẦN core/settings-panel-stack-ui.js,
+         components/subtitle-settings-drawer.js (đã nạp ở nhóm components phía trên). -->
+    <script src="event/workflow/subtitle-style-settings.js?v=20260707v2"></script>
+    <script src="event/router/subtitle-style-settings.js?v=20260707v2"></script>
+    <script src="event/listener/subtitle-style-settings.js?v=20260707v2"></script>
+    <!-- Cụm "visualizerMiscSettings" (ver 11, patch 13) — MỚI (12/07/2026): giờ CÓ
+         event/workflow/visualizer-misc-settings.js — cả 2 msg.type đều cần Workflow (gọi ≥2 hàm
+         nối tiếp, hoặc tự chuẩn bị appState cho Core — xem comment đầu file workflow). -->
+    <script src="event/workflow/visualizer-misc-settings.js?v=20260712v1"></script>
+    <script src="event/router/visualizer-misc-settings.js?v=20260712v1"></script>
+    <script src="event/listener/visualizer-misc-settings.js?v=20260706v2"></script>
+    <!-- Cụm "eqPresets" (MỚI, THAY hẳn "equalizerSettings" cũ — preset EQ giờ lưu DB, xem
+         core/eq-presets.js). CẦN core/generic-drawer.js, components/eq-presets-drawer.js,
+         event/workflow/generic-drawer-helpers.js (closeFully(), đã nạp ở nhóm trên), đã nạp SAU
+         cả 3 — an toàn. -->
+    <script src="event/workflow/eq-presets.js?v=20260811v1"></script>
+    <script src="event/router/eq-presets.js?v=20260811v1"></script>
+    <script src="event/listener/eq-presets.js?v=20260811v1"></script>
+    <!-- event/tab.js — 3 lifecycle listener đặc thù của tab (visibilitychange/pagehide/
+         beforeunload). Gọi thẳng hàm, không qua bus. Nạp CUỐI CÙNG trong toàn bộ /event/
+         vì phụ thuộc core/tab-hide-reload.js + core/app-cleanup.js đã nạp từ trên. -->
+    <script src="event/tab.js?v=20260630v1"></script>
+    <!-- event/workflow/app-boot.js + event/router/app-boot.js (SỬA 25/07/2026, đợt tái cấu trúc
+         state) — router giờ CHỈ eventBus.register('appBoot', ...) (KHÔNG còn tự đăng ký
+         DOMContentLoaded — việc đó dời sang event/listener/app-boot.js, nạp SỚM ở đầu tài liệu,
+         xem comment ở đó). Chuỗi boot thật (~15 bước) nay ở workflow. Đặt SAU CÙNG TUYỆT ĐỐI (kể
+         cả sau event/tab.js) để mọi workflowXxx/VirtualMachineState/hàm core mà
+         workflowAppBoot.boot() cần tới đều CHẮC CHẮN đã được định nghĩa ở phía TRÊN nó. -->
+    <script src="event/workflow/app-boot.js?v=20260730v3"></script>
+    <script src="event/router/app-boot.js?v=20260725v1"></script>
+
+</body>
+</html>
