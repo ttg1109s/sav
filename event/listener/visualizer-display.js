@@ -1,6 +1,7 @@
 /**
  * event/listener/visualizer-display.js — TẤT CẢ listener thuộc "module Visualizer Display" (cấu
- * hình hiển thị: kiểu hiệu ứng, ảnh nền, màu sắc, kích thước bar, volume, EQ) nằm CHUNG file này.
+ * hình hiển thị: kiểu hiệu ứng, ảnh nền, màu sắc, kích thước bar) nằm CHUNG file này. Volume/EQ ĐÃ
+ * DỜI sang cụm "volumeHud"/"eqPresets" riêng (Control Center) — không còn ở đây.
  *
  * QUY TẮC (giống listener/player-controls.js — ẩn dụ "người gửi thư"):
  *   - Listener KHÔNG biết, KHÔNG quan tâm nội dung nghiệp vụ là gì.
@@ -15,9 +16,9 @@
  * visualizer-misc-settings.js — cùng router với 14 input của chính nó, xem event/router/
  * visualizer-display.js).
  *
- * 4 input KHÔNG di chuyển (Main/Control Center, vẫn tĩnh, giữ NGUYÊN): btnCycleMode, bgBlurSlider,
- * volumeSlider, eqSelect. (bgImageEnableToggle ĐÃ XOÁ khỏi danh sách này — 07/07/2026, HOTFIX 4:
- * checkbox không còn tồn tại, xem comment "Ảnh nền" bên dưới đã bị xoá.)
+ * 2 input KHÔNG di chuyển (Main/Control Center, vẫn tĩnh, giữ NGUYÊN): btnCycleMode, bgBlurSlider.
+ * (bgImageEnableToggle ĐÃ XOÁ khỏi danh sách này — 07/07/2026, HOTFIX 4: checkbox không còn tồn
+ * tại, xem comment "Ảnh nền" bên dưới đã bị xoá.)
  *
  * KHÔNG tự document.getElementById trong file này — dùng lại biến đã có sẵn ở core/dom-refs.js.
  *
@@ -41,8 +42,7 @@ if (btnCycleMode) {
 // đó không còn tồn tại trong DOM từ khi Theme 3-card thay thế section Background cũ (xem
 // components/settings/theme.js) — `if (bgImageEnableToggle)` tham chiếu 1 biến CHƯA TỪNG KHAI BÁO
 // (không phải `null`) nên ném `ReferenceError` ngay khi file này chạy, làm HỎNG mọi listener khai
-// báo PHÍA SAU trong CÙNG file (bgBlurSlider/volumeSlider/eqSelect/14 input delegate bên dưới đều
-// không được gắn). Luồng bật/tắt ảnh nền giờ đi qua card "Background" (event/listener/theme.js ->
+// báo PHÍA SAU trong CÙNG file (bgBlurSlider/14 input delegate bên dưới đều không được gắn). Luồng bật/tắt ảnh nền giờ đi qua card "Background" (event/listener/theme.js ->
 // event/router/theme.js, VirtualMachineState chọn method -> event/workflow/theme.js::
 // applyNonBackgroundMode()/pickNewBackgroundImage()/reuseExistingBackgroundImage(), ĐÃ CẬP NHẬT
 // 17/07/2026 — KHÔNG còn qua workflowVisualizerDisplay.toggleBgImage() nữa, hàm đó giờ mồ côi) —
@@ -54,18 +54,10 @@ if (bgBlurSlider) {
     });
 }
 
-// ===================== Volume / EQ (Main, KHÔNG di chuyển) =====================
-if (volumeSlider) {
-    volumeSlider.addEventListener('input', (e) => {
-        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.volume.input', payload: { value: e.target.value } });
-    });
-}
-
-if (eqSelect) {
-    eqSelect.addEventListener('change', (e) => {
-        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.eqMode.change', payload: { value: e.target.value } });
-    });
-}
+// ===================== Volume (chuyển sang HUD Control Center, event/listener/volume-hud.js) =====================
+// volumeSlider/eqSelect (Settings tĩnh cũ) ĐÃ XOÁ HẲN — Volume giờ ở #visualizer-volume-hud
+// (event/listener/volume-hud.js), EQ giờ ở cụm "eqPresets" (Control Center, event/listener/
+// eq-presets.js) — không còn UI nào ở panel Settings chính cho 2 thứ này.
 
 // ===================== 14 input BÊN TRONG panel Visualizer Settings (delegate) =====================
 // Bảng tra id -> {msg.type, event mong đợi, cách gom payload} — DÙNG CHUNG 1 cặp handler
