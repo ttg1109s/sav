@@ -28,6 +28,12 @@ const routerGestureSettings = (() => {
             case 'gestureSettings.tapDouble.change':
                 workflowGestureSettings.setField('gestureActionTapDouble', msg.payload.value);
                 break;
+            case 'gestureSettings.tripleTapEnable.change':
+                workflowGestureSettings.setToggle('gestureTripleTapEnabled', msg.payload.checked);
+                break;
+            case 'gestureSettings.tripleTapTarget.change':
+                workflowGestureSettings.setField('gestureTripleTapTarget', msg.payload.value);
+                break;
             case 'gestureSettings.seekHoldEnable.change':
                 workflowGestureSettings.setToggle('gestureSeekHoldEnabled', msg.payload.checked);
                 break;
@@ -39,12 +45,6 @@ const routerGestureSettings = (() => {
                 break;
             case 'gestureSettings.edgeTop.change':
                 workflowGestureSettings.setToggle('gestureEdgeTopEnabled', msg.payload.checked);
-                break;
-            case 'gestureSettings.edgeBottom.change':
-                workflowGestureSettings.setToggle('gestureEdgeBottomEnabled', msg.payload.checked);
-                break;
-            case 'gestureSettings.edgeBottomTarget.change':
-                workflowGestureSettings.setField('gestureEdgeBottomTarget', msg.payload.value);
                 break;
             default:
                 console.warn(`[routerGestureSettings] msg.type không xác định: "${msg.type}"`, msg);
