@@ -86,9 +86,9 @@ const VISUALIZER_DISPLAY_INPUT_MAP = {
     'setting-bar-width': { type: 'visualizerDisplay.barWidth.input', event: 'input', display: true },
     'setting-mirror-count': { type: 'visualizerDisplay.mirrorCount.input', event: 'input', display: true },
     'setting-stats-panel-enable': { type: 'visualizerDisplay.statsPanelEnable.change', event: 'change', checkbox: true },
-    'setting-hide-bottom-player': { type: 'visualizerDisplay.hideBottomPlayer.change', event: 'change', checkbox: true },
-    'setting-hide-playlist-button': { type: 'visualizerDisplay.hidePlaylistButton.change', event: 'change', checkbox: true },
-    'setting-hide-control-center-button': { type: 'visualizerDisplay.hideControlCenterButton.change', event: 'change', checkbox: true },
+    'setting-bottom-player-enable': { type: 'visualizerDisplay.bottomPlayerVisible.change', event: 'change', checkbox: true },
+    'setting-playlist-button-enable': { type: 'visualizerDisplay.playlistButtonVisible.change', event: 'change', checkbox: true },
+    'setting-control-center-button-enable': { type: 'visualizerDisplay.controlCenterButtonVisible.change', event: 'change', checkbox: true },
     // (Phần B, Galaxy — 5 entry spaceStyle/4 slider tinh chỉnh ĐÃ BỎ 21/07/2026, phản hồi Giang
     // mục 1 — panel tinh chỉnh Space đã xoá khỏi components/visualizer-settings-drawer.js).
 };
