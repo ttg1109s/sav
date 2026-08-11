@@ -290,12 +290,9 @@
             updateProgressBarCSS();
         }
 
-        function applyEQPreset(mode) {
-            const eqBandNodes = appState.get('eqBandNodes');
-            if (!eqBandNodes || eqBandNodes.length === 0) return;
-            const gains = mode === 'manual' ? appConfigViz.getAll().manualEq : (EQ_PRESETS[mode] || EQ_PRESETS['flat']);
-            for(let i = 0; i < eqBandNodes.length; i++) { if(eqBandNodes[i]) eqBandNodes[i].gain.value = gains[i] || 0; }
-        }
+        // applyEQPreset(mode) ĐÃ XOÁ HẲN (tra bảng EQ_PRESETS tĩnh cũ) — THAY bằng
+        // applyEqGains(eqBandNodes, gains) (core/eq-presets.js, nhận thẳng gains từ preset DB-backed
+        // + eqBandNodes qua tham số, Rule 2 đầy đủ) — gọi từ event/workflow/eq-presets.js.
 
         /**
          * Core thuần: đổi chất lượng canvas (low/medium/high...). Batch D3 — BỎ `resizeCanvas()`/
@@ -491,14 +488,10 @@
         function setVolume(value) {
             appConfigViz.mutateAll(cfg => { cfg.volume = parseInt(value); });
             const volume = appConfigViz.getAll().volume;
-            valVolumeDisplay.textContent = volume + '%'; 
             if(appState.get('masterGainNode')) appState.get('masterGainNode').gain.value = volume / 100; saveConfig();
-            // MỚI — icon loa Volume HUD (core/volume-hud.js) luôn khớp dù đổi âm lượng từ đâu (HUD
-            // hoặc bất kỳ nơi nào khác sau này).
+            // Icon loa Volume HUD (core/volume-hud.js) luôn khớp dù đổi âm lượng từ đâu.
             if (typeof syncVolumeHudIcon === 'function') syncVolumeHudIcon(volume);
         }
 
-        /** Đổi preset EQ (hoặc 'manual'). msg.type 'visualizerDisplay.eqMode.change'. @param {string} value */
-        function setEQMode(value) {
-            appConfigViz.mutateAll(cfg => { cfg.eqMode = value; }); updateEQSlidersUI(value); applyEQPreset(value); saveConfig();
-        }
+        // setEQMode(value) ĐÃ XOÁ HẲN (đổi 'eqMode' cũ + updateEQSlidersUI() UI tĩnh cũ) — THAY
+        // bằng workflowEqPresets.cyclePreset()/selectPresetForEdit() (event/workflow/eq-presets.js).
