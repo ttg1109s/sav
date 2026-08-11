@@ -3,8 +3,13 @@
  * qua #setting-open-gesture-settings). CHIA 4 section:
  *   1. Điều hướng — 4 dropdown action picker (vuốt lên/xuống/trái/phải).
  *   2. Tap — 2 dropdown action picker (tap đơn/đúp).
- *   3. Seek — giữ tay 3s nửa trái/phải màn hình để tua lùi/tiến lặp lại (event/workflow/
- *      visualizer-gesture.js) — toggle bật/tắt + hàng mở time-picker chọn bước tua.
+ *   3. Seek — giữ tay ở nửa trái/phải màn hình để tua lùi/tiến lặp lại (event/workflow/
+ *      visualizer-gesture.js) — toggle bật/tắt + 2 hàng mở time-picker RIÊNG (3 khái niệm thời
+ *      gian TÁCH BIỆT HOÀN TOÀN — xem docstring event/workflow/visualizer-gesture.js):
+ *        - Ngưỡng kích hoạt (2s): CỐ ĐỊNH, không hiện trong panel này.
+ *        - "Bước tua" (Time 1, gestureSeekStepMs): đơn vị nhảy mỗi lần seek.
+ *        - "Giữ để tua tiếp" (Time 2, gestureSeekHoldIntervalMs): sau khi đã vào seek mode, giữ
+ *          thêm bao lâu thì kích hoạt 1 lệnh seek theo Time 1 — lặp lại liên tục.
  *   4. Vuốt cạnh — 2 toggle + 1 select (không đổi, ngoài action picker).
  *
  * 6 dropdown action picker CÙNG 1 pool 5 hành động dùng chung (GESTURE_ACTIONS, event/workflow/
@@ -61,9 +66,13 @@ function renderGestureSettingsPanelBody() {
                             <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                         </label>
                     </div>
-                    <button id="setting-gesture-open-seek-step-picker" type="button" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
+                    <button id="setting-gesture-open-seek-step-picker" type="button" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
                         <span class="text-sm font-medium" data-i18n="gestureSettings.seekStep.label">${t('gestureSettings.seekStep.label')}</span>
                         <span id="gesture-seek-step-value" class="text-xs text-slate-300 font-mono"></span>
+                    </button>
+                    <button id="setting-gesture-open-seek-hold-interval-picker" type="button" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
+                        <span class="text-sm font-medium" data-i18n="gestureSettings.seekHoldInterval.label">${t('gestureSettings.seekHoldInterval.label')}</span>
+                        <span id="gesture-seek-hold-interval-value" class="text-xs text-slate-300 font-mono"></span>
                     </button>
                 </div>
             </div>
