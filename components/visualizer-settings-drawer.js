@@ -25,6 +25,19 @@ function renderVisualizerPanelBody() {
                                 <option value="low" data-i18n="visualizerSettingsDrawer.quality.low">${t('visualizerSettingsDrawer.quality.low')}</option>
                             </select>
                         </div>
+                        <!-- MỚI (phản hồi Giang — "tách blur khỏi cấu hình hiệu năng") — TRƯỚC ĐÂY
+                             blurMult CHỈ do PERFORMANCE_PROFILES[quality] quyết định, giờ tách
+                             riêng, độc lập với Chất lượng — xem event/workflow/visualizer-render.js. -->
+                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
+                            <div class="pr-3">
+                                <div class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.blurEnable.label">${t('visualizerSettingsDrawer.blurEnable.label')}</div>
+                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="visualizerSettingsDrawer.blurEnable.hint">${t('visualizerSettingsDrawer.blurEnable.hint')}</div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="setting-blur-enable" class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                            </label>
+                        </div>
                         <div id="block-max-height" class="flex flex-col w-full">
                             <div class="flex flex-col p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                                 <div class="flex justify-between items-center mb-2"><span class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.maxHeight.label">${t('visualizerSettingsDrawer.maxHeight.label')}</span><span id="val-max" class="text-xs text-emerald-400 font-mono">400</span></div>
@@ -73,6 +86,37 @@ function renderVisualizerPanelBody() {
                                     <input type="checkbox" id="setting-glass-flash" class="sr-only peer">
                                     <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                                 </label>
+                            </div>
+                            <!-- MỚI (phản hồi Giang) — CHỈ style 'glass' mới có 3 lớp cảnh Trăng/Big
+                                 City/Khung cửa sổ, hiện/ẩn theo rainStyle qua updateRainStyleUI()
+                                 (core/visualizer/visualizer-display.js), gọi từ setRainStyle()
+                                 (workflow) + updateTypeUI() (mở panel/đổi type). -->
+                            <div id="rain-glass-options" class="hidden flex-col">
+                                <div class="flex flex-col p-4 border-b border-blue-500/10 hover:bg-white/5 transition-colors">
+                                    <div class="flex justify-between items-center mb-2"><span class="text-sm font-medium text-blue-300" data-i18n="visualizerSettingsDrawer.rainCityOpacity.label">${t('visualizerSettingsDrawer.rainCityOpacity.label')}</span><span id="val-rain-city-opacity" class="text-xs text-blue-400 font-mono">40</span></div>
+                                    <input type="range" id="setting-rain-city-opacity" data-value-target="val-rain-city-opacity" min="0" max="100" step="5" class="setting-slider">
+                                </div>
+                                <div class="flex justify-between items-center p-4 border-b border-blue-500/10 hover:bg-white/5 transition-colors">
+                                    <span class="text-sm font-medium text-blue-300" data-i18n="visualizerSettingsDrawer.rainCityVisible.label">${t('visualizerSettingsDrawer.rainCityVisible.label')}</span>
+                                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                        <input type="checkbox" id="setting-rain-city-visible" class="sr-only peer">
+                                        <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                                    </label>
+                                </div>
+                                <div class="flex justify-between items-center p-4 border-b border-blue-500/10 hover:bg-white/5 transition-colors">
+                                    <span class="text-sm font-medium text-blue-300" data-i18n="visualizerSettingsDrawer.rainMoonVisible.label">${t('visualizerSettingsDrawer.rainMoonVisible.label')}</span>
+                                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                        <input type="checkbox" id="setting-rain-moon-visible" class="sr-only peer">
+                                        <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                                    </label>
+                                </div>
+                                <div class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors">
+                                    <span class="text-sm font-medium text-blue-300" data-i18n="visualizerSettingsDrawer.rainWindowVisible.label">${t('visualizerSettingsDrawer.rainWindowVisible.label')}</span>
+                                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                        <input type="checkbox" id="setting-rain-window-visible" class="sr-only peer">
+                                        <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                                    </label>
+                                </div>
                             </div>
                         </div>
 
@@ -178,8 +222,10 @@ function renderVisualizerPanelBody() {
                      Center) + 3 toggle RIÊNG hiện/ẩn từng thành phần UI cố định (bỏ hẳn "full
                      mode" gộp chung) — vẫn mở lại được qua cử chỉ vuốt rìa dù đang tắt, xem
                      event/workflow/visualizer-gesture.js. NHẤT QUÁN đặt tên KHẲNG ĐỊNH + mặc định
-                     BẬT với statsPanelEnable (không đặt tên phủ định "Ẩn X" mặc định tắt — phản
-                     hồi Giang). -->
+                     BẬT với statsPanelEnable (không đặt tên phủ định "Ẩn X" mặc định tắt).
+                     GỘP hint "vẫn mở lại được qua vuốt rìa" thành 1 dòng chú thích DUY NHẤT ở cuối
+                     card (phản hồi Giang — "đang trùng lặp content mô tả" khi 3/4 hint gần như y
+                     hệt nhau) thay vì lặp lại y hệt ở cả 3 hàng. -->
                 <div>
                     <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-2 ml-2" data-i18n="visualizerSettingsDrawer.displaySectionTitle">${t('visualizerSettingsDrawer.displaySectionTitle')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
@@ -194,35 +240,27 @@ function renderVisualizerPanelBody() {
                             </label>
                         </div>
                         <div class="flex justify-between items-center p-4 border-b border-white/5">
-                            <div class="pr-3">
-                                <div class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.bottomPlayerEnable.label">${t('visualizerSettingsDrawer.bottomPlayerEnable.label')}</div>
-                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="visualizerSettingsDrawer.bottomPlayerEnable.hint">${t('visualizerSettingsDrawer.bottomPlayerEnable.hint')}</div>
-                            </div>
+                            <span class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.bottomPlayerEnable.label">${t('visualizerSettingsDrawer.bottomPlayerEnable.label')}</span>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                 <input type="checkbox" id="setting-bottom-player-enable" class="sr-only peer">
                                 <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                             </label>
                         </div>
                         <div class="flex justify-between items-center p-4 border-b border-white/5">
-                            <div class="pr-3">
-                                <div class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.playlistButtonEnable.label">${t('visualizerSettingsDrawer.playlistButtonEnable.label')}</div>
-                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="visualizerSettingsDrawer.playlistButtonEnable.hint">${t('visualizerSettingsDrawer.playlistButtonEnable.hint')}</div>
-                            </div>
+                            <span class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.playlistButtonEnable.label">${t('visualizerSettingsDrawer.playlistButtonEnable.label')}</span>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                 <input type="checkbox" id="setting-playlist-button-enable" class="sr-only peer">
                                 <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                             </label>
                         </div>
-                        <div class="flex justify-between items-center p-4">
-                            <div class="pr-3">
-                                <div class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.controlCenterButtonEnable.label">${t('visualizerSettingsDrawer.controlCenterButtonEnable.label')}</div>
-                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="visualizerSettingsDrawer.controlCenterButtonEnable.hint">${t('visualizerSettingsDrawer.controlCenterButtonEnable.hint')}</div>
-                            </div>
+                        <div class="flex justify-between items-center p-4 border-b border-white/5">
+                            <span class="text-sm font-medium" data-i18n="visualizerSettingsDrawer.controlCenterButtonEnable.label">${t('visualizerSettingsDrawer.controlCenterButtonEnable.label')}</span>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                 <input type="checkbox" id="setting-control-center-button-enable" class="sr-only peer">
                                 <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                             </label>
                         </div>
+                        <div class="px-4 py-3 text-xs text-slate-400" data-i18n="visualizerSettingsDrawer.uiToggleGroupHint">${t('visualizerSettingsDrawer.uiToggleGroupHint')}</div>
                     </div>
                 </div>
 `;

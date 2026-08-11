@@ -2,8 +2,10 @@
  * Component: panel body Settings "Cử chỉ" (components/settings/visualizer-geometry-color.js mở
  * qua #setting-open-gesture-settings). CHIA 4 section:
  *   1. Điều hướng — 4 dropdown action picker (vuốt lên/xuống/trái/phải).
- *   2. Tap — 2 dropdown action picker (tap đơn/đúp) + tap 3 lần (toggle bật/tắt + dropdown gán 1
- *      nút Control Center — THAY THẾ vuốt cạnh dưới đã bỏ hẳn, KHÔNG thuộc action picker).
+ *   2. Tap — 2 dropdown action picker (tap đơn/đúp) + tap 3 lần (CHỈ 1 dropdown gán 1 nút Control
+ *      Center — THAY THẾ vuốt cạnh dưới đã bỏ hẳn, KHÔNG thuộc action picker, KHÔNG có toggle
+ *      riêng — chọn 'None' trong dropdown là tắt, phản hồi Giang). Option 'captureFrame' CHỈ có
+ *      tác dụng khi đang Video Player mode (ghi rõ trong nhãn option).
  *   3. Seek — giữ tay ở nửa trái/phải màn hình để tua lùi/tiến lặp lại (event/workflow/
  *      visualizer-gesture.js) — toggle bật/tắt + 2 hàng mở time-picker RIÊNG (3 khái niệm thời
  *      gian TÁCH BIỆT HOÀN TOÀN — xem docstring event/workflow/visualizer-gesture.js):
@@ -12,12 +14,12 @@
  *        - "Giữ để tua tiếp" (Time 2, gestureSeekHoldIntervalMs): sau khi đã vào seek mode, giữ
  *          thêm bao lâu thì kích hoạt 1 lệnh seek theo Time 1 — lặp lại liên tục.
  *   4. Vuốt cạnh — CHỈ còn rìa TRÊN (mở Control Center) — rìa DƯỚI đã bỏ hẳn, thay bằng tap 3 lần
- *      ở section Tap (phản hồi Giang).
+ *      ở section Tap.
  *
  * 6 dropdown action picker (section 1+2 phần đơn/đúp) CÙNG 1 pool 5 hành động dùng chung
  * (GESTURE_ACTIONS, event/workflow/visualizer-gesture.js): Tiếp theo/Trước đó/Play-Pause/Mở
  * Playlist/Không dùng. KHÔNG gồm icon center — dropdown gán nút Control Center CHỈ thuộc tap 3
- * lần (gestureTripleTapTarget), key khớp GESTURE_TRIPLE_TAP_TARGET_ELS.
+ * lần (gestureTripleTapTarget), key khớp GESTURE_TRIPLE_TAP_TARGET_ELS, có thêm 'none'.
  */
 function renderGestureSettingsPanelBody() {
     const actionOptions = `
@@ -35,11 +37,12 @@ function renderGestureSettingsPanelBody() {
     `;
     const sectionTitle = (labelKey, colorClass) => `<h3 class="text-xs font-bold ${colorClass} uppercase tracking-widest mb-2 ml-2" data-i18n="${labelKey}">${t(labelKey)}</h3>`;
     const controlCenterTargetOptions = `
+        <option value="none" data-i18n="gestureSettings.action.none">${t('gestureSettings.action.none')}</option>
         <option value="cycleMode" data-i18n="visualizerOverlay.cycleMode.label">${t('visualizerOverlay.cycleMode.label')}</option>
         <option value="shuffle" data-i18n="visualizerOverlay.shuffle.label">${t('visualizerOverlay.shuffle.label')}</option>
         <option value="repeat" data-i18n="visualizerOverlay.repeat.label">${t('visualizerOverlay.repeat.label')}</option>
         <option value="documentReader" data-i18n="visualizerOverlay.documentReader.label">${t('visualizerOverlay.documentReader.label')}</option>
-        <option value="captureFrame" data-i18n="visualizerOverlay.captureFrame.label">${t('visualizerOverlay.captureFrame.label')}</option>
+        <option value="captureFrame" data-i18n="gestureSettings.tripleTapTarget.captureFrameOption">${t('gestureSettings.tripleTapTarget.captureFrameOption')}</option>
     `;
 
     return `
@@ -59,19 +62,12 @@ function renderGestureSettingsPanelBody() {
                 <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                     ${actionRow('setting-gesture-action-tap-single', 'gestureSettings.tapSingle.label')}
                     ${actionRow('setting-gesture-action-tap-double', 'gestureSettings.tapDouble.label')}
-                    <div class="flex justify-between items-center p-4 border-b border-white/5">
-                        <div class="pr-3">
-                            <div class="text-sm font-medium" data-i18n="gestureSettings.tripleTapEnable.label">${t('gestureSettings.tripleTapEnable.label')}</div>
-                            <div class="text-xs text-slate-400 mt-0.5" data-i18n="gestureSettings.tripleTapEnable.hint">${t('gestureSettings.tripleTapEnable.hint')}</div>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                            <input type="checkbox" id="setting-gesture-triple-tap-enable" class="sr-only peer">
-                            <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
-                        </label>
-                    </div>
                     <div class="flex justify-between items-center p-4">
-                        <span class="text-sm font-medium" data-i18n="gestureSettings.tripleTapTarget.label">${t('gestureSettings.tripleTapTarget.label')}</span>
-                        <select id="setting-gesture-triple-tap-target" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-40 text-right">${controlCenterTargetOptions}</select>
+                        <div class="pr-3">
+                            <div class="text-sm font-medium" data-i18n="gestureSettings.tripleTapTarget.label">${t('gestureSettings.tripleTapTarget.label')}</div>
+                            <div class="text-xs text-slate-400 mt-0.5" data-i18n="gestureSettings.tripleTapTarget.hint">${t('gestureSettings.tripleTapTarget.hint')}</div>
+                        </div>
+                        <select id="setting-gesture-triple-tap-target" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right shrink-0">${controlCenterTargetOptions}</select>
                     </div>
                 </div>
             </div>
