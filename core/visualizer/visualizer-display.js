@@ -57,6 +57,19 @@
         // xem plan B6).
         const SPACE_DUST_RANGE = 500;
 
+        // FIX (12/08/2026, Giang yêu cầu) — key i18n tên hiển thị cho từng giá trị MODES (service/
+        // state/visualizer-runtime.js), DÙNG CHUNG đúng bộ text đã có sẵn ở select "Kiểu hiệu ứng"
+        // (components/settings/visualizer-geometry-color.js) — tránh dịch trùng 1 khái niệm ở 2 nơi.
+        const VISUALIZER_TYPE_LABEL_KEYS = {
+            bar: 'settingsVisualizer.type.bar',
+            lightning: 'settingsVisualizer.type.lightning',
+            rubik: 'settingsVisualizer.type.rubik',
+            vortex: 'settingsVisualizer.type.vortex',
+            'black hole': 'settingsVisualizer.type.blackHole',
+            rain: 'settingsVisualizer.type.rain',
+            space: 'settingsVisualizer.type.space',
+        };
+
         /**
          * MỚI (20/07/2026, plan-space-galaxy.md Phần A, mục A3) — Core THUẦN tách từ đoạn toggle
          * `style.visibility` TRƯỚC ĐÂY nằm thẳng trong `drawVisualizer()`
@@ -127,6 +140,11 @@
             appConfigViz.mutateAll(cfg => { cfg.type = MODES[currentModeIndex]; });
             const cfg = appConfigViz.getAll();
             modeBadge.textContent = `${currentModeIndex + 1}/${MODES.length}`;
+            // FIX (12/08/2026, Giang yêu cầu — "icon Effect đổi text theo tên effect đang chạy") —
+            // nhãn dưới icon #btn-cycle-mode giờ hiện ĐÚNG tên hiệu ứng đang chạy, CÙNG khuôn
+            // #eq-badge-label (core/eq-presets.js::syncEqBadgeLabel()), thay vì chữ tĩnh "Hiệu ứng"
+            // cố định trước đây.
+            if (modeCycleLabel) modeCycleLabel.textContent = t(VISUALIZER_TYPE_LABEL_KEYS[cfg.type] || cfg.type);
             // Đồng bộ select "Kiểu hiệu ứng" trong Settings (ver 8 refine) — updateTypeUI() là
             // điểm DUY NHẤT mọi đường đổi kiểu hiệu ứng đều đi qua (cycle button HOẶC select), nên
             // đặt đồng bộ ở đây đảm bảo 2 UI luôn khớp nhau bất kể đổi từ đâu.
