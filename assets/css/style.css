@@ -158,6 +158,14 @@ body {
            thêm menu bật lên khi giữ tay lâu trên iOS (liên quan seek-hold, giữ ≥2s). */
         #visualizer-ui { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 
+        /* Mũi tên seek-hold (core/visualizer-gesture.js) — nhích nhẹ theo chiều tua + mờ/rõ lặp
+           lại, gợi cảm giác "đang tua" liên tục. --seek-arrow-dx set inline theo chiều (JS). */
+        @keyframes seek-hold-arrow-pulse {
+            0%, 100% { opacity: 0.55; transform: translateX(0); }
+            50% { opacity: 1; transform: translateX(var(--seek-arrow-dx, 0)); }
+        }
+        .seek-hold-arrow { animation: seek-hold-arrow-pulse 0.7s ease-in-out infinite; }
+
         /* ==================== Responsive Playlist <-> Visualizer navigation (04/07/2026, mục 4) ====================
            MOBILE/TABLET (< 1024px, mặc định): #side-left-container (MỚI 07/07/2026 — xem ngay
            dưới) và Visualizer là 2 "trang" cạnh nhau THEO CHIỀU NGANG (khác hẳn slide dọc
