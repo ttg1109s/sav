@@ -22,6 +22,11 @@
  * #btn-capture-video-frame MỚI — chụp khung hình `bgVideoElement` đang phát, lưu vào Photo. CHỈ
  * hiện lúc Video Player mode (`.hidden` mặc định, gỡ trong setBgVideoElementForPlayerMode(),
  * core/video-player.js) — xem event/workflow/video-player.js::captureCurrentFrame().
+ *
+ * #btn-open-volume MỚI — mở #visualizer-volume-hud (panel nổi riêng, giống popup volume hệ thống
+ * iOS — icon loa 5 mốc + 1 slider) — xem core/volume-hud.js + event/workflow/volume-hud.js.
+ * #btn-cycle-eq (đổi preset EQ, CÙNG khuôn #btn-cycle-mode) SẼ THÊM cùng lúc dựng hệ thống preset
+ * EQ lưu DB (đợt sau).
  */
 const TPL_VISUALIZER_OVERLAY = `
     <div id="visualizer-ui" class="fixed inset-0 z-30 pointer-events-none fade-enter hidden flex flex-col">
@@ -79,7 +84,31 @@ const TPL_VISUALIZER_OVERLAY = `
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                         <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.captureFrame.label">${t('visualizerOverlay.captureFrame.label')}</span>
                     </button>
+                    <button id="btn-open-volume" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.volume.title" title="${t('visualizerOverlay.volume.title')}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5 6 9H3v6h3l5 4V5z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.5 8.5a5 5 0 010 7M18 6a9 9 0 010 12" /></svg>
+                        <span class="text-[10px] font-medium" data-i18n="visualizerOverlay.volume.label">${t('visualizerOverlay.volume.label')}</span>
+                    </button>
+                    <!-- #btn-cycle-eq (đổi preset EQ, giống #btn-cycle-mode) SẼ THÊM cùng lúc dựng
+                         hệ thống preset EQ lưu DB (mục 2&3, chưa làm ở đợt này — tránh để lại nút
+                         chưa có logic phía sau trong Control Center). -->
                 </div>
+            </div>
+
+            <!-- Volume HUD — "phóng" gần nút #btn-open-volume, kính mờ, giống popup volume hệ
+                 thống iOS: icon loa BÊN TRÁI (5 mốc 0-100%, xem core/volume-hud.js) + 1 slider
+                 chiếm hết phần còn lại. Tự ẩn sau ít giây không thao tác (taskManager, xem
+                 event/workflow/volume-hud.js) — KHÔNG dùng eventBus cho slider bên trong (cùng
+                 khuôn Generic Drawer, Workflow tự wire trực tiếp vì đây là panel nổi riêng, không
+                 phải Settings Stack). -->
+            <div id="visualizer-volume-hud" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[47] glass-control-center rounded-full shadow-2xl pointer-events-auto flex items-center gap-3 px-5 py-3 w-64 max-w-[80vw]">
+                <svg id="volume-hud-icon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor" stroke="none" />
+                    <path id="volume-hud-wave-1" stroke-linecap="round" stroke-linejoin="round" d="M15 9.5a3.5 3.5 0 010 5" />
+                    <path id="volume-hud-wave-2" stroke-linecap="round" stroke-linejoin="round" d="M17.5 7a7 7 0 010 10" />
+                    <path id="volume-hud-wave-3" stroke-linecap="round" stroke-linejoin="round" d="M20 4.5a11 11 0 010 15" />
+                    <path id="volume-hud-mute" class="hidden" stroke-linecap="round" stroke-linejoin="round" d="M15.5 9.5l5 5m0-5l-5 5" />
+                </svg>
+                <input type="range" id="volume-hud-slider" min="0" max="100" step="1" class="setting-slider flex-1">
             </div>
         </div>
     </div>
