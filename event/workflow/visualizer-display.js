@@ -84,9 +84,9 @@ const workflowVisualizerDisplay = {
 
         // ===== Section "Hiển thị Visualizer" =====
         panelEl.querySelector('#setting-stats-panel-enable').checked = appConfigPlayer.getAll().isStatsPanelVisible !== false;
-        panelEl.querySelector('#setting-hide-bottom-player').checked = cfg.hideBottomPlayer === true;
-        panelEl.querySelector('#setting-hide-playlist-button').checked = cfg.hidePlaylistButton === true;
-        panelEl.querySelector('#setting-hide-control-center-button').checked = cfg.hideControlCenterButton === true;
+        panelEl.querySelector('#setting-bottom-player-enable').checked = cfg.bottomPlayerVisible !== false;
+        panelEl.querySelector('#setting-playlist-button-enable').checked = cfg.playlistButtonVisible !== false;
+        panelEl.querySelector('#setting-control-center-button-enable').checked = cfg.controlCenterButtonVisible !== false;
     },
 
     setQuality(value) {
@@ -243,22 +243,25 @@ const workflowVisualizerDisplay = {
         workflowPlayerControls._persistPlayerConfig(); // event/workflow/player-controls.js — liên tuyến domain
     },
 
-    /** 3 toggle RIÊNG (bỏ hẳn "full mode" gộp chung) — CÙNG khuôn, khác field vizConfig + hàm core
-     * mục tiêu. Ứng với 'visualizerDisplay.hideBottomPlayer/hidePlaylistButton/
-     * hideControlCenterButton.change'. */
-    setBottomPlayerHidden(checked) {
-        setBottomPlayerVisible(!checked); // core/visualizer-ui-visibility.js
-        appConfigViz.mutateAll(cfg => { cfg.hideBottomPlayer = checked; });
+    /** 3 toggle RIÊNG (bỏ hẳn "full mode" gộp chung) — CÙNG khuôn setStatsPanelEnabled() ngay
+     * trên: đặt tên KHẲNG ĐỊNH, checked=true nghĩa là HIỆN (không đảo `!checked` như bản cũ đặt
+     * tên phủ định "hideX" — phản hồi Giang, nhất quán toàn section). Tên method TRÙNG core cùng
+     * chức năng (gọi trần phân giải theo scope từ vựng — xem setBgBlur() trên, cùng khuôn). Ứng
+     * với 'visualizerDisplay.bottomPlayerVisible/playlistButtonVisible/
+     * controlCenterButtonVisible.change'. */
+    setBottomPlayerVisible(checked) {
+        setBottomPlayerVisible(checked); // core cùng tên
+        appConfigViz.mutateAll(cfg => { cfg.bottomPlayerVisible = checked; });
         saveConfig();
     },
-    setPlaylistButtonHidden(checked) {
-        setPlaylistButtonVisible(!checked); // core/visualizer-ui-visibility.js
-        appConfigViz.mutateAll(cfg => { cfg.hidePlaylistButton = checked; });
+    setPlaylistButtonVisible(checked) {
+        setPlaylistButtonVisible(checked); // core cùng tên
+        appConfigViz.mutateAll(cfg => { cfg.playlistButtonVisible = checked; });
         saveConfig();
     },
-    setControlCenterButtonHidden(checked) {
-        setControlCenterButtonVisible(!checked); // core/visualizer-ui-visibility.js
-        appConfigViz.mutateAll(cfg => { cfg.hideControlCenterButton = checked; });
+    setControlCenterButtonVisible(checked) {
+        setControlCenterButtonVisible(checked); // core cùng tên
+        appConfigViz.mutateAll(cfg => { cfg.controlCenterButtonVisible = checked; });
         saveConfig();
     },
 };
