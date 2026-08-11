@@ -59,3 +59,25 @@ function clampSeekPosition(targetSec, durationSec) {
     const clampedSec = Math.max(min, Math.min(max, targetSec));
     return { clampedSec, hitBoundary: clampedSec !== targetSec };
 }
+
+let _seekHoldIndicatorEl = null; // badge nổi "+X.Xs"/"-X.Xs" tại vị trí giữ tay — tạo 1 lần, tái dùng xuyên phiên
+
+/** Hiện/cập nhật badge nổi tại toạ độ chạm — gọi lại nhiều lần trong 1 phiên seek-hold (mỗi tick)
+ * chỉ đổi text, không tạo lại DOM. Neo giữa (translate -50%/-50%) đúng tại (x,y).
+ * @param {number} x @param {number} y @param {string} text */
+function showSeekHoldIndicator(x, y, text) {
+    if (!_seekHoldIndicatorEl) {
+        _seekHoldIndicatorEl = document.createElement('div');
+        _seekHoldIndicatorEl.id = 'visualizer-seek-hold-indicator';
+        _seekHoldIndicatorEl.className = 'fixed z-[70] -translate-x-1/2 -translate-y-1/2 pointer-events-none px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-sm border border-white/20 text-white text-sm font-mono font-bold shadow-lg';
+        document.body.appendChild(_seekHoldIndicatorEl);
+    }
+    _seekHoldIndicatorEl.style.left = `${x}px`;
+    _seekHoldIndicatorEl.style.top = `${y}px`;
+    _seekHoldIndicatorEl.textContent = text;
+}
+
+/** Gỡ badge nổi (nếu đang hiện) — gọi lúc dừng seek-hold (thả tay/chạm biên/touchcancel). */
+function hideSeekHoldIndicator() {
+    if (_seekHoldIndicatorEl) { _seekHoldIndicatorEl.remove(); _seekHoldIndicatorEl = null; }
+}

@@ -79,7 +79,15 @@
             gestureEdgeTopEnabled: true, gestureEdgeBottomEnabled: true, gestureEdgeBottomTarget: 'cycleMode',
             // Seek-hold: giữ tay 3s ở nửa trái/phải màn hình -> tua lùi/tiến lặp lại theo bước
             // gestureSeekStepMs (mili giây), tới khi thả tay hoặc chạm biên 0/(thời lượng - 1s).
-            gestureSeekHoldEnabled: true, gestureSeekStepMs: 2000,
+            // Seek-hold: giữ tay ở nửa trái/phải màn hình để tua lùi/tiến lặp lại. 3 THỜI GIAN
+            // TÁCH BIỆT HOÀN TOÀN (phản hồi Giang):
+            //   - Ngưỡng KÍCH HOẠT (2s): CỐ ĐỊNH, KHÔNG phải setting — xem SEEK_HOLD_ACTIVATE_MS,
+            //     event/workflow/visualizer-gesture.js.
+            //   - gestureSeekStepMs (Time 1): ĐƠN VỊ NHẢY mỗi lần seek — tua bao nhiêu.
+            //   - gestureSeekHoldIntervalMs (Time 2): SAU KHI đã vào seek mode, giữ tiếp đủ Time 2
+            //     thì mới kích hoạt 1 lệnh seek theo Time 1 — lặp lại liên tục (giữ Time 2 -> seek
+            //     Time 1 -> giữ Time 2 -> seek Time 1...).
+            gestureSeekHoldEnabled: true, gestureSeekStepMs: 2000, gestureSeekHoldIntervalMs: 2000,
         };
 
         // XOÁ (v13 Batch C) — `DEFAULT_SLIDESHOW_CONFIG` + domain `slideshow` ĐÃ GỘP HẲN vào
@@ -223,7 +231,7 @@
                 gestureActionSwipeLeft: 'string', gestureActionSwipeRight: 'string',
                 gestureActionTapSingle: 'string', gestureActionTapDouble: 'string',
                 gestureEdgeTopEnabled: 'boolean', gestureEdgeBottomEnabled: 'boolean', gestureEdgeBottomTarget: 'string',
-                gestureSeekHoldEnabled: 'boolean', gestureSeekStepMs: 'number',
+                gestureSeekHoldEnabled: 'boolean', gestureSeekStepMs: 'number', gestureSeekHoldIntervalMs: 'number',
             },
             defaults: DEFAULT_VIZ_CONFIG,
         });
