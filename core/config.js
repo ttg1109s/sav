@@ -66,13 +66,16 @@
                 borderColor: '#ffffff', borderOpacity: 0.1, borderWidth: 1, borderRadius: 16,
                 textColor: '#ffffff', fontSize: 8, lineHeight: 1.3, letterSpacing: 0,
             },
-            // "Chế độ xem toàn màn hình" (Task 3) — ẩn player-container/btnBackPlaylist/
-            // btnOpenControlCenter, xem core/visualizer-ui-chrome.js.
-            playerUiHidden: false,
-            // Cử chỉ (event/workflow/visualizer-gesture.js) — bật hết mặc định. gestureEdgeBottomTarget
-            // khớp key ở components/gesture-settings-drawer.js/GESTURE_EDGE_BOTTOM_TARGET_ELS.
-            gestureVideoNavEnabled: true, gestureSongNavEnabled: true,
-            gestureTapPlayPauseEnabled: true, gestureDoubleTapPlaylistEnabled: true,
+            // 3 toggle RIÊNG ẩn/hiện UI chrome màn Visualizer (bỏ hẳn "full mode" gộp chung),
+            // Settings -> Hiển thị Visualizer. true = ĐANG ẨN. Xem core/visualizer-ui-visibility.js.
+            hideBottomPlayer: false, hidePlaylistButton: false, hideControlCenterButton: false,
+            // Cử chỉ (event/workflow/visualizer-gesture.js). 4 hướng vuốt + 2 tap: mỗi cái 1 hành
+            // động do người dùng chọn ('next'/'prev'/'playPause'/'openPlaylist'/'none') — chọn
+            // 'none' là tắt cử chỉ đó, KHÔNG còn cờ boolean bật/tắt riêng. Cạnh trên/dưới KHÔNG đổi
+            // (mở Control Center / gán 1 nút Control Center — ngoài phạm vi action picker này).
+            gestureActionSwipeUp: 'next', gestureActionSwipeDown: 'prev',
+            gestureActionSwipeLeft: 'prev', gestureActionSwipeRight: 'next',
+            gestureActionTapSingle: 'playPause', gestureActionTapDouble: 'openPlaylist',
             gestureEdgeTopEnabled: true, gestureEdgeBottomEnabled: true, gestureEdgeBottomTarget: 'cycleMode',
         };
 
@@ -189,7 +192,7 @@
         /**
          * Domain config RIÊNG cho Shuffle/Repeat/Stats-panel-visible (`#btn-shuffle`/`#btn-repeat`,
          * components/visualizer-overlay.js — checkbox Stats dời sang Settings, xem
-         * core/stats-panel-toggle.js) — trước đây `isShuffle`/`repeatMode`/`isStatsPanelVisible`
+         * core/visualizer-ui-visibility.js) — trước đây `isShuffle`/`repeatMode`/`isStatsPanelVisible`
          * CHỈ sống trong AppState runtime, KHÔNG lưu bền, mất hết sau F5. Domain RIÊNG (không gộp
          * vào `playlist`) vì đây là nhóm preference của TRÌNH PHÁT, khác "duyệt/sắp xếp Playlist".
          */
@@ -212,9 +215,10 @@
                 autoSwitchVisualEnabled: 'boolean', autoSwitchVisualMode: 'string', autoSwitchVisualTimeMode: 'string',
                 autoSwitchVisualSecondsFixed: 'number', autoSwitchVisualSecondsRandom: 'number', autoSwitchVisualSecondsDuration: 'number',
                 subtitlesEnabled: 'boolean', subtitleStyle: 'object',
-                playerUiHidden: 'boolean',
-                gestureVideoNavEnabled: 'boolean', gestureSongNavEnabled: 'boolean',
-                gestureTapPlayPauseEnabled: 'boolean', gestureDoubleTapPlaylistEnabled: 'boolean',
+                hideBottomPlayer: 'boolean', hidePlaylistButton: 'boolean', hideControlCenterButton: 'boolean',
+                gestureActionSwipeUp: 'string', gestureActionSwipeDown: 'string',
+                gestureActionSwipeLeft: 'string', gestureActionSwipeRight: 'string',
+                gestureActionTapSingle: 'string', gestureActionTapDouble: 'string',
                 gestureEdgeTopEnabled: 'boolean', gestureEdgeBottomEnabled: 'boolean', gestureEdgeBottomTarget: 'string',
             },
             defaults: DEFAULT_VIZ_CONFIG,
@@ -405,8 +409,10 @@
             if (typeof initVisualizerMiscSettingsUIFromConfig === 'function') initVisualizerMiscSettingsUIFromConfig();
             if (typeof initSubtitleToggleUIFromConfig === 'function') initSubtitleToggleUIFromConfig();
             if (typeof initAutoSwitchCycleButtonFromConfig === 'function') initAutoSwitchCycleButtonFromConfig();
-            // MỚI (10/08/2026, Task 3) — "Chế độ xem toàn màn hình" phải TỰ áp lại lúc boot, không
-            // chỉ lúc đổi checkbox (khác setStatsPanelVisible() — domain 'player' RIÊNG, tự áp qua
-            // workflowPlayerControls.loadPersistedPlayerConfigOnBoot(), xem event/workflow/app-boot.js).
-            if (typeof setPlayerUiHidden === 'function') setPlayerUiHidden(appConfigViz.getAll().playerUiHidden === true);
+            // 3 toggle ẩn/hiện UI chrome màn Visualizer, tự áp lại lúc boot (khác setStatsPanelVisible()
+            // — domain 'player' RIÊNG, tự áp qua workflowPlayerControls.loadPersistedPlayerConfigOnBoot(),
+            // xem event/workflow/app-boot.js).
+            if (typeof setBottomPlayerVisible === 'function') setBottomPlayerVisible(appConfigViz.getAll().hideBottomPlayer !== true);
+            if (typeof setPlaylistButtonVisible === 'function') setPlaylistButtonVisible(appConfigViz.getAll().hidePlaylistButton !== true);
+            if (typeof setControlCenterButtonVisible === 'function') setControlCenterButtonVisible(appConfigViz.getAll().hideControlCenterButton !== true);
         }

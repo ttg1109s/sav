@@ -2,9 +2,9 @@
  * Tính màu sắc theo dữ liệu tần số (getComputedColor) & cập nhật bảng thống kê BPM / Pitch / Energy.
  * (Trích từ file gốc, dòng 1016-1065 trong khối <script>)
  *
- * FIX (ver 10 refine, bổ sung — toggle ẩn/hiện dải BPM/Pitch/Energy, xem stats-panel-toggle.js):
- * mọi dòng ghi statBpm/statNote/statEnergy.textContent dưới đây đều bọc thêm điều kiện
- * `isStatsPanelVisible &&` ở ĐẦU — khi dải bị ẩn, bỏ qua đúng phần thao tác DOM đó (đỡ work vô
+ * FIX (ver 10 refine, bổ sung — toggle ẩn/hiện dải BPM/Pitch/Energy, xem core/visualizer-ui-
+ * visibility.js): mọi dòng ghi statBpm/statNote/statEnergy.textContent dưới đây đều bọc thêm điều
+ * kiện `isStatsPanelVisible &&` ở ĐẦU — khi dải bị ẩn, bỏ qua đúng phần thao tác DOM đó (đỡ work vô
  * nghĩa khi không ai nhìn thấy), nhưng KHÔNG đụng tới phần TÍNH TOÁN logic phía sau (beatTimes/
  * fluxHistory/currentCalculatedBpm/rubikPitchAvg...) — các giá trị này được visual Rubik dùng,
  * phải tiếp tục chạy đúng bất kể dải số liệu có hiện hay không.

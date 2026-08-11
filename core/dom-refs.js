@@ -81,7 +81,7 @@
         const recordArt = document.getElementById('record-art'), recordContainer = document.getElementById('record-container');
         const statBpm = document.getElementById('stat-bpm'), statNote = document.getElementById('stat-note'), statEnergy = document.getElementById('stat-energy');
         // Dải BPM/Pitch/Energy — toggle ẩn/hiện giờ nằm ở Settings (checkbox), xem
-        // core/stats-panel-toggle.js + components/gesture-settings-drawer.js.
+        // core/visualizer-ui-visibility.js.
         const statsPanel = document.getElementById('stats-panel');
         // MỚI (04/07/2026, tính năng Documents) — nút mở Reader trong Control Center.
         const btnOpenDocumentReader = document.getElementById('btn-open-document-reader');
@@ -207,7 +207,6 @@
         const settingLanguageUpload = document.getElementById('setting-language-upload');
         const settingLanguageDelete = document.getElementById('setting-language-delete');
 
-        const btnSubtitle = document.getElementById('btn-subtitle'), subToggleBadge = document.getElementById('sub-toggle-badge');
         const subtitleModal = document.getElementById('subtitle-modal'), btnCloseSubModal = document.getElementById('btn-close-sub-modal');
         const srtUpload = document.getElementById('srt-upload'), btnApplySub = document.getElementById('btn-apply-sub');
         const btnAddSub = document.getElementById('btn-add-sub'), btnExportSrt = document.getElementById('btn-export-srt');
