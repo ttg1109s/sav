@@ -27,6 +27,8 @@ const LANG_PATCH_VISUALIZER = {
     // Video Player mode. (statsToggle.* ĐÃ XOÁ — toggle dời vào Settings, xem statsPanelEnable.*.)
     'visualizerOverlay.captureFrame.title': 'Capture frame as photo',
     'visualizerOverlay.captureFrame.label': 'Capture',
+    'visualizerOverlay.volume.title': 'Volume',
+    'visualizerOverlay.volume.label': 'Volume',
     'videoPlayer.captureFrame.success': 'Photo saved to your library.',
     'videoPlayer.captureFrame.failed': 'Could not capture this frame.',
 
@@ -87,8 +89,11 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.statsPanelEnable.label': 'Show music stats',
     'visualizerSettingsDrawer.statsPanelEnable.hint': 'BPM, pitch and energy readout on the Visualizer screen',
     'visualizerSettingsDrawer.bottomPlayerEnable.label': 'Show bottom player bar',
+    'visualizerSettingsDrawer.bottomPlayerEnable.hint': 'Play/pause, next/prev, progress bar and song info pinned at the bottom',
     'visualizerSettingsDrawer.playlistButtonEnable.label': 'Show Playlist button',
+    'visualizerSettingsDrawer.playlistButtonEnable.hint': 'Quick button to jump back to your Playlist',
     'visualizerSettingsDrawer.controlCenterButtonEnable.label': 'Show Control Center button',
+    'visualizerSettingsDrawer.controlCenterButtonEnable.hint': 'Quick button for effect, shuffle, repeat and more',
     'visualizerSettingsDrawer.uiToggleGroupHint': 'Turned off elements still reopen with a swipe from the screen edge.',
 
     'loadingShield.text': 'Processing...',
