@@ -4,21 +4,26 @@
  * Bắt trên #visualizer-gesture-surface (components/visualizer-overlay.js — lớp phủ chạm RIÊNG,
  * pointer-events:auto, nằm giữa canvas visualizer/bgVideoElement và thanh UI thật).
  *
- * touchstart PHÂN LOẠI RÌA NGAY (isInTopEdgeZone()/isInBottomEdgeZone(), core) — vuốt RÌA và vuốt
- * lên/xuống/trái/phải THƯỜNG đi 2 nhánh loại trừ nhau NGAY TỪ ĐIỂM BẮT ĐẦU. Vuốt thường: touchend
- * tính vector (deltaX, deltaY) rồi phân loại tap (isTapGesture) -> đơn/đúp (debounce qua
- * taskManager) -> trục vuốt chiếm ưu thế (resolveDominantSwipeAxis) -> chiều (resolveSwipeDirection).
+ * touchstart PHÂN LOẠI RÌA TRÊN NGAY (isInTopEdgeZone(), core) — vuốt RÌA TRÊN và vuốt
+ * lên/xuống/trái/phải THƯỜNG đi 2 nhánh loại trừ nhau NGAY TỪ ĐIỂM BẮT ĐẦU (rìa DƯỚI đã bỏ hẳn,
+ * xem mục "TAP 3 LẦN" bên dưới — thay thế đúng chức năng đó). Vuốt thường: touchend tính vector
+ * (deltaX, deltaY) rồi phân loại tap (isTapGesture) -> đơn/đúp/ba (đếm dồn qua taskManager) -> trục
+ * vuốt chiếm ưu thế (resolveDominantSwipeAxis) -> chiều (resolveSwipeDirection).
  *
- * 4 hướng vuốt + 2 tap đều là "hành động do người dùng chọn" — mỗi cái 1 field string riêng trong
- * vizConfig, giá trị 1 trong 5: 'next'/'prev'/'playPause'/'openPlaylist'/'none' — xem
+ * 4 hướng vuốt + 2 tap (đơn/đúp) đều là "hành động do người dùng chọn" — mỗi cái 1 field string
+ * riêng trong vizConfig, giá trị 1 trong 5: 'next'/'prev'/'playPause'/'openPlaylist'/'none' — xem
  * GESTURE_ACTIONS. Hoạt động bất kể đang phát Song hay Video (playerControls.next/prev.click TỰ
  * đúng cho cả 2 loại — Workflow này không cần biết đang phát gì).
  *
- * Vuốt rìa trên/dưới KHÔNG nằm trong action picker — rìa trên CỐ ĐỊNH mở Control Center, rìa dưới
- * bấm 1 nút Control Center do người dùng chọn riêng (gestureEdgeBottomTarget).
+ * TAP 3 LẦN (MỚI, THAY THẾ vuốt cạnh dưới đã bỏ hẳn) — KHÔNG nằm trong action picker (khác tap
+ * đơn/đúp) — CHỈ để bấm 1 nút Control Center do người dùng chọn riêng (gestureTripleTapTarget),
+ * đúng chức năng vuốt cạnh dưới cũ, đổi cơ chế kích hoạt sang chạm 3 lần liên tiếp cho dễ thao tác
+ * hơn (phản hồi Giang).
+ *
+ * Vuốt rìa TRÊN (mở Control Center) KHÔNG đổi.
  *
  * SEEK-HOLD — giữ tay ĐỨNG YÊN (không rìa, không vuốt) ở nửa trái/phải màn hình -> tua lùi/tiến
- * LẶP LẠI. 3 THỜI GIAN TÁCH BIỆT HOÀN TOÀN (phản hồi Giang, chốt lần cuối):
+ * LẶP LẠI. 3 THỜI GIAN TÁCH BIỆT HOÀN TOÀN:
  *   1. SEEK_HOLD_ACTIVATE_MS (2s) — ngưỡng giữ để KÍCH HOẠT vào seek mode. CỐ ĐỊNH, KHÔNG phải
  *      setting, KHÔNG liên quan gì tới 2 giá trị bên dưới.
  *   2. gestureSeekStepMs (Time 1, setting) — ĐƠN VỊ NHẢY mỗi lần seek — tua bao nhiêu giây.
@@ -52,14 +57,14 @@ const EDGE_SWIPE_MIN_DISTANCE_PX = 40;
 const SWIPE_MIN_DISTANCE_PX = 60;
 const TAP_MAX_DISTANCE_PX = 12;
 const TAP_MAX_DURATION_MS = 300;
-const DOUBLE_TAP_WINDOW_MS = 300;
+const TAP_WINDOW_MS = 300; // cửa sổ chờ giữa các lần chạm liên tiếp — dùng chung đơn/đúp/ba
 const GESTURE_TAP_TASK = 'visualizerGestureTapWindow';
 const SEEK_HOLD_ACTIVATE_MS = 2000; // ngưỡng giữ để KÍCH HOẠT — cố định, không phải setting
 const SEEK_HOLD_MOVE_CANCEL_PX = 20;
 const SEEK_HOLD_PENDING_TASK = 'visualizerGestureSeekHoldPending';
 const SEEK_HOLD_TICK_TASK = 'visualizerGestureSeekHoldTick';
 
-/** Pool hành động dùng CHUNG cho cả 4 hướng vuốt + 2 tap — key khớp <option> ở
+/** Pool hành động dùng CHUNG cho cả 4 hướng vuốt + tap đơn/đúp — key khớp <option> ở
  * components/gesture-settings-drawer.js + giá trị field vizConfig. Tái dùng THẲNG message có sẵn,
  * không viết lại logic next/prev/play-pause/mở-playlist. */
 const GESTURE_ACTIONS = {
@@ -77,10 +82,10 @@ const GESTURE_SWIPE_CONFIG_FIELD = {
     x: { '-1': 'gestureActionSwipeLeft', '1': 'gestureActionSwipeRight' },
 };
 
-/** Nút Control Center hợp lệ để gán cho cử chỉ vuốt rìa dưới — key khớp <option> ở
- * components/gesture-settings-drawer.js. Tham chiếu THẲNG biến dom-refs (không tự
- * document.getElementById) — undefined-safe cho trang không nạp đủ bộ dom-refs (subtitle-editor.html). */
-const GESTURE_EDGE_BOTTOM_TARGET_ELS = {
+/** Nút Control Center hợp lệ để gán cho TAP 3 LẦN — key khớp <option> ở components/gesture-
+ * settings-drawer.js. Tham chiếu THẲNG biến dom-refs (không tự document.getElementById) —
+ * undefined-safe cho trang không nạp đủ bộ dom-refs (subtitle-editor.html). */
+const GESTURE_TRIPLE_TAP_TARGET_ELS = {
     cycleMode: typeof btnCycleMode !== 'undefined' ? btnCycleMode : null,
     shuffle: typeof btnShuffle !== 'undefined' ? btnShuffle : null,
     repeat: typeof btnRepeat !== 'undefined' ? btnRepeat : null,
@@ -90,7 +95,7 @@ const GESTURE_EDGE_BOTTOM_TARGET_ELS = {
 
 const workflowVisualizerGesture = {
     _startX: 0, _startY: 0, _startTime: 0, _startEdge: null,
-    _tapPending: false, // đang chờ hết cửa sổ double-tap (taskManager) để chốt là tap đơn
+    _tapCount: 0, // số lần chạm liên tiếp đang đếm dồn trong cửa sổ TAP_WINDOW_MS (1/2/3)
     _seekHoldDirection: 0, // 1 = tua tiến (nửa phải), -1 = tua lùi (nửa trái) — set lúc touchstart
     _seekHoldActive: false, // đã qua ngưỡng SEEK_HOLD_ACTIVATE_MS, đang thật sự tua lặp lại
     _seekHoldMediaEl: null, // media element đang seek (chốt lúc kích hoạt, dùng xuyên suốt phiên)
@@ -100,9 +105,7 @@ const workflowVisualizerGesture = {
     /** Ứng với 'visualizerGesture.touch.start'. @param {number} x @param {number} y */
     handleTouchStart(x, y) {
         this._startX = x; this._startY = y; this._startTime = Date.now();
-        if (isInTopEdgeZone(y, EDGE_ZONE_PX)) this._startEdge = 'top'; // core/visualizer-gesture.js
-        else if (isInBottomEdgeZone(y, window.innerHeight, EDGE_ZONE_PX)) this._startEdge = 'bottom';
-        else this._startEdge = null;
+        this._startEdge = isInTopEdgeZone(y, EDGE_ZONE_PX) ? 'top' : null; // core/visualizer-gesture.js — rìa DƯỚI đã bỏ (thay bằng tap 3 lần)
 
         if (!this._startEdge && appConfigViz.getAll().gestureSeekHoldEnabled !== false) {
             this._seekHoldDirection = isInLeftHalf(x, window.innerWidth) ? -1 : 1; // core/visualizer-gesture.js
@@ -129,7 +132,7 @@ const workflowVisualizerGesture = {
         const distance = Math.hypot(deltaX, deltaY);
         const elapsed = Date.now() - this._startTime;
 
-        if (this._startEdge) { this._resolveEdgeSwipe(this._startEdge, deltaY, distance, cfg); return; }
+        if (this._startEdge) { this._resolveEdgeSwipe(deltaY, distance, cfg); return; }
 
         if (isTapGesture(distance, elapsed, TAP_MAX_DISTANCE_PX, TAP_MAX_DURATION_MS)) { this._resolveTap(cfg); return; }
 
@@ -146,35 +149,39 @@ const workflowVisualizerGesture = {
         taskManager.kill(SEEK_HOLD_PENDING_TASK);
     },
 
-    /** Chạm bắt đầu trong dải rìa — chỉ 2 kết quả: mở Control Center (rìa trên, vuốt XUỐNG) hoặc
-     * bấm nút Control Center đã chọn (rìa dưới, vuốt LÊN). Sai chiều/chưa đủ khoảng cách -> bỏ qua,
-     * KHÔNG rơi xuống nhánh vuốt/tap thường. Ngoài action picker (không đổi). */
-    _resolveEdgeSwipe(edge, deltaY, distance, cfg) {
-        if (distance < EDGE_SWIPE_MIN_DISTANCE_PX) return;
-        if (edge === 'top' && deltaY > 0) {
-            if (cfg.gestureEdgeTopEnabled === false) return;
-            eventBus.send({ router: 'visualizerControlCenter', type: 'visualizerControlCenter.toggle.click', payload: {} });
-        } else if (edge === 'bottom' && deltaY < 0) {
-            if (cfg.gestureEdgeBottomEnabled === false) return;
-            const targetEl = GESTURE_EDGE_BOTTOM_TARGET_ELS[cfg.gestureEdgeBottomTarget];
-            if (targetEl && !targetEl.classList.contains('hidden')) targetEl.click();
-        }
+    /** Chạm bắt đầu trong dải rìa TRÊN, vuốt XUỐNG đủ xa -> mở Control Center. Sai chiều/chưa đủ
+     * khoảng cách -> bỏ qua, KHÔNG rơi xuống nhánh vuốt/tap thường. */
+    _resolveEdgeSwipe(deltaY, distance, cfg) {
+        if (distance < EDGE_SWIPE_MIN_DISTANCE_PX || deltaY <= 0) return;
+        if (cfg.gestureEdgeTopEnabled === false) return;
+        eventBus.send({ router: 'visualizerControlCenter', type: 'visualizerControlCenter.toggle.click', payload: {} });
     },
 
-    /** Tap đơn vs tap đúp — debounce chuẩn: hẹn hành động tap đơn, tap thứ 2 tới trong cửa sổ thì
-     * huỷ hẹn đó, đổi sang hành động tap đúp. Hành động cụ thể do người dùng chọn (action picker). */
+    /** Tap đơn/đúp/ba — đếm dồn qua `_tapCount`, mỗi lần chạm tự đặt lại (debounce, taskManager tự
+     * huỷ bản hẹn cũ cùng tên) hẹn TAP_WINDOW_MS chờ lần chạm kế tiếp. Tap thứ 3 chốt NGAY (không
+     * còn gì để chờ phân biệt tiếp) — bấm thẳng nút Control Center đã chọn (gestureTripleTapTarget,
+     * THAY THẾ đúng chức năng vuốt cạnh dưới đã bỏ), KHÔNG thuộc action picker (đơn/đúp mới thuộc). */
     _resolveTap(cfg) {
-        if (this._tapPending) {
+        this._tapCount++;
+        if (this._tapCount >= 3) {
+            this._tapCount = 0;
             taskManager.kill(GESTURE_TAP_TASK);
-            this._tapPending = false;
-            this._dispatchGestureAction(cfg.gestureActionTapDouble);
+            this._resolveTripleTap(cfg);
             return;
         }
-        this._tapPending = true;
         taskManager.once(() => {
-            this._tapPending = false;
-            this._dispatchGestureAction(cfg.gestureActionTapSingle);
-        }, DOUBLE_TAP_WINDOW_MS, GESTURE_TAP_TASK);
+            const count = this._tapCount;
+            this._tapCount = 0;
+            if (count === 1) this._dispatchGestureAction(cfg.gestureActionTapSingle);
+            else if (count === 2) this._dispatchGestureAction(cfg.gestureActionTapDouble);
+        }, TAP_WINDOW_MS, GESTURE_TAP_TASK);
+    },
+
+    /** Tap 3 lần — bấm thẳng 1 nút Control Center do người dùng chọn (KHÁC action picker). */
+    _resolveTripleTap(cfg) {
+        if (cfg.gestureTripleTapEnabled === false) return;
+        const targetEl = GESTURE_TRIPLE_TAP_TARGET_ELS[cfg.gestureTripleTapTarget];
+        if (targetEl && !targetEl.classList.contains('hidden')) targetEl.click();
     },
 
     /** Vuốt thường (không rìa) — cả 4 hướng đều hoạt động bất kể đang phát Song hay Video. */
@@ -184,7 +191,7 @@ const workflowVisualizerGesture = {
         this._dispatchGestureAction(cfg[field]);
     },
 
-    /** Tra + chạy 1 hành động trong GESTURE_ACTIONS — dùng chung bởi tap và vuốt.
+    /** Tra + chạy 1 hành động trong GESTURE_ACTIONS — dùng chung bởi tap đơn/đúp và vuốt.
      * @param {string} action */
     _dispatchGestureAction(action) {
         const run = GESTURE_ACTIONS[action];

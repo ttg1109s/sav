@@ -2,12 +2,12 @@
  * event/workflow/gesture-settings.js — "THẰNG THỰC THI CUỐI" của router "gestureSettings".
  *
  * setField(field, value) DÙNG CHUNG cho cả 6 dropdown action picker (4 hướng vuốt + 2 tap) LẪN
- * dropdown gestureEdgeBottomTarget LẪN 2 số Seek-hold (gestureSeekStepMs = Time 1 đơn vị nhảy /
+ * dropdown gestureTripleTapTarget LẪN 2 số Seek-hold (gestureSeekStepMs = Time 1 đơn vị nhảy /
  * gestureSeekHoldIntervalMs = Time 2 nhịp giữ để tua tiếp — TÁCH BIỆT HOÀN TOÀN, xem docstring
  * event/workflow/visualizer-gesture.js — ghi từ _openSeekTimePicker() bên dưới) — tất cả CÙNG
  * process: ghi 1 field vào vizConfig + saveConfig() (khác giá trị/field, không phải khác kịch bản
  * nghiệp vụ — xem readme/core-function-conventions.md, Rule 1 test). setToggle(field, checked)
- * tương tự cho 3 checkbox còn lại (vuốt cạnh trên/dưới, bật/tắt seek-hold — đều boolean).
+ * tương tự cho 3 checkbox còn lại (vuốt cạnh trên, tap 3 lần, bật/tắt seek-hold — đều boolean).
  */
 const workflowGestureSettings = {
 
@@ -21,15 +21,15 @@ const workflowGestureSettings = {
         panelEl.querySelector('#setting-gesture-action-swipe-right').value = cfg.gestureActionSwipeRight || 'none';
         panelEl.querySelector('#setting-gesture-action-tap-single').value = cfg.gestureActionTapSingle || 'none';
         panelEl.querySelector('#setting-gesture-action-tap-double').value = cfg.gestureActionTapDouble || 'none';
+        panelEl.querySelector('#setting-gesture-triple-tap-enable').checked = cfg.gestureTripleTapEnabled !== false;
+        panelEl.querySelector('#setting-gesture-triple-tap-target').value = cfg.gestureTripleTapTarget || 'cycleMode';
         panelEl.querySelector('#setting-gesture-seek-hold-enable').checked = cfg.gestureSeekHoldEnabled !== false;
         panelEl.querySelector('#gesture-seek-step-value').textContent = this._formatSeekMs(cfg.gestureSeekStepMs);
         panelEl.querySelector('#gesture-seek-hold-interval-value').textContent = this._formatSeekMs(cfg.gestureSeekHoldIntervalMs);
         panelEl.querySelector('#setting-gesture-edge-top').checked = cfg.gestureEdgeTopEnabled !== false;
-        panelEl.querySelector('#setting-gesture-edge-bottom').checked = cfg.gestureEdgeBottomEnabled !== false;
-        panelEl.querySelector('#setting-gesture-edge-bottom-target').value = cfg.gestureEdgeBottomTarget || 'cycleMode';
     },
 
-    /** Ứng với 3 msg.type 'gestureSettings.edgeTop/edgeBottom/seekHoldEnable.change'.
+    /** Ứng với 3 msg.type 'gestureSettings.edgeTop/tripleTapEnable/seekHoldEnable.change'.
      * @param {string} field @param {boolean} checked */
     setToggle(field, checked) {
         appConfigViz.mutateAll((cfg) => { cfg[field] = checked; });
@@ -37,7 +37,7 @@ const workflowGestureSettings = {
         saveConfig();
     },
 
-    /** Ứng với 7 msg.type còn lại (6 action picker + edgeBottomTarget). Cũng gọi trực tiếp (không
+    /** Ứng với 7 msg.type còn lại (6 action picker + tripleTapTarget). Cũng gọi trực tiếp (không
      * qua router) từ onConfirm của _openSeekTimePicker() bên dưới cho 2 số Seek-hold.
      * @param {string} field @param {string|number} value */
     setField(field, value) {
