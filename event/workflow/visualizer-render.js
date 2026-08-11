@@ -156,7 +156,13 @@ const workflowVisualizerRender = {
         updateCanvasVisibility(canvas, document.getElementById('webgl-canvas'), isVisualOff); // core
 
         appState.set('frameCounter', frameCounter + 1, { skipCheck: true });
-        const perf = PERFORMANCE_PROFILES[cfg.quality];
+        // FIX (phản hồi Giang — "tách blur ra khỏi cấu hình hiệu năng thành 1 toggle riêng") —
+        // PERFORMANCE_PROFILES[quality].blurMult TRƯỚC ĐÂY là NGUỒN DUY NHẤT bật/tắt blur (đóng
+        // băng theo tier high/medium/low, không tách được). blurEnabled=false ép blurMult về 0
+        // BẤT KỂ quality đang chọn gì — object mới (PERFORMANCE_PROFILES đã Object.freeze, không
+        // sửa tại chỗ được). 5 file dùng perf.blurMult (bar/black-hole/lightning/rain/rubik.js)
+        // ĐỀU nhận perf từ ĐÚNG 1 chỗ này — sửa 1 nơi, áp dụng hết, không cần đụng file nào khác.
+        const perf = cfg.blurEnabled === false ? { ...PERFORMANCE_PROFILES[cfg.quality], blurMult: 0 } : PERFORMANCE_PROFILES[cfg.quality];
         if (!vizDataArray) return; // guard — audio context chưa init (giống hệt hành vi cũ)
 
         analyser.getByteFrequencyData(vizDataArray);
@@ -177,10 +183,13 @@ const workflowVisualizerRender = {
 
         updateStatsDashboard(bufferLength); // core hiện có (di sản trước 04/07/2026 — Rule 0.5, KHÔNG đụng logic bên trong)
 
+        // "Nốt nhạc bay lên" TÁCH RIÊNG khỏi isVisualOff bên dưới (phản hồi Giang — "nó là tính
+        // năng mặc định") — phần tử DOM phụ trên #record-container, KHÔNG PHỤ THUỘC canvas
+        // visualizer có đang vẽ hay không, nên vẫn chạy dù người dùng tắt "Hiện Visual".
+        if (isPlaying && (cfg.quality === 'high' || cfg.quality === 'medium') && newSmoothedEnergy > 0.3 && Math.random() > 0.6) spawnFlyingNote(); // core hiện có
+
         // Mọi phần dưới đây CHỈ liên quan tới việc VẼ ra canvas — bỏ qua khi visual đang tắt.
         if (isVisualOff) return;
-
-        if (isPlaying && (cfg.quality === 'high' || cfg.quality === 'medium') && newSmoothedEnergy > 0.3 && Math.random() > 0.6) spawnFlyingNote(); // core hiện có
 
         // ================== VISUAL CŨ — gọi THẲNG, y nguyên tham số (KHÔNG đụng, plan A2) ==================
         if (cfg.type === 'vortex') {

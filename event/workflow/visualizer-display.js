@@ -58,6 +58,12 @@ const workflowVisualizerDisplay = {
         panelEl.querySelector('#setting-mirror-count').value = cfg.mirrorBarCount;
         panelEl.querySelector('#val-mirror-count').textContent = cfg.mirrorBarCount;
         // (Phần B, Galaxy — đồng bộ 5 input spaceStyle/4 slider ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1)
+        panelEl.querySelector('#setting-blur-enable').checked = cfg.blurEnabled !== false;
+        panelEl.querySelector('#setting-rain-city-opacity').value = cfg.rainGlassCityOpacity;
+        panelEl.querySelector('#val-rain-city-opacity').textContent = cfg.rainGlassCityOpacity;
+        panelEl.querySelector('#setting-rain-city-visible').checked = cfg.rainGlassCityVisible !== false;
+        panelEl.querySelector('#setting-rain-moon-visible').checked = cfg.rainGlassMoonVisible !== false;
+        panelEl.querySelector('#setting-rain-window-visible').checked = cfg.rainGlassWindowVisible !== false;
 
         // Hiện/ẩn đúng khối theo kiểu hiệu ứng/mode màu/kiểu bar hiện tại — 3 hàm này giờ đã có
         // guard (Batch D3), panel vừa push nên chắc chắn tìm thấy phần tử, chạy đúng như mong đợi.
@@ -133,6 +139,7 @@ const workflowVisualizerDisplay = {
     setRainStyle(value) {
         setRainStyle(value);
         resizeCanvas();
+        updateRainStyleUI();
         saveConfig();
     },
     setGlassFlash(checked) {
@@ -149,6 +156,26 @@ const workflowVisualizerDisplay = {
     },
     setMirrorCount(value, displayEl) {
         setMirrorCount(value, displayEl);
+        saveConfig();
+    },
+    setRainCityOpacity(value, displayEl) {
+        setRainCityOpacity(value, displayEl);
+        saveConfig();
+    },
+    setRainCityVisible(checked) {
+        setRainCityVisible(checked);
+        saveConfig();
+    },
+    setRainMoonVisible(checked) {
+        setRainMoonVisible(checked);
+        saveConfig();
+    },
+    setRainWindowVisible(checked) {
+        setRainWindowVisible(checked);
+        saveConfig();
+    },
+    setBlurEnabled(checked) {
+        setBlurEnabled(checked);
         saveConfig();
     },
     // (Phần B, Galaxy — 5 method spaceStyle/4 slider ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1)

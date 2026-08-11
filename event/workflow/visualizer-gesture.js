@@ -40,8 +40,9 @@
  * trí thực tế sai lệch so với bước đã cấu hình. Pause loại bỏ hẳn xung đột — mỗi tick là 1 bước
  * NHẢY CHÍNH XÁC, không bị playback "kéo ngược" giữa chừng.
  *
- * Badge nổi "+X.Xs"/"-X.Xs" tại vị trí giữ tay (core/visualizer-gesture.js — showSeekHoldIndicator
- * ()/hideSeekHoldIndicator()) — hiện lúc kích hoạt, cộng dồn theo từng tick, gỡ lúc dừng.
+ * Mũi tên + số giây đã tua (core/visualizer-gesture.js — showSeekHoldIndicator()/
+ * hideSeekHoldIndicator()) — CỐ ĐỊNH giữa theo chiều dọc, tại tâm nửa trái/phải màn hình tuỳ chiều
+ * (KHÔNG bám toạ độ chạm) — hiện lúc kích hoạt, cộng dồn theo từng tick, gỡ lúc dừng.
  *
  * Seek THẬT qua message CÓ SẴN 'playerControls.progressBar.seekCommit' (y hệt buông tay kéo thanh
  * tiến trình) — TỰ đúng cho cả Song/Video (event/router/player-controls.js), không viết lại logic
@@ -177,9 +178,10 @@ const workflowVisualizerGesture = {
         }, TAP_WINDOW_MS, GESTURE_TAP_TASK);
     },
 
-    /** Tap 3 lần — bấm thẳng 1 nút Control Center do người dùng chọn (KHÁC action picker). */
+    /** Tap 3 lần — bấm thẳng 1 nút Control Center do người dùng chọn (KHÁC action picker). Chọn
+     * 'none' trong dropdown = tắt (KHÔNG còn toggle bật/tắt riêng, phản hồi Giang). */
     _resolveTripleTap(cfg) {
-        if (cfg.gestureTripleTapEnabled === false) return;
+        if (!cfg.gestureTripleTapTarget || cfg.gestureTripleTapTarget === 'none') return;
         const targetEl = GESTURE_TRIPLE_TAP_TARGET_ELS[cfg.gestureTripleTapTarget];
         if (targetEl && !targetEl.classList.contains('hidden')) targetEl.click();
     },
@@ -233,7 +235,7 @@ const workflowVisualizerGesture = {
 
         this._seekHoldTotalSec += stepSec;
         const sign = this._seekHoldDirection > 0 ? '+' : '-';
-        showSeekHoldIndicator(this._startX, this._startY, `${sign}${this._seekHoldTotalSec.toFixed(1)}s`); // core/visualizer-gesture.js
+        showSeekHoldIndicator(this._seekHoldDirection, `${sign}${this._seekHoldTotalSec.toFixed(1)}s`); // core/visualizer-gesture.js
 
         if (hitBoundary) this._stopSeekHold();
     },
