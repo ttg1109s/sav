@@ -374,7 +374,6 @@
     <script src="components/settings/theme.js?v=20260709v2"></script>
     <script src="components/settings/file-manager-section.js?v=20260728v1"></script>
     <script src="components/settings/visualizer-geometry-color.js?v=20260720v1"></script>
-    <script src="components/settings/audio-eq.js?v=20260707v2"></script>
     <script src="components/settings/subtitle-style.js?v=20260707v2"></script>
     <script src="components/settings/misc.js?v=20260714v1"></script>
     <script src="components/settings/language.js?v=20260707v2"></script>
@@ -399,6 +398,9 @@
          CŨ (ĐÃ XOÁ — xoá tay nếu còn sót trên máy). items.js (mục 3) ĐỘC LẬP với Generic Drawer
          (xem docstring đầu file) nhưng đặt cạnh nhau cho dễ đọc. -->
     <script src="components/generic-drawer.js?v=20260714v2"></script>
+    <!-- Nội dung Generic Drawer cho "Edit EQ" (list preset + view sửa) — components/
+         eq-presets-drawer.js, dùng bởi event/workflow/eq-presets.js. -->
+    <script src="components/eq-presets-drawer.js?v=20260811v1"></script>
     <!-- MỚI (03/08/2026) — khung tĩnh modal xem/sửa Video (Rule 5d, readme/core-function-
          conventions.md) — CHỈ chuỗi HTML (TPL_VIDEO_PREVIEW), không addEventListener. Đặt cạnh
          generic-drawer.js (cùng vai trò "component tĩnh"), dù bản thân được clone MỖI LẦN MỞ
@@ -686,13 +688,8 @@
          (soạn phụ đề chuyển sang trang riêng). core/subtitle/subtitle-display.js (hiển thị phụ đề
          lúc phát, đọc appState.get('subtitles')) và subtitle-style-settings.js (toggle nhanh)
          GIỮ NGUYÊN Ở ĐÂY — không liên quan gì tới việc SOẠN nội dung.
-    <!-- 3 file dưới đây TÁCH từ core/equalizer-settings.js (cũ, đã XOÁ — tên file gây nhầm, từng
-         trộn EQ + Subtitle Style + misc settings Visualizer + saveConfig/loadConfig chung của
-         TOÀN BỘ vizConfig). saveConfig/loadConfig đã CHUYỂN vào core/config.js (cùng nhà với
-         khai báo vizConfig). Vị trí nạp GIỮ NGUYÊN như vị trí cũ của equalizer-settings.js (an
-         toàn vì các hàm bên trong chỉ chạy lúc DOMContentLoaded/user tương tác, không chạy ngay
-         lúc parse — applyEQPreset/updateTypeUI dù định nghĩa ở file nạp SAU vẫn gọi được đúng). -->
-    <script src="core/equalizer.js?v=20260629v1"></script>
+    <!-- core/equalizer.js (UI slider EQ tĩnh cũ) ĐÃ XOÁ HẲN — hệ thống preset EQ mới lưu DB, xem
+         core/eq-presets.js (nạp ở nhóm CORE Audio/Video, cùng khu core/audio-engine.js). -->
     <script src="core/subtitle/subtitle-style-settings.js?v=20260707v2"></script>
     <script src="core/visualizer/visualizer-misc-settings.js?v=20260629v1"></script>
     <script src="core/subtitle/subtitle-display.js?v=20260625v10"></script>
@@ -739,6 +736,9 @@
          mode) — di dời từ core/video-editor/frame-extract.js (nút "Trích xuất ảnh" trong modal
          Video Preview đã bỏ hẳn), dùng chung bởi workflowVideoPreview._buildThumbForBlob(). -->
     <script src="core/video-player-capture.js?v=20260810v1"></script>
+    <!-- Preset EQ lưu DB (meta.eqPresets) — THAY EQ_PRESETS tĩnh cũ. PHẢI nạp TRƯỚC
+         core/audio-engine.js (setupAudioContext() gọi findEqPresetById()/applyEqGains()). -->
+    <script src="core/eq-presets.js?v=20260811v1"></script>
     <script src="core/audio-engine.js?v=20260720v1"></script>
     <script src="core/app-cleanup.js?v=20260630v1"></script>
     <!-- GỘP (10/08/2026) toggle ẩn/hiện Stats panel + 3 nút chrome (bottom player/playlist/mở
@@ -1114,12 +1114,13 @@
     <script src="event/workflow/visualizer-misc-settings.js?v=20260712v1"></script>
     <script src="event/router/visualizer-misc-settings.js?v=20260712v1"></script>
     <script src="event/listener/visualizer-misc-settings.js?v=20260706v2"></script>
-    <!-- Cụm "equalizerSettings" (ver 11, patch 14) — MỚI (12/07/2026): giờ CÓ
-         event/workflow/equalizer-settings.js — msg.type duy nhất tự chuẩn bị appState
-         (eqBandNodes) cho Core, đúng hình dạng bắt buộc Workflow. -->
-    <script src="event/workflow/equalizer-settings.js?v=20260712v1"></script>
-    <script src="event/router/equalizer-settings.js?v=20260712v1"></script>
-    <script src="event/listener/equalizer-settings.js?v=20260630v1"></script>
+    <!-- Cụm "eqPresets" (MỚI, THAY hẳn "equalizerSettings" cũ — preset EQ giờ lưu DB, xem
+         core/eq-presets.js). CẦN core/generic-drawer.js, components/eq-presets-drawer.js,
+         event/workflow/generic-drawer-helpers.js (closeFully(), đã nạp ở nhóm trên), đã nạp SAU
+         cả 3 — an toàn. -->
+    <script src="event/workflow/eq-presets.js?v=20260811v1"></script>
+    <script src="event/router/eq-presets.js?v=20260811v1"></script>
+    <script src="event/listener/eq-presets.js?v=20260811v1"></script>
     <!-- event/tab.js — 3 lifecycle listener đặc thù của tab (visibilitychange/pagehide/
          beforeunload). Gọi thẳng hàm, không qua bus. Nạp CUỐI CÙNG trong toàn bộ /event/
          vì phụ thuộc core/tab-hide-reload.js + core/app-cleanup.js đã nạp từ trên. -->
