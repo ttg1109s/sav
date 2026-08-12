@@ -100,6 +100,14 @@
             // định hợp lý để tự bật sẵn). captureFrame CHỈ có tác dụng khi đang Video Player mode
             // (nút đó ẩn ngoài mode đó — event/workflow/visualizer-gesture.js tự bỏ qua nếu ẩn).
             gestureTripleTapTarget: 'none',
+            // MỚI (12/08/2026, Giang yêu cầu — "Action" cho Cử chỉ) — 3 "ngăn" CỐ ĐỊNH (KHÔNG cho
+            // thêm/bớt, giới hạn cứng = 3), mỗi ngăn gán 1 nút Control Center (CÙNG pool key với
+            // gestureTripleTapTarget, GESTURE_TRIPLE_TAP_TARGET_ELS, event/workflow/
+            // visualizer-gesture.js) — rồi 6 dropdown vuốt/tap phía trên (KHÔNG gồm seek/vuốt cạnh
+            // trên) có thêm 3 lựa chọn 'actionSlot1/2/3' NGOÀI 5 lựa chọn mặc định
+            // next/prev/playPause/openPlaylist/none — cho phép vuốt/tap TRỎ TỚI bất kỳ nút Control
+            // Center nào (không chỉ 4 hành động media cơ bản). Mặc định 'none' cả 3 (chưa gán gì).
+            gestureActionSlot1: 'none', gestureActionSlot2: 'none', gestureActionSlot3: 'none',
             // Seek-hold: giữ tay 3s ở nửa trái/phải màn hình -> tua lùi/tiến lặp lại theo bước
             // gestureSeekStepMs (mili giây), tới khi thả tay hoặc chạm biên 0/(thời lượng - 1s).
             // Seek-hold: giữ tay ở nửa trái/phải màn hình để tua lùi/tiến lặp lại. 3 THỜI GIAN
@@ -182,6 +190,32 @@
                 { color: '#000000', position: 0 },
                 { color: '#1e3a8a', position: 100 },
             ],
+            // MỚI (12/08/2026, Giang yêu cầu mục 6 — "Movement" cho gradient) — CHỈ có ý nghĩa khi
+            // colorMode==='gradient'. 2 chế độ TÁCH BIỆT (chỉ 1 chạy tại 1 thời điểm, theo `mode`):
+            //   'time'  — góc xoay CHẠY ĐỀU theo thời gian, hết đúng 1 vòng 360° sau
+            //             `rotateDurationMs` rồi lặp lại — KHÔNG phụ thuộc audio.
+            //   'audio' — góc xoay DAO ĐỘNG giữa audioRotateFrom/To, ĐỘ LỆCH vị trí % của các
+            //             stop (co/giãn đối xứng quanh tâm 50%, xem computeGradientStopSpread(),
+            //             core/visual-bg.js) DAO ĐỘNG giữa audioStopSpreadFrom/To — CẢ 2 cùng lúc
+            //             bám theo `smoothedEnergy` (0-1, core/audio-analysis.js — ĐÃ ĐƯỢC LÀM MƯỢT
+            //             sẵn, tránh giật hình theo từng khung hình thô, phù hợp driving 1 hiệu ứng
+            //             nền LIÊN TỤC hơn hẳn beatScale thô — xem phân tích chọn thông số ở
+            //             event/workflow/visual-bg.js::_tickGradientMovement()).
+            // "Tráo màu" — ĐỘC LẬP với mode xoay ở trên, chạy song song nếu bật: cứ mỗi
+            // `colorSwapIntervalMs` lại tráo NGẪU NHIÊN thứ tự màu giữa các stop (giữ nguyên vị trí
+            // %, chỉ đổi CHỖ màu — shuffleGradientStopColors(), core/visual-bg.js), chuyển cảnh mượt
+            // trong `colorSwapTransitionMs` (interpolateColor(), core/color-utils.js — ĐÃ CÓ SẴN,
+            // dùng lại).
+            gradientMovement: {
+                enabled: false,
+                mode: 'time',                       // 'time' | 'audio'
+                rotateDurationMs: 10000,            // mode 'time' — 1000-60000 (picker 1s-60s)
+                audioRotateFrom: 0, audioRotateTo: 360,
+                audioStopSpreadFrom: 0, audioStopSpreadTo: 15,
+                colorSwapEnabled: false,
+                colorSwapIntervalMs: 10000,         // 1000-60000 (picker 1s-60s)
+                colorSwapTransitionMs: 1000,        // 500-3000 (picker 500ms-3s)
+            },
 
             slideshow: {
                 intervalSeconds: 5,
@@ -256,6 +290,7 @@
                 gestureActionSwipeLeft: 'string', gestureActionSwipeRight: 'string',
                 gestureActionTapSingle: 'string', gestureActionTapDouble: 'string',
                 gestureEdgeTopEnabled: 'boolean', gestureTripleTapTarget: 'string',
+                gestureActionSlot1: 'string', gestureActionSlot2: 'string', gestureActionSlot3: 'string',
                 gestureSeekHoldEnabled: 'boolean', gestureSeekStepMs: 'number', gestureSeekHoldIntervalMs: 'number',
             },
             defaults: DEFAULT_VIZ_CONFIG,
@@ -269,6 +304,7 @@
                 listPlaybackMode: 'string', nextOrder: 'string',
                 colorMode: 'string', solidColor: 'string', gradientAngleDeg: 'number',
                 gradientStops: 'object',
+                gradientMovement: 'object',
                 slideshow: 'object',
             },
             defaults: DEFAULT_VISUAL_BG_CONFIG,
@@ -323,6 +359,17 @@
          * CHỈ phần reset, KHÔNG gồm saveConfig()/reload(), 2 việc đó vẫn ở app-recovery.js). */
         function restoreDefaultVizConfig() {
             appConfigViz.restoreDefaults();
+        }
+
+        /** MỚI (12/08/2026, Giang chỉ ra 2a "Reset app default" THỰC RA là yêu cầu reset — không
+         * phải loại trừ, mình hiểu ngược ở bản trước) — Reset visualBgConfig (Visual Background)
+         * về default, CÙNG khuôn restoreDefaultVizConfig() ngay trên, khác domain. Gọi từ
+         * event/workflow/settings-misc.js::confirmRestoreDefaults() — Workflow đó tự lo
+         * persist(meta.visualBgConfig)/reload() sau (KHÔNG còn gộp saveConfig()+reload() ngay
+         * trong core/app-recovery.js như executeRestoreDefaults() cũ — giờ phải đợi ghi ĐỦ 2
+         * domain bất đồng bộ trước khi reload, không còn là 1 process Core làm gọn được nữa). */
+        function restoreDefaultVisualBgConfig() {
+            appConfigVisualBg.restoreDefaults();
         }
 
         /**

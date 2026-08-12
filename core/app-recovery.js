@@ -1,46 +1,35 @@
 /**
- * App Recovery (ver 10 refine, bổ sung) — 3 hàm core cho "Khởi động lại app", "Khôi phục cài đặt
- * mặc định", và "Xoá cache JS/CSS" (Settings > "Khắc phục sự cố", xem
- * js/components/settings/misc.js). Dành cho lúc trình phát gặp lỗi/hành vi không bình thường mà
- * người dùng không biết chỉnh gì khác ngoài tự bấm F5 — cho họ 1 lối thoát rõ ràng, có xác nhận
- * trước khi thực hiện (modal ở tầng workflow, xem event/workflow/settings-misc.js).
+ * App Recovery (ver 10 refine, bổ sung) — 2 hàm core cho "Khởi động lại app" và "Xoá cache JS/CSS"
+ * (Settings > "Khắc phục sự cố", xem js/components/settings/misc.js). Dành cho lúc trình phát gặp
+ * lỗi/hành vi không bình thường mà người dùng không biết chỉnh gì khác ngoài tự bấm F5 — cho họ 1
+ * lối thoát rõ ràng, có xác nhận trước khi thực hiện (modal ở tầng workflow, xem
+ * event/workflow/settings-misc.js).
  *
  * executeRestartApp(): xoá hết state RAM TẠM (resume snapshot + cờ trong localStorage — xem
  * resume-state-storage.js) rồi reload — KHÔNG đụng tới nhạc/playlist (IndexedDB) hay vizConfig.
  *
- * executeRestoreDefaults(): CHỈ reset vizConfig về default (SỬA 25/07/2026, đợt tái cấu trúc
- * state — bước reset thật giờ nằm ở core/config.js::restoreDefaultVizConfig(), hàm này chỉ gọi
- * sang rồi lo saveConfig()+reload(), xem comment tại chỗ) — GIỮ NGUYÊN nhạc/playlist đã upload.
- * Sau khi reset, vẫn cần reload để UI tự đồng bộ lại qua loadConfig().
+ * XOÁ (12/08/2026, Giang chỉ ra 2a/2b "Reset app default" THỰC RA là yêu cầu RESET — không phải
+ * loại trừ, bản trước mình hiểu ngược) — executeRestoreDefaults() cũ (CHỈ reset vizConfig) đã
+ * CHUYỂN HẲN thành workflowSettingsMisc.confirmRestoreDefaults() (event/workflow/settings-misc.js):
+ * giờ phải reset CẢ vizConfig LẪN visualBgConfig LẪN 5 preset EQ gốc trong meta.eqPresets — 3 domain
+ * + 2 lượt persist bất đồng bộ (phải ĐỢI ghi xong mới reload, tránh mất trắng do race) không còn là
+ * "1 process" Core làm gọn được nữa (Rule 1), nên rời hẳn khỏi core/, KHÔNG còn hàm nào ở file này
+ * tên "executeRestoreDefaults" — xem docstring hàm mới ở event/workflow/settings-misc.js.
  *
  * executeClearCache() (MỚI 14/07/2026): xoá Cache Storage API (nếu có) RỒI điều hướng lại trang
  * với query cache-bust mới — mạnh hơn `location.reload()` đơn thuần, xem docstring tại hàm.
  *
  * ÁP DỤNG /event/ (cụm "settingsMisc"): `addEventListener`+`modalChoice()` cũ đã CHUYỂN sang
  * event/workflow/settings-misc.js (modal xác nhận đặt ở workflow, đúng quy tắc — core không biết
- * modalChoice tồn tại) + event/listener/settings-misc.js. 3 hàm dưới đây là core THUẦN: chỉ làm
- * đúng hành động (dọn state / reset config / xoá cache) + reload/điều hướng, không tự hỏi xác nhận
- * gì cả.
+ * modalChoice tồn tại) + event/listener/settings-misc.js. Hàm dưới đây là core THUẦN: chỉ làm
+ * đúng hành động (dọn state / xoá cache) + reload/điều hướng, không tự hỏi xác nhận gì cả.
  *
- * PHẢI nạp SAU: resume-state-storage.js (cần clearResumeFlag/clearResumeStateFromLocalStorage),
- * core/config.js (cần restoreDefaultVizConfig()/saveConfig()).
+ * PHẢI nạp SAU: resume-state-storage.js (cần clearResumeFlag/clearResumeStateFromLocalStorage).
  */
         /** Core thuần: dọn state RAM tạm (resume) rồi reload. Không hỏi xác nhận gì ở đây. */
         function executeRestartApp() {
             if (typeof clearResumeFlag === 'function') clearResumeFlag();
             if (typeof clearResumeStateFromLocalStorage === 'function') clearResumeStateFromLocalStorage();
-            location.reload();
-        }
-
-        /** Core thuần: reset vizConfig về default rồi reload. Không hỏi xác nhận gì ở đây.
-         * SỬA (25/07/2026, đợt tái cấu trúc state) — bước reset thật giờ uỷ quyền hẳn cho
-         * core/config.js::restoreDefaultVizConfig() (gọi appConfigViz.restoreDefaults(), deep-clone
-         * lại từ DEFAULT_VIZ_CONFIG qua AppConfig.seed() — xem service/state.js — giải quyết TẬN
-         * GỐC lớp bug "spread nông giữ reference field con bị Object.freeze()" đã từng gặp với
-         * `manualEq`, không cần xử lý riêng field đó ở đây nữa). */
-        function executeRestoreDefaults() {
-            restoreDefaultVizConfig();
-            saveConfig();
             location.reload();
         }
 

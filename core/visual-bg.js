@@ -8,6 +8,15 @@ const VISUAL_BG_TYPES = ['photo', 'video'];
 const VISUAL_BG_COLOR_MODES = ['solid', 'gradient'];
 const VISUAL_BG_GRADIENT_MIN_STOPS = 2;
 const VISUAL_BG_GRADIENT_MAX_STOPS = 7;
+// MỚI (12/08/2026, Giang yêu cầu mục 6 — "Movement") — 2 mode LOẠI TRỪ NHAU, xem docstring
+// core/config.js::DEFAULT_VISUAL_BG_CONFIG.gradientMovement.
+const VISUAL_BG_GRADIENT_MOVEMENT_MODES = ['time', 'audio'];
+const VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MIN_MS = 1000; // picker "1s-60s" — dùng CHUNG cho rotateDurationMs LẪN colorSwapIntervalMs (CÙNG khoảng biên)
+const VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MAX_MS = 60000;
+const VISUAL_BG_GRADIENT_MOVEMENT_TRANSITION_MIN_MS = 500; // picker "500ms-3s" — riêng colorSwapTransitionMs
+const VISUAL_BG_GRADIENT_MOVEMENT_TRANSITION_MAX_MS = 3000;
+const VISUAL_BG_GRADIENT_MOVEMENT_TICK_MS = 100; // nhịp tick animation — 10fps, đủ mượt cho xoay/chuyển màu chậm, nhẹ hơn hẳn 60fps (mode 'raf' CHỈ dành riêng cho render loop Visualizer, xem docstring service/task-manager.js)
+const VISUAL_BG_GRADIENT_MOVEMENT_TASK = 'visualBgGradientMovement'; // tên task taskManager (Workflow dùng, xem event/workflow/visual-bg.js)
 const VISUAL_BG_LIST_PLAYBACK_MODES = ['perSong', 'slideshow'];
 const VISUAL_BG_NEXT_ORDERS = ['random', 'sequential', 'playlist'];
 /** Số item tối thiểu để 1 Album/Folder đủ điều kiện làm nguồn "group" trong picker (Giang chốt: 2 —
@@ -111,6 +120,24 @@ function setVisualBgVideoAudioSetting(videoAudioMap, videoKey, current, patch) {
     const rawVolume = typeof merged.volumePercent === 'number' ? merged.volumePercent : VISUAL_BG_VIDEO_AUDIO_DEFAULT.volumePercent;
     const volumePercent = Math.min(VISUAL_BG_VIDEO_AUDIO_VOLUME_MAX, Math.max(VISUAL_BG_VIDEO_AUDIO_VOLUME_MIN, rawVolume));
     return { ...(videoAudioMap || {}), [videoKey]: { enabled, volumePercent } };
+}
+
+// FIX (12/08/2026, Giang báo "video bg 50% đã át gần hết tiếng song") — 100% trên UI/DB (thang đo
+// người dùng thấy + gõ vào picker) GIỮ NGUYÊN 0-100 như cũ (KHÔNG đổi ý nghĩa `volumePercent` lưu
+// DB, tránh vỡ dữ liệu cũ + hiển thị "100%" vẫn đúng "100%" trên UI) — CHỈ trần GAIN THẬT áp vào
+// bgVideoElement.volume/GainNode ở 90% để luôn còn "chỗ thở" cho tiếng bài hát chính dù người dùng
+// kéo audio video nền lên tối đa. 1 hàm THUẦN riêng (KHÔNG sửa 2 hàm get/set ở trên — 2 hàm đó chỉ
+// validate/clamp con số LƯU DB 0-100, không phải nơi tính gain thật) — Workflow (event/workflow/
+// visual-bg.js) gọi hàm NÀY thay vì tự chia `volumePercent / 100` như trước ở 2 chỗ gán
+// bgVideoElement.volume/setVideoBgGain() (core/video-player.js).
+const VISUAL_BG_VIDEO_AUDIO_GAIN_CEILING = 0.9;
+
+/** Core thuần — đổi `volumePercent` (0-100, thang UI/DB) sang gain thật (0-0.9) áp vào
+ * bgVideoElement.volume/GainNode — trần cố định 90%, xem giải thích ở comment ngay trên.
+ * @param {number} volumePercent - 0-100 @returns {number} 0-0.9 */
+function resolveVisualBgVideoAudioGain(volumePercent) {
+    const clamped = Math.min(VISUAL_BG_VIDEO_AUDIO_VOLUME_MAX, Math.max(VISUAL_BG_VIDEO_AUDIO_VOLUME_MIN, volumePercent));
+    return (clamped / 100) * VISUAL_BG_VIDEO_AUDIO_GAIN_CEILING;
 }
 
 // ===================== Áp DOM — nền ẢNH tĩnh (#visual-bg-image) =====================
@@ -251,4 +278,86 @@ function addVisualBgGradientStop(stops) {
 function removeVisualBgGradientStop(stops, index) {
     if (stops.length <= VISUAL_BG_GRADIENT_MIN_STOPS) return stops.slice(); // guard: không xuống dưới 2
     return stops.filter((_, i) => i !== index);
+}
+
+// ===================== Movement (MỚI, 12/08/2026, Giang yêu cầu mục 6) =====================
+// 4 hàm THUẦN dưới đây phục vụ event/workflow/visual-bg.js::_tickGradientMovement() — KHÔNG hàm
+// nào tự đọc appState/Date.now(), mọi input qua tham số (Rule 1/2), KHÔNG hàm nào gọi hàm core
+// khác (Rule 3, kể cả buildVisualBgGradientCss() ở trên — Workflow tự gọi RIÊNG từng hàm rồi mới
+// gọi buildVisualBgGradientCss() với kết quả).
+
+/** Góc xoay mode 'time' — chạy ĐỀU theo thời gian, hết đúng 1 vòng 360° sau `durationMs` rồi lặp
+ * lại (KHÔNG dùng easing — tuyến tính, đúng nghĩa "kim đồng hồ").
+ * @param {number} elapsedMs - thời gian đã trôi kể từ lúc bật Movement (KHÔNG phải Date.now() thô
+ *        — Workflow tự trừ mốc bắt đầu trước khi truyền vào, xem docstring _tickGradientMovement()).
+ * @param {number} durationMs - 1000-60000, thời gian hết 1 vòng.
+ * @returns {number} 0-360 */
+function computeGradientTimeRotateAngle(elapsedMs, durationMs) {
+    if (durationMs <= 0) return 0;
+    return ((elapsedMs % durationMs) / durationMs) * 360;
+}
+
+/** Nội suy tuyến tính 1 giá trị trong khoảng [from,to] theo hệ số 0-1 — DÙNG CHUNG cho cả góc xoay
+ * LẪN độ giãn stop ở mode 'audio' (2 phép tính CÙNG BẢN CHẤT toán học, khác đơn vị/khoảng giá trị —
+ * xem Rule 1 "cùng process, khác giá trị vẫn là 1 hàm"). smoothedEnergy ĐÃ 0-1 sẵn (core/
+ * audio-analysis.js), không cần chuẩn hoá thêm ở đây.
+ * @param {number} from @param {number} to @param {number} factor01 - 0-1 (smoothedEnergy)
+ * @returns {number} */
+function lerpGradientMovementValue(from, to, factor01) {
+    const clamped = Math.max(0, Math.min(1, factor01));
+    return from + (to - from) * clamped;
+}
+
+/** Co/giãn vị trí % của các stop ĐỐI XỨNG QUANH TÂM 50% — `spreadPercent` càng lớn, stop càng
+ * "toé" xa tâm (stop < 50% dịch XUỐNG thêm, stop > 50% dịch LÊN thêm, tỷ lệ theo khoảng cách hiện
+ * tại tới tâm) — tạo cảm giác gradient "thở" theo nhạc mà KHÔNG đảo thứ tự stop cho nhau (an toàn,
+ * không cần sort lại). Kẹp cứng 0-100 sau khi dịch (biên vật lý của CSS %).
+ * @param {Array<{color: string, position: number}>} stops @param {number} spreadPercent - 0-50
+ * @returns {Array<{color: string, position: number}>} mảng MỚI */
+function computeGradientStopSpread(stops, spreadPercent) {
+    if (!spreadPercent) return stops.slice();
+    return stops.map((s) => {
+        const distanceFromCenter = (s.position - 50) / 50; // -1..1
+        const shifted = s.position + distanceFromCenter * spreadPercent;
+        return { ...s, position: Math.max(0, Math.min(100, Math.round(shifted))) };
+    });
+}
+
+/** "Tráo màu ngẫu nhiên" — đổi CHỖ màu cho nhau giữa các stop (Fisher-Yates), GIỮ NGUYÊN vị trí %
+ * (chỉ hoán vị mảng màu, không đụng position) — KHÔNG nhận `random` qua tham số kiểu hàm (core
+ * không nhận callback sống, Rule 3d) mà nhận THẲNG 1 mảng số ngẫu nhiên ĐÃ TẠO SẴN (Workflow tự
+ * `Math.random()` rồi truyền vào — giữ hàm này THUẦN, test được, không side-effect ẩn).
+ * @param {Array<{color: string, position: number}>} stops
+ * @param {number[]} randomFactors - CÙNG độ dài `stops`, mỗi phần tử 0-1 (Workflow tự Math.random())
+ * @returns {Array<{color: string, position: number}>} mảng MỚI, position GIỮ NGUYÊN theo thứ tự gốc */
+function shuffleGradientStopColors(stops, randomFactors) {
+    const colors = stops.map((s) => s.color);
+    for (let i = colors.length - 1; i > 0; i--) {
+        const j = Math.floor((randomFactors[i] || 0) * (i + 1));
+        [colors[i], colors[j]] = [colors[j], colors[i]];
+    }
+    return stops.map((s, i) => ({ ...s, color: colors[i] }));
+}
+
+/** Nội suy màu CHÉO giữa 2 bộ stop CÙNG vị trí % (chỉ khác màu) — dùng cho hiệu ứng chuyển cảnh
+ * mượt lúc "tráo màu" (colorSwapTransitionMs). DÙNG LẠI interpolateColor() (core/color-utils.js,
+ * CÙNG FILE core layer khác — VI PHẠM Rule 3 nếu gọi trực tiếp!) — KHÔNG, hàm NÀY nhận màu ĐÃ NỘI
+ * SUY qua tham số `interpolatedColors` (Workflow tự gọi interpolateColor() cho từng cặp rồi truyền
+ * mảng kết quả vào đây) — hàm này chỉ GHÉP mảng màu đã tính sẵn vào ĐÚNG position của `fromStops`,
+ * giữ đúng Rule 3 (không core gọi core).
+ * @param {Array<{color: string, position: number}>} fromStops - dùng vị trí % (position GIỮ NGUYÊN)
+ * @param {string[]} interpolatedColors - CÙNG độ dài fromStops, màu ĐÃ nội suy sẵn (rgb(...) string)
+ * @returns {Array<{color: string, position: number}>} */
+function applyGradientStopColors(fromStops, interpolatedColors) {
+    return fromStops.map((s, i) => ({ ...s, color: interpolatedColors[i] || s.color }));
+}
+
+/** Core thuần — ghi TRỰC TIẾP 1 chuỗi CSS gradient (ĐÃ dựng sẵn qua buildVisualBgGradientCss(),
+ * Workflow tự gọi TRƯỚC rồi truyền chuỗi vào đây — Rule 3, không core gọi core dù cùng file) lên
+ * #visualizer-solid-bg — dùng cho Movement (mỗi tick animation), KHÔNG đọc/ghi appConfigVisualBg
+ * (khác updateDOMBackground(), core/color-utils.js — hàm ĐÓ đọc cfg LƯU DB; giá trị Movement mỗi
+ * khung hình chỉ là hiệu ứng NHẤT THỜI, không nên ép ghi ngược DB liên tục).
+ * @param {string} gradientCss */
+function applyGradientCssFrame(gradientCss) {
+    visualizerSolidBg.style.backgroundImage = gradientCss;
 }

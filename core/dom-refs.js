@@ -104,7 +104,25 @@
         // navigation stack với About/Storage Drawer, mở chồng lên #drawer-settings.
         const drawerVisualizerSettings = document.getElementById('drawer-visualizer-settings');
         const btnOpenVisualizerSettings = document.getElementById('setting-open-visualizer-settings');
+        // MỚI (12/08/2026, Giang yêu cầu tái cấu trúc Setting Main mục 4c/4f) — 2 nút điều hướng
+        // panel RIÊNG "Custom Effect"/"Auto-Switch Effect", tách từ "Customize Visualizer" — xem
+        // docstring event/workflow/visualizer-display.js.
+        const btnOpenVisualizerCustomEffect = document.getElementById('setting-open-visualizer-custom-effect');
+        const btnOpenVisualizerAutoSwitch = document.getElementById('setting-open-visualizer-auto-switch');
+        // MỚI (12/08/2026, mục 4b/4d) — "Chất lượng render"/"Làm mờ" giờ SỐNG Ở MAIN (TĨNH, không
+        // còn push/pop cùng panel con nữa) — cần ref TĨNH ở đây để initVisualizerMiscSettingsUIFromConfig()
+        // (core/visualizer/visualizer-misc-settings.js) đồng bộ được lúc boot, CÙNG khuôn
+        // visualEnabledToggle ngay dưới (KHÔNG còn đồng bộ qua panelEl.querySelector() trong
+        // openPanel() như trước — panel đó không còn chứa 2 phần tử này nữa).
+        const qualitySelect = document.getElementById('setting-quality');
+        const blurEnableToggle = document.getElementById('setting-blur-enable');
         // (btnBackVisualizerSettings ĐÃ XOÁ — Batch D3: Back dùng CHUNG btnSettingsStackBack.)
+        // XOÁ (12/08/2026, mục 4a) — select "Kiểu hiệu ứng" (#setting-visualizer-type) ĐÃ BỎ HẲN
+        // khỏi HTML (components/settings/visualizer-geometry-color.js) — ref này giờ LUÔN `null`.
+        // GIỮ LẠI biến (không xoá khai báo) vì 3 nơi tham chiếu (event/listener/visualizer-misc-
+        // settings.js, core/visualizer/visualizer-display.js, core/visualizer/visualizer-misc-
+        // settings.js) đều ĐÃ có guard `typeof...!=='undefined' && x` sẵn — null an toàn, tự bỏ qua,
+        // không cần dọn thêm (xoá 3 nơi đó rủi ro hơn lợi ích, để nguyên).
         const visualizerTypeSelect = document.getElementById('setting-visualizer-type');
         // (drawerSubtitleSettings/btnBackSubtitleSettings ĐÃ XOÁ — Batch D2: panel Subtitle giờ
         // động (core/settings-panel-stack.js), không còn drawer tĩnh riêng; Back dùng CHUNG
@@ -191,7 +209,11 @@
         // MỚI (v13 Batch A) — nút điều hướng DUY NHẤT mở panel "Visual Background", THAY 3 entry
         // cũ (#setting-video-enable, #setting-visual-bg-image-enable, #setting-open-slideshow-settings).
         const btnOpenVisualBgSettings = document.getElementById('setting-open-visual-bg-settings');
-        const btnOpenGestureSettings = document.getElementById('setting-open-gesture-settings');
+        // XOÁ (12/08/2026, mục 4h) — #setting-open-gesture-settings DỜI vào panel "Customize
+        // Visualizer" (push/pop ĐỘNG, không tồn tại lúc boot) — ref TĨNH này giờ LUÔN `null`, hết
+        // dùng (event/listener/gesture-settings.js đã đổi sang delegate settingsStackBody, xem
+        // docstring ở đó) — xoá hẳn khai báo (KHÁC visualizerTypeSelect ở trên, chỗ đó còn 3 nơi
+        // tham chiếu guard nên giữ lại; chỗ này 0 nơi dùng, xoá sạch cho gọn).
         // (drawerSlideshowSettings/btnBackSlideshowSettings ĐÃ XOÁ — Batch D4: panel Slideshow
         // Settings giờ động, không còn drawer tĩnh riêng; Back dùng CHUNG btnSettingsStackBack.)
         //
