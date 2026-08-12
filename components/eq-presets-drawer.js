@@ -1,28 +1,37 @@
 /**
  * Component: nội dung Generic Drawer cho "Edit EQ" (event/workflow/eq-presets.js mở qua
  * #btn-edit-eq). 2 mode, CÙNG khuôn Document Reader (List <-> Read):
- *   - 'list': danh sách preset (tên + khoá-icon nếu locked) + hàng "Tạo preset mới" (nhập tên
- *     inline, không dùng modal prompt — codebase chưa có sẵn, tránh xây thêm hạ tầng mới).
- *   - 'edit': tên (input, khoá nếu locked) + 10 slider băng tần (khoá nếu locked) + Lưu (ẩn nếu
- *     locked) + Xoá (ẩn nếu locked).
+ *   - 'list': danh sách preset (tên + khoá-icon nếu locked) + nút "+" trong HEADER để tạo preset
+ *     mới (KHÔNG còn ô nhập tên/nút Tạo trong body — xem SỬA 2 bên dưới).
+ *   - 'edit': tên (hàng "Name | input", khoá nếu locked) + 10 slider dọc lưỡng cực (-12..+12,
+ *     khoá nếu locked) + Lưu (ẩn nếu locked) + Xoá (ẩn nếu locked).
  *
- * SỬA (12/08/2026, Giang chỉ ra "loại bỏ tư duy cũ, khớp với Generic Drawer") — bản đầu (11/08)
- * lỡ bê NGUYÊN bảng màu TỐI (glass-modal/text-white/bg-black...) của phần còn lại của app vào đây
- * — SAI, vì Generic Drawer thuộc vùng LOẠI TRỪ theme, nền LUÔN TRẮNG cố định (mục 7
- * plan-v12-extended.md, xem docstring components/generic-drawer.js) bất kể Light/Dark/System —
- * nội dung tối bên trong khung trắng khiến "glass-modal" (vốn thiết kế nổi TRÊN nền tối) chỉ còn
- * là 1 khối xám nhạt vô nghĩa, chữ trắng gần như biến mất. SỬA ĐÚNG: đổi HẲN sang bảng màu SÁNG
- * (text-slate-900/700/500/400, border-slate-200, hover:bg-slate-100...) — ĐÚNG NGUYÊN bảng màu
- * event/workflow/document-reader.js đã dùng (List/Read cùng Generic Drawer) + components/items.js
- * (itemTemplateDocumentRow) — 2 nơi DUY NHẤT khác từng render nội dung thật bên trong Generic
- * Drawer, dùng làm chuẩn tham chiếu.
+ * SỬA (11/08/2026, Giang chỉ ra "loại bỏ tư duy cũ, khớp với Generic Drawer") — bản đầu lỡ bê
+ * NGUYÊN bảng màu TỐI (glass-modal/text-white/bg-black...) vào đây — SAI, vì Generic Drawer thuộc
+ * vùng LOẠI TRỪ theme, nền LUÔN TRẮNG cố định (mục 7 plan-v12-extended.md, xem docstring
+ * components/generic-drawer.js). Đã đổi HẲN sang bảng màu SÁNG (text-slate-900/700/500/400,
+ * border-slate-200...) — ĐÚNG bảng màu event/workflow/document-reader.js + components/items.js
+ * (itemTemplateDocumentRow) đã dùng, cùng bộ id nút chrome header CHUNG (#btn-generic-drawer-
+ * close/back/save) — xem docstring event/workflow/eq-presets.js.
  *
- * Đồng thời đổi id 3 nút điều hướng header (đóng/lùi/lưu) từ tự đặt riêng (#eq-drawer-close/back/
- * save) sang ĐÚNG bộ id CHUNG mà document-reader.js đã lập (#btn-generic-drawer-close/back) +
- * thêm #btn-generic-drawer-save cùng khuôn — mọi Workflow dùng Generic Drawer nên quy về 1 bộ id
- * duy nhất cho các nút chrome header (đóng/lùi/hành động chính), tránh mỗi feature tự bịa 1 kiểu
- * tên riêng (đúng ý "khớp với generic drawer" của Giang). Các phần tử THÂN bài (list row/input
- * tên/slider/nút Xoá) vẫn giữ id riêng theo domain EQ — CHỈ chrome header mới dùng bộ chung.
+ * SỬA 2 (12/08/2026, phản hồi Giang round 2 — 5 điểm):
+ *   1+2. Track dọc vô hình + số dính rìa box — TRƯỚC ĐÂY dùng chung `.eq-slider`/
+ *     `.eq-slider-container` (assets/css/style.css) — track nền `rgba(255,255,255,0.1)` thiết kế
+ *     cho theme TỐI của core/equalizer.js CŨ, gần như vô hình trên nền TRẮNG của Generic Drawer;
+ *     10 cột lại xếp bằng `justify-between` không có gap/padding riêng nên 2 cột đầu/cuối dính sát
+ *     rìa box. SỬA: đổi sang class MỚI RIÊNG `.eq-preset-slider*` (track sáng `slate-200` + mốc 0dB
+ *     giữa + dải MÀU tím kéo dài từ mốc 0 ra giá trị hiện tại, xem CSS) + đổi layout hàng 10 cột
+ *     sang `gap` cố định (không còn `justify-between`) + `overflow-x-auto` (an toàn cho màn hình
+ *     rất hẹp, không bao giờ còn cảnh tràn/dính rìa dù cỡ máy nào).
+ *   3. Khối "Name" đổi sang ĐÚNG khuôn 1 hàng "label trái | input phải" như mọi hàng Settings khác
+ *     (vd "Kiểu hiệu ứng", components/settings/visualizer-geometry-color.js) — trước đây label
+ *     NẰM TRÊN, input NẰM DƯỚI (2 hàng), không khớp quy ước chung của app.
+ *   4. Nút "Tạo preset mới" dời HẲN vào HEADER (icon "+" cạnh nút đóng, CÙNG khuôn document-
+ *     reader.js xếp nhiều nút hành động ở góc phải header) — bấm là tạo NGAY 1 preset tên tự sinh
+ *     ("New preset"/"New preset 2"...), KHÔNG còn ô nhập tên/nút Tạo trong body — CÙNG khuôn
+ *     createFolderInPicker()/_computeDefaultFolderName() (event/workflow/playlist.js): tạo xong mở
+ *     THẲNG view Sửa (đã có sẵn ô Name để đổi nếu muốn — Giang chỉ ra "đằng nào cũng sửa được sau").
+ *   (Điểm 5 — Volume HUD không tô màu phần đã kéo — thuộc core/volume-hud.js, KHÔNG phải file này.)
  *
  * Generic Drawer KHÔNG biết nội dung là gì — event/workflow/eq-presets.js tự querySelector +
  * addEventListener SAU MỖI lần openGenericDrawer()/updateGenericDrawer() (KHÔNG qua eventBus cho
@@ -33,14 +42,17 @@ function renderEqListHeader() {
     return `
         <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
             <h3 class="text-base font-bold text-slate-900" data-i18n="eqPresets.title">${t('eqPresets.title')}</h3>
-            <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+            <div class="flex items-center gap-1 shrink-0">
+                <button id="btn-eq-drawer-add" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-600" title="${t('eqPresets.addButton.title')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg></button>
+                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+            </div>
         </div>
     `;
 }
 
 /** @param {object[]} presets @param {string} activeId */
 function renderEqListBody(presets, activeId) {
-    const rows = presets.map((p) => {
+    return presets.map((p) => {
         const isActive = p.id === activeId;
         const rowClass = isActive ? 'bg-sky-50 border border-sky-300' : 'hover:bg-slate-100 border border-transparent';
         return `
@@ -54,14 +66,6 @@ function renderEqListBody(presets, activeId) {
         </button>
     `;
     }).join('');
-
-    return `
-        <div class="flex gap-2 items-center p-3 mb-3 bg-slate-50 border border-slate-200 rounded-2xl">
-            <input type="text" id="eq-drawer-new-name" maxlength="24" placeholder="${t('eqPresets.newNamePlaceholder')}" class="flex-1 min-w-0 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-sky-500">
-            <button id="eq-drawer-add" type="button" class="shrink-0 px-3 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 transition-colors text-white text-sm font-medium" data-i18n="eqPresets.create">${t('eqPresets.create')}</button>
-        </div>
-        ${rows}
-    `;
 }
 
 /** @param {{id: string, name: string, locked: boolean}} preset */
@@ -75,25 +79,41 @@ function renderEqEditHeader(preset) {
     `;
 }
 
+/** Tính % (theo trục ngang CHƯA xoay của .eq-preset-slider-fill, xem CSS) của dải màu biểu diễn 1
+ * giá trị gain -12..+12 — LUÔN kéo dài từ mốc 0dB (giữa track, 50%) ra phía giá trị hiện tại, để
+ * thấy NGAY hướng tăng/giảm bằng mắt. @param {number} gain -12..12 @returns {{left: number, width: number}} % */
+function computeEqFillRect(gain) {
+    const clamped = Math.max(-12, Math.min(12, gain));
+    const width = (Math.abs(clamped) / 24) * 100;
+    const left = clamped >= 0 ? 50 : 50 - width;
+    return { left, width };
+}
+
 /** @param {{id: string, name: string, gains: number[], locked: boolean}} preset */
 function renderEqEditBody(preset) {
-    const sliders = preset.gains.map((g, i) => `
-        <div class="flex flex-col items-center gap-1 w-7">
-            <span class="text-[9px] text-sky-600 font-medium w-full text-center" id="eq-edit-val-${i}">${g > 0 ? `+${g}` : g}</span>
-            <div class="eq-slider-container"><input type="range" class="eq-slider" min="-12" max="12" step="1" value="${g}" data-index="${i}" ${preset.locked ? 'disabled' : ''}></div>
-            <span class="text-[9px] text-slate-500 mt-1">${EQ_LABELS[i]}</span>
+    const sliders = preset.gains.map((g, i) => {
+        const fill = computeEqFillRect(g); // dùng lại ở event/workflow/eq-presets.js::_wireEditView() mỗi lần kéo
+        return `
+        <div class="flex flex-col items-center gap-1.5 w-8 shrink-0">
+            <span class="text-[10px] text-violet-600 font-semibold tabular-nums" id="eq-edit-val-${i}">${g > 0 ? `+${g}` : g}</span>
+            <div class="eq-preset-slider-box">
+                <div class="eq-preset-slider-track"><div class="eq-preset-slider-fill" id="eq-edit-fill-${i}" style="left:${fill.left}%;width:${fill.width}%;"></div></div>
+                <input type="range" class="eq-preset-slider" min="-12" max="12" step="1" value="${g}" data-index="${i}" ${preset.locked ? 'disabled' : ''}>
+            </div>
+            <span class="text-[9px] text-slate-400 tabular-nums">${EQ_LABELS[i]}</span>
         </div>
-    `).join('');
+    `;
+    }).join('');
 
     return `
         <div class="flex flex-col gap-4">
-            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-                <label class="text-xs text-slate-500 mb-1.5 block" data-i18n="eqPresets.name.label">${t('eqPresets.name.label')}</label>
-                <input type="text" id="eq-drawer-name" maxlength="24" value="${escapeHtml(preset.name)}" ${preset.locked ? 'disabled' : ''} class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-500 disabled:opacity-60 disabled:bg-slate-100">
-                ${preset.locked ? `<p class="text-xs text-slate-400 mt-2" data-i18n="eqPresets.lockedHint">${t('eqPresets.lockedHint')}</p>` : ''}
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl px-4 flex items-center justify-between gap-3">
+                <label for="eq-drawer-name" class="text-sm text-slate-500 shrink-0" data-i18n="eqPresets.name.label">${t('eqPresets.name.label')}</label>
+                <input type="text" id="eq-drawer-name" maxlength="24" value="${escapeHtml(preset.name)}" ${preset.locked ? 'disabled' : ''} class="flex-1 min-w-0 bg-transparent text-right py-3 text-sm text-slate-900 outline-none disabled:opacity-60">
             </div>
-            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-                <div class="flex justify-between items-end h-28 px-1">${sliders}</div>
+            ${preset.locked ? `<p class="text-xs text-slate-400 -mt-2 px-1" data-i18n="eqPresets.lockedHint">${t('eqPresets.lockedHint')}</p>` : ''}
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3">
+                <div class="flex items-end gap-2 overflow-x-auto px-1 pb-0.5">${sliders}</div>
             </div>
             ${preset.locked ? '' : `<button id="eq-drawer-delete" type="button" class="w-full py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 transition-colors text-rose-600 text-sm font-medium" data-i18n="eqPresets.delete">${t('eqPresets.delete')}</button>`}
         </div>
