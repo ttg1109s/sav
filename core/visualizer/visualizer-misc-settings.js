@@ -22,4 +22,10 @@
             if (typeof keepScreenOnToggle !== 'undefined' && keepScreenOnToggle) keepScreenOnToggle.checked = cfg.keepScreenOn !== false;
             if (typeof visualEnabledToggle !== 'undefined' && visualEnabledToggle) visualEnabledToggle.checked = cfg.visualEnabled !== false;
             if (typeof visualizerTypeSelect !== 'undefined' && visualizerTypeSelect) visualizerTypeSelect.value = MODES[appState.get('currentModeIndex')];
+            // MỚI (12/08/2026, Giang yêu cầu tái cấu trúc Setting Main mục 4b/4d) — "Chất lượng
+            // render"/"Làm mờ" giờ SỐNG Ở MAIN (TĨNH), không còn đồng bộ qua
+            // workflowVisualizerDisplay.openPanel() (panel con) nữa — đồng bộ NGAY ĐÂY như mọi
+            // input tĩnh khác của Main.
+            if (typeof qualitySelect !== 'undefined' && qualitySelect) qualitySelect.value = cfg.quality;
+            if (typeof blurEnableToggle !== 'undefined' && blurEnableToggle) blurEnableToggle.checked = cfg.blurEnabled !== false;
         }
