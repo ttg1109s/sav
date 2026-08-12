@@ -22,6 +22,10 @@ const workflowGestureSettings = {
         panelEl.querySelector('#setting-gesture-action-tap-single').value = cfg.gestureActionTapSingle || 'none';
         panelEl.querySelector('#setting-gesture-action-tap-double').value = cfg.gestureActionTapDouble || 'none';
         panelEl.querySelector('#setting-gesture-triple-tap-target').value = cfg.gestureTripleTapTarget || 'none';
+        // MỚI (12/08/2026, Giang yêu cầu — "Action")
+        panelEl.querySelector('#setting-gesture-action-slot-1').value = cfg.gestureActionSlot1 || 'none';
+        panelEl.querySelector('#setting-gesture-action-slot-2').value = cfg.gestureActionSlot2 || 'none';
+        panelEl.querySelector('#setting-gesture-action-slot-3').value = cfg.gestureActionSlot3 || 'none';
         panelEl.querySelector('#setting-gesture-seek-hold-enable').checked = cfg.gestureSeekHoldEnabled !== false;
         panelEl.querySelector('#gesture-seek-step-value').textContent = this._formatSeekMs(cfg.gestureSeekStepMs);
         panelEl.querySelector('#gesture-seek-hold-interval-value').textContent = this._formatSeekMs(cfg.gestureSeekHoldIntervalMs);

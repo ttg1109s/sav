@@ -34,19 +34,39 @@
 const workflowVisualizerDisplay = {
 
     /**
-     * Ứng với msg.type = 'visualizerDisplay.openPanel.click' — push panel + đồng bộ mọi input
-     * (thay `initAutoSwitchVisualUI()` cũ cho phần auto-switch — xem core/auto-switch-visual.js).
+     * Ứng với msg.type = 'visualizerDisplay.openPanel.click' — push panel "Customize Visualizer" +
+     * đồng bộ input CÒN LẠI trong panel này (Colors + Display — Geometry/Auto-switch ĐÃ RỜI sang 2
+     * panel riêng, xem openCustomEffectPanel()/openAutoSwitchPanel() bên dưới, mục 4c/4f Giang
+     * yêu cầu 12/08/2026).
      */
     openPanel() {
         const panelEl = pushSettingsPanel({ title: t('visualizerSettingsDrawer.title'), bodyHtml: renderVisualizerPanelBody() });
         const cfg = appConfigViz.getAll();
 
-        panelEl.querySelector('#setting-quality').value = cfg.quality;
         panelEl.querySelector('#setting-color-mode').value = cfg.mode;
         panelEl.querySelector('#solid-color-text').value = cfg.solidColor;
         panelEl.querySelector('#solid-color-picker').value = cfg.solidColor;
         panelEl.querySelector('#dyn-color-a').value = cfg.dynA;
         panelEl.querySelector('#dyn-color-b').value = cfg.dynB;
+
+        // Hiện/ẩn đúng khối theo mode màu hiện tại — hàm này đã có guard (Batch D3), panel vừa
+        // push nên chắc chắn tìm thấy phần tử.
+        updateColorMenuUI();
+
+        // ===== Section "Hiển thị Visualizer" =====
+        panelEl.querySelector('#setting-stats-panel-enable').checked = appConfigPlayer.getAll().isStatsPanelVisible !== false;
+        panelEl.querySelector('#setting-bottom-player-enable').checked = cfg.bottomPlayerVisible !== false;
+        panelEl.querySelector('#setting-playlist-button-enable').checked = cfg.playlistButtonVisible !== false;
+        panelEl.querySelector('#setting-control-center-button-enable').checked = cfg.controlCenterButtonVisible !== false;
+    },
+
+    /** Ứng với msg.type = 'visualizerDisplay.openCustomEffectPanel.click' — push panel "Custom
+     * Effect" (MỚI 12/08/2026, mục 4c — tách từ card "Visualizer Geometry" cũ trong panel
+     * "Customize Visualizer") + đồng bộ mọi input hình học theo từng kiểu hiệu ứng. */
+    openCustomEffectPanel() {
+        const panelEl = pushSettingsPanel({ title: t('visualizerCustomEffectDrawer.title'), bodyHtml: renderVisualizerCustomEffectPanelBody() });
+        const cfg = appConfigViz.getAll();
+
         panelEl.querySelector('#setting-vortex-style').value = cfg.vortexStyle;
         panelEl.querySelector('#setting-bar-style').value = cfg.barStyle;
         panelEl.querySelector('#setting-rain-style').value = cfg.rainStyle;
@@ -57,21 +77,31 @@ const workflowVisualizerDisplay = {
         panelEl.querySelector('#val-width').textContent = cfg.barWidth;
         panelEl.querySelector('#setting-mirror-count').value = cfg.mirrorBarCount;
         panelEl.querySelector('#val-mirror-count').textContent = cfg.mirrorBarCount;
-        // (Phần B, Galaxy — đồng bộ 5 input spaceStyle/4 slider ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1)
-        panelEl.querySelector('#setting-blur-enable').checked = cfg.blurEnabled !== false;
         panelEl.querySelector('#setting-rain-city-opacity').value = cfg.rainGlassCityOpacity;
         panelEl.querySelector('#val-rain-city-opacity').textContent = cfg.rainGlassCityOpacity;
         panelEl.querySelector('#setting-rain-city-visible').checked = cfg.rainGlassCityVisible !== false;
         panelEl.querySelector('#setting-rain-moon-visible').checked = cfg.rainGlassMoonVisible !== false;
         panelEl.querySelector('#setting-rain-window-visible').checked = cfg.rainGlassWindowVisible !== false;
 
-        // Hiện/ẩn đúng khối theo kiểu hiệu ứng/mode màu/kiểu bar hiện tại — 3 hàm này giờ đã có
-        // guard (Batch D3), panel vừa push nên chắc chắn tìm thấy phần tử, chạy đúng như mong đợi.
+        // Hiện/ẩn đúng khối theo kiểu hiệu ứng/kiểu bar hiện tại — updateTypeUI() tự
+        // document.getElementById() TƯƠI mỗi lần gọi (HOTFIX 2, core/visualizer/
+        // visualizer-display.js), hoạt động đúng bất kể khối đang nằm trong panel nào, miễn panel
+        // đang mở — panel này vừa push nên chắc chắn tìm thấy. updateBarStyleUI() cũng vậy, gọi
+        // LẠI ở đây phòng type hiện tại KHÔNG phải 'bar' (updateTypeUI() chỉ tự gọi nó khi
+        // cfg.type==='bar') nhưng người dùng vẫn cần thấy đúng trạng thái mirror/cascade đã lưu nếu
+        // sau đổi qua lại — an toàn, updateBarStyleUI() tự no-op nếu #block-bar-style đang ẩn.
         updateTypeUI();
-        updateColorMenuUI();
         updateBarStyleUI();
+    },
 
-        // ===== Section "Tự động đổi hiệu ứng" (core/auto-switch-visual.js) =====
+    /** Ứng với msg.type = 'visualizerDisplay.openAutoSwitchPanel.click' — push panel "Auto-Switch
+     * Effect" (MỚI 12/08/2026, mục 4f — tách từ card "Auto-switch effect" cũ trong panel
+     * "Customize Visualizer") + đồng bộ mọi input (thay `initAutoSwitchVisualUI()` cũ — xem
+     * core/auto-switch-visual.js). */
+    openAutoSwitchPanel() {
+        const panelEl = pushSettingsPanel({ title: t('visualizerAutoSwitchDrawer.title'), bodyHtml: renderVisualizerAutoSwitchPanelBody() });
+        const cfg = appConfigViz.getAll();
+
         const elEnable = panelEl.querySelector('#setting-auto-switch-enable');
         const elOptions = panelEl.querySelector('#auto-switch-options');
         elEnable.checked = cfg.autoSwitchVisualEnabled === true;
@@ -87,12 +117,6 @@ const workflowVisualizerDisplay = {
             panelEl.querySelector('#auto-switch-time-random-block'),
             panelEl.querySelector('#auto-switch-time-duration-block')
         );
-
-        // ===== Section "Hiển thị Visualizer" =====
-        panelEl.querySelector('#setting-stats-panel-enable').checked = appConfigPlayer.getAll().isStatsPanelVisible !== false;
-        panelEl.querySelector('#setting-bottom-player-enable').checked = cfg.bottomPlayerVisible !== false;
-        panelEl.querySelector('#setting-playlist-button-enable').checked = cfg.playlistButtonVisible !== false;
-        panelEl.querySelector('#setting-control-center-button-enable').checked = cfg.controlCenterButtonVisible !== false;
     },
 
     setQuality(value) {

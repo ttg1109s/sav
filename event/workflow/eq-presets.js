@@ -121,21 +121,29 @@ const workflowEqPresets = {
         this._editingId = id;
         this._draftGains = preset.gains.slice();
         this._draftName = preset.name;
+        const isBuiltIn = buildDefaultEqPresets().some((p) => p.id === id); // core — Workflow tự tra (Rule 3, component không tự gọi core)
         updateGenericDrawer({ // core/generic-drawer.js — chuyển mượt, không đóng/mở lại
-            headerHtml: renderEqEditHeader(preset), // components/eq-presets-drawer.js
+            headerHtml: renderEqEditHeader(preset, isBuiltIn), // components/eq-presets-drawer.js
             bodyHtml: renderEqEditBody(preset),
             bodyClass: 'overflow-y-auto px-4 py-3',
         });
-        this._wireEditView(preset);
+        this._wireEditView(preset, isBuiltIn);
     },
 
-    _wireEditView(preset) {
+    _wireEditView(preset, isBuiltIn) {
         const backBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-back');
         if (backBtn) backBtn.addEventListener('click', () => this.openListView());
-        if (preset.locked) return; // Default — chỉ xem, không có nút Lưu/Xoá/input nào để wire thêm
+        if (preset.locked) return; // Default — chỉ xem, không có nút Lưu/Xoá/Khôi phục/input nào để wire thêm
 
         const saveBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-save');
         if (saveBtn) saveBtn.addEventListener('click', () => this._saveEdit());
+
+        // FIX (12/08/2026, Giang yêu cầu — "eq mặc định có nút reset ở header") — CHỈ hiện/wire với
+        // preset GỐC (isBuiltIn) — nút vốn không được render cho preset người dùng tự tạo (xem
+        // renderEqEditHeader()), querySelector trả null thì đơn giản bỏ qua, không cần check lại
+        // isBuiltIn ở đây.
+        const resetBtn = genericDrawerHeader.querySelector('#btn-eq-drawer-reset');
+        if (resetBtn) resetBtn.addEventListener('click', () => this._resetEditToDefault(preset.id));
 
         const nameInput = genericDrawerBody.querySelector('#eq-drawer-name');
         if (nameInput) nameInput.addEventListener('input', (e) => { this._draftName = e.target.value; });
@@ -155,14 +163,35 @@ const workflowEqPresets = {
                 const fillEl = genericDrawerBody.querySelector(`#eq-edit-fill-${index}`);
                 if (fillEl) {
                     const fill = computeEqFillRect(value); // components/eq-presets-drawer.js
-                    fillEl.style.left = `${fill.left}%`;
-                    fillEl.style.width = `${fill.width}%`;
+                    fillEl.style.bottom = `${fill.bottom}%`;
+                    fillEl.style.height = `${fill.height}%`;
                 }
             });
         });
 
         const deleteBtn = genericDrawerBody.querySelector('#eq-drawer-delete');
         if (deleteBtn) deleteBtn.addEventListener('click', () => this._deletePreset(preset.id));
+    },
+
+    /** Ứng với nút "Khôi phục mặc định" trong header Edit (CHỈ hiện với preset gốc chưa khoá, xem
+     * renderEqEditHeader()) — đổi _draftGains về ĐÚNG giá trị GỐC lúc seed lần đầu
+     * (buildDefaultEqPresets(), core/eq-presets.js), vẽ lại body cho khớp — KHÔNG tự lưu DB, người
+     * dùng vẫn phải bấm Lưu mới ghi thật (cùng 1 cửa duy nhất với sửa tay từng slider, tránh 2 luồng
+     * ghi DB khác nhau cho cùng 1 hành động "sửa preset"). Tên đang gõ dở (`_draftName`) GIỮ
+     * NGUYÊN — nút này chỉ khôi phục THÔNG SỐ (gains), không đụng tên.
+     * @param {string} id */
+    _resetEditToDefault(id) {
+        const factory = buildDefaultEqPresets().find((p) => p.id === id); // core
+        if (!factory) return; // an toàn — nút vốn đã ẩn với preset không phải built-in
+        this._draftGains = factory.gains.slice();
+        const preset = findEqPresetById(appState.get('eqPresets'), id); // core — lấy locked/id hiện tại
+        if (!preset) return;
+        updateGenericDrawer({ // core/generic-drawer.js
+            headerHtml: renderEqEditHeader(preset, true), // components/eq-presets-drawer.js — chắc chắn isBuiltIn (nút chỉ hiện khi true)
+            bodyHtml: renderEqEditBody({ ...preset, name: this._draftName, gains: this._draftGains }),
+            bodyClass: 'overflow-y-auto px-4 py-3',
+        });
+        this._wireEditView(preset, true);
     },
 
     /** Lưu tên/gains đang sửa — nếu ĐÚNG preset đang active thì áp gains mới ngay lập tức. */

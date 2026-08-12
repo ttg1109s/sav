@@ -83,15 +83,33 @@ const GESTURE_SWIPE_CONFIG_FIELD = {
     x: { '-1': 'gestureActionSwipeLeft', '1': 'gestureActionSwipeRight' },
 };
 
-/** Nút Control Center hợp lệ để gán cho TAP 3 LẦN — key khớp <option> ở components/gesture-
- * settings-drawer.js. Tham chiếu THẲNG biến dom-refs (không tự document.getElementById) —
- * undefined-safe cho trang không nạp đủ bộ dom-refs (subtitle-editor.html). */
+/** Nút Control Center hợp lệ để gán cho TAP 3 LẦN + 3 "Action" slot (MỚI 12/08/2026) — key khớp
+ * <option> ở components/gesture-settings-drawer.js. Tham chiếu THẲNG biến dom-refs (không tự
+ * document.getElementById) — undefined-safe cho trang không nạp đủ bộ dom-refs (subtitle-editor.html).
+ * SỬA (12/08/2026, Giang yêu cầu thêm "Action") — bổ sung 3 nút CÒN THIẾU so với TOÀN BỘ nút
+ * data-cc-action thật sự có ở Control Center (components/visualizer-overlay.js): openVolume/
+ * cycleEq/editEq — trước đây map này viết TRƯỚC khi 3 nút đó tồn tại, giờ đủ cả 8/8. */
 const GESTURE_TRIPLE_TAP_TARGET_ELS = {
     cycleMode: typeof btnCycleMode !== 'undefined' ? btnCycleMode : null,
     shuffle: typeof btnShuffle !== 'undefined' ? btnShuffle : null,
     repeat: typeof btnRepeat !== 'undefined' ? btnRepeat : null,
     documentReader: typeof btnOpenDocumentReader !== 'undefined' ? btnOpenDocumentReader : null,
     captureFrame: typeof btnCaptureVideoFrame !== 'undefined' ? btnCaptureVideoFrame : null,
+    openVolume: typeof btnOpenVolume !== 'undefined' ? btnOpenVolume : null,
+    cycleEq: typeof btnCycleEq !== 'undefined' ? btnCycleEq : null,
+    editEq: typeof btnEditEq !== 'undefined' ? btnEditEq : null,
+};
+
+/** MỚI (12/08/2026, Giang yêu cầu — "Action" cho Cử chỉ) — 3 "ngăn" CỐ ĐỊNH, mỗi ngăn gán 1 nút
+ * Control Center (chọn ở section Action riêng, components/gesture-settings-drawer.js) — 6 dropdown
+ * vuốt/tap (KHÔNG gồm seek/vuốt cạnh trên, xem docstring vizConfig.gestureActionSlot1) chọn được
+ * 'actionSlot1/2/3' NGOÀI 5 hành động mặc định trong GESTURE_ACTIONS — _dispatchGestureAction() tra
+ * bảng NÀY trước, khớp thì đi qua _clickControlCenterTarget() (CÙNG cơ chế Tap 3 lần, gọi
+ * targetEl.click() — KHÔNG chép lại logic), không khớp thì mới tra GESTURE_ACTIONS như cũ. */
+const GESTURE_ACTION_SLOT_CONFIG_FIELD = {
+    actionSlot1: 'gestureActionSlot1',
+    actionSlot2: 'gestureActionSlot2',
+    actionSlot3: 'gestureActionSlot3',
 };
 
 const workflowVisualizerGesture = {
@@ -173,16 +191,24 @@ const workflowVisualizerGesture = {
         taskManager.once(() => {
             const count = this._tapCount;
             this._tapCount = 0;
-            if (count === 1) this._dispatchGestureAction(cfg.gestureActionTapSingle);
-            else if (count === 2) this._dispatchGestureAction(cfg.gestureActionTapDouble);
+            if (count === 1) this._dispatchGestureAction(cfg.gestureActionTapSingle, cfg);
+            else if (count === 2) this._dispatchGestureAction(cfg.gestureActionTapDouble, cfg);
         }, TAP_WINDOW_MS, GESTURE_TAP_TASK);
     },
 
     /** Tap 3 lần — bấm thẳng 1 nút Control Center do người dùng chọn (KHÁC action picker). Chọn
      * 'none' trong dropdown = tắt (KHÔNG còn toggle bật/tắt riêng, phản hồi Giang). */
     _resolveTripleTap(cfg) {
-        if (!cfg.gestureTripleTapTarget || cfg.gestureTripleTapTarget === 'none') return;
-        const targetEl = GESTURE_TRIPLE_TAP_TARGET_ELS[cfg.gestureTripleTapTarget];
+        this._clickControlCenterTarget(cfg.gestureTripleTapTarget);
+    },
+
+    /** Bấm thẳng 1 nút Control Center theo key (GESTURE_TRIPLE_TAP_TARGET_ELS) — DÙNG CHUNG bởi
+     * Tap 3 lần VÀ 3 Action slot (MỚI 12/08/2026, xem _dispatchGestureAction()) — 'none'/rỗng/nút
+     * đang ẩn (vd captureFrame ngoài Video mode) đều im lặng bỏ qua.
+     * @param {string} targetKey */
+    _clickControlCenterTarget(targetKey) {
+        if (!targetKey || targetKey === 'none') return;
+        const targetEl = GESTURE_TRIPLE_TAP_TARGET_ELS[targetKey];
         if (targetEl && !targetEl.classList.contains('hidden')) targetEl.click();
     },
 
@@ -190,12 +216,20 @@ const workflowVisualizerGesture = {
     _resolveAxisSwipe(axis, delta, cfg) {
         const direction = resolveSwipeDirection(delta); // core/visualizer-gesture.js
         const field = GESTURE_SWIPE_CONFIG_FIELD[axis][String(direction)];
-        this._dispatchGestureAction(cfg[field]);
+        this._dispatchGestureAction(cfg[field], cfg);
     },
 
-    /** Tra + chạy 1 hành động trong GESTURE_ACTIONS — dùng chung bởi tap đơn/đúp và vuốt.
-     * @param {string} action */
-    _dispatchGestureAction(action) {
+    /** Tra + chạy 1 hành động — dùng chung bởi tap đơn/đúp và vuốt. Tra GESTURE_ACTION_SLOT_
+     * CONFIG_FIELD TRƯỚC (3 Action slot, MỚI 12/08/2026) — khớp thì bấm thẳng nút Control Center đã
+     * gán (_clickControlCenterTarget(), CÙNG cơ chế Tap 3 lần); không khớp mới tra GESTURE_ACTIONS
+     * (5 hành động mặc định next/prev/playPause/openPlaylist/none) như cũ.
+     * @param {string} action @param {object} cfg - CẦN để tra field gán cho action slot (nếu có) */
+    _dispatchGestureAction(action, cfg) {
+        const slotField = GESTURE_ACTION_SLOT_CONFIG_FIELD[action];
+        if (slotField) {
+            this._clickControlCenterTarget(cfg[slotField]);
+            return;
+        }
         const run = GESTURE_ACTIONS[action];
         if (run) run();
     },

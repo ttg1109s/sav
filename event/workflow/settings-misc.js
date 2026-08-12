@@ -124,6 +124,39 @@ const workflowSettingsMisc = {
         );
     },
 
+    /** Ứng với msg.type = 'settingsMisc.restoreDefaults.confirm'. THAY executeRestoreDefaults() cũ
+     * (core/app-recovery.js, đã XOÁ) — SỬA (12/08/2026, Giang chỉ ra 2a/2b "Reset app default"
+     * THỰC RA là yêu cầu RESET, bản trước mình hiểu ngược thành loại trừ) — giờ reset ĐỦ CẢ 3:
+     *   1. vizConfig (màu/hiệu ứng/EQ đang chọn/cử chỉ/...) — restoreDefaultVizConfig() (core), như cũ.
+     *   2. visualBgConfig (Visual Background: video/ảnh/slideshow nền màn Visualizer) — MỚI, mục 2a
+     *      — restoreDefaultVisualBgConfig() (core/config.js) + workflowVisualBg._persist() (Workflow
+     *      gọi Workflow tự do, DÙNG LẠI hàm persist có sẵn thay vì chép lại setMeta() ở đây).
+     *   3. 5 preset EQ GỐC (KHÔNG khoá) trong meta.eqPresets — khôi phục ĐẦY ĐỦ tên+gains về bản
+     *      factory (buildDefaultEqPresets(), core/eq-presets.js) — MỚI, mục 2b. KHÁC nút Reset
+     *      RIÊNG từng preset ở Edit EQ header (mục 2c, CHỈ đổi gains, giữ tên đang sửa dở — xem
+     *      event/workflow/eq-presets.js::_resetEditToDefault()): reset TOÀN APP restore ĐẦY ĐỦ vì
+     *      đây là "về lại y hệt lúc mới cài", không phải sửa dở tay. Preset NGƯỜI DÙNG TỰ TẠO (id
+     *      không khớp 6 id cố định, generateEqPresetId() không bao giờ trùng) GIỮ NGUYÊN — reset
+     *      app KHÔNG có nghĩa xoá sạch preset người dùng tự tạo, chỉ đưa phần GỐC về lại nguyên bản.
+     * Đợi (await Promise.all) CẢ 2 lượt persist bất đồng bộ (visualBgConfig + eqPresets) xong rồi
+     * mới reload — reload sớm hơn sẽ mất trắng phần vừa ghi (race, IndexedDB ghi bất đồng bộ). */
+    async confirmRestoreDefaults() {
+        restoreDefaultVizConfig(); // core/config.js
+        restoreDefaultVisualBgConfig(); // core/config.js
+
+        const factoryById = {};
+        buildDefaultEqPresets().forEach((p) => { factoryById[p.id] = { ...p }; }); // core/eq-presets.js
+        const restoredPresets = appState.get('eqPresets').map((p) => factoryById[p.id] || p);
+        appState.set('eqPresets', restoredPresets);
+
+        saveConfig(); // core/config.js — vizConfig, đồng bộ (localStorage)
+        await Promise.all([
+            workflowVisualBg._persist(), // event/workflow/visual-bg.js
+            setMeta('eqPresets', restoredPresets), // service/db.js
+        ]);
+        location.reload();
+    },
+
     /** MỚI (14/07/2026, Giang yêu cầu — "nút xoá cache js/css cho page") — ứng với msg.type =
      * 'settingsMisc.clearCache.click'. */
     askClearCache(payload) {

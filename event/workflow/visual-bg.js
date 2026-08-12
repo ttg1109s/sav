@@ -19,6 +19,15 @@ const workflowVisualBg = {
     _videoAudioRows: null,     // MỚI (08/08/2026) — cache {key,name}[] đọc lúc mở panel "Âm thanh Video", xem openVideoAudioPanel()/openVideoAudioVolumeModal()
     _stuckRecoveryTimer: null, // MỚI (09/08/2026, mục 3) — fallback taskManager.once() khi key hiện tại !record/null giữa lúc cycle mode 'slideshow' (không video nào phát -> 'ended' không bao giờ bắn -> treo), xem _scheduleStuckRecoveryTimer()/_killStuckRecoveryTimer()
 
+    // MỚI (12/08/2026, Giang yêu cầu mục 6 — "Movement") — state RIÊNG của animation tick
+    // (_tickGradientMovement()), KHÔNG lưu DB (hiệu ứng nhất thời, tự khởi tạo lại mỗi lần bật).
+    _gradientMovementStartTime: null,     // mốc Date.now() lúc task bắt đầu chạy — mode 'time' dùng để tính elapsed
+    _gradientMovementBaseStops: null,     // stops "nghỉ" hiện tại (đã CHỐT màu qua lần tráo gần nhất, position GỐC — chưa cộng spread)
+    _gradientMovementSwapStartTime: null, // null = không đang tráo; khác null = mốc bắt đầu transition tráo màu
+    _gradientMovementSwapFromColors: null,
+    _gradientMovementSwapToColors: null,
+    _gradientMovementLastSwapTime: null,  // mốc lần tráo GẦN NHẤT hoàn tất (hoặc lúc bật task) — tính khi nào tới lượt tráo kế tiếp
+
     // ===================== Boot / persist =====================
 
     /** Đọc lại `meta.visualBgConfig` + áp nền — gọi 1 lần lúc boot, SAU loadConfig(). */
@@ -57,6 +66,22 @@ const workflowVisualBg = {
                 if (typeof saved.solidColor === 'string') cfg.solidColor = saved.solidColor;
                 if (typeof saved.gradientAngleDeg === 'number') cfg.gradientAngleDeg = saved.gradientAngleDeg;
                 if (Array.isArray(saved.gradientStops) && saved.gradientStops.length >= VISUAL_BG_GRADIENT_MIN_STOPS && saved.gradientStops.length <= VISUAL_BG_GRADIENT_MAX_STOPS) cfg.gradientStops = saved.gradientStops;
+                // MỚI (12/08/2026, Giang yêu cầu mục 6 — "Movement") — validate TỪNG field con
+                // (KHÔNG gán nguyên cục saved.gradientMovement — CÙNG triết lý defensive với mọi
+                // field khác ở trên, tránh dữ liệu DB hỏng/thiếu field làm vỡ animation sau này).
+                if (saved.gradientMovement && typeof saved.gradientMovement === 'object') {
+                    const gm = saved.gradientMovement;
+                    if (typeof gm.enabled === 'boolean') cfg.gradientMovement.enabled = gm.enabled;
+                    if (VISUAL_BG_GRADIENT_MOVEMENT_MODES.includes(gm.mode)) cfg.gradientMovement.mode = gm.mode;
+                    if (typeof gm.rotateDurationMs === 'number' && gm.rotateDurationMs >= VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MIN_MS && gm.rotateDurationMs <= VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MAX_MS) cfg.gradientMovement.rotateDurationMs = gm.rotateDurationMs;
+                    if (typeof gm.audioRotateFrom === 'number') cfg.gradientMovement.audioRotateFrom = Math.max(0, Math.min(360, gm.audioRotateFrom));
+                    if (typeof gm.audioRotateTo === 'number') cfg.gradientMovement.audioRotateTo = Math.max(0, Math.min(360, gm.audioRotateTo));
+                    if (typeof gm.audioStopSpreadFrom === 'number') cfg.gradientMovement.audioStopSpreadFrom = Math.max(0, Math.min(50, gm.audioStopSpreadFrom));
+                    if (typeof gm.audioStopSpreadTo === 'number') cfg.gradientMovement.audioStopSpreadTo = Math.max(0, Math.min(50, gm.audioStopSpreadTo));
+                    if (typeof gm.colorSwapEnabled === 'boolean') cfg.gradientMovement.colorSwapEnabled = gm.colorSwapEnabled;
+                    if (typeof gm.colorSwapIntervalMs === 'number' && gm.colorSwapIntervalMs >= VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MIN_MS && gm.colorSwapIntervalMs <= VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MAX_MS) cfg.gradientMovement.colorSwapIntervalMs = gm.colorSwapIntervalMs;
+                    if (typeof gm.colorSwapTransitionMs === 'number' && gm.colorSwapTransitionMs >= VISUAL_BG_GRADIENT_MOVEMENT_TRANSITION_MIN_MS && gm.colorSwapTransitionMs <= VISUAL_BG_GRADIENT_MOVEMENT_TRANSITION_MAX_MS) cfg.gradientMovement.colorSwapTransitionMs = gm.colorSwapTransitionMs;
+                }
                 if (saved.slideshow && typeof saved.slideshow === 'object') {
                     const ss = saved.slideshow;
                     if (typeof ss.intervalSeconds === 'number' && ss.intervalSeconds >= 5) cfg.slideshow.intervalSeconds = ss.intervalSeconds;
@@ -79,6 +104,7 @@ const workflowVisualBg = {
         // ngầm, không giữ chuỗi boot() phía app-boot.js chờ.
         if (appConfigVisualBg.getAll().pending.originKind) this._checkAndApplyPendingSource();
         else this.applyCurrentVisualBg();
+        this._syncGradientMovementTaskState(); // MỚI (12/08/2026, mục 6) — khởi động animation NGAY nếu đã bật từ phiên trước
     },
 
     async _persist() {
@@ -507,12 +533,17 @@ const workflowVisualBg = {
      * `setVideoBgGain()` (GainNode riêng, core/video-player.js) làm nguồn tin cậy chính. */
     _applyVideoAudioSettingToElement(videoKey) {
         const { enabled, volumePercent } = getVisualBgVideoAudioSetting(appConfigVisualBg.getAll().source.videoAudio, videoKey); // core/visual-bg.js
+        // FIX (12/08/2026, Giang báo "video bg 50% đã át gần hết tiếng song") — GAIN THẬT áp vào
+        // element/GainNode giờ qua resolveVisualBgVideoAudioGain() (core/visual-bg.js, trần 90%),
+        // KHÔNG còn tự chia volumePercent/100 thẳng — volumePercent (0-100) LƯU DB/HIỂN THỊ UI
+        // giữ nguyên, chỉ gain THẬT bị trần lại.
+        const gain = resolveVisualBgVideoAudioGain(volumePercent); // core/visual-bg.js — 0-0.9
         bgVideoElement.muted = !enabled;
-        bgVideoElement.volume = volumePercent / 100;
+        bgVideoElement.volume = gain;
         if (enabled) {
             setupAudioContext(); // core/audio-engine.js — đảm bảo context tồn tại
             connectVideoElementToAnalyser(); // core/video-player.js — LƯỜI, chỉ nối đúng lúc thật sự cần Audio B
-            setVideoBgGain(volumePercent / 100); // core/video-player.js
+            setVideoBgGain(gain); // core/video-player.js
         } else {
             setVideoBgGain(0); // core/video-player.js — no-op nếu graph chưa nối (đa số trường hợp — không đụng gì tới Web Audio)
         }
@@ -814,6 +845,14 @@ const workflowVisualBg = {
         appConfigVisualBg.mutateAll(mutatorFn);
         console.log(`writer: "workflowVisualBg._commitColorChange", page: "visualBgConfig", content: "${logContent}"`);
         updateDOMBackground(); // core/color-utils.js
+        // MỚI (12/08/2026, mục 6) — SỬA BUG: nếu Movement đang chạy VÀ vừa sửa gradientStops (kéo
+        // vị trí/đổi màu/thêm/xoá chặng) trong lúc panel đang mở, cache `_gradientMovementBaseStops`
+        // (chỉ chụp 1 lần lúc task bắt đầu) sẽ LỆCH khỏi DB, tick tiếp tục vẽ theo bản CŨ — đồng bộ
+        // lại NGAY tại đây (nơi DUY NHẤT mọi thay đổi màu/stop đều đi qua) thay vì rải rác ở từng
+        // hàm gọi _commitColorChange() riêng lẻ.
+        if (taskManager.isTaskRunning(VISUAL_BG_GRADIENT_MOVEMENT_TASK)) { // core/visual-bg.js
+            this._gradientMovementBaseStops = appConfigVisualBg.getAll().gradientStops.slice();
+        }
         clearTimeout(this._colorPersistTimer);
         this._colorPersistTimer = setTimeout(() => this._persist(), 300);
     },
@@ -823,6 +862,7 @@ const workflowVisualBg = {
         appConfigVisualBg.mutateAll((cfg) => { cfg.colorMode = value; });
         console.log(`writer: "workflowVisualBg.changeColorMode", page: "visualBgConfig", content: "colorMode=${value}"`);
         updateDOMBackground();
+        this._syncGradientMovementTaskState(); // MỚI (12/08/2026, mục 6) — rời khỏi 'gradient' phải dừng animation, chuyển VÀO 'gradient' (đã bật Movement từ trước) phải chạy lại
         await this._persist();
         await this.refreshPanelUI();
     },
@@ -875,6 +915,27 @@ const workflowVisualBg = {
         visualBgGradientPanelEl.querySelector('#visual-bg-gradient-angle-value').textContent = `${cfg.gradientAngleDeg}°`;
         this._renderGradientStopRows(cfg.gradientStops);
         this._paintGradientPreview(cfg);
+
+        // MỚI (12/08/2026, Giang yêu cầu mục 6 — "Movement") — đồng bộ toàn bộ input Movement +
+        // Color swap lúc mở panel, CÙNG khuôn phần angle/stops ngay trên.
+        const gm = cfg.gradientMovement;
+        const elMovementEnable = visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-movement-enable');
+        elMovementEnable.checked = gm.enabled;
+        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-options').classList.toggle('hidden', !gm.enabled);
+        visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-movement-mode').value = gm.mode;
+        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-time-block').classList.toggle('hidden', gm.mode !== 'time');
+        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-audio-block').classList.toggle('hidden', gm.mode !== 'audio');
+        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-duration-value').textContent = this._formatMovementMs(gm.rotateDurationMs);
+        visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-movement-audio-rotate-from').value = gm.audioRotateFrom;
+        visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-movement-audio-rotate-to').value = gm.audioRotateTo;
+        visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-movement-audio-spread-from').value = gm.audioStopSpreadFrom;
+        visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-movement-audio-spread-to').value = gm.audioStopSpreadTo;
+
+        const elSwapEnable = visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-colorswap-enable');
+        elSwapEnable.checked = gm.colorSwapEnabled;
+        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-colorswap-options').classList.toggle('hidden', !gm.colorSwapEnabled);
+        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-colorswap-interval-value').textContent = this._formatMovementMs(gm.colorSwapIntervalMs);
+        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-colorswap-transition-value').textContent = this._formatMovementMs(gm.colorSwapTransitionMs);
     },
 
     _renderGradientStopRows(stops) {
@@ -895,6 +956,191 @@ const workflowVisualBg = {
 
     _paintGradientPreview(cfg) {
         visualBgGradientPanelEl.querySelector('#visual-bg-gradient-preview').style.backgroundImage = buildVisualBgGradientCss(cfg.gradientStops, cfg.gradientAngleDeg); // core/visual-bg.js
+    },
+
+    // ===================== "Movement" cho Gradient (MỚI, 12/08/2026, Giang yêu cầu mục 6) =====================
+    // Xoay/dao động linear-gradient theo thời gian HOẶC theo nhạc, + tráo màu ngẫu nhiên định kỳ.
+    // CHỈ chạy khi `colorMode==='gradient' && gradientMovement.enabled`
+    // (_syncGradientMovementTaskState() tự bật/tắt task đúng điều kiện, gọi lại mỗi khi 1 trong 2
+    // field đổi HOẶC lúc boot). Vẽ MỖI TICK bằng applyGradientCssFrame() (core/visual-bg.js) — GHI
+    // TRỰC TIẾP DOM, KHÔNG ghi ngược lại appConfigVisualBg/DB (animation là hiệu ứng NHẤT THỜI, DB
+    // chỉ giữ cấu hình GỐC tĩnh — angle/stops LƯU DB KHÔNG đổi trong lúc Movement chạy).
+    //
+    // Ô preview vuông trong panel (_paintGradientPreview() ngay trên) CỐ Ý KHÔNG chạy animation này
+    // — chỉ vẽ tĩnh theo cấu hình gốc, giữ preview đơn giản/nhẹ (xem docstring components/
+    // visual-bg-gradient-drawer.js).
+
+    /** Đăng ký + bật task tick (taskManager, mode 'timeout' tự lặp — Rule "TaskManager CHỈ Workflow
+     * được dùng"). An toàn gọi nhiều lần — no-op nếu task đã chạy (KHÔNG reset lại pha animation
+     * giữa chừng, tránh giật hình mỗi lần _syncGradientMovementTaskState() được gọi lại). */
+    _startGradientMovementTask() {
+        if (taskManager.isTaskRunning(VISUAL_BG_GRADIENT_MOVEMENT_TASK)) return;
+        this._gradientMovementStartTime = Date.now();
+        this._gradientMovementBaseStops = appConfigVisualBg.getAll().gradientStops.slice();
+        this._gradientMovementSwapStartTime = null;
+        this._gradientMovementLastSwapTime = Date.now();
+        taskManager.addNew(VISUAL_BG_GRADIENT_MOVEMENT_TASK, { time: VISUAL_BG_GRADIENT_MOVEMENT_TICK_MS, exe: () => this._tickGradientMovement(), mode: 'timeout', count: 0 }); // core/visual-bg.js (hằng số tick+tên task)
+        taskManager.operator(VISUAL_BG_GRADIENT_MOVEMENT_TASK, 'enabled');
+    },
+
+    /** Dừng hẳn + dọn state transition tráo màu (nếu đang dở) — gọi khi tắt Movement/chuyển khỏi
+     * colorMode 'gradient'. Nền gradient TĨNH (đứng yên tại giá trị GỐC lưu DB) tự động quay lại
+     * qua nhánh updateDOMBackground() bình thường ở nơi khác — KHÔNG cần vẽ lại gì thêm ở đây. */
+    _stopGradientMovementTask() {
+        taskManager.kill(VISUAL_BG_GRADIENT_MOVEMENT_TASK);
+        this._gradientMovementSwapStartTime = null;
+    },
+
+    /** Bật/tắt task animation theo ĐÚNG điều kiện hiện tại — gọi lại mỗi khi colorMode/
+     * gradientMovement.* đổi (changeColorMode(), toggleGradientMovement(), thay đổi mode...) HOẶC
+     * lúc boot (loadPersistedSettingsOnBoot()). */
+    _syncGradientMovementTaskState() {
+        const cfg = appConfigVisualBg.getAll();
+        const shouldRun = cfg.colorMode === 'gradient' && cfg.gradientMovement.enabled;
+        if (shouldRun) this._startGradientMovementTask();
+        else this._stopGradientMovementTask();
+    },
+
+    /** 1 khung hình animation — đọc cfg MỚI NHẤT mỗi lần (cho phép đổi setting giữa lúc đang chạy
+     * mà không cần restart task), tính angle+stops rồi vẽ. Xem phân tích chọn `smoothedEnergy` làm
+     * thông số audio driving mode 'audio' ở docstring core/config.js::DEFAULT_VISUAL_BG_CONFIG.
+     * gradientMovement — KHÔNG dùng `beatScale`/`currentFlux` (quá thô/giật cho 1 hiệu ứng nền LIÊN
+     * TỤC), KHÔNG dùng BPM/Pitch (rời rạc, không phải đại diện "cường độ" audio phù hợp driving 1
+     * animation mượt). */
+    _tickGradientMovement() {
+        const cfg = appConfigVisualBg.getAll();
+        const gm = cfg.gradientMovement;
+        const now = Date.now();
+
+        // ----- Góc xoay + độ giãn stop theo mode -----
+        let angle;
+        let stops = this._gradientMovementBaseStops;
+        if (gm.mode === 'audio') {
+            const energy = appState.get('smoothedEnergy') || 0; // 0-1, core/audio-analysis.js — ĐÃ làm mượt sẵn (EMA), tránh giật theo khung hình thô
+            angle = lerpGradientMovementValue(gm.audioRotateFrom, gm.audioRotateTo, energy); // core/visual-bg.js
+            const spread = lerpGradientMovementValue(gm.audioStopSpreadFrom, gm.audioStopSpreadTo, energy); // core/visual-bg.js
+            stops = computeGradientStopSpread(stops, spread); // core/visual-bg.js
+        } else {
+            const elapsed = now - this._gradientMovementStartTime;
+            angle = computeGradientTimeRotateAngle(elapsed, gm.rotateDurationMs); // core/visual-bg.js
+        }
+
+        // ----- Tráo màu (ĐỘC LẬP với mode ở trên, chạy song song nếu bật) -----
+        if (gm.colorSwapEnabled) {
+            if (this._gradientMovementSwapStartTime === null && now - this._gradientMovementLastSwapTime >= gm.colorSwapIntervalMs) {
+                const randomFactors = stops.map(() => Math.random()); // Workflow tự tạo ngẫu nhiên (Rule 3d — core không nhận callback sống)
+                const shuffled = shuffleGradientStopColors(this._gradientMovementBaseStops, randomFactors); // core/visual-bg.js
+                this._gradientMovementSwapFromColors = this._gradientMovementBaseStops.map((s) => s.color);
+                this._gradientMovementSwapToColors = shuffled.map((s) => s.color);
+                this._gradientMovementSwapStartTime = now;
+                // SỬA (12/08/2026) — đặt lại đồng hồ NGAY LÚC BẮT ĐẦU tráo (không đợi hết transition
+                // mới đặt lại) — đúng ngữ nghĩa "tráo mỗi X giây" = khoảng cách giữa 2 lần BẮT ĐẦU
+                // tráo liên tiếp, KHÔNG cộng dồn thêm colorSwapTransitionMs vào chu kỳ (nếu đặt lại
+                // lúc HẾT transition, interval=1s + transition=3s sẽ ra chu kỳ thật 4s, sai kỳ vọng).
+                this._gradientMovementLastSwapTime = now;
+            }
+            if (this._gradientMovementSwapStartTime !== null) {
+                const progress = Math.min(1, (now - this._gradientMovementSwapStartTime) / gm.colorSwapTransitionMs);
+                const interpolated = this._gradientMovementSwapFromColors.map((c, i) => interpolateColor(c, this._gradientMovementSwapToColors[i], progress)); // core/color-utils.js
+                stops = applyGradientStopColors(stops, interpolated); // core/visual-bg.js
+                if (progress >= 1) {
+                    // Tráo xong — CHỐT làm base MỚI (giữ nguyên vị trí %, chỉ đổi màu). Đồng hồ
+                    // interval ĐÃ đặt lại ở trên rồi, không đặt lại lần 2 ở đây.
+                    this._gradientMovementBaseStops = applyGradientStopColors(this._gradientMovementBaseStops, this._gradientMovementSwapToColors); // core/visual-bg.js
+                    this._gradientMovementSwapStartTime = null;
+                }
+            }
+        }
+
+        applyGradientCssFrame(buildVisualBgGradientCss(stops, angle)); // core/visual-bg.js — 2 lệnh RIÊNG (Rule 3), Workflow tự nối chuỗi CSS rồi mới ghi DOM
+    },
+
+    /** Ứng với toggle bật/tắt Movement. */
+    async toggleGradientMovement(checked) {
+        this._commitColorChange((cfg) => { cfg.gradientMovement.enabled = checked; }, `gradientMovement.enabled=${checked}`);
+        this._syncGradientMovementTaskState();
+        if (!visualBgGradientPanelEl) return;
+        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-options').classList.toggle('hidden', !checked);
+    },
+
+    /** Ứng với select đổi mode Movement ('time'/'audio'). */
+    changeGradientMovementMode(value) {
+        if (!VISUAL_BG_GRADIENT_MOVEMENT_MODES.includes(value)) return; // core/visual-bg.js
+        this._commitColorChange((cfg) => { cfg.gradientMovement.mode = value; }, `gradientMovement.mode=${value}`);
+        this._gradientMovementStartTime = Date.now(); // đổi mode = tính lại pha animation từ đầu, tránh nhảy góc đột ngột
+        if (!visualBgGradientPanelEl) return;
+        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-time-block').classList.toggle('hidden', value !== 'time');
+        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-audio-block').classList.toggle('hidden', value !== 'audio');
+    },
+
+    /** Ứng với nút mở time-picker "Hết 1 vòng sau" (mode 'time'). */
+    openGradientMovementDurationPicker() {
+        const cfg = appConfigVisualBg.getAll();
+        openTimePickerModal({ // core/time-picker-modal.js — dùng chung
+            title: t('visualBgSettingsDrawer.gradientMovement.duration.pickerTitle'),
+            format: 's-ms',
+            valueMs: cfg.gradientMovement.rotateDurationMs,
+            minMs: VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MIN_MS, // core/visual-bg.js
+            maxMs: VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MAX_MS,
+            onConfirm: (resultMs) => {
+                this._commitColorChange((c) => { c.gradientMovement.rotateDurationMs = resultMs; }, `gradientMovement.rotateDurationMs=${resultMs}`);
+                this._gradientMovementStartTime = Date.now(); // đổi thời lượng = tính lại pha, tránh nhảy góc
+                if (visualBgGradientPanelEl) visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-duration-value').textContent = this._formatMovementMs(resultMs);
+            },
+        });
+    },
+
+    /** 2 hàng number input "From/To" mode 'audio' — góc xoay (0-360) + độ giãn stop (0-50%). Cả 4
+     * field CÙNG 1 process (ghi 1 số vào field tương ứng), gộp 1 hàm nhận tên field — Rule 1. */
+    changeGradientMovementAudioRange(field, value) {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return;
+        this._commitColorChange((cfg) => { cfg.gradientMovement[field] = num; }, `gradientMovement.${field}=${num}`);
+    },
+
+    /** Ứng với toggle bật/tắt "Tráo màu". */
+    toggleGradientColorSwap(checked) {
+        this._commitColorChange((cfg) => { cfg.gradientMovement.colorSwapEnabled = checked; }, `gradientMovement.colorSwapEnabled=${checked}`);
+        this._gradientMovementLastSwapTime = Date.now(); // bật lại = đợi đủ 1 interval mới tráo lần đầu, không tráo ngay lập tức
+        if (!visualBgGradientPanelEl) return;
+        visualBgGradientPanelEl.querySelector('#visual-bg-gradient-colorswap-options').classList.toggle('hidden', !checked);
+    },
+
+    /** Ứng với nút mở time-picker "Tráo mỗi". */
+    openGradientColorSwapIntervalPicker() {
+        const cfg = appConfigVisualBg.getAll();
+        openTimePickerModal({
+            title: t('visualBgSettingsDrawer.gradientMovement.colorSwapInterval.pickerTitle'),
+            format: 's-ms',
+            valueMs: cfg.gradientMovement.colorSwapIntervalMs,
+            minMs: VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MIN_MS, // core/visual-bg.js — CÙNG khoảng biên 1s-60s với rotateDurationMs
+            maxMs: VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MAX_MS,
+            onConfirm: (resultMs) => {
+                this._commitColorChange((c) => { c.gradientMovement.colorSwapIntervalMs = resultMs; }, `gradientMovement.colorSwapIntervalMs=${resultMs}`);
+                if (visualBgGradientPanelEl) visualBgGradientPanelEl.querySelector('#visual-bg-gradient-colorswap-interval-value').textContent = this._formatMovementMs(resultMs);
+            },
+        });
+    },
+
+    /** Ứng với nút mở time-picker "Thời gian chuyển cảnh". */
+    openGradientColorSwapTransitionPicker() {
+        const cfg = appConfigVisualBg.getAll();
+        openTimePickerModal({
+            title: t('visualBgSettingsDrawer.gradientMovement.colorSwapTransition.pickerTitle'),
+            format: 's-ms',
+            valueMs: cfg.gradientMovement.colorSwapTransitionMs,
+            minMs: VISUAL_BG_GRADIENT_MOVEMENT_TRANSITION_MIN_MS, // core/visual-bg.js — 500ms-3s
+            maxMs: VISUAL_BG_GRADIENT_MOVEMENT_TRANSITION_MAX_MS,
+            onConfirm: (resultMs) => {
+                this._commitColorChange((c) => { c.gradientMovement.colorSwapTransitionMs = resultMs; }, `gradientMovement.colorSwapTransitionMs=${resultMs}`);
+                if (visualBgGradientPanelEl) visualBgGradientPanelEl.querySelector('#visual-bg-gradient-colorswap-transition-value').textContent = this._formatMovementMs(resultMs);
+            },
+        });
+    },
+
+    /** @param {number} ms @returns {string} vd "2.0s" — CÙNG khuôn workflowGestureSettings._formatSeekMs(). */
+    _formatMovementMs(ms) {
+        return `${((ms || 0) / 1000).toFixed(1)}s`;
     },
 
     // ===================== Sub-panel "Âm thanh Video" (MỚI, 08/08/2026, phản hồi Giang) =====================
