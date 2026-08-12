@@ -32,6 +32,21 @@ if (btnOpenVisualizerSettings) {
     });
 }
 
+// MỚI (12/08/2026, Giang yêu cầu tái cấu trúc Setting Main mục 4c/4f) — 2 nút điều hướng panel
+// RIÊNG "Custom Effect"/"Auto-Switch Effect", tách từ "Customize Visualizer" — cả 2 TĨNH (Main,
+// giống btnOpenVisualizerSettings ngay trên), addEventListener trực tiếp bình thường.
+if (btnOpenVisualizerCustomEffect) {
+    btnOpenVisualizerCustomEffect.addEventListener('click', () => {
+        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.openCustomEffectPanel.click', payload: {} });
+    });
+}
+
+if (btnOpenVisualizerAutoSwitch) {
+    btnOpenVisualizerAutoSwitch.addEventListener('click', () => {
+        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.openAutoSwitchPanel.click', payload: {} });
+    });
+}
+
 if (btnCycleMode) {
     btnCycleMode.addEventListener('click', () => {
         eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.cycleMode.click', payload: {} });

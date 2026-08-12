@@ -27,6 +27,19 @@ const VISUAL_BG_SETTINGS_INPUT_MAP = {
     'setting-visual-bg-open-gradient:click': { type: 'visualBg.openGradientPanel.click', bare: true },
     'setting-visual-bg-open-slideshow:click': { type: 'visualBg.openSlideshowPanel.click', bare: true },
     'setting-visual-bg-open-video-audio:click': { type: 'visualBg.openVideoAudioPanel.click', bare: true },
+    // MỚI (12/08/2026, Giang yêu cầu mục 6 — "Movement" + "Color swap") — 4 input number dùng
+    // 'change' (KHÔNG 'input' như 2 slider gradient ở trên) — đây là ô GÕ số, không phải kéo trượt,
+    // 'change' (bắn lúc blur) tránh commit giá trị dở dang giữa lúc đang gõ nhiều chữ số.
+    'setting-visual-bg-gradient-movement-enable:change': { type: 'visualBg.gradientMovement.enable.change', checkbox: true },
+    'setting-visual-bg-gradient-movement-mode:change': { type: 'visualBg.gradientMovement.mode.change' },
+    'setting-visual-bg-gradient-movement-open-duration:click': { type: 'visualBg.gradientMovement.openDurationPicker.click', bare: true },
+    'setting-visual-bg-gradient-movement-audio-rotate-from:change': { type: 'visualBg.gradientMovement.audioRotateFrom.change' },
+    'setting-visual-bg-gradient-movement-audio-rotate-to:change': { type: 'visualBg.gradientMovement.audioRotateTo.change' },
+    'setting-visual-bg-gradient-movement-audio-spread-from:change': { type: 'visualBg.gradientMovement.audioSpreadFrom.change' },
+    'setting-visual-bg-gradient-movement-audio-spread-to:change': { type: 'visualBg.gradientMovement.audioSpreadTo.change' },
+    'setting-visual-bg-gradient-colorswap-enable:change': { type: 'visualBg.gradientMovement.colorSwapEnable.change', checkbox: true },
+    'setting-visual-bg-gradient-colorswap-open-interval:click': { type: 'visualBg.gradientMovement.openColorSwapIntervalPicker.click', bare: true },
+    'setting-visual-bg-gradient-colorswap-open-transition:click': { type: 'visualBg.gradientMovement.openColorSwapTransitionPicker.click', bare: true },
 };
 
 /** 3 control của MỖI HÀNG chặng màu gradient (số hàng đổi theo 2..7) — nhận diện bằng `data-*` kèm
