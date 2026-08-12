@@ -108,13 +108,23 @@ body {
            effect nếu sau này có nơi khác lỡ dùng lại .eq-slider). Track SÁNG (slate-200) + mốc 0dB
            giữa + dải fill tím (violet-500) kéo dài từ mốc 0 ra vị trí giá trị hiện tại — cho biết
            NGAY hướng tăng/giảm bằng mắt, không chỉ dựa vào số hiển thị phía trên (core/eq-presets.js
-           không đổi — JS chỉ set style.left/width % của .eq-preset-slider-fill mỗi khi input, xem
-           event/workflow/eq-presets.js::_wireEditView()). */
-        .eq-preset-slider-box { width: 24px; height: 108px; position: relative; display: flex; justify-content: center; align-items: center; }
-        .eq-preset-slider-track { width: 108px; height: 6px; position: absolute; border-radius: 999px; background: #e2e8f0; transform: rotate(-90deg); overflow: hidden; }
-        .eq-preset-slider-track::after { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #94a3b8; }
-        .eq-preset-slider-fill { position: absolute; top: 0; bottom: 0; background: #8b5cf6; }
-        input[type=range].eq-preset-slider { -webkit-appearance: none; width: 108px; height: 24px; background: transparent; outline: none; transform: rotate(-90deg); position: absolute; margin: 0; }
+           không đổi — JS chỉ set style.bottom/height % của .eq-preset-slider-fill mỗi khi input,
+           xem event/workflow/eq-presets.js::_wireEditView()).
+           SỬA (12/08/2026, Giang báo "phải ấn từng nấc, không cuộn mượt") — bản đầu dùng input
+           range NGANG rồi `transform: rotate(-90deg)` để "giả" dọc — vấn đề: WebKit tính toạ độ
+           chạm/kéo (touch) theo hộp GỐC (trước xoay), không theo hình chiếu ĐÃ xoay trên màn hình,
+           nên tay kéo dọc mà giá trị nhảy longitudinal, cảm giác "nhảy nấc" đúng như Giang mô tả —
+           lỗi ĐÃ BIẾT của WebKit với input[range] bị `transform: rotate()`. SỬA ĐÚNG GỐC: bỏ hẳn
+           kiểu "ngang rồi xoay", dùng `-webkit-appearance: slider-vertical` (WebKit hỗ trợ input
+           range dọc THẬT, không qua transform — app này chỉ chạy WKWebView/Safari nên dùng an toàn)
+           — kéo chạm bám ĐÚNG theo trục dọc thật, mượt như slider dọc bình thường. Mặc định
+           slider-vertical: min ở DƯỚI, max ở TRÊN — ĐÚNG hướng mong muốn (âm ở dưới, dương ở trên)
+           nên không cần đảo gì thêm. */
+        .eq-preset-slider-box { width: 24px; height: 108px; position: relative; }
+        .eq-preset-slider-track { position: absolute; left: 50%; top: 1px; bottom: 1px; width: 6px; margin-left: -3px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+        .eq-preset-slider-track::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: #94a3b8; }
+        .eq-preset-slider-fill { position: absolute; left: 0; right: 0; background: #8b5cf6; }
+        input[type=range].eq-preset-slider { -webkit-appearance: slider-vertical; appearance: slider-vertical; position: absolute; left: 0; top: 0; width: 24px; height: 108px; background: transparent; outline: none; margin: 0; padding: 0; }
         input[type=range].eq-preset-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #ffffff; border: 3px solid #8b5cf6; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
         input[type=range].eq-preset-slider:disabled::-webkit-slider-thumb { border-color: #cbd5e1; }
 
