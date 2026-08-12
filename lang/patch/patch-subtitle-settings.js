@@ -60,6 +60,27 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'visualBgSettingsDrawer.openGradient.label': 'Gradient settings...',
     'visualBgSettingsDrawer.gradientStops.label': 'Colour stops (2-7)',
     'visualBgSettingsDrawer.gradientStops.add': '+ Add stop',
+    // MỚI (12/08/2026, Giang yêu cầu mục 6 — "Movement") — gradient tự xoay/dao động theo thời
+    // gian HOẶC theo nhạc, + tráo màu ngẫu nhiên định kỳ.
+    'visualBgSettingsDrawer.gradientMovement.label': 'Movement',
+    'visualBgSettingsDrawer.gradientMovement.enable.label': 'Enable movement',
+    'visualBgSettingsDrawer.gradientMovement.enable.hint': 'Animates the gradient angle (and stop spread in audio mode) instead of holding it still',
+    'visualBgSettingsDrawer.gradientMovement.mode.label': 'Movement mode',
+    'visualBgSettingsDrawer.gradientMovement.mode.time': 'Steady rotation',
+    'visualBgSettingsDrawer.gradientMovement.mode.audio': 'Audio-reactive',
+    'visualBgSettingsDrawer.gradientMovement.duration.label': 'Full rotation every',
+    'visualBgSettingsDrawer.gradientMovement.duration.pickerTitle': 'Full rotation time',
+    'visualBgSettingsDrawer.gradientMovement.audioRotate.label': 'Rotation range (°)',
+    'visualBgSettingsDrawer.gradientMovement.audioSpread.label': 'Stop spread range (%)',
+    'visualBgSettingsDrawer.gradientMovement.rangeFrom': 'From',
+    'visualBgSettingsDrawer.gradientMovement.rangeTo': 'To',
+    'visualBgSettingsDrawer.gradientMovement.colorSwapSectionTitle': 'Color swap',
+    'visualBgSettingsDrawer.gradientMovement.colorSwapEnable.label': 'Enable color swap',
+    'visualBgSettingsDrawer.gradientMovement.colorSwapEnable.hint': 'Randomly swaps which stop gets which color, on a timer, with a smooth crossfade',
+    'visualBgSettingsDrawer.gradientMovement.colorSwapInterval.label': 'Swap every',
+    'visualBgSettingsDrawer.gradientMovement.colorSwapInterval.pickerTitle': 'Color swap interval',
+    'visualBgSettingsDrawer.gradientMovement.colorSwapTransition.label': 'Crossfade duration',
+    'visualBgSettingsDrawer.gradientMovement.colorSwapTransition.pickerTitle': 'Crossfade duration',
     'visualBgSettingsDrawer.pickSingle.photo': 'Choose one photo...',
     'visualBgSettingsDrawer.pickSingle.video': 'Choose one video...',
     'visualBgSettingsDrawer.pickGroup.photo': 'Choose an album...',
@@ -87,7 +108,7 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'visualBgSettingsDrawer.folderPicker.emptyNoFolder': 'You have no video folders yet. Create one in File Manager > Folders and add videos to it first.',
     'visualBgSettingsDrawer.folderPicker.emptyTooFew': 'You have video folders, but none holds at least {count} videos yet. A list needs more than one video to rotate through — add more, or pick a single video instead.',
     'visualBgSettingsDrawer.openSlideshow.label': 'Slideshow options...',
-    'visualBgSettingsDrawer.openSlideshow.hint': 'Transition + Ken Burns',
+    'visualBgSettingsDrawer.openSlideshow.hint': 'Transition + Photo Movement',
     // MỚI (08/08/2026) — sub-panel "Âm thanh Video" (bật/tắt + volume% audio riêng từng video).
     'visualBgSettingsDrawer.openVideoAudio.label': 'Video audio...',
     'visualBgSettingsDrawer.openVideoAudio.hint': 'Per-video sound, mixed under the main audio',
@@ -102,7 +123,7 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // SỬA (18/07/2026, phản hồi Giang — "tái cấu trúc panel theo nhóm mục") — 'sectionTitle' (1
     // tiêu đề DUY NHẤT cho cả panel) ĐÃ XOÁ, thay bằng 3 tiêu đề nhóm riêng.
     'slideshowSettingsDrawer.groupTransition.title': 'Transition',
-    'slideshowSettingsDrawer.groupKenBurns.title': 'Ken Burns',
+    'slideshowSettingsDrawer.groupKenBurns.title': 'Photo Movement',
     // MỚI (04/07/2026, mục 5 phản hồi Giang).
     'slideshowSettingsDrawer.interval.label': 'Seconds per photo',
     'slideshowSettingsDrawer.interval.hint': 'Minimum 5 seconds — transition below is always kept shorter than this',
@@ -122,7 +143,7 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'slideshowSettingsDrawer.transition.circleReveal': 'Circle reveal',
     'slideshowSettingsDrawer.transition.glitch': 'Glitch',
     // MỚI (Ken Burns, 18/07/2026, phản hồi Giang) — toggle ĐỘC LẬP, tách khỏi transition select.
-    'slideshowSettingsDrawer.kenBurns.label': 'Ken Burns',
+    'slideshowSettingsDrawer.kenBurns.label': 'Photo Movement',
     'slideshowSettingsDrawer.kenBurns.hint': 'Slow pan/zoom on each photo — works together with any transition above',
     // MỚI ("Nhóm 2", 18/07/2026, phản hồi Giang) — 13 chế độ Ken Burns, THAY HẲN "Nhóm 1" (8 biến
     // thể random tự động, không chọn được).
@@ -211,7 +232,12 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsPlaylistBg.bgImageEnable.label': 'App background image',
     'settingsPlaylistBg.bgBlur.label': 'Background blur',
 
-    'settingsVisualizer.sectionTitle': 'Visualizer',
+    'settingsVisualizer.sectionTitle': 'Visualizer Screen',
+    // FIX (12/08/2026, Giang yêu cầu tái cấu trúc Setting Main mục 4a) — hàng "Effect type" (select
+    // #setting-visualizer-type) ĐÃ BỎ HẲN khỏi card này (đổi hiệu ứng giờ qua #btn-cycle-mode/
+    // Action ở Control Center) — 7 key .type.bar/.lightning/.../.space GIỮ NGUYÊN (vẫn dùng ở
+    // VISUALIZER_TYPE_LABEL_KEYS, core/visualizer/visualizer-display.js, hiện tên hiệu ứng dưới
+    // icon Control Center) — CHỈ .type.label (nhãn hàng select cũ) hết dùng, để lại không xoá.
     'settingsVisualizer.type.label': 'Effect type',
     'settingsVisualizer.type.bar': 'Bar',
     'settingsVisualizer.type.lightning': 'Lightning',
@@ -221,10 +247,26 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsVisualizer.type.rain': 'Rain',
     // MỚI (20/07/2026, plan-space-galaxy.md Phần B) — thêm lại 'space' vào select Kiểu hiệu ứng.
     'settingsVisualizer.type.space': 'Space (Galaxy)',
+    // FIX (12/08/2026, mục 4d) — hàng "Chất lượng render" MỚI, đứng ĐẦU card (thế chỗ Effect type
+    // vừa bỏ) — dời từ card "Custom Effect" (trước đây "Visualizer Geometry", components/
+    // visualizer-settings-drawer.js) sang ĐÂY, DÙNG LẠI ĐÚNG key visualizerSettingsDrawer.quality.*
+    // (không tạo key trùng nghĩa).
     'settingsVisualizer.openDrawer.label': 'Customize Visualizer',
-    'settingsVisualizer.openDrawer.hint': 'Render quality, per-effect geometry, colors, auto-switch effect',
+    'settingsVisualizer.openDrawer.hint': 'Colors, on-screen elements, gestures',
+    // MỚI (12/08/2026, mục 4c) — "Custom Effect" (đổi tên từ "Visualizer Geometry"), giờ là 1
+    // panel RIÊNG ngang hàng "Customize Visualizer" (KHÔNG còn là 1 card con bên trong panel đó
+    // nữa) — panel body: components/settings/visualizer-custom-effect-drawer.js.
+    'settingsVisualizer.openCustomEffect.label': 'Custom Effect',
+    'settingsVisualizer.openCustomEffect.hint': 'Per-effect geometry: bar height/width, mirror count, rain scene...',
+    // MỚI (12/08/2026, mục 4f) — "Auto-Switch Effect", tách thành panel RIÊNG ngang hàng "Customize
+    // Visualizer" — panel body: components/settings/visualizer-auto-switch-drawer.js.
+    'settingsVisualizer.openAutoSwitch.label': 'Auto-Switch Effect',
+    'settingsVisualizer.openAutoSwitch.hint': 'Automatically cycle through effects over time',
     'settingsVisualizer.visualEnable.label': 'Show visual',
     'settingsVisualizer.visualEnable.hint': 'Turn off to show only the background (video/image/color), hiding the visualizer effect without touching Video Background.',
+    // MỚI (12/08/2026, mục 4b) — hàng "Làm mờ" MỚI, đứng NGAY SAU "Show visual" — dời từ card
+    // "Custom Effect" (trước đây "Visualizer Geometry") sang ĐÂY, DÙNG LẠI ĐÚNG key
+    // visualizerSettingsDrawer.blurEnable.* (không tạo key trùng nghĩa).
     // MỚI (Batch 8, 03/07/2026, slideshow nền Visual) — nút mở Slideshow Settings Drawer.
 
     // settingsAudioEq.* (UI Settings Volume/EQ tĩnh cũ) ĐÃ XOÁ HẲN — chuyển sang Control Center

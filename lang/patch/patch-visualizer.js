@@ -36,6 +36,7 @@ const LANG_PATCH_VISUALIZER = {
     'eqPresets.addButton.title': 'New preset',
     'eqPresets.defaultNewPresetName': 'New preset',
     'eqPresets.editTitle': 'Edit preset',
+    'eqPresets.resetButton.title': 'Restore original values',
     'eqPresets.save': 'Save',
     'eqPresets.name.label': 'Name',
     'eqPresets.lockedHint': 'Default is read-only and cannot be edited or deleted.',
@@ -45,7 +46,15 @@ const LANG_PATCH_VISUALIZER = {
 
     'visualizerSettingsDrawer.backToSettings.title': 'Back to Settings',
     'visualizerSettingsDrawer.title': 'Customize Visualizer',
+    // FIX (12/08/2026, Giang yêu cầu tái cấu trúc Setting Main mục 4c/4d/4b) — "Visualizer
+    // geometry" (card này) ĐÃ RỜI HẲN khỏi panel "Customize Visualizer", giờ là panel RIÊNG "Custom
+    // Effect" (components/settings/visualizer-custom-effect-drawer.js, key title MỚI
+    // visualizerCustomEffectDrawer.title bên dưới) — geometrySectionTitle GIỮ LẠI (không xoá,
+    // KHÔNG còn nơi nào dùng) chỉ để đối chiếu lịch sử. quality.*/blurEnable.* GIỮ NGUYÊN — 2 hàng
+    // đó dời sang card "Visualizer Screen" ở Main (components/settings/
+    // visualizer-geometry-color.js), DÙNG LẠI ĐÚNG 2 key này, không tạo trùng.
     'visualizerSettingsDrawer.geometrySectionTitle': 'Visualizer geometry',
+    'visualizerCustomEffectDrawer.title': 'Custom Effect',
     'visualizerSettingsDrawer.quality.label': 'Render quality',
     'visualizerSettingsDrawer.quality.high': 'High (smooth)',
     'visualizerSettingsDrawer.quality.medium': 'Medium',
@@ -71,7 +80,7 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.rainMoonVisible.label': 'Show Moon',
     'visualizerSettingsDrawer.rainWindowVisible.label': 'Show window frame',
     // (Phần B, Galaxy — 6 key spaceStyle/4 slider tinh chỉnh ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1)
-    'visualizerSettingsDrawer.colorSectionTitle': 'Visualizer colors',
+    'visualizerSettingsDrawer.colorSectionTitle': 'Colors',
     'visualizerSettingsDrawer.bgColor.label': 'Black background color',
     'visualizerSettingsDrawer.colorMode.label': 'Waveform color mode',
     'visualizerSettingsDrawer.colorMode.solid': 'Solid color',
@@ -79,6 +88,11 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.colorMode.gradient': 'Music-driven gradient',
     'visualizerSettingsDrawer.solidColor.label': 'Choose a solid color',
     'visualizerSettingsDrawer.dynamicColor.label': 'Choose 2 blend colors',
+    // FIX (12/08/2026, mục 4f) — "Auto-switch effect" (card này) ĐÃ RỜI HẲN khỏi panel "Customize
+    // Visualizer", giờ là panel RIÊNG (components/settings/visualizer-auto-switch-drawer.js, key
+    // title MỚI visualizerAutoSwitchDrawer.title bên dưới) — autoSwitchSectionTitle GIỮ LẠI, không
+    // còn nơi nào dùng, chỉ để đối chiếu lịch sử.
+    'visualizerAutoSwitchDrawer.title': 'Auto-Switch Effect',
     'visualizerSettingsDrawer.autoSwitchSectionTitle': 'Auto-switch effect',
     'visualizerSettingsDrawer.autoSwitchEnable.label': 'Enable auto-switch',
     'visualizerSettingsDrawer.autoSwitchEnable.hint': 'Automatically switches to a different effect after a set interval, no manual taps needed. While enabled, the "Change effect" button in the Visualizer Control Center is temporarily locked (to avoid conflicting with manual switching).',
@@ -96,7 +110,7 @@ const LANG_PATCH_VISUALIZER = {
 
     // MỚI (10/08/2026) — section "Hiển thị Visualizer": stats panel (dời từ nút Control Center) +
     // chế độ xem toàn màn hình (Task 3).
-    'visualizerSettingsDrawer.displaySectionTitle': 'Visualizer display',
+    'visualizerSettingsDrawer.displaySectionTitle': 'Display',
     'visualizerSettingsDrawer.statsPanelEnable.label': 'Show music stats',
     'visualizerSettingsDrawer.statsPanelEnable.hint': 'BPM, pitch and energy readout on the Visualizer screen',
     'visualizerSettingsDrawer.bottomPlayerEnable.label': 'Show bottom player bar',
@@ -111,6 +125,14 @@ const LANG_PATCH_VISUALIZER = {
 
     // MỚI (10/08/2026) — panel Settings "Cử chỉ" (components/gesture-settings-drawer.js).
     'gestureSettings.title': 'Gestures',
+    // MỚI (12/08/2026, Giang yêu cầu — "Action") — 3 ngăn CỐ ĐỊNH, mỗi ngăn gán 1 nút Control
+    // Center, dùng làm đích cho 6 dropdown vuốt/tap bên dưới (xem docstring components/
+    // gesture-settings-drawer.js). Nhãn "Action 1/2/3" DÙNG CHUNG cho cả nhãn hàng (section Action)
+    // LẪN <option> tương ứng trong 6 dropdown đó — cố ý 1 chuỗi, đổi 1 chỗ khớp cả 2 nơi.
+    'gestureSettings.sectionActions': 'Actions',
+    'gestureSettings.action.actionSlot1': 'Action 1',
+    'gestureSettings.action.actionSlot2': 'Action 2',
+    'gestureSettings.action.actionSlot3': 'Action 3',
     'gestureSettings.sectionNav': 'Navigation',
     'gestureSettings.swipeUp.label': 'Swipe up',
     'gestureSettings.swipeDown.label': 'Swipe down',
