@@ -31,6 +31,18 @@ const routerGestureSettings = (() => {
             case 'gestureSettings.tripleTapTarget.change':
                 workflowGestureSettings.setField('gestureTripleTapTarget', msg.payload.value);
                 break;
+            // MỚI (12/08/2026, Giang yêu cầu — "Action") — 3 dropdown section Action, CÙNG
+            // setField() DÙNG CHUNG như mọi field khác ở router này (khác field, không phải khác
+            // kịch bản nghiệp vụ).
+            case 'gestureSettings.actionSlot1.change':
+                workflowGestureSettings.setField('gestureActionSlot1', msg.payload.value);
+                break;
+            case 'gestureSettings.actionSlot2.change':
+                workflowGestureSettings.setField('gestureActionSlot2', msg.payload.value);
+                break;
+            case 'gestureSettings.actionSlot3.change':
+                workflowGestureSettings.setField('gestureActionSlot3', msg.payload.value);
+                break;
             case 'gestureSettings.seekHoldEnable.change':
                 workflowGestureSettings.setToggle('gestureSeekHoldEnabled', msg.payload.checked);
                 break;

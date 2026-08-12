@@ -45,6 +45,18 @@ const routerVisualizerDisplay = (() => {
                 break;
             }
 
+            // MỚI (12/08/2026, Giang yêu cầu tái cấu trúc Setting Main mục 4c/4f) — 2 panel RIÊNG
+            // tách từ "Customize Visualizer", xem docstring event/workflow/visualizer-display.js.
+            case 'visualizerDisplay.openCustomEffectPanel.click': {
+                workflowVisualizerDisplay.openCustomEffectPanel();
+                break;
+            }
+
+            case 'visualizerDisplay.openAutoSwitchPanel.click': {
+                workflowVisualizerDisplay.openAutoSwitchPanel();
+                break;
+            }
+
             case 'visualizerDisplay.cycleMode.click': {
                 cycleVisualizerType(); // tự kiểm tra autoSwitchVisualEnabled bên trong
                 break;

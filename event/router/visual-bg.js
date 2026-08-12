@@ -55,6 +55,48 @@ const routerVisualBg = (() => {
                 workflowVisualBg.removeGradientStop(msg.payload.index);
                 break;
 
+            // MỚI (12/08/2026, Giang yêu cầu mục 6 — "Movement" + "Color swap") — xem docstring
+            // event/workflow/visual-bg.js phía trên các hàm tương ứng.
+            case 'visualBg.gradientMovement.enable.change':
+                workflowVisualBg.toggleGradientMovement(msg.payload.checked);
+                break;
+
+            case 'visualBg.gradientMovement.mode.change':
+                workflowVisualBg.changeGradientMovementMode(msg.payload.value);
+                break;
+
+            case 'visualBg.gradientMovement.openDurationPicker.click':
+                workflowVisualBg.openGradientMovementDurationPicker();
+                break;
+
+            case 'visualBg.gradientMovement.audioRotateFrom.change':
+                workflowVisualBg.changeGradientMovementAudioRange('audioRotateFrom', msg.payload.value);
+                break;
+
+            case 'visualBg.gradientMovement.audioRotateTo.change':
+                workflowVisualBg.changeGradientMovementAudioRange('audioRotateTo', msg.payload.value);
+                break;
+
+            case 'visualBg.gradientMovement.audioSpreadFrom.change':
+                workflowVisualBg.changeGradientMovementAudioRange('audioStopSpreadFrom', msg.payload.value);
+                break;
+
+            case 'visualBg.gradientMovement.audioSpreadTo.change':
+                workflowVisualBg.changeGradientMovementAudioRange('audioStopSpreadTo', msg.payload.value);
+                break;
+
+            case 'visualBg.gradientMovement.colorSwapEnable.change':
+                workflowVisualBg.toggleGradientColorSwap(msg.payload.checked);
+                break;
+
+            case 'visualBg.gradientMovement.openColorSwapIntervalPicker.click':
+                workflowVisualBg.openGradientColorSwapIntervalPicker();
+                break;
+
+            case 'visualBg.gradientMovement.openColorSwapTransitionPicker.click':
+                workflowVisualBg.openGradientColorSwapTransitionPicker();
+                break;
+
             // "Chọn 1 ảnh/video" — 2 nhánh loại trừ theo `type` (KHÔNG còn tổ hợp sourceMode).
             case 'visualBg.pickSingleSource.click': {
                 const type = appConfigVisualBg.getAll().type;

@@ -82,7 +82,7 @@ const routerSettingsMisc = (() => {
             }
 
             case 'settingsMisc.restoreDefaults.confirm': {
-                executeRestoreDefaults();
+                workflowSettingsMisc.confirmRestoreDefaults();
                 break;
             }
 
