@@ -35,12 +35,14 @@ const workflowVolumeHud = {
         const volume = appConfigViz.getAll().volume;
         volumeHudSlider.value = volume;
         syncVolumeHudIcon(volume); // core/volume-hud.js
+        syncVolumeHudSliderFill(volumeHudSlider, volume); // core/volume-hud.js
         visualizerVolumeHud.classList.remove('hidden');
         this._scheduleAutoHide();
     },
 
     /** Ứng với 'volumeHud.slider.input' (#volume-hud-slider). @param {string} value */
     handleSliderInput(value) {
+        syncVolumeHudSliderFill(volumeHudSlider, parseInt(value, 10)); // core/volume-hud.js — phản hồi NGAY khi kéo, không đợi setVolume() qua router khác
         eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.volume.input', payload: { value } });
         this._scheduleAutoHide();
     },

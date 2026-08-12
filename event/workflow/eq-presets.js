@@ -74,12 +74,33 @@ const workflowEqPresets = {
     _wireListView() {
         const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
         if (closeBtn) closeBtn.addEventListener('click', () => this.closeDrawer());
-        const addBtn = genericDrawerBody.querySelector('#eq-drawer-add');
-        const nameInput = genericDrawerBody.querySelector('#eq-drawer-new-name');
-        if (addBtn && nameInput) addBtn.addEventListener('click', () => this._createPreset(nameInput.value));
+        // SỬA (12/08/2026, Giang yêu cầu — "bấm icon + trên header, tự tạo eq với tên default")
+        // — nút "+" giờ nằm trong HEADER (thay ô nhập tên + nút Tạo cũ trong body), tạo NGAY 1
+        // preset tên tự sinh rồi mở thẳng view Sửa — xem _createPresetWithDefaultName().
+        const addBtn = genericDrawerHeader.querySelector('#btn-eq-drawer-add');
+        if (addBtn) addBtn.addEventListener('click', () => this._createPresetWithDefaultName());
         genericDrawerBody.querySelectorAll('[data-eq-id]').forEach((row) => {
             row.addEventListener('click', () => this._openEditView(row.dataset.eqId));
         });
+    },
+
+    /** Ứng với nút "+" trong header List — CÙNG khuôn createFolderInPicker()/
+     * _computeDefaultFolderName() (event/workflow/playlist.js): tạo NGAY 1 preset tên tự sinh
+     * (KHÔNG cần hỏi tên trước), mở thẳng view Sửa — người dùng đổi tên ở đó nếu muốn (đã có sẵn
+     * ô Name), không cần bước nhập tên riêng trước khi tạo nữa. */
+    async _createPresetWithDefaultName() {
+        await this._createPreset(this._computeDefaultPresetName());
+    },
+
+    /** Tính tên mặc định KHÔNG trùng bất kỳ preset nào đang có — "New preset", "New preset 2"...
+     * CÙNG khuôn _computeDefaultFolderName() (event/workflow/playlist.js). */
+    _computeDefaultPresetName() {
+        const base = t('eqPresets.defaultNewPresetName');
+        const existingNames = new Set(appState.get('eqPresets').map((p) => p.name));
+        if (!existingNames.has(base)) return base;
+        let n = 2;
+        while (existingNames.has(`${base} ${n}`)) n++;
+        return `${base} ${n}`;
     },
 
     /** Tạo preset mới (gains mặc định phẳng), lưu DB, mở luôn view sửa cho preset vừa tạo.
@@ -119,7 +140,7 @@ const workflowEqPresets = {
         const nameInput = genericDrawerBody.querySelector('#eq-drawer-name');
         if (nameInput) nameInput.addEventListener('input', (e) => { this._draftName = e.target.value; });
 
-        genericDrawerBody.querySelectorAll('.eq-slider').forEach((slider) => {
+        genericDrawerBody.querySelectorAll('.eq-preset-slider').forEach((slider) => {
             slider.addEventListener('input', (e) => {
                 const index = parseInt(e.target.dataset.index, 10);
                 if (isNaN(index)) return;
@@ -127,6 +148,16 @@ const workflowEqPresets = {
                 this._draftGains[index] = value;
                 const valEl = genericDrawerBody.querySelector(`#eq-edit-val-${index}`);
                 if (valEl) valEl.textContent = value > 0 ? `+${value}` : value;
+                // SỬA (12/08/2026, Giang báo "không hiển thị thanh dọc") — dải fill tím
+                // (.eq-preset-slider-fill, components/eq-presets-drawer.js) giờ tự đổi left/width
+                // %  NGAY khi kéo, dùng CHUNG computeEqFillRect() (component đã tính lúc render
+                // lần đầu — tái dùng để 2 nơi luôn khớp công thức, không chép lại phép tính).
+                const fillEl = genericDrawerBody.querySelector(`#eq-edit-fill-${index}`);
+                if (fillEl) {
+                    const fill = computeEqFillRect(value); // components/eq-presets-drawer.js
+                    fillEl.style.left = `${fill.left}%`;
+                    fillEl.style.width = `${fill.width}%`;
+                }
             });
         });
 
