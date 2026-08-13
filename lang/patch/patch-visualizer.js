@@ -29,7 +29,7 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerOverlay.captureFrame.label': 'Capture',
     'visualizerOverlay.volume.title': 'Volume',
     'visualizerOverlay.volume.label': 'Volume',
-    'visualizerOverlay.cycleEq.title': 'Tap to switch EQ preset, hold 3s to edit',
+    'visualizerOverlay.cycleEq.title': 'Tap to switch EQ preset, hold 1.5s to edit',
     'visualizerOverlay.cycleEq.label': 'EQ preset',
     'eqPresets.title': 'EQ presets',
     'eqPresets.addButton.title': 'New preset',
