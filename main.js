@@ -40,10 +40,6 @@
     // tĩnh, cùng lý do TPL_ABOUT_DRAWER ở Batch D1: nội dung giờ là 1 HÀM
     // (components/subtitle-settings-drawer.js::renderSubtitlePanelBody()), PUSH ĐỘNG vào ngăn
     // xếp — xem event/workflow/subtitle-style-settings.js::openPanel().
-    // Batch D3 (Settings restructure, 06/07/2026) — TPL_VISUALIZER_SETTINGS_DRAWER ĐÃ BỎ khỏi
-    // mount tĩnh, cùng lý do TPL_ABOUT_DRAWER/TPL_SUBTITLE_SETTINGS_DRAWER ở D1/D2: nội dung giờ
-    // là 1 HÀM (components/visualizer-settings-drawer.js::renderVisualizerPanelBody()), PUSH ĐỘNG
-    // vào ngăn xếp — xem event/workflow/visualizer-display.js::openPanel().
     // HOTFIX 6 (08/07/2026, bug do Giang báo qua ảnh lỗi thật — "TypeError: null is not an object
     // (evaluating 'sideLeftContainer.classList')" lúc bấm Play): components/app-view-stack.js định
     // nghĩa TPL_APP_VIEW_STACK_OPEN/_CLOSE (khung #side-left-container bọc chung Playlist+Settings,

@@ -401,19 +401,17 @@
     <!-- Nội dung Generic Drawer cho "Edit EQ" (list preset + view sửa) — components/
          eq-presets-drawer.js, dùng bởi event/workflow/eq-presets.js. -->
     <script src="components/eq-presets-drawer.js?v=20260813v1"></script>
+    <!-- Nội dung Generic Drawer cho "Custom Effect" (mở qua GIỮ 1.5s #btn-cycle-mode) — components/
+         custom-effect-drawer.js, dùng bởi event/workflow/custom-effect.js. -->
+    <script src="components/custom-effect-drawer.js?v=20260813v1"></script>
     <!-- MỚI (03/08/2026) — khung tĩnh modal xem/sửa Video (Rule 5d, readme/core-function-
          conventions.md) — CHỈ chuỗi HTML (TPL_VIDEO_PREVIEW), không addEventListener. Đặt cạnh
          generic-drawer.js (cùng vai trò "component tĩnh"), dù bản thân được clone MỖI LẦN MỞ
          (core/file-manager/video-ui.js) chứ không mount 1 lần lúc boot như generic-drawer.js. -->
     <script src="components/video-preview.js?v=20260803v1"></script>
     <script src="components/items.js?v=20260728v1"></script>
-    <!-- Visualizer/Subtitle Settings Drawer (ver 8 refine, mục 3) — cùng pattern navigation
-         stack với About/Storage Drawer, mở chồng lên #drawer-settings. -->
-    <script src="components/visualizer-settings-drawer.js?v=20260811v2"></script>
-    <!-- MỚI (12/08/2026, Giang yêu cầu tái cấu trúc Setting Main mục 4c/4f) — 2 panel RIÊNG tách
-         từ "Customize Visualizer" (file ngay trên): "Custom Effect" (đổi tên từ "Visualizer
-         Geometry") + "Auto-Switch Effect". Cùng pattern push/pop Settings Stack. -->
-    <script src="components/settings/visualizer-custom-effect-drawer.js?v=20260812v1"></script>
+    <!-- Panel "Display" (Main "Visualizer Screen") — 5 toggle UI chrome. -->
+    <script src="components/settings/visualizer-display-panel.js?v=20260813v1"></script>
     <script src="components/settings/visualizer-auto-switch-drawer.js?v=20260812v1"></script>
     <script src="components/subtitle-settings-drawer.js?v=20260707v3"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Slideshow Settings Drawer (nền Visual, nguồn thứ 3). -->
@@ -518,6 +516,10 @@
          error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
          service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
     <script src="core/config.js?v=20260812v1"></script>
+    <!-- core/custom-effect.js — Core thuần hệ Custom Effect (getEffectConfig/setCustomEffectField),
+         NẠP NGAY SAU core/config.js (cần DEFAULT_CUSTOM_EFFECT/appConfigViz) — mọi hàm vẽ/scene-setup
+         phía dưới đều cần file này. -->
+    <script src="core/custom-effect.js?v=20260813v1"></script>
     <!-- event/store.js (class EventStore) — CHỈ riêng file NÀY trong toàn bộ /event/ được nạp SỚM
          ở đây, KHÔNG đợi xuống cuối cùng cùng bus/workflow/router/listener. Lý do: playlist/
          actions.js (core, dòng dưới) cần khai báo `const playlistStore = new EventStore(...)`
@@ -1044,10 +1046,11 @@
     <script src="event/workflow/player-controls.js?v=20260729v1"></script>
     <script src="event/router/player-controls.js?v=20260729v1"></script>
     <script src="event/listener/player-controls.js?v=20260708v1"></script>
-    <!-- Cụm "visualizerDisplay" — Batch D3 (Settings restructure, 06/07/2026): 14/20 msg.type
-         (panel Visualizer Settings, nay push/pop động) ĐỔI sang gọi workflow — xem
-         event/workflow/visualizer-display.js. THÊM case 'openPanel.click' (dời từ
-         "visualizerMiscSettings"). -->
+    <!-- Cụm "visualizerDisplay": ảnh nền, độ mờ nền, cycle effect, panel "Display". Cấu hình riêng
+         effect ĐÃ DỜI sang cụm "customEffect" (Custom Effect Drawer, xem file ngay dưới) — router
+         visualizerDisplay dispatch case cyclePress/cycle.click sang workflowCustomEffect, nên
+         event/workflow/custom-effect.js PHẢI nạp TRƯỚC event/router/visualizer-display.js. -->
+    <script src="event/workflow/custom-effect.js?v=20260813v1"></script>
     <script src="event/workflow/visualizer-display.js?v=20260811v2"></script>
     <script src="event/router/visualizer-display.js?v=20260811v2"></script>
     <script src="event/listener/visualizer-display.js?v=20260811v2"></script>
