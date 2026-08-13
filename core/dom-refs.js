@@ -46,6 +46,11 @@
         // `sideLeftContainer`, KHÔNG còn là hậu duệ của khung cuộn ngang nữa — xem docstring đầy
         // đủ ở components/app-view-stack.js). `sideLeftContainer` giờ CHỈ còn lo cuộn ngang.
         const appStack = document.getElementById('app-stack'), appBg = document.getElementById('app-bg');
+        // SỬA (12/08/2026, bug "blur ảnh nền làm mất viền panel") — lớp phủ CON bên trong `#app-bg`,
+        // mang ảnh thật + nhận `transform: scale(1.1)`/`filter: blur()` THAY vì áp thẳng lên
+        // `#app-bg` (khung cha giờ chỉ còn `overflow: hidden`, LUÔN nét) — xem components/
+        // app-view-stack.js + core/color-utils.js::updatePlaylistBg().
+        const appBgBlurLayer = document.getElementById('app-bg-blur-layer');
         const sideLeftContainer = document.getElementById('side-left-container');
         const playlistView = document.getElementById('playlist-view'), visualizerUI = document.getElementById('visualizer-ui'), playerContainer = document.getElementById('player-container');
         // (playlistBg ĐÃ XOÁ — HOTFIX 15, 08/07/2026: div `#playlist-bg` riêng đã bỏ hẳn.
@@ -91,8 +96,9 @@
         const btnOpenVolume = document.getElementById('btn-open-volume');
         const visualizerVolumeHud = document.getElementById('visualizer-volume-hud');
         // EQ preset (MỚI) — cycle + mở Generic Drawer quản lý — xem core/eq-presets.js.
+        // (btnEditEq ĐÃ XOÁ — 12/08/2026, gộp mở Generic Drawer vào GIỮ 3s trên btnCycleEq, xem
+        // event/workflow/eq-presets.js.)
         const btnCycleEq = document.getElementById('btn-cycle-eq'), eqBadgeLabel = document.getElementById('eq-badge-label');
-        const btnEditEq = document.getElementById('btn-edit-eq');
         const volumeHudSlider = document.getElementById('volume-hud-slider');
         const volumeHudWave1 = document.getElementById('volume-hud-wave-1'), volumeHudWave2 = document.getElementById('volume-hud-wave-2'), volumeHudWave3 = document.getElementById('volume-hud-wave-3'), volumeHudMute = document.getElementById('volume-hud-mute');
         

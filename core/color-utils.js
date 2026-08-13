@@ -73,20 +73,34 @@
          * nghĩa khi CHẮC CHẮN không có ảnh nào đang áp (bgImage rỗng — bất biến này do
          * `applyBgImageEnabled(false)` đảm bảo mỗi khi chuyển sang mode khác 'background', xem
          * event/workflow/theme.js::applyNonBackgroundMode()).
+         *
+         * SỬA (12/08/2026, Giang báo bug "blur ảnh nền làm mất viền panel") — `filter: blur()` tự
+         * tràn ra ngoài biên hộp CSS gốc (không bị `overflow` của chính phần tử mang nó chặn) —
+         * `appBg` khớp CHÍNH XÁC viền `#app-stack` (`border-right` desktop, assets/css/style.css)
+         * nên phần tràn đó đè mờ luôn viền. SỬA: nhánh `bgImage` giờ set ảnh + `blur`/`scale(1.1)`
+         * lên `appBgBlurLayer` (CON của `appBg`, xem components/app-view-stack.js) THAY VÌ `appBg`
+         * — `appBg` (cha) giữ `overflow: hidden` (CSS, KHÔNG đụng gì ở đây) nên phần blur tràn ra
+         * do phóng to 110% bị cắt gọn NGAY TẠI khung, viền lại nét. `scale` CHỈ áp khi
+         * `bgBlur > 0` (bgBlur = 0 không cần phóng to, giữ khung ảnh y hệt trước đây — đỡ crop hụt
+         * 1 chút mép ảnh những lúc không hề bật "Độ mờ nền"). 2 nhánh còn lại (gradient/none) KHÔNG
+         * hề blur nên giữ nguyên trên `appBg` (cha) như cũ — luôn phải dọn `appBgBlurLayer` về rỗng
+         * ở 2 nhánh đó, tránh ảnh CŨ từ nhánh `bgImage` còn kẹt lại đè lên gradient/nền trống mới.
          */
         function updatePlaylistBg() {
             const cfg = appConfigViz.getAll();
             if (cfg.bgImage) {
-                appBg.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url(${cfg.bgImage})`;
-                appBg.style.filter = `blur(${cfg.bgBlur}px)`;
+                appBg.style.backgroundImage = 'none';
+                appBgBlurLayer.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url(${cfg.bgImage})`;
+                appBgBlurLayer.style.filter = cfg.bgBlur > 0 ? `blur(${cfg.bgBlur}px)` : 'none';
+                appBgBlurLayer.style.transform = cfg.bgBlur > 0 ? 'scale(1.1)' : 'scale(1)';
             }
             else if (cfg.themeMode === 'gradient') {
+                appBgBlurLayer.style.backgroundImage = 'none';
                 appBg.style.backgroundImage = `linear-gradient(135deg, ${cfg.gradientFrom}, ${cfg.gradientTo})`;
-                appBg.style.filter = `blur(0px)`;
             }
             else {
+                appBgBlurLayer.style.backgroundImage = 'none';
                 appBg.style.backgroundImage = 'none';
-                appBg.style.filter = `blur(0px)`;
             }
         }
 
