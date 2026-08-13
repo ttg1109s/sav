@@ -240,13 +240,18 @@ body {
         #app-bg, #side-left-container { position: absolute; inset: 0; }
         /* SỬA (12/08/2026, bug "blur ảnh nền làm mất viền panel") — `#app-bg` giờ là khung CẮT
            (`overflow: hidden`, tự nó KHÔNG bao giờ mang `filter` nữa — xem components/
-           app-view-stack.js) bọc ngoài `#app-bg-blur-layer` (con, lấp đầy đúng khung cha, nhận
-           `transform: scale(1.1)`/`filter: blur()` — core/color-utils.js::updatePlaylistBg()) —
-           phần blur "tràn" ra do phóng to bị `overflow: hidden` của cha cắt gọn NGAY TẠI viền
-           `#app-stack`, không còn đè mờ `border-right` desktop (ngay dưới) như bản cũ áp blur
-           thẳng lên `#app-bg`. */
+           app-view-stack.js) bọc 2 con — phần blur "tràn" ra do phóng to bị `overflow: hidden` của
+           cha cắt gọn NGAY TẠI viền `#app-stack`, không còn đè mờ `border-right` desktop (ngay
+           dưới) như bản cũ áp blur thẳng lên `#app-bg`.
+           SỬA TIẾP (13/08/2026, Giang chỉ ra "scale 1.1 phải áp cho DOM ĐƯỢC BLUR, không phải cả
+           DOM bg image") — 2 con TÁCH BIỆT, KHÔNG còn gộp chung 1 phần tử như bản 12/08:
+             - `#app-bg-image` — ảnh GỐC, LUÔN NÉT, KHÔNG BAO GIỜ nhận `transform`/`filter`.
+             - `#app-bg-blur-layer` — lớp phủ ĐÈ LÊN TRÊN (thứ tự DOM sau = vẽ đè), CHỈ lớp NÀY
+               nhận `transform: scale(1.1)`/`filter: blur()` (core/color-utils.js::
+               updatePlaylistBg() gán CÙNG 1 ảnh cho cả 2 khi bgBlur > 0, rỗng khi bgBlur = 0 —
+               để lộ nguyên ảnh nét ở `#app-bg-image` bên dưới). */
         #app-bg { overflow: hidden; }
-        #app-bg-blur-layer { position: absolute; inset: 0; }
+        #app-bg-image, #app-bg-blur-layer { position: absolute; inset: 0; }
         /* Trạng thái NGHỈ mặc định — chờ SẴN ngoài màn hình bên trái (khớp lúc mới boot, chưa từng
            bấm bài nào, VÀ lúc đã quay lại Playlist). CÙNG FIX overshoot 4px như trên (mục đích
            giống hệt — #app-bg/nội dung Playlist không được lộ ra bên dưới #visualizer-ui khi
