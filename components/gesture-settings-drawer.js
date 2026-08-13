@@ -55,8 +55,15 @@ function renderGestureSettingsPanelBody() {
     const sectionTitle = (labelKey, colorClass) => `<h3 class="text-xs font-bold ${colorClass} uppercase tracking-widest mb-2 ml-2" data-i18n="${labelKey}">${t(labelKey)}</h3>`;
     // FIX (12/08/2026) — bổ sung 3 <option> CÒN THIẾU so với TOÀN BỘ nút Control Center thật sự có
     // (openVolume/cycleEq/editEq — xem GESTURE_TRIPLE_TAP_TARGET_ELS, event/workflow/
-    // visualizer-gesture.js, giờ đủ 8/8), DÙNG CHUNG cho cả dropdown Tap 3 lần (đã có từ trước) LẪN
-    // 3 dropdown section Action MỚI.
+    // visualizer-gesture.js), DÙNG CHUNG cho cả dropdown Tap 3 lần (đã có từ trước) LẪN 3 dropdown
+    // section Action MỚI.
+    // SỬA TIẾP (cùng ngày, "gộp eq edit vào hold 3s, bỏ icon edit riêng") — <option value="editEq">
+    // ĐÃ BỎ cùng lúc xoá hẳn #btn-edit-eq (còn lại đúng 7 option, không phải 8) — mở Edit EQ giờ
+    // gộp vào GIỮ 3s trên chính `cycleEq`, không còn là 1 "nút bấm hộ được" riêng để gán gesture
+    // nữa (xem docstring GESTURE_TRIPLE_TAP_TARGET_ELS, event/workflow/visualizer-gesture.js).
+    // Nhãn option `cycleEq` đổi sang key `.label` (MỚI, ngắn gọn) THAY `.title` — `.title` giờ dài
+    // hơn (dùng làm tooltip nút thật, mô tả cả 2 hành vi bấm ngắn/giữ 3s), không hợp để hiển thị
+    // trong 1 <option> dropdown chật hẹp.
     const controlCenterTargetOptions = `
         <option value="none" data-i18n="gestureSettings.action.none">${t('gestureSettings.action.none')}</option>
         <option value="cycleMode" data-i18n="visualizerOverlay.cycleMode.label">${t('visualizerOverlay.cycleMode.label')}</option>
@@ -65,8 +72,7 @@ function renderGestureSettingsPanelBody() {
         <option value="documentReader" data-i18n="visualizerOverlay.documentReader.label">${t('visualizerOverlay.documentReader.label')}</option>
         <option value="captureFrame" data-i18n="gestureSettings.tripleTapTarget.captureFrameOption">${t('gestureSettings.tripleTapTarget.captureFrameOption')}</option>
         <option value="openVolume" data-i18n="visualizerOverlay.volume.label">${t('visualizerOverlay.volume.label')}</option>
-        <option value="cycleEq" data-i18n="visualizerOverlay.cycleEq.title">${t('visualizerOverlay.cycleEq.title')}</option>
-        <option value="editEq" data-i18n="eqPresets.editButton.label">${t('eqPresets.editButton.label')}</option>
+        <option value="cycleEq" data-i18n="visualizerOverlay.cycleEq.label">${t('visualizerOverlay.cycleEq.label')}</option>
     `;
     const actionSlotRow = (id, labelKey) => `
         <div class="flex justify-between items-center p-4 border-b border-white/5 last:border-b-0">

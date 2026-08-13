@@ -1,10 +1,19 @@
 /**
- * Component: nội dung Generic Drawer cho "Edit EQ" (event/workflow/eq-presets.js mở qua
- * #btn-edit-eq). 2 mode, CÙNG khuôn Document Reader (List <-> Read):
+ * Component: nội dung Generic Drawer cho "Edit EQ" (event/workflow/eq-presets.js mở qua GIỮ 3s
+ * #btn-cycle-eq — 12/08/2026: icon #btn-edit-eq riêng ĐÃ BỎ, gộp vào hold, xem docstring
+ * event/workflow/eq-presets.js). 2 mode, CÙNG khuôn Document Reader (List <-> Read):
  *   - 'list': danh sách preset (tên + khoá-icon nếu locked) + nút "+" trong HEADER để tạo preset
  *     mới (KHÔNG còn ô nhập tên/nút Tạo trong body — xem SỬA 2 bên dưới).
  *   - 'edit': tên (hàng "Name | input", khoá nếu locked) + 10 slider dọc lưỡng cực (-12..+12,
- *     khoá nếu locked) + Lưu (ẩn nếu locked) + Xoá (ẩn nếu locked).
+ *     khoá nếu locked) + Lưu (ẩn nếu locked) + Áp dụng + Xoá (2 nút cạnh nhau, CẢ 2 ẩn nếu locked
+ *     — xem SỬA 3 bên dưới).
+ *
+ * SỬA 3 (12/08/2026, Giang yêu cầu "thêm nút apply cạnh nút delete") — hàng dưới cùng body Edit
+ * TRƯỚC ĐÂY chỉ có Xoá (full-width) — giờ thêm `#eq-drawer-apply` NGAY BÊN CẠNH (`flex gap-2`, mỗi
+ * nút `flex-1`) — CHỌN preset đang sửa làm preset ĐANG DÙNG + áp NGAY gains đang chỉnh dở trên
+ * slider (kể cả CHƯA bấm Lưu) lên audio graph thật, cho nghe thử trực tiếp trong lúc chỉnh — KHÁC
+ * Lưu (chỉ ghi DB, chỉ áp gains NẾU preset đó ĐÃ SẴN đang active từ trước) — xem
+ * event/workflow/eq-presets.js::_applyPreset().
  *
  * SỬA (11/08/2026, Giang chỉ ra "loại bỏ tư duy cũ, khớp với Generic Drawer") — bản đầu lỡ bê
  * NGUYÊN bảng màu TỐI (glass-modal/text-white/bg-black...) vào đây — SAI, vì Generic Drawer thuộc
@@ -128,7 +137,11 @@ function renderEqEditBody(preset) {
             <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3">
                 <div class="flex items-end gap-2 overflow-x-auto px-1 pb-0.5">${sliders}</div>
             </div>
-            ${preset.locked ? '' : `<button id="eq-drawer-delete" type="button" class="w-full py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 transition-colors text-rose-600 text-sm font-medium" data-i18n="eqPresets.delete">${t('eqPresets.delete')}</button>`}
+            ${preset.locked ? '' : `
+            <div class="flex gap-2">
+                <button id="eq-drawer-apply" type="button" class="flex-1 py-3 rounded-2xl bg-sky-50 hover:bg-sky-100 transition-colors text-sky-600 text-sm font-medium" data-i18n="eqPresets.apply">${t('eqPresets.apply')}</button>
+                <button id="eq-drawer-delete" type="button" class="flex-1 py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 transition-colors text-rose-600 text-sm font-medium" data-i18n="eqPresets.delete">${t('eqPresets.delete')}</button>
+            </div>`}
         </div>
     `;
 }

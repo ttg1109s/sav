@@ -11,9 +11,20 @@
  *   desktop: cột trái cố định `width: clamp(...)` — xem assets/css/style.css, đã đổi hết selector
  *   từ `#side-left-container` sang `#app-stack`). Bên trong nó có ĐÚNG 2 con, xếp theo thứ tự DOM
  *   (con sau vẽ ĐÈ lên con trước, không cần z-index riêng):
- *     1. `#app-bg` — lớp NỀN THUẦN (ảnh + overlay đen, JS điều khiển qua updatePlaylistBg() —
- *        core/color-utils.js) — KHÔNG chứa chữ/nội dung gì, để `filter: blur()` (tính năng "Độ mờ
- *        nền") áp được AN TOÀN, không lem sang chữ.
+ *     1. `#app-bg` — khung NỀN NGOÀI, `overflow: hidden` (khung "cắt", LUÔN NÉT — bản thân nó
+ *        KHÔNG mang `filter` gì nữa) — bên trong có ĐÚNG 1 con `#app-bg-blur-layer` (lớp phủ mang
+ *        ảnh THẬT + overlay đen, JS điều khiển qua updatePlaylistBg() — core/color-utils.js).
+ *        KHÔNG chứa chữ/nội dung gì.
+ *        SỬA (12/08/2026, Giang báo bug "blur ảnh nền làm mất viền panel") — TRƯỚC ĐÂY `filter:
+ *        blur()` áp THẲNG lên chính `#app-bg` (khung khớp CHÍNH XÁC viền `#app-stack`, xem
+ *        `border-right` desktop, assets/css/style.css) — blur CSS tự "tràn" ra ngoài biên hộp gốc
+ *        (không hề bị `overflow` của CHÍNH nó chặn), đè mờ luôn viền `#app-stack` ngay sát cạnh.
+ *        SỬA: tách `#app-bg-blur-layer` làm CON riêng, `transform: scale(1.1)` (phóng to 110%, tâm
+ *        giữ nguyên) + `filter: blur()` áp lên CON này — phần blur "tràn" ra do phóng to bị chính
+ *        `overflow: hidden` của `#app-bg` (khung cha, KHÔNG blur) cắt gọn lại đúng khung
+ *        `#app-stack`, viền lại NÉT như cũ. `scale`/`blur` chỉ áp cho CON khi thật sự có
+ *        `bgBlur > 0` (core/color-utils.js) — `bgBlur = 0` giữ nguyên hành vi cũ (không phóng to,
+ *        khớp khung ảnh y hệt trước đây).
  *     2. `#side-left-container` — giờ CHỈ còn ĐÚNG 1 việc: khung cuộn NGANG thật giữa 2 "trang"
  *        Playlist/Settings (`overflow-x`, `scroll-behavior: smooth` — xem CSS) — không tự định vị
  *        gì nữa (`position: absolute; inset: 0;` lấp đầy đúng khung `#app-stack`, bất kể mobile hay
@@ -40,7 +51,9 @@
  */
 const TPL_APP_VIEW_STACK_OPEN = `
     <div id="app-stack" class="fixed inset-0 z-[60]">
-        <div id="app-bg" class="bg-black bg-cover bg-center bg-no-repeat pointer-events-none"></div>
+        <div id="app-bg" class="bg-black pointer-events-none overflow-hidden">
+            <div id="app-bg-blur-layer" class="bg-cover bg-center bg-no-repeat"></div>
+        </div>
         <div id="side-left-container">
 `;
 
