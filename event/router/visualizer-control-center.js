@@ -32,9 +32,8 @@ const routerVisualizerControlCenter = (() => {
             // ĐÃ BỎ HẲN cùng toggle #setting-video-enable. Video nền giờ là 1 tổ hợp của cụm
             // router `visualBg` (event/router/visual-bg.js).
 
-            case 'visualizerControlCenter.visualEnable.change':
-                setVisualEnabled(msg.payload.checked);
-                break;
+            // XOÁ (12/08/2026) — case 'visualizerControlCenter.visualEnable.change' ĐÃ BỎ, nút dời
+            // sang delegate router 'visualizerDisplay' (panel "Display" động).
 
             // SỬA (21/07/2026, dọn dẹp sau Batch 2) — case 'videoUpload.change'/'videoUpload.cancel'
             // ĐÃ XOÁ HẲN — input `#setting-video-upload` không còn tồn tại (xem event/listener/
