@@ -3,18 +3,27 @@
  * #setting-open-gesture-settings — SỬA 12/08/2026, Giang yêu cầu mục 4h: nút này DỜI từ Main
  * (components/settings/visualizer-geometry-color.js) VÀO panel "Customize Visualizer", xem
  * docstring event/listener/gesture-settings.js). CHIA 5 section:
- *   0. Action (MỚI 12/08/2026, Giang yêu cầu) — 3 "ngăn" CỐ ĐỊNH (KHÔNG có nút "+" — giới hạn CỨNG
- *      = 3, xem docstring vizConfig.gestureActionSlot1 core/config.js), mỗi ngăn 1 dropdown gán 1
- *      nút Control Center bất kỳ (CÙNG pool 8 nút với Tap 3 lần bên dưới, key khớp
- *      GESTURE_TRIPLE_TAP_TARGET_ELS, event/workflow/visualizer-gesture.js). 6 dropdown ở section 1
- *      "Điều hướng" + phần đơn/đúp của section 2 "Tap" (KHÔNG gồm seek/vuốt cạnh trên) có thêm 3
- *      lựa chọn 'actionSlot1/2/3' NGOÀI 5 lựa chọn mặc định — cho phép vuốt/tap TRỎ TỚI bất kỳ nút
- *      Control Center nào, không chỉ 4 hành động media cơ bản.
+ *   0. Action (MỚI 12/08/2026, Giang yêu cầu) — 3 "Slot" CỐ ĐỊNH (KHÔNG có nút "+" — giới hạn CỨNG
+ *      = 3, xem docstring vizConfig.gestureActionSlot1 core/config.js), mỗi Slot 1 dropdown gán 1
+ *      nút Control Center bất kỳ (pool controlCenterTargetOptions, key khớp
+ *      GESTURE_TRIPLE_TAP_TARGET_ELS, event/workflow/visualizer-gesture.js) — rồi Slot đó XUẤT
+ *      HIỆN như 1 lựa chọn thêm ở CẢ 7 dropdown action picker bên dưới (section 1 "Điều hướng" +
+ *      section 2 "Tap", xem actionOptions) — cho phép vuốt/tap/tap-3-lần TRỎ TỚI bất kỳ nút Control
+ *      Center nào, không chỉ 4 hành động media cơ bản.
+ *      SỬA (12/08/2026, Giang yêu cầu "tránh nhãn Action X mà vẫn hiểu ý định") — 3 hàng đổi tên
+ *      "Action 1/2/3" -> "Slot 1/2/3" (gestureSettings.action.actionSlot1/2/3, lang) — "Action" lặp
+ *      lại vô nghĩa với chính tiêu đề section "Actions" ngay phía trên, không tự nói được BẢN CHẤT
+ *      (đây là 1 "ngăn chứa" 1 nút Control Center, KHÔNG phải bản thân 1 hành động) — thêm 1 dòng
+ *      hint dưới tiêu đề section (gestureSettings.sectionActions.hint) giải thích CHỨC NĂNG thay vì
+ *      cố nhồi hết vào tên 3 hàng: "Gán 1 nút Control Center cho mỗi Slot, rồi chọn Slot đó ở bất kỳ
+ *      cử chỉ nào bên dưới".
  *   1. Điều hướng — 4 dropdown action picker (vuốt lên/xuống/trái/phải).
- *   2. Tap — 2 dropdown action picker (tap đơn/đúp) + tap 3 lần (CHỈ 1 dropdown gán 1 nút Control
- *      Center — THAY THẾ vuốt cạnh dưới đã bỏ hẳn, KHÔNG thuộc action picker, KHÔNG có toggle
- *      riêng — chọn 'None' trong dropdown là tắt, phản hồi Giang). Option 'captureFrame' CHỈ có
- *      tác dụng khi đang Video Player mode (ghi rõ trong nhãn option).
+ *   2. Tap — 3 dropdown action picker Y HỆT NHAU (tap đơn/đúp/BA — SỬA 12/08/2026, Giang yêu cầu
+ *      "tap 3 dùng chung select giống tap/cử chỉ khác": tap 3 lần TRƯỚC ĐÂY tách riêng, chọn THẲNG
+ *      1 nút Control Center qua controlCenterTargetOptions, khác hẳn tap đơn/đúp — nay dùng CHUNG
+ *      actionOptions + actionRow(), KHÔNG còn khối hint 2 dòng riêng — muốn tap 3 lần bấm thẳng 1
+ *      nút thì gán nút đó cho 1 Action slot ở section 0 rồi chọn slot đó ở đây, CÙNG cách 6 dropdown
+ *      kia đã luôn làm). Vuốt cạnh dưới đã bỏ hẳn, thay bằng tap 3 lần.
  *   3. Seek — giữ tay ở nửa trái/phải màn hình để tua lùi/tiến lặp lại (event/workflow/
  *      visualizer-gesture.js) — toggle bật/tắt + 2 hàng mở time-picker RIÊNG (3 khái niệm thời
  *      gian TÁCH BIỆT HOÀN TOÀN — xem docstring event/workflow/visualizer-gesture.js):
@@ -25,16 +34,16 @@
  *   4. Vuốt cạnh — CHỈ còn rìa TRÊN (mở Control Center) — rìa DƯỚI đã bỏ hẳn, thay bằng tap 3 lần
  *      ở section Tap. KHÔNG có Action (Giang chốt rõ: "trừ seak và vuốt xuống từ rìa trên").
  *
- * 6 dropdown action picker (section 1+2 phần đơn/đúp) CÙNG 1 pool DÙNG CHUNG (event/workflow/
- * visualizer-gesture.js): 5 hành động cố định trong GESTURE_ACTIONS (Tiếp theo/Trước đó/
- * Play-Pause/Mở Playlist/Không dùng) + 3 Action slot MỚI (actionSlot1/2/3, tra
- * GESTURE_ACTION_SLOT_CONFIG_FIELD). Dropdown gán nút Control Center trực tiếp (Tap 3 lần +
- * section Action MỚI) DÙNG CHUNG 1 pool 8 nút KHÁC (controlCenterTargetOptions, KHÔNG lẫn với pool
- * 5+3 ở trên — 2 tầng lựa chọn khác nhau: "chọn 1 trong 8 nút" vs "chọn 1 trong 5+3 hành động").
+ * 7 dropdown action picker (section 1+2, TẤT CẢ — kể cả tap 3 lần từ 12/08/2026) CÙNG 1 pool DÙNG
+ * CHUNG (event/workflow/visualizer-gesture.js): 5 hành động cố định trong GESTURE_ACTIONS (Tiếp
+ * theo/Trước đó/Play-Pause/Mở Playlist/Không dùng) + 3 Action slot (actionSlot1/2/3, tra
+ * GESTURE_ACTION_SLOT_CONFIG_FIELD). Dropdown gán nút Control Center trực tiếp (CHỈ còn 3 Slot ở
+ * section Action) DÙNG 1 pool 7 nút KHÁC (controlCenterTargetOptions, KHÔNG lẫn với pool 5+3 ở
+ * trên — 2 tầng lựa chọn khác nhau: "chọn 1 trong 7 nút" vs "chọn 1 trong 5+3 hành động").
  */
 function renderGestureSettingsPanelBody() {
     // FIX (12/08/2026, Giang yêu cầu "Action") — thêm 3 <option> actionSlot1/2/3 NGOÀI 5 lựa chọn
-    // mặc định cũ — CHỈ áp dụng cho 6 dropdown vuốt/tap (KHÔNG áp dụng controlCenterTargetOptions,
+    // mặc định cũ — CHỈ áp dụng cho 7 dropdown vuốt/tap (KHÔNG áp dụng controlCenterTargetOptions,
     // pool ĐÓ đã tự chọn thẳng 1 nút Control Center rồi, thêm Action vào đó là vòng lặp vô nghĩa).
     const actionOptions = `
         <option value="next" data-i18n="gestureSettings.action.next">${t('gestureSettings.action.next')}</option>
@@ -53,10 +62,17 @@ function renderGestureSettingsPanelBody() {
         </div>
     `;
     const sectionTitle = (labelKey, colorClass) => `<h3 class="text-xs font-bold ${colorClass} uppercase tracking-widest mb-2 ml-2" data-i18n="${labelKey}">${t(labelKey)}</h3>`;
+    // MỚI (12/08/2026, Giang yêu cầu "tránh nhãn Action X mà vẫn hiểu ý định") — dòng hint NGAY
+    // DƯỚI 1 tiêu đề section, CÙNG style .text-xs.text-slate-400 với hint trong row (Seek/Vuốt
+    // cạnh) — giải thích chức năng 3 Slot ở ĐÚNG 1 chỗ, khỏi phải nhồi vào tên từng hàng.
+    const sectionTitleWithHint = (labelKey, colorClass, hintKey) => `
+        ${sectionTitle(labelKey, colorClass)}
+        <p class="text-xs text-slate-400 -mt-1.5 mb-2 ml-2" data-i18n="${hintKey}">${t(hintKey)}</p>
+    `;
     // FIX (12/08/2026) — bổ sung 3 <option> CÒN THIẾU so với TOÀN BỘ nút Control Center thật sự có
     // (openVolume/cycleEq/editEq — xem GESTURE_TRIPLE_TAP_TARGET_ELS, event/workflow/
-    // visualizer-gesture.js), DÙNG CHUNG cho cả dropdown Tap 3 lần (đã có từ trước) LẪN 3 dropdown
-    // section Action MỚI.
+    // visualizer-gesture.js), DÙNG cho 3 dropdown section Action (Slot 1/2/3) — TRƯỚC ĐÂY còn dùng
+    // chung cho dropdown Tap 3 lần, xem SỬA TIẾP ngay dưới.
     // SỬA TIẾP (cùng ngày, "gộp eq edit vào hold 3s, bỏ icon edit riêng") — <option value="editEq">
     // ĐÃ BỎ cùng lúc xoá hẳn #btn-edit-eq (còn lại đúng 7 option, không phải 8) — mở Edit EQ giờ
     // gộp vào GIỮ 3s trên chính `cycleEq`, không còn là 1 "nút bấm hộ được" riêng để gán gesture
@@ -64,6 +80,9 @@ function renderGestureSettingsPanelBody() {
     // Nhãn option `cycleEq` đổi sang key `.label` (MỚI, ngắn gọn) THAY `.title` — `.title` giờ dài
     // hơn (dùng làm tooltip nút thật, mô tả cả 2 hành vi bấm ngắn/giữ 3s), không hợp để hiển thị
     // trong 1 <option> dropdown chật hẹp.
+    // SỬA TIẾP (cùng ngày, "tap 3 dùng chung select giống tap/cử chỉ khác") — pool này giờ CHỈ còn
+    // 3 dropdown Slot (section Action) dùng — dropdown Tap 3 lần đã chuyển hẳn sang actionRow()/
+    // actionOptions ở dưới, không còn dùng pool này nữa.
     const controlCenterTargetOptions = `
         <option value="none" data-i18n="gestureSettings.action.none">${t('gestureSettings.action.none')}</option>
         <option value="cycleMode" data-i18n="visualizerOverlay.cycleMode.label">${t('visualizerOverlay.cycleMode.label')}</option>
@@ -84,7 +103,7 @@ function renderGestureSettingsPanelBody() {
     return `
         <div class="flex flex-col gap-5">
             <div>
-                ${sectionTitle('gestureSettings.sectionActions', 'text-violet-400')}
+                ${sectionTitleWithHint('gestureSettings.sectionActions', 'text-violet-400', 'gestureSettings.sectionActions.hint')}
                 <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                     ${actionSlotRow('setting-gesture-action-slot-1', 'gestureSettings.action.actionSlot1')}
                     ${actionSlotRow('setting-gesture-action-slot-2', 'gestureSettings.action.actionSlot2')}
@@ -107,13 +126,7 @@ function renderGestureSettingsPanelBody() {
                 <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                     ${actionRow('setting-gesture-action-tap-single', 'gestureSettings.tapSingle.label')}
                     ${actionRow('setting-gesture-action-tap-double', 'gestureSettings.tapDouble.label')}
-                    <div class="flex justify-between items-center p-4">
-                        <div class="pr-3">
-                            <div class="text-sm font-medium" data-i18n="gestureSettings.tripleTapTarget.label">${t('gestureSettings.tripleTapTarget.label')}</div>
-                            <div class="text-xs text-slate-400 mt-0.5" data-i18n="gestureSettings.tripleTapTarget.hint">${t('gestureSettings.tripleTapTarget.hint')}</div>
-                        </div>
-                        <select id="setting-gesture-triple-tap-target" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right shrink-0">${controlCenterTargetOptions}</select>
-                    </div>
+                    ${actionRow('setting-gesture-triple-tap-target', 'gestureSettings.tripleTapTarget.label', true)}
                 </div>
             </div>
 
