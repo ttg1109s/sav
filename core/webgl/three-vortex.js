@@ -66,14 +66,14 @@
             }
             appState.get('tRenderer').setSize(window.innerWidth, window.innerHeight);
 
-            const perf = PERFORMANCE_PROFILES[appConfigViz.getAll().quality];
+            const tunnelRingCount = getEffectConfig('vortex').tunnelRingCount; // core/custom-effect.js
 
             // Nhóm 1: Vòng Ring
             appState.set('tGroupRings', new THREE.Group(), { skipCheck: true });
             appState.set('tRings', [], { skipCheck: true });
             const ringGeo = new THREE.TorusGeometry(350, 6, 8, 48);
-            for(let i=0; i<perf.tunnelRings; i++) {
-                const z = -(i / perf.tunnelRings) * TUNNEL_DEPTH;
+            for(let i=0; i<tunnelRingCount; i++) {
+                const z = -(i / tunnelRingCount) * TUNNEL_DEPTH;
                 const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending });
                 const mesh = new THREE.Mesh(ringGeo, mat);
                 mesh.position.z = z;
