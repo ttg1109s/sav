@@ -34,7 +34,7 @@
                 spCurrentLegSpeed: 'number',
                 // Bảng 12 phần tử {yaw, pitch} (radian) — SINH NGẪU NHIÊN 1 LẦN lúc Space init.
                 spNoteSteerTable: 'any',
-                // Bản đồ TĨNH: N cụm thiên hà (N/bán kính co giãn theo PERFORMANCE_PROFILES) phân
+                // Bản đồ TĨNH: N cụm thiên hà (N/bán kính co giãn theo customEffect.space) phân
                 // bố ĐỀU NGẪU NHIÊN quanh spMapCenter — dựng 1 LẦN, chỉ tái tạo khi năng lượng đủ
                 // cao VÀ camera đứng yên (xem _ensureGalaxyMap(), event/workflow/visualizer-render.js).
                 spMapCenter: 'any',
