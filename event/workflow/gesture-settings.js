@@ -1,13 +1,16 @@
 /**
  * event/workflow/gesture-settings.js — "THẰNG THỰC THI CUỐI" của router "gestureSettings".
  *
- * setField(field, value) DÙNG CHUNG cho cả 6 dropdown action picker (4 hướng vuốt + 2 tap) LẪN
- * dropdown gestureTripleTapTarget LẪN 2 số Seek-hold (gestureSeekStepMs = Time 1 đơn vị nhảy /
- * gestureSeekHoldIntervalMs = Time 2 nhịp giữ để tua tiếp — TÁCH BIỆT HOÀN TOÀN, xem docstring
- * event/workflow/visualizer-gesture.js — ghi từ _openSeekTimePicker() bên dưới) — tất cả CÙNG
- * process: ghi 1 field vào vizConfig + saveConfig() (khác giá trị/field, không phải khác kịch bản
- * nghiệp vụ — xem readme/core-function-conventions.md, Rule 1 test). setToggle(field, checked)
- * tương tự cho 3 checkbox còn lại (vuốt cạnh trên, tap 3 lần, bật/tắt seek-hold — đều boolean).
+ * setField(field, value) DÙNG CHUNG cho cả 7 dropdown action picker (4 hướng vuốt + 2 tap + tap 3
+ * lần — SỬA 12/08/2026, Giang yêu cầu "tap 3 dùng chung select giống tap/cử chỉ khác": tripleTapTarget
+ * giờ CÙNG LOẠI với 6 cái kia, không còn tách riêng) LẪN 2 số Seek-hold (gestureSeekStepMs = Time 1
+ * đơn vị nhảy / gestureSeekHoldIntervalMs = Time 2 nhịp giữ để tua tiếp — TÁCH BIỆT HOÀN TOÀN, xem
+ * docstring event/workflow/visualizer-gesture.js — ghi từ _openSeekTimePicker() bên dưới) — tất cả
+ * CÙNG process: ghi 1 field vào vizConfig + saveConfig() (khác giá trị/field, không phải khác kịch
+ * bản nghiệp vụ — xem readme/core-function-conventions.md, Rule 1 test). setToggle(field, checked)
+ * tương tự cho 2 checkbox còn lại (vuốt cạnh trên, bật/tắt seek-hold — đều boolean; tap 3 lần
+ * KHÔNG phải checkbox — SỬA lại chú thích cũ ghi nhầm 3 checkbox, xem GESTURE_SETTINGS_INPUT_MAP,
+ * event/listener/gesture-settings.js — nó là 1 dropdown select, đi qua setField() ở trên).
  */
 const workflowGestureSettings = {
 
@@ -40,7 +43,8 @@ const workflowGestureSettings = {
         saveConfig();
     },
 
-    /** Ứng với 7 msg.type còn lại (6 action picker + tripleTapTarget). Cũng gọi trực tiếp (không
+    /** Ứng với 7 msg.type còn lại (7 action picker — 4 vuốt + 2 tap + tap-3-lần, SỬA 12/08/2026:
+     * tripleTapTarget giờ CÙNG LOẠI với 6 cái kia, không còn tách riêng). Cũng gọi trực tiếp (không
      * qua router) từ onConfirm của _openSeekTimePicker() bên dưới cho 2 số Seek-hold.
      * @param {string} field @param {string|number} value */
     setField(field, value) {

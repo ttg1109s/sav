@@ -10,15 +10,20 @@
  * (deltaX, deltaY) rồi phân loại tap (isTapGesture) -> đơn/đúp/ba (đếm dồn qua taskManager) -> trục
  * vuốt chiếm ưu thế (resolveDominantSwipeAxis) -> chiều (resolveSwipeDirection).
  *
- * 4 hướng vuốt + 2 tap (đơn/đúp) đều là "hành động do người dùng chọn" — mỗi cái 1 field string
- * riêng trong vizConfig, giá trị 1 trong 5: 'next'/'prev'/'playPause'/'openPlaylist'/'none' — xem
- * GESTURE_ACTIONS. Hoạt động bất kể đang phát Song hay Video (playerControls.next/prev.click TỰ
- * đúng cho cả 2 loại — Workflow này không cần biết đang phát gì).
+ * 4 hướng vuốt + 2 tap (đơn/đúp) + TAP 3 LẦN — CẢ 7 đều là "hành động do người dùng chọn", CÙNG 1
+ * pool lựa chọn (SỬA 12/08/2026, Giang yêu cầu "tap 3 dùng chung select giống tap/cử chỉ khác" —
+ * TRƯỚC ĐÂY tap 3 lần tách riêng, chọn THẲNG 1 nút Control Center, KHÁC hẳn 6 cái kia) — mỗi cái 1
+ * field string riêng trong vizConfig, giá trị 1 trong 5 hành động cố định
+ * ('next'/'prev'/'playPause'/'openPlaylist'/'none', GESTURE_ACTIONS) HOẶC 1 trong 3 Action slot
+ * ('actionSlot1/2/3', GESTURE_ACTION_SLOT_CONFIG_FIELD — MỖI slot gán 1 nút Control Center riêng,
+ * xem components/gesture-settings-drawer.js section "Actions"). Hoạt động bất kể đang phát Song
+ * hay Video (playerControls.next/prev.click TỰ đúng cho cả 2 loại — Workflow này không cần biết
+ * đang phát gì).
  *
- * TAP 3 LẦN (MỚI, THAY THẾ vuốt cạnh dưới đã bỏ hẳn) — KHÔNG nằm trong action picker (khác tap
- * đơn/đúp) — CHỈ để bấm 1 nút Control Center do người dùng chọn riêng (gestureTripleTapTarget),
- * đúng chức năng vuốt cạnh dưới cũ, đổi cơ chế kích hoạt sang chạm 3 lần liên tiếp cho dễ thao tác
- * hơn (phản hồi Giang).
+ * TAP 3 LẦN (MỚI, THAY THẾ vuốt cạnh dưới đã bỏ hẳn) — đúng chức năng vuốt cạnh dưới cũ, đổi cơ
+ * chế kích hoạt sang chạm 3 lần liên tiếp cho dễ thao tác hơn (phản hồi Giang) — muốn bấm THẲNG 1
+ * nút Control Center (như hành vi CŨ trước 12/08/2026) thì gán nút đó cho 1 trong 3 Action slot rồi
+ * chọn slot đó ở đây, CÙNG cách 6 action picker kia đã làm từ đầu — không còn "đường tắt" riêng.
  *
  * Vuốt rìa TRÊN (mở Control Center) KHÔNG đổi.
  *
@@ -83,8 +88,8 @@ const GESTURE_SWIPE_CONFIG_FIELD = {
     x: { '-1': 'gestureActionSwipeLeft', '1': 'gestureActionSwipeRight' },
 };
 
-/** Nút Control Center hợp lệ để gán cho TAP 3 LẦN + 3 "Action" slot (MỚI 12/08/2026) — key khớp
- * <option> ở components/gesture-settings-drawer.js. Tham chiếu THẲNG biến dom-refs (không tự
+/** Nút Control Center hợp lệ để gán cho 3 "Slot" trong section Actions (MỚI 12/08/2026) — key
+ * khớp <option> ở components/gesture-settings-drawer.js. Tham chiếu THẲNG biến dom-refs (không tự
  * document.getElementById) — undefined-safe cho trang không nạp đủ bộ dom-refs (subtitle-editor.html).
  * SỬA (12/08/2026, Giang yêu cầu thêm "Action") — bổ sung 3 nút CÒN THIẾU so với TOÀN BỘ nút
  * data-cc-action thật sự có ở Control Center (components/visualizer-overlay.js): openVolume/
@@ -94,10 +99,14 @@ const GESTURE_SWIPE_CONFIG_FIELD = {
  * là 1 "nút bấm hộ được" riêng nữa) — còn lại đúng 7/7. `cycleEq` (#btn-cycle-eq) VẪN gán được như
  * cũ — `.click()` do _clickControlCenterTarget() gọi vẫn hoạt động đúng (bấm NGẮN/cycle), xem
  * docstring event/listener/eq-presets.js (lý do #btn-cycle-eq giữ riêng 1 listener `click`, không
- * gộp vào `pointerup`, để tương thích CHÍNH cơ chế `.click()` này). Config cũ (nếu người dùng đã
- * TỪNG gán 1 trong 3 Action slot/Tap-3-lần cho `editEq` trước bản sửa này) không cần migrate — tra
- * map trả `undefined`, `_clickControlCenterTarget()` tự im lặng bỏ qua (CÙNG cách xử lý nút đang
- * ẩn, vd `captureFrame` ngoài Video mode). */
+ * gộp vào `pointerup`, để tương thích CHÍNH cơ chế `.click()` này).
+ * SỬA TIẾP (cùng ngày, "tap 3 dùng chung select giống tap/cử chỉ khác") — Tap 3 lần KHÔNG còn tra
+ * map này TRỰC TIẾP nữa (đi qua _dispatchGestureAction() như 6 action picker kia — CHỈ tới map này
+ * GIÁN TIẾP nếu người dùng chọn 1 Action slot đã gán nút, y hệt cách swipe/tap đơn/đúp vẫn luôn
+ * làm). Config cũ (nếu người dùng đã TỪNG gán 1 trong 3 Action slot cho `editEq` trước bản sửa
+ * trước, HOẶC gán Tap 3 lần THẲNG cho 1 nút Control Center trước bản sửa NÀY) không cần migrate —
+ * tra map/GESTURE_ACTIONS đều trả `undefined`, _clickControlCenterTarget()/_dispatchGestureAction()
+ * tự im lặng bỏ qua (CÙNG cách xử lý nút đang ẩn, vd `captureFrame` ngoài Video mode). */
 const GESTURE_TRIPLE_TAP_TARGET_ELS = {
     cycleMode: typeof btnCycleMode !== 'undefined' ? btnCycleMode : null,
     shuffle: typeof btnShuffle !== 'undefined' ? btnShuffle : null,
@@ -109,10 +118,10 @@ const GESTURE_TRIPLE_TAP_TARGET_ELS = {
 };
 
 /** MỚI (12/08/2026, Giang yêu cầu — "Action" cho Cử chỉ) — 3 "ngăn" CỐ ĐỊNH, mỗi ngăn gán 1 nút
- * Control Center (chọn ở section Action riêng, components/gesture-settings-drawer.js) — 6 dropdown
- * vuốt/tap (KHÔNG gồm seek/vuốt cạnh trên, xem docstring vizConfig.gestureActionSlot1) chọn được
- * 'actionSlot1/2/3' NGOÀI 5 hành động mặc định trong GESTURE_ACTIONS — _dispatchGestureAction() tra
- * bảng NÀY trước, khớp thì đi qua _clickControlCenterTarget() (CÙNG cơ chế Tap 3 lần, gọi
+ * Control Center (chọn ở section Action riêng, components/gesture-settings-drawer.js) — 7 dropdown
+ * vuốt/tap/tap-3-lần (KHÔNG gồm seek/vuốt cạnh trên, xem docstring vizConfig.gestureActionSlot1)
+ * chọn được 'actionSlot1/2/3' NGOÀI 5 hành động mặc định trong GESTURE_ACTIONS —
+ * _dispatchGestureAction() tra bảng NÀY trước, khớp thì đi qua _clickControlCenterTarget() (gọi
  * targetEl.click() — KHÔNG chép lại logic), không khớp thì mới tra GESTURE_ACTIONS như cũ. */
 const GESTURE_ACTION_SLOT_CONFIG_FIELD = {
     actionSlot1: 'gestureActionSlot1',
@@ -204,15 +213,18 @@ const workflowVisualizerGesture = {
         }, TAP_WINDOW_MS, GESTURE_TAP_TASK);
     },
 
-    /** Tap 3 lần — bấm thẳng 1 nút Control Center do người dùng chọn (KHÁC action picker). Chọn
-     * 'none' trong dropdown = tắt (KHÔNG còn toggle bật/tắt riêng, phản hồi Giang). */
+    /** Tap 3 lần — SỬA (12/08/2026, Giang yêu cầu "tap 3 dùng chung select giống tap/cử chỉ khác")
+     * — giờ ĐÚNG khuôn tap đơn/đúp/vuốt: tra `_dispatchGestureAction()` (5 hành động cố định HOẶC
+     * 1 Action slot đã gán nút) THAY VÌ bấm THẲNG 1 nút Control Center như bản cũ
+     * (`_clickControlCenterTarget()` trực tiếp) — muốn bấm thẳng 1 nút thì gán nút đó cho 1 Action
+     * slot rồi chọn slot đó ở đây (xem docstring đầu file + GESTURE_TRIPLE_TAP_TARGET_ELS). */
     _resolveTripleTap(cfg) {
-        this._clickControlCenterTarget(cfg.gestureTripleTapTarget);
+        this._dispatchGestureAction(cfg.gestureTripleTapTarget, cfg);
     },
 
-    /** Bấm thẳng 1 nút Control Center theo key (GESTURE_TRIPLE_TAP_TARGET_ELS) — DÙNG CHUNG bởi
-     * Tap 3 lần VÀ 3 Action slot (MỚI 12/08/2026, xem _dispatchGestureAction()) — 'none'/rỗng/nút
-     * đang ẩn (vd captureFrame ngoài Video mode) đều im lặng bỏ qua.
+    /** Bấm thẳng 1 nút Control Center theo key (GESTURE_TRIPLE_TAP_TARGET_ELS) — DÙNG BỞI 3 Action
+     * slot (qua _dispatchGestureAction() khi khớp actionSlot1/2/3) — 'none'/rỗng/nút đang ẩn (vd
+     * captureFrame ngoài Video mode) đều im lặng bỏ qua.
      * @param {string} targetKey */
     _clickControlCenterTarget(targetKey) {
         if (!targetKey || targetKey === 'none') return;
@@ -227,10 +239,11 @@ const workflowVisualizerGesture = {
         this._dispatchGestureAction(cfg[field], cfg);
     },
 
-    /** Tra + chạy 1 hành động — dùng chung bởi tap đơn/đúp và vuốt. Tra GESTURE_ACTION_SLOT_
-     * CONFIG_FIELD TRƯỚC (3 Action slot, MỚI 12/08/2026) — khớp thì bấm thẳng nút Control Center đã
-     * gán (_clickControlCenterTarget(), CÙNG cơ chế Tap 3 lần); không khớp mới tra GESTURE_ACTIONS
-     * (5 hành động mặc định next/prev/playPause/openPlaylist/none) như cũ.
+    /** Tra + chạy 1 hành động — DÙNG CHUNG bởi tap đơn/đúp, vuốt, VÀ tap 3 lần (SỬA 12/08/2026,
+     * trước đây tap 3 lần đi thẳng _clickControlCenterTarget(), giờ qua đây như 6 cái kia — xem
+     * docstring _resolveTripleTap()). Tra GESTURE_ACTION_SLOT_CONFIG_FIELD TRƯỚC (3 Action slot) —
+     * khớp thì bấm thẳng nút Control Center đã gán (_clickControlCenterTarget()); không khớp mới
+     * tra GESTURE_ACTIONS (5 hành động mặc định next/prev/playPause/openPlaylist/none) như cũ.
      * @param {string} action @param {object} cfg - CẦN để tra field gán cho action slot (nếu có) */
     _dispatchGestureAction(action, cfg) {
         const slotField = GESTURE_ACTION_SLOT_CONFIG_FIELD[action];
