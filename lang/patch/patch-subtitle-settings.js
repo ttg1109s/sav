@@ -233,31 +233,16 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsPlaylistBg.bgBlur.label': 'Background blur',
 
     'settingsVisualizer.sectionTitle': 'Visualizer Screen',
-    // FIX (12/08/2026, Giang yêu cầu tái cấu trúc Setting Main mục 4a) — hàng "Effect type" (select
-    // #setting-visualizer-type) ĐÃ BỎ HẲN khỏi card này (đổi hiệu ứng giờ qua #btn-cycle-mode/
-    // Action ở Control Center) — 7 key .type.bar/.lightning/.../.space GIỮ NGUYÊN (vẫn dùng ở
-    // VISUALIZER_TYPE_LABEL_KEYS, core/visualizer/visualizer-display.js, hiện tên hiệu ứng dưới
-    // icon Control Center) — CHỈ .type.label (nhãn hàng select cũ) hết dùng, để lại không xoá.
-    'settingsVisualizer.type.label': 'Effect type',
+    // Đổi hiệu ứng qua #btn-cycle-mode/Action ở Control Center — không còn select "Effect type" ở
+    // Settings. 7 key .type.bar/.../.space GIỮ NGUYÊN (dùng ở VISUALIZER_TYPE_LABEL_KEYS, core/
+    // visualizer/visualizer-display.js + Custom Effect Drawer, core/custom-effect.js).
     'settingsVisualizer.type.bar': 'Bar',
     'settingsVisualizer.type.lightning': 'Lightning',
     'settingsVisualizer.type.rubik': 'Rubik',
     'settingsVisualizer.type.vortex': 'Vortex (Tunnel)',
     'settingsVisualizer.type.blackHole': 'Black Hole',
     'settingsVisualizer.type.rain': 'Rain',
-    // MỚI (20/07/2026, plan-space-galaxy.md Phần B) — thêm lại 'space' vào select Kiểu hiệu ứng.
     'settingsVisualizer.type.space': 'Space (Galaxy)',
-    // FIX (12/08/2026, mục 4d) — hàng "Chất lượng render" MỚI, đứng ĐẦU card (thế chỗ Effect type
-    // vừa bỏ) — dời từ card "Custom Effect" (trước đây "Visualizer Geometry", components/
-    // visualizer-settings-drawer.js) sang ĐÂY, DÙNG LẠI ĐÚNG key visualizerSettingsDrawer.quality.*
-    // (không tạo key trùng nghĩa).
-    'settingsVisualizer.openDrawer.label': 'Customize Visualizer',
-    'settingsVisualizer.openDrawer.hint': 'Colors, on-screen elements, gestures',
-    // MỚI (12/08/2026, mục 4c) — "Custom Effect" (đổi tên từ "Visualizer Geometry"), giờ là 1
-    // panel RIÊNG ngang hàng "Customize Visualizer" (KHÔNG còn là 1 card con bên trong panel đó
-    // nữa) — panel body: components/settings/visualizer-custom-effect-drawer.js.
-    'settingsVisualizer.openCustomEffect.label': 'Custom Effect',
-    'settingsVisualizer.openCustomEffect.hint': 'Per-effect geometry: bar height/width, mirror count, rain scene...',
     // MỚI (12/08/2026, mục 4f) — "Auto-Switch Effect", tách thành panel RIÊNG ngang hàng "Customize
     // Visualizer" — panel body: components/settings/visualizer-auto-switch-drawer.js.
     'settingsVisualizer.openAutoSwitch.label': 'Auto-Switch Effect',

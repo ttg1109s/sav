@@ -45,22 +45,10 @@ const LANG_PATCH_VISUALIZER = {
     'videoPlayer.captureFrame.failed': 'Could not capture this frame.',
 
     'visualizerSettingsDrawer.backToSettings.title': 'Back to Settings',
-    'visualizerSettingsDrawer.title': 'Customize Visualizer',
-    // FIX (12/08/2026, Giang yêu cầu tái cấu trúc Setting Main mục 4c/4d/4b) — "Visualizer
-    // geometry" (card này) ĐÃ RỜI HẲN khỏi panel "Customize Visualizer", giờ là panel RIÊNG "Custom
-    // Effect" (components/settings/visualizer-custom-effect-drawer.js, key title MỚI
-    // visualizerCustomEffectDrawer.title bên dưới) — geometrySectionTitle GIỮ LẠI (không xoá,
-    // KHÔNG còn nơi nào dùng) chỉ để đối chiếu lịch sử. quality.*/blurEnable.* GIỮ NGUYÊN — 2 hàng
-    // đó dời sang card "Visualizer Screen" ở Main (components/settings/
-    // visualizer-geometry-color.js), DÙNG LẠI ĐÚNG 2 key này, không tạo trùng.
-    'visualizerSettingsDrawer.geometrySectionTitle': 'Visualizer geometry',
-    'visualizerCustomEffectDrawer.title': 'Custom Effect',
-    'visualizerSettingsDrawer.quality.label': 'Render quality',
-    'visualizerSettingsDrawer.quality.high': 'High (smooth)',
-    'visualizerSettingsDrawer.quality.medium': 'Medium',
-    'visualizerSettingsDrawer.quality.low': 'Low (lightweight)',
-    'visualizerSettingsDrawer.blurEnable.label': 'Glow / blur effects',
-    'visualizerSettingsDrawer.blurEnable.hint': 'Independent from render quality — turn off for a crisper, flatter look',
+    // (12/08/2026, tái thiết kế Custom Effect) — visualizerSettingsDrawer.title/
+    // visualizerCustomEffectDrawer.title/quality.*/blurEnable.* ĐÃ BỎ HẲN (panel "Customize
+    // Visualizer" + Custom Effect cũ + chế độ hiệu năng đều xoá). Nhãn field hình học/style con
+    // GIỮ NGUYÊN key cũ, TÁI DÙNG trong Custom Effect Drawer mới (core/custom-effect.js).
     'visualizerSettingsDrawer.maxHeight.label': 'Max height',
     'visualizerSettingsDrawer.barWidth.label': 'Bar thickness (px)',
     'visualizerSettingsDrawer.vortexStyle.label': 'Vortex tunnel style',
@@ -78,22 +66,39 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.rainCityOpacity.label': 'Big City opacity',
     'visualizerSettingsDrawer.rainCityVisible.label': 'Show Big City',
     'visualizerSettingsDrawer.rainMoonVisible.label': 'Show Moon',
-    'visualizerSettingsDrawer.rainWindowVisible.label': 'Show window frame',
-    // (Phần B, Galaxy — 6 key spaceStyle/4 slider tinh chỉnh ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1)
-    'visualizerSettingsDrawer.colorSectionTitle': 'Colors',
-    'visualizerSettingsDrawer.bgColor.label': 'Black background color',
-    'visualizerSettingsDrawer.colorMode.label': 'Waveform color mode',
+    // (rainWindowVisible.label ĐÃ BỎ — khung cửa sổ giờ luôn hiện, không còn toggle)
+    'visualizerSettingsDrawer.colorMode.label': 'Color mode',
     'visualizerSettingsDrawer.colorMode.solid': 'Solid color',
     'visualizerSettingsDrawer.colorMode.dynamic': '2-color blend',
     'visualizerSettingsDrawer.colorMode.gradient': 'Music-driven gradient',
     'visualizerSettingsDrawer.solidColor.label': 'Choose a solid color',
     'visualizerSettingsDrawer.dynamicColor.label': 'Choose 2 blend colors',
-    // FIX (12/08/2026, mục 4f) — "Auto-switch effect" (card này) ĐÃ RỜI HẲN khỏi panel "Customize
-    // Visualizer", giờ là panel RIÊNG (components/settings/visualizer-auto-switch-drawer.js, key
-    // title MỚI visualizerAutoSwitchDrawer.title bên dưới) — autoSwitchSectionTitle GIỮ LẠI, không
-    // còn nơi nào dùng, chỉ để đối chiếu lịch sử.
+
+    // MỚI (12/08/2026) — Custom Effect Drawer (Generic Drawer, GIỮ 1.5s #btn-cycle-mode), xem
+    // components/custom-effect-drawer.js + core/custom-effect.js. Field mới (giải phóng khỏi chế
+    // độ hiệu năng đã bỏ, "đưa hết vào custom").
+    'customEffectDrawer.styleLabel': 'Style',
+    'customEffectDrawer.blurEnable': 'Glow / blur',
+    'customEffectDrawer.blurIntensity': 'Glow intensity',
+    'customEffectDrawer.field.starCount': 'Number of stars',
+    'customEffectDrawer.field.glassDropDensity': 'Droplet density',
+    'customEffectDrawer.field.glassStreakFrequency': 'Streak frequency',
+    'customEffectDrawer.field.streetDensity': 'Rain density',
+    'customEffectDrawer.field.streetBuildingScale': 'Building size',
+    'customEffectDrawer.field.tunnelRingCount': 'Number of rings',
+    'customEffectDrawer.field.starCountMin': 'Stars per galaxy (min)',
+    'customEffectDrawer.field.starCountMax': 'Stars per galaxy (max)',
+    'customEffectDrawer.field.nebulaCount': 'Nebula density',
+    'customEffectDrawer.field.dustCount': 'Space dust density',
+    'customEffectDrawer.field.mapNodeCount': 'Number of galaxies',
+    'customEffectDrawer.field.mapRadius': 'Map radius',
+
+    // MỚI (12/08/2026) — panel "Display" (Main "Visualizer Screen"), thay hẳn "Customize
+    // Visualizer" — gộp "Hiện Visual" (trước ở Main) + 4 toggle UI chrome cũ vào 1 panel riêng.
+    'settingsVisualizer.openDisplay.label': 'Display',
+    'settingsVisualizer.openDisplay.hint': 'Show/hide the visualizer and on-screen UI elements',
+    'visualizerDisplayPanel.title': 'Display',
     'visualizerAutoSwitchDrawer.title': 'Auto-Switch Effect',
-    'visualizerSettingsDrawer.autoSwitchSectionTitle': 'Auto-switch effect',
     'visualizerSettingsDrawer.autoSwitchEnable.label': 'Enable auto-switch',
     'visualizerSettingsDrawer.autoSwitchEnable.hint': 'Automatically switches to a different effect after a set interval, no manual taps needed. While enabled, the "Change effect" button in the Visualizer Control Center is temporarily locked (to avoid conflicting with manual switching).',
     'visualizerSettingsDrawer.autoSwitchMode.label': 'Switch order',
@@ -108,9 +113,6 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.autoSwitchDuration.label': 'Divide song length by (minimum 10s)',
     'visualizerSettingsDrawer.autoSwitchDuration.hint': 'Time between switches = song length / the number entered, recalculated for each song. The system caps this at half the song length, ensuring at least one switch happens during playback. Seeking forward/back still remembers the correct effect for each segment.',
 
-    // MỚI (10/08/2026) — section "Hiển thị Visualizer": stats panel (dời từ nút Control Center) +
-    // chế độ xem toàn màn hình (Task 3).
-    'visualizerSettingsDrawer.displaySectionTitle': 'Display',
     'visualizerSettingsDrawer.statsPanelEnable.label': 'Show music stats',
     'visualizerSettingsDrawer.statsPanelEnable.hint': 'BPM, pitch and energy readout on the Visualizer screen',
     'visualizerSettingsDrawer.bottomPlayerEnable.label': 'Show bottom player bar',
