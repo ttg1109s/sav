@@ -46,10 +46,14 @@
         // `sideLeftContainer`, KHÔNG còn là hậu duệ của khung cuộn ngang nữa — xem docstring đầy
         // đủ ở components/app-view-stack.js). `sideLeftContainer` giờ CHỈ còn lo cuộn ngang.
         const appStack = document.getElementById('app-stack'), appBg = document.getElementById('app-bg');
-        // SỬA (12/08/2026, bug "blur ảnh nền làm mất viền panel") — lớp phủ CON bên trong `#app-bg`,
-        // mang ảnh thật + nhận `transform: scale(1.1)`/`filter: blur()` THAY vì áp thẳng lên
-        // `#app-bg` (khung cha giờ chỉ còn `overflow: hidden`, LUÔN nét) — xem components/
+        // SỬA (12/08/2026, bug "blur ảnh nền làm mất viền panel") — `#app-bg` giờ là khung CẮT
+        // (`overflow: hidden`, tự nó KHÔNG bao giờ mang `filter`) bọc 2 con — xem components/
         // app-view-stack.js + core/color-utils.js::updatePlaylistBg().
+        // SỬA TIẾP (13/08/2026, Giang chỉ ra "scale 1.1 phải áp cho DOM ĐƯỢC BLUR, không phải cả
+        // DOM bg image") — tách THÊM `appBgImage` (ảnh gốc, KHÔNG BAO GIỜ scale/blur) RA KHỎI
+        // `appBgBlurLayer` (lớp phủ ĐÈ LÊN TRÊN, chỉ lớp NÀY nhận scale/blur) — bản 12/08 lỡ gộp cả
+        // 2 vai trò vào 1 phần tử.
+        const appBgImage = document.getElementById('app-bg-image');
         const appBgBlurLayer = document.getElementById('app-bg-blur-layer');
         const sideLeftContainer = document.getElementById('side-left-container');
         const playlistView = document.getElementById('playlist-view'), visualizerUI = document.getElementById('visualizer-ui'), playerContainer = document.getElementById('player-container');
@@ -96,7 +100,7 @@
         const btnOpenVolume = document.getElementById('btn-open-volume');
         const visualizerVolumeHud = document.getElementById('visualizer-volume-hud');
         // EQ preset (MỚI) — cycle + mở Generic Drawer quản lý — xem core/eq-presets.js.
-        // (btnEditEq ĐÃ XOÁ — 12/08/2026, gộp mở Generic Drawer vào GIỮ 3s trên btnCycleEq, xem
+        // (btnEditEq ĐÃ XOÁ — 12/08/2026, gộp mở Generic Drawer vào GIỮ 1.5s trên btnCycleEq, xem
         // event/workflow/eq-presets.js.)
         const btnCycleEq = document.getElementById('btn-cycle-eq'), eqBadgeLabel = document.getElementById('eq-badge-label');
         const volumeHudSlider = document.getElementById('volume-hud-slider');

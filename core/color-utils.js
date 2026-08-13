@@ -77,30 +77,48 @@
          * SỬA (12/08/2026, Giang báo bug "blur ảnh nền làm mất viền panel") — `filter: blur()` tự
          * tràn ra ngoài biên hộp CSS gốc (không bị `overflow` của chính phần tử mang nó chặn) —
          * `appBg` khớp CHÍNH XÁC viền `#app-stack` (`border-right` desktop, assets/css/style.css)
-         * nên phần tràn đó đè mờ luôn viền. SỬA: nhánh `bgImage` giờ set ảnh + `blur`/`scale(1.1)`
-         * lên `appBgBlurLayer` (CON của `appBg`, xem components/app-view-stack.js) THAY VÌ `appBg`
-         * — `appBg` (cha) giữ `overflow: hidden` (CSS, KHÔNG đụng gì ở đây) nên phần blur tràn ra
-         * do phóng to 110% bị cắt gọn NGAY TẠI khung, viền lại nét. `scale` CHỈ áp khi
-         * `bgBlur > 0` (bgBlur = 0 không cần phóng to, giữ khung ảnh y hệt trước đây — đỡ crop hụt
-         * 1 chút mép ảnh những lúc không hề bật "Độ mờ nền"). 2 nhánh còn lại (gradient/none) KHÔNG
-         * hề blur nên giữ nguyên trên `appBg` (cha) như cũ — luôn phải dọn `appBgBlurLayer` về rỗng
-         * ở 2 nhánh đó, tránh ảnh CŨ từ nhánh `bgImage` còn kẹt lại đè lên gradient/nền trống mới.
+         * nên phần tràn đó đè mờ luôn viền. SỬA: tách 1 lớp phủ RIÊNG, `blur`/`scale(1.1)` áp lên
+         * LỚP PHỦ ĐÓ THAY VÌ `appBg` — `appBg` (cha) giữ `overflow: hidden` (CSS, KHÔNG đụng gì ở
+         * đây) nên phần blur tràn ra do phóng to 110% bị cắt gọn NGAY TẠI khung, viền lại nét.
+         *
+         * SỬA TIẾP (13/08/2026, Giang chỉ ra "scale 1.1 phải áp cho DOM ĐƯỢC BLUR, không phải cả
+         * DOM bg image") — bản 12/08 lỡ GỘP 2 vai trò vào 1 phần tử `appBgBlurLayer` (vừa mang
+         * `background-image` thật vừa nhận scale/blur) — SAI với đúng yêu cầu gốc "thêm 1 LỚP PHỦ
+         * LÊN TRƯỚC [ảnh]" (nghĩa là phải có ảnh GỐC riêng + 1 lớp phủ THÊM VÀO, không phải biến
+         * luôn ảnh gốc thành lớp bị blur). SỬA ĐÚNG — tách hẳn 2 phần tử (components/
+         * app-view-stack.js):
+         *   - `appBgImage` — ảnh GỐC, LUÔN NÉT — nhận `background-image` TRỰC TIẾP, KHÔNG BAO GIỜ
+         *     `transform`/`filter`.
+         *   - `appBgBlurLayer` — lớp phủ ĐÈ LÊN TRÊN (a) — CHỈ tồn tại/có nội dung khi
+         *     `bgBlur > 0`: gán CÙNG 1 `background-image` với `appBgImage` RỒI MỚI áp
+         *     `scale(1.1)`/`blur()` lên CHÍNH nó — khi `bgBlur = 0`, layer này rỗng
+         *     (`background-image: none`), lộ nguyên ảnh nét ở `appBgImage` bên dưới (2 phần tử
+         *     luôn xếp chồng khít nhau, `position:absolute;inset:0` cả 2 — CSS).
+         * 2 nhánh gradient/none KHÔNG hề blur nên chỉ cần set lên `appBgImage` (ảnh gốc) như cũ —
+         * `appBg` (khung ngoài cùng) giờ THUẦN CẤU TRÚC, không tự mang `background-image` gì cả.
          */
         function updatePlaylistBg() {
             const cfg = appConfigViz.getAll();
             if (cfg.bgImage) {
-                appBg.style.backgroundImage = 'none';
-                appBgBlurLayer.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url(${cfg.bgImage})`;
-                appBgBlurLayer.style.filter = cfg.bgBlur > 0 ? `blur(${cfg.bgBlur}px)` : 'none';
-                appBgBlurLayer.style.transform = cfg.bgBlur > 0 ? 'scale(1.1)' : 'scale(1)';
+                const layerImage = `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url(${cfg.bgImage})`;
+                appBgImage.style.backgroundImage = layerImage; // ảnh GỐC — LUÔN nét, không đụng transform/filter
+                if (cfg.bgBlur > 0) {
+                    appBgBlurLayer.style.backgroundImage = layerImage; // bản sao ĐÈ lên trên — CHỈ phần tử này nhận scale/blur
+                    appBgBlurLayer.style.filter = `blur(${cfg.bgBlur}px)`;
+                    appBgBlurLayer.style.transform = 'scale(1.1)';
+                } else {
+                    appBgBlurLayer.style.backgroundImage = 'none'; // trong suốt — lộ nguyên ảnh gốc ở appBgImage bên dưới
+                    appBgBlurLayer.style.filter = 'none';
+                    appBgBlurLayer.style.transform = 'scale(1)';
+                }
             }
             else if (cfg.themeMode === 'gradient') {
                 appBgBlurLayer.style.backgroundImage = 'none';
-                appBg.style.backgroundImage = `linear-gradient(135deg, ${cfg.gradientFrom}, ${cfg.gradientTo})`;
+                appBgImage.style.backgroundImage = `linear-gradient(135deg, ${cfg.gradientFrom}, ${cfg.gradientTo})`;
             }
             else {
                 appBgBlurLayer.style.backgroundImage = 'none';
-                appBg.style.backgroundImage = 'none';
+                appBgImage.style.backgroundImage = 'none';
             }
         }
 
