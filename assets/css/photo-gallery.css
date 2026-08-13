@@ -1,0 +1,120 @@
+/* photo-gallery.css — File Manager -> Photo & Album (event/workflow/photo-gallery-window.js).
+   Layout THẬT (nong/co chiều cao hàng khít bề rộng container) giao hẳn cho fjGallery (CDN, tự có
+   fjGallery.css riêng lo định vị .fj-gallery-item — KHÔNG sửa ở đây). CSS ở đây chỉ còn: khung
+   nhóm ngày, badge chọn/xoá, shimmer placeholder, modal xem full-screen, pagination album story. */
+
+.photo-day-header {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+/* Áp dụng khi lưới render trong Generic Drawer (nền LUÔN TRẮNG) — màu chữ sáng gốc gần vô hình. */
+.photo-day-header--on-light {
+    color: #334155;
+}
+.photo-day-group-placeholder {
+    /* height do JS gán trực tiếp (offsetHeight đo lúc nhóm còn hiển thị đầy đủ). */
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.fj-gallery-item {
+    overflow: hidden;
+    cursor: pointer;
+}
+.fj-gallery-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Shimmer chạy liên tục phía SAU <img> — ảnh phủ kín 100% tile tự động che ngay khi có dữ liệu để
+   vẽ, không cần onload/JS gì thêm. */
+@keyframes photo-tile-shimmer {
+    0%, 100% { background-color: rgba(255, 255, 255, 0.04); }
+    50% { background-color: rgba(255, 255, 255, 0.11); }
+}
+.fj-gallery-item {
+    animation: photo-tile-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Badge chọn (xanh)/xoá (đỏ) — overlay góc trên phải mỗi tile. Luôn hiện khung viền mờ, chỉ hiện
+   icon + màu đặc khi .photo-tile-marked (JS toggle trực tiếp, không dựng lại cả nhóm). */
+.photo-tile-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 20px;
+    height: 20px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+.photo-tile-badge svg {
+    display: none;
+}
+.photo-tile-marked .photo-tile-badge-select {
+    background: #0ea5e9;
+    border-color: #38bdf8;
+}
+.photo-tile-marked .photo-tile-badge-delete {
+    background: #f43f5e;
+    border-color: #fb7185;
+}
+.photo-tile-marked .photo-tile-badge svg {
+    display: block;
+}
+.photo-tile-marked img {
+    opacity: 0.5;
+}
+
+/* Modal xem ảnh full-screen (core/file-manager/photo-ui.js::openImagePreviewModal()) — ảnh phủ kín
+   màn hình, header nổi đè bằng gradient scrim. */
+.photo-preview-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    /* Mặc định contain (an toàn) — JS đo hướng ảnh lúc load xong, đổi sang cover chỉ khi hướng ảnh
+       khớp hướng màn hình. */
+    object-fit: contain;
+}
+.photo-preview-scrim-top {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
+    padding-bottom: 24px;
+}
+.photo-preview-scrim-bottom {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+}
+
+/* Pagination album story (components/file-manager.js) — dùng thẳng buildPaginationArrowsHtml()
+   (core/pagination.js), display:contents "tháo" div bọc để 3 nút con xếp lại vị trí bằng order,
+   không cần sửa core. */
+#file-manager-album-story-pagination-wrap {
+    display: contents;
+}
+#file-manager-album-story-pagination-wrap [data-pagination-action="prev"] {
+    order: 0;
+}
+#file-manager-album-story-pagination-wrap [data-pagination-action="next"] {
+    order: 2;
+}
+#file-manager-album-story-pagination-wrap span.tabular-nums {
+    display: none;
+}
+.photo-album-story-content {
+    order: 1;
+}

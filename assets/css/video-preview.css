@@ -1,0 +1,131 @@
+/* video-preview.css — modal xem/sửa Video (core/file-manager/video-ui.js, components/
+   video-preview.js). Header/filmstrip là hàng flex thật trong overlay (class Tailwind trong
+   template), video co lại đúng phần còn lại (#video-preview-media-wrap: flex-1 min-h-0 relative) —
+   3 vùng không đè lên nhau. */
+
+/* Lớp Crop (canvas) — con thật của #video-preview-media-wrap, ẩn mặc định. */
+.video-preview-crop-layer {
+    position: absolute;
+    inset: 0;
+    display: none;
+}
+.video-preview-crop-layer.is-visible {
+    display: block;
+}
+
+/* Nút toolbar (Crop/Chụp/Undo/Redo/Reset/Rotate/tỉ lệ) — tròn nhỏ, dùng chung 1 kiểu cho icon lẫn
+   nhãn tỉ lệ. */
+.video-preview-tool-btn {
+    min-width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    transition: transform 0.15s;
+}
+.video-preview-tool-btn:active {
+    transform: scale(0.9);
+}
+.video-preview-tool-btn.is-active {
+    background: #fff;
+    color: #000;
+}
+/* Nút Flip khi tỉ lệ Tự do/1:1 — vô nghĩa (không có chiều để đảo), khoá hẳn thay vì bấm được mà
+   không đổi gì. */
+.video-preview-tool-btn.is-disabled {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+/* 2 nhóm hoán đổi trong cùng hàng toolbar — bật Crop thì ẩn tools-group, hiện ratio-group. */
+.video-preview-tools-group, .video-preview-ratio-group {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+.video-preview-ratio-group {
+    display: none;
+}
+.video-preview-ratio-group.is-visible {
+    display: flex;
+}
+.video-preview-tools-group.is-hidden {
+    display: none;
+}
+
+/* Dải phim + 2 tay cầm Start/End + playhead. .video-preview-filmstrip-frames (overflow:hidden, bo
+   góc) TÁCH khỏi .video-preview-filmstrip-track (không overflow:hidden) — tay cầm ở 0%/100% không
+   bị cắt mất nửa. */
+.video-preview-filmstrip-track {
+    position: relative;
+    height: 56px;
+}
+.video-preview-filmstrip-frames {
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000;
+    display: flex;
+}
+.video-preview-filmstrip-frame {
+    flex: 1 1 0;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    background-color: rgba(255,255,255,0.06);
+}
+/* Phần ngoài [start,end] — phủ tối, cho thấy đoạn sẽ bị cắt bỏ. */
+.video-preview-filmstrip-dim {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: rgba(0,0,0,0.65);
+    pointer-events: none;
+    border-radius: 10px;
+}
+/* Viền sáng bao quanh đoạn [start,end] đang chọn. */
+.video-preview-filmstrip-range-border {
+    position: absolute;
+    top: 0; bottom: 0;
+    border-top: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    pointer-events: none;
+}
+/* 2 tay cầm Start/End — cao đúng bằng track, không tràn ra ngoài trên/dưới. */
+.video-preview-trim-handle {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 18px;
+    margin-left: -9px;
+    background: #fff;
+    border-radius: 5px;
+    touch-action: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 6px rgba(0,0,0,0.5);
+}
+.video-preview-trim-handle::after {
+    content: '';
+    width: 3px;
+    height: 18px;
+    border-radius: 2px;
+    background: rgba(0,0,0,0.5);
+}
+/* Playhead — vạch mảnh chạy trong dải phim, theo videoEl.currentTime. */
+.video-preview-playhead {
+    position: absolute;
+    top: -2px; bottom: -2px;
+    width: 2px;
+    margin-left: -1px;
+    background: #fbbf24;
+    pointer-events: none;
+    box-shadow: 0 0 4px rgba(251,191,36,0.8);
+}

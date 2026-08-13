@@ -1,0 +1,39 @@
+/* sliders.css — mọi input[type=range]/input[type=color] trong app. 3 nhóm nền TRẮNG (.eq-preset-
+   slider/.ce-slider) TÁCH RIÊNG khỏi nhóm nền TỐI (.setting-slider/.eq-slider) — track
+   rgba(255,255,255,0.1) của nhóm tối gần như vô hình trên nền trắng của Generic Drawer. */
+
+input[type=range].setting-slider { -webkit-appearance: none; width: 100%; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; outline: none; }
+input[type=range].setting-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #ffffff; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+
+.eq-slider-container { width: 20px; height: 100px; position: relative; display: flex; justify-content: center; align-items: center; }
+input[type=range].eq-slider { -webkit-appearance: none; width: 100px; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; outline: none; transform: rotate(-90deg); position: absolute; }
+input[type=range].eq-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%; background: #8b5cf6; cursor: pointer; box-shadow: 0 0 5px rgba(139, 92, 246, 0.8); }
+
+/* Slider dọc lưỡng cực (-12..+12, Edit EQ trên Generic Drawer nền trắng) — track sáng + mốc 0dB +
+   dải fill tím từ mốc 0 tới giá trị hiện tại (JS set style.bottom/height%, xem event/workflow/
+   eq-presets.js::_wireEditView()). Dùng `-webkit-appearance: slider-vertical` (dọc THẬT, không qua
+   transform:rotate() — kiểu cũ khiến WebKit tính sai toạ độ chạm dọc, kéo bị "nhảy nấc"). */
+.eq-preset-slider-box { width: 24px; height: 108px; position: relative; }
+.eq-preset-slider-track { position: absolute; left: 50%; top: 1px; bottom: 1px; width: 6px; margin-left: -3px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+.eq-preset-slider-track::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: #94a3b8; }
+.eq-preset-slider-fill { position: absolute; left: 0; right: 0; background: #8b5cf6; }
+input[type=range].eq-preset-slider { -webkit-appearance: slider-vertical; appearance: slider-vertical; position: absolute; left: 0; top: 0; width: 24px; height: 108px; background: transparent; outline: none; margin: 0; padding: 0; }
+input[type=range].eq-preset-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #ffffff; border: 3px solid #8b5cf6; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+input[type=range].eq-preset-slider:disabled::-webkit-slider-thumb { border-color: #cbd5e1; }
+
+/* Slider ngang nền trắng — Custom Effect Drawer (components/custom-effect-drawer.js). */
+input[type=range].ce-slider { -webkit-appearance: none; width: 100%; height: 4px; background: #e2e8f0; border-radius: 2px; outline: none; }
+input[type=range].ce-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #ffffff; border: 3px solid #0ea5e9; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+
+input[type=color].color-picker { -webkit-appearance: none; border: none; padding: 0; border-radius: 6px; overflow: hidden; cursor: pointer; width: 32px; height: 32px; }
+input[type=color].color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+input[type=color].color-picker::-webkit-color-swatch { border: none; border-radius: 6px; }
+
+/* Thanh tiến trình nhạc — thumb luôn NHỎ HƠN HOẶC BẰNG track ở mọi trạng thái (không cần
+   div bọc + overflow:hidden để cắt phần nhô ra như bản cũ). */
+input[type=range].music-slider { -webkit-appearance: none; width: 100%; height: 12px; background: rgba(255, 255, 255, 0.2); border-radius: 6px; outline: none; margin: 0; cursor: pointer; transition: height 0.1s ease; }
+input[type=range].music-slider:hover, input[type=range].music-slider:active { height: 14px; }
+input[type=range].music-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 8px; height: 12px; border-radius: 4px; background: #fff; cursor: pointer; box-shadow: 0 0 10px rgba(0,0,0,0.8); transition: height 0.1s ease, background-color 0.2s; }
+input[type=range].music-slider:hover::-webkit-slider-thumb, input[type=range].music-slider:active::-webkit-slider-thumb { height: 14px; background: #38bdf8; }
+input[type=range].music-slider::-moz-range-thumb { width: 8px; height: 12px; border: none; border-radius: 4px; background: #fff; cursor: pointer; box-shadow: 0 0 10px rgba(0,0,0,0.8); transition: height 0.1s ease, background-color 0.2s; }
+input[type=range].music-slider:hover::-moz-range-thumb, input[type=range].music-slider:active::-moz-range-thumb { height: 14px; background: #38bdf8; }

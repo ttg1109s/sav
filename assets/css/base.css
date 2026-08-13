@@ -1,0 +1,40 @@
+/* base.css — reset gốc, khung #app-root (safe-area), 4 lớp nền toàn màn hình (màu/ảnh/video/canvas,
+   thứ tự z-index thấp -> cao: #visualizer-solid-bg -3 < #visual-bg-image -2 < slideshow -1 (assets/
+   css/slideshow.css) < #bg-video 0 < #webgl-canvas 1 < #visualizer 10), scrollbar mảnh dùng chung. */
+
+:root { --item-bg-opacity: 0.1; }
+body { margin: 0; overflow: hidden; background-color: #000000; transition: background-color 0.3s ease; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; touch-action: manipulation; }
+html, body { margin: 0; width: 100%; min-height: 100%; }
+body { min-height: 100dvh; background: #000; }
+
+/* #app-root dùng 100dvh khớp đúng đơn vị với 4 lớp nền bên dưới (canvas vẫn dùng vh — cố định,
+   không đụng buffer render) — lệch đơn vị vh/dvh giữa panel và nền từng gây hở viền panel. */
+#app-root {
+    height: 100dvh;
+    width: 100%;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+#bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; object-fit: cover; z-index: 0; pointer-events: none; background-size: cover; background-position: center; }
+#visualizer-solid-bg { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: -3; pointer-events: none; background-color: #000000; }
+#visual-bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; background-size: cover; background-position: center; z-index: -2; pointer-events: none; }
+
+canvas { display: block; width: 100vw; height: 100dvh; position: absolute; top: 0; left: 0; pointer-events: none;}
+#webgl-canvas { z-index: 1; }
+#visualizer { z-index: 10; }
+
+input[type="file"] { display: none; }
+
+.sub-text-glow { text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.5); }
+/* "Chế độ xem toàn màn hình" (core/visualizer-ui-visibility.js) — tách khỏi .hidden vì vài phần tử
+   có cơ chế hidden riêng đang tự quản lý (chuyển Playlist<->Visualizer). */
+.force-hidden { display: none !important; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+
+/* Ẩn hẳn scrollbar 4px mặc định — riêng cột "bánh xe cuộn số" (subtitle-editor time picker), không
+   đổi quy ước scrollbar chung toàn app. */
+.time-picker-col { scrollbar-width: none; -ms-overflow-style: none; }
+.time-picker-col::-webkit-scrollbar { display: none; }

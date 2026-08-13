@@ -1,0 +1,30 @@
+/* document-reader.css — .document-html-content: khôi phục kiểu hiển thị mặc định (bullet/số thứ
+   tự/heading/blockquote) cho nội dung Documents (Tailwind Play CDN reset preflight ul/ol về
+   list-style:none). Dùng CHUNG cho cả Reader (#document-reader-pages) lẫn surface Sửa
+   contentEditable (.document-editor-surface) — bắt buộc chung 1 class để document-pagination.js đo
+   đúng font-metrics khớp giữa lúc ĐO và lúc HIỂN THỊ THẬT. */
+
+.document-html-content h1, .document-html-content h2, .document-html-content h3,
+.document-html-content h4, .document-html-content h5, .document-html-content h6 {
+    font-weight: 700; margin: 0.6em 0 0.4em 0; line-height: 1.3;
+}
+.document-html-content h1 { font-size: 1.5em; }
+.document-html-content h2 { font-size: 1.3em; }
+.document-html-content h3 { font-size: 1.15em; }
+.document-html-content h4, .document-html-content h5, .document-html-content h6 { font-size: 1.05em; }
+.document-html-content p { margin: 0 0 0.75em 0; }
+.document-html-content ul { list-style: disc; padding-left: 1.4em; margin: 0 0 0.75em 0; }
+.document-html-content ol { list-style: decimal; padding-left: 1.4em; margin: 0 0 0.75em 0; }
+.document-html-content li { margin: 0.2em 0; }
+.document-html-content blockquote { border-left: 3px solid rgba(100, 116, 139, 0.4); padding-left: 0.9em; margin: 0 0 0.75em 0; font-style: italic; opacity: 0.85; }
+.document-html-content a { color: #0284c7; text-decoration: underline; }
+.document-html-content > *:first-child { margin-top: 0; }
+
+/* 2 lớp tuyệt đối chồng nhau trong #document-reader-pages — JS chỉ đổi transform (event/workflow/
+   document-reader.js::_slideToNewPage()), trình duyệt tự nội suy animation trượt next/prev. */
+.document-reader-slide-layer {
+    position: absolute;
+    inset: 0;
+    transition: transform 220ms ease-out;
+    will-change: transform;
+}

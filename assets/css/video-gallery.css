@@ -1,0 +1,87 @@
+/* video-gallery.css — File Manager -> Video (event/workflow/video-gallery-window.js). Windowing
+   cấp nhóm ngày giống Photo, nhưng layout trong mỗi nhóm là CSS Grid cố định cột (tile tỉ lệ đồng
+   nhất 16/9, không cần đo width/height gốc từng video). */
+
+.video-day-header {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+.video-day-header--on-light {
+    color: #334155;
+}
+.video-day-group-placeholder {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.video-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+}
+.video-tile {
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    aspect-ratio: 16 / 9;
+}
+.video-tile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+@keyframes video-tile-shimmer {
+    0%, 100% { background-color: rgba(255, 255, 255, 0.04); }
+    50% { background-color: rgba(255, 255, 255, 0.11); }
+}
+.video-tile {
+    animation: video-tile-shimmer 1.4s ease-in-out infinite;
+}
+.video-tile-duration {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.5;
+    z-index: 1;
+}
+
+/* Badge xoá nhanh — Video chỉ có đúng 1 mode (quickDelete), không cần biến thể -select như Photo. */
+.video-tile-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 20px;
+    height: 20px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+.video-tile-badge svg {
+    display: none;
+}
+.video-tile-marked .video-tile-badge {
+    background: #f43f5e;
+    border-color: #fb7185;
+}
+.video-tile-marked .video-tile-badge svg {
+    display: block;
+}
+.video-tile-marked img {
+    opacity: 0.5;
+}

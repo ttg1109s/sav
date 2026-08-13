@@ -1,0 +1,18 @@
+/* glass.css — 4 kiểu kính mờ dùng chung toàn app + vài utility fade/select liên quan. Opacity nền
+   giữ 20-35% (chuẩn glassmorphism thật, không phải "solid nguỵ trang") + text-shadow bù tương phản
+   thay vì tăng opacity. */
+
+.glass-panel { background: rgba(15, 23, 42, 0.35); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
+/* Không còn nơi nào gán (drawer-settings đã đổi dùng chung nền #playlist-bg) — giữ lại cho overlay
+   solid-đậm nào đó cần sau này. */
+.drawer-glass { background: rgba(10, 10, 15, 0.35); backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px); text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+.glass-modal { background: rgba(15, 23, 42, 0.25); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 0 0 1px rgba(255,255,255,0.06) inset, 0 8px 32px rgba(0,0,0,0.3); text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+/* Kính "Control Center" kiểu iPhone — nhạt hơn hẳn 3 kiểu trên (gần trong suốt, chỉ làm mờ-đục
+   cảnh phía sau), riêng cho #visualizer-control-center. */
+.glass-control-center { background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(36px) saturate(1.6); -webkit-backdrop-filter: blur(36px) saturate(1.6); border: 1px solid rgba(255, 255, 255, 0.25); box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 25px 50px rgba(0,0,0,0.35); }
+
+.fade-enter { opacity: 0; pointer-events: none; }
+.fade-enter-active { opacity: 1; pointer-events: auto; transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* Chặn bôi đen/chọn chữ + menu giữ-tay trên màn Visualizer trong lúc thao tác cử chỉ. */
+#visualizer-ui { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }

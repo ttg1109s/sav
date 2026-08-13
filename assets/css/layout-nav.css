@@ -1,0 +1,41 @@
+/* layout-nav.css — điều hướng giữa Playlist/Settings (#side-left-container, cuộn ngang thật) và
+   Visualizer (#app-stack, trượt ngang trên mobile/tablet, cột cố định trên desktop >=1024px).
+   Canvas/4 lớp nền (base.css) luôn giữ nguyên toàn màn hình — chỉ 2 lớp UI chrome (#app-stack đục +
+   #visualizer-ui/#player-container) trượt qua lại, canvas hiện xuyên qua ngay khi app-stack trượt
+   khỏi màn hình. 3 tầng tách bạch: Playlist<->Visualizer (#app-stack), Playlist<->Settings
+   (#side-left-container, cuộn ngang), nền thuần (#app-bg, anh em với #side-left-container). */
+
+#app-stack, #visualizer-ui, #player-container { transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+#app-stack { transform: translateX(0); }
+/* +4px overshoot cố định (không phải %) — bù sai số làm tròn subpixel của transform% trên 1 số
+   thiết bị, tránh lộ 1-2px nội dung ở rìa khi "đã trượt hết cỡ" nhưng vẫn lệch. */
+#app-stack.playlist-hidden { transform: translateX(calc(100% + 4px)); }
+#app-bg, #side-left-container { position: absolute; inset: 0; }
+/* #app-bg là khung cắt (overflow:hidden), 2 con TÁCH BIỆT: #app-bg-image (ảnh gốc, luôn nét, không
+   transform/filter) + #app-bg-blur-layer (đè lên trên, nhận scale/blur — core/color-utils.js::
+   updatePlaylistBg() gán cùng ảnh cho cả 2 khi bgBlur > 0). */
+#app-bg { overflow: hidden; }
+#app-bg-image, #app-bg-blur-layer { position: absolute; inset: 0; }
+#visualizer-ui, #player-container { transform: translateX(calc(-100% - 4px)); }
+#visualizer-ui.visualizer-active, #player-container.visualizer-active { transform: translateX(0); }
+
+@media (min-width: 1024px) {
+    #app-stack, #visualizer-ui, #player-container { transition: none; }
+    /* Playlist là cột trái cố định (clamp thay vì số cứng — co giãn nhẹ theo màn hình, kẹp
+       340-460px), Visualizer chiếm phần còn lại bên phải, hiện song song vĩnh viễn. */
+    #app-stack { transform: none !important; left: 0; right: auto; width: clamp(340px, 30vw, 460px); border-right: 1px solid rgba(255,255,255,0.08); }
+    #visualizer-ui, #player-container { transform: none !important; left: clamp(340px, 30vw, 460px); }
+    /* Ép cả display (không chỉ opacity) — .hidden (Tailwind) có thể còn gắn từ lúc boot. */
+    #visualizer-ui { display: flex !important; opacity: 1 !important; pointer-events: auto !important; }
+    #player-container { display: flex !important; }
+    #btn-back-playlist { display: none !important; }
+}
+
+/* #side-left-container: cuộn ngang THẬT (overflow-x), 2 "trang" #playlist-view/#drawer-settings
+   nằm cạnh nhau, chuyển qua lại bằng scrollTo({left, behavior:'smooth'}) — KHÔNG scroll-snap (không
+   có cử chỉ tay nào để snap, overflow-x:hidden đã chặn hẳn cuộn tay, cố ý — chỉ chuyển qua nút bấm
+   tường minh). will-change: scroll-position ép compositor layer riêng, tránh giật khung hình khi
+   Black Hole (Canvas2D nặng, vẽ liên tục kể cả lúc bị che) tranh main thread với animation cuộn. */
+#side-left-container { display: flex; overflow-x: hidden; overflow-y: hidden; scroll-behavior: smooth; will-change: scroll-position; }
+#settings-stack-body { will-change: scroll-position; }
+#playlist-view, #drawer-settings { width: 100%; height: 100%; flex-shrink: 0; overflow-y: auto; position: relative; }
