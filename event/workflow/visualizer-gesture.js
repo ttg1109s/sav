@@ -95,7 +95,7 @@ const GESTURE_SWIPE_CONFIG_FIELD = {
  * data-cc-action thật sự có ở Control Center (components/visualizer-overlay.js): openVolume/
  * cycleEq/editEq — trước đây map này viết TRƯỚC khi 3 nút đó tồn tại, lúc đó đủ cả 8/8.
  * SỬA TIẾP (cùng ngày, "gộp eq edit vào hold 3s, bỏ icon edit riêng") — `editEq` (#btn-edit-eq) ĐÃ
- * BỎ khỏi map này cùng lúc xoá hẳn nút (mở Edit EQ giờ gộp vào GIỮ 3s trên `cycleEq`, không còn
+ * BỎ khỏi map này cùng lúc xoá hẳn nút (mở Edit EQ giờ gộp vào GIỮ 1.5s trên `cycleEq`, không còn
  * là 1 "nút bấm hộ được" riêng nữa) — còn lại đúng 7/7. `cycleEq` (#btn-cycle-eq) VẪN gán được như
  * cũ — `.click()` do _clickControlCenterTarget() gọi vẫn hoạt động đúng (bấm NGẮN/cycle), xem
  * docstring event/listener/eq-presets.js (lý do #btn-cycle-eq giữ riêng 1 listener `click`, không
