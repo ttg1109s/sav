@@ -29,7 +29,7 @@
  * Preset EQ lưu DB (meta.eqPresets, core/eq-presets.js), THAY HẲN bảng EQ_PRESETS tĩnh + chế độ
  * 'manual' cũ (core/equalizer.js/event/workflow/equalizer-settings.js đã xoá cùng UI Settings
  * tĩnh). SỬA (12/08/2026, Giang yêu cầu "gộp eq edit vào hold 3s") — #btn-edit-eq (icon riêng mở
- * Generic Drawer quản lý preset) ĐÃ BỎ HẲN — GIỮ #btn-cycle-eq đủ 3s giờ mở CHÍNH Generic Drawer
+ * Generic Drawer quản lý preset) ĐÃ BỎ HẲN — GIỮ #btn-cycle-eq đủ 1.5s giờ mở CHÍNH Generic Drawer
  * đó, bấm ngắn vẫn cycle preset như cũ (xem docstring event/workflow/eq-presets.js).
  */
 const TPL_VISUALIZER_OVERLAY = `
@@ -95,7 +95,7 @@ const TPL_VISUALIZER_OVERLAY = `
                     <!-- #btn-cycle-eq (đổi preset EQ, giống #btn-cycle-mode) — SỬA (12/08/2026,
                          Giang yêu cầu "gộp eq edit vào hold 3s") — #btn-edit-eq (icon riêng mở
                          Generic Drawer) ĐÃ BỎ HẲN, gộp thẳng vào icon NÀY: bấm NGẮN = cycle preset
-                         (như cũ), GIỮ đủ 3s = mở Generic Drawer quản lý preset (components/
+                         (như cũ), GIỮ đủ 1.5s = mở Generic Drawer quản lý preset (components/
                          eq-presets-drawer.js) — xem event/workflow/eq-presets.js
                          (startCycleHold()/endCycleHold()/cancelCycleHold()). -->
                     <button id="btn-cycle-eq" data-cc-action class="flex flex-col items-center gap-1.5 py-3 rounded-2xl hover:bg-white/15 transition-colors text-white/70" data-i18n-title="visualizerOverlay.cycleEq.title" title="${t('visualizerOverlay.cycleEq.title')}">

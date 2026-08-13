@@ -75,10 +75,10 @@ function renderGestureSettingsPanelBody() {
     // chung cho dropdown Tap 3 lần, xem SỬA TIẾP ngay dưới.
     // SỬA TIẾP (cùng ngày, "gộp eq edit vào hold 3s, bỏ icon edit riêng") — <option value="editEq">
     // ĐÃ BỎ cùng lúc xoá hẳn #btn-edit-eq (còn lại đúng 7 option, không phải 8) — mở Edit EQ giờ
-    // gộp vào GIỮ 3s trên chính `cycleEq`, không còn là 1 "nút bấm hộ được" riêng để gán gesture
+    // gộp vào GIỮ 1.5s trên chính `cycleEq`, không còn là 1 "nút bấm hộ được" riêng để gán gesture
     // nữa (xem docstring GESTURE_TRIPLE_TAP_TARGET_ELS, event/workflow/visualizer-gesture.js).
     // Nhãn option `cycleEq` đổi sang key `.label` (MỚI, ngắn gọn) THAY `.title` — `.title` giờ dài
-    // hơn (dùng làm tooltip nút thật, mô tả cả 2 hành vi bấm ngắn/giữ 3s), không hợp để hiển thị
+    // hơn (dùng làm tooltip nút thật, mô tả cả 2 hành vi bấm ngắn/giữ 1.5s), không hợp để hiển thị
     // trong 1 <option> dropdown chật hẹp.
     // SỬA TIẾP (cùng ngày, "tap 3 dùng chung select giống tap/cử chỉ khác") — pool này giờ CHỈ còn
     // 3 dropdown Slot (section Action) dùng — dropdown Tap 3 lần đã chuyển hẳn sang actionRow()/

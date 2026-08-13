@@ -12,19 +12,31 @@
  *   từ `#side-left-container` sang `#app-stack`). Bên trong nó có ĐÚNG 2 con, xếp theo thứ tự DOM
  *   (con sau vẽ ĐÈ lên con trước, không cần z-index riêng):
  *     1. `#app-bg` — khung NỀN NGOÀI, `overflow: hidden` (khung "cắt", LUÔN NÉT — bản thân nó
- *        KHÔNG mang `filter` gì nữa) — bên trong có ĐÚNG 1 con `#app-bg-blur-layer` (lớp phủ mang
- *        ảnh THẬT + overlay đen, JS điều khiển qua updatePlaylistBg() — core/color-utils.js).
- *        KHÔNG chứa chữ/nội dung gì.
+ *        KHÔNG mang `filter` gì nữa) — bên trong có ĐÚNG 2 con, XẾP THEO THỨ TỰ (con sau vẽ đè con
+ *        trước — chuẩn DOM thường, không cần z-index riêng):
+ *          a. `#app-bg-image` — "CÁI DOM BG IMAGE" thật — mang ảnh THẬT + overlay đen, JS điều
+ *             khiển qua updatePlaylistBg() (core/color-utils.js). LUÔN NÉT, KHÔNG BAO GIỜ nhận
+ *             `transform`/`filter` gì — đây là ảnh gốc, hiển thị nguyên trạng khi KHÔNG bật "Độ mờ
+ *             nền" (bgBlur = 0).
+ *          b. `#app-bg-blur-layer` — LỚP PHỦ vẽ ĐÈ lên trên (a), CÙNG 1 ảnh (updatePlaylistBg() gán
+ *             y hệt (a) mỗi khi bgBlur > 0) nhưng nhận THÊM `transform: scale(1.1)` + `filter:
+ *             blur()` — CHỈ 2 phần tử NÀY (KHÔNG PHẢI (a)) nhận scale/blur. Khi bgBlur = 0, layer
+ *             này rỗng (`background-image: none`), để lộ nguyên ảnh nét ở (a) bên dưới.
  *        SỬA (12/08/2026, Giang báo bug "blur ảnh nền làm mất viền panel") — TRƯỚC ĐÂY `filter:
  *        blur()` áp THẲNG lên chính `#app-bg` (khung khớp CHÍNH XÁC viền `#app-stack`, xem
  *        `border-right` desktop, assets/css/style.css) — blur CSS tự "tràn" ra ngoài biên hộp gốc
  *        (không hề bị `overflow` của CHÍNH nó chặn), đè mờ luôn viền `#app-stack` ngay sát cạnh.
- *        SỬA: tách `#app-bg-blur-layer` làm CON riêng, `transform: scale(1.1)` (phóng to 110%, tâm
- *        giữ nguyên) + `filter: blur()` áp lên CON này — phần blur "tràn" ra do phóng to bị chính
+ *        SỬA: tách 1 lớp phủ RIÊNG (b) ở TRÊN, `transform: scale(1.1)` (phóng to 110%, tâm giữ
+ *        nguyên) + `filter: blur()` áp lên LỚP PHỦ ĐÓ — phần blur "tràn" ra do phóng to bị chính
  *        `overflow: hidden` của `#app-bg` (khung cha, KHÔNG blur) cắt gọn lại đúng khung
- *        `#app-stack`, viền lại NÉT như cũ. `scale`/`blur` chỉ áp cho CON khi thật sự có
- *        `bgBlur > 0` (core/color-utils.js) — `bgBlur = 0` giữ nguyên hành vi cũ (không phóng to,
- *        khớp khung ảnh y hệt trước đây).
+ *        `#app-stack`, viền lại NÉT như cũ.
+ *        SỬA TIẾP (13/08/2026, Giang chỉ ra "scale 1.1 áp dụng với cái DOM ĐƯỢC BLUR chứ không phải
+ *        cả DOM bg image") — bản 12/08 lỡ GỘP CHUNG 2 vai trò "ảnh thật" + "lớp bị blur" vào ĐÚNG 1
+ *        phần tử `#app-bg-blur-layer` (tự nó vừa mang `background-image` vừa nhận scale/blur) — vi
+ *        phạm đúng yêu cầu GỐC (bug report đầu tiên) "thêm MỘT LỚP PHỦ LÊN TRƯỚC [ảnh gốc]" (tức
+ *        phải có 2 phần tử tách biệt). SỬA ĐÚNG: tách hẳn (a) `#app-bg-image` (ảnh gốc, KHÔNG BAO
+ *        GIỜ đụng scale/blur) RA KHỎI (b) `#app-bg-blur-layer` (lớp phủ ĐÈ LÊN TRÊN, MỚI nhận
+ *        scale/blur) — như mô tả ở trên.
  *     2. `#side-left-container` — giờ CHỈ còn ĐÚNG 1 việc: khung cuộn NGANG thật giữa 2 "trang"
  *        Playlist/Settings (`overflow-x`, `scroll-behavior: smooth` — xem CSS) — không tự định vị
  *        gì nữa (`position: absolute; inset: 0;` lấp đầy đúng khung `#app-stack`, bất kể mobile hay
@@ -52,6 +64,7 @@
 const TPL_APP_VIEW_STACK_OPEN = `
     <div id="app-stack" class="fixed inset-0 z-[60]">
         <div id="app-bg" class="bg-black pointer-events-none overflow-hidden">
+            <div id="app-bg-image" class="bg-cover bg-center bg-no-repeat"></div>
             <div id="app-bg-blur-layer" class="bg-cover bg-center bg-no-repeat"></div>
         </div>
         <div id="side-left-container">

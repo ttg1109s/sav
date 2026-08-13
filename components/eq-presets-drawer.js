@@ -1,5 +1,5 @@
 /**
- * Component: nội dung Generic Drawer cho "Edit EQ" (event/workflow/eq-presets.js mở qua GIỮ 3s
+ * Component: nội dung Generic Drawer cho "Edit EQ" (event/workflow/eq-presets.js mở qua GIỮ 1.5s
  * #btn-cycle-eq — 12/08/2026: icon #btn-edit-eq riêng ĐÃ BỎ, gộp vào hold, xem docstring
  * event/workflow/eq-presets.js). 2 mode, CÙNG khuôn Document Reader (List <-> Read):
  *   - 'list': danh sách preset (tên + khoá-icon nếu locked) + nút "+" trong HEADER để tạo preset
