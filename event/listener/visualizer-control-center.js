@@ -33,11 +33,8 @@ if (visualizerControlCenter) {
 // Cơ chế Block gate khoá chéo với Video Player mode KHÔNG mất — v14 chuyển sang chặn thẳng ở 2
 // msg.type "Chọn nguồn" (`visualBg.pickSingleSource.click`/`pickGroupSource.click`, xem event/block.js).
 
-if (typeof visualEnabledToggle !== 'undefined' && visualEnabledToggle) {
-    visualEnabledToggle.addEventListener('change', (e) => {
-        eventBus.send({ router: 'visualizerControlCenter', type: 'visualizerControlCenter.visualEnable.change', payload: { checked: e.target.checked } });
-    });
-}
+// "setting-visual-enable" đã dời vào panel "Display" ĐỘNG — listener chuyển sang delegate
+// (event/listener/visualizer-display.js, router 'visualizerDisplay').
 
 // (LỊCH SỬ) block listener `videoUploadInput` (change + cancel) đã xoá 21/07/2026 — input
 // `#setting-video-upload` không còn tồn tại trong DOM.

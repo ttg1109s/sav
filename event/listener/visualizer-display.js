@@ -1,43 +1,20 @@
 /**
- * event/listener/visualizer-display.js — TẤT CẢ listener thuộc "module Visualizer Display" (cấu
- * hình hiển thị: kiểu hiệu ứng, ảnh nền, màu sắc, kích thước bar) nằm CHUNG file này. Volume/EQ ĐÃ
- * DỜI sang cụm "volumeHud"/"eqPresets" riêng (Control Center) — không còn ở đây.
+ * event/listener/visualizer-display.js — Listener cụm "visualizerDisplay": ảnh nền, độ mờ nền,
+ * cycle effect (#btn-cycle-mode). Field cấu hình riêng effect (màu/blur/style con/kích thước) ĐÃ
+ * DỜI sang Custom Effect Drawer (event/workflow/custom-effect.js, wiring TRỰC TIẾP không qua
+ * eventBus — xem docstring core/generic-drawer.js).
  *
- * QUY TẮC (giống listener/player-controls.js — ẩn dụ "người gửi thư"):
- *   - Listener KHÔNG biết, KHÔNG quan tâm nội dung nghiệp vụ là gì.
- *   - Mỗi handler CHỈ làm 1 việc: gom đúng data cần gửi rồi gửi 1 message qua eventBus.send().
- *   - "Địa chỉ nhà" (msg.router) LUÔN là 'visualizerDisplay' cho mọi listener trong file này.
+ * #btn-cycle-mode nghe THÊM pointerdown/up/cancel/leave (CÙNG khuôn #btn-cycle-eq, event/listener/
+ * eq-presets.js) chỉ để đếm giờ giữ 1.5s — `click` riêng vẫn giữ (tương thích hệ Tap-3-lần/
+ * Action-slot gọi `.click()` hộ).
  *
- * === Batch D3 (Settings restructure, 06/07/2026) ===
- * 14 input sống BÊN TRONG panel Visualizer Settings (push/pop động, core/settings-panel-stack.js)
- * ĐỔI từ listener RIÊNG LẺ trên dom-refs tĩnh sang 1 CẶP listener DUY NHẤT DELEGATE (input+change)
- * trên `settingsStackBody` — CHUẨN đã dùng từ Batch D2 (Subtitle), xem
- * `VISUALIZER_DISPLAY_INPUT_MAP` bên dưới. THÊM `btnOpenVisualizerSettings` (dời từ event/listener/
- * visualizer-misc-settings.js — cùng router với 14 input của chính nó, xem event/router/
- * visualizer-display.js).
- *
- * 2 input KHÔNG di chuyển (Main/Control Center, vẫn tĩnh, giữ NGUYÊN): btnCycleMode, bgBlurSlider.
- * (bgImageEnableToggle ĐÃ XOÁ khỏi danh sách này — 07/07/2026, HOTFIX 4: checkbox không còn tồn
- * tại, xem comment "Ảnh nền" bên dưới đã bị xoá.)
- *
- * KHÔNG tự document.getElementById trong file này — dùng lại biến đã có sẵn ở core/dom-refs.js.
- *
- * NẠP SAU CÙNG (sau bus, core/visualizer/visualizer-display.js, router/visualizer-display.js,
- * workflow/visualizer-display.js, core/settings-panel-stack.js, VÀ SAU dom-refs.js).
+ * KHÔNG tự document.getElementById — dùng biến sẵn có ở core/dom-refs.js.
+ * NẠP SAU CÙNG (sau bus, router/visualizer-display.js, core/settings-panel-stack.js, dom-refs.js).
  */
 
-if (btnOpenVisualizerSettings) {
-    btnOpenVisualizerSettings.addEventListener('click', () => {
-        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.openPanel.click', payload: {} });
-    });
-}
-
-// MỚI (12/08/2026, Giang yêu cầu tái cấu trúc Setting Main mục 4c/4f) — 2 nút điều hướng panel
-// RIÊNG "Custom Effect"/"Auto-Switch Effect", tách từ "Customize Visualizer" — cả 2 TĨNH (Main,
-// giống btnOpenVisualizerSettings ngay trên), addEventListener trực tiếp bình thường.
-if (btnOpenVisualizerCustomEffect) {
-    btnOpenVisualizerCustomEffect.addEventListener('click', () => {
-        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.openCustomEffectPanel.click', payload: {} });
+if (btnOpenVisualizerDisplay) {
+    btnOpenVisualizerDisplay.addEventListener('click', () => {
+        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.openDisplayPanel.click', payload: {} });
     });
 }
 
@@ -48,20 +25,22 @@ if (btnOpenVisualizerAutoSwitch) {
 }
 
 if (btnCycleMode) {
+    btnCycleMode.addEventListener('pointerdown', () => {
+        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.cyclePress.start', payload: {} });
+    });
+    btnCycleMode.addEventListener('pointerup', () => {
+        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.cyclePress.end', payload: {} });
+    });
+    btnCycleMode.addEventListener('pointercancel', () => {
+        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.cyclePress.cancel', payload: {} });
+    });
+    btnCycleMode.addEventListener('pointerleave', () => {
+        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.cyclePress.cancel', payload: {} });
+    });
     btnCycleMode.addEventListener('click', () => {
-        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.cycleMode.click', payload: {} });
+        eventBus.send({ router: 'visualizerDisplay', type: 'visualizerDisplay.cycle.click', payload: {} });
     });
 }
-
-// (07/07/2026, HOTFIX 4 — khối listener "Ảnh nền" cho #setting-bg-image-enable ĐÃ XOÁ HẲN: checkbox
-// đó không còn tồn tại trong DOM từ khi Theme 3-card thay thế section Background cũ (xem
-// components/settings/theme.js) — `if (bgImageEnableToggle)` tham chiếu 1 biến CHƯA TỪNG KHAI BÁO
-// (không phải `null`) nên ném `ReferenceError` ngay khi file này chạy, làm HỎNG mọi listener khai
-// báo PHÍA SAU trong CÙNG file (bgBlurSlider/14 input delegate bên dưới đều không được gắn). Luồng bật/tắt ảnh nền giờ đi qua card "Background" (event/listener/theme.js ->
-// event/router/theme.js, VirtualMachineState chọn method -> event/workflow/theme.js::
-// applyNonBackgroundMode()/pickNewBackgroundImage()/reuseExistingBackgroundImage(), ĐÃ CẬP NHẬT
-// 17/07/2026 — KHÔNG còn qua workflowVisualizerDisplay.toggleBgImage() nữa, hàm đó giờ mồ côi) —
-// không cần thay thế gì ở đây.
 
 if (bgBlurSlider) {
     bgBlurSlider.addEventListener('input', (e) => {
@@ -69,63 +48,25 @@ if (bgBlurSlider) {
     });
 }
 
-// ===================== Volume (chuyển sang HUD Control Center, event/listener/volume-hud.js) =====================
-// volumeSlider/eqSelect (Settings tĩnh cũ) ĐÃ XOÁ HẲN — Volume giờ ở #visualizer-volume-hud
-// (event/listener/volume-hud.js), EQ giờ ở cụm "eqPresets" (Control Center, event/listener/
-// eq-presets.js) — không còn UI nào ở panel Settings chính cho 2 thứ này.
+// ===================== Volume (HUD Control Center, event/listener/volume-hud.js) =====================
+// EQ ở cụm "eqPresets" riêng (event/listener/eq-presets.js).
 
-// ===================== 14 input BÊN TRONG panel Visualizer Settings (delegate) =====================
-// Bảng tra id -> {msg.type, event mong đợi, cách gom payload} — DÙNG CHUNG 1 cặp handler
-// (input+change) thay vì 14 listener riêng lẻ trên dom-refs tĩnh (nay không còn tồn tại tĩnh nữa).
-const VISUALIZER_DISPLAY_INPUT_MAP = {
-    'setting-quality': { type: 'visualizerDisplay.quality.change', event: 'change' },
-    // ('bg-color-picker' XOÁ — v13: màu nền dời sang panel Visual Background.)
-    'setting-color-mode': { type: 'visualizerDisplay.colorMode.change', event: 'change' },
-    'solid-color-picker': { type: 'visualizerDisplay.solidColor.pickerInput', event: 'input', cross: true },
-    'solid-color-text': { type: 'visualizerDisplay.solidColor.textInput', event: 'input', cross: true },
-    'dyn-color-a': { type: 'visualizerDisplay.dynColorA.input', event: 'input' },
-    'dyn-color-b': { type: 'visualizerDisplay.dynColorB.input', event: 'input' },
-    'setting-vortex-style': { type: 'visualizerDisplay.vortexStyle.change', event: 'change' },
-    'setting-bar-style': { type: 'visualizerDisplay.barStyle.change', event: 'change' },
-    'setting-rain-style': { type: 'visualizerDisplay.rainStyle.change', event: 'change' },
-    'setting-glass-flash': { type: 'visualizerDisplay.glassFlash.change', event: 'change', checkbox: true },
-    'setting-max-height': { type: 'visualizerDisplay.maxHeight.input', event: 'input', display: true },
-    'setting-bar-width': { type: 'visualizerDisplay.barWidth.input', event: 'input', display: true },
-    'setting-mirror-count': { type: 'visualizerDisplay.mirrorCount.input', event: 'input', display: true },
-    'setting-blur-enable': { type: 'visualizerDisplay.blurEnable.change', event: 'change', checkbox: true },
-    'setting-rain-city-opacity': { type: 'visualizerDisplay.rainCityOpacity.input', event: 'input', display: true },
-    'setting-rain-city-visible': { type: 'visualizerDisplay.rainCityVisible.change', event: 'change', checkbox: true },
-    'setting-rain-moon-visible': { type: 'visualizerDisplay.rainMoonVisible.change', event: 'change', checkbox: true },
-    'setting-rain-window-visible': { type: 'visualizerDisplay.rainWindowVisible.change', event: 'change', checkbox: true },
-    'setting-stats-panel-enable': { type: 'visualizerDisplay.statsPanelEnable.change', event: 'change', checkbox: true },
-    'setting-bottom-player-enable': { type: 'visualizerDisplay.bottomPlayerVisible.change', event: 'change', checkbox: true },
-    'setting-playlist-button-enable': { type: 'visualizerDisplay.playlistButtonVisible.change', event: 'change', checkbox: true },
-    'setting-control-center-button-enable': { type: 'visualizerDisplay.controlCenterButtonVisible.change', event: 'change', checkbox: true },
-    // (Phần B, Galaxy — 5 entry spaceStyle/4 slider tinh chỉnh ĐÃ BỎ 21/07/2026, phản hồi Giang
-    // mục 1 — panel tinh chỉnh Space đã xoá khỏi components/visualizer-settings-drawer.js).
+// ===================== Panel "Display" (settings-stack, delegate) =====================
+// 5 toggle: Hiện Visual + 4 toggle UI chrome — xem components/settings/visualizer-display-panel.js.
+const VISUALIZER_DISPLAY_PANEL_INPUT_MAP = {
+    'setting-visual-enable': { type: 'visualizerDisplay.visualEnable.change' },
+    'setting-stats-panel-enable': { type: 'visualizerDisplay.statsPanelEnable.change' },
+    'setting-bottom-player-enable': { type: 'visualizerDisplay.bottomPlayerVisible.change' },
+    'setting-playlist-button-enable': { type: 'visualizerDisplay.playlistButtonVisible.change' },
+    'setting-control-center-button-enable': { type: 'visualizerDisplay.controlCenterButtonVisible.change' },
 };
 
-/** Tìm phần tử CÙNG panel (data-value-target/data-cross-target chỉ là id, không đủ để
- * document.getElementById nếu 2 panel lỡ cùng tồn tại tức thời lúc trượt animation — luôn scope
- * theo đúng panel chứa input vừa đổi). */
-function findVisualizerDisplayPanelScoped(el, targetId) {
-    if (!targetId) return null;
-    const panel = el.closest('.settings-stack-panel');
-    return panel ? panel.querySelector('#' + targetId) : null;
-}
-
-function handleVisualizerDisplayDelegatedEvent(e) {
-    const entry = VISUALIZER_DISPLAY_INPUT_MAP[e.target.id];
-    if (!entry || entry.event !== e.type) return; // không phải input cụm này, hoặc đúng id nhưng sai loại event (vd change bắn trên input đang nghe input)
-
-    const payload = entry.checkbox ? { checked: e.target.checked } : { value: e.target.value };
-    if (entry.display) payload.displayEl = findVisualizerDisplayPanelScoped(e.target, e.target.dataset.valueTarget);
-    if (entry.cross) payload.crossEl = findVisualizerDisplayPanelScoped(e.target, e.target.dataset.crossTarget);
-
-    eventBus.send({ router: 'visualizerDisplay', type: entry.type, payload });
+function handleVisualizerDisplayPanelChange(e) {
+    const entry = VISUALIZER_DISPLAY_PANEL_INPUT_MAP[e.target.id];
+    if (!entry) return;
+    eventBus.send({ router: 'visualizerDisplay', type: entry.type, payload: { checked: e.target.checked } });
 }
 
 if (settingsStackBody) {
-    settingsStackBody.addEventListener('input', handleVisualizerDisplayDelegatedEvent);
-    settingsStackBody.addEventListener('change', handleVisualizerDisplayDelegatedEvent);
+    settingsStackBody.addEventListener('change', handleVisualizerDisplayPanelChange);
 }
