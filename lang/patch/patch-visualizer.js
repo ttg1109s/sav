@@ -125,14 +125,20 @@ const LANG_PATCH_VISUALIZER = {
 
     // MỚI (10/08/2026) — panel Settings "Cử chỉ" (components/gesture-settings-drawer.js).
     'gestureSettings.title': 'Gestures',
-    // MỚI (12/08/2026, Giang yêu cầu — "Action") — 3 ngăn CỐ ĐỊNH, mỗi ngăn gán 1 nút Control
-    // Center, dùng làm đích cho 6 dropdown vuốt/tap bên dưới (xem docstring components/
-    // gesture-settings-drawer.js). Nhãn "Action 1/2/3" DÙNG CHUNG cho cả nhãn hàng (section Action)
-    // LẪN <option> tương ứng trong 6 dropdown đó — cố ý 1 chuỗi, đổi 1 chỗ khớp cả 2 nơi.
+    // MỚI (12/08/2026, Giang yêu cầu — "Action") — 3 Slot CỐ ĐỊNH, mỗi Slot gán 1 nút Control
+    // Center, dùng làm đích cho 7 dropdown vuốt/tap/tap-3-lần bên dưới (xem docstring components/
+    // gesture-settings-drawer.js). Nhãn "Slot 1/2/3" DÙNG CHUNG cho cả nhãn hàng (section Actions)
+    // LẪN <option> tương ứng trong 7 dropdown đó — cố ý 1 chuỗi, đổi 1 chỗ khớp cả 2 nơi.
+    // SỬA (12/08/2026, Giang yêu cầu "tránh nhãn Action X mà vẫn hiểu ý định") — "Action 1/2/3" ->
+    // "Slot 1/2/3": "Action" lặp lại vô nghĩa với chính tiêu đề section "Actions" ngay trên, không
+    // tự nói được đây là 1 "ngăn chứa" (gán 1 nút) chứ KHÔNG PHẢI bản thân 1 hành động — ý định đầy
+    // đủ chuyển sang dòng hint mới `sectionActions.hint` (đặt 1 lần dưới tiêu đề section, đỡ phải
+    // nhồi vào từng tên hàng).
     'gestureSettings.sectionActions': 'Actions',
-    'gestureSettings.action.actionSlot1': 'Action 1',
-    'gestureSettings.action.actionSlot2': 'Action 2',
-    'gestureSettings.action.actionSlot3': 'Action 3',
+    'gestureSettings.sectionActions.hint': 'Assign a Control Center button to each slot, then pick that slot from any gesture below',
+    'gestureSettings.action.actionSlot1': 'Slot 1',
+    'gestureSettings.action.actionSlot2': 'Slot 2',
+    'gestureSettings.action.actionSlot3': 'Slot 3',
     'gestureSettings.sectionNav': 'Navigation',
     'gestureSettings.swipeUp.label': 'Swipe up',
     'gestureSettings.swipeDown.label': 'Swipe down',
@@ -156,8 +162,10 @@ const LANG_PATCH_VISUALIZER = {
     'gestureSettings.sectionEdge': 'Edge swipe',
     'gestureSettings.edgeTop.label': 'Swipe from top edge',
     'gestureSettings.edgeTop.hint': 'Opens the Control Center',
+    // SỬA (12/08/2026, Giang yêu cầu "tap 3 dùng chung select giống tap/cử chỉ khác") — `.hint` cũ
+    // ("Triggers the Control Center button chosen") ĐÃ BỎ — dropdown Tap 3 lần giờ dùng actionRow()
+    // Y HỆT Tap đơn/đúp (components/gesture-settings-drawer.js), KHÔNG còn khối hint 2 dòng riêng.
     'gestureSettings.tripleTapTarget.label': 'Triple tap',
-    'gestureSettings.tripleTapTarget.hint': 'Triggers the Control Center button chosen',
     'gestureSettings.tripleTapTarget.captureFrameOption': 'Capture (video only)',
 
 };
