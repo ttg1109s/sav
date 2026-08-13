@@ -155,14 +155,10 @@ const workflowVisualizerRender = {
         const isVisualOff = cfg.visualEnabled === false;
         updateCanvasVisibility(canvas, document.getElementById('webgl-canvas'), isVisualOff); // core
 
-        appState.set('frameCounter', frameCounter + 1, { skipCheck: true });
-        // FIX (phản hồi Giang — "tách blur ra khỏi cấu hình hiệu năng thành 1 toggle riêng") —
-        // PERFORMANCE_PROFILES[quality].blurMult TRƯỚC ĐÂY là NGUỒN DUY NHẤT bật/tắt blur (đóng
-        // băng theo tier high/medium/low, không tách được). blurEnabled=false ép blurMult về 0
-        // BẤT KỂ quality đang chọn gì — object mới (PERFORMANCE_PROFILES đã Object.freeze, không
-        // sửa tại chỗ được). 5 file dùng perf.blurMult (bar/black-hole/lightning/rain/rubik.js)
-        // ĐỀU nhận perf từ ĐÚNG 1 chỗ này — sửa 1 nơi, áp dụng hết, không cần đụng file nào khác.
-        const perf = cfg.blurEnabled === false ? { ...PERFORMANCE_PROFILES[cfg.quality], blurMult: 0 } : PERFORMANCE_PROFILES[cfg.quality];
+        // Blur/glow giờ CẤU HÌNH RIÊNG từng effect (customEffect[type].blurEnabled/blurIntensity,
+        // xem core/custom-effect.js) — perf chỉ còn mang đúng field `blurMult` mà 5 file vẽ (bar/
+        // black-hole/lightning/rain/rubik.js) đang đọc qua `perf.blurMult`.
+        const perf = { blurMult: getActiveBlurMult() }; // core/audio-analysis.js
         if (!vizDataArray) return; // guard — audio context chưa init (giống hệt hành vi cũ)
 
         analyser.getByteFrequencyData(vizDataArray);
@@ -183,10 +179,9 @@ const workflowVisualizerRender = {
 
         updateStatsDashboard(bufferLength); // core hiện có (di sản trước 04/07/2026 — Rule 0.5, KHÔNG đụng logic bên trong)
 
-        // "Nốt nhạc bay lên" TÁCH RIÊNG khỏi isVisualOff bên dưới (phản hồi Giang — "nó là tính
-        // năng mặc định") — phần tử DOM phụ trên #record-container, KHÔNG PHỤ THUỘC canvas
-        // visualizer có đang vẽ hay không, nên vẫn chạy dù người dùng tắt "Hiện Visual".
-        if (isPlaying && (cfg.quality === 'high' || cfg.quality === 'medium') && newSmoothedEnergy > 0.3 && Math.random() > 0.6) spawnFlyingNote(); // core hiện có
+        // "Nốt nhạc bay lên" — luôn bật (bỏ gate theo chế độ hiệu năng đã xoá), tách khỏi
+        // isVisualOff bên dưới: phần tử DOM phụ trên #record-container, không phụ thuộc canvas.
+        if (isPlaying && newSmoothedEnergy > 0.3 && Math.random() > 0.6) spawnFlyingNote(); // core hiện có
 
         // Mọi phần dưới đây CHỈ liên quan tới việc VẼ ra canvas — bỏ qua khi visual đang tắt.
         if (isVisualOff) return;
@@ -196,7 +191,7 @@ const workflowVisualizerRender = {
             drawVortex(perf, isPlaying);
         } else if (cfg.type === 'space') {
             // ================== VISUAL MỚI (Galaxy) — Workflow điều phối THẬT SỰ (plan B2) ==================
-            this._tickSpace(cfg, isPlaying, newSmoothedEnergy, newGlobalHueOffset);
+            this._tickSpace(isPlaying, newSmoothedEnergy, newGlobalHueOffset);
         }
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -212,7 +207,7 @@ const workflowVisualizerRender = {
      * đứng yên). Thứ tự mỗi tick: bootstrap -> tiến hành đúng pha hiện tại (travel HOẶC rotate,
      * KHÔNG BAO GIỜ cả 2 cùng lúc) -> cập nhật từng thiên hà -> bụi nền -> render.
      */
-    _tickSpace(cfg, isPlaying, smoothedEnergy, globalHueOffset) {
+    _tickSpace(isPlaying, smoothedEnergy, globalHueOffset) {
         if (!appState.get('spInitialized')) return; // guard, giống hệt drawVortex()
 
         const spCamera = appState.get('spCamera');
@@ -242,7 +237,8 @@ const workflowVisualizerRender = {
         // ----- 2. cập nhật từng thiên hà (đọc LẠI sau bước 1 — có thể vừa được THAY TOÀN BỘ bởi
         // `_ensureGalaxyMap()` gọi từ bên trong travel/rotate transition) -----
         const spGalaxyClusters = appState.get('spGalaxyClusters');
-        const hueShift = (cfg.mode === 'dynamic' || cfg.mode === 'gradient') ? globalHueOffset : 0;
+        const spaceCfg = getEffectConfig('space'); // core/custom-effect.js
+        const hueShift = (spaceCfg.mode === 'dynamic' || spaceCfg.mode === 'gradient') ? globalHueOffset : 0;
         spGalaxyClusters.forEach(cluster => cluster.update(delta, SPACE_GALAXY_SPIN_SPEED, _spGlobalTime, hueShift, smoothedEnergy)); // core method
 
         // ----- 3. bụi vũ trụ nền -----
@@ -275,8 +271,9 @@ const workflowVisualizerRender = {
         return result.type;
     },
 
-    /** Sinh toàn bộ thành viên của 1 "nút" bản đồ — dùng CHUNG cho toàn bộ `_ensureGalaxyMap()`. */
-    _spawnGalaxyNodeMembers(clusterCore, cfg, perf, spScene, spGlowTexture, spNebulaTexture) {
+    /** Sinh toàn bộ thành viên của 1 "nút" bản đồ — dùng CHUNG cho toàn bộ `_ensureGalaxyMap()`.
+     * @param {object} spaceCfg - getEffectConfig('space'), core/custom-effect.js */
+    _spawnGalaxyNodeMembers(clusterCore, spaceCfg, spScene, spGlowTexture, spNebulaTexture) {
         let totalSpawned = appState.get('spTotalGalaxiesSpawned');
         const vizDataArray = appState.get('vizDataArray');
         const memberCount = 3 + Math.floor(Math.random() * 3);
@@ -284,13 +281,13 @@ const workflowVisualizerRender = {
             const offset = computeGalaxyMemberOffset(); // core
             const finalPos = clusterCore.clone().add(offset);
             const type = this._pickNextGalaxyType();
-            const palette = pickGalaxyPalette(cfg.mode, cfg.solidColor, cfg.dynA, cfg.dynB); // core — MỌI hình thái đều theo cfg.mode, không ngoại lệ
+            const palette = pickGalaxyPalette(spaceCfg.mode, spaceCfg.solidColor, spaceCfg.dynA, spaceCfg.dynB); // core — MỌI hình thái đều theo màu riêng effect Space
             const radius = 65 + Math.random() * 25;
             // Snapshot lúc SPAWN (one-shot) — mật độ sao bám theo smoothedEnergy TẠI THỜI ĐIỂM
             // sinh (KHÔNG đổi lại sau đó, "baked" vào chính thiên hà này).
             const smoothedEnergyAtSpawn = appState.get('smoothedEnergy');
             const densityRatio = THREE.MathUtils.clamp(0.3 + smoothedEnergyAtSpawn * 0.7, 0, 1);
-            const starsCount = Math.round(perf.galaxyStarsMin + (perf.galaxyStarsMax - perf.galaxyStarsMin) * densityRatio);
+            const starsCount = Math.round(spaceCfg.starCountMin + (spaceCfg.starCountMax - spaceCfg.starCountMin) * densityRatio);
             const rotationDir = Math.random() < 0.5 ? 1.0 : -1.0;
             const rotationSpeed = 0.05 + Math.random() * 0.55; // biên độ rộng — mỗi thiên hà quay 1 tốc độ khác biệt rõ
             const rotation = new THREE.Euler(Math.random() * 0.4, Math.random() * Math.PI, Math.random() * 0.4);
@@ -314,7 +311,7 @@ const workflowVisualizerRender = {
             for (let i = 0; i < starsCount; i++) genFn(positions, colors, sizes, i, geomConfig, colorIn, colorOut);
 
             cluster.build(positions, colors, sizes, spGlowTexture, spScene); // core method
-            cluster.buildNebula(colorOut, spNebulaTexture, perf.galaxyNebulaCount); // core method
+            cluster.buildNebula(colorOut, spNebulaTexture, spaceCfg.nebulaCount); // core method
 
             appState.mutate('spGalaxyClusters', arr => arr.push(cluster));
         }
@@ -346,14 +343,13 @@ const workflowVisualizerRender = {
         clusters.forEach(c => c.dispose(spScene)); // core method — dọn sạch bản đồ CŨ trước khi dựng bản đồ MỚI
         appState.set('spGalaxyClusters', []);
 
-        const cfg = appConfigViz.getAll();
-        const perf = PERFORMANCE_PROFILES[cfg.quality];
+        const spaceCfg = getEffectConfig('space'); // core/custom-effect.js
         const spGlowTexture = appState.get('spGlowTexture');
         const spNebulaTexture = appState.get('spNebulaTexture');
 
-        const nodePositions = generateGalaxyMapNodePositions(centerPos, perf.galaxyMapNodes, perf.galaxyMapRadius); // core
+        const nodePositions = generateGalaxyMapNodePositions(centerPos, spaceCfg.mapNodeCount, spaceCfg.mapRadius); // core
         nodePositions.forEach(nodeCore => {
-            this._spawnGalaxyNodeMembers(nodeCore, cfg, perf, spScene, spGlowTexture, spNebulaTexture);
+            this._spawnGalaxyNodeMembers(nodeCore, spaceCfg, spScene, spGlowTexture, spNebulaTexture);
         });
 
         appState.set('spMapCenter', centerPos.clone());
@@ -383,8 +379,8 @@ const workflowVisualizerRender = {
     _computeTravelWaypoint(originPos, forward) {
         const spGalaxyClusters = appState.get('spGalaxyClusters');
         const mapCenter = appState.get('spMapCenter');
-        const perf = PERFORMANCE_PROFILES[appConfigViz.getAll().quality];
-        const maxDist = perf.galaxyMapRadius * SPACE_TARGET_MAX_DIST_RATIO;
+        const mapRadius = getEffectConfig('space').mapRadius; // core/custom-effect.js
+        const maxDist = mapRadius * SPACE_TARGET_MAX_DIST_RATIO;
 
         let targetPos = findClusterTargetAhead(spGalaxyClusters, originPos, forward, SPACE_TARGET_CONE_COS, maxDist); // core
         if (!targetPos && spGalaxyClusters.length > 0) {
@@ -393,7 +389,7 @@ const workflowVisualizerRender = {
         if (!targetPos) return originPos.clone().addScaledVector(forward, SPACE_LEG_DISTANCE); // phòng hờ tuyệt đối
 
         targetPos.addScaledVector(forward, SPACE_FLYTHROUGH_OVERSHOOT);
-        return mirrorPositionIfOutOfBounds(targetPos, mapCenter, perf.galaxyMapRadius); // core
+        return mirrorPositionIfOutOfBounds(targetPos, mapCenter, mapRadius); // core
     },
 
     /**

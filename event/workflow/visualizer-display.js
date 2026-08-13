@@ -16,82 +16,21 @@
  * còn cần shield, gọi thẳng `applyBgImageEnabled(false)` (core giờ đồng bộ). CHỈ nhánh `enabled:true`
  * (mở picker + `applyBgImage()`) còn ở workflow (>1 bước + cần shield lúc lưu).
  *
- * === Batch D3 (Settings restructure, 06/07/2026) ===
- * THÊM `openPanel()` (push panel Visualizer Settings + đồng bộ TOÀN BỘ giá trị hiện tại — GỘP CẢ
- * phần "Chất lượng/Hình học/Màu sắc" (file này) LẪN phần "Tự động đổi hiệu ứng" (core/auto-switch-
- * visual.js), vì cả 2 SECTION cùng sống trong 1 panel — xem components/visualizer-settings-
- * drawer.js). THÊM 13 method `set*` — mỗi method GỘP core setter (Rule 1-4 đầy đủ, không tự gọi
- * core khác) + các lệnh core PHỤ (update.../resizeCanvas...) + `saveConfig()` theo ĐÚNG thứ tự hàm
- * cũ làm trước khi tách (xem lịch sử core/visualizer/visualizer-display.js).
- * LƯU Ý ĐẶT TÊN: nhiều method dưới đây TRÙNG TÊN với hàm core cùng chức năng (vd
- * `workflowVisualizerDisplay.setBgColor()` gọi hàm core toàn cục `setBgColor()`) — đây KHÔNG phải
- * đệ quy: gọi trần `setBgColor(...)` bên trong 1 method object-literal luôn phân giải theo scope
- * TỪ VỰNG (tìm thấy hàm global cùng tên ở core/), KHÔNG tự trỏ vào chính method đang chạy (khác
- * named function expression) — không có ES6 module nên không cần import, nhưng cũng vì vậy CHỈ
- * ĐƯỢC set 1 hàm global 1 tên duy nhất, không được định nghĩa lại `function setBgColor` ở file nào
- * khác ngoài core/visualizer/visualizer-display.js.
+ * (12/08/2026) Cấu hình riêng effect (màu/blur/style con/kích thước) ĐÃ DỜI hẳn sang Custom Effect
+ * Drawer (event/workflow/custom-effect.js) — `openPanel()`/`openCustomEffectPanel()` cũ ĐÃ BỎ,
+ * thay bằng `openDisplayPanel()` (panel "Display", 5 toggle UI chrome).
  */
 const workflowVisualizerDisplay = {
 
-    /**
-     * Ứng với msg.type = 'visualizerDisplay.openPanel.click' — push panel "Customize Visualizer" +
-     * đồng bộ input CÒN LẠI trong panel này (Colors + Display — Geometry/Auto-switch ĐÃ RỜI sang 2
-     * panel riêng, xem openCustomEffectPanel()/openAutoSwitchPanel() bên dưới, mục 4c/4f Giang
-     * yêu cầu 12/08/2026).
-     */
-    openPanel() {
-        const panelEl = pushSettingsPanel({ title: t('visualizerSettingsDrawer.title'), bodyHtml: renderVisualizerPanelBody() });
+    /** Push panel "Display" (components/settings/visualizer-display-panel.js) + đồng bộ 5 toggle. */
+    openDisplayPanel() {
+        const panelEl = pushSettingsPanel({ title: t('visualizerDisplayPanel.title'), bodyHtml: renderVisualizerDisplayPanelBody() });
         const cfg = appConfigViz.getAll();
-
-        panelEl.querySelector('#setting-color-mode').value = cfg.mode;
-        panelEl.querySelector('#solid-color-text').value = cfg.solidColor;
-        panelEl.querySelector('#solid-color-picker').value = cfg.solidColor;
-        panelEl.querySelector('#dyn-color-a').value = cfg.dynA;
-        panelEl.querySelector('#dyn-color-b').value = cfg.dynB;
-
-        // Hiện/ẩn đúng khối theo mode màu hiện tại — hàm này đã có guard (Batch D3), panel vừa
-        // push nên chắc chắn tìm thấy phần tử.
-        updateColorMenuUI();
-
-        // ===== Section "Hiển thị Visualizer" =====
+        panelEl.querySelector('#setting-visual-enable').checked = cfg.visualEnabled !== false;
         panelEl.querySelector('#setting-stats-panel-enable').checked = appConfigPlayer.getAll().isStatsPanelVisible !== false;
         panelEl.querySelector('#setting-bottom-player-enable').checked = cfg.bottomPlayerVisible !== false;
         panelEl.querySelector('#setting-playlist-button-enable').checked = cfg.playlistButtonVisible !== false;
         panelEl.querySelector('#setting-control-center-button-enable').checked = cfg.controlCenterButtonVisible !== false;
-    },
-
-    /** Ứng với msg.type = 'visualizerDisplay.openCustomEffectPanel.click' — push panel "Custom
-     * Effect" (MỚI 12/08/2026, mục 4c — tách từ card "Visualizer Geometry" cũ trong panel
-     * "Customize Visualizer") + đồng bộ mọi input hình học theo từng kiểu hiệu ứng. */
-    openCustomEffectPanel() {
-        const panelEl = pushSettingsPanel({ title: t('visualizerCustomEffectDrawer.title'), bodyHtml: renderVisualizerCustomEffectPanelBody() });
-        const cfg = appConfigViz.getAll();
-
-        panelEl.querySelector('#setting-vortex-style').value = cfg.vortexStyle;
-        panelEl.querySelector('#setting-bar-style').value = cfg.barStyle;
-        panelEl.querySelector('#setting-rain-style').value = cfg.rainStyle;
-        panelEl.querySelector('#setting-glass-flash').checked = cfg.glassFlash === true;
-        panelEl.querySelector('#setting-max-height').value = cfg.maxH;
-        panelEl.querySelector('#val-max').textContent = cfg.maxH;
-        panelEl.querySelector('#setting-bar-width').value = cfg.barWidth;
-        panelEl.querySelector('#val-width').textContent = cfg.barWidth;
-        panelEl.querySelector('#setting-mirror-count').value = cfg.mirrorBarCount;
-        panelEl.querySelector('#val-mirror-count').textContent = cfg.mirrorBarCount;
-        panelEl.querySelector('#setting-rain-city-opacity').value = cfg.rainGlassCityOpacity;
-        panelEl.querySelector('#val-rain-city-opacity').textContent = cfg.rainGlassCityOpacity;
-        panelEl.querySelector('#setting-rain-city-visible').checked = cfg.rainGlassCityVisible !== false;
-        panelEl.querySelector('#setting-rain-moon-visible').checked = cfg.rainGlassMoonVisible !== false;
-        panelEl.querySelector('#setting-rain-window-visible').checked = cfg.rainGlassWindowVisible !== false;
-
-        // Hiện/ẩn đúng khối theo kiểu hiệu ứng/kiểu bar hiện tại — updateTypeUI() tự
-        // document.getElementById() TƯƠI mỗi lần gọi (HOTFIX 2, core/visualizer/
-        // visualizer-display.js), hoạt động đúng bất kể khối đang nằm trong panel nào, miễn panel
-        // đang mở — panel này vừa push nên chắc chắn tìm thấy. updateBarStyleUI() cũng vậy, gọi
-        // LẠI ở đây phòng type hiện tại KHÔNG phải 'bar' (updateTypeUI() chỉ tự gọi nó khi
-        // cfg.type==='bar') nhưng người dùng vẫn cần thấy đúng trạng thái mirror/cascade đã lưu nếu
-        // sau đổi qua lại — an toàn, updateBarStyleUI() tự no-op nếu #block-bar-style đang ẩn.
-        updateTypeUI();
-        updateBarStyleUI();
     },
 
     /** Ứng với msg.type = 'visualizerDisplay.openAutoSwitchPanel.click' — push panel "Auto-Switch
@@ -119,90 +58,8 @@ const workflowVisualizerDisplay = {
         );
     },
 
-    setQuality(value) {
-        setVisualizerQuality(value);
-        resizeCanvas();
-        saveConfig();
-    },
-    // (setBgColor XOÁ — v13: màu nền dời sang `workflowVisualBg.changeSolidColor()`.)
-    setColorMode(value) {
-        setColorMode(value);
-        updateColorMenuUI();
-        saveConfig();
-    },
-    setSolidColorFromPicker(value, crossEl) {
-        setSolidColorFromPicker(value, crossEl);
-        updateProgressBarCSS();
-        saveConfig();
-    },
-    setSolidColorFromText(value, crossEl) {
-        const applied = setSolidColorFromText(value, crossEl); // core trả về false nếu sai định dạng hex -> bỏ qua im lặng, giữ đúng hành vi gốc
-        if (!applied) return;
-        updateProgressBarCSS();
-        saveConfig();
-    },
-    setDynColorA(value) {
-        setDynColorA(value);
-        saveConfig();
-    },
-    setDynColorB(value) {
-        setDynColorB(value);
-        updateProgressBarCSS();
-        saveConfig();
-    },
-    setVortexStyle(value) {
-        setVortexStyle(value);
-        updateVortexVisibility();
-        saveConfig();
-    },
-    setBarStyle(value) {
-        setBarStyle(value);
-        updateBarStyleUI();
-        saveConfig();
-    },
-    setRainStyle(value) {
-        setRainStyle(value);
-        resizeCanvas();
-        updateRainStyleUI();
-        saveConfig();
-    },
-    setGlassFlash(checked) {
-        setGlassFlash(checked);
-        saveConfig();
-    },
-    setMaxHeight(value, displayEl) {
-        setMaxHeight(value, displayEl);
-        saveConfig();
-    },
-    setBarWidth(value, displayEl) {
-        setBarWidth(value, displayEl);
-        saveConfig();
-    },
-    setMirrorCount(value, displayEl) {
-        setMirrorCount(value, displayEl);
-        saveConfig();
-    },
-    setRainCityOpacity(value, displayEl) {
-        setRainCityOpacity(value, displayEl);
-        saveConfig();
-    },
-    setRainCityVisible(checked) {
-        setRainCityVisible(checked);
-        saveConfig();
-    },
-    setRainMoonVisible(checked) {
-        setRainMoonVisible(checked);
-        saveConfig();
-    },
-    setRainWindowVisible(checked) {
-        setRainWindowVisible(checked);
-        saveConfig();
-    },
-    setBlurEnabled(checked) {
-        setBlurEnabled(checked);
-        saveConfig();
-    },
-    // (Phần B, Galaxy — 5 method spaceStyle/4 slider ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1)
+    // (14 method set* cho màu/blur/style con/kích thước ĐÃ DỜI sang event/workflow/custom-effect.js)
+    // (Phần B, Galaxy — 5 method spaceStyle/4 slider ĐÃ BỎ 21/07/2026)
 
     /**
      * FIX (04/07/2026, mục 1 phản hồi Giang) — GỘP nút "Chọn thư viện" (đã xoá) VÀO ĐÂY: gạt toggle
