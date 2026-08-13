@@ -1,23 +1,13 @@
 /**
  * Visual RAIN — 2 kiểu (rainStyle):
- *   - 'glass'  : mưa trôi trên ô cửa kính nhìn ra thành phố ban đêm, có trăng. Logic gốc giữ
- *     nguyên 1:1 (chỉ tách hàm flash chớp ra dùng chung với 'street').
- *   - 'street' : mưa phố & công viên về đêm — đèn đường (3 cột, đều chạm mặt đất) + hàng rào
- *     công viên (cọc sắt tĩnh) chạy dọc mặt đất ngay sau lưng các cột đèn. Mặt đất luôn cao hơn
- *     vùng thanh điều khiển dưới cùng. Đèn/nền tô theo vizConfig.mode (đơn sắc/pha trộn/gradient)
- *     thay vì màu cố định, nhấp nháy rõ hơn, và mật độ mưa/hiệu ứng glow co giãn theo
- *     PERFORMANCE_PROFILES.
+ *   - 'glass'  : mưa trôi trên ô cửa kính nhìn ra thành phố ban đêm, có trăng.
+ *   - 'street' : mưa phố & công viên về đêm — đèn đường (3 cột) + hàng rào công viên.
  *
- * Chớp sáng (vizConfig.glassFlash) dùng CHUNG một hàm cho cả 2 kiểu — bật/tắt một nơi, áp dụng
- * đồng thời cho ô kính ("chớp sáng ngoài ô kính") và đèn đường ("chớp xa" mô phỏng sấm chớp ở
- * đường phố).
+ * Chớp sáng (glassFlash) dùng CHUNG một hàm cho cả 2 kiểu.
  */
 
-        // Chớp sáng dùng chung cho cả 'glass' và 'street': phủ một lớp sáng nhẹ toàn màn hình khi
-        // năng lượng nhạc tức thời (energySpike) vượt ngưỡng. flashTint cho phép đổi màu chớp theo
-        // ngữ cảnh (glass: ánh trăng hơi xanh; street: ánh đèn sấm chớp trung tính).
         function drawRainFlash(ctx, isPlaying, flashTint) {
-            if (!appConfigViz.getAll().glassFlash || !isPlaying) return;
+            if (!getActiveEffectConfig().glassFlash || !isPlaying) return;
             let energySpike = appState.get('smoothedEnergy') * ((appState.get('vizDataArray')[3] || 0) / 255);
             let flashAlpha = energySpike > 0.4 ? (energySpike - 0.4) * 1.2 : 0;
             if (flashAlpha > 0) {
@@ -27,16 +17,13 @@
         }
 
         function drawRainGlass(ctx, perf, isPlaying) {
-            const cfg = appConfigViz.getAll();
+            const cfg = getActiveEffectConfig(); // core/custom-effect.js
             const dpr = appState.get('dpr');
             const smoothedEnergy = appState.get('smoothedEnergy');
             const vizDataArray = appState.get('vizDataArray');
-            // `hasCustomBg` CHỈ quyết định có tô lớp phủ `cfg.bgColor` (dòng dưới) hay không — có
-            // BẤT KỲ nguồn nền tuỳ chỉnh nào (video/ảnh Visual/slideshow) thì bỏ tô, để nền thật
-            // hiện xuyên qua canvas (canvas trong suốt ở vùng không vẽ gì).
-            const hasCustomBg = appConfigVisualBg.getAll().source.list.some((k) => k !== null) || appState.get('isVideoPlayerMode'); // SỬA (v14) — `enabled` đã xoá, đổi sang đọc thẳng `source.list` còn item sống hay không
-            // SỬA (v13) — `vizConfig.bgColor` -> `visualBgConfig.solidColor`. Canvas không nhận
-            // chuỗi CSS gradient, nên chế độ gradient dùng màu chặng ĐẦU làm màu nền canvas.
+            // `hasCustomBg` quyết định có tô lớp phủ nền màu hay không — có BẤT KỲ nguồn nền tuỳ
+            // chỉnh nào (video/ảnh Visual/slideshow) thì bỏ tô, để nền thật hiện xuyên qua canvas.
+            const hasCustomBg = appConfigVisualBg.getAll().source.list.some((k) => k !== null) || appState.get('isVideoPlayerMode');
             if (!hasCustomBg) { const vb = appConfigVisualBg.getAll(); ctx.fillStyle = vb.colorMode === 'gradient' && vb.gradientStops.length ? vb.gradientStops[0].color : vb.solidColor; ctx.fillRect(0, 0, canvas.width, canvas.height); }
             let progress = 0; if (audioPlayer && isFinite(audioPlayer.duration) && audioPlayer.duration > 0) progress = audioPlayer.currentTime / audioPlayer.duration;
             let moonX = canvas.width * 0.70; let moonY = canvas.height * 0.35; let baseScale = 4 + Math.sin(progress * Math.PI) * 1; let baseMoonRadius = baseScale * 8 * dpr; 
@@ -50,10 +37,9 @@
             // compositing layer riêng do OS quản lý, có thể vẫn đè lên bất kể z-index (đã xác nhận
             // qua 3 lần thử ở tình huống khác — xem core/video-player.js) — cần Giang tự kiểm tra
             // trên thiết bị thật; nếu vẫn bị che, đây là giới hạn nền tảng, không phải sai chỗ này.
-            // MỚI (phản hồi Giang) — 3 lớp cảnh (Trăng/Big City/Khung cửa sổ) giờ hiện/ẩn RIÊNG qua
-            // rainGlassMoonVisible/rainGlassCityVisible/rainGlassWindowVisible, Big City thêm độ
-            // trong tuỳ chỉnh rainGlassCityOpacity (0-100, mặc định 40 — khớp alpha cố định cũ).
-            if (cfg.rainGlassMoonVisible !== false) {
+            // 3 lớp cảnh (Trăng/Big City/Khung cửa sổ): Trăng+City ẩn/hiện theo toggle riêng, Big
+            // City có độ trong tuỳ chỉnh (glassCityOpacity) — Khung cửa sổ LUÔN hiện (không còn toggle).
+            if (cfg.glassMoonVisible !== false) {
                 ctx.beginPath(); ctx.arc(moonX, moonY, Math.max(0.1, dynamicMoonRadius), 0, Math.PI * 2); ctx.fillStyle = '#e0e8ff';
                 if (perf.blurMult > 0) { ctx.shadowBlur = (30 + smoothedEnergy * 20) * dpr * perf.blurMult; ctx.shadowColor = '#aaccff'; }
                 ctx.globalAlpha = 0.6 + (smoothedEnergy * 0.3); ctx.fill(); ctx.shadowBlur = 0;
@@ -61,8 +47,8 @@
 
             drawRainFlash(ctx, isPlaying, (a) => `rgba(200, 220, 255, ${a})`);
 
-            if (cfg.rainGlassCityVisible !== false) {
-                const cityOpacity = (typeof cfg.rainGlassCityOpacity === 'number' ? cfg.rainGlassCityOpacity : 40) / 100;
+            if (cfg.glassCityVisible !== false) {
+                const cityOpacity = (typeof cfg.glassCityOpacity === 'number' ? cfg.glassCityOpacity : 40) / 100;
                 ctx.globalAlpha = cityOpacity;
                 appState.get('cityBuildings').forEach(b => {
                     ctx.fillStyle = '#03060a'; ctx.fillRect(b.x, canvas.height - b.h, b.w, b.h);
@@ -79,7 +65,7 @@
             const glassStaticDropsRead = appState.get('glassStaticDrops');
             for (let i = 0; i < glassStaticDropsRead.length; i++) { let drop = glassStaticDropsRead[i]; drawWaterDrop(ctx, drop.x, drop.y, drop.r, 0.6); }
 
-            if (isPlaying && smoothedEnergy > 0.4 && Math.random() > perf.streakProb) {
+            if (isPlaying && smoothedEnergy > 0.4 && Math.random() > (1 - cfg.glassStreakFrequency / 100)) {
                 let cVal = vizDataArray[Math.floor(Math.random() * 10)] || 0;
                 appState.mutate('glassStreaks', arr => arr.push({ x: Math.random() * canvas.width, y: -20, r: (Math.random() * 2 + 1.5) * dpr, speed: (Math.random() * 2 + 3) * dpr, colorVal: cVal }), { skipCheck: true });
             }
@@ -98,8 +84,8 @@
                         }, { skipCheck: true });
                     }
                 }
-                if (Math.random() > 0.7 && appState.get('glassStaticDrops').length <= (perf.glassDrops * 2)) appState.mutate('glassStaticDrops', arr => arr.push({x: streak.x + (Math.random()-0.5)*4*dpr, y: streak.y - streak.r*1.5, r: Math.max(0.1, streak.r * 0.3)}), { skipCheck: true });
-                if(appState.get('glassStaticDrops').length > (perf.glassDrops * 2) + 50) appState.mutate('glassStaticDrops', arr => arr.shift(), { skipCheck: true });
+                if (Math.random() > 0.7 && appState.get('glassStaticDrops').length <= (cfg.glassDropDensity * 2)) appState.mutate('glassStaticDrops', arr => arr.push({x: streak.x + (Math.random()-0.5)*4*dpr, y: streak.y - streak.r*1.5, r: Math.max(0.1, streak.r * 0.3)}), { skipCheck: true });
+                if(appState.get('glassStaticDrops').length > (cfg.glassDropDensity * 2) + 50) appState.mutate('glassStaticDrops', arr => arr.shift(), { skipCheck: true });
                 drawWaterDrop(ctx, streak.x, streak.y, streak.r, 0.9); if (streak.y > canvas.height + 50) appState.mutate('glassStreaks', arr => arr.splice(i, 1), { skipCheck: true });
             }
             
@@ -107,7 +93,7 @@
             glassGradient.addColorStop(0, 'rgba(255, 255, 255, 0.0)'); glassGradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.02)');
             glassGradient.addColorStop(0.4, 'rgba(255, 255, 255, 0.08)'); glassGradient.addColorStop(0.41, 'transparent'); glassGradient.addColorStop(1, 'transparent');
             ctx.fillStyle = glassGradient; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            if (cfg.rainGlassWindowVisible !== false) drawWindowFrame(ctx);
+            drawWindowFrame(ctx);
         }
 
         // Hàng rào kiểu cổng/rào công viên cổ điển — một dãy cọc thẳng đứng nối bằng 2 thanh
@@ -141,7 +127,7 @@
         }
 
         function drawRainStreet(ctx, perf, isPlaying) {
-            const cfg = appConfigViz.getAll();
+            const cfg = getActiveEffectConfig(); // core/custom-effect.js
             const dpr = appState.get('dpr');
             const smoothedEnergy = appState.get('smoothedEnergy');
             const beatScale = appState.get('beatScale');
@@ -275,6 +261,6 @@
 
         function drawRain(ctx, perf, isPlaying) {
             ctx.lineCap = 'round';
-            if (appConfigViz.getAll().rainStyle === 'street') drawRainStreet(ctx, perf, isPlaying);
+            if (getActiveEffectConfig().rainStyle === 'street') drawRainStreet(ctx, perf, isPlaying);
             else drawRainGlass(ctx, perf, isPlaying);
         }

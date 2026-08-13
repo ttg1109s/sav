@@ -18,7 +18,7 @@
         const BAR_MIRROR_COUNT_PER_SIDE = 32;
 
         function drawBarMirror(ctx, perf) {
-            const cfg = appConfigViz.getAll();
+            const cfg = getActiveEffectConfig(); // core/custom-effect.js
             const dpr = appState.get('dpr');
             const vizDataArray = appState.get('vizDataArray');
             const centerX = canvas.width / 2, centerY = canvas.height / 2;
@@ -91,7 +91,7 @@
             // phím rơi từ trên xuống đáy màn hình theo cường độ tần số tương ứng. Độ dày mỗi phím
             // không còn lấy từ setting "Độ dày thanh" (setting đó giờ chỉ dùng cho Black Hole) —
             // thay vào đó tự tính theo độ rộng slot (kw) để luôn khớp đều với bố cục 64 phím.
-            const cfg = appConfigViz.getAll();
+            const cfg = getActiveEffectConfig(); // core/custom-effect.js
             const dpr = appState.get('dpr');
             const vizDataArray = appState.get('vizDataArray');
             const scaledMinH = cfg.minH * dpr;
@@ -107,6 +107,6 @@
         }
 
         function drawBar(ctx, perf) {
-            if (appConfigViz.getAll().barStyle === 'cascade') drawBarCascade(ctx, perf);
+            if (getActiveEffectConfig().barStyle === 'cascade') drawBarCascade(ctx, perf);
             else drawBarMirror(ctx, perf);
         }

@@ -22,7 +22,6 @@
             const smoothedEnergy = appState.get('smoothedEnergy');
             const beatScale = appState.get('beatScale');
             const vizDataArray = appState.get('vizDataArray');
-            const cfg = appConfigViz.getAll();
             // ----- Kiểu 1: xoay tự thân theo pitch (nhanh/chậm so với pha trung bình động) -----
             const currentMidi = appState.get('lastValidMidiNote');
             // Hệ số tốc độ: 1.0 = trung bình (giống tốc độ gốc); >1 khi nốt cao hơn pha, <1 khi thấp
@@ -87,7 +86,7 @@
                     let dx1 = p1.x - p0.x, dy1 = p1.y - p0.y; let dx2 = p2.x - p1.x, dy2 = p2.y - p1.y; let crossZ = dx1 * dy2 - dy1 * dx2;
                     if (crossZ > 0) { 
                         ctx.beginPath(); ctx.moveTo(p0.x, p0.y); for(let vIdx=1; vIdx<4; vIdx++) ctx.lineTo(projVerts[face[vIdx]].x, projVerts[face[vIdx]].y); ctx.closePath();
-                        let lightFactor = 0.5 + (f * 0.1); ctx.fillStyle = colors.fill; ctx.globalAlpha = 0.8 * lightFactor; ctx.fill(); ctx.globalAlpha = 1.0; ctx.strokeStyle = cfg.bgColor; ctx.stroke();
+                        let lightFactor = 0.5 + (f * 0.1); ctx.fillStyle = colors.fill; ctx.globalAlpha = 0.8 * lightFactor; ctx.fill(); ctx.globalAlpha = 1.0; ctx.strokeStyle = '#000000'; ctx.stroke();
                     }
                 }
                 if (c.val > 200 && perf.blurMult > 0) {
