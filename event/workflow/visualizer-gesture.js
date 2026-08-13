@@ -88,7 +88,16 @@ const GESTURE_SWIPE_CONFIG_FIELD = {
  * document.getElementById) — undefined-safe cho trang không nạp đủ bộ dom-refs (subtitle-editor.html).
  * SỬA (12/08/2026, Giang yêu cầu thêm "Action") — bổ sung 3 nút CÒN THIẾU so với TOÀN BỘ nút
  * data-cc-action thật sự có ở Control Center (components/visualizer-overlay.js): openVolume/
- * cycleEq/editEq — trước đây map này viết TRƯỚC khi 3 nút đó tồn tại, giờ đủ cả 8/8. */
+ * cycleEq/editEq — trước đây map này viết TRƯỚC khi 3 nút đó tồn tại, lúc đó đủ cả 8/8.
+ * SỬA TIẾP (cùng ngày, "gộp eq edit vào hold 3s, bỏ icon edit riêng") — `editEq` (#btn-edit-eq) ĐÃ
+ * BỎ khỏi map này cùng lúc xoá hẳn nút (mở Edit EQ giờ gộp vào GIỮ 3s trên `cycleEq`, không còn
+ * là 1 "nút bấm hộ được" riêng nữa) — còn lại đúng 7/7. `cycleEq` (#btn-cycle-eq) VẪN gán được như
+ * cũ — `.click()` do _clickControlCenterTarget() gọi vẫn hoạt động đúng (bấm NGẮN/cycle), xem
+ * docstring event/listener/eq-presets.js (lý do #btn-cycle-eq giữ riêng 1 listener `click`, không
+ * gộp vào `pointerup`, để tương thích CHÍNH cơ chế `.click()` này). Config cũ (nếu người dùng đã
+ * TỪNG gán 1 trong 3 Action slot/Tap-3-lần cho `editEq` trước bản sửa này) không cần migrate — tra
+ * map trả `undefined`, `_clickControlCenterTarget()` tự im lặng bỏ qua (CÙNG cách xử lý nút đang
+ * ẩn, vd `captureFrame` ngoài Video mode). */
 const GESTURE_TRIPLE_TAP_TARGET_ELS = {
     cycleMode: typeof btnCycleMode !== 'undefined' ? btnCycleMode : null,
     shuffle: typeof btnShuffle !== 'undefined' ? btnShuffle : null,
@@ -97,7 +106,6 @@ const GESTURE_TRIPLE_TAP_TARGET_ELS = {
     captureFrame: typeof btnCaptureVideoFrame !== 'undefined' ? btnCaptureVideoFrame : null,
     openVolume: typeof btnOpenVolume !== 'undefined' ? btnOpenVolume : null,
     cycleEq: typeof btnCycleEq !== 'undefined' ? btnCycleEq : null,
-    editEq: typeof btnEditEq !== 'undefined' ? btnEditEq : null,
 };
 
 /** MỚI (12/08/2026, Giang yêu cầu — "Action" cho Cử chỉ) — 3 "ngăn" CỐ ĐỊNH, mỗi ngăn gán 1 nút
