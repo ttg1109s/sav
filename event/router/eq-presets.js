@@ -6,7 +6,7 @@
  * ứng pointerdown/pointerup/pointercancel+leave trên DUY NHẤT #btn-cycle-eq) chỉ lo ĐẾM GIỜ giữ —
  * 'eqPresets.cycle.click' (ứng sự kiện `click` DOM thật, GIỮ NGUYÊN — xem docstring event/
  * listener/eq-presets.js lý do không gộp vào pointerup) mới THẬT SỰ chạy cyclePreset() (qua
- * onCycleClick(), có chặn nếu vừa giữ đủ 3s) — xem event/workflow/eq-presets.js.
+ * onCycleClick(), có chặn nếu vừa giữ đủ 1.5s) — xem event/workflow/eq-presets.js.
  *
  * NẠP SAU: event/bus.js, event/workflow/eq-presets.js.
  * NẠP TRƯỚC: event/listener/eq-presets.js.
