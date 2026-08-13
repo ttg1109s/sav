@@ -91,22 +91,24 @@
             gestureActionSwipeLeft: 'prev', gestureActionSwipeRight: 'next',
             gestureActionTapSingle: 'playPause', gestureActionTapDouble: 'openPlaylist',
             gestureEdgeTopEnabled: true,
-            // Tap 3 lần (MỚI, THAY THẾ vuốt cạnh dưới đã bỏ hẳn — phản hồi Giang) — bấm 1 nút
-            // Control Center do người dùng chọn, key khớp GESTURE_TRIPLE_TAP_TARGET_ELS
-            // (event/workflow/visualizer-gesture.js).
+            // Tap 3 lần (MỚI, THAY THẾ vuốt cạnh dưới đã bỏ hẳn — phản hồi Giang) — SỬA
+            // (12/08/2026, Giang yêu cầu "tap 3 dùng chung select giống tap/cử chỉ khác"): TRƯỚC
+            // ĐÂY field này lưu 1 key nút Control Center (khớp GESTURE_TRIPLE_TAP_TARGET_ELS) —
+            // giờ CÙNG miền giá trị với gestureActionTapSingle/Double (1 trong 5 GESTURE_ACTIONS
+            // 'next'/'prev'/'playPause'/'openPlaylist'/'none' HOẶC 1 Action slot 'actionSlot1/2/3'
+            // — event/workflow/visualizer-gesture.js). Muốn bấm thẳng 1 nút Control Center thì gán
+            // nút đó cho 1 Action slot (gestureActionSlot1/2/3 bên dưới) rồi chọn slot đó ở đây.
             // Tap 3 lần — KHÔNG còn toggle bật/tắt riêng (phản hồi Giang) — chọn 'none' trong
             // dropdown tự nghĩa là tắt, CÙNG khuôn action picker (next/prev/.../'none'). Mặc định
-            // 'none' (KHÁC picker 5-hành-động — pool này là DANH SÁCH NÚT, không có hành động mặc
-            // định hợp lý để tự bật sẵn). captureFrame CHỈ có tác dụng khi đang Video Player mode
-            // (nút đó ẩn ngoài mode đó — event/workflow/visualizer-gesture.js tự bỏ qua nếu ẩn).
+            // 'none'.
             gestureTripleTapTarget: 'none',
-            // MỚI (12/08/2026, Giang yêu cầu — "Action" cho Cử chỉ) — 3 "ngăn" CỐ ĐỊNH (KHÔNG cho
-            // thêm/bớt, giới hạn cứng = 3), mỗi ngăn gán 1 nút Control Center (CÙNG pool key với
-            // gestureTripleTapTarget, GESTURE_TRIPLE_TAP_TARGET_ELS, event/workflow/
-            // visualizer-gesture.js) — rồi 6 dropdown vuốt/tap phía trên (KHÔNG gồm seek/vuốt cạnh
-            // trên) có thêm 3 lựa chọn 'actionSlot1/2/3' NGOÀI 5 lựa chọn mặc định
-            // next/prev/playPause/openPlaylist/none — cho phép vuốt/tap TRỎ TỚI bất kỳ nút Control
-            // Center nào (không chỉ 4 hành động media cơ bản). Mặc định 'none' cả 3 (chưa gán gì).
+            // MỚI (12/08/2026, Giang yêu cầu — "Action" cho Cử chỉ) — 3 "Slot" CỐ ĐỊNH (KHÔNG cho
+            // thêm/bớt, giới hạn cứng = 3), mỗi Slot gán 1 nút Control Center (key khớp
+            // GESTURE_TRIPLE_TAP_TARGET_ELS, event/workflow/visualizer-gesture.js) — rồi 7 dropdown
+            // vuốt/tap/tap-3-lần phía trên (KHÔNG gồm seek/vuốt cạnh trên) có thêm 3 lựa chọn
+            // 'actionSlot1/2/3' NGOÀI 5 lựa chọn mặc định next/prev/playPause/openPlaylist/none —
+            // cho phép vuốt/tap/tap-3-lần TRỎ TỚI bất kỳ nút Control Center nào (không chỉ 4 hành
+            // động media cơ bản). Mặc định 'none' cả 3 (chưa gán gì).
             gestureActionSlot1: 'none', gestureActionSlot2: 'none', gestureActionSlot3: 'none',
             // Seek-hold: giữ tay 3s ở nửa trái/phải màn hình -> tua lùi/tiến lặp lại theo bước
             // gestureSeekStepMs (mili giây), tới khi thả tay hoặc chạm biên 0/(thời lượng - 1s).
