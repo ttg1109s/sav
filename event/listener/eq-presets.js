@@ -9,7 +9,7 @@
  * listener 'click' cũ) ĐÃ BỎ HẲN cùng nút. #btn-cycle-eq giờ nghe THÊM `pointerdown`/`pointerup`/
  * `pointercancel`/`pointerleave` (Pointer Events — CÙNG khuôn event/listener/image-edit.js,
  * event/listener/video-preview.js đã dùng — 1 bộ event duy nhất cho CẢ chuột lẫn chạm) chỉ để ĐẾM
- * GIỜ giữ 3s — 4 listener này chỉ GỬI msg qua eventBus, KHÔNG tự đếm giờ ở đây (đếm giờ là việc
+ * GIỜ giữ 1.5s — 4 listener này chỉ GỬI msg qua eventBus, KHÔNG tự đếm giờ ở đây (đếm giờ là việc
  * của `taskManager`, CHỈ Workflow được dùng — xem readme/task-manager-conventions.md mục 2).
  * `pointerleave` xử lý case ngón tay/chuột trượt ra khỏi nút TRƯỚC khi thả (huỷ hẹn giờ, không
  * cycle) — CÙNG tinh thần touchmove huỷ seek-hold ở event/listener/visualizer-gesture.js.
@@ -22,7 +22,7 @@
  * thật LẪN lúc bị gesture bấm hộ) — nhánh pointerup chỉ lo huỷ hẹn giờ, không tự cycle (tránh cycle
  * 2 lần cho đúng 1 lần bấm tay thật: 1 lần từ pointerup THEO THIẾT KẾ CŨ + 1 lần từ click tự nhiên
  * ngay sau đó). Cờ `_cycleHoldFired` (event/workflow/eq-presets.js) chặn nhánh `click` KHÔNG chạy
- * thêm nếu vừa giữ đủ 3s xong (Drawer đã mở) — xem onCycleClick().
+ * thêm nếu vừa giữ đủ 1.5s xong (Drawer đã mở) — xem onCycleClick().
  */
 if (btnCycleEq) {
     btnCycleEq.addEventListener('pointerdown', () => {
