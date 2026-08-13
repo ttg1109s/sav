@@ -238,6 +238,15 @@ body {
            `#side-left-container` giờ chỉ còn việc lấp đầy đúng khung `#app-stack`
            (`position: absolute; inset: 0;`), không tự định vị/transform gì nữa. */
         #app-bg, #side-left-container { position: absolute; inset: 0; }
+        /* SỬA (12/08/2026, bug "blur ảnh nền làm mất viền panel") — `#app-bg` giờ là khung CẮT
+           (`overflow: hidden`, tự nó KHÔNG bao giờ mang `filter` nữa — xem components/
+           app-view-stack.js) bọc ngoài `#app-bg-blur-layer` (con, lấp đầy đúng khung cha, nhận
+           `transform: scale(1.1)`/`filter: blur()` — core/color-utils.js::updatePlaylistBg()) —
+           phần blur "tràn" ra do phóng to bị `overflow: hidden` của cha cắt gọn NGAY TẠI viền
+           `#app-stack`, không còn đè mờ `border-right` desktop (ngay dưới) như bản cũ áp blur
+           thẳng lên `#app-bg`. */
+        #app-bg { overflow: hidden; }
+        #app-bg-blur-layer { position: absolute; inset: 0; }
         /* Trạng thái NGHỈ mặc định — chờ SẴN ngoài màn hình bên trái (khớp lúc mới boot, chưa từng
            bấm bài nào, VÀ lúc đã quay lại Playlist). CÙNG FIX overshoot 4px như trên (mục đích
            giống hệt — #app-bg/nội dung Playlist không được lộ ra bên dưới #visualizer-ui khi
