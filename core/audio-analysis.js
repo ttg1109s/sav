@@ -40,14 +40,22 @@
             return (current + 0.5 + (beatScale * 5)) % 360;
         }
 
+        /** Màu riêng theo TỪNG effect (cfg.customEffect[cfg.type]) — không còn 1 mode màu chung
+         * cho toàn app, xem core/custom-effect.js::getActiveEffectConfig(). */
         function getComputedColor(i, totalLength, dataValue) {
-            const cfg = appConfigViz.getAll();
-            if (cfg.mode === 'dynamic') return { fill: interpolateColor(cfg.dynA, cfg.dynB, i / totalLength), glow: interpolateColor(cfg.dynA, cfg.dynB, i / totalLength) };
-            else if (cfg.mode === 'gradient') {
+            const ec = getActiveEffectConfig(); // core/custom-effect.js
+            if (ec.mode === 'dynamic') return { fill: interpolateColor(ec.dynA, ec.dynB, i / totalLength), glow: interpolateColor(ec.dynA, ec.dynB, i / totalLength) };
+            else if (ec.mode === 'gradient') {
                 let baseHue = (appState.get('globalHueOffset') + (i / totalLength) * 240) % 360;
                 let finalHue = (baseHue + (dataValue / 255) * 80) % 360; let lightness = 40 + (dataValue / 255) * 30;
                 return { fill: `hsla(${finalHue}, ${70 + (dataValue/255)*30}%, ${lightness}%, 0.9)`, glow: `hsl(${finalHue}, 100%, ${lightness+15}%)` };
-            } else return { fill: cfg.solidColor, glow: cfg.solidColor };
+            } else return { fill: ec.solidColor, glow: ec.solidColor };
+        }
+
+        /** Cường độ blur/glow effect ĐANG CHẠY, quy đổi 0-1 cho `perf.blurMult` cũ — 0 nếu tắt. */
+        function getActiveBlurMult() {
+            const ec = getActiveEffectConfig(); // core/custom-effect.js
+            return ec.blurEnabled ? ec.blurIntensity / 100 : 0;
         }
 
         function updateStatsDashboard(bufferLength) {

@@ -110,23 +110,12 @@
         // (btnSettings ĐÃ XOÁ — HOTFIX 11, 08/07/2026: nút "Cài đặt" trong Control Center của
         // Visualizer đã bỏ hẳn, xem components/visualizer-overlay.js. Settings giờ CHỈ mở được từ
         // Playlist qua btnSettingsPlaylist.)
-        // Drawer "Tùy chỉnh Visualizer" + "Tùy chỉnh Phụ đề" (ver 8 refine, mục 3) — cùng pattern
-        // navigation stack với About/Storage Drawer, mở chồng lên #drawer-settings.
-        const drawerVisualizerSettings = document.getElementById('drawer-visualizer-settings');
-        const btnOpenVisualizerSettings = document.getElementById('setting-open-visualizer-settings');
-        // MỚI (12/08/2026, Giang yêu cầu tái cấu trúc Setting Main mục 4c/4f) — 2 nút điều hướng
-        // panel RIÊNG "Custom Effect"/"Auto-Switch Effect", tách từ "Customize Visualizer" — xem
-        // docstring event/workflow/visualizer-display.js.
-        const btnOpenVisualizerCustomEffect = document.getElementById('setting-open-visualizer-custom-effect');
+        // Card "Visualizer Screen" (Main) — 4 nút điều hướng: Display (panel mới, thay hẳn
+        // "Customize Visualizer"/Custom Effect cũ), Auto-Switch Effect, Visual Background. "Cử
+        // chỉ" dùng delegate trên settingsStackBody (KHÔNG cần ref tĩnh — xem event/listener/
+        // gesture-settings.js, không đổi dù nút vừa dời vào card này).
+        const btnOpenVisualizerDisplay = document.getElementById('setting-open-visualizer-display');
         const btnOpenVisualizerAutoSwitch = document.getElementById('setting-open-visualizer-auto-switch');
-        // MỚI (12/08/2026, mục 4b/4d) — "Chất lượng render"/"Làm mờ" giờ SỐNG Ở MAIN (TĨNH, không
-        // còn push/pop cùng panel con nữa) — cần ref TĨNH ở đây để initVisualizerMiscSettingsUIFromConfig()
-        // (core/visualizer/visualizer-misc-settings.js) đồng bộ được lúc boot, CÙNG khuôn
-        // visualEnabledToggle ngay dưới (KHÔNG còn đồng bộ qua panelEl.querySelector() trong
-        // openPanel() như trước — panel đó không còn chứa 2 phần tử này nữa).
-        const qualitySelect = document.getElementById('setting-quality');
-        const blurEnableToggle = document.getElementById('setting-blur-enable');
-        // (btnBackVisualizerSettings ĐÃ XOÁ — Batch D3: Back dùng CHUNG btnSettingsStackBack.)
         // XOÁ (12/08/2026, mục 4a) — select "Kiểu hiệu ứng" (#setting-visualizer-type) ĐÃ BỎ HẲN
         // khỏi HTML (components/settings/visualizer-geometry-color.js) — ref này giờ LUÔN `null`.
         // GIỮ LẠI biến (không xoá khai báo) vì 3 nơi tham chiếu (event/listener/visualizer-misc-
@@ -238,9 +227,8 @@
         // ĐÃ XOÁ — Batch D4: 5 input Settings giờ sống động BÊN
         // TRONG panel, không còn DOM tĩnh — event/listener/slideshow.js dùng delegation trên
         // settingsStackBody thay vì đọc const ở đây.)
-        // "Tắt Visual" (ver 8 refine) — ĐỘC LẬP khỏi nhóm Video Background, đặt thành mục cài đặt
-        // riêng (xem js/components/settings/playlist-background.js). id mới `setting-visual-enable`.
-        const visualEnabledToggle = document.getElementById('setting-visual-enable');
+        // "setting-visual-enable" giờ sống ĐỘNG bên trong panel "Display" (push/pop) — KHÔNG còn
+        // ref tĩnh (event/listener/visualizer-display.js dùng delegate trên settingsStackBody).
         const keepScreenOnToggle = document.getElementById('setting-keep-screen-on');
         // Khắc phục sự cố (ver 10 refine, bổ sung) — xem js/core/app-recovery.js.
         const btnRestartApp = document.getElementById('setting-restart-app'), btnRestoreDefaults = document.getElementById('setting-restore-defaults'), btnClearCache = document.getElementById('setting-clear-cache');

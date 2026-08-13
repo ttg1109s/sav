@@ -35,15 +35,15 @@
             appState.set('ripples', []);
             appState.set('glassStaticDrops', []); appState.set('glassStreaks', []); appState.set('activeLightnings', []); appState.set('starFlashes', []);
             
-            const cfg = appConfigViz.getAll();
-            const perfProfile = PERFORMANCE_PROFILES[cfg.quality];
+            const rainCfg = getEffectConfig('rain'); // core/custom-effect.js
 
-            for(let i=0; i < perfProfile.glassDrops; i++) appState.mutate('glassStaticDrops', arr => arr.push({x: Math.random() * canvas.width, y: Math.random() * canvas.height, r: (Math.random() * 1.5 + 0.5) * dpr}));
-            
+            for(let i=0; i < rainCfg.glassDropDensity; i++) appState.mutate('glassStaticDrops', arr => arr.push({x: Math.random() * canvas.width, y: Math.random() * canvas.height, r: (Math.random() * 1.5 + 0.5) * dpr}));
+
             let buildings = []; let currentX = -50 * dpr;
+            const bldScale = rainCfg.streetBuildingScale;
             while(currentX < canvas.width + 50 * dpr) {
-                let w = (Math.random() * 60 + 30) * dpr * perfProfile.bldMult; let h = (Math.random() * 250 + 80) * dpr;
-                let winStepX = 14 * dpr * (perfProfile.bldMult > 1 ? 1.5 : 1); let winStepY = 18 * dpr * (perfProfile.bldMult > 1 ? 1.5 : 1);
+                let w = (Math.random() * 60 + 30) * dpr * bldScale; let h = (Math.random() * 250 + 80) * dpr;
+                let winStepX = 14 * dpr * (bldScale > 1 ? 1.5 : 1); let winStepY = 18 * dpr * (bldScale > 1 ? 1.5 : 1);
                 let cols = Math.floor(w / winStepX); let rows = Math.floor(h / winStepY); let windows = [];
                 for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (Math.random() > 0.3) windows.push({ r: r, c: c, isAlwaysOn: Math.random() > 0.85, fftBin: Math.floor(Math.random() * 40), colorType: Math.random() > 0.6 ? '#fff5e6' : '#ffdd44' });
                 buildings.push({x: currentX, w: w, h: h, cols: cols, rows: rows, windows: windows}); currentX += w + (Math.random() * 15 * dpr); 
@@ -81,10 +81,8 @@
             appState.set('streetLamps', lamps);
 
             // Mưa phố: các hạt mưa rơi xiên nhẹ, mật độ/độ dài sẽ được điều biến theo nhạc lúc vẽ.
-            // Số lượng hạt khởi tạo theo PERFORMANCE_PROFILES để giảm tải ở chế độ hiệu năng thấp.
-            const perfProfile = PERFORMANCE_PROFILES[appConfigViz.getAll().quality];
             let rain = [];
-            for (let i = 0; i < perfProfile.streetRain; i++) {
+            for (let i = 0; i < getEffectConfig('rain').streetDensity; i++) {
                 rain.push({
                     x: Math.random() * w, y: Math.random() * h,
                     len: (14 + Math.random() * 18) * dpr,
@@ -97,7 +95,7 @@
 
         function initStars() {
             const dpr = appState.get('dpr');
-            let starList = []; const maxDist = Math.max(canvas.width, canvas.height); const count = PERFORMANCE_PROFILES[appConfigViz.getAll().quality].stars;
+            let starList = []; const maxDist = Math.max(canvas.width, canvas.height); const count = getEffectConfig('black hole').starCount;
             for(let i=0; i < count; i++) {
                 let clusterAngle = (Math.floor(Math.random() * 5) / 5) * Math.PI * 2; let angle = clusterAngle + (Math.random() * 1.5 - 0.75); 
                 let layer = Math.random(); let baseSpeed, sizeMult;

@@ -1,54 +1,68 @@
 /**
- * core/config.js — TÁI CẤU TRÚC 25/07/2026 (đợt tái cấu trúc state). File này giờ CHỈ còn 2 việc:
- *   (1) Giữ 3 bản DEFAULT_VIZ_CONFIG/DEFAULT_SLIDESHOW_CONFIG/DEFAULT_READER_CONFIG (bản CHUẨN,
- *       ĐÃ GỘP — xem đối chiếu bên dưới) + đăng ký chúng làm domain của AppConfig
- *       (service/state.js) qua `AppConfig.defineDomain()`.
- *   (2) Toàn bộ hàm nghiệp vụ THUẦN xoay quanh config: `seedConfig()` (MỚI, seed lần đầu lúc
- *       boot — gọi từ event/workflow/app-boot.js), `restoreDefaultVizConfig()` (MỚI, gộp từ
- *       core/app-recovery.js::executeRestoreDefaults() — chỉ phần reset vizConfig, KHÔNG gồm
- *       saveConfig()/reload() — 2 việc đó vẫn ở app-recovery.js), `saveConfig()`/`loadConfig()`/
- *       2 hàm backup (giữ NGUYÊN vai trò/hành vi migrate cũ, chỉ đổi lớp truy cập từ
- *       `appState.get/set/mutate('vizConfig', ...)` sang `appConfigViz.getAll()/.setAll()/
- *       .mutateAll()` — cầu nối tương thích của AppConfig, xem service/state.js).
+ * core/config.js — Giữ 3 bản DEFAULT_VIZ_CONFIG/DEFAULT_VISUAL_BG_CONFIG/DEFAULT_READER_CONFIG +
+ * đăng ký domain AppConfig (service/state.js). Toàn bộ hàm nghiệp vụ thuần xoay quanh config:
+ * seedConfig()/restoreDefaultVizConfig()/saveConfig()/loadConfig() + 2 hàm backup.
  *
- * FILE NÀY KHÔNG CÒN GIỮ GIÁ TRỊ RUNTIME NÀO — mọi giá trị SỐNG nằm trong `appConfig`
- * (service/state.js). Cũng KHÔNG CÒN giữ: global error-handler (dời sang
- * event/listener,router,workflow/app-boot.js — xem readme/event-bus-flow.md), Z_INDEX (dời sang
- * service/z-index.js — TRƯỚC đây object này chưa ai đọc thật, giờ 4 file overlay đã đổi qua đọc
- * thật), và 6 hằng số dùng chéo domain khác (MODES/PERFORMANCE_PROFILES/DEFAULT_VINYL/EQ_FREQS/
- * EQ_LABELS/EQ_PRESETS/APP_CONFIG — nay sống trong đúng package service/state/*.js tương ứng,
- * KHÔNG còn bản sao riêng ở đây — bản sao cũ CHÍNH LÀ nguồn gốc bug lệch dữ liệu đã phát hiện lúc
- * thảo luận đợt này: MODES thiếu 'space', PERFORMANCE_PROFILES thiếu 6 field galaxy* so với bản
- * đang dùng thật ở file này TRƯỚC KHI tái cấu trúc — giờ chỉ còn 1 nguồn duy nhất/domain).
+ * FILE NÀY KHÔNG GIỮ GIÁ TRỊ RUNTIME — mọi giá trị SỐNG trong `appConfig` (service/state.js).
+ * Z_INDEX/MODES/APP_CONFIG/EQ_* sống ở đúng package service/state/*.js tương ứng.
  *
- * ĐỐI CHIẾU DEFAULT_VIZ_CONFIG (đợt tái cấu trúc 25/07/2026) — trước đây có 2 bản lệch nhau
- * (file này vs CONST.DEFAULT_VIZ_CONFIG cũ ở service/state.js): bản file này thiếu
- * `visualBgImageEnabled`/`visualBgImage` (thêm ở bản service/state.js, batch 03/07/2026) — bản
- * DƯỚI ĐÂY đã gộp đủ cả 2, dùng làm NGUỒN DUY NHẤT từ nay.
+ * (12/08/2026) Bỏ hẳn field phẳng dùng-chung-nhiều-effect + chế độ hiệu năng
+ * (quality/PERFORMANCE_PROFILES) — xem `DEFAULT_CUSTOM_EFFECT` ngay dưới, mỗi effect tự mang bộ
+ * config riêng.
  *
  * PHẢI nạp SAU: service/state.js (cần class AppConfig).
  */
 
+        /**
+         * Custom Effect (12/08/2026, tái thiết kế — bỏ hẳn tư duy panel-chung + chế độ hiệu năng).
+         * 1 object DUY NHẤT, key = tên `type` (khớp MODES) — mỗi effect tự mang bộ config RIÊNG,
+         * KHÔNG còn field phẳng dùng chung/lẫn lộn ý nghĩa giữa effect này với effect khác. 4 field
+         * đầu (mode/solidColor/dynA/dynB) + 2 field blur LUÔN có ở MỌI effect (đọc bởi
+         * getComputedColor(), core/audio-analysis.js) — phần còn lại tuỳ effect. Mở qua GIỮ 1.5s
+         * #btn-cycle-mode (Generic Drawer, xem event/workflow/custom-effect.js).
+         */
+        const DEFAULT_CUSTOM_EFFECT = {
+            bar: {
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
+                barStyle: 'mirror', minH: 4, maxH: 400, mirrorBarCount: 32,
+            },
+            'black hole': {
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
+                minH: 4, maxH: 400, barWidth: 4, starCount: 200,
+            },
+            lightning: {
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
+            },
+            rain: {
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
+                rainStyle: 'glass', glassFlash: true,
+                glassCityOpacity: 100, glassCityVisible: true, glassMoonVisible: true,
+                glassDropDensity: 250, glassStreakFrequency: 20,
+                streetDensity: 220, streetBuildingScale: 1.0,
+            },
+            rubik: {
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
+            },
+            vortex: {
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
+                vortexStyle: 'rings', tunnelRingCount: 60,
+            },
+            space: {
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
+                starCountMin: 3800, starCountMax: 6000, nebulaCount: 35, dustCount: 1500,
+                mapNodeCount: 70, mapRadius: 950,
+            },
+        };
+
         const DEFAULT_VIZ_CONFIG = {
-            quality: 'high', type: 'bar', barStyle: 'mirror', vortexStyle: 'rings', rainStyle: 'glass', glassFlash: true, mode: 'solid',
-            // Blur TÁCH RIÊNG khỏi quality (phản hồi Giang) — trước đây blurMult CHỈ do
-            // PERFORMANCE_PROFILES[quality] quyết định (đóng băng theo tier), giờ blurEnabled=false
-            // ép blurMult=0 bất kể quality nào — xem event/workflow/visualizer-render.js::_tick().
-            blurEnabled: true,
-            // Rain — style 'glass': độ trong Big City (0-100, mặc định 40 khớp alpha cũ hardcode)
-            // + 3 toggle hiện/ẩn từng lớp cảnh riêng (phản hồi Giang) — xem core/visualizer/types/rain.js.
-            rainGlassCityOpacity: 40, rainGlassCityVisible: true, rainGlassMoonVisible: true, rainGlassWindowVisible: true,
-            // (bgColor XOÁ — v13: "màu nền màn Visualizer" đã dời sang `visualBgConfig` cùng 3
-            //  nguồn nền kia, xem DEFAULT_VISUAL_BG_CONFIG. `solidColor` bên dưới là thứ KHÁC HẲN —
-            //  màu vẽ của visualizer, không phải nền.)
-            solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
-            minH: 4, maxH: 400, barWidth: 4, bgImage: '', bgBlur: 0, bgImageEnabled: false,
+            type: 'bar',
+            customEffect: DEFAULT_CUSTOM_EFFECT,
+            bgImage: '', bgBlur: 0, bgImageEnabled: false,
             // 'light' | 'dark' | 'background' (ảnh nền tuỳ chỉnh, TỰ kéo theo bgImageEnabled=true) |
             // 'gradient' (2 màu gradientFrom/gradientTo ngay dưới) — chọn qua event/router/theme.js,
             // chốt tại event/workflow/theme.js::_commitThemeMode(). Mặc định 'dark'.
             themeMode: 'dark',
             gradientFrom: '#6366f1', gradientTo: '#ec4899',
-            mirrorBarCount: 32,
             // eqMode/manualEq (chế độ 'manual' + mảng gains riêng) ĐÃ BỎ HẲN — THAY bằng hệ thống
             // preset EQ lưu DB (core/eq-presets.js), preset ĐANG CHỌN chỉ còn 1 id đơn giản. Sửa
             // preset nào (kể cả "sửa thủ công") giờ ĐI QUA Edit EQ (Generic Drawer) áp dụng cho
@@ -274,13 +288,9 @@
 
         AppConfig.defineDomain('viz', {
             schema: {
-                quality: 'string', type: 'string', barStyle: 'string', vortexStyle: 'string', rainStyle: 'string', glassFlash: 'boolean', mode: 'string',
-                blurEnabled: 'boolean',
-                rainGlassCityOpacity: 'number', rainGlassCityVisible: 'boolean', rainGlassMoonVisible: 'boolean', rainGlassWindowVisible: 'boolean',
-                solidColor: 'string', dynA: 'string', dynB: 'string',
-                minH: 'number', maxH: 'number', barWidth: 'number', bgImage: 'string', bgBlur: 'number', bgImageEnabled: 'boolean',
+                type: 'string', customEffect: 'object',
+                bgImage: 'string', bgBlur: 'number', bgImageEnabled: 'boolean',
                 themeMode: 'string', gradientFrom: 'string', gradientTo: 'string',
-                mirrorBarCount: 'number',
                 volume: 'number', eqPresetId: 'string',
                 visualEnabled: 'boolean',
                 keepScreenOn: 'boolean',
@@ -440,14 +450,41 @@
                 // — đánh đổi chấp nhận được, dự án cá nhân, không cần lớp di trú phức tạp hơn).
                 if (!cfg.eqPresetId) cfg.eqPresetId = (cfg.eqMode && cfg.eqMode !== 'manual') ? cfg.eqMode : 'flat';
                 delete cfg.eqMode; delete cfg.manualEq;
-                if(cfg.vortexStyle === 'tardis' || cfg.vortexStyle === 'classic' || cfg.vortexStyle === 'dust') cfg.vortexStyle = 'rings';
-                // Cấu hình cũ từng có rainStyle 'classic', visualizer 'synthesia'/'firefly_forest'/'seasons'/'wave' đã
-                // bị loại bỏ — quy về giá trị tương đương gần nhất để không vỡ trải nghiệm của người dùng cũ.
-                if (cfg.rainStyle === 'classic') cfg.rainStyle = 'glass';
-                if (cfg.type === 'synthesia') { cfg.type = 'bar'; cfg.barStyle = 'cascade'; }
-                if (cfg.type === 'firefly_forest' || cfg.type === 'seasons' || cfg.type === 'wave') cfg.type = 'bar';
-                if (!cfg.barStyle) cfg.barStyle = 'mirror';
-                if (cfg.mirrorBarCount == null) cfg.mirrorBarCount = 32;
+                // Cấu hình cũ từng có visualizer 'synthesia'/'firefly_forest'/'seasons'/'wave' đã bị
+                // loại bỏ — quy về 'bar' để không vỡ trải nghiệm người dùng cũ.
+                if (cfg.type === 'synthesia' || cfg.type === 'firefly_forest' || cfg.type === 'seasons' || cfg.type === 'wave') cfg.type = 'bar';
+
+                // MIGRATE (12/08/2026, bỏ field phẳng cũ + chế độ hiệu năng) — customEffect() là
+                // OBJECT MỚI, seed đủ 7 effect từ default rồi merge field CŨ (nếu save trước bản
+                // này còn sót lại field phẳng ở gốc cfg) vào ĐÚNG effect tương ứng 1 lần duy nhất.
+                const legacyType = Object.keys(DEFAULT_CUSTOM_EFFECT).includes(cfg.type) ? cfg.type : null;
+                const next = {};
+                for (const key in DEFAULT_CUSTOM_EFFECT) next[key] = { ...DEFAULT_CUSTOM_EFFECT[key], ...(cfg.customEffect && cfg.customEffect[key]) };
+                if (!cfg.customEffect && legacyType && next[legacyType]) {
+                    const t = next[legacyType];
+                    if (cfg.mode) t.mode = cfg.mode;
+                    if (cfg.solidColor) t.solidColor = cfg.solidColor;
+                    if (cfg.dynA) t.dynA = cfg.dynA;
+                    if (cfg.dynB) t.dynB = cfg.dynB;
+                    if (cfg.blurEnabled != null) t.blurEnabled = cfg.blurEnabled;
+                    if (cfg.barStyle) t.barStyle = cfg.barStyle;
+                    if (cfg.vortexStyle) t.vortexStyle = cfg.vortexStyle;
+                    if (cfg.rainStyle) t.rainStyle = cfg.rainStyle;
+                    if (cfg.glassFlash != null) t.glassFlash = cfg.glassFlash;
+                    if (cfg.minH != null) t.minH = cfg.minH;
+                    if (cfg.maxH != null) t.maxH = cfg.maxH;
+                    if (cfg.barWidth != null) t.barWidth = cfg.barWidth;
+                    if (cfg.mirrorBarCount != null) t.mirrorBarCount = cfg.mirrorBarCount;
+                    if (cfg.rainGlassCityVisible != null) t.glassCityVisible = cfg.rainGlassCityVisible;
+                    if (cfg.rainGlassMoonVisible != null) t.glassMoonVisible = cfg.rainGlassMoonVisible;
+                }
+                cfg.customEffect = next;
+                delete cfg.mode; delete cfg.solidColor; delete cfg.dynA; delete cfg.dynB; delete cfg.blurEnabled;
+                delete cfg.barStyle; delete cfg.vortexStyle; delete cfg.rainStyle; delete cfg.glassFlash;
+                delete cfg.minH; delete cfg.maxH; delete cfg.barWidth; delete cfg.mirrorBarCount;
+                delete cfg.rainGlassCityOpacity; delete cfg.rainGlassCityVisible; delete cfg.rainGlassMoonVisible; delete cfg.rainGlassWindowVisible;
+                delete cfg.quality;
+
                 if (cfg.bgImageEnabled == null) cfg.bgImageEnabled = false;
                 // Người dùng CŨ đã bật sẵn ảnh nền trước khi có khái niệm Theme -> suy luận
                 // themeMode='background' luôn.
@@ -497,7 +534,7 @@
             // #setting-volume tĩnh từ lúc boot, đã xoá cùng UI Settings EQ/Volume cũ).
 
             { let idx = MODES.indexOf(appConfigViz.getAll().type); if (idx === -1) idx = 0; appState.set('currentModeIndex', idx); }
-            updateDOMBackground(); updatePlaylistBg(); updateColorMenuUI(); updateTypeUI();
+            updateDOMBackground(); updatePlaylistBg(); updateProgressBarCSS(); updateTypeUI();
 
             if (typeof initVisualizerMiscSettingsUIFromConfig === 'function') initVisualizerMiscSettingsUIFromConfig();
             if (typeof initSubtitleToggleUIFromConfig === 'function') initSubtitleToggleUIFromConfig();

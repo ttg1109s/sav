@@ -7,11 +7,11 @@
  * TÁCH FILE (ver 11, tái cấu trúc /event/): phần "Settings hiệu ứng hình ảnh/màu/EQ/volume" +
  * nút Cycle hiệu ứng (#btn-cycle-mode) trước đây nằm CHUNG file này đã dời sang
  * core/visualizer/visualizer-display.js (đúng ranh giới nghiệp vụ — phần đó là cấu hình Visualizer,
- * không phải điều khiển phát nhạc). 5 hàm `updateTypeUI`, `updateBarStyleUI`, `updateColorMenuUI`,
- * `applyEQPreset`, `updateProgressBarCSS` GIỜ định nghĩa ở visualizer-display.js — file đó PHẢI
- * nạp SAU file này (xem index.html, khu vực 4 VISUALIZERS) vì mọi lệnh gọi 5 hàm đó từ file này
- * (dòng dưới) đều nằm trong callback (lazy — chạy sau khi mọi script đã nạp xong), KHÔNG có lệnh
- * gọi nào chạy ngay lúc parse, nên thứ tự nạp này an toàn dù visualizer-display.js đứng sau.
+ * không phải điều khiển phát nhạc). `updateTypeUI`/`updateProgressBarCSS` định nghĩa ở
+ * visualizer-display.js — file đó PHẢI nạp SAU file này (xem index.html, khu vực 4 VISUALIZERS)
+ * vì mọi lệnh gọi 2 hàm đó từ file này (dòng dưới) đều nằm trong callback (lazy — chạy sau khi
+ * mọi script đã nạp xong), KHÔNG có lệnh gọi nào chạy ngay lúc parse, nên thứ tự nạp này an toàn
+ * dù visualizer-display.js đứng sau.
  *
  * ÁP DỤNG /event/ (ver 11, patch 2): TOÀN BỘ 17 `addEventListener` cũ của file này (9 click UI +
  * 8 audioPlayer/progressBar event) đã CHUYỂN HẾT sang event/listener/player-controls.js — quyết
