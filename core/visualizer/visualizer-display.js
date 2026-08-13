@@ -1,65 +1,21 @@
 /**
- * Cài đặt hiển thị Visualizer: kiểu hiệu ứng (cycle button + select), màu sắc (solid/dynamic),
- * ảnh nền, độ mờ nền, độ cao/độ dày thanh, số lượng thanh mirror, chất lượng canvas, volume, EQ
- * preset, và vẽ lại CSS thanh tiến trình theo màu visualizer hiện tại.
+ * Cài đặt hiển thị Visualizer: kiểu hiệu ứng (cycle button), ảnh nền, độ mờ nền, volume, EQ preset,
+ * vẽ lại CSS thanh tiến trình theo màu effect đang chạy.
  *
- * TÁCH FILE (ver 11, tái cấu trúc /event/, patch 1): toàn bộ nội dung file này TRƯỚC ĐÂY nằm
- * chung trong core/player-controls.js (dòng 383-510 bản cũ, phần cuối file) — dời sang đây vì
- * đúng ranh giới nghiệp vụ thật là "cấu hình Visualizer", không phải "điều khiển phát nhạc" (xem
- * comment đầu core/player-controls.js để biết lý do tách + thứ tự nạp).
+ * Màu sắc/blur/style con/kích thước hình học (12/08/2026 trở về trước từng ở đây) ĐÃ DỜI HẲN sang
+ * customEffect[type] riêng từng effect — xem core/custom-effect.js + event/workflow/custom-effect.js
+ * (Custom Effect Drawer, mở qua GIỮ 1.5s #btn-cycle-mode).
  *
- * PHẢI nạp SAU core/player-controls.js (xem index.html, khu vực 4 VISUALIZERS).
- *
- * CŨNG PHẢI nạp SAU core/equalizer-settings.js, core/dom-refs.js (cần mọi ref DOM của các
- * select/slider/toggle bên dưới đã tồn tại — xem dom-refs.js dòng 125-140) và core/config.js
- * (EQ_PRESETS, APP_CONFIG).
- *
- * === Batch D3 (Settings restructure, 06/07/2026) ===
- * Panel Visualizer Settings giờ PUSH/POP động (core/settings-panel-stack.js) — 14 hàm `set*` dưới
- * đây (quality/bgColor/colorMode/solidColor.../dynColor.../vortexStyle/barStyle/rainStyle/glassFlash/
- * maxHeight/barWidth/mirrorCount) REFACTOR ĐẦY ĐỦ Rule 1-4 theo CHỐT của Giang (không hỏi lại mỗi
- * batch, xem Batch D2): bỏ hẳn gọi core khác (`resizeCanvas`/`updateDOMBackground`/
- * `updateColorMenuUI`/`updateProgressBarCSS`/`updateVortexVisibility`/`updateBarStyleUI`/
- * `saveConfig`) bên trong — dời hết ra event/workflow/visualizer-display.js. Hàm nào có DOM ghi
- * kèm (display span, hoặc ĐỒNG BỘ CHÉO 2 input màu solid) nhận phần tử đó qua tham số, KHÔNG dùng
- * dom-refs tĩnh (panel bị xoá/tạo lại mỗi lần đóng/mở).
- *
- * MỚI PHÁT SINH (khác About/Subtitle): `updateTypeUI()`/`updateColorMenuUI()`/`updateBarStyleUI()`
- * KHÔNG chỉ được gọi từ bên TRONG panel — còn bị gọi từ BÊN NGOÀI (select "Kiểu hiệu ứng" ở Main,
- * nút cycle Control Center, timer nền core/auto-switch-visual.js) — nếu panel đang ĐÓNG, các phần
- * tử bên trong nó (blockMaxHeight, blockVortex...) sẽ là `null`. Đã thêm GUARD 1 lần cho cả cụm
- * (check `blockMaxHeight` đại diện — cùng 1 panel nên cùng tồn tại/cùng bị xoá) — cùng tinh thần
- * guard đã có sẵn trước đó ở `initAutoSwitchVisualUI()`/`syncAutoSwitchTimeModeBlocks()`
- * (core/auto-switch-visual.js), KHÔNG phải pattern mới tự nghĩ ra. Đồng bộ lúc MỞ panel nằm ở
- * `workflowVisualizerDisplay.openPanel()`.
- *
- * ÁP DỤNG /event/ (ver 11, patch 2): TOÀN BỘ 20 `addEventListener` cũ của file này đã CHUYỂN HẾT
- * sang event/listener/visualizer-display.js — 14/20 nay dùng DELEGATION trên settingsStackBody
- * (Batch D3, xem file đó), 6 còn lại (bgImage/bgBlur/volume/eq/cycleMode) vẫn tĩnh (Main/Control
- * Center, không di chuyển). Logic nghiệp vụ trước đây nằm thẳng trong callback đã rút thành HÀM
- * CORE THUẦN bên dưới — đối chiếu event/router/visualizer-display.js để biết msg.type nào gọi hàm
- * nào. `applyBgImage()`/`applyBgImageEnabled()` là core thuần KHÔNG còn withLoadingShield/
- * alertModal bên trong (2 thứ này dời ra event/workflow/visualizer-display.js, đúng quy tắc "core
- * không biết shield/modal tồn tại"). FIX (03/07/2026, mục 1) — bỏ hẳn `validateBgImageFile()`/
- * upload file trực tiếp — `applyBgImage()` giờ CHỈ được gọi từ picker (event/workflow/visualizer-
- * display.js::pickBgImageFromLibrary, dùng Blob đã có sẵn trong store `images`, không cần validate
- * lại định dạng file).
- * Cross-call (updateTypeUI có 3 nguồn: cycle button, select ở equalizer-settings.js, timer
- * auto-switch-visual.js) vẫn GIỮ NGUYÊN lệnh gọi hàm trực tiếp — KHÔNG thuộc phạm vi patch này
- * (xem plan.md, đã chốt lùi việc đưa cross-call qua bus tới khi 134 listener gốc tách xong hết).
+ * PHẢI nạp SAU: core/player-controls.js, core/dom-refs.js, core/config.js, core/custom-effect.js.
  */
-        // MỚI (Phần B, Galaxy) — biến NỘI BỘ (KHÔNG thuộc STATE, cùng kiểu với `tWarpSpeed` ở
-        // core/webgl/three-vortex.js): lưu tạm tone mapping mặc định của renderer dùng chung
+        // Biến NỘI BỘ (KHÔNG thuộc STATE): lưu tạm tone mapping mặc định của renderer dùng chung
         // (Vortex) để trả lại đúng giá trị khi rời khỏi 'space' — xem updateTypeUI() bên dưới.
         let _spDefaultToneMapping = null;
-        // Bán kính vùng trôi của SpaceDust (đơn vị Three.js) — hằng số cấu hình, KHÔNG đổi theo
-        // quality (chỉ SỐ LƯỢNG hạt bụi đổi theo quality qua PERFORMANCE_PROFILES.galaxyDustCount,
-        // xem plan B6).
+        // Bán kính vùng trôi của SpaceDust (đơn vị Three.js) — hằng số cấu hình.
         const SPACE_DUST_RANGE = 500;
 
-        // FIX (12/08/2026, Giang yêu cầu) — key i18n tên hiển thị cho từng giá trị MODES (service/
-        // state/visualizer-runtime.js), DÙNG CHUNG đúng bộ text đã có sẵn ở select "Kiểu hiệu ứng"
-        // (components/settings/visualizer-geometry-color.js) — tránh dịch trùng 1 khái niệm ở 2 nơi.
+        // Key i18n tên hiển thị cho từng giá trị MODES (service/state/visualizer-runtime.js), DÙNG
+        // CHUNG bộ text đã có ở Custom Effect Drawer.
         const VISUALIZER_TYPE_LABEL_KEYS = {
             bar: 'settingsVisualizer.type.bar',
             lightning: 'settingsVisualizer.type.lightning',
@@ -94,10 +50,11 @@
             }
         }
 
+        /** Màu progress bar theo effect ĐANG CHẠY (customEffect[type]) — không còn 1 màu chung. */
         function updateProgressBarCSS() {
-            const cfg = appConfigViz.getAll();
+            const ec = getActiveEffectConfig(); // core/custom-effect.js
             const percentage = (progressBar.value / (progressBar.max || 100)) * 100;
-            const color = cfg.mode === 'solid' ? cfg.solidColor : (cfg.mode === 'dynamic' ? cfg.dynB : '#38bdf8');
+            const color = ec.mode === 'solid' ? ec.solidColor : (ec.mode === 'dynamic' ? ec.dynB : '#38bdf8');
             progressBar.style.background = `linear-gradient(to right, ${color} 0%, ${color} ${percentage}%, rgba(255,255,255,0.2) ${percentage}%, rgba(255,255,255,0.2) 100%)`;
         }
 
@@ -145,10 +102,6 @@
             // #eq-badge-label (core/eq-presets.js::syncEqBadgeLabel()), thay vì chữ tĩnh "Hiệu ứng"
             // cố định trước đây.
             if (modeCycleLabel) modeCycleLabel.textContent = t(VISUALIZER_TYPE_LABEL_KEYS[cfg.type] || cfg.type);
-            // Đồng bộ select "Kiểu hiệu ứng" trong Settings (ver 8 refine) — updateTypeUI() là
-            // điểm DUY NHẤT mọi đường đổi kiểu hiệu ứng đều đi qua (cycle button HOẶC select), nên
-            // đặt đồng bộ ở đây đảm bảo 2 UI luôn khớp nhau bất kể đổi từ đâu.
-            if (typeof visualizerTypeSelect !== 'undefined' && visualizerTypeSelect) visualizerTypeSelect.value = cfg.type;
 
             if (cfg.type === 'vortex' || cfg.type === 'space') {
                 // Space (MỚI, Phần B) DÙNG CHUNG canvas #webgl-canvas + tRenderer với Vortex — KHÔNG
@@ -166,7 +119,7 @@
                         appState.set('spCamera', created.spCamera);
                         appState.set('spGlowTexture', createGalaxyStarTexture());
                         appState.set('spNebulaTexture', createGalaxyNebulaTexture());
-                        const dustCount = PERFORMANCE_PROFILES[cfg.quality].galaxyDustCount;
+                        const dustCount = getEffectConfig('space').dustCount; // core/custom-effect.js
                         const dustMesh = buildSpaceDustMesh(dustCount, SPACE_DUST_RANGE, appState.get('spGlowTexture'));
                         appState.get('spScene').add(dustMesh);
                         appState.set('spDustMesh', dustMesh);
@@ -233,92 +186,12 @@
                 }
             }
 
-            // HOTFIX 2 — truy vấn TƯƠI, KHÔNG dựa vào biến toàn cục (xem docstring hàm ngay trên).
-            const blockMaxHeightEl = document.getElementById('block-max-height');
-            if (blockMaxHeightEl) {
-                const blockBarWidthEl = document.getElementById('block-bar-width');
-                const blockVortexEl = document.getElementById('block-vortex');
-                const blockRainEl = document.getElementById('block-rain');
-                const blockBarStyleEl = document.getElementById('block-bar-style');
-
-                blockMaxHeightEl.classList.add('hidden'); blockBarWidthEl.classList.add('hidden');
-                blockVortexEl.classList.add('hidden'); blockRainEl.classList.add('hidden'); blockBarStyleEl.classList.add('hidden');
-
-                if (cfg.type === 'vortex') { blockVortexEl.classList.remove('hidden'); blockVortexEl.classList.add('flex'); }
-                // 'space' KHÔNG có panel tinh chỉnh riêng (đã bỏ 21/07/2026, phản hồi Giang mục 1)
-                // — không cần nhánh nào ở đây, engine Galaxy tự khởi tạo ở khối phía trên.
-                else if (cfg.type === 'rain') { blockRainEl.classList.remove('hidden'); blockRainEl.classList.add('flex'); updateRainStyleUI(); }
-                else if (cfg.type === 'bar') {
-                    // "Độ cao tối đa" vẫn dùng chung cho Bar (cả mirror/cascade); "Độ dày thanh" KHÔNG
-                    // áp dụng cho Bar nữa (chỉ Black Hole) — xem updateBarStyleUI cho 2 setting riêng
-                    // của kiểu Phản chiếu (số lượng thanh, độ to vòng tròn).
-                    blockMaxHeightEl.classList.remove('hidden'); blockMaxHeightEl.classList.add('flex');
-                    blockBarStyleEl.classList.remove('hidden'); blockBarStyleEl.classList.add('flex');
-                    updateBarStyleUI();
-                }
-                else if (cfg.type === 'black hole') {
-                    // Black Hole là visual DUY NHẤT còn dùng "Độ dày thanh".
-                    blockMaxHeightEl.classList.remove('hidden'); blockMaxHeightEl.classList.add('flex');
-                    blockBarWidthEl.classList.remove('hidden'); blockBarWidthEl.classList.add('flex');
-                }
-                else if (cfg.type !== 'rubik' && cfg.type !== 'lightning') {
-                    blockMaxHeightEl.classList.remove('hidden'); blockMaxHeightEl.classList.add('flex');
-                }
-            }
-
             if(appState.get('analyser')) { appState.get('analyser').fftSize = (cfg.type === 'vortex' || cfg.type === 'lightning') ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard; allocateBuffers(); }
         }
 
-        /** HOTFIX 2 (07/07/2026) — cùng sửa như updateTypeUI() ở trên: `barMirrorOptions` KHÔNG
-         * tồn tại nữa (đã xoá khỏi dom-refs.js), `if (!barMirrorOptions)` ném ReferenceError chứ
-         * không an toàn như tưởng — đổi sang `document.getElementById()` truy vấn tươi. */
-        function updateBarStyleUI() {
-            const barMirrorOptionsEl = document.getElementById('bar-mirror-options');
-            if (!barMirrorOptionsEl) return;
-            const isMirror = appConfigViz.getAll().barStyle === 'mirror';
-            barMirrorOptionsEl.classList.toggle('hidden', !isMirror);
-            barMirrorOptionsEl.classList.toggle('flex', isMirror);
-        }
+        // (Phần B, Galaxy — updateSpaceStyleUI() ĐÃ BỎ 21/07/2026, cùng panel tinh chỉnh reroll/jump)
 
-        /** MỚI (phản hồi Giang) — CÙNG khuôn updateBarStyleUI() ngay trên: 3 toggle + 1 slider
-         * riêng cho style 'glass' (Trăng/Big City/Khung cửa sổ) CHỈ áp dụng style đó, style
-         * 'street' không có 3 lớp cảnh này — ẩn/hiện theo rainStyle. */
-        function updateRainStyleUI() {
-            const rainGlassOptionsEl = document.getElementById('rain-glass-options');
-            if (!rainGlassOptionsEl) return;
-            const isGlass = appConfigViz.getAll().rainStyle === 'glass';
-            rainGlassOptionsEl.classList.toggle('hidden', !isGlass);
-            rainGlassOptionsEl.classList.toggle('flex', isGlass);
-        }
-
-        // (Phần B, Galaxy — updateSpaceStyleUI() ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1, cùng lúc
-        // xoá panel tinh chỉnh 4 slider reroll/jump khỏi components/visualizer-settings-drawer.js)
-
-        /** HOTFIX 2 (07/07/2026) — cùng sửa như updateTypeUI()/updateBarStyleUI(): `solidColorContainer`/
-         * `dynColorContainer` KHÔNG tồn tại nữa — đổi sang `document.getElementById()` truy vấn tươi. */
-        function updateColorMenuUI() {
-            const mode = appConfigViz.getAll().mode;
-            const solidColorContainerEl = document.getElementById('solid-color-container');
-            if (solidColorContainerEl) {
-                const dynColorContainerEl = document.getElementById('dynamic-color-container');
-                if (mode === 'solid') { solidColorContainerEl.classList.remove('hidden'); dynColorContainerEl.classList.add('hidden'); dynColorContainerEl.classList.remove('flex'); }
-                else if (mode === 'dynamic') { solidColorContainerEl.classList.add('hidden'); dynColorContainerEl.classList.remove('hidden'); dynColorContainerEl.classList.add('flex'); }
-                else { solidColorContainerEl.classList.add('hidden'); dynColorContainerEl.classList.add('hidden'); dynColorContainerEl.classList.remove('flex'); }
-            }
-            updateProgressBarCSS();
-        }
-
-        // applyEQPreset(mode) ĐÃ XOÁ HẲN (tra bảng EQ_PRESETS tĩnh cũ) — THAY bằng
-        // applyEqGains(eqBandNodes, gains) (core/eq-presets.js, nhận thẳng gains từ preset DB-backed
-        // + eqBandNodes qua tham số, Rule 2 đầy đủ) — gọi từ event/workflow/eq-presets.js.
-
-        /**
-         * Core thuần: đổi chất lượng canvas (low/medium/high...). Batch D3 — BỎ `resizeCanvas()`/
-         * `saveConfig()` nội bộ (Rule 3), dời ra `workflowVisualizerDisplay.setQuality()`.
-         */
-        function setVisualizerQuality(value) {
-            appConfigViz.mutateAll(cfg => { cfg.quality = value; });
-        }
+        // applyEQPreset(mode) ĐÃ XOÁ HẲN — THAY bằng applyEqGains() (core/eq-presets.js).
 
         /**
          * HOTFIX 3 (07/07/2026) — `applyBgImage()`/`applyBgImageEnabled()` bị XOÁ NHẦM hoàn toàn
@@ -371,135 +244,15 @@
             valBgBlurDisplay.textContent = value + 'px';
         }
 
-        // XOÁ (v13) — `setBgColor()`: `vizConfig.bgColor` đã dời sang `visualBgConfig.solidColor`,
-        // do `workflowVisualBg.changeSolidColor()` ghi. Không còn nơi gọi.
-
-        /**
-         * Core thuần: chế độ màu visualizer (solid/dynamic/none). Batch D3 — BỎ `updateColorMenuUI()`/
-         * `saveConfig()` nội bộ, dời ra Workflow.
-         */
-        function setColorMode(value) {
-            appConfigViz.mutateAll(cfg => { cfg.mode = value; });
-        }
-
-        /**
-         * Core thuần: màu solid từ color picker — CẦN đồng bộ CHÉO sang ô text hex đi kèm.
-         * Batch D3 — nhận `crossEl` (ô text) qua tham số thay vì dom-refs tĩnh `solidColorText`.
-         * @param {string} value @param {HTMLElement} [crossEl]
-         */
-        function setSolidColorFromPicker(value, crossEl) {
-            appConfigViz.mutateAll(cfg => { cfg.solidColor = value; });
-            if (crossEl) crossEl.value = value;
-        }
-
-        /**
-         * Core thuần: màu solid từ ô nhập text hex — chỉ áp dụng khi đúng định dạng #RRGGBB,
-         * không thì bỏ qua im lặng (giữ đúng hành vi gốc). CẦN đồng bộ CHÉO sang color picker.
-         * @param {string} value @param {HTMLElement} [crossEl]
-         * @returns {boolean} true nếu giá trị hợp lệ và đã áp dụng (Workflow dựa vào đây để biết
-         *          có cần gọi updateProgressBarCSS()/saveConfig() tiếp hay không).
-         */
-        function setSolidColorFromText(value, crossEl) {
-            if (!/^#[0-9A-F]{6}$/i.test(value)) return false;
-            appConfigViz.mutateAll(cfg => { cfg.solidColor = value; });
-            if (crossEl) crossEl.value = value;
-            return true;
-        }
-
-        /** Core thuần: màu A của gradient động. Batch D3 — BỎ `saveConfig()` nội bộ. */
-        function setDynColorA(value) {
-            appConfigViz.mutateAll(cfg => { cfg.dynA = value; });
-        }
-
-        /** Core thuần: màu B của gradient động. Batch D3 — BỎ `updateProgressBarCSS()`/`saveConfig()`. */
-        function setDynColorB(value) {
-            appConfigViz.mutateAll(cfg => { cfg.dynB = value; });
-        }
-
-        /** Core thuần: màu bắt đầu (from) của Theme mode "Gradient" (MỚI 09/07/2026) — KHÁC
-         * `dynA`/`dynB` ở trên (đó là màu thanh Visualizer, đây là màu nền app) — xem docstring
-         * DEFAULT_VIZ_CONFIG.gradientFrom, core/config.js. */
+        /** Core thuần: màu bắt đầu (from) của Theme mode "Gradient" — màu NỀN app, khác màu vẽ
+         * effect. @param {string} value */
         function setThemeGradientFrom(value) {
             appConfigViz.mutateAll(cfg => { cfg.gradientFrom = value; });
         }
 
-        /** Core thuần: màu kết thúc (to) của Theme mode "Gradient" (MỚI 09/07/2026). */
+        /** Core thuần: màu kết thúc (to) của Theme mode "Gradient". @param {string} value */
         function setThemeGradientTo(value) {
             appConfigViz.mutateAll(cfg => { cfg.gradientTo = value; });
-        }
-
-        /** Core thuần: kiểu hiệu ứng Vortex con. Batch D3 — BỎ `updateVortexVisibility()`/`saveConfig()`. */
-        function setVortexStyle(value) {
-            appConfigViz.mutateAll(cfg => { cfg.vortexStyle = value; });
-        }
-
-        /** Core thuần: kiểu hiệu ứng Bar con (mirror/cascade). Batch D3 — BỎ `updateBarStyleUI()`/`saveConfig()`. */
-        function setBarStyle(value) {
-            appConfigViz.mutateAll(cfg => { cfg.barStyle = value; });
-        }
-
-        /** Core thuần: kiểu hiệu ứng Rain con. Batch D3 — BỎ `resizeCanvas()`/`saveConfig()`. */
-        function setRainStyle(value) {
-            appConfigViz.mutateAll(cfg => { cfg.rainStyle = value; });
-        }
-
-        // (Phần B, Galaxy — setSpaceStyle()/setSpaceRerollThreshold()/setSpaceRerollChance()/
-        // setSpaceJumpThreshold()/setSpaceJumpChance() ĐÃ BỎ 21/07/2026, phản hồi Giang mục 1 —
-        // 4 giá trị ngưỡng/xác suất giờ là hằng số cố định trong
-        // event/workflow/visualizer-render.js, KHÔNG còn chỉnh qua UI/vizConfig.)
-
-        /** Core thuần: bật/tắt hiệu ứng chớp kính (Rain). Batch D3 — BỎ `saveConfig()` nội bộ. */
-        function setGlassFlash(checked) {
-            appConfigViz.mutateAll(cfg => { cfg.glassFlash = checked; });
-        }
-
-        /** Core thuần: độ cao tối đa của bar. Batch D3 — nhận `displayEl` qua tham số. @param {string} value @param {HTMLElement} [displayEl] */
-        function setMaxHeight(value, displayEl) {
-            const v = parseInt(value);
-            appConfigViz.mutateAll(cfg => { cfg.maxH = v; });
-            if (displayEl) displayEl.textContent = v;
-        }
-
-        /** Core thuần: độ dày thanh (Black Hole). Batch D3 — nhận `displayEl` qua tham số. @param {string} value @param {HTMLElement} [displayEl] */
-        function setBarWidth(value, displayEl) {
-            const v = parseInt(value);
-            appConfigViz.mutateAll(cfg => { cfg.barWidth = v; });
-            if (displayEl) displayEl.textContent = v;
-        }
-
-        /** Core thuần: số lượng thanh mirror. Batch D3 — nhận `displayEl` qua tham số. @param {string} value @param {HTMLElement} [displayEl] */
-        function setMirrorCount(value, displayEl) {
-            const v = parseInt(value);
-            appConfigViz.mutateAll(cfg => { cfg.mirrorBarCount = v; });
-            if (displayEl) displayEl.textContent = v;
-        }
-
-        /** Core thuần: độ trong Big City (Rain, style 'glass'), 0-100. @param {string} value @param {HTMLElement} [displayEl] */
-        function setRainCityOpacity(value, displayEl) {
-            const v = parseInt(value);
-            appConfigViz.mutateAll(cfg => { cfg.rainGlassCityOpacity = v; });
-            if (displayEl) displayEl.textContent = v;
-        }
-
-        /** Core thuần: hiện/ẩn Big City (Rain, style 'glass'). @param {boolean} checked */
-        function setRainCityVisible(checked) {
-            appConfigViz.mutateAll(cfg => { cfg.rainGlassCityVisible = checked; });
-        }
-
-        /** Core thuần: hiện/ẩn Trăng (Rain, style 'glass'). @param {boolean} checked */
-        function setRainMoonVisible(checked) {
-            appConfigViz.mutateAll(cfg => { cfg.rainGlassMoonVisible = checked; });
-        }
-
-        /** Core thuần: hiện/ẩn khung cửa sổ (Rain, style 'glass'). @param {boolean} checked */
-        function setRainWindowVisible(checked) {
-            appConfigViz.mutateAll(cfg => { cfg.rainGlassWindowVisible = checked; });
-        }
-
-        /** Core thuần: bật/tắt blur — TÁCH RIÊNG khỏi quality (phản hồi Giang), xem
-         * event/workflow/visualizer-render.js::_tick(). @param {boolean} checked */
-        function setBlurEnabled(checked) {
-            appConfigViz.mutateAll(cfg => { cfg.blurEnabled = checked; });
         }
 
         /** Âm lượng tổng (masterGainNode). msg.type 'visualizerDisplay.volume.input'. @param {string} value */
