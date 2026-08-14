@@ -93,7 +93,7 @@ function _renderCeFieldRow(field, cfg) {
         `;
     }
     const value = cfg[field.id];
-    const displayValue = field.type === 'sliderFloat' ? `${value.toFixed(1)}x` : value;
+    const displayValue = field.type === 'sliderFloat' ? value.toFixed(field.decimals || 1) : value;
     return `
         <div class="flex flex-col px-4 py-3 border-b border-slate-200 last:border-b-0">
             <div class="flex justify-between items-center mb-2"><span class="text-sm text-slate-700" data-i18n="${field.labelKey}">${t(field.labelKey)}</span><span class="text-xs text-sky-600 font-mono ce-field-val" data-field-val="${field.id}">${displayValue}</span></div>
@@ -102,15 +102,55 @@ function _renderCeFieldRow(field, cfg) {
     `;
 }
 
+/** Đèn tuỳ chỉnh (Rain, style street) — customEffect.rain.customLamps, tối đa
+ * CUSTOM_EFFECT_MAX_LAMPS (core/custom-effect.js). Mỗi đèn: X (%) + Chiều cao (px) + Flare. */
+function _renderCeLampsSection(cfg) {
+    const lamps = cfg.customLamps || [];
+    const rows = lamps.map((lamp, i) => `
+        <div class="flex flex-col gap-2 px-4 py-3 border-b border-slate-200" data-lamp-index="${i}">
+            <div class="flex justify-between items-center">
+                <span class="text-xs font-semibold text-slate-500">${t('customEffectDrawer.lamps.itemLabel')} ${i + 1}</span>
+                <button class="ce-lamp-remove text-rose-500 text-xs font-medium" data-lamp-index="${i}">${t('customEffectDrawer.lamps.remove')}</button>
+            </div>
+            <div class="flex flex-col gap-1">
+                <div class="flex justify-between items-center"><span class="text-xs text-slate-500">${t('customEffectDrawer.lamps.x')}</span><span class="text-xs text-sky-600 font-mono ce-lamp-val" data-lamp-val="x">${lamp.xPercent}%</span></div>
+                <input type="range" class="ce-slider ce-lamp-x" data-lamp-index="${i}" min="0" max="100" step="1" value="${lamp.xPercent}">
+            </div>
+            <div class="flex flex-col gap-1">
+                <div class="flex justify-between items-center"><span class="text-xs text-slate-500">${t('customEffectDrawer.lamps.height')}</span><span class="text-xs text-sky-600 font-mono ce-lamp-val" data-lamp-val="height">${lamp.heightPx}px</span></div>
+                <input type="range" class="ce-slider ce-lamp-height" data-lamp-index="${i}" min="40" max="500" step="10" value="${lamp.heightPx}">
+            </div>
+            <div class="flex flex-col gap-1">
+                <div class="flex justify-between items-center"><span class="text-xs text-slate-500">${t('customEffectDrawer.lamps.flare')}</span><span class="text-xs text-sky-600 font-mono ce-lamp-val" data-lamp-val="flare">${lamp.flareScale.toFixed(1)}</span></div>
+                <input type="range" class="ce-slider ce-lamp-flare" data-lamp-index="${i}" min="0.3" max="3" step="0.1" value="${lamp.flareScale}">
+            </div>
+        </div>
+    `).join('');
+    const atMax = lamps.length >= CUSTOM_EFFECT_MAX_LAMPS; // core/custom-effect.js
+    return `
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
+            <div class="flex justify-between items-center px-4 py-3 border-b border-slate-200">
+                <span class="text-sm text-slate-700" data-i18n="customEffectDrawer.lamps.title">${t('customEffectDrawer.lamps.title')}</span>
+                <span class="text-xs text-slate-400">${lamps.length}/${CUSTOM_EFFECT_MAX_LAMPS}</span>
+            </div>
+            ${rows}
+            <button id="ce-lamp-add" class="w-full py-3 text-sm font-medium text-sky-600 ${atMax ? 'opacity-40 pointer-events-none' : ''}" data-i18n="customEffectDrawer.lamps.add">${t('customEffectDrawer.lamps.add')}</button>
+        </div>
+    `;
+}
+
 /** @param {string} type @param {object} cfg - getEffectConfig(type), core/custom-effect.js */
 function renderCustomEffectBody(type, cfg) {
     const fields = (CUSTOM_EFFECT_FIELDS[type] || []).map((f) => _renderCeFieldRow(f, cfg)).join('');
+    const lampsSection = (type === 'rain' && cfg.rainStyle === 'street') ? _renderCeLampsSection(cfg) : '';
+    const showBlur = !CUSTOM_EFFECT_NO_BLUR.includes(type); // core/custom-effect.js
     return `
         <div class="flex flex-col gap-4 px-4 py-3">
             ${_renderCeStyleRow(type, cfg)}
             ${_renderCeColorSection(cfg)}
-            ${_renderCeBlurSection(cfg)}
+            ${showBlur ? _renderCeBlurSection(cfg) : ''}
             ${fields ? `<div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">${fields}</div>` : ''}
+            ${lampsSection}
         </div>
     `;
 }
