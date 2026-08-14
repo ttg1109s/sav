@@ -368,23 +368,27 @@ const workflowVisualBg = {
      * (core/player-controls.js) -> `syncPlaybackToAudio()` (dưới) chạy — do KHÔNG có `_isSwappingVideo`
      * chặn ở guard đầu hàm đó, nó đọc trúng `audioPlayer.paused === true` (Song VỪA bị ép pause) và
      * tự gọi `syncVisualBgVideoPlayback(true)` -> PAUSE LUÔN `bgVideoElement` ngay giữa lúc vừa
-     * `play()` lại — đúng hiện tượng "cả song lẫn video nền cùng dừng". Fix: bọc `_isSwappingVideo`
-     * quanh đoạn `play()` (CÙNG cửa sổ bảo vệ như `_playVideoKey()` — chỉ tới lúc lệnh `play()` đã
-     * phát ra, KHÔNG giữ suốt qua `waitForNextPlaying()`), cộng thêm gọi lại
-     * `syncVisualBgVideoPlayback(audioPlayer.paused)` SAU khi video đã ổn định — CÙNG pattern
-     * `_playVideoKey()` — phòng Song đổi trạng thái thật (người dùng tự pause) đúng lúc đang chờ.
+     * `play()` lại — đúng hiện tượng "cả song lẫn video nền cùng dừng".
+     * SỬA THÊM (14/08/2026, vòng 2, Giang báo "vẫn chưa fix được") — bản đầu tắt `_isSwappingVideo`
+     * NGAY sau lệnh `play()` (đồng bộ) — cửa sổ bảo vệ ĐÓNG QUÁ SỚM: sự kiện 'pause' của Song do
+     * OS đàm phán audio session KHÔNG bắn ngay lập tức, có thể tới sau cả trăm ms — lúc đó guard đã
+     * tắt từ lâu, `syncPlaybackToAudio()` vẫn chạy tự do y hệt lúc chưa sửa. GIỮ guard suốt qua
+     * `waitForNextPlaying()` (CÙNG mốc mở rộng vừa áp cho `_playVideoKey()`), chỉ tắt HẲN bên trong
+     * `.then()` — đúng lúc video đã THẬT SỰ ổn định ('playing' bắn hoặc hết 2s dự phòng). Gọi lại
+     * `syncVisualBgVideoPlayback(audioPlayer.paused)` ngay sau đó — phòng Song đổi trạng thái thật
+     * (người dùng tự pause) đúng lúc đang chờ, CÙNG pattern `_playVideoKey()`.
      */
     _restartCurrentVideoInPlace() {
         const videoKey = this._currentVideoKey;
         if (!videoKey) return; // guard: không có video thật nào đang phát (đang placeholder) — không có gì để lặp
-        this._isSwappingVideo = true; // chặn syncPlaybackToAudio() xen vào đúng lúc play() có thể ép pause Song
+        this._isSwappingVideo = true; // chặn syncPlaybackToAudio() xen vào — GIỮ suốt tới lúc video ổn định, xem comment trên
         bgVideoElement.muted = true;
         setVideoBgGain(0); // core/video-player.js
         bgVideoElement.currentTime = 0;
         bgVideoElement.play().catch(() => {});
-        this._isSwappingVideo = false;
-        if (typeof workflowVideoPlayer === 'undefined') return; // liên tuyến domain
+        if (typeof workflowVideoPlayer === 'undefined') { this._isSwappingVideo = false; return; } // liên tuyến domain
         workflowVideoPlayer.waitForNextPlaying().then(() => {
+            this._isSwappingVideo = false; // SỬA (14/08/2026 vòng 2) — guard chỉ hết hiệu lực SAU khi video đã ổn định
             if (this._currentVideoKey !== videoKey) return;
             syncVisualBgVideoPlayback(audioPlayer.paused); // core/visual-bg.js — đồng bộ lại phòng Song đổi trạng thái thật giữa lúc chờ
             this._applyVideoAudioSettingToElement(videoKey); // core/visual-bg.js lookup + gán muted/volume
@@ -520,8 +524,18 @@ const workflowVisualBg = {
         // Audio ngay lúc này (chỉ nối LƯỜI bên trong `_applyVideoAudioSettingToElement()`, chạy SAU
         // khi ready — xem cuối hàm).
         const record = await workflowVideoPlayer.swapBgVideoSource(videoKey, true, null, true); // event/workflow/video-player.js — liên tuyến domain, isTransition=true LUÔN (VBG cần lớp dự phòng cả lúc áp lần đầu, không phân biệt như Video Player mode) — bên trong: pause video cũ -> đọc record -> chèn full-res thumb dự phòng -> ẩn bgVideoElement -> nạp blob mới -> gán poster/src -> play() -> gỡ ẩn khi sẵn sàng
-        this._isSwappingVideo = false;
-        if (!record) { await this._markCurrentMissing(); return; }
+        // SỬA (14/08/2026, Giang báo "vẫn chưa fix được vấn đề 3 perSong") — TRƯỚC ĐÂY tắt
+        // `_isSwappingVideo` NGAY tại đây (đúng lúc `await` phía trên vừa xong) — cửa sổ bảo vệ
+        // ĐÓNG QUÁ SỚM: `play()` bên trong `swapBgVideoSource()` vừa chạy, nhưng rủi ro thật (trình
+        // duyệt/iOS ép pause Song do vừa giành audio session) có thể đến MUỘN HƠN đáng kể — sự kiện
+        // 'pause' của Song không nhất thiết bắn ngay lập tức, có thể tới sau cả trăm ms (đàm phán
+        // audio session của OS). Lúc guard đã tắt từ lâu, `syncPlaybackToAudio()` (gọi từ
+        // `handleAudioPause()`) chạy tự do, đọc trúng `audioPlayer.paused===true` (Song VỪA bị ép
+        // pause) -> pause LUÔN video vừa `play()` lại — đúng hiện tượng "cả song lẫn video nền cùng
+        // dừng" vẫn còn sau lần sửa trước. KHÔNG tắt guard ở đây nữa — dời xuống bên trong `.then()`
+        // của `waitBgVideoReady()`, đúng lúc video đã THẬT SỰ ổn định ('playing' bắn hoặc hết 2s dự
+        // phòng — cùng mốc thời gian tối đa `swapBgVideoSource()` tự đặt ra cho chính nó).
+        if (!record) { this._isSwappingVideo = false; await this._markCurrentMissing(); return; }
         this._currentVideoKey = videoKey; // MỚI — ghi NGAY sau khi swap thành công, làm nguồn so sánh cho guard dedupe ở đầu hàm
         updateDOMBackground(); // core/color-utils.js
         // SỬA (09/08/2026, mục 1, phản hồi Giang — "guard .hidden nuốt mất lệnh pause") — DỜI
@@ -533,6 +547,7 @@ const workflowVisualBg = {
         // KHÔNG await (fix bug boot chặn playlist, mục 4 cũ). Guard `_currentVideoKey === videoKey`:
         // bỏ qua nếu đã có video KHÁC nạp đè lên trong lúc chờ (advance nhanh liên tiếp).
         workflowVideoPlayer.waitBgVideoReady().then(() => {
+            this._isSwappingVideo = false; // SỬA (14/08/2026) — guard chỉ hết hiệu lực SAU khi video đã ổn định, xem comment trên
             if (this._currentVideoKey !== videoKey) return;
             syncVisualBgVideoPlayback(audioPlayer.paused); // core/visual-bg.js — ĐÚNG mốc .hidden đã gỡ, guard không còn nuốt lệnh pause() nữa
             this._applyVideoAudioSettingToElement(videoKey); // core/visual-bg.js lookup + gán muted/volume
@@ -646,18 +661,20 @@ const workflowVisualBg = {
      * SỬA (14/08/2026, cùng gốc bug "perSong Audio B, loop -> pause cả song lẫn video nền" đã sửa ở
      * `_restartCurrentVideoInPlace()`) — hàm này CÙNG lỗ hổng: `play()` ở đây cũng có thể bị ép
      * pause Song, và vì thiếu `_isSwappingVideo` nên `syncPlaybackToAudio()` (nơi GỌI CHÍNH hàm
-     * này) có thể bị gọi lại đè lên giữa chừng, pause nhầm video vừa `play()`. Bọc guard quanh
-     * đoạn `play()` + đồng bộ lại play/pause thật SAU khi ổn định, cùng khuôn hàm chị em.
+     * này) có thể bị gọi lại đè lên giữa chừng, pause nhầm video vừa `play()`.
+     * SỬA THÊM (14/08/2026, vòng 2) — CÙNG lý do vừa sửa lại ở `_restartCurrentVideoInPlace()`/
+     * `_playVideoKey()`: guard PHẢI giữ suốt qua `waitForNextPlaying()`, không tắt ngay sau `play()`
+     * đồng bộ — sự kiện 'pause' ép buộc của OS có thể tới muộn hơn cửa sổ đồng bộ đó.
      * @param {string} videoKey
      */
     _resumeVideoWithDelayedAudio(videoKey) {
-        this._isSwappingVideo = true; // chặn syncPlaybackToAudio() xen vào đúng lúc play() có thể ép pause Song
+        this._isSwappingVideo = true; // chặn syncPlaybackToAudio() xen vào — GIỮ suốt tới lúc video ổn định, xem comment trên
         bgVideoElement.muted = true;
         setVideoBgGain(0); // core/video-player.js
         bgVideoElement.play().catch(() => {});
-        this._isSwappingVideo = false;
-        if (typeof workflowVideoPlayer === 'undefined') return; // liên tuyến domain
+        if (typeof workflowVideoPlayer === 'undefined') { this._isSwappingVideo = false; return; } // liên tuyến domain
         workflowVideoPlayer.waitForNextPlaying().then(() => {
+            this._isSwappingVideo = false; // SỬA (14/08/2026 vòng 2) — guard chỉ hết hiệu lực SAU khi video đã ổn định
             if (this._currentVideoKey !== videoKey) return;
             syncVisualBgVideoPlayback(audioPlayer.paused); // core/visual-bg.js — đồng bộ lại phòng Song đổi trạng thái thật giữa lúc chờ
             this._applyVideoAudioSettingToElement(videoKey); // core/visual-bg.js lookup + gán muted/volume
