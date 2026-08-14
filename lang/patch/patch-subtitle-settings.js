@@ -20,18 +20,12 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
 
     // Batch D2 (06/07/2026) — 'subtitleSettingsDrawer.backToSettings.title' XOÁ, dùng CHUNG
     // 'settingsDrawer.back.title' (Batch D1, lang/patch/patch-settings-misc.js) cho mọi panel.
-    'subtitleSettingsDrawer.title': 'Customize Subtitles',
-    'subtitleSettingsDrawer.sectionTitle': 'Subtitle box & text',
-    'subtitleSettingsDrawer.bgColor.label': 'Box background color',
-    'subtitleSettingsDrawer.bgOpacity.label': 'Background opacity',
-    'subtitleSettingsDrawer.borderColor.label': 'Box border color',
-    'subtitleSettingsDrawer.borderOpacity.label': 'Border opacity',
-    'subtitleSettingsDrawer.borderWidth.label': 'Border thickness (px)',
-    'subtitleSettingsDrawer.borderRadius.label': 'Box corner radius (px)',
-    'subtitleSettingsDrawer.textColor.label': 'Subtitle text color',
-    'subtitleSettingsDrawer.fontSize.label': 'Font size (px)',
-    'subtitleSettingsDrawer.lineHeight.label': 'Line height',
-    'subtitleSettingsDrawer.letterSpacing.label': 'Letter spacing (px)',
+    // XOÁ (mục 2, phản hồi Giang — "loại bỏ toàn bộ khung box, xoá toàn bộ tuỳ chọn") — 10 key
+    // style khung/chữ (sectionTitle/bgColor/bgOpacity/borderColor/borderOpacity/borderWidth/
+    // borderRadius/textColor/fontSize/lineHeight/letterSpacing) ĐÃ XOÁ HẾT — panel con giờ CHỈ
+    // còn 1 toggle, dùng LẠI 'settingsSubtitleStyle.enable.*' có sẵn (xem cuối file). 'title' GIỮ
+    // NGUYÊN (panel con vẫn cần tên hiển thị trên header).
+    'subtitleSettingsDrawer.title': 'Subtitles',
 
     // MỚI (Batch 8, 03/07/2026, slideshow nền Visual) — Slideshow Settings Drawer, xem
     // components/slideshow-settings-drawer.js.
@@ -213,9 +207,12 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // ĐÃ XOÁ khỏi option list vì vô nghĩa khi đã có 4 kiểu rõ ràng này.
     'settingsPlaylistBg.sortMode.newest': 'Newest first',
     'settingsPlaylistBg.sortMode.oldest': 'Oldest first',
-    // MỚI (phản hồi Giang, mục 5 — "thêm dòng folder đang active source") — dòng đọc-thôi hiển thị
-    // thư mục đang Apply làm Scope cho Playlist (components/settings/playlist-view.js).
-    'settingsPlaylistBg.activeFolder.label': 'Active folder',
+    // MỚI (mục 1d, Filter subpanel) — nút mở panel "Lọc" (Settings → Playlist).
+    'settingsPlaylistBg.filter.label': 'Filter',
+    // XOÁ (mục 1a, phản hồi Giang — "bỏ row active folder -> thêm vào dropdown của source") —
+    // 'settingsPlaylistBg.activeFolder.label' (label của dòng đọc-thôi cũ) ĐÃ XOÁ — dòng đó không
+    // còn tồn tại. '.none' GIỮ NGUYÊN — vẫn dùng làm text hiển thị khi record folder không đọc
+    // được (core/playlist/main.js::updateActiveFolderUI()).
     'settingsPlaylistBg.activeFolder.none': 'None',
     // SỬA (phản hồi Giang, mục 4 — "Use video background chưa block nếu source là video") — dùng
     // CHUNG cho CẢ 2 lý do chặn (event/block.js không hỗ trợ notify riêng theo từng điều kiện) —
@@ -260,8 +257,50 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
 
     'settingsSubtitleStyle.sectionTitle': 'Subtitles',
     'settingsSubtitleStyle.enable.label': 'Show subtitles',
-    'settingsSubtitleStyle.enable.hint': "Turn off to hide the subtitle box during playback, without deleting what you've written.",
-    'settingsSubtitleStyle.openDrawer.label': 'Customize',
-    'settingsSubtitleStyle.openDrawer.hint': 'Box background/border color, text color, font size, line/letter spacing',
+    'settingsSubtitleStyle.enable.hint': "Turn off to hide subtitles during playback, without deleting what you've written.",
+    // XOÁ (mục 2) — 'settingsSubtitleStyle.openDrawer.label'/'.hint' (nút "Tuỳ chỉnh" cũ mở drawer
+    // 10 style) — panel con giờ chỉ có 1 toggle, mở thẳng qua nút trong panel "Display"
+    // (visualizerDisplayPanel.title dùng chung, KHÔNG cần label/hint riêng — xem components/
+    // settings/visualizer-display-panel.js, tái dùng 'settingsSubtitleStyle.sectionTitle'/
+    // '.enable.hint' làm label/hint cho chính nút đó).
+
+    // MỚI (mục 1b/1c, Sort subpanel) — panel "Sắp xếp": 2 trục.
+    'playlistSortPanel.title': 'Sort',
+    'playlistSortPanel.nameMode.label': 'Name / date',
+    'playlistSortPanel.statMode.label': 'Listening stats',
+    'playlistSortPanel.statMode.none': 'None (use Name/date)',
+    'playlistSortPanel.statMode.countDesc': 'Play count: high → low',
+    'playlistSortPanel.statMode.countAsc': 'Play count: low → high',
+    'playlistSortPanel.statMode.timesDesc': 'Listen time: high → low',
+    'playlistSortPanel.statMode.timesAsc': 'Listen time: low → high',
+    // MỚI (phản hồi Giang — "bổ sung dung lượng + duration vào stats").
+    'playlistSortPanel.statMode.sizeDesc': 'File size: high → low',
+    'playlistSortPanel.statMode.sizeAsc': 'File size: low → high',
+    'playlistSortPanel.statMode.durationDesc': 'Duration: high → low',
+    'playlistSortPanel.statMode.durationAsc': 'Duration: low → high',
+    'playlistSortPanel.statMode.hint': 'When set, this decides the order first — Name/date only breaks ties.',
+
+    // MỚI (mục 1d, Filter subpanel) — panel "Lọc": field theo Nguồn, mô phỏng SQL WHERE...AND.
+    'playlistFilterPanel.title': 'Filter',
+    'playlistFilterPanel.field.name': 'Name',
+    'playlistFilterPanel.field.album': 'Album',
+    'playlistFilterPanel.field.artist': 'Artist',
+    'playlistFilterPanel.field.addedAt': 'Date added',
+    'playlistFilterPanel.field.count': 'Play count',
+    'playlistFilterPanel.field.totalTime': 'Listen time (sec)',
+    // MỚI (phản hồi Giang — "filter cũng bổ sung thêm duration vào").
+    'playlistFilterPanel.field.duration': 'Duration (sec)',
+    'playlistFilterPanel.field.size': 'File size (MB)',
+    'playlistFilterPanel.op.eq': 'Is',
+    'playlistFilterPanel.op.neq': 'Is not',
+    'playlistFilterPanel.op.contains': 'Contains',
+    'playlistFilterPanel.op.notContains': 'Does not contain',
+    'playlistFilterPanel.mode.single': 'Single value',
+    'playlistFilterPanel.mode.range': 'Range',
+    'playlistFilterPanel.rangeFrom': 'From',
+    'playlistFilterPanel.rangeTo': 'To',
+    'playlistFilterPanel.apply': 'Apply',
+    'playlistFilterPanel.hint': 'Every field turned on is combined with AND. Changes are saved now — reload to see the filtered list.',
+    'playlistFilterPanel.reloadPrompt': 'Filter saved. Reload now to apply it to your Playlist?',
 
 };

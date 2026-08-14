@@ -60,6 +60,10 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.songInfo.fieldPlayCount': 'Play count',
     'playlistView.songInfo.fieldPlayCountValue': '{n} times',
     'playlistView.songInfo.fieldListened': 'Listened',
+    // MỚI (mục 1e, phản hồi Giang — "detail modal thêm dung lượng") — DÙNG CHUNG cho CẢ Song lẫn
+    // Video (songInfoRowHtml() ở cả 2 nhánh, core/playlist/actions.js::openSongEditModal()) —
+    // KHÁC 'fieldFileSize' cũ (xoá 29/07/2026, mồ côi lúc đó) — key MỚI, có nơi dùng thật.
+    'playlistView.songInfo.fieldSize': 'File size',
     'playlistView.songInfo.empty': '—',
     // MỚI (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — tab "Chi tiết" của Video,
     // THAY Title/Artist/Album (giữ PlayCount/Listened — dùng chung key ở trên).
