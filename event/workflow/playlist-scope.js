@@ -67,8 +67,13 @@ const workflowPlaylistScope = {
         // Scope tính lại theo folder, TRƯỚC updateShuffleArray()/recompute*Order() — xem docstring
         // đầu core/playlist/filter.js.
         const source = appState.get('activeMediaSource');
+        const beforeCount = appState.get('playlistOrder').length; // MỚI (mục 2, log) — số lượng TRƯỚC khi lọc, để so log rõ ràng
         const filteredKeys = applyPlaylistFilter(appState.get('playlistOrder'), appState.get('playlistCache'), appState.get('songStatsMap'), appState.get('playlistFilterConfig')[source]);
         appState.set('playlistOrder', filteredKeys);
+        // MỚI (mục 2, phản hồi Giang — "thêm log của filter xem") — log NGAY sau khi ghi
+        // playlistOrder, TRƯỚC updateShuffleArray()/recompute*Order() — nếu boot bị treo NGAY SAU
+        // dòng này thì chắc chắn KHÔNG phải do applyPlaylistFilter(), mà do 1 trong 4 hàm ngay dưới.
+        console.log(`writer: "applyFolderScope", page: "playlistOrder", content: "Filter: ${filteredKeys.length}/${beforeCount} sau lọc (source=${source})"`);
         updateShuffleArray();
         recomputeDisplayOrder();
         recomputeRenderOrder();
@@ -89,8 +94,11 @@ const workflowPlaylistScope = {
         loadAllSongs(appState.get('playlistCache'), excludedKeys); // core/playlist/scope.js
         // MỚI (mục 1d, Playlist Filter) — CÙNG LÝ DO applyFolderScope() ngay trên.
         const source = appState.get('activeMediaSource');
+        const beforeCount = appState.get('playlistOrder').length; // MỚI (mục 2, log)
         const filteredKeys = applyPlaylistFilter(appState.get('playlistOrder'), appState.get('playlistCache'), appState.get('songStatsMap'), appState.get('playlistFilterConfig')[source]);
         appState.set('playlistOrder', filteredKeys);
+        // MỚI (mục 2, phản hồi Giang — "thêm log của filter xem") — CÙNG LÝ DO applyFolderScope().
+        console.log(`writer: "applyAllSongsScope", page: "playlistOrder", content: "Filter: ${filteredKeys.length}/${beforeCount} sau lọc (source=${source})"`);
 
         updateShuffleArray();
         recomputeDisplayOrder();
