@@ -49,21 +49,25 @@
         }
 
         /**
-         * Comparator trục (2) — thống kê (`statMode`), MỚI (Sort subpanel, mục 1b/1c) — MỞ RỘNG
-         * (phản hồi Giang — "bổ sung dung lượng + duration vào stats") — 4 field: count/times
-         * (songStatsMap), size/duration (playlistCache, cùng nguồn với Filter — core/playlist/
-         * filter.js). Đọc `songStatsMap`/`playlistCache` — bài chưa có thống kê coi như 0.
-         * @param {string} statMode - '<field>Desc'|'<field>Asc', field ∈ {count,times,size,duration}
+         * Comparator trục (2) — thống kê, MỞ RỘNG (phản hồi Giang — "bổ sung dung lượng + duration
+         * vào stats"), SỬA (mục 3 — tách field/hướng thành 2 tham số riêng thay vì 1 chuỗi gộp
+         * kiểu 'countDesc', khớp đúng UI 2 dropdown — components/playlist-sort-drawer.js). 4 field:
+         * count/times (songStatsMap), size/duration (playlistCache, cùng nguồn với Filter —
+         * core/playlist/filter.js). Đọc `songStatsMap`/`playlistCache` — bài chưa có thống kê coi
+         * như 0.
+         * @param {string} statField - 'count'|'times'|'size'|'duration' (KHÔNG nhận 'none' — caller
+         *   sortKeysByMode() tự chặn ở nhánh trên, hàm này không cần biết 'none' là gì)
+         * @param {string} statDirection - 'desc'|'asc'
          * @param {Map} songStatsMap @param {Map} playlistCache
          * @returns {(a:string,b:string)=>number}
          */
-        function _buildStatComparator(statMode, songStatsMap, playlistCache) {
+        function _buildStatComparator(statField, statDirection, songStatsMap, playlistCache) {
             let getValue;
-            if (statMode.startsWith('count')) getValue = (k) => (songStatsMap.get(k) || {}).count || 0;
-            else if (statMode.startsWith('times')) getValue = (k) => (songStatsMap.get(k) || {}).totalTime || 0;
-            else if (statMode.startsWith('size')) getValue = (k) => (playlistCache.get(k) || {}).size || 0;
-            else getValue = (k) => (playlistCache.get(k) || {}).duration || 0; // 'duration...'
-            const desc = statMode.endsWith('Desc');
+            if (statField === 'count') getValue = (k) => (songStatsMap.get(k) || {}).count || 0;
+            else if (statField === 'times') getValue = (k) => (songStatsMap.get(k) || {}).totalTime || 0;
+            else if (statField === 'size') getValue = (k) => (playlistCache.get(k) || {}).size || 0;
+            else getValue = (k) => (playlistCache.get(k) || {}).duration || 0; // 'duration'
+            const desc = statDirection === 'desc';
             return (a, b) => {
                 const va = getValue(a); const vb = getValue(b);
                 return desc ? vb - va : va - vb;
@@ -71,20 +75,22 @@
         }
 
         /**
-         * So sánh & trả về MẢNG MỚI đã sắp theo CẢ 2 trục (mục 1b/1c, phản hồi Giang):
-         *   - `statMode` === 'none' -> CHỈ trục (1) quyết định — hành vi Y HỆT bản trước Sort
+         * So sánh & trả về MẢNG MỚI đã sắp theo CẢ 2 trục (mục 1b/1c, phản hồi Giang; SỬA mục 3 —
+         * field/hướng tách riêng):
+         *   - `statField` === 'none' -> CHỈ trục (1) quyết định — hành vi Y HỆT bản trước Sort
          *     subpanel (KHÔNG đổi kết quả cho ai chưa bật trục thống kê).
-         *   - `statMode` khác 'none' -> trục (2) là CHÍNH; 2 bài có count/times BẰNG NHAU thì trục
-         *     (1) quyết định thứ tự giữa 2 bài đó (tie-break, ĐÚNG yêu cầu mục 1c).
+         *   - `statField` khác 'none' -> trục (2) là CHÍNH (hướng theo `statDirection`); 2 bài BẰNG
+         *     NHAU thì trục (1) quyết định thứ tự giữa 2 bài đó (tie-break, ĐÚNG yêu cầu mục 1c).
          * @param {string[]} keys
          * @param {string} nameMode - displaySortMode hiện tại (trục 1)
-         * @param {string} statMode - displayStatSortMode hiện tại (trục 2)
+         * @param {string} statField - displayStatSortField hiện tại (trục 2) — 'none'|'count'|'times'|'size'|'duration'
+         * @param {string} statDirection - displayStatSortDirection hiện tại — 'desc'|'asc'
          * @param {Map} songNameIndex @param {Map} playlistCache @param {Map} songStatsMap
          */
-        function sortKeysByMode(keys, nameMode, statMode, songNameIndex, playlistCache, songStatsMap) {
+        function sortKeysByMode(keys, nameMode, statField, statDirection, songNameIndex, playlistCache, songStatsMap) {
             const nameCmp = _buildNameComparator(nameMode, songNameIndex, playlistCache);
-            if (statMode === 'none') return keys.slice().sort(nameCmp);
-            const statCmp = _buildStatComparator(statMode, songStatsMap, playlistCache);
+            if (statField === 'none') return keys.slice().sort(nameCmp);
+            const statCmp = _buildStatComparator(statField, statDirection, songStatsMap, playlistCache);
             return keys.slice().sort((a, b) => {
                 const primary = statCmp(a, b);
                 return primary !== 0 ? primary : nameCmp(a, b);
@@ -107,13 +113,13 @@
         function recomputeRenderOrder() {
             const query = appState.get('searchQuery'); // ĐÃ chuẩn hoá sẵn lúc gõ (applySearchQuery(), render.js)
             const cache = appState.get('playlistCache');
-            // MỚI (Sort subpanel, mục 1b/1c) — gộp thêm displayStatSortMode/songStatsMap (trục 2)
-            // vào CÙNG 1 lần appState.get([...]) đã có sẵn (Rule 2, sortKeysByMode() nhận tham số).
-            const { displaySortMode: nameMode, displayStatSortMode: statMode, songNameIndex, songStatsMap } = appState.get(['displaySortMode', 'displayStatSortMode', 'songNameIndex', 'songStatsMap']);
+            // SỬA (mục 3) — displayStatSortMode (gộp) tách thành displayStatSortField/
+            // displayStatSortDirection (2 field riêng, khớp sortKeysByMode() bản mới).
+            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, songStatsMap } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'songStatsMap']);
             appState.set('renderOrder', sortKeysByMode(liveKeys().filter((key) => {
                 const cached = cache.get(key);
                 return songMatchesQuery(query, cached ? cached.tag.title : key, cached ? cached.tag.artist : '', cached ? cached.tag.album : '');
-            }), nameMode, statMode, songNameIndex, cache, songStatsMap));
+            }), nameMode, statField, statDirection, songNameIndex, cache, songStatsMap));
         }
 
         // ===================== (B) HÀNG ĐỢI PHÁT =====================
@@ -128,10 +134,9 @@
          * 4 rule, kể cả phần code cũ không đổi logic).
          */
         function recomputeDisplayOrder() {
-            // MỚI (Sort subpanel, mục 1b/1c) — gộp thêm displayStatSortMode/songStatsMap (trục 2),
-            // xem comment tại định nghĩa hàm + recomputeRenderOrder() ngay trên.
-            const { displaySortMode: nameMode, displayStatSortMode: statMode, songNameIndex, playlistCache: cache, songStatsMap } = appState.get(['displaySortMode', 'displayStatSortMode', 'songNameIndex', 'playlistCache', 'songStatsMap']);
-            appState.set('displayOrder', sortKeysByMode(liveKeys(), nameMode, statMode, songNameIndex, cache, songStatsMap));
+            // SỬA (mục 3) — CÙNG LÝ DO recomputeRenderOrder() ngay trên.
+            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache: cache, songStatsMap } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'songStatsMap']);
+            appState.set('displayOrder', sortKeysByMode(liveKeys(), nameMode, statField, statDirection, songNameIndex, cache, songStatsMap));
             console.log(`writer: "recomputeDisplayOrder", page: "displayOrder", content: "resort lại theo displaySortMode, về top-level"`);
             appState.mutate('pendingResortKeys', s => s.clear());
             console.log(`writer: "recomputeDisplayOrder", page: "pendingResortKeys", content: "clear toàn bộ"`);
@@ -248,11 +253,21 @@
             renderPlaylistDiff();
         }
 
-        /** Đổi trục (2) — thống kê (mục 1b/1c, phản hồi Giang — MỞ RỘNG thêm size/duration). CÙNG
-         * KHUÔN setDisplaySortMode() ngay trên — chỉ khác field/danh sách giá trị hợp lệ. */
-        function setDisplayStatSortMode(mode) {
-            if (!['none', 'countDesc', 'countAsc', 'timesDesc', 'timesAsc', 'sizeDesc', 'sizeAsc', 'durationDesc', 'durationAsc'].includes(mode)) return;
-            appState.set('displayStatSortMode', mode);
+        /** Đổi trục (2) — field thống kê (mục 1b/1c, MỞ RỘNG size/duration; SỬA mục 3 — tách khỏi
+         * hướng, khớp dropdown (1) trong panel "Sắp xếp"). CÙNG KHUÔN setDisplaySortMode() ở trên. */
+        function setDisplayStatSortField(field) {
+            if (!['none', 'count', 'times', 'size', 'duration'].includes(field)) return;
+            appState.set('displayStatSortField', field);
+            recomputeDisplayOrder();
+            recomputeRenderOrder();
+            renderPlaylistDiff();
+        }
+
+        /** Đổi trục (2) — hướng sắp xếp (mục 3, phản hồi Giang — dropdown (2), CHỈ hiện khi field
+         * khác 'none', xem components/playlist-sort-drawer.js). CÙNG KHUÔN 2 setter trên. */
+        function setDisplayStatSortDirection(direction) {
+            if (!['desc', 'asc'].includes(direction)) return;
+            appState.set('displayStatSortDirection', direction);
             recomputeDisplayOrder();
             recomputeRenderOrder();
             renderPlaylistDiff();
