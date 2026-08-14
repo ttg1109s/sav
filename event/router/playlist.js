@@ -264,6 +264,36 @@ const routerPlaylist = (() => {
                 break;
             }
 
+            // MỚI (mục 1b/1c, Sort subpanel) — trục (2), thống kê nghe.
+            case 'playlist.statSortMode.change': {
+                const { mode } = msg.payload;
+                workflowPlaylist.changeStatSortMode(mode);
+                break;
+            }
+
+            // MỚI (mục 1b, Sort subpanel) — nút mở panel "Sắp xếp" (Settings → Playlist).
+            case 'playlist.sortPanel.open.click': {
+                workflowPlaylist.openSortPanel();
+                break;
+            }
+
+            // ===================== Ver 12 "Filter subpanel" (mục 1d) =====================
+            case 'playlist.filterPanel.open.click': {
+                workflowPlaylist.openFilterPanel();
+                break;
+            }
+
+            case 'playlist.filterPanel.field.change': {
+                const { field, prop, value } = msg.payload;
+                workflowPlaylist.setFilterField(field, prop, value);
+                break;
+            }
+
+            case 'playlist.filterPanel.apply.click': {
+                workflowPlaylist.applyFilterChanges();
+                break;
+            }
+
             case 'playlist.viewMode.change': {
                 const { mode } = msg.payload;
                 workflowPlaylist.changeViewMode(mode);
