@@ -16,15 +16,16 @@
             }
         }
 
-        function drawRainGlass(ctx, perf, isPlaying) {
+        function drawRainGlass(ctx, isPlaying) {
             const cfg = getActiveEffectConfig(); // core/custom-effect.js
             const dpr = appState.get('dpr');
             const smoothedEnergy = appState.get('smoothedEnergy');
             const vizDataArray = appState.get('vizDataArray');
-            // `hasCustomBg` quyết định có tô lớp phủ nền màu hay không — có BẤT KỲ nguồn nền tuỳ
-            // chỉnh nào (video/ảnh Visual/slideshow) thì bỏ tô, để nền thật hiện xuyên qua canvas.
+            // `hasCustomBg` quyết định có tô lớp phủ nền hay không — có BẤT KỲ nguồn nền tuỳ chỉnh
+            // nào (video/ảnh Visual/slideshow) thì bỏ tô, để nền thật hiện xuyên qua canvas. Không
+            // có thì tô đúng màu/gradient VBG đang hiển thị (kể cả khung hình Movement LIVE).
             const hasCustomBg = appConfigVisualBg.getAll().source.list.some((k) => k !== null) || appState.get('isVideoPlayerMode');
-            if (!hasCustomBg) { const vb = appConfigVisualBg.getAll(); ctx.fillStyle = vb.colorMode === 'gradient' && vb.gradientStops.length ? vb.gradientStops[0].color : vb.solidColor; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+            if (!hasCustomBg) { ctx.fillStyle = getVisualBgFillStyle(ctx, canvas.width, canvas.height); ctx.fillRect(0, 0, canvas.width, canvas.height); } // core/visual-bg.js
             let progress = 0; if (audioPlayer && isFinite(audioPlayer.duration) && audioPlayer.duration > 0) progress = audioPlayer.currentTime / audioPlayer.duration;
             let moonX = canvas.width * 0.70; let moonY = canvas.height * 0.35; let baseScale = 4 + Math.sin(progress * Math.PI) * 1; let baseMoonRadius = baseScale * 8 * dpr; 
             let dynamicMoonRadius = baseMoonRadius + (smoothedEnergy * 8 * dpr);
@@ -41,7 +42,8 @@
             // City có độ trong tuỳ chỉnh (glassCityOpacity) — Khung cửa sổ LUÔN hiện (không còn toggle).
             if (cfg.glassMoonVisible !== false) {
                 ctx.beginPath(); ctx.arc(moonX, moonY, Math.max(0.1, dynamicMoonRadius), 0, Math.PI * 2); ctx.fillStyle = '#e0e8ff';
-                if (perf.blurMult > 0) { ctx.shadowBlur = (30 + smoothedEnergy * 20) * dpr * perf.blurMult; ctx.shadowColor = '#aaccff'; }
+                // Quầng sáng Trăng — phối cảnh cố định, LUÔN bật, không qua blurEnabled/blurIntensity.
+                ctx.shadowBlur = (30 + smoothedEnergy * 20) * dpr; ctx.shadowColor = '#aaccff';
                 ctx.globalAlpha = 0.6 + (smoothedEnergy * 0.3); ctx.fill(); ctx.shadowBlur = 0;
             }
 
@@ -126,34 +128,17 @@
             }
         }
 
-        function drawRainStreet(ctx, perf, isPlaying) {
+        function drawRainStreet(ctx, isPlaying) {
             const cfg = getActiveEffectConfig(); // core/custom-effect.js
             const dpr = appState.get('dpr');
             const smoothedEnergy = appState.get('smoothedEnergy');
             const beatScale = appState.get('beatScale');
-            // Nền: theo chế độ màu đã chọn (đơn sắc/pha trộn/gradient) thay vì cố định 1 tông xanh đêm,
-            // để visual luôn nhất quán với màu người dùng đã chọn ở Cài đặt.
-            // Nền trời: chỉ tô khi KHÔNG bật video nền. Khi có video nền, để trống cho video
-            // hiện xuyên qua (giống drawRainGlass) — cảnh công viên (đất, đèn, mưa) vẫn vẽ đè lên.
-            // FIX (04/07/2026, mục 5) — cùng lý do đã sửa ở drawRainGlass() phía trên: gộp CẢ 3
-            // nguồn nền (video/ảnh Visual/slideshow), không chỉ riêng video, khi quyết định có tô
-            // phủ `skyGrad` hay để trống cho nền thật hiện xuyên qua. Cảnh công viên (đất/đèn/mưa)
-            // vẫn vẽ đè lên như cũ — tự động nằm TRƯỚC (đè lên) nền ảnh/slideshow.
-            // SỬA (21/07/2026, cùng lý do đã sửa ở drawRainGlass() phía trên) — thêm isVideoPlayerMode.
-            const hasCustomBg = appConfigVisualBg.getAll().source.list.some((k) => k !== null) || appState.get('isVideoPlayerMode'); // SỬA (v14) — `enabled` đã xoá, đổi sang đọc thẳng `source.list` còn item sống hay không
-            if (!hasCustomBg) {
-                const nightColors = getComputedColor(0, 1, 60);
-                let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-                if (cfg.mode === 'solid') {
-                    skyGrad.addColorStop(0, '#05070d'); skyGrad.addColorStop(1, interpolateColor('#05070d', cfg.solidColor, 0.12));
-                } else if (cfg.mode === 'dynamic') {
-                    skyGrad.addColorStop(0, interpolateColor('#05070d', cfg.dynA, 0.18));
-                    skyGrad.addColorStop(1, interpolateColor('#05070d', cfg.dynB, 0.18));
-                } else {
-                    skyGrad.addColorStop(0, '#05070d'); skyGrad.addColorStop(1, interpolateColor('#05070d', nightColors.fill, 0.15));
-                }
-                ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            }
+            // Nền trời: chỉ tô khi KHÔNG có nền tuỳ chỉnh nào (video/ảnh Visual/slideshow) đang
+            // hoạt động — có thì để trống cho nền thật hiện xuyên qua, cảnh công viên (đất/đèn/mưa)
+            // vẫn vẽ đè lên như cũ. Không có thì tô đúng màu/gradient VBG đang hiển thị (CÙNG khuôn
+            // drawRainGlass() — trước đây dùng màu riêng của effect Rain, không phải VBG, đã sửa).
+            const hasCustomBg = appConfigVisualBg.getAll().source.list.some((k) => k !== null) || appState.get('isVideoPlayerMode');
+            if (!hasCustomBg) { ctx.fillStyle = getVisualBgFillStyle(ctx, canvas.width, canvas.height); ctx.fillRect(0, 0, canvas.width, canvas.height); } // core/visual-bg.js
 
             drawRainFlash(ctx, isPlaying, (a) => `rgba(220, 225, 255, ${a * 0.8})`);
 
@@ -226,10 +211,11 @@
                 else if (cfg.mode === 'dynamic') lampFill = lampIdx % 2 === 0 ? cfg.dynA : cfg.dynB;
                 else lampFill = lampColor.fill;
 
-                // Quầng sáng đèn — cộng dồn (lighter) để ánh sáng nổi rõ trên nền mưa
+                // Quầng sáng đèn — cộng dồn (lighter). flareScale riêng của đèn custom (mặc định 1).
+                const flareScale = lamp.flareScale || 1;
                 ctx.save();
                 ctx.globalCompositeOperation = 'lighter';
-                const haloR = (lamp.main ? 150 : 95) * dpr * (1 - lamp.depth * 0.3) * (0.7 + glow * 0.55);
+                const haloR = (lamp.main ? 150 : 95) * dpr * (1 - lamp.depth * 0.3) * (0.7 + glow * 0.55) * flareScale;
                 let lampGlow = ctx.createRadialGradient(lamp.x, postTopY + 6*dpr, 1, lamp.x, postTopY + 6*dpr, haloR);
                 ctx.globalAlpha = 0.6 * glow * (1 - lamp.depth * 0.4);
                 lampGlow.addColorStop(0, lampFill); lampGlow.addColorStop(1, 'transparent');
@@ -259,8 +245,8 @@
             ctx.globalAlpha = 1.0;
         }
 
-        function drawRain(ctx, perf, isPlaying) {
+        function drawRain(ctx, isPlaying) {
             ctx.lineCap = 'round';
-            if (getActiveEffectConfig().rainStyle === 'street') drawRainStreet(ctx, perf, isPlaying);
-            else drawRainGlass(ctx, perf, isPlaying);
+            if (getActiveEffectConfig().rainStyle === 'street') drawRainStreet(ctx, isPlaying);
+            else drawRainGlass(ctx, isPlaying);
         }

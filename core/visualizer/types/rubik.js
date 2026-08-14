@@ -17,7 +17,8 @@
  *     Khi nốt hiện tại đổi khác nốt vừa kích hoạt lượt xoay gần nhất VÀ năng lượng nhạc đủ cao,
  *     kích hoạt lượt xoay lớp tương ứng — không còn chọn random như bản cũ.
  */
-        function drawRubik(ctx, perf, isPlaying) {
+        function drawRubik(ctx, isPlaying) {
+            const cfg = getActiveEffectConfig(); // core/custom-effect.js
             const dpr = appState.get('dpr');
             const smoothedEnergy = appState.get('smoothedEnergy');
             const beatScale = appState.get('beatScale');
@@ -30,14 +31,14 @@
             const rubikPitchAvg = appState.get('rubikPitchAvg');
             if (isPlaying && currentMidi != null && rubikPitchAvg > 0) {
                 const semitoneDiff = Math.max(-12, Math.min(12, currentMidi - rubikPitchAvg));
-                pitchSpeedFactor = 1 + (semitoneDiff / 12) * 0.9; // dao động khoảng 0.25x .. 1.75x
+                pitchSpeedFactor = 1 + (semitoneDiff / 12) * cfg.pitchSensitivity; // dao động quanh 1.0 theo cfg.pitchSensitivity
             }
             const selfSpinBase = isPlaying ? (0.01 + smoothedEnergy * 0.025) * pitchSpeedFactor : 0.003;
             rubikRotY += selfSpinBase * rubikSelfSpinDirY;
             rubikRotX += selfSpinBase * 0.6 * rubikSelfSpinDirX;
 
             // ----- Kiểu 2: xoay lớp theo nốt cụ thể (map cố định, không random) -----
-            if (!rubikAnim.active && isPlaying && smoothedEnergy > 0.35 && currentMidi != null) {
+            if (!rubikAnim.active && isPlaying && smoothedEnergy > cfg.rotationEnergyThreshold && currentMidi != null) {
                 const noteIdx = ((currentMidi % 12) + 12) % 12;
                 if (noteIdx !== rubikLastTurnNote) {
                     const turn = RUBIK_NOTE_TO_TURN[noteIdx];
@@ -47,9 +48,9 @@
                     rubikAnim.angle = 0; rubikAnim.active = true; rubikLastTurnNote = noteIdx;
                 }
             }
-            if (rubikAnim.active) { rubikAnim.angle += 0.08 * (1 + smoothedEnergy * 2); if (rubikAnim.angle >= Math.PI / 2) { rubikAnim.angle = Math.PI / 2; rotateRubikIndices(rubikAnim.axis, rubikAnim.layer, rubikAnim.dir); rubikAnim.active = false; rubikAnim.angle = 0; } }
+            if (rubikAnim.active) { rubikAnim.angle += cfg.layerTurnSpeed * (1 + smoothedEnergy * 2); if (rubikAnim.angle >= Math.PI / 2) { rubikAnim.angle = Math.PI / 2; rotateRubikIndices(rubikAnim.axis, rubikAnim.layer, rubikAnim.dir); rubikAnim.active = false; rubikAnim.angle = 0; } }
 
-            const cubeSize = Math.min(canvas.width, canvas.height) * 0.08; const spacing = cubeSize * 1.05; const viewDist = cubeSize * 25; const fov = cubeSize * 18; 
+            const cubeSize = Math.min(canvas.width, canvas.height) * cfg.cubeSizeRatio; const spacing = cubeSize * 1.05; const viewDist = cubeSize * 25; const fov = cubeSize * 18; 
             const unitVertices = [{x:-0.5,y:-0.5,z:-0.5}, {x:0.5,y:-0.5,z:-0.5}, {x:0.5,y:0.5,z:-0.5}, {x:-0.5,y:0.5,z:-0.5}, {x:-0.5,y:-0.5,z:0.5}, {x:0.5,y:-0.5,z:0.5}, {x:0.5,y:0.5,z:0.5}, {x:-0.5,y:0.5,z:0.5}];
             const faces = [ [0,1,2,3], [1,5,6,2], [5,4,7,6], [4,0,3,7], [3,2,6,7], [4,5,1,0] ]; let drawnCubes = [];
             const centerX = canvas.width / 2, centerY = canvas.height / 2;
@@ -89,8 +90,9 @@
                         let lightFactor = 0.5 + (f * 0.1); ctx.fillStyle = colors.fill; ctx.globalAlpha = 0.8 * lightFactor; ctx.fill(); ctx.globalAlpha = 1.0; ctx.strokeStyle = '#000000'; ctx.stroke();
                     }
                 }
-                if (c.val > 200 && perf.blurMult > 0) {
-                    ctx.shadowBlur = 15 * dpr * perf.blurMult; ctx.shadowColor = colors.glow;
+                // Viền glow khối đang sáng nhất — phối cảnh cố định, ngưỡng 140 (trước 200, ít hiện).
+                if (c.val > 140) {
+                    ctx.shadowBlur = 15 * dpr; ctx.shadowColor = colors.glow;
                     for(let f=0; f<6; f++) {
                         let face = faces[f]; let p0 = projVerts[face[0]], p1 = projVerts[face[1]], p2 = projVerts[face[2]];
                         let crossZ = (p1.x - p0.x)*(p2.y - p1.y) - (p1.y - p0.y)*(p2.x - p1.x);

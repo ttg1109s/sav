@@ -10,12 +10,12 @@
             const beatScale = appState.get('beatScale');
             const centerX = canvas.width / 2, centerY = canvas.height / 2;
             const minDimension = Math.min(canvas.width, canvas.height); const maxDist = Math.max(canvas.width, canvas.height);
-            const targetRadius = (minDimension * 0.13) + (smoothedEnergy * minDimension * 0.05);
+            const targetRadius = (minDimension * cfg.radiusRatio) + (smoothedEnergy * minDimension * cfg.radiusEnergyMult);
             smoothedBeatRadius += (targetRadius - smoothedBeatRadius) * 0.15; const currentRadius = smoothedBeatRadius + (beatScale * minDimension * 0.03); 
-            let currentSuction = 0.2 + (isPlaying ? smoothedEnergy * 2.5 : 0); 
+            let currentSuction = cfg.suctionBase + (isPlaying ? smoothedEnergy * cfg.suctionEnergyMult : 0); 
 
-            if (isPlaying && smoothedEnergy > 0.65) {
-                let flareAlpha = (smoothedEnergy - 0.65) * 2.5; let grad = ctx.createRadialGradient(centerX, centerY, currentRadius, centerX, centerY, currentRadius * 4);
+            if (isPlaying && smoothedEnergy > cfg.flareThreshold) {
+                let flareAlpha = (smoothedEnergy - cfg.flareThreshold) * 2.5; let grad = ctx.createRadialGradient(centerX, centerY, currentRadius, centerX, centerY, currentRadius * 4);
                 grad.addColorStop(0, `hsla(${appState.get('globalHueOffset')}, 100%, 70%, ${flareAlpha * 0.3})`); grad.addColorStop(1, 'transparent');
                 ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
@@ -33,7 +33,7 @@
 
             const starFlashes = appState.get('starFlashes');
             for(let i = starFlashes.length - 1; i >= 0; i--) {
-                let f = starFlashes[i]; f.alpha -= 0.08; f.size += 1.5 * dpr;
+                let f = starFlashes[i]; f.alpha -= cfg.flashFadeSpeed; f.size += 1.5 * dpr;
                 if(f.alpha <= 0) appState.mutate('starFlashes', arr => arr.splice(i, 1), { skipCheck: true });
                 else { ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(0.1, f.size), 0, Math.PI*2); ctx.fillStyle = `rgba(255, 255, 255, ${f.alpha})`; ctx.shadowBlur = 10 * dpr; ctx.shadowColor = 'white'; ctx.fill(); ctx.shadowBlur = 0; }
             }

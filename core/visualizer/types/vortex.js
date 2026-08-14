@@ -12,11 +12,11 @@
             const vizDataArray = appState.get('vizDataArray');
 
             // 1. Cập nhật đường ống bay (Cinematic Path) — đổi hướng thưa hơn và nhẹ nhàng hơn để tránh giật
-            if(isPlaying && smoothedEnergy > 0.65 && Math.random() > 0.985) rollNewVortexCurve();
+            if(isPlaying && smoothedEnergy > 0.65 && Math.random() < cfg.curveChangeChance) rollNewVortexCurve();
             updateVortexCurveLerp();
 
             // 2. Cập nhật tốc độ bay (Gia tốc rất mượt theo nhạc, tránh tăng/giảm tốc đột ngột)
-            const targetWarpSpeed = 10 + smoothedEnergy * 40;
+            const targetWarpSpeed = cfg.warpSpeedBase + smoothedEnergy * cfg.warpSpeedEnergyMult;
             tWarpSpeed += (targetWarpSpeed - tWarpSpeed) * 0.025;
             appState.set('tCurrentWarpZ', appState.get('tCurrentWarpZ') - tWarpSpeed, { skipCheck: true }); // Bay sâu vào âm Z
             const tCurrentWarpZ = appState.get('tCurrentWarpZ');
@@ -46,13 +46,14 @@
             // -> STYLE: BARS 3D (kiểu xoắn chuỗi / lò xo DNA)
             else if (cfg.vortexStyle === 'bars') {
                 const dummy = new THREE.Object3D();
+                const barsRingCount = cfg.barsRingCount, barsPerRing = cfg.barsPerRing;
                 // Mỗi vòng lệch thêm một góc cố định so với vòng trước -> tạo hình xoắn lò xo dọc ống.
                 // Toàn bộ "lò xo" còn tự xoay chậm theo thời gian để luôn có cảm giác sống động.
-                const twistPerRing = (Math.PI * 2 / BARS_RINGS_COUNT) * 2.4; // số vòng xoắn trọn ống
+                const twistPerRing = (Math.PI * 2 / barsRingCount) * cfg.barsTwistFactor; // số vòng xoắn trọn ống
                 const globalTwist = appState.get('frameCounter') * 0.004;
                 const tBarsMesh = appState.get('tBarsMesh');
 
-                for(let r=0; r<BARS_RINGS_COUNT; r++) {
+                for(let r=0; r<barsRingCount; r++) {
                     // Sliding window đúng cách: tích lũy vị trí mỗi frame (giống tRings), không tính lại từ modulo
                     appState.mutate('tBarRingZs', arr => {
                         arr[r] += tWarpSpeed * 0.8;
@@ -65,21 +66,21 @@
                     const barScaleY = 1 + (val/255) * 8 * smoothedEnergy;
                     const ringTwist = r * twistPerRing + globalTwist;
 
-                    const color = getComputedColor(r, BARS_RINGS_COUNT, val);
+                    const color = getComputedColor(r, barsRingCount, val);
                     let ringColor;
                     if (cfg.mode === 'gradient') ringColor = color.fill;
                     else if (cfg.mode === 'dynamic') ringColor = (r % 2 === 0) ? cfg.dynA : cfg.dynB;
                     else ringColor = cfg.solidColor;
                     const threeColor = new THREE.Color(ringColor);
 
-                    for(let b=0; b<BARS_PER_RING; b++) {
-                        const ang = (b / BARS_PER_RING) * Math.PI * 2 + ringTwist;
+                    for(let b=0; b<barsPerRing; b++) {
+                        const ang = (b / barsPerRing) * Math.PI * 2 + ringTwist;
                         dummy.position.set(center.x + Math.cos(ang)*350, center.y + Math.sin(ang)*350, z);
                         dummy.rotation.set(0, 0, ang - Math.PI/2);
                         dummy.scale.set(1, barScaleY, 1);
                         dummy.updateMatrix();
-                        tBarsMesh.setMatrixAt(r * BARS_PER_RING + b, dummy.matrix);
-                        tBarsMesh.setColorAt(r * BARS_PER_RING + b, threeColor);
+                        tBarsMesh.setMatrixAt(r * barsPerRing + b, dummy.matrix);
+                        tBarsMesh.setColorAt(r * barsPerRing + b, threeColor);
                     }
                 }
                 tBarsMesh.instanceMatrix.needsUpdate = true;
@@ -97,8 +98,8 @@
                     wave.position.x = center.x; wave.position.y = center.y;
                     
                     // Xoay tròn từ từ, tăng tốc theo bass
-                    wave.rotation.z += 0.01 + smoothedEnergy * 0.05;
-                    wave.scale.setScalar(0.8 + smoothedEnergy * 0.4);
+                    wave.rotation.z += cfg.waveRotationBase + smoothedEnergy * cfg.waveRotationEnergyMult;
+                    wave.scale.setScalar(cfg.waveScaleBase + smoothedEnergy * cfg.waveScaleEnergyMult);
 
                     const val = vizDataArray[idx % bufferLength] || 0;
                     const color = getComputedColor(idx, tWaveMeshes.length, val);

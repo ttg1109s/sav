@@ -30,11 +30,12 @@
             const barCount = Math.max(10, Math.min(32, cfg.mirrorBarCount || BAR_MIRROR_COUNT_PER_SIDE));
 
             // Bề rộng mỗi slot chia đều toàn bộ nửa màn hình cho barCount thanh. Độ rộng thật của
-            // mỗi bar là slotW = barSlotWidth * 0.6 -> khoảng hở TỰ THÂN giữa 2 bar liền kề trong
-            // cùng một dải là gapW = barSlotWidth * 0.4 (phần còn lại của slot).
+            // mỗi bar là slotW = barSlotWidth * barFillRatio (tuỳ chỉnh) -> khoảng hở TỰ THÂN giữa
+            // 2 bar liền kề trong cùng một dải là gapW = barSlotWidth * (1 - barFillRatio).
             const barSlotWidth = halfWidth / barCount;
-            const slotW = barSlotWidth * 0.6;
+            const slotW = barSlotWidth * cfg.barFillRatio;
             const gapW = barSlotWidth - slotW;
+            const cornerR = cfg.barCornerRadius * dpr;
             const maxBin = appState.get('analyser').frequencyBinCount * 0.5;
 
             // BAR TRUNG TÂM chiếm phần giữa rộng slotW; lấy đúng gapW làm khoảng cách với bar gần
@@ -63,26 +64,28 @@
                 ctx.shadowColor = perf.blurMult > 0 ? colors.glow : 'transparent';
                 ctx.fillStyle = colors.fill;
                 // Bên phải
-                ctx.beginPath(); ctx.roundRect(rx, centerY - len, slotW, len, 3 * dpr); ctx.fill();
-                ctx.beginPath(); ctx.roundRect(rx, centerY, slotW, len, 3 * dpr); ctx.fill();
+                ctx.beginPath(); ctx.roundRect(rx, centerY - len, slotW, len, cornerR); ctx.fill();
+                ctx.beginPath(); ctx.roundRect(rx, centerY, slotW, len, cornerR); ctx.fill();
                 // Bên trái (gương — cùng giá trị len, cùng màu)
-                ctx.beginPath(); ctx.roundRect(lx, centerY - len, slotW, len, 3 * dpr); ctx.fill();
-                ctx.beginPath(); ctx.roundRect(lx, centerY, slotW, len, 3 * dpr); ctx.fill();
+                ctx.beginPath(); ctx.roundRect(lx, centerY - len, slotW, len, cornerR); ctx.fill();
+                ctx.beginPath(); ctx.roundRect(lx, centerY, slotW, len, cornerR); ctx.fill();
             }
             ctx.shadowBlur = 0;
 
             // BAR TRUNG TÂM — nhỏ mặc định, đập theo beat nhạc thật (beatScale, không tĩnh). Cộng
             // một sàn nhỏ (minH) để luôn hiện hình ngay cả khi không có nhạc/biên độ = 0, cộng
-            // thêm theo beatScale + smoothedEnergy để nhảy động giống cách vòng tròn cũ từng đập.
+            // thêm theo beatScale + smoothedEnergy (tỉ lệ centerBarBeatRatio, tuỳ chỉnh) để nhảy
+            // động giống cách vòng tròn cũ từng đập.
             const centerScaledMinH = cfg.minH * dpr;
             const beatScale = appState.get('beatScale');
-            const centerLen = centerScaledMinH + beatScale * maxBarLen * 0.7 + appState.get('smoothedEnergy') * maxBarLen * 0.3;
+            const beatRatio = cfg.centerBarBeatRatio;
+            const centerLen = centerScaledMinH + beatScale * maxBarLen * beatRatio + appState.get('smoothedEnergy') * maxBarLen * (1 - beatRatio);
             const centerColors = getComputedColor(0, barCount, Math.round(beatScale * 255));
             ctx.shadowBlur = 15 * dpr * perf.blurMult;
             ctx.shadowColor = perf.blurMult > 0 ? centerColors.glow : 'transparent';
             ctx.fillStyle = centerColors.fill;
-            ctx.beginPath(); ctx.roundRect(centerX - slotW / 2, centerY - centerLen, slotW, centerLen, 3 * dpr); ctx.fill();
-            ctx.beginPath(); ctx.roundRect(centerX - slotW / 2, centerY, slotW, centerLen, 3 * dpr); ctx.fill();
+            ctx.beginPath(); ctx.roundRect(centerX - slotW / 2, centerY - centerLen, slotW, centerLen, cornerR); ctx.fill();
+            ctx.beginPath(); ctx.roundRect(centerX - slotW / 2, centerY, slotW, centerLen, cornerR); ctx.fill();
             ctx.shadowBlur = 0;
         }
 
@@ -90,17 +93,18 @@
             // Logic gốc của visual "synthesia" cũ — các "phím" trải đều theo chiều ngang, mỗi
             // phím rơi từ trên xuống đáy màn hình theo cường độ tần số tương ứng. Độ dày mỗi phím
             // không còn lấy từ setting "Độ dày thanh" (setting đó giờ chỉ dùng cho Black Hole) —
-            // thay vào đó tự tính theo độ rộng slot (kw) để luôn khớp đều với bố cục 64 phím.
+            // thay vào đó tự tính theo độ rộng slot (kw) để luôn khớp đều với bố cục N phím
+            // (cascadeKeyCount, tuỳ chỉnh).
             const cfg = getActiveEffectConfig(); // core/custom-effect.js
             const dpr = appState.get('dpr');
             const vizDataArray = appState.get('vizDataArray');
             const scaledMinH = cfg.minH * dpr;
-            const keysY = canvas.height; const NUM_KEYS = 64; const keyWidth = canvas.width / NUM_KEYS;
+            const keysY = canvas.height; const NUM_KEYS = cfg.cascadeKeyCount; const keyWidth = canvas.width / NUM_KEYS;
             for(let i=0; i<NUM_KEYS; i++) {
                 let val = vizDataArray[i + 5] || 0; let finalHeight = scaledMinH + ((val / 255) * cfg.maxH * dpr);
                 let kx = i * keyWidth; let kw = keyWidth * 0.8; let cx = kx + kw/2; const colors = getComputedColor(i, NUM_KEYS, val);
                 ctx.shadowBlur = 10 * dpr * perf.blurMult; ctx.shadowColor = perf.blurMult > 0 ? colors.glow : 'transparent';
-                ctx.fillStyle = colors.fill; ctx.globalAlpha = 0.2; ctx.fillRect(cx - kw/2, keysY - finalHeight, kw, finalHeight);
+                ctx.fillStyle = colors.fill; ctx.globalAlpha = cfg.cascadeBaseAlpha; ctx.fillRect(cx - kw/2, keysY - finalHeight, kw, finalHeight);
                 ctx.globalAlpha = 1.0; ctx.beginPath(); ctx.roundRect(cx - kw/2, keysY - finalHeight, kw, Math.max(5, finalHeight * 0.1), 2*dpr); ctx.fill();
             }
             ctx.shadowBlur = 0;
