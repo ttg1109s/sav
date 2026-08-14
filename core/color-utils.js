@@ -96,6 +96,14 @@
          *     luôn xếp chồng khít nhau, `position:absolute;inset:0` cả 2 — CSS).
          * 2 nhánh gradient/none KHÔNG hề blur nên chỉ cần set lên `appBgImage` (ảnh gốc) như cũ —
          * `appBg` (khung ngoài cùng) giờ THUẦN CẤU TRÚC, không tự mang `background-image` gì cả.
+         *
+         * SỬA (14/08/2026, Giang báo "blur background app -> image bị scale 1.1") — `scale(1.1)`
+         * TRƯỚC ĐÂY cố định BẤT KỂ `cfg.bgBlur` (0-20px, components/settings/theme.js): độ mờ NHẸ
+         * (vd 1-2px) vẫn bị phóng nguyên 10%, ảnh trông "nhảy zoom" rõ rệt dù blur gần như không
+         * đáng kể — mức phóng 10% đó vốn chỉ cần thiết để che hết viền trong suốt do blur tràn ra ở
+         * mức NẶNG NHẤT (20px). SỬA: nội suy tuyến tính scale theo `bgBlur/20` — 0px -> scale 1
+         * (không zoom gì), 20px -> scale 1.1 (giữ NGUYÊN mức đã kiểm chứng che đủ viền ở blur nặng
+         * nhất), các mức giữa co giãn theo tỉ lệ, không còn cảm giác zoom đột ngột ở blur nhẹ.
          */
         function updatePlaylistBg() {
             const cfg = appConfigViz.getAll();
@@ -105,7 +113,8 @@
                 if (cfg.bgBlur > 0) {
                     appBgBlurLayer.style.backgroundImage = layerImage; // bản sao ĐÈ lên trên — CHỈ phần tử này nhận scale/blur
                     appBgBlurLayer.style.filter = `blur(${cfg.bgBlur}px)`;
-                    appBgBlurLayer.style.transform = 'scale(1.1)';
+                    const blurScale = 1 + Math.min(cfg.bgBlur, 20) / 20 * 0.1; // 0px->1, 20px->1.1 — xem SỬA 14/08/2026 trên
+                    appBgBlurLayer.style.transform = `scale(${blurScale})`;
                 } else {
                     appBgBlurLayer.style.backgroundImage = 'none'; // trong suốt — lộ nguyên ảnh gốc ở appBgImage bên dưới
                     appBgBlurLayer.style.filter = 'none';
