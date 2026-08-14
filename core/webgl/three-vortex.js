@@ -11,9 +11,6 @@
         let tWarpSpeed = 0; // biến NỘI BỘ (không thuộc STATE) — chỉ dùng trong drawVortex()
         const TUNNEL_DEPTH = 3000;
 
-        const BARS_RINGS_COUNT = 40;
-        const BARS_PER_RING = 24;
-
         // Tính toán tọa độ tâm của ống hầm tại một điểm Z bất kỳ
         function getVortexCenterAt(z) {
             const params = appState.get('tPathParams');
@@ -67,7 +64,8 @@
             appState.get('tRenderer').setSize(window.innerWidth, window.innerHeight);
 
             const tunnelRingCount = getEffectConfig('vortex').tunnelRingCount; // core/custom-effect.js
-
+            const vortexCfg = getEffectConfig('vortex');
+            const barsRingCount = vortexCfg.barsRingCount, barsPerRing = vortexCfg.barsPerRing;
             // Nhóm 1: Vòng Ring
             appState.set('tGroupRings', new THREE.Group(), { skipCheck: true });
             appState.set('tRings', [], { skipCheck: true });
@@ -89,25 +87,25 @@
             // Dời tâm khối hộp lên một chút để scaleY mọc ra ngoài thay vì ra 2 hướng
             barGeo.translate(0, 7.5, 0); 
             const barMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
-            const totalBars = BARS_RINGS_COUNT * BARS_PER_RING;
+            const totalBars = barsRingCount * barsPerRing;
             appState.set('tBarsMesh', new THREE.InstancedMesh(barGeo, barMat, totalBars), { skipCheck: true });
             
             // Vị trí Z ban đầu của từng vòng bar — dùng sliding window giống tRings, tránh trôi lệch theo thời gian
             appState.set('tBarRingZs', [], { skipCheck: true });
-            for(let r=0; r<BARS_RINGS_COUNT; r++) appState.mutate('tBarRingZs', arr => arr.push(-(r / BARS_RINGS_COUNT) * TUNNEL_DEPTH), { skipCheck: true });
+            for(let r=0; r<barsRingCount; r++) appState.mutate('tBarRingZs', arr => arr.push(-(r / barsRingCount) * TUNNEL_DEPTH), { skipCheck: true });
 
             const dummy = new THREE.Object3D();
             const tBarsMesh = appState.get('tBarsMesh');
             const tBarRingZs = appState.get('tBarRingZs');
-            for(let r=0; r<BARS_RINGS_COUNT; r++) {
+            for(let r=0; r<barsRingCount; r++) {
                 const z = tBarRingZs[r];
-                for(let b=0; b<BARS_PER_RING; b++) {
-                    const ang = (b / BARS_PER_RING) * Math.PI * 2;
+                for(let b=0; b<barsPerRing; b++) {
+                    const ang = (b / barsPerRing) * Math.PI * 2;
                     dummy.position.set(Math.cos(ang) * 350, Math.sin(ang) * 350, z);
                     // Xoay hộp hướng tâm
                     dummy.rotation.set(0, 0, ang - Math.PI/2); 
                     dummy.updateMatrix();
-                    tBarsMesh.setMatrixAt(r * BARS_PER_RING + b, dummy.matrix);
+                    tBarsMesh.setMatrixAt(r * barsPerRing + b, dummy.matrix);
                 }
             }
             appState.get('tGroupBars').add(tBarsMesh);
@@ -138,10 +136,10 @@
 
         function updateVortexVisibility() {
             if(!appState.get('tInitialized')) return;
-            const cfg = appConfigViz.getAll();
-            appState.get('tGroupRings').visible = (cfg.vortexStyle === 'rings');
-            appState.get('tGroupBars').visible = (cfg.vortexStyle === 'bars');
-            appState.get('tGroupWaves').visible = (cfg.vortexStyle === 'wave');
+            const vortexStyle = getEffectConfig('vortex').vortexStyle; // core/custom-effect.js
+            appState.get('tGroupRings').visible = (vortexStyle === 'rings');
+            appState.get('tGroupBars').visible = (vortexStyle === 'bars');
+            appState.get('tGroupWaves').visible = (vortexStyle === 'wave');
         }
 
         function updateThreeJSColors() {
