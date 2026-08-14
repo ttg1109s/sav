@@ -264,21 +264,22 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // settings/visualizer-display-panel.js, tái dùng 'settingsSubtitleStyle.sectionTitle'/
     // '.enable.hint' làm label/hint cho chính nút đó).
 
-    // MỚI (mục 1b/1c, Sort subpanel) — panel "Sắp xếp": 2 trục.
+    // MỚI (mục 1b/1c, Sort subpanel) — panel "Sắp xếp": 2 trục. SỬA (mục 3, phản hồi Giang — "đổi
+    // tên Listening stats thành Stats, tách field/hướng thành 2 dropdown riêng") — statMode.* (1
+    // enum gộp field+hướng, 9 giá trị) ĐÃ XOÁ, thay bằng statField.* (5 giá trị, dropdown 1) +
+    // statDirection.* (2 giá trị, dropdown 2, CHỈ hiện khi field khác 'none').
     'playlistSortPanel.title': 'Sort',
     'playlistSortPanel.nameMode.label': 'Name / date',
-    'playlistSortPanel.statMode.label': 'Listening stats',
-    'playlistSortPanel.statMode.none': 'None (use Name/date)',
-    'playlistSortPanel.statMode.countDesc': 'Play count: high → low',
-    'playlistSortPanel.statMode.countAsc': 'Play count: low → high',
-    'playlistSortPanel.statMode.timesDesc': 'Listen time: high → low',
-    'playlistSortPanel.statMode.timesAsc': 'Listen time: low → high',
-    // MỚI (phản hồi Giang — "bổ sung dung lượng + duration vào stats").
-    'playlistSortPanel.statMode.sizeDesc': 'File size: high → low',
-    'playlistSortPanel.statMode.sizeAsc': 'File size: low → high',
-    'playlistSortPanel.statMode.durationDesc': 'Duration: high → low',
-    'playlistSortPanel.statMode.durationAsc': 'Duration: low → high',
-    'playlistSortPanel.statMode.hint': 'When set, this decides the order first — Name/date only breaks ties.',
+    'playlistSortPanel.statField.label': 'Stats',
+    'playlistSortPanel.statField.none': 'None (use Name/date)',
+    'playlistSortPanel.statField.count': 'Play count',
+    'playlistSortPanel.statField.times': 'Listen time',
+    'playlistSortPanel.statField.size': 'File size',
+    'playlistSortPanel.statField.duration': 'Duration',
+    'playlistSortPanel.statField.hint': 'When set, this decides the order first — Name/date only breaks ties.',
+    'playlistSortPanel.statDirection.label': 'Order',
+    'playlistSortPanel.statDirection.desc': 'High → low',
+    'playlistSortPanel.statDirection.asc': 'Low → high',
 
     // MỚI (mục 1d, Filter subpanel) — panel "Lọc": field theo Nguồn, mô phỏng SQL WHERE...AND.
     'playlistFilterPanel.title': 'Filter',
