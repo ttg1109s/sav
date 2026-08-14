@@ -32,7 +32,6 @@ const workflowAppBoot = {
         // nền lúc boot"). (Domain `slideshow` sẽ được gộp nốt vào `visualBg` ở Batch C.)
         // (v13 Batch C — `workflowSlideshow.loadPersistedSettingsOnBoot()` ĐÃ XOÁ: domain config
         //  `slideshow` gộp vào `visualBgConfig.slideshow`, đọc lại 1 lần duy nhất ở dòng trên.)
-        updateSubToggleUI();
         if (typeof checkPendingResumeStateOnBoot === 'function') checkPendingResumeStateOnBoot();
         if (typeof loadSongStats === 'function') await loadSongStats();
 
@@ -42,6 +41,11 @@ const workflowAppBoot = {
         // TRƯỚC khi chọn initPlaylistFromDB() hay tương đương Video — đảo ngược thứ tự sẽ tái diễn
         // đúng bug ở mục 7 dưới đây).
         if (typeof workflowPlaylist !== 'undefined') await workflowPlaylist.loadPersistedPlaylistConfigOnBoot();
+        // MỚI (mục 1d, Playlist Filter) — khôi phục `playlistFilterConfig` đã lưu bền TRƯỚC khối
+        // Scope ngay dưới (applyAllSongsScope()/applyFolderScope() đọc field này để lọc
+        // playlistOrder — xem event/workflow/playlist-scope.js) — CÙNG LÝ DO THỨ TỰ với dòng
+        // activeMediaSource ngay trên.
+        if (typeof workflowPlaylist !== 'undefined') await workflowPlaylist.loadPersistedFilterConfigOnBoot();
 
         // MỚI (phản hồi Giang, mục 3 "thêm nhớ trạng thái shuffle/repeat/stats") — khôi phục 3
         // icon toggle Control Center đã lưu bền — CÙNG NHÓM "khôi phục config đã lưu bền lúc boot"

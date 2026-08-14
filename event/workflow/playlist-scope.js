@@ -28,7 +28,7 @@
  * core/playlist/order.js (updateShuffleArray/recomputeDisplayOrder/recomputeRenderOrder),
  * core/playlist/render.js (renderPlaylistDiff/updateEmptyState), core/modal-choice.js (modalChoice),
  * core/file-manager/folder.js (getExcludedSongKeysFromFolders() — MỚI, Batch 4, dùng bởi
- * applyAllSongsScope()).
+ * applyAllSongsScope()), core/playlist/filter.js (applyPlaylistFilter() — MỚI, mục 1d).
  */
 const workflowPlaylistScope = {
 
@@ -63,6 +63,12 @@ const workflowPlaylistScope = {
         console.log(`writer: "applyFolderScope", page: "activePlayListFolder", content: "${folderId}"`);
 
         await loadSongsFromFolder(folderId, appState.get('playlistCache'));
+        // MỚI (mục 1d, Playlist Filter) — áp filter (nếu có) NGAY SAU khi playlistOrder vừa được
+        // Scope tính lại theo folder, TRƯỚC updateShuffleArray()/recompute*Order() — xem docstring
+        // đầu core/playlist/filter.js.
+        const source = appState.get('activeMediaSource');
+        const filteredKeys = applyPlaylistFilter(appState.get('playlistOrder'), appState.get('playlistCache'), appState.get('songStatsMap'), appState.get('playlistFilterConfig')[source]);
+        appState.set('playlistOrder', filteredKeys);
         updateShuffleArray();
         recomputeDisplayOrder();
         recomputeRenderOrder();
@@ -81,6 +87,10 @@ const workflowPlaylistScope = {
     async applyAllSongsScope() {
         const excludedKeys = await getExcludedSongKeysFromFolders(); // core/file-manager/folder.js
         loadAllSongs(appState.get('playlistCache'), excludedKeys); // core/playlist/scope.js
+        // MỚI (mục 1d, Playlist Filter) — CÙNG LÝ DO applyFolderScope() ngay trên.
+        const source = appState.get('activeMediaSource');
+        const filteredKeys = applyPlaylistFilter(appState.get('playlistOrder'), appState.get('playlistCache'), appState.get('songStatsMap'), appState.get('playlistFilterConfig')[source]);
+        appState.set('playlistOrder', filteredKeys);
 
         updateShuffleArray();
         recomputeDisplayOrder();

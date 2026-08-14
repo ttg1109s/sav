@@ -841,8 +841,12 @@ const workflowPlaylist = {
 
         const videoRecords = await listVideos(); // core/file-manager/video.js, CÓ return, DÙNG ngay dưới -> Workflow gọi Core hợp lệ (Rule 3)
         const keys = buildVideoPlaylistCache(videoRecords); // core/playlist/loader.js (MỚI, Batch 1), CÓ return, DÙNG ngay dưới
-        appState.set('playlistOrder', keys);
-        console.log(`writer: "switchToVideoSource", page: "playlistOrder", content: "${keys.length} video"`);
+        // MỚI (mục 1d, Playlist Filter) — áp filter (nếu có) NGAY SAU khi playlistOrder vừa được
+        // tính lại theo Nguồn Video, TRƯỚC updateShuffleArray()/recompute*Order() — xem docstring
+        // đầu core/playlist/filter.js (đúng vị trí "Scope xong, Sort chưa chạy").
+        const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('songStatsMap'), appState.get('playlistFilterConfig').video);
+        appState.set('playlistOrder', filteredKeys);
+        console.log(`writer: "switchToVideoSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} video (đã áp Filter)"`);
 
         updateShuffleArray();      // core có sẵn (core/playlist/order.js)
         recomputeDisplayOrder();   // core có sẵn (core/playlist/order.js)
@@ -878,8 +882,10 @@ const workflowPlaylist = {
         console.log(`writer: "switchToSongSource", page: "activeMediaSource", content: "song"`);
 
         const keys = await scanValidSongsFromDB(); // core có sẵn (core/playlist/loader.js, Song, KHÔNG đụng), CÓ return, DÙNG ngay dưới
-        appState.set('playlistOrder', keys);
-        console.log(`writer: "switchToSongSource", page: "playlistOrder", content: "${keys.length} bài hát"`);
+        // MỚI (mục 1d, Playlist Filter) — CÙNG LÝ DO switchToVideoSource() ngay trên.
+        const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('songStatsMap'), appState.get('playlistFilterConfig').song);
+        appState.set('playlistOrder', filteredKeys);
+        console.log(`writer: "switchToSongSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} bài hát (đã áp Filter)"`);
 
         updateShuffleArray();
         recomputeDisplayOrder();
@@ -903,6 +909,13 @@ const workflowPlaylist = {
      */
     async changeSortMode(mode) {
         setDisplaySortMode(mode); // core có sẵn (core/playlist/order.js)
+        await this._persistPlaylistConfig();
+    },
+
+    /** Trục (2) — thống kê nghe (mục 1b/1c, panel "Sắp xếp") — CÙNG LÝ DO tách khỏi router như
+     * changeSortMode() ngay trên. */
+    async changeStatSortMode(mode) {
+        setDisplayStatSortMode(mode); // core có sẵn (core/playlist/order.js)
         await this._persistPlaylistConfig();
     },
 
@@ -931,6 +944,7 @@ const workflowPlaylist = {
         appConfigPlaylist.setAll({
             activeMediaSource: appState.get('activeMediaSource'),
             displaySortMode: appState.get('displaySortMode'),
+            displayStatSortMode: appState.get('displayStatSortMode'), // MỚI (mục 1b/1c) — trục (2)
             isGridView: appState.get('isGridView'),
         });
         await setMeta('playlistConfig', appConfigPlaylist.getAll());
@@ -953,6 +967,7 @@ const workflowPlaylist = {
         const cfg = appConfigPlaylist.getAll();
         appState.set('activeMediaSource', cfg.activeMediaSource === 'video' ? 'video' : 'song');
         appState.set('displaySortMode', cfg.displaySortMode || 'az');
+        appState.set('displayStatSortMode', cfg.displayStatSortMode || 'none'); // MỚI (mục 1b/1c)
         appState.set('isGridView', !!cfg.isGridView);
         console.log(`writer: "loadPersistedPlaylistConfigOnBoot", page: "activeMediaSource/displaySortMode/isGridView", content: "khôi phục từ meta.playlistConfig"`);
         if (playlistSearchInput) playlistSearchInput.placeholder = t(cfg.activeMediaSource === 'video' ? 'playlistView.search.placeholderVideo' : 'playlistView.search.placeholder');
@@ -962,6 +977,141 @@ const workflowPlaylist = {
         if (btnUploadAudio) btnUploadAudio.classList.toggle('hidden', cfg.activeMediaSource === 'video');
         if (btnUploadVideo) btnUploadVideo.classList.toggle('hidden', cfg.activeMediaSource !== 'video');
         await this.syncPlaylistSettingsUI();
+    },
+
+    // ===================== Ver 12 "Filter/Sort subpanel" (mục 1b/1c/1d) =====================
+
+    /**
+     * Khôi phục `playlistFilterConfig` đã lưu bền LÚC BOOT — gọi từ event/workflow/app-boot.js,
+     * TRƯỚC khối Scope (applyAllSongsScope()/applyFolderScope() đọc field này để lọc
+     * playlistOrder, xem event/workflow/playlist-scope.js) — CÙNG VỊ TRÍ/LÝ DO THỨ TỰ với
+     * loadPersistedPlaylistConfigOnBoot() ngay trên. Không tìm thấy `meta.playlistFilterConfig`
+     * (lần đầu mở app) -> giữ nguyên default rỗng đã seed sẵn ở buildDefaults()
+     * (service/state/playlist.js) — mọi field `null`, applyPlaylistFilter() fast-path trả nguyên
+     * playlistOrder, hành vi giống hệt trước khi có Filter.
+     */
+    async loadPersistedFilterConfigOnBoot() {
+        const saved = await getMeta('playlistFilterConfig');
+        if (saved && typeof saved === 'object' && saved.song && saved.video) {
+            appState.set('playlistFilterConfig', saved);
+            console.log(`writer: "loadPersistedFilterConfigOnBoot", page: "playlistFilterConfig", content: "khôi phục từ meta.playlistFilterConfig"`);
+        }
+    },
+
+    /** Push panel "Sắp xếp" (mục 1b/1c) — 2 <select> (trục tên/ngày sẵn có + trục thống kê MỚI),
+     * đồng bộ giá trị hiện tại lúc mở — CÙNG KHUÔN workflowVisualizerDisplay.openDisplayPanel(). */
+    openSortPanel() {
+        const panelEl = pushSettingsPanel({ title: t('playlistSortPanel.title'), bodyHtml: renderPlaylistSortPanelBody() });
+        panelEl.querySelector('#setting-playlist-sort-name').value = appState.get('displaySortMode');
+        panelEl.querySelector('#setting-playlist-sort-stat').value = appState.get('displayStatSortMode');
+    },
+
+    /** Push panel "Lọc" (mục 1d) — field hiện theo ĐÚNG Nguồn (song/video) đang active, đồng bộ
+     * từ `playlistFilterConfig[source]` đã lưu. */
+    openFilterPanel() {
+        const source = appState.get('activeMediaSource');
+        const panelEl = pushSettingsPanel({ title: t('playlistFilterPanel.title'), bodyHtml: renderPlaylistFilterPanelBody(source) });
+        this._syncFilterPanelUI(panelEl, source);
+    },
+
+    /** Đồng bộ toàn bộ field trong panel Lọc theo `playlistFilterConfig[source]` hiện tại — dùng
+     * ĐÚNG data-attribute đã dựng ở components/playlist-filter-drawer.js (data-filter-row/
+     * data-filter-prop) để tìm input, KHÔNG hard-code id từng field (field theo Nguồn khác nhau
+     * về số lượng — xem PLAYLIST_FILTER_TEXT_FIELDS/PLAYLIST_FILTER_NUMERIC_FIELDS,
+     * core/playlist/filter.js). */
+    _syncFilterPanelUI(panelEl, source) {
+        const rules = appState.get('playlistFilterConfig')[source];
+        for (const field of Object.keys(rules)) {
+            const rule = rules[field];
+            const rowEl = panelEl.querySelector(`[data-filter-row="${field}"]`);
+            if (!rowEl) continue;
+            const kind = _filterFieldKind(field);
+            const enableEl = rowEl.querySelector('[data-filter-prop="enabled"]');
+            if (enableEl) enableEl.checked = !!rule;
+            rowEl.classList.toggle('opacity-40', !rule);
+            rowEl.classList.toggle('pointer-events-none', !rule);
+            if (!rule) continue;
+            const opEl = rowEl.querySelector('[data-filter-prop="op"]');
+            if (opEl && rule.op !== undefined) opEl.value = rule.op;
+            const modeEl = rowEl.querySelector('[data-filter-prop="mode"]');
+            if (modeEl && rule.mode !== undefined) modeEl.value = rule.mode;
+            const rangeBlock = rowEl.querySelector('[data-filter-range-block]');
+            const singleBlock = rowEl.querySelector('[data-filter-single-block]');
+            // Field TEXT không có khối single/range (luôn 1 ô value DUY NHẤT) -> querySelector
+            // thẳng trên rowEl là đủ, KHÔNG cần phân biệt khối.
+            if (!rangeBlock && !singleBlock) {
+                const valueEl = rowEl.querySelector('[data-filter-prop="value"]');
+                if (valueEl) valueEl.value = kind === 'text' ? (rule.value || '') : _formatFilterNumberForInput(kind, rule.value);
+                continue;
+            }
+            // Field SỐ/NGÀY — 2 khối CÙNG có 1 input data-filter-prop="value" (khác id) — set
+            // ĐÚNG khối, để trống khối kia (không cần thiết, đang `hidden`).
+            const singleValueEl = singleBlock && singleBlock.querySelector('[data-filter-prop="value"]');
+            if (singleValueEl) singleValueEl.value = _formatFilterNumberForInput(kind, rule.value);
+            const rangeValueEl = rangeBlock && rangeBlock.querySelector('[data-filter-prop="value"]');
+            if (rangeValueEl) rangeValueEl.value = _formatFilterNumberForInput(kind, rule.value);
+            const rangeValueToEl = rangeBlock && rangeBlock.querySelector('[data-filter-prop="valueTo"]');
+            if (rangeValueToEl) rangeValueToEl.value = _formatFilterNumberForInput(kind, rule.valueTo);
+            if (rangeBlock && singleBlock && rule.mode !== undefined) {
+                rangeBlock.classList.toggle('hidden', rule.mode !== 'range');
+                singleBlock.classList.toggle('hidden', rule.mode === 'range');
+            }
+        }
+    },
+
+    /**
+     * Ứng với 1 input BẤT KỲ trong panel Lọc đổi giá trị (mục 1d) — `prop` quyết định nhánh:
+     *   - 'enabled' — bật/tắt field đó (bật -> tạo rule mặc định rỗng; tắt -> null hẳn).
+     *   - 'op'/'mode' — đổi toán tử / đổi đơn-giá-trị↔range (numeric/date).
+     *   - 'value'/'valueTo' — đổi giá trị (text giữ nguyên chuỗi; numeric/date/size tự parse qua
+     *     `_parseFilterNumberInput()`, size nhập vào là MB, lưu bytes).
+     * KHÔNG tự resort/re-render gì ở đây — Filter chỉ thật sự áp dụng lúc `applyFilterChanges()`
+     * (nút "Áp dụng") + reload, xem docstring đầu core/playlist/filter.js.
+     * @param {string} field @param {string} prop @param {string|boolean} rawValue
+     */
+    setFilterField(field, prop, rawValue) {
+        const source = appState.get('activeMediaSource');
+        const kind = _filterFieldKind(field);
+        appState.mutate('playlistFilterConfig', (cfg) => {
+            const bucket = cfg[source];
+            if (!(field in bucket)) return; // guard — field không thuộc Nguồn hiện tại (không nên xảy ra, UI đã lọc sẵn theo Nguồn)
+            if (prop === 'enabled') {
+                bucket[field] = rawValue
+                    ? (kind === 'text' ? { op: '===', value: '' } : { mode: 'single', op: '===', value: 0, valueTo: 0 })
+                    : null;
+                return;
+            }
+            const rule = bucket[field];
+            if (!rule) return; // guard — field đang tắt, bỏ qua input ẩn (mờ/pointer-events-none phía UI)
+            if (prop === 'op') rule.op = rawValue;
+            else if (prop === 'mode') rule.mode = rawValue;
+            else if (prop === 'value') rule.value = kind === 'text' ? rawValue : _parseFilterNumberInput(kind, rawValue);
+            else if (prop === 'valueTo') rule.valueTo = _parseFilterNumberInput(kind, rawValue);
+        });
+        // Toggle hiện/ẩn khối single/range NGAY khi đổi 'mode' — đọc lại DOM hiện tại qua msg gốc
+        // không có sẵn panelEl ở đây (router chỉ truyền field/prop/value) — panel MỞ SẴN lúc người
+        // dùng gõ nên tự tìm qua peekTopSettingsPanel() (core/settings-panel-stack-ui.js) an toàn.
+        if (prop === 'mode' && typeof peekTopSettingsPanel === 'function') {
+            const rowEl = peekTopSettingsPanel().querySelector(`[data-filter-row="${field}"]`);
+            if (rowEl) {
+                const rangeBlock = rowEl.querySelector('[data-filter-range-block]');
+                const singleBlock = rowEl.querySelector('[data-filter-single-block]');
+                if (rangeBlock && singleBlock) {
+                    rangeBlock.classList.toggle('hidden', rawValue !== 'range');
+                    singleBlock.classList.toggle('hidden', rawValue === 'range');
+                }
+            }
+        }
+    },
+
+    /** Nút "Áp dụng" panel Lọc — lưu bền NGAY (đọc thấy lần boot/đổi Nguồn/đổi Scope SAU) + hỏi
+     * reload để thấy kết quả NGAY trong phiên đang chạy — CÙNG UX với Scope (mục "Filter đổi lúc
+     * app đang chạy", phản hồi Giang), tái dùng thẳng modal chung đã có
+     * (workflowPlaylistScope.askReloadToApplyNow(), event/workflow/playlist-scope.js). */
+    async applyFilterChanges() {
+        await setMeta('playlistFilterConfig', appState.get('playlistFilterConfig'));
+        console.log(`writer: "applyFilterChanges", page: "playlistFilterConfig", content: "đã lưu bền"`);
+        workflowPlaylistScope.askReloadToApplyNow(t('playlistFilterPanel.reloadPrompt'));
     },
 
     /**
@@ -975,7 +1125,6 @@ const workflowPlaylist = {
      */
     async syncPlaylistSettingsUI() {
         if (typeof PlaylistMain === 'undefined') return; // guard clause thuần (Rule 1) — giữ đúng kiểu phòng thủ cũ ở mọi nơi từng gọi PlaylistMain.init()
-        PlaylistMain.initSortMenu();
         PlaylistMain.initViewMode(appState.get('isGridView'));
         PlaylistMain.initMediaSource();
         await PlaylistMain.updateActiveFolderUI();
