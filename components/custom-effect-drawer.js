@@ -103,11 +103,19 @@ function _renderCeFieldRow(field, cfg) {
 }
 
 /** Đèn tuỳ chỉnh (Rain, style street) — customEffect.rain.customLamps, tối đa
- * CUSTOM_EFFECT_MAX_LAMPS (core/custom-effect.js). Mỗi đèn: X (%) + Chiều cao (px) + Flare. */
+ * CUSTOM_EFFECT_MAX_LAMPS (core/custom-effect.js). Mỗi đèn: X (%) + Chiều cao (px) + Flare.
+ * FIX (14/08/2026, Giang báo "kéo slider lamp N, số không chạy theo trên UI") — div bọc mỗi hàng
+ * CÓ class riêng `ce-lamp-row` (THÊM MỚI, cùng `data-lamp-index` như trước) — 3 slider bên trong
+ * (`.ce-lamp-x/height/flare`) CŨNG tự mang `data-lamp-index` (để đọc index), nên
+ * `el.closest('[data-lamp-index]')` phía Workflow (event/workflow/custom-effect.js::
+ * wireLampSlider()) khớp NGAY CHÍNH slider đó (`.closest()` tính cả chính phần tử gọi), không leo
+ * lên tới div cha — `querySelector('.ce-lamp-val...')` sau đó luôn `null`. Có `ce-lamp-row` làm
+ * class riêng KHÔNG trùng bất kỳ phần tử con nào, Workflow đổi sang `.closest('.ce-lamp-row')` để
+ * chắc chắn lấy đúng div cha. */
 function _renderCeLampsSection(cfg) {
     const lamps = cfg.customLamps || [];
     const rows = lamps.map((lamp, i) => `
-        <div class="flex flex-col gap-2 px-4 py-3 border-b border-slate-200" data-lamp-index="${i}">
+        <div class="ce-lamp-row flex flex-col gap-2 px-4 py-3 border-b border-slate-200" data-lamp-index="${i}">
             <div class="flex justify-between items-center">
                 <span class="text-xs font-semibold text-slate-500">${t('customEffectDrawer.lamps.itemLabel')} ${i + 1}</span>
                 <button class="ce-lamp-remove text-rose-500 text-xs font-medium" data-lamp-index="${i}">${t('customEffectDrawer.lamps.remove')}</button>
