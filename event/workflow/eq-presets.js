@@ -27,7 +27,8 @@
  * NẠP SAU: core/eq-presets.js, core/generic-drawer.js, components/eq-presets-drawer.js,
  * core/dom-refs.js (btnCycleEq/eqBadgeLabel/genericDrawer*), service/db.js (getMeta/setMeta),
  * service/task-manager.js (taskManager — đếm giờ giữ 1.5s), event/workflow/generic-drawer-
- * helpers.js (closeFully()).
+ * helpers.js (closeFully()), core/visualizer-control-center.js (closeControlCenter() — SỬA
+ * 14/08/2026, xem _fireCycleHold()).
  */
 
 const EQ_CYCLE_HOLD_MS = 1500; // SỬA (13/08/2026, Giang yêu cầu "giảm hold xuống 1.5s") — trước 3000ms — ngưỡng giữ để mở Edit EQ, cố định, không phải setting (cùng tinh thần SEEK_HOLD_ACTIVATE_MS)
@@ -80,9 +81,18 @@ const workflowEqPresets = {
     },
 
     /** Hết ngưỡng CỐ ĐỊNH EQ_CYCLE_HOLD_MS (1.5s) giữ tay yên (pointerup CHƯA fire) -> mở Edit EQ
-     * (THAY #btn-edit-eq đã bỏ, xem components/visualizer-overlay.js). */
+     * (THAY #btn-edit-eq đã bỏ, xem components/visualizer-overlay.js).
+     * SỬA (14/08/2026, Giang báo "giữ hold effect/eq không thu gọn icon center cùng lúc") — nút
+     * #btn-cycle-eq nằm trong Control Center (core/visualizer-control-center.js): TRƯỚC ĐÂY panel
+     * đó chỉ tự đóng khi sự kiện `click` DOM thật bắn ra (`visualizerControlCenter.gridClick`,
+     * SAU `pointerup`) — nghĩa là lúc GIỮ đủ 1.5s, Drawer đã mở nhưng Control Center vẫn còn mở
+     * nguyên, chỉ thu gọn lúc thả tay ra sau đó (2 panel chồng nhau 1 khoảng). Gọi thẳng
+     * `closeControlCenter()` (core/visualizer-control-center.js, liên tuyến domain — CÙNG tiền lệ
+     * `core/player-controls.js` đã gọi thẳng hàm này) NGAY tại đây, TRƯỚC khi mở Drawer, để 2 việc
+     * xảy ra đồng thời. */
     _fireCycleHold() {
         this._cycleHoldFired = true;
+        if (typeof closeControlCenter === 'function') closeControlCenter(); // core/visualizer-control-center.js
         this.openListView();
     },
 

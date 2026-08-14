@@ -11,7 +11,8 @@
  *
  * NẠP SAU: core/custom-effect.js, core/generic-drawer.js, components/custom-effect-drawer.js,
  * core/dom-refs.js (btnCycleMode, genericDrawer*), service/task-manager.js, event/workflow/
- * generic-drawer-helpers.js.
+ * generic-drawer-helpers.js, core/visualizer-control-center.js (closeControlCenter() — SỬA
+ * 14/08/2026, xem _fireHold()).
  */
 
 const CUSTOM_EFFECT_HOLD_MS = 1500;
@@ -31,8 +32,15 @@ const workflowCustomEffect = {
         taskManager.kill(CUSTOM_EFFECT_HOLD_TASK);
         this._holdFired = false;
     },
+    /** SỬA (14/08/2026, Giang báo "giữ hold effect/eq không thu gọn icon center cùng lúc") — CÙNG
+     * bug/fix với `workflowEqPresets._fireCycleHold()` (event/workflow/eq-presets.js): #btn-cycle-mode
+     * nằm trong Control Center (core/visualizer-control-center.js), panel đó trước đây chỉ tự đóng
+     * lúc `click` DOM thật bắn ra (SAU `pointerup`) — giữ đủ 1.5s thì Drawer mở nhưng Control Center
+     * vẫn còn mở, chỉ thu gọn khi thả tay sau đó. Gọi thẳng `closeControlCenter()` (liên tuyến
+     * domain, CÙNG tiền lệ `core/player-controls.js`) NGAY TRƯỚC khi mở Drawer để đồng thời. */
     _fireHold() {
         this._holdFired = true;
+        if (typeof closeControlCenter === 'function') closeControlCenter(); // core/visualizer-control-center.js
         this.open();
     },
 
@@ -208,7 +216,12 @@ const workflowCustomEffect = {
         const wireLampSlider = (selector, field, unit, isFloat) => {
             genericDrawerBody.querySelectorAll(selector).forEach((el) => {
                 const idx = parseInt(el.dataset.lampIndex, 10);
-                const row = el.closest('[data-lamp-index]');
+                // FIX (14/08/2026, Giang báo "kéo slider lamp N, số không chạy theo trên UI") —
+                // TRƯỚC `.closest('[data-lamp-index]')` khớp NGAY chính `el` (slider tự mang
+                // data-lamp-index để đọc idx ở dòng trên) thay vì leo lên div cha -> valEl luôn
+                // null. Đổi sang class riêng `ce-lamp-row` (components/custom-effect-drawer.js,
+                // KHÔNG trùng bất kỳ phần tử con nào) để chắc chắn lấy đúng div cha.
+                const row = el.closest('.ce-lamp-row');
                 const valEl = row ? row.querySelector(`.ce-lamp-val[data-lamp-val="${unit.key}"]`) : null;
                 el.addEventListener('input', (e) => {
                     const v = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
