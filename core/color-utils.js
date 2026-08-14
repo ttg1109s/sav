@@ -164,4 +164,28 @@
         // áp lại y hệt cho 1 phần tử khác nữa. Mọi nơi gọi `updateSettingsBg(cfg)` trước đây ĐÃ BỎ
         // dòng gọi đó — xem event/workflow/visualizer-display.js, event/workflow/file-manager-
         // photo.js, core/config.js.)
+
+        /** Quy đổi góc CSS `linear-gradient(angleDeg, ...)` (0deg = lên trên, tăng theo chiều kim
+         * đồng hồ) sang 2 điểm đầu/cuối trục gradient cho Canvas2D `createLinearGradient()` — CÙNG
+         * thuật toán chuẩn CSS spec dùng (điểm chiếu vuông góc qua tâm hộp), để canvas vẽ KHỚP ĐÚNG
+         * `linear-gradient(angleDeg, ...)` hiển thị ở DOM, không lệch hướng. */
+        function computeCssGradientLine(angleDeg, width, height) {
+            const rad = (angleDeg % 360) * Math.PI / 180;
+            const dx = Math.sin(rad), dy = -Math.cos(rad);
+            const halfW = width / 2, halfH = height / 2;
+            const length = Math.abs(halfW * dx) + Math.abs(halfH * dy);
+            const cx = width / 2, cy = height / 2;
+            return { x0: cx - dx * length, y0: cy - dy * length, x1: cx + dx * length, y1: cy + dy * length };
+        }
+
+        /** Dựng CanvasGradient khớp `linear-gradient(angleDeg, stop.color stop.position%...)` CSS —
+         * dùng bởi visual 2D cần vẽ ĐÚNG gradient VBG đang hiển thị (kể cả khung hình Movement) lên
+         * canvas riêng thay vì tự bịa 1 màu phẳng — xem core/visual-bg.js::getVisualBgFillStyle().
+         * `stops` tự sort theo position (Movement spread/swap giữ nguyên thứ tự mảng gốc). */
+        function buildCanvasLinearGradient(ctx, angleDeg, width, height, stops) {
+            const line = computeCssGradientLine(angleDeg, width, height);
+            const grad = ctx.createLinearGradient(line.x0, line.y0, line.x1, line.y1);
+            stops.slice().sort((a, b) => a.position - b.position).forEach((s) => grad.addColorStop(Math.max(0, Math.min(1, s.position / 100)), s.color));
+            return grad;
+        }
         

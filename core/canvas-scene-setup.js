@@ -78,6 +78,11 @@
             // như đèn chính, chỉ thân đèn thấp hơn để gợi cảm giác xa/nhỏ hơn theo chiều sâu.
             lamps.push({ x: w * 0.06, baseY: safeGroundY, height: h * 0.26, main: false, flicker: 1, depth: 0.7 });
             lamps.push({ x: w * 0.85, baseY: safeGroundY, height: h * 0.28, main: false, flicker: 1, depth: 0.6 });
+            // Đèn TUỲ CHỈNH (customEffect.rain.customLamps) — THÊM VÀO 3 đèn gốc, đẩy chung vào
+            // streetLamps nên tự nhấp nháy theo beat giống đèn gốc, không cần code riêng.
+            (getEffectConfig('rain').customLamps || []).forEach((lamp) => {
+                lamps.push({ x: w * (lamp.xPercent / 100), baseY: safeGroundY, height: lamp.heightPx * dpr, main: false, flicker: 1, depth: 0.3, flareScale: lamp.flareScale });
+            });
             appState.set('streetLamps', lamps);
 
             // Mưa phố: các hạt mưa rơi xiên nhẹ, mật độ/độ dài sẽ được điều biến theo nhạc lúc vẽ.

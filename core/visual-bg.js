@@ -23,6 +23,15 @@ const VISUAL_BG_NEXT_ORDERS = ['random', 'sequential', 'playlist'];
  * đúng 1 item thì không có gì để chuyển sang, để chọn cũng chỉ thành `list.length===1` = phát tĩnh). */
 const VISUAL_BG_MIN_LIST_ITEMS = 2;
 
+// MỚI (13/08/2026, Giang yêu cầu — xoay gradient mượt theo PHA, không giật) — 1 pha = 1 lần xoay/
+// giãn mượt từ giá trị hiện tại -> giá trị đích, chạy trọn `duration` rồi mới lấy mẫu nhạc CHỐT
+// pha kế tiếp (xem event/workflow/visual-bg.js::_commitNextGradientPhase()). `duration` KHÔNG cố
+// định — tính từ BPM/energy TẠI THỜI ĐIỂM chốt pha, CÙNG công thức core/visualizer/types/space.js
+// dùng cho tốc độ xoay camera Space (Rule 1 — cùng khái niệm "tốc độ theo nhạc").
+const VISUAL_BG_GRADIENT_PHASE_BASE_MS = 2000; // mốc tham chiếu ở BPM=120, energy trung bình
+const VISUAL_BG_GRADIENT_MUSIC_FACTOR_MIN = 0.5; // nhạc chậm/yên tĩnh — pha chạy chậm hơn tối đa 2x
+const VISUAL_BG_GRADIENT_MUSIC_FACTOR_MAX = 2.2; // nhạc nhanh/năng lượng cao — pha chạy nhanh hơn tối đa 2.2x
+
 /**
  * Core thuần — áp `nextIndex` ĐÃ TÍNH SẴN (Workflow tự gọi `pickNextSlideshowIndexSequential()` —
  * DÙNG CHUNG cho CẢ 2 nextOrder từ 08/08/2026, xem docstring `shuffleVisualBgList()` ngay dưới —
@@ -308,6 +317,25 @@ function lerpGradientMovementValue(from, to, factor01) {
     return from + (to - from) * clamped;
 }
 
+/** Hệ số tốc độ 1 pha xoay/giãn gradient theo nhạc — BPM cao/energy cao chạy NHANH hơn (hệ số >1),
+ * ngược lại CHẬM hơn (hệ số <1) — CÙNG công thức core/visualizer/types/space.js dùng cho tốc độ
+ * xoay camera Space, tái dùng Ở ĐÂY cho 1 khái niệm domain khác (Rule 1). */
+function computeMusicSpeedFactor(bpm, energy01, min, max) {
+    const factor = (bpm / 120) * (0.7 + energy01 * 0.6);
+    return Math.max(min, Math.min(max, factor));
+}
+
+/** Thời lượng 1 pha (ms) — `baseDurationMs` (mốc tham chiếu BPM=120) chia cho hệ số tốc độ nhạc,
+ * tính TẠI THỜI ĐIỂM pha cũ vừa xong (Giang chốt: KHÔNG hằng số cố định, lấy theo BPM lúc đó). */
+function computeGradientPhaseDuration(baseDurationMs, musicSpeedFactor) {
+    return baseDurationMs / musicSpeedFactor;
+}
+
+/** Easing vào/ra êm cho 1 pha xoay/giãn — tránh cảm giác "máy móc" của nội suy tuyến tính thô. */
+function easeInOutSine(progress01) {
+    return -(Math.cos(Math.PI * progress01) - 1) / 2;
+}
+
 /** Co/giãn vị trí % của các stop ĐỐI XỨNG QUANH TÂM 50% — `spreadPercent` càng lớn, stop càng
  * "toé" xa tâm (stop < 50% dịch XUỐNG thêm, stop > 50% dịch LÊN thêm, tỷ lệ theo khoảng cách hiện
  * tại tới tâm) — tạo cảm giác gradient "thở" theo nhạc mà KHÔNG đảo thứ tự stop cho nhau (an toàn,
@@ -360,4 +388,21 @@ function applyGradientStopColors(fromStops, interpolatedColors) {
  * @param {string} gradientCss */
 function applyGradientCssFrame(gradientCss) {
     visualizerSolidBg.style.backgroundImage = gradientCss;
+}
+
+/** Fill style NỀN VBG hiện tại, SẴN SÀNG gán `ctx.fillStyle` — solid: trả thẳng hex string.
+ * gradient: dựng CanvasGradient khớp ĐÚNG khung hình đang hiển thị (đọc khung Movement LIVE nếu
+ * đang chạy — appState `visualBgGradientLiveAngle`/`visualBgGradientLiveStops`, ghi bởi
+ * event/workflow/visual-bg.js::_tickGradientMovement() — tĩnh gradientAngleDeg/gradientStops nếu
+ * Movement tắt). Dùng bởi visual 2D cần tô nền theo màu VBG thay vì bịa màu riêng — xem
+ * core/visualizer/types/rain.js. @param {CanvasRenderingContext2D} ctx @param {number} width
+ * @param {number} height */
+function getVisualBgFillStyle(ctx, width, height) {
+    const vb = appConfigVisualBg.getAll();
+    if (vb.colorMode !== 'gradient') return vb.solidColor;
+    const liveAngle = appState.get('visualBgGradientLiveAngle');
+    const liveStops = appState.get('visualBgGradientLiveStops');
+    const angle = liveAngle !== null ? liveAngle : vb.gradientAngleDeg;
+    const stops = liveStops || vb.gradientStops;
+    return buildCanvasLinearGradient(ctx, angle, width, height, stops); // core/color-utils.js
 }

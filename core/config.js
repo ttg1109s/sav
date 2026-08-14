@@ -15,40 +15,53 @@
 
         /**
          * Custom Effect (12/08/2026, tái thiết kế — bỏ hẳn tư duy panel-chung + chế độ hiệu năng).
-         * 1 object DUY NHẤT, key = tên `type` (khớp MODES) — mỗi effect tự mang bộ config RIÊNG,
-         * KHÔNG còn field phẳng dùng chung/lẫn lộn ý nghĩa giữa effect này với effect khác. 4 field
-         * đầu (mode/solidColor/dynA/dynB) + 2 field blur LUÔN có ở MỌI effect (đọc bởi
-         * getComputedColor(), core/audio-analysis.js) — phần còn lại tuỳ effect. Mở qua GIỮ 1.5s
-         * #btn-cycle-mode (Generic Drawer, xem event/workflow/custom-effect.js).
+         * 1 object DUY NHẤT, key = tên `type` (khớp MODES) — mỗi effect tự mang bộ config RIÊNG.
+         * 4 field màu (mode/solidColor/dynA/dynB) LUÔN có ở MỌI effect (đọc bởi getComputedColor(),
+         * core/audio-analysis.js). 2 field blur (blurEnabled/blurIntensity) CHỈ có ở effect thật sự
+         * đọc chúng trong hàm vẽ — xem CUSTOM_EFFECT_NO_BLUR (core/custom-effect.js) cho danh sách
+         * loại trừ. Mở qua GIỮ 1.5s #btn-cycle-mode (Generic Drawer, event/workflow/custom-effect.js).
          */
         const DEFAULT_CUSTOM_EFFECT = {
             bar: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
                 barStyle: 'mirror', minH: 4, maxH: 400, mirrorBarCount: 32,
+                barFillRatio: 0.6, barCornerRadius: 3, centerBarBeatRatio: 0.7,
+                cascadeBaseAlpha: 0.2, cascadeKeyCount: 64,
             },
             'black hole': {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
                 minH: 4, maxH: 400, barWidth: 4, starCount: 200,
+                radiusRatio: 0.13, radiusEnergyMult: 0.05, suctionBase: 0.2, suctionEnergyMult: 2.5,
+                flareThreshold: 0.65, flashFadeSpeed: 0.08,
             },
             lightning: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
+                flashThreshold: 0.35, boltThreshold: 0.4, boltSpawnChance: 0.2, maxBoltCount: 5,
+                boltFadeSpeed: 0.04, boltHorizontalDeviation: 120, boltSegmentLength: 60,
             },
             rain: {
-                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 rainStyle: 'glass', glassFlash: true,
                 glassCityOpacity: 100, glassCityVisible: true, glassMoonVisible: true,
                 glassDropDensity: 250, glassStreakFrequency: 20,
                 streetDensity: 220, streetBuildingScale: 1.0,
+                // Đèn THÊM VÀO 3 cột gốc cố định (tối đa 8) — xem generateStreetScene(),
+                // core/canvas-scene-setup.js. Mỗi đèn: xPercent/heightPx/flareScale riêng.
+                customLamps: [],
             },
             rubik: {
-                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
+                cubeSizeRatio: 0.08, pitchSensitivity: 0.9, rotationEnergyThreshold: 0.35, layerTurnSpeed: 0.08,
             },
             vortex: {
-                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 vortexStyle: 'rings', tunnelRingCount: 60,
+                warpSpeedBase: 10, warpSpeedEnergyMult: 40, curveChangeChance: 0.015,
+                barsRingCount: 40, barsPerRing: 24, barsTwistFactor: 2.4,
+                waveRotationBase: 0.01, waveRotationEnergyMult: 0.05, waveScaleBase: 0.8, waveScaleEnergyMult: 0.4,
             },
             space: {
-                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 starCountMin: 3800, starCountMax: 6000, nebulaCount: 35, dustCount: 1500,
                 mapNodeCount: 70, mapRadius: 950,
             },

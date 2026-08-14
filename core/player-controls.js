@@ -377,7 +377,14 @@
             // (video chỉ bám theo trạng thái nhạc). Playlist đè z-[60] tự che video khi cần.
             taskManager.once(() => { 
                 visualizerUI.classList.add('fade-enter-active'); canvas.classList.remove('opacity-0'); 
-                if (appConfigViz.getAll().type === 'vortex') document.getElementById('webgl-canvas').classList.remove('opacity-0');
+                // FIX (Giang báo — "Space mất render mỗi lần ra/vào Playlist") — thiếu 'space' ở
+                // đây, CHỈ check 'vortex' trong khi Vortex/Space DÙNG CHUNG #webgl-canvas (xem
+                // core/visualizer/visualizer-display.js::updateTypeUI(), dòng check ĐÚNG cả 2).
+                // Quay lại Playlist (forceBackToPlaylistUI()) luôn ADD opacity-0 vô điều kiện, nên
+                // ở Space, canvas kẹt vô hình dù JS vẫn tính/vẽ bình thường phía sau — chỉ "tự
+                // khỏi" khi có hành động khác gọi updateTypeUI() (không phân biệt type) như đổi bài.
+                const t = appConfigViz.getAll().type;
+                if (t === 'vortex' || t === 'space') document.getElementById('webgl-canvas').classList.remove('opacity-0');
             }, 50, 'showVisualizerFadeIn');
         }
 
