@@ -125,8 +125,10 @@
         const visualizerTypeSelect = document.getElementById('setting-visualizer-type');
         // (drawerSubtitleSettings/btnBackSubtitleSettings ĐÃ XOÁ — Batch D2: panel Subtitle giờ
         // động (core/settings-panel-stack.js), không còn drawer tĩnh riêng; Back dùng CHUNG
-        // btnSettingsStackBack.) btnOpenSubtitleSettings GIỮ NGUYÊN — nút này vẫn tĩnh (Main).
-        const btnOpenSubtitleSettings = document.getElementById('setting-open-subtitle-settings');
+        // btnSettingsStackBack.) btnOpenSubtitleSettings ĐÃ XOÁ (mục 2, "vẫn cấp subpanel trong
+        // Display Visualizer") — nút mở panel Subtitle giờ SỐNG BÊN TRONG panel "Display" (cũng
+        // động), KHÔNG còn tĩnh ở Main — delegate qua settingsStackBody, xem event/listener/
+        // subtitle-style-settings.js.
         // Logo "SAV" góc trái Playlist (đối xứng với cụm icon góc phải).
         //
         // FIX (bug "bấm logo không ăn, có lúc bị zoom vào trang" — xem giải thích đầy đủ ở
@@ -250,9 +252,11 @@
         const iconAutoTimingIdle = document.getElementById('icon-auto-timing-idle'), iconAutoTimingRecording = document.getElementById('icon-auto-timing-recording');
         // autoSubStartTime — STATE, xem service/state.js.
 
-        // Toggle "Hiện phụ đề" (ver 8 refine) — chuyển từ #btn-toggle-sub trong modal sub về đây,
-        // lưu vào vizConfig.subtitlesEnabled (xem equalizer-settings.js).
-        const settingSubtitlesEnabled = document.getElementById('setting-subtitles-enabled');
+        // Toggle "Hiện phụ đề" (ver 8 refine) — ĐÃ CHUYỂN vào panel "Phụ đề" (nested BÊN TRONG
+        // panel "Display", mục 2 "vẫn cấp subpanel trong Display Visualizer") — không còn tĩnh ở
+        // Main, `settingSubtitlesEnabled` ĐÃ XOÁ, đọc/ghi qua delegation (settingsStackBody) +
+        // `workflowSubtitleStyleSettings.refresh()` đồng bộ lúc panel mở, xem event/workflow/
+        // subtitle-style-settings.js.
         // (8 const settingSub*/valSub* ĐÃ XOÁ — Batch D2: 8 input style Subtitle giờ sống động
         // BÊN TRONG panel push/pop, không còn DOM tĩnh — event/listener/subtitle-style-
         // settings.js dùng delegation trên settingsStackBody thay vì đọc const ở đây.)
@@ -460,7 +464,12 @@
         // ===================== Playlist main (sắp xếp, kiểu xem, ô tìm kiếm) =====================
         // FIX (kiến trúc /event/): toàn bộ getElementById của cụm này TRƯỚC ĐÂY nằm rải rác ngay
         // trong core/playlist/main.js — vi phạm quy ước CHUNG của project. Gom về đúng 1 chỗ.
-        const sortSelect = document.getElementById('setting-playlist-sort-mode');
+        // SỬA (mục 1b/1d, Sort/Filter subpanel) — `sortSelect` (select tĩnh cũ) ĐÃ XOÁ, thay bằng
+        // 2 nút mở subpanel (`btnOpenPlaylistSort`/`btnOpenPlaylistFilter`) — control BÊN TRONG 2
+        // panel đó (2 select Sort + field Filter) đều delegate qua `settingsStackBody`, không cần
+        // dom-refs riêng (xem event/listener/playlist.js).
+        const btnOpenPlaylistSort = document.getElementById('setting-open-playlist-sort');
+        const btnOpenPlaylistFilter = document.getElementById('setting-open-playlist-filter');
         const viewModeSelect = document.getElementById('setting-playlist-view-mode');
         // MỚI (ver12 "Song/Video Unification", Batch 1) — select "Nguồn" (Song/Video), xem
         // components/settings/playlist-view.js.

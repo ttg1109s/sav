@@ -99,11 +99,6 @@
             autoSwitchVisualSecondsRandom: 30,
             autoSwitchVisualSecondsDuration: 30,
             subtitlesEnabled: true,
-            subtitleStyle: {
-                bgColor: '#000000', bgOpacity: 0.4,
-                borderColor: '#ffffff', borderOpacity: 0.1, borderWidth: 1, borderRadius: 16,
-                textColor: '#ffffff', fontSize: 8, lineHeight: 1.3, letterSpacing: 0,
-            },
             // 3 toggle RIÊNG hiện/ẩn UI chrome màn Visualizer (bỏ hẳn "full mode" gộp chung),
             // Settings -> Hiển thị Visualizer. NHẤT QUÁN với statsPanelVisible: đặt tên KHẲNG ĐỊNH
             // ("hiện"), mặc định BẬT (true) — KHÔNG đặt tên phủ định "hideX" mặc định tắt (đã sửa,
@@ -309,7 +304,7 @@
                 keepScreenOn: 'boolean',
                 autoSwitchVisualEnabled: 'boolean', autoSwitchVisualMode: 'string', autoSwitchVisualTimeMode: 'string',
                 autoSwitchVisualSecondsFixed: 'number', autoSwitchVisualSecondsRandom: 'number', autoSwitchVisualSecondsDuration: 'number',
-                subtitlesEnabled: 'boolean', subtitleStyle: 'object',
+                subtitlesEnabled: 'boolean',
                 bottomPlayerVisible: 'boolean', playlistButtonVisible: 'boolean', controlCenterButtonVisible: 'boolean',
                 gestureActionSwipeUp: 'string', gestureActionSwipeDown: 'string',
                 gestureActionSwipeLeft: 'string', gestureActionSwipeRight: 'string',
@@ -523,10 +518,11 @@
                         cfg[field] = Math.max(AUTO_SWITCH_VISUAL_MIN_SECONDS, DEFAULT_VIZ_CONFIG[field]);
                     }
                 });
-                if (!cfg.subtitleStyle) cfg.subtitleStyle = { ...DEFAULT_VIZ_CONFIG.subtitleStyle };
-                else cfg.subtitleStyle = { ...DEFAULT_VIZ_CONFIG.subtitleStyle, ...cfg.subtitleStyle };
-                // Cấu hình cũ (trước khi thang cỡ chữ đổi thành 8-16px) có thể đã lưu giá trị lớn hơn.
-                cfg.subtitleStyle.fontSize = Math.min(16, Math.max(8, cfg.subtitleStyle.fontSize));
+                // XOÁ (mục 2, phản hồi Giang — "loại bỏ toàn bộ khung box, xoá toàn bộ tuỳ chọn")
+                // — khối migrate `cfg.subtitleStyle` (2 dòng gán default + 1 dòng clamp fontSize)
+                // ĐÃ BỎ HẲN: field không còn tồn tại trong DEFAULT_VIZ_CONFIG/schema nữa. Config cũ
+                // của người dùng có thể còn sót `subtitleStyle` trong localStorage — vô hại, không
+                // ai đọc field đó nữa (core/subtitle/subtitle-display.js không còn tham chiếu).
             });
 
             bgBlurSlider.value = appConfigViz.getAll().bgBlur; valBgBlurDisplay.textContent = appConfigViz.getAll().bgBlur + 'px';
@@ -550,7 +546,7 @@
             updateDOMBackground(); updatePlaylistBg(); updateProgressBarCSS(); updateTypeUI();
 
             if (typeof initVisualizerMiscSettingsUIFromConfig === 'function') initVisualizerMiscSettingsUIFromConfig();
-            if (typeof initSubtitleToggleUIFromConfig === 'function') initSubtitleToggleUIFromConfig();
+            if (typeof initSubtitleStateFromConfig === 'function') initSubtitleStateFromConfig();
             if (typeof initAutoSwitchCycleButtonFromConfig === 'function') initAutoSwitchCycleButtonFromConfig();
             // 3 toggle ẩn/hiện UI chrome màn Visualizer, tự áp lại lúc boot (khác setStatsPanelVisible()
             // — domain 'player' RIÊNG, tự áp qua workflowPlayerControls.loadPersistedPlayerConfigOnBoot(),
