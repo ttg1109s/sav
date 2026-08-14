@@ -138,5 +138,12 @@ const workflowAppBoot = {
         // Giang chốt: kỹ thuật chụp khung đầu robust (readyState>=2 + play()/pause() nudge) chỉ áp
         // dụng cho video UPLOAD MỚI (event/workflow/file-manager-video.js::_extractVideoThumbAndMeta()),
         // không cần thêm 1 lượt quét lại video cũ nữa — xem lịch sử đầy đủ ở file đó.
+
+        // MỚI (phản hồi Giang — "shield loading không full-screen + Video không có shield") — báo
+        // cho preloader full-screen (index.html, đầu <body>) biết Playlist đã THẬT SỰ dựng xong (renderOrder
+        // đã render ra DOM, không chỉ script tải xong) — preloader tự ẩn NGAY khi nhận được tín hiệu
+        // này (nếu script cũng đã tải xong). Đặt Ở ĐÂY — SAU CÙNG mọi bước dựng Playlist (kể cả
+        // Scope/Filter/render DOM) — để không còn khoảng hở "list trống nhưng header/nút đã hiện".
+        if (typeof window.markPlaylistBootReady === 'function') window.markPlaylistBootReady();
     },
 };

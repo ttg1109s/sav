@@ -839,6 +839,12 @@ const workflowPlaylist = {
         appState.set('activeMediaSource', 'video');
         console.log(`writer: "switchToVideoSource", page: "activeMediaSource", content: "video"`);
 
+        // MỚI (phản hồi Giang — "Video không có shield loading") — phủ lớp "đang nạp" (core/
+        // playlist/render.js) trong lúc đọc 294+ record từ IndexedDB — TRƯỚC ĐÂY chỉ Song
+        // (scanValidSongsFromDB(), core/playlist/loader.js) có, Video đổi Nguồn giữa phiên hoàn
+        // toàn im lặng, để lộ list trống 1 nhịp trước khi bung hết (đúng hiện tượng Giang quay
+        // được). fade out lúc updateEmptyState()/hidePlaylistLoading() phía dưới, CÙNG khuôn Song.
+        showPlaylistLoading(0, 0);
         const videoRecords = await listVideos(); // core/file-manager/video.js, CÓ return, DÙNG ngay dưới -> Workflow gọi Core hợp lệ (Rule 3)
         const keys = buildVideoPlaylistCache(videoRecords); // core/playlist/loader.js (MỚI, Batch 1), CÓ return, DÙNG ngay dưới
         // MỚI (mục 1d, Playlist Filter) — áp filter (nếu có) NGAY SAU khi playlistOrder vừa được
@@ -854,6 +860,7 @@ const workflowPlaylist = {
         renderPlaylistDiff();      // core có sẵn (core/playlist/render.js)
         resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
         updateEmptyState();        // core có sẵn (core/playlist/render.js)
+        hidePlaylistLoading();     // MỚI — chốt fade out lớp "đang nạp" (CÙNG khuôn Song, core/playlist/loader.js)
         // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — placeholder ô tìm kiếm
         // đổi theo Nguồn (Song có artist/album để tìm, Video thì không).
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholderVideo');
@@ -881,6 +888,10 @@ const workflowPlaylist = {
         appState.set('activeMediaSource', 'song');
         console.log(`writer: "switchToSongSource", page: "activeMediaSource", content: "song"`);
 
+        // MỚI (phản hồi Giang — "shield loading") — CÙNG LÝ DO switchToVideoSource() ngay trên —
+        // scanValidSongsFromDB() gọi TRỰC TIẾP ở đây (KHÔNG qua initPlaylistFromDB(), hàm DUY NHẤT
+        // trước đây có shield, chỉ dùng lúc boot) nên đổi Nguồn Song giữa phiên cũng thiếu shield.
+        showPlaylistLoading(0, 0);
         const keys = await scanValidSongsFromDB(); // core có sẵn (core/playlist/loader.js, Song, KHÔNG đụng), CÓ return, DÙNG ngay dưới
         // MỚI (mục 1d, Playlist Filter) — CÙNG LÝ DO switchToVideoSource() ngay trên.
         const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('songStatsMap'), appState.get('playlistFilterConfig').song);
@@ -893,6 +904,7 @@ const workflowPlaylist = {
         renderPlaylistDiff();
         resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — cùng lý do switchToVideoSource(), scrollTop cũ vô nghĩa với danh sách vừa đổi hẳn Nguồn
         updateEmptyState();
+        hidePlaylistLoading();     // MỚI — chốt fade out lớp "đang nạp"
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholder');
         // KHÔI PHỤC 29/07/2026 (phản hồi Giang) — chiều ngược lại của toggle ở switchToVideoSource().
         if (btnUploadVideo) btnUploadVideo.classList.add('hidden');
