@@ -27,8 +27,16 @@ const workflowSlideshow = {
     _sourceKeys: [],        // có thể lẫn null (đã xoá, chờ dọn)
     _sourceIndex: -1,       // vị trí "current" trong _sourceKeys
     _currentObjectUrl: null,
+    _currentRecord: null,   // MỚI (14/08/2026) — record ảnh ĐANG hiện, giữ lại để _activate() dùng tính bounds Ken Burns mà không phải đọc DB lại
     _layerToggle: false,    // false = layer1 đang 'current', true = layer2
-    _isRevealed: false,     // đã start() xong (_sourceKeys sẵn sàng) nhưng CHỈ thật sự hiện khi nhạc phát
+    // SỬA (14/08/2026, Giang báo "on background visual photo -> phải phát mới on ảnh, tạo khoảng
+    // hở giữa color/gradient với ảnh") — TÁCH `_isRevealed` (container + ảnh ĐẦU đã hiện, ngay lập
+    // tức, KHÔNG chờ Song — né khoảng hở) ra khỏi `_isActive` (Ken Burns đang pan + hẹn giờ tự
+    // chuyển ảnh đang chạy — CHỈ bật khi Song thật sự phát, giữ nguyên tinh thần gốc "không animate/
+    // tick khi đang im lặng"). Trước đây 2 khái niệm gộp làm 1 (`_isRevealed`), khiến ảnh bị ẩn hẳn
+    // (chỉ còn color/gradient) tới tận lúc Song phát mới "bật" đột ngột.
+    _isRevealed: false,     // container + ảnh ĐẦU đã hiện tĩnh (luôn true ngay sau startFromList() nếu có nguồn hợp lệ)
+    _isActive: false,       // Ken Burns/timer đang chạy — chỉ true khi Song đang thật sự phát
     _lastKenBurnsDirection: null,
 
     _currentLayer() { return this._layerToggle ? slideshowLayer2 : slideshowLayer1; },
@@ -55,10 +63,14 @@ const workflowSlideshow = {
      * `_isRevealed` — đây là điểm "lượt kế tiếp" DUY NHẤT còn lại cho ca `source.list.length<=1`
      * (ảnh tĩnh, không qua engine này — `workflowVisualBg._applyPhoto()` tự áp thẳng,
      * `_isRevealed` không bao giờ `true`), nên KHÔNG được gộp chung điều kiện `_isRevealed`/
-     * `perSong` phía dưới — cùng nguyên tắc đã áp cho `workflowVisualBg.advanceForSongChange()`. */
+     * `perSong` phía dưới — cùng nguyên tắc đã áp cho `workflowVisualBg.advanceForSongChange()`.
+     * SỬA (14/08/2026, tách `_isRevealed`/`_isActive`) — guard đổi từ `!_isRevealed` sang
+     * `!_isActive`: `_isRevealed` giờ true NGAY LẬP TỨC (ảnh tĩnh hiện ngay, xem `startFromList()`)
+     * kể cả trước khi Song từng phát lần nào — advance() ở đây (đổi SANG ảnh kế) chỉ có ý nghĩa khi
+     * engine đã thật sự ĐANG CHẠY (`_isActive`), giữ đúng nguyên bản chất "guard chưa thật sự chạy". */
     async advanceForSongChange() {
         if (typeof workflowVisualBg !== 'undefined' && await workflowVisualBg._checkAndApplyPendingSource()) return;
-        if (!this._isRevealed) return; // guard: chưa thật sự chiếu (lượt đầu do _reveal() lo)
+        if (!this._isActive) return; // guard: chưa thật sự ĐANG CHẠY (Ken Burns/timer) — lượt đầu do _activate() lo
         if (appConfigVisualBg.getAll().listPlaybackMode !== 'perSong') return;
         this._tick();
     },
@@ -67,6 +79,13 @@ const workflowSlideshow = {
 
     /** Nhận `source.list` đã dựng sẵn (CHỈ gọi khi length > 1 — length<=1 workflowVisualBg tự áp
      * tĩnh, không qua engine này) + `nextOrder` để chọn item đầu.
+     * SỬA (14/08/2026, Giang báo "phải phát mới on ảnh -> khoảng hở color/gradient") — TRƯỚC ĐÂY
+     * chỉ `_reveal()` (hiện ảnh) khi `_shouldBeRunning()` — nếu Song CHƯA phát lúc chọn nguồn, ảnh
+     * bị ẩn hẳn tới tận lúc Song phát mới hiện, tạo khoảng hở rõ rệt giữa màn color/gradient và ảnh
+     * (CÙNG lớp bug UX mà nhánh Video đã né bằng cách hiện thumbnail tĩnh ngay — `showStaticBgThumb()`,
+     * event/workflow/video-player.js). SỬA: LUÔN `_revealStatic()` ngay (hiện container + ảnh ĐẦU,
+     * KHÔNG animate/tick) bất kể Song đang phát hay không — chỉ phần "ĐANG SỐNG" (Ken Burns pan +
+     * hẹn giờ tự chuyển ảnh) mới còn gate theo `_shouldBeRunning()`, qua `_activate()`.
      * @param {Array<string|null>} list
      * @param {'random'|'sequential'|'playlist'} nextOrder
      */
@@ -86,19 +105,35 @@ const workflowSlideshow = {
         }
         this._sourceIndex = index;
         this._layerToggle = false;
-        if (this._shouldBeRunning()) await this._reveal();
-        // Chưa đủ điều kiện (nhạc chưa phát/đang pause) -> để yên, chờ syncPlaybackGate().
+        await this._revealStatic(); // LUÔN hiện ảnh đầu ngay — né khoảng hở, xem docstring trên
+        if (this._shouldBeRunning()) this._activate(); // Ken Burns/timer CHỈ bắt đầu khi Song đang thật sự phát
+        // Chưa đủ điều kiện (nhạc chưa phát/đang pause) -> ảnh vẫn đứng yên hiện sẵn, chờ
+        // syncPlaybackGate() gọi _activate() khi Song bắt đầu phát.
     },
 
     _shouldBeRunning() {
         return !audioPlayer.paused;
     },
 
-    async _reveal() {
+    /** MỚI (14/08/2026, tách khỏi `_reveal()` cũ — xem docstring `startFromList()`) — hiện
+     * container + ảnh ĐẦU TIÊN ngay lập tức, KHÔNG bật Ken Burns/hẹn giờ (phần đó thuộc
+     * `_activate()`). Idempotent — no-op nếu đã revealed. */
+    async _revealStatic() {
         if (this._isRevealed) return;
         this._isRevealed = true;
         setSlideshowContainerVisible(slideshowContainer, true); // core
         await this._showFirstImage();
+    },
+
+    /** MỚI (14/08/2026, tách khỏi `_reveal()` cũ) — bật phần "ĐANG SỐNG": Ken Burns pan cho ảnh
+     * hiện tại (nếu bật, dùng `_currentRecord` đã có sẵn từ `_showFirstImage()` — không đọc lại
+     * DB) + hẹn giờ tự chuyển ảnh kế (nếu KHÔNG phải perSong). CHỈ gọi khi Song đang thật sự phát
+     * (`startFromList()`/`syncPlaybackGate()`). Idempotent — no-op nếu đã active. */
+    _activate() {
+        if (this._isActive) return;
+        this._isActive = true;
+        const cfg = appConfigVisualBg.getAll().slideshow;
+        if (cfg.kenBurnsEnabled && this._currentRecord) this._activateKenBurns(this._currentPanLayer(), cfg.kenBurnsMode, this._currentRecord);
         if (appConfigVisualBg.getAll().listPlaybackMode !== 'perSong') {
             taskManager.kill(SLIDESHOW_TASK);
             taskManager.addNew(SLIDESHOW_TASK, { time: this._computeIntervalMs(), exe: () => this._tick(), mode: 'timeout', count: 0 });
@@ -106,13 +141,17 @@ const workflowSlideshow = {
         }
     },
 
-    /** Điểm đồng bộ trạng thái "chạy" — gọi từ audio play/pause (core/player-controls.js). */
+    /** Điểm đồng bộ trạng thái "chạy" — gọi từ audio play/pause (core/player-controls.js).
+     * SỬA (14/08/2026, tách `_isRevealed`/`_isActive`) — nhánh đầu đổi từ "chưa revealed -> reveal"
+     * sang "chưa active -> activate" (ảnh tĩnh đã hiện sẵn từ `startFromList()` rồi, giờ chỉ cần
+     * bật Ken Burns/timer). 2 nhánh pause/resume ticking giữ NGUYÊN — vẫn thao tác trên Ken Burns
+     * anim/task đã tồn tại từ lúc `_activate()`. */
     async syncPlaybackGate() {
         if (this._sourceKeys.length === 0) return; // không có gì đang chạy qua engine này
         const shouldRun = this._shouldBeRunning();
-        if (shouldRun && !this._isRevealed) await this._reveal();
-        else if (shouldRun && this._isRevealed) this._resumeTicking();
-        else if (!shouldRun && this._isRevealed) this._pauseTicking();
+        if (shouldRun && !this._isActive) this._activate();
+        else if (shouldRun && this._isActive) this._resumeTicking();
+        else if (!shouldRun && this._isActive) this._pauseTicking();
     },
 
     _pauseTicking() {
@@ -140,12 +179,17 @@ const workflowSlideshow = {
         if (this._currentObjectUrl) { try { URL.revokeObjectURL(this._currentObjectUrl); } catch (e) {} this._currentObjectUrl = null; }
         this._sourceKeys = [];
         this._sourceIndex = -1;
+        this._currentRecord = null; // MỚI (14/08/2026)
         this._isRevealed = false;
+        this._isActive = false; // MỚI (14/08/2026)
         this._lastKenBurnsDirection = null;
     },
 
     /** Hiện ảnh ĐẦU TIÊN ngay (không transition) lúc reveal. Key null/record mất -> đánh dấu, để
-     * trống, chờ tick/advance() sau (KHÔNG tự thử index kế — cùng quy tắc `_tick()`). */
+     * trống, chờ tick/advance() sau (KHÔNG tự thử index kế — cùng quy tắc `_tick()`).
+     * SỬA (14/08/2026) — KHÔNG còn tự `_activateKenBurns()` ở đây nữa (dời sang `_activate()`, chỉ
+     * chạy khi Song thật sự phát) — hàm này giờ CHỈ lo hiện ảnh TĨNH, lưu lại `record` vào
+     * `_currentRecord` để `_activate()` dùng sau mà không phải đọc DB lại. */
     async _showFirstImage() {
         const key = this._sourceKeys[this._sourceIndex];
         if (!key) return;
@@ -157,13 +201,14 @@ const workflowSlideshow = {
         }
         const objectUrl = URL.createObjectURL(record.blob);
         this._currentObjectUrl = objectUrl;
+        this._currentRecord = record; // MỚI (14/08/2026) — giữ lại cho _activate() dùng
         const layerEl = this._currentLayer();
         const panEl = this._currentPanLayer();
         setSlideshowLayerImage(panEl, objectUrl); // core
         if (layerEl) layerEl.classList.add('ss-current');
         const cfg = appConfigVisualBg.getAll().slideshow;
         setSlideshowTransitionType(slideshowContainer, cfg.transitionType); // core
-        if (cfg.kenBurnsEnabled) this._activateKenBurns(panEl, cfg.kenBurnsMode, record);
+        // Ken Burns KHÔNG tự bật ở đây nữa — xem _activate().
     },
 
     _activateKenBurns(panEl, mode, image) {
@@ -241,6 +286,7 @@ const workflowSlideshow = {
             taskManager.once(() => { try { URL.revokeObjectURL(staleUrl); } catch (e) {} }, cleanupDelayMs + 100, 'slideshowRevokeStale');
         }
         this._currentObjectUrl = objectUrl;
+        this._currentRecord = image; // MỚI (14/08/2026) — giữ invariant "_currentRecord = ảnh đang hiện", đồng bộ với _showFirstImage()
         this._layerToggle = !this._layerToggle;
 
         if (this._sourceKeys.length === 1) taskManager.kill(SLIDESHOW_TASK); // sweep vừa đưa về 1 -> dừng cycle
