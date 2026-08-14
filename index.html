@@ -119,6 +119,45 @@
             measureProgress(); // (2) đo NGAY LẬP TỨC, không đợi tick đầu 80ms
             var pollTimer = setInterval(measureProgress, 80);
 
+            // MỚI (phản hồi Giang — "shield loading không full-screen + Video không có shield") —
+            // TRƯỚC ĐÂY preloader ẩn NGAY khi `window.load` bắn (script tải xong) — nhưng Playlist
+            // THẬT SỰ sẵn sàng (đọc IndexedDB xong + render DOM xong) diễn ra SAU đó, bất đồng bộ
+            // (event/workflow/app-boot.js) — khoảng hở giữa 2 mốc này để lộ UI nửa-sẵn-sàng (header/
+            // search/Play/Shuffle đã hiện, list vẫn trống) — ĐÚNG hiện tượng quay màn hình thấy.
+            // Giải pháp: giữ preloader (ĐÃ full-screen sẵn, z-index 9999) hiện tới khi CẢ HAI điều
+            // kiện xong — không dựng thêm overlay nào mới, tái dùng cái đã có.
+            var scriptsLoaded = false;
+            var playlistReady = false;
+            function tryHidePreloader() {
+                if (scriptsLoaded && playlistReady) hidePreloader();
+            }
+
+            /**
+             * Gọi TỪ event/workflow/app-boot.js, NGAY SAU khi Playlist đã render xong (cuối chuỗi
+             * boot) — báo cho preloader biết "sẵn sàng thật" (KHÔNG chỉ "script tải xong"). Gắn vào
+             * `window` vì file này là <script> đồng bộ đầu <body>, chạy TRƯỚC MỌI file khác — không
+             * có cách nào gọi thẳng 1 hàm closure ở đây từ file tải SAU, phải lộ qua `window`.
+             */
+            window.markPlaylistBootReady = function () {
+                playlistReady = true;
+                tryHidePreloader();
+            };
+
+            window.addEventListener('load', function () {
+                scriptsLoaded = true;
+                tryHidePreloader();
+                // Guard an toàn: lỡ boot lỗi/treo bất thường (JS throw giữa chừng trước khi kịp gọi
+                // markPlaylistBootReady()) — timeout 8s tự ẩn preloader, tránh app kẹt màn đen VĨNH
+                // VIỄN (tệ hơn hẳn tình trạng HIỆN TẠI, dù hiếm khi xảy ra).
+                setTimeout(function () {
+                    if (!playlistReady) {
+                        console.warn('[preloader] Playlist chưa báo sẵn sàng sau 8s kể từ window.load — tự ẩn preloader (an toàn), có thể do lỗi JS ở boot sequence.');
+                        playlistReady = true;
+                        tryHidePreloader();
+                    }
+                }, 8000);
+            });
+
             function hidePreloader() {
                 clearInterval(pollTimer);
                 fillEl.style.width = '100%';
@@ -128,7 +167,9 @@
                     setTimeout(function () { preloaderEl.remove(); }, 450); // sau khi fade xong hẳn (transition 0.4s + đệm)
                 }, 150);
             }
-            window.addEventListener('load', hidePreloader);
+            // XOÁ `window.addEventListener('load', hidePreloader);` (bản cũ, gọi THẲNG không qua
+            // điều kiện) — hidePreloader() giờ CHỈ được gọi từ tryHidePreloader() (đợi ĐỦ CẢ 2 cờ
+            // scriptsLoaded + playlistReady, xem khối ngay trên), tránh gọi 2 lần/gọi sớm.
         })();
     </script>
 
