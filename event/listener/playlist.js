@@ -232,16 +232,19 @@ if (btnOpenPlaylistFilter) {
 }
 
 // ===================== Panel "Sắp xếp" (settings-stack, delegate) =====================
-// 2 <select> BÊN TRONG panel — id CỐ ĐỊNH, xem components/playlist-sort-drawer.js.
+// 3 <select> BÊN TRONG panel — id CỐ ĐỊNH, xem components/playlist-sort-drawer.js. SỬA (mục 3,
+// phản hồi Giang — "tách field/hướng thành 2 dropdown riêng") — thêm `payloadKey` vì mỗi msg.type
+// dùng tên field payload khác nhau ('mode'/'field'/'direction').
 const PLAYLIST_SORT_PANEL_INPUT_MAP = {
-    'setting-playlist-sort-name': { type: 'playlist.sortMode.change' },
-    'setting-playlist-sort-stat': { type: 'playlist.statSortMode.change' },
+    'setting-playlist-sort-name': { type: 'playlist.sortMode.change', payloadKey: 'mode' },
+    'setting-playlist-sort-stat-field': { type: 'playlist.statSortField.change', payloadKey: 'field' },
+    'setting-playlist-sort-stat-direction': { type: 'playlist.statSortDirection.change', payloadKey: 'direction' },
 };
 
 function handlePlaylistSortPanelChange(e) {
     const entry = PLAYLIST_SORT_PANEL_INPUT_MAP[e.target.id];
     if (!entry) return;
-    eventBus.send({ router: 'playlist', type: entry.type, payload: { mode: e.target.value } });
+    eventBus.send({ router: 'playlist', type: entry.type, payload: { [entry.payloadKey]: e.target.value } });
 }
 
 // ===================== Panel "Lọc" (settings-stack, delegate) =====================
