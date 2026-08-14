@@ -1,41 +1,21 @@
 /**
- * Hiển thị / đồng bộ phụ đề theo thời gian thực (updateSubToggleUI, processSubtitles).
+ * Hiển thị / đồng bộ phụ đề theo thời gian thực (processSubtitles).
  * (Trích từ file gốc, dòng 492-526 trong khối <script>)
+ *
+ * SỬA (mục 2, phản hồi Giang — "loại bỏ toàn bộ khung box, chỉ giữ text trắng + shadow, toàn bộ
+ * tuỳ chọn -> xoá") — `updateSubToggleUI()`/`applySubtitleStyle()` ĐÃ XOÁ: checkbox "Hiện phụ đề"
+ * giờ SỐNG ĐỘNG bên trong panel con (tự đồng bộ lúc MỞ panel, không cần hàm đẩy ngược trạng thái
+ * ra DOM tĩnh nữa — xem workflowSubtitleStyleSettings.refresh(), event/workflow/subtitle-style-
+ * settings.js). Khung nền phụ đề (bg/border/blur/shadow) không còn tồn tại — `#subtitle-frame`
+ * chỉ còn class layout (components/visualizer-overlay.js) — chữ trắng + shadow CỐ ĐỊNH qua class
+ * tĩnh (`text-white sub-text-glow`, gắn thẳng ở addActiveSubBlock() bên dưới), không đọc config.
  */
-        /**
-         * Đồng bộ checkbox Settings (#setting-subtitles-enabled) theo isSubtitlesEnabled — dùng khi
-         * trạng thái đổi từ nơi khác (vd subtitles.js tự bật lại sub khi tải file .srt mới). Badge
-         * xanh trên icon Control Center ĐÃ BỎ (nút "Phụ đề" trong Control Center đã xoá hẳn, xem
-         * components/visualizer-overlay.js — bật/tắt phụ đề CHỈ còn qua checkbox này).
-         */
-        function updateSubToggleUI() {
-            const enabled = appState.get('isSubtitlesEnabled');
-            if (typeof settingSubtitlesEnabled !== 'undefined' && settingSubtitlesEnabled) settingSubtitlesEnabled.checked = enabled;
-        }
-
         // Khung phụ đề chỉ thực sự hiện (chiếm chỗ trên màn hình) khi có ít nhất 1 dòng
         // đang active — tránh hiển thị 1 khung nền trống gây cảm giác "thiếu nội dung"
         // trong những đoạn nhạc không có phụ đề nào đang chạy.
         function updateSubtitleFrameVisibility() {
             if (subActiveLines.children.length > 0) subtitleDisplay.classList.remove('hidden');
             else subtitleDisplay.classList.add('hidden');
-        }
-
-        // Áp style khung (nền/viền/bo góc) + style chữ phụ đề từ vizConfig.subtitleStyle
-        // lên DOM thật. Được gọi lúc loadConfig() và mỗi khi người dùng đổi 1 setting.
-        function applySubtitleStyle() {
-            const s = appConfigViz.getAll().subtitleStyle;
-            const bgRgb = hexToRgb(s.bgColor);
-            subtitleFrame.style.backgroundColor = `rgba(${bgRgb.r}, ${bgRgb.g}, ${bgRgb.b}, ${s.bgOpacity})`;
-            const borderRgb = hexToRgb(s.borderColor);
-            subtitleFrame.style.borderColor = `rgba(${borderRgb.r}, ${borderRgb.g}, ${borderRgb.b}, ${s.borderOpacity})`;
-            subtitleFrame.style.borderWidth = `${s.borderWidth}px`;
-            subtitleFrame.style.borderRadius = `${s.borderRadius}px`;
-            subtitleFrame.style.backdropFilter = s.bgOpacity > 0 ? 'blur(12px)' : 'none';
-            subActiveLines.style.color = s.textColor;
-            subActiveLines.style.fontSize = `${s.fontSize}px`;
-            subActiveLines.style.lineHeight = s.lineHeight;
-            subActiveLines.style.letterSpacing = `${s.letterSpacing}px`;
         }
 
         function processSubtitles(currentTime) {
@@ -88,7 +68,10 @@
             block.id = `sub-active-${sub.id}`;
             block.dataset.subId = sub.id;
             block.dataset.start = sub.start;
-            block.className = 'font-bold sub-text-glow leading-snug transition-opacity duration-300 opacity-0';
+            // MỚI (mục 2) — chữ trắng + shadow CỐ ĐỊNH (text-white + sub-text-glow, class
+            // .sub-text-glow ở assets/css/base.css) — trước đây màu/cỡ chữ đọc từ
+            // vizConfig.subtitleStyle (applySubtitleStyle(), ĐÃ XOÁ), giờ tĩnh hoàn toàn.
+            block.className = 'font-bold text-white text-lg sub-text-glow leading-snug transition-opacity duration-300 opacity-0';
             block.innerHTML = sub.text.replace(/\n/g, '<br>');
 
             // Chèn đúng vị trí theo start tăng dần trong số các khối đang hiển thị.
