@@ -80,8 +80,18 @@
             lamps.push({ x: w * 0.85, baseY: safeGroundY, height: h * 0.28, main: false, flicker: 1, depth: 0.6 });
             // Đèn TUỲ CHỈNH (customEffect.rain.customLamps) — THÊM VÀO 3 đèn gốc, đẩy chung vào
             // streetLamps nên tự nhấp nháy theo beat giống đèn gốc, không cần code riêng.
+            // FIX (14/08/2026, Giang báo "flare của lamp N bị lệch nếu cho size to") — 3 đèn GỐC
+            // dùng height = PHÂN SỐ canvas.height (h*0.42/0.26/0.28) nên tự co giãn theo viewport,
+            // không bao giờ vượt quá vùng nhìn thấy. Đèn TUỲ CHỈNH lại dùng heightPx TUYỆT ĐỐI (tối
+            // đa 500, xem CUSTOM_EFFECT_DEFAULT_LAMP/slider core/custom-effect.js) — trên viewport
+            // THẤP (landscape/cửa sổ nhỏ), `postTopY = baseY - height` (core/visualizer/types/
+            // rain.js::drawRainStreet()) có thể ÂM, đẩy cả cột đèn LẪN tâm quầng sáng (flare) ra
+            // khỏi vùng canvas nhìn thấy -> chỉ còn phần bị cắt hiện ra, trông như "lệch". Clamp
+            // height để đỉnh cột (`postTopY`) không bao giờ vượt quá 20dpr cách mép trên canvas.
+            const maxCustomLampHeight = Math.max(20 * dpr, safeGroundY - 20 * dpr);
             (getEffectConfig('rain').customLamps || []).forEach((lamp) => {
-                lamps.push({ x: w * (lamp.xPercent / 100), baseY: safeGroundY, height: lamp.heightPx * dpr, main: false, flicker: 1, depth: 0.3, flareScale: lamp.flareScale });
+                const height = Math.min(lamp.heightPx * dpr, maxCustomLampHeight);
+                lamps.push({ x: w * (lamp.xPercent / 100), baseY: safeGroundY, height, main: false, flicker: 1, depth: 0.3, flareScale: lamp.flareScale });
             });
             appState.set('streetLamps', lamps);
 
