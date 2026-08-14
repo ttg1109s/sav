@@ -200,11 +200,9 @@ if (uploadActionMenu) {
 }
 
 // ===================== Sắp xếp / Kiểu xem / Tìm kiếm =====================
-if (sortSelect) {
-    sortSelect.addEventListener('change', (e) => {
-        eventBus.send({ router: 'playlist', type: 'playlist.sortMode.change', payload: { mode: e.target.value } });
-    });
-}
+// SỬA (mục 1b, Sort subpanel) — `sortSelect` (select tĩnh cũ ở Main list) ĐÃ XOÁ khỏi DOM
+// (components/settings/playlist-view.js) — "Sắp xếp" giờ là 1 SUBPANEL riêng (btnOpenPlaylistSort
+// mở panel + 2 <select> BÊN TRONG panel, delegate trên settingsStackBody — xem khối cuối file).
 
 if (viewModeSelect) {
     viewModeSelect.addEventListener('change', (e) => {
@@ -217,6 +215,62 @@ if (mediaSourceSelect) {
     mediaSourceSelect.addEventListener('change', (e) => {
         eventBus.send({ router: 'playlist', type: 'playlist.mediaSource.change', payload: { source: e.target.value } });
     });
+}
+
+// MỚI (mục 1b, Sort subpanel) — nút mở panel "Sắp xếp" (Main list, tĩnh).
+if (btnOpenPlaylistSort) {
+    btnOpenPlaylistSort.addEventListener('click', () => {
+        eventBus.send({ router: 'playlist', type: 'playlist.sortPanel.open.click', payload: {} });
+    });
+}
+
+// MỚI (mục 1d, Filter subpanel) — nút mở panel "Lọc" (Main list, tĩnh).
+if (btnOpenPlaylistFilter) {
+    btnOpenPlaylistFilter.addEventListener('click', () => {
+        eventBus.send({ router: 'playlist', type: 'playlist.filterPanel.open.click', payload: {} });
+    });
+}
+
+// ===================== Panel "Sắp xếp" (settings-stack, delegate) =====================
+// 2 <select> BÊN TRONG panel — id CỐ ĐỊNH, xem components/playlist-sort-drawer.js.
+const PLAYLIST_SORT_PANEL_INPUT_MAP = {
+    'setting-playlist-sort-name': { type: 'playlist.sortMode.change' },
+    'setting-playlist-sort-stat': { type: 'playlist.statSortMode.change' },
+};
+
+function handlePlaylistSortPanelChange(e) {
+    const entry = PLAYLIST_SORT_PANEL_INPUT_MAP[e.target.id];
+    if (!entry) return;
+    eventBus.send({ router: 'playlist', type: entry.type, payload: { mode: e.target.value } });
+}
+
+// ===================== Panel "Lọc" (settings-stack, delegate) =====================
+// Field theo Nguồn (name/album/artist/addedAt/count/totalTime/size) — mỗi control mang
+// data-filter-field/data-filter-prop TƯỜNG MINH (xem components/playlist-filter-drawer.js) —
+// KHÔNG suy field/prop từ `id` (khối "đơn"/"range" của field số CÙNG prop 'value' nhưng khác id).
+
+function handlePlaylistFilterPanelEvent(e) {
+    if (e.type === 'click' && e.target.closest('#btn-playlist-filter-apply')) {
+        eventBus.send({ router: 'playlist', type: 'playlist.filterPanel.apply.click', payload: {} });
+        return;
+    }
+    const el = e.target.closest('[data-filter-field]');
+    if (!el) return;
+    const { filterField: field, filterProp: prop } = el.dataset;
+    if (!field || !prop) return;
+    if (prop === 'enabled' && e.type !== 'change') return; // checkbox chỉ nghe 'change'
+    if (prop !== 'enabled' && e.type === 'click') return; // op/mode/value/valueTo không có 'click'
+    const value = prop === 'enabled' ? el.checked : el.value;
+    eventBus.send({ router: 'playlist', type: 'playlist.filterPanel.field.change', payload: { field, prop, value } });
+}
+
+if (settingsStackBody) {
+    settingsStackBody.addEventListener('change', handlePlaylistSortPanelChange);
+    settingsStackBody.addEventListener('change', handlePlaylistFilterPanelEvent);
+    settingsStackBody.addEventListener('input', handlePlaylistFilterPanelEvent);
+    // nút "Áp dụng" (bare click, id `btn-playlist-filter-apply`) — CÙNG handler, nhánh riêng ở đầu
+    // hàm (KHÔNG khớp regex `filter-*` nên phải bắt TRƯỚC, xem đầu handlePlaylistFilterPanelEvent()).
+    settingsStackBody.addEventListener('click', handlePlaylistFilterPanelEvent);
 }
 
 if (playlistSearchInput) {
