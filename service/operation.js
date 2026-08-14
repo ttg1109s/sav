@@ -21,6 +21,12 @@ const operation = (() => {
         '<':   (a, b) => a < b,
         '>=':  (a, b) => a >= b,
         '<=':  (a, b) => a <= b,
+        // MỚI (Playlist Filter, core/playlist/filter.js) — so khớp chuỗi con, không phân biệt
+        // hoa/thường. Nơi gọi tự chuẩn hoá dấu tiếng Việt (normalizeSongName(), core/song-search.js)
+        // TRƯỚC khi truyền vào đây nếu cần — file này KHÔNG tự làm việc đó (không phụ thuộc gì,
+        // xem docstring đầu file).
+        'contains':    (a, b) => typeof a === 'string' && typeof b === 'string' && a.toLowerCase().includes(b.toLowerCase()),
+        'notContains': (a, b) => typeof a === 'string' && typeof b === 'string' && !a.toLowerCase().includes(b.toLowerCase()),
     };
 
     /**
@@ -46,7 +52,7 @@ const operation = (() => {
      * So sánh `a operator b`, trả `true`/`false`. Không throw — operator không hỗ trợ thì
      * `console.warn` rồi trả `false` (an toàn theo hướng "không khớp" thay vì làm sập luồng gọi).
      * @param {*} a - giá trị thực tế (thường đọc từ appState)
-     * @param {string} op - '===' | '!==' | '>' | '<' | '>=' | '<=' | 'in' | 'notIn'
+     * @param {string} op - '===' | '!==' | '>' | '<' | '>=' | '<=' | 'in' | 'notIn' | 'contains' | 'notContains'
      * @param {*} b - giá trị so sánh (array bắt buộc nếu op là 'in'/'notIn')
      * @returns {boolean}
      */
