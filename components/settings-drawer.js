@@ -27,8 +27,10 @@
  * stack"): `#settings-stack-body` — khung neo (`relative overflow-hidden`) mà push/pop thao tác —
  * chứa `#settings-stack-panel-main` (Main, TĨNH, KHÔNG BAO GIỜ bị push/pop hay xoá — đáy ngăn xếp)
  * TỰ MANG header riêng (title + nút Close X, KHÁC panel con — panel con dùng nút Back, xem
- * core/settings-panel-stack.js::_buildPanelInnerHtml()) + body gồm 8 section TPL_SETTINGS_* (TÁI
- * TỔ CHỨC 07/07/2026, phản hồi Giang mục 2/4 — xem ngay dưới).
+ * core/settings-panel-stack.js::_buildPanelInnerHtml()) + body gồm 7 section TPL_SETTINGS_* (TÁI
+ * TỔ CHỨC 07/07/2026, phản hồi Giang mục 2/4 — xem ngay dưới; MỚI mục 2 — section riêng "Phụ đề"
+ * (`TPL_SETTINGS_SUBTITLE_STYLE`) ĐÃ XOÁ, gộp thành 1 nút nested BÊN TRONG panel "Display", xem
+ * components/settings/visualizer-display-panel.js).
  *
  * === Tái tổ chức section (07/07/2026, phản hồi Giang) ===
  * Mục 4 — section cũ "Playlist & Background" (1 file, gộp lẫn 2 chủ đề) TÁCH làm 2:
@@ -104,7 +106,6 @@
                     TPL_SETTINGS_PLAYLIST_VIEW +
                     TPL_SETTINGS_THEME +
                     TPL_SETTINGS_VISUALIZER +
-                    TPL_SETTINGS_SUBTITLE_STYLE +
                     TPL_SETTINGS_FILE_MANAGER +
                     TPL_SETTINGS_LANGUAGE +
                     TPL_SETTINGS_MISC +

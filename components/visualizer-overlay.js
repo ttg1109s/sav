@@ -37,8 +37,14 @@ const TPL_VISUALIZER_OVERLAY = `
         <div class="flex-grow relative">
             <div id="visualizer-gesture-surface" class="absolute inset-0 z-20 pointer-events-auto"></div>
 
+            <!-- SỬA (mục 2, phản hồi Giang — "loại bỏ toàn bộ khung box của subtitles, chỉ giữ
+                 lại text trắng và shadow") — #subtitle-frame ĐÃ BỎ toàn bộ class "khung"
+                 (bg-black/40, backdrop-blur-md, px-6 py-3, rounded-2xl, border, border-white/10,
+                 shadow-2xl) — chỉ còn class LAYOUT thuần (căn giữa/giới hạn bề rộng), KHÔNG còn
+                 nền/viền/đổ bóng nào. Chữ trắng + shadow cố định qua class trên từng dòng phụ đề
+                 (core/subtitle/subtitle-display.js::addActiveSubBlock()). -->
             <div id="subtitle-display" class="absolute bottom-[20%] w-full px-4 sm:px-10 flex flex-col items-center justify-center pointer-events-none z-[60] hidden">
-                <div id="subtitle-frame" class="bg-black/40 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/10 text-center max-w-4xl shadow-2xl flex flex-col items-center gap-1.5">
+                <div id="subtitle-frame" class="text-center max-w-4xl flex flex-col items-center gap-1.5">
                     <div id="sub-active-lines" class="flex flex-col items-center gap-1.5"></div>
                 </div>
             </div>

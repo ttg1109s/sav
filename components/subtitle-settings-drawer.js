@@ -1,55 +1,30 @@
 /**
- * Component: Subtitle Settings panel body ("Tùy chỉnh Phụ đề") — nội dung slider style
- * khung/chữ phụ đề.
+ * Component: panel con "Phụ đề" (mục 2, phản hồi Giang — "loại bỏ toàn bộ khung box của
+ * subtitles, chỉ giữ lại text trắng và shadow, toàn bộ tuỳ chọn -> xoá") — NESTED bên trong panel
+ * "Display" (mục 2 tiếp — "vẫn cấp cho subtitle một sub panel ở trong Display Visualizer"), mở
+ * qua nút `#setting-open-subtitle-panel` (components/settings/visualizer-display-panel.js).
  *
- * === VIẾT LẠI TOÀN BỘ (07/07/2026, phản hồi Giang) ===
- * Viết lại từ đầu cùng cụm với workflow/router/listener — xem docstring
- * event/workflow/subtitle-style-settings.js.
+ * === VIẾT LẠI TOÀN BỘ (mục 2) === Trước đây file này ("Tùy chỉnh Phụ đề") có 10 input style
+ * (màu/độ trong suốt nền, màu/độ trong suốt/độ dày/độ uốn viền khung, màu chữ, cỡ chữ, line-
+ * height, letter-spacing) — TOÀN BỘ ĐÃ XOÁ. Khung nền phụ đề (bg/border/blur/shadow) không còn
+ * tồn tại — chỉ còn chữ trắng + shadow CỐ ĐỊNH qua CSS tĩnh (`.sub-text-glow` + class `text-white`
+ * gắn thẳng trên từng dòng phụ đề, xem core/subtitle/subtitle-display.js::addActiveSubBlock()) —
+ * panel này giờ CHỈ còn ĐÚNG 1 toggle bật/tắt, đồng bộ qua
+ * `workflowSubtitleStyleSettings.refresh()` (event/workflow/subtitle-style-settings.js).
  */
 function renderSubtitlePanelBody() {
     return `
                 <div>
-                    <h3 class="text-xs font-bold text-yellow-400 uppercase tracking-widest mb-2 ml-2" data-i18n="subtitleSettingsDrawer.sectionTitle">${t('subtitleSettingsDrawer.sectionTitle')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <span class="text-sm font-medium truncate" data-i18n="subtitleSettingsDrawer.bgColor.label">${t('subtitleSettingsDrawer.bgColor.label')}</span>
-                            <div class="w-8 h-8 rounded-full border border-white/20 overflow-hidden shrink-0"><input type="color" id="setting-sub-bg-color" class="w-10 h-10 -m-1 cursor-pointer"></div>
-                        </div>
-                        <div class="flex flex-col p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <div class="flex justify-between items-center mb-2"><span class="text-sm font-medium truncate" data-i18n="subtitleSettingsDrawer.bgOpacity.label">${t('subtitleSettingsDrawer.bgOpacity.label')}</span><span id="val-sub-bg-opacity" class="text-xs text-yellow-400 font-mono">40%</span></div>
-                            <input type="range" id="setting-sub-bg-opacity" min="0" max="100" step="1" class="setting-slider">
-                        </div>
-                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <span class="text-sm font-medium truncate" data-i18n="subtitleSettingsDrawer.borderColor.label">${t('subtitleSettingsDrawer.borderColor.label')}</span>
-                            <div class="w-8 h-8 rounded-full border border-white/20 overflow-hidden shrink-0"><input type="color" id="setting-sub-border-color" class="w-10 h-10 -m-1 cursor-pointer"></div>
-                        </div>
-                        <div class="flex flex-col p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <div class="flex justify-between items-center mb-2"><span class="text-sm font-medium truncate" data-i18n="subtitleSettingsDrawer.borderOpacity.label">${t('subtitleSettingsDrawer.borderOpacity.label')}</span><span id="val-sub-border-opacity" class="text-xs text-yellow-400 font-mono">10%</span></div>
-                            <input type="range" id="setting-sub-border-opacity" min="0" max="100" step="1" class="setting-slider">
-                        </div>
-                        <div class="flex flex-col p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <div class="flex justify-between items-center mb-2"><span class="text-sm font-medium truncate" data-i18n="subtitleSettingsDrawer.borderWidth.label">${t('subtitleSettingsDrawer.borderWidth.label')}</span><span id="val-sub-border-width" class="text-xs text-yellow-400 font-mono">1</span></div>
-                            <input type="range" id="setting-sub-border-width" min="0" max="6" step="1" class="setting-slider">
-                        </div>
-                        <div class="flex flex-col p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <div class="flex justify-between items-center mb-2"><span class="text-sm font-medium truncate" data-i18n="subtitleSettingsDrawer.borderRadius.label">${t('subtitleSettingsDrawer.borderRadius.label')}</span><span id="val-sub-border-radius" class="text-xs text-yellow-400 font-mono">16</span></div>
-                            <input type="range" id="setting-sub-border-radius" min="0" max="40" step="1" class="setting-slider">
-                        </div>
-                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <span class="text-sm font-medium truncate" data-i18n="subtitleSettingsDrawer.textColor.label">${t('subtitleSettingsDrawer.textColor.label')}</span>
-                            <div class="w-8 h-8 rounded-full border border-white/20 overflow-hidden shrink-0"><input type="color" id="setting-sub-text-color" class="w-10 h-10 -m-1 cursor-pointer"></div>
-                        </div>
-                        <div class="flex flex-col p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <div class="flex justify-between items-center mb-2"><span class="text-sm font-medium truncate" data-i18n="subtitleSettingsDrawer.fontSize.label">${t('subtitleSettingsDrawer.fontSize.label')}</span><span id="val-sub-font-size" class="text-xs text-yellow-400 font-mono">8</span></div>
-                            <input type="range" id="setting-sub-font-size" min="8" max="16" step="1" class="setting-slider">
-                        </div>
-                        <div class="flex flex-col p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <div class="flex justify-between items-center mb-2"><span class="text-sm font-medium truncate" data-i18n="subtitleSettingsDrawer.lineHeight.label">${t('subtitleSettingsDrawer.lineHeight.label')}</span><span id="val-sub-line-height" class="text-xs text-yellow-400 font-mono">1.3</span></div>
-                            <input type="range" id="setting-sub-line-height" min="1" max="2.5" step="0.1" class="setting-slider">
-                        </div>
-                        <div class="flex flex-col p-4 hover:bg-white/5 transition-colors">
-                            <div class="flex justify-between items-center mb-2"><span class="text-sm font-medium truncate" data-i18n="subtitleSettingsDrawer.letterSpacing.label">${t('subtitleSettingsDrawer.letterSpacing.label')}</span><span id="val-sub-letter-spacing" class="text-xs text-yellow-400 font-mono">0</span></div>
-                            <input type="range" id="setting-sub-letter-spacing" min="-1" max="5" step="0.5" class="setting-slider">
+                        <div class="flex justify-between items-center p-4">
+                            <div class="pr-3">
+                                <div class="text-sm font-medium truncate" data-i18n="settingsSubtitleStyle.enable.label">${t('settingsSubtitleStyle.enable.label')}</div>
+                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="settingsSubtitleStyle.enable.hint">${t('settingsSubtitleStyle.enable.hint')}</div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="setting-subtitles-enabled" class="sr-only peer" checked>
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                            </label>
                         </div>
                     </div>
                 </div>
