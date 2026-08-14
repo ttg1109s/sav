@@ -534,7 +534,11 @@
                     songInfoRowHtml('M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'bg-sky-500/15 text-sky-400', t('playlistView.songInfo.fieldFilename'), (videoRecord && videoRecord.filename) ? escapeHtml(videoRecord.filename) : emptyVal) +
                     songInfoRowHtml('M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4', 'bg-emerald-500/15 text-emerald-400', t('playlistView.songInfo.fieldResolution'), resolutionText) +
                     songInfoRowHtml('M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', 'bg-rose-500/15 text-rose-400', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count })) +
-                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-indigo-500/15 text-indigo-400', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime));
+                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-indigo-500/15 text-indigo-400', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime)) +
+                    // MỚI (mục 1e, phản hồi Giang — "detail modal thêm dung lượng") — formatBytes()
+                    // có sẵn (core/about-stats.js, dùng chung với Quản lý dung lượng), đọc thẳng
+                    // `cached.size` (core/playlist/loader.js, cùng đợt thêm với addedAt).
+                    songInfoRowHtml('M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0l-2 7H6l-2-7m16 0H4', 'bg-teal-500/15 text-teal-400', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
             } else {
                 songEditTitleInput.value = cached.tag.title || '';
                 songEditArtistInput.value = cached.tag.artist || '';
@@ -551,7 +555,9 @@
                     songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0', 'bg-emerald-500/15 text-emerald-400', t('playlistView.songInfo.fieldAlbum'), cached.tag.album || emptyVal) +
                     songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-amber-500/15 text-amber-400', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration)) +
                     songInfoRowHtml('M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', 'bg-rose-500/15 text-rose-400', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count })) +
-                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-indigo-500/15 text-indigo-400', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime));
+                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-indigo-500/15 text-indigo-400', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime)) +
+                    // MỚI (mục 1e) — CÙNG LÝ DO nhánh Video ngay trên.
+                    songInfoRowHtml('M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0l-2 7H6l-2-7m16 0H4', 'bg-teal-500/15 text-teal-400', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
             }
 
             setSongEditTab('details'); // MẶC ĐỊNH mở tab "Chi tiết" trước (đúng yêu cầu Giang — Info là tab đầu)

@@ -19,35 +19,75 @@
         }
 
         /**
-         * So sánh & trả về MẢNG MỚI đã sắp theo `mode`.
+         * Comparator trục (1) — tên/ngày (`nameMode`: az/za/newest/oldest). TÁCH khỏi
+         * `sortKeysByMode()` (đợt Sort subpanel, mục 1b/1c) để dùng lại làm phần "phá thế bằng"
+         * (tie-break) khi trục (2) đang bật mà 2 bài có count/times bằng nhau — xem
+         * `sortKeysByMode()` bên dưới.
          *
          * [SỬA — Giang chốt "dùng chung hết" 4 kiểu sort (az/za/newest/oldest) cho CẢ Song lẫn
-         * Video, KHÔNG tách riêng theo nguồn nữa — bỏ hẳn 'default' (giữ nguyên thứ tự thêm) vì
-         * "vô nghĩa"] `az`/`za` đọc `songNameIndex` — giờ populate cho CẢ Song (title) lẫn Video
-         * (filename, xem core/playlist/loader.js::buildVideoPlaylistCache()). `newest`/`oldest` đọc
-         * `addedAt` từ `playlistCache` — giờ CŨNG có ở Song (thêm vào scanValidSongsFromDB(), cùng
-         * đợt sửa). 'az' là NHÁNH MẶC ĐỊNH cho mọi `mode` không khớp 'za'/'newest'/'oldest' — bao
-         * gồm luôn giá trị `displaySortMode` cũ còn sót lại là 'default' từ TRƯỚC khi bỏ (state đã
-         * lưu ở IndexedDB/localStorage của người dùng cũ) — không cần migration riêng, tự rơi về
-         * az một cách an toàn.
-         * @param {string[]} keys
-         * @param {string} mode - displaySortMode hiện tại
-         * @param {Map} songNameIndex
-         * @param {Map} playlistCache
+         * Video, KHÔNG tách riêng theo nguồn nữa] `az`/`za` đọc `songNameIndex` — populate cho CẢ
+         * Song (title) lẫn Video (filename). `newest`/`oldest` đọc `addedAt` từ `playlistCache`.
+         * 'az' là NHÁNH MẶC ĐỊNH cho mọi `nameMode` không khớp 'za'/'newest'/'oldest' — bao gồm
+         * luôn giá trị cũ 'default' còn sót lại (state cũ) — tự rơi về az an toàn.
+         * @param {string} nameMode @param {Map} songNameIndex @param {Map} playlistCache
+         * @returns {(a:string,b:string)=>number}
          */
-        function sortKeysByMode(keys, mode, songNameIndex, playlistCache) {
-            if (mode === 'newest' || mode === 'oldest') {
-                return keys.slice().sort((a, b) => {
+        function _buildNameComparator(nameMode, songNameIndex, playlistCache) {
+            if (nameMode === 'newest' || nameMode === 'oldest') {
+                return (a, b) => {
                     const dateA = (playlistCache.get(a) || {}).addedAt || 0;
                     const dateB = (playlistCache.get(b) || {}).addedAt || 0;
-                    return mode === 'newest' ? dateB - dateA : dateA - dateB;
-                });
+                    return nameMode === 'newest' ? dateB - dateA : dateA - dateB;
+                };
             }
             // 'az' (mặc định) hoặc 'za' — cùng 1 phép so sánh, chỉ đổi dấu.
-            return keys.slice().sort((a, b) => {
+            return (a, b) => {
                 const nameA = songNameIndex.get(a) || ''; const nameB = songNameIndex.get(b) || '';
                 const cmp = nameA.localeCompare(nameB, 'vi');
-                return mode === 'za' ? -cmp : cmp;
+                return nameMode === 'za' ? -cmp : cmp;
+            };
+        }
+
+        /**
+         * Comparator trục (2) — thống kê (`statMode`), MỚI (Sort subpanel, mục 1b/1c) — MỞ RỘNG
+         * (phản hồi Giang — "bổ sung dung lượng + duration vào stats") — 4 field: count/times
+         * (songStatsMap), size/duration (playlistCache, cùng nguồn với Filter — core/playlist/
+         * filter.js). Đọc `songStatsMap`/`playlistCache` — bài chưa có thống kê coi như 0.
+         * @param {string} statMode - '<field>Desc'|'<field>Asc', field ∈ {count,times,size,duration}
+         * @param {Map} songStatsMap @param {Map} playlistCache
+         * @returns {(a:string,b:string)=>number}
+         */
+        function _buildStatComparator(statMode, songStatsMap, playlistCache) {
+            let getValue;
+            if (statMode.startsWith('count')) getValue = (k) => (songStatsMap.get(k) || {}).count || 0;
+            else if (statMode.startsWith('times')) getValue = (k) => (songStatsMap.get(k) || {}).totalTime || 0;
+            else if (statMode.startsWith('size')) getValue = (k) => (playlistCache.get(k) || {}).size || 0;
+            else getValue = (k) => (playlistCache.get(k) || {}).duration || 0; // 'duration...'
+            const desc = statMode.endsWith('Desc');
+            return (a, b) => {
+                const va = getValue(a); const vb = getValue(b);
+                return desc ? vb - va : va - vb;
+            };
+        }
+
+        /**
+         * So sánh & trả về MẢNG MỚI đã sắp theo CẢ 2 trục (mục 1b/1c, phản hồi Giang):
+         *   - `statMode` === 'none' -> CHỈ trục (1) quyết định — hành vi Y HỆT bản trước Sort
+         *     subpanel (KHÔNG đổi kết quả cho ai chưa bật trục thống kê).
+         *   - `statMode` khác 'none' -> trục (2) là CHÍNH; 2 bài có count/times BẰNG NHAU thì trục
+         *     (1) quyết định thứ tự giữa 2 bài đó (tie-break, ĐÚNG yêu cầu mục 1c).
+         * @param {string[]} keys
+         * @param {string} nameMode - displaySortMode hiện tại (trục 1)
+         * @param {string} statMode - displayStatSortMode hiện tại (trục 2)
+         * @param {Map} songNameIndex @param {Map} playlistCache @param {Map} songStatsMap
+         */
+        function sortKeysByMode(keys, nameMode, statMode, songNameIndex, playlistCache, songStatsMap) {
+            const nameCmp = _buildNameComparator(nameMode, songNameIndex, playlistCache);
+            if (statMode === 'none') return keys.slice().sort(nameCmp);
+            const statCmp = _buildStatComparator(statMode, songStatsMap, playlistCache);
+            return keys.slice().sort((a, b) => {
+                const primary = statCmp(a, b);
+                return primary !== 0 ? primary : nameCmp(a, b);
             });
         }
 
@@ -67,13 +107,13 @@
         function recomputeRenderOrder() {
             const query = appState.get('searchQuery'); // ĐÃ chuẩn hoá sẵn lúc gõ (applySearchQuery(), render.js)
             const cache = appState.get('playlistCache');
-            // MỚI (ver12 Batch1) — sortKeysByMode() giờ nhận tham số (Rule 2), gộp 2 giá trị còn
-            // lại vào 1 lần appState.get([...]) thay vì get() rời rạc.
-            const { displaySortMode: mode, songNameIndex } = appState.get(['displaySortMode', 'songNameIndex']);
+            // MỚI (Sort subpanel, mục 1b/1c) — gộp thêm displayStatSortMode/songStatsMap (trục 2)
+            // vào CÙNG 1 lần appState.get([...]) đã có sẵn (Rule 2, sortKeysByMode() nhận tham số).
+            const { displaySortMode: nameMode, displayStatSortMode: statMode, songNameIndex, songStatsMap } = appState.get(['displaySortMode', 'displayStatSortMode', 'songNameIndex', 'songStatsMap']);
             appState.set('renderOrder', sortKeysByMode(liveKeys().filter((key) => {
                 const cached = cache.get(key);
                 return songMatchesQuery(query, cached ? cached.tag.title : key, cached ? cached.tag.artist : '', cached ? cached.tag.album : '');
-            }), mode, songNameIndex, cache));
+            }), nameMode, statMode, songNameIndex, cache, songStatsMap));
         }
 
         // ===================== (B) HÀNG ĐỢI PHÁT =====================
@@ -88,10 +128,10 @@
          * 4 rule, kể cả phần code cũ không đổi logic).
          */
         function recomputeDisplayOrder() {
-            // MỚI (ver12 Batch1) — sortKeysByMode() giờ nhận tham số (Rule 2), xem comment tại
-            // định nghĩa hàm + recomputeRenderOrder() ngay trên.
-            const { displaySortMode: mode, songNameIndex, playlistCache: cache } = appState.get(['displaySortMode', 'songNameIndex', 'playlistCache']);
-            appState.set('displayOrder', sortKeysByMode(liveKeys(), mode, songNameIndex, cache));
+            // MỚI (Sort subpanel, mục 1b/1c) — gộp thêm displayStatSortMode/songStatsMap (trục 2),
+            // xem comment tại định nghĩa hàm + recomputeRenderOrder() ngay trên.
+            const { displaySortMode: nameMode, displayStatSortMode: statMode, songNameIndex, playlistCache: cache, songStatsMap } = appState.get(['displaySortMode', 'displayStatSortMode', 'songNameIndex', 'playlistCache', 'songStatsMap']);
+            appState.set('displayOrder', sortKeysByMode(liveKeys(), nameMode, statMode, songNameIndex, cache, songStatsMap));
             console.log(`writer: "recomputeDisplayOrder", page: "displayOrder", content: "resort lại theo displaySortMode, về top-level"`);
             appState.mutate('pendingResortKeys', s => s.clear());
             console.log(`writer: "recomputeDisplayOrder", page: "pendingResortKeys", content: "clear toàn bộ"`);
@@ -205,5 +245,15 @@
             appState.set('displaySortMode', mode);
             recomputeDisplayOrder();   // hàng đợi: resort thật (đổi mode là hành động chủ động)
             recomputeRenderOrder();    // UI: sắp lại ngay
+            renderPlaylistDiff();
+        }
+
+        /** Đổi trục (2) — thống kê (mục 1b/1c, phản hồi Giang — MỞ RỘNG thêm size/duration). CÙNG
+         * KHUÔN setDisplaySortMode() ngay trên — chỉ khác field/danh sách giá trị hợp lệ. */
+        function setDisplayStatSortMode(mode) {
+            if (!['none', 'countDesc', 'countAsc', 'timesDesc', 'timesAsc', 'sizeDesc', 'sizeAsc', 'durationDesc', 'durationAsc'].includes(mode)) return;
+            appState.set('displayStatSortMode', mode);
+            recomputeDisplayOrder();
+            recomputeRenderOrder();
             renderPlaylistDiff();
         }

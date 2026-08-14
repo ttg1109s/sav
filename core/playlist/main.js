@@ -39,11 +39,11 @@
  */
         const PlaylistMain = {
 
-            // ---- "Sắp xếp" (default / A→Z / Z→A; v6 đã bỏ "Ngẫu nhiên") — select trong Settings ----
-            initSortMenu() {
-                if (!sortSelect) return;
-                sortSelect.value = appState.get('displaySortMode'); // đồng bộ giá trị hiện tại lúc Settings mở ra
-            },
+            // ---- "Sắp xếp"/"Lọc" ĐÃ CHUYỂN thành subpanel riêng (mục 1b/1d, phản hồi Giang) —
+            // initSortMenu() (đồng bộ 1 <select> tĩnh) ĐÃ XOÁ, không còn <select> nào ở Main list
+            // nữa. Đồng bộ 2 <select> BÊN TRONG panel giờ là việc của workflowPlaylist.
+            // openSortPanel() (event/workflow/playlist.js), CHẠY LÚC PANEL MỞ — cùng khuôn
+            // workflowVisualizerDisplay.openDisplayPanel() (event/workflow/visualizer-display.js).
 
             // ---- "Kiểu xem" (Danh sách / Lưới) — select trong Settings, thay cho #btn-toggle-view
             //      cũ (logic chuyển nguyên từ state-and-video-bg.js, không đổi gì về hành vi). ----
@@ -74,39 +74,43 @@
             },
 
             /**
-             * MỚI (phản hồi Giang, mục 5 — "thêm dòng folder đang active source") — dòng đọc-thôi
-             * hiển thị thư mục đang được Apply làm Scope cho Playlist (đọc `activePlayListFolder`,
-             * service/state/file-manager.js) — "chưa kích hoạt thư mục nào" nếu rỗng.
-             * MỞ RỘNG (phản hồi Giang, mục 2 — "có folder active thì phải ẩn/block đổi Nguồn") —
-             * ĐỔI TÊN từ `updateActiveFolderBadge()`: giờ CÙNG LÚC khoá `<select>` "Nguồn" (thêm
-             * `disabled` + class mờ) khi đang có Scope — folder Scope CHỈ chứa 1 loại (song/video),
-             * đổi Nguồn giữa chừng sẽ làm `playlistOrder` (đã lọc theo folder) lệch hẳn với
-             * `playlistCache` (đổi hết sang loại khác) — coi 2 việc "hiện tên folder"/"khoá đổi
-             * Nguồn" là 1 cụm UI phản ứng CÙNG 1 state (`activePlayListFolder`), gộp lại tránh quên
-             * gọi 1 trong 2 ở chỗ nào đó.
-             * Gọi lúc boot/mở Settings (qua `workflowPlaylist.syncPlaylistSettingsUI()` hoặc bootstrap
-             * cuối file) VÀ ngay sau mỗi lần `persistScopeChoice()` đổi (workflowPlaylistScope) để
-             * phản ánh đúng NGAY, không cần đợi reload — cùng tinh thần "badge phản ánh đúng NGAY"
-             * đã ghi trong docstring persistScopeChoice().
+             * SỬA (mục 1a, phản hồi Giang — "bỏ row active folder, thêm vào dropdown của Nguồn") —
+             * dòng đọc-thôi RIÊNG (`#setting-playlist-active-folder`) ĐÃ XOÁ khỏi Settings →
+             * Playlist (components/settings/playlist-view.js). Tên folder đang Scope giờ hiện
+             * NGAY TRONG `<select>` "Nguồn" — chèn thêm 1 `<option>` MANG TÊN folder, tự chọn
+             * (`selected`) option đó, rồi khoá `<select>` — CƠ CHẾ KHOÁ GIỮ NGUYÊN Y HỆT bản cũ
+             * (`disabled` + class mờ + tooltip, KHÔNG qua block gate — xem event/block.js, đã bỏ
+             * hẳn 2 block cho 'playlist.mediaSource.change' từ v14, `disabled` là đủ vì browser tự
+             * chặn sự kiện 'change' bắn ra từ 1 <select> đang `disabled`).
+             * Gọi lúc boot/mở Settings (qua `workflowPlaylist.syncPlaylistSettingsUI()` hoặc
+             * bootstrap cuối file) VÀ ngay sau mỗi lần `persistScopeChoice()` đổi
+             * (workflowPlaylistScope) để phản ánh đúng NGAY, không cần đợi reload.
              */
             async updateActiveFolderUI() {
+                if (!mediaSourceSelect) return;
+                // Dọn option folder CŨ (nếu có) trước — tránh đọng lại option của lần Scope trước
+                // khi đổi/bỏ Scope (mỗi lần gọi hàm này tự dựng lại ĐÚNG 1 option, không cộng dồn).
+                const oldOption = mediaSourceSelect.querySelector('option[data-folder-option]');
+                if (oldOption) oldOption.remove();
+
                 const folderId = appState.get('activePlayListFolder');
-                // XOÁ (v14, Giang chốt mục 2) — khoá thứ hai "Visual Background đang bật" bỏ hẳn:
-                // đổi Nguồn Playlist sang Video giờ được phép tự do; xung đột giải quyết ở CHIỀU
-                // NGƯỢC LẠI lúc thật sự VÀO Video Player mode (workflowVisualBg.clearMediaLayers(),
-                // event/workflow/video-player.js::startFromPlaylist()) — không cần khoá select này
-                // nữa, chỉ còn đúng 1 lý do khoá (Folder Scope).
-                const locked = !!folderId;
-                if (mediaSourceSelect) {
-                    mediaSourceSelect.disabled = locked;
-                    mediaSourceSelect.classList.toggle('opacity-40', locked);
-                    mediaSourceSelect.title = folderId ? t('settingsPlaylistBg.mediaSource.lockedByFolderScope') : '';
+                if (!folderId) {
+                    mediaSourceSelect.disabled = false;
+                    mediaSourceSelect.classList.remove('opacity-40');
+                    mediaSourceSelect.title = '';
+                    return;
                 }
-                const el = document.getElementById('setting-playlist-active-folder');
-                if (!el) return;
-                if (!folderId) { el.textContent = t('settingsPlaylistBg.activeFolder.none'); return; }
+
                 const folderRecord = typeof getFolderRecord === 'function' ? await getFolderRecord(folderId) : null;
-                el.textContent = folderRecord ? folderRecord.name : t('settingsPlaylistBg.activeFolder.none');
+                const opt = document.createElement('option');
+                opt.dataset.folderOption = 'true';
+                opt.value = appState.get('activeMediaSource'); // giữ ĐÚNG value song/video hiện tại — chỉ đổi CHỮ hiển thị
+                opt.textContent = folderRecord ? folderRecord.name : t('settingsPlaylistBg.activeFolder.none');
+                mediaSourceSelect.appendChild(opt);
+                opt.selected = true;
+                mediaSourceSelect.disabled = true;
+                mediaSourceSelect.classList.add('opacity-40');
+                mediaSourceSelect.title = t('settingsPlaylistBg.mediaSource.lockedByFolderScope');
             }
         };
 
@@ -151,7 +155,6 @@
         // đầu file, đoạn "SỬA 05/08/2026") — gọi trực tiếp 4 method PlaylistMain ở đây thay vì qua
         // `workflowPlaylist.syncPlaylistSettingsUI()` vì event/workflow/playlist.js nạp SAU file
         // này (thứ tự <script> trong index.html), `workflowPlaylist` chưa tồn tại lúc dòng này chạy.
-        PlaylistMain.initSortMenu();
         PlaylistMain.initViewMode(appState.get('isGridView'));
         PlaylistMain.initMediaSource();
         PlaylistMain.updateActiveFolderUI();

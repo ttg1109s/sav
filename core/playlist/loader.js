@@ -307,7 +307,12 @@
                 if (!record || !record.blob || !record.tag) continue;
                 if (!isQuickValidMime(record.blob.type)) continue;
                 validKeys.push(key);
-                appState.mutate('playlistCache', m => m.set(key, { filename: record.filename, tag: record.tag, cover: record.cover, duration: record.duration, addedAt: record.addedAt }));
+                // MỚI (mục 1e, phản hồi Giang — "detail modal thêm dung lượng") — `size` (byte) đọc
+                // thẳng từ `record.blob.size`, CÙNG ĐỢT với `addedAt` trước đây (đã có sẵn record,
+                // không cần đọc thêm gì khác từ DB) — dùng ở modal chi tiết (core/playlist/
+                // actions.js::songInfoRowHtml()) VÀ field số "Dung lượng" của Playlist Filter (core/
+                // playlist/filter.js).
+                appState.mutate('playlistCache', m => m.set(key, { filename: record.filename, tag: record.tag, cover: record.cover, duration: record.duration, addedAt: record.addedAt, size: record.blob.size || 0 }));
                 appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(record.tag.title)));
             }
             return validKeys;
@@ -355,6 +360,7 @@
                     duration: record.duration,
                     addedAt: record.addedAt,
                     mediaType: 'video',
+                    size: record.blob.size || 0, // MỚI (mục 1e) — cùng lý do Song, xem comment ở scanValidSongsFromDB()
                 }));
                 appState.mutate('songNameIndex', m => m.set(record.key, normalizeSongName(record.customName || stripFileExtension(record.filename))));
             }
