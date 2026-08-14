@@ -28,6 +28,16 @@ const workflowVisualBg = {
     _gradientMovementSwapToColors: null,
     _gradientMovementLastSwapTime: null,  // mốc lần tráo GẦN NHẤT hoàn tất (hoặc lúc bật task) — tính khi nào tới lượt tráo kế tiếp
 
+    // MỚI (13/08/2026, Giang yêu cầu — xoay theo PHA, không giật) — mode 'audio' CHỈ dùng nhóm này.
+    // 1 pha = xoay/giãn mượt từ *From -> *To trong `_gradientMovementPhaseDurationMs`, hết pha mới
+    // lấy mẫu BPM/energy MỚI chốt pha kế tiếp — xem _commitNextGradientPhase().
+    _gradientMovementPhaseStartTime: null,
+    _gradientMovementPhaseDurationMs: null,
+    _gradientMovementPhaseFromAngle: null,
+    _gradientMovementPhaseToAngle: null,
+    _gradientMovementPhaseFromSpread: null,
+    _gradientMovementPhaseToSpread: null,
+
     // ===================== Boot / persist =====================
 
     /** Đọc lại `meta.visualBgConfig` + áp nền — gọi 1 lần lúc boot, SAU loadConfig(). */
@@ -979,6 +989,12 @@ const workflowVisualBg = {
         this._gradientMovementBaseStops = appConfigVisualBg.getAll().gradientStops.slice();
         this._gradientMovementSwapStartTime = null;
         this._gradientMovementLastSwapTime = Date.now();
+        this._gradientMovementPhaseStartTime = null; // bootstrap lại — tick đầu tiên tự chốt pha
+        this._gradientMovementPhaseDurationMs = null;
+        this._gradientMovementPhaseFromAngle = null;
+        this._gradientMovementPhaseToAngle = null;
+        this._gradientMovementPhaseFromSpread = null;
+        this._gradientMovementPhaseToSpread = null;
         taskManager.addNew(VISUAL_BG_GRADIENT_MOVEMENT_TASK, { time: VISUAL_BG_GRADIENT_MOVEMENT_TICK_MS, exe: () => this._tickGradientMovement(), mode: 'timeout', count: 0 }); // core/visual-bg.js (hằng số tick+tên task)
         taskManager.operator(VISUAL_BG_GRADIENT_MOVEMENT_TASK, 'enabled');
     },
@@ -989,6 +1005,10 @@ const workflowVisualBg = {
     _stopGradientMovementTask() {
         taskManager.kill(VISUAL_BG_GRADIENT_MOVEMENT_TASK);
         this._gradientMovementSwapStartTime = null;
+        // Khung hình LIVE hết hiệu lực — visual 2D đọc (rain.js) tự rơi về gradientAngleDeg/
+        // gradientStops TĨNH lưu DB, xem core/visual-bg.js::getVisualBgFillStyle().
+        appState.set('visualBgGradientLiveAngle', null, { skipCheck: true });
+        appState.set('visualBgGradientLiveStops', null, { skipCheck: true });
     },
 
     /** Bật/tắt task animation theo ĐÚNG điều kiện hiện tại — gọi lại mỗi khi colorMode/
@@ -1002,11 +1022,12 @@ const workflowVisualBg = {
     },
 
     /** 1 khung hình animation — đọc cfg MỚI NHẤT mỗi lần (cho phép đổi setting giữa lúc đang chạy
-     * mà không cần restart task), tính angle+stops rồi vẽ. Xem phân tích chọn `smoothedEnergy` làm
-     * thông số audio driving mode 'audio' ở docstring core/config.js::DEFAULT_VISUAL_BG_CONFIG.
-     * gradientMovement — KHÔNG dùng `beatScale`/`currentFlux` (quá thô/giật cho 1 hiệu ứng nền LIÊN
-     * TỤC), KHÔNG dùng BPM/Pitch (rời rạc, không phải đại diện "cường độ" audio phù hợp driving 1
-     * animation mượt). */
+     * mà không cần restart task), tính angle+stops rồi vẽ + ghi khung hình LIVE vào appState (cho
+     * visual 2D khác đọc lại, xem core/visual-bg.js::getVisualBgFillStyle()).
+     * Mode 'audio' xoay THEO PHA (Giang chốt 13/08/2026) — 1 pha chạy TRỌN VẸN mượt tới đích rồi
+     * mới lấy mẫu nhạc MỚI chốt pha kế (_commitNextGradientPhase()), KHÔNG map trực tiếp
+     * energy->angle mỗi tick (map thẳng khiến góc "giật", đảo chiều bất cứ lúc nào năng lượng đổi —
+     * xem phân tích đầy đủ ở đó). */
     _tickGradientMovement() {
         const cfg = appConfigVisualBg.getAll();
         const gm = cfg.gradientMovement;
@@ -1016,10 +1037,13 @@ const workflowVisualBg = {
         let angle;
         let stops = this._gradientMovementBaseStops;
         if (gm.mode === 'audio') {
-            const energy = appState.get('smoothedEnergy') || 0; // 0-1, core/audio-analysis.js — ĐÃ làm mượt sẵn (EMA), tránh giật theo khung hình thô
-            angle = lerpGradientMovementValue(gm.audioRotateFrom, gm.audioRotateTo, energy); // core/visual-bg.js
-            const spread = lerpGradientMovementValue(gm.audioStopSpreadFrom, gm.audioStopSpreadTo, energy); // core/visual-bg.js
+            if (this._gradientMovementPhaseStartTime === null) this._commitNextGradientPhase(gm); // tick đầu tiên — chưa có pha nào để nội suy từ
+            const progress = Math.min(1, (now - this._gradientMovementPhaseStartTime) / this._gradientMovementPhaseDurationMs);
+            const eased = easeInOutSine(progress); // core/visual-bg.js
+            angle = lerpGradientMovementValue(this._gradientMovementPhaseFromAngle, this._gradientMovementPhaseToAngle, eased); // core/visual-bg.js
+            const spread = lerpGradientMovementValue(this._gradientMovementPhaseFromSpread, this._gradientMovementPhaseToSpread, eased);
             stops = computeGradientStopSpread(stops, spread); // core/visual-bg.js
+            if (progress >= 1) this._commitNextGradientPhase(gm); // pha vừa xong — lấy mẫu nhạc NGAY LÚC NÀY, chốt pha kế tiếp
         } else {
             const elapsed = now - this._gradientMovementStartTime;
             angle = computeGradientTimeRotateAngle(elapsed, gm.rotateDurationMs); // core/visual-bg.js
@@ -1053,6 +1077,28 @@ const workflowVisualBg = {
         }
 
         applyGradientCssFrame(buildVisualBgGradientCss(stops, angle)); // core/visual-bg.js — 2 lệnh RIÊNG (Rule 3), Workflow tự nối chuỗi CSS rồi mới ghi DOM
+        // Khung hình LIVE cho visual 2D khác đọc lại (rain.js) — xem core/visual-bg.js::getVisualBgFillStyle().
+        appState.set('visualBgGradientLiveAngle', angle, { skipCheck: true });
+        appState.set('visualBgGradientLiveStops', stops, { skipCheck: true });
+    },
+
+    /** Chốt 1 pha xoay/giãn MỚI cho mode 'audio' — lấy mẫu BPM/energy TẠI THỜI ĐIỂM GỌI (Giang
+     * chốt: không hằng số cố định, không bám sát tuyệt đối theo nhịp nhạc, chỉ lấy dữ liệu Ở ĐÚNG
+     * thời điểm pha cũ vừa xong) — CÙNG công thức tốc độ theo nhạc mà core/visualizer/types/
+     * space.js dùng cho camera Space. Pha MỚI luôn bắt đầu từ đúng giá trị pha CŨ vừa dừng (không
+     * "nhảy" góc). */
+    _commitNextGradientPhase(gm) {
+        const bpm = parseInt(appState.get('currentCalculatedBpm'), 10) || 120;
+        const energy = appState.get('smoothedEnergy') || 0;
+        const musicSpeedFactor = computeMusicSpeedFactor(bpm, energy, VISUAL_BG_GRADIENT_MUSIC_FACTOR_MIN, VISUAL_BG_GRADIENT_MUSIC_FACTOR_MAX); // core/visual-bg.js
+        const duration = computeGradientPhaseDuration(VISUAL_BG_GRADIENT_PHASE_BASE_MS, musicSpeedFactor); // core/visual-bg.js
+
+        this._gradientMovementPhaseFromAngle = this._gradientMovementPhaseToAngle !== null ? this._gradientMovementPhaseToAngle : gm.audioRotateFrom;
+        this._gradientMovementPhaseToAngle = lerpGradientMovementValue(gm.audioRotateFrom, gm.audioRotateTo, energy); // core/visual-bg.js
+        this._gradientMovementPhaseFromSpread = this._gradientMovementPhaseToSpread !== null ? this._gradientMovementPhaseToSpread : gm.audioStopSpreadFrom;
+        this._gradientMovementPhaseToSpread = lerpGradientMovementValue(gm.audioStopSpreadFrom, gm.audioStopSpreadTo, energy);
+        this._gradientMovementPhaseStartTime = Date.now();
+        this._gradientMovementPhaseDurationMs = duration;
     },
 
     /** Ứng với toggle bật/tắt Movement. */
@@ -1067,7 +1113,8 @@ const workflowVisualBg = {
     changeGradientMovementMode(value) {
         if (!VISUAL_BG_GRADIENT_MOVEMENT_MODES.includes(value)) return; // core/visual-bg.js
         this._commitColorChange((cfg) => { cfg.gradientMovement.mode = value; }, `gradientMovement.mode=${value}`);
-        this._gradientMovementStartTime = Date.now(); // đổi mode = tính lại pha animation từ đầu, tránh nhảy góc đột ngột
+        this._gradientMovementStartTime = Date.now(); // mode 'time' — tính lại pha animation từ đầu, tránh nhảy góc đột ngột
+        this._gradientMovementPhaseStartTime = null;  // mode 'audio' — bootstrap lại pha, tick kế tiếp tự chốt pha đầu
         if (!visualBgGradientPanelEl) return;
         visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-time-block').classList.toggle('hidden', value !== 'time');
         visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-audio-block').classList.toggle('hidden', value !== 'audio');

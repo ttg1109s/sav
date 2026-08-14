@@ -169,12 +169,59 @@ const workflowCustomEffect = {
             el.addEventListener('input', (e) => {
                 const v = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
                 setCustomEffectField(type, field, v); // core
-                if (valEl) valEl.textContent = isFloat ? `${v.toFixed(1)}x` : v;
+                if (valEl) valEl.textContent = isFloat ? v.toFixed((meta && meta.decimals) || 1) : v;
             });
             el.addEventListener('change', () => {
                 saveConfig();
                 if (meta && meta.refresh) this._runRefresh(meta.refresh);
             });
         });
+
+        if (type === 'rain') this._wireLamps(type);
+    },
+
+    /** Đèn tuỳ chỉnh (Rain, style street) — customEffect.rain.customLamps (mảng, core/custom-
+     * effect.js). Thêm/xoá đổi ĐỘ DÀI mảng -> re-render toàn body. 3 slider/đèn chỉ đổi 1 field
+     * -> ghi thẳng, không re-render (chỉ cập nhật số hiển thị tại chỗ, giống field thường). */
+    _wireLamps(type) {
+        const addBtn = genericDrawerBody.querySelector('#ce-lamp-add');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => {
+                const cfg = getEffectConfig(type);
+                if (cfg.customLamps.length >= CUSTOM_EFFECT_MAX_LAMPS) return;
+                const next = [...cfg.customLamps, { ...CUSTOM_EFFECT_DEFAULT_LAMP }];
+                setCustomEffectField(type, 'customLamps', next);
+                saveConfig(); this._runRefresh('resizeCanvas');
+                this._rerenderBody(type);
+            });
+        }
+        genericDrawerBody.querySelectorAll('.ce-lamp-remove').forEach((el) => {
+            el.addEventListener('click', (e) => {
+                const idx = parseInt(e.target.dataset.lampIndex, 10);
+                const cfg = getEffectConfig(type);
+                const next = cfg.customLamps.filter((_, i) => i !== idx);
+                setCustomEffectField(type, 'customLamps', next);
+                saveConfig(); this._runRefresh('resizeCanvas');
+                this._rerenderBody(type);
+            });
+        });
+        const wireLampSlider = (selector, field, unit, isFloat) => {
+            genericDrawerBody.querySelectorAll(selector).forEach((el) => {
+                const idx = parseInt(el.dataset.lampIndex, 10);
+                const row = el.closest('[data-lamp-index]');
+                const valEl = row ? row.querySelector(`.ce-lamp-val[data-lamp-val="${unit.key}"]`) : null;
+                el.addEventListener('input', (e) => {
+                    const v = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
+                    const cfg = getEffectConfig(type);
+                    const next = cfg.customLamps.map((l, i) => (i === idx ? { ...l, [field]: v } : l));
+                    setCustomEffectField(type, 'customLamps', next);
+                    if (valEl) valEl.textContent = isFloat ? `${v.toFixed(1)}${unit.suffix}` : `${v}${unit.suffix}`;
+                });
+                el.addEventListener('change', () => { saveConfig(); this._runRefresh('resizeCanvas'); });
+            });
+        };
+        wireLampSlider('.ce-lamp-x', 'xPercent', { key: 'x', suffix: '%' }, false);
+        wireLampSlider('.ce-lamp-height', 'heightPx', { key: 'height', suffix: 'px' }, false);
+        wireLampSlider('.ce-lamp-flare', 'flareScale', { key: 'flare', suffix: '' }, true);
     },
 };

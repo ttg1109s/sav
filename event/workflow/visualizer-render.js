@@ -61,9 +61,9 @@ const RENDER_TASK = 'visualizerRender';
 const VISUALIZER_DRAWERS = {
     'bar':        (ctx, perf) => drawBar(ctx, perf),
     'lightning':  (ctx, perf, isPlaying) => drawLightning(ctx, perf, isPlaying),
-    'rubik':      (ctx, perf, isPlaying) => drawRubik(ctx, perf, isPlaying),
+    'rubik':      (ctx, perf, isPlaying) => drawRubik(ctx, isPlaying),
     'black hole': (ctx, perf, isPlaying) => drawBlackHole(ctx, perf, isPlaying),
-    'rain':       (ctx, perf, isPlaying) => drawRain(ctx, perf, isPlaying)
+    'rain':       (ctx, perf, isPlaying) => drawRain(ctx, isPlaying)
 };
 
 // ===== Hằng số mô hình pha TRAVEL/ROTATE =====
