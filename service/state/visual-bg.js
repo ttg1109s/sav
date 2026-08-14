@@ -20,10 +20,18 @@ AppState.definePackage('visual-bg', {
     schema: {
         // blob: URL của ảnh nền tĩnh ĐANG gán vào `#visual-bg-image` — '' = chưa gán gì.
         visualBgImageObjectUrl: 'string',
+        // Khung hình gradient Movement MỚI NHẤT đã tính (event/workflow/visual-bg.js::
+        // _tickGradientMovement()) — null khi Movement không chạy. Cho phép visual 2D khác (canvas,
+        // không phải DOM CSS) vẽ ĐÚNG khớp gradient đang hiển thị thay vì tự bịa màu riêng — xem
+        // core/visual-bg.js::getVisualBgFillStyle(), dùng bởi core/visualizer/types/rain.js.
+        visualBgGradientLiveAngle: 'nullable-number',
+        visualBgGradientLiveStops: 'any',
     },
     buildDefaults() {
         return {
             visualBgImageObjectUrl: '',
+            visualBgGradientLiveAngle: null,
+            visualBgGradientLiveStops: null,
         };
     },
 });

@@ -40,6 +40,6 @@
             },
         });
 
-        // TUNNEL_DEPTH/BARS_RINGS_COUNT/BARS_PER_RING — KHÔNG khai lại ở đây. Bản THẬT đã tồn tại
-        // sẵn trong core/webgl/three-vortex.js — ĐÃ XOÁ bản trùng gây SyntaxError lúc parse (xem
-        // giải thích đầy đủ ở service/state/player.js, cùng lỗi).
+        // TUNNEL_DEPTH — KHÔNG khai lại ở đây, bản THẬT ở core/webgl/three-vortex.js (giá trị cố
+        // định, không đổi theo config). barsRingCount/barsPerRing/tunnelRingCount giờ đọc thẳng từ
+        // customEffect.vortex (core/custom-effect.js::getEffectConfig()), không còn hằng số module.
