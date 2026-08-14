@@ -33,7 +33,11 @@ function _renderFilterTextFieldRow(field, labelKey) {
                                     <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                                 </label>
                             </div>
-                            <div class="flex gap-2">
+                            <!-- FIX (bug — checkbox bị khoá theo cả row) — data-filter-body BỌC
+                                 RIÊNG phần control bên dưới checkbox — CHỈ khối này bị mờ/khoá lúc
+                                 field tắt (workflowPlaylist._syncFilterPanelUI()/setFilterField()),
+                                 checkbox ở NGOÀI khối này nên luôn bấm lại được. -->
+                            <div data-filter-body class="flex gap-2">
                                 <select data-filter-field="${field}" data-filter-prop="op" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-28">
                                     <option value="===" data-i18n="playlistFilterPanel.op.eq">${t('playlistFilterPanel.op.eq')}</option>
                                     <option value="!==" data-i18n="playlistFilterPanel.op.neq">${t('playlistFilterPanel.op.neq')}</option>
@@ -60,25 +64,28 @@ function _renderFilterNumericFieldRow(field, labelKey, inputType, step) {
                                     <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                                 </label>
                             </div>
-                            <select data-filter-field="${field}" data-filter-prop="mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-full">
-                                <option value="single" data-i18n="playlistFilterPanel.mode.single">${t('playlistFilterPanel.mode.single')}</option>
-                                <option value="range" data-i18n="playlistFilterPanel.mode.range">${t('playlistFilterPanel.mode.range')}</option>
-                            </select>
-                            <div data-filter-single-block class="flex gap-2">
-                                <select data-filter-field="${field}" data-filter-prop="op" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-24">
-                                    <option value="===">=</option>
-                                    <option value="!==">≠</option>
-                                    <option value=">">&gt;</option>
-                                    <option value="<">&lt;</option>
-                                    <option value=">=">&ge;</option>
-                                    <option value="<=">&le;</option>
+                            <!-- FIX (bug — checkbox bị khoá theo cả row), CÙNG LÝ DO _renderFilterTextFieldRow() ở trên. -->
+                            <div data-filter-body class="flex flex-col gap-2">
+                                <select data-filter-field="${field}" data-filter-prop="mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-full">
+                                    <option value="single" data-i18n="playlistFilterPanel.mode.single">${t('playlistFilterPanel.mode.single')}</option>
+                                    <option value="range" data-i18n="playlistFilterPanel.mode.range">${t('playlistFilterPanel.mode.range')}</option>
                                 </select>
-                                <input type="${inputType}" ${stepAttr} data-filter-field="${field}" data-filter-prop="value" class="flex-1 min-w-0 bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none">
-                            </div>
-                            <div data-filter-range-block class="hidden flex gap-2 items-center">
-                                <input type="${inputType}" ${stepAttr} data-filter-field="${field}" data-filter-prop="value" class="flex-1 min-w-0 bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none" data-i18n-placeholder="playlistFilterPanel.rangeFrom" placeholder="${t('playlistFilterPanel.rangeFrom')}">
-                                <span class="text-slate-500 text-xs">–</span>
-                                <input type="${inputType}" ${stepAttr} data-filter-field="${field}" data-filter-prop="valueTo" class="flex-1 min-w-0 bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none" data-i18n-placeholder="playlistFilterPanel.rangeTo" placeholder="${t('playlistFilterPanel.rangeTo')}">
+                                <div data-filter-single-block class="flex gap-2">
+                                    <select data-filter-field="${field}" data-filter-prop="op" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-24">
+                                        <option value="===">=</option>
+                                        <option value="!==">≠</option>
+                                        <option value=">">&gt;</option>
+                                        <option value="<">&lt;</option>
+                                        <option value=">=">&ge;</option>
+                                        <option value="<=">&le;</option>
+                                    </select>
+                                    <input type="${inputType}" ${stepAttr} data-filter-field="${field}" data-filter-prop="value" class="flex-1 min-w-0 bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none">
+                                </div>
+                                <div data-filter-range-block class="hidden flex gap-2 items-center">
+                                    <input type="${inputType}" ${stepAttr} data-filter-field="${field}" data-filter-prop="value" class="flex-1 min-w-0 bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none" data-i18n-placeholder="playlistFilterPanel.rangeFrom" placeholder="${t('playlistFilterPanel.rangeFrom')}">
+                                    <span class="text-slate-500 text-xs">–</span>
+                                    <input type="${inputType}" ${stepAttr} data-filter-field="${field}" data-filter-prop="valueTo" class="flex-1 min-w-0 bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none" data-i18n-placeholder="playlistFilterPanel.rangeTo" placeholder="${t('playlistFilterPanel.rangeTo')}">
+                                </div>
                             </div>
                         </div>
 `;

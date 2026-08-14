@@ -1,10 +1,13 @@
 /**
- * Component: panel "Sắp xếp" Playlist (mục 1b/1c, phản hồi Giang) — 2 <select> ĐỘC LẬP:
+ * Component: panel "Sắp xếp" Playlist (mục 1b/1c, phản hồi Giang) — 2 trục:
  *   - Trục (1) "Tên/Ngày" — 4 giá trị SẴN CÓ (az/za/newest/oldest), hành vi giữ NGUYÊN.
- *   - Trục (2) "Thống kê nghe" (MỚI) — none/countDesc/countAsc/timesDesc/timesAsc. Khi khác
- *     'none', trục này LÀ CHÍNH — trục (1) chỉ còn vai trò phá thế bằng (2 bài count/times bằng
- *     nhau) — xem core/playlist/order.js::sortKeysByMode().
- * Đồng bộ giá trị lúc mở panel qua `workflowPlaylist.openSortPanel()` (event/workflow/playlist.js).
+ *   - Trục (2) "Stats" (SỬA mục 3, phản hồi Giang — đổi tên từ "Listening stats", TÁCH thành 2
+ *     dropdown riêng thay vì gộp 9 giá trị trong 1 dropdown như bản trước):
+ *       + Dropdown (a) chọn FIELD — none/count/times/size/duration.
+ *       + Dropdown (b) chọn HƯỚNG — lớn→bé/bé→lớn — CHỈ HIỆN khi field khác 'none' (ẩn/hiện qua
+ *         `data-sort-direction-row`, xử lý ở workflowPlaylist.openSortPanel()/changeStatSortField()).
+ * Khi field khác 'none', trục này LÀ CHÍNH — trục (1) chỉ còn vai trò phá thế bằng (2 bài bằng
+ * nhau) — xem core/playlist/order.js::sortKeysByMode().
  */
 function renderPlaylistSortPanelBody() {
     return `
@@ -19,22 +22,28 @@ function renderPlaylistSortPanelBody() {
                                 <option value="oldest" data-i18n="settingsPlaylistBg.sortMode.oldest">${t('settingsPlaylistBg.sortMode.oldest')}</option>
                             </select>
                         </div>
-                        <div class="flex flex-col p-4 hover:bg-white/5 transition-colors gap-1.5">
+                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
+                            <span class="text-sm font-medium truncate" data-i18n="playlistSortPanel.statField.label">${t('playlistSortPanel.statField.label')}</span>
+                            <select id="setting-playlist-sort-stat-field" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
+                                <option value="none" data-i18n="playlistSortPanel.statField.none">${t('playlistSortPanel.statField.none')}</option>
+                                <option value="count" data-i18n="playlistSortPanel.statField.count">${t('playlistSortPanel.statField.count')}</option>
+                                <option value="times" data-i18n="playlistSortPanel.statField.times">${t('playlistSortPanel.statField.times')}</option>
+                                <option value="size" data-i18n="playlistSortPanel.statField.size">${t('playlistSortPanel.statField.size')}</option>
+                                <option value="duration" data-i18n="playlistSortPanel.statField.duration">${t('playlistSortPanel.statField.duration')}</option>
+                            </select>
+                        </div>
+                        <!-- MỚI (mục 3) — dropdown hướng, CHỈ hiện khi field ở trên khác 'none' —
+                             mặc định "hidden", workflowPlaylist.openSortPanel() tự gỡ/gắn lại lúc
+                             mở panel + lúc đổi field (changeStatSortField()). -->
+                        <div data-sort-direction-row class="hidden flex flex-col p-4 gap-1.5">
                             <div class="flex justify-between items-center">
-                                <span class="text-sm font-medium truncate" data-i18n="playlistSortPanel.statMode.label">${t('playlistSortPanel.statMode.label')}</span>
-                                <select id="setting-playlist-sort-stat" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
-                                    <option value="none" data-i18n="playlistSortPanel.statMode.none">${t('playlistSortPanel.statMode.none')}</option>
-                                    <option value="countDesc" data-i18n="playlistSortPanel.statMode.countDesc">${t('playlistSortPanel.statMode.countDesc')}</option>
-                                    <option value="countAsc" data-i18n="playlistSortPanel.statMode.countAsc">${t('playlistSortPanel.statMode.countAsc')}</option>
-                                    <option value="timesDesc" data-i18n="playlistSortPanel.statMode.timesDesc">${t('playlistSortPanel.statMode.timesDesc')}</option>
-                                    <option value="timesAsc" data-i18n="playlistSortPanel.statMode.timesAsc">${t('playlistSortPanel.statMode.timesAsc')}</option>
-                                    <option value="sizeDesc" data-i18n="playlistSortPanel.statMode.sizeDesc">${t('playlistSortPanel.statMode.sizeDesc')}</option>
-                                    <option value="sizeAsc" data-i18n="playlistSortPanel.statMode.sizeAsc">${t('playlistSortPanel.statMode.sizeAsc')}</option>
-                                    <option value="durationDesc" data-i18n="playlistSortPanel.statMode.durationDesc">${t('playlistSortPanel.statMode.durationDesc')}</option>
-                                    <option value="durationAsc" data-i18n="playlistSortPanel.statMode.durationAsc">${t('playlistSortPanel.statMode.durationAsc')}</option>
+                                <span class="text-sm font-medium truncate" data-i18n="playlistSortPanel.statDirection.label">${t('playlistSortPanel.statDirection.label')}</span>
+                                <select id="setting-playlist-sort-stat-direction" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
+                                    <option value="desc" data-i18n="playlistSortPanel.statDirection.desc">${t('playlistSortPanel.statDirection.desc')}</option>
+                                    <option value="asc" data-i18n="playlistSortPanel.statDirection.asc">${t('playlistSortPanel.statDirection.asc')}</option>
                                 </select>
                             </div>
-                            <div class="text-xs text-slate-400" data-i18n="playlistSortPanel.statMode.hint">${t('playlistSortPanel.statMode.hint')}</div>
+                            <div class="text-xs text-slate-400" data-i18n="playlistSortPanel.statField.hint">${t('playlistSortPanel.statField.hint')}</div>
                         </div>
                     </div>
                 </div>
