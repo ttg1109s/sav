@@ -264,10 +264,16 @@ const routerPlaylist = (() => {
                 break;
             }
 
-            // MỚI (mục 1b/1c, Sort subpanel) — trục (2), thống kê nghe.
-            case 'playlist.statSortMode.change': {
-                const { mode } = msg.payload;
-                workflowPlaylist.changeStatSortMode(mode);
+            // MỚI (mục 1b/1c, Sort subpanel; SỬA mục 3 — tách field/hướng thành 2 case) — trục (2).
+            case 'playlist.statSortField.change': {
+                const { field } = msg.payload;
+                workflowPlaylist.changeStatSortField(field);
+                break;
+            }
+
+            case 'playlist.statSortDirection.change': {
+                const { direction } = msg.payload;
+                workflowPlaylist.changeStatSortDirection(direction);
                 break;
             }
 
