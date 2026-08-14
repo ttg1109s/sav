@@ -200,6 +200,7 @@
         }
 
         function renderPlaylistFull() {
+            const _t0 = performance.now(); // MỚI (chẩn đoán boot chậm, phản hồi Giang) — đo thời gian THẬT, không đổi logic
             // Revoke TOÀN BỘ object URL cover của các node cũ TRƯỚC khi xoá — renderPlaylistFull
             // dựng lại từ đầu (layout grid/list đổi, hoặc lệch số lượng node), mọi node cũ chắc
             // chắn bị bỏ, không có ngoại lệ nào cần giữ lại.
@@ -213,11 +214,13 @@
             });
             if (appState.get('currentKey')) btnReturnVisual.classList.remove('hidden'); else btnReturnVisual.classList.add('hidden');
             updateEmptyState();
+            console.log(`writer: "renderPlaylistFull", page: "(chẩn đoán)", content: "${(performance.now() - _t0).toFixed(0)}ms cho ${appState.get('renderOrder').length} item (dựng lại TOÀN BỘ DOM)"`);
         }
 
         function renderPlaylistDiff() {
+            const _t0 = performance.now(); // MỚI (chẩn đoán boot chậm, phản hồi Giang) — đo thời gian THẬT, không đổi logic
             if (playlistContainer.children.length !== appState.get('domNodesByKey').size) {
-                renderPlaylistFull();
+                renderPlaylistFull(); // hàm này TỰ log riêng — không log trùng ở đây
                 return;
             }
 
@@ -232,10 +235,12 @@
             }
 
             let prevNode = null;
+            let _builtCount = 0; // MỚI (chẩn đoán) — đếm số node PHẢI DỰNG MỚI (buildSongNode) trong lượt diff này
             for (const key of appState.get('renderOrder')) {
                 let node = appState.get('domNodesByKey').get(key);
                 if (!node) {
                     node = buildSongNode(key);
+                    _builtCount++;
                     appState.mutate('domNodesByKey', m => m.set(key, node));
                 }
                 const expectedNextSibling = prevNode ? prevNode.nextSibling : playlistContainer.firstChild;
@@ -247,6 +252,7 @@
 
             if (appState.get('currentKey')) btnReturnVisual.classList.remove('hidden'); else btnReturnVisual.classList.add('hidden');
             updateEmptyState();
+            console.log(`writer: "renderPlaylistDiff", page: "(chẩn đoán)", content: "${(performance.now() - _t0).toFixed(0)}ms — dựng mới ${_builtCount}/${appState.get('renderOrder').length} node"`);
         }
 
         function refreshSongNode(key) {

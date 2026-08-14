@@ -111,6 +111,7 @@
          * cấm Core gọi Core — đây là Workflow gọi Core).
          */
         function recomputeRenderOrder() {
+            const _t0 = performance.now(); // MỚI (chẩn đoán boot chậm, phản hồi Giang) — đo thời gian THẬT, không đổi logic
             const query = appState.get('searchQuery'); // ĐÃ chuẩn hoá sẵn lúc gõ (applySearchQuery(), render.js)
             const cache = appState.get('playlistCache');
             // SỬA (mục 3) — displayStatSortMode (gộp) tách thành displayStatSortField/
@@ -120,6 +121,7 @@
                 const cached = cache.get(key);
                 return songMatchesQuery(query, cached ? cached.tag.title : key, cached ? cached.tag.artist : '', cached ? cached.tag.album : '');
             }), nameMode, statField, statDirection, songNameIndex, cache, songStatsMap));
+            console.log(`writer: "recomputeRenderOrder", page: "(chẩn đoán)", content: "${(performance.now() - _t0).toFixed(0)}ms cho ${appState.get('renderOrder').length} item"`);
         }
 
         // ===================== (B) HÀNG ĐỢI PHÁT =====================
