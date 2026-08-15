@@ -99,6 +99,21 @@
             autoSwitchVisualSecondsRandom: 30,
             autoSwitchVisualSecondsDuration: 30,
             subtitlesEnabled: true,
+            // MỚI (15/08/2026, mục 4a — "box chung cho subtitles line") — chuỗi CSS build từ
+            // Element Style Editor (core/element-style-editor.js), áp lên `subtitleFrame` (khung
+            // BAO NGOÀI mọi dòng phụ đề đang active, id="subtitle-frame") — CHUNG cho mọi dòng,
+            // KHÔNG áp riêng từng dòng (khác coming/in/outing, per-line — xem hội thoại). Rỗng =
+            // chưa chỉnh gì, giữ nguyên chữ trắng + shadow mặc định (mục 2).
+            subtitleBoxCss: '',
+            // MỚI (15/08/2026, mục 4b) — hiệu ứng Comming/In/Outing khi 1 dòng phụ đề bắt đầu/kết
+            // thúc hiệu lực — CHUNG 1 cài đặt cho MỌI dòng (KHÔNG lưu riêng từng dòng, xem hội
+            // thoại), nhưng KHUNG THỜI GIAN thực tế áp dụng được TÍNH RIÊNG mỗi dòng lúc phát, lấy
+            // start/end của CHÍNH dòng đó làm mốc neo — xem core/subtitle/subtitle-transition.js.
+            // valueMs CÓ DẤU (+/-), biên [-5000,5000] — dấu quyết định Comming/Outing "ăn" vào
+            // TRƯỚC hay SAU mốc neo (xem ví dụ Giang trong hội thoại, computeSubtitleTransitionWindow()).
+            subtitleCommingEffect: 'none', subtitleCommingValueMs: 0,
+            subtitleInEffect: 'none',
+            subtitleOutingEffect: 'none', subtitleOutingValueMs: 0,
             // 3 toggle RIÊNG hiện/ẩn UI chrome màn Visualizer (bỏ hẳn "full mode" gộp chung),
             // Settings -> Hiển thị Visualizer. NHẤT QUÁN với statsPanelVisible: đặt tên KHẲNG ĐỊNH
             // ("hiện"), mặc định BẬT (true) — KHÔNG đặt tên phủ định "hideX" mặc định tắt (đã sửa,
@@ -305,6 +320,10 @@
                 autoSwitchVisualEnabled: 'boolean', autoSwitchVisualMode: 'string', autoSwitchVisualTimeMode: 'string',
                 autoSwitchVisualSecondsFixed: 'number', autoSwitchVisualSecondsRandom: 'number', autoSwitchVisualSecondsDuration: 'number',
                 subtitlesEnabled: 'boolean',
+                subtitleBoxCss: 'string',
+                subtitleCommingEffect: 'string', subtitleCommingValueMs: 'number',
+                subtitleInEffect: 'string',
+                subtitleOutingEffect: 'string', subtitleOutingValueMs: 'number',
                 bottomPlayerVisible: 'boolean', playlistButtonVisible: 'boolean', controlCenterButtonVisible: 'boolean',
                 gestureActionSwipeUp: 'string', gestureActionSwipeDown: 'string',
                 gestureActionSwipeLeft: 'string', gestureActionSwipeRight: 'string',
