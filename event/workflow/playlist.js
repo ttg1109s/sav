@@ -1099,8 +1099,10 @@ const workflowPlaylist = {
             setDisplay(rangeBlock && rangeBlock.querySelector('[data-filter-prop="value"]'), kind, rule.value);
             setDisplay(rangeBlock && rangeBlock.querySelector('[data-filter-prop="valueTo"]'), kind, rule.valueTo);
             if (rangeBlock && singleBlock && rule.mode !== undefined) {
-                rangeBlock.classList.toggle('hidden', rule.mode !== 'range');
-                singleBlock.classList.toggle('hidden', rule.mode === 'range');
+                // SỬA (15/08/2026, thêm mode 'outRange') — range-block hiện cho MỌI mode KHÁC
+                // 'single' (trước chỉ so === 'range'), vì 'outRange' dùng CHUNG khối 2 ô from/to.
+                rangeBlock.classList.toggle('hidden', rule.mode === 'single');
+                singleBlock.classList.toggle('hidden', rule.mode !== 'single');
             }
         }
     },
@@ -1182,8 +1184,10 @@ const workflowPlaylist = {
                 const rangeBlock = rowEl.querySelector('[data-filter-range-block]');
                 const singleBlock = rowEl.querySelector('[data-filter-single-block]');
                 if (rangeBlock && singleBlock) {
-                    rangeBlock.classList.toggle('hidden', rawValue !== 'range');
-                    singleBlock.classList.toggle('hidden', rawValue === 'range');
+                    // SỬA (15/08/2026, thêm mode 'outRange') — CÙNG LOGIC nhánh _syncFilterPanelUI()
+                    // ở trên (rule.mode !== undefined): hiện range-block cho mọi mode KHÁC 'single'.
+                    rangeBlock.classList.toggle('hidden', rawValue === 'single');
+                    singleBlock.classList.toggle('hidden', rawValue !== 'single');
                 }
             }
         }
