@@ -288,9 +288,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'playlistFilterPanel.field.artist': 'Artist',
     'playlistFilterPanel.field.addedAt': 'Date added',
     'playlistFilterPanel.field.count': 'Play count',
-    'playlistFilterPanel.field.totalTime': 'Listen time (sec)',
-    // MỚI (phản hồi Giang — "filter cũng bổ sung thêm duration vào").
-    'playlistFilterPanel.field.duration': 'Duration (sec)',
+    'playlistFilterPanel.field.totalTime': 'Listen time',
+    'playlistFilterPanel.field.duration': 'Duration',
     'playlistFilterPanel.field.size': 'File size (MB)',
     'playlistFilterPanel.op.eq': 'Is',
     'playlistFilterPanel.op.neq': 'Is not',
