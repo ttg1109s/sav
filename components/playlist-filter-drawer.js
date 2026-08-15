@@ -50,11 +50,20 @@ function _renderFilterTextFieldRow(field, labelKey) {
 `;
 }
 
-/** 1 hàng field SỐ/NGÀY (ngày tải/số lần phát/tổng thời gian/dung lượng) — checkbox bật + select
- * đơn-giá-trị↔range + (khối đơn: toán tử + 1 ô) hoặc (khối range: 2 ô "từ"/"đến"). `inputType`:
- * 'date' cho addedAt, 'number' (bước thập phân) cho size (MB)/count/totalTime. */
+/** 1 hàng field SỐ/NGÀY/GIÂY (ngày tải/số lần phát/tổng thời gian/thời lượng/dung lượng) —
+ * checkbox bật + select đơn-giá-trị↔range + (khối đơn: toán tử + 1 ô) hoặc (khối range: 2 ô
+ * "từ"/"đến"). `inputType`: 'date' cho addedAt, 'number' (bước thập phân) cho size (MB)/count,
+ * 'time-picker' cho totalTime/duration — Ô GIÁ TRỊ là NÚT mở `openTimePickerModal()` (format
+ * h:m:s, core/time-picker-modal.js) thay vì `<input>` thô, SỬA (phản hồi Giang — "totalTime/
+ * duration phải dùng time picker, định dạng h:m:s như item") — nút mang `data-filter-time-trigger`
+ * để event/listener/playlist.js phân biệt (click -> mở modal, KHÔNG dispatch value trực tiếp như
+ * input thường). */
 function _renderFilterNumericFieldRow(field, labelKey, inputType, step) {
+    const isTimePicker = inputType === 'time-picker';
     const stepAttr = step ? `step="${step}"` : '';
+    const valueControl = (prop, placeholderKey) => isTimePicker
+        ? `<button type="button" data-filter-field="${field}" data-filter-prop="${prop}" data-filter-time-trigger class="flex-1 min-w-0 bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white text-left outline-none">0:00:00</button>`
+        : `<input type="${inputType}" ${stepAttr} data-filter-field="${field}" data-filter-prop="${prop}" class="flex-1 min-w-0 bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none"${placeholderKey ? ` data-i18n-placeholder="${placeholderKey}" placeholder="${t(placeholderKey)}"` : ''}>`;
     return `
                         <div data-filter-row="${field}" class="flex flex-col p-4 border-b border-white/5 gap-2 transition-opacity">
                             <div class="flex justify-between items-center">
@@ -79,12 +88,12 @@ function _renderFilterNumericFieldRow(field, labelKey, inputType, step) {
                                         <option value=">=">&ge;</option>
                                         <option value="<=">&le;</option>
                                     </select>
-                                    <input type="${inputType}" ${stepAttr} data-filter-field="${field}" data-filter-prop="value" class="flex-1 min-w-0 bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none">
+                                    ${valueControl('value')}
                                 </div>
                                 <div data-filter-range-block class="hidden flex gap-2 items-center">
-                                    <input type="${inputType}" ${stepAttr} data-filter-field="${field}" data-filter-prop="value" class="flex-1 min-w-0 bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none" data-i18n-placeholder="playlistFilterPanel.rangeFrom" placeholder="${t('playlistFilterPanel.rangeFrom')}">
+                                    ${valueControl('value', isTimePicker ? null : 'playlistFilterPanel.rangeFrom')}
                                     <span class="text-slate-500 text-xs">–</span>
-                                    <input type="${inputType}" ${stepAttr} data-filter-field="${field}" data-filter-prop="valueTo" class="flex-1 min-w-0 bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none" data-i18n-placeholder="playlistFilterPanel.rangeTo" placeholder="${t('playlistFilterPanel.rangeTo')}">
+                                    ${valueControl('valueTo', isTimePicker ? null : 'playlistFilterPanel.rangeTo')}
                                 </div>
                             </div>
                         </div>
@@ -106,8 +115,8 @@ function renderPlaylistFilterPanelBody(source) {
                         ${textFields.map(([field, labelKey]) => _renderFilterTextFieldRow(field, labelKey)).join('')}
                         ${_renderFilterNumericFieldRow('addedAt', 'playlistFilterPanel.field.addedAt', 'date')}
                         ${_renderFilterNumericFieldRow('count', 'playlistFilterPanel.field.count', 'number', '1')}
-                        ${_renderFilterNumericFieldRow('totalTime', 'playlistFilterPanel.field.totalTime', 'number', '1')}
-                        ${_renderFilterNumericFieldRow('duration', 'playlistFilterPanel.field.duration', 'number', '1')}
+                        ${_renderFilterNumericFieldRow('totalTime', 'playlistFilterPanel.field.totalTime', 'time-picker')}
+                        ${_renderFilterNumericFieldRow('duration', 'playlistFilterPanel.field.duration', 'time-picker')}
                         ${_renderFilterNumericFieldRow('size', 'playlistFilterPanel.field.size', 'number', '0.1')}
                     </div>
                     <button id="btn-playlist-filter-apply" class="mt-4 w-full py-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold transition-colors" data-i18n="playlistFilterPanel.apply">${t('playlistFilterPanel.apply')}</button>
