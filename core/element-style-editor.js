@@ -88,6 +88,100 @@ function buildElementStyleCssString(draft) {
     return parts.join('; ');
 }
 
+/** MỚI (16/08/2026, mục 2 — Giang yêu cầu "cung cấp cấu hình mặc định cho subtitles giống như
+ * hiện tại khi bật styling editor") — đọc NGƯỢC 1 chuỗi CSS ĐÃ BUILD trước đó (đúng định dạng xuất
+ * bởi buildElementStyleCssString(), vd `subtitleBoxCss` đã lưu, core/subtitle/subtitle-style-
+ * settings.js) thành PATCH ghi đè lên draft trắng — để Drawer tự nạp khớp giá trị hiện tại thay vì
+ * luôn mở trắng mỗi lần (xem docstring open(), event/workflow/element-style-editor.js — hàm ĐÓ đã
+ * dự trù đúng điểm mở rộng này: "nơi gọi tự đọc style hiện có + dựng lại draft tương ứng").
+ *
+ * Thuần tính toán, không đụng appState/DOM (đối xứng buildElementStyleCssString(), CÙNG file, CÙNG
+ * Rule 1-5) — mỗi nhánh `if (prop === ...)` CHỈ khớp ĐÚNG 1 khai báo CSS đã biết, không chia sẻ
+ * logic chéo nhau, cùng nguyên tắc "mỗi if là 1 guard độc lập" như buildElementStyleCssString()
+ * (không phải rẽ nhánh 1 tiến trình chung, không vi phạm Rule 1). `_parseValueUnit()` là hàm con
+ * NỘI BỘ (khai báo TRONG chính hàm này, KHÔNG phải hàm core độc lập) — CÙNG lý do `sizeValue()`/
+ * `sidesValue()` ở buildElementStyleCssString() là biểu thức inline, tránh vướng Rule 3/3c.
+ *
+ * Khai báo nào KHÔNG có mặt trong `cssString` thì field tương ứng ĐƠN GIẢN vắng mặt trong patch trả
+ * về (nơi gọi tự merge nông lên draft trắng đã reset — field không có patch giữ nguyên mặc định
+ * trắng của chính nó, xem applyElementStyleCssStringToDraft() ngay dưới).
+ * @param {string} cssString
+ * @returns {{box: object, text: object}} - patch THEO ĐÚNG shape draft (chỉ chứa field có mặt).
+ */
+function parseElementStyleCssString(cssString) {
+    const _parseValueUnit = (token) => {
+        const m = /^(-?[\d.]+)([a-z%]*)$/i.exec((token || '').trim());
+        return m ? { value: parseFloat(m[1]), unit: m[2] } : { value: 0, unit: '' };
+    };
+    const patch = { box: {}, text: {} };
+    if (!cssString) return patch;
+
+    cssString.split(';').map((s) => s.trim()).filter(Boolean).forEach((decl) => {
+        const idx = decl.indexOf(':');
+        if (idx === -1) return; // guard: khai báo lỗi định dạng, bỏ qua
+        const prop = decl.slice(0, idx).trim();
+        const value = decl.slice(idx + 1).trim();
+
+        if (prop === 'width' || prop === 'height') {
+            if (value === 'fit-content') patch.box[prop] = { mode: 'fit' };
+            else if (value === 'auto') patch.box[prop] = { mode: 'auto' };
+            else { const vu = _parseValueUnit(value); patch.box[prop] = { mode: 'custom', value: vu.value, unit: vu.unit }; }
+        } else if (prop === 'padding' || prop === 'margin') {
+            const tk = value.split(/\s+/);
+            const top = _parseValueUnit(tk[0]); const right = _parseValueUnit(tk[1] || tk[0]);
+            const bottom = _parseValueUnit(tk[2] || tk[0]); const left = _parseValueUnit(tk[3] || tk[1] || tk[0]);
+            patch.box[prop] = { enabled: true, unit: top.unit || 'px', top: top.value, right: right.value, bottom: bottom.value, left: left.value };
+        } else if (prop === 'border') {
+            const m = /^([\d.]+)([a-z%]*)\s+(\S+)\s+(.+)$/i.exec(value);
+            if (m) patch.box.border = { enabled: true, width: parseFloat(m[1]), widthUnit: m[2] || 'px', style: m[3], color: m[4] };
+        } else if (prop === 'opacity') {
+            patch.box.opacity = { enabled: true, value: Math.round(parseFloat(value) * 100) };
+        } else if (prop === 'font-family') {
+            const qm = /^'([^']*)'/.exec(value);
+            patch.text.fontFamily = { enabled: true, source: /,\s*sans-serif\s*$/.test(value) ? 'google' : 'system', value: qm ? qm[1] : value.split(',')[0].trim(), googleWeight: '400' };
+        } else if (prop === 'font-size') {
+            const vu = _parseValueUnit(value); patch.text.fontSize = { enabled: true, value: vu.value, unit: vu.unit };
+        } else if (prop === 'font-weight') {
+            patch.text.fontWeight = value;
+        } else if (prop === 'font-style') {
+            patch.text.fontStyle = value;
+        } else if (prop === 'line-height') {
+            const vu = _parseValueUnit(value); patch.text.lineHeight = { enabled: true, value: vu.value, unit: vu.unit || 'none' };
+        } else if (prop === 'letter-spacing') {
+            const vu = _parseValueUnit(value); patch.text.letterSpacing = { enabled: true, value: vu.value, unit: vu.unit };
+        } else if (prop === 'text-align') {
+            patch.text.textAlign = value;
+        } else if (prop === 'text-decoration') {
+            patch.text.textDecoration = value;
+        } else if (prop === 'text-transform') {
+            patch.text.textTransform = value;
+        } else if (prop === 'color') {
+            patch.text.color = { enabled: true, value };
+        } else if (prop === 'white-space') {
+            patch.text.whiteSpace = value;
+        }
+    });
+
+    return patch;
+}
+
+/** MỚI (16/08/2026, mục 2) — đọc 1 chuỗi CSS đã lưu (vd `subtitleBoxCss`) rồi GHI ĐÈ đúng field
+ * tương ứng lên `eseDraft` HIỆN TẠI trong appState (property nào KHÔNG có mặt trong chuỗi thì GIỮ
+ * NGUYÊN mặc định trắng của chính field đó — merge NÔNG, CÙNG cơ chế setElementStyleField()) — gọi
+ * NGAY SAU resetElementStyleDraft() lúc open() 1 target ĐÃ CÓ style lưu sẵn (xem event/workflow/
+ * element-style-editor.js::open(), tham số `initialCssString`).
+ * TÁCH RIÊNG khỏi parseElementStyleCssString() (thuần tính toán, không đụng appState) — hàm NÀY mới
+ * là chỗ GHI appState (Rule 2: Core không TỰ appState.get(), nhưng appState.set()/mutate() GHI thì
+ * vẫn đúng tiền lệ mọi hàm set* khác trong file này, vd setElementStyleField()). */
+function applyElementStyleCssStringToDraft(cssString) {
+    const patch = parseElementStyleCssString(cssString); // thuần tính toán, cùng file
+    appState.mutate('eseDraft', (draft) => {
+        Object.keys(patch.box).forEach((key) => { draft.box[key] = patch.box[key]; });
+        Object.keys(patch.text).forEach((key) => { draft.text[key] = patch.text[key]; });
+    });
+    console.log(`writer: "applyElementStyleCssStringToDraft", page: "eseDraft", content: "nạp lại khớp chuỗi CSS đã lưu"`);
+}
+
 /** Lưu chuỗi CSS mới nhất (build từ buildElementStyleCssString()) vào state — bước trung gian
  * TRƯỚC khi áp lên DOM, đúng luồng Giang yêu cầu ("tạo chuỗi css lưu vào state -> add vào DOM"). */
 function setElementStyleGeneratedCss(cssString) {
