@@ -100,14 +100,17 @@ function _formatFilterNumberForInput(kind, value) {
 /**
  * So khớp 1 field bất kỳ (text HOẶC số/ngày) với đúng 1 rule — DÙNG CHUNG cho cả 2 loại, vì cả 2
  * cùng chung 1 hình dạng so sánh: `mode:'range'` (CHỈ numeric/date, 2 điều kiện >=/<= ANDed lại,
- * đúng cơ chế SQL `BETWEEN`) hoặc so sánh đơn qua `rule.op` (text dùng ===/!==/contains/
- * notContains; numeric/date dùng ===/!==/>/</>=/<=). Text hoá thường CẢ 2 phía (`isText`) trước
- * khi so — case-insensitive nhưng CÓ phân biệt dấu tiếng Việt (xem docstring đầu file, lý do Rule
- * 3 không cho gọi `normalizeSongName()`).
+ * đúng cơ chế SQL `BETWEEN`), `mode:'outRange'` (MỚI, 15/08/2026, Giang yêu cầu "thêm out range
+ * cho khoảng" — PHỦ ĐỊNH của `range`: khớp khi giá trị NẰM NGOÀI [value, valueTo], tức `</value`
+ * HOẶC `>valueTo`, đúng cơ chế SQL `NOT BETWEEN`) hoặc so sánh đơn qua `rule.op` (text dùng
+ * ===/!==/contains/notContains; numeric/date dùng ===/!==/>/</>=/<=). Text hoá thường CẢ 2 phía
+ * (`isText`) trước khi so — case-insensitive nhưng CÓ phân biệt dấu tiếng Việt (xem docstring đầu
+ * file, lý do Rule 3 không cho gọi `normalizeSongName()`).
  * @param {string|number} fieldValue @param {Object} rule @param {boolean} isText
  */
 function _evaluateFilterRule(fieldValue, rule, isText) {
     if (!isText && rule.mode === 'range') return operation.evaluate(fieldValue, '>=', rule.value) && operation.evaluate(fieldValue, '<=', rule.valueTo);
+    if (!isText && rule.mode === 'outRange') return operation.evaluate(fieldValue, '<', rule.value) || operation.evaluate(fieldValue, '>', rule.valueTo);
     if (isText) return operation.evaluate(String(fieldValue).toLowerCase(), rule.op, String(rule.value).toLowerCase());
     return operation.evaluate(fieldValue, rule.op, rule.value);
 }
