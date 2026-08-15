@@ -1057,6 +1057,14 @@ const workflowPlaylist = {
      * core/playlist/filter.js). */
     _syncFilterPanelUI(panelEl, source) {
         const rules = appState.get('playlistFilterConfig')[source];
+        // MỚI (phản hồi Giang — "totalTime/duration dùng time picker, h:m:s") — kind 'seconds' là
+        // NÚT (`<button>`, data-filter-time-trigger), set `.textContent` qua `_formatSecondsAsHms()`
+        // — KHÁC mọi kind khác (`<input>`, set `.value` qua `_formatFilterNumberForInput()`).
+        const setDisplay = (el, kind, value) => {
+            if (!el) return;
+            if (kind === 'seconds') el.textContent = _formatSecondsAsHms(value);
+            else el.value = kind === 'text' ? (value || '') : _formatFilterNumberForInput(kind, value);
+        };
         for (const field of Object.keys(rules)) {
             const rule = rules[field];
             const rowEl = panelEl.querySelector(`[data-filter-row="${field}"]`);
@@ -1082,23 +1090,48 @@ const workflowPlaylist = {
             // Field TEXT không có khối single/range (luôn 1 ô value DUY NHẤT) -> querySelector
             // thẳng trên rowEl là đủ, KHÔNG cần phân biệt khối.
             if (!rangeBlock && !singleBlock) {
-                const valueEl = rowEl.querySelector('[data-filter-prop="value"]');
-                if (valueEl) valueEl.value = kind === 'text' ? (rule.value || '') : _formatFilterNumberForInput(kind, rule.value);
+                setDisplay(rowEl.querySelector('[data-filter-prop="value"]'), kind, rule.value);
                 continue;
             }
-            // Field SỐ/NGÀY — 2 khối CÙNG có 1 input data-filter-prop="value" (khác id) — set
-            // ĐÚNG khối, để trống khối kia (không cần thiết, đang `hidden`).
-            const singleValueEl = singleBlock && singleBlock.querySelector('[data-filter-prop="value"]');
-            if (singleValueEl) singleValueEl.value = _formatFilterNumberForInput(kind, rule.value);
-            const rangeValueEl = rangeBlock && rangeBlock.querySelector('[data-filter-prop="value"]');
-            if (rangeValueEl) rangeValueEl.value = _formatFilterNumberForInput(kind, rule.value);
-            const rangeValueToEl = rangeBlock && rangeBlock.querySelector('[data-filter-prop="valueTo"]');
-            if (rangeValueToEl) rangeValueToEl.value = _formatFilterNumberForInput(kind, rule.valueTo);
+            // Field SỐ/NGÀY/GIÂY — 2 khối CÙNG có 1 control data-filter-prop="value" (khác id) —
+            // set ĐÚNG khối, để trống khối kia (không cần thiết, đang `hidden`).
+            setDisplay(singleBlock && singleBlock.querySelector('[data-filter-prop="value"]'), kind, rule.value);
+            setDisplay(rangeBlock && rangeBlock.querySelector('[data-filter-prop="value"]'), kind, rule.value);
+            setDisplay(rangeBlock && rangeBlock.querySelector('[data-filter-prop="valueTo"]'), kind, rule.valueTo);
             if (rangeBlock && singleBlock && rule.mode !== undefined) {
                 rangeBlock.classList.toggle('hidden', rule.mode !== 'range');
                 singleBlock.classList.toggle('hidden', rule.mode === 'range');
             }
         }
+    },
+
+    /**
+     * Ứng với nút mở time-picker (totalTime/duration, mục Filter) — mở `openTimePickerModal()`
+     * (core/time-picker-modal.js, format 'h-m-s') đọc giá trị HIỆN TẠI từ state, `onConfirm` ghi
+     * lại qua `setFilterField()` (tái dùng NGUYÊN, `rawValue` truyền dạng chuỗi giây — giống hệt
+     * input thường) + cập nhật text hiển thị trên nút NGAY, không cần đợi mở lại panel.
+     * @param {string} field - 'totalTime' | 'duration'
+     * @param {string} prop - 'value' | 'valueTo'
+     */
+    openFilterTimePicker(field, prop) {
+        const source = appState.get('activeMediaSource');
+        const rule = appState.get('playlistFilterConfig')[source][field];
+        if (!rule) return; // guard — field đang tắt (không nên xảy ra, nút bị pointer-events-none)
+        const currentSeconds = (prop === 'valueTo' ? rule.valueTo : rule.value) || 0;
+        openTimePickerModal({
+            title: t(field === 'totalTime' ? 'playlistFilterPanel.field.totalTime' : 'playlistFilterPanel.field.duration'),
+            format: 'h-m-s',
+            valueMs: currentSeconds * 1000,
+            minMs: 0,
+            maxMs: 359999000, // 99:59:59 — đủ lớn cho mọi giá trị thực tế (thời lượng video/tổng giờ nghe)
+            onConfirm: (resultMs) => {
+                const seconds = Math.round(resultMs / 1000);
+                this.setFilterField(field, prop, String(seconds));
+                const panelEl = typeof peekTopSettingsPanel === 'function' ? peekTopSettingsPanel() : null;
+                const btn = panelEl && panelEl.querySelector(`[data-filter-field="${field}"][data-filter-prop="${prop}"][data-filter-time-trigger]`);
+                if (btn) btn.textContent = _formatSecondsAsHms(seconds);
+            },
+        });
     },
 
     /**
