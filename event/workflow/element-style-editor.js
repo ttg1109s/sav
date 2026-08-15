@@ -3,9 +3,10 @@
  * Editor" (dựng CSS box model + text style qua UI trong Generic Drawer, xuất chuỗi CSS rồi áp
  * inline lên 1 DOM cụ thể).
  *
- * API CÔNG KHAI DUY NHẤT hiện tại: `workflowElementStyleEditor.open(targetEl, onApply)` — gọi
- * TRỰC TIẾP từ Workflow domain khác (CÙNG tiền lệ gọi chéo Workflow, vd `closeControlCenter()`
- * trong event/workflow/custom-effect.js).
+ * API CÔNG KHAI DUY NHẤT hiện tại: `workflowElementStyleEditor.open(targetEl, onApply,
+ * initialCssString?)` — gọi TRỰC TIẾP từ Workflow domain khác (CÙNG tiền lệ gọi chéo Workflow, vd
+ * `closeControlCenter()` trong event/workflow/custom-effect.js). `initialCssString` (MỚI 16/08/2026,
+ * mục 2) — optional, xem docstring open() bên dưới.
  *   - `targetEl` — DOM áp inline style trực tiếp lúc bấm Áp dụng (applyElementStyleToDom(), core/
  *     element-style-editor.js). Truyền `null` nếu KHÔNG có DOM sống nào cần áp trực tiếp (vd nơi
  *     gọi tự lo lưu + áp qua `onApply` — applyElementStyleToDom() tự guard `!targetEl`, không lỗi).
@@ -34,15 +35,20 @@ const workflowElementStyleEditor = {
     /** Callback tuỳ chọn nơi gọi truyền vào — xem docstring đầu file. */
     _onApply: null,
 
-    /** Mở Drawer cho 1 DOM cụ thể — luôn bắt đầu từ draft TRẮNG (mọi property tắt), KHÔNG đọc lại
-     * style hiện có của targetEl (đơn giản hoá bản đầu — muốn "mở lại đúng style cũ" thì việc đọc
-     * style hiện có + dựng lại draft tương ứng do Workflow gọi open() tự làm TRƯỚC khi gọi, truyền
-     * thẳng qua appState.set('eseDraft', ...) sau resetElementStyleDraft(), chưa cần thiết lúc
-     * này). */
-    open(targetEl, onApply) {
+    /** Mở Drawer cho 1 DOM cụ thể — mặc định bắt đầu từ draft TRẮNG (mọi property tắt).
+     * MỚI (16/08/2026, mục 2 — Giang yêu cầu "cung cấp cấu hình mặc định giống hiện tại") — tham số
+     * `initialCssString` (optional) — nếu nơi gọi TRUYỀN VÀO 1 chuỗi CSS đã lưu sẵn trước đó (đúng
+     * định dạng buildElementStyleCssString() xuất ra, vd `subtitleBoxCss`), draft sẽ NẠP LẠI khớp
+     * đúng field đó qua applyElementStyleCssStringToDraft() (core) NGAY SAU khi reset trắng — đúng
+     * điểm mở rộng đã dự trù sẵn ở đây (xem lịch sử docstring này) "nơi gọi tự đọc style hiện có +
+     * dựng lại draft tương ứng... truyền thẳng qua appState.set('eseDraft', ...) sau
+     * resetElementStyleDraft()". Không truyền (hoặc truyền rỗng) -> hành vi CŨ giữ nguyên 100% (mở
+     * trắng), guard nằm NGAY TRONG applyElementStyleCssStringToDraft() (core, guard `!cssString`). */
+    open(targetEl, onApply, initialCssString) {
         this._targetEl = targetEl;
         this._onApply = onApply || null;
         resetElementStyleDraft(); // core
+        if (initialCssString) applyElementStyleCssStringToDraft(initialCssString); // core — MỚI, nạp khớp style đã lưu
         setElementStyleActiveTab('box'); // core
         this._render();
     },
