@@ -214,4 +214,61 @@ const LANG_PATCH_VISUALIZER = {
     'gestureSettings.tripleTapTarget.label': 'Triple tap',
     'gestureSettings.tripleTapTarget.captureFrameOption': 'Capture (video only)',
 
+    // MỚI — Element Style Editor (công cụ CHUNG dựng CSS box model + text style, xem event/
+    // workflow/element-style-editor.js) — CHỈ dịch nhãn mô tả, KHÔNG dịch giá trị option là
+    // keyword CSS thuần (px/solid/left/normal...), xem docstring đầu components/
+    // element-style-editor-drawer.js.
+    'elementStyleEditor.tab.box': 'Box',
+    'elementStyleEditor.tab.text': 'Text',
+    'elementStyleEditor.apply': 'Apply',
+    'elementStyleEditor.box.width': 'Width',
+    'elementStyleEditor.box.height': 'Height',
+    'elementStyleEditor.box.padding': 'Padding',
+    'elementStyleEditor.box.margin': 'Margin',
+    'elementStyleEditor.box.border': 'Border',
+    'elementStyleEditor.box.opacity': 'Opacity',
+    'elementStyleEditor.field.value': 'Value',
+    'elementStyleEditor.field.mode': 'Mode',
+    'elementStyleEditor.field.unit': 'Unit',
+    'elementStyleEditor.mode.custom': 'Custom value',
+    'elementStyleEditor.mode.fit': 'Fit content',
+    'elementStyleEditor.mode.auto': 'Auto',
+    // MỚI (15/08/2026, Giang chỉ ra "None là dropdown") — option "None" DÙNG CHUNG cho MỌI
+    // dropdown trong Drawer (width/height mode + 6 field dropdown-thuần text) — bản thân dropdown
+    // LÀM CÔNG TẮC, không cần checkbox riêng nữa (xem components/element-style-editor-drawer.js).
+    'elementStyleEditor.mode.none': 'None',
+    'elementStyleEditor.side.top': 'Top',
+    'elementStyleEditor.side.right': 'Right',
+    'elementStyleEditor.side.bottom': 'Bottom',
+    'elementStyleEditor.side.left': 'Left',
+    'elementStyleEditor.border.width': 'Thickness',
+    'elementStyleEditor.border.style': 'Border style',
+    'elementStyleEditor.border.color': 'Color',
+    'elementStyleEditor.text.fontFamily': 'Font family',
+    'elementStyleEditor.text.fontSize': 'Font size',
+    'elementStyleEditor.text.fontWeight': 'Font weight',
+    'elementStyleEditor.text.fontStyle': 'Font style',
+    'elementStyleEditor.text.lineHeight': 'Line height',
+    'elementStyleEditor.text.letterSpacing': 'Letter spacing',
+    'elementStyleEditor.text.textAlign': 'Text align',
+    'elementStyleEditor.text.textDecoration': 'Text decoration',
+    'elementStyleEditor.text.textTransform': 'Text transform',
+    'elementStyleEditor.text.whiteSpace': 'Line wrap',
+    'elementStyleEditor.text.color': 'Text color',
+    'elementStyleEditor.font.source': 'Source',
+    'elementStyleEditor.font.sourceSystem': 'System font',
+    'elementStyleEditor.font.sourceGoogle': 'Google Font',
+    'elementStyleEditor.font.name': 'Font name',
+    'elementStyleEditor.font.namePlaceholder': 'e.g. Roboto',
+    'elementStyleEditor.font.weightToLoad': 'Weight to load',
+    'elementStyleEditor.font.loadButton': 'Load Google Font (needs internet)',
+    'elementStyleEditor.font.loadedNote': 'Loaded this session',
+
+    // MỚI (15/08/2026, mục 3) — tiêu đề section "Thành phần" (gộp Stats panel + 3 toggle UI
+    // chrome cố định) trong panel "Display" — xem components/settings/visualizer-display-panel.js.
+    // SỬA (chốt LẦN 2, cùng ngày) — 2 key `section.display`/`section.controlUi` của bản trước ĐÃ
+    // GỘP LẠI thành 1 key DUY NHẤT này (Giang yêu cầu bỏ tách riêng, gộp chung 1 section).
+    'visualizerSettingsDrawer.section.components': 'Components',
+
+
 };

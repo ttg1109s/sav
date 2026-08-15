@@ -258,6 +258,24 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsSubtitleStyle.sectionTitle': 'Subtitles',
     'settingsSubtitleStyle.enable.label': 'Show subtitles',
     'settingsSubtitleStyle.enable.hint': "Turn off to hide subtitles during playback, without deleting what you've written.",
+    // MỚI (15/08/2026, mục 4a) — nút "Styling" trong panel con Phụ đề, mở Element Style Editor.
+    'settingsSubtitleStyle.styling.label': 'Styling',
+    'settingsSubtitleStyle.styling.hint': 'Customize the box that wraps subtitle lines (size, spacing, border, background...)',
+
+    // MỚI (15/08/2026, mục 4b) — Comming/In/Outing, xem components/subtitle-settings-drawer.js
+    // (_renderSubtitleTransitionSection()) + core/subtitle/subtitle-transition.js.
+    'settingsSubtitleStyle.transition.sectionTitle': 'Entrance / Exit',
+    'settingsSubtitleStyle.transition.hint': 'Value in seconds (± up to 5s). Actual effect is capped at 1/3 of each line\'s duration.',
+    'settingsSubtitleStyle.comming.label': 'Comming',
+    'settingsSubtitleStyle.in.label': 'In',
+    'settingsSubtitleStyle.outing.label': 'Outing',
+    'settingsSubtitleStyle.effect.none': 'None',
+    'settingsSubtitleStyle.effect.fade': 'Fade',
+    'settingsSubtitleStyle.effect.slide-up': 'Slide up',
+    'settingsSubtitleStyle.effect.slide-down': 'Slide down',
+    'settingsSubtitleStyle.effect.scale': 'Scale',
+    'settingsSubtitleStyle.effect.pulse': 'Pulse',
+    'settingsSubtitleStyle.effect.glow': 'Glow',
     // XOÁ (mục 2) — 'settingsSubtitleStyle.openDrawer.label'/'.hint' (nút "Tuỳ chỉnh" cũ mở drawer
     // 10 style) — panel con giờ chỉ có 1 toggle, mở thẳng qua nút trong panel "Display"
     // (visualizerDisplayPanel.title dùng chung, KHÔNG cần label/hint riêng — xem components/
@@ -296,7 +314,10 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'playlistFilterPanel.op.contains': 'Contains',
     'playlistFilterPanel.op.notContains': 'Does not contain',
     'playlistFilterPanel.mode.single': 'Single value',
-    'playlistFilterPanel.mode.range': 'Range',
+    'playlistFilterPanel.mode.range': 'In range',
+    // MỚI (15/08/2026, Giang yêu cầu "thêm in range và out range cho khoảng") — phủ định của
+    // 'range': khớp bản ghi NẰM NGOÀI [from, to], xem _evaluateFilterRule() core/playlist/filter.js.
+    'playlistFilterPanel.mode.outRange': 'Out of range',
     'playlistFilterPanel.rangeFrom': 'From',
     'playlistFilterPanel.rangeTo': 'To',
     'playlistFilterPanel.apply': 'Apply',
