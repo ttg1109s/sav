@@ -159,18 +159,27 @@ function _renderEseSizeRow(label, section, field, f) {
         </div>`;
 }
 
+/** SỬA (16/08/2026, Giang phát hiện — "phần rìa input left đang bị ra ngoài") — hàng 4 input Top/
+ * Right/Bottom/Left TỪNG dùng `flex justify-between gap-2` + input `w-20` (80px) CỐ ĐỊNH: 4×80px +
+ * 3×gap(8px) = 344px, CỘNG padding 2 lớp bao ngoài (body px-4 + card px-4 = 64px) VƯỢT bề rộng màn
+ * hình hẹp (iPhone ~375-393px khả dụng ~329px cho riêng hàng này) -> input cuối (Left) bị đẩy tràn
+ * ra ngoài viewport (flex item không tự co vì `width` khai báo cứng "thắng" trước khi flex-shrink
+ * kịp tính, xem hội thoại). SỬA: đổi `grid grid-cols-4` (4 cột LUÔN chia đều bề rộng khả dụng, tự
+ * co giãn theo màn hình, không phụ thuộc bề rộng nội dung input) + input đổi `w-20` cố định ->
+ * `w-full min-w-0` (co theo đúng cột grid của nó, `min-w-0` bắt buộc — mặc định input vẫn giữ 1 sàn
+ * bề rộng tối thiểu riêng nếu thiếu khai báo này, dù đã nằm trong ô grid hẹp hơn). */
 function _renderEseSidesField(section, field, f) {
     const sideInput = (side, labelKey) => `
-        <div class="flex flex-col items-center gap-1">
+        <div class="flex flex-col items-center gap-1 min-w-0">
             <span class="text-[10px] text-slate-400">${t(labelKey)}</span>
-            ${_eseNumber(section, field, side, f[side], 1)}
+            <input type="number" value="${f[side]}" step="1" class="ese-field w-full min-w-0 text-center bg-white border border-slate-300 rounded-lg px-1 py-1.5 text-xs text-slate-900 outline-none" data-section="${section}" data-field="${field}" data-subkey="${side}" data-numeric="1">
         </div>`;
     return `
         <div class="flex justify-between items-center">
             <span class="text-xs text-slate-500">${t('elementStyleEditor.field.unit')}</span>
             ${_eseSelect(section, field, 'unit', _eseUnitOptions(ESE_LENGTH_UNITS), f.unit, false)}
         </div>
-        <div class="flex justify-between gap-2">
+        <div class="grid grid-cols-4 gap-1.5">
             ${sideInput('top', 'elementStyleEditor.side.top')}${sideInput('right', 'elementStyleEditor.side.right')}${sideInput('bottom', 'elementStyleEditor.side.bottom')}${sideInput('left', 'elementStyleEditor.side.left')}
         </div>`;
 }

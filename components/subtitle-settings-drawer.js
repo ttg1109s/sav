@@ -56,25 +56,35 @@ function renderSubtitlePanelBody() {
  * phụ đề (KHÔNG lưu riêng từng dòng) — khung giờ thực tế mỗi dòng tự tính lúc phát dựa trên chính
  * start/end dòng đó (core/subtitle/subtitle-transition.js), xem event/workflow/subtitle-style-
  * settings.js. Comming/Outing có thêm 1 dropdown DẤU (+/-, MỚI — Giang yêu cầu "thêm dropdown tuỳ
- * chọn +-", THAY cho input số ÂM/DƯƠNG gộp chung trước đó) + 1 ô số ĐỘ LỚN thuần dương [0,5] —
- * Workflow tự GHÉP 2 giá trị này thành mili giây có dấu lúc ghi state (xem event/listener/
- * subtitle-style-settings.js). Biên nhập [0,5] — SUBTITLE_TRANSITION_MAX_MS, core/subtitle/
- * subtitle-transition.js — biên ÁP DỤNG THỰC TẾ còn bị kẹp thêm theo 1/3 tổng thời lượng từng
- * dòng, nhắc rõ trong hint. "In" KHÔNG có ô số (hiệu ứng LIÊN TỤC suốt lúc hiển thị, không có mốc
- * thời gian riêng). */
+ * chọn +-", THAY cho input số ÂM/DƯƠNG gộp chung trước đó) + 1 nút ĐỘ LỚN thuần dương [0,5] — nút
+ * này SỬA (16/08/2026, mục 3) mở modal "bánh xe cuộn số" DÙNG CHUNG (core/time-picker-modal.js,
+ * format 's-ms', TỪNG là `<input type="number" step="0.001">` thô) — Workflow tự GHÉP dấu (+/-) +
+ * kết quả modal thành mili giây CÓ DẤU lúc ghi state (xem event/workflow/subtitle-style-
+ * settings.js::openMagnitudePicker(), event/listener/subtitle-style-settings.js cho phần dấu).
+ * Biên [0,5] — SUBTITLE_TRANSITION_MAX_MS, core/subtitle/subtitle-transition.js — biên ÁP DỤNG
+ * THỰC TẾ còn bị kẹp thêm theo 1/3 tổng thời lượng từng dòng, nhắc rõ trong hint. "In" KHÔNG có nút
+ * này (hiệu ứng LIÊN TỤC suốt lúc hiển thị, không có mốc thời gian riêng). */
 function _renderSubtitleTransitionSection() {
     const effectOptions = (map) => {
         let opts = `<option value="none">${t('settingsSubtitleStyle.effect.none')}</option>`;
         Object.keys(map).forEach((key) => { opts += `<option value="${key}">${t(`settingsSubtitleStyle.effect.${key}`)}</option>`; });
         return opts;
     };
+    // SỬA (16/08/2026, mục 3 — Giang hỏi "sao ô nhập s không dùng timer picker modal với đơn vị
+    // s:ms?") — `<input type="number" step="0.001">` cũ ĐỔI thành `<button>` mở modal "bánh xe cuộn
+    // số" DÙNG CHUNG (core/time-picker-modal.js::openTimePickerModal(), format 's-ms' — CÙNG hệ
+    // token 's:ms' đã dùng cho Slideshow transitionDuration, xem event/workflow/slideshow.js::
+    // openTransitionDurationPicker()) — id GIỮ NGUYÊN (setting-subtitle-${prefix}-magnitude) để
+    // event/listener/subtitle-style-settings.js tra cứu không đổi, chỉ đổi Ý NGHĨA sự kiện wire
+    // ('click' mở modal, KHÔNG còn 'change' đọc .value trực tiếp) — xem
+    // event/workflow/subtitle-style-settings.js::openMagnitudePicker(). `data-ms` = giá trị mili
+    // giây ĐANG có (Workflow tự đồng bộ mỗi lần đổi, KHÔNG cần đọc ngược từ chữ hiển thị).
     const valueField = (prefix) => `
                             <select id="setting-subtitle-${prefix}-sign" class="bg-black/50 border border-white/10 rounded-lg px-1.5 py-1.5 text-xs text-white outline-none">
                                 <option value="+">+</option>
                                 <option value="-">−</option>
                             </select>
-                            <input type="number" id="setting-subtitle-${prefix}-magnitude" min="0" max="5" step="0.001" value="0" class="w-16 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none">
-                            <span class="text-xs text-slate-500">s</span>`;
+                            <button type="button" id="setting-subtitle-${prefix}-magnitude" data-ms="0" class="w-16 bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none text-right hover:bg-white/10 transition-colors">0.0s</button>`;
 
     return `
                     <div>
