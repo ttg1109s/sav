@@ -224,7 +224,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.6.2/dist/panzoom.min.js"></script>
 
     <!-- CSS tách riêng theo domain, ?v= ép tải lại khi deploy (không đụng CDN — đã tự version). -->
-    <link rel="stylesheet" href="assets/css/base.css?v=20260813v1">
+    <link rel="stylesheet" href="assets/css/base.css?v=20260815v1">
     <link rel="stylesheet" href="assets/css/sliders.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/glass.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/animations.css?v=20260813v1">
@@ -291,8 +291,8 @@
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
     <script src="lang/patch/patch-common.js?v=20260808v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260728v2"></script>
-    <script src="lang/patch/patch-visualizer.js?v=20260813v1"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260808v4"></script>
+    <script src="lang/patch/patch-visualizer.js?v=20260815v2"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260815v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260729v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
@@ -327,7 +327,7 @@
          xếp"/"Lọc" (renderPlaylistSortPanelBody()/renderPlaylistFilterPanelBody()), mở từ 2
          nút trong TPL_SETTINGS_PLAYLIST_VIEW ngay trên. -->
     <script src="components/playlist-sort-drawer.js?v=20260815v1"></script>
-    <script src="components/playlist-filter-drawer.js?v=20260815v1"></script>
+    <script src="components/playlist-filter-drawer.js?v=20260815v2"></script>
     <!-- MỞ ĐẦU THEME THẬT (07/07/2026, phản hồi Giang mục 3) — THAY components/settings/
          playlist-background.js (TPL_SETTINGS_BACKGROUND, KHÔNG còn mount) bằng theme.js
          (TPL_SETTINGS_THEME) — 3 card Sáng/Tối/Background loại trừ nhau. -->
@@ -363,6 +363,10 @@
     <!-- Nội dung Generic Drawer cho "Custom Effect" (mở qua GIỮ 1.5s #btn-cycle-mode) — components/
          custom-effect-drawer.js, dùng bởi event/workflow/custom-effect.js. -->
     <script src="components/custom-effect-drawer.js?v=20260813v1"></script>
+    <!-- MỚI — Nội dung Generic Drawer cho công cụ CHUNG "Element Style Editor" (dựng CSS box model
+         + text style, xem event/workflow/element-style-editor.js) — CHƯA có nơi nào mở thật, dựng
+         công cụ chung trước, nơi gọi (feature nào) để dành quyết định sau. -->
+    <script src="components/element-style-editor-drawer.js?v=20260815v2"></script>
     <!-- MỚI (03/08/2026) — khung tĩnh modal xem/sửa Video (Rule 5d, readme/core-function-
          conventions.md) — CHỈ chuỗi HTML (TPL_VIDEO_PREVIEW), không addEventListener. Đặt cạnh
          generic-drawer.js (cùng vai trò "component tĩnh"), dù bản thân được clone MỖI LẦN MỞ
@@ -370,9 +374,9 @@
     <script src="components/video-preview.js?v=20260803v1"></script>
     <script src="components/items.js?v=20260728v1"></script>
     <!-- Panel "Display" (Main "Visualizer Screen") — 5 toggle UI chrome. -->
-    <script src="components/settings/visualizer-display-panel.js?v=20260813v1"></script>
+    <script src="components/settings/visualizer-display-panel.js?v=20260815v2"></script>
     <script src="components/settings/visualizer-auto-switch-drawer.js?v=20260812v1"></script>
-    <script src="components/subtitle-settings-drawer.js?v=20260707v3"></script>
+    <script src="components/subtitle-settings-drawer.js?v=20260815v2"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Slideshow Settings Drawer (nền Visual, nguồn thứ 3). -->
     <script src="components/slideshow-settings-drawer.js?v=20260806v1"></script>
     <script src="components/visual-bg-settings-drawer.js?v=20260808v1"></script>
@@ -441,6 +445,9 @@
     <script src="service/state/app-misc.js?v=20260725v1"></script>
     <script src="service/state/file-manager.js?v=20260731v1"></script>
     <script src="service/state/generic-drawer.js?v=20260725v1"></script>
+    <!-- MỚI — package STATE runtime cho "Element Style Editor" (draft box/text style + Google
+         Font đã nạp trong phiên, xem service/state/element-style-editor.js). -->
+    <script src="service/state/element-style-editor.js?v=20260815v3"></script>
     <!-- THAY service/state/video-editor.js (ĐÃ XOÁ cùng video-editor.html — "Song/Video
          Unification" v12, gộp vào Modal xem Video). -->
     <script src="service/state/video-preview.js?v=20260803v1"></script>
@@ -452,11 +459,15 @@
          restoreDefaultVizConfig/saveConfig/loadConfig) — KHÔNG còn giữ Z_INDEX/global
          error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
          service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
-    <script src="core/config.js?v=20260812v1"></script>
+    <script src="core/config.js?v=20260815v1"></script>
     <!-- core/custom-effect.js — Core thuần hệ Custom Effect (getEffectConfig/setCustomEffectField),
          NẠP NGAY SAU core/config.js (cần DEFAULT_CUSTOM_EFFECT/appConfigViz) — mọi hàm vẽ/scene-setup
          phía dưới đều cần file này. -->
     <script src="core/custom-effect.js?v=20260813v1"></script>
+    <!-- MỚI — Core thuần công cụ CHUNG "Element Style Editor" (setElementStyleField/
+         buildElementStyleCssString/applyElementStyleToDom/loadGoogleFont), xem core/
+         element-style-editor.js. CẦN service/state/element-style-editor.js đã nạp (dòng trên). -->
+    <script src="core/element-style-editor.js?v=20260815v3"></script>
     <!-- event/store.js (EventStore) nạp SỚM ở đây, không đợi xuống cuối cùng /event/ — playlist/
          actions.js (core, dòng dưới) cần `new EventStore(...)` ngay lúc nạp. Tự đứng độc lập
          (không phụ thuộc eventBus), nên tách riêng lên đây an toàn. -->
@@ -612,9 +623,15 @@
          GIỮ NGUYÊN Ở ĐÂY — không liên quan gì tới việc SOẠN nội dung. -->
     <!-- core/equalizer.js (UI slider EQ tĩnh cũ) ĐÃ XOÁ HẲN — hệ thống preset EQ mới lưu DB, xem
          core/eq-presets.js (nạp ở nhóm CORE Audio/Video, cùng khu core/audio-engine.js). -->
-    <script src="core/subtitle/subtitle-style-settings.js?v=20260707v2"></script>
+    <!-- MỚI (15/08/2026, mục 4b) — Core THUẦN tính khung giờ Comming/Outing + registry hiệu ứng
+         (SUBTITLE_TRANSITION_EFFECTS/SUBTITLE_IN_EFFECTS) — NẠP TRƯỚC cả subtitle-display.js
+         (dùng lúc phát) LẪN components/subtitle-settings-drawer.js (dùng lúc dựng UI, đã nạp ở
+         nhóm components phía trên — không phụ thuộc parse-time nên thứ tự ĐÓ không bắt buộc,
+         nhưng vẫn đặt gần nhóm subtitle này cho rõ ràng). -->
+    <script src="core/subtitle/subtitle-transition.js?v=20260815v1"></script>
+    <script src="core/subtitle/subtitle-style-settings.js?v=20260815v1"></script>
     <script src="core/visualizer/visualizer-misc-settings.js?v=20260629v1"></script>
-    <script src="core/subtitle/subtitle-display.js?v=20260625v10"></script>
+    <script src="core/subtitle/subtitle-display.js?v=20260815v1"></script>
     <script src="core/tab-hide-reload.js?v=20260630v1"></script>
     <script src="core/wakelock.js?v=20260630v1"></script>
     <script src="core/color-utils.js?v=20260813v1"></script>
@@ -639,7 +656,7 @@
          playlist-scope.js, nạp NGAY DƯỚI). CẦN service/operation.js (đã nạp) — KHÔNG gọi
          core/song-search.js (Rule 3 cấm Core gọi Core khác, xem docstring đầu file) và
          KHÔNG phụ thuộc core/playlist/order.js. -->
-    <script src="core/playlist/filter.js?v=20260815v2"></script>
+    <script src="core/playlist/filter.js?v=20260815v3"></script>
     <!-- Phase 2 (bước 3 scoping, CHỐT 03/07/2026) — loadAllSongs()/loadSongsFromFolder(), viết
          MỚI hoàn toàn, KHÔNG đụng loader.js — chỉ lọc trên playlistCache đã có sẵn trong RAM.
          CẦN core/file-manager/folder.js (getFolderSongKeys) + core/db.js (getFolderSongMap). -->
@@ -868,7 +885,7 @@
          core/file-manager/video.js::sortVideosByAddedDateDesc()/groupVideosByDay()/
          formatVideoDayHeaderLabel()/formatVideoDuration() (đã nạp ở nhóm CORE, TRƯỚC file này). -->
     <script src="event/workflow/video-gallery-window.js?v=20260721v1"></script>
-    <script src="event/workflow/playlist.js?v=20260731v2"></script>
+    <script src="event/workflow/playlist.js?v=20260815v1"></script>
     <script src="event/router/playlist.js?v=20260731v1"></script>
     <script src="event/listener/playlist.js?v=20260728v2"></script>
     <!-- Cụm "playerControls" (ver 11, patch 3): 16/17 msg.type KHÔNG cần workflow (router gọi
@@ -894,6 +911,11 @@
          visualizerDisplay dispatch case cyclePress/cycle.click sang workflowCustomEffect, nên
          event/workflow/custom-effect.js PHẢI nạp TRƯỚC event/router/visualizer-display.js. -->
     <script src="event/workflow/custom-effect.js?v=20260813v1"></script>
+    <!-- MỚI — Workflow công cụ CHUNG "Element Style Editor" (API duy nhất: open(targetEl), CHƯA
+         có nơi nào gọi thật, xem docstring đầu file). CẦN core/generic-drawer.js, event/workflow/
+         generic-drawer-helpers.js, core/element-style-editor.js, components/
+         element-style-editor-drawer.js, service/state/element-style-editor.js (đều đã nạp ở trên). -->
+    <script src="event/workflow/element-style-editor.js?v=20260815v3"></script>
     <script src="event/workflow/visualizer-display.js?v=20260811v2"></script>
     <script src="event/router/visualizer-display.js?v=20260811v2"></script>
     <script src="event/listener/visualizer-display.js?v=20260811v2"></script>
@@ -956,9 +978,9 @@
          workflow (openPanel() push động + 8 hàm set* nay Rule 1-4 đầy đủ, không còn tự gọi core
          khác — xem event/workflow/subtitle-style-settings.js). CẦN core/settings-panel-stack-ui.js,
          components/subtitle-settings-drawer.js (đã nạp ở nhóm components phía trên). -->
-    <script src="event/workflow/subtitle-style-settings.js?v=20260707v2"></script>
-    <script src="event/router/subtitle-style-settings.js?v=20260707v2"></script>
-    <script src="event/listener/subtitle-style-settings.js?v=20260707v2"></script>
+    <script src="event/workflow/subtitle-style-settings.js?v=20260815v2"></script>
+    <script src="event/router/subtitle-style-settings.js?v=20260815v1"></script>
+    <script src="event/listener/subtitle-style-settings.js?v=20260815v2"></script>
     <!-- Cụm "visualizerMiscSettings" (ver 11, patch 13) — MỚI (12/07/2026): giờ CÓ
          event/workflow/visualizer-misc-settings.js — cả 2 msg.type đều cần Workflow (gọi ≥2 hàm
          nối tiếp, hoặc tự chuẩn bị appState cho Core — xem comment đầu file workflow). -->
