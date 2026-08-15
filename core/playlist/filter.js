@@ -30,25 +30,51 @@ const PLAYLIST_FILTER_TEXT_FIELDS = { song: ['name', 'album', 'artist'], video: 
 const PLAYLIST_FILTER_NUMERIC_FIELDS = ['addedAt', 'count', 'totalTime', 'size', 'duration'];
 
 /**
- * Phân loại 1 field Filter — quyết định input nào hiển thị (text/date/number) + cách parse giá
- * trị gõ vào (`_parseFilterNumberInput()`) — dùng ở `event/workflow/playlist.js`
+ * Phân loại 1 field Filter — quyết định input nào hiển thị (text/date/number/seconds) + cách parse
+ * giá trị gõ vào (`_parseFilterNumberInput()`) — dùng ở `event/workflow/playlist.js`
  * (`setFilterField()`/`_syncFilterPanelUI()`, đọc/ghi rule theo đúng đơn vị/kiểu). Đặt Ở ĐÂY
  * (cùng nhà 2 danh sách field trên) để chỉ có ĐÚNG 1 nơi định nghĩa "field nào thuộc loại gì".
+ * SỬA (phản hồi Giang — "totalTime/duration phải dùng time picker modal, định dạng h:m:s") —
+ * `totalTime`/`duration` giờ có kind RIÊNG `'seconds'` (trước đây chung `'number'` với `count`) —
+ * UI dựng NÚT mở `openTimePickerModal()` (core/time-picker-modal.js, format 'h-m-s') thay vì
+ * `<input type="number">` thô — xem components/playlist-filter-drawer.js.
  * @param {string} field
- * @returns {'text'|'date'|'sizeMb'|'number'}
+ * @returns {'text'|'date'|'sizeMb'|'seconds'|'number'}
  */
 function _filterFieldKind(field) {
     if (field === 'name' || field === 'album' || field === 'artist') return 'text';
     if (field === 'addedAt') return 'date';
     if (field === 'size') return 'sizeMb';
-    return 'number'; // count, totalTime
+    if (field === 'totalTime' || field === 'duration') return 'seconds';
+    return 'number'; // count
 }
 
 /**
- * Parse 1 giá trị input THÔ (chuỗi từ `<input>`) thành số LƯU TRONG STATE theo đúng đơn vị nội
- * bộ — 'date' -> epoch ms (đầu ngày, giờ local); 'sizeMb' -> NGƯỜI DÙNG gõ MB, LƯU byte (nhân
- * 1024*1024, khớp `cached.size` ở core/playlist/loader.js); 'number' -> số thô (giây/lượt).
- * @param {'date'|'sizeMb'|'number'} kind @param {string} rawValue
+ * Định dạng số giây thành "H:MM:SS" (LUÔN có giờ, kể cả 0 — Giang chốt "tất cả đều h:m:s", đồng
+ * bộ với 3 cột giờ/phút/giây của `openTimePickerModal()` format 'h-m-s') — dùng làm TEXT hiển thị
+ * trên nút mở time-picker (`event/workflow/playlist.js::_syncFilterPanelUI()`/
+ * `openFilterTimePicker()`). KHÁC `formatTime()` (core/playlist/state.js, "M:SS", KHÔNG giờ) —
+ * CỐ Ý viết riêng bản này (Rule 3, core cấm gọi core khác — cùng lý do formatVideoDuration() ở
+ * core/file-manager/video.js viết riêng thay vì gọi formatTime()).
+ * @param {number} totalSeconds
+ * @returns {string}
+ */
+function _formatSecondsAsHms(totalSeconds) {
+    const s = Math.max(0, Math.floor(totalSeconds || 0));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
+/**
+ * Parse 1 giá trị input THÔ (chuỗi từ `<input>`, hoặc số giây trả về từ `openTimePickerModal()`
+ * cho kind 'seconds') thành số LƯU TRONG STATE theo đúng đơn vị nội bộ — 'date' -> epoch ms (đầu
+ * ngày, giờ local); 'sizeMb' -> NGƯỜI DÙNG gõ MB, LƯU byte (nhân 1024*1024, khớp `cached.size` ở
+ * core/playlist/loader.js); 'seconds'/'number' -> số thô (giây/lượt, KHÔNG quy đổi gì thêm —
+ * `openFilterTimePicker()`, event/workflow/playlist.js, đã tự quy đổi ms->giây TRƯỚC khi gọi
+ * `setFilterField()`, nên tới đây `rawValue` đã LÀ giây rồi).
+ * @param {'date'|'sizeMb'|'seconds'|'number'} kind @param {string} rawValue
  * @returns {number}
  */
 function _parseFilterNumberInput(kind, rawValue) {
@@ -60,7 +86,8 @@ function _parseFilterNumberInput(kind, rawValue) {
 
 /**
  * Chiều NGƯỢC LẠI `_parseFilterNumberInput()` — đổi giá trị LƯU TRONG STATE thành chuỗi hiển thị
- * lại đúng lên `<input>` lúc mở panel (`workflowPlaylist._syncFilterPanelUI()`).
+ * lại đúng lên `<input>` lúc mở panel (`workflowPlaylist._syncFilterPanelUI()`). KHÔNG dùng cho
+ * kind 'seconds' (nút time-picker dùng `_formatSecondsAsHms()` riêng, TEXT không phải `.value`).
  * @param {'text'|'date'|'sizeMb'|'number'} kind @param {number|undefined} value
  */
 function _formatFilterNumberForInput(kind, value) {
