@@ -26,6 +26,15 @@ canvas { display: block; width: 100vw; height: 100dvh; position: absolute; top: 
 input[type="file"] { display: none; }
 
 .sub-text-glow { text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.5); }
+
+/* MỚI (15/08/2026, mục 4b) — hiệu ứng "In" (liên tục suốt lúc dòng phụ đề đang hiển thị ổn định,
+   giữa Comming và Outing) — bật/tắt qua class, xem core/subtitle/subtitle-display.js::
+   _applySubtitleBlockPhase() + SUBTITLE_IN_EFFECTS (core/subtitle/subtitle-transition.js). */
+@keyframes sub-in-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+.sub-in-pulse { animation: sub-in-pulse 1.6s ease-in-out infinite; }
+
+@keyframes sub-in-glow { 0%, 100% { text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.5); } 50% { text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 12px rgba(255,255,255,0.85); } }
+.sub-in-glow { animation: sub-in-glow 1.8s ease-in-out infinite; }
 /* "Chế độ xem toàn màn hình" (core/visualizer-ui-visibility.js) — tách khỏi .hidden vì vài phần tử
    có cơ chế hidden riêng đang tự quản lý (chuyển Playlist<->Visualizer). */
 .force-hidden { display: none !important; }
