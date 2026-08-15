@@ -295,6 +295,13 @@ const routerPlaylist = (() => {
                 break;
             }
 
+            // MỚI (phản hồi Giang — "totalTime/duration dùng time picker modal, h:m:s").
+            case 'playlist.filterPanel.openTimePicker.click': {
+                const { field, prop } = msg.payload;
+                workflowPlaylist.openFilterTimePicker(field, prop);
+                break;
+            }
+
             case 'playlist.filterPanel.apply.click': {
                 workflowPlaylist.applyFilterChanges();
                 break;
