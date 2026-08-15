@@ -5,6 +5,8 @@
  * tương ứng ở workflow — xem docstring event/workflow/subtitle-style-settings.js.
  * MỚI (mục 4a/4b, 15/08/2026) — thêm case mở Styling (>1 bước -> Workflow) + case ghi field
  * Comming/In/Outing (1 hàm core -> gọi thẳng, đúng quy ước router).
+ * MỚI (16/08/2026, mục 3) — thêm case mở modal chọn độ lớn Comming/Outing (>1 bước (mở modal +
+ * chờ callback) -> Workflow, CÙNG quy ước case "openStyling" ngay trên).
  */
 const routerSubtitleStyleSettings = (() => {
     function handle(msg) {
@@ -14,6 +16,9 @@ const routerSubtitleStyleSettings = (() => {
                 break;
             case 'subtitleStyleSettings.openStyling.click':
                 workflowSubtitleStyleSettings.openStyling();
+                break;
+            case 'subtitleStyleSettings.openMagnitudePicker.click':
+                workflowSubtitleStyleSettings.openMagnitudePicker(msg.payload.prefix);
                 break;
             case 'subtitleStyleSettings.transitionField.change':
                 setSubtitleTransitionField(msg.payload.field, msg.payload.value);
