@@ -261,6 +261,14 @@ function handlePlaylistFilterPanelEvent(e) {
     if (!el) return;
     const { filterField: field, filterProp: prop } = el.dataset;
     if (!field || !prop) return;
+    // MỚI (phản hồi Giang — "totalTime/duration dùng time picker modal") — nút mở time-picker
+    // (data-filter-time-trigger) là 'click' THẬT SỰ (KHÔNG như op/mode/value/valueTo thường —
+    // những cái đó chỉ nghe 'change'/'input', xem 2 guard clause ngay dưới) — bắt TRƯỚC 2 guard đó.
+    if (el.hasAttribute('data-filter-time-trigger')) {
+        if (e.type !== 'click') return;
+        eventBus.send({ router: 'playlist', type: 'playlist.filterPanel.openTimePicker.click', payload: { field, prop } });
+        return;
+    }
     if (prop === 'enabled' && e.type !== 'change') return; // checkbox chỉ nghe 'change'
     if (prop !== 'enabled' && e.type === 'click') return; // op/mode/value/valueTo không có 'click'
     const value = prop === 'enabled' ? el.checked : el.value;
