@@ -6,7 +6,9 @@
  *
  * `#gameplay-tap-surface` dùng `touchstart` (KHÔNG đợi `touchend`) — phản hồi tức thời đúng bản
  * chất 1 rhythm game, cùng khuôn `touchstart` mà `#visualizer-gesture-surface` đang dùng (event/
- * listener/visualizer-gesture.js).
+ * listener/visualizer-gesture.js). SỬA (16/08/2026, đọc lại plan — mỗi note ở 1 vị trí riêng) —
+ * giờ gửi kèm toạ độ chạm (%, quy đổi theo chính bounding box của tap-surface) — workflowGameplay.
+ * handleTap() cần biết TAP TRÚNG ĐÂU để so với vị trí (x,y) của từng note.
  *
  * `#btn-gameplay-exit` — SỬA (16/08/2026, Giang yêu cầu) — GỘP 2 nút thoát riêng lẻ bản trước
  * (Thoát ở màn ready / Về Playlist ở màn kết quả) thành 1 nút DUY NHẤT, LUÔN hiện cố định (đúng vị
@@ -21,8 +23,13 @@ if (gameModeSettingToggle) {
 }
 
 if (gameplayTapSurface) {
-    gameplayTapSurface.addEventListener('touchstart', () => {
-        eventBus.send({ router: 'gameplay', type: 'gameplay.tap.press', payload: {} });
+    gameplayTapSurface.addEventListener('touchstart', (e) => {
+        const touch = e.changedTouches && e.changedTouches[0];
+        if (!touch) return;
+        const rect = gameplayTapSurface.getBoundingClientRect();
+        const x = ((touch.clientX - rect.left) / rect.width) * 100;
+        const y = ((touch.clientY - rect.top) / rect.height) * 100;
+        eventBus.send({ router: 'gameplay', type: 'gameplay.tap.press', payload: { x, y } });
     }, { passive: true });
 }
 
