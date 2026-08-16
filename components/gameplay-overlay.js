@@ -28,9 +28,12 @@ const TPL_GAMEPLAY_OVERLAY = `
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
 
-                <div id="gameplay-center-circle" class="gameplay-center-circle pointer-events-none"></div>
+                <!-- MỚI (16/08/2026, đọc lại plan — bỏ hẳn #gameplay-center-circle TĨNH dùng
+                     chung cho mọi wave — mỗi note giờ tự tạo CẶP circle+wave riêng, vị trí riêng,
+                     xem core/gameplay/circle-mode-ui.js::syncCircleWaveElements(). 2 container dưới
+                     đây CHỈ còn là điểm neo rỗng cho core-ui tự createElement runtime (Rule 5d). -->
                 <div id="gameplay-waves-container" class="absolute inset-0 pointer-events-none"></div>
-                <div id="gameplay-tier-popup-layer" class="gameplay-tier-popup-layer pointer-events-none"></div>
+                <div id="gameplay-tier-popup-layer" class="absolute inset-0 pointer-events-none"></div>
 
                 <div id="gameplay-hud" class="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-none flex items-baseline gap-2 sub-text-glow">
                     <span id="gameplay-hud-score" class="font-mono text-white font-bold text-xl">0.00</span>
