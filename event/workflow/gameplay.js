@@ -176,9 +176,18 @@ const workflowGameplay = {
         // là đủ: audio KHÔNG phát -> chưa (hoặc chưa còn) có circle nào hiển thị/tiến triển, hết.
         if (audioPlayer.paused) return;
         const cfg = GAMEPLAY_CIRCLE_CONFIG;
-        const { gameplayWaves, gameplayCircleCount, currentCalculatedBpm, smoothedEnergy, lastValidMidiNote } = appState.get([
-            'gameplayWaves', 'gameplayCircleCount', 'currentCalculatedBpm', 'smoothedEnergy', 'lastValidMidiNote',
+        const { gameplayWaves, gameplayCircleCount, currentCalculatedBpm, smoothedEnergy, lastValidMidiNote, gameplayPitchRangeMin, gameplayPitchRangeMax } = appState.get([
+            'gameplayWaves', 'gameplayCircleCount', 'currentCalculatedBpm', 'smoothedEnergy', 'lastValidMidiNote', 'gameplayPitchRangeMin', 'gameplayPitchRangeMax',
         ]);
+
+        // Nới dải pitch quan sát được (SỬA 16/08/2026, Giang — "phân bổ high/low gây thiên lệch,
+        // cần đều hơn nhưng vẫn dùng pitch") — làm TRƯỚC bước spawn để note spawn ngay tick này
+        // (nếu có) được hưởng dải mới nhất luôn, không lệch 1 frame.
+        const rangeUpdate = computePitchRangeUpdate(lastValidMidiNote, gameplayPitchRangeMin, gameplayPitchRangeMax); // core
+        if (rangeUpdate.min !== gameplayPitchRangeMin || rangeUpdate.max !== gameplayPitchRangeMax) {
+            appState.set('gameplayPitchRangeMin', rangeUpdate.min, { skipCheck: true });
+            appState.set('gameplayPitchRangeMax', rangeUpdate.max, { skipCheck: true });
+        }
 
         // `lastBeatTime` — biến GLOBAL (core/dom-refs.js, KHÔNG qua appState.get vì không thuộc
         // appState — audio-analysis.js ghi Date.now() mỗi lần detect beat thật, khác gốc thời gian
@@ -192,8 +201,9 @@ const workflowGameplay = {
             const spawnProbability = computeSpawnProbability(smoothedEnergy, cfg); // core
             if (Math.random() < spawnProbability) {
                 const shrinkDurationMs = computeShrinkDurationMs(currentCalculatedBpm, cfg); // core
-                // Pitch quyết định "ở đâu" (plan §9) — vị trí Y tuyệt đối theo nốt hiện tại.
-                const y = computeSpawnPositionY(lastValidMidiNote, cfg); // core
+                // Pitch quyết định "ở đâu" (plan §9) — vị trí Y tuyệt đối theo nốt hiện tại, map
+                // theo dải QUAN SÁT ĐƯỢC (rangeUpdate, vừa nới ở trên) — KHÔNG phải dải cố định.
+                const y = computeSpawnPositionY(lastValidMidiNote, rangeUpdate.min, rangeUpdate.max, cfg); // core
                 // Vị trí X: plan không gán nguồn nào -> ngẫu nhiên (Workflow tự roll, Core chỉ nội suy).
                 const x = computeSpawnPositionX(Math.random(), cfg); // core
                 const wave = createCircleWave(this._nextWaveId++, now, cfg.waveStartRadius, shrinkDurationMs, x, y); // core
@@ -319,6 +329,10 @@ const workflowGameplay = {
         console.log(`writer: "workflowGameplay._resetSessionCounters", page: "gameplayTotalScore", content: "0"`);
         appState.set('gameplayCircleCount', 0, { skipCheck: true });
         console.log(`writer: "workflowGameplay._resetSessionCounters", page: "gameplayCircleCount", content: "0"`);
+        appState.set('gameplayPitchRangeMin', null, { skipCheck: true });
+        console.log(`writer: "workflowGameplay._resetSessionCounters", page: "gameplayPitchRangeMin", content: "null"`);
+        appState.set('gameplayPitchRangeMax', null, { skipCheck: true });
+        console.log(`writer: "workflowGameplay._resetSessionCounters", page: "gameplayPitchRangeMax", content: "null"`);
 
         clearCircleWaveElements(gameplayWavesContainer); // core-ui
         updateGameplayHud(gameplayHudScore, gameplayHudCombo, 0, 0, 0); // core-ui
