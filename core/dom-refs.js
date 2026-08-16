@@ -87,7 +87,6 @@
         const gameModeSettingToggle = document.getElementById('setting-gameplay-mode-enabled');
         const gameplayLayer = document.getElementById('gameplay-layer');
         const gameplayTapSurface = document.getElementById('gameplay-tap-surface');
-        const gameplayCenterCircle = document.getElementById('gameplay-center-circle');
         const gameplayWavesContainer = document.getElementById('gameplay-waves-container');
         const gameplayTierPopupLayer = document.getElementById('gameplay-tier-popup-layer');
         const gameplayHudScore = document.getElementById('gameplay-hud-score');
