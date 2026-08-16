@@ -119,6 +119,7 @@ const TPL_VISUALIZER_OVERLAY = `
                     </button>
                 </div>
             </div>
+${TPL_GAMEPLAY_OVERLAY}
 
             <!-- Volume HUD — "phóng" gần nút #btn-open-volume, kính mờ, giống popup volume hệ
                  thống iOS: icon loa BÊN TRÁI (5 mốc 0-100%, xem core/volume-hud.js) + 1 slider
