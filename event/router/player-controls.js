@@ -159,7 +159,16 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.audio.ended': {
-                handleAudioEnded();
+                // SỬA (16/08/2026, Game Mode Circle v1) — khi đang ở Game Mode (mọi phase KHÁC
+                // 'idle'), hết bài PHẢI dừng lại hiện màn kết quả (workflowGameplay.onSongEnded()),
+                // KHÔNG auto playNext() như bình thường (handleAudioEnded() gốc). 2 tiến trình khác
+                // hẳn nhau chọn theo appState -> đúng chỗ dùng VirtualMachineState (Rule 1, KHÔNG
+                // nhét if/else vào bên trong handleAudioEnded() — core-function-conventions.md).
+                const gameplayPhase = appState.get('gameplayPhase');
+                VirtualMachineState.run([
+                    { state: gameplayPhase, operation: '===', value: 'idle', callback: () => handleAudioEnded() },
+                    { state: gameplayPhase, operation: '!==', value: 'idle', callback: () => workflowGameplay.onSongEnded() },
+                ]);
                 break;
             }
 

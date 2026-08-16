@@ -146,11 +146,17 @@ const routerVisualBg = (() => {
             // Bài hát vừa ĐỔI THẬT — gửi từ core/playlist/actions.js::playSong(). Rẽ theo `type`
             // (2 nhánh độc lập thật -> VirtualMachineState); `listPlaybackMode`/số lượng item tự
             // guard bên trong từng hàm nhận (Rule: nơi nhận validate, router chỉ rẽ theo state).
+            // SỬA (16/08/2026, Game Mode Circle v1, Giang chốt "game mode on -> tự mở overlay khi
+            // bài đổi") — thêm nhánh thứ 3, ĐỘC LẬP hoàn toàn với 2 nhánh photo/video ở trên (không
+            // loại trừ nhau — 1 lần đổi bài có thể vừa advance visual bg VỪA tự mở game, đúng ngữ
+            // nghĩa "nhiều rule khớp cùng lúc" của VirtualMachineState, xem docstring file đó).
             case 'visualBg.songChanged': {
                 const type = appConfigVisualBg.getAll().type;
+                const gameplayModeEnabled = appConfigViz.getAll().gameplayModeEnabled;
                 VirtualMachineState.run([
                     { state: type, operation: '===', value: 'photo', callback: () => workflowSlideshow.advanceForSongChange() },
                     { state: type, operation: '===', value: 'video', callback: () => workflowVisualBg.advanceForSongChange() },
+                    { state: gameplayModeEnabled, operation: '===', value: true, callback: () => workflowGameplay.start('circle') },
                 ]);
                 break;
             }
