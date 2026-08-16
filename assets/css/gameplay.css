@@ -1,40 +1,50 @@
-/* assets/css/gameplay.css — Game Mode (Circle mode v1, MỚI 16/08/2026). Kích thước/màu tier khớp
- * đúng GAMEPLAY_CIRCLE_CONFIG (service/state/gameplay-runtime.js) — nếu đổi centerRadius/gap ở đó,
- * xem lại các hằng số px/màu dưới đây cho nhất quán về mặt thị giác (không có ràng buộc code cứng
- * giữa 2 nơi, CHỈ centerRadius được đồng bộ qua JS lúc showCircleGameplayLayer(), xem core/gameplay/
- * circle-mode-ui.js).
+/* assets/css/gameplay.css — Game Mode (Circle mode v1, MỚI 16/08/2026). Kích thước tier khớp đúng
+ * GAMEPLAY_CIRCLE_CONFIG (service/state/gameplay-runtime.js).
  *
- * `--gameplay-circle-top` (SỬA 16/08/2026, Giang yêu cầu "vị trí xuất hiện vòng tròn luôn thấp hơn
- * row icon center, stats panel, playlist back") — 1 biến DUY NHẤT định vị trục dọc, dùng CHUNG cho
- * cả `.gameplay-center-circle` lẫn `.gameplay-wave-ring` (2 lớp PHẢI cùng 1 tâm mới co đúng vào
- * nhau) — sửa 1 chỗ ở đây, không rải % ra nhiều rule. 62% (thay vì 50% chính giữa màn hình) đủ chừa
- * khoảng trống bên trên cho #visualizer-top-bar (nút mở Control Center/stats BPM-Pitch-Energy/nút
- * về Playlist, đều nằm ở `top-4`) — KHÔNG che dù màn hình thấp (landscape/tablet nhỏ).
+ * SỬA (16/08/2026, đọc lại plan — mỗi note giờ là 1 CẶP circle (mục tiêu) + wave (co lại, fade)
+ * ĐỘC LẬP, tự đứng ở vị trí (x,y) riêng — KHÔNG còn 1 vòng tròn tâm tĩnh dùng chung ở giữa màn
+ * hình. `.gameplay-note` là wrapper zero-size định vị bằng % (JS set qua style.left/top, đọc
+ * core/gameplay/circle-mode-ui.js::syncCircleWaveElements()), chứa 2 con `.gameplay-target-circle`
+ * + `.gameplay-wave-ring` tự căn giữa bằng transform riêng — xoá wrapper = xoá cả cặp cùng lúc.
+ * `--gameplay-target-diameter` (đặt 1 lần lúc showCircleGameplayLayer()) dùng CHUNG cho MỌI note —
+ * tất cả circle mục tiêu luôn cùng kích thước (= centerRadius*2), chỉ vị trí khác nhau.
  */
-#gameplay-layer {
-    --gameplay-circle-top: 62%;
-}
 
-.gameplay-center-circle {
+.gameplay-note {
     position: absolute;
-    top: var(--gameplay-circle-top);
-    left: 50%;
     transform: translate(-50%, -50%);
-    border-radius: 9999px;
-    border: 2px solid rgba(56, 189, 248, 0.85); /* sky-400 */
-    box-shadow: 0 0 20px rgba(56, 189, 248, 0.45), inset 0 0 12px rgba(56, 189, 248, 0.25);
+    width: 0;
+    height: 0;
     pointer-events: none;
 }
 
+/* Vòng tròn MỤC TIÊU — nền CÓ FILL (không rỗng như bản đầu), cố định kích thước, đứng yên suốt
+ * vòng đời note (chỉ wave-ring bên dưới co lại). */
+.gameplay-target-circle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translate(-50%, -50%);
+    width: var(--gameplay-target-diameter);
+    height: var(--gameplay-target-diameter);
+    border-radius: 9999px;
+    background: rgba(56, 189, 248, 0.28); /* sky-400, CÓ FILL */
+    border: 2px solid rgba(56, 189, 248, 0.9);
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.45), inset 0 0 12px rgba(56, 189, 248, 0.25);
+}
+
+/* Wave (ripple) — co từ to về khớp target-circle, ĐỒNG THỜI mờ dần (opacity, JS set mỗi frame qua
+ * computeWaveOpacity()) — hiệu ứng "wave fade" chuẩn (Material ripple: scale + opacity cùng biến
+ * thiên theo thời gian, KHÔNG phải riêng scale). */
 .gameplay-wave-ring {
     position: absolute;
-    top: var(--gameplay-circle-top);
-    left: 50%;
+    top: 0;
+    left: 0;
     transform: translate(-50%, -50%);
     border-radius: 9999px;
     border: 2px solid rgba(255, 255, 255, 0.55);
     pointer-events: none;
-    will-change: width, height;
+    will-change: width, height, opacity;
 }
 
 /* Feedback thị giác khi wave đã vào vùng hợp lệ (gap) — KHÔNG ảnh hưởng chấm điểm, chỉ báo mắt. */
@@ -43,19 +53,14 @@
     box-shadow: 0 0 14px rgba(74, 222, 128, 0.5);
 }
 
-/* Khung neo cho tier popup (PERFECT/EXCELLENT/...) — ĐẶT Ở ĐÚNG vị trí vòng tròn (SỬA 16/08/2026,
- * cùng lý do --gameplay-circle-top ở trên: popup phải nổi lên NGAY TẠI nơi vừa tap, không phải
- * giữa màn hình). Dùng flex căn giữa THAY VÌ transform (như 2 rule trên) để KHÔNG xung đột với
- * transform riêng của animation gameplayTierPopupFloat trên chính .gameplay-tier-popup bên trong. */
-.gameplay-tier-popup-layer {
+/* Khung neo cho tier popup (PERFECT/EXCELLENT/...) — đặt NGAY TẠI vị trí note vừa tap (x,y truyền
+ * vào showTapTierPopup(), KHÔNG còn 1 vị trí cố định giữa màn hình như bản đầu). Anchor lo phần
+ * ĐỊNH VỊ tĩnh (transform translate -50%/-50%), popup con lo phần ANIMATION riêng (translateY/scale)
+ * — tách 2 lớp transform để không đụng nhau. */
+.gameplay-tier-popup-anchor {
     position: absolute;
-    top: calc(var(--gameplay-circle-top) - 60px);
-    left: calc(50% - 60px);
-    width: 120px;
-    height: 120px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
 }
 
 .gameplay-tier-popup {
@@ -65,6 +70,7 @@
     text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
     animation: gameplayTierPopupFloat 650ms ease-out forwards;
     pointer-events: none;
+    white-space: nowrap;
 }
 @keyframes gameplayTierPopupFloat {
     0%   { opacity: 0; transform: translateY(6px) scale(0.85); }
