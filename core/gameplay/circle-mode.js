@@ -4,18 +4,20 @@
  * trong chính file này (Rule 3a) — nơi cần phối hợp nhiều hàm (vd tính radius rồi mới classify tier)
  * là event/workflow/gameplay.js, KHÔNG phải ở đây.
  *
- * SỬA LẦN 2 (16/08/2026, đọc lại plan §9 "Chọn cách sinh note theo audio" + chốt lại với Giang) —
- * phân công lại ĐÚNG theo plan (bản đầu gán sai: energy quyết định KÍCH THƯỚC, plan thật ra nói
- * energy quyết định MẬT ĐỘ):
+ * SỬA LẦN 3 (16/08/2026, phản hồi Giang — fade sai chỗ + vị trí thiên lệch) trên nền SỬA LẦN 2 (đọc
+ * lại plan §9 "Chọn cách sinh note theo audio"):
  *   - Beat quyết định "khi nào" -> `shouldSpawnCircleWave()` khoá `lastBeatTime` thật (global,
  *     core/dom-refs.js, KHÔNG thuộc appState) — khác mốc đã tiêu thụ = vừa có beat mới.
  *   - Energy quyết định "bao nhiêu" -> `computeSpawnProbability()`: mỗi khi có beat mới, KHÔNG
  *     chắc chắn spawn — xác suất tăng theo `smoothedEnergy` hiện tại (nhạc êm -> note thưa, nhạc
  *     mạnh -> note dày). Workflow tự Math.random() rồi so với xác suất này (Core không tự random).
  *   - Pitch quyết định "ở đâu" -> `computeSpawnPositionY()`: map TUYỆT ĐỐI `lastValidMidiNote` vào
- *     [pitchMidiMin, pitchMidiMax] -> [yMaxPercent, yMinPercent] — KHÔNG so lệch với 1 mốc trung
- *     bình động (khác cách core/visualizer/types/rubik.js đang làm cho Rubik effect) — Giang chốt
- *     rõ: "mỗi bài khác nhau là đúng", muốn giữ nguyên âm vực THẬT của từng bài, không chuẩn hoá.
+ *     DẢI THÍCH ỨNG quan sát được TRONG CHÍNH phiên chơi (appState `gameplayPitchRangeMin/Max`,
+ *     tự nới theo `computePitchRangeUpdate()`) -> [yMaxPercent, yMinPercent] — KHÔNG so lệch với 1
+ *     mốc trung bình động (khác cách core/visualizer/types/rubik.js đang làm cho Rubik effect) —
+ *     Giang chốt "mỗi bài khác nhau là đúng, vẫn dùng pitch" NHƯNG dải cố định 36-96 gây thiên lệch
+ *     (đa số bài chỉ dùng 1 phần nhỏ dải rộng đó) -> SỬA sang dải thích ứng, vừa giữ đúng "mỗi bài
+ *     khác nhau" (mỗi bài tự nới dải riêng theo âm vực THẬT của nó) vừa trải đều hơn khắp màn hình.
  *   - Vị trí X: plan KHÔNG gán nguồn audio nào -> `computeSpawnPositionX()` ngẫu nhiên trong
  *     spawnZone (Workflow truyền vào 1 số random 0-1, Core chỉ nội suy — xem lý do tương tự
  *     spawnProbability, giữ Core deterministic/dễ test).
@@ -23,6 +25,8 @@
  *     hiện tại, xem `computeShrinkDurationMs()`.
  *   - `startRadius` (waveStartRadius): plan không gán nguồn nào -> GIỮ CỐ ĐỊNH (GAMEPLAY_CIRCLE_
  *     CONFIG.waveStartRadius, cùng nhóm độ khó/thị giác với centerRadius/gap).
+ *   - `computeWaveOpacity()`: fade CHỈ xảy ra ở đoạn CUỐI hành trình (lúc wave sắp thu vào vòng
+ *     tròn tâm) — xem docstring ngay tại hàm đó, đúng ý Giang "wave fade = chỗ thu vào vòng giữa".
  *
  * Mỗi note giờ là 1 CẶP circle (mục tiêu, vị trí x/y cố định) + wave (co từ startRadius về 0 tại
  * ĐÚNG x/y đó) — KHÔNG còn 1 vòng tròn tâm tĩnh dùng chung cho mọi wave (xem docstring service/
@@ -63,16 +67,35 @@
             return Math.min(cfg.maxShrinkDurationMs, Math.max(cfg.minShrinkDurationMs, raw));
         }
 
-        /** Vị trí Y (%) — map TUYỆT ĐỐI `midiNote` hiện tại (appState 'lastValidMidiNote', null nếu
-         * chưa detect được nốt nào) vào dải [pitchMidiMin, pitchMidiMax] -> [yMaxPercent,
-         * yMinPercent] (nốt CAO -> Y NHỎ -> cao hơn trên màn hình, nốt THẤP -> Y LỚN -> thấp hơn).
-         * midiNote null -> giữa dải (không có tín hiệu pitch thì spawn giữa vùng an toàn). */
-        function computeSpawnPositionY(midiNote, cfg) {
+        /** Vị trí Y (%) — map TUYỆT ĐỐI `midiNote` hiện tại vào DẢI THÍCH ỨNG (SỬA 16/08/2026,
+         * Giang chỉ ra dải cố định 36-96 gây "thiên lệch" — đa số bài chỉ dùng 1 phần nhỏ dải rộng
+         * đó nên vị trí dồn cục 1 vùng màn hình) — `rangeMin`/`rangeMax` là nốt THẤP NHẤT/CAO NHẤT
+         * ĐÃ QUAN SÁT ĐƯỢC trong CHÍNH phiên chơi này (appState `gameplayPitchRangeMin/Max`, tự nới
+         * dần theo computePitchRangeUpdate() bên dưới) — KHÔNG phải 1 mốc trung bình động (KHÁC hẳn
+         * cách core/visualizer/types/rubik.js làm cho Rubik effect) — vẫn giữ đúng yêu cầu "mỗi bài
+         * khác nhau là đúng, vẫn dùng pitch" (mỗi bài tự nới ra 1 dải riêng theo âm vực THẬT của
+         * chính nó, KHÔNG chuẩn hoá chung 1 công thức tĩnh cho mọi bài), nhưng dải đó LUÔN VỪA KHỚP
+         * nội dung đang phát -> tự nhiên trải đều hơn khắp `spawnZone`, không còn dồn cục.
+         * `rangeMin`/`rangeMax` null (chưa detect được nốt nào) HOẶC dải quá hẹp (< pitchMinSpan
+         * Semitones — mới vào bài, chỉ có 1-2 nốt gần nhau) -> fallback về GIỮA spawnZone. */
+        function computeSpawnPositionY(midiNote, rangeMin, rangeMax, cfg) {
             const zone = cfg.spawnZone;
-            if (midiNote == null) return (zone.yMinPercent + zone.yMaxPercent) / 2;
-            const clampedMidi = Math.min(cfg.pitchMidiMax, Math.max(cfg.pitchMidiMin, midiNote));
-            const ratio = (clampedMidi - cfg.pitchMidiMin) / (cfg.pitchMidiMax - cfg.pitchMidiMin); // 0 (thấp) -> 1 (cao)
-            return zone.yMaxPercent - ratio * (zone.yMaxPercent - zone.yMinPercent); // ratio cao -> Y nhỏ
+            const mid = (zone.yMinPercent + zone.yMaxPercent) / 2;
+            if (midiNote == null || rangeMin == null || rangeMax == null) return mid;
+            const span = rangeMax - rangeMin;
+            if (span < cfg.pitchMinSpanSemitones) return mid;
+            const clampedMidi = Math.min(rangeMax, Math.max(rangeMin, midiNote));
+            const ratio = (clampedMidi - rangeMin) / span; // 0 (thấp nhất ĐÃ THẤY) -> 1 (cao nhất ĐÃ THẤY)
+            return zone.yMaxPercent - ratio * (zone.yMaxPercent - zone.yMinPercent); // ratio cao -> Y nhỏ (cao trên màn hình)
+        }
+
+        /** Cập nhật dải pitch quan sát được (min/max) — value thuần, KHÔNG tự appState.set() (Rule
+         * 2, Workflow tự ghi sau khi gọi). `midiNote` null (chưa detect được) -> giữ nguyên dải cũ. */
+        function computePitchRangeUpdate(midiNote, currentMin, currentMax) {
+            if (midiNote == null) return { min: currentMin, max: currentMax };
+            const newMin = currentMin == null ? midiNote : Math.min(currentMin, midiNote);
+            const newMax = currentMax == null ? midiNote : Math.max(currentMax, midiNote);
+            return { min: newMin, max: newMax };
         }
 
         /** Vị trí X (%) — ngẫu nhiên trong spawnZone (plan không gán nguồn audio nào cho trục X).
@@ -99,14 +122,19 @@
             return wave.startRadius * (1 - ratio);
         }
 
-        /** Độ mờ (opacity, 0-1) HIỆN TẠI của 1 wave — hiệu ứng "wave fade" (ripple mờ dần khi co
-         * lại, chuẩn phổ biến — xem Material ripple: scale + opacity cùng biến thiên). Mờ dần từ 1.0
-         * (lúc spawn) xuống 0.3 (lúc co hết) — KHÔNG về 0 tuyệt đối để wave vẫn thấy được lúc vào
-         * đúng vùng bấm (gap) gần cuối vòng đời. */
+        /** Độ mờ (opacity, 0-1) HIỆN TẠI của 1 wave — hiệu ứng "wave fade" ĐÚNG NGHĨA (SỬA lần 2,
+         * 16/08/2026, Giang chỉ rõ: "đó là vòng tròn thứ hai thu vào vòng tròn giữa — đấy mới là
+         * chỗ cần wave fade") — KHÔNG mờ dần đều suốt hành trình như bản đầu (gây cảm giác wave
+         * "biến mất" quá sớm dù vẫn đang sống) — giữ NGUYÊN opacity=1 suốt `fadeStartRatio` đầu
+         * hành trình, CHỈ mờ dần tuyến tính về 0 ở đoạn CUỐI (lúc wave sắp co hết vào vòng tròn
+         * tâm — ĐÚNG đoạn "thu vào" Giang mô tả). */
         function computeWaveOpacity(wave, now) {
             const elapsed = now - wave.spawnedAt;
             const ratio = Math.min(1, Math.max(0, elapsed / wave.shrinkDurationMs));
-            return 1 - ratio * 0.7;
+            const fadeStartRatio = 0.7;
+            if (ratio <= fadeStartRatio) return 1;
+            const fadeProgress = (ratio - fadeStartRatio) / (1 - fadeStartRatio);
+            return 1 - fadeProgress;
         }
 
         /** Wave đã co vượt quá mép TRONG của vùng hợp lệ (bấm trễ, không còn cơ hội) -> coi là miss,
