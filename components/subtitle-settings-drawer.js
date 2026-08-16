@@ -16,6 +16,15 @@
  * element-style-editor.js) áp CHUNG lên `subtitleFrame` (khung bao mọi dòng phụ đề đang active,
  * KHÔNG áp riêng từng dòng — xem event/workflow/subtitle-style-settings.js::openStyling()).
  *
+ * SỬA (16/08/2026, mục 3 — Giang yêu cầu "toggle tuỳ chọn sử dụng hiển thị mặc định, On để áp dụng
+ * tuỳ chỉnh thì lúc này mới hiện nút styling") — card "Styling" cũ (luôn hiện) TÁCH thành 3 khối
+ * trong CÙNG 1 card: (1) toggle `#setting-subtitle-use-custom-styling` LUÔN hiện; (2) nút Styling
+ * (`#setting-open-subtitle-styling`) — CHỈ hiện khi toggle BẬT; (3) 2 field mặc định (cỡ chữ
+ * 8-16px + màu chữ, `#setting-subtitle-default-fields`) — CHỈ hiện khi toggle TẮT. (2)/(3) LUÔN
+ * render TĨNH cả 2 trong HTML (1 cái `hidden` sẵn) — ẩn/hiện qua toggle `hidden` class ở Workflow
+ * (KHÔNG re-render lại toàn panel mỗi lần đổi toggle, xem workflowSubtitleStyleSettings
+ * ::_syncCustomStylingVisibility(), event/workflow/subtitle-style-settings.js).
+ *
  * MỚI (15/08/2026, mục 4b) — 3 hàng Comming/In/Outing (_renderSubtitleTransitionSection()) — đọc
  * `SUBTITLE_TRANSITION_EFFECTS`/`SUBTITLE_IN_EFFECTS` (core/subtitle/subtitle-transition.js) để
  * dựng option — file NÀY PHẢI nạp SAU file đó (xem index.html).
@@ -36,7 +45,17 @@ function renderSubtitlePanelBody() {
                         </div>
                     </div>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                        <button id="setting-open-subtitle-styling" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left">
+                        <div class="flex justify-between items-center p-4">
+                            <div class="pr-3">
+                                <div class="text-sm font-medium truncate" data-i18n="settingsSubtitleStyle.useCustom.label">${t('settingsSubtitleStyle.useCustom.label')}</div>
+                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="settingsSubtitleStyle.useCustom.hint">${t('settingsSubtitleStyle.useCustom.hint')}</div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="setting-subtitle-use-custom-styling" class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                            </label>
+                        </div>
+                        <button id="setting-open-subtitle-styling" class="hidden flex justify-between items-center p-4 border-t border-white/5 hover:bg-white/5 transition-colors w-full text-left">
                             <div class="flex items-center gap-3 min-w-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10M12 17v4M5 3h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" /></svg>
                                 <div class="min-w-0">
@@ -46,10 +65,31 @@ function renderSubtitlePanelBody() {
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                         </button>
+                        <div id="setting-subtitle-default-fields" class="flex flex-col gap-3 p-4 border-t border-white/5">
+                            <div class="flex justify-between items-center gap-2">
+                                <span class="text-sm font-medium" data-i18n="settingsSubtitleStyle.defaultFontSize.label">${t('settingsSubtitleStyle.defaultFontSize.label')}</span>
+                                <select id="setting-subtitle-default-fontsize" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none">${_subtitleFontSizeOptions()}</select>
+                            </div>
+                            <div class="flex justify-between items-center gap-2">
+                                <span class="text-sm font-medium" data-i18n="settingsSubtitleStyle.defaultColor.label">${t('settingsSubtitleStyle.defaultColor.label')}</span>
+                                <input type="color" id="setting-subtitle-default-color" value="#ffffff" class="w-10 h-8 rounded-lg border border-white/10 bg-transparent cursor-pointer p-0.5">
+                            </div>
+                        </div>
                     </div>
                     ${_renderSubtitleTransitionSection()}
                 </div>
 `;
+}
+
+/** MỚI (16/08/2026, mục 3 — "Nếu là mặc định cho phép chỉnh sửa cỡ chữ từ 8px-16px") — 9 mốc
+ * NGUYÊN (8..16), KHÔNG dùng slider — nhất quán mọi field khác trong panel này đều là `<select>`
+ * (Comming/In/Outing effect), tránh thêm 1 kiểu control khác + wiring "live label" riêng cho
+ * slider (đơn giản hoá, CÙNG lý do Opacity ở Element Style Editor cũng chọn input số thay vì
+ * slider, xem components/element-style-editor-drawer.js). */
+function _subtitleFontSizeOptions() {
+    let opts = '';
+    for (let px = 8; px <= 16; px++) opts += `<option value="${px}">${px}px</option>`;
+    return opts;
 }
 
 /** MỚI (15/08/2026, mục 4b) — 3 hàng Comming/In/Outing. Dropdown effect DÙNG CHUNG cho MỌI dòng

@@ -99,6 +99,19 @@ function _eseNumber(section, field, subkey, value, step) {
     return `<input type="number" value="${value}" step="${step || 1}" class="ese-field w-20 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none" data-section="${section}" data-field="${field}" data-subkey="${subkey}" data-numeric="1">`;
 }
 
+/** MỚI (16/08/2026, mục 2) — cặp input màu (text hex đồng bộ 2 chiều <-> color picker tròn, CÙNG
+ * `data-cross-target`) DÙNG CHUNG cho 4 field màu trong Drawer (text.color/box.border.color/
+ * box.background.value/text.textShadow.color, TÁCH từ 2 bản gần giống hệt nhau trước đó —
+ * `_renderEseColorField()`/phần màu của `_renderEseBorderField()`). `idPrefix` PHẢI duy nhất/field
+ * (id DOM toàn trang, đụng nhau thì `data-cross-target` đồng bộ NHẦM field khác). */
+function _eseColorPair(idPrefix, section, field, subkey, value) {
+    return `
+        <div class="flex items-center gap-2">
+            <input type="text" id="ese-${idPrefix}-color-text" data-cross-target="ese-${idPrefix}-color-picker" value="${value}" class="ese-field w-20 bg-transparent border-b border-slate-300 px-1 py-0.5 text-xs text-slate-900 outline-none font-mono text-right uppercase" data-section="${section}" data-field="${field}" data-subkey="${subkey}">
+            <div class="w-8 h-8 rounded-full border border-slate-300 overflow-hidden shrink-0"><input type="color" id="ese-${idPrefix}-color-picker" data-cross-target="ese-${idPrefix}-color-text" value="${value}" class="ese-field w-10 h-10 -m-1 cursor-pointer" data-section="${section}" data-field="${field}" data-subkey="${subkey}"></div>
+        </div>`;
+}
+
 function _eseUnitOptions(units) {
     return units.map((u) => ({ value: u, label: u }));
 }
@@ -125,6 +138,7 @@ function _renderEseBoxTab(box) {
         ${_renderEseSizeRow(t('elementStyleEditor.box.height'), 'box', 'height', box.height)}
         ${_eseCard('box', 'padding', t('elementStyleEditor.box.padding'), box.padding.enabled, _renderEseSidesField('box', 'padding', box.padding))}
         ${_eseCard('box', 'margin', t('elementStyleEditor.box.margin'), box.margin.enabled, _renderEseSidesField('box', 'margin', box.margin))}
+        ${_eseCard('box', 'background', t('elementStyleEditor.box.background'), box.background.enabled, _renderEseBackgroundField(box.background))}
         ${_eseCard('box', 'border', t('elementStyleEditor.box.border'), box.border.enabled, _renderEseBorderField(box.border))}
         ${_eseCard('box', 'opacity', t('elementStyleEditor.box.opacity'), box.opacity.enabled, _renderEseOpacityField(box.opacity))}
     `;
@@ -184,6 +198,15 @@ function _renderEseSidesField(section, field, f) {
         </div>`;
 }
 
+/** MỚI (16/08/2026, mục 2 — Giang chỉ ra "đang thiếu background cho box"). */
+function _renderEseBackgroundField(bg) {
+    return `
+        <div class="flex justify-between items-center">
+            <span class="text-xs text-slate-500">${t('elementStyleEditor.field.value')}</span>
+            ${_eseColorPair('background', 'box', 'background', 'value', bg.value)}
+        </div>`;
+}
+
 function _renderEseBorderField(b) {
     const styleOptions = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset', 'none'].map((v) => ({ value: v, label: v }));
     return `
@@ -200,10 +223,7 @@ function _renderEseBorderField(b) {
         </div>
         <div class="flex justify-between items-center">
             <span class="text-xs text-slate-500">${t('elementStyleEditor.border.color')}</span>
-            <div class="flex items-center gap-2">
-                <input type="text" id="ese-border-color-text" data-cross-target="ese-border-color-picker" value="${b.color}" class="ese-field w-20 bg-transparent border-b border-slate-300 px-1 py-0.5 text-xs text-slate-900 outline-none font-mono text-right uppercase" data-section="box" data-field="border" data-subkey="color">
-                <div class="w-8 h-8 rounded-full border border-slate-300 overflow-hidden shrink-0"><input type="color" id="ese-border-color-picker" data-cross-target="ese-border-color-text" value="${b.color}" class="ese-field w-10 h-10 -m-1 cursor-pointer" data-section="box" data-field="border" data-subkey="color"></div>
-            </div>
+            ${_eseColorPair('border', 'box', 'border', 'color', b.color)}
         </div>`;
 }
 
@@ -236,6 +256,7 @@ function _renderEseTextTab(text, loadedGoogleFonts) {
         ${_renderEseSimpleRow(t('elementStyleEditor.text.textTransform'), 'text', 'textTransform', text.textTransform, ['uppercase', 'lowercase', 'capitalize'])}
         ${_renderEseSimpleRow(t('elementStyleEditor.text.whiteSpace'), 'text', 'whiteSpace', text.whiteSpace, ['nowrap', 'pre-wrap', 'pre'])}
         ${_eseCard('text', 'color', t('elementStyleEditor.text.color'), text.color.enabled, _renderEseColorField(text.color))}
+        ${_eseCard('text', 'textShadow', t('elementStyleEditor.text.textShadow'), text.textShadow.enabled, _renderEseTextShadowField(text.textShadow))}
     `;
 }
 
@@ -243,8 +264,30 @@ function _renderEseTextTab(text, loadedGoogleFonts) {
 function _renderEseColorField(c) {
     return `
         <div class="flex justify-end items-center gap-2">
-            <input type="text" id="ese-color-text" data-cross-target="ese-color-picker" value="${c.value}" class="ese-field w-20 bg-transparent border-b border-slate-300 px-1 py-0.5 text-xs text-slate-900 outline-none font-mono text-right uppercase" data-section="text" data-field="color" data-subkey="value">
-            <div class="w-8 h-8 rounded-full border border-slate-300 overflow-hidden shrink-0"><input type="color" id="ese-color-picker" data-cross-target="ese-color-text" value="${c.value}" class="ese-field w-10 h-10 -m-1 cursor-pointer" data-section="text" data-field="color" data-subkey="value"></div>
+            ${_eseColorPair('color', 'text', 'color', 'value', c.value)}
+        </div>`;
+}
+
+/** MỚI (16/08/2026, mục 2 — Giang chỉ ra "chưa có text-shadow cho text") — 3 input số (offsetX/
+ * offsetY/blur, LUÔN px, xem docstring cloneElementStyleDraftDefaults(), service/state/
+ * element-style-editor.js) + 1 cặp màu DÙNG CHUNG (_eseColorPair()). */
+function _renderEseTextShadowField(ts) {
+    return `
+        <div class="flex justify-between items-center">
+            <span class="text-xs text-slate-500">${t('elementStyleEditor.textShadow.offsetX')}</span>
+            ${_eseNumber('text', 'textShadow', 'offsetX', ts.offsetX, 1)}
+        </div>
+        <div class="flex justify-between items-center">
+            <span class="text-xs text-slate-500">${t('elementStyleEditor.textShadow.offsetY')}</span>
+            ${_eseNumber('text', 'textShadow', 'offsetY', ts.offsetY, 1)}
+        </div>
+        <div class="flex justify-between items-center">
+            <span class="text-xs text-slate-500">${t('elementStyleEditor.textShadow.blur')}</span>
+            ${_eseNumber('text', 'textShadow', 'blur', ts.blur, 1)}
+        </div>
+        <div class="flex justify-between items-center">
+            <span class="text-xs text-slate-500">${t('elementStyleEditor.textShadow.color')}</span>
+            ${_eseColorPair('textshadow', 'text', 'textShadow', 'color', ts.color)}
         </div>`;
 }
 
