@@ -4,32 +4,52 @@
  * trong chính file này (Rule 3a) — nơi cần phối hợp nhiều hàm (vd tính radius rồi mới classify tier)
  * là event/workflow/gameplay.js, KHÔNG phải ở đây.
  *
- * SỬA (16/08/2026, Giang yêu cầu "làm luôn" phần khoá beat + audio quyết định duration/radius):
- *   - Spawn giờ KHOÁ THEO BEAT THẬT — không còn cooldown đều. `shouldSpawnCircleWave()` so sánh
- *     `lastBeatTime` (biến global core/dom-refs.js, KHÔNG thuộc appState — audio-analysis.js ghi
- *     mỗi lần flux vượt threshold, xem core/audio-analysis.js) với mốc beat GẦN NHẤT Workflow đã
- *     tiêu thụ — khác nhau (và > 0) nghĩa là vừa có 1 beat MỚI, spawn ngay. `lastBeatTime` là
- *     `Date.now()`, KHÔNG cùng gốc thời gian với `performance.now()` (dùng cho vòng đời wave) —
- *     chỉ dùng để SO SÁNH THAY ĐỔI (đổi giá trị = có beat mới), KHÔNG dùng để trừ ra khoảng cách.
- *   - `shrinkDurationMs`/`startRadius` giờ tính RIÊNG cho TỪNG wave lúc spawn, theo audio TẠI THỜI
- *     ĐIỂM ĐÓ (`currentCalculatedBpm`/`smoothedEnergy`, appState có sẵn) — LƯU LUÔN vào wave (KHÔNG
- *     đọc lại cfg tĩnh mỗi frame), vì BPM/energy đổi liên tục theo bài mà 1 wave đã spawn thì vòng
- *     đời của nó phải cố định, không "trôi" giữa chừng nếu nhạc đổi nhịp.
- *   - Wave co dần bán kính theo THỜI GIAN TỰ THÂN kể từ lúc spawn (`performance.now()`), độc lập
- *     audio.currentTime — chỉ ĐIỂM SPAWN (beat) + 2 tham số ban đầu (duration/radius) là do audio
- *     quyết định, bản thân quá trình co diễn ra như 1 animation cố định sau đó.
+ * SỬA LẦN 2 (16/08/2026, đọc lại plan §9 "Chọn cách sinh note theo audio" + chốt lại với Giang) —
+ * phân công lại ĐÚNG theo plan (bản đầu gán sai: energy quyết định KÍCH THƯỚC, plan thật ra nói
+ * energy quyết định MẬT ĐỘ):
+ *   - Beat quyết định "khi nào" -> `shouldSpawnCircleWave()` khoá `lastBeatTime` thật (global,
+ *     core/dom-refs.js, KHÔNG thuộc appState) — khác mốc đã tiêu thụ = vừa có beat mới.
+ *   - Energy quyết định "bao nhiêu" -> `computeSpawnProbability()`: mỗi khi có beat mới, KHÔNG
+ *     chắc chắn spawn — xác suất tăng theo `smoothedEnergy` hiện tại (nhạc êm -> note thưa, nhạc
+ *     mạnh -> note dày). Workflow tự Math.random() rồi so với xác suất này (Core không tự random).
+ *   - Pitch quyết định "ở đâu" -> `computeSpawnPositionY()`: map TUYỆT ĐỐI `lastValidMidiNote` vào
+ *     [pitchMidiMin, pitchMidiMax] -> [yMaxPercent, yMinPercent] — KHÔNG so lệch với 1 mốc trung
+ *     bình động (khác cách core/visualizer/types/rubik.js đang làm cho Rubik effect) — Giang chốt
+ *     rõ: "mỗi bài khác nhau là đúng", muốn giữ nguyên âm vực THẬT của từng bài, không chuẩn hoá.
+ *   - Vị trí X: plan KHÔNG gán nguồn audio nào -> `computeSpawnPositionX()` ngẫu nhiên trong
+ *     spawnZone (Workflow truyền vào 1 số random 0-1, Core chỉ nội suy — xem lý do tương tự
+ *     spawnProbability, giữ Core deterministic/dễ test).
+ *   - `shrinkDurationMs`: plan không gán rõ nguồn — quyết định riêng (mở rộng nhóm Beat): theo BPM
+ *     hiện tại, xem `computeShrinkDurationMs()`.
+ *   - `startRadius` (waveStartRadius): plan không gán nguồn nào -> GIỮ CỐ ĐỊNH (GAMEPLAY_CIRCLE_
+ *     CONFIG.waveStartRadius, cùng nhóm độ khó/thị giác với centerRadius/gap).
  *
- * Vùng hợp lệ bấm = dải `gap` px quanh biên `centerRadius` (bán kính vòng tròn tâm CỐ ĐỊNH, KHÔNG
- * đổi theo audio — đây là tham số ĐỘ KHÓ, cần playtest riêng, xem GAMEPLAY_CIRCLE_CONFIG). Tap càng
- * gần biên (radius ~= centerRadius) càng được điểm cao.
+ * Mỗi note giờ là 1 CẶP circle (mục tiêu, vị trí x/y cố định) + wave (co từ startRadius về 0 tại
+ * ĐÚNG x/y đó) — KHÔNG còn 1 vòng tròn tâm tĩnh dùng chung cho mọi wave (xem docstring service/
+ * state/gameplay-runtime.js). Tap phải TRÚNG VỊ TRÍ (x,y) của note đó (event/workflow/gameplay.js::
+ * handleTap(), dùng findNearestNoteByPosition() bên dưới), KHÔNG còn tính theo "wave gần biên nhất"
+ * bất kể ở đâu trên màn hình như bản đầu.
+ *
+ * Vùng hợp lệ TÍNH ĐIỂM (khác vùng hợp lệ VỊ TRÍ ở trên) = dải `gap` px quanh biên `centerRadius`
+ * (bán kính vòng tròn tâm, CỐ ĐỊNH). Tap càng gần biên (radius ~= centerRadius) càng được điểm cao.
  */
 
-        /** Guard: có nên spawn 1 wave mới lúc này không — chưa đạt max wave cùng lúc, VÀ vừa có 1
-         * beat THẬT MỚI (khác mốc đã tiêu thụ lần trước, > 0 — audio-analysis.js chưa từng detect
-         * beat nào thì lastBeatTime vẫn là 0, giá trị khởi tạo ở core/dom-refs.js). */
+        /** Guard: có nên XÉT spawn 1 wave mới lúc này không — chưa đạt max wave cùng lúc, VÀ vừa
+         * có 1 beat THẬT MỚI (khác mốc đã tiêu thụ lần trước, > 0 — audio-analysis.js chưa từng
+         * detect beat nào thì lastBeatTime vẫn là 0, giá trị khởi tạo ở core/dom-refs.js). Đây CHỈ
+         * là điều kiện CẦN — Workflow còn phải roll xác suất qua computeSpawnProbability() nữa mới
+         * quyết định spawn THẬT (xem event/workflow/gameplay.js::tick()). */
         function shouldSpawnCircleWave(activeWaveCount, lastConsumedBeatTime, currentBeatTime, cfg) {
             if (activeWaveCount >= cfg.maxConcurrentWaves) return false;
             return currentBeatTime > 0 && currentBeatTime !== lastConsumedBeatTime;
+        }
+
+        /** Xác suất THẬT SỰ spawn 1 wave khi đủ điều kiện cần (shouldSpawnCircleWave() = true) —
+         * nội suy tuyến tính giữa spawnProbabilityMin (energy=0) và spawnProbabilityMax (energy=1)
+         * theo `smoothedEnergy` HIỆN TẠI. Workflow tự roll Math.random() so với số trả về đây. */
+        function computeSpawnProbability(smoothedEnergy, cfg) {
+            const energy = Math.min(1, Math.max(0, smoothedEnergy));
+            return cfg.spawnProbabilityMin + energy * (cfg.spawnProbabilityMax - cfg.spawnProbabilityMin);
         }
 
         /** Quy đổi BPM hiện tại (chuỗi từ appState — "---" khi chưa xác định được, hoặc số dạng
@@ -43,18 +63,31 @@
             return Math.min(cfg.maxShrinkDurationMs, Math.max(cfg.minShrinkDurationMs, raw));
         }
 
-        /** Bán kính KHỞI ĐIỂM của 1 wave — nội suy giữa waveStartRadiusBase (energy=0) và
-         * base+waveStartRadiusEnergyRange (energy=1) theo `smoothedEnergy` HIỆN TẠI lúc spawn. */
-        function computeWaveStartRadius(smoothedEnergy, cfg) {
-            const energy = Math.min(1, Math.max(0, smoothedEnergy));
-            return cfg.waveStartRadiusBase + energy * cfg.waveStartRadiusEnergyRange;
+        /** Vị trí Y (%) — map TUYỆT ĐỐI `midiNote` hiện tại (appState 'lastValidMidiNote', null nếu
+         * chưa detect được nốt nào) vào dải [pitchMidiMin, pitchMidiMax] -> [yMaxPercent,
+         * yMinPercent] (nốt CAO -> Y NHỎ -> cao hơn trên màn hình, nốt THẤP -> Y LỚN -> thấp hơn).
+         * midiNote null -> giữa dải (không có tín hiệu pitch thì spawn giữa vùng an toàn). */
+        function computeSpawnPositionY(midiNote, cfg) {
+            const zone = cfg.spawnZone;
+            if (midiNote == null) return (zone.yMinPercent + zone.yMaxPercent) / 2;
+            const clampedMidi = Math.min(cfg.pitchMidiMax, Math.max(cfg.pitchMidiMin, midiNote));
+            const ratio = (clampedMidi - cfg.pitchMidiMin) / (cfg.pitchMidiMax - cfg.pitchMidiMin); // 0 (thấp) -> 1 (cao)
+            return zone.yMaxPercent - ratio * (zone.yMaxPercent - zone.yMinPercent); // ratio cao -> Y nhỏ
         }
 
-        /** Tạo 1 wave mới — value thuần, chưa ghi vào đâu cả (Workflow tự appState.mutate() push).
-         * `startRadius`/`shrinkDurationMs` PHẢI đã được tính sẵn (computeWaveStartRadius()/
-         * computeShrinkDurationMs() ở trên) rồi truyền vào — hàm này KHÔNG tự tính, chỉ đóng gói. */
-        function createCircleWave(id, spawnedAt, startRadius, shrinkDurationMs) {
-            return { id, spawnedAt, startRadius, shrinkDurationMs };
+        /** Vị trí X (%) — ngẫu nhiên trong spawnZone (plan không gán nguồn audio nào cho trục X).
+         * `randomRoll01` PHẢI do Workflow tự Math.random() rồi truyền vào (Core không tự random —
+         * giữ hàm deterministic/dễ test, xem docstring đầu file). */
+        function computeSpawnPositionX(randomRoll01, cfg) {
+            const zone = cfg.spawnZone;
+            return zone.xMinPercent + randomRoll01 * (zone.xMaxPercent - zone.xMinPercent);
+        }
+
+        /** Tạo 1 wave (note) mới — value thuần, chưa ghi vào đâu cả (Workflow tự appState.mutate()
+         * push). `startRadius`/`shrinkDurationMs`/`x`/`y` PHẢI đã được tính sẵn (các hàm compute*
+         * ở trên) rồi truyền vào — hàm này KHÔNG tự tính, chỉ đóng gói. */
+        function createCircleWave(id, spawnedAt, startRadius, shrinkDurationMs, x, y) {
+            return { id, spawnedAt, startRadius, shrinkDurationMs, x, y };
         }
 
         /** Bán kính HIỆN TẠI của 1 wave tại thời điểm `now` — co tuyến tính từ startRadius về 0
@@ -66,6 +99,16 @@
             return wave.startRadius * (1 - ratio);
         }
 
+        /** Độ mờ (opacity, 0-1) HIỆN TẠI của 1 wave — hiệu ứng "wave fade" (ripple mờ dần khi co
+         * lại, chuẩn phổ biến — xem Material ripple: scale + opacity cùng biến thiên). Mờ dần từ 1.0
+         * (lúc spawn) xuống 0.3 (lúc co hết) — KHÔNG về 0 tuyệt đối để wave vẫn thấy được lúc vào
+         * đúng vùng bấm (gap) gần cuối vòng đời. */
+        function computeWaveOpacity(wave, now) {
+            const elapsed = now - wave.spawnedAt;
+            const ratio = Math.min(1, Math.max(0, elapsed / wave.shrinkDurationMs));
+            return 1 - ratio * 0.7;
+        }
+
         /** Wave đã co vượt quá mép TRONG của vùng hợp lệ (bấm trễ, không còn cơ hội) -> coi là miss,
          * PHẢI bị dọn khỏi danh sách wave đang sống dù không ai bấm tới. */
         function isWaveMissed(radius, centerRadius, gap) {
@@ -73,17 +116,18 @@
         }
 
         /**
-         * Tìm entry gần biên centerRadius nhất trong 1 danh sách {id, radius} ĐÃ TÍNH SẴN (Workflow
-         * tự map() qua computeWaveRadius() cho từng wave rồi mới gọi hàm này — không phải core gọi
-         * core, đây chỉ là 1 phép tính min trên dữ liệu đã có, xem Rule 3c phép thử "giá trị trung
-         * gian"). Trả null nếu mảng rỗng.
+         * Tìm note GẦN VỊ TRÍ TAP NHẤT trong 1 danh sách {id, x, y, ...} ĐÃ TÍNH SẴN vị trí hiện tại
+         * (Workflow tự chuẩn bị mảng này). Chỉ tính các note trong bán kính `tolerancePercent` quanh
+         * điểm tap — ngoài dung sai này coi như KHÔNG trúng note nào (trả null), KHÁC bản đầu (tính
+         * theo "gần biên centerRadius nhất" bất kể vị trí — SAI từ khi mỗi note có 1 vị trí riêng).
+         * @param {{id:*,x:number,y:number}[]} entries
          */
-        function findNearestRadiusEntry(radiusEntries, centerRadius) {
-            if (radiusEntries.length === 0) return null;
+        function findNearestNoteByPosition(entries, tapX, tapY, tolerancePercent) {
             let best = null, bestDist = Infinity;
-            for (const entry of radiusEntries) {
-                const dist = Math.abs(entry.radius - centerRadius);
-                if (dist < bestDist) { bestDist = dist; best = entry; }
+            for (const entry of entries) {
+                const dx = entry.x - tapX, dy = entry.y - tapY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist <= tolerancePercent && dist < bestDist) { bestDist = dist; best = entry; }
             }
             return best;
         }
