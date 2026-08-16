@@ -37,6 +37,13 @@
                 gameplayTotalScore: 'number',               // tổng điểm tier (đã nhân combo), CHƯA chia circleCount
                 gameplayCircleCount: 'number',              // số vòng đã resolve (tap hợp lệ HOẶC miss)
                 gameplayCountdownValue: 'number',           // số hiện tại đang hiện lúc phase='countdown' (5->0)
+                // MỚI (16/08/2026, Giang phản hồi "phân bổ high/low gây thiên lệch, cần đều hơn
+                // nhưng vẫn dùng pitch") — dải MIDI THẤP NHẤT/CAO NHẤT đã QUAN SÁT ĐƯỢC trong CHÍNH
+                // phiên chơi này (KHÔNG phải hằng số cố định nữa) — xem core/gameplay/circle-mode.js
+                // ::computeSpawnPositionY()/computePitchRangeUpdate(). null = chưa detect được nốt
+                // nào trong phiên này.
+                gameplayPitchRangeMin: 'nullable-number',
+                gameplayPitchRangeMax: 'nullable-number',
             },
             buildDefaults() {
                 return {
@@ -47,6 +54,8 @@
                     gameplayTotalScore: 0,
                     gameplayCircleCount: 0,
                     gameplayCountdownValue: GAMEPLAY_COUNTDOWN_SECONDS,
+                    gameplayPitchRangeMin: null,
+                    gameplayPitchRangeMax: null,
                 };
             },
         });
@@ -56,54 +65,45 @@
         const GAMEPLAY_COUNTDOWN_SECONDS = 5;
 
         /**
-         * Hằng số điều chỉnh cơ chế Circle — TẤT CẢ đơn vị px/ms. SỬA LẦN 2 (16/08/2026, đọc lại
-         * plan §9 "Chọn cách sinh note theo audio" + chốt lại với Giang) — phân công ĐÚNG theo plan:
-         *   - Beat quyết định "khi nào" -> thời điểm spawn (core/gameplay/circle-mode.js::
-         *     shouldSpawnCircleWave(), khoá lastBeatTime thật) + gián tiếp duration (beatsPerWave,
-         *     quyết định riêng của tôi, plan không gán rõ nguồn cho duration).
-         *   - Pitch quyết định "ở đâu" -> vị trí Y (computeSpawnPositionY(), map TUYỆT ĐỐI
-         *     lastValidMidiNote vào [pitchMidiMin, pitchMidiMax] -> [yMaxPercent, yMinPercent] —
-         *     Giang chốt KHÔNG so lệch với rubikPitchAvg như core/visualizer/types/rubik.js đang làm
-         *     cho Rubik effect, vì "mỗi bài khác nhau là đúng" — nốt tuyệt đối, không chuẩn hoá).
-         *   - Energy quyết định "bao nhiêu" -> XÁC SUẤT spawn mỗi khi có beat mới (KHÔNG PHẢI kích
-         *     thước wave như bản đầu tôi gán nhầm) — computeSpawnProbability().
-         *   - Radius (waveStartRadius): plan KHÔNG gán cho beat/energy/pitch nào cả -> GIỮ CỐ ĐỊNH,
-         *     cùng nhóm "độ khó/thị giác" với centerRadius/gap, cần playtest riêng.
-         *   - Vị trí X: plan không gán nguồn nào -> ngẫu nhiên trong spawnZone (không có tín hiệu
-         *     audio kiểu stereo pan có sẵn để bám vào).
+         * Hằng số điều chỉnh cơ chế Circle — TẤT CẢ đơn vị px/ms. SỬA LẦN 3 (16/08/2026, phản hồi
+         * Giang — fade sai chỗ + vòng tròn biến mất quá nhanh + vị trí Y thiên lệch):
+         *   - `pitchMidiMin`/`pitchMidiMax` (dải MIDI CỐ ĐỊNH) ĐÃ BỎ — thay bằng dải THÍCH ỨNG quan
+         *     sát được TRONG CHÍNH phiên chơi (gameplayPitchRangeMin/Max, appState) — vẫn dùng
+         *     pitch tuyệt đối (KHÔNG so lệch động như Rubik, đúng ý "mỗi bài khác nhau"), nhưng dải
+         *     map co giãn theo ĐÚNG âm vực bài đang phát thay vì 1 dải rộng cố định 36-96 (đa số bài
+         *     chỉ dùng 1 phần nhỏ dải đó -> vị trí dồn cục vào 1 vùng màn hình, đúng lỗi Giang chỉ
+         *     ra) -> tự nhiên trải đều hơn, xem computeSpawnPositionY()/computePitchRangeUpdate().
+         *   - `beatsPerWave` 2 -> 3, `minShrinkDurationMs` 500 -> 900: kéo dài thời gian wave tồn
+         *     tại (Giang: "nhiều vòng tròn xuất hiện rồi nhanh chóng biến mất ngay") — CHƯA chắc
+         *     chắn đây có phải bug thật hay không (soát code không thấy lỗi tính toán, elapsed/
+         *     radius/miss-threshold đều đúng), nhiều khả năng fade quá nhanh (xem điểm dưới) làm
+         *     wave MỜ ĐI sớm dù vẫn "sống" tạo cảm giác biến mất — tăng cả 2 để chắc chắn hơn nữa.
+         *   - `computeWaveOpacity()` (core/gameplay/circle-mode.js) SỬA HẲN thuật toán — bản trước
+         *     mờ dần ĐỀU suốt từ lúc spawn (1.0 -> 0.3 tuyến tính cả hành trình) — Giang chỉ rõ:
+         *     "wave fade" là hiệu ứng CHỖ vòng ngoài THU VÀO vòng tâm, KHÔNG PHẢI mờ dần đều toàn bộ
+         *     hành trình -> giờ giữ NGUYÊN opacity=1 suốt 70% đầu hành trình, CHỈ mờ dần ở 30% CUỐI
+         *     (lúc sắp hợp nhất vào vòng tròn tâm).
          *
-         * GIẢ ĐỊNH (CHƯA playtest, sửa 1 chỗ ở đây):
-         *   - beatsPerWave=2, min/maxShrinkDurationMs, fallbackShrinkDurationMs: xem giải thích cũ,
+         * GIẢ ĐỊNH (CHƯA playtest lại, sửa 1 chỗ ở đây):
+         *   - fallbackShrinkDurationMs/maxShrinkDurationMs: không đổi.
+         *   - spawnProbabilityMin/Max, tiers, comboTierNames, spawnZone, tapHitTolerancePercent:
          *     không đổi ở lần sửa này.
-         *   - spawnProbabilityMin/Max (0.35 - 1.0): lúc smoothedEnergy=0 vẫn còn 35% cơ hội spawn
-         *     (không im bặt hoàn toàn dù đoạn nhạc rất êm — vẫn phải "chơi được"), energy=1 gần như
-         *     luôn spawn khi có beat.
-         *   - pitchMidiMin/Max (36-96, ~C2-C7): dải phủ hầu hết nhạc cụ/giọng hát phổ biến — nốt
-         *     ngoài dải bị clamp về 2 đầu, không tự mở rộng theo bài.
-         *   - spawnZone: X ngẫu nhiên toàn dải 15-85%; Y clamp trong 25-82% (nốt map ra ngoài dải
-         *     này vẫn bị kẹp lại) — 25% đủ thấp hơn hàng icon Control Center/stats/back Playlist
-         *     (top-4), tương tự lý do đã chốt cho --gameplay-circle-top trước đây (giờ bỏ biến đó,
-         *     thay bằng spawnZone vì vị trí không còn cố định 1 chỗ nữa).
-         *   - 4 tier chia đều [0,1] theo cấp số cộng (0.25/0.5/0.75/1.0) — mô tả gốc chỉ nói "càng
-         *     xa biên càng ít điểm", không cho số chính xác.
-         *   - Combo NHÂN tuyến tính theo streak, KHÔNG trần (uncapped).
-         *   - tapHitTolerancePercent=16: dung sai bấm trúng 1 note theo VỊ TRÍ (% theo cạnh ngắn
-         *     hơn của layer, xem event/workflow/gameplay.js::handleTap()) — MỚI, cần khi vị trí
-         *     không còn cố định 1 chỗ (nhiều circle rải khắp màn hình).
+         *   - pitchMinSpanSemitones=5: dải quan sát được PHẢI rộng ít nhất 5 nửa cung mới bắt đầu
+         *     map theo tỉ lệ — dưới ngưỡng này (đầu bài, mới detect 1-2 nốt gần nhau) fallback về
+         *     giữa spawnZone, tránh dồn cục ở y hệt 1 điểm ngay từ đầu bài.
          */
         const GAMEPLAY_CIRCLE_CONFIG = Object.freeze({
             centerRadius: 42,          // px — bán kính vòng tròn tâm cố định (mục tiêu chạm khớp)
             gap: 34,                   // px — bề dày vùng hợp lệ bấm được (cả 2 phía quanh centerRadius)
             waveStartRadius: 230,      // px — CỐ ĐỊNH (plan không gán nguồn audio nào cho radius)
-            beatsPerWave: 2,           // wave co hết trong đúng N nhịp beat hiện tại (currentCalculatedBpm)
+            beatsPerWave: 3,           // wave co hết trong đúng N nhịp beat hiện tại (currentCalculatedBpm)
             fallbackShrinkDurationMs: 1500, // ms — dùng khi CHƯA xác định được BPM
-            minShrinkDurationMs: 500,  // ms — chặn dưới (BPM quá nhanh)
+            minShrinkDurationMs: 900,  // ms — chặn dưới (BPM quá nhanh)
             maxShrinkDurationMs: 3000, // ms — chặn trên (BPM quá chậm)
             maxConcurrentWaves: 3,     // số wave tối đa cùng lúc trên màn hình
             spawnProbabilityMin: 0.35, // xác suất spawn lúc smoothedEnergy = 0 (nhạc êm -> vẫn còn note, chỉ thưa hơn)
             spawnProbabilityMax: 1.0,  // xác suất spawn lúc smoothedEnergy = 1 (nhạc mạnh -> gần như luôn spawn)
-            pitchMidiMin: 36,          // nốt MIDI thấp nhất map được (~C2) -> yMaxPercent (thấp trên màn hình)
-            pitchMidiMax: 96,          // nốt MIDI cao nhất map được (~C7) -> yMinPercent (cao trên màn hình)
+            pitchMinSpanSemitones: 5,  // dải pitch quan sát được PHẢI rộng >= ngưỡng này mới map theo tỉ lệ, xem trên
             spawnZone: Object.freeze({
                 xMinPercent: 15, xMaxPercent: 85,
                 yMinPercent: 25, yMaxPercent: 82,
