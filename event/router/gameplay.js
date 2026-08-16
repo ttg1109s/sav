@@ -16,7 +16,7 @@ const routerGameplay = (() => {
                 break;
 
             case 'gameplay.tap.press':
-                workflowGameplay.handleTap();
+                workflowGameplay.handleTap(msg.payload.x, msg.payload.y);
                 break;
 
             case 'gameplay.scoreScreen.replay.click':
