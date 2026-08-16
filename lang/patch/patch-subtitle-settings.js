@@ -261,6 +261,11 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // MỚI (15/08/2026, mục 4a) — nút "Styling" trong panel con Phụ đề, mở Element Style Editor.
     'settingsSubtitleStyle.styling.label': 'Styling',
     'settingsSubtitleStyle.styling.hint': 'Customize the box that wraps subtitle lines (size, spacing, border, background...)',
+    // MỚI (16/08/2026, mục 3 — Giang yêu cầu "toggle tuỳ chọn sử dụng hiển thị mặc định").
+    'settingsSubtitleStyle.useCustom.label': 'Custom styling',
+    'settingsSubtitleStyle.useCustom.hint': 'Turn on to customize the subtitle box via Styling below. Off uses the default look (font size + color adjustable underneath).',
+    'settingsSubtitleStyle.defaultFontSize.label': 'Font size',
+    'settingsSubtitleStyle.defaultColor.label': 'Text color',
 
     // MỚI (15/08/2026, mục 4b) — Comming/In/Outing, xem components/subtitle-settings-drawer.js
     // (_renderSubtitleTransitionSection()) + core/subtitle/subtitle-transition.js.

@@ -225,6 +225,7 @@ const LANG_PATCH_VISUALIZER = {
     'elementStyleEditor.box.height': 'Height',
     'elementStyleEditor.box.padding': 'Padding',
     'elementStyleEditor.box.margin': 'Margin',
+    'elementStyleEditor.box.background': 'Background', // MỚI (16/08/2026, mục 2)
     'elementStyleEditor.box.border': 'Border',
     'elementStyleEditor.box.opacity': 'Opacity',
     'elementStyleEditor.field.value': 'Value',
@@ -255,6 +256,12 @@ const LANG_PATCH_VISUALIZER = {
     'elementStyleEditor.text.textTransform': 'Text transform',
     'elementStyleEditor.text.whiteSpace': 'Line wrap',
     'elementStyleEditor.text.color': 'Text color',
+    // MỚI (16/08/2026, mục 2 — Giang chỉ ra "chưa có text-shadow cho text").
+    'elementStyleEditor.text.textShadow': 'Text shadow',
+    'elementStyleEditor.textShadow.offsetX': 'Offset X (px)',
+    'elementStyleEditor.textShadow.offsetY': 'Offset Y (px)',
+    'elementStyleEditor.textShadow.blur': 'Blur (px)',
+    'elementStyleEditor.textShadow.color': 'Color',
     'elementStyleEditor.font.source': 'Source',
     'elementStyleEditor.font.sourceSystem': 'System font',
     'elementStyleEditor.font.sourceGoogle': 'Google Font',
