@@ -8,8 +8,15 @@
  * ra DOM tĩnh nữa — xem workflowSubtitleStyleSettings.refresh(), event/workflow/subtitle-style-
  * settings.js). Khung nền phụ đề (bg/border/blur/shadow) không còn tồn tại kiểu HARDCODE — khung
  * `subtitleFrame` giờ style tuỳ chỉnh ĐƯỢC qua `vizConfig.subtitleBoxCss` (mục 4a, Element Style
- * Editor — xem core/subtitle/subtitle-style-settings.js::initSubtitleStateFromConfig()). Từng
- * dòng `<p>` vẫn CHỮ TRẮNG + SHADOW CỐ ĐỊNH (`text-white sub-text-glow`, addActiveSubBlock() dưới).
+ * Editor — xem core/subtitle/subtitle-style-settings.js::initSubtitleStateFromConfig()).
+ *
+ * SỬA (16/08/2026, mục 3 — Giang chỉ ra "tuỳ chỉnh Styling chưa thắng inline subtitle") —
+ * `addActiveSubBlock()` KHÔNG còn hardcode class font/color/shadow trên TỪNG DÒNG `<p>` nữa (trước
+ * đây `font-bold text-white text-lg sub-text-glow leading-snug` — property EXPLICIT trên con LUÔN
+ * thắng property INHERITED từ cha bất kể specificity, nên style tuỳ chỉnh áp lên `subtitleFrame`
+ * KHÔNG BAO GIỜ hiện ra được) — dòng `<p>` giờ TRẦN, kế thừa HOÀN TOÀN từ `subtitleFrame` (2 class
+ * tĩnh làm sàn an toàn + inline tuỳ chỉnh/mặc định đè lên trên, xem components/
+ * visualizer-overlay.js, core/subtitle/subtitle-style-settings.js::applySubtitleFrameStyle()).
  *
  * SỬA (15/08/2026, mục 4b) — hiệu ứng Comming/In/Outing CẤU HÌNH ĐƯỢC (dropdown None/hiệu ứng,
  * CHUNG 1 cài đặt cho mọi dòng — vizConfig.subtitleCommingEffect/subtitleInEffect/
@@ -115,10 +122,15 @@
             block.id = `sub-active-${sub.id}`;
             block.dataset.subId = sub.id;
             block.dataset.start = sub.start;
-            // MỚI (mục 2) — chữ trắng + shadow CỐ ĐỊNH (text-white + sub-text-glow, class
-            // .sub-text-glow ở assets/css/base.css) — trước đây màu/cỡ chữ đọc từ
-            // vizConfig.subtitleStyle (applySubtitleStyle(), ĐÃ XOÁ), giờ tĩnh hoàn toàn.
-            block.className = 'font-bold text-white text-lg sub-text-glow leading-snug';
+            // SỬA (16/08/2026, mục 3 — Giang chỉ ra "tuỳ chỉnh Styling chưa thắng inline subtitle")
+            // — KHÔNG còn hardcode class font/color/shadow ở ĐÂY nữa (trước đây `font-bold
+            // text-white text-lg sub-text-glow leading-snug` — property EXPLICIT trên CHÍNH dòng
+            // này LUÔN thắng property INHERITED từ #subtitle-frame, dù frame có set qua inline hay
+            // không, nên style tuỳ chỉnh Element Style Editor áp lên frame KHÔNG BAO GIỜ hiện ra
+            // được). Dòng <p> giờ KHÔNG còn class nào cho font/color/shadow — kế thừa HOÀN TOÀN từ
+            // #subtitle-frame (2 class `sub-text-glow subtitle-default-appearance` làm sàn an
+            // toàn, + inline tuỳ chỉnh/mặc định đè lên trên — xem components/visualizer-overlay.js,
+            // core/subtitle/subtitle-style-settings.js::applySubtitleFrameStyle()).
             block.innerHTML = sub.text.replace(/\n/g, '<br>');
 
             // Chèn đúng vị trí theo start tăng dần trong số các khối đang hiển thị.
