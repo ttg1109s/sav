@@ -12,6 +12,9 @@ const LANG_PATCH_SETTINGS_MISC = {
     'settingsMisc.sectionTitle': 'Other',
     'settingsMisc.keepScreenOn.label': 'Keep screen on',
     'settingsMisc.keepScreenOn.hint': 'Prevents the screen from turning off during playback. Turn off to save battery (music still tries to keep playing in the background).',
+    // MỚI (16/08/2026, Game Mode Circle v1) — checkbox toggle vizConfig.gameplayModeEnabled, KHÔNG
+    // có hint (Giang yêu cầu bỏ mô tả, chỉ giữ label — components/settings/misc.js).
+    'settingsMisc.gameMode.label': 'Game Mode',
     'settingsMisc.openAbout.label': 'About the player',
     'settingsMisc.troubleshootTitle': 'Troubleshooting',
     // MỚI (18/07/2026, Giang yêu cầu — "mục mới Settings > Misc, vào hiện console log").
