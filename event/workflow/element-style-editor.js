@@ -97,6 +97,7 @@ const workflowElementStyleEditor = {
                 const { section, field, subkey, numeric, rerender } = t.dataset;
                 setElementStyleField(section, field, { [subkey]: numeric ? parseFloat(t.value) : t.value }); // core
                 if (rerender) this._render();
+                else this._updatePreview(); // _render() ở trên ĐÃ tự gọi _updatePreview() ở cuối rồi, tránh gọi 2 lần
             });
         });
 
@@ -108,6 +109,7 @@ const workflowElementStyleEditor = {
             el.addEventListener('change', (e) => {
                 const t = e.currentTarget;
                 setElementStyleSimpleField(t.dataset.section, t.dataset.field, t.value); // core
+                this._updatePreview();
             });
         });
 
@@ -130,8 +132,69 @@ const workflowElementStyleEditor = {
             });
         }
 
+        this._wireFontFamilyPicker();
+
         const applyBtn = genericDrawerBody.querySelector('#ese-apply-btn');
         if (applyBtn) applyBtn.addEventListener('click', () => this._apply());
+
+        this._updatePreview(); // MỚI — sơn preview NGAY sau mỗi lần vẽ lại body (tab đổi, toggle bật/tắt...)
+    },
+
+    /** MỚI (16/08/2026 — Giang yêu cầu "ô preview cố định ở trong body drawer") — sơn LẠI
+     * `#ese-preview-box` (components/element-style-editor-drawer.js::_renderEsePreviewBox()) khớp
+     * ĐÚNG draft HIỆN TẠI — gọi SAU MỌI thao tác đổi field (kể cả field KHÔNG kích `data-rerender`,
+     * xem `.ese-field`/`.ese-simple-field` bên dưới) để preview LUÔN sống động real-time, không đợi
+     * bấm "Áp dụng". TÁI DÙNG ĐÚNG cặp hàm `buildElementStyleCssString()`+`applyElementStyleToDom()`
+     * (core) mà `_apply()` dùng để áp thật lên `targetEl` — đảm bảo preview KHÔNG BAO GIỜ lệch so
+     * với kết quả thật. `removeAttribute('style')` TRƯỚC khi áp lại — CÙNG lý do
+     * `applySubtitleFrameStyle()` (core/subtitle/subtitle-style-settings.js): applyElementStyleToDom()
+     * chỉ setProperty() TỪNG khai báo, KHÔNG tự xoá property THỪA nếu draft mới bỏ bớt property so
+     * với lần sơn trước (vd vừa tắt Border đã bật trước đó). */
+    _updatePreview() {
+        const previewBox = genericDrawerBody.querySelector('#ese-preview-box');
+        if (!previewBox) return; // guard: hiếm khi thiếu (Drawer vừa đóng ngay lúc gọi)
+        previewBox.removeAttribute('style');
+        applyElementStyleToDom(previewBox, buildElementStyleCssString(appState.get('eseDraft'))); // core
+    },
+
+    /** MỚI (16/08/2026 — Giang cung cấp `core/google-fonts-list.js`, "chọn thành dropdown + search
+     * bên trong") — wire riêng cho ô search+dropdown font nguồn 'google' (`_renderEseGoogleFontPicker()`,
+     * components/element-style-editor-drawer.js) — KHÔNG đi qua cơ chế `.ese-field` chung (ô này cố
+     * ý KHÔNG mang class đó, xem docstring hàm render).
+     * - focus: chọn hết chữ (gõ lại dễ hơn) + mở dropdown ngay (hiện TOÀN BỘ list nếu ô đang trống).
+     * - input: lọc lại danh sách theo chữ vừa gõ (KHÔNG ghi state — gõ dở dang chưa phải tên hợp lệ).
+     * - mousedown trên dropdown (KHÔNG phải 'click') + `preventDefault()` — bắt buộc: mousedown bắn
+     *   TRƯỚC blur/focusout của input, `preventDefault()` chặn luôn việc input MẤT FOCUS do click ra
+     *   ngoài, nên `blur` KHÔNG kịp bắn trước khi mình xử lý chọn xong — tránh đúng race-condition
+     *   kinh điển của combobox tự chế (blur ẩn dropdown trước khi kịp nhận click bên trong nó).
+     * - blur (còn lại, vd click ra ngoài Drawer): ẩn dropdown + TRẢ ô hiển thị VỀ ĐÚNG giá trị đang
+     *   lưu thật trong state (đọc appState.get('eseDraft')) — phòng người dùng gõ dở rồi bỏ đi,
+     *   tránh lệch giữa chữ đang HIỆN trên ô với giá trị THẬT SỰ đã lưu. */
+    _wireFontFamilyPicker() {
+        const searchInput = genericDrawerBody.querySelector('#ese-fontfamily-search');
+        const dropdown = genericDrawerBody.querySelector('#ese-fontfamily-dropdown');
+        if (!searchInput || !dropdown) return; // guard: đang ở Box tab, hoặc nguồn 'system' -> không có 2 phần tử này
+
+        const openDropdown = () => {
+            dropdown.innerHTML = _renderEseFontDropdownItems(searchInput.value); // components/element-style-editor-drawer.js
+            dropdown.classList.remove('hidden');
+        };
+        searchInput.addEventListener('focus', () => { searchInput.select(); openDropdown(); });
+        searchInput.addEventListener('input', openDropdown);
+        searchInput.addEventListener('blur', () => {
+            dropdown.classList.add('hidden');
+            searchInput.value = appState.get('eseDraft').text.fontFamily.value;
+        });
+        dropdown.addEventListener('mousedown', (e) => {
+            const btn = e.target.closest('.ese-font-option');
+            if (!btn) return;
+            e.preventDefault(); // xem docstring — chặn input mất focus trước khi xử lý xong
+            const fontName = btn.dataset.fontName;
+            searchInput.value = fontName;
+            setElementStyleField('text', 'fontFamily', { value: fontName }); // core
+            dropdown.classList.add('hidden');
+            this._updatePreview();
+        });
     },
 
     /** Build chuỗi CSS -> lưu state -> áp inline lên targetEl (nếu có) -> báo `onApply` (nếu có,
