@@ -95,13 +95,6 @@
             layerEl.classList.add('hidden');
         }
 
-        function showGameplayReadyScreen(screenEl) {
-            screenEl.classList.remove('hidden');
-        }
-        function hideGameplayReadyScreen(screenEl) {
-            screenEl.classList.add('hidden');
-        }
-
         /** Hiện/đổi số đếm ngược — retrigger animation CSS bằng remove+reflow+add class (đọc
          * `offsetWidth` ép trình duyệt reflow ngay, KHÔNG phải hàm/timer nào — thuần đồng bộ). */
         function showGameplayCountdown(screenEl, numberEl, value) {
@@ -112,14 +105,5 @@
             numberEl.classList.add('is-pulsing');
         }
         function hideGameplayCountdown(screenEl) {
-            screenEl.classList.add('hidden');
-        }
-
-        /** Điền + hiện màn hình kết quả cuối bài (Replay/Next/End) — phần tử TĨNH có sẵn từ template. */
-        function showScoreScreen(screenEl, finalScoreEl, finalScore) {
-            finalScoreEl.textContent = finalScore.toFixed(3);
-            screenEl.classList.remove('hidden');
-        }
-        function hideScoreScreen(screenEl) {
             screenEl.classList.add('hidden');
         }
