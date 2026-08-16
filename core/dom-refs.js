@@ -83,7 +83,11 @@
 
         // ===================== Game Mode (Circle mode v1, MỚI 16/08/2026) =====================
         // gameModeSettingToggle: components/settings/misc.js (Settings, section "GAME MODE").
-        // Còn lại: components/gameplay-overlay.js (khung TĨNH) + event/workflow/gameplay.js (điều phối).
+        // Còn lại: components/gameplay-overlay.js (khung TĨNH) + event/workflow/gameplay.js (điều
+        // phối). SỬA (16/08/2026, Giang yêu cầu) — bỏ hẳn ref #gameplay-ready-screen/#btn-gameplay-
+        // start/#gameplay-score-screen/#gameplay-final-score/#btn-gameplay-replay/#btn-gameplay-next
+        // (2 màn tĩnh đó đã xoá, dùng modalChoice() thay — xem components/gameplay-overlay.js +
+        // event/workflow/gameplay.js).
         const gameModeSettingToggle = document.getElementById('setting-gameplay-mode-enabled');
         const gameplayLayer = document.getElementById('gameplay-layer');
         const gameplayTapSurface = document.getElementById('gameplay-tap-surface');
@@ -92,14 +96,8 @@
         const gameplayHudScore = document.getElementById('gameplay-hud-score');
         const gameplayHudCombo = document.getElementById('gameplay-hud-combo');
         const btnGameplayExit = document.getElementById('btn-gameplay-exit');
-        const gameplayReadyScreen = document.getElementById('gameplay-ready-screen');
-        const btnGameplayStart = document.getElementById('btn-gameplay-start');
         const gameplayCountdownScreen = document.getElementById('gameplay-countdown-screen');
         const gameplayCountdownNumber = document.getElementById('gameplay-countdown-number');
-        const gameplayScoreScreen = document.getElementById('gameplay-score-screen');
-        const gameplayFinalScore = document.getElementById('gameplay-final-score');
-        const btnGameplayReplay = document.getElementById('btn-gameplay-replay');
-        const btnGameplayNext = document.getElementById('btn-gameplay-next');
         
         const playPauseBtn = document.getElementById('play-pause-btn'), iconPlay = document.getElementById('icon-play'), iconPause = document.getElementById('icon-pause');
         const btnPrev = document.getElementById('btn-prev'), btnNext = document.getElementById('btn-next');
