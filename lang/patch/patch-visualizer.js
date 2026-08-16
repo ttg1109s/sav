@@ -11,6 +11,16 @@
 const LANG_PATCH_VISUALIZER = {
     'visualizerOverlay.btnBackPlaylist.title': 'Back to list',
     'visualizerOverlay.btnControlCenter.title': 'Quick controls',
+    // Game Mode Circle v1 (MỚI 16/08/2026) — modalChoice() cho màn "Start"/"Kết quả" (KHÔNG dựng
+    // overlay riêng nữa, xem event/workflow/gameplay.js).
+    'gameplayCircle.ready.title': 'Circle',
+    'gameplayCircle.ready.text': 'Tap right as the wave matches the center circle — the closer to the edge, the more points.',
+    'gameplayCircle.ready.startLabel': 'Start',
+    'gameplayCircle.ended.title': 'Result',
+    'gameplayCircle.ended.text': 'Average score: {score}',
+    'gameplayCircle.ended.replayLabel': 'Replay',
+    'gameplayCircle.ended.nextLabel': 'Next song',
+    'gameplayCircle.ended.endLabel': 'Back to playlist',
     'videoPlayer.untitled': 'Untitled video',
     // MỚI (ver12 "Song/Video Unification", Batch 2) — Block gate notify, xem event/block.js.
     'videoPlayer.startFromPlaylist.blockedByBgVideo': 'Turn off "Use Video Background" first (Settings) before playing a video from the Playlist.',
