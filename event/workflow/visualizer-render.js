@@ -179,6 +179,13 @@ const workflowVisualizerRender = {
 
         updateStatsDashboard(bufferLength); // core hiện có (di sản trước 04/07/2026 — Rule 0.5, KHÔNG đụng logic bên trong)
 
+        // MỚI (16/08/2026, Game Mode Circle v1) — dùng CHUNG vòng lặp render này (KHÔNG mở RAF loop
+        // riêng cho gameplay, xem docstring đầu event/workflow/gameplay.js). Workflow-gọi-Workflow
+        // (KHÔNG phải Core-gọi-Core — Rule 3 không áp dụng ở đây). Đặt TRƯỚC "if (isVisualOff)
+        // return;" bên dưới CÓ CHỦ Ý — layer game là DOM riêng (#gameplay-layer), không phụ thuộc
+        // canvas #visualizer, phải tiếp tục chạy dù người dùng tắt Visual.
+        workflowGameplay.tick(performance.now());
+
         // "Nốt nhạc bay lên" — luôn bật (bỏ gate theo chế độ hiệu năng đã xoá), tách khỏi
         // isVisualOff bên dưới: phần tử DOM phụ trên #record-container, không phụ thuộc canvas.
         if (isPlaying && newSmoothedEnergy > 0.3 && Math.random() > 0.6) spawnFlyingNote(); // core hiện có
