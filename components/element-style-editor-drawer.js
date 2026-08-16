@@ -45,10 +45,37 @@ function renderElementStyleEditorHeader(activeTab) {
         </div>`;
 }
 
+/** MỚI (16/08/2026 — Giang yêu cầu "ô preview cố định ở trong body drawer") — `_renderEsePreviewBox()`
+ * LUÔN đứng ĐẦU body (TRƯỚC nội dung 2 tab), `sticky top-0` — "cố định" theo đúng nghĩa Giang yêu
+ * cầu: body Drawer cuộn dọc (`overflow-y-auto`, bodyClass truyền từ Workflow), riêng khối preview
+ * PHẢI dính lại đỉnh khi cuộn qua các card field bên dưới, KHÔNG cuộn mất — sticky (KHÔNG phải
+ * fixed thật) chính là cách làm ĐÚNG cho 1 phần tử "cố định bên trong 1 vùng cuộn cụ thể" (fixed
+ * thật sẽ neo theo viewport, sai ngữ cảnh — trôi ra ngoài Drawer lúc Drawer tự cuộn/đóng).
+ * `-mx-4 -mt-3 px-4 pt-3` — triệt tiêu padding `px-4 py-3` của chính body (bodyClass, truyền từ
+ * Workflow) CHỈ cho riêng khối này, để nền trắng (`bg-white`) phủ TRÀN 2 mép khi dính đỉnh (không
+ * vậy sẽ hở 2 bên, thấy card bên dưới lọt qua viền trái/phải lúc cuộn).
+ * Nội dung preview LUÔN hiển thị CHUNG cả Box lẫn Text (KHÔNG đổi theo tab đang xem) — vì Style áp
+ * dụng đồng thời cả 2 nhóm property lúc build CSS cuối (buildElementStyleCssString(), core/
+ * element-style-editor.js đọc CẢ `draft.box` LẪN `draft.text` cùng lúc, không tách theo tab).
+ * `#ese-preview-box` KHỞI TẠO KHÔNG style — Workflow tự áp NGAY sau mỗi lần vẽ/đổi field
+ * (`_updatePreview()`, event/workflow/element-style-editor.js) bằng ĐÚNG `applyElementStyleToDom()`
+ * + `buildElementStyleCssString()` (core) — TÁI DÙNG y hệt cặp hàm cuối cùng lúc bấm "Áp dụng"
+ * thật, đảm bảo preview KHÔNG BAO GIỜ lệch so với kết quả thật sẽ áp lên targetEl. */
+function _renderEsePreviewBox() {
+    return `
+        <div class="sticky top-0 z-10 -mx-4 -mt-3 px-4 pt-3 pb-3 mb-1 bg-white border-b border-slate-200">
+            <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">${t('elementStyleEditor.preview.label')}</div>
+            <div class="h-20 rounded-xl bg-slate-100 flex items-center justify-center overflow-auto px-2">
+                <div id="ese-preview-box" class="max-w-full">${t('elementStyleEditor.preview.sampleText')}</div>
+            </div>
+        </div>`;
+}
+
 function renderElementStyleEditorBody(draft, activeTab, loadedGoogleFonts) {
     const content = activeTab === 'text' ? _renderEseTextTab(draft.text, loadedGoogleFonts) : _renderEseBoxTab(draft.box);
     return `
         <div class="flex flex-col gap-3">
+            ${_renderEsePreviewBox()}
             ${content}
             <button id="ese-apply-btn" class="mt-1 w-full py-2.5 rounded-xl bg-sky-500 text-white text-sm font-semibold hover:bg-sky-600 transition-colors">${t('elementStyleEditor.apply')}</button>
         </div>`;
@@ -291,15 +318,24 @@ function _renderEseTextShadowField(ts) {
         </div>`;
 }
 
+/** SỬA (16/08/2026 — Giang cung cấp `core/google-fonts-list.js`, "chọn thành dropdown + search
+ * bên trong") — nguồn 'google' ĐỔI ô nhập text tự do -> dropdown + search (_renderEseGoogleFontPicker()
+ * dưới), đọc từ `listGoogleFont` (đã XÁC NHẬN hỗ trợ Việt/Nhật/Hàn/Trung, KHÔNG còn gõ tay tự do -
+ * tránh gõ nhầm tên font KHÔNG hỗ trợ tiếng Việt, đúng tinh thần yêu cầu gốc "không cung cấp list
+ * thì ai biết được mà chọn"). Nguồn 'system' GIỮ NGUYÊN input text tự do (KHÔNG thể liệt kê trước
+ * font cài sẵn máy người dùng — không có list nào cho trường hợp này). */
 function _renderEseFontFamilyField(f, loadedGoogleFonts) {
     const sourceOptions = [{ value: 'system', label: t('elementStyleEditor.font.sourceSystem') }, { value: 'google', label: t('elementStyleEditor.font.sourceGoogle') }];
-    const googleRow = f.source === 'google' ? `
+    const isGoogle = f.source === 'google';
+    const googleRow = isGoogle ? `
         <div class="flex justify-between items-center">
             <span class="text-xs text-slate-500">${t('elementStyleEditor.font.weightToLoad')}</span>
             ${_eseSelect('text', 'fontFamily', 'googleWeight', ['100', '300', '400', '500', '700', '900'].map((v) => ({ value: v, label: v })), f.googleWeight, false)}
         </div>
         <button id="ese-fontfamily-load-btn" class="w-full py-1.5 rounded-lg bg-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-300 transition-colors">${t('elementStyleEditor.font.loadButton')}</button>
         ${loadedGoogleFonts.includes(f.value) ? `<span class="text-[10px] text-emerald-600">${t('elementStyleEditor.font.loadedNote')}</span>` : ''}` : '';
+    const nameField = isGoogle ? _renderEseGoogleFontPicker(f.value) : `
+        <input type="text" value="${f.value}" placeholder="${t('elementStyleEditor.font.namePlaceholder')}" class="ese-field w-32 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none" data-section="text" data-field="fontFamily" data-subkey="value">`;
     return `
         <div class="flex justify-between items-center">
             <span class="text-xs text-slate-500">${t('elementStyleEditor.font.source')}</span>
@@ -307,7 +343,39 @@ function _renderEseFontFamilyField(f, loadedGoogleFonts) {
         </div>
         <div class="flex justify-between items-center">
             <span class="text-xs text-slate-500">${t('elementStyleEditor.font.name')}</span>
-            <input type="text" value="${f.value}" placeholder="${t('elementStyleEditor.font.namePlaceholder')}" class="ese-field w-32 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none" data-section="text" data-field="fontFamily" data-subkey="value">
+            ${nameField}
         </div>
         ${googleRow}`;
+}
+
+/** MỚI (16/08/2026) — ô "vừa hiển thị giá trị đang chọn, vừa là ô tìm kiếm" cho nguồn 'google' —
+ * gõ để LỌC, danh sách kết quả xổ xuống ngay dưới (`#ese-fontfamily-dropdown`, absolute). KHÔNG
+ * mang class `.ese-field` (khác input thường trong Drawer này) — input NÀY KHÔNG tự ghi state qua
+ * cơ chế `.ese-field` chung lúc gõ (gõ dở dang CHƯA phải tên hợp lệ, ghi ngay sẽ lưu rác) — CHỈ ghi
+ * state lúc người dùng THỰC SỰ CHỌN 1 mục trong dropdown (click), xem `_wireFontFamilyPicker()`,
+ * event/workflow/element-style-editor.js. `position:relative` bọc RIÊNG input+dropdown (không bọc
+ * cả label) để dropdown neo `absolute` đúng ngay dưới input, không lệch theo label. */
+function _renderEseGoogleFontPicker(currentValue) {
+    return `
+        <div class="relative">
+            <input type="text" id="ese-fontfamily-search" autocomplete="off" value="${currentValue}" placeholder="${t('elementStyleEditor.font.searchPlaceholder')}" class="w-32 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none">
+            <div id="ese-fontfamily-dropdown" class="hidden absolute z-10 top-full right-0 mt-1 w-56 max-h-56 overflow-y-auto bg-white border border-slate-300 rounded-lg shadow-lg"></div>
+        </div>`;
+}
+
+/** MỚI (16/08/2026) — dựng danh sách kết quả lọc trong dropdown, gọi LẠI mỗi lần gõ (Workflow tự
+ * gán `dropdown.innerHTML`, KHÔNG re-render lại toàn Drawer — nhẹ hơn, tránh input mất focus giữa
+ * chừng lúc gõ). Lọc theo tên, KHÔNG phân biệt hoa/thường, so khớp CHỨA (substring, không cần gõ
+ * đúng từ đầu). `f.scripts` hiện kèm bên phải mỗi dòng (vd "VI JA") — gợi ý nhanh font nào phủ
+ * ngôn ngữ nào, KHÔNG cần mở link Google Fonts riêng để tra. */
+function _renderEseFontDropdownItems(query) {
+    const q = (query || '').trim().toLowerCase();
+    const source = typeof listGoogleFont !== 'undefined' ? listGoogleFont : []; // core/google-fonts-list.js
+    const matches = q ? source.filter((f) => f.name.toLowerCase().includes(q)) : source;
+    if (!matches.length) return `<div class="px-3 py-2 text-xs text-slate-400">${t('elementStyleEditor.font.noMatch')}</div>`;
+    return matches.map((f) => `
+        <button type="button" data-font-name="${f.name.replace(/"/g, '&quot;')}" class="ese-font-option w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-sky-50 transition-colors flex items-center justify-between gap-2">
+            <span class="truncate">${f.name}</span>
+            <span class="text-[9px] text-slate-400 uppercase tracking-wide shrink-0">${f.scripts.join(' ')}</span>
+        </button>`).join('');
 }
