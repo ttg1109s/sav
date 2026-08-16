@@ -86,6 +86,11 @@
             // (DEFAULT_VISUAL_BG_CONFIG bên dưới) — 3 tính năng nền màn Visualizer (video nền/ảnh
             // nền tĩnh/slideshow album) gộp thành 1. KHÔNG giữ lại field cũ song song.
             visualEnabled: true,
+            // MỚI (16/08/2026, Game Mode Circle v1) — bật/tắt PERSISTENT (khác `gameplayPhase` ở
+            // service/state/gameplay-runtime.js, đó là trạng thái 1 PHIÊN chơi, KHÔNG lưu qua
+            // reload). Bật field này -> mọi lần bài hát đổi thật (event/router/visual-bg.js case
+            // 'visualBg.songChanged') tự mở overlay Game Mode, KHÔNG cần bấm nút "Game" mỗi lần.
+            gameplayModeEnabled: false,
             keepScreenOn: true,
             // Tự động đổi hiệu ứng Visualizer theo thời gian (ver 10) — xem core/auto-switch-visual.js.
             //   - autoSwitchVisualMode: 'sequential' (tuần tự/cố định theo MODES) | 'random'.
@@ -330,6 +335,7 @@
                 themeMode: 'string', gradientFrom: 'string', gradientTo: 'string',
                 volume: 'number', eqPresetId: 'string',
                 visualEnabled: 'boolean',
+                gameplayModeEnabled: 'boolean',
                 keepScreenOn: 'boolean',
                 autoSwitchVisualEnabled: 'boolean', autoSwitchVisualMode: 'string', autoSwitchVisualTimeMode: 'string',
                 autoSwitchVisualSecondsFixed: 'number', autoSwitchVisualSecondsRandom: 'number', autoSwitchVisualSecondsDuration: 'number',
@@ -537,6 +543,7 @@
                 if (cfg.keepScreenOn == null) cfg.keepScreenOn = true;
                 if (cfg.subtitlesEnabled == null) cfg.subtitlesEnabled = true;
                 if (cfg.visualEnabled == null) cfg.visualEnabled = true;
+                if (cfg.gameplayModeEnabled == null) cfg.gameplayModeEnabled = false;
                 // Auto-switch-visual (ver 10) — migrate field mới + validate lại ngưỡng tối thiểu.
                 if (cfg.autoSwitchVisualEnabled == null) cfg.autoSwitchVisualEnabled = false;
                 if (cfg.autoSwitchVisualMode !== 'sequential' && cfg.autoSwitchVisualMode !== 'random') cfg.autoSwitchVisualMode = 'sequential';

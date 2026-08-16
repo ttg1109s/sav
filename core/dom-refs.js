@@ -80,6 +80,27 @@
         const visualizerControlCenter = document.getElementById('visualizer-control-center');
         // Lớp phủ chạm RIÊNG cho toàn bộ cử chỉ (event/workflow/visualizer-gesture.js).
         const visualizerGestureSurface = document.getElementById('visualizer-gesture-surface');
+
+        // ===================== Game Mode (Circle mode v1, MỚI 16/08/2026) =====================
+        // gameModeSettingToggle: components/settings/misc.js (Settings, section "GAME MODE").
+        // Còn lại: components/gameplay-overlay.js (khung TĨNH) + event/workflow/gameplay.js (điều phối).
+        const gameModeSettingToggle = document.getElementById('setting-gameplay-mode-enabled');
+        const gameplayLayer = document.getElementById('gameplay-layer');
+        const gameplayTapSurface = document.getElementById('gameplay-tap-surface');
+        const gameplayCenterCircle = document.getElementById('gameplay-center-circle');
+        const gameplayWavesContainer = document.getElementById('gameplay-waves-container');
+        const gameplayTierPopupLayer = document.getElementById('gameplay-tier-popup-layer');
+        const gameplayHudScore = document.getElementById('gameplay-hud-score');
+        const gameplayHudCombo = document.getElementById('gameplay-hud-combo');
+        const btnGameplayExit = document.getElementById('btn-gameplay-exit');
+        const gameplayReadyScreen = document.getElementById('gameplay-ready-screen');
+        const btnGameplayStart = document.getElementById('btn-gameplay-start');
+        const gameplayCountdownScreen = document.getElementById('gameplay-countdown-screen');
+        const gameplayCountdownNumber = document.getElementById('gameplay-countdown-number');
+        const gameplayScoreScreen = document.getElementById('gameplay-score-screen');
+        const gameplayFinalScore = document.getElementById('gameplay-final-score');
+        const btnGameplayReplay = document.getElementById('btn-gameplay-replay');
+        const btnGameplayNext = document.getElementById('btn-gameplay-next');
         
         const playPauseBtn = document.getElementById('play-pause-btn'), iconPlay = document.getElementById('icon-play'), iconPause = document.getElementById('icon-pause');
         const btnPrev = document.getElementById('btn-prev'), btnNext = document.getElementById('btn-next');
