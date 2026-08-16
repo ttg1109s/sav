@@ -8,8 +8,12 @@
  * KHÔNG namespace theo tên package — appState.get('...') đọc thẳng flat key, xem các package khác
  * như visualizer-runtime.js).
  *
- * `gameplayWaves`: mảng { id, spawnedAt, startRadius } — KHÔNG lưu radius hiện tại (giá trị suy ra
- * mỗi frame từ spawnedAt/now/shrinkDurationMs qua core/gameplay/circle-mode.js::computeWaveRadius(),
+ * SỬA (16/08/2026, đọc lại plan — mỗi note giờ là 1 CẶP circle+wave ĐỘC LẬP, xuất hiện ở vị trí
+ * riêng, KHÔNG còn 1 vòng tròn tâm tĩnh dùng chung) — `gameplayWaves`: mảng { id, spawnedAt,
+ * startRadius, shrinkDurationMs, x, y }. `x`/`y` là % vị trí trong `#gameplay-layer` (Pitch quyết
+ * định y, ngẫu nhiên quyết định x — xem GAMEPLAY_CIRCLE_CONFIG), CỐ ĐỊNH lúc spawn, không đổi suốt
+ * vòng đời wave. KHÔNG lưu radius/opacity hiện tại (giá trị suy ra mỗi frame từ spawnedAt/now/
+ * shrinkDurationMs qua core/gameplay/circle-mode.js::computeWaveRadius()/computeWaveOpacity(),
  * không phải state — tránh 2 nguồn sự thật).
  */
         /**
@@ -52,42 +56,59 @@
         const GAMEPLAY_COUNTDOWN_SECONDS = 5;
 
         /**
-         * Hằng số điều chỉnh cơ chế Circle — TẤT CẢ đơn vị px/ms. SỬA (16/08/2026, Giang chốt —
-         * "duration, radius của wave phải theo audio chứ?") — `shrinkDurationMs`/`waveStartRadius`
-         * KHÔNG còn là 2 số cố định: mỗi wave tự tính riêng lúc spawn theo BPM/energy hiện tại
-         * (xem core/gameplay/circle-mode.js::computeShrinkDurationMs()/computeWaveStartRadius()) —
-         * dưới đây là các HẰNG SỐ tham gia công thức đó, không phải giá trị áp thẳng.
-         *
-         * `centerRadius`/`gap`/`tiers`/`maxConcurrentWaves` VẪN cố định — đây là tham số ĐỘ KHÓ
-         * (kích thước/dung sai vùng bấm), không có lý do để đổi theo audio, cần Giang playtest rồi
-         * chỉnh riêng (chưa đổi gì ở đợt này).
+         * Hằng số điều chỉnh cơ chế Circle — TẤT CẢ đơn vị px/ms. SỬA LẦN 2 (16/08/2026, đọc lại
+         * plan §9 "Chọn cách sinh note theo audio" + chốt lại với Giang) — phân công ĐÚNG theo plan:
+         *   - Beat quyết định "khi nào" -> thời điểm spawn (core/gameplay/circle-mode.js::
+         *     shouldSpawnCircleWave(), khoá lastBeatTime thật) + gián tiếp duration (beatsPerWave,
+         *     quyết định riêng của tôi, plan không gán rõ nguồn cho duration).
+         *   - Pitch quyết định "ở đâu" -> vị trí Y (computeSpawnPositionY(), map TUYỆT ĐỐI
+         *     lastValidMidiNote vào [pitchMidiMin, pitchMidiMax] -> [yMaxPercent, yMinPercent] —
+         *     Giang chốt KHÔNG so lệch với rubikPitchAvg như core/visualizer/types/rubik.js đang làm
+         *     cho Rubik effect, vì "mỗi bài khác nhau là đúng" — nốt tuyệt đối, không chuẩn hoá).
+         *   - Energy quyết định "bao nhiêu" -> XÁC SUẤT spawn mỗi khi có beat mới (KHÔNG PHẢI kích
+         *     thước wave như bản đầu tôi gán nhầm) — computeSpawnProbability().
+         *   - Radius (waveStartRadius): plan KHÔNG gán cho beat/energy/pitch nào cả -> GIỮ CỐ ĐỊNH,
+         *     cùng nhóm "độ khó/thị giác" với centerRadius/gap, cần playtest riêng.
+         *   - Vị trí X: plan không gán nguồn nào -> ngẫu nhiên trong spawnZone (không có tín hiệu
+         *     audio kiểu stereo pan có sẵn để bám vào).
          *
          * GIẢ ĐỊNH (CHƯA playtest, sửa 1 chỗ ở đây):
-         *   - beatsPerWave=2: wave co hết trong đúng 2 nhịp beat (BPM 120 -> 1000ms, BPM 90 ->
-         *     ~1333ms). Số nhịp/wave lớn hơn = wave "trôi" chậm hơn, dễ hơn; nhỏ hơn = nhanh/khó hơn.
-         *   - min/maxShrinkDurationMs: chặn 2 đầu khi BPM quá nhanh/chậm (BPM cực cao -> duration
-         *     không xuống dưới 500ms, tránh không kịp phản xạ; BPM cực thấp -> không vượt 3000ms,
-         *     tránh chờ quá lâu mất nhịp chơi).
-         *   - fallbackShrinkDurationMs=1500: dùng khi audio-analysis.js CHƯA khoá được BPM
-         *     (currentCalculatedBpm === "---", vd vài giây đầu bài hoặc đoạn nhạc không rõ beat).
-         *   - waveStartRadiusBase/EnergyRange (150/150 -> dải 150-300px): năng lượng thấp -> wave
-         *     nhỏ/gọn, năng lượng cao (đoạn nhạc mạnh) -> wave to/kịch tính hơn — KHÔNG ảnh hưởng độ
-         *     khó chấm điểm (vẫn cùng centerRadius/gap), chỉ ảnh hưởng thị giác + gián tiếp tốc độ co
-         *     (cùng duration, radius to hơn thì co nhanh hơn theo px/ms).
+         *   - beatsPerWave=2, min/maxShrinkDurationMs, fallbackShrinkDurationMs: xem giải thích cũ,
+         *     không đổi ở lần sửa này.
+         *   - spawnProbabilityMin/Max (0.35 - 1.0): lúc smoothedEnergy=0 vẫn còn 35% cơ hội spawn
+         *     (không im bặt hoàn toàn dù đoạn nhạc rất êm — vẫn phải "chơi được"), energy=1 gần như
+         *     luôn spawn khi có beat.
+         *   - pitchMidiMin/Max (36-96, ~C2-C7): dải phủ hầu hết nhạc cụ/giọng hát phổ biến — nốt
+         *     ngoài dải bị clamp về 2 đầu, không tự mở rộng theo bài.
+         *   - spawnZone: X ngẫu nhiên toàn dải 15-85%; Y clamp trong 25-82% (nốt map ra ngoài dải
+         *     này vẫn bị kẹp lại) — 25% đủ thấp hơn hàng icon Control Center/stats/back Playlist
+         *     (top-4), tương tự lý do đã chốt cho --gameplay-circle-top trước đây (giờ bỏ biến đó,
+         *     thay bằng spawnZone vì vị trí không còn cố định 1 chỗ nữa).
          *   - 4 tier chia đều [0,1] theo cấp số cộng (0.25/0.5/0.75/1.0) — mô tả gốc chỉ nói "càng
          *     xa biên càng ít điểm", không cho số chính xác.
          *   - Combo NHÂN tuyến tính theo streak, KHÔNG trần (uncapped).
+         *   - tapHitTolerancePercent=16: dung sai bấm trúng 1 note theo VỊ TRÍ (% theo cạnh ngắn
+         *     hơn của layer, xem event/workflow/gameplay.js::handleTap()) — MỚI, cần khi vị trí
+         *     không còn cố định 1 chỗ (nhiều circle rải khắp màn hình).
          */
         const GAMEPLAY_CIRCLE_CONFIG = Object.freeze({
             centerRadius: 42,          // px — bán kính vòng tròn tâm cố định (mục tiêu chạm khớp)
             gap: 34,                   // px — bề dày vùng hợp lệ bấm được (cả 2 phía quanh centerRadius)
+            waveStartRadius: 230,      // px — CỐ ĐỊNH (plan không gán nguồn audio nào cho radius)
             beatsPerWave: 2,           // wave co hết trong đúng N nhịp beat hiện tại (currentCalculatedBpm)
             fallbackShrinkDurationMs: 1500, // ms — dùng khi CHƯA xác định được BPM
             minShrinkDurationMs: 500,  // ms — chặn dưới (BPM quá nhanh)
             maxShrinkDurationMs: 3000, // ms — chặn trên (BPM quá chậm)
-            waveStartRadiusBase: 150,  // px — bán kính wave lúc smoothedEnergy = 0
-            waveStartRadiusEnergyRange: 150, // px — CỘNG THÊM tối đa lúc smoothedEnergy = 1 (dải 150-300px)
             maxConcurrentWaves: 3,     // số wave tối đa cùng lúc trên màn hình
+            spawnProbabilityMin: 0.35, // xác suất spawn lúc smoothedEnergy = 0 (nhạc êm -> vẫn còn note, chỉ thưa hơn)
+            spawnProbabilityMax: 1.0,  // xác suất spawn lúc smoothedEnergy = 1 (nhạc mạnh -> gần như luôn spawn)
+            pitchMidiMin: 36,          // nốt MIDI thấp nhất map được (~C2) -> yMaxPercent (thấp trên màn hình)
+            pitchMidiMax: 96,          // nốt MIDI cao nhất map được (~C7) -> yMinPercent (cao trên màn hình)
+            spawnZone: Object.freeze({
+                xMinPercent: 15, xMaxPercent: 85,
+                yMinPercent: 25, yMaxPercent: 82,
+            }),
+            tapHitTolerancePercent: 16, // % (theo cạnh ngắn hơn layer) — dung sai vị trí lúc chấm tap trúng note nào
             tiers: Object.freeze([
                 Object.freeze({ name: 'perfect',   maxRatio: 0.15, score: 4 }),
                 Object.freeze({ name: 'excellent', maxRatio: 0.40, score: 3 }),
