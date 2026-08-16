@@ -40,15 +40,17 @@ const TPL_SETTINGS_MISC = `
         <!-- SECTION: GAME MODE (MỚI 16/08/2026) — bật/tắt tự động mở overlay Game khi vào
              Visualizer bằng cách chọn bài/Play/Shuffle (KHÔNG còn nút riêng ở Control Center, xem
              event/router/visual-bg.js case 'visualBg.songChanged'). Đặt ở Settings (SỬA 16/08/2026,
-             Giang chốt lại — trước đó đặt nhầm thành nút icon trong Control Center). -->
+             Giang chốt lại — trước đó đặt nhầm thành nút icon trong Control Center). SỬA LẦN 2
+             (16/08/2026, Giang phản hồi — "ai cho hardcode tiếng Việt", "bỏ mô tả luôn đi") — dùng
+             ĐÚNG i18n t()/data-i18n (lang/patch/patch-settings-misc.js, key settingsMisc.gameMode.
+             label — EN là ngôn ngữ gốc hardcode, vi/mọi ngôn ngữ khác đều là data người dùng tự
+             upload, xem docstring lang/lang.js — KHÔNG được hardcode chuỗi hiển thị bất kỳ ngôn ngữ
+             nào trực tiếp trong template), bỏ hẳn dòng hint/mô tả. KHÔNG có <h3> heading riêng (chỉ
+             1 dòng duy nhất trong section -> heading sẽ trùng chữ với label, thừa). -->
         <div>
-            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-2">GAME MODE</h3>
             <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                 <div class="flex justify-between items-center p-4">
-                    <div class="pr-3">
-                        <div class="text-sm font-medium truncate">Tự mở Game khi phát nhạc</div>
-                        <div class="text-xs text-slate-400 mt-0.5">Chọn bài / bấm Play / Shuffle sẽ tự mở overlay Circle ở màn Visualizer</div>
-                    </div>
+                    <div class="text-sm font-medium truncate" data-i18n="settingsMisc.gameMode.label">${t('settingsMisc.gameMode.label')}</div>
                     <label class="relative inline-flex items-center cursor-pointer shrink-0">
                         <input type="checkbox" id="setting-gameplay-mode-enabled" class="sr-only peer">
                         <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
