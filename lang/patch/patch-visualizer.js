@@ -267,9 +267,15 @@ const LANG_PATCH_VISUALIZER = {
     'elementStyleEditor.font.sourceGoogle': 'Google Font',
     'elementStyleEditor.font.name': 'Font name',
     'elementStyleEditor.font.namePlaceholder': 'e.g. Roboto',
+    // MỚI (16/08/2026 — dropdown + search cho nguồn Google, core/google-fonts-list.js).
+    'elementStyleEditor.font.searchPlaceholder': 'Search font…',
+    'elementStyleEditor.font.noMatch': 'No matching font',
     'elementStyleEditor.font.weightToLoad': 'Weight to load',
     'elementStyleEditor.font.loadButton': 'Load Google Font (needs internet)',
     'elementStyleEditor.font.loadedNote': 'Loaded this session',
+    // MỚI (16/08/2026 — Giang yêu cầu "ô preview cố định trong body drawer").
+    'elementStyleEditor.preview.label': 'Preview',
+    'elementStyleEditor.preview.sampleText': 'Sample subtitle text',
 
     // MỚI (15/08/2026, mục 3) — tiêu đề section "Thành phần" (gộp Stats panel + 3 toggle UI
     // chrome cố định) trong panel "Display" — xem components/settings/visualizer-display-panel.js.
