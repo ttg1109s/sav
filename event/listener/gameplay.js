@@ -6,14 +6,16 @@
  *
  * `#gameplay-tap-surface` dùng `touchstart` (KHÔNG đợi `touchend`) — phản hồi tức thời đúng bản
  * chất 1 rhythm game, cùng khuôn `touchstart` mà `#visualizer-gesture-surface` đang dùng (event/
- * listener/visualizer-gesture.js). SỬA (16/08/2026, đọc lại plan — mỗi note ở 1 vị trí riêng) —
- * giờ gửi kèm toạ độ chạm (%, quy đổi theo chính bounding box của tap-surface) — workflowGameplay.
- * handleTap() cần biết TAP TRÚNG ĐÂU để so với vị trí (x,y) của từng note.
+ * listener/visualizer-gesture.js). Gửi kèm toạ độ chạm (%, quy đổi theo chính bounding box của
+ * tap-surface) — workflowGameplay.handleTap() cần biết TAP TRÚNG ĐÂU để so với vị trí (x,y) của
+ * từng note.
  *
- * `#btn-gameplay-exit` — SỬA (16/08/2026, Giang yêu cầu) — GỘP 2 nút thoát riêng lẻ bản trước
- * (Thoát ở màn ready / Về Playlist ở màn kết quả) thành 1 nút DUY NHẤT, LUÔN hiện cố định (đúng vị
- * trí #btn-open-control-center thật), hoạt động ở MỌI phase kể cả playing/countdown (trước đó
- * không thoát được — xem docstring TPL_GAMEPLAY_OVERLAY, components/gameplay-overlay.js).
+ * `#btn-gameplay-exit` — nút thoát CỐ ĐỊNH (đúng vị trí #btn-open-control-center thật), lo phase
+ * 'playing'/'countdown' (không có màn hỏi nào khác để thoát) — 'ready'/'ended' đã có nút riêng
+ * NGAY TRONG modalChoice() (SỬA 16/08/2026, Giang yêu cầu dùng modalChoice() thay overlay riêng —
+ * KHÔNG còn #btn-gameplay-start/#btn-gameplay-replay/#btn-gameplay-next tĩnh nữa, xem event/
+ * workflow/gameplay.js::start()/onSongEnded(), nút trong modal gọi THẲNG method Workflow, không
+ * qua eventBus — đã ở sẵn tầng Workflow, không cần vòng lại Router).
  */
 
 if (gameModeSettingToggle) {
@@ -33,26 +35,8 @@ if (gameplayTapSurface) {
     }, { passive: true });
 }
 
-if (btnGameplayStart) {
-    btnGameplayStart.addEventListener('click', () => {
-        eventBus.send({ router: 'gameplay', type: 'gameplay.startCountdown.click', payload: {} });
-    });
-}
-
 if (btnGameplayExit) {
     btnGameplayExit.addEventListener('click', () => {
         eventBus.send({ router: 'gameplay', type: 'gameplay.exit.click', payload: {} });
-    });
-}
-
-if (btnGameplayReplay) {
-    btnGameplayReplay.addEventListener('click', () => {
-        eventBus.send({ router: 'gameplay', type: 'gameplay.scoreScreen.replay.click', payload: {} });
-    });
-}
-
-if (btnGameplayNext) {
-    btnGameplayNext.addEventListener('click', () => {
-        eventBus.send({ router: 'gameplay', type: 'gameplay.scoreScreen.next.click', payload: {} });
     });
 }
