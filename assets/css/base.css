@@ -27,6 +27,20 @@ input[type="file"] { display: none; }
 
 .sub-text-glow { text-shadow: 0 1px 3px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.5); }
 
+/* MỚI (16/08/2026, mục 3 — Giang chỉ ra "tuỳ chỉnh Styling chưa thắng inline subtitle vì mặc định
+   đang áp cho từng dòng chứ không phải khung chung") — nền chữ MẶC ĐỊNH cho #subtitle-frame (khung
+   BAO NGOÀI mọi dòng, KHÔNG phải từng <p> nữa — xem core/subtitle/subtitle-display.js::
+   addActiveSubBlock(), core/subtitle/subtitle-style-settings.js::applySubtitleFrameStyle()).
+   Specificity CLASS (thấp hơn inline) — CHỈ là SÀN AN TOÀN, để inline style tuỳ chỉnh (Element
+   Style Editor lúc bật Custom, HOẶC 2 field subtitleDefaultFontSize/subtitleDefaultColor lúc TẮT
+   Custom) ĐÈ ĐÚNG property nào đã set, property nào KHÔNG set vẫn rơi về đây (an toàn — chữ không
+   bao giờ "biến mất" dù custom chỉ chỉnh 1-2 thuộc tính). color/font-size CỐ Ý vẫn có mặt ở đây
+   dù 2 field đó LUÔN được set qua inline (default mode) — làm sàn an toàn CUỐI cho ca Custom bật
+   nhưng KHÔNG bật field color/fontSize trong Styling. text-shadow DÙNG CHUNG `.sub-text-glow` có
+   sẵn ở trên (áp CHUNG 2 class trên #subtitle-frame, KHÔNG lặp giá trị shadow ở đây — `.sub-text-
+   glow` còn dùng chung với #stats-panel, KHÔNG được sửa trực tiếp class đó). */
+.subtitle-default-appearance { color: #ffffff; font-size: 16px; font-weight: 700; line-height: 1.375; }
+
 /* MỚI (15/08/2026, mục 4b) — hiệu ứng "In" (liên tục suốt lúc dòng phụ đề đang hiển thị ổn định,
    giữa Comming và Outing) — bật/tắt qua class, xem core/subtitle/subtitle-display.js::
    _applySubtitleBlockPhase() + SUBTITLE_IN_EFFECTS (core/subtitle/subtitle-transition.js). */
