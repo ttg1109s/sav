@@ -17,7 +17,9 @@
  * event/workflow/element-style-editor.js (workflowElementStyleEditor.open()), core/subtitle/
  * subtitle-style-settings.js (setSubtitleBoxCss()), core/dom-refs.js (subtitleFrame). MỚI
  * (16/08/2026, mục 3) — cũng cần core/time-picker-modal.js (openTimePickerModal(), đã nạp từ trước
- * cho Slideshow/Subtitle Editor, xem index.html).
+ * cho Slideshow/Subtitle Editor, xem index.html) + core/subtitle/subtitle-style-settings.js cũng
+ * cần thêm setSubtitleUseCustomStyling()/setSubtitleDefaultField()/applySubtitleFrameStyle() (đã
+ * nạp CÙNG file với setSubtitleBoxCss() ở trên, không cần dòng nạp riêng).
  */
 let subtitleSettingsPanelEl = null; // panel Subtitle đang mở — null nếu đang đóng
 
@@ -38,11 +40,17 @@ const workflowSubtitleStyleSettings = {
      * (dropdown dấu +/- + nút ĐỘ LỚN dương, MỚI — "thêm dropdown tuỳ chọn +-") thay vì 1 input
      * số âm/dương gộp — tách `valueMs` (có dấu) thành dấu + độ lớn lúc đổ ra UI.
      * SỬA (16/08/2026, mục 3) — 2 dòng đổ độ lớn ĐỔI từ gán `.value` (input số cũ) sang gọi
-     * `_syncMagnitudeButton()` (nút mới, xem hàm dưới). */
+     * `_syncMagnitudeButton()` (nút mới, xem hàm dưới).
+     * SỬA (16/08/2026, mục 3 tiếp) — đồng bộ THÊM toggle Custom Styling + 2 field mặc định +
+     * ẩn/hiện đúng khối tương ứng (xem `_syncCustomStylingVisibility()`). */
     refresh() {
         if (!subtitleSettingsPanelEl) return; // guard: panel đã đóng
         const cfg = appConfigViz.getAll();
         subtitleSettingsPanelEl.querySelector('#setting-subtitles-enabled').checked = cfg.subtitlesEnabled !== false;
+        subtitleSettingsPanelEl.querySelector('#setting-subtitle-use-custom-styling').checked = !!cfg.subtitleUseCustomStyling;
+        subtitleSettingsPanelEl.querySelector('#setting-subtitle-default-fontsize').value = cfg.subtitleDefaultFontSize || 16;
+        subtitleSettingsPanelEl.querySelector('#setting-subtitle-default-color').value = cfg.subtitleDefaultColor || '#ffffff';
+        this._syncCustomStylingVisibility(!!cfg.subtitleUseCustomStyling);
         subtitleSettingsPanelEl.querySelector('#setting-subtitle-comming-effect').value = cfg.subtitleCommingEffect || 'none';
         subtitleSettingsPanelEl.querySelector('#setting-subtitle-comming-sign').value = (cfg.subtitleCommingValueMs || 0) < 0 ? '-' : '+';
         this._syncMagnitudeButton('comming', cfg.subtitleCommingValueMs);
@@ -50,6 +58,25 @@ const workflowSubtitleStyleSettings = {
         subtitleSettingsPanelEl.querySelector('#setting-subtitle-outing-effect').value = cfg.subtitleOutingEffect || 'none';
         subtitleSettingsPanelEl.querySelector('#setting-subtitle-outing-sign').value = (cfg.subtitleOutingValueMs || 0) < 0 ? '-' : '+';
         this._syncMagnitudeButton('outing', cfg.subtitleOutingValueMs);
+    },
+
+    /** MỚI (16/08/2026, mục 3 — "On để áp dụng tuỳ chỉnh thì lúc này mới hiện nút styling") — ẩn/
+     * hiện ĐÚNG 1 trong 2 khối (nút Styling / 2 field mặc định) theo trạng thái toggle — CẢ 2 khối
+     * LUÔN render TĨNH sẵn trong HTML (components/subtitle-settings-drawer.js), hàm này CHỈ toggle
+     * class `hidden` (KHÔNG re-render lại panel), dùng CHUNG cho cả `refresh()` (lúc mở panel) lẫn
+     * `setUseCustomStyling()` (lúc đổi toggle ngay lập tức). */
+    _syncCustomStylingVisibility(useCustom) {
+        if (!subtitleSettingsPanelEl) return;
+        subtitleSettingsPanelEl.querySelector('#setting-open-subtitle-styling').classList.toggle('hidden', !useCustom);
+        subtitleSettingsPanelEl.querySelector('#setting-subtitle-default-fields').classList.toggle('hidden', useCustom);
+    },
+
+    /** MỚI (16/08/2026, mục 3) — ứng với toggle Custom Styling đổi — ghi state + áp lại
+     * `subtitleFrame` NGAY (setSubtitleUseCustomStyling(), core) + ẩn/hiện đúng khối UI liên quan
+     * (>1 bước, đúng lý do case này route qua Workflow thay vì router gọi core thẳng). */
+    setUseCustomStyling(checked) {
+        setSubtitleUseCustomStyling(checked); // core
+        this._syncCustomStylingVisibility(checked);
     },
 
     /** MỚI (16/08/2026, mục 3) — gán LẠI chữ hiển thị + `data-ms` cho nút magnitude
@@ -110,11 +137,18 @@ const workflowSubtitleStyleSettings = {
      * styling editor") — truyền THÊM `appConfigViz.getAll().subtitleBoxCss` làm `initialCssString`
      * (tham số MỚI của open(), xem event/workflow/element-style-editor.js) — Drawer giờ tự NẠP LẠI
      * khớp đúng giá trị ĐÃ LƯU trước đó (nếu có) thay vì luôn mở trắng mỗi lần, đúng UX "mở lại thấy
-     * lại đúng cấu hình cũ" — rỗng ('' mặc định, core/config.js) thì hành vi CŨ giữ nguyên (mở trắng). */
+     * lại đúng cấu hình cũ" — rỗng ('' mặc định, core/config.js) thì hành vi CŨ giữ nguyên (mở trắng).
+     * SỬA (16/08/2026, mục 3) — thêm `applySubtitleFrameStyle()` (core) SAU saveConfig() — generic
+     * `_apply()` (event/workflow/element-style-editor.js) đã tự áp thẳng `cssString` lên
+     * `subtitleFrame` qua `applyElementStyleToDom()` RỒI (KHÔNG xoá style cũ trước khi áp — xem
+     * docstring hàm đó), gọi LẠI ở đây để đảm bảo `removeAttribute('style')` trước, tránh sót
+     * property THỪA nếu bản chỉnh MỚI này bỏ bớt property so với lần Apply trước (vd tắt Border đã
+     * bật trước đó) — gọi 2 lần liên tiếp vô hại (lần 2 tự "thắng" vì chạy sau, cùng targetEl). */
     openStyling() {
         workflowElementStyleEditor.open(subtitleFrame, (cssString) => {
             setSubtitleBoxCss(cssString); // core
             saveConfig();
+            applySubtitleFrameStyle(appConfigViz.getAll()); // core
         }, appConfigViz.getAll().subtitleBoxCss);
     },
 };
