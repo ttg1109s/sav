@@ -22,6 +22,10 @@
  * `magnitudeEl.dataset.ms` (button MỚI tự giữ mili giây hiện có qua thuộc tính `data-ms`, do
  * Workflow đồng bộ mỗi lần đổi — xem `_syncMagnitudeButton()`, event/workflow/subtitle-style-
  * settings.js).
+ *
+ * MỚI (16/08/2026, mục 3 tiếp) — toggle `#setting-subtitle-use-custom-styling` (>1 bước -> Workflow)
+ * + 2 field mặc định `#setting-subtitle-default-fontsize`/`#setting-subtitle-default-color` (1 hàm
+ * core -> gọi thẳng, CÙNG quy ước `transitionField.change`).
  */
 
 if (settingsStackBody) {
@@ -44,6 +48,23 @@ if (settingsStackBody) {
     settingsStackBody.addEventListener('change', (e) => {
         if (e.target.id === 'setting-subtitles-enabled') {
             eventBus.send({ router: 'subtitleStyleSettings', type: 'subtitleStyleSettings.enable.change', payload: { checked: e.target.checked } });
+        }
+        // MỚI (16/08/2026, mục 3) — toggle "Custom styling" — >1 bước (ghi config + ẩn/hiện nút
+        // Styling/2 field mặc định trong panel) -> Workflow, KHÁC `enable.change` ngay trên (CHỈ
+        // ghi config, checkbox tự phản ánh trạng thái của chính nó, không cần đụng UI khác).
+        if (e.target.id === 'setting-subtitle-use-custom-styling') {
+            eventBus.send({ router: 'subtitleStyleSettings', type: 'subtitleStyleSettings.useCustomStyling.change', payload: { checked: e.target.checked } });
+        }
+        // MỚI (16/08/2026, mục 3 — "nếu là mặc định cho phép chỉnh cỡ chữ 8-16px, cho phép chỉnh
+        // color") — 2 field CHỈ hiện lúc Custom TẮT — 1 event type CHUNG (CÙNG PRECEDENT
+        // transitionFieldMap ngay dưới), router gọi thẳng core (1 hàm, không đụng UI nào khác).
+        const defaultFieldMap = {
+            'setting-subtitle-default-fontsize': 'subtitleDefaultFontSize',
+            'setting-subtitle-default-color': 'subtitleDefaultColor',
+        };
+        if (defaultFieldMap[e.target.id]) {
+            const isNumeric = e.target.id === 'setting-subtitle-default-fontsize';
+            eventBus.send({ router: 'subtitleStyleSettings', type: 'subtitleStyleSettings.defaultField.change', payload: { field: defaultFieldMap[e.target.id], value: isNumeric ? parseInt(e.target.value, 10) : e.target.value } });
         }
         // MỚI (15/08/2026, mục 4b) — 3 dropdown effect (components/subtitle-settings-drawer.js::
         // _renderSubtitleTransitionSection()) — 1 event type CHUNG, payload {field,value}
