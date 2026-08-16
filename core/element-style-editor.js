@@ -67,6 +67,7 @@ function buildElementStyleCssString(draft) {
     if (box.height.mode !== 'none') parts.push(`height: ${sizeValue(box.height)}`);
     if (box.padding.enabled) parts.push(`padding: ${sidesValue(box.padding)}`);
     if (box.margin.enabled) parts.push(`margin: ${sidesValue(box.margin)}`);
+    if (box.background.enabled) parts.push(`background-color: ${box.background.value}`);
     if (box.border.enabled) parts.push(`border: ${box.border.width}${box.border.widthUnit} ${box.border.style} ${box.border.color}`);
     if (box.opacity.enabled) parts.push(`opacity: ${(box.opacity.value / 100).toFixed(2)}`);
 
@@ -84,6 +85,7 @@ function buildElementStyleCssString(draft) {
     if (text.textTransform !== 'none') parts.push(`text-transform: ${text.textTransform}`);
     if (text.color.enabled) parts.push(`color: ${text.color.value}`);
     if (text.whiteSpace !== 'none') parts.push(`white-space: ${text.whiteSpace}`);
+    if (text.textShadow.enabled) parts.push(`text-shadow: ${text.textShadow.offsetX}px ${text.textShadow.offsetY}px ${text.textShadow.blur}px ${text.textShadow.color}`);
 
     return parts.join('; ');
 }
@@ -131,6 +133,8 @@ function parseElementStyleCssString(cssString) {
             const top = _parseValueUnit(tk[0]); const right = _parseValueUnit(tk[1] || tk[0]);
             const bottom = _parseValueUnit(tk[2] || tk[0]); const left = _parseValueUnit(tk[3] || tk[1] || tk[0]);
             patch.box[prop] = { enabled: true, unit: top.unit || 'px', top: top.value, right: right.value, bottom: bottom.value, left: left.value };
+        } else if (prop === 'background-color') {
+            patch.box.background = { enabled: true, value };
         } else if (prop === 'border') {
             const m = /^([\d.]+)([a-z%]*)\s+(\S+)\s+(.+)$/i.exec(value);
             if (m) patch.box.border = { enabled: true, width: parseFloat(m[1]), widthUnit: m[2] || 'px', style: m[3], color: m[4] };
@@ -159,6 +163,9 @@ function parseElementStyleCssString(cssString) {
             patch.text.color = { enabled: true, value };
         } else if (prop === 'white-space') {
             patch.text.whiteSpace = value;
+        } else if (prop === 'text-shadow') {
+            const m = /^(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s+(.+)$/i.exec(value);
+            if (m) patch.text.textShadow = { enabled: true, offsetX: parseFloat(m[1]), offsetY: parseFloat(m[2]), blur: parseFloat(m[3]), color: m[4] };
         }
     });
 
@@ -223,3 +230,4 @@ function loadGoogleFont(family, weight, alreadyLoaded) {
     appState.mutate('eseLoadedGoogleFonts', (arr) => arr.push(family));
     console.log(`writer: "loadGoogleFont", page: "eseLoadedGoogleFonts", content: "push '${family}' — đã inject <link> Google Font"`);
 }
+

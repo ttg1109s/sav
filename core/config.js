@@ -105,6 +105,20 @@
             // KHÔNG áp riêng từng dòng (khác coming/in/outing, per-line — xem hội thoại). Rỗng =
             // chưa chỉnh gì, giữ nguyên chữ trắng + shadow mặc định (mục 2).
             subtitleBoxCss: '',
+            // MỚI (16/08/2026, mục 3 — Giang yêu cầu "toggle tuỳ chọn sử dụng hiển thị mặc định,
+            // On để áp dụng tuỳ chỉnh") — công tắc CHỌN 1 TRONG 2 kiểu hiển thị cho subtitleFrame:
+            // false (mặc định) = dùng `subtitleDefaultFontSize`/`subtitleDefaultColor` ngay dưới +
+            // nền chữ tĩnh CỐ ĐỊNH (font-weight/line-height/text-shadow, class
+            // `.subtitle-default-appearance` + `.sub-text-glow`, assets/css/base.css); true = dùng
+            // `subtitleBoxCss` (Element Style Editor đầy đủ, nút "Styling" CHỈ hiện khi bật cái
+            // NÀY). Xem applySubtitleFrameStyle(), core/subtitle/subtitle-style-settings.js.
+            subtitleUseCustomStyling: false,
+            // MỚI (16/08/2026, mục 3 — "Nếu là mặc định cho phép chỉnh sửa cỡ chữ từ 8px-16px, cho
+            // phép chỉnh color") — 2 field CHỈ có tác dụng lúc `subtitleUseCustomStyling === false`
+            // — biên fontSize [8,16] ép ở UI (components/subtitle-settings-drawer.js), KHÔNG ép lại
+            // ở đây (core không tự phán đúng/sai input, xem core-function-conventions.md).
+            subtitleDefaultFontSize: 16,
+            subtitleDefaultColor: '#ffffff',
             // MỚI (15/08/2026, mục 4b) — hiệu ứng Comming/In/Outing khi 1 dòng phụ đề bắt đầu/kết
             // thúc hiệu lực — CHUNG 1 cài đặt cho MỌI dòng (KHÔNG lưu riêng từng dòng, xem hội
             // thoại), nhưng KHUNG THỜI GIAN thực tế áp dụng được TÍNH RIÊNG mỗi dòng lúc phát, lấy
@@ -321,6 +335,8 @@
                 autoSwitchVisualSecondsFixed: 'number', autoSwitchVisualSecondsRandom: 'number', autoSwitchVisualSecondsDuration: 'number',
                 subtitlesEnabled: 'boolean',
                 subtitleBoxCss: 'string',
+                subtitleUseCustomStyling: 'boolean',
+                subtitleDefaultFontSize: 'number', subtitleDefaultColor: 'string',
                 subtitleCommingEffect: 'string', subtitleCommingValueMs: 'number',
                 subtitleInEffect: 'string',
                 subtitleOutingEffect: 'string', subtitleOutingValueMs: 'number',
