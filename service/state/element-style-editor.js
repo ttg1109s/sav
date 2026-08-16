@@ -32,6 +32,13 @@ function cloneElementStyleDraftDefaults() {
             // hiếm gặp, không hỗ trợ ở bản đầu).
             padding: { enabled: false, unit: 'px', top: 0, right: 0, bottom: 0, left: 0 },
             margin: { enabled: false, unit: 'px', top: 0, right: 0, bottom: 0, left: 0 },
+            // MỚI (16/08/2026, mục 2 — Giang chỉ ra "đang thiếu background cho box") — màu nền
+            // thuần (KHÔNG hỗ trợ ảnh nền/gradient bản đầu, giữ đơn giản — CÙNG khung {enabled,value}
+            // với text.color bên dưới). CSS xuất `background-color` (KHÔNG dùng shorthand
+            // `background`, tránh vô tình xoá mất `background-image`/`background-position`... nếu
+            // targetEl từng có sẵn style khác — applyElementStyleToDom() ghi qua setProperty() TỪNG
+            // khai báo, xem core/element-style-editor.js).
+            background: { enabled: false, value: '#ffffff' },
             border: { enabled: false, width: 1, widthUnit: 'px', style: 'solid', color: '#000000' },
             // MỚI — 0-100 (quy đổi /100 -> 0-1 lúc build CSS, xem buildElementStyleCssString(),
             // core/element-style-editor.js), KHÔNG lưu thẳng 0-1 để tránh người dùng gõ nhầm scale.
@@ -53,6 +60,11 @@ function cloneElementStyleDraftDefaults() {
             textTransform: 'none',
             color: { enabled: false, value: '#000000' },
             whiteSpace: 'none',
+            // MỚI (16/08/2026, mục 2 — Giang chỉ ra "chưa có text-shadow cho text") — 4 phần độc
+            // lập offsetX/offsetY/blur (LUÔN đơn vị px, KHÔNG thêm dropdown unit — text-shadow thực
+            // tế hầu như chỉ dùng px, giữ đơn giản, đỡ 1 lớp UI thừa) + color riêng (KHÔNG dùng
+            // chung `color` phía trên — 2 khái niệm khác nhau, màu chữ vs màu đổ bóng).
+            textShadow: { enabled: false, offsetX: 0, offsetY: 0, blur: 2, color: '#000000' },
         },
     };
 }
