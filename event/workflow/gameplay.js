@@ -51,7 +51,9 @@ const workflowGameplay = {
     /** Ứng với 'gameplay.start.click' — GIỜ CHỈ còn 2 nơi gọi: setModeEnabled() (bật ON kèm bài
      * đang phát) và hook TỰ ĐỘNG ở event/router/visual-bg.js case 'visualBg.songChanged' (mọi lần
      * bài đổi thật trong lúc gameplayModeEnabled=true, xem docstring đầu file NÀY) — mở layer, vào
-     * phase 'ready', CHƯA spawn wave nào (chờ người dùng bấm Start). */
+     * phase 'ready', hiện modalChoice() hỏi Start (SỬA 16/08/2026, Giang yêu cầu dùng modalChoice()
+     * thay overlay riêng — KHÔNG còn #gameplay-ready-screen tĩnh nữa). CHƯA spawn wave nào (chờ
+     * người dùng bấm Start trong modal). */
     start(mode) {
         this._resetSessionCounters();
         appState.set('gameplayMode', mode, { skipCheck: true });
@@ -60,13 +62,26 @@ const workflowGameplay = {
         console.log(`writer: "workflowGameplay.start", page: "gameplayPhase", content: "ready"`);
 
         showCircleGameplayLayer(gameplayLayer, GAMEPLAY_CIRCLE_CONFIG.centerRadius); // core-ui
-        showGameplayReadyScreen(gameplayReadyScreen); // core-ui
+        this._showReadyModal();
     },
 
-    /** Ứng với 'gameplay.startCountdown.click' (nút "Start" trên màn ready) — bắt đầu đếm ngược
+    /** modalChoice() "Start" — DÙNG CHUNG cho start() VÀ replay() (2 nơi cần hiện lại y hệt màn
+     * này). 2 nút: Cancel (thoát hẳn — bù lại việc nút thoát cố định #btn-gameplay-exit bị chính
+     * modalChoice() (z-130, toàn cục) che mất lúc đang mở) / Start (bắt đầu đếm ngược). */
+    _showReadyModal() {
+        modalChoice(
+            t('gameplayCircle.ready.text'),
+            [
+                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => this.exitToPlaylist() },
+                { label: t('gameplayCircle.ready.startLabel'), className: 'flex-1 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-sm font-semibold transition-colors', onClick: () => this.startCountdown() },
+            ],
+            { title: t('gameplayCircle.ready.title') }
+        ); // core (core/modal-choice.js)
+    },
+
+    /** Ứng với nút "Start" (trong modalChoice(), xem _showReadyModal()) — bắt đầu đếm ngược
      * GAMEPLAY_COUNTDOWN_SECONDS giây, CHƯA spawn wave nào trong lúc đếm. */
     startCountdown() {
-        hideGameplayReadyScreen(gameplayReadyScreen); // core-ui
         appState.set('gameplayPhase', 'countdown', { skipCheck: true });
         console.log(`writer: "workflowGameplay.startCountdown", page: "gameplayPhase", content: "countdown"`);
         appState.set('gameplayCountdownValue', GAMEPLAY_COUNTDOWN_SECONDS, { skipCheck: true });
@@ -210,7 +225,8 @@ const workflowGameplay = {
     },
 
     /** Ứng với 'playerControls.audio.ended' KHI gameplayPhase !== 'idle' (branch qua
-     * VirtualMachineState ở event/router/player-controls.js — xem file đó). */
+     * VirtualMachineState ở event/router/player-controls.js — xem file đó). SỬA (16/08/2026, Giang
+     * yêu cầu dùng modalChoice() thay overlay riêng) — KHÔNG còn #gameplay-score-screen tĩnh. */
     async onSongEnded() {
         stopListenClock(); // core — giữ PARITY với handleAudioEnded() thường, KHÔNG bỏ qua vì đang chơi game
         const { gameplayTotalScore, gameplayCircleCount } = appState.get(['gameplayTotalScore', 'gameplayCircleCount']);
@@ -224,7 +240,16 @@ const workflowGameplay = {
         console.log(`writer: "workflowGameplay.onSongEnded", page: "gameplayPhase", content: "ended"`);
 
         clearCircleWaveElements(gameplayWavesContainer); // core-ui
-        showScoreScreen(gameplayScoreScreen, gameplayFinalScore, finalScore); // core-ui
+
+        modalChoice(
+            tFormat('gameplayCircle.ended.text', { score: finalScore.toFixed(3) }),
+            [
+                { label: t('gameplayCircle.ended.replayLabel'), className: 'flex-1 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-sm font-semibold transition-colors', onClick: () => this.replay() },
+                { label: t('gameplayCircle.ended.nextLabel'), className: 'flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm font-semibold transition-colors', onClick: () => this.nextSong() },
+                { label: t('gameplayCircle.ended.endLabel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => this.exitToPlaylist() },
+            ],
+            { title: t('gameplayCircle.ended.title') }
+        ); // core (core/modal-choice.js)
     },
 
     /** Đọc + ghi record 'songs' — CHỈ hợp lệ ở Workflow (Core cấm tuyệt đối đọc DB, xem bảng tổng
@@ -242,44 +267,41 @@ const workflowGameplay = {
         await setSongRecord(key, record); // service/db.js
     },
 
-    /** Nút "Chơi lại" (màn kết quả) — phát lại ĐÚNG bài hiện tại từ đầu, quay về phase 'ready'
-     * (KHÔNG nhảy thẳng 'playing' — mọi lượt chơi đều phải qua Start/countdown, kể cả replay, cho
-     * nhất quán trải nghiệm). */
+    /** Nút "Chơi lại" (trong modalChoice() kết quả, xem onSongEnded()) — phát lại ĐÚNG bài hiện
+     * tại từ đầu, quay về phase 'ready' + hiện lại modal Start (KHÔNG nhảy thẳng 'playing' — mọi
+     * lượt chơi đều phải qua Start/countdown, kể cả replay, cho nhất quán trải nghiệm). */
     replay() {
-        hideScoreScreen(gameplayScoreScreen); // core-ui
         audioPlayer.currentTime = 0;
         audioPlayer.play();
         this._resetSessionCounters();
         appState.set('gameplayPhase', 'ready', { skipCheck: true });
         console.log(`writer: "workflowGameplay.replay", page: "gameplayPhase", content: "ready"`);
-        showGameplayReadyScreen(gameplayReadyScreen); // core-ui
+        this._showReadyModal();
     },
 
-    /** Nút "Bài tiếp theo" — playNext(true) (core có sẵn) đã TỰ wrap về đầu playlist nếu đang ở
-     * bài cuối. SỬA (16/08/2026) — KHÔNG tự mở lại màn ready ở đây nữa: hook TỰ ĐỘNG ở event/
+    /** Nút "Bài tiếp theo" (trong modalChoice() kết quả) — playNext(true) (core có sẵn) đã TỰ wrap
+     * về đầu playlist nếu đang ở bài cuối. KHÔNG tự mở lại modal ready ở đây: hook TỰ ĐỘNG ở event/
      * router/visual-bg.js case 'visualBg.songChanged' đã lo việc đó (gameplayModeEnabled vẫn ĐANG
      * true suốt từ lúc start() — không cách nào tắt được giữa chừng, xem setModeEnabled()). CHỈ fallback
      * gọi start() thủ công cho ĐÚNG 1 trường hợp: playlist CHỈ có 1 bài -> playNext(true) trả về
      * NGUYÊN key cũ -> playSong() short-circuit ở nhánh `key === currentKey` (core/playlist/
      * actions.js), KHÔNG bắn 'visualBg.songChanged' -> hook không có gì để chạy. */
     nextSong() {
-        hideScoreScreen(gameplayScoreScreen); // core-ui
         const previousKey = appState.get('currentKey');
         playNext(true); // core
         if (appState.get('currentKey') === previousKey) this.start('circle');
     },
 
-    /** Ứng với 'gameplay.exit.click' (nút X cố định, đúng vị trí #btn-open-control-center — SỬA
-     * 16/08/2026, Giang yêu cầu gộp 2 nút thoát cũ + thêm khả năng thoát giữa lúc playing/countdown)
-     * — thoát hẳn Game Mode, tái dùng NGUYÊN VẸN luồng "Back to Playlist" có sẵn (KHÔNG viết lại,
-     * chỉ gửi lại đúng message). */
+    /** Ứng với 'gameplay.exit.click' (nút X cố định, đúng vị trí #btn-open-control-center) HOẶC
+     * nút "Cancel"/"Back to playlist" NGAY TRONG modalChoice() (ready/kết quả) — thoát hẳn Game
+     * Mode, tái dùng NGUYÊN VẸN luồng "Back to Playlist" có sẵn (KHÔNG viết lại, chỉ gửi lại đúng
+     * message). KHÔNG cần tự đóng modalChoice() ở đây — nó đã TỰ đóng NGAY khi 1 nút được bấm,
+     * TRƯỚC KHI onClick chạy (đúng cơ chế modalChoice(), xem core/modal-choice.js). */
     exitToPlaylist() {
         appState.set('gameplayPhase', 'idle', { skipCheck: true });
         console.log(`writer: "workflowGameplay.exitToPlaylist", page: "gameplayPhase", content: "idle"`);
         taskManager.kill(GAMEPLAY_COUNTDOWN_TASK);
 
-        hideScoreScreen(gameplayScoreScreen); // core-ui
-        hideGameplayReadyScreen(gameplayReadyScreen); // core-ui
         hideGameplayCountdown(gameplayCountdownScreen); // core-ui
         hideCircleGameplayLayer(gameplayLayer); // core-ui
         clearCircleWaveElements(gameplayWavesContainer); // core-ui
