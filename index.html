@@ -293,7 +293,7 @@
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
     <script src="lang/patch/patch-common.js?v=20260808v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260728v2"></script>
-    <script src="lang/patch/patch-visualizer.js?v=20260816v4"></script>
+    <script src="lang/patch/patch-visualizer.js?v=20260816v5"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260816v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260816v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
@@ -318,7 +318,7 @@
     <script src="components/playlist-view.js?v=20260728v3"></script>
     <!-- Game Mode overlay (Circle mode v1, MỚI 16/08/2026) — PHẢI nạp TRƯỚC components/visualizer-
          overlay.js (file đó nội suy ${TPL_GAMEPLAY_OVERLAY}, xem components/gameplay-overlay.js). -->
-    <script src="components/gameplay-overlay.js?v=20260816v3"></script>
+    <script src="components/gameplay-overlay.js?v=20260816v4"></script>
     <script src="components/visualizer-overlay.js?v=20260816v4"></script>
     <!-- components/subtitle-modal.js ĐÃ XOÁ (10/07/2026) — Subtitle Editor chuyển sang trang riêng
          (subtitle-editor.html), KHÔNG còn modal ở trang chính. -->
@@ -485,7 +485,7 @@
          actions.js (core, dòng dưới) cần `new EventStore(...)` ngay lúc nạp. Tự đứng độc lập
          (không phụ thuộc eventBus), nên tách riêng lên đây an toàn. -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260816v5"></script>
+    <script src="core/dom-refs.js?v=20260816v6"></script>
     <!-- core/slider-panel-scroll.js — 2 hàm dùng chung (getPositionStart/scrollSliderTo) cho mọi
          khung cuộn ngang kiểu "slider panel" (settings-panel-stack-ui.js, player-controls.js). -->
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
@@ -630,7 +630,7 @@
          (mọi tham số do event/workflow/gameplay.js truyền vào), đặt cạnh visualizer-gesture.js cho
          cùng nhóm "tính năng overlay màn Visualizer". -->
     <script src="core/gameplay/circle-mode.js?v=20260816v4"></script>
-    <script src="core/gameplay/circle-mode-ui.js?v=20260816v4"></script>
+    <script src="core/gameplay/circle-mode-ui.js?v=20260816v5"></script>
     <!-- Icon loa Volume HUD, 5 mốc 0-100% (event/workflow/volume-hud.js). -->
     <script src="core/volume-hud.js?v=20260811v1"></script>
     <!-- MỚI (v13 Batch A) — Core THUẦN domain "Visual Background" (gộp video nền/ảnh nền tĩnh/
@@ -925,9 +925,9 @@
     <!-- Cụm "gameplay" — Game Mode (Circle mode v1, MỚI 16/08/2026). PHẢI nạp TRƯỚC event/router/
          player-controls.js NGAY DƯỚI ĐÂY — case 'playerControls.audio.ended' ở đó gọi tới
          workflowGameplay.onSongEnded() khi đang ở Game Mode (xem event/workflow/gameplay.js). -->
-    <script src="event/workflow/gameplay.js?v=20260816v5"></script>
-    <script src="event/router/gameplay.js?v=20260816v5"></script>
-    <script src="event/listener/gameplay.js?v=20260816v5"></script>
+    <script src="event/workflow/gameplay.js?v=20260816v6"></script>
+    <script src="event/router/gameplay.js?v=20260816v6"></script>
+    <script src="event/listener/gameplay.js?v=20260816v6"></script>
     <script src="event/workflow/player-controls.js?v=20260729v1"></script>
     <script src="event/router/player-controls.js?v=20260816v1"></script>
     <script src="event/listener/player-controls.js?v=20260708v1"></script>
