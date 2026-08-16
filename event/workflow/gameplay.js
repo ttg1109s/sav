@@ -20,12 +20,16 @@
  * TRƯỚC, gọi core/gameplay/circle-mode.js (tính toán thuần) + core/gameplay/circle-mode-ui.js
  * (đồng bộ DOM) THEO THỨ TỰ tại đây — 2 file core đó TUYỆT ĐỐI không gọi lẫn nhau (Rule 3a).
  *
- * Wave KHOÁ SPAWN THEO BEAT THẬT (SỬA 16/08/2026, Giang yêu cầu "làm luôn") — so global `lastBeatTime`
+ * Wave KHOÁ SPAWN THEO BEAT THẬT (SỬA 16/08/2026, đọc lại plan §9 lần 2) — so global `lastBeatTime`
  * (core/dom-refs.js, KHÔNG thuộc appState, audio-analysis.js ghi mỗi lần detect beat) với mốc đã
- * tiêu thụ (`_lastConsumedBeatTime`, closure field ở đây) để biết vừa có beat mới hay chưa. Mỗi
- * wave khi spawn tự tính RIÊNG `shrinkDurationMs` (theo BPM hiện tại) + `startRadius` (theo energy
- * hiện tại) rồi LƯU LUÔN vào wave — sau đó wave co theo đồng hồ `performance.now()` của riêng nó,
- * độc lập audio.currentTime (xem docstring core/gameplay/circle-mode.js).
+ * tiêu thụ (`_lastConsumedBeatTime`, closure field ở đây) để biết vừa có beat mới hay chưa — đây
+ * là ĐIỀU KIỆN CẦN. Đủ điều kiện rồi còn phải roll xác suất theo Energy (`computeSpawnProbability()`
+ * — "bao nhiêu", plan §9) mới THẬT SỰ spawn. Nếu spawn: vị trí Y lấy TUYỆT ĐỐI từ `lastValidMidiNote`
+ * hiện tại (Pitch quyết định "ở đâu", KHÔNG so lệch với 1 mốc trung bình — mỗi bài âm vực khác nhau
+ * là CHỦ Ý), vị trí X ngẫu nhiên (plan không gán nguồn nào), `shrinkDurationMs` theo BPM hiện tại
+ * (mở rộng nhóm Beat), `startRadius` CỐ ĐỊNH (plan không gán nguồn nào cho kích thước). Tất cả LƯU
+ * LUÔN vào wave lúc spawn — sau đó wave co+fade theo đồng hồ `performance.now()` của riêng nó, độc
+ * lập audio.currentTime (xem docstring đầy đủ ở core/gameplay/circle-mode.js).
  */
 const GAMEPLAY_COUNTDOWN_TASK = 'gameplayCountdown';
 
@@ -55,7 +59,7 @@ const workflowGameplay = {
         appState.set('gameplayPhase', 'ready', { skipCheck: true });
         console.log(`writer: "workflowGameplay.start", page: "gameplayPhase", content: "ready"`);
 
-        showCircleGameplayLayer(gameplayLayer, gameplayCenterCircle, GAMEPLAY_CIRCLE_CONFIG.centerRadius); // core-ui
+        showCircleGameplayLayer(gameplayLayer, GAMEPLAY_CIRCLE_CONFIG.centerRadius); // core-ui
         showGameplayReadyScreen(gameplayReadyScreen); // core-ui
     },
 
@@ -100,8 +104,11 @@ const workflowGameplay = {
     },
 
     /** Ứng với 'gameplay.tap.press' — CHỈ tính điểm khi phase='playing' (guard clause thuần —
-     * countdown/ready/ended: tap không có tác dụng, KHÔNG phải rẽ nhánh xử lý khác nhau). */
-    handleTap() {
+     * countdown/ready/ended: tap không có tác dụng, KHÔNG phải rẽ nhánh xử lý khác nhau). SỬA
+     * (16/08/2026, đọc lại plan — mỗi note ở 1 vị trí riêng) — tap PHẢI trúng VỊ TRÍ (x,y, % theo
+     * `#gameplay-tap-surface`) của note đó, KHÔNG còn tính theo "wave gần biên nhất" bất kể ở đâu
+     * trên màn hình như bản đầu. @param {number} tapX @param {number} tapY */
+    handleTap(tapX, tapY) {
         if (appState.get('gameplayPhase') !== 'playing') return;
         if (audioPlayer.paused) return; // tap trong lúc nhạc đang pause -> không tính (đồng bộ đúng lý do đã ghi ở tick())
         const now = performance.now();
@@ -111,8 +118,10 @@ const workflowGameplay = {
         ]);
         if (gameplayWaves.length === 0) return; // không có wave nào -> không phải 1 note thật, không tính miss
 
-        const radiusEntries = gameplayWaves.map(w => ({ id: w.id, radius: computeWaveRadius(w, now) })); // core, lặp ở Workflow (Rule 3b/3c)
-        const nearest = findNearestRadiusEntry(radiusEntries, cfg.centerRadius); // core
+        const entries = gameplayWaves.map(w => ({ id: w.id, x: w.x, y: w.y, radius: computeWaveRadius(w, now) })); // core, lặp ở Workflow (Rule 3b/3c)
+        const nearest = findNearestNoteByPosition(entries, tapX, tapY, cfg.tapHitTolerancePercent); // core
+        if (!nearest) return; // tap không trúng note nào (ngoài dung sai vị trí) -> không tính, coi như bấm hụt vào khoảng trống
+
         const tier = classifyTapTier(nearest.radius, cfg.centerRadius, cfg.gap, cfg.tiers); // core
 
         const tierName = tier ? tier.name : 'miss';
@@ -134,7 +143,7 @@ const workflowGameplay = {
         appState.set('gameplayCircleCount', newCircleCount, { skipCheck: true });
         console.log(`writer: "workflowGameplay.handleTap", page: "gameplayCircleCount", content: "${newCircleCount}"`);
 
-        showTapTierPopup(gameplayTierPopupLayer, tierName.toUpperCase(), tierName); // core-ui
+        showTapTierPopup(gameplayTierPopupLayer, tierName.toUpperCase(), tierName, nearest.x, nearest.y); // core-ui
         updateGameplayHud(gameplayHudScore, gameplayHudCombo, newTotalScore, newCircleCount, newComboStreak); // core-ui
     },
 
@@ -152,23 +161,39 @@ const workflowGameplay = {
         // là đủ: audio KHÔNG phát -> chưa (hoặc chưa còn) có circle nào hiển thị/tiến triển, hết.
         if (audioPlayer.paused) return;
         const cfg = GAMEPLAY_CIRCLE_CONFIG;
-        const { gameplayWaves, gameplayCircleCount, currentCalculatedBpm, smoothedEnergy } = appState.get([
-            'gameplayWaves', 'gameplayCircleCount', 'currentCalculatedBpm', 'smoothedEnergy',
+        const { gameplayWaves, gameplayCircleCount, currentCalculatedBpm, smoothedEnergy, lastValidMidiNote } = appState.get([
+            'gameplayWaves', 'gameplayCircleCount', 'currentCalculatedBpm', 'smoothedEnergy', 'lastValidMidiNote',
         ]);
 
         // `lastBeatTime` — biến GLOBAL (core/dom-refs.js, KHÔNG qua appState.get vì không thuộc
         // appState — audio-analysis.js ghi Date.now() mỗi lần detect beat thật, khác gốc thời gian
         // với `now` (performance.now()) ở đây — CHỈ dùng để SO SÁNH THAY ĐỔI, không trừ khoảng cách.
         if (shouldSpawnCircleWave(gameplayWaves.length, this._lastConsumedBeatTime, lastBeatTime, cfg)) { // core
+            // Đánh dấu đã tiêu thụ NGAY (bất kể roll xác suất bên dưới trúng hay trượt) — tránh
+            // beat này bị re-roll ở MỌI frame cho tới beat kế tiếp (nếu chỉ đánh dấu lúc spawn THẬT
+            // thì 1 beat trượt roll sẽ bị hỏi lại ~60 lần/giây, xác suất hiệu dụng cao hơn hẳn ý định).
             this._lastConsumedBeatTime = lastBeatTime;
-            const shrinkDurationMs = computeShrinkDurationMs(currentCalculatedBpm, cfg); // core
-            const startRadius = computeWaveStartRadius(smoothedEnergy, cfg); // core
-            const wave = createCircleWave(this._nextWaveId++, now, startRadius, shrinkDurationMs); // core
-            appState.mutate('gameplayWaves', arr => arr.push(wave), { skipCheck: true });
+            // Energy quyết định "bao nhiêu" (plan §9) — xác suất spawn, KHÔNG phải chắc chắn.
+            const spawnProbability = computeSpawnProbability(smoothedEnergy, cfg); // core
+            if (Math.random() < spawnProbability) {
+                const shrinkDurationMs = computeShrinkDurationMs(currentCalculatedBpm, cfg); // core
+                // Pitch quyết định "ở đâu" (plan §9) — vị trí Y tuyệt đối theo nốt hiện tại.
+                const y = computeSpawnPositionY(lastValidMidiNote, cfg); // core
+                // Vị trí X: plan không gán nguồn nào -> ngẫu nhiên (Workflow tự roll, Core chỉ nội suy).
+                const x = computeSpawnPositionX(Math.random(), cfg); // core
+                const wave = createCircleWave(this._nextWaveId++, now, cfg.waveStartRadius, shrinkDurationMs, x, y); // core
+                appState.mutate('gameplayWaves', arr => arr.push(wave), { skipCheck: true });
+            }
         }
 
         const waves = appState.get('gameplayWaves');
-        const radiusEntries = waves.map(w => ({ id: w.id, radius: computeWaveRadius(w, now) })); // core, lặp ở Workflow
+        const radiusEntries = waves.map(w => ({
+            id: w.id,
+            x: w.x,
+            y: w.y,
+            radius: computeWaveRadius(w, now), // core, lặp ở Workflow
+            opacity: computeWaveOpacity(w, now), // core, lặp ở Workflow
+        }));
         for (const entry of radiusEntries) entry.armed = Math.abs(entry.radius - cfg.centerRadius) <= cfg.gap; // cờ hiển thị thuần (core-ui đọc), KHÔNG ảnh hưởng chấm điểm
 
         const missedIds = radiusEntries.filter(e => isWaveMissed(e.radius, cfg.centerRadius, cfg.gap)).map(e => e.id); // core
