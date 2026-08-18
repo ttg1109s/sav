@@ -108,6 +108,8 @@ const LANG_PATCH_COMMON = {
     // MỚI (04/07/2026, mục 2 phản hồi Giang).
     'common.save': 'Save',
     'common.ok': 'OK',
+    // MỚI — nút "Chọn" của modal-choice-ui.js khi >2 lựa chọn (đổi layout dropdown).
+    'common.select': 'Select',
     // MỚI (08/08/2026) — nút "Áp dụng" của core/slider-input-modal.js (modal chọn số dùng chung).
     'common.apply': 'Apply',
     // MỚI (10/07/2026, Nhóm A — nút đóng Generic Drawer, xem event/workflow/document-reader.js).
