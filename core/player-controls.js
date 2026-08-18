@@ -1,8 +1,22 @@
 /**
- * Điều khiển phát nhạc: next/prev, chuyển sang màn hình visualizer, nút play/pause/shuffle/repeat,
- * Media Session API, thanh tiến trình, sự kiện audio (play/pause/ended/loadedmetadata/error/
- * timeupdate/seeked), bộ đếm thời gian nghe thật, modal "Tiếp tục nghe?".
- * (Trích từ file gốc, dòng 802-972 trong khối <script>)
+ * Điều khiển phát nhạc: toggle play/pause của track đã tải, chuyển sang màn hình visualizer, nút
+ * shuffle/repeat, Media Session API, thanh tiến trình, sự kiện audio (play/pause/loadedmetadata/
+ * error/timeupdate/seeked), bộ đếm thời gian nghe thật, modal "Tiếp tục nghe?".
+ *
+ * [SỬA — plan-playmedia-reorg.md] `playNext()`/`playPrev()`/`handleAudioEnded()` ĐÃ XOÁ khỏi file
+ * này — 3 hàm đó thật ra luôn là ĐIỀU PHỐI (đọc appState nhiều lần, gọi Core khác nối tiếp), sai
+ * tầng từ đầu (core-legacy-audit.md từng track các vi phạm Rule 2/3 tương ứng). Logic "tiến 1 bước
+ * trong hàng đợi" tách thành Core thuần dùng chung (`computeListStep`/`decideBoundaryAction`/
+ * `shouldRestartInsteadOfAdvance`, core/playlist/order.js); phần điều phối (đọc state, gọi Core,
+ * gọi `workflowPlayer.playMedia()`) chuyển hẳn sang `workflowPlayerControls.goToNextTrack()`/
+ * `goToPrevTrack()`/`handleSongEnded()` (event/workflow/player-controls.js). Router
+ * (event/router/player-controls.js) giờ gọi thẳng 3 method Workflow đó thay vì hàm Core cũ.
+ *
+ * `togglePlayPause()` (còn lại trong file này) cũng ĐÃ TÁCH — trước đây tự gộp 2 tiến trình khác
+ * nhau ("chưa có bài nào đang tải -> phát bài đầu tiên" / "toggle play-pause") trong 1 hàm, vi
+ * phạm Rule 1. Phần "chưa có gì đang tải -> phát bài đầu tiên" dời sang
+ * `workflowPlayerControls.handlePlayPauseClick()` — hàm CÒN LẠI ở đây giờ CHỈ còn ĐÚNG 1 việc,
+ * nhận `audioContext` qua tham số (Rule 2 hợp lệ, KHÔNG tự `appState.get()` nữa).
  *
  * TÁCH FILE (ver 11, tái cấu trúc /event/): phần "Settings hiệu ứng hình ảnh/màu/EQ/volume" +
  * nút Cycle hiệu ứng (#btn-cycle-mode) trước đây nằm CHUNG file này đã dời sang
@@ -13,125 +27,11 @@
  * mọi script đã nạp xong), KHÔNG có lệnh gọi nào chạy ngay lúc parse, nên thứ tự nạp này an toàn
  * dù visualizer-display.js đứng sau.
  *
- * ÁP DỤNG /event/ (ver 11, patch 2): TOÀN BỘ 17 `addEventListener` cũ của file này (9 click UI +
- * 8 audioPlayer/progressBar event) đã CHUYỂN HẾT sang event/listener/player-controls.js — quyết
- * định CHỐT khác mục 2b.6: dù `audioPlayer`/`progressBar` là DOM cố định (không phải listener nội
- * bộ dùng-1-lần), vẫn đưa vào /event/ theo đúng nghĩa đen "DOM listener cần tách" (xem quyết định
- * người dùng, không phải mục 2b.6 phát sinh từ cụm playlist). Mọi logic nghiệp vụ TRƯỚC ĐÂY nằm
- * thẳng trong callback đã rút thành HÀM CORE THUẦN ở file này — xem từng hàm bên dưới, đối chiếu
- * event/router/player-controls.js để biết msg.type nào gọi hàm nào. Cross-call (vd updateTypeUI,
- * applyEQPreset) vẫn GIỮ NGUYÊN lệnh gọi hàm trực tiếp như cũ — KHÔNG thuộc phạm vi patch này (xem
- * plan.md, đã chốt lùi việc này tới khi 134 listener gốc tách xong hết).
+ * ÁP DỤNG /event/ (ver 11, patch 2): TOÀN BỘ `addEventListener` cũ của file này (click UI +
+ * audioPlayer/progressBar event) đã CHUYỂN HẾT sang event/listener/player-controls.js. Mọi logic
+ * nghiệp vụ TRƯỚC ĐÂY nằm thẳng trong callback đã rút thành HÀM CORE THUẦN ở file này — xem từng
+ * hàm bên dưới, đối chiếu event/router/player-controls.js để biết msg.type nào gọi hàm nào.
  */
-        /**
-         * Next/Prev khi KHÔNG shuffle giờ dùng `displayOrder` (thứ tự ĐANG HIỂN THỊ theo sort mode
-         * — mục 3 trong playlist.js) làm thứ tự phát, thay cho `playlistOrder` gốc (thứ tự thêm
-         * vào) như trước — đúng yêu cầu "thứ tự phát = thứ tự hiển thị" khi không trộn bài.
-         *
-         * "Chạm biên" (Next từ bài cuối quay về đầu, hoặc Prev từ bài đầu quay về cuối) là điểm áp
-         * lại sort thật cho các bài mới thêm vào lúc đang nghe (`pendingResortKeys`, xem
-         * applyNewSongsToDisplayOrder trong playlist.js) — chỉ áp dụng khi KHÔNG shuffle, vì khi
-         * shuffle thì shuffleIndices đã là nguồn phát riêng, không liên quan displayOrder.
-         *
-         * [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt: "video thừa hưởng cơ chế
-         * Playlist sẵn có (displayOrder/shuffleIndices/currentKey), không tạo cơ chế next/prev
-         * riêng cho Video — có là đang tạo exception"] 2 hàm này giờ DÙNG CHUNG cho CẢ Song lẫn
-         * Video (trước đây Video có `nextVideo()`/`prevVideo()` riêng, mảng `videoPlaylist` riêng —
-         * ĐÃ XOÁ HẲN, xem event/workflow/video-player.js). `currentKey` được `playVideoByKey()`
-         * (event/workflow/video-player.js) ghi y hệt cách `window.playSong()` ghi cho Song, nên
-         * `displayOrder.indexOf(currentKey)`/`shuffleIndices.indexOf(currentKey)` bên dưới hoạt
-         * động ĐÚNG cho cả 2 nguồn mà KHÔNG cần biết gì về Song/Video. CHỈ 3 chỗ TRỰC TIẾP đụng tới
-         * element phát (repeat-1, 2 nhánh "hết danh sách -> dừng hẳn" trong playNext(); "quá 3s ->
-         * tua về đầu" trong playPrev()) mới cần chọn đúng `bgVideoElement`/`audioPlayer` theo
-         * `isVideoPlayerMode` — đây là khác biệt DUY NHẤT còn lại giữa 2 nguồn, KHÔNG phải khác
-         * biệt về "danh sách phát tiếp theo là gì".
-         */
-        /**
-         * Fix (ver 8 refine): trước đây requestWakeLock() chỉ được gọi RIÊNG ở từng nơi BẤM nút
-         * (click Next/Prev) — Media Session ('previoustrack'/'nexttrack', điều khiển từ màn hình
-         * khoá/tai nghe) và auto-next khi hết bài ('ended') KHÔNG xin lại wake lock, nên màn hình
-         * vẫn có thể tự tắt sau khi chuyển bài bằng những đường đó dù "Giữ màn hình sáng" đang bật.
-         * Đưa requestWakeLock() vào ĐẦU playNext()/playPrev() — chạy NGAY khi hàm được gọi, trước
-         * mọi điều kiện khác — để MỌI lối gọi (click, mediaSession, ended, và bất kỳ chỗ nào sau
-         * này gọi 2 hàm này) đều tự động xin lại, không cần nhớ gọi requestWakeLock() riêng ở từng
-         * nơi nữa. requestWakeLock() tự kiểm tra vizConfig.keepScreenOn nội bộ (xem wakelock.js) nên
-         * gọi vô điều kiện ở đây không vi phạm tùy chọn "Giữ màn hình sáng" đang tắt.
-         */
-        function playNext(force = false) {
-            requestWakeLock();
-            if (appState.get('playlistOrder').length === 0) return;
-            // [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt: "video thừa hưởng cơ
-            // chế Playlist sẵn có, list next/prev phải theo Song, chỉ đổi nguồn source"] `activeEl`
-            // — element đang thực sự phát (bgVideoElement lúc isVideoPlayerMode=true, audioPlayer
-            // như cũ), dùng cho 3 chỗ TRỰC TIẾP đụng tới element bên dưới (repeat-1, 2 nhánh "hết
-            // danh sách -> dừng hẳn"). Phần TÍNH nextKey (displayOrder/shuffleIndices/repeatMode)
-            // GIỮ NGUYÊN 100%, KHÔNG đổi gì — dùng CHUNG cho cả Song lẫn Video.
-            const isVideo = appState.get('isVideoPlayerMode');
-            const activeEl = isVideo ? bgVideoElement : audioPlayer;
-            if (!force && appState.get('repeatMode') === 2) {
-                activeEl.currentTime = 0;
-                if (isVideo) activeEl.play().catch((err) => console.error('[player-controls] bgVideoElement.play() lỗi:', err));
-                else activeEl.play();
-                return;
-            }
-            let nextKey;
-            if (appState.get('isShuffle')) {
-                let currentPos = appState.get('shuffleIndices').indexOf(appState.get('currentKey'));
-                if (currentPos === -1 || currentPos === appState.get('playlistOrder').length - 1) {
-                    if (appState.get('repeatMode') === 1 || force) nextKey = appState.get('shuffleIndices')[0];
-                    else {
-                        // MỚI (09/08/2026, phản hồi Giang — tín hiệu "hết hẳn playlist" cho domain
-                        // khác, vd `visualBg`) — inline TRỰC TIẾP (KHÔNG tách hàm riêng: `playNext()`
-                        // là Core, tách 1 hàm Core khác rồi gọi từ đây = Core gọi Core, vi phạm
-                        // Rule 3 tuyệt đối — `appState.set()` vốn dĩ ĐÃ hợp lệ ngay trong thân Core
-                        // (Rule 2 chỉ cấm `get()`), không cần bọc qua hàm nào cả). Rule 4: log ngay
-                        // dưới `set()`.
-                        appState.set('playbackStoppedAtPlaylistEnd', true);
-                        console.log(`writer: "playNext", page: "playbackStoppedAtPlaylistEnd", content: "true"`);
-                        activeEl.pause();
-                        return;
-                    }
-                }
-                else nextKey = appState.get('shuffleIndices')[currentPos + 1];
-            } else {
-                let currentPos = appState.get('displayOrder').indexOf(appState.get('currentKey'));
-                const isWrappingToStart = (currentPos === appState.get('displayOrder').length - 1);
-                if (isWrappingToStart) {
-                    if (appState.get('repeatMode') === 1 || force) {
-                        if (appState.get('pendingResortKeys').size > 0) recomputeDisplayOrder(); // chạm biên: áp lại sort thật cho bài mới thêm giữa lúc nghe
-                        nextKey = appState.get('displayOrder')[0];
-                    } else {
-                        // MỚI (09/08/2026) — inline TRỰC TIẾP, cùng lý do nhánh shuffle ở trên (Rule 3 — Core không được gọi Core khác).
-                        appState.set('playbackStoppedAtPlaylistEnd', true);
-                        console.log(`writer: "playNext", page: "playbackStoppedAtPlaylistEnd", content: "true"`);
-                        activeEl.pause();
-                        return;
-                    }
-                } else nextKey = appState.get('displayOrder')[currentPos + 1];
-            }
-            window.playSong(nextKey, { switchScreen: false }); // fix 03/07/2026 mục 5 — xem comment đầy đủ ở window.playSong (core/playlist/actions.js)
-        }
-
-        function playPrev() {
-            requestWakeLock();
-            if (appState.get('playlistOrder').length === 0) return;
-            // [SỬA — cùng lý do playNext() ngay trên] "quá 3s vào bài/video hiện tại -> chỉ tua về
-            // đầu" chọn ĐÚNG element đang thực sự phát.
-            if (appState.get('isVideoPlayerMode')) { if (bgVideoElement.currentTime > 3) { bgVideoElement.currentTime = 0; return; } }
-            else if (audioPlayer.currentTime > 3) { audioPlayer.currentTime = 0; return; }
-            let prevKey;
-            if (appState.get('isShuffle')) {
-                let currentPos = appState.get('shuffleIndices').indexOf(appState.get('currentKey')); prevKey = (currentPos <= 0) ? appState.get('shuffleIndices')[appState.get('playlistOrder').length - 1] : appState.get('shuffleIndices')[currentPos - 1];
-            } else {
-                let currentPos = appState.get('displayOrder').indexOf(appState.get('currentKey'));
-                const isWrappingToEnd = (currentPos <= 0);
-                if (isWrappingToEnd) {
-                    if (appState.get('pendingResortKeys').size > 0) recomputeDisplayOrder(); // chạm biên: áp lại sort thật
-                    prevKey = appState.get('displayOrder')[appState.get('displayOrder').length - 1];
-                } else prevKey = appState.get('displayOrder')[currentPos - 1];
-            }
-            window.playSong(prevKey, { switchScreen: false }); // fix 03/07/2026 mục 5 — xem comment đầy đủ ở window.playSong (core/playlist/actions.js)
-        }
 
         /**
          * Cache "bài vừa bị dừng" lúc tab/app bị ẩn (xem wakelock.js, saveResumeStateToLocalStorage())
@@ -282,15 +182,21 @@
                         className: 'flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold transition-colors',
                         disabled: needsPlaylist,
                         dataset: { resumeNeedsPlaylist: '1' }, // querySelector bởi enableResumeModalButtonsWhenPlaylistReady() (resume-state-storage.js)
-                        // applyResumeStateToRam() PHẢI gọi TRƯỚC window.playSong(key) — hàm đó set
-                        // window._resumeAutoSwitchVisualMarks (đọc bởi startAutoSwitchVisualBranch()
-                        // trong auto-switch-visual.js, tự kích hoạt qua sự kiện 'play' bên trong
-                        // playSong()) và phục hồi shuffle/repeat/displayOrder cần có TRƯỚC khi người
-                        // dùng bấm Next/Prev ngay sau đó.
+                        // applyResumeStateToRam() PHẢI gọi TRƯỚC workflowPlayer.playMedia(key) —
+                        // hàm đó set window._resumeAutoSwitchVisualMarks (đọc bởi
+                        // startAutoSwitchVisualBranch() trong auto-switch-visual.js, tự kích hoạt
+                        // qua sự kiện 'play' bên trong playMedia()) và phục hồi shuffle/repeat/
+                        // displayOrder cần có TRƯỚC khi người dùng bấm Next/Prev ngay sau đó.
+                        // [SỬA — plan-playmedia-reorg.md] `window.playSong()` -> `workflowPlayer.
+                        // playMedia()` (event/workflow/player.js), CHỈ đổi tên gọi — vẫn nằm trong
+                        // diện ngoại lệ Rule 5a đã audit (onClick bên trong modalChoice()), Core
+                        // gọi thẳng Workflow tại 2 điểm này KHÔNG phải kiến trúc mới, CÙNG KHUÔN
+                        // đã có sẵn ở handleAudioPlay()/handleAudioPause() (gọi thẳng
+                        // workflowVisualBg) trong CHÍNH file này.
                         onClick: async () => {
                             appState.set('isResumeModalOpen', false);
                             if (typeof applyResumeStateToRam === 'function') applyResumeStateToRam();
-                            await window.playSong(key);
+                            await workflowPlayer.playMedia(key);
                             if (appState.get('currentKey') === key) audioPlayer.currentTime = resumeTime;
                         }
                     },
@@ -301,12 +207,12 @@
                         dataset: { resumeNeedsPlaylist: '1' },
                         // CŨNG áp dụng applyResumeStateToRam() (shuffle/repeat/displayOrder/video/
                         // auto-switch-marks) — chỉ riêng VỊ TRÍ ĐANG NGHE của bài là phát lại từ đầu
-                        // (playSong() đã tự đặt currentTime = 0 khi gán src mới — không cần seek
+                        // (playMedia() đã tự đặt currentTime = 0 khi gán src mới — không cần seek
                         // thêm), mọi state khác vẫn nên khôi phục đúng như đã lưu.
                         onClick: () => {
                             appState.set('isResumeModalOpen', false);
                             if (typeof applyResumeStateToRam === 'function') applyResumeStateToRam();
-                            window.playSong(key);
+                            workflowPlayer.playMedia(key);
                         }
                     }
                 ],
@@ -400,17 +306,27 @@
         }
 
         /**
-         * Play/Pause chính — rút nguyên logic từ listener cũ của playPauseBtn. Ứng với msg.type
-         * 'playerControls.playPause.click'.
+         * Toggle play/pause của track ĐÃ TẢI. Ứng với nhánh "đã có currentKey" của msg.type
+         * 'playerControls.playPause.click' — nhánh "chưa có gì đang tải -> phát bài đầu tiên" dời
+         * sang `workflowPlayerControls.handlePlayPauseClick()` (event/workflow/player-controls.js).
+         *
+         * [SỬA — plan-playmedia-reorg.md, xử lý triệt để] TRƯỚC ĐÂY hàm này tự gộp 2 TIẾN TRÌNH
+         * khác nhau — "chưa có bài nào đang tải -> phát bài đầu tiên" (gọi `window.playSong()`) và
+         * "đang có bài đã tải -> toggle play/pause" — vi phạm Rule 1 (core-function-conventions.md:
+         * "if/else chọn giữa ≥2 tiến trình nghiệp vụ khác nhau"), cộng thêm tự `appState.get()` 3
+         * lần (vi phạm Rule 2). Tách đúng theo Rule 1: hàm NÀY giờ CHỈ còn ĐÚNG 1 việc; quyết định
+         * "có cần phát bài đầu tiên trước không" (đọc `currentKey`/`playlistOrder`/`displayOrder`)
+         * dời hẳn sang Workflow — nơi DUY NHẤT được đọc appState để chọn gọi Core nào. Rule 2: nhận
+         * `audioContext` qua tham số, KHÔNG tự `appState.get()` nữa.
+         * @param {AudioContext|null} audioContext - appState.get('audioContext') tại thời điểm gọi,
+         *        nơi gọi (workflow) tự đọc rồi truyền vào.
          */
-        function togglePlayPause() {
-            requestWakeLock(); if (appState.get('playlistOrder').length === 0) return;
-            if (appState.get('currentKey') === null) { window.playSong(appState.get('displayOrder')[0] || appState.get('playlistOrder')[0]); return; }
+        function togglePlayPause(audioContext) {
             // FIX (log 9->10): 'interrupted' là trạng thái RIÊNG của iOS Safari khi audio bị hệ điều
             // hành "ngắt" lúc tab/app bị ẩn (khác 'suspended' — xem giải thích đầy đủ ở
             // setupAudioContext(), audio-engine.js). Thiếu check này thì audioContext.resume() không
             // được gọi, dù audioPlayer.play() có chạy thì vẫn không nghe được tiếng gì.
-            if (audioPlayer.paused) { audioPlayer.play(); if (appState.get('audioContext') && (appState.get('audioContext').state === 'suspended' || appState.get('audioContext').state === 'interrupted')) appState.get('audioContext').resume(); } else { audioPlayer.pause(); }
+            if (audioPlayer.paused) { audioPlayer.play(); if (audioContext && (audioContext.state === 'suspended' || audioContext.state === 'interrupted')) audioContext.resume(); } else { audioPlayer.pause(); }
         }
 
         /**
@@ -617,14 +533,11 @@
             if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.syncPlaybackGate();
         }
 
-        /**
-         * Bài hát phát hết (sự kiện 'ended') — dừng đếm giờ nghe, tự chuyển bài kế tiếp (không
-         * force, tôn trọng repeatMode/wrap-around như Next thường). Ứng với msg.type
-         * 'playerControls.audio.ended'.
-         */
-        function handleAudioEnded() {
-            stopListenClock(); playNext(false);
-        }
+        // [SỬA — plan-playmedia-reorg.md, xử lý triệt để] `handleAudioEnded()` ĐÃ XOÁ khỏi đây —
+        // 2 lời gọi Core nối tiếp (stopListenClock() rồi playNext()) VỐN ĐÃ vi phạm Rule 3 (Core
+        // gọi Core, core-legacy-audit.md từng track), đúng bản chất Workflow. Chuyển hẳn thành
+        // `workflowPlayerControls.handleSongEnded()` (event/workflow/player-controls.js) — Router
+        // (case 'playerControls.audio.ended') gọi thẳng method đó khi gameplayPhase==='idle'.
 
         /**
          * Đã đọc xong metadata (duration) của bài mới (sự kiện 'loadedmetadata') — đặt lại max

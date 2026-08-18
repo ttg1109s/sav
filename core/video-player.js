@@ -8,9 +8,11 @@
  * cross-browser cho `<audio src="video">`). Progress bar/seek/play-pause/ended có handler riêng ở
  * event/workflow/video-player.js, đọc/ghi thẳng `bgVideoElement`.
  *
- * Next/Prev/shuffle/repeat DÙNG CHUNG cơ chế Playlist (`playNext()`/`playPrev()`, core/player-
- * controls.js) — không có logic riêng cho Video. `isVideoPlayerMode` là cờ DUY NHẤT còn cần riêng
- * (biết `bgVideoElement` hay `audioPlayer` đang thực sự phát).
+ * Next/Prev/shuffle/repeat DÙNG CHUNG cơ chế Playlist (`workflowPlayerControls.goToNextTrack()`/
+ * `goToPrevTrack()`, event/workflow/player-controls.js — [SỬA, plan-playmedia-reorg.md] thay
+ * `playNext()`/`playPrev()` cũ, core/player-controls.js) — không có logic riêng cho Video.
+ * `isVideoPlayerMode` là cờ DUY NHẤT còn cần riêng (biết `bgVideoElement` hay `audioPlayer` đang
+ * thực sự phát).
  *
  * File này chỉ chứa phần LÕI thuần (mutate state, toggle UI/DOM tức thời) — điều phối async (đọc
  * DB, đợi sự kiện) thuộc event/workflow/video-player.js.
