@@ -84,11 +84,16 @@
             }
 
             const pitchSpan = pitchRangeMax - pitchRangeMin + 1;
-            const pitchesPerCell = Math.max(1, Math.floor(pitchSpan / totalCells));
+            const bucketCount = Math.min(totalCells, pitchSpan); // không thể có nhiều bucket hơn số nốt thật quan sát được
+            const pitchesPerCell = Math.max(1, Math.floor(pitchSpan / bucketCount));
             const buckets = [];
             let cursor = pitchRangeMin;
-            while (cursor <= pitchRangeMax) {
-                const bucketMax = Math.min(pitchRangeMax, cursor + pitchesPerCell - 1);
+            for (let i = 0; i < bucketCount; i++) {
+                const isLast = i === bucketCount - 1;
+                // Bucket CUỐI hấp thụ hết phần dư (chấp nhận lệch size so với các bucket khác) —
+                // KHÔNG tạo thêm bucket mới ngoài đúng bucketCount, tránh 1 ô bị 2 dải pitch không
+                // liên quan cùng trỏ tới (do vòng lại i % cellCenters.length).
+                const bucketMax = isLast ? pitchRangeMax : Math.min(pitchRangeMax, cursor + pitchesPerCell - 1);
                 buckets.push({ pitchMin: cursor, pitchMax: bucketMax });
                 cursor = bucketMax + 1;
             }
