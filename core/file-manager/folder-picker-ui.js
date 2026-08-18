@@ -10,7 +10,7 @@
  * Đây là hàm UI-thuần (dựng DOM), KHÔNG chứa nghiệp vụ đọc/ghi IndexedDB — không thuộc phạm vi 4
  * rule core-function-conventions.md (rule đó áp cho hàm NGHIỆP VỤ, không áp cho hàm dựng UI thuần).
  *
- * NẠP SAU: core/modal-choice.js (dùng chung escapeHtml()), lang/lang.js (t()), event/bus.js.
+ * NẠP SAU: core/modal-choice-ui.js (dùng chung escapeHtml()), lang/lang.js (t()), event/bus.js.
  */
 
 /**

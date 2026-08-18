@@ -7,7 +7,7 @@
  * (cùng ngày, phản hồi đầu của Giang) đã ĐI QUÁ TAY — gỡ SẠCH `addEventListener` ra khỏi file này,
  * kể cả phần ĐÚNG RA được phép theo Rule 5a (hàm dựng cụm DOM MỚI bằng `createElement`, callback
  * CHỈ gọi tham số, gom cuối hàm — ĐÚNG NGUYÊN NHỮNG GÌ file này cần). Giờ khôi phục lại đúng khuôn
- * `core/modal-choice.js` (ví dụ tham chiếu đã được audit chính thức): mỗi hàm dựng UI ở đây
+ * `core/modal-choice-ui.js` (ví dụ tham chiếu đã được audit chính thức): mỗi hàm dựng UI ở đây
  * **tự mount vào `document.body` + tự gắn `addEventListener` GOM Ở CUỐI hàm**, callback bên trong
  * CHỈ gọi tham số (`callbacks.onXxx`) — TUYỆT ĐỐI KHÔNG gọi thẳng tên hàm nào của
  * `core/file-manager/document.js` (đó vẫn là Rule 3, không đổi, không có ngoại lệ nào ở đây).
@@ -18,7 +18,7 @@
  * `sanitizeDocumentHtml()` sau khi nhận lại — xem event/workflow/file-manager-document.js và
  * event/workflow/document-reader.js để thấy luồng đầy đủ.
  *
- * NẠP SAU: lang/lang.js (t()), core/modal-choice.js (dùng chung escapeHtml()).
+ * NẠP SAU: lang/lang.js (t()), core/modal-choice-ui.js (dùng chung escapeHtml()).
  */
 
 /**

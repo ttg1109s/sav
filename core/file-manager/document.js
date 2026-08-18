@@ -39,7 +39,7 @@
  * appState.get(), KHÔNG dùng taskManager, KHÔNG addEventListener (đó là việc của Workflow — SIẾT
  * LẠI 10/07/2026 sau phản hồi Giang, xem core/file-manager/document-ui.js để biết chi tiết đầy đủ
  * lý do). Mọi hàm trong file này TỰ CHỨA (chỉ dùng API DOM có sẵn của trình duyệt) — KHÔNG gọi lẫn
- * nhau, KHÔNG gọi escapeHtml() của core/modal-choice.js. Orchestration (đọc file, gọi mammoth.js,
+ * nhau, KHÔNG gọi escapeHtml() của core/modal-choice-ui.js. Orchestration (đọc file, gọi mammoth.js,
  * hiện cảnh báo, gọi sanitizeDocumentHtml()/resolveDocumentHtml()/convertDocumentHtmlToPlainText()
  * theo đúng thứ tự) sống ở event/workflow/file-manager-document.js.
  *
@@ -162,7 +162,7 @@ function sanitizeDocumentHtml(html) {
  * 3 dạng hợp lệ (xem "Tương thích" ở docstring đầu file):
  *   (a) `string[]` (ĐỊNH DẠNG LƯU CHÍNH THỨC của .txt upload, KHÔNG phải chỉ "record cũ") -> escape
  *       từng phần tử (DOM tự escape qua `span.textContent`, KHÔNG gọi escapeHtml() của
- *       core/modal-choice.js — Rule 3) + bọc `<p>`, nối lại — ĐÂY LÀ NƠI DUY NHẤT bọc `<p>` cho
+ *       core/modal-choice-ui.js — Rule 3) + bọc `<p>`, nối lại — ĐÂY LÀ NƠI DUY NHẤT bọc `<p>` cho
  *       .txt, CHỦ Ý làm LÚC ĐỌC (không làm lúc lưu).
  *   (b)/(c) `string` (HTML đã lọc HOẶC Markdown thô hiếm gặp) -> dùng THẲNG.
  * @param {{content: string|string[]}} record

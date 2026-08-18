@@ -477,7 +477,7 @@ function openImageCarouselViewModal(images, albumName, onRemoveFromAlbum, onClos
  */
 /** SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow" — rà rộng
  * ra ngoài Photo/Edit) — bỏ tham số `onSelect` (callback ĐỤC nhận từ nơi gọi — CHỈ được phép cho
- * ĐÚNG `core/modal-choice.js::modalChoice()`, đã audit riêng, KHÔNG tự nhận lây, xem readme/core-
+ * ĐÚNG `core/modal-choice-ui.js::modalChoice()`, đã audit riêng, KHÔNG tự nhận lây, xem readme/core-
  * function-conventions.md) — tile giờ tự bắn `eventBus.send()` cố định, CHỈ 1 nơi gọi
  * (event/workflow/slideshow.js::openAlbumPicker()) nên không cần tham số hoá đích đến. */
 function renderAlbumPickerGrid(gridEl, albums, activeAlbumId, imageRecordsByKey, routerName, msgPrefix) {
