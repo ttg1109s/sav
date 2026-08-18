@@ -56,12 +56,14 @@
             return { cols, rows, totalCells: cols * rows };
         }
 
-        /** Chia dải pitch quan sát được thành các nhóm liên tiếp kích thước
-         * floor(pitchSpan/totalCells) (chấp nhận nhóm cuối lẻ), gán ngẫu nhiên (shuffle) mỗi nhóm
-         * vào 1 ô lưới; ô dư (totalCells > số nhóm) lấp bằng cách gán lại 1 nhóm đã có (random). Dải
-         * chưa đủ rộng (< pitchMinSpanSemitones) hoặc chưa detect nốt nào -> trả mảng rỗng (Workflow
-         * tự fallback về giữa spawnZone khi map rỗng). `randomValues` PHẢI do Workflow tự sinh sẵn
-         * (Core không tự random) — cần ít nhất `totalCells` phần tử. */
+        /** Chia dải pitch quan sát được thành các nhóm liên tiếp — SỐ NHÓM tối đa = totalCells (bucket
+         * CUỐI hấp thụ hết phần dư nếu chia không hết, chấp nhận lệch size). Mỗi nhóm gán ngẫu nhiên
+         * (shuffle) vào 1 ô lưới; ô dư (totalCells > số nhóm, dải pitch hẹp hơn lưới) để RỖNG — không
+         * gán trùng nhóm nào lên đó (tránh 1 pitch trỏ nhiều ô không liên quan) — ô nào trống cũng đã
+         * tự phân bố ngẫu nhiên nhờ cellCenters shuffle TRƯỚC khi biết số nhóm. Dải chưa đủ rộng
+         * (< pitchMinSpanSemitones) hoặc chưa detect nốt nào -> trả mảng rỗng (Workflow tự fallback
+         * về giữa spawnZone khi map rỗng). `randomValues` PHẢI do Workflow tự sinh sẵn (Core không tự
+         * random) — cần ít nhất `totalCells` phần tử (dùng cho bước shuffle). */
         function buildPitchCellMap(pitchRangeMin, pitchRangeMax, cols, rows, zoneOriginXPx, zoneOriginYPx, cfg, randomValues) {
             const totalCells = cols * rows;
             const cellCenters = [];
@@ -104,10 +106,11 @@
                 cellX: cellCenters[i % cellCenters.length].cellX,
                 cellY: cellCenters[i % cellCenters.length].cellY,
             }));
-            for (let i = buckets.length; i < cellCenters.length; i++) {
-                const pick = buckets[Math.floor(randomValues[rvIndex++ % randomValues.length] * buckets.length)];
-                map.push({ pitchMin: pick.pitchMin, pitchMax: pick.pitchMax, cellX: cellCenters[i].cellX, cellY: cellCenters[i].cellY });
-            }
+            // Ô dư (totalCells > số bucket) — KHÔNG lấp đầy bằng cách gán trùng bucket đã có (từng
+            // làm 1 pitch trỏ vào 2 ô, đã bỏ). Cứ để RỖNG — cellCenters đã shuffle trước khi biết số
+            // bucket (đoạn Fisher-Yates phía trên), nên chính bucket nào rơi vào cellCenters[0..N-1]
+            // và ô nào bị bỏ trống (cellCenters[N..cuối]) đã tự phân bố ngẫu nhiên rồi, không cần
+            // random gì thêm ở đây.
             return map;
         }
 
