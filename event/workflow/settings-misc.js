@@ -75,7 +75,7 @@ const workflowSettingsMisc = {
 
     /** Vẽ lại TOÀN BỘ danh sách log vào `#debug-console-list` bên trong `panelEl` — gọi lúc mở
      * panel LẪN sau khi bấm "Xoá" (danh sách rỗng lại). Tự cuộn xuống dòng MỚI NHẤT sau khi vẽ.
-     * `escapeHtml()` (core/modal-choice.js) BẮT BUỘC — nội dung log có thể chứa bất kỳ ký tự nào
+     * `escapeHtml()` (core/modal-choice-ui.js) BẮT BUỘC — nội dung log có thể chứa bất kỳ ký tự nào
      * (object dump, tên file người dùng...), gán qua `innerHTML` không escape sẽ vỡ layout/lộ XSS.
      * @param {HTMLElement} panelEl
      */

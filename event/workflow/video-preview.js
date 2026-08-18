@@ -372,7 +372,7 @@ const workflowVideoPreview = {
     },
 
     _promptExitCropVisible() {
-        modalChoice( // core/modal-choice.js
+        modalChoice( // core/modal-choice-ui.js
             t('videoPreview.cropExit.desc'),
             [
                 { label: t('videoPreview.cropExit.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
@@ -535,7 +535,7 @@ const workflowVideoPreview = {
      * giữ nút reset và cảnh báo modal") — TRƯỚC ĐÂY reset chạy NGAY không hỏi gì, chấp nhận được vì
      * còn Undo cứu lại; giờ không còn đường lùi nào khác nên bắt buộc hỏi trước. */
     handleReset() {
-        modalChoice( // core/modal-choice.js
+        modalChoice( // core/modal-choice-ui.js
             t('videoPreview.resetConfirm.desc'),
             [
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
@@ -692,7 +692,7 @@ const workflowVideoPreview = {
 
     handleClose() {
         if (!appState.get('videoPreviewHasUnsavedChanges')) { this._reallyClose(); return; }
-        modalChoice( // core/modal-choice.js
+        modalChoice( // core/modal-choice-ui.js
             t('videoPreview.discardConfirm.desc'),
             [
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },

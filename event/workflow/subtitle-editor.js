@@ -841,7 +841,7 @@ const workflowSubtitleEditor = {
     // ============================== Toolbar: MỚI — tool "Cut MP3" (yêu cầu Giang, mục 1) ==============================
 
     /** Bấm "Cut" — cắt ĐÚNG đoạn appState.get('_region') hiện tại thành 1 file .mp3 thật, xong hiện modal 3
-     * lựa chọn (modalChoice() có sẵn, core/modal-choice.js) Huỷ/Tải xuống/Chèn. Tự khoá nút trong
+     * lựa chọn (modalChoice() có sẵn, core/modal-choice-ui.js) Huỷ/Tải xuống/Chèn. Tự khoá nút trong
      * lúc mã hoá (đề phòng bấm chồng — mã hoá lamejs chạy đồng bộ, chặn main thread 1 lúc tuỳ độ
      * dài vùng chọn). */
     async cutMp3FromRegion() {
@@ -858,7 +858,7 @@ const workflowSubtitleEditor = {
             this._showCutResultModal(blob);
         } catch (err) {
             console.error('[subtitle-editor] Cắt MP3 thất bại:', err);
-            await alertModal(t('subtitleEditor.cutMp3.error')); // core/modal-choice.js
+            await alertModal(t('subtitleEditor.cutMp3.error')); // core/modal-choice-ui.js
         } finally {
             btnCutMp3.dataset.busy = '0';
             btnCutMp3.classList.remove('opacity-40', 'pointer-events-none');
@@ -909,7 +909,7 @@ const workflowSubtitleEditor = {
         return new Blob(mp3Chunks, { type: 'audio/mpeg' });
     },
 
-    /** Modal 3 lựa chọn sau khi cắt xong — TÁI DÙNG modalChoice() có sẵn (core/modal-choice.js,
+    /** Modal 3 lựa chọn sau khi cắt xong — TÁI DÙNG modalChoice() có sẵn (core/modal-choice-ui.js,
      * đúng yêu cầu Giang "modal choice") thay vì dựng modal riêng như Split/Shift (ở đây chỉ cần
      * chọn 1 trong 3 nút, không cần input gì thêm — modalChoice() vừa khớp, không cần viết thêm). */
     _showCutResultModal(blob) {
@@ -918,7 +918,7 @@ const workflowSubtitleEditor = {
         const baseTitle = appState.get('_record').tag?.title || appState.get('_songKey');
         const fileName = `${baseTitle} [cut ${startStr} - ${endStr}].mp3`.replace(/[:,]/g, '-');
 
-        modalChoice( // core/modal-choice.js
+        modalChoice( // core/modal-choice-ui.js
             tFormat('subtitleEditor.cutMp3.resultDesc', { start: startStr, end: endStr }),
             [
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors' },
@@ -957,7 +957,7 @@ const workflowSubtitleEditor = {
             addedAt: Date.now(),
         };
         await setSongRecord(key, record); // service/db.js
-        await alertModal(t('subtitleEditor.cutMp3.inserted')); // core/modal-choice.js
+        await alertModal(t('subtitleEditor.cutMp3.inserted')); // core/modal-choice-ui.js
     },
 
     // ============================== Toolbar: MỚI — tool "Shift" (yêu cầu Giang, mục 5) ==============================
@@ -1142,11 +1142,11 @@ const workflowSubtitleEditor = {
     },
 
     /** MỚI (yêu cầu Giang) — nút tải lại KHÔNG dùng cache. Hỏi xác nhận trước (modalChoice() có
-     * sẵn, core/modal-choice.js) vì `this._subtitles` là mảng làm việc TRONG BỘ NHỚ — CHƯA CHẮC đã
+     * sẵn, core/modal-choice-ui.js) vì `this._subtitles` là mảng làm việc TRONG BỘ NHỚ — CHƯA CHẮC đã
      * ghi xuống IndexedDB (bấm "Lưu" mới ghi thật, xem saveToDatabase()) — tải lại mà chưa Lưu sẽ
      * MẤT mọi chỉnh sửa dở dang, cần cảnh báo rõ trước khi làm. */
     reloadWithoutCache() {
-        modalChoice( // core/modal-choice.js
+        modalChoice( // core/modal-choice-ui.js
             t('subtitleEditor.reloadConfirm.desc'),
             [
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors' },

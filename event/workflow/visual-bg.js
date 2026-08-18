@@ -748,7 +748,7 @@ const workflowVisualBg = {
             // `_refreshSourceNameLabel()` giờ tự ưu tiên đọc `cfg.pending` (xem
             // `_effectiveDisplayedOrigin()`) nên sẽ hiện đúng tên nguồn VỪA chọn ngay lập tức.
             await this.refreshPanelUI();
-            await alertModal(t(cfg.type === 'video' ? 'visualBgSettingsDrawer.pendingSource.video' : 'visualBgSettingsDrawer.pendingSource.photo')); // core/modal-choice.js
+            await alertModal(t(cfg.type === 'video' ? 'visualBgSettingsDrawer.pendingSource.video' : 'visualBgSettingsDrawer.pendingSource.photo')); // core/modal-choice-ui.js
             return { queued: true, total: keys.length };
         }
         return await this._commitSourceNow(originKind, originId, keys, cfg);

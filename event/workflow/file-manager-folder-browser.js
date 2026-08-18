@@ -336,7 +336,7 @@ const workflowFileManagerFolderBrowser = {
 
     confirmRemoveAllItems() {
         const folderId = this._readFolderId;
-        modalChoice( // core/modal-choice.js
+        modalChoice( // core/modal-choice-ui.js
             this._folderText('fileManager.song.folderDetail.removeAllConfirm'),
             [
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
@@ -383,7 +383,7 @@ const workflowFileManagerFolderBrowser = {
         const confirmBody = isActiveFolder
             ? tFormat('fileManager.song.deleteActiveFolderConfirm', { name: escapeHtml(folderName) })
             : this._folderText('fileManager.song.deleteFolderConfirm', { name: escapeHtml(folderName) });
-        modalChoice( // core/modal-choice.js
+        modalChoice( // core/modal-choice-ui.js
             confirmBody,
             [
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },

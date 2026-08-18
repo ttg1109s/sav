@@ -236,7 +236,7 @@ const workflowFileManagerPhoto = {
     /** MỚI (14/07/2026, mục 2.2) — hỏi xác nhận TRƯỚC KHI bật chế độ xoá nhanh (modalChoice()) —
      * chỉ BẬT mới cần hỏi, TẮT thì không (xem event/router/file-manager-photo.js). */
     promptQuickDeleteMode(onConfirm) {
-        modalChoice( // core/modal-choice.js
+        modalChoice( // core/modal-choice-ui.js
             t('fileManager.photo.image.quickDeleteConfirm.desc'),
             [
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
@@ -313,7 +313,7 @@ const workflowFileManagerPhoto = {
      */
     async confirmQuickDeleteBatch(quickDeleteSelectedKeys, activeAlbumId, onConfirmed) {
         const keys = Array.from(quickDeleteSelectedKeys);
-        modalChoice( // core/modal-choice.js
+        modalChoice( // core/modal-choice-ui.js
             tFormat('fileManager.photo.image.quickDeleteBatchConfirm.confirm', { count: keys.length }),
             [
                 { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },

@@ -26,7 +26,7 @@
  *
  * NẠP SAU: core/playlist/scope.js (loadAllSongs/loadSongsFromFolder), service/db.js (setMeta),
  * core/playlist/order.js (updateShuffleArray/recomputeDisplayOrder/recomputeRenderOrder),
- * core/playlist/render.js (renderPlaylistDiff/updateEmptyState), core/modal-choice.js (modalChoice),
+ * core/playlist/render.js (renderPlaylistDiff/updateEmptyState), core/modal-choice-ui.js (modalChoice),
  * core/file-manager/folder.js (getExcludedSongKeysFromFolders() — MỚI, Batch 4, dùng bởi
  * applyAllSongsScope()), core/playlist/filter.js (applyPlaylistFilter() — MỚI, mục 1d).
  */
