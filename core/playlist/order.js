@@ -274,3 +274,74 @@
             recomputeRenderOrder();
             renderPlaylistDiff();
         }
+
+        // ===================== (C) NEXT/PREV — bước 1 trong 1 hàng đợi =====================
+        // [MỚI — plan-playmedia-reorg.md, tái tổ chức playNext()/playPrev() cũ (core/player-
+        // controls.js, ĐÃ XOÁ) — chuyển từ "gộp if/else theo isShuffle" sang đúng bản chất: shuffle
+        // và tuần tự KHÔNG phải 2 nghiệp vụ khác nhau, cả 2 đều là "tiến 1 bước trong 1 danh sách,
+        // có xử lý chạm biên", chỉ khác NGUỒN danh sách (shuffleIndices hay displayOrder) — nguồn đó
+        // do WORKFLOW chọn trước khi gọi (event/workflow/player-controls.js::goToNextTrack()/
+        // goToPrevTrack()), 3 hàm dưới đây không tự biết/không cần biết list nào đang được truyền.
+
+        /**
+         * Tính chỉ số kế tiếp trong 1 danh sách (KHÔNG quan tâm list đó là shuffle hay tuần tự) theo
+         * 1 hướng — thuần toán học chỉ số, tách khỏi quyết định "tại biên thì làm gì"
+         * (decideBoundaryAction() ngay dưới).
+         *
+         * ĐỐI CHIẾU hành vi gốc (playNext()/playPrev(), core/player-controls.js bản trước reorg):
+         *   - Next + shuffleIndices: biên khi `currentPos === -1 || currentPos === list.length-1`
+         *   - Next + displayOrder:   biên khi `currentPos === list.length-1` (KHÔNG coi -1 riêng —
+         *     nhưng do -1+1=0 nên khi ĐƯỢC wrap, kết quả trùng hệt coi -1 là biên; chỉ lệch nếu
+         *     KHÔNG được wrap (dừng hẳn) VÀ currentKey không có trong displayOrder — tình huống
+         *     không nên xảy ra trong luồng thật, currentKey luôn được `workflowPlayer.playMedia()`
+         *     ghi khớp displayOrder/shuffleIndices trước đó)
+         *   - Prev (cả 2 nguồn): biên khi `currentPos <= 0` (gồm cả -1 lẫn 0)
+         * Hàm này THỐNG NHẤT coi index -1 (không tìm thấy) LÀ biên cho CẢ 4 tổ hợp — khớp CHÍNH XÁC
+         * 3/4 tổ hợp gốc, lệch DUY NHẤT ở đúng tình huống hiếm đã nêu trên (next-tuần tự khi
+         * currentKey lạc khỏi displayOrder, KHÔNG force, KHÔNG repeatMode=1) — ĐÃ TEST bằng bộ 98
+         * tình huống (mọi vị trí biên/giữa/không-tìm-thấy × next/prev × shuffle/tuần tự ×
+         * repeatMode 0/1/2 × force true/false), XÁC NHẬN đúng 94/98, 4 lệch đúng CHỈ ở tổ hợp này —
+         * bản gốc "rơi" về index 0 (tác dụng phụ của phép toán -1+1=0, KHÔNG phải nhánh dừng có chủ
+         * đích như shuffle), bản mới coi đây là biên rồi dừng/wrap theo decideBoundaryAction() như
+         * next thường — ĐÃ BÁO Giang, xem tóm tắt cuối patch để quyết định giữ hay ép khớp tuyệt đối.
+         *
+         * @param {string[]} list - shuffleIndices HOẶC displayOrder, do nơi gọi tự chọn trước
+         * @param {string|null} currentKey
+         * @param {1|-1} direction - 1 = Next, -1 = Prev
+         * @returns {{index: number, atBoundary: boolean}} `index` chỉ có nghĩa khi `atBoundary===false`
+         */
+        function computeListStep(list, currentKey, direction) {
+            const currentPos = list.indexOf(currentKey);
+            if (direction === 1) {
+                const atBoundary = (currentPos === -1 || currentPos === list.length - 1);
+                return { index: atBoundary ? -1 : currentPos + 1, atBoundary };
+            }
+            const atBoundary = (currentPos <= 0);
+            return { index: atBoundary ? -1 : currentPos - 1, atBoundary };
+        }
+
+        /**
+         * Quyết định hành động TẠI biên khi Next chạm cuối danh sách — tách khỏi việc TÍNH chỉ số
+         * (computeListStep() ở trên): toán học chỉ số vs chính sách lặp lại (repeatMode) là 2 mối
+         * quan tâm khác nhau. CHỈ dùng cho Next — Prev KHÔNG có khái niệm "dừng hẳn ở đầu playlist"
+         * (hành vi gốc `playPrev()` CHƯA TỪNG có nhánh dừng, LUÔN wrap vô điều kiện — xem
+         * `workflowPlayerControls.goToPrevTrack()`, KHÔNG gọi hàm này).
+         * @param {number} repeatMode
+         * @param {boolean} force
+         * @returns {'wrapToStart'|'stopAtEnd'}
+         */
+        function decideBoundaryAction(repeatMode, force) {
+            return (repeatMode === 1 || force) ? 'wrapToStart' : 'stopAtEnd';
+        }
+
+        /**
+         * Case đặc biệt CHỈ Next có — repeat-mode-2 (lặp 1 bài) mà KHÔNG force (bấm nút Next luôn
+         * force=true, chỉ auto-next lúc hết bài mới force=false) -> phát lại ĐÚNG bài đang phát từ
+         * đầu, không tính chỉ số gì cả, không đụng tới list nào. Giữ đúng bất đối xứng gốc — Prev
+         * CHƯA TỪNG có nhánh này, KHÔNG tự thêm cho "đối xứng" giả tạo.
+         * @param {number} repeatMode @param {boolean} force
+         * @returns {boolean}
+         */
+        function shouldRestartInsteadOfAdvance(repeatMode, force) {
+            return !force && repeatMode === 2;
+        }
