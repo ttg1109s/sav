@@ -46,7 +46,7 @@
  * "drawer" là gì (chỉ trả chuỗi HTML). Workflow là nơi DUY NHẤT nối 2 thứ:
  *   openGenericDrawer({ bodyHtml: renderItemList(null, docs, itemTemplateDocumentRow, ctx) })
  *
- * NẠP SAU: core/modal-choice.js (dùng chung escapeHtml()), lang/lang.js (t() — hiện CHƯA cần
+ * NẠP SAU: core/modal-choice-ui.js (dùng chung escapeHtml()), lang/lang.js (t() — hiện CHƯA cần
  * trong itemTemplateDocumentRow(), giữ chỗ nếu template sau này cần dịch text tĩnh).
  */
 
