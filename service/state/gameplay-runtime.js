@@ -119,8 +119,12 @@
             // Ngưỡng lệch flux (2 cửa sổ trượt 10 giá trị gần nhất trên fluxHistory) để kích hoạt
             // refresh vị trí — số khởi điểm, CẦN tinh chỉnh qua playtest thật, không phải số cuối.
             difficulty: Object.freeze({
-                easy:   Object.freeze({ maxConcurrentWaves: 1, spawnEligibleEveryNBeats: 1, fluxDeltaEnergy: 60,  fluxDeltaSection: 100 }),
-                medium: Object.freeze({ maxConcurrentWaves: 3, spawnEligibleEveryNBeats: 3, fluxDeltaEnergy: 35,  fluxDeltaSection: 60 }),
-                hard:   Object.freeze({ maxConcurrentWaves: 3, spawnEligibleEveryNBeats: 1, fluxDeltaEnergy: 15,  fluxDeltaSection: 30 }),
+                // maxConcurrentWaves: CHỈ Easy có giới hạn thật (=1, đúng yêu cầu gốc "không hiện B
+                // khi A chưa xong") — Medium/Hard KHÔNG có yêu cầu nào giới hạn số wave cùng lúc, để
+                // Infinity (tự nhiên bao nhiêu cũng được, chỉ bị chặn bởi nhịp beat thật + xác suất
+                // spawn + khoảng cách chống đè hình — không cần thêm trần nhân tạo).
+                easy:   Object.freeze({ maxConcurrentWaves: 1,        spawnEligibleEveryNBeats: 1, fluxDeltaEnergy: 60, fluxDeltaSection: 100 }),
+                medium: Object.freeze({ maxConcurrentWaves: Infinity, spawnEligibleEveryNBeats: 3, fluxDeltaEnergy: 35, fluxDeltaSection: 60 }),
+                hard:   Object.freeze({ maxConcurrentWaves: Infinity, spawnEligibleEveryNBeats: 1, fluxDeltaEnergy: 15, fluxDeltaSection: 30 }),
             }),
         });
