@@ -208,7 +208,7 @@
             // bảo vệ cuối: nếu thật sự thất bại (retry cũng lỗi, hoặc lỗi khác hẳn), alertModal()
             // đúng nguyên văn lỗi thay vì im lặng — cùng tinh thần đã áp dụng cho luồng upload.
             // FIX (patch alert -> alertModal): trước đây dùng alert() native (chặn luồng JS) — đổi
-            // sang alertModal() (modal-choice.js) để không bị chặn/crash khi gọi đúng lúc 1
+            // sang alertModal() (modal-choice-ui.js) để không bị chặn/crash khi gọi đúng lúc 1
             // #loading-shield khác đang chạy (alert() native từng gây "đứng" cảm giác app crash).
             let notFoundAlert = false; // cờ mang ra ngoài withLoadingShield — KHÔNG await alertModal() ngay trong fn() của shield (xem giải thích dưới)
             return withLoadingShield(t('common.loading.switchingSong'), async () => {
