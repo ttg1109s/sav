@@ -1,62 +1,12 @@
-/* assets/css/gameplay.css — Game Mode (Circle mode v1, MỚI 16/08/2026). Kích thước tier khớp đúng
- * GAMEPLAY_CIRCLE_CONFIG (service/state/gameplay-runtime.js).
- *
- * SỬA (16/08/2026, đọc lại plan — mỗi note giờ là 1 CẶP circle (mục tiêu) + wave (co lại, fade)
- * ĐỘC LẬP, tự đứng ở vị trí (x,y) riêng — KHÔNG còn 1 vòng tròn tâm tĩnh dùng chung ở giữa màn
- * hình. `.gameplay-note` là wrapper zero-size định vị bằng % (JS set qua style.left/top, đọc
- * core/gameplay/circle-mode-ui.js::syncCircleWaveElements()), chứa 2 con `.gameplay-target-circle`
- * + `.gameplay-wave-ring` tự căn giữa bằng transform riêng — xoá wrapper = xoá cả cặp cùng lúc.
- * `--gameplay-target-diameter` (đặt 1 lần lúc showCircleGameplayLayer()) dùng CHUNG cho MỌI note —
- * tất cả circle mục tiêu luôn cùng kích thước (= centerRadius*2), chỉ vị trí khác nhau.
+/* assets/css/gameplay.css — Game Mode (Circle mode). Circle/wave giờ vẽ bằng canvas (core/gameplay/
+ * circle-mode-ui.js) — file này chỉ còn style cho phần THẬT SỰ vẫn là DOM: tier popup nổi, số đếm
+ * ngược, và sao kết quả cuối bài (modal, xem event/workflow/gameplay.js::_buildResultBodyHtml()).
  */
 
-.gameplay-note {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    width: 0;
-    height: 0;
-    pointer-events: none;
-}
-
-/* Vòng tròn MỤC TIÊU — nền CÓ FILL (không rỗng như bản đầu), cố định kích thước, đứng yên suốt
- * vòng đời note (chỉ wave-ring bên dưới co lại). */
-.gameplay-target-circle {
-    position: absolute;
-    top: 0;
-    left: 0;
-    transform: translate(-50%, -50%);
-    width: var(--gameplay-target-diameter);
-    height: var(--gameplay-target-diameter);
-    border-radius: 9999px;
-    background: rgba(56, 189, 248, 0.28); /* sky-400, CÓ FILL */
-    border: 2px solid rgba(56, 189, 248, 0.9);
-    box-shadow: 0 0 20px rgba(56, 189, 248, 0.45), inset 0 0 12px rgba(56, 189, 248, 0.25);
-}
-
-/* Wave (ripple) — co từ to về khớp target-circle, ĐỒNG THỜI mờ dần (opacity, JS set mỗi frame qua
- * computeWaveOpacity()) — hiệu ứng "wave fade" chuẩn (Material ripple: scale + opacity cùng biến
- * thiên theo thời gian, KHÔNG phải riêng scale). */
-.gameplay-wave-ring {
-    position: absolute;
-    top: 0;
-    left: 0;
-    transform: translate(-50%, -50%);
-    border-radius: 9999px;
-    border: 2px solid rgba(255, 255, 255, 0.55);
-    pointer-events: none;
-    will-change: width, height, opacity;
-}
-
-/* Feedback thị giác khi wave đã vào vùng hợp lệ (gap) — KHÔNG ảnh hưởng chấm điểm, chỉ báo mắt. */
-.gameplay-wave-ring--armed {
-    border-color: rgba(74, 222, 128, 0.9); /* green-400 */
-    box-shadow: 0 0 14px rgba(74, 222, 128, 0.5);
-}
-
-/* Khung neo cho tier popup (PERFECT/EXCELLENT/...) — đặt NGAY TẠI vị trí note vừa tap (x,y truyền
- * vào showTapTierPopup(), KHÔNG còn 1 vị trí cố định giữa màn hình như bản đầu). Anchor lo phần
- * ĐỊNH VỊ tĩnh (transform translate -50%/-50%), popup con lo phần ANIMATION riêng (translateY/scale)
- * — tách 2 lớp transform để không đụng nhau. */
+/* Khung neo cho tier popup (PERFECT/EXCELLENT/...) — đặt NGAY TẠI vị trí note vừa tap/miss (x,y px
+ * thật truyền vào showTapTierPopup(), khớp hệ toạ độ canvas). Anchor lo phần ĐỊNH VỊ tĩnh (transform
+ * translate -50%/-50%), popup con lo phần ANIMATION riêng (translateY/scale) — tách 2 lớp transform
+ * để không đụng nhau. */
 .gameplay-tier-popup-anchor {
     position: absolute;
     transform: translate(-50%, -50%);
@@ -84,9 +34,9 @@
 .gameplay-tier-popup--bad       { color: #fb923c; } /* orange-400 */
 .gameplay-tier-popup--miss      { color: #f87171; } /* red-400 */
 
-/* Số đếm ngược 5s trước khi wave đầu tiên spawn (Giang yêu cầu 16/08/2026) — mỗi lần đổi số
- * (event/workflow/gameplay.js::_countdownTick() gán lại textContent), animation restart bằng cách
- * remove+reflow+add class 'is-pulsing' (xem core/gameplay/circle-mode-ui.js::showGameplayCountdown()). */
+/* Số đếm ngược 5s trước khi wave đầu tiên spawn — mỗi lần đổi số (event/workflow/gameplay.js::
+ * _countdownTick() gán lại textContent), animation restart bằng remove+reflow+add class
+ * 'is-pulsing' (xem core/gameplay/circle-mode-ui.js::showGameplayCountdown()). */
 .gameplay-countdown-number {
     font-size: 5.5rem;
     font-weight: 800;
@@ -102,4 +52,24 @@
     30%  { opacity: 1; transform: scale(1); }
     80%  { opacity: 1; transform: scale(1); }
     100% { opacity: 0; transform: scale(0.9); }
+}
+
+/* Sao kết quả cuối bài — placeholder tối mặc định (.gameplay-star), sao đạt được thêm class
+ * .gameplay-star--lit và tự "sáng lên" theo animation-delay riêng từng sao (gán inline lúc dựng
+ * bodyHtml, event/workflow/gameplay.js::_buildResultBodyHtml()) — tạo cảm giác sáng dần lần lượt mà
+ * KHÔNG cần JS tự điều khiển timing, CSS tự chạy stagger qua animation-delay có sẵn. `backwards` giữ
+ * trạng thái khung hình 0% (scale 0, ẩn) suốt khoảng animation-delay chờ tới lượt, tránh sao "nhấp
+ * nháy" hiện rồi biến mất trước khi animation-delay của nó tới. */
+.gameplay-star {
+    color: rgba(255, 255, 255, 0.15);
+    display: inline-block;
+}
+.gameplay-star--lit {
+    color: #fde047; /* yellow-300, khớp màu tier "perfect" cho nhất quán */
+    animation: gameplayStarPop 500ms ease-out backwards;
+}
+@keyframes gameplayStarPop {
+    0%   { opacity: 0; transform: scale(0); filter: drop-shadow(0 0 0 rgba(253, 224, 71, 0)); }
+    60%  { opacity: 1; transform: scale(1.3); filter: drop-shadow(0 0 10px rgba(253, 224, 71, 0.8)); }
+    100% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 4px rgba(253, 224, 71, 0.5)); }
 }
