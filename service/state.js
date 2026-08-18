@@ -57,7 +57,7 @@
  *
  * PHẢI nạp TRƯỚC: mọi file service/state/*.js (cần class AppState.definePackage đã tồn tại) và
  *   core/config.js (cần class AppConfig).
- * PHẢI nạp SAU: core/modal-choice.js (alertModal — dùng cho option notifyUI).
+ * PHẢI nạp SAU: core/modal-choice-ui.js (alertModal — dùng cho option notifyUI).
  */
 
         /**
