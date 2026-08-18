@@ -216,7 +216,7 @@
          * Modal "Bạn có muốn tiếp tục nghe bài XXX không?" — hiện ra NGAY LÚC KHỞI ĐỘNG trang (sau
          * reload do tab/app bị ẩn — xem resume-state-storage.js, checkPendingResumeStateOnBoot(),
          * gọi hàm này NGAY SAU loadConfig(), KHÔNG đợi initPlaylistFromDB()). Dùng modalChoice()
-         * (file riêng, js/core/modal-choice.js).
+         * (file riêng, js/core/modal-choice-ui.js).
          *
          * FIX (ver 10 refine #3, bổ sung — modal phải hiện NGAY từ đầu, không đợi load playlist
          * xong): vì gọi trước initPlaylistFromDB(), playlistCache có thể CHƯA có dữ liệu lúc modal

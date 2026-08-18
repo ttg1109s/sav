@@ -91,9 +91,8 @@
         const gameModeSettingToggle = document.getElementById('setting-gameplay-mode-enabled');
         const gameplayLayer = document.getElementById('gameplay-layer');
         const gameplayTapSurface = document.getElementById('gameplay-tap-surface');
-        const gameplayWavesContainer = document.getElementById('gameplay-waves-container');
+        const gameplayCanvas = document.getElementById('gameplay-canvas');
         const gameplayTierPopupLayer = document.getElementById('gameplay-tier-popup-layer');
-        const gameplayHudScore = document.getElementById('gameplay-hud-score');
         const gameplayHudCombo = document.getElementById('gameplay-hud-combo');
         const btnGameplayExit = document.getElementById('btn-gameplay-exit');
         const gameplayCountdownScreen = document.getElementById('gameplay-countdown-screen');

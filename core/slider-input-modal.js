@@ -10,7 +10,7 @@
  * MỌI nơi cần chọn 1 giá trị số trong khoảng qua modal (cùng tinh thần tổng quát hoá như
  * `core/time-picker-modal.js`, tách sẵn từ đầu thay vì đợi có nơi thứ 2 mới tách).
  *
- * CÙNG khuôn `core/modal-choice.js`/`core/time-picker-modal.js`: dựng DOM bằng
+ * CÙNG khuôn `core/modal-choice-ui.js`/`core/time-picker-modal.js`: dựng DOM bằng
  * `document.createElement` (KHÔNG dùng chuỗi innerHTML — tránh phải escape giá trị số), `addEventListener`
  * GOM CUỐI HÀM (Rule 5a — ngoại lệ hợp lệ cho cụm DOM ĐỘNG tự tạo bên trong CHÍNH hàm này lúc gọi,
  * khác với Listener TĨNH gắn 1 lần lúc app khởi động — cụm DOM này không tồn tại tới lúc hàm chạy
@@ -18,7 +18,7 @@
  * `config.onConfirm` callback — KHÔNG appState.get()/set(), KHÔNG eventBus, KHÔNG taskManager
  * ("Core thuần theo nghĩa callback", đúng tiền lệ modalChoice()/openTimePickerModal()).
  *
- * KHÔNG dùng `modalChoice()` (core/modal-choice.js) làm nền — `text` của hàm đó chỉ nhận 1 khối
+ * KHÔNG dùng `modalChoice()` (core/modal-choice-ui.js) làm nền — `text` của hàm đó chỉ nhận 1 khối
  * HTML tĩnh và ĐÓNG + XOÁ DOM NGAY khi bấm nút TRƯỚC KHI `onClick` chạy (xem docstring hàm đó) —
  * không có cách nào đọc lại giá trị slider/input NGAY LÚC bấm Apply nếu dựng qua đường đó, nên viết
  * riêng 1 modal độc lập (cùng khuôn `openTimePickerModal()`, không dùng chung `modalChoice()`).

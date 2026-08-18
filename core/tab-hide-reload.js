@@ -1,15 +1,13 @@
 /**
- * tab-hide-reload.js — Xử lý lifecycle ẩn tab: lưu state + reload ngay khi tab bị ẩn.
+ * tab-hide-reload.js — Core THUẦN: pause audio/video + lưu resume-state + reload trang.
  *
- * Tách từ core/wakelock.js (cũ) — wakelock.js chỉ còn requestWakeLock/releaseWakeLock.
+ * Debounce + phân biệt "ẩn tab thật" vs "F5/đóng tab" (đọc _isRealUnloadHappening) nằm ở
+ * event/tab.js::scheduleHideAndReload() — đó là orchestration chờ-rồi-đọc-lại-sau, thuộc về nơi
+ * gọi (event/tab.js vốn đã là ngoại lệ đứng ngoài bus, tự đọc/ghi appState), KHÔNG phải Core (Rule 2
+ * — Core chỉ nhận tham số, không tự appState.get()).
  *
- * Logic debounce phân biệt "ẩn tab thật" vs "F5/đóng tab":
- *   - 'visibilitychange'/'pagehide' → triggerHideAndReload() → chờ HIDE_RELOAD_DEBOUNCE_MS
- *   - Nếu 'beforeunload' bắn trong khoảng chờ → _isRealUnloadHappening = true → huỷ reload
- *   - Nếu không → ẩn tab thật → pause audio/video → save state → location.reload()
- *
- * _isRealUnloadHappening được đọc bởi event/tab.js (beforeunload handler) để set cờ
- * trước khi gọi executeAppCleanup().
+ * KHÔNG chạy nếu đang ở Game Mode (`gameplayPhase !== 'idle'`) — reload giữa ván sẽ phá sạch phiên
+ * chơi (DOM + state game mất hết, không cách nào khôi phục).
  *
  * PHẢI nạp SAU: core/resume-state-storage.js (saveResumeStateToLocalStorage, setResumeFlag),
  *   core/dom-refs.js (audioPlayer, bgVideoElement).
@@ -17,34 +15,19 @@
  */
         const HIDE_RELOAD_DEBOUNCE_MS = 50;
 
-        /**
-         * true ngay khi 'beforeunload' bắn ra — tín hiệu "đây THẬT SỰ là F5/đóng tab/
-         * điều hướng sang trang khác", dùng để huỷ bỏ lưu/reload đang chờ trong
-         * triggerHideAndReload(). Đọc từ event/tab.js để set trước executeAppCleanup().
-         * STATE — xem service/state.js.
-         */
-        let _hideReloadInProgress = false; // biến NỘI BỘ (không thuộc STATE) — chỉ dùng trong file này
+        function pauseAndSaveResumeState(gameplayPhase) {
+            if (gameplayPhase !== 'idle') return;
 
-        function triggerHideAndReload() {
-            if (_hideReloadInProgress) return; // chặn gọi chồng (visibilitychange + pagehide cùng bắn)
-            _hideReloadInProgress = true;
-            appState.set('_isRealUnloadHappening', false); // reset trước khi chờ — đo lại đúng cho lượt này
+            // Pause trước khi lưu: đảm bảo currentTime đọc được là chính xác tại thời điểm dừng
+            if (typeof audioPlayer !== 'undefined' && audioPlayer && !audioPlayer.paused) {
+                audioPlayer.pause();
+            }
+            if (typeof bgVideoElement !== 'undefined' && bgVideoElement && !bgVideoElement.paused) {
+                bgVideoElement.pause();
+            }
 
-            setTimeout(() => {
-                _hideReloadInProgress = false; // mở lại ngay, phòng trường hợp ẩn/hiện/ẩn liên tục
-                if (appState.get('_isRealUnloadHappening')) return; // F5/đóng tab/điều hướng thật → không làm gì cả
+            const didSave = (typeof saveResumeStateToLocalStorage === 'function') && saveResumeStateToLocalStorage();
+            if (didSave && typeof setResumeFlag === 'function') setResumeFlag();
 
-                // Pause trước khi lưu: đảm bảo currentTime đọc được là chính xác tại thời điểm dừng
-                if (typeof audioPlayer !== 'undefined' && audioPlayer && !audioPlayer.paused) {
-                    audioPlayer.pause();
-                }
-                if (typeof bgVideoElement !== 'undefined' && bgVideoElement && !bgVideoElement.paused) {
-                    bgVideoElement.pause();
-                }
-
-                const didSave = (typeof saveResumeStateToLocalStorage === 'function') && saveResumeStateToLocalStorage();
-                if (didSave && typeof setResumeFlag === 'function') setResumeFlag();
-
-                location.reload();
-            }, HIDE_RELOAD_DEBOUNCE_MS);
+            location.reload();
         }

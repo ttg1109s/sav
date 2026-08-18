@@ -29,7 +29,7 @@
  * giới hạn modulo tự nhiên (60 cho phút/giây, 10 cho phần mười giây, 24 cho giờ nếu giờ KHÔNG phải
  * đơn vị đầu — hiếm khi xảy ra trong thực tế vì giờ luôn đứng đầu nếu có mặt).
  *
- * NẠP SAU: lang/lang.js (t()) — file này chỉ gán text qua `textContent` (KHÔNG `innerHTML`), nên KHÔNG cần escapeHtml()/core/modal-choice.js.
+ * NẠP SAU: lang/lang.js (t()) — file này chỉ gán text qua `textContent` (KHÔNG `innerHTML`), nên KHÔNG cần escapeHtml()/core/modal-choice-ui.js.
  *
  * LƯU Ý RULE 3 (CẤM taskManager trong core) — 2 nơi dùng timer THUẦN của trình duyệt (KHÔNG phải
  * `taskManager` của project):
@@ -105,7 +105,7 @@ function computeTimePickerInitialIndices(valueMs, units) {
  * Mở modal "bánh xe cuộn số" chọn thời gian — DÙNG CHUNG (tách từ Subtitle Editor, xem docstring
  * đầu file). Core THUẦN theo đúng nghĩa callback: KHÔNG appState.get()/set(), KHÔNG taskManager,
  * KHÔNG core-gọi-core khác — mọi input qua tham số, mọi output trả về qua `config.onConfirm`
- * (callback THUẦN, giống tiền lệ `modalChoice()` — core/modal-choice.js).
+ * (callback THUẦN, giống tiền lệ `modalChoice()` — core/modal-choice-ui.js).
  *
  * Chặn THẬT việc cuộn ra ngoài [minMs,maxMs]: cho lướt tự do (giữ cảm giác cuộn mượt của native
  * scroll), rồi ngay khi lướt tay dừng hẳn (debounce 120ms), tự "snap" về mép gần nhất nếu đã vượt
