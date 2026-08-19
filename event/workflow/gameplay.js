@@ -157,11 +157,11 @@ const workflowGameplay = {
         const {
             gameplayWaves, gameplayCircleCount, gameplayDifficulty, gameplayPitchCellMap,
             gameplayRefreshPending, currentCalculatedBpm, smoothedEnergy, lastValidMidiNote,
-            gameplayPitchRangeMin, gameplayPitchRangeMax, fluxHistory,
+            fluxHistory,
         } = appState.get([
             'gameplayWaves', 'gameplayCircleCount', 'gameplayDifficulty', 'gameplayPitchCellMap',
             'gameplayRefreshPending', 'currentCalculatedBpm', 'smoothedEnergy', 'lastValidMidiNote',
-            'gameplayPitchRangeMin', 'gameplayPitchRangeMax', 'fluxHistory',
+            'fluxHistory',
         ]);
         const diffCfg = cfg.difficulty[gameplayDifficulty];
 
@@ -171,20 +171,17 @@ const workflowGameplay = {
             this._pendingBeatFluxCount++;
         }
 
-        // Nới dải pitch quan sát được — TRƯỚC bước spawn để note spawn ngay tick này được hưởng
-        // dải mới nhất.
-        const rangeUpdate = computePitchRangeUpdate(lastValidMidiNote, gameplayPitchRangeMin, gameplayPitchRangeMax); // core
-        if (rangeUpdate.min !== gameplayPitchRangeMin || rangeUpdate.max !== gameplayPitchRangeMax) {
-            appState.set('gameplayPitchRangeMin', rangeUpdate.min, { skipCheck: true });
-            appState.set('gameplayPitchRangeMax', rangeUpdate.max, { skipCheck: true });
-        }
-
+        // [SỬA — viết lại thuật toán pitch map, phản hồi Giang "dải MIDI cố định [0-127], không
+        // phải dải đã biết"] computePitchRangeUpdate() ĐÃ XOÁ — bảng gán pitch→ô giờ CỐ ĐỊNH theo
+        // hình học lưới (không phụ thuộc note nào đã detect), chỉ cần build LẠI khi resize/refresh,
+        // KHÔNG còn cần "nới dải" mỗi frame nữa.
+        //
         // Bảng gán pitch→ô: build LẦN ĐẦU (map rỗng) HOẶC refresh khi pending VÀ vừa hết wave
         // (KHÔNG ép re-target wave đang sống — chỉ chặn spawn mới, chờ board rỗng rồi xáo lại).
         let activeMap = gameplayPitchCellMap;
         let justRebuilt = false;
         if (activeMap.length === 0 || (gameplayRefreshPending && gameplayWaves.length === 0)) {
-            activeMap = this._rebuildPitchCellMap(rangeUpdate.min, rangeUpdate.max);
+            activeMap = this._rebuildPitchCellMap();
             justRebuilt = true;
             if (gameplayRefreshPending) appState.set('gameplayRefreshPending', false, { skipCheck: true });
             this._hardChainLevel = 1; // [MỚI] refresh chấm dứt chuỗi "sinh sản" Hard (phản hồi Giang)
@@ -231,7 +228,7 @@ const workflowGameplay = {
                 this._beatsSinceEligible = 0;
                 const spawnProbability = computeSpawnProbability(smoothedEnergy, cfg); // core
                 if (Math.random() < spawnProbability) {
-                    this._trySpawnWave(now, cfg, diffCfg, activeMap, appState.get('gameplayWaves'), currentCalculatedBpm, lastValidMidiNote, rangeUpdate.min, rangeUpdate.max);
+                    this._trySpawnWave(now, cfg, diffCfg, activeMap, appState.get('gameplayWaves'), currentCalculatedBpm, lastValidMidiNote);
                     this._hardChainLastSpawnAt = now; // mốc bắt đầu đếm quãng s cho phần tử KẾ TIẾP trong chuỗi (nếu escalate ra hàng đợi)
                 }
             }
@@ -335,7 +332,7 @@ const workflowGameplay = {
      * KHÔNG còn wave sống -> reset về 1 (chuỗi đứt, xem thêm điểm đứt "lúc refresh" ở tick()). Cấp
      * độ N -> tổng cộng N wave sẽ xuất hiện DẦN qua N eligible beat liên tiếp (computeChainedPitches(),
      * circle-mode.js — pitch[0]=gốc thật, pitch[i>=1]=pitch[i-1] + quãng(i+1)). */
-    _trySpawnWave(now, cfg, diffCfg, pitchCellMap, currentWaves, bpmString, midiNote, pitchRangeMin, pitchRangeMax) {
+    _trySpawnWave(now, cfg, diffCfg, pitchCellMap, currentWaves, bpmString, midiNote) {
         let chainLevel = 1;
         if (diffCfg.chainReproductionEnabled) {
             this._hardChainLevel = currentWaves.length > 0
@@ -343,7 +340,9 @@ const workflowGameplay = {
                 : 1;
             chainLevel = this._hardChainLevel;
         }
-        const pitchChain = computeChainedPitches(midiNote, chainLevel, pitchRangeMin, pitchRangeMax); // core
+        // [SỬA — viết lại thuật toán pitch map] Clamp chuỗi trong dải MIDI CỐ ĐỊNH [0,127] (không
+        // còn dải "đã quan sát được" — computePitchRangeUpdate() ĐÃ XOÁ).
+        const pitchChain = computeChainedPitches(midiNote, chainLevel, 0, 127); // core
 
         this._spawnOneWaveAtPitch(now, cfg, diffCfg, pitchCellMap, currentWaves, bpmString, pitchChain[0]);
         if (pitchChain.length > 1) this._hardChainQueue.push(...pitchChain.slice(1)); // phần còn lại nhả DẦN, xem docstring
@@ -374,14 +373,29 @@ const workflowGameplay = {
         this._gridRows = geometry.rows;
     },
 
-    /** Xáo lại bảng gán pitch→ô — bucket-hoá dải pitch quan sát được, shuffle vào lưới hiện hành. */
-    _rebuildPitchCellMap(pitchRangeMin, pitchRangeMax) {
+    /** Xáo lại bảng gán pitch→ô — CHỌN NGẪU NHIÊN 1 trong 5 kiểu duyệt lưới (mỗi lần rebuild đều
+     * có thể ra kiểu khác, tạo cảm giác mới mỗi lần refresh — Rule 3a: Workflow tự chọn + gọi ĐÚNG
+     * 1 hàm Core, không phải Core tự gọi Core khác), rồi phân phối 128 note MIDI round-robin +
+     * shuffle qua buildPitchCellMap() (circle-mode.js). [SỬA — viết lại thuật toán pitch map, phản
+     * hồi Giang] KHÔNG còn nhận pitchRangeMin/Max — dải MIDI giờ CỐ ĐỊNH [0-127]. */
+    _rebuildPitchCellMap() {
         const cfg = GAMEPLAY_CIRCLE_CONFIG;
-        const totalCells = this._gridCols * this._gridRows;
+        const cols = this._gridCols, rows = this._gridRows;
+        const totalCells = cols * rows;
+
+        const patternIndex = Math.floor(Math.random() * 5);
+        const flagA = Math.random() < 0.5, flagB = Math.random() < 0.5;
+        let traversalOrder;
+        if (patternIndex === 0) traversalOrder = generateRowMajorOrder(cols, rows, flagA, flagB); // core
+        else if (patternIndex === 1) traversalOrder = generateColumnMajorOrder(cols, rows, flagA, flagB); // core
+        else if (patternIndex === 2) traversalOrder = generateBoustrophedonRowOrder(cols, rows, flagA, flagB); // core
+        else if (patternIndex === 3) traversalOrder = generateBoustrophedonColumnOrder(cols, rows, flagA); // core
+        else traversalOrder = generateSpiralOrder(cols, rows, flagA, flagB); // core
+
         const randomValues = Array.from({ length: totalCells + 8 }, () => Math.random());
-        const map = buildPitchCellMap(pitchRangeMin, pitchRangeMax, this._gridCols, this._gridRows, this._zoneOriginX, this._zoneOriginY, cfg, randomValues); // core
+        const map = buildPitchCellMap(cols, rows, this._zoneOriginX, this._zoneOriginY, cfg, traversalOrder, randomValues); // core
         appState.set('gameplayPitchCellMap', map, { skipCheck: true });
-        console.log(`writer: "workflowGameplay._rebuildPitchCellMap", page: "gameplayPitchCellMap", content: "rebuilt ${map.length} cells"`);
+        console.log(`writer: "workflowGameplay._rebuildPitchCellMap", page: "gameplayPitchCellMap", content: "rebuilt pattern=${patternIndex}"`);
         return map;
     },
 
@@ -390,11 +404,9 @@ const workflowGameplay = {
     _handleWindowResize() {
         if (appState.get('gameplayPhase') === 'idle') return;
         this._recomputeGridGeometry();
-        this._rebuildPitchCellMap(appState.get('gameplayPitchRangeMin'), appState.get('gameplayPitchRangeMax'));
+        this._rebuildPitchCellMap();
     },
 
-    /** Ứng với 'playerControls.audio.ended' HOẶC 'playerControls.video.ended' (1 case dùng chung
-     * ở router) KHI gameplayPhase !== 'idle' — dừng đếm giờ nghe, hiện modal kết quả (engine). */
     /** Ứng với 'playerControls.audio.ended' HOẶC 'playerControls.video.ended' (1 case dùng chung
      * ở router) KHI gameplayPhase !== 'idle' — dừng đếm giờ nghe, hiện modal kết quả (engine).
      * [SỬA — phản hồi Giang, modal end cần rõ title/thời lượng/độ khó/số lượt chơi] `durationSeconds`
@@ -503,10 +515,8 @@ const workflowGameplay = {
 
         appState.set('gameplayWaves', [], { skipCheck: true });
         console.log(`writer: "workflowGameplay._resetSessionCounters", page: "gameplayWaves", content: "reset"`);
-        appState.set('gameplayPitchRangeMin', null, { skipCheck: true });
-        console.log(`writer: "workflowGameplay._resetSessionCounters", page: "gameplayPitchRangeMin", content: "null"`);
-        appState.set('gameplayPitchRangeMax', null, { skipCheck: true });
-        console.log(`writer: "workflowGameplay._resetSessionCounters", page: "gameplayPitchRangeMax", content: "null"`);
+        // [SỬA — viết lại thuật toán pitch map] gameplayPitchRangeMin/Max ĐÃ XOÁ khỏi schema — dải
+        // MIDI giờ CỐ ĐỊNH [0-127], không còn gì cần reset ở đây.
         appState.set('gameplayPitchCellMap', [], { skipCheck: true });
         console.log(`writer: "workflowGameplay._resetSessionCounters", page: "gameplayPitchCellMap", content: "reset"`);
         appState.set('gameplayRefreshPending', false, { skipCheck: true });
