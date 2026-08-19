@@ -306,6 +306,20 @@
         }
 
         /**
+         * Element ĐANG THỰC SỰ PHÁT — `bgVideoElement` (Video Player mode) hay `audioPlayer` (Song).
+         * DÙNG CHUNG bởi MỌI domain cần biết "element nào đang chạy" — trước đây mỗi nơi (Next/Prev,
+         * Game Mode) tự viết lại ternary `isVideoPlayerMode ? bgVideoElement : audioPlayer` riêng
+         * (2 lần ở event/workflow/player-controls.js, SẮP thêm 6 lần nữa ở event/workflow/
+         * gameplay.js nếu không gộp) — tách ra ĐÚNG 1 chỗ, Core thuần (Rule 2: nhận
+         * `isVideoPlayerMode` qua tham số, KHÔNG tự `appState.get()`), mọi nơi gọi lại.
+         * @param {boolean} isVideoPlayerMode
+         * @returns {HTMLMediaElement}
+         */
+        function getActiveMediaElement(isVideoPlayerMode) {
+            return isVideoPlayerMode ? bgVideoElement : audioPlayer;
+        }
+
+        /**
          * Toggle play/pause của track ĐÃ TẢI. Ứng với nhánh "đã có currentKey" của msg.type
          * 'playerControls.playPause.click' — nhánh "chưa có gì đang tải -> phát bài đầu tiên" dời
          * sang `workflowPlayerControls.handlePlayPauseClick()` (event/workflow/player-controls.js).
