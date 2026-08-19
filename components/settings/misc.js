@@ -39,7 +39,10 @@ const TPL_SETTINGS_MISC = `
 
         <!-- SECTION: GAME MODE (MỚI 16/08/2026) — bật/tắt tự động mở overlay Game khi vào
              Visualizer bằng cách chọn bài/Play/Shuffle (KHÔNG còn nút riêng ở Control Center, xem
-             event/router/visual-bg.js case 'visualBg.songChanged'). Đặt ở Settings (SỬA 16/08/2026,
+             event/router/gameplay.js case 'gameplay.mediaChanged' — [SỬA, phản hồi Giang
+             "visualBg.songChanged liên quan gì tới video play mode?"] hook TRƯỚC ĐÂY gắn ké vào
+             event/router/visual-bg.js case 'visualBg.songChanged', ĐÃ TÁCH RA tín hiệu riêng, hoạt
+             động cho cả Song lẫn Video). Đặt ở Settings (SỬA 16/08/2026,
              Giang chốt lại — trước đó đặt nhầm thành nút icon trong Control Center). SỬA LẦN 2
              (16/08/2026, Giang phản hồi — "ai cho hardcode tiếng Việt", "bỏ mô tả luôn đi") — dùng
              ĐÚNG i18n t()/data-i18n (lang/patch/patch-settings-misc.js, key settingsMisc.gameMode.
