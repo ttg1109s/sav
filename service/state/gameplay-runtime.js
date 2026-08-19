@@ -97,10 +97,9 @@
             }),
             gridCellSizePx: 55,          // px — kích thước 1 ô lưới pitch→vị trí
             cellJitterMarginPx: 1,       // px — lệch tâm ngẫu nhiên trong ô giới hạn (gridCellSizePx - margin)
-            minSpawnDistancePx: 84,      // px — khoảng cách tối thiểu giữa 2 wave đang sống lúc spawn mới (chống đè hình)
             tapHitTolerancePx: 70,       // px — dung sai vị trí lúc chấm tap trúng note nào (toạ độ giờ là px thật, canvas — không còn % như bản DOM cũ)
             // maxRatio giờ áp cho tỉ lệ khoảng cách CHUẨN HOÁ THEO TỪNG PHÍA (bấm sớm chia gapOuter,
-            // bấm trễ chia gapInner) — xem classifyTapTier() trong circle-mode.js.
+            // bấm trễ chia gapInner) — xem classifyTapTier() trong core/gameplay/engine.js.
             tiers: Object.freeze([
                 Object.freeze({ name: 'perfect',   maxRatio: 0.15, score: 4 }),
                 Object.freeze({ name: 'excellent', maxRatio: 0.40, score: 3 }),
@@ -116,15 +115,32 @@
             starMax: 5,
             starRoundingThreshold: 0.8,   // phần thập phân >= ngưỡng này mới làm tròn LÊN, xem computeStarRating()
             refreshBeatsForPhrase: 16,    // xấp xỉ 1 phrase = 16 beat (không có phrase detection thật)
-            // Ngưỡng lệch flux (2 cửa sổ trượt 10 giá trị gần nhất trên fluxHistory) để kích hoạt
-            // refresh vị trí — số khởi điểm, CẦN tinh chỉnh qua playtest thật, không phải số cuối.
+            /**
+             * [SỬA — nghiên cứu lại công thức flux, phản hồi Giang] `fluxDeltaEnergy`/
+             * `fluxDeltaSection` ĐỔI từ số TUYỆT ĐỐI (đo trên fluxHistory frame-rate — bị nhiễu +
+             * không thích ứng độ to nhỏ bài hát, xem docstring event/workflow/gameplay.js) sang TỈ
+             * LỆ TƯƠNG ĐỐI (0-1, vd 0.4 = lệch 40% so với baseline) đo trên `_beatFluxHistory`
+             * (1 mốc/BEAT, độc lập fps máy). `energyWindowBeats`/`sectionWindowBeats` (MỚI) — số
+             * BEAT so sánh (không phải số frame) — cửa sổ dài hơn dùng cho "section" (chuyển đoạn
+             * lớn, xảy ra chậm) so với "energy" (đổi cường độ, xảy ra nhanh hơn). Số khởi điểm dưới
+             * đây CẦN tinh chỉnh qua playtest nhạc thật, chưa phải số cuối.
+             *
+             * [SỬA — Rule 3/1.5 liền kề, phản hồi Giang "loại bỏ chỉ số 1.5 liền kề"] `minSpawnDistancePx`
+             * dời vào ĐÂY (mỗi độ khó riêng, TRƯỚC ĐÂY 1 số chung 84px > gridCellSizePx=55px × 1.5 —
+             * loại trừ cả ô liền kề NGANG/DỌC (55px) lẫn CHÉO (77.8px), khiến 1 wave chặn gần hết ô
+             * xung quanh trên lưới hẹp/điện thoại). Medium/Hard giờ ≤ gridCellSizePx — ô liền kề
+             * KHÔNG còn tự động bị loại — Easy vẫn cao hơn 1 chút (không ảnh hưởng thật vì
+             * maxConcurrentWaves=1 đã tự chặn wave thứ 2 từ trước, chưa từng chạm code này).
+             *
+             * [SỬA — độ khó Medium/Hard rõ ràng hơn, phản hồi Giang] `maxConcurrentWaves` Medium
+             * TRƯỚC ĐÂY = Infinity y hệt Hard (KHÔNG có khác biệt CƠ CHẾ nào giữa 2 độ khó ngoài
+             * spawnEligibleEveryNBeats/threshold) — giờ Medium có TRẦN THẬT (2), Hard trần cao hơn
+             * hẳn (4) + minSpawnDistancePx nhỏ hơn hẳn (cho phép đóng gói dày hơn) — 2 độ khó giờ
+             * khác nhau rõ ở CƠ CHẾ (số wave chồng nhau tối đa), không chỉ khác THAM SỐ tần suất.
+             */
             difficulty: Object.freeze({
-                // maxConcurrentWaves: CHỈ Easy có giới hạn thật (=1, đúng yêu cầu gốc "không hiện B
-                // khi A chưa xong") — Medium/Hard KHÔNG có yêu cầu nào giới hạn số wave cùng lúc, để
-                // Infinity (tự nhiên bao nhiêu cũng được, chỉ bị chặn bởi nhịp beat thật + xác suất
-                // spawn + khoảng cách chống đè hình — không cần thêm trần nhân tạo).
-                easy:   Object.freeze({ maxConcurrentWaves: 1,        spawnEligibleEveryNBeats: 1, fluxDeltaEnergy: 60, fluxDeltaSection: 100 }),
-                medium: Object.freeze({ maxConcurrentWaves: Infinity, spawnEligibleEveryNBeats: 3, fluxDeltaEnergy: 35, fluxDeltaSection: 60 }),
-                hard:   Object.freeze({ maxConcurrentWaves: Infinity, spawnEligibleEveryNBeats: 1, fluxDeltaEnergy: 15, fluxDeltaSection: 30 }),
+                easy:   Object.freeze({ maxConcurrentWaves: 1, spawnEligibleEveryNBeats: 1, minSpawnDistancePx: 70, energyWindowBeats: 4, sectionWindowBeats: 12, fluxDeltaEnergy: 0.55, fluxDeltaSection: 0.85 }),
+                medium: Object.freeze({ maxConcurrentWaves: 2, spawnEligibleEveryNBeats: 2, minSpawnDistancePx: 50, energyWindowBeats: 3, sectionWindowBeats: 9,  fluxDeltaEnergy: 0.40, fluxDeltaSection: 0.65 }),
+                hard:   Object.freeze({ maxConcurrentWaves: 4, spawnEligibleEveryNBeats: 1, minSpawnDistancePx: 35, energyWindowBeats: 2, sectionWindowBeats: 6,  fluxDeltaEnergy: 0.28, fluxDeltaSection: 0.48 }),
             }),
         });
