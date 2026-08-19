@@ -46,6 +46,7 @@ const workflowGameplay = {
     _beatsSincePhraseRefresh: 0,       // xấp xỉ ranh giới phrase (đếm beat cố định)
     _beatFluxHistory: [],              // 1 mốc/BEAT (trung bình đoạn), cap 24 — xem docstring đầu file
     _pendingBeatFluxSum: 0, _pendingBeatFluxCount: 0, // tích luỹ giữa 2 beat, gộp lúc beat mới tới
+    _hardChainLevel: 1,                // MỚI — cấp độ chuỗi "sinh sản" (chỉ Hard), reset lúc bảng sạch/refresh
     _gridCols: 1, _gridRows: 1,        // lưới pitch→ô hiện hành (tính lại lúc resize/vào ready)
     _zoneOriginX: 0, _zoneOriginY: 0,  // góc trên-trái spawnZone, px thật
     _canvasWidthPx: 0, _canvasHeightPx: 0,
@@ -184,6 +185,7 @@ const workflowGameplay = {
             activeMap = this._rebuildPitchCellMap(rangeUpdate.min, rangeUpdate.max);
             justRebuilt = true;
             if (gameplayRefreshPending) appState.set('gameplayRefreshPending', false, { skipCheck: true });
+            this._hardChainLevel = 1; // [MỚI] refresh chấm dứt chuỗi "sinh sản" Hard (phản hồi Giang)
         }
 
         const isNewBeat = lastBeatTime > 0 && lastBeatTime !== this._lastConsumedBeatTime;
@@ -213,11 +215,15 @@ const workflowGameplay = {
                 }
             }
 
-            if (!gameplayRefreshPending && gameplayWaves.length < diffCfg.maxConcurrentWaves && isBeatEligibleForSpawn(this._beatsSinceEligible, diffCfg.spawnEligibleEveryNBeats)) { // core
+            // [SỬA — phản hồi Giang "medium 2-5 nốt"] trần số wave giờ có thể là 1 KHOẢNG (Medium) —
+            // computeConcurrentWaveCap() tự roll ngẫu nhiên MỖI LẦN xét (mật độ dao động, không còn
+            // 1 số cố định); Easy/Hard vẫn trả thẳng số cố định (1/Infinity), không đổi hành vi.
+            const concurrentWaveCap = computeConcurrentWaveCap(diffCfg, Math.random()); // core (circle-mode.js)
+            if (!gameplayRefreshPending && gameplayWaves.length < concurrentWaveCap && isBeatEligibleForSpawn(this._beatsSinceEligible, diffCfg.spawnEligibleEveryNBeats)) { // core
                 this._beatsSinceEligible = 0;
                 const spawnProbability = computeSpawnProbability(smoothedEnergy, cfg); // core
                 if (Math.random() < spawnProbability) {
-                    this._trySpawnWave(now, cfg, diffCfg, activeMap, appState.get('gameplayWaves'), currentCalculatedBpm, lastValidMidiNote);
+                    this._trySpawnWave(now, cfg, diffCfg, activeMap, appState.get('gameplayWaves'), currentCalculatedBpm, lastValidMidiNote, rangeUpdate.min, rangeUpdate.max);
                 }
             }
         }
@@ -251,48 +257,72 @@ const workflowGameplay = {
         drawTargetCircles(ctx, remainingEntries.map(e => ({ x: e.x, y: e.y, centerRadius: cfg.centerRadius, colorMain: e.colorMain }))); // core-ui
     },
 
-    /** Thử spawn 1 wave — tách khỏi tick() vì cần nhiều bước phụ thuộc nhau (tìm ô theo pitch,
-     * chống đè hình, chọn màu theo effect đang chạy).
+    /** Thử spawn 1 wave (hoặc 1 CHUỖI wave — xem cơ chế "sinh sản" Hard bên dưới) — tách khỏi
+     * tick() vì cần nhiều bước phụ thuộc nhau (tìm ô theo pitch, chống đè hình, chọn màu theo
+     * effect đang chạy).
      *
      * [SỬA — phản hồi Giang "cell đã có wave -> không cho spawn cùng ô kể cả khác note; thử 8 ô lân
      * cận; hết 8 ô -> ưu tiên ô rỗng-bucket; hết luôn -> bỏ"] Thay HẲN cơ chế đo khoảng cách px cũ
      * (isPositionTooClose(), ĐÃ XOÁ) bằng findAvailableCell() (core/gameplay/circle-mode.js) —
-     * occupancy CHÍNH XÁC theo chỉ số ô (col,row), không còn phụ thuộc jitter/khoảng cách. */
-    _trySpawnWave(now, cfg, diffCfg, pitchCellMap, currentWaves, bpmString, midiNote) {
-        // Chưa detect pitch hợp lệ (map rỗng/midiNote null) -> fallback ô GIỮA spawnZone (giữ ĐÚNG
-        // hành vi gốc trước khi có findAvailableCell()) — vẫn cần đúng {col,row} để occupancy check
-        // hoạt động, không chỉ toạ độ px.
-        const targetCell = findCellForPitch(pitchCellMap, midiNote) || { // core
-            col: Math.floor(this._gridCols / 2), row: Math.floor(this._gridRows / 2),
-            cellX: this._zoneOriginX + (this._gridCols * cfg.gridCellSizePx) / 2,
-            cellY: this._zoneOriginY + (this._gridRows * cfg.gridCellSizePx) / 2,
-        };
+     * occupancy CHÍNH XÁC theo chỉ số ô (col,row), không còn phụ thuộc jitter/khoảng cách.
+     *
+     * [MỚI — phản hồi Giang, cơ chế "sinh sản" CHỈ Hard] `diffCfg.chainReproductionEnabled` — lúc
+     * spawn mà bảng CÒN wave sống (`currentWaves.length > 0`), `this._hardChainLevel` tăng thêm 1
+     * (trần `chainMaxLevel`); KHÔNG còn wave sống -> reset về 1 (chuỗi đứt, xem thêm điểm đứt "lúc
+     * refresh" ở tick()). Cấp độ N -> spawn ĐÚNG N wave (computeChainedPitches(), circle-mode.js —
+     * pitch[0]=gốc thật, pitch[i>=1]=pitch[i-1] + quãng(i+1)) — MỖI wave trong chuỗi TỰ tìm ô riêng
+     * qua findAvailableCell(), occupancy CẬP NHẬT NGAY sau mỗi wave đặt được (wave TIẾP THEO trong
+     * CÙNG chuỗi không đè lên wave TRƯỚC nó vừa đặt). 1 phần tử trong chuỗi hết chỗ (target + 8 lân
+     * cận + rỗng-bucket đều bận) -> BỎ RIÊNG phần tử đó, KHÔNG bỏ hết cả chuỗi (chuỗi còn spawn được
+     * bao nhiêu thì spawn bấy nhiêu). */
+    _trySpawnWave(now, cfg, diffCfg, pitchCellMap, currentWaves, bpmString, midiNote, pitchRangeMin, pitchRangeMax) {
+        let chainLevel = 1;
+        if (diffCfg.chainReproductionEnabled) {
+            this._hardChainLevel = currentWaves.length > 0
+                ? Math.min(this._hardChainLevel + 1, diffCfg.chainMaxLevel)
+                : 1;
+            chainLevel = this._hardChainLevel;
+        }
+        const pitchChain = computeChainedPitches(midiNote, chainLevel, pitchRangeMin, pitchRangeMax); // core
 
         const occupiedCellKeys = new Set(currentWaves.map((w) => `${w.col},${w.row}`));
         const unusedCells = listUnusedGridCells(this._gridCols, this._gridRows, cfg, this._zoneOriginX, this._zoneOriginY, pitchCellMap); // core
-        const cell = findAvailableCell(targetCell, this._gridCols, this._gridRows, cfg, this._zoneOriginX, this._zoneOriginY, unusedCells, occupiedCellKeys); // core
-        if (!cell) return; // target + 8 ô lân cận + mọi ô rỗng-bucket đều đang bận -> bỏ lượt, chờ beat kế
-
-        const jittered = applyCellJitter(cell.cellX, cell.cellY, cfg, Math.random(), Math.random()); // core
-        const shrinkDurationMs = computeShrinkDurationMs(bpmString, cfg, diffCfg.shrinkDurationMultiplier); // core
-
         const ec = getActiveEffectConfig(); // core (custom-effect.js)
-        let colorMain, colorLight;
-        if (ec.mode === 'gradient') {
-            const hueOffset = appState.get('globalHueOffset');
-            colorMain = computeCircleColorGradientMain(hueOffset); // core
-            colorLight = computeCircleColorGradientLight(hueOffset); // core
-        } else if (ec.mode === 'dynamic') {
-            colorMain = computeCircleColorDynamic(ec.dynA, ec.dynB, this._nextSpawnIndex); // core
-            colorLight = interpolateColor(colorMain, '#ffffff', 0.5); // core (color-utils.js)
-        } else {
-            colorMain = ec.solidColor;
-            colorLight = interpolateColor(colorMain, '#ffffff', 0.5); // core
-        }
-        this._nextSpawnIndex++;
+        const newWaves = [];
 
-        const wave = { id: this._nextWaveId++, spawnedAt: now, startRadius: cfg.waveStartRadius, shrinkDurationMs, col: cell.col, row: cell.row, x: jittered.x, y: jittered.y, colorMain, colorLight };
-        appState.mutate('gameplayWaves', arr => arr.push(wave), { skipCheck: true });
+        for (const pitch of pitchChain) {
+            // Chưa detect pitch hợp lệ (map rỗng/midiNote null) -> fallback ô GIỮA spawnZone (giữ
+            // ĐÚNG hành vi gốc trước khi có findAvailableCell()) — vẫn cần đúng {col,row}.
+            const targetCell = findCellForPitch(pitchCellMap, pitch) || { // core
+                col: Math.floor(this._gridCols / 2), row: Math.floor(this._gridRows / 2),
+                cellX: this._zoneOriginX + (this._gridCols * cfg.gridCellSizePx) / 2,
+                cellY: this._zoneOriginY + (this._gridRows * cfg.gridCellSizePx) / 2,
+            };
+            const cell = findAvailableCell(targetCell, this._gridCols, this._gridRows, cfg, this._zoneOriginX, this._zoneOriginY, unusedCells, occupiedCellKeys); // core
+            if (!cell) continue; // hết chỗ cho ĐÚNG phần tử này trong chuỗi -> bỏ riêng, chuỗi còn lại vẫn tiếp tục thử
+            occupiedCellKeys.add(`${cell.col},${cell.row}`); // chiếm NGAY — wave kế trong CÙNG chuỗi không đè lên
+
+            const jittered = applyCellJitter(cell.cellX, cell.cellY, cfg, Math.random(), Math.random()); // core
+            const shrinkDurationMs = computeShrinkDurationMs(bpmString, cfg, diffCfg.shrinkDurationMultiplier); // core
+
+            let colorMain, colorLight;
+            if (ec.mode === 'gradient') {
+                const hueOffset = appState.get('globalHueOffset');
+                colorMain = computeCircleColorGradientMain(hueOffset); // core
+                colorLight = computeCircleColorGradientLight(hueOffset); // core
+            } else if (ec.mode === 'dynamic') {
+                colorMain = computeCircleColorDynamic(ec.dynA, ec.dynB, this._nextSpawnIndex); // core
+                colorLight = interpolateColor(colorMain, '#ffffff', 0.5); // core (color-utils.js)
+            } else {
+                colorMain = ec.solidColor;
+                colorLight = interpolateColor(colorMain, '#ffffff', 0.5); // core
+            }
+            this._nextSpawnIndex++;
+
+            newWaves.push({ id: this._nextWaveId++, spawnedAt: now, startRadius: cfg.waveStartRadius, shrinkDurationMs, col: cell.col, row: cell.row, x: jittered.x, y: jittered.y, colorMain, colorLight });
+        }
+
+        if (newWaves.length > 0) appState.mutate('gameplayWaves', arr => arr.push(...newWaves), { skipCheck: true });
     },
 
     /** Tính lại lưới pitch→ô theo kích thước canvas HIỆN TẠI — PHẢI gọi sau resize/lúc mở layer.
@@ -429,6 +459,7 @@ const workflowGameplay = {
         this._beatFluxHistory = [];
         this._pendingBeatFluxSum = 0;
         this._pendingBeatFluxCount = 0;
+        this._hardChainLevel = 1; // MỚI — reset chuỗi "sinh sản" đầu mỗi phiên
 
         workflowGameplayEngine.resetScoreCounters();
 
