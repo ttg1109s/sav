@@ -48,6 +48,7 @@ const workflowGameplay = {
     _pendingBeatFluxSum: 0, _pendingBeatFluxCount: 0, // tích luỹ giữa 2 beat, gộp lúc beat mới tới
     _hardChainLevel: 1,                // MỚI — cấp độ chuỗi "sinh sản" (chỉ Hard), reset lúc bảng sạch/refresh
     _hardChainQueue: [],                // MỚI — pitch còn lại trong chuỗi CHƯA spawn, nhả DẦN 1 wave/eligible beat (KHÔNG bung hết 1 lần)
+    _hardChainLastSpawnAt: 0,           // MỚI — mốc ms (performance.now()) lần nhả wave chuỗi gần nhất, so với computeChainSpacingMs()
     _gridCols: 1, _gridRows: 1,        // lưới pitch→ô hiện hành (tính lại lúc resize/vào ready)
     _zoneOriginX: 0, _zoneOriginY: 0,  // góc trên-trái spawnZone, px thật
     _canvasWidthPx: 0, _canvasHeightPx: 0,
@@ -188,6 +189,7 @@ const workflowGameplay = {
             if (gameplayRefreshPending) appState.set('gameplayRefreshPending', false, { skipCheck: true });
             this._hardChainLevel = 1; // [MỚI] refresh chấm dứt chuỗi "sinh sản" Hard (phản hồi Giang)
             this._hardChainQueue = []; // refresh chấm dứt LUÔN phần chuỗi đang xếp hàng dở dang
+            this._hardChainLastSpawnAt = 0;
         }
 
         const isNewBeat = lastBeatTime > 0 && lastBeatTime !== this._lastConsumedBeatTime;
@@ -221,23 +223,30 @@ const workflowGameplay = {
             // computeConcurrentWaveCap() tự roll ngẫu nhiên MỖI LẦN xét (mật độ dao động, không còn
             // 1 số cố định); Easy/Hard vẫn trả thẳng số cố định (1/Infinity), không đổi hành vi.
             const concurrentWaveCap = computeConcurrentWaveCap(diffCfg, Math.random()); // core (circle-mode.js)
-            if (!gameplayRefreshPending && gameplayWaves.length < concurrentWaveCap && isBeatEligibleForSpawn(this._beatsSinceEligible, diffCfg.spawnEligibleEveryNBeats)) { // core
+            // [SỬA — phản hồi Giang "Hard giảm quãng s mỗi wave chuỗi còn spawnEligibleEveryNBeats/2"]
+            // Nhả hàng đợi chuỗi "sinh sản" Hard KHÔNG còn nằm trong nhánh isBeatEligibleForSpawn()
+            // nữa (đếm NGUYÊN beat, không biểu diễn được nửa beat) — dời hẳn RA NGOÀI khối isNewBeat,
+            // xem đoạn code NGAY DƯỚI (chạy mỗi frame, tự so mốc thời gian ms).
+            if (!gameplayRefreshPending && gameplayWaves.length < concurrentWaveCap && this._hardChainQueue.length === 0 && isBeatEligibleForSpawn(this._beatsSinceEligible, diffCfg.spawnEligibleEveryNBeats)) { // core
                 this._beatsSinceEligible = 0;
-                // [SỬA — phản hồi Giang, bug "xN xuất hiện đồng thời"] Chuỗi "sinh sản" Hard (nếu
-                // đang dở dang, `_hardChainQueue` còn phần tử) TIẾP TỤC nhả ĐÚNG 1 wave mỗi eligible
-                // beat — "quãng s" GIỮA 2 wave liên tiếp trong chuỗi = ĐÚNG `spawnEligibleEveryNBeats`
-                // hiện hành (thông số audio-driven đã có sẵn, không phát minh số mới) — KHÔNG roll
-                // xác suất (đã "cam kết" từ lúc escalate, không phải quyết định ngẫu nhiên mới).
-                // Hàng đợi RỖNG mới xét spawn THƯỜNG (có thể escalate chuỗi MỚI nếu bảng còn wave
-                // sống — xem _trySpawnWave()).
-                if (this._hardChainQueue.length > 0) {
-                    this._spawnNextChainedWave(now, cfg, diffCfg, activeMap, currentCalculatedBpm);
-                } else {
-                    const spawnProbability = computeSpawnProbability(smoothedEnergy, cfg); // core
-                    if (Math.random() < spawnProbability) {
-                        this._trySpawnWave(now, cfg, diffCfg, activeMap, appState.get('gameplayWaves'), currentCalculatedBpm, lastValidMidiNote, rangeUpdate.min, rangeUpdate.max);
-                    }
+                const spawnProbability = computeSpawnProbability(smoothedEnergy, cfg); // core
+                if (Math.random() < spawnProbability) {
+                    this._trySpawnWave(now, cfg, diffCfg, activeMap, appState.get('gameplayWaves'), currentCalculatedBpm, lastValidMidiNote, rangeUpdate.min, rangeUpdate.max);
+                    this._hardChainLastSpawnAt = now; // mốc bắt đầu đếm quãng s cho phần tử KẾ TIẾP trong chuỗi (nếu escalate ra hàng đợi)
                 }
+            }
+        }
+
+        // [MỚI — phản hồi Giang, quãng s riêng cho chuỗi "sinh sản" Hard] Nhả hàng đợi chuỗi CHẠY
+        // MỖI FRAME (KHÔNG gate theo isNewBeat/isBeatEligibleForSpawn nữa — đếm nguyên beat không ra
+        // được nửa beat) — tự so `now` (ms) với mốc lần nhả trước, đủ `computeChainSpacingMs()` mới
+        // nhả tiếp. Rỗng hàng đợi (đa số thời gian, kể cả Easy/Medium — field luôn rỗng) -> no-op
+        // ngay từ điều kiện đầu, không tốn gì thêm mỗi frame.
+        if (diffCfg.chainReproductionEnabled && this._hardChainQueue.length > 0) {
+            const chainSpacingMs = computeChainSpacingMs(currentCalculatedBpm, diffCfg.spawnEligibleEveryNBeats, cfg); // core
+            if (now - this._hardChainLastSpawnAt >= chainSpacingMs) {
+                this._spawnNextChainedWave(now, cfg, diffCfg, activeMap, currentCalculatedBpm);
+                this._hardChainLastSpawnAt = now;
             }
         }
 
@@ -423,7 +432,11 @@ const workflowGameplay = {
             title: escapeHtml(title), // core (modal-choice-ui.js) — title là dữ liệu người dùng (tên file/tag), PHẢI escape trước khi chèn HTML
             durationLabel,
             difficultyLabel: t('gameplayCircle.difficulty.' + gameplayDifficulty),
-            playCount,
+            // [SỬA — phản hồi Giang "cấu trúc played N times"] số ít/nhiều tách 2 key riêng — tránh
+            // "Played 1 times" sai ngữ pháp.
+            playCountLabel: playCount === 1
+                ? t('gameplayCircle.ended.playCountLabel.singular')
+                : tFormat('gameplayCircle.ended.playCountLabel.plural', { count: playCount }),
             onReplay: () => this.replay(),
             onNext: () => this.nextSong(),
             onEnd: () => this.exitToPlaylist(),
@@ -484,6 +497,7 @@ const workflowGameplay = {
         this._pendingBeatFluxCount = 0;
         this._hardChainLevel = 1; // MỚI — reset chuỗi "sinh sản" đầu mỗi phiên
         this._hardChainQueue = []; // MỚI — xoá phần chuỗi dở dang (nếu có) từ phiên trước
+        this._hardChainLastSpawnAt = 0;
 
         workflowGameplayEngine.resetScoreCounters();
 

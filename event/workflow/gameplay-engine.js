@@ -100,7 +100,7 @@ const workflowGameplayEngine = {
      * `tierOrder`/`tierLabels` do mode tự truyền (tên/nhãn tier thuộc config riêng mode).
      * `durationLabel` đã FORMAT SẴN (mode tự gọi formatTime() — Core-ui/engine-ui.js không được gọi
      * hàm core khác file, Rule 3a). `onReplay`/`onNext`/`onEnd` do mode tự truyền. */
-    showEndModal({ finalScore, totalScore, maxScore, starMax, starRating, hitCounts, tierOrder, tierLabels, title, durationLabel, difficultyLabel, playCount, onReplay, onNext, onEnd }) {
+    showEndModal({ finalScore, totalScore, maxScore, starMax, starRating, hitCounts, tierOrder, tierLabels, title, durationLabel, difficultyLabel, playCountLabel, onReplay, onNext, onEnd }) {
         const deltaPercent = computeScoreDeltaPercent(totalScore, maxScore); // core (engine.js)
         const ringPercent = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
         const laps = computeScoreRingLaps(ringPercent, GAMEPLAY_SCORE_RING_MAX_EXTRA_LAPS); // core
@@ -113,7 +113,7 @@ const workflowGameplayEngine = {
                 { label: t('gameplayCircle.ended.nextLabel'), onClick: onNext },
                 { label: t('gameplayCircle.ended.endLabel'), onClick: onEnd },
             ],
-            { bodyHtml: buildResultBodyHtml({ ringSvg, starMax, starRating, hitCounts, tierOrder, tierLabels, title, durationLabel, difficultyLabel, playCount }) }
+            { bodyHtml: buildResultBodyHtml({ ringSvg, starMax, starRating, hitCounts, tierOrder, tierLabels, title, durationLabel, difficultyLabel, playCountLabel }) }
         ); // core (core/modal-choice-ui.js) — 3 nút -> TỰ ĐỘNG render dropdown+"Chọn"
         renderHitBreakdown(tierOrder, hitCounts); // core-ui — 1 lần, không animate (số nguyên nhỏ)
         this._startScoreCountUpAnimation(finalScore, totalScore, maxScore, deltaPercent);
