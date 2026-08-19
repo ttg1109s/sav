@@ -36,13 +36,21 @@
  * tiếng bình thường — xem docstring đầy đủ core/video-player.js) — BỎ HẲN ý tưởng "audioPlayer câm
  * nuôi mọi thứ cho video" của bản đầu. `bgVideoElement` giờ tự bắn 5 sự kiện CỦA CHÍNH NÓ (play/
  * pause/loadedmetadata/timeupdate/ended), dispatch qua message type RIÊNG `playerControls.video.*`
- * (xem event/listener/video-player.js, guard `isVideoPlayerMode` NGAY trong listener) — 5 case
- * NÀY gọi THẲNG `workflowVideoPlayer`, KHÔNG cần VirtualMachineState (KHÔNG dùng chung nguồn sự
- * kiện với Song, chỉ bgVideoElement mới bắn ra được). CHỈ 'progressBar.seeking'/'seekCommit' MỚI
- * cần VirtualMachineState — đây là 2 case DUY NHẤT còn dùng CHUNG 1 DOM listener/message type giữa
- * Song và Video (chỉ có 1 thanh progress bar vật lý). Các case 'audio.play'/'audio.pause'/
- * 'audio.loadedmetadata'/'audio.timeupdate'/'audio.ended' (từ `audioPlayer`) giữ NGUYÊN hành vi
- * gốc, KHÔNG branch gì — `audioPlayer` giờ HOÀN TOÀN không liên quan tới Video Player mode nữa.
+ * (xem event/listener/video-player.js, guard `isVideoPlayerMode` NGAY trong listener). 4/5 case đó
+ * ('video.play'/'video.pause'/'video.loadedmetadata'/'video.timeupdate') gọi THẲNG
+ * `workflowVideoPlayer`, KHÔNG cần VirtualMachineState (KHÔNG dùng chung nguồn sự kiện với Song,
+ * chỉ bgVideoElement mới bắn ra được). CHỈ 'progressBar.seeking'/'seekCommit' MỚI cần
+ * VirtualMachineState riêng — đây là 2 case DUY NHẤT còn dùng CHUNG 1 DOM listener/message type
+ * giữa Song và Video (chỉ có 1 thanh progress bar vật lý). Các case 'audio.play'/'audio.pause'/
+ * 'audio.loadedmetadata'/'audio.timeupdate' (từ `audioPlayer`) giữ NGUYÊN hành vi gốc, KHÔNG branch
+ * gì — `audioPlayer` HOÀN TOÀN không liên quan tới Video Player mode ở 4 case đó.
+ *
+ * [SỬA — Game Mode + Video Player mode, phản hồi Giang "áp dụng cho cả hai, dùng chung"]
+ * 'video.ended' KHÔNG còn nằm trong cụm "gọi thẳng, không branch" ở trên nữa — GỘP CHUNG case với
+ * 'audio.ended' (JS switch fallthrough, y hệt nhau — bài/video hết bài xử lý giống hệt, tách 2 case
+ * trùng logic là dư thừa). Case gộp đó VẪN cần VirtualMachineState (branch theo `gameplayPhase`,
+ * xem case bên dưới) — nên tổng còn lại thật sự "gọi thẳng, 0 rẽ nhánh" là 4 case video.* kể trên,
+ * không phải 5 như bản viết lại lần 2 nữa.
  *
  * LỊCH SỬ (không còn áp dụng, giữ lại để tra cứu nếu cần) — batch 07-08/07/2026 (HOTFIX 7-10) đã
  * từng cho phép mở Settings NGAY TỪ Visualizer (nút #btn-settings trong Control Center), khiến cả
@@ -168,16 +176,30 @@ const routerPlayerControls = (() => {
                 break;
             }
 
-            case 'playerControls.audio.ended': {
+            case 'playerControls.audio.ended':
+            case 'playerControls.video.ended': {
+                // [SỬA — Game Mode + Video Player mode, phản hồi Giang "áp dụng cho cả hai, dùng
+                // chung"] GỘP 2 msg.type (audio VÀ video) vào ĐÚNG 1 case — trước đây video.ended
+                // có case RIÊNG gọi thẳng workflowVideoPlayer.handleVideoPlayerEnded() (ĐÃ XOÁ),
+                // KHÔNG hề check gameplayPhase -> video hết bài lúc đang chơi Game Mode tự next im
+                // lặng, không hiện màn kết quả (khác hẳn audio, vốn đã có nhánh này từ 16/08/2026).
+                // Bài/video hết đều xử lý Y HỆT nhau (Rule: Song/Video Unification, "dùng chung cơ
+                // chế Playlist, không tạo cơ chế riêng") — viết 2 case trùng logic là đúng thứ
+                // "hai đường không cần thiết" cần tránh, nên gộp fallthrough JS chuẩn (switch-case
+                // không có break giữa 2 nhãn = cùng chạy 1 thân).
+                //
                 // SỬA (16/08/2026, Game Mode Circle v1) — khi đang ở Game Mode (mọi phase KHÁC
-                // 'idle'), hết bài PHẢI dừng lại hiện màn kết quả (workflowGameplay.onSongEnded()),
-                // KHÔNG auto next như bình thường (workflowPlayerControls.handleSongEnded()). 2
-                // tiến trình khác hẳn nhau chọn theo appState -> đúng chỗ dùng VirtualMachineState.
+                // 'idle'), hết bài/video PHẢI dừng lại hiện màn kết quả (workflowGameplay.
+                // onSongEnded()), KHÔNG auto next như bình thường
+                // (workflowPlayerControls.handleMediaEnded()). 2 tiến trình khác hẳn nhau chọn
+                // theo appState -> đúng chỗ dùng VirtualMachineState.
                 // [SỬA — plan-playmedia-reorg.md] `handleAudioEnded()` (Core) ĐÃ XOÁ — thay bằng
-                // `workflowPlayerControls.handleSongEnded()` (event/workflow/player-controls.js).
+                // `workflowPlayerControls.handleMediaEnded()` (event/workflow/player-controls.js,
+                // DÙNG CHUNG cho cả audio lẫn video — thay `handleSongEnded()`/
+                // `workflowVideoPlayer.handleVideoPlayerEnded()` cũ, 2 hàm TRÙNG THÂN đã gộp làm 1).
                 const gameplayPhase = appState.get('gameplayPhase');
                 VirtualMachineState.run([
-                    { state: gameplayPhase, operation: '===', value: 'idle', callback: () => workflowPlayerControls.handleSongEnded() },
+                    { state: gameplayPhase, operation: '===', value: 'idle', callback: () => workflowPlayerControls.handleMediaEnded() },
                     { state: gameplayPhase, operation: '!==', value: 'idle', callback: () => workflowGameplay.onSongEnded() },
                 ]);
                 break;
@@ -204,11 +226,13 @@ const routerPlayerControls = (() => {
             }
 
             // ===================== Sự kiện bgVideoElement (Video Player mode, MỚI 21/07/2026,
-            // viết lại lần 2 — audioPlayer không còn dùng cho video) — 5 msg.type RIÊNG (KHÔNG
+            // viết lại lần 2 — audioPlayer không còn dùng cho video) — 4 msg.type RIÊNG (KHÔNG
             // trùng 'audio.*' của Song, xem event/listener/video-player.js), mỗi cái CHỈ tới từ
             // bgVideoElement lúc isVideoPlayerMode=true (guard NGAY trong listener) -> gọi THẲNG,
             // KHÔNG cần VirtualMachineState (không có nhánh nào khác để rẽ tại ĐÂY, khác progressBar
-            // seek ngay dưới — đó mới là nơi 2 nguồn thật sự DÙNG CHUNG 1 message type). =====
+            // seek ngay dưới — đó mới là nơi 2 nguồn thật sự DÙNG CHUNG 1 message type).
+            // 'video.ended' KHÔNG còn ở cụm này — đã gộp CHUNG case với 'audio.ended' ở trên, xem
+            // comment tại đó. =====
             case 'playerControls.video.play': {
                 workflowVideoPlayer.handleVideoPlayState();
                 break;
@@ -226,11 +250,6 @@ const routerPlayerControls = (() => {
 
             case 'playerControls.video.timeupdate': {
                 workflowVideoPlayer.handleVideoTimeUpdate();
-                break;
-            }
-
-            case 'playerControls.video.ended': {
-                workflowVideoPlayer.handleVideoPlayerEnded(); // >1 hàm core (stopListenClock + nextVideo async) -> workflow
                 break;
             }
 
