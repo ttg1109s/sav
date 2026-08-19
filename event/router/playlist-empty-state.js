@@ -7,10 +7,12 @@
  * viết if/else tay đọc appState trong case nữa). Nhánh sectionQueueActive=true giao
  * event/workflow/playlist-empty-state.js (MỚI — chuỗi ≥2 bước phụ thuộc thứ tự, đúng hình dạng
  * Workflow). Nhánh sectionQueueActive=false GIỮ NGUYÊN 100% hành vi gốc (gọi thẳng, dùng lại các
- * API/biến STATE đã có sẵn — window.playSong, appState.get('displayOrder')/('currentKey')/
- * ('isShuffle')/('playlistOrder')/('shuffleIndices'), btnShuffle).
+ * API/biến STATE đã có sẵn — `workflowPlayer.playMedia()` [SỬA, plan-playmedia-reorg.md — thay
+ * `window.playSong()` cũ], appState.get('displayOrder')/('currentKey')/('isShuffle')/
+ * ('playlistOrder')/('shuffleIndices'), btnShuffle).
  *
- * NẠP SAU: event/workflow/playlist-empty-state.js.
+ * NẠP SAU: event/workflow/playlist-empty-state.js, event/workflow/player.js (cần
+ * `workflowPlayer.playMedia()`).
  */
 const routerPlaylistEmptyState = (() => {
     function handle(msg) {
@@ -21,7 +23,7 @@ const routerPlaylistEmptyState = (() => {
                     { state: sectionActive, operation: '===', value: true, callback: () => workflowPlaylistEmptyState.resetToTopLevelThenPlay() },
                     { state: sectionActive, operation: '===', value: false, callback: () => {
                         const displayOrder = appState.get('displayOrder');
-                        if (displayOrder.length > 0) playSong(appState.get('currentKey') || displayOrder[0]);
+                        if (displayOrder.length > 0) workflowPlayer.playMedia(appState.get('currentKey') || displayOrder[0]);
                     } },
                 ]);
                 break;
@@ -32,7 +34,7 @@ const routerPlaylistEmptyState = (() => {
                     { state: sectionActive, operation: '===', value: true, callback: () => workflowPlaylistEmptyState.resetToTopLevelThenShuffle() },
                     { state: sectionActive, operation: '===', value: false, callback: () => {
                         if (!appState.get('isShuffle')) btnShuffle.click();
-                        if (appState.get('playlistOrder').length > 0) playSong(appState.get('shuffleIndices')[0]);
+                        if (appState.get('playlistOrder').length > 0) workflowPlayer.playMedia(appState.get('shuffleIndices')[0]);
                     } },
                 ]);
                 break;

@@ -1,14 +1,16 @@
 /**
  * event/router/video-player.js — Router tên "videoPlayer".
  *
- * `window.playSong()` (core/playlist/actions.js) dispatch msg này khi `mediaType==='video'` —
- * KỂ CẢ khi đang ở GIỮA session Video Player mode (Next/Prev/shuffle đều dùng chung `playNext()`/
- * `playPrev()` -> `window.playSong()` -> gửi LẠI ĐÚNG msg.type này). VirtualMachineState bên dưới
- * phân biệt 2 tình huống loại trừ nhau: đã ở mode (chỉ đổi video, `isTransition=true`) hay chưa
- * (vào mode đầy đủ lần đầu, `startFromPlaylist()`).
+ * `workflowPlayer.playMedia()` (event/workflow/player.js — [SỬA, plan-playmedia-reorg.md] thay
+ * `window.playSong()` cũ) dispatch msg này khi `mediaType==='video'` — KỂ CẢ khi đang ở GIỮA
+ * session Video Player mode (Next/Prev/shuffle đều dùng chung `workflowPlayerControls.
+ * goToNextTrack()`/`goToPrevTrack()` -> `workflowPlayer.playMedia()` -> gửi LẠI ĐÚNG msg.type
+ * này). VirtualMachineState bên dưới phân biệt 2 tình huống loại trừ nhau: đã ở mode (chỉ đổi
+ * video, `isTransition=true`) hay chưa (vào mode đầy đủ lần đầu, `startFromPlaylist()`).
  *
- * Next/Prev vật lý KHÔNG qua router này (LUÔN gọi `playNext()`/`playPrev()` thẳng — xem event/
- * router/player-controls.js). Play/Pause vật lý qua router "playerControls" riêng.
+ * Next/Prev vật lý KHÔNG qua router này (LUÔN gọi `workflowPlayerControls.goToNextTrack()`/
+ * `goToPrevTrack()` thẳng — xem event/workflow/player-controls.js). Play/Pause vật lý qua router
+ * "playerControls" riêng.
  *
  * NẠP SAU: event/bus.js, event/workflow/video-player.js.
  */

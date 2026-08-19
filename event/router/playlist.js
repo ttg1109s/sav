@@ -14,9 +14,9 @@
  *
  * NGOẠI LỆ ĐÃ CHỐT: handleFilePickerChange()/handleFolderPickerChange() (nạp nhạc mới) GIỮ
  * NGUYÊN là hàm core "lớn" có sẵn withLoadingShield + nhiều alertModal LỒNG SẴN bên trong (giống
- * window.playSong/window.removeSong) — router gọi THẲNG, KHÔNG tách shield/modal ra workflow
- * riêng. Lý do: logic quá phức tạp (jsmediatags đọc tag, timeout an toàn nhiều lớp, vòng lặp xử
- * lý từng file) để tách an toàn mà không viết lại gần như toàn bộ — rủi ro cao hơn lợi ích.
+ * `workflowPlayer.playMedia()`/window.removeSong) — router gọi THẲNG, KHÔNG tách shield/modal ra
+ * workflow riêng. Lý do: logic quá phức tạp (jsmediatags đọc tag, timeout an toàn nhiều lớp, vòng
+ * lặp xử lý từng file) để tách an toàn mà không viết lại gần như toàn bộ — rủi ro cao hơn lợi ích.
  *
  * KHÔNG đưa vào /event/ (không phải "lượt bấm người dùng", chỉ là chi tiết triển khai nội bộ của
  * 1 hàm core dùng 1 lần rồi tự gỡ): listener 'error' trên từng <img> cụ thể (attachCoverFallback,
@@ -37,8 +37,9 @@
  *
  * NẠP SAU: event/bus.js, event/store.js (playlistStore đã được new ở core/playlist/actions.js, KHÔNG
  * phải ở file này), core/playlist/actions.js + core/playlist/loader.js + core/playlist/main.js (cần toàn bộ hàm
- * core), event/workflow/playlist.js (cần workflowPlaylist tồn tại). NẠP TRƯỚC:
- * event/listener/playlist.js.
+ * core), event/workflow/playlist.js (cần workflowPlaylist tồn tại), event/workflow/player.js (cần
+ * `workflowPlayer.playMedia()` — MỚI, plan-playmedia-reorg.md, thay `window.playSong()` cũ).
+ * NẠP TRƯỚC: event/listener/playlist.js.
  */
 const routerPlaylist = (() => {
 
@@ -118,7 +119,9 @@ const routerPlaylist = (() => {
                 const selectionMode = appState.get('selectionMode');
                 VirtualMachineState.run([
                     { state: selectionMode, operation: '===', value: true, callback: () => workflowPlaylist.toggleSongSelectionAndRefresh(key) },
-                    { state: selectionMode, operation: '===', value: false, callback: () => window.playSong(key) },
+                    // [SỬA — plan-playmedia-reorg.md] `window.playSong()` -> `workflowPlayer.playMedia()`
+                    // (event/workflow/player.js, MỚI) — chỉ đổi tên gọi, hình dạng lời gọi không đổi.
+                    { state: selectionMode, operation: '===', value: false, callback: () => workflowPlayer.playMedia(key) },
                 ]);
                 break;
             }

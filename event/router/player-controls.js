@@ -27,8 +27,9 @@
  * nhánh nào để rẽ (xem docstring tại từng case + event/workflow/video-player.js).
  * [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt: "video thừa hưởng cơ chế Playlist,
  * không tạo cơ chế next/prev riêng"] 'next.click'/'prev.click' KHÔNG còn branch ở đây nữa — LUÔN
- * gọi `playNext()`/`playPrev()` (core/player-controls.js) bất kể `isVideoPlayerMode`, xem case
- * tương ứng bên dưới + docstring `event/workflow/video-player.js`.
+ * gọi `workflowPlayerControls.goToNextTrack()`/`goToPrevTrack()` (event/workflow/player-
+ * controls.js, [SỬA — plan-playmedia-reorg.md] thay `playNext()`/`playPrev()` cũ ĐÃ XOÁ) bất kể
+ * `isVideoPlayerMode`, xem case tương ứng bên dưới + docstring `event/workflow/video-player.js`.
  *
  * VIẾT LẠI LẦN 2 (21/07/2026, cùng ngày — Giang phát hiện qua video test: `audioPlayer` không thực
  * sự chạy khi nhận blob video làm src trên 1 số trình duyệt/thiết bị, dù `bgVideoElement` vẫn phát
@@ -55,10 +56,11 @@
  * ở appState (service/state.js), KHÔNG phải context cục bộ của router (đúng nguyên tắc: state cần
  * đọc CHÉO giữa 2 router — "playerControls" đọc, "videoPlayer" ghi — PHẢI qua appState).
  *
- * NẠP SAU: event/bus.js, event/workflow/player-controls.js, event/workflow/video-player.js (MỚI),
- * core/player-controls.js (cần toàn bộ hàm core ở trên, gồm scrollSideLeftToSettingsSmooth/
- * scrollSideLeftToPlaylistSmooth — HOTFIX 8), playlist/* (cần playNext/playPrev/window.playSong —
- * đã có từ trước). NẠP TRƯỚC: event/listener/player-controls.js.
+ * NẠP SAU: event/bus.js, event/workflow/player-controls.js (cần `workflowPlayerControls.
+ * goToNextTrack()`/`goToPrevTrack()`/`handleSongEnded()`/`handlePlayPauseClick()` — MỚI, plan-
+ * playmedia-reorg.md), event/workflow/video-player.js, core/player-controls.js (cần
+ * togglePlayPause/scrollSideLeftToSettingsSmooth/scrollSideLeftToPlaylistSmooth — HOTFIX 8).
+ * NẠP TRƯỚC: event/listener/player-controls.js.
  */
 const routerPlayerControls = (() => {
 
@@ -80,14 +82,18 @@ const routerPlayerControls = (() => {
 
             case 'playerControls.playPause.click': {
                 // MỚI (21/07/2026, mục 4 — Video Player mode) — VirtualMachineState branch theo
-                // `isVideoPlayerMode` (event/workflow/video-player.js). Nhánh false GỌI THẲNG
-                // `togglePlayPause()` (core có sẵn, KHÔNG đổi gì) — giữ NGUYÊN hành vi gốc.
+                // `isVideoPlayerMode` (event/workflow/video-player.js). Nhánh false GỌI
+                // `workflowPlayerControls.handlePlayPauseClick()` — [SỬA, plan-playmedia-reorg.md]
+                // TRƯỚC ĐÂY gọi thẳng `togglePlayPause()` (Core) — hàm đó tự đọc appState + tự
+                // gộp 2 tiến trình khác nhau ("chưa có gì đang tải -> phát bài đầu" / "toggle")
+                // nên KHÔNG còn đạt điều kiện (A) "gọi thẳng core" nữa (event-bus-flow.md mục 4A:
+                // case cần chuẩn bị appState cho core, dù chỉ gọi đúng 1 hàm, đã là (B) Workflow).
                 VirtualMachineState.run([
                     { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
                         workflowVideoPlayer.togglePlayPauseVideo();
                     } },
                     { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
-                        togglePlayPause();
+                        workflowPlayerControls.handlePlayPauseClick();
                     } },
                 ]);
                 break;
@@ -95,18 +101,22 @@ const routerPlayerControls = (() => {
 
             case 'playerControls.next.click': {
                 // [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt: "video thừa hưởng
-                // cơ chế Playlist, không tạo cơ chế next/prev riêng"] KHÔNG còn VirtualMachineState
-                // branch theo isVideoPlayerMode nữa — LUÔN gọi playNext() (core có sẵn, DÙNG CHUNG
-                // với Song, đọc displayOrder/shuffleIndices/currentKey — đã đúng cho Video từ Batch
-                // 1/2) rồi tự window.playSong() dispatch đúng mediaType. workflowVideoPlayer.
-                // nextVideo() (mảng videoPlaylist riêng) ĐÃ XOÁ HẲN, xem event/workflow/video-player.js.
-                playNext(true); // hàm core có sẵn, force=true giữ đúng hành vi gốc của nút Next
+                // cơ chế Playlist, không tạo cơ chế next/prev riêng"] KHÔNG có VirtualMachineState
+                // branch theo isVideoPlayerMode ở ĐÂY — LUÔN gọi `workflowPlayerControls.
+                // goToNextTrack(true)` (DÙNG CHUNG với Song, đọc displayOrder/shuffleIndices/
+                // currentKey — đã đúng cho Video từ Batch 1/2) rồi tự dispatch đúng mediaType qua
+                // `workflowPlayer.playMedia()`. workflowVideoPlayer.nextVideo() (mảng videoPlaylist
+                // riêng) ĐÃ XOÁ HẲN, xem event/workflow/video-player.js.
+                // [SỬA — plan-playmedia-reorg.md] `playNext()` (Core) ĐÃ XOÁ — thay bằng
+                // `workflowPlayerControls.goToNextTrack()` (event/workflow/player-controls.js).
+                workflowPlayerControls.goToNextTrack(true); // force=true giữ đúng hành vi gốc của nút Next
                 break;
             }
 
             case 'playerControls.prev.click': {
-                // Cùng lý do 'next.click' ngay trên.
-                playPrev();
+                // Cùng lý do 'next.click' ngay trên. [SỬA — plan-playmedia-reorg.md] `playPrev()`
+                // (Core) ĐÃ XOÁ — thay bằng `workflowPlayerControls.goToPrevTrack()`.
+                workflowPlayerControls.goToPrevTrack();
                 break;
             }
 
@@ -161,12 +171,13 @@ const routerPlayerControls = (() => {
             case 'playerControls.audio.ended': {
                 // SỬA (16/08/2026, Game Mode Circle v1) — khi đang ở Game Mode (mọi phase KHÁC
                 // 'idle'), hết bài PHẢI dừng lại hiện màn kết quả (workflowGameplay.onSongEnded()),
-                // KHÔNG auto playNext() như bình thường (handleAudioEnded() gốc). 2 tiến trình khác
-                // hẳn nhau chọn theo appState -> đúng chỗ dùng VirtualMachineState (Rule 1, KHÔNG
-                // nhét if/else vào bên trong handleAudioEnded() — core-function-conventions.md).
+                // KHÔNG auto next như bình thường (workflowPlayerControls.handleSongEnded()). 2
+                // tiến trình khác hẳn nhau chọn theo appState -> đúng chỗ dùng VirtualMachineState.
+                // [SỬA — plan-playmedia-reorg.md] `handleAudioEnded()` (Core) ĐÃ XOÁ — thay bằng
+                // `workflowPlayerControls.handleSongEnded()` (event/workflow/player-controls.js).
                 const gameplayPhase = appState.get('gameplayPhase');
                 VirtualMachineState.run([
-                    { state: gameplayPhase, operation: '===', value: 'idle', callback: () => handleAudioEnded() },
+                    { state: gameplayPhase, operation: '===', value: 'idle', callback: () => workflowPlayerControls.handleSongEnded() },
                     { state: gameplayPhase, operation: '!==', value: 'idle', callback: () => workflowGameplay.onSongEnded() },
                 ]);
                 break;
