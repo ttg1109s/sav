@@ -139,10 +139,11 @@
              * fluxDeltaEnergy/fluxDeltaSection — gộp lại theo số Giang chốt, chỉ còn khác nhau ở
              * CỬA SỔ so sánh `energyWindowBeats`/`sectionWindowBeats`, không khác biên độ).
              *
-             * `minSpawnDistancePx` = `adjacentCellCoefficient` × `gridCellSizePx` — Easy 1.5×
-             * (loại cả ô liền kề ngang/dọc/chéo, đúng số Giang chốt), Medium 1× (đúng bằng 1 ô,
-             * liền kề NGANG/DỌC vẫn bị loại nhưng chéo thì không), Hard BỎ HẲN hệ số (0 — không
-             * giới hạn khoảng cách, wave đóng gói dày tuỳ ý).
+             * [SỬA — phản hồi Giang "tại sao không đơn giản hơn bằng việc cell đó đã tồn tại 1
+             * wave?"] `minSpawnDistancePx` (đo khoảng cách px, có lỗ hổng khi jitter rơi xa nhau
+             * trong CÙNG 1 ô) ĐÃ XOÁ HẲN — thay bằng occupancy CHÍNH XÁC theo ô lưới
+             * (findAvailableCell(), core/gameplay/circle-mode.js), DÙNG CHUNG cho MỌI độ khó, không
+             * còn tham số riêng nào ở đây nữa.
              *
              * `shrinkDurationMultiplier` — nhân vào duration TRƯỚC khi chặn min/max (xem
              * computeShrinkDurationMs(), core/gameplay/circle-mode.js) — Easy 1.3× (wave chậm hơn,
@@ -151,8 +152,8 @@
              * `maxConcurrentWaves` — Easy 2, Medium 4, Hard KHÔNG GIỚI HẠN (Infinity).
              */
             difficulty: Object.freeze({
-                easy:   Object.freeze({ maxConcurrentWaves: 2,        spawnEligibleEveryNBeats: 1, minSpawnDistancePx: 1.5 * 55, shrinkDurationMultiplier: 1.3, energyWindowBeats: 4, sectionWindowBeats: 12, fluxThreshold: 0.9 }),
-                medium: Object.freeze({ maxConcurrentWaves: 4,        spawnEligibleEveryNBeats: 2, minSpawnDistancePx: 1 * 55,   shrinkDurationMultiplier: 1.2, energyWindowBeats: 3, sectionWindowBeats: 9,  fluxThreshold: 0.6 }),
-                hard:   Object.freeze({ maxConcurrentWaves: Infinity, spawnEligibleEveryNBeats: 1, minSpawnDistancePx: 0,        shrinkDurationMultiplier: 1,   energyWindowBeats: 2, sectionWindowBeats: 6,  fluxThreshold: 0.3 }),
+                easy:   Object.freeze({ maxConcurrentWaves: 2,        spawnEligibleEveryNBeats: 1, shrinkDurationMultiplier: 1.3, energyWindowBeats: 4, sectionWindowBeats: 12, fluxThreshold: 0.9 }),
+                medium: Object.freeze({ maxConcurrentWaves: 4,        spawnEligibleEveryNBeats: 2, shrinkDurationMultiplier: 1.2, energyWindowBeats: 3, sectionWindowBeats: 9,  fluxThreshold: 0.6 }),
+                hard:   Object.freeze({ maxConcurrentWaves: Infinity, spawnEligibleEveryNBeats: 1, shrinkDurationMultiplier: 1,   energyWindowBeats: 2, sectionWindowBeats: 6,  fluxThreshold: 0.3 }),
             }),
         });
