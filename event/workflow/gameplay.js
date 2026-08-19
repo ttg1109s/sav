@@ -124,7 +124,7 @@ const workflowGameplay = {
 
         const tier = classifyTapTier(nearest.radius, cfg); // core (engine.js)
         const tierName = tier ? tier.name : 'miss';
-        const tierScore = tier ? tier.score : 0;
+        const tierScore = tier ? tier.score : cfg.missScore; // [SỬA — bảng điểm mới] tap trật giờ -2 (cfg.missScore), không còn 0
         const { pointsGained, newComboByTier } = computeComboScoreGain(tierName, tierScore, gameplayComboByTier, cfg); // core (engine.js)
         const waveRef = gameplayWaves.find(w => w.id === nearest.id);
 
@@ -157,11 +157,11 @@ const workflowGameplay = {
         const {
             gameplayWaves, gameplayCircleCount, gameplayDifficulty, gameplayPitchCellMap,
             gameplayRefreshPending, currentCalculatedBpm, smoothedEnergy, lastValidMidiNote,
-            fluxHistory,
+            fluxHistory, gameplayTotalScore,
         } = appState.get([
             'gameplayWaves', 'gameplayCircleCount', 'gameplayDifficulty', 'gameplayPitchCellMap',
             'gameplayRefreshPending', 'currentCalculatedBpm', 'smoothedEnergy', 'lastValidMidiNote',
-            'fluxHistory',
+            'fluxHistory', 'gameplayTotalScore',
         ]);
         const diffCfg = cfg.difficulty[gameplayDifficulty];
 
@@ -263,6 +263,10 @@ const workflowGameplay = {
             appState.set('gameplayComboByTier', { perfect: 0, excellent: 0 }, { skipCheck: true }); // reset TẤT CẢ, giống tier không combo-eligible (engine.js::computeComboScoreGain())
             appState.set('gameplayCircleCount', gameplayCircleCount + missedIds.length, { skipCheck: true });
             appState.mutate('gameplayHitCounts', counts => { counts.miss = (counts.miss || 0) + missedIds.length; }, { skipCheck: true });
+            // [SỬA — phản hồi Giang, bảng điểm mới "Miss -2"] TRƯỚC ĐÂY wave tự hết hạn KHÔNG hề trừ
+            // điểm (chỉ tính ở tap-miss trong handleTap()) — giờ áp ĐÚNG cfg.missScore cho MỖI wave
+            // tự hết hạn, nhất quán với tap-miss (2 nguồn miss cùng 1 mức phạt).
+            appState.set('gameplayTotalScore', gameplayTotalScore + missedIds.length * cfg.missScore, { skipCheck: true });
             for (const entry of missedEntries) {
                 showTapTierPopup(gameplayTierPopupLayer, 'MISS', 'miss', entry.x, entry.y, 0, cfg); // core-ui
                 showShatterEffect(gameplayTierPopupLayer, entry.x, entry.y, GAMEPLAY_MISS_SHATTER_COLOR); // core-ui — "tự mất"
