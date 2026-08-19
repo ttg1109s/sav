@@ -11,13 +11,159 @@
  * Workflow (event-bus-flow.md mục 4B), không còn "gọi thẳng core" 1 bước như 16 msg.type còn lại
  * của cụm này.
  *
- * NẠP SAU: core/player-controls.js (toggleShuffle, scrollSideLeftToSettingsSmooth/
- * scrollSideLeftToPlaylistSmooth/validateVideoBgOnClose — HOTFIX 8, dọn lại HOTFIX 11),
- * core/playlist/order.js (updateShuffleArrayFromQueue), core/settings-panel-stack.js
- * (resetSettingsStackToMain).
+ * MỚI (plan-playmedia-reorg.md) — 4 method THÊM: `goToNextTrack()`/`goToPrevTrack()` (thay
+ * `playNext()`/`playPrev()` cũ, core/player-controls.js, ĐÃ XOÁ), `handleSongEnded()` (thay
+ * `handleAudioEnded()` cũ, ĐÃ XOÁ), `handlePlayPauseClick()` (tách khỏi `togglePlayPause()` cũ —
+ * phần "chưa có gì đang tải -> phát bài đầu tiên"). Cả 4 đều đúng hình dạng Workflow (đọc nhiều
+ * field appState RỒI gọi ≥1 Core/Workflow khác theo thứ tự phụ thuộc) — xem docstring từng method.
+ *
+ * NẠP SAU: core/player-controls.js (toggleShuffle, togglePlayPause, requestWakeLock,
+ * scrollSideLeftToSettingsSmooth/scrollSideLeftToPlaylistSmooth/validateVideoBgOnClose — HOTFIX 8,
+ * dọn lại HOTFIX 11), core/playlist/order.js (updateShuffleArrayFromQueue, computeListStep/
+ * decideBoundaryAction/shouldRestartInsteadOfAdvance/recomputeDisplayOrder — MỚI), core/listen-
+ * stats.js (stopListenClock), core/settings-panel-stack.js (resetSettingsStackToMain),
+ * event/workflow/player.js (workflowPlayer.playMedia — MỚI, cần cho goToNextTrack/goToPrevTrack/
+ * handlePlayPauseClick).
  * NẠP TRƯỚC: event/router/player-controls.js.
  */
 const workflowPlayerControls = {
+
+    /**
+     * Ứng với 'playerControls.playPause.click' khi `isVideoPlayerMode=false` (xem
+     * VirtualMachineState ở event/router/player-controls.js).
+     *
+     * [SỬA — plan-playmedia-reorg.md, xử lý triệt để, KHÔNG chỉ đổi tên] TRƯỚC ĐÂY
+     * `togglePlayPause()` (Core, core/player-controls.js) tự gộp 2 TIẾN TRÌNH nghiệp vụ khác nhau
+     * trong 1 hàm — "chưa có bài nào đang tải -> phát bài đầu tiên" (gọi thẳng `window.playSong()`)
+     * và "đang có bài đã tải -> toggle play/pause" — vi phạm Rule 1 (core-function-conventions.md:
+     * phép thử "xoá điều kiện if đi, hàm còn lại có còn là 1 kịch bản duy nhất không" — ở đây bỏ
+     * nhánh `currentKey===null` đi, phần còn lại VẪN là 1 kịch bản hoàn chỉnh khác hẳn, không phải
+     * guard clause), cộng thêm tự `appState.get()` 3 lần bên trong (vi phạm Rule 2). Method NÀY
+     * (Workflow — tầng DUY NHẤT được đọc appState để chọn gọi Core nào) giờ đứng ra:
+     *   1. `requestWakeLock()` — core, side-effect vô điều kiện (giữ ĐÚNG hành vi gốc: gọi trước
+     *      cả khi playlist rỗng).
+     *   2. Guard `playlistOrder.length === 0` — không làm gì (giữ nguyên vị trí guard gốc).
+     *   3. `currentKey === null` -> gọi `workflowPlayer.playMedia()` (Workflow gọi Workflow khác
+     *      miền, tự do — event-bus-flow.md mục 3a) với bài đầu tiên (`displayOrder[0] ||
+     *      playlistOrder[0]`, ĐÚNG công thức gốc).
+     *   4. Ngược lại -> gọi `togglePlayPause(audioContext)` (Core, giờ CHỈ còn ĐÚNG 1 việc, nhận
+     *      audioContext qua tham số — Rule 2 hợp lệ).
+     */
+    handlePlayPauseClick() {
+        requestWakeLock(); // core
+        const { playlistOrder, currentKey, displayOrder, audioContext } = appState.get(['playlistOrder', 'currentKey', 'displayOrder', 'audioContext']);
+        if (playlistOrder.length === 0) return;
+        if (currentKey === null) {
+            workflowPlayer.playMedia(displayOrder[0] || playlistOrder[0]); // event/workflow/player.js
+            return;
+        }
+        togglePlayPause(audioContext); // core/player-controls.js
+    },
+
+    /**
+     * Ứng với 'playerControls.next.click' (force=true, LUÔN — bấm nút Next là ý định người dùng
+     * rõ ràng, giữ ĐÚNG hành vi gốc `playNext(true)`) và được TÁI DÙNG (Workflow gọi Workflow khác
+     * miền, tự do) bởi: `handleSongEnded()` ngay dưới (force=false — hết bài tự động, tôn trọng
+     * repeatMode), `event/workflow/video-player.js` (video hết/bị xoá giữa lúc phát — force=false/
+     * true tuỳ tình huống, DÙNG CHUNG với Song), `event/workflow/gameplay.js::nextSong()`
+     * (force=true — nút "Bài tiếp theo" trong Game Mode).
+     *
+     * [SỬA — plan-playmedia-reorg.md] TRƯỚC ĐÂY là `playNext()` (Core, core/player-controls.js) —
+     * tự `appState.get()` 7-10 lần + if/else gộp shuffle/tuần tự (2 tiến trình khác nhau theo Rule
+     * 1) + gọi thẳng `window.playSong()` (Core gọi Workflow trá hình) — ĐÃ XOÁ. Logic "tiến 1 bước"
+     * tách thành Core thuần dùng chung `computeListStep()` (core/playlist/order.js, KHÔNG quan tâm
+     * list là shuffle hay tuần tự); quyết định "tại biên làm gì" tách thành `decideBoundaryAction()`
+     * (repeatMode/force); case đặc biệt lặp-1-bài tách thành `shouldRestartInsteadOfAdvance()`.
+     * Method NÀY (Workflow) đọc state, chọn ĐÚNG list (shuffleIndices hay displayOrder) truyền vào
+     * `computeListStep()`, rồi tự quyết định phát bài nào — GIỮ NGUYÊN 100% kết quả cuối cùng so
+     * với `playNext()` gốc ở mọi tình huống (xem checklist đối chiếu, plan-playmedia-reorg.md mục 4).
+     * @param {boolean} [force=false]
+     */
+    goToNextTrack(force = false) {
+        requestWakeLock(); // core
+        const { isVideoPlayerMode, repeatMode, isShuffle, currentKey, shuffleIndices, displayOrder, playlistOrder, pendingResortKeys } = appState.get([
+            'isVideoPlayerMode', 'repeatMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys',
+        ]);
+        if (playlistOrder.length === 0) return;
+        const activeEl = isVideoPlayerMode ? bgVideoElement : audioPlayer; // element ĐANG thực sự phát — DÙNG CHUNG Song/Video, xem docstring gốc playNext() (đã dời vào đây)
+
+        if (shouldRestartInsteadOfAdvance(repeatMode, force)) { // core mới (order.js) — repeat-mode-2, KHÔNG force
+            activeEl.currentTime = 0;
+            if (isVideoPlayerMode) activeEl.play().catch((err) => console.error('[workflowPlayerControls] bgVideoElement.play() lỗi:', err));
+            else activeEl.play();
+            return;
+        }
+
+        const list = isShuffle ? shuffleIndices : displayOrder; // NGUỒN danh sách — chỉ khác biệt CHỦ Ý giữa 2 nhánh cũ
+        const step = computeListStep(list, currentKey, 1); // core mới (order.js)
+        let nextKey;
+        if (step.atBoundary) {
+            const action = decideBoundaryAction(repeatMode, force); // core mới (order.js)
+            if (action === 'stopAtEnd') {
+                // Tín hiệu "hết hẳn playlist" cho domain khác (vd visualBg) — ĐÚNG hành vi gốc
+                // (playNext() cũ, MỚI 09/08/2026). Rule 4: log ngay dưới set().
+                appState.set('playbackStoppedAtPlaylistEnd', true);
+                console.log(`writer: "workflowPlayerControls.goToNextTrack", page: "playbackStoppedAtPlaylistEnd", content: "true"`);
+                activeEl.pause();
+                return;
+            }
+            // wrapToStart — CHỈ nhánh tuần tự (KHÔNG shuffle) mới áp lại sort thật cho bài mới
+            // thêm giữa lúc nghe (pendingResortKeys), ĐÚNG hành vi gốc — shuffle KHÔNG có bước này.
+            if (!isShuffle && pendingResortKeys.size > 0) recomputeDisplayOrder(); // core có sẵn (order.js), side-effect -> đọc lại displayOrder MỚI ngay dưới
+            const freshList = isShuffle ? shuffleIndices : appState.get('displayOrder');
+            nextKey = freshList[0];
+        } else {
+            nextKey = list[step.index];
+        }
+        workflowPlayer.playMedia(nextKey, { switchScreen: false }); // event/workflow/player.js
+    },
+
+    /**
+     * Ứng với 'playerControls.prev.click'. CÙNG KHUÔN `goToNextTrack()` ở trên nhưng KHÔNG có
+     * `force`/`decideBoundaryAction()`/`shouldRestartInsteadOfAdvance()` — hành vi gốc `playPrev()`
+     * CHƯA TỪNG có khái niệm "dừng hẳn ở đầu playlist" hay "lặp 1 bài", LUÔN wrap vô điều kiện khi
+     * chạm biên đầu — giữ ĐÚNG bất đối xứng đó, KHÔNG tự thêm cho "đối xứng" giả tạo với Next.
+     */
+    goToPrevTrack() {
+        requestWakeLock(); // core
+        const { isVideoPlayerMode, isShuffle, currentKey, shuffleIndices, displayOrder, playlistOrder, pendingResortKeys } = appState.get([
+            'isVideoPlayerMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys',
+        ]);
+        if (playlistOrder.length === 0) return;
+        const activeEl = isVideoPlayerMode ? bgVideoElement : audioPlayer;
+
+        // "Quá 3s vào bài/video hiện tại -> chỉ tua về đầu" — ĐÚNG hành vi gốc `playPrev()`.
+        if (activeEl.currentTime > 3) { activeEl.currentTime = 0; return; }
+
+        const list = isShuffle ? shuffleIndices : displayOrder;
+        const step = computeListStep(list, currentKey, -1); // core mới (order.js)
+        let prevKey;
+        if (step.atBoundary) {
+            if (!isShuffle && pendingResortKeys.size > 0) recomputeDisplayOrder(); // CHỈ nhánh tuần tự, ĐÚNG hành vi gốc
+            const freshList = isShuffle ? shuffleIndices : appState.get('displayOrder');
+            prevKey = freshList[freshList.length - 1];
+        } else {
+            prevKey = list[step.index];
+        }
+        workflowPlayer.playMedia(prevKey, { switchScreen: false }); // event/workflow/player.js
+    },
+
+    /**
+     * Ứng với 'playerControls.audio.ended' khi `gameplayPhase==='idle'` (xem VirtualMachineState
+     * ở event/router/player-controls.js) — bài hát phát hết, dừng đếm giờ nghe rồi tự chuyển bài
+     * kế tiếp (không force, tôn trọng repeatMode/wrap-around như Next thường).
+     *
+     * [SỬA — plan-playmedia-reorg.md, xử lý triệt để] TRƯỚC ĐÂY là `handleAudioEnded()` (Core,
+     * core/player-controls.js) — 2 lời gọi Core nối tiếp (`stopListenClock()` rồi `playNext(false)`)
+     * ĐÃ vi phạm Rule 3 từ trước (core-legacy-audit.md từng track `stopListenClock` là vi phạm R3
+     * của hàm đó), đúng bản chất Workflow (≥2 lời gọi side-effect nối tiếp, event-bus-flow.md mục
+     * 4B). Nhân dịp bị đụng tới (playNext() xoá), chuyển hẳn về ĐÚNG tầng thay vì tiếp tục cho Core
+     * gọi thẳng Workflow — xoá Core cũ, Router gọi thẳng method này.
+     */
+    handleSongEnded() {
+        stopListenClock(); // core (core/player-controls.js)
+        this.goToNextTrack(false); // Workflow gọi method khác trong CÙNG object — tự do
+    },
 
     /**
      * Ứng với 'playerControls.shuffle.click' — đảo Shuffle rồi random lại shuffleIndices dựa trên

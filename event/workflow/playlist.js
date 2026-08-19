@@ -369,7 +369,7 @@ const workflowPlaylist = {
         }
 
         this._exitSelectionMode(); // thoát chế độ chọn trước khi chuyển màn hình phát
-        window.playSong(sorted[0]);
+        workflowPlayer.playMedia(sorted[0]); // [SỬA — plan-playmedia-reorg.md] thay window.playSong() cũ, Workflow gọi Workflow khác miền, tự do
     },
 
     /**
@@ -414,7 +414,8 @@ const workflowPlaylist = {
      */
     async exportSongWithTag(key) {
         // FIX (xung đột shield/modal): KHÔNG await alertModal() bên trong fn() của
-        // withLoadingShield() — xem giải thích chi tiết ở core/playlist/actions.js (window.playSong).
+        // withLoadingShield() — xem giải thích chi tiết ở event/workflow/player.js (workflowPlayer.playMedia,
+        // [SỬA — plan-playmedia-reorg.md] dời từ core/playlist/actions.js::window.playSong() cũ).
         // Tóm tắt: isShieldBusy chỉ giải phóng SAU KHI fn() resolve, còn alertModal() chỉ resolve
         // khi người dùng bấm OK -> lồng vào nhau làm #loading-shield (z-[200]) treo, đè lên trên
         // modalChoice() (z-[130]) suốt thời gian chờ. Dùng cờ mang thông tin ra ngoài, hiện modal
@@ -882,8 +883,9 @@ const workflowPlaylist = {
         // phát bị VBG chèn ngay") — dòng `exitVideoPlayerMode()` từng đặt ở đây (thêm để né
         // event/block.js::'visualBg.openPanel.click' bị kẹt block) SAI: ép dừng video THẬT chỉ vì
         // đổi tab xem Playlist, đúng lúc video còn đang phát — video phải được phát tiếp tới khi tự
-        // hết hoặc Next/Prev/chọn Song khác (đường thoát ĐÚNG đã có sẵn ở `window.playSong()`,
-        // core/playlist/actions.js dòng ~191-196, dùng CHUNG cho next/prev). Panel giờ tự mở khoá
+        // hết hoặc Next/Prev/chọn Song khác (đường thoát ĐÚNG đã có sẵn ở `workflowPlayer.
+        // playMedia()`, event/workflow/player.js [SỬA — plan-playmedia-reorg.md, thay
+        // window.playSong() cũ], dùng CHUNG cho next/prev). Panel giờ tự mở khoá
         // qua `activeMediaSource` (event/block.js), không cần ép thoát mode ở đây nữa.
         appState.set('activeMediaSource', 'song');
         console.log(`writer: "switchToSongSource", page: "activeMediaSource", content: "song"`);

@@ -15,8 +15,9 @@
  * gọi thẳng core như cũ (giữ nguyên hành vi gốc khi không có section nào active).
  *
  * NẠP SAU: core/playlist/order.js (recomputeDisplayOrder/updateShuffleArray/recomputeRenderOrder/
- * updateShuffleArrayFromQueue), core/playlist/render.js (renderPlaylistDiff), core/playlist/actions.js
- * (window.playSong — global), core/dom-refs.js (btnShuffle). NẠP TRƯỚC: event/router/playlist-empty-state.js.
+ * updateShuffleArrayFromQueue), core/playlist/render.js (renderPlaylistDiff), event/workflow/
+ * player.js (`workflowPlayer.playMedia()` — [SỬA, plan-playmedia-reorg.md] thay `window.playSong()`
+ * cũ), core/dom-refs.js (btnShuffle). NẠP TRƯỚC: event/router/playlist-empty-state.js.
  */
 const workflowPlaylistEmptyState = {
 
@@ -37,7 +38,7 @@ const workflowPlaylistEmptyState = {
         if (displayOrder.length === 0) return;
         const currentKey = appState.get('currentKey');
         const stillValid = currentKey != null && displayOrder.includes(currentKey);
-        window.playSong(stillValid ? currentKey : displayOrder[0]);
+        workflowPlayer.playMedia(stillValid ? currentKey : displayOrder[0]); // [SỬA — plan-playmedia-reorg.md] thay window.playSong() cũ
     },
 
     /**
@@ -58,6 +59,6 @@ const workflowPlaylistEmptyState = {
             updateShuffleArrayFromQueue(appState.get('displayOrder'), appState.get('playlistOrder'), true); // đã bật Shuffle sẵn từ trước -> btnShuffle.click() sẽ KHÔNG chạy, tự tay resync theo top-level
         }
 
-        if (appState.get('playlistOrder').length > 0) window.playSong(appState.get('shuffleIndices')[0]);
+        if (appState.get('playlistOrder').length > 0) workflowPlayer.playMedia(appState.get('shuffleIndices')[0]); // [SỬA — plan-playmedia-reorg.md] thay window.playSong() cũ
     },
 };

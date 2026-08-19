@@ -1,13 +1,16 @@
 /**
  * event/workflow/video-player.js — orchestrator (Workflow) cho Video Player mode.
  *
- * Entry point DUY NHẤT vào mode: `startFromPlaylist(startKey)`, gọi từ `window.playSong()`
- * (core/playlist/actions.js) qua eventBus router 'videoPlayer' (event/router/video-player.js —
- * Block gate chặn ở đó). Next/Prev (nút vật lý/cử chỉ vuốt) LUÔN đi qua `playNext()`/`playPrev()`
- * (core/player-controls.js, DÙNG CHUNG với Song) → `window.playSong()` → router này lần nữa →
- * VirtualMachineState chọn `playVideoByKey()` (đã ở mode) thay vì `startFromPlaylist()` (vào mode
- * lần đầu). `exitVideoPlayerMode()` có 2 caller: `window.playSong()` (chọn Song khi đang ở mode)
- * và `workflowPlaylist` (đổi Nguồn).
+ * Entry point DUY NHẤT vào mode: `startFromPlaylist(startKey)`, gọi từ `workflowPlayer.playMedia()`
+ * (event/workflow/player.js — [SỬA, plan-playmedia-reorg.md] thay `window.playSong()` cũ,
+ * core/playlist/actions.js) qua eventBus router 'videoPlayer' (event/router/video-player.js —
+ * Block gate chặn ở đó). Next/Prev (nút vật lý/cử chỉ vuốt) LUÔN đi qua
+ * `workflowPlayerControls.goToNextTrack()`/`goToPrevTrack()` (event/workflow/player-controls.js —
+ * [SỬA] thay `playNext()`/`playPrev()` cũ, core/player-controls.js, ĐÃ XOÁ; Workflow gọi Workflow
+ * khác miền, tự do) → `workflowPlayer.playMedia()` → router này lần nữa → VirtualMachineState chọn
+ * `playVideoByKey()` (đã ở mode) thay vì `startFromPlaylist()` (vào mode lần đầu).
+ * `exitVideoPlayerMode()` có 2 caller: `workflowPlayer.playMedia()` (chọn Song khi đang ở mode) và
+ * `workflowPlaylist` (đổi Nguồn).
  *
  * `bgVideoElement` là NGUỒN DUY NHẤT (không `audioPlayer`) — progress bar/current time/duration/
  * seek/play-pause/ended có handler riêng trong file này, đọc/ghi thẳng `bgVideoElement`, gắn qua
@@ -17,7 +20,9 @@
  *
  * NẠP SAU: core/video-player.js, core/file-manager/video.js (listVideos), core/playlist/loader.js
  * (buildVideoPlaylistCache), core/playlist/order.js (updateShuffleArray/recomputeDisplayOrder/
- * recomputeRenderOrder), service/db.js (getVideoRecord), core/audio-engine.js (setupAudioContext).
+ * recomputeRenderOrder), service/db.js (getVideoRecord), core/audio-engine.js (setupAudioContext),
+ * event/workflow/player-controls.js (`workflowPlayerControls.goToNextTrack()` — MỚI, dùng ở
+ * handleVideoPlayerEnded() bên dưới).
  */
 const workflowVideoPlayer = {
     _objectUrl: null, // object URL HIỆN TẠI đang gán cho bgVideoElement (revoke trước khi tạo url mới)
@@ -210,8 +215,9 @@ const workflowVideoPlayer = {
      * [SỬA LẦN 2 — Giang chốt: "video thừa hưởng cơ chế Playlist sẵn có, không tạo cơ chế next/
      * prev riêng"] BỎ HẲN việc tự `listVideos()`/`sortVideosByAddedDateDesc()` dựng 1 mảng
      * `videoPlaylist` RIÊNG — Next/Prev giờ đọc THẲNG `displayOrder`/`shuffleIndices` (package
-     * `playlist`, đã đúng danh sách + đúng sort mode Video từ Batch 1) qua `playNext()`/
-     * `playPrev()` (core/player-controls.js) DÙNG CHUNG với Song, nên hàm NÀY không cần tự dựng gì
+     * `playlist`, đã đúng danh sách + đúng sort mode Video từ Batch 1) qua `workflowPlayerControls.
+     * goToNextTrack()`/`goToPrevTrack()` (event/workflow/player-controls.js — [SỬA] thay
+     * `playNext()`/`playPrev()` cũ) DÙNG CHUNG với Song, nên hàm NÀY không cần tự dựng gì
      * cho việc đó nữa — chỉ còn lo dọn Song cũ + bật state + phát ĐÚNG video vừa click.
      * @param {string} startKey - videoKey vừa được chọn để phát.
      */
@@ -260,8 +266,8 @@ const workflowVideoPlayer = {
      * `swapBgVideoSource()`/`waitBgVideoReady()` (dùng chung với Visual Background) — hàm này chỉ
      * còn lo phần RIÊNG của Video Player mode THẬT: currentKey/UI/analyser/wake lock.
      *
-     * BỌC `withLoadingShield(..., false)` (không hiện lớp che, CÙNG PATTERN `window.playSong()`,
-     * core/playlist/actions.js) — khoá chống bấm Next/Prev chồng lên nhau lúc đang đợi.
+     * BỌC `withLoadingShield(..., false)` (không hiện lớp che, CÙNG PATTERN `workflowPlayer.
+     * playMedia()`, event/workflow/player.js) — khoá chống bấm Next/Prev chồng lên nhau lúc đang đợi.
      *
      * @param {string} videoKey
      * @param {boolean} [switchScreen=true] - đổi màn hình/cuộn animated sau khi video sẵn sàng —
@@ -308,11 +314,12 @@ const workflowVideoPlayer = {
                 setVideoBgGain(1); // core/video-player.js
             });
             if (!record) {
-                // guard: video vừa bị xoá ở nơi khác giữa lúc đang phát. KHÔNG gọi playNext(true)
-                // NGAY TẠI ĐÂY — vẫn đang ở TRONG withLoadingShield() này (isShieldBusy chỉ được
-                // giải phóng SAU KHI fn() resolve), gọi thẳng sẽ bị CHÍNH shield này im lặng chặn
-                // (giống hệt lý do notFoundAlert phải mang cờ ra ngoài ở window.playSong(), core/
-                // playlist/actions.js) — mang cờ ra ngoài, xử lý ở .then() bên dưới thay.
+                // guard: video vừa bị xoá ở nơi khác giữa lúc đang phát. KHÔNG gọi
+                // workflowPlayerControls.goToNextTrack(true) NGAY TẠI ĐÂY — vẫn đang ở TRONG
+                // withLoadingShield() này (isShieldBusy chỉ được giải phóng SAU KHI fn() resolve),
+                // gọi thẳng sẽ bị CHÍNH shield này im lặng chặn (giống hệt lý do notFoundAlert
+                // phải mang cờ ra ngoài ở workflowPlayer.playMedia(), event/workflow/player.js) —
+                // mang cờ ra ngoài, xử lý ở .then() bên dưới thay.
                 this._skipToNextAfterShield = true;
                 return;
             }
@@ -327,10 +334,10 @@ const workflowVideoPlayer = {
             console.log(`writer: "playVideoByKey", page: "currentKey", content: "${videoKey}"`);
 
             // MỚI (phản hồi Giang 28/07/2026) — `bumpSongPlayCount()` (core/listen-stats.js) TRƯỚC
-            // ĐÂY CHỈ được gọi trong window.playSong() (core/playlist/actions.js) — nhánh Video
-            // dispatch ra KHỎI hàm đó TRƯỚC khi tới dòng gọi, nên Play Count chưa từng tăng cho
-            // Video. `songStatsMap` (core/listen-stats.js) vốn đã key-agnostic nên gọi thẳng ở đây
-            // là đủ, không cần sửa gì thêm ở listen-stats.js.
+            // ĐÂY CHỈ được gọi trong `workflowPlayer.playMedia()` (event/workflow/player.js) —
+            // nhánh Video dispatch ra KHỎI hàm đó TRƯỚC khi tới dòng gọi, nên Play Count chưa
+            // từng tăng cho Video. `songStatsMap` (core/listen-stats.js) vốn đã key-agnostic nên
+            // gọi thẳng ở đây là đủ, không cần sửa gì thêm ở listen-stats.js.
             bumpSongPlayCount(videoKey); // core/listen-stats.js
 
             playerTitle.textContent = record.customName || stripFileExtension(record.filename) || t('videoPlayer.untitled'); // MỚI (Batch 5, mục 6c) — ưu tiên tên hiển thị người dùng tự đặt; SỬA (phản hồi Giang 28/07) — bỏ đuôi mở rộng khi rơi về filename gốc
@@ -353,7 +360,7 @@ const workflowVideoPlayer = {
             // (poster) thay vì tạo + revoke thêm 1 object URL riêng cho cùng 1 Blob.
             recordContainer.innerHTML = `<img id="record-art" src="${this._thumbObjectUrl}" class="w-full h-full rounded-full object-cover shadow-lg relative z-20 animate-spin-slow" alt="${t('videoPlayer.untitled')}"><div class="absolute inset-0 m-auto w-3 h-3 bg-slate-900 rounded-full border border-slate-700 z-30"></div>`;
 
-            requestWakeLock(); // core/player-controls.js — cùng khuôn playNext()/playPrev()/togglePlayPause() của Song
+            requestWakeLock(); // core/player-controls.js — cùng khuôn goToNextTrack()/goToPrevTrack()/togglePlayPause() của Song
 
             if (previousKey && previousKey !== videoKey) refreshSongNode(previousKey); // core/playlist/render.js — dòng video/song TRƯỚC đó, CHỈ khi khác videoKey
             refreshSongNode(videoKey); // core/playlist/render.js — dòng video NÀY, cập nhật isPlaying/eq indicator, ĐỌC ĐÚNG bgVideoElement.paused=false (đã 'playing' ở trên, hoặc hết timeout)
@@ -367,7 +374,7 @@ const workflowVideoPlayer = {
         }, false).then(() => {
             if (this._skipToNextAfterShield) {
                 this._skipToNextAfterShield = false;
-                playNext(true); // core/player-controls.js, dùng CHUNG với Song — gọi SAU khi shield đã đóng hẳn
+                workflowPlayerControls.goToNextTrack(true); // event/workflow/player-controls.js, dùng CHUNG với Song — gọi SAU khi shield đã đóng hẳn
             }
         });
     },
@@ -470,12 +477,14 @@ const workflowVideoPlayer = {
      * `loop=false` lúc ở Player mode nên sự kiện này CÓ bắn, xem `setBgVideoElementForPlayerMode()`
      * core/video-player.js) — video hết, tự chuyển video kế tiếp.
      * [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt "video thừa hưởng cơ chế
-     * Playlist, không tạo cơ chế next riêng"] Gọi `playNext(false)` (core/player-controls.js) —
-     * DÙNG CHUNG với Song, THAY `this.nextVideo(false)` riêng đã xoá — tự đọc displayOrder/
-     * shuffleIndices/repeatMode, tự gọi lại window.playSong() -> quay lại dispatch mediaType. */
+     * Playlist, không tạo cơ chế next riêng"] Gọi `workflowPlayerControls.goToNextTrack(false)`
+     * (event/workflow/player-controls.js — [SỬA, plan-playmedia-reorg.md] thay `playNext(false)`
+     * cũ, core/player-controls.js, ĐÃ XOÁ) — DÙNG CHUNG với Song, THAY `this.nextVideo(false)`
+     * riêng đã xoá — tự đọc displayOrder/shuffleIndices/repeatMode, tự gọi lại
+     * `workflowPlayer.playMedia()` -> quay lại dispatch mediaType. */
     async handleVideoPlayerEnded() {
         stopListenClock(); // core/player-controls.js, hàm có sẵn — dùng lại nguyên
-        playNext(false); // core có sẵn (core/player-controls.js), dùng CHUNG với Song — force=false, tôn trọng repeatMode
+        workflowPlayerControls.goToNextTrack(false); // event/workflow/player-controls.js, dùng CHUNG với Song — force=false, tôn trọng repeatMode
     },
 
     /** Ứng với 'videoPlayer.captureFrame.click' (nút Control Center, chỉ hiện lúc Video Player

@@ -375,7 +375,7 @@ const workflowGameplay = {
      * hitCounts + 3 nút cơ chế cũ (Replay/Next/End — TỰ ĐỘNG thành dropdown vì >2 nút, xem
      * core/modal-choice-ui.js). */
     async onSongEnded() {
-        stopListenClock(); // core — giữ PARITY với handleAudioEnded() thường
+        stopListenClock(); // core — giữ PARITY với workflowPlayerControls.handleSongEnded() thường
         const { gameplayTotalScore, gameplayCircleCount, gameplayHitCounts } = appState.get([
             'gameplayTotalScore', 'gameplayCircleCount', 'gameplayHitCounts',
         ]);
@@ -492,13 +492,15 @@ const workflowGameplay = {
         this._showReadyModal();
     },
 
-    /** Nút "Bài tiếp theo" — playNext(true) (core có sẵn) TỰ wrap về đầu playlist nếu đang ở bài
+    /** Nút "Bài tiếp theo" — `workflowPlayerControls.goToNextTrack(true)` (Workflow gọi Workflow
+     * khác miền, tự do — event-bus-flow.md mục 3a; [SỬA — plan-playmedia-reorg.md] thay
+     * `playNext(true)` cũ, core/player-controls.js, ĐÃ XOÁ) TỰ wrap về đầu playlist nếu đang ở bài
      * cuối. KHÔNG tự mở lại modal ready: hook TỰ ĐỘNG ở event/router/visual-bg.js case
      * 'visualBg.songChanged' đã lo việc đó. CHỈ fallback gọi start() thủ công cho ĐÚNG 1 trường hợp:
-     * playlist chỉ có 1 bài -> playNext(true) trả về NGUYÊN key cũ -> không bắn songChanged. */
+     * playlist chỉ có 1 bài -> goToNextTrack(true) trả về NGUYÊN key cũ -> không bắn songChanged. */
     nextSong() {
         const previousKey = appState.get('currentKey');
-        playNext(true); // core
+        workflowPlayerControls.goToNextTrack(true); // event/workflow/player-controls.js
         if (appState.get('currentKey') === previousKey) this.start('circle');
     },
 
