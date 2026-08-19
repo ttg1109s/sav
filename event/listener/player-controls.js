@@ -60,11 +60,9 @@ if (btnSettingsPlaylist) {
     });
 }
 
-if (closeDrawer) {
-    closeDrawer.addEventListener('click', () => {
-        eventBus.send({ router: 'playerControls', type: 'playerControls.settingsDrawer.close', payload: {} });
-    });
-}
+// (closeDrawer listener ĐÃ XOÁ — đợt tái cấu trúc bottom nav App Panel: `#close-drawer` không còn
+// tồn tại, Settings giờ đóng qua nút X ĐỘNG trong headerHtml của Generic Drawer, wire trực tiếp
+// bởi workflowAppSettings — đúng Rule 5a "nút động do Workflow tự dựng thì Workflow tự wire".)
 
 // ===================== Sự kiện audioPlayer =====================
 if (audioPlayer) {

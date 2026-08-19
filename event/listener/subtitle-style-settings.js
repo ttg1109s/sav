@@ -28,8 +28,8 @@
  * core -> gọi thẳng, CÙNG quy ước `transitionField.change`).
  */
 
-if (settingsStackBody) {
-    settingsStackBody.addEventListener('click', (e) => {
+if (genericDrawerBody) { // SỬA (đợt migrate Visualizer Screen) — settingsStackBody nay thuộc Photo
+    genericDrawerBody.addEventListener('click', (e) => {
         if (e.target.closest('#setting-open-subtitle-panel')) {
             eventBus.send({ router: 'subtitleStyleSettings', type: 'subtitleStyleSettings.openPanel.click', payload: {} });
         }
@@ -45,7 +45,7 @@ if (settingsStackBody) {
             eventBus.send({ router: 'subtitleStyleSettings', type: 'subtitleStyleSettings.openMagnitudePicker.click', payload: { prefix } });
         }
     });
-    settingsStackBody.addEventListener('change', (e) => {
+    genericDrawerBody.addEventListener('change', (e) => {
         if (e.target.id === 'setting-subtitles-enabled') {
             eventBus.send({ router: 'subtitleStyleSettings', type: 'subtitleStyleSettings.enable.change', payload: { checked: e.target.checked } });
         }
@@ -86,7 +86,7 @@ if (settingsStackBody) {
             eventBus.send({ router: 'subtitleStyleSettings', type: 'subtitleStyleSettings.transitionField.change', payload: { field: transitionFieldMap[e.target.id], value: e.target.value } });
         } else if (transitionSignGroups[e.target.id]) {
             const group = transitionSignGroups[e.target.id];
-            const magnitudeEl = settingsStackBody.querySelector(`#setting-subtitle-${group.prefix}-magnitude`);
+            const magnitudeEl = genericDrawerBody.querySelector(`#setting-subtitle-${group.prefix}-magnitude`);
             const sign = e.target.value === '-' ? -1 : 1;
             // `data-ms` LUÔN đã kẹp sẵn [0, MAX] từ lúc modal picker ghi vào (openMagnitudePicker(),
             // event/workflow/subtitle-style-settings.js) — kẹp lại đây CHỈ là lớp phòng thủ thêm,

@@ -33,15 +33,15 @@ const GESTURE_SETTINGS_INPUT_MAP = {
     'setting-gesture-edge-top': { type: 'gestureSettings.edgeTop.change', checkbox: true },
 };
 
-if (settingsStackBody) {
-    settingsStackBody.addEventListener('change', (e) => {
+if (genericDrawerBody) { // SỬA (đợt tái cấu trúc bottom nav) — settingsStackBody nay thuộc Photo, nội dung này sống trong genericDrawerBody
+    genericDrawerBody.addEventListener('change', (e) => {
         const entry = GESTURE_SETTINGS_INPUT_MAP[e.target.id];
         if (!entry) return;
         const payload = entry.checkbox ? { checked: e.target.checked } : { value: e.target.value };
         eventBus.send({ router: 'gestureSettings', type: entry.type, payload });
     });
 
-    settingsStackBody.addEventListener('click', (e) => {
+    genericDrawerBody.addEventListener('click', (e) => {
         if (e.target.closest('#setting-open-gesture-settings')) {
             eventBus.send({ router: 'gestureSettings', type: 'gestureSettings.openPanel.click', payload: {} });
         } else if (e.target.closest('#setting-gesture-open-seek-step-picker')) {

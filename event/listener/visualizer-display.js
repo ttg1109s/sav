@@ -67,6 +67,6 @@ function handleVisualizerDisplayPanelChange(e) {
     eventBus.send({ router: 'visualizerDisplay', type: entry.type, payload: { checked: e.target.checked } });
 }
 
-if (settingsStackBody) {
-    settingsStackBody.addEventListener('change', handleVisualizerDisplayPanelChange);
+if (genericDrawerBody) { // SỬA (đợt migrate Visualizer Screen) — settingsStackBody nay thuộc Photo, nội dung này sống trong genericDrawerBody
+    genericDrawerBody.addEventListener('change', handleVisualizerDisplayPanelChange);
 }

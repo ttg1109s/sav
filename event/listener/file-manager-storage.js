@@ -1,22 +1,16 @@
 /**
- * event/listener/file-manager-storage.js — TẤT CẢ listener của cụm "fileManagerStorage" + 2 nút
- * TĨNH liên quan (Song & Video / Quản lý lưu trữ) ở section chính File Manager. MỚI (29/07/2026,
- * yêu cầu Giang) — THAY event/listener/file-manager-song.js + event/listener/file-manager-
- * cleanup.js (CẢ HAI ĐÃ XOÁ).
+ * event/listener/file-manager-storage.js — TẤT CẢ listener của cụm "fileManagerStorage".
  *
- * SỬA (mục 1, phản hồi Giang "vào sub panel -> trực tiếp mở generic drawer browser Song & Video")
- * — `btnOpenFileManagerSong` (hàng "Song & Video", section chính) KHÔNG còn gửi
- * 'fileManagerSong.openPanel.click' (panel đó đã xoá) — giờ gửi THẲNG
- * 'fileManagerFolderBrowser.open.click' (router "fileManagerFolderBrowser" có sẵn, event/router/
- * file-manager-folder-browser.js — KHÔNG đổi gì ở router/workflow/core đó, chỉ đổi NƠI GỌI).
- *
- * MỚI (mục 2) — `btnOpenFileManagerStorage` (hàng "Quản lý lưu trữ" MỚI) mở panel MỚI qua router
- * "fileManagerStorage".
+ * XOÁ (đợt tái cấu trúc bottom nav App Panel) — `btnOpenFileManagerSong`/`btnOpenFileManagerStorage`
+ * (2 nút TĨNH của section File Manager cũ trong Settings, `components/settings/
+ * file-manager-section.js` — section đó KHÔNG còn mount, xem main.js) — Folder/Storage giờ mở từ
+ * bottom nav App Panel (`event/workflow/app-panel-nav.js::openFolder()/openStorage()`), KHÔNG cần
+ * 2 nút TĨNH này nữa. `core/dom-refs.js` vẫn giữ 2 dom-ref đó (trả `null`, vô hại — element không
+ * còn tồn tại trong DOM, giữ nguyên không xoá theo tinh thần Rule 0.5).
  *
  * MỚI (mục 2d) — nút "Dọn dẹp dữ liệu" (`#btn-file-manager-cleanup-run`, router "fileManagerCleanup"
- * — KHÔNG đổi gì ở router/workflow/core đó) giờ nằm TRONG panel push động "Quản lý lưu trữ" thay vì
- * ở section tĩnh — chuyển từ static binding (event/listener/file-manager-cleanup.js cũ, đã xoá) sang
- * delegate qua `settingsStackBody`, CÙNG khối delegate với các nút khác của panel này.
+ * — KHÔNG đổi gì ở router/workflow/core đó) nằm TRONG nội dung Storage, giờ delegate qua
+ * `genericDrawerBody` (đã migrate sang Generic Drawer, xem event/workflow/file-manager-storage.js).
  *
  * QUY TẮC: giống event/listener/playlist.js — listener KHÔNG biết nghiệp vụ, chỉ bắt sự kiện DOM +
  * gửi message qua eventBus.send().
@@ -24,17 +18,7 @@
  * NẠP SAU CÙNG (sau bus, core, workflow, router, VÀ SAU dom-refs.js).
  */
 
-if (btnOpenFileManagerSong) {
-    btnOpenFileManagerSong.addEventListener('click', () => {
-        eventBus.send({ router: 'fileManagerFolderBrowser', type: 'fileManagerFolderBrowser.open.click', payload: {} });
-    });
-}
 
-if (btnOpenFileManagerStorage) {
-    btnOpenFileManagerStorage.addEventListener('click', () => {
-        eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.openPanel.click', payload: {} });
-    });
-}
 
 function handleFileManagerStorageDelegatedClick(e) {
     // MỚI (29/07/2026, yêu cầu Giang mục 2) — ấn vào 1 đoạn thanh dung lượng (4 div màu, mỗi đoạn
@@ -108,7 +92,11 @@ function handleFileManagerStorageDelegatedChange(e) {
     }
 }
 
-if (settingsStackBody) {
-    settingsStackBody.addEventListener('click', handleFileManagerStorageDelegatedClick);
-    settingsStackBody.addEventListener('change', handleFileManagerStorageDelegatedChange);
+// SỬA (đợt tái cấu trúc bottom nav App Panel) — Storage KHÔNG còn sống trong `settingsStackBody`
+// (đã chuyển hẳn sang `genericDrawerBody`, xem event/workflow/file-manager-storage.js) — bỏ
+// binding cũ trên `settingsStackBody` (nay dành riêng cho Photo, xem event/listener/
+// file-manager-photo.js), chỉ còn delegate trên `genericDrawerBody`.
+if (genericDrawerBody) {
+    genericDrawerBody.addEventListener('click', handleFileManagerStorageDelegatedClick);
+    genericDrawerBody.addEventListener('change', handleFileManagerStorageDelegatedChange);
 }

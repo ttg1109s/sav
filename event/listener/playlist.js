@@ -275,13 +275,13 @@ function handlePlaylistFilterPanelEvent(e) {
     eventBus.send({ router: 'playlist', type: 'playlist.filterPanel.field.change', payload: { field, prop, value } });
 }
 
-if (settingsStackBody) {
-    settingsStackBody.addEventListener('change', handlePlaylistSortPanelChange);
-    settingsStackBody.addEventListener('change', handlePlaylistFilterPanelEvent);
-    settingsStackBody.addEventListener('input', handlePlaylistFilterPanelEvent);
+if (genericDrawerBody) { // SỬA (đợt tái cấu trúc bottom nav) — settingsStackBody nay thuộc Photo, nội dung này sống trong genericDrawerBody
+    genericDrawerBody.addEventListener('change', handlePlaylistSortPanelChange);
+    genericDrawerBody.addEventListener('change', handlePlaylistFilterPanelEvent);
+    genericDrawerBody.addEventListener('input', handlePlaylistFilterPanelEvent);
     // nút "Áp dụng" (bare click, id `btn-playlist-filter-apply`) — CÙNG handler, nhánh riêng ở đầu
     // hàm (KHÔNG khớp regex `filter-*` nên phải bắt TRƯỚC, xem đầu handlePlaylistFilterPanelEvent()).
-    settingsStackBody.addEventListener('click', handlePlaylistFilterPanelEvent);
+    genericDrawerBody.addEventListener('click', handlePlaylistFilterPanelEvent);
 }
 
 if (playlistSearchInput) {

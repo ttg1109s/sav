@@ -63,11 +63,11 @@ function handleSlideshowSettingsDelegatedEvent(e) {
     eventBus.send({ router: 'slideshowSettings', type: entry.type, payload });
 }
 
-if (settingsStackBody) {
-    settingsStackBody.addEventListener('change', handleSlideshowSettingsDelegatedEvent);
+if (genericDrawerBody) { // SỬA (đợt tái cấu trúc bottom nav) — settingsStackBody nay thuộc Photo, nội dung này sống trong genericDrawerBody
+    genericDrawerBody.addEventListener('change', handleSlideshowSettingsDelegatedEvent);
     // MỚI (18/07/2026) — delegation 'click' cho input DẠNG NÚT (interval/transitionDuration picker).
-    settingsStackBody.addEventListener('click', handleSlideshowSettingsDelegatedEvent);
+    genericDrawerBody.addEventListener('click', handleSlideshowSettingsDelegatedEvent);
     // MỚI (18/07/2026, mục "thêm thời gian transition") — delegation 'input' CHO RIÊNG slider Tỉ lệ
     // In/Out (xem preview() khác change() ở docstring đầu file).
-    settingsStackBody.addEventListener('input', handleSlideshowSettingsDelegatedEvent);
+    genericDrawerBody.addEventListener('input', handleSlideshowSettingsDelegatedEvent);
 }

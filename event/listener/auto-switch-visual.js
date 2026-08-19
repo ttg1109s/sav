@@ -21,7 +21,10 @@ function makeAutoSwitchSecondsInputListener(fieldName) {
 }
 
 function handleAutoSwitchVisualDelegatedChange(e) {
-    const panel = e.target.closest('.settings-stack-panel');
+    // SỬA (đợt migrate Visualizer Screen) — panel Auto-Switch giờ sống thẳng trong genericDrawerBody
+    // (KHÔNG còn bọc class `.settings-stack-panel` của pushSettingsPanel() cũ) — dùng THẲNG
+    // genericDrawerBody thay vì .closest() dò lên.
+    const panel = genericDrawerBody;
     if (!panel) return;
 
     switch (e.target.id) {
@@ -64,6 +67,6 @@ function handleAutoSwitchVisualDelegatedChange(e) {
     }
 }
 
-if (settingsStackBody) {
-    settingsStackBody.addEventListener('change', handleAutoSwitchVisualDelegatedChange);
+if (genericDrawerBody) { // SỬA (đợt migrate Visualizer Screen) — settingsStackBody nay thuộc Photo
+    genericDrawerBody.addEventListener('change', handleAutoSwitchVisualDelegatedChange);
 }

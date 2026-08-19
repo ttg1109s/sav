@@ -92,11 +92,11 @@ function handleVisualBgSettingsDelegatedEvent(e) {
     eventBus.send({ router: 'visualBg', type: entry.type, payload });
 }
 
-if (settingsStackBody) {
-    settingsStackBody.addEventListener('change', handleVisualBgSettingsDelegatedEvent);
-    settingsStackBody.addEventListener('click', handleVisualBgSettingsDelegatedEvent);
+if (genericDrawerBody) { // SỬA (đợt migrate Visualizer Screen) — settingsStackBody nay thuộc Photo
+    genericDrawerBody.addEventListener('change', handleVisualBgSettingsDelegatedEvent);
+    genericDrawerBody.addEventListener('click', handleVisualBgSettingsDelegatedEvent);
     // `input` (không phải `change`) cho ô màu + 2 thanh trượt — cập nhật NGAY lúc kéo.
-    settingsStackBody.addEventListener('input', handleVisualBgSettingsDelegatedEvent);
+    genericDrawerBody.addEventListener('input', handleVisualBgSettingsDelegatedEvent);
 }
 
 // MỚI (08/08/2026, phản hồi Giang — mục "video chạy/dừng/lặp/đen màn thất thường") — `bgVideoElement`
