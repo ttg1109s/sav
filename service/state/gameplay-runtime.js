@@ -136,20 +136,26 @@
              * [SỬA — phản hồi Giang, chỉnh lại độ khó] `fluxThreshold`: Easy 0.5, Medium 0.8 (tăng
              * từ 0.6), Hard giữ 0.3.
              *
-             * `maxConcurrentWaves`: Easy=1 ("chỉ một nốt một"). Medium giờ là KHOẢNG (2-5, không
-             * còn 1 số cố định) — `minConcurrentWaves`/`maxConcurrentWaves` khác nhau, Workflow tự
-             * roll ngẫu nhiên mỗi lần xét spawn (computeConcurrentWaveCap(), circle-mode.js) — mật
-             * độ Medium giờ DAO ĐỘNG thay vì cố định. Hard giữ Infinity.
+             * `maxConcurrentWaves`: Easy=1 ("chỉ một nốt một"). Medium là KHOẢNG (roll ngẫu nhiên
+             * mỗi lần xét spawn qua computeConcurrentWaveCap(), circle-mode.js — mật độ DAO ĐỘNG
+             * thay vì cố định). Hard giữ Infinity.
+             *
+             * [SỬA — phản hồi Giang, tinh chỉnh thêm] Medium: `spawnEligibleEveryNBeats` 2 -> 1
+             * ("thu hẹp khoảng cách xuất hiện wave tiếp" — cùng nhịp Hard, chỉ khác trần số
+             * wave/threshold flux). `minConcurrentWaves` 2 -> 3 ("roll max 3-5", giữ trần trên 5).
              *
              * `chainReproductionEnabled`/`chainMaxLevel` — MỚI, CHỈ Hard: lúc spawn mà bảng CÒN
-             * wave sống -> "sinh sản" thành chuỗi nhiều wave 1 lần spawn (computeChainedPitches(),
-             * circle-mode.js + event/workflow/gameplay.js::_trySpawnWave()) — cấp độ chuỗi tăng dần
-             * qua MỖI lần spawn liên tiếp còn thấy wave sống, trần `chainMaxLevel`, đứt chuỗi khi
-             * bảng sạch HOẶC lúc refresh (workflowGameplay._hardChainLevel, KHÔNG phải field ở đây).
+             * wave sống -> "sinh sản" thành chuỗi nhiều wave, NHẢ DẦN mỗi wave 1 (KHÔNG bung hết 1
+             * lần — xem event/workflow/gameplay.js::_trySpawnWave()/_spawnNextChainedWave()) — cấp
+             * độ chuỗi tăng dần qua MỖI lần trigger còn thấy wave sống, trần `chainMaxLevel`, đứt
+             * chuỗi khi bảng sạch HOẶC lúc refresh (workflowGameplay._hardChainLevel/
+             * _hardChainQueue, KHÔNG phải field ở đây). Quãng cách giữa 2 wave LIÊN TIẾP trong
+             * chuỗi = NỬA `spawnEligibleEveryNBeats` (computeChainSpacingMs(), circle-mode.js —
+             * quy đổi ra ms từ BPM, không đếm nguyên beat được vì là số lẻ 0.5).
              */
             difficulty: Object.freeze({
                 easy:   Object.freeze({ maxConcurrentWaves: 1, spawnEligibleEveryNBeats: 1, shrinkDurationMultiplier: 1.3, energyWindowBeats: 4, sectionWindowBeats: 12, fluxThreshold: 0.5 }),
-                medium: Object.freeze({ minConcurrentWaves: 2, maxConcurrentWaves: 5, spawnEligibleEveryNBeats: 2, shrinkDurationMultiplier: 1.2, energyWindowBeats: 3, sectionWindowBeats: 9, fluxThreshold: 0.8 }),
+                medium: Object.freeze({ minConcurrentWaves: 3, maxConcurrentWaves: 5, spawnEligibleEveryNBeats: 1, shrinkDurationMultiplier: 1.2, energyWindowBeats: 3, sectionWindowBeats: 9, fluxThreshold: 0.8 }),
                 hard:   Object.freeze({ maxConcurrentWaves: Infinity, spawnEligibleEveryNBeats: 1, shrinkDurationMultiplier: 1, energyWindowBeats: 2, sectionWindowBeats: 6, fluxThreshold: 0.3, chainReproductionEnabled: true, chainMaxLevel: 8 }),
             }),
         });
