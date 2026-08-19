@@ -33,6 +33,37 @@
 .gameplay-tier-popup--bad       { color: #fb923c; } /* orange-400 */
 .gameplay-tier-popup--miss      { color: #f87171; } /* red-400 */
 
+/* [MỚI — phản hồi Giang "x combo ngay tại vị trí bay lên"] `--combo-scale` (gán inline, tính theo
+ * streak, xem showTapTierPopup() core/gameplay/engine-ui.js) phóng to CHỮ + GLOW đồng thời —
+ * combo càng cao càng nổi bật, không cần thêm class rời rạc theo từng mốc streak. */
+.gameplay-tier-popup--combo {
+    font-size: calc(1.1rem * var(--combo-scale, 1));
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6), 0 0 calc(6px * var(--combo-scale, 1)) currentColor;
+}
+
+/* [MỚI — phản hồi Giang "hiệu ứng vòng tròn vỡ vụn khi tap hoàn thành hoặc tự mất"] N mảnh nhỏ bay
+ * toả tròn đều (góc `--shard-angle`) ra khoảng cách `--shard-distance`, vừa bay vừa mờ dần + co nhỏ
+ * — dựng qua showShatterEffect() core/gameplay/engine-ui.js, gọi lúc tap trúng note (màu ĐÚNG wave)
+ * HOẶC wave tự hết hạn/miss (màu đỏ cố định). */
+.gameplay-shatter-anchor {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+.gameplay-shatter-shard {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 1px;
+    animation: gameplayShatterFly 480ms ease-out forwards;
+}
+@keyframes gameplayShatterFly {
+    0%   { opacity: 1; transform: rotate(var(--shard-angle)) translateX(0) scale(1); }
+    100% { opacity: 0; transform: rotate(var(--shard-angle)) translateX(var(--shard-distance)) scale(0.2); }
+}
+
 /* Số đếm ngược trước khi wave đầu tiên spawn — mỗi lần đổi số, animation restart bằng
  * remove+reflow+add class 'is-pulsing' (core/gameplay/engine-ui.js::showGameplayCountdown()). */
 .gameplay-countdown-number {
