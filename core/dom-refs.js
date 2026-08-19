@@ -123,10 +123,21 @@
         const volumeHudSlider = document.getElementById('volume-hud-slider');
         const volumeHudWave1 = document.getElementById('volume-hud-wave-1'), volumeHudWave2 = document.getElementById('volume-hud-wave-2'), volumeHudWave3 = document.getElementById('volume-hud-wave-3'), volumeHudMute = document.getElementById('volume-hud-mute');
         
-        const drawerSettings = document.getElementById('drawer-settings'), btnSettingsPlaylist = document.getElementById('btn-settings-playlist'), closeDrawer = document.getElementById('close-drawer');
+        const btnSettingsPlaylist = document.getElementById('btn-settings-playlist');
         // (btnSettings ĐÃ XOÁ — HOTFIX 11, 08/07/2026: nút "Cài đặt" trong Control Center của
-        // Visualizer đã bỏ hẳn, xem components/visualizer-overlay.js. Settings giờ CHỈ mở được từ
-        // Playlist qua btnSettingsPlaylist.)
+        // Visualizer đã bỏ hẳn, xem components/visualizer-overlay.js. Settings giờ mở được từ
+        // Playlist qua btnSettingsPlaylist, HOẶC từ bottom nav App Panel, nút "Setting".)
+        // (drawerSettings/closeDrawer ĐÃ XOÁ — đợt tái cấu trúc bottom nav App Panel: `#drawer-
+        // settings`/`#close-drawer` không còn tồn tại, Settings giờ mở qua core/generic-drawer.js —
+        // xem event/workflow/app-settings.js.)
+        // MỚI (đợt tái cấu trúc bottom nav App Panel) — bottom nav + 3 panel full-screen mới
+        // (Photo/Game/Statis, ngang cấp Setting). Nút bên trong mỗi nút bottom nav KHÔNG có id
+        // riêng (7 nút, phân biệt qua data-tab) — event/listener/app-panel-nav.js delegate trên
+        // appBottomNav, KHÔNG cần 7 dom-ref riêng.
+        const appBottomNav = document.getElementById('app-bottom-nav');
+        const photoPanel = document.getElementById('photo-panel'), btnPhotoPanelClose = document.getElementById('btn-photo-panel-close');
+        const gamePanel = document.getElementById('game-panel'), btnGamePanelClose = document.getElementById('btn-game-panel-close');
+        const statisPanel = document.getElementById('statis-panel'), btnStatisPanelClose = document.getElementById('btn-statis-panel-close');
         // Card "Visualizer Screen" (Main) — 4 nút điều hướng: Display (panel mới, thay hẳn
         // "Customize Visualizer"/Custom Effect cũ), Auto-Switch Effect, Visual Background. "Cử
         // chỉ" dùng delegate trên settingsStackBody (KHÔNG cần ref tĩnh — xem event/listener/

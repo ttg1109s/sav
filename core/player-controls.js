@@ -413,20 +413,12 @@
          */
 
 
-        /** Core: cuộn MƯỢT `#side-left-container` sang trang Settings.
-         * (09/07/2026: đổi sang gọi thẳng getPositionStart()/scrollSliderTo() dùng chung —
-         * core/slider-panel-scroll.js — thay vì tự viết scrollTo({left: clientWidth}) riêng, TRÙNG
-         * logic với core/settings-panel-stack.js. Dùng getPositionStart(drawerSettings) thay vì
-         * đoán bằng clientWidth: đúng vị trí layout THẬT của trang Settings, không phụ thuộc giả
-         * định "mỗi trang đúng 100% chiều rộng khung cha".) */
-        function scrollSideLeftToSettingsSmooth() {
-            scrollSliderTo(sideLeftContainer, getPositionStart(drawerSettings), true);
-        }
-
-        /** Core: cuộn MƯỢT `#side-left-container` VỀ trang Playlist. */
-        function scrollSideLeftToPlaylistSmooth() {
-            scrollSliderTo(sideLeftContainer, getPositionStart(playlistView), true);
-        }
+        // XOÁ (đợt tái cấu trúc bottom nav App Panel, phản hồi Giang) —
+        // scrollSideLeftToSettingsSmooth()/scrollSideLeftToPlaylistSmooth() KHÔNG còn ý nghĩa:
+        // #side-left-container giờ CHỈ còn 1 "trang" (#playlist-view), Settings đã chuyển hẳn sang
+        // core/generic-drawer.js (xem event/workflow/app-settings.js) — không còn gì để "cuộn
+        // sang" nữa. Mở/đóng Settings giờ đi qua workflowAppSettings.open()/close() (Router:
+        // event/router/player-controls.js, case 'playerControls.settingsDrawer.open'/'.close').
 
 
         // Ver 8 refine (mục 2 — loại bỏ can thiệp điều khiển từ ngoài app): KHÔNG còn
