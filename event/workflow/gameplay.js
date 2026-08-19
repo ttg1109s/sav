@@ -252,19 +252,28 @@ const workflowGameplay = {
     },
 
     /** Thử spawn 1 wave — tách khỏi tick() vì cần nhiều bước phụ thuộc nhau (tìm ô theo pitch,
-     * chống đè hình, chọn màu theo effect đang chạy). Bỏ qua lượt (chờ beat kế) nếu vị trí quá gần
-     * 1 wave đang sống. */
+     * chống đè hình, chọn màu theo effect đang chạy).
+     *
+     * [SỬA — phản hồi Giang "cell đã có wave -> không cho spawn cùng ô kể cả khác note; thử 8 ô lân
+     * cận; hết 8 ô -> ưu tiên ô rỗng-bucket; hết luôn -> bỏ"] Thay HẲN cơ chế đo khoảng cách px cũ
+     * (isPositionTooClose(), ĐÃ XOÁ) bằng findAvailableCell() (core/gameplay/circle-mode.js) —
+     * occupancy CHÍNH XÁC theo chỉ số ô (col,row), không còn phụ thuộc jitter/khoảng cách. */
     _trySpawnWave(now, cfg, diffCfg, pitchCellMap, currentWaves, bpmString, midiNote) {
-        const cell = findCellForPitch(pitchCellMap, midiNote); // core
-        const fallbackX = this._zoneOriginX + (this._gridCols * cfg.gridCellSizePx) / 2;
-        const fallbackY = this._zoneOriginY + (this._gridRows * cfg.gridCellSizePx) / 2;
-        const baseX = cell ? cell.cellX : fallbackX;
-        const baseY = cell ? cell.cellY : fallbackY;
-        const jittered = applyCellJitter(baseX, baseY, cfg, Math.random(), Math.random()); // core
+        // Chưa detect pitch hợp lệ (map rỗng/midiNote null) -> fallback ô GIỮA spawnZone (giữ ĐÚNG
+        // hành vi gốc trước khi có findAvailableCell()) — vẫn cần đúng {col,row} để occupancy check
+        // hoạt động, không chỉ toạ độ px.
+        const targetCell = findCellForPitch(pitchCellMap, midiNote) || { // core
+            col: Math.floor(this._gridCols / 2), row: Math.floor(this._gridRows / 2),
+            cellX: this._zoneOriginX + (this._gridCols * cfg.gridCellSizePx) / 2,
+            cellY: this._zoneOriginY + (this._gridRows * cfg.gridCellSizePx) / 2,
+        };
 
-        const activePositions = currentWaves.map(w => ({ x: w.x, y: w.y }));
-        if (isPositionTooClose(jittered.x, jittered.y, activePositions, diffCfg.minSpawnDistancePx)) return; // core — bỏ lượt, chờ beat kế
+        const occupiedCellKeys = new Set(currentWaves.map((w) => `${w.col},${w.row}`));
+        const unusedCells = listUnusedGridCells(this._gridCols, this._gridRows, cfg, this._zoneOriginX, this._zoneOriginY, pitchCellMap); // core
+        const cell = findAvailableCell(targetCell, this._gridCols, this._gridRows, cfg, this._zoneOriginX, this._zoneOriginY, unusedCells, occupiedCellKeys); // core
+        if (!cell) return; // target + 8 ô lân cận + mọi ô rỗng-bucket đều đang bận -> bỏ lượt, chờ beat kế
 
+        const jittered = applyCellJitter(cell.cellX, cell.cellY, cfg, Math.random(), Math.random()); // core
         const shrinkDurationMs = computeShrinkDurationMs(bpmString, cfg, diffCfg.shrinkDurationMultiplier); // core
 
         const ec = getActiveEffectConfig(); // core (custom-effect.js)
@@ -282,7 +291,7 @@ const workflowGameplay = {
         }
         this._nextSpawnIndex++;
 
-        const wave = { id: this._nextWaveId++, spawnedAt: now, startRadius: cfg.waveStartRadius, shrinkDurationMs, x: jittered.x, y: jittered.y, colorMain, colorLight };
+        const wave = { id: this._nextWaveId++, spawnedAt: now, startRadius: cfg.waveStartRadius, shrinkDurationMs, col: cell.col, row: cell.row, x: jittered.x, y: jittered.y, colorMain, colorLight };
         appState.mutate('gameplayWaves', arr => arr.push(wave), { skipCheck: true });
     },
 
@@ -361,7 +370,7 @@ const workflowGameplay = {
             title: escapeHtml(title), // core (modal-choice-ui.js) — title là dữ liệu người dùng (tên file/tag), PHẢI escape trước khi chèn HTML
             durationLabel,
             difficultyLabel: t('gameplayCircle.difficulty.' + gameplayDifficulty),
-            playCountLabel: tFormat('gameplayCircle.ended.playCountLabel', { count: playCount }),
+            playCount,
             onReplay: () => this.replay(),
             onNext: () => this.nextSong(),
             onEnd: () => this.exitToPlaylist(),
