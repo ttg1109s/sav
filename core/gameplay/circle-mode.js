@@ -1,26 +1,15 @@
 /**
- * core/gameplay/circle-mode.js — Core THUẦN cho Game Mode "Circle" (mode 1). Mỗi hàm ĐÚNG 1 việc
- * (Rule 1), CHỈ nhận tham số — KHÔNG tự appState.get() (Rule 2), KHÔNG gọi core nào khác kể cả
- * trong chính file này (Rule 3a). Nơi cần phối hợp nhiều hàm (vd tính radius rồi mới classify tier,
- * hay chọn hàm màu theo effect mode) là event/workflow/gameplay.js, KHÔNG phải ở đây.
+ * core/gameplay/circle-mode.js — Core thuần RIÊNG cho mode "Circle": spawn theo lưới pitch→ô, vật
+ * lý wave (bán kính/opacity/miss), màu vòng. Chấm điểm/hit-test/tổng kết/flux dùng CHUNG mọi mode
+ * đã tách sang core/gameplay/engine.js. Rule 1-3: mỗi hàm 1 việc, chỉ nhận tham số, không gọi hàm
+ * khác trong cùng file — phối hợp nhiều hàm là việc của event/workflow/gameplay.js.
  *
- * Mỗi note là 1 CẶP circle (đích, vị trí x/y px thật trong canvas) + wave (co từ waveStartRadius về
- * 0 tại đúng x/y đó). Vùng hợp lệ TÍNH ĐIỂM lệch tâm (khác vùng hợp lệ VỊ TRÍ tap, xem
- * findNearestNoteByPosition()) — bán kính trong [centerRadius-gapInner, centerRadius+gapOuter],
- * càng gần centerRadius điểm càng cao, 2 phía chuẩn hoá riêng vì độ rộng gapOuter/gapInner khác nhau.
+ * Mỗi note là 1 CẶP circle (đích, x/y px thật) + wave (co từ waveStartRadius về 0 tại đúng x/y đó).
+ * Vùng hợp lệ TÍNH ĐIỂM (classifyTapTier(), engine.js) khác vùng hợp lệ VỊ TRÍ tap
+ * (findNearestNoteByPosition(), engine.js).
  */
 
         // ── Spawn timing/mật độ ──────────────────────────────────────────────────────────────
-
-        /** Guard: có nên XÉT spawn 1 wave mới lúc này không — chưa đạt max wave cùng lúc (theo độ
-         * khó hiện hành, Workflow tự resolve đúng số), VÀ vừa có 1 beat THẬT MỚI (khác mốc đã tiêu
-         * thụ lần trước). Đây CHỈ là điều kiện CẦN — Workflow còn roll xác suất qua
-         * computeSpawnProbability() + xét thêm isBeatEligibleForSpawn() (độ khó Medium) mới quyết
-         * định spawn THẬT. */
-        function shouldSpawnCircleWave(activeWaveCount, maxConcurrentWaves, lastConsumedBeatTime, currentBeatTime) {
-            if (activeWaveCount >= maxConcurrentWaves) return false;
-            return currentBeatTime > 0 && currentBeatTime !== lastConsumedBeatTime;
-        }
 
         /** Độ khó Medium chỉ xét spawn mỗi N beat (Easy/Hard N=1, không lọc gì thêm ở đây — Workflow
          * tự truyền N đúng theo độ khó). Workflow tự đếm `beatsSinceEligible`, reset về 0 khi hàm này
@@ -153,19 +142,6 @@
 
         // ── Trigger refresh vị trí (section/energy/phrase) ───────────────────────────────────
 
-        /** So sánh trung bình `windowSize` giá trị flux gần nhất với `windowSize` giá trị TRƯỚC đó
-         * trong fluxHistory — lệch >= threshold coi là 1 "transition". Cùng 1 hàm dùng cho cả energy
-         * (threshold thấp) lẫn section (threshold cao) — Workflow tự truyền đúng threshold theo độ
-         * khó (GAMEPLAY_CIRCLE_CONFIG.difficulty[x].fluxDelta*). Chưa đủ lịch sử (< 2×windowSize) ->
-         * false. */
-        function detectFluxTransition(fluxHistory, windowSize, threshold) {
-            if (fluxHistory.length < windowSize * 2) return false;
-            const recent = fluxHistory.slice(-windowSize);
-            const prior = fluxHistory.slice(-windowSize * 2, -windowSize);
-            const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
-            return Math.abs(avg(recent) - avg(prior)) >= threshold;
-        }
-
         /** Xấp xỉ ranh giới phrase bằng đếm beat cố định (không có phrase detection thật). Workflow
          * tự đếm `beatsSincePhraseRefresh`, reset về 0 khi hàm này trả true. */
         function isPhraseBoundary(beatsSincePhraseRefresh, refreshBeatsForPhrase) {
@@ -200,45 +176,6 @@
             return radius < (cfg.centerRadius - cfg.gapInner);
         }
 
-        // ── Chấm điểm tap ─────────────────────────────────────────────────────────────────────
-
-        /** Tìm note GẦN VỊ TRÍ TAP NHẤT trong 1 danh sách {id, x, y} đã tính sẵn vị trí hiện tại.
-         * Chỉ tính note trong bán kính `tolerancePercent` quanh điểm tap — ngoài dung sai coi như
-         * không trúng note nào (null). */
-        function findNearestNoteByPosition(entries, tapX, tapY, tolerancePercent) {
-            let best = null, bestDist = Infinity;
-            for (const entry of entries) {
-                const dx = entry.x - tapX, dy = entry.y - tapY;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist <= tolerancePercent && dist < bestDist) { bestDist = dist; best = entry; }
-            }
-            return best;
-        }
-
-        /** Xếp tier theo khoảng cách CHUẨN HOÁ tới centerRadius — 2 phía dùng mẫu số khác nhau
-         * (gapOuter cho bấm sớm/radius lớn hơn, gapInner cho bấm trễ/radius nhỏ hơn) vì độ rộng
-         * vùng hợp lệ 2 phía không bằng nhau. Trả {name, score} hoặc null nếu ngoài vùng hợp lệ. */
-        function classifyTapTier(radius, cfg) {
-            const diff = radius - cfg.centerRadius;
-            const ratio = diff >= 0 ? diff / cfg.gapOuter : -diff / cfg.gapInner;
-            if (ratio > 1) return null;
-            for (const tier of cfg.tiers) {
-                if (ratio <= tier.maxRatio) return { name: tier.name, score: tier.score };
-            }
-            return null;
-        }
-
-        /** Điểm THẬT SỰ cộng vào tổng cho 1 lần tap, kèm combo streak MỚI. Chỉ tier trong
-         * comboTierNames mới cộng dồn streak + nhân multiplier bậc thang (streak SAU khi cộng); mọi
-         * tier khác (kể cả tap hợp lệ nhưng thấp) làm gãy combo về 0, không nhân. */
-        function computeComboScoreGain(tierName, tierScore, comboStreakBefore, cfg) {
-            const continuesCombo = cfg.comboTierNames.includes(tierName);
-            if (!continuesCombo) return { pointsGained: tierScore, newComboStreak: 0 };
-            const newComboStreak = comboStreakBefore + 1;
-            const multiplier = 1 + Math.floor(newComboStreak / cfg.comboMultiplierStepSize) * cfg.comboMultiplierStepValue;
-            return { pointsGained: Math.floor(tierScore * multiplier), newComboStreak };
-        }
-
         // ── Màu vòng tròn (theo effect đang chạy, chốt lúc spawn) ────────────────────────────
 
         /** Mode `dynamic` — luân phiên nguyên bản A/B theo thứ tự spawn (không blend, không đổi
@@ -263,38 +200,3 @@
             return `hsl(${hue}, 50%, 80%)`;
         }
 
-        // ── Tổng kết điểm cuối phiên ──────────────────────────────────────────────────────────
-
-        /** Điểm trung bình cuối phiên = tổng điểm / số vòng đã xuất hiện — KHÔNG làm tròn. */
-        function computeFinalAverageScore(totalScore, circleCount) {
-            if (circleCount <= 0) return 0;
-            return totalScore / circleCount;
-        }
-
-        /** Số sao (0..starMax) từ tổng điểm thật so với điểm lý thuyết tối đa (circleCount × điểm
-         * tier perfect) — làm tròn theo threshold (phần thập phân >= threshold mới làm tròn lên),
-         * clamp về [0, starMax] kể cả khi totalScore vượt maxScore (combo bonus). */
-        function computeStarRating(totalScore, maxScore, cfg) {
-            if (maxScore <= 0) return 0;
-            const raw = Math.max(0, (totalScore / maxScore) * cfg.starMax);
-            const frac = raw % 1;
-            const rounded = frac >= cfg.starRoundingThreshold ? Math.ceil(raw) : Math.floor(raw);
-            return Math.min(cfg.starMax, rounded);
-        }
-
-        /** % lệch điểm thực tế so với điểm lý thuyết tối đa — dấu +/- theo đúng chiều (Workflow tự
-         * format chuỗi hiển thị, 0 không kèm dấu). */
-        function computeScoreDeltaPercent(totalScore, maxScore) {
-            if (maxScore <= 0) return 0;
-            return ((totalScore - maxScore) / maxScore) * 100;
-        }
-
-        // ── Config Game Mode persistent (bật/tắt) ────────────────────────────────────────────
-
-        /** Ghi cấu hình bật/tắt Game Mode PERSISTENT (khác gameplayPhase — đó là 1 phiên, đây là
-         * tuỳ chọn lưu qua reload). Không tự gọi saveConfig() (Rule 3a) — Workflow tự gọi ngay sau,
-         * xem event/workflow/gameplay.js::setModeEnabled(). */
-        function setGameplayModeEnabled(checked) {
-            appConfigViz.mutateAll(cfg => { cfg.gameplayModeEnabled = checked; });
-            console.log(`writer: "setGameplayModeEnabled", page: "gameplayModeEnabled", content: "${checked}"`);
-        }
