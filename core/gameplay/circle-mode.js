@@ -61,72 +61,141 @@
             return { cols, rows, totalCells: cols * rows };
         }
 
-        /** Chia dải pitch quan sát được thành các nhóm liên tiếp — SỐ NHÓM tối đa = totalCells (bucket
-         * CUỐI hấp thụ hết phần dư nếu chia không hết, chấp nhận lệch size). Mỗi nhóm gán ngẫu nhiên
-         * (shuffle) vào 1 ô lưới; ô dư (totalCells > số nhóm, dải pitch hẹp hơn lưới) để RỖNG — không
-         * gán trùng nhóm nào lên đó (tránh 1 pitch trỏ nhiều ô không liên quan) — ô nào trống cũng đã
-         * tự phân bố ngẫu nhiên nhờ cellCenters shuffle TRƯỚC khi biết số nhóm. Dải chưa đủ rộng
-         * (< pitchMinSpanSemitones) hoặc chưa detect nốt nào -> trả mảng rỗng (Workflow tự fallback
-         * về giữa spawnZone khi map rỗng). `randomValues` PHẢI do Workflow tự sinh sẵn (Core không tự
-         * random) — cần ít nhất `totalCells` phần tử (dùng cho bước shuffle).
-         *
-         * [SỬA — phản hồi Giang "1 ô chứa [note,note,...] đều có thể đúng"] Mỗi entry giờ CÓ THÊM
-         * `col`/`row` (chỉ số nguyên trong lưới, KHÔNG chỉ px) — dùng cho findAvailableCell() xác
-         * định ô lân cận/occupancy CHÍNH XÁC bằng chỉ số, không suy ngược từ toạ độ px (tránh sai số
-         * làm tròn). Bucket pitchMin-pitchMax càng rộng (dải pitch quan sát được rộng hơn số ô lưới)
-         * càng CHỨA NHIỀU note khác nhau cùng trỏ 1 ô — ĐÚNG NHƯ THIẾT KẾ, không phải lỗi. */
-        function buildPitchCellMap(pitchRangeMin, pitchRangeMax, cols, rows, zoneOriginXPx, zoneOriginYPx, cfg, randomValues) {
-            const totalCells = cols * rows;
-            const cellCenters = [];
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    cellCenters.push({
-                        col: c, row: r,
-                        cellX: zoneOriginXPx + c * cfg.gridCellSizePx + cfg.gridCellSizePx / 2,
-                        cellY: zoneOriginYPx + r * cfg.gridCellSizePx + cfg.gridCellSizePx / 2,
-                    });
+        // ── Sinh thứ tự duyệt toàn bộ ô lưới (traversal order) ───────────────────────────────
+        // [MỚI — phản hồi Giang, viết lại thuật toán pitch map] 5 hàm THAM SỐ HOÁ (không phải 14
+        // hàm riêng — Rule 1/3a: đây là CÙNG 1 thuật toán mỗi loại, chỉ khác điểm xuất phát/chiều,
+        // không phải nhiều tiến trình khác nhau) phủ hết 14 kiểu Giang liệt kê + vài biến thể đối
+        // xứng tự nhiên đi kèm. Mỗi hàm trả ĐÚNG `cols*rows` phần tử {col,row}, không lặp, không
+        // thiếu ô nào — Workflow tự chọn 1 hàm + tham số (random mỗi lần rebuild, xem
+        // event/workflow/gameplay.js::_rebuildPitchCellMap()) rồi truyền vào buildPitchCellMap().
+
+        /** Theo hàng (row-major) — hàng nào cũng quét CÙNG 1 chiều cột. `startFromBottom`/
+         * `startFromRight` chọn hàng đầu tiên/chiều quét cột — phủ 4 kiểu Giang liệt kê (1-4). */
+        function generateRowMajorOrder(cols, rows, startFromBottom, startFromRight) {
+            const order = [];
+            for (let ri = 0; ri < rows; ri++) {
+                const r = startFromBottom ? (rows - 1 - ri) : ri;
+                for (let ci = 0; ci < cols; ci++) {
+                    const c = startFromRight ? (cols - 1 - ci) : ci;
+                    order.push({ col: c, row: r });
                 }
             }
+            return order;
+        }
+
+        /** Theo cột (column-major) — cột nào cũng quét CÙNG 1 chiều hàng. `startFromRight`/
+         * `startFromBottom` chọn cột đầu tiên/chiều quét hàng — phủ 4 kiểu Giang liệt kê (8-11). */
+        function generateColumnMajorOrder(cols, rows, startFromRight, startFromBottom) {
+            const order = [];
+            for (let ci = 0; ci < cols; ci++) {
+                const c = startFromRight ? (cols - 1 - ci) : ci;
+                for (let ri = 0; ri < rows; ri++) {
+                    const r = startFromBottom ? (rows - 1 - ri) : ri;
+                    order.push({ col: c, row: r });
+                }
+            }
+            return order;
+        }
+
+        /** Rắn bò (boustrophedon) theo hàng — chiều quét cột TỰ ĐẢO mỗi hàng kế tiếp (hàng 1 trái
+         * qua phải, hàng 2 phải qua trái, hàng 3 lại trái qua phải...). `startFromBottom` chọn hàng
+         * đầu tiên, `startFromRight` chọn chiều quét cột CỦA HÀNG ĐẦU (hàng sau tự đảo theo) — phủ
+         * kiểu Giang liệt kê (12-13, cả biến thể "xuất phát từ trên/dưới" lẫn trái/phải). */
+        function generateBoustrophedonRowOrder(cols, rows, startFromBottom, startFromRight) {
+            const order = [];
+            for (let ri = 0; ri < rows; ri++) {
+                const r = startFromBottom ? (rows - 1 - ri) : ri;
+                const reverseThisRow = (ri % 2 === 1) !== startFromRight; // hàng lẻ tự đảo chiều so với hàng đầu
+                for (let ci = 0; ci < cols; ci++) {
+                    const c = reverseThisRow ? (cols - 1 - ci) : ci;
+                    order.push({ col: c, row: r });
+                }
+            }
+            return order;
+        }
+
+        /** Rắn bò (boustrophedon) theo cột — chiều quét hàng TỰ ĐẢO mỗi cột kế tiếp. `startFromRight`
+         * chọn cột đầu tiên — phủ kiểu Giang liệt kê (14). */
+        function generateBoustrophedonColumnOrder(cols, rows, startFromRight) {
+            const order = [];
+            for (let ci = 0; ci < cols; ci++) {
+                const c = startFromRight ? (cols - 1 - ci) : ci;
+                const reverseThisCol = ci % 2 === 1;
+                for (let ri = 0; ri < rows; ri++) {
+                    const r = reverseThisCol ? (rows - 1 - ri) : ri;
+                    order.push({ col: c, row: r });
+                }
+            }
+            return order;
+        }
+
+        /** Xoáy ốc (spiral) quanh tâm lưới — `clockwise` chọn chiều, `outsideIn` chọn xuất phát từ
+         * viền ngoài hay tâm (đảo ngược mảng outside-in để ra inside-out, CÙNG 1 đường đi hình học,
+         * chỉ khác thứ tự đọc) — phủ kiểu Giang liệt kê (5-7) + 1 biến thể đối xứng tự nhiên
+         * (ngược chiều kim đồng hồ, từ trong ra ngoài — Giang không liệt kê riêng nhưng cùng công
+         * thức, không thêm thuật toán mới). */
+        function generateSpiralOrder(cols, rows, clockwise, outsideIn) {
+            const order = [];
+            let top = 0, bottom = rows - 1, left = 0, right = cols - 1;
+            while (top <= bottom && left <= right) {
+                if (clockwise) {
+                    for (let c = left; c <= right; c++) order.push({ col: c, row: top });
+                    for (let r = top + 1; r <= bottom; r++) order.push({ col: right, row: r });
+                    if (top !== bottom) for (let c = right - 1; c >= left; c--) order.push({ col: c, row: bottom });
+                    if (left !== right) for (let r = bottom - 1; r > top; r--) order.push({ col: left, row: r });
+                } else {
+                    for (let r = top; r <= bottom; r++) order.push({ col: left, row: r });
+                    for (let c = left + 1; c <= right; c++) order.push({ col: c, row: bottom });
+                    if (left !== right) for (let r = bottom - 1; r >= top; r--) order.push({ col: right, row: r });
+                    if (top !== bottom) for (let c = right - 1; c > left; c--) order.push({ col: c, row: top });
+                }
+                top++; bottom--; left++; right--;
+            }
+            return outsideIn ? order : order.reverse();
+        }
+
+        // ── Bảng gán pitch→ô ──────────────────────────────────────────────────────────────────
+
+        /**
+         * [SỬA — phản hồi Giang, viết lại thuật toán pitch map] Dải MIDI giờ CỐ ĐỊNH [0-127] (toàn
+         * bộ dải MIDI hợp lệ) — KHÔNG còn theo dõi "dải đã quan sát được" (computePitchRangeUpdate()
+         * ĐÃ XOÁ, cùng 2 field gameplayPitchRangeMin/Max) — bỏ hẳn nhóm code + edge case "dải chưa
+         * đủ rộng"/"chưa detect nốt nào -> map rỗng" của bản trước.
+         *
+         * Thuật toán: (1) phân phối ROUND-ROBIN toàn bộ 128 note vào ĐÚNG `traversalOrder` (1 trong
+         * 5 hàm generate*Order() ở trên, Workflow tự chọn + truyền vào) — note 0 -> traversalOrder[0],
+         * note 1 -> traversalOrder[1], ..., hết ô lại VÒNG LẠI từ traversalOrder[0] (note thứ
+         * totalCells lại rơi vào ô đầu) — CHẤP NHẬN số note/ô không đều nếu 128 không chia hết
+         * totalCells (Giang xác nhận chấp nhận được). (2) SAU ĐÓ shuffle — hoán vị VỊ TRÍ VẬT LÝ mỗi
+         * ô trong traversalOrder (Fisher-Yates), giữ NGUYÊN cụm note đã gán cho ô đó, chỉ đổi ô đó
+         * NẰM Ở ĐÂU trên lưới thật.
+         *
+         * Trả về mảng ĐÚNG 128 phần tử (index = note MIDI, 0-127) — `findCellForPitch()` giờ tra
+         * cứu O(1) bằng index thẳng, không còn tìm kiếm tuyến tính qua pitchMin/pitchMax.
+         * `randomValues` PHẢI do Workflow tự sinh sẵn (Core không tự random) — cần ít nhất
+         * `cols*rows` phần tử (dùng cho bước shuffle).
+         */
+        function buildPitchCellMap(cols, rows, zoneOriginXPx, zoneOriginYPx, cfg, traversalOrder, randomValues) {
+            const totalCells = cols * rows;
+            const cellCenters = traversalOrder.map((cell) => ({
+                col: cell.col, row: cell.row,
+                cellX: zoneOriginXPx + cell.col * cfg.gridCellSizePx + cfg.gridCellSizePx / 2,
+                cellY: zoneOriginYPx + cell.row * cfg.gridCellSizePx + cfg.gridCellSizePx / 2,
+            }));
+
             let rvIndex = 0;
             for (let i = cellCenters.length - 1; i > 0; i--) {
                 const j = Math.floor(randomValues[rvIndex++ % randomValues.length] * (i + 1));
                 const tmp = cellCenters[i]; cellCenters[i] = cellCenters[j]; cellCenters[j] = tmp;
             }
 
-            if (pitchRangeMin == null || pitchRangeMax == null || (pitchRangeMax - pitchRangeMin) < cfg.pitchMinSpanSemitones) {
-                return [];
+            const cellForMidi = new Array(128);
+            for (let midi = 0; midi < 128; midi++) {
+                cellForMidi[midi] = cellCenters[midi % totalCells];
             }
-
-            const pitchSpan = pitchRangeMax - pitchRangeMin + 1;
-            const bucketCount = Math.min(totalCells, pitchSpan); // không thể có nhiều bucket hơn số nốt thật quan sát được
-            const pitchesPerCell = Math.max(1, Math.floor(pitchSpan / bucketCount));
-            const buckets = [];
-            let cursor = pitchRangeMin;
-            for (let i = 0; i < bucketCount; i++) {
-                const isLast = i === bucketCount - 1;
-                // Bucket CUỐI hấp thụ hết phần dư (chấp nhận lệch size so với các bucket khác) —
-                // KHÔNG tạo thêm bucket mới ngoài đúng bucketCount, tránh 1 ô bị 2 dải pitch không
-                // liên quan cùng trỏ tới (do vòng lại i % cellCenters.length).
-                const bucketMax = isLast ? pitchRangeMax : Math.min(pitchRangeMax, cursor + pitchesPerCell - 1);
-                buckets.push({ pitchMin: cursor, pitchMax: bucketMax });
-                cursor = bucketMax + 1;
-            }
-
-            const map = buckets.map((bucket, i) => ({
-                pitchMin: bucket.pitchMin,
-                pitchMax: bucket.pitchMax,
-                col: cellCenters[i % cellCenters.length].col,
-                row: cellCenters[i % cellCenters.length].row,
-                cellX: cellCenters[i % cellCenters.length].cellX,
-                cellY: cellCenters[i % cellCenters.length].cellY,
-            }));
-            // Ô dư (totalCells > số bucket) — KHÔNG lấp đầy bằng cách gán trùng bucket đã có (từng
-            // làm 1 pitch trỏ vào 2 ô, đã bỏ). Cứ để RỖNG — cellCenters đã shuffle trước khi biết số
-            // bucket (đoạn Fisher-Yates phía trên), nên chính bucket nào rơi vào cellCenters[0..N-1]
-            // và ô nào bị bỏ trống (cellCenters[N..cuối]) đã tự phân bố ngẫu nhiên rồi, không cần
-            // random gì thêm ở đây.
-            return map;
+            return cellForMidi;
         }
+
 
         const GAMEPLAY_NEIGHBOR_OFFSETS = Object.freeze([[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]); // 8 hướng la bàn — CHỈ dùng làm điểm xuất phát random, KHÔNG quét tuần tự
 
@@ -212,12 +281,13 @@
 
         /** Tìm ô đã gán cho 1 pitch trong bảng map hiện hành — null nếu map rỗng hoặc pitch chưa
          * detect. */
+        /** [SỬA — viết lại thuật toán pitch map] Tra cứu O(1) bằng index thẳng — `pitchCellMap` giờ
+         * LUÔN đúng 128 phần tử (index = note MIDI), không còn tìm kiếm tuyến tính qua
+         * pitchMin/pitchMax (bucket range ĐÃ XOÁ). `midiNote` ngoài [0,127] hoặc null -> null (Rule
+         * 2: Core không tự biết "chưa detect" nghĩa là gì, chỉ trả null cho input không hợp lệ). */
         function findCellForPitch(pitchCellMap, midiNote) {
-            if (midiNote == null) return null;
-            for (const entry of pitchCellMap) {
-                if (midiNote >= entry.pitchMin && midiNote <= entry.pitchMax) return entry;
-            }
-            return null;
+            if (midiNote == null || midiNote < 0 || midiNote > 127) return null;
+            return pitchCellMap[midiNote] || null;
         }
 
         /** Lệch tâm ngẫu nhiên trong ô, giới hạn (gridCellSizePx - cellJitterMarginPx) quanh tâm ô.
@@ -233,12 +303,8 @@
 
         /** Cập nhật dải pitch quan sát được (min/max) — `midiNote` null (chưa detect) giữ nguyên
          * dải cũ. */
-        function computePitchRangeUpdate(midiNote, currentMin, currentMax) {
-            if (midiNote == null) return { min: currentMin, max: currentMax };
-            const newMin = currentMin == null ? midiNote : Math.min(currentMin, midiNote);
-            const newMax = currentMax == null ? midiNote : Math.max(currentMax, midiNote);
-            return { min: newMin, max: newMax };
-        }
+        // [SỬA — viết lại thuật toán pitch map, phản hồi Giang] computePitchRangeUpdate() ĐÃ XOÁ —
+        // dải MIDI giờ CỐ ĐỊNH [0-127], không còn "dải đã quan sát được" nào cần theo dõi/cập nhật.
 
         // ── Trigger refresh vị trí (section/energy/phrase) ───────────────────────────────────
 
