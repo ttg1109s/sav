@@ -143,20 +143,22 @@ const routerVisualBg = (() => {
                 workflowVisualBg.cancelAlbumPicker();
                 break;
 
-            // Bài hát vừa ĐỔI THẬT — gửi từ core/playlist/actions.js::playSong(). Rẽ theo `type`
-            // (2 nhánh độc lập thật -> VirtualMachineState); `listPlaybackMode`/số lượng item tự
-            // guard bên trong từng hàm nhận (Rule: nơi nhận validate, router chỉ rẽ theo state).
-            // SỬA (16/08/2026, Game Mode Circle v1, Giang chốt "game mode on -> tự mở overlay khi
-            // bài đổi") — thêm nhánh thứ 3, ĐỘC LẬP hoàn toàn với 2 nhánh photo/video ở trên (không
-            // loại trừ nhau — 1 lần đổi bài có thể vừa advance visual bg VỪA tự mở game, đúng ngữ
-            // nghĩa "nhiều rule khớp cùng lúc" của VirtualMachineState, xem docstring file đó).
+            // Bài hát vừa ĐỔI THẬT — gửi từ event/workflow/player.js::playMedia() (CHỈ Song — VBG
+            // photo/video KHÔNG áp dụng lúc Video Player mode, đúng vì VBG lúc đó không hiển thị,
+            // bị video chính che hết). Rẽ theo `type` (2 nhánh độc lập thật -> VirtualMachineState);
+            // `listPlaybackMode`/số lượng item tự guard bên trong từng hàm nhận (Rule: nơi nhận
+            // validate, router chỉ rẽ theo state).
+            // [SỬA — phản hồi Giang "visualBg.songChanged liên quan gì tới video play mode?"] Nhánh
+            // Game Mode (thứ 3, MỚI 16/08/2026) ĐÃ TÁCH RA KHỎI ĐÂY — sự kiện này CHƯA TỪNG có liên
+            // hệ khái niệm nào với Game Mode, chỉ từng bị gắn ké tạm vào đây vì tiện tái dùng công
+            // phát hiện "bài đổi thật" đã có sẵn. Giờ Game Mode có tín hiệu RIÊNG, trung lập, KHÔNG
+            // thuộc domain "visualBg" nữa — xem 'gameplay.mediaChanged' (event/router/gameplay.js),
+            // gửi từ CẢ Song (playMedia()) LẪN Video (workflowVideoPlayer.playVideoByKey()).
             case 'visualBg.songChanged': {
                 const type = appConfigVisualBg.getAll().type;
-                const gameplayModeEnabled = appConfigViz.getAll().gameplayModeEnabled;
                 VirtualMachineState.run([
                     { state: type, operation: '===', value: 'photo', callback: () => workflowSlideshow.advanceForSongChange() },
                     { state: type, operation: '===', value: 'video', callback: () => workflowVisualBg.advanceForSongChange() },
-                    { state: gameplayModeEnabled, operation: '===', value: true, callback: () => workflowGameplay.start('circle') },
                 ]);
                 break;
             }
