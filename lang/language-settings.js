@@ -13,28 +13,39 @@
  */
         /**
          * Dựng lại toàn bộ <option> trong <select> theo danh sách ngôn ngữ hiện có (English +
-         * mọi ngôn ngữ đã upload trong IndexedDB) — gọi lúc mở Settings lần đầu VÀ sau mỗi lần
-         * upload/xóa thành công để danh sách luôn khớp dữ liệu thật.
+         * mọi ngôn ngữ đã upload trong IndexedDB) — gọi lúc mở màn Language (Setting > System)
+         * VÀ sau mỗi lần upload/xóa thành công để danh sách luôn khớp dữ liệu thật.
+         *
+         * SỬA (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
+         * Giang) — `#setting-language-select`/`#setting-language-delete` KHÔNG còn TĨNH (Language
+         * giờ là 1 màn ĐỘNG trong Setting, render mỗi lần mở qua event/workflow/app-settings.js) —
+         * đọc THẲNG qua `genericDrawerBody.querySelector(...)` (core/generic-drawer.js, LUÔN có
+         * sẵn từ boot) thay vì 2 dom-ref tĩnh cũ (đã null hoá). An toàn khi màn Language đang ĐÓNG
+         * (querySelector trả null, guard bỏ qua) — vd lúc upload/xóa xong TỪ 1 phiên trước đó mà
+         * người dùng đã rời màn Language sang màn khác.
          */
         async function renderLanguageOptions() {
-            if (!settingLanguageSelect) return;
+            const selectEl = genericDrawerBody ? genericDrawerBody.querySelector('#setting-language-select') : null;
+            if (!selectEl) return;
             const list = await listAvailableLanguages();
-            settingLanguageSelect.innerHTML = '';
+            selectEl.innerHTML = '';
             for (const lang of list) {
                 const opt = document.createElement('option');
                 opt.value = lang.code;
                 opt.textContent = lang.name;
-                settingLanguageSelect.appendChild(opt);
+                selectEl.appendChild(opt);
             }
-            settingLanguageSelect.value = currentLangCode;
+            selectEl.value = currentLangCode;
             updateLanguageDeleteButtonVisibility();
         }
 
         /** Nút "Xóa ngôn ngữ này" chỉ hiện khi ngôn ngữ ĐANG CHỌN trong <select> khác 'en'. */
         function updateLanguageDeleteButtonVisibility() {
-            if (!settingLanguageSelect || !settingLanguageDelete) return;
-            const selected = settingLanguageSelect.value;
-            settingLanguageDelete.classList.toggle('hidden', selected === 'en');
+            const selectEl = genericDrawerBody ? genericDrawerBody.querySelector('#setting-language-select') : null;
+            const deleteBtnEl = genericDrawerBody ? genericDrawerBody.querySelector('#setting-language-delete') : null;
+            if (!selectEl || !deleteBtnEl) return;
+            const selected = selectEl.value;
+            deleteBtnEl.classList.toggle('hidden', selected === 'en');
         }
 
         /** Core thuần: áp dụng ngôn ngữ vừa chọn trong <select>. */

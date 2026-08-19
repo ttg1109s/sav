@@ -78,7 +78,8 @@ const LANG_EN_KEYS = Object.assign(
     LANG_PATCH_SETTINGS_MISC,
     LANG_PATCH_FILE_MANAGER,
     LANG_PATCH_SUBTITLE_EDITOR,
-    LANG_PATCH_VIDEO_PREVIEW // MỚI — xem lang/patch/patch-video-preview.js
+    LANG_PATCH_VIDEO_PREVIEW, // MỚI — xem lang/patch/patch-video-preview.js
+    LANG_PATCH_APP_PANEL_NAV // MỚI — bottom nav App Panel, xem lang/patch/patch-app-panel-nav.js
 );
 
 /**
