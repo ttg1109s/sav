@@ -236,7 +236,7 @@
     <link rel="stylesheet" href="assets/css/misc.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/slideshow.css?v=20260703v2">
     <!-- Game Mode (Circle mode v1, MỚI 16/08/2026) — xem components/gameplay-overlay.js. -->
-    <link rel="stylesheet" href="assets/css/gameplay.css?v=20260818v1">
+    <link rel="stylesheet" href="assets/css/gameplay.css?v=20260819v1">
 
     <video id="bg-video" loop muted playsinline class="hidden"></video>
     <!-- Từng thử 1 #video-player-thumb-overlay riêng ở đây (đè LÊN video) — BỎ, <video> hardware-
@@ -293,7 +293,7 @@
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
     <script src="lang/patch/patch-common.js?v=20260818v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260728v2"></script>
-    <script src="lang/patch/patch-visualizer.js?v=20260818v1"></script>
+    <script src="lang/patch/patch-visualizer.js?v=20260819v1"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260816v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260816v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
@@ -465,7 +465,7 @@
     <!-- service/state/gameplay-runtime.js — Game Mode (Circle mode v1, MỚI 16/08/2026). PHẢI nạp
          TRƯỚC service/state/record/index.js (registry('player','all') cần package này đã
          definePackage() xong, xem docstring file đó). -->
-    <script src="service/state/gameplay-runtime.js?v=20260818v2"></script>
+    <script src="service/state/gameplay-runtime.js?v=20260819v1"></script>
     <script src="service/state/record/index.js?v=20260725v1"></script>
     <!-- core/config.js — TÁI CẤU TRÚC 25/07/2026: giờ CHỈ giữ 3 bản default (viz/slideshow/
          reader, đã GỘP CHUẨN — xem comment đầu file) + hàm nghiệp vụ thuần (seedConfig/
@@ -625,12 +625,15 @@
     <script src="core/visualizer-control-center.js?v=20260806v1"></script>
     <!-- Core thuần: phân loại toạ độ chạm cho hệ thống cử chỉ (event/workflow/visualizer-gesture.js). -->
     <script src="core/visualizer-gesture.js?v=20260811v4"></script>
-    <!-- core/gameplay/*.js — Game Mode (Circle mode v1, MỚI 16/08/2026). Core thuần (circle-mode.js)
-         + Core-ui (circle-mode-ui.js, Rule 5c) — KHÔNG phụ thuộc file nào khác trong khối core/
-         (mọi tham số do event/workflow/gameplay.js truyền vào), đặt cạnh visualizer-gesture.js cho
-         cùng nhóm "tính năng overlay màn Visualizer". -->
-    <script src="core/gameplay/circle-mode.js?v=20260818v3"></script>
-    <script src="core/gameplay/circle-mode-ui.js?v=20260818v1"></script>
+    <!-- core/gameplay/*.js — Game Mode. engine.js/engine-ui.js DÙNG CHUNG mọi mode (chấm điểm/
+         hit-test/flux/modal-start-end/ring %/sao) — circle-mode.js/circle-mode-ui.js CHỈ RIÊNG mode
+         "Circle" (spawn lưới pitch/vật lý wave/canvas). KHÔNG phụ thuộc file nào khác trong khối
+         core/ (mọi tham số do event/workflow/gameplay*.js truyền vào), đặt cạnh visualizer-
+         gesture.js cho cùng nhóm "tính năng overlay màn Visualizer". -->
+    <script src="core/gameplay/engine.js?v=20260819v1"></script>
+    <script src="core/gameplay/engine-ui.js?v=20260819v1"></script>
+    <script src="core/gameplay/circle-mode.js?v=20260819v1"></script>
+    <script src="core/gameplay/circle-mode-ui.js?v=20260819v1"></script>
     <!-- Icon loa Volume HUD, 5 mốc 0-100% (event/workflow/volume-hud.js). -->
     <script src="core/volume-hud.js?v=20260811v1"></script>
     <!-- MỚI (v13 Batch A) — Core THUẦN domain "Visual Background" (gộp video nền/ảnh nền tĩnh/
@@ -935,10 +938,13 @@
     <script src="event/workflow/video-player.js?v=20260819v1"></script>
     <script src="event/router/video-player.js?v=20260818v1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
-    <!-- Cụm "gameplay" — Game Mode (Circle mode v1, MỚI 16/08/2026). PHẢI nạp TRƯỚC event/router/
-         player-controls.js NGAY DƯỚI ĐÂY — case 'playerControls.audio.ended' ở đó gọi tới
-         workflowGameplay.onSongEnded() khi đang ở Game Mode (xem event/workflow/gameplay.js). -->
-    <script src="event/workflow/gameplay.js?v=20260819v1"></script>
+    <!-- Cụm "gameplay" — Game Mode. gameplay-engine.js (Workflow DÙNG CHUNG mọi mode: cooldown/
+         modal Start-End/lưu điểm) PHẢI nạp TRƯỚC gameplay.js (mode "Circle", gọi vào engine cho
+         mọi phần không đặc thù). Cả cụm PHẢI nạp TRƯỚC event/router/player-controls.js NGAY DƯỚI
+         ĐÂY — case 'playerControls.audio/video.ended' gọi workflowGameplay.onSongEnded() khi đang
+         ở Game Mode. -->
+    <script src="event/workflow/gameplay-engine.js?v=20260819v1"></script>
+    <script src="event/workflow/gameplay.js?v=20260819v2"></script>
     <script src="event/router/gameplay.js?v=20260819v1"></script>
     <script src="event/listener/gameplay.js?v=20260818v1"></script>
     <script src="event/workflow/player-controls.js?v=20260819v1"></script>
