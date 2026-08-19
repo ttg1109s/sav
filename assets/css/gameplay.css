@@ -1,12 +1,11 @@
-/* assets/css/gameplay.css — Game Mode (Circle mode). Circle/wave giờ vẽ bằng canvas (core/gameplay/
- * circle-mode-ui.js) — file này chỉ còn style cho phần THẬT SỰ vẫn là DOM: tier popup nổi, số đếm
- * ngược, và sao kết quả cuối bài (modal, xem event/workflow/gameplay.js::_buildResultBodyHtml()).
+/* assets/css/gameplay.css — Game Mode. Circle/wave vẽ bằng canvas (core/gameplay/circle-mode-ui.js)
+ * — file này chỉ còn style cho phần THẬT SỰ vẫn là DOM: tier popup nổi, số đếm ngược, ring % + sao
+ * kết quả cuối bài (modal, dựng qua core/gameplay/engine-ui.js — DÙNG CHUNG mọi mode).
  */
 
 /* Khung neo cho tier popup (PERFECT/EXCELLENT/...) — đặt NGAY TẠI vị trí note vừa tap/miss (x,y px
- * thật truyền vào showTapTierPopup(), khớp hệ toạ độ canvas). Anchor lo phần ĐỊNH VỊ tĩnh (transform
- * translate -50%/-50%), popup con lo phần ANIMATION riêng (translateY/scale) — tách 2 lớp transform
- * để không đụng nhau. */
+ * thật truyền vào showTapTierPopup(), khớp hệ toạ độ canvas). Anchor lo ĐỊNH VỊ tĩnh (transform
+ * translate -50%/-50%), popup con lo ANIMATION riêng (translateY/scale) — tách 2 lớp transform. */
 .gameplay-tier-popup-anchor {
     position: absolute;
     transform: translate(-50%, -50%);
@@ -34,9 +33,8 @@
 .gameplay-tier-popup--bad       { color: #fb923c; } /* orange-400 */
 .gameplay-tier-popup--miss      { color: #f87171; } /* red-400 */
 
-/* Số đếm ngược 5s trước khi wave đầu tiên spawn — mỗi lần đổi số (event/workflow/gameplay.js::
- * _countdownTick() gán lại textContent), animation restart bằng remove+reflow+add class
- * 'is-pulsing' (xem core/gameplay/circle-mode-ui.js::showGameplayCountdown()). */
+/* Số đếm ngược trước khi wave đầu tiên spawn — mỗi lần đổi số, animation restart bằng
+ * remove+reflow+add class 'is-pulsing' (core/gameplay/engine-ui.js::showGameplayCountdown()). */
 .gameplay-countdown-number {
     font-size: 5.5rem;
     font-weight: 800;
@@ -54,22 +52,49 @@
     100% { opacity: 0; transform: scale(0.9); }
 }
 
+/* Ring % điểm kết quả (core/gameplay/engine-ui.js::buildScoreRingSvg()) — mỗi lap 1 cặp
+ * track+fill, `--ring-circumference`/`--ring-target` (CSS custom property, gán inline per-circle
+ * lúc dựng SVG) là điểm xuất phát (rỗng hoàn toàn)/đích của animation — tự chạy ngay khi DOM chèn
+ * xong, KHÔNG cần JS toggle class. `animation-delay` (gán inline, so le theo lap) tạo cảm giác
+ * "cuốn chiếu" từng vòng thay vì tất cả cùng lúc. */
+.gameplay-score-ring {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+.gameplay-ring-track {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.08);
+}
+.gameplay-ring-fill {
+    fill: none;
+    stroke-linecap: round;
+    animation: gameplayRingFill 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes gameplayRingFill {
+    from { stroke-dashoffset: var(--ring-circumference); }
+    to   { stroke-dashoffset: var(--ring-target); }
+}
+
 /* Sao kết quả cuối bài — placeholder tối mặc định (.gameplay-star), sao đạt được thêm class
- * .gameplay-star--lit và tự "sáng lên" theo animation-delay riêng từng sao (gán inline lúc dựng
- * bodyHtml, event/workflow/gameplay.js::_buildResultBodyHtml()) — tạo cảm giác sáng dần lần lượt mà
- * KHÔNG cần JS tự điều khiển timing, CSS tự chạy stagger qua animation-delay có sẵn. `backwards` giữ
- * trạng thái khung hình 0% (scale 0, ẩn) suốt khoảng animation-delay chờ tới lượt, tránh sao "nhấp
- * nháy" hiện rồi biến mất trước khi animation-delay của nó tới. */
+ * .gameplay-star--lit, tự "sáng lên" theo animation-delay riêng từng sao (gán inline lúc dựng
+ * bodyHtml) — CSS tự chạy stagger, KHÔNG cần JS điều khiển timing. `backwards` giữ khung hình 0%
+ * (scale 0, ẩn) suốt animation-delay chờ tới lượt, tránh "nhấp nháy" hiện rồi biến mất sớm.
+ * [SỬA — item 5, animation rõ ràng hơn] thêm xoay (rotate) + nảy quá đà (overshoot scale 1.45 rồi
+ * hồi 0.92 mới về 1, thay vì chỉ 1 lần overshoot 1.3 cũ) + glow đỉnh sáng hơn hẳn (16px thay 10px)
+ * — sao "bật" rõ ràng hơn thay vì mờ nhạt như trước. */
 .gameplay-star {
     color: rgba(255, 255, 255, 0.15);
     display: inline-block;
 }
 .gameplay-star--lit {
     color: #fde047; /* yellow-300, khớp màu tier "perfect" cho nhất quán */
-    animation: gameplayStarPop 500ms ease-out backwards;
+    animation: gameplayStarPop 650ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
 }
 @keyframes gameplayStarPop {
-    0%   { opacity: 0; transform: scale(0); filter: drop-shadow(0 0 0 rgba(253, 224, 71, 0)); }
-    60%  { opacity: 1; transform: scale(1.3); filter: drop-shadow(0 0 10px rgba(253, 224, 71, 0.8)); }
-    100% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 4px rgba(253, 224, 71, 0.5)); }
+    0%   { opacity: 0; transform: scale(0) rotate(-60deg); filter: drop-shadow(0 0 0 rgba(253, 224, 71, 0)); }
+    55%  { opacity: 1; transform: scale(1.45) rotate(12deg); filter: drop-shadow(0 0 16px rgba(253, 224, 71, 1)); }
+    75%  { transform: scale(0.92) rotate(-6deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 5px rgba(253, 224, 71, 0.6)); }
 }
