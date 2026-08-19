@@ -236,6 +236,13 @@ const workflowPlayer = {
             // ứng là rẽ nhánh theo state -> thuộc tầng Router, xử lý bằng
             // `VirtualMachineState.run()` ở event/router/visual-bg.js.
             if (previousKey !== key) eventBus.send({ router: 'visualBg', type: 'visualBg.songChanged', payload: {} });
+            // [SỬA — phản hồi Giang "visualBg.songChanged liên quan gì tới video play mode?"] Tín
+            // hiệu "media đổi thật" cho Game Mode giờ TÁCH RIÊNG khỏi 'visualBg.songChanged' ở trên
+            // (2 domain không liên quan nhau) — gửi CÙNG lúc, CÙNG điều kiện `previousKey !== key`,
+            // qua router "gameplay" (event/router/gameplay.js). Video (workflowVideoPlayer.
+            // playVideoByKey(), event/workflow/video-player.js) cũng dispatch CÙNG msg.type này ở
+            // đúng điểm tương đương — Game Mode tự mở khi bài đổi giờ hoạt động ĐÚNG cho cả 2 nguồn.
+            if (previousKey !== key) eventBus.send({ router: 'gameplay', type: 'gameplay.mediaChanged', payload: {} });
         }, false).then(async () => {
             // Shield đã đóng HẲN (isShieldBusy = false) tới đây — an toàn để hiện modal, không
             // còn lớp che z-[200] nào đè lên modalChoice() (z-[130]) nữa.

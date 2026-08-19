@@ -2,8 +2,13 @@
  * event/workflow/gameplay.js — Workflow duy nhất điều phối Game Mode (Circle mode). Sở hữu:
  *   - `vizConfig.gameplayModeEnabled` (PERSISTENT, core/config.js) — bật/tắt qua setModeEnabled(),
  *     checkbox "Tự mở Game khi phát nhạc" trong Settings (components/settings/misc.js, section
- *     "GAME MODE"). Bật ON -> mọi lần bài hát đổi thật sau đó tự mở overlay (hook ở event/router/
- *     visual-bg.js case 'visualBg.songChanged');
+ *     "GAME MODE"). Bật ON -> mọi lần media đổi thật sau đó tự mở overlay (hook ở
+ *     `'gameplay.mediaChanged'`, event/router/gameplay.js — [SỬA, phản hồi Giang "visualBg.
+ *     songChanged liên quan gì tới video play mode?"] TRƯỚC ĐÂY gắn ké vào case
+ *     'visualBg.songChanged' (event/router/visual-bg.js, CHỈ Song dispatch được, không liên hệ
+ *     khái niệm nào với Game Mode) — giờ có tín hiệu RIÊNG, trung lập, gửi từ CẢ
+ *     `workflowPlayer.playMedia()` (Song) LẪN `workflowVideoPlayer.playVideoByKey()` (Video), hoạt
+ *     động ĐÚNG cho cả 2 nguồn, KHÔNG còn phụ thuộc domain "visualBg" nữa);
  *   - vòng đời `gameplayPhase` (idle -> ready -> countdown -> playing -> ended, xem
  *     service/state/gameplay-runtime.js docstring) — RIÊNG BIỆT với gameplayModeEnabled ở trên;
  *   - tick() — KHÔNG tự có taskManager RAF riêng, được GỌI TỪ BÊN TRONG event/workflow/
@@ -11,6 +16,18 @@
  *   - task đếm ngược 5s + task animation đếm điểm cuối bài (taskManager, đúng quy ước
  *     readme/task-manager-conventions.md, CẤM setTimeout thô);
  *   - lưu điểm cuối phiên vào record 'songs' (service/db.js, field `gameScores.circle`).
+ *
+ * [SỬA — Game Mode + Video Player mode, phản hồi Giang "áp dụng cho cả hai, dùng chung"] Toàn bộ
+ * chỗ đụng trực tiếp `audioPlayer` (start/_beginPlaying/handleTap/tick/replay/exitToPlaylist) ĐÃ
+ * ĐỔI sang `getActiveMediaElement(isVideoPlayerMode)` (core/player-controls.js — DÙNG CHUNG với
+ * `workflowPlayerControls.goToNextTrack()`/`goToPrevTrack()`, KHÔNG viết thêm hàm riêng cho 2
+ * đường). Router (event/router/player-controls.js) giờ gộp 1 case DÙNG CHUNG cho cả
+ * 'playerControls.audio.ended' lẫn 'playerControls.video.ended' -> `onSongEnded()` (method này)
+ * chạy đúng khi VIDEO hết bài lúc đang chơi Game Mode, không riêng Song nữa. Pitch/BPM/Energy
+ * (đọc bởi tick() qua `currentCalculatedBpm`/`smoothedEnergy`/`lastValidMidiNote`, appState) KHÔNG
+ * cần sửa gì — graph Web Audio của Video (`connectVideoElementToAnalyser()`, core/video-player.js)
+ * đã nối CHUNG `analyser`/`analyserPitch` với Song từ trước (đợt VBG Audio B), tự hoạt động đúng
+ * cho nguồn nào đang thực sự phát.
  *
  * Đúng Rule 3b (core-function-conventions.md): Workflow tự appState.get() TRƯỚC, gọi core/gameplay/
  * circle-mode.js (tính toán thuần) + core/gameplay/circle-mode-ui.js (canvas/DOM) THEO THỨ TỰ tại
@@ -50,8 +67,11 @@ const workflowGameplay = {
     },
 
     /** Ứng với 'gameplay.start.click' — mở layer, vào phase 'ready', hiện modalChoice() hỏi Start
-     * (kèm bộ chọn độ khó). CHƯA spawn wave nào (chờ người dùng bấm Start). Reset audio về 0 + pause
-     * NGAY — chỉ phát nhạc thật trong _beginPlaying() sau khi countdown xong. */
+     * (kèm bộ chọn độ khó). CHƯA spawn wave nào (chờ người dùng bấm Start). Reset audio/video về 0
+     * + pause NGAY — chỉ phát nhạc thật trong _beginPlaying() sau khi countdown xong.
+     * [SỬA — Game Mode + Video Player mode, phản hồi Giang] `getActiveMediaElement(isVideoPlayerMode)`
+     * (core/player-controls.js, DÙNG CHUNG với Next/Prev) thay hardcode `audioPlayer` — Game Mode
+     * giờ hoạt động ĐÚNG khi đang phát Video (bgVideoElement) lẫn Song, không tạo cơ chế riêng. */
     start(mode) {
         this._resetSessionCounters();
         appState.set('gameplayMode', mode, { skipCheck: true });
@@ -59,8 +79,9 @@ const workflowGameplay = {
         appState.set('gameplayPhase', 'ready', { skipCheck: true });
         console.log(`writer: "workflowGameplay.start", page: "gameplayPhase", content: "ready"`);
 
-        audioPlayer.currentTime = 0;
-        audioPlayer.pause();
+        const activeEl = getActiveMediaElement(appState.get('isVideoPlayerMode')); // core/player-controls.js
+        activeEl.currentTime = 0;
+        activeEl.pause();
 
         showCircleGameplayLayer(gameplayLayer); // core-ui
         this._recomputeGridGeometry(); // canvas vừa hiện, clientWidth/Height đọc được rồi
@@ -139,8 +160,11 @@ const workflowGameplay = {
         this._beginPlaying();
     },
 
-    /** Hết đếm ngược -> phát nhạc THẬT (mục cooldown — CHỈ ở đây, không phải lúc vào ready/countdown)
-     * + cho phép tick() bắt đầu spawn wave từ frame kế tiếp. */
+    /** Hết đếm ngược -> phát nhạc/video THẬT (mục cooldown — CHỈ ở đây, không phải lúc vào ready/
+     * countdown) + cho phép tick() bắt đầu spawn wave từ frame kế tiếp.
+     * [SỬA — Game Mode + Video Player mode] `.play()` qua `getActiveMediaElement()` — nhánh video
+     * bọc `.catch()` (autoplay có thể bị chặn), CÙNG khuôn `workflowPlayerControls.goToNextTrack()`
+     * xử lý repeat-mode-2. */
     _beginPlaying() {
         appState.set('gameplayPhase', 'playing', { skipCheck: true });
         console.log(`writer: "workflowGameplay._beginPlaying", page: "gameplayPhase", content: "playing"`);
@@ -150,14 +174,17 @@ const workflowGameplay = {
         this._beatsSinceEligible = 0;
         this._beatsSincePhraseRefresh = 0;
         this._nextSpawnIndex = 0;
-        audioPlayer.play();
+        const isVideoPlayerMode = appState.get('isVideoPlayerMode');
+        const activeEl = getActiveMediaElement(isVideoPlayerMode); // core/player-controls.js
+        if (isVideoPlayerMode) activeEl.play().catch((err) => console.error('[workflowGameplay] bgVideoElement.play() lỗi:', err));
+        else activeEl.play();
     },
 
     /** Ứng với 'gameplay.tap.press' — CHỈ tính điểm khi phase='playing' (guard clause thuần).
      * @param {number} tapX @param {number} tapY — px thật (khớp hệ toạ độ canvas). */
     handleTap(tapX, tapY) {
         if (appState.get('gameplayPhase') !== 'playing') return;
-        if (audioPlayer.paused) return; // tap lúc nhạc pause -> không tính, đồng bộ đúng lý do ở tick()
+        if (getActiveMediaElement(appState.get('isVideoPlayerMode')).paused) return; // tap lúc nhạc/video pause -> không tính, đồng bộ đúng lý do ở tick()
         const now = performance.now();
         const cfg = GAMEPLAY_CIRCLE_CONFIG;
         const { gameplayWaves, gameplayComboStreak, gameplayTotalScore, gameplayCircleCount } = appState.get([
@@ -201,7 +228,7 @@ const workflowGameplay = {
      */
     tick(now) {
         if (appState.get('gameplayPhase') !== 'playing') return;
-        if (audioPlayer.paused) return; // overlay fullscreen khiến pause qua UI app không thể xảy ra lúc đang chơi — audio KHÔNG phát -> chưa/không còn circle nào tiến triển, hết
+        if (getActiveMediaElement(appState.get('isVideoPlayerMode')).paused) return; // overlay fullscreen khiến pause qua UI app không thể xảy ra lúc đang chơi — nhạc/video KHÔNG phát -> chưa/không còn circle nào tiến triển, hết
         const cfg = GAMEPLAY_CIRCLE_CONFIG;
         const {
             gameplayWaves, gameplayCircleCount, gameplayDifficulty, gameplayPitchCellMap,
@@ -370,12 +397,13 @@ const workflowGameplay = {
         this._rebuildPitchCellMap(appState.get('gameplayPitchRangeMin'), appState.get('gameplayPitchRangeMax'));
     },
 
-    /** Ứng với 'playerControls.audio.ended' KHI gameplayPhase !== 'idle'. Modal kết quả: sao thật
-     * (reveal CSS animation) + điểm animation đếm dần lên (thực tế/lý thuyết) + % lệch + breakdown
-     * hitCounts + 3 nút cơ chế cũ (Replay/Next/End — TỰ ĐỘNG thành dropdown vì >2 nút, xem
+    /** Ứng với 'playerControls.audio.ended' HOẶC 'playerControls.video.ended' (DÙNG CHUNG 1 case ở
+     * router, xem event/router/player-controls.js) KHI gameplayPhase !== 'idle'. Modal kết quả: sao
+     * thật (reveal CSS animation) + điểm animation đếm dần lên (thực tế/lý thuyết) + % lệch +
+     * breakdown hitCounts + 3 nút cơ chế cũ (Replay/Next/End — TỰ ĐỘNG thành dropdown vì >2 nút, xem
      * core/modal-choice-ui.js). */
     async onSongEnded() {
-        stopListenClock(); // core — giữ PARITY với workflowPlayerControls.handleSongEnded() thường
+        stopListenClock(); // core — giữ PARITY với workflowPlayerControls.handleMediaEnded() thường
         const { gameplayTotalScore, gameplayCircleCount, gameplayHitCounts } = appState.get([
             'gameplayTotalScore', 'gameplayCircleCount', 'gameplayHitCounts',
         ]);
@@ -480,12 +508,13 @@ const workflowGameplay = {
         await setSongRecord(key, record); // service/db.js
     },
 
-    /** Nút "Chơi lại" — phát lại ĐÚNG bài hiện tại từ đầu, quay về phase 'ready' + hiện lại modal
-     * Start (mọi lượt chơi đều qua Start/countdown, kể cả replay). Reset về 0 + PAUSE (không
+    /** Nút "Chơi lại" — phát lại ĐÚNG bài/video hiện tại từ đầu, quay về phase 'ready' + hiện lại
+     * modal Start (mọi lượt chơi đều qua Start/countdown, kể cả replay). Reset về 0 + PAUSE (không
      * `.play()` ngay — đúng gate cooldown, chỉ phát nhạc thật trong _beginPlaying()). */
     replay() {
-        audioPlayer.currentTime = 0;
-        audioPlayer.pause();
+        const activeEl = getActiveMediaElement(appState.get('isVideoPlayerMode')); // core/player-controls.js
+        activeEl.currentTime = 0;
+        activeEl.pause();
         this._resetSessionCounters();
         appState.set('gameplayPhase', 'ready', { skipCheck: true });
         console.log(`writer: "workflowGameplay.replay", page: "gameplayPhase", content: "ready"`);
@@ -495,9 +524,10 @@ const workflowGameplay = {
     /** Nút "Bài tiếp theo" — `workflowPlayerControls.goToNextTrack(true)` (Workflow gọi Workflow
      * khác miền, tự do — event-bus-flow.md mục 3a; [SỬA — plan-playmedia-reorg.md] thay
      * `playNext(true)` cũ, core/player-controls.js, ĐÃ XOÁ) TỰ wrap về đầu playlist nếu đang ở bài
-     * cuối. KHÔNG tự mở lại modal ready: hook TỰ ĐỘNG ở event/router/visual-bg.js case
-     * 'visualBg.songChanged' đã lo việc đó. CHỈ fallback gọi start() thủ công cho ĐÚNG 1 trường hợp:
-     * playlist chỉ có 1 bài -> goToNextTrack(true) trả về NGUYÊN key cũ -> không bắn songChanged. */
+     * cuối. KHÔNG tự mở lại modal ready: hook TỰ ĐỘNG ở event/router/gameplay.js case
+     * 'gameplay.mediaChanged' đã lo việc đó (thay case 'visualBg.songChanged' cũ — xem docstring
+     * đầu file). CHỈ fallback gọi start() thủ công cho ĐÚNG 1 trường hợp: playlist chỉ có 1 bài ->
+     * goToNextTrack(true) trả về NGUYÊN key cũ -> không bắn 'gameplay.mediaChanged'. */
     nextSong() {
         const previousKey = appState.get('currentKey');
         workflowPlayerControls.goToNextTrack(true); // event/workflow/player-controls.js
@@ -505,14 +535,15 @@ const workflowGameplay = {
     },
 
     /** Ứng với 'gameplay.exit.click' (nút X cố định) HOẶC nút "Cancel"/"Về Playlist" trong
-     * modalChoice() — thoát hẳn Game Mode, tự pause nhạc, tái dùng luồng "Back to Playlist" có sẵn. */
+     * modalChoice() — thoát hẳn Game Mode, tự pause nhạc/video, tái dùng luồng "Back to Playlist"
+     * có sẵn. */
     exitToPlaylist() {
         appState.set('gameplayPhase', 'idle', { skipCheck: true });
         console.log(`writer: "workflowGameplay.exitToPlaylist", page: "gameplayPhase", content: "idle"`);
         taskManager.kill(GAMEPLAY_COUNTDOWN_TASK);
         taskManager.kill(GAMEPLAY_SCORE_COUNTUP_TASK);
 
-        audioPlayer.pause();
+        getActiveMediaElement(appState.get('isVideoPlayerMode')).pause(); // core/player-controls.js
 
         hideGameplayCountdown(gameplayCountdownScreen); // core-ui
         hideCircleGameplayLayer(gameplayLayer); // core-ui
