@@ -39,14 +39,13 @@
                 gameplayCircleCount: 'number',                // số vòng đã resolve (tap hợp lệ HOẶC miss)
                 gameplayHitCounts: 'any',                     // {perfect,excellent,good,bad,miss} — số lần mỗi loại
                 gameplayCountdownValue: 'number',
-                // Dải MIDI thấp nhất/cao nhất QUAN SÁT ĐƯỢC trong chính phiên chơi này (không phải
-                // hằng số cố định) — input cho lưới pitch→ô, xem circle-mode.js::
-                // computeSpawnPositionCell()/computePitchRangeUpdate(). null = chưa detect nốt nào.
-                gameplayPitchRangeMin: 'nullable-number',
-                gameplayPitchRangeMax: 'nullable-number',
-                // Bảng gán bucket-pitch → ô lưới hiện hành: mảng {pitchMin, pitchMax, cellX, cellY}
-                // (cellX/cellY là tâm ô, px thật) — xáo lại mỗi khi refresh (xem
-                // gameplayPositionRefreshPending ở trên).
+                // [SỬA — viết lại thuật toán pitch map, phản hồi Giang "dải MIDI cố định [0-127]"]
+                // gameplayPitchRangeMin/Max ĐÃ XOÁ — dải MIDI giờ CỐ ĐỊNH, không còn "dải quan sát
+                // được trong phiên" nào cần theo dõi (computePitchRangeUpdate() ĐÃ XOÁ, circle-mode.js).
+                // Bảng gán MIDI (0-127) → ô lưới hiện hành: mảng ĐÚNG 128 phần tử, index = note MIDI,
+                // value = {col, row, cellX, cellY} (cellX/cellY là tâm ô, px thật) — round-robin +
+                // shuffle qua buildPitchCellMap() (circle-mode.js), xáo lại mỗi khi refresh (xem
+                // gameplayRefreshPending ở dưới).
                 gameplayPitchCellMap: 'array',
                 gameplayRefreshPending: 'boolean',
             },
@@ -61,8 +60,6 @@
                     gameplayCircleCount: 0,
                     gameplayHitCounts: { perfect: 0, excellent: 0, good: 0, bad: 0, miss: 0 },
                     gameplayCountdownValue: GAMEPLAY_COUNTDOWN_SECONDS,
-                    gameplayPitchRangeMin: null,
-                    gameplayPitchRangeMax: null,
                     gameplayPitchCellMap: [],
                     gameplayRefreshPending: false,
                 };
@@ -93,7 +90,6 @@
             maxShrinkDurationMs: 5000,  // ms — chặn trên, ÁP SAU khi nhân multiplier
             spawnProbabilityMin: 0.35,  // xác suất spawn lúc smoothedEnergy = 0 (nhạc êm -> vẫn còn note, chỉ thưa hơn)
             spawnProbabilityMax: 1.0,   // xác suất spawn lúc smoothedEnergy = 1 (nhạc mạnh -> gần như luôn spawn)
-            pitchMinSpanSemitones: 5,   // dải pitch quan sát được PHẢI rộng >= ngưỡng này mới bucket-hoá theo lưới
             spawnZone: Object.freeze({  // % layer — vùng khả dụng để tính lưới ô (đổi ra px thật lúc runtime)
                 xMinPercent: 15, xMaxPercent: 85,
                 yMinPercent: 25, yMaxPercent: 82,
