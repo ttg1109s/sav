@@ -99,13 +99,16 @@
             tapHitTolerancePx: 70,       // px — dung sai vị trí lúc chấm tap trúng note nào (toạ độ giờ là px thật, canvas — không còn % như bản DOM cũ)
             // maxRatio giờ áp cho tỉ lệ khoảng cách CHUẨN HOÁ THEO TỪNG PHÍA (bấm sớm chia gapOuter,
             // bấm trễ chia gapInner) — xem classifyTapTier() trong core/gameplay/engine.js.
+            // [SỬA — phản hồi Giang, bảng điểm mới] Perfect 5, Excellent 3, Good 1, Bad 0, Miss -2
+            // (MỚI — Miss giờ TRỪ điểm, trước đây luôn 0 dù tap trật hay wave tự hết hạn).
             tiers: Object.freeze([
-                Object.freeze({ name: 'perfect',   maxRatio: 0.15, score: 4 }),
+                Object.freeze({ name: 'perfect',   maxRatio: 0.15, score: 5 }),
                 Object.freeze({ name: 'excellent', maxRatio: 0.40, score: 3 }),
-                Object.freeze({ name: 'good',      maxRatio: 0.70, score: 2 }),
-                Object.freeze({ name: 'bad',       maxRatio: 1.00, score: 1 }),
-                // ratio > 1.00 -> miss, score 0 (không nằm trong bảng, classifyTapTier() trả null)
+                Object.freeze({ name: 'good',      maxRatio: 0.70, score: 1 }),
+                Object.freeze({ name: 'bad',       maxRatio: 1.00, score: 0 }),
+                // ratio > 1.00 -> miss, dùng missScore ngay dưới (không nằm trong bảng — classifyTapTier() trả null, KHÁC lý do miss = tự hết hạn không qua classifyTapTier() luôn, xem event/workflow/gameplay.js)
             ]),
+            missScore: -2, // [MỚI] áp cho CẢ 2 nguồn miss: tap trật (ratio>1, event/workflow/gameplay.js::handleTap()) LẪN wave tự hết hạn (tick()::missedEntries)
             // [SỬA — phản hồi Giang, combo theo từng tier riêng, xem computeComboScoreGain() +
             // docstring event/workflow/gameplay.js::handleTap()] Thứ tự mảng này LÀ bảng xếp hạng
             // (best -> worst) — 1 tier T tăng combo CHÍNH NÓ, RESET combo tier ĐỨNG TRƯỚC nó trong
