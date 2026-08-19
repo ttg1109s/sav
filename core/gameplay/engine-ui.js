@@ -76,7 +76,7 @@ function buildScoreRingSvg(laps, palette) {
  * chính to + thực/tổng nhỏ, cả 2 do Workflow tự chạy count-up sau khi mở modal qua
  * renderScoreCountupFrame()) chồng GIỮA vòng tròn, sao + breakdown tier bên dưới. KHÔNG có tiêu đề
  * (phản hồi Giang — nội dung tự thân đã rõ ngữ nghĩa). */
-function buildResultBodyHtml({ ringSvg, starMax, starRating, hitCounts, tierOrder, tierLabels, title, durationLabel, difficultyLabel, playCountLabel }) {
+function buildResultBodyHtml({ ringSvg, starMax, starRating, hitCounts, tierOrder, tierLabels, title, durationLabel, difficultyLabel, playCount }) {
     const stars = Array.from({ length: starMax }, (_, i) => {
         const lit = i < starRating;
         return `<span class="gameplay-star${lit ? ' gameplay-star--lit' : ''}" style="animation-delay:${i * 180}ms">★</span>`;
@@ -93,7 +93,7 @@ function buildResultBodyHtml({ ringSvg, starMax, starRating, hitCounts, tierOrde
         <div class="flex flex-col items-center gap-3">
             <div class="w-full text-center">
                 <div class="text-sm font-semibold text-white truncate px-2">${title}</div>
-                <div class="text-xs text-slate-400 mt-0.5">${durationLabel} · ${difficultyLabel} · ${playCountLabel}</div>
+                <div class="text-xs text-slate-400 mt-0.5">${durationLabel} · ${difficultyLabel} · ${playCount}</div>
             </div>
             <div class="relative w-[120px] h-[120px]">
                 ${ringSvg}

@@ -26,13 +26,14 @@
         }
 
         /** Quy đổi BPM hiện tại thành thời gian co (ms) cho 1 wave = đúng beatsPerWave nhịp theo
-         * tempo đó, clamp trong [minShrinkDurationMs, maxShrinkDurationMs]. BPM không hợp lệ ->
-         * fallback cố định. */
-        function computeShrinkDurationMs(bpmString, cfg) {
+         * tempo đó, nhân `difficultyMultiplier` (Easy chậm hơn, Hard gốc), clamp trong
+         * [minShrinkDurationMs, maxShrinkDurationMs] SAU KHI nhân. BPM không hợp lệ -> fallback cố
+         * định, CŨNG bị nhân multiplier (nhất quán giữa mọi độ khó dù có/không xác định được BPM). */
+        function computeShrinkDurationMs(bpmString, cfg, difficultyMultiplier) {
             const bpm = parseFloat(bpmString);
-            if (!Number.isFinite(bpm) || bpm <= 0) return cfg.fallbackShrinkDurationMs;
-            const raw = (60000 / bpm) * cfg.beatsPerWave;
-            return Math.min(cfg.maxShrinkDurationMs, Math.max(cfg.minShrinkDurationMs, raw));
+            const raw = (!Number.isFinite(bpm) || bpm <= 0) ? cfg.fallbackShrinkDurationMs : (60000 / bpm) * cfg.beatsPerWave;
+            const adjusted = raw * difficultyMultiplier;
+            return Math.min(cfg.maxShrinkDurationMs, Math.max(cfg.minShrinkDurationMs, adjusted));
         }
 
         // ── Vị trí spawn: lưới pitch→ô ────────────────────────────────────────────────────────
@@ -52,13 +53,20 @@
          * tự phân bố ngẫu nhiên nhờ cellCenters shuffle TRƯỚC khi biết số nhóm. Dải chưa đủ rộng
          * (< pitchMinSpanSemitones) hoặc chưa detect nốt nào -> trả mảng rỗng (Workflow tự fallback
          * về giữa spawnZone khi map rỗng). `randomValues` PHẢI do Workflow tự sinh sẵn (Core không tự
-         * random) — cần ít nhất `totalCells` phần tử (dùng cho bước shuffle). */
+         * random) — cần ít nhất `totalCells` phần tử (dùng cho bước shuffle).
+         *
+         * [SỬA — phản hồi Giang "1 ô chứa [note,note,...] đều có thể đúng"] Mỗi entry giờ CÓ THÊM
+         * `col`/`row` (chỉ số nguyên trong lưới, KHÔNG chỉ px) — dùng cho findAvailableCell() xác
+         * định ô lân cận/occupancy CHÍNH XÁC bằng chỉ số, không suy ngược từ toạ độ px (tránh sai số
+         * làm tròn). Bucket pitchMin-pitchMax càng rộng (dải pitch quan sát được rộng hơn số ô lưới)
+         * càng CHỨA NHIỀU note khác nhau cùng trỏ 1 ô — ĐÚNG NHƯ THIẾT KẾ, không phải lỗi. */
         function buildPitchCellMap(pitchRangeMin, pitchRangeMax, cols, rows, zoneOriginXPx, zoneOriginYPx, cfg, randomValues) {
             const totalCells = cols * rows;
             const cellCenters = [];
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     cellCenters.push({
+                        col: c, row: r,
                         cellX: zoneOriginXPx + c * cfg.gridCellSizePx + cfg.gridCellSizePx / 2,
                         cellY: zoneOriginYPx + r * cfg.gridCellSizePx + cfg.gridCellSizePx / 2,
                     });
@@ -92,6 +100,8 @@
             const map = buckets.map((bucket, i) => ({
                 pitchMin: bucket.pitchMin,
                 pitchMax: bucket.pitchMax,
+                col: cellCenters[i % cellCenters.length].col,
+                row: cellCenters[i % cellCenters.length].row,
                 cellX: cellCenters[i % cellCenters.length].cellX,
                 cellY: cellCenters[i % cellCenters.length].cellY,
             }));
@@ -99,8 +109,69 @@
             // làm 1 pitch trỏ vào 2 ô, đã bỏ). Cứ để RỖNG — cellCenters đã shuffle trước khi biết số
             // bucket (đoạn Fisher-Yates phía trên), nên chính bucket nào rơi vào cellCenters[0..N-1]
             // và ô nào bị bỏ trống (cellCenters[N..cuối]) đã tự phân bố ngẫu nhiên rồi, không cần
-            // random gì thêm ở đây.
+            // random gì thêm ở đây. Ô RỖNG này chính là "ô không có note nào" dùng làm fallback cuối
+            // ở findAvailableCell() ngay dưới, xem listUnusedGridCells().
             return map;
+        }
+
+        /** Toàn bộ ô lưới KHÔNG được gán bucket pitch nào (phần dư của buildPitchCellMap() khi dải
+         * pitch hẹp hơn lưới) — dùng làm fallback CUỐI ở findAvailableCell() khi target cell VÀ cả
+         * 8 ô lân cận đều đang có wave. */
+        function listUnusedGridCells(cols, rows, cfg, zoneOriginXPx, zoneOriginYPx, pitchCellMap) {
+            const usedKeys = new Set(pitchCellMap.map((entry) => `${entry.col},${entry.row}`));
+            const unused = [];
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (usedKeys.has(`${c},${r}`)) continue;
+                    unused.push({
+                        col: c, row: r,
+                        cellX: zoneOriginXPx + c * cfg.gridCellSizePx + cfg.gridCellSizePx / 2,
+                        cellY: zoneOriginYPx + r * cfg.gridCellSizePx + cfg.gridCellSizePx / 2,
+                    });
+                }
+            }
+            return unused;
+        }
+
+        /**
+         * [MỚI — phản hồi Giang "cell đã có wave -> không cho spawn cùng ô, kể cả khác note; thử 8
+         * ô lân cận, ô nào trống chèn ngay; 8 ô không còn -> ưu tiên ô rỗng-bucket; không còn -> bỏ"]
+         * Thay HẲN cơ chế cũ isPositionTooClose() (đo khoảng cách px, có thể lọt nếu jitter xui rơi
+         * xa nhau trong CÙNG 1 ô — xem thảo luận trước) bằng occupancy CHÍNH XÁC theo chỉ số ô
+         * (col,row), không còn phụ thuộc jitter/khoảng cách.
+         *
+         * Thứ tự thử: (1) targetCell — nếu TRỐNG dùng luôn; (2) 8 ô Moore neighborhood quanh
+         * targetCell (ngoài biên lưới -> bỏ qua, KHÔNG tính là "trống"), ô TRỐNG đầu tiên tìm được
+         * -> dùng NGAY, dừng tìm; (3) hết 8 ô mà không có ô nào trống -> fallback `unusedCells` (ô
+         * không gán bucket pitch nào), ô TRỐNG đầu tiên -> dùng; (4) không còn lựa chọn nào -> null
+         * (Workflow bỏ lượt spawn, chờ beat kế).
+         * @param {{col:number,row:number,cellX:number,cellY:number}} targetCell
+         * @param {Array} unusedCells - xem listUnusedGridCells()
+         * @param {Set<string>} occupiedCellKeys - `"${col},${row}"` của MỌI wave đang sống
+         * @returns {{col:number,row:number,cellX:number,cellY:number}|null}
+         */
+        function findAvailableCell(targetCell, cols, rows, cfg, zoneOriginXPx, zoneOriginYPx, unusedCells, occupiedCellKeys) {
+            const isFree = (col, row) => !occupiedCellKeys.has(`${col},${row}`);
+            if (isFree(targetCell.col, targetCell.row)) return targetCell;
+
+            const neighborOffsets = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
+            for (const [dc, dr] of neighborOffsets) {
+                const col = targetCell.col + dc, row = targetCell.row + dr;
+                if (col < 0 || col >= cols || row < 0 || row >= rows) continue; // ngoài biên lưới -> bỏ qua, KHÔNG tính là trống
+                if (isFree(col, row)) {
+                    return {
+                        col, row,
+                        cellX: zoneOriginXPx + col * cfg.gridCellSizePx + cfg.gridCellSizePx / 2,
+                        cellY: zoneOriginYPx + row * cfg.gridCellSizePx + cfg.gridCellSizePx / 2,
+                    };
+                }
+            }
+
+            for (const cell of unusedCells) {
+                if (isFree(cell.col, cell.row)) return cell;
+            }
+
+            return null;
         }
 
         /** Tìm ô đã gán cho 1 pitch trong bảng map hiện hành — null nếu map rỗng hoặc pitch chưa
@@ -120,16 +191,9 @@
             return { x: cellX + (randomX01 - 0.5) * usable, y: cellY + (randomY01 - 0.5) * usable };
         }
 
-        /** true nếu (x,y) quá gần 1 vị trí đang sống trong activePositions (< minSpawnDistancePx) —
-         * Workflow gọi TRƯỚC khi chấp nhận spawn, bỏ lượt (chờ beat kế) nếu true — chặn đè hình dù
-         * lưới đã tách theo pitch (ô liền kề vẫn có thể đè, cùng pitch lặp lại càng chắc chắn đè). */
-        function isPositionTooClose(x, y, activePositions, minSpawnDistancePx) {
-            for (const pos of activePositions) {
-                const dx = pos.x - x, dy = pos.y - y;
-                if (Math.sqrt(dx * dx + dy * dy) < minSpawnDistancePx) return true;
-            }
-            return false;
-        }
+        // [SỬA — phản hồi Giang] isPositionTooClose() ĐÃ XOÁ (đo khoảng cách px, có thể lọt nếu
+        // jitter xui rơi xa nhau ngay trong CÙNG 1 ô — xem thảo luận) — thay HẲN bằng
+        // findAvailableCell() ở trên (occupancy chính xác theo chỉ số ô col/row).
 
         /** Cập nhật dải pitch quan sát được (min/max) — `midiNote` null (chưa detect) giữ nguyên
          * dải cũ. */
