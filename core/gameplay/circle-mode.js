@@ -174,6 +174,39 @@
             return null;
         }
 
+        /** Trần số wave cùng lúc — cfg có khoảng (`minConcurrentWaves`/`maxConcurrentWaves` khác
+         * nhau, vd Medium 2-5) thì ROLL NGẪU NHIÊN trong khoảng đó MỖI LẦN gọi (mật độ dao động
+         * thay vì cố định 1 số) — cfg chỉ có 1 số cố định (Easy=1, Hard=Infinity, hoặc
+         * min===max) thì trả thẳng `maxConcurrentWaves`. `random01` PHẢI do Workflow tự
+         * Math.random() rồi truyền vào (Core không tự random). */
+        function computeConcurrentWaveCap(diffCfg, random01) {
+            const hasRange = diffCfg.minConcurrentWaves != null && diffCfg.minConcurrentWaves !== diffCfg.maxConcurrentWaves;
+            if (!hasRange) return diffCfg.maxConcurrentWaves;
+            const span = diffCfg.maxConcurrentWaves - diffCfg.minConcurrentWaves + 1;
+            return diffCfg.minConcurrentWaves + Math.floor(random01 * span);
+        }
+
+        /**
+         * [MỚI — phản hồi Giang, cơ chế "sinh sản" riêng Hard] Chuỗi pitch cho 1 sự kiện spawn cấp
+         * `chainLevel` (2..8) — phần tử 0 LUÔN là `basePitch` (note gốc thật, không đổi); phần tử i
+         * (i>=1) = phần tử (i-1) + (i+1) bán cung ("quãng (i+1)": quãng 2 cho bản sao đầu, quãng 3
+         * cho bản sao kế TÍNH TỪ bản sao trước đó — KHÔNG phải từ gốc — đúng chuỗi Giang mô tả).
+         * Clamp mỗi bước vào [pitchMin, pitchMax] (dải pitch quan sát được) — tránh note vọt ra
+         * ngoài dải, không map được ô nào.
+         * @param {number} chainLevel - 1 = không sinh sản (chỉ [basePitch]), 2..8 = số phần tử trả về
+         * @returns {number[]} length === chainLevel (hoặc 1 nếu chainLevel<=1)
+         */
+        function computeChainedPitches(basePitch, chainLevel, pitchMin, pitchMax) {
+            const pitches = [basePitch];
+            let current = basePitch;
+            for (let i = 1; i < chainLevel; i++) {
+                current = current + (i + 1); // "quãng (i+1)" TÍNH TỪ phần tử vừa thêm, không phải từ gốc
+                current = Math.min(pitchMax, Math.max(pitchMin, current));
+                pitches.push(current);
+            }
+            return pitches;
+        }
+
         /** Tìm ô đã gán cho 1 pitch trong bảng map hiện hành — null nếu map rỗng hoặc pitch chưa
          * detect. */
         function findCellForPitch(pitchCellMap, midiNote) {
