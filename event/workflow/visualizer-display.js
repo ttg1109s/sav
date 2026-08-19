@@ -22,9 +22,12 @@
  */
 const workflowVisualizerDisplay = {
 
-    /** Push panel "Display" (components/settings/visualizer-display-panel.js) + đồng bộ 5 toggle. */
+    /** Đồng bộ 5 toggle panel "Display" (components/settings/visualizer-display-panel.js). SỬA
+     * (đợt migrate Visualizer Screen, phản hồi Giang "làm nốt visualizer") — KHÔNG còn
+     * `pushSettingsPanel()`, bodyHtml do event/workflow/app-settings.js cung cấp SẴN qua
+     * `navigateTo()` — chỉ còn đồng bộ giá trị vào `genericDrawerBody`. */
     openDisplayPanel() {
-        const panelEl = pushSettingsPanel({ title: t('visualizerDisplayPanel.title'), bodyHtml: renderVisualizerDisplayPanelBody() });
+        const panelEl = genericDrawerBody;
         const cfg = appConfigViz.getAll();
         panelEl.querySelector('#setting-visual-enable').checked = cfg.visualEnabled !== false;
         panelEl.querySelector('#setting-stats-panel-enable').checked = appConfigPlayer.getAll().isStatsPanelVisible !== false;
@@ -37,8 +40,11 @@ const workflowVisualizerDisplay = {
      * Effect" (MỚI 12/08/2026, mục 4f — tách từ card "Auto-switch effect" cũ trong panel
      * "Customize Visualizer") + đồng bộ mọi input (thay `initAutoSwitchVisualUI()` cũ — xem
      * core/auto-switch-visual.js). */
+    /** Đồng bộ mọi input panel "Auto-Switch Effect" (thay `initAutoSwitchVisualUI()` cũ — xem
+     * core/auto-switch-visual.js). SỬA (đợt migrate Visualizer Screen) — KHÔNG còn
+     * `pushSettingsPanel()`, cùng khuôn openDisplayPanel() ngay trên. */
     openAutoSwitchPanel() {
-        const panelEl = pushSettingsPanel({ title: t('visualizerAutoSwitchDrawer.title'), bodyHtml: renderVisualizerAutoSwitchPanelBody() });
+        const panelEl = genericDrawerBody;
         const cfg = appConfigViz.getAll();
 
         const elEnable = panelEl.querySelector('#setting-auto-switch-enable');

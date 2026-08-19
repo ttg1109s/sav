@@ -51,7 +51,7 @@
  *      lưới ảnh (nặng — nhiều object URL) KHÔNG được tải song song lúc panel còn đang trượt vào,
  *      phải tải SAU KHI đã vào hẳn, che bằng shield, chỉ tắt khi xong.
  */
-let fileManagerPhotoPanelEl = null; // panel Photo đang mở — null nếu đang đóng (Batch D6)
+let fileManagerPhotoPanelEl = null; // SỬA (đợt tái cấu trúc bottom nav App Panel) — giờ luôn trỏ `settingsStackPanelMain` TĨNH (components/photo-panel.js) SAU lần openPanel() đầu tiên, KHÔNG còn null lúc đóng nữa (panel Photo không bị .remove() khi đóng, chỉ ẩn qua #photo-panel.hidden) — dùng photoPanel.classList.contains('hidden') để biết đang mở/đóng, xem các guard bên dưới.
 let albumListPanelEl = null; // MỚI (Giai đoạn 3b) — Album List sub-panel đang mở — null nếu đang đóng, cùng pattern fileManagerPhotoPanelEl
 let _imagePickerSession = null; // MỚI (Giai đoạn 4) — session picker ảnh Generic Drawer đang mở (null = đang đóng). Handle của UI, KHÔNG phải state nghiệp vụ ảnh hưởng rẽ nhánh Router — cùng loại với 2 biến panel ngay trên, xem docstring openAlbumImagePicker()/openCoverImagePicker() (17/07/2026: từng xoá multiSelectAlbum, 18/07/2026: RESTORE lại, xem lịch sử ở đó)
 
@@ -92,26 +92,38 @@ const workflowFileManagerPhoto = {
     getActiveModalAlbumId() { return this._activeAlbumId; },
 
     /** Ứng với 'fileManagerPhoto.openPanel.click'. `fullBleed: true` — masonry/story slider vốn
-     * thiết kế tràn viền (edge-to-edge), KHÔNG dùng khung "max-w-2xl mx-auto" mặc định của mọi
-     * panel khác (xem core/settings-panel-stack.js::pushSettingsPanel(), Batch D6).
-     * SỬA (14/07/2026, Giang chỉnh lại thứ tự) — ĐÚNG trình tự: trượt xong HẲN (chờ THẬT
-     * `SLIDER_PANEL_SCROLL_ESTIMATED_MS`, core/slider-panel-scroll.js — taskManager, Rule 3 CHỈ
-     * Workflow được dùng, cùng khuôn `workflowSettingsStackNav.back()`) -> RỒI MỚI bật shield -> tải
-     * DOM lưới ảnh -> tắt shield. Bản trước bật shield + đo DOM NGAY SAU `pushSettingsPanel()` —
-     * lúc đó panel CHỈ VỪA bắt đầu trượt vào, `scrollEl.clientWidth`/`clientHeight` đo lúc này KHÔNG
-     * đáng tin (panel chưa vào đúng vị trí cuối) — nghi vấn nguyên nhân góp phần gây bug windowing
-     * (chỉ hoạt động đúng SAU khi có 1 `refresh()` khác chạy lúc panel đã ổn định, vd sau khi xoá
-     * ảnh ở chế độ xoá nhanh). */
+     * thiết kế tràn viền (edge-to-edge), KHÔNG dùng khung "max-w-2xl mx-auto" mặc định.
+     *
+     * SỬA (đợt tái cấu trúc bottom nav App Panel, phản hồi Giang — "Photo là khung full-screen
+     * riêng, ngang hàng Setting") — Photo KHÔNG còn là panel con PUSH vào `#drawer-settings` cũ
+     * (đã xoá hẳn) — giờ là Main (đáy ngăn xếp) của khung `#photo-panel` riêng (components/
+     * photo-panel.js). `pushSettingsPanel()` (tạo panel MỚI, đẩy chồng lên) đổi thành ghi THẲNG
+     * vào `settingsStackPanelMain` TĨNH có sẵn (dom-refs.js) — panel này KHÔNG BAO GIỜ bị pop
+     * (đáy ngăn xếp, đúng bản chất Main, xem core/settings-panel-stack-ui.js). Header dựng THỦ
+     * CÔNG (không qua `_buildPanelInnerHtml()`, hàm đó LUÔN kèm nút Back — sai ngữ nghĩa cho Main,
+     * Main phải đóng HẲN Photo, không phải lùi 1 cấp) — nút Close (`#btn-photo-panel-close`) đứng
+     * CHUNG khối `absolute right-4` với `headerActionHtml` (upload/xoá nhanh), đúng khuôn layout
+     * `_buildPanelInnerHtml()` (chỉ khác nội dung).
+     *
+     * XOÁ (cùng đợt) — bước chờ `taskManager.once(..., SLIDER_PANEL_SCROLL_ESTIMATED_MS, ...)`
+     * trước khi tải ảnh: bước đó tồn tại để đợi ANIMATION TRƯỢT của `pushSettingsPanel()` chạy
+     * xong trước khi đo `clientWidth/clientHeight` cho windowing — Main giờ KHÔNG trượt vào (ghi
+     * `innerHTML` tức thời, `#photo-panel` chỉ toggle `.hidden`, không có transition trượt), nên
+     * bước chờ không còn ý nghĩa, bỏ hẳn.
+     */
     async openPanel() {
-        fileManagerPhotoPanelEl = pushSettingsPanel({
-            title: t('fileManager.photo.title'),
-            bodyHtml: renderFileManagerPhotoPanelBody(),
-            fullBleed: true,
-            headerActionHtml: this._buildHeaderActionHtml(),
-        });
+        settingsStackPanelMain.innerHTML = `
+            <div class="relative flex items-center justify-center px-14 py-3 sm:px-16 h-14 shrink-0">
+                <h2 class="text-base sm:text-lg font-semibold text-white truncate text-center">${t('fileManager.photo.title')}</h2>
+                <div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 shrink-0">
+                    ${this._buildHeaderActionHtml()}
+                    <button id="btn-photo-panel-close" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-rose-500 transition-colors text-white shrink-0"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                </div>
+            </div>
+            <div class="flex-grow overflow-y-auto flex flex-col">${renderFileManagerPhotoPanelBody()}</div>
+        `;
+        fileManagerPhotoPanelEl = settingsStackPanelMain;
         wirePhotoPanelHeaderActions(fileManagerPhotoPanelEl); // core/file-manager/photo-ui.js
-
-        await new Promise((resolve) => taskManager.once(resolve, SLIDER_PANEL_SCROLL_ESTIMATED_MS, 'fileManagerPhotoOpenPanel')); // core/slider-panel-scroll.js — đợi trượt xong HẲN
 
         await withLoadingShield(t('fileManager.photo.loadingTitle'), async () => { // core/loading-shield-util.js
             await this.refresh(null);
@@ -137,7 +149,7 @@ const workflowFileManagerPhoto = {
      * chọn "Tải ảnh lên" trong dropdown 2 lựa chọn (`openAddToAlbumChoiceMenu()` ngay dưới) — DÙNG
      * CHUNG, không viết 2 lần. */
     triggerUploadInput() {
-        if (!fileManagerPhotoPanelEl) return;
+        if (photoPanel.classList.contains('hidden')) return; // SỬA đợt tái cấu trúc bottom nav — xem ghi chú refresh()
         const uploadInput = fileManagerPhotoPanelEl.querySelector('#file-manager-image-upload-input');
         if (uploadInput) uploadInput.click();
     },
@@ -193,7 +205,7 @@ const workflowFileManagerPhoto = {
      * @param {Set<string>} [quickDeleteSelectedKeys]
      */
     async refresh(activeAlbumId, imageQuickDeleteMode = false, quickDeleteSelectedKeys = new Set()) {
-        if (!fileManagerPhotoPanelEl) return; // guard: panel đã đóng
+        if (photoPanel.classList.contains('hidden')) return; // guard: panel đã đóng (SỬA đợt tái cấu trúc bottom nav — fileManagerPhotoPanelEl giờ trỏ settingsStackPanelMain TĨNH, luôn truthy, không còn dùng được làm cờ mở/đóng)
         const images = await listImages(); // core/file-manager/image.js
         const albums = await listAlbums(); // core/file-manager/album.js — MỚI (fix bug 1) luôn đọc, không chỉ khi có activeAlbumId, để cập nhật số lượng trên nút vào Album List
         const activeAlbum = activeAlbumId ? (albums.find((a) => a.id === activeAlbumId) || null) : null;
@@ -274,7 +286,7 @@ const workflowFileManagerPhoto = {
      * @param {Set<string>} quickDeleteSelectedKeys
      */
     updateQuickDeleteModeUI(imageQuickDeleteMode, quickDeleteSelectedKeys) {
-        if (!fileManagerPhotoPanelEl) return;
+        if (photoPanel.classList.contains('hidden')) return; // SỬA đợt tái cấu trúc bottom nav — xem ghi chú refresh()
         const deleteModeBtn = fileManagerPhotoPanelEl.querySelector('#btn-file-manager-image-delete-mode');
         if (deleteModeBtn) {
             deleteModeBtn.classList.toggle('bg-rose-500', imageQuickDeleteMode);
@@ -290,7 +302,7 @@ const workflowFileManagerPhoto = {
      * @param {boolean} [imageQuickDeleteMode] - mặc định true (gọi từ toggleQuickDeleteMarkInSet chỉ khi ĐANG bật mode).
      */
     _updateQuickDeleteButtonTitle(quickDeleteSelectedKeys, imageQuickDeleteMode = true) {
-        if (!fileManagerPhotoPanelEl) return;
+        if (photoPanel.classList.contains('hidden')) return; // SỬA đợt tái cấu trúc bottom nav — xem ghi chú refresh()
         const deleteModeBtn = fileManagerPhotoPanelEl.querySelector('#btn-file-manager-image-delete-mode');
         if (!deleteModeBtn) return;
         const baseTitle = t('fileManager.photo.image.quickDeleteTitle');
@@ -838,7 +850,7 @@ const workflowFileManagerPhoto = {
                 await addImagesToAlbum(uploadedKeys, activeAlbumId); // core/file-manager/album.js
             }
         });
-        if (fileManagerPhotoPanelEl) {
+        if (!photoPanel.classList.contains('hidden')) { // SỬA đợt tái cấu trúc bottom nav — xem ghi chú refresh()
             const uploadInput = fileManagerPhotoPanelEl.querySelector('#file-manager-image-upload-input');
             if (uploadInput) uploadInput.value = ''; // cho phép chọn lại đúng file cũ ở lần sau
         }

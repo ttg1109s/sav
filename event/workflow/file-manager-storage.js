@@ -25,25 +25,58 @@
  * alertModal()/modalChoice() CHỈ đặt ở tầng này.
  *
  * NẠP SAU: core/storage-manager.js, core/about-stats.js, core/file-manager/video.js, core/file-
- * manager/image.js, core/file-manager/document.js, core/settings-panel-stack.js.
+ * manager/image.js, core/file-manager/document.js, core/generic-drawer.js, event/workflow/
+ * generic-drawer-helpers.js, event/workflow/app-panel-nav.js.
  * NẠP TRƯỚC: event/router/file-manager-storage.js, event/listener/file-manager-storage.js.
+ *
+ * SỬA (đợt tái cấu trúc bottom nav App Panel, phản hồi Giang — "Storage mở trực tiếp") — panel
+ * "Quản lý lưu trữ" KHÔNG còn PUSH vào `#drawer-settings` cũ (đã xoá hẳn) — giờ mở THẲNG qua
+ * core/generic-drawer.js (singleton chung, cùng khuôn Folder browser, event/workflow/
+ * file-manager-folder-browser.js). Mọi `genericDrawerBody.querySelector(...)` đổi cơ giới
+ * sang `genericDrawerBody.querySelector(...)` — Storage KHÔNG có sub-panel lồng bên trong (khác
+ * Photo), nên KHÔNG có xung đột singleton nào cần xử lý thêm.
  */
-let fileManagerStoragePanelEl = null; // panel "Quản lý lưu trữ" đang mở — null nếu đang đóng
+// SỬA (đợt tái cấu trúc bottom nav App Panel) — `fileManagerStoragePanelEl` KHÔNG còn ý nghĩa
+// (Storage giờ dùng `genericDrawerBody`, phần tử TĨNH luôn tồn tại) — dùng
+// `genericDrawerPanel.classList.contains('hidden')` để biết đang mở/đóng, xem các guard bên dưới.
 
 const workflowFileManagerStorage = {
 
-    /** Ứng với 'fileManagerStorage.openPanel.click'. Push panel "Quản lý lưu trữ". */
+    /** Ứng với 'fileManagerStorage.openPanel.click'. Mở Generic Drawer "Quản lý lưu trữ" — cùng
+     * khuôn `workflowFileManagerFolderBrowser._renderList()` (header title + nút X). */
     async openPanel() {
-        fileManagerStoragePanelEl = pushSettingsPanel({ title: t('storageDrawer.title'), bodyHtml: renderFileManagerStorageManagementPanelBody() });
+        openGenericDrawer({ // core/generic-drawer.js
+            height: '90vh',
+            headerHtml: `
+                <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
+                    <h3 class="text-base font-bold text-slate-900">${t('storageDrawer.title')}</h3>
+                    <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+            `,
+            bodyHtml: renderFileManagerStorageManagementPanelBody(),
+            bodyClass: 'overflow-y-auto px-4 py-4',
+        });
+        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
+        if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.closePanel.click', payload: {} }));
+
+        workflowAppPanelNav.setActiveTab('storage'); // event/workflow/app-panel-nav.js — liên tuyến domain
         await this.refreshTab();
         // Đồng bộ UI về mặc định an toàn (Router vừa reset closure state ở case 'openPanel.click').
         this.updateStorageActionUI({ song: false, video: false, photo: false, document: false }, false, false);
     },
 
+    /** Ứng với 'fileManagerStorage.closePanel.click' — MỚI (đợt tái cấu trúc bottom nav). */
+    closePanel() {
+        workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
+        workflowAppPanelNav.activateMedia(); // event/workflow/app-panel-nav.js
+    },
+
     /** Vẽ lại thống kê dung lượng (4 domain) + reset UI quét lỗi — gọi lúc mở panel/sau khi
      * xoá xong. */
     async refreshTab() {
-        if (!fileManagerStoragePanelEl) return; // panel đã đóng — an toàn bỏ qua
+        if (genericDrawerPanel.classList.contains('hidden')) return; // panel đã đóng — an toàn bỏ qua
 
         const [songStats, videoStats, photoStats, documentStats] = await Promise.all([
             computeStats(), computeVideoStats(), computeImageStats(), computeDocumentStats()
@@ -51,20 +84,20 @@ const workflowFileManagerStorage = {
         renderStorageStats( // core/storage-manager.js
             songStats, videoStats, photoStats, documentStats,
             {
-                totalBytesEl: fileManagerStoragePanelEl.querySelector('#stat-storage-total-bytes'),
-                barSongsEl: fileManagerStoragePanelEl.querySelector('#stat-storage-bar-songs'),
-                barVideosEl: fileManagerStoragePanelEl.querySelector('#stat-storage-bar-videos'),
-                barPhotosEl: fileManagerStoragePanelEl.querySelector('#stat-storage-bar-photos'),
-                barDocumentsEl: fileManagerStoragePanelEl.querySelector('#stat-storage-bar-documents'),
-                countSongsEl: fileManagerStoragePanelEl.querySelector('#stat-storage-count-song'),
-                countVideosEl: fileManagerStoragePanelEl.querySelector('#stat-storage-count-video'),
-                countPhotosEl: fileManagerStoragePanelEl.querySelector('#stat-storage-count-photo'),
-                countDocumentsEl: fileManagerStoragePanelEl.querySelector('#stat-storage-count-document'),
+                totalBytesEl: genericDrawerBody.querySelector('#stat-storage-total-bytes'),
+                barSongsEl: genericDrawerBody.querySelector('#stat-storage-bar-songs'),
+                barVideosEl: genericDrawerBody.querySelector('#stat-storage-bar-videos'),
+                barPhotosEl: genericDrawerBody.querySelector('#stat-storage-bar-photos'),
+                barDocumentsEl: genericDrawerBody.querySelector('#stat-storage-bar-documents'),
+                countSongsEl: genericDrawerBody.querySelector('#stat-storage-count-song'),
+                countVideosEl: genericDrawerBody.querySelector('#stat-storage-count-video'),
+                countPhotosEl: genericDrawerBody.querySelector('#stat-storage-count-photo'),
+                countDocumentsEl: genericDrawerBody.querySelector('#stat-storage-count-document'),
             }
         );
         resetScanResultUI( // core/storage-manager.js
-            fileManagerStoragePanelEl.querySelector('#storage-scan-result'),
-            fileManagerStoragePanelEl.querySelector('#storage-scan-list')
+            genericDrawerBody.querySelector('#storage-scan-result'),
+            genericDrawerBody.querySelector('#storage-scan-list')
         );
     },
 
@@ -89,9 +122,9 @@ const workflowFileManagerStorage = {
      * @param {boolean} downloadEnabled @param {boolean} deleteEnabled
      */
     updateStorageActionUI(sources, downloadEnabled, deleteEnabled) {
-        if (!fileManagerStoragePanelEl) return; // guard
+        if (genericDrawerPanel.classList.contains('hidden')) return; // guard
         const setToggle = (selector, checked) => {
-            const el = fileManagerStoragePanelEl.querySelector(selector);
+            const el = genericDrawerBody.querySelector(selector);
             if (el) el.checked = checked;
         };
         setToggle('#toggle-storage-source-song', sources.song);
@@ -101,7 +134,7 @@ const workflowFileManagerStorage = {
         setToggle('#toggle-storage-download', downloadEnabled);
         setToggle('#toggle-storage-delete', deleteEnabled);
 
-        const executeBtn = fileManagerStoragePanelEl.querySelector('#btn-storage-execute');
+        const executeBtn = genericDrawerBody.querySelector('#btn-storage-execute');
         if (executeBtn) {
             // MỚI — thêm điều kiện "có ít nhất 1 nguồn được chọn" (select cũ LUÔN có đúng 1 giá trị
             // nên không cần kiểm tra riêng; 4 checkbox độc lập giờ CÓ THỂ đều tắt hết).
@@ -400,10 +433,10 @@ const workflowFileManagerStorage = {
             if (documentResults.length > 0) {
                 await deleteCorruptedDocuments(documentResults); // core/storage-manager.js
             }
-            if (fileManagerStoragePanelEl) {
+            if (!genericDrawerPanel.classList.contains('hidden')) {
                 resetScanResultUI(
-                    fileManagerStoragePanelEl.querySelector('#storage-scan-result'),
-                    fileManagerStoragePanelEl.querySelector('#storage-scan-list')
+                    genericDrawerBody.querySelector('#storage-scan-result'),
+                    genericDrawerBody.querySelector('#storage-scan-list')
                 );
                 await this.refreshTab();
             }
@@ -435,13 +468,13 @@ const workflowFileManagerStorage = {
             if (sources.photo) results = results.concat((await scanAllPhotosForCorruption(onScanProgress)).map((r) => ({ ...r, mediaType: 'photo' })));
             if (sources.document) results = results.concat((await scanAllDocumentsForCorruption(onScanProgress)).map((r) => ({ ...r, mediaType: 'document' })));
 
-            if (fileManagerStoragePanelEl) {
+            if (!genericDrawerPanel.classList.contains('hidden')) {
                 renderScanResultUI( // core/storage-manager.js
                     results,
-                    fileManagerStoragePanelEl.querySelector('#storage-scan-result'),
-                    fileManagerStoragePanelEl.querySelector('#storage-scan-summary'),
-                    fileManagerStoragePanelEl.querySelector('#storage-scan-list'),
-                    fileManagerStoragePanelEl.querySelector('#btn-storage-delete-broken')
+                    genericDrawerBody.querySelector('#storage-scan-result'),
+                    genericDrawerBody.querySelector('#storage-scan-summary'),
+                    genericDrawerBody.querySelector('#storage-scan-list'),
+                    genericDrawerBody.querySelector('#btn-storage-delete-broken')
                 );
             }
         });
@@ -450,10 +483,10 @@ const workflowFileManagerStorage = {
 
     /** Ứng với msg.type = 'fileManagerStorage.dismissScan.click'. */
     dismissScan() {
-        if (!fileManagerStoragePanelEl) return;
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         resetScanResultUI(
-            fileManagerStoragePanelEl.querySelector('#storage-scan-result'),
-            fileManagerStoragePanelEl.querySelector('#storage-scan-list')
+            genericDrawerBody.querySelector('#storage-scan-result'),
+            genericDrawerBody.querySelector('#storage-scan-list')
         );
     }
 };

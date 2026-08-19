@@ -242,26 +242,9 @@ const workflowPlayerControls = {
         setStatsPanelVisible(cfg.isStatsPanelVisible !== false); // core/visualizer-ui-visibility.js
     },
 
-    /**
-     * Ứng với 'playerControls.settingsDrawer.close' — trước batch HOTFIX 11 (08/07/2026) từng có
-     * 2 nhánh ("đang ở Playlist"/"đang ở Visualizer", xem lịch sử ở event/router/player-
-     * controls.js) — Settings giờ CHỈ mở được từ Playlist (nút #btn-settings trong Control Center
-     * của Visualizer đã bỏ hẳn, xem components/visualizer-overlay.js) nên đóng cũng LUÔN về
-     * Playlist, không còn nhánh nào để rẽ — đổi tên lại `closeSettingsDrawer()` cho khớp (trước
-     * đây `closeSettingsDrawerToPlaylist()`, phân biệt với `closeSettingsDrawerToVisualizer()` đã
-     * xoá).
-     *
-     * `#side-left-container` vẫn đang HIỂN THỊ SẴN suốt lúc đóng (không cần trượt cả khối ra/vào,
-     * chỉ cuộn nội bộ về lại trang Playlist). 3 hàm core side-effect nối tiếp (validate video nền +
-     * reset ngăn xếp panel con + cuộn về Playlist) — dù không phụ thuộc DỮ LIỆU lẫn nhau, vẫn đúng
-     * hình dạng Workflow theo event-bus-flow.md mục 4B ("≥2 lời gọi side-effect nối tiếp... LUÔN
-     * Workflow").
-     */
-    closeSettingsDrawer() {
-        // XOÁ (v14) — `workflowVisualBg.validateOnClose()` (validate enabled/sourceMode khớp
-        // nguồn thật) không còn cần thiết: schema mới (source.list + type) tự nhất quán ở MỌI
-        // thời điểm, không có tổ hợp "bật nhưng rỗng"/"list nhưng <2 item" nào cần dọn lúc đóng nữa.
-        resetSettingsStackToMain(); // core
-        scrollSideLeftToPlaylistSmooth(); // core
-    },
+    // XOÁ (đợt tái cấu trúc bottom nav App Panel, phản hồi Giang) — closeSettingsDrawer() (từng
+    // gọi resetSettingsStackToMain()/scrollSideLeftToPlaylistSmooth(), 2 core ĐÃ XOÁ) không còn ý
+    // nghĩa: đóng Settings giờ do workflowAppSettings.close() đảm nhiệm (event/workflow/
+    // app-settings.js) — Router (event/router/player-controls.js, case
+    // 'playerControls.settingsDrawer.close') đã trỏ thẳng sang đó, KHÔNG còn gọi qua đây nữa.
 };

@@ -17,7 +17,7 @@
  * event/workflow/visual-bg.js (workflowVisualBg).
  * NẠP TRƯỚC: event/router/slideshow.js.
  */
-let slideshowSettingsPanelEl = null;
+let slideshowSettingsPanelEl = null; // SỬA (đợt tái cấu trúc bottom nav + phân phối lại Settings) — giờ luôn trỏ genericDrawerBody (core/generic-drawer.js) SAU lần openPanel() đầu, dùng genericDrawerPanel.classList.contains('hidden') để biết đang mở/đóng thay vì so null (xem event/workflow/app-settings.js)
 
 const SLIDESHOW_TASK = 'slideshowTimer';
 
@@ -296,12 +296,12 @@ const workflowSlideshow = {
     // ===================== Settings Drawer (cụm router "slideshowSettings") =====================
 
     async openPanel() {
-        slideshowSettingsPanelEl = pushSettingsPanel({ title: t('slideshowSettingsDrawer.title'), bodyHtml: renderSlideshowPanelBody() });
+        slideshowSettingsPanelEl = genericDrawerBody; // core/generic-drawer.js — SỬA, xem docstring khai báo biến ở trên
         await this.refreshDrawerUI();
     },
 
     async refreshDrawerUI() {
-        if (!slideshowSettingsPanelEl) return;
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         const cfg = appConfigVisualBg.getAll().slideshow;
 
         const intervalBtn = slideshowSettingsPanelEl.querySelector('#setting-slideshow-interval');
@@ -327,7 +327,7 @@ const workflowSlideshow = {
     },
 
     openIntervalPicker() {
-        if (!slideshowSettingsPanelEl) return;
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         const cfg = appConfigVisualBg.getAll().slideshow;
         openTimePickerModal({ // core/time-picker-modal.js
             title: t('slideshowSettingsDrawer.interval.pickerTitle'),
@@ -344,7 +344,7 @@ const workflowSlideshow = {
                     const cappedMs = capSlideshowTransitionDurationMs(ss.transitionDurationMs, newIntervalMs); // core — tái dùng NGUYÊN hàm đã có
                     if (cappedMs !== ss.transitionDurationMs) { ss.transitionDurationMs = cappedMs; correctedTransitionMs = cappedMs; }
                 }, `intervalSeconds=${v}`);
-                if (!slideshowSettingsPanelEl) return;
+                if (genericDrawerPanel.classList.contains('hidden')) return;
                 const intervalBtn = slideshowSettingsPanelEl.querySelector('#setting-slideshow-interval');
                 if (intervalBtn) intervalBtn.textContent = `${v}s`; // đồng bộ lại chữ trên nút
                 // MỚI — nếu transitionDurationMs vừa bị kẹp xuống, đồng bộ LẠI nút + nhãn tỉ lệ
@@ -384,7 +384,7 @@ const workflowSlideshow = {
         if (!SLIDESHOW_TRANSITION_TYPES.includes(type)) return; // guard: giá trị lạ -> bỏ qua
         await workflowVisualBg.mutateSlideshowSetting((ss) => { ss.transitionType = type; }, `transitionType=${type}`); // event/workflow/visual-bg.js
         setSlideshowTransitionType(slideshowContainer, type); // core — áp ngay cho lần chuyển cảnh kế tiếp
-        if (slideshowSettingsPanelEl) {
+        if (!genericDrawerPanel.classList.contains('hidden')) {
             const ratioRow = slideshowSettingsPanelEl.querySelector('#slideshow-transition-ratio-row');
             if (ratioRow) ratioRow.classList.toggle('hidden', !transitionSupportsInOutRatio(type)); // core
         }
@@ -411,7 +411,7 @@ const workflowSlideshow = {
      * Xác nhận -> persist + đồng bộ nhãn nút + đồng bộ LẠI nhãn "Tỉ lệ In/Out" (phụ thuộc TỔNG
      * thời gian vừa đổi, xem `_updateTransitionRatioLabel()`). */
     openTransitionDurationPicker() {
-        if (!slideshowSettingsPanelEl) return;
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         const cfg = appConfigVisualBg.getAll().slideshow;
         const maxMs = Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, Math.min(SLIDESHOW_TRANSITION_MAX_TIME_MS, this._computeIntervalMs() - 1000));
         openTimePickerModal({ // core/time-picker-modal.js
@@ -423,7 +423,7 @@ const workflowSlideshow = {
             onConfirm: async (resultMs) => {
                 const v = Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, Math.min(maxMs, resultMs));
                 await workflowVisualBg.mutateSlideshowSetting((ss) => { ss.transitionDurationMs = v; }, `transitionDurationMs=${v}`);
-                if (!slideshowSettingsPanelEl) return;
+                if (genericDrawerPanel.classList.contains('hidden')) return;
                 const btn = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-duration');
                 if (btn) btn.textContent = `${(v / 1000).toFixed(1)}s`;
                 const ratioSlider = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-ratio');
@@ -452,7 +452,7 @@ const workflowSlideshow = {
      * @param {number} ratioPercent
      */
     previewTransitionRatio(ratioPercent) {
-        if (!slideshowSettingsPanelEl) return;
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         this._updateTransitionRatioLabel(slideshowSettingsPanelEl, ratioPercent);
     },
 
@@ -491,7 +491,7 @@ const workflowSlideshow = {
      */
     async changeKenBurnsEnabled(checked) {
         await workflowVisualBg.mutateSlideshowSetting((ss) => { ss.kenBurnsEnabled = checked; }, `kenBurnsEnabled=${checked}`);
-        if (slideshowSettingsPanelEl) {
+        if (!genericDrawerPanel.classList.contains('hidden')) {
             const kenBurnsModeRow = slideshowSettingsPanelEl.querySelector('#slideshow-kenburns-mode-row');
             if (kenBurnsModeRow) kenBurnsModeRow.classList.toggle('hidden', !checked);
         }

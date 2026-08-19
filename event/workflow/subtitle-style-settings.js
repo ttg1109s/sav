@@ -21,17 +21,14 @@
  * cần thêm setSubtitleUseCustomStyling()/setSubtitleDefaultField()/applySubtitleFrameStyle() (đã
  * nạp CÙNG file với setSubtitleBoxCss() ở trên, không cần dòng nạp riêng).
  */
-let subtitleSettingsPanelEl = null; // panel Subtitle đang mở — null nếu đang đóng
+let subtitleSettingsPanelEl = null; // SỬA (đợt migrate Visualizer Screen) — giờ luôn trỏ genericDrawerBody SAU lần openPanel() đầu, dùng genericDrawerPanel.classList.contains('hidden') thay so null
 
 const workflowSubtitleStyleSettings = {
 
-    /** Ứng với msg.type = 'subtitleStyleSettings.openPanel.click' — push panel con + đồng bộ 1
-     * toggle từ config hiện tại. */
+    /** SỬA (đợt migrate Visualizer Screen) — KHÔNG còn pushSettingsPanel(), bodyHtml do
+     * event/workflow/app-settings.js cung cấp SẴN qua navigateTo() — chỉ còn đồng bộ giá trị. */
     openPanel() {
-        subtitleSettingsPanelEl = pushSettingsPanel({
-            title: t('subtitleSettingsDrawer.title'),
-            bodyHtml: renderSubtitlePanelBody(),
-        });
+        subtitleSettingsPanelEl = genericDrawerBody;
         this.refresh();
     },
 
@@ -44,7 +41,7 @@ const workflowSubtitleStyleSettings = {
      * SỬA (16/08/2026, mục 3 tiếp) — đồng bộ THÊM toggle Custom Styling + 2 field mặc định +
      * ẩn/hiện đúng khối tương ứng (xem `_syncCustomStylingVisibility()`). */
     refresh() {
-        if (!subtitleSettingsPanelEl) return; // guard: panel đã đóng
+        if (genericDrawerPanel.classList.contains('hidden')) return; // guard: panel đã đóng
         const cfg = appConfigViz.getAll();
         subtitleSettingsPanelEl.querySelector('#setting-subtitles-enabled').checked = cfg.subtitlesEnabled !== false;
         subtitleSettingsPanelEl.querySelector('#setting-subtitle-use-custom-styling').checked = !!cfg.subtitleUseCustomStyling;
@@ -66,7 +63,7 @@ const workflowSubtitleStyleSettings = {
      * class `hidden` (KHÔNG re-render lại panel), dùng CHUNG cho cả `refresh()` (lúc mở panel) lẫn
      * `setUseCustomStyling()` (lúc đổi toggle ngay lập tức). */
     _syncCustomStylingVisibility(useCustom) {
-        if (!subtitleSettingsPanelEl) return;
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         subtitleSettingsPanelEl.querySelector('#setting-open-subtitle-styling').classList.toggle('hidden', !useCustom);
         subtitleSettingsPanelEl.querySelector('#setting-subtitle-default-fields').classList.toggle('hidden', useCustom);
     },
@@ -87,7 +84,7 @@ const workflowSubtitleStyleSettings = {
      * lệ đã dùng cho nút Slideshow (`#setting-slideshow-transition-duration`, event/workflow/
      * slideshow.js) — nhất quán UI 2 nơi cùng dùng openTimePickerModal(format:'s-ms'). */
     _syncMagnitudeButton(prefix, valueMs) {
-        if (!subtitleSettingsPanelEl) return;
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         const btn = subtitleSettingsPanelEl.querySelector(`#setting-subtitle-${prefix}-magnitude`);
         if (!btn) return;
         const ms = Math.abs(valueMs || 0);
@@ -108,7 +105,7 @@ const workflowSubtitleStyleSettings = {
      * @param {'comming'|'outing'} prefix
      */
     openMagnitudePicker(prefix) {
-        if (!subtitleSettingsPanelEl) return; // guard: panel đã đóng (vd đóng Settings ngay khi vừa bấm)
+        if (genericDrawerPanel.classList.contains('hidden')) return; // guard: panel đã đóng (vd đóng Settings ngay khi vừa bấm)
         const cfg = appConfigViz.getAll();
         const configField = prefix === 'comming' ? 'subtitleCommingValueMs' : 'subtitleOutingValueMs';
         const currentMs = Math.abs(cfg[configField] || 0);

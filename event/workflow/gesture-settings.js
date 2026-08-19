@@ -14,9 +14,13 @@
  */
 const workflowGestureSettings = {
 
-    /** Ứng với 'gestureSettings.openPanel.click'. */
+    /** Ứng với 'gestureSettings.openPanel.click'. SỬA (đợt tái cấu trúc bottom nav + phân phối lại
+     * Settings) — KHÔNG còn `pushSettingsPanel()` (Settings không còn sống trong `#drawer-settings`
+     * cũ) — bodyHtml giờ do event/workflow/app-settings.js cung cấp SẴN qua `navigateTo()` TRƯỚC
+     * khi gọi hàm này (Generic Drawer đã hiện `renderGestureSettingsPanelBody()`) — hàm này CHỈ
+     * còn đồng bộ giá trị vào `genericDrawerBody` (core/generic-drawer.js, LUÔN có sẵn). */
     openPanel() {
-        const panelEl = pushSettingsPanel({ title: t('gestureSettings.title'), bodyHtml: renderGestureSettingsPanelBody() });
+        const panelEl = genericDrawerBody;
         const cfg = appConfigViz.getAll();
         panelEl.querySelector('#setting-gesture-action-swipe-up').value = cfg.gestureActionSwipeUp || 'none';
         panelEl.querySelector('#setting-gesture-action-swipe-down').value = cfg.gestureActionSwipeDown || 'none';

@@ -43,13 +43,15 @@ const workflowSettingsMisc = {
     },
 
     /**
-     * MỚI (18/07/2026, Giang yêu cầu — "mục mới Settings > Misc, vào hiện console log") — ứng với
-     * msg.type = 'settingsMisc.debugConsole.open'. Push panel + vẽ danh sách log THẬT (đọc
-     * `getDebugConsoleLogs()`, core/debug-console.js) + wire 2 nút Copy/Xoá.
+     * MỚI (18/07/2026, Giang yêu cầu — "mục mới Settings > Misc, vào hiện console log"). SỬA
+     * (đợt tái cấu trúc bottom nav + phân phối lại Settings, phản hồi Giang — "Troubleshooting =
+     * debug console panel setting") — KHÔNG còn `pushSettingsPanel()`, bodyHtml do event/workflow/
+     * app-settings.js cung cấp SẴN qua `navigateTo()` — hàm này chỉ còn vẽ danh sách log + wire 2
+     * nút vào `genericDrawerBody` (core/generic-drawer.js, LUÔN có sẵn).
      */
     async openDebugConsole() {
-        const panelEl = pushSettingsPanel({ title: t('settingsMisc.debugConsole.title'), bodyHtml: renderDebugConsolePanelBody() });
-        this._debugConsolePanelEl = panelEl; // SỬA (31/07/2026) — lưu lại, clearDebugConsoleLog() cần vẽ lại danh sách sau khi Router gọi
+        const panelEl = genericDrawerBody;
+        this._debugConsolePanelEl = panelEl;
         this._renderDebugConsoleList(panelEl);
         wireDebugConsolePanelActions(panelEl); // core/settings-misc-ui.js
     },

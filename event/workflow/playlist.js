@@ -1033,10 +1033,12 @@ const workflowPlaylist = {
     },
 
     /** Push panel "Sắp xếp" (mục 1b/1c; SỬA mục 3 — dropdown Stats tách field/hướng riêng, dropdown
-     * hướng CHỈ hiện khi field khác 'none') — đồng bộ giá trị hiện tại lúc mở — CÙNG KHUÔN
-     * workflowVisualizerDisplay.openDisplayPanel(). */
+     * hướng CHỈ hiện khi field khác 'none') — đồng bộ giá trị hiện tại lúc mở. SỬA (đợt tái cấu
+     * trúc bottom nav + phân phối lại Settings) — KHÔNG còn `pushSettingsPanel()`, bodyHtml do
+     * event/workflow/app-settings.js cung cấp SẴN qua `navigateTo()` — chỉ còn đồng bộ giá trị vào
+     * `genericDrawerBody`. */
     openSortPanel() {
-        const panelEl = pushSettingsPanel({ title: t('playlistSortPanel.title'), bodyHtml: renderPlaylistSortPanelBody() });
+        const panelEl = genericDrawerBody;
         panelEl.querySelector('#setting-playlist-sort-name').value = appState.get('displaySortMode');
         const statField = appState.get('displayStatSortField');
         panelEl.querySelector('#setting-playlist-sort-stat-field').value = statField;
@@ -1045,10 +1047,11 @@ const workflowPlaylist = {
     },
 
     /** Push panel "Lọc" (mục 1d) — field hiện theo ĐÚNG Nguồn (song/video) đang active, đồng bộ
-     * từ `playlistFilterConfig[source]` đã lưu. */
+     * từ `playlistFilterConfig[source]` đã lưu. SỬA (đợt tái cấu trúc bottom nav + phân phối lại
+     * Settings) — cùng khuôn openSortPanel() ngay trên. */
     openFilterPanel() {
         const source = appState.get('activeMediaSource');
-        const panelEl = pushSettingsPanel({ title: t('playlistFilterPanel.title'), bodyHtml: renderPlaylistFilterPanelBody(source) });
+        const panelEl = genericDrawerBody;
         this._syncFilterPanelUI(panelEl, source);
     },
 
