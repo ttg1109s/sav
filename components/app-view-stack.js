@@ -52,14 +52,21 @@
  *   không thể nào bị `scrollLeft` của `#side-left-container` ảnh hưởng, và `filter: blur()` áp lên
  *   nó không lem sang `#side-left-container` (2 phần tử độc lập, không lồng nhau).
  *
- *   BÊN TRONG `#side-left-container`: 2 "trang" CẠNH NHAU cuộn qua lại — `#playlist-view` (màn
- *   Playlist thật, components/playlist-view.js — ĐÃ bỏ hết tự định vị/nền riêng) và
- *   `#drawer-settings` (Settings, components/settings-drawer.js — ĐÃ bỏ hết tự định vị/nền riêng).
- *   Chuyển qua lại bằng `sideLeftContainer.scrollTo({left, behavior:'smooth'})` — xem
- *   core/player-controls.js::scrollSideLeftToSettingsSmooth()/scrollSideLeftToPlaylistSmooth().
+ *   BÊN TRONG `#side-left-container`: CHỈ CÒN 1 "trang" — `#playlist-view` (màn Playlist thật,
+ *   components/playlist-view.js). KHÔNG còn cuộn ngang Playlist<->Settings nữa (SỬA, đợt tái cấu
+ *   trúc bottom nav App Panel) — Settings giờ mở qua core/generic-drawer.js (90vh, xem
+ *   event/workflow/app-settings.js), KHÔNG còn là "trang" nào bên trong khung này —
+ *   `core/player-controls.js::scrollSideLeftToSettingsSmooth()/scrollSideLeftToPlaylistSmooth()`
+ *   ĐÃ XOÁ (không còn ý nghĩa khi chỉ có 1 trang).
  *
- * NẠP SAU: components/playlist-view.js (TPL_PLAYLIST_VIEW), components/settings-drawer.js
- * (TPL_SETTINGS_DRAWER) — 2 biến này được NHÉT VÀO GIỮA khi main.js ghép chuỗi (xem main.js).
+ * `#app-stack` giờ `display:flex; flex-direction:column` (assets/css/layout-nav.css) — CON THỨ 2
+ * (anh em với `#side-left-container`, KHÔNG lồng bên trong) là `#app-bottom-nav` (MỚI,
+ * components/app-bottom-nav.js — 7 mục Media/Folder/Photo/Storage/Game/Statis/Setting, LUÔN cố
+ * định đáy `#app-stack`). Xem `TPL_APP_VIEW_STACK_CLOSE_SIDE`/`TPL_APP_VIEW_STACK_CLOSE_OUTER`
+ * ngay dưới — tách làm 2 để `#app-bottom-nav` chèn được vào giữa lúc main.js ghép chuỗi.
+ *
+ * NẠP SAU: components/playlist-view.js (TPL_PLAYLIST_VIEW) — biến này được NHÉT VÀO GIỮA
+ * `TPL_APP_VIEW_STACK_OPEN`/`TPL_APP_VIEW_STACK_CLOSE_SIDE` khi main.js ghép chuỗi (xem main.js).
  */
 const TPL_APP_VIEW_STACK_OPEN = `
     <div id="app-stack" class="fixed inset-0 z-[60]">
@@ -70,7 +77,18 @@ const TPL_APP_VIEW_STACK_OPEN = `
         <div id="side-left-container">
 `;
 
-const TPL_APP_VIEW_STACK_CLOSE = `
+/**
+ * SỬA (đợt tái cấu trúc bottom nav App Panel, mục 1, phản hồi Giang) — TÁCH `TPL_APP_VIEW_STACK_CLOSE`
+ * cũ (đóng 2 thẻ liền `</div></div>` — side-left-container RỒI app-stack, không có gì chen giữa)
+ * thành 2 biến riêng — `#app-bottom-nav` (MỚI, components/app-bottom-nav.js) giờ chèn Ở GIỮA, là
+ * ANH EM với `#side-left-container` (không phải con), cả 2 cùng con trực tiếp của `#app-stack`
+ * (`display:flex; flex-direction:column`, xem assets/css/layout-nav.css) — `#side-left-container`
+ * chiếm phần còn lại (`flex:1 1 auto`), `#app-bottom-nav` LUÔN cố định đáy (`flex:0 0 auto`).
+ */
+const TPL_APP_VIEW_STACK_CLOSE_SIDE = `
         </div>
+`;
+
+const TPL_APP_VIEW_STACK_CLOSE_OUTER = `
     </div>
 `;
