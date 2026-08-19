@@ -58,6 +58,15 @@ const routerFileManagerStorage = (() => {
                 break;
             }
 
+            // MỚI (đợt tái cấu trúc bottom nav App Panel) — Storage giờ dùng Generic Drawer
+            // (openGenericDrawer/closeFully), KHÔNG còn Back button dùng chung của settings-panel-
+            // stack — nút X riêng (dựng động lúc openPanel(), wire trực tiếp trong workflow đó,
+            // Rule 5a) bắn message này để đóng.
+            case 'fileManagerStorage.closePanel.click': {
+                workflowFileManagerStorage.closePanel();
+                break;
+            }
+
             // MỚI (29/07/2026, yêu cầu Giang mục 2) — ấn vào 1 đoạn thanh dung lượng -> hiện số
             // byte thật của ĐÚNG đoạn đó (alertModal, xem showSegmentBytes()) — hành động THUẦN
             // đọc, không đụng state gì của router này.

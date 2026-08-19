@@ -14,7 +14,10 @@ const routerSubtitleStyleSettings = (() => {
     function handle(msg) {
         switch (msg.type) {
             case 'subtitleStyleSettings.openPanel.click':
-                workflowSubtitleStyleSettings.openPanel();
+                // SỬA (đợt migrate Visualizer Screen) — điều hướng qua ngăn xếp app-settings.js
+                // (liên tuyến domain, TH2) — panel này mở TỪ BÊN TRONG Display (đã migrate), không
+                // còn pushSettingsPanel() nữa.
+                workflowAppSettings.navigateTo(() => workflowAppSettings._renderSubtitle());
                 break;
             case 'subtitleStyleSettings.openStyling.click':
                 workflowSubtitleStyleSettings.openStyling();

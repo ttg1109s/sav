@@ -143,25 +143,21 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.settingsDrawer.open': {
-                // VIẾT LẠI (08/07/2026, HOTFIX 11) — nút mở Settings từ Visualizer (#btn-settings,
-                // Control Center) ĐÃ BỎ HẲN (xem components/visualizer-overlay.js) — msg.type này
-                // giờ CHỈ có thể tới từ #btn-settings-playlist (đang ở Playlist), không còn cần
-                // đọc `isVisualizerActive`/VirtualMachineState để rẽ nhánh nữa — gọi THẲNG core,
-                // đúng (A) event-bus-flow.md (chỉ 1 hàm, message tự đủ nghĩa).
-                scrollSideLeftToSettingsSmooth();
+                // SỬA (đợt tái cấu trúc bottom nav App Panel, phản hồi Giang) — Settings không còn
+                // là "trang" trong #side-left-container (scrollSideLeftToSettingsSmooth() đã xoá,
+                // xem core/player-controls.js) — giờ mở qua core/generic-drawer.js (90vh). Liên
+                // tuyến domain (event-bus-flow.md mục 3a, TH2) — router "playerControls" gọi thẳng
+                // workflow miền "appSettings" (tái dùng, KHÔNG viết lại logic mở drawer).
+                workflowAppSettings.open();
                 break;
             }
 
             case 'playerControls.settingsDrawer.close': {
-                // XOÁ (phản hồi Giang — "đã hợp nhất Video & Song vào Playlist, không cần nữa") —
-                // nhánh isVideoPlayerMode===true (workflowVideoPlayer.closeSettingsDrawerToVisualizer(),
-                // ẩn Playlist + chuyển thẳng về Visualizer khi đóng Settings) TỪNG cần thiết vì
-                // Video Player mode CHỈ bật được từ checkbox SÂU trong Settings → File Manager →
-                // Video (đã xoá hẳn từ Batch 6) — đóng Settings lúc đó phải "về nơi video đang
-                // phát" (Visualizer), không phải Playlist. Giờ Video LUÔN được chọn TỪ Playlist (y
-                // hệt Song) nên đóng Settings luôn đúng là về Playlist — KHÔNG còn 2 nhánh, gọi
-                // THẲNG `closeSettingsDrawer()` (đã tự về Playlist, xem docstring hàm đó).
-                workflowPlayerControls.closeSettingsDrawer();
+                // SỬA (đợt tái cấu trúc bottom nav App Panel) — đóng Settings giờ là đóng Generic
+                // Drawer (workflowAppSettings.close(), tự gọi workflowGenericDrawerHelpers.closeFully()
+                // + workflowAppPanelNav.activateMedia()) — KHÔNG còn resetSettingsStackToMain()/
+                // scrollSideLeftToPlaylistSmooth() (mechanism cũ, đã xoá).
+                workflowAppSettings.close();
                 break;
             }
 

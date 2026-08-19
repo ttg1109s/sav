@@ -28,7 +28,10 @@ const routerVisualBg = (() => {
                 break;
 
             case 'visualBg.openGradientPanel.click':
-                workflowVisualBg.openGradientPanel();
+                // SỬA (đợt migrate Visualizer Screen) — điều hướng qua ngăn xếp app-settings.js
+                // (liên tuyến domain, TH2) thay vì gọi thẳng — workflowVisualBg.openGradientPanel()
+                // giờ CHỈ đồng bộ giá trị, không tự dựng Generic Drawer nữa (xem hàm đó).
+                workflowAppSettings.navigateTo(() => workflowAppSettings._renderVisualBgGradient());
                 break;
 
             case 'visualBg.colorMode.change':
@@ -170,12 +173,18 @@ const routerVisualBg = (() => {
                 break;
 
             case 'visualBg.openSlideshowPanel.click':
-                workflowSlideshow.openPanel();
+                // SỬA (đợt migrate Visualizer Screen) — TRƯỚC ĐÂY gọi thẳng workflowSlideshow.
+                // openPanel() (tự pushSettingsPanel() TRÊN panel Visual BG, 2 khung riêng biệt).
+                // Nay CẢ 2 sống chung 1 Generic Drawer — phải điều hướng qua ngăn xếp của
+                // event/workflow/app-settings.js (liên tuyến domain, TH2) để Back quay lại ĐÚNG
+                // Visual Background thay vì mất dấu.
+                workflowAppSettings.navigateTo(() => workflowAppSettings._renderSlideshow());
                 break;
 
             // MỚI (08/08/2026) — sub-panel "Âm thanh Video".
             case 'visualBg.openVideoAudioPanel.click':
-                workflowVisualBg.openVideoAudioPanel();
+                // SỬA (đợt migrate Visualizer Screen) — cùng khuôn openGradientPanel.click ngay trên.
+                workflowAppSettings.navigateTo(() => workflowAppSettings._renderVisualBgVideoAudio());
                 break;
 
             // SỬA (08/08/2026, phản hồi Giang — icon(1) toggle ngay, %(2) mở modal — 2 case riêng).
