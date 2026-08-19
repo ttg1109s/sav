@@ -34,7 +34,7 @@
                 gameplayMode: 'nullable-string',            // 'circle' | null — v1 chỉ có 'circle'
                 gameplayDifficulty: 'string',                // 'easy' | 'medium' | 'hard'
                 gameplayWaves: 'array',
-                gameplayComboStreak: 'number',                // số lần perfect/excellent liên tiếp hiện tại
+                gameplayComboByTier: 'any',                   // {perfect,excellent} — streak RIÊNG từng tier, xem computeComboScoreGain()
                 gameplayTotalScore: 'number',                 // tổng điểm tier (đã nhân combo), CHƯA chia circleCount
                 gameplayCircleCount: 'number',                // số vòng đã resolve (tap hợp lệ HOẶC miss)
                 gameplayHitCounts: 'any',                     // {perfect,excellent,good,bad,miss} — số lần mỗi loại
@@ -56,7 +56,7 @@
                     gameplayMode: null,
                     gameplayDifficulty: 'hard',
                     gameplayWaves: [],
-                    gameplayComboStreak: 0,
+                    gameplayComboByTier: { perfect: 0, excellent: 0 },
                     gameplayTotalScore: 0,
                     gameplayCircleCount: 0,
                     gameplayHitCounts: { perfect: 0, excellent: 0, good: 0, bad: 0, miss: 0 },
@@ -85,9 +85,12 @@
             gapOuter: 20,               // px — biên NGOÀI vùng tính điểm (centerRadius + gapOuter, bấm sớm)
             gapInner: 5,                // px — biên TRONG vùng tính điểm (centerRadius - gapInner, bấm trễ)
             beatsPerWave: 3,            // wave co hết trong đúng N nhịp beat hiện tại (currentCalculatedBpm)
-            fallbackShrinkDurationMs: 1500, // ms — dùng khi CHƯA xác định được BPM
-            minShrinkDurationMs: 900,   // ms — chặn dưới (BPM quá nhanh)
-            maxShrinkDurationMs: 3000,  // ms — chặn trên (BPM quá chậm)
+            fallbackShrinkDurationMs: 1500, // ms — dùng khi CHƯA xác định được BPM (TRƯỚC KHI nhân difficultyDurationMultiplier)
+            // [SỬA — phản hồi Giang, dải duration hiệu chỉnh] chặn trên/dưới nới rộng 900-3000 ->
+            // 500-5000 — đủ chỗ cho difficultyDurationMultiplier (dưới, mỗi độ khó) kéo dài/rút ngắn
+            // thật sự có tác dụng thay vì bị chặn cụt ngay gần mức gốc.
+            minShrinkDurationMs: 500,   // ms — chặn dưới, ÁP SAU khi nhân multiplier
+            maxShrinkDurationMs: 5000,  // ms — chặn trên, ÁP SAU khi nhân multiplier
             spawnProbabilityMin: 0.35,  // xác suất spawn lúc smoothedEnergy = 0 (nhạc êm -> vẫn còn note, chỉ thưa hơn)
             spawnProbabilityMax: 1.0,   // xác suất spawn lúc smoothedEnergy = 1 (nhạc mạnh -> gần như luôn spawn)
             pitchMinSpanSemitones: 5,   // dải pitch quan sát được PHẢI rộng >= ngưỡng này mới bucket-hoá theo lưới
@@ -107,40 +110,41 @@
                 Object.freeze({ name: 'bad',       maxRatio: 1.00, score: 1 }),
                 // ratio > 1.00 -> miss, score 0 (không nằm trong bảng, classifyTapTier() trả null)
             ]),
-            comboTierNames: Object.freeze(['perfect', 'excellent']), // tier nào được cộng dồn combo
-            comboMultiplierStepSize: 10,  // mỗi 10 combo tăng 1 bậc multiplier
-            comboMultiplierStepValue: 0.1, // +0.1 mỗi bậc (multiplier = 1 + floor(combo/step)*stepValue)
+            // [SỬA — phản hồi Giang, combo theo từng tier riêng, xem computeComboScoreGain() +
+            // docstring event/workflow/gameplay.js::handleTap()] Thứ tự mảng này LÀ bảng xếp hạng
+            // (best -> worst) — 1 tier T tăng combo CHÍNH NÓ, RESET combo tier ĐỨNG TRƯỚC nó trong
+            // mảng (tốt hơn), GIỮ NGUYÊN combo tier ĐỨNG SAU (kém hơn). KHÔNG tự ý đổi thứ tự.
+            comboTierNames: Object.freeze(['perfect', 'excellent']),
+            comboMultiplierStepSize: 10,  // mỗi 10 combo (CÙNG tier) tăng 1 bậc multiplier
+            comboMultiplierStepValue: 0.1, // +0.1 mỗi bậc (multiplier = 1 + floor(streak/step)*stepValue)
+            comboPopupScalePerStreak: 0.08, // MỚI — mỗi streak +1 phóng to chữ popup tier thêm 8%
+            comboPopupScaleMax: 1.8,        // MỚI — trần phóng to, tránh chữ khổng lồ lúc streak rất cao
             opacityBase: 0.5,             // opacity cố định khi radius ngoài vùng gap
             opacityAtInnerEdge: 0.9,      // opacity đạt được đúng lúc radius chạm biên trong (centerRadius-gapInner)
             starMax: 5,
             starRoundingThreshold: 0.8,   // phần thập phân >= ngưỡng này mới làm tròn LÊN, xem computeStarRating()
             refreshBeatsForPhrase: 16,    // xấp xỉ 1 phrase = 16 beat (không có phrase detection thật)
             /**
-             * [SỬA — nghiên cứu lại công thức flux, phản hồi Giang] `fluxDeltaEnergy`/
-             * `fluxDeltaSection` ĐỔI từ số TUYỆT ĐỐI (đo trên fluxHistory frame-rate — bị nhiễu +
-             * không thích ứng độ to nhỏ bài hát, xem docstring event/workflow/gameplay.js) sang TỈ
-             * LỆ TƯƠNG ĐỐI (0-1, vd 0.4 = lệch 40% so với baseline) đo trên `_beatFluxHistory`
-             * (1 mốc/BEAT, độc lập fps máy). `energyWindowBeats`/`sectionWindowBeats` (MỚI) — số
-             * BEAT so sánh (không phải số frame) — cửa sổ dài hơn dùng cho "section" (chuyển đoạn
-             * lớn, xảy ra chậm) so với "energy" (đổi cường độ, xảy ra nhanh hơn). Số khởi điểm dưới
-             * đây CẦN tinh chỉnh qua playtest nhạc thật, chưa phải số cuối.
+             * [SỬA — phản hồi Giang, số cuối] `fluxThreshold` (tỉ lệ tương đối 0-1, đo trên
+             * `_beatFluxHistory` — 1 mốc/BEAT, độc lập fps máy, xem docstring event/workflow/
+             * gameplay.js) — DÙNG CHUNG cho cả energy lẫn section (trước đây 2 số riêng
+             * fluxDeltaEnergy/fluxDeltaSection — gộp lại theo số Giang chốt, chỉ còn khác nhau ở
+             * CỬA SỔ so sánh `energyWindowBeats`/`sectionWindowBeats`, không khác biên độ).
              *
-             * [SỬA — Rule 3/1.5 liền kề, phản hồi Giang "loại bỏ chỉ số 1.5 liền kề"] `minSpawnDistancePx`
-             * dời vào ĐÂY (mỗi độ khó riêng, TRƯỚC ĐÂY 1 số chung 84px > gridCellSizePx=55px × 1.5 —
-             * loại trừ cả ô liền kề NGANG/DỌC (55px) lẫn CHÉO (77.8px), khiến 1 wave chặn gần hết ô
-             * xung quanh trên lưới hẹp/điện thoại). Medium/Hard giờ ≤ gridCellSizePx — ô liền kề
-             * KHÔNG còn tự động bị loại — Easy vẫn cao hơn 1 chút (không ảnh hưởng thật vì
-             * maxConcurrentWaves=1 đã tự chặn wave thứ 2 từ trước, chưa từng chạm code này).
+             * `minSpawnDistancePx` = `adjacentCellCoefficient` × `gridCellSizePx` — Easy 1.5×
+             * (loại cả ô liền kề ngang/dọc/chéo, đúng số Giang chốt), Medium 1× (đúng bằng 1 ô,
+             * liền kề NGANG/DỌC vẫn bị loại nhưng chéo thì không), Hard BỎ HẲN hệ số (0 — không
+             * giới hạn khoảng cách, wave đóng gói dày tuỳ ý).
              *
-             * [SỬA — độ khó Medium/Hard rõ ràng hơn, phản hồi Giang] `maxConcurrentWaves` Medium
-             * TRƯỚC ĐÂY = Infinity y hệt Hard (KHÔNG có khác biệt CƠ CHẾ nào giữa 2 độ khó ngoài
-             * spawnEligibleEveryNBeats/threshold) — giờ Medium có TRẦN THẬT (2), Hard trần cao hơn
-             * hẳn (4) + minSpawnDistancePx nhỏ hơn hẳn (cho phép đóng gói dày hơn) — 2 độ khó giờ
-             * khác nhau rõ ở CƠ CHẾ (số wave chồng nhau tối đa), không chỉ khác THAM SỐ tần suất.
+             * `shrinkDurationMultiplier` — nhân vào duration TRƯỚC khi chặn min/max (xem
+             * computeShrinkDurationMs(), core/gameplay/circle-mode.js) — Easy 1.3× (wave chậm hơn,
+             * dễ phản ứng), Medium 1.2×, Hard 1× (gốc, nhanh nhất).
+             *
+             * `maxConcurrentWaves` — Easy 2, Medium 4, Hard KHÔNG GIỚI HẠN (Infinity).
              */
             difficulty: Object.freeze({
-                easy:   Object.freeze({ maxConcurrentWaves: 1, spawnEligibleEveryNBeats: 1, minSpawnDistancePx: 70, energyWindowBeats: 4, sectionWindowBeats: 12, fluxDeltaEnergy: 0.55, fluxDeltaSection: 0.85 }),
-                medium: Object.freeze({ maxConcurrentWaves: 2, spawnEligibleEveryNBeats: 2, minSpawnDistancePx: 50, energyWindowBeats: 3, sectionWindowBeats: 9,  fluxDeltaEnergy: 0.40, fluxDeltaSection: 0.65 }),
-                hard:   Object.freeze({ maxConcurrentWaves: 4, spawnEligibleEveryNBeats: 1, minSpawnDistancePx: 35, energyWindowBeats: 2, sectionWindowBeats: 6,  fluxDeltaEnergy: 0.28, fluxDeltaSection: 0.48 }),
+                easy:   Object.freeze({ maxConcurrentWaves: 2,        spawnEligibleEveryNBeats: 1, minSpawnDistancePx: 1.5 * 55, shrinkDurationMultiplier: 1.3, energyWindowBeats: 4, sectionWindowBeats: 12, fluxThreshold: 0.9 }),
+                medium: Object.freeze({ maxConcurrentWaves: 4,        spawnEligibleEveryNBeats: 2, minSpawnDistancePx: 1 * 55,   shrinkDurationMultiplier: 1.2, energyWindowBeats: 3, sectionWindowBeats: 9,  fluxThreshold: 0.6 }),
+                hard:   Object.freeze({ maxConcurrentWaves: Infinity, spawnEligibleEveryNBeats: 1, minSpawnDistancePx: 0,        shrinkDurationMultiplier: 1,   energyWindowBeats: 2, sectionWindowBeats: 6,  fluxThreshold: 0.3 }),
             }),
         });
