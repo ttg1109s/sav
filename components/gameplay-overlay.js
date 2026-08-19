@@ -6,10 +6,12 @@
  *
  * `#gameplay-canvas` — vẽ circle+wave (core/gameplay/circle-mode-ui.js, canvas 2D, nền TRONG SUỐT
  * để visualizer phía sau xuyên qua). `#gameplay-tier-popup-layer` vẫn DOM+CSS (text nổi PERFECT/
- * MISS... — CSS animation đơn giản hơn tự vẽ trên canvas, không cần đổi công nghệ chỗ này).
+ * MISS... + hiệu ứng vỡ vụn lúc tap hoàn thành/tự mất, xem core/gameplay/engine-ui.js — CSS
+ * animation đơn giản hơn tự vẽ trên canvas, không cần đổi công nghệ chỗ này).
  *
- * HUD chỉ còn combo (`#gameplay-hud-combo`) — KHÔNG hiển thị điểm số lúc đang chơi (chỉ hiện ở modal
- * kết thúc qua `modalChoice()`, xem event/workflow/gameplay.js::onSongEnded()).
+ * [SỬA — phản hồi Giang "bỏ x Combo cố định"] `#gameplay-hud` (HUD combo góc trên) ĐÃ XOÁ — combo
+ * giờ hiện NGAY tại vị trí tap (chữ to dần + glow theo streak, gắn liền tier popup) thay vì 1 số
+ * cố định tách rời góc màn hình.
  *
  * z-[65]: cao hơn mốc cao nhất hiện có trong stacking context `#visualizer-ui` (z-[60] của
  * #subtitle-display). `#gameplay-tap-surface` là lớp bắt chạm RIÊNG cho gameplay (KHÔNG dùng chung
@@ -31,10 +33,6 @@ const TPL_GAMEPLAY_OVERLAY = `
 
                 <canvas id="gameplay-canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
                 <div id="gameplay-tier-popup-layer" class="absolute inset-0 pointer-events-none"></div>
-
-                <div id="gameplay-hud" class="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-none flex items-baseline gap-2 sub-text-glow">
-                    <span id="gameplay-hud-combo" class="font-mono text-sky-400 font-bold text-sm"></span>
-                </div>
 
                 <div id="gameplay-countdown-screen" class="hidden absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
                     <div id="gameplay-countdown-number" class="gameplay-countdown-number">5</div>
