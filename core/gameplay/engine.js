@@ -16,14 +16,34 @@ function classifyTapTier(radius, cfg) {
     return null;
 }
 
-/** Điểm cộng + combo streak mới cho 1 lần tap. Chỉ tier trong comboTierNames cộng dồn + nhân
- * multiplier bậc thang; tier khác làm gãy combo về 0. */
-function computeComboScoreGain(tierName, tierScore, comboStreakBefore, cfg) {
-    const continuesCombo = cfg.comboTierNames.includes(tierName);
-    if (!continuesCombo) return { pointsGained: tierScore, newComboStreak: 0 };
-    const newComboStreak = comboStreakBefore + 1;
-    const multiplier = 1 + Math.floor(newComboStreak / cfg.comboMultiplierStepSize) * cfg.comboMultiplierStepValue;
-    return { pointsGained: Math.floor(tierScore * multiplier), newComboStreak };
+/**
+ * Điểm cộng + combo MỚI (theo TỪNG TIER riêng, KHÔNG phải 1 số chung) cho 1 lần tap.
+ *
+ * [SỬA — phản hồi Giang] `cfg.comboTierNames` là bảng XẾP HẠNG best->worst. Tier T được tap:
+ *   - Tăng combo CHÍNH T (streak riêng của T).
+ *   - RESET combo mọi tier ĐỨNG TRƯỚC T trong bảng (tốt hơn T) — 1 cú kém hơn phá vỡ chuỗi của
+ *     tier giỏi hơn (VD: đang combo Perfect, tap Excellent -> combo Perfect reset).
+ *   - GIỮ NGUYÊN combo mọi tier ĐỨNG SAU T (kém hơn T) — 1 cú tốt hơn KHÔNG ảnh hưởng chuỗi tier
+ *     kém hơn (VD: đang combo Excellent, tap Perfect xen giữa -> combo Excellent KHÔNG đổi, vẫn
+ *     tiếp tục đúng số khi Excellent lặp lại — đã kiểm chứng bằng test tay 2 kịch bản Giang đưa).
+ * Tier KHÔNG combo-eligible (good/bad/miss) -> reset TẤT CẢ về 0.
+ * @param {object} comboByTierBefore - vd {perfect: 2, excellent: 0}
+ * @returns {{ pointsGained: number, newComboByTier: object }}
+ */
+function computeComboScoreGain(tierName, tierScore, comboByTierBefore, cfg) {
+    const ranking = cfg.comboTierNames; // best -> worst
+    const rank = ranking.indexOf(tierName);
+    if (rank === -1) {
+        const resetAll = {};
+        ranking.forEach((name) => { resetAll[name] = 0; });
+        return { pointsGained: tierScore, newComboByTier: resetAll };
+    }
+    const newComboByTier = { ...comboByTierBefore };
+    const streak = (comboByTierBefore[tierName] || 0) + 1;
+    newComboByTier[tierName] = streak;
+    for (let i = 0; i < rank; i++) newComboByTier[ranking[i]] = 0; // reset tier TỐT HƠN
+    const multiplier = 1 + Math.floor(streak / cfg.comboMultiplierConfig[tierName].stepSize) * cfg.comboMultiplierConfig[tierName].stepValue;
+    return { pointsGained: Math.floor(tierScore * multiplier), newComboByTier };
 }
 
 /** Note gần vị trí tap nhất trong dung sai `tolerancePercent` — null nếu ngoài dung sai. */
