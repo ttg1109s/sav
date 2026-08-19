@@ -115,8 +115,16 @@
             // (best -> worst) — 1 tier T tăng combo CHÍNH NÓ, RESET combo tier ĐỨNG TRƯỚC nó trong
             // mảng (tốt hơn), GIỮ NGUYÊN combo tier ĐỨNG SAU (kém hơn). KHÔNG tự ý đổi thứ tự.
             comboTierNames: Object.freeze(['perfect', 'excellent']),
-            comboMultiplierStepSize: 10,  // mỗi 10 combo (CÙNG tier) tăng 1 bậc multiplier
-            comboMultiplierStepValue: 0.1, // +0.1 mỗi bậc (multiplier = 1 + floor(streak/step)*stepValue)
+            // [SỬA — phản hồi Giang "đồng bộ comboMultiplierStepSize/StepValue"] Combo giờ tách
+            // RIÊNG từng tier (computeComboScoreGain(), engine.js) — 1 bậc step DÙNG CHUNG cho cả 2
+            // không còn hợp lý: Perfect KHÓ giữ hơn Excellent (1 cú Excellent xen giữa reset ngay,
+            // xem docstring computeComboScoreGain()), nên XỨNG ĐÁNG lên bậc NHANH HƠN + MỖI BẬC
+            // ĐÁNG GIÁ HƠN để bù công giữ combo khó; Excellent dễ giữ hơn (Perfect xen giữa KHÔNG
+            // phá) nên bậc xa hơn + nhẹ hơn. Tách theo tier, KHÔNG còn 1 cặp số chung.
+            comboMultiplierConfig: Object.freeze({
+                perfect:   Object.freeze({ stepSize: 5, stepValue: 0.15 }), // x1.15 tại streak 5, x1.30 tại 10...
+                excellent: Object.freeze({ stepSize: 8, stepValue: 0.1 }),  // x1.1 tại streak 8, x1.2 tại 16...
+            }),
             comboPopupScalePerStreak: 0.08, // MỚI — mỗi streak +1 phóng to chữ popup tier thêm 8%
             comboPopupScaleMax: 1.8,        // MỚI — trần phóng to, tránh chữ khổng lồ lúc streak rất cao
             opacityBase: 0.5,             // opacity cố định khi radius ngoài vùng gap
