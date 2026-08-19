@@ -7,9 +7,11 @@
  * sẵn có, không tạo cơ chế next/prev/sort riêng — có là đang tạo exception"] `videoPlaylist`/
  * `currentVideoKey` ĐÃ BỎ HẲN khỏi package này — Next/Prev giờ dùng CHUNG `displayOrder`/
  * `shuffleIndices`/`currentKey` (package `playlist`, service/state/playlist.js) cho CẢ Song lẫn
- * Video, qua ĐÚNG 1 cơ chế `playNext()`/`playPrev()` (core/player-controls.js). Package này giờ
- * CHỈ còn `isVideoPlayerMode` — cờ DUY NHẤT còn cần riêng cho Video (quyết định element nào đang
- * thực sự phát: `bgVideoElement` hay `audioPlayer`, dùng ở nhiều Router/Core khác).
+ * Video, qua ĐÚNG 1 cơ chế `workflowPlayerControls.goToNextTrack()`/`goToPrevTrack()`
+ * (event/workflow/player-controls.js — [SỬA, plan-playmedia-reorg.md] thay `playNext()`/
+ * `playPrev()` cũ). Package này giờ CHỈ còn `isVideoPlayerMode` — cờ DUY NHẤT còn cần riêng cho
+ * Video (quyết định element nào đang thực sự phát: `bgVideoElement` hay `audioPlayer`, dùng ở
+ * nhiều Router/Core khác).
  */
         AppState.definePackage('video-player-mode', {
             schema: {
