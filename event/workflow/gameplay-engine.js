@@ -82,8 +82,8 @@ const workflowGameplayEngine = {
     /** Reset điểm/combo/hit-count — phần DÙNG CHUNG của `_resetSessionCounters()` mode (state
      * riêng mode như wave/lưới pitch KHÔNG thuộc đây, mode tự reset lấy). */
     resetScoreCounters() {
-        appState.set('gameplayComboStreak', 0, { skipCheck: true });
-        console.log(`writer: "workflowGameplayEngine.resetScoreCounters", page: "gameplayComboStreak", content: "0"`);
+        appState.set('gameplayComboByTier', { perfect: 0, excellent: 0 }, { skipCheck: true });
+        console.log(`writer: "workflowGameplayEngine.resetScoreCounters", page: "gameplayComboByTier", content: "reset"`);
         appState.set('gameplayTotalScore', 0, { skipCheck: true });
         console.log(`writer: "workflowGameplayEngine.resetScoreCounters", page: "gameplayTotalScore", content: "0"`);
         appState.set('gameplayCircleCount', 0, { skipCheck: true });

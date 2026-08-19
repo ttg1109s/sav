@@ -36,6 +36,8 @@
  * NẠP SAU: event/workflow/gameplay-engine.js, core/gameplay/circle-mode.js, core/gameplay/engine.js,
  * core/gameplay/circle-mode-ui.js, core/player-controls.js (getActiveMediaElement).
  */
+const GAMEPLAY_MISS_SHATTER_COLOR = '#f87171'; // đỏ-400, khớp màu .gameplay-tier-popup--miss (assets/css/gameplay.css)
+
 const workflowGameplay = {
     _nextWaveId: 1,
     _nextSpawnIndex: 0,                // luân phiên màu A/B (mode dynamic), reset mỗi phiên
@@ -108,8 +110,8 @@ const workflowGameplay = {
         if (getActiveMediaElement(appState.get('isVideoPlayerMode')).paused) return;
         const now = performance.now();
         const cfg = GAMEPLAY_CIRCLE_CONFIG;
-        const { gameplayWaves, gameplayComboStreak, gameplayTotalScore, gameplayCircleCount } = appState.get([
-            'gameplayWaves', 'gameplayComboStreak', 'gameplayTotalScore', 'gameplayCircleCount',
+        const { gameplayWaves, gameplayComboByTier, gameplayTotalScore, gameplayCircleCount } = appState.get([
+            'gameplayWaves', 'gameplayComboByTier', 'gameplayTotalScore', 'gameplayCircleCount',
         ]);
         if (gameplayWaves.length === 0) return;
 
@@ -120,15 +122,16 @@ const workflowGameplay = {
         const tier = classifyTapTier(nearest.radius, cfg); // core (engine.js)
         const tierName = tier ? tier.name : 'miss';
         const tierScore = tier ? tier.score : 0;
-        const { pointsGained, newComboStreak } = computeComboScoreGain(tierName, tierScore, gameplayComboStreak, cfg); // core (engine.js)
+        const { pointsGained, newComboByTier } = computeComboScoreGain(tierName, tierScore, gameplayComboByTier, cfg); // core (engine.js)
+        const waveRef = gameplayWaves.find(w => w.id === nearest.id);
 
         appState.mutate('gameplayWaves', arr => {
             const idx = arr.findIndex(w => w.id === nearest.id);
             if (idx !== -1) arr.splice(idx, 1);
         }, { skipCheck: true });
         console.log(`writer: "workflowGameplay.handleTap", page: "gameplayWaves", content: "remove ${nearest.id}"`);
-        appState.set('gameplayComboStreak', newComboStreak, { skipCheck: true });
-        console.log(`writer: "workflowGameplay.handleTap", page: "gameplayComboStreak", content: "${newComboStreak}"`);
+        appState.set('gameplayComboByTier', newComboByTier, { skipCheck: true });
+        console.log(`writer: "workflowGameplay.handleTap", page: "gameplayComboByTier", content: "${JSON.stringify(newComboByTier)}"`);
         appState.set('gameplayTotalScore', gameplayTotalScore + pointsGained, { skipCheck: true });
         console.log(`writer: "workflowGameplay.handleTap", page: "gameplayTotalScore", content: "+${pointsGained}"`);
         appState.set('gameplayCircleCount', gameplayCircleCount + 1, { skipCheck: true });
@@ -136,8 +139,10 @@ const workflowGameplay = {
         appState.mutate('gameplayHitCounts', counts => { counts[tierName] = (counts[tierName] || 0) + 1; }, { skipCheck: true });
         console.log(`writer: "workflowGameplay.handleTap", page: "gameplayHitCounts", content: "${tierName}+1"`);
 
-        showTapTierPopup(gameplayTierPopupLayer, tierName.toUpperCase(), tierName, nearest.x, nearest.y); // core-ui (engine-ui.js)
-        updateGameplayHud(gameplayHudCombo, newComboStreak); // core-ui (engine-ui.js)
+        // [SỬA — phản hồi Giang] combo hiện NGAY tại popup (streak riêng của tierName, 0 nếu tier
+        // không combo-eligible), KHÔNG còn HUD riêng (đã xoá). Vỡ vụn màu ĐÚNG wave vừa tap trúng.
+        showTapTierPopup(gameplayTierPopupLayer, tierName.toUpperCase(), tierName, nearest.x, nearest.y, newComboByTier[tierName] || 0, cfg); // core-ui
+        if (waveRef) showShatterEffect(gameplayTierPopupLayer, nearest.x, nearest.y, waveRef.colorMain); // core-ui — "tap hoàn thành"
     },
 
     /** Gọi MỖI FRAME từ visualizer-render.js — hot path 60fps, MIỄN Rule 4 cho set()/mutate() bên
@@ -196,9 +201,11 @@ const workflowGameplay = {
             this._pendingBeatFluxCount = 0;
 
             // Trigger refresh vị trí theo audio — CHỈ xét khi map đã có THẬT và CHƯA đang pending.
+            // [SỬA — phản hồi Giang, số cuối] fluxThreshold DÙNG CHUNG cho energy/section (trước
+            // đây 2 số riêng fluxDeltaEnergy/fluxDeltaSection), chỉ còn khác nhau ở CỬA SỔ so sánh.
             if (!justRebuilt && !gameplayRefreshPending) {
-                const energyTransition = detectFluxTransition(this._beatFluxHistory, diffCfg.energyWindowBeats, diffCfg.fluxDeltaEnergy); // core (engine.js)
-                const sectionTransition = detectFluxTransition(this._beatFluxHistory, diffCfg.sectionWindowBeats, diffCfg.fluxDeltaSection); // core
+                const energyTransition = detectFluxTransition(this._beatFluxHistory, diffCfg.energyWindowBeats, diffCfg.fluxThreshold); // core (engine.js)
+                const sectionTransition = detectFluxTransition(this._beatFluxHistory, diffCfg.sectionWindowBeats, diffCfg.fluxThreshold); // core
                 const phraseBoundary = isPhraseBoundary(this._beatsSincePhraseRefresh, cfg.refreshBeatsForPhrase); // core (circle-mode.js)
                 if (energyTransition || sectionTransition || phraseBoundary) {
                     appState.set('gameplayRefreshPending', true, { skipCheck: true });
@@ -228,13 +235,13 @@ const workflowGameplay = {
             appState.mutate('gameplayWaves', arr => {
                 for (let i = arr.length - 1; i >= 0; i--) if (missedIds.includes(arr[i].id)) arr.splice(i, 1);
             }, { skipCheck: true });
-            appState.set('gameplayComboStreak', 0, { skipCheck: true });
+            appState.set('gameplayComboByTier', { perfect: 0, excellent: 0 }, { skipCheck: true }); // reset TẤT CẢ, giống tier không combo-eligible (engine.js::computeComboScoreGain())
             appState.set('gameplayCircleCount', gameplayCircleCount + missedIds.length, { skipCheck: true });
             appState.mutate('gameplayHitCounts', counts => { counts.miss = (counts.miss || 0) + missedIds.length; }, { skipCheck: true });
             for (const entry of missedEntries) {
-                showTapTierPopup(gameplayTierPopupLayer, 'MISS', 'miss', entry.x, entry.y); // core-ui
+                showTapTierPopup(gameplayTierPopupLayer, 'MISS', 'miss', entry.x, entry.y, 0, cfg); // core-ui
+                showShatterEffect(gameplayTierPopupLayer, entry.x, entry.y, GAMEPLAY_MISS_SHATTER_COLOR); // core-ui — "tự mất"
             }
-            updateGameplayHud(gameplayHudCombo, 0); // core-ui
         }
 
         const remainingEntries = radiusEntries.filter(e => !missedEntries.includes(e));
@@ -258,7 +265,7 @@ const workflowGameplay = {
         const activePositions = currentWaves.map(w => ({ x: w.x, y: w.y }));
         if (isPositionTooClose(jittered.x, jittered.y, activePositions, diffCfg.minSpawnDistancePx)) return; // core — bỏ lượt, chờ beat kế
 
-        const shrinkDurationMs = computeShrinkDurationMs(bpmString, cfg); // core
+        const shrinkDurationMs = computeShrinkDurationMs(bpmString, cfg, diffCfg.shrinkDurationMultiplier); // core
 
         const ec = getActiveEffectConfig(); // core (custom-effect.js)
         let colorMain, colorLight;
@@ -419,7 +426,6 @@ const workflowGameplay = {
             const ctx = gameplayCanvas.getContext('2d');
             clearGameplayCanvas(ctx, this._canvasWidthPx, this._canvasHeightPx); // core-ui — canvas có thể chưa từng resize (lần đầu app boot, layer còn .hidden)
         }
-        updateGameplayHud(gameplayHudCombo, 0); // core-ui
     },
 };
 
