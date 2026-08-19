@@ -36,6 +36,20 @@
             return Math.min(cfg.maxShrinkDurationMs, Math.max(cfg.minShrinkDurationMs, adjusted));
         }
 
+        /**
+         * [MỚI — phản hồi Giang "Hard giảm quãng s mỗi wave chuỗi còn khoảng spawnEligibleEveryNBeats
+         * / 2"] Khoảng cách (ms) giữa 2 wave LIÊN TIẾP trong chuỗi "sinh sản" Hard — bằng ĐÚNG NỬA
+         * nhịp `spawnEligibleEveryNBeats` hiện hành, quy đổi ra THỜI GIAN THẬT (ms) từ BPM (0.5 beat
+         * không biểu diễn được bằng đếm nguyên beat như isBeatEligibleForSpawn() — bắt buộc dùng ms).
+         * BPM không hợp lệ -> fallback CÙNG công thức computeShrinkDurationMs() (beatPeriodMs xấp xỉ
+         * = fallbackShrinkDurationMs / beatsPerWave).
+         */
+        function computeChainSpacingMs(bpmString, spawnEligibleEveryNBeats, cfg) {
+            const bpm = parseFloat(bpmString);
+            const beatPeriodMs = (!Number.isFinite(bpm) || bpm <= 0) ? (cfg.fallbackShrinkDurationMs / cfg.beatsPerWave) : (60000 / bpm);
+            return (beatPeriodMs * spawnEligibleEveryNBeats) / 2;
+        }
+
         // ── Vị trí spawn: lưới pitch→ô ────────────────────────────────────────────────────────
 
         /** Số cột/hàng lưới thật (px) khớp vùng spawnZone hiện tại của canvas — tính lại mỗi khi
