@@ -37,17 +37,18 @@
         }
 
         /**
-         * [MỚI — phản hồi Giang "Hard giảm quãng s mỗi wave chuỗi còn khoảng spawnEligibleEveryNBeats
-         * / 2"] Khoảng cách (ms) giữa 2 wave LIÊN TIẾP trong chuỗi "sinh sản" Hard — bằng ĐÚNG NỬA
-         * nhịp `spawnEligibleEveryNBeats` hiện hành, quy đổi ra THỜI GIAN THẬT (ms) từ BPM (0.5 beat
-         * không biểu diễn được bằng đếm nguyên beat như isBeatEligibleForSpawn() — bắt buộc dùng ms).
+         * [SỬA — phản hồi Giang "không chia nửa, mà chỉ trừ đi 1/3 của nó"] Khoảng cách (ms) giữa 2
+         * wave LIÊN TIẾP trong chuỗi "sinh sản" Hard — quãng s gốc (`spawnEligibleEveryNBeats` quy
+         * đổi ra ms từ BPM) TRỪ ĐI 1/3 CHÍNH NÓ, tức còn lại 2/3 quãng s gốc (KHÔNG còn chia đôi như
+         * bản trước — 2/3 > 1/2, quãng cách giờ DÀI hơn, chuỗi giãn ra chậm hơn bản trước).
          * BPM không hợp lệ -> fallback CÙNG công thức computeShrinkDurationMs() (beatPeriodMs xấp xỉ
          * = fallbackShrinkDurationMs / beatsPerWave).
          */
         function computeChainSpacingMs(bpmString, spawnEligibleEveryNBeats, cfg) {
             const bpm = parseFloat(bpmString);
             const beatPeriodMs = (!Number.isFinite(bpm) || bpm <= 0) ? (cfg.fallbackShrinkDurationMs / cfg.beatsPerWave) : (60000 / bpm);
-            return (beatPeriodMs * spawnEligibleEveryNBeats) / 2;
+            const baseSpacingMs = beatPeriodMs * spawnEligibleEveryNBeats;
+            return baseSpacingMs - (baseSpacingMs / 3);
         }
 
         // ── Vị trí spawn: lưới pitch→ô ────────────────────────────────────────────────────────
