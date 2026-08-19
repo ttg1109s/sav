@@ -305,6 +305,9 @@
          mới sống NGAY trong trang này (KHÔNG còn trang riêng video-editor.html, ĐÃ XOÁ), xem
          lang/lang.js. -->
     <script src="lang/patch/patch-video-preview.js?v=20260803v1"></script>
+    <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — bottom nav + panel Photo/Game/Statis/Setting
+         mới, xem lang/patch/patch-app-panel-nav.js. -->
+    <script src="lang/patch/patch-app-panel-nav.js?v=20260819v1"></script>
     <script src="lang/lang.js?v=20260731v1"></script>
 
     <!-- =====================================================================
@@ -323,25 +326,36 @@
     <!-- components/subtitle-modal.js ĐÃ XOÁ (10/07/2026) — Subtitle Editor chuyển sang trang riêng
          (subtitle-editor.html), KHÔNG còn modal ở trang chính. -->
     <script src="components/bottom-player.js?v=20260704v1"></script>
-    <!-- Settings Drawer: các "section" HTML nhỏ nạp trước settings-drawer.js — file đó chỉ ghép
-         các biến TPL_SETTINGS_* thành TPL_SETTINGS_DRAWER (thứ tự nạp không cần khớp thứ tự hiển
-         thị). playlist-view.js xuất TPL_SETTINGS_PLAYLIST_VIEW (Kiểu xem/Sắp xếp), tách khỏi
-         playlist-background.js (giờ chỉ còn TPL_SETTINGS_BACKGROUND). -->
-    <script src="components/settings/playlist-view.js?v=20260707v3"></script>
     <!-- MỚI (mục 1b/1d, Sort/Filter subpanel, phản hồi Giang) — nội dung 2 panel con "Sắp
-         xếp"/"Lọc" (renderPlaylistSortPanelBody()/renderPlaylistFilterPanelBody()), mở từ 2
-         nút trong TPL_SETTINGS_PLAYLIST_VIEW ngay trên. -->
+         xếp"/"Lọc" (renderPlaylistSortPanelBody()/renderPlaylistFilterPanelBody()) — trigger cũ
+         (`#setting-open-playlist-sort/-filter`, TPL_SETTINGS_PLAYLIST_VIEW) đã mất cùng đợt bỏ
+         Settings cũ (xem ngay dưới), tạm KHÔNG có lối vào UI nào — GIỮ NGUYÊN script (chỉ là hàm
+         render, vô hại khi chưa gọi tới, đợi hướng dẫn nối lại sau). -->
     <script src="components/playlist-sort-drawer.js?v=20260815v1"></script>
     <script src="components/playlist-filter-drawer.js?v=20260815v2"></script>
-    <!-- MỞ ĐẦU THEME THẬT (07/07/2026, phản hồi Giang mục 3) — THAY components/settings/
-         playlist-background.js (TPL_SETTINGS_BACKGROUND, KHÔNG còn mount) bằng theme.js
-         (TPL_SETTINGS_THEME) — 3 card Sáng/Tối/Background loại trừ nhau. -->
-    <script src="components/settings/theme.js?v=20260709v2"></script>
-    <script src="components/settings/file-manager-section.js?v=20260728v1"></script>
-    <script src="components/settings/visualizer-geometry-color.js?v=20260720v1"></script>
-    <script src="components/settings/misc.js?v=20260819v1"></script>
+    <!-- MỚI (đợt tái cấu trúc bottom nav App Panel, phản hồi Giang) — bottom nav 7 mục Media/
+         Folder/Photo/Storage/Game/Statis/Setting. -->
+    <script src="components/app-bottom-nav.js?v=20260819v1"></script>
+    <!-- SỬA (phân phối lại section Settings, phản hồi Giang — "tận dụng UI cũ") — Settings không
+         còn là "trang" trong #side-left-container (mở qua core/generic-drawer.js), nhưng 2 template
+         sau VẪN ĐƯỢC TÁI DÙNG NGUYÊN VẸN bởi màn Playlist/Language mới (event/workflow/
+         app-settings.js), nên GIỮ NGUYÊN script, không bỏ. 5 script khác (theme.js — Theme viết
+         lại UI mới không cần template cũ nữa; file-manager-section.js/visualizer-geometry-
+         color.js/misc.js/settings-drawer.js — Visualizer Screen/File Manager section CHƯA migrate,
+         xem event/workflow/app-settings.js) ĐÃ BỎ khỏi danh sách nạp — GIỮ NGUYÊN trên đĩa. -->
+    <script src="components/settings/playlist-view.js?v=20260707v3"></script>
     <script src="components/settings/language.js?v=20260707v2"></script>
-    <script src="components/settings-drawer.js?v=20260708v2"></script>
+    <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — nội dung Main MỚI của Setting (5 row
+         placeholder Playlist/System/Visualizer Screen/Troubleshooting/Reset app), hàm render (KHÔNG
+         phải TPL_* tĩnh — gọi lại mỗi lần mở Generic Drawer, xem event/workflow/app-settings.js). -->
+    <script src="components/settings/app-settings-main.js?v=20260819v1"></script>
+    <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — Photo, khung full-screen RIÊNG (ngang cấp
+         Setting) — CHỈ còn khung rỗng lúc mount (Main do event/workflow/file-manager-photo.js tự
+         dựng lúc mở, gọi renderFileManagerPhotoPanelBody() ở components/file-manager.js lúc RUNTIME
+         chứ không phải lúc parse file này — thứ tự nạp với file-manager.js không còn quan trọng). -->
+    <script src="components/photo-panel.js?v=20260819v1"></script>
+    <script src="components/game-panel.js?v=20260819v1"></script>
+    <script src="components/statis-panel.js?v=20260819v1"></script>
     <script src="components/about-drawer.js?v=20260707v1"></script>
     <!-- MỚI (18/07/2026, Giang yêu cầu) — panel xem console log (Settings > Misc). -->
     <script src="components/debug-console-drawer.js?v=20260718v1"></script>
@@ -454,6 +468,9 @@
     <script src="service/state/app-misc.js?v=20260725v1"></script>
     <script src="service/state/file-manager.js?v=20260731v1"></script>
     <script src="service/state/generic-drawer.js?v=20260725v1"></script>
+    <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — package appPanelActiveTab, xem
+         service/state/app-panel-nav.js. -->
+    <script src="service/state/app-panel-nav.js?v=20260819v1"></script>
     <!-- MỚI — package STATE runtime cho "Element Style Editor" (draft box/text style + Google
          Font đã nạp trong phiên, xem service/state/element-style-editor.js). -->
     <script src="service/state/element-style-editor.js?v=20260816v2"></script>
@@ -582,6 +599,13 @@
          playlist/image-edit/slideshow), gộp về 1 chỗ. NẠP NGAY SAU core/generic-drawer.js, TRƯỚC
          mọi Workflow ở dưới có dùng tới. -->
     <script src="event/workflow/generic-drawer-helpers.js?v=20260731v2"></script>
+    <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — core UI thuần cho bottom nav + Photo/Game/
+         Statis panel + wire nút động Setting (core/app-settings-ui.js, Rule 5a) — CẦN core/dom-
+         refs.js (đã nạp) + core/generic-drawer.js (đã nạp ngay trên). -->
+    <script src="core/app-panel-nav.js?v=20260819v1"></script>
+    <script src="core/photo-panel.js?v=20260819v1"></script>
+    <script src="core/placeholder-panel.js?v=20260819v1"></script>
+    <script src="core/app-settings-ui.js?v=20260819v1"></script>
     <!-- ĐỔI TÊN (04/08/2026) từ event/workflow/crop-ratio-helpers.js, khớp core/media-transform.js
          (dải tỉ lệ Crop dùng CHUNG — hiện Video Preview dùng, Photo Edit sẵn sàng dùng sau nếu thêm
          dải tỉ lệ) — CẦN core/media-transform.js (đã nạp ở nhóm CORE, dòng ~578, TRƯỚC dòng này).
@@ -920,6 +944,30 @@
     <script src="event/workflow/playlist.js?v=20260815v1"></script>
     <script src="event/router/playlist.js?v=20260731v1"></script>
     <script src="event/listener/playlist.js?v=20260728v2"></script>
+    <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
+         Giang) — cụm "appSettings" (điều hướng swap Setting, TÁI DÙNG workflowGestureSettings/
+         workflowSlideshow/workflowPlaylist/workflowSettingsMisc/workflowFileManagerPhoto/
+         workflowFileManagerFolderBrowser/workflowFileManagerStorage đã nạp ở trên — KHÔNG bắt
+         buộc thứ tự nạp CHẶT với các file đó, vì mọi tham chiếu đều nằm TRONG thân hàm, chỉ chạy
+         SAU khi cả trang đã nạp xong, không chạy ngay lúc parse). -->
+    <script src="event/workflow/app-settings.js?v=20260819v1"></script>
+    <script src="event/router/app-settings.js?v=20260819v1"></script>
+    <!-- Cụm "photoPanel" (đóng hẳn Photo, xem components/photo-panel.js) + "placeholderPanels"
+         (đóng Game/Statis). -->
+    <script src="event/workflow/photo-panel.js?v=20260819v1"></script>
+    <script src="event/router/photo-panel.js?v=20260819v1"></script>
+    <script src="event/listener/photo-panel.js?v=20260819v1"></script>
+    <script src="event/workflow/placeholder-panels.js?v=20260819v1"></script>
+    <script src="event/router/placeholder-panels.js?v=20260819v1"></script>
+    <script src="event/listener/placeholder-panels.js?v=20260819v1"></script>
+    <!-- Cụm "appPanelNav" (bottom nav 7 mục — Media/Folder/Photo/Storage/Game/Statis/Setting) — nạp
+         SAU CÙNG trong nhóm này vì workflow của nó gọi tới workflowAppSettings/workflowPhotoPanel/
+         workflowPlaceholderPanels/workflowFileManagerFolderBrowser/workflowFileManagerStorage/
+         workflowFileManagerPhoto (đều đã nạp ở trên, dù không bắt buộc thứ tự chặt như ghi chú
+         trên). -->
+    <script src="event/workflow/app-panel-nav.js?v=20260819v1"></script>
+    <script src="event/router/app-panel-nav.js?v=20260819v1"></script>
+    <script src="event/listener/app-panel-nav.js?v=20260819v1"></script>
     <!-- Cụm "playerControls" (ver 11, patch 3). MỚI (fix 03/07/2026, mục 3b): 'playerControls.
          shuffle.click' cần event/workflow/player-controls.js (2 hàm core nối tiếp, phụ thuộc thứ
          tự — xem comment đầu file đó + event/router/player-controls.js). MỚI (plan-playmedia-

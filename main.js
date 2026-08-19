@@ -52,12 +52,29 @@
     // — dời TPL_SETTINGS_DRAWER từ vị trí cũ (sau TPL_BOTTOM_PLAYER) lên ngay sau TPL_PLAYLIST_VIEW.
     // Vị trí TPL_APP_VIEW_STACK_OPEN/_CLOSE trong chuỗi tổng không quan trọng cho stacking (container
     // là `fixed` + `z-[60]` tự quyết định lớp hiển thị, không phụ thuộc thứ tự DOM).
+    // MỚI (đợt tái cấu trúc bottom nav App Panel, mục 1-4, phản hồi Giang) — TPL_SETTINGS_DRAWER
+    // (Settings cũ, 2-trang cuộn ngang cùng Playlist) KHÔNG còn mount — Settings giờ mở qua
+    // core/generic-drawer.js (90vh, xem event/workflow/app-settings.js), KHÔNG còn là "trang" bên
+    // trong #side-left-container nữa. #side-left-container giờ CHỈ còn 1 "trang" TPL_PLAYLIST_VIEW.
+    // TPL_APP_BOTTOM_NAV (MỚI) chèn NGAY SAU #side-left-container, vẫn bên TRONG
+    // TPL_APP_VIEW_STACK_OPEN/_CLOSE (#app-stack — xem components/app-view-stack.js, giờ
+    // display:flex flex-direction:column, xem assets/css/layout-nav.css).
+    // TPL_PHOTO_PANEL/TPL_GAME_PANEL/TPL_STATIS_PANEL (MỚI) — 3 khung full-screen NGANG CẤP
+    // #app-stack (không lồng bên trong), đặt SAU TPL_APP_VIEW_STACK_CLOSE, TRƯỚC
+    // TPL_VISUALIZER_OVERLAY — thứ tự DOM không quan trọng cho stacking (đều z-index riêng qua
+    // style inline/CSS, xem assets/css/layout-nav.css).
+    // file components/settings-drawer.js + mọi components/settings/*.js (TRỪ app-settings-main.js
+    // MỚI) GIỮ NGUYÊN trên đĩa (KHÔNG xoá) — chỉ không còn được ghép vào chuỗi dưới đây.
     appRoot.innerHTML =
         TPL_LOADING_SHIELD +
         TPL_APP_VIEW_STACK_OPEN +
         TPL_PLAYLIST_VIEW +
-        TPL_SETTINGS_DRAWER +
-        TPL_APP_VIEW_STACK_CLOSE +
+        TPL_APP_VIEW_STACK_CLOSE_SIDE +
+        TPL_APP_BOTTOM_NAV +
+        TPL_APP_VIEW_STACK_CLOSE_OUTER +
+        TPL_PHOTO_PANEL +
+        TPL_GAME_PANEL +
+        TPL_STATIS_PANEL +
         TPL_VISUALIZER_OVERLAY +
         // TPL_SUBTITLE_MODAL ĐÃ BỎ (10/07/2026) — Subtitle Editor chuyển sang trang riêng
         // (subtitle-editor.html), không còn modal ở trang chính.
