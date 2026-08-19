@@ -261,10 +261,12 @@ const workflowGameplay = {
      * tick() vì cần nhiều bước phụ thuộc nhau (tìm ô theo pitch, chống đè hình, chọn màu theo
      * effect đang chạy).
      *
-     * [SỬA — phản hồi Giang "cell đã có wave -> không cho spawn cùng ô kể cả khác note; thử 8 ô lân
-     * cận; hết 8 ô -> ưu tiên ô rỗng-bucket; hết luôn -> bỏ"] Thay HẲN cơ chế đo khoảng cách px cũ
-     * (isPositionTooClose(), ĐÃ XOÁ) bằng findAvailableCell() (core/gameplay/circle-mode.js) —
-     * occupancy CHÍNH XÁC theo chỉ số ô (col,row), không còn phụ thuộc jitter/khoảng cách.
+     * [SỬA — phản hồi Giang "dùng thuật toán xoay của rubik để chọn ô kế cận, try 2 lần, lần 2
+     * false thì bỏ luôn"] `findAvailableCell()` (core/gameplay/circle-mode.js) giờ: target cell bận
+     * -> chọn 1 hướng NGẪU NHIÊN trong 8 hướng la bàn, thử (lần 1); KHÔNG trống -> XOAY 90°
+     * (rotateNeighborOffset90(), CÙNG công thức rotateRubikIndices() dùng cho hiệu ứng Rubik's
+     * Cube, core/rubik-math.js) ra hướng thứ 2, thử tiếp (lần 2); lần 2 CŨNG không trống -> bỏ luôn
+     * (KHÔNG còn fallback ô rỗng-bucket như bản trước — listUnusedGridCells() ĐÃ XOÁ).
      *
      * [MỚI — phản hồi Giang, cơ chế "sinh sản" CHỈ Hard] `diffCfg.chainReproductionEnabled` — lúc
      * spawn mà bảng CÒN wave sống (`currentWaves.length > 0`), `this._hardChainLevel` tăng thêm 1
@@ -272,9 +274,9 @@ const workflowGameplay = {
      * refresh" ở tick()). Cấp độ N -> spawn ĐÚNG N wave (computeChainedPitches(), circle-mode.js —
      * pitch[0]=gốc thật, pitch[i>=1]=pitch[i-1] + quãng(i+1)) — MỖI wave trong chuỗi TỰ tìm ô riêng
      * qua findAvailableCell(), occupancy CẬP NHẬT NGAY sau mỗi wave đặt được (wave TIẾP THEO trong
-     * CÙNG chuỗi không đè lên wave TRƯỚC nó vừa đặt). 1 phần tử trong chuỗi hết chỗ (target + 8 lân
-     * cận + rỗng-bucket đều bận) -> BỎ RIÊNG phần tử đó, KHÔNG bỏ hết cả chuỗi (chuỗi còn spawn được
-     * bao nhiêu thì spawn bấy nhiêu). */
+     * CÙNG chuỗi không đè lên wave TRƯỚC nó vừa đặt). 1 phần tử trong chuỗi hết chỗ (2 lần thử đều
+     * bận) -> BỎ RIÊNG phần tử đó, KHÔNG bỏ hết cả chuỗi (chuỗi còn spawn được bao nhiêu thì spawn
+     * bấy nhiêu). */
     _trySpawnWave(now, cfg, diffCfg, pitchCellMap, currentWaves, bpmString, midiNote, pitchRangeMin, pitchRangeMax) {
         let chainLevel = 1;
         if (diffCfg.chainReproductionEnabled) {
@@ -286,7 +288,6 @@ const workflowGameplay = {
         const pitchChain = computeChainedPitches(midiNote, chainLevel, pitchRangeMin, pitchRangeMax); // core
 
         const occupiedCellKeys = new Set(currentWaves.map((w) => `${w.col},${w.row}`));
-        const unusedCells = listUnusedGridCells(this._gridCols, this._gridRows, cfg, this._zoneOriginX, this._zoneOriginY, pitchCellMap); // core
         const ec = getActiveEffectConfig(); // core (custom-effect.js)
         const newWaves = [];
 
@@ -298,7 +299,12 @@ const workflowGameplay = {
                 cellX: this._zoneOriginX + (this._gridCols * cfg.gridCellSizePx) / 2,
                 cellY: this._zoneOriginY + (this._gridRows * cfg.gridCellSizePx) / 2,
             };
-            const cell = findAvailableCell(targetCell, this._gridCols, this._gridRows, cfg, this._zoneOriginX, this._zoneOriginY, unusedCells, occupiedCellKeys); // core
+            // [SỬA — phản hồi Giang "dùng thuật toán xoay của rubik để chọn ô kế cận, try 2 lần"]
+            // startOffsetIndex/rotationDir PHẢI do Workflow tự random rồi truyền vào (Core không tự
+            // random) — xem findAvailableCell(), core/gameplay/circle-mode.js.
+            const startOffsetIndex = Math.floor(Math.random() * 8);
+            const rotationDir = Math.random() < 0.5 ? 1 : -1;
+            const cell = findAvailableCell(targetCell, this._gridCols, this._gridRows, cfg, this._zoneOriginX, this._zoneOriginY, startOffsetIndex, rotationDir, occupiedCellKeys); // core
             if (!cell) continue; // hết chỗ cho ĐÚNG phần tử này trong chuỗi -> bỏ riêng, chuỗi còn lại vẫn tiếp tục thử
             occupiedCellKeys.add(`${cell.col},${cell.row}`); // chiếm NGAY — wave kế trong CÙNG chuỗi không đè lên
 
