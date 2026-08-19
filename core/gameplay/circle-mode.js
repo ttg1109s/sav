@@ -109,69 +109,57 @@
             // làm 1 pitch trỏ vào 2 ô, đã bỏ). Cứ để RỖNG — cellCenters đã shuffle trước khi biết số
             // bucket (đoạn Fisher-Yates phía trên), nên chính bucket nào rơi vào cellCenters[0..N-1]
             // và ô nào bị bỏ trống (cellCenters[N..cuối]) đã tự phân bố ngẫu nhiên rồi, không cần
-            // random gì thêm ở đây. Ô RỖNG này chính là "ô không có note nào" dùng làm fallback cuối
-            // ở findAvailableCell() ngay dưới, xem listUnusedGridCells().
+            // random gì thêm ở đây.
             return map;
         }
 
-        /** Toàn bộ ô lưới KHÔNG được gán bucket pitch nào (phần dư của buildPitchCellMap() khi dải
-         * pitch hẹp hơn lưới) — dùng làm fallback CUỐI ở findAvailableCell() khi target cell VÀ cả
-         * 8 ô lân cận đều đang có wave. */
-        function listUnusedGridCells(cols, rows, cfg, zoneOriginXPx, zoneOriginYPx, pitchCellMap) {
-            const usedKeys = new Set(pitchCellMap.map((entry) => `${entry.col},${entry.row}`));
-            const unused = [];
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    if (usedKeys.has(`${c},${r}`)) continue;
-                    unused.push({
-                        col: c, row: r,
-                        cellX: zoneOriginXPx + c * cfg.gridCellSizePx + cfg.gridCellSizePx / 2,
-                        cellY: zoneOriginYPx + r * cfg.gridCellSizePx + cfg.gridCellSizePx / 2,
-                    });
-                }
-            }
-            return unused;
+        const GAMEPLAY_NEIGHBOR_OFFSETS = Object.freeze([[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]); // 8 hướng la bàn — CHỈ dùng làm điểm xuất phát random, KHÔNG quét tuần tự
+
+        /** Xoay 90° 1 offset (dc,dr) — CÙNG công thức ma trận xoay dùng cho rotateRubikIndices()
+         * (core/rubik-math.js, hiệu ứng Rubik's Cube): dir>0 xoay 1 chiều, dir<=0 xoay chiều ngược
+         * lại. Áp cho offset ô lân cận (2D) thay vì toạ độ khối lập phương (3D) — cùng nguyên lý ma
+         * trận xoay 90° rời rạc. */
+        function rotateNeighborOffset90(dc, dr, dir) {
+            return dir > 0 ? { dc: -dr, dr: dc } : { dc: dr, dr: -dc };
         }
 
         /**
-         * [MỚI — phản hồi Giang "cell đã có wave -> không cho spawn cùng ô, kể cả khác note; thử 8
-         * ô lân cận, ô nào trống chèn ngay; 8 ô không còn -> ưu tiên ô rỗng-bucket; không còn -> bỏ"]
-         * Thay HẲN cơ chế cũ isPositionTooClose() (đo khoảng cách px, có thể lọt nếu jitter xui rơi
-         * xa nhau trong CÙNG 1 ô — xem thảo luận trước) bằng occupancy CHÍNH XÁC theo chỉ số ô
-         * (col,row), không còn phụ thuộc jitter/khoảng cách.
-         *
-         * Thứ tự thử: (1) targetCell — nếu TRỐNG dùng luôn; (2) 8 ô Moore neighborhood quanh
-         * targetCell (ngoài biên lưới -> bỏ qua, KHÔNG tính là "trống"), ô TRỐNG đầu tiên tìm được
-         * -> dùng NGAY, dừng tìm; (3) hết 8 ô mà không có ô nào trống -> fallback `unusedCells` (ô
-         * không gán bucket pitch nào), ô TRỐNG đầu tiên -> dùng; (4) không còn lựa chọn nào -> null
-         * (Workflow bỏ lượt spawn, chờ beat kế).
+         * [SỬA — phản hồi Giang "dùng thuật toán xoay của rubik để chọn ô kế cận, try 2 lần, lần 2
+         * false thì bỏ luôn"] Thay HẲN cách quét tuần tự 8 ô cố định + fallback ô rỗng-bucket (đã
+         * xoá `listUnusedGridCells()`) — giờ CHỌN 1 hướng NGẪU NHIÊN làm điểm xuất phát
+         * (`startOffsetIndex`), thử ô đó (lần 1); KHÔNG trống (hoặc ngoài biên) -> XOAY 90°
+         * (rotateNeighborOffset90(), CÙNG công thức rotateRubikIndices()) ra hướng thứ 2, thử tiếp
+         * (lần 2); lần 2 CŨNG không trống -> bỏ luôn (null), KHÔNG còn dò tiếp ô nào khác nữa.
          * @param {{col:number,row:number,cellX:number,cellY:number}} targetCell
-         * @param {Array} unusedCells - xem listUnusedGridCells()
+         * @param {number} startOffsetIndex - 0-7, Workflow tự Math.random() rồi truyền vào
+         * @param {1|-1} rotationDir - chiều xoay cho lần thử thứ 2, Workflow tự random
          * @param {Set<string>} occupiedCellKeys - `"${col},${row}"` của MỌI wave đang sống
          * @returns {{col:number,row:number,cellX:number,cellY:number}|null}
          */
-        function findAvailableCell(targetCell, cols, rows, cfg, zoneOriginXPx, zoneOriginYPx, unusedCells, occupiedCellKeys) {
+        function findAvailableCell(targetCell, cols, rows, cfg, zoneOriginXPx, zoneOriginYPx, startOffsetIndex, rotationDir, occupiedCellKeys) {
             const isFree = (col, row) => !occupiedCellKeys.has(`${col},${row}`);
             if (isFree(targetCell.col, targetCell.row)) return targetCell;
 
-            const neighborOffsets = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
-            for (const [dc, dr] of neighborOffsets) {
+            const toCellCenter = (col, row) => ({
+                col, row,
+                cellX: zoneOriginXPx + col * cfg.gridCellSizePx + cfg.gridCellSizePx / 2,
+                cellY: zoneOriginYPx + row * cfg.gridCellSizePx + cfg.gridCellSizePx / 2,
+            });
+            const tryOffset = (dc, dr) => {
                 const col = targetCell.col + dc, row = targetCell.row + dr;
-                if (col < 0 || col >= cols || row < 0 || row >= rows) continue; // ngoài biên lưới -> bỏ qua, KHÔNG tính là trống
-                if (isFree(col, row)) {
-                    return {
-                        col, row,
-                        cellX: zoneOriginXPx + col * cfg.gridCellSizePx + cfg.gridCellSizePx / 2,
-                        cellY: zoneOriginYPx + row * cfg.gridCellSizePx + cfg.gridCellSizePx / 2,
-                    };
-                }
-            }
+                if (col < 0 || col >= cols || row < 0 || row >= rows) return null; // ngoài biên lưới -> tính là 1 LẦN THỬ HỎNG (vẫn trừ vào quota 2 lần)
+                return isFree(col, row) ? toCellCenter(col, row) : null;
+            };
 
-            for (const cell of unusedCells) {
-                if (isFree(cell.col, cell.row)) return cell;
-            }
+            const [dc1, dr1] = GAMEPLAY_NEIGHBOR_OFFSETS[startOffsetIndex % GAMEPLAY_NEIGHBOR_OFFSETS.length];
+            const try1 = tryOffset(dc1, dr1);
+            if (try1) return try1;
 
-            return null;
+            const rotated = rotateNeighborOffset90(dc1, dr1, rotationDir);
+            const try2 = tryOffset(rotated.dc, rotated.dr);
+            if (try2) return try2;
+
+            return null; // 2 lần thử đều không trống (hoặc ngoài biên) -> bỏ luôn
         }
 
         /** Trần số wave cùng lúc — cfg có khoảng (`minConcurrentWaves`/`maxConcurrentWaves` khác
