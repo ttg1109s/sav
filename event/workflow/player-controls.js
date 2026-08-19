@@ -12,10 +12,17 @@
  * của cụm này.
  *
  * MỚI (plan-playmedia-reorg.md) — 4 method THÊM: `goToNextTrack()`/`goToPrevTrack()` (thay
- * `playNext()`/`playPrev()` cũ, core/player-controls.js, ĐÃ XOÁ), `handleSongEnded()` (thay
- * `handleAudioEnded()` cũ, ĐÃ XOÁ), `handlePlayPauseClick()` (tách khỏi `togglePlayPause()` cũ —
- * phần "chưa có gì đang tải -> phát bài đầu tiên"). Cả 4 đều đúng hình dạng Workflow (đọc nhiều
- * field appState RỒI gọi ≥1 Core/Workflow khác theo thứ tự phụ thuộc) — xem docstring từng method.
+ * `playNext()`/`playPrev()` cũ, core/player-controls.js, ĐÃ XOÁ), `handleMediaEnded()` (thay
+ * `handleAudioEnded()` cũ VÀ `workflowVideoPlayer.handleVideoPlayerEnded()` cũ, gộp 2 hàm trùng
+ * thân thành 1, dùng chung cho cả 'audio.ended' lẫn 'video.ended'), `handlePlayPauseClick()` (tách
+ * khỏi `togglePlayPause()` cũ — phần "chưa có gì đang tải -> phát bài đầu tiên"). Cả 4 đều đúng
+ * hình dạng Workflow (đọc nhiều field appState RỒI gọi ≥1 Core/Workflow khác theo thứ tự phụ
+ * thuộc) — xem docstring từng method.
+ *
+ * MỚI (Game Mode + Video Player mode, phản hồi Giang) — `getActiveMediaElement(isVideoPlayerMode)`
+ * (core/player-controls.js) DÙNG CHUNG bởi `goToNextTrack()`/`goToPrevTrack()` ở đây VÀ
+ * `workflowGameplay` (event/workflow/gameplay.js) — tránh 2 nơi tự viết lại ternary
+ * `isVideoPlayerMode ? bgVideoElement : audioPlayer` riêng.
  *
  * NẠP SAU: core/player-controls.js (toggleShuffle, togglePlayPause, requestWakeLock,
  * scrollSideLeftToSettingsSmooth/scrollSideLeftToPlaylistSmooth/validateVideoBgOnClose — HOTFIX 8,
@@ -85,7 +92,7 @@ const workflowPlayerControls = {
             'isVideoPlayerMode', 'repeatMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys',
         ]);
         if (playlistOrder.length === 0) return;
-        const activeEl = isVideoPlayerMode ? bgVideoElement : audioPlayer; // element ĐANG thực sự phát — DÙNG CHUNG Song/Video, xem docstring gốc playNext() (đã dời vào đây)
+        const activeEl = getActiveMediaElement(isVideoPlayerMode); // core/player-controls.js — DÙNG CHUNG Song/Video (Next/Prev + Game Mode)
 
         if (shouldRestartInsteadOfAdvance(repeatMode, force)) { // core mới (order.js) — repeat-mode-2, KHÔNG force
             activeEl.currentTime = 0;
@@ -130,7 +137,7 @@ const workflowPlayerControls = {
             'isVideoPlayerMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys',
         ]);
         if (playlistOrder.length === 0) return;
-        const activeEl = isVideoPlayerMode ? bgVideoElement : audioPlayer;
+        const activeEl = getActiveMediaElement(isVideoPlayerMode); // core/player-controls.js
 
         // "Quá 3s vào bài/video hiện tại -> chỉ tua về đầu" — ĐÚNG hành vi gốc `playPrev()`.
         if (activeEl.currentTime > 3) { activeEl.currentTime = 0; return; }
@@ -149,18 +156,20 @@ const workflowPlayerControls = {
     },
 
     /**
-     * Ứng với 'playerControls.audio.ended' khi `gameplayPhase==='idle'` (xem VirtualMachineState
-     * ở event/router/player-controls.js) — bài hát phát hết, dừng đếm giờ nghe rồi tự chuyển bài
-     * kế tiếp (không force, tôn trọng repeatMode/wrap-around như Next thường).
+     * Ứng với CẢ 'playerControls.audio.ended' LẪN 'playerControls.video.ended' khi
+     * `gameplayPhase==='idle'` (xem VirtualMachineState ở event/router/player-controls.js, 1 case
+     * DÙNG CHUNG cho cả 2 msg.type — audio/video hết bài xử lý Y HỆT nhau, không có lý do tách 2
+     * đường) — bài/video phát hết, dừng đếm giờ nghe rồi tự chuyển bài kế tiếp (không force, tôn
+     * trọng repeatMode/wrap-around như Next thường).
      *
-     * [SỬA — plan-playmedia-reorg.md, xử lý triệt để] TRƯỚC ĐÂY là `handleAudioEnded()` (Core,
-     * core/player-controls.js) — 2 lời gọi Core nối tiếp (`stopListenClock()` rồi `playNext(false)`)
-     * ĐÃ vi phạm Rule 3 từ trước (core-legacy-audit.md từng track `stopListenClock` là vi phạm R3
-     * của hàm đó), đúng bản chất Workflow (≥2 lời gọi side-effect nối tiếp, event-bus-flow.md mục
-     * 4B). Nhân dịp bị đụng tới (playNext() xoá), chuyển hẳn về ĐÚNG tầng thay vì tiếp tục cho Core
-     * gọi thẳng Workflow — xoá Core cũ, Router gọi thẳng method này.
+     * [SỬA — plan-playmedia-reorg.md, xử lý triệt để] TRƯỚC ĐÂY là 2 hàm RIÊNG, TRÙNG Y HỆT thân —
+     * `handleAudioEnded()` (Core, core/player-controls.js, ĐÃ XOÁ ở đợt trước — 2 lời gọi Core nối
+     * tiếp `stopListenClock()` rồi `playNext(false)`, vốn đã vi phạm Rule 3, đúng bản chất Workflow)
+     * VÀ `workflowVideoPlayer.handleVideoPlayerEnded()` (event/workflow/video-player.js, ĐÃ XOÁ —
+     * thân giống hệt, chỉ khác object chứa). Gộp làm 1 — dùng chung cho cả 2 nguồn, đúng yêu cầu
+     * "không viết thêm hàm nào chỉ để tạo ra hai đường không cần thiết".
      */
-    handleSongEnded() {
+    handleMediaEnded() {
         stopListenClock(); // core (core/player-controls.js)
         this.goToNextTrack(false); // Workflow gọi method khác trong CÙNG object — tự do
     },
