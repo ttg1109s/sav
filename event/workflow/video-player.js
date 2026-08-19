@@ -371,14 +371,6 @@ const workflowVideoPlayer = {
             // startFromPlaylist() tự gọi ngay sau khi gọi hàm này, KHÔNG đợi gì) — giờ chạy ĐÚNG
             // lúc video mới đã thật sự sẵn sàng, khớp yêu cầu "UI chỉ đổi khi hình đã đổi".
             if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated(); // core/player-controls.js / core/playlist/render.js
-
-            // MỚI (phản hồi Giang "visualBg.songChanged liên quan gì tới video play mode?") — tín
-            // hiệu "media đổi thật" cho Game Mode, CÙNG điều kiện + CÙNG msg.type
-            // `workflowPlayer.playMedia()` dispatch cho Song (event/workflow/player.js) — Game Mode
-            // tự mở khi bài đổi (nếu đang bật) giờ hoạt động ĐÚNG cho Video, KHÔNG đi qua router
-            // "visualBg" (video KHÔNG dispatch 'visualBg.songChanged' — VBG không hiển thị lúc Video
-            // Player mode, xem event/router/visual-bg.js).
-            if (previousKey !== videoKey) eventBus.send({ router: 'gameplay', type: 'gameplay.mediaChanged', payload: {} });
         }, false).then(() => {
             if (this._skipToNextAfterShield) {
                 this._skipToNextAfterShield = false;
@@ -481,15 +473,19 @@ const workflowVideoPlayer = {
         appState.set('isSeeking', false);
     },
 
-    // [SỬA — Game Mode + Video Player mode, xử lý triệt để] `handleVideoPlayerEnded()` ĐÃ XOÁ
-    // khỏi đây — thân hàm TRÙNG Y HỆT `workflowPlayerControls.handleMediaEnded()` (event/workflow/
-    // player-controls.js), chỉ khác object chứa. Router (case 'playerControls.audio.ended'/
-    // 'playerControls.video.ended', gộp 1 case DÙNG CHUNG) giờ gọi thẳng
-    // `workflowPlayerControls.handleMediaEnded()` cho CẢ 2 msg.type — tránh 2 hàm trùng thân, và
-    // ĐỒNG THỜI khiến video.ended giờ CŨNG check gameplayPhase (trước đây audio.ended có
-    // VirtualMachineState rẽ sang `workflowGameplay.onSongEnded()` khi đang chơi Game Mode,
-    // video.ended KHÔNG hề có — video hết bài lúc đang chơi Game Mode trước đây tự next im lặng,
-    // không hiện màn kết quả — nay đã khớp hành vi Song).
+    /** Ứng với 'playerControls.video.ended' (sự kiện 'ended' NGUYÊN BẢN của `bgVideoElement` —
+     * `loop=false` lúc ở Player mode nên sự kiện này CÓ bắn, xem `setBgVideoElementForPlayerMode()`
+     * core/video-player.js) — video hết, tự chuyển video kế tiếp.
+     * [SỬA — ver12 "Song/Video Unification", Batch 2, Giang chốt "video thừa hưởng cơ chế
+     * Playlist, không tạo cơ chế next riêng"] Gọi `workflowPlayerControls.goToNextTrack(false)`
+     * (event/workflow/player-controls.js — [SỬA, plan-playmedia-reorg.md] thay `playNext(false)`
+     * cũ, core/player-controls.js, ĐÃ XOÁ) — DÙNG CHUNG với Song, THAY `this.nextVideo(false)`
+     * riêng đã xoá — tự đọc displayOrder/shuffleIndices/repeatMode, tự gọi lại
+     * `workflowPlayer.playMedia()` -> quay lại dispatch mediaType. */
+    async handleVideoPlayerEnded() {
+        stopListenClock(); // core/player-controls.js, hàm có sẵn — dùng lại nguyên
+        workflowPlayerControls.goToNextTrack(false); // event/workflow/player-controls.js, dùng CHUNG với Song — force=false, tôn trọng repeatMode
+    },
 
     /** Ứng với 'videoPlayer.captureFrame.click' (nút Control Center, chỉ hiện lúc Video Player
      * mode — xem setBgVideoElementForPlayerMode(), core/video-player.js) — chụp khung hình ĐANG
