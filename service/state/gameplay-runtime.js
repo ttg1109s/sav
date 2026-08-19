@@ -133,27 +133,23 @@
             starRoundingThreshold: 0.8,   // phần thập phân >= ngưỡng này mới làm tròn LÊN, xem computeStarRating()
             refreshBeatsForPhrase: 16,    // xấp xỉ 1 phrase = 16 beat (không có phrase detection thật)
             /**
-             * [SỬA — phản hồi Giang, số cuối] `fluxThreshold` (tỉ lệ tương đối 0-1, đo trên
-             * `_beatFluxHistory` — 1 mốc/BEAT, độc lập fps máy, xem docstring event/workflow/
-             * gameplay.js) — DÙNG CHUNG cho cả energy lẫn section (trước đây 2 số riêng
-             * fluxDeltaEnergy/fluxDeltaSection — gộp lại theo số Giang chốt, chỉ còn khác nhau ở
-             * CỬA SỔ so sánh `energyWindowBeats`/`sectionWindowBeats`, không khác biên độ).
+             * [SỬA — phản hồi Giang, chỉnh lại độ khó] `fluxThreshold`: Easy 0.5, Medium 0.8 (tăng
+             * từ 0.6), Hard giữ 0.3.
              *
-             * [SỬA — phản hồi Giang "tại sao không đơn giản hơn bằng việc cell đó đã tồn tại 1
-             * wave?"] `minSpawnDistancePx` (đo khoảng cách px, có lỗ hổng khi jitter rơi xa nhau
-             * trong CÙNG 1 ô) ĐÃ XOÁ HẲN — thay bằng occupancy CHÍNH XÁC theo ô lưới
-             * (findAvailableCell(), core/gameplay/circle-mode.js), DÙNG CHUNG cho MỌI độ khó, không
-             * còn tham số riêng nào ở đây nữa.
+             * `maxConcurrentWaves`: Easy=1 ("chỉ một nốt một"). Medium giờ là KHOẢNG (2-5, không
+             * còn 1 số cố định) — `minConcurrentWaves`/`maxConcurrentWaves` khác nhau, Workflow tự
+             * roll ngẫu nhiên mỗi lần xét spawn (computeConcurrentWaveCap(), circle-mode.js) — mật
+             * độ Medium giờ DAO ĐỘNG thay vì cố định. Hard giữ Infinity.
              *
-             * `shrinkDurationMultiplier` — nhân vào duration TRƯỚC khi chặn min/max (xem
-             * computeShrinkDurationMs(), core/gameplay/circle-mode.js) — Easy 1.3× (wave chậm hơn,
-             * dễ phản ứng), Medium 1.2×, Hard 1× (gốc, nhanh nhất).
-             *
-             * `maxConcurrentWaves` — Easy 2, Medium 4, Hard KHÔNG GIỚI HẠN (Infinity).
+             * `chainReproductionEnabled`/`chainMaxLevel` — MỚI, CHỈ Hard: lúc spawn mà bảng CÒN
+             * wave sống -> "sinh sản" thành chuỗi nhiều wave 1 lần spawn (computeChainedPitches(),
+             * circle-mode.js + event/workflow/gameplay.js::_trySpawnWave()) — cấp độ chuỗi tăng dần
+             * qua MỖI lần spawn liên tiếp còn thấy wave sống, trần `chainMaxLevel`, đứt chuỗi khi
+             * bảng sạch HOẶC lúc refresh (workflowGameplay._hardChainLevel, KHÔNG phải field ở đây).
              */
             difficulty: Object.freeze({
-                easy:   Object.freeze({ maxConcurrentWaves: 2,        spawnEligibleEveryNBeats: 1, shrinkDurationMultiplier: 1.3, energyWindowBeats: 4, sectionWindowBeats: 12, fluxThreshold: 0.9 }),
-                medium: Object.freeze({ maxConcurrentWaves: 4,        spawnEligibleEveryNBeats: 2, shrinkDurationMultiplier: 1.2, energyWindowBeats: 3, sectionWindowBeats: 9,  fluxThreshold: 0.6 }),
-                hard:   Object.freeze({ maxConcurrentWaves: Infinity, spawnEligibleEveryNBeats: 1, shrinkDurationMultiplier: 1,   energyWindowBeats: 2, sectionWindowBeats: 6,  fluxThreshold: 0.3 }),
+                easy:   Object.freeze({ maxConcurrentWaves: 1, spawnEligibleEveryNBeats: 1, shrinkDurationMultiplier: 1.3, energyWindowBeats: 4, sectionWindowBeats: 12, fluxThreshold: 0.5 }),
+                medium: Object.freeze({ minConcurrentWaves: 2, maxConcurrentWaves: 5, spawnEligibleEveryNBeats: 2, shrinkDurationMultiplier: 1.2, energyWindowBeats: 3, sectionWindowBeats: 9, fluxThreshold: 0.8 }),
+                hard:   Object.freeze({ maxConcurrentWaves: Infinity, spawnEligibleEveryNBeats: 1, shrinkDurationMultiplier: 1, energyWindowBeats: 2, sectionWindowBeats: 6, fluxThreshold: 0.3, chainReproductionEnabled: true, chainMaxLevel: 8 }),
             }),
         });
