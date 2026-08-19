@@ -339,7 +339,7 @@
     <script src="components/settings/theme.js?v=20260709v2"></script>
     <script src="components/settings/file-manager-section.js?v=20260728v1"></script>
     <script src="components/settings/visualizer-geometry-color.js?v=20260720v1"></script>
-    <script src="components/settings/misc.js?v=20260816v2"></script>
+    <script src="components/settings/misc.js?v=20260819v1"></script>
     <script src="components/settings/language.js?v=20260707v2"></script>
     <script src="components/settings-drawer.js?v=20260708v2"></script>
     <script src="components/about-drawer.js?v=20260707v1"></script>
@@ -692,7 +692,7 @@
          EQ/volume" — giờ ở visualizers/visualizer-display.js (khu VISUALIZERS dưới), vì đúng
          ranh giới nghiệp vụ là cấu hình Visualizer, không phải điều khiển phát nhạc. Xem comment
          đầu core/player-controls.js để biết đầy đủ lý do tách + đảm bảo thứ tự nạp an toàn. -->
-    <script src="core/player-controls.js?v=20260818v1"></script>
+    <script src="core/player-controls.js?v=20260819v1"></script>
     <!-- MỚI (21/07/2026, mục 4 — Video Player mode) — core/video-player.js: tính next/prev key,
          mutate state, toggle UI nút. Đặt CẠNH core/player-controls.js cho dễ đọc (2 tính năng liên
          quan chặt, dù KHÔNG đụng chung file nào). NẠP SAU service/state.js (đã nạp từ đầu). -->
@@ -835,7 +835,7 @@
     <!-- MỚI (v13 Batch A) — cụm "visualBg". NẠP SAU cụm slideshow (router gọi chéo
          workflowSlideshow.openPanel() cho sub-panel Trình chiếu). -->
     <script src="event/workflow/visual-bg.js?v=20260808v6"></script>
-    <script src="event/router/visual-bg.js?v=20260808v6"></script>
+    <script src="event/router/visual-bg.js?v=20260819v1"></script>
     <script src="event/listener/visual-bg.js?v=20260808v5"></script>
 
     <!-- Cụm "gestureSettings" — panel Settings "Cử chỉ", cùng khuôn push/pop Settings Stack. Chia
@@ -913,7 +913,7 @@
          core/playlist/render.js, core/player-controls.js (requestWakeLock/switchToVisualizer),
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
-    <script src="event/workflow/player.js?v=20260818v1"></script>
+    <script src="event/workflow/player.js?v=20260819v1"></script>
     <script src="event/workflow/playlist.js?v=20260815v1"></script>
     <script src="event/router/playlist.js?v=20260731v1"></script>
     <script src="event/listener/playlist.js?v=20260728v2"></script>
@@ -932,17 +932,17 @@
          mediaType khi click video trong Playlist (đi qua eventBus để Block gate chặn khoá chéo với
          Video nền). PHẢI nạp SAU event/workflow/video-player.js (cần workflowVideoPlayer.
          startFromPlaylist() đã tồn tại). -->
-    <script src="event/workflow/video-player.js?v=20260818v1"></script>
+    <script src="event/workflow/video-player.js?v=20260819v1"></script>
     <script src="event/router/video-player.js?v=20260818v1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
     <!-- Cụm "gameplay" — Game Mode (Circle mode v1, MỚI 16/08/2026). PHẢI nạp TRƯỚC event/router/
          player-controls.js NGAY DƯỚI ĐÂY — case 'playerControls.audio.ended' ở đó gọi tới
          workflowGameplay.onSongEnded() khi đang ở Game Mode (xem event/workflow/gameplay.js). -->
-    <script src="event/workflow/gameplay.js?v=20260818v2"></script>
-    <script src="event/router/gameplay.js?v=20260816v6"></script>
+    <script src="event/workflow/gameplay.js?v=20260819v1"></script>
+    <script src="event/router/gameplay.js?v=20260819v1"></script>
     <script src="event/listener/gameplay.js?v=20260818v1"></script>
-    <script src="event/workflow/player-controls.js?v=20260818v1"></script>
-    <script src="event/router/player-controls.js?v=20260818v1"></script>
+    <script src="event/workflow/player-controls.js?v=20260819v1"></script>
+    <script src="event/router/player-controls.js?v=20260819v1"></script>
     <script src="event/listener/player-controls.js?v=20260708v1"></script>
     <!-- Cụm "visualizerDisplay": ảnh nền, độ mờ nền, cycle effect, panel "Display". Cấu hình riêng
          effect ĐÃ DỜI sang cụm "customEffect" (Custom Effect Drawer, xem file ngay dưới) — router
