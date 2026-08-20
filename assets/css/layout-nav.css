@@ -126,7 +126,13 @@
    trạng thái TẮT của track TRƯỚC đây `bg-slate-600` (tối, thiết kế cho nền tối) — đổi sang
    `bg-slate-300` (ĐÚNG track sáng EQ/Custom Effect dùng) — trạng thái BẬT (`peer-checked:bg-sky-500`)
    đã đúng sẵn, không cần đổi. */
-.app-settings-scope .bg-slate-600.rounded-full.peer { background-color: #cbd5e1 !important; }
+/* SỬA (phản hồi Giang mục 3 — "sao sửa màu luôn cả toggle, không phân biệt input thường với
+   checkbox toggle à") — ĐÚNG: rule cũ chọn theo class TRÙNG HỢP (`.bg-slate-600.rounded-full.peer`)
+   — không phân biệt bằng Ý NGHĨA thật, chỉ đoán mò qua tổ hợp class. Đổi sang chọn theo ĐÚNG quan hệ
+   cấu trúc thật của khuôn toggle (`<input type="checkbox" class="...peer"><div class="...">` —
+   xem CE_TOGGLE_MARKUP components/custom-effect-drawer.js) — CHỈ khớp div NGAY SAU 1
+   input[type=checkbox].peer, không đụng bất kỳ phần tử nào khác dù trùng class ngẫu nhiên. */
+.app-settings-scope input[type="checkbox"].peer ~ div { background-color: #cbd5e1 !important; }
 .app-settings-scope .border-t.border-white\/10, .app-settings-scope .border-b.border-white\/5 { border-color: #e2e8f0 !important; }
 
 /* #settings-stack-body/#settings-stack-panel-main — cơ chế cuộn ngang push/pop TÁI DÙNG từ
