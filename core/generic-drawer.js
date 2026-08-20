@@ -77,11 +77,26 @@ const GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX = 16;
  * `max-height` tự chặn đúng lúc đo — bao gồm LUÔN cả padding-bottom vừa set, không cần tính tay).
  * @returns {number} px
  */
+/**
+ * SỬA (bug "chiều cao đo sai lúc mở lần đầu, phải đổi nội dung 1 lần thì lần sau mới đúng" + "đổi
+ * nội dung không thấy animation") — cả 2 CÙNG gốc: `#generic-drawer-panel` có
+ * `transition: height 300ms` (assets/css/base.css) LUÔN BẬT — đo `offsetHeight` NGAY LÚC set
+ * `style.height = 'auto'` có thể đọc trúng giá trị giữa chừng 1 animation dở dang từ lần trước
+ * (transition CSS coi 'auto' là 1 giá trị ĐÍCH mới, có thể khởi động animation ngay khi gán, tuỳ
+ * engine trình duyệt) thay vì giá trị TỰ NHIÊN thật đã ổn định. TẮT HẲN transition (`'none'`)
+ * TRƯỚC khi đo, đo xong mới BẬT LẠI (trả `style.transition` về rỗng — CSS class lo tiếp) — nơi gọi
+ * (`_applyGenericDrawerHeight()`) set `style.height` bằng SỐ PX ĐÍCH NGAY SAU KHI hàm này return,
+ * lúc đó transition đã bật lại, animation chạy đúng bình thường.
+ */
 function _measureGenericDrawerAutoHeightPx(maxHeight) {
+    genericDrawerPanel.style.transition = 'none';
     genericDrawerPanel.style.paddingBottom = `calc(env(safe-area-inset-bottom, 0px) + ${GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX}px)`;
     genericDrawerPanel.style.maxHeight = maxHeight || '';
     genericDrawerPanel.style.height = 'auto';
-    return genericDrawerPanel.offsetHeight;
+    const px = genericDrawerPanel.offsetHeight; // đọc BẮT BUỘC ép reflow đồng bộ — giá trị luôn mới nhất, KHÔNG bị transition xen vào (đã tắt ở trên)
+    void genericDrawerPanel.offsetHeight; // ép trình duyệt "chốt" trạng thái transition:none vừa gán TRƯỚC khi hàm return (tránh gộp chung 1 frame với bước bật lại transition ngay sau đây)
+    genericDrawerPanel.style.transition = '';
+    return px;
 }
 
 /**
