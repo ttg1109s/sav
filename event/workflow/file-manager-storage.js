@@ -46,7 +46,8 @@ const workflowFileManagerStorage = {
      * khuôn `workflowFileManagerFolderBrowser._renderList()` (header title + nút X). */
     async openPanel() {
         openGenericDrawer({ // core/generic-drawer.js
-            height: '90vh',
+            height: 'auto', // MỚI (phản hồi Giang mục 2) — tự co theo nội dung, xem core/generic-drawer.js
+            maxHeight: '85vh',
             headerHtml: `
                 <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
                     <h3 class="text-base font-bold text-slate-900">${t('storageDrawer.title')}</h3>

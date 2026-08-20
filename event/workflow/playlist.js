@@ -635,12 +635,21 @@ const workflowPlaylist = {
         //   `showAddTile` — false để bỏ tile "Tạo folder mới" (Visual Background: folder vừa tạo
         //                   luôn rỗng nên không bao giờ là nguồn hợp lệ, bày ra chỉ gây hiểu nhầm).
         //   `emptyMsg`    — câu hiển thị khi danh sách rỗng, thay vì grid trống trơn.
+        //   `onClose`     — MỚI (phản hồi Giang — sửa lỗ hổng "Cancel picker thư mục Visual
+        //                   Background không tự quay lại") — hàm gọi THAY VÌ `closeFully()` khi
+        //                   đóng picker (dù bấm X HAY vừa CHỌN xong 1 tile — cả 2 đường đều đi qua
+        //                   `closeFolderPicker()` bên dưới) — dùng bởi nơi gọi ĐANG SỐNG CHUNG
+        //                   Generic Drawer với picker này (Visual Background, xem
+        //                   event/workflow/visual-bg.js::openListFolderPicker()) để tự mở lại
+        //                   đúng màn của mình thay vì đóng trắng cả Setting. KHÔNG truyền -> giữ
+        //                   NGUYÊN hành vi cũ (đóng hẳn) cho 2 luồng Playlist tự thân.
         const opts = options || {};
         this._folderPickerFolders = opts.folders || await listFolders(); // core có sẵn, CÓ return, DÙNG ngay dưới
         this._folderPickerShowAddTile = opts.showAddTile !== false;
         this._folderPickerEmptyMsg = opts.emptyMsg || '';
         this._folderPickerEditingId = null;
         this._folderPickerOnPick = onPick;
+        this._folderPickerOnClose = opts.onClose || null;
         this._renderFolderPickerGrid(true);
     },
 
@@ -695,10 +704,14 @@ const workflowPlaylist = {
         if (onPick) await onPick(folderId);
     },
 
-    /** msg.type = 'playlist.folderPicker.close.click'. */
+    /** msg.type = 'playlist.folderPicker.close.click'. SỬA (phản hồi Giang — sửa lỗ hổng picker
+     * thư mục Visual Background) — ưu tiên `onClose` nếu nơi mở picker có truyền (xem docstring
+     * `_openFolderPickerDrawer()`), mặc định vẫn đóng hẳn như cũ. */
     closeFolderPicker() {
         this._folderPickerOnPick = null;
-        workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
+        const onClose = this._folderPickerOnClose;
+        this._folderPickerOnClose = null;
+        if (onClose) onClose(); else workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
     },
 
     /** msg.type = 'playlist.folderPicker.addTile.click' — tạo NGAY 1 folder tên tự động (không

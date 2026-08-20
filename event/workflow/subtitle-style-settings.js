@@ -146,6 +146,6 @@ const workflowSubtitleStyleSettings = {
             setSubtitleBoxCss(cssString); // core
             saveConfig();
             applySubtitleFrameStyle(appConfigViz.getAll()); // core
-        }, appConfigViz.getAll().subtitleBoxCss);
+        }, appConfigViz.getAll().subtitleBoxCss, () => workflowAppSettings._renderSubtitle()); // onClose MỚI — sửa lỗ hổng "X đóng luôn cả Setting", xem docstring event/workflow/element-style-editor.js
     },
 };

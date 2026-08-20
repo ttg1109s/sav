@@ -1549,6 +1549,11 @@ const workflowVisualBg = {
                 emptyMsg: videoFolders.length === 0
                     ? t('visualBgSettingsDrawer.folderPicker.emptyNoFolder')
                     : tFormat('visualBgSettingsDrawer.folderPicker.emptyTooFew', { count: VISUAL_BG_MIN_LIST_ITEMS }),
+                // SỬA (phản hồi Giang — sửa lỗ hổng "Cancel picker thư mục không tự quay lại") —
+                // dù bấm X hay vừa chọn xong 1 folder, luôn tự mở lại Visual Background (thay vì
+                // đóng trắng cả Setting) — xem docstring _openFolderPickerDrawer() (event/workflow/
+                // playlist.js).
+                onClose: () => workflowAppSettings._renderVisualBg(),
             },
         );
     },

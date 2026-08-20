@@ -85,7 +85,8 @@ const workflowAppSettings = {
     _render(title, bodyHtml, onMount) {
         const hasBack = this._screenStack.length > 0;
         const config = {
-            height: '90vh',
+            height: 'auto', // MỚI (phản hồi Giang mục 2) — tự co theo nội dung, xem core/generic-drawer.js
+            maxHeight: '85vh',
             headerHtml: `
                 <div class="relative flex items-center justify-center px-14 py-3 border-b border-slate-200">
                     ${hasBack ? `
@@ -169,38 +170,40 @@ const workflowAppSettings = {
         const isSolidGuess = cfg.themeMode === 'gradient' && cfg.gradientFrom === cfg.gradientTo;
         const glassType = cfg.themeMode === 'background' ? 'image' : (isSolidGuess ? 'solid' : 'gradient');
         const bodyHtml = `
-            <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                <div class="flex justify-between items-center p-4 ${isGlass ? 'border-b border-white/5' : ''}">
-                    <span class="text-sm font-medium truncate" data-i18n="appSettings.theme.select.label">${t('appSettings.theme.select.label')}</span>
-                    <select id="app-settings-theme-select" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-40 text-right">
-                        <option value="light" data-i18n="appSettings.theme.select.light">${t('appSettings.theme.select.light')}</option>
-                        <option value="dark" data-i18n="appSettings.theme.select.dark">${t('appSettings.theme.select.dark')}</option>
-                        <option value="glass" data-i18n="appSettings.theme.select.glass">${t('appSettings.theme.select.glass')}</option>
-                    </select>
-                </div>
-                <div id="app-settings-theme-glass-row" class="${isGlass ? '' : 'hidden'} flex-col">
-                    <div class="flex justify-between items-center p-4 border-b border-white/5">
-                        <span class="text-sm font-medium truncate" data-i18n="appSettings.theme.glassType.label">${t('appSettings.theme.glassType.label')}</span>
-                        <select id="app-settings-theme-glass-type" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-40 text-right">
-                            <option value="solid" data-i18n="appSettings.theme.glassType.solid">${t('appSettings.theme.glassType.solid')}</option>
-                            <option value="gradient" data-i18n="appSettings.theme.glassType.gradient">${t('appSettings.theme.glassType.gradient')}</option>
-                            <option value="image" data-i18n="appSettings.theme.glassType.image">${t('appSettings.theme.glassType.image')}</option>
+            <div class="flex flex-col gap-2">
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl flex flex-col overflow-hidden">
+                    <div class="flex justify-between items-center px-4 py-3.5 ${isGlass ? 'border-b border-slate-200' : ''}">
+                        <span class="text-sm font-semibold text-slate-800 truncate">${t('appSettings.theme.select.label')}</span>
+                        <select id="app-settings-theme-select" class="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-40 text-right">
+                            <option value="light">${t('appSettings.theme.select.light')}</option>
+                            <option value="dark">${t('appSettings.theme.select.dark')}</option>
+                            <option value="glass">${t('appSettings.theme.select.glass')}</option>
                         </select>
                     </div>
-                    <div id="app-settings-theme-solid-row" class="${glassType === 'solid' ? '' : 'hidden'} flex justify-between items-center p-4">
-                        <span class="text-sm font-medium truncate" data-i18n="appSettings.theme.solidColor.label">${t('appSettings.theme.solidColor.label')}</span>
-                        <div class="w-8 h-8 rounded-full border border-white/20 overflow-hidden shrink-0"><input type="color" id="app-settings-theme-solid-color" class="w-10 h-10 -m-1 cursor-pointer"></div>
-                    </div>
-                    <div id="app-settings-theme-gradient-row" class="${glassType === 'gradient' ? '' : 'hidden'} flex justify-between items-center p-4">
-                        <span class="text-sm font-medium truncate" data-i18n="settingsTheme.gradient.label">${t('settingsTheme.gradient.label')}</span>
-                        <div class="flex items-center gap-2">
-                            <div class="w-8 h-8 rounded-full border border-white/20 overflow-hidden shrink-0"><input type="color" id="app-settings-theme-gradient-from" class="w-10 h-10 -m-1 cursor-pointer"></div>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                            <div class="w-8 h-8 rounded-full border border-white/20 overflow-hidden shrink-0"><input type="color" id="app-settings-theme-gradient-to" class="w-10 h-10 -m-1 cursor-pointer"></div>
+                    <div id="app-settings-theme-glass-row" class="${isGlass ? '' : 'hidden'} flex-col">
+                        <div class="flex justify-between items-center px-4 py-3.5 border-b border-slate-200">
+                            <span class="text-sm font-semibold text-slate-800 truncate">${t('appSettings.theme.glassType.label')}</span>
+                            <select id="app-settings-theme-glass-type" class="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none w-40 text-right">
+                                <option value="solid">${t('appSettings.theme.glassType.solid')}</option>
+                                <option value="gradient">${t('appSettings.theme.glassType.gradient')}</option>
+                                <option value="image">${t('appSettings.theme.glassType.image')}</option>
+                            </select>
                         </div>
-                    </div>
-                    <div id="app-settings-theme-image-row" class="${glassType === 'image' ? '' : 'hidden'} p-4 text-xs text-slate-400" data-i18n="settingsTheme.background">
-                        ${t('settingsTheme.background')} — <button type="button" id="app-settings-theme-image-pick" class="text-sky-500 font-semibold underline">${t('common.btn.upload')}</button>
+                        <div id="app-settings-theme-solid-row" class="${glassType === 'solid' ? '' : 'hidden'} flex justify-between items-center px-4 py-3.5">
+                            <span class="text-sm font-semibold text-slate-800 truncate">${t('appSettings.theme.solidColor.label')}</span>
+                            <div class="w-8 h-8 rounded-full border border-slate-200 overflow-hidden shrink-0"><input type="color" id="app-settings-theme-solid-color" class="w-10 h-10 -m-1 cursor-pointer"></div>
+                        </div>
+                        <div id="app-settings-theme-gradient-row" class="${glassType === 'gradient' ? '' : 'hidden'} flex justify-between items-center px-4 py-3.5">
+                            <span class="text-sm font-semibold text-slate-800 truncate">${t('settingsTheme.gradient.label')}</span>
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-full border border-slate-200 overflow-hidden shrink-0"><input type="color" id="app-settings-theme-gradient-from" class="w-10 h-10 -m-1 cursor-pointer"></div>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                                <div class="w-8 h-8 rounded-full border border-slate-200 overflow-hidden shrink-0"><input type="color" id="app-settings-theme-gradient-to" class="w-10 h-10 -m-1 cursor-pointer"></div>
+                            </div>
+                        </div>
+                        <div id="app-settings-theme-image-row" class="${glassType === 'image' ? '' : 'hidden'} px-4 py-3.5 text-xs text-slate-500">
+                            ${t('settingsTheme.background')} — <button type="button" id="app-settings-theme-image-pick" class="text-sky-600 font-semibold underline">${t('common.btn.upload')}</button>
+                        </div>
                     </div>
                 </div>
             </div>
