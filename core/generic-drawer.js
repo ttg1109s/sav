@@ -144,6 +144,15 @@ function _applyGenericDrawerHeight(config) {
  * `genericDrawerPanel` (`height`/`maxHeight`/`paddingBottom`/`transition`) — KHÔNG đụng
  * class/attribute của `genericDrawerBody` hay bất kỳ con cháu nào của nó, nên tự nó KHÔNG kích hoạt
  * lại chính observer này.
+ *
+ * SỬA (bug "mất animation trượt lên/đổi chiều cao" NGAY SAU KHI thêm observer này) — quên mất
+ * CHÍNH `openGenericDrawer()`/`updateGenericDrawer()` cũng gán `innerHTML` vào `genericDrawerBody`
+ * (bước đổi NỘI DUNG bình thường) — observer bắt TRÚNG LUÔN 2 dòng đó, tự đo lại (tắt/bật
+ * `transition:'none'` giữa chừng) NGAY TRONG LÚC animation trượt/đổi chiều cao đang tự tay chạy ở 2
+ * hàm đó, cắt ngang animation. SỬA: `openGenericDrawer()`/`updateGenericDrawer()` tự
+ * `disconnect()` observer NGAY TRƯỚC KHI gán nội dung, `observe()` lại NGAY SAU KHI đã tính xong
+ * chiều cao đích — observer từ đó CHỈ còn bắt đúng toggle NỘI BỘ xảy ra SAU (Gesture/Slideshow...
+ * tự ẩn/hiện 1 khối), không đụng gì tới chính lần mở/chuyển màn.
  */
 let _genericDrawerIsAutoMode = false;
 let _genericDrawerAutoMaxHeight = '';
@@ -175,17 +184,25 @@ _genericDrawerBodyObserver.observe(genericDrawerBody, { childList: true, subtree
 function openGenericDrawer(config) {
     const zIndex = config.zIndex || GENERIC_DRAWER_DEFAULT_Z_INDEX;
     genericDrawerPanel.style.zIndex = String(zIndex);
+    // SỬA (bug "mất animation trượt lên + đổi chiều cao không transition") — `_genericDrawerBodyObserver`
+    // (mới thêm, tự đo lại lúc toggle NỘI BỘ 1 màn) VÔ TÌNH bắt LUÔN chính 2 dòng gán `innerHTML`
+    // ngay dưới đây — đo lại CHẠY SONG SONG với animation trượt/đổi chiều cao đang tự tay xử lý ở
+    // hàm này, tắt `transition:'none'` giữa chừng lúc đo CẮT NGANG animation đang chạy. Tạm NGẮT
+    // observer trong lúc TỰ xử lý (gán nội dung + tính chiều cao), CHỈ nối lại SAU KHI mọi thứ đã ổn
+    // định — để nó chỉ còn bắt đúng toggle NỘI BỘ xảy ra SAU đó (không đụng lần mở/chuyển màn này).
+    _genericDrawerBodyObserver.disconnect();
     genericDrawerHeader.innerHTML = config.headerHtml || '';
     genericDrawerBody.innerHTML = config.bodyHtml || '';
     genericDrawerBody.className = `flex-1 min-h-0 ${config.bodyClass || ''}`.trim(); // 'flex-1 min-h-0' LUÔN giữ, bodyClass CHỈ bổ sung
 
-    // SỬA (bug "drawer chỉ hiện 1 tí xíu ở đáy") — `height: 'auto'` đo `offsetHeight` (xem
-    // _applyGenericDrawerHeight()/_measureGenericDrawerAutoHeightPx()) — PHẢI bỏ `hidden` (display:
-    // none -> có layout box thật) TRƯỚC KHI đo, nếu không offsetHeight LUÔN đo ra 0 (phần tử display:
-    // none không có kích thước). `translate-y-full` (transform, KHÔNG ảnh hưởng layout/offsetHeight)
-    // vẫn giữ panel ẩn NGOÀI MÀN HÌNH suốt lúc này — không lộ ra bất kỳ khung hình nào chưa sẵn sàng.
+    // `height: 'auto'` đo `offsetHeight` (xem _applyGenericDrawerHeight()/
+    // _measureGenericDrawerAutoHeightPx()) — PHẢI bỏ `hidden` (display:none -> có layout box thật)
+    // TRƯỚC KHI đo, nếu không offsetHeight LUÔN đo ra 0 (phần tử display:none không có kích thước).
+    // `translate-y-full` (transform, KHÔNG ảnh hưởng layout/offsetHeight) vẫn giữ panel ẩn NGOÀI MÀN
+    // HÌNH suốt lúc này — không lộ ra bất kỳ khung hình nào chưa sẵn sàng.
     genericDrawerPanel.classList.remove('hidden');
     _applyGenericDrawerHeight(config); // core/generic-drawer.js — height cố định HOẶC 'auto' (đo theo content vừa gán, xem docstring)
+    _genericDrawerBodyObserver.observe(genericDrawerBody, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); // nối lại — từ đây chỉ bắt toggle NỘI BỘ về sau
 
     genericDrawerOverlay.style.zIndex = String(zIndex - 1);
     genericDrawerOverlay.classList.remove('hidden');
@@ -221,6 +238,8 @@ function updateGenericDrawer(config) {
     genericDrawerPanel.style.height = `${fromHeightPx}px`;
     void genericDrawerPanel.offsetHeight; // ép reflow — chốt mốc BẮT ĐẦU trước khi đổi nội dung/chiều cao đích
 
+    // Tạm ngắt observer trong lúc TỰ xử lý — cùng lý do openGenericDrawer(), xem comment ở đó.
+    _genericDrawerBodyObserver.disconnect();
     genericDrawerPanel.style.zIndex = String(zIndex);
     genericDrawerHeader.innerHTML = config.headerHtml || '';
     genericDrawerBody.innerHTML = config.bodyHtml || '';
@@ -228,6 +247,7 @@ function updateGenericDrawer(config) {
     genericDrawerOverlay.style.zIndex = String(zIndex - 1);
 
     _applyGenericDrawerHeight(config); // core/generic-drawer.js — set mốc ĐÍCH, transition CSS tự chạy giữa 2 mốc
+    _genericDrawerBodyObserver.observe(genericDrawerBody, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); // nối lại — từ đây chỉ bắt toggle NỘI BỘ về sau
 }
 
 /** Đóng drawer (trượt xuống + mờ dần overlay) — CHƯA thêm lại `hidden` (đợi transition xong, xem
