@@ -62,47 +62,47 @@
 const GENERIC_DRAWER_DEFAULT_Z_INDEX = Z_INDEX.GENERIC_DRAWER; // SỬA (25/07/2026, đợt tái cấu trúc state) — trước đây hardcode `128` riêng ở đây, trùng lặp với Z_INDEX.GENERIC_DRAWER (service/z-index.js) — nay đọc thẳng từ bảng chung, tránh lệch nếu 1 trong 2 chỗ bị sửa mà quên chỗ kia.
 
 /**
- * MỚI (phản hồi Giang mục 2 — "mặc định phải có 1 khoảng gap bên dưới" cho height:'auto') — panel
- * height:'auto' KHÔNG còn dính sát đáy màn hình (`bottom-0` như height cố định) — nổi lên 1 khoảng
- * `GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX` (+ safe-area, máy có notch/thanh home indicator) — bo tròn
- * CẢ 4 góc (thay vì chỉ 2 góc trên) vì không còn dính rìa. Height cố định (vd '90vh', Setting cũ
- * trước đây) giữ NGUYÊN hành vi cũ (dính đáy, chỉ bo 2 góc trên).
+ * MỚI (phản hồi Giang mục 2 — "mặc định phải có 1 khoảng gap bên dưới" cho height:'auto') — gap
+ * nằm BÊN TRONG panel (panel vẫn dính đáy màn hình `bottom-0` y hệt height cố định, KHÔNG nổi lên
+ * tách khỏi mép màn hình) — chỉ là bên dưới nội dung thật còn 1 khoảng đệm TRẮNG (padding-bottom
+ * của panel, cùng màu nền, "thuộc về" drawer) trước khi chạm đáy, tránh nội dung dính sát mép/thanh
+ * home indicator. Height cố định (vd '90vh') KHÔNG có padding này (đã tự cuộn nội bộ, không cần).
  */
-const GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX = 12;
+const GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX = 16;
 
 /**
  * Đo chiều cao TỰ NHIÊN thật của panel theo đúng nội dung VỪA gán (headerHtml/bodyHtml đã set vào
- * DOM), giới hạn bởi `maxHeight` — dùng cho `height: 'auto'`. Set tạm `style.height='auto'` +
- * `maxHeight` rồi đọc `offsetHeight` (CSS `max-height` tự chặn đúng lúc đo, không cần tính tay).
+ * DOM) + padding-bottom (gap trong, xem hằng số trên), giới hạn bởi `maxHeight` — dùng cho
+ * `height: 'auto'`. Set tạm `style.height='auto'` + `maxHeight` rồi đọc `offsetHeight` (CSS
+ * `max-height` tự chặn đúng lúc đo — bao gồm LUÔN cả padding-bottom vừa set, không cần tính tay).
  * @returns {number} px
  */
 function _measureGenericDrawerAutoHeightPx(maxHeight) {
+    genericDrawerPanel.style.paddingBottom = `calc(env(safe-area-inset-bottom, 0px) + ${GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX}px)`;
     genericDrawerPanel.style.maxHeight = maxHeight || '';
     genericDrawerPanel.style.height = 'auto';
     return genericDrawerPanel.offsetHeight;
 }
 
 /**
- * Set `style.height`/`style.bottom`/`style.borderRadius` theo `config.height`:
- *   - `'auto'`: đo chiều cao thật (đã gán content), set bằng SỐ PX CỤ THỂ (KHÔNG để nguyên chuỗi
- *     'auto' — CSS không animate được tới/từ 'auto', xem CSS transition ở assets/css/base.css) +
- *     nổi lên khỏi đáy `GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX` + bo tròn 4 góc.
- *   - Chuỗi khác (vd '90vh'/'70vh'): giữ NGUYÊN hành vi cũ — dính đáy, bo 2 góc trên.
+ * Set `style.height` theo `config.height`:
+ *   - `'auto'`: đo chiều cao thật (đã gán content + padding-bottom trong, xem
+ *     `_measureGenericDrawerAutoHeightPx()`), set bằng SỐ PX CỤ THỂ (KHÔNG để nguyên chuỗi 'auto'
+ *     — CSS không animate được tới/từ 'auto', xem CSS transition ở assets/css/base.css).
+ *   - Chuỗi khác (vd '90vh'/'70vh'): giữ NGUYÊN hành vi cũ — không padding-bottom thêm (đã tự cuộn
+ *     nội bộ nhờ bodyClass overflow-y-auto, không cần đệm).
+ * Panel LUÔN dính đáy (`bottom-0`, style.bottom rỗng) + bo 2 góc trên — KHÔNG đổi theo auto/cố
+ * định (gap là ĐỆM BÊN TRONG, không phải panel nổi tách khỏi mép màn hình).
  * @param {{height?: string, maxHeight?: string}} config
  */
 function _applyGenericDrawerHeight(config) {
     if (config.height === 'auto') {
         const px = _measureGenericDrawerAutoHeightPx(config.maxHeight);
         genericDrawerPanel.style.height = `${px}px`;
-        genericDrawerPanel.style.bottom = `calc(env(safe-area-inset-bottom, 0px) + ${GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX}px)`;
-        genericDrawerPanel.classList.remove('rounded-t-3xl');
-        genericDrawerPanel.classList.add('rounded-3xl', 'mx-2');
     } else {
+        genericDrawerPanel.style.paddingBottom = '';
         genericDrawerPanel.style.maxHeight = config.maxHeight || '';
         genericDrawerPanel.style.height = config.height || '70vh';
-        genericDrawerPanel.style.bottom = '';
-        genericDrawerPanel.classList.remove('rounded-3xl', 'mx-2');
-        genericDrawerPanel.classList.add('rounded-t-3xl');
     }
 }
 
