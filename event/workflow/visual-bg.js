@@ -7,9 +7,9 @@
  * NẠP SAU: core/config.js, core/visual-bg.js, core/color-utils.js, service/db.js, service/state.js.
  * NẠP TRƯỚC: event/router/visual-bg.js.
  */
-let visualBgSettingsPanelEl = null;
-let visualBgGradientPanelEl = null;
-let visualBgVideoAudioPanelEl = null;
+let visualBgSettingsPanelEl = null; // SỬA (đợt migrate Visualizer Screen) — giờ luôn trỏ genericDrawerBody (core/generic-drawer.js) SAU lần openPanel() đầu, dùng genericDrawerPanel.classList.contains('hidden') để biết đang mở/đóng thay vì so null (xem refreshPanelUI())
+let visualBgGradientPanelEl = null; // SỬA (đợt migrate Visualizer Screen) — giờ luôn trỏ genericDrawerBody SAU lần openGradientPanel() đầu, dùng genericDrawerPanel.classList.contains('hidden') thay so null
+let visualBgVideoAudioPanelEl = null; // SỬA (đợt migrate Visualizer Screen) — giờ luôn trỏ genericDrawerBody SAU lần openVideoAudioPanel() đầu, dùng genericDrawerPanel.classList.contains('hidden') thay so null
 
 const workflowVisualBg = {
     _listIndex: -1,            // vị trí hiện tại trong `source.list` — CHỈ dùng cho nhánh video ở đây
@@ -885,7 +885,7 @@ const workflowVisualBg = {
         const deg = Number(value);
         if (!Number.isFinite(deg)) return;
         this._commitColorChange((cfg) => { cfg.gradientAngleDeg = deg; }, `gradientAngleDeg=${deg}`);
-        if (!visualBgGradientPanelEl) return;
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         visualBgGradientPanelEl.querySelector('#visual-bg-gradient-angle-value').textContent = `${deg}°`;
         this._paintGradientPreview(appConfigVisualBg.getAll());
     },
@@ -897,14 +897,14 @@ const workflowVisualBg = {
             if (!cfg.gradientStops[index]) return; // guard: hàng vừa bị xoá ở thao tác khác
             cfg.gradientStops[index] = { ...cfg.gradientStops[index], [field]: parsed };
         }, `gradientStops[${index}].${field}=${parsed}`);
-        if (!visualBgGradientPanelEl) return;
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         if (field === 'position') visualBgGradientPanelEl.querySelector(`[data-visual-bg-stop-label="${index}"]`).textContent = `${parsed}%`;
         this._paintGradientPreview(appConfigVisualBg.getAll());
     },
 
     addGradientStop() {
         this._commitColorChange((cfg) => { cfg.gradientStops = addVisualBgGradientStop(cfg.gradientStops); }, 'gradientStops +1'); // core/visual-bg.js
-        if (!visualBgGradientPanelEl) return;
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         const cfg = appConfigVisualBg.getAll();
         this._renderGradientStopRows(cfg.gradientStops);
         this._paintGradientPreview(cfg);
@@ -912,14 +912,16 @@ const workflowVisualBg = {
 
     removeGradientStop(index) {
         this._commitColorChange((cfg) => { cfg.gradientStops = removeVisualBgGradientStop(cfg.gradientStops, index); }, `gradientStops -1 (index ${index})`); // core/visual-bg.js
-        if (!visualBgGradientPanelEl) return;
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         const cfg = appConfigVisualBg.getAll();
         this._renderGradientStopRows(cfg.gradientStops);
         this._paintGradientPreview(cfg);
     },
 
+    // SỬA (đợt migrate Visualizer Screen) — KHÔNG còn pushSettingsPanel(), bodyHtml do
+    // event/workflow/app-settings.js cung cấp SẴN qua navigateTo().
     openGradientPanel() {
-        visualBgGradientPanelEl = pushSettingsPanel({ title: t('visualBgSettingsDrawer.openGradient.label'), bodyHtml: renderVisualBgGradientPanelBody() }); // core/settings-panel-stack-ui.js
+        visualBgGradientPanelEl = genericDrawerBody;
         const cfg = appConfigVisualBg.getAll();
         visualBgGradientPanelEl.querySelector('#setting-visual-bg-gradient-angle').value = cfg.gradientAngleDeg;
         visualBgGradientPanelEl.querySelector('#visual-bg-gradient-angle-value').textContent = `${cfg.gradientAngleDeg}°`;
@@ -1105,7 +1107,7 @@ const workflowVisualBg = {
     async toggleGradientMovement(checked) {
         this._commitColorChange((cfg) => { cfg.gradientMovement.enabled = checked; }, `gradientMovement.enabled=${checked}`);
         this._syncGradientMovementTaskState();
-        if (!visualBgGradientPanelEl) return;
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-options').classList.toggle('hidden', !checked);
     },
 
@@ -1115,7 +1117,7 @@ const workflowVisualBg = {
         this._commitColorChange((cfg) => { cfg.gradientMovement.mode = value; }, `gradientMovement.mode=${value}`);
         this._gradientMovementStartTime = Date.now(); // mode 'time' — tính lại pha animation từ đầu, tránh nhảy góc đột ngột
         this._gradientMovementPhaseStartTime = null;  // mode 'audio' — bootstrap lại pha, tick kế tiếp tự chốt pha đầu
-        if (!visualBgGradientPanelEl) return;
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-time-block').classList.toggle('hidden', value !== 'time');
         visualBgGradientPanelEl.querySelector('#visual-bg-gradient-movement-audio-block').classList.toggle('hidden', value !== 'audio');
     },
@@ -1149,7 +1151,7 @@ const workflowVisualBg = {
     toggleGradientColorSwap(checked) {
         this._commitColorChange((cfg) => { cfg.gradientMovement.colorSwapEnabled = checked; }, `gradientMovement.colorSwapEnabled=${checked}`);
         this._gradientMovementLastSwapTime = Date.now(); // bật lại = đợi đủ 1 interval mới tráo lần đầu, không tráo ngay lập tức
-        if (!visualBgGradientPanelEl) return;
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         visualBgGradientPanelEl.querySelector('#visual-bg-gradient-colorswap-options').classList.toggle('hidden', !checked);
     },
 
@@ -1204,7 +1206,9 @@ const workflowVisualBg = {
      * làm sống động real-time — giữ nguyên hành vi snapshot, đóng mở lại panel để thấy danh sách
      * mới nếu source.list đã đổi. */
     async openVideoAudioPanel() {
-        visualBgVideoAudioPanelEl = pushSettingsPanel({ title: t('visualBgSettingsDrawer.openVideoAudio.label'), bodyHtml: renderVisualBgVideoAudioPanelBody() }); // core/settings-panel-stack-ui.js
+        // SỬA (đợt migrate Visualizer Screen) — KHÔNG còn pushSettingsPanel(), bodyHtml do
+        // event/workflow/app-settings.js cung cấp SẴN qua navigateTo().
+        visualBgVideoAudioPanelEl = genericDrawerBody;
         const cfg = appConfigVisualBg.getAll();
         const keys = cfg.source.list.filter((k) => k !== null);
         const records = await Promise.all(keys.map((k) => getVideoRecord(k))); // service/db.js
@@ -1291,7 +1295,7 @@ const workflowVisualBg = {
      * icon qua `_videoAudioIconInnerHtml()` (tái dùng đúng markup lúc vẽ hàng lần đầu) + màu chữ %
      * theo `enabled` mới. */
     _refreshVideoAudioRowButtons(videoKey, setting) {
-        if (!visualBgVideoAudioPanelEl) return;
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         const iconBtn = visualBgVideoAudioPanelEl.querySelector(`[data-visual-bg-video-audio-toggle="${CSS.escape(videoKey)}"]`);
         if (iconBtn) iconBtn.innerHTML = this._videoAudioIconInnerHtml(setting.enabled);
         const display = visualBgVideoAudioPanelEl.querySelector(`[data-visual-bg-video-audio-volume-display="${CSS.escape(videoKey)}"]`);
@@ -1312,14 +1316,27 @@ const workflowVisualBg = {
 
     // ===================== Panel Settings =====================
 
+    /** SỬA (đợt migrate Visualizer Screen, phản hồi Giang "làm nốt visualizer") — KHÔNG còn
+     * `pushSettingsPanel()`, bodyHtml do event/workflow/app-settings.js cung cấp SẴN qua
+     * `navigateTo()` — chỉ còn gán biến (đọc lại bởi mọi hàm bên dưới) + đồng bộ giá trị. */
     async openPanel() {
-        visualBgSettingsPanelEl = pushSettingsPanel({ title: t('visualBgSettingsDrawer.title'), bodyHtml: renderVisualBgPanelBody() }); // core/settings-panel-stack-ui.js
+        visualBgSettingsPanelEl = genericDrawerBody;
         await this.refreshPanelUI();
     },
 
-    /** Đồng bộ UI panel theo config hiện tại — gọi lúc mở panel + sau mọi thay đổi field. */
+    /** Đồng bộ UI panel theo config hiện tại — gọi lúc mở panel + sau mọi thay đổi field.
+     *
+     * SỬA (phát hiện bug boot treo, phản hồi Giang) — bản trước tự gọi
+     * `workflowAppSettings._renderVisualBg()` khi thấy Generic Drawer đang ĐÓNG (ý định: tự mở lại
+     * Visual Background sau khi picker con đóng xong) — SAI: hàm này CÒN được gọi từ
+     * `_checkAndApplyPendingSource()` (CHẠY LÚC BOOT, `loadPersistedSettingsOnBoot()`, KHÔNG liên
+     * quan gì tới Settings/picker) — khiến app TỰ Ý bật Setting lên giữa chừng boot, treo cả chuỗi.
+     * QUAY LẠI guard đơn thuần — việc "quay lại đúng Visual Background sau khi picker con đóng" đã
+     * xử lý RIÊNG, ĐÚNG chỗ ở `_closePickerDrawer()`/`openSingleImagePicker()` (gọi
+     * `workflowAppSettings._renderVisualBg()` tường minh ngay tại điểm đóng picker, không mượn qua
+     * đây) — hàm này KHÔNG được tự ý mở màn nào cả, chỉ đồng bộ NẾU đang mở sẵn. */
     async refreshPanelUI() {
-        if (!visualBgSettingsPanelEl) return;
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         const cfg = appConfigVisualBg.getAll();
         const q = (sel) => visualBgSettingsPanelEl.querySelector(sel);
 
@@ -1426,16 +1443,24 @@ const workflowVisualBg = {
 
     _pickerCleanup: null,
 
+    /** SỬA (đợt migrate Visualizer Screen) — TRƯỚC ĐÂY `closeFully()` (Visual BG là khung riêng
+     * biệt bên dưới picker, đóng picker xong picker biến mất, Visual BG hiện lại tự nhiên). Nay
+     * Visual BG SỐNG TRONG CHÍNH Generic Drawer picker vừa mượn — `closeFully()` sẽ đóng LUÔN Visual
+     * BG, không có gì để quay lại. TỰ MỞ LẠI màn Visual Background (event/workflow/app-settings.js,
+     * liên tuyến domain TH2) thay vì đóng hẳn. */
     _closePickerDrawer() {
         if (this._pickerCleanup) { this._pickerCleanup(); this._pickerCleanup = null; }
-        workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
+        workflowAppSettings._renderVisualBg();
     },
 
-    /** photo + single — tái dùng picker "chọn ảnh bìa bài hát" đã có sẵn. */
+    /** photo + single — tái dùng picker "chọn ảnh bìa bài hát" đã có sẵn. SỬA (đợt migrate
+     * Visualizer Screen) — `onCancel` trước là no-op (Visual BG là khung riêng, picker đóng thì tự
+     * hiện lại) — nay picker con dùng CHUNG Generic Drawer với Visual BG, đóng picker con đóng LUÔN
+     * Visual BG — phải tự mở lại. */
     openSingleImagePicker() {
         workflowFileManagerPhoto.openCoverImagePicker(
             (imageKey) => this._resolveAndCommitSource('single', imageKey),
-            () => {},
+            () => workflowAppSettings._renderVisualBg(),
         );
     },
 
@@ -1524,6 +1549,11 @@ const workflowVisualBg = {
                 emptyMsg: videoFolders.length === 0
                     ? t('visualBgSettingsDrawer.folderPicker.emptyNoFolder')
                     : tFormat('visualBgSettingsDrawer.folderPicker.emptyTooFew', { count: VISUAL_BG_MIN_LIST_ITEMS }),
+                // SỬA (phản hồi Giang — sửa lỗ hổng "Cancel picker thư mục không tự quay lại") —
+                // dù bấm X hay vừa chọn xong 1 folder, luôn tự mở lại Visual Background (thay vì
+                // đóng trắng cả Setting) — xem docstring _openFolderPickerDrawer() (event/workflow/
+                // playlist.js).
+                onClose: () => workflowAppSettings._renderVisualBg(),
             },
         );
     },

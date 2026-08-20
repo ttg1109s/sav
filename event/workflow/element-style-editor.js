@@ -34,6 +34,12 @@ const workflowElementStyleEditor = {
     _targetEl: null,
     /** Callback tuỳ chọn nơi gọi truyền vào — xem docstring đầu file. */
     _onApply: null,
+    /** MỚI (phản hồi Giang — sửa lỗ hổng "X đóng luôn cả Setting thay vì quay lại Subtitle") — gọi
+     * THAY VÌ `closeFully()` khi đóng Drawer (bấm X HAY vừa Áp dụng xong) — dùng bởi nơi gọi ĐANG
+     * SỐNG CHUNG Generic Drawer với công cụ này (Subtitle "Styling", event/workflow/
+     * subtitle-style-settings.js::openStyling()) để tự mở lại đúng màn của mình thay vì đóng trắng
+     * cả Setting. KHÔNG truyền -> giữ NGUYÊN hành vi cũ (đóng hẳn). */
+    _onClose: null,
 
     /** Mở Drawer cho 1 DOM cụ thể — mặc định bắt đầu từ draft TRẮNG (mọi property tắt).
      * MỚI (16/08/2026, mục 2 — Giang yêu cầu "cung cấp cấu hình mặc định giống hiện tại") — tham số
@@ -43,10 +49,13 @@ const workflowElementStyleEditor = {
      * điểm mở rộng đã dự trù sẵn ở đây (xem lịch sử docstring này) "nơi gọi tự đọc style hiện có +
      * dựng lại draft tương ứng... truyền thẳng qua appState.set('eseDraft', ...) sau
      * resetElementStyleDraft()". Không truyền (hoặc truyền rỗng) -> hành vi CŨ giữ nguyên 100% (mở
-     * trắng), guard nằm NGAY TRONG applyElementStyleCssStringToDraft() (core, guard `!cssString`). */
-    open(targetEl, onApply, initialCssString) {
+     * trắng), guard nằm NGAY TRONG applyElementStyleCssStringToDraft() (core, guard `!cssString`).
+     * `onClose` — MỚI, xem docstring khai báo field `_onClose` ở trên.
+     */
+    open(targetEl, onApply, initialCssString, onClose) {
         this._targetEl = targetEl;
         this._onApply = onApply || null;
+        this._onClose = onClose || null;
         resetElementStyleDraft(); // core
         if (initialCssString) applyElementStyleCssStringToDraft(initialCssString); // core — MỚI, nạp khớp style đã lưu
         setElementStyleActiveTab('box'); // core
@@ -69,7 +78,7 @@ const workflowElementStyleEditor = {
 
     _wire() {
         const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-        if (closeBtn) closeBtn.addEventListener('click', () => workflowGenericDrawerHelpers.closeFully());
+        if (closeBtn) closeBtn.addEventListener('click', () => this._close());
 
         genericDrawerHeader.querySelectorAll('[data-ese-tab]').forEach((btn) => {
             btn.addEventListener('click', (e) => {
@@ -205,6 +214,12 @@ const workflowElementStyleEditor = {
         setElementStyleGeneratedCss(cssString); // core
         if (this._targetEl) applyElementStyleToDom(this._targetEl, cssString); // core
         if (this._onApply) this._onApply(cssString);
-        workflowGenericDrawerHelpers.closeFully();
+        this._close();
+    },
+
+    /** Đóng Drawer — ưu tiên `_onClose` nếu nơi mở có truyền (xem docstring field `_onClose` đầu
+     * file), mặc định đóng hẳn. Dùng CHUNG cho cả nút X lẫn sau khi Áp dụng xong. */
+    _close() {
+        if (this._onClose) this._onClose(); else workflowGenericDrawerHelpers.closeFully();
     },
 };
