@@ -567,7 +567,18 @@
                 // ai đọc field đó nữa (core/subtitle/subtitle-display.js không còn tham chiếu).
             });
 
-            bgBlurSlider.value = appConfigViz.getAll().bgBlur; valBgBlurDisplay.textContent = appConfigViz.getAll().bgBlur + 'px';
+            // SỬA (phát hiện bug boot vỡ ngay từ đầu, phản hồi Giang — "config không load ngay từ
+            // đầu, settings bị reset khi reload") — `#setting-bg-blur`/`#val-bg-blur` sống trong
+            // TPL_SETTINGS_THEME (components/settings/theme.js) — KHÔNG còn mount từ đợt phân phối
+            // lại Settings (Theme viết lại UI mới, không có control "Độ mờ nền" nữa) — 2 dom-ref
+            // này giờ luôn `null`. Dòng gán `.value`/`.textContent` KHÔNG CÓ GUARD (khác hầu hết
+            // code còn lại trong hàm này) — ném TypeError NGAY LẬP TỨC, làm `loadConfig()` reject —
+            // đây là bước ĐẦU TIÊN của `boot()` (`await loadConfig()`), nên TOÀN BỘ các bước khôi
+            // phục config phía sau (Playlist/Player/EQ/Visual BG...) KHÔNG BAO GIỜ CHẠY TỚI. Thêm
+            // guard — giá trị `bgBlur` vẫn nguyên trong data, chỉ tạm KHÔNG có UI nào điều chỉnh nó
+            // nữa (chưa có chỗ trong Theme mới, để đợt sau).
+            if (bgBlurSlider) bgBlurSlider.value = appConfigViz.getAll().bgBlur;
+            if (valBgBlurDisplay) valBgBlurDisplay.textContent = appConfigViz.getAll().bgBlur + 'px';
 
             // bgImage là blob: URL runtime, tạo lại mỗi session từ IndexedDB — luôn reset về rỗng
             // TRƯỚC khi loadPlaylistBgImageAsset() đọc lại Blob thật.
