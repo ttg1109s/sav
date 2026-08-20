@@ -62,6 +62,52 @@
 const GENERIC_DRAWER_DEFAULT_Z_INDEX = Z_INDEX.GENERIC_DRAWER; // SỬA (25/07/2026, đợt tái cấu trúc state) — trước đây hardcode `128` riêng ở đây, trùng lặp với Z_INDEX.GENERIC_DRAWER (service/z-index.js) — nay đọc thẳng từ bảng chung, tránh lệch nếu 1 trong 2 chỗ bị sửa mà quên chỗ kia.
 
 /**
+ * MỚI (phản hồi Giang mục 2 — "mặc định phải có 1 khoảng gap bên dưới" cho height:'auto') — panel
+ * height:'auto' KHÔNG còn dính sát đáy màn hình (`bottom-0` như height cố định) — nổi lên 1 khoảng
+ * `GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX` (+ safe-area, máy có notch/thanh home indicator) — bo tròn
+ * CẢ 4 góc (thay vì chỉ 2 góc trên) vì không còn dính rìa. Height cố định (vd '90vh', Setting cũ
+ * trước đây) giữ NGUYÊN hành vi cũ (dính đáy, chỉ bo 2 góc trên).
+ */
+const GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX = 12;
+
+/**
+ * Đo chiều cao TỰ NHIÊN thật của panel theo đúng nội dung VỪA gán (headerHtml/bodyHtml đã set vào
+ * DOM), giới hạn bởi `maxHeight` — dùng cho `height: 'auto'`. Set tạm `style.height='auto'` +
+ * `maxHeight` rồi đọc `offsetHeight` (CSS `max-height` tự chặn đúng lúc đo, không cần tính tay).
+ * @returns {number} px
+ */
+function _measureGenericDrawerAutoHeightPx(maxHeight) {
+    genericDrawerPanel.style.maxHeight = maxHeight || '';
+    genericDrawerPanel.style.height = 'auto';
+    return genericDrawerPanel.offsetHeight;
+}
+
+/**
+ * Set `style.height`/`style.bottom`/`style.borderRadius` theo `config.height`:
+ *   - `'auto'`: đo chiều cao thật (đã gán content), set bằng SỐ PX CỤ THỂ (KHÔNG để nguyên chuỗi
+ *     'auto' — CSS không animate được tới/từ 'auto', xem CSS transition ở assets/css/base.css) +
+ *     nổi lên khỏi đáy `GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX` + bo tròn 4 góc.
+ *   - Chuỗi khác (vd '90vh'/'70vh'): giữ NGUYÊN hành vi cũ — dính đáy, bo 2 góc trên.
+ * @param {{height?: string, maxHeight?: string}} config
+ */
+function _applyGenericDrawerHeight(config) {
+    if (config.height === 'auto') {
+        const px = _measureGenericDrawerAutoHeightPx(config.maxHeight);
+        genericDrawerPanel.style.height = `${px}px`;
+        genericDrawerPanel.style.bottom = `calc(env(safe-area-inset-bottom, 0px) + ${GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX}px)`;
+        genericDrawerPanel.classList.remove('rounded-t-3xl');
+        genericDrawerPanel.classList.add('rounded-3xl', 'mx-2');
+    } else {
+        genericDrawerPanel.style.maxHeight = config.maxHeight || '';
+        genericDrawerPanel.style.height = config.height || '70vh';
+        genericDrawerPanel.style.bottom = '';
+        genericDrawerPanel.classList.remove('rounded-3xl', 'mx-2');
+        genericDrawerPanel.classList.add('rounded-t-3xl');
+    }
+}
+
+
+/**
  * Mở drawer LẦN ĐẦU (đang đóng -> mở) — set toàn bộ cấu hình + trượt lên + hiện overlay.
  * @param {{height?: string, maxHeight?: string, zIndex?: number, headerHtml: string, bodyHtml: string, bodyClass?: string}} config
  *   - height: mặc định '70vh' nếu không truyền.
@@ -75,12 +121,11 @@ const GENERIC_DRAWER_DEFAULT_Z_INDEX = Z_INDEX.GENERIC_DRAWER; // SỬA (25/07/2
  */
 function openGenericDrawer(config) {
     const zIndex = config.zIndex || GENERIC_DRAWER_DEFAULT_Z_INDEX;
-    genericDrawerPanel.style.height = config.height || '70vh';
-    genericDrawerPanel.style.maxHeight = config.maxHeight || '';
     genericDrawerPanel.style.zIndex = String(zIndex);
     genericDrawerHeader.innerHTML = config.headerHtml || '';
     genericDrawerBody.innerHTML = config.bodyHtml || '';
     genericDrawerBody.className = `flex-1 min-h-0 ${config.bodyClass || ''}`.trim(); // 'flex-1 min-h-0' LUÔN giữ, bodyClass CHỈ bổ sung
+    _applyGenericDrawerHeight(config); // core/generic-drawer.js — height cố định HOẶC 'auto' (đo theo content vừa gán, xem docstring)
 
     genericDrawerOverlay.style.zIndex = String(zIndex - 1);
     genericDrawerOverlay.classList.remove('hidden');
@@ -102,17 +147,28 @@ function openGenericDrawer(config) {
 /**
  * Chuyển MƯỢT sang cấu hình MỚI trong khi ĐANG MỞ (không đóng/mở lại từ đầu) — cơ chế chuyển
  * List <-> Read (mục 2/4.1 plan-v12-extended.md). Drawer PHẢI đang mở trước khi gọi.
+ *
+ * SỬA (phản hồi Giang mục 2 — "khi thay đổi nội dung & chiều cao cần có animation") — TRƯỚC ĐÂY
+ * nhảy cóc tức thời (`style.height = ...` ghi đè thẳng, không transition) — giờ ĐÓNG BĂNG ở chiều
+ * cao HIỆN TẠI (số px cụ thể, đo qua `getBoundingClientRect()`) TRƯỚC KHI đổi nội dung, rồi mới set
+ * chiều cao ĐÍCH — CSS transition (`#generic-drawer-panel`, assets/css/base.css) tự chạy mượt giữa
+ * 2 mốc SỐ CỤ THỂ này (browser interpolate được giữa px/vh, KHÔNG cần cùng đơn vị).
  * @param {{height?: string, maxHeight?: string, zIndex?: number, headerHtml: string, bodyHtml: string, bodyClass?: string}} config
  */
 function updateGenericDrawer(config) {
     const zIndex = config.zIndex || GENERIC_DRAWER_DEFAULT_Z_INDEX;
-    genericDrawerPanel.style.height = config.height || '70vh';
-    genericDrawerPanel.style.maxHeight = config.maxHeight || '';
+
+    const fromHeightPx = genericDrawerPanel.getBoundingClientRect().height;
+    genericDrawerPanel.style.height = `${fromHeightPx}px`;
+    void genericDrawerPanel.offsetHeight; // ép reflow — chốt mốc BẮT ĐẦU trước khi đổi nội dung/chiều cao đích
+
     genericDrawerPanel.style.zIndex = String(zIndex);
     genericDrawerHeader.innerHTML = config.headerHtml || '';
     genericDrawerBody.innerHTML = config.bodyHtml || '';
     genericDrawerBody.className = `flex-1 min-h-0 ${config.bodyClass || ''}`.trim();
     genericDrawerOverlay.style.zIndex = String(zIndex - 1);
+
+    _applyGenericDrawerHeight(config); // core/generic-drawer.js — set mốc ĐÍCH, transition CSS tự chạy giữa 2 mốc
 }
 
 /** Đóng drawer (trượt xuống + mờ dần overlay) — CHƯA thêm lại `hidden` (đợi transition xong, xem
