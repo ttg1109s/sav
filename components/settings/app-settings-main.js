@@ -34,7 +34,7 @@ function renderAppSettingsRowList(rows) {
             <div class="flex items-center gap-3 min-w-0">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-sky-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${row.icon}" /></svg>
                 <div class="min-w-0">
-                    <div class="text-sm font-semibold text-slate-800 truncate">${t(row.labelKey)}</div>
+                    <div class="text-sm font-semibold text-slate-700 truncate">${t(row.labelKey)}</div>
                     ${row.hintKey ? `<div class="text-xs text-slate-400 mt-0.5 truncate">${t(row.hintKey)}</div>` : ''}
                 </div>
             </div>
