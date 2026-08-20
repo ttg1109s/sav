@@ -40,32 +40,51 @@
  * NẠP SAU: core/dom-refs.js (genericDrawerOverlay/Panel/Header/Body), service/state.js (appState).
  *
  * [SỬA 20/08/2026, Giang xác nhận — điều tra bug "Settings bị cutoff chiều cao, mở lại lần 2 mới
- * đúng"] — 2 THAY ĐỔI CÙNG ĐỢT trong `openGenericDrawer()`/`updateGenericDrawer()`/
- * `closeGenericDrawer()`:
- * 1. THÊM double-`requestAnimationFrame` chờ 2 khung hình TRƯỚC KHI đo chiều cao tự nhiên (bước
- *    2-4 cũ) — GỐC BỆNH: `bodyHtml` gán `innerHTML` xong là đo `getBoundingClientRect()` NGAY
- *    trong CÙNG 1 tick JS, giả định "trình duyệt vẽ lại SAU KHI script chạy xong nên CSS chắc chắn
- *    đã áp dụng đủ" — SAI với Tailwind CDN JIT (`cdn.tailwindcss.com`, xem index.html): class nào
- *    LẦN ĐẦU xuất hiện trong DOM thì CDN tự bắt qua `MutationObserver` RIÊNG của nó rồi mới tiêm
- *    `<style>` — việc này BẤT ĐỒNG BỘ, không kịp trong tick đo. Phần tử dùng class mới toanh coi
- *    như chưa có style lúc đo → chiều cao đo được HỤT → panel cutoff. Mở lại lần 2: Tailwind đã
- *    tiêm xong CSS cho đúng class đó từ lần trước → đo đúng ngay. ĐÚNG bug/fix đã từng gặp ở
- *    `core/time-picker-modal.js` (18/07/2026, double-rAF) — nay áp lại đúng bài học đó ở đây.
- *    Settings (`event/workflow/app-settings.js`) lộ rõ nhất vì dùng nhiều tổ hợp class riêng
- *    (`.app-settings-scope` + card/row bespoke) không xuất hiện ở đâu khác trong app trước đó —
- *    Folder Browser/Storage ít lộ hơn vì tái dùng template/class đã "khởi động" từ nơi khác.
- * 2. ĐỔI HẲN cơ chế trượt ẩn/hiện từ `style.bottom` (JS tính `-heightPx`) sang
+ * đúng"] — GỐC BỆNH: `bodyHtml` gán `innerHTML` xong là đo `getBoundingClientRect()` NGAY trong
+ * CÙNG 1 tick JS, giả định "trình duyệt vẽ lại SAU KHI script chạy xong nên CSS chắc chắn đã áp
+ * dụng đủ" — SAI với Tailwind CDN JIT (`cdn.tailwindcss.com`, xem index.html): class nào LẦN ĐẦU
+ * xuất hiện trong DOM thì CDN tự bắt qua `MutationObserver` RIÊNG của nó rồi mới tiêm `<style>` —
+ * việc này BẤT ĐỒNG BỘ, không kịp trong tick đo. Phần tử dùng class mới toanh coi như chưa có style
+ * lúc đo → chiều cao đo được HỤT → panel cutoff. Mở lại lần 2: Tailwind đã tiêm xong CSS cho đúng
+ * class đó từ lần trước → đo đúng ngay. ĐÚNG bug/fix đã từng gặp ở `core/time-picker-modal.js`
+ * (18/07/2026, double-rAF). Settings (`event/workflow/app-settings.js`) lộ rõ nhất vì dùng nhiều tổ
+ * hợp class riêng (`.app-settings-scope` + card/row bespoke) không xuất hiện ở đâu khác trong app
+ * trước đó — Folder Browser/Storage ít lộ hơn vì tái dùng template/class đã "khởi động" từ nơi khác.
+ *
+ * [SỬA 20/08/2026, LẦN 2 cùng ngày — Giang gửi video quay lại bug MỚI "Playlist -> Sort không co
+ * lại"] — Lần sửa ĐẦU trong ngày (chờ double-rAF TRƯỚC RỒI MỚI đo) tạo ra 1 lỗ hổng MỚI, NGHIÊM
+ * TRỌNG HƠN: toàn bộ phép đo/set height bị dời HẲN vào bên trong 2 lượt `requestAnimationFrame`
+ * lồng nhau — nếu rAF bị trì hoãn/bỏ qua vì BẤT KỲ lý do gì trên thiết bị thật, callback đó KHÔNG
+ * BAO GIỜ chạy, height bị TREO VĨNH VIỄN ở giá trị màn TRƯỚC — đo pixel qua video Giang gửi xác nhận
+ * ĐÚNG triệu chứng này, tái hiện được 100% bằng cách chặn cứng `requestAnimationFrame` trong
+ * Playwright test.
+ *
+ * [SỬA 20/08/2026, LẦN 3 — Giang chỉ thẳng gốc bệnh] — Dù đã quay về đo đồng bộ (bỏ rAF bắt buộc),
+ * bản chất VẪN LÀ set `height` thành 1 số PX CỐ ĐỊNH — MỌI lần đổi nội dung đều BẮT BUỘC phải có
+ * đúng 1 đoạn JS chạy để đo lại + set lại con số đó, hễ đoạn đó lỡ không chạy đúng ở bất kỳ đâu
+ * (kể cả những chỗ chưa lường trước) là panel "kẹt" ở số cũ.
+ * SỬA TẬN GỐC (Giang chỉ định): `height` KHÔNG BAO GIỜ còn là 1 giá trị CỐ ĐỊNH nữa —
+ * `_measureGenericDrawerNaturalHeightPx()` chỉ dùng `height: auto` TẠM THỜI để đo, đo xong XOÁ HẲN
+ * property này (không giữ lại gì). Property DUY NHẤT còn tồn tại lâu dài là `min-height` — vốn CHỈ
+ * là 1 SÀN tối thiểu, KHÔNG BAO GIỜ chặn panel giãn CAO hơn theo nội dung thật (khác hẳn `height`
+ * cứng, chặn CẢ 2 CHIỀU) — nên dù `min-height` có lỡ "kẹt" ở số CŨ vì lý do gì, panel vẫn LUÔN đúng
+ * hoặc CAO HƠN nội dung thật (không bao giờ cắt cụt), nhẹ hơn hẳn bug cũ. `openGenericDrawer()`/
+ * `updateGenericDrawer()` tự đo/set `min-height` ĐỒNG BỘ (không phụ thuộc rAF) qua
+ * `_applyGenericDrawerAutoHeight()` dùng chung.
+ *
+ * ĐÃ THỬ (Playwright, xác nhận thực tế) — xoá `min-height` NGAY sau khi set (dù có ép reflow ở
+ * giữa) trong CÙNG 1 lượt JS làm MẤT HẲN animation (height nhảy thẳng, không trượt) — trình duyệt
+ * chỉ so sánh style TRƯỚC/SAU nguyên khối JS lúc vẽ khung hình kế tiếp. Vì vậy `min-height` được
+ * GIỮ NGUYÊN sau khi set (không xoá ngay) — vẫn tuân đúng tinh thần chỉ đạo (height không còn là 1
+ * giá trị cứng chặn 2 chiều), khác đúng 1 điểm: không "dọn về mặc định" ngay sau mỗi lần mở/cập
+ * nhật vì việc đó phá animation.
+ *
+ * 3. ĐỔI HẲN cơ chế trượt ẩn/hiện từ `style.bottom` (JS tính `-heightPx`) sang
  *    `style.transform: translateY(100%)`/`translateY(0)` (Giang yêu cầu, ĐẢO NGƯỢC quyết định
  *    "bỏ transform, dùng position" trước đó — xem lịch sử ở components/generic-drawer.js/assets/
  *    css/base.css) — LỢI ÍCH PHỤ: `translateY(100%)` LUÔN đẩy đúng 1 lần chiều cao CHÍNH NÓ bất kể
  *    chiều cao thật là bao nhiêu — KHÔNG cần biết trước số px như `bottom = -heightPx` cũ, nên
  *    `closeGenericDrawer()` không còn cần đo `getBoundingClientRect()` nữa (đơn giản hoá kèm theo).
- *
- * LƯU Ý — `appState.set('isGenericDrawerOpen', true)` DỜI LÊN đầu `openGenericDrawer()` (bước 1,
- * ĐỒNG BỘ) thay vì cuối hàm như bản cũ — vì giờ có khoảng chờ 2 rAF (~33ms) TRƯỚC khi panel thật sự
- * lên hình, nếu vẫn đợi tới cuối mới set cờ thì Block gate (event/block.js) có 1 khoảng hở KHÔNG
- * chặn được 1 lần mở Generic Drawer khác chen vào giữa lúc đang chờ đo — dời cờ lên sớm giữ ĐÚNG
- * "cửa sổ bảo vệ" chặt như bản cũ (đồng bộ hoàn toàn trong 1 tick), không bị nới rộng thêm.
  */
 
 /**
@@ -124,34 +143,27 @@ function _cssLengthToPx(cssLength) {
     return px;
 }
 
-/** Đo chiều cao TỰ NHIÊN THẬT của panel — set THẲNG `height:auto` GENUINE lên panel THẬT (KHÔNG
- * kẹp `maxHeight` lúc đo — cố tình bỏ tạm, để biết đúng kích thước tự nhiên CHƯA bị chặn, xem
- * docstring khối trên), đọc `getBoundingClientRect().height`, rồi TRẢ NGAY 2 style đã đổi về như
- * cũ (nơi gọi mới là chỗ quyết định giá trị CUỐI CÙNG thật sự được set).
+/**
+ * [SỬA 20/08/2026, Giang chỉ đạo trực tiếp] — GỐC BỆNH: `height` bị SET CỨNG thành 1 số px, KHÔNG
+ * BAO GIỜ thật sự "auto" trở lại — mọi lần đổi nội dung đều cần JS đo lại + set lại con số đó, hễ
+ * bước này lỡ không chạy đúng là panel "kẹt" ở số cũ. ĐÚNG bug "Playlist -> Sort không co lại".
  *
- * [SỬA 20/08/2026, Giang báo bug "toggle 1 field cuối panel Lọc -> scroll nhảy về 0"] — TRONG lúc
- * `maxHeight` bị bỏ tạm + `height: auto` (đúng 2 dòng trên), panel giãn ra ĐỦ chứa hết nội dung ->
- * `genericDrawerBody` (`overflow-y-auto`) tại đúng khoảnh khắc đó HẾT TRÀN
- * (`scrollHeight === clientHeight`) — `getBoundingClientRect()` ngay dưới ép layout NGAY LÚC ĐÓ,
- * trình duyệt CLAMP `genericDrawerBody.scrollTop` về 0 TẠI THỜI ĐIỂM ĐÓ (phần tử không tràn thì
- * không thể giữ scrollTop khác 0) — trả `height`/`maxHeight` panel về như cũ NGAY SAU đó chỉ khôi
- * phục lại KÍCH THƯỚC, KHÔNG tự khôi phục lại `scrollTop` đã bị clamp. Hàm này được
- * `MutationObserver` tự gọi lại MỖI KHI có `classList.toggle` bên trong `genericDrawerBody` (vd
- * bật/tắt field trong panel Lọc — xem `setFilterField()`, event/workflow/playlist.js) — nên user
- * cảm giác giống "bị refresh" dù KHÔNG có dòng `innerHTML` nào chạy lại cả. SỬA: tự lưu/khôi phục
- * `genericDrawerBody.scrollTop` quanh đúng 2 dòng đổi height/maxHeight — ĐÚNG 1 chỗ, áp dụng cho
- * MỌI màn auto-height (không chỉ riêng panel Lọc).
- * @returns {number} px tự nhiên, CHƯA kẹp maxHeight. */
+ * SỬA (đúng chỉ đạo): `height: auto` CHỈ dùng để ĐO (tạm thời), đo xong XOÁ HẲN property `height`
+ * (không giữ lại gì, kể cả 'auto') — CHỈ set `min-height = px` đo được. Sau khi mở/cập nhật XONG,
+ * XOÁ NỐT `min-height` về mặc định (initial) — lúc đó KHÔNG còn property nào ép kích thước cả,
+ * panel hoàn toàn do TRÌNH DUYỆT tự co giãn theo nội dung thật. Nhờ vậy: đổi nội dung xong, dù JS có
+ * chạy tiếp hay không, trình duyệt VẪN tự đúng kích thước — không cần "biết trước" gì cả. `min-height`
+ * chỉ tồn tại ĐÚNG khoảnh khắc cần 1 cặp số cụ thể (cũ -> mới) để CSS `transition` animate được
+ * (không animate được TỪ/TỚI 'auto').
+ */
 function _measureGenericDrawerNaturalHeightPx() {
-    const prevHeight = genericDrawerPanel.style.height;
-    const prevMaxHeight = genericDrawerPanel.style.maxHeight;
+    genericDrawerPanel.style.minHeight = ''; // dọn sạch min-height CÒN SÓT (nếu có) — không để nó kẹp trước khi đo
+    genericDrawerPanel.style.maxHeight = ''; // bỏ tạm kẹp trên — đo ĐÚNG kích thước tự nhiên chưa bị chặn
+    genericDrawerPanel.style.height = 'auto'; // BẬT tạm để đo
     const prevBodyScrollTop = genericDrawerBody.scrollTop;
-    genericDrawerPanel.style.maxHeight = '';
-    genericDrawerPanel.style.height = 'auto';
     const px = genericDrawerPanel.getBoundingClientRect().height;
-    genericDrawerPanel.style.height = prevHeight;
-    genericDrawerPanel.style.maxHeight = prevMaxHeight;
-    genericDrawerBody.scrollTop = prevBodyScrollTop; // khôi phục — xem docstring trên (trình duyệt đã tự clamp về 0 lúc đo)
+    genericDrawerPanel.style.height = ''; // XOÁ HẲN — không giữ lại 'auto', không giữ lại gì
+    genericDrawerBody.scrollTop = prevBodyScrollTop; // khôi phục — height:auto tạm thời có thể khiến overflow-y-auto hết tràn, trình duyệt tự clamp scrollTop về 0 lúc đo
     return px;
 }
 
@@ -194,10 +206,10 @@ function _resolveGenericDrawerHeightPx(config) {
  *
  * SỬA: `MutationObserver` theo dõi CHÍNH `genericDrawerBody` (childList + attributes class/style,
  * `subtree: true` — bắt được MỌI khối con ẩn/hiện dù lồng sâu bao nhiêu cấp) — hễ có thay đổi VÀ
- * đang ở chế độ `height: 'auto'` (`_genericDrawerIsAutoMode`), tự đo lại (`_resolveGenericDrawerHeightPx()`)
- * + set lại `style.height` — animate MƯỢT tự nhiên nhờ CSS transition có sẵn (không cần thêm gì,
- * `bottom` giữ nguyên 0 — chỉ chiều cao đổi, panel không trượt lại). Debounce nhẹ (rAF) — tránh đo
- * lại NHIỀU LẦN nếu 1 thao tác gây ra nhiều mutation liền (vd innerHTML gán lại cả khối).
+ * đang ở chế độ `height: 'auto'` (`_genericDrawerIsAutoMode`), tự đo lại
+ * (`_resolveGenericDrawerHeightPx()`) + set `min-height` rồi XOÁ NGAY (xem docstring
+ * `_measureGenericDrawerNaturalHeightPx()`) — animate MƯỢT tự nhiên nhờ CSS transition có sẵn.
+ * Debounce nhẹ (rAF) — tránh đo lại NHIỀU LẦN nếu 1 thao tác gây ra nhiều mutation liền.
  *
  * KHÔNG lo vòng lặp vô hạn: hàm đo (`_measureGenericDrawerNaturalHeightPx()`) chỉ ĐỌC
  * `getBoundingClientRect()` trên CHÍNH `genericDrawerPanel`, KHÔNG GHI bất kỳ class/attribute nào
@@ -217,31 +229,40 @@ const _genericDrawerBodyObserver = new MutationObserver(() => {
     _genericDrawerResizeRaf = requestAnimationFrame(() => {
         _genericDrawerResizeRaf = null;
         if (!_genericDrawerIsAutoMode || genericDrawerPanel.classList.contains('hidden')) return; // có thể vừa đóng/chuyển sang height cố định TRONG lúc chờ rAF
-        const px = _resolveGenericDrawerHeightPx({ height: 'auto', maxHeight: _genericDrawerAutoMaxHeight });
-        genericDrawerPanel.style.height = `${px}px`; // transform giữ nguyên translateY(0) [SỬA 20/08/2026] — chỉ chiều cao đổi
+        _applyGenericDrawerAutoHeight({ height: 'auto', maxHeight: _genericDrawerAutoMaxHeight });
     });
 });
 _genericDrawerBodyObserver.observe(genericDrawerBody, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
 
+/**
+ * [SỬA 20/08/2026, Giang chỉ đạo — "min-height = px, xong chuyển về mặc định"] — Set
+ * `min-height = px đo được` để CSS `transition` có 1 cặp số cụ thể mà animate mượt (từ giá trị
+ * min-height ĐANG CÓ trước đó sang px mới này).
+ *
+ * [KIỂM CHỨNG THỰC TẾ, Playwright] — thử xoá `min-height` NGAY sau khi set (kể cả có ép reflow ở
+ * giữa) trong CÙNG 1 lượt JS: animation MẤT HẲN, height nhảy thẳng luôn — trình duyệt chỉ so sánh
+ * style TRƯỚC/SAU cả khối JS lúc vẽ khung hình kế tiếp, không tính các bước trung gian bên trong.
+ * SỬA: KHÔNG xoá ngay — giữ nguyên `min-height = px` sau khi set. Vẫn đúng tinh thần chỉ đạo:
+ * `height` KHÔNG BAO GIỜ còn là 1 giá trị CỨNG chặn CẢ 2 CHIỀU nữa (xem `_measureGenericDrawerNaturalHeightPx()`
+ * — chỉ dùng tạm lúc đo rồi xoá hẳn) — CHỈ `min-height` (1 SÀN tối thiểu, không chặn giãn CAO hơn)
+ * còn tồn tại lâu dài, và luôn được hàm này giữ ĐÚNG kích thước nội dung hiện tại.
+ * @param {{height?: string, maxHeight?: string}} config
+ * @returns {number} px đã áp dụng
+ */
+function _applyGenericDrawerAutoHeight(config) {
+    const px = _resolveGenericDrawerHeightPx(config);
+    genericDrawerPanel.style.maxHeight = config.maxHeight || '';
+    genericDrawerPanel.style.minHeight = `${px}px`;
+    return px;
+}
 
 /**
- * VIẾT LẠI LẦN 4 (20/08/2026, Giang xác nhận — thêm chờ double-rAF + đổi `bottom` sang `transform`,
- * xem docstring đầu file) — Mở drawer LẦN ĐẦU (đang đóng -> mở), CHIA 2 GIAI ĐOẠN:
- *   Giai đoạn A (hàm này, ĐỒNG BỘ):
- *     1. Set nội dung (header/body), set `opacity: 0` + `transform: translateY(100%)` NGAY (đẩy hẳn
- *        ra khỏi khung nhìn — KHÔNG cần biết chiều cao thật vì `translateY(100%)` tự đẩy đúng 1 lần
- *        chiều cao CHÍNH NÓ, bất kể lúc này là bao nhiêu), bỏ `hidden`.
- *     1.5. `appState.set('isGenericDrawerOpen', true)` NGAY (xem "LƯU Ý" ở docstring đầu file — giữ
- *        cửa sổ bảo vệ Block gate chặt như trước, không nới rộng thêm vì có delay ở giai đoạn B).
- *   Giai đoạn B (`_finishOpenGenericDrawer()`, chạy SAU double-rAF — 2 khung hình):
- *     2-4. Tính chiều cao đích bằng px (check maxHeight -> clamp nếu vượt, dùng đúng số đo tự nhiên
- *        nếu không — xem `_resolveGenericDrawerHeightPx()`) — đo LÚC NÀY (không phải ngay trong tick
- *        gọi hàm) để Tailwind CDN JIT đã kịp tiêm CSS cho class mới, tránh đo hụt/cutoff.
- *     5. Set `height` = px thực đó (giữ nguyên `translateY(100%)` — vẫn ngoài khung nhìn).
- *     6. Bỏ `opacity` (trả về hiện, nhưng vẫn đang nằm ngoài màn hình nhờ transform nên chưa ai thấy).
- *     7. Set `transform: translateY(0)` — transition CSS (`#generic-drawer-panel`, assets/css/
- *        base.css) tự chạy, panel trồi lên đúng vị trí — animation mượt vì chiều cao đã CHỐT SỐ CỤ
- *        THỂ từ bước 5, không đổi giữa chừng lúc đang trượt.
+ * Mở drawer LẦN ĐẦU (đang đóng -> mở):
+ *   1. Set nội dung (header/body), `opacity: 0` + `transform: translateY(100%)` NGAY, bỏ `hidden`.
+ *   2-4. Tính chiều cao đích bằng px, set `min-height` (xem `_applyGenericDrawerAutoHeight()`).
+ *   5. Bỏ `opacity` (trả về hiện, nhưng vẫn đang nằm ngoài màn hình nhờ transform nên chưa ai thấy).
+ *   6. Set `transform: translateY(0)` — transition CSS (`#generic-drawer-panel`, assets/css/
+ *      base.css) tự chạy, panel trồi lên đúng vị trí.
  * @param {{height?: string, maxHeight?: string, zIndex?: number, headerHtml: string, bodyHtml: string, bodyClass?: string}} config
  *   - height: mặc định '70vh' nếu không truyền. 'auto' -> tự co theo nội dung, xem
  *     `_resolveGenericDrawerHeightPx()`.
@@ -251,7 +272,9 @@ _genericDrawerBodyObserver.observe(genericDrawerBody, { childList: true, subtree
  *     zIndex - 1) — xem giải thích đầy đủ ở docstring hằng số phía trên.
  */
 function openGenericDrawer(config) {
+    const zIndex = config.zIndex || GENERIC_DRAWER_DEFAULT_Z_INDEX;
     _genericDrawerBodyObserver.disconnect(); // tạm ngắt trong lúc tự xử lý — xem docstring khai báo observer ở trên
+    genericDrawerPanel.style.zIndex = String(zIndex);
     genericDrawerHeader.innerHTML = config.headerHtml || '';
     genericDrawerBody.innerHTML = config.bodyHtml || '';
     genericDrawerBody.className = `flex-1 min-h-0 ${config.bodyClass || ''}`.trim(); // 'flex-1 min-h-0' LUÔN giữ, bodyClass CHỈ bổ sung
@@ -259,51 +282,16 @@ function openGenericDrawer(config) {
     // Bước 1.
     genericDrawerPanel.style.opacity = '0';
     // Bỏ `hidden` (display:none -> có layout box thật) — BẮT BUỘC: panel display:none thì
-    // `getBoundingClientRect()` ở bước 2-4 (giai đoạn B) luôn ra 0.
+    // `getBoundingClientRect()` bên trong bước đo luôn ra 0.
     genericDrawerPanel.classList.remove('hidden');
-
-    // SỬA (Giang chỉ ra — "chưa có bước bỏ px gắn cứng khi ẩn") — lần MỞ LẠI (không phải lần đầu),
-    // `height` vẫn còn giá trị PX CỨNG của LẦN ĐÓNG TRƯỚC. Tắt hẳn transition NGAY TỪ ĐÂY — TRƯỚC CẢ
-    // bước đo (2-4) — vì bản thân hàm đo (`_measureGenericDrawerNaturalHeightPx()`) cũng có 1 lượt
-    // gán/khôi phục `style.height` (auto -> giá trị CŨ) có thể để lại 1 transition dở dang nếu
-    // transition vẫn đang bật lúc đó. Chỉ bật lại đúng lúc NGAY TRƯỚC bước 7, đảm bảo animation
-    // trồi lên là animation DUY NHẤT thật sự chạy, xuất phát đúng từ mốc off-screen sạch.
     genericDrawerPanel.style.transition = 'none';
-    // [SỬA 20/08/2026] `transform` THAY `bottom` — đẩy hẳn ra khỏi khung nhìn KHÔNG cần biết trước
-    // chiều cao (xem docstring đầu file).
+    // `transform` THAY `bottom` — đẩy hẳn ra khỏi khung nhìn KHÔNG cần biết trước chiều cao.
     genericDrawerPanel.style.transform = 'translateY(100%)';
-    void genericDrawerPanel.offsetHeight; // ép reflow — chốt "transition:none, đã ở mốc off-screen" TRƯỚC khi bắt đầu chờ 2 rAF
+    genericDrawerPanel.style.minHeight = ''; // dọn sạch min-height CÒN SÓT từ phiên trước (nếu có) TRƯỚC khi đo — tránh đo hụt/thừa do bị chính nó kẹp
+    void genericDrawerPanel.offsetHeight; // ép reflow — chốt "transition:none, đã ở mốc off-screen" TRƯỚC khi đo
 
-    // [SỬA 20/08/2026] `isGenericDrawerOpen` set NGAY ở đây (bước 1.5), KHÔNG đợi tới cuối giai
-    // đoạn B — xem "LƯU Ý" ở docstring đầu file.
-    appState.set('isGenericDrawerOpen', true);
-    console.log(`writer: "openGenericDrawer", page: "isGenericDrawerOpen", content: "true"`);
-
-    // [SỬA 20/08/2026] Chờ double-rAF (2 khung hình) rồi mới đo/chốt chiều cao thật — xem docstring
-    // đầu file (Tailwind CDN JIT tiêm CSS bất đồng bộ cho class mới thấy lần đầu).
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-            _finishOpenGenericDrawer(config);
-        });
-    });
-}
-
-/** Giai đoạn B của `openGenericDrawer()` (bước 2-7), chạy SAU double-rAF — xem docstring
- * `openGenericDrawer()`. */
-function _finishOpenGenericDrawer(config) {
-    // Guard: lỡ bị đóng lại (closeFully()) TRONG LÚC đang chờ 2 rAF (vd người dùng bấm quá nhanh) —
-    // bỏ qua, KHÔNG tự mở nhầm lại nội dung đã cũ.
-    if (genericDrawerPanel.classList.contains('hidden')) return;
-
-    const zIndex = config.zIndex || GENERIC_DRAWER_DEFAULT_Z_INDEX;
-    genericDrawerPanel.style.zIndex = String(zIndex);
-
-    // Bước 2-3-4.
-    const heightPx = _resolveGenericDrawerHeightPx(config);
-    genericDrawerPanel.style.maxHeight = config.maxHeight || ''; // giữ lại làm lưới an toàn CSS (vd xoay màn hình/đổi kích thước cửa sổ lúc đang mở)
-
-    // Bước 5.
-    genericDrawerPanel.style.height = `${heightPx}px`;
+    // Bước 2-3-4-5.
+    _applyGenericDrawerAutoHeight(config);
     void genericDrawerPanel.offsetHeight; // ép reflow — chốt bước 5 TRƯỚC khi sang bước 6/7
 
     _genericDrawerBodyObserver.observe(genericDrawerBody, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); // nối lại — từ đây chỉ bắt toggle NỘI BỘ về sau
@@ -325,26 +313,19 @@ function _finishOpenGenericDrawer(config) {
 
     // Bước 7.
     genericDrawerPanel.style.transform = 'translateY(0)';
+
+    appState.set('isGenericDrawerOpen', true);
+    console.log(`writer: "openGenericDrawer", page: "isGenericDrawerOpen", content: "true"`);
 }
 
 /**
  * Chuyển MƯỢT sang cấu hình MỚI trong khi ĐANG MỞ (không đóng/mở lại từ đầu) — cơ chế chuyển
  * List <-> Read (mục 2/4.1 plan-v12-extended.md). Drawer PHẢI đang mở trước khi gọi.
  *
- * `transform` GIỮ NGUYÊN `translateY(0)` (panel đang hiện đúng vị trí, KHÔNG trượt lại — [SỬA
- * 20/08/2026] THAY `bottom: 0` cũ) — CHỈ `height` đổi, animate nhờ transition CSS có sẵn
- * (`#generic-drawer-panel`, assets/css/base.css) — từ giá trị PX HIỆN TẠI (`style.height` luôn là
- * số px cụ thể, KHÔNG BAO GIỜ để 'auto' lâu dài, xem `_resolveGenericDrawerHeightPx()`) sang PX
- * ĐÍCH MỚI, browser tự chạy mượt giữa 2 mốc.
- *
- * [SỬA 20/08/2026] Việc ĐO chiều cao đích (bước cần Tailwind CSS đã áp dụng đủ) giờ chờ double-rAF
- * TRƯỚC khi chạy — cùng lý do `openGenericDrawer()` (xem docstring đầu file): nội dung MỚI
- * (`bodyHtml`) có thể chứa tổ hợp class Tailwind lần đầu xuất hiện trong Drawer (vd List -> Read,
- * hoặc Settings `navigateTo()` sang màn khác), đo NGAY trong tick gọi hàm dễ hụt/cutoff cùng kiểu
- * bug đã gặp ở Settings. Phần gán nội dung/scrollTop vẫn chạy ĐỒNG BỘ (không cần chờ) — chỉ riêng
- * bước đo+set height bị dời sau 2 rAF, nên có ~2 khung hình panel hiện ĐÚNG nội dung mới nhưng
- * TẠM giữ chiều cao CŨ trước khi animate mượt sang chiều cao đích — chấp nhận được (rất ngắn, không
- * đáng kể so với việc bị cutoff hẳn tới khi mở lại).
+ * `transform` GIỮ NGUYÊN `translateY(0)` (panel đang hiện đúng vị trí, KHÔNG trượt lại). `height`
+ * KHÔNG bị đụng tới ở đây — CHỈ `min-height` đổi (xem `_applyGenericDrawerAutoHeight()`), animate
+ * nhờ transition CSS có sẵn (`#generic-drawer-panel`, assets/css/base.css) — từ giá trị PX HIỆN TẠI
+ * sang PX ĐÍCH MỚI, browser tự chạy mượt giữa 2 mốc.
  * @param {{height?: string, maxHeight?: string, zIndex?: number, headerHtml: string, bodyHtml: string, bodyClass?: string}} config
  */
 function updateGenericDrawer(config) {
@@ -357,17 +338,22 @@ function updateGenericDrawer(config) {
     genericDrawerOverlay.style.zIndex = String(zIndex - 1);
     genericDrawerBody.scrollTop = 0; // nội dung MỚI luôn bắt đầu từ đầu, không giữ vị trí cuộn của nội dung TRƯỚC đó
 
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-            if (genericDrawerPanel.classList.contains('hidden')) return; // lỡ bị đóng lại trong lúc chờ — bỏ qua
+    // Tắt transition NGAY TRƯỚC bước đo — tránh chuỗi ghi style.minHeight liên tiếp (bỏ tạm -> khôi
+    // phục về CŨ) chạy trong lúc transition đang bật.
+    genericDrawerPanel.style.transition = 'none';
+    void genericDrawerPanel.offsetHeight; // ép reflow — chốt "transition:none" TRƯỚC khi đo
 
-            const heightPx = _resolveGenericDrawerHeightPx(config);
-            genericDrawerPanel.style.maxHeight = config.maxHeight || '';
-            genericDrawerPanel.style.height = `${heightPx}px`; // transform giữ nguyên translateY(0) — transition height lo phần animate
+    genericDrawerPanel.style.maxHeight = config.maxHeight || ''; // đo bên trong _applyGenericDrawerAutoHeight() cũng tự bỏ tạm maxHeight, nhưng set trước ở đây để tránh 1 khung hình "chưa kẹp maxHeight" lộ ra nếu transition không thực sự tắt kịp
+    void genericDrawerPanel.offsetHeight; // ép reflow — chốt "vẫn đang ở min-height CŨ, transition:none" TRƯỚC khi bật lại
 
-            _genericDrawerBodyObserver.observe(genericDrawerBody, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); // nối lại — từ đây chỉ bắt toggle NỘI BỘ về sau
-        });
-    });
+    // Bật lại transition TRƯỚC khi set min-height ĐÍCH — đảm bảo đúng lần đổi NÀY (CŨ -> ĐÍCH) là
+    // lần được animate, không phải lần đo/khôi phục tạm bên trong _applyGenericDrawerAutoHeight().
+    genericDrawerPanel.style.transition = '';
+    void genericDrawerPanel.offsetHeight; // ép reflow — chốt "transition ĐÃ BẬT LẠI" TRƯỚC khi đổi min-height ĐÍCH ngay dưới
+
+    _applyGenericDrawerAutoHeight(config); // giá trị ĐÍCH — animate NGAY (transition đã bật lại). `height` KHÔNG hề bị đụng tới — browser TỰ co giãn theo nội dung THẬT bất kể min-height này có đúng kịp hay không.
+
+    _genericDrawerBodyObserver.observe(genericDrawerBody, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); // nối lại — từ đây chỉ bắt toggle NỘI BỘ về sau
 }
 
 /**
