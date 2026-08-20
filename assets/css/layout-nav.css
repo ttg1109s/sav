@@ -10,7 +10,7 @@
 /* +4px overshoot cố định (không phải %) — bù sai số làm tròn subpixel của transform% trên 1 số
    thiết bị, tránh lộ 1-2px nội dung ở rìa khi "đã trượt hết cỡ" nhưng vẫn lệch. */
 #app-stack.playlist-hidden { transform: translateX(calc(100% + 4px)); }
-#app-bg, #side-left-container { position: absolute; inset: 0; }
+#app-bg { position: absolute; inset: 0; } /* SỬA (bottom nav) — #side-left-container KHÔNG còn absolute (xem #app-stack flex-column bên dưới), chỉ #app-bg giữ full-bleed nền */
 /* #app-bg là khung cắt (overflow:hidden), 2 con TÁCH BIỆT: #app-bg-image (ảnh gốc, luôn nét, không
    transform/filter) + #app-bg-blur-layer (đè lên trên, nhận scale/blur — core/color-utils.js::
    updatePlaylistBg() gán cùng ảnh cho cả 2 khi bgBlur > 0). */
@@ -36,6 +36,83 @@
    có cử chỉ tay nào để snap, overflow-x:hidden đã chặn hẳn cuộn tay, cố ý — chỉ chuyển qua nút bấm
    tường minh). will-change: scroll-position ép compositor layer riêng, tránh giật khung hình khi
    Black Hole (Canvas2D nặng, vẽ liên tục kể cả lúc bị che) tranh main thread với animation cuộn. */
-#side-left-container { display: flex; overflow-x: hidden; overflow-y: hidden; scroll-behavior: smooth; will-change: scroll-position; }
-#settings-stack-body { will-change: scroll-position; }
-#playlist-view, #drawer-settings { width: 100%; height: 100%; flex-shrink: 0; overflow-y: auto; position: relative; }
+#side-left-container { display: flex; overflow-x: hidden; overflow-y: hidden; scroll-behavior: smooth; will-change: scroll-position; position: relative; }
+#playlist-view { width: 100%; height: 100%; flex-shrink: 0; overflow-y: auto; position: relative; }
+
+/* ===================== App Panel bottom nav (MỚI) =====================
+   #app-stack giờ gồm 2 con xếp dọc: #side-left-container (chỉ còn 1 "trang" #playlist-view — Settings
+   đã chuyển sang Generic Drawer, KHÔNG còn 2-trang cuộn ngang nữa) + #app-bottom-nav (thanh dưới,
+   LUÔN hiện, cuộn NGANG nếu 7 mục không vừa màn hình hẹp). #side-left-container nhường lại đúng
+   chiều cao thanh nav cho nó bằng padding-bottom, tránh nội dung Playlist bị nav che mất. */
+#app-stack { display: flex; flex-direction: column; }
+#side-left-container { flex: 1 1 auto; min-height: 0; }
+/* SỬA (phản hồi Giang mục 1 — "nav panel phải to lên, không cần cố nhét vừa hết vào 1 width màn
+   hình, đã cho phép cuộn") — icon/label/padding tăng kích thước rõ rệt (tham khảo pattern bottom
+   nav phổ biến — item rộng ~80-96px, icon 24-28px, KHÔNG cố ép 7 mục vừa đúng 1 màn hình hẹp,
+   overflow-x cuộn ngang xử lý phần tràn, y hệt cách Folder/Photo grid đã làm). */
+#app-bottom-nav {
+    flex: 0 0 auto;
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    background: rgba(0,0,0,0.35);
+    backdrop-filter: blur(12px);
+}
+#app-bottom-nav::-webkit-scrollbar { display: none; }
+.app-bottom-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex: 0 0 auto;
+    min-width: 88px;
+    padding: 12px 18px 10px;
+    color: rgba(255,255,255,0.55);
+    transition: color 0.2s;
+}
+.app-bottom-nav-btn svg { width: 26px; height: 26px; }
+.app-bottom-nav-btn.active { color: #2dd4bf; } /* teal-400, đồng bộ màu nhấn đang dùng toàn app */
+.app-bottom-nav-btn .app-bottom-nav-label { font-size: 12px; font-weight: 600; white-space: nowrap; }
+
+/* ===================== Panel full-screen ngang cấp Setting (Photo/Game/Statis) =====================
+   Mỗi panel là 1 khung fixed inset-0 riêng, NGANG CẤP #app-stack (không lồng bên trong), ẩn mặc định
+   qua .hidden — core/{photo,game,statis}-panel.js toggle. z-index: Z_INDEX.GENERIC_DRAWER (128,
+   service/z-index.js) — cùng lớp Generic Drawer, chỉ 1 trong các overlay này hiện tại 1 thời điểm
+   (Block gate riêng từng cụm tự đảm bảo, xem event/block.js). */
+#photo-panel, #game-panel, #statis-panel { position: fixed; inset: 0; background: #0a0a0a; }
+
+/* ===================== Setting — light theme scope (MỚI, phản hồi Giang "styling toàn bộ phải
+   theo generic drawer") ===================== Nội dung TÁI DÙNG từ các component Settings cũ
+   (Gesture/Slideshow/Language/Visualizer Display/Auto-Switch/Debug console...) vốn thiết kế cho
+   nền TỐI (#drawer-settings cũ) — giờ sống trong Generic Drawer nền TRẮNG (core/generic-drawer.js
+   loại trừ theme, luôn trắng). KHÔNG sửa từng file template (giữ nguyên 100% UI/id/logic cũ, đúng
+   yêu cầu "không đụng core/workflow nếu không cần thiết") — chỉ ĐÈ MÀU qua CSS, scope trong
+   `.app-settings-scope` (bọc quanh bodyHtml mỗi lần workflowAppSettings render 1 màn hình, xem
+   event/workflow/app-settings.js). */
+.app-settings-scope, .app-settings-scope h3 { color: #0f172a; } /* slate-900 mặc định thay text-white ngầm định của khối cha cũ */
+.app-settings-scope .text-white,
+.app-settings-scope .text-slate-200,
+.app-settings-scope .text-slate-300 { color: #0f172a !important; }
+.app-settings-scope .text-slate-400 { color: #64748b !important; } /* slate-500 — vẫn đủ tương phản trên nền trắng */
+.app-settings-scope .glass-modal {
+    background: #f8fafc !important; /* slate-50 */
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+    border: 1px solid #e2e8f0 !important; /* slate-200 */
+    box-shadow: none !important; text-shadow: none !important;
+}
+.app-settings-scope [class*="border-white/"] { border-color: #e2e8f0 !important; }
+.app-settings-scope [class*="bg-white/5"],
+.app-settings-scope [class*="bg-white/10"] { background-color: #f1f5f9 !important; } /* hover row */
+.app-settings-scope [class*="bg-black/50"] { background-color: #f1f5f9 !important; border-color: #e2e8f0 !important; color: #0f172a !important; }
+.app-settings-scope select, .app-settings-scope input[type="text"], .app-settings-scope input[type="number"] { color: #0f172a; }
+.app-settings-scope .border-t.border-white\/10, .app-settings-scope .border-b.border-white\/5 { border-color: #e2e8f0 !important; }
+
+/* #settings-stack-body/#settings-stack-panel-main — cơ chế cuộn ngang push/pop TÁI DÙNG từ
+   core/settings-panel-stack-ui.js, giờ sống bên trong #photo-panel (Album List sub-panel) thay vì
+   #drawer-settings cũ — xem components/photo-panel.js. */
+#settings-stack-body { will-change: scroll-position; display: flex; overflow-x: hidden; overflow-y: hidden; scroll-behavior: smooth; flex: 1 1 auto; min-height: 0; }
+.settings-stack-panel { width: 100%; height: 100%; flex-shrink: 0; }
+
