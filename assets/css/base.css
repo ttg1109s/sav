@@ -17,15 +17,14 @@ body { min-height: 100dvh; background: #000; }
 
 #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; object-fit: cover; z-index: 0; pointer-events: none; background-size: cover; background-position: center; }
 
-/* ===================== Generic Drawer — animation chiều cao khi swap nội dung =====================
-   MỚI (phản hồi Giang mục 2 — "cải tiến generic drawer... animation... height auto"). `transition-
-   transform` (Tailwind, components/generic-drawer.js) lo phần trượt lên/xuống lúc mở/đóng — CSS
-   transition NGAY DƯỚI đây lo riêng phần đổi CHIỀU CAO mượt khi updateGenericDrawer() đổi sang nội
-   dung có chiều cao khác (core/generic-drawer.js tự đo + set `style.height` bằng SỐ px cụ thể,
-   KHÔNG phải chuỗi 'auto' — CSS không tự animate được tới/từ 'auto', xem docstring hàm đó). Panel
-   LUÔN dính đáy màn hình (`bottom-0`, không đổi) — khoảng gap cho height:'auto' nằm BÊN TRONG panel
-   (padding-bottom), không phải panel nổi tách khỏi mép màn hình. */
-#generic-drawer-panel { transition: height 300ms ease-out, transform 300ms ease-out; }
+/* ===================== Generic Drawer — animation chiều cao + trượt lên/xuống =====================
+   VIẾT LẠI (phản hồi Giang — "bỏ transform, dùng position") — TRƯỚC ĐÂY trượt lên/xuống bằng
+   `transform: translateY()` (Tailwind `translate-y-full`), đổi hẳn sang `bottom` (JS set
+   `style.bottom` trực tiếp, xem core/generic-drawer.js — panel KHÔNG còn `bottom-0`/`transform`
+   TĨNH trong class nữa, components/generic-drawer.js). `height` VẪN animate riêng (đổi nội dung/
+   chiều cao khi ĐANG mở, updateGenericDrawer()) — CẢ 2 property (`height`/`bottom`) transition
+   CÙNG timing, browser tự chạy song song khi cả 2 đổi cùng lúc (lúc mở lần đầu). */
+#generic-drawer-panel { transition: height 300ms ease-out, bottom 300ms ease-out; }
 
 #visualizer-solid-bg { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: -3; pointer-events: none; background-color: #000000; }
 #visual-bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; background-size: cover; background-position: center; z-index: -2; pointer-events: none; }
