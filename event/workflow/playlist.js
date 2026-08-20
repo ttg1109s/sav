@@ -944,9 +944,11 @@ const workflowPlaylist = {
     async changeStatSortField(field) {
         setDisplayStatSortField(field); // core có sẵn (core/playlist/order.js)
         // MỚI (mục 3) — hiện/ẩn dropdown (2) "hướng" NGAY khi đổi field — CHỈ có ý nghĩa khi field
-        // khác 'none' (đọc lại panel đang mở qua peekTopSettingsPanel(), CÙNG khuôn setFilterField()).
-        if (typeof peekTopSettingsPanel === 'function') {
-            const directionRow = peekTopSettingsPanel().querySelector('[data-sort-direction-row]');
+        // khác 'none'. SỬA (đợt tái cấu trúc bottom nav App Panel) — panel Sắp xếp giờ sống trong
+        // `genericDrawerBody` (core/generic-drawer.js), KHÔNG còn qua `peekTopSettingsPanel()`
+        // (đó là stack CŨ, nay thuộc về Photo — xem event/workflow/app-settings.js).
+        {
+            const directionRow = genericDrawerBody.querySelector('[data-sort-direction-row]');
             if (directionRow) directionRow.classList.toggle('hidden', field === 'none');
         }
         await this._persistPlaylistConfig();
@@ -1147,8 +1149,8 @@ const workflowPlaylist = {
             onConfirm: (resultMs) => {
                 const seconds = Math.round(resultMs / 1000);
                 this.setFilterField(field, prop, String(seconds));
-                const panelEl = typeof peekTopSettingsPanel === 'function' ? peekTopSettingsPanel() : null;
-                const btn = panelEl && panelEl.querySelector(`[data-filter-field="${field}"][data-filter-prop="${prop}"][data-filter-time-trigger]`);
+                // SỬA (đợt tái cấu trúc bottom nav App Panel) — panel Lọc giờ sống trong genericDrawerBody, KHÔNG còn peekTopSettingsPanel() (xem ghi chú ở setFilterField()).
+                const btn = genericDrawerBody.querySelector(`[data-filter-field="${field}"][data-filter-prop="${prop}"][data-filter-time-trigger]`);
                 if (btn) btn.textContent = _formatSecondsAsHms(seconds);
             },
         });
@@ -1183,21 +1185,23 @@ const workflowPlaylist = {
             else if (prop === 'value') rule.value = kind === 'text' ? rawValue : _parseFilterNumberInput(kind, rawValue);
             else if (prop === 'valueTo') rule.valueTo = _parseFilterNumberInput(kind, rawValue);
         });
-        // Toggle mờ/khoá `data-filter-body` NGAY khi bật/tắt field — CÙNG LÝ DO nhánh 'mode' dưới
-        // đây (không có panelEl sẵn ở tham số, tự tìm qua peekTopSettingsPanel()).
-        if (prop === 'enabled' && typeof peekTopSettingsPanel === 'function') {
-            const rowEl = peekTopSettingsPanel().querySelector(`[data-filter-row="${field}"]`);
+        // Toggle mờ/khoá `data-filter-body` NGAY khi bật/tắt field — SỬA (đợt tái cấu trúc bottom
+        // nav App Panel, bug "bật toggle vẫn không bấm được input") — panel Lọc giờ sống trong
+        // `genericDrawerBody`, KHÔNG còn `peekTopSettingsPanel()` (stack CŨ, nay thuộc Photo —
+        // tìm sai chỗ nên khối mở khoá KHÔNG BAO GIỜ chạy, dù checkbox đã bật).
+        if (prop === 'enabled') {
+            const rowEl = genericDrawerBody.querySelector(`[data-filter-row="${field}"]`);
             const bodyEl = rowEl && rowEl.querySelector('[data-filter-body]');
             if (bodyEl) {
                 bodyEl.classList.toggle('opacity-40', !rawValue);
                 bodyEl.classList.toggle('pointer-events-none', !rawValue);
             }
         }
-        // Toggle hiện/ẩn khối single/range NGAY khi đổi 'mode' — đọc lại DOM hiện tại qua msg gốc
-        // không có sẵn panelEl ở đây (router chỉ truyền field/prop/value) — panel MỞ SẴN lúc người
-        // dùng gõ nên tự tìm qua peekTopSettingsPanel() (core/settings-panel-stack-ui.js) an toàn.
-        if (prop === 'mode' && typeof peekTopSettingsPanel === 'function') {
-            const rowEl = peekTopSettingsPanel().querySelector(`[data-filter-row="${field}"]`);
+        // Toggle hiện/ẩn khối single/range NGAY khi đổi 'mode' — SỬA (đợt tái cấu trúc bottom nav
+        // App Panel) — panel Lọc giờ sống trong genericDrawerBody, KHÔNG còn peekTopSettingsPanel()
+        // (CÙNG LÝ DO nhánh 'enabled' ở trên).
+        if (prop === 'mode') {
+            const rowEl = genericDrawerBody.querySelector(`[data-filter-row="${field}"]`);
             if (rowEl) {
                 const rangeBlock = rowEl.querySelector('[data-filter-range-block]');
                 const singleBlock = rowEl.querySelector('[data-filter-single-block]');
