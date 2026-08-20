@@ -1326,15 +1326,17 @@ const workflowVisualBg = {
 
     /** Đồng bộ UI panel theo config hiện tại — gọi lúc mở panel + sau mọi thay đổi field.
      *
-     * SỬA (đợt migrate Visualizer Screen) — Visual Background tự mở THÊM Generic Drawer con (video/
-     * ảnh/album/folder picker — CÙNG singleton, xem `_closePickerDrawer()`/`openSingleImagePicker()`
-     * dưới) — lúc picker con đóng lại bằng `closeFully()` (hành vi CŨ, coi Visual BG là 1 khung
-     * riêng biệt bên dưới, không đụng gì) thì nay Generic Drawer đã ĐÓNG HẲN (Visual BG cũng đang
-     * sống TRONG đó) — hàm này được gọi LẠI ngay sau khi chọn xong (từ `_resolveAndCommitSource()`),
-     * nếu thấy đang đóng thì TỰ MỞ LẠI màn Visual Background (event/workflow/app-settings.js —
-     * liên tuyến domain, TH2) thay vì bỏ qua như cũ. */
+     * SỬA (phát hiện bug boot treo, phản hồi Giang) — bản trước tự gọi
+     * `workflowAppSettings._renderVisualBg()` khi thấy Generic Drawer đang ĐÓNG (ý định: tự mở lại
+     * Visual Background sau khi picker con đóng xong) — SAI: hàm này CÒN được gọi từ
+     * `_checkAndApplyPendingSource()` (CHẠY LÚC BOOT, `loadPersistedSettingsOnBoot()`, KHÔNG liên
+     * quan gì tới Settings/picker) — khiến app TỰ Ý bật Setting lên giữa chừng boot, treo cả chuỗi.
+     * QUAY LẠI guard đơn thuần — việc "quay lại đúng Visual Background sau khi picker con đóng" đã
+     * xử lý RIÊNG, ĐÚNG chỗ ở `_closePickerDrawer()`/`openSingleImagePicker()` (gọi
+     * `workflowAppSettings._renderVisualBg()` tường minh ngay tại điểm đóng picker, không mượn qua
+     * đây) — hàm này KHÔNG được tự ý mở màn nào cả, chỉ đồng bộ NẾU đang mở sẵn. */
     async refreshPanelUI() {
-        if (genericDrawerPanel.classList.contains('hidden')) { workflowAppSettings._renderVisualBg(); return; }
+        if (genericDrawerPanel.classList.contains('hidden')) return;
         const cfg = appConfigVisualBg.getAll();
         const q = (sel) => visualBgSettingsPanelEl.querySelector(sel);
 

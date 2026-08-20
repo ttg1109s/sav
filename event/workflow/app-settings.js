@@ -122,7 +122,7 @@ const workflowAppSettings = {
             const mediaSourceSelect = body.querySelector('#setting-playlist-media-source');
             if (mediaSourceSelect) mediaSourceSelect.value = appState.get('activeMediaSource');
             const viewModeSelect = body.querySelector('#setting-playlist-view-mode');
-            if (viewModeSelect) viewModeSelect.value = appState.get('displayViewMode');
+            if (viewModeSelect) viewModeSelect.value = appState.get('isGridView') ? 'grid' : 'list';
             wireAppSettingsPlaylist(body); // core/app-settings-ui.js
         });
     },
