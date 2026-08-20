@@ -125,6 +125,13 @@ function openGenericDrawer(config) {
     genericDrawerHeader.innerHTML = config.headerHtml || '';
     genericDrawerBody.innerHTML = config.bodyHtml || '';
     genericDrawerBody.className = `flex-1 min-h-0 ${config.bodyClass || ''}`.trim(); // 'flex-1 min-h-0' LUÔN giữ, bodyClass CHỈ bổ sung
+
+    // SỬA (bug "drawer chỉ hiện 1 tí xíu ở đáy") — `height: 'auto'` đo `offsetHeight` (xem
+    // _applyGenericDrawerHeight()/_measureGenericDrawerAutoHeightPx()) — PHẢI bỏ `hidden` (display:
+    // none -> có layout box thật) TRƯỚC KHI đo, nếu không offsetHeight LUÔN đo ra 0 (phần tử display:
+    // none không có kích thước). `translate-y-full` (transform, KHÔNG ảnh hưởng layout/offsetHeight)
+    // vẫn giữ panel ẩn NGOÀI MÀN HÌNH suốt lúc này — không lộ ra bất kỳ khung hình nào chưa sẵn sàng.
+    genericDrawerPanel.classList.remove('hidden');
     _applyGenericDrawerHeight(config); // core/generic-drawer.js — height cố định HOẶC 'auto' (đo theo content vừa gán, xem docstring)
 
     genericDrawerOverlay.style.zIndex = String(zIndex - 1);
@@ -133,7 +140,6 @@ function openGenericDrawer(config) {
     genericDrawerOverlay.classList.remove('opacity-0');
     genericDrawerOverlay.classList.add('pointer-events-auto');
 
-    genericDrawerPanel.classList.remove('hidden');
     // Ép reflow trước khi bỏ translate-y-full — đảm bảo transition CHẠY (thêm/bỏ nhiều class
     // off-screen cùng lúc trong 1 tick JS có thể bị trình duyệt gộp, bỏ qua animation nếu không
     // ép reflow ở giữa).
