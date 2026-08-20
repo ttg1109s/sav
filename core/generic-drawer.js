@@ -128,15 +128,30 @@ function _cssLengthToPx(cssLength) {
  * kẹp `maxHeight` lúc đo — cố tình bỏ tạm, để biết đúng kích thước tự nhiên CHƯA bị chặn, xem
  * docstring khối trên), đọc `getBoundingClientRect().height`, rồi TRẢ NGAY 2 style đã đổi về như
  * cũ (nơi gọi mới là chỗ quyết định giá trị CUỐI CÙNG thật sự được set).
+ *
+ * [SỬA 20/08/2026, Giang báo bug "toggle 1 field cuối panel Lọc -> scroll nhảy về 0"] — TRONG lúc
+ * `maxHeight` bị bỏ tạm + `height: auto` (đúng 2 dòng trên), panel giãn ra ĐỦ chứa hết nội dung ->
+ * `genericDrawerBody` (`overflow-y-auto`) tại đúng khoảnh khắc đó HẾT TRÀN
+ * (`scrollHeight === clientHeight`) — `getBoundingClientRect()` ngay dưới ép layout NGAY LÚC ĐÓ,
+ * trình duyệt CLAMP `genericDrawerBody.scrollTop` về 0 TẠI THỜI ĐIỂM ĐÓ (phần tử không tràn thì
+ * không thể giữ scrollTop khác 0) — trả `height`/`maxHeight` panel về như cũ NGAY SAU đó chỉ khôi
+ * phục lại KÍCH THƯỚC, KHÔNG tự khôi phục lại `scrollTop` đã bị clamp. Hàm này được
+ * `MutationObserver` tự gọi lại MỖI KHI có `classList.toggle` bên trong `genericDrawerBody` (vd
+ * bật/tắt field trong panel Lọc — xem `setFilterField()`, event/workflow/playlist.js) — nên user
+ * cảm giác giống "bị refresh" dù KHÔNG có dòng `innerHTML` nào chạy lại cả. SỬA: tự lưu/khôi phục
+ * `genericDrawerBody.scrollTop` quanh đúng 2 dòng đổi height/maxHeight — ĐÚNG 1 chỗ, áp dụng cho
+ * MỌI màn auto-height (không chỉ riêng panel Lọc).
  * @returns {number} px tự nhiên, CHƯA kẹp maxHeight. */
 function _measureGenericDrawerNaturalHeightPx() {
     const prevHeight = genericDrawerPanel.style.height;
     const prevMaxHeight = genericDrawerPanel.style.maxHeight;
+    const prevBodyScrollTop = genericDrawerBody.scrollTop;
     genericDrawerPanel.style.maxHeight = '';
     genericDrawerPanel.style.height = 'auto';
     const px = genericDrawerPanel.getBoundingClientRect().height;
     genericDrawerPanel.style.height = prevHeight;
     genericDrawerPanel.style.maxHeight = prevMaxHeight;
+    genericDrawerBody.scrollTop = prevBodyScrollTop; // khôi phục — xem docstring trên (trình duyệt đã tự clamp về 0 lúc đo)
     return px;
 }
 
