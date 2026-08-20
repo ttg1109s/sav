@@ -132,7 +132,14 @@
    cấu trúc thật của khuôn toggle (`<input type="checkbox" class="...peer"><div class="...">` —
    xem CE_TOGGLE_MARKUP components/custom-effect-drawer.js) — CHỈ khớp div NGAY SAU 1
    input[type=checkbox].peer, không đụng bất kỳ phần tử nào khác dù trùng class ngẫu nhiên. */
-.app-settings-scope input[type="checkbox"].peer ~ div { background-color: #cbd5e1 !important; }
+/* [SỬA 20/08/2026, Giang báo "toggle on đang bị xám, không xanh"] — GỐC BỆNH: rule TRÊN áp
+   `!important` KHÔNG PHÂN BIỆT checked/chưa checked -> LUÔN đè lên `peer-checked:bg-sky-500`
+   (utility Tailwind thường KHÔNG có !important nên thua tuyệt đối, bất kể thứ tự CSS) -> toggle
+   KHÔNG BAO GIỜ chuyển xanh dù đã bật. Comment cũ ở trên tưởng "trạng thái BẬT đã đúng sẵn" nhưng
+   quên chính rule NÀY đang đè luôn cả trạng thái BẬT. SỬA: thêm `:not(:checked)` — CHỈ ép xám lúc
+   CHƯA bật, nhường trạng thái BẬT lại đúng cho peer-checked:bg-sky-500 (không còn rule !important
+   nào tranh chấp ở trạng thái đó nữa). */
+.app-settings-scope input[type="checkbox"].peer:not(:checked) ~ div { background-color: #cbd5e1 !important; }
 .app-settings-scope .border-t.border-white\/10, .app-settings-scope .border-b.border-white\/5 { border-color: #e2e8f0 !important; }
 
 /* #settings-stack-body/#settings-stack-panel-main — cơ chế cuộn ngang push/pop TÁI DÙNG từ
