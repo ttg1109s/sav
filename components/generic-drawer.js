@@ -33,10 +33,16 @@
  *
  * Mục 7 plan-v12-extended.md (Theme Light/Dark/System, KHÔNG code ở Nhóm A): Generic Drawer thuộc
  * vùng LOẠI TRỪ theme — giữ nền TRẮNG cố định, không đổi theo Light/Dark/System.
+ *
+ * VIẾT LẠI (phản hồi Giang — "bỏ transform, dùng position") — panel KHÔNG còn `bottom-0`/`transform
+ * translate-y-full`/`transition-transform` TĨNH trong class nữa — `bottom` giờ HOÀN TOÀN do
+ * `core/generic-drawer.js` quản lý qua `style.bottom` (JS), animation trượt lên/xuống là animation
+ * CSS của property `bottom` (xem `#generic-drawer-panel` transition ở assets/css/base.css), KHÔNG
+ * còn `transform`. Xem thuật toán đầy đủ ở docstring `openGenericDrawer()`.
  */
 const TPL_GENERIC_DRAWER = `
     <div id="generic-drawer-overlay" class="hidden fixed inset-0 z-[39] bg-black/50 opacity-0 transition-opacity duration-300 ease-out"></div>
-    <div id="generic-drawer-panel" class="hidden fixed inset-x-0 bottom-0 z-40 h-[70vh] bg-white rounded-t-3xl shadow-2xl flex flex-col transform translate-y-full transition-transform duration-300 ease-out pointer-events-auto">
+    <div id="generic-drawer-panel" class="hidden fixed inset-x-0 z-40 h-[70vh] bg-white rounded-t-3xl shadow-2xl flex flex-col pointer-events-auto">
         <div class="flex justify-center pt-3 pb-1 shrink-0">
             <div class="w-10 h-1.5 rounded-full bg-slate-300"></div>
         </div>
