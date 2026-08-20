@@ -112,14 +112,52 @@ function _measureGenericDrawerAutoHeightPx(maxHeight) {
  */
 function _applyGenericDrawerHeight(config) {
     if (config.height === 'auto') {
+        _genericDrawerIsAutoMode = true;
+        _genericDrawerAutoMaxHeight = config.maxHeight || '';
         const px = _measureGenericDrawerAutoHeightPx(config.maxHeight);
         genericDrawerPanel.style.height = `${px}px`;
     } else {
+        _genericDrawerIsAutoMode = false;
         genericDrawerPanel.style.paddingBottom = '';
         genericDrawerPanel.style.maxHeight = config.maxHeight || '';
         genericDrawerPanel.style.height = config.height || '70vh';
     }
 }
+
+/**
+ * MỚI (Giang báo bug — "nhiều thành phần ẩn/hiện qua toggle on/off bên trong 1 màn KHÔNG cập nhật
+ * chiều cao dù chưa hết maxHeight") — `_applyGenericDrawerHeight()` chỉ đo lại lúc
+ * openGenericDrawer()/updateGenericDrawer() chạy (ĐỔI HẲN màn) — mọi toggle NỘI BỘ 1 màn (Gesture/
+ * Slideshow/Visual Background... tự `classList.toggle('hidden', ...)` để hiện/ẩn 1 khối con,
+ * KHÔNG đi qua 2 hàm đó) không hề kích hoạt đo lại, panel giữ NGUYÊN chiều cao cũ dù nội dung thật
+ * đã đổi.
+ *
+ * SỬA: `MutationObserver` theo dõi CHÍNH `genericDrawerBody` (childList + attributes class/style,
+ * `subtree: true` — bắt được MỌI khối con ẩn/hiện dù lồng sâu bao nhiêu cấp) — hễ có thay đổi VÀ
+ * đang ở chế độ `height: 'auto'` (`_genericDrawerIsAutoMode`), tự gọi lại
+ * `_applyGenericDrawerHeight()` với ĐÚNG `maxHeight` đang dùng (`_genericDrawerAutoMaxHeight`) để đo
+ * + set lại chiều cao — animate MƯỢT tự nhiên nhờ CSS transition có sẵn (không cần thêm gì).
+ * Debounce nhẹ (rAF) — tránh đo lại NHIỀU LẦN nếu 1 thao tác gây ra nhiều mutation liền (vd
+ * innerHTML gán lại cả khối).
+ *
+ * KHÔNG lo vòng lặp vô hạn: hàm đo (`_measureGenericDrawerAutoHeightPx()`) chỉ đổi style CỦA
+ * `genericDrawerPanel` (`height`/`maxHeight`/`paddingBottom`/`transition`) — KHÔNG đụng
+ * class/attribute của `genericDrawerBody` hay bất kỳ con cháu nào của nó, nên tự nó KHÔNG kích hoạt
+ * lại chính observer này.
+ */
+let _genericDrawerIsAutoMode = false;
+let _genericDrawerAutoMaxHeight = '';
+let _genericDrawerResizeRaf = null;
+const _genericDrawerBodyObserver = new MutationObserver(() => {
+    if (!_genericDrawerIsAutoMode || genericDrawerPanel.classList.contains('hidden')) return; // không đo khi đang đóng (đo lúc display:none luôn ra 0, xem openGenericDrawer())
+    if (_genericDrawerResizeRaf) cancelAnimationFrame(_genericDrawerResizeRaf);
+    _genericDrawerResizeRaf = requestAnimationFrame(() => {
+        _genericDrawerResizeRaf = null;
+        if (!_genericDrawerIsAutoMode || genericDrawerPanel.classList.contains('hidden')) return; // có thể vừa đóng/chuyển sang height cố định TRONG lúc chờ rAF
+        _applyGenericDrawerHeight({ height: 'auto', maxHeight: _genericDrawerAutoMaxHeight });
+    });
+});
+_genericDrawerBodyObserver.observe(genericDrawerBody, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
 
 
 /**
@@ -207,6 +245,7 @@ function closeGenericDrawer() {
 function hideGenericDrawerImmediately() {
     genericDrawerPanel.classList.add('hidden');
     genericDrawerOverlay.classList.add('hidden');
+    _genericDrawerIsAutoMode = false; // dừng auto-resize observer tự đo lại trong lúc đang đóng (xem _genericDrawerBodyObserver)
 
     appState.set('isGenericDrawerOpen', false);
     console.log(`writer: "hideGenericDrawerImmediately", page: "isGenericDrawerOpen", content: "false"`);
