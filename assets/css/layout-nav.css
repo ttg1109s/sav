@@ -92,13 +92,17 @@
    yêu cầu "không đụng core/workflow nếu không cần thiết") — chỉ ĐÈ MÀU qua CSS, scope trong
    `.app-settings-scope` (bọc quanh bodyHtml mỗi lần workflowAppSettings render 1 màn hình, xem
    event/workflow/app-settings.js). */
+/* SỬA (phản hồi Giang mục 3 — "input/nút chưa đồng bộ màu, xem lại generic drawer custom") — ĐÈ
+   MÀU cho khớp CHÍNH XÁC bảng màu components/custom-effect-drawer.js/eq-presets-drawer.js đang
+   dùng (input `bg-white border-slate-300`, KHÔNG phải `bg-black/50` tối cũ hay xám phẳng
+   `#f1f5f9` — input CẦN nổi rõ khỏi card `bg-slate-50` bao quanh nó, giống hệt EQ/Custom Effect). */
 .app-settings-scope, .app-settings-scope h3 { color: #0f172a; } /* slate-900 mặc định thay text-white ngầm định của khối cha cũ */
 .app-settings-scope .text-white,
 .app-settings-scope .text-slate-200,
-.app-settings-scope .text-slate-300 { color: #0f172a !important; }
+.app-settings-scope .text-slate-300:not(select):not(input) { color: #0f172a !important; }
 .app-settings-scope .text-slate-400 { color: #64748b !important; } /* slate-500 — vẫn đủ tương phản trên nền trắng */
 .app-settings-scope .glass-modal {
-    background: #f8fafc !important; /* slate-50 */
+    background: #f8fafc !important; /* slate-50 — ĐÚNG card bg-slate-50 của EQ/Custom Effect */
     backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
     border: 1px solid #e2e8f0 !important; /* slate-200 */
     box-shadow: none !important; text-shadow: none !important;
@@ -106,8 +110,23 @@
 .app-settings-scope [class*="border-white/"] { border-color: #e2e8f0 !important; }
 .app-settings-scope [class*="bg-white/5"],
 .app-settings-scope [class*="bg-white/10"] { background-color: #f1f5f9 !important; } /* hover row */
-.app-settings-scope [class*="bg-black/50"] { background-color: #f1f5f9 !important; border-color: #e2e8f0 !important; color: #0f172a !important; }
-.app-settings-scope select, .app-settings-scope input[type="text"], .app-settings-scope input[type="number"] { color: #0f172a; }
+/* Input/select — ĐÚNG khuôn EQ/Custom Effect: nền TRẮNG + viền slate-300 (không phải slate-200 —
+   input cần viền ĐẬM hơn card bao quanh nó 1 bậc để phân biệt rõ). */
+.app-settings-scope select,
+.app-settings-scope input[type="text"],
+.app-settings-scope input[type="number"],
+.app-settings-scope input[type="date"],
+.app-settings-scope button[data-filter-time-trigger] {
+    background-color: #ffffff !important;
+    border-color: #cbd5e1 !important; /* slate-300 */
+    color: #0f172a !important;
+}
+.app-settings-scope [class*="bg-black/50"] { background-color: #ffffff !important; border-color: #cbd5e1 !important; color: #0f172a !important; }
+/* Toggle switch (peer/after markup, xem CE_TOGGLE_MARKUP components/custom-effect-drawer.js) —
+   trạng thái TẮT của track TRƯỚC đây `bg-slate-600` (tối, thiết kế cho nền tối) — đổi sang
+   `bg-slate-300` (ĐÚNG track sáng EQ/Custom Effect dùng) — trạng thái BẬT (`peer-checked:bg-sky-500`)
+   đã đúng sẵn, không cần đổi. */
+.app-settings-scope .bg-slate-600.rounded-full.peer { background-color: #cbd5e1 !important; }
 .app-settings-scope .border-t.border-white\/10, .app-settings-scope .border-b.border-white\/5 { border-color: #e2e8f0 !important; }
 
 /* #settings-stack-body/#settings-stack-panel-main — cơ chế cuộn ngang push/pop TÁI DÙNG từ
