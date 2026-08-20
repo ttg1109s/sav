@@ -18,13 +18,13 @@ body { min-height: 100dvh; background: #000; }
 #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; object-fit: cover; z-index: 0; pointer-events: none; background-size: cover; background-position: center; }
 
 /* ===================== Generic Drawer — animation chiều cao + trượt lên/xuống =====================
-   VIẾT LẠI (phản hồi Giang — "bỏ transform, dùng position") — TRƯỚC ĐÂY trượt lên/xuống bằng
-   `transform: translateY()` (Tailwind `translate-y-full`), đổi hẳn sang `bottom` (JS set
-   `style.bottom` trực tiếp, xem core/generic-drawer.js — panel KHÔNG còn `bottom-0`/`transform`
-   TĨNH trong class nữa, components/generic-drawer.js). `height` VẪN animate riêng (đổi nội dung/
-   chiều cao khi ĐANG mở, updateGenericDrawer()) — CẢ 2 property (`height`/`bottom`) transition
-   CÙNG timing, browser tự chạy song song khi cả 2 đổi cùng lúc (lúc mở lần đầu). */
-#generic-drawer-panel { transition: height 300ms ease-out, bottom 300ms ease-out; }
+   [SỬA 20/08/2026, Giang xác nhận] — ĐẢO NGƯỢC LẠI: trượt lên/xuống bằng `transform: translateY()`
+   (JS set `style.transform`, xem core/generic-drawer.js — panel có `bottom-0` TĨNH cố định trong
+   class, components/generic-drawer.js), THAY `bottom` (JS set `style.bottom` trực tiếp) đã dùng từ
+   lần sửa trước. `height` VẪN animate riêng (đổi nội dung/chiều cao khi ĐANG mở,
+   updateGenericDrawer()) — CẢ 2 property (`height`/`transform`) transition CÙNG timing, browser tự
+   chạy song song khi cả 2 đổi cùng lúc (lúc mở lần đầu). */
+#generic-drawer-panel { transition: height 300ms ease-out, transform 300ms ease-out; }
 
 #visualizer-solid-bg { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: -3; pointer-events: none; background-color: #000000; }
 #visual-bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; background-size: cover; background-position: center; z-index: -2; pointer-events: none; }
