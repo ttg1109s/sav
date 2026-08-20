@@ -47,7 +47,7 @@
  */
 const TPL_GENERIC_DRAWER = `
     <div id="generic-drawer-overlay" class="hidden fixed inset-0 z-[39] bg-black/50 opacity-0 transition-opacity duration-300 ease-out"></div>
-    <div id="generic-drawer-panel" class="hidden fixed inset-x-0 bottom-0 z-40 h-[70vh] bg-white rounded-t-3xl shadow-2xl flex flex-col pointer-events-auto">
+    <div id="generic-drawer-panel" class="hidden fixed inset-x-0 bottom-0 z-40 bg-white rounded-t-3xl shadow-2xl flex flex-col pointer-events-auto">
         <div class="flex justify-center pt-3 pb-1 shrink-0">
             <div class="w-10 h-1.5 rounded-full bg-slate-300"></div>
         </div>
