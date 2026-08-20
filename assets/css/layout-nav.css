@@ -46,6 +46,10 @@
    chiều cao thanh nav cho nó bằng padding-bottom, tránh nội dung Playlist bị nav che mất. */
 #app-stack { display: flex; flex-direction: column; }
 #side-left-container { flex: 1 1 auto; min-height: 0; }
+/* SỬA (phản hồi Giang mục 1 — "nav panel phải to lên, không cần cố nhét vừa hết vào 1 width màn
+   hình, đã cho phép cuộn") — icon/label/padding tăng kích thước rõ rệt (tham khảo pattern bottom
+   nav phổ biến — item rộng ~80-96px, icon 24-28px, KHÔNG cố ép 7 mục vừa đúng 1 màn hình hẹp,
+   overflow-x cuộn ngang xử lý phần tràn, y hệt cách Folder/Photo grid đã làm). */
 #app-bottom-nav {
     flex: 0 0 auto;
     display: flex;
@@ -62,15 +66,16 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 4px;
     flex: 0 0 auto;
-    min-width: 64px;
-    padding: 8px 10px 6px;
+    min-width: 88px;
+    padding: 12px 18px 10px;
     color: rgba(255,255,255,0.55);
     transition: color 0.2s;
 }
+.app-bottom-nav-btn svg { width: 26px; height: 26px; }
 .app-bottom-nav-btn.active { color: #2dd4bf; } /* teal-400, đồng bộ màu nhấn đang dùng toàn app */
-.app-bottom-nav-btn .app-bottom-nav-label { font-size: 10px; font-weight: 600; white-space: nowrap; }
+.app-bottom-nav-btn .app-bottom-nav-label { font-size: 12px; font-weight: 600; white-space: nowrap; }
 
 /* ===================== Panel full-screen ngang cấp Setting (Photo/Game/Statis) =====================
    Mỗi panel là 1 khung fixed inset-0 riêng, NGANG CẤP #app-stack (không lồng bên trong), ẩn mặc định
