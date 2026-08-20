@@ -104,11 +104,23 @@ function _cssLengthToPx(cssLength) {
     return px;
 }
 
+/**
+ * SỬA (bug "chiều cao cộng dồn sau mỗi lần ra vào") — `scrollHeight` LUÔN >= chiều cao ĐANG render
+ * hiện tại của body (`max(clientHeight thật, nội dung thật)`, đúng định nghĩa thuộc tính này) —
+ * body đang là flex-grow item, chiều cao render hiện tại của nó phụ thuộc chiều cao panel CŨ (từ
+ * lần đo TRƯỚC), CÒN CHƯA đổi lúc đo lần này. Nếu lần đo trước lỡ RA SỐ LỚN, `scrollHeight` lần
+ * sau bị "kẹt" ở tối thiểu ĐÚNG bằng số lớn đó — không bao giờ đo NHỎ LẠI được, giải thích đúng
+ * hiện tượng cộng dồn. SỬA: tạm set `body.style.height = 'auto'` NGAY TRƯỚC khi đọc — ép nó thoát
+ * khỏi ràng buộc flex-grow, co về ĐÚNG kích thước nội dung thật — đọc xong TRẢ LẠI NGAY (`''`,
+ * nhường lại cho class `flex-1` chi phối bình thường) để không phá layout sau đó.
+ */
 function _measureGenericDrawerAutoHeightPx(maxHeight) {
     const dragHandleEl = genericDrawerPanel.firstElementChild; // thanh kéo tĩnh, xem components/generic-drawer.js
     const dragHandleH = dragHandleEl ? dragHandleEl.offsetHeight : 0;
     const headerH = genericDrawerHeader.offsetHeight;
-    const bodyContentH = genericDrawerBody.scrollHeight; // chiều cao NỘI DUNG THẬT, không phụ thuộc flex đang ép co lại bao nhiêu
+    genericDrawerBody.style.height = 'auto'; // thoát flex-grow tạm thời — xem docstring
+    const bodyContentH = genericDrawerBody.scrollHeight;
+    genericDrawerBody.style.height = ''; // trả lại NGAY — class flex-1 (Tailwind) tự chi phối lại bình thường
     const gapPx = _cssLengthToPx(`calc(env(safe-area-inset-bottom, 0px) + ${GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX}px)`);
     const total = dragHandleH + headerH + bodyContentH + gapPx;
     const maxPx = maxHeight ? _cssLengthToPx(maxHeight) : Infinity;
