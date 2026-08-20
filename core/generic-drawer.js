@@ -71,54 +71,58 @@ const GENERIC_DRAWER_DEFAULT_Z_INDEX = Z_INDEX.GENERIC_DRAWER; // SỬA (25/07/2
 const GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX = 16;
 
 /**
- * VIẾT LẠI HẲN (3 lần sửa trước đều lỗi — "cut content", "mất animation trượt lên", "đổi nội dung
- * không animation" — tham khảo kỹ thuật chuẩn cộng đồng CSS dùng cho đúng bài toán "đo chiều cao tự
- * nhiên của 1 phần tử SẮP hiện, không phá animation của phần tử ĐANG hiện": CSS-Tricks/Stefan Judis/
- * Keith J. Grant — "transitioning to height auto" — điểm chung: KHÔNG BAO GIỜ đo trực tiếp trên
- * chính phần tử đang animate/đang có transition sống — luôn tách việc ĐO ra khỏi phần tử THẬT.
+ * VIẾT LẠI LẦN 2 (bug "vẫn không auto height ngay từ lúc đầu" sau khi đổi sang đo qua bản sao
+ * `cloneNode`) — NGHI VẤN GỐC: `genericDrawerBody` có `flex: 1 1 0%` (Tailwind `flex-1`, luôn ĐI
+ * KÈM `min-h-0`) — đây là vùng CSS Flexbox nổi tiếng "xám", KHÔNG có gì đảm bảo 1 flex item
+ * `flex-basis:0%` LUÔN tự co đúng theo NỘI DUNG THẬT khi chính flex container đang được đo ở chế
+ * độ `height:auto` (khác nhau tuỳ browser engine, càng khó lường hơn với `position:fixed` như
+ * panel này) — clone y hệt cấu trúc panel thật nên clone dính CHUNG đúng sự mập mờ đó, có thể trả
+ * về 1 con số SAI (vd = maxHeight, như đang chiếm gần hết màn hình dù nội dung rất ngắn).
  *
- * Ở ĐÂY: đo trên 1 BẢN SAO (`cloneNode(true)`) của panel — đã có SẴN header/body vừa gán nội dung
- * mới (gọi hàm này SAU KHI gán `innerHTML` xong) — bản sao này:
- *   - KHÔNG kế thừa bất kỳ transition/animation ĐANG chạy nào của panel THẬT (là 1 DOM node HOÀN
- *     TOÀN khác, browser không "biết" 2 phần tử liên quan gì đến nhau).
- *   - `visibility: hidden` (không `display:none` — display:none làm offsetHeight luôn ra 0, giữ
- *     `visibility:hidden` để layout vẫn tính toán đầy đủ, chỉ không vẽ ra màn hình) + toạ độ off-
- *     screen — không lộ ra bất kỳ khung hình chưa sẵn sàng nào, kể cả 1 frame.
- *   - Gắn vào DOM -> đo `offsetHeight` -> gỡ khỏi DOM NGAY — toàn bộ nằm TRONG 1 lượt thực thi JS
- *     đồng bộ duy nhất (không có gì render/paint xen giữa), xong việc là biến mất, không để lại dấu
- *     vết nào (kể cả id trùng lặp — xoá id TRƯỚC khi gắn vào DOM, tránh mọi rủi ro dù chỉ lý
- *     thuyết).
- * Panel THẬT (sống, đang animate) hoàn toàn KHÔNG bị đụng tới trong suốt quá trình đo — vì vậy
- * KHÔNG còn cần tắt/bật `transition:'none'` nữa (nguồn gốc gây mất animation ở 2 lần sửa trước).
+ * SỬA ĐÚNG GỐC: KHÔNG dựa vào flex tự co giãn/clone gì cả — đo TỪNG MẢNH CỐ ĐỊNH cộng dồn:
+ *   - Thanh kéo (`genericDrawerPanel.firstElementChild`, tĩnh, luôn là con đầu tiên — xem
+ *     components/generic-drawer.js).
+ *   - Header (`genericDrawerHeader.offsetHeight` — đã render nội dung MỚI, phản ánh đúng).
+ *   - NỘI DUNG THẬT của body — `genericDrawerBody.scrollHeight` (KHÔNG phải offsetHeight!)
+ *     — `scrollHeight` LUÔN trả đúng chiều cao nội dung THẬT dù phần tử đang bị flex/overflow ép
+ *     nhỏ hơn (đúng NGHĨA của thuộc tính này — tổng chiều cao có thể cuộn tới, không phụ thuộc
+ *     kích thước khung hiển thị hiện tại) — hoàn toàn tránh được vùng xám flex ở trên.
+ * Cả 3 phần đo TRỰC TIẾP trên phần tử THẬT (KHÔNG đụng gì tới `style` của
+ * `genericDrawerPanel`/`transition` của nó trong lúc đo) — vì vậy KHÔNG còn cần tắt/bật
+ * `transition:'none'` hay clone gì nữa (đơn giản hơn HẲN 2 cách trước, cũng loại bỏ được rủi ro
+ * "cắt ngang animation" đã gặp).
  * @returns {number} px
  */
-function _measureGenericDrawerAutoHeightPx(maxHeight) {
-    const clone = genericDrawerPanel.cloneNode(true);
-    clone.removeAttribute('id');
-    clone.style.transition = 'none';
-    clone.style.visibility = 'hidden';
-    clone.style.position = 'fixed';
-    clone.style.top = '0';
-    clone.style.bottom = '';
-    clone.style.left = '0';
-    clone.style.zIndex = '-1';
-    clone.classList.remove('hidden', 'translate-y-full');
-    clone.style.paddingBottom = `calc(env(safe-area-inset-bottom, 0px) + ${GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX}px)`;
-    clone.style.maxHeight = maxHeight || '';
-    clone.style.height = 'auto';
-    document.body.appendChild(clone);
-    const px = clone.offsetHeight;
-    clone.remove();
+function _cssLengthToPx(cssLength) {
+    // Dùng 1 phần tử dò ẩn để trình duyệt TỰ quy đổi bất kỳ đơn vị CSS nào (vh/%/calc()/px...) ra
+    // px — không tự parse tay (dễ sai/sót đơn vị mới).
+    const probe = document.createElement('div');
+    probe.style.cssText = `position:fixed; visibility:hidden; height:${cssLength};`;
+    document.body.appendChild(probe);
+    const px = probe.offsetHeight;
+    probe.remove();
     return px;
+}
+
+function _measureGenericDrawerAutoHeightPx(maxHeight) {
+    const dragHandleEl = genericDrawerPanel.firstElementChild; // thanh kéo tĩnh, xem components/generic-drawer.js
+    const dragHandleH = dragHandleEl ? dragHandleEl.offsetHeight : 0;
+    const headerH = genericDrawerHeader.offsetHeight;
+    const bodyContentH = genericDrawerBody.scrollHeight; // chiều cao NỘI DUNG THẬT, không phụ thuộc flex đang ép co lại bao nhiêu
+    const gapPx = _cssLengthToPx(`calc(env(safe-area-inset-bottom, 0px) + ${GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX}px)`);
+    const total = dragHandleH + headerH + bodyContentH + gapPx;
+    const maxPx = maxHeight ? _cssLengthToPx(maxHeight) : Infinity;
+    return Math.min(total, maxPx);
 }
 
 /**
  * Set `style.height` theo `config.height`:
- *   - `'auto'`: đo chiều cao thật qua bản sao (xem `_measureGenericDrawerAutoHeightPx()`), set
- *     THẲNG SỐ PX CỤ THỂ lên panel THẬT — panel thật CHỈ nhận ĐÚNG 1 lần gán `style.height` duy
- *     nhất mỗi lần gọi hàm này, transition CSS có sẵn (`#generic-drawer-panel`, assets/css/
- *     base.css) tự chạy mượt nếu giá trị cũ khác giá trị mới (không cần bất kỳ thao tác thủ công gì
- *     thêm) — KHÔNG bao giờ set 'auto' lên panel thật (CSS không animate được tới/từ 'auto').
+ *   - `'auto'`: đo chiều cao thật qua tổng 3 mảnh cố định (xem
+ *     `_measureGenericDrawerAutoHeightPx()`), set THẲNG SỐ PX CỤ THỂ lên panel THẬT — panel thật
+ *     CHỈ nhận ĐÚNG 1 lần gán `style.height` duy nhất mỗi lần gọi hàm này, transition CSS có sẵn
+ *     (`#generic-drawer-panel`, assets/css/base.css) tự chạy mượt nếu giá trị cũ khác giá trị mới
+ *     (không cần bất kỳ thao tác thủ công gì thêm) — KHÔNG bao giờ set 'auto' lên panel thật (CSS
+ *     không animate được tới/từ 'auto').
  *   - Chuỗi khác (vd '90vh'/'70vh'): giữ NGUYÊN hành vi cũ — không padding-bottom thêm (đã tự cuộn
  *     nội bộ nhờ bodyClass overflow-y-auto, không cần đệm).
  * Panel LUÔN dính đáy (`bottom-0`, style.bottom rỗng) + bo 2 góc trên — KHÔNG đổi theo auto/cố
@@ -157,9 +161,10 @@ function _applyGenericDrawerHeight(config) {
  * Debounce nhẹ (rAF) — tránh đo lại NHIỀU LẦN nếu 1 thao tác gây ra nhiều mutation liền (vd
  * innerHTML gán lại cả khối).
  *
- * KHÔNG lo vòng lặp vô hạn: hàm đo (`_measureGenericDrawerAutoHeightPx()`) đo trên BẢN SAO tách
- * biệt (xem docstring hàm đó) — KHÔNG đụng class/attribute của `genericDrawerBody` hay bất kỳ con
- * cháu nào của nó, nên tự nó KHÔNG kích hoạt lại chính observer này.
+ * KHÔNG lo vòng lặp vô hạn: hàm đo (`_measureGenericDrawerAutoHeightPx()`) chỉ ĐỌC
+ * (`offsetHeight`/`scrollHeight`) trên `genericDrawerHeader`/`genericDrawerBody`, KHÔNG GHI bất kỳ
+ * class/attribute nào lên `genericDrawerBody` hay con cháu của nó, nên tự nó KHÔNG kích hoạt lại
+ * chính observer này.
  *
  * SỬA (bug "mất animation trượt lên/đổi chiều cao" lúc mới thêm observer này) — quên mất CHÍNH
  * `openGenericDrawer()`/`updateGenericDrawer()` cũng gán `innerHTML` vào `genericDrawerBody` (bước
@@ -209,12 +214,11 @@ function openGenericDrawer(config) {
     genericDrawerBody.innerHTML = config.bodyHtml || '';
     genericDrawerBody.className = `flex-1 min-h-0 ${config.bodyClass || ''}`.trim(); // 'flex-1 min-h-0' LUÔN giữ, bodyClass CHỈ bổ sung
 
-    // Bỏ `hidden` (display:none -> có layout box thật) TRƯỚC khi set chiều cao — panel cần hiện
-    // diện thật trong DOM để CSS `transition: height` (assets/css/base.css) có tác dụng ngay từ
-    // giá trị khởi điểm hợp lệ. Việc ĐO chiều cao (nếu height:'auto') giờ làm trên 1 BẢN SAO tách
-    // biệt (xem docstring `_measureGenericDrawerAutoHeightPx()`), KHÔNG còn phụ thuộc trạng thái
-    // hidden/display của panel THẬT như trước. `translate-y-full` (transform, KHÔNG ảnh hưởng
-    // layout) vẫn giữ panel ẩn NGOÀI MÀN HÌNH suốt lúc này — không lộ khung hình nào chưa sẵn sàng.
+    // Bỏ `hidden` (display:none -> có layout box thật) TRƯỚC khi set chiều cao — BẮT BUỘC: khi
+    // panel `display:none`, MỌI con cháu (header/body) cũng KHÔNG có layout box, `offsetHeight`/
+    // `scrollHeight` đọc trên chúng (xem `_measureGenericDrawerAutoHeightPx()`) sẽ LUÔN ra 0.
+    // `translate-y-full` (transform, KHÔNG ảnh hưởng layout) vẫn giữ panel ẩn NGOÀI MÀN HÌNH suốt
+    // lúc này — không lộ khung hình nào chưa sẵn sàng, dù panel đã có layout box thật.
     genericDrawerPanel.classList.remove('hidden');
     _applyGenericDrawerHeight(config); // core/generic-drawer.js — height cố định HOẶC 'auto' (đo theo content vừa gán, xem docstring)
     _genericDrawerBodyObserver.observe(genericDrawerBody, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); // nối lại — từ đây chỉ bắt toggle NỘI BỘ về sau
