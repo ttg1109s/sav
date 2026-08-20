@@ -129,20 +129,29 @@ function _measureGenericDrawerAutoHeightPx(maxHeight) {
  * định (gap là ĐỆM BÊN TRONG, không phải panel nổi tách khỏi mép màn hình).
  * @param {{height?: string, maxHeight?: string}} config
  */
+/**
+ * SỬA (bug "vẫn còn gap thừa/không khít nội dung") — TRƯỚC ĐÂY gap vừa được CỘNG vào tổng chiều
+ * cao đo được (`_measureGenericDrawerAutoHeightPx()`) VỪA được set THÊM 1 lần nữa qua
+ * `style.paddingBottom` riêng trên panel — ĐẾM 2 LẦN cùng 1 khoảng gap (padding cộng dồn vào
+ * content-box height thay vì "thuộc về" con số đã tính sẵn). Giờ CHỈ còn 1 nguồn duy nhất: gap đã
+ * nằm SẴN trong tổng số đo (cộng vào `total` ở `_measureGenericDrawerAutoHeightPx()`) — panel
+ * KHÔNG còn `padding-bottom` riêng nữa. Phần dư ra đó tự nhiên trở thành khoảng trống ở ĐÁY body
+ * (flex-grow: 1 tự nhận hết phần chiều cao còn lại sau dragHandle+header, content không lấp hết
+ * thì để trống — ĐÚNG NGHĨA "gap bên trong", không cần CSS riêng).
+ */
 function _applyGenericDrawerHeight(config) {
     if (config.height === 'auto') {
         _genericDrawerIsAutoMode = true;
         _genericDrawerAutoMaxHeight = config.maxHeight || '';
-        genericDrawerPanel.style.paddingBottom = `calc(env(safe-area-inset-bottom, 0px) + ${GENERIC_DRAWER_AUTO_HEIGHT_GAP_PX}px)`;
         genericDrawerPanel.style.maxHeight = config.maxHeight || '';
         const px = _measureGenericDrawerAutoHeightPx(config.maxHeight);
         genericDrawerPanel.style.height = `${px}px`;
     } else {
         _genericDrawerIsAutoMode = false;
-        genericDrawerPanel.style.paddingBottom = '';
         genericDrawerPanel.style.maxHeight = config.maxHeight || '';
         genericDrawerPanel.style.height = config.height || '70vh';
     }
+    genericDrawerBody.scrollTop = 0; // SỬA (bug "back giữ nguyên scroll cũ, kẹt không cuộn lên được") — nội dung MỚI luôn bắt đầu từ đầu, không giữ vị trí cuộn của nội dung TRƯỚC đó
 }
 
 /**
