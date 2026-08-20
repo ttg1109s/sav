@@ -213,6 +213,15 @@ function openGenericDrawer(config) {
     // `getBoundingClientRect()` ở bước 2-4 luôn ra 0.
     genericDrawerPanel.classList.remove('hidden');
 
+    // SỬA (Giang chỉ ra — "chưa có bước bỏ px gắn cứng khi ẩn") — lần MỞ LẠI (không phải lần đầu),
+    // `height`/`bottom` vẫn còn giá trị PX CỨNG của LẦN ĐÓNG TRƯỚC (`closeGenericDrawer()` không
+    // xoá gì cả, chỉ trượt tới `bottom = -height CŨ`). Tắt hẳn transition NGAY TỪ ĐÂY — TRƯỚC CẢ
+    // bước đo (2-4) — vì bản thân hàm đo (`_measureGenericDrawerNaturalHeightPx()`) cũng có 1 lượt
+    // gán/khôi phục `style.height` (auto -> giá trị CŨ) có thể để lại 1 transition dở dang nếu
+    // transition vẫn đang bật lúc đó. Chỉ bật lại đúng lúc NGAY TRƯỚC bước 7, đảm bảo animation
+    // trồi lên là animation DUY NHẤT thật sự chạy, xuất phát đúng từ mốc off-screen sạch.
+    genericDrawerPanel.style.transition = 'none';
+
     // Bước 2-3-4.
     const heightPx = _resolveGenericDrawerHeightPx(config);
     genericDrawerPanel.style.maxHeight = config.maxHeight || ''; // giữ lại làm lưới an toàn CSS (vd xoay màn hình/đổi kích thước cửa sổ lúc đang mở)
@@ -220,7 +229,7 @@ function openGenericDrawer(config) {
     // Bước 5.
     genericDrawerPanel.style.height = `${heightPx}px`;
     genericDrawerPanel.style.bottom = `${-heightPx}px`;
-    void genericDrawerPanel.offsetHeight; // ép reflow — chốt bước 5 TRƯỚC khi sang bước 6/7
+    void genericDrawerPanel.offsetHeight; // ép reflow — chốt bước 5 (transition:none) TRƯỚC khi sang bước 6/7
 
     _genericDrawerBodyObserver.observe(genericDrawerBody, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }); // nối lại — từ đây chỉ bắt toggle NỘI BỘ về sau
 
@@ -232,7 +241,12 @@ function openGenericDrawer(config) {
 
     // Bước 6.
     genericDrawerPanel.style.opacity = '';
-    void genericDrawerPanel.offsetHeight; // ép reflow — chốt bước 6 TRƯỚC khi set bottom=0 (bước 7), đảm bảo trình duyệt nhận đúng mốc XUẤT PHÁT (-heightPx) trước khi bắt đầu animate sang 0
+    // Bật lại transition NGAY TRƯỚC bước 7 — ép reflow chốt trạng thái "transition:none, đã ở đúng
+    // mốc off-screen" TRƯỚC KHI bật lại, để trình duyệt không gộp chung 2 thay đổi (bật transition +
+    // đổi bottom) vào 1 bước, làm mất animation lần nữa (đúng bài học các lần sửa trước).
+    void genericDrawerPanel.offsetHeight;
+    genericDrawerPanel.style.transition = '';
+    void genericDrawerPanel.offsetHeight; // ép reflow lần 2 — chốt "transition ĐÃ BẬT LẠI" TRƯỚC khi set bottom=0 (bước 7), đảm bảo lần đổi bottom NGAY SAU ĐÂY chắc chắn được animate
 
     // Bước 7.
     genericDrawerPanel.style.bottom = '0';
