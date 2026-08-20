@@ -24,9 +24,17 @@ body { min-height: 100dvh; background: #000; }
    [SỬA 20/08/2026, LẦN 2 — Giang chỉ đạo] — `min-height` THAY `height` — `height` KHÔNG BAO GIỜ còn
    là 1 giá trị cố định nữa (chỉ dùng `auto` TẠM lúc đo rồi xoá hẳn, xem
    `_measureGenericDrawerNaturalHeightPx()`), CHỈ `min-height` còn animate (đổi nội dung/chiều cao
-   khi ĐANG mở, updateGenericDrawer()) — CẢ 2 property (`min-height`/`transform`) transition CÙNG
-   timing, browser tự chạy song song khi cả 2 đổi cùng lúc (lúc mở lần đầu). */
-#generic-drawer-panel { transition: min-height 300ms ease-out, transform 300ms ease-out; }
+   khi ĐANG mở, updateGenericDrawer()).
+   [SỬA 20/08/2026, LẦN 3 — Giang yêu cầu thêm] — THÊM LẠI `height` vào danh sách transition (cùng
+   `min-height`/`transform`) — dù JS không còn set `height` thành số cố định (chỉ dùng `auto` TẠM
+   lúc đo rồi xoá hẳn ngay trong CÙNG 1 tick, transition đang tắt lúc đó nên không lộ ra gì), có
+   `height` trong danh sách vẫn là lưới an toàn: nếu SAU NÀY có chỗ nào (kể cả code khác, ngoài
+   core/generic-drawer.js) lỡ set trực tiếp `style.height` một giá trị cụ thể, thay đổi đó cũng tự
+   động animate mượt thay vì nhảy cứng — không tốn gì thêm vì `height` không được JS đụng tới thường
+   xuyên, transition trên 1 property không đổi không có tác dụng phụ nào. CẢ 3 property
+   (`height`/`min-height`/`transform`) transition CÙNG timing, browser tự chạy song song khi nhiều
+   cái đổi cùng lúc (lúc mở lần đầu). */
+#generic-drawer-panel { transition: height 300ms ease-out, min-height 300ms ease-out, transform 300ms ease-out; }
 
 #visualizer-solid-bg { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: -3; pointer-events: none; background-color: #000000; }
 #visual-bg-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; background-size: cover; background-position: center; z-index: -2; pointer-events: none; }
