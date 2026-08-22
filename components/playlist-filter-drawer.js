@@ -102,13 +102,24 @@ function _renderFilterNumericFieldRow(field, labelKey, inputType, step) {
 }
 
 /**
- * @param {string} source - 'song' | 'video' — quyết định field TEXT nào hiện (album/artist CHỈ
- *   Song có) — 4 field số/ngày dùng chung, KHÔNG đổi theo Nguồn.
+ * @param {string} source - 'song' | 'video' | 'photo' — quyết định field TEXT nào hiện (album/
+ *   artist CHỈ Song có) VÀ field SỐ/NGÀY nào hiện (totalTime/duration KHÔNG áp dụng cho Photo —
+ *   CHỐT Giang, ảnh không có khái niệm "lượt nghe"/"thời lượng"). Danh sách field PHẢI khớp ĐÚNG
+ *   với `clonePlaylistFilterConfigDefaults()` (service/state/playlist.js) cho từng Nguồn — 2 nơi
+ *   này KHÔNG import chéo (why-no-es6-module.md), phải tự đối chiếu tay khi sửa 1 trong 2.
  */
 function renderPlaylistFilterPanelBody(source) {
-    const textFields = source === 'video'
-        ? [['name', 'playlistFilterPanel.field.name']]
-        : [['name', 'playlistFilterPanel.field.name'], ['album', 'playlistFilterPanel.field.album'], ['artist', 'playlistFilterPanel.field.artist']];
+    // SỬA (hợp nhất Photo vào Playlist) — THAY ternary nhị phân cũ (chỉ đúng khi source CHẮC CHẮN
+    // là 'song' hoặc 'video') bằng bảng tra theo TỪNG source — ternary cũ sẽ ÂM THẦM gán field của
+    // Song (album/artist) cho bất kỳ source thứ 3 nào lọt vào nhánh else, đúng bug đã phát hiện lúc
+    // rà soát trước khi thêm Photo.
+    const textFieldsBySource = {
+        song: [['name', 'playlistFilterPanel.field.name'], ['album', 'playlistFilterPanel.field.album'], ['artist', 'playlistFilterPanel.field.artist']],
+        video: [['name', 'playlistFilterPanel.field.name']],
+        photo: [['name', 'playlistFilterPanel.field.name']],
+    };
+    const textFields = textFieldsBySource[source] || textFieldsBySource.song; // guard — source lạ rơi về Song (an toàn hơn rỗng)
+    const isPhoto = source === 'photo';
 
     return `
                 <div>
@@ -116,8 +127,8 @@ function renderPlaylistFilterPanelBody(source) {
                         ${textFields.map(([field, labelKey]) => _renderFilterTextFieldRow(field, labelKey)).join('')}
                         ${_renderFilterNumericFieldRow('addedAt', 'playlistFilterPanel.field.addedAt', 'date')}
                         ${_renderFilterNumericFieldRow('count', 'playlistFilterPanel.field.count', 'number', '1')}
-                        ${_renderFilterNumericFieldRow('totalTime', 'playlistFilterPanel.field.totalTime', 'time-picker')}
-                        ${_renderFilterNumericFieldRow('duration', 'playlistFilterPanel.field.duration', 'time-picker')}
+                        ${isPhoto ? '' : _renderFilterNumericFieldRow('totalTime', 'playlistFilterPanel.field.totalTime', 'time-picker')}
+                        ${isPhoto ? '' : _renderFilterNumericFieldRow('duration', 'playlistFilterPanel.field.duration', 'time-picker')}
                         ${_renderFilterNumericFieldRow('size', 'playlistFilterPanel.field.size', 'number', '0.1')}
                     </div>
                     <button id="btn-playlist-filter-apply" class="mt-4 w-full py-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold transition-colors" data-i18n="playlistFilterPanel.apply">${t('playlistFilterPanel.apply')}</button>

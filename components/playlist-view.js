@@ -352,7 +352,7 @@ const TPL_PLAYLIST_VIEW = `
              thẳng modal Chi tiết, mặc định tab đọc-thôi trước — xem song-edit-modal) — đổi luôn
              icon bút sửa -> icon info-circle cho khớp ý nghĩa mới, ĐỒNG BỘ với icon header modal +
              icon tab "Chi tiết" bên trong (cùng path). -->
-        <button data-menu-action="edit" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200">
+        <button id="song-menu-btn-edit" data-menu-action="edit" class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             <span data-i18n="playlistView.songMenu.edit">${t('playlistView.songMenu.edit')}</span>
         </button>
