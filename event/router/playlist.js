@@ -116,12 +116,19 @@ const routerPlaylist = (() => {
                 // VirtualMachineState. Nhánh selectionMode=true gọi WORKFLOW (không phải core thẳng)
                 // vì cần ĐỌC thêm domNodesByKey/selectedSongKeys rồi patch DOM nối tiếp — đúng hình
                 // dạng Workflow (event-bus-flow.md mục 4B), xem toggleSongSelectionAndRefresh().
+                // MỞ RỘNG (hợp nhất Photo vào Playlist, CHỐT Giang — dùng hẳn UI Song/Video, click
+                // ảnh mở XEM chứ không playMedia()/vào visualizer) — thêm 1 điều kiện tổ hợp
+                // (selectionMode=false && activeMediaSource='photo') vào ĐÚNG bộ VMState này, KHÔNG
+                // tạo case/router riêng — item ảnh giờ dùng chung template play-item với Song/Video
+                // nên đi chung đường dispatch, chỉ khác Ở ĐÂY đích gọi cuối cùng là hàm nào.
                 const selectionMode = appState.get('selectionMode');
+                const isPhotoSource = appState.get('activeMediaSource') === 'photo';
                 VirtualMachineState.run([
                     { state: selectionMode, operation: '===', value: true, callback: () => workflowPlaylist.toggleSongSelectionAndRefresh(key) },
+                    { state: (!selectionMode && isPhotoSource), operation: '===', value: true, callback: () => workflowFileManagerPhoto.openImagePreview(key) },
                     // [SỬA — plan-playmedia-reorg.md] `window.playSong()` -> `workflowPlayer.playMedia()`
                     // (event/workflow/player.js, MỚI) — chỉ đổi tên gọi, hình dạng lời gọi không đổi.
-                    { state: selectionMode, operation: '===', value: false, callback: () => workflowPlayer.playMedia(key) },
+                    { state: (!selectionMode && !isPhotoSource), operation: '===', value: true, callback: () => workflowPlayer.playMedia(key) },
                 ]);
                 break;
             }
@@ -325,6 +332,7 @@ const routerPlaylist = (() => {
                 VirtualMachineState.run([
                     { state: source, operation: '===', value: 'video', callback: () => workflowPlaylist.switchToVideoSource() },
                     { state: source, operation: '===', value: 'song', callback: () => workflowPlaylist.switchToSongSource() },
+                    { state: source, operation: '===', value: 'photo', callback: () => workflowPlaylist.switchToPhotoSource() },
                 ]);
                 break;
             }
