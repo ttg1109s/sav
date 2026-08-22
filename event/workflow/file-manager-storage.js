@@ -221,6 +221,20 @@ const workflowFileManagerStorage = {
         }
     },
 
+    /** MỚI (hợp nhất Photo vào Playlist) — cùng lý do `_resetVideoRuntimeStateAfterClear()` ngay
+     * trên: Photo giờ CŨNG là 1 Nguồn của Playlist (activeMediaSource='photo') — xoá sạch Photo
+     * qua Storage Management trong khi Playlist đang browse ĐÚNG Nguồn đó phải dọn sạch
+     * playlistCache/playlistOrder NGAY, không để danh sách hiện ảnh đã xoá. Photo KHÔNG có
+     * "player mode" riêng để thoát (khác Video) nên bước đó bỏ qua.
+     */
+    async _resetPhotoRuntimeStateAfterClear() {
+        if (appState.get('activeMediaSource') === 'photo') {
+            appState.set('playlistOrder', []);
+            appState.mutate('playlistCache', (m) => m.clear());
+            updateShuffleArray(); recomputeDisplayOrder(); recomputeRenderOrder(); renderPlaylistDiff(); updateEmptyState(); // core/playlist/*, có sẵn
+        }
+    },
+
     /** Chạy "tải xuống + xoá" (tuỳ 2 toggle) cho ĐÚNG 1 nguồn cụ thể — TÁCH riêng thành hàm con vì
      * mỗi nguồn cần gọi core hoàn toàn khác nhau (Rule 3: core không được gọi core khác — nhưng
      * Workflow thì tự do, hàm này chỉ là 1 bước orchestration nội bộ của executeStorageAction()
@@ -258,6 +272,7 @@ const workflowFileManagerStorage = {
                 : { status: 'ok' };
             if (deleteEnabled && result.status !== 'zipError') {
                 await withLoadingShield(t('common.storage.deletingData'), async () => { await clearAllPhotosData(); }); // core/storage-manager.js
+                await this._resetPhotoRuntimeStateAfterClear();
             }
             return result;
         }

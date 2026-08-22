@@ -130,7 +130,8 @@ const workflowAppSettings = {
 
     _renderPlaylistSort() {
         this._currentRenderFn = () => this._renderPlaylistSort();
-        this._render(t('playlistSortPanel.title'), renderPlaylistSortPanelBody(), () => {
+        const source = appState.get('activeMediaSource'); // MỚI (hợp nhất Photo vào Playlist) — Photo ẩn 2 field times/duration
+        this._render(t('playlistSortPanel.title'), renderPlaylistSortPanelBody(source), () => {
             workflowPlaylist.openSortPanel(); // event/workflow/playlist.js — đồng bộ giá trị (đã migrate sang genericDrawerBody)
         });
     },

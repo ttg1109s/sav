@@ -556,31 +556,29 @@ const workflowPlaylist = {
         if (!key) return;
         closeSongActionMenu();
 
+        // SỬA (hợp nhất Photo vào Playlist) — `activeMediaSource` giờ LÀ ĐÚNG mediaType cần dùng
+        // (3 giá trị hợp lệ duy nhất: song/video/photo — xem loadPersistedPlaylistConfigOnBoot()),
+        // không cần ternary fallback nữa. TRUYỀN THÊM `options.folders` = danh sách ĐÃ LỌC theo ĐÚNG
+        // type này (CHỐT Giang — "playlist source nào thì chỉ hiển thị type folder của source tương
+        // ứng") — picker giờ KHÔNG còn hiện lẫn folder khác type (trước đây hiện TOÀN BỘ, chỉ báo
+        // lỗi typeMismatch SAU KHI chọn nhầm — trải nghiệm kém).
+        const mediaType = appState.get('activeMediaSource');
         await this._openFolderPickerDrawer(async (folderId) => {
             let result;
-            // SỬA (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — TRƯỚC ĐÂY hardcode
-            // 'song' (giải thích cũ: "chỉ Song mới gọi addSongsToFolder()") — SAI, thực ra nút
-            // "Thêm vào thư mục" trong menu 3 chấm LUÔN hiển thị bất kể đang browse nguồn nào
-            // (template KHÔNG gate theo mediaType), nên Video CŨNG đi qua đúng đường này. Đọc
-            // `activeMediaSource` (Batch 1, service/state/playlist.js) — Playlist chỉ browse ĐÚNG 1
-            // nguồn tại 1 thời điểm nên toàn bộ item đang hiển thị (kể cả `key` 1-bài này) luôn
-            // cùng loại với nguồn đang active.
-            const mediaType = appState.get('activeMediaSource') === 'video' ? 'video' : 'song';
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
                 result = await addSongsToFolder([key], folderId, mediaType); // core có sẵn (core/file-manager/folder.js)
             });
-            if (result.status === 'typeMismatch') {
-                await alertModal(t('fileManager.folderPicker.typeMismatch'));
-                return;
-            }
+            // XOÁ (hợp nhất Photo vào Playlist, cấu trúc folderIndex) — check `status==='typeMismatch'`
+            // bỏ hẳn: addSongsToFolder() không còn trả trạng thái đó nữa (picker giờ CHỈ đưa vào
+            // folder ĐÚNG type — không còn khả năng lệch để phải xử lý).
             // SỬA 03/07/2026 (đợt 3): KHÔNG còn tự áp dụng ngay vào Playlist đang chạy — thêm bài
             // không đổi "folder nào đang active", chỉ đổi DỮ LIỆU trong nó. Lần tải trang kế tiếp
             // (hoặc lần bấm "Áp dụng" kế tiếp) sẽ tự đọc đúng danh sách mới — xem
             // event/workflow/playlist-scope.js.
             // SỬA (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — trước đây LUÔN
-            // "Added X song(s)" kể cả khi vừa thêm Video.
-            await alertModal(tFormat(mediaType === 'video' ? 'fileManager.folderPicker.addSuccessVideo' : 'fileManager.folderPicker.addSuccess', { count: 1 }));
-        });
+            // "Added X song(s)" kể cả khi vừa thêm Video. MỞ RỘNG (hợp nhất Photo) — thêm nhánh photo.
+            await alertModal(tFormat(mediaType === 'video' ? 'fileManager.folderPicker.addSuccessVideo' : mediaType === 'photo' ? 'fileManager.folderPicker.addSuccessPhoto' : 'fileManager.folderPicker.addSuccess', { count: 1 }));
+        }, { folders: await listFolders(mediaType) });
     },
 
     /**
@@ -591,23 +589,21 @@ const workflowPlaylist = {
         const keys = Array.from(appState.get('selectedSongKeys'));
         if (keys.length === 0) return;
 
+        // SỬA (hợp nhất Photo vào Playlist) — cùng lý do openAddToFolderPickerForSongMenu() ngay
+        // trên: đọc thẳng activeMediaSource + lọc danh sách folder theo ĐÚNG type.
+        const mediaType = appState.get('activeMediaSource');
         await this._openFolderPickerDrawer(async (folderId) => {
             let result;
-            // SỬA (phản hồi Giang 28/07/2026) — cùng lý do ở openAddToFolderPickerForSongMenu()
-            // ngay trên: đọc activeMediaSource thay vì hardcode 'song'.
-            const mediaType = appState.get('activeMediaSource') === 'video' ? 'video' : 'song';
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
                 result = await addSongsToFolder(keys, folderId, mediaType); // core có sẵn (core/file-manager/folder.js)
             });
-            if (result.status === 'typeMismatch') {
-                await alertModal(t('fileManager.folderPicker.typeMismatch'));
-                return;
-            }
+            // XOÁ (hợp nhất Photo vào Playlist, cấu trúc folderIndex) — cùng lý do bản 1-bài phía
+            // trên: check `status==='typeMismatch'` bỏ hẳn.
             // SỬA 03/07/2026 (đợt 3): KHÔNG còn tự áp dụng ngay vào Playlist đang chạy — xem lý do
             // ở finishAdd() bản 1-bài phía trên (openAddToFolderPickerForSongMenu).
             this._exitSelectionMode();
-            await alertModal(tFormat(mediaType === 'video' ? 'fileManager.folderPicker.addSuccessVideo' : 'fileManager.folderPicker.addSuccess', { count: keys.length }));
-        });
+            await alertModal(tFormat(mediaType === 'video' ? 'fileManager.folderPicker.addSuccessVideo' : mediaType === 'photo' ? 'fileManager.folderPicker.addSuccessPhoto' : 'fileManager.folderPicker.addSuccess', { count: keys.length }));
+        }, { folders: await listFolders(mediaType) });
     },
 
     // ===================== Add to Folder — Generic Drawer grid (MỚI 14/07/2026) =====================
@@ -715,18 +711,26 @@ const workflowPlaylist = {
     },
 
     /** msg.type = 'playlist.folderPicker.addTile.click' — tạo NGAY 1 folder tên tự động (không
-     * trùng tên bất kỳ folder nào đang có), thêm vào cache RAM, vẽ lại grid với tile MỚI ở chế độ
-     * sửa tên (focus sẵn, xem _wireFolderPickerEvents()). KHÔNG tự "chọn" folder này luôn — user
-     * vẫn cần tap vào tile (sau khi sửa tên xong) như MỌI tile khác để hoàn tất việc chọn, giữ
-     * đúng 1 mô hình tương tác duy nhất cho toàn bộ grid (tạo ≠ chọn, tách 2 hành động RÕ RÀNG). */
+     * trùng tên bất kỳ folder CÙNG TYPE nào đang có trong grid), thêm vào cache RAM, vẽ lại grid
+     * với tile MỚI ở chế độ sửa tên (focus sẵn, xem _wireFolderPickerEvents()). KHÔNG tự "chọn"
+     * folder này luôn — user vẫn cần tap vào tile (sau khi sửa tên xong) như MỌI tile khác để hoàn
+     * tất việc chọn, giữ đúng 1 mô hình tương tác duy nhất cho toàn bộ grid (tạo ≠ chọn, tách 2
+     * hành động RÕ RÀNG).
+     * CHỐT Giang (hợp nhất Photo vào Playlist) — "Playlist source nào -> tạo folder và gán luôn
+     * type cho nó": type gán NGAY = `activeMediaSource` hiện tại (đọc thẳng, không cần biết context
+     * nào gọi tới — hàm này CHỈ reachable từ 2 luồng Add-to-Folder gốc của Playlist, picker Visual
+     * Background dùng `showAddTile: false` nên tile "+" không hề xuất hiện ở đó, xem
+     * event/workflow/visual-bg.js::openListFolderPicker()).
+     */
     async createFolderInPicker() {
+        const mediaType = appState.get('activeMediaSource');
         const defaultName = this._computeDefaultFolderName();
         // SỬA (14/07/2026, tự audit lại Rule 3) — createFolder() đổi chữ ký, không còn tự
         // resolveFolderId() nội bộ, xem docstring createFolder() (core/file-manager/folder.js).
-        const folderId = await resolveFolderId(defaultName); // core
-        const result = await createFolder(folderId, defaultName); // core có sẵn (core/file-manager/folder.js)
+        const folderId = await resolveFolderId(defaultName, mediaType); // core
+        const result = await createFolder(folderId, defaultName, mediaType); // core có sẵn (core/file-manager/folder.js)
         if (result.status !== 'ok') return; // hiếm — trùng tên dù đã tự tính tên không trùng (race hiếm gặp), im lặng bỏ qua
-        this._folderPickerFolders.push({ id: result.folderId, name: defaultName });
+        this._folderPickerFolders.push({ id: result.folderId, name: defaultName, type: mediaType });
         this._folderPickerEditingId = result.folderId;
         this._renderFolderPickerGrid(false);
     },
@@ -770,7 +774,8 @@ const workflowPlaylist = {
     async deleteSelectedSongs() {
         const keys = Array.from(appState.get('selectedSongKeys'));
         if (keys.length === 0) return;
-        const isVideo = appState.get('activeMediaSource') === 'video';
+        const mediaType = appState.get('activeMediaSource'); // 'song'|'video'|'photo'
+        const isVideo = mediaType === 'video';
 
         const currentKey = appState.get('currentKey');
         const wasPlayingSelected = currentKey != null && keys.includes(currentKey);
@@ -807,13 +812,17 @@ const workflowPlaylist = {
             // nguồn giờ là 1 mảng key riêng của workflowVisualBg (đã copy tách khỏi Playlist), xoá
             // video gốc ở đây không cần biết gì tới nó — lần advance()/apply() kế tiếp bên đó tự
             // phát hiện record mất + tự chữa lành.
-            const getRecordFn = isVideo ? getVideoRecord : getSongRecord; // service/db.js
+            // MỞ RỘNG (hợp nhất Photo vào Playlist) — thêm nhánh 'photo' (store `images`, hàm xoá
+            // riêng deleteImage() — trước đây thiếu nhánh này sẽ khiến deleteSongRecord() gọi nhầm
+            // lên key không tồn tại trong store `songs`, âm thầm KHÔNG xoá được gì).
+            const getRecordFn = isVideo ? getVideoRecord : mediaType === 'photo' ? getImageRecord : getSongRecord; // service/db.js
             const deletedKeys = [];
             for (const key of keys) {
                 const record = await getRecordFn(key);
                 if (!record) continue; // guard: đã bị xoá từ trước (hiếm, race) — bỏ qua, không chặn cả lô
-                await removeSongFromAllFolders(record); // core có sẵn (core/file-manager/folder.js) — nhận record THÔ qua tham số, generic cho cả Song/Video
+                await removeSongFromAllFolders(record); // core có sẵn (core/file-manager/folder.js) — nhận record THÔ qua tham số, generic cho cả Song/Video/Photo
                 if (isVideo) await deleteVideo(key); // core/file-manager/video.js
+                else if (mediaType === 'photo') await deleteImage(key); // core/file-manager/image.js
                 else await deleteSongRecord(key); // core CRUD thô (service/db.js)
                 removeSongStats(key); // core có sẵn (core/listen-stats.js)
                 deletedKeys.push(key);
@@ -883,6 +892,10 @@ const workflowPlaylist = {
         // luôn" — #btn-upload-video giờ LÀ <label> bọc thẳng input, không qua dropdown/router nào).
         if (btnUploadAudio) btnUploadAudio.classList.add('hidden');
         if (btnUploadVideo) btnUploadVideo.classList.remove('hidden');
+        // MỚI (hợp nhất Photo vào Playlist) — đảm bảo hàng "Phát/Trộn bài" hiện lại khi rời Photo
+        // (Video vẫn phát được bình thường, chỉ Photo mới ẩn — xem switchToPhotoSource()).
+        if (btnPlaylistEmptyPlay) btnPlaylistEmptyPlay.classList.remove('hidden');
+        if (btnPlaylistEmptyShuffle) btnPlaylistEmptyShuffle.classList.remove('hidden');
         await this._persistPlaylistConfig(); // MỚI (phản hồi Giang, mục 5) — lưu bền Nguồn để không mất sau reload
     },
 
@@ -924,6 +937,51 @@ const workflowPlaylist = {
         // KHÔI PHỤC 29/07/2026 (phản hồi Giang) — chiều ngược lại của toggle ở switchToVideoSource().
         if (btnUploadVideo) btnUploadVideo.classList.add('hidden');
         if (btnUploadAudio) btnUploadAudio.classList.remove('hidden');
+        // MỚI (hợp nhất Photo vào Playlist) — cùng lý do switchToVideoSource() ngay trên.
+        if (btnPlaylistEmptyPlay) btnPlaylistEmptyPlay.classList.remove('hidden');
+        if (btnPlaylistEmptyShuffle) btnPlaylistEmptyShuffle.classList.remove('hidden');
+        await this._persistPlaylistConfig(); // MỚI (phản hồi Giang, mục 5) — lưu bền Nguồn để không mất sau reload
+    },
+
+    /**
+     * Đổi Nguồn sang Photo — MỚI (hợp nhất Photo vào Playlist). Nạp lại TOÀN BỘ playlistCache/
+     * playlistOrder từ store `images` qua Adapter (buildPhotoPlaylistCache(), core/playlist/
+     * loader.js), rồi vẽ lại UI — TÁI DÙNG NGUYÊN 100% các hàm core đã phục vụ Song/Video
+     * (recomputeDisplayOrder/RenderOrder, updateEmptyState, updateShuffleArray, renderPlaylistDiff()
+     * -> buildSongNode()). CHỐT Giang: dùng HẲN UI Playlist Song/Video cho Photo, KHÔNG view riêng —
+     * `renderPlaylistDiff()` KHÔNG rẽ nhánh gì cả, chạy Y HỆT Song/Video. Khác biệt DUY NHẤT nằm
+     * trong shape dữ liệu Adapter tạo ra (`cover`=thumbBlob, `width`/`height` thay `duration` —
+     * buildSongNode() tự đọc `cached.mediaType==='photo'` để hiện "WxH" thay vì thời lượng).
+     * Không toggle #btn-upload-audio/#btn-upload-video (Photo chưa có nút upload riêng trong
+     * Playlist — vẫn upload qua File Manager -> Photo như cũ) — ẩn CẢ 2 nút khi ở Nguồn này.
+     */
+    async switchToPhotoSource() {
+        appState.set('activeMediaSource', 'photo');
+        console.log(`writer: "switchToPhotoSource", page: "activeMediaSource", content: "photo"`);
+
+        showPlaylistLoading(0, 0);
+        const imageRecords = await listImages(); // core/file-manager/image.js, CÓ return, DÙNG ngay dưới -> Workflow gọi Core hợp lệ (Rule 3)
+        const keys = buildPhotoPlaylistCache(imageRecords); // core/playlist/loader.js (MỚI), CÓ return, DÙNG ngay dưới
+        const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig').photo);
+        appState.set('playlistOrder', filteredKeys);
+        console.log(`writer: "switchToPhotoSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} ảnh (đã áp Filter)"`);
+
+        updateShuffleArray();      // core có sẵn (core/playlist/order.js) — vô hại dù Photo chưa dùng Shuffle (CHỐT Giang: player controls ẩn hẳn ở Nguồn này, tạm hoãn)
+        recomputeDisplayOrder();   // core có sẵn (core/playlist/order.js)
+        recomputeRenderOrder();    // core có sẵn (core/playlist/order.js) — áp Search box + Sort lên trên Filter
+        renderPlaylistDiff();      // core có sẵn (core/playlist/render.js) — CHẠY Y HỆT Song/Video, KHÔNG rẽ nhánh
+        resetPlaylistScrollTop();  // core — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
+        updateEmptyState();        // core có sẵn (core/playlist/render.js)
+        hidePlaylistLoading();     // chốt fade out lớp "đang nạp"
+        if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholderPhoto');
+        if (btnUploadAudio) btnUploadAudio.classList.add('hidden');
+        if (btnUploadVideo) btnUploadVideo.classList.add('hidden');
+        // MỚI (hợp nhất Photo vào Playlist) — CHỐT Giang: Photo chưa có khái niệm "hàng đợi phát",
+        // ẩn hẳn hàng "Phát/Trộn bài" (2 nút này gọi playMedia() qua displayOrder — vô nghĩa với
+        // Photo). Sẽ tính lại khi Slideshow áp dụng toàn app (không chỉ Visual Background) — tạm
+        // hoãn, KHÔNG nằm trong phạm vi đợt này.
+        if (btnPlaylistEmptyPlay) btnPlaylistEmptyPlay.classList.add('hidden');
+        if (btnPlaylistEmptyShuffle) btnPlaylistEmptyShuffle.classList.add('hidden');
         await this._persistPlaylistConfig(); // MỚI (phản hồi Giang, mục 5) — lưu bền Nguồn để không mất sau reload
     },
 
@@ -1008,18 +1066,27 @@ const workflowPlaylist = {
             appConfigPlaylist.mutateAll((cfg) => Object.assign(cfg, saved));
         }
         const cfg = appConfigPlaylist.getAll();
-        appState.set('activeMediaSource', cfg.activeMediaSource === 'video' ? 'video' : 'song');
+        // SỬA (hợp nhất Photo vào Playlist) — ternary nhị phân cũ (bất kỳ giá trị nào khác 'video'
+        // đều rơi về 'song') sẽ ÂM THẦM ép 'photo' đã lưu bền quay lại 'song' mỗi lần mở app — THAY
+        // bằng danh sách hợp lệ tường minh, giá trị lạ/thiếu mới rơi về 'song' (mặc định an toàn).
+        const validSources = ['song', 'video', 'photo'];
+        appState.set('activeMediaSource', validSources.includes(cfg.activeMediaSource) ? cfg.activeMediaSource : 'song');
         appState.set('displaySortMode', cfg.displaySortMode || 'az');
         appState.set('displayStatSortField', cfg.displayStatSortField || 'none'); // SỬA (mục 3)
         appState.set('displayStatSortDirection', cfg.displayStatSortDirection || 'desc');
         appState.set('isGridView', !!cfg.isGridView);
         console.log(`writer: "loadPersistedPlaylistConfigOnBoot", page: "activeMediaSource/displaySortMode/isGridView", content: "khôi phục từ meta.playlistConfig"`);
-        if (playlistSearchInput) playlistSearchInput.placeholder = t(cfg.activeMediaSource === 'video' ? 'playlistView.search.placeholderVideo' : 'playlistView.search.placeholder');
+        const restoredSource = appState.get('activeMediaSource');
+        if (playlistSearchInput) playlistSearchInput.placeholder = t(restoredSource === 'video' ? 'playlistView.search.placeholderVideo' : restoredSource === 'photo' ? 'playlistView.search.placeholderPhoto' : 'playlistView.search.placeholder');
         // KHÔI PHỤC 29/07/2026 (phản hồi Giang) — cùng lý do placeholder ngay trên: boot KHÔNG đi
-        // qua switchToVideoSource()/switchToSongSource() (2 nơi DUY NHẤT khác đang toggle 2 nút
-        // này) nên phải tự đồng bộ lại ở đây, đúng activeMediaSource vừa khôi phục.
-        if (btnUploadAudio) btnUploadAudio.classList.toggle('hidden', cfg.activeMediaSource === 'video');
-        if (btnUploadVideo) btnUploadVideo.classList.toggle('hidden', cfg.activeMediaSource !== 'video');
+        // qua switchToVideoSource()/switchToSongSource()/switchToPhotoSource() (3 nơi DUY NHẤT khác
+        // đang toggle 2 nút này) nên phải tự đồng bộ lại ở đây, đúng activeMediaSource vừa khôi phục.
+        if (btnUploadAudio) btnUploadAudio.classList.toggle('hidden', restoredSource !== 'song');
+        if (btnUploadVideo) btnUploadVideo.classList.toggle('hidden', restoredSource !== 'video');
+        // MỚI (hợp nhất Photo vào Playlist) — cùng lý do, hàng "Phát/Trộn bài" cũng phải tự đồng bộ
+        // ở đây (KHÔNG đi qua switchToPhotoSource() lúc boot).
+        if (btnPlaylistEmptyPlay) btnPlaylistEmptyPlay.classList.toggle('hidden', restoredSource === 'photo');
+        if (btnPlaylistEmptyShuffle) btnPlaylistEmptyShuffle.classList.toggle('hidden', restoredSource === 'photo');
         await this.syncPlaylistSettingsUI();
     },
 

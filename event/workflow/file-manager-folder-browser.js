@@ -81,11 +81,16 @@ const workflowFileManagerFolderBrowser = {
 
     /** Ứng với 'fileManagerFolderBrowser.open.click' — ĐIỂM VÀO DUY NHẤT (nút "Duyệt thư mục" ở
      * panel Song & Video) VÀ đích "back" từ Read — vẽ lại danh sách MỚI NHẤT mỗi lần (phòng vừa
-     * thêm/xoá/đổi tên ở nơi khác). */
+     * thêm/xoá/đổi tên ở nơi khác).
+     * CHỐT Giang (hợp nhất Photo vào Playlist) — "playlist source nào thì chỉ hiển thị type folder
+     * của source tương ứng": lọc NGAY tại nguồn qua `listFolders(activeMediaSource)` (core/file-
+     * manager/folder.js) — Folder Browser giờ LUÔN đúng ĐÚNG loại folder khớp Nguồn Playlist đang
+     * active, bất kể mở từ đâu.
+     */
     async openList() {
         this._mode = 'list';
         this._readFolderId = null;
-        this._folders = await listFolders(); // core/file-manager/folder.js
+        this._folders = await listFolders(appState.get('activeMediaSource')); // core/file-manager/folder.js
         this._editingFolderId = null;
         this._renderList(true);
     },
@@ -116,14 +121,18 @@ const workflowFileManagerFolderBrowser = {
         `;
     },
 
-    /** Tạo NGAY 1 folder tên tự động (không trùng tên bất kỳ folder nào đang có), vào thẳng chế độ
-     * sửa tên (focus sẵn) — cùng khuôn `createFolderInPicker()` (event/workflow/playlist.js). */
+    /** Tạo NGAY 1 folder tên tự động (không trùng tên bất kỳ folder CÙNG TYPE nào đang có), vào
+     * thẳng chế độ sửa tên (focus sẵn) — cùng khuôn `createFolderInPicker()` (event/workflow/
+     * playlist.js). CHỐT Giang (hợp nhất Photo vào Playlist) — type gán NGAY = `activeMediaSource`
+     * hiện tại (list đang hiển thị đã lọc đúng type này từ `openList()`, folder mới tạo tự nhiên
+     * cùng type với những gì đang thấy trên màn). */
     async createFolderInBrowser() {
+        const mediaType = appState.get('activeMediaSource');
         const defaultName = this._computeDefaultFolderName();
-        const folderId = await resolveFolderId(defaultName); // core/file-manager/folder.js
-        const result = await createFolder(folderId, defaultName); // core/file-manager/folder.js
+        const folderId = await resolveFolderId(defaultName, mediaType); // core/file-manager/folder.js
+        const result = await createFolder(folderId, defaultName, mediaType); // core/file-manager/folder.js
         if (result.status !== 'ok') return; // guard hiếm: trùng tên đúng lúc race — bỏ qua, người dùng bấm lại
-        this._folders.push({ id: folderId, name: defaultName, type: null });
+        this._folders.push({ id: folderId, name: defaultName, type: mediaType });
         this._editingFolderId = folderId;
         this._renderList(false);
     },

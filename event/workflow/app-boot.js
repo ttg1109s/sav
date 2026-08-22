@@ -27,6 +27,12 @@ const workflowAppBoot = {
         // ảnh/video, có thể hàng trăm MB). Chạy SAU khi đã nạp xong cấu hình mới, không await chặn
         // phần còn lại của boot vì nó không ảnh hưởng gì tới hiển thị.
         purgeVisualBgLegacyMeta(); // core/file-manager/cleanup.js
+        // MỚI (hợp nhất Photo vào Playlist, cấu trúc folderIndex O(1)) — AWAIT (khác purge ngay
+        // trên, không await được) vì `listFolders()` (core/file-manager/folder.js) từ nay LUÔN giả
+        // định `meta.folderIndex` đã tồn tại đúng — phải chắc chắn migrate xong TRƯỚC KHI người
+        // dùng có thể mở Folder Browser/Add to Folder (ngay sau boot), tránh race hiếm "index rỗng
+        // tạm thời trong lúc đang build" khiến folder cũ hiện biến mất 1 nhịp.
+        await migrateFolderIndexIfNeeded(); // core/file-manager/folder.js
         // Domain `slideshow` đã gộp vào `visualBgConfig.slideshow` (v13 Batch C) — đọc lại 1 lần
         // duy nhất ở dòng trên (loadPersistedSettingsOnBoot()), không còn hàm riêng nào cần gọi ở
         // đây cho slideshow nữa.
@@ -64,6 +70,13 @@ const workflowAppBoot = {
         const bootMediaSource = (typeof appState !== 'undefined') ? appState.get('activeMediaSource') : 'song';
         if (bootMediaSource === 'video' && typeof listVideos === 'function' && typeof buildVideoPlaylistCache === 'function') {
             buildVideoPlaylistCache(await listVideos()); // core có sẵn (core/playlist/loader.js)
+        } else if (bootMediaSource === 'photo' && typeof listImages === 'function' && typeof buildPhotoPlaylistCache === 'function') {
+            // MỚI (hợp nhất Photo vào Playlist) — cùng lý do nhánh 'video' ngay trên, tránh lặp lại
+            // đúng bug mục 7 (initPlaylistFromDB() chỉ nạp Song, applyFolderScope() bên dưới sẽ so
+            // sánh nhầm key nếu activeMediaSource đã khôi phục là 'photo'). Photo không có Folder
+            // Scope (Folder chỉ áp dụng Song/Video) nên KHÔNG cần nhánh sửa lệch type ở khối
+            // VirtualMachineState bên dưới — chỉ cần nạp ĐÚNG playlistCache ở bước này là đủ.
+            buildPhotoPlaylistCache(await listImages()); // core có sẵn (core/file-manager/image.js + core/playlist/loader.js)
         } else {
             await initPlaylistFromDB();
         }

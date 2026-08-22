@@ -469,10 +469,17 @@ const workflowFileManagerPhoto = {
         await alertModal(tFormat('fileManager.photo.image.uploadSuccess', { count: successCount }));
     },
 
-    /** Ứng với 'fileManagerPhoto.image.click' khi imageQuickDeleteMode=false (xem router).
+    /** Ứng với 'fileManagerPhoto.image.click' khi imageQuickDeleteMode=false (xem router) — CŨNG là
+     * đích gọi khi tap ảnh trong list item Playlist (activeMediaSource='photo', xem event/router/
+     * playlist.js case 'playlist.item.playClick') — tap ảnh ở CẢ 2 nơi đều mở XEM,
+     * KHÔNG bao giờ vào visualizer/playMedia() (hợp nhất Photo vào Playlist, CHỐT Giang).
      * MỚI (31/07/2026, Zoom mode) — giữ `modalHandle` ở `this._activeImageModalHandle` (Router cần
      * lại lúc xử lý toggle Zoom/nút X đóng — xem enterZoomMode()/exitImagePreviewMode()/
      * closeImagePreview()). `imagePreviewMode` reset về 'view' mỗi lần mở modal MỚI.
+     * MỚI (hợp nhất Photo vào Playlist) — tăng `count` trong `mediaStatsMap` (dùng CHUNG với Song/
+     * Video, Sort trục thống kê đọc field này — ý nghĩa đổi thành "lượt click xem" cho Photo, CHỐT
+     * Giang) mỗi lần mở xem, bất kể mở từ Photo Panel hay từ Playlist — 1 hành vi "xem ảnh" duy
+     * nhất, không phân biệt điểm vào.
      * @param {string} imageKey
      */
     async openImagePreview(imageKey) {
@@ -483,6 +490,7 @@ const workflowFileManagerPhoto = {
         this._activeImageKey = imageKey; // MỚI (31/07/2026) — Edit mode cần lại lúc decode canvas (enterEditMode())
         appState.set('imagePreviewMode', 'view');
         console.log(`writer: "openImagePreview", page: "imagePreviewMode", content: "view"`);
+        bumpSongPlayCount(imageKey); // core/listen-stats.js — tên hàm giữ nguyên (dùng CHUNG cho mọi mediaType), Photo dùng làm "lượt click xem"
 
         this._activeImageModalHandle = openImagePreviewModal(image); // core/file-manager/photo-ui.js — KHÔNG còn callbacks (Rule 5a, Core tự bắn eventBus cố định), Router gọi lại các hàm dưới đây, đọc _activeImageKey thay vì closure
     },

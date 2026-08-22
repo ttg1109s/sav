@@ -1503,8 +1503,7 @@ const workflowVisualBg = {
 
     /** video + group (Folder type='video'). */
     async openListFolderPicker() {
-        const folders = await listFolders(); // core/file-manager/folder.js
-        const videoFolders = folders.filter((f) => f.type === 'video');
+        const videoFolders = await listFolders('video'); // core/file-manager/folder.js — lọc sẵn tại nguồn, xem MỞ RỘNG hợp nhất Photo
         const counts = await Promise.all(videoFolders.map(async (f) => {
             const map = await getFolderSongMap(f.id); // service/db.js
             return map ? getFolderSongKeys(map).length : 0; // core/file-manager/folder.js
