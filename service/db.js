@@ -78,12 +78,11 @@
         //                     { blob, filename, addedAt }.
         //   - 'albums'      : album ảnh dùng cho slideshow nền, key = albumId, value =
         //                     { id, name, imageKeys: [...] }.
-        //   - 'documents'   : văn bản (txt/docx upload hoặc tự tạo), key = documentKey, value =
-        //                     { filename, title, content: string[], format: 'txt'|'docx',
-        //                     createdBy: 'upload'|'user', addedAt } — CHỐT 04/07/2026 (phản hồi
-        //                     Giang): content LUÔN là MẢNG đoạn văn (không phải 1 chuỗi dài), tách
-        //                     lúc upload/tạo (xem core/file-manager/document.js). CHỈ createdBy=
-        //                     'user' được sửa nội dung trong Reader.
+        //   - 'documents'   : ĐÃ NGỪNG DÙNG (loại bỏ Document Reader khỏi app) — KHÔNG còn tạo mới
+        //                     cho lần cài đặt mới (đã bỏ khỏi khối tạo store bên dưới); store cũ
+        //                     (nếu người dùng từng có) vẫn còn tồn tại "mồ côi" trong IndexedDB —
+        //                     CỐ Ý không xoá cứng qua deleteObjectStore() để tránh mất dữ liệu ngoài
+        //                     phạm vi yêu cầu (chỉ gỡ TÍNH NĂNG, không chủ động xoá dữ liệu cũ).
         // MỚI (21/07/2026, module File Manager -> Video) — tăng lên 5, thêm 1 store nữa:
         //   - 'videos'      : video người dùng thêm vào File Manager, key = videoKey, value =
         //                     { blob, thumbBlob, width, height, duration, filename, addedAt } —
@@ -147,7 +146,8 @@
                     if (!db.objectStoreNames.contains('folder_song')) db.createObjectStore('folder_song');
                     if (!db.objectStoreNames.contains('images')) db.createObjectStore('images');
                     if (!db.objectStoreNames.contains('albums')) db.createObjectStore('albums');
-                    if (!db.objectStoreNames.contains('documents')) db.createObjectStore('documents');
+                    // XOÁ (loại bỏ Document Reader khỏi app) — ngừng tạo store 'documents' cho lần
+                    // cài đặt mới (xem comment ở khai báo DB_VERSION phía trên).
                     if (!db.objectStoreNames.contains('videos')) db.createObjectStore('videos'); // MỚI (21/07/2026, module Video)
                 };
                 request.onsuccess = () => {
@@ -205,7 +205,6 @@
         const folderSongStore = makeStoreAccessor('folder_song');
         const imagesStore = makeStoreAccessor('images');
         const albumsStore = makeStoreAccessor('albums');
-        const documentsStore = makeStoreAccessor('documents');
         const videosStore = makeStoreAccessor('videos'); // MỚI (21/07/2026, module Video)
 
         /** CRUD cho store 'languages' — dùng bởi lang.js (saveLanguagePack/applySavedLanguage/
@@ -244,10 +243,8 @@
         function deleteAlbumRecord(albumId) { return idbKeyval.del(albumId, albumsStore); }
         function getAllAlbumKeys() { return idbKeyval.keys(albumsStore); }
 
-        function getDocumentRecord(documentKey) { return idbKeyval.get(documentKey, documentsStore); }
-        function setDocumentRecord(documentKey, record) { return idbKeyval.set(documentKey, record, documentsStore); }
-        function deleteDocumentRecord(documentKey) { return idbKeyval.del(documentKey, documentsStore); }
-        function getAllDocumentKeys() { return idbKeyval.keys(documentsStore); }
+        // XOÁ (loại bỏ Document Reader khỏi app) — CRUD 'documents' (getDocumentRecord/
+        // setDocumentRecord/deleteDocumentRecord/getAllDocumentKeys) bỏ hẳn cùng tính năng.
 
         // MỚI (21/07/2026, module File Manager -> Video) — CRUD thô, cùng khuôn 'images' ở trên.
         function getVideoRecord(videoKey) { return idbKeyval.get(videoKey, videosStore); }
