@@ -11,7 +11,7 @@
  */
 const workflowPhotoPanel = {
     close() {
-        resetSettingsStackToMain(); // core/settings-panel-stack-ui.js — pop hết Album List sub-panel nếu đang mở
+        resetSettingsStackToMain(); // core/settings-panel-stack-ui.js — pop hết mọi sub-panel nếu đang mở
         hidePhotoPanel(); // core/photo-panel.js
         workflowAppPanelNav.activateMedia(); // event/workflow/app-panel-nav.js — liên tuyến domain
     },

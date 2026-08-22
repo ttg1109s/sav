@@ -664,8 +664,10 @@ const workflowVisualBg = {
             const map = await getFolderSongMap(originId); // service/db.js
             return this._applyNextOrderToKeys(type, map ? getFolderSongKeys(map) : []); // core/file-manager/folder.js
         }
-        const album = await getAlbumRecord(originId); // service/db.js
-        return this._applyNextOrderToKeys(type, album && Array.isArray(album.imageKeys) ? album.imageKeys.slice() : []);
+        // XOÁ (loại bỏ Album khỏi Photo Panel) — Photo không còn hỗ trợ originKind='group' (Album).
+        // Trả rỗng — cấu hình cũ (nếu có, từ trước khi Album bị gỡ) tự self-heal qua cơ chế "origin
+        // đọc ra rỗng -> gỡ hẳn" đã có sẵn (xem `_resolveAndCommitSource()`).
+        return [];
     },
 
     /** Sắp `keys` theo `nextOrder` hiện tại — 'sequential'/'random' giữ nguyên thứ tự gốc (random tự
@@ -684,22 +686,12 @@ const workflowVisualBg = {
         return sorted.map((it) => it.key);
     },
 
-    /** Lối tắt "Dùng làm nền Slideshow" từ thanh quản lý Album — đặt `type='photo'` + nguồn = album
-     * vừa chọn trong 1 lần gọi. Gọi chéo domain từ event/workflow/file-manager-photo.js.
-     * @param {string} albumId
-     */
-    async applyAlbumAsBackground(albumId) {
-        // SỬA (09/08/2026, cơ chế pending) — dọn `source`/`pending` CŨ (có thể thuộc type KHÁC,
-        // ví dụ đang ở nhánh video) NGAY LÚC đổi `type` — KHÔNG để list mismatch-type còn sót lại
-        // khiến `_resolveAndCommitSource()` bên dưới đọc nhầm "đang có media active" (đếm trúng key
-        // VIDEO cũ) rồi xếp pending oan uổng, trong khi lối tắt này vốn dĩ là hành động "đổi hẳn
-        // ngay" — cùng tinh thần `changeType()` (đổi type luôn áp ngay, không qua pending).
-        appConfigVisualBg.mutateAll((cfg) => { cfg.type = 'photo'; cfg.source = { originKind: null, originId: null, list: [], videoAudio: {} }; cfg.pending = { originKind: null, originId: null, list: [] }; });
-        await this._resolveAndCommitSource('group', albumId);
-    },
+    // XOÁ (loại bỏ Album khỏi Photo Panel) — applyAlbumAsBackground() (lối tắt "Dùng làm nền
+    // Slideshow" từ thanh quản lý Album) bỏ hẳn cùng tính năng — caller (event/workflow/file-
+    // manager-photo.js) đã xoá.
 
     /** Đọc lại origin + ghi đè `source.list` — dùng CHUNG cho lúc CHỌN nguồn lẫn bấm "Làm tươi".
-     * Origin đọc ra rỗng (album/folder/ảnh/video không còn tồn tại) -> gỡ hẳn (Giang chốt mục 2).
+     * Origin đọc ra rỗng (folder/ảnh/video không còn tồn tại) -> gỡ hẳn (Giang chốt mục 2).
      * SỬA (08/08/2026, phản hồi Giang — "video key không còn tồn tại nữa là lưu trữ không cần
      * thiết") — XOÁ HẲN `source.videoAudio` (không giữ lại bất kỳ entry nào, kể cả video vẫn còn
      * mặt trong list mới) mỗi lần gọi hàm này — tức CẢ chọn nguồn MỚI lẫn "Làm tươi" nguồn CŨ đều
@@ -804,7 +796,7 @@ const workflowVisualBg = {
     },
 
     /** Gỡ hẳn nguồn hiện tại — về "chưa chọn" (đường DUY NHẤT, không còn Block gate chặn xoá ảnh/
-     * video/album/folder — Batch 3). */
+     * video/folder — Batch 3). */
     async clearSource() {
         // MỚI (09/08/2026, cơ chế pending, phản hồi Giang mục 2) — huỷ luôn pending dở dang (nếu
         // có): user chủ động gỡ hẳn = không còn gì để "chờ áp" nữa, KHÔNG áp ngay như bình thường.
@@ -1345,10 +1337,15 @@ const workflowVisualBg = {
 
         // Nhãn 2 nút Chọn phải đúng ngữ cảnh Ảnh/Video (Giang chốt) — gán qua DOM API (Rule 5d),
         // không phải data-i18n tĩnh vì phụ thuộc `cfg.type`.
+        // XOÁ (loại bỏ Album khỏi Photo Panel) — Photo không còn "nhóm" (Album) để chọn, ẩn hẳn nút
+        // pickGroupBtn khi type='photo' (chỉ còn video/Thư mục dùng được nút này).
         const pickSingleBtn = q('#setting-visual-bg-pick-single');
         const pickGroupBtn = q('#setting-visual-bg-pick-group');
         if (pickSingleBtn) pickSingleBtn.textContent = t(cfg.type === 'video' ? 'visualBgSettingsDrawer.pickSingle.video' : 'visualBgSettingsDrawer.pickSingle.photo');
-        if (pickGroupBtn) pickGroupBtn.textContent = t(cfg.type === 'video' ? 'visualBgSettingsDrawer.pickGroup.video' : 'visualBgSettingsDrawer.pickGroup.photo');
+        if (pickGroupBtn) {
+            pickGroupBtn.classList.toggle('hidden', cfg.type !== 'video');
+            pickGroupBtn.textContent = t('visualBgSettingsDrawer.pickGroup.video');
+        }
 
         const listPlaybackSelect = q('#setting-visual-bg-list-playback-mode');
         const listPlaybackRow = q('#visual-bg-list-playback-row');
@@ -1418,13 +1415,12 @@ const workflowVisualBg = {
         return cfg.pending.originKind ? { originKind: cfg.pending.originKind, originId: cfg.pending.originId } : { originKind: cfg.source.originKind, originId: cfg.source.originId };
     },
 
-    /** Đọc tên hiển thị thật của 1 origin (imageKey/videoKey/albumId/folderId). */
+    /** Đọc tên hiển thị thật của 1 origin (imageKey/videoKey/folderId).
+     * XOÁ (loại bỏ Album khỏi Photo Panel) — nhánh `originKind==='group' && type==='photo'` (đọc
+     * tên Album) bỏ hẳn — Photo không còn originKind='group' nữa (xem `_readOriginKeys()`).
+     */
     async _readSourceDisplayName(type, originKind, originId) {
         const none = t('visualBgSettingsDrawer.pickSource.none');
-        if (originKind === 'group' && type === 'photo') {
-            const album = await getAlbumRecord(originId); // service/db.js
-            return album ? album.name : none;
-        }
         if (originKind === 'group' && type === 'video') {
             const folder = await getFolderRecord(originId); // service/db.js
             return folder ? folder.name : none;
@@ -1499,37 +1495,11 @@ const workflowVisualBg = {
         this._closePickerDrawer();
     },
 
-    /** photo + group (Album). */
-    async openListAlbumPicker() {
-        const [albums, images] = await Promise.all([listAlbums(), listImages()]); // core/file-manager/album.js + image.js
-        const eligibleAlbums = albums.filter((a) => Array.isArray(a.imageKeys) && a.imageKeys.length >= VISUAL_BG_MIN_LIST_ITEMS); // core/visual-bg.js
-        const imageRecordsByKey = new Map(images.map((img) => [img.key, img]));
-
-        openGenericDrawer({ // core/generic-drawer.js
-            zIndex: Z_INDEX.GENERIC_DRAWER,
-            headerHtml: this._buildPickerHeaderHtml(t('visualBgSettingsDrawer.albumPicker.title')),
-            bodyHtml: `
-                <div id="visual-bg-album-picker-grid" class="grid grid-cols-3 gap-x-2 gap-y-5"></div>
-                <p id="visual-bg-album-picker-empty" class="hidden text-sm text-slate-300 text-center py-8">${t('visualBgSettingsDrawer.albumPicker.empty')}</p>
-            `,
-            bodyClass: 'overflow-y-auto px-4 pb-6 pt-2',
-        });
-        this._pickerCleanup = wireAlbumPickerDrawerActions('visualBg', 'visualBg.albumPicker'); // core/file-manager/photo-ui.js
-
-        const gridEl = genericDrawerBody.querySelector('#visual-bg-album-picker-grid');
-        const emptyEl = genericDrawerBody.querySelector('#visual-bg-album-picker-empty');
-        renderAlbumPickerGrid(gridEl, eligibleAlbums, appConfigVisualBg.getAll().source.originId, imageRecordsByKey, 'visualBg', 'visualBg.albumPicker'); // core/file-manager/photo-ui.js
-        if (emptyEl) emptyEl.classList.toggle('hidden', eligibleAlbums.length > 0);
-    },
-
-    async selectAlbumFromPicker(albumId) {
-        this._closePickerDrawer();
-        await this._resolveAndCommitSource('group', albumId);
-    },
-
-    cancelAlbumPicker() {
-        this._closePickerDrawer();
-    },
+    // XOÁ (loại bỏ Album khỏi Photo Panel) — openListAlbumPicker()/selectAlbumFromPicker()/
+    // cancelAlbumPicker() (photo + group = Album) bỏ hẳn cùng tính năng — Photo giờ CHỈ còn "chọn 1
+    // ảnh" (single), không còn "chọn nhóm". Router (event/router/visual-bg.js) đã bỏ nhánh photo
+    // khỏi case 'visualBg.pickGroupSource.click', UI (refreshPanelUI()) đã ẩn hẳn nút "Chọn nhóm"
+    // khi type='photo'.
 
     /** video + group (Folder type='video'). */
     async openListFolderPicker() {

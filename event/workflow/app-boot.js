@@ -27,11 +27,9 @@ const workflowAppBoot = {
         // ảnh/video, có thể hàng trăm MB). Chạy SAU khi đã nạp xong cấu hình mới, không await chặn
         // phần còn lại của boot vì nó không ảnh hưởng gì tới hiển thị.
         purgeVisualBgLegacyMeta(); // core/file-manager/cleanup.js
-        // Đọc lại slideshowConfig/activeBackgroundAlbum đã lưu (meta) + tự khởi động engine nếu
-        // có album active — NGAY SAU khối khôi phục Visual Background ở trên (cùng nhóm "khôi phục
-        // nền lúc boot"). (Domain `slideshow` sẽ được gộp nốt vào `visualBg` ở Batch C.)
-        // (v13 Batch C — `workflowSlideshow.loadPersistedSettingsOnBoot()` ĐÃ XOÁ: domain config
-        //  `slideshow` gộp vào `visualBgConfig.slideshow`, đọc lại 1 lần duy nhất ở dòng trên.)
+        // Domain `slideshow` đã gộp vào `visualBgConfig.slideshow` (v13 Batch C) — đọc lại 1 lần
+        // duy nhất ở dòng trên (loadPersistedSettingsOnBoot()), không còn hàm riêng nào cần gọi ở
+        // đây cho slideshow nữa.
         if (typeof checkPendingResumeStateOnBoot === 'function') checkPendingResumeStateOnBoot();
         if (typeof loadSongStats === 'function') await loadSongStats();
 

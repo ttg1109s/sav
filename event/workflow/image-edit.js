@@ -4,13 +4,13 @@
  * nền, Lưu đè/Lưu mới). Router riêng: event/router/image-edit.js (tên `imageEdit`).
  *
  * Biên giới tách theo TRÁCH NHIỆM, không theo file — `workflowFileManagerPhoto` (miền khác) vẫn giữ
- * vòng đời modal xem ảnh (mở/đóng/Zoom mode), lộ 3 khe ĐỌC cho workflow này tự lấy lại
- * handle/imageKey/albumId lúc `enterEditMode()` (`getActiveImageModalHandle()`/`getActiveImageKey()`/
- * `getActiveModalAlbumId()`) — SNAPSHOT lại thành field RIÊNG của chính workflow này ngay lúc vào
- * Edit mode (không đổi trong suốt phiên Edit), dùng lại y hệt tên cũ cho khỏi phải sửa toàn bộ thân
- * hàm bên dưới. `exitEditMode()` (public, không underscore) được `workflowFileManagerPhoto` gọi
- * ngược lại lúc thoát Zoom/Edit hoặc đóng hẳn modal (Workflow-gọi-Workflow tự do, xem event-bus-
- * flow.md mục 4B "Tái dùng Workflow giữa các miền khác nhau").
+ * vòng đời modal xem ảnh (mở/đóng/Zoom mode), lộ 2 khe ĐỌC cho workflow này tự lấy lại
+ * handle/imageKey lúc `enterEditMode()` (`getActiveImageModalHandle()`/`getActiveImageKey()`) —
+ * SNAPSHOT lại thành field RIÊNG của chính workflow này ngay lúc vào Edit mode (không đổi trong
+ * suốt phiên Edit), dùng lại y hệt tên cũ cho khỏi phải sửa toàn bộ thân hàm bên dưới. `exitEditMode()`
+ * (public, không underscore) được `workflowFileManagerPhoto` gọi ngược lại lúc thoát Zoom/Edit hoặc
+ * đóng hẳn modal (Workflow-gọi-Workflow tự do, xem event-bus-flow.md mục 4B "Tái dùng Workflow giữa
+ * các miền khác nhau").
  *
  * NẠP SAU: event/workflow/file-manager-photo.js, event/workflow/generic-drawer-helpers.js,
  * core/photo-editor-engine.js, core/crop-selector.js, core/generic-drawer.js, service/z-index.js.
@@ -19,7 +19,6 @@ const workflowImageEdit = {
 
     _activeImageModalHandle: null, // snapshot từ workflowFileManagerPhoto.getActiveImageModalHandle() lúc enterEditMode()
     _activeImageKey: null,         // snapshot từ getActiveImageKey() — decode canvas cần lại
-    _activeAlbumId: null,          // snapshot từ getActiveModalAlbumId() — Lưu đè/Lưu mới cần lại để refresh() đúng lưới
     _activeEditParams: null,       // {brightness,contrast,saturation,temperature,tint,sharpen} — null khi không ở Edit mode
     _activeAdjustParam: null,      // key param đang mở slider — null khi popup adjust đang ẩn
     _activeSubTool: 'none',        // 'none'|'crop'|'draw'|'text'|'magic' — KHÁC 'adjust' (live-preview trực tiếp, không có sub-tool mode riêng)
@@ -36,8 +35,8 @@ const workflowImageEdit = {
         temperature: { min: -100, max: 100 }, tint: { min: -100, max: 100 }, sharpen: { min: 0, max: 100 },
     },
 
-    /** Vào Edit mode (router `imageEdit`, case 'imageEdit.toggle.click') — snapshot handle/imageKey/
-     * albumId từ workflowFileManagerPhoto, decode ảnh vào canvas (core/photo-editor-engine.js), ẩn
+    /** Vào Edit mode (router `imageEdit`, case 'imageEdit.toggle.click') — snapshot handle/imageKey
+     * từ workflowFileManagerPhoto, decode ảnh vào canvas (core/photo-editor-engine.js), ẩn
      * `<img>`/hiện `canvasWrap`, hiện `toolsBtn`, mở Generic Drawer hiện lưới tool nhóm theo header.
      */
     async enterEditMode() {
@@ -45,7 +44,6 @@ const workflowImageEdit = {
         if (!handle) return; // guard: modal đã đóng ở đâu đó trước khi tới đây
         this._activeImageModalHandle = handle;
         this._activeImageKey = workflowFileManagerPhoto.getActiveImageKey();
-        this._activeAlbumId = workflowFileManagerPhoto.getActiveModalAlbumId();
 
         appState.set('imagePreviewMode', 'edit');
         console.log(`writer: "enterEditMode", page: "imagePreviewMode", content: "edit"`);
@@ -53,6 +51,7 @@ const workflowImageEdit = {
 
         const record = await getImageRecord(this._activeImageKey); // service/db.js — đọc lại BLOB gốc thật, không dùng lại objectUrl <img>
         if (!record) { workflowFileManagerPhoto.exitImagePreviewMode(); return; } // guard hiếm: ảnh vừa bị xoá ở tab khác giữa lúc bấm Edit
+
 
         const decoded = await decodeImageToCanvas(record.blob); // core/photo-editor-engine.js
         [handle.baseCanvas, handle.renderCanvas, handle.interactCanvas].forEach(c => {
@@ -588,7 +587,7 @@ const workflowImageEdit = {
     async saveEditOverwrite() {
         const handle = this._activeImageModalHandle;
         if (!handle || !this._activeEditParams) return; // guard: hiếm, không ở Edit mode nữa
-        const imageKey = this._activeImageKey, activeAlbumId = this._activeAlbumId;
+        const imageKey = this._activeImageKey;
 
         await withLoadingShield(t('common.loading.savingImageEdit'), async () => {
             const finalBlob = await this._exportEditedBlob();
@@ -596,30 +595,27 @@ const workflowImageEdit = {
             await updateImageBlob(imageKey, finalBlob, thumbBlob, width, height); // core/file-manager/image.js
         });
         workflowFileManagerPhoto.closeImagePreview();
-        await workflowFileManagerPhoto.refresh(activeAlbumId);
+        await workflowFileManagerPhoto.refresh();
         await alertModal(t('fileManager.photo.image.editSaveOverwriteSuccess'));
     },
 
     /** Item "Lưu mới" (dropdown, CHỈ hiện khi `imagePreviewMode==='edit'`) — xuất `renderCanvas` ->
      * resize thumbnail -> `saveImage()` (core/file-manager/image.js, dùng CHUNG hàm upload) với tên
-     * file MỚI (`_buildEditedNewFilename()`) -> nếu đang lọc theo 1 album, thêm luôn ảnh mới vào
-     * ĐÚNG album đó. Đóng modal + refresh lưới SAU KHI lưu xong.
+     * file MỚI (`_buildEditedNewFilename()`). Đóng modal + refresh lưới SAU KHI lưu xong.
      */
     async saveEditAsNew() {
         const handle = this._activeImageModalHandle;
         if (!handle || !this._activeEditParams) return; // guard: hiếm, không ở Edit mode nữa
-        const activeAlbumId = this._activeAlbumId;
 
         await withLoadingShield(t('common.loading.savingImageEdit'), async () => {
             const originalRecord = await getImageRecord(this._activeImageKey); // service/db.js
             const finalBlob = await this._exportEditedBlob();
             const { thumbBlob, width, height } = await workflowFileManagerPhoto.resizeImageForThumbnail(finalBlob);
             const newFilename = this._buildEditedNewFilename(originalRecord ? originalRecord.filename : 'photo.jpg');
-            const newKey = await saveImage(finalBlob, newFilename, thumbBlob, width, height); // core/file-manager/image.js
-            if (activeAlbumId) await addImagesToAlbum([newKey], activeAlbumId); // core/file-manager/album.js
+            await saveImage(finalBlob, newFilename, thumbBlob, width, height); // core/file-manager/image.js
         });
         workflowFileManagerPhoto.closeImagePreview();
-        await workflowFileManagerPhoto.refresh(activeAlbumId);
+        await workflowFileManagerPhoto.refresh();
         await alertModal(t('fileManager.photo.image.editSaveNewSuccess'));
     },
 
@@ -657,7 +653,6 @@ const workflowImageEdit = {
         this._activeSubTool = 'none';
         this._activeImageModalHandle = null;
         this._activeImageKey = null;
-        this._activeAlbumId = null;
     },
 
 };
