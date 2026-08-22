@@ -34,8 +34,8 @@
  *
  * ĐẬP ĐI LÀM LẠI (rewrite Photo/Album, Giang yêu cầu "không dùng window virtual tự tạo nữa, dùng
  * thư viện") — `computeVariableVirtualWindowRange()`/`itemTemplateImageGridRow()` (từng ở file này,
- * dùng cho lưới ảnh Photo & Album — xem lịch sử "CONSUMER THẬT ĐẦU TIÊN" cũ) XOÁ HẲN cùng lúc bỏ
- * hẳn `event/workflow,router,listener/virtual-list.js`. Lưới ảnh Photo & Album GIỜ KHÔNG còn dùng
+ * dùng cho lưới ảnh Photo — xem lịch sử "CONSUMER THẬT ĐẦU TIÊN" cũ) XOÁ HẲN cùng lúc bỏ
+ * hẳn `event/workflow,router,listener/virtual-list.js`. Lưới ảnh Photo GIỜ KHÔNG còn dùng
  * gì ở file NÀY nữa — chuyển hẳn sang `event/workflow/photo-gallery-window.js` (windowing cấp NHÓM
  * NGÀY qua `IntersectionObserver` + fjGallery, thư viện thật). `computeVirtualWindowRange()` (giả
  * định chiều cao đều — GIỮ NGUYÊN, dùng cho danh sách đều bất kỳ) là hàm windowing DUY NHẤT còn lại
@@ -170,59 +170,11 @@ function computeVirtualWindowRange(scrollTop, viewHeight, itemHeight, itemCount,
 // ===================== ĐÃ GỠ (rewrite Photo/Album, Giang yêu cầu "không dùng window virtual tự tạo
 // nữa, dùng thư viện thật") — computeVariableVirtualWindowRange()/itemTemplateImageGridRow() ========
 // 2 hàm (bản trước ở đây) XOÁ HẲN — nguồn gốc hàng loạt bug layout/lệch cuộn đã gặp (tự tính offset/
-// chiều cao hàng bằng tay). Lưới ảnh Photo & Album giờ dùng event/workflow/photo-gallery-window.js:
+// chiều cao hàng bằng tay). Lưới ảnh Photo giờ dùng event/workflow/photo-gallery-window.js:
 // windowing cấp NHÓM NGÀY qua IntersectionObserver (trình duyệt tự lo, không tính tay) + fjGallery
 // (thư viện thật, thuật toán Flickr/Google Photos) lo layout thật bên trong mỗi nhóm — tile ảnh giờ
 // dựng bằng DOM node thật (createElement) NGAY trong file đó, không còn qua template chuỗi HTML ở
 // đây nữa (badge chọn/xoá toggle TRỰC TIẾP trên node đã có, không cần render lại).
 
-/**
- * VIẾT LẠI (Giang yêu cầu "làm giống y hệt Playlist UI cho mỗi song") — 1 hàng trong Album List
- * sub-panel, THAY HẲN layout 4-icon-riêng cũ bằng ĐÚNG khuôn dòng bài hát (core/playlist/render.js::
- * buildSongNode(), nhánh list-view): ảnh thumbnail trái — tên+số lượng giữa (2 dòng, đúng kiểu
- * title/artist) — 1 nút "..." duy nhất phải, mở dropdown menu (core/dropdown-menu.js) chứa 4 hành
- * động cũ (xem/thêm ảnh/đổi tên/xoá) thay vì hiện sẵn 4 icon rời.
- * KHÔNG còn `data-album-list-row`/`data-album-list-action` (đã bỏ ở fix bug 2 — cả dòng KHÔNG bấm
- * được nữa để "vào sub panel", CHỈ nút "..." là tương tác được) — `data-album-id` đặt ngay trên
- * dòng để listener đọc khi bấm "...".
- * Ảnh đại diện: ẢNH ĐẦU TIÊN trong album (`imageRecordsByKey`, TÁI DÙNG đúng cách lấy ảnh đại diện
- * đã dùng ở `renderSlideshowAlbumPickerGrid()` — core/file-manager/photo-ui.js) — album rỗng (chưa
- * có ảnh nào) hiện icon "thêm ảnh" làm placeholder, KHÔNG có `<img>` nào (tránh tạo object URL vô
- * nghĩa cho ảnh không tồn tại).
- * Hàm THUẦN (Rule 1-4) — không appState, không gọi core khác. Tạo object URL trực tiếp (side-effect
- * NGOÀI phạm vi Rule 1-4 cấm, cùng lý do `itemTemplateImageGridRow()` cũ từng làm) — AN TOÀN vì
- * `refreshAlbumListPanel()` (event/workflow/file-manager-photo.js) tự revoke TOÀN BỘ object URL cũ
- * TRƯỚC mỗi lần vẽ lại (KHÔNG windowing — số album luôn nhỏ, vẽ lại toàn bộ mỗi lần refresh).
- * @param {{id: string, name: string, imageKeys: Array<string>}} album
- * @param {Map<string, {blob: Blob, thumbBlob?: Blob}>} [imageRecordsByKey] - key -> record ảnh, DÙNG
- *        lấy ảnh đại diện đầu tiên mà KHÔNG cần đọc DB lại (Workflow đã có sẵn từ listImages()).
- * MỚI (17/07/2026, Giang yêu cầu "bấm vào album để view luôn ảnh") — CẢ HÀNG giờ bấm được
- * (`data-album-id` trên div ngoài cùng, `cursor-pointer`/hover) -> lọc lưới ảnh chính theo album
- * (event/listener/file-manager-photo.js, event bus 'fileManagerPhoto.albumList.row.click') — nút
- * "..." (`data-album-menu-action`) VẪN RIÊNG cho Đổi tên/Xoá, tự `stopPropagation` KHÔNG cần thiết
- * vì listener đã check nút menu TRƯỚC (return sớm) rồi mới tới check cả hàng.
- * @returns {string}
- */
-function itemTemplateAlbumListRow(album, imageRecordsByKey) {
-    const count = Array.isArray(album.imageKeys) ? album.imageKeys.length : 0;
-    const firstImageKey = Array.isArray(album.imageKeys) && imageRecordsByKey
-        ? album.imageKeys.find((k) => imageRecordsByKey.has(k))
-        : null;
-    const firstImage = firstImageKey ? imageRecordsByKey.get(firstImageKey) : null;
-    const coverHtml = firstImage
-        ? `<img src="${URL.createObjectURL(firstImage.thumbBlob || firstImage.blob)}" data-has-object-url="1" class="w-12 h-12 rounded-lg shrink-0 object-cover shadow-md" alt="">`
-        : `<div class="w-12 h-12 rounded-lg shrink-0 bg-white/5 flex items-center justify-center text-slate-500">
-               <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-           </div>`;
-    return `
-        <div class="flex items-center gap-4 px-5 py-3 border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors" data-album-id="${escapeHtml(album.id)}">
-            ${coverHtml}
-            <div class="flex-grow flex flex-col justify-center overflow-hidden gap-0.5">
-                <h3 class="text-[16px] leading-tight font-semibold truncate text-slate-100">${escapeHtml(album.name)}</h3>
-                <p class="text-[13px] text-slate-400 truncate font-medium">${tFormat('fileManager.photo.albumList.photoCount', { count })}</p>
-            </div>
-            <button type="button" class="p-2 rounded-full bg-black/30 text-slate-200 hover:text-white hover:bg-black/50 transition-colors shrink-0" data-album-menu-action="1" title="${t('fileManager.photo.albumList.menuTitle')}">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg>
-            </button>
-        </div>`;
-}
+// XOÁ (loại bỏ Album khỏi Photo Panel) — itemTemplateAlbumListRow() (1 hàng trong Album List
+// sub-panel) bỏ hẳn cùng tính năng — panel đó không còn tồn tại.

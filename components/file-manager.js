@@ -1,12 +1,12 @@
 /**
- * components/file-manager.js — 3 drawer con của File Manager (Song/Photo & Album/Documents),
- * ver 12 "Multi Media". CHỐT LẠI 03/07/2026 (xem plan-v12-multimedia-decisions.md mục 1a/7,
- * đè lên quyết định ban đầu ở patch 02/07/2026):
+ * components/file-manager.js — 2 drawer con của File Manager (Song/Photo), ver 12 "Multi Media".
+ * CHỐT LẠI 03/07/2026 (xem plan-v12-multimedia-decisions.md mục 1a/7, đè lên quyết định ban đầu ở
+ * patch 02/07/2026):
  *
  * KHÔNG còn 1 overlay "File Manager" cấp cao với tab-bar 4 mục nữa. File Manager giờ chỉ là 1
  * SECTION bình thường trong Settings (xem components/settings/file-manager-section.js —
- * TPL_SETTINGS_FILE_MANAGER, 3 hàng Song/Photo & Album/Documents), mỗi hàng bấm vào PUSH THẲNG
- * sang 1 trong 3 khu vực định nghĩa ở file này.
+ * TPL_SETTINGS_FILE_MANAGER, 2 hàng Song/Photo), mỗi hàng bấm vào PUSH THẲNG sang 1 trong 2 khu
+ * vực định nghĩa ở file này.
  *
  * === Batch D5 (Settings restructure, 06/07/2026) — Song + Folder Detail ===
  * 2 hàm `renderFileManagerSongPanelBody()`/`renderFileManagerFolderDetailPanelBody()` THAY 2 biến
@@ -18,23 +18,12 @@
  * sau khi đọc DB xong — xem event/workflow/file-manager-song.js::refreshFolderDetail()).
  *
  * `TPL_FILE_MANAGER_PHOTO_DRAWER` ĐÃ đổi ở Batch D6 (06/07/2026) — `renderFileManagerPhotoPanelBody()`,
- * push động `fullBleed: true` (masonry/story slider tràn viền, xem core/settings-panel-stack.js).
- * CẢ 3 khu vực (Song/Folder Detail/Photo) giờ ĐỀU là hàm push động — file này KHÔNG còn biến
+ * push động `fullBleed: true` (lưới ảnh tràn viền, xem core/settings-panel-stack.js).
+ * CẢ 2 khu vực (Song/Folder Detail/Photo) giờ ĐỀU là hàm push động — file này KHÔNG còn biến
  * `TPL_FILE_MANAGER_*` nào cả.
  *
  * components/storage-drawer.js + biến TPL_STORAGE_DRAWER KHÔNG còn được mount (xem main.js) —
  * file cũ ĐỂ LẠI trong project làm tư liệu đối chiếu, KHÔNG xoá tự động, bác xoá tay khi rảnh.
- *
- * MỚI (batch tiếp theo 03/07/2026, mục 2.2/2.3 plan-v12-multimedia-update-2.md — nợ kỹ thuật đã
- * xác nhận từ Batch 3) — panel Photo thêm 2 khối: `#file-manager-album-manage-bar`
- * (Đổi tên/Xoá album đang lọc + mở chế độ "Thêm ảnh có sẵn") và `#file-manager-image-selection-bar`
- * (thanh hành động khi đang chọn nhiều ảnh để thêm vào album). Xem core/file-manager/photo-ui.js
- * (render + modal đổi tên) và event/workflow/file-manager-photo.js (logic).
- *
- * MỚI (Batch 8, 03/07/2026, slideshow nền Visual) — `#file-manager-album-manage-bar` thêm nút
- * `#btn-file-manager-album-set-slideshow-bg` ("Dùng làm nền Slideshow" cho album đang lọc). Xem
- * event/workflow/slideshow.js (engine) + components/slideshow-settings-drawer.js (Settings Drawer
- * riêng, mở từ Settings chính — plan-v12-multimedia-update-3.md mục 3).
  *
  * XOÁ (29/07/2026, yêu cầu Giang mục 1/2) — `renderFileManagerSongPanelBody()` (panel "Song &
  * Video" — nút "Duyệt thư mục" + thống kê + giải phóng bộ nhớ + dọn file lỗi) ĐÃ XOÁ HẲN khỏi file
@@ -60,11 +49,11 @@
 // TRỰC TIẾP bên trong event/workflow/file-manager-folder-browser.js (Generic Drawer, trạng thái
 // Read — _buildReadHeaderHtml()/_buildReadBodyHtml()), không còn ở file template này nữa.
 
-// ===================== Khu vực: Photo & Album (Batch 3, 03/07/2026 — code thật) =====================
+// ===================== Khu vực: Photo (Batch 3, 03/07/2026 — code thật) =====================
 // Batch D6 (Settings restructure, 06/07/2026): TPL_FILE_MANAGER_PHOTO_DRAWER (khung `fixed
 // inset-0 drawer-glass z-[90]` + header riêng) THAY bằng hàm `renderFileManagerPhotoPanelBody()`,
-// PUSH ĐỘNG với `fullBleed: true` (masonry/story slider tràn viền, không dùng khung "max-w-2xl"
-// mặc định — xem event/workflow/file-manager-photo.js::openPanel()).
+// PUSH ĐỘNG với `fullBleed: true` (lưới ảnh tràn viền, không dùng khung "max-w-2xl" mặc định — xem
+// event/workflow/file-manager-photo.js::openPanel()).
 //
 // SỬA (14/07/2026, mục cuối, Giang yêu cầu):
 //   1. Nút upload dời NGƯỢC LẠI lên header dùng chung (`headerActionHtml`, core/settings-panel-
@@ -72,46 +61,12 @@
 //      (icon thùng rác, chế độ xoá nhanh — mục 2.2) ĐI CÙNG headerActionHtml, cả 2 nút build ở
 //      event/workflow/file-manager-photo.js::openPanel() (không hardcode ở đây — trạng thái hiện/ẩn
 //      của thùng rác phụ thuộc `images.length`, chỉ Workflow biết lúc mở panel).
-//   2. Album story — THÊM pagination "arrow" (mục 2.3): nút "+" tạo album mới giờ CỐ ĐỊNH (tách
-//      khỏi `renderAlbumStory()`, viết TĨNH ngay đây — không còn phụ thuộc dữ liệu album, không cần
-//      vẽ lại mỗi refresh).
 //
-// SỬA (14/07/2026, Giang chỉnh lại — "dùng THẲNG core/pagination.js::buildPaginationArrowsHtml(),
-// KHÔNG tự viết 2 nút ‹/› riêng; số 'trang hiện tại/tổng' hàm đó TỰ tạo ra thì ẩn bằng CSS, KHÔNG
-// sửa core"): `#file-manager-album-story-pagination-wrap` RỖNG — Workflow đổ NGUYÊN chuỗi
-// `buildPaginationArrowsHtml()` (core, KHÔNG sửa) vào đây mỗi lần đổi trang. `display: contents`
-// (assets/css/style.css) "tháo" cái `<div>` bọc ngoài của hàm đó ra khỏi layout — 3 con bên trong
-// (nút ‹, span "1/3", nút ›) trở thành con TRỰC TIẾP của hàng flex này, tự xếp lại vị trí bằng
-// `order` (CSS thuần, KHÔNG đụng core): ‹ đứng đầu, "+ tạo mới"/danh sách album đứng giữa, › đứng
-// cuối — số trang "1/3" bị ẩn hẳn (`display:none`, chọn theo `[data-pagination-action]` — thuộc
-// tính core tự gắn sẵn, không cần thêm class/id gì mới vào core).
+// XOÁ (loại bỏ Album khỏi Photo Panel) — toàn bộ khối Album (nút mở Album List sub-panel, chip lọc
+// album) bỏ hẳn cùng tính năng — panel Photo giờ CHỈ còn lưới ảnh phẳng, không còn khái niệm
+// nhóm/lọc theo album. Sẽ thay bằng Folder Photo trong File Browser ở đợt riêng (pending).
 function renderFileManagerPhotoPanelBody() {
     return `
-        <!-- SỬA (Giai đoạn 3b, rewrite Photo/Album, mục 3a — Giang yêu cầu "đập đi làm lại") — THAY
-             HẲN story slider ngang + thanh quản lý album cũ (2 khối đã xoá, xem lịch sử git nếu cần
-             đối chiếu) bằng 1 nút mở Album List sub-panel riêng (list phân trang, xem
-             renderFileManagerAlbumListPanelBody() ngay dưới + event/workflow/file-manager-photo.js::
-             openAlbumListPanel()). Toàn bộ quản lý album (đổi tên/xoá/thêm ảnh/xem) giờ SỐNG TRONG
-             sub-panel đó — panel Photo chính CHỈ còn hiện chip lọc đơn giản (tên album đang lọc + nút
-             bỏ lọc) khi có, KHÔNG còn thanh hành động đầy đủ như trước. -->
-        <button id="btn-file-manager-open-album-list" class="flex justify-between items-center p-4 shrink-0 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
-            <div class="flex items-center gap-3 min-w-0">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                <span class="text-sm font-medium truncate" id="file-manager-album-list-entry-label" data-i18n="fileManager.photo.albumList.entryButton">${t('fileManager.photo.albumList.entryButton')}</span>
-            </div>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-        </button>
-
-        <!-- Chip lọc album đang xem — chỉ hiện khi activeAlbumId != null (toggle 'hidden'/'flex' ở
-             workflow, xem event/workflow/file-manager-photo.js::refresh()). Đổi tên/xoá/thêm ảnh/xem
-             album giờ đều làm TRONG Album List sub-panel — chip này CHỈ để bỏ lọc nhanh. -->
-        <div id="file-manager-album-filter-chip" class="hidden items-center justify-between gap-2 px-4 py-2 border-b border-white/5 shrink-0 bg-white/5">
-            <span id="file-manager-album-filter-name" class="text-sm font-semibold text-sky-300 truncate min-w-0"></span>
-            <button id="btn-file-manager-album-filter-clear" class="p-1.5 rounded-full hover:bg-white/10 transition-colors text-slate-400 hover:text-white shrink-0" title="${t('fileManager.photo.album.all')}">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-        </div>
-
         <!-- Lưới ảnh — Item + window ảo (Patch mục 2, 14/07/2026, THAY masonry chunk-based cũ). Khung
              CUỘN chỉ còn #file-manager-image-empty tĩnh (vị trí hiển thị GIỮ NGUYÊN như bản cũ) —
              Workflow (event/workflow/file-manager-photo.js::setupPhotoGridWindow()) tự dựng cấu trúc
@@ -129,38 +84,8 @@ function renderFileManagerPhotoPanelBody() {
 `;
 }
 
-/**
- * MỚI (Giai đoạn 3b, rewrite Photo/Album, mục 3a) — Album List sub-panel, push TỪ TRONG panel Photo
- * (event/workflow/file-manager-photo.js::openAlbumListPanel(), pushSettingsPanel() lồng nhau — ĐÚNG
- * khuôn Folder List -> Folder Detail đã có sẵn ở event/workflow/file-manager-song.js::
- * openFolderDetail(), KHÔNG cần xử lý gì đặc biệt cho "back" — popSettingsPanel() tự quay đúng panel
- * Photo bên dưới). List phân trang kiểu 'list' (buildPaginationListHtml(), core/pagination.js —
- * ĐÚNG chữ Giang dùng "pagination dạng list page"), ~10 album/trang — mỗi hàng dựng qua
- * itemTemplateAlbumListRow() (components/items.js).
- * KHÔNG dùng windowing (workflowPhotoGalleryWindow) — số album của 1 người dùng thực tế luôn nhỏ (hàng
- * chục, không phải hàng nghìn như ảnh/bài hát), render thẳng 1 trang (~10 hàng) là đủ mượt, đúng
- * tinh thần "computePage() + render thẳng" Folder List đang dùng (không windowing).
- */
-/**
- * VIẾT LẠI (Giang yêu cầu "bỏ khung viền container, bỏ padding, gap margin — làm giống y hệt
- * Playlist UI") — bỏ HẲN card `glass-modal rounded-2xl` cũ (list giờ tràn viền edge-to-edge, đúng
- * style Songs list — core/playlist/render.js::buildSongNode()). Cũng bỏ luôn `<h2>` tiêu đề + nút
- * "+" tự dựng tay ở đây — TRÙNG LẶP với header CHUẨN của `pushSettingsPanel({title, ...})` (đã hiện
- * sẵn tiêu đề + nút Back, xem core/settings-panel-stack-ui.js) — nút "+" giờ dời sang
- * `headerActionHtml` (đối xứng nút Back, đúng khuôn panel Photo chính đang làm với nút upload).
- * Panel này giờ PHẢI mở với `fullBleed: true` (event/workflow/file-manager-photo.js::
- * openAlbumListPanel()) để list tràn viền thật — nếu không, khung `max-w-2xl mx-auto px-4/px-8` mặc
- * định của `pushSettingsPanel()` vẫn ép lề 2 bên.
- */
-function renderFileManagerAlbumListPanelBody() {
-    return `
-        <div id="file-manager-album-list" class="flex flex-col"></div>
-        <p id="file-manager-album-list-empty" class="hidden text-sm text-slate-400 p-4 text-center" data-i18n="fileManager.photo.albumList.empty">${t('fileManager.photo.albumList.empty')}</p>
-        <!-- ~10 album/trang, mode 'list' (dãy số trang, KHÔNG nút ‹ ›) — xem core/pagination.js +
-             event/workflow/file-manager-photo.js::refreshAlbumListPanel(). Rỗng nếu totalPages <= 1. -->
-        <div id="file-manager-album-list-pagination" class="border-t border-white/5 px-4"></div>
-`;
-}
+// XOÁ (loại bỏ Album khỏi Photo Panel) — renderFileManagerAlbumListPanelBody() (Album List
+// sub-panel) bỏ hẳn cùng tính năng — panel đó không còn tồn tại.
 
 // ===================== Khu vực: Documents (04/07/2026 — code thật, thay placeholder) ========
 // 2 nút upload TÁCH RIÊNG (không dùng chung 1 cơ chế "tự phân loại", đúng yêu cầu Giang — "mỗi cái
