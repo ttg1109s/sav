@@ -71,19 +71,10 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.image.empty': 'No photos yet. Tap the + button above to add some.',
     // MỚI (04/07/2026, mục 2 phản hồi Giang) — carousel chọn ảnh nền (Visual/Playlist).
     'fileManager.photo.carousel.confirmButton': 'Use this photo',
-    // MỚI (Giai đoạn 3b, rewrite Photo/Album, mục 3a) — carousel xem ảnh trong album (KHÁC carousel
-    // chọn nền ngay trên — nút đáy ở đây là "Xoá khỏi album", không phải "Dùng ảnh này").
-    'fileManager.photo.album.carousel.removeButton': 'Remove from album',
-    'fileManager.photo.album.carousel.infoTitle': 'Album name',
-    // MỚI (Giai đoạn 3b) — Album List sub-panel (THAY story slider ngang cũ).
-    'fileManager.photo.albumList.title': 'Photo Albums',
-    'fileManager.photo.albumList.entryButton': 'Photo Albums',
-    'fileManager.photo.albumList.empty': 'No albums yet.',
-    'fileManager.photo.albumList.createNew': 'New album',
-    'fileManager.photo.albumList.photoCount': '{count} photos',
-    'fileManager.photo.albumList.menuTitle': 'Album options',
+    // XOÁ (loại bỏ Album khỏi Photo Panel) — carousel xem ảnh trong album + Album List sub-panel
+    // bỏ hẳn cùng tính năng — 'fileManager.photo.album.carousel.*'/'fileManager.photo.albumList.*'
+    // (7 key) bỏ hẳn.
     'fileManager.photo.image.btnDelete': 'Remove from library',
-    'fileManager.photo.image.btnRemoveFromAlbum': 'Remove from album',
     'fileManager.photo.image.uploadSuccess': 'Added {count} photo(s).',
     // ── Batch tiếp theo (03/07/2026, hạ tầng z-index nền Visual) — "Đặt làm nền" trên ảnh ─────
     // RÚT GỌN (14/07/2026, mục cuối — icon hoá menu action ảnh, Giang yêu cầu tên ngắn gọn).
@@ -141,36 +132,14 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.image.quickDeleteConfirm.desc': 'While enabled, tap photos to mark them for deletion. Tap the trash icon again to delete all marked photos at once.',
     'fileManager.photo.image.quickDeleteConfirm.confirmBtn': 'Enable',
     // MỚI (Giai đoạn 3) — xác nhận xoá batch (chỉ hỏi khi có ≥1 ảnh đã đánh dấu — 0 ảnh thì thoát
-    // thẳng, không hỏi gì, xem event/router/file-manager-photo.js). Đúng khuôn modalChoice() ở
-    // deleteAlbumById() ngay dưới: `.confirm` (text động, có {count}) -> tham số 1; `.title` (tiêu đề
-    // ngắn TĨNH) -> option {title}.
+    // thẳng, không hỏi gì, xem event/router/file-manager-photo.js). `.confirm` (text động, có
+    // {count}) -> tham số 1; `.title` (tiêu đề ngắn TĨNH) -> option {title}.
     'fileManager.photo.image.quickDeleteBatchConfirm.confirm': 'Delete {count} photos? This cannot be undone.',
     'fileManager.photo.image.quickDeleteBatchConfirm.title': 'Delete photos?',
     'fileManager.photo.image.quickDeleteBatchConfirm.confirmBtn': 'Delete',
-    'fileManager.photo.album.all': 'All',
-    'fileManager.photo.album.new': 'New',
-    'fileManager.photo.album.createTitle': 'New album',
-    'fileManager.photo.album.namePlaceholder': 'Album name',
-    'fileManager.photo.album.btnCreate': 'Create',
-    // ── Batch tiếp theo (03/07/2026, mục 2.2/2.3) — Đổi tên/Xoá album ────────────────────────
-    // MỚI (Batch 8, 03/07/2026, slideshow nền Visual).
-    'fileManager.photo.album.setSlideshowBgTitle': 'Use as Slideshow background',
-    'fileManager.photo.album.setSlideshowBgSuccess': 'Set as Slideshow background.',
-    'fileManager.photo.album.renameTitle': 'Rename album',
-    'fileManager.photo.album.deleteTitle': 'Delete album',
-    'fileManager.photo.album.deleteConfirm': 'Delete album "{name}"? Photos inside stay in your library, only the album is removed.',
-    'fileManager.photo.album.btnDelete': 'Delete',
-    'fileManager.photo.album.selectedCount': '{count} selected',
-    // RESTORE (18/07/2026, Giang yêu cầu "khôi phục add photo vào album") — 17/07/2026 từng xoá 3
-    // key ngay dưới cùng lúc bỏ picker multi-select, nay khôi phục lại (picker quay lại, điểm vào
-    // đổi — xem workflowFileManagerPhoto.openAlbumImagePicker()).
-    'fileManager.photo.album.addImagesTitle': 'Add photos',
-    'fileManager.photo.album.btnAddSelected': 'Add to album',
-    'fileManager.photo.album.addImagesSuccess': 'Added {count} photo(s) to the album.',
-    // MỚI (18/07/2026) — 2 lựa chọn trong dropdown nút "+" khi đang lọc theo album (xem
-    // workflowFileManagerPhoto.openAddToAlbumChoiceMenu()).
-    'fileManager.photo.album.addChoiceUploadTitle': 'Upload new photos',
-    'fileManager.photo.album.addChoiceExistingTitle': 'Choose from library',
+    // XOÁ (loại bỏ Album khỏi Photo Panel) — toàn bộ key 'fileManager.photo.album.*' (tạo/đổi tên/
+    // xoá album, dùng làm nền Slideshow, thêm ảnh vào album, dropdown 2 lựa chọn "+") bỏ hẳn cùng
+    // tính năng — 17 key.
     // ── Drawer con: Video — ĐÃ XOÁ HẲN panel riêng (ver12 "Song/Video Unification", Batch 6, mục
     // 6d, phản hồi Giang) — gộp vào "Song & Video" (Batch 5). CHỈ CÒN 3 key dưới đây (dùng bởi
     // uploadVideos()/picker "Use background video" — xem event/workflow/file-manager-video.js) —
