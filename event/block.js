@@ -41,20 +41,16 @@
 // 4) vẫn đang là lớp phòng vệ chính, xem docstring đầu event/workflow/file-manager-folder-browser.js.
 
 // ===================== Generic Drawer — chặn mở chồng khi đang mở =====================
-// MỚI (13/07/2026, Giang yêu cầu) — Generic Drawer dùng CHUNG cho nhiều tính năng (hiện Document
-// Picker/Reader — event/workflow/document-reader.js), CHỈ 1 bodyHtml tại 1 thời điểm. Nếu 2 nơi
-// cùng lúc gọi mở (vd người dùng bấm liên tiếp rất nhanh, hoặc 1 tính năng khác sau này cũng mở
-// Generic Drawer trong lúc Document Picker đang hiện), lần mở SAU sẽ ghi đè bodyHtml của lần mở
-// TRƯỚC — âm thầm hỏng cả 2. Bản chất là CHẶN HẲN (không chọn giữa nhiều tiến trình khác nhau, chỉ
-// không cho chạy khi đã mở) — đúng tiêu chí dùng Block gate. `isGenericDrawerOpen`
-// (service/state.js) do core/generic-drawer.js tự ghi true/false đúng nhịp mở/đóng thật (xem
-// docstring ở đó). Tính năng MỚI nào sau này cũng mở Generic Drawer PHẢI tự đăng ký thêm 1 dòng
-// tương tự ở đây cho msg.type của nó, KHÔNG tự suy luận miễn trừ.
-eventBus.registerBlock('documentPicker.open.click', [
-    [
-        { field: 'isGenericDrawerOpen', operator: '===', value: true },
-    ],
-]);
+// MỚI (13/07/2026, Giang yêu cầu) — Generic Drawer dùng CHUNG cho nhiều tính năng, CHỈ 1 bodyHtml
+// tại 1 thời điểm. Nếu 2 nơi cùng lúc gọi mở (vd người dùng bấm liên tiếp rất nhanh, hoặc 1 tính
+// năng khác sau này cũng mở Generic Drawer trong lúc 1 tính năng khác đang hiện), lần mở SAU sẽ ghi
+// đè bodyHtml của lần mở TRƯỚC — âm thầm hỏng cả 2. Bản chất là CHẶN HẲN (không chọn giữa nhiều
+// tiến trình khác nhau, chỉ không cho chạy khi đã mở) — đúng tiêu chí dùng Block gate.
+// `isGenericDrawerOpen` (service/state.js) do core/generic-drawer.js tự ghi true/false đúng nhịp
+// mở/đóng thật (xem docstring ở đó). Tính năng MỚI nào sau này cũng mở Generic Drawer PHẢI tự đăng
+// ký thêm 1 dòng tương tự ở đây cho msg.type của nó, KHÔNG tự suy luận miễn trừ.
+// XOÁ (loại bỏ Document Reader khỏi app) — đăng ký `documentPicker.open.click` bỏ hẳn cùng tính
+// năng.
 
 // MỚI (Batch 5, "Song/Video Unification" mục 6e) — Folder Browser cũng mở Generic Drawer, đúng quy
 // định ngay phía trên (mỗi msg.type "mở" tự đăng ký riêng 1 dòng).
