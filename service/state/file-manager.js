@@ -17,7 +17,8 @@
                 // (activeBackgroundAlbum XOÁ — v13 Batch B: "album nào đang làm nền" giờ nằm
                 //  trong `visualBgConfig.source` (v14: originId/list), KHÔNG còn bản sao trong AppState.)
                 pageCurrentFolderDetailSongList: 'number',   // trang ĐANG xem của danh sách item BÊN TRONG 1 folder (Folder Browser Read, event/workflow/file-manager-folder-browser.js)
-                pageCurrentDocumentList: 'number',           // trang ĐANG xem của danh sách tài liệu Documents
+                // XOÁ (loại bỏ Document Reader khỏi app) — pageCurrentDocumentList (trang danh sách
+                // tài liệu Documents) bỏ hẳn cùng tính năng.
                 // MỚI (31/07/2026) — mode hiện tại của modal xem ảnh Photo ('view'/'zoom'/'edit').
                 // Nút "..." dropdown LUÔN bấm được ở CẢ 3 mode (không disable) — Router đọc field
                 // này qua VirtualMachineState để: (1) toggle Zoom/Edit (bấm lại item đó khi đang
@@ -37,7 +38,6 @@
                     selectedSongKeys: new Set(),
                     sectionQueueActive: false,
                     pageCurrentFolderDetailSongList: 0,
-                    pageCurrentDocumentList: 0,
                     imagePreviewMode: 'view',
                 };
             },

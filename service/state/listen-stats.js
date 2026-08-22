@@ -4,12 +4,12 @@
  */
         AppState.definePackage('listen-stats', {
             schema: {
-                songStatsMap: 'map',
+                mediaStatsMap: 'map',
                 _songStatsDirty: 'boolean',
             },
             buildDefaults() {
                 return {
-                    songStatsMap: new Map(),
+                    mediaStatsMap: new Map(),
                     _songStatsDirty: false,
                 };
             },
