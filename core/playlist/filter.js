@@ -119,21 +119,21 @@ function _evaluateFilterRule(fieldValue, rule, isText) {
  * Rule 1: đơn tuyến — lọc `keys` theo TOÀN BỘ rule đang bật trong `rulesBucket` (AND hết, xem
  * docstring đầu file). `rulesBucket` rỗng (mọi field `null`) -> trả nguyên `keys` (fast path,
  * KHÔNG tốn 1 vòng lặp nào khi Giang chưa bật filter nào).
- * Rule 2: nhận `playlistCache`/`songStatsMap`/`rulesBucket` qua tham số.
+ * Rule 2: nhận `playlistCache`/`mediaStatsMap`/`rulesBucket` qua tham số.
  * @param {string[]} keys
  * @param {Map} playlistCache
- * @param {Map} songStatsMap
+ * @param {Map} mediaStatsMap
  * @param {Object<string, ?Object>} rulesBucket - `playlistFilterConfig.song` hoặc `.video`
  * @returns {string[]}
  */
-function applyPlaylistFilter(keys, playlistCache, songStatsMap, rulesBucket) {
+function applyPlaylistFilter(keys, playlistCache, mediaStatsMap, rulesBucket) {
     const activeFields = Object.keys(rulesBucket).filter((field) => rulesBucket[field]);
     if (activeFields.length === 0) return keys.slice();
 
     return keys.filter((key) => {
         const cached = playlistCache.get(key);
         if (!cached) return false;
-        const stats = songStatsMap.get(key) || { count: 0, totalTime: 0 };
+        const stats = mediaStatsMap.get(key) || { count: 0, totalTime: 0 };
 
         for (const field of activeFields) {
             const rule = rulesBucket[field];

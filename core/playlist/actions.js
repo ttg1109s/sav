@@ -296,7 +296,7 @@
          * Video). Giờ rẽ nhánh theo `cached.mediaType`:
          *   - Video: tab "Chi tiết" đổi hẳn sang thông số kỹ thuật (tên file gốc/dung lượng/codec/
          *     độ phân giải/fps/thời lượng/bitrate/codec+bitrate âm thanh/ngày tải) + GIỮ Lượt phát/
-         *     Đã nghe (dùng CHUNG songStatsMap, key-agnostic — xem core/listen-stats.js). Tab "Sửa"
+         *     Đã nghe (dùng CHUNG mediaStatsMap, key-agnostic — xem core/listen-stats.js). Tab "Sửa"
          *     chỉ còn 1 ô "Tên hiển thị" (customName). Tab "Ảnh bìa" ẨN HẲN (Video không có khái
          *     niệm ảnh bìa tự chọn).
          *   - Song: GIỮ NGUYÊN 100% hành vi cũ.

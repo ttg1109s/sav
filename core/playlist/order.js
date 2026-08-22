@@ -52,19 +52,19 @@
          * Comparator trục (2) — thống kê, MỞ RỘNG (phản hồi Giang — "bổ sung dung lượng + duration
          * vào stats"), SỬA (mục 3 — tách field/hướng thành 2 tham số riêng thay vì 1 chuỗi gộp
          * kiểu 'countDesc', khớp đúng UI 2 dropdown — components/playlist-sort-drawer.js). 4 field:
-         * count/times (songStatsMap), size/duration (playlistCache, cùng nguồn với Filter —
-         * core/playlist/filter.js). Đọc `songStatsMap`/`playlistCache` — bài chưa có thống kê coi
+         * count/times (mediaStatsMap), size/duration (playlistCache, cùng nguồn với Filter —
+         * core/playlist/filter.js). Đọc `mediaStatsMap`/`playlistCache` — bài chưa có thống kê coi
          * như 0.
          * @param {string} statField - 'count'|'times'|'size'|'duration' (KHÔNG nhận 'none' — caller
          *   sortKeysByMode() tự chặn ở nhánh trên, hàm này không cần biết 'none' là gì)
          * @param {string} statDirection - 'desc'|'asc'
-         * @param {Map} songStatsMap @param {Map} playlistCache
+         * @param {Map} mediaStatsMap @param {Map} playlistCache
          * @returns {(a:string,b:string)=>number}
          */
-        function _buildStatComparator(statField, statDirection, songStatsMap, playlistCache) {
+        function _buildStatComparator(statField, statDirection, mediaStatsMap, playlistCache) {
             let getValue;
-            if (statField === 'count') getValue = (k) => (songStatsMap.get(k) || {}).count || 0;
-            else if (statField === 'times') getValue = (k) => (songStatsMap.get(k) || {}).totalTime || 0;
+            if (statField === 'count') getValue = (k) => (mediaStatsMap.get(k) || {}).count || 0;
+            else if (statField === 'times') getValue = (k) => (mediaStatsMap.get(k) || {}).totalTime || 0;
             else if (statField === 'size') getValue = (k) => (playlistCache.get(k) || {}).size || 0;
             else getValue = (k) => (playlistCache.get(k) || {}).duration || 0; // 'duration'
             const desc = statDirection === 'desc';
@@ -85,12 +85,12 @@
          * @param {string} nameMode - displaySortMode hiện tại (trục 1)
          * @param {string} statField - displayStatSortField hiện tại (trục 2) — 'none'|'count'|'times'|'size'|'duration'
          * @param {string} statDirection - displayStatSortDirection hiện tại — 'desc'|'asc'
-         * @param {Map} songNameIndex @param {Map} playlistCache @param {Map} songStatsMap
+         * @param {Map} songNameIndex @param {Map} playlistCache @param {Map} mediaStatsMap
          */
-        function sortKeysByMode(keys, nameMode, statField, statDirection, songNameIndex, playlistCache, songStatsMap) {
+        function sortKeysByMode(keys, nameMode, statField, statDirection, songNameIndex, playlistCache, mediaStatsMap) {
             const nameCmp = _buildNameComparator(nameMode, songNameIndex, playlistCache);
             if (statField === 'none') return keys.slice().sort(nameCmp);
-            const statCmp = _buildStatComparator(statField, statDirection, songStatsMap, playlistCache);
+            const statCmp = _buildStatComparator(statField, statDirection, mediaStatsMap, playlistCache);
             return keys.slice().sort((a, b) => {
                 const primary = statCmp(a, b);
                 return primary !== 0 ? primary : nameCmp(a, b);
@@ -116,11 +116,11 @@
             const cache = appState.get('playlistCache');
             // SỬA (mục 3) — displayStatSortMode (gộp) tách thành displayStatSortField/
             // displayStatSortDirection (2 field riêng, khớp sortKeysByMode() bản mới).
-            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, songStatsMap } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'songStatsMap']);
+            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, mediaStatsMap } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'mediaStatsMap']);
             appState.set('renderOrder', sortKeysByMode(liveKeys().filter((key) => {
                 const cached = cache.get(key);
                 return songMatchesQuery(query, cached ? cached.tag.title : key, cached ? cached.tag.artist : '', cached ? cached.tag.album : '');
-            }), nameMode, statField, statDirection, songNameIndex, cache, songStatsMap));
+            }), nameMode, statField, statDirection, songNameIndex, cache, mediaStatsMap));
             console.log(`writer: "recomputeRenderOrder", page: "(chẩn đoán)", content: "${(performance.now() - _t0).toFixed(0)}ms cho ${appState.get('renderOrder').length} item"`);
         }
 
@@ -137,8 +137,8 @@
          */
         function recomputeDisplayOrder() {
             // SỬA (mục 3) — CÙNG LÝ DO recomputeRenderOrder() ngay trên.
-            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache: cache, songStatsMap } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'songStatsMap']);
-            appState.set('displayOrder', sortKeysByMode(liveKeys(), nameMode, statField, statDirection, songNameIndex, cache, songStatsMap));
+            const { displaySortMode: nameMode, displayStatSortField: statField, displayStatSortDirection: statDirection, songNameIndex, playlistCache: cache, mediaStatsMap } = appState.get(['displaySortMode', 'displayStatSortField', 'displayStatSortDirection', 'songNameIndex', 'playlistCache', 'mediaStatsMap']);
+            appState.set('displayOrder', sortKeysByMode(liveKeys(), nameMode, statField, statDirection, songNameIndex, cache, mediaStatsMap));
             console.log(`writer: "recomputeDisplayOrder", page: "displayOrder", content: "resort lại theo displaySortMode, về top-level"`);
             appState.mutate('pendingResortKeys', s => s.clear());
             console.log(`writer: "recomputeDisplayOrder", page: "pendingResortKeys", content: "clear toàn bộ"`);
