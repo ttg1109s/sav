@@ -44,8 +44,8 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.entry.photo': 'Photo & Album',
     // XOÁ (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — 'fileManager.entry.
     // video' (hàng Settings riêng cho panel Video) — đã gộp hẳn vào "Song & Video" ở trên, panel
-    // Video độc lập không còn tồn tại.
-    'fileManager.entry.document': 'Documents',
+    // Video độc lập không còn tồn tại. XOÁ (loại bỏ Document Reader khỏi app) —
+    // 'fileManager.entry.document'.
     // MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager.
     'fileManager.cleanup.label': 'Clean up data',
     'fileManager.cleanup.hint': 'Scan and remove leftover orphaned data across File Manager',
@@ -54,8 +54,8 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.cleanup.resultClean': 'Everything is clean — nothing to remove.',
     'fileManager.comingSoon': 'Coming soon.',
     // ── Drawer con: Song ──────────────────────────────────────────────────────────────────
-    // FIX (03/07/2026, mục 4 yêu cầu) — bỏ tiền tố "File Manager · " khỏi CẢ 3 tiêu đề drawer con
-    // (Song/Photo & Album/Documents): tiêu đề section cha "File Manager" đã hiện rõ ở hàng Settings
+    // FIX (03/07/2026, mục 4 yêu cầu) — bỏ tiền tố "File Manager · " khỏi CẢ 2 tiêu đề drawer con
+    // (Song/Photo & Album): tiêu đề section cha "File Manager" đã hiện rõ ở hàng Settings
     // trước khi push vào, lặp lại tiền tố trên thanh bar tiêu đề của chính drawer con là thừa —
     // khớp đúng các key `fileManager.entry.*` (nhãn hàng trong Settings) vốn đã KHÔNG có tiền tố.
     'fileManager.song.title': 'Song & Video',
@@ -189,53 +189,9 @@ const LANG_PATCH_FILE_MANAGER = {
     // lúc boot) + 'fileManager.video.noFullResThumbForBgImage' (test picker chọn nền Visual từ
     // video) ĐÃ XOÁ — cả 2 tính năng liên quan đều đã bỏ/hoàn tác trong cùng ngày, xem
     // event/workflow/file-manager-video.js + event/workflow/visualizer-control-center.js.
-    // ── Drawer con: Documents (mục 4.b4, ĐÃ CODE THẬT 04/07/2026) ────────────────────────────
-    'fileManager.document.title': 'Documents',
-    // Batch D7 (06/07/2026, batch cuối Nhóm D) — 'fileManager.document.back.title' XOÁ, dùng
-    // CHUNG 'settingsDrawer.back.title' (Batch D1).
-    'fileManager.document.btnUpload': 'Upload document',
-    'fileManager.document.btnCreate': 'Create new',
-    'fileManager.document.empty': 'No documents yet.',
-    'fileManager.document.badgeUser': 'Created in app',
-    'fileManager.document.badgeUpload': 'Uploaded',
-    'fileManager.document.btnRename': 'Rename',
-    'fileManager.document.btnDelete': 'Delete',
-    'fileManager.document.btnDownload': 'Download',
-    'fileManager.document.titlePlaceholder': 'Document title',
-    'fileManager.document.createTitle': 'New document',
-    'fileManager.document.renameTitle': 'Rename document',
-    'fileManager.document.invalidType': 'Only .txt or .docx files are supported.',
-    'fileManager.document.docxWarningTitle': 'Some formatting may not carry over',
-    // VIẾT LẠI (10/07/2026, Nhóm A — mục 1.2 plan-v12-extended.md): mammoth.js -> HTML ->
-    // sanitizeDocumentHtml() TRỰC TIẾP (KHÔNG còn qua Markdown/Turndown) — nội dung cảnh báo vẫn
-    // ĐÚNG Ý NGHĨA cũ (giữ đậm/nghiêng/tiêu đề/danh sách, mất ảnh/bảng/định dạng phức tạp khác),
-    // chỉ đổi từ "Markdown" sang "formatted text" cho khớp cơ chế mới.
-    'fileManager.document.docxWarningBody': 'Uploading a .docx file converts it to formatted text: bold, italic, headings, and lists are kept, but images, tables, and other complex formatting will be discarded. Continue?',
-    'fileManager.document.docxWarningConfirm': 'Continue',
-    'fileManager.document.deleteConfirmTitle': 'Delete this document?',
-    'fileManager.document.deleteConfirmBody': 'This cannot be undone.',
-    // ── Document Reader (cửa sổ đọc, mở từ Control Center) ───────────────────────────────────
-    'documentReader.listTitle': 'Choose document',
-    'documentReader.btnEdit': 'Edit',
-    'documentReader.empty': 'This document is empty.',
-    'documentReader.editTitle': 'Edit document',
-    'documentReader.closeWhileEditingBody': 'Save your changes before closing?',
-    'documentReader.discardChanges': 'Discard',
-    // ── Document Picker (danh sách chọn tài liệu, trong Generic Drawer trắng) ─────────────────
-    'documentPicker.title': 'Choose document',
-    'documentPicker.empty': 'No documents yet — add one in File Manager.',
-    // ── Document Editor Surface — toolbar contentEditable dùng CHUNG (MỚI 10/07/2026, Nhóm A —
-    // mục 1.3 plan-v12-extended.md, THAY Toast UI Editor). Xem
-    // core/file-manager/document-ui.js::buildDocumentEditorSurface(). ──────────────────────────
-    'documentEditor.toolbar.bold': 'Bold',
-    'documentEditor.toolbar.italic': 'Italic',
-    'documentEditor.toolbar.underline': 'Underline',
-    'documentEditor.toolbar.heading': 'Heading (tap to cycle)',
-    'documentEditor.toolbar.quote': 'Quote',
-    'documentEditor.toolbar.bulletList': 'Bullet list',
-    'documentEditor.toolbar.numberedList': 'Numbered list',
-    'documentEditor.toolbar.link': 'Link',
-    'documentEditor.linkPrompt': 'Enter the link URL',
+    // XOÁ (loại bỏ Document Reader khỏi app) — toàn bộ key 'fileManager.document.*'/
+    // 'documentReader.*'/'documentPicker.*'/'documentEditor.*' (Drawer con Documents + Document
+    // Reader/Picker + Document Editor Surface) bỏ hẳn cùng tính năng.
     // ── File Manager -> Song & Video: Folder Browser (Generic Drawer, Batch 5 mục 6e) ─────────
     // SỬA (Batch 5) — 'folderSectionTitle'/'newFolderPlaceholder'/'btnCreateFolder'/'folderEmpty'/
     // 'folderSongCount'/'activeFolderBadge'/'folderDetail.headerTitle'/'folderDetail.loadingTitle'/

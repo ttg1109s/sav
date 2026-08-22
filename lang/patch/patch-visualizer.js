@@ -40,9 +40,6 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerOverlay.shuffle.label': 'Shuffle',
     'visualizerOverlay.repeat.title': 'Repeat',
     'visualizerOverlay.repeat.label': 'Repeat',
-    // MỚI (04/07/2026, tính năng Documents) — nút mở Reader trong Control Center.
-    'visualizerOverlay.documentReader.title': 'Open document reader',
-    'visualizerOverlay.documentReader.label': 'Reader',
     // MỚI (10/08/2026) — chụp khung hình bgVideoElement đang phát, lưu vào Photo. Chỉ hiện lúc
     // Video Player mode. (statsToggle.* ĐÃ XOÁ — toggle dời vào Settings, xem statsPanelEnable.*.)
     'visualizerOverlay.captureFrame.title': 'Capture frame as photo',

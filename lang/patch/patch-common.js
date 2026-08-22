@@ -62,10 +62,9 @@ const LANG_PATCH_COMMON = {
     'common.storage.scanReasonBadMime': 'Not a valid mp3 format (MIME: "{mime}")',
     'common.storage.scanReasonBadMimeEmpty': '(empty)',
     'common.storage.scanReasonNoDecode': "Browser couldn't read/decode the audio content",
-    // MỚI (29/07/2026, yêu cầu Giang — panel "Quản lý lưu trữ" MỚI) — Document KHÔNG có Blob nhị
-    // phân để decode (khác Song/Video/Photo) — "hỏng" nghĩa là content rỗng/mất hẳn, xem
-    // core/storage-manager.js::isDocumentRecordCorrupted().
-    'common.storage.scanReasonEmptyContent': 'Document has no content',
+    // XOÁ (loại bỏ Document Reader khỏi app) — 'common.storage.scanReasonEmptyContent' (lý do
+    // hỏng riêng của Document, dùng bởi core/storage-manager.js::isDocumentRecordCorrupted() đã
+    // xoá) bỏ hẳn cùng tính năng, không còn nơi nào đọc key này.
     'common.storage.scanReasonKeptFromError': 'Playback error — chose to "Keep" for later',
     'common.storage.deleteBrokenTitle': 'Delete broken files',
     'common.storage.deleteBrokenConfirm': 'Delete the {n} broken file(s) found? This cannot be undone.',
@@ -112,7 +111,7 @@ const LANG_PATCH_COMMON = {
     'common.select': 'Select',
     // MỚI (08/08/2026) — nút "Áp dụng" của core/slider-input-modal.js (modal chọn số dùng chung).
     'common.apply': 'Apply',
-    // MỚI (10/07/2026, Nhóm A — nút đóng Generic Drawer, xem event/workflow/document-reader.js).
+    // MỚI (10/07/2026, Nhóm A — nút đóng Generic Drawer, dùng chung nhiều tính năng).
     'common.close': 'Close',
     'common.btn.upload': 'Upload',
 

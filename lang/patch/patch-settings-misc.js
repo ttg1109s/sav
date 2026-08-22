@@ -74,21 +74,21 @@ const LANG_PATCH_SETTINGS_MISC = {
     'storageDrawer.legendVideos': 'Video',
     // MỚI (29/07/2026, yêu cầu Giang — panel "Quản lý lưu trữ" MỚI, mục 2a/2b) — legendSongs/
     // legendVideos ngay trên GIỜ DÙNG CHUNG cho CẢ chú giải thanh chia đoạn LẪN nhãn hàng trong
-    // list số lượng (list 4 hàng THAY 2 "vòng tròn" cũ, xem components/file-manager-storage.js) —
-    // 2 key MỚI này bổ sung cho ĐỦ 4 domain.
+    // list số lượng (list 3 hàng THAY 2 "vòng tròn" cũ, xem components/file-manager-storage.js) —
+    // 1 key MỚI này bổ sung cho ĐỦ 3 domain (Song/Video/Photo — XOÁ Document, loại bỏ Document
+    // Reader khỏi app).
     'storageDrawer.legendPhotos': 'Photos',
-    'storageDrawer.legendDocuments': 'Documents',
     // MỚI (29/07/2026, mục 2c) — tiêu đề section "Chọn mục xoá" (THAY "Free up storage" — giờ
     // gồm CẢ phần chọn nguồn LẪN 2 toggle hành động trong CÙNG 1 khối, không tách riêng nữa).
     // SỬA (29/07/2026, yêu cầu Giang) — đổi tên hiển thị thành "Delete & Backup" (khớp đúng ý
     // nghĩa 2 hành động chính của section: tải xuống SAO LƯU + xoá) — key TÊN giữ nguyên
     // ("selectSourceSectionTitle"), CHỈ đổi chuỗi hiển thị.
     'storageDrawer.selectSourceSectionTitle': 'Delete & Backup',
-    // MỚI (29/07/2026) — tiền tố tên file .zip khi tải Photo/Document (Song/Video dùng
+    // MỚI (29/07/2026) — tiền tố tên file .zip khi tải Photo (Song/Video dùng
     // fileManager.song.storageAction.zipNameSong/zipNameVideo có sẵn, lang/patch/patch-file-
-    // manager.js — GIỮ NGUYÊN, không đổi namespace cũ).
+    // manager.js — GIỮ NGUYÊN, không đổi namespace cũ). XOÁ (loại bỏ Document Reader khỏi app) —
+    // 'storageDrawer.zipNameDocument'.
     'storageDrawer.zipNamePhoto': 'photos',
-    'storageDrawer.zipNameDocument': 'documents',
     'storageDrawer.freeSpaceSectionTitle': 'Free up storage',
     // SỬA (ver12 "Song/Video Unification", Batch 5, mục 6b) — 'downloadThenClear.label/hint' và
     // 'clearNoDownload.label/hint' (2 nút tách rời cũ) ĐÃ XOÁ, thay bằng key MỚI ở
@@ -102,7 +102,7 @@ const LANG_PATCH_SETTINGS_MISC = {
     // askScanBrokenScope(). XOÁ (cùng ngày) — key "blockedNoSource" (Block gate cũ chặn "chưa
     // chọn nguồn nào") không còn cần thiết — dropdown LUÔN có 1 giá trị, không có khái niệm rỗng.
     'storageDrawer.scanBroken.modalBody': 'Choose what to scan for broken/corrupted files:',
-    'storageDrawer.scanBroken.scopeAll': 'Everything (Music, Video, Photos, Documents)',
+    'storageDrawer.scanBroken.scopeAll': 'Everything (Music, Video, Photos)',
     'storageDrawer.btnDeleteBroken': 'Delete these broken files',
     'storageDrawer.btnDismissScan': 'Dismiss',
 
