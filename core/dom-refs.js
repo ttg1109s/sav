@@ -443,6 +443,7 @@
         // MỚI (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — 4 nút cần gate
         // hiện/ẩn theo mediaType trong openSongActionMenu() (core/playlist/actions.js).
         const songMenuBtnEditSubtitles = document.getElementById('song-menu-btn-edit-subtitles');
+        const songMenuBtnEdit = document.getElementById('song-menu-btn-edit');
         const songMenuBtnRestore = document.getElementById('song-menu-btn-restore');
         // songMenuBtnSetBgVideo ĐÃ XOÁ (phản hồi Giang — bỏ hẳn "Set làm nền" khỏi dropdown Video).
         const songMenuBtnEditVideo = document.getElementById('song-menu-btn-edit-video');
