@@ -110,13 +110,10 @@ const routerVisualBg = (() => {
                 break;
             }
 
-            // "Chọn Album/Thư mục" — cùng khuôn, khác 2 picker.
+            // "Chọn Thư mục" — video-only (Photo không còn "nhóm" — Album đã xoá, xem
+            // event/workflow/visual-bg.js). UI (refreshPanelUI()) đã ẩn hẳn nút này khi type='photo'.
             case 'visualBg.pickGroupSource.click': {
-                const type = appConfigVisualBg.getAll().type;
-                VirtualMachineState.run([
-                    { state: type, operation: '===', value: 'photo', callback: () => workflowVisualBg.openListAlbumPicker() },
-                    { state: type, operation: '===', value: 'video', callback: () => workflowVisualBg.openListFolderPicker() },
-                ]);
+                workflowVisualBg.openListFolderPicker();
                 break;
             }
 
@@ -136,14 +133,6 @@ const routerVisualBg = (() => {
 
             case 'visualBg.videoPicker.close.click':
                 workflowVisualBg.cancelVideoPicker();
-                break;
-
-            case 'visualBg.albumPicker.tile.click':
-                workflowVisualBg.selectAlbumFromPicker(msg.payload.albumId);
-                break;
-
-            case 'visualBg.albumPicker.cancel.click':
-                workflowVisualBg.cancelAlbumPicker();
                 break;
 
             // Bài hát vừa ĐỔI THẬT — gửi từ event/workflow/player.js::playMedia() (CHỈ Song — VBG
