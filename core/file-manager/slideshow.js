@@ -19,10 +19,9 @@
  *     core theo đúng thứ tự.
  *   - Rule 4: file này không tự appState.set()/mutate() (chỉ thao tác DOM thuần) -> N/A.
  *
- * ORCHESTRATION THẬT (đọc appState.slideshowConfig/activeBackgroundAlbum, đọc DB album/ảnh, quản
- * lý task lặp qua taskManager, pause/resume theo vizConfig.videoBgEnabled) sống ở
- * event/workflow/slideshow.js — KHÔNG đặt ở đây (workflow được phép đọc appState/dùng taskManager,
- * core thì không — xem comment đầu file đó).
+ * ORCHESTRATION THẬT (đọc appState.slideshowConfig, đọc DB ảnh, quản lý task lặp qua taskManager,
+ * pause/resume theo vizConfig.videoBgEnabled) sống ở event/workflow/slideshow.js — KHÔNG đặt ở đây
+ * (workflow được phép đọc appState/dùng taskManager, core thì không — xem comment đầu file đó).
  *
  * DOM: 2 lớp ảnh xen kẽ #visual-slideshow-layer-1/2 (index.html) trong #visual-slideshow-container
  * (z-index -1, mốc đã chừa sẵn ở assets/css/style.css) — animation 13 kiểu transition ở
@@ -126,7 +125,7 @@ function setSlideshowTransitionTiming(layerEl, durationMs, easing) {
 
 /**
  * Core thuần: chọn index KẾ TIẾP theo THỨ TỰ (tuần tự, có vòng lặp). Guard clause thuần (Rule 1
- * cho phép — vẫn đúng 1 kịch bản, chỉ dừng sớm khi chưa đủ điều kiện): `length<=0` (album rỗng)
+ * cho phép — vẫn đúng 1 kịch bản, chỉ dừng sớm khi chưa đủ điều kiện): `length<=0` (danh sách rỗng)
  * hoặc `currentIndex<0` (lượt đầu tiên, chưa có ảnh nào đang hiện) không phải "tiến trình khác".
  * @param {number} currentIndex - -1 nếu chưa có ảnh nào đang hiện.
  * @param {number} length
@@ -509,11 +508,11 @@ function finishSlideshowTransitionVisuals(outgoingLayerEl, incomingLayerEl) {
     incomingLayerEl.classList.add('ss-current');
 }
 
-// ===================== ĐÃ GỠ (Giai đoạn 4, rewrite Photo/Album, mục 1) — hiện/ẩn panel chọn Album
+// ===================== ĐÃ GỠ (Giai đoạn 4, rewrite Photo/Album, mục 1) — hiện/ẩn panel chọn nguồn
 // kiểu "notify center" =============================================================================
-// `setSlideshowAlbumPickerVisible()` (bản trước ở đây) XOÁ HẲN — panel chọn Album giờ dùng
+// `setSlideshowAlbumPickerVisible()` (bản trước ở đây) XOÁ HẲN — panel chọn nguồn giờ dùng
 // `openGenericDrawer()`/`closeGenericDrawer()` (core/generic-drawer.js) như mọi Generic Drawer khác,
-// xem event/workflow/slideshow.js::openAlbumPicker()/_closeAlbumPickerDrawer().
+// xem event/workflow/slideshow.js.
 
 /**
  * Core thuần: dọn class DOM của 1 layer về trạng thái nghỉ (KHÔNG đụng ảnh/Ken Burns — Workflow tự

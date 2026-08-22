@@ -85,26 +85,10 @@ async function cleanupOrphanedFolderSongMaps() {
     return fixedCount;
 }
 
-/**
- * MỒ CÔI #3 — `albums.imageKeys` chứa key ảnh đã bị xoá khỏi store `images` (lẽ ra
- * `removeImageFromAlbum()`/cascade xoá ảnh đã dọn — safety net cho đường xoá khác nếu có).
- * @returns {Promise<number>} số ALBUM đã dọn (không phải số key ảnh — 1 album có thể mất nhiều key
- *   cùng lúc, vẫn tính 1).
- */
-async function cleanupOrphanedAlbumImageKeys() {
-    const albumIds = await getAllAlbumKeys(); // data layer
-    let fixedCount = 0;
-    for (const albumId of albumIds) {
-        const record = await getAlbumRecord(albumId); // data layer
-        if (!record || !Array.isArray(record.imageKeys) || record.imageKeys.length === 0) continue;
-        const checks = await Promise.all(record.imageKeys.map((key) => getImageRecord(key))); // data layer
-        const validKeys = record.imageKeys.filter((_, i) => !!checks[i]);
-        if (validKeys.length === record.imageKeys.length) continue; // không có key nào mất -> bỏ qua
-        await setAlbumRecord(albumId, { ...record, imageKeys: validKeys }); // data layer
-        fixedCount++;
-    }
-    return fixedCount;
-}
+// XOÁ (loại bỏ Album khỏi Photo Panel) — MỒ CÔI #3 (`cleanupOrphanedAlbumImageKeys()`, dọn
+// `albums.imageKeys` chứa key ảnh đã xoá) bỏ hẳn cùng tính năng — Album không còn tồn tại trong
+// app, store 'albums' cũ không còn nơi nào đọc/ghi tới nữa (xem core/file-manager/image.js,
+// event/workflow/visual-bg.js).
 
 // XOÁ (v14) — `cleanupOrphanedActiveBackgroundAlbum()` (mồ côi #4, safety net cho
 // `meta.activeBackgroundAlbum`) bỏ hẳn: khoá đó đã NGỪNG GHI từ v13 Batch B, và field nó tự đọc để
@@ -118,7 +102,6 @@ async function cleanupOrphanedAlbumImageKeys() {
 
 registerCleanupCheck('orphanedSongFolderFields', cleanupOrphanedSongFolderFields);
 registerCleanupCheck('orphanedFolderSongMaps', cleanupOrphanedFolderSongMaps);
-registerCleanupCheck('orphanedAlbumImageKeys', cleanupOrphanedAlbumImageKeys);
 
 /**
  * Dọn 4 khoá `meta` MỒ CÔI của cơ chế nền cũ (v13 Batch F) — đều đã ngừng ghi từ Batch A/B/C:

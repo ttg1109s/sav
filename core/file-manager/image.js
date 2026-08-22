@@ -1,7 +1,7 @@
 /**
- * core/file-manager/image.js — Ảnh trong File Manager → Photo & Album, ver 12 "Multi Media",
- * Batch 3 (03/07/2026). Schema ĐÃ CHỐT từ hạ tầng DB trước đó (xem comment DB_VERSION ở
- * service/db.js): store 'images', key = imageKey, value = { blob, filename, addedAt }.
+ * core/file-manager/image.js — Ảnh trong File Manager → Photo, ver 12 "Multi Media", Batch 3
+ * (03/07/2026). Schema ĐÃ CHỐT từ hạ tầng DB trước đó (xem comment DB_VERSION ở service/db.js):
+ * store 'images', key = imageKey, value = { blob, filename, addedAt }.
  *
  * MỚI (Giai đoạn 1, rewrite Photo/Album — mục 3c/3d) — record thêm 3 field: `thumbBlob` (ảnh đã
  * resize lúc upload, height cố định — event/workflow/file-manager-photo.js::resizeImageForThumbnail(),
@@ -12,21 +12,18 @@
  * Record CŨ (upload trước bản này) THIẾU 3 field trên — mọi nơi đọc PHẢI tự fallback (`thumbBlob ||
  * blob`, `width > 0 ? ... : 1` coi như ảnh vuông) — KHÔNG migrate DB_VERSION (idb-keyval tự do field).
  *
- * KHÔNG có store quan hệ riêng ảnh<->album (khác hẳn folder<->song) — quan hệ nằm ở field
- * `imageKeys` NGAY TRÊN record album (xem core/file-manager/album.js) — đơn giản hơn vì album
- * KHÔNG cần giữ "vị trí" của ảnh đã gỡ (không có khái niệm resume vị trí phát như playlist), nên
- * không cần tombstone/position — gỡ ảnh khỏi album = filter thẳng khỏi mảng.
+ * XOÁ (loại bỏ Album khỏi Photo Panel) — không còn cascade dọn ảnh khỏi album lúc xoá (Album đã
+ * xoá hẳn khỏi app, xem core/file-manager/image.js::deleteImage()).
  *
  * Trùng filename: ÁP DỤNG Y HỆT logic resolveSongKey() (mục 6 "Đã chốt" — ảnh/docs dùng chung công
  * thức với song). KHÔNG lặp lại thuật toán, gọi thẳng slugify() dùng chung.
  *
- * NẠP SAU: service/db.js (getImageRecord/setImageRecord/deleteImageRecord/getAllImageKeys/slugify,
- * getAllAlbumKeys/getAlbumRecord/setAlbumRecord — dùng cho cascade dọn album trong deleteImage()).
+ * NẠP SAU: service/db.js (getImageRecord/setImageRecord/deleteImageRecord/getAllImageKeys/slugify).
  *
  * PATCH mục 1/2 (14/07/2026, group ảnh theo ngày + Item/window ảo); VIẾT LẠI (rewrite Photo/
  * Album, dùng fjGallery) — 2 hàm THUẦN `sortImagesByAddedDateDesc()`/`groupImagesByDay()` (đổi
  * tên từ `buildPhotoGridRows()`, giờ CHỈ gom nhóm theo ngày, không tự đóng gói hàng/tính width
- * nào nữa) — CHUẨN BỊ dữ liệu cho lưới ảnh Photo & Album, xem event/workflow/photo-gallery-
+ * nào nữa) — CHUẨN BỊ dữ liệu cho lưới ảnh Photo, xem event/workflow/photo-gallery-
  * window.js.
  */
 
@@ -103,12 +100,9 @@ async function updateImageBlob(imageKey, newBlob, thumbBlob, width, height) {
 }
 
 /**
- * Xoá hẳn 1 ảnh khỏi thư viện — dọn cascade khỏi MỌI album đang chứa nó TRƯỚC khi xoá record.
- * Cascade viết TRỰC TIẾP trong thân hàm (không gọi ra 1 hàm core riêng ở album.js) — cùng nguyên
- * tắc deleteFolder() ở core/file-manager/folder.js: dọn cascade + xoá record CHÍNH là 1 tiến trình
- * nghiệp vụ duy nhất ("xoá 1 ảnh"), các lệnh get/setAlbumRecord chỉ là tầng dữ liệu thuần (không
- * tính "core khác" theo Rule 3). Số album luôn nhỏ (người dùng tự tạo, không phải hàng nghìn như
- * bài hát) nên quét toàn bộ ở đây rẻ, không cần tối ưu thêm.
+ * Xoá hẳn 1 ảnh khỏi thư viện.
+ * XOÁ (loại bỏ Album khỏi Photo Panel) — cascade dọn khỏi mọi album đang chứa ảnh này bỏ hẳn cùng
+ * tính năng (Album không còn tồn tại trong app, store 'albums' cũ không còn nơi nào đọc/ghi tới).
  * (Phần dọn tham chiếu `vizConfig.bgImage`/`visualBgImage` — mục 5c
  * plan-v12-multimedia-decisions.md — thuộc Batch 5, CHƯA code ở đây vì 2 field đó CHƯA tồn tại.)
  * @param {string} imageKey
@@ -117,16 +111,6 @@ async function updateImageBlob(imageKey, newBlob, thumbBlob, width, height) {
 async function deleteImage(imageKey) {
     const record = await getImageRecord(imageKey);
     if (!record) return { status: 'notFound' };
-
-    const albumIds = await getAllAlbumKeys(); // data layer (service/db.js)
-    for (const albumId of albumIds) {
-        const albumRecord = await getAlbumRecord(albumId); // data layer (service/db.js)
-        if (!albumRecord || !Array.isArray(albumRecord.imageKeys)) continue; // guard: dữ liệu hỏng/thiếu — bỏ qua, không chặn xoá ảnh
-        if (albumRecord.imageKeys.includes(imageKey)) {
-            albumRecord.imageKeys = albumRecord.imageKeys.filter(k => k !== imageKey);
-            await setAlbumRecord(albumId, albumRecord); // data layer (service/db.js)
-        }
-    }
 
     await deleteImageRecord(imageKey);
     return { status: 'ok' };

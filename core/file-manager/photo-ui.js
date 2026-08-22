@@ -1,24 +1,17 @@
 /**
- * core/file-manager/photo-ui.js — Vẽ UI Photo & Album (Batch 3, 03/07/2026): story slider album
- * (lazy load avatar qua IntersectionObserver — mục 3 yêu cầu gốc). Hàm THUẦN (không I/O, không
- * appState) — nơi gọi (workflow) tự đọc DB rồi truyền dữ liệu vào, đúng nguyên tắc core/file-manager/
- * folder-list-ui.js/folder-detail-ui.js đã theo.
+ * core/file-manager/photo-ui.js — Vẽ UI Photo (thư viện ảnh): modal xem ảnh, picker chọn ảnh dùng
+ * chung, Edit mode UI.
  *
- * Object URL (story slider): TẠO LÚC LAZY-LOAD (Intersection vào viewport), LƯU trên chính node
- * (`node._objectUrl`), REVOKE khi node bị gỡ khỏi DOM (vẽ lại toàn bộ list) — cùng pattern
- * `_coverObjectUrl` đã dùng ở core/playlist/render.js. Lưới ảnh (mục dưới) KHÔNG còn dùng cơ chế
- * này nữa, xem lý do ở đúng mục đó.
+ * XOÁ (loại bỏ Album khỏi Photo Panel) — toàn bộ UI quản lý Album (Album List sub-panel, modal Tạo/
+ * Đổi tên Album, picker chọn Album làm nguồn Visual Background, carousel xem/xoá-khỏi-album) bỏ hẳn
+ * cùng tính năng. Sẽ thay bằng Folder Photo trong File Browser ở đợt riêng (pending).
+ *
+ * Object URL (thumbnail lazy-load): TẠO LÚC LAZY-LOAD (Intersection vào viewport), LƯU trên chính
+ * node (`node._objectUrl`), REVOKE khi node bị gỡ khỏi DOM — cùng pattern `_coverObjectUrl` đã dùng
+ * ở core/playlist/render.js. Lưới ảnh chính KHÔNG dùng cơ chế này, xem lý do ở đúng mục đó.
  *
  * NẠP SAU: lang/lang.js (t()), components/items.js (renderItemList/computeVirtualWindowRange dùng
  * ở event/workflow/file-manager-photo.js, KHÔNG dùng trực tiếp trong file này — xem Rule 3).
- *
- * MỚI (Batch 8, 03/07/2026, slideshow nền Visual): `openAlbumPickerModal()` — picker chọn 1 ALBUM
- * (khác `openImageLibraryPickerModal()` chọn 1 ẢNH), dùng bởi Slideshow Settings Drawer.
- *
- * VIẾT LẠI (Batch 9, 04/07/2026, mục 4 phản hồi Giang): `openAlbumPickerModal()` (modal tối toàn
- * màn hình) ĐÃ XOÁ, thay bằng `renderSlideshowAlbumPickerGrid()` — chỉ vẽ GRID album hình TRÒN vào
- * panel TĨNH kiểu "notify center" đã mount sẵn (components/slideshow-settings-drawer.js, TÁI DÙNG
- * class `.glass-control-center`).
  *
  * FIX (04/07/2026, mục 1 phản hồi Giang): `openImageLibraryPickerModal()` thêm tham số `onCancel`
  * (tuỳ chọn) — gọi khi đóng modal mà CHƯA chọn ảnh nào, để nơi gọi tự trả toggle "On" về "off".
@@ -27,8 +20,7 @@
  * thư viện") — hệ "Item + window ảo" tự viết (`computeVariableVirtualWindowRange()`/
  * `itemTemplateImageGridRow()`/`workflowVirtualList` — từng THAY `renderImageMasonry()` chunk-based
  * cũ hơn nữa ở Patch mục 2, 14/07/2026) XOÁ HẲN CẢ CỤM — nguồn gốc hàng loạt bug layout/lệch cuộn
- * đã gặp (tự đo `scrollTop`/`clientWidth`/tự tính `offsetTop` bằng tay). Lưới ảnh Photo & Album giờ
- * dùng:
+ * đã gặp (tự đo `scrollTop`/`clientWidth`/tự tính `offsetTop` bằng tay). Lưới ảnh chính giờ dùng:
  *   - core/file-manager/image.js::sortImagesByAddedDateDesc()/groupImagesByDay() — core THUẦN, CHỈ
  *     còn việc gom nhóm theo ngày (KHÔNG còn tự đóng gói "hàng lưới"/tính width nào cả).
  *   - event/workflow/photo-gallery-window.js — windowing cấp NHÓM NGÀY qua `IntersectionObserver`
@@ -37,19 +29,12 @@
  *     bên trong mỗi nhóm còn tải. Tile ảnh dựng bằng DOM node thật (`createElement`) NGAY trong file
  *     đó — KHÔNG còn qua template chuỗi HTML nào ở components/items.js nữa.
  *   - event/workflow/file-manager-photo.js::setupPhotoGridWindow() — chỉ còn 1 lệnh gọi thẳng
- *     `workflowPhotoGalleryWindow.mount()`. Dùng CHUNG cho CẢ Photo & Album LẪN picker ảnh Generic
+ *     `workflowPhotoGalleryWindow.mount()`. Dùng CHUNG cho lưới ảnh chính LẪN picker ảnh Generic
  *     Drawer (mountKey 'genericDrawer', event/workflow/file-manager-photo.js::
  *     _openImagePickerDrawer()) — tránh duy trì 2 hệ windowing khác nhau trong project.
  * `_thumbnailLazyObserver`/`_observeLazyThumbnail` GIỮ NGUYÊN — vẫn phục vụ Slideshow Settings (chọn
- * album nền, số lượng nhỏ, không cần window ảo — story slider Album ĐÃ XOÁ ở Giai đoạn 3b).
+ * ảnh nền đơn/Album cover cũ đã xoá).
  */
-
-// ===================== ĐÃ GỠ (Giai đoạn 3b, rewrite Photo/Album, mục 3a) — Story slider Album =====
-// `renderAlbumStory()`/`setAlbumStoryPageVisibility()` (bản trước ở đây) XOÁ HẲN — THAY bằng Album
-// List sub-panel (itemTemplateAlbumListRow(), components/items.js + openAlbumListPanel()/
-// refreshAlbumListPanel(), event/workflow/file-manager-photo.js). `_thumbnailLazyObserver`/
-// `_observeLazyThumbnail` (ngay dưới) GIỮ NGUYÊN — vẫn dùng cho lưới ảnh chính + picker cover bài
-// hát (KHÔNG liên quan story slider đã xoá).
 
 // ===================== ĐÃ GỠ (rewrite Photo/Album, dùng fjGallery) — Lưới ảnh — Item + Window ảo tự
 // viết ==========================================================================================
@@ -90,62 +75,8 @@ function _observeLazyThumbnail(node, blob, imgEl) {
     _thumbnailLazyObserver.observe(node);
 }
 
-// ===================== Đổi tên Album (modal) — batch tiếp theo 03/07/2026, mục 2.2 =====================
-// Cùng khuôn mẫu openRenameFolderModal() ở core/file-manager/folder-picker-ui.js — viết RIÊNG,
-// KHÔNG gộp với openCreateAlbumModal() (đúng lý do đã ghi ở comment openCreateAlbumModal phía
-// trên: 2 modal khác title/hành vi, gộp sẽ phải rẽ nhánh theo "loại nào gọi tới").
-/**
- * @param {string} currentName
- * @param {(newName: string) => void} onConfirm
- */
-function openRenameAlbumModal(currentName, onConfirm) {
-    const stale = document.getElementById('rename-album-overlay');
-    if (stale) stale.remove();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'rename-album-overlay';
-    overlay.className = 'fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
-    overlay.style.zIndex = String(Z_INDEX.IMAGE_PREVIEW); // SỬA 25/07/2026 — trước đây hardcode class Tailwind tĩnh `z-[130]`
-
-    const card = document.createElement('div');
-    card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
-
-    const titleEl = document.createElement('h3');
-    titleEl.className = 'text-base font-bold text-white';
-    titleEl.textContent = t('fileManager.photo.album.renameTitle');
-    card.appendChild(titleEl);
-
-    function closeModal() { overlay.remove(); }
-
-    const inputEl = document.createElement('input');
-    inputEl.type = 'text';
-    inputEl.value = currentName;
-    inputEl.className = 'bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors';
-    card.appendChild(inputEl);
-
-    const btnRow = document.createElement('div');
-    btnRow.className = 'flex gap-3';
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-sm font-semibold transition-colors';
-    cancelBtn.textContent = t('common.cancel');
-    cancelBtn.addEventListener('click', closeModal);
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'flex-1 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors';
-    saveBtn.textContent = t('common.ok');
-    saveBtn.addEventListener('click', () => {
-        const name = inputEl.value.trim();
-        if (!name) return; // guard clause thuần — chưa nhập tên thì không làm gì
-        closeModal();
-        onConfirm(name);
-    });
-    btnRow.appendChild(cancelBtn);
-    btnRow.appendChild(saveBtn);
-    card.appendChild(btnRow);
-
-    overlay.appendChild(card);
-    document.body.appendChild(overlay);
-    inputEl.focus();
-}
+// ===================== XOÁ (loại bỏ Album khỏi Photo Panel) — Đổi tên Album (modal) bỏ hẳn cùng
+// tính năng (openRenameAlbumModal(), consumer duy nhất là Album List sub-panel đã xoá). ===========
 
 // ===================== Carousel chọn 1 ẢNH nền (Visual/Playlist) — MỚI 04/07/2026, mục 2 =========
 // THAY openImageLibraryPickerModal() (lưới ảnh, ngay dưới) CHO RIÊNG 2 chỗ "Use Visualizer/
@@ -293,173 +224,22 @@ function openImageCarouselPickerModal(images, onSelect, onCancel) {
     document.body.appendChild(overlay);
 }
 
-// ===================== MỚI (Giai đoạn 3b, rewrite Photo/Album, mục 3a) — Carousel XEM ảnh trong 1
-// album + XOÁ KHỎI ALBUM (không phải xoá khỏi thư viện) — mở từ icon "view" ở Album List sub-panel.
-// HÀM RIÊNG (không nhét vào openImageCarouselPickerModal() ở trên dù cấu trúc DOM gần giống hệt) —
-// đây là 2 NGHIỆP VỤ khác nhau thật sự (chọn 1 ảnh làm nền vs duyệt+xoá nhiều ảnh khỏi album), Rule 1
-// cấm branch giữa 2 nghiệp vụ trong CÙNG 1 hàm — chấp nhận lặp lại ~60 dòng cấu trúc DOM, đúng
-// tinh thần "lặp code, giữ Rule 3 rõ ràng" đã áp dụng ở core/pagination.js. CÓ dùng lại
-// `computeCarouselWindowIndices()` (hàm toán THUẦN, không phải "core khác" theo nghĩa Rule 3 — cùng
-// cách `resolveImageKey()` gọi thẳng `slugify()` dùng chung).
-// =====================================================================================================
-
-/**
- * @param {Array<{key: string, blob: Blob, filename: string}>} images - ảnh TRONG album đang xem
- *        (album đã lọc sẵn TRƯỚC khi truyền vào — hàm này không tự lọc theo albumId).
- * @param {string} albumName - MỚI (fix bug 3, Giang yêu cầu "thêm nút info hiện tên album đang
- *        xem") — hiện/ẩn qua nút info ở header, KHÔNG hiện mặc định (tránh che thêm phần ảnh).
- * @param {(imageKey: string) => void} onRemoveFromAlbum - gọi NGAY lúc bấm nút xoá (KHÔNG await —
- *        hàm này chỉ cập nhật UI local ngay lập tức/optimistic, Workflow tự lo ghi DB async song
- *        song, cùng tinh thần `toggleImageSelectionInSet()` không đợi DB).
- * @param {() => void} [onClose] - gọi khi đóng modal (X, hết ảnh, hoặc bấm ra ngoài) — dùng để nơi
- *        gọi tự refresh() lại Album List (số lượng ảnh trong album có thể đã đổi).
- */
-function openImageCarouselViewModal(images, albumName, onRemoveFromAlbum, onClose) {
-    const stale = document.getElementById('image-carousel-view-overlay');
-    if (stale) stale.remove();
-
-    if (images.length === 0) {
-        if (typeof onClose === 'function') onClose();
-        alertModal(t('fileManager.photo.image.empty'));
-        return;
-    }
-
-    let currentIndex = 0;
-    let localImages = [...images]; // bản sao MUTABLE riêng — xoá khỏi đây KHÔNG đụng mảng gốc nơi gọi truyền vào
-    const loadedSlides = new Map(); // index -> { el, objectUrl }
-
-    const overlay = document.createElement('div');
-    overlay.id = 'image-carousel-view-overlay';
-    overlay.className = 'fixed inset-0 bg-black flex flex-col';
-    overlay.style.zIndex = String(Z_INDEX.IMAGE_PREVIEW); // SỬA 25/07/2026 — trước đây hardcode class Tailwind tĩnh `z-[130]`
-
-    function closeModal() {
-        loadedSlides.forEach(({ objectUrl }) => { try { URL.revokeObjectURL(objectUrl); } catch (e) {} });
-        loadedSlides.clear();
-        overlay.remove();
-        if (typeof onClose === 'function') onClose();
-    }
-
-    const header = document.createElement('div');
-    header.className = 'flex justify-between items-center px-4 py-3 shrink-0 gap-2';
-    const counter = document.createElement('span');
-    counter.className = 'text-sm text-slate-300 font-mono';
-    header.appendChild(counter);
-
-    const headerRight = document.createElement('div');
-    headerRight.className = 'flex items-center gap-2 shrink-0';
-    // MỚI (fix bug 3, Giang yêu cầu) — nút info, bấm hiện/ẩn tên album đang xem (banner nhỏ ngay
-    // dưới header, KHÔNG hiện mặc định — chỉ hiện khi cần, tránh che thêm phần ảnh).
-    const infoBtn = document.createElement('button');
-    infoBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white';
-    infoBtn.title = t('fileManager.photo.album.carousel.infoTitle');
-    infoBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
-    headerRight.appendChild(infoBtn);
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white';
-    closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
-    closeBtn.addEventListener('click', closeModal);
-    headerRight.appendChild(closeBtn);
-    header.appendChild(headerRight);
-    overlay.appendChild(header);
-
-    const nameLabel = document.createElement('div');
-    nameLabel.className = 'hidden px-4 pb-2 text-sm text-slate-200 font-semibold text-center shrink-0 truncate';
-    nameLabel.textContent = albumName;
-    overlay.appendChild(nameLabel);
-    infoBtn.addEventListener('click', () => { nameLabel.classList.toggle('hidden'); });
-
-    const viewport = document.createElement('div');
-    viewport.className = 'flex-1 relative overflow-hidden';
-    overlay.appendChild(viewport);
-
-    const footer = document.createElement('div');
-    footer.className = 'flex items-center justify-between gap-3 p-4 shrink-0';
-    const prevBtn = document.createElement('button');
-    prevBtn.className = 'w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0 disabled:opacity-30';
-    prevBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>';
-    // SỬA (chốt với Giang) — nút đáy KHÔNG phải "chọn ảnh" (openImageCarouselPickerModal() đã có
-    // ý nghĩa đó) — ở ĐÂY là "Xoá khỏi album" (removeImageFromAlbum(), KHÔNG xoá khỏi thư viện).
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-bold transition-colors shadow';
-    removeBtn.textContent = t('fileManager.photo.album.carousel.removeButton');
-    const nextBtn = document.createElement('button');
-    nextBtn.className = 'w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0 disabled:opacity-30';
-    nextBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>';
-    footer.appendChild(prevBtn);
-    footer.appendChild(removeBtn);
-    footer.appendChild(nextBtn);
-    overlay.appendChild(footer);
-
-    function ensureSlide(index) {
-        if (loadedSlides.has(index)) return;
-        const image = localImages[index];
-        const el = document.createElement('div');
-        el.className = 'absolute inset-0 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200';
-        const img = document.createElement('img');
-        img.className = 'max-w-full max-h-full object-contain';
-        img.alt = image.filename;
-        const objectUrl = URL.createObjectURL(image.blob);
-        img.src = objectUrl;
-        el.appendChild(img);
-        viewport.appendChild(el);
-        loadedSlides.set(index, { el, objectUrl });
-    }
-
-    function render() {
-        const total = localImages.length;
-        counter.textContent = `${currentIndex + 1} / ${total}`;
-        prevBtn.disabled = total <= 1;
-        nextBtn.disabled = total <= 1;
-
-        const windowIndices = computeCarouselWindowIndices(currentIndex, total, CAROUSEL_WINDOW_RADIUS);
-        windowIndices.forEach((idx) => ensureSlide(idx));
-
-        Array.from(loadedSlides.keys()).forEach((idx) => {
-            if (windowIndices.includes(idx)) return;
-            const { el, objectUrl } = loadedSlides.get(idx);
-            try { URL.revokeObjectURL(objectUrl); } catch (e) {}
-            el.remove();
-            loadedSlides.delete(idx);
-        });
-
-        loadedSlides.forEach(({ el }, idx) => {
-            el.classList.toggle('opacity-100', idx === currentIndex);
-            el.classList.toggle('opacity-0', idx !== currentIndex);
-        });
-    }
-
-    prevBtn.addEventListener('click', () => { currentIndex = (currentIndex - 1 + localImages.length) % localImages.length; render(); });
-    nextBtn.addEventListener('click', () => { currentIndex = (currentIndex + 1) % localImages.length; render(); });
-    removeBtn.addEventListener('click', () => {
-        const removedKey = localImages[currentIndex].key;
-        onRemoveFromAlbum(removedKey); // fire-and-forget — Workflow tự ghi DB async song song, KHÔNG await ở core (Rule 2/4)
-        localImages.splice(currentIndex, 1);
-        if (localImages.length === 0) { closeModal(); return; } // hết ảnh trong album -> đóng hẳn
-        if (currentIndex >= localImages.length) currentIndex = localImages.length - 1;
-        // Index đã lệch sau splice -> cache slide theo index cũ SAI hoàn toàn -> dọn SẠCH, để
-        // ensureSlide() tự dựng lại đúng cửa sổ mới quanh currentIndex (đơn giản, an toàn hơn tự vá
-        // lại từng index — xoá ảnh là thao tác không thường xuyên, không cần tối ưu chi tiết ở đây).
-        loadedSlides.forEach(({ objectUrl, el }) => { try { URL.revokeObjectURL(objectUrl); } catch (e) {} el.remove(); });
-        loadedSlides.clear();
-        render();
-    });
-
-    render();
-    document.body.appendChild(overlay);
-}
+// ===================== XOÁ (loại bỏ Album khỏi Photo Panel) — Carousel XEM ảnh trong 1 album +
+// XOÁ KHỎI ALBUM bỏ hẳn cùng tính năng (openImageCarouselViewModal() — đã là dead code TỪ TRƯỚC,
+// Album List sub-panel đổi sang tái dùng lưới ảnh chính thay vì carousel này từ 17/07/2026, xem
+// lịch sử event/workflow/file-manager-photo.js). computeCarouselWindowIndices() GIỮ NGUYÊN — vẫn
+// dùng bởi openImageCarouselPickerModal() ngay trên (không liên quan Album). ======================
 // ===================== ĐÃ GỠ (Giai đoạn 4, rewrite Photo/Album, mục 4) — Picker cover bài hát dạng
 // modal riêng =====================================================================================
 // `openPhotoUiImagePickerModal()` (bản trước ở đây) XOÁ HẲN — THAY bằng
 // `workflowFileManagerPhoto.openCoverImagePicker()` (event/workflow/file-manager-photo.js), dùng
-// CHUNG hạ tầng Generic Drawer với picker "thêm ảnh vào album" (mode single-select thay vì multi-
-// select) — KHÔNG còn modal riêng ngoài luồng eventBus, gọi từ event/workflow/playlist.js::
-// pickCoverFromLibrary().
+// CHUNG hạ tầng Generic Drawer picker ảnh — KHÔNG còn modal riêng ngoài luồng eventBus, gọi từ
+// event/workflow/playlist.js::pickCoverFromLibrary().
 
 // ===================== Picker chọn 1 ảnh dùng chung (MỚI batch 03/07/2026) =====================
 // Dùng bởi tab "Ảnh bìa" (modal Sửa thông tin bài hát, components/playlist-view.js) — xem
-// readme/song-cover-background-relations.md mục 2/3. Lưới ảnh CHỈ ĐỌC (không xoá/không album),
-// bấm 1 ảnh là chọn luôn + đóng modal — khác hẳn masonry Photo & Album (xem/quản lý thư viện).
+// readme/song-cover-background-relations.md mục 2/3. Lưới ảnh CHỈ ĐỌC (không xoá), bấm 1 ảnh là
+// chọn luôn + đóng modal — khác hẳn lưới ảnh chính (xem/quản lý thư viện).
 /**
  * @param {Array<{key: string, blob: Blob, filename: string}>} images
  * @param {(imageKey: string) => void} onSelect
@@ -468,77 +248,11 @@ function openImageCarouselViewModal(images, albumName, onRemoveFromAlbum, onClos
 // (đã kiểm bằng grep toàn repo), là tàn dư của luồng chọn ảnh cũ trước khi Generic Drawer picker
 // (`openPhotoImagePickerDrawerUi()` + `workflowFileManagerPhoto.openCoverImagePicker()`) thay thế.
 
-/**
- * @param {HTMLElement} gridEl
- * @param {Array<{id: string, name: string, imageKeys: string[]}>} albums
- * @param {string|null} activeAlbumId
- * @param {Map<string, Object>} imageRecordsByKey - key -> {blob,...}, dùng lấy ảnh đại diện đầu
- *        tiên của mỗi album mà KHÔNG cần đọc DB lại (cùng pattern lấy ảnh đại diện đầu tiên đã dùng ở Album List sub-panel).
- */
-/** SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow" — rà rộng
- * ra ngoài Photo/Edit) — bỏ tham số `onSelect` (callback ĐỤC nhận từ nơi gọi — CHỈ được phép cho
- * ĐÚNG `core/modal-choice-ui.js::modalChoice()`, đã audit riêng, KHÔNG tự nhận lây, xem readme/core-
- * function-conventions.md) — tile giờ tự bắn `eventBus.send()` cố định, CHỈ 1 nơi gọi
- * (event/workflow/slideshow.js::openAlbumPicker()) nên không cần tham số hoá đích đến. */
-function renderAlbumPickerGrid(gridEl, albums, activeAlbumId, imageRecordsByKey, routerName, msgPrefix) {
-    if (!gridEl) return;
-
-    gridEl.querySelectorAll('[data-has-object-url]').forEach((node) => {
-        if (node._objectUrl) { try { URL.revokeObjectURL(node._objectUrl); } catch (e) {} }
-    });
-    gridEl.innerHTML = '';
-
-    albums.forEach((album) => {
-        const isActive = album.id === activeAlbumId;
-        const isBlurred = !!activeAlbumId && !isActive;
-
-        const tile = document.createElement('button');
-        tile.className = `ss-album-tile${isBlurred ? ' ss-picker-blurred' : ''}${isActive ? ' ss-picker-active' : ''}`;
-
-        const avatarWrap = document.createElement('div');
-        avatarWrap.className = 'ss-album-tile-avatar-wrap';
-        const ring = document.createElement('div');
-        ring.className = 'ss-album-running-ring';
-        avatarWrap.appendChild(ring);
-
-        const avatar = document.createElement('div');
-        avatar.dataset.hasObjectUrl = '1';
-        avatar.className = 'ss-album-tile-avatar flex items-center justify-center text-slate-500';
-        avatar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>';
-        const firstImageKey = album.imageKeys.find((k) => imageRecordsByKey.has(k));
-        if (firstImageKey) _observeLazyThumbnail(avatar, imageRecordsByKey.get(firstImageKey).blob);
-        avatarWrap.appendChild(avatar);
-        tile.appendChild(avatarWrap);
-
-        const label = document.createElement('span');
-        label.className = `text-xs truncate max-w-[4.5rem] text-center ${isActive ? 'text-sky-300 font-semibold' : 'text-slate-300'}`;
-        label.textContent = album.name;
-        tile.appendChild(label);
-
-        tile.addEventListener('click', () => eventBus.send({ router: routerName, type: `${msgPrefix}.tile.click`, payload: { albumId: album.id } }));
-        gridEl.appendChild(tile);
-    });
-}
-
-/** Wire closeBtn + `genericDrawerOverlay` click cho picker Album — dùng CHUNG 1 msg.type với "bấm
- * ra ngoài" (cùng ý nghĩa "huỷ"). `genericDrawerOverlay` DÙNG CHUNG nhiều feature (menu action ảnh,
- * picker ảnh Photo & Album...) — PHẢI trả về hàm GỠ, Workflow tự gọi lúc đóng (không gỡ sẽ dính
- * sang lần mở Drawer TIẾP THEO của feature khác, bắn nhầm msg.type này).
- * SỬA (v13 Batch B) — bỏ tiền tố `Slideshow` khỏi tên + nhận `routerName`/`msgPrefix` làm THAM SỐ:
- * picker Album giờ thuộc "Chọn nguồn" của Visual Background, nhưng bản thân LƯỚI + WIRE là hạ tầng
- * dùng chung, không thuộc riêng miền nào. Truyền tên router là truyền GIÁ TRỊ, không rẽ nhánh tiến
- * trình — Rule 1 không bị đụng.
- * @param {string} routerName
- * @param {string} msgPrefix
- * @returns {() => void}
- */
-function wireAlbumPickerDrawerActions(routerName, msgPrefix) {
-    const cancel = () => eventBus.send({ router: routerName, type: `${msgPrefix}.cancel.click`, payload: {} });
-    const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-    if (closeBtn) closeBtn.addEventListener('click', cancel);
-    genericDrawerOverlay.addEventListener('click', cancel);
-    return () => genericDrawerOverlay.removeEventListener('click', cancel);
-}
+// ===================== XOÁ (loại bỏ Album khỏi Photo Panel) — renderAlbumPickerGrid()/
+// wireAlbumPickerDrawerActions() (picker chọn Album làm nguồn Visual Background) bỏ hẳn cùng tính
+// năng — caller duy nhất (event/workflow/visual-bg.js::openListAlbumPicker()) đã xoá. Visual
+// Background mất tuỳ chọn "Nhóm ảnh" tạm thời, sẽ thay bằng Folder Photo (File Browser overhaul,
+// đợt riêng, pending).
 
 // ===================== ĐÃ GỠ (Giai đoạn 3b, rewrite Photo/Album, mục 3a/4) — Đếm số ảnh đang chọn
 // (chế độ chọn nhiều NGAY TRONG lưới chính) =========================================================
@@ -547,71 +261,21 @@ function wireAlbumPickerDrawerActions(routerName, msgPrefix) {
 // (nút xác nhận picker KHÔNG hiện số lượng dạng text riêng, chỉ có nhãn cố định — có thể bổ sung sau
 // nếu Giang thấy cần, cùng tinh thần title nút xoá nhanh đang hiện số lượng).
 
-// ===================== Tạo Album (modal) =====================
-// Cùng khuôn mẫu openRenameFolderModal() ở core/file-manager/folder-picker-ui.js — KHÔNG có sẵn
-// 1 "prompt modal" dùng chung nào trong project nên viết riêng, KHÔNG cố gộp (2 modal có
-// title/placeholder/hành vi khác nhau, gộp sẽ phải rẽ nhánh theo "loại nào gọi tới").
-/** @param {(name: string) => void} onConfirm */
-function openCreateAlbumModal(onConfirm) {
-    const stale = document.getElementById('create-album-overlay');
-    if (stale) stale.remove();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'create-album-overlay';
-    overlay.className = 'fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center px-5';
-    overlay.style.zIndex = String(Z_INDEX.IMAGE_PREVIEW); // SỬA 25/07/2026 — trước đây hardcode class Tailwind tĩnh `z-[130]`
-
-    const card = document.createElement('div');
-    card.className = 'bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-sm p-5 shadow-2xl flex flex-col gap-4';
-
-    const titleEl = document.createElement('h3');
-    titleEl.className = 'text-base font-bold text-white';
-    titleEl.textContent = t('fileManager.photo.album.createTitle');
-    card.appendChild(titleEl);
-
-    function closeModal() { overlay.remove(); }
-
-    const inputEl = document.createElement('input');
-    inputEl.type = 'text';
-    inputEl.placeholder = t('fileManager.photo.album.namePlaceholder');
-    inputEl.className = 'bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors';
-    card.appendChild(inputEl);
-
-    const btnRow = document.createElement('div');
-    btnRow.className = 'flex gap-3';
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-sm font-semibold transition-colors';
-    cancelBtn.textContent = t('common.cancel');
-    cancelBtn.addEventListener('click', closeModal);
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'flex-1 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors';
-    saveBtn.textContent = t('fileManager.photo.album.btnCreate');
-    saveBtn.addEventListener('click', () => {
-        const name = inputEl.value.trim();
-        closeModal();
-        if (name) onConfirm(name);
-    });
-    btnRow.appendChild(cancelBtn);
-    btnRow.appendChild(saveBtn);
-    card.appendChild(btnRow);
-
-    overlay.appendChild(card);
-    document.body.appendChild(overlay);
-    inputEl.focus();
-}
+// ===================== XOÁ (loại bỏ Album khỏi Photo Panel) — Tạo Album (modal) bỏ hẳn cùng tính
+// năng (openCreateAlbumModal(), consumer duy nhất là Album List sub-panel đã xoá). ==================
 /**
  * Modal xem ảnh full-screen — dựng cụm DOM MỚI (Rule 5a: cụm DOM mới tự tạo bằng `createElement`,
  * ĐƯỢC PHÉP tự `addEventListener`, miễn callback CHỈ bắn `eventBus.send()` + gom cuối hàm — xem
  * đúng khuôn ở cuối hàm này). Menu "..." mở dropdown (core/dropdown-menu.js) do Workflow tự dựng
- * SAU khi nhận eventBus — không dựng ở đây (dropdown cần biết đang ở mode nào/có đang trong album
- * hay không, dữ liệu đó Core không được tự đọc, xem Rule 2).
+ * SAU khi nhận eventBus — không dựng ở đây (dropdown cần biết đang ở mode nào, dữ liệu đó Core
+ * không được tự đọc, xem Rule 2).
  * SỬA (31/07/2026, Rule 5a — audit lại theo yêu cầu Giang) — TRƯỚC ĐÂY nhận `callbacks` (onOpenMenu/
  * onCloseClick/onEditClick) rồi gọi THẲNG tham số đó trong addEventListener — vi phạm điều kiện 1
  * Rule 5a ("callback CHỈ được bắn eventBus.send(), không gọi tham số/hàm khác"), xem readme/core-
  * function-conventions.md. Giờ KHÔNG còn nhận `callbacks` nữa — cả 3 nút tự bắn thẳng eventBus
  * NGAY TRONG hàm này (gom cuối hàm, sau khi cây DOM dựng xong hoàn toàn — đúng điều kiện 2), Workflow
- * (event/workflow/file-manager-photo.js) đọc `_activeImageKey`/`_activeAlbumId` (instance field đã
- * lưu sẵn lúc mở modal) thay vì phải truyền qua closure tham số như trước.
+ * (event/workflow/file-manager-photo.js) đọc `_activeImageKey` (instance field đã lưu sẵn lúc mở
+ * modal) thay vì phải truyền qua closure tham số như trước.
  * @param {{key: string, blob: Blob, filename: string}} image
  * @returns {{close: () => void, imgEl: HTMLImageElement, canvasWrap: HTMLElement, baseCanvas: HTMLCanvasElement, renderCanvas: HTMLCanvasElement, interactCanvas: HTMLCanvasElement, toolsBtn: HTMLElement}}
  */
@@ -886,15 +550,8 @@ function wirePhotoPanelHeaderActions(panelEl) {
     });
 }
 
-/** Wire nút "+" tạo album (`headerActionHtml` panel Album List) — gọi NGAY SAU `pushSettingsPanel()`.
- * @param {HTMLElement} panelEl
- */
-function wireAlbumListPanelHeaderActions(panelEl) {
-    const createBtn = panelEl.querySelector('#btn-file-manager-album-list-create');
-    if (createBtn) createBtn.addEventListener('click', () => {
-        eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.albumList.create.click', payload: {} });
-    });
-}
+// XOÁ (loại bỏ Album khỏi Photo Panel) — wireAlbumListPanelHeaderActions() (nút "+" tạo album
+// trong Album List sub-panel) bỏ hẳn cùng tính năng — panel đó đã xoá.
 
 // DỜI ĐI (v13) — hàm mở Generic Drawer picker ĐÃ CHUYỂN sang core/media-picker-drawer-helper.js
 // (`openMediaPickerDrawerUi()`). Lý do: nó phục vụ CẢ lưới ảnh lẫn lưới video, để nguyên tên
