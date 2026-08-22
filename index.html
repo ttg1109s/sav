@@ -201,13 +201,8 @@
          tích codec/fps/bitrate video lúc upload (event/workflow/file-manager-video.js::
          _extractVideoMediaInfo(), ĐÃ XOÁ) — tab "Chi tiết" không còn hiển thị các field này nữa
          nên không cần phân tích, bỏ hẳn thẻ <script> CDN này. -->
-    <!-- .docx -> HTML lúc upload (mammoth.js). VIẾT LẠI (10/07/2026, Nhóm A — mục 1
-         plan-v12-extended.md): HTML này giờ chuyển THẲNG qua sanitizeDocumentHtml()
-         (core/file-manager/document.js, tự viết) — Turndown + Toast UI Editor (từng dùng
-         05/07-09/07/2026) ĐÃ GỠ KHỎI ĐÂY, xem event/workflow/file-manager-document.js::
-         _processDocxUpload() + core/file-manager/document-ui.js::buildDocumentEditorSurface()
-         (contentEditable + toolbar tự viết, thay Toast UI Editor). -->
-    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.7.2/mammoth.browser.min.js"></script>
+    <!-- XOÁ (loại bỏ Document Reader khỏi app) — mammoth.js (.docx -> HTML lúc upload tài liệu)
+         không còn consumer nào, bỏ hẳn thẻ <script> CDN này. -->
     <!-- MỚI (rewrite Photo/Album, "đập đi làm lại" — Giang yêu cầu dùng thư viện thật thay virtual
          window tự viết) — fjGallery (flickr-justified-gallery), thuật toán justified layout ĐÚNG
          bản Flickr/Google Photos dùng thật (flickr/justified-layout gốc, bọc UMD sẵn) — tự nong/co
@@ -229,7 +224,6 @@
     <link rel="stylesheet" href="assets/css/glass.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/animations.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/layout-nav.css?v=20260813v1">
-    <link rel="stylesheet" href="assets/css/document-reader.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/photo-gallery.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/video-gallery.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/video-preview.css?v=20260813v1">
@@ -297,7 +291,7 @@
     <script src="lang/patch/patch-subtitle-settings.js?v=20260816v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260816v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
-         + 3 drawer con Song/Photo & Album/Documents, xem plan-v12-multimedia-decisions.md). -->
+         + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
     <script src="lang/patch/patch-file-manager.js?v=20260731v4"></script>
     <!-- MỚI (10/07/2026) — dùng ở CẢ index.html LẪN subtitle-editor.html, xem lang/lang.js. -->
     <script src="lang/patch/patch-subtitle-editor.js?v=20260711v1"></script>
@@ -361,20 +355,19 @@
     <script src="components/debug-console-drawer.js?v=20260718v1"></script>
     <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): File
          Manager KHÔNG còn là 1 overlay cấp cao mở từ Playlist nữa (bỏ patch 02/07/2026) — giờ là
-         3 drawer con (Song/Photo & Album/Documents) mở thẳng từ section "File Manager" vừa thêm
+         2 drawer con (Song/Photo & Album) mở thẳng từ section "File Manager" vừa thêm
          ở settings/file-manager-section.js, cùng cấp nav-stack với About/Visualizer Settings
          Drawer bên dưới. THAY components/storage-drawer.js (About -> Storage cũ, không còn mount). -->
     <script src="components/file-manager.js?v=20260729v1"></script>
     <!-- MỚI (29/07/2026, yêu cầu Giang mục 2) — panel "Quản lý lưu trữ" (renderFileManagerStorage
          ManagementPanelBody()), THAY nội dung thống kê/giải phóng bộ nhớ/dọn file lỗi từng nằm
          trong renderFileManagerSongPanelBody() (components/file-manager.js, function đó đã xoá) —
-         giờ gộp ĐỦ 4 domain Song/Video/Photo/Document, KHÔNG còn phụ thuộc panel "Song & Video"
+         giờ gộp ĐỦ 3 domain Song/Video/Photo, KHÔNG còn phụ thuộc panel "Song & Video"
          (đã xoá) nữa. -->
     <script src="components/file-manager-storage.js?v=20260729v2"></script>
     <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer, khung TRẮNG dùng CHUNG
-         cho Document List+Reader — THAY components/document-reader.js/document-picker-drawer.js
-         CŨ (ĐÃ XOÁ — xoá tay nếu còn sót trên máy). items.js (mục 3) ĐỘC LẬP với Generic Drawer
-         (xem docstring đầu file) nhưng đặt cạnh nhau cho dễ đọc. -->
+         cho nhiều tính năng (Folder Browser/Add to Folder picker...). items.js (mục 3) ĐỘC LẬP với
+         Generic Drawer (xem docstring đầu file) nhưng đặt cạnh nhau cho dễ đọc. -->
     <script src="components/generic-drawer.js?v=20260714v2"></script>
     <!-- Nội dung Generic Drawer cho "Edit EQ" (list preset + view sửa) — components/
          eq-presets-drawer.js, dùng bởi event/workflow/eq-presets.js. -->
@@ -542,7 +535,7 @@
          folder-browser.js — comment cũ ở đây từng trỏ nhầm sang file-manager-song.js đã xoá). -->
     <script src="core/pagination.js?v=20260714v1"></script>
     <!-- core/file-manager/nav.js ĐÃ XOÁ khỏi đây (Batch D7, batch CUỐI Nhóm D) — file đó giờ
-         RỖNG (0 hàm, cả 4 khu vực Song/Folder Detail/Photo/Documents đã chuyển hết sang push/pop
+         RỖNG (0 hàm, cả 3 khu vực Song/Folder Detail/Photo đã chuyển hết sang push/pop
          động) — XOÁ TAY file core/file-manager/nav.js, không tự động xoá.
          core/file-manager/folder-list-ui.js ĐÃ XOÁ (Batch 5, "Song/Video Unification" mục 6e) —
          danh sách folder giờ là grid Generic Drawer, tái dùng components/items.js
@@ -580,7 +573,7 @@
     <script src="core/video-editor/compat-guard.js?v=20260802v1"></script>
     <script src="core/video-editor/webcodecs-engine.js?v=20260802v1"></script>
     <script src="core/video-editor/filmstrip.js?v=20260722v1"></script>
-    <!-- MỚI (21/07/2026) — File Manager -> Video. Độc lập với image.js/album.js/document.js (không
+    <!-- MỚI (21/07/2026) — File Manager -> Video. Độc lập với image.js/album.js (không
          dùng chung hàm nào ngoài slugify()/service/db.js) — chỉ cần SAU service/db.js.
          core/file-manager/video-ui.js ĐÃ XOÁ HẲN (Batch 6, mục 6d, phản hồi Giang — modal "Chi
          tiết" riêng nó từng chứa đã bỏ, dùng chung modal Playlist đã video-aware). -->
@@ -589,14 +582,13 @@
     <!-- Tool migration thumbnail 320x320 (tools/migrate-video-thumbs-320.js, Batch 3) — Giang xác
          nhận đã chạy xong tốt, ĐÃ XOÁ (batch 4, 27/07/2026): dòng <script> này + file
          tools/migrate-video-thumbs-320.js (xoá tay thủ công, xem thông báo bàn giao). -->
-    <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer (core UI thuần), CẦN
-         core/dom-refs.js (đã nạp ngay trên: genericDrawerOverlay/Panel/Header/Body). Đặt cạnh
-         nhóm Documents cho dễ đọc dù bản thân KHÔNG phụ thuộc gì từ document.js/document-ui.js. -->
+    <!-- XOÁ (loại bỏ Document Reader khỏi app) — Generic Drawer đặt cạnh nhóm Documents cũ, giờ
+         chỉ còn phục vụ Folder Browser/Add to Folder picker (không phụ thuộc gì thêm). -->
     <script src="core/generic-drawer.js?v=20260714v3"></script>
     <!-- GỘP LẠI (31/07/2026, Giang chỉ ra "xây Generic Drawer mà vẫn phải nhân bản là vô lý") — 2
-         helper Workflow (closeFully()/buildSimpleHeaderHtml()) từng chép tay ở 7 file khác nhau
-         (document-reader/file-manager-photo/file-manager-video/file-manager-folder-browser/
-         playlist/image-edit/slideshow), gộp về 1 chỗ. NẠP NGAY SAU core/generic-drawer.js, TRƯỚC
+         helper Workflow (closeFully()/buildSimpleHeaderHtml()) từng chép tay ở nhiều file khác
+         nhau (file-manager-photo/file-manager-video/file-manager-folder-browser/playlist/
+         image-edit/slideshow), gộp về 1 chỗ. NẠP NGAY SAU core/generic-drawer.js, TRƯỚC
          mọi Workflow ở dưới có dùng tới. -->
     <script src="event/workflow/generic-drawer-helpers.js?v=20260731v2"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — core UI thuần cho bottom nav + Photo/Game/
@@ -615,13 +607,11 @@
          dùng CHUNG cho mọi nút "..." cần menu ngắn neo cạnh nút (KHÁC Generic Drawer — bottom sheet
          toàn màn hình). Áp dụng đầu tiên cho Album List (event/workflow/file-manager-photo.js). -->
     <script src="core/dropdown-menu.js?v=20260716v1"></script>
-    <!-- Documents — CRUD + lọc HTML whitelist (document.js, VIẾT LẠI 10/07/2026 Nhóm A — bỏ
-         Markdown/Turndown), hàm dựng UI + surface Sửa dùng chung (document-ui.js, VIẾT LẠI cùng
-         đợt — bỏ Toast UI Editor/kỹ thuật CSS multi-column cũ). document-pagination.js (MỚI, core
-         nghiệp vụ RIÊNG — cắt HTML thành slot cho Reader, xem readme Nhóm A). Không phụ thuộc lẫn
-         nhau, thứ tự giữa 3 file không quan trọng. -->
-    <script src="core/file-manager/document.js?v=20260710v2"></script>
-    <script src="core/file-manager/document-ui.js?v=20260710v5"></script>
+    <!-- XOÁ (loại bỏ Document Reader khỏi app) — document.js (CRUD + lọc HTML whitelist)/
+         document-ui.js (dựng UI + surface Sửa) bỏ hẳn cùng tính năng.
+         document-pagination.js GIỮ LẠI TẠM (thuật toán phân trang thuần, KHÔNG phụ thuộc gì từ
+         document.js/document-ui.js — xem docstring đầu file) — sẽ đóng gói lại thành class riêng
+         ở 1 việc TÁCH BIỆT, không gộp chung đợt xoá Document Reader này. -->
     <script src="core/file-manager/document-pagination.js?v=20260710v2"></script>
     <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — công cụ dọn rác chung File Manager (registry) —
          CỐ Ý đặt cuối cùng trong nhóm core/file-manager/ (mọi tính năng khác đã có mặt trước đó,
@@ -829,15 +819,16 @@
          "fileManager" (khung điều hướng cấp cao cũ) ĐÃ BỎ HẲN — thay bằng 3 cụm ĐỘC LẬP, mỗi cụm
          tự mở/đóng drawer con của mình (folder.js/nav.js nạp trước, xem thứ tự script core/ phía
          trên): "fileManagerSong" (folder CRUD + quản lý dung lượng, DỜI từ settingsMisc/
-         storageDrawer cũ, giữ nguyên vị trí nạp), "fileManagerPhoto" và "fileManagerDocument"
-         (MỚI — hiện chỉ có mở/đóng, nội dung thật b2/b3/b4 code sau). -->
+         storageDrawer cũ, giữ nguyên vị trí nạp) và "fileManagerPhoto" (MỚI — hiện chỉ có
+         mở/đóng, nội dung thật b2/b3 code sau). XOÁ (loại bỏ Document Reader khỏi app) — cụm
+         "fileManagerDocument" từng nhắc ở đây bỏ hẳn cùng tính năng. -->
     <!-- Phase 2 (mục 2, CHỐT 03/07/2026) — workflowPlaylistScope, dùng CHUNG cho 3 nơi đổi scope
          (Áp dụng cho Playlist / boot khôi phục / xoá folder đang active) — CẦN core/playlist/
          scope.js (loadAllSongs/loadSongsFromFolder) + core/db.js (setMeta) + core/playlist/order.js
          + core/playlist/render.js (đã nạp ở nhóm CORE, phía trên nhóm EVENT này). -->
     <script src="event/workflow/playlist-scope.js?v=20260703v3"></script>
-    <!-- Panel "Song & Video" cũ (file-manager-song.js) đã xoá, thay bằng "Quản lý lưu trữ" (gộp 4
-         domain: song/video/photo/document) — CẦN core/file-manager/{image,album,document}.js,
+    <!-- Panel "Song & Video" cũ (file-manager-song.js) đã xoá, thay bằng "Quản lý lưu trữ" (gộp 3
+         domain: song/video/photo) — CẦN core/file-manager/{image,album}.js,
          components/file-manager-storage.js (đã nạp ở nhóm CORE/COMPONENTS). -->
     <script src="event/workflow/file-manager-storage.js?v=20260729v2"></script>
     <script src="event/router/file-manager-storage.js?v=20260729v2"></script>
@@ -897,15 +888,8 @@
     <script src="event/workflow/video-preview.js?v=20260803v1"></script>
     <script src="event/router/video-preview.js?v=20260803v1"></script>
     <script src="event/listener/video-preview.js?v=20260802v1"></script>
-    <!-- workflowFileManagerDocument CẦN tồn tại trước khi router gọi tới. Batch D7 (06/07/2026):
-         panel Document push/pop động — CẦN core/settings-panel-stack-ui.js (đã nạp ở nhóm CORE).
-         VIẾT LẠI (10/07/2026, Nhóm A, CẬP NHẬT cùng ngày sau phản hồi Giang) — .txt upload lưu
-         string[] (splitPlainTextIntoParagraphs()), .docx/user-edited lưu HTML
-         (sanitizeDocumentHtml()), KHÔNG còn Markdown/Turndown. Toàn bộ mount+wire modal/drawer
-         Documents giờ ở workflow này (core/file-manager/document-ui.js chỉ dựng DOM tĩnh). -->
-    <script src="event/workflow/file-manager-document.js?v=20260714v2"></script>
-    <script src="event/router/file-manager-document.js?v=20260714v2"></script>
-    <script src="event/listener/file-manager-document.js?v=20260714v2"></script>
+    <!-- XOÁ (loại bỏ Document Reader khỏi app) — cụm "fileManagerDocument" (workflow/router/
+         listener panel Document trong File Manager) bỏ hẳn cùng tính năng. -->
     <!-- MỚI (04/07/2026, mục 2 phản hồi Giang) — cụm "fileManagerCleanup" (nút "Dọn dẹp dữ liệu",
          giờ nằm TRONG panel "Quản lý lưu trữ" — router/workflow/core GIỮ NGUYÊN 100%, CHỈ đổi nơi
          wiring click: XOÁ (29/07/2026) event/listener/file-manager-cleanup.js (static binding cũ,
@@ -913,13 +897,8 @@
          (đã nạp Ở TRÊN, cùng khối settingsStackBody). -->
     <script src="event/workflow/file-manager-cleanup.js?v=20260704v2"></script>
     <script src="event/router/file-manager-cleanup.js?v=20260704v1"></script>
-    <!-- workflowDocumentReader gộp cả List+Read qua 1 Generic Drawer (documentPicker cũ đã gộp
-         vào đây, wire trực tiếp không qua eventBus). router/listener "documentPicker" chỉ còn
-         msg.type 'open.click' (nút "Reader" ở Control Center) — PHẢI nạp trước vì router gọi thẳng
-         workflowDocumentReader.openPicker(). -->
-    <script src="event/workflow/document-reader.js?v=20260731v1"></script>
-    <script src="event/router/document-picker.js?v=20260710v1"></script>
-    <script src="event/listener/document-picker.js?v=20260710v1"></script>
+    <!-- XOÁ (loại bỏ Document Reader khỏi app) — cụm "documentReader" (Generic Drawer List+Read)
+         và router/listener "documentPicker" bỏ hẳn cùng tính năng. -->
     <!-- ĐẬP ĐI LÀM LẠI (rewrite Photo/Album, Giang yêu cầu "không dùng window virtual tự tạo nữa") —
          event/workflow/virtual-list.js + event/router,listener/virtual-list.js (hạ tầng scroll-based
          windowing tự viết, TỪNG gây hàng loạt bug layout/lệch cuộn) XOÁ HẲN. THAY bằng
