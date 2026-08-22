@@ -368,6 +368,50 @@
             return validKeys;
         }
 
+        /**
+         * Adapter cho Photo — MỚI (hợp nhất Photo vào Playlist). Ảnh không có "tên tự đặt" riêng
+         * (khác Song/Video có customName) — title LUÔN là filename (bỏ đuôi mở rộng, cùng công thức
+         * stripFileExtension() dùng chung). `tag.album`/`tag.artist` để rỗng — Filter Photo CHỈ có
+         * field 'name' (đọc qua songNameIndex, không qua tag.album/artist), 2 field đó không bao
+         * giờ được truy vấn cho Photo nhưng giữ ĐỦ shape cho nhất quán với Song/Video.
+         *
+         * CHỐT Giang (dùng hẳn UI Playlist Song/Video cho Photo, KHÔNG view riêng): `cover` LÀ
+         * thumbBlob (fallback blob gốc nếu record cũ thiếu thumbBlob) — buildSongNode() dùng
+         * NGUYÊN cơ chế `<img>` + object URL sẵn có, không cần đổi gì. `width`/`height` (ảnH GỐC,
+         * KHÔNG có ở Song/Video) MỚI THÊM vào shape Adapter — buildSongNode() đọc 2 field này thay
+         * cho `duration` khi `mediaType==='photo'` để hiện "WxH" thay vì "3:45" ở dòng phụ dưới tên.
+         * `duration: 0` cố định (giữ ĐỦ shape, Sort/Filter đã ẩn field 'duration' khỏi UI cho Photo,
+         * không ai đọc số 0 này để hiển thị nữa — render.js đọc width/height thay).
+         * @param {Array<{key:string, blob:Blob, thumbBlob?:Blob, width?:number, height?:number, filename:string, addedAt:number}>} imageRecords
+         * @returns {string[]} danh sách imageKey hợp lệ (có blob gốc) vừa nạp vào playlistCache, theo ĐÚNG thứ tự imageRecords truyền vào (chưa sort — nơi gọi tự sortKeysByMode() sau).
+         */
+        function buildPhotoPlaylistCache(imageRecords) {
+            appState.mutate('playlistCache', m => m.clear());
+            appState.mutate('songNameIndex', m => m.clear());
+            console.log(`writer: "buildPhotoPlaylistCache", page: "playlistCache", content: "clear toàn bộ trước khi nạp Photo"`);
+
+            const validKeys = [];
+            for (const record of imageRecords) {
+                if (!record.blob) continue; // guard — record hỏng/thiếu blob gốc, bỏ qua (giống isQuickValidMime() của Song)
+                validKeys.push(record.key);
+                const title = stripFileExtension(record.filename);
+                appState.mutate('playlistCache', m => m.set(record.key, {
+                    filename: record.filename,
+                    tag: { title, artist: '', album: '' }, // Adapter shape — Photo không có tên tự đặt riêng, LUÔN dùng filename
+                    cover: record.thumbBlob || record.blob, // thumbBlob — CHỐT Giang "ảnh cover -> thumb của ảnh"
+                    duration: 0, // giữ ĐỦ shape — render.js không đọc field này cho Photo nữa (đọc width/height thay)
+                    width: record.width || 0,  // MỚI — render.js hiện "WxH" thay cho duration khi mediaType='photo'
+                    height: record.height || 0,
+                    addedAt: record.addedAt,
+                    mediaType: 'photo',
+                    size: record.blob.size || 0,
+                }));
+                appState.mutate('songNameIndex', m => m.set(record.key, normalizeSongName(title)));
+            }
+            console.log(`writer: "buildPhotoPlaylistCache", page: "playlistCache", content: "đã nạp ${validKeys.length} ảnh"`);
+            return validKeys;
+        }
+
         /** Khởi động app / quét lại: store `songs` là chân lý duy nhất — quét nhanh rồi dựng cả 2 thứ tự. */
         async function initPlaylistFromDB() {
             // PHÒNG THỦ "Clear All bị gián đoạn" (đóng tab/crash giữa lúc đang xoá — xem comment

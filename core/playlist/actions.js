@@ -73,10 +73,18 @@
          * cần đọc `_objectUrl`/`_thumbObjectUrl` riêng của Workflow đó) — nhất quán với cách file
          * này VỐN đã không tuân Rule 1-4 nghiêm ngặt cho hàm cụ thể này.
          */
+        /**
+         * MỞ RỘNG (hợp nhất Photo vào Playlist) — thêm nhánh Photo (store `images`, hàm xoá riêng
+         * `deleteImage()` — core/file-manager/image.js). Photo KHÔNG BAO GIỜ là `currentKey` (Photo
+         * không có khái niệm "đang phát" — chưa từng gọi playMedia()), nên `isActuallyPlaying`/khối
+         * dọn player phía dưới tự nhiên không bao giờ kích hoạt cho Photo, không cần thêm nhánh gì
+         * ở 2 chỗ đó.
+         */
         window.removeSong = function(key) {
             const cached = appState.get('playlistCache').get(key);
             const title = cached && cached.tag && cached.tag.title ? cached.tag.title : (cached ? cached.filename : key);
-            const isVideo = !!(cached && cached.mediaType === 'video');
+            const mediaType = cached ? cached.mediaType : 'song'; // 'song'|'video'|'photo' — playlistCache.mediaType luôn có giá trị đúng cho item đang hiển thị thật (Adapter 3 nguồn đều set field này)
+            const isVideo = mediaType === 'video';
             const isCurrent = key === appState.get('currentKey');
             const isActuallyPlaying = isVideo ? (appState.get('isVideoPlayerMode') && !bgVideoElement.paused) : !audioPlayer.paused;
 
@@ -93,13 +101,17 @@
                 // deleteSelectedSongs() (xoá hàng loạt, event/workflow/playlist.js) VỐN ĐÃ gọi
                 // removeSongFromAllFolders() đúng thứ tự — để lại "ghost" trong folder_song nếu
                 // bài/video đó đang nằm trong 1 folder. Sửa đối xứng cho CẢ 2 nhánh.
-                const getRecordFn = isVideo ? getVideoRecord : getSongRecord;
+                // MỞ RỘNG (hợp nhất Photo) — 3 nhánh get/delete theo mediaType (trước đây thiếu
+                // nhánh Photo sẽ khiến deleteSongRecord() gọi nhầm lên key không tồn tại trong store
+                // `songs` — âm thầm KHÔNG xoá được gì, ảnh vẫn còn nguyên trong `images`).
+                const getRecordFn = isVideo ? getVideoRecord : mediaType === 'photo' ? getImageRecord : getSongRecord;
                 const record = await getRecordFn(key);
                 if (record) await removeSongFromAllFolders(record); // core/file-manager/folder.js
 
                 if (isVideo) await deleteVideo(key); // core/file-manager/video.js
+                else if (mediaType === 'photo') await deleteImage(key); // core/file-manager/image.js
                 else await deleteSongRecord(key);
-                removeSongStats(key); // dọn luôn thống kê nghe của bài đã xoá — key-agnostic, dùng chung được cho Video
+                removeSongStats(key); // dọn luôn thống kê nghe của bài đã xoá — key-agnostic, dùng chung được cho Video/Photo
                 removeKeyFromDisplay(key);
 
                 if (isCurrent && isVideo) {
@@ -150,12 +162,20 @@
          * đã bỏ hẳn khỏi dropdown Video.
          * MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — nhãn "Xoá" đổi chữ động
          * (Song/Video) qua `#song-menu-delete-label`.
+         * MỞ RỘNG (hợp nhất Photo vào Playlist, CHỐT Giang "giữ nguyên nút 3 chấm") — Photo ẩn
+         * "Sửa phụ đề" (giống Video) VÀ "Chi tiết"/"Xuất file" (chưa có view/export riêng cho Photo
+         * — 2 hành động đó đọc/ghi tag ID3 kiểu Song, không áp dụng được, tránh mở ra hành động lỗi
+         * thay vì hiện rồi báo lỗi khi bấm). "Thêm vào thư mục"/"Xoá" GIỮ NGUYÊN — cả 2 đã hoạt
+         * động đúng cho Photo (Folder type='photo' MỚI; window.removeSong() đã thêm nhánh photo).
          */
         function openSongActionMenu(key, anchorBtn) {
             playlistStore.set({ songActionMenuKey: key });
             const cached = appState.get('playlistCache').get(key);
             const isVideo = !!(cached && cached.mediaType === 'video');
-            songMenuBtnEditSubtitles.classList.toggle('hidden', isVideo);
+            const isPhoto = !!(cached && cached.mediaType === 'photo');
+            songMenuBtnEditSubtitles.classList.toggle('hidden', isVideo || isPhoto);
+            if (songMenuBtnEdit) songMenuBtnEdit.classList.toggle('hidden', isPhoto);
+            if (songMenuBtnRestore) songMenuBtnRestore.classList.toggle('hidden', isPhoto);
             // SỬA (phản hồi Giang — Batch "Export dọn nợ kiến trúc") — "Xuất file" giờ áp dụng CHO
             // CẢ Video (exportVideoFile(), bỏ qua bước gắn tag ID3 — xem event/workflow/playlist.js)
             // — KHÔNG còn ẩn khi isVideo nữa.
@@ -163,8 +183,9 @@
             songMenuBtnEditVideo.classList.toggle('hidden', !isVideo);
             // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — nhãn nút "Xoá" đổi
             // chữ đúng loại item đang mở menu (trước đây LUÔN nói "Delete song" kể cả khi xoá Video).
+            // MỞ RỘNG (hợp nhất Photo) — thêm nhánh photo.
             const deleteLabelEl = songActionMenu.querySelector('#song-menu-delete-label');
-            if (deleteLabelEl) deleteLabelEl.textContent = t(isVideo ? 'playlistView.songMenu.deleteVideo' : 'playlistView.songMenu.delete');
+            if (deleteLabelEl) deleteLabelEl.textContent = t(isVideo ? 'playlistView.songMenu.deleteVideo' : isPhoto ? 'playlistView.songMenu.deletePhoto' : 'playlistView.songMenu.delete');
 
             const rect = anchorBtn.getBoundingClientRect();
             const menuWidth = 192;

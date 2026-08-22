@@ -91,13 +91,22 @@
             // này chỉ còn "3:45" (đúng "hàng dưới của tên" Giang yêu cầu, dùng CHUNG 1 dòng, không
             // cần 2 dòng riêng). Dùng CHUNG 1 biến cho cả list lẫn grid (2 nơi có cùng ý nghĩa "dòng
             // phụ dưới tên").
-            const durationLabel = formatTime(cached ? cached.duration : 0);
+            // MỞ RỘNG (hợp nhất Photo vào Playlist, CHỐT Giang "dùng hẳn UI Song/Video, chỉ thay nội
+            // dung") — Photo KHÔNG có duration, dòng phụ này hiện ĐỘ PHÂN GIẢI (width×height, đọc từ
+            // `cached.width`/`cached.height` — xem core/playlist/loader.js::buildPhotoPlaylistCache())
+            // thay vì formatTime(). `artist` LUÔN rỗng cho Photo (Adapter set `tag.artist: ''`) nên
+            // secondLineHtml tự nhiên chỉ còn đúng độ phân giải, không cần thêm nhánh riêng ở dưới.
+            const durationLabel = (cached && cached.mediaType === 'photo')
+                ? `${cached.width || 0}×${cached.height || 0}`
+                : formatTime(cached ? cached.duration : 0);
             const secondLineHtml = artist
                 ? `${artist} <span class="opacity-50">·</span> ${durationLabel}`
                 : durationLabel;
             // Chỉ Blob cover (record.cover) mới cần tạo + theo dõi object URL để revoke sau; ảnh
             // DEFAULT_VINYL là data: URI tĩnh, không phải object URL — node._coverObjectUrl giữ
             // null cho trường hợp này để revokeNodeCoverUrl() không vô tình revoke nhầm data: URI.
+            // Photo: `cached.cover` LÀ thumbBlob (fallback blob gốc nếu record cũ thiếu thumbBlob) —
+            // xem buildPhotoPlaylistCache() — dùng NGUYÊN cơ chế object URL sẵn có, không cần đổi gì.
             const hasRealCover = !!(cached && cached.cover);
             const coverUrl = hasRealCover ? URL.createObjectURL(cached.cover) : DEFAULT_VINYL;
 
@@ -112,6 +121,8 @@
             const eqIconHtml = isActuallyPlaying ? `<div class="flex items-end gap-[2px] h-3 w-3"><div class="w-[3px] bg-sky-400 eq-1"></div><div class="w-[3px] bg-sky-400 eq-2"></div><div class="w-[3px] bg-sky-400 eq-3"></div></div>` : (isPlaying ? `<div class="w-2 h-2 rounded-full bg-sky-500 shadow-[0_0_5px_rgba(14,165,233,0.8)]"></div>` : '');
             const selectionMode = appState.get('selectionMode');
             const isSelected = selectionMode && appState.get('selectedSongKeys').has(key);
+            // CHỐT Giang (giữ nguyên nút "..." cho Photo — không ẩn nữa, giờ "Thêm vào thư mục" đã
+            // hoạt động thật cho Photo qua Folder type='photo' MỚI, xem core/file-manager/folder.js).
             const menuBtnHtml = selectionMode ? '' : songActionMenuButtonHtml(key); // ẩn menu 3 chấm khi đang chọn nhiều, tránh 2 mục tiêu bấm cạnh tranh nhau
 
             const wrapper = document.createElement('div');
@@ -177,12 +188,13 @@
             // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — 2 chuỗi rỗng/không-
             // kết-quả trước đây LUÔN nói "song" kể cả khi đang browse Nguồn Video — đổi chữ theo
             // `activeMediaSource` mỗi lần hàm này chạy (rẻ, chỉ 2 dòng textContent).
-            const isVideo = appState.get('activeMediaSource') === 'video';
+            // MỞ RỘNG (hợp nhất Photo vào Playlist) — thêm nhánh 'photo' vào cùng cơ chế.
+            const mediaSource = appState.get('activeMediaSource');
             const emptyTextEl = emptyEl.querySelector('p');
-            if (emptyTextEl) emptyTextEl.textContent = t(isVideo ? 'playlistView.empty.noVideos' : 'playlistView.empty.noSongs');
+            if (emptyTextEl) emptyTextEl.textContent = t(mediaSource === 'video' ? 'playlistView.empty.noVideos' : mediaSource === 'photo' ? 'playlistView.empty.noPhotos' : 'playlistView.empty.noSongs');
             if (searchEmptyEl) {
                 const searchTextEl = searchEmptyEl.querySelector('p');
-                if (searchTextEl) searchTextEl.textContent = t(isVideo ? 'playlistView.empty.noSearchResultsVideo' : 'playlistView.empty.noSearchResults');
+                if (searchTextEl) searchTextEl.textContent = t(mediaSource === 'video' ? 'playlistView.empty.noSearchResultsVideo' : mediaSource === 'photo' ? 'playlistView.empty.noSearchResultsPhoto' : 'playlistView.empty.noSearchResults');
             }
             // Khi đã có dữ liệu thật để dựng list (renderOrder > 0) thì lớp "đang nạp" không còn cần
             // -> fade out (an toàn nếu nó đang hiện; no-op nếu đã ẩn).

@@ -23,10 +23,12 @@
  * NẠP SAU: service/operation.js (operation.evaluate).
  */
 
-/** 2 field text theo từng Nguồn — song có 3, video chỉ 1 (không có album/artist). */
-const PLAYLIST_FILTER_TEXT_FIELDS = { song: ['name', 'album', 'artist'], video: ['name'] };
-/** 5 field số/ngày — DÙNG CHUNG cho cả 2 Nguồn (addedAt=ngày tải, count/totalTime=thống kê nghe,
- * size=dung lượng byte, duration=thời lượng bài/video giây). */
+/** 3 field text theo từng Nguồn — song có 3, video/photo chỉ 1 (không có album/artist). */
+const PLAYLIST_FILTER_TEXT_FIELDS = { song: ['name', 'album', 'artist'], video: ['name'], photo: ['name'] };
+/** 5 field số/ngày — DÙNG CHUNG cho cả 3 Nguồn (addedAt=ngày tải, count/totalTime=thống kê nghe,
+ * size=dung lượng byte, duration=thời lượng bài/video giây) — Photo CHỈ dùng 3/5 (addedAt/count/
+ * size, xem clonePlaylistFilterConfigDefaults(), service/state/playlist.js — bucket photo không có
+ * 2 key totalTime/duration nên applyPlaylistFilter() không bao giờ đọc tới chúng cho Photo). */
 const PLAYLIST_FILTER_NUMERIC_FIELDS = ['addedAt', 'count', 'totalTime', 'size', 'duration'];
 
 /**
