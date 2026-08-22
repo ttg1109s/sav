@@ -4,7 +4,8 @@
  * kiểu Settings-panel-stack cũ (core/file-manager/folder-list-ui.js + phần lớn
  * event/workflow/file-manager-song.js — ĐÃ XOÁ, xem changelog) bằng 2 tầng List↔Read DÙNG CHUNG 1
  * Generic Drawer (core/generic-drawer.js) — ĐÚNG use-case gốc Generic Drawer sinh ra để làm, mirror
- * NGUYÊN kiến trúc event/workflow/document-reader.js (List=Document Picker, Read=Reader):
+ * kiến trúc 2 tầng List↔Read qua Generic Drawer (khuôn CHUNG đã dùng cho nhiều tính năng khác —
+ * xem core/generic-drawer.js):
  *   - List: grid folder — TÁI DÙNG NGUYÊN `itemTemplateFolderTile()`/`buildAddFolderTileHtml()`/
  *     `renderItemList()` (components/items.js, cùng template đang dùng cho "Add to Folder" picker ở
  *     event/workflow/playlist.js) — KHÔNG viết UI grid mới.

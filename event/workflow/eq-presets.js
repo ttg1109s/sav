@@ -128,8 +128,7 @@ const workflowEqPresets = {
         // SỬA (12/08/2026, Giang chỉ ra "khớp với generic drawer") — mở/chuyển view LUÔN dùng
         // updateGenericDrawer() nếu drawer đang mở (List <-> Edit trong CÙNG drawer), CHỈ
         // openGenericDrawer() (lần đầu) — trước đây gọi thẳng openGenericDrawer() bất kể trạng
-        // thái, khiến quay lại List từ Edit bị "mở lại từ đầu" thay vì chuyển mượt (đúng bug khuôn
-        // mẫu document-reader.js từng tránh, xem event/workflow/document-reader.js::openPicker()).
+        // thái, khiến quay lại List từ Edit bị "mở lại từ đầu" thay vì chuyển mượt.
         const config = {
             headerHtml: renderEqListHeader(), // components/eq-presets-drawer.js
             bodyHtml: renderEqListBody(appState.get('eqPresets'), appConfigViz.getAll().eqPresetId),

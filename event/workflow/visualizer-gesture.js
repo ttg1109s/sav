@@ -100,6 +100,8 @@ const GESTURE_SWIPE_CONFIG_FIELD = {
  * cũ — `.click()` do _clickControlCenterTarget() gọi vẫn hoạt động đúng (bấm NGẮN/cycle), xem
  * docstring event/listener/eq-presets.js (lý do #btn-cycle-eq giữ riêng 1 listener `click`, không
  * gộp vào `pointerup`, để tương thích CHÍNH cơ chế `.click()` này).
+ * XOÁ (loại bỏ Document Reader khỏi app) — `documentReader` (#btn-open-document-reader) khỏi map,
+ * còn lại 6/6.
  * SỬA TIẾP (cùng ngày, "tap 3 dùng chung select giống tap/cử chỉ khác") — Tap 3 lần KHÔNG còn tra
  * map này TRỰC TIẾP nữa (đi qua _dispatchGestureAction() như 6 action picker kia — CHỈ tới map này
  * GIÁN TIẾP nếu người dùng chọn 1 Action slot đã gán nút, y hệt cách swipe/tap đơn/đúp vẫn luôn
@@ -111,7 +113,6 @@ const GESTURE_TRIPLE_TAP_TARGET_ELS = {
     cycleMode: typeof btnCycleMode !== 'undefined' ? btnCycleMode : null,
     shuffle: typeof btnShuffle !== 'undefined' ? btnShuffle : null,
     repeat: typeof btnRepeat !== 'undefined' ? btnRepeat : null,
-    documentReader: typeof btnOpenDocumentReader !== 'undefined' ? btnOpenDocumentReader : null,
     captureFrame: typeof btnCaptureVideoFrame !== 'undefined' ? btnCaptureVideoFrame : null,
     openVolume: typeof btnOpenVolume !== 'undefined' ? btnOpenVolume : null,
     cycleEq: typeof btnCycleEq !== 'undefined' ? btnCycleEq : null,

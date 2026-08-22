@@ -1,8 +1,8 @@
 /**
  * event/workflow/generic-drawer-helpers.js — GỘP LẠI (31/07/2026, Giang chỉ ra: "xây Generic Drawer
- * mà vẫn phải nhân bản là vô lý") — `closeFully()` từng bị chép nguyên văn ở 7 file Workflow
- * (document-reader/file-manager-photo/file-manager-video/file-manager-folder-browser/playlist/
- * image-edit/video-editor). Gộp về ĐÚNG 1 chỗ, mọi nơi gọi qua `workflowGenericDrawerHelpers.xxx()`.
+ * mà vẫn phải nhân bản là vô lý") — `closeFully()` từng bị chép nguyên văn ở nhiều file Workflow
+ * (file-manager-photo/file-manager-video/file-manager-folder-browser/playlist/image-edit/
+ * video-editor). Gộp về ĐÚNG 1 chỗ, mọi nơi gọi qua `workflowGenericDrawerHelpers.xxx()`.
  *
  * SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow") —
  * `buildSimpleHeaderHtml()` (trả headerHtml "tiêu đề + nút X", dùng bởi picker Ảnh/lưới tool Edit)

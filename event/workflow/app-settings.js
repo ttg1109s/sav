@@ -7,7 +7,7 @@
  * Sắp xếp/Lọc...) KHÔNG dùng lại `core/settings-panel-stack-ui.js` (cơ chế push/pop CŨ, DOM đó giờ
  * thuộc về Photo, xem components/photo-panel.js) — mà dùng đúng "cơ chế swap nội dung của Generic
  * Drawer đã có" (Giang chỉ định): `updateGenericDrawer()` (đã dùng bởi eq-presets.js/custom-
- * effect.js/document-reader.js) + 1 NGĂN XẾP JS thuần (`_screenStack`, mảng hàm render) để Back
+ * effect.js) + 1 NGĂN XẾP JS thuần (`_screenStack`, mảng hàm render) để Back
  * biết quay lại ĐÚNG màn trước, KHÔNG phải DOM push/pop.
  *
  * TÁI DÙNG NGUYÊN VẸN mọi hàm render/hàm đồng bộ giá trị đã có (renderGestureSettingsPanelBody(),

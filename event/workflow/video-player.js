@@ -336,7 +336,7 @@ const workflowVideoPlayer = {
             // MỚI (phản hồi Giang 28/07/2026) — `bumpSongPlayCount()` (core/listen-stats.js) TRƯỚC
             // ĐÂY CHỈ được gọi trong `workflowPlayer.playMedia()` (event/workflow/player.js) —
             // nhánh Video dispatch ra KHỎI hàm đó TRƯỚC khi tới dòng gọi, nên Play Count chưa
-            // từng tăng cho Video. `songStatsMap` (core/listen-stats.js) vốn đã key-agnostic nên
+            // từng tăng cho Video. `mediaStatsMap` (core/listen-stats.js) vốn đã key-agnostic nên
             // gọi thẳng ở đây là đủ, không cần sửa gì thêm ở listen-stats.js.
             bumpSongPlayCount(videoKey); // core/listen-stats.js
 

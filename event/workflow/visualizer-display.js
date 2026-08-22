@@ -85,7 +85,7 @@ const workflowVisualizerDisplay = {
      * khỏi DOM, không còn listener nào gửi lại msg.type đó nữa, xem
      * event/listener/visualizer-display.js). Kết quả: KHÔNG còn đường chạy thật nào tới hàm này —
      * GIỮ NGUYÊN trên đĩa (không xoá), cùng tinh thần các file mồ côi khác đã ghi nhận ở
-     * readme/folder-structure.md (`event/workflow/document-picker.js`...).
+     * readme/folder-structure.md.
      * @param {{enabled: boolean}} payload
      */
     async toggleBgImage(payload) {

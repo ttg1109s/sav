@@ -864,7 +864,7 @@ const workflowPlaylist = {
         // MỚI (mục 1d, Playlist Filter) — áp filter (nếu có) NGAY SAU khi playlistOrder vừa được
         // tính lại theo Nguồn Video, TRƯỚC updateShuffleArray()/recompute*Order() — xem docstring
         // đầu core/playlist/filter.js (đúng vị trí "Scope xong, Sort chưa chạy").
-        const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('songStatsMap'), appState.get('playlistFilterConfig').video);
+        const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig').video);
         appState.set('playlistOrder', filteredKeys);
         console.log(`writer: "switchToVideoSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} video (đã áp Filter)"`);
 
@@ -909,7 +909,7 @@ const workflowPlaylist = {
         showPlaylistLoading(0, 0);
         const keys = await scanValidSongsFromDB(); // core có sẵn (core/playlist/loader.js, Song, KHÔNG đụng), CÓ return, DÙNG ngay dưới
         // MỚI (mục 1d, Playlist Filter) — CÙNG LÝ DO switchToVideoSource() ngay trên.
-        const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('songStatsMap'), appState.get('playlistFilterConfig').song);
+        const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig').song);
         appState.set('playlistOrder', filteredKeys);
         console.log(`writer: "switchToSongSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} bài hát (đã áp Filter)"`);
 
