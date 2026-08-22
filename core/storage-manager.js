@@ -405,8 +405,7 @@
         // đầy đủ như Song/Video") — mirror ĐẦY ĐỦ bộ hàm zip/xoá tất cả/quét lỗi/xoá lỗi của
         // Video ngay trên, viết RIÊNG bản của Photo (Rule 3 — mỗi domain 1 bộ hàm riêng, không gọi
         // chéo). NẠP THÊM: core/file-manager/image.js (getAllImageKeys/getImageRecord/
-        // deleteImageRecord), core/file-manager/album.js (getAllAlbumKeys/getAlbumRecord/
-        // setAlbumRecord — dọn `imageKeys` mồ côi sau khi xoá tất cả ảnh). =====================
+        // deleteImageRecord). =====================
 
         /** Đóng gói TOÀN BỘ ảnh GỐC (blob thật, không phải thumbBlob) thành 1 file .zip. Mirror
          * `buildAllVideosZipBlob()` ngay trên. */
@@ -437,25 +436,16 @@
         }
 
         /**
-         * Xoá TOÀN BỘ ảnh — CHỐT Giang (29/07/2026): Album GIỮ NGUYÊN (không xoá), chỉ RỖNG HOÁ
-         * `imageKeys` của TỪNG album (album là khái niệm nhóm ảnh, không phải "nơi chứa" — xoá hết
-         * ảnh bên trong không có nghĩa album phải biến mất theo, cùng triết lý `deleteAlbum()`
-         * KHÔNG đụng ảnh, core/file-manager/album.js). Viết ĐƠN GIẢN + THUẦN — không appState,
-         * không DOM (cùng tinh thần `clearAllVideosData()` ngay trên, KHÔNG mirror độ phức tạp/cờ
-         * an toàn của `clearAllStoredData()` bản Song di sản).
+         * Xoá TOÀN BỘ ảnh. Viết ĐƠN GIẢN + THUẦN — không appState, không DOM (cùng tinh thần
+         * `clearAllVideosData()` ngay trên, KHÔNG mirror độ phức tạp/cờ an toàn của
+         * `clearAllStoredData()` bản Song di sản).
+         * XOÁ (loại bỏ Album khỏi Photo Panel) — rỗng hoá `imageKeys` của từng album bỏ hẳn cùng
+         * tính năng (Album không còn tồn tại trong app).
          * @returns {Promise<void>}
          */
         async function clearAllPhotosData() {
             const keys = await getAllImageKeys(); // service/db.js
             for (const key of keys) await deleteImageRecord(key); // service/db.js
-
-            const albumIds = await getAllAlbumKeys(); // service/db.js
-            for (const albumId of albumIds) {
-                const record = await getAlbumRecord(albumId); // service/db.js
-                if (record && Array.isArray(record.imageKeys) && record.imageKeys.length > 0) {
-                    await setAlbumRecord(albumId, { ...record, imageKeys: [] }); // service/db.js
-                }
-            }
         }
 
         /** Bản Photo của `isRecordCorrupted()`/`isVideoRecordCorrupted()` — thử decode ảnh qua
@@ -498,24 +488,17 @@
             return results;
         }
 
-        /** Bản Photo của `deleteCorruptedVideos()` — CỘNG THÊM dọn cascade khỏi MỌI album đang
-         * chứa ảnh vừa xoá (cùng nguyên tắc `deleteImage()`, core/file-manager/image.js — KHÔNG gọi
-         * thẳng hàm đó, Rule 3, tự lặp lại logic dọn cascade tại đây).
+        /** Bản Photo của `deleteCorruptedVideos()`.
+         * XOÁ (loại bỏ Album khỏi Photo Panel) — dọn cascade khỏi mọi album đang chứa ảnh vừa xoá
+         * bỏ hẳn cùng tính năng (Album không còn tồn tại trong app).
          * @param {Array<{key:string}>} scanResults
          * @returns {Promise<string[]>} danh sách imageKey đã xoá thật.
          */
         async function deleteCorruptedPhotos(scanResults) {
             const deletedKeys = [];
-            const albumIds = await getAllAlbumKeys();
             for (const { key } of scanResults) {
                 await deleteImageRecord(key);
                 appState.mutate('confirmedBrokenKeys', s => s.delete(key));
-                for (const albumId of albumIds) {
-                    const albumRecord = await getAlbumRecord(albumId);
-                    if (albumRecord && Array.isArray(albumRecord.imageKeys) && albumRecord.imageKeys.includes(key)) {
-                        await setAlbumRecord(albumId, { ...albumRecord, imageKeys: albumRecord.imageKeys.filter(k => k !== key) });
-                    }
-                }
                 deletedKeys.push(key);
             }
             return deletedKeys;

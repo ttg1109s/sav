@@ -244,12 +244,9 @@
         // (drawerSlideshowSettings/btnBackSlideshowSettings ĐÃ XOÁ — Batch D4: panel Slideshow
         // Settings giờ động, không còn drawer tĩnh riêng; Back dùng CHUNG btnSettingsStackBack.)
         //
-        // MỚI (Batch 9, 04/07/2026, mục 4) — panel chọn Album kiểu "notify center" — ĐỘC LẬP với
-        // Settings Stack (KHÔNG di chuyển, xem components/slideshow-settings-drawer.js), 4 const
-        // dưới đây GIỮ NGUYÊN tĩnh.
         // ĐÃ GỠ (Giai đoạn 4, rewrite Photo/Album, mục 1) — slideshowAlbumPickerOverlay/Panel/Grid/
-        // Empty không còn tồn tại (panel chọn Album Slideshow giờ dùng Generic Drawer động, đọc lại
-        // genericDrawerBody mỗi lần mở — xem event/workflow/slideshow.js::openAlbumPicker()).
+        // Empty không còn tồn tại (panel chọn nguồn Slideshow giờ dùng Generic Drawer động, đọc lại
+        // genericDrawerBody mỗi lần mở).
         // (settingSlideshowEnableToggle/slideshowModeSelect/settingSlideshowPhotoPerSongToggle/
         // slideshowIntervalRow/slideshowIntervalInput/slideshowTransitionSelect
         // ĐÃ XOÁ — Batch D4: 5 input Settings giờ sống động BÊN

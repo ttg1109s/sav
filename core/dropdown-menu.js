@@ -2,7 +2,7 @@
  * core/dropdown-menu.js — Dropdown menu NEO THEO NÚT (KHÁC Generic Drawer — core/generic-drawer.js,
  * bottom sheet toàn chiều rộng màn hình). Dùng CHUNG cho MỌI nút "..." cần menu ngắn (vài lựa chọn)
  * hiện sát cạnh chính nút đó — Giang yêu cầu tách riêng để tái dùng, THAY vì viết riêng từng feature
- * (áp dụng đầu tiên cho Album List — event/workflow/file-manager-photo.js::openAlbumActionMenu()).
+ * (áp dụng đầu tiên cho menu ảnh Photo — event/workflow/file-manager-photo.js::openImageActionMenu()).
  *
  * TÁI DÙNG đúng công thức định vị đã có sẵn ở `core/playlist/actions.js::openSongActionMenu()`
  * (đo `getBoundingClientRect()` của nút neo, tự lật lên trên nếu tràn màn hình dưới) — KHÔNG viết
@@ -13,12 +13,11 @@
  * `items`: `Array<{icon: string, name: string, callback: () => void, destructive?: boolean}>`.
  * `icon` là chuỗi SVG dán thẳng qua `innerHTML` — nơi GỌI (Workflow) tự chịu trách nhiệm an toàn
  * chuỗi (không có input người dùng chèn trực tiếp vào icon — tên hành động cố định trong code, khác
- * hẳn `escapeHtml()` bắt buộc cho dữ liệu người dùng nhập như tên album).
+ * hẳn `escapeHtml()` bắt buộc cho dữ liệu người dùng nhập).
  * `callback` — hàm NÀY (core) CHỈ gọi `item.callback()` khi bấm, KHÔNG tự quyết định nghiệp vụ gì —
- * ĐÚNG khuôn `openCreateAlbumModal(onConfirm)`/`openRenameAlbumModal(currentName, onConfirm)` đã có
- * (core nhận callback làm tham số, KHÔNG tự viết business logic — Rule 1). Nơi GỌI (Workflow) PHẢI
+ * core nhận callback làm tham số, KHÔNG tự viết business logic (Rule 1). Nơi GỌI (Workflow) PHẢI
  * tự đảm bảo `callback` bên trong gọi `eventBus.send()` (Rule 5a — xem ví dụ ở
- * openAlbumActionMenu()), KHÔNG viết thẳng nghiệp vụ trong `callback` — hàm dropdown này không ép
+ * openImageActionMenu()), KHÔNG viết thẳng nghiệp vụ trong `callback` — hàm dropdown này không ép
  * buộc được điều đó (chỉ là quy ước nơi gọi phải tuân thủ), nhưng bản thân addEventListener() bên
  * trong đây CHỈ gọi ĐÚNG 1 việc: đóng menu + gọi callback — không tự thêm nghiệp vụ nào khác.
  *
@@ -31,7 +30,7 @@
  * @param {{zIndex?: number}} [options] - MỚI (21/07/2026, cần cho menu ảnh Photo — mở TỪ TRONG modal
  *   xem ảnh full-screen `#image-preview-overlay`, z-130, xem core/file-manager/photo-ui.js —
  *   z-index MẶC ĐỊNH của dropdown (126/127) sẽ bị chính modal đó ĐÈ LÊN, ẩn mất). Không truyền ->
- *   giữ NGUYÊN 126/127 như trước (mọi nơi gọi cũ, vd Album List, KHÔNG cần đổi gì).
+ *   giữ NGUYÊN 126/127 như trước (mọi nơi gọi cũ, KHÔNG cần đổi gì).
  */
 function openDropdownMenu(anchorEl, items, options) {
     options = options || {};
