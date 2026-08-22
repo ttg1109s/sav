@@ -34,6 +34,7 @@ const TPL_SETTINGS_PLAYLIST_VIEW = `
                     <select id="setting-playlist-media-source" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
                         <option value="song" data-i18n="settingsPlaylistBg.mediaSource.song">${t('settingsPlaylistBg.mediaSource.song')}</option>
                         <option value="video" data-i18n="settingsPlaylistBg.mediaSource.video">${t('settingsPlaylistBg.mediaSource.video')}</option>
+                        <option value="photo" data-i18n="settingsPlaylistBg.mediaSource.photo">${t('settingsPlaylistBg.mediaSource.photo')}</option>
                     </select>
                 </div>
                 <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
