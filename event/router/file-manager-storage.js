@@ -5,8 +5,8 @@
  * STATE CONTEXT (đóng closure, KHÔNG dùng EventStore — cùng cách router "settingsMisc"/
  * "fileManagerSong" cũ làm):
  *   - `lastScanResults` — nhánh quét lỗi.
- *   - `storageSources = {song,video,photo,document}` (MỚI — THAY `storageMediaScope` enum
- *     'song'|'video'|'both' cũ) — 4 toggle ĐỘC LẬP, không loại trừ nhau. CHỈ dùng cho section
+ *   - `storageSources = {song,video,photo}` (MỚI — THAY `storageMediaScope` enum
+ *     'song'|'video'|'both' cũ) — 3 toggle ĐỘC LẬP, không loại trừ nhau. CHỈ dùng cho section
  *     "Delete & Backup" (tải xuống/xoá) — KHÔNG còn dùng chung cho nhánh quét lỗi nữa (xem mục
  *     "Dọn file lỗi" ngay dưới).
  *   - `storageDownloadEnabled`/`storageDeleteEnabled` — 2 toggle hành động, GIỮ NGUYÊN ý nghĩa cũ.
@@ -14,7 +14,7 @@
  * KHÁC BIỆT KIẾN TRÚC quan trọng so với router cũ — case 'storageExecute.confirm' KHÔNG còn dùng
  * `VirtualMachineState.run()` để chọn "gọi core nào": trước đây `mediaScope` là 1 ENUM 3 giá trị
  * loại trừ nhau ('song'|'video'|'both'), khớp hoàn hảo mẫu VMState (so khớp 1 giá trị -> chọn
- * callback). Giờ 4 nguồn là tổ hợp BOOLEAN ĐỘC LẬP (2^4 = 16 khả năng, KHÔNG phải 1 giá trị enum
+ * callback). Giờ 3 nguồn là tổ hợp BOOLEAN ĐỘC LẬP (2^3 = 8 khả năng, KHÔNG phải 1 giá trị enum
  * hữu hạn để "so khớp") — Router gọi THẲNG 1 method DUY NHẤT
  * (`workflowFileManagerStorage.executeStorageAction(sources, download, del)`), method đó tự LẶP
  * qua từng nguồn đang bật bên trong (xem docstring đầu event/workflow/file-manager-storage.js) —
@@ -24,12 +24,12 @@
  * SỬA (29/07/2026, yêu cầu Giang — "Scan Broken File: thay vì dùng toggle của Delete & Backup ->
  * mở modal choice có dropdown chọn loại scan") — nhánh "Dọn file lỗi" giờ TÁCH HẲN khỏi
  * `storageSources` ở trên: bấm nút Quét mở `askScanBrokenScope()` (modalChoice() + `<select>` nhúng
- * trong modal, event/workflow/file-manager-storage.js) hỏi phạm vi RIÊNG (Tất cả/Song/Video/Photo/
- * Document), Huỷ hoặc Thực hiện NGAY TRONG modal đó — KHÔNG còn phụ thuộc trạng thái 4 toggle ở
+ * trong modal, event/workflow/file-manager-storage.js) hỏi phạm vi RIÊNG (Tất cả/Song/Video/Photo),
+ * Huỷ hoặc Thực hiện NGAY TRONG modal đó — KHÔNG còn phụ thuộc trạng thái 3 toggle ở
  * "Delete & Backup" nữa (dễ nhầm/quên đang bật gì ở đó trước khi quét). ĐỒNG THỜI bỏ hẳn Block gate
  * + field `appState.storageAnySourceEnabled` từng đăng ký riêng cho tình huống "quét khi chưa chọn
  * nguồn nào" (đợt trước) — tình huống đó KHÔNG CÒN THỂ XẢY RA nữa vì `<select>` LUÔN có 1 giá trị
- * được chọn (mặc định "Tất cả"), không có khái niệm "rỗng" như 4 checkbox độc lập từng có.
+ * được chọn (mặc định "Tất cả"), không có khái niệm "rỗng" như 3 checkbox độc lập từng có.
  *
  * NẠP SAU: event/bus.js, core/storage-manager.js, core/settings-panel-stack.js, event/workflow/
  * file-manager-storage.js.
@@ -38,9 +38,9 @@
 const routerFileManagerStorage = (() => {
     let lastScanResults = []; // context state CỦA RIÊNG nhánh quét lỗi
 
-    // Mặc định CẢ 4 nguồn TẮT + CẢ 2 toggle hành động TẮT (an toàn — hành động phá huỷ dữ liệu
+    // Mặc định CẢ 3 nguồn TẮT + CẢ 2 toggle hành động TẮT (an toàn — hành động phá huỷ dữ liệu
     // không nên có sẵn "đã chọn xong", buộc người dùng chủ động bật trước khi nút Thực hiện khả dụng).
-    let storageSources = { song: false, video: false, photo: false, document: false };
+    let storageSources = { song: false, video: false, photo: false };
     let storageDownloadEnabled = false;
     let storageDeleteEnabled = false;
 
@@ -51,7 +51,7 @@ const routerFileManagerStorage = (() => {
 
             case 'fileManagerStorage.openPanel.click': {
                 // Mở lại panel luôn RESET về mặc định an toàn — không giữ lựa chọn phiên trước.
-                storageSources = { song: false, video: false, photo: false, document: false };
+                storageSources = { song: false, video: false, photo: false };
                 storageDownloadEnabled = false; storageDeleteEnabled = false;
                 lastScanResults = [];
                 workflowFileManagerStorage.openPanel(); // >1 hàm core (push + refresh) -> workflow
@@ -75,10 +75,10 @@ const routerFileManagerStorage = (() => {
                 break;
             }
 
-            // ===================== Delete & Backup — 4 nguồn độc lập + 2 toggle hành động =====
+            // ===================== Delete & Backup — 3 nguồn độc lập + 2 toggle hành động =====
 
             case 'fileManagerStorage.sourceToggle.change': {
-                const { source, checked } = msg.payload; // source: 'song'|'video'|'photo'|'document'
+                const { source, checked } = msg.payload; // source: 'song'|'video'|'photo'
                 if (source in storageSources) storageSources[source] = checked;
                 workflowFileManagerStorage.updateStorageActionUI(storageSources, storageDownloadEnabled, storageDeleteEnabled);
                 break;
@@ -112,7 +112,7 @@ const routerFileManagerStorage = (() => {
                 // Reset NGAY về mặc định an toàn (trước khi bắt đầu chạy async) — tránh bấm lại
                 // "Thực hiện" trong lúc loading shield đang che. Đọc snapshot ra biến const Ở TRÊN
                 // trước khi reset, dùng đúng giá trị lúc bấm xác nhận cho lời gọi bên dưới.
-                storageSources = { song: false, video: false, photo: false, document: false };
+                storageSources = { song: false, video: false, photo: false };
                 storageDownloadEnabled = false; storageDeleteEnabled = false;
                 workflowFileManagerStorage.updateStorageActionUI(storageSources, storageDownloadEnabled, storageDeleteEnabled);
                 // Gọi THẲNG 1 method (KHÔNG VirtualMachineState) — xem giải thích đầy đủ ở docstring đầu file.
@@ -132,7 +132,7 @@ const routerFileManagerStorage = (() => {
             }
 
             case 'fileManagerStorage.scanBroken.confirm': {
-                // MỚI — quy đổi lựa chọn dropdown ('all'|'song'|'video'|'photo'|'document') thành
+                // MỚI — quy đổi lựa chọn dropdown ('all'|'song'|'video'|'photo') thành
                 // đúng shape `sources` mà executeScanBroken() cần (hàm đó GIỮ NGUYÊN, không quan
                 // tâm sources tới từ đâu).
                 const sources = workflowFileManagerStorage._scopeToSources(msg.payload.scope);
