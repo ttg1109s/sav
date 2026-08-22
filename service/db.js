@@ -76,8 +76,11 @@
         //                     "Schema — CHỐT bản đơn giản hoá cuối").
         //   - 'images'      : ảnh người dùng thêm vào File Manager, key = imageKey, value =
         //                     { blob, filename, addedAt }.
-        //   - 'albums'      : album ảnh dùng cho slideshow nền, key = albumId, value =
-        //                     { id, name, imageKeys: [...] }.
+        //   - 'albums'      : ĐÃ NGỪNG DÙNG (loại bỏ Album khỏi Photo Panel) — KHÔNG còn tạo mới
+        //                     cho lần cài đặt mới (đã bỏ khỏi khối tạo store bên dưới); store cũ
+        //                     (nếu người dùng từng có) vẫn còn tồn tại "mồ côi" trong IndexedDB —
+        //                     CỐ Ý không xoá cứng qua deleteObjectStore() để tránh mất dữ liệu ngoài
+        //                     phạm vi yêu cầu (chỉ gỡ TÍNH NĂNG, không chủ động xoá dữ liệu cũ).
         //   - 'documents'   : ĐÃ NGỪNG DÙNG (loại bỏ Document Reader khỏi app) — KHÔNG còn tạo mới
         //                     cho lần cài đặt mới (đã bỏ khỏi khối tạo store bên dưới); store cũ
         //                     (nếu người dùng từng có) vẫn còn tồn tại "mồ côi" trong IndexedDB —
@@ -88,8 +91,7 @@
         //                     { blob, thumbBlob, width, height, duration, filename, addedAt } —
         //                     CÙNG SCHEMA `images` (xem `thumbBlob`/`width`/`height` ở comment
         //                     store 'images' trên) + thêm `duration` (giây, số thực, đo lúc upload
-        //                     — event/workflow/file-manager-video.js). KHÔNG có quan hệ album nào
-        //                     (Video không có khái niệm Album, khác Photo).
+        //                     — event/workflow/file-manager-video.js).
         // Field `folder: { [folderId]: position }` trên record của store 'songs' KHÔNG cần đổi
         // version DB (IndexedDB không ràng buộc schema trong value của 1 store) — chỉ cần các core
         // function đọc/ghi record 'songs' biết thêm field này khi cần (việc của bước sau, xem
@@ -145,7 +147,8 @@
                     if (!db.objectStoreNames.contains('folders')) db.createObjectStore('folders');
                     if (!db.objectStoreNames.contains('folder_song')) db.createObjectStore('folder_song');
                     if (!db.objectStoreNames.contains('images')) db.createObjectStore('images');
-                    if (!db.objectStoreNames.contains('albums')) db.createObjectStore('albums');
+                    // XOÁ (loại bỏ Album khỏi Photo Panel) — ngừng tạo store 'albums' cho lần cài
+                    // đặt mới (xem comment ở khai báo DB_VERSION phía trên).
                     // XOÁ (loại bỏ Document Reader khỏi app) — ngừng tạo store 'documents' cho lần
                     // cài đặt mới (xem comment ở khai báo DB_VERSION phía trên).
                     if (!db.objectStoreNames.contains('videos')) db.createObjectStore('videos'); // MỚI (21/07/2026, module Video)
@@ -204,7 +207,8 @@
         const foldersStore = makeStoreAccessor('folders');
         const folderSongStore = makeStoreAccessor('folder_song');
         const imagesStore = makeStoreAccessor('images');
-        const albumsStore = makeStoreAccessor('albums');
+        // XOÁ (loại bỏ Album khỏi Photo Panel) — ngừng khai báo accessor 'albums' cho lần cài đặt
+        // mới (store cũ, nếu có, vẫn còn "mồ côi" trong IndexedDB — xem comment ở DB_VERSION).
         const videosStore = makeStoreAccessor('videos'); // MỚI (21/07/2026, module Video)
 
         /** CRUD cho store 'languages' — dùng bởi lang.js (saveLanguagePack/applySavedLanguage/
@@ -238,10 +242,8 @@
         function deleteImageRecord(imageKey) { return idbKeyval.del(imageKey, imagesStore); }
         function getAllImageKeys() { return idbKeyval.keys(imagesStore); }
 
-        function getAlbumRecord(albumId) { return idbKeyval.get(albumId, albumsStore); }
-        function setAlbumRecord(albumId, record) { return idbKeyval.set(albumId, record, albumsStore); }
-        function deleteAlbumRecord(albumId) { return idbKeyval.del(albumId, albumsStore); }
-        function getAllAlbumKeys() { return idbKeyval.keys(albumsStore); }
+        // XOÁ (loại bỏ Album khỏi Photo Panel) — CRUD 'albums' (getAlbumRecord/setAlbumRecord/
+        // deleteAlbumRecord/getAllAlbumKeys) bỏ hẳn cùng tính năng.
 
         // XOÁ (loại bỏ Document Reader khỏi app) — CRUD 'documents' (getDocumentRecord/
         // setDocumentRecord/deleteDocumentRecord/getAllDocumentKeys) bỏ hẳn cùng tính năng.
