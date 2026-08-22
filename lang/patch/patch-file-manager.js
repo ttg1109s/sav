@@ -20,9 +20,11 @@ const LANG_PATCH_FILE_MANAGER = {
     // chấm Playlist) LUÔN hiển thị bất kể đang browse nguồn nào (không gate theo mediaType) nên
     // Video cũng đi qua thông báo này — trước đây LUÔN nói "song(s)" kể cả khi vừa thêm Video.
     'fileManager.folderPicker.addSuccessVideo': 'Added {count} video(s) to the folder.',
+    // MỚI (hợp nhất Photo vào Playlist).
+    'fileManager.folderPicker.addSuccessPhoto': 'Added {count} photo(s) to the folder.',
     'fileManager.folderPicker.duplicateName': 'A folder named "{name}" already exists (folder names are case-sensitive — different capitalization counts as a different name).',
-    // MỚI (Batch 4, "Song/Video Unification" mục 5) — folder chỉ chứa đúng 1 loại (song/video).
-    'fileManager.folderPicker.typeMismatch': 'This folder already holds a different media type — pick another folder.',
+    // XOÁ (hợp nhất Photo vào Playlist, cấu trúc folderIndex) — 'typeMismatch' bỏ hẳn:
+    // addSongsToFolder() không còn trả trạng thái đó nữa (picker chỉ đưa vào folder ĐÚNG type).
     // MỚI (14/07/2026, tích hợp Generic Drawer grid — Giang yêu cầu, thay modal cũ) —
     // 'newTileLabel': nhãn dưới tile "+" cuối grid. 'defaultNewFolderName': tên tự sinh khi bấm
     // tile đó (createFolderInPicker(), event/workflow/playlist.js) — CÙNG chuỗi gốc, "newTileLabel"

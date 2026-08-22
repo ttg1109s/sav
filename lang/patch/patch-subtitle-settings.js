@@ -196,6 +196,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'settingsPlaylistBg.mediaSource.label': 'Source',
     'settingsPlaylistBg.mediaSource.song': 'Song',
     'settingsPlaylistBg.mediaSource.video': 'Video',
+    // MỚI (hợp nhất Photo vào Playlist).
+    'settingsPlaylistBg.mediaSource.photo': 'Photo',
     // MỚI (phản hồi Giang, mục 2 — "có folder active thì phải ẩn/block đổi Nguồn") — tooltip giải
     // thích lý do <select> bị khoá khi đang Apply 1 folder làm Scope cho Playlist.
     'settingsPlaylistBg.mediaSource.lockedByFolderScope': 'Turn off the active folder scope before changing Source.',

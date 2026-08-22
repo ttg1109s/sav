@@ -18,6 +18,8 @@ const LANG_PATCH_PLAYLIST = {
     // (không có artist/album để tìm) — đổi qua JS khi Nguồn đổi, xem switchToVideoSource()/
     // switchToSongSource() (event/workflow/playlist.js).
     'playlistView.search.placeholderVideo': 'Search videos...',
+    // MỚI (hợp nhất Photo vào Playlist) — cùng cơ chế, Photo cũng không có artist/album để tìm.
+    'playlistView.search.placeholderPhoto': 'Search photos...',
     'playlistView.search.clear.title': 'Clear search',
     'playlistView.btnPlay': 'Play',
     'playlistView.btnShuffleAll': 'Shuffle',
@@ -28,6 +30,9 @@ const LANG_PATCH_PLAYLIST = {
     // updateEmptyState() (core/playlist/render.js).
     'playlistView.empty.noVideos': 'No videos yet. Add some videos to get started.',
     'playlistView.empty.noSearchResultsVideo': 'No matching videos found.',
+    // MỚI (hợp nhất Photo vào Playlist) — cùng cơ chế updateEmptyState().
+    'playlistView.empty.noPhotos': 'No photos yet. Add some in File Manager -> Photo.',
+    'playlistView.empty.noSearchResultsPhoto': 'No matching photos found.',
     'playlistView.loading.generic': 'Loading data...',
     'playlistView.loading.withCount': 'Loading {done} / {total} songs...',
     'playlistView.songEdit.title': 'Details',
@@ -93,6 +98,8 @@ const LANG_PATCH_PLAYLIST = {
     // template với Song (#song-action-menu) nhưng nhãn tĩnh vẫn luôn nói "song" — đổi chữ qua JS
     // (openSongActionMenu(), core/playlist/actions.js) dựa vào 2 key song song này.
     'playlistView.songMenu.deleteVideo': 'Delete video',
+    // MỚI (hợp nhất Photo vào Playlist).
+    'playlistView.songMenu.deletePhoto': 'Delete photo',
     'playlistView.songMenu.addToFolder': 'Add to Folder',
     'playlistView.songMenu.deleteBlockedPlaying': "Can't delete <b>{title}</b> while it's playing. Pause the song first, then try again.",
     'playlistView.songMenu.deleteBlockedPlayingVideo': "Can't delete <b>{title}</b> while it's playing. Pause the video first, then try again.",
