@@ -12,7 +12,9 @@
         /**
          * Khung mặc định của `playlistFilterConfig` — DANH SÁCH field hợp lệ theo từng Nguồn (song
          * có 3 field text + 4 field số/ngày; video CHỈ 1 field text "name" + CÙNG 4 field số/ngày
-         * — video không có album/artist). Mọi field khởi tạo `null` (chưa áp filter nào). Đây LÀ
+         * — video không có album/artist; photo CHỈ 1 field text "name" + 3 field số/ngày — CHỐT
+         * Giang: bỏ hẳn totalTime/duration cho Photo, ảnh không có khái niệm "lượt nghe/tổng thời
+         * gian nghe" hay "thời lượng"). Mọi field khởi tạo `null` (chưa áp filter nào). Đây LÀ
          * nguồn sự thật DUY NHẤT cho "field nào hợp lệ theo Nguồn" — core/playlist/filter.js (áp
          * dụng) và components/playlist-filter-drawer.js (dựng UI) đều đối chiếu ĐÚNG danh sách này
          * (lặp lại tên field ở đó cho mục đích dựng template tĩnh, KHÔNG import chéo — service/
@@ -22,6 +24,7 @@
             return {
                 song: { name: null, album: null, artist: null, addedAt: null, count: null, totalTime: null, size: null, duration: null },
                 video: { name: null, addedAt: null, count: null, totalTime: null, size: null, duration: null },
+                photo: { name: null, addedAt: null, count: null, size: null },
             };
         }
 
