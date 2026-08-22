@@ -74,7 +74,8 @@ function renderGestureSettingsPanelBody() {
     // visualizer-gesture.js), DÙNG cho 3 dropdown section Action (Slot 1/2/3) — TRƯỚC ĐÂY còn dùng
     // chung cho dropdown Tap 3 lần, xem SỬA TIẾP ngay dưới.
     // SỬA TIẾP (cùng ngày, "gộp eq edit vào hold 3s, bỏ icon edit riêng") — <option value="editEq">
-    // ĐÃ BỎ cùng lúc xoá hẳn #btn-edit-eq (còn lại đúng 7 option, không phải 8) — mở Edit EQ giờ
+    // ĐÃ BỎ cùng lúc xoá hẳn #btn-edit-eq (còn lại đúng 6 option, sau khi bỏ tiếp `documentReader`
+    // — loại bỏ Document Reader khỏi app — từ 7 xuống 6) — mở Edit EQ giờ
     // gộp vào GIỮ 1.5s trên chính `cycleEq`, không còn là 1 "nút bấm hộ được" riêng để gán gesture
     // nữa (xem docstring GESTURE_TRIPLE_TAP_TARGET_ELS, event/workflow/visualizer-gesture.js).
     // Nhãn option `cycleEq` đổi sang key `.label` (MỚI, ngắn gọn) THAY `.title` — `.title` giờ dài
@@ -88,7 +89,6 @@ function renderGestureSettingsPanelBody() {
         <option value="cycleMode" data-i18n="visualizerOverlay.cycleMode.label">${t('visualizerOverlay.cycleMode.label')}</option>
         <option value="shuffle" data-i18n="visualizerOverlay.shuffle.label">${t('visualizerOverlay.shuffle.label')}</option>
         <option value="repeat" data-i18n="visualizerOverlay.repeat.label">${t('visualizerOverlay.repeat.label')}</option>
-        <option value="documentReader" data-i18n="visualizerOverlay.documentReader.label">${t('visualizerOverlay.documentReader.label')}</option>
         <option value="captureFrame" data-i18n="gestureSettings.tripleTapTarget.captureFrameOption">${t('gestureSettings.tripleTapTarget.captureFrameOption')}</option>
         <option value="openVolume" data-i18n="visualizerOverlay.volume.label">${t('visualizerOverlay.volume.label')}</option>
         <option value="cycleEq" data-i18n="visualizerOverlay.cycleEq.label">${t('visualizerOverlay.cycleEq.label')}</option>

@@ -9,11 +9,11 @@
  * mọi panel trung gian.
  *
  * MỞ RỘNG (mục 2a/2c, phản hồi Giang):
- *   - Thống kê dung lượng giờ gồm ĐỦ 4 domain (Song/Video/Photo/Document) — thanh chia đoạn 4 màu
- *     THAY 2 màu cũ, "vòng tròn số lượng" THAY bằng 1 LIST 4 hàng (nhãn trái - số lượng phải).
+ *   - Thống kê dung lượng giờ gồm ĐỦ 3 domain (Song/Video/Photo) — thanh chia đoạn 3 màu THAY 2
+ *     màu cũ, "vòng tròn số lượng" THAY bằng 1 LIST 3 hàng (nhãn trái - số lượng phải).
  *   - "Giải phóng bộ nhớ" đổi tên "Chọn mục xoá" — <select> phạm vi (song/video/both) cũ THAY bằng
- *     4 checkbox toggle ĐỘC LẬP (Song/Video/Photo/Document, không loại trừ nhau) — kết hợp CÙNG 2
- *     toggle sẵn có (Tải xuống trước/Xoá khỏi thư viện). "Dọn file lỗi" DÙNG CHUNG đúng 4 checkbox
+ *     3 checkbox toggle ĐỘC LẬP (Song/Video/Photo, không loại trừ nhau) — kết hợp CÙNG 2
+ *     toggle sẵn có (Tải xuống trước/Xoá khỏi thư viện). "Dọn file lỗi" DÙNG CHUNG đúng 3 checkbox
  *     này để biết quét kho nào (xem event/workflow/file-manager-storage.js).
  *   - Nút "Dọn dẹp dữ liệu" (trước ở cuối section chính, components/settings/file-manager-
  *     section.js) DỜI VÀO ĐÂY (mục 2d) — ID giữ NGUYÊN (`btn-file-manager-cleanup-run`), router/
@@ -21,12 +21,12 @@
  *     `settingsStackBody`, xem event/listener/file-manager-storage.js — THAY static binding cũ ở
  *     event/listener/file-manager-cleanup.js đã xoá).
  *
- * Push ĐỘNG vào Settings Stack (core/settings-panel-stack.js), CÙNG khuôn panel Photo/Documents —
+ * Push ĐỘNG vào Settings Stack (core/settings-panel-stack.js), CÙNG khuôn panel Photo —
  * xem event/workflow/file-manager-storage.js::openPanel().
  */
 function renderFileManagerStorageManagementPanelBody() {
     return `
-                <!-- SECTION: THỐNG KÊ DUNG LƯỢNG (4 domain: Song/Video/Photo/Document) -->
+                <!-- SECTION: THỐNG KÊ DUNG LƯỢNG (3 domain: Song/Video/Photo) -->
                 <div>
                     <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="storageDrawer.statsSectionTitle">${t('storageDrawer.statsSectionTitle')}</h3>
                     <div class="glass-modal rounded-2xl p-4 flex flex-col gap-3">
@@ -42,11 +42,10 @@ function renderFileManagerStorageManagementPanelBody() {
                             <div id="stat-storage-bar-songs" class="h-full bg-sky-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendSongs" style="width:0%"></div>
                             <div id="stat-storage-bar-videos" class="h-full bg-violet-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendVideos" style="width:0%"></div>
                             <div id="stat-storage-bar-photos" class="h-full bg-emerald-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendPhotos" style="width:0%"></div>
-                            <div id="stat-storage-bar-documents" class="h-full bg-amber-400 transition-[width] duration-500 cursor-pointer" data-legend-key="storageDrawer.legendDocuments" style="width:0%"></div>
                         </div>
-                        <!-- MỚI (mục 2b, phản hồi Giang "list ngay dưới song/video/photo/document
+                        <!-- MỚI (mục 2b, phản hồi Giang "list ngay dưới song/video/photo
                              (bên trái) - count items (bên phải)") — THAY hẳn 2 "vòng tròn số lượng"
-                             cũ (song/video), giờ 1 list 4 hàng, chấm màu khớp ĐÚNG màu thanh chia
+                             cũ (song/video), giờ 1 list 3 hàng, chấm màu khớp ĐÚNG màu thanh chia
                              đoạn ở trên cho từng domain. -->
                         <div class="flex flex-col divide-y divide-white/5 mt-1">
                             <div class="flex items-center justify-between py-2">
@@ -61,20 +60,16 @@ function renderFileManagerStorageManagementPanelBody() {
                                 <span class="flex items-center gap-2 text-sm text-slate-300"><span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span><span data-i18n="storageDrawer.legendPhotos">${t('storageDrawer.legendPhotos')}</span></span>
                                 <span id="stat-storage-count-photo" class="text-sm font-semibold text-white font-mono tabular-nums">—</span>
                             </div>
-                            <div class="flex items-center justify-between py-2">
-                                <span class="flex items-center gap-2 text-sm text-slate-300"><span class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span><span data-i18n="storageDrawer.legendDocuments">${t('storageDrawer.legendDocuments')}</span></span>
-                                <span id="stat-storage-count-document" class="text-sm font-semibold text-white font-mono tabular-nums">—</span>
-                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- SECTION: CHỌN MỤC XOÁ — VIẾT LẠI (mục 2c, phản hồi Giang "dropdown source ->
-                     checkbox toggle cho song/video/photo/document, kết hợp option trước") — 1
-                     <select> phạm vi cũ (song/video/both) THAY bằng 4 toggle ĐỘC LẬP (không loại
+                     checkbox toggle cho song/video/photo, kết hợp option trước") — 1
+                     <select> phạm vi cũ (song/video/both) THAY bằng 3 toggle ĐỘC LẬP (không loại
                      trừ nhau, có thể bật nhiều cái cùng lúc) — GIỮ NGUYÊN 2 toggle sẵn có (Tải
                      xuống trước/Xoá khỏi thư viện) + nút Thực hiện. "Dọn file lỗi" (section ngay
-                     dưới) DÙNG CHUNG đúng 4 toggle nguồn này để biết quét kho nào. -->
+                     dưới) DÙNG CHUNG đúng 3 toggle nguồn này để biết quét kho nào. -->
                 <div>
                     <h3 class="text-xs font-bold text-rose-400 uppercase tracking-widest mb-2 ml-2" data-i18n="storageDrawer.selectSourceSectionTitle">${t('storageDrawer.selectSourceSectionTitle')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
@@ -97,13 +92,6 @@ function renderFileManagerStorageManagementPanelBody() {
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                 <input type="checkbox" id="toggle-storage-source-photo" class="sr-only peer">
                                 <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 shadow-inner"></div>
-                            </label>
-                        </div>
-                        <div class="flex justify-between items-center p-4 border-b border-white/5">
-                            <span class="text-sm font-medium truncate" data-i18n="storageDrawer.legendDocuments">${t('storageDrawer.legendDocuments')}</span>
-                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="toggle-storage-source-document" class="sr-only peer">
-                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500 shadow-inner"></div>
                             </label>
                         </div>
                         <div class="flex justify-between items-center p-4 border-b border-white/5 bg-white/[0.03]">
@@ -131,9 +119,9 @@ function renderFileManagerStorageManagementPanelBody() {
                 </div>
 
                 <!-- SECTION: DỌN FILE LỖI — SỬA (29/07/2026, yêu cầu Giang) — KHÔNG còn dùng chung
-                     4 toggle nguồn của "Delete & Backup" ở trên nữa (dễ nhầm/quên đang bật gì) —
+                     3 toggle nguồn của "Delete & Backup" ở trên nữa (dễ nhầm/quên đang bật gì) —
                      bấm nút này giờ tự mở modalChoice() RIÊNG với 1 dropdown chọn loại quét
-                     (Tất cả/Song/Video/Photo/Document) ngay trong modal, có nút Huỷ/Thực hiện —
+                     (Tất cả/Song/Video/Photo) ngay trong modal, có nút Huỷ/Thực hiện —
                      xem event/workflow/file-manager-storage.js::askScanBrokenScope(). -->
                 <div>
                     <h3 class="text-xs font-bold text-amber-400 uppercase tracking-widest mb-2 ml-2" data-i18n="storageDrawer.brokenSectionTitle">${t('storageDrawer.brokenSectionTitle')}</h3>

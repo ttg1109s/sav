@@ -1,9 +1,7 @@
 /**
- * Component: Generic Drawer — khung HTML dùng CHUNG (mục 2 plan-v12-extended.md), lấy NGUYÊN từ
- * components/document-picker-drawer.js CŨ (ĐÃ XOÁ — xoá tay nếu còn sót trên máy) — đổi id/class
- * sang trung tính `generic-drawer*`. Document List+Reader dùng (xem
- * event/workflow/document-reader.js) — Settings/File Manager Song/Photo/Folder Detail GIỮ NGUYÊN
- * nav-stack riêng, KHÔNG migrate.
+ * Component: Generic Drawer — khung HTML dùng CHUNG (mục 2 plan-v12-extended.md) cho nhiều tính
+ * năng (hiện tại: Folder Browser, Add to Folder picker, EQ Presets, Custom Effect...) — Settings/
+ * File Manager Song/Photo/Folder Detail GIỮ NGUYÊN nav-stack riêng, KHÔNG migrate.
  *
  * [SỬA 13/07/2026, Giang yêu cầu] — KHÔI PHỤC lại `#generic-drawer-overlay` (nền mờ `bg-black/50`
  * che toàn màn hình, ĐÃ BỎ 10/07/2026 vì bug timing — xem lịch sử ở core/generic-drawer.js). Lần
@@ -20,11 +18,9 @@
  *
  * `#generic-drawer-body`: base class CHỈ `flex-1 min-h-0` — overflow/padding/relative do
  * `bodyClass` (tham số openGenericDrawer()/updateGenericDrawer()) quyết định theo TỪNG ngữ cảnh
- * (List cần cuộn dọc, Read cần overflow-hidden vì tự phân trang — xem
- * event/workflow/document-reader.js).
+ * (tuỳ tính năng cần cuộn dọc hay overflow-hidden).
  *
- * `height` mặc định '70vh' (List) hoặc 'calc(100% - 4rem)' (Read, khớp mốc top-16 mà
- * `#visualizer-control-center` đang neo, xem components/visualizer-overlay.js) — set qua
+ * `height` mặc định '70vh', hoặc tuỳ chỉnh theo TỪNG tính năng — set qua
  * style.height inline lúc gọi openGenericDrawer()/updateGenericDrawer(), KHÔNG cố định ở đây.
  *
  * `z-40`/`z-[39]` ở đây CHỈ là giá trị KHỞI TẠO tĩnh (khớp mặc định của core/generic-drawer.js) —

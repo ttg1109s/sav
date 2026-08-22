@@ -19,9 +19,8 @@
  * NGUYÊN bảng màu TỐI (glass-modal/text-white/bg-black...) vào đây — SAI, vì Generic Drawer thuộc
  * vùng LOẠI TRỪ theme, nền LUÔN TRẮNG cố định (mục 7 plan-v12-extended.md, xem docstring
  * components/generic-drawer.js). Đã đổi HẲN sang bảng màu SÁNG (text-slate-900/700/500/400,
- * border-slate-200...) — ĐÚNG bảng màu event/workflow/document-reader.js + components/items.js
- * (itemTemplateDocumentRow) đã dùng, cùng bộ id nút chrome header CHUNG (#btn-generic-drawer-
- * close/back/save) — xem docstring event/workflow/eq-presets.js.
+ * border-slate-200...) — ĐÚNG bảng màu Generic Drawer (nền trắng) đã dùng, cùng bộ id nút chrome
+ * header CHUNG (#btn-generic-drawer-close/back/save) — xem docstring event/workflow/eq-presets.js.
  *
  * SỬA 2 (12/08/2026, phản hồi Giang round 2 — 5 điểm):
  *   1+2. Track dọc vô hình + số dính rìa box — TRƯỚC ĐÂY dùng chung `.eq-slider`/
@@ -35,8 +34,8 @@
  *   3. Khối "Name" đổi sang ĐÚNG khuôn 1 hàng "label trái | input phải" như mọi hàng Settings khác
  *     (vd "Kiểu hiệu ứng", components/settings/visualizer-geometry-color.js) — trước đây label
  *     NẰM TRÊN, input NẰM DƯỚI (2 hàng), không khớp quy ước chung của app.
- *   4. Nút "Tạo preset mới" dời HẲN vào HEADER (icon "+" cạnh nút đóng, CÙNG khuôn document-
- *     reader.js xếp nhiều nút hành động ở góc phải header) — bấm là tạo NGAY 1 preset tên tự sinh
+ *   4. Nút "Tạo preset mới" dời HẲN vào HEADER (icon "+" cạnh nút đóng, CÙNG khuôn Generic Drawer
+ *     xếp nhiều nút hành động ở góc phải header) — bấm là tạo NGAY 1 preset tên tự sinh
  *     ("New preset"/"New preset 2"...), KHÔNG còn ô nhập tên/nút Tạo trong body — CÙNG khuôn
  *     createFolderInPicker()/_computeDefaultFolderName() (event/workflow/playlist.js): tạo xong mở
  *     THẲNG view Sửa (đã có sẵn ô Name để đổi nếu muốn — Giang chỉ ra "đằng nào cũng sửa được sau").

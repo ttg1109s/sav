@@ -19,9 +19,7 @@
  *
  * `TPL_FILE_MANAGER_PHOTO_DRAWER` ĐÃ đổi ở Batch D6 (06/07/2026) — `renderFileManagerPhotoPanelBody()`,
  * push động `fullBleed: true` (masonry/story slider tràn viền, xem core/settings-panel-stack.js).
- * `TPL_FILE_MANAGER_DOCUMENT_DRAWER` ĐÃ đổi ở Batch D7 (06/07/2026, BATCH CUỐI Nhóm D restructure)
- * — `renderFileManagerDocumentPanelBody()`, push động bình thường (không fullBleed). CẢ 4 khu vực
- * (Song/Folder Detail/Photo/Documents) giờ ĐỀU là hàm push động — file này KHÔNG còn biến
+ * CẢ 3 khu vực (Song/Folder Detail/Photo) giờ ĐỀU là hàm push động — file này KHÔNG còn biến
  * `TPL_FILE_MANAGER_*` nào cả.
  *
  * components/storage-drawer.js + biến TPL_STORAGE_DRAWER KHÔNG còn được mount (xem main.js) —
@@ -167,33 +165,10 @@ function renderFileManagerAlbumListPanelBody() {
 // ===================== Khu vực: Documents (04/07/2026 — code thật, thay placeholder) ========
 // 2 nút upload TÁCH RIÊNG (không dùng chung 1 cơ chế "tự phân loại", đúng yêu cầu Giang — "mỗi cái
 // một upload riêng cho dễ"): "Tải lên tài liệu" (chọn .txt/.docx có sẵn) và "Tạo tài liệu mới"
-// (.txt rỗng, mở thẳng vào Reader ở chế độ Sửa). Danh sách bên dưới — xem
-// core/file-manager/document-ui.js::renderDocumentList().
-//
-// Batch D7 (Settings restructure, 06/07/2026 — BATCH CUỐI Nhóm D): TPL_FILE_MANAGER_DOCUMENT_DRAWER
-// (khung `fixed inset-0 drawer-glass z-[90]` + header riêng) THAY bằng hàm
-// `renderFileManagerDocumentPanelBody()`, PUSH ĐỘNG vào Settings Stack — header dùng CHUNG (title +
-// Back), không còn header riêng.
-function renderFileManagerDocumentPanelBody() {
-    return `
-                <div class="flex gap-3">
-                    <button id="btn-file-manager-document-upload" class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl text-xs font-bold transition-colors shadow">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3-3 3 3m-3-3v6" /></svg>
-                        <span data-i18n="fileManager.document.btnUpload">${t('fileManager.document.btnUpload')}</span>
-                        <input type="file" id="file-manager-document-upload-input" accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden">
-                    </button>
-                    <button id="btn-file-manager-document-create" class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-xl text-xs font-bold transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                        <span data-i18n="fileManager.document.btnCreate">${t('fileManager.document.btnCreate')}</span>
-                    </button>
-                </div>
-                <div id="file-manager-document-list" class="flex flex-col gap-2"></div>
-                <p id="file-manager-document-empty" class="hidden text-sm text-slate-400 text-center py-10" data-i18n="fileManager.document.empty">${t('fileManager.document.empty')}</p>
-                <!-- MỚI (14/07/2026, Giang yêu cầu — 50 tài liệu/trang, mode 'list') — xem
-                     core/pagination.js + event/workflow/file-manager-document.js::refresh(). -->
-                <div id="file-manager-document-pagination"></div>
-`;
-}
+// ===================== Khu vực: Document — ĐÃ XOÁ (loại bỏ toàn bộ tính năng Document Reader khỏi
+// app, theo yêu cầu Giang) — renderFileManagerDocumentPanelBody() cùng toàn bộ hạ tầng liên quan
+// (core/file-manager/document*.js, event/*/document-reader.js, event/*/file-manager-document.js)
+// XOÁ HẲN. ==========================================================================
 
 // ===================== Khu vực: Video — ĐÃ XOÁ (ver12 "Song/Video Unification", Batch 6, mục 6d,
 // phản hồi Giang) =====================================================
