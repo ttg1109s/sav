@@ -109,8 +109,6 @@
         // Dải BPM/Pitch/Energy — toggle ẩn/hiện giờ nằm ở Settings (checkbox), xem
         // core/visualizer-ui-visibility.js.
         const statsPanel = document.getElementById('stats-panel');
-        // MỚI (04/07/2026, tính năng Documents) — nút mở Reader trong Control Center.
-        const btnOpenDocumentReader = document.getElementById('btn-open-document-reader');
         // Chụp khung hình bgVideoElement đang phát -> Photo (chỉ hiện lúc Video Player mode).
         const btnCaptureVideoFrame = document.getElementById('btn-capture-video-frame');
         // Volume HUD (MỚI) — icon loa 5 mốc + slider, panel nổi riêng — xem core/volume-hud.js.
@@ -379,7 +377,7 @@
         // XOÁ (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) —
         // btnOpenFileManagerVideo (hàng Settings riêng cho panel Video) — panel đó đã gộp hẳn vào
         // "Song & Video" (btnOpenFileManagerSong ngay trên), không còn tồn tại độc lập.
-        const btnOpenFileManagerDocument = document.getElementById('setting-open-file-manager-document');
+        // XOÁ (loại bỏ Document Reader khỏi app) — btnOpenFileManagerDocument (hàng "Documents").
         // MỚI (29/07/2026, yêu cầu Giang mục 2) — hàng "Quản lý lưu trữ" MỚI, section chính File
         // Manager (components/settings/file-manager-section.js) — mở panel components/file-
         // manager-storage.js. XOÁ (cùng ngày) — `btnFileManagerCleanupRun` (dom-ref TĨNH cũ) —
@@ -399,15 +397,10 @@
         // fileManagerImageSelectionCount/btnFileManagerImageSelectionCancel/
         // btnFileManagerImageSelectionConfirm ĐÃ XOÁ — Batch D6: toàn bộ panel-interior của Photo,
         // delegation trên settingsStackBody thay thế — xem event/listener/file-manager-photo.js.)
-        // (drawerFileManagerDocument/btnFileManagerDocumentUpload/fileManagerDocumentUploadInput/
-        // btnFileManagerDocumentCreate/fileManagerDocumentList/fileManagerDocumentEmpty ĐÃ XOÁ —
-        // Batch D7 (batch CUỐI Nhóm D): panel Document giờ động, delegation trên settingsStackBody
-        // thay thế — xem event/listener/file-manager-document.js.)
-        // Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer (khung TRẮNG dùng
-        // CHUNG cho Document List+Reader, THAY document-reader-*/document-picker-* cũ — xem
-        // core/generic-drawer.js/components/generic-drawer.js). Header/Body RỖNG lúc boot —
-        // Workflow (event/workflow/document-reader.js) tự gán nội dung + querySelector bên trong
-        // để wire event MỖI LẦN render lại. SỬA (10/07/2026, phản hồi Giang): BỎ HẲN
+        // Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer (khung TRẮNG dùng CHUNG
+        // cho nhiều tính năng — Folder Browser/Add to Folder picker...). Header/Body RỖNG lúc boot —
+        // Workflow tương ứng tự gán nội dung + querySelector bên trong để wire event MỖI LẦN render
+        // lại. SỬA (10/07/2026, phản hồi Giang): BỎ HẲN
         // `genericDrawerOverlay` (nền mờ che màn hình) — bản đầu có bug đóng drawer không xoá lại
         // `hidden` cho overlay, khiến nó che chắn UI mãi mãi sau lần đóng đầu tiên; Giang xác nhận
         // lớp này không cần thiết, bỏ hẳn khỏi component luôn (components/generic-drawer.js).
@@ -417,7 +410,6 @@
         const genericDrawerPanel = document.getElementById('generic-drawer-panel');
         const genericDrawerHeader = document.getElementById('generic-drawer-header');
         const genericDrawerBody = document.getElementById('generic-drawer-body');
-        // (btnBackFileManagerDocument ĐÃ XOÁ — Batch D7: Back dùng CHUNG btnSettingsStackBack.)
         // (fileManagerNewFolderInput ĐÃ XOÁ — Batch D5: panel Song giờ động.)
         //
         // (drawerFileManagerFolderDetail/btnBackFileManagerFolderDetail/fileManagerFolderDetailTitle/

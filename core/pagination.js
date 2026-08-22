@@ -8,7 +8,7 @@
  * không DOM, không appState, không gọi core nào khác, không rẽ nhánh tiến trình (chỉ toán học kẹp
  * giá trị — cùng tinh thần `computeVirtualWindowRange()` ở components/items.js).
  *
- * `buildPagination*Html()` — 3 hàm TEMPLATE riêng (tinh thần `itemTemplateDocumentRow()` ở
+ * `buildPagination*Html()` — 3 hàm TEMPLATE riêng (tinh thần `itemTemplateFolderTile()` ở
  * components/items.js: mỗi kiểu hiển thị = 1 hàm riêng, KHÔNG gộp chung 1 hàm rồi rẽ nhánh theo
  * tham số `control` bên trong — đúng Rule 1 "nơi gọi tự chọn đúng hàm", không phải core tự chọn).
  * Nơi gọi (Workflow) tự quyết định gọi hàm nào theo `control` mình muốn:

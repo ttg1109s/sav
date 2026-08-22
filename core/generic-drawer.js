@@ -1,8 +1,8 @@
 /**
  * core/generic-drawer.js — Core NGHIỆP VỤ tuân Rule 1-5 đầy đủ (core-function-conventions.md) cho
- * 1 drawer TRẮNG dùng chung (mục 2 plan-v12-extended.md) — Document List+Reader dùng (xem
- * event/workflow/document-reader.js) — Settings/File Manager Song/Photo/Folder Detail GIỮ NGUYÊN
- * nav-stack riêng (core/settings-panel-stack.js), KHÔNG migrate.
+ * 1 drawer TRẮNG dùng chung (mục 2 plan-v12-extended.md) — Folder Browser/Add to Folder picker
+ * dùng (xem event/workflow/file-manager-folder-browser.js/playlist.js) — Settings/File Manager
+ * Song/Photo/Folder Detail GIỮ NGUYÊN nav-stack riêng (core/settings-panel-stack.js), KHÔNG migrate.
  *
  * [SỬA 13/07/2026, Giang yêu cầu] — KHÔI PHỤC lại overlay (nền mờ che toàn màn hình, ĐÃ BỎ
  * 10/07/2026 vì bug `closeGenericDrawer()` không xoá lại `hidden` cho overlay, che chắn UI mãi mãi
@@ -25,8 +25,8 @@
  * Ghi qua `appState.set()` (Rule 2 CHO PHÉP — chỉ chặn chiều ĐỌC, không chặn chiều GHI), kèm
  * `console.log` theo Rule 4.
  *
- * Khung HTML (components/generic-drawer.js) lấy NGUYÊN từ components/document-picker-drawer.js CŨ
- * (ĐÃ XOÁ) — đổi id/class sang trung tính `generic-drawer*`.
+ * Khung HTML (components/generic-drawer.js) là 1 khung TRẮNG trung tính (id/class `generic-drawer*`)
+ * dùng chung cho nhiều tính năng — xem docstring components/generic-drawer.js.
  *
  * Drawer KHÔNG biết nội dung headerHtml/bodyHtml là gì (chỉ nhận chuỗi HTML có sẵn, gán thẳng vào
  * innerHTML) — Workflow tự querySelector bên trong SAU KHI gọi openGenericDrawer()/
@@ -373,8 +373,8 @@ function closeGenericDrawer() {
 }
 
 /** Ẩn HẲN panel + overlay (thêm `hidden` + `opacity:0`, nốt bước 8) — gọi SAU KHI transition trượt
- * xuống đã xong (Workflow tự nghe `transitionend` rồi gọi hàm này, xem event/workflow/document-
- * reader.js). Đây là chỗ DUY NHẤT set `isGenericDrawerOpen = false` — đảm bảo Block gate
+ * xuống đã xong (Workflow tự nghe `transitionend` rồi gọi hàm này, xem event/workflow/generic-
+ * drawer-helpers.js::closeFully()). Đây là chỗ DUY NHẤT set `isGenericDrawerOpen = false` — đảm bảo Block gate
  * (event/block.js) chỉ cho mở lại SAU KHI overlay/panel đã ẩn hẳn thật sự, không phải ngay lúc bắt
  * đầu trượt xuống. */
 function hideGenericDrawerImmediately() {

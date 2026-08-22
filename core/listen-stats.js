@@ -13,7 +13,7 @@
  * PHẢI nạp SAU db.js (cần getMeta/setMeta) và TRƯỚC playlist/* + player-controls.js (các file đó
  * gọi bumpSongPlayCount / addSongListenTime / getSongStats / removeSongStats / formatListenTime).
  */
-        // songStatsMap, _songStatsDirty — STATE, xem service/state.js
+        // mediaStatsMap, _songStatsDirty — STATE, xem service/state.js
 
         async function loadSongStats() {
             try {
@@ -25,41 +25,41 @@
                         map.set(k, { count: v.count || 0, totalTime: v.totalTime || 0 });
                     }
                 }
-                appState.set('songStatsMap', map);
-            } catch (e) { console.warn('[listen-stats] Không đọc được songStats:', e); appState.set('songStatsMap', new Map()); }
+                appState.set('mediaStatsMap', map);
+            } catch (e) { console.warn('[listen-stats] Không đọc được songStats:', e); appState.set('mediaStatsMap', new Map()); }
         }
 
         function getSongStats(key) {
-            const s = appState.get('songStatsMap').get(key);
+            const s = appState.get('mediaStatsMap').get(key);
             return s ? { count: s.count, totalTime: s.totalTime } : { count: 0, totalTime: 0 };
         }
 
         function _ensureStats(key) {
-            let s = appState.get('songStatsMap').get(key);
-            if (!s) { s = { count: 0, totalTime: 0 }; appState.mutate('songStatsMap', m => m.set(key, s), { skipCheck: true }); }
+            let s = appState.get('mediaStatsMap').get(key);
+            if (!s) { s = { count: 0, totalTime: 0 }; appState.mutate('mediaStatsMap', m => m.set(key, s), { skipCheck: true }); }
             return s;
         }
 
         function bumpSongPlayCount(key) {
             if (!key) return;
-            appState.mutate('songStatsMap', m => { _ensureStats(key); m.get(key).count += 1; });
+            appState.mutate('mediaStatsMap', m => { _ensureStats(key); m.get(key).count += 1; });
             scheduleSongStatsSave();
         }
 
         function addSongListenTime(key, seconds) {
             if (!key || !(seconds > 0)) return;
-            appState.mutate('songStatsMap', m => { _ensureStats(key); m.get(key).totalTime += seconds; }, { skipCheck: true }); // chạy mỗi giây qua _listenTick() — bỏ qua validate để đảm bảo hiệu năng
+            appState.mutate('mediaStatsMap', m => { _ensureStats(key); m.get(key).totalTime += seconds; }, { skipCheck: true }); // chạy mỗi giây qua _listenTick() — bỏ qua validate để đảm bảo hiệu năng
             scheduleSongStatsSave();
         }
 
         function removeSongStats(key) {
             let deleted = false;
-            appState.mutate('songStatsMap', m => { deleted = m.delete(key); });
+            appState.mutate('mediaStatsMap', m => { deleted = m.delete(key); });
             if (deleted) scheduleSongStatsSave(true);
         }
 
         function clearAllSongStats() {
-            appState.set('songStatsMap', new Map());
+            appState.set('mediaStatsMap', new Map());
             // Ghi thẳng object rỗng (không debounce) để Quản lý dung lượng thấy kết quả ngay.
             return setMeta('songStats', {});
         }
@@ -82,7 +82,7 @@
             if (!appState.get('_songStatsDirty')) return;
             appState.set('_songStatsDirty', false);
             const obj = {};
-            for (const [k, v] of appState.get('songStatsMap').entries()) obj[k] = { count: v.count, totalTime: v.totalTime };
+            for (const [k, v] of appState.get('mediaStatsMap').entries()) obj[k] = { count: v.count, totalTime: v.totalTime };
             setMeta('songStats', obj).catch(e => console.warn('[listen-stats] Lưu songStats lỗi:', e));
         }
 
