@@ -62,7 +62,7 @@ function handleFileManagerStorageDelegatedClick(e) {
 }
 
 /**
- * Delegate RIÊNG cho sự kiện 'change' — 4 toggle nguồn (MỚI, THAY <select> phạm vi cũ) + 2 toggle
+ * Delegate RIÊNG cho sự kiện 'change' — 3 toggle nguồn (MỚI, THAY <select> phạm vi cũ) + 2 toggle
  * hành động (Tải xuống/Xoá) — 'click' không bắt được đổi trạng thái checkbox đúng ngữ nghĩa 'change'.
  */
 function handleFileManagerStorageDelegatedChange(e) {
@@ -76,10 +76,6 @@ function handleFileManagerStorageDelegatedChange(e) {
     }
     if (e.target.id === 'toggle-storage-source-photo') {
         eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.sourceToggle.change', payload: { source: 'photo', checked: e.target.checked } });
-        return;
-    }
-    if (e.target.id === 'toggle-storage-source-document') {
-        eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.sourceToggle.change', payload: { source: 'document', checked: e.target.checked } });
         return;
     }
     if (e.target.id === 'toggle-storage-download') {
