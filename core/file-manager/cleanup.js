@@ -112,30 +112,13 @@ async function cleanupOrphanedAlbumImageKeys() {
 // kép (đọc field không tồn tại -> luôn null -> luôn return 0). `purgeVisualBgLegacyMeta()` bên dưới
 // đã tự xoá khoá này khỏi meta lúc boot, không cần cascade riêng nữa.
 
-/**
- * MỒ CÔI #5 — tài liệu 'user' tạo RỒI BỎ DỞ (nội dung vẫn rỗng — "Tạo tài liệu mới" xong đóng
- * Reader mà không lưu gì, xem event/workflow/document-reader.js::close()). Không mất mát gì thật
- * (rỗng từ đầu) — an toàn xoá hẳn thay vì để "ma" nằm lì trong danh sách.
- * @returns {Promise<number>}
- */
-async function cleanupEmptyUserDocuments() {
-    const documentKeys = await getAllDocumentKeys(); // data layer
-    let fixedCount = 0;
-    for (const key of documentKeys) {
-        const record = await getDocumentRecord(key); // data layer
-        if (!record || record.createdBy !== 'user') continue;
-        if (Array.isArray(record.content) && record.content.length === 0) {
-            await deleteDocumentRecord(key); // data layer
-            fixedCount++;
-        }
-    }
-    return fixedCount;
-}
+// XOÁ (loại bỏ Document Reader khỏi app) — MỒ CÔI #5 (`cleanupEmptyUserDocuments()`, tài liệu
+// 'user' tạo rồi bỏ dở) bỏ hẳn cùng tính năng — store 'documents' không còn nơi nào trong app
+// đọc/ghi tới nữa (xem service/db.js).
 
 registerCleanupCheck('orphanedSongFolderFields', cleanupOrphanedSongFolderFields);
 registerCleanupCheck('orphanedFolderSongMaps', cleanupOrphanedFolderSongMaps);
 registerCleanupCheck('orphanedAlbumImageKeys', cleanupOrphanedAlbumImageKeys);
-registerCleanupCheck('emptyUserDocuments', cleanupEmptyUserDocuments);
 
 /**
  * Dọn 4 khoá `meta` MỒ CÔI của cơ chế nền cũ (v13 Batch F) — đều đã ngừng ghi từ Batch A/B/C:
