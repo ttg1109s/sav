@@ -2,9 +2,9 @@
  * Component (sub-template): Settings Drawer — Section "File Manager".
  * CHỐT 03/07/2026 (xem plan-v12-multimedia-decisions.md mục 1a/7): File Manager KHÔNG còn là 1
  * overlay/drawer cấp cao riêng (khác hẳn patch 02/07/2026 trước đó) — giờ chỉ là 1 section BÌNH
- * THƯỜNG trong Settings, cùng dạng card với "Hệ thống & Playlist"/"Kiểu hiệu ứng"... 3 hàng bên
- * dưới (Song / Photo & Album / Documents) bấm vào PUSH THẲNG sang drawer con tương ứng (xem
- * components/file-manager.js — TPL_FILE_MANAGER_SONG_DRAWER/_PHOTO_DRAWER/_DOCUMENT_DRAWER),
+ * THƯỜNG trong Settings, cùng dạng card với "Hệ thống & Playlist"/"Kiểu hiệu ứng"... 2 hàng bên
+ * dưới (Song / Photo & Album) bấm vào PUSH THẲNG sang drawer con tương ứng (xem
+ * components/file-manager.js — TPL_FILE_MANAGER_SONG_DRAWER/_PHOTO_DRAWER),
  * đúng pattern nav-stack `#setting-open-about` -> `#drawer-about` đã có sẵn — KHÔNG có màn "File
  * Manager" trung gian nào nằm giữa.
  *
@@ -33,17 +33,13 @@ const TPL_SETTINGS_FILE_MANAGER = `
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </button>
                 <!-- XOÁ (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) — hàng
-                     "Video" riêng (từng đứng SAU Photo & Album, TRƯỚC Documents) đã gộp hẳn vào
-                     "Song & Video" (hàng đầu, Batch 5) — panel Video độc lập không còn tồn tại. -->
-                <button id="setting-open-file-manager-document" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                        <span class="text-sm font-medium truncate" data-i18n="fileManager.entry.document">${t('fileManager.entry.document')}</span>
-                    </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                </button>
+                     "Video" riêng (từng đứng SAU Photo & Album) đã gộp hẳn vào "Song & Video" (hàng
+                     đầu, Batch 5) — panel Video độc lập không còn tồn tại. XOÁ (loại bỏ Document
+                     Reader khỏi app) — hàng "Documents" (từng đứng ngay đây) cũng bỏ hẳn, Photo giờ
+                     là hàng cuối trước "Quản lý lưu trữ" nên giữ nguyên class border-b. -->
                 <!-- MỚI (29/07/2026, yêu cầu Giang mục 2) — "Quản lý lưu trữ": panel MỚI gộp thống
-                     kê dung lượng (4 domain) + chọn mục xoá + dọn file lỗi + dọn dẹp dữ liệu — xem
+                     kê dung lượng (3 domain: Song/Video/Photo) + chọn mục xoá + dọn file lỗi + dọn
+                     dẹp dữ liệu — xem
                      components/file-manager-storage.js. THAY panel "Song & Video" cũ đã xoá (hàng
                      "Song & Video" phía trên giờ mở THẲNG Generic Drawer duyệt thư mục, không còn
                      panel trung gian nào để chứa các mục này nữa). Nút "Dọn dẹp dữ liệu" (trước ở
