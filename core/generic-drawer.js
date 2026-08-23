@@ -155,13 +155,33 @@ function _cssLengthToPx(cssLength) {
  * chạy tiếp hay không, trình duyệt VẪN tự đúng kích thước — không cần "biết trước" gì cả. `min-height`
  * chỉ tồn tại ĐÚNG khoảnh khắc cần 1 cặp số cụ thể (cũ -> mới) để CSS `transition` animate được
  * (không animate được TỪ/TỚI 'auto').
+ *
+ * [SỬA 23/08/2026, phản hồi Giang — "tại sao không inline cứng max-height ngay lúc đo?"] — TRƯỚC
+ * ĐÂY hàm này CLEAR `max-height` trước khi đo (đo kích thước tự nhiên chưa bị chặn), rồi
+ * `_resolveGenericDrawerHeightPx()` tính riêng `maxPx` qua 1 `<div>` dò TẠO MỚI/XOÁ NGAY
+ * (`_cssLengthToPx()`) rồi tự `Math.min()` so sánh bằng JS — 2 phép đo trên 2 PHẦN TỬ KHÁC NHAU,
+ * rủi ro lệch nếu trình duyệt tính `vh`/box model không giống hệt nhau giữa panel thật và `<div>`
+ * dò. Giang chỉ ra + xác nhận qua CSS spec (MDN): `min-height` LUÔN thắng `max-height` khi xung
+ * đột — nên nếu 2 phép đo lệch nhau dù 1px theo hướng bất lợi, kẹp có thể bị VÔ HIỆU HOÀN TOÀN
+ * (panel cao vượt `maxHeight` thật) mà không cảnh báo gì, vì `min-height` (từ phép đo lệch) sẽ
+ * thắng `max-height` (giá trị CSS gán riêng, xem `_applyGenericDrawerAutoHeight()`).
+ *
+ * SỬA: nhận thêm `maxHeightCss`, GIỮ/set NGAY (không clear) trong lúc đo — để trình duyệt TỰ kẹp
+ * TRỰC TIẾP trên panel THẬT, `getBoundingClientRect().height` trả về CHÍNH XÁC số đã kẹp (nếu nội
+ * dung vượt `maxHeightCss`) hoặc số tự nhiên (nếu không vượt) — bỏ hẳn `<div>` dò + so sánh tay,
+ * không còn 2 phép đo nào có thể lệch nhau nữa (chỉ còn 1 phép đo DUY NHẤT, trên ĐÚNG phần tử THẬT
+ * sẽ hiển thị). Thứ tự vẫn giữ NGUYÊN: xoá `min-height` TRƯỚC TIÊN (dọn số CŨ, tránh xung đột
+ * min>max ở BẤT KỲ khung hình nào — xem lý do CSS spec ở trên) — RỒI mới set `max-height`/
+ * `height:auto` để đo.
+ * @param {string} [maxHeightCss] - config.maxHeight nguyên văn (vd '85vh') — rỗng/undefined = không kẹp.
+ * @returns {number} px — ĐÃ kẹp bởi maxHeightCss nếu có, nơi gọi KHÔNG cần so sánh/xử lý gì thêm.
  */
-function _measureGenericDrawerNaturalHeightPx() {
-    genericDrawerPanel.style.minHeight = ''; // dọn sạch min-height CÒN SÓT (nếu có) — không để nó kẹp trước khi đo
-    genericDrawerPanel.style.maxHeight = ''; // bỏ tạm kẹp trên — đo ĐÚNG kích thước tự nhiên chưa bị chặn
+function _measureGenericDrawerNaturalHeightPx(maxHeightCss) {
+    genericDrawerPanel.style.minHeight = ''; // xoá TRƯỚC TIÊN — không để min-height CŨ kẹp/xung đột trong lúc đo (xem lý do CSS spec ở docstring trên)
+    genericDrawerPanel.style.maxHeight = maxHeightCss || ''; // GIỮ/set NGAY — để trình duyệt TỰ kẹp lúc đo (KHÔNG clear rồi đo riêng qua <div> dò nữa)
     genericDrawerPanel.style.height = 'auto'; // BẬT tạm để đo
     const prevBodyScrollTop = genericDrawerBody.scrollTop;
-    const px = genericDrawerPanel.getBoundingClientRect().height;
+    const px = genericDrawerPanel.getBoundingClientRect().height; // ĐÃ kẹp bởi max-height THẬT (nếu có) — số CUỐI CÙNG
     genericDrawerPanel.style.height = ''; // XOÁ HẲN — không giữ lại 'auto', không giữ lại gì
     genericDrawerBody.scrollTop = prevBodyScrollTop; // khôi phục — height:auto tạm thời có thể khiến overflow-y-auto hết tràn, trình duyệt tự clamp scrollTop về 0 lúc đo
     return px;
@@ -177,11 +197,11 @@ function _measureGenericDrawerNaturalHeightPx() {
  * để Tailwind CDN JIT kịp tiêm CSS cho class MỚI THẤY LẦN ĐẦU (xem docstring đầu file) — panel vẫn
  * đang `opacity:0` + `translateY(100%)` trong lúc chờ nên KHÔNG lộ ra màn hình dù có delay.
  *
- * Bước 2-3-4 (đúng thứ tự Giang chỉ định, nay chạy trong `_finishOpenGenericDrawer()` SAU 2 rAF):
- *   2. Đo chiều cao TỰ NHIÊN THẬT (chưa kẹp maxHeight) — `_measureGenericDrawerNaturalHeightPx()`.
- *   3. Nếu vượt `maxHeight` (quy đổi ra px) — CLAMP: dùng THẲNG maxHeight (đã quy px) làm chiều
- *      cao cuối — nội dung dài tự cuộn bên trong nhờ `bodyClass: 'overflow-y-auto'`.
- *   4. Nếu KHÔNG vượt — dùng ĐÚNG số đo tự nhiên ở bước 2 (không cần đo lại lần 2, đã có sẵn).
+ * [SỬA 23/08/2026, phản hồi Giang] Bước 2-3-4 CŨ (đo tự nhiên KHÔNG bị chặn -> tự so sánh JS với
+ * `maxPx` đo riêng qua `<div>` dò -> chọn số nhỏ hơn) GỘP LẠI thành 1 bước DUY NHẤT —
+ * `_measureGenericDrawerNaturalHeightPx(config.maxHeight)` giờ tự trả về số ĐÃ KẸP THẬT (đo trực
+ * tiếp trên panel với `max-height` đang áp dụng, xem docstring hàm đó) — không còn "tự nhiên chưa
+ * kẹp" + so sánh tay nào cần làm ở tầng này nữa.
  * @param {{height?: string, maxHeight?: string}} config
  * @returns {number} px
  */
@@ -192,10 +212,7 @@ function _resolveGenericDrawerHeightPx(config) {
     }
     _genericDrawerIsAutoMode = true;
     _genericDrawerAutoMaxHeight = config.maxHeight || '';
-    const naturalPx = _measureGenericDrawerNaturalHeightPx(); // bước 2
-    if (!config.maxHeight) return naturalPx; // không giới hạn gì -> dùng thẳng số tự nhiên
-    const maxPx = _cssLengthToPx(config.maxHeight);
-    return naturalPx > maxPx ? maxPx : naturalPx; // bước 3 (vượt -> clamp) / bước 4 (không vượt -> giữ nguyên)
+    return _measureGenericDrawerNaturalHeightPx(config.maxHeight); // ĐÃ kẹp sẵn (nếu có maxHeight) — xem docstring hàm đó
 }
 
 /**
