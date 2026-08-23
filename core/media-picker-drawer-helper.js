@@ -35,6 +35,16 @@
 function openMediaPickerDrawerUi(routerName, msgPrefix, title, bodyHtml, tileSelector, tileDataKey, showConfirmButton) {
     openGenericDrawer({ // core/generic-drawer.js
         height: '90vh',
+        // SỬA (khôi phục — thiếu `maxHeight`, Giang báo "picker photo không bị kẹp max height") —
+        // openGenericDrawer() KHÔNG có khái niệm "height cố định" thật sự (chỉ set `min-height`,
+        // 1 SÀN — xem docstring core/generic-drawer.js), CHỈ `maxHeight` mới thật sự kẹp trần. Panel
+        // này KHÔNG truyền `maxHeight` nên lưới ảnh/video (windowing IntersectionObserver tải trước
+        // ~2 màn hình mỗi phía) có thể đẩy panel cao vượt hẳn 90vh, đẩy header/nút X ra ngoài màn
+        // hình. Set trùng giá trị với `height` — mọi feature khác dùng cặp height:'auto'+maxHeight
+        // (co theo nội dung, kẹp trần); picker này CỐ Ý giữ `height:'90vh'` cố định (Giang chỉ định
+        // trước đây, xem docstring _openImagePickerDrawer() — event/workflow/file-manager-photo.js)
+        // nên chỉ thêm `maxHeight` làm trần CHẶN, không đổi ý định gốc "luôn ~90vh".
+        maxHeight: '90vh',
         zIndex: Z_INDEX.GENERIC_DRAWER, // service/z-index.js — mặc định, KHÔNG có modal xem ảnh nào mở đồng thời với picker này (khác action-menu cần z=131)
         headerHtml: `
             <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
