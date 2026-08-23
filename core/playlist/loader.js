@@ -249,43 +249,47 @@
         }
 
         /**
-         * Xử lý FileList đã chốt (Array thật) từ input chọn FILE RỜI (#audio-upload). Core THUẦN
-         * nhận Array qua tham số — KHÔNG tự đọc input/FileList (đã chốt ở listener, xem comment
-         * phía trên). Giữ NGUYÊN try/catch + alertModal() bên trong (giống handleAudioFiles() —
-         * đây vẫn là 1 hàm core "lớn" có sẵn shield/modal nội bộ, KHÔNG tách ra workflow, theo
-         * đúng quyết định đã chốt khi tách cụm này vào /event/).
+         * Xử lý FileList đã chốt (Array thật) từ input chọn FILE RỜI (#media-upload — DÙNG CHUNG
+         * Song/Video/Photo từ phản hồi Giang "1 khung, không nhân bản"; hàm NÀY chỉ được router
+         * gọi khi activeMediaSource='song', xem event/router/playlist.js). Core THUẦN nhận Array
+         * qua tham số — KHÔNG tự đọc input/FileList (đã chốt ở listener, xem comment phía trên).
+         * Giữ NGUYÊN try/catch + alertModal() bên trong (giống handleAudioFiles() — đây vẫn là 1
+         * hàm core "lớn" có sẵn shield/modal nội bộ, KHÔNG tách ra workflow, theo đúng quyết định
+         * đã chốt khi tách cụm này vào /event/).
          * @param {File[]} fileList
          */
         async function handleFilePickerChange(fileList) {
             try {
-                console.log(`[upload] #audio-upload change: ${fileList.length} file được chọn.`);
+                console.log(`[upload] #media-upload change (Song): ${fileList.length} file được chọn.`);
                 if (fileList.length === 0) {
-                    console.warn('[upload] #audio-upload: FileList rỗng sau khi chọn — trình duyệt không trả về file nào.');
+                    console.warn('[upload] #media-upload (Song): FileList rỗng sau khi chọn — trình duyệt không trả về file nào.');
                     return;
                 }
                 await handleAudioFiles(fileList);
             } catch (err) {
-                console.error('[upload] Lỗi không xác định khi xử lý file đã chọn (#audio-upload):', err);
+                console.error('[upload] Lỗi không xác định khi xử lý file đã chọn (#media-upload, Song):', err);
                 await alertModal(tFormat('common.upload.fileError', { message: escapeHtml(err && err.message ? err.message : err) }));
             }
         }
 
         /**
-         * Xử lý FileList đã chốt từ input chọn CẢ THƯ MỤC (#audio-upload-folder). Core THUẦN,
-         * cùng nguyên tắc như handleFilePickerChange() ở trên.
+         * Xử lý FileList đã chốt từ input chọn CẢ THƯ MỤC (#media-upload-folder — DÙNG CHUNG Song/
+         * Video/Photo, cùng lý do handleFilePickerChange() ngay trên; hàm NÀY chỉ được router gọi
+         * khi activeMediaSource='song'). Core THUẦN, cùng nguyên tắc như handleFilePickerChange()
+         * ở trên.
          * @param {File[]} fileList
          */
         async function handleFolderPickerChange(fileList) {
             try {
-                console.log(`[upload] #audio-upload-folder change: ${fileList.length} file được chọn (toàn bộ thư mục + thư mục con).`);
+                console.log(`[upload] #media-upload-folder change (Song): ${fileList.length} file được chọn (toàn bộ thư mục + thư mục con).`);
                 if (fileList.length === 0) {
-                    console.warn('[upload] #audio-upload-folder: FileList rỗng sau khi chọn thư mục — trình duyệt không trả về file nào (thư mục trống, hoặc bị chặn quyền đọc thư mục).');
+                    console.warn('[upload] #media-upload-folder (Song): FileList rỗng sau khi chọn thư mục — trình duyệt không trả về file nào (thư mục trống, hoặc bị chặn quyền đọc thư mục).');
                     await alertModal(t('common.upload.folderEmpty'));
                     return;
                 }
                 await handleAudioFiles(fileList);
             } catch (err) {
-                console.error('[upload] Lỗi không xác định khi xử lý thư mục đã chọn (#audio-upload-folder):', err);
+                console.error('[upload] Lỗi không xác định khi xử lý thư mục đã chọn (#media-upload-folder, Song):', err);
                 await alertModal(tFormat('common.upload.folderError', { message: escapeHtml(err && err.message ? err.message : err) }));
             }
         }

@@ -107,8 +107,10 @@ function updateSelectionActionBar(selectionMode, count) {
  */
 function applySelectionChrome(selectionMode) {
     if (btnToggleSelection) btnToggleSelection.classList.toggle('!text-sky-400', selectionMode);
+    // XOÁ (phản hồi Giang — "1 khung, không nhân bản") — dòng toggle `btnUploadVideo` bỏ hẳn cùng
+    // lúc element đó bị xoá — nút upload giờ DÙNG CHUNG (btnUploadAudio) cho cả 3 Nguồn, dòng dưới
+    // đã tự phủ hết mọi trường hợp, không cần dòng riêng cho Video nữa.
     if (btnUploadAudio) btnUploadAudio.classList.toggle('opacity-40', selectionMode);
-    if (btnUploadVideo) btnUploadVideo.classList.toggle('opacity-40', selectionMode); // KHÔI PHỤC 29/07/2026 — nút Video riêng, cùng đối xử với btnUploadAudio
 }
 
 /**
