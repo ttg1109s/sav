@@ -131,12 +131,21 @@ async function deleteVideo(videoKey) {
 
 /**
  * Liệt kê toàn bộ video hiện có.
+ * MỚI (phản hồi Giang — "loading shield khi nạp cần x/total item") — thêm `onProgress` (tuỳ chọn,
+ * KHÔNG đổi hành vi nơi gọi cũ không truyền tham số này). Vẫn đọc SONG SONG qua `Promise.all()`
+ * (KHÔNG đổi sang tuần tự — giữ nguyên đặc tính hiệu năng cũ), `done` đếm theo THỨ TỰ record nào
+ * đọc xong TRƯỚC (không nhất thiết đúng thứ tự `keys`) — đủ dùng cho thanh tiến trình (chỉ cần
+ * đếm dồn tới `total`, không cần đúng thứ tự).
+ * @param {(done: number, total: number) => void} [onProgress]
  * @returns {Promise<Array<{key: string, blob: Blob, thumbBlob: Blob, thumbFullBlob: (Blob|null), width: number, height: number, duration: number, filename: string, addedAt: number}>>}
  */
-async function listVideos() {
+async function listVideos(onProgress) {
     const keys = await getAllVideoKeys();
+    let done = 0;
     const records = await Promise.all(keys.map(async (key) => {
         const record = await getVideoRecord(key);
+        done++;
+        if (typeof onProgress === 'function') onProgress(done, keys.length);
         return record ? { key, ...record } : null;
     }));
     return records.filter(Boolean);

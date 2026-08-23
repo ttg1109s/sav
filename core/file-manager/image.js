@@ -118,12 +118,20 @@ async function deleteImage(imageKey) {
 
 /**
  * Liệt kê toàn bộ ảnh hiện có.
+ * MỚI (phản hồi Giang — "loading shield khi nạp cần x/total item") — thêm `onProgress` (tuỳ chọn,
+ * KHÔNG đổi hành vi nơi gọi cũ không truyền tham số này) — CÙNG LÝ DO/CÙNG CÁCH SỬA listVideos()
+ * (core/file-manager/video.js): giữ nguyên `Promise.all()` song song, `done` đếm theo thứ tự
+ * record nào đọc xong TRƯỚC, đủ dùng cho thanh tiến trình.
+ * @param {(done: number, total: number) => void} [onProgress]
  * @returns {Promise<Array<{key: string, blob: Blob, filename: string, addedAt: number}>>}
  */
-async function listImages() {
+async function listImages(onProgress) {
     const keys = await getAllImageKeys();
+    let done = 0;
     const records = await Promise.all(keys.map(async (key) => {
         const record = await getImageRecord(key);
+        done++;
+        if (typeof onProgress === 'function') onProgress(done, keys.length);
         return record ? { key, ...record } : null;
     }));
     return records.filter(Boolean);
