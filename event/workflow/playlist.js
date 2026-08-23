@@ -20,7 +20,28 @@
  * cho video upload, dùng bởi `uploadVideos()`/`_extractVideoThumbAndMeta()` bên dưới. */
 const VIDEO_THUMBNAIL_SIZE = 320;
 
+/** MỚI (phản hồi Giang — "1 khung, không nhân bản, VMState theo activeMediaSource") — `accept`
+ * của 2 input DÙNG CHUNG (`fileInput`/`folderInput`, core/dom-refs.js — #media-upload/
+ * #media-upload-folder) đổi ĐỘNG theo Nguồn, xem `workflowPlaylist._applyUploadInputAccept()`. */
+const UPLOAD_ACCEPT_BY_SOURCE = {
+    song: '.mp3,.wav,.ogg,.m4a,.aac,.flac,audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/aac,audio/flac',
+    video: 'video/*',
+    photo: 'image/*',
+};
+
 const workflowPlaylist = {
+
+    /** MỚI (phản hồi Giang — "1 khung, không nhân bản, VMState theo activeMediaSource") — đổi
+     * `accept` của 2 input upload DÙNG CHUNG theo Nguồn hiện tại. Gọi từ CẢ 3 hàm switchTo*Source()
+     * LẪN loadPersistedPlaylistConfigOnBoot() (khôi phục Nguồn lúc boot) — 4 nơi DUY NHẤT
+     * activeMediaSource có thể đổi giá trị.
+     * @param {'song'|'video'|'photo'} source
+     */
+    _applyUploadInputAccept(source) {
+        const accept = UPLOAD_ACCEPT_BY_SOURCE[source] || UPLOAD_ACCEPT_BY_SOURCE.song;
+        if (fileInput) fileInput.accept = accept;
+        if (folderInput) folderInput.accept = accept;
+    },
 
     /** MỚI (v13 Batch F) — ứng với 'playlist.actionMenu.delete.click'. THAY nhánh `action==='delete'`
      * của core `handleSongActionMenuSelect()` (đã xoá).
@@ -206,9 +227,12 @@ const workflowPlaylist = {
     },
 
     // ===================== Upload Video — DỜI từ event/workflow/file-manager-video.js (phản hồi
-    // Giang — file đó đã xoá hẳn, cụm này CHỈ được gọi từ input `#video-upload-input` ở Playlist,
-    // xem event/router/playlist.js case 'playlist.upload.videoFileChange', nên chuyển thẳng về
-    // đây thay vì giữ 1 file/router/listener riêng chỉ để relay). GIỮ NGUYÊN 100% thân hàm. =====
+    // Giang — file đó đã xoá hẳn, cụm này lúc đó CHỈ được gọi từ input riêng `#video-upload-input`
+    // ở Playlist, nên chuyển thẳng về đây thay vì giữ 1 file/router/listener riêng chỉ để relay).
+    // GIỮ NGUYÊN 100% thân hàm. [CẬP NHẬT — phản hồi Giang "1 khung, không nhân bản"] input riêng
+    // đó ĐÃ XOÁ — giờ gọi từ `fileInput`/`folderInput` DÙNG CHUNG (case 'playlist.upload.
+    // fileChange'/'playlist.upload.folderChange', event/router/playlist.js, VirtualMachineState
+    // theo activeMediaSource) — xem docstring uploadVideos() ngay dưới. =====
 
     /** Chụp 1 khung hình + đọc thời lượng của 1 file video, crop VUÔNG cố định
      * `VIDEO_THUMBNAIL_SIZE`×`VIDEO_THUMBNAIL_SIZE` (center-crop cạnh dài về giữa) — đặt ở Workflow
@@ -303,9 +327,14 @@ const workflowPlaylist = {
         });
     },
 
-    /** Ứng với 'playlist.upload.videoFileChange'. Lỗi 1 file (vd file hỏng) KHÔNG chặn cả lô
-     * upload — bắt riêng, bỏ qua đúng file đó, tiếp tục file sau (Rule 1: vẫn 1 tiến trình "upload
-     * cả lô"). Hiện tiến trình "X/Y" qua `loadingText.textContent`, ĐÚNG pattern
+    /** Ứng với 'playlist.upload.fileChange'/'playlist.upload.folderChange' khi activeMediaSource=
+     * 'video' (SỬA — phản hồi Giang "1 khung, không nhân bản": trước đây có msg.type riêng
+     * 'playlist.upload.videoFileChange' từ input riêng #video-upload-input, ĐÃ XOÁ — giờ dùng
+     * CHUNG 2 input với Song/Photo, router (event/router/playlist.js) rẽ nhánh VirtualMachineState
+     * theo activeMediaSource, cả 2 case đều gọi hàm NÀY — hàm không phân biệt file đến từ input
+     * "chọn file" hay "chọn thư mục", chỉ cần 1 mảng File). Lỗi 1 file (vd file hỏng) KHÔNG chặn cả
+     * lô upload — bắt riêng, bỏ qua đúng file đó, tiếp tục file sau (Rule 1: vẫn 1 tiến trình
+     * "upload cả lô"). Hiện tiến trình "X/Y" qua `loadingText.textContent`, ĐÚNG pattern
      * `handleAudioFiles()` (Song, core/playlist/loader.js) — tái dùng NGUYÊN lang key
      * `common.upload.loadingProgress`.
      * @param {FileList|File[]} files
@@ -328,13 +357,64 @@ const workflowPlaylist = {
                 }
             }
         });
-        // input `#video-upload-input` tự dọn value trong chính listener của nó (event/listener/playlist.js).
+        // input tự dọn value trong chính listener của nó (event/listener/playlist.js, fileInput/folderInput dùng chung).
         // MỚI (21/07/2026, Giang chỉ ra "không cập nhật lại list của video") — nếu Playlist đang
         // browse nguồn Video, làm mới playlistCache/playlistOrder NGAY để Next/Prev thấy được video
         // vừa upload — KHÔNG cần đổi Nguồn tắt/bật lại.
         await workflowVideoPlayer.refreshVideoPlaylistIfActive(); // event/workflow/video-player.js — tự guard activeMediaSource, no-op nếu Playlist không ở nguồn Video
         const successCount = fileArray.length - failedCount;
         await alertModal(tFormat('fileManager.video.uploadSuccess', { count: successCount }));
+    },
+
+    /** Ứng với 'playlist.upload.fileChange'/'playlist.upload.folderChange' khi activeMediaSource=
+     * 'photo' — MỚI (phản hồi Giang "1 khung, không nhân bản" + "quá trình cũ của up photo có thể
+     * tái dùng nhưng phải đúng quy trình mẫu của song/video đã làm ở giao diện playlist"). TÁI
+     * DÙNG "quá trình cũ" ở đúng phần lõi (resize thumbnail — `workflowFileManagerPhoto.
+     * resizeImageForThumbnail()`, event/workflow/file-manager-photo.js, Workflow gọi Workflow miền
+     * khác, TỰ DO theo event-bus-flow.md mục 4B — KHÔNG viết lại thuật toán resize) + `saveImage()`
+     * (core/file-manager/image.js, không đổi) — nhưng KHÔNG gọi thẳng `uploadImages()` (hàm đó
+     * mang theo hành lý riêng của Photo Panel: check `photoPanel.classList.contains('hidden')`,
+     * tự dọn `#file-manager-image-upload-input`, tự `this.refresh()` lưới CỦA NÓ, tự alertModal
+     * theo ngữ cảnh Photo Panel — không khớp giao diện Playlist). Thân hàm NÀY viết MỚI, đúng
+     * KHUÔN `uploadVideos()` ngay trên (shield + tiến trình "X/Y" + bắt lỗi riêng từng file + xong
+     * thì tự làm mới `playlistOrder` nếu đang đứng ở Nguồn Photo — KHÔNG có hàm `refreshVideoPlaylistIfActive()`-
+     * tương đương ở miền khác để gọi chéo, vì `switchToPhotoSource()` đã SẴN nằm CÙNG object này).
+     * @param {FileList|File[]} files
+     */
+    async uploadPhotos(files) {
+        const fileArray = Array.from(files);
+        if (fileArray.length === 0) return;
+
+        let failedCount = 0;
+        await withLoadingShield(tFormat('common.upload.loadingProgress', { done: 1, total: fileArray.length }), async () => {
+            for (let i = 0; i < fileArray.length; i++) {
+                const file = fileArray[i];
+                loadingText.textContent = tFormat('common.upload.loadingProgress', { done: i + 1, total: fileArray.length });
+                try {
+                    const { thumbBlob, width, height } = await workflowFileManagerPhoto.resizeImageForThumbnail(file); // event/workflow/file-manager-photo.js — tái dùng NGUYÊN thuật toán resize cũ
+                    await saveImage(file, file.name, thumbBlob, width, height); // core/file-manager/image.js
+                } catch (err) {
+                    console.error(`[uploadPhotos] resize/lưu thất bại cho file "${file.name}":`, err);
+                    failedCount++;
+                }
+            }
+        });
+        // input tự dọn value trong chính listener của nó (event/listener/playlist.js, fileInput/folderInput dùng chung).
+        // Làm mới playlistOrder NGAY nếu Playlist đang đứng ở Nguồn Photo — CÙNG LÝ DO/CÙNG CÁCH SỬA
+        // `refreshVideoPlaylistIfActive()` (event/workflow/video-player.js), nhưng viết TRỰC TIẾP ở
+        // đây (không tách hàm riêng) vì `switchToPhotoSource()` đã SẴN cùng 1 object `workflowPlaylist`.
+        if (appState.get('activeMediaSource') === 'photo') {
+            const imageRecords = await listImages(); // core/file-manager/image.js
+            const keys = buildPhotoPlaylistCache(imageRecords); // core/playlist/loader.js
+            appState.set('playlistOrder', keys);
+            console.log(`writer: "uploadPhotos", page: "playlistOrder", content: "${keys.length} ảnh (làm mới sau upload)"`);
+            updateShuffleArray();
+            recomputeDisplayOrder();
+            recomputeRenderOrder();
+            renderPlaylistDiff();
+        }
+        const successCount = fileArray.length - failedCount;
+        await alertModal(tFormat('fileManager.photo.image.uploadSuccess', { count: successCount })); // tái dùng NGUYÊN lang key cũ của Photo Panel
     },
 
     /**
@@ -870,7 +950,9 @@ const workflowPlaylist = {
         // bảo tắt shield dù `fn()` bên trong ném lỗi (trước đây 1 lỗi giữa chừng sẽ để
         // showPlaylistLoading() treo vĩnh viễn vì hidePlaylistLoading() không bao giờ được gọi tới).
         await withLoadingShield(t('playlistView.loading.generic'), async () => {
-            const videoRecords = await listVideos(); // core/file-manager/video.js, CÓ return, DÙNG ngay dưới -> Workflow gọi Core hợp lệ (Rule 3)
+            const videoRecords = await listVideos((done, total) => { // core/file-manager/video.js — MỚI, onProgress cho x/total
+                loadingText.textContent = tFormat('playlistView.loading.withCountVideo', { done, total });
+            });
             const keys = buildVideoPlaylistCache(videoRecords); // core/playlist/loader.js (MỚI, Batch 1), CÓ return, DÙNG ngay dưới
             // MỚI (mục 1d, Playlist Filter) — áp filter (nếu có) NGAY SAU khi playlistOrder vừa được
             // tính lại theo Nguồn Video, TRƯỚC updateShuffleArray()/recompute*Order() — xem docstring
@@ -889,11 +971,10 @@ const workflowPlaylist = {
         // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — placeholder ô tìm kiếm
         // đổi theo Nguồn (Song có artist/album để tìm, Video thì không).
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholderVideo');
-        // KHÔI PHỤC 29/07/2026 (phản hồi Giang) — #btn-upload-audio/#btn-upload-video đổi chỗ
-        // ẩn/hiện cho nhau theo Nguồn (2 nút RIÊNG từ FIX 28/07/2026 "bỏ dropdown Video, input
-        // luôn" — #btn-upload-video giờ LÀ <label> bọc thẳng input, không qua dropdown/router nào).
-        if (btnUploadAudio) btnUploadAudio.classList.add('hidden');
-        if (btnUploadVideo) btnUploadVideo.classList.remove('hidden');
+        // SỬA (phản hồi Giang — "1 khung, không nhân bản") — nút upload giờ DÙNG CHUNG cho cả 3
+        // Nguồn (LUÔN hiện, không còn toggle 'hidden' theo Nguồn) — chỉ còn cần đổi `accept` của 2
+        // input bên trong menu, xem _applyUploadInputAccept().
+        this._applyUploadInputAccept('video');
         // MỚI (hợp nhất Photo vào Playlist) — đảm bảo hàng "Phát/Trộn bài" hiện lại khi rời Photo
         // (Video vẫn phát được bình thường, chỉ Photo mới ẩn — xem switchToPhotoSource()).
         if (btnPlaylistEmptyPlay) btnPlaylistEmptyPlay.classList.remove('hidden');
@@ -922,7 +1003,9 @@ const workflowPlaylist = {
         // CÁCH SỬA switchToVideoSource() ngay trên — đổi showPlaylistLoading() (chỉ che vùng list)
         // sang withLoadingShield() (che toàn app, tự tắt qua finally{} dù fn() bên trong lỗi).
         await withLoadingShield(t('playlistView.loading.generic'), async () => {
-            const keys = await scanValidSongsFromDB(); // core có sẵn (core/playlist/loader.js, Song, KHÔNG đụng), CÓ return, DÙNG ngay dưới
+            const keys = await scanValidSongsFromDB((done, total) => { // core có sẵn (core/playlist/loader.js, Song, KHÔNG đụng) — đã có onProgress từ trước, giờ nối vào shield toàn app
+                loadingText.textContent = tFormat('playlistView.loading.withCount', { done, total });
+            });
             // MỚI (mục 1d, Playlist Filter) — CÙNG LÝ DO switchToVideoSource() ngay trên.
             const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig').song);
             appState.set('playlistOrder', filteredKeys);
@@ -936,9 +1019,8 @@ const workflowPlaylist = {
             updateEmptyState();
         });
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholder');
-        // KHÔI PHỤC 29/07/2026 (phản hồi Giang) — chiều ngược lại của toggle ở switchToVideoSource().
-        if (btnUploadVideo) btnUploadVideo.classList.add('hidden');
-        if (btnUploadAudio) btnUploadAudio.classList.remove('hidden');
+        // SỬA (phản hồi Giang — "1 khung, không nhân bản") — cùng lý do switchToVideoSource().
+        this._applyUploadInputAccept('song');
         // MỚI (hợp nhất Photo vào Playlist) — cùng lý do switchToVideoSource() ngay trên.
         if (btnPlaylistEmptyPlay) btnPlaylistEmptyPlay.classList.remove('hidden');
         if (btnPlaylistEmptyShuffle) btnPlaylistEmptyShuffle.classList.remove('hidden');
@@ -970,7 +1052,9 @@ const workflowPlaylist = {
         // photo undefined do dữ liệu lưu bền cũ thiếu key 'photo'), hidePlaylistLoading() không bao
         // giờ chạy tới -> treo loading vĩnh viễn, đúng hiện tượng Giang báo ở mục 1.
         await withLoadingShield(t('playlistView.loading.generic'), async () => {
-            const imageRecords = await listImages(); // core/file-manager/image.js, CÓ return, DÙNG ngay dưới -> Workflow gọi Core hợp lệ (Rule 3)
+            const imageRecords = await listImages((done, total) => { // core/file-manager/image.js — MỚI, onProgress cho x/total
+                loadingText.textContent = tFormat('playlistView.loading.withCountPhoto', { done, total });
+            });
             const keys = buildPhotoPlaylistCache(imageRecords); // core/playlist/loader.js (MỚI), CÓ return, DÙNG ngay dưới
             const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig').photo);
             appState.set('playlistOrder', filteredKeys);
@@ -984,8 +1068,10 @@ const workflowPlaylist = {
             updateEmptyState();        // core có sẵn (core/playlist/render.js)
         });
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholderPhoto');
-        if (btnUploadAudio) btnUploadAudio.classList.add('hidden');
-        if (btnUploadVideo) btnUploadVideo.classList.add('hidden');
+        // SỬA (phản hồi Giang — "1 khung, không nhân bản") — nút upload giờ DÙNG CHUNG cho cả 3
+        // Nguồn (kể cả Photo — trước đây Photo hoàn toàn KHÔNG có upload trong Playlist, giờ có
+        // qua chính khung này, xem uploadPhotos() bên dưới) — chỉ cần đổi `accept`.
+        this._applyUploadInputAccept('photo');
         // MỚI (hợp nhất Photo vào Playlist) — CHỐT Giang: Photo chưa có khái niệm "hàng đợi phát",
         // ẩn hẳn hàng "Phát/Trộn bài" (2 nút này gọi playMedia() qua displayOrder — vô nghĩa với
         // Photo). Sẽ tính lại khi Slideshow áp dụng toàn app (không chỉ Visual Background) — tạm
@@ -1088,11 +1174,10 @@ const workflowPlaylist = {
         console.log(`writer: "loadPersistedPlaylistConfigOnBoot", page: "activeMediaSource/displaySortMode/isGridView", content: "khôi phục từ meta.playlistConfig"`);
         const restoredSource = appState.get('activeMediaSource');
         if (playlistSearchInput) playlistSearchInput.placeholder = t(restoredSource === 'video' ? 'playlistView.search.placeholderVideo' : restoredSource === 'photo' ? 'playlistView.search.placeholderPhoto' : 'playlistView.search.placeholder');
-        // KHÔI PHỤC 29/07/2026 (phản hồi Giang) — cùng lý do placeholder ngay trên: boot KHÔNG đi
-        // qua switchToVideoSource()/switchToSongSource()/switchToPhotoSource() (3 nơi DUY NHẤT khác
-        // đang toggle 2 nút này) nên phải tự đồng bộ lại ở đây, đúng activeMediaSource vừa khôi phục.
-        if (btnUploadAudio) btnUploadAudio.classList.toggle('hidden', restoredSource !== 'song');
-        if (btnUploadVideo) btnUploadVideo.classList.toggle('hidden', restoredSource !== 'video');
+        // SỬA (phản hồi Giang — "1 khung, không nhân bản") — thay cho việc toggle 'hidden' giữa
+        // btnUploadAudio/btnUploadVideo (2 nút riêng ĐÃ XOÁ), giờ chỉ cần đồng bộ lại `accept` của
+        // 2 input DÙNG CHUNG theo đúng Nguồn vừa khôi phục — nút bấm mở menu LUÔN hiện, không đổi.
+        this._applyUploadInputAccept(restoredSource);
         // MỚI (hợp nhất Photo vào Playlist) — cùng lý do, hàng "Phát/Trộn bài" cũng phải tự đồng bộ
         // ở đây (KHÔNG đi qua switchToPhotoSource() lúc boot).
         if (btnPlaylistEmptyPlay) btnPlaylistEmptyPlay.classList.toggle('hidden', restoredSource === 'photo');
