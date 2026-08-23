@@ -1,6 +1,8 @@
 /**
  * upload-validation.js — Chặn định dạng KHÔNG hợp lệ ở 3 nơi nhận file từ người dùng:
- * nạp nhạc (audio-upload), ảnh nền (setting-bg-upload), video nền (setting-video-upload).
+ * nạp nhạc (media-upload — SỬA tên, phản hồi Giang "1 khung, không nhân bản": input này giờ dùng
+ * CHUNG cho cả nhạc/video/ảnh khi nạp vào Playlist, trước đây tên audio-upload), ảnh nền
+ * (setting-bg-upload), video nền (setting-video-upload).
  *
  * VÌ SAO CẦN FILE NÀY (không chỉ dựa vào `accept=""` của <input type="file">): thuộc tính
  * `accept` chỉ là GỢI Ý cho hộp thoại chọn file của OS/browser — người dùng vẫn có thể chọn

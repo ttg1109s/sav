@@ -5,39 +5,40 @@
  * isGridView — STATE, xem service/state.js.
  */
 
-        const fileInput = document.getElementById('audio-upload'), audioPlayer = document.getElementById('audio-player');
-        // Input "Chọn cả thư mục" + "Chọn file nhạc" (ver 8 refine) — CẢ 2 đều nằm trong
-        // #upload-action-menu (template playlist-view.js), mỗi input bọc trong 1 <label> riêng
-        // (KHÔNG còn ở index.html ngoài #app-root, KHÔNG còn trigger bằng .click() qua JS — xem
-        // comment ở playlist-view.js để biết lý do: 1 số trình duyệt/WebView chặn .click() gọi
-        // gián tiếp lên input[type=file], chỉ click NATIVE thật lên label mới chắc chắn hoạt
-        // động). Cùng xử lý chung qua handleAudioFiles() ở core/playlist/loader.js.
-        const folderInput = document.getElementById('audio-upload-folder');
+        // SỬA (phản hồi Giang — "1 khung, không nhân bản, VMState theo activeMediaSource") — đổi
+        // tên #audio-upload/#audio-upload-folder thành #media-upload/#media-upload-folder: 2 input
+        // này giờ DÙNG CHUNG cho cả Song/Video/Photo (trước đây chỉ Song, Video có input riêng
+        // #video-upload-input/btnUploadVideo — CẢ 2 ĐÃ XOÁ, không còn UI upload riêng theo Nguồn
+        // nào nữa). `accept` của 2 input đổi ĐỘNG theo Nguồn — xem event/workflow/playlist.js::
+        // _applyUploadInputAccept().
+        const fileInput = document.getElementById('media-upload'), audioPlayer = document.getElementById('audio-player');
+        // Input "Chọn cả thư mục" + "Chọn file" — CẢ 2 đều nằm trong #upload-action-menu (template
+        // playlist-view.js), mỗi input bọc trong 1 <label> riêng (KHÔNG còn ở index.html ngoài
+        // #app-root, KHÔNG còn trigger bằng .click() qua JS — xem comment ở playlist-view.js để
+        // biết lý do: 1 số trình duyệt/WebView chặn .click() gọi gián tiếp lên input[type=file],
+        // chỉ click NATIVE thật lên label mới chắc chắn hoạt động). Cùng xử lý chung qua
+        // handleAudioFiles() (Song)/uploadVideos()/uploadPhotos() (Video/Photo) tuỳ activeMediaSource
+        // (router/playlist.js, VirtualMachineState).
+        const folderInput = document.getElementById('media-upload-folder');
         const btnUploadAudio = document.getElementById('btn-upload-audio'), uploadActionMenu = document.getElementById('upload-action-menu');
-        // MỚI (ver12 "Song/Video Unification", Batch 6, mục 7) — "Thêm video" TÁCH RIÊNG hẳn khỏi
-        // #upload-action-menu (container ĐỘC LẬP, không phải cùng 1 container ẩn/hiện nội dung con)
-        // — CÙNG lý do platform-compat <label> bọc input thật ở fileInput/folderInput phía trên.
-        // SỬA (FIX 28/07/2026, "bỏ dropdown Video, input luôn") — #video-upload-menu (dropdown)
-        // ĐÃ XOÁ, `videoUploadMenu` ref bỏ theo — THAY bằng `btnUploadVideo` (<label> bọc thẳng
-        // #video-upload-input ở header, đổi ẩn/hiện với btnUploadAudio theo activeMediaSource).
-        const videoUploadInput = document.getElementById('video-upload-input');
-        const btnUploadVideo = document.getElementById('btn-upload-video');
-        // Ver 12 "Multi Media" (plan-v12-multimedia.md mục 4.b1) — "Chọn nhiều" trong Playlist.
-        const btnToggleSelection = document.getElementById('btn-toggle-selection');
-        const selectionActionBar = document.getElementById('selection-action-bar'), selectionCountLabel = document.getElementById('selection-count-label');
-        const btnSelectionMore = document.getElementById('btn-selection-more'), selectionMoreMenu = document.getElementById('selection-more-menu');
+        // XOÁ (phản hồi Giang — "1 khung, không nhân bản") — `videoUploadInput`/`btnUploadVideo`
+        // (input/label riêng của Video, tách khỏi #upload-action-menu) bỏ hẳn — Video giờ dùng
+        // CHUNG fileInput/folderInput/btnUploadAudio/uploadActionMenu ở trên với Song/Photo.
         // FIX (ver 8 refine #2): nếu 1 trong các id trên không khớp với template HTML thật (lỗi gõ
         // nhầm id, hoặc component nạp sai thứ tự khiến #app-root chưa có nội dung lúc dom-refs.js
         // chạy), getElementById trả về null — gọi .addEventListener trên null ở loader.js sẽ throw
         // ngay, dừng TOÀN BỘ script phía sau (kể cả core/playlist/visualizer chưa kịp nạp), đúng
         // triệu chứng "không tải được file/thư mục" (và mọi thứ khác) mà không rõ nguyên nhân. Log
         // rõ NGAY TẠI ĐÂY (đúng phần tử nào bị thiếu) trước khi lỗi mơ hồ xảy ra ở file khác.
-        [['fileInput', fileInput, 'audio-upload'], ['folderInput', folderInput, 'audio-upload-folder'],
-         ['btnUploadAudio', btnUploadAudio, 'btn-upload-audio'], ['uploadActionMenu', uploadActionMenu, 'upload-action-menu'],
-         ['videoUploadInput', videoUploadInput, 'video-upload-input'], ['btnUploadVideo', btnUploadVideo, 'btn-upload-video']]
+        [['fileInput', fileInput, 'media-upload'], ['folderInput', folderInput, 'media-upload-folder'],
+         ['btnUploadAudio', btnUploadAudio, 'btn-upload-audio'], ['uploadActionMenu', uploadActionMenu, 'upload-action-menu']]
             .forEach(([varName, el, id]) => {
                 if (!el) console.error(`[dom-refs] KHÔNG tìm thấy #${id} trong DOM (biến ${varName} = null) — chức năng nạp nhạc sẽ lỗi ngay khi loader.js gắn event listener.`);
             });
+        // Ver 12 "Multi Media" (plan-v12-multimedia.md mục 4.b1) — "Chọn nhiều" trong Playlist.
+        const btnToggleSelection = document.getElementById('btn-toggle-selection');
+        const selectionActionBar = document.getElementById('selection-action-bar'), selectionCountLabel = document.getElementById('selection-count-label');
+        const btnSelectionMore = document.getElementById('btn-selection-more'), selectionMoreMenu = document.getElementById('selection-more-menu');
         const canvas = document.getElementById('visualizer'), ctx = canvas.getContext('2d');
         // MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings) — khung cuộn ngang bọc
         // chung Playlist+Settings, xem components/app-view-stack.js.
