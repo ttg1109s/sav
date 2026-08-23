@@ -61,19 +61,26 @@ const workflowFileManagerFolderBrowser = {
     _readFolderRecord: null, // { id, name, type, excludeFromMainPlaylist }
     _readAllItems: [],       // TOÀN BỘ item (chưa phân trang) của folder đang xem — dùng tính lại count mỗi lần
 
-    /** MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — true nếu folder đang xem ở
-     * Read là Video (`_readFolderRecord.type === 'video'`). UI Folder Browser Read DÙNG CHUNG 1
-     * bộ chuỗi cho cả Song lẫn Video (ra đời TRƯỚC Video, xem lang/patch/patch-file-manager.js) —
-     * nhiều chuỗi hardcode "song" dù áp dụng được cho folder Video (empty/removeAll/reload...). */
-    _folderIsVideo() {
-        return !!(this._readFolderRecord && this._readFolderRecord.type === 'video');
+    /** SỬA (khôi phục — Giang báo "thông báo thêm vào thư mục của photo hiển thị add 'song'") —
+     * TRƯỚC ĐÂY chỉ phân biệt Video vs còn-lại (`_folderIsVideo()`), nên MỌI chữ trong Folder
+     * Browser Read (rỗng/xoá hết/áp dụng scope/exclude/xoá folder...) hiện bản Song khi đang xem
+     * folder Photo (Photo hợp nhất vào Playlist SAU Video, bộ chuỗi gốc chỉ viết cho Song rồi thêm
+     * biến thể Video — Photo bị bỏ sót). Đổi hẳn sang đọc TRỰC TIẾP `type` folder, trả về ĐÚNG hậu
+     * tố ('' = Song, 'Video', 'Photo') — `_folderText()` chỉ còn nối chuỗi, không còn nhánh nhị
+     * phân cũ. Cần đủ 3 biến thể key tương ứng (xem lang/patch/patch-file-manager.js — mọi key
+     * "...Video" giờ có thêm cặp "...Photo" song song).
+     * @returns {''|'Video'|'Photo'}
+     */
+    _folderTypeSuffix() {
+        const type = this._readFolderRecord && this._readFolderRecord.type;
+        return type === 'video' ? 'Video' : type === 'photo' ? 'Photo' : '';
     },
 
-    /** Chọn ĐÚNG biến thể Song/Video của 1 key (key gốc = Song, key + "Video" = Video) — chỉ dùng
-     * cho các key ĐÃ CÓ biến thể Video tương ứng (xem lang/patch/patch-file-manager.js), KHÔNG dùng
+    /** Chọn ĐÚNG biến thể Song/Video/Photo của 1 key (key gốc = Song, key + hậu tố = Video/Photo)
+     * — chỉ dùng cho các key ĐÃ CÓ đủ 3 biến thể (xem lang/patch/patch-file-manager.js), KHÔNG dùng
      * cho key trung lập/không cần biến thể (ví dụ renameTitle/btnDeleteFolder). */
     _folderText(baseKey, params) {
-        const fullKey = this._folderIsVideo() ? `${baseKey}Video` : baseKey;
+        const fullKey = `${baseKey}${this._folderTypeSuffix()}`;
         return params ? tFormat(fullKey, params) : t(fullKey);
     },
 
