@@ -268,10 +268,12 @@
     <!-- Nơi các "component" HTML (xem js/components/) sẽ được lắp vào lúc khởi động -->
     <div id="app-root"></div>
 
-    <!-- audio-upload / audio-upload-folder: ver 8 refine di chuyển vào trong template
-         js/components/playlist-view.js (mỗi input nằm trong 1 <label> riêng ở #upload-action-menu)
-         — xem comment ở đó để biết lý do (label native bọc input đáng tin cậy hơn .click() qua JS
-         trên mọi nền tảng, đặc biệt khi chạy qua file://). KHÔNG còn input nào ở đây nữa. -->
+    <!-- media-upload / media-upload-folder (đổi tên từ audio-upload/audio-upload-folder, phản hồi
+         Giang "1 khung, không nhân bản" — DÙNG CHUNG cho cả Song/Video/Photo): ver 8 refine di
+         chuyển vào trong template js/components/playlist-view.js (mỗi input nằm trong 1 <label>
+         riêng ở #upload-action-menu) — xem comment ở đó để biết lý do (label native bọc input đáng
+         tin cậy hơn .click() qua JS trên mọi nền tảng, đặc biệt khi chạy qua file://). KHÔNG còn
+         input nào ở đây nữa. -->
     <audio id="audio-player" style="display: none;" playsinline></audio>
 
     <!-- MỚI (18/07/2026, Giang yêu cầu — "mục mới Settings > Misc, vào hiện console log") — NẠP
@@ -286,7 +288,7 @@
          tFormat() — PHẢI nạp trước mọi components/*.js (template TPL_* gọi t() ngay lúc parse).
          Thứ tự giữa 5 patch không quan trọng, chỉ cần cả 5 nạp trước lang.js. -->
     <script src="lang/patch/patch-common.js?v=20260818v1"></script>
-    <script src="lang/patch/patch-playlist.js?v=20260728v2"></script>
+    <script src="lang/patch/patch-playlist.js?v=20260823v2"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260819v4"></script>
     <script src="lang/patch/patch-subtitle-settings.js?v=20260816v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260816v1"></script>
@@ -312,7 +314,7 @@
     <!-- MỚI (07/07/2026, phản hồi Giang mục 2 — gộp Playlist+Settings chung 1 container cuộn
          ngang) — chỉ định nghĩa 2 biến chuỗi mở/đóng khung bọc, xem components/app-view-stack.js. -->
     <script src="components/app-view-stack.js?v=20260813v1"></script>
-    <script src="components/playlist-view.js?v=20260728v3"></script>
+    <script src="components/playlist-view.js?v=20260823v1"></script>
     <!-- Game Mode overlay (Circle mode v1, MỚI 16/08/2026) — PHẢI nạp TRƯỚC components/visualizer-
          overlay.js (file đó nội suy ${TPL_GAMEPLAY_OVERLAY}, xem components/gameplay-overlay.js). -->
     <script src="components/gameplay-overlay.js?v=20260819v1"></script>
@@ -495,7 +497,7 @@
          actions.js (core, dòng dưới) cần `new EventStore(...)` ngay lúc nạp. Tự đứng độc lập
          (không phụ thuộc eventBus), nên tách riêng lên đây an toàn. -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260819v1"></script>
+    <script src="core/dom-refs.js?v=20260823v1"></script>
     <!-- core/slider-panel-scroll.js — 2 hàm dùng chung (getPositionStart/scrollSliderTo) cho mọi
          khung cuộn ngang kiểu "slider panel" (settings-panel-stack-ui.js, player-controls.js). -->
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
@@ -548,7 +550,7 @@
          với nhau không quan trọng, chỉ cần SAU core/db.js. photo-ui.js CẦN dom-refs.js (đã nạp ở
          block DOM refs phía trên) + image.js/album.js (dùng trong workflow, không tham chiếu trực
          tiếp ở đây, nhưng gom nhóm cho dễ đọc). -->
-    <script src="core/file-manager/image.js?v=20260731v2"></script>
+    <script src="core/file-manager/image.js?v=20260823v1"></script>
     <script src="core/file-manager/album.js?v=20260703v1"></script>
     <script src="core/file-manager/photo-ui.js?v=20260731v9"></script>
     <!-- MỚI (v13) — picker Generic Drawer DÙNG CHUNG cho lưới ảnh lẫn lưới video. -->
@@ -577,7 +579,7 @@
          dùng chung hàm nào ngoài slugify()/service/db.js) — chỉ cần SAU service/db.js.
          core/file-manager/video-ui.js ĐÃ XOÁ HẲN (Batch 6, mục 6d, phản hồi Giang — modal "Chi
          tiết" riêng nó từng chứa đã bỏ, dùng chung modal Playlist đã video-aware). -->
-    <script src="core/file-manager/video.js?v=20260728v2"></script>
+    <script src="core/file-manager/video.js?v=20260823v1"></script>
     <script src="core/file-manager/video-ui.js?v=20260803v1"></script>
     <!-- Tool migration thumbnail 320x320 (tools/migrate-video-thumbs-320.js, Batch 3) — Giang xác
          nhận đã chạy xong tốt, ĐÃ XOÁ (batch 4, 27/07/2026): dòng <script> này + file
@@ -628,7 +630,7 @@
          saveResumeStateToLocalStorage()/readResumeStateFromLocalStorage() ngay trong listener
          visibilitychange/pagehide/pageshow). -->
     <script src="core/resume-state-storage.js?v=20260625v10"></script>
-    <script src="core/upload-validation.js?v=20260625v8e"></script>
+    <script src="core/upload-validation.js?v=20260823v1"></script>
     <script src="core/listen-stats.js?v=20260625v10"></script>
     <script src="core/loading-shield-util.js?v=20260625v10"></script>
     <script src="core/webgl/three-vortex.js?v=20260719v1"></script>
@@ -683,7 +685,7 @@
     <script src="core/playlist/state.js?v=20260625v8e"></script>
     <script src="core/playlist/order.js?v=20260818v1"></script>
     <script src="core/playlist/render.js?v=20260712v2"></script>
-    <script src="core/playlist/loader.js?v=20260728v2"></script>
+    <script src="core/playlist/loader.js?v=20260823v1"></script>
     <script src="core/playlist/actions.js?v=20260818v1"></script>
     <script src="core/playlist/main.js?v=20260625v10"></script>
     <!-- MỚI (mục 1d, Playlist Filter, phản hồi Giang) — applyPlaylistFilter() (SQL
@@ -703,7 +705,7 @@
          hết sang event/workflow/playlist.js sau đợt rà soát Rule 3, xem comment đầu 2 file), chỉ
          cần core/dom-refs.js (selectionActionBar...)/service/state.js (appState). Đặt ở đây (cuối
          nhóm playlist) cho gọn, không bắt buộc thứ tự nào khác trong nhóm CORE. -->
-    <script src="core/playlist/selection.js?v=20260702v3"></script>
+    <script src="core/playlist/selection.js?v=20260823v1"></script>
     <script src="core/playlist/bulk-actions.js?v=20260702v2"></script>
     <!-- core/player-controls.js (rút gọn ver 11): TÁCH RA khỏi đây phần "Settings hiệu ứng/màu/
          EQ/volume" — giờ ở visualizers/visualizer-display.js (khu VISUALIZERS dưới), vì đúng
@@ -920,9 +922,9 @@
          core/listen-stats.js (bumpSongPlayCount), event/workflow/video-player.js (workflowVideoPlayer
          — chỉ dùng trong callback runtime, không bắt buộc thứ tự nạp so với dòng NGAY DƯỚI). -->
     <script src="event/workflow/player.js?v=20260819v1"></script>
-    <script src="event/workflow/playlist.js?v=20260815v1"></script>
-    <script src="event/router/playlist.js?v=20260731v1"></script>
-    <script src="event/listener/playlist.js?v=20260728v2"></script>
+    <script src="event/workflow/playlist.js?v=20260823v1"></script>
+    <script src="event/router/playlist.js?v=20260823v1"></script>
+    <script src="event/listener/playlist.js?v=20260823v1"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel + phân phối lại section Settings, phản hồi
          Giang) — cụm "appSettings" (điều hướng swap Setting, TÁI DÙNG workflowGestureSettings/
          workflowSlideshow/workflowPlaylist/workflowSettingsMisc/workflowFileManagerPhoto/
