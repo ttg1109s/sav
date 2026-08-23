@@ -9,7 +9,8 @@
  *     state mới, KHÔNG tính toán gì) rồi gửi 1 message qua eventBus.send().
  *   - "Địa chỉ nhà" (msg.router) LUÔN là 'playlist' cho mọi listener trong file này.
  *
- * NGOẠI LỆ: 2 listener input file (#audio-upload, #audio-upload-folder) CHỐT FileList ra Array
+ * NGOẠI LỆ: 2 listener input file (#media-upload, #media-upload-folder — DÙNG CHUNG cho cả 3
+ * Nguồn Song/Video/Photo, phản hồi Giang "1 khung, không nhân bản") CHỐT FileList ra Array
  * thật + reset input.value NGAY trong listener (xem comment chi tiết ở từng khối — đây là hành
  * vi gắn chặt với timing của chính sự kiện DOM 'change', không thể dời ra ngoài).
  *
@@ -144,7 +145,8 @@ if (btnSongEditSave) {
     });
 }
 
-// ===================== Nạp nhạc mới (file rời / cả thư mục) =====================
+// ===================== Nạp media mới (file rời / cả thư mục) — DÙNG CHUNG Song/Video/Photo,
+// router (event/router/playlist.js) tự rẽ nhánh theo activeMediaSource =====================
 if (fileInput) {
     fileInput.addEventListener('change', (e) => {
         // FIX (ver 8 refine #2): e.target.files là FileList SỐNG, gắn trực tiếp với <input> — một
@@ -165,21 +167,11 @@ if (folderInput) {
     });
 }
 
-// MỚI (ver12 "Song/Video Unification", Batch 6, mục 7) — "Thêm video", CÙNG PATTERN
-// fileInput/folderInput ngay trên (chốt FileList ra Array TRƯỚC khi đụng input.value — 1 số
-// trình duyệt/WebView làm rỗng FileList sống ngay khi input.value bị set lại).
-if (videoUploadInput) {
-    videoUploadInput.addEventListener('change', (e) => {
-        const fileList = Array.from(e.target.files || []);
-        e.target.value = '';
-        eventBus.send({ router: 'playlist', type: 'playlist.upload.videoFileChange', payload: { fileList } });
-    });
-}
-
-// videoUploadMenu (dropdown "Thêm video" cũ) ĐÃ XOÁ (FIX 28/07/2026, "bỏ dropdown Video, input
-// luôn") — #btn-upload-video giờ LÀ <label> bọc thẳng #video-upload-input (components/
-// playlist-view.js) — click NATIVE lên label tự trigger input, KHÔNG cần listener JS nào ở đây,
-// đúng pattern 2 label trong #upload-action-menu (Song) vốn cũng không có click listener riêng.
+// XOÁ (phản hồi Giang — "1 khung, không nhân bản") — listener riêng của #video-upload-input
+// (msg.type 'playlist.upload.videoFileChange') bỏ hẳn cùng lúc element đó bị xoá — Video giờ bắn
+// CHUNG 'playlist.upload.fileChange'/'playlist.upload.folderChange' qua fileInput/folderInput ở
+// trên với Song/Photo, router (event/router/playlist.js) tự rẽ nhánh VirtualMachineState theo
+// activeMediaSource để gọi đúng hàm xử lý từng Nguồn.
 
 if (btnUploadAudio) {
     btnUploadAudio.addEventListener('click', () => {
