@@ -180,6 +180,9 @@ const LANG_PATCH_FILE_MANAGER = {
     // lẫn Video (Video ra đời SAU, bộ chuỗi gốc chỉ viết cho ngữ cảnh Song) — mọi key "...Video"
     // dưới đây là biến thể áp dụng khi folder đang xem là Video, chọn qua `_folderText()`.
     'fileManager.song.deleteFolderConfirmVideo': 'Delete folder "{name}"? Videos inside stay in your library, only the folder is removed.',
+    // MỚI (khôi phục — thêm biến thể Photo song song Video, xem docstring _folderTypeSuffix()
+    // event/workflow/file-manager-folder-browser.js).
+    'fileManager.song.deleteFolderConfirmPhoto': 'Delete folder "{name}"? Photos inside stay in your library, only the folder is removed.',
     'fileManager.song.btnDeleteFolder': 'Delete',
     // ── File Manager -> Song & Video: Giải phóng bộ nhớ, 3 chiều độc lập (Batch 5, mục 6b) ────
     // THAY 2 nút tách rời cũ (storageDrawer.downloadThenClear/clearNoDownload, lang/patch/
@@ -213,12 +216,16 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.folderDetail.scopeToggle.label': 'Use as Playlist source',
     'fileManager.song.folderDetail.scopeToggle.hint': 'When on, the Playlist only shows songs from this folder.',
     'fileManager.song.folderDetail.scopeToggle.hintVideo': 'When on, the Playlist only shows videos from this folder.',
+    'fileManager.song.folderDetail.scopeToggle.hintPhoto': 'When on, the Playlist only shows photos from this folder.',
     'fileManager.song.folderDetail.excludeToggle.label': 'Hide from "All songs" view',
     'fileManager.song.folderDetail.excludeToggle.labelVideo': 'Hide from "All videos" view',
+    'fileManager.song.folderDetail.excludeToggle.labelPhoto': 'Hide from "All photos" view',
     'fileManager.song.folderDetail.excludeToggle.hint': 'When on, songs in this folder are skipped while browsing all songs (does not affect any specific folder scope).',
     'fileManager.song.folderDetail.excludeToggle.hintVideo': 'When on, videos in this folder are skipped while browsing all videos (does not affect any specific folder scope).',
+    'fileManager.song.folderDetail.excludeToggle.hintPhoto': 'When on, photos in this folder are skipped while browsing all photos (does not affect any specific folder scope).',
     'fileManager.song.folderDetail.empty': 'No songs in this folder yet.',
     'fileManager.song.folderDetail.emptyVideo': 'No videos in this folder yet.',
+    'fileManager.song.folderDetail.emptyPhoto': 'No photos in this folder yet.',
     'fileManager.song.folderDetail.removeSongTitle': 'Remove from folder',
     // MỚI (14/07/2026, Giang yêu cầu layout lại — icon Sửa tên cạnh tên folder).
     'fileManager.song.folderDetail.renameTitle': 'Rename folder',
@@ -226,25 +233,34 @@ const LANG_PATCH_FILE_MANAGER = {
     // KHÔNG xoá folder — khác hẳn "Xoá folder" ở panel Song, deleteActiveFolderById()).
     'fileManager.song.folderDetail.btnRemoveAll': 'Remove all songs',
     'fileManager.song.folderDetail.btnRemoveAllVideo': 'Remove all videos',
+    'fileManager.song.folderDetail.btnRemoveAllPhoto': 'Remove all photos',
     'fileManager.song.folderDetail.removeAllTitle': 'Remove all songs',
     'fileManager.song.folderDetail.removeAllTitleVideo': 'Remove all videos',
+    'fileManager.song.folderDetail.removeAllTitlePhoto': 'Remove all photos',
     'fileManager.song.folderDetail.removeAllConfirm': 'Remove all songs from this folder? The folder itself stays — only its contents are cleared. Songs remain in your library.',
     'fileManager.song.folderDetail.removeAllConfirmVideo': 'Remove all videos from this folder? The folder itself stays — only its contents are cleared. Videos remain in your library.',
+    'fileManager.song.folderDetail.removeAllConfirmPhoto': 'Remove all photos from this folder? The folder itself stays — only its contents are cleared. Photos remain in your library.',
     'fileManager.song.folderDetail.reloadTitle': 'Apply now?',
     'fileManager.song.folderDetail.reloadBtnNo': 'Not now',
     'fileManager.song.folderDetail.reloadBtnNow': 'Reload now',
     'fileManager.song.folderDetail.applyReloadBody': 'Saved — the Playlist will show songs from "{name}" after reloading. Reload now?',
     'fileManager.song.folderDetail.applyReloadBodyVideo': 'Saved — the Playlist will show videos from "{name}" after reloading. Reload now?',
+    'fileManager.song.folderDetail.applyReloadBodyPhoto': 'Saved — the Playlist will show photos from "{name}" after reloading. Reload now?',
     'fileManager.song.folderDetail.unapplyReloadBody': 'Saved — the Playlist will show all songs again after reloading. Reload now?',
     'fileManager.song.folderDetail.unapplyReloadBodyVideo': 'Saved — the Playlist will show all videos again after reloading. Reload now?',
+    'fileManager.song.folderDetail.unapplyReloadBodyPhoto': 'Saved — the Playlist will show all photos again after reloading. Reload now?',
     'fileManager.song.folderDetail.autoUnapplyReloadBody': 'This folder is now empty, so it was removed as the Playlist source. The Playlist will show all songs again after reloading. Reload now?',
     'fileManager.song.folderDetail.autoUnapplyReloadBodyVideo': 'This folder is now empty, so it was removed as the Playlist source. The Playlist will show all videos again after reloading. Reload now?',
+    'fileManager.song.folderDetail.autoUnapplyReloadBodyPhoto': 'This folder is now empty, so it was removed as the Playlist source. The Playlist will show all photos again after reloading. Reload now?',
     'fileManager.song.folderDetail.deleteReloadBody': 'Folder deleted — the Playlist will show all songs again after reloading. Reload now?',
     'fileManager.song.folderDetail.deleteReloadBodyVideo': 'Folder deleted — the Playlist will show all videos again after reloading. Reload now?',
+    'fileManager.song.folderDetail.deleteReloadBodyPhoto': 'Folder deleted — the Playlist will show all photos again after reloading. Reload now?',
     'fileManager.song.deleteActiveFolderConfirm': 'Delete folder "{name}"? This folder is currently applied to the Playlist.',
     // MỚI (Batch 4, "Song/Video Unification" mục 5) — toggle Exclude.
     'fileManager.song.folderDetail.excludeOnReloadBody': 'Saved — songs in this folder will be hidden from the "All songs" view after reloading. Reload now?',
     'fileManager.song.folderDetail.excludeOnReloadBodyVideo': 'Saved — videos in this folder will be hidden from the "All videos" view after reloading. Reload now?',
+    'fileManager.song.folderDetail.excludeOnReloadBodyPhoto': 'Saved — photos in this folder will be hidden from the "All photos" view after reloading. Reload now?',
     'fileManager.song.folderDetail.excludeOffReloadBody': 'Saved — songs in this folder will show again in the "All songs" view after reloading. Reload now?',
     'fileManager.song.folderDetail.excludeOffReloadBodyVideo': 'Saved — videos in this folder will show again in the "All videos" view after reloading. Reload now?',
+    'fileManager.song.folderDetail.excludeOffReloadBodyPhoto': 'Saved — photos in this folder will show again in the "All photos" view after reloading. Reload now?',
 };
