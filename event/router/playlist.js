@@ -206,16 +206,33 @@ const routerPlaylist = (() => {
                 break;
             }
 
-            // ===================== Nạp nhạc mới (file rời / cả thư mục) =====================
+            // ===================== Nạp media mới (file rời / cả thư mục) — DÙNG CHUNG Song/Video/
+            // Photo (phản hồi Giang "1 khung, không nhân bản, VMState theo activeMediaSource") —
+            // 2 input (#media-upload/#media-upload-folder, core/dom-refs.js) bắn CÙNG 1 msg.type
+            // bất kể Nguồn nào đang active, router tự đọc appState.activeMediaSource để rẽ đúng hàm
+            // xử lý. Video/Photo dùng CHUNG 1 hàm cho cả 2 case (file rời hay cả thư mục ra cùng 1
+            // FileList phẳng như nhau, hàm xử lý không cần biết nguồn gốc — xem uploadVideos()/
+            // uploadPhotos(), event/workflow/playlist.js) — chỉ Song còn phân biệt 2 hàm riêng
+            // (khác nhau đúng 1 câu thông báo khi FileList rỗng, xem core/playlist/loader.js). =====
             case 'playlist.upload.fileChange': {
                 const { fileList } = msg.payload;
-                handleFilePickerChange(fileList); // core "lớn" có sẵn shield/modal bên trong (giống window.playSong) -> gọi thẳng
+                const source = appState.get('activeMediaSource');
+                VirtualMachineState.run([
+                    { state: source, operation: '===', value: 'song', callback: () => handleFilePickerChange(fileList) }, // core "lớn" có sẵn shield/modal bên trong (giống window.playSong) -> gọi thẳng
+                    { state: source, operation: '===', value: 'video', callback: () => workflowPlaylist.uploadVideos(fileList) },
+                    { state: source, operation: '===', value: 'photo', callback: () => workflowPlaylist.uploadPhotos(fileList) },
+                ]);
                 break;
             }
 
             case 'playlist.upload.folderChange': {
                 const { fileList } = msg.payload;
-                handleFolderPickerChange(fileList); // tương tự — đã có sẵn try/catch + alertModal riêng cho trường hợp thư mục rỗng
+                const source = appState.get('activeMediaSource');
+                VirtualMachineState.run([
+                    { state: source, operation: '===', value: 'song', callback: () => handleFolderPickerChange(fileList) }, // tương tự — đã có sẵn try/catch + alertModal riêng cho trường hợp thư mục rỗng
+                    { state: source, operation: '===', value: 'video', callback: () => workflowPlaylist.uploadVideos(fileList) },
+                    { state: source, operation: '===', value: 'photo', callback: () => workflowPlaylist.uploadPhotos(fileList) },
+                ]);
                 break;
             }
 
@@ -225,14 +242,11 @@ const routerPlaylist = (() => {
                 // "chặn hẳn, không chạy gì cả" (xem comment đầu event/block.js); ở đây cần CHẠY 1
                 // thứ khi bị chặn (hiện modal thông báo), nên đúng là việc của switch/if/VMState
                 // trong router, không phải block gate.
-                // SỬA (FIX 28/07/2026, "bỏ dropdown Video, input luôn", khôi phục 29/07/2026) —
-                // BỎ nhánh VMState lồng theo `activeMediaSource` (`openVideoUploadMenu()` — hàm đó
-                // đã xoá cùng đợt fix này, KHÔNG còn cần nữa) — #btn-upload-audio giờ CHỈ hiện khi
-                // activeMediaSource='song' (đổi ẩn/hiện với #btn-upload-video ở
-                // switchToSongSource()/switchToVideoSource(), event/workflow/playlist.js), nên
-                // msg.type này CHỈ CÒN bắn ra được từ ngữ cảnh Song — Video giờ có nút RIÊNG
-                // (<label id="btn-upload-video">, components/playlist-view.js) mở file picker
-                // NATIVE thẳng, không qua eventBus/router nào cả.
+                // SỬA (phản hồi Giang — "1 khung, không nhân bản") — #btn-upload-audio giờ LUÔN
+                // hiện bất kể Nguồn nào (nút riêng của Video, #btn-upload-video, ĐÃ XOÁ hẳn) — case
+                // này KHÔNG còn cần rẽ nhánh theo activeMediaSource nữa (khác hẳn 2 case fileChange/
+                // folderChange ngay trên — đó là xử lý SAU KHI đã chọn xong file, còn đây là bước
+                // MỞ MENU, giống hệt nhau cho cả 3 Nguồn), chỉ còn phân biệt selectionMode.
                 const selectionMode = appState.get('selectionMode');
                 VirtualMachineState.run([
                     { state: selectionMode, operation: '===', value: true, callback: () => workflowPlaylist.showUploadBlockedBySelectionModal() },
@@ -249,17 +263,6 @@ const routerPlaylist = (() => {
             case 'playlist.uploadMenu.labelClick': {
                 const { target } = msg.payload;
                 handleUploadMenuLabelClick(target); // CHỈ 1 hàm core -> gọi thẳng
-                break;
-            }
-
-            // MỚI (ver12 "Song/Video Unification", Batch 6, mục 7) — file(s) video đã chọn xong từ
-            // #video-upload-input. Tái dùng NGUYÊN `uploadVideos()` (event/workflow/file-manager-
-            // SỬA (phản hồi Giang — dẹp tầng trung gian) — `uploadVideos()`/`_extractVideoThumbAndMeta()`
-            // đã DỜI THẲNG vào workflowPlaylist (event/workflow/playlist.js) — file-manager-video.js
-            // (workflow/router/listener) đã xoá hẳn, vì cụm này CHỈ được gọi từ đây.
-            case 'playlist.upload.videoFileChange': {
-                const { fileList } = msg.payload;
-                workflowPlaylist.uploadVideos(fileList);
                 break;
             }
 
