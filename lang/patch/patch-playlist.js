@@ -84,9 +84,10 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.songInfo.fieldFilename': 'Original filename',
     'playlistView.songInfo.fieldResolution': 'Resolution',
     // SỬA (phản hồi Giang — "1 khung, không nhân bản, dùng nút+2 lựa chọn của Song làm chuẩn") —
-    // 2 key dưới đây giờ DÙNG CHUNG cho cả Song/Video/Photo (giữ nguyên văn bản gốc của Song, theo
-    // đúng yêu cầu "làm chuẩn" — CHƯA đổi chữ theo ngữ cảnh từng Nguồn).
-    'playlistView.uploadMenu.pickFiles': 'Choose music files',
+    // 2 key dưới đây giờ DÙNG CHUNG cho cả Song/Video/Photo. SỬA THÊM (phản hồi Giang mục 1, lượt
+    // sau) — bỏ chữ "music" khỏi pickFiles (còn "Choose music files" thì sai ngữ cảnh Video/Photo)
+    // — còn lại "Choose files", trung lập cho cả 3 Nguồn.
+    'playlistView.uploadMenu.pickFiles': 'Choose files',
     'playlistView.uploadMenu.pickFolder': 'Choose a folder',
     // XOÁ (phản hồi Giang — "1 khung, không nhân bản") — 'playlistView.uploadMenu.pickVideoFiles'
     // (title riêng của <label id="btn-upload-video">, ĐÃ XOÁ khỏi components/playlist-view.js) bỏ
