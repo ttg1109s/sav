@@ -70,20 +70,26 @@
  * chồng gì thêm. DÙNG CHUNG cho cả Folder Browser (event/workflow/file-manager-folder-browser.js)
  * lẫn "Add to Folder" picker (event/workflow/playlist.js) — cả 2 đều gọi `listFolders()` (record
  * THÔ, có sẵn field `type`), không cần đổi gì ở 2 nơi gọi.
- * @param {{id: string, name: string, type?: 'song'|'video'|null}} folder
+ * @param {{id: string, name: string, type?: 'song'|'video'|'photo'|null}} folder
  */
 function itemTemplateFolderTile(folder, ctx) {
     const isEditing = !!(ctx && ctx.editingFolderId === folder.id);
     const folderIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>`;
 
     // type: null/chưa xác định -> '' (giữ NGUYÊN icon thư mục mặc định, không chồng gì).
+    // SỬA (khôi phục — Giang báo "folder photo chưa có icon như song/video") — 'photo' bị THIẾU
+    // hẳn khỏi ternary này từ đầu (chỉ viết cho song/video lúc "Song/Video Unification", Photo
+    // hợp nhất vào Playlist SAU — folder.type === 'photo' rơi về nhánh mặc định '', không icon).
     const typeOverlaySvg = folder.type === 'song'
         ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 004.5 14C2.567 14 1 15.343 1 17s1.567 3 3.5 3 3.5-1.343 3.5-3V7.82l8-1.6v5.894A4.37 4.37 0 0014.5 12c-1.933 0-3.5 1.343-3.5 3s1.567 3 3.5 3 3.5-1.343 3.5-3V3z" /></svg>`
         : folder.type === 'video'
         ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM16.553 7.106A1 1 0 0016 8v4a1 1 0 00.553.894l2 1A1 1 0 0020 13V7a1 1 0 00-1.447-.894l-2 1z" /></svg>`
+        : folder.type === 'photo'
+        ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l3.5-4.5 2.5 3.01L13.5 8 18 15H16z" clip-rule="evenodd" /></svg>`
         : '';
+    const typeOverlayColorClass = folder.type === 'song' ? 'text-emerald-400' : folder.type === 'photo' ? 'text-sky-300' : 'text-violet-400';
     const typeOverlayHtml = typeOverlaySvg
-        ? `<div class="absolute inset-0 flex items-center justify-center"><div class="w-6 h-6 rounded-full bg-[#0f172a] flex items-center justify-center ${folder.type === 'song' ? 'text-emerald-400' : 'text-violet-400'}">${typeOverlaySvg}</div></div>`
+        ? `<div class="absolute inset-0 flex items-center justify-center"><div class="w-6 h-6 rounded-full bg-[#0f172a] flex items-center justify-center ${typeOverlayColorClass}">${typeOverlaySvg}</div></div>`
         : '';
     const iconBoxHtml = `<div class="relative w-14 h-14 rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center shrink-0">${folderIconSvg}${typeOverlayHtml}</div>`;
 
