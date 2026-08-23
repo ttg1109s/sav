@@ -56,8 +56,24 @@ const workflowFileManagerStorage = {
                     </button>
                 </div>
             `,
-            bodyHtml: renderFileManagerStorageManagementPanelBody(),
-            bodyClass: 'overflow-y-auto px-4 py-4',
+            // SỬA (phản hồi Giang mục 2 — "styling lỗi, cụm bị co vào nhau, theo theme setting/custom
+            // effect") — GỐC BỆNH: renderFileManagerStorageManagementPanelBody() (components/file-
+            // manager-storage.js) viết bằng bảng màu TỐI (text-white/text-slate-300/.glass-modal/
+            // border-white/bg-white/[0.03] — vốn dành cho nền TỐI của Visualizer) nhưng Generic
+            // Drawer LUÔN nền TRẮNG cố định (loại trừ theme, xem core/generic-drawer.js) — chữ trắng
+            // trên nền trắng gần như vô hình, ĐÚNG hiện tượng "các cụm bị co vào nhau"/nhoè trong ảnh
+            // Giang gửi (không phải lỗi spacing thật, là lỗi TƯƠNG PHẢN). `.glass-modal` còn có
+            // `backdrop-filter: blur(24px)` (thiết kế để làm mờ Visualizer PHÍA SAU) — trên Generic
+            // Drawer chỉ còn làm mờ chính nền trắng của panel, không có tác dụng, VÀ tạo 1 stacking
+            // context riêng (CSS spec) — nhiều khả năng CHÍNH LÀ nguyên nhân nút X không ấn được
+            // (WebKit/iOS có nhiều bug đã biết về backdrop-filter chồng lấn hit-test trong bottom
+            // sheet). SỬA: bọc `.app-settings-scope` — ĐÚNG kỹ thuật event/workflow/app-settings.js
+            // đã dùng cho CHÍNH bug này ở Settings (xem assets/css/layout-nav.css, "phản hồi Giang
+            // mục 3") — đè toàn bộ class tối kể trên sang sáng, khớp CHÍNH XÁC bảng màu Custom
+            // Effect/EQ, KHÔNG cần viết CSS mới. `p-4` DỜI vào wrapper này (khỏi bodyClass) — ĐÚNG
+            // quy ước Settings (bodyClass CHỈ còn overflow-y-auto, không tự có padding).
+            bodyHtml: `<div class="app-settings-scope p-4">${renderFileManagerStorageManagementPanelBody()}</div>`,
+            bodyClass: 'overflow-y-auto',
         });
         const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
         if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerStorage', type: 'fileManagerStorage.closePanel.click', payload: {} }));

@@ -54,7 +54,15 @@ const workflowCustomEffect = {
     open() {
         const type = appConfigViz.getAll().type;
         const cfg = getEffectConfig(type); // core/custom-effect.js
+        // SỬA (phản hồi Giang mục 1 — CÙNG lý do event/workflow/eq-presets.js::openListView(), xem
+        // comment đầy đủ ở đó) — config này TRƯỚC ĐÂY không có height/maxHeight, rơi về mặc định fix
+        // cứng 70vh của core/generic-drawer.js — nội dung thay đổi theo TỪNG loại effect (số field
+        // khác nhau) nhưng panel luôn 1 kích thước, không co theo thật. GIỮ NGUYÊN 70vh làm trần —
+        // hành vi KHÔNG đổi với effect có nhiều field (vượt trần vẫn y hệt trước), chỉ MỚI co nhỏ lại
+        // được với effect ít field.
         const config = {
+            height: 'auto',
+            maxHeight: '70vh',
             headerHtml: renderCustomEffectHeader(type), // components/custom-effect-drawer.js
             bodyHtml: renderCustomEffectBody(type, cfg),
             bodyClass: 'overflow-y-auto px-4 py-3',
@@ -67,7 +75,11 @@ const workflowCustomEffect = {
     /** Vẽ lại TOÀN BỘ body — dùng khi đổi style con (field showIf phụ thuộc style có thể ẩn/hiện). */
     _rerenderBody(type) {
         const cfg = getEffectConfig(type);
+        // SỬA (phản hồi Giang mục 1) — CÙNG lý do open() ngay trên (vẽ lại đúng nội dung TƯƠNG TỰ,
+        // config phải khớp nhau).
         updateGenericDrawer({
+            height: 'auto',
+            maxHeight: '70vh',
             headerHtml: renderCustomEffectHeader(type),
             bodyHtml: renderCustomEffectBody(type, cfg),
             bodyClass: 'overflow-y-auto px-4 py-3',

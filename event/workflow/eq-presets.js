@@ -129,7 +129,15 @@ const workflowEqPresets = {
         // updateGenericDrawer() nếu drawer đang mở (List <-> Edit trong CÙNG drawer), CHỈ
         // openGenericDrawer() (lần đầu) — trước đây gọi thẳng openGenericDrawer() bất kể trạng
         // thái, khiến quay lại List từ Edit bị "mở lại từ đầu" thay vì chuyển mượt.
+        // SỬA (phản hồi Giang mục 1 — "custom effect/eq edit không content-fit") — TRƯỚC ĐÂY config
+        // này KHÔNG có `height`/`maxHeight` -> rơi về mặc định FIX CỨNG '70vh' của
+        // `_resolveGenericDrawerHeightPx()` (core/generic-drawer.js) — KHÔNG bao giờ thật sự "auto",
+        // panel LUÔN đúng 70vh bất kể danh sách preset dài/ngắn. Thêm `height:'auto'` + GIỮ NGUYÊN
+        // `70vh` làm `maxHeight` (đúng trần CŨ, hành vi KHÔNG đổi khi danh sách dài/vượt trần — chỉ
+        // MỚI thêm khả năng co nhỏ lại khi danh sách ngắn, vốn trước đây không có).
         const config = {
+            height: 'auto',
+            maxHeight: '70vh',
             headerHtml: renderEqListHeader(), // components/eq-presets-drawer.js
             bodyHtml: renderEqListBody(appState.get('eqPresets'), appConfigViz.getAll().eqPresetId),
             bodyClass: 'overflow-y-auto px-4 py-3',
@@ -193,7 +201,12 @@ const workflowEqPresets = {
         this._draftGains = preset.gains.slice();
         this._draftName = preset.name;
         const isBuiltIn = buildDefaultEqPresets().some((p) => p.id === id); // core — Workflow tự tra (Rule 3, component không tự gọi core)
+        // SỬA (phản hồi Giang mục 1 — CÙNG lý do openListView() ngay trên, đây chính xác là nguyên
+        // nhân khoảng trống trắng bên dưới nút Apply/Delete preset trong ảnh Giang gửi: nội dung
+        // Edit view (Name + 8 slider + 2 nút) NGẮN hơn hẳn 70vh, nhưng trước đây bị fix cứng 70vh).
         updateGenericDrawer({ // core/generic-drawer.js — chuyển mượt, không đóng/mở lại
+            height: 'auto',
+            maxHeight: '70vh',
             headerHtml: renderEqEditHeader(preset, isBuiltIn), // components/eq-presets-drawer.js
             bodyHtml: renderEqEditBody(preset),
             bodyClass: 'overflow-y-auto px-4 py-3',
@@ -290,7 +303,11 @@ const workflowEqPresets = {
         }
         const preset = findEqPresetById(presets, id); // core — lấy locked/id hiện tại (bản VỪA ghi)
         if (!preset) return;
+        // SỬA (phản hồi Giang mục 1) — CÙNG lý do _openEditView() ngay trên (chính vẽ lại view Edit,
+        // config phải khớp NHAU — thiếu ở đây thì bấm "Khôi phục mặc định" lại quay về fix cứng 70vh).
         updateGenericDrawer({ // core/generic-drawer.js
+            height: 'auto',
+            maxHeight: '70vh',
             headerHtml: renderEqEditHeader(preset, true), // components/eq-presets-drawer.js — chắc chắn isBuiltIn (nút chỉ hiện khi true)
             bodyHtml: renderEqEditBody({ ...preset, name: this._draftName, gains: this._draftGains }),
             bodyClass: 'overflow-y-auto px-4 py-3',
