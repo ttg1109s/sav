@@ -1,135 +1,252 @@
 /**
- * core/custom-effect.js — Core thuần cho hệ Custom Effect (config riêng từng effect, xem
- * DEFAULT_CUSTOM_EFFECT ở core/config.js). Key = đúng giá trị MODES ('bar'/'black hole'/...).
+ * event/workflow/custom-effect.js — "THẰNG THỰC THI CUỐI" cho hệ Custom Effect.
  *
- * NẠP SAU: core/config.js (DEFAULT_CUSTOM_EFFECT, appConfigViz).
+ * #btn-cycle-mode — DUY NHẤT 1 nút cho 2 việc (CÙNG khuôn #btn-cycle-eq, event/workflow/
+ * eq-presets.js):
+ *   - BẤM NGẮN (thả tay TRƯỚC 1.5s) — xoay effect kế tiếp (cycleVisualizerType(), core).
+ *   - GIỮ đủ 1.5s — mở Generic Drawer, hiện custom của effect ĐANG CHẠY.
+ * Đếm giờ qua taskManager.once(), cờ `_holdFired` chặn cycle chạy thêm lúc thả tay sau khi đã mở
+ * drawer. Workflow tự querySelector + addEventListener trực tiếp lên genericDrawerBody/Header sau
+ * mỗi lần render (KHÔNG qua eventBus cho nội dung động bên trong Drawer).
+ *
+ * NẠP SAU: core/custom-effect.js, core/generic-drawer.js, components/custom-effect-drawer.js,
+ * core/dom-refs.js (btnCycleMode, genericDrawer*), service/task-manager.js, event/workflow/
+ * generic-drawer-helpers.js, core/visualizer-control-center.js (closeControlCenter() — SỬA
+ * 14/08/2026, xem _fireHold()).
  */
 
-// Đèn tuỳ chỉnh (Rain, style street) — customEffect.rain.customLamps, xem components/
-// custom-effect-drawer.js::_renderCeLampsSection() + event/workflow/custom-effect.js.
-const CUSTOM_EFFECT_MAX_LAMPS = 8;
-const CUSTOM_EFFECT_DEFAULT_LAMP = { xPercent: 50, heightPx: 150, flareScale: 1 };
+const CUSTOM_EFFECT_HOLD_MS = 1500;
+const CUSTOM_EFFECT_HOLD_TASK = 'customEffectCycleHoldPending';
 
-// Effect KHÔNG dùng blur/glow tuỳ chỉnh (Drawer ẩn khối blur) — glow của các effect này (nếu có)
-// là phối cảnh cố định, không đọc blurEnabled/blurIntensity: Vortex/Space không shadowBlur/bloom
-// nào cả; Rain (quầng Trăng) và Rubik (viền khối sáng) glow LUÔN bật, giá trị cố định trong code.
-const CUSTOM_EFFECT_NO_BLUR = ['vortex', 'space', 'rain', 'rubik'];
+const workflowCustomEffect = {
+    _holdFired: false,
 
-/** Style con của effect (nếu có) — field trong customEffect[type] + danh sách option, dùng để
- * dựng dropdown ĐẦU TIÊN trong Custom Effect Drawer. null nếu effect chỉ có 1 kiểu vẽ. */
-const CUSTOM_EFFECT_STYLE = {
-    bar: { field: 'barStyle', options: ['mirror', 'cascade'] },
-    rain: { field: 'rainStyle', options: ['glass', 'street'] },
-    vortex: { field: 'vortexStyle', options: ['rings', 'bars', 'wave'] },
+    startHold() {
+        this._holdFired = false;
+        taskManager.once(() => this._fireHold(), CUSTOM_EFFECT_HOLD_MS, CUSTOM_EFFECT_HOLD_TASK);
+    },
+    endHold() {
+        taskManager.kill(CUSTOM_EFFECT_HOLD_TASK);
+    },
+    cancelHold() {
+        taskManager.kill(CUSTOM_EFFECT_HOLD_TASK);
+        this._holdFired = false;
+    },
+    /** SỬA (14/08/2026, Giang báo "giữ hold effect/eq không thu gọn icon center cùng lúc") — CÙNG
+     * bug/fix với `workflowEqPresets._fireCycleHold()` (event/workflow/eq-presets.js): #btn-cycle-mode
+     * nằm trong Control Center (core/visualizer-control-center.js), panel đó trước đây chỉ tự đóng
+     * lúc `click` DOM thật bắn ra (SAU `pointerup`) — giữ đủ 1.5s thì Drawer mở nhưng Control Center
+     * vẫn còn mở, chỉ thu gọn khi thả tay sau đó. Gọi thẳng `closeControlCenter()` (liên tuyến
+     * domain, CÙNG tiền lệ `core/player-controls.js`) NGAY TRƯỚC khi mở Drawer để đồng thời. */
+    _fireHold() {
+        this._holdFired = true;
+        if (typeof closeControlCenter === 'function') closeControlCenter(); // core/visualizer-control-center.js
+        this.open();
+    },
+
+    /** Ứng với `click` DOM thật trên #btn-cycle-mode. */
+    onCycleModeClick() {
+        if (this._holdFired) { this._holdFired = false; return; }
+        cycleVisualizerType(); // core
+    },
+
+    /** Mở Drawer cho effect ĐANG CHẠY. */
+    open() {
+        const type = appConfigViz.getAll().type;
+        const cfg = getEffectConfig(type); // core/custom-effect.js
+        // SỬA (phản hồi Giang mục 1 — CÙNG lý do event/workflow/eq-presets.js::openListView(), xem
+        // comment đầy đủ ở đó) — config này TRƯỚC ĐÂY không có height/maxHeight, rơi về mặc định fix
+        // cứng 70vh của core/generic-drawer.js — nội dung thay đổi theo TỪNG loại effect (số field
+        // khác nhau) nhưng panel luôn 1 kích thước, không co theo thật. GIỮ NGUYÊN 70vh làm trần —
+        // hành vi KHÔNG đổi với effect có nhiều field (vượt trần vẫn y hệt trước), chỉ MỚI co nhỏ lại
+        // được với effect ít field.
+        const config = {
+            height: 'auto',
+            maxHeight: '70vh',
+            headerHtml: renderCustomEffectHeader(type), // components/custom-effect-drawer.js
+            bodyHtml: renderCustomEffectBody(type, cfg),
+            bodyClass: 'overflow-y-auto px-4 py-3',
+        };
+        if (genericDrawerPanel.classList.contains('hidden')) openGenericDrawer(config); // core/generic-drawer.js
+        else updateGenericDrawer(config);
+        this._wire(type);
+    },
+
+    /** Vẽ lại TOÀN BỘ body — dùng khi đổi style con (field showIf phụ thuộc style có thể ẩn/hiện). */
+    _rerenderBody(type) {
+        const cfg = getEffectConfig(type);
+        // SỬA (phản hồi Giang mục 1) — CÙNG lý do open() ngay trên (vẽ lại đúng nội dung TƯƠNG TỰ,
+        // config phải khớp nhau).
+        updateGenericDrawer({
+            height: 'auto',
+            maxHeight: '70vh',
+            headerHtml: renderCustomEffectHeader(type),
+            bodyHtml: renderCustomEffectBody(type, cfg),
+            bodyClass: 'overflow-y-auto px-4 py-3',
+        });
+        this._wire(type);
+    },
+
+    /** Gọi 1 hàm core refresh theo tên (field.refresh, core/custom-effect.js::CUSTOM_EFFECT_FIELDS)
+     * — field chỉ đọc lúc khởi tạo scene, cần ép chạy lại để thấy hiệu quả ngay. */
+    _runRefresh(name) {
+        if (name === 'resizeCanvas') resizeCanvas(); // core
+        else if (name === 'initThreeJS') initThreeJS(); // core/webgl
+    },
+
+    _wire(type) {
+        const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
+        if (closeBtn) closeBtn.addEventListener('click', () => workflowGenericDrawerHelpers.closeFully());
+
+        const styleSelect = genericDrawerBody.querySelector('#ce-style');
+        if (styleSelect) {
+            styleSelect.addEventListener('change', (e) => {
+                const styleField = CUSTOM_EFFECT_STYLE[type].field; // core/custom-effect.js
+                setCustomEffectField(type, styleField, e.target.value); // core
+                saveConfig();
+                if (type === 'rain') resizeCanvas();
+                else if (type === 'vortex') updateVortexVisibility();
+                this._rerenderBody(type);
+            });
+        }
+
+        const colorModeSelect = genericDrawerBody.querySelector('#ce-color-mode');
+        const solidRow = genericDrawerBody.querySelector('#ce-solid-color-row');
+        const dynamicRow = genericDrawerBody.querySelector('#ce-dynamic-color-row');
+        if (colorModeSelect) {
+            colorModeSelect.addEventListener('change', (e) => {
+                setCustomEffectField(type, 'mode', e.target.value); // core
+                saveConfig();
+                solidRow.classList.toggle('hidden', e.target.value !== 'solid');
+                solidRow.classList.toggle('flex', e.target.value === 'solid');
+                dynamicRow.classList.toggle('hidden', e.target.value !== 'dynamic');
+                dynamicRow.classList.toggle('flex', e.target.value === 'dynamic');
+                updateProgressBarCSS(); // core
+            });
+        }
+
+        const solidText = genericDrawerBody.querySelector('#ce-solid-color-text');
+        const solidPicker = genericDrawerBody.querySelector('#ce-solid-color-picker');
+        if (solidPicker) {
+            solidPicker.addEventListener('input', (e) => {
+                setCustomEffectField(type, 'solidColor', e.target.value); // core
+                if (solidText) solidText.value = e.target.value;
+                saveConfig();
+                updateProgressBarCSS(); // core
+            });
+        }
+        if (solidText) {
+            solidText.addEventListener('input', (e) => {
+                if (!/^#[0-9A-F]{6}$/i.test(e.target.value)) return;
+                setCustomEffectField(type, 'solidColor', e.target.value); // core
+                if (solidPicker) solidPicker.value = e.target.value;
+                saveConfig();
+                updateProgressBarCSS(); // core
+            });
+        }
+
+        const dynA = genericDrawerBody.querySelector('#ce-dyn-color-a');
+        const dynB = genericDrawerBody.querySelector('#ce-dyn-color-b');
+        if (dynA) dynA.addEventListener('input', (e) => { setCustomEffectField(type, 'dynA', e.target.value); saveConfig(); });
+        if (dynB) dynB.addEventListener('input', (e) => { setCustomEffectField(type, 'dynB', e.target.value); saveConfig(); updateProgressBarCSS(); });
+
+        const blurToggle = genericDrawerBody.querySelector('#ce-blur-enable');
+        const blurIntensityRow = genericDrawerBody.querySelector('#ce-blur-intensity-row');
+        if (blurToggle) {
+            blurToggle.addEventListener('change', (e) => {
+                setCustomEffectField(type, 'blurEnabled', e.target.checked); // core
+                saveConfig();
+                blurIntensityRow.classList.toggle('hidden', !e.target.checked);
+                blurIntensityRow.classList.toggle('flex', e.target.checked);
+            });
+        }
+        const blurIntensity = genericDrawerBody.querySelector('#ce-blur-intensity');
+        const blurIntensityVal = genericDrawerBody.querySelector('#ce-val-blur-intensity');
+        if (blurIntensity) {
+            blurIntensity.addEventListener('input', (e) => {
+                const v = parseInt(e.target.value, 10);
+                setCustomEffectField(type, 'blurIntensity', v); // core
+                if (blurIntensityVal) blurIntensityVal.textContent = `${v}%`;
+            });
+            blurIntensity.addEventListener('change', () => saveConfig());
+        }
+
+        genericDrawerBody.querySelectorAll('.ce-field-toggle').forEach((el) => {
+            el.addEventListener('change', (e) => {
+                const field = e.target.dataset.field;
+                setCustomEffectField(type, field, e.target.checked); // core
+                saveConfig();
+                const meta = (CUSTOM_EFFECT_FIELDS[type] || []).find((f) => f.id === field); // core
+                if (meta && meta.refresh) this._runRefresh(meta.refresh);
+            });
+        });
+
+        genericDrawerBody.querySelectorAll('.ce-field-slider').forEach((el) => {
+            const field = el.dataset.field;
+            const isFloat = el.dataset.float === '1';
+            const meta = (CUSTOM_EFFECT_FIELDS[type] || []).find((f) => f.id === field); // core
+            const valEl = genericDrawerBody.querySelector(`.ce-field-val[data-field-val="${field}"]`);
+            el.addEventListener('input', (e) => {
+                const v = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
+                setCustomEffectField(type, field, v); // core
+                if (valEl) valEl.textContent = isFloat ? v.toFixed((meta && meta.decimals) || 1) : v;
+            });
+            el.addEventListener('change', () => {
+                saveConfig();
+                if (meta && meta.refresh) this._runRefresh(meta.refresh);
+            });
+        });
+
+        if (type === 'rain') this._wireLamps(type);
+    },
+
+    /** Đèn tuỳ chỉnh (Rain, style street) — customEffect.rain.customLamps (mảng, core/custom-
+     * effect.js). Thêm/xoá đổi ĐỘ DÀI mảng -> re-render toàn body. 3 slider/đèn chỉ đổi 1 field
+     * -> ghi thẳng, không re-render (chỉ cập nhật số hiển thị tại chỗ, giống field thường). */
+    _wireLamps(type) {
+        const addBtn = genericDrawerBody.querySelector('#ce-lamp-add');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => {
+                const cfg = getEffectConfig(type);
+                if (cfg.customLamps.length >= CUSTOM_EFFECT_MAX_LAMPS) return;
+                const next = [...cfg.customLamps, { ...CUSTOM_EFFECT_DEFAULT_LAMP }];
+                setCustomEffectField(type, 'customLamps', next);
+                saveConfig(); this._runRefresh('resizeCanvas');
+                this._rerenderBody(type);
+            });
+        }
+        genericDrawerBody.querySelectorAll('.ce-lamp-remove').forEach((el) => {
+            el.addEventListener('click', (e) => {
+                const idx = parseInt(e.target.dataset.lampIndex, 10);
+                const cfg = getEffectConfig(type);
+                const next = cfg.customLamps.filter((_, i) => i !== idx);
+                setCustomEffectField(type, 'customLamps', next);
+                saveConfig(); this._runRefresh('resizeCanvas');
+                this._rerenderBody(type);
+            });
+        });
+        const wireLampSlider = (selector, field, unit, isFloat) => {
+            genericDrawerBody.querySelectorAll(selector).forEach((el) => {
+                const idx = parseInt(el.dataset.lampIndex, 10);
+                // FIX (14/08/2026, Giang báo "kéo slider lamp N, số không chạy theo trên UI") —
+                // TRƯỚC `.closest('[data-lamp-index]')` khớp NGAY chính `el` (slider tự mang
+                // data-lamp-index để đọc idx ở dòng trên) thay vì leo lên div cha -> valEl luôn
+                // null. Đổi sang class riêng `ce-lamp-row` (components/custom-effect-drawer.js,
+                // KHÔNG trùng bất kỳ phần tử con nào) để chắc chắn lấy đúng div cha.
+                const row = el.closest('.ce-lamp-row');
+                const valEl = row ? row.querySelector(`.ce-lamp-val[data-lamp-val="${unit.key}"]`) : null;
+                el.addEventListener('input', (e) => {
+                    const v = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
+                    const cfg = getEffectConfig(type);
+                    const next = cfg.customLamps.map((l, i) => (i === idx ? { ...l, [field]: v } : l));
+                    setCustomEffectField(type, 'customLamps', next);
+                    if (valEl) valEl.textContent = isFloat ? `${v.toFixed(1)}${unit.suffix}` : `${v}${unit.suffix}`;
+                });
+                el.addEventListener('change', () => { saveConfig(); this._runRefresh('resizeCanvas'); });
+            });
+        };
+        wireLampSlider('.ce-lamp-x', 'xPercent', { key: 'x', suffix: '%' }, false);
+        wireLampSlider('.ce-lamp-height', 'heightPx', { key: 'height', suffix: 'px' }, false);
+        wireLampSlider('.ce-lamp-flare', 'flareScale', { key: 'flare', suffix: '' }, true);
+    },
 };
-
-/** Key i18n cho từng option style — TÁI DÙNG bộ text sẵn có (visualizerSettingsDrawer.*), không
- * dịch trùng 1 khái niệm ở 2 nơi. */
-const CUSTOM_EFFECT_STYLE_LABEL_KEYS = {
-    bar: { mirror: 'visualizerSettingsDrawer.barStyle.mirror', cascade: 'visualizerSettingsDrawer.barStyle.cascade' },
-    rain: { glass: 'visualizerSettingsDrawer.rainStyle.glass', street: 'visualizerSettingsDrawer.rainStyle.street' },
-    vortex: { rings: 'visualizerSettingsDrawer.vortexStyle.rings', bars: 'visualizerSettingsDrawer.vortexStyle.bars', wave: 'visualizerSettingsDrawer.vortexStyle.wave' },
-};
-
-/** Field riêng của TỪNG effect, hiện SAU khối chung (style/color/blur) trong Drawer — dựng UI
- * DATA-DRIVEN (1 hàm render chung đọc bảng này, xem components/custom-effect-drawer.js), tránh
- * viết tay 7 khối HTML lặp lại. `showIf(cfg)` optional — field chỉ hiện khi đúng điều kiện (vd
- * riêng theo style con hiện tại). `refresh` optional — hàm core cần gọi lại NGAY để thấy hiệu quả
- * tức thì (field chỉ đọc lúc khởi tạo scene, không đọc mỗi frame). */
-const CUSTOM_EFFECT_FIELDS = {
-    bar: [
-        { id: 'maxH', labelKey: 'visualizerSettingsDrawer.maxHeight.label', type: 'slider', min: 50, max: 1000, step: 10 },
-        { id: 'mirrorBarCount', labelKey: 'visualizerSettingsDrawer.mirrorCount.label', type: 'slider', min: 10, max: 32, step: 1, showIf: (cfg) => cfg.barStyle === 'mirror' },
-        { id: 'barFillRatio', labelKey: 'customEffectDrawer.field.barFillRatio', type: 'sliderFloat', min: 0.3, max: 0.9, step: 0.05, decimals: 2, showIf: (cfg) => cfg.barStyle === 'mirror' },
-        { id: 'barCornerRadius', labelKey: 'customEffectDrawer.field.barCornerRadius', type: 'slider', min: 0, max: 15, step: 1, showIf: (cfg) => cfg.barStyle === 'mirror' },
-        { id: 'centerBarBeatRatio', labelKey: 'customEffectDrawer.field.centerBarBeatRatio', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.barStyle === 'mirror' },
-        { id: 'cascadeBaseAlpha', labelKey: 'customEffectDrawer.field.cascadeBaseAlpha', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.barStyle === 'cascade' },
-        { id: 'cascadeKeyCount', labelKey: 'customEffectDrawer.field.cascadeKeyCount', type: 'slider', min: 16, max: 128, step: 4, showIf: (cfg) => cfg.barStyle === 'cascade' },
-    ],
-    'black hole': [
-        { id: 'maxH', labelKey: 'visualizerSettingsDrawer.maxHeight.label', type: 'slider', min: 50, max: 1000, step: 10 },
-        { id: 'barWidth', labelKey: 'visualizerSettingsDrawer.barWidth.label', type: 'slider', min: 1, max: 15, step: 1 },
-        { id: 'starCount', labelKey: 'customEffectDrawer.field.starCount', type: 'slider', min: 40, max: 400, step: 10, refresh: 'resizeCanvas' },
-        { id: 'radiusRatio', labelKey: 'customEffectDrawer.field.radiusRatio', type: 'sliderFloat', min: 0.05, max: 0.3, step: 0.01, decimals: 2 },
-        { id: 'radiusEnergyMult', labelKey: 'customEffectDrawer.field.radiusEnergyMult', type: 'sliderFloat', min: 0, max: 0.2, step: 0.01, decimals: 2 },
-        { id: 'suctionBase', labelKey: 'customEffectDrawer.field.suctionBase', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2 },
-        { id: 'suctionEnergyMult', labelKey: 'customEffectDrawer.field.suctionEnergyMult', type: 'sliderFloat', min: 0, max: 5, step: 0.1, decimals: 1 },
-        { id: 'flareThreshold', labelKey: 'customEffectDrawer.field.flareThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2 },
-        { id: 'flashFadeSpeed', labelKey: 'customEffectDrawer.field.flashFadeSpeed', type: 'sliderFloat', min: 0.02, max: 0.2, step: 0.01, decimals: 2 },
-    ],
-    lightning: [
-        { id: 'flashThreshold', labelKey: 'customEffectDrawer.field.flashThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2 },
-        { id: 'boltThreshold', labelKey: 'customEffectDrawer.field.boltThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2 },
-        { id: 'boltSpawnChance', labelKey: 'customEffectDrawer.field.boltSpawnChance', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2 },
-        { id: 'maxBoltCount', labelKey: 'customEffectDrawer.field.maxBoltCount', type: 'slider', min: 1, max: 10, step: 1 },
-        { id: 'boltFadeSpeed', labelKey: 'customEffectDrawer.field.boltFadeSpeed', type: 'sliderFloat', min: 0.01, max: 0.15, step: 0.01, decimals: 2 },
-        { id: 'boltHorizontalDeviation', labelKey: 'customEffectDrawer.field.boltHorizontalDeviation', type: 'slider', min: 20, max: 300, step: 10 },
-        { id: 'boltSegmentLength', labelKey: 'customEffectDrawer.field.boltSegmentLength', type: 'slider', min: 10, max: 150, step: 10 },
-    ],
-    rain: [
-        { id: 'glassFlash', labelKey: 'visualizerSettingsDrawer.glassFlash.label', type: 'toggle', showIf: (cfg) => cfg.rainStyle === 'glass' },
-        { id: 'glassCityOpacity', labelKey: 'visualizerSettingsDrawer.rainCityOpacity.label', type: 'slider', min: 0, max: 100, step: 5, showIf: (cfg) => cfg.rainStyle === 'glass' },
-        { id: 'glassCityVisible', labelKey: 'visualizerSettingsDrawer.rainCityVisible.label', type: 'toggle', showIf: (cfg) => cfg.rainStyle === 'glass' },
-        { id: 'glassMoonVisible', labelKey: 'visualizerSettingsDrawer.rainMoonVisible.label', type: 'toggle', showIf: (cfg) => cfg.rainStyle === 'glass' },
-        { id: 'glassDropDensity', labelKey: 'customEffectDrawer.field.glassDropDensity', type: 'slider', min: 40, max: 400, step: 10, showIf: (cfg) => cfg.rainStyle === 'glass', refresh: 'resizeCanvas' },
-        { id: 'glassStreakFrequency', labelKey: 'customEffectDrawer.field.glassStreakFrequency', type: 'slider', min: 0, max: 100, step: 5, showIf: (cfg) => cfg.rainStyle === 'glass' },
-        { id: 'streetDensity', labelKey: 'customEffectDrawer.field.streetDensity', type: 'slider', min: 40, max: 400, step: 10, showIf: (cfg) => cfg.rainStyle === 'street', refresh: 'resizeCanvas' },
-        { id: 'streetBuildingScale', labelKey: 'customEffectDrawer.field.streetBuildingScale', type: 'sliderFloat', min: 0.5, max: 3.0, step: 0.1, decimals: 1, showIf: (cfg) => cfg.rainStyle === 'street', refresh: 'resizeCanvas' },
-    ],
-    rubik: [
-        { id: 'cubeSizeRatio', labelKey: 'customEffectDrawer.field.cubeSizeRatio', type: 'sliderFloat', min: 0.03, max: 0.15, step: 0.01, decimals: 2 },
-        { id: 'pitchSensitivity', labelKey: 'customEffectDrawer.field.pitchSensitivity', type: 'sliderFloat', min: 0, max: 2, step: 0.1, decimals: 1 },
-        { id: 'rotationEnergyThreshold', labelKey: 'customEffectDrawer.field.rotationEnergyThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2 },
-        { id: 'layerTurnSpeed', labelKey: 'customEffectDrawer.field.layerTurnSpeed', type: 'sliderFloat', min: 0.02, max: 0.3, step: 0.01, decimals: 2 },
-    ],
-    vortex: [
-        { id: 'tunnelRingCount', labelKey: 'customEffectDrawer.field.tunnelRingCount', type: 'slider', min: 10, max: 100, step: 5, refresh: 'initThreeJS' },
-        { id: 'warpSpeedBase', labelKey: 'customEffectDrawer.field.warpSpeedBase', type: 'slider', min: 0, max: 50, step: 1 },
-        { id: 'warpSpeedEnergyMult', labelKey: 'customEffectDrawer.field.warpSpeedEnergyMult', type: 'slider', min: 0, max: 100, step: 5 },
-        { id: 'curveChangeChance', labelKey: 'customEffectDrawer.field.curveChangeChance', type: 'sliderFloat', min: 0, max: 0.1, step: 0.005, decimals: 3 },
-        { id: 'barsRingCount', labelKey: 'customEffectDrawer.field.barsRingCount', type: 'slider', min: 10, max: 80, step: 2, showIf: (cfg) => cfg.vortexStyle === 'bars', refresh: 'initThreeJS' },
-        { id: 'barsPerRing', labelKey: 'customEffectDrawer.field.barsPerRing', type: 'slider', min: 6, max: 48, step: 2, showIf: (cfg) => cfg.vortexStyle === 'bars', refresh: 'initThreeJS' },
-        { id: 'barsTwistFactor', labelKey: 'customEffectDrawer.field.barsTwistFactor', type: 'sliderFloat', min: 0, max: 6, step: 0.2, decimals: 1, showIf: (cfg) => cfg.vortexStyle === 'bars' },
-        { id: 'waveRotationBase', labelKey: 'customEffectDrawer.field.waveRotationBase', type: 'sliderFloat', min: 0, max: 0.1, step: 0.005, decimals: 3, showIf: (cfg) => cfg.vortexStyle === 'wave' },
-        { id: 'waveRotationEnergyMult', labelKey: 'customEffectDrawer.field.waveRotationEnergyMult', type: 'sliderFloat', min: 0, max: 0.3, step: 0.01, decimals: 2, showIf: (cfg) => cfg.vortexStyle === 'wave' },
-        { id: 'waveScaleBase', labelKey: 'customEffectDrawer.field.waveScaleBase', type: 'sliderFloat', min: 0.3, max: 1.5, step: 0.05, decimals: 2, showIf: (cfg) => cfg.vortexStyle === 'wave' },
-        { id: 'waveScaleEnergyMult', labelKey: 'customEffectDrawer.field.waveScaleEnergyMult', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.vortexStyle === 'wave' },
-    ],
-    space: [
-        { id: 'starCountMin', labelKey: 'customEffectDrawer.field.starCountMin', type: 'slider', min: 500, max: 6000, step: 100 },
-        { id: 'starCountMax', labelKey: 'customEffectDrawer.field.starCountMax', type: 'slider', min: 1000, max: 10000, step: 100 },
-        { id: 'nebulaCount', labelKey: 'customEffectDrawer.field.nebulaCount', type: 'slider', min: 0, max: 60, step: 1 },
-        { id: 'dustCount', labelKey: 'customEffectDrawer.field.dustCount', type: 'slider', min: 100, max: 3000, step: 100 },
-        { id: 'mapNodeCount', labelKey: 'customEffectDrawer.field.mapNodeCount', type: 'slider', min: 10, max: 120, step: 2 },
-        { id: 'mapRadius', labelKey: 'customEffectDrawer.field.mapRadius', type: 'slider', min: 300, max: 1500, step: 50 },
-    ],
-};
-
-/** Config đầy đủ (default merge field thiếu) của 1 effect theo type. */
-function getEffectConfig(type) {
-    const cfg = appConfigViz.getAll();
-    return { ...DEFAULT_CUSTOM_EFFECT[type], ...(cfg.customEffect && cfg.customEffect[type]) };
-}
-
-/** Config effect ĐANG CHẠY (cfg.type) — dùng bởi getComputedColor()/getActiveBlurMult()
- * (core/audio-analysis.js) và mọi hàm vẽ (core/visualizer/types/*.js). */
-function getActiveEffectConfig() {
-    return getEffectConfig(appConfigViz.getAll().type);
-}
-
-/** Ghi 1 field vào customEffect[type] — DUY NHẤT nơi mutate (Rule 2), Workflow tự gọi saveConfig()
- * sau. Rule 1: luôn tạo bucket effect nếu thiếu rồi ghi field, đúng 1 tiến trình. */
-function setCustomEffectField(type, field, value) {
-    appConfigViz.mutateAll(cfg => {
-        if (!cfg.customEffect[type]) cfg.customEffect[type] = { ...DEFAULT_CUSTOM_EFFECT[type] };
-        cfg.customEffect[type][field] = value;
-    });
-}
-
-/** Cường độ blur/glow quy đổi 0-1 cho 1 effect bất kỳ (không nhất thiết đang active) — dùng bởi
- * core/canvas-scene-setup.js lúc khởi tạo scene, KHÔNG qua audio-analysis.js (tránh phụ thuộc
- * chéo lúc file đó chưa nạp). */
-function getEffectBlurMult(type) {
-    const ec = getEffectConfig(type);
-    return ec.blurEnabled ? ec.blurIntensity / 100 : 0;
-}
