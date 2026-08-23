@@ -862,28 +862,30 @@ const workflowPlaylist = {
         appState.set('activeMediaSource', 'video');
         console.log(`writer: "switchToVideoSource", page: "activeMediaSource", content: "video"`);
 
-        // MỚI (phản hồi Giang — "Video không có shield loading") — phủ lớp "đang nạp" (core/
-        // playlist/render.js) trong lúc đọc 294+ record từ IndexedDB — TRƯỚC ĐÂY chỉ Song
-        // (scanValidSongsFromDB(), core/playlist/loader.js) có, Video đổi Nguồn giữa phiên hoàn
-        // toàn im lặng, để lộ list trống 1 nhịp trước khi bung hết (đúng hiện tượng Giang quay
-        // được). fade out lúc updateEmptyState()/hidePlaylistLoading() phía dưới, CÙNG khuôn Song.
-        showPlaylistLoading(0, 0);
-        const videoRecords = await listVideos(); // core/file-manager/video.js, CÓ return, DÙNG ngay dưới -> Workflow gọi Core hợp lệ (Rule 3)
-        const keys = buildVideoPlaylistCache(videoRecords); // core/playlist/loader.js (MỚI, Batch 1), CÓ return, DÙNG ngay dưới
-        // MỚI (mục 1d, Playlist Filter) — áp filter (nếu có) NGAY SAU khi playlistOrder vừa được
-        // tính lại theo Nguồn Video, TRƯỚC updateShuffleArray()/recompute*Order() — xem docstring
-        // đầu core/playlist/filter.js (đúng vị trí "Scope xong, Sort chưa chạy").
-        const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig').video);
-        appState.set('playlistOrder', filteredKeys);
-        console.log(`writer: "switchToVideoSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} video (đã áp Filter)"`);
+        // SỬA (phản hồi Giang, mục 3 "loading shield không full view toàn app") — TRƯỚC ĐÂY dùng
+        // showPlaylistLoading()/hidePlaylistLoading() (core/playlist/render.js): lớp phủ CHỈ nằm
+        // trong `#playlist-loading-list` (absolute inset-0 CỦA vùng cuộn list, z-10) — không che
+        // header/toàn app. Đổi sang withLoadingShield() (core/loading-shield-util.js) — `#loading-
+        // shield` (fixed inset-0, z-[200]) che ĐÚNG toàn app, ĐỒNG THỜI finally{} của nó tự đảm
+        // bảo tắt shield dù `fn()` bên trong ném lỗi (trước đây 1 lỗi giữa chừng sẽ để
+        // showPlaylistLoading() treo vĩnh viễn vì hidePlaylistLoading() không bao giờ được gọi tới).
+        await withLoadingShield(t('playlistView.loading.generic'), async () => {
+            const videoRecords = await listVideos(); // core/file-manager/video.js, CÓ return, DÙNG ngay dưới -> Workflow gọi Core hợp lệ (Rule 3)
+            const keys = buildVideoPlaylistCache(videoRecords); // core/playlist/loader.js (MỚI, Batch 1), CÓ return, DÙNG ngay dưới
+            // MỚI (mục 1d, Playlist Filter) — áp filter (nếu có) NGAY SAU khi playlistOrder vừa được
+            // tính lại theo Nguồn Video, TRƯỚC updateShuffleArray()/recompute*Order() — xem docstring
+            // đầu core/playlist/filter.js (đúng vị trí "Scope xong, Sort chưa chạy").
+            const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig').video);
+            appState.set('playlistOrder', filteredKeys);
+            console.log(`writer: "switchToVideoSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} video (đã áp Filter)"`);
 
-        updateShuffleArray();      // core có sẵn (core/playlist/order.js)
-        recomputeDisplayOrder();   // core có sẵn (core/playlist/order.js)
-        recomputeRenderOrder();    // core có sẵn (core/playlist/order.js)
-        renderPlaylistDiff();      // core có sẵn (core/playlist/render.js)
-        resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
-        updateEmptyState();        // core có sẵn (core/playlist/render.js)
-        hidePlaylistLoading();     // MỚI — chốt fade out lớp "đang nạp" (CÙNG khuôn Song, core/playlist/loader.js)
+            updateShuffleArray();      // core có sẵn (core/playlist/order.js)
+            recomputeDisplayOrder();   // core có sẵn (core/playlist/order.js)
+            recomputeRenderOrder();    // core có sẵn (core/playlist/order.js)
+            renderPlaylistDiff();      // core có sẵn (core/playlist/render.js)
+            resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
+            updateEmptyState();        // core có sẵn (core/playlist/render.js)
+        });
         // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — placeholder ô tìm kiếm
         // đổi theo Nguồn (Song có artist/album để tìm, Video thì không).
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholderVideo');
@@ -916,23 +918,23 @@ const workflowPlaylist = {
         appState.set('activeMediaSource', 'song');
         console.log(`writer: "switchToSongSource", page: "activeMediaSource", content: "song"`);
 
-        // MỚI (phản hồi Giang — "shield loading") — CÙNG LÝ DO switchToVideoSource() ngay trên —
-        // scanValidSongsFromDB() gọi TRỰC TIẾP ở đây (KHÔNG qua initPlaylistFromDB(), hàm DUY NHẤT
-        // trước đây có shield, chỉ dùng lúc boot) nên đổi Nguồn Song giữa phiên cũng thiếu shield.
-        showPlaylistLoading(0, 0);
-        const keys = await scanValidSongsFromDB(); // core có sẵn (core/playlist/loader.js, Song, KHÔNG đụng), CÓ return, DÙNG ngay dưới
-        // MỚI (mục 1d, Playlist Filter) — CÙNG LÝ DO switchToVideoSource() ngay trên.
-        const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig').song);
-        appState.set('playlistOrder', filteredKeys);
-        console.log(`writer: "switchToSongSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} bài hát (đã áp Filter)"`);
+        // SỬA (phản hồi Giang, mục 3 "loading shield không full view toàn app") — CÙNG LÝ DO/CÙNG
+        // CÁCH SỬA switchToVideoSource() ngay trên — đổi showPlaylistLoading() (chỉ che vùng list)
+        // sang withLoadingShield() (che toàn app, tự tắt qua finally{} dù fn() bên trong lỗi).
+        await withLoadingShield(t('playlistView.loading.generic'), async () => {
+            const keys = await scanValidSongsFromDB(); // core có sẵn (core/playlist/loader.js, Song, KHÔNG đụng), CÓ return, DÙNG ngay dưới
+            // MỚI (mục 1d, Playlist Filter) — CÙNG LÝ DO switchToVideoSource() ngay trên.
+            const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig').song);
+            appState.set('playlistOrder', filteredKeys);
+            console.log(`writer: "switchToSongSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} bài hát (đã áp Filter)"`);
 
-        updateShuffleArray();
-        recomputeDisplayOrder();
-        recomputeRenderOrder();
-        renderPlaylistDiff();
-        resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — cùng lý do switchToVideoSource(), scrollTop cũ vô nghĩa với danh sách vừa đổi hẳn Nguồn
-        updateEmptyState();
-        hidePlaylistLoading();     // MỚI — chốt fade out lớp "đang nạp"
+            updateShuffleArray();
+            recomputeDisplayOrder();
+            recomputeRenderOrder();
+            renderPlaylistDiff();
+            resetPlaylistScrollTop();  // core (MỚI, 29/07/2026, phản hồi Giang mục 2) — cùng lý do switchToVideoSource(), scrollTop cũ vô nghĩa với danh sách vừa đổi hẳn Nguồn
+            updateEmptyState();
+        });
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholder');
         // KHÔI PHỤC 29/07/2026 (phản hồi Giang) — chiều ngược lại của toggle ở switchToVideoSource().
         if (btnUploadVideo) btnUploadVideo.classList.add('hidden');
@@ -959,20 +961,28 @@ const workflowPlaylist = {
         appState.set('activeMediaSource', 'photo');
         console.log(`writer: "switchToPhotoSource", page: "activeMediaSource", content: "photo"`);
 
-        showPlaylistLoading(0, 0);
-        const imageRecords = await listImages(); // core/file-manager/image.js, CÓ return, DÙNG ngay dưới -> Workflow gọi Core hợp lệ (Rule 3)
-        const keys = buildPhotoPlaylistCache(imageRecords); // core/playlist/loader.js (MỚI), CÓ return, DÙNG ngay dưới
-        const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig').photo);
-        appState.set('playlistOrder', filteredKeys);
-        console.log(`writer: "switchToPhotoSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} ảnh (đã áp Filter)"`);
+        // SỬA (phản hồi Giang, mục 3 "loading shield không full view toàn app") — CÙNG LÝ DO/CÙNG
+        // CÁCH SỬA switchToVideoSource()/switchToSongSource() ngay trên — đổi showPlaylistLoading()
+        // (chỉ che vùng list) sang withLoadingShield() (che toàn app). Lợi ích PHỤ (mục 1, xem fix
+        // loadPersistedFilterConfigOnBoot() cùng đợt): finally{} của withLoadingShield() tự tắt
+        // shield dù fn() bên trong ném lỗi — trước đây showPlaylistLoading()/hidePlaylistLoading()
+        // KHÔNG có cơ chế này, nên khi applyPlaylistFilter() ném lỗi giữa chừng (playlistFilterConfig.
+        // photo undefined do dữ liệu lưu bền cũ thiếu key 'photo'), hidePlaylistLoading() không bao
+        // giờ chạy tới -> treo loading vĩnh viễn, đúng hiện tượng Giang báo ở mục 1.
+        await withLoadingShield(t('playlistView.loading.generic'), async () => {
+            const imageRecords = await listImages(); // core/file-manager/image.js, CÓ return, DÙNG ngay dưới -> Workflow gọi Core hợp lệ (Rule 3)
+            const keys = buildPhotoPlaylistCache(imageRecords); // core/playlist/loader.js (MỚI), CÓ return, DÙNG ngay dưới
+            const filteredKeys = applyPlaylistFilter(keys, appState.get('playlistCache'), appState.get('mediaStatsMap'), appState.get('playlistFilterConfig').photo);
+            appState.set('playlistOrder', filteredKeys);
+            console.log(`writer: "switchToPhotoSource", page: "playlistOrder", content: "${filteredKeys.length}/${keys.length} ảnh (đã áp Filter)"`);
 
-        updateShuffleArray();      // core có sẵn (core/playlist/order.js) — vô hại dù Photo chưa dùng Shuffle (CHỐT Giang: player controls ẩn hẳn ở Nguồn này, tạm hoãn)
-        recomputeDisplayOrder();   // core có sẵn (core/playlist/order.js)
-        recomputeRenderOrder();    // core có sẵn (core/playlist/order.js) — áp Search box + Sort lên trên Filter
-        renderPlaylistDiff();      // core có sẵn (core/playlist/render.js) — CHẠY Y HỆT Song/Video, KHÔNG rẽ nhánh
-        resetPlaylistScrollTop();  // core — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
-        updateEmptyState();        // core có sẵn (core/playlist/render.js)
-        hidePlaylistLoading();     // chốt fade out lớp "đang nạp"
+            updateShuffleArray();      // core có sẵn (core/playlist/order.js) — vô hại dù Photo chưa dùng Shuffle (CHỐT Giang: player controls ẩn hẳn ở Nguồn này, tạm hoãn)
+            recomputeDisplayOrder();   // core có sẵn (core/playlist/order.js)
+            recomputeRenderOrder();    // core có sẵn (core/playlist/order.js) — áp Search box + Sort lên trên Filter
+            renderPlaylistDiff();      // core có sẵn (core/playlist/render.js) — CHẠY Y HỆT Song/Video, KHÔNG rẽ nhánh
+            resetPlaylistScrollTop();  // core — danh sách vừa đổi hẳn Nguồn, scrollTop cũ vô nghĩa -> về 0 tức thì
+            updateEmptyState();        // core có sẵn (core/playlist/render.js)
+        });
         if (playlistSearchInput) playlistSearchInput.placeholder = t('playlistView.search.placeholderPhoto');
         if (btnUploadAudio) btnUploadAudio.classList.add('hidden');
         if (btnUploadVideo) btnUploadVideo.classList.add('hidden');
@@ -1104,8 +1114,23 @@ const workflowPlaylist = {
     async loadPersistedFilterConfigOnBoot() {
         const saved = await getMeta('playlistFilterConfig');
         if (saved && typeof saved === 'object' && saved.song && saved.video) {
-            appState.set('playlistFilterConfig', saved);
-            console.log(`writer: "loadPersistedFilterConfigOnBoot", page: "playlistFilterConfig", content: "khôi phục từ meta.playlistFilterConfig"`);
+            // SỬA (phản hồi Giang, mục 1 "treo loading khi đổi Nguồn sang Photo") — TRƯỚC ĐÂY
+            // `appState.set('playlistFilterConfig', saved)` GHI ĐÈ HOÀN TOÀN bằng `saved`: dữ liệu
+            // lưu bền TỪ TRƯỚC lúc Photo được hợp nhất vào Playlist chỉ có 2 key `song`/`video`,
+            // hoàn toàn THIẾU key `photo` — khiến `appState.get('playlistFilterConfig').photo`
+            // thành `undefined`, rồi `applyPlaylistFilter()` (core/playlist/filter.js) chạy
+            // `Object.keys(undefined)` NÉM TypeError giữa chừng `switchToPhotoSource()`, dừng thực
+            // thi TRƯỚC MỌI bước vẽ lại UI phía sau -> treo loading vĩnh viễn, ảnh không lên đúng
+            // hiện tượng Giang báo. ĐÚNG lỗi này ĐÃ được sửa cho `activeMediaSource` ở hàm sinh đôi
+            // `loadPersistedPlaylistConfigOnBoot()` ngay phía trên (danh sách `validSources` tường
+            // minh, không rơi về mặc định) — sửa bỏ sót ở đây. Giờ MERGE `saved` LÊN TRÊN
+            // `clonePlaylistFilterConfigDefaults()` (service/state/playlist.js — nguồn sự thật DUY
+            // NHẤT cho "field nào hợp lệ theo Nguồn", cùng cách `appConfigViz` đang merge lúc khôi
+            // phục, core/config.js dòng ~493) — Nguồn nào saved ĐÃ CÓ (song/video) dùng nguyên dữ
+            // liệu saved; Nguồn MỚI thêm sau này mà saved CHƯA CÓ (photo) tự rơi về default rỗng
+            // (mọi field null, applyPlaylistFilter() fast-path) thay vì undefined.
+            appState.set('playlistFilterConfig', { ...clonePlaylistFilterConfigDefaults(), ...saved });
+            console.log(`writer: "loadPersistedFilterConfigOnBoot", page: "playlistFilterConfig", content: "khôi phục từ meta.playlistFilterConfig (merge lên default để bù Nguồn mới thiếu trong dữ liệu cũ)"`);
         } else {
             // MỚI (mục 2, phản hồi Giang — "thêm log của filter xem") — log CẢ nhánh không có gì để
             // khôi phục (lần đầu dùng tính năng, hoặc dữ liệu hỏng) — để thấy đúng bước này CÓ chạy
