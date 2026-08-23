@@ -145,6 +145,23 @@ const routerFileManagerPhoto = (() => {
                 break;
             }
 
+            // ===================== Picker ảnh dùng chung (Generic Drawer) =====================
+            // MỚI (khôi phục — 2 case này bị THIẾU hẳn từ đợt dời wiring sang core/media-picker-
+            // drawer-helper.js::openMediaPickerDrawerUi(), 31/07/2026: hàm đó gửi ĐÚNG msg.type
+            // này qua eventBus nhưng router chưa có case nhận — msg rơi vào default/console.warn,
+            // tap ảnh KHÔNG chọn được gì, nút X picker cũng không đóng được. Đây LÀ nguyên nhân
+            // Giang báo "không tích chọn được ảnh").
+
+            case 'fileManagerPhoto.imagePicker.tile.click': {
+                workflowFileManagerPhoto.handleImagePickerTileClick(msg.payload.imageKey);
+                break;
+            }
+
+            case 'fileManagerPhoto.imagePicker.close.click': {
+                workflowFileManagerPhoto.handleImagePickerCloseClick();
+                break;
+            }
+
             default:
                 console.warn(`[router:fileManagerPhoto] Không nhận diện được msg.type "${msg.type}" — bỏ qua.`, msg);
         }
