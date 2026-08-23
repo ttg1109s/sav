@@ -47,7 +47,13 @@ function renderFileManagerStorageManagementPanelBody() {
                              (bên trái) - count items (bên phải)") — THAY hẳn 2 "vòng tròn số lượng"
                              cũ (song/video), giờ 1 list 3 hàng, chấm màu khớp ĐÚNG màu thanh chia
                              đoạn ở trên cho từng domain. -->
-                        <div class="flex flex-col divide-y divide-white/5 mt-1">
+                        <!-- SỬA (phản hồi Giang mục 2) — divide-white/5 đổi thẳng sang divide-slate-100:
+                             .app-settings-scope (assets/css/layout-nav.css) chỉ đè "border-white/*"
+                             qua selector [class*="border-white/"], KHÔNG khớp "divide-white/5"
+                             (utility Tailwind khác, sinh ra border qua selector con "> * + *", không
+                             phải class "border-*" trực tiếp) — để nguyên sẽ lọt lưới, đường kẻ vẫn
+                             gần như vô hình trên nền trắng dù đã bọc scope. -->
+                        <div class="flex flex-col divide-y divide-slate-100 mt-1">
                             <div class="flex items-center justify-between py-2">
                                 <span class="flex items-center gap-2 text-sm text-slate-300"><span class="w-2 h-2 rounded-full bg-sky-400 shrink-0"></span><span data-i18n="storageDrawer.legendSongs">${t('storageDrawer.legendSongs')}</span></span>
                                 <span id="stat-storage-count-song" class="text-sm font-semibold text-white font-mono tabular-nums">—</span>
@@ -106,7 +112,12 @@ function renderFileManagerStorageManagementPanelBody() {
                         </div>
                         <div class="flex justify-between items-center p-4 border-b border-white/5 bg-white/[0.03]">
                             <div class="pr-3">
-                                <div class="text-sm font-medium text-rose-300" data-i18n="fileManager.song.storageAction.deleteToggle.label">${t('fileManager.song.storageAction.deleteToggle.label')}</div>
+                                <!-- SỬA (phản hồi Giang mục 2) — text-rose-300 đổi sang text-rose-600:
+                                     .app-settings-scope KHÔNG có rule cho text-rose-*, để nguyên -300
+                                     (vốn hợp nền tối) sẽ quá nhạt/khó đọc trên nền trắng — đổi sang
+                                     rose-600, KHỚP màu bg-rose-600 của #btn-storage-delete-broken
+                                     (cùng khối "cảnh báo xoá"). -->
+                                <div class="text-sm font-medium text-rose-600" data-i18n="fileManager.song.storageAction.deleteToggle.label">${t('fileManager.song.storageAction.deleteToggle.label')}</div>
                                 <div class="text-xs text-slate-400 mt-0.5" data-i18n="fileManager.song.storageAction.deleteToggle.hint">${t('fileManager.song.storageAction.deleteToggle.hint')}</div>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
