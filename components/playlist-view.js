@@ -74,31 +74,18 @@ const TPL_PLAYLIST_VIEW = `
                 <button id="btn-toggle-selection" class="hover:text-sky-400 transition-colors" data-i18n-title="playlistView.selection.toggleTitle" title="${t('playlistView.selection.toggleTitle')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </button>
+                <!-- SỬA (phản hồi Giang — "1 khung, không nhân bản, VMState theo activeMediaSource")
+                     — nút "Thêm..." giờ DÙNG CHUNG cho cả 3 Nguồn (Song/Video/Photo), LUÔN hiện,
+                     KHÔNG còn toggle 'hidden' theo Nguồn nữa (trước đây mỗi Nguồn có nút/label
+                     riêng — Video từng có <label id="btn-upload-video"> tách hẳn khỏi nút này, ĐÃ
+                     XOÁ). #upload-action-menu (2 lựa chọn: file rời/thư mục — xem template bên
+                     dưới) mở ra là 1 khung DUY NHẤT cho cả 3 Nguồn; "accept" của 2 input BÊN TRONG
+                     đổi động theo Nguồn (switchToSongSource()/switchToVideoSource()/
+                     switchToPhotoSource(), event/workflow/playlist.js::_applyUploadInputAccept()) —
+                     KHÔNG còn 2 input riêng theo từng Nguồn. -->
                 <button id="btn-upload-audio" class="hover:text-sky-400 transition-colors" data-i18n-title="playlistView.btnUploadAudio.title" title="${t('playlistView.btnUploadAudio.title')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                 </button>
-                <!-- MỚI (FIX 28/07/2026, phản hồi Giang "Video chỉ 1 chế độ chọn nhiều file, bỏ
-                     dropdown, input luôn") — "Thêm video" TÁCH RIÊNG khỏi #btn-upload-audio, đổi chỗ
-                     ẩn/hiện cho nhau theo activeMediaSource (event/workflow/playlist.js::
-                     switchToVideoSource()/switchToSongSource(), toggle class 'hidden'). Bản thân
-                     phần tử này LÀ <label> BỌC TRỰC TIẾP <input type="file"> — CÙNG platform-compat
-                     pattern audio-upload/audio-upload-folder (xem comment #upload-action-menu bên
-                     dưới): click NATIVE thật lên label mới chắc chắn mở được file picker mọi nền
-                     tảng, KHÔNG gọi .click() qua JS. Video CHỈ 1 lựa chọn (chọn nhiều file, KHÔNG có
-                     "chọn cả thư mục") nên bấm 1 phát mở picker luôn, KHÔNG cần dropdown trung gian
-                     như Song (#upload-action-menu, 2 lựa chọn) — #video-upload-menu (dropdown 1 lựa
-                     chọn cũ, Batch 6 mục 7) ĐÃ XOÁ, input dời thẳng vào đây.
-                     [KHÔI PHỤC 29/07/2026, phản hồi Giang] — khối <label> này bị THIẾU trong 1 lần
-                     đóng gói trước (patch đè lên bản playlist-view.js CŨ, trước lúc khối này được
-                     thêm) — Giang tự phát hiện qua diff bản gốc, chèn lại NGUYÊN VẸN từ bản gốc. -->
-                <!-- FIX (29/07/2026, yêu cầu Giang mục 1 — "icon giống upload song") — đổi hẳn path
-                     SVG (trước đây icon máy quay video) sang ĐÚNG NGUYÊN path đang dùng ở
-                     #btn-upload-audio phía trên (icon "cloud upload") — CHỈ đổi icon hiển thị,
-                     KHÔNG đổi id/class/behaviour/input picker gì khác. -->
-                <label id="btn-upload-video" class="hidden hover:text-sky-400 transition-colors cursor-pointer" data-i18n-title="playlistView.uploadMenu.pickVideoFiles" title="${t('playlistView.uploadMenu.pickVideoFiles')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                    <input type="file" id="video-upload-input" accept="video/*" multiple class="hidden">
-                </label>
                 <button id="btn-settings-playlist" class="hover:text-sky-400 transition-colors" data-i18n-title="playlistView.btnSettings.title" title="${t('playlistView.btnSettings.title')}">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                 </button>
@@ -313,34 +300,37 @@ const TPL_PLAYLIST_VIEW = `
     </div>
 
 
-    <!-- Menu nhỏ cho nút "Thêm nhạc" (góc phải Playlist) — 2 lựa chọn: chọn từng file rời, hoặc
-         chọn cả 1 thư mục (toàn bộ nhạc trong thư mục đó + thư mục con được nạp 1 lượt). Cùng
+    <!-- Menu nhỏ cho nút "Thêm..." (góc phải Playlist) — DÙNG CHUNG cho cả 3 Nguồn (Song/Video/
+         Photo, phản hồi Giang "1 khung, không nhân bản"): 2 lựa chọn — chọn từng file rời, hoặc
+         chọn cả 1 thư mục (toàn bộ media trong thư mục đó + thư mục con được nạp 1 lượt). Cùng
          cơ chế định vị "fixed, JS đặt lại vị trí ngay dưới nút bấm" như #song-action-menu — dùng
          CHUNG #song-action-overlay để đóng khi bấm ra ngoài (chỉ 1 trong 2 menu hiện tại 1 lúc).
-         FIX (ver 8 refine): 2 mục giờ là <label> BỌC TRỰC TIẾP <input type="file"> ẩn bên trong —
-         giống đúng pattern đã dùng ổn định ở setting-bg-upload/setting-video-upload — THAY CHO
-         <button> gọi fileInput.click()/folderInput.click() bằng JS. Một số trình duyệt/WebView
-         (đặc biệt chạy qua file://, hoặc Android WebView cũ) CHẶN HOÀN TOÀN việc input[type=file]
-         phản hồi với .click() gọi gián tiếp qua JS (không lỗi, không event, im lặng "treo" mãi chờ
-         change không bao giờ tới) — chỉ click NATIVE thật (chuột/chạm) lên label/input mới chắc
-         chắn hoạt động trên mọi nền tảng. -->
+         "accept" của 2 input dưới đây LÀ GIÁ TRỊ MẶC ĐỊNH lúc mới nạp trang (khớp Song, Nguồn mặc
+         định) — đổi ĐỘNG theo Nguồn ngay khi Nguồn đổi (kể cả lúc khôi phục Nguồn đã lưu bền lúc
+         boot), xem event/workflow/playlist.js::_applyUploadInputAccept(). 2 mục là <label> BỌC
+         TRỰC TIẾP <input type="file"> ẩn bên trong — giống đúng pattern đã dùng ổn định ở
+         setting-bg-upload/setting-video-upload. Một số trình duyệt/WebView (đặc biệt chạy qua
+         file://, hoặc Android WebView cũ) CHẶN HOÀN TOÀN việc input[type=file] phản hồi với
+         .click() gọi gián tiếp qua JS (không lỗi, không event, im lặng "treo" mãi chờ change
+         không bao giờ tới) — chỉ click NATIVE thật (chuột/chạm) lên label/input mới chắc chắn
+         hoạt động trên mọi nền tảng. -->
     <div id="upload-action-menu" class="hidden fixed z-[115] w-52 bg-[#171c2b] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
         <label class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 cursor-pointer">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             <span data-i18n="playlistView.uploadMenu.pickFiles">${t('playlistView.uploadMenu.pickFiles')}</span>
-            <input type="file" id="audio-upload" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/aac,audio/flac" multiple class="hidden">
+            <input type="file" id="media-upload" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/aac,audio/flac" multiple class="hidden">
         </label>
         <label class="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 border-t border-white/5 cursor-pointer">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
             <span data-i18n="playlistView.uploadMenu.pickFolder">${t('playlistView.uploadMenu.pickFolder')}</span>
-            <input type="file" id="audio-upload-folder" webkitdirectory directory multiple class="hidden">
+            <input type="file" id="media-upload-folder" webkitdirectory directory multiple class="hidden">
         </label>
     </div>
 
-    <!-- #video-upload-menu (dropdown 1 lựa chọn "Thêm video", ver12 Batch 6 mục 7) ĐÃ XOÁ (FIX
-         28/07/2026, phản hồi Giang "Video chỉ 1 chế độ chọn nhiều file, bỏ dropdown, input luôn") —
-         #video-upload-input dời thẳng vào <label id="btn-upload-video"> ở header phía trên (đổi chỗ
-         ẩn/hiện với #btn-upload-audio theo activeMediaSource), KHÔNG còn dropdown trung gian nào. -->
+    <!-- #video-upload-menu (dropdown 1 lựa chọn "Thêm video" cũ, ver12 Batch 6 mục 7) VÀ sau đó
+         <label id="btn-upload-video"> (FIX 28/07/2026, thay dropdown bằng input trực tiếp) đều ĐÃ
+         XOÁ (phản hồi Giang "1 khung, không nhân bản") — Video giờ dùng CHUNG #upload-action-menu
+         ở trên với Song/Photo, không còn input/nút riêng nào nữa. -->
 
     <!-- Menu 3 chấm dùng chung cho mọi bài hát (info / sửa / xuất file / xóa) — chỉ 1 phần tử duy
          nhất trong DOM, được JS định vị lại (position: fixed) ngay dưới nút "..." vừa bấm mỗi lần
