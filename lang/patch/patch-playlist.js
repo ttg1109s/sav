@@ -35,6 +35,11 @@ const LANG_PATCH_PLAYLIST = {
     'playlistView.empty.noSearchResultsPhoto': 'No matching photos found.',
     'playlistView.loading.generic': 'Loading data...',
     'playlistView.loading.withCount': 'Loading {done} / {total} songs...',
+    // MỚI (phản hồi Giang — "loading shield khi nạp cần thêm x/total item song/video/photo") —
+    // cùng cơ chế withCount (Song) ở trên, tách riêng theo Nguồn (đúng pattern noSongs/noVideos/
+    // noPhotos đã có sẵn ngay dưới) vì "songs" không đúng ngữ cảnh cho Video/Photo.
+    'playlistView.loading.withCountVideo': 'Loading {done} / {total} videos...',
+    'playlistView.loading.withCountPhoto': 'Loading {done} / {total} photos...',
     'playlistView.songEdit.title': 'Details',
     // SỬA (10/07/2026, gộp #song-info-modal cũ vào tab đầu): 'tabInfo' cũ ĐỔI TÊN 'tabFields'
     // (tab title/artist/album SỬA được) — 'tabDetails' MỚI là tab đầu/mặc định, đọc-thôi.
@@ -78,11 +83,14 @@ const LANG_PATCH_PLAYLIST = {
     // dùng chung field đó ở trên) không còn nơi nào dùng tới nữa, ĐÃ XOÁ khỏi đây — tránh key mồ côi.
     'playlistView.songInfo.fieldFilename': 'Original filename',
     'playlistView.songInfo.fieldResolution': 'Resolution',
+    // SỬA (phản hồi Giang — "1 khung, không nhân bản, dùng nút+2 lựa chọn của Song làm chuẩn") —
+    // 2 key dưới đây giờ DÙNG CHUNG cho cả Song/Video/Photo (giữ nguyên văn bản gốc của Song, theo
+    // đúng yêu cầu "làm chuẩn" — CHƯA đổi chữ theo ngữ cảnh từng Nguồn).
     'playlistView.uploadMenu.pickFiles': 'Choose music files',
     'playlistView.uploadMenu.pickFolder': 'Choose a folder',
-    // MỚI (ver12 "Song/Video Unification", Batch 6, mục 7) — "Thêm video", KHÔNG có bản "chọn cả
-    // thư mục" cho Video (đã chốt — chỉ 1 lựa chọn).
-    'playlistView.uploadMenu.pickVideoFiles': 'Choose video files',
+    // XOÁ (phản hồi Giang — "1 khung, không nhân bản") — 'playlistView.uploadMenu.pickVideoFiles'
+    // (title riêng của <label id="btn-upload-video">, ĐÃ XOÁ khỏi components/playlist-view.js) bỏ
+    // hẳn cùng lúc — không còn nút/label nào đọc key này nữa.
     'playlistView.songMenu.title': 'Options',
     'playlistView.songMenu.edit': 'Details',
     // MỚI (10/07/2026) — mở Subtitle Editor (trang riêng).
