@@ -366,7 +366,7 @@
          trong renderFileManagerSongPanelBody() (components/file-manager.js, function đó đã xoá) —
          giờ gộp ĐỦ 3 domain Song/Video/Photo, KHÔNG còn phụ thuộc panel "Song & Video"
          (đã xoá) nữa. -->
-    <script src="components/file-manager-storage.js?v=20260729v2"></script>
+    <script src="components/file-manager-storage.js?v=20260823v1"></script>
     <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer, khung TRẮNG dùng CHUNG
          cho nhiều tính năng (Folder Browser/Add to Folder picker...). items.js (mục 3) ĐỘC LẬP với
          Generic Drawer (xem docstring đầu file) nhưng đặt cạnh nhau cho dễ đọc. -->
@@ -832,7 +832,7 @@
     <!-- Panel "Song & Video" cũ (file-manager-song.js) đã xoá, thay bằng "Quản lý lưu trữ" (gộp 3
          domain: song/video/photo) — CẦN core/file-manager/{image,album}.js,
          components/file-manager-storage.js (đã nạp ở nhóm CORE/COMPONENTS). -->
-    <script src="event/workflow/file-manager-storage.js?v=20260729v2"></script>
+    <script src="event/workflow/file-manager-storage.js?v=20260823v1"></script>
     <script src="event/router/file-manager-storage.js?v=20260729v2"></script>
     <!-- Folder Browser — Generic Drawer List↔Read thay Folder List/Detail kiểu panel-stack cũ. CẦN
          core/generic-drawer.js, components/items.js, core/file-manager/{folder,folder-detail-ui,
@@ -983,7 +983,7 @@
          effect ĐÃ DỜI sang cụm "customEffect" (Custom Effect Drawer, xem file ngay dưới) — router
          visualizerDisplay dispatch case cyclePress/cycle.click sang workflowCustomEffect, nên
          event/workflow/custom-effect.js PHẢI nạp TRƯỚC event/router/visualizer-display.js. -->
-    <script src="event/workflow/custom-effect.js?v=20260813v1"></script>
+    <script src="event/workflow/custom-effect.js?v=20260823v1"></script>
     <!-- MỚI — Workflow công cụ CHUNG "Element Style Editor" (API duy nhất: open(targetEl), CHƯA
          có nơi nào gọi thật, xem docstring đầu file). CẦN core/generic-drawer.js, event/workflow/
          generic-drawer-helpers.js, core/element-style-editor.js, components/
@@ -1064,7 +1064,7 @@
          core/eq-presets.js). CẦN core/generic-drawer.js, components/eq-presets-drawer.js,
          event/workflow/generic-drawer-helpers.js (closeFully(), đã nạp ở nhóm trên), đã nạp SAU
          cả 3 — an toàn. -->
-    <script src="event/workflow/eq-presets.js?v=20260813v1"></script>
+    <script src="event/workflow/eq-presets.js?v=20260823v1"></script>
     <script src="event/router/eq-presets.js?v=20260813v1"></script>
     <script src="event/listener/eq-presets.js?v=20260813v1"></script>
     <!-- event/tab.js — 3 lifecycle listener đặc thù của tab (visibilitychange/pagehide/
