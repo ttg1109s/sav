@@ -32,6 +32,8 @@ const LANG_PATCH_VISUALIZER = {
     'gameplayCircle.ended.playCountLabel.singular': 'Played 1 time',
     'gameplayCircle.ended.playCountLabel.plural': 'Played {count} times',
     'videoPlayer.untitled': 'Untitled video',
+    // MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — event/workflow/photo-player.js::playPhotoByKey().
+    'photoPlayer.untitled': 'Untitled photo',
     // MỚI (ver12 "Song/Video Unification", Batch 2) — Block gate notify, xem event/block.js.
     'videoPlayer.startFromPlaylist.blockedByBgVideo': 'Turn off "Use Video Background" first (Settings) before playing a video from the Playlist.',
     'visualizerOverlay.cycleMode.title': 'Change effect',

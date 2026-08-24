@@ -52,6 +52,12 @@ const LANG_PATCH_PLAYLIST = {
     // MỚI (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — nhóm field Video (tab
     // "Sửa"), THAY 3 field Song ở trên khi cached.mediaType === 'video'.
     'playlistView.songEdit.fieldCustomName': 'Display name',
+    // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video) — nhãn hàng duration trong tab
+    // "Sửa" của nhóm field Photo (nút mở time-picker) — CÙNG giá trị 'songInfo.fieldDuration' ngay
+    // dưới nhưng namespace RIÊNG (songEdit.field* — khớp fieldTitle/fieldArtist/fieldCustomName ở
+    // trên, đều thuộc tab "Sửa", KHÁC songInfo.field* của tab "Chi tiết" đọc-thôi).
+    'playlistView.songEdit.fieldDuration': 'Duration',
+    'playlistView.songEdit.durationPickerTitle': 'Duration',
     'playlistView.songEdit.coverAlt': 'Cover art',
     // VIẾT LẠI (04/07/2026, mục 3 phản hồi Giang) — bỏ hẳn nút Upload riêng (key 'coverChoose' cũ
     // đã xoá) — chỉ còn 1 nút DUY NHẤT, đổi tên "Choose photo".
@@ -102,6 +108,9 @@ const LANG_PATCH_PLAYLIST = {
     // 'playlistView.songMenu.setAsBgVideo' ĐÃ XOÁ (phản hồi Giang — bỏ hẳn "Set làm nền" khỏi
     // dropdown Video).
     'playlistView.songMenu.editVideoFile': 'Edit video',
+    // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video, "thêm dropdown edit image ->
+    // mở openImagePreview()") — hành động RIÊNG của Photo, mirror editVideoFile ngay trên.
+    'playlistView.songMenu.editImage': 'Edit image',
     'playlistView.songMenu.delete': 'Delete song',
     // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — dropdown Video dùng chung
     // template với Song (#song-action-menu) nhưng nhãn tĩnh vẫn luôn nói "song" — đổi chữ qua JS
