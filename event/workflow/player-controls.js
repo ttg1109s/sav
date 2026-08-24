@@ -88,15 +88,16 @@ const workflowPlayerControls = {
      */
     goToNextTrack(force = false) {
         requestWakeLock(); // core
-        const { isVideoPlayerMode, repeatMode, isShuffle, currentKey, shuffleIndices, displayOrder, playlistOrder, pendingResortKeys } = appState.get([
-            'isVideoPlayerMode', 'repeatMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys',
+        const { isVideoPlayerMode, isPhotoPlayerMode, repeatMode, isShuffle, currentKey, shuffleIndices, displayOrder, playlistOrder, pendingResortKeys } = appState.get([
+            'isVideoPlayerMode', 'isPhotoPlayerMode', 'repeatMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys',
         ]);
         if (playlistOrder.length === 0) return;
-        const activeEl = getActiveMediaElement(isVideoPlayerMode); // core/player-controls.js — DÙNG CHUNG Song/Video (Next/Prev + Game Mode)
+        const activeEl = getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode); // core/player-controls.js — DÙNG CHUNG Song/Video/Photo (Next/Prev + Game Mode) — SỬA (Giang yêu cầu, Photo tích hợp duration) thêm isPhotoPlayerMode
 
         if (shouldRestartInsteadOfAdvance(repeatMode, force)) { // core mới (order.js) — repeat-mode-2, KHÔNG force
             activeEl.currentTime = 0;
             if (isVideoPlayerMode) activeEl.play().catch((err) => console.error('[workflowPlayerControls] bgVideoElement.play() lỗi:', err));
+            else if (isPhotoPlayerMode) activeEl.play(); // photoPlayerFakeMediaElement.play() KHÔNG async, KHÔNG cần .catch()
             else activeEl.play();
             return;
         }
@@ -133,11 +134,11 @@ const workflowPlayerControls = {
      */
     goToPrevTrack() {
         requestWakeLock(); // core
-        const { isVideoPlayerMode, isShuffle, currentKey, shuffleIndices, displayOrder, playlistOrder, pendingResortKeys } = appState.get([
-            'isVideoPlayerMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys',
+        const { isVideoPlayerMode, isPhotoPlayerMode, isShuffle, currentKey, shuffleIndices, displayOrder, playlistOrder, pendingResortKeys } = appState.get([
+            'isVideoPlayerMode', 'isPhotoPlayerMode', 'isShuffle', 'currentKey', 'shuffleIndices', 'displayOrder', 'playlistOrder', 'pendingResortKeys',
         ]);
         if (playlistOrder.length === 0) return;
-        const activeEl = getActiveMediaElement(isVideoPlayerMode); // core/player-controls.js
+        const activeEl = getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode); // core/player-controls.js — SỬA (Giang yêu cầu, Photo tích hợp duration) thêm isPhotoPlayerMode
 
         // "Quá 3s vào bài/video hiện tại -> chỉ tua về đầu" — ĐÚNG hành vi gốc `playPrev()`.
         if (activeEl.currentTime > 3) { activeEl.currentTime = 0; return; }

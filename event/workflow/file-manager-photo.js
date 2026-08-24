@@ -54,6 +54,23 @@ const PHOTO_ROW_HEIGHT_PX = 120;
 // còn liên quan gì tới kích thước THẬT của file thumbBlob lưu trong DB nữa).
 const THUMBNAIL_SCALE_RATIO = 0.2;
 
+// MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video, chạy trong Playlist/visualizer
+// thừa hưởng đúng cơ chế Play/Next-Prev/Shuffle, im lặng hoàn toàn lúc đang hiển thị — xác nhận
+// qua trao đổi trực tiếp) — 4 hằng số khởi điểm cho `computePhotoDuration()` ngay dưới. GIÁ TRỊ
+// TẠM (chưa có ví dụ size/resolution thật từ Giang để fit chính xác). Đổi tuỳ ý, KHÔNG cần đổi
+// hình dạng công thức, chỉ cần đổi ĐÚNG các hằng số này.
+// SỬA (Giang chốt: "không kẹp max") — bỏ hẳn `DURATION_MAX_SEC`/công thức tiệm cận `1 - e^(-x)`
+// (từng kẹp fraction trong [0,1), tức duration kẹp TRONG [MIN, MIN+(MAX-MIN)) dù không dùng
+// min()/clamp() tường minh — VẪN LÀ 1 dạng trần, chỉ khác trần "mềm" thay vì trần "cứng"). Công
+// thức MỚI tuyến tính THẲNG theo weight, KHÔNG còn số hạng nào chặn trên — file càng lớn/độ phân
+// giải càng cao, duration cứ thế tăng, không giới hạn.
+const DURATION_MIN_SEC = 5;          // sàn — khớp interval tối thiểu của Slideshow VBG hiện có (KHÔNG phải trần, chỉ là sàn — vẫn giữ, tránh ảnh siêu nhỏ ra duration gần 0 vô nghĩa).
+const DURATION_PIXEL_WEIGHT = 2;     // 1 pixel ảnh gốc "nặng" tương đương bao nhiêu byte trong công thức.
+const DURATION_PER_WEIGHT_SEC = 0.00000125; // giây CỘNG THÊM cho mỗi 1 byte-tương-đương weight — TUYẾN TÍNH, không tiệm cận, không trần.
+const DURATION_JITTER_SEC = 0.4;     // biên độ jitter TỐI ĐA từ SHA-256 — chỉ phá vỡ trùng số tuyệt
+                                      // đối giữa 2 ảnh CÙNG weight, KHÔNG đủ lớn để đảo thứ tự "ảnh
+                                      // nặng hơn -> duration dài hơn" trong thực tế.
+
 const workflowFileManagerPhoto = {
 
     _activeImageModalHandle: null, // { close, imgEl, canvasWrap, baseCanvas, renderCanvas, interactCanvas, toolsBtn, adjustPopup, ... } của modal xem ảnh đang mở — null khi không mở modal nào
@@ -435,6 +452,52 @@ const workflowFileManagerPhoto = {
         });
     },
 
+    /** MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video, thừa hưởng đúng cơ chế Play/
+     * Next-Prev/Shuffle của Playlist, im lặng hoàn toàn lúc hiển thị — xác nhận qua trao đổi trực
+     * tiếp, KHÔNG phải "thời gian hiển thị cố định" kiểu Slideshow VBG cũ) — tính `duration` (giây,
+     * số thực) HOÀN TOÀN deterministic từ CHÍNH nội dung file (cùng file luôn ra cùng số — không lưu
+     * seed random rời rạc nào).
+     *
+     * CÔNG THỨC (2 bước, hằng số DURATION_* khai báo đầu file — GIÁ TRỊ TẠM, xem comment ở đó):
+     *   1. weight   = fileSize (byte) + DURATION_PIXEL_WEIGHT × (width × height)
+     *   2. duration = DURATION_MIN_SEC + weight × DURATION_PER_WEIGHT_SEC + jitter
+     * TUYẾN TÍNH THẲNG, KHÔNG TRẦN (Giang chốt "không kẹp max") — file càng lớn/độ phân giải càng
+     * cao, duration cứ thế tăng theo, không có ngưỡng tiệm cận hay min()/clamp() nào chặn trên.
+     * `DURATION_MIN_SEC` là SÀN (không phải trần) — chỉ để ảnh siêu nhỏ không ra duration gần 0.
+     * `jitter` (0 → DURATION_JITTER_SEC giây) lấy từ 4 byte đầu SHA-256 của CHÍNH file — CHỈ để 2
+     * ảnh CÙNG weight (size + resolution giống hệt) không trùng số tuyệt đối, biên độ nhỏ hơn NHIỀU
+     * bước nhảy thật của phần tuyến tính nên KHÔNG đảo thứ tự "ảnh nặng hơn -> duration dài hơn".
+     *
+     * SHA-256 qua Web Crypto (`crypto.subtle.digest`, native, không cần thư viện) — CẦN secure
+     * context (`https:`/`localhost` chắc chắn có; `file:` đã xác nhận hoạt động trên Chromium, CHƯA
+     * test Safari/WebKit). Guard `crypto.subtle` không tồn tại -> `duration` vẫn tính bình thường,
+     * chỉ `jitter = 0` (KHÔNG chặn cả tiến trình upload chỉ vì thiếu 1 phần jitter).
+     *
+     * Đặt ở Workflow (không phải core/file-manager/image.js) vì cần `File.arrayBuffer()` — cùng lý
+     * do `resizeImageForThumbnail()` ở Workflow (Rule 1-4 core-function-conventions.md). Dùng CHUNG
+     * bởi `uploadImages()` (dưới), `playlist.js::uploadPhotos()` VÀ `image-edit.js::
+     * saveEditOverwrite()` (ảnh sửa xong đổi kích thước/dung lượng -> tính lại cho nhất quán).
+     * @param {File|Blob} file - blob ẢNH GỐC (không phải thumbBlob).
+     * @param {number} width - chiều rộng ảnh gốc (px).
+     * @param {number} height - chiều cao ảnh gốc (px).
+     * @returns {Promise<number>} duration (giây, số thực, làm tròn 2 chữ số thập phân, KHÔNG có trần trên)
+     */
+    async computePhotoDuration(file, width, height) {
+        const weight = file.size + DURATION_PIXEL_WEIGHT * (width * height);
+        let jitter = 0;
+        if (window.crypto && window.crypto.subtle) {
+            try {
+                const digestBuffer = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+                const first4Bytes = new DataView(digestBuffer).getUint32(0); // 0 .. 4294967295
+                jitter = (first4Bytes / 4294967295) * DURATION_JITTER_SEC;
+            } catch (err) {
+                console.error('[computePhotoDuration] crypto.subtle.digest lỗi, bỏ qua jitter:', err);
+            }
+        }
+        const duration = DURATION_MIN_SEC + weight * DURATION_PER_WEIGHT_SEC + jitter;
+        return Math.round(duration * 100) / 100;
+    },
+
     /** Ứng với 'fileManagerPhoto.upload.change'.
      * SỬA (Giai đoạn 1, rewrite Photo/Album, mục 3c/3d) — resize `thumbBlob` (`resizeImageForThumbnail()`
      * ngay trên) TRƯỚC khi gọi `saveImage()` (core/file-manager/image.js — đổi chữ ký, nhận thêm
@@ -453,7 +516,8 @@ const workflowFileManagerPhoto = {
             for (const file of fileArray) {
                 try {
                     const { thumbBlob, width, height } = await this.resizeImageForThumbnail(file);
-                    await saveImage(file, file.name, thumbBlob, width, height); // core/file-manager/image.js — chữ ký MỚI, CÓ return (imageKey), không cần dùng ở đây nữa
+                    const duration = await this.computePhotoDuration(file, width, height); // MỚI — Photo tích hợp duration như Song/Video
+                    await saveImage(file, file.name, thumbBlob, width, height, duration); // core/file-manager/image.js — chữ ký MỚI, CÓ return (imageKey), không cần dùng ở đây nữa
                 } catch (err) {
                     console.error(`[uploadImages] resize/lưu thất bại cho file "${file.name}":`, err);
                     failedCount++;

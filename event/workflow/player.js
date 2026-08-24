@@ -71,6 +71,16 @@ const workflowPlayer = {
         // không đổi bất kỳ dòng nào — đúng nguyên tắc riêng của plan "KHÔNG sửa/động code đang
         // phục vụ RIÊNG cho Song".
         const cachedForDispatch = appState.get('playlistCache').get(key);
+
+        // MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — nếu đang ở Photo Player
+        // mode và bài/video/ảnh MỚI KHÔNG phải Photo, dọn dẹp mode đó TRƯỚC (kill task đồng hồ, ẩn
+        // #photo-player-image, trả canvas về bình thường) rồi mới để 2 guard clause Video/Song bên
+        // dưới chạy TIẾP như chưa từng có gì thay đổi — CHỈ 1 chỗ xử lý mọi hướng thoát (Photo ->
+        // Song, Photo -> Video), không rải rác guard riêng ở từng nhánh.
+        if (appState.get('isPhotoPlayerMode') && (!cachedForDispatch || cachedForDispatch.mediaType !== 'photo')) {
+            workflowPhotoPlayer.exitPhotoPlayerMode(); // event/workflow/photo-player.js
+        }
+
         if (cachedForDispatch && cachedForDispatch.mediaType === 'video') {
             // SỬA (Giang chốt: "chọn Video thì cũng phải kiểm tra block gate mới được cho
             // chọn") — đi qua eventBus (router 'videoPlayer') THAY VÌ gọi thẳng
@@ -102,6 +112,24 @@ const workflowPlayer = {
             // hình dựa vào ĐÚNG ý định của người gọi, không dựa vào isVideoPlayerMode nữa.
             const switchScreen = !options || options.switchScreen !== false;
             eventBus.send({ router: 'videoPlayer', type: 'videoPlayer.startFromPlaylist.click', payload: { key, switchScreen } });
+            return;
+        }
+
+        // MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video, "quy chế phát của nó cũng
+        // không khác biệt") — mirror ĐÚNG guard clause Video ngay trên, nhưng KHÔNG đi qua eventBus/
+        // Block Gate (khác Video — Photo không cần khoá chéo với tính năng nào khác, xem docstring
+        // đầu event/workflow/photo-player.js) — gọi THẲNG Workflow miền "photoPlayer" (Workflow gọi
+        // Workflow miền khác, TỰ DO theo event-bus-flow.md mục 4B). `isPhotoPlayerMode` phân biệt
+        // "đã ở mode, chỉ đổi ảnh" (Next/Prev vật lý, bấm lại đúng ảnh đang hiện) hay "vào mode lần
+        // đầu" — CÙNG Ý NGHĨA video dùng router phân biệt qua VirtualMachineState, chỉ khác chỗ
+        // quyết định (ở đây, không phải ở router — Photo không có router riêng).
+        if (cachedForDispatch && cachedForDispatch.mediaType === 'photo') {
+            const switchScreen = !options || options.switchScreen !== false;
+            if (appState.get('isPhotoPlayerMode')) {
+                workflowPhotoPlayer.playPhotoByKey(key, switchScreen); // event/workflow/photo-player.js — đã ở mode, chỉ đổi ảnh
+            } else {
+                workflowPhotoPlayer.startFromPlaylist(key); // event/workflow/photo-player.js — vào mode lần đầu, tự switchToVisualizer() bên trong (switchScreen mặc định true, mirror Video)
+            }
             return;
         }
         const switchScreen = !options || options.switchScreen !== false;

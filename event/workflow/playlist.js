@@ -20,6 +20,20 @@
  * cho video upload, dùng bởi `uploadVideos()`/`_extractVideoThumbAndMeta()` bên dưới. */
 const VIDEO_THUMBNAIL_SIZE = 320;
 
+/** MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video) — trần của time-picker mở ở
+ * `openPhotoEditDurationPicker()` (dưới). SỬA (Giang chỉ ra đúng — modal `openTimePickerModal()`,
+ * core/time-picker-modal.js, KHÔNG hề tự áp giới hạn gì — `maxMs` chỉ là 1 tham số config, nơi gọi
+ * (TỨC file này) tự chọn giá trị) — hằng số dưới KHÔNG phải "trần của widget", mà là lựa chọn CỦA
+ * RIÊNG chỗ gọi này. Ràng buộc THẬT DUY NHẤT nằm ở `buildColumn()` (core/time-picker-modal.js):
+ * `count` dòng của cột thô nhất PHẢI hữu hạn (vòng lặp `appendChild()` DOM thật, không ảo hoá) —
+ * truyền `Infinity` sẽ treo trình duyệt (tạo vô hạn phần tử). Ngoài giới hạn KỸ THUẬT đó (phải là
+ * số hữu hạn), giá trị bao nhiêu là TUỲ CHỌN — chọn 999 phút (~16.6 giờ, ~1000 dòng DOM cho cột
+ * phút) RỘNG HƠN RẤT NHIỀU bất kỳ giá trị nào computePhotoDuration() (event/workflow/file-manager-
+ * photo.js) thực tế tạo ra (~vài phút ngay cả ảnh RAW cỡ trăm MB) — mục tiêu là chọn đủ lớn để
+ * KHÔNG BAO GIỜ cảm giác như 1 trần thật, không phải cố tình giới hạn thấp.
+ */
+const PHOTO_EDIT_DURATION_PICKER_MAX_MS = 999 * 60 * 1000; // 999 phút
+
 /** MỚI (phản hồi Giang — "1 khung, không nhân bản, VMState theo activeMediaSource") — `accept`
  * của 2 input DÙNG CHUNG (`fileInput`/`folderInput`, core/dom-refs.js — #media-upload/
  * #media-upload-folder) đổi ĐỘNG theo Nguồn, xem `workflowPlaylist._applyUploadInputAccept()`. */
@@ -128,6 +142,7 @@ const workflowPlaylist = {
         if (!key) return; // không có modal nào đang mở -> no-op, giống hành vi gốc
         const cached = appState.get('playlistCache').get(key);
         const isVideo = cached && cached.mediaType === 'video';
+        const isPhoto = cached && cached.mediaType === 'photo';
 
         if (isVideo) {
             const { customName } = captureVideoEditFormState(); // core THUẦN
@@ -138,6 +153,20 @@ const workflowPlaylist = {
             if (result.status === 'notFound') await alertModal(t('common.songEdit.notFound'));
             closeSongEditModal();
             refreshAfterSongEditSave(key); // core thuần, DÙNG CHUNG — không có gì "của riêng Song"
+            return;
+        }
+
+        // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video) — CÙNG KHUÔN nhánh Video
+        // ngay trên, chỉ khác 2 field đọc/ghi (customName + durationSec thay vì chỉ customName).
+        if (isPhoto) {
+            const { customName, durationSec } = capturePhotoEditFormState(); // core THUẦN
+            let result;
+            await withLoadingShield(t('common.loading.savingInfo'), async () => {
+                result = await applyPhotoEditAndSave(key, customName, durationSec); // core THUẦN
+            });
+            if (result.status === 'notFound') await alertModal(t('common.songEdit.notFound'));
+            closeSongEditModal();
+            refreshAfterSongEditSave(key);
             return;
         }
 
@@ -159,6 +188,31 @@ const workflowPlaylist = {
 
         closeSongEditModal(); // core thuần, thuần UI — đóng modal trong MỌI trường hợp (giống bản gốc)
         refreshAfterSongEditSave(key); // core thuần — vẽ lại danh sách/sắp xếp lại nếu cần
+    },
+
+    /** Ứng với click nút duration ở tab "Sửa" của nhóm field Photo — mở time-picker (core/time-
+     * picker-modal.js, dùng chung với Slideshow/Visual Background gradient) thay vì input số tay
+     * (Giang chỉ định "dùng time picker, có min nhưng không max"). SỬA (Giang chỉ ra đúng) —
+     * `maxMs` KHÔNG phải giới hạn của widget, chỉ là 1 config nơi gọi tự chọn (xem docstring
+     * `PHOTO_EDIT_DURATION_PICKER_MAX_MS` đầu file) — 999 phút, rộng hơn rất nhiều bất kỳ giá trị
+     * nào `computePhotoDuration()` (event/workflow/file-manager-photo.js) thực tế tạo ra. Giá trị
+     * THẬT lưu trong DB không hề bị hàm nào clamp — nếu 1 ảnh có duration vượt 999 phút (chưa từng
+     * xảy ra với công thức hiện tại), mở picker sẽ tự kẹp hiển thị về 999 phút, không đụng gì tới
+     * số đã lưu. Chỉ set `min` — không có ý định giới hạn trên thật nào. */
+    openPhotoEditDurationPicker() {
+        const currentSec = playlistStore.get('songEditPendingPhotoDurationSec') || 0;
+        openTimePickerModal({ // core/time-picker-modal.js
+            title: t('playlistView.songEdit.durationPickerTitle'),
+            format: 'm-s',
+            valueMs: currentSec * 1000,
+            minMs: DURATION_MIN_SEC * 1000, // event/workflow/file-manager-photo.js — CÙNG sàn computePhotoDuration() áp lúc upload
+            maxMs: PHOTO_EDIT_DURATION_PICKER_MAX_MS, // xem docstring hằng số đầu file — KHÔNG phải trần widget, chỉ là config
+            onConfirm: (resultMs) => {
+                const resultSec = Math.round(resultMs / 1000 * 100) / 100;
+                playlistStore.set({ songEditPendingPhotoDurationSec: resultSec });
+                if (songEditPhotoDurationValueEl) songEditPhotoDurationValueEl.textContent = formatTime(resultSec); // core/playlist/state.js
+            },
+        });
     },
 
     // ===================== Ver 12 "Multi Media" — Chọn nhiều (plan-v12-multimedia.md mục 4.b1) =====================
@@ -379,6 +433,9 @@ const workflowPlaylist = {
      * KHUÔN `uploadVideos()` ngay trên (shield + tiến trình "X/Y" + bắt lỗi riêng từng file + xong
      * thì tự làm mới `playlistOrder` nếu đang đứng ở Nguồn Photo — KHÔNG có hàm `refreshVideoPlaylistIfActive()`-
      * tương đương ở miền khác để gọi chéo, vì `switchToPhotoSource()` đã SẴN nằm CÙNG object này).
+     * SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — thêm bước gọi
+     * `workflowFileManagerPhoto.computePhotoDuration()` (cùng file với `resizeImageForThumbnail()`,
+     * cùng lý do TỰ DO gọi chéo Workflow) TRƯỚC `saveImage()`, `saveImage()` giờ nhận thêm `duration`.
      * @param {FileList|File[]} files
      */
     async uploadPhotos(files) {
@@ -392,7 +449,8 @@ const workflowPlaylist = {
                 loadingText.textContent = tFormat('common.upload.loadingProgress', { done: i + 1, total: fileArray.length });
                 try {
                     const { thumbBlob, width, height } = await workflowFileManagerPhoto.resizeImageForThumbnail(file); // event/workflow/file-manager-photo.js — tái dùng NGUYÊN thuật toán resize cũ
-                    await saveImage(file, file.name, thumbBlob, width, height); // core/file-manager/image.js
+                    const duration = await workflowFileManagerPhoto.computePhotoDuration(file, width, height); // MỚI — Photo tích hợp duration như Song/Video (event/workflow/file-manager-photo.js)
+                    await saveImage(file, file.name, thumbBlob, width, height, duration); // core/file-manager/image.js
                 } catch (err) {
                     console.error(`[uploadPhotos] resize/lưu thất bại cho file "${file.name}":`, err);
                     failedCount++;
@@ -629,6 +687,16 @@ const workflowPlaylist = {
         if (!key) return;
         closeSongActionMenu();
         workflowVideoPreview.open(key); // event/workflow/video-preview.js
+    },
+
+    /** MỚI (Giang yêu cầu — "thêm dropdown edit image -> mở openImagePreview()") — mirror ĐÚNG
+     * khuôn navigateToActiveMenuVideoEdit() ngay trên, đích đến khác: modal xem/sửa ảnh (zoom/
+     * crop/rotate) đã có sẵn từ trước khi Photo được unified vào Playlist. */
+    navigateToActiveMenuPhotoEdit() {
+        const key = playlistStore.get('songActionMenuKey');
+        if (!key) return;
+        closeSongActionMenu();
+        workflowFileManagerPhoto.openImagePreview(key); // event/workflow/file-manager-photo.js
     },
 
     async openAddToFolderPickerForSongMenu() {

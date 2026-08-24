@@ -495,14 +495,21 @@ const workflowVideoPlayer = {
      * mode — xem setBgVideoElementForPlayerMode(), core/video-player.js) — chụp khung hình ĐANG
      * PHÁT của `bgVideoElement`, lưu vào thư viện Photo. Tái dùng core/video-player-capture.js
      * (di dời từ core/video-editor/frame-extract.js, nút "Trích xuất ảnh" trong modal Video
-     * Preview đã bỏ hẳn — KHÔNG viết lại logic, chỉ đổi nguồn video từ modal sang bgVideoElement). */
+     * Preview đã bỏ hẳn — KHÔNG viết lại logic, chỉ đổi nguồn video từ modal sang bgVideoElement).
+     * SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — thêm bước gọi
+     * `workflowFileManagerPhoto.computePhotoDuration()` (Workflow gọi Workflow miền khác, TỰ DO
+     * theo event-bus-flow.md mục 4B) TRƯỚC `saveImage()` — ảnh chụp từ khung hình video CŨNG phải
+     * có `duration` như mọi ảnh khác, không có ngoại lệ. `await` thêm `saveImage()` (trước đây
+     * fire-and-forget) — cần chờ `computePhotoDuration()` (đọc `blob.arrayBuffer()`) xong TRƯỚC,
+     * nên hàm chờ nốt luôn bước ghi record cho gọn 1 mạch async. */
     async captureCurrentFrame() {
         const sourceCanvas = captureVideoFrameToCanvas(bgVideoElement); // core/video-player-capture.js
         const blob = await new Promise((resolve) => sourceCanvas.toBlob(resolve, 'image/jpeg', 0.95));
         if (!blob) { await alertModal(t('videoPlayer.captureFrame.failed')); return; }
         const thumbBlob = await buildExtractedPhotoThumbnail(sourceCanvas, 0.2); // core/video-player-capture.js
         const filename = `${buildExtractedPhotoFilename()}.jpg`; // core/video-player-capture.js
-        saveImage(blob, filename, thumbBlob, sourceCanvas.width, sourceCanvas.height); // core/file-manager/image.js
+        const duration = await workflowFileManagerPhoto.computePhotoDuration(blob, sourceCanvas.width, sourceCanvas.height); // event/workflow/file-manager-photo.js
+        await saveImage(blob, filename, thumbBlob, sourceCanvas.width, sourceCanvas.height, duration); // core/file-manager/image.js
         await alertModal(t('videoPlayer.captureFrame.success'));
     },
 

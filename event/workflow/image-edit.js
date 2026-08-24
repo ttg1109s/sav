@@ -583,6 +583,10 @@ const workflowImageEdit = {
      * (`workflowFileManagerPhoto.resizeImageForThumbnail()`, dùng chung upload) ->
      * `updateImageBlob()` (core/file-manager/image.js) ghi đè ĐÚNG key đang mở. Đóng modal + refresh
      * lưới SAU KHI lưu xong (cả 2 việc này thuộc miền fileManagerPhoto).
+     * SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — thêm bước tính lại `duration`
+     * (`workflowFileManagerPhoto.computePhotoDuration()`) TRƯỚC `updateImageBlob()` — crop/rotate
+     * đổi cả kích thước lẫn dung lượng ảnh, giữ nguyên số `duration` cũ sẽ SAI so với nội dung ảnh
+     * thật (cùng lý do `thumbBlob`/`width`/`height` cũng phải tính lại, xem comment gốc trên).
      */
     async saveEditOverwrite() {
         const handle = this._activeImageModalHandle;
@@ -592,7 +596,8 @@ const workflowImageEdit = {
         await withLoadingShield(t('common.loading.savingImageEdit'), async () => {
             const finalBlob = await this._exportEditedBlob();
             const { thumbBlob, width, height } = await workflowFileManagerPhoto.resizeImageForThumbnail(finalBlob);
-            await updateImageBlob(imageKey, finalBlob, thumbBlob, width, height); // core/file-manager/image.js
+            const duration = await workflowFileManagerPhoto.computePhotoDuration(finalBlob, width, height); // MỚI — event/workflow/file-manager-photo.js
+            await updateImageBlob(imageKey, finalBlob, thumbBlob, width, height, duration); // core/file-manager/image.js
         });
         workflowFileManagerPhoto.closeImagePreview();
         await workflowFileManagerPhoto.refresh();
@@ -602,6 +607,9 @@ const workflowImageEdit = {
     /** Item "Lưu mới" (dropdown, CHỈ hiện khi `imagePreviewMode==='edit'`) — xuất `renderCanvas` ->
      * resize thumbnail -> `saveImage()` (core/file-manager/image.js, dùng CHUNG hàm upload) với tên
      * file MỚI (`_buildEditedNewFilename()`). Đóng modal + refresh lưới SAU KHI lưu xong.
+     * SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — thêm bước tính `duration`
+     * (`workflowFileManagerPhoto.computePhotoDuration()`) TRƯỚC `saveImage()`, cùng lý do
+     * `saveEditOverwrite()` ngay trên.
      */
     async saveEditAsNew() {
         const handle = this._activeImageModalHandle;
@@ -611,8 +619,9 @@ const workflowImageEdit = {
             const originalRecord = await getImageRecord(this._activeImageKey); // service/db.js
             const finalBlob = await this._exportEditedBlob();
             const { thumbBlob, width, height } = await workflowFileManagerPhoto.resizeImageForThumbnail(finalBlob);
+            const duration = await workflowFileManagerPhoto.computePhotoDuration(finalBlob, width, height); // MỚI — event/workflow/file-manager-photo.js
             const newFilename = this._buildEditedNewFilename(originalRecord ? originalRecord.filename : 'photo.jpg');
-            await saveImage(finalBlob, newFilename, thumbBlob, width, height); // core/file-manager/image.js
+            await saveImage(finalBlob, newFilename, thumbBlob, width, height, duration); // core/file-manager/image.js
         });
         workflowFileManagerPhoto.closeImagePreview();
         await workflowFileManagerPhoto.refresh();
