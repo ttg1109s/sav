@@ -480,6 +480,13 @@
          * core/file-manager/video.js::setVideoCustomName(), core gọi core khác file VẪN là core
          * gọi core — Rule 3 áp dụng bất kể ranh giới file) — inline 2 dòng ghi customName trực
          * tiếp tại đây.
+         * FIX (Giang báo — sau khi Lưu tab "Sửa", cover mất + phát lỗi không hiển thị video) — CÙNG
+         * GỐC BUG đã fix cho Song (`rematerializeBlob()`, service/db.js, xem comment ở
+         * applySongEditAndSave() dưới) nhưng CHƯA từng áp dụng ở đây: `record.blob`/`record.thumbBlob`
+         * đọc lên từ `getVideoRecord()` là Blob ROUND-TRIP qua IndexedDB — ghi lại NGUYÊN 2 Blob đó
+         * (dù không đổi 1 byte nội dung) khiến backing file không ổn định trong CÙNG phiên (bug
+         * Chromium) — thumbnail (record.thumbBlob, hiện ở item Playlist) vỡ NGAY, video (record.blob)
+         * lỗi decode khi phát lại KHÔNG CẦN reload trang. Vật chất hoá lại CẢ 2 trước khi ghi.
          * @param {string} key
          * @param {string} customName - rỗng = xoá tên riêng, rơi về filename gốc (đã bỏ đuôi mở
          *        rộng) khi hiển thị.
@@ -489,6 +496,8 @@
             const record = await getVideoRecord(key); // service/db.js
             if (!record) return { status: 'notFound' };
             record.customName = customName || null;
+            if (record.blob) record.blob = await rematerializeBlob(record.blob); // service/db.js — FIX round-trip, xem docstring trên
+            if (record.thumbBlob) record.thumbBlob = await rematerializeBlob(record.thumbBlob); // service/db.js — CÙNG lý do, thumbnail item Playlist
             await setVideoRecord(key, record); // service/db.js
 
             const displayName = record.customName || stripFileExtension(record.filename); // core/file-manager/video.js
@@ -526,6 +535,10 @@
          * Bản Photo của applyVideoEditAndSave() ngay trên — VIẾT RIÊNG (cùng lý do Rule 3 đã giải
          * thích ở đó). Ghi CẢ `customName` LẪN `duration` cùng lúc (2 field cùng 1 lần "Lưu", khớp
          * cách modal này hoạt động — 1 nút Lưu cho cả tab "Sửa").
+         * FIX (Giang báo — sau khi Lưu tab "Sửa", cover mất + phát lỗi không hiển thị ảnh) — CÙNG
+         * GỐC BUG applyVideoEditAndSave() ngay trên vừa fix (`rematerializeBlob()`, service/db.js)
+         * — `record.blob`/`record.thumbBlob` round-trip qua IndexedDB, PHẢI vật chất hoá lại trước
+         * khi ghi.
          * @param {string} key
          * @param {string} customName - rỗng = xoá tên riêng, rơi về filename gốc khi hiển thị.
          * @param {number} durationSec - giây, số thực, KHÔNG kẹp trần (Giang chốt "có min nhưng
@@ -538,6 +551,8 @@
             if (!record) return { status: 'notFound' };
             record.customName = customName || null;
             record.duration = durationSec;
+            if (record.blob) record.blob = await rematerializeBlob(record.blob); // service/db.js — FIX round-trip, xem docstring applyVideoEditAndSave()
+            if (record.thumbBlob) record.thumbBlob = await rematerializeBlob(record.thumbBlob); // service/db.js — CÙNG lý do, thumbnail item Playlist
             await setImageRecord(key, record); // service/db.js
 
             const displayName = record.customName || stripFileExtension(record.filename);
@@ -573,6 +588,15 @@
             // DEFAULT_VINYL, đúng hành vi cũ khi 1 bài chưa từng có cover).
             if (pendingCover instanceof File) record.cover = pendingCover;
             else if (pendingCover === 'remove') delete record.cover;
+            // FIX (Giang báo — sau khi Lưu tab "Sửa" mà KHÔNG đổi cover, cover mất) — TRƯỚC ĐÂY chỉ
+            // rematerialize `record.blob`, bỏ sót `record.cover`: khi người dùng CHỈ sửa title/
+            // artist (không đụng cover), `record.cover` ở đây vẫn NGUYÊN Blob round-trip từ
+            // getSongRecord() phía trên (2 nhánh if/else if trên KHÔNG chạy) — CÙNG GỐC BUG với
+            // record.blob ngay dưới (rematerializeBlob(), service/db.js), ghi lại nguyên xi cũng vỡ
+            // y hệt. CHỈ rematerialize khi record.cover THỰC SỰ là Blob round-trip (không phải File
+            // mới vừa gán ở nhánh trên, cũng không phải đã bị xoá) — dùng else if nối tiếp 2 nhánh
+            // trên, tự loại 2 trường hợp đó.
+            else if (record.cover) record.cover = await rematerializeBlob(record.cover);
             // FIX (decode lỗi khi nghe lại bài VỪA sửa info, không reload mới hết) — xem giải thích
             // đầy đủ tại rematerializeBlob() (db.js). record.blob ở đây là Blob round-trip từ
             // getSongRecord() phía trên, PHẢI vật chất hoá lại thành Blob mới trước khi ghi đè.
