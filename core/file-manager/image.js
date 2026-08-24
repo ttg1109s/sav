@@ -12,6 +12,13 @@
  * Record CŨ (upload trước bản này) THIẾU 3 field trên — mọi nơi đọc PHẢI tự fallback (`thumbBlob ||
  * blob`, `width > 0 ? ... : 1` coi như ảnh vuông) — KHÔNG migrate DB_VERSION (idb-keyval tự do field).
  *
+ * MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video, chạy trong Playlist/visualizer
+ * thừa hưởng đúng cơ chế Play/Next-Prev/Shuffle, im lặng hoàn toàn lúc hiển thị) — record thêm field
+ * `duration` (giây, số thực — event/workflow/file-manager-photo.js::computePhotoDuration(),
+ * deterministic từ size+resolution+SHA-256 của chính file). CÙNG NGUYÊN TẮC fallback record cũ như
+ * `thumbBlob`/`width`/`height` — record cũ (upload trước field này tồn tại) THIẾU `duration`, nơi
+ * đọc PHẢI tự fallback (xem core/playlist/loader.js::buildPhotoPlaylistCache()).
+ *
  * XOÁ (loại bỏ Album khỏi Photo Panel) — không còn cascade dọn ảnh khỏi album lúc xoá (Album đã
  * xoá hẳn khỏi app, xem core/file-manager/image.js::deleteImage()).
  *
@@ -49,21 +56,25 @@ async function resolveImageKey(filename) {
 
 /**
  * Lưu 1 ảnh mới (hoặc ghi đè nếu trùng filename — xem resolveImageKey()). 1 tiến trình duy nhất:
- * sinh key -> ghi record. `thumbBlob`/`width`/`height` PHẢI tính SẴN trước khi gọi hàm này (Workflow
- * — event/workflow/file-manager-photo.js::resizeImageForThumbnail(), cần Image/canvas là DOM API,
- * core KHÔNG được đụng theo Rule 1-4) — hàm này (core) CHỈ ghi lại nguyên xi, không tự resize/decode
- * gì thêm.
+ * sinh key -> ghi record. `thumbBlob`/`width`/`height`/`duration` PHẢI tính SẴN trước khi gọi hàm
+ * này (Workflow — event/workflow/file-manager-photo.js::resizeImageForThumbnail()/
+ * computePhotoDuration(), cần Image/canvas/File.arrayBuffer() là DOM/Web API, core KHÔNG được đụng
+ * theo Rule 1-4) — hàm này (core) CHỈ ghi lại nguyên xi, không tự resize/decode/hash gì thêm.
+ * SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video, thừa hưởng Play/Next-Prev/Shuffle
+ * của Playlist) — thêm tham số `duration` (giây, số thực — event/workflow/file-manager-photo.js::
+ * computePhotoDuration()), ghi vào record CÙNG lúc với `thumbBlob`/`width`/`height`.
  * @param {File|Blob} file - blob ẢNH GỐC (không resize).
  * @param {string} filename
  * @param {Blob} thumbBlob - ảnh đã resize sẵn, dùng cho lưới (Giai đoạn 1, mục 3d).
  * @param {number} width - chiều rộng ẢNH GỐC (px), đo lúc resize.
  * @param {number} height - chiều cao ẢNH GỐC (px), đo lúc resize.
+ * @param {number} duration - giây, số thực, tính lúc upload (computePhotoDuration()).
  * @returns {Promise<string>} imageKey vừa lưu
  */
-async function saveImage(file, filename, thumbBlob, width, height) {
+async function saveImage(file, filename, thumbBlob, width, height, duration) {
     const imageKey = await resolveImageKey(filename); // CÓ return, DÙNG ngay dưới -> hợp lệ Rule 3
     console.log(`[saveImage] callTo: "resolveImageKey", request: "sinh/tái dùng key duy nhất từ tên file '${filename}'"`);
-    await setImageRecord(imageKey, { blob: file, thumbBlob, width, height, filename, addedAt: Date.now() });
+    await setImageRecord(imageKey, { blob: file, thumbBlob, width, height, duration, filename, addedAt: Date.now() });
     return imageKey;
 }
 
@@ -85,17 +96,21 @@ async function saveImage(file, filename, thumbBlob, width, height) {
  * backfill thật hay chấp nhận giữ nguyên cho tới khi ảnh được re-upload/edit). Nơi gọi
  * (event/workflow/file-manager-photo.js::saveEditOverwrite()) PHẢI tự resize thumbnail TRƯỚC khi
  * gọi hàm này — core không được đụng canvas (Rule 1-4, DOM API).
+ * SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — nhận thêm `duration`, ghi đè
+ * CÙNG lúc — sửa ảnh (crop/rotate) đổi cả kích thước lẫn dung lượng nên tính lại cho nhất quán với
+ * `saveImage()` (thay vì giữ nguyên số cũ, giờ SAI so với nội dung ảnh thật).
  * @param {string} imageKey
  * @param {Blob} newBlob - ảnh GỐC đã sửa.
  * @param {Blob} thumbBlob - thumbnail đã resize sẵn, cùng công thức lúc upload.
  * @param {number} width - chiều rộng ảnh GỐC đã sửa (px).
  * @param {number} height - chiều cao ảnh GỐC đã sửa (px).
+ * @param {number} duration - giây, số thực, tính lại từ ảnh GỐC đã sửa (computePhotoDuration()).
  * @returns {Promise<{status: 'notFound'|'ok'}>}
  */
-async function updateImageBlob(imageKey, newBlob, thumbBlob, width, height) {
+async function updateImageBlob(imageKey, newBlob, thumbBlob, width, height, duration) {
     const record = await getImageRecord(imageKey); // data layer
     if (!record) return { status: 'notFound' };
-    await setImageRecord(imageKey, { ...record, blob: newBlob, thumbBlob, width, height });
+    await setImageRecord(imageKey, { ...record, blob: newBlob, thumbBlob, width, height, duration });
     return { status: 'ok' };
 }
 
