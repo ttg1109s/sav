@@ -1,7 +1,6 @@
-/* base.css — reset gốc, khung #app-root (safe-area), 5 lớp nền toàn màn hình (màu/ảnh/video/ảnh-
-   track-đang-phát/canvas, thứ tự z-index thấp -> cao: #visualizer-solid-bg -3 < #visual-bg-image -2
-   < slideshow -1 (assets/css/slideshow.css) < #bg-video 0 < #photo-player-image 0 < #webgl-canvas 1
-   < #visualizer 10), scrollbar mảnh dùng chung. */
+/* base.css — reset gốc, khung #app-root (safe-area), 4 lớp nền toàn màn hình (màu/ảnh/video/canvas,
+   thứ tự z-index thấp -> cao: #visualizer-solid-bg -3 < #visual-bg-image -2 < slideshow -1 (assets/
+   css/slideshow.css) < #bg-video 0 < #webgl-canvas 1 < #visualizer 10), scrollbar mảnh dùng chung. */
 
 :root { --item-bg-opacity: 0.1; }
 body { margin: 0; overflow: hidden; background-color: #000000; transition: background-color 0.3s ease; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; touch-action: manipulation; }
@@ -17,16 +16,6 @@ body { min-height: 100dvh; background: #000; }
 }
 
 #bg-video { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; object-fit: cover; z-index: 0; pointer-events: none; background-size: cover; background-position: center; }
-
-/* MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video, chạy trong Playlist/visualizer
-   thừa hưởng đúng cơ chế Play/Next-Prev/Shuffle, im lặng hoàn toàn lúc hiển thị) — "Photo Player
-   mode": element RIÊNG (KHÔNG tái dùng #visual-bg-image — element đó thuộc VBG, nguồn nền trang trí
-   ĐỘC LẬP, tránh 2 tính năng tranh giành cùng 1 DOM element). z-index 0, NGANG #bg-video (2 mode
-   loại trừ nhau tại 1 thời điểm — currentKey chỉ có 1 mediaType — không bao giờ cả 2 cùng hiện,
-   thứ tự ngang nhau không xung đột). Ẩn mặc định (`.hidden` — display:none, xem core/photo-
-   player.js::setPhotoPlayerElementForMode()). */
-#photo-player-image { position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; background-size: contain; background-position: center; background-repeat: no-repeat; background-color: #000; z-index: 0; pointer-events: none; }
-#photo-player-image.hidden { display: none; }
 
 /* ===================== Generic Drawer — animation chiều cao + trượt lên/xuống =====================
    [SỬA 20/08/2026, Giang xác nhận] — trượt lên/xuống bằng `transform: translateY()` (JS set
