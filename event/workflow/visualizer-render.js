@@ -154,8 +154,9 @@ const workflowVisualizerRender = {
 
         // SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video, "visualizer hiển thị
         // trạng thái idle/tĩnh" lúc đang phát 1 ảnh) — thêm `isPhotoPlayerMode` vào điều kiện ẩn
-        // canvas — ảnh hiện qua `#photo-player-image` (z-index 0, DƯỚI canvas #webgl-canvas(1)/
-        // #visualizer(10) — xem assets/css/base.css), phải ẩn canvas mới lộ ra được, CÙNG cơ chế
+        // canvas — ảnh hiện qua `#visual-bg-image` (z-index -2, DƯỚI canvas #webgl-canvas(1)/
+        // #visualizer(10) — xem assets/css/base.css, tái dùng element VBG, event/workflow/visual-
+        // bg.js::applyVisualBgImageToDOM()), phải ẩn canvas mới lộ ra được, CÙNG cơ chế
         // `updateCanvasVisibility()` (core) đã dùng cho cfg.visualEnabled===false — KHÔNG cần hàm
         // core mới, chỉ thêm điều kiện vào biến đã có. Không tự return sớm ở đây (Game Mode vẫn
         // cần workflowGameplay.tick() chạy dù canvas ẩn, xem comment "layer game là DOM riêng" ngay

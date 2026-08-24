@@ -73,10 +73,15 @@ const workflowPlayer = {
         const cachedForDispatch = appState.get('playlistCache').get(key);
 
         // MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — nếu đang ở Photo Player
-        // mode và bài/video/ảnh MỚI KHÔNG phải Photo, dọn dẹp mode đó TRƯỚC (kill task đồng hồ, ẩn
-        // #photo-player-image, trả canvas về bình thường) rồi mới để 2 guard clause Video/Song bên
-        // dưới chạy TIẾP như chưa từng có gì thay đổi — CHỈ 1 chỗ xử lý mọi hướng thoát (Photo ->
-        // Song, Photo -> Video), không rải rác guard riêng ở từng nhánh.
+        // mode và bài/video/ảnh MỚI KHÔNG phải Photo, dọn dẹp mode đó TRƯỚC (kill task đồng hồ,
+        // khôi phục #visual-bg-image về ĐÚNG cấu hình VBG thật, trả canvas về bình thường) rồi mới
+        // để 2 guard clause Video/Song bên dưới chạy TIẾP như chưa từng có gì thay đổi — CHỈ 1 chỗ
+        // xử lý mọi hướng thoát (Photo -> Song, Photo -> Video), không rải rác guard riêng ở từng
+        // nhánh. KHÔNG `await` (playMedia() không async, giữ nguyên) — `exitPhotoPlayerMode()` giờ
+        // async (gọi `applyCurrentVisualBg()`, event/workflow/visual-bg.js) nhưng an toàn để
+        // fire-and-forget: thuần cập nhật lớp nền TRANG TRÍ, không chặn/ảnh hưởng gì tới việc phát
+        // Song/Video mới ngay sau đây — nếu nhánh Video chạy tiếp, `startFromPlaylist()` TỰ gọi lại
+        // `clearMediaLayers()` của chính nó nên không có race thật nào đáng lo.
         if (appState.get('isPhotoPlayerMode') && (!cachedForDispatch || cachedForDispatch.mediaType !== 'photo')) {
             workflowPhotoPlayer.exitPhotoPlayerMode(); // event/workflow/photo-player.js
         }
