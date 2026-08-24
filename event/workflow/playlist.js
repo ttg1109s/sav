@@ -26,13 +26,15 @@ const VIDEO_THUMBNAIL_SIZE = 320;
  * (TỨC file này) tự chọn giá trị) — hằng số dưới KHÔNG phải "trần của widget", mà là lựa chọn CỦA
  * RIÊNG chỗ gọi này. Ràng buộc THẬT DUY NHẤT nằm ở `buildColumn()` (core/time-picker-modal.js):
  * `count` dòng của cột thô nhất PHẢI hữu hạn (vòng lặp `appendChild()` DOM thật, không ảo hoá) —
- * truyền `Infinity` sẽ treo trình duyệt (tạo vô hạn phần tử). Ngoài giới hạn KỸ THUẬT đó (phải là
- * số hữu hạn), giá trị bao nhiêu là TUỲ CHỌN — chọn 999 phút (~16.6 giờ, ~1000 dòng DOM cho cột
- * phút) RỘNG HƠN RẤT NHIỀU bất kỳ giá trị nào computePhotoDuration() (event/workflow/file-manager-
- * photo.js) thực tế tạo ra (~vài phút ngay cả ảnh RAW cỡ trăm MB) — mục tiêu là chọn đủ lớn để
- * KHÔNG BAO GIỜ cảm giác như 1 trần thật, không phải cố tình giới hạn thấp.
+ * truyền `Infinity` sẽ treo trình duyệt (tạo vô hạn phần tử).
+ * SỬA (Giang yêu cầu — format đổi 'm-s' -> 'h-m-s') — cột thô nhất giờ là 'h' (giờ), TRẦN TỰ NHIÊN
+ * (`TIME_PICKER_UNIT_CAP.h`, core/time-picker-modal.js) đã là 24 — `count = Math.max(naturalCap,
+ * countFromMaxMs)` nên bất kỳ `maxMs` nào ≤ 24 giờ đều cho ĐÚNG 24 dòng giờ (0-23), trần tự nhiên
+ * tự thắng, không cần chọn số to hơn nữa. Đặt thẳng 24 giờ cho rõ ý, RỘNG HƠN RẤT NHIỀU bất kỳ giá
+ * trị nào computePhotoDuration() (event/workflow/file-manager-photo.js) thực tế tạo ra (~vài phút
+ * ngay cả ảnh RAW cỡ trăm MB) — không phải cố tình giới hạn thấp.
  */
-const PHOTO_EDIT_DURATION_PICKER_MAX_MS = 999 * 60 * 1000; // 999 phút
+const PHOTO_EDIT_DURATION_PICKER_MAX_MS = 24 * 60 * 60 * 1000; // 24 giờ
 
 /** MỚI (phản hồi Giang — "1 khung, không nhân bản, VMState theo activeMediaSource") — `accept`
  * của 2 input DÙNG CHUNG (`fileInput`/`folderInput`, core/dom-refs.js — #media-upload/
@@ -192,18 +194,19 @@ const workflowPlaylist = {
 
     /** Ứng với click nút duration ở tab "Sửa" của nhóm field Photo — mở time-picker (core/time-
      * picker-modal.js, dùng chung với Slideshow/Visual Background gradient) thay vì input số tay
-     * (Giang chỉ định "dùng time picker, có min nhưng không max"). SỬA (Giang chỉ ra đúng) —
-     * `maxMs` KHÔNG phải giới hạn của widget, chỉ là 1 config nơi gọi tự chọn (xem docstring
-     * `PHOTO_EDIT_DURATION_PICKER_MAX_MS` đầu file) — 999 phút, rộng hơn rất nhiều bất kỳ giá trị
-     * nào `computePhotoDuration()` (event/workflow/file-manager-photo.js) thực tế tạo ra. Giá trị
-     * THẬT lưu trong DB không hề bị hàm nào clamp — nếu 1 ảnh có duration vượt 999 phút (chưa từng
-     * xảy ra với công thức hiện tại), mở picker sẽ tự kẹp hiển thị về 999 phút, không đụng gì tới
-     * số đã lưu. Chỉ set `min` — không có ý định giới hạn trên thật nào. */
+     * (Giang chỉ định "dùng time picker, có min nhưng không max"). SỬA (Giang yêu cầu — format
+     * 'h-m-s', trước đây chỉ 'm-s') — thêm cột giờ. `maxMs` KHÔNG phải giới hạn của widget, chỉ là
+     * 1 config nơi gọi tự chọn (xem docstring `PHOTO_EDIT_DURATION_PICKER_MAX_MS` đầu file) — 24
+     * giờ, rộng hơn rất nhiều bất kỳ giá trị nào `computePhotoDuration()` (event/workflow/file-
+     * manager-photo.js) thực tế tạo ra. Giá trị THẬT lưu trong DB không hề bị hàm nào clamp — nếu 1
+     * ảnh có duration vượt 24 giờ (chưa từng xảy ra với công thức hiện tại), mở picker sẽ tự kẹp
+     * hiển thị về 24 giờ, không đụng gì tới số đã lưu. Chỉ set `min` — không có ý định giới hạn
+     * trên thật nào. */
     openPhotoEditDurationPicker() {
         const currentSec = playlistStore.get('songEditPendingPhotoDurationSec') || 0;
         openTimePickerModal({ // core/time-picker-modal.js
             title: t('playlistView.songEdit.durationPickerTitle'),
-            format: 'm-s',
+            format: 'h-m-s',
             valueMs: currentSec * 1000,
             minMs: DURATION_MIN_SEC * 1000, // event/workflow/file-manager-photo.js — CÙNG sàn computePhotoDuration() áp lúc upload
             maxMs: PHOTO_EDIT_DURATION_PICKER_MAX_MS, // xem docstring hằng số đầu file — KHÔNG phải trần widget, chỉ là config
@@ -1043,8 +1046,11 @@ const workflowPlaylist = {
         // Nguồn (LUÔN hiện, không còn toggle 'hidden' theo Nguồn) — chỉ còn cần đổi `accept` của 2
         // input bên trong menu, xem _applyUploadInputAccept().
         this._applyUploadInputAccept('video');
-        // MỚI (hợp nhất Photo vào Playlist) — đảm bảo hàng "Phát/Trộn bài" hiện lại khi rời Photo
-        // (Video vẫn phát được bình thường, chỉ Photo mới ẩn — xem switchToPhotoSource()).
+        // MỚI (hợp nhất Photo vào Playlist) — SỬA (Giang yêu cầu — Photo tích hợp duration như
+        // Song/Video, "bỏ ẩn cho 2 nút phát và shuffle") — TRƯỚC ĐÂY comment này nói "chỉ Photo mới
+        // ẩn" (đúng lúc đó) — giờ CẢ 3 Nguồn đều LUÔN hiện 2 nút này (Photo đã có Play/Next-Prev/
+        // Shuffle thật, không còn ẩn nữa — xem switchToPhotoSource()), dòng dưới vẫn giữ (vô hại,
+        // luôn đúng) chỉ sửa lại comment cho khớp thực tế.
         if (btnPlaylistEmptyPlay) btnPlaylistEmptyPlay.classList.remove('hidden');
         if (btnPlaylistEmptyShuffle) btnPlaylistEmptyShuffle.classList.remove('hidden');
         await this._persistPlaylistConfig(); // MỚI (phản hồi Giang, mục 5) — lưu bền Nguồn để không mất sau reload
@@ -1140,12 +1146,15 @@ const workflowPlaylist = {
         // Nguồn (kể cả Photo — trước đây Photo hoàn toàn KHÔNG có upload trong Playlist, giờ có
         // qua chính khung này, xem uploadPhotos() bên dưới) — chỉ cần đổi `accept`.
         this._applyUploadInputAccept('photo');
-        // MỚI (hợp nhất Photo vào Playlist) — CHỐT Giang: Photo chưa có khái niệm "hàng đợi phát",
-        // ẩn hẳn hàng "Phát/Trộn bài" (2 nút này gọi playMedia() qua displayOrder — vô nghĩa với
-        // Photo). Sẽ tính lại khi Slideshow áp dụng toàn app (không chỉ Visual Background) — tạm
-        // hoãn, KHÔNG nằm trong phạm vi đợt này.
-        if (btnPlaylistEmptyPlay) btnPlaylistEmptyPlay.classList.add('hidden');
-        if (btnPlaylistEmptyShuffle) btnPlaylistEmptyShuffle.classList.add('hidden');
+        // SỬA (Giang yêu cầu — Photo tích hợp duration như Song/Video, "bỏ ẩn cho 2 nút phát và
+        // shuffle") — TRƯỚC ĐÂY ẩn hẳn hàng "Phát/Trộn bài" vì Photo chưa có khái niệm "hàng đợi
+        // phát" (comment cũ: "tạm hoãn, sẽ tính lại khi Slideshow áp dụng toàn app") — giờ Photo ĐÃ
+        // có Play/Next-Prev/Shuffle thật (playMedia() nhánh 'photo', event/workflow/photo-player.js)
+        // nên 2 nút này giờ hoạt động Y HỆT Song/Video — CHỦ ĐỘNG gỡ 'hidden' (không chỉ bỏ dòng
+        // add cũ) để phòng trường hợp còn sót 'hidden' từ 1 lần switchToPhotoSource() TRƯỚC bản sửa
+        // này (đã lưu bền qua reload) — cùng cách switchToVideoSource()/switchToSongSource() làm.
+        if (btnPlaylistEmptyPlay) btnPlaylistEmptyPlay.classList.remove('hidden');
+        if (btnPlaylistEmptyShuffle) btnPlaylistEmptyShuffle.classList.remove('hidden');
         await this._persistPlaylistConfig(); // MỚI (phản hồi Giang, mục 5) — lưu bền Nguồn để không mất sau reload
     },
 
@@ -1247,9 +1256,13 @@ const workflowPlaylist = {
         // 2 input DÙNG CHUNG theo đúng Nguồn vừa khôi phục — nút bấm mở menu LUÔN hiện, không đổi.
         this._applyUploadInputAccept(restoredSource);
         // MỚI (hợp nhất Photo vào Playlist) — cùng lý do, hàng "Phát/Trộn bài" cũng phải tự đồng bộ
-        // ở đây (KHÔNG đi qua switchToPhotoSource() lúc boot).
-        if (btnPlaylistEmptyPlay) btnPlaylistEmptyPlay.classList.toggle('hidden', restoredSource === 'photo');
-        if (btnPlaylistEmptyShuffle) btnPlaylistEmptyShuffle.classList.toggle('hidden', restoredSource === 'photo');
+        // ở đây (KHÔNG đi qua switchToPhotoSource() lúc boot). SỬA (Giang yêu cầu — "bỏ ẩn cho 2
+        // nút phát và shuffle") — TRƯỚC ĐÂY toggle theo `restoredSource === 'photo'` (ẩn khi boot
+        // thẳng vào Photo) — giờ Photo không còn ẩn 2 nút này nữa (xem switchToPhotoSource()), LUÔN
+        // gỡ 'hidden' bất kể Nguồn nào, khớp đúng cách switchToVideoSource()/switchToSongSource()/
+        // switchToPhotoSource() đều làm.
+        if (btnPlaylistEmptyPlay) btnPlaylistEmptyPlay.classList.remove('hidden');
+        if (btnPlaylistEmptyShuffle) btnPlaylistEmptyShuffle.classList.remove('hidden');
         await this.syncPlaylistSettingsUI();
     },
 
