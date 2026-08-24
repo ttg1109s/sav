@@ -1,21 +1,31 @@
 /**
  * core/photo-player.js — "Photo Player mode": ảnh tĩnh phát làm nội dung chính trên màn Visualizer
- * (KHÁC "Nền tĩnh Visual" trang trí — core/visual-bg.js, dùng `#visual-bg-image` riêng, KHÔNG đụng
- * gì ở đây, MỚI Giang yêu cầu — Photo tích hợp `duration` như Song/Video).
+ * (MỚI Giang yêu cầu — Photo tích hợp `duration` như Song/Video).
  *
- * `#photo-player-image` (photoPlayerImageEl, core/dom-refs.js) là element RIÊNG, KHÔNG tái dùng
- * `#visual-bg-image` (VBG, tính năng độc lập — 2 element tránh tranh giành nhau, xem comment
- * assets/css/base.css). Ảnh KHÔNG có audio/HTMLMediaElement thật — "đồng hồ" (elapsed/pause/resume)
- * là state tự viết (`photoPlayerElapsedBeforePauseSec`/`photoPlayerStartedAtMs`/
- * `photoPlayerPaused`, package "photo-player-mode", service/state/photo-player-mode.js), file này
- * chỉ tính TOÁN THUẦN từ 3 field đó (Rule 2 — nhận qua tham số, không tự appState.get()) + toggle
- * DOM/UI tức thời. Vòng lặp taskManager tự đếm giờ + đọc/ghi appState sống ở event/workflow/
- * photo-player.js (Rule 3 — core không dùng taskManager).
+ * SỬA (Giang chỉ ra đúng — "vbg chỉ hợp lệ với song thì quan tâm gì đang phát video/photo bị ngắt
+ * quãng, kiểm tra lại logic") — TRƯỚC ĐÂY dựng RIÊNG `#photo-player-image` (lo sợ tranh giành nội
+ * dung với `#visual-bg-image` của VBG) — THỪA: VBG chỉ có ý nghĩa lúc Song đang phát (nền trang trí
+ * đằng sau visualizer phản ứng audio), tự nhiên KHÔNG áp dụng lúc Photo (hay Video) đang phát —
+ * không có gì để "tranh giành" cả. Video Player mode đã giải quyết ĐÚNG bài toán này từ trước bằng
+ * `workflowVisualBg.clearMediaLayers()` (gọi lúc VÀO mode — dọn lớp VBG đang hiện, KHÔNG đụng cấu
+ * hình đã lưu) + `applyCurrentVisualBg()` (gọi lúc THOÁT mode — khôi phục ĐÚNG theo cấu hình) — xem
+ * event/workflow/visual-bg.js. Photo giờ dùng LẠI ĐÚNG cặp hàm đó (event/workflow/photo-player.js),
+ * hiện ảnh qua `applyVisualBgImageToDOM()` (core/visual-bg.js, tái dùng `#visual-bg-image`) — file
+ * này KHÔNG còn hàm toggle DOM nào của riêng Photo nữa, ĐÃ XOÁ `setPhotoPlayerElementForMode()`
+ * (dọn code thừa) + element `#photo-player-image`/`photoPlayerImageEl` (assets/css/base.css,
+ * index.html, core/dom-refs.js).
+ *
+ * Ảnh KHÔNG có audio/HTMLMediaElement thật — "đồng hồ" (elapsed/pause/resume) là state tự viết
+ * (`photoPlayerElapsedBeforePauseSec`/`photoPlayerStartedAtMs`/`photoPlayerPaused`, package
+ * "photo-player-mode", service/state/photo-player-mode.js), file này chỉ tính TOÁN THUẦN từ 3 field
+ * đó (Rule 2 — nhận qua tham số, không tự appState.get()) + toggle UI progress bar/icon. Vòng lặp
+ * taskManager tự đếm giờ + đọc/ghi appState sống ở event/workflow/photo-player.js (Rule 3 — core
+ * không dùng taskManager).
  *
  * Next/Prev/shuffle/repeat DÙNG CHUNG cơ chế Playlist (`workflowPlayerControls.goToNextTrack()`/
  * `goToPrevTrack()`) — không có logic riêng cho Photo, giống hệt Video đã làm.
  *
- * NẠP SAU: service/state.js, core/dom-refs.js (photoPlayerImageEl).
+ * NẠP SAU: service/state.js.
  */
 
 /** Bật/tắt state Photo Player mode — gọi lúc BẮT ĐẦU/KẾT THÚC mode (event/workflow/photo-player.js
@@ -27,19 +37,6 @@ function enterPhotoPlayerModeState() {
 }
 function exitPhotoPlayerModeState() {
     appState.set('isPhotoPlayerMode', false);
-}
-
-/** Đổi `.hidden` (display:none) của `photoPlayerImageEl` — cơ chế hiện/ẩn DUY NHẤT, mirror
- * `setBgVideoElementForPlayerMode()` (core/video-player.js). `enabled=true`: gỡ `.hidden`, gán
- * `background-image` = objectUrl. `enabled=false`: thêm lại `.hidden`, xoá `background-image` (để
- * object URL không bị giữ tham chiếu ngoài ý muốn trong DOM — nơi gọi tự `URL.revokeObjectURL()`
- * TRƯỚC khi gọi hàm này với `enabled=false`, xem event/workflow/photo-player.js).
- * @param {boolean} enabled
- * @param {string} [objectUrl] - BẮT BUỘC khi `enabled=true`, bỏ qua khi `enabled=false`.
- */
-function setPhotoPlayerElementForMode(enabled, objectUrl) {
-    photoPlayerImageEl.classList.toggle('hidden', !enabled);
-    photoPlayerImageEl.style.backgroundImage = enabled && objectUrl ? `url("${objectUrl}")` : '';
 }
 
 /** Tính elapsed (giây) HIỆN TẠI từ 3 field đồng hồ giả — THUẦN, không side-effect, gọi lại nhiều

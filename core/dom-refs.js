@@ -220,10 +220,10 @@
         // gộp vào panel "Visual Background". `bgVideoElement` GIỮ NGUYÊN — thẻ <video> dùng CHUNG
         // cho CẢ Video nền LẪN Video Player mode, không liên quan tới việc gộp 3 toggle.)
         const bgVideoElement = document.getElementById('bg-video');
-        // MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — "Photo Player mode",
-        // element RIÊNG (KHÔNG tái dùng visualBgImageElement — element đó thuộc VBG, tính năng độc
-        // lập). Xem core/photo-player.js.
-        const photoPlayerImageEl = document.getElementById('photo-player-image');
+        // SỬA (Giang chỉ ra đúng — "vbg chỉ hợp lệ với song thì quan tâm gì đang phát video/photo
+        // bị ngắt quãng") — "Photo Player mode" từng có element RIÊNG `photoPlayerImageEl` ở đây,
+        // ĐÃ XOÁ — giờ tái dùng ĐÚNG `visualBgImageElement` ngay dưới (CÙNG cơ chế clearMediaLayers()/
+        // applyCurrentVisualBg(), event/workflow/visual-bg.js, Video Player mode đã dùng từ trước).
         // Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual).
         // FIX (04/07/2026, mục 1a) — nền màu Settings (bgColor), TÁCH khỏi document.body.
         const visualizerSolidBg = document.getElementById('visualizer-solid-bg');
