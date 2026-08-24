@@ -267,6 +267,28 @@ const TPL_PLAYLIST_VIEW = `
                         <input type="text" id="song-edit-custom-name" class="w-full bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors">
                     </div>
                 </div>
+                <!-- MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video) — nhóm field
+                     Photo: mirror ô "Tên hiển thị" của nhóm Video ngay trên + THÊM 1 hàng duration
+                     (nút mở time-picker thay vì input số tay — Giang chỉ định "dùng time picker,
+                     có min nhưng không max", xem event/workflow/playlist.js::
+                     openPhotoEditDurationPicker()). -->
+                <div id="song-edit-fields-photo-group" class="hidden flex-col gap-3">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide ml-0.5" data-i18n="playlistView.songEdit.fieldCustomName">${t('playlistView.songEdit.fieldCustomName')}</label>
+                        <div class="relative">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
+                            <input type="text" id="song-edit-photo-name" class="w-full bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors">
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide ml-0.5" data-i18n="playlistView.songEdit.fieldDuration">${t('playlistView.songEdit.fieldDuration')}</label>
+                        <button type="button" id="song-edit-photo-duration-btn" class="w-full flex items-center justify-between bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white outline-none hover:border-sky-500 hover:bg-black/60 transition-colors relative text-left">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span id="song-edit-photo-duration-value">0:00</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Tab 3: Ảnh bìa — không đổi. -->
@@ -375,6 +397,17 @@ const TPL_PLAYLIST_VIEW = `
         <button id="song-menu-btn-edit-video" data-menu-action="editVideoFile" class="hidden flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 border-t border-white/5">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3" /></svg>
             <span data-i18n="playlistView.songMenu.editVideoFile">${t('playlistView.songMenu.editVideoFile')}</span>
+        </button>
+        <!-- MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video, "thêm dropdown edit
+             image -> mở openImagePreview()") — mirror ĐÚNG khuôn song-menu-btn-edit-video ngay
+             trên (ẩn mặc định, JS chỉ hiện khi item đang mở menu là Photo — xem
+             openSongActionMenu(), core/playlist/actions.js) — mở modal xem/sửa ảnh (zoom/crop/
+             rotate) đã có sẵn từ trước (workflowFileManagerPhoto.openImagePreview()), CHỈ đổi điểm
+             vào (trước đây click thẳng vào ảnh mở luôn, giờ click ảnh = phát, mở qua dropdown này
+             thay). -->
+        <button id="song-menu-btn-edit-image" data-menu-action="editImage" class="hidden flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-white/10 transition-colors text-slate-200 border-t border-white/5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            <span data-i18n="playlistView.songMenu.editImage">${t('playlistView.songMenu.editImage')}</span>
         </button>
         <!-- MỚI (mục 1d, CHỐT 03/07/2026) — dùng data-menu-action="addToFolder" RIÊNG, KHÔNG đi
              qua handleSongActionMenuSelect() (đã có sẵn 4 nhánh if/else — thêm nhánh thứ 5 vào đó

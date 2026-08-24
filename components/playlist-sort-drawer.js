@@ -9,10 +9,14 @@
  * Khi field khác 'none', trục này LÀ CHÍNH — trục (1) chỉ còn vai trò phá thế bằng (2 bài bằng
  * nhau) — xem core/playlist/order.js::sortKeysByMode().
  *
- * MỞ RỘNG (hợp nhất Photo vào Playlist) — 2 field 'times' (tổng thời gian nghe)/'duration' (thời
- * lượng) KHÔNG áp dụng cho Photo (ảnh không có 2 khái niệm này) — ẩn khỏi dropdown khi
- * `source==='photo'` (CHỐT Giang). `count` GIỮ LẠI cho Photo, đổi ý nghĩa thành "lượt click xem"
- * (xem event/workflow/file-manager-photo.js::openImagePreview() — bumpSongPlayCount()).
+ * MỞ RỘNG (hợp nhất Photo vào Playlist) — field 'times' (tổng thời gian nghe) KHÔNG áp dụng cho
+ * Photo (ảnh không tính "thời gian nghe" — xem event/workflow/photo-player.js, docstring đầu file:
+ * Photo KHÔNG dùng startListenClock()/stopListenClock()) — ẩn khỏi dropdown khi `source==='photo'`
+ * (CHỐT Giang). `count` GIỮ LẠI cho Photo, đổi ý nghĩa thành "lượt click xem" (xem event/workflow/
+ * file-manager-photo.js::openImagePreview() — bumpSongPlayCount()).
+ * SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — field 'duration' TRƯỚC ĐÂY ẩn
+ * cho Photo (lúc đó `duration` hard-code 0, vô nghĩa) — giờ `duration` là số THẬT (tính lúc upload,
+ * core/playlist/loader.js::buildPhotoPlaylistCache()), HIỆN LẠI cho Photo giống Song/Video.
  * @param {string} source - 'song' | 'video' | 'photo'.
  */
 function renderPlaylistSortPanelBody(source) {
@@ -36,7 +40,7 @@ function renderPlaylistSortPanelBody(source) {
                                 <option value="count" data-i18n="playlistSortPanel.statField.count">${t('playlistSortPanel.statField.count')}</option>
                                 ${isPhoto ? '' : `<option value="times" data-i18n="playlistSortPanel.statField.times">${t('playlistSortPanel.statField.times')}</option>`}
                                 <option value="size" data-i18n="playlistSortPanel.statField.size">${t('playlistSortPanel.statField.size')}</option>
-                                ${isPhoto ? '' : `<option value="duration" data-i18n="playlistSortPanel.statField.duration">${t('playlistSortPanel.statField.duration')}</option>`}
+                                <option value="duration" data-i18n="playlistSortPanel.statField.duration">${t('playlistSortPanel.statField.duration')}</option>
                             </select>
                         </div>
                         <!-- MỚI (mục 3) — dropdown hướng, CHỈ hiện khi field ở trên khác 'none' —
