@@ -384,9 +384,17 @@
          * NGUYÊN cơ chế `<img>` + object URL sẵn có, không cần đổi gì. `width`/`height` (ảnH GỐC,
          * KHÔNG có ở Song/Video) MỚI THÊM vào shape Adapter — buildSongNode() đọc 2 field này thay
          * cho `duration` khi `mediaType==='photo'` để hiện "WxH" thay vì "3:45" ở dòng phụ dưới tên.
-         * `duration: 0` cố định (giữ ĐỦ shape, Sort/Filter đã ẩn field 'duration' khỏi UI cho Photo,
-         * không ai đọc số 0 này để hiển thị nữa — render.js đọc width/height thay).
-         * @param {Array<{key:string, blob:Blob, thumbBlob?:Blob, width?:number, height?:number, filename:string, addedAt:number}>} imageRecords
+         * SỬA (Giang yêu cầu — Photo tích hợp `duration` THẬT như Song/Video, chạy trong Playlist/
+         * visualizer thừa hưởng đúng cơ chế Play/Next-Prev/Shuffle) — `duration: 0` cố định TRƯỚC
+         * ĐÂY giờ đọc THẬT từ `record.duration` (event/workflow/file-manager-photo.js::
+         * computePhotoDuration(), tính lúc upload/sửa ảnh). Record CŨ (upload trước field này tồn
+         * tại) THIẾU `duration` -> fallback literal `5` giây (khớp `DURATION_MIN_SEC` — event/
+         * workflow/file-manager-photo.js — KHÔNG import hằng số đó vào đây, Core không được phụ
+         * thuộc ngược vào Workflow, xem Rule 3 core-function-conventions.md; đổi `DURATION_MIN_SEC`
+         * thì sửa CẢ literal `5` này theo cho khớp). render.js/Sort-Filter HIỆN VẪN ẩn field này
+         * khỏi UI cho Photo (đọc width/height thay) — CHƯA đổi ở batch này, việc hiển thị/dùng
+         * `duration` thật trong Playlist+Player+VBG thuộc batch riêng (playMedia() thêm nhánh Photo).
+         * @param {Array<{key:string, blob:Blob, thumbBlob?:Blob, width?:number, height?:number, duration?:number, filename:string, customName?:string|null, addedAt:number}>} imageRecords
          * @returns {string[]} danh sách imageKey hợp lệ (có blob gốc) vừa nạp vào playlistCache, theo ĐÚNG thứ tự imageRecords truyền vào (chưa sort — nơi gọi tự sortKeysByMode() sau).
          */
         function buildPhotoPlaylistCache(imageRecords) {
@@ -398,13 +406,18 @@
             for (const record of imageRecords) {
                 if (!record.blob) continue; // guard — record hỏng/thiếu blob gốc, bỏ qua (giống isQuickValidMime() của Song)
                 validKeys.push(record.key);
-                const title = stripFileExtension(record.filename);
+                // SỬA (Giang yêu cầu — Photo tích hợp duration như Song/Video, thêm rename qua tab
+                // "Sửa") — TRƯỚC ĐÂY title LUÔN là filename (Photo "không có tên tự đặt riêng") —
+                // giờ ưu tiên `customName` (event/workflow/photo-player.js đã đọc field này từ
+                // trước, chỉ thiếu đường GHI — core/playlist/actions.js::applyPhotoEditAndSave()),
+                // CÙNG công thức Video (buildVideoPlaylistCache() phía trên).
+                const title = record.customName || stripFileExtension(record.filename);
                 appState.mutate('playlistCache', m => m.set(record.key, {
                     filename: record.filename,
-                    tag: { title, artist: '', album: '' }, // Adapter shape — Photo không có tên tự đặt riêng, LUÔN dùng filename
+                    tag: { title, artist: '', album: '' }, // Adapter shape — artist LUÔN rỗng cho Photo
                     cover: record.thumbBlob || record.blob, // thumbBlob — CHỐT Giang "ảnh cover -> thumb của ảnh"
-                    duration: 0, // giữ ĐỦ shape — render.js không đọc field này cho Photo nữa (đọc width/height thay)
-                    width: record.width || 0,  // MỚI — render.js hiện "WxH" thay cho duration khi mediaType='photo'
+                    duration: record.duration || 5, // SỬA — đọc THẬT, fallback 5s cho record cũ chưa có field này
+                    width: record.width || 0,  // MỚI — width/height GIỮ trong cache cho modal Chi tiết (core/playlist/actions.js::openSongEditModal())
                     height: record.height || 0,
                     addedAt: record.addedAt,
                     mediaType: 'photo',

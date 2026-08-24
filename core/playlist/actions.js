@@ -174,13 +174,20 @@
             const isVideo = !!(cached && cached.mediaType === 'video');
             const isPhoto = !!(cached && cached.mediaType === 'photo');
             songMenuBtnEditSubtitles.classList.toggle('hidden', isVideo || isPhoto);
-            if (songMenuBtnEdit) songMenuBtnEdit.classList.toggle('hidden', isPhoto);
+            // SỬA (Giang yêu cầu — Photo tích hợp duration như Song/Video, "thêm action detail cho
+            // dropdown của photo") — TRƯỚC ĐÂY "Chi tiết" (songMenuBtnEdit) ẩn hẳn cho Photo (ảnh
+            // chưa có duration/count/size gì đáng xem) — giờ HIỆN LẠI, openSongEditModal() (dưới)
+            // đã có nhánh Photo riêng.
+            if (songMenuBtnEdit) songMenuBtnEdit.classList.toggle('hidden', false);
             if (songMenuBtnRestore) songMenuBtnRestore.classList.toggle('hidden', isPhoto);
             // SỬA (phản hồi Giang — Batch "Export dọn nợ kiến trúc") — "Xuất file" giờ áp dụng CHO
             // CẢ Video (exportVideoFile(), bỏ qua bước gắn tag ID3 — xem event/workflow/playlist.js)
             // — KHÔNG còn ẩn khi isVideo nữa.
             // songMenuBtnSetBgVideo ĐÃ XOÁ khỏi dropdown (phản hồi Giang — bỏ hẳn "Set làm nền").
             songMenuBtnEditVideo.classList.toggle('hidden', !isVideo);
+            // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video, "thêm dropdown edit
+            // image -> mở openImagePreview()") — mirror songMenuBtnEditVideo ngay trên.
+            if (songMenuBtnEditImage) songMenuBtnEditImage.classList.toggle('hidden', !isPhoto);
             // MỚI (phản hồi Giang, mục "ngôn ngữ theo ngữ cảnh Song/Video") — nhãn nút "Xoá" đổi
             // chữ đúng loại item đang mở menu (trước đây LUÔN nói "Delete song" kể cả khi xoá Video).
             // MỞ RỘNG (hợp nhất Photo) — thêm nhánh photo.
@@ -335,14 +342,18 @@
         async function openSongEditModal(key) {
             const cached = appState.get('playlistCache').get(key); if (!cached) return;
             playlistStore.set({ songEditCurrentKey: key, songEditPendingCover: null });
-            revokeSongEditPendingPreview(); // an toàn cho CẢ 2 nhánh — dọn preview còn sót từ lần mở TRƯỚC (nếu có)
+            revokeSongEditPendingPreview(); // an toàn cho CẢ 3 nhánh — dọn preview còn sót từ lần mở TRƯỚC (nếu có)
 
             const isVideo = cached.mediaType === 'video';
-            songEditTabBtnCover.classList.toggle('hidden', isVideo);
-            songEditFieldsSongGroup.classList.toggle('hidden', isVideo);
+            const isPhoto = cached.mediaType === 'photo';
+            songEditTabBtnCover.classList.toggle('hidden', isVideo || isPhoto);
+            songEditFieldsSongGroup.classList.toggle('hidden', isVideo || isPhoto);
             songEditFieldsVideoGroup.classList.toggle('hidden', !isVideo);
+            // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video, "thêm action detail cho
+            // dropdown của photo") — nhóm field thứ 3, mirror ĐÚNG cách 2 nhóm trên toggle.
+            if (songEditFieldsPhotoGroup) songEditFieldsPhotoGroup.classList.toggle('hidden', !isPhoto);
 
-            const stats = getSongStats(key); // core/listen-stats.js — key-agnostic (Map<string,...>), dùng chung được cho videoKey
+            const stats = getSongStats(key); // core/listen-stats.js — key-agnostic (Map<string,...>), dùng chung được cho videoKey/imageKey
             const emptyVal = t('playlistView.songInfo.empty');
 
             if (isVideo) {
@@ -360,6 +371,25 @@
                     // MỚI (mục 1e, phản hồi Giang — "detail modal thêm dung lượng") — formatBytes()
                     // có sẵn (core/about-stats.js, dùng chung với Quản lý dung lượng), đọc thẳng
                     // `cached.size` (core/playlist/loader.js, cùng đợt thêm với addedAt).
+                    songInfoRowHtml('M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0l-2 7H6l-2-7m16 0H4', 'bg-teal-500/15 text-teal-400', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
+            } else if (isPhoto) {
+                // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video, "trong đó sẽ hiển thị
+                // tên file, kích thước, duration, count, filesize" — ĐÚNG 5 field theo thứ tự Giang
+                // liệt kê, KHÔNG có "Đã nghe" — ảnh không tính thời gian nghe, xem docstring đầu
+                // event/workflow/photo-player.js).
+                const imageRecord = await getImageRecord(key); // service/db.js
+                songEditPhotoNameInput.value = imageRecord ? (imageRecord.customName || '') : '';
+                songEditPhotoNameInput.placeholder = imageRecord ? stripFileExtension(imageRecord.filename) : '';
+                songEditPhotoDurationValueEl.textContent = formatTime(cached.duration);
+                playlistStore.set({ songEditPendingPhotoDurationSec: cached.duration || 0 }); // pending riêng — chỉ ghi thật lúc bấm Lưu, cùng nguyên tắc pendingCover của Song
+
+                const resolutionText = (cached.width && cached.height) ? `${cached.width}×${cached.height}` : emptyVal;
+
+                songEditTabDetails.innerHTML =
+                    songInfoRowHtml('M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'bg-sky-500/15 text-sky-400', t('playlistView.songInfo.fieldFilename'), (imageRecord && imageRecord.filename) ? escapeHtml(imageRecord.filename) : emptyVal) +
+                    songInfoRowHtml('M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4', 'bg-emerald-500/15 text-emerald-400', t('playlistView.songInfo.fieldResolution'), resolutionText) +
+                    songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-amber-500/15 text-amber-400', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration)) +
+                    songInfoRowHtml('M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', 'bg-rose-500/15 text-rose-400', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count })) +
                     songInfoRowHtml('M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0l-2 7H6l-2-7m16 0H4', 'bg-teal-500/15 text-teal-400', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
             } else {
                 songEditTitleInput.value = cached.tag.title || '';
@@ -468,6 +498,56 @@
 
             if (key === appState.get('currentKey')) {
                 playerTitle.textContent = displayName;
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.metadata = new MediaMetadata({ title: displayName, artist: '', artwork: [] });
+                }
+            }
+            return { status: 'ok' };
+        }
+
+        /**
+         * MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video) — bản Photo của
+         * captureVideoEditFormState() ngay trên — đọc thêm `songEditPendingPhotoDurationSec` (KHÔNG
+         * đọc trực tiếp từ input số tay — duration Photo sửa qua time-picker riêng, xem
+         * event/workflow/playlist.js::openPhotoEditDurationPicker(), giá trị pending lưu tạm ở
+         * playlistStore CHỈ ghi thật lúc bấm "Lưu", cùng nguyên tắc pendingCover của Song).
+         * @returns {{key: string|null, customName: string, durationSec: number}}
+         */
+        function capturePhotoEditFormState() {
+            const key = playlistStore.get('songEditCurrentKey');
+            return {
+                key,
+                customName: songEditPhotoNameInput.value.trim(),
+                durationSec: playlistStore.get('songEditPendingPhotoDurationSec'),
+            };
+        }
+
+        /**
+         * Bản Photo của applyVideoEditAndSave() ngay trên — VIẾT RIÊNG (cùng lý do Rule 3 đã giải
+         * thích ở đó). Ghi CẢ `customName` LẪN `duration` cùng lúc (2 field cùng 1 lần "Lưu", khớp
+         * cách modal này hoạt động — 1 nút Lưu cho cả tab "Sửa").
+         * @param {string} key
+         * @param {string} customName - rỗng = xoá tên riêng, rơi về filename gốc khi hiển thị.
+         * @param {number} durationSec - giây, số thực, KHÔNG kẹp trần (Giang chốt "có min nhưng
+         *        không max" — sàn DURATION_MIN_SEC đã tự áp trong openPhotoEditDurationPicker(),
+         *        event/workflow/playlist.js, TRƯỚC khi giá trị này tới được đây).
+         * @returns {{status: 'notFound'|'ok'}}
+         */
+        async function applyPhotoEditAndSave(key, customName, durationSec) {
+            const record = await getImageRecord(key); // service/db.js
+            if (!record) return { status: 'notFound' };
+            record.customName = customName || null;
+            record.duration = durationSec;
+            await setImageRecord(key, record); // service/db.js
+
+            const displayName = record.customName || stripFileExtension(record.filename);
+            const cached = appState.get('playlistCache').get(key);
+            if (cached) { cached.tag.title = displayName; cached.duration = durationSec; }
+            appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(displayName)));
+
+            if (key === appState.get('currentKey')) {
+                playerTitle.textContent = displayName;
+                appState.set('photoPlayerDurationSec', durationSec, { skipCheck: true }); // event/workflow/photo-player.js đọc field này mỗi tick — ảnh ĐANG hiển thị đổi duration ngay, không cần đợi phát lại
                 if ('mediaSession' in navigator) {
                     navigator.mediaSession.metadata = new MediaMetadata({ title: displayName, artist: '', artwork: [] });
                 }

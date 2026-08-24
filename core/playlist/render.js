@@ -92,13 +92,13 @@
             // cần 2 dòng riêng). Dùng CHUNG 1 biến cho cả list lẫn grid (2 nơi có cùng ý nghĩa "dòng
             // phụ dưới tên").
             // MỞ RỘNG (hợp nhất Photo vào Playlist, CHỐT Giang "dùng hẳn UI Song/Video, chỉ thay nội
-            // dung") — Photo KHÔNG có duration, dòng phụ này hiện ĐỘ PHÂN GIẢI (width×height, đọc từ
-            // `cached.width`/`cached.height` — xem core/playlist/loader.js::buildPhotoPlaylistCache())
-            // thay vì formatTime(). `artist` LUÔN rỗng cho Photo (Adapter set `tag.artist: ''`) nên
-            // secondLineHtml tự nhiên chỉ còn đúng độ phân giải, không cần thêm nhánh riêng ở dưới.
-            const durationLabel = (cached && cached.mediaType === 'photo')
-                ? `${cached.width || 0}×${cached.height || 0}`
-                : formatTime(cached ? cached.duration : 0);
+            // dung") — TRƯỚC ĐÂY Photo không có duration nên dòng phụ này hiện ĐỘ PHÂN GIẢI (width×
+            // height) thay vì formatTime(). SỬA (Giang yêu cầu — "thay duration cho w&h") — Photo
+            // giờ có `duration` THẬT (tính lúc upload — event/workflow/file-manager-photo.js::
+            // computePhotoDuration()), dòng phụ quay lại dùng formatTime() giống hệt Song/Video,
+            // KHÔNG còn nhánh riêng nào cho Photo nữa (width/height vẫn giữ trong playlistCache —
+            // core/playlist/loader.js — cho modal Chi tiết dùng, chỉ không còn hiện ở dòng này).
+            const durationLabel = formatTime(cached ? cached.duration : 0);
             const secondLineHtml = artist
                 ? `${artist} <span class="opacity-50">·</span> ${durationLabel}`
                 : durationLabel;
