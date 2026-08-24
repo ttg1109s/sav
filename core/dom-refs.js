@@ -220,6 +220,10 @@
         // gộp vào panel "Visual Background". `bgVideoElement` GIỮ NGUYÊN — thẻ <video> dùng CHUNG
         // cho CẢ Video nền LẪN Video Player mode, không liên quan tới việc gộp 3 toggle.)
         const bgVideoElement = document.getElementById('bg-video');
+        // MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — "Photo Player mode",
+        // element RIÊNG (KHÔNG tái dùng visualBgImageElement — element đó thuộc VBG, tính năng độc
+        // lập). Xem core/photo-player.js.
+        const photoPlayerImageEl = document.getElementById('photo-player-image');
         // Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual).
         // FIX (04/07/2026, mục 1a) — nền màu Settings (bgColor), TÁCH khỏi document.body.
         const visualizerSolidBg = document.getElementById('visualizer-solid-bg');
@@ -448,6 +452,11 @@
         const songMenuBtnRestore = document.getElementById('song-menu-btn-restore');
         // songMenuBtnSetBgVideo ĐÃ XOÁ (phản hồi Giang — bỏ hẳn "Set làm nền" khỏi dropdown Video).
         const songMenuBtnEditVideo = document.getElementById('song-menu-btn-edit-video');
+        // MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video, "thêm dropdown edit image
+        // -> mở openImagePreview()") — nút RIÊNG cho Photo, mirror `songMenuBtnEditVideo` (ẩn mặc
+        // định, JS chỉ hiện khi item đang mở menu là Photo — xem openSongActionMenu(), core/
+        // playlist/actions.js).
+        const songMenuBtnEditImage = document.getElementById('song-menu-btn-edit-image');
         const playbackErrorModal = document.getElementById('playback-error-modal');
         const playbackErrorFilename = document.getElementById('playback-error-filename');
         const btnPlaybackErrorKeep = document.getElementById('playback-error-keep');
@@ -477,6 +486,14 @@
         const songEditFieldsVideoGroup = document.getElementById('song-edit-fields-video-group');
         const songEditCustomNameInput = document.getElementById('song-edit-custom-name');
         const songEditTabBtnCover = document.getElementById('song-edit-tab-btn-cover');
+        // MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — nhóm field thứ 3, mirror
+        // `songEditFieldsVideoGroup` (1 ô tên hiển thị) + THÊM 1 hàng duration (nút mở time-picker,
+        // core/time-picker-modal.js — dùng chung, xem event/workflow/playlist.js::
+        // openPhotoEditDurationPicker()).
+        const songEditFieldsPhotoGroup = document.getElementById('song-edit-fields-photo-group');
+        const songEditPhotoNameInput = document.getElementById('song-edit-photo-name');
+        const songEditPhotoDurationBtn = document.getElementById('song-edit-photo-duration-btn');
+        const songEditPhotoDurationValueEl = document.getElementById('song-edit-photo-duration-value');
         const btnSongEditCancel = document.getElementById('song-edit-cancel');
         const btnSongEditSave = document.getElementById('song-edit-save');
 

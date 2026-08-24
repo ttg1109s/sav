@@ -315,7 +315,16 @@
          * @param {boolean} isVideoPlayerMode
          * @returns {HTMLMediaElement}
          */
-        function getActiveMediaElement(isVideoPlayerMode) {
+        function getActiveMediaElement(isVideoPlayerMode, isPhotoPlayerMode) {
+            // SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — thêm tham số
+            // `isPhotoPlayerMode`, trả `photoPlayerFakeMediaElement` (core/photo-player.js) khi
+            // true — KHÔNG phải HTMLMediaElement thật (ảnh không có), nhưng mô phỏng ĐÚNG 4 thành
+            // viên (`currentTime` get/set, `paused` get, `play()`/`pause()`) mà 2 nơi gọi hiện có
+            // (goToNextTrack()/goToPrevTrack(), event/workflow/player-controls.js VÀ event/
+            // workflow/gameplay.js) cần — nơi gọi KHÔNG cần sửa gì thêm ngoài truyền thêm tham số
+            // này, mọi `activeEl.currentTime`/`.paused`/`.play()`/`.pause()` hiện có tự hoạt động
+            // đúng. Rule 2 vẫn giữ (2 tham số đều do nơi gọi tự đọc appState rồi truyền vào).
+            if (isPhotoPlayerMode) return photoPlayerFakeMediaElement; // core/photo-player.js
             return isVideoPlayerMode ? bgVideoElement : audioPlayer;
         }
 
