@@ -50,6 +50,12 @@ if (songActionMenu) {
             eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.editVideoFile', payload: {} });
             return;
         }
+        // MỚI (Giang yêu cầu — "thêm dropdown edit image -> mở openImagePreview()") — CÙNG
+        // PRECEDENT với 'editVideoFile' ngay trên.
+        if (btn.dataset.menuAction === 'editImage') {
+            eventBus.send({ router: 'playlist', type: 'playlist.actionMenu.editImage', payload: {} });
+            return;
+        }
         // MỚI (Batch "Export dọn nợ kiến trúc", phản hồi Giang) — "Xuất file": CÙNG PRECEDENT với
         // addToFolder/editSubtitles ở trên (message riêng, không qua handleSongActionMenuSelect()
         // cũ — hàm đó đã có sẵn nhánh if/else vi phạm Rule 1, không mở rộng thêm).
@@ -130,6 +136,14 @@ if (songEditCoverPickLibraryBtn) {
 if (songEditCoverRemoveBtn) {
     songEditCoverRemoveBtn.addEventListener('click', () => {
         eventBus.send({ router: 'playlist', type: 'playlist.editCover.remove', payload: {} });
+    });
+}
+
+// MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video) — nút duration trong tab "Sửa" của
+// nhóm field Photo, mở time-picker (xem event/workflow/playlist.js::openPhotoEditDurationPicker()).
+if (songEditPhotoDurationBtn) {
+    songEditPhotoDurationBtn.addEventListener('click', () => {
+        eventBus.send({ router: 'playlist', type: 'playlist.edit.photoDuration.click', payload: {} });
     });
 }
 
