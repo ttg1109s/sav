@@ -96,11 +96,23 @@ const routerPlayerControls = (() => {
                 // gộp 2 tiến trình khác nhau ("chưa có gì đang tải -> phát bài đầu" / "toggle")
                 // nên KHÔNG còn đạt điều kiện (A) "gọi thẳng core" nữa (event-bus-flow.md mục 4A:
                 // case cần chuẩn bị appState cho core, dù chỉ gọi đúng 1 hàm, đã là (B) Workflow).
+                // SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — 2 rule boolean
+                // `isVideoPlayerMode===true`/`===false` KHÔNG còn đủ khi thêm Photo: VirtualMachineState.
+                // run() chạy TẤT CẢ rule khớp (KHÔNG dừng ở rule đầu, xem event/virtual-machine-
+                // state.js) — nếu giữ nguyên rule cũ `isVideoPlayerMode===false` rồi thêm rule 3
+                // `isPhotoPlayerMode===true` cạnh nó, lúc Photo đang phát CẢ 2 rule đều khớp (video
+                // mode false VÀ photo mode true) -> gọi NHẦM CẢ `handlePlayPauseClick()` (Song) LẪN
+                // `togglePlayPausePhoto()`. Derive 1 biến `mode` cục bộ (3 giá trị LOẠI TRỪ NHAU),
+                // so `===` theo string thay vì so boolean riêng lẻ — chỉ 1 rule khớp tại 1 thời điểm.
+                const mode = appState.get('isVideoPlayerMode') ? 'video' : appState.get('isPhotoPlayerMode') ? 'photo' : 'song';
                 VirtualMachineState.run([
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
+                    { state: mode, operation: '===', value: 'video', callback: () => {
                         workflowVideoPlayer.togglePlayPauseVideo();
                     } },
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
+                    { state: mode, operation: '===', value: 'photo', callback: () => {
+                        workflowPhotoPlayer.togglePlayPausePhoto(); // event/workflow/photo-player.js
+                    } },
+                    { state: mode, operation: '===', value: 'song', callback: () => {
                         workflowPlayerControls.handlePlayPauseClick();
                     } },
                 ]);
@@ -173,7 +185,8 @@ const routerPlayerControls = (() => {
             }
 
             case 'playerControls.audio.ended':
-            case 'playerControls.video.ended': {
+            case 'playerControls.video.ended':
+            case 'playerControls.photo.ended': {
                 // [SỬA — Game Mode + Video Player mode, phản hồi Giang "áp dụng cho cả hai, dùng
                 // chung"] GỘP 2 msg.type (audio VÀ video) vào ĐÚNG 1 case — trước đây video.ended
                 // có case RIÊNG gọi thẳng workflowVideoPlayer.handleVideoPlayerEnded() (ĐÃ XOÁ),
@@ -193,6 +206,12 @@ const routerPlayerControls = (() => {
                 // `workflowPlayerControls.handleMediaEnded()` (event/workflow/player-controls.js,
                 // DÙNG CHUNG cho cả audio lẫn video — thay `handleSongEnded()`/
                 // `workflowVideoPlayer.handleVideoPlayerEnded()` cũ, 2 hàm TRÙNG THÂN đã gộp làm 1).
+                // SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — thêm
+                // 'playerControls.photo.ended' (bắn từ event/workflow/photo-player.js::
+                // _photoPlayerTick() lúc đồng hồ giả chạm duration, KHÔNG phải sự kiện DOM thật vì
+                // ảnh không có — xem docstring đầu file đó) vào CÙNG fallthrough — hết ảnh xử lý Y
+                // HỆT hết bài/video (auto next lúc idle, hiện màn kết quả lúc đang Game Mode),
+                // KHÔNG có lý do tách case riêng.
                 const gameplayPhase = appState.get('gameplayPhase');
                 VirtualMachineState.run([
                     { state: gameplayPhase, operation: '===', value: 'idle', callback: () => workflowPlayerControls.handleMediaEnded() },
@@ -254,12 +273,19 @@ const routerPlayerControls = (() => {
                 // MỚI (21/07/2026, mục 4 — Video Player mode) — CÙNG 1 DOM listener/message type
                 // dùng chung giữa Song/Video (chỉ 1 thanh progress bar vật lý) -> BẮT BUỘC
                 // VirtualMachineState (khác 5 case video.* ở trên, mỗi cái có nguồn sự kiện RIÊNG).
+                // SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — derive `mode` 3
+                // giá trị loại trừ nhau, CÙNG lý do đã sửa case 'playPause.click' ngay trên (tránh
+                // 2 rule VirtualMachineState cùng khớp).
                 const { value } = msg.payload;
+                const mode = appState.get('isVideoPlayerMode') ? 'video' : appState.get('isPhotoPlayerMode') ? 'photo' : 'song';
                 VirtualMachineState.run([
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
+                    { state: mode, operation: '===', value: 'video', callback: () => {
                         workflowVideoPlayer.handleVideoSeeking(value);
                     } },
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
+                    { state: mode, operation: '===', value: 'photo', callback: () => {
+                        workflowPhotoPlayer.handlePhotoSeeking(value); // event/workflow/photo-player.js
+                    } },
+                    { state: mode, operation: '===', value: 'song', callback: () => {
                         handleProgressBarSeeking(value);
                     } },
                 ]);
@@ -268,11 +294,15 @@ const routerPlayerControls = (() => {
 
             case 'playerControls.progressBar.seekCommit': {
                 const { value } = msg.payload;
+                const mode = appState.get('isVideoPlayerMode') ? 'video' : appState.get('isPhotoPlayerMode') ? 'photo' : 'song';
                 VirtualMachineState.run([
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: true, callback: () => {
+                    { state: mode, operation: '===', value: 'video', callback: () => {
                         workflowVideoPlayer.handleVideoSeekCommit(value);
                     } },
-                    { state: appState.get('isVideoPlayerMode'), operation: '===', value: false, callback: () => {
+                    { state: mode, operation: '===', value: 'photo', callback: () => {
+                        workflowPhotoPlayer.handlePhotoSeekCommit(value); // event/workflow/photo-player.js
+                    } },
+                    { state: mode, operation: '===', value: 'song', callback: () => {
                         handleProgressBarSeekCommit(value);
                     } },
                 ]);
