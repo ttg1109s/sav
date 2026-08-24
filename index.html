@@ -233,6 +233,10 @@
     <link rel="stylesheet" href="assets/css/gameplay.css?v=20260819v2">
 
     <video id="bg-video" loop muted playsinline class="hidden"></video>
+    <!-- "Photo Player mode" — ảnh ĐANG PHÁT như 1 track (KHÁC #visual-bg-image, nguồn nền VBG trang
+         trí độc lập). Ẩn mặc định, hiện lúc mediaType==='photo' đang là track hiện tại — xem
+         core/photo-player.js + event/workflow/photo-player.js. -->
+    <div id="photo-player-image" class="hidden"></div>
     <!-- Từng thử 1 #video-player-thumb-overlay riêng ở đây (đè LÊN video) — BỎ, <video> hardware-
          decode trên WKWebView/iOS nằm ở compositing layer riêng, không CSS nào đè lên được (xem
          core/video-player.js). MỚI (31/07/2026) — lớp dự phòng multi-browser giờ chèn vào
@@ -457,6 +461,7 @@
     <script src="service/state/shuffle-repeat.js?v=20260725v1"></script>
     <script src="service/state/visual-bg.js?v=20260806v1"></script>
     <script src="service/state/video-player-mode.js?v=20260818v1"></script>
+    <script src="service/state/photo-player-mode.js?v=20260824v1"></script>
     <script src="service/state/wakelock-tab.js?v=20260725v1"></script>
     <script src="service/state/auto-switch.js?v=20260725v1"></script>
     <script src="service/state/listen-stats.js?v=20260725v1"></script>
@@ -716,6 +721,11 @@
          mutate state, toggle UI nút. Đặt CẠNH core/player-controls.js cho dễ đọc (2 tính năng liên
          quan chặt, dù KHÔNG đụng chung file nào). NẠP SAU service/state.js (đã nạp từ đầu). -->
     <script src="core/video-player.js?v=20260818v1"></script>
+    <!-- MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — core/photo-player.js:
+         toggle UI nút/DOM (#photo-player-image), CHỈ hàm THUẦN (Rule 1-4). Đặt CẠNH core/video-
+         player.js cho dễ đọc, cùng lý do comment ngay trên. NẠP SAU service/state.js + core/dom-
+         refs.js (photoPlayerImageEl). -->
+    <script src="core/photo-player.js?v=20260824v1"></script>
     <!-- Chụp khung hình bgVideoElement đang phát -> lưu Photo (nút Control Center, Video Player
          mode) — di dời từ core/video-editor/frame-extract.js (nút "Trích xuất ảnh" trong modal
          Video Preview đã bỏ hẳn), dùng chung bởi workflowVideoPreview._buildThumbForBlob(). -->
@@ -967,6 +977,15 @@
     <script src="event/workflow/video-player.js?v=20260819v1"></script>
     <script src="event/router/video-player.js?v=20260818v1"></script>
     <script src="event/listener/video-player.js?v=20260721v2"></script>
+    <!-- MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — event/workflow/photo-
+         player.js: orchestration (đọc DB, taskManager đếm giờ tự next). KHÔNG có router/listener
+         riêng — `workflowPlayer.playMedia()` gọi THẲNG (Workflow gọi Workflow miền khác, event-bus-
+         flow.md mục 4B), Photo không cần khoá chéo Block Gate với tính năng nào khác (khác Video —
+         xem event/router/video-player.js) nên không cần đi qua eventBus tại điểm vào. Ảnh không có
+         sự kiện DOM thật (play/pause/timeupdate) để 1 file listener lắng nghe — đồng hồ tự viết
+         trong chính Workflow này gọi thẳng handler, không cần round-trip qua bus. PHẢI nạp SAU
+         core/photo-player.js + core/playlist/loader.js (đọc playlistCache lấy duration). -->
+    <script src="event/workflow/photo-player.js?v=20260824v1"></script>
     <!-- Cụm "gameplay" — Game Mode. gameplay-engine.js (Workflow DÙNG CHUNG mọi mode: cooldown/
          modal Start-End/lưu điểm) PHẢI nạp TRƯỚC gameplay.js (mode "Circle", gọi vào engine cho
          mọi phần không đặc thù). Cả cụm PHẢI nạp TRƯỚC event/router/player-controls.js NGAY DƯỚI
