@@ -147,10 +147,10 @@ const workflowPlaylist = {
         const isPhoto = cached && cached.mediaType === 'photo';
 
         if (isVideo) {
-            const { customName } = captureVideoEditFormState(); // core THUẦN
+            const { customName, album } = captureVideoEditFormState(); // core THUẦN
             let result;
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                result = await applyVideoEditAndSave(key, customName); // core THUẦN, nhận key/customName qua tham số
+                result = await applyVideoEditAndSave(key, customName, album); // core THUẦN, nhận key/customName/album qua tham số
             });
             if (result.status === 'notFound') await alertModal(t('common.songEdit.notFound'));
             closeSongEditModal();
@@ -161,10 +161,10 @@ const workflowPlaylist = {
         // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video) — CÙNG KHUÔN nhánh Video
         // ngay trên, chỉ khác 2 field đọc/ghi (customName + durationSec thay vì chỉ customName).
         if (isPhoto) {
-            const { customName, durationSec } = capturePhotoEditFormState(); // core THUẦN
+            const { customName, durationSec, album } = capturePhotoEditFormState(); // core THUẦN
             let result;
             await withLoadingShield(t('common.loading.savingInfo'), async () => {
-                result = await applyPhotoEditAndSave(key, customName, durationSec); // core THUẦN
+                result = await applyPhotoEditAndSave(key, customName, durationSec, album); // core THUẦN
             });
             if (result.status === 'notFound') await alertModal(t('common.songEdit.notFound'));
             closeSongEditModal();
