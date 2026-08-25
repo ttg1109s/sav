@@ -1,34 +1,41 @@
 /**
  * event/router/image-edit.js — Router tên "imageEdit". TOÀN BỘ msg.type liên quan Edit mode xử lý
- * Ở ĐÂY (kể cả khi nguồn bắn — dropdown "..." — nằm ở file khác thuộc miền `fileManagerPhoto`, xem
- * event/workflow/file-manager-photo.js::openImageActionMenu()) — biên giới theo TRÁCH NHIỆM
- * (routing của Edit mode) chứ không theo nơi UI đặt nút, "workflow xuyên miền gọi được" KHÔNG phải
- * lý do để giữ routing ở router khác.
+ * Ở ĐÂY — biên giới theo TRÁCH NHIỆM (routing của Edit mode), không theo nơi UI đặt nút.
+ *
+ * KHÔNG có khái niệm "mode" nào cần thoát — View/Zoom/Edit tích hợp sẵn (xem docstring đầu
+ * event/workflow/image-edit.js). Đóng Generic Drawer lưới tool (case 'imageEdit.toolGrid.
+ * close.click') CHỈ đóng Drawer, KHÔNG gọi gì tới `exitEditMode()`.
  *
  * NẠP SAU: event/bus.js, event/workflow/image-edit.js (workflowImageEdit),
- * event/workflow/file-manager-photo.js (workflowFileManagerPhoto — case 'toggle.click' nhánh thoát
- * gọi ngược sang đó).
+ * event/workflow/file-manager-photo.js (workflowFileManagerPhoto — case 'save.click' gọi ngược
+ * sang miền đó qua workflowImageEdit.openSaveMenu(), Workflow-gọi-Workflow tự do).
  */
 const routerImageEdit = (() => {
     function handle(msg) {
         switch (msg.type) {
 
-            // Item "Edit"/"Thoát Edit" trong dropdown "..." (event/workflow/file-manager-photo.js::
-            // openImageActionMenu()) — TOGGLE, đọc imagePreviewMode 1 lần, gộp vào `state` thành
-            // boolean loại trừ nhau. Nhánh thoát gọi SANG router khác (workflowFileManagerPhoto —
-            // nơi thật sự sở hữu vòng đời modal/Panzoom) — Workflow-gọi-Workflow tự do, boundary
-            // theo trách nhiệm chứ không theo file (xem event-bus-flow.md mục 4B). event/block.js
-            // chặn HẲN msg.type này khi đang Zoom mode (khoá chéo, 1 chiều).
-            case 'imageEdit.toggle.click': {
-                const isCurrentlyEditing = appState.get('imagePreviewMode') === 'edit';
+            // Icon Edit (bút chì) cố định trên header modal xem ảnh (core/file-manager/photo-ui.js)
+            // — Router tự đọc `isEditModeActive()` để chọn: CHƯA editing -> vào lần đầu
+            // (`enterEditMode()`, decode canvas + ẩn <img>); ĐÃ editing -> chỉ mở lại lưới tool
+            // (`openEditToolGrid()`, vd sau khi tự đóng Drawer bằng nút X).
+            case 'imageEdit.tools.click': {
+                const isEditing = workflowImageEdit.isEditModeActive();
                 VirtualMachineState.run([
-                    { state: isCurrentlyEditing, operation: '===', value: true, callback: () => {
-                        workflowFileManagerPhoto.exitImagePreviewMode();
-                    } },
-                    { state: isCurrentlyEditing, operation: '===', value: false, callback: () => {
+                    { state: isEditing, operation: '===', value: false, callback: () => {
                         workflowImageEdit.enterEditMode();
                     } },
+                    { state: isEditing, operation: '===', value: true, callback: () => {
+                        workflowImageEdit.openEditToolGrid();
+                    } },
                 ]);
+                break;
+            }
+
+            // Icon Save cố định trên header modal xem ảnh — mở dropdown 2 lựa chọn (Ghi đè/Lưu
+            // mới). Đích cố định -> gọi thẳng Workflow, guard/ensure-decoded nằm trong chính
+            // `openSaveMenu()`.
+            case 'imageEdit.save.click': {
+                workflowImageEdit.openSaveMenu(msg.payload.anchorEl);
                 break;
             }
 
@@ -39,19 +46,11 @@ const routerImageEdit = (() => {
                 break;
             }
 
-            // Nút `toolsBtn` ở header modal — mở LẠI lưới tool sau khi người dùng tự đóng Drawer
-            // (nút X trên Drawer) mà không chọn tool nào. Đích cố định -> gọi thẳng Workflow, guard
-            // clause nằm trong chính `openEditToolGrid()`.
-            case 'imageEdit.tools.click': {
-                workflowImageEdit.openEditToolGrid();
-                break;
-            }
-
-            // MỚI (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow")
-            // — nút X TRÊN CHÍNH Generic Drawer (header lưới tool, core/file-manager/photo-ui.js::
-            // openPhotoEditToolGridDrawerUi()) — đóng hẳn Drawer, KHÔNG mở lại (khác `tools.click` ở
-            // trên). Đích cố định, hạ tầng dùng chung nhiều domain -> gọi thẳng
-            // `workflowGenericDrawerHelpers` (event/workflow/generic-drawer-helpers.js).
+            // Nút X TRÊN CHÍNH Generic Drawer (header lưới tool, core/file-manager/photo-ui.js::
+            // openPhotoEditToolGridDrawerUi()) — CHỈ đóng Drawer (KHÔNG mode nào để thoát — canvas
+            // vẫn hiện nguyên, bấm lại icon Edit trên header là mở lại lưới). Đích cố định, hạ tầng
+            // dùng chung nhiều domain -> gọi thẳng `workflowGenericDrawerHelpers` (event/workflow/
+            // generic-drawer-helpers.js).
             case 'imageEdit.toolGrid.close.click': {
                 workflowGenericDrawerHelpers.closeFully();
                 break;
@@ -106,14 +105,8 @@ const routerImageEdit = (() => {
                 break;
             }
 
-            // MỚI (31/07/2026, Giang chỉ ra "đừng viện dẫn workflow xuyên miền để biện minh giữ
-            // routing sai chỗ") — "Lưu đè"/"Lưu mới" (dropdown "...", event/workflow/file-manager-
-            // photo.js::openImageActionMenu()) TRƯỚC ĐÂY bắn qua msg.type dùng CHUNG
-            // 'fileManagerPhoto.imageMenu.action.click' (router `fileManagerPhoto`) rồi mới gọi
-            // CHÉO sang workflowImageEdit — ĐÚNG là Workflow-gọi-Workflow được phép, NHƯNG bản thân
-            // việc ROUTING (nơi msg.type này được xử lý) vẫn là trách nhiệm của miền Edit, không
-            // phải chỉ vì "gọi chéo được" mà biện minh cho việc giữ routing ở router khác — tách
-            // hẳn msg.type RIÊNG, xử lý ĐÚNG ở router này.
+            // Đích dispatch của dropdown Save (icon Save trên header, `openSaveMenu()`) — mỗi
+            // msg.type mô tả ĐÚNG 1 lựa chọn, routing thuộc miền Edit (nơi 2 hàm này sống thật).
             case 'imageEdit.saveOverwrite.click': {
                 workflowImageEdit.saveEditOverwrite();
                 break;
