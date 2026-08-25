@@ -350,27 +350,13 @@
          placeholder Playlist/System/Visualizer Screen/Troubleshooting/Reset app), hàm render (KHÔNG
          phải TPL_* tĩnh — gọi lại mỗi lần mở Generic Drawer, xem event/workflow/app-settings.js). -->
     <script src="components/settings/app-settings-main.js?v=20260819v1"></script>
-    <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — Photo, khung full-screen RIÊNG (ngang cấp
-         Setting) — CHỈ còn khung rỗng lúc mount (Main do event/workflow/file-manager-photo.js tự
-         dựng lúc mở, gọi renderFileManagerPhotoPanelBody() ở components/file-manager.js lúc RUNTIME
-         chứ không phải lúc parse file này — thứ tự nạp với file-manager.js không còn quan trọng). -->
-    <script src="components/photo-panel.js?v=20260819v1"></script>
     <script src="components/game-panel.js?v=20260819v1"></script>
     <script src="components/statis-panel.js?v=20260819v1"></script>
     <script src="components/about-drawer.js?v=20260707v1"></script>
     <!-- MỚI (18/07/2026, Giang yêu cầu) — panel xem console log (Settings > Misc). -->
     <script src="components/debug-console-drawer.js?v=20260718v1"></script>
-    <!-- Ver 12 "Multi Media" — CHỐT 03/07/2026 (plan-v12-multimedia-decisions.md mục 1a/7): File
-         Manager KHÔNG còn là 1 overlay cấp cao mở từ Playlist nữa (bỏ patch 02/07/2026) — giờ là
-         2 drawer con (Song/Photo & Album) mở thẳng từ section "File Manager" vừa thêm
-         ở settings/file-manager-section.js, cùng cấp nav-stack với About/Visualizer Settings
-         Drawer bên dưới. THAY components/storage-drawer.js (About -> Storage cũ, không còn mount). -->
-    <script src="components/file-manager.js?v=20260729v1"></script>
     <!-- MỚI (29/07/2026, yêu cầu Giang mục 2) — panel "Quản lý lưu trữ" (renderFileManagerStorage
-         ManagementPanelBody()), THAY nội dung thống kê/giải phóng bộ nhớ/dọn file lỗi từng nằm
-         trong renderFileManagerSongPanelBody() (components/file-manager.js, function đó đã xoá) —
-         giờ gộp ĐỦ 3 domain Song/Video/Photo, KHÔNG còn phụ thuộc panel "Song & Video"
-         (đã xoá) nữa. -->
+         ManagementPanelBody()), gộp ĐỦ 3 domain Song/Video/Photo. -->
     <script src="components/file-manager-storage.js?v=20260823v1"></script>
     <!-- Nhóm A (10/07/2026, plan-v12-extended.md mục 2) — Generic Drawer, khung TRẮNG dùng CHUNG
          cho nhiều tính năng (Folder Browser/Add to Folder picker...). items.js (mục 3) ĐỘC LẬP với
@@ -599,11 +585,10 @@
          image-edit/slideshow), gộp về 1 chỗ. NẠP NGAY SAU core/generic-drawer.js, TRƯỚC
          mọi Workflow ở dưới có dùng tới. -->
     <script src="event/workflow/generic-drawer-helpers.js?v=20260731v2"></script>
-    <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — core UI thuần cho bottom nav + Photo/Game/
-         Statis panel + wire nút động Setting (core/app-settings-ui.js, Rule 5a) — CẦN core/dom-
-         refs.js (đã nạp) + core/generic-drawer.js (đã nạp ngay trên). -->
+    <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — core UI thuần cho bottom nav + Game/Statis
+         panel + wire nút động Setting (core/app-settings-ui.js, Rule 5a) — CẦN core/dom-refs.js
+         (đã nạp) + core/generic-drawer.js (đã nạp ngay trên). -->
     <script src="core/app-panel-nav.js?v=20260819v1"></script>
-    <script src="core/photo-panel.js?v=20260819v1"></script>
     <script src="core/placeholder-panel.js?v=20260819v1"></script>
     <script src="core/app-settings-ui.js?v=20260819v1"></script>
     <!-- ĐỔI TÊN (04/08/2026) từ event/workflow/crop-ratio-helpers.js, khớp core/media-transform.js
@@ -947,18 +932,15 @@
          SAU khi cả trang đã nạp xong, không chạy ngay lúc parse). -->
     <script src="event/workflow/app-settings.js?v=20260819v1"></script>
     <script src="event/router/app-settings.js?v=20260819v1"></script>
-    <!-- Cụm "photoPanel" (đóng hẳn Photo, xem components/photo-panel.js) + "placeholderPanels"
-         (đóng Game/Statis). -->
-    <script src="event/workflow/photo-panel.js?v=20260819v1"></script>
-    <script src="event/router/photo-panel.js?v=20260819v1"></script>
-    <script src="event/listener/photo-panel.js?v=20260819v1"></script>
+    <!-- Cụm "placeholderPanels" (đóng Game/Statis). Photo đã hợp nhất vào Playlist, không còn cụm
+         "photoPanel" riêng. -->
     <script src="event/workflow/placeholder-panels.js?v=20260819v1"></script>
     <script src="event/router/placeholder-panels.js?v=20260819v1"></script>
     <script src="event/listener/placeholder-panels.js?v=20260819v1"></script>
-    <!-- Cụm "appPanelNav" (bottom nav 7 mục — Media/Folder/Photo/Storage/Game/Statis/Setting) — nạp
-         SAU CÙNG trong nhóm này vì workflow của nó gọi tới workflowAppSettings/workflowPhotoPanel/
-         workflowPlaceholderPanels/workflowFileManagerFolderBrowser/workflowFileManagerStorage/
-         workflowFileManagerPhoto (đều đã nạp ở trên, dù không bắt buộc thứ tự chặt như ghi chú
+    <!-- Cụm "appPanelNav" (bottom nav 5 mục — Media/Folder/Storage/Game/Statis; Setting mở qua
+         Generic Drawer, không phải mục nav riêng) — nạp SAU CÙNG trong nhóm này vì workflow của nó
+         gọi tới workflowAppSettings/workflowPlaceholderPanels/workflowFileManagerFolderBrowser/
+         workflowFileManagerStorage (đều đã nạp ở trên, dù không bắt buộc thứ tự chặt như ghi chú
          trên). -->
     <script src="event/workflow/app-panel-nav.js?v=20260819v1"></script>
     <script src="event/router/app-panel-nav.js?v=20260819v1"></script>
