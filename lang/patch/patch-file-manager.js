@@ -63,20 +63,11 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.title': 'Song & Video',
     // Batch D5 (06/07/2026) — 'fileManager.song.back.title' XOÁ, dùng CHUNG
     // 'settingsDrawer.back.title' (Batch D1) cho mọi panel.
-    // ── Drawer con: Photo & Album (placeholder, chưa code — b2/b3) ──────────────────────────
-    'fileManager.photo.title': 'Photo & Album',
-    'fileManager.photo.loadingTitle': 'Loading photos...',
-    // Batch D6 (06/07/2026) — 'fileManager.photo.back.title' XOÁ, dùng CHUNG
-    // 'settingsDrawer.back.title' (Batch D1).
-    // ── Batch 3 (03/07/2026) ──────────────────────────────────────────────────────────────
-    'fileManager.photo.uploadTitle': 'Add photos',
+    // ── Drawer con: Photo — hợp nhất vào Playlist làm 1 Source, không còn panel/title riêng.
+    // 'fileManager.photo.title'/'.loadingTitle'/'.uploadTitle'/'.carousel.confirmButton'/
+    // '.image.btnDelete'/'.image.quickDeleteTitle'/'.image.quickDeleteConfirm.*'/
+    // '.image.quickDeleteBatchConfirm.*' bỏ hẳn cùng Photo Panel/carousel picker/nút xoá dropdown.
     'fileManager.photo.image.empty': 'No photos yet. Tap the + button above to add some.',
-    // MỚI (04/07/2026, mục 2 phản hồi Giang) — carousel chọn ảnh nền (Visual/Playlist).
-    'fileManager.photo.carousel.confirmButton': 'Use this photo',
-    // XOÁ (loại bỏ Album khỏi Photo Panel) — carousel xem ảnh trong album + Album List sub-panel
-    // bỏ hẳn cùng tính năng — 'fileManager.photo.album.carousel.*'/'fileManager.photo.albumList.*'
-    // (7 key) bỏ hẳn.
-    'fileManager.photo.image.btnDelete': 'Remove from library',
     'fileManager.photo.image.uploadSuccess': 'Added {count} photo(s).',
     // ── Batch tiếp theo (03/07/2026, hạ tầng z-index nền Visual) — "Đặt làm nền" trên ảnh ─────
     // RÚT GỌN (14/07/2026, mục cuối — icon hoá menu action ảnh, Giang yêu cầu tên ngắn gọn).
@@ -126,22 +117,6 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.image.editDrawEraser': 'Eraser',
     'fileManager.photo.image.editMagicTolerance': 'Color tolerance',
     'fileManager.photo.image.editMagicHint': 'Tap a color area on the photo to remove it.',
-    // MỚI (14/07/2026, mục cuối, mục 2.2) — chế độ xoá nhanh.
-    'fileManager.photo.image.quickDeleteTitle': 'Quick delete',
-    'fileManager.photo.image.quickDeleteConfirm.title': 'Enable quick delete?',
-    // SỬA (Giai đoạn 3, rewrite Photo/Album — redesign chế độ xoá nhanh) — hành vi MỚI: bấm ảnh chỉ
-    // ĐÁNH DẤU (không xoá ngay), bấm lại icon thùng rác mới thật sự xoá TOÀN BỘ đã đánh dấu 1 lần.
-    'fileManager.photo.image.quickDeleteConfirm.desc': 'While enabled, tap photos to mark them for deletion. Tap the trash icon again to delete all marked photos at once.',
-    'fileManager.photo.image.quickDeleteConfirm.confirmBtn': 'Enable',
-    // MỚI (Giai đoạn 3) — xác nhận xoá batch (chỉ hỏi khi có ≥1 ảnh đã đánh dấu — 0 ảnh thì thoát
-    // thẳng, không hỏi gì, xem event/router/file-manager-photo.js). `.confirm` (text động, có
-    // {count}) -> tham số 1; `.title` (tiêu đề ngắn TĨNH) -> option {title}.
-    'fileManager.photo.image.quickDeleteBatchConfirm.confirm': 'Delete {count} photos? This cannot be undone.',
-    'fileManager.photo.image.quickDeleteBatchConfirm.title': 'Delete photos?',
-    'fileManager.photo.image.quickDeleteBatchConfirm.confirmBtn': 'Delete',
-    // XOÁ (loại bỏ Album khỏi Photo Panel) — toàn bộ key 'fileManager.photo.album.*' (tạo/đổi tên/
-    // xoá album, dùng làm nền Slideshow, thêm ảnh vào album, dropdown 2 lựa chọn "+") bỏ hẳn cùng
-    // tính năng — 17 key.
     // ── Drawer con: Video — ĐÃ XOÁ HẲN panel riêng (ver12 "Song/Video Unification", Batch 6, mục
     // 6d, phản hồi Giang) — gộp vào "Song & Video" (Batch 5). CHỈ CÒN 3 key dưới đây (dùng bởi
     // uploadVideos()/picker "Use background video" — xem event/workflow/file-manager-video.js) —

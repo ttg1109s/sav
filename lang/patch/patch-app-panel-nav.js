@@ -1,18 +1,17 @@
 /**
  * patch-app-panel-nav.js — patch default-language keys (tiếng Anh), phần bottom nav App Panel
- * (Media/Folder/Photo/Storage/Game/Statis/Setting) + panel Photo/Game/Statis/Setting MỚI.
+ * (Media/Folder/Storage/Game/Statis) + panel Game/Statis/Setting. Photo đã hợp nhất vào Playlist
+ * làm 1 Source, không còn tab/panel riêng — 'appPanelNav.tab.photo'/'photoPanel.title' đã xoá.
  * Xem lang/patch/patch-common.js cho quy ước chung. Nạp TRƯỚC /lang/lang.js.
  */
 const LANG_PATCH_APP_PANEL_NAV = {
     'appPanelNav.tab.media': 'Media',
     'appPanelNav.tab.folder': 'Folder',
-    'appPanelNav.tab.photo': 'Photo',
     'appPanelNav.tab.storage': 'Storage',
     'appPanelNav.tab.game': 'Game',
     'appPanelNav.tab.statis': 'Statis',
     'appPanelNav.tab.setting': 'Setting',
 
-    'photoPanel.title': 'Photo',
     'gamePanel.title': 'Game',
     'gamePanel.comingSoon': 'Coming soon',
     'statisPanel.title': 'Statis',
