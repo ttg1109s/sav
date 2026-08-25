@@ -290,6 +290,7 @@ const workflowImageEdit = {
      * `cropPointerUp()` — Router tự gọi khi `getActiveSubTool()==='crop'`). */
     _startCropTool() {
         const handle = this._activeImageModalHandle;
+        workflowGenericDrawerHelpers.closeFully(); // FIX (bug có từ trước) — thiếu dòng này khiến Generic Drawer còn mở đè lên contextBar/interactCanvas, tưởng tool "không làm gì" — cùng khuôn openAdjustTool()
         this._activeSubTool = 'crop';
         handle.header.classList.add('hidden');
         handle.contextBar.classList.remove('hidden');
@@ -378,6 +379,7 @@ const workflowImageEdit = {
      * vĩnh viễn, xem `drawPointerDown()`/`drawPointerMove()`/`drawPointerUp()`). */
     _startDrawTool() {
         const handle = this._activeImageModalHandle;
+        workflowGenericDrawerHelpers.closeFully(); // FIX (bug có từ trước) — xem ghi chú _startCropTool()
         this._activeSubTool = 'draw';
         this._drawType = 'brush';
         this._drawSessionActive = false;
@@ -481,6 +483,7 @@ const workflowImageEdit = {
      * photo-ui.js. */
     _startTextTool() {
         const handle = this._activeImageModalHandle;
+        workflowGenericDrawerHelpers.closeFully(); // FIX (bug có từ trước) — xem ghi chú _startCropTool()
         this._activeSubTool = 'text';
         this._textDragging = false;
         handle.header.classList.add('hidden');
@@ -563,6 +566,7 @@ const workflowImageEdit = {
      * KHÔNG wire ở đây nữa (Core wire vĩnh viễn, xem `updateMagicSlider()`/`magicPointerDown()`). */
     _startMagicTool() {
         const handle = this._activeImageModalHandle;
+        workflowGenericDrawerHelpers.closeFully(); // FIX (bug có từ trước) — xem ghi chú _startCropTool()
         this._activeSubTool = 'magic';
         handle.header.classList.add('hidden');
         handle.contextBar.classList.remove('hidden');

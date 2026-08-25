@@ -298,24 +298,8 @@ const workflowFileManagerPhoto = {
         if (this._activeImageModalHandle) { this._activeImageModalHandle.close(); this._activeImageModalHandle = null; }
     },
 
-    /** Ứng với nút "Đặt làm nền Playlist" trong modal xem ảnh — TÁI DÙNG NGUYÊN applyBgImage().
-     * Batch "nền chung" (07/07/2026) — applyBgImage() Rule 1-4 đầy đủ (không tự updatePlaylistBg/
-     * saveConfig nội bộ), nơi gọi (ở đây) tự lo.
-     * @param {string} imageKey
-     */
-    async setAsPlaylistBackground(imageKey) {
-        const record = await getImageRecord(imageKey); // data layer (service/db.js)
-        if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
-
-        await withLoadingShield(t('common.loading.savingImageBg'), async () => {
-            await applyBgImage(record.blob); // core có sẵn (core/visualizer/visualizer-display.js)
-        });
-        updatePlaylistBg();
-        forceGlassRepaint(); // fix bug 09/07/2026 (mục 3, xem docstring core/color-utils.js)
-        saveConfig();
-        await alertModal(t('fileManager.photo.image.setPlaylistBgSuccess'));
-    },
-
+    // XOÁ (Giang yêu cầu bỏ "Đặt làm nền Playlist") — setAsPlaylistBackground() (nút header modal
+    // xem ảnh) bỏ hẳn cùng tính năng, không còn entry point nào gọi tới applyBgImage() từ Photo.
     // XOÁ (loại bỏ Album khỏi Photo Panel) — setAsSlideshowBackground() (nút "Dùng làm nền
     // Slideshow" ở thanh quản lý album) bỏ hẳn — Visual Background mất tuỳ chọn "Nhóm ảnh" tạm
     // thời, sẽ thay bằng Folder Photo (File Browser overhaul, đợt riêng, pending).
