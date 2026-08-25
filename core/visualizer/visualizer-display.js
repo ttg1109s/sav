@@ -196,9 +196,9 @@
         /**
          * `applyBgImage()`/`applyBgImageEnabled()` KHÔNG tự gọi `updatePlaylistBg()`/`saveConfig()`
          * nội bộ (Rule 0.5, batch "nền chung") — nơi gọi (Workflow) tự lo, xem event/workflow/
-         * theme.js::pickNewBackgroundImage()/_commitThemeMode() và event/workflow/
-         * file-manager-photo.js::setAsPlaylistBackground(). `bgImageEnableToggle.checked = true`
-         * GIỮ NGUYÊN — ghi DOM tĩnh đơn giản, không phải core-gọi-core, không thuộc phạm vi Rule 3.
+         * theme.js::pickNewBackgroundImage()/_commitThemeMode(). `bgImageEnableToggle.checked =
+         * true` GIỮ NGUYÊN — ghi DOM tĩnh đơn giản, không phải core-gọi-core, không thuộc phạm vi
+         * Rule 3.
          *
          * @param {Blob} file - Blob ảnh (từ store `images` qua picker Generic Drawer — KHÔNG
          *        validate định dạng ở đây, ảnh trong store `images` đã hợp lệ từ lúc upload vào đó)
