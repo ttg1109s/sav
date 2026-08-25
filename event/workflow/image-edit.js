@@ -237,14 +237,39 @@ const workflowImageEdit = {
      * (dùng CHUNG cho cả 4 sub-tool, hành vi khác nhau theo tool đang mở). */
     getActiveSubTool() { return this._activeSubTool; },
 
-    /** Toạ độ CSS hiển thị -> pixel THẬT của canvas — Workflow tự tính lại khi cần (vẽ overlay, bán
-     * kính chạm handle...), KHÁC với toạ độ Core đã tính sẵn gửi kèm payload pointer event (2 nơi
-     * cần tính, không đáng gộp thành 1 hàm dùng chung xuyên Core/Workflow — Rule 3a không cho Core
-     * gọi Core, nên Core tự có bản tính riêng trong chính photo-ui.js). @returns {number} */
-    _editScale() {
+    /** FIX (Giang báo Crop/Vẽ/Tách nền không nhận tương tác — gốc chung `_editScale()`/
+     * `applyTextTool()` bên dưới) — hình học `object-fit` THẬT của cụm canvas Edit (`interactCanvas`
+     * đại diện, cả 4 canvas luôn CÙNG kích thước/object-fit qua `syncEditCanvasDisplaySize()`) —
+     * gộp 1 chỗ DUY NHẤT trong chính Workflow này (KHÔNG phải Core — Rule 3a không áp dụng giữa các
+     * hàm Workflow cùng file) để `_editScale()` (kích thước) VÀ `applyTextTool()` (toạ độ tuyệt đối,
+     * cần thêm offset) dùng chung, tránh lặp lại cùng 1 công thức `object-fit` ở 2 nơi dễ lệch nhau
+     * sau này. `displayScale` = CSS-px trên mỗi canvas-px THẬT (nhỏ nhất cho 'contain' — ảnh co vừa
+     * khít chừa viền đen 2 bên; lớn nhất cho 'cover' — ảnh phóng tràn ra ngoài rồi cắt bớt).
+     * `offsetX`/`offsetY` = khoảng lệch tâm giữa hộp CSS (`rect`) và vùng ảnh THẬT hiển thị bên
+     * trong đó (ÂM cho 'cover', DƯƠNG cho 'contain') — CÙNG khuôn `computeInteractPos()` (core/
+     * file-manager/photo-ui.js), xem giải thích đầy đủ ở đó.
+     * @returns {{rect: DOMRect, displayScale: number, offsetX: number, offsetY: number}} */
+    _editFitGeometry() {
         const canvas = this._activeImageModalHandle.interactCanvas;
         const rect = canvas.getBoundingClientRect();
-        return canvas.width / (rect.width || canvas.width || 1); // guard chia 0 hiếm (canvas chưa layout xong)
+        const cw = canvas.width, ch = canvas.height;
+        if (!cw || !ch || !rect.width || !rect.height) return { rect, displayScale: 1, offsetX: 0, offsetY: 0 }; // guard hiếm (canvas chưa layout/decode xong)
+        const fitMode = canvas.style.objectFit || 'cover';
+        const displayScale = fitMode === 'contain'
+            ? Math.min(rect.width / cw, rect.height / ch)
+            : Math.max(rect.width / cw, rect.height / ch);
+        return { rect, displayScale, offsetX: (rect.width - cw * displayScale) / 2, offsetY: (rect.height - ch * displayScale) / 2 };
+    },
+
+    /** Toạ độ/kích thước CSS hiển thị -> canvas-px THẬT — Workflow tự tính lại khi cần (bán kính
+     * chạm handle, ngưỡng kéo tối thiểu, độ dày nét overlay...), KHÁC với toạ độ Core đã tính sẵn gửi
+     * kèm payload pointer event (2 nơi cần tính, không đáng gộp thành 1 hàm dùng chung xuyên Core/
+     * Workflow — Rule 3a không cho Core gọi Core, nên Core tự có bản tính riêng trong chính photo-
+     * ui.js — xem `computeInteractPos()` ở đó). CHỈ cần `displayScale` (không cần offset — đây là
+     * KÍCH THƯỚC/khoảng cách, không phải toạ độ tuyệt đối, `object-fit` giữ nguyên tỉ lệ khung hình
+     * nên 1 số vô hướng áp được cho CẢ 2 trục). @returns {number} */
+    _editScale() {
+        return 1 / this._editFitGeometry().displayScale;
     },
 
     /** Ứng với `imageEdit.subTool.cancel.click` (nút Huỷ ở contextBar, wire 1 lần ở photo-ui.js,
@@ -571,11 +596,17 @@ const workflowImageEdit = {
         const text = handle.floatingText.textContent;
         if (!text || !text.trim()) { this.exitSubTool(); return; }
 
-        const canvasRect = handle.renderCanvas.getBoundingClientRect();
+        // FIX (cùng bug `_editScale()`/`computeInteractPos()` ở trên) — TRƯỚC ĐÂY nhân thẳng
+        // `_editScale()` mà KHÔNG trừ `offsetX`/`offsetY` (viền đen 'contain'/phần tràn 'cover') —
+        // layer Text vì vậy "nướng" sai vị trí canvas-pixel so với chỗ khung `floatingText` đang
+        // hiện trên màn hình bất cứ khi nào `object-fit` không phủ khít `canvasRect`. Dùng
+        // `_editFitGeometry()` (gộp chung 1 chỗ, xem docstring hàm đó) — trừ offset TRƯỚC khi nhân
+        // `1/displayScale`, cùng công thức `computeInteractPos()`.
+        const { rect: canvasRect, displayScale, offsetX, offsetY } = this._editFitGeometry();
         const textRect = handle.floatingText.getBoundingClientRect();
-        const scale = this._editScale();
-        const cx = (textRect.left - canvasRect.left + textRect.width / 2) * scale;
-        const cy = (textRect.top - canvasRect.top + textRect.height / 2) * scale;
+        const scale = 1 / displayScale;
+        const cx = (textRect.left - canvasRect.left - offsetX + textRect.width / 2) * scale;
+        const cy = (textRect.top - canvasRect.top - offsetY + textRect.height / 2) * scale;
         const fontSizePx = 30 * scale;
 
         this._layers.push({

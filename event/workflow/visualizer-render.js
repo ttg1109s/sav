@@ -152,18 +152,21 @@ const workflowVisualizerRender = {
             'vizDataArray', 'analyser', 'frameCounter', 'beatScale', 'smoothedEnergy', 'globalHueOffset'
         ]);
 
-        // SỬA (Giang yêu cầu — Photo tích hợp `duration` như Song/Video, "visualizer hiển thị
-        // trạng thái idle/tĩnh" lúc đang phát 1 ảnh) — thêm `isPhotoPlayerMode` vào điều kiện ẩn
-        // canvas — ảnh hiện qua `#visual-bg-image` (z-index -2, DƯỚI canvas #webgl-canvas(1)/
-        // #visualizer(10) — xem assets/css/base.css, tái dùng element VBG, event/workflow/visual-
-        // bg.js::applyVisualBgImageToDOM()), phải ẩn canvas mới lộ ra được, CÙNG cơ chế
-        // `updateCanvasVisibility()` (core) đã dùng cho cfg.visualEnabled===false — KHÔNG cần hàm
-        // core mới, chỉ thêm điều kiện vào biến đã có. Không tự return sớm ở đây (Game Mode vẫn
-        // cần workflowGameplay.tick() chạy dù canvas ẩn, xem comment "layer game là DOM riêng" ngay
-        // dưới) — audioPlayer đã pause() lúc vào Photo mode (event/workflow/photo-player.js) nên
-        // `isPlaying` ở dòng dưới tự = false, giữ mọi tính toán energy/beatScale tự decay về idle,
-        // KHÔNG cần sửa gì thêm trong phần vẽ.
-        const isVisualOff = cfg.visualEnabled === false || appState.get('isPhotoPlayerMode');
+        // FIX (Giang báo "visual của photo trong visualizer bị ẩn dù setting vẫn bật") — BẢN CŨ
+        // (SỬA lúc Photo tích hợp `duration` như Song/Video) từng OR thêm `isPhotoPlayerMode` vào
+        // điều kiện ẩn canvas — Ý ĐỊNH gốc là "visualizer hiển thị trạng thái idle/tĩnh lúc đang
+        // phát 1 ảnh", nhưng cách làm SAI: OR cứng `isPhotoPlayerMode` khiến canvas bị ẩn TUYỆT ĐỐI
+        // suốt lúc phát Photo — GHI ĐÈ hẳn `cfg.visualEnabled`, bất kể người dùng đang bật/tắt Visual
+        // gì — đúng triệu chứng Giang báo ("setting vẫn đang bật" mà vẫn ẩn). Không cần điều kiện
+        // riêng cho Photo mode: `isPlaying` ở dòng dưới đã tự = false lúc Photo đang phát (audioPlayer
+        // đã pause() lúc vào Photo mode, event/workflow/photo-player.js), nên 6 visual cũ (bar/
+        // lightning/rubik/black hole/rain/vortex/space) tự chạy đúng animation "idle" y hệt lúc 1 bài
+        // Song đang tạm dừng — KHÔNG cần ẩn hẳn canvas mới ra được trạng thái đó. Canvas giờ CHỈ ẩn
+        // theo ĐÚNG 1 điều kiện: `cfg.visualEnabled === false` (người dùng tự tắt Visual) — ảnh Photo
+        // (`#visual-bg-image`, z-index -2) vẫn hiện y hệt DƯỚI canvas, nhưng canvas không còn bị
+        // cưỡng chế ẩn nên hiệu ứng Visual (nếu bật) giờ vẽ ĐÈ LÊN TRÊN ảnh như mong đợi (canvas tự
+        // trong suốt qua `ctx.clearRect()` mỗi khung hình, không che mất ảnh phía dưới).
+        const isVisualOff = cfg.visualEnabled === false;
         updateCanvasVisibility(canvas, document.getElementById('webgl-canvas'), isVisualOff); // core
 
         // Blur/glow giờ CẤU HÌNH RIÊNG từng effect (customEffect[type].blurEnabled/blurIntensity,

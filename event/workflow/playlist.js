@@ -606,6 +606,22 @@ const workflowPlaylist = {
     },
 
     /**
+     * "Xuất file" cho Photo — bản 1 ảnh lẻ, MỚI (Giang yêu cầu — "thêm export file/download ảnh vào
+     * dropdown action menu photo playlist") — CÙNG CẤU TRÚC exportVideoFile() ngay trên (ảnh cũng
+     * không có tag ID3 gì để ghi, tải thẳng record.blob/record.filename GỐC — không cần bước
+     * buildTaggedBlob() như exportSongWithTag()).
+     */
+    async exportImageFile(key) {
+        let notFound = false;
+        await withLoadingShield(t('common.loading.exportingFile'), async () => {
+            const record = await getImageRecord(key); // service/db.js
+            if (!record) { notFound = true; return; }
+            triggerDownload(record.blob, record.filename); // core có sẵn (core/id3-export.js)
+        });
+        if (notFound) await alertModal(t('common.export.notFound'));
+    },
+
+    /**
      * "Xuất ZIP" cho Video — bản hàng loạt, MỚI (cùng batch với exportVideoFile() ngay trên) — CÙNG
      * CẤU TRÚC exportSelectedSongsZip(), CHỈ BỎ bước gắn tag (zip thẳng record.blob/filename gốc,
      * không cần try/catch riêng vì không có bước ghi tag nào có thể lỗi).
@@ -639,13 +655,20 @@ const workflowPlaylist = {
      * (Playlist chỉ browse ĐÚNG 1 nguồn tại 1 thời điểm, item đang mở menu luôn cùng loại với nguồn
      * đang active) — Song -> exportSongWithTag() (kèm bước ghi tag ID3), Video -> exportVideoFile()
      * (bỏ qua bước tag).
+     * SỬA (Giang yêu cầu — "thêm export file/download ảnh vào dropdown action menu photo playlist")
+     * — thêm nhánh thứ 3 'photo' -> exportImageFile() ngay trên (cùng công thức Video, ảnh không có
+     * tag ID3 gì để ghi). `activeMediaSource` giờ đọc TRỰC TIẾP (3 giá trị hợp lệ song/video/photo
+     * — xem loadPersistedPlaylistConfigOnBoot()), không còn ternary chỉ phân 2 nhánh video/song như
+     * bản cũ (bản cũ gộp LUÔN 'photo' vào default 'song' — SAI, gọi nhầm exportSongWithTag() cho ảnh
+     * nếu lỡ dropdown Photo có bấm được nút này trước khi được hiện đúng ở trên).
      */
     async exportActiveMenuItem() {
         const key = playlistStore.get('songActionMenuKey');
         if (!key) return;
         closeSongActionMenu();
-        const mediaType = appState.get('activeMediaSource') === 'video' ? 'video' : 'song';
+        const mediaType = appState.get('activeMediaSource');
         if (mediaType === 'video') await this.exportVideoFile(key);
+        else if (mediaType === 'photo') await this.exportImageFile(key);
         else await this.exportSongWithTag(key);
     },
 
