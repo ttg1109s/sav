@@ -369,10 +369,24 @@ function openImagePreviewModal(image) {
         const offsetX = (rect.width - cw * displayScale) / 2, offsetY = (rect.height - ch * displayScale) / 2;
         return { x: (clientX - rect.left - offsetX) / displayScale, y: (clientY - rect.top - offsetY) / displayScale };
     };
-    interactCanvas.addEventListener('pointerdown', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.interactCanvas.pointerDown', payload: computeInteractPos(e.clientX, e.clientY) }));
+    interactCanvas.addEventListener('pointerdown', (e) => {
+        console.log('[DEBUG interactCanvas] pointerdown NHẬN ĐƯỢC, target:', e.target.id || e.target.tagName); // TẠM — xoá sau khi debug xong
+        eventBus.send({ router: 'imageEdit', type: 'imageEdit.interactCanvas.pointerDown', payload: computeInteractPos(e.clientX, e.clientY) });
+    });
     interactCanvas.addEventListener('pointermove', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.interactCanvas.pointerMove', payload: computeInteractPos(e.clientX, e.clientY) }));
     interactCanvas.addEventListener('pointerup', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.interactCanvas.pointerUp', payload: {} }));
     interactCanvas.addEventListener('pointerleave', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.interactCanvas.pointerUp', payload: {} })); // trượt ra ngoài canvas lúc đang kéo = coi như nhả tay, cùng msg.type
+
+    // TẠM (debug — Giang chỉ ra đúng: nếu trigger DOM chưa bao giờ kích hoạt thì log bên trong
+    // cropPointerDown()/drawPointerDown() (Workflow, SAU eventBus) vô nghĩa) — capture phase ở
+    // document, bắt TRƯỚC MỌI THỨ KHÁC (kể cả trước khi trình duyệt quyết định phần tử nào "thắng"
+    // sự kiện) — log ra e.target THẬT SỰ nhận pointerdown. Nếu log này in ra 1 id KHÁC
+    // 'image-edit-interact-canvas' (hoặc không in gì cả) lúc chạm vào vùng khung Crop, nghĩa là có
+    // phần tử khác đang đè lên/cướp sự kiện, hoặc cử chỉ bị chặn từ tầng OS/trình duyệt trước khi
+    // tới được JS — XOÁ khối này sau khi xác định xong nguyên nhân.
+    document.addEventListener('pointerdown', (e) => {
+        console.log('[DEBUG document capture] pointerdown, target:', e.target.id || e.target.tagName || e.target, '| interactCanvas hiện có trong DOM:', document.body.contains(interactCanvas), '| đang hiển thị:', interactCanvas.getBoundingClientRect());
+    }, true);
 
     // `floatingText.pointerdown` wire Ở ĐÂY (phần tử ĐỘNG, tạo mới mỗi lần mở modal — đúng chỗ).
     // `document.pointermove`/`pointerup` theo dõi TIẾP quá trình kéo KHÔNG được wire ở đây — `document`
