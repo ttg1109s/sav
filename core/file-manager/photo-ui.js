@@ -22,7 +22,39 @@
  * @param {{key: string, blob: Blob, filename: string}} image
  * @returns {{close: () => void, imgEl: HTMLImageElement, mediaWrap: HTMLElement, canvasWrap: HTMLElement, baseCanvas: HTMLCanvasElement, renderCanvas: HTMLCanvasElement, interactCanvas: HTMLCanvasElement, toolsBtn: HTMLElement}}
  */
+/** So sánh hướng ảnh với hướng màn hình — DÙNG CHUNG cho cả `<img>` (object-fit, gọi lúc 'load')
+ * LẪN cụm canvas Edit mode (`syncEditCanvasDisplaySize()` dưới). TRƯỚC ĐÂY 2 nơi tính RIÊNG —
+ * canvas không hề gọi, mặc định coi như luôn 'contain' — ảnh CÙNG hướng màn hình (case phổ biến
+ * nhất: ảnh dọc xem trên máy dọc) đang hiện 'cover' (phủ kín ngang màn hình) ĐỘT NGỘT co hẹp lại
+ * còn 'contain' (hẹp hơn, viền 2 bên) ngay lúc vào Edit mode — ĐÚNG hiệu ứng "ảnh co lại theo
+ * chiều ngang" Giang báo, vì canvas không hỗ trợ tự đổi theo `<img>`.
+ * @param {number} naturalW @param {number} naturalH @returns {'cover'|'contain'}
+ */
+function computeCoverOrContain(naturalW, naturalH) {
+    const imageIsLandscape = naturalW >= naturalH;
+    const screenIsLandscape = window.innerWidth >= window.innerHeight;
+    return (imageIsLandscape === screenIsLandscape) ? 'cover' : 'contain';
+}
+
+/** Đồng bộ `object-fit` của cụm 4 canvas Edit mode (base/render/layer/interact) với `<img>` —
+ * PHẢI gọi lại mỗi lần kích thước THẬT của ảnh đổi (`baseCanvas.width/height`): lúc vừa decode
+ * xong (event/workflow/image-edit.js::ensureEditSessionReady()) VÀ lúc Áp dụng Crop xong (ảnh đổi
+ * kích thước/tỉ lệ, applyCropTool()) — dùng chung 4 canvas (đều CÙNG kích thước THẬT, xếp chồng
+ * khít lên nhau, chỉ khác nội dung).
+ * @param {{baseCanvas: HTMLCanvasElement, renderCanvas: HTMLCanvasElement, layerCanvas: HTMLCanvasElement, interactCanvas: HTMLCanvasElement}} handle
+ */
+function syncEditCanvasDisplaySize(handle) {
+    const w = handle.baseCanvas.width, h = handle.baseCanvas.height;
+    if (!w || !h) return; // guard: canvas chưa có kích thước thật (hiếm, gọi quá sớm)
+    const fitMode = computeCoverOrContain(w, h);
+    [handle.baseCanvas, handle.renderCanvas, handle.layerCanvas, handle.interactCanvas].forEach(c => {
+        c.style.objectFit = fitMode;
+    });
+}
+
 function openImagePreviewModal(image) {
+
+
     const stale = document.getElementById('image-preview-overlay');
     if (stale) stale.remove();
 
@@ -74,13 +106,13 @@ function openImagePreviewModal(image) {
     canvasWrap.className = 'hidden absolute inset-0 flex items-center justify-center';
     const baseCanvas = document.createElement('canvas');
     baseCanvas.id = 'image-edit-base-canvas';
-    baseCanvas.className = 'absolute max-w-full max-h-full';
+    baseCanvas.className = 'absolute w-full h-full';
     const renderCanvas = document.createElement('canvas');
     renderCanvas.id = 'image-edit-render-canvas';
-    renderCanvas.className = 'absolute max-w-full max-h-full';
+    renderCanvas.className = 'absolute w-full h-full';
     const layerCanvas = document.createElement('canvas');
     layerCanvas.id = 'image-edit-layer-canvas';
-    layerCanvas.className = 'absolute max-w-full max-h-full';
+    layerCanvas.className = 'absolute w-full h-full';
     const interactCanvas = document.createElement('canvas');
     interactCanvas.id = 'image-edit-interact-canvas';
     // FIX (bug có từ trước — Crop không kéo được góc/khung, Vẽ/Tách nền không thao tác được trên
@@ -88,7 +120,7 @@ function openImagePreviewModal(image) {
     // `body` (assets/css/base.css) — trình duyệt tự giành cử chỉ kéo ngón tay thành pan/scroll gốc
     // TRƯỚC KHI JS kịp nhận đủ `pointermove`, nên kéo tay trên canvas này gần như vô tác dụng. Cùng
     // pattern đã áp dụng đúng ở `.video-preview-trim-handle` (assets/css/video-preview.css).
-    interactCanvas.className = 'absolute max-w-full max-h-full touch-none';
+    interactCanvas.className = 'absolute w-full h-full touch-none';
     canvasWrap.append(baseCanvas, renderCanvas, layerCanvas, interactCanvas);
     mediaWrap.appendChild(canvasWrap);
 
@@ -256,9 +288,7 @@ function openImagePreviewModal(image) {
     // dùng (Rule 5a chỉ áp cho đó), chỉ là chỉnh object-fit thuần trình bày dựa trên kích thước ảnh
     // vừa đo được, không ai cần biết/quyết định gì thêm ở Router/Workflow.
     img.addEventListener('load', () => {
-        const imageIsLandscape = img.naturalWidth >= img.naturalHeight;
-        const screenIsLandscape = window.innerWidth >= window.innerHeight;
-        img.style.objectFit = (imageIsLandscape === screenIsLandscape) ? 'cover' : 'contain';
+        img.style.objectFit = computeCoverOrContain(img.naturalWidth, img.naturalHeight);
     }, { once: true });
     // KHÔNG gọi closeModal()/callback tham số nữa (SAI Rule 5a, xem docstring) — bắn thẳng eventBus.
     // Không còn Block gate nào chặn nút X (xem event/block.js) — không có "mode" nào phải thoát
