@@ -128,8 +128,16 @@ function applySharpenFilter(srcImageData, amount) {
             d[i + 3] = s[i + 3];
         }
     }
-    // Giữ nguyên viền ngoài (tránh artifact do kernel không đủ hàng xóm ở mép)
+    // Giữ nguyên viền ngoài (tránh artifact do kernel không đủ hàng xóm ở mép). FIX (bug có từ
+    // trước) — vòng lặp chính CHỈ xử lý x trong [1, w-2] (bỏ qua 2 cột trái/phải), nhưng đoạn giữ
+    // viền TRƯỚC ĐÂY chỉ copy 2 HÀNG trên/dưới, quên hẳn 2 CỘT trái/phải — 2 cột đó bị bỏ trống ở
+    // `new ImageData()` (mặc định trong suốt hoàn toàn), tạo 1 viền dọc trong suốt/đen rộng 1px
+    // dọc 2 mép trái/phải ảnh mỗi khi bật Sharpen. Thêm 2 vòng lặp copy cột 0 và cột w-1 (theo y).
     for (let i = 0; i < w * 4; i++) { d[i] = s[i]; d[(h - 1) * w * 4 + i] = s[(h - 1) * w * 4 + i]; }
+    for (let y = 0; y < h; y++) {
+        const left = y * w * 4, right = (y * w + w - 1) * 4;
+        for (let c = 0; c < 4; c++) { d[left + c] = s[left + c]; d[right + c] = s[right + c]; }
+    }
     return dst;
 }
 
