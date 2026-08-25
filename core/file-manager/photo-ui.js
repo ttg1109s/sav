@@ -62,11 +62,13 @@ function openImagePreviewModal(image) {
     img.src = objectUrl;
     mediaWrap.appendChild(img);
 
-    // ---- Khung canvas cho Edit mode (base/render/interact) — MỚI (31/07/2026), ẩn mặc định, chỉ
-    // hiện khi vào Edit mode (workflowImageEdit.enterEditMode() dựng nội dung + gỡ 'hidden').
+    // ---- Khung canvas cho Edit mode (base/render/layer/interact) — MỚI (31/07/2026), ẩn mặc định,
+    // chỉ hiện khi vào Edit mode (workflowImageEdit.enterEditMode() dựng nội dung + gỡ 'hidden').
     // Đúng khuôn prototype "Lumina Pro" Giang cung cấp: base = pixel gốc sau thao tác vĩnh viễn,
-    // render = kết quả filter hiện tại (không phá base, cho phép chỉnh lại), interact = overlay
-    // tương tác (khung crop/nét vẽ nháp — CHƯA dùng ở bản đầu, chỉ mục "Điều chỉnh").
+    // render = kết quả Điều chỉnh hiện tại (không phá base, cho phép chỉnh lại), layer = Text/Shape
+    // (MỚI, layer riêng — KHÔNG "nướng" thẳng vào base như Crop/Vẽ/Tách nền, chọn lại/sửa lại được
+    // trong suốt phiên Edit, xem event/workflow/image-edit.js::_renderLayers()), interact = overlay
+    // tương tác (khung crop/nét vẽ nháp/handle kéo).
     const canvasWrap = document.createElement('div');
     canvasWrap.id = 'image-edit-canvas-wrap';
     canvasWrap.className = 'hidden absolute inset-0 flex items-center justify-center';
@@ -76,6 +78,9 @@ function openImagePreviewModal(image) {
     const renderCanvas = document.createElement('canvas');
     renderCanvas.id = 'image-edit-render-canvas';
     renderCanvas.className = 'absolute max-w-full max-h-full';
+    const layerCanvas = document.createElement('canvas');
+    layerCanvas.id = 'image-edit-layer-canvas';
+    layerCanvas.className = 'absolute max-w-full max-h-full';
     const interactCanvas = document.createElement('canvas');
     interactCanvas.id = 'image-edit-interact-canvas';
     // FIX (bug có từ trước — Crop không kéo được góc/khung, Vẽ/Tách nền không thao tác được trên
@@ -84,8 +89,31 @@ function openImagePreviewModal(image) {
     // TRƯỚC KHI JS kịp nhận đủ `pointermove`, nên kéo tay trên canvas này gần như vô tác dụng. Cùng
     // pattern đã áp dụng đúng ở `.video-preview-trim-handle` (assets/css/video-preview.css).
     interactCanvas.className = 'absolute max-w-full max-h-full touch-none';
-    canvasWrap.append(baseCanvas, renderCanvas, interactCanvas);
+    canvasWrap.append(baseCanvas, renderCanvas, layerCanvas, interactCanvas);
     mediaWrap.appendChild(canvasWrap);
+
+    // ---- Popup chọn loại Shape (MỚI, tool Shape) — hiện lúc bấm tile "Shape" trong lưới, TRƯỚC
+    // khi shape thật được tạo (chọn xong mới push layer + hiện contextBar để kéo/resize).
+    const shapeTypePopup = document.createElement('div');
+    shapeTypePopup.id = 'image-edit-shape-type-popup';
+    shapeTypePopup.className = 'hidden absolute bottom-0 left-0 w-full photo-preview-scrim-bottom p-5 pb-8';
+    const shapeTypes = [
+        { key: 'rect', path: 'M4 5h16v14H4z' },
+        { key: 'circle', path: 'M12 4a8 8 0 100 16 8 8 0 000-16z' },
+        { key: 'line', path: 'M4 20L20 4' },
+        { key: 'arrow', path: 'M4 20L20 4M20 4H10M20 4v10' },
+        { key: 'polygon', path: 'M12 3l8 6-3 10H7L4 9z' },
+    ];
+    shapeTypePopup.innerHTML = `
+        <div class="flex justify-center gap-3">
+            ${shapeTypes.map(s => `
+                <button type="button" data-shape-type="${s.key}" class="w-12 h-12 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${s.path}"/></svg>
+                </button>
+            `).join('')}
+        </div>
+    `;
+    overlay.appendChild(shapeTypePopup);
 
     // ---- Slider popup cho nhóm "Điều chỉnh" (brightness/contrast/...) — MỚI (31/07/2026), ẩn mặc
     // định, Workflow tự hiện lúc chọn 1 tool điều chỉnh từ Generic Drawer grid. Live-preview trực
@@ -258,6 +286,12 @@ function openImagePreviewModal(image) {
         if (!btn) return;
         eventBus.send({ router: 'imageEdit', type: 'imageEdit.crop.setRatio.click', payload: { ratio: btn.dataset.cropRatio } });
     });
+    // Delegation (Rule 5a) — tương tự cropRatioPopup, cho `[data-shape-type]`.
+    shapeTypePopup.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-shape-type]');
+        if (!btn) return;
+        eventBus.send({ router: 'imageEdit', type: 'imageEdit.shapeType.select.click', payload: { shapeType: btn.dataset.shapeType } });
+    });
 
     // SỬA (31/07/2026, Giang chỉ ra "Nhóm B không có ngoại lệ nào trong tài liệu") — pointer
     // Crop/Vẽ/Tách nền (`interactCanvas`) + kéo Text (`floatingText`) + 2 slider (Điều chỉnh/dung
@@ -297,7 +331,7 @@ function openImagePreviewModal(image) {
     // `interactCanvas` PHẢI truyền vào `exclude` của Panzoom (xem `_initZoom()`) — nếu không, chạm
     // kéo Crop/Vẽ/Tách nền trên đó sẽ bị Panzoom giành mất thành cử chỉ pan.
     return {
-        close: closeModal, imgEl: img, mediaWrap, canvasWrap, baseCanvas, renderCanvas, interactCanvas, toolsBtn,
+        close: closeModal, imgEl: img, mediaWrap, canvasWrap, baseCanvas, renderCanvas, layerCanvas, interactCanvas, toolsBtn,
         header,
         adjustPopup, adjustLabelEl: adjustPopup.querySelector('#image-edit-adjust-label'),
         adjustValueEl: adjustPopup.querySelector('#image-edit-adjust-value'),
@@ -307,6 +341,7 @@ function openImagePreviewModal(image) {
         contextTitleEl: contextBar.querySelector('#image-edit-context-title'),
         contextApplyBtn: contextBar.querySelector('#image-edit-context-apply'),
         cropRatioPopup,
+        shapeTypePopup,
         floatingText,
         drawControlsPopup, drawBrushBtn: drawControlsPopup.querySelector('#image-edit-draw-brush'),
         drawEraserBtn: drawControlsPopup.querySelector('#image-edit-draw-eraser'),
@@ -366,5 +401,50 @@ function wirePhotoEditToolGridDelegation() {
     };
     genericDrawerBody.addEventListener('click', handler);
     return () => genericDrawerBody.removeEventListener('click', handler);
+}
+
+/** Mở Generic Drawer cho style editor của 1 layer (Text/Shape) — MỚI (layer Text/Shape, Giang yêu
+ * cầu "cần có nút để vào generic drawer styling editor"). CÙNG khuôn `openPhotoEditToolGridDrawerUi()`
+ * hệt (Rule 5a, wire nút X tại Core) — chỉ khác msg.type nút X bắn ra.
+ * @param {string} title @param {string} bodyHtml
+ */
+function openPhotoLayerStyleDrawerUi(title, bodyHtml) {
+    openGenericDrawer({ // core/generic-drawer.js
+        height: 'auto', maxHeight: '80vh',
+        zIndex: Z_INDEX.IMAGE_ACTION_MENU_DRAWER, // service/z-index.js (131) — TRÊN modal xem ảnh (130)
+        headerHtml: `
+            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
+                <h3 class="text-base font-bold text-slate-900">${title}</h3>
+                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+        `,
+        bodyHtml,
+        bodyClass: 'overflow-y-auto',
+    });
+    const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
+    if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.layerStyle.close.click', payload: {} }));
+}
+
+/** Wire delegated `input`/`change` trên `genericDrawerBody` cho MỌI field trong style editor
+ * (`[data-layer-style-field]`) — dùng CHUNG 1 tên attribute cho cả text (textarea/slider/color) LẪN
+ * shape (checkbox/color/slider), Workflow tự phân theo `field` + kiểu input (`type==='checkbox'`
+ * đọc `checked`, còn lại đọc `value`). Gọi ĐÚNG 1 lần/phiên mở style editor
+ * (`openLayerStyleEditor()`), gỡ lúc đóng (`closeLayerStyleEditor()`) — cùng vòng đời với
+ * `wirePhotoEditToolGridDelegation()`.
+ * @returns {() => void} hàm gỡ.
+ */
+function wireLayerStyleDrawerDelegation() {
+    const handler = (e) => {
+        const target = e.target;
+        if (!target.matches('[data-layer-style-field]')) return;
+        const field = target.dataset.layerStyleField;
+        const isCheckbox = target.type === 'checkbox';
+        eventBus.send({ router: 'imageEdit', type: 'imageEdit.layerStyle.field.input', payload: { field, value: isCheckbox ? undefined : target.value, checked: isCheckbox ? target.checked : undefined } });
+    };
+    genericDrawerBody.addEventListener('input', handler);
+    genericDrawerBody.addEventListener('change', handler);
+    return () => { genericDrawerBody.removeEventListener('input', handler); genericDrawerBody.removeEventListener('change', handler); };
 }
 
