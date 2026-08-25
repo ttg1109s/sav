@@ -226,3 +226,96 @@ function drawTextOnCanvas(canvas, text, x, y, fontSizePx, color) {
         ctx.fillText(line, x, y + (i - (lines.length - 1) / 2) * fontSizePx * 1.2);
     });
 }
+
+/**
+ * MỚI (layer Text/Shape, Giang yêu cầu "text/shape cần là layer chỉnh sửa lại được") — đo bounding
+ * box CANVAS-PIXEL của 1 text layer, dùng cho hit-test chọn layer (KHÔNG vẽ gì lên canvas — hàm
+ * THUẦN chỉ đọc `measureText()`, canvas nhận vào chỉ để mượn context đo, không bị mutate).
+ * @param {HTMLCanvasElement} canvas
+ * @param {{text: string, x: number, y: number, fontSizePx: number}} layer
+ * @returns {{x: number, y: number, w: number, h: number}}
+ */
+function measureTextLayerBoundingBox(canvas, layer) {
+    const ctx = canvas.getContext('2d');
+    ctx.font = `bold ${layer.fontSizePx}px Inter, sans-serif`;
+    const lines = layer.text.split('\n');
+    const w = Math.max(...lines.map(line => ctx.measureText(line).width));
+    const h = lines.length * layer.fontSizePx * 1.2;
+    return { x: layer.x - w / 2, y: layer.y - h / 2, w, h };
+}
+
+/**
+ * MỚI (Shape layer — Giang yêu cầu "thêm shape/hoạ tiết, cũng là layer") — vẽ 1 shape (chữ nhật/
+ * tròn/đường thẳng/mũi tên/đa giác) lên canvas. Hàm THUẦN — KHÔNG tự `clearRect()` (nơi gọi tự lo,
+ * xem event/workflow/image-edit.js::_renderLayers() — vẽ NHIỀU layer liên tiếp lên CÙNG 1 canvas
+ * layer riêng, clear đúng 1 lần trước khi vẽ cả loạt).
+ * `x,y,w,h` là hệ toạ độ CANVAS-PIXEL, `w`/`h` CÓ THỂ ÂM (rect/circle: bounding box thường; line/
+ * arrow: `w`/`h` là ĐỘ LỆCH từ điểm đầu (x,y) tới điểm cuối (x+w, y+h), không phải bounding box).
+ * `fillColor: null` = không tô (chỉ viền).
+ * @param {HTMLCanvasElement} canvas
+ * @param {{shapeType: 'rect'|'circle'|'line'|'arrow'|'polygon', x: number, y: number, w: number, h: number, fillColor: string|null, strokeColor: string, strokeWidth: number, sides?: number}} shape
+ */
+function drawShapeOnCanvas(canvas, shape) {
+    const ctx = canvas.getContext('2d');
+    const x = Math.min(shape.x, shape.x + shape.w), y = Math.min(shape.y, shape.y + shape.h);
+    const w = Math.abs(shape.w), h = Math.abs(shape.h);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.lineWidth = shape.strokeWidth;
+    ctx.strokeStyle = shape.strokeColor;
+    ctx.fillStyle = shape.fillColor || 'transparent';
+
+    if (shape.shapeType === 'rect') {
+        if (shape.fillColor) ctx.fillRect(x, y, w, h);
+        if (shape.strokeWidth > 0) ctx.strokeRect(x, y, w, h);
+    } else if (shape.shapeType === 'circle') {
+        ctx.beginPath();
+        ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+        if (shape.fillColor) ctx.fill();
+        if (shape.strokeWidth > 0) ctx.stroke();
+    } else if (shape.shapeType === 'line') {
+        ctx.beginPath();
+        ctx.moveTo(shape.x, shape.y);
+        ctx.lineTo(shape.x + shape.w, shape.y + shape.h);
+        ctx.stroke();
+    } else if (shape.shapeType === 'arrow') {
+        const ex = shape.x + shape.w, ey = shape.y + shape.h;
+        ctx.beginPath();
+        ctx.moveTo(shape.x, shape.y);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+        const angle = Math.atan2(shape.h, shape.w);
+        const headLen = Math.max(12, shape.strokeWidth * 4);
+        ctx.beginPath();
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(ex - headLen * Math.cos(angle - Math.PI / 6), ey - headLen * Math.sin(angle - Math.PI / 6));
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(ex - headLen * Math.cos(angle + Math.PI / 6), ey - headLen * Math.sin(angle + Math.PI / 6));
+        ctx.stroke();
+    } else if (shape.shapeType === 'polygon') {
+        const cx = x + w / 2, cy = y + h / 2, radius = Math.min(w, h) / 2, sides = shape.sides || 5;
+        ctx.beginPath();
+        for (let i = 0; i < sides; i++) {
+            const a = (i / sides) * Math.PI * 2 - Math.PI / 2;
+            const px = cx + radius * Math.cos(a), py = cy + radius * Math.sin(a);
+            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        if (shape.fillColor) ctx.fill();
+        if (shape.strokeWidth > 0) ctx.stroke();
+    }
+}
+
+/**
+ * MỚI (Shape layer) — bounding box CANVAS-PIXEL của 1 shape layer, dùng cho hit-test chọn layer.
+ * line/arrow không có "bề dày" hình học (chỉ 1 nét) — nới rộng thêm `strokeWidth` (tối thiểu 20px)
+ * mỗi phía để vẫn chạm trúng được bằng ngón tay, không cần bấm trúng TUYỆT ĐỐI lên đường kẻ mảnh.
+ * @param {{shapeType: string, x: number, y: number, w: number, h: number, strokeWidth: number}} shape
+ * @returns {{x: number, y: number, w: number, h: number}}
+ */
+function measureShapeLayerBoundingBox(shape) {
+    const x = Math.min(shape.x, shape.x + shape.w), y = Math.min(shape.y, shape.y + shape.h);
+    const w = Math.abs(shape.w), h = Math.abs(shape.h);
+    if (shape.shapeType !== 'line' && shape.shapeType !== 'arrow') return { x, y, w, h };
+    const pad = Math.max(20, shape.strokeWidth * 2);
+    return { x: x - pad, y: y - pad, w: w + pad * 2, h: h + pad * 2 };
+}

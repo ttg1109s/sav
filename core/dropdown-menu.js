@@ -82,3 +82,17 @@ function closeDropdownMenu() {
     if (overlay) overlay.remove();
     if (menu) menu.remove();
 }
+
+/** Neo tạm 1x1 vô hình tại toạ độ CLIENT cho trước — dùng khi cần mở `openDropdownMenu()` tại 1
+ * ĐIỂM cụ thể trên màn hình, không có sẵn DOM node thật để neo (vd 1 layer vẽ trên canvas, không
+ * phải phần tử DOM). `openDropdownMenu()` chỉ đọc `getBoundingClientRect()` của anchorEl NGAY LÚC
+ * gọi (đồng bộ, xem thân hàm phía trên) — nơi gọi an toàn `remove()` phần tử này NGAY SAU khi gọi
+ * xong, không cần giữ lại.
+ * @param {number} clientX @param {number} clientY @returns {HTMLElement}
+ */
+function createPointAnchorEl(clientX, clientY) {
+    const el = document.createElement('div');
+    el.style.cssText = `position:fixed; left:${clientX}px; top:${clientY}px; width:1px; height:1px;`;
+    document.body.appendChild(el);
+    return el;
+}
