@@ -278,6 +278,7 @@ const workflowImageEdit = {
         handle.floatingText.classList.add('hidden');
         handle.drawControlsPopup.classList.add('hidden');
         handle.magicPopup.classList.add('hidden');
+        handle.cropRatioPopup.classList.add('hidden');
         this._activeSubTool = 'none';
         this._cropSession = null;
         this.openEditToolGrid();
@@ -287,8 +288,9 @@ const workflowImageEdit = {
     // Tương tác (khung/handle/kéo tay) ở core/crop-selector.js — DÙNG CHUNG với Video Editor. File
     // này chỉ giữ `_cropSession` + phần "Áp dụng" riêng của Photo (cắt pixel thật ngay).
 
-    /** Vào tool Crop — Photo KHÔNG khoá tỉ lệ khung hình (aspectRatio NaN = Tự do). Pointer events
-     * KHÔNG wire ở đây nữa (Core đã wire vĩnh viễn, xem `cropPointerDown()`/`cropPointerMove()`/
+    /** Vào tool Crop — Photo mặc định KHÔNG khoá tỉ lệ (aspectRatio NaN = Tự do), người dùng tự
+     * chọn tỉ lệ qua `cropRatioPopup` (MỚI, `setCropAspectRatio()` dưới đây). Pointer events KHÔNG
+     * wire ở đây nữa (Core đã wire vĩnh viễn, xem `cropPointerDown()`/`cropPointerMove()`/
      * `cropPointerUp()` — Router tự gọi khi `getActiveSubTool()==='crop'`). */
     _startCropTool() {
         const handle = this._activeImageModalHandle;
@@ -298,8 +300,28 @@ const workflowImageEdit = {
         handle.contextBar.classList.remove('hidden');
         handle.contextApplyBtn.classList.remove('hidden');
         handle.contextTitleEl.textContent = t('fileManager.photo.image.editToolCrop');
+        handle.cropRatioPopup.classList.remove('hidden');
 
         this._cropSession = initCropSession(handle.baseCanvas.width, handle.baseCanvas.height); // core/crop-selector.js
+        this._drawCropOverlay();
+    },
+
+    /** Ứng với 1 nút trong `cropRatioPopup` (MỚI, Giang yêu cầu "crop không có danh sách chọn tỉ
+     * lệ"). `ratioKey` 'free' -> NaN (core hiểu là Tự do); 'W:H' -> parse thành số W/H — TÁI DÙNG
+     * NGUYÊN `setCropSessionAspectRatio()` (core/crop-selector.js, đã có sẵn từ Video Editor, chỉ
+     * chưa từng có UI gọi tới cho Photo) — hàm đó tự tính lại `session.rect` CĂN GIỮA theo tỉ lệ
+     * mới, không cần Workflow tự làm. Public — Router gọi trực tiếp (case
+     * 'imageEdit.crop.setRatio.click').
+     * @param {string} ratioKey - 'free'|'1:1'|'4:3'|'3:4'|'16:9'|'9:16'
+     */
+    setCropAspectRatio(ratioKey) {
+        if (!this._cropSession) return; // guard: hiếm, không còn ở tool Crop
+        let ratio = NaN;
+        if (ratioKey !== 'free') {
+            const [wPart, hPart] = ratioKey.split(':').map(Number);
+            ratio = wPart / hPart;
+        }
+        setCropSessionAspectRatio(this._cropSession, ratio); // core/crop-selector.js
         this._drawCropOverlay();
     },
 
