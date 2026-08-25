@@ -129,12 +129,11 @@
         // (drawerSettings/closeDrawer ĐÃ XOÁ — đợt tái cấu trúc bottom nav App Panel: `#drawer-
         // settings`/`#close-drawer` không còn tồn tại, Settings giờ mở qua core/generic-drawer.js —
         // xem event/workflow/app-settings.js.)
-        // MỚI (đợt tái cấu trúc bottom nav App Panel) — bottom nav + 3 panel full-screen mới
-        // (Photo/Game/Statis, ngang cấp Setting). Nút bên trong mỗi nút bottom nav KHÔNG có id
-        // riêng (7 nút, phân biệt qua data-tab) — event/listener/app-panel-nav.js delegate trên
-        // appBottomNav, KHÔNG cần 7 dom-ref riêng.
+        // MỚI (đợt tái cấu trúc bottom nav App Panel) — bottom nav + 2 panel full-screen mới
+        // (Game/Statis, ngang cấp Setting; Photo đã gộp vào Playlist, không còn panel riêng). Nút
+        // bên trong mỗi nút bottom nav KHÔNG có id riêng (5 nút, phân biệt qua data-tab) —
+        // event/listener/app-panel-nav.js delegate trên appBottomNav, KHÔNG cần 5 dom-ref riêng.
         const appBottomNav = document.getElementById('app-bottom-nav');
-        const photoPanel = document.getElementById('photo-panel'), btnPhotoPanelClose = document.getElementById('btn-photo-panel-close');
         const gamePanel = document.getElementById('game-panel'), btnGamePanelClose = document.getElementById('btn-game-panel-close');
         const statisPanel = document.getElementById('statis-panel'), btnStatisPanelClose = document.getElementById('btn-statis-panel-close');
         // Card "Visualizer Screen" (Main) — 4 nút điều hướng: Display (panel mới, thay hẳn
@@ -375,7 +374,8 @@
         // Section "File Manager" trong Settings (3 hàng bấm vào) — CHỐT 03/07/2026, xem
         // plan-v12-multimedia-decisions.md mục 1a/7. Không còn overlay/tab-bar cấp cao nữa.
         const btnOpenFileManagerSong = document.getElementById('setting-open-file-manager-song');
-        const btnOpenFileManagerPhoto = document.getElementById('setting-open-file-manager-photo');
+        // XOÁ (Photo hợp nhất vào Playlist làm 1 Source) — btnOpenFileManagerPhoto (hàng Settings
+        // mở Photo Panel riêng) — panel đó đã xoá hẳn, xem event/workflow/playlist.js::switchToPhotoSource().
         // XOÁ (ver12 "Song/Video Unification", Batch 6, mục 6d, phản hồi Giang) —
         // btnOpenFileManagerVideo (hàng Settings riêng cho panel Video) — panel đó đã gộp hẳn vào
         // "Song & Video" (btnOpenFileManagerSong ngay trên), không còn tồn tại độc lập.
