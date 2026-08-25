@@ -4,11 +4,11 @@
  * playlist.js::switchToPhotoSource()). Còn 2 nhóm việc:
  *   1. Modal xem ảnh full-screen — mở từ mục "Edit image" trong dropdown dòng Photo ở Playlist
  *      (event/workflow/playlist.js), KHÔNG còn mở từ tap ảnh trong lưới cũ. View/Zoom/Edit đã GỘP
- *      làm 1, KHÔNG có khái niệm "mode" nào cần thoát (bỏ dropdown "..." cũ) — Zoom (Panzoom) LUÔN
- *      bật ngay lúc mở modal (`_initZoom()`), Edit mở qua icon cố định trên header (xem
- *      event/workflow/image-edit.js), chỉ tạm dừng Zoom lúc Edit đang hiện canvas thay `<img>`
- *      (`pauseZoomForEdit()` dưới đây, gọi chéo từ image-edit.js — KHÔNG có chiều ngược lại "khôi
- *      phục Zoom", đóng Generic Drawer chỉ đóng Drawer, canvas vẫn hiện nguyên).
+ *      làm 1 THẬT SỰ, KHÔNG có khái niệm "mode" nào cần thoát HAY pause/resume (bỏ dropdown "..."
+ *      cũ) — Panzoom gắn lên `mediaWrap` (bọc CHUNG `<img>` + canvasWrap, xem core/file-manager/
+ *      photo-ui.js), KHÔNG gắn thẳng `<img>`, nên `_initZoom()` gọi ĐÚNG 1 LẦN lúc mở modal và chạy
+ *      LIÊN TỤC cho tới khi đóng hẳn — Edit mode ẩn `<img>`/hiện canvasWrap bên TRONG `mediaWrap`
+ *      không hề đụng tới session Panzoom đang chạy.
  *   2. Picker chọn 1 ảnh dùng chung qua Generic Drawer (cover bài hát/nền Theme) — gọi bởi
  *      playlist.js::pickCoverFromLibrary() và theme.js::pickNewBackgroundImage().
  * `resizeImageForThumbnail()`/`computePhotoDuration()` DÙNG CHUNG với playlist.js::uploadPhotos()
@@ -245,9 +245,10 @@ const workflowFileManagerPhoto = {
     /** Ứng với mục "Edit image" trong dropdown action-menu dòng Photo ở Playlist (event/workflow/
      * playlist.js) — KHÔNG còn mở từ tap ảnh trong list item (tap ảnh giờ PHÁT ảnh làm track như
      * Song/Video, xem event/router/playlist.js case 'playlist.item.playClick').
-     * GỘP View/Zoom/Edit làm 1 — Zoom (Panzoom) tự bật NGAY qua `_initZoom()`, không còn chờ người
-     * dùng bật tay. Tăng `count` trong `mediaStatsMap` (dùng CHUNG với Song/Video, Sort trục thống
-     * kê đọc field này — ý nghĩa đổi thành "lượt click xem" cho Photo) mỗi lần mở xem.
+     * GỘP View/Zoom/Edit làm 1 THẬT SỰ — Zoom (Panzoom) bật NGAY qua `_initZoom()`, chạy LIÊN TỤC
+     * suốt vòng đời modal (KHÔNG pause/resume khi vào/ra Edit mode, xem docstring `_initZoom()`).
+     * Tăng `count` trong `mediaStatsMap` (dùng CHUNG với Song/Video, Sort trục thống kê đọc field
+     * này — ý nghĩa đổi thành "lượt click xem" cho Photo) mỗi lần mở xem.
      * @param {string} imageKey
      */
     async openImagePreview(imageKey) {
@@ -262,35 +263,31 @@ const workflowFileManagerPhoto = {
         this._initZoom();
     },
 
-    /** Bật Panzoom trên `<img>` của modal đang mở — LUÔN gọi ngay khi mở modal
-     * (`openImagePreview()`). Tự huỷ session cũ trước nếu lỡ còn (an toàn khi lỡ gọi 2 lần liên
-     * tiếp).
+    /** Bật Panzoom trên `mediaWrap` (bọc CHUNG `<img>` + canvasWrap, core/file-manager/photo-ui.js)
+     * — KHÔNG gắn thẳng `<img>` như trước (bug: enterEditMode() ẩn `<img>` để hiện canvasWrap thì
+     * phải huỷ session Panzoom đang gắn trên đó, và không có "thoát Edit mode" nào để tạo lại —
+     * pan/zoom chết cứng sau khi vào Edit, vd sau khi Áp dụng Crop). Gắn lên `mediaWrap` thì việc ẩn/
+     * hiện `<img>`/canvasWrap bên TRONG nó không hề ảnh hưởng session — KHÔNG còn khái niệm pause/
+     * resume nào cả, gọi hàm này ĐÚNG 1 LẦN lúc mở modal (`openImagePreview()`), chạy tới khi đóng
+     * hẳn modal (`closeImagePreview()`).
+     * `exclude: [interactCanvas]` — interactCanvas tự có pointer handler riêng (kéo khung Crop/nét
+     * Vẽ/chạm Tách nền, wire ở core/file-manager/photo-ui.js), KHÔNG để Panzoom giành mất cử chỉ đó
+     * thành pan (2 hệ thống cùng nghe pointerdown trên cùng 1 vùng nếu không loại trừ tường minh).
      */
     _initZoom() {
         if (!this._activeImageModalHandle) return; // guard: hiếm, modal đã đóng ở đâu đó trước khi tới đây
-        if (this._activePanzoomSession) { destroyPanzoomSession(this._activePanzoomSession); this._activePanzoomSession = null; } // core/media-transform.js
-        this._activePanzoomSession = initPanzoomSession(this._activeImageModalHandle.imgEl, { // core/media-transform.js
+        if (this._activePanzoomSession) { destroyPanzoomSession(this._activePanzoomSession); this._activePanzoomSession = null; } // core/media-transform.js — an toàn nếu lỡ gọi 2 lần liên tiếp
+        this._activePanzoomSession = initPanzoomSession(this._activeImageModalHandle.mediaWrap, { // core/media-transform.js
             maxScale: 4,
             minScale: 1,
             contain: 'outside',
+            exclude: [this._activeImageModalHandle.interactCanvas],
         });
-    },
-
-    /** Tạm dừng Zoom TRƯỚC khi vào Edit mode — Edit ẩn hẳn `<img>` (thay bằng canvasWrap), Panzoom
-     * đang gắn trên `<img>` phải huỷ trước, không thì thao tác pan/zoom cũ còn treo trên 1 phần tử
-     * đã ẩn. Workflow-gọi-Workflow tự do (event/workflow/image-edit.js::enterEditMode() gọi hàm
-     * này). KHÔNG có chiều ngược lại "khôi phục Zoom" — không có khái niệm thoát Edit về xem ảnh
-     * thường (đóng Generic Drawer chỉ đóng Drawer, canvas vẫn hiện nguyên); Zoom chỉ thật sự bật
-     * lại nếu mở 1 ảnh MỚI khác (`openImagePreview()` gọi `_initZoom()` lại từ đầu).
-     */
-    pauseZoomForEdit() {
-        if (this._activePanzoomSession) { destroyPanzoomSession(this._activePanzoomSession); this._activePanzoomSession = null; } // core/media-transform.js
     },
 
     /** Đóng THẬT modal xem ảnh — dọn phiên Panzoom nếu còn + dọn Edit mode nếu còn + đóng handle.
      * Router gọi khi bấm X (không còn Block gate nào chặn — GỘP View/Zoom/Edit làm 1, xem
-     * event/block.js) và bởi Router khi bấm "Đặt làm nền Playlist" (đóng modal NGAY sau khi bắn
-     * hành động, xem event/router/file-manager-photo.js).
+     * event/block.js).
      */
     closeImagePreview() {
         if (this._activePanzoomSession) { destroyPanzoomSession(this._activePanzoomSession); this._activePanzoomSession = null; } // core/media-transform.js

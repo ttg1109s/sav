@@ -12,13 +12,15 @@
  * ảnh — Workflow-gọi-Workflow tự do, xem event-bus-flow.md mục 4B "Tái dùng Workflow giữa các miền
  * khác nhau".
  *
- * KHÔNG có khái niệm "mode" nào cần thoát — View/Zoom/Edit tích hợp sẵn, chạy đồng thời (bỏ
- * dropdown "..." + state `imagePreviewMode` cũ). Bấm icon Edit lần đầu decode ảnh vào canvas + ẩn
- * `<img>` (tạm dừng Zoom qua `workflowFileManagerPhoto.pauseZoomForEdit()` — kỹ thuật thuần, canvas
- * và `<img>` không thể cùng hiện), rồi mở Generic Drawer lưới tool. Đóng Drawer (nút X) CHỈ đóng
- * Drawer — canvas VẪN hiện nguyên, không có bước "quay lại xem ảnh thường" nào cả; bấm lại icon
- * Edit chỉ đơn giản mở lại lưới (`openEditToolGrid()`). Chỉ khi đóng HẲN modal xem ảnh mới thật sự
- * dọn sạch mọi state Edit (`exitEditMode()`).
+ * KHÔNG có khái niệm "mode" nào cần thoát — View/Zoom/Edit tích hợp sẵn, chạy đồng thời THẬT SỰ
+ * (bỏ dropdown "..." + state `imagePreviewMode` cũ). Zoom (Panzoom) gắn lên `mediaWrap` (bọc CHUNG
+ * `<img>` + canvasWrap, core/file-manager/photo-ui.js) — KHÔNG pause/resume khi vào/ra Edit, ẩn/
+ * hiện `<img>`/canvasWrap bên trong không đụng gì tới session Panzoom đang chạy (xem
+ * workflowFileManagerPhoto._initZoom()). Bấm icon Edit lần đầu decode ảnh vào canvas + ẩn `<img>`,
+ * rồi mở Generic Drawer lưới tool. Đóng Drawer (nút X) CHỈ đóng Drawer — canvas VẪN hiện nguyên,
+ * không có bước "quay lại xem ảnh thường" nào cả; bấm lại icon Edit chỉ đơn giản mở lại lưới
+ * (`openEditToolGrid()`). Chỉ khi đóng HẲN modal xem ảnh mới thật sự dọn sạch mọi state Edit
+ * (`exitEditMode()`).
  *
  * NẠP SAU: event/workflow/file-manager-photo.js, event/workflow/generic-drawer-helpers.js,
  * core/photo-editor-engine.js, core/crop-selector.js, core/generic-drawer.js, service/z-index.js.
@@ -76,15 +78,15 @@ const workflowImageEdit = {
         return true;
     },
 
-    /** Vào Edit mode (router `imageEdit`, case 'imageEdit.tools.click' khi CHƯA editing) — tạm dừng
-     * Zoom (ảnh/canvas không thể cùng lúc pan/zoom VÀ hiện kết quả edit), đảm bảo đã decode
-     * (`ensureEditSessionReady()`), ẩn `<img>`/hiện `canvasWrap`, mở Generic Drawer hiện lưới tool
-     * phẳng. KHÔNG có khái niệm "thoát Edit mode" quay lại xem ảnh thường — đóng Drawer (nút X)
-     * CHỈ đóng Drawer, canvas vẫn hiện nguyên (xem case 'imageEdit.toolGrid.close.click'); chỉ có
-     * đóng HẲN modal xem ảnh mới dọn sạch (`exitEditMode()`, gọi từ `closeImagePreview()`).
+    /** Vào Edit mode (router `imageEdit`, case 'imageEdit.tools.click' khi CHƯA editing) — đảm bảo
+     * đã decode (`ensureEditSessionReady()`), ẩn `<img>`/hiện `canvasWrap`, mở Generic Drawer hiện
+     * lưới tool phẳng. Zoom (Panzoom, gắn trên `mediaWrap` bọc chung cả 2) KHÔNG bị đụng tới — ẩn/
+     * hiện `<img>`/canvasWrap chỉ là hiển thị bên TRONG `mediaWrap`, session Panzoom vẫn chạy y
+     * nguyên xuyên suốt. KHÔNG có khái niệm "thoát Edit mode" quay lại xem ảnh thường — đóng Drawer
+     * (nút X) CHỈ đóng Drawer, canvas vẫn hiện nguyên (xem case 'imageEdit.toolGrid.close.click');
+     * chỉ có đóng HẲN modal xem ảnh mới dọn sạch (`exitEditMode()`, gọi từ `closeImagePreview()`).
      */
     async enterEditMode() {
-        workflowFileManagerPhoto.pauseZoomForEdit(); // GỘP View/Zoom/Edit làm 1 — Zoom tạm dừng trong lúc Edit hiện canvas thay <img>
         const ready = await this.ensureEditSessionReady();
         const handle = this._activeImageModalHandle;
         if (!ready || !handle) return; // guard hiếm: modal đóng/ảnh bị xoá giữa chừng
