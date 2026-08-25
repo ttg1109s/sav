@@ -2,7 +2,7 @@
  * core/dropdown-menu.js — Dropdown menu NEO THEO NÚT (KHÁC Generic Drawer — core/generic-drawer.js,
  * bottom sheet toàn chiều rộng màn hình). Dùng CHUNG cho MỌI nút "..." cần menu ngắn (vài lựa chọn)
  * hiện sát cạnh chính nút đó — Giang yêu cầu tách riêng để tái dùng, THAY vì viết riêng từng feature
- * (áp dụng đầu tiên cho menu ảnh Photo — event/workflow/file-manager-photo.js::openImageActionMenu()).
+ * (áp dụng đầu tiên cho menu ảnh Photo, nay là event/workflow/image-edit.js::openSaveMenu()).
  *
  * TÁI DÙNG đúng công thức định vị đã có sẵn ở `core/playlist/actions.js::openSongActionMenu()`
  * (đo `getBoundingClientRect()` của nút neo, tự lật lên trên nếu tràn màn hình dưới) — KHÔNG viết
@@ -17,7 +17,7 @@
  * `callback` — hàm NÀY (core) CHỈ gọi `item.callback()` khi bấm, KHÔNG tự quyết định nghiệp vụ gì —
  * core nhận callback làm tham số, KHÔNG tự viết business logic (Rule 1). Nơi GỌI (Workflow) PHẢI
  * tự đảm bảo `callback` bên trong gọi `eventBus.send()` (Rule 5a — xem ví dụ ở
- * openImageActionMenu()), KHÔNG viết thẳng nghiệp vụ trong `callback` — hàm dropdown này không ép
+ * openSaveMenu()), KHÔNG viết thẳng nghiệp vụ trong `callback` — hàm dropdown này không ép
  * buộc được điều đó (chỉ là quy ước nơi gọi phải tuân thủ), nhưng bản thân addEventListener() bên
  * trong đây CHỈ gọi ĐÚNG 1 việc: đóng menu + gọi callback — không tự thêm nghiệp vụ nào khác.
  *
