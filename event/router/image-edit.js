@@ -46,6 +46,12 @@ const routerImageEdit = (() => {
                 break;
             }
 
+            // Nút tỉ lệ trong cropRatioPopup (MỚI) — Đích cố định, guard nằm trong chính hàm.
+            case 'imageEdit.crop.setRatio.click': {
+                workflowImageEdit.setCropAspectRatio(msg.payload.ratio);
+                break;
+            }
+
             // Nút X TRÊN CHÍNH Generic Drawer (header lưới tool, core/file-manager/photo-ui.js::
             // openPhotoEditToolGridDrawerUi()) — CHỈ đóng Drawer (KHÔNG mode nào để thoát — canvas
             // vẫn hiện nguyên, bấm lại icon Edit trên header là mở lại lưới). Đích cố định, hạ tầng
