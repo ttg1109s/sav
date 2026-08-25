@@ -69,35 +69,15 @@ const LANG_PATCH_FILE_MANAGER = {
     // '.image.quickDeleteBatchConfirm.*' bỏ hẳn cùng Photo Panel/carousel picker/nút xoá dropdown.
     'fileManager.photo.image.empty': 'No photos yet. Tap the + button above to add some.',
     'fileManager.photo.image.uploadSuccess': 'Added {count} photo(s).',
-    // ── Batch tiếp theo (03/07/2026, hạ tầng z-index nền Visual) — "Đặt làm nền" trên ảnh ─────
-    // RÚT GỌN (14/07/2026, mục cuối — icon hoá menu action ảnh, Giang yêu cầu tên ngắn gọn).
-    'fileManager.photo.image.btnSetPlaylistBg': 'Set as background',
-    'fileManager.photo.image.setPlaylistBgSuccess': 'Set as Playlist background.',
-    // MỚI (14/07/2026, mục cuối) — action mới trong menu (đã icon hoá) + tiêu đề Generic Drawer.
-    // SỬA (31/07/2026, mục 2 phản hồi Giang) — `btnEditImage` giờ là item TOGGLE (vào Edit mode),
-    // cùng khuôn `btnZoom`/`btnExitZoom` ngay dưới — đổi text ngắn gọn lại cho khớp cặp "Zoom
-    // view"/"Edit". Thêm `btnExitEdit` (nhãn lúc đang Edit, bấm lại để thoát).
-    'fileManager.photo.image.btnEditImage': 'Edit',
-    'fileManager.photo.image.btnExitEdit': 'Exit edit',
-    'fileManager.photo.image.menuTitle': 'Photo options',
-    // MỚI (31/07/2026, Zoom mode) — item TOGGLE trong dropdown, đổi nhãn theo imagePreviewMode
-    // hiện tại (xem event/workflow/file-manager-photo.js::openImageActionMenu()). Notify của Block
-    // gate (event/block.js) khi bấm X lúc đang Zoom/Edit mode.
-    // SỬA (31/07/2026, mục 1 phản hồi Giang) — "Zoom" -> "Zoom view" (khớp cặp với "Edit" ngay
-    // trên — cả 2 đều là 1 MODE xem ảnh, không phải 1 hành động tức thời như các item khác).
-    'fileManager.photo.image.btnZoom': 'Zoom view',
-    'fileManager.photo.image.btnExitZoom': 'Exit zoom view',
-    'fileManager.photo.image.closeBlockedByMode': 'Exit Zoom view/Edit mode first (tap the same item again in the menu) before closing.',
-    // MỚI (31/07/2026, mục 3 phản hồi Giang) — notify của Block gate khoá chéo Zoom view <-> Edit
-    // (event/block.js) — bấm mode này lúc mode kia đang bật.
-    'fileManager.photo.image.zoomBlockedByEdit': 'Exit Edit mode first before entering Zoom view.',
-    'fileManager.photo.image.editBlockedByZoom': 'Exit Zoom view first before entering Edit mode.',
-    // MỚI (31/07/2026, Edit mode) — tiêu đề Generic Drawer + tên nhóm/tool trong lưới + thông báo
-    // nhóm chưa port (Công cụ/Vẽ/Tách nền).
+    // XOÁ (Giang yêu cầu bỏ "Đặt làm nền Playlist") — btnSetPlaylistBg/setPlaylistBgSuccess bỏ hẳn
+    // cùng tính năng.
+    // GỘP View/Zoom/Edit làm 1 modal (bỏ dropdown "...") — header giờ 2 icon cố định: Save (dropdown
+    // 2 lựa chọn Ghi đè/Lưu mới), Edit (mở lưới tool phẳng, tiêu đề editGridTitle). Không còn "mode"
+    // nào cần tên riêng (btnZoom/btnEditImage/menuTitle/closeBlockedByMode/zoomBlockedByEdit/
+    // editBlockedByZoom bỏ hẳn) — cũng không còn group header trong lưới tool (editGroupAdjust/
+    // Tools/Draw bỏ hẳn, lưới giờ phẳng).
+    'fileManager.photo.image.saveMenuTitle': 'Save',
     'fileManager.photo.image.editGridTitle': 'Edit tools',
-    'fileManager.photo.image.editGroupAdjust': 'Adjust',
-    'fileManager.photo.image.editGroupTools': 'Tools',
-    'fileManager.photo.image.editGroupDraw': 'Draw',
     'fileManager.photo.image.editToolBrightness': 'Brightness',
     'fileManager.photo.image.editToolContrast': 'Contrast',
     'fileManager.photo.image.editToolSaturation': 'Saturation',
