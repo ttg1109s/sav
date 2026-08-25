@@ -1,12 +1,11 @@
 /**
- * core/photo-editor-engine.js — Core THUẦN (Rule 1-5 core-function-conventions.md), MỚI
- * (31/07/2026), hàm xử lý pixel cho Edit mode của modal xem ảnh Photo
- * (event/workflow/file-manager-photo.js).
+ * core/photo-editor-engine.js — Core THUẦN (Rule 1-5 core-function-conventions.md), hàm xử lý
+ * pixel cho canvas Edit của modal xem ảnh Photo (event/workflow/image-edit.js).
  *
  * PORT từ prototype "Lumina Pro" (Giang cung cấp, file HTML độc lập) — chỉ lấy phần `Engine`/
  * `CropTool`/... (xử lý `ImageData` thuần, không đụng DOM ngoài chính canvas nhận vào), KHÔNG lấy
  * UI/header/footer/CSS/font riêng của prototype đó (đã thảo luận: nhét nguyên `<body>` sẽ vỡ UI
- * modal xem ảnh sẵn có — xem docstring `enterEditMode()`, event/workflow/file-manager-photo.js).
+ * modal xem ảnh sẵn có — xem docstring `ensureEditSessionReady()`, event/workflow/image-edit.js).
  *
  * Rule 2 — không đọc `appState`, không giữ state module-level — mọi tham số (params điều chỉnh,
  * canvas nguồn...) đều nhận qua tham số hàm, Workflow tự giữ.
