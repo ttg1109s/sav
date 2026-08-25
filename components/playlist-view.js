@@ -257,27 +257,44 @@ const TPL_PLAYLIST_VIEW = `
                         </div>
                     </div>
                 </div>
-                <!-- MỚI (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — nhóm Video:
-                     CHỈ 1 ô "Tên hiển thị" (customName) — KHÔNG có title/artist/album (Video không
-                     có 3 tag ID3 để sửa). -->
-                <div id="song-edit-fields-video-group" class="hidden flex-col gap-1.5">
-                    <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide ml-0.5" data-i18n="playlistView.songEdit.fieldCustomName">${t('playlistView.songEdit.fieldCustomName')}</label>
-                    <div class="relative">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
-                        <input type="text" id="song-edit-custom-name" class="w-full bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors">
+                <!-- SỬA (Giang yêu cầu — "bổ sung field album edit ở details của video/photo") —
+                     TRƯỚC ĐÂY nhóm Video CHỈ 1 ô "Tên hiển thị" — THÊM ô Album (record.album, MỚI —
+                     core/playlist/actions.js::applyVideoEditAndSave()). -->
+                <div id="song-edit-fields-video-group" class="hidden flex-col gap-3">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide ml-0.5" data-i18n="playlistView.songEdit.fieldCustomName">${t('playlistView.songEdit.fieldCustomName')}</label>
+                        <div class="relative">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
+                            <input type="text" id="song-edit-custom-name" class="w-full bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors">
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide ml-0.5" data-i18n="playlistView.songEdit.fieldAlbum">${t('playlistView.songEdit.fieldAlbum')}</label>
+                        <div class="relative">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0" /></svg>
+                            <input type="text" id="song-edit-video-album" class="w-full bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors">
+                        </div>
                     </div>
                 </div>
                 <!-- MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video) — nhóm field
                      Photo: mirror ô "Tên hiển thị" của nhóm Video ngay trên + THÊM 1 hàng duration
                      (nút mở time-picker thay vì input số tay — Giang chỉ định "dùng time picker,
                      có min nhưng không max", xem event/workflow/playlist.js::
-                     openPhotoEditDurationPicker()). -->
+                     openPhotoEditDurationPicker()). SỬA (Giang yêu cầu — thêm field Album) — thêm
+                     ô Album, CÙNG lý do nhóm Video ngay trên. -->
                 <div id="song-edit-fields-photo-group" class="hidden flex-col gap-3">
                     <div class="flex flex-col gap-1.5">
                         <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide ml-0.5" data-i18n="playlistView.songEdit.fieldCustomName">${t('playlistView.songEdit.fieldCustomName')}</label>
                         <div class="relative">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
                             <input type="text" id="song-edit-photo-name" class="w-full bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors">
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide ml-0.5" data-i18n="playlistView.songEdit.fieldAlbum">${t('playlistView.songEdit.fieldAlbum')}</label>
+                        <div class="relative">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0" /></svg>
+                            <input type="text" id="song-edit-photo-album" class="w-full bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white outline-none focus:border-sky-500 focus:bg-black/60 transition-colors">
                         </div>
                     </div>
                     <div class="flex flex-col gap-1.5">

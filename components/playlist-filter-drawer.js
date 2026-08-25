@@ -103,9 +103,13 @@ function _renderFilterNumericFieldRow(field, labelKey, inputType, step) {
 
 /**
  * @param {string} source - 'song' | 'video' | 'photo' — quyết định field TEXT nào hiện (album/
- *   artist CHỈ Song có) VÀ field SỐ/NGÀY nào hiện (totalTime/duration KHÔNG áp dụng cho Photo —
- *   CHỐT Giang, ảnh không có khái niệm "lượt nghe"/"thời lượng"). Danh sách field PHẢI khớp ĐÚNG
- *   với `clonePlaylistFilterConfigDefaults()` (service/state/playlist.js) cho từng Nguồn — 2 nơi
+ *   artist — SỬA (Giang yêu cầu, "filter/search hỗ trợ field Album của video/photo") — `artist`
+ *   VẪN CHỈ Song có (Video/Photo không có field này), `album` giờ CẢ 3 mediaType đều có (record.album,
+ *   core/playlist/actions.js::applyVideoEditAndSave()/applyPhotoEditAndSave())) VÀ field SỐ/NGÀY
+ *   nào hiện (totalTime KHÔNG áp dụng cho Photo — CHỐT Giang, ảnh không có khái niệm "lượt nghe";
+ *   `duration` giờ áp dụng CẢ Photo — Photo đã có duration thật, xem event/workflow/file-manager-
+ *   photo.js::computePhotoDuration()). Danh sách field PHẢI khớp ĐÚNG với
+ *   `clonePlaylistFilterConfigDefaults()` (service/state/playlist.js) cho từng Nguồn — 2 nơi
  *   này KHÔNG import chéo (why-no-es6-module.md), phải tự đối chiếu tay khi sửa 1 trong 2.
  */
 function renderPlaylistFilterPanelBody(source) {
@@ -113,10 +117,12 @@ function renderPlaylistFilterPanelBody(source) {
     // là 'song' hoặc 'video') bằng bảng tra theo TỪNG source — ternary cũ sẽ ÂM THẦM gán field của
     // Song (album/artist) cho bất kỳ source thứ 3 nào lọt vào nhánh else, đúng bug đã phát hiện lúc
     // rà soát trước khi thêm Photo.
+    // SỬA (Giang yêu cầu — field Album cho Video/Photo) — thêm 'album' vào 2 mảng video/photo
+    // (TRƯỚC ĐÂY chỉ có 'name') — 'artist' VẪN không thêm (Video/Photo không có field này).
     const textFieldsBySource = {
         song: [['name', 'playlistFilterPanel.field.name'], ['album', 'playlistFilterPanel.field.album'], ['artist', 'playlistFilterPanel.field.artist']],
-        video: [['name', 'playlistFilterPanel.field.name']],
-        photo: [['name', 'playlistFilterPanel.field.name']],
+        video: [['name', 'playlistFilterPanel.field.name'], ['album', 'playlistFilterPanel.field.album']],
+        photo: [['name', 'playlistFilterPanel.field.name'], ['album', 'playlistFilterPanel.field.album']],
     };
     const textFields = textFieldsBySource[source] || textFieldsBySource.song; // guard — source lạ rơi về Song (an toàn hơn rỗng)
     const isPhoto = source === 'photo';
@@ -128,7 +134,10 @@ function renderPlaylistFilterPanelBody(source) {
                         ${_renderFilterNumericFieldRow('addedAt', 'playlistFilterPanel.field.addedAt', 'date')}
                         ${_renderFilterNumericFieldRow('count', 'playlistFilterPanel.field.count', 'number', '1')}
                         ${isPhoto ? '' : _renderFilterNumericFieldRow('totalTime', 'playlistFilterPanel.field.totalTime', 'time-picker')}
-                        ${isPhoto ? '' : _renderFilterNumericFieldRow('duration', 'playlistFilterPanel.field.duration', 'time-picker')}
+                        <!-- SỬA (Giang yêu cầu — Photo tích hợp duration như Song/Video) — TRƯỚC ĐÂY
+                             ẩn hẳn cho Photo (lúc đó duration hard-code 0) — giờ LUÔN hiện, khớp
+                             cách Sort panel đã un-hide trước đó (components/playlist-sort-drawer.js). -->
+                        ${_renderFilterNumericFieldRow('duration', 'playlistFilterPanel.field.duration', 'time-picker')}
                         ${_renderFilterNumericFieldRow('size', 'playlistFilterPanel.field.size', 'number', '0.1')}
                     </div>
                     <button id="btn-playlist-filter-apply" class="mt-4 w-full py-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold transition-colors" data-i18n="playlistFilterPanel.apply">${t('playlistFilterPanel.apply')}</button>
