@@ -101,6 +101,22 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.image.editDrawEraser': 'Eraser',
     'fileManager.photo.image.editMagicTolerance': 'Color tolerance',
     'fileManager.photo.image.editMagicHint': 'Tap a color area on the photo to remove it.',
+    // MỚI (Shape tool + layer Text/Shape, Giang yêu cầu "text/shape là layer chỉnh sửa lại được" +
+    // "thêm tool shape/hoạ tiết").
+    'fileManager.photo.image.editToolShape': 'Shape',
+    // Menu long-press (nhấn giữ 1.5s) trên 1 layer có sẵn.
+    'fileManager.photo.image.layerMenuEdit': 'Edit',
+    'fileManager.photo.image.layerMenuDuplicate': 'Duplicate',
+    'fileManager.photo.image.layerMenuDelete': 'Delete',
+    // Tiêu đề Generic Drawer style editor (khác nhau theo loại layer).
+    'fileManager.photo.image.layerStyleTitleText': 'Text style',
+    'fileManager.photo.image.layerStyleTitleShape': 'Shape style',
+    // Field trong style editor — dùng chung cho cả 2 loại layer.
+    'fileManager.photo.image.layerStyleFontSize': 'Font size',
+    'fileManager.photo.image.layerStyleColor': 'Color',
+    'fileManager.photo.image.layerStyleFill': 'Fill',
+    'fileManager.photo.image.layerStyleStroke': 'Stroke color',
+    'fileManager.photo.image.layerStyleStrokeWidth': 'Stroke width',
     // ── Drawer con: Video — ĐÃ XOÁ HẲN panel riêng (ver12 "Song/Video Unification", Batch 6, mục
     // 6d, phản hồi Giang) — gộp vào "Song & Video" (Batch 5). CHỈ CÒN 3 key dưới đây (dùng bởi
     // uploadVideos()/picker "Use background video" — xem event/workflow/file-manager-video.js) —
