@@ -19,12 +19,11 @@
                 pageCurrentFolderDetailSongList: 'number',   // trang ĐANG xem của danh sách item BÊN TRONG 1 folder (Folder Browser Read, event/workflow/file-manager-folder-browser.js)
                 // XOÁ (loại bỏ Document Reader khỏi app) — pageCurrentDocumentList (trang danh sách
                 // tài liệu Documents) bỏ hẳn cùng tính năng.
-                // XOÁ (gộp View/Zoom/Edit modal xem ảnh làm 1, bỏ dropdown "...") — imagePreviewMode
-                // ('view'/'zoom'/'edit') bỏ hẳn: Zoom (Panzoom) giờ LUÔN bật sẵn lúc mở modal, không
-                // còn là "mode" cần bật/tắt; Edit mở/đóng qua icon bút chì cố định trên header, tự
-                // biết trạng thái qua workflowImageEdit.isEditModeActive() (field riêng của chính
-                // Workflow đó), không cần appState dùng chung nữa. Xem event/workflow/
-                // file-manager-photo.js + event/workflow/image-edit.js.
+                // XOÁ (chỉ 1 mặt canvas dùng chung xem/zoom/pan/edit modal xem ảnh, bỏ dropdown
+                // "...") — imagePreviewMode ('view'/'zoom'/'edit') bỏ hẳn: không còn khái niệm
+                // "mode" nào cả — Zoom (Panzoom) LUÔN bật sẵn suốt vòng đời modal, icon bút chì trên
+                // header chỉ mở bảng công cụ (không "vào" gì), công cụ vẽ/chỉnh THẲNG lên canvas
+                // đang xem. Xem event/workflow/file-manager-photo.js + event/workflow/image-edit.js.
                 // XOÁ (29/07/2026, yêu cầu Giang) — storageAnySourceEnabled (từng phục vụ Block gate
                 // chặn "Quét file lỗi khi chưa chọn nguồn nào") ĐÃ BỎ — nhánh quét giờ tự hỏi phạm
                 // vi qua modalChoice()+dropdown riêng (event/workflow/file-manager-storage.js::
