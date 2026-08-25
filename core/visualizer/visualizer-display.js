@@ -194,19 +194,14 @@
         // applyEQPreset(mode) ĐÃ XOÁ HẲN — THAY bằng applyEqGains() (core/eq-presets.js).
 
         /**
-         * HOTFIX 3 (07/07/2026) — `applyBgImage()`/`applyBgImageEnabled()` bị XOÁ NHẦM hoàn toàn
-         * khỏi file này ở Batch D3 (lỗi thao tác `str_replace` — `old_str` vô tình bao trùm luôn 2
-         * hàm này dù không định đổi gì, `new_str` không viết lại nên mất trắng). Toggle "Ảnh nền"
-         * ở Main list gọi 2 hàm này qua event/workflow/visualizer-display.js — bấm vào sẽ ném
-         * `ReferenceError` từ lúc Batch D3 tới giờ. Khôi phục lại NGUYÊN VẸN logic gốc, ĐỒNG THỜI
-         * áp refactor Rule 0.5 luôn (batch "nền chung" — Giang đã CHỐT làm đầy đủ từ D1): BỎ
-         * `updatePlaylistBg()`/`saveConfig()` nội bộ, dời ra Workflow (xem event/workflow/
-         * visualizer-display.js::toggleBgImage()). `bgImageEnableToggle.checked = true` GIỮ
-         * NGUYÊN — ghi DOM tĩnh đơn giản, không phải core-gọi-core, không thuộc phạm vi Rule 3.
+         * `applyBgImage()`/`applyBgImageEnabled()` KHÔNG tự gọi `updatePlaylistBg()`/`saveConfig()`
+         * nội bộ (Rule 0.5, batch "nền chung") — nơi gọi (Workflow) tự lo, xem event/workflow/
+         * theme.js::pickNewBackgroundImage()/_commitThemeMode() và event/workflow/
+         * file-manager-photo.js::setAsPlaylistBackground(). `bgImageEnableToggle.checked = true`
+         * GIỮ NGUYÊN — ghi DOM tĩnh đơn giản, không phải core-gọi-core, không thuộc phạm vi Rule 3.
          *
-         * @param {Blob} file - Blob ảnh (từ store `images` qua picker — xem event/workflow/
-         *        visualizer-display.js::toggleBgImage; KHÔNG validate định dạng ở đây, ảnh trong
-         *        store `images` đã hợp lệ từ lúc upload vào đó)
+         * @param {Blob} file - Blob ảnh (từ store `images` qua picker Generic Drawer — KHÔNG
+         *        validate định dạng ở đây, ảnh trong store `images` đã hợp lệ từ lúc upload vào đó)
          */
         async function applyBgImage(file) {
             await setMeta('bgImage', file);
