@@ -21,7 +21,7 @@
             APP_STACK: 60,                  // #app-stack (main.js) — mốc tham chiếu thấp nhất
             GENERIC_DRAWER: 128,             // core/generic-drawer.js — panel; overlay tự dùng GENERIC_DRAWER - 1
             IMAGE_PREVIEW: 130,              // core/file-manager/photo-ui.js::openImagePreviewModal()
-            IMAGE_ACTION_MENU_DRAWER: 131,   // event/workflow/file-manager-photo.js::openEditToolGrid() — Generic Drawer (lưới tool Edit mode) mở TRÊN Image Preview. SỬA (31/07/2026, mục 1 phản hồi Giang) — trước đây trỏ tên hàm SAI (`_openImageActionMenu()`, chưa từng tồn tại đúng tên đó) VÀ hằng số này CHƯA từng được dùng thật ở đâu (dead constant) — openEditToolGrid() từng dùng nhầm GENERIC_DRAWER (128, thấp hơn IMAGE_PREVIEW 130 → Drawer bị modal ảnh che kín), nay đã đổi sang dùng ĐÚNG hằng số này.
+            IMAGE_ACTION_MENU_DRAWER: 131,   // event/workflow/image-edit.js::openEditToolGrid() — Generic Drawer (lưới tool Edit mode) mở TRÊN Image Preview.
             VIDEO_PREVIEW: 130,              // core/file-manager/video-ui.js::openVideoPreviewModal() — cùng lớp modal xem Ảnh
             VIDEO_PREVIEW_MENU: 131,         // dropdown "Lưu đè/Lưu mới" (core/dropdown-menu.js) mở TỪ TRONG modal xem Video — TRÊN modal đó
             MODAL_CHOICE: 130,               // core/modal-choice-ui.js — CÙNG lớp với các modal overlay ảnh (không phải cao nhất)
