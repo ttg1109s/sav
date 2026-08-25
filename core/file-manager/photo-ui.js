@@ -78,7 +78,12 @@ function openImagePreviewModal(image) {
     renderCanvas.className = 'absolute max-w-full max-h-full';
     const interactCanvas = document.createElement('canvas');
     interactCanvas.id = 'image-edit-interact-canvas';
-    interactCanvas.className = 'absolute max-w-full max-h-full';
+    // FIX (bug có từ trước — Crop không kéo được góc/khung, Vẽ/Tách nền không thao tác được trên
+    // di động) — thiếu `touch-action: none`, mặc định kế thừa `touch-action: manipulation` từ
+    // `body` (assets/css/base.css) — trình duyệt tự giành cử chỉ kéo ngón tay thành pan/scroll gốc
+    // TRƯỚC KHI JS kịp nhận đủ `pointermove`, nên kéo tay trên canvas này gần như vô tác dụng. Cùng
+    // pattern đã áp dụng đúng ở `.video-preview-trim-handle` (assets/css/video-preview.css).
+    interactCanvas.className = 'absolute max-w-full max-h-full touch-none';
     canvasWrap.append(baseCanvas, renderCanvas, interactCanvas);
     mediaWrap.appendChild(canvasWrap);
 
@@ -120,12 +125,34 @@ function openImagePreviewModal(image) {
     `;
     overlay.appendChild(contextBar);
 
+    // ---- Popup chọn tỉ lệ Crop — MỚI (bổ sung theo yêu cầu Giang, "crop không có danh sách chọn
+    // tỉ lệ") — hiện SONG SONG với contextBar lúc tool Crop đang mở (KHÁC drawControlsPopup/
+    // magicPopup, vốn LOẠI TRỪ NHAU với contextBar vì đều đặt `bottom-0` full-width — popup này
+    // dùng CHUNG khung nhỏ hơn, đặt NGAY TRÊN contextBar thay vì đè full-width đáy màn hình, do
+    // Crop CẦN contextBar Huỷ/Áp dụng HIỂN THỊ ĐỒNG THỜI, không thể ẩn header/hiện popup thay thế
+    // như Vẽ/Tách nền). Core delegation (Rule 5a) — 1 listener duy nhất, đọc `data-crop-ratio`.
+    const cropRatioPopup = document.createElement('div');
+    cropRatioPopup.id = 'image-edit-crop-ratio-popup';
+    cropRatioPopup.className = 'hidden absolute top-16 left-0 w-full flex justify-center gap-2 px-4 overflow-x-auto';
+    const cropRatios = [
+        { key: 'free', labelKey: 'fileManager.photo.image.cropRatioFree' },
+        { key: '1:1', labelKey: 'fileManager.photo.image.cropRatioSquare' },
+        { key: '4:3', label: '4:3' },
+        { key: '3:4', label: '3:4' },
+        { key: '16:9', label: '16:9' },
+        { key: '9:16', label: '9:16' },
+    ];
+    cropRatioPopup.innerHTML = cropRatios.map(r => `
+        <button type="button" data-crop-ratio="${r.key}" class="shrink-0 px-3 py-1.5 rounded-full bg-black/50 hover:bg-black/70 text-white text-xs font-medium border border-white/20 transition-colors">${r.label || t(r.labelKey)}</button>
+    `).join('');
+    overlay.appendChild(cropRatioPopup);
+
     // ---- Khung gõ chữ nổi (tool Text) — MỚI (31/07/2026), ẩn mặc định, kéo tay di chuyển được.
     const floatingText = document.createElement('div');
     floatingText.id = 'image-edit-floating-text';
     floatingText.contentEditable = 'true';
     floatingText.spellcheck = false;
-    floatingText.className = 'hidden absolute z-20 bg-black/40 border border-dashed border-white text-white font-bold text-3xl px-4 py-2 min-w-[60px] text-center whitespace-pre-wrap break-words rounded-lg shadow-lg';
+    floatingText.className = 'hidden absolute z-20 touch-none bg-black/40 border border-dashed border-white text-white font-bold text-3xl px-4 py-2 min-w-[60px] text-center whitespace-pre-wrap break-words rounded-lg shadow-lg';
     floatingText.style.cursor = 'move';
     floatingText.textContent = t('fileManager.photo.image.editTextPlaceholder');
     overlay.appendChild(floatingText);
@@ -224,6 +251,13 @@ function openImagePreviewModal(image) {
     adjustPopup.querySelector('#image-edit-adjust-done').addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.adjust.done.click', payload: {} }));
     drawControlsPopup.querySelector('#image-edit-draw-brush').addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.draw.selectBrush.click', payload: {} }));
     drawControlsPopup.querySelector('#image-edit-draw-eraser').addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.draw.selectEraser.click', payload: {} }));
+    // Delegation (Rule 5a) — cropRatioPopup có nhiều nút cùng cấu trúc `[data-crop-ratio]`, 1
+    // listener duy nhất đọc `dataset.cropRatio` thay vì wire riêng từng nút.
+    cropRatioPopup.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-crop-ratio]');
+        if (!btn) return;
+        eventBus.send({ router: 'imageEdit', type: 'imageEdit.crop.setRatio.click', payload: { ratio: btn.dataset.cropRatio } });
+    });
 
     // SỬA (31/07/2026, Giang chỉ ra "Nhóm B không có ngoại lệ nào trong tài liệu") — pointer
     // Crop/Vẽ/Tách nền (`interactCanvas`) + kéo Text (`floatingText`) + 2 slider (Điều chỉnh/dung
@@ -272,6 +306,7 @@ function openImagePreviewModal(image) {
         contextBar, contextCancelBtn: contextBar.querySelector('#image-edit-context-cancel'),
         contextTitleEl: contextBar.querySelector('#image-edit-context-title'),
         contextApplyBtn: contextBar.querySelector('#image-edit-context-apply'),
+        cropRatioPopup,
         floatingText,
         drawControlsPopup, drawBrushBtn: drawControlsPopup.querySelector('#image-edit-draw-brush'),
         drawEraserBtn: drawControlsPopup.querySelector('#image-edit-draw-eraser'),
