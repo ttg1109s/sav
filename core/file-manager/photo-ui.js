@@ -157,22 +157,17 @@ function openImagePreviewModal(image) {
     header.appendChild(closeBtn);
 
     // XOÁ (gộp View/Zoom/Edit làm 1, bỏ dropdown "...") — menuBtn ("...", mở core/dropdown-menu.js)
-    // bỏ hẳn. 3 nút còn lại LUÔN hiện (không còn `hidden` chờ Workflow gỡ) — KHÔNG có khái niệm
-    // "mode" nào cần bật lên mới thấy nút hay phải thoát mới đóng được (View/Zoom/Edit chạy đồng
-    // thời, xem event/workflow/file-manager-photo.js): `setPlaylistBgBtn` bắn hành động NGAY,
-    // `saveBtn` mở dropdown 2 lựa chọn (Ghi đè/Lưu mới, Workflow tự build — dropdown CẦN biết có
-    // đang có gì để lưu hay không, dữ liệu đó Core không được tự đọc, Rule 2), `toolsBtn` (icon bút
-    // chì) mở Generic Drawer lưới tool Edit — Router (`imageEdit`) tự đọc
-    // `workflowImageEdit.isEditModeActive()` để biết mở lần đầu hay mở lại lưới (Rule 1: nơi gọi
-    // chọn hàm, nút không tự đổi nghĩa).
+    // bỏ hẳn. XOÁ (Giang yêu cầu bỏ "Đặt làm nền Playlist") — setPlaylistBgBtn cùng
+    // workflowFileManagerPhoto.setAsPlaylistBackground() bỏ hẳn cùng tính năng, không còn entry
+    // point nào khác gọi tới. 2 nút còn lại LUÔN hiện (không còn `hidden` chờ Workflow gỡ) — KHÔNG
+    // có khái niệm "mode" nào cần bật lên mới thấy nút hay phải thoát mới đóng được (View/Zoom/Edit
+    // chạy đồng thời, xem event/workflow/file-manager-photo.js): `saveBtn` mở dropdown 2 lựa chọn
+    // (Ghi đè/Lưu mới, Workflow tự build — dropdown CẦN biết có đang có gì để lưu hay không, dữ
+    // liệu đó Core không được tự đọc, Rule 2), `toolsBtn` (icon bút chì) mở Generic Drawer lưới tool
+    // Edit — Router (`imageEdit`) tự đọc `workflowImageEdit.isEditModeActive()` để biết mở lần đầu
+    // hay mở lại lưới (Rule 1: nơi gọi chọn hàm, nút không tự đổi nghĩa).
     const rightGroup = document.createElement('div');
     rightGroup.className = 'flex items-center gap-2';
-    const setPlaylistBgBtn = document.createElement('button');
-    setPlaylistBgBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
-    setPlaylistBgBtn.title = t('fileManager.photo.image.btnSetPlaylistBg');
-    setPlaylistBgBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
-    rightGroup.appendChild(setPlaylistBgBtn);
-
     const saveBtn = document.createElement('button');
     saveBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
     saveBtn.title = t('fileManager.photo.image.saveMenuTitle');
@@ -202,7 +197,6 @@ function openImagePreviewModal(image) {
     // Không còn Block gate nào chặn nút X (xem event/block.js) — không có "mode" nào phải thoát
     // trước khi đóng.
     closeBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.close.click', payload: {} }));
-    setPlaylistBgBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.setPlaylistBg.click', payload: {} }));
     saveBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.save.click', payload: { anchorEl: saveBtn } }));
     toolsBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.tools.click', payload: {} }));
     // SỬA (31/07/2026, Giang chỉ ra vi phạm Rule 5a mục 5) — 5 nút Edit mode dưới đây TRƯỚC ĐÂY bị
