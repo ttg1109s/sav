@@ -58,6 +58,26 @@ const workflowPhotoPlayer = {
      * @param {string} startKey
      */
     async startFromPlaylist(startKey) {
+        // FIX (Giang báo "visual effect phải hiện dù đang phát photo, theo đúng setting" — dò LẠI
+        // TỪ ĐẦU bằng cách bám theo lời gọi hàm thật, KHÔNG dựa vào comment cũ) — `setupAudioContext()`
+        // (core/audio-engine.js) là nơi DUY NHẤT gọi `workflowVisualizerRender.start()` — tức là
+        // vòng lặp `taskManager` VẼ Visual (canvas #visualizer/#webgl-canvas) CHƯA TỪNG bắt đầu chạy
+        // cho tới khi hàm đó được gọi ít nhất 1 lần. 3 nguồn media còn lại đều tự gọi hàm này
+        // (event/workflow/player.js cho Song, event/workflow/video-player.js cho Video, event/
+        // workflow/visual-bg.js cho VBG) — RIÊNG file này (Photo) TRƯỚC ĐÂY KHÔNG hề gọi, vì ảnh
+        // không cần audio thật để PHÁT. Hệ quả: nếu 1 phiên làm việc BẮT ĐẦU bằng phát Photo (chưa
+        // từng phát Song/Video/mở VBG trước đó), `analyser`/`vizDataArray` chưa tồn tại VÀ vòng lặp
+        // vẽ chưa từng khởi động — canvas không bao giờ được vẽ gì cả, HOÀN TOÀN độc lập với
+        // `cfg.visualEnabled` đang bật hay tắt (sửa riêng `isVisualOff` ở event/workflow/visualizer-
+        // render.js là ĐÚNG nhưng KHÔNG ĐỦ — chỉ sửa được phần "có vẽ hay không" của 1 vòng lặp vốn
+        // chưa từng chạy). SỬA: gọi `setupAudioContext()` NGAY ĐẦU hàm — hàm đó tự guard
+        // (`if (!appState.get('audioContext'))`) nên an toàn gọi lại nhiều lần/nhiều nguồn, Photo
+        // KHÔNG cần nối `source` nào vào analyser (không có audio thật) — chỉ cần đảm bảo
+        // audioContext/analyser/vizDataArray/vòng lặp render TỒN TẠI, phần "im lặng" Photo vẫn giữ
+        // nguyên (audioPlayer đứng yên/paused nên analyser tự đọc dữ liệu gần như 0, ra đúng
+        // animation "idle" như ý ban đầu).
+        setupAudioContext(); // core/audio-engine.js
+
         const previousKey = appState.get('currentKey');
         // Im lặng NGUỒN CŨ bất kể đang là Song hay Video — Giang chốt "im lặng hoàn toàn" lúc Photo
         // đang hiển thị, không phân biệt trước đó đang phát gì.
