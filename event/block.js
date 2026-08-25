@@ -136,39 +136,14 @@ eventBus.registerBlock('visualBg.openPanel.click', [
 ], { notify: t('visualBgSettingsDrawer.blockedBySourceVideo') });
 
 
-// ===================== Modal xem ảnh Photo — chặn đóng khi đang Zoom/Edit mode =====================
-// MỚI (31/07/2026) — nút "..." dropdown LUÔN bấm được ở CẢ 3 mode (view/zoom/edit, KHÔNG disable),
-// nên bản chất đúng "CHẶN HẲN" (không chạy gì cả khi điều kiện đúng, không phải chọn giữa nhiều
-// workflow khác nhau — trường hợp đó dùng VirtualMachineState, xem event/router/file-manager-
-// photo.js case 'fileManagerPhoto.imageMenu.action.click') — đúng tiêu chí dùng Block gate. Người
-// dùng phải tự thoát Zoom/Edit qua dropdown TRƯỚC (bấm lại "Zoom"/"Edit", toggle về 'view') rồi mới
-// bấm X đóng được — KHÔNG tự động lùi mode giúp (đơn giản hoá, nhất quán 1 quy tắc cho cả 2 mode
-// thay vì Zoom/Edit xử lý khác nhau).
-eventBus.registerBlock('fileManagerPhoto.imagePreview.close.click', [
-    [
-        { field: 'imagePreviewMode', operator: '!==', value: 'view' },
-    ],
-], { notify: t('fileManager.photo.image.closeBlockedByMode') });
-
-// ===================== Modal xem ảnh Photo — khoá chéo Zoom view <-> Edit =====================
-// MỚI (31/07/2026, mục 3 phản hồi Giang) — 2 mode dùng CHUNG cụm DOM của modal xem ảnh (Edit decode
-// ảnh vào canvas + ẩn hẳn `<img>`, Zoom lại cần init Panzoom NGAY trên chính `<img>` đó — bật đồng
-// thời sẽ hỏng cả 2), KHÔNG được cùng bật — đúng tiêu chí dùng Block gate. "Zoom view" ở router
-// `fileManagerPhoto`, "Edit" ở router `imageEdit` (event/workflow/image-edit.js, tách riêng
-// 31/07/2026) — 2 msg.type khác router vẫn khoá chéo bình thường (Block gate tra theo msg.type,
-// không phụ thuộc router). Người dùng phải tự thoát mode đang bật TRƯỚC (bấm lại đúng item trong
-// dropdown, toggle về 'view') rồi mới bấm được mode còn lại.
-eventBus.registerBlock('fileManagerPhoto.imagePreview.zoomToggle.click', [
-    [
-        { field: 'imagePreviewMode', operator: '===', value: 'edit' },
-    ],
-], { notify: t('fileManager.photo.image.zoomBlockedByEdit') });
-
-eventBus.registerBlock('imageEdit.toggle.click', [
-    [
-        { field: 'imagePreviewMode', operator: '===', value: 'zoom' },
-    ],
-], { notify: t('fileManager.photo.image.editBlockedByZoom') });
+// ===================== Modal xem ảnh Photo — KHÔNG còn Block gate nào =====================
+// XOÁ (gộp View/Zoom/Edit làm 1, bỏ dropdown "...") — 3 block gate cũ ('fileManagerPhoto.
+// imagePreview.close.click' chặn X khi khác 'view', 'fileManagerPhoto.imagePreview.zoomToggle.
+// click' chặn Zoom khi đang Edit, 'imageEdit.toggle.click' chặn Edit khi đang Zoom) bỏ hẳn cùng
+// khái niệm "mode loại trừ nhau": Zoom (Panzoom) giờ LUÔN bật sẵn, không tranh chấp với Edit nữa
+// (enterEditMode() tự tạm dừng Panzoom trước khi hiện canvas, tự bật lại lúc thoát) — nút X đóng
+// modal giờ LUÔN bấm được, không cần thoát mode nào trước. Xem event/workflow/file-manager-
+// photo.js + event/workflow/image-edit.js.
 
 
 // XOÁ (29/07/2026, yêu cầu Giang) — Block gate cho 'fileManagerStorage.scanBroken.click' (chặn khi
