@@ -137,13 +137,13 @@ eventBus.registerBlock('visualBg.openPanel.click', [
 
 
 // ===================== Modal xem ảnh Photo — KHÔNG còn Block gate nào =====================
-// XOÁ (gộp View/Zoom/Edit làm 1, bỏ dropdown "...") — 3 block gate cũ ('fileManagerPhoto.
-// imagePreview.close.click' chặn X khi khác 'view', 'fileManagerPhoto.imagePreview.zoomToggle.
-// click' chặn Zoom khi đang Edit, 'imageEdit.toggle.click' chặn Edit khi đang Zoom) bỏ hẳn cùng
-// khái niệm "mode loại trừ nhau": Zoom (Panzoom) giờ LUÔN bật sẵn, không tranh chấp với Edit nữa
-// (enterEditMode() tự tạm dừng Panzoom trước khi hiện canvas, tự bật lại lúc thoát) — nút X đóng
-// modal giờ LUÔN bấm được, không cần thoát mode nào trước. Xem event/workflow/file-manager-
-// photo.js + event/workflow/image-edit.js.
+// XOÁ (chỉ 1 mặt canvas dùng chung xem/zoom/pan/edit, bỏ dropdown "...") — 3 block gate cũ
+// ('fileManagerPhoto.imagePreview.close.click' chặn X khi khác 'view', 'fileManagerPhoto.
+// imagePreview.zoomToggle.click' chặn Zoom khi đang Edit, 'imageEdit.toggle.click' chặn Edit khi
+// đang Zoom) bỏ hẳn cùng khái niệm "mode loại trừ nhau" — không còn "mode" nào để tranh chấp: Zoom
+// (Panzoom) LUÔN bật sẵn suốt vòng đời modal, công cụ Edit vẽ/chỉnh THẲNG lên chính canvas đang
+// xem/zoom đó. Nút X đóng modal giờ LUÔN bấm được. Xem event/workflow/file-manager-photo.js +
+// event/workflow/image-edit.js.
 
 
 // XOÁ (29/07/2026, yêu cầu Giang) — Block gate cho 'fileManagerStorage.scanBroken.click' (chặn khi
