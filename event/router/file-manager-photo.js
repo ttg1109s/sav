@@ -1,119 +1,24 @@
 /**
  * event/router/file-manager-photo.js — Router tên "fileManagerPhoto", tự đăng ký với eventBus lúc
- * nạp. Panel Photo (quản lý thư viện ảnh).
+ * nạp. Photo Panel full-screen (lưới ảnh, xoá nhanh, upload) đã xoá — hợp nhất vào Playlist làm 1
+ * Source. Router này giờ CHỈ còn phục vụ: modal xem ảnh (Zoom/Edit mode + dropdown action-menu) và
+ * picker chọn 1 ảnh dùng chung (Generic Drawer).
  *
- * XOÁ (loại bỏ Album khỏi Photo Panel) — toàn bộ case liên quan Album (Album List sub-panel,
- * add-to-album picker, chip lọc, `activeAlbumId` context) bỏ hẳn cùng tính năng — lưới ảnh LUÔN
- * hiện toàn bộ, không còn khái niệm "đang lọc theo 1 album". Sẽ thay bằng Folder Photo trong File
- * Browser ở đợt riêng (pending).
- *
- * STATE CONTEXT còn lại: `imageQuickDeleteMode` (chế độ xoá nhanh), `quickDeleteSelectedKeys` (Set
- * closure — bấm ảnh chỉ TOGGLE vào/ra Set này, patch DOM, không refresh/không DB). Nút xoá nhanh ở
- * header dùng `VirtualMachineState.run()` 3 nhánh LOẠI TRỪ NHAU — tránh gọi `deleteImage()`/
- * `refresh()` lãng phí khi Set rỗng. 2 chế độ khi bấm 1 ảnh trong lưới (imageQuickDeleteMode/bình
- * thường) LOẠI TRỪ NHAU.
- *
- * NẠP SAU: event/bus.js, event/workflow/file-manager-photo.js (workflowFileManagerPhoto),
- * core/settings-panel-stack-ui.js (pushSettingsPanel).
- * NẠP TRƯỚC: event/listener/file-manager-photo.js.
+ * NẠP SAU: event/bus.js, event/workflow/file-manager-photo.js (workflowFileManagerPhoto).
+ * NẠP TRƯỚC: (không còn listener riêng — mọi msg.type ở đây được gửi từ dropdown/picker động, wire
+ * trực tiếp tại nơi dựng DOM, xem core/file-manager/photo-ui.js và core/media-picker-drawer-
+ * helper.js).
  */
 const routerFileManagerPhoto = (() => {
-    let imageQuickDeleteMode = false; // true = đang ở chế độ xoá nhanh (KHÔNG tự xoá ngay lúc bấm ảnh — xem quickDeleteSelectedKeys)
-    let quickDeleteSelectedKeys = new Set(); // ảnh đã đánh dấu chờ xoá trong lưới chính
-
     function handle(msg) {
         switch (msg.type) {
-            case 'fileManagerPhoto.openPanel.click': {
-                imageQuickDeleteMode = false;
-                quickDeleteSelectedKeys = new Set();
-                workflowFileManagerPhoto.openPanel(); // >1 hàm core nối tiếp (push + đọc DB + vẽ) -> workflow
-                break;
-            }
 
-            // ===================== Ảnh (lưới chính) =====================
-
-            case 'fileManagerPhoto.image.click': {
-                const { imageKey } = msg.payload;
-                VirtualMachineState.run([
-                    { state: imageQuickDeleteMode, operation: '===', value: true, callback: () => {
-                        workflowFileManagerPhoto.toggleQuickDeleteMarkInSet(imageKey, quickDeleteSelectedKeys); // mutate Set qua tham chiếu + patch DOM surgical, KHÔNG xoá/KHÔNG refresh
-                    } },
-                    { state: !imageQuickDeleteMode, operation: '===', value: true, callback: () => {
-                        workflowFileManagerPhoto.openImagePreview(imageKey); // >1 hàm core -> workflow
-                    } },
-                ]);
-                break;
-            }
-
-            // ===================== Chế độ xoá nhanh =====================
-            // VirtualMachineState 3 nhánh LOẠI TRỪ NHAU (Giang chỉ ra "tránh lãng phí khi không xoá
-            // gì" — SỬA thêm sau: "tại sao phải có refresh?" — nhánh 1/2 KHÔNG đổi dữ liệu ảnh, chỉ
-            // đổi UI):
-            //   1. Chưa bật mode -> hỏi xác nhận, bật mode + Set rỗng -> CHỈ đổi UI nút/badge
-            //      (updateQuickDeleteModeUI()), KHÔNG đọc lại DB/KHÔNG dựng lại lưới.
-            //   2. Đang bật, CHƯA đánh dấu ảnh nào -> tắt mode NGAY -> CŨNG chỉ đổi UI, cùng lý do
-            //      trên — KHÔNG gọi deleteImage() nào, KHÔNG refresh() nào.
-            //   3. Đang bật, ĐÃ đánh dấu ≥1 ảnh -> hỏi xác nhận kèm số lượng -> xoá batch 1 lần —
-            //      NHÁNH DUY NHẤT còn refresh() thật (bên trong confirmQuickDeleteBatch()), vì ảnh
-            //      THẬT SỰ bị xoá khỏi DB, lưới bắt buộc phải đọc lại/dựng lại.
-
-            case 'fileManagerPhoto.image.deleteMode.click': {
-                VirtualMachineState.run([
-                    { state: !imageQuickDeleteMode, operation: '===', value: true, callback: () => {
-                        workflowFileManagerPhoto.promptQuickDeleteMode(() => { // >1 hàm core (modal + cập nhật UI) -> workflow
-                            imageQuickDeleteMode = true;
-                            quickDeleteSelectedKeys = new Set();
-                            // SỬA (Giang chỉ ra "tại sao phải có refresh?") — bật mode KHÔNG cần đọc
-                            // lại DB/dựng lại lưới, dữ liệu ảnh không đổi — chỉ đổi màu nút + bật
-                            // badge trên tile đang hiển thị.
-                            workflowFileManagerPhoto.updateQuickDeleteModeUI(imageQuickDeleteMode, quickDeleteSelectedKeys);
-                        });
-                    } },
-                    { state: (imageQuickDeleteMode && quickDeleteSelectedKeys.size === 0), operation: '===', value: true, callback: () => {
-                        imageQuickDeleteMode = false;
-                        // SỬA (Giang chỉ ra "tại sao phải có refresh?") — tắt mode (chưa đánh dấu gì)
-                        // CŨNG không cần đọc lại DB/dựng lại lưới — cùng lý do nhánh trên.
-                        workflowFileManagerPhoto.updateQuickDeleteModeUI(imageQuickDeleteMode, quickDeleteSelectedKeys);
-                    } },
-                    { state: (imageQuickDeleteMode && quickDeleteSelectedKeys.size > 0), operation: '===', value: true, callback: () => {
-                        // onConfirmed: Router KHÔNG tự đặt imageQuickDeleteMode=false NGAY ở đây —
-                        // modalChoice() còn đang MỞ, user có thể Huỷ (khi đó mode PHẢI vẫn đang bật,
-                        // UI vẫn đang hiện badge đỏ đúng thực tế) — Workflow tự gọi callback này ĐÚNG
-                        // lúc xoá xong thật (bên trong onClick nút xác nhận), Router lúc đó mới đồng
-                        // bộ biến của mình. NHÁNH NÀY VẪN GỌI refresh() THẬT (bên trong
-                        // confirmQuickDeleteBatch()) — ảnh THẬT SỰ bị xoá khỏi DB, lưới bắt buộc phải
-                        // đọc lại/dựng lại, khác 2 nhánh trên (chỉ đổi UI, không đổi dữ liệu).
-                        workflowFileManagerPhoto.confirmQuickDeleteBatch(quickDeleteSelectedKeys, () => { imageQuickDeleteMode = false; }); // >1 hàm core (modal + shield + deleteImage*N + refresh) -> workflow
-                    } },
-                ]);
-                break;
-            }
-
-            // ===================== Upload =====================
-
-            case 'fileManagerPhoto.uploadTrigger.click': {
-                workflowFileManagerPhoto.triggerUploadInput();
-                break;
-            }
-
-            case 'fileManagerPhoto.upload.change': {
-                const { files } = msg.payload;
-                workflowFileManagerPhoto.uploadImages(files); // >1 hàm core -> workflow
-                break;
-            }
-
-            // Đích dispatch của dropdown (openImageActionMenu()).
-            // SỬA (31/07/2026, Giang chỉ ra "đừng viện dẫn workflow xuyên miền để biện minh giữ
-            // routing sai chỗ") — "Lưu đè"/"Lưu mới" ĐÃ CHUYỂN hẳn sang router `imageEdit` (msg.type
-            // riêng, xem event/router/image-edit.js) — case này giờ CHỈ còn 2 action là trách nhiệm
-            // THẬT của miền Photo (setPlaylistBg/delete).
+            // Đích dispatch của dropdown (openImageActionMenu()) — "Lưu đè"/"Lưu mới" thuộc router
+            // `imageEdit` riêng (xem event/router/image-edit.js). Nút xoá ảnh đã bỏ khỏi dropdown
+            // (Giang yêu cầu — dropdown này không có cách refresh lại Playlist đứng sau modal; xoá
+            // ảnh dùng action-menu của dòng Photo trong Playlist, core/playlist/actions.js).
             case 'fileManagerPhoto.imageMenu.setPlaylistBg.click': {
                 workflowFileManagerPhoto.setAsPlaylistBackground(msg.payload.imageKey);
-                break;
-            }
-
-            case 'fileManagerPhoto.imageMenu.delete.click': {
-                deleteImage(msg.payload.imageKey).then(() => workflowFileManagerPhoto.refresh()); // core/file-manager/image.js
                 break;
             }
 
@@ -146,11 +51,6 @@ const routerFileManagerPhoto = (() => {
             }
 
             // ===================== Picker ảnh dùng chung (Generic Drawer) =====================
-            // MỚI (khôi phục — 2 case này bị THIẾU hẳn từ đợt dời wiring sang core/media-picker-
-            // drawer-helper.js::openMediaPickerDrawerUi(), 31/07/2026: hàm đó gửi ĐÚNG msg.type
-            // này qua eventBus nhưng router chưa có case nhận — msg rơi vào default/console.warn,
-            // tap ảnh KHÔNG chọn được gì, nút X picker cũng không đóng được. Đây LÀ nguyên nhân
-            // Giang báo "không tích chọn được ảnh").
 
             case 'fileManagerPhoto.imagePicker.tile.click': {
                 workflowFileManagerPhoto.handleImagePickerTileClick(msg.payload.imageKey);

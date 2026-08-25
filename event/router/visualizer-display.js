@@ -3,8 +3,11 @@
  *
  * Cấu hình riêng effect (màu/blur/style con/kích thước) ĐÃ DỜI sang Custom Effect Drawer — case
  * tương ứng ĐÃ BỎ khỏi router này, xem event/workflow/custom-effect.js (wiring trực tiếp trong
- * Drawer, không qua eventBus). Router này giờ chỉ còn: ảnh nền, độ mờ nền, cycle effect (hold mở
- * Drawer/click đổi effect — CÙNG khuôn event/router/eq-presets.js), volume, panel "Display".
+ * Drawer, không qua eventBus). Router này giờ chỉ còn: độ mờ nền, cycle effect (hold mở Drawer/
+ * click đổi effect — CÙNG khuôn event/router/eq-presets.js), volume, panel "Display". Case
+ * 'visualizerDisplay.bgImage.toggle' (bật/tắt + chọn ảnh nền qua carousel) đã xoá — mồ côi từ
+ * 07/07/2026, chọn ảnh nền giờ qua Theme card "Background" (Generic Drawer picker, xem
+ * event/workflow/theme.js::pickNewBackgroundImage()).
  *
  * QUY TẮC RẼ NHÁNH: nghiệp vụ chỉ cần ĐÚNG 1 hàm core -> gọi THẲNG; cần shield/modal hoặc >1 hàm
  * core nối tiếp -> giao workflowVisualizerDisplay.
@@ -42,13 +45,6 @@ const routerVisualizerDisplay = (() => {
             case 'visualizerDisplay.cycle.click':
                 workflowCustomEffect.onCycleModeClick();
                 break;
-
-            // ===================== Ảnh nền (Main, KHÔNG di chuyển) =====================
-            case 'visualizerDisplay.bgImage.toggle': {
-                const { enabled } = msg.payload;
-                workflowVisualizerDisplay.toggleBgImage({ enabled });
-                break;
-            }
 
             case 'visualizerDisplay.bgBlur.input': {
                 const { value } = msg.payload;
