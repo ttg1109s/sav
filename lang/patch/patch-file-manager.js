@@ -85,6 +85,10 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.image.editToolTint': 'Tint',
     'fileManager.photo.image.editToolSharpen': 'Sharpen',
     'fileManager.photo.image.editToolCrop': 'Crop',
+    // MỚI (bổ sung danh sách chọn tỉ lệ Crop, Giang yêu cầu) — nhãn 2 nút không tự hiển thị số
+    // ('Free'/'Square'), 4 tỉ lệ còn lại hiện thẳng "4:3" v.v. không cần key riêng.
+    'fileManager.photo.image.cropRatioFree': 'Free',
+    'fileManager.photo.image.cropRatioSquare': 'Square',
     'fileManager.photo.image.editToolText': 'Text',
     'fileManager.photo.image.editToolDraw': 'Draw',
     'fileManager.photo.image.editToolMagic': 'Cutout',
