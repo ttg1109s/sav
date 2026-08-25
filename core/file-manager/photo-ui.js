@@ -12,12 +12,15 @@
 /**
  * Modal xem ảnh full-screen — dựng cụm DOM MỚI (Rule 5a: DOM mới tự tạo bằng `createElement` được
  * phép tự `addEventListener`, miễn callback CHỈ bắn `eventBus.send()`, gom cuối hàm — xem khuôn ở
- * cuối hàm này). GỘP View/Zoom/Edit làm 1 (bỏ dropdown "...") — header LUÔN hiện 2 icon cố định
- * (Đặt làm nền/Edit) thay vì ẩn sau menu, Core không cần biết đang ở "mode" nào để quyết định hiện
- * gì (Rule 2). Workflow (event/workflow/file-manager-photo.js) đọc `_activeImageKey` (instance
- * field lưu sẵn lúc mở modal) thay vì nhận qua closure tham số.
+ * cuối hàm này). GỘP View/Zoom/Edit làm 1 THẬT SỰ (bỏ dropdown "...", KHÔNG có khái niệm "mode" nào
+ * cần pause/resume) — `<img>` và canvasWrap (Edit mode) đều nằm trong `mediaWrap`, Panzoom gắn lên
+ * `mediaWrap` (không gắn thẳng `<img>`), nên pan/zoom chạy LIÊN TỤC suốt vòng đời modal, không bị
+ * ảnh hưởng bởi việc ẩn/hiện `<img>` hay canvasWrap bên trong. Header LUÔN hiện 2 icon cố định
+ * (Save/Edit) thay vì ẩn sau menu, Core không cần biết đang ở "mode" nào để quyết định hiện gì
+ * (Rule 2). Workflow (event/workflow/file-manager-photo.js) đọc `_activeImageKey` (instance field
+ * lưu sẵn lúc mở modal) thay vì nhận qua closure tham số.
  * @param {{key: string, blob: Blob, filename: string}} image
- * @returns {{close: () => void, imgEl: HTMLImageElement, canvasWrap: HTMLElement, baseCanvas: HTMLCanvasElement, renderCanvas: HTMLCanvasElement, interactCanvas: HTMLCanvasElement, toolsBtn: HTMLElement}}
+ * @returns {{close: () => void, imgEl: HTMLImageElement, mediaWrap: HTMLElement, canvasWrap: HTMLElement, baseCanvas: HTMLCanvasElement, renderCanvas: HTMLCanvasElement, interactCanvas: HTMLCanvasElement, toolsBtn: HTMLElement}}
  */
 function openImagePreviewModal(image) {
     const stale = document.getElementById('image-preview-overlay');
@@ -44,11 +47,20 @@ function openImagePreviewModal(image) {
     // NGAY khi ảnh load xong — CÙNG hướng (cả 2 cùng ngang hoặc cùng dọc) mới dùng cover; LỆCH hướng
     // thì đổi qua contain (hiện trọn ảnh, dư khoảng đen 2 bên do overlay đã bg-black sẵn — KHÔNG mất
     // nội dung ảnh).
+    // ---- mediaWrap: bọc CHUNG `<img>` + canvasWrap — Panzoom gắn lên ĐÂY (không gắn thẳng lên
+    // `<img>` nữa), pan/zoom nhờ vậy áp dụng cho CẢ 2 như nhau, không cần huỷ/tạo lại session mỗi
+    // lần chuyển qua lại giữa xem ảnh thường và Edit mode (KHÔNG có khái niệm "pause/resume Zoom" —
+    // xem workflowFileManagerPhoto._initZoom(), gọi ĐÚNG 1 LẦN suốt vòng đời modal).
+    const mediaWrap = document.createElement('div');
+    mediaWrap.id = 'image-preview-media-wrap';
+    mediaWrap.className = 'absolute inset-0';
+    overlay.appendChild(mediaWrap);
+
     const img = document.createElement('img');
     img.alt = image.filename;
     img.className = 'photo-preview-image';
     img.src = objectUrl;
-    overlay.appendChild(img);
+    mediaWrap.appendChild(img);
 
     // ---- Khung canvas cho Edit mode (base/render/interact) — MỚI (31/07/2026), ẩn mặc định, chỉ
     // hiện khi vào Edit mode (workflowImageEdit.enterEditMode() dựng nội dung + gỡ 'hidden').
@@ -68,7 +80,7 @@ function openImagePreviewModal(image) {
     interactCanvas.id = 'image-edit-interact-canvas';
     interactCanvas.className = 'absolute max-w-full max-h-full';
     canvasWrap.append(baseCanvas, renderCanvas, interactCanvas);
-    overlay.appendChild(canvasWrap);
+    mediaWrap.appendChild(canvasWrap);
 
     // ---- Slider popup cho nhóm "Điều chỉnh" (brightness/contrast/...) — MỚI (31/07/2026), ẩn mặc
     // định, Workflow tự hiện lúc chọn 1 tool điều chỉnh từ Generic Drawer grid. Live-preview trực
@@ -243,13 +255,15 @@ function openImagePreviewModal(image) {
     const magicSliderEl = magicPopup.querySelector('#image-edit-magic-slider');
     magicSliderEl.addEventListener('input', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.magic.slider.input', payload: { value: parseInt(e.target.value, 10) } }));
 
-    // `imgEl` luôn được trả về — Panzoom (Zoom, luôn bật, xem workflowFileManagerPhoto._initZoom())
-    // gắn thẳng lên đây. Edit mode tự ẩn `imgEl`, hiện `canvasWrap` thay thế (xem enterEditMode()/
-    // exitEditMode(), event/workflow/image-edit.js) — 2 thứ loại trừ nhau về HIỂN THỊ (không thể
-    // cùng lúc pan/zoom `<img>` VÀ vẽ lên canvas), nhưng không còn là "mode" người dùng phải tự
-    // chọn/thoát nữa — enterEditMode()/thoát Edit tự lo việc chuyển đổi.
+    // `mediaWrap` luôn được trả về — Panzoom (Zoom, luôn bật SUỐT vòng đời modal, xem
+    // workflowFileManagerPhoto._initZoom()) gắn lên ĐÂY, KHÔNG gắn thẳng `<img>` — pan/zoom nhờ vậy
+    // áp dụng như nhau cho CẢ xem ảnh thường LẪN Edit mode, không cần huỷ/tạo lại session khi
+    // `enterEditMode()` ẩn `imgEl`/hiện `canvasWrap` (KHÔNG có khái niệm "mode" nào cần pause/resume
+    // Zoom — session Panzoom chạy liên tục, KHÔNG bị đụng tới cho tới khi đóng hẳn modal).
+    // `interactCanvas` PHẢI truyền vào `exclude` của Panzoom (xem `_initZoom()`) — nếu không, chạm
+    // kéo Crop/Vẽ/Tách nền trên đó sẽ bị Panzoom giành mất thành cử chỉ pan.
     return {
-        close: closeModal, imgEl: img, canvasWrap, baseCanvas, renderCanvas, interactCanvas, toolsBtn,
+        close: closeModal, imgEl: img, mediaWrap, canvasWrap, baseCanvas, renderCanvas, interactCanvas, toolsBtn,
         header,
         adjustPopup, adjustLabelEl: adjustPopup.querySelector('#image-edit-adjust-label'),
         adjustValueEl: adjustPopup.querySelector('#image-edit-adjust-value'),
