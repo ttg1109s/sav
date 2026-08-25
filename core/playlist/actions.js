@@ -179,10 +179,17 @@
             // chưa có duration/count/size gì đáng xem) — giờ HIỆN LẠI, openSongEditModal() (dưới)
             // đã có nhánh Photo riêng.
             if (songMenuBtnEdit) songMenuBtnEdit.classList.toggle('hidden', false);
-            if (songMenuBtnRestore) songMenuBtnRestore.classList.toggle('hidden', isPhoto);
             // SỬA (phản hồi Giang — Batch "Export dọn nợ kiến trúc") — "Xuất file" giờ áp dụng CHO
             // CẢ Video (exportVideoFile(), bỏ qua bước gắn tag ID3 — xem event/workflow/playlist.js)
             // — KHÔNG còn ẩn khi isVideo nữa.
+            // SỬA (Giang yêu cầu — "thêm export file/download ảnh vào dropdown action menu photo
+            // playlist") — TRƯỚC ĐÂY dòng này CÒN `songMenuBtnRestore.classList.toggle('hidden',
+            // isPhoto)` — ẨN hẳn nút "Xuất file" mỗi khi menu đang mở là của Photo (dropdown Photo
+            // do đó KHÔNG hề có lựa chọn download ảnh nào cả). Giờ bỏ hẳn điều kiện `isPhoto` đó —
+            // nút LUÔN hiện cho cả 3 loại (Song/Video/Photo), `exportActiveMenuItem()` (event/
+            // workflow/playlist.js) tự rẽ đúng nhánh theo `activeMediaSource` (thêm nhánh 'photo' ->
+            // `exportImageFile()`, cùng khuôn nhánh 'video' đã có).
+            if (songMenuBtnRestore) songMenuBtnRestore.classList.remove('hidden');
             // songMenuBtnSetBgVideo ĐÃ XOÁ khỏi dropdown (phản hồi Giang — bỏ hẳn "Set làm nền").
             songMenuBtnEditVideo.classList.toggle('hidden', !isVideo);
             // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video, "thêm dropdown edit
