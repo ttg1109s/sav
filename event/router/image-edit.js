@@ -52,6 +52,24 @@ const routerImageEdit = (() => {
                 break;
             }
 
+            // Nút loại hình trong shapeTypePopup (MỚI, tool Shape) — Đích cố định.
+            case 'imageEdit.shapeType.select.click': {
+                workflowImageEdit.selectShapeType(msg.payload.shapeType);
+                break;
+            }
+
+            // Field trong style editor layer (MỚI, Generic Drawer mở qua "Sửa" ở menu long-press) —
+            // Đích cố định, phân theo `field` nằm TRONG chính hàm (không cần VirtualMachineState ở
+            // đây — nhiều field CÙNG map vào 1 hàm, không phải rẽ nhánh loại trừ nhau).
+            case 'imageEdit.layerStyle.field.input': {
+                workflowImageEdit.updateLayerStyleField(msg.payload.field, msg.payload.value, msg.payload.checked);
+                break;
+            }
+            case 'imageEdit.layerStyle.close.click': {
+                workflowImageEdit.closeLayerStyleEditor();
+                break;
+            }
+
             // Nút X TRÊN CHÍNH Generic Drawer (header lưới tool, core/file-manager/photo-ui.js::
             // openPhotoEditToolGridDrawerUi()) — CHỈ đóng Drawer (KHÔNG mode nào để thoát — canvas
             // vẫn hiện nguyên, bấm lại icon Edit trên header là mở lại lưới). Đích cố định, hạ tầng
@@ -90,6 +108,9 @@ const routerImageEdit = (() => {
                     } },
                     { state: activeSubTool, operation: '===', value: 'text', callback: () => {
                         workflowImageEdit.applyTextTool();
+                    } },
+                    { state: activeSubTool, operation: '===', value: 'shapePlacement', callback: () => {
+                        workflowImageEdit.applyShapePlacement();
                     } },
                 ]);
                 break;
@@ -137,19 +158,26 @@ const routerImageEdit = (() => {
             // lưới tool/Text/Magic) — dùng `run()` sẽ SPAM console mỗi lần đó, tốn thật (serialize
             // object để DevTools hiển thị), không phải lý thuyết.
 
+            // MỚI (layer Text/Shape) — 'none' (không sub-tool nào mở) giờ KHÔNG còn "không làm gì":
+            // tương tác chọn/kéo/long-press layer sống Ở ĐÂY (layerPointerDown/Move/Up(), xem
+            // docstring từng hàm, event/workflow/image-edit.js). 'shapePlacement' (đang đặt vị trí/
+            // resize 1 shape MỚI) TÁI DÙNG NGUYÊN 3 hàm cropPointerDown/Move/Up() — cùng thuật toán
+            // kéo khung/handle với Crop hệt nhau (xem `selectShapeType()`), chỉ khác lúc Áp dụng.
             case 'imageEdit.interactCanvas.pointerDown': {
                 switch (workflowImageEdit.getActiveSubTool()) {
-                    case 'crop': workflowImageEdit.cropPointerDown(msg.payload); break;
+                    case 'crop': case 'shapePlacement': workflowImageEdit.cropPointerDown(msg.payload); break;
                     case 'draw': workflowImageEdit.drawPointerDown(msg.payload); break;
                     case 'magic': workflowImageEdit.magicPointerDown(msg.payload); break;
-                    // 'none'/'text' -> không làm gì, KHÔNG cảnh báo (bình thường).
+                    case 'none': workflowImageEdit.layerPointerDown(msg.payload); break;
+                    // 'text' -> không làm gì, KHÔNG cảnh báo (bình thường).
                 }
                 break;
             }
             case 'imageEdit.interactCanvas.pointerMove': {
                 switch (workflowImageEdit.getActiveSubTool()) {
-                    case 'crop': workflowImageEdit.cropPointerMove(msg.payload); break;
+                    case 'crop': case 'shapePlacement': workflowImageEdit.cropPointerMove(msg.payload); break;
                     case 'draw': workflowImageEdit.drawPointerMove(msg.payload); break;
+                    case 'none': workflowImageEdit.layerPointerMove(msg.payload); break;
                     // 'magic' KHÔNG cần theo dõi pointermove (chỉ 1 điểm chạm là đủ, xem
                     // magicPointerDown()) — cố ý không có case.
                 }
@@ -157,8 +185,9 @@ const routerImageEdit = (() => {
             }
             case 'imageEdit.interactCanvas.pointerUp': {
                 switch (workflowImageEdit.getActiveSubTool()) {
-                    case 'crop': workflowImageEdit.cropPointerUp(); break;
+                    case 'crop': case 'shapePlacement': workflowImageEdit.cropPointerUp(); break;
                     case 'draw': workflowImageEdit.drawPointerUp(); break;
+                    case 'none': workflowImageEdit.layerPointerUp(); break;
                 }
                 break;
             }
