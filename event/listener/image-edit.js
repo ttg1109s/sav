@@ -23,9 +23,9 @@ document.addEventListener('pointerup', () => {
 
 // Các điểm bắn eventBus({ router: 'imageEdit', ... }) KHÁC đều là nút/canvas ĐỘNG, tự wire trực
 // tiếp tại nơi dựng ra nó (core/file-manager/photo-ui.js::openImagePreviewModal(), Rule 5a):
-// toolsBtn/contextCancelBtn/contextApplyBtn/adjustDoneBtn/drawBrushBtn/drawEraserBtn/interactCanvas
-// (pointerdown/move/up/leave)/floatingText (pointerdown)/adjustSliderEl/magicSliderEl (input). Item
-// "Edit" (dropdown "...") wire ở event/workflow/file-manager-photo.js::openImageActionMenu(). Tile
-// lưới tool (Generic Drawer) wire ở core/file-manager/photo-ui.js::
+// toolsBtn/saveBtn/contextCancelBtn/contextApplyBtn/adjustDoneBtn/drawBrushBtn/drawEraserBtn/
+// interactCanvas (pointerdown/move/up/leave)/floatingText (pointerdown)/adjustSliderEl/
+// magicSliderEl (input). Dropdown Save (Ghi đè/Lưu mới) wire ở event/workflow/image-edit.js::
+// openSaveMenu(). Tile lưới tool (Generic Drawer) wire ở core/file-manager/photo-ui.js::
 // wirePhotoEditToolGridDelegation().
 
