@@ -1,10 +1,12 @@
 /**
- * core/file-manager/photo-ui.js — Vẽ UI Photo: modal xem ảnh full-screen (View/Zoom/Edit đã GỘP
- * làm 1, không còn dropdown "...") + UI cho Edit mode (grid tool phẳng trong Generic Drawer, không
- * còn nhóm header). Picker chọn 1 ảnh dùng chung (cover bài hát/nền Theme) đã DỜI sang
- * core/media-picker-drawer-helper.js::openMediaPickerDrawerUi() — không còn ở file này. Grid ảnh
- * chính (Photo Source trong Playlist) dùng event/workflow/photo-gallery-window.js (fjGallery +
- * IntersectionObserver) — không đụng tới file này.
+ * core/file-manager/photo-ui.js — Vẽ UI Photo: modal xem ảnh full-screen — DUY NHẤT 1 mặt canvas
+ * dùng chung cho xem/zoom/pan/edit, KHÔNG có khái niệm "mode" nào tách biệt (bỏ dropdown "...") —
+ * xem docstring `openImagePreviewModal()` dưới. UI công cụ Edit (grid tool phẳng trong Generic
+ * Drawer, không còn nhóm header) vẽ/chỉnh TRỰC TIẾP lên chính canvas đang xem. Picker chọn 1 ảnh
+ * dùng chung (cover bài hát/nền Theme) đã DỜI sang core/media-picker-drawer-helper.js::
+ * openMediaPickerDrawerUi() — không còn ở file này. Grid ảnh chính (Photo Source trong Playlist)
+ * dùng event/workflow/photo-gallery-window.js (fjGallery + IntersectionObserver) — không đụng tới
+ * file này.
  *
  * NẠP SAU: lang/lang.js (t()), core/generic-drawer.js, service/z-index.js.
  */
@@ -12,13 +14,15 @@
 /**
  * Modal xem ảnh full-screen — dựng cụm DOM MỚI (Rule 5a: DOM mới tự tạo bằng `createElement` được
  * phép tự `addEventListener`, miễn callback CHỈ bắn `eventBus.send()`, gom cuối hàm — xem khuôn ở
- * cuối hàm này). GỘP View/Zoom/Edit làm 1 THẬT SỰ (bỏ dropdown "...", KHÔNG có khái niệm "mode" nào
- * cần pause/resume) — `<img>` và canvasWrap (Edit mode) đều nằm trong `mediaWrap`, Panzoom gắn lên
- * `mediaWrap` (không gắn thẳng `<img>`), nên pan/zoom chạy LIÊN TỤC suốt vòng đời modal, không bị
- * ảnh hưởng bởi việc ẩn/hiện `<img>` hay canvasWrap bên trong. Header LUÔN hiện 2 icon cố định
- * (Save/Edit) thay vì ẩn sau menu, Core không cần biết đang ở "mode" nào để quyết định hiện gì
- * (Rule 2). Workflow (event/workflow/file-manager-photo.js) đọc `_activeImageKey` (instance field
- * lưu sẵn lúc mở modal) thay vì nhận qua closure tham số.
+ * cuối hàm này).
+ *
+ * DUY NHẤT 1 mặt hiển thị cho CẢ xem/zoom/pan/edit — KHÔNG có "mode" nào để vào/thoát. `canvasWrap`
+ * LUÔN hiện sẵn từ đầu (không còn `hidden`/gỡ `hidden` theo bất kỳ sự kiện nào) — Panzoom gắn lên
+ * `mediaWrap` (bọc chung `<img>` + `canvasWrap`), chạy LIÊN TỤC suốt vòng đời modal. `<img>`
+ * (objectUrl) chỉ là ảnh xem TẠM lúc canvas chưa kịp decode (tải tức thời, tránh màn hình trống) —
+ * canvas vẽ ĐÈ LÊN tự nhiên, KHÔNG có dòng code nào chủ động ẩn/hiện qua lại giữa 2 thứ này. Icon
+ * Edit (bút chì) trên header CHỈ mở bảng công cụ (Generic Drawer) — không "vào" gì cả, công cụ
+ * chọn xong vẽ/chỉnh THẲNG lên canvas đang xem đó (xem event/workflow/image-edit.js).
  * @param {{key: string, blob: Blob, filename: string}} image
  * @returns {{close: () => void, imgEl: HTMLImageElement, mediaWrap: HTMLElement, canvasWrap: HTMLElement, baseCanvas: HTMLCanvasElement, renderCanvas: HTMLCanvasElement, interactCanvas: HTMLCanvasElement, toolsBtn: HTMLElement}}
  */
@@ -94,16 +98,18 @@ function openImagePreviewModal(image) {
     img.src = objectUrl;
     mediaWrap.appendChild(img);
 
-    // ---- Khung canvas cho Edit mode (base/render/layer/interact) — MỚI (31/07/2026), ẩn mặc định,
-    // chỉ hiện khi vào Edit mode (workflowImageEdit.enterEditMode() dựng nội dung + gỡ 'hidden').
-    // Đúng khuôn prototype "Lumina Pro" Giang cung cấp: base = pixel gốc sau thao tác vĩnh viễn,
-    // render = kết quả Điều chỉnh hiện tại (không phá base, cho phép chỉnh lại), layer = Text/Shape
-    // (MỚI, layer riêng — KHÔNG "nướng" thẳng vào base như Crop/Vẽ/Tách nền, chọn lại/sửa lại được
-    // trong suốt phiên Edit, xem event/workflow/image-edit.js::_renderLayers()), interact = overlay
-    // tương tác (khung crop/nét vẽ nháp/handle kéo).
+    // ---- Khung canvas — DUY NHẤT 1 mặt hiển thị cho CẢ xem/zoom/pan/edit (Giang chốt: "1 canvas
+    // hình ảnh dùng luôn xem, zoom pan và edit", KHÔNG có khái niệm ẩn/hiện chuyển qua lại với
+    // `<img>` nữa). `<img>` (objectUrl) chỉ đóng vai trò ảnh xem TẠM lúc canvas CHƯA kịp decode
+    // xong (tải tức thời, không cần đợi) — canvas vẽ ĐÈ LÊN, phủ kín TỰ NHIÊN nhờ cùng kích thước/
+    // vị trí (mediaWrap + object-fit đồng bộ, xem syncEditCanvasDisplaySize()), KHÔNG có dòng code
+    // nào chủ động ẩn `<img>` hay hiện canvasWrap — canvasWrap LUÔN hiện sẵn từ đầu. Đúng khuôn
+    // prototype "Lumina Pro": base = pixel gốc sau thao tác vĩnh viễn, render = kết quả Điều chỉnh
+    // hiện tại, layer = Text/Shape (chọn lại/sửa lại được), interact = overlay tương tác (khung
+    // crop/nét vẽ nháp/handle kéo) — NGAY TRÊN CÙNG ảnh đang xem/zoom, không phải 1 bản sao riêng.
     const canvasWrap = document.createElement('div');
     canvasWrap.id = 'image-edit-canvas-wrap';
-    canvasWrap.className = 'hidden absolute inset-0 flex items-center justify-center';
+    canvasWrap.className = 'absolute inset-0 flex items-center justify-center';
     const baseCanvas = document.createElement('canvas');
     baseCanvas.id = 'image-edit-base-canvas';
     baseCanvas.className = 'absolute w-full h-full';
@@ -258,13 +264,11 @@ function openImagePreviewModal(image) {
     // XOÁ (gộp View/Zoom/Edit làm 1, bỏ dropdown "...") — menuBtn ("...", mở core/dropdown-menu.js)
     // bỏ hẳn. XOÁ (Giang yêu cầu bỏ "Đặt làm nền Playlist") — setPlaylistBgBtn cùng
     // workflowFileManagerPhoto.setAsPlaylistBackground() bỏ hẳn cùng tính năng, không còn entry
-    // point nào khác gọi tới. 2 nút còn lại LUÔN hiện (không còn `hidden` chờ Workflow gỡ) — KHÔNG
-    // có khái niệm "mode" nào cần bật lên mới thấy nút hay phải thoát mới đóng được (View/Zoom/Edit
-    // chạy đồng thời, xem event/workflow/file-manager-photo.js): `saveBtn` mở dropdown 2 lựa chọn
-    // (Ghi đè/Lưu mới, Workflow tự build — dropdown CẦN biết có đang có gì để lưu hay không, dữ
-    // liệu đó Core không được tự đọc, Rule 2), `toolsBtn` (icon bút chì) mở Generic Drawer lưới tool
-    // Edit — Router (`imageEdit`) tự đọc `workflowImageEdit.isEditModeActive()` để biết mở lần đầu
-    // hay mở lại lưới (Rule 1: nơi gọi chọn hàm, nút không tự đổi nghĩa).
+    // point nào khác gọi tới. 2 nút còn lại LUÔN hiện — KHÔNG có khái niệm "mode" nào cả (canvas
+    // đã sẵn sàng xem/zoom/pan/edit từ lúc mở modal): `saveBtn` mở dropdown 2 lựa chọn (Ghi đè/
+    // Lưu mới, Workflow tự build — dropdown CẦN biết có đang có gì để lưu hay không, dữ liệu đó
+    // Core không được tự đọc, Rule 2), `toolsBtn` (icon bút chì) CHỈ mở Generic Drawer lưới tool —
+    // không "vào" gì cả, không có nhánh nào để Router phải chọn.
     const rightGroup = document.createElement('div');
     rightGroup.className = 'flex items-center gap-2';
     const saveBtn = document.createElement('button');
@@ -354,10 +358,8 @@ function openImagePreviewModal(image) {
     magicSliderEl.addEventListener('input', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.magic.slider.input', payload: { value: parseInt(e.target.value, 10) } }));
 
     // `mediaWrap` luôn được trả về — Panzoom (Zoom, luôn bật SUỐT vòng đời modal, xem
-    // workflowFileManagerPhoto._initZoom()) gắn lên ĐÂY, KHÔNG gắn thẳng `<img>` — pan/zoom nhờ vậy
-    // áp dụng như nhau cho CẢ xem ảnh thường LẪN Edit mode, không cần huỷ/tạo lại session khi
-    // `enterEditMode()` ẩn `imgEl`/hiện `canvasWrap` (KHÔNG có khái niệm "mode" nào cần pause/resume
-    // Zoom — session Panzoom chạy liên tục, KHÔNG bị đụng tới cho tới khi đóng hẳn modal).
+    // workflowFileManagerPhoto._initZoom()) gắn lên ĐÂY, KHÔNG gắn thẳng `<img>` — canvas vẽ ĐÈ lên
+    // `<img>` ngay khi decode xong (KHÔNG có toggle ẩn/hiện nào), Panzoom không hề bị đụng tới.
     // `interactCanvas` PHẢI truyền vào `exclude` của Panzoom (xem `_initZoom()`) — nếu không, chạm
     // kéo Crop/Vẽ/Tách nền trên đó sẽ bị Panzoom giành mất thành cử chỉ pan.
     return {
@@ -415,13 +417,13 @@ function openPhotoEditToolGridDrawerUi(title, bodyHtml) {
     if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.toolGrid.close.click', payload: {} }));
 }
 
-/** Wire delegated click trên `genericDrawerBody` cho tile lưới tool Edit mode (`[data-edit-tool]`)
- * — gọi ĐÚNG 1 lần/phiên Edit mode (`enterEditMode()`), KHÔNG gọi lại mỗi lần
+/** Wire delegated click trên `genericDrawerBody` cho tile lưới tool (`[data-edit-tool]`) — gọi
+ * ĐÚNG 1 lần/phiên xem ảnh (`ensureEditSessionReady()`), KHÔNG gọi lại mỗi lần
  * `openPhotoEditToolGridDrawerUi()` mở lại lưới (listener cũ không tự mất theo `innerHTML`, gắn lại
  * sẽ chồng chất — xem cách dùng ở `event/workflow/image-edit.js::_wireEditToolGridDelegation()`).
  * Cùng lý do "PHẢI tự wire/gỡ theo vòng đời" như `openMediaPickerDrawerUi()` (core/media-picker-
  * drawer-helper.js).
- * @returns {() => void} hàm gỡ — Workflow tự lưu, gọi lúc thoát Edit mode.
+ * @returns {() => void} hàm gỡ — Workflow tự lưu, gọi lúc đóng hẳn modal.
  */
 function wirePhotoEditToolGridDelegation() {
     const handler = (e) => {
