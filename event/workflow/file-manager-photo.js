@@ -2,16 +2,21 @@
  * event/workflow/file-manager-photo.js — "THẰNG THỰC THI CUỐI" cho phần còn lại của miền Photo sau
  * khi Photo Panel full-screen bị xoá (hợp nhất vào Playlist làm 1 Source, xem event/workflow/
  * playlist.js::switchToPhotoSource()). Còn 2 nhóm việc:
- *   1. Modal xem ảnh full-screen (Zoom/Edit mode, dropdown action "...") — mở từ mục "Edit image"
- *      trong dropdown dòng Photo ở Playlist (event/workflow/playlist.js), KHÔNG còn mở từ tap ảnh
- *      trong lưới cũ.
+ *   1. Modal xem ảnh full-screen — mở từ mục "Edit image" trong dropdown dòng Photo ở Playlist
+ *      (event/workflow/playlist.js), KHÔNG còn mở từ tap ảnh trong lưới cũ. View/Zoom/Edit đã GỘP
+ *      làm 1, KHÔNG có khái niệm "mode" nào cần thoát (bỏ dropdown "..." cũ) — Zoom (Panzoom) LUÔN
+ *      bật ngay lúc mở modal (`_initZoom()`), Edit mở qua icon cố định trên header (xem
+ *      event/workflow/image-edit.js), chỉ tạm dừng Zoom lúc Edit đang hiện canvas thay `<img>`
+ *      (`pauseZoomForEdit()` dưới đây, gọi chéo từ image-edit.js — KHÔNG có chiều ngược lại "khôi
+ *      phục Zoom", đóng Generic Drawer chỉ đóng Drawer, canvas vẫn hiện nguyên).
  *   2. Picker chọn 1 ảnh dùng chung qua Generic Drawer (cover bài hát/nền Theme) — gọi bởi
  *      playlist.js::pickCoverFromLibrary() và theme.js::pickNewBackgroundImage().
  * `resizeImageForThumbnail()`/`computePhotoDuration()` DÙNG CHUNG với playlist.js::uploadPhotos()
  * (upload ảnh giờ qua nút upload chung của Playlist) và image-edit.js::saveEditOverwrite().
  *
- * NẠP SAU: core/file-manager/image.js, core/file-manager/photo-ui.js, core/media-picker-drawer-
- * helper.js, core/generic-drawer.js.
+ * NẠP SAU: core/file-manager/image.js, core/file-manager/photo-ui.js, core/media-transform.js
+ * (initPanzoomSession/destroyPanzoomSession), core/media-picker-drawer-helper.js,
+ * core/generic-drawer.js.
  */
 let _imagePickerSession = null; // session picker ảnh Generic Drawer đang mở (null = đang đóng) — handle UI, KHÔNG phải state nghiệp vụ ảnh hưởng rẽ nhánh Router.
 
@@ -37,7 +42,7 @@ const DURATION_JITTER_SEC = 0.4;     // biên độ jitter TỐI ĐA từ SHA-25
 const workflowFileManagerPhoto = {
 
     _activeImageModalHandle: null, // { close, imgEl, canvasWrap, baseCanvas, renderCanvas, interactCanvas, toolsBtn, adjustPopup, ... } của modal xem ảnh đang mở — null khi không mở modal nào
-    _activePanzoomSession: null,   // session Panzoom đang chạy khi ở Zoom mode — null khi không ở Zoom mode (core/image-zoom.js)
+    _activePanzoomSession: null,   // session Panzoom (core/media-transform.js) — LUÔN chạy trong lúc xem ảnh thường; null trong lúc đang Edit mode (canvas thay img) hoặc modal đã đóng
     _activeImageKey: null,         // key ảnh đang mở modal — workflowImageEdit đọc lại qua getActiveImageKey()
 
     /** 2 khe ĐỌC hẹp cho workflowImageEdit (miền khác — event/workflow/image-edit.js) tự lấy
@@ -240,11 +245,9 @@ const workflowFileManagerPhoto = {
     /** Ứng với mục "Edit image" trong dropdown action-menu dòng Photo ở Playlist (event/workflow/
      * playlist.js) — KHÔNG còn mở từ tap ảnh trong list item (tap ảnh giờ PHÁT ảnh làm track như
      * Song/Video, xem event/router/playlist.js case 'playlist.item.playClick').
-     * MỚI (31/07/2026, Zoom mode) — giữ `modalHandle` ở `this._activeImageModalHandle` (Router cần
-     * lại lúc xử lý toggle Zoom/nút X đóng — xem enterZoomMode()/exitImagePreviewMode()/
-     * closeImagePreview()). `imagePreviewMode` reset về 'view' mỗi lần mở modal MỚI.
-     * Tăng `count` trong `mediaStatsMap` (dùng CHUNG với Song/Video, Sort trục thống kê đọc field
-     * này — ý nghĩa đổi thành "lượt click xem" cho Photo) mỗi lần mở xem.
+     * GỘP View/Zoom/Edit làm 1 — Zoom (Panzoom) tự bật NGAY qua `_initZoom()`, không còn chờ người
+     * dùng bật tay. Tăng `count` trong `mediaStatsMap` (dùng CHUNG với Song/Video, Sort trục thống
+     * kê đọc field này — ý nghĩa đổi thành "lượt click xem" cho Photo) mỗi lần mở xem.
      * @param {string} imageKey
      */
     async openImagePreview(imageKey) {
@@ -252,105 +255,47 @@ const workflowFileManagerPhoto = {
         if (!record) return; // guard: ảnh vừa bị xoá ở tab/thao tác khác
         const image = { key: imageKey, ...record };
 
-        this._activeImageKey = imageKey; // MỚI (31/07/2026) — Edit mode cần lại lúc decode canvas (enterEditMode())
-        appState.set('imagePreviewMode', 'view');
-        console.log(`writer: "openImagePreview", page: "imagePreviewMode", content: "view"`);
+        this._activeImageKey = imageKey; // Edit mode cần lại lúc decode canvas (enterEditMode())
         bumpSongPlayCount(imageKey); // core/listen-stats.js — tên hàm giữ nguyên (dùng CHUNG cho mọi mediaType), Photo dùng làm "lượt click xem"
 
         this._activeImageModalHandle = openImagePreviewModal(image); // core/file-manager/photo-ui.js — KHÔNG còn callbacks (Rule 5a, Core tự bắn eventBus cố định), Router gọi lại các hàm dưới đây, đọc _activeImageKey thay vì closure
+        this._initZoom();
     },
 
-    /** Ứng với 'fileManagerPhoto.imagePreview.menu.click' — dropdown "..." của modal xem ảnh
-     * (core/dropdown-menu.js), `zIndex: 132` — TRÊN modal xem ảnh (`Z_INDEX.IMAGE_PREVIEW`, 130).
-     * `dispatch(action)` bắn `imageMenu.action.click` (Router file này xử lý — CHỈ 2 action còn lại
-     * là trách nhiệm THẬT của miền Photo: setPlaylistBg/delete, đóng modal NGAY).
-     * "Zoom view" (miền Photo)/"Edit" (miền `imageEdit`)/"Lưu đè"/"Lưu mới" (miền `imageEdit`) đều
-     * bắn eventBus TRỰC TIẾP theo ĐÚNG router chịu trách nhiệm — KHÔNG qua `dispatch()`, KHÔNG đóng
-     * modal (đều tự đóng/tự toggle ở nơi xử lý thật). Nhãn "Zoom view"/"Edit" đổi theo mode hiện tại
-     * (đang Zoom -> "Thoát Zoom view", đang Edit -> "Thoát Edit").
-     * XOÁ (loại bỏ Album khỏi Photo Panel) — item "Xoá khỏi album" bỏ hẳn cùng tính năng.
-     * @param {HTMLElement} anchorEl - nút "..." vừa bấm.
+    /** Bật Panzoom trên `<img>` của modal đang mở — LUÔN gọi ngay khi mở modal
+     * (`openImagePreview()`). Tự huỷ session cũ trước nếu lỡ còn (an toàn khi lỡ gọi 2 lần liên
+     * tiếp).
      */
-    openImageActionMenu(anchorEl) {
-        const imageKey = this._activeImageKey;
-        // SỬA (v13 Batch F) — TÁCH msg.type riêng cho từng hành động ("quyết định") thay vì 1
-        // msg.type chung kèm `payload.action` — mỗi msg.type mô tả ĐÚNG 1 hành động, Block gate
-        // (event/block.js) đăng ký được thẳng vào hành động xoá không cần điều kiện `payload.action`.
-        const dispatch = (type) => {
-            this.closeImagePreview();
-            eventBus.send({ router: 'fileManagerPhoto', type, payload: { imageKey } });
-        };
-        const isZooming = appState.get('imagePreviewMode') === 'zoom';
-        const isEditing = appState.get('imagePreviewMode') === 'edit';
-        const items = [
-            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>', name: t('fileManager.photo.image.btnSetPlaylistBg'), callback: () => dispatch('fileManagerPhoto.imageMenu.setPlaylistBg.click') },
-            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"/></svg>', name: t(isZooming ? 'fileManager.photo.image.btnExitZoom' : 'fileManager.photo.image.btnZoom'), callback: () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.zoomToggle.click', payload: {} }) },
-            { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>', name: t(isEditing ? 'fileManager.photo.image.btnExitEdit' : 'fileManager.photo.image.btnEditImage'), callback: () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.toggle.click', payload: {} }) },
-        ];
-        // MỚI (31/07/2026) — CHỈ hiện khi đang ở Edit mode (đúng chốt Giang: "thêm dropdown action
-        // cho lưu đè, lưu mới" — ĐÚNG 2 action MỚI duy nhất, còn lại các item khác giữ nguyên bất kể
-        // mode).
-        // SỬA (31/07/2026, Giang chỉ ra "đừng viện dẫn workflow xuyên miền để biện minh giữ routing
-        // sai chỗ") — 2 item này KHÔNG còn qua `dispatch()` (msg.type dùng chung 'imageMenu.action.
-        // click', router `fileManagerPhoto`) nữa — bắn THẲNG sang router `imageEdit` (đúng miền
-        // trách nhiệm của "Lưu đè"/"Lưu mới", xem event/router/image-edit.js), KHÔNG đóng modal
-        // (saveEditOverwrite()/saveEditAsNew() tự đóng SAU KHI lưu xong — cần handle.renderCanvas
-        // còn sống lúc chạy).
-        if (isEditing) {
-            items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4l-4 4m0 0L7 3m4 4V1"/></svg>', name: t('fileManager.photo.image.btnSaveOverwrite'), callback: () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.saveOverwrite.click', payload: {} }) });
-            items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>', name: t('fileManager.photo.image.btnSaveNew'), callback: () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.saveAsNew.click', payload: {} }) });
-        }
-        // XOÁ (Giang yêu cầu bỏ nút xoá ảnh khỏi dropdown — sau khi xoá Photo Panel, dropdown này
-        // không có cách nào refresh lại danh sách Playlist đứng sau modal, xoá ảnh xong list vẫn
-        // hiện ảnh cũ tới khi reload/chuyển source) — btnDelete/`fileManagerPhoto.imageMenu.
-        // delete.click` bỏ hẳn. Muốn xoá ảnh, dùng action-menu của dòng Photo trong Playlist
-        // (core/playlist/actions.js), nơi đã có sẵn refresh đúng.
-
-        openDropdownMenu(anchorEl, items, { zIndex: 132 }); // core/dropdown-menu.js
-    },
-
-    /** Vào Zoom mode (bấm "Zoom view" trong dropdown lúc `imagePreviewMode==='view'`) — init Panzoom
-     * (core/image-zoom.js) thẳng trên `<img>` của modal đang mở. Ứng với 1 nhánh
-     * VirtualMachineState ở Router (event/router/file-manager-photo.js, case
-     * 'fileManagerPhoto.imagePreview.zoomToggle.click').
-     * SỬA (31/07/2026, mục 1/3 phản hồi Giang) — trước đây case là 'imageMenu.action.click',
-     * action==='zoom' (msg.type dùng chung) — đã tách ra msg.type RIÊNG (xem docstring
-     * `openImageActionMenu()`), cập nhật lại tham chiếu ở đây cho khớp.
-     */
-    enterZoomMode() {
+    _initZoom() {
         if (!this._activeImageModalHandle) return; // guard: hiếm, modal đã đóng ở đâu đó trước khi tới đây
-        appState.set('imagePreviewMode', 'zoom');
-        console.log(`writer: "enterZoomMode", page: "imagePreviewMode", content: "zoom"`);
-        this._activePanzoomSession = initPanzoomSession(this._activeImageModalHandle.imgEl, { // core/image-zoom.js
+        if (this._activePanzoomSession) { destroyPanzoomSession(this._activePanzoomSession); this._activePanzoomSession = null; } // core/media-transform.js
+        this._activePanzoomSession = initPanzoomSession(this._activeImageModalHandle.imgEl, { // core/media-transform.js
             maxScale: 4,
             minScale: 1,
             contain: 'outside',
         });
     },
 
-    /** Thoát Zoom/Edit mode về 'view' (bấm lại item TOGGLE tương ứng trong dropdown lúc đang ở mode
-     * đó) — huỷ phiên Panzoom nếu còn, dọn Edit mode qua `workflowImageEdit.exitEditMode()` (miền
-     * khác, event/workflow/image-edit.js — Workflow-gọi-Workflow tự do, không qua Router lại). Cả 2
-     * hàm dọn đều tự guard AN TOÀN gọi khi không ở mode tương ứng.
+    /** Tạm dừng Zoom TRƯỚC khi vào Edit mode — Edit ẩn hẳn `<img>` (thay bằng canvasWrap), Panzoom
+     * đang gắn trên `<img>` phải huỷ trước, không thì thao tác pan/zoom cũ còn treo trên 1 phần tử
+     * đã ẩn. Workflow-gọi-Workflow tự do (event/workflow/image-edit.js::enterEditMode() gọi hàm
+     * này). KHÔNG có chiều ngược lại "khôi phục Zoom" — không có khái niệm thoát Edit về xem ảnh
+     * thường (đóng Generic Drawer chỉ đóng Drawer, canvas vẫn hiện nguyên); Zoom chỉ thật sự bật
+     * lại nếu mở 1 ảnh MỚI khác (`openImagePreview()` gọi `_initZoom()` lại từ đầu).
      */
-    exitImagePreviewMode() {
-        if (this._activePanzoomSession) { destroyPanzoomSession(this._activePanzoomSession); this._activePanzoomSession = null; } // core/image-zoom.js
-        workflowImageEdit.exitEditMode();
-        appState.set('imagePreviewMode', 'view');
-        console.log(`writer: "exitImagePreviewMode", page: "imagePreviewMode", content: "view"`);
+    pauseZoomForEdit() {
+        if (this._activePanzoomSession) { destroyPanzoomSession(this._activePanzoomSession); this._activePanzoomSession = null; } // core/media-transform.js
     },
 
-    /** Đóng THẬT modal xem ảnh — dọn phiên Panzoom nếu còn + dọn Edit mode nếu còn + đóng handle +
-     * reset `imagePreviewMode` về 'view'. Dùng ở 2 nơi: (1) Router gọi khi bấm X KHÔNG bị Block gate
-     * chặn (`imagePreviewMode==='view'` lúc đó, xem event/block.js), (2) `openImageActionMenu()` cho
-     * 2 action "quyết định" (setPlaylistBg/delete) — LUÔN đóng bất kể mode hiện tại.
+    /** Đóng THẬT modal xem ảnh — dọn phiên Panzoom nếu còn + dọn Edit mode nếu còn + đóng handle.
+     * Router gọi khi bấm X (không còn Block gate nào chặn — GỘP View/Zoom/Edit làm 1, xem
+     * event/block.js) và bởi Router khi bấm "Đặt làm nền Playlist" (đóng modal NGAY sau khi bắn
+     * hành động, xem event/router/file-manager-photo.js).
      */
     closeImagePreview() {
-        if (this._activePanzoomSession) { destroyPanzoomSession(this._activePanzoomSession); this._activePanzoomSession = null; } // core/image-zoom.js
+        if (this._activePanzoomSession) { destroyPanzoomSession(this._activePanzoomSession); this._activePanzoomSession = null; } // core/media-transform.js
         workflowImageEdit.exitEditMode();
         if (this._activeImageModalHandle) { this._activeImageModalHandle.close(); this._activeImageModalHandle = null; }
-        appState.set('imagePreviewMode', 'view');
-        console.log(`writer: "closeImagePreview", page: "imagePreviewMode", content: "view"`);
     },
 
     /** Ứng với nút "Đặt làm nền Playlist" trong modal xem ảnh — TÁI DÙNG NGUYÊN applyBgImage().
