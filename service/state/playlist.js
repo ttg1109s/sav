@@ -21,10 +21,14 @@
          * state/ không phụ thuộc core/components, xem why-no-es6-module.md).
          */
         function clonePlaylistFilterConfigDefaults() {
+            // SỬA (Giang yêu cầu — "filter/search hỗ trợ field Album của video/photo") — thêm
+            // `album` cho video/photo (TRƯỚC ĐÂY chỉ Song có); thêm `duration` cho photo (TRƯỚC ĐÂY
+            // ẩn hẳn — Photo giờ có duration THẬT, xem components/playlist-filter-drawer.js).
+            // `totalTime`/`artist` VẪN không thêm cho photo/video (không áp dụng — CHỐT Giang).
             return {
                 song: { name: null, album: null, artist: null, addedAt: null, count: null, totalTime: null, size: null, duration: null },
-                video: { name: null, addedAt: null, count: null, totalTime: null, size: null, duration: null },
-                photo: { name: null, addedAt: null, count: null, size: null },
+                video: { name: null, album: null, addedAt: null, count: null, totalTime: null, size: null, duration: null },
+                photo: { name: null, album: null, addedAt: null, count: null, size: null, duration: null },
             };
         }
 
