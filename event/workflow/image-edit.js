@@ -1,38 +1,35 @@
 /**
  * event/workflow/image-edit.js — TÁCH RA từ event/workflow/file-manager-photo.js (31/07/2026, yêu
- * cầu Giang) — toàn bộ "Edit mode" của modal xem ảnh Photo (lưới tool phẳng, Điều chỉnh/Crop/Vẽ/
- * Text/Tách nền, Lưu đè/Lưu mới). Router riêng: event/router/image-edit.js (tên `imageEdit`).
+ * cầu Giang) — toàn bộ công cụ chỉnh sửa của modal xem ảnh Photo (lưới tool phẳng, Điều chỉnh/Crop/
+ * Vẽ/Text/Shape/Tách nền, Lưu đè/Lưu mới). Router riêng: event/router/image-edit.js (tên `imageEdit`).
  *
  * Biên giới tách theo TRÁCH NHIỆM, không theo file — `workflowFileManagerPhoto` (miền khác) vẫn giữ
  * vòng đời modal xem ảnh (mở/đóng/Zoom), lộ 2 khe ĐỌC cho workflow này tự lấy lại
- * handle/imageKey lúc `enterEditMode()` (`getActiveImageModalHandle()`/`getActiveImageKey()`) —
- * SNAPSHOT lại thành field RIÊNG của chính workflow này ngay lúc vào Edit mode (không đổi trong
- * suốt phiên Edit), dùng lại y hệt tên cũ cho khỏi phải sửa toàn bộ thân hàm bên dưới. `exitEditMode()`
- * (public, không underscore) được `workflowFileManagerPhoto` gọi ngược lại lúc đóng HẲN modal xem
- * ảnh — Workflow-gọi-Workflow tự do, xem event-bus-flow.md mục 4B "Tái dùng Workflow giữa các miền
- * khác nhau".
+ * handle/imageKey lúc `ensureEditSessionReady()` (`getActiveImageModalHandle()`/`getActiveImageKey()`)
+ * — SNAPSHOT lại thành field RIÊNG của chính workflow này. `exitEditMode()` (public, không
+ * underscore) được `workflowFileManagerPhoto` gọi ngược lại lúc đóng HẲN modal xem ảnh —
+ * Workflow-gọi-Workflow tự do, xem event-bus-flow.md mục 4B "Tái dùng Workflow giữa các miền khác
+ * nhau".
  *
- * KHÔNG có khái niệm "mode" nào cần thoát — View/Zoom/Edit tích hợp sẵn, chạy đồng thời THẬT SỰ
- * (bỏ dropdown "..." + state `imagePreviewMode` cũ). Zoom (Panzoom) gắn lên `mediaWrap` (bọc CHUNG
- * `<img>` + canvasWrap, core/file-manager/photo-ui.js) — KHÔNG pause/resume khi vào/ra Edit, ẩn/
- * hiện `<img>`/canvasWrap bên trong không đụng gì tới session Panzoom đang chạy (xem
- * workflowFileManagerPhoto._initZoom()). Bấm icon Edit lần đầu decode ảnh vào canvas + ẩn `<img>`,
- * rồi mở Generic Drawer lưới tool. Đóng Drawer (nút X) CHỈ đóng Drawer — canvas VẪN hiện nguyên,
- * không có bước "quay lại xem ảnh thường" nào cả; bấm lại icon Edit chỉ đơn giản mở lại lưới
- * (`openEditToolGrid()`). Chỉ khi đóng HẲN modal xem ảnh mới thật sự dọn sạch mọi state Edit
- * (`exitEditMode()`).
+ * KHÔNG có khái niệm "mode" nào cả — DUY NHẤT 1 mặt canvas dùng chung cho xem/zoom/pan/edit (Giang
+ * chốt: "1 canvas hình ảnh dùng luôn xem, zoom pan và edit"), decode + sẵn sàng NGAY LÚC MỞ MODAL
+ * (`workflowFileManagerPhoto.openImagePreview()` gọi `ensureEditSessionReady()` ngay, KHÔNG đợi
+ * bấm icon Edit). Icon Edit trên header CHỈ mở bảng công cụ (`openEditToolGrid()`) — KHÔNG "vào"
+ * gì cả, không có bước ẩn/hiện `<img>`/canvas nào để làm (canvas đã hiện sẵn từ đầu). Chọn 1 công
+ * cụ vẽ/chỉnh THẲNG lên canvas đang xem đó. Đóng Drawer (nút X) CHỈ đóng Drawer; bấm lại icon Edit
+ * chỉ đơn giản mở lại lưới. Chỉ khi đóng HẲN modal xem ảnh mới dọn sạch state (`exitEditMode()`).
  *
  * NẠP SAU: event/workflow/file-manager-photo.js, event/workflow/generic-drawer-helpers.js,
  * core/photo-editor-engine.js, core/crop-selector.js, core/generic-drawer.js, service/z-index.js.
  */
 const workflowImageEdit = {
 
-    _activeImageModalHandle: null, // snapshot từ workflowFileManagerPhoto.getActiveImageModalHandle() lúc enterEditMode()
+    _activeImageModalHandle: null, // snapshot từ workflowFileManagerPhoto.getActiveImageModalHandle() lúc ensureEditSessionReady()
     _activeImageKey: null,         // snapshot từ getActiveImageKey() — decode canvas cần lại
-    _activeEditParams: null,       // {brightness,contrast,saturation,temperature,tint,sharpen} — null khi không ở Edit mode
+    _activeEditParams: null,       // {brightness,contrast,saturation,temperature,tint,sharpen} — null TRƯỚC KHI decode xong (khoảng rất ngắn ngay lúc mở modal)
     _activeAdjustParam: null,      // key param đang mở slider — null khi popup adjust đang ẩn
     _activeSubTool: 'none',        // 'none'|'crop'|'draw'|'text'|'magic'|'shapePlacement' — KHÁC 'adjust' (live-preview trực tiếp, không có sub-tool mode riêng)
-    _editToolGridClickHandler: null, // hàm GỠ trả về từ wirePhotoEditToolGridDelegation() (core/file-manager/photo-ui.js), wire 1 lần/phiên
+    _editToolGridClickHandler: null, // hàm GỠ trả về từ wirePhotoEditToolGridDelegation() (core/file-manager/photo-ui.js), wire 1 lần/phiên modal
     _cropSession: null,            // session core/crop-selector.js — dùng CHUNG cho 'crop' VÀ 'shapePlacement' (kéo khung/handle giống hệt nhau về mặt hình học, xem selectShapeType()) — chỉ có nghĩa khi _activeSubTool là 1 trong 2 tool đó
     _drawType: 'brush',            // 'brush'|'eraser'
     _drawSessionActive: false,     // SỬA (31/07/2026, Nhóm B) — THAY biến `isDrawing` closure cũ (đã xoá cùng _wireSubToolPointerEvents()) — true trong lúc đang kéo vẽ 1 nét
@@ -41,8 +38,9 @@ const workflowImageEdit = {
 
     // ===== Layer (Text/Shape) — MỚI, Giang yêu cầu "text/shape là layer chỉnh sửa lại được" =====
     // KHÁC HẲN Crop/Vẽ/Tách nền (nướng thẳng vào baseCanvas, không hoàn tác được) — layer giữ dạng
-    // OBJECT trong suốt phiên Edit, vẽ lại MỖI LẦN đổi lên `layerCanvas` riêng (xem _renderLayers()),
-    // chỉ "nướng" thật vào pixel lúc Lưu (_exportEditedBlob() gộp layerCanvas vào ảnh xuất).
+    // OBJECT trong suốt phiên xem ảnh, vẽ lại MỖI LẦN đổi lên `layerCanvas` riêng (xem
+    // _renderLayers()), chỉ "nướng" thật vào pixel lúc Lưu (_exportEditedBlob() gộp layerCanvas vào
+    // ảnh xuất).
     _layers: [],                   // {id, type:'text', text, x, y, fontSizePx, color} | {id, type:'shape', shapeType, x, y, w, h, fillColor, strokeColor, strokeWidth, sides?}
     _layerIdSeq: 0,                // bộ đếm sinh id layer duy nhất trong phiên (Nhân bản cần id KHÁC bản gốc)
     _selectedLayerIndex: -1,       // index trong _layers đang kéo/vừa long-press/đang mở style editor — -1 = không có
@@ -57,21 +55,16 @@ const workflowImageEdit = {
         temperature: { min: -100, max: 100 }, tint: { min: -100, max: 100 }, sharpen: { min: 0, max: 100 },
     },
 
-    /** @returns {boolean} đang ở Edit mode hay không — khe ĐỌC cho Router (case 'imageEdit.tools.
-     * click') chọn `enterEditMode()` (vào lần đầu) hay `openEditToolGrid()` (mở lại lưới, vd sau
-     * khi tự đóng Drawer bằng nút X — đóng Drawer KHÔNG thoát Edit, xem docstring
-     * `openPhotoEditToolGridDrawerUi()`/case `imageEdit.toolGrid.close.click`) qua VirtualMachineState. */
-    isEditModeActive() { return this._activeEditParams !== null; },
-
-    /** Đảm bảo ảnh đã decode vào canvas (`baseCanvas`/`renderCanvas`) — idempotent, gọi được từ CẢ
-     * `enterEditMode()` (bấm icon Edit) LẪN `openSaveMenu()` (bấm icon Save mà CHƯA từng mở Edit
-     * lần nào — "Lưu mới" lúc đó vẫn hợp lệ, nghĩa là nhân bản ảnh nguyên trạng). KHÔNG đụng tới
-     * hiển thị (`imgEl`/`canvasWrap`) — chỉ chuẩn bị dữ liệu, phần hiện canvas là việc RIÊNG của
-     * `enterEditMode()`.
+    /** Decode ảnh vào canvas — idempotent (guard `_activeEditParams`), gọi từ 2 nơi: (1) NGAY LÚC
+     * MỞ MODAL (`workflowFileManagerPhoto.openImagePreview()`, cross-domain, chủ động — canvas
+     * PHẢI sẵn sàng từ đầu, không đợi bấm gì cả), (2) phòng hờ ở `openSaveMenu()`/
+     * `openEditToolGrid()` (bấm quá nhanh, trước khi bước (1) kịp xong — hiếm, do (1) chạy gần như
+     * ngay khi modal mở). Wire delegation lưới tool CHỈ 1 LẦN/modal ở đây (không còn tách riêng
+     * theo "vào Edit mode" nữa vì không còn khái niệm đó).
      * @returns {Promise<boolean>} false nếu không còn modal/ảnh để decode (guard hiếm)
      */
     async ensureEditSessionReady() {
-        if (this._activeEditParams) return true; // đã sẵn sàng từ trước (đang/đã từng edit trong phiên modal này)
+        if (this._activeEditParams) return true; // đã decode xong từ trước
         const handle = workflowFileManagerPhoto.getActiveImageModalHandle();
         if (!handle) return false; // guard: modal đã đóng ở đâu đó trước khi tới đây
         this._activeImageModalHandle = handle;
@@ -86,32 +79,14 @@ const workflowImageEdit = {
         });
         handle.baseCanvas.getContext('2d').drawImage(decoded, 0, 0);
         handle.renderCanvas.getContext('2d').drawImage(decoded, 0, 0);
-        syncEditCanvasDisplaySize(handle); // core/file-manager/photo-ui.js — FIX bug "ảnh co lại lúc vào Edit"
+        syncEditCanvasDisplaySize(handle); // core/file-manager/photo-ui.js — canvas vẽ ĐÈ lên `<img>` tự nhiên, cùng kích thước/vị trí
         this._activeEditParams = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, sharpen: 0 };
-        this._layers = []; // MỚI (layer Text/Shape) — reset mỗi lần bắt đầu 1 phiên Edit MỚI (ảnh mới/lần mở modal mới), tránh layer ảnh trước lẫn sang ảnh sau
+        this._layers = [];
+        this._wireEditToolGridDelegation(); // ĐÚNG 1 lần/modal — xem docstring hàm đó
         return true;
     },
 
-    /** Vào Edit mode (router `imageEdit`, case 'imageEdit.tools.click' khi CHƯA editing) — đảm bảo
-     * đã decode (`ensureEditSessionReady()`), ẩn `<img>`/hiện `canvasWrap`, mở Generic Drawer hiện
-     * lưới tool phẳng. Zoom (Panzoom, gắn trên `mediaWrap` bọc chung cả 2) KHÔNG bị đụng tới — ẩn/
-     * hiện `<img>`/canvasWrap chỉ là hiển thị bên TRONG `mediaWrap`, session Panzoom vẫn chạy y
-     * nguyên xuyên suốt. KHÔNG có khái niệm "thoát Edit mode" quay lại xem ảnh thường — đóng Drawer
-     * (nút X) CHỈ đóng Drawer, canvas vẫn hiện nguyên (xem case 'imageEdit.toolGrid.close.click');
-     * chỉ có đóng HẲN modal xem ảnh mới dọn sạch (`exitEditMode()`, gọi từ `closeImagePreview()`).
-     */
-    async enterEditMode() {
-        const ready = await this.ensureEditSessionReady();
-        const handle = this._activeImageModalHandle;
-        if (!ready || !handle) return; // guard hiếm: modal đóng/ảnh bị xoá giữa chừng
-
-        handle.imgEl.classList.add('hidden');
-        handle.canvasWrap.classList.remove('hidden');
-        this._wireEditToolGridDelegation(); // ĐÚNG 1 lần/phiên — xem docstring hàm đó
-        this.openEditToolGrid();
-    },
-
-    /** Gắn delegated click trên `genericDrawerBody` — CHỈ 1 lần/phiên Edit mode, KHÔNG gắn lại mỗi
+    /** Gắn delegated click trên `genericDrawerBody` — CHỈ 1 lần/phiên xem ảnh, KHÔNG gắn lại mỗi
      * lần `openEditToolGrid()` mở lại lưới (listener cũ không tự mất theo `innerHTML`, gắn lại sẽ
      * chồng chất). Gỡ lại ở `exitEditMode()` (tự gọi hàm gỡ trả về từ Core).
      * SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow") — lệnh
@@ -123,18 +98,19 @@ const workflowImageEdit = {
         this._editToolGridClickHandler = wirePhotoEditToolGridDelegation(); // core/file-manager/photo-ui.js
     },
 
-    /** Mở Generic Drawer hiện lưới tool Edit mode (phẳng, không nhóm header). Gọi lại NHIỀU LẦN
-     * trong 1 phiên (mỗi lần Huỷ/Áp dụng xong 1 tool, xem `exitSubTool()`, HOẶC bấm lại icon Edit
-     * sau khi đã tự đóng Drawer) — chỉ dựng lại header/bodyHtml, KHÔNG wire lại delegated click (đã
-     * wire ở `enterEditMode()`); nút X đóng PHẢI wire lại mỗi lần (phần tử MỚI trong headerHtml).
-     * Public — Router gọi trực tiếp qua `isEditModeActive()` (case 'imageEdit.tools.click' khi ĐÃ
-     * editing).
+    /** Mở Generic Drawer hiện lưới tool (phẳng, không nhóm header) — TRỰC TIẾP đích của icon Edit
+     * trên header (Router gọi thẳng, KHÔNG còn nhánh nào khác — không có khái niệm "vào Edit mode
+     * lần đầu" nữa, canvas đã sẵn sàng từ lúc mở modal). Gọi lại NHIỀU LẦN trong 1 phiên (mỗi lần
+     * Huỷ/Áp dụng xong 1 tool, xem `exitSubTool()`, HOẶC bấm lại icon Edit sau khi đã tự đóng
+     * Drawer) — chỉ dựng lại header/bodyHtml, KHÔNG wire lại delegated click (đã wire ở
+     * `ensureEditSessionReady()`); nút X đóng PHẢI wire lại mỗi lần (phần tử MỚI trong headerHtml).
      * SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow") — phần
      * dựng Generic Drawer + wire closeBtn ĐÃ DỜI sang core/file-manager/photo-ui.js::
      * openPhotoEditToolGridDrawerUi() (Rule 5a, cùng lý do `_wireEditToolGridDelegation()`).
      */
-    openEditToolGrid() {
-        if (!this._activeImageModalHandle || !this._activeEditParams) return; // guard: modal đóng/chưa ở Edit mode
+    async openEditToolGrid() {
+        const ready = await this.ensureEditSessionReady(); // phòng hờ bấm quá nhanh trước khi modal kịp tự decode xong
+        if (!ready || !this._activeImageModalHandle) return; // guard: modal đóng/ảnh bị xoá giữa chừng
         openPhotoEditToolGridDrawerUi(t('fileManager.photo.image.editGridTitle'), this._buildEditToolGridHtml()); // core/file-manager/photo-ui.js
     },
 
@@ -1040,26 +1016,21 @@ const workflowImageEdit = {
      * TỰ MẤT theo modal (KHÔNG lưu lại giữa các lần mở ảnh khác nhau, mỗi phiên Edit MỚI bắt đầu
      * `_layers = []` lại từ đầu ở `ensureEditSessionReady()`).
      */
+    /** Dọn TOÀN BỘ state Edit (nếu đã decode/đang dùng) — gỡ delegated click lưới tool, đóng
+     * popup/contextBar từng tool + Generic Drawer, xoá sạch state/snapshot/layer. Public —
+     * `workflowFileManagerPhoto` gọi ngược lại lúc đóng HẲN modal xem ảnh (`closeImagePreview()`)
+     * — KHÔNG gọi ở bất kỳ đâu khác. KHÔNG còn đụng gì tới `imgEl`/`canvasWrap` (không có khái
+     * niệm ẩn/hiện qua lại giữa 2 thứ đó nữa — chỉ 1 mặt canvas DUY NHẤT dùng suốt vòng đời modal,
+     * đóng modal thì `closeModal()` bên photo-ui.js tự dọn nguyên cụm DOM, không cần đụng riêng ở
+     * đây). Xử lý được cả trường hợp thoát GIỮA CHỪNG 1 sub-tool.
+     */
     exitEditMode() {
         if (!this._activeEditParams) return;
         this._drawSessionActive = false;
         this._textDragging = false;
         if (this._layerLongPressTimer) { clearTimeout(this._layerLongPressTimer); this._layerLongPressTimer = null; }
         if (this._layerStyleDrawerClickHandler) { this._layerStyleDrawerClickHandler(); this._layerStyleDrawerClickHandler = null; }
-        const handle = this._activeImageModalHandle;
-        if (handle) {
-            if (this._editToolGridClickHandler) { this._editToolGridClickHandler(); this._editToolGridClickHandler = null; }
-            handle.canvasWrap.classList.add('hidden');
-            handle.imgEl.classList.remove('hidden');
-            handle.adjustPopup.classList.add('hidden');
-            handle.contextBar.classList.add('hidden');
-            handle.contextApplyBtn.classList.remove('hidden'); // reset (Magic/Shape lúc chọn loại tự ẩn nút này)
-            handle.floatingText.classList.add('hidden');
-            handle.drawControlsPopup.classList.add('hidden');
-            handle.magicPopup.classList.add('hidden');
-            handle.cropRatioPopup.classList.add('hidden');
-            handle.shapeTypePopup.classList.add('hidden');
-        }
+        if (this._editToolGridClickHandler) { this._editToolGridClickHandler(); this._editToolGridClickHandler = null; }
         if (appState.get('isGenericDrawerOpen')) workflowGenericDrawerHelpers.closeFully();
         this._activeEditParams = null;
         this._activeAdjustParam = null;
