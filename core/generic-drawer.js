@@ -237,29 +237,10 @@ function _resolveGenericDrawerHeightPx(config) {
  * toggle NỘI BỘ xảy ra SAU (Gesture/Slideshow... tự ẩn/hiện 1 khối), không đụng gì tới chính lần
  * mở/chuyển màn (tránh đo lại CHỒNG lên đúng lúc đang tự tay xử lý, từng gây mất animation).
  *
- * [SỬA — Giang báo bug MỚI "mở tool list Edit ảnh lần đầu bị cụt chiều cao, đóng mở lại mới đúng"]
- * — CÙNG HỌ bug Tailwind CDN JIT đã ghi nhận ở `_measureGenericDrawerNaturalHeightPx()` (docstring
- * đầu file, mục "Settings bị cutoff") — nhưng đây là 1 BIẾN THỂ quan sát ĐÃ BỊ BỎ SÓT lúc sửa lần
- * đó: tổ hợp class Tailwind MỚI TOANH lần đầu xuất hiện (vd `grid-cols-5` cho lưới tool Edit ảnh,
- * event/workflow/image-edit.js::_buildEditToolGridHtml()) khiến Tailwind CDN JIT phải tiêm
- * `<style>` MỚI vào `<head>` — việc tiêm này BẤT ĐỒNG BỘ (qua `MutationObserver` RIÊNG của chính
- * Tailwind, không đồng bộ với script của app), xảy ra SAU KHI phép đo đồng bộ trong
- * `openGenericDrawer()` đã chạy xong. `_genericDrawerBodyObserver` ở trên chỉ theo dõi
- * `genericDrawerBody` — thêm `<style>` vào `<head>` KHÔNG chạm gì tới subtree đó, nên observer đó
- * KHÔNG BAO GIỜ bắt được sự kiện này — panel bị "kẹt" ở `min-height` đo hụt VĨNH VIỄN cho tới khi
- * đóng/mở lại (lúc đó Tailwind đã tiêm xong CSS từ lần trước, đo lại là đúng ngay — đúng triệu
- * chứng Giang mô tả).
- * SỬA: thêm 1 observer THỨ 2, theo dõi `document.head` (`childList: true` — Tailwind CDN JIT tiêm
- * `<style>` MỚI, không sửa style CŨ) — dùng CHUNG guard/debounce (`_genericDrawerResizeRaf`) với
- * observer body. KHÔNG cần disconnect/reconnect quanh các thao tác của chính module này (app
- * KHÔNG tự thêm `<style>` vào `<head>` ở bất kỳ đâu — chỉ Tailwind CDN JIT làm việc đó — nên
- * observer này không có rủi ro tự kích hoạt lại chính nó, an toàn để observe VĨNH VIỄN từ lúc nạp
- * file, không cần gắn/gỡ theo vòng đời mở/đóng Drawer như observer body).
- */
 let _genericDrawerIsAutoMode = false;
 let _genericDrawerAutoMaxHeight = '';
 let _genericDrawerResizeRaf = null;
-function _scheduleGenericDrawerAutoResize() {
+const _genericDrawerBodyObserver = new MutationObserver(() => {
     if (!_genericDrawerIsAutoMode || genericDrawerPanel.classList.contains('hidden')) return; // không đo khi đang đóng (đo lúc display:none luôn ra 0)
     if (_genericDrawerResizeRaf) cancelAnimationFrame(_genericDrawerResizeRaf);
     _genericDrawerResizeRaf = requestAnimationFrame(() => {
@@ -267,12 +248,8 @@ function _scheduleGenericDrawerAutoResize() {
         if (!_genericDrawerIsAutoMode || genericDrawerPanel.classList.contains('hidden')) return; // có thể vừa đóng/chuyển sang height cố định TRONG lúc chờ rAF
         _applyGenericDrawerAutoHeight({ height: 'auto', maxHeight: _genericDrawerAutoMaxHeight });
     });
-}
-const _genericDrawerBodyObserver = new MutationObserver(_scheduleGenericDrawerAutoResize);
+});
 _genericDrawerBodyObserver.observe(genericDrawerBody, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
-
-const _genericDrawerHeadStyleObserver = new MutationObserver(_scheduleGenericDrawerAutoResize);
-_genericDrawerHeadStyleObserver.observe(document.head, { childList: true }); // Tailwind CDN JIT tiêm <style> MỚI vào đây — quan sát VĨNH VIỄN, không theo vòng đời mở/đóng Drawer (xem docstring trên)
 
 /**
  * [SỬA 20/08/2026, Giang chỉ đạo — "min-height = px, xong chuyển về mặc định"] — Set
