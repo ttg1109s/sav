@@ -345,7 +345,7 @@
          * trị truy vết) — chỉ log 1 lần TRƯỚC vòng lặp (clear) + 1 lần SAU vòng lặp (tổng số đã nạp),
          * không log riêng từng `mutate()` bên trong `for`.
          *
-         * @param {Array<{key:string, blob:Blob, thumbBlob:Blob, duration:number, filename:string, customName?:string|null, addedAt:number}>} videoRecords
+         * @param {Array<{key:string, blob:Blob, thumbBlob:Blob, duration:number, filename:string, customName?:string|null, album?:string|null, addedAt:number}>} videoRecords
          * @returns {string[]} danh sách videoKey hợp lệ (có blob gốc) vừa nạp vào playlistCache, theo ĐÚNG thứ tự videoRecords truyền vào (chưa sort — nơi gọi tự sortKeysByMode() sau).
          */
         function buildVideoPlaylistCache(videoRecords) {
@@ -359,7 +359,7 @@
                 validKeys.push(record.key);
                 appState.mutate('playlistCache', m => m.set(record.key, {
                     filename: record.filename,
-                    tag: { title: record.customName || stripFileExtension(record.filename), artist: '', album: '' }, // Adapter shape — MỚI (Batch 5, mục 6c) ưu tiên customName; SỬA (phản hồi Giang 28/07) bỏ đuôi mở rộng khi rơi về filename gốc
+                    tag: { title: record.customName || stripFileExtension(record.filename), artist: '', album: record.album || '' }, // Adapter shape — MỚI (Batch 5, mục 6c) ưu tiên customName; SỬA (phản hồi Giang 28/07) bỏ đuôi mở rộng khi rơi về filename gốc; SỬA (Giang yêu cầu — field Album) — đọc record.album thay vì hard-code rỗng, search/filter (order.js/filter.js) đã đọc field này SẴN, chỉ cần có dữ liệu
                     cover: record.thumbBlob || null, // Blob THÔ — giống HỆT Song (record.cover) — buildSongNode() (core/playlist/render.js, dùng CHUNG, KHÔNG đụng) tự URL.createObjectURL(cached.cover) lúc render + tự revoke qua node._coverObjectUrl. KHÔNG được tự tạo URL ở đây (trước đây làm sai chỗ này -> render gọi createObjectURL() LẦN 2 trên 1 string, ném TypeError).
                     duration: record.duration,
                     addedAt: record.addedAt,
@@ -394,7 +394,7 @@
          * thì sửa CẢ literal `5` này theo cho khớp). render.js/Sort-Filter HIỆN VẪN ẩn field này
          * khỏi UI cho Photo (đọc width/height thay) — CHƯA đổi ở batch này, việc hiển thị/dùng
          * `duration` thật trong Playlist+Player+VBG thuộc batch riêng (playMedia() thêm nhánh Photo).
-         * @param {Array<{key:string, blob:Blob, thumbBlob?:Blob, width?:number, height?:number, duration?:number, filename:string, customName?:string|null, addedAt:number}>} imageRecords
+         * @param {Array<{key:string, blob:Blob, thumbBlob?:Blob, width?:number, height?:number, duration?:number, filename:string, customName?:string|null, album?:string|null, addedAt:number}>} imageRecords
          * @returns {string[]} danh sách imageKey hợp lệ (có blob gốc) vừa nạp vào playlistCache, theo ĐÚNG thứ tự imageRecords truyền vào (chưa sort — nơi gọi tự sortKeysByMode() sau).
          */
         function buildPhotoPlaylistCache(imageRecords) {
@@ -414,7 +414,7 @@
                 const title = record.customName || stripFileExtension(record.filename);
                 appState.mutate('playlistCache', m => m.set(record.key, {
                     filename: record.filename,
-                    tag: { title, artist: '', album: '' }, // Adapter shape — artist LUÔN rỗng cho Photo
+                    tag: { title, artist: '', album: record.album || '' }, // Adapter shape — artist LUÔN rỗng cho Photo; SỬA (Giang yêu cầu — field Album) — CÙNG lý do buildVideoPlaylistCache() phía trên
                     cover: record.thumbBlob || record.blob, // thumbBlob — CHỐT Giang "ảnh cover -> thumb của ảnh"
                     duration: record.duration || 5, // SỬA — đọc THẬT, fallback 5s cho record cũ chưa có field này
                     width: record.width || 0,  // MỚI — width/height GIỮ trong cache cho modal Chi tiết (core/playlist/actions.js::openSongEditModal())

@@ -30,9 +30,20 @@
         // confirmedBrokenKeys, currentKey, displaySortMode, pendingResortKeys, searchQuery,
         // domNodesByKey — STATE, xem service/state.js.
 
+        // SỬA (Giang báo — "duration của photo vẫn hiển thị m:s dù time picker hỗ trợ hms") —
+        // TRƯỚC ĐÂY luôn 2 cột (phút:giây), KHÔNG BAO GIỜ lên giờ dù giá trị vượt 60 phút (vd 75
+        // phút -> "75:30" thay vì "1:15:30") — giờ Photo tính duration KHÔNG kẹp trần (event/
+        // workflow/file-manager-photo.js::computePhotoDuration()) nên thực tế có thể vượt mốc này.
+        // Thêm cột giờ CHỈ khi cần (>= 3600s) — dùng CHUNG cho Song/Video/Photo (hàm này không tách
+        // theo mediaType), giá trị < 1 giờ hiển thị Y HỆT như trước (không đổi hành vi cũ).
         function formatTime(seconds) {
             if (isNaN(seconds)) return "0:00";
-            const min = Math.floor(seconds / 60); const sec = Math.floor(seconds % 60); return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+            const total = Math.floor(seconds);
+            const hr = Math.floor(total / 3600);
+            const min = Math.floor((total % 3600) / 60);
+            const sec = total % 60;
+            if (hr > 0) return `${hr}:${min < 10 ? '0' : ''}${min}:${sec < 10 ? '0' : ''}${sec}`;
+            return `${min}:${sec < 10 ? '0' : ''}${sec}`;
         }
 
         // normalizeSongName() ĐÃ CHUYỂN sang core/song-search.js (23/07/2026, refactor phản hồi

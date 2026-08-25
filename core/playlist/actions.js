@@ -358,14 +358,26 @@
 
             if (isVideo) {
                 const videoRecord = await getVideoRecord(key); // service/db.js
-                songEditCustomNameInput.value = videoRecord ? (videoRecord.customName || '') : '';
-                songEditCustomNameInput.placeholder = videoRecord ? stripFileExtension(videoRecord.filename) : ''; // core/file-manager/video.js — bỏ đuôi mở rộng khỏi gợi ý mặc định
+                // FIX (Giang báo — "edit name chỉ là placeholder, cần chèn sẵn vào input") — TRƯỚC
+                // ĐÂY .value luôn rỗng khi chưa từng đặt customName, filename chỉ nằm ở placeholder
+                // (chữ xám, không phải giá trị thật) — giờ LUÔN điền .value bằng đúng tên ĐANG hiển
+                // thị (customName nếu có, không thì filename bỏ đuôi mở rộng) — mở lên thấy tên
+                // thật, sửa trực tiếp, không cần gõ lại từ đầu. Bỏ hẳn .placeholder (không còn cần
+                // — .value đã luôn có nội dung khi record tồn tại).
+                songEditCustomNameInput.value = videoRecord ? (videoRecord.customName || stripFileExtension(videoRecord.filename)) : ''; // core/file-manager/video.js
+                songEditCustomNameInput.placeholder = '';
+                // MỚI (Giang yêu cầu — "bổ sung field album edit ở details của video/photo") — mirror
+                // ĐÚNG cách songEditAlbumInput của Song hoạt động (core/playlist/loader.js::
+                // buildVideoPlaylistCache() đọc record.album vào cached.tag.album).
+                if (songEditVideoAlbumInput) songEditVideoAlbumInput.value = videoRecord ? (videoRecord.album || '') : '';
 
                 const resolutionText = (videoRecord && videoRecord.width && videoRecord.height) ? `${videoRecord.width}×${videoRecord.height}` : emptyVal;
 
                 songEditTabDetails.innerHTML =
                     songInfoRowHtml('M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'bg-sky-500/15 text-sky-400', t('playlistView.songInfo.fieldFilename'), (videoRecord && videoRecord.filename) ? escapeHtml(videoRecord.filename) : emptyVal) +
                     songInfoRowHtml('M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4', 'bg-emerald-500/15 text-emerald-400', t('playlistView.songInfo.fieldResolution'), resolutionText) +
+                    // MỚI (Giang yêu cầu — thêm field Album) — mirror ĐÚNG hàng Album của Song ngay dưới.
+                    songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0', 'bg-fuchsia-500/15 text-fuchsia-400', t('playlistView.songInfo.fieldAlbum'), (videoRecord && videoRecord.album) || emptyVal) +
                     songInfoRowHtml('M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', 'bg-rose-500/15 text-rose-400', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count })) +
                     songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-indigo-500/15 text-indigo-400', t('playlistView.songInfo.fieldListened'), formatListenTime(stats.totalTime)) +
                     // MỚI (mục 1e, phản hồi Giang — "detail modal thêm dung lượng") — formatBytes()
@@ -376,10 +388,14 @@
                 // MỚI (Giang yêu cầu — Photo tích hợp duration như Song/Video, "trong đó sẽ hiển thị
                 // tên file, kích thước, duration, count, filesize" — ĐÚNG 5 field theo thứ tự Giang
                 // liệt kê, KHÔNG có "Đã nghe" — ảnh không tính thời gian nghe, xem docstring đầu
-                // event/workflow/photo-player.js).
+                // event/workflow/photo-player.js). MỚI (Giang yêu cầu sau — thêm field Album) —
+                // chèn thêm 1 hàng, KHÔNG đổi thứ tự 5 field gốc.
                 const imageRecord = await getImageRecord(key); // service/db.js
-                songEditPhotoNameInput.value = imageRecord ? (imageRecord.customName || '') : '';
-                songEditPhotoNameInput.placeholder = imageRecord ? stripFileExtension(imageRecord.filename) : '';
+                // FIX (Giang báo — "edit name chỉ là placeholder, cần chèn sẵn vào input") — CÙNG
+                // lý do nhánh Video ngay trên.
+                songEditPhotoNameInput.value = imageRecord ? (imageRecord.customName || stripFileExtension(imageRecord.filename)) : '';
+                songEditPhotoNameInput.placeholder = '';
+                if (songEditPhotoAlbumInput) songEditPhotoAlbumInput.value = imageRecord ? (imageRecord.album || '') : '';
                 songEditPhotoDurationValueEl.textContent = formatTime(cached.duration);
                 playlistStore.set({ songEditPendingPhotoDurationSec: cached.duration || 0 }); // pending riêng — chỉ ghi thật lúc bấm Lưu, cùng nguyên tắc pendingCover của Song
 
@@ -388,6 +404,7 @@
                 songEditTabDetails.innerHTML =
                     songInfoRowHtml('M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'bg-sky-500/15 text-sky-400', t('playlistView.songInfo.fieldFilename'), (imageRecord && imageRecord.filename) ? escapeHtml(imageRecord.filename) : emptyVal) +
                     songInfoRowHtml('M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4', 'bg-emerald-500/15 text-emerald-400', t('playlistView.songInfo.fieldResolution'), resolutionText) +
+                    songInfoRowHtml('M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM3 9a9 9 0 0118 0', 'bg-fuchsia-500/15 text-fuchsia-400', t('playlistView.songInfo.fieldAlbum'), (imageRecord && imageRecord.album) || emptyVal) +
                     songInfoRowHtml('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'bg-amber-500/15 text-amber-400', t('playlistView.songInfo.fieldDuration'), formatTime(cached.duration)) +
                     songInfoRowHtml('M9 19V6l12-3v13M5 21a2 2 0 100-4 2 2 0 000 4zm12-2a2 2 0 100-4 2 2 0 000 4z', 'bg-rose-500/15 text-rose-400', t('playlistView.songInfo.fieldPlayCount'), tFormat('playlistView.songInfo.fieldPlayCountValue', { n: stats.count })) +
                     songInfoRowHtml('M20 13V7a2 2 0 00-2-2H6a2 2 0 00-2 2v6m16 0l-2 7H6l-2-7m16 0H4', 'bg-teal-500/15 text-teal-400', t('playlistView.songInfo.fieldSize'), formatBytes(cached.size));
@@ -467,12 +484,17 @@
 
         /**
          * MỚI (ver12 "Song/Video Unification", phản hồi Giang 28/07/2026) — bản Video của
-         * captureSongEditFormState() ngay trên — chỉ đọc 1 ô customName (không có tag/cover).
-         * @returns {{key: string|null, customName: string}}
+         * captureSongEditFormState() ngay trên. SỬA (Giang yêu cầu — "bổ sung field album edit") —
+         * đọc thêm ô Album.
+         * @returns {{key: string|null, customName: string, album: string}}
          */
         function captureVideoEditFormState() {
             const key = playlistStore.get('songEditCurrentKey');
-            return { key, customName: songEditCustomNameInput.value.trim() };
+            return {
+                key,
+                customName: songEditCustomNameInput.value.trim(),
+                album: songEditVideoAlbumInput ? songEditVideoAlbumInput.value.trim() : '',
+            };
         }
 
         /**
@@ -487,22 +509,35 @@
          * (dù không đổi 1 byte nội dung) khiến backing file không ổn định trong CÙNG phiên (bug
          * Chromium) — thumbnail (record.thumbBlob, hiện ở item Playlist) vỡ NGAY, video (record.blob)
          * lỗi decode khi phát lại KHÔNG CẦN reload trang. Vật chất hoá lại CẢ 2 trước khi ghi.
+         * FIX 2 (Giang báo tiếp — "vẫn bị lỗi... bị chèn cover mặc định") — bug trên CHỈ vá được
+         * phần GHI XUỐNG DB; `cached.cover` (playlistCache, THỨ THẬT sự được dùng để vẽ lại item
+         * ngay sau khi Lưu — xem core/playlist/render.js) vẫn là Blob CŨ, đọc TỪ TRƯỚC lúc modal mở
+         * (khác reference với `record.thumbBlob` vừa rematerialize ở trên) — object URL tạo từ Blob
+         * cũ đó decode lỗi (CÙNG root cause), `attachCoverFallback()` (render.js) bắt lỗi `onerror`
+         * rồi tự thay bằng DEFAULT_VINYL — ĐÚNG triệu chứng "bị chèn cover mặc định". Fix: trỏ
+         * `cached.cover` sang ĐÚNG Blob vừa rematerialize (chắc chắn ổn định) thay vì Blob cũ.
          * @param {string} key
          * @param {string} customName - rỗng = xoá tên riêng, rơi về filename gốc (đã bỏ đuôi mở
          *        rộng) khi hiển thị.
+         * @param {string} album - rỗng = xoá album.
          * @returns {{status: 'notFound'|'ok'}}
          */
-        async function applyVideoEditAndSave(key, customName) {
+        async function applyVideoEditAndSave(key, customName, album) {
             const record = await getVideoRecord(key); // service/db.js
             if (!record) return { status: 'notFound' };
             record.customName = customName || null;
+            record.album = album || null; // MỚI (Giang yêu cầu — field Album)
             if (record.blob) record.blob = await rematerializeBlob(record.blob); // service/db.js — FIX round-trip, xem docstring trên
             if (record.thumbBlob) record.thumbBlob = await rematerializeBlob(record.thumbBlob); // service/db.js — CÙNG lý do, thumbnail item Playlist
             await setVideoRecord(key, record); // service/db.js
 
             const displayName = record.customName || stripFileExtension(record.filename); // core/file-manager/video.js
             const cached = appState.get('playlistCache').get(key);
-            if (cached) cached.tag.title = displayName;
+            if (cached) {
+                cached.tag.title = displayName;
+                cached.tag.album = record.album || ''; // MỚI — search/filter đọc field này (core/playlist/order.js, core/playlist/filter.js), đã hoạt động chung sẵn, chỉ cần field có dữ liệu
+                cached.cover = record.thumbBlob || record.blob; // FIX 2 — trỏ sang Blob vừa rematerialize, xem docstring trên
+            }
             appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(displayName)));
 
             if (key === appState.get('currentKey')) {
@@ -519,8 +554,9 @@
          * captureVideoEditFormState() ngay trên — đọc thêm `songEditPendingPhotoDurationSec` (KHÔNG
          * đọc trực tiếp từ input số tay — duration Photo sửa qua time-picker riêng, xem
          * event/workflow/playlist.js::openPhotoEditDurationPicker(), giá trị pending lưu tạm ở
-         * playlistStore CHỈ ghi thật lúc bấm "Lưu", cùng nguyên tắc pendingCover của Song).
-         * @returns {{key: string|null, customName: string, durationSec: number}}
+         * playlistStore CHỈ ghi thật lúc bấm "Lưu", cùng nguyên tắc pendingCover của Song). SỬA
+         * (Giang yêu cầu — "bổ sung field album edit") — đọc thêm ô Album.
+         * @returns {{key: string|null, customName: string, durationSec: number, album: string}}
          */
         function capturePhotoEditFormState() {
             const key = playlistStore.get('songEditCurrentKey');
@@ -528,36 +564,46 @@
                 key,
                 customName: songEditPhotoNameInput.value.trim(),
                 durationSec: playlistStore.get('songEditPendingPhotoDurationSec'),
+                album: songEditPhotoAlbumInput ? songEditPhotoAlbumInput.value.trim() : '',
             };
         }
 
         /**
          * Bản Photo của applyVideoEditAndSave() ngay trên — VIẾT RIÊNG (cùng lý do Rule 3 đã giải
-         * thích ở đó). Ghi CẢ `customName` LẪN `duration` cùng lúc (2 field cùng 1 lần "Lưu", khớp
-         * cách modal này hoạt động — 1 nút Lưu cho cả tab "Sửa").
+         * thích ở đó). Ghi CẢ `customName` LẪN `duration` LẪN `album` cùng lúc (1 nút Lưu cho cả
+         * tab "Sửa").
          * FIX (Giang báo — sau khi Lưu tab "Sửa", cover mất + phát lỗi không hiển thị ảnh) — CÙNG
          * GỐC BUG applyVideoEditAndSave() ngay trên vừa fix (`rematerializeBlob()`, service/db.js)
          * — `record.blob`/`record.thumbBlob` round-trip qua IndexedDB, PHẢI vật chất hoá lại trước
          * khi ghi.
+         * FIX 2 (Giang báo tiếp — "vẫn bị lỗi... bị chèn cover mặc định") — CÙNG GỐC applyVideoEditAndSave()'s
+         * FIX 2 — `cached.cover` phải trỏ sang ĐÚNG Blob vừa rematerialize, xem docstring ở đó.
          * @param {string} key
          * @param {string} customName - rỗng = xoá tên riêng, rơi về filename gốc khi hiển thị.
          * @param {number} durationSec - giây, số thực, KHÔNG kẹp trần (Giang chốt "có min nhưng
          *        không max" — sàn DURATION_MIN_SEC đã tự áp trong openPhotoEditDurationPicker(),
          *        event/workflow/playlist.js, TRƯỚC khi giá trị này tới được đây).
+         * @param {string} album - rỗng = xoá album.
          * @returns {{status: 'notFound'|'ok'}}
          */
-        async function applyPhotoEditAndSave(key, customName, durationSec) {
+        async function applyPhotoEditAndSave(key, customName, durationSec, album) {
             const record = await getImageRecord(key); // service/db.js
             if (!record) return { status: 'notFound' };
             record.customName = customName || null;
             record.duration = durationSec;
+            record.album = album || null; // MỚI (Giang yêu cầu — field Album)
             if (record.blob) record.blob = await rematerializeBlob(record.blob); // service/db.js — FIX round-trip, xem docstring applyVideoEditAndSave()
             if (record.thumbBlob) record.thumbBlob = await rematerializeBlob(record.thumbBlob); // service/db.js — CÙNG lý do, thumbnail item Playlist
             await setImageRecord(key, record); // service/db.js
 
             const displayName = record.customName || stripFileExtension(record.filename);
             const cached = appState.get('playlistCache').get(key);
-            if (cached) { cached.tag.title = displayName; cached.duration = durationSec; }
+            if (cached) {
+                cached.tag.title = displayName;
+                cached.tag.album = record.album || ''; // MỚI — search/filter dùng chung sẵn, xem applyVideoEditAndSave()
+                cached.duration = durationSec;
+                cached.cover = record.thumbBlob || record.blob; // FIX 2 — xem docstring applyVideoEditAndSave()
+            }
             appState.mutate('songNameIndex', m => m.set(key, normalizeSongName(displayName)));
 
             if (key === appState.get('currentKey')) {
