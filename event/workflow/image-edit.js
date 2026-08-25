@@ -86,6 +86,7 @@ const workflowImageEdit = {
         });
         handle.baseCanvas.getContext('2d').drawImage(decoded, 0, 0);
         handle.renderCanvas.getContext('2d').drawImage(decoded, 0, 0);
+        syncEditCanvasDisplaySize(handle); // core/file-manager/photo-ui.js — FIX bug "ảnh co lại lúc vào Edit"
         this._activeEditParams = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, sharpen: 0 };
         this._layers = []; // MỚI (layer Text/Shape) — reset mỗi lần bắt đầu 1 phiên Edit MỚI (ảnh mới/lần mở modal mới), tránh layer ảnh trước lẫn sang ảnh sau
         return true;
@@ -411,6 +412,7 @@ const workflowImageEdit = {
         [handle.baseCanvas, handle.renderCanvas, handle.layerCanvas, handle.interactCanvas].forEach(c => { c.width = rect.w; c.height = rect.h; });
         handle.baseCanvas.getContext('2d').drawImage(cropped, 0, 0);
         handle.renderCanvas.getContext('2d').drawImage(cropped, 0, 0);
+        syncEditCanvasDisplaySize(handle); // core/file-manager/photo-ui.js — tỉ lệ ảnh đổi sau Crop, phải tính lại cover/contain
         this._activeEditParams = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, tint: 0, sharpen: 0 };
         // MỚI (layer Text/Shape) — Crop dịch GỐC toạ độ (0,0 mới = góc trên-trái vùng vừa cắt) —
         // mọi layer đang có PHẢI dịch NGƯỢC LẠI đúng bấy nhiêu (trừ `rect.x`/`rect.y`) để vẫn hiện
