@@ -335,10 +335,39 @@ function openImagePreviewModal(image) {
     // ĐÚNG 1 LẦN ở đây, callback tính sẵn toạ độ/giá trị rồi CHỈ `eventBus.send()` — Router
     // (`imageEdit`) tự đọc `getActiveSubTool()` mỗi lần nhận để quyết định chạy gì (kể cả KHÔNG
     // chạy gì nếu đang 'none'/tool không liên quan — an toàn, hàm rẻ).
+    // FIX (bug có từ trước, Giang báo "sửa rất nhiều lần vẫn không giữ/kéo được khung Crop, không
+    // kéo được góc") — CÔNG THỨC CŨ coi `rect` (hộp CSS `w-full h-full` của canvas) là vùng ẢNH THẬT
+    // SỰ đang hiển thị, rồi quy đổi thẳng 1 tỉ lệ `canvas.width / rect.width` — ĐÚNG CHỈ KHI ảnh phủ
+    // KHÍT hộp không dư khoảng trống nào. Nhưng `object-fit` (đặt ở `syncEditCanvasDisplaySize()`,
+    // 'cover' HOẶC 'contain' tuỳ hướng ảnh so màn hình, xem `computeCoverOrContain()`) khiến vùng ẢNH
+    // THẬT hiển thị bên trong `rect` KHÔNG khớp `rect` — 'contain' để lại viền đen 2 bên (ảnh THU
+    // NHỎ, chừa khoảng trống), 'cover' phóng to ảnh TRÀN ra ngoài rồi cắt bớt (ảnh THẬT hiển thị LỚN
+    // HƠN `rect`) — cả 2 trường hợp `rect` đều LỆCH khỏi vùng ảnh thật, CÀNG lệch hướng ảnh/màn hình
+    // càng khác nhau (ảnh ngang xem màn dọc: viền đen trên/dưới có thể chiếm phần LỚN `rect.height`)
+    // — mọi toạ độ chạm tính theo công thức cũ vì vậy SAI cả biên độ lẫn có thể LỆCH TỚI MỨC rơi ra
+    // ngoài `[0, canvas.width/height]` hẳn — hit-test 4 handle góc/khung Crop (core/media-
+    // transform.js::cropSessionPointerDown()) trật lất, "giữ kéo" KHÔNG BAO GIỜ trúng `activeHandle`
+    // nào nên coi như không phản hồi. Từng "sửa" trước đây (thêm `touch-action:none`) ĐÚNG nhưng
+    // CHƯA ĐỦ — chỉ giải quyết việc trình duyệt giành cử chỉ, không giải quyết toạ độ tính sai.
+    // SỬA: tính lại ĐÚNG vùng ảnh thật hiển thị bên trong `rect` theo CHÍNH `object-fit` đang áp
+    // dụng (đọc `interactCanvas.style.objectFit`, luôn đồng bộ với 3 canvas kia qua
+    // `syncEditCanvasDisplaySize()`) — `displayScale` = tỉ lệ CSS-px/canvas-px THẬT (nhỏ nhất cho
+    // 'contain' — ảnh co vừa khít, khoảng dư 2 bên; lớn nhất cho 'cover' — ảnh phóng tràn, cắt bớt 2
+    // bên) — từ đó suy `offsetX`/`offsetY` (khoảng lệch tâm giữa `rect` và vùng ảnh thật, ÂM cho
+    // 'cover' vì ảnh tràn RA NGOÀI `rect`, DƯƠNG cho 'contain' vì ảnh THỤT VÀO trong `rect`) — TRỪ
+    // khoảng lệch này TRƯỚC khi quy đổi toạ độ mới ra đúng hệ canvas-pixel. `_editScale()`
+    // (event/workflow/image-edit.js) tính RIÊNG cùng công thức (Rule 3a, core không gọi core khác —
+    // xem docstring hàm đó) cho các con số THUẦN KÍCH THƯỚC (bán kính chạm, ngưỡng kéo tối thiểu...).
     const computeInteractPos = (clientX, clientY) => {
         const rect = interactCanvas.getBoundingClientRect();
-        const scale = interactCanvas.width / (rect.width || interactCanvas.width || 1); // guard chia 0 hiếm (canvas chưa layout xong)
-        return { x: (clientX - rect.left) * scale, y: (clientY - rect.top) * scale };
+        const cw = interactCanvas.width, ch = interactCanvas.height;
+        if (!cw || !ch || !rect.width || !rect.height) return { x: clientX - rect.left, y: clientY - rect.top }; // guard hiếm (canvas chưa layout/decode xong)
+        const fitMode = interactCanvas.style.objectFit || 'cover';
+        const displayScale = fitMode === 'contain'
+            ? Math.min(rect.width / cw, rect.height / ch)
+            : Math.max(rect.width / cw, rect.height / ch);
+        const offsetX = (rect.width - cw * displayScale) / 2, offsetY = (rect.height - ch * displayScale) / 2;
+        return { x: (clientX - rect.left - offsetX) / displayScale, y: (clientY - rect.top - offsetY) / displayScale };
     };
     interactCanvas.addEventListener('pointerdown', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.interactCanvas.pointerDown', payload: computeInteractPos(e.clientX, e.clientY) }));
     interactCanvas.addEventListener('pointermove', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.interactCanvas.pointerMove', payload: computeInteractPos(e.clientX, e.clientY) }));
