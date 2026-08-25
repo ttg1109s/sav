@@ -19,13 +19,12 @@
                 pageCurrentFolderDetailSongList: 'number',   // trang ĐANG xem của danh sách item BÊN TRONG 1 folder (Folder Browser Read, event/workflow/file-manager-folder-browser.js)
                 // XOÁ (loại bỏ Document Reader khỏi app) — pageCurrentDocumentList (trang danh sách
                 // tài liệu Documents) bỏ hẳn cùng tính năng.
-                // MỚI (31/07/2026) — mode hiện tại của modal xem ảnh Photo ('view'/'zoom'/'edit').
-                // Nút "..." dropdown LUÔN bấm được ở CẢ 3 mode (không disable) — Router đọc field
-                // này qua VirtualMachineState để: (1) toggle Zoom/Edit (bấm lại item đó khi đang
-                // đúng mode đó -> quay về 'view', KHÔNG tạo DOM/nút riêng để "thoát"), (2) Block gate
-                // (event/block.js) chặn nút X đóng modal khi khác 'view'. Về 'view' lúc mở modal mới
-                // + lúc đóng hẳn modal (event/workflow/file-manager-photo.js).
-                imagePreviewMode: 'string',
+                // XOÁ (gộp View/Zoom/Edit modal xem ảnh làm 1, bỏ dropdown "...") — imagePreviewMode
+                // ('view'/'zoom'/'edit') bỏ hẳn: Zoom (Panzoom) giờ LUÔN bật sẵn lúc mở modal, không
+                // còn là "mode" cần bật/tắt; Edit mở/đóng qua icon bút chì cố định trên header, tự
+                // biết trạng thái qua workflowImageEdit.isEditModeActive() (field riêng của chính
+                // Workflow đó), không cần appState dùng chung nữa. Xem event/workflow/
+                // file-manager-photo.js + event/workflow/image-edit.js.
                 // XOÁ (29/07/2026, yêu cầu Giang) — storageAnySourceEnabled (từng phục vụ Block gate
                 // chặn "Quét file lỗi khi chưa chọn nguồn nào") ĐÃ BỎ — nhánh quét giờ tự hỏi phạm
                 // vi qua modalChoice()+dropdown riêng (event/workflow/file-manager-storage.js::
@@ -38,7 +37,6 @@
                     selectedSongKeys: new Set(),
                     sectionQueueActive: false,
                     pageCurrentFolderDetailSongList: 0,
-                    imagePreviewMode: 'view',
                 };
             },
         });
