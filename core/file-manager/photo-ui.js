@@ -1,9 +1,10 @@
 /**
- * core/file-manager/photo-ui.js — Vẽ UI Photo: modal xem ảnh full-screen (Zoom/Edit mode) + UI cho
- * Edit mode (grid tool trong Generic Drawer). Picker chọn 1 ảnh dùng chung (cover bài hát/nền
- * Theme) đã DỜI sang core/media-picker-drawer-helper.js::openMediaPickerDrawerUi() — không còn ở
- * file này. Grid ảnh chính (Photo Source trong Playlist) dùng event/workflow/
- * photo-gallery-window.js (fjGallery + IntersectionObserver) — không đụng tới file này.
+ * core/file-manager/photo-ui.js — Vẽ UI Photo: modal xem ảnh full-screen (View/Zoom/Edit đã GỘP
+ * làm 1, không còn dropdown "...") + UI cho Edit mode (grid tool phẳng trong Generic Drawer, không
+ * còn nhóm header). Picker chọn 1 ảnh dùng chung (cover bài hát/nền Theme) đã DỜI sang
+ * core/media-picker-drawer-helper.js::openMediaPickerDrawerUi() — không còn ở file này. Grid ảnh
+ * chính (Photo Source trong Playlist) dùng event/workflow/photo-gallery-window.js (fjGallery +
+ * IntersectionObserver) — không đụng tới file này.
  *
  * NẠP SAU: lang/lang.js (t()), core/generic-drawer.js, service/z-index.js.
  */
@@ -11,9 +12,9 @@
 /**
  * Modal xem ảnh full-screen — dựng cụm DOM MỚI (Rule 5a: DOM mới tự tạo bằng `createElement` được
  * phép tự `addEventListener`, miễn callback CHỈ bắn `eventBus.send()`, gom cuối hàm — xem khuôn ở
- * cuối hàm này). Menu "..." mở dropdown (core/dropdown-menu.js) do Workflow tự dựng SAU khi nhận
- * eventBus, không dựng ở đây (dropdown cần biết đang ở mode nào, dữ liệu đó Core không được tự
- * đọc — Rule 2). Workflow (event/workflow/file-manager-photo.js) đọc `_activeImageKey` (instance
+ * cuối hàm này). GỘP View/Zoom/Edit làm 1 (bỏ dropdown "...") — header LUÔN hiện 2 icon cố định
+ * (Đặt làm nền/Edit) thay vì ẩn sau menu, Core không cần biết đang ở "mode" nào để quyết định hiện
+ * gì (Rule 2). Workflow (event/workflow/file-manager-photo.js) đọc `_activeImageKey` (instance
  * field lưu sẵn lúc mở modal) thay vì nhận qua closure tham số.
  * @param {{key: string, blob: Blob, filename: string}} image
  * @returns {{close: () => void, imgEl: HTMLImageElement, canvasWrap: HTMLElement, baseCanvas: HTMLCanvasElement, renderCanvas: HTMLCanvasElement, interactCanvas: HTMLCanvasElement, toolsBtn: HTMLElement}}
@@ -147,7 +148,7 @@ function openImagePreviewModal(image) {
     `;
     overlay.appendChild(magicPopup);
 
-    // ---- Header nổi: X đóng (trái) + Edit/"..." (phải, gộp nhóm) ----
+    // ---- Header nổi: X đóng (trái) + Đặt làm nền/Edit (phải, LUÔN hiện, không còn dropdown "...")
     const header = document.createElement('div');
     header.className = 'photo-preview-scrim-top flex justify-between items-center px-4 pt-4 pb-3 gap-2';
     const closeBtn = document.createElement('button');
@@ -155,25 +156,34 @@ function openImagePreviewModal(image) {
     closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
     header.appendChild(closeBtn);
 
-    // SỬA (31/07/2026, mục 2/4 phản hồi Giang) — nút Edit RIÊNG (`editBtn` toggle mode) ĐÃ XOÁ khỏi
-    // header — "Edit" giờ là 1 item TOGGLE trong dropdown "...", cùng khuôn "Zoom view" (xem
-    // openImageActionMenu(), event/workflow/file-manager-photo.js). THAY vào chỗ đó: `toolsBtn` —
-    // nút mở LẠI lưới tool Edit mode (Generic Drawer) sau khi người dùng tự tay đóng Drawer đi (nút
-    // X trên Drawer) — TRƯỚC bản sửa này KHÔNG có cách nào mở lại (mục 4 Giang chỉ ra). ẨN mặc định
-    // (`hidden`) — CHỈ Workflow hiện ra lúc `enterEditMode()`/ẩn lại lúc thoát Edit mode (xem
-    // `exitEditMode()`, event/workflow/image-edit.js), cùng khuôn ẩn/hiện `canvasWrap`.
+    // XOÁ (gộp View/Zoom/Edit làm 1, bỏ dropdown "...") — menuBtn ("...", mở core/dropdown-menu.js)
+    // bỏ hẳn. 3 nút còn lại LUÔN hiện (không còn `hidden` chờ Workflow gỡ) — KHÔNG có khái niệm
+    // "mode" nào cần bật lên mới thấy nút hay phải thoát mới đóng được (View/Zoom/Edit chạy đồng
+    // thời, xem event/workflow/file-manager-photo.js): `setPlaylistBgBtn` bắn hành động NGAY,
+    // `saveBtn` mở dropdown 2 lựa chọn (Ghi đè/Lưu mới, Workflow tự build — dropdown CẦN biết có
+    // đang có gì để lưu hay không, dữ liệu đó Core không được tự đọc, Rule 2), `toolsBtn` (icon bút
+    // chì) mở Generic Drawer lưới tool Edit — Router (`imageEdit`) tự đọc
+    // `workflowImageEdit.isEditModeActive()` để biết mở lần đầu hay mở lại lưới (Rule 1: nơi gọi
+    // chọn hàm, nút không tự đổi nghĩa).
     const rightGroup = document.createElement('div');
     rightGroup.className = 'flex items-center gap-2';
-    const toolsBtn = document.createElement('button');
-    toolsBtn.className = 'hidden w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
-    toolsBtn.title = t('fileManager.photo.image.editGridTitle');
-    toolsBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>';
-    rightGroup.appendChild(toolsBtn);
+    const setPlaylistBgBtn = document.createElement('button');
+    setPlaylistBgBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
+    setPlaylistBgBtn.title = t('fileManager.photo.image.btnSetPlaylistBg');
+    setPlaylistBgBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>';
+    rightGroup.appendChild(setPlaylistBgBtn);
 
-    const menuBtn = document.createElement('button');
-    menuBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
-    menuBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4z"/></svg>';
-    rightGroup.appendChild(menuBtn);
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
+    saveBtn.title = t('fileManager.photo.image.saveMenuTitle');
+    saveBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-4l-4 4m0 0L7 3m4 4V1"/></svg>';
+    rightGroup.appendChild(saveBtn);
+
+    const toolsBtn = document.createElement('button');
+    toolsBtn.className = 'w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white shrink-0';
+    toolsBtn.title = t('fileManager.photo.image.editGridTitle');
+    toolsBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
+    rightGroup.appendChild(toolsBtn);
     header.appendChild(rightGroup);
     overlay.appendChild(header);
 
@@ -188,11 +198,13 @@ function openImagePreviewModal(image) {
         const screenIsLandscape = window.innerWidth >= window.innerHeight;
         img.style.objectFit = (imageIsLandscape === screenIsLandscape) ? 'cover' : 'contain';
     }, { once: true });
-    // KHÔNG gọi closeModal()/callback tham số nữa (SAI Rule 5a, xem docstring) — bắn thẳng eventBus,
-    // Router (event/router/file-manager-photo.js) quyết định có bị Block gate chặn hay không.
+    // KHÔNG gọi closeModal()/callback tham số nữa (SAI Rule 5a, xem docstring) — bắn thẳng eventBus.
+    // Không còn Block gate nào chặn nút X (xem event/block.js) — không có "mode" nào phải thoát
+    // trước khi đóng.
     closeBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.close.click', payload: {} }));
+    setPlaylistBgBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.setPlaylistBg.click', payload: {} }));
+    saveBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.save.click', payload: { anchorEl: saveBtn } }));
     toolsBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.tools.click', payload: {} }));
-    menuBtn.addEventListener('click', () => eventBus.send({ router: 'fileManagerPhoto', type: 'fileManagerPhoto.imagePreview.menu.click', payload: { menuBtn } }));
     // SỬA (31/07/2026, Giang chỉ ra vi phạm Rule 5a mục 5) — 5 nút Edit mode dưới đây TRƯỚC ĐÂY bị
     // `event/workflow/image-edit.js` tự gán LẠI `.onclick` mỗi lần vào/thoát sub-tool khác nhau
     // (rải rác ở 4 hàm `_startXxxTool()` khác nhau, KHÔNG "gom cuối hàm", callback gọi thẳng
@@ -237,10 +249,11 @@ function openImagePreviewModal(image) {
     const magicSliderEl = magicPopup.querySelector('#image-edit-magic-slider');
     magicSliderEl.addEventListener('input', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.magic.slider.input', payload: { value: parseInt(e.target.value, 10) } }));
 
-    // SỬA (31/07/2026, mục 2/4 phản hồi Giang) — thêm canvasWrap/base/render/interact/toolsBtn
-    // (THAY `editBtn` đã xoá) cho Zoom→giữ nguyên, Edit mode dùng. imgEl vẫn trả nguyên (Zoom
-    // mode/view thường đọc) — Edit mode tự ẩn imgEl, hiện canvasWrap + toolsBtn, xem
-    // enterEditMode()/exitImagePreviewMode() (event/workflow/file-manager-photo.js).
+    // `imgEl` luôn được trả về — Panzoom (Zoom, luôn bật, xem workflowFileManagerPhoto._initZoom())
+    // gắn thẳng lên đây. Edit mode tự ẩn `imgEl`, hiện `canvasWrap` thay thế (xem enterEditMode()/
+    // exitEditMode(), event/workflow/image-edit.js) — 2 thứ loại trừ nhau về HIỂN THỊ (không thể
+    // cùng lúc pan/zoom `<img>` VÀ vẽ lên canvas), nhưng không còn là "mode" người dùng phải tự
+    // chọn/thoát nữa — enterEditMode()/thoát Edit tự lo việc chuyển đổi.
     return {
         close: closeModal, imgEl: img, canvasWrap, baseCanvas, renderCanvas, interactCanvas, toolsBtn,
         header,
@@ -278,7 +291,7 @@ function openImagePreviewModal(image) {
 function openPhotoEditToolGridDrawerUi(title, bodyHtml) {
     openGenericDrawer({ // core/generic-drawer.js
         height: 'auto', maxHeight: '70vh',
-        zIndex: Z_INDEX.IMAGE_ACTION_MENU_DRAWER, // service/z-index.js (131) — TRÊN modal xem ảnh (130), DƯỚI dropdown "..." (132)
+        zIndex: Z_INDEX.IMAGE_ACTION_MENU_DRAWER, // service/z-index.js (131) — TRÊN modal xem ảnh (130)
         headerHtml: `
             <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
                 <h3 class="text-base font-bold text-slate-900">${title}</h3>
@@ -311,9 +324,4 @@ function wirePhotoEditToolGridDelegation() {
     genericDrawerBody.addEventListener('click', handler);
     return () => genericDrawerBody.removeEventListener('click', handler);
 }
-
-// SỬA (21/07/2026, Giang yêu cầu "menu action ảnh chuyển từ Generic Drawer sang dropdown") —
-// `buildPhotoActionMenuHtml()` (bodyHtml cho Generic Drawer, icon hoá) ĐÃ XOÁ HẲN — menu action giờ
-// dùng `openDropdownMenu()` (core/dropdown-menu.js), xem event/workflow/file-manager-photo.js::
-// openImageActionMenu() (5 icon SVG dời sang thẳng đó, dùng lại nguyên văn).
 
