@@ -485,6 +485,10 @@
         const songEditFieldsSongGroup = document.getElementById('song-edit-fields-song-group');
         const songEditFieldsVideoGroup = document.getElementById('song-edit-fields-video-group');
         const songEditCustomNameInput = document.getElementById('song-edit-custom-name');
+        // MỚI (Giang yêu cầu — "bổ sung field album edit ở details của video/photo") — mirror
+        // songEditAlbumInput (Song) nhưng RIÊNG cho Video (record.album, core/playlist/actions.js::
+        // applyVideoEditAndSave()).
+        const songEditVideoAlbumInput = document.getElementById('song-edit-video-album');
         const songEditTabBtnCover = document.getElementById('song-edit-tab-btn-cover');
         // MỚI (Giang yêu cầu — Photo tích hợp `duration` như Song/Video) — nhóm field thứ 3, mirror
         // `songEditFieldsVideoGroup` (1 ô tên hiển thị) + THÊM 1 hàng duration (nút mở time-picker,
@@ -492,6 +496,8 @@
         // openPhotoEditDurationPicker()).
         const songEditFieldsPhotoGroup = document.getElementById('song-edit-fields-photo-group');
         const songEditPhotoNameInput = document.getElementById('song-edit-photo-name');
+        // MỚI (Giang yêu cầu — "bổ sung field album edit") — mirror songEditVideoAlbumInput ngay trên.
+        const songEditPhotoAlbumInput = document.getElementById('song-edit-photo-album');
         const songEditPhotoDurationBtn = document.getElementById('song-edit-photo-duration-btn');
         const songEditPhotoDurationValueEl = document.getElementById('song-edit-photo-duration-value');
         const btnSongEditCancel = document.getElementById('song-edit-cancel');
