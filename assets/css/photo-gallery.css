@@ -100,6 +100,30 @@
     background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
 }
 
+/* FIX (Giang yêu cầu — "user-select: none cho image edit trừ khi edit text") — TRƯỚC ĐÂY cả modal
+   Edit ảnh (#image-preview-overlay, core/file-manager/photo-ui.js::openImagePreviewModal()) không
+   hề chặn user-select — kéo tay trên header/nút/popup (thậm chí cả interactCanvas ở 1 số trình
+   duyệt) dễ vô tình kích hoạt bôi đen văn bản/menu "Copy"/callout ảnh của hệ điều hành giữa chừng
+   thao tác Crop/Vẽ/Tách nền, PHÁ NGANG cử chỉ kéo (giống hệt lý do đã fix `touch-action: none` cho
+   riêng `interactCanvas` trước đây — cùng họ bug "trình duyệt giành cử chỉ", chỉ khác cơ chế: đây
+   là chặn BÔI ĐEN thay vì chặn PAN/SCROLL). Áp `user-select: none` cho TOÀN BỘ overlay — CÙNG khuôn
+   `#visualizer-ui` (assets/css/glass.css) — id `#image-preview-overlay` ổn định, DUY NHẤT 1 instance
+   tại 1 thời điểm (photo-ui.js tự xoá bản cũ trước khi dựng mới, xem `stale.remove()`).
+   NGOẠI LỆ (Giang chỉ rõ) — `#image-edit-floating-text` (khung gõ chữ nổi, tool Text,
+   `contentEditable="true"`) PHẢI giữ nguyên user-select mặc định — chặn ở đây sẽ khiến không gõ/sửa/
+   chọn lại được chữ bên trong (đặt con trỏ, bôi đen để xoá/thay chữ...). Ghi đè NGƯỢC LẠI đúng phần
+   tử này, không cần selector con nào khác trong overlay dùng tới user-select. */
+#image-preview-overlay {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+#image-edit-floating-text {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+}
+
 /* Pagination album story (components/file-manager.js) — dùng thẳng buildPaginationArrowsHtml()
    (core/pagination.js), display:contents "tháo" div bọc để 3 nút con xếp lại vị trí bằng order,
    không cần sửa core. */
