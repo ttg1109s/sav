@@ -1,10 +1,10 @@
 /**
- * event/router/image-edit.js — Router tên "imageEdit". TOÀN BỘ msg.type liên quan Edit mode xử lý
- * Ở ĐÂY — biên giới theo TRÁCH NHIỆM (routing của Edit mode), không theo nơi UI đặt nút.
+ * event/router/image-edit.js — Router tên "imageEdit". TOÀN BỘ msg.type liên quan công cụ chỉnh
+ * sửa của modal xem ảnh Photo xử lý Ở ĐÂY — biên giới theo TRÁCH NHIỆM, không theo nơi UI đặt nút.
  *
- * KHÔNG có khái niệm "mode" nào cần thoát — View/Zoom/Edit tích hợp sẵn (xem docstring đầu
- * event/workflow/image-edit.js). Đóng Generic Drawer lưới tool (case 'imageEdit.toolGrid.
- * close.click') CHỈ đóng Drawer, KHÔNG gọi gì tới `exitEditMode()`.
+ * KHÔNG có khái niệm "mode" nào cả — canvas DUY NHẤT dùng chung xem/zoom/pan/edit, sẵn sàng NGAY
+ * lúc mở modal (xem docstring đầu event/workflow/image-edit.js). Đóng Generic Drawer lưới tool
+ * (case 'imageEdit.toolGrid.close.click') CHỈ đóng Drawer, KHÔNG gọi gì tới `exitEditMode()`.
  *
  * NẠP SAU: event/bus.js, event/workflow/image-edit.js (workflowImageEdit),
  * event/workflow/file-manager-photo.js (workflowFileManagerPhoto — case 'save.click' gọi ngược
@@ -14,20 +14,11 @@ const routerImageEdit = (() => {
     function handle(msg) {
         switch (msg.type) {
 
-            // Icon Edit (bút chì) cố định trên header modal xem ảnh (core/file-manager/photo-ui.js)
-            // — Router tự đọc `isEditModeActive()` để chọn: CHƯA editing -> vào lần đầu
-            // (`enterEditMode()`, decode canvas + ẩn <img>); ĐÃ editing -> chỉ mở lại lưới tool
-            // (`openEditToolGrid()`, vd sau khi tự đóng Drawer bằng nút X).
+            // Icon Edit (bút chì) cố định trên header modal xem ảnh — CHỈ mở bảng công cụ, KHÔNG
+            // "vào" gì cả (canvas đã sẵn sàng từ lúc mở modal) — đích CỐ ĐỊNH, KHÔNG cần
+            // VirtualMachineState phân nhánh nào (không còn "lần đầu" khác "mở lại").
             case 'imageEdit.tools.click': {
-                const isEditing = workflowImageEdit.isEditModeActive();
-                VirtualMachineState.run([
-                    { state: isEditing, operation: '===', value: false, callback: () => {
-                        workflowImageEdit.enterEditMode();
-                    } },
-                    { state: isEditing, operation: '===', value: true, callback: () => {
-                        workflowImageEdit.openEditToolGrid();
-                    } },
-                ]);
+                workflowImageEdit.openEditToolGrid();
                 break;
             }
 
