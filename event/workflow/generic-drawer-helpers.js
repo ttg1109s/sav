@@ -7,8 +7,8 @@
  * SỬA (31/07/2026, Giang chỉ ra "core tạo ra addEventListener chứ không phải workflow") —
  * `buildSimpleHeaderHtml()` (trả headerHtml "tiêu đề + nút X", dùng bởi picker Ảnh/lưới tool Edit)
  * ĐÃ XOÁ khỏi đây — phần WIRE nút X đó bắt buộc là Core (Rule 5a), nên header HTML gộp LUÔN vào
- * chính hàm Core dựng+wire Drawer đó (core/file-manager/photo-ui.js::
- * openPhotoImagePickerDrawerUi()/openPhotoEditToolGridDrawerUi(), mỗi hàm tự có bản HTML riêng,
+ * chính hàm Core dựng+wire Drawer đó (core/media-picker-drawer-helper.js::openMediaPickerDrawerUi()/
+ * core/file-manager/photo-ui.js::openPhotoEditToolGridDrawerUi(), mỗi hàm tự có bản HTML riêng,
  * chấp nhận trùng lặp nhỏ — tránh 1 hàm Core gọi hàm Core khác chỉ để lấy string, Rule 3a không có
  * ngoại lệ nào cho việc đó).
  *

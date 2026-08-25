@@ -1,24 +1,20 @@
 /**
- * event/workflow/app-panel-nav.js — "THẰNG THỰC THI CUỐI" của router "appPanelNav" (MỚI, đợt tái
- * cấu trúc bottom nav App Panel). Model: Media = Home Screen mặc định (đứng dưới CÙNG, LUÔN hiện);
- * Folder/Storage/Setting = overlay Generic Drawer (singleton core/generic-drawer.js) đè lên;
- * Photo/Game/Statis = overlay full-screen RIÊNG (ngang cấp nhau, KHÔNG dùng Generic Drawer).
- * Đóng bất kỳ overlay nào (Folder/Photo/Storage/Game/Statis/Setting) đều gọi lại `activateMedia()`
- * ở đây (liên tuyến domain, TH2 event-bus-flow.md mục 3a — tái dùng THẲNG, mỗi cụm không tự viết
- * lại logic "quay về Media").
+ * event/workflow/app-panel-nav.js — "THẰNG THỰC THI CUỐI" của router "appPanelNav". Model: Media =
+ * Home Screen mặc định (đứng dưới CÙNG, LUÔN hiện); Folder/Storage/Setting = overlay Generic
+ * Drawer (singleton core/generic-drawer.js) đè lên; Game/Statis = overlay full-screen RIÊNG (ngang
+ * cấp nhau, KHÔNG dùng Generic Drawer). Photo đã hợp nhất vào Playlist làm 1 Source (xem
+ * event/workflow/playlist.js::switchToPhotoSource()) — không còn tab/overlay riêng ở đây. Đóng bất
+ * kỳ overlay nào đều gọi lại `activateMedia()` (liên tuyến domain, tái dùng THẲNG, mỗi cụm không
+ * tự viết lại logic "quay về Media").
  *
- * `setActiveTab(tab)`/`activateMedia()` là 2 method DÙNG CHUNG, public cho MỌI cụm khác gọi tới
- * (workflowAppSettings, workflowPhotoPanel, workflowPlaceholderPanels, event/workflow/
- * file-manager-folder-browser.js, event/workflow/file-manager-storage.js) — KHÔNG phải state
- * nghiệp vụ riêng của appPanelNav, chỉ là 2 hàm điều phối dùng chung.
+ * `setActiveTab(tab)`/`activateMedia()` DÙNG CHUNG, public cho MỌI cụm khác gọi tới
+ * (workflowAppSettings, workflowPlaceholderPanels, file-manager-folder-browser.js,
+ * file-manager-storage.js) — không phải state nghiệp vụ riêng của appPanelNav.
  *
- * NẠP SAU: core/app-panel-nav.js (setAppPanelNavActiveTab), core/photo-panel.js (showPhotoPanel/
- * hidePhotoPanel), core/placeholder-panel.js (showPlaceholderPanel/hidePlaceholderPanel),
- * core/generic-drawer.js, event/workflow/generic-drawer-helpers.js (closeFully),
- * event/workflow/file-manager-photo.js (openPanel — liên tuyến domain, tái dùng THẲNG),
- * event/workflow/file-manager-folder-browser.js (openList — liên tuyến domain),
- * event/workflow/file-manager-storage.js (openPanel — liên tuyến domain, ĐÃ migrate sang Generic
- * Drawer, xem file đó).
+ * NẠP SAU: core/app-panel-nav.js (setAppPanelNavActiveTab), core/placeholder-panel.js
+ * (showPlaceholderPanel/hidePlaceholderPanel), core/generic-drawer.js,
+ * event/workflow/generic-drawer-helpers.js (closeFully), event/workflow/
+ * file-manager-folder-browser.js (openList), event/workflow/file-manager-storage.js (openPanel).
  * NẠP TRƯỚC: event/router/app-panel-nav.js.
  */
 const workflowAppPanelNav = {
@@ -32,21 +28,20 @@ const workflowAppPanelNav = {
     },
 
     /** Đóng MỌI overlay đang mở (Generic Drawer dùng chung cho Folder/Storage/Setting, HOẶC 1
-     * trong 3 panel full-screen riêng Photo/Game/Statis) rồi về Media — dùng CHUNG bởi mọi cụm
-     * đóng overlay (xem docstring đầu file) VÀ bởi chính `openMedia()` ngay dưới (bấm tab Media
-     * trong lúc đang có overlay khác mở). */
+     * trong 2 panel full-screen riêng Game/Statis) rồi về Media — dùng CHUNG bởi mọi cụm đóng
+     * overlay (xem docstring đầu file) VÀ bởi chính `openMedia()` ngay dưới (bấm tab Media trong
+     * lúc đang có overlay khác mở). */
     activateMedia() {
         this.setActiveTab('media');
     },
 
     /** Ứng với 'appPanelNav.media.click' — đóng HẲN mọi overlay đang mở rồi về Media. Khác
      * `activateMedia()` (chỉ tô sáng lại tab, gọi SAU KHI overlay tự đóng xong) — đây là ĐIỂM VÀO
-     * khi Giang chủ động bấm tab Media trong lúc còn đang xem Folder/Photo/Storage/Game/Statis/
-     * Setting, nên phải tự đóng overlay đang mở TRƯỚC — ≥2 bước phối hợp (đọc trạng thái từng
-     * overlay + đóng đúng cái đang mở) -> Workflow, không phải core gọi thẳng. */
+     * khi Giang chủ động bấm tab Media trong lúc còn đang xem Folder/Storage/Game/Statis/Setting,
+     * nên phải tự đóng overlay đang mở TRƯỚC — ≥2 bước phối hợp (đọc trạng thái từng overlay +
+     * đóng đúng cái đang mở) -> Workflow, không phải core gọi thẳng. */
     openMedia() {
         if (!genericDrawerPanel.classList.contains('hidden')) workflowGenericDrawerHelpers.closeFully(); // Folder/Storage/Setting dùng chung Generic Drawer
-        if (!photoPanel.classList.contains('hidden')) { resetSettingsStackToMain(); hidePhotoPanel(); }
         if (!gamePanel.classList.contains('hidden')) hidePlaceholderPanel(gamePanel);
         if (!statisPanel.classList.contains('hidden')) hidePlaceholderPanel(statisPanel);
         this.activateMedia();
@@ -58,13 +53,6 @@ const workflowAppPanelNav = {
     openFolder() {
         this.setActiveTab('folder');
         workflowFileManagerFolderBrowser.openList(); // event/workflow/file-manager-folder-browser.js
-    },
-
-    /** Ứng với 'appPanelNav.photo.click'. */
-    openPhoto() {
-        this.setActiveTab('photo');
-        showPhotoPanel(); // core/photo-panel.js
-        workflowFileManagerPhoto.openPanel(); // event/workflow/file-manager-photo.js — liên tuyến domain
     },
 
     /** Ứng với 'appPanelNav.storage.click' — Storage ĐÃ migrate sang Generic Drawer (xem

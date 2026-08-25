@@ -1,59 +1,36 @@
 /**
- * event/workflow/theme.js — "THẰNG THỰC THI CUỐI" của router "theme" (MỞ ĐẦU THEME THẬT,
- * 07/07/2026, phản hồi Giang mục 3 — 3 card Sáng/Tối/Background loại trừ nhau).
+ * event/workflow/theme.js — "THẰNG THỰC THI CUỐI" của router "theme" (3 card Sáng/Tối/Background
+ * loại trừ nhau, cộng card Gradient độc lập).
  *
  * Card "Background" TÁI DÙNG NGUYÊN hệ thống bgImage/bgBlur/bgImageEnabled đã có sẵn (core/
  * visualizer/visualizer-display.js::applyBgImage()/applyBgImageEnabled()). Card "Sáng"/"Tối" CHỈ
  * lưu lựa chọn + tắt ảnh nền — CHƯA áp dụng lại màu app thật (xem docstring
- * DEFAULT_VIZ_CONFIG.themeMode, core/config.js).
+ * DEFAULT_VIZ_CONFIG.themeMode, core/config.js). Picker chọn ảnh nền là Generic Drawer, TÁI DÙNG
+ * NGUYÊN `workflowFileManagerPhoto.openCoverImagePicker()` — cùng picker dùng cho "Ảnh bìa" bài
+ * hát (event/workflow/file-manager-photo.js).
  *
- * SỬA (17/07/2026, phản hồi Giang — bỏ carousel + fix bug "không đổi được ảnh khi Background đang
- * active" + SAI KIẾN TRÚC bản vá đầu tiên) — picker chọn ảnh nền giờ là Generic Drawer, TÁI DÙNG
- * NGUYÊN `workflowFileManagerPhoto.openCoverImagePicker()` (event/workflow/file-manager-photo.js,
- * ĐÚNG picker đang dùng cho "Ảnh bìa" bài hát) — KHÔNG còn qua
- * `workflowVisualizerDisplay.toggleBgImage()`/carousel (`openImageCarouselPickerModal()`, core/
- * file-manager/photo-ui.js — 2 hàm đó GIỮ NGUYÊN trên đĩa, không xoá, chỉ không còn gọi ở đây).
- * BẢN VÁ ĐẦU (cùng ngày) nhồi toàn bộ rẽ nhánh này vào 1 hàm `selectThemeMode()` duy nhất, tự
- * `appState.get()` + if/else BÊN TRONG Workflow để chọn "chạy gì" — SAI, đúng ra phải qua
- * `VirtualMachineState` ở Router (event-bus-flow.md mục 4C: "cần đọc appState KHÁC để quyết định
- * CHẠY GÌ — LUÔN dùng VirtualMachineState"). SỬA LẠI: tách thành 3 method riêng
- * (`applyNonBackgroundMode`/`pickNewBackgroundImage`/`reuseExistingBackgroundImage`, xem từng
- * method ngay dưới) — Router (event/router/theme.js) tự đọc `vizConfig` + `VirtualMachineState`
- * chọn ĐÚNG 1 method — cả 3 dùng chung `_commitThemeMode()` làm phần đuôi.
+ * 3 method riêng theo mode (`applyNonBackgroundMode`/`pickNewBackgroundImage`/
+ * `reuseExistingBackgroundImage`) — Router (event/router/theme.js) tự đọc `vizConfig` +
+ * `VirtualMachineState` chọn ĐÚNG 1 method (event-bus-flow.md mục 4C: "cần đọc appState KHÁC để
+ * quyết định CHẠY GÌ — LUÔN dùng VirtualMachineState" ở Router, không tự if/else trong Workflow);
+ * cả 3 dùng chung `_commitThemeMode()` làm phần đuôi.
  *
- * === MODE "GRADIENT" RIÊNG (09/07/2026, phản hồi Giang mục 1 — "Thêm gradient là một mode riêng")
- * === Card thứ 4, ĐỘC LẬP hoàn toàn với "Background" (ảnh) — 2 field cấu hình riêng
+ * Card "Gradient" (09/07/2026) ĐỘC LẬP hoàn toàn với "Background" (ảnh) — 2 field cấu hình riêng
  * (`gradientFrom`/`gradientTo`), core setter riêng (core/visualizer/visualizer-display.js::
  * setThemeGradientFrom/To), không đụng gì tới bgImage/bgBlur/bgImageEnabled.
  *
- * === VIẾT LẠI thứ tự mutate/updatePlaylistBg() (09/07/2026) === Trước đây mutate `cfg.themeMode`
- * SAU CÙNG, `updatePlaylistBg()` gọi rải rác TRONG từng nhánh if/else (đọc `cfg.themeMode` CŨ,
- * trước khi kịp cập nhật) — vô hại lúc đó vì hàm này chỉ cần biết `cfg.bgImage` có hay không. Từ
- * khi thêm nhánh 'gradient' vào `updatePlaylistBg()` (core/color-utils.js, đọc `cfg.themeMode` để
- * quyết định vẽ gradient khi KHÔNG có ảnh), thứ tự bắt đầu quan trọng — dồn `updatePlaylistBg()`
- * về ĐÚNG 1 lần DUY NHẤT, SAU KHI `themeMode` đã mutate xong, tránh đọc giá trị CŨ. (17/07/2026 —
- * đoạn logic này giờ sống trong `_commitThemeMode()`, tên hàm đổi nhưng lý do/thứ tự GIỮ NGUYÊN.)
+ * `_commitThemeMode()` mutate `cfg.themeMode` TRƯỚC, gọi `updatePlaylistBg()` + `forceGlassRepaint()`
+ * (fix bug WebKit/iOS Safari backdrop-filter không tự resample) ĐÚNG 1 lần SAU CÙNG — thứ tự này
+ * bắt buộc vì `updatePlaylistBg()` (core/color-utils.js) đọc `cfg.themeMode` để quyết định vẽ
+ * gradient khi KHÔNG có ảnh.
  *
- * === FIX bug "chọn ảnh xong vẫn thấy nền cũ, thao tác gì đó mới trong suốt" (09/07/2026, phản hồi
- * Giang mục 3) === Thêm `forceGlassRepaint()` (core/color-utils.js) NGAY SAU MỌI lần
- * `updatePlaylistBg()` do người dùng chủ động đổi nền — bug WebKit/iOS Safari (backdrop-filter
- * không tự resample), xem docstring đầy đủ ở `forceGlassRepaint()`.
- *
- * NẠP SAU: core/settings-panel-stack-ui.js (không cần, panel Theme sống ở Main list, TĨNH), core/
- * visualizer/visualizer-display.js (applyBgImageEnabled, applyBgImage), core/color-utils.js
- * (updatePlaylistBg, forceGlassRepaint), core/config.js (saveConfig), core/loading-shield-util.js
- * (withLoadingShield), service/db.js (getImageRecord), core/dom-refs.js
+ * NẠP SAU: core/visualizer/visualizer-display.js (applyBgImageEnabled, applyBgImage),
+ * core/color-utils.js (updatePlaylistBg, forceGlassRepaint), core/config.js (saveConfig),
+ * core/loading-shield-util.js (withLoadingShield), service/db.js (getImageRecord), core/dom-refs.js
  * (themeModeCardLight/Dark/Background/Gradient, themeBgBlurRow, themeGradientRow,
  * themeGradientFromPicker/ToPicker, themeMockupBackground/Icon, themeMockupGradient,
- * bgBlurSlider, valBgBlurDisplay). Việc đọc `appConfigViz.getAll()` để CHỌN method nào chạy
- * (`applyNonBackgroundMode`/`pickNewBackgroundImage`/`reuseExistingBackgroundImage`) SỐNG Ở
- * ROUTER (event/router/theme.js, qua VirtualMachineState), KHÔNG phải file này — 3 method dưới
- * đây chỉ NHẬN kết quả đã được chọn sẵn, tự chúng không đọc appState để rẽ nhánh (đúng vai trò
- * Workflow: thực thi, không tự quyết định "chạy gì"). Tham chiếu `workflowFileManagerPhoto`
- * (event/workflow/file-manager-photo.js) chỉ resolve LÚC `pickNewBackgroundImage()` THẬT SỰ chạy
- * (click), không phải lúc file này được nạp — thứ tự nạp giữa 2 file không quan trọng (cùng cách
- * workflowSettingsStackNav gọi workflowFileManagerSong, xem event/workflow/settings-stack-nav.js);
- * trên thực tế event/workflow/file-manager-photo.js đã nạp TRƯỚC file này trong index.html.
+ * bgBlurSlider, valBgBlurDisplay), event/workflow/file-manager-photo.js
+ * (workflowFileManagerPhoto.openCoverImagePicker).
  */
 const workflowTheme = {
 
@@ -82,20 +59,16 @@ const workflowTheme = {
      * bước sau lại thấy rỗng — đó là lý do "đổi mode khác rồi chọn lại" TÌNH CỜ có tác dụng, không
      * phải hành vi được thiết kế).
      *
-     * BỎ carousel (`openImageCarouselPickerModal()`, core/file-manager/photo-ui.js — HÀM VẪN GIỮ
-     * NGUYÊN trên đĩa, KHÔNG xoá, chỉ không còn gọi ở đây), THAY bằng Generic Drawer — TÁI DÙNG
-     * NGUYÊN `workflowFileManagerPhoto.openCoverImagePicker()` (event/workflow/file-manager-
-     * photo.js), ĐÚNG picker đang dùng cho "Ảnh bìa" bài hát (Workflow gọi Workflow miền khác, tự
-     * do — event-bus-flow.md mục 4B).
+     * Dùng Generic Drawer — TÁI DÙNG NGUYÊN `workflowFileManagerPhoto.openCoverImagePicker()`
+     * (event/workflow/file-manager-photo.js), ĐÚNG picker đang dùng cho "Ảnh bìa" bài hát (Workflow
+     * gọi Workflow miền khác, tự do — event-bus-flow.md mục 4B).
      *
      * LƯU Ý — picker Generic Drawer KHÔNG blocking: `await
      * workflowFileManagerPhoto.openCoverImagePicker(...)` chỉ đợi tới lúc DRAWER MỞ XONG + ảnh tải
-     * xong, KHÔNG đợi tới khi người dùng thật sự CHỌN/HUỶ (khác hẳn carousel modal cũ, vốn phải bọc
-     * thêm 1 lớp `new Promise()` thủ công mới giả lập được hành vi blocking, xem lịch sử fix
-     * 09/07/2026 từng ở event/workflow/visualizer-display.js::toggleBgImage()). Vì vậy toàn bộ
-     * phần "chốt mode" PHẢI dời vào TRONG callback `onSelect` (chạy MUỘN, đúng lúc người dùng thật
-     * sự bấm 1 ảnh) — gọi `_commitThemeMode('background')` ở đó, KHÔNG gọi ngay sau `await` như 1
-     * hàm đồng bộ bình thường.
+     * xong, KHÔNG đợi tới khi người dùng thật sự CHỌN/HUỶ. Vì vậy toàn bộ phần "chốt mode" PHẢI dời
+     * vào TRONG callback `onSelect` (chạy MUỘN, đúng lúc người dùng thật sự bấm 1 ảnh) — gọi
+     * `_commitThemeMode('background')` ở đó, KHÔNG gọi ngay sau `await` như 1 hàm đồng bộ bình
+     * thường.
      */
     async pickNewBackgroundImage() {
         await workflowFileManagerPhoto.openCoverImagePicker(async (imageKey) => { // event/workflow/file-manager-photo.js
