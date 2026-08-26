@@ -203,11 +203,11 @@ function openImagePreviewModal(image) {
     overlay.appendChild(contextBar);
 
     // ---- Popup chọn tỉ lệ Crop — MỚI (bổ sung theo yêu cầu Giang, "crop không có danh sách chọn
-    // tỉ lệ") — hiện SONG SONG với contextBar lúc tool Crop đang mở (KHÁC drawControlsPopup/
-    // magicPopup, vốn LOẠI TRỪ NHAU với contextBar vì đều đặt `bottom-0` full-width — popup này
-    // dùng CHUNG khung nhỏ hơn, đặt NGAY TRÊN contextBar thay vì đè full-width đáy màn hình, do
-    // Crop CẦN contextBar Huỷ/Áp dụng HIỂN THỊ ĐỒNG THỜI, không thể ẩn header/hiện popup thay thế
-    // như Vẽ/Tách nền). Core delegation (Rule 5a) — 1 listener duy nhất, đọc `data-crop-ratio`.
+    // tỉ lệ") — hiện SONG SONG với contextBar lúc tool Crop đang mở (KHÁC drawControlsPopup, vốn
+    // LOẠI TRỪ NHAU với contextBar vì đều đặt `bottom-0` full-width — popup này dùng CHUNG khung nhỏ
+    // hơn, đặt NGAY TRÊN contextBar thay vì đè full-width đáy màn hình, do Crop CẦN contextBar Huỷ/
+    // Áp dụng HIỂN THỊ ĐỒNG THỜI, không thể ẩn header/hiện popup thay thế như Vẽ). Core delegation
+    // (Rule 5a) — 1 listener duy nhất, đọc `data-crop-ratio`.
     const cropRatioPopup = document.createElement('div');
     cropRatioPopup.id = 'image-edit-crop-ratio-popup';
     cropRatioPopup.className = 'hidden absolute top-16 left-0 w-full flex justify-center gap-2 px-4 overflow-x-auto';
@@ -250,19 +250,11 @@ function openImagePreviewModal(image) {
     `;
     overlay.appendChild(drawControlsPopup);
 
-    // ---- Popup dung sai màu (tool Tách nền) — MỚI (31/07/2026), ẩn mặc định.
-    const magicPopup = document.createElement('div');
-    magicPopup.id = 'image-edit-magic-popup';
-    magicPopup.className = 'hidden absolute bottom-0 left-0 w-full photo-preview-scrim-bottom p-5 pb-8';
-    magicPopup.innerHTML = `
-        <div class="flex justify-between text-xs text-white/70 mb-2">
-            <span>${t('fileManager.photo.image.editMagicTolerance')}</span>
-            <span id="image-edit-magic-value" class="font-mono">30</span>
-        </div>
-        <input type="range" id="image-edit-magic-slider" min="1" max="150" value="30" class="w-full">
-        <p class="text-[11px] text-center text-white/50 mt-2">${t('fileManager.photo.image.editMagicHint')}</p>
-    `;
-    overlay.appendChild(magicPopup);
+    // XOÁ (Giang yêu cầu bỏ hẳn tool "Tách nền"/Cutout) — `magicPopup`/`image-edit-magic-slider`/
+    // `image-edit-magic-value` (popup chỉnh dung sai màu trước tool này) đã xoá hẳn khỏi đây, cùng
+    // lúc với `_startMagicTool()`/`updateMagicSlider()`/`magicPointerDown()` (event/workflow/image-
+    // edit.js) + case liên quan (event/router/image-edit.js) + `applyMagicCutout()` (core/photo-
+    // editor-engine.js) + 3 key lang (`editToolMagic`/`editMagicTolerance`/`editMagicHint`).
 
     // ---- Header nổi: X đóng (trái) + Đặt làm nền/Edit (phải, LUÔN hiện, không còn dropdown "...")
     const header = document.createElement('div');
@@ -394,14 +386,12 @@ function openImagePreviewModal(image) {
 
     const adjustSliderEl = adjustPopup.querySelector('#image-edit-adjust-slider');
     adjustSliderEl.addEventListener('input', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.adjust.slider.input', payload: { value: parseInt(e.target.value, 10) } }));
-    const magicSliderEl = magicPopup.querySelector('#image-edit-magic-slider');
-    magicSliderEl.addEventListener('input', (e) => eventBus.send({ router: 'imageEdit', type: 'imageEdit.magic.slider.input', payload: { value: parseInt(e.target.value, 10) } }));
 
     // `mediaWrap` luôn được trả về — Panzoom (Zoom, luôn bật SUỐT vòng đời modal, xem
     // workflowFileManagerPhoto._initZoom()) gắn lên ĐÂY, KHÔNG gắn thẳng `<img>` — canvas vẽ ĐÈ lên
     // `<img>` ngay khi decode xong (KHÔNG có toggle ẩn/hiện nào), Panzoom không hề bị đụng tới.
     // `interactCanvas` PHẢI truyền vào `exclude` của Panzoom (xem `_initZoom()`) — nếu không, chạm
-    // kéo Crop/Vẽ/Tách nền trên đó sẽ bị Panzoom giành mất thành cử chỉ pan.
+    // kéo Crop/Vẽ trên đó sẽ bị Panzoom giành mất thành cử chỉ pan.
     return {
         close: closeModal, imgEl: img, mediaWrap, canvasWrap, baseCanvas, renderCanvas, layerCanvas, interactCanvas, toolsBtn,
         header,
@@ -419,8 +409,6 @@ function openImagePreviewModal(image) {
         drawEraserBtn: drawControlsPopup.querySelector('#image-edit-draw-eraser'),
         drawColorEl: drawControlsPopup.querySelector('#image-edit-draw-color'),
         drawSizeEl: drawControlsPopup.querySelector('#image-edit-draw-size'),
-        magicPopup, magicValueEl: magicPopup.querySelector('#image-edit-magic-value'),
-        magicSliderEl,
     };
 }
 
@@ -475,48 +463,9 @@ function wirePhotoEditToolGridDelegation() {
     return () => genericDrawerBody.removeEventListener('click', handler);
 }
 
-/** Mở Generic Drawer cho style editor của 1 layer (Text/Shape) — MỚI (layer Text/Shape, Giang yêu
- * cầu "cần có nút để vào generic drawer styling editor"). CÙNG khuôn `openPhotoEditToolGridDrawerUi()`
- * hệt (Rule 5a, wire nút X tại Core) — chỉ khác msg.type nút X bắn ra.
- * @param {string} title @param {string} bodyHtml
- */
-function openPhotoLayerStyleDrawerUi(title, bodyHtml) {
-    openGenericDrawer({ // core/generic-drawer.js
-        height: 'auto', maxHeight: '80vh',
-        zIndex: Z_INDEX.IMAGE_ACTION_MENU_DRAWER, // service/z-index.js (131) — TRÊN modal xem ảnh (130)
-        headerHtml: `
-            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
-                <h3 class="text-base font-bold text-slate-900">${title}</h3>
-                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-        `,
-        bodyHtml,
-        bodyClass: 'overflow-y-auto',
-    });
-    const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
-    if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: 'imageEdit', type: 'imageEdit.layerStyle.close.click', payload: {} }));
-}
-
-/** Wire delegated `input`/`change` trên `genericDrawerBody` cho MỌI field trong style editor
- * (`[data-layer-style-field]`) — dùng CHUNG 1 tên attribute cho cả text (textarea/slider/color) LẪN
- * shape (checkbox/color/slider), Workflow tự phân theo `field` + kiểu input (`type==='checkbox'`
- * đọc `checked`, còn lại đọc `value`). Gọi ĐÚNG 1 lần/phiên mở style editor
- * (`openLayerStyleEditor()`), gỡ lúc đóng (`closeLayerStyleEditor()`) — cùng vòng đời với
- * `wirePhotoEditToolGridDelegation()`.
- * @returns {() => void} hàm gỡ.
- */
-function wireLayerStyleDrawerDelegation() {
-    const handler = (e) => {
-        const target = e.target;
-        if (!target.matches('[data-layer-style-field]')) return;
-        const field = target.dataset.layerStyleField;
-        const isCheckbox = target.type === 'checkbox';
-        eventBus.send({ router: 'imageEdit', type: 'imageEdit.layerStyle.field.input', payload: { field, value: isCheckbox ? undefined : target.value, checked: isCheckbox ? target.checked : undefined } });
-    };
-    genericDrawerBody.addEventListener('input', handler);
-    genericDrawerBody.addEventListener('change', handler);
-    return () => { genericDrawerBody.removeEventListener('input', handler); genericDrawerBody.removeEventListener('change', handler); };
-}
+// XOÁ (Giang chỉ ra `workflowElementStyleEditor` — event/workflow/element-style-editor.js — vốn đã
+// là công cụ CHUNG dùng bởi Subtitle Styling, không cần tự chế Generic Drawer riêng cho Photo layer
+// Text/Shape nữa) — `openPhotoLayerStyleDrawerUi()`/`wireLayerStyleDrawerDelegation()` đã xoá hẳn,
+// `openLayerStyleEditor()` (event/workflow/image-edit.js) giờ gọi thẳng
+// `workflowElementStyleEditor.open()`. 0 lời gọi nào khác còn tới 2 hàm này (tự audit xác nhận).
 
