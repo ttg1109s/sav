@@ -1,13 +1,38 @@
 /**
- * core/webgl/three-space.js — Galaxy Journey engine, viết lại HOÀN TOÀN từ đầu (20/07/2026,
- * plan-space-galaxy.md Phần B) — bản trước đã bị xoá trắng (0 byte) theo yêu cầu Giang. KHÔNG
- * mang theo tư duy/công thức/con số từ bản Space cũ nào (Ken Burns sin/cos, Sun System, Vacuum
- * Void, cockpit frame) — trùng số với bản cũ (nếu có) là trùng hợp do chọn hợp lý cho bản MỚI.
+ * core/webgl/three-space.js — Galaxy Journey engine. Lịch sử: viết lại HOÀN TOÀN từ đầu
+ * (20/07/2026, plan-space-galaxy.md Phần B), sau đó trải qua nhiều lượt sửa mô hình di chuyển
+ * (bản đồ TĨNH + travel/rotate 2 pha, chốt 21/07/2026).
  *
- * Tham khảo thiết kế/công thức hình học từ 1 file HTML demo độc lập Giang cung cấp (space.txt,
- * "Vũ Trụ Vô Tận" — KHÔNG dùng bloom/postprocessing, chỉ AdditiveBlending + texture sprite thuần),
- * viết lại toàn bộ theo kiến trúc SAV v12 (global script, không ES6 module — `class` KHÔNG liên
- * quan gì tới quy ước đó, chỉ cấm `import`/`export`).
+ * VIẾT LẠI HOÀN TOÀN MÔ HÌNH DI CHUYỂN (26/08/2026, phản hồi Giang — "loại bỏ mô hình cũ, không
+ * cần ý kiến"; SỬA LẠI CÙNG NGÀY, phản hồi Giang lượt 2 — tách RÕ 2 khái niệm từng bị gộp nhầm ở
+ * bản đầu: (a) "chuyển pha" = điều kiện MOVE giữa các cụm — mục đích tham khảo/tái dùng
+ * `detectFluxTransition()`/`isPhraseBoundary()` (core/gameplay/engine.js, core/gameplay/
+ * circle-mode.js — game mode Circle dùng để rebuild pitch map); (b) "cụm tan đi/thêm vào" = vòng
+ * đời QUẦN THỂ cụm, HOÀN TOÀN ĐỘC LẬP với (a), cụm mới mờ dần HIỆN, cụm cũ mờ dần TAN theo nhạc —
+ * xem toàn bộ logic 2 việc này ở `event/workflow/visualizer-render.js`, file NÀY chỉ thêm tham số
+ * `fadeOutMultiplier` vào `SpaceGalaxy.update()` để hỗ trợ (b)) — BỎ HẲN mô hình bản đồ TĨNH 1 lớp
+ * (N "nút" rải đều quanh 1 tâm, mỗi nút mang vài thiên hà) + máy trạng thái travel/rotate cũ. THAY
+ * BẰNG mô hình 2 LỚP đúng nghĩa thiên văn:
+ *   - **Cụm thiên hà** (cluster) — quần thể DAO ĐỘNG (`SPACE_CLUSTER_INITIAL_COUNT`/`_MIN_COUNT`/
+ *     `_MAX_COUNT`, event/workflow/visualizer-render.js) — ban đầu 5, sau đó có thể tan đi/thêm
+ *     vào theo nhạc (KHÔNG cố định 5 mãi mãi), mỗi cụm có toạ độ TÂM + hướng quay riêng, chứa vài
+ *     thiên hà thành viên.
+ *   - **Thiên hà** (galaxy) — vẫn dùng NGUYÊN class dưới đây (đổi tên `GalaxyCluster` ->
+ *     `SpaceGalaxy` cho khớp nghĩa thiên văn thật — 1 instance VẪN LÀ 1 thiên hà, KHÔNG đổi hành
+ *     vi/method nào bên trong, chỉ đổi TÊN).
+ * Máy trạng thái MỚI (4 pha, xem đầy đủ ở event/workflow/visualizer-render.js): chọn 1 cụm ->
+ * xoay camera hướng tâm cụm (`clusterRotate`) -> bay tới đó (`clusterTravel`) -> "mắc kẹt" trong
+ * cụm, LẶP LẠI chọn 1 thiên hà thành viên CHƯA ghé -> xoay hướng thiên hà đó (`galaxyRotate`) ->
+ * bay A->B->C rồi quay lưng lại (`galaxyTravel`) -- cho tới khi ghé đủ mọi thiên hà trong cụm thì
+ * quay lại bước chọn cụm (tái tạo 5 cụm MỚI quanh vị trí hiện tại).
+ * `generateGalaxyMapNodePositions()`/`steerSpaceForward3D()` (bản đồ TĨNH + bẻ lái theo nốt) ĐÃ BỎ
+ * HẲN — không còn khái niệm "bản đồ" hay "steer tự do", camera LUÔN xoay hướng tới 1 toạ độ ĐÍCH
+ * cụ thể (tâm cụm hoặc tâm thiên hà), không còn "dò theo nón phía trước" nào nữa.
+ *
+ * Tham khảo thiết kế/công thức hình học 10 hình thái thiên hà từ 1 file HTML demo độc lập Giang
+ * cung cấp (space.txt, "Vũ Trụ Vô Tận" — KHÔNG dùng bloom/postprocessing, chỉ AdditiveBlending +
+ * texture sprite thuần) — PHẦN NÀY GIỮ NGUYÊN, không đụng ở lượt viết lại 26/08/2026 (chỉ mô hình
+ * DI CHUYỂN thay đổi, hình học/màu sắc 1 thiên hà đơn lẻ không đổi).
  *
  * ============================== QUY TẮC BẮT BUỘC CỦA FILE NÀY ==============================
  * TẤT CẢ hàm/method dưới đây là Core THUẦN (`readme/core-function-conventions.md` Rule 1-4):
@@ -26,30 +51,11 @@
  * `WebGLRenderer`/resize listener riêng, xem `initThreeSpace()`), TRƯỚC
  * `core/visualizer/types/space.js` (file đó chỉ chứa vài hàm nhỏ chạy MỖI FRAME, dùng ngược lại
  * KHÔNG ai trong 2 file gọi nhau).
- *
- * CẬP NHẬT (21/07/2026, phản hồi Giang lượt 6 — mô hình pha TRAVEL/ROTATE tách rời, xem
- * `event/workflow/visualizer-render.js`): `steerSpaceForward()` (2D, chỉ trái/phải) ĐỔI THÀNH
- * `steerSpaceForward3D()` (yaw+pitch, đủ 3 chiều, KHÔNG giới hạn biên độ). `GalaxyCluster`
- * constructor nhận thêm `driftSpeedFactor` (đọc dải FFT bin lúc spawn, xem
- * `computeGalaxyDriftSpeedFactor()`).
- *
- * VIẾT LẠI LẦN 2 (21/07/2026, phản hồi Giang lượt 9 — "thay vì vừa chuyển vừa tạo... ngay từ đầu
- * tạo 1 map thiên hà sẵn có 3D trải đều các hướng"): bỏ hẳn mô hình chuỗi thiên hà "vừa bay vừa
- * spawn/dispose theo cửa sổ phía trước camera" (`computeGalaxyClusterCore()`,
- * `SPACE_CLUSTER_SPACING_Z`) — thay bằng `generateGalaxyMapNodePositions()`: dựng CẢ 1 bản đồ TĨNH
- * (N nút phân bố đều NGẪU NHIÊN trong 1 khối cầu quanh 1 tâm) 1 LẦN, Workflow tự quyết định khi
- * nào tái tạo lại toàn bộ (`_ensureGalaxyMap()`, event/workflow/visualizer-render.js).
  */
 
 // ============================================================================================
 // 1. HẰNG SỐ / DỮ LIỆU (không phải hàm — tham chiếu tự do, KHÔNG tính là "gọi hàm")
 // ============================================================================================
-
-// (SPACE_CLUSTER_SPACING_Z ĐÃ BỎ, 21/07/2026 lượt 9, phản hồi Giang — "thay vì vừa chuyển vừa tạo,
-// ngay từ đầu tạo 1 map thiên hà sẵn có 3D trải đều các hướng, khỏi cần tính sinh cụm/tính hướng
-// theo camera nữa" — chuỗi thiên hà "vừa bay vừa spawn/dispose theo cửa sổ phía trước" ĐÃ BỎ HẲN,
-// thay bằng bản đồ TĨNH dựng 1 lần rồi bay vòng quanh trong đó, xem `generateGalaxyMapNodePositions()`
-// bên dưới + `event/workflow/visualizer-render.js::_ensureGalaxyMap()`.)
 
 /** Định danh ngẫu nhiên chuẩn khoa học (giữ nguyên tinh thần bản demo, số liệu không kế thừa gì
  * đặc biệt — chỉ là 1 danh sách tên hợp lý cho bản MỚI). */
@@ -536,7 +542,7 @@ function generateRandomGalaxyName() {
  * đó — MỌI hình thái, KHÔNG trừ ai, đều theo `vizConfig.mode`: 'solid' dùng `solidColor` (cho cả
  * colorIn/colorOut, đúng bản chất "1 màu duy nhất" mọi visual khác áp dụng), còn lại dùng
  * `dynA`/`dynB` ('gradient' còn hue-shift theo `globalHueOffset` mỗi frame, xem
- * `GalaxyCluster.update()`, KHÔNG đụng ở hàm này). `SPACE_GALAXY_SPECIAL_PALETTES` ở trên GIỮ
+ * `SpaceGalaxy.update()`, KHÔNG đụng ở hàm này). `SPACE_GALAXY_SPECIAL_PALETTES` ở trên GIỮ
  * LẠI trong file nhưng KHÔNG còn được dùng cho MÀU nữa (không xoá hẳn — có thể tái dùng sau này
  * cho mục đích khác, ví dụ tô điểm hình dạng theo hình thái, KHÔNG liên quan màu sắc người dùng
  * chọn).
@@ -581,14 +587,14 @@ function buildGalaxyGeometryConfig(radius) {
 }
 
 // ============================================================================================
-// 5. CHUỖI THIÊN HÀ — toán học vị trí "nút" sợi vũ trụ + phân tán thành viên quanh nút
+// 5. MÔ HÌNH CỤM THIÊN HÀ — toạ độ tâm cụm + phân tán thiên hà thành viên quanh tâm cụm (VIẾT LẠI
+// HOÀN TOÀN 26/08/2026 — xem đầu file. Thay hẳn "nút bản đồ TĨNH" + "bẻ lái theo nốt" cũ.)
 // ============================================================================================
 
 /**
- * Hệ trục cục bộ (phải/trên) TỪ hướng bay hiện tại `forward` — dùng để đặt các "nút" chuỗi thiên
- * hà lệch trái/phải/trên/dưới quanh trục tiến, THAY vì cố định theo trục X/Y thế giới (bản trước) —
- * cần thiết từ khi camera có thể quay bất kỳ hướng nào (xem `computeGalaxyClusterCore` ngay dưới).
- * Guard: khi `forward` gần như thẳng đứng (nhìn gần thẳng lên/xuống), `cross(forward, worldUp)`
+ * Hệ trục cục bộ (phải/trên) TỪ hướng nhìn hiện tại `forward` — dùng để dựng ma trận hướng camera
+ * ổn định (`applyStableSpaceOrientation()`), THAY `Object3D.lookAt()` (nguồn gây "hard cut" khi
+ * `forward` gần thẳng đứng). Guard: khi `forward` gần như thẳng đứng, `cross(forward, worldUp)`
  * suy biến gần 0 (2 vector gần song song) — dùng trục X thế giới làm tham chiếu dự phòng.
  * @param {THREE.Vector3} forward - ĐÃ normalize
  * @returns {{right: THREE.Vector3, up: THREE.Vector3}}
@@ -602,53 +608,37 @@ function computeSpaceForwardBasis(forward) {
 }
 
 /**
- * Sinh TOÀN BỘ toạ độ "nút" của 1 bản đồ thiên hà TĨNH — VIẾT LẠI HOÀN TOÀN (21/07/2026, phản hồi
- * Giang lượt 9 — "thay vì vừa chuyển vừa tạo. Ngay từ lúc đầu tạo ra một map thiên hà sẵn có 3D
- * trải đều các hướng và không gian khu vực và một array gồm toạ độ x,y,z của các cụm thiên hà...
- * như vậy khỏi cần tính việc sinh ra cụm và thiên hà tính hướng") — THAY HẲN
- * `computeGalaxyClusterCore()` cũ (đặt 1 "nút" duy nhất phía trước camera theo `forward`, gọi lặp
- * lại MỖI FRAME khi cần mở rộng cửa sổ nhìn xa — mô hình "vừa bay vừa sinh"). Giờ sinh CẢ N nút
- * CÙNG LÚC trong 1 khối CẦU bán kính `mapRadius` quanh `centerPos` (thường là vị trí camera TẠI
- * THỜI ĐIỂM dựng/tái tạo bản đồ — xem `event/workflow/visualizer-render.js::_ensureGalaxyMap()`).
- *
- * SỬA BUG (21/07/2026, lượt 10, phản hồi Giang — "lấm chấm các hạt nhỏ ở khoảng cách xa... xoay
- * hướng khác không thấy gì... cuối cùng mất sạch"): bản đầu (lượt 9) lấy bán kính
- * `r = mapRadius * Math.cbrt(Math.random())` — công thức CHUẨN cho mật độ ĐỀU THEO THỂ TÍCH, nhưng
- * chính vì "đều theo thể tích" nên phần LỚN số nút rơi vào lớp vỏ NGOÀI CÙNG của khối cầu (thể
- * tích 1 lớp vỏ mỏng tăng theo r² — càng xa tâm càng nhiều thể tích, càng nhiều nút) — trong khi
- * TÂM khối cầu (đúng ngay chỗ camera đang đứng) lại RẤT THƯA — hậu quả đúng y hệt Giang mô tả: gần
- * camera gần như trống trơn, chỉ thấy vài chấm sáng tít xa (đã bị mờ thêm bởi fog), quay hướng nào
- * cũng không thấy gì gần, và cảm giác "mất sạch" khi camera trôi dạt ra xa dần vùng thưa quanh tâm.
- * VIẾT LẠI: đổi hẳn sang phân bố CỐ Ý LỆCH mật độ VỀ PHÍA TÂM (`r = mapRadius * random()^BIAS`,
- * `BIAS` > 1 nghĩa là random() gần 0 thường xuyên hơn gần 1 → r nhỏ chiếm đa số) — KHÔNG còn "đều
- * thật" về mặt thống kê nữa, nhưng đây chính là điều CẦN cho cảm giác thị giác "camera luôn đứng
- * giữa 1 vùng thiên hà san sát" (mục 5, lượt 9) — vùng RÌA xa vẫn có nút (random() gần 1 vẫn xảy
- * ra, chỉ hiếm hơn) để nền xa không trống hẳn.
- * @param {THREE.Vector3} centerPos @param {number} nodeCount @param {number} mapRadius
- * @returns {THREE.Vector3[]}
+ * Toạ độ TÂM 1 cụm thiên hà MỚI — MỚI (26/08/2026, mô hình cụm) — 1 điểm ngẫu nhiên trong lớp vỏ
+ * cầu [distMin, distMax] quanh `originPos` (thường là vị trí camera hiện tại lúc cần tái tạo 5
+ * cụm, xem `event/workflow/visualizer-render.js::_spawnClusterBatch()`). Phân bố ĐỀU trên hướng
+ * (toạ độ cầu ngẫu nhiên thật) — khoảng cách CHỈ giới hạn trong [distMin, distMax], KHÔNG cần lệch
+ * mật độ về tâm như bản đồ TĨNH cũ ĐÃ BỎ (chỉ 5 cụm rời rạc, không cần lấp đầy cả khối cầu lớn).
+ * @param {THREE.Vector3} originPos @param {number} distMin @param {number} distMax
+ * @returns {THREE.Vector3}
  */
-function generateGalaxyMapNodePositions(centerPos, nodeCount, mapRadius) {
-    const RADIAL_BIAS_POWER = 2.4; // > 1 -> dồn mật độ nút VỀ GẦN centerPos, xem SỬA BUG ở trên
-    const positions = [];
-    for (let i = 0; i < nodeCount; i++) {
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(Math.random() * 2 - 1);
-        const r = mapRadius * Math.pow(Math.random(), RADIAL_BIAS_POWER);
-        positions.push(new THREE.Vector3(
-            centerPos.x + r * Math.sin(phi) * Math.cos(theta),
-            centerPos.y + r * Math.sin(phi) * Math.sin(theta),
-            centerPos.z + r * Math.cos(phi)
-        ));
-    }
-    return positions;
+function generateSpaceClusterCenterPosition(originPos, distMin, distMax) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(Math.random() * 2 - 1);
+    const dist = distMin + Math.random() * (distMax - distMin);
+    return new THREE.Vector3(
+        originPos.x + dist * Math.sin(phi) * Math.cos(theta),
+        originPos.y + dist * Math.sin(phi) * Math.sin(theta),
+        originPos.z + dist * Math.cos(phi)
+    );
 }
 
-/** Offset ngẫu nhiên (phân tán quanh 1 nút) cho 1 thành viên trong cụm — CO LẠI (21/07/2026, lượt
- * 9, phản hồi Giang mục 5 — "co lại các cụm và thiên hà lại với nhau... để tạo cảm giác san sát và
- * ít khoảng trống đen nhất"), trước 70-160 (lượt 7) -> 40-85.
- * @returns {THREE.Vector3} */
-function computeGalaxyMemberOffset() {
-    const dispRadius = 40 + Math.random() * 45;
+/**
+ * Offset ngẫu nhiên (phân tán quanh 1 tâm) — bán kính lấy ngẫu nhiên trong [radiusMin, radiusMax].
+ * ĐỔI TÊN + THAM SỐ HOÁ (26/08/2026, trước `computeGalaxyMemberOffset()`, bán kính CỐ ĐỊNH
+ * 40-85) — giờ dùng CHUNG cho CẢ (1) rải các thiên hà thành viên quanh TÂM 1 cụm (radiusMin/Max
+ * lớn, theo `customEffect.space.clusterSpreadRadius`) LẪN (2) lệch nhẹ điểm hạ cánh B khi bay tới
+ * gần đúng tâm 1 thiên hà cụ thể (radiusMin/Max nhỏ, hằng số cố định — xem
+ * event/workflow/visualizer-render.js).
+ * @param {number} radiusMin @param {number} radiusMax
+ * @returns {THREE.Vector3}
+ */
+function computeSpaceRandomOffset(radiusMin, radiusMax) {
+    const dispRadius = radiusMin + Math.random() * (radiusMax - radiusMin);
     const angle = Math.random() * Math.PI * 2;
     const elevation = (Math.random() - 0.5) * Math.PI * 0.5;
     return new THREE.Vector3(
@@ -658,42 +648,14 @@ function computeGalaxyMemberOffset() {
     );
 }
 
-// (buildSpaceLegSineLUT() ĐÃ BỎ, 21/07/2026 lượt 5, mục 4 — "loại bỏ LUT + bar hoàn toàn". Quỹ
-// đạo leg trở lại đường THẲNG tắp giữa 2 waypoint như trước lượt 3.)
-
-/**
- * "Bẻ hướng" bay của camera sang hướng MỚI, ĐỦ 3 CHIỀU — VIẾT LẠI (21/07/2026, phản hồi Giang —
- * "camera chuyển hướng hiện tại chỉ có trái phải, cần thêm trên dưới, chéo góc... môi trường 3D là
- * đa hướng") — THAY HẲN `steerSpaceForward()` cũ (chỉ xoay trong mặt phẳng forward-right, tức CHỈ
- * trái/phải, `up` không hề tham gia). Giờ compose 2 phép xoay trục ĐỘC LẬP:
- *   1. Xoay `yaw` quanh trục `up` (trái/phải).
- *   2. Xoay `pitch` quanh trục `right` MỚI — tính LẠI SAU KHI đã áp yaw (vuông góc thật với hướng
- *      vừa xoay, tránh suy biến/gimbal lock).
- * 2 góc khác 0 CÙNG LÚC (vd yaw=+40°, pitch=-25°) tự nhiên ra hướng CHÉO (phải-xuống...) — không
- * cần trục thứ 3 nào khác, đủ phủ MỌI điểm trên mặt cầu hướng nhìn quanh vị trí camera hiện tại
- * (KHÔNG phải quay quanh gốc toạ độ thế giới — quay hướng ĐI quanh CHÍNH camera). KHÔNG giới hạn
- * biên độ pitch (Giang xác nhận "cứ cho lộn" — camera được phép lộn ngược hoàn toàn). Dùng
- * `Vector3.applyAxisAngle()` (Three.js, phép xoay Rodrigues quanh 1 trục bất kỳ) — ĐÚNG với MỌI
- * góc kể cả ±180°, không suy biến như công thức sin/cos phẳng cũ (chỉ đúng khi xoay trong 1 mặt
- * phẳng cố định).
- * @param {THREE.Vector3} forward - đã normalize
- * @param {THREE.Vector3} up - từ `computeSpaceForwardBasis(forward)`
- * @param {number} yaw - radian, xoay quanh `up` (trái/phải)
- * @param {number} pitch - radian, xoay quanh `right` MỚI sau yaw (trên/dưới) — KHÔNG giới hạn biên độ
- * @returns {THREE.Vector3}
- */
-function steerSpaceForward3D(forward, up, yaw, pitch) {
-    const yawed = forward.clone().applyAxisAngle(up, yaw).normalize();
-    const rightAfterYaw = new THREE.Vector3().crossVectors(yawed, up);
-    if (rightAfterYaw.lengthSq() < 0.0001) rightAfterYaw.set(1, 0, 0); else rightAfterYaw.normalize();
-    return yawed.applyAxisAngle(rightAfterYaw, pitch).normalize();
-}
-
 // ============================================================================================
-// 6. class GalaxyCluster — 1 instance = 1 thiên hà. Method KHÔNG gọi lẫn nhau (xem đầu file).
+// 6. class SpaceGalaxy (ĐỔI TÊN 26/08/2026, trước `GalaxyCluster` — khớp nghĩa thiên văn thật:
+// 1 instance = 1 THIÊN HÀ, KHÔNG phải 1 cụm; "cụm" giờ là khái niệm RIÊNG, xem mục 5 phía trên +
+// event/workflow/visualizer-render.js). Method KHÔNG gọi lẫn nhau (xem đầu file) — HÀNH VI bên
+// trong class GIỮ NGUYÊN 100%, chỉ đổi tên.
 // ============================================================================================
 
-class GalaxyCluster {
+class SpaceGalaxy {
     /**
      * Constructor CHỈ gán field thuần — KHÔNG tự gọi build()/buildNebula() (Workflow tự gọi 2
      * method đó RIÊNG, theo đúng thứ tự, ngay sau khi `new`).
@@ -803,15 +765,20 @@ class GalaxyCluster {
 
     /**
      * Cập nhật MỖI FRAME — trôi dạt, fade-in, uniform shader, xoay nebula. Workflow gọi method
-     * này cho TỪNG cluster trong vòng lặp (`event/workflow/visualizer-render.js`).
+     * này cho TỪNG thiên hà trong vòng lặp (`event/workflow/visualizer-render.js`).
      * @param {number} delta - giây kể từ frame trước
-     * @param {number} speed - tốc độ chung (BPM baseline + energy, plan B4), dùng CHUNG cho trôi
-     *        dạt/tự quay sao (uSpeed)/quay nebula — "miễn phí" đúng plan B4.
+     * @param {number} speed - tốc độ chung (BPM baseline + energy), dùng CHUNG cho trôi dạt/tự
+     *        quay sao (uSpeed)/quay nebula.
      * @param {number} globalTime - đồng hồ tích luỹ (giây), feed vào uTime cho xoay Keplerian.
      * @param {number} hueShift - độ lệch hue (0 nếu mode không phải dynamic/gradient).
-     * @param {number} smoothedEnergy - cộng thêm vào độ sáng nebula (plan B4).
+     * @param {number} smoothedEnergy - cộng thêm vào độ sáng nebula.
+     * @param {number} fadeOutMultiplier - MỚI (26/08/2026, phản hồi Giang — cụm thiên hà "có thể
+     *   tan đi... theo nhạc", KHÔNG biến mất đột ngột) — 1 = hiện đầy đủ (cụm đang 'in'/'stable'),
+     *   giảm dần về 0 khi cụm chứa thiên hà này đang ở trạng thái 'out' (Workflow tự tính từ
+     *   `cluster.fadeProgress`, xem `_advanceClusterFades()`) — NHÂN THẲNG vào opacity, cùng cơ
+     *   chế với `fadeInProgress` (2 hệ số độc lập, nhân dồn).
      */
-    update(delta, speed, globalTime, hueShift, smoothedEnergy) {
+    update(delta, speed, globalTime, hueShift, smoothedEnergy, fadeOutMultiplier) {
         const speedMult = delta * speed * 0.45;
         this.position.addScaledVector(this.driftVelocity, speedMult);
         this.group.position.copy(this.position);
@@ -823,14 +790,14 @@ class GalaxyCluster {
         if (this.material && this.material.uniforms) {
             this.material.uniforms.uTime.value = globalTime;
             this.material.uniforms.uSpeed.value = speed;
-            this.material.uniforms.uOpacity.value = 0.9 * this.fadeInProgress;
+            this.material.uniforms.uOpacity.value = 0.9 * this.fadeInProgress * fadeOutMultiplier;
             this.material.uniforms.uHueShift.value = hueShift;
         }
 
         if (this.nebulaMesh) {
             this.nebulaMesh.rotation.y += this.rotationDir * this.rotationSpeed * delta * 0.08 * speed;
             if (this.nebulaMaterial) {
-                this.nebulaMaterial.opacity = (0.32 + smoothedEnergy * 0.2) * this.fadeInProgress;
+                this.nebulaMaterial.opacity = (0.32 + smoothedEnergy * 0.2) * this.fadeInProgress * fadeOutMultiplier;
             }
         }
     }
@@ -845,7 +812,7 @@ class GalaxyCluster {
 }
 
 // ============================================================================================
-// 7. SpaceDust — bụi vũ trụ nền, KHÔNG cần "cụm nhiều instance" như GalaxyCluster nên KHÔNG cần
+// 7. SpaceDust — bụi vũ trụ nền, KHÔNG cần "cụm nhiều instance" như SpaceGalaxy nên KHÔNG cần
 // class riêng (thay `SpaceDust` bản demo — B7: "spDustMesh, MỚI, thay SpaceDust") — 1 hàm THUẦN
 // dựng mesh (cập nhật mỗi frame nằm ở core/visualizer/types/space.js, xem đầu file).
 // ============================================================================================
