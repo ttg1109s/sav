@@ -63,7 +63,9 @@
             space: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 starCountMin: 3800, starCountMax: 6000, nebulaCount: 35, dustCount: 1500,
-                mapNodeCount: 70, mapRadius: 950,
+                // MỚI (26/08/2026, mô hình cụm thiên hà — thay mapNodeCount/mapRadius cũ).
+                clusterGalaxyCountMin: 4, clusterGalaxyCountMax: 8,
+                clusterSpreadRadius: 90, clusterDistanceMin: 300, clusterDistanceMax: 700,
             },
         };
 

@@ -100,8 +100,15 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'starCountMax', labelKey: 'customEffectDrawer.field.starCountMax', type: 'slider', min: 1000, max: 10000, step: 100 },
         { id: 'nebulaCount', labelKey: 'customEffectDrawer.field.nebulaCount', type: 'slider', min: 0, max: 60, step: 1 },
         { id: 'dustCount', labelKey: 'customEffectDrawer.field.dustCount', type: 'slider', min: 100, max: 3000, step: 100 },
-        { id: 'mapNodeCount', labelKey: 'customEffectDrawer.field.mapNodeCount', type: 'slider', min: 10, max: 120, step: 2 },
-        { id: 'mapRadius', labelKey: 'customEffectDrawer.field.mapRadius', type: 'slider', min: 300, max: 1500, step: 50 },
+        // THAY (26/08/2026, mô hình cụm thiên hà — xem event/workflow/visualizer-render.js) —
+        // mapNodeCount/mapRadius (bản đồ TĨNH cũ) ĐÃ BỎ, thay bằng 5 field cho mô hình cụm/thiên
+        // hà MỚI: số thiên hà mỗi cụm, bán kính rải quanh tâm cụm, khoảng cách đặt 5 cụm quanh
+        // camera lúc tái tạo.
+        { id: 'clusterGalaxyCountMin', labelKey: 'customEffectDrawer.field.clusterGalaxyCountMin', type: 'slider', min: 2, max: 10, step: 1 },
+        { id: 'clusterGalaxyCountMax', labelKey: 'customEffectDrawer.field.clusterGalaxyCountMax', type: 'slider', min: 4, max: 16, step: 1 },
+        { id: 'clusterSpreadRadius', labelKey: 'customEffectDrawer.field.clusterSpreadRadius', type: 'slider', min: 40, max: 250, step: 10 },
+        { id: 'clusterDistanceMin', labelKey: 'customEffectDrawer.field.clusterDistanceMin', type: 'slider', min: 100, max: 800, step: 20 },
+        { id: 'clusterDistanceMax', labelKey: 'customEffectDrawer.field.clusterDistanceMax', type: 'slider', min: 300, max: 1500, step: 20 },
     ],
 };
 
