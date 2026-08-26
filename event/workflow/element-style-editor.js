@@ -85,7 +85,20 @@ const workflowElementStyleEditor = {
         const activeTab = appState.get('eseActiveTab');
         const draft = appState.get('eseDraft');
         const loadedFonts = appState.get('eseLoadedGoogleFonts');
+        // FIX (Giang chỉ ra — kiểm lại thấy config này CHƯA TỪNG truyền height/maxHeight, kể cả
+        // trước đợt sửa z-index/startTab cho Photo layer) — ĐÚNG loại bug đã gặp + fix ở
+        // event/workflow/eq-presets.js::openListView()/event/workflow/custom-effect.js (xem comment
+        // lịch sử 2 chỗ đó): thiếu `height`/`maxHeight` -> `_resolveGenericDrawerHeightPx()` (core/
+        // generic-drawer.js) coi `config.height !== 'auto'` là TRUE (vì `undefined !== 'auto'`) ->
+        // rơi về nhánh height CỐ ĐỊNH `_cssLengthToPx(config.height || '70vh')` = luôn đúng 70vh,
+        // `_genericDrawerIsAutoMode = false` -> KHÔNG BAO GIỜ co theo nội dung thật, và không tự
+        // resize khi đổi tab Box<->Text hay bung kết quả tìm Google Font (MutationObserver auto-
+        // resize chỉ chạy lúc `_genericDrawerIsAutoMode === true`). Ảnh hưởng CẢ Subtitle Styling
+        // lẫn Photo layer Text/Shape (dùng CHUNG component này). `maxHeight: '80vh'` — cùng trần đã
+        // dùng cho Photo layer style editor bản tự chế CŨ (`openPhotoLayerStyleDrawerUi()`, đã xoá).
         const config = {
+            height: 'auto',
+            maxHeight: '80vh',
             headerHtml: renderElementStyleEditorHeader(activeTab), // components/element-style-editor-drawer.js
             bodyHtml: renderElementStyleEditorBody(draft, activeTab, loadedFonts),
             bodyClass: 'overflow-y-auto px-4 py-3',
