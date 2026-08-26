@@ -27,10 +27,21 @@ function _measureGenericDrawerNaturalHeightPx(maxHeightCss) {
 }
 
 
+// FIX (Giang chỉ ra bẫy mặc định — sau 3 lần độc lập dính đúng bug này: eq-presets.js, custom-
+// effect.js, event/workflow/element-style-editor.js) — bản CŨ `if (config.height !== 'auto')`
+// coi CẢ 2 trường hợp "chủ động truyền 1 giá trị fixed thật (vd '90vh')" LẪN "QUÊN truyền hẳn
+// `height`" là MỘT — `undefined !== 'auto'` vẫn `true`, lặng lẽ rơi vào fixed 70vh, tắt luôn auto-
+// resize (`_genericDrawerIsAutoMode = false`) — drawer trông như "không co theo nội dung", đúng
+// triệu chứng lặp lại 3 lần trên. KHÔNG thể bỏ hẳn nhánh fixed — core/media-picker-drawer-helper.js
+// (height:'90vh', "CỐ Ý giữ cố định", chỉ định trước đây) và event/workflow/document-reader.js
+// (height:'70vh'/'calc(100% - 4rem)') dùng fixed mode THẬT SỰ có chủ đích. SỬA: chỉ vào fixed-mode
+// khi `config.height` được truyền RÕ RÀNG và khác 'auto' — thiếu hẳn (`undefined`/`''`) giờ mặc
+// định AN TOÀN về auto thay vì âm thầm fixed 70vh, dập tắt bug pattern này tái diễn lần thứ 4 ở bất
+// kỳ Generic Drawer nào sau này lỡ quên truyền `height`.
 function _resolveGenericDrawerHeightPx(config) {
-    if (config.height !== 'auto') {
+    if (config.height && config.height !== 'auto') {
         _genericDrawerIsAutoMode = false;
-        return _cssLengthToPx(config.height || '70vh');
+        return _cssLengthToPx(config.height);
     }
     _genericDrawerIsAutoMode = true;
     _genericDrawerAutoMaxHeight = config.maxHeight || '';
