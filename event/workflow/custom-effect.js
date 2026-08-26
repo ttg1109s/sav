@@ -9,6 +9,10 @@
  * drawer. Workflow tự querySelector + addEventListener trực tiếp lên genericDrawerBody/Header sau
  * mỗi lần render (KHÔNG qua eventBus cho nội dung động bên trong Drawer).
  *
+ * THÊM (27/08/2026, phản hồi Giang mục 3) — nút reset trong header (`#btn-ce-reset-all`,
+ * components/custom-effect-drawer.js), reset TOÀN BỘ `customEffect` (mọi effect, không riêng
+ * effect đang mở) về `DEFAULT_CUSTOM_EFFECT` gốc — xem `_resetAllCustomEffects()`.
+ *
  * NẠP SAU: core/custom-effect.js, core/generic-drawer.js, components/custom-effect-drawer.js,
  * core/dom-refs.js (btnCycleMode, genericDrawer*), service/task-manager.js, event/workflow/
  * generic-drawer-helpers.js, core/visualizer-control-center.js (closeControlCenter() — SỬA
@@ -94,9 +98,34 @@ const workflowCustomEffect = {
         else if (name === 'initThreeJS') initThreeJS(); // core/webgl
     },
 
+    /** MỚI (27/08/2026, phản hồi Giang mục 3 — "nút reset ở header, cho về thông số custom effect
+     * (all effect)") — reset TOÀN BỘ `customEffect` (MỌI effect, KHÔNG riêng effect đang mở) về
+     * đúng `DEFAULT_CUSTOM_EFFECT` gốc (core/config.js). Deep-clone qua JSON (dữ liệu THUẦN —
+     * string/number/boolean/array, không hàm/Date/tham chiếu vòng — an toàn) tránh 2 effect cùng
+     * trỏ chung 1 object mặc định (sửa 1 effect sau reset lỡ ảnh hưởng ngược lại DEFAULT_CUSTOM_EFFECT
+     * gốc). Vẽ lại body để effect ĐANG MỞ hiện đúng giá trị mặc định ngay lập tức. */
+    _resetAllCustomEffects(type) {
+        appConfigViz.mutateAll((cfg) => {
+            cfg.customEffect = JSON.parse(JSON.stringify(DEFAULT_CUSTOM_EFFECT)); // core/config.js
+        });
+        saveConfig();
+        // Field nào của effect ĐANG MỞ từng cần refresh() thủ công lúc user tự kéo (field chỉ đọc
+        // lúc khởi tạo scene) — reset về mặc định CŨNG cần chạy lại, không thì scene vẫn giữ cấu
+        // hình CŨ cho tới lần refresh kế tiếp. Dùng Set khử trùng lặp (vd Vortex 3 field cùng trỏ
+        // 'initThreeJS' — chỉ cần gọi đúng 1 lần).
+        const refreshNames = new Set((CUSTOM_EFFECT_FIELDS[type] || []).filter((f) => f.refresh).map((f) => f.refresh)); // core
+        refreshNames.forEach((name) => this._runRefresh(name));
+        this._rerenderBody(type);
+    },
+
     _wire(type) {
         const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
         if (closeBtn) closeBtn.addEventListener('click', () => workflowGenericDrawerHelpers.closeFully());
+
+        // MỚI (27/08/2026, phản hồi Giang mục 3 — "nút reset ở header, cho về thông số custom
+        // effect (all effect)").
+        const resetAllBtn = genericDrawerHeader.querySelector('#btn-ce-reset-all');
+        if (resetAllBtn) resetAllBtn.addEventListener('click', () => this._resetAllCustomEffects(type));
 
         const styleSelect = genericDrawerBody.querySelector('#ce-style');
         if (styleSelect) {
@@ -178,6 +207,26 @@ const workflowCustomEffect = {
                 saveConfig();
                 const meta = (CUSTOM_EFFECT_FIELDS[type] || []).find((f) => f.id === field); // core
                 if (meta && meta.refresh) this._runRefresh(meta.refresh);
+            });
+        });
+
+        // MỚI (27/08/2026, phản hồi Giang mục 1d — "cho phép các hình thái thiên hà ở trong bag
+        // tạo") — checklist multiToggle, field lưu MẢNG giá trị đang bật (core/custom-effect.js).
+        // Guard: không cho phép bỏ hết — luôn giữ ít nhất 1 lựa chọn (khớp fallback ở
+        // pickGalaxyTypeFromBag(), core/webgl/three-space.js — tránh UI cho phép 1 trạng thái mà
+        // engine phải tự "sửa sai" ngầm ở dưới).
+        genericDrawerBody.querySelectorAll('.ce-field-multitoggle').forEach((el) => {
+            el.addEventListener('change', (e) => {
+                const field = e.target.dataset.field;
+                const option = e.target.dataset.option;
+                const meta = (CUSTOM_EFFECT_FIELDS[type] || []).find((f) => f.id === field); // core
+                const allOptions = typeof meta.options === 'function' ? meta.options() : meta.options;
+                const cfg = getEffectConfig(type);
+                const currentList = (cfg[field] && cfg[field].length > 0) ? cfg[field] : allOptions;
+                const next = e.target.checked ? [...currentList, option] : currentList.filter((o) => o !== option);
+                if (next.length === 0) { e.target.checked = true; return; }
+                setCustomEffectField(type, field, next); // core
+                saveConfig();
             });
         });
 

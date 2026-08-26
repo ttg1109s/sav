@@ -105,7 +105,10 @@ const SPACE_PHRASE_REFRESH_BEATS = 24;
 // ----- Tốc độ di chuyển (dùng CHUNG clusterTravel/galaxyTravel, mục 2a(3)/2b(4)) -----
 const SPACE_TRAVEL_SPEED_BASE = 46;     // đơn vị/giây tại 120bpm, năng lượng trung bình, KHÔNG beat.
 const SPACE_IDLE_TRAVEL_SPEED = 8;      // không phát nhạc — vẫn phải trôi tối thiểu.
-const SPACE_SPEED_MULTIPLIER = 2;
+// SPACE_SPEED_MULTIPLIER hằng số cũ ĐÃ BỎ (27/08/2026, phản hồi Giang mục 1c — "điều chỉnh tốc độ
+// di chuyển sao có thể slow nhất") — thay bằng `customEffect.space.travelSpeedMultiplier` (Custom
+// Effect Drawer, core/custom-effect.js), đọc trực tiếp qua getEffectConfig('space') tại nơi dùng
+// (_advanceClusterTravel()/_advanceGalaxyTravel()) thay vì hằng số cố định.
 const SPACE_TRAVEL_SPEED_RANDOM_VARIANCE = 0.3; // +-30%, chốt 1 lần lúc BẮT ĐẦU travel.
 // "Gia tốc theo beat" — beatScale (0..~1+) ĐỌC LẠI MỖI FRAME, cộng thêm vào tốc độ nền.
 const SPACE_BEAT_ACCEL_FACTOR = 1.6;
@@ -127,6 +130,16 @@ const SPACE_GALAXY_DRIFT_BEAT_MULTIPLIER = 60;
 
 const SPACE_GALAXY_SPIN_SPEED = 0.8; // tốc độ tự quay CHUNG của thiên hà.
 const SPACE_DRIFT_BIN_SPREAD = 3;    // snapshot driftSpeedFactor lúc spawn.
+// Số lần thử tối đa khi tìm vị trí cụm thoả khoảng cách GIỮA các cụm (mục 1a, phản hồi Giang —
+// clusterSeparationMin/Max, core/custom-effect.js) — hết lượt vẫn không đạt thì lấy ứng viên GẦN
+// chuẩn nhất (graceful degradation, không bao giờ treo/loop vô hạn).
+const SPACE_CLUSTER_SEPARATION_MAX_ATTEMPTS = 20;
+// Blur (mục 1e, phản hồi Giang — "on off blur và chỉnh blur như effect khác đang dùng") — canvas
+// WebGL không có ctx.shadowBlur, dùng CSS filter blur() thay thế (applyWebglCanvasBlur(),
+// core/visualizer/visualizer-display.js) — quy đổi TỪ blurMult (0-1) SANG px CSS, mức px tối đa
+// tại blurMult=1. Cố tình NHỎ hơn nhiều so với shadowBlur các effect 2D (blur cả khung hình, không
+// phải glow từng hình khối riêng lẻ — quá lớn sẽ mờ nhoè mất chi tiết thay vì tạo cảm giác mộng ảo).
+const SPACE_BLUR_MAX_PX = 8;
 
 // Biến NỘI BỘ (KHÔNG thuộc STATE, cùng kiểu với `tWarpSpeed` ở core/webgl/three-vortex.js).
 let _spLastFrameTime = null;
@@ -203,6 +216,10 @@ const workflowVisualizerRender = {
             // ================== VISUAL Galaxy — Workflow điều phối THẬT SỰ ==================
             this._tickSpace(isPlaying, newSmoothedEnergy, newGlobalHueOffset);
         }
+        // MỚI (27/08/2026, phản hồi Giang mục 1e) — canvas WebGL DÙNG CHUNG Vortex/Space, gọi
+        // KHÔNG ĐIỀU KIỆN theo type (Vortex không có blurEnabled trong DEFAULT_CUSTOM_EFFECT.vortex
+        // -> perf.blurMult tự nhiên = 0 -> filter tự xoá, xem docstring applyWebglCanvasBlur()).
+        applyWebglCanvasBlur(document.getElementById('webgl-canvas'), perf.blurMult, SPACE_BLUR_MAX_PX); // core
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -291,15 +308,48 @@ const workflowVisualizerRender = {
         const spNebulaTexture = appState.get('spNebulaTexture');
         const spaceCfg = getEffectConfig('space'); // core/custom-effect.js
 
+        // Mục 1a (phản hồi Giang) — khoảng cách GIỮA các cụm: mỗi vị trí MỚI phải tính luôn cả
+        // các cụm ĐÃ ĐẶT trong CHÍNH đợt sinh này (không chỉ so với cụm cũ đã có từ trước).
+        const allPositions = appState.get('spCurrentClusters').map(c => c.position);
         const newClusters = [];
         for (let i = 0; i < count; i++) {
-            const position = generateSpaceClusterCenterPosition(originPos, spaceCfg.clusterDistanceMin, spaceCfg.clusterDistanceMax); // core
+            const position = this._pickClusterPositionWithSeparation(originPos, allPositions, spaceCfg);
+            allPositions.push(position);
             const rotationDir = Math.random() < 0.5 ? 1 : -1; // "xác định... hướng quay" (mục 2a(1))
             const cluster = { id: THREE.MathUtils.generateUUID(), position, rotationDir, galaxies: [], fadeState: 'in', fadeProgress: 0 };
             this._spawnClusterGalaxies(cluster, spaceCfg, spScene, spGlowTexture, spNebulaTexture);
             newClusters.push(cluster);
         }
         appState.mutate('spCurrentClusters', arr => { newClusters.forEach(c => arr.push(c)); });
+    },
+
+    /**
+     * Tìm 1 vị trí cụm MỚI thoả khoảng cách GIỮA nó và cụm GẦN NHẤT hiện có nằm trong
+     * [clusterSeparationMin, clusterSeparationMax] (mục 1a, phản hồi Giang) — rejection sampling:
+     * thử tối đa `SPACE_CLUSTER_SEPARATION_MAX_ATTEMPTS` lần, mỗi lần xin 1 ứng viên từ
+     * `generateSpaceClusterCenterPosition()` (core, vẫn theo `clusterDistanceMin/Max` — khoảng
+     * cách so với CAMERA, khác hẳn khoảng cách GIỮA CÁC CỤM ở đây); ứng viên ĐẦU TIÊN đạt chuẩn
+     * được nhận NGAY. Hết lượt vẫn không có ứng viên nào đạt chuẩn -> lấy ứng viên GẦN chuẩn nhất
+     * đã thử (graceful degradation, không bao giờ treo/loop vô hạn, không bao giờ trả về rỗng).
+     * `existingPositions` rỗng (chưa có cụm nào, ví dụ 3 cụm đầu của lượt bootstrap) -> nhận NGAY
+     * ứng viên đầu tiên, không có gì để so khoảng cách.
+     * @param {THREE.Vector3} originPos @param {THREE.Vector3[]} existingPositions @param {object} spaceCfg
+     * @returns {THREE.Vector3}
+     */
+    _pickClusterPositionWithSeparation(originPos, existingPositions, spaceCfg) {
+        let bestCandidate = null;
+        let bestScore = -Infinity; // 0 = trong khoảng chuẩn, âm = lệch bao nhiêu (càng gần 0 càng tốt)
+        for (let attempt = 0; attempt < SPACE_CLUSTER_SEPARATION_MAX_ATTEMPTS; attempt++) {
+            const candidate = generateSpaceClusterCenterPosition(originPos, spaceCfg.clusterDistanceMin, spaceCfg.clusterDistanceMax); // core
+            if (existingPositions.length === 0) return candidate;
+            const nearestDist = Math.min(...existingPositions.map(p => candidate.distanceTo(p)));
+            if (nearestDist >= spaceCfg.clusterSeparationMin && nearestDist <= spaceCfg.clusterSeparationMax) return candidate;
+            const score = nearestDist < spaceCfg.clusterSeparationMin
+                ? nearestDist - spaceCfg.clusterSeparationMin
+                : spaceCfg.clusterSeparationMax - nearestDist;
+            if (score > bestScore) { bestScore = score; bestCandidate = candidate; }
+        }
+        return bestCandidate;
     },
 
     /** Sinh toàn bộ thiên hà thành viên của 1 cụm — rải quanh `cluster.position`, thiên hướng
@@ -314,7 +364,7 @@ const workflowVisualizerRender = {
         for (let k = 0; k < galaxyCount; k++) {
             const offset = computeSpaceRandomOffset(spaceCfg.clusterSpreadRadius * 0.4, spaceCfg.clusterSpreadRadius); // core
             const finalPos = cluster.position.clone().add(offset);
-            const type = this._pickNextGalaxyType();
+            const type = this._pickNextGalaxyType(spaceCfg);
             const palette = pickGalaxyPalette(spaceCfg.mode, spaceCfg.solidColor, spaceCfg.dynA, spaceCfg.dynB); // core
             const radius = 65 + Math.random() * 25;
             // Snapshot lúc SPAWN (one-shot) — mật độ sao bám theo smoothedEnergy TẠI THỜI ĐIỂM
@@ -354,10 +404,14 @@ const workflowVisualizerRender = {
 
     /** Tra "túi xáo trộn" hình thái thiên hà — MỌI lần spawn 1 thiên hà đều PHẢI qua đây, KHÔNG
      * gọi thẳng `pickGalaxyTypeFromBag()` riêng lẻ ở 2 nơi (tránh 2 túi độc lập không đồng bộ).
+     * SỬA (27/08/2026, phản hồi Giang mục 1d — "cho phép các hình thái thiên hà ở trong bag") —
+     * nhận thêm `spaceCfg` để truyền `enabledGalaxyTypes` (Custom Effect Drawer) vào
+     * `pickGalaxyTypeFromBag()` — túi giờ chỉ xoay vòng trong tập hình thái ĐANG BẬT.
+     * @param {object} spaceCfg - getEffectConfig('space')
      * @returns {string} */
-    _pickNextGalaxyType() {
+    _pickNextGalaxyType(spaceCfg) {
         const bag = appState.get('spGalaxyTypeBag');
-        const result = pickGalaxyTypeFromBag(bag); // core
+        const result = pickGalaxyTypeFromBag(bag, spaceCfg.enabledGalaxyTypes); // core
         appState.set('spGalaxyTypeBag', result.remainingBag);
         return result.type;
     },
@@ -396,9 +450,16 @@ const workflowVisualizerRender = {
         _spBeatsSincePhraseRefresh++;
 
         if (!appState.get('spClusterSwitchPending')) {
-            const energyTransition = detectFluxTransition(_spBeatFluxHistory, SPACE_ENERGY_WINDOW_BEATS, SPACE_FLUX_TRANSITION_THRESHOLD); // core (gameplay/engine.js)
-            const sectionTransition = detectFluxTransition(_spBeatFluxHistory, SPACE_SECTION_WINDOW_BEATS, SPACE_FLUX_TRANSITION_THRESHOLD); // core
-            const phraseBoundary = isPhraseBoundary(_spBeatsSincePhraseRefresh, SPACE_PHRASE_REFRESH_BEATS); // core (gameplay/circle-mode.js)
+            // SỬA (27/08/2026, phản hồi Giang mục 1b — "can thiệp tăng/giảm điều kiện rời khỏi
+            // thiên hà, chỉnh càng cao càng stuck ở cụm") — clusterStickiness (Custom Effect
+            // Drawer) nhân THẲNG vào ngưỡng phát hiện + số beat chờ tối đa: càng cao càng khó đạt
+            // ngưỡng VÀ càng lâu mới tới hạn phraseBoundary => càng khó kích hoạt chuyển cụm.
+            const spaceCfg = getEffectConfig('space'); // core/custom-effect.js
+            const effectiveThreshold = SPACE_FLUX_TRANSITION_THRESHOLD * spaceCfg.clusterStickiness;
+            const effectivePhraseRefreshBeats = SPACE_PHRASE_REFRESH_BEATS * spaceCfg.clusterStickiness;
+            const energyTransition = detectFluxTransition(_spBeatFluxHistory, SPACE_ENERGY_WINDOW_BEATS, effectiveThreshold); // core (gameplay/engine.js)
+            const sectionTransition = detectFluxTransition(_spBeatFluxHistory, SPACE_SECTION_WINDOW_BEATS, effectiveThreshold); // core
+            const phraseBoundary = isPhraseBoundary(_spBeatsSincePhraseRefresh, effectivePhraseRefreshBeats); // core (gameplay/circle-mode.js)
             if (energyTransition || sectionTransition || phraseBoundary) {
                 appState.set('spClusterSwitchPending', true, { skipCheck: true });
                 _spBeatsSincePhraseRefresh = 0;
@@ -555,12 +616,13 @@ const workflowVisualizerRender = {
         const nextPos = appState.get('spTravelNextPos');
         const totalDistance = appState.get('spTravelTotalDistance');
         const randomFactor = appState.get('spTravelSpeedRandomFactor');
+        const spaceCfg = getEffectConfig('space'); // core/custom-effect.js — mục 1c, travelSpeedMultiplier
 
         const bpm = parseInt(currentCalculatedBpm, 10) || 120;
         const baseSpeed = isPlaying
             ? SPACE_TRAVEL_SPEED_BASE * (bpm / 120) * (0.7 + smoothedEnergy * 0.6)
             : SPACE_IDLE_TRAVEL_SPEED;
-        const speed = baseSpeed * randomFactor * (1 + beatScale * SPACE_BEAT_ACCEL_FACTOR) * SPACE_SPEED_MULTIPLIER;
+        const speed = baseSpeed * randomFactor * (1 + beatScale * SPACE_BEAT_ACCEL_FACTOR) * spaceCfg.travelSpeedMultiplier;
 
         const distanceCovered = appState.get('spTravelDistanceCovered') + speed * delta;
         const progress = totalDistance > 0 ? distanceCovered / totalDistance : 1;
@@ -620,12 +682,13 @@ const workflowVisualizerRender = {
         const endPos = appState.get('spTravelNextPos'); // điểm C
         const totalDistance = appState.get('spTravelTotalDistance');
         const randomFactor = appState.get('spTravelSpeedRandomFactor');
+        const spaceCfg = getEffectConfig('space'); // core/custom-effect.js — mục 1c, travelSpeedMultiplier
 
         const bpm = parseInt(currentCalculatedBpm, 10) || 120;
         const baseSpeed = isPlaying
             ? SPACE_TRAVEL_SPEED_BASE * (bpm / 120) * (0.7 + smoothedEnergy * 0.6)
             : SPACE_IDLE_TRAVEL_SPEED;
-        const speed = baseSpeed * randomFactor * (1 + beatScale * SPACE_BEAT_ACCEL_FACTOR) * SPACE_SPEED_MULTIPLIER;
+        const speed = baseSpeed * randomFactor * (1 + beatScale * SPACE_BEAT_ACCEL_FACTOR) * spaceCfg.travelSpeedMultiplier;
 
         const distanceCovered = appState.get('spTravelDistanceCovered') + speed * delta;
         const progress = totalDistance > 0 ? distanceCovered / totalDistance : 1;
