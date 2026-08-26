@@ -537,13 +537,14 @@
     <!-- Phase 2 (mục 1b/c, CHỐT 03/07/2026) — Folder Detail Drawer. CẦN core/file-manager/folder.js
          (getFolderSongKeys) + core/dom-refs.js (đã nạp ngay trên). -->
     <script src="core/file-manager/folder-detail-ui.js?v=20260714v3"></script>
-    <!-- Batch 3 (03/07/2026) — Ảnh & Album. image.js/album.js độc lập với folder.js (không dùng
-         chung hàm nào ngoài slugify()/getMeta()/setMeta() ở core/db.js) — thứ tự giữa 2 file này
-         với nhau không quan trọng, chỉ cần SAU core/db.js. photo-ui.js CẦN dom-refs.js (đã nạp ở
-         block DOM refs phía trên) + image.js/album.js (dùng trong workflow, không tham chiếu trực
-         tiếp ở đây, nhưng gom nhóm cho dễ đọc). -->
+    <!-- Batch 3 (03/07/2026) — Ảnh. image.js độc lập với folder.js (không dùng chung hàm nào ngoài
+         slugify()/getMeta()/setMeta() ở core/db.js) — chỉ cần SAU core/db.js. photo-ui.js CẦN
+         dom-refs.js (đã nạp ở block DOM refs phía trên) + image.js (dùng trong workflow, không
+         tham chiếu trực tiếp ở đây, nhưng gom nhóm cho dễ đọc).
+         XOÁ (loại bỏ Album khỏi Photo Panel) — album.js (CRUD store 'albums', đã ngừng dùng cùng
+         store — xem comment DB_VERSION ở service/db.js) bỏ hẳn cùng tính năng, không còn nơi nào
+         gọi tới. -->
     <script src="core/file-manager/image.js?v=20260823v1"></script>
-    <script src="core/file-manager/album.js?v=20260703v1"></script>
     <script src="core/file-manager/photo-ui.js?v=20260731v9"></script>
     <!-- MỚI (v13) — picker Generic Drawer DÙNG CHUNG cho lưới ảnh lẫn lưới video. -->
     <script src="core/media-picker-drawer-helper.js?v=20260807v1"></script>
@@ -567,7 +568,7 @@
     <script src="core/video-editor/compat-guard.js?v=20260802v1"></script>
     <script src="core/video-editor/webcodecs-engine.js?v=20260802v1"></script>
     <script src="core/video-editor/filmstrip.js?v=20260722v1"></script>
-    <!-- MỚI (21/07/2026) — File Manager -> Video. Độc lập với image.js/album.js (không
+    <!-- MỚI (21/07/2026) — File Manager -> Video. Độc lập với image.js (không
          dùng chung hàm nào ngoài slugify()/service/db.js) — chỉ cần SAU service/db.js.
          core/file-manager/video-ui.js ĐÃ XOÁ HẲN (Batch 6, mục 6d, phản hồi Giang — modal "Chi
          tiết" riêng nó từng chứa đã bỏ, dùng chung modal Playlist đã video-aware). -->
