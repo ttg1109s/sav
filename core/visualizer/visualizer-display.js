@@ -123,41 +123,32 @@
                         const dustMesh = buildSpaceDustMesh(dustCount, SPACE_DUST_RANGE, appState.get('spGlowTexture'));
                         appState.get('spScene').add(dustMesh);
                         appState.set('spDustMesh', dustMesh);
-                        appState.set('spGalaxyClusters', []);
-                        appState.set('spGalaxyTypeBag', []); // MỚI — túi xáo trộn hình thái, rỗng lúc đầu tự nạp lại ở lần spawn đầu tiên
+                        appState.set('spGalaxyTypeBag', []); // túi xáo trộn hình thái, rỗng lúc đầu tự nạp lại ở lần spawn đầu tiên
                         appState.set('spTotalGalaxiesSpawned', 0);
-                        // MỚI (21/07/2026, phản hồi Giang lượt 2) — mô hình pha TRAVEL/ROTATE
-                        // (mục 3) — KHÔNG khởi tạo `spNextPos` ở đây (để trống/undefined có chủ
-                        // đích): `event/workflow/visualizer-render.js::_tickSpace()` tự phát hiện
-                        // `!appState.get('spNextPos')` ở lần tick ĐẦU TIÊN và tự sinh leg đầu tiên
-                        // — tránh trùng lặp logic "sinh leg" ở 2 nơi khác nhau (ở đây và ở Workflow).
-                        appState.set('spPhase', 'travel');
+                        // VIẾT LẠI (26/08/2026, phản hồi Giang — mô hình cụm thiên hà, thay hẳn
+                        // bản đồ TĨNH + travel/rotate 2 pha cũ, xem đầu core/webgl/three-space.js)
+                        // — KHÔNG dựng sẵn 5 cụm ở ĐÂY (mảng `spCurrentClusters` rỗng bên dưới tự
+                        // báo hiệu "chưa dựng" cho event/workflow/visualizer-render.js::_tickSpace()
+                        // tự phát hiện ở lần tick ĐẦU TIÊN và tự sinh 5 cụm + chọn cụm đầu tiên —
+                        // tránh trùng lặp logic "sinh cụm" ở 2 nơi khác nhau).
+                        appState.set('spCurrentClusters', []);
+                        appState.set('spTargetCluster', undefined);
+                        appState.set('spClusterSwitchPending', false);
+                        appState.set('spTargetGalaxy', undefined);
+                        appState.set('spPhase', 'clusterRotate');
                         appState.set('spForward', undefined);
-                        appState.set('spNextPos', undefined);
-                        // MỚI (21/07/2026, lượt 9, phản hồi Giang mục 1 — "ngay từ đầu tạo 1 map
-                        // thiên hà sẵn có 3D trải đều các hướng") — bản đồ TĨNH chưa dựng lúc này
-                        // (mảng `spGalaxyClusters` rỗng ở trên tự báo hiệu "chưa dựng" cho
-                        // `_ensureGalaxyMap()`, event/workflow/visualizer-render.js — tự dựng NGAY
-                        // lần tick đầu tiên), chỉ khai rõ 2 field liên quan cho đủ bộ.
-                        appState.set('spMapCenter', undefined);
-                        appState.set('spMapLastRegenTime', 0);
-                        // VIẾT LẠI (21/07/2026, phản hồi Giang lượt 6 — "camera chuyển hướng hiện
-                        // tại chỉ có trái phải, cần thêm trên dưới, chéo góc... môi trường 3D là đa
-                        // hướng") — bảng 12 phần tử, mỗi phần tử giờ là 1 CẶP {yaw, pitch} (radian,
-                        // cả 2 đều [-π,π), pitch KHÔNG giới hạn biên độ — Giang xác nhận "cứ cho
-                        // lộn"), giống cấu trúc RUBIK_NOTE_TO_TURN (core/dom-refs.js) nhưng SINH
-                        // NGẪU NHIÊN 1 LẦN ở đây, TÁI SỬ DỤNG suốt phiên xem Space — mỗi lần cần 1
-                        // hướng ứng viên MỚI, tra bảng theo nốt hiện tại rồi XOAY THẲNG vector
-                        // forward sang hướng đó (`steerSpaceForward3D()`, core/webgl/three-space.js
-                        // — xem event/workflow/visualizer-render.js::_computeSteeredCandidateForward()).
-                        // Tham chiếu `SPACE_NOTE_STEER_RANGE` định nghĩa ở
-                        // event/workflow/visualizer-render.js — hợp lệ dù file đó nạp SAU file này
-                        // (tham chiếu xảy ra lúc HÀM NÀY THỰC SỰ CHẠY, luôn sau khi toàn bộ
-                        // <script> trong trang đã parse xong).
-                        appState.set('spNoteSteerTable', Array.from({ length: 12 }, () => ({
-                            yaw: (Math.random() - 0.5) * 2 * SPACE_NOTE_STEER_RANGE,
-                            pitch: (Math.random() - 0.5) * 2 * SPACE_NOTE_STEER_RANGE
-                        })));
+                        appState.set('spRotateFromForward', undefined);
+                        appState.set('spRotateToForward', undefined);
+                        appState.set('spRotateElapsed', 0);
+                        appState.set('spRotateDuration', 0);
+                        appState.set('spTravelStartPos', undefined);
+                        appState.set('spTravelNextPos', undefined);
+                        appState.set('spTravelDistanceCovered', 0);
+                        appState.set('spTravelTotalDistance', 0);
+                        appState.set('spTravelSpeedRandomFactor', 1);
+                        appState.set('spGalaxyTravelMidPos', undefined);
+                        appState.set('spGalaxyTravelFromForward', undefined);
+                        appState.set('spGalaxyTravelToForward', undefined);
                         appState.set('spInitialized', true);
                     }
                     // Tone mapping (plan B2) — lưu mặc định (Vortex, KHÔNG set tone mapping riêng —
