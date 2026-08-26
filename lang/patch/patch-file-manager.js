@@ -91,7 +91,6 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.image.cropRatioSquare': 'Square',
     'fileManager.photo.image.editToolText': 'Text',
     'fileManager.photo.image.editToolDraw': 'Draw',
-    'fileManager.photo.image.editToolMagic': 'Cutout',
     'fileManager.photo.image.btnSaveOverwrite': 'Save (overwrite)',
     'fileManager.photo.image.btnSaveNew': 'Save as new',
     'fileManager.photo.image.editSaveOverwriteSuccess': 'Saved — original photo updated.',
@@ -99,24 +98,24 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.photo.image.editTextPlaceholder': 'Text',
     'fileManager.photo.image.editDrawBrush': 'Brush',
     'fileManager.photo.image.editDrawEraser': 'Eraser',
-    'fileManager.photo.image.editMagicTolerance': 'Color tolerance',
-    'fileManager.photo.image.editMagicHint': 'Tap a color area on the photo to remove it.',
     // MỚI (Shape tool + layer Text/Shape, Giang yêu cầu "text/shape là layer chỉnh sửa lại được" +
     // "thêm tool shape/hoạ tiết").
     'fileManager.photo.image.editToolShape': 'Shape',
     // Menu long-press (nhấn giữ 1.5s) trên 1 layer có sẵn.
-    'fileManager.photo.image.layerMenuEdit': 'Edit',
+    // SỬA (Giang chỉ ra `workflowElementStyleEditor` vốn đã là công cụ CHUNG dùng bởi Subtitle
+    // Styling, KHÔNG tự chế Generic Drawer riêng cho Photo layer nữa) — "Sửa" cũ TÁCH thành 2 mục:
+    // "layerMenuEditContent" (CHỈ Text — sửa nội dung chữ qua modalChoice(), core/modal-choice-
+    // ui.js) + "layerMenuEdit" (giữ nguyên tên/nghĩa cũ, giờ mở workflowElementStyleEditor thay vì
+    // Drawer tự chế — event/workflow/image-edit.js::openLayerStyleEditor()). 6 key
+    // layerStyleTitleText/Shape/FontSize/Color/Fill/Stroke/StrokeWidth (dùng bởi
+    // `_buildLayerStyleDrawerHtml()` cũ) đã XOÁ HẲN cùng lúc — Element Style Editor tự có nhãn field
+    // riêng của nó (components/element-style-editor-drawer.js), không cần bộ key này nữa.
+    'fileManager.photo.image.layerMenuEditContent': 'Edit text',
+    'fileManager.photo.image.layerMenuEdit': 'Edit style',
     'fileManager.photo.image.layerMenuDuplicate': 'Duplicate',
     'fileManager.photo.image.layerMenuDelete': 'Delete',
-    // Tiêu đề Generic Drawer style editor (khác nhau theo loại layer).
-    'fileManager.photo.image.layerStyleTitleText': 'Text style',
-    'fileManager.photo.image.layerStyleTitleShape': 'Shape style',
-    // Field trong style editor — dùng chung cho cả 2 loại layer.
-    'fileManager.photo.image.layerStyleFontSize': 'Font size',
-    'fileManager.photo.image.layerStyleColor': 'Color',
-    'fileManager.photo.image.layerStyleFill': 'Fill',
-    'fileManager.photo.image.layerStyleStroke': 'Stroke color',
-    'fileManager.photo.image.layerStyleStrokeWidth': 'Stroke width',
+    // Tiêu đề modalChoice() "Sửa nội dung" (layer Text).
+    'fileManager.photo.image.layerEditContentTitle': 'Edit text content',
     // ── Drawer con: Video — ĐÃ XOÁ HẲN panel riêng (ver12 "Song/Video Unification", Batch 6, mục
     // 6d, phản hồi Giang) — gộp vào "Song & Video" (Batch 5). CHỈ CÒN 3 key dưới đây (dùng bởi
     // uploadVideos()/picker "Use background video" — xem event/workflow/file-manager-video.js) —
