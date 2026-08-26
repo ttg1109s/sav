@@ -31,7 +31,7 @@ const routerImageEdit = (() => {
             }
 
             // Bấm 1 tile trong lưới tool (Generic Drawer, workflowImageEdit::_buildEditToolGridHtml())
-            // — openEditTool() tự phân luồng theo toolKey (Điều chỉnh/Crop/Vẽ/Text/Tách nền).
+            // — openEditTool() tự phân luồng theo toolKey (Điều chỉnh/Crop/Vẽ/Text/Shape).
             case 'imageEdit.toolGrid.tile.click': {
                 workflowImageEdit.openEditTool(msg.payload.tool);
                 break;
@@ -49,17 +49,12 @@ const routerImageEdit = (() => {
                 break;
             }
 
-            // Field trong style editor layer (MỚI, Generic Drawer mở qua "Sửa" ở menu long-press) —
-            // Đích cố định, phân theo `field` nằm TRONG chính hàm (không cần VirtualMachineState ở
-            // đây — nhiều field CÙNG map vào 1 hàm, không phải rẽ nhánh loại trừ nhau).
-            case 'imageEdit.layerStyle.field.input': {
-                workflowImageEdit.updateLayerStyleField(msg.payload.field, msg.payload.value, msg.payload.checked);
-                break;
-            }
-            case 'imageEdit.layerStyle.close.click': {
-                workflowImageEdit.closeLayerStyleEditor();
-                break;
-            }
+            // XOÁ (Giang chỉ ra `workflowElementStyleEditor` vốn đã là công cụ CHUNG, không tự chế
+            // Generic Drawer riêng cho style layer nữa) — 'imageEdit.layerStyle.field.input'/
+            // 'imageEdit.layerStyle.close.click' đã xoá hẳn, `openLayerStyleEditor()` (event/
+            // workflow/image-edit.js) giờ gọi thẳng `workflowElementStyleEditor.open()` — Drawer đó
+            // tự wire nút X/field CỦA CHÍNH NÓ (event/workflow/element-style-editor.js::_wire()),
+            // không đi qua router `imageEdit` này nữa.
 
             // Nút X TRÊN CHÍNH Generic Drawer (header lưới tool, core/file-manager/photo-ui.js::
             // openPhotoEditToolGridDrawerUi()) — CHỈ đóng Drawer (KHÔNG mode nào để thoát — canvas
@@ -78,16 +73,17 @@ const routerImageEdit = (() => {
             // `_startXxxTool()` khác nhau). Giờ 5 nút wire ĐÚNG 1 LẦN ở photo-ui.js, msg.type CỐ
             // ĐỊNH — 5 case dưới đây thay cho việc "nút tự đổi nghĩa theo tool đang mở".
 
-            // Huỷ sub-tool (Crop/Vẽ/Text/Tách nền) — hành vi GIỐNG HỆT bất kể tool nào đang mở, gọi
+            // Huỷ sub-tool (Crop/Vẽ/Text/Shape) — hành vi GIỐNG HỆT bất kể tool nào đang mở, gọi
             // thẳng, KHÔNG cần VirtualMachineState phân theo `_activeSubTool`.
             case 'imageEdit.subTool.cancel.click': {
                 workflowImageEdit.exitSubTool();
                 break;
             }
 
-            // Áp dụng sub-tool — hành vi KHÁC NHAU theo tool đang mở (Magic không có nút này, tự ẩn
-            // `contextApplyBtn`) — Router tự đọc `getActiveSubTool()` rồi CHỌN đúng hàm (Rule 1: nơi
-            // gọi chọn hàm, không phải nút tự đổi nghĩa/core tự rẽ nhánh).
+            // Áp dụng sub-tool — hành vi KHÁC NHAU theo tool đang mở (Shape lúc đang CHỌN LOẠI hình,
+            // chưa vào 'shapePlacement', tự ẩn `contextApplyBtn` — xem `_startShapeTool()`) — Router
+            // tự đọc `getActiveSubTool()` rồi CHỌN đúng hàm (Rule 1: nơi gọi chọn hàm, không phải
+            // nút tự đổi nghĩa/core tự rẽ nhánh).
             case 'imageEdit.subTool.apply.click': {
                 const activeSubTool = workflowImageEdit.getActiveSubTool();
                 VirtualMachineState.run([
@@ -158,7 +154,6 @@ const routerImageEdit = (() => {
                 switch (workflowImageEdit.getActiveSubTool()) {
                     case 'crop': case 'shapePlacement': workflowImageEdit.cropPointerDown(msg.payload); break;
                     case 'draw': workflowImageEdit.drawPointerDown(msg.payload); break;
-                    case 'magic': workflowImageEdit.magicPointerDown(msg.payload); break;
                     case 'none': workflowImageEdit.layerPointerDown(msg.payload); break;
                     // 'text' -> không làm gì, KHÔNG cảnh báo (bình thường).
                 }
@@ -169,8 +164,6 @@ const routerImageEdit = (() => {
                     case 'crop': case 'shapePlacement': workflowImageEdit.cropPointerMove(msg.payload); break;
                     case 'draw': workflowImageEdit.drawPointerMove(msg.payload); break;
                     case 'none': workflowImageEdit.layerPointerMove(msg.payload); break;
-                    // 'magic' KHÔNG cần theo dõi pointermove (chỉ 1 điểm chạm là đủ, xem
-                    // magicPointerDown()) — cố ý không có case.
                 }
                 break;
             }
@@ -202,10 +195,6 @@ const routerImageEdit = (() => {
 
             case 'imageEdit.adjust.slider.input': {
                 workflowImageEdit.updateAdjustSlider(msg.payload.value);
-                break;
-            }
-            case 'imageEdit.magic.slider.input': {
-                workflowImageEdit.updateMagicSlider(msg.payload.value);
                 break;
             }
 
