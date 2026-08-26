@@ -176,53 +176,34 @@ function mergeCanvases(baseCanvas, overlayCanvas, compositeOp = 'source-over') {
     return out;
 }
 
-/**
- * Tách nền màu trơn ("Tách nền"/Magic cutout) — quét TOÀN BỘ ảnh, pixel nào lệch màu tại điểm chạm
- * (`startX`,`startY`) trong khoảng `tolerance` thì đặt alpha=0. Thuật toán chromakey đơn giản (KHÔNG
- * phải flood-fill đệ quy theo vùng liền kề — quét toàn ảnh nhanh hơn hẳn trên di động, đúng khuôn
- * Lumina Pro) — phù hợp nền TRƠN 1 màu, không phù hợp nền có gradient/hoạ tiết phức tạp.
- * @param {HTMLCanvasElement} canvas
- * @param {number} startX @param {number} startY - toạ độ điểm chạm, hệ toạ độ canvas (nguyên).
- * @param {number} tolerance - 0-255-ish, độ lệch màu tối đa vẫn tính là "cùng vùng".
- * @returns {ImageData|null} `null` nếu điểm chạm nằm ngoài canvas hoặc đã trong suốt sẵn.
- */
-function applyMagicCutout(canvas, startX, startY, tolerance) {
-    const w = canvas.width, h = canvas.height;
-    if (startX < 0 || startY < 0 || startX >= w || startY >= h) return null;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    const imageData = ctx.getImageData(0, 0, w, h);
-    const data = imageData.data;
-
-    const targetPos = (startY * w + startX) * 4;
-    const tR = data[targetPos], tG = data[targetPos + 1], tB = data[targetPos + 2];
-    if (data[targetPos + 3] === 0) return null; // điểm chạm đã trong suốt sẵn — không có gì để tách
-
-    for (let i = 0; i < data.length; i += 4) {
-        if (data[i + 3] === 0) continue;
-        const diff = Math.max(Math.abs(data[i] - tR), Math.abs(data[i + 1] - tG), Math.abs(data[i + 2] - tB));
-        if (diff <= tolerance) data[i + 3] = 0;
-    }
-    return imageData;
-}
+// XOÁ (Giang yêu cầu bỏ hẳn tool "Tách nền"/Cutout) — applyMagicCutout() (chromakey quét toàn ảnh
+// theo điểm chạm) đã xoá hẳn, 0 lời gọi còn lại (event/workflow/image-edit.js::magicPointerDown()
+// cùng toàn bộ hạ tầng UI của tool này đã xoá cùng lúc, xem core/file-manager/photo-ui.js).
 
 /**
  * "Nướng" 1 đoạn văn bản thẳng lên canvas TẠI ĐÚNG vị trí — mutate `canvas` nhận vào TRỰC TIẾP
  * (KHÁC các hàm khác ở file này — chữ là thao tác "vẽ thêm 1 lần", không có ý nghĩa giữ bản canvas
  * cũ để so sánh lại, nên không cần tách input/output riêng, đỡ 1 lần copy canvas tốn kém trên ảnh
  * lớn). Hỗ trợ xuống dòng (`\n`), tự canh giữa each dòng quanh (x,y).
+ * SỬA (Giang yêu cầu dùng lại Element Style Editor CHUNG cho "Sửa kiểu" — event/workflow/image-
+ * edit.js::openLayerStyleEditor()) — nhận NGUYÊN `layer` thay vì 5 tham số rời rạc, thêm
+ * `fontWeight`/`fontStyle` (field MỚI trên layer, ánh xạ từ tab Text của Element Style Editor) —
+ * `|| 'bold'`/`|| 'normal'` giữ NGUYÊN hành vi cũ cho layer tạo TRƯỚC khi có 2 field này (chưa từng
+ * mở "Sửa kiểu" qua Element Style Editor). `font-family` CỐ Ý CHƯA nhận từ Element Style Editor
+ * (xem docstring `_applyLayerStyleCssString()`, event/workflow/image-edit.js) — giữ cố định
+ * `Inter, sans-serif`.
  * @param {HTMLCanvasElement} canvas
- * @param {string} text @param {number} x @param {number} y - tâm khối chữ, hệ toạ độ canvas.
- * @param {number} fontSizePx @param {string} color
+ * @param {{text:string, x:number, y:number, fontSizePx:number, color:string, fontWeight?:string, fontStyle?:string}} layer
  */
-function drawTextOnCanvas(canvas, text, x, y, fontSizePx, color) {
+function drawTextOnCanvas(canvas, layer) {
     const ctx = canvas.getContext('2d');
-    ctx.font = `bold ${fontSizePx}px Inter, sans-serif`;
-    ctx.fillStyle = color;
+    ctx.font = `${layer.fontStyle || 'normal'} ${layer.fontWeight || 'bold'} ${layer.fontSizePx}px Inter, sans-serif`;
+    ctx.fillStyle = layer.color;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const lines = text.split('\n');
+    const lines = layer.text.split('\n');
     lines.forEach((line, i) => {
-        ctx.fillText(line, x, y + (i - (lines.length - 1) / 2) * fontSizePx * 1.2);
+        ctx.fillText(line, layer.x, layer.y + (i - (lines.length - 1) / 2) * layer.fontSizePx * 1.2);
     });
 }
 
@@ -230,13 +211,16 @@ function drawTextOnCanvas(canvas, text, x, y, fontSizePx, color) {
  * MỚI (layer Text/Shape, Giang yêu cầu "text/shape cần là layer chỉnh sửa lại được") — đo bounding
  * box CANVAS-PIXEL của 1 text layer, dùng cho hit-test chọn layer (KHÔNG vẽ gì lên canvas — hàm
  * THUẦN chỉ đọc `measureText()`, canvas nhận vào chỉ để mượn context đo, không bị mutate).
+ * SỬA (cùng đợt `drawTextOnCanvas()` ở trên) — dùng CHUNG đúng chuỗi `ctx.font` (kể cả
+ * fontWeight/fontStyle) để đo ĐÚNG kích thước THẬT sẽ vẽ ra — bold/italic đổi độ rộng chữ so với
+ * normal, đo sai font sẽ ra hit-test box lệch so với chữ thật hiển thị.
  * @param {HTMLCanvasElement} canvas
- * @param {{text: string, x: number, y: number, fontSizePx: number}} layer
+ * @param {{text: string, x: number, y: number, fontSizePx: number, fontWeight?: string, fontStyle?: string}} layer
  * @returns {{x: number, y: number, w: number, h: number}}
  */
 function measureTextLayerBoundingBox(canvas, layer) {
     const ctx = canvas.getContext('2d');
-    ctx.font = `bold ${layer.fontSizePx}px Inter, sans-serif`;
+    ctx.font = `${layer.fontStyle || 'normal'} ${layer.fontWeight || 'bold'} ${layer.fontSizePx}px Inter, sans-serif`;
     const lines = layer.text.split('\n');
     const w = Math.max(...lines.map(line => ctx.measureText(line).width));
     const h = lines.length * layer.fontSizePx * 1.2;
