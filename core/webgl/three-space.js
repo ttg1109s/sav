@@ -506,16 +506,27 @@ const GALAXY_GENERATORS = {
  * thái thiên hà phân bổ không đều, trùng lặp khá nhiều"): random ĐỘC LẬP thuần tuý (bản trước,
  * `pickGalaxyType()` — mỗi lần chọn không nhớ gì các lần trước) vẫn có thể ra liên tiếp NHIỀU lần
  * cùng 1 hình thái hoàn toàn hợp lệ về mặt xác suất (không phải bug, nhưng KHÓ CHỊU về mặt thị
- * giác — đúng phản ánh của Giang). Giờ đảm bảo mọi 10 hình thái xuất hiện ĐÚNG 1 LẦN mỗi chu kỳ 10
- * lần chọn (thứ tự bên trong mỗi chu kỳ vẫn NGẪU NHIÊN, chỉ đảm bảo KHÔNG THIẾU/KHÔNG THỪA hình
- * thái nào trong 1 chu kỳ) — thuật toán Fisher-Yates chuẩn khi túi cạn.
+ * giác — đúng phản ánh của Giang). Giờ đảm bảo mọi hình thái ĐANG BẬT xuất hiện ĐÚNG 1 LẦN mỗi chu
+ * kỳ (thứ tự bên trong mỗi chu kỳ vẫn NGẪU NHIÊN, chỉ đảm bảo KHÔNG THIẾU/KHÔNG THỪA hình thái nào
+ * trong 1 chu kỳ) — thuật toán Fisher-Yates chuẩn khi túi cạn.
+ *
+ * SỬA (27/08/2026, phản hồi Giang — "cho phép các hình thái thiên hà ở trong bag tạo", tức người
+ * dùng bật/tắt TỪNG hình thái qua Custom Effect, `customEffect.space.enabledGalaxyTypes`) — thêm
+ * tham số `enabledTypes`: túi giờ chỉ xoay vòng trong tập ĐANG BẬT (KHÔNG còn cố định
+ * `SPACE_GALAXY_TYPES` toàn bộ 10 loại). Túi nhận vào được LỌC LẠI theo `enabledTypes` NGAY ĐẦU
+ * hàm (không chỉ lúc nạp đầy) — nếu người dùng vừa tắt bớt 1 hình thái, phần tử thừa (thuộc hình
+ * thái vừa tắt) còn sót trong túi cũ bị loại bỏ ngay, không phải đợi hết 1 chu kỳ mới "sạch".
  * @param {string[]} bag - túi hiện tại (Workflow tự lưu trong STATE, truyền vào đây mỗi lần gọi) —
  *   rỗng hoặc `null`/`undefined` thì tự nạp lại đầy + xáo trộn.
+ * @param {string[]} [enabledTypes] - tập hình thái ĐANG BẬT — rỗng/`null`/`undefined` thì dùng
+ *   toàn bộ `SPACE_GALAXY_TYPES` (an toàn nếu người dùng lỡ tắt hết, xem Workflow gọi hàm này).
  * @returns {{type: string, remainingBag: string[]}}
  */
-function pickGalaxyTypeFromBag(bag) {
-    let currentBag = (bag && bag.length > 0) ? bag.slice() : SPACE_GALAXY_TYPES.slice();
-    if (currentBag.length === SPACE_GALAXY_TYPES.length) {
+function pickGalaxyTypeFromBag(bag, enabledTypes) {
+    const pool = (enabledTypes && enabledTypes.length > 0) ? enabledTypes : SPACE_GALAXY_TYPES;
+    let currentBag = (bag || []).filter((t) => pool.includes(t));
+    if (currentBag.length === 0) {
+        currentBag = pool.slice();
         for (let i = currentBag.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             const tmp = currentBag[i]; currentBag[i] = currentBag[j]; currentBag[j] = tmp;
