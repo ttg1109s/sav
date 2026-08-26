@@ -1,7 +1,11 @@
 /**
  * event/workflow/image-edit.js — TÁCH RA từ event/workflow/file-manager-photo.js (31/07/2026, yêu
  * cầu Giang) — toàn bộ công cụ chỉnh sửa của modal xem ảnh Photo (lưới tool phẳng, Điều chỉnh/Crop/
- * Vẽ/Text/Shape/Tách nền, Lưu đè/Lưu mới). Router riêng: event/router/image-edit.js (tên `imageEdit`).
+ * Vẽ/Text/Shape, Lưu đè/Lưu mới). Router riêng: event/router/image-edit.js (tên `imageEdit`).
+ * XOÁ (Giang yêu cầu bỏ hẳn tool "Tách nền"/Cutout) — `_startMagicTool()`/`updateMagicSlider()`/
+ * `magicPointerDown()` cùng `magicPopup`/`magicSliderEl`/`magicValueEl` (core/file-manager/photo-
+ * ui.js) đã xoá hẳn, không còn entry point nào khác gọi tới `applyMagicCutout()` (core/photo-editor-
+ * engine.js — TỰ AUDIT xác nhận 0 lời gọi còn lại, xoá luôn hàm đó).
  *
  * Biên giới tách theo TRÁCH NHIỆM, không theo file — `workflowFileManagerPhoto` (miền khác) vẫn giữ
  * vòng đời modal xem ảnh (mở/đóng/Zoom), lộ 2 khe ĐỌC cho workflow này tự lấy lại
@@ -28,7 +32,7 @@ const workflowImageEdit = {
     _activeImageKey: null,         // snapshot từ getActiveImageKey() — decode canvas cần lại
     _activeEditParams: null,       // {brightness,contrast,saturation,temperature,tint,sharpen} — null TRƯỚC KHI decode xong (khoảng rất ngắn ngay lúc mở modal)
     _activeAdjustParam: null,      // key param đang mở slider — null khi popup adjust đang ẩn
-    _activeSubTool: 'none',        // 'none'|'crop'|'draw'|'text'|'magic'|'shapePlacement' — KHÁC 'adjust' (live-preview trực tiếp, không có sub-tool mode riêng)
+    _activeSubTool: 'none',        // 'none'|'crop'|'draw'|'text'|'shapePlacement' — KHÁC 'adjust' (live-preview trực tiếp, không có sub-tool mode riêng)
     _editToolGridClickHandler: null, // hàm GỠ trả về từ wirePhotoEditToolGridDelegation() (core/file-manager/photo-ui.js), wire 1 lần/phiên modal
     _cropSession: null,            // session core/crop-selector.js — dùng CHUNG cho 'crop' VÀ 'shapePlacement' (kéo khung/handle giống hệt nhau về mặt hình học, xem selectShapeType()) — chỉ có nghĩa khi _activeSubTool là 1 trong 2 tool đó
     _drawType: 'brush',            // 'brush'|'eraser'
@@ -47,7 +51,6 @@ const workflowImageEdit = {
     _layerDragStart: null,         // {x, y, layerX, layerY} (toạ độ canvas-pixel) lúc bắt đầu chạm 1 layer — null = không đang tương tác
     _layerDragMoved: false,        // đã kéo đủ xa để coi là "di chuyển" (huỷ hẹn giờ long-press) hay chưa
     _layerLongPressTimer: null,    // setTimeout id chờ 1.5s mở menu Sửa/Xoá/Nhân bản — null = không có hẹn giờ nào đang chờ
-    _layerStyleDrawerClickHandler: null, // hàm GỠ trả về từ wireLayerStyleDrawerDelegation() — chỉ có nghĩa lúc style editor đang mở
 
     /** Cấu hình min/max mỗi param điều chỉnh — sharpen từ 0 (không "âm"), còn lại -100..100. */
     _adjustParamConfig: {
@@ -130,7 +133,6 @@ const workflowImageEdit = {
             { key: 'crop', icon: svg('M6 3v3m0 0v12a1 1 0 001 1h12M6 6h12a1 1 0 011 1v12m0 0h-3m3 0v-3'), labelKey: 'fileManager.photo.image.editToolCrop' },
             { key: 'text', icon: svg('M4 7V4h16v3M9 20h6M12 4v16'), labelKey: 'fileManager.photo.image.editToolText' },
             { key: 'draw', icon: svg('M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z'), labelKey: 'fileManager.photo.image.editToolDraw' },
-            { key: 'magic', icon: svg('M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z'), labelKey: 'fileManager.photo.image.editToolMagic' },
             { key: 'shape', icon: svg('M12 3l8 6-3 10H7L4 9z'), labelKey: 'fileManager.photo.image.editToolShape' },
         ];
         return `
@@ -155,7 +157,6 @@ const workflowImageEdit = {
         if (toolKey === 'crop') { this._startCropTool(); return; }
         if (toolKey === 'draw') { this._startDrawTool(); return; }
         if (toolKey === 'text') { this._startTextTool(); return; }
-        if (toolKey === 'magic') { this._startMagicTool(); return; }
         if (toolKey === 'shape') { this._startShapeTool(); return; }
     },
 
@@ -232,7 +233,7 @@ const workflowImageEdit = {
         handle.renderCanvas.getContext('2d').putImageData(imageData, 0, 0);
     },
 
-    /** @returns {string} 'none'|'crop'|'draw'|'text'|'magic' — khe ĐỌC cho Router (`imageEdit`)
+    /** @returns {string} 'none'|'crop'|'draw'|'text'|'shapePlacement' — khe ĐỌC cho Router (`imageEdit`)
      * chọn đúng hàm khi bấm `contextApplyBtn` HOẶC khi nhận pointer event trên `interactCanvas`
      * (dùng CHUNG cho cả 4 sub-tool, hành vi khác nhau theo tool đang mở). */
     getActiveSubTool() { return this._activeSubTool; },
@@ -290,11 +291,10 @@ const workflowImageEdit = {
         this._textDragging = false;
         handle.interactCanvas.getContext('2d').clearRect(0, 0, handle.interactCanvas.width, handle.interactCanvas.height);
         handle.contextBar.classList.add('hidden');
-        handle.contextApplyBtn.classList.remove('hidden'); // reset — _startMagicTool()/_startShapeTool() (lúc đang chọn loại) tự ẩn nút này
+        handle.contextApplyBtn.classList.remove('hidden'); // reset — _startShapeTool() (lúc đang chọn loại) tự ẩn nút này
         handle.header.classList.remove('hidden');
         handle.floatingText.classList.add('hidden');
         handle.drawControlsPopup.classList.add('hidden');
-        handle.magicPopup.classList.add('hidden');
         handle.cropRatioPopup.classList.add('hidden');
         handle.shapeTypePopup.classList.add('hidden');
         this._activeSubTool = 'none';
@@ -352,11 +352,29 @@ const workflowImageEdit = {
     },
 
     /** Ứng với `imageEdit.interactCanvas.pointerMove` lúc `getActiveSubTool()` là 'crop' HOẶC
-     * 'shapePlacement'. Public — Router gọi trực tiếp. @param {{x:number,y:number}} pos */
+     * 'shapePlacement'. Public — Router gọi trực tiếp.
+     * FIX (Giang báo "kéo khung/handle Shape xong nhưng shape thật không di chuyển theo") —
+     * TRƯỚC ĐÂY chỉ cập nhật `_cropSession.rect` + vẽ lại overlay khung/handle trên `interactCanvas`
+     * — ĐÚNG cho Crop (không có gì khác cần vẽ lại, "cắt" chỉ xảy ra lúc Áp dụng), nhưng SAI cho
+     * 'shapePlacement': shape THẬT nằm trên `layerCanvas` riêng (vẽ bởi `_renderLayers()`), TRƯỚC
+     * ĐÂY chỉ đồng bộ rect vào layer ĐÚNG 1 LẦN lúc Áp dụng (`applyShapePlacement()`) — suốt quá
+     * trình kéo, khung/handle (interactCanvas) chạy tự do trong khi shape thật (layerCanvas) đứng
+     * yên, trông như 2 thứ tách rời nhau. SỬA: 'shapePlacement' giờ ĐỒNG BỘ SỐNG — mỗi lần kéo, gán
+     * lại rect vào layer đang đặt rồi `_renderLayers()` ngay, y hệt cách `layerPointerMove()` (kéo
+     * layer khi KHÔNG có sub-tool nào mở) đã làm.
+     * @param {{x:number,y:number}} pos */
     cropPointerMove(pos) {
         if (!this._cropSession) return;
         this._moveOrResizeCropSession(pos);
         this._drawCropOverlay();
+        if (this._activeSubTool === 'shapePlacement') {
+            const layer = this._layers[this._selectedLayerIndex];
+            if (layer) {
+                const rect = getCropSessionRect(this._cropSession); // core/media-transform.js
+                layer.x = rect.x; layer.y = rect.y; layer.w = rect.w; layer.h = rect.h;
+                this._renderLayers();
+            }
+        }
     },
 
     /** Ứng với `imageEdit.interactCanvas.pointerUp` lúc `getActiveSubTool()` là 'crop' HOẶC
@@ -761,23 +779,31 @@ const workflowImageEdit = {
         return -1;
     },
 
-    /** Mở dropdown 3 lựa chọn (Sửa/Xoá/Nhân bản) NEO tại vị trí chạm thật trên màn hình — quy đổi
-     * NGƯỢC toạ độ canvas-pixel (`pos`) về toạ độ CLIENT (nghịch đảo `computeInteractPos()`, core/
-     * file-manager/photo-ui.js) để tạo neo tạm đúng chỗ (`createPointAnchorEl()`, core/dropdown-
-     * menu.js).
+    /** Mở dropdown lựa chọn (Sửa nội dung/Sửa kiểu/Xoá/Nhân bản) NEO tại vị trí chạm thật trên màn
+     * hình — quy đổi NGƯỢC toạ độ canvas-pixel (`pos`) về toạ độ CLIENT (nghịch đảo
+     * `computeInteractPos()`, core/file-manager/photo-ui.js) để tạo neo tạm đúng chỗ
+     * (`createPointAnchorEl()`, core/dropdown-menu.js).
+     * SỬA (tách "Sửa" cũ ra 2 mục — Element Style Editor CHỈ chỉnh style, không có field nội dung
+     * chữ, xem docstring `editLayerTextContent()`) — "Sửa nội dung" CHỈ hiện với layer Text (Shape
+     * không có nội dung chữ để sửa).
      * @param {number} index @param {{x:number,y:number}} pos
      */
     _openLayerActionMenuAt(index, pos) {
         const handle = this._activeImageModalHandle;
+        const layer = this._layers[index];
         const rect = handle.interactCanvas.getBoundingClientRect();
         const scale = rect.width / (handle.interactCanvas.width || 1);
         const clientX = rect.left + pos.x * scale, clientY = rect.top + pos.y * scale;
         const anchorEl = createPointAnchorEl(clientX, clientY); // core/dropdown-menu.js
-        const items = [
+        const items = [];
+        if (layer.type === 'text') {
+            items.push({ icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>', name: t('fileManager.photo.image.layerMenuEditContent'), callback: () => this.editLayerTextContent(index) });
+        }
+        items.push(
             { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>', name: t('fileManager.photo.image.layerMenuEdit'), callback: () => this.openLayerStyleEditor(index) },
             { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>', name: t('fileManager.photo.image.layerMenuDuplicate'), callback: () => this.duplicateLayer(index) },
             { icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>', name: t('fileManager.photo.image.layerMenuDelete'), callback: () => this.deleteLayer(index), destructive: true },
-        ];
+        );
         openDropdownMenu(anchorEl, items, { zIndex: 132 }); // core/dropdown-menu.js
         anchorEl.remove(); // vị trí đã đọc xong ĐỒNG BỘ bên trong openDropdownMenu(), an toàn gỡ ngay
     },
@@ -798,83 +824,115 @@ const workflowImageEdit = {
         this._renderLayers();
     },
 
-    /** "Sửa" trong menu layer — mở Generic Drawer style editor (MỚI, Giang yêu cầu). Nội dung
-     * bodyHtml khác nhau theo `layer.type` (text: nội dung chữ/cỡ chữ/màu; shape: màu tô/màu viền/
-     * độ dày viền). @param {number} index */
+    /** "Sửa kiểu" trong menu layer — MỚI (Giang chỉ ra `workflowElementStyleEditor` vốn đã là công
+     * cụ CHUNG, dùng bởi Subtitle Styling — KHÔNG tự chế Generic Drawer riêng nữa) — thay hẳn cho
+     * `openPhotoLayerStyleDrawerUi()`/`wireLayerStyleDrawerDelegation()`/`updateLayerStyleField()`/
+     * `closeLayerStyleEditor()` cũ (CẢ 4 đã xoá, xem core/file-manager/photo-ui.js).
+     * `targetEl = null` — layer là object vẽ lên canvas (`_renderLayers()`), KHÔNG phải DOM sống,
+     * không có gì để `applyElementStyleToDom()` áp thẳng (hàm đó tự guard `!targetEl`) — nhận kết
+     * quả hoàn toàn qua `onApply(cssString)` (`_applyLayerStyleCssString()` bên dưới).
+     * `zIndex` PHẢI truyền riêng — mặc định Element Style Editor dùng z-index 128
+     * (GENERIC_DRAWER_DEFAULT_Z_INDEX), THẤP HƠN modal xem ảnh Photo (`Z_INDEX.IMAGE_PREVIEW` = 130,
+     * service/z-index.js) — không truyền thì Drawer bị modal đè khuất, không bấm tới được. Dùng lại
+     * ĐÚNG `Z_INDEX.IMAGE_ACTION_MENU_DRAWER` (131) mà bản tự chế cũ từng dùng.
+     * `startTab` — Text mở sẵn tab 'text' (tab 'box' vô nghĩa với chữ vẽ canvas — không có khái
+     * niệm padding/margin/width/height khi "nướng" thẳng lên pixel); Shape giữ mặc định 'box' (fill/
+     * viền ánh xạ ĐÚNG vào background-color/border của tab đó, xem `_applyLayerStyleCssString()`).
+     * @param {number} index */
     openLayerStyleEditor(index) {
         const layer = this._layers[index];
         if (!layer) return;
         this._selectedLayerIndex = index;
-        const title = t(layer.type === 'text' ? 'fileManager.photo.image.layerStyleTitleText' : 'fileManager.photo.image.layerStyleTitleShape');
-        openPhotoLayerStyleDrawerUi(title, this._buildLayerStyleDrawerHtml(layer)); // core/file-manager/photo-ui.js
-        this._layerStyleDrawerClickHandler = wireLayerStyleDrawerDelegation(); // core/file-manager/photo-ui.js
+        workflowElementStyleEditor.open( // event/workflow/element-style-editor.js
+            null,
+            (cssString) => this._applyLayerStyleCssString(cssString),
+            this._buildLayerInitialCssString(layer),
+            () => { workflowGenericDrawerHelpers.closeFully(); this._selectedLayerIndex = -1; },
+            { zIndex: Z_INDEX.IMAGE_ACTION_MENU_DRAWER, startTab: layer.type === 'text' ? 'text' : 'box' } // service/z-index.js
+        );
     },
 
-    /** @param {object} layer @returns {string} bodyHtml style editor, khác nhau theo `layer.type`. */
-    _buildLayerStyleDrawerHtml(layer) {
+    /** Build 1 chuỗi CSS (ĐÚNG định dạng `buildElementStyleCssString()` xuất ra, core/element-
+     * style-editor.js) từ giá trị HIỆN TẠI của layer — truyền làm `initialCssString` cho Element
+     * Style Editor để Drawer mở lên đã khớp sẵn giá trị đang có (CÙNG UX `openStyling()`, event/
+     * workflow/subtitle-style-settings.js — nạp lại `subtitleBoxCss` đã lưu), không phải luôn bắt
+     * đầu trắng. @param {object} layer @returns {string} */
+    _buildLayerInitialCssString(layer) {
         if (layer.type === 'text') {
-            return `
-                <div class="px-5 py-4 space-y-5">
-                    <textarea data-layer-style-field="text" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900">${escapeHtml(layer.text)}</textarea>
-                    <div>
-                        <div class="flex justify-between text-xs text-slate-500 mb-1"><span>${t('fileManager.photo.image.layerStyleFontSize')}</span><span>${layer.fontSizePx}</span></div>
-                        <input type="range" data-layer-style-field="fontSizePx" min="16" max="160" value="${layer.fontSizePx}" class="w-full">
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs text-slate-500">${t('fileManager.photo.image.layerStyleColor')}</span>
-                        <input type="color" data-layer-style-field="color" value="${layer.color}" class="w-9 h-9 rounded-full p-0 border-0 overflow-hidden">
-                    </div>
-                </div>
-            `;
+            return `color: ${layer.color}; font-size: ${layer.fontSizePx}px; font-weight: ${layer.fontWeight || 'bold'}; font-style: ${layer.fontStyle || 'normal'}`;
         }
-        return `
-            <div class="px-5 py-4 space-y-5">
-                <div class="flex items-center justify-between">
-                    <label class="flex items-center gap-2 text-xs text-slate-500">
-                        <input type="checkbox" data-layer-style-field="hasFill" ${layer.fillColor ? 'checked' : ''}>
-                        ${t('fileManager.photo.image.layerStyleFill')}
-                    </label>
-                    <input type="color" data-layer-style-field="fillColor" value="${layer.fillColor || '#0A84FF'}" class="w-9 h-9 rounded-full p-0 border-0 overflow-hidden">
-                </div>
-                <div class="flex items-center justify-between">
-                    <span class="text-xs text-slate-500">${t('fileManager.photo.image.layerStyleStroke')}</span>
-                    <input type="color" data-layer-style-field="strokeColor" value="${layer.strokeColor}" class="w-9 h-9 rounded-full p-0 border-0 overflow-hidden">
-                </div>
-                <div>
-                    <div class="flex justify-between text-xs text-slate-500 mb-1"><span>${t('fileManager.photo.image.layerStyleStrokeWidth')}</span><span>${layer.strokeWidth}</span></div>
-                    <input type="range" data-layer-style-field="strokeWidth" min="0" max="40" value="${layer.strokeWidth}" class="w-full">
-                </div>
-            </div>
-        `;
+        const parts = [];
+        if (layer.fillColor) parts.push(`background-color: ${layer.fillColor}`);
+        if (layer.strokeWidth > 0) parts.push(`border: ${layer.strokeWidth}px solid ${layer.strokeColor}`);
+        return parts.join('; ');
     },
 
-    /** Ứng với `imageEdit.layerStyle.field.input` — cập nhật ĐÚNG 1 field của layer đang mở style
-     * editor rồi vẽ lại. `hasFill` (checkbox) đặc biệt: bật -> khôi phục màu tô CŨ nếu có (tránh
-     * mất màu đã chọn trước đó khi tắt/bật qua lại), tắt -> `fillColor = null` (không tô).
-     * @param {string} field @param {string|undefined} value @param {boolean|undefined} checked
-     */
-    updateLayerStyleField(field, value, checked) {
+    /** `onApply()` của Element Style Editor cho layer đang mở "Sửa kiểu" — parse NGƯỢC cssString
+     * qua `parseElementStyleCssString()` (core/element-style-editor.js, THUẦN tính toán, không đụng
+     * DOM/appState — dùng lại nguyên hàm CHUNG, không tự viết parser riêng) rồi gán field TƯƠNG ỨNG
+     * lên layer.
+     * BỎ QUA có chủ ý — property Element Style Editor CÓ đề xuất nhưng canvas KHÔNG vẽ được:
+     *   - Toàn bộ tab Box với Text (padding/margin/width/height/opacity — khái niệm box-model DOM,
+     *     không có nghĩa tương đương khi "nướng" chữ thẳng lên canvas).
+     *   - `font-family` (CẢ 2 loại) — Google Font vừa nạp qua `<link>` (`loadGoogleFont()`, core)
+     *     không đảm bảo ĐÃ sẵn sàng dùng ngay cho `ctx.font` (canvas KHÔNG tự vẽ lại khi font tải
+     *     xong sau đó, khác DOM text tự re-layout khi FOUT hết) — vẽ lúc font chưa kịp tải sẽ lặng lẽ
+     *     fallback sai font mà không có dấu hiệu gì, RỦI RO hơn hữu ích nên chưa hỗ trợ.
+     * Tab Box với Shape (background/border) ÁP ĐƯỢC — ánh xạ đúng vào fillColor/strokeColor+
+     * strokeWidth vốn đã có sẵn trên shape.
+     * Property KHÔNG có mặt trong `cssString` (property đó đang TẮT trong draft, xem
+     * `buildElementStyleCssString()`) — coi là "tắt" (Text: giữ nguyên giá trị cũ, vì color/font-
+     * size/weight/style tắt vẫn cần 1 giá trị hợp lệ để vẽ, KHÔNG có "trạng thái tắt" cho canvas;
+     * Shape: fillColor -> null/strokeWidth -> 0, giống hệt semantics `hasFill` checkbox của bản tự
+     * chế cũ). @param {string} cssString */
+    _applyLayerStyleCssString(cssString) {
         const layer = this._layers[this._selectedLayerIndex];
         if (!layer) return;
-        if (field === 'text') layer.text = value;
-        else if (field === 'fontSizePx') layer.fontSizePx = parseInt(value, 10);
-        else if (field === 'color') layer.color = value;
-        else if (field === 'fillColor') { layer.fillColor = value; layer._lastFillColor = value; }
-        else if (field === 'hasFill') {
-            if (checked) { layer.fillColor = layer._lastFillColor || '#0A84FF'; }
-            else { layer._lastFillColor = layer.fillColor || layer._lastFillColor; layer.fillColor = null; }
+        const patch = parseElementStyleCssString(cssString); // core/element-style-editor.js
+
+        if (layer.type === 'text') {
+            if (patch.text.color) layer.color = patch.text.color.value;
+            if (patch.text.fontSize) layer.fontSizePx = Math.round(patch.text.fontSize.value);
+            if (patch.text.fontWeight !== undefined) layer.fontWeight = patch.text.fontWeight === 'none' ? 'bold' : patch.text.fontWeight;
+            if (patch.text.fontStyle !== undefined) layer.fontStyle = patch.text.fontStyle === 'none' ? 'normal' : patch.text.fontStyle;
+        } else {
+            if (patch.box.background) { layer.fillColor = patch.box.background.value; layer._lastFillColor = patch.box.background.value; }
+            else layer.fillColor = null;
+            if (patch.box.border) { layer.strokeColor = patch.box.border.color; layer.strokeWidth = Math.round(patch.box.border.width); }
+            else layer.strokeWidth = 0;
         }
-        else if (field === 'strokeColor') layer.strokeColor = value;
-        else if (field === 'strokeWidth') layer.strokeWidth = parseInt(value, 10);
         this._renderLayers();
     },
 
-    /** Đóng style editor (nút X trên Generic Drawer) — gỡ delegation + đóng Drawer + bỏ chọn layer.
-     * Public — Router gọi qua case 'imageEdit.layerStyle.close.click'. */
-    closeLayerStyleEditor() {
-        if (this._layerStyleDrawerClickHandler) { this._layerStyleDrawerClickHandler(); this._layerStyleDrawerClickHandler = null; }
-        workflowGenericDrawerHelpers.closeFully();
-        this._selectedLayerIndex = -1;
+    /** "Sửa nội dung" trong menu layer — CHỈ hiện cho layer Text (Shape không có khái niệm nội
+     * dung chữ). Element Style Editor (dùng cho "Sửa kiểu" ở trên) CHỈ chỉnh CSS style, KHÔNG có
+     * field nội dung chữ nào — tách riêng ra đây, dùng lại `modalChoice()` (core/modal-choice-ui.js,
+     * công cụ CHUNG có sẵn, KHÔNG tự chế UI mới) với 1 `<textarea>` qua `bodyHtml`.
+     * `modalChoice()` tự xoá DOM TRƯỚC khi gọi `onClick` của nút được bấm (xem docstring hàm đó) —
+     * KHÔNG thể đọc textarea BÊN TRONG onClick — phải tự bám giá trị đang gõ dở vào biến closure
+     * `draftText` qua listener 'input' ngay sau khi mở, CÙNG pattern
+     * `workflowGameplayEngine._wireDifficultySelector()` (event/workflow/gameplay-engine.js).
+     * @param {number} index */
+    editLayerTextContent(index) {
+        const layer = this._layers[index];
+        if (!layer) return;
+        let draftText = layer.text;
+        modalChoice( // core/modal-choice-ui.js
+            t('fileManager.photo.image.layerEditContentTitle'),
+            [
+                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-sm font-semibold transition-colors text-slate-900', onClick: () => {} },
+                {
+                    label: t('common.save'), className: 'flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-semibold transition-colors text-white',
+                    onClick: () => {
+                        const trimmed = draftText.trim();
+                        if (trimmed) layer.text = trimmed; // guard: rỗng thì giữ nguyên chữ cũ, không cho xoá trắng qua đường này
+                        this._renderLayers();
+                    },
+                },
+            ],
+            { bodyHtml: `<textarea id="layer-edit-content-textarea" rows="3" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900">${escapeHtml(layer.text)}</textarea>` }
+        );
+        document.getElementById('modal-choice-body').querySelector('#layer-edit-content-textarea').addEventListener('input', (e) => { draftText = e.target.value; });
     },
 
     /** Vẽ lại TOÀN BỘ layer lên `layerCanvas` — gọi lại mỗi lần `_layers` đổi (thêm/xoá/sửa/kéo).
@@ -887,53 +945,11 @@ const workflowImageEdit = {
         ctx.clearRect(0, 0, handle.layerCanvas.width, handle.layerCanvas.height);
         for (const layer of this._layers) {
             if (layer.type === 'text') {
-                drawTextOnCanvas(handle.layerCanvas, layer.text, layer.x, layer.y, layer.fontSizePx, layer.color); // core/photo-editor-engine.js
+                drawTextOnCanvas(handle.layerCanvas, layer); // core/photo-editor-engine.js — SỬA: nhận nguyên layer (fontWeight/fontStyle)
             } else {
                 drawShapeOnCanvas(handle.layerCanvas, layer); // core/photo-editor-engine.js
             }
         }
-    },
-
-    // ===================== Tách nền (Magic cutout) =====================
-
-    /** Vào tool Tách nền — CHỈ hiện nút Huỷ ở contextBar (mỗi lần chạm áp dụng NGAY vào base,
-     * không có bước xác nhận riêng, KHÔNG cần `applyMagicTool()` riêng). Popup dưới đáy chỉnh dung
-     * sai màu TRƯỚC khi chạm. Nút Huỷ wire 1 lần ở photo-ui.js. Slider dung sai + pointer down
-     * KHÔNG wire ở đây nữa (Core wire vĩnh viễn, xem `updateMagicSlider()`/`magicPointerDown()`). */
-    _startMagicTool() {
-        const handle = this._activeImageModalHandle;
-        workflowGenericDrawerHelpers.closeFully(); // FIX (bug có từ trước) — xem ghi chú _startCropTool()
-        this._activeSubTool = 'magic';
-        handle.header.classList.add('hidden');
-        handle.contextBar.classList.remove('hidden');
-        handle.contextApplyBtn.classList.add('hidden');
-        handle.contextTitleEl.textContent = t('fileManager.photo.image.editToolMagic');
-        handle.magicPopup.classList.remove('hidden');
-    },
-
-    /** Ứng với `imageEdit.magic.slider.input` (kéo slider dung sai màu, wire 1 lần ở photo-ui.js).
-     * Public — Router gọi trực tiếp. @param {number} value */
-    updateMagicSlider(value) {
-        if (this._activeSubTool !== 'magic') return; // guard: slider chỉ HIỆN lúc tool Tách nền mở
-        this._activeImageModalHandle.magicValueEl.textContent = value;
-    },
-
-    /** Ứng với `imageEdit.interactCanvas.pointerDown` lúc `getActiveSubTool()==='magic'` — chạm 1
-     * điểm, tách MÀU TRƠN quanh điểm đó khỏi TOÀN ẢNH (không phải flood-fill theo vùng liền kề, xem
-     * `applyMagicCutout()`, core/photo-editor-engine.js), áp NGAY vào `base` + vẽ lại `render`.
-     * `taskManager.once(fn, 10, ...)` — nhường 1 tick trước khi quét toàn ảnh (có thể vài chục-trăm
-     * ms với ảnh lớn), tránh cảm giác "đứng hình" lúc chạm. Public — Router gọi trực tiếp.
-     * @param {{x:number,y:number}} pos
-     */
-    magicPointerDown(pos) {
-        const handle = this._activeImageModalHandle;
-        const tolerance = parseInt(handle.magicSliderEl.value, 10);
-        taskManager.once(() => { // service/task-manager.js
-            const imageData = applyMagicCutout(handle.baseCanvas, Math.floor(pos.x), Math.floor(pos.y), tolerance); // core/photo-editor-engine.js
-            if (!imageData) return; // guard: chạm ngoài canvas hoặc điểm đã trong suốt sẵn
-            handle.baseCanvas.getContext('2d').putImageData(imageData, 0, 0);
-            this._renderEditPreview();
-        }, 10, 'photoEditMagicCutout');
     },
 
     /** Xuất ảnh cuối cùng ra 1 Blob JPEG chất lượng cao — dùng chung bởi `saveEditOverwrite()`/
@@ -1060,7 +1076,6 @@ const workflowImageEdit = {
         this._drawSessionActive = false;
         this._textDragging = false;
         if (this._layerLongPressTimer) { clearTimeout(this._layerLongPressTimer); this._layerLongPressTimer = null; }
-        if (this._layerStyleDrawerClickHandler) { this._layerStyleDrawerClickHandler(); this._layerStyleDrawerClickHandler = null; }
         if (this._editToolGridClickHandler) { this._editToolGridClickHandler(); this._editToolGridClickHandler = null; }
         if (appState.get('isGenericDrawerOpen')) workflowGenericDrawerHelpers.closeFully();
         this._activeEditParams = null;

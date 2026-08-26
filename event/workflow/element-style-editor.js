@@ -4,12 +4,16 @@
  * inline lên 1 DOM cụ thể).
  *
  * API CÔNG KHAI DUY NHẤT hiện tại: `workflowElementStyleEditor.open(targetEl, onApply,
- * initialCssString?)` — gọi TRỰC TIẾP từ Workflow domain khác (CÙNG tiền lệ gọi chéo Workflow, vd
- * `closeControlCenter()` trong event/workflow/custom-effect.js). `initialCssString` (MỚI 16/08/2026,
- * mục 2) — optional, xem docstring open() bên dưới.
+ * initialCssString?, onClose?, options?)` — gọi TRỰC TIẾP từ Workflow domain khác (CÙNG tiền lệ gọi
+ * chéo Workflow, vd `closeControlCenter()` trong event/workflow/custom-effect.js). `initialCssString`
+ * (MỚI 16/08/2026, mục 2) — optional, xem docstring open() bên dưới. `options` (MỚI, Photo Text/
+ * Shape layer — event/workflow/image-edit.js::openLayerStyleEditor()) — object tuỳ chọn
+ * `{zIndex, startTab}`, xem docstring field `_zIndex` + tham số `open()` bên dưới.
  *   - `targetEl` — DOM áp inline style trực tiếp lúc bấm Áp dụng (applyElementStyleToDom(), core/
  *     element-style-editor.js). Truyền `null` nếu KHÔNG có DOM sống nào cần áp trực tiếp (vd nơi
- *     gọi tự lo lưu + áp qua `onApply` — applyElementStyleToDom() tự guard `!targetEl`, không lỗi).
+ *     gọi tự lo lưu + áp qua `onApply` — applyElementStyleToDom() tự guard `!targetEl`, không lỗi;
+ *     Photo Text/Shape layer dùng đúng trường hợp này — layer là object vẽ lên canvas, không phải
+ *     DOM sống, xem `_applyLayerStyleCssString()`, event/workflow/image-edit.js).
  *   - `onApply(cssString)` (optional) — callback nhận chuỗi CSS vừa build, để nơi gọi tự LƯU lại
  *     (config/DB) nếu cần persist qua reload — Element Style Editor bản thân KHÔNG tự lưu bất cứ
  *     đâu ngoài `eseGeneratedCss` (appState runtime), đúng vai trò "công cụ chung, không biết
@@ -41,6 +45,14 @@ const workflowElementStyleEditor = {
      * cả Setting. KHÔNG truyền -> giữ NGUYÊN hành vi cũ (đóng hẳn). */
     _onClose: null,
 
+    /** MỚI (tái dùng cho Photo Text/Shape layer, Giang yêu cầu "styling editor generic drawer đã có
+     * sẵn, đừng tự chế riêng") — z-index CẦN tự truyền khi mở TỪ 1 ngữ cảnh đã có z-index CAO HƠN
+     * mặc định của Generic Drawer (128, GENERIC_DRAWER_DEFAULT_Z_INDEX — core/generic-drawer.js) —
+     * modal xem ảnh Photo (Z_INDEX.IMAGE_PREVIEW = 130, service/z-index.js) CAO HƠN mức đó, không
+     * truyền riêng thì Drawer này bị đè khuất phía dưới, bấm không tới. Reset mỗi lần open(), KHÔNG
+     * truyền (undefined) -> giữ NGUYÊN hành vi cũ 100% (Subtitle Styling — mặc định 128). */
+    _zIndex: null,
+
     /** Mở Drawer cho 1 DOM cụ thể — mặc định bắt đầu từ draft TRẮNG (mọi property tắt).
      * MỚI (16/08/2026, mục 2 — Giang yêu cầu "cung cấp cấu hình mặc định giống hiện tại") — tham số
      * `initialCssString` (optional) — nếu nơi gọi TRUYỀN VÀO 1 chuỗi CSS đã lưu sẵn trước đó (đúng
@@ -51,14 +63,21 @@ const workflowElementStyleEditor = {
      * resetElementStyleDraft()". Không truyền (hoặc truyền rỗng) -> hành vi CŨ giữ nguyên 100% (mở
      * trắng), guard nằm NGAY TRONG applyElementStyleCssStringToDraft() (core, guard `!cssString`).
      * `onClose` — MỚI, xem docstring khai báo field `_onClose` ở trên.
+     * `options` — MỚI (Photo layer), object tuỳ chọn `{zIndex, startTab}`, xem docstring field
+     * `_zIndex` ở trên. `startTab` ('box'|'text') — tab MỞ SẴN, mặc định 'box' (hành vi cũ) nếu
+     * không truyền — Photo Text layer truyền 'text' vì tab Box (padding/margin/width/height) không
+     * có nghĩa gì với chữ vẽ lên canvas (xem `_applyLayerStyleCssString()`, event/workflow/image-
+     * edit.js).
      */
-    open(targetEl, onApply, initialCssString, onClose) {
+    open(targetEl, onApply, initialCssString, onClose, options) {
+        options = options || {};
         this._targetEl = targetEl;
         this._onApply = onApply || null;
         this._onClose = onClose || null;
+        this._zIndex = options.zIndex || null;
         resetElementStyleDraft(); // core
         if (initialCssString) applyElementStyleCssStringToDraft(initialCssString); // core — MỚI, nạp khớp style đã lưu
-        setElementStyleActiveTab('box'); // core
+        setElementStyleActiveTab(options.startTab || 'box'); // core
         this._render();
     },
 
@@ -71,6 +90,7 @@ const workflowElementStyleEditor = {
             bodyHtml: renderElementStyleEditorBody(draft, activeTab, loadedFonts),
             bodyClass: 'overflow-y-auto px-4 py-3',
         };
+        if (this._zIndex) config.zIndex = this._zIndex; // xem docstring field `_zIndex` — mặc định (không set) giữ NGUYÊN hành vi cũ
         if (genericDrawerPanel.classList.contains('hidden')) openGenericDrawer(config); // core/generic-drawer.js
         else updateGenericDrawer(config);
         this._wire();
