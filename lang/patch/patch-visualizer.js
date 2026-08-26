@@ -109,8 +109,11 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.starCountMax': 'Stars per galaxy (max)',
     'customEffectDrawer.field.nebulaCount': 'Nebula density',
     'customEffectDrawer.field.dustCount': 'Space dust density',
-    'customEffectDrawer.field.mapNodeCount': 'Number of galaxies',
-    'customEffectDrawer.field.mapRadius': 'Map radius',
+    'customEffectDrawer.field.clusterGalaxyCountMin': 'Galaxies per cluster (min)',
+    'customEffectDrawer.field.clusterGalaxyCountMax': 'Galaxies per cluster (max)',
+    'customEffectDrawer.field.clusterSpreadRadius': 'Cluster spread radius',
+    'customEffectDrawer.field.clusterDistanceMin': 'Cluster distance (min)',
+    'customEffectDrawer.field.clusterDistanceMax': 'Cluster distance (max)',
 
     // MỚI (14/08/2026, "làm hết danh sách ứng viên custom" — Giang chốt) — field sâu, trước đây
     // hardcode trong từng file draw, giờ mở custom theo đúng danh sách đã thống nhất.
