@@ -11,30 +11,9 @@ const CUSTOM_EFFECT_MAX_LAMPS = 8;
 const CUSTOM_EFFECT_DEFAULT_LAMP = { xPercent: 50, heightPx: 150, flareScale: 1 };
 
 // Effect KHÔNG dùng blur/glow tuỳ chỉnh (Drawer ẩn khối blur) — glow của các effect này (nếu có)
-// là phối cảnh cố định, không đọc blurEnabled/blurIntensity: Vortex không shadowBlur/bloom nào cả;
-// Rain (quầng Trăng) và Rubik (viền khối sáng) glow LUÔN bật, giá trị cố định trong code.
-// SỬA (27/08/2026, phản hồi Giang — "on off blur và chỉnh blur như effect khác đang dùng") — BỎ
-// 'space' khỏi danh sách này: Space (WebGL, không phải canvas 2D) giờ CÓ blurEnabled/blurIntensity
-// riêng (core/config.js), áp bằng CSS filter blur() lên #webgl-canvas thay vì ctx.shadowBlur — xem
-// applyWebglCanvasBlur() (core/visualizer/visualizer-display.js) + event/workflow/visualizer-render.js.
-const CUSTOM_EFFECT_NO_BLUR = ['vortex', 'rain', 'rubik'];
-
-// Nhãn i18n cho 10 hình thái thiên hà (Space, mục enabledGalaxyTypes bên dưới) — key TRÙNG Y HỆT
-// chuỗi trong SPACE_GALAXY_TYPES (core/webgl/three-space.js), KHÔNG tham chiếu biến đó trực tiếp
-// được (file này nạp TRƯỚC three-space.js trong index.html — tham chiếu sớm sẽ ReferenceError),
-// nên chỉ có thể trùng lặp y hệt chuỗi ở đây — SỬA 1 trong 2 nơi thì PHẢI sửa nơi còn lại.
-const SPACE_GALAXY_TYPE_LABEL_KEYS = {
-    'Spiral': 'customEffectDrawer.galaxyType.spiral',
-    'Barred Spiral': 'customEffectDrawer.galaxyType.barredSpiral',
-    'Elliptical': 'customEffectDrawer.galaxyType.elliptical',
-    'Ring': 'customEffectDrawer.galaxyType.ring',
-    'Irregular': 'customEffectDrawer.galaxyType.irregular',
-    'Lenticular': 'customEffectDrawer.galaxyType.lenticular',
-    'Flocculent Spiral': 'customEffectDrawer.galaxyType.flocculentSpiral',
-    'Sombrero': 'customEffectDrawer.galaxyType.sombrero',
-    'Cartwheel': 'customEffectDrawer.galaxyType.cartwheel',
-    'Peculiar': 'customEffectDrawer.galaxyType.peculiar',
-};
+// là phối cảnh cố định, không đọc blurEnabled/blurIntensity: Vortex/Space không shadowBlur/bloom
+// nào cả; Rain (quầng Trăng) và Rubik (viền khối sáng) glow LUÔN bật, giá trị cố định trong code.
+const CUSTOM_EFFECT_NO_BLUR = ['vortex', 'space', 'rain', 'rubik'];
 
 /** Style con của effect (nếu có) — field trong customEffect[type] + danh sách option, dùng để
  * dựng dropdown ĐẦU TIÊN trong Custom Effect Drawer. null nếu effect chỉ có 1 kiểu vẽ. */
@@ -56,11 +35,7 @@ const CUSTOM_EFFECT_STYLE_LABEL_KEYS = {
  * DATA-DRIVEN (1 hàm render chung đọc bảng này, xem components/custom-effect-drawer.js), tránh
  * viết tay 7 khối HTML lặp lại. `showIf(cfg)` optional — field chỉ hiện khi đúng điều kiện (vd
  * riêng theo style con hiện tại). `refresh` optional — hàm core cần gọi lại NGAY để thấy hiệu quả
- * tức thì (field chỉ đọc lúc khởi tạo scene, không đọc mỗi frame).
- * `type`: 'slider' (số nguyên) | 'sliderFloat' (số thực, có `decimals`) | 'toggle' (bật/tắt 1
- * field boolean) | 'multiToggle' (MỚI 27/08/2026 — bật/tắt TỪNG phần tử trong 1 mảng string,
- * field lưu MẢNG các giá trị đang bật; cần thêm `options` — mảng HOẶC hàm trả về mảng, dùng hàm
- * khi danh sách gốc định nghĩa ở file nạp SAU — và `optionLabelKeys` optional, map value->i18n key). */
+ * tức thì (field chỉ đọc lúc khởi tạo scene, không đọc mỗi frame). */
 const CUSTOM_EFFECT_FIELDS = {
     bar: [
         { id: 'maxH', labelKey: 'visualizerSettingsDrawer.maxHeight.label', type: 'slider', min: 50, max: 1000, step: 10 },
@@ -134,26 +109,6 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'clusterSpreadRadius', labelKey: 'customEffectDrawer.field.clusterSpreadRadius', type: 'slider', min: 40, max: 250, step: 10 },
         { id: 'clusterDistanceMin', labelKey: 'customEffectDrawer.field.clusterDistanceMin', type: 'slider', min: 100, max: 800, step: 20 },
         { id: 'clusterDistanceMax', labelKey: 'customEffectDrawer.field.clusterDistanceMax', type: 'slider', min: 300, max: 1500, step: 20 },
-        // THÊM (27/08/2026, phản hồi Giang mục 1) — (a) khoảng cách GIỮA các cụm với NHAU (khác
-        // clusterDistanceMin/Max ở trên — đó là khoảng cách từ camera lúc SINH cụm; đây là khoảng
-        // cách ép buộc giữa TỪNG CẶP cụm, xem _pickClusterPositionWithSeparation(),
-        // event/workflow/visualizer-render.js).
-        { id: 'clusterSeparationMin', labelKey: 'customEffectDrawer.field.clusterSeparationMin', type: 'slider', min: 50, max: 500, step: 10 },
-        { id: 'clusterSeparationMax', labelKey: 'customEffectDrawer.field.clusterSeparationMax', type: 'slider', min: 200, max: 1200, step: 20 },
-        // (b) can thiệp điều kiện rời cụm — nhân thêm vào ngưỡng phát hiện chuyển pha nhạc VÀ số
-        // beat chờ tối đa (SPACE_FLUX_TRANSITION_THRESHOLD/SPACE_PHRASE_REFRESH_BEATS,
-        // event/workflow/visualizer-render.js) — CÀNG CAO càng khó kích hoạt chuyển cụm => càng
-        // "stuck" lâu trong 1 cụm.
-        { id: 'clusterStickiness', labelKey: 'customEffectDrawer.field.clusterStickiness', type: 'sliderFloat', min: 0.3, max: 3, step: 0.1, decimals: 1 },
-        // (c) hệ số nhân tốc độ di chuyển (thay SPACE_SPEED_MULTIPLIER hằng số cũ) — kéo về min
-        // cho cảm giác trôi CHẬM NHẤT có thể.
-        { id: 'travelSpeedMultiplier', labelKey: 'customEffectDrawer.field.travelSpeedMultiplier', type: 'sliderFloat', min: 0.05, max: 4, step: 0.05, decimals: 2 },
-        // (d) bật/tắt TỪNG hình thái thiên hà được phép xuất hiện trong túi xáo trộn
-        // (pickGalaxyTypeFromBag(), core/webgl/three-space.js) — `options` là HÀM (không phải
-        // mảng thẳng) vì SPACE_GALAXY_TYPES định nghĩa ở three-space.js, nạp SAU file này — gọi
-        // hàm này lúc DỰNG UI (Drawer chỉ mở sau khi mọi script đã nạp xong) thay vì lúc file này
-        // tự thực thi tránh ReferenceError.
-        { id: 'enabledGalaxyTypes', labelKey: 'customEffectDrawer.field.enabledGalaxyTypes', type: 'multiToggle', options: () => SPACE_GALAXY_TYPES, optionLabelKeys: SPACE_GALAXY_TYPE_LABEL_KEYS },
     ],
 };
 

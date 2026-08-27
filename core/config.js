@@ -62,22 +62,10 @@
             },
             space: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
-                // MỚI (27/08/2026, phản hồi Giang mục 1e — "on off blur như effect khác đang
-                // dùng") — Space giờ CÓ blur (áp CSS filter lên #webgl-canvas, không phải
-                // ctx.shadowBlur — xem applyWebglCanvasBlur(), core/visualizer/visualizer-display.js).
-                blurEnabled: true, blurIntensity: 100,
                 starCountMin: 3800, starCountMax: 6000, nebulaCount: 35, dustCount: 1500,
                 // MỚI (26/08/2026, mô hình cụm thiên hà — thay mapNodeCount/mapRadius cũ).
                 clusterGalaxyCountMin: 4, clusterGalaxyCountMax: 8,
                 clusterSpreadRadius: 90, clusterDistanceMin: 300, clusterDistanceMax: 700,
-                // MỚI (27/08/2026, phản hồi Giang mục 1a/1b/1c) — khoảng cách GIỮA các cụm (khác
-                // clusterDistanceMin/Max ở trên), độ "dính" khi rời cụm, hệ số tốc độ di chuyển.
-                clusterSeparationMin: 150, clusterSeparationMax: 600,
-                clusterStickiness: 1, travelSpeedMultiplier: 2,
-                // MỚI (27/08/2026, phản hồi Giang mục 1d) — mặc định BẬT cả 10 hình thái (danh
-                // sách PHẢI trùng y hệt SPACE_GALAXY_TYPES, core/webgl/three-space.js — file đó
-                // nạp SAU config.js nên không tham chiếu biến được, xem comment ở custom-effect.js).
-                enabledGalaxyTypes: ['Spiral', 'Barred Spiral', 'Elliptical', 'Ring', 'Irregular', 'Lenticular', 'Flocculent Spiral', 'Sombrero', 'Cartwheel', 'Peculiar'],
             },
         };
 
