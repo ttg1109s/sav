@@ -50,24 +50,6 @@
             }
         }
 
-        /**
-         * MỚI (27/08/2026, phản hồi Giang mục 1e — "on off blur và chỉnh blur như effect khác
-         * đang dùng") — canvas WebGL (#webgl-canvas, dùng chung Vortex/Space) KHÔNG có
-         * `ctx.shadowBlur` (không phải canvas 2D) nên không thể tái dùng cơ chế blur/glow của các
-         * effect khác (bar/lightning/black hole/rain/rubik). Thay bằng CSS filter `blur()` áp
-         * THẲNG lên canvas — quy đổi TỪ CÙNG `blurMult` (0-1, `getActiveBlurMult()`,
-         * core/audio-analysis.js) mà các effect canvas 2D đang dùng, nên cảm giác BẬT/TẮT và kéo
-         * cường độ nhất quán dù cơ chế nền khác hẳn. Gọi MỖI FRAME bởi
-         * `event/workflow/visualizer-render.js::_tick()` — KHÔNG ĐIỀU KIỆN theo type đang chạy
-         * (Vortex dùng CHUNG canvas này nhưng KHÔNG có blurEnabled/blurIntensity trong
-         * DEFAULT_CUSTOM_EFFECT.vortex -> `blurMult` tự nhiên = 0 -> filter tự xoá, không cần
-         * nhánh riêng "nếu KHÔNG phải Space thì xoá filter").
-         * @param {HTMLElement} webglCanvasEl @param {number} blurMult - 0..1 @param {number} maxBlurPx
-         */
-        function applyWebglCanvasBlur(webglCanvasEl, blurMult, maxBlurPx) {
-            webglCanvasEl.style.filter = blurMult > 0 ? `blur(${(blurMult * maxBlurPx).toFixed(1)}px)` : '';
-        }
-
         /** Màu progress bar theo effect ĐANG CHẠY (customEffect[type]) — không còn 1 màu chung. */
         function updateProgressBarCSS() {
             const ec = getActiveEffectConfig(); // core/custom-effect.js
