@@ -115,28 +115,6 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.clusterDistanceMin': 'Cluster distance (min)',
     'customEffectDrawer.field.clusterDistanceMax': 'Cluster distance (max)',
 
-    // MỚI (27/08/2026, phản hồi Giang mục 1) — khoảng cách GIỮA các cụm, độ "dính" khi rời cụm,
-    // hệ số tốc độ di chuyển, bật/tắt hình thái thiên hà (10 nhãn khớp Y HỆT SPACE_GALAXY_TYPES,
-    // core/webgl/three-space.js).
-    'customEffectDrawer.field.clusterSeparationMin': 'Distance between clusters (min)',
-    'customEffectDrawer.field.clusterSeparationMax': 'Distance between clusters (max)',
-    'customEffectDrawer.field.clusterStickiness': 'Cluster stickiness',
-    'customEffectDrawer.field.travelSpeedMultiplier': 'Travel speed',
-    'customEffectDrawer.field.enabledGalaxyTypes': 'Galaxy shapes',
-    'customEffectDrawer.galaxyType.spiral': 'Spiral',
-    'customEffectDrawer.galaxyType.barredSpiral': 'Barred Spiral',
-    'customEffectDrawer.galaxyType.elliptical': 'Elliptical',
-    'customEffectDrawer.galaxyType.ring': 'Ring',
-    'customEffectDrawer.galaxyType.irregular': 'Irregular',
-    'customEffectDrawer.galaxyType.lenticular': 'Lenticular',
-    'customEffectDrawer.galaxyType.flocculentSpiral': 'Flocculent Spiral',
-    'customEffectDrawer.galaxyType.sombrero': 'Sombrero',
-    'customEffectDrawer.galaxyType.cartwheel': 'Cartwheel',
-    'customEffectDrawer.galaxyType.peculiar': 'Peculiar',
-
-    // MỚI (27/08/2026, phản hồi Giang mục 3) — nút reset trong header Custom Effect Drawer.
-    'customEffectDrawer.resetAll.title': 'Reset all effects to default',
-
     // MỚI (14/08/2026, "làm hết danh sách ứng viên custom" — Giang chốt) — field sâu, trước đây
     // hardcode trong từng file draw, giờ mở custom theo đúng danh sách đã thống nhất.
     'customEffectDrawer.field.barFillRatio': 'Bar/gap ratio',
