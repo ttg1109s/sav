@@ -46,10 +46,9 @@
  * điều kiện MOVE từ cụm này sang cụm khác chứ không phải tái tạo các cụm... điều kiện là thay đổi
  * MẠNH về pha nhạc như game mode Circle dùng để rebuild map pitch")** — KHÔNG còn là "ghé đủ mọi
  * thiên hà trong cụm" (bản đầu SAI). Giờ TÁI DÙNG NGUYÊN VẸN cơ chế phát hiện chuyển pha nhạc của
- * Circle: `detectFluxTransition()` (energy/section transition, core/gameplay/engine.js) +
- * `isPhraseBoundary()` (core/gameplay/circle-mode.js) — Workflow tự tích luỹ flux/beat RIÊNG cho
- * Space (mirror `_beatFluxHistory`/`_beatsSincePhraseRefresh` của `event/workflow/gameplay.js`,
- * KHÔNG dùng chung biến với gameplay — 2 domain độc lập). Phát hiện được -> đặt cờ
+ * Circle: `detectMusicTransition()` + `isPhraseBoundary()` (core/audio-analysis.js) — Workflow tự
+ * tích luỹ flux/beat RIÊNG cho Space (mirror `_beatFluxHistory`/`_beatsSincePhraseRefresh` của
+ * `event/workflow/gameplay.js`, KHÔNG dùng chung biến với gameplay — 2 domain độc lập). Phát hiện được -> đặt cờ
  * `spClusterSwitchPending`, CHỈ THỰC SỰ đổi cụm ở điểm dừng tự nhiên kế tiếp (vừa ghé xong 1 thiên
  * hà, `_completeGalaxyVisit()`) — giống hệt cách `gameplayRefreshPending` chờ tới lúc board rỗng.
  *
@@ -65,11 +64,10 @@
  * `galaxyTravel`, vị trí VÀ hướng nhìn nội suy ĐỘC LẬP nhưng SONG SONG (cùng progress, mục 2b(5)).
  *
  * NẠP: SAU toàn bộ `core/visualizer/types/*.js`, `core/visualizer/draw/*.js`,
- * `core/webgl/three-vortex.js`, `core/webgl/three-space.js`, `core/audio-analysis.js`,
- * `core/gameplay/engine.js`, `core/gameplay/circle-mode.js` (cần `detectFluxTransition()`/
- * `isPhraseBoundary()` đã định nghĩa), `core/visualizer/visualizer-display.js` — xem vị trí thẻ
- * `<script>` trong index.html (đặt ngay vị trí cũ của `draw-visualizer.js`, cuối khối
- * 4-VISUALIZERS, SAU khối gameplay).
+ * `core/webgl/three-vortex.js`, `core/webgl/three-space.js`, `core/audio-analysis.js` (cần
+ * `detectMusicTransition()`/`isPhraseBoundary()` đã định nghĩa), `core/visualizer/visualizer-
+ * display.js` — xem vị trí thẻ `<script>` trong index.html (đặt ngay vị trí cũ của
+ * `draw-visualizer.js`, cuối khối 4-VISUALIZERS, SAU khối gameplay).
  */
 
 const RENDER_TASK = 'visualizerRender';
@@ -97,8 +95,8 @@ const SPACE_POPULATION_ENERGY_THRESHOLD = 0.35;
 const SPACE_CLUSTER_SPAWN_CHANCE_PER_BEAT = 0.12;    // xác suất THÊM 1 cụm mỗi nhịp (khi đủ điều kiện)
 const SPACE_CLUSTER_DISSOLVE_CHANCE_PER_BEAT = 0.08; // xác suất cho 1 cụm BẮT ĐẦU tan mỗi nhịp
 
-// ----- Điều kiện "chuyển pha" cụm (mục 2c) — tái dùng detectFluxTransition()/isPhraseBoundary()
-// của game mode Circle (core/gameplay/engine.js, core/gameplay/circle-mode.js). Số liệu tham khảo
+// ----- Điều kiện "chuyển pha" cụm (mục 2c) — tái dùng detectMusicTransition()/isPhraseBoundary()
+// của game mode Circle (core/audio-analysis.js). Số liệu tham khảo
 // trực tiếp từ GAMEPLAY_CIRCLE_CONFIG (service/state/gameplay-runtime.js) mức "medium", chỉnh
 // sectionWindow/phraseRefresh DÀI hơn 1 chút — Space cần cảm giác chuyển cảnh CHẬM/điện ảnh hơn
 // nhịp game, không cần phản ứng gấp như gameplay. -----
@@ -386,10 +384,9 @@ const workflowVisualizerRender = {
         _fwBeatsSincePhraseRefresh++;
         if (!isPlaying) return;
 
-        const energyTransition = detectFluxTransition(_fwBeatFluxHistory, FIREWORKS_ENERGY_WINDOW_BEATS, FIREWORKS_FLUX_TRANSITION_THRESHOLD); // core (gameplay/engine.js)
-        const sectionTransition = detectFluxTransition(_fwBeatFluxHistory, FIREWORKS_SECTION_WINDOW_BEATS, FIREWORKS_FLUX_TRANSITION_THRESHOLD); // core
-        const phraseBoundary = isPhraseBoundary(_fwBeatsSincePhraseRefresh, cfg.finaleIntervalBeats); // core (gameplay/circle-mode.js)
-        if (energyTransition || sectionTransition || phraseBoundary) {
+        const musicTransition = detectMusicTransition(_fwBeatFluxHistory, FIREWORKS_ENERGY_WINDOW_BEATS, FIREWORKS_SECTION_WINDOW_BEATS, FIREWORKS_FLUX_TRANSITION_THRESHOLD); // core (audio-analysis.js)
+        const phraseBoundary = isPhraseBoundary(_fwBeatsSincePhraseRefresh, cfg.finaleIntervalBeats); // core (audio-analysis.js)
+        if (musicTransition || phraseBoundary) {
             _fwBeatsSincePhraseRefresh = 0;
             this._fwFireFinale(cfg, beatScale);
         }
@@ -574,7 +571,7 @@ const workflowVisualizerRender = {
      * của `event/workflow/gameplay.js`) — MỖI FRAME cộng dồn `fluxHistory` (global, đã tính sẵn ở
      * core/audio-analysis.js) vào bộ đệm; MỖI BEAT MỚI (so `lastBeatTime` global, KHÔNG thuộc
      * appState — core/dom-refs.js) mới thực sự chốt 1 mốc + xét điều kiện chuyển pha
-     * (`detectFluxTransition()`/`isPhraseBoundary()`, core/gameplay/) VÀ quản lý quần thể cụm.
+     * (`detectMusicTransition()`/`isPhraseBoundary()`, core/audio-analysis.js) VÀ quản lý quần thể cụm.
      */
     _updateClusterSwitchTrigger(camPos, isPlaying, smoothedEnergy) {
         const fluxHistory = appState.get('fluxHistory');
@@ -596,10 +593,9 @@ const workflowVisualizerRender = {
         _spBeatsSincePhraseRefresh++;
 
         if (!appState.get('spClusterSwitchPending')) {
-            const energyTransition = detectFluxTransition(_spBeatFluxHistory, SPACE_ENERGY_WINDOW_BEATS, SPACE_FLUX_TRANSITION_THRESHOLD); // core (gameplay/engine.js)
-            const sectionTransition = detectFluxTransition(_spBeatFluxHistory, SPACE_SECTION_WINDOW_BEATS, SPACE_FLUX_TRANSITION_THRESHOLD); // core
-            const phraseBoundary = isPhraseBoundary(_spBeatsSincePhraseRefresh, SPACE_PHRASE_REFRESH_BEATS); // core (gameplay/circle-mode.js)
-            if (energyTransition || sectionTransition || phraseBoundary) {
+            const musicTransition = detectMusicTransition(_spBeatFluxHistory, SPACE_ENERGY_WINDOW_BEATS, SPACE_SECTION_WINDOW_BEATS, SPACE_FLUX_TRANSITION_THRESHOLD); // core (audio-analysis.js)
+            const phraseBoundary = isPhraseBoundary(_spBeatsSincePhraseRefresh, SPACE_PHRASE_REFRESH_BEATS); // core (audio-analysis.js)
+            if (musicTransition || phraseBoundary) {
                 appState.set('spClusterSwitchPending', true, { skipCheck: true });
                 _spBeatsSincePhraseRefresh = 0;
             }

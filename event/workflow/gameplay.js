@@ -26,15 +26,13 @@
  * Vị trí lấy từ lưới pitch→ô (`gameplayPitchCellMap`), `shrinkDurationMs` theo BPM hiện tại — LƯU
  * vào wave lúc spawn, wave co theo `performance.now()` riêng, độc lập audio.currentTime.
  *
- * [SỬA — nghiên cứu lại công thức flux, phản hồi Giang] `fluxHistory` (appState) đẩy 1 mẫu MỖI
- * FRAME render — dùng THẲNG cho detectFluxTransition() (windowSize=10 mẫu) từng bị nhiễu tức thời
- * chi phối (167ms@60fps, còn ít hơn ở máy fps cao) + threshold tuyệt đối không thích ứng độ to nhỏ
- * bài hát. `fluxHistory` KHÔNG được đổi (cũng là nguồn beat detection thật, core/audio-analysis.js)
- * — tick() giờ tự gộp `fluxHistory` thành `_beatFluxHistory` (1 mốc/BEAT, trung bình đoạn giữa 2
- * beat) TRƯỚC khi gọi detectFluxTransition() — độc lập fps máy, threshold đổi sang tỉ lệ tương đối.
+ * `fluxHistory` (appState, đẩy 1 mẫu MỖI FRAME render — core/audio-analysis.js) không đổi, vẫn là
+ * nguồn beat detection thật; `tick()` tự gộp thành `_beatFluxHistory` (1 mốc/BEAT, trung bình đoạn
+ * giữa 2 beat) TRƯỚC khi gọi `detectMusicTransition()` — độc lập fps máy, threshold tỉ lệ tương đối.
  *
  * NẠP SAU: event/workflow/gameplay-engine.js, core/gameplay/circle-mode.js, core/gameplay/engine.js,
- * core/gameplay/circle-mode-ui.js, core/player-controls.js (getActiveMediaElement).
+ * core/gameplay/circle-mode-ui.js, core/player-controls.js (getActiveMediaElement),
+ * core/audio-analysis.js (detectMusicTransition/isPhraseBoundary).
  */
 const GAMEPLAY_MISS_SHATTER_COLOR = '#f87171'; // đỏ-400, khớp màu .gameplay-tier-popup--miss (assets/css/gameplay.css)
 
@@ -205,13 +203,12 @@ const workflowGameplay = {
             this._pendingBeatFluxCount = 0;
 
             // Trigger refresh vị trí theo audio — CHỈ xét khi map đã có THẬT và CHƯA đang pending.
-            // [SỬA — phản hồi Giang, số cuối] fluxThreshold DÙNG CHUNG cho energy/section (trước
-            // đây 2 số riêng fluxDeltaEnergy/fluxDeltaSection), chỉ còn khác nhau ở CỬA SỔ so sánh.
+            // fluxThreshold DÙNG CHUNG cho energy/section, chỉ khác nhau ở CỬA SỔ so sánh — gộp
+            // sẵn trong detectMusicTransition() (core/audio-analysis.js).
             if (!justRebuilt && !gameplayRefreshPending) {
-                const energyTransition = detectFluxTransition(this._beatFluxHistory, diffCfg.energyWindowBeats, diffCfg.fluxThreshold); // core (engine.js)
-                const sectionTransition = detectFluxTransition(this._beatFluxHistory, diffCfg.sectionWindowBeats, diffCfg.fluxThreshold); // core
-                const phraseBoundary = isPhraseBoundary(this._beatsSincePhraseRefresh, cfg.refreshBeatsForPhrase); // core (circle-mode.js)
-                if (energyTransition || sectionTransition || phraseBoundary) {
+                const musicTransition = detectMusicTransition(this._beatFluxHistory, diffCfg.energyWindowBeats, diffCfg.sectionWindowBeats, diffCfg.fluxThreshold); // core (audio-analysis.js)
+                const phraseBoundary = isPhraseBoundary(this._beatsSincePhraseRefresh, cfg.refreshBeatsForPhrase); // core (audio-analysis.js)
+                if (musicTransition || phraseBoundary) {
                     appState.set('gameplayRefreshPending', true, { skipCheck: true });
                     this._beatsSincePhraseRefresh = 0;
                 }
