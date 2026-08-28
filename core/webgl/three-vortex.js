@@ -67,6 +67,18 @@
         }
 
         // Nội suy mượt mà hình dáng ống
+        /** Lệch NGẮN NHẤT theo chu kỳ 2π giữa 2 góc — vd 0.1 và 6.2 (≈2π-0.08) lệch nhau chỉ
+         * ~0.18, KHÔNG phải ~6.1 nếu trừ thẳng. Chặn phaseX/phaseY nhảy số tuyệt đối (mục 2, phản
+         * hồi Giang — target.phaseX giải theo z hiện tại nên là số tuyệt đối lớn dần theo thời
+         * gian, trừ thẳng sẽ ra hiệu số khổng lồ). */
+        function shortestAngleDelta(from, to) {
+            const twoPi = Math.PI * 2;
+            let d = (to - from) % twoPi;
+            if (d > Math.PI) d -= twoPi;
+            if (d < -Math.PI) d += twoPi;
+            return d;
+        }
+
         function updateVortexCurveLerp() {
             const k = 0.006;
             const target = appState.get('tPathTarget');
@@ -75,7 +87,12 @@
                 params.freqY += (target.freqY - params.freqY) * k;
                 params.ampX += (target.ampX - params.ampX) * k;
                 params.ampY += (target.ampY - params.ampY) * k;
-                // Tiến pha để ống luôn "sống"
+                // Rẽ theo hướng (phaseX/phaseY, computeVortexCurveTarget()) — nội suy theo lệch
+                // NGẮN NHẤT (không trừ thẳng số tuyệt đối), bước tối đa mỗi frame bị chặn ở ±π·k
+                // (~0.019 rad/frame) dù target lệch bao xa — không còn giật/nhảy khi rẽ.
+                params.phaseX += shortestAngleDelta(params.phaseX, target.phaseX) * k;
+                params.phaseY += shortestAngleDelta(params.phaseY, target.phaseY) * k;
+                // Tiến pha nền để ống luôn "sống" NGAY CẢ giữa 2 lần rẽ (không có target mới).
                 params.phaseX += 0.005;
                 params.phaseY += 0.005;
             }, { skipCheck: true });
