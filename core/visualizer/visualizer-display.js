@@ -24,6 +24,7 @@
             'black hole': 'settingsVisualizer.type.blackHole',
             rain: 'settingsVisualizer.type.rain',
             space: 'settingsVisualizer.type.space',
+            fireworks: 'settingsVisualizer.type.fireworks',
         };
 
         /**
