@@ -11,8 +11,9 @@
             const cfg = getActiveEffectConfig(); // core/custom-effect.js
             const vizDataArray = appState.get('vizDataArray');
 
-            // 1. Cập nhật đường ống bay (Cinematic Path) — đổi hướng thưa hơn và nhẹ nhàng hơn để tránh giật
-            if(isPlaying && smoothedEnergy > 0.65 && Math.random() < cfg.curveChangeChance) rollNewVortexCurve();
+            // 1. Nội suy mượt hình dáng ống — hướng rẽ MỚI (theo nốt nhạc + music transition) do
+            // Workflow tự tính riêng (_tickVortexCurve(), event/workflow/visualizer-render.js),
+            // ghi thẳng vào tPathTarget; ở đây chỉ còn việc nội suy dần tới target đó.
             updateVortexCurveLerp();
 
             // 2. Cập nhật tốc độ bay (Gia tốc rất mượt theo nhạc, tránh tăng/giảm tốc đột ngột)
