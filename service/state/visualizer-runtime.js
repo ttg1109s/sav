@@ -36,5 +36,7 @@
         });
 
         // 'space' — visual "Galaxy Journey", không có kiểu con, tinh chỉnh là hằng số cố định
-        // trong event/workflow/visualizer-render.js. 'fireworks' — MỚI, cùng file (_tickFireworks).
-        const MODES = ['bar', 'lightning', 'rubik', 'vortex', 'black hole', 'rain', 'space', 'fireworks'];
+        // trong event/workflow/visualizer-render.js. 'lighting' — gộp 2 style con qua
+        // customEffect.lighting.lightingStyle: 'thunder' (tia sét, trước là type riêng
+        // 'lightning') và 'fireworks' (pháo hoa).
+        const MODES = ['bar', 'lighting', 'rubik', 'vortex', 'black hole', 'rain', 'space'];
