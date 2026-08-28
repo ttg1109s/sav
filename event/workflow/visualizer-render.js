@@ -145,10 +145,15 @@ let _fwPendingBeatFluxSum = 0;
 let _fwPendingBeatFluxCount = 0;
 let _fwBeatFluxHistory = [];
 let _fwBeatsSincePhraseRefresh = 0;
+// Bin FFT gán cho rocket kế tiếp (mục 4, phản hồi Giang) — CỘNG DỒN mỗi lần bắn để rải đều qua 1
+// dải tần thay vì luôn rơi vào 1-2 bin cố định; giới hạn trong dải bass/mid (thường có năng lượng
+// ổn định hơn treble, tránh rocket luôn đọc bin gần như im lặng -> luôn nhỏ).
+let _fwNextBinIndex = 0;
+const FIREWORKS_SIZE_BIN_MIN = 2;
+const FIREWORKS_SIZE_BIN_MAX = 40;
 const FIREWORKS_ENERGY_WINDOW_BEATS = 4;
 const FIREWORKS_SECTION_WINDOW_BEATS = 12;
 const FIREWORKS_FLUX_TRANSITION_THRESHOLD = 0.5;
-const FIREWORKS_PHRASE_REFRESH_BEATS = 24;
 const FIREWORKS_FINALE_ROCKET_COUNT = 10;
 
 // Tích luỹ flux/beat RIÊNG cho Space — mirror _beatFluxHistory/_beatsSincePhraseRefresh của
@@ -279,7 +284,7 @@ const workflowVisualizerRender = {
         const { dpr, currentCalculatedBpm } = appState.get(['dpr', 'currentCalculatedBpm']);
 
         this._fwAutoLaunch(isPlaying, beatScale, smoothedEnergy, currentCalculatedBpm, cfg);
-        this._fwUpdateFinaleTrigger(isPlaying, cfg);
+        this._fwUpdateFinaleTrigger(isPlaying, beatScale, cfg);
 
         const { fwRockets, fwParticles } = appState.get(['fwRockets', 'fwParticles']);
         const spectrumBin = (vizDataArray && vizDataArray.length > 0) ? vizDataArray[Math.floor(Math.random() * Math.min(32, vizDataArray.length))] : 0;
@@ -290,11 +295,16 @@ const workflowVisualizerRender = {
         fwRockets.forEach((rocket) => {
             advanceFireworksRocket(rocket); // core
             if (hasFireworksRocketArrived(rocket)) { // core
-                const power = computeFireworksBurstPower(cfg.burstPower, beatScale); // core
+                // "Zoom to/nhỏ" theo nhạc (mục 1+4, phản hồi Giang) — độ cao bin FFT gán cho rocket
+                // này ĐỌC LẠI NGAY LÚC NỔ, kết hợp độ mạnh bass lúc BẮN (đã lưu trên rocket).
+                const binValue01 = (vizDataArray && vizDataArray[rocket.binIndex] !== undefined) ? vizDataArray[rocket.binIndex] / 255 : 0;
+                const sizeScale = computeFireworksSizeScale(binValue01, rocket.launchBeatScale); // core
+                const power = computeFireworksBurstPower(cfg.burstPower, beatScale) * sizeScale; // core
                 const exploder = FIREWORKS_EXPLODERS[rocket.style] || FIREWORKS_EXPLODERS.chrysanthemum; // core
-                const count = Math.max(8, Math.round(cfg.particleCount * rocket.depthScale));
+                const count = Math.max(8, Math.round(cfg.particleCount * rocket.depthScale * sizeScale));
                 const burst = exploder(rocket.x, rocket.y, count, power, cfg.gravity, spectrumBin);
-                burstParticles = burstParticles.concat(applyFireworksDepth(burst, rocket.depthScale)); // core
+                const scaled = applyFireworksSizeScale(applyFireworksDepth(burst, rocket.depthScale), sizeScale); // core
+                burstParticles = burstParticles.concat(scaled);
                 flashTarget = Math.max(flashTarget, computeFireworksFlashAlpha(beatScale, cfg.flashThreshold) * rocket.depthScale); // core — flashThreshold DÙNG CHUNG với style thunder
             } else {
                 remainingRockets.push(rocket);
@@ -318,20 +328,25 @@ const workflowVisualizerRender = {
         appState.set('fwParticles', survivors, { skipCheck: true });
     },
 
-    /** Tự bắn rocket theo nhạc — không nút bấm thủ công (BPM/mật độ nhạc quyết định nhịp). */
+    /** Tự bắn rocket theo nhạc — không nút bấm thủ công (BPM/mật độ nhạc quyết định nhịp). Dừng
+     * hẳn khi đã chạm `maxConcurrentRockets` (mục 2, phản hồi Giang) — KHÔNG cập nhật
+     * `_fwLastLaunchAt` lúc bị chặn, để bắn lại NGAY khung hình kế tiếp có chỗ trống, thay vì phải
+     * chờ thêm nguyên 1 interval nữa. */
     _fwAutoLaunch(isPlaying, beatScale, smoothedEnergy, currentCalculatedBpm, cfg) {
         const bpm = parseInt(currentCalculatedBpm, 10) || 120;
         const intervalMs = computeFireworksAutoLaunchIntervalMs(bpm, cfg.autoLaunchDensity, smoothedEnergy, isPlaying); // core
         const now = performance.now();
         if (now - _fwLastLaunchAt < intervalMs) return;
+        if (appState.get('fwRockets').length >= cfg.maxConcurrentRockets) return;
         _fwLastLaunchAt = now;
-        this._fwLaunchOne(cfg);
+        this._fwLaunchOne(cfg, beatScale);
     },
 
     /** Bắn 1 rocket — kiểu nổ random trong enabledStyles, `depthScale` random (0.4 xa..1.0 gần)
-     * cho cảm giác lớp xa/gần (mục 4, phản hồi Giang); điểm bắn LỆCH ĐÁNG KỂ khỏi đích để quỹ đạo
-     * chéo thật sự (mục 1, "thẳng đờ") thay vì gần như thẳng đứng; rocket "xa" nổ cao/gọn hơn. */
-    _fwLaunchOne(cfg) {
+     * cho cảm giác lớp xa/gần; điểm bắn LỆCH ĐÁNG KỂ khỏi đích để quỹ đạo chéo thật sự thay vì gần
+     * như thẳng đứng; rocket "xa" nổ cao/gọn hơn. Gán `binIndex` (rải qua dải bass/mid, mục 4) +
+     * lưu `beatScale` NGAY LÚC BẮN (mục 1) — cả 2 dùng ở computeFireworksSizeScale() lúc nổ. */
+    _fwLaunchOne(cfg, beatScale) {
         const enabledStyles = resolveEnabledFireworksStyles(cfg.enabledStyles); // core
         const style = pickRandomFireworksStyle(enabledStyles); // core
         const depthScale = 0.4 + Math.random() * 0.6;
@@ -342,13 +357,17 @@ const workflowVisualizerRender = {
         const rawStartX = targetX + (Math.random() - 0.5) * canvas.width * 0.35;
         const startX = Math.min(canvas.width * 0.95, Math.max(canvas.width * 0.05, rawStartX));
         const color = getComputedColor(0, 1, 0).fill; // core/audio-analysis.js
-        const rocket = createFireworksRocket(startX, canvas.height, targetX, targetY, style, color, depthScale); // core
+        const binRange = FIREWORKS_SIZE_BIN_MAX - FIREWORKS_SIZE_BIN_MIN;
+        _fwNextBinIndex = FIREWORKS_SIZE_BIN_MIN + ((_fwNextBinIndex - FIREWORKS_SIZE_BIN_MIN + 7) % binRange);
+        const rocket = createFireworksRocket(startX, canvas.height, targetX, targetY, style, color, depthScale, _fwNextBinIndex, beatScale || 0); // core
         appState.mutate('fwRockets', (arr) => arr.push(rocket), { skipCheck: true });
     },
 
     /** Tích luỹ flux/beat riêng cho Fireworks (mirror _updateClusterSwitchTrigger của Space) —
-     * chuyển đoạn/phrase nhạc -> tự bắn 1 chuỗi "Đại Tiệc Pháo Hoa" thay nút bấm thủ công cũ. */
-    _fwUpdateFinaleTrigger(isPlaying, cfg) {
+     * chuyển đoạn/phrase nhạc -> tự bắn 1 chuỗi "Đại Tiệc Pháo Hoa" thay nút bấm thủ công cũ.
+     * Nhịp ép định kỳ (`cfg.finaleIntervalBeats`, mục 3, phản hồi Giang) giờ do Giang tự chỉnh,
+     * không còn hằng số cứng. */
+    _fwUpdateFinaleTrigger(isPlaying, beatScale, cfg) {
         const fluxHistory = appState.get('fluxHistory');
         if (fluxHistory.length > 0) {
             _fwPendingBeatFluxSum += fluxHistory[fluxHistory.length - 1];
@@ -369,16 +388,20 @@ const workflowVisualizerRender = {
 
         const energyTransition = detectFluxTransition(_fwBeatFluxHistory, FIREWORKS_ENERGY_WINDOW_BEATS, FIREWORKS_FLUX_TRANSITION_THRESHOLD); // core (gameplay/engine.js)
         const sectionTransition = detectFluxTransition(_fwBeatFluxHistory, FIREWORKS_SECTION_WINDOW_BEATS, FIREWORKS_FLUX_TRANSITION_THRESHOLD); // core
-        const phraseBoundary = isPhraseBoundary(_fwBeatsSincePhraseRefresh, FIREWORKS_PHRASE_REFRESH_BEATS); // core (gameplay/circle-mode.js)
+        const phraseBoundary = isPhraseBoundary(_fwBeatsSincePhraseRefresh, cfg.finaleIntervalBeats); // core (gameplay/circle-mode.js)
         if (energyTransition || sectionTransition || phraseBoundary) {
             _fwBeatsSincePhraseRefresh = 0;
-            this._fwFireFinale(cfg);
+            this._fwFireFinale(cfg, beatScale);
         }
     },
 
-    /** Chuỗi rocket liên tiếp + 1 chữ trong customTexts (nếu có, round-robin). */
-    _fwFireFinale(cfg) {
-        for (let i = 0; i < FIREWORKS_FINALE_ROCKET_COUNT; i++) this._fwLaunchOne(cfg);
+    /** Chuỗi rocket liên tiếp (dừng sớm nếu chạm `maxConcurrentRockets`, mục 2) + 1 chữ trong
+     * customTexts (nếu có, round-robin). */
+    _fwFireFinale(cfg, beatScale) {
+        for (let i = 0; i < FIREWORKS_FINALE_ROCKET_COUNT; i++) {
+            if (appState.get('fwRockets').length >= cfg.maxConcurrentRockets) break;
+            this._fwLaunchOne(cfg, beatScale);
+        }
         const picked = pickNextFireworksText(cfg.customTexts, _fwTextIndex); // core
         if (!picked) return;
         _fwTextIndex = picked.nextIndex;
