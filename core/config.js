@@ -51,8 +51,11 @@
                 boltThreshold: 0.4, boltSpawnChance: 0.2, maxBoltCount: 5,
                 boltFadeSpeed: 0.04, boltHorizontalDeviation: 120, boltSegmentLength: 60,
                 // Style "fireworks" (pháo hoa) — enabledStyles/customTexts không qua cơ chế
-                // CUSTOM_EFFECT_STYLE 1-dropdown, xem core/custom-effect.js.
+                // CUSTOM_EFFECT_STYLE 1-dropdown, xem core/custom-effect.js. maxConcurrentRockets
+                // = trần số rocket đang bay CÙNG LÚC (mục 2, phản hồi Giang). finaleIntervalBeats
+                // = nhịp ép "Đại Tiệc Pháo Hoa" định kỳ nếu nhạc không tự chuyển đoạn (mục 3).
                 particleCount: 140, burstPower: 1.0, gravity: 0.06, autoLaunchDensity: 50,
+                maxConcurrentRockets: 12, finaleIntervalBeats: 24,
                 enabledStyles: [...FIREWORKS_STYLE_KEYS],
                 customTexts: [],
             },

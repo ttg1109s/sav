@@ -124,6 +124,8 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'burstPower', labelKey: 'customEffectDrawer.field.fwBurstPower', type: 'sliderFloat', min: 0.5, max: 2.0, step: 0.1, decimals: 1, showIf: (cfg) => cfg.lightingStyle === 'fireworks' },
         { id: 'gravity', labelKey: 'customEffectDrawer.field.fwGravity', type: 'sliderFloat', min: 0.02, max: 0.12, step: 0.01, decimals: 2, showIf: (cfg) => cfg.lightingStyle === 'fireworks' },
         { id: 'autoLaunchDensity', labelKey: 'customEffectDrawer.field.fwAutoLaunchDensity', type: 'slider', min: 5, max: 100, step: 5, showIf: (cfg) => cfg.lightingStyle === 'fireworks' },
+        { id: 'maxConcurrentRockets', labelKey: 'customEffectDrawer.field.fwMaxConcurrentRockets', type: 'slider', min: 3, max: 30, step: 1, showIf: (cfg) => cfg.lightingStyle === 'fireworks' },
+        { id: 'finaleIntervalBeats', labelKey: 'customEffectDrawer.field.fwFinaleIntervalBeats', type: 'slider', min: 8, max: 64, step: 4, showIf: (cfg) => cfg.lightingStyle === 'fireworks' },
     ],
 };
 /** Config đầy đủ (default merge field thiếu) của 1 effect theo type. */
