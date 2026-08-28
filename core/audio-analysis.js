@@ -58,6 +58,36 @@
             return ec.blurEnabled ? ec.blurIntensity / 100 : 0;
         }
 
+        /** "Nhạc vừa biến động" — so trung bình `windowSize` MỐC/BEAT gần nhất với `windowSize`
+         * mốc trước đó, lệch tương đối (không phải tuyệt đối — bất biến độ to nhỏ bài hát/thiết
+         * bị) >= `relativeThreshold`. Gộp SẴN 2 cửa sổ (ngắn = build-up/drop nhanh, dài = chuyển
+         * đoạn verse/chorus) — nơi gọi chỉ cần đưa energyWindowBeats/sectionWindowBeats/
+         * fluxThreshold, không tự OR 2 lần riêng nữa. Dùng chung cho game mode Circle, Space,
+         * Fireworks — mỗi nơi tự tích luỹ `beatFluxHistory` RIÊNG (không dùng chung mảng giữa các
+         * domain — mỗi domain 1 nhịp tiêu thụ khác nhau).
+         * @param {number[]} beatFluxHistory - mỗi phần tử = flux trung bình đoạn giữa 2 beat liên tiếp.
+         * @param {number} energyWindowBeats - cửa sổ ngắn, số BEAT.
+         * @param {number} sectionWindowBeats - cửa sổ dài, số BEAT.
+         * @param {number} relativeThreshold - tỉ lệ lệch tối thiểu, vd 0.35 = lệch 35%.
+         */
+        function detectMusicTransition(beatFluxHistory, energyWindowBeats, sectionWindowBeats, relativeThreshold) {
+            const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
+            const checkWindow = (windowSize) => {
+                if (beatFluxHistory.length < windowSize * 2) return false;
+                const recentAvg = avg(beatFluxHistory.slice(-windowSize));
+                const priorAvg = avg(beatFluxHistory.slice(-windowSize * 2, -windowSize));
+                if (priorAvg <= 0) return false; // tránh chia 0 lúc đoạn trước hoàn toàn im lặng
+                return Math.abs(recentAvg - priorAvg) / priorAvg >= relativeThreshold;
+            };
+            return checkWindow(energyWindowBeats) || checkWindow(sectionWindowBeats);
+        }
+
+        /** Xấp xỉ ranh giới phrase bằng đếm beat cố định (không có phrase detection thật). Nơi gọi
+         * tự đếm `beatsSincePhraseRefresh`, reset về 0 khi hàm này trả true. */
+        function isPhraseBoundary(beatsSincePhraseRefresh, refreshBeatsForPhrase) {
+            return beatsSincePhraseRefresh >= refreshBeatsForPhrase;
+        }
+
         function updateStatsDashboard(bufferLength) {
             const now = Date.now();
             let totalAmplitude = 0; let currentFlux = 0;
