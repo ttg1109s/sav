@@ -6,8 +6,8 @@
  * VIẾT LẠI HOÀN TOÀN MÔ HÌNH DI CHUYỂN (26/08/2026, phản hồi Giang — "loại bỏ mô hình cũ, không
  * cần ý kiến"; SỬA LẠI CÙNG NGÀY, phản hồi Giang lượt 2 — tách RÕ 2 khái niệm từng bị gộp nhầm ở
  * bản đầu: (a) "chuyển pha" = điều kiện MOVE giữa các cụm — mục đích tham khảo/tái dùng
- * `detectFluxTransition()`/`isPhraseBoundary()` (core/gameplay/engine.js, core/gameplay/
- * circle-mode.js — game mode Circle dùng để rebuild pitch map); (b) "cụm tan đi/thêm vào" = vòng
+ * `detectMusicTransition()`/`isPhraseBoundary()` (core/audio-analysis.js — game mode Circle dùng
+ * để rebuild pitch map); (b) "cụm tan đi/thêm vào" = vòng
  * đời QUẦN THỂ cụm, HOÀN TOÀN ĐỘC LẬP với (a), cụm mới mờ dần HIỆN, cụm cũ mờ dần TAN theo nhạc —
  * xem toàn bộ logic 2 việc này ở `event/workflow/visualizer-render.js`, file NÀY chỉ thêm tham số
  * `fadeOutMultiplier` vào `SpaceGalaxy.update()` để hỗ trợ (b)) — BỎ HẲN mô hình bản đồ TĨNH 1 lớp
