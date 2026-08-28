@@ -154,6 +154,12 @@ const FIREWORKS_SECTION_WINDOW_BEATS = 12;
 const FIREWORKS_FLUX_TRANSITION_THRESHOLD = 0.5;
 const FIREWORKS_FINALE_ROCKET_COUNT = 10;
 
+// ===== Vortex — biến NỘI BỘ (KHÔNG thuộc STATE), mirror _fw*/_sp* =====
+let _vxLastConsumedBeatTime = 0;
+let _vxPendingBeatFluxSum = 0;
+let _vxPendingBeatFluxCount = 0;
+let _vxBeatFluxHistory = [];
+
 // Tích luỹ flux/beat RIÊNG cho Space — mirror _beatFluxHistory/_beatsSincePhraseRefresh của
 // event/workflow/gameplay.js (KHÔNG dùng chung, 2 domain độc lập — xem docstring đầu file).
 let _spLastConsumedBeatTime = 0;
@@ -220,6 +226,9 @@ const workflowVisualizerRender = {
 
         // ================== VISUAL CŨ — gọi THẲNG, y nguyên tham số ==================
         if (cfg.type === 'vortex') {
+            // Hướng rẽ ống (Workflow điều phối thật — beat flux/pitch/ghi tPathTarget) TRƯỚC,
+            // rồi mới tới phần vẽ/nội suy cũ (drawVortex(), vẫn legacy, không đụng).
+            this._tickVortexCurve(isPlaying);
             drawVortex(perf, isPlaying);
         } else if (cfg.type === 'space') {
             // ================== VISUAL Galaxy — Workflow điều phối THẬT SỰ ==================
@@ -238,6 +247,40 @@ const workflowVisualizerRender = {
     },
 
     _fwFlashAlpha: 0,
+
+    /** Hướng rẽ ống Vortex theo nhạc — mirror _fwUpdateFinaleTrigger()/_updateClusterSwitchTrigger()
+     * (tích luỹ beat flux RIÊNG, không dùng chung mảng với Fireworks/Space/Circle). Đủ điều kiện
+     * "nhạc vừa biến động" (detectMusicTransition(), core/audio-analysis.js) -> chọn hướng rẽ theo
+     * nốt MIDI TỨC THỜI (lastValidMidiNote, null thì Core tự fallback random) + z hiện tại của
+     * camera, ghi thẳng target mới vào tPathTarget — phần vẽ/nội suy còn lại vẫn ở drawVortex()
+     * (legacy, không đụng). */
+    _tickVortexCurve(isPlaying) {
+        const fluxHistory = appState.get('fluxHistory');
+        if (fluxHistory.length > 0) {
+            _vxPendingBeatFluxSum += fluxHistory[fluxHistory.length - 1];
+            _vxPendingBeatFluxCount++;
+        }
+        const isNewBeat = lastBeatTime > 0 && lastBeatTime !== _vxLastConsumedBeatTime;
+        if (!isNewBeat) return;
+        _vxLastConsumedBeatTime = lastBeatTime;
+
+        if (_vxPendingBeatFluxCount > 0) {
+            _vxBeatFluxHistory.push(_vxPendingBeatFluxSum / _vxPendingBeatFluxCount);
+            if (_vxBeatFluxHistory.length > 24) _vxBeatFluxHistory.shift();
+        }
+        _vxPendingBeatFluxSum = 0;
+        _vxPendingBeatFluxCount = 0;
+        if (!isPlaying) return;
+
+        const cfg = getActiveEffectConfig(); // core/custom-effect.js
+        const musicTransition = detectMusicTransition(_vxBeatFluxHistory, cfg.energyWindowBeats, cfg.sectionWindowBeats, cfg.fluxThreshold); // core (audio-analysis.js)
+        if (!musicTransition) return;
+
+        const { tPathTarget, tCurrentWarpZ, lastValidMidiNote } = appState.get(['tPathTarget', 'tCurrentWarpZ', 'lastValidMidiNote']);
+        const direction = pickVortexDirectionFromNote(lastValidMidiNote); // core (three-vortex.js)
+        const nextTarget = computeVortexCurveTarget(tPathTarget, direction, tCurrentWarpZ); // core
+        appState.set('tPathTarget', nextTarget, { skipCheck: true });
+    },
 
     /** Chọn ĐÚNG 1 style con để tick — customEffect.lighting.lightingStyle (core/custom-effect.js). */
     _tickLighting(ctx, perf, isPlaying, beatScale, smoothedEnergy, vizDataArray) {
