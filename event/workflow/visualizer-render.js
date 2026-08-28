@@ -13,7 +13,7 @@
  * double-start nên an toàn tuyệt đối dù `setupAudioContext()` được gọi lại nhiều lần (Next/Prev/
  * chọn bài khác... — guard "chỉ chạy thật lần đầu" nằm ngay trong hàm đó).
  *
- * VISUAL CŨ (bar/lightning/rubik/vortex/black hole/rain) — gọi THẲNG, y nguyên tham số, y hệt
+ * VISUAL CŨ (bar/rubik/vortex/black hole/rain) — gọi THẲNG, y nguyên tham số, y hệt
  * `drawVisualizer()` cũ đang làm — KHÔNG đụng logic bên trong các file `core/visualizer/types/*.js`
  * này.
  *
@@ -22,9 +22,11 @@
  * hàm Core nào trong engine Galaxy gọi hàm Core khác, Workflow đứng NGOÀI gọi CẢ tất cả. Xem
  * `_tickSpace()` bên dưới.
  *
- * VISUAL Fireworks (`type: 'fireworks'`) — CÙNG khuôn Galaxy (Workflow điều phối thật, không nằm
- * trong `VISUALIZER_DRAWERS`): tự gom state (rocket/particle, `fwRockets`/`fwParticles`), tự gọi
- * riêng lẻ từng hàm Core của `core/visualizer/types/fireworks.js`. Xem `_tickFireworks()`.
+ * VISUAL Lighting (`type: 'lighting'`) — CÙNG khuôn Galaxy (Workflow điều phối thật, không nằm
+ * trong `VISUALIZER_DRAWERS`), 2 style con qua `customEffect.lighting.lightingStyle`: 'thunder'
+ * (`_tickLightingThunder()`) và 'fireworks' (`_tickLightingFireworks()`, tự gom rocket/particle —
+ * `fwRockets`/`fwParticles`). Cả 2 style dùng chung hàm Core ở `core/visualizer/types/lighting.js`.
+ * Xem `_tickLighting()` bên dưới.
  *
  * MÔ HÌNH GALAXY — VIẾT LẠI HOÀN TOÀN (26/08/2026, phản hồi Giang — "loại bỏ mô hình cũ, không
  * cần ý kiến"). SỬA LẠI CÙNG NGÀY (lượt 2, phản hồi Giang — tách RÕ 2 khái niệm bản đầu gộp
@@ -77,7 +79,6 @@ const RENDER_TASK = 'visualizerRender';
 // RIÊNG trong `_tick()` TRƯỚC khi canvas 2D được clear.
 const VISUALIZER_DRAWERS = {
     'bar':        (ctx, perf) => drawBar(ctx, perf),
-    'lightning':  (ctx, perf, isPlaying) => drawLightning(ctx, perf, isPlaying),
     'rubik':      (ctx, perf, isPlaying) => drawRubik(ctx, isPlaying),
     'black hole': (ctx, perf, isPlaying) => drawBlackHole(ctx, perf, isPlaying),
     'rain':       (ctx, perf, isPlaying) => drawRain(ctx, isPlaying)
@@ -227,19 +228,55 @@ const workflowVisualizerRender = {
         const drawFn = VISUALIZER_DRAWERS[cfg.type];
         if (drawFn) {
             drawFn(ctx, perf, isPlaying, newBeatScale);
-        } else if (cfg.type === 'fireworks') {
-            // ================== VISUAL Fireworks — Workflow điều phối rocket/particle ==================
-            this._tickFireworks(ctx, perf, isPlaying, newBeatScale, newSmoothedEnergy, vizDataArray);
+        } else if (cfg.type === 'lighting') {
+            // ================== VISUAL Lighting — Workflow điều phối style thunder/fireworks ==================
+            this._tickLighting(ctx, perf, isPlaying, newBeatScale, newSmoothedEnergy, vizDataArray);
         }
     },
 
     _fwFlashAlpha: 0,
 
-    /** Tick chính của Fireworks — đọc/ghi appState, gọi RIÊNG LẺ từng hàm Core (core/visualizer/
-     * types/fireworks.js), cùng khuôn _tickSpace(). @param {object} perf - { blurMult } */
-    _tickFireworks(ctx, perf, isPlaying, beatScale, smoothedEnergy, vizDataArray) {
-        const { dpr, currentCalculatedBpm } = appState.get(['dpr', 'currentCalculatedBpm']);
+    /** Chọn ĐÚNG 1 style con để tick — customEffect.lighting.lightingStyle (core/custom-effect.js). */
+    _tickLighting(ctx, perf, isPlaying, beatScale, smoothedEnergy, vizDataArray) {
         const cfg = getActiveEffectConfig(); // core/custom-effect.js
+        if (cfg.lightingStyle === 'fireworks') {
+            this._tickLightingFireworks(ctx, perf, isPlaying, beatScale, smoothedEnergy, vizDataArray, cfg);
+        } else {
+            this._tickLightingThunder(ctx, perf, isPlaying, smoothedEnergy, vizDataArray, cfg);
+        }
+    },
+
+    /** Style "thunder" (tia sét) — đọc/ghi appState, gọi RIÊNG LẺ từng hàm Core (core/visualizer/
+     * types/lighting.js). Port thuần từ drawLightning() cũ (đã xoá, vi phạm Rule 2). */
+    _tickLightingThunder(ctx, perf, isPlaying, smoothedEnergy, vizDataArray, cfg) {
+        const { dpr, activeLightnings } = appState.get(['dpr', 'activeLightnings']);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'miter';
+
+        const energySpike = computeLightningEnergySpike(smoothedEnergy, vizDataArray); // core
+        const flashAlpha = computeLightningFlashAlpha(isPlaying, energySpike, cfg.flashThreshold); // core
+        drawLightingFlash(ctx, canvas.width, canvas.height, flashAlpha); // core
+
+        if (shouldSpawnLightningBolt(isPlaying, energySpike, cfg.boltThreshold, cfg.boltSpawnChance, activeLightnings.length, cfg.maxBoltCount)) { // core
+            const color = getComputedColor(Math.floor(Math.random() * 10), 10, 255); // core/audio-analysis.js
+            const bolt = createLightningBolt(canvas.width, canvas.height, dpr, cfg.boltHorizontalDeviation, cfg.boltSegmentLength, color); // core
+            appState.mutate('activeLightnings', (arr) => arr.push(bolt), { skipCheck: true });
+        }
+
+        const survivors = [];
+        appState.get('activeLightnings').forEach((bolt) => {
+            if (advanceLightningBolt(bolt, cfg.boltFadeSpeed, smoothedEnergy)) { // core
+                drawLightningBolt(ctx, bolt, dpr, perf.blurMult); // core
+                survivors.push(bolt);
+            }
+        });
+        appState.set('activeLightnings', survivors, { skipCheck: true });
+    },
+
+    /** Style "fireworks" (pháo hoa) — đọc/ghi appState, gọi RIÊNG LẺ từng hàm Core (core/
+     * visualizer/types/lighting.js), cùng khuôn _tickSpace(). @param {object} perf - { blurMult } */
+    _tickLightingFireworks(ctx, perf, isPlaying, beatScale, smoothedEnergy, vizDataArray, cfg) {
+        const { dpr, currentCalculatedBpm } = appState.get(['dpr', 'currentCalculatedBpm']);
 
         this._fwAutoLaunch(isPlaying, beatScale, smoothedEnergy, currentCalculatedBpm, cfg);
         this._fwUpdateFinaleTrigger(isPlaying, cfg);
@@ -258,15 +295,15 @@ const workflowVisualizerRender = {
                 const count = Math.max(8, Math.round(cfg.particleCount * rocket.depthScale));
                 const burst = exploder(rocket.x, rocket.y, count, power, cfg.gravity, spectrumBin);
                 burstParticles = burstParticles.concat(applyFireworksDepth(burst, rocket.depthScale)); // core
-                if (cfg.lightingEnabled !== false) flashTarget = Math.max(flashTarget, computeFireworksFlashAlpha(beatScale, cfg.lightingThreshold) * rocket.depthScale); // core
+                flashTarget = Math.max(flashTarget, computeFireworksFlashAlpha(beatScale, cfg.flashThreshold) * rocket.depthScale); // core — flashThreshold DÙNG CHUNG với style thunder
             } else {
                 remainingRockets.push(rocket);
             }
         });
 
-        // Nhóm "lighting", style "thunder" — chớp nền trước, rocket/particle vẽ đè lên sau.
+        // Nhóm "lighting" — chớp nền trước, rocket/particle vẽ đè lên sau.
         this._fwFlashAlpha = Math.max(flashTarget, this._fwFlashAlpha * 0.85);
-        drawFireworksLightingFlash(ctx, canvas.width, canvas.height, this._fwFlashAlpha); // core
+        drawLightingFlash(ctx, canvas.width, canvas.height, this._fwFlashAlpha); // core
 
         remainingRockets.forEach((rocket) => drawFireworksRocket(ctx, rocket, dpr)); // core
         appState.set('fwRockets', remainingRockets, { skipCheck: true });

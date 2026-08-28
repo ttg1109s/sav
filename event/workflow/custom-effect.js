@@ -198,11 +198,12 @@ const workflowCustomEffect = {
         });
 
         if (type === 'rain') this._wireLamps(type);
-        if (type === 'fireworks') { this._wireFireworksStyles(type); this._wireFireworksTexts(type); }
+        if (type === 'lighting') { this._wireFireworksStyles(type); this._wireFireworksTexts(type); }
     },
 
-    /** Checkbox 14 kiểu nổ (customEffect.fireworks.enabledStyles) — mỗi checkbox ghi thẳng field,
-     * không re-render (đổi độ dài mảng nhưng số lượng checkbox không đổi). */
+    /** Checkbox 14 kiểu nổ (customEffect.lighting.enabledStyles, style con "fireworks") — mỗi
+     * checkbox ghi thẳng field, không re-render. No-op khi style hiện tại là "thunder" (section
+     * không render nên querySelectorAll rỗng), cùng khuôn if (type==='rain') this._wireLamps(). */
     _wireFireworksStyles(type) {
         genericDrawerBody.querySelectorAll('.ce-fw-style-check').forEach((el) => {
             el.addEventListener('change', (e) => {
@@ -217,7 +218,7 @@ const workflowCustomEffect = {
         });
     },
 
-    /** Chữ bắn pháo hoa (customEffect.fireworks.customTexts) — thêm/xoá đổi độ dài mảng -> re-
+    /** Chữ bắn pháo hoa (customEffect.lighting.customTexts) — thêm/xoá đổi độ dài mảng -> re-
      * render toàn body, cùng khuôn _wireLamps(). */
     _wireFireworksTexts(type) {
         const addBtn = genericDrawerBody.querySelector('#ce-fw-text-add');
