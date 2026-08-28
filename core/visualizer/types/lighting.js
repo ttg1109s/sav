@@ -72,15 +72,19 @@ function drawLightingFlash(ctx, width, height, alpha) {
 
 // ================================ Style "fireworks" (pháo hoa) ================================
 // Rocket — `depthScale` (0.4 xa .. 1.0 gần) quy định kích thước/tốc độ/độ sáng, tạo chiều sâu
-// xa/gần giữa các lần bắn, xem _fwLaunchOne() (event/workflow/visualizer-render.js).
+// xa/gần giữa các lần bắn; `binIndex`/`launchBeatScale` (MỚI) là 2 nguồn "zoom to/nhỏ" theo nhạc
+// (khác depthScale — đó là phối cảnh ngẫu nhiên, đây là do nhạc quyết định), xem
+// computeFireworksSizeScale() + _fwLaunchOne() (event/workflow/visualizer-render.js).
 
-/** @returns {object} rocket mới, bay từ (startX,startY) tới (targetX,targetY). */
-function createFireworksRocket(startX, startY, targetX, targetY, style, color, depthScale) {
+/** @returns {object} rocket mới, bay từ (startX,startY) tới (targetX,targetY). `binIndex` = dải
+ * tần FFT gán cho rocket này lúc bắn, đọc lại LÚC NỔ để lấy độ cao bin hiện tại (mục 4, phản hồi
+ * Giang). `launchBeatScale` = độ mạnh bass TẠI THỜI ĐIỂM BẮN (mục 1, phản hồi Giang). */
+function createFireworksRocket(startX, startY, targetX, targetY, style, color, depthScale, binIndex, launchBeatScale) {
     const distance = Math.hypot(targetX - startX, targetY - startY);
     const speed = Math.min(14, Math.max(8, distance / 35)) * (0.85 + depthScale * 0.3);
     const angle = Math.atan2(targetY - startY, targetX - startX);
     return {
-        x: startX, y: startY, targetX, targetY, style, color, depthScale,
+        x: startX, y: startY, targetX, targetY, style, color, depthScale, binIndex, launchBeatScale,
         vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
         trail: [],
     };
@@ -147,6 +151,14 @@ function applyFireworksDepth(particles, depthScale) {
         p.size *= depthScale;
         p.depthAlpha = depthScale;
     });
+    return particles;
+}
+
+/** Nhân thêm hệ số "zoom to/nhỏ" theo nhạc (độ cao bin FFT lúc nổ + độ mạnh beat lúc bắn, mục 1+4
+ * phản hồi Giang) lên size hạt — ĐỘC LẬP với applyFireworksDepth() (đó là phối cảnh xa/gần ngẫu
+ * nhiên, đây là do nhạc quyết định). Sửa trực tiếp lên các object particle nhận vào. */
+function applyFireworksSizeScale(particles, sizeScale) {
+    particles.forEach((p) => { p.size *= sizeScale; });
     return particles;
 }
 
@@ -472,6 +484,17 @@ function computeFireworksAutoLaunchIntervalMs(bpm, autoLaunchDensity, smoothedEn
 /** Lực nổ tức thời = burstPower cấu hình, nhân thêm theo bass hiện tại (beatScale). */
 function computeFireworksBurstPower(burstPower, beatScale) {
     return burstPower * (1 + beatScale * 0.6);
+}
+
+/** "Zoom to/nhỏ" theo nhạc (mục 1+4, phản hồi Giang) — kết hợp độ cao bin FFT gán cho rocket này
+ * ĐỌC LẠI LÚC NỔ (`binValue01`, 0..1 — bin im ắng lúc nổ -> nhỏ, bin đang cao -> to) với độ mạnh
+ * bass TẠI THỜI ĐIỂM BẮN (`launchBeatScale` — quyết định "hạng cỡ" rocket đó ngay từ lúc phóng).
+ * Nhân vào particleCount/burstPower/size hạt (xem _tickLightingFireworks()) — hoàn toàn khác
+ * `depthScale` (phối cảnh xa/gần ngẫu nhiên, không liên quan nhạc). */
+function computeFireworksSizeScale(binValue01, launchBeatScale) {
+    const binFactor = 0.6 + binValue01 * 1.2;       // bin im ắng lúc nổ -> 0.6x, bin cực đại -> 1.8x
+    const beatFactor = 0.8 + launchBeatScale * 0.6; // beat yếu lúc bắn -> 0.8x, beat mạnh -> 1.4x
+    return Math.min(2.2, binFactor * beatFactor);
 }
 
 /** Chớp màn hình khi có burst lớn — xem drawLightingFlash() ở nhóm "lighting" phía trên. */
