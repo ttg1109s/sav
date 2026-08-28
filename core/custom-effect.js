@@ -10,10 +10,15 @@
 const CUSTOM_EFFECT_MAX_LAMPS = 8;
 const CUSTOM_EFFECT_DEFAULT_LAMP = { xPercent: 50, heightPx: 150, flareScale: 1 };
 
+// Chữ bắn pháo hoa (Fireworks) — customEffect.fireworks.customTexts, xem components/
+// custom-effect-drawer.js::_renderCeFireworksTextsSection() + event/workflow/custom-effect.js.
+const CUSTOM_EFFECT_MAX_TEXTS = 10;
+
 // Effect KHÔNG dùng blur/glow tuỳ chỉnh (Drawer ẩn khối blur) — glow của các effect này (nếu có)
 // là phối cảnh cố định, không đọc blurEnabled/blurIntensity: Vortex/Space không shadowBlur/bloom
-// nào cả; Rain (quầng Trăng) và Rubik (viền khối sáng) glow LUÔN bật, giá trị cố định trong code.
-const CUSTOM_EFFECT_NO_BLUR = ['vortex', 'space', 'rain', 'rubik'];
+// nào cả; Rain (quầng Trăng) và Rubik (viền khối sáng) glow LUÔN bật, giá trị cố định trong code;
+// Fireworks glow qua globalCompositeOperation 'lighter' (core/visualizer/types/fireworks.js).
+const CUSTOM_EFFECT_NO_BLUR = ['vortex', 'space', 'rain', 'rubik', 'fireworks'];
 
 /** Style con của effect (nếu có) — field trong customEffect[type] + danh sách option, dùng để
  * dựng dropdown ĐẦU TIÊN trong Custom Effect Drawer. null nếu effect chỉ có 1 kiểu vẽ. */
@@ -109,6 +114,15 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'clusterSpreadRadius', labelKey: 'customEffectDrawer.field.clusterSpreadRadius', type: 'slider', min: 40, max: 250, step: 10 },
         { id: 'clusterDistanceMin', labelKey: 'customEffectDrawer.field.clusterDistanceMin', type: 'slider', min: 100, max: 800, step: 20 },
         { id: 'clusterDistanceMax', labelKey: 'customEffectDrawer.field.clusterDistanceMax', type: 'slider', min: 300, max: 1500, step: 20 },
+    ],
+    fireworks: [
+        { id: 'particleCount', labelKey: 'customEffectDrawer.field.fwParticleCount', type: 'slider', min: 40, max: 350, step: 10 },
+        { id: 'burstPower', labelKey: 'customEffectDrawer.field.fwBurstPower', type: 'sliderFloat', min: 0.5, max: 2.0, step: 0.1, decimals: 1 },
+        { id: 'gravity', labelKey: 'customEffectDrawer.field.fwGravity', type: 'sliderFloat', min: 0.02, max: 0.12, step: 0.01, decimals: 2 },
+        { id: 'autoLaunchDensity', labelKey: 'customEffectDrawer.field.fwAutoLaunchDensity', type: 'slider', min: 5, max: 100, step: 5 },
+        // Nhóm "lighting" — chớp sáng toàn màn hình style "thunder" khi có burst lớn.
+        { id: 'lightingEnabled', labelKey: 'customEffectDrawer.field.fwLightingEnabled', type: 'toggle' },
+        { id: 'lightingThreshold', labelKey: 'customEffectDrawer.field.fwLightingThreshold', type: 'sliderFloat', min: 0, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.lightingEnabled !== false },
     ],
 };
 
