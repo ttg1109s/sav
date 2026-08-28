@@ -81,6 +81,9 @@ const LANG_PATCH_VISUALIZER = {
     'visualizerSettingsDrawer.rainStyle.label': 'Rain effect style',
     'visualizerSettingsDrawer.rainStyle.glass': 'Drips on glass',
     'visualizerSettingsDrawer.rainStyle.street': 'Street & park rain',
+    'visualizerSettingsDrawer.lightingStyle.label': 'Lighting style',
+    'visualizerSettingsDrawer.lightingStyle.thunder': 'Thunder (lightning bolts)',
+    'visualizerSettingsDrawer.lightingStyle.fireworks': 'Fireworks',
     'visualizerSettingsDrawer.glassFlash.label': 'Flash (glass & street lights)',
     'visualizerSettingsDrawer.rainCityOpacity.label': 'Big City opacity',
     'visualizerSettingsDrawer.rainCityVisible.label': 'Show Big City',
@@ -115,14 +118,13 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.clusterDistanceMin': 'Cluster distance (min)',
     'customEffectDrawer.field.clusterDistanceMax': 'Cluster distance (max)',
 
-    // Fireworks — field số + nhóm "lighting" (chớp sáng "thunder") + checkbox 14 kiểu nổ + danh
-    // sách chữ bắn pháo hoa. Xem core/custom-effect.js, components/custom-effect-drawer.js.
+    // Style "fireworks" (nhóm Lighting) — field số + checkbox 14 kiểu nổ + danh sách chữ bắn
+    // pháo hoa. flashThreshold (chớp màn hình) DÙNG CHUNG với style "thunder", xem bên dưới. Xem
+    // core/custom-effect.js, components/custom-effect-drawer.js.
     'customEffectDrawer.field.fwParticleCount': 'Particles per burst',
     'customEffectDrawer.field.fwBurstPower': 'Burst power',
     'customEffectDrawer.field.fwGravity': 'Gravity',
     'customEffectDrawer.field.fwAutoLaunchDensity': 'Auto-launch density',
-    'customEffectDrawer.field.fwLightingEnabled': 'Lighting (thunder flash)',
-    'customEffectDrawer.field.fwLightingThreshold': 'Flash trigger threshold',
     'customEffectDrawer.fireworks.stylesTitle': 'Burst styles (random among checked)',
     'customEffectDrawer.fireworks.style.cluster': 'Cluster burst',
     'customEffectDrawer.fireworks.style.kamuro': 'Kamuro waterfall',

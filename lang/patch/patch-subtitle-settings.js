@@ -233,16 +233,15 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
 
     'settingsVisualizer.sectionTitle': 'Visualizer Screen',
     // Đổi hiệu ứng qua #btn-cycle-mode/Action ở Control Center — không còn select "Effect type" ở
-    // Settings. 8 key .type.bar/.../.fireworks (dùng ở VISUALIZER_TYPE_LABEL_KEYS, core/
+    // Settings. 7 key .type.bar/.../.lighting (dùng ở VISUALIZER_TYPE_LABEL_KEYS, core/
     // visualizer/visualizer-display.js + Custom Effect Drawer, core/custom-effect.js).
     'settingsVisualizer.type.bar': 'Bar',
-    'settingsVisualizer.type.lightning': 'Lightning',
     'settingsVisualizer.type.rubik': 'Rubik',
     'settingsVisualizer.type.vortex': 'Vortex (Tunnel)',
     'settingsVisualizer.type.blackHole': 'Black Hole',
     'settingsVisualizer.type.rain': 'Rain',
     'settingsVisualizer.type.space': 'Space (Galaxy)',
-    'settingsVisualizer.type.fireworks': 'Fireworks',
+    'settingsVisualizer.type.lighting': 'Lighting',
     // MỚI (12/08/2026, mục 4f) — "Auto-Switch Effect", tách thành panel RIÊNG ngang hàng "Customize
     // Visualizer" — panel body: components/settings/visualizer-auto-switch-drawer.js.
     'settingsVisualizer.openAutoSwitch.label': 'Auto-Switch Effect',
