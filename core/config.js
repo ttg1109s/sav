@@ -22,9 +22,9 @@
          * loại trừ. Mở qua GIỮ 1.5s #btn-cycle-mode (Generic Drawer, event/workflow/custom-effect.js).
          */
         /** 14 kiểu nổ pháo hoa — nguồn chân lý DUY NHẤT cho tên kiểu, dùng bởi
-         * DEFAULT_CUSTOM_EFFECT.fireworks.enabledStyles (dưới), components/custom-effect-drawer.js
-         * (checkbox list) và core/visualizer/types/fireworks.js (bảng hàm explode*, key phải khớp
-         * y hệt). Nạp trước DEFAULT_CUSTOM_EFFECT vì cả 2 cùng file, dùng ngay bên dưới. */
+         * DEFAULT_CUSTOM_EFFECT.lighting.enabledStyles (dưới, style con "fireworks"), components/
+         * custom-effect-drawer.js (checkbox list) và core/visualizer/types/lighting.js (bảng hàm
+         * explode*, key phải khớp y hệt). Nạp trước DEFAULT_CUSTOM_EFFECT vì cả 2 cùng file. */
         const FIREWORKS_STYLE_KEYS = [
             'cluster', 'kamuro', 'horsetail', 'spiral', 'doublering', 'ghost',
             'chrysanthemum', 'willow', 'heart', 'ring', 'crossette', 'palm', 'crackle', 'strobe',
@@ -43,10 +43,18 @@
                 radiusRatio: 0.13, radiusEnergyMult: 0.05, suctionBase: 0.2, suctionEnergyMult: 2.5,
                 flareThreshold: 0.65, flashFadeSpeed: 0.08,
             },
-            lightning: {
+            lighting: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
-                flashThreshold: 0.35, boltThreshold: 0.4, boltSpawnChance: 0.2, maxBoltCount: 5,
+                lightingStyle: 'thunder',
+                flashThreshold: 0.35, // chớp toàn màn hình — DÙNG CHUNG cho cả 2 style bên dưới
+                // Style "thunder" (tia sét)
+                boltThreshold: 0.4, boltSpawnChance: 0.2, maxBoltCount: 5,
                 boltFadeSpeed: 0.04, boltHorizontalDeviation: 120, boltSegmentLength: 60,
+                // Style "fireworks" (pháo hoa) — enabledStyles/customTexts không qua cơ chế
+                // CUSTOM_EFFECT_STYLE 1-dropdown, xem core/custom-effect.js.
+                particleCount: 140, burstPower: 1.0, gravity: 0.06, autoLaunchDensity: 50,
+                enabledStyles: [...FIREWORKS_STYLE_KEYS],
+                customTexts: [],
             },
             rain: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
@@ -75,18 +83,6 @@
                 // MỚI (26/08/2026, mô hình cụm thiên hà — thay mapNodeCount/mapRadius cũ).
                 clusterGalaxyCountMin: 4, clusterGalaxyCountMax: 8,
                 clusterSpreadRadius: 90, clusterDistanceMin: 300, clusterDistanceMax: 700,
-            },
-            // MỚI — Fireworks. `enabledStyles`/`customTexts` là 2 mảng riêng (không qua cơ chế
-            // CUSTOM_EFFECT_STYLE 1-dropdown, xem core/custom-effect.js) — checkbox nhiều chọn +
-            // danh sách chữ bắn pháo hoa, UI ở components/custom-effect-drawer.js.
-            fireworks: {
-                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
-                particleCount: 140, burstPower: 1.0, gravity: 0.06, autoLaunchDensity: 50,
-                // Nhóm "lighting" — chớp sáng toàn màn hình khi nổ, style "thunder" (kiểu duy nhất
-                // hiện có, xem drawFireworksLightingFlash(), core/visualizer/types/fireworks.js).
-                lightingEnabled: true, lightingThreshold: 0.4,
-                enabledStyles: [...FIREWORKS_STYLE_KEYS],
-                customTexts: [],
             },
         };
 
