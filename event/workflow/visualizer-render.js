@@ -22,6 +22,10 @@
  * hàm Core nào trong engine Galaxy gọi hàm Core khác, Workflow đứng NGOÀI gọi CẢ tất cả. Xem
  * `_tickSpace()` bên dưới.
  *
+ * VISUAL Fireworks (`type: 'fireworks'`) — CÙNG khuôn Galaxy (Workflow điều phối thật, không nằm
+ * trong `VISUALIZER_DRAWERS`): tự gom state (rocket/particle, `fwRockets`/`fwParticles`), tự gọi
+ * riêng lẻ từng hàm Core của `core/visualizer/types/fireworks.js`. Xem `_tickFireworks()`.
+ *
  * MÔ HÌNH GALAXY — VIẾT LẠI HOÀN TOÀN (26/08/2026, phản hồi Giang — "loại bỏ mô hình cũ, không
  * cần ý kiến"). SỬA LẠI CÙNG NGÀY (lượt 2, phản hồi Giang — tách RÕ 2 khái niệm bản đầu gộp
  * nhầm): mô hình 2 LỚP đúng nghĩa thiên văn, máy trạng thái 4 pha nối tiếp (tham khảo cách
@@ -132,6 +136,20 @@ const SPACE_DRIFT_BIN_SPREAD = 3;    // snapshot driftSpeedFactor lúc spawn.
 let _spLastFrameTime = null;
 let _spGlobalTime = 0;
 
+// ===== Fireworks — biến NỘI BỘ (KHÔNG thuộc STATE), mirror _sp* của Space =====
+let _fwLastLaunchAt = 0;
+let _fwTextIndex = 0;
+let _fwLastConsumedBeatTime = 0;
+let _fwPendingBeatFluxSum = 0;
+let _fwPendingBeatFluxCount = 0;
+let _fwBeatFluxHistory = [];
+let _fwBeatsSincePhraseRefresh = 0;
+const FIREWORKS_ENERGY_WINDOW_BEATS = 4;
+const FIREWORKS_SECTION_WINDOW_BEATS = 12;
+const FIREWORKS_FLUX_TRANSITION_THRESHOLD = 0.5;
+const FIREWORKS_PHRASE_REFRESH_BEATS = 24;
+const FIREWORKS_FINALE_ROCKET_COUNT = 10;
+
 // Tích luỹ flux/beat RIÊNG cho Space — mirror _beatFluxHistory/_beatsSincePhraseRefresh của
 // event/workflow/gameplay.js (KHÔNG dùng chung, 2 domain độc lập — xem docstring đầu file).
 let _spLastConsumedBeatTime = 0;
@@ -207,7 +225,121 @@ const workflowVisualizerRender = {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         const drawFn = VISUALIZER_DRAWERS[cfg.type];
-        if (drawFn) drawFn(ctx, perf, isPlaying, newBeatScale);
+        if (drawFn) {
+            drawFn(ctx, perf, isPlaying, newBeatScale);
+        } else if (cfg.type === 'fireworks') {
+            // ================== VISUAL Fireworks — Workflow điều phối rocket/particle ==================
+            this._tickFireworks(ctx, isPlaying, newBeatScale, newSmoothedEnergy, vizDataArray);
+        }
+    },
+
+    _fwFlashAlpha: 0,
+
+    /** Tick chính của Fireworks — đọc/ghi appState, gọi RIÊNG LẺ từng hàm Core (core/visualizer/
+     * types/fireworks.js), cùng khuôn _tickSpace(). */
+    _tickFireworks(ctx, isPlaying, beatScale, smoothedEnergy, vizDataArray) {
+        const { dpr, currentCalculatedBpm } = appState.get(['dpr', 'currentCalculatedBpm']);
+        const cfg = getActiveEffectConfig(); // core/custom-effect.js
+
+        this._fwAutoLaunch(isPlaying, beatScale, smoothedEnergy, currentCalculatedBpm, cfg);
+        this._fwUpdateFinaleTrigger(isPlaying, cfg);
+
+        const { fwRockets, fwParticles } = appState.get(['fwRockets', 'fwParticles']);
+        const spectrumBin = (vizDataArray && vizDataArray.length > 0) ? vizDataArray[Math.floor(Math.random() * Math.min(32, vizDataArray.length))] : 0;
+        const remainingRockets = [];
+        let burstParticles = [];
+        let flashTarget = 0;
+
+        fwRockets.forEach((rocket) => {
+            advanceFireworksRocket(rocket); // core
+            if (hasFireworksRocketArrived(rocket)) { // core
+                const power = computeFireworksBurstPower(cfg.burstPower, beatScale); // core
+                const exploder = FIREWORKS_EXPLODERS[rocket.style] || FIREWORKS_EXPLODERS.chrysanthemum; // core
+                burstParticles = burstParticles.concat(exploder(rocket.x, rocket.y, cfg.particleCount, power, cfg.gravity, spectrumBin));
+                if (cfg.lightingEnabled !== false) flashTarget = Math.max(flashTarget, computeFireworksFlashAlpha(beatScale, cfg.lightingThreshold)); // core
+            } else {
+                remainingRockets.push(rocket);
+            }
+        });
+
+        // Nhóm "lighting", style "thunder" — chớp nền trước, rocket/particle vẽ đè lên sau.
+        this._fwFlashAlpha = Math.max(flashTarget, this._fwFlashAlpha * 0.85);
+        drawScreenFlash(ctx, canvas.width, canvas.height, this._fwFlashAlpha); // core/visualizer/draw/screen-flash.js
+
+        remainingRockets.forEach((rocket) => drawFireworksRocket(ctx, rocket, dpr)); // core
+        appState.set('fwRockets', remainingRockets, { skipCheck: true });
+
+        const survivors = [];
+        fwParticles.concat(burstParticles).forEach((particle) => {
+            const status = updateFireworksParticle(particle); // core
+            if (status === 'split') survivors.push(...splitFireworksParticle(particle)); // core
+            else if (status === 'alive') survivors.push(particle);
+        });
+        survivors.forEach((particle) => drawFireworksParticle(ctx, particle)); // core
+        appState.set('fwParticles', survivors, { skipCheck: true });
+    },
+
+    /** Tự bắn rocket theo nhạc — không nút bấm thủ công (BPM/mật độ nhạc quyết định nhịp). */
+    _fwAutoLaunch(isPlaying, beatScale, smoothedEnergy, currentCalculatedBpm, cfg) {
+        const bpm = parseInt(currentCalculatedBpm, 10) || 120;
+        const intervalMs = computeFireworksAutoLaunchIntervalMs(bpm, cfg.autoLaunchDensity, smoothedEnergy, isPlaying); // core
+        const now = performance.now();
+        if (now - _fwLastLaunchAt < intervalMs) return;
+        _fwLastLaunchAt = now;
+        this._fwLaunchOne(cfg);
+    },
+
+    /** Bắn 1 rocket tới toạ độ ngẫu nhiên nửa trên màn hình — kiểu nổ random trong enabledStyles. */
+    _fwLaunchOne(cfg) {
+        const enabledStyles = resolveEnabledFireworksStyles(cfg.enabledStyles); // core
+        const style = pickRandomFireworksStyle(enabledStyles); // core
+        const targetX = Math.random() * (canvas.width * 0.8) + canvas.width * 0.1;
+        const targetY = Math.random() * (canvas.height * 0.5) + canvas.height * 0.15;
+        const startX = targetX + (Math.random() - 0.5) * 40;
+        const color = getComputedColor(0, 1, 0).fill; // core/audio-analysis.js
+        const rocket = createFireworksRocket(startX, canvas.height, targetX, targetY, style, color); // core
+        appState.mutate('fwRockets', (arr) => arr.push(rocket), { skipCheck: true });
+    },
+
+    /** Tích luỹ flux/beat riêng cho Fireworks (mirror _updateClusterSwitchTrigger của Space) —
+     * chuyển đoạn/phrase nhạc -> tự bắn 1 chuỗi "Đại Tiệc Pháo Hoa" thay nút bấm thủ công cũ. */
+    _fwUpdateFinaleTrigger(isPlaying, cfg) {
+        const fluxHistory = appState.get('fluxHistory');
+        if (fluxHistory.length > 0) {
+            _fwPendingBeatFluxSum += fluxHistory[fluxHistory.length - 1];
+            _fwPendingBeatFluxCount++;
+        }
+        const isNewBeat = lastBeatTime > 0 && lastBeatTime !== _fwLastConsumedBeatTime;
+        if (!isNewBeat) return;
+        _fwLastConsumedBeatTime = lastBeatTime;
+
+        if (_fwPendingBeatFluxCount > 0) {
+            _fwBeatFluxHistory.push(_fwPendingBeatFluxSum / _fwPendingBeatFluxCount);
+            if (_fwBeatFluxHistory.length > 24) _fwBeatFluxHistory.shift();
+        }
+        _fwPendingBeatFluxSum = 0;
+        _fwPendingBeatFluxCount = 0;
+        _fwBeatsSincePhraseRefresh++;
+        if (!isPlaying) return;
+
+        const energyTransition = detectFluxTransition(_fwBeatFluxHistory, FIREWORKS_ENERGY_WINDOW_BEATS, FIREWORKS_FLUX_TRANSITION_THRESHOLD); // core (gameplay/engine.js)
+        const sectionTransition = detectFluxTransition(_fwBeatFluxHistory, FIREWORKS_SECTION_WINDOW_BEATS, FIREWORKS_FLUX_TRANSITION_THRESHOLD); // core
+        const phraseBoundary = isPhraseBoundary(_fwBeatsSincePhraseRefresh, FIREWORKS_PHRASE_REFRESH_BEATS); // core (gameplay/circle-mode.js)
+        if (energyTransition || sectionTransition || phraseBoundary) {
+            _fwBeatsSincePhraseRefresh = 0;
+            this._fwFireFinale(cfg);
+        }
+    },
+
+    /** Chuỗi rocket liên tiếp + 1 chữ trong customTexts (nếu có, round-robin). */
+    _fwFireFinale(cfg) {
+        for (let i = 0; i < FIREWORKS_FINALE_ROCKET_COUNT; i++) this._fwLaunchOne(cfg);
+        const picked = pickNextFireworksText(cfg.customTexts, _fwTextIndex); // core
+        if (!picked) return;
+        _fwTextIndex = picked.nextIndex;
+        const points = buildFireworksTextPoints(picked.text); // core
+        const particles = explodeFireworksText(canvas.width / 2, canvas.height * 0.35, points, cfg.burstPower, 0); // core
+        appState.mutate('fwParticles', (arr) => { particles.forEach((p) => arr.push(p)); }, { skipCheck: true });
     },
 
     /**

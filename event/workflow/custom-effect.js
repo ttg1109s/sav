@@ -198,6 +198,49 @@ const workflowCustomEffect = {
         });
 
         if (type === 'rain') this._wireLamps(type);
+        if (type === 'fireworks') { this._wireFireworksStyles(type); this._wireFireworksTexts(type); }
+    },
+
+    /** Checkbox 14 kiểu nổ (customEffect.fireworks.enabledStyles) — mỗi checkbox ghi thẳng field,
+     * không re-render (đổi độ dài mảng nhưng số lượng checkbox không đổi). */
+    _wireFireworksStyles(type) {
+        genericDrawerBody.querySelectorAll('.ce-fw-style-check').forEach((el) => {
+            el.addEventListener('change', (e) => {
+                const cfg = getEffectConfig(type);
+                const key = e.target.dataset.style;
+                const next = e.target.checked
+                    ? [...cfg.enabledStyles, key]
+                    : cfg.enabledStyles.filter((s) => s !== key);
+                setCustomEffectField(type, 'enabledStyles', next); // core
+                saveConfig();
+            });
+        });
+    },
+
+    /** Chữ bắn pháo hoa (customEffect.fireworks.customTexts) — thêm/xoá đổi độ dài mảng -> re-
+     * render toàn body, cùng khuôn _wireLamps(). */
+    _wireFireworksTexts(type) {
+        const addBtn = genericDrawerBody.querySelector('#ce-fw-text-add');
+        const input = genericDrawerBody.querySelector('#ce-fw-text-input');
+        if (addBtn && input) {
+            addBtn.addEventListener('click', () => {
+                const cfg = getEffectConfig(type);
+                const text = input.value.trim().toUpperCase();
+                if (!text || cfg.customTexts.length >= CUSTOM_EFFECT_MAX_TEXTS) return; // core
+                setCustomEffectField(type, 'customTexts', [...cfg.customTexts, text]); // core
+                saveConfig();
+                this._rerenderBody(type);
+            });
+        }
+        genericDrawerBody.querySelectorAll('.ce-fw-text-remove').forEach((el) => {
+            el.addEventListener('click', (e) => {
+                const idx = parseInt(e.target.dataset.textIndex, 10);
+                const cfg = getEffectConfig(type);
+                setCustomEffectField(type, 'customTexts', cfg.customTexts.filter((_, i) => i !== idx)); // core
+                saveConfig();
+                this._rerenderBody(type);
+            });
+        });
     },
 
     /** Đèn tuỳ chỉnh (Rain, style street) — customEffect.rain.customLamps (mảng, core/custom-
