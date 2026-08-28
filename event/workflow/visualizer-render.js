@@ -229,15 +229,15 @@ const workflowVisualizerRender = {
             drawFn(ctx, perf, isPlaying, newBeatScale);
         } else if (cfg.type === 'fireworks') {
             // ================== VISUAL Fireworks — Workflow điều phối rocket/particle ==================
-            this._tickFireworks(ctx, isPlaying, newBeatScale, newSmoothedEnergy, vizDataArray);
+            this._tickFireworks(ctx, perf, isPlaying, newBeatScale, newSmoothedEnergy, vizDataArray);
         }
     },
 
     _fwFlashAlpha: 0,
 
     /** Tick chính của Fireworks — đọc/ghi appState, gọi RIÊNG LẺ từng hàm Core (core/visualizer/
-     * types/fireworks.js), cùng khuôn _tickSpace(). */
-    _tickFireworks(ctx, isPlaying, beatScale, smoothedEnergy, vizDataArray) {
+     * types/fireworks.js), cùng khuôn _tickSpace(). @param {object} perf - { blurMult } */
+    _tickFireworks(ctx, perf, isPlaying, beatScale, smoothedEnergy, vizDataArray) {
         const { dpr, currentCalculatedBpm } = appState.get(['dpr', 'currentCalculatedBpm']);
         const cfg = getActiveEffectConfig(); // core/custom-effect.js
 
@@ -255,8 +255,10 @@ const workflowVisualizerRender = {
             if (hasFireworksRocketArrived(rocket)) { // core
                 const power = computeFireworksBurstPower(cfg.burstPower, beatScale); // core
                 const exploder = FIREWORKS_EXPLODERS[rocket.style] || FIREWORKS_EXPLODERS.chrysanthemum; // core
-                burstParticles = burstParticles.concat(exploder(rocket.x, rocket.y, cfg.particleCount, power, cfg.gravity, spectrumBin));
-                if (cfg.lightingEnabled !== false) flashTarget = Math.max(flashTarget, computeFireworksFlashAlpha(beatScale, cfg.lightingThreshold)); // core
+                const count = Math.max(8, Math.round(cfg.particleCount * rocket.depthScale));
+                const burst = exploder(rocket.x, rocket.y, count, power, cfg.gravity, spectrumBin);
+                burstParticles = burstParticles.concat(applyFireworksDepth(burst, rocket.depthScale)); // core
+                if (cfg.lightingEnabled !== false) flashTarget = Math.max(flashTarget, computeFireworksFlashAlpha(beatScale, cfg.lightingThreshold) * rocket.depthScale); // core
             } else {
                 remainingRockets.push(rocket);
             }
@@ -264,7 +266,7 @@ const workflowVisualizerRender = {
 
         // Nhóm "lighting", style "thunder" — chớp nền trước, rocket/particle vẽ đè lên sau.
         this._fwFlashAlpha = Math.max(flashTarget, this._fwFlashAlpha * 0.85);
-        drawScreenFlash(ctx, canvas.width, canvas.height, this._fwFlashAlpha); // core/visualizer/draw/screen-flash.js
+        drawFireworksLightingFlash(ctx, canvas.width, canvas.height, this._fwFlashAlpha); // core
 
         remainingRockets.forEach((rocket) => drawFireworksRocket(ctx, rocket, dpr)); // core
         appState.set('fwRockets', remainingRockets, { skipCheck: true });
@@ -272,10 +274,10 @@ const workflowVisualizerRender = {
         const survivors = [];
         fwParticles.concat(burstParticles).forEach((particle) => {
             const status = updateFireworksParticle(particle); // core
-            if (status === 'split') survivors.push(...splitFireworksParticle(particle)); // core
+            if (status === 'split') survivors.push(...applyFireworksDepth(splitFireworksParticle(particle), particle.depthAlpha)); // core
             else if (status === 'alive') survivors.push(particle);
         });
-        survivors.forEach((particle) => drawFireworksParticle(ctx, particle)); // core
+        survivors.forEach((particle) => drawFireworksParticle(ctx, particle, perf.blurMult, dpr)); // core
         appState.set('fwParticles', survivors, { skipCheck: true });
     },
 
@@ -289,15 +291,21 @@ const workflowVisualizerRender = {
         this._fwLaunchOne(cfg);
     },
 
-    /** Bắn 1 rocket tới toạ độ ngẫu nhiên nửa trên màn hình — kiểu nổ random trong enabledStyles. */
+    /** Bắn 1 rocket — kiểu nổ random trong enabledStyles, `depthScale` random (0.4 xa..1.0 gần)
+     * cho cảm giác lớp xa/gần (mục 4, phản hồi Giang); điểm bắn LỆCH ĐÁNG KỂ khỏi đích để quỹ đạo
+     * chéo thật sự (mục 1, "thẳng đờ") thay vì gần như thẳng đứng; rocket "xa" nổ cao/gọn hơn. */
     _fwLaunchOne(cfg) {
         const enabledStyles = resolveEnabledFireworksStyles(cfg.enabledStyles); // core
         const style = pickRandomFireworksStyle(enabledStyles); // core
+        const depthScale = 0.4 + Math.random() * 0.6;
+        const yMin = canvas.height * 0.15;
+        const yMax = canvas.height * (0.25 + depthScale * 0.3);
+        const targetY = yMin + Math.random() * (yMax - yMin);
         const targetX = Math.random() * (canvas.width * 0.8) + canvas.width * 0.1;
-        const targetY = Math.random() * (canvas.height * 0.5) + canvas.height * 0.15;
-        const startX = targetX + (Math.random() - 0.5) * 40;
+        const rawStartX = targetX + (Math.random() - 0.5) * canvas.width * 0.35;
+        const startX = Math.min(canvas.width * 0.95, Math.max(canvas.width * 0.05, rawStartX));
         const color = getComputedColor(0, 1, 0).fill; // core/audio-analysis.js
-        const rocket = createFireworksRocket(startX, canvas.height, targetX, targetY, style, color); // core
+        const rocket = createFireworksRocket(startX, canvas.height, targetX, targetY, style, color, depthScale); // core
         appState.mutate('fwRockets', (arr) => arr.push(rocket), { skipCheck: true });
     },
 
