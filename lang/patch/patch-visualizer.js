@@ -125,6 +125,8 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.fwBurstPower': 'Burst power',
     'customEffectDrawer.field.fwGravity': 'Gravity',
     'customEffectDrawer.field.fwAutoLaunchDensity': 'Auto-launch density',
+    'customEffectDrawer.field.fwMaxConcurrentRockets': 'Max fireworks at once',
+    'customEffectDrawer.field.fwFinaleIntervalBeats': 'Finale interval (beats)',
     'customEffectDrawer.fireworks.stylesTitle': 'Burst styles (random among checked)',
     'customEffectDrawer.fireworks.style.cluster': 'Cluster burst',
     'customEffectDrawer.fireworks.style.kamuro': 'Kamuro waterfall',
