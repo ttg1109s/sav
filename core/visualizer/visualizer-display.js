@@ -18,13 +18,12 @@
         // CHUNG bộ text đã có ở Custom Effect Drawer.
         const VISUALIZER_TYPE_LABEL_KEYS = {
             bar: 'settingsVisualizer.type.bar',
-            lightning: 'settingsVisualizer.type.lightning',
+            lighting: 'settingsVisualizer.type.lighting',
             rubik: 'settingsVisualizer.type.rubik',
             vortex: 'settingsVisualizer.type.vortex',
             'black hole': 'settingsVisualizer.type.blackHole',
             rain: 'settingsVisualizer.type.rain',
             space: 'settingsVisualizer.type.space',
-            fireworks: 'settingsVisualizer.type.fireworks',
         };
 
         /**
@@ -178,7 +177,9 @@
                 }
             }
 
-            if(appState.get('analyser')) { appState.get('analyser').fftSize = (cfg.type === 'vortex' || cfg.type === 'lightning') ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard; allocateBuffers(); }
+            // fftSizeHighRes cho 'vortex' (mượt tunnel) và 'lighting' (cả 2 style thunder/
+            // fireworks đều đọc vizDataArray theo bin cụ thể, cần độ phân giải phổ cao hơn).
+            if(appState.get('analyser')) { appState.get('analyser').fftSize = (cfg.type === 'vortex' || cfg.type === 'lighting') ? APP_CONFIG.fftSizeHighRes : APP_CONFIG.fftSizeStandard; allocateBuffers(); }
         }
 
         // (Phần B, Galaxy — updateSpaceStyleUI() ĐÃ BỎ 21/07/2026, cùng panel tinh chỉnh reroll/jump)
