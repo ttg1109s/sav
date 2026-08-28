@@ -20,16 +20,50 @@
             };
         }
 
-        // Thay đổi hình dáng uốn lượn của ống (khi có bass) — thay đổi nhẹ nhàng so với target hiện tại,
-        // tránh nhảy đột ngột sang một hình dạng hoàn toàn khác gây cảm giác giật khi nội suy.
-        function rollNewVortexCurve() {
+        // 8 hướng compass rẽ ống — vector đơn vị dùng để giải phaseX/phaseY mục tiêu.
+        const VORTEX_DIRECTION_VECTORS = {
+            right:     { x: 1, y: 0 },
+            left:      { x: -1, y: 0 },
+            up:        { x: 0, y: 1 },
+            down:      { x: 0, y: -1 },
+            upRight:   { x: 0.7071, y: 0.7071 },
+            upLeft:    { x: -0.7071, y: 0.7071 },
+            downRight: { x: 0.7071, y: -0.7071 },
+            downLeft:  { x: -0.7071, y: -0.7071 },
+        };
+        const VORTEX_DIRECTION_KEYS = Object.keys(VORTEX_DIRECTION_VECTORS);
+
+        // 12 nốt (chromatic, currentMidi % 12, C..B) -> 1 trong 8 hướng — bảng cố định, tham khảo
+        // RUBIK_NOTE_TO_TURN (core/dom-refs.js). 12 không chia hết 8 nên 4 hướng thẳng (G#/A/A#/B)
+        // lặp lại, 4 hướng chéo chỉ xuất hiện 1 lần.
+        const VORTEX_NOTE_TO_DIRECTION = [
+            'right', 'upRight', 'up', 'upLeft', 'left', 'downLeft', 'down', 'downRight', // C..G
+            'right', 'up', 'left', 'down',                                              // G#, A, A#, B
+        ];
+
+        /** Chọn hướng rẽ theo nốt MIDI TỨC THỜI (`lastValidMidiNote`) — null (chưa detect được
+         * pitch) fallback random trong 8 hướng. */
+        function pickVortexDirectionFromNote(midiNote) {
+            if (midiNote == null) return VORTEX_DIRECTION_KEYS[Math.floor(Math.random() * VORTEX_DIRECTION_KEYS.length)];
+            const noteIdx = ((midiNote % 12) + 12) % 12;
+            return VORTEX_NOTE_TO_DIRECTION[noteIdx];
+        }
+
+        /** Target MỚI cho đường ống khi rẽ — freqX/freqY/ampX/ampY vẫn rung nhẹ ngẫu nhiên (giữ
+         * cảm giác hữu cơ), riêng phaseX/phaseY GIẢI THEO HƯỚNG (không random) để ống bẻ rõ về
+         * đúng hướng compass ứng với nốt nhạc, TẠI z hiện tại của camera (`currentZ`, truyền vào =
+         * tCurrentWarpZ lúc gọi). Thuần — không appState, Workflow tự đọc tPathTarget/
+         * tCurrentWarpZ rồi ghi kết quả trả về. */
+        function computeVortexCurveTarget(currentTarget, direction, currentZ) {
             const jitter = (base, range) => base + (Math.random() - 0.5) * range;
-            appState.mutate('tPathTarget', target => {
-                target.freqX = Math.max(0.0004, Math.min(0.0022, jitter(target.freqX, 0.0006)));
-                target.freqY = Math.max(0.0004, Math.min(0.0022, jitter(target.freqY, 0.0006)));
-                target.ampX = Math.max(180, Math.min(620, jitter(target.ampX, 160)));
-                target.ampY = Math.max(130, Math.min(470, jitter(target.ampY, 120)));
-            }, { skipCheck: true });
+            const vec = VORTEX_DIRECTION_VECTORS[direction] || VORTEX_DIRECTION_VECTORS.right;
+            const freqX = Math.max(0.0004, Math.min(0.0022, jitter(currentTarget.freqX, 0.0006)));
+            const freqY = Math.max(0.0004, Math.min(0.0022, jitter(currentTarget.freqY, 0.0006)));
+            const ampX = Math.max(180, Math.min(620, jitter(currentTarget.ampX, 160)));
+            const ampY = Math.max(130, Math.min(470, jitter(currentTarget.ampY, 120)));
+            const phaseX = vec.x === 0 ? currentTarget.phaseX : (vec.x > 0 ? Math.PI / 2 : -Math.PI / 2) - currentZ * freqX;
+            const phaseY = vec.y === 0 ? currentTarget.phaseY : (vec.y > 0 ? 0 : Math.PI) - currentZ * freqY;
+            return { freqX, freqY, ampX, ampY, phaseX, phaseY };
         }
 
         // Nội suy mượt mà hình dáng ống
