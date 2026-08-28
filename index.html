@@ -771,7 +771,6 @@
     <script src="core/visualizer/draw/space-collision-flash.js?v=20260719v2"></script>
     <script src="core/visualizer/draw/flying-note.js?v=20260719v1"></script>
     <script src="core/visualizer/types/bar.js?v=20260625v8e"></script>
-    <script src="core/visualizer/types/lightning.js?v=20260625v8e"></script>
     <script src="core/visualizer/types/rubik.js?v=20260625v8e"></script>
     <script src="core/visualizer/types/vortex.js?v=20260625v8e"></script>
     <!-- core/visualizer/types/space.js — VIẾT LẠI HOÀN TOÀN (20/07/2026, plan-space-galaxy.md
@@ -781,12 +780,15 @@
     <script src="core/visualizer/types/space.js?v=20260721v10"></script>
     <script src="core/visualizer/types/black-hole.js?v=20260811v1"></script>
     <script src="core/visualizer/types/rain.js?v=20260811v1"></script>
-    <!-- core/visualizer/types/fireworks.js — MỚI, cùng khuôn space.js: hàm Core nhỏ, thuần, gọi
-         RIÊNG LẺ bởi event/workflow/visualizer-render.js::_tickFireworks(). Gồm cả nhóm "lighting"
-         (style "thunder") NGAY TRONG file này, không tách file riêng. Cần FIREWORKS_STYLE_KEYS
-         (core/config.js), getActiveEffectConfig (core/custom-effect.js), getComputedColor
-         (core/audio-analysis.js) — cả 3 đã nạp ở khu CORE phía trên. -->
-    <script src="core/visualizer/types/fireworks.js?v=20260828v1"></script>
+    <!-- core/visualizer/types/lighting.js — THAY cho lightning.js cũ (đã XOÁ) + fireworks.js MỚI
+         GỘP LUÔN vào ĐÂY (không tách file riêng, phản hồi Giang) — MODES key 'lighting', 2 style
+         con qua customEffect.lighting.lightingStyle: 'thunder' (tia sét, port thuần từ
+         drawLightning() cũ) và 'fireworks' (pháo hoa). Hàm Core nhỏ, thuần, gọi RIÊNG LẺ bởi
+         event/workflow/visualizer-render.js::_tickLightingThunder()/_tickLightingFireworks(),
+         cùng khuôn space.js. Cần FIREWORKS_STYLE_KEYS (core/config.js), getActiveEffectConfig
+         (core/custom-effect.js), getComputedColor (core/audio-analysis.js) — cả 3 đã nạp ở khu
+         CORE phía trên. -->
+    <script src="core/visualizer/types/lighting.js?v=20260828v2"></script>
     <!-- draw-visualizer.js GIẢI THỂ HOÀN TOÀN (0 byte, 20/07/2026, plan-space-galaxy.md Phần A) —
          vai trò dispatch dời hết sang event/workflow/visualizer-render.js (script ngay dưới, NẠP
          SAU CÙNG trong khu VISUALIZERS vì tham chiếu tới mọi hàm draw*/type*/webgl* ở trên). Tag
