@@ -19,6 +19,8 @@
                 streetLamps: 'array',
                 streetRain: 'array',
                 streetGroundY: 'number',
+                fwRockets: 'array',
+                fwParticles: 'array',
             },
             buildDefaults() {
                 return {
@@ -36,6 +38,8 @@
                     streetLamps: [],
                     streetRain: [],
                     streetGroundY: 0,
+                    fwRockets: [],
+                    fwParticles: [],
                 };
             },
         });

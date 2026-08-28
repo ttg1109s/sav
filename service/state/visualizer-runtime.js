@@ -35,7 +35,6 @@
             },
         });
 
-        // MỚI (20/07/2026, plan-space-galaxy.md Phần B) — thêm lại 'space' (visual "Galaxy
-        // Journey"). Không có kiểu con nào để chọn — mọi tinh chỉnh là hằng số cố định trong
-        // event/workflow/visualizer-render.js.
-        const MODES = ['bar', 'lightning', 'rubik', 'vortex', 'black hole', 'rain', 'space'];
+        // 'space' — visual "Galaxy Journey", không có kiểu con, tinh chỉnh là hằng số cố định
+        // trong event/workflow/visualizer-render.js. 'fireworks' — MỚI, cùng file (_tickFireworks).
+        const MODES = ['bar', 'lightning', 'rubik', 'vortex', 'black hole', 'rain', 'space', 'fireworks'];
