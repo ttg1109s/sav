@@ -147,10 +147,59 @@ function _renderCeLampsSection(cfg) {
     `;
 }
 
+/** Fireworks — checkbox nhiều chọn cho 14 kiểu nổ (customEffect.fireworks.enabledStyles,
+ * FIREWORKS_STYLE_KEYS ở core/config.js). Bỏ check hết vẫn lưu được (không chặn ở UI) — Workflow
+ * tự fallback về đủ 14 kiểu, xem core/visualizer/types/fireworks.js::resolveEnabledFireworksStyles(). */
+function _renderCeFireworksStylesSection(cfg) {
+    const enabled = cfg.enabledStyles || [];
+    const items = FIREWORKS_STYLE_KEYS.map((key) => `
+        <label class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700">
+            <input type="checkbox" class="ce-fw-style-check" data-style="${key}" ${enabled.includes(key) ? 'checked' : ''}>
+            <span data-i18n="customEffectDrawer.fireworks.style.${key}">${t(`customEffectDrawer.fireworks.style.${key}`)}</span>
+        </label>
+    `).join('');
+    return `
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-slate-200">
+                <span class="text-sm text-slate-700" data-i18n="customEffectDrawer.fireworks.stylesTitle">${t('customEffectDrawer.fireworks.stylesTitle')}</span>
+            </div>
+            <div class="grid grid-cols-2">${items}</div>
+        </div>
+    `;
+}
+
+/** Fireworks — chữ bắn pháo hoa (customEffect.fireworks.customTexts), tối đa
+ * CUSTOM_EFFECT_MAX_TEXTS (core/custom-effect.js) — bắn round-robin khi nhạc chuyển đoạn. */
+function _renderCeFireworksTextsSection(cfg) {
+    const texts = cfg.customTexts || [];
+    const rows = texts.map((text, i) => `
+        <div class="flex items-center justify-between gap-2 px-4 py-2 border-b border-slate-200">
+            <span class="text-sm text-slate-800 font-mono truncate">${text}</span>
+            <button class="ce-fw-text-remove text-rose-500 text-xs font-medium shrink-0" data-text-index="${i}">${t('customEffectDrawer.lamps.remove')}</button>
+        </div>
+    `).join('');
+    const atMax = texts.length >= CUSTOM_EFFECT_MAX_TEXTS; // core/custom-effect.js
+    return `
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
+            <div class="flex justify-between items-center px-4 py-3 border-b border-slate-200">
+                <span class="text-sm text-slate-700" data-i18n="customEffectDrawer.fireworks.textsTitle">${t('customEffectDrawer.fireworks.textsTitle')}</span>
+                <span class="text-xs text-slate-400">${texts.length}/${CUSTOM_EFFECT_MAX_TEXTS}</span>
+            </div>
+            ${rows}
+            <div class="flex items-center gap-2 px-4 py-3 ${atMax ? 'opacity-40 pointer-events-none' : ''}">
+                <input type="text" id="ce-fw-text-input" maxlength="10" placeholder="${t('customEffectDrawer.fireworks.textPlaceholder')}" class="flex-1 bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none uppercase font-mono">
+                <button id="ce-fw-text-add" class="text-sm font-medium text-sky-600 shrink-0" data-i18n="customEffectDrawer.lamps.add">${t('customEffectDrawer.lamps.add')}</button>
+            </div>
+        </div>
+    `;
+}
+
 /** @param {string} type @param {object} cfg - getEffectConfig(type), core/custom-effect.js */
 function renderCustomEffectBody(type, cfg) {
     const fields = (CUSTOM_EFFECT_FIELDS[type] || []).map((f) => _renderCeFieldRow(f, cfg)).join('');
     const lampsSection = (type === 'rain' && cfg.rainStyle === 'street') ? _renderCeLampsSection(cfg) : '';
+    const fireworksStylesSection = type === 'fireworks' ? _renderCeFireworksStylesSection(cfg) : '';
+    const fireworksTextsSection = type === 'fireworks' ? _renderCeFireworksTextsSection(cfg) : '';
     const showBlur = !CUSTOM_EFFECT_NO_BLUR.includes(type); // core/custom-effect.js
     return `
         <div class="flex flex-col gap-4 px-4 py-3">
@@ -159,6 +208,8 @@ function renderCustomEffectBody(type, cfg) {
             ${showBlur ? _renderCeBlurSection(cfg) : ''}
             ${fields ? `<div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">${fields}</div>` : ''}
             ${lampsSection}
+            ${fireworksStylesSection}
+            ${fireworksTextsSection}
         </div>
     `;
 }
