@@ -147,9 +147,10 @@ function _renderCeLampsSection(cfg) {
     `;
 }
 
-/** Fireworks — checkbox nhiều chọn cho 14 kiểu nổ (customEffect.fireworks.enabledStyles,
- * FIREWORKS_STYLE_KEYS ở core/config.js). Bỏ check hết vẫn lưu được (không chặn ở UI) — Workflow
- * tự fallback về đủ 14 kiểu, xem core/visualizer/types/fireworks.js::resolveEnabledFireworksStyles(). */
+/** Style "fireworks" (nhóm Lighting) — checkbox nhiều chọn cho 14 kiểu nổ
+ * (customEffect.lighting.enabledStyles, FIREWORKS_STYLE_KEYS ở core/config.js). Bỏ check hết vẫn
+ * lưu được (không chặn ở UI) — Workflow tự fallback về đủ 14 kiểu, xem core/visualizer/types/
+ * lighting.js::resolveEnabledFireworksStyles(). */
 function _renderCeFireworksStylesSection(cfg) {
     const enabled = cfg.enabledStyles || [];
     const items = FIREWORKS_STYLE_KEYS.map((key) => `
@@ -168,7 +169,7 @@ function _renderCeFireworksStylesSection(cfg) {
     `;
 }
 
-/** Fireworks — chữ bắn pháo hoa (customEffect.fireworks.customTexts), tối đa
+/** Style "fireworks" (nhóm Lighting) — chữ bắn pháo hoa (customEffect.lighting.customTexts), tối đa
  * CUSTOM_EFFECT_MAX_TEXTS (core/custom-effect.js) — bắn round-robin khi nhạc chuyển đoạn. */
 function _renderCeFireworksTextsSection(cfg) {
     const texts = cfg.customTexts || [];
@@ -198,8 +199,8 @@ function _renderCeFireworksTextsSection(cfg) {
 function renderCustomEffectBody(type, cfg) {
     const fields = (CUSTOM_EFFECT_FIELDS[type] || []).map((f) => _renderCeFieldRow(f, cfg)).join('');
     const lampsSection = (type === 'rain' && cfg.rainStyle === 'street') ? _renderCeLampsSection(cfg) : '';
-    const fireworksStylesSection = type === 'fireworks' ? _renderCeFireworksStylesSection(cfg) : '';
-    const fireworksTextsSection = type === 'fireworks' ? _renderCeFireworksTextsSection(cfg) : '';
+    const fireworksStylesSection = (type === 'lighting' && cfg.lightingStyle === 'fireworks') ? _renderCeFireworksStylesSection(cfg) : '';
+    const fireworksTextsSection = (type === 'lighting' && cfg.lightingStyle === 'fireworks') ? _renderCeFireworksTextsSection(cfg) : '';
     const showBlur = !CUSTOM_EFFECT_NO_BLUR.includes(type); // core/custom-effect.js
     return `
         <div class="flex flex-col gap-4 px-4 py-3">
