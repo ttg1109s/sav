@@ -3,30 +3,32 @@
  * hàm nào tự đọc appState (Rule 2) hay gọi hàm khác trong CHÍNH FILE NÀY ngoài vòng lặp nội bộ
  * thuần (Rule 3c) — event/workflow/visualizer-render.js (_tickFireworks()) đọc/ghi appState, tự
  * gọi RIÊNG LẺ từng hàm dưới đây theo đúng thứ tự, cùng khuôn core/visualizer/types/space.js.
+ * Nhóm "lighting" (style "thunder") nằm NGAY TRONG file này, không tách file riêng.
  *
  * NẠP SAU: core/dom-refs.js (canvas), core/config.js (FIREWORKS_STYLE_KEYS), core/custom-
- * effect.js (getActiveEffectConfig), core/audio-analysis.js (getComputedColor), core/visualizer/
- * draw/screen-flash.js (drawScreenFlash).
+ * effect.js (getActiveEffectConfig), core/audio-analysis.js (getComputedColor).
  */
 
-// ===== Rocket =====
+// ===== Rocket — `depthScale` (0.4 xa .. 1.0 gần) quy định kích thước/tốc độ/độ sáng, tạo chiều
+// sâu xa/gần giữa các lần bắn, xem _fwLaunchOne() (event/workflow/visualizer-render.js). =====
 
 /** @returns {object} rocket mới, bay từ (startX,startY) tới (targetX,targetY). */
-function createFireworksRocket(startX, startY, targetX, targetY, style, color) {
+function createFireworksRocket(startX, startY, targetX, targetY, style, color, depthScale) {
     const distance = Math.hypot(targetX - startX, targetY - startY);
-    const speed = Math.min(14, Math.max(8, distance / 35));
+    const speed = Math.min(14, Math.max(8, distance / 35)) * (0.85 + depthScale * 0.3);
     const angle = Math.atan2(targetY - startY, targetX - startX);
     return {
-        x: startX, y: startY, targetX, targetY, style, color,
+        x: startX, y: startY, targetX, targetY, style, color, depthScale,
         vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
         trail: [],
     };
 }
 
-/** Tiến 1 bước — sửa trực tiếp lên object nhận vào (không phải appState, an toàn). */
+/** Tiến 1 bước — sửa trực tiếp lên object nhận vào (không phải appState, an toàn). Vệt dài hơn
+ * (12 điểm) để vệt bay rõ, mờ dần từ đuôi tới đầu khi vẽ (drawFireworksRocket()). */
 function advanceFireworksRocket(rocket) {
     rocket.trail.push({ x: rocket.x, y: rocket.y });
-    if (rocket.trail.length > 6) rocket.trail.shift();
+    if (rocket.trail.length > 12) rocket.trail.shift();
     rocket.x += rocket.vx;
     rocket.y += rocket.vy;
 }
@@ -36,16 +38,25 @@ function hasFireworksRocketArrived(rocket) {
     return (rocket.vy < 0 && rocket.y <= rocket.targetY) || distToTarget < 15;
 }
 
+/** Vẽ từng đoạn vệt riêng (không phải 1 stroke() duy nhất) để mờ dần thật sự từ đuôi lên đầu;
+ * kích thước/độ sáng nhân theo depthScale — rocket "xa" nhỏ/mờ hơn rocket "gần". */
 function drawFireworksRocket(ctx, rocket, dpr) {
-    ctx.beginPath();
-    ctx.lineWidth = 2.5 * dpr;
-    ctx.strokeStyle = rocket.color;
-    rocket.trail.forEach((pt, i) => (i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)));
-    ctx.stroke();
+    const n = rocket.trail.length;
+    for (let i = 1; i < n; i++) {
+        ctx.globalAlpha = (i / n) * rocket.depthScale;
+        ctx.beginPath();
+        ctx.lineWidth = 2.5 * dpr * rocket.depthScale;
+        ctx.strokeStyle = rocket.color;
+        ctx.moveTo(rocket.trail[i - 1].x, rocket.trail[i - 1].y);
+        ctx.lineTo(rocket.trail[i].x, rocket.trail[i].y);
+        ctx.stroke();
+    }
+    ctx.globalAlpha = rocket.depthScale;
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(rocket.x, rocket.y, 2.5 * dpr, 0, Math.PI * 2);
+    ctx.arc(rocket.x, rocket.y, 2.5 * dpr * rocket.depthScale, 0, Math.PI * 2);
     ctx.fill();
+    ctx.globalAlpha = 1;
 }
 
 // ===== Particle =====
@@ -62,7 +73,19 @@ function createFireworksParticle(x, y, color, options = {}) {
         flicker: options.flicker || false,
         canSplit: options.canSplit || false, hasSplit: false,
         colorShift: options.colorShift || false, targetColor: options.targetColor || null, colorSwapped: false,
+        depthAlpha: 1,
     };
+}
+
+/** Áp hệ số chiều sâu (0.4 xa .. 1.0 gần) lên 1 lô hạt vừa tạo — hạt xa nhỏ hơn/mờ hơn hạt gần,
+ * tạo cảm giác pháo hoa có lớp xa/gần thay vì đồng nhất 1 mặt phẳng. Sửa trực tiếp lên các
+ * object particle nhận vào (không phải appState). */
+function applyFireworksDepth(particles, depthScale) {
+    particles.forEach((p) => {
+        p.size *= depthScale;
+        p.depthAlpha = depthScale;
+    });
+    return particles;
 }
 
 /** Tiến 1 bước — sửa trực tiếp lên object nhận vào. @returns {'alive'|'dead'|'split'} */
@@ -91,19 +114,27 @@ function updateFireworksParticle(particle) {
     return particle.alpha > 0 ? 'alive' : 'dead';
 }
 
-function drawFireworksParticle(ctx, particle) {
+/** @param {number} blurMult - 0..1, getActiveBlurMult() (core/audio-analysis.js) — 0 nếu tắt
+ * "Glow/blur" ở Custom Effect Drawer. Glow ở ĐÚNG vùng nổ (shadowBlur quanh mỗi hạt), không phải
+ * hiệu ứng riêng — tắt/mở qua đúng công tắc blur chung mọi effect khác đang dùng. */
+function drawFireworksParticle(ctx, particle, blurMult, dpr) {
     if (particle.alpha <= 0) return;
+    const depthAlpha = particle.depthAlpha;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
+    if (blurMult > 0) {
+        ctx.shadowBlur = 14 * dpr * blurMult * depthAlpha;
+        ctx.shadowColor = particle.color;
+    }
     if (particle.trail.length > 1) {
         ctx.beginPath();
         ctx.lineWidth = particle.size * 0.8;
         ctx.strokeStyle = particle.color;
-        ctx.globalAlpha = particle.alpha * 0.5;
+        ctx.globalAlpha = particle.alpha * 0.5 * depthAlpha;
         particle.trail.forEach((pt, i) => (i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)));
         ctx.stroke();
     }
-    ctx.globalAlpha = particle.flicker && Math.random() < 0.3 ? 0.2 : particle.alpha;
+    ctx.globalAlpha = (particle.flicker && Math.random() < 0.3 ? 0.2 : particle.alpha) * depthAlpha;
     ctx.fillStyle = particle.color;
     ctx.beginPath();
     ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
@@ -382,10 +413,17 @@ function computeFireworksBurstPower(burstPower, beatScale) {
     return burstPower * (1 + beatScale * 0.6);
 }
 
-// ===== Chớp sáng "thunder" (nhóm lighting) — xem core/visualizer/draw/screen-flash.js =====
+// ===== Nhóm "lighting" — chớp sáng toàn màn hình khi nổ, style "thunder" (style duy nhất hiện
+// có, tint trắng-xanh giống màu tia sét). Cùng file với fireworks (không tách file riêng). =====
 
 function computeFireworksFlashAlpha(beatScale, threshold) {
     return beatScale > threshold ? Math.min(0.5, (beatScale - threshold) * 2.5) : 0;
+}
+
+function drawFireworksLightingFlash(ctx, width, height, alpha) {
+    if (alpha <= 0) return;
+    ctx.fillStyle = `rgba(200, 220, 255, ${alpha})`;
+    ctx.fillRect(0, 0, width, height);
 }
 
 // ===== Chữ bắn pháo hoa =====
