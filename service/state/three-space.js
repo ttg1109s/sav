@@ -42,7 +42,7 @@
                 spTargetCluster: 'any',
                 // Cờ "đã tới lúc chuyển sang cụm KHÁC" — set khi phát hiện chuyển pha nhạc mạnh
                 // (energy/section transition hoặc phrase boundary, tái dùng
-                // detectFluxTransition()/isPhraseBoundary() của game mode Circle), XÉT MỖI BEAT,
+                // detectMusicTransition()/isPhraseBoundary() (core/audio-analysis.js) của game mode Circle), XÉT MỖI BEAT,
                 // nhưng chỉ THỰC SỰ chuyển cụm tại điểm dừng tự nhiên (vừa ghé xong 1 thiên hà) —
                 // xem _updateClusterSwitchTrigger()/_completeGalaxyVisit(). KHÔNG liên quan gì tới
                 // việc cụm tan/thêm (2 cơ chế độc lập).
