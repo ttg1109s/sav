@@ -80,10 +80,10 @@
             // CUSTOM_EFFECT_STYLE 1-dropdown, xem core/custom-effect.js) — checkbox nhiều chọn +
             // danh sách chữ bắn pháo hoa, UI ở components/custom-effect-drawer.js.
             fireworks: {
-                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
+                mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6', blurEnabled: true, blurIntensity: 100,
                 particleCount: 140, burstPower: 1.0, gravity: 0.06, autoLaunchDensity: 50,
                 // Nhóm "lighting" — chớp sáng toàn màn hình khi nổ, style "thunder" (kiểu duy nhất
-                // hiện có, xem core/visualizer/draw/screen-flash.js).
+                // hiện có, xem drawFireworksLightingFlash(), core/visualizer/types/fireworks.js).
                 lightingEnabled: true, lightingThreshold: 0.4,
                 enabledStyles: [...FIREWORKS_STYLE_KEYS],
                 customTexts: [],

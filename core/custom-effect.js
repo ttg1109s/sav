@@ -16,9 +16,10 @@ const CUSTOM_EFFECT_MAX_TEXTS = 10;
 
 // Effect KHÔNG dùng blur/glow tuỳ chỉnh (Drawer ẩn khối blur) — glow của các effect này (nếu có)
 // là phối cảnh cố định, không đọc blurEnabled/blurIntensity: Vortex/Space không shadowBlur/bloom
-// nào cả; Rain (quầng Trăng) và Rubik (viền khối sáng) glow LUÔN bật, giá trị cố định trong code;
-// Fireworks glow qua globalCompositeOperation 'lighter' (core/visualizer/types/fireworks.js).
-const CUSTOM_EFFECT_NO_BLUR = ['vortex', 'space', 'rain', 'rubik', 'fireworks'];
+// nào cả; Rain (quầng Trăng) và Rubik (viền khối sáng) glow LUÔN bật, giá trị cố định trong code.
+// Fireworks CÓ dùng (shadowBlur quanh mỗi hạt tại vùng nổ, xem drawFireworksParticle()) — KHÔNG
+// nằm trong danh sách này.
+const CUSTOM_EFFECT_NO_BLUR = ['vortex', 'space', 'rain', 'rubik'];
 
 /** Style con của effect (nếu có) — field trong customEffect[type] + danh sách option, dùng để
  * dựng dropdown ĐẦU TIÊN trong Custom Effect Drawer. null nếu effect chỉ có 1 kiểu vẽ. */
