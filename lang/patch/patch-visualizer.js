@@ -115,6 +115,32 @@ const LANG_PATCH_VISUALIZER = {
     'customEffectDrawer.field.clusterDistanceMin': 'Cluster distance (min)',
     'customEffectDrawer.field.clusterDistanceMax': 'Cluster distance (max)',
 
+    // Fireworks — field số + nhóm "lighting" (chớp sáng "thunder") + checkbox 14 kiểu nổ + danh
+    // sách chữ bắn pháo hoa. Xem core/custom-effect.js, components/custom-effect-drawer.js.
+    'customEffectDrawer.field.fwParticleCount': 'Particles per burst',
+    'customEffectDrawer.field.fwBurstPower': 'Burst power',
+    'customEffectDrawer.field.fwGravity': 'Gravity',
+    'customEffectDrawer.field.fwAutoLaunchDensity': 'Auto-launch density',
+    'customEffectDrawer.field.fwLightingEnabled': 'Lighting (thunder flash)',
+    'customEffectDrawer.field.fwLightingThreshold': 'Flash trigger threshold',
+    'customEffectDrawer.fireworks.stylesTitle': 'Burst styles (random among checked)',
+    'customEffectDrawer.fireworks.style.cluster': 'Cluster burst',
+    'customEffectDrawer.fireworks.style.kamuro': 'Kamuro waterfall',
+    'customEffectDrawer.fireworks.style.horsetail': 'Horsetail cascade',
+    'customEffectDrawer.fireworks.style.spiral': 'Spiral whirlwind',
+    'customEffectDrawer.fireworks.style.doublering': 'Double ring',
+    'customEffectDrawer.fireworks.style.ghost': 'Ghost color shift',
+    'customEffectDrawer.fireworks.style.chrysanthemum': 'Chrysanthemum',
+    'customEffectDrawer.fireworks.style.willow': 'Weeping willow',
+    'customEffectDrawer.fireworks.style.heart': 'Heart',
+    'customEffectDrawer.fireworks.style.ring': 'Saturn ring',
+    'customEffectDrawer.fireworks.style.crossette': 'Crossette',
+    'customEffectDrawer.fireworks.style.palm': 'Gold palm',
+    'customEffectDrawer.fireworks.style.crackle': 'Crackle',
+    'customEffectDrawer.fireworks.style.strobe': 'Rainbow strobe',
+    'customEffectDrawer.fireworks.textsTitle': 'Text fireworks (fires on song section change)',
+    'customEffectDrawer.fireworks.textPlaceholder': 'e.g. 2026, LOVE',
+
     // MỚI (14/08/2026, "làm hết danh sách ứng viên custom" — Giang chốt) — field sâu, trước đây
     // hardcode trong từng file draw, giờ mở custom theo đúng danh sách đã thống nhất.
     'customEffectDrawer.field.barFillRatio': 'Bar/gap ratio',
