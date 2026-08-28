@@ -308,11 +308,8 @@
 
         // ── Trigger refresh vị trí (section/energy/phrase) ───────────────────────────────────
 
-        /** Xấp xỉ ranh giới phrase bằng đếm beat cố định (không có phrase detection thật). Workflow
-         * tự đếm `beatsSincePhraseRefresh`, reset về 0 khi hàm này trả true. */
-        function isPhraseBoundary(beatsSincePhraseRefresh, refreshBeatsForPhrase) {
-            return beatsSincePhraseRefresh >= refreshBeatsForPhrase;
-        }
+        /** isPhraseBoundary() — DỜI sang core/audio-analysis.js 28/08/2026, dùng chung ngoài
+         * phạm vi gameplay (Space, Fireworks). */
 
         // ── Vật lý wave: bán kính / opacity / ngưỡng miss ────────────────────────────────────
 

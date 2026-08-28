@@ -79,32 +79,9 @@ function computeScoreDeltaPercent(totalScore, maxScore) {
     return ((totalScore - maxScore) / maxScore) * 100;
 }
 
-/**
- * Phát hiện "chuyển đoạn" (energy/section) — so trung bình `windowSize` MỐC gần nhất với
- * `windowSize` mốc trước đó, lệch tương đối (KHÔNG phải tuyệt đối — bất biến theo độ to nhỏ tổng
- * thể của bài hát/thiết bị) >= `relativeThreshold` (vd 0.35 = lệch 35%).
- *
- * [SỬA — nghiên cứu lại công thức flux, phản hồi Giang] TRƯỚC ĐÂY nhận thẳng `fluxHistory`
- * (appState, đẩy 1 mẫu MỖI FRAME render — core/audio-analysis.js) với `windowSize=10` cố định:
- * ở 60fps chỉ là 167ms/cửa sổ (ở 120fps còn 83ms) — bị nhiễu tức thời chi phối, KHÔNG phản ánh
- * chuyển đoạn nhạc thật (vốn diễn ra trong ≥0.5-4s), và cùng threshold nhạy khác nhau tuỳ fps máy.
- * Threshold cũ (15/35/60) cũng là số TUYỆT ĐỐI — không thích ứng theo độ to nhỏ tổng thể từng bài.
- * Nơi gọi (event/workflow/gameplay-engine.js) giờ PHẢI truyền vào 1 mốc/BEAT (đã gộp trung bình
- * đoạn giữa 2 beat, KHÔNG phải giá trị thô mỗi frame) — đơn vị "beat" độc lập hoàn toàn fps máy,
- * và threshold đổi sang tỉ lệ tương đối — bất biến theo độ to nhỏ bài hát.
- * @param {number[]} beatFluxHistory - mỗi phần tử = flux trung bình đoạn giữa 2 beat liên tiếp.
- * @param {number} windowSize - số BEAT (không phải số frame).
- * @param {number} relativeThreshold - tỉ lệ lệch tối thiểu, vd 0.35.
- */
-function detectFluxTransition(beatFluxHistory, windowSize, relativeThreshold) {
-    if (beatFluxHistory.length < windowSize * 2) return false;
-    const recent = beatFluxHistory.slice(-windowSize);
-    const prior = beatFluxHistory.slice(-windowSize * 2, -windowSize);
-    const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
-    const recentAvg = avg(recent), priorAvg = avg(prior);
-    if (priorAvg <= 0) return false; // tránh chia 0 lúc đoạn trước hoàn toàn im lặng
-    return Math.abs(recentAvg - priorAvg) / priorAvg >= relativeThreshold;
-}
+/** Phát hiện "nhạc vừa biến động" (energy/section) — DỜI sang core/audio-analysis.js
+ * (detectMusicTransition(), gộp sẵn 2 cửa sổ) 28/08/2026, dùng chung ngoài phạm vi gameplay
+ * (Space, Fireworks). Xem event/workflow/gameplay.js để biết cách gọi hiện tại. */
 
 /**
  * Chia % điểm (có thể >100%) thành các LAP cho vòng tròn kết quả — lap[0] luôn ≤100 (vòng chính);
