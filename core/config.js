@@ -76,7 +76,11 @@
             vortex: {
                 mode: 'solid', solidColor: '#ffffff', dynA: '#ec4899', dynB: '#3b82f6',
                 vortexStyle: 'rings', tunnelRingCount: 60,
-                warpSpeedBase: 10, warpSpeedEnergyMult: 40, curveChangeChance: 0.015,
+                warpSpeedBase: 10, warpSpeedEnergyMult: 40,
+                // Hướng rẽ ống theo nốt nhạc, kích hoạt khi "nhạc vừa biến động" — thay hẳn cơ chế
+                // xác suất-mỗi-frame cũ (curveChangeChance). Xem detectMusicTransition()
+                // (core/audio-analysis.js) + _tickVortexCurve() (event/workflow/visualizer-render.js).
+                energyWindowBeats: 4, sectionWindowBeats: 12, fluxThreshold: 0.5,
                 barsRingCount: 40, barsPerRing: 24, barsTwistFactor: 2.4,
                 waveRotationBase: 0.01, waveRotationEnergyMult: 0.05, waveScaleBase: 0.8, waveScaleEnergyMult: 0.4,
             },
