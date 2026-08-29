@@ -110,14 +110,19 @@
                 }), { skipCheck: true });
             }
 
-            // 4. Cinematic Camera — chỉ bám theo độ cong của ống (trái/phải/trên/dưới), hoàn toàn
-            // không có dao động/rung lắc nào khác (không sway, không FOV breathing).
+            // 4. Cinematic Camera — chỉ bám theo độ cong của ống (trái/phải/trên/dưới). Damping mượt
+            // (0.045) CÓ THỂ lag phía sau khi tâm ống di chuyển nhanh — clampVortexCameraOffset()
+            // là lưới an toàn cuối, kẹp cứng camera trong bán kính an toàn, LOẠI BỎ HOÀN TOÀN khả
+            // năng văng ra ngoài thành ống (mục phản hồi Giang), bất kể lag bao nhiêu.
             const camTargetPos = getVortexCenterAt(tCurrentWarpZ);
             // Camera bắt kịp rất chậm rãi (Smooth damping nhẹ hơn để tránh giật khi đường ống đổi hướng)
             const tCamera = appState.get('tCamera');
             tCamera.position.x += (camTargetPos.x - tCamera.position.x) * 0.045;
             tCamera.position.y += (camTargetPos.y - tCamera.position.y) * 0.045;
             tCamera.position.z = tCurrentWarpZ;
+            const clampedPos = clampVortexCameraOffset(tCamera.position.x, tCamera.position.y, camTargetPos.x, camTargetPos.y, VORTEX_CAMERA_SAFE_RADIUS);
+            tCamera.position.x = clampedPos.x;
+            tCamera.position.y = clampedPos.y;
 
             // LookAt điểm phía trước một đoạn, theo đúng đường cong của ống — cố định, không lắc
             const lookAheadZ = tCurrentWarpZ - 800;
