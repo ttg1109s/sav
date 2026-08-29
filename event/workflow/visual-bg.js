@@ -134,10 +134,22 @@ const workflowVisualBg = {
 
     // ===================== Áp dụng nền =====================
 
-    /** Số item CÒN SỐNG trong `source.list` (loại null) — 3 trạng thái suy ra từ số này: 0 = ẩn
-     * media, 1 = phát tĩnh, >1 = cycle. */
-    _effectiveCount(cfg) {
-        return cfg.source.list.filter((k) => k !== null).length;
+    /** Số item CÒN SỐNG trong 1 mảng `list` (loại null) — 3 trạng thái suy ra từ số này: 0 = ẩn
+     * media, 1 = phát tĩnh, >1 = cycle.
+     * SỬA (29/08/2026, Giang báo bug — "chọn nguồn mới ≤1 item lúc còn media active, Playback/Next
+     * order vẫn hiện") — TRƯỚC ĐÂY nhận thẳng `cfg` rồi tự đọc `cfg.source.list` BÊN TRONG — mọi nơi
+     * gọi hàm này ĐỀU bị khoá cứng vào `source.list` (nguồn THẬT đang phát), kể cả chỗ (
+     * `refreshPanelUI()`) đáng lẽ phải đếm theo nội dung ĐANG HIỂN THỊ CHO NGƯỜI DÙNG (pending nếu
+     * có — cùng khái niệm `_effectiveDisplayedOrigin()`/`_effectiveDisplayedList()` đã dùng cho tên
+     * nguồn) — nên khi vừa chọn 1 item MỚI lúc media cũ (>1 item) còn đang phát (xếp pending, CHƯA
+     * áp), tên nguồn báo đúng "1 item" nhưng Playback/Next order vẫn tính theo `source.list` CŨ
+     * (>1) nên KHÔNG ẩn. Giờ nhận thẳng `list` (mảng) — nơi gọi tự quyết truyền `source.list` (đếm
+     * nội dung THẬT đang phát — 4 chỗ còn lại, không đổi ý nghĩa) hay `_effectiveDisplayedList(cfg)`
+     * (đếm nội dung ĐANG HIỂN THỊ — chỉ riêng `refreshPanelUI()`).
+     * @param {Array<string|null>} list
+     */
+    _effectiveCount(list) {
+        return list.filter((k) => k !== null).length;
     },
 
     // ===================== Bước index trong source.list — DÙNG CHUNG ảnh + video =====================
@@ -200,8 +212,7 @@ const workflowVisualBg = {
         this.clearMediaLayers();
         updateDOMBackground(); // core/color-utils.js — độc lập, luôn vẽ
         const cfg = appConfigVisualBg.getAll();
-        const count = this._effectiveCount(cfg);
-        if (count === 0) return; // guard: chưa có nguồn/nguồn rỗng -> chỉ còn màu
+        const count = this._effectiveCount(cfg.source.list);
         if (cfg.type === 'video') return this._applyVideo(cfg);
         return this._applyPhoto(cfg);
     },
@@ -349,7 +360,7 @@ const workflowVisualBg = {
         // "tĩnh" (`loop=!hasAudioB`) nhưng hàm NÀY (bản cũ dùng `.length` thô) vẫn coi là "đang
         // cycle" nếu length thô >1 — 2 nơi tính LỆCH NHAU, dẫn `_onVideoEnded()` chọn nhầm nhánh
         // advance thay vì tự lặp lại. Đồng bộ lại dùng CHUNG `_effectiveCount()`.
-        const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && this._effectiveCount(cfg) > 1;
+        const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && this._effectiveCount(cfg.source.list) > 1;
         if (!isCyclingSlideshow) { this._restartCurrentVideoInPlace(); return; } // perSong hoặc còn ≤1 item sống — CÙNG video, tự lặp lại thủ công
         if (await this._checkAndApplyPendingSource()) return; // MỚI (09/08/2026, cơ chế pending) — video VỪA hết, đúng "lượt kế tiếp"
         await this._advanceVideo();
@@ -493,7 +504,7 @@ const workflowVisualBg = {
         bgVideoElement.muted = true;
         setVideoBgGain(0); // core/video-player.js
         const cfg = appConfigVisualBg.getAll();
-        const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && this._effectiveCount(cfg) > 1;
+        const isCyclingSlideshow = cfg.listPlaybackMode === 'slideshow' && this._effectiveCount(cfg.source.list) > 1;
         const { enabled: hasAudioB } = getVisualBgVideoAudioSetting(cfg.source.videoAudio, videoKey); // core/visual-bg.js
         bgVideoElement.loop = !isCyclingSlideshow && !hasAudioB; // xem docstring trên — SỬA 08/08/2026 + 09/08/2026
         bgVideoElement.classList.remove('hidden');
@@ -829,7 +840,7 @@ const workflowVisualBg = {
         // không tách riêng theo type) -> KHÔNG ghi đè `source` ngay, xếp vào `pending`, đợi đúng
         // "lượt kế tiếp" (video hết/tick ảnh kế/đổi bài hát — xem `_checkAndApplyPendingSource()`).
         // KHÔNG có gì đang active (list rỗng, hoặc vừa gỡ nguồn) -> áp ngay, không có gì để "chờ" cả.
-        if (this._effectiveCount(cfg) > 0) {
+        if (this._effectiveCount(cfg.source.list) > 0) {
             appConfigVisualBg.mutateAll((c) => { c.pending = { originKind, originId, list: keys }; }); // đè lên pending cũ nếu có (Giang chốt, chỉ giữ 1 pending duy nhất)
             console.log(`writer: "workflowVisualBg._resolveAndCommitSource", page: "visualBgConfig", content: "queued pending=${originKind}:${originId}, count=${keys.length}"`);
             await this._persist();
@@ -1431,7 +1442,12 @@ const workflowVisualBg = {
         if (listPlaybackSelect) listPlaybackSelect.value = cfg.listPlaybackMode;
         if (nextOrderSelect) nextOrderSelect.value = cfg.nextOrder;
 
-        const count = this._effectiveCount(cfg);
+        // SỬA (29/08/2026, Giang báo bug — "chọn nguồn mới ≤1 item lúc còn media active, Playback/
+        // Next order vẫn hiện") — đếm theo `_effectiveDisplayedList()` (pending nếu có, else
+        // source — CÙNG khái niệm `_effectiveDisplayedOrigin()` dùng cho tên nguồn ngay dưới), KHÔNG
+        // phải `cfg.source.list` thô — nếu không, tên nguồn báo "1 item" (đọc từ pending) nhưng các
+        // hàng dưới đây vẫn hiện theo count CŨ (source.list còn đang phát, có thể >1).
+        const count = this._effectiveCount(this._effectiveDisplayedList(cfg));
         const isList = count > 1;
         const isListPhoto = isList && cfg.type === 'photo';
         if (listPlaybackRow) listPlaybackRow.classList.toggle('hidden', !isList);
@@ -1489,6 +1505,19 @@ const workflowVisualBg = {
      */
     _effectiveDisplayedOrigin(cfg) {
         return cfg.pending.originKind ? { originKind: cfg.pending.originKind, originId: cfg.pending.originId } : { originKind: cfg.source.originKind, originId: cfg.source.originId };
+    },
+
+    /** MỚI (29/08/2026, Giang báo bug — "chọn nguồn mới ≤1 item lúc còn media active, Playback/Next
+     * order vẫn hiện") — mảng list SONG SONG với `_effectiveDisplayedOrigin()` (cùng ưu tiên pending
+     * nếu có) — dùng cho MỌI chỗ cần đếm SỐ LƯỢNG item đang HIỂN THỊ cho người dùng (`refreshPanelUI()`
+     * — Playback/Next order/Slideshow/Video Audio row), KHÁC `cfg.source.list` thô (nội dung THẬT
+     * đang phát, dùng cho playback logic thật — `applyCurrentVisualBg()`/`_onVideoEnded()`/
+     * `_playVideoKey()`/`_resolveAndCommitSource()`, KHÔNG được đổi sang hàm này).
+     * @param {object} cfg
+     * @returns {Array<string|null>}
+     */
+    _effectiveDisplayedList(cfg) {
+        return cfg.pending.originKind ? cfg.pending.list : cfg.source.list;
     },
 
     /** Đọc tên hiển thị thật của 1 origin (imageKey/videoKey/folderId, hoặc đếm số lượng cho 2
