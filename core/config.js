@@ -56,6 +56,11 @@
                 // = nhịp ép "Đại Tiệc Pháo Hoa" định kỳ nếu nhạc không tự chuyển đoạn (mục 3).
                 particleCount: 140, burstPower: 1.0, gravity: 0.06, autoLaunchDensity: 50,
                 maxConcurrentRockets: 12, finaleIntervalBeats: 24,
+                // Trước ĐÂY hardcode FIREWORKS_ENERGY_WINDOW_BEATS/FIREWORKS_SECTION_WINDOW_BEATS/
+                // FIREWORKS_FLUX_TRANSITION_THRESHOLD (event/workflow/visualizer-render.js) — giờ
+                // expose thật thành field, đúng tham số của detectMusicTransition() (core/audio-
+                // analysis.js), CHỈ nghĩa lý khi lightingStyle==='fireworks' (không phải 'thunder').
+                energyWindowBeats: 4, sectionWindowBeats: 12, fluxThreshold: 0.5,
                 enabledStyles: [...FIREWORKS_STYLE_KEYS],
                 customTexts: [],
             },
@@ -90,6 +95,12 @@
                 // MỚI (26/08/2026, mô hình cụm thiên hà — thay mapNodeCount/mapRadius cũ).
                 clusterGalaxyCountMin: 4, clusterGalaxyCountMax: 8,
                 clusterSpreadRadius: 90, clusterDistanceMin: 300, clusterDistanceMax: 700,
+                // Trước ĐÂY hardcode SPACE_ENERGY_WINDOW_BEATS/SPACE_SECTION_WINDOW_BEATS/
+                // SPACE_FLUX_TRANSITION_THRESHOLD (event/workflow/visualizer-render.js) — giờ
+                // expose thật thành field, đúng tham số của detectMusicTransition() (core/audio-
+                // analysis.js). SPACE_PHRASE_REFRESH_BEATS (isPhraseBoundary(), cơ chế KHÁC) vẫn
+                // giữ hằng số, không đụng.
+                energyWindowBeats: 4, sectionWindowBeats: 12, fluxThreshold: 0.5,
             },
         };
 

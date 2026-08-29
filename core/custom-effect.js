@@ -85,9 +85,9 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'tunnelRingCount', labelKey: 'customEffectDrawer.field.tunnelRingCount', type: 'slider', min: 10, max: 100, step: 5, refresh: 'initThreeJS' },
         { id: 'warpSpeedBase', labelKey: 'customEffectDrawer.field.warpSpeedBase', type: 'slider', min: 0, max: 50, step: 1 },
         { id: 'warpSpeedEnergyMult', labelKey: 'customEffectDrawer.field.warpSpeedEnergyMult', type: 'slider', min: 0, max: 100, step: 5 },
-        { id: 'energyWindowBeats', labelKey: 'customEffectDrawer.field.curveEnergyWindowBeats', type: 'slider', min: 2, max: 12, step: 1 },
-        { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.curveSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1 },
-        { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.curveFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2 },
+        { id: 'energyWindowBeats', labelKey: 'customEffectDrawer.field.curveEnergyWindowBeats', type: 'slider', min: 2, max: 12, step: 1, group: 'music' },
+        { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.curveSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1, group: 'music' },
+        { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.curveFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, group: 'music' },
         { id: 'barsRingCount', labelKey: 'customEffectDrawer.field.barsRingCount', type: 'slider', min: 10, max: 80, step: 2, showIf: (cfg) => cfg.vortexStyle === 'bars', refresh: 'initThreeJS' },
         { id: 'barsPerRing', labelKey: 'customEffectDrawer.field.barsPerRing', type: 'slider', min: 6, max: 48, step: 2, showIf: (cfg) => cfg.vortexStyle === 'bars', refresh: 'initThreeJS' },
         { id: 'barsTwistFactor', labelKey: 'customEffectDrawer.field.barsTwistFactor', type: 'sliderFloat', min: 0, max: 6, step: 0.2, decimals: 1, showIf: (cfg) => cfg.vortexStyle === 'bars' },
@@ -110,6 +110,11 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'clusterSpreadRadius', labelKey: 'customEffectDrawer.field.clusterSpreadRadius', type: 'slider', min: 40, max: 250, step: 10 },
         { id: 'clusterDistanceMin', labelKey: 'customEffectDrawer.field.clusterDistanceMin', type: 'slider', min: 100, max: 800, step: 20 },
         { id: 'clusterDistanceMax', labelKey: 'customEffectDrawer.field.clusterDistanceMax', type: 'slider', min: 300, max: 1500, step: 20 },
+        // Tham số THẬT của detectMusicTransition() — quyết định thời điểm chuyển cụm thiên hà, xem
+        // event/workflow/visualizer-render.js::_updateClusterSwitchTrigger().
+        { id: 'energyWindowBeats', labelKey: 'customEffectDrawer.field.musicEnergyWindowBeats', type: 'slider', min: 2, max: 12, step: 1, group: 'music' },
+        { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.musicSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1, group: 'music' },
+        { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.musicFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, group: 'music' },
     ],
     lighting: [
         // Chung cho cả 2 style — chớp sáng toàn màn hình khi năng lượng vượt ngưỡng.
@@ -128,6 +133,12 @@ const CUSTOM_EFFECT_FIELDS = {
         { id: 'autoLaunchDensity', labelKey: 'customEffectDrawer.field.fwAutoLaunchDensity', type: 'slider', min: 5, max: 100, step: 5, showIf: (cfg) => cfg.lightingStyle === 'fireworks' },
         { id: 'maxConcurrentRockets', labelKey: 'customEffectDrawer.field.fwMaxConcurrentRockets', type: 'slider', min: 3, max: 30, step: 1, showIf: (cfg) => cfg.lightingStyle === 'fireworks' },
         { id: 'finaleIntervalBeats', labelKey: 'customEffectDrawer.field.fwFinaleIntervalBeats', type: 'slider', min: 8, max: 64, step: 4, showIf: (cfg) => cfg.lightingStyle === 'fireworks' },
+        // Tham số THẬT của detectMusicTransition() (core/audio-analysis.js) — CHỈ nghĩa lý ở style
+        // "fireworks" (quyết định finale, xem event/workflow/visualizer-render.js::
+        // _fwUpdateFinaleTrigger()), style "thunder" không dùng detectMusicTransition().
+        { id: 'energyWindowBeats', labelKey: 'customEffectDrawer.field.musicEnergyWindowBeats', type: 'slider', min: 2, max: 12, step: 1, showIf: (cfg) => cfg.lightingStyle === 'fireworks', group: 'music' },
+        { id: 'sectionWindowBeats', labelKey: 'customEffectDrawer.field.musicSectionWindowBeats', type: 'slider', min: 6, max: 32, step: 1, showIf: (cfg) => cfg.lightingStyle === 'fireworks', group: 'music' },
+        { id: 'fluxThreshold', labelKey: 'customEffectDrawer.field.musicFluxThreshold', type: 'sliderFloat', min: 0.1, max: 1, step: 0.05, decimals: 2, showIf: (cfg) => cfg.lightingStyle === 'fireworks', group: 'music' },
     ],
 };
 /** Config đầy đủ (default merge field thiếu) của 1 effect theo type. */
