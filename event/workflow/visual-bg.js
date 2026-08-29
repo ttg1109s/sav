@@ -790,7 +790,8 @@ const workflowVisualBg = {
      * @param {'single'|'group'|'multi'|'groupMulti'} originKind
      * @param {string} originId
      * @returns {Promise<{queued: false, added: number, removed: number, total: number}|{queued: true, total: number}|null>}
-     *   `queued:false` = đã áp NGAY, `added/removed` là diff so với `source.list` TRƯỚC lúc gọi.
+     *   `queued:false` = đã áp NGAY, `added/removed` là diff so với nội dung ĐANG HIỂN THỊ THẬT
+     *   TRƯỚC lúc gọi (pending nếu có, else `source.list` — xem `effectiveOldList` trong thân hàm).
      *   `queued:true` = đã xếp vào `pending`, CHƯA áp — modal "sẽ áp ở lượt kế" đã tự hiện BÊN TRONG
      *   hàm này (xem đoạn dưới), caller KHÔNG cần tự hiện modal nào thêm cho case này (vẫn nên gọi
      *   `_showCommitResultModal()` — hàm đó tự biết bỏ qua case `queued:true`, xem docstring nó).
@@ -805,14 +806,23 @@ const workflowVisualBg = {
             return null;
         }
         // MỚI (09/08/2026, mục 3, phản hồi Giang — "refresh làm mất modal thêm/bớt") — nguồn đọc ra
-        // GIỐNG HỆT `source.list` hiện tại (cùng thứ tự, cùng key) -> KHÔNG có gì thay đổi thật ->
-        // KHÔNG cần chế độ pending/modal "sẽ áp ở lượt kế" nào cả (không có gì để mà chờ áp) — trả
-        // thẳng "0 thay đổi", để caller (refreshSource()/_commitPickedKeys()/
+        // GIỐNG HỆT nội dung ĐANG HIỂN THỊ THẬT cho người dùng hiện tại -> KHÔNG có gì thay đổi thật
+        // -> KHÔNG cần chế độ pending/modal "sẽ áp ở lượt kế" nào cả (không có gì để mà chờ áp) —
+        // trả thẳng "0 thay đổi", để caller (refreshSource()/_commitPickedKeys()/
         // _commitFolderMultiSelection()) tự hiện đúng modal "không có gì đổi" qua
         // `_showCommitResultModal()`. Bug trước: dù danh sách y hệt vẫn bị coi là "có pending đang
         // chờ" (vì `_effectiveCount>0`), nuốt mất modal diff thật — chỉ còn hiện modal pending chung
         // chung, sai ngữ cảnh.
-        const diff = this._diffKeyLists(cfg.source.list, keys);
+        // SỬA (29/08/2026, Giang báo — "Làm tươi vẫn hiện pending dù không đổi gì") — "nội dung đang
+        // hiển thị thật" KHÔNG PHẢI LÚC NÀO CŨNG là `cfg.source.list` (nguồn CŨ đang phát) — nếu ĐÃ
+        // có 1 `pending` treo sẵn (kể cả tồn dư từ trước), Settings đang hiện tên/nguồn CỦA pending
+        // đó cho người dùng (xem `_effectiveDisplayedOrigin()`), nên phải so với `cfg.pending.list`
+        // mới đúng. TRƯỚC ĐÂY luôn so với `cfg.source.list` — origin đang đọc lại (Làm tươi lẫn chọn
+        // mới) mà TRÙNG với origin đang pending thì `source.list` KHÁC pending THEO ĐỊNH NGHĨA (đó
+        // là lý do nó bị xếp pending ngay từ đầu) -> `unchanged` không bao giờ đúng được, hễ bấm Làm
+        // tươi lại re-queue y hệt pending cũ, lặp vô hạn dù không có gì mới thay đổi thêm.
+        const effectiveOldList = cfg.pending.originKind ? cfg.pending.list : cfg.source.list;
+        const diff = this._diffKeyLists(effectiveOldList, keys);
         if (diff.unchanged) return { queued: false, added: 0, removed: 0, total: diff.total };
         // MỚI (09/08/2026, cơ chế pending, phản hồi Giang — "đổi nguồn giữa lúc đang cycle làm giật/
         // mất khung đang phát") — CÒN media đang active (photo lẫn video, Giang chốt áp dụng CẢ 2,
