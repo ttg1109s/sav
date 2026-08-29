@@ -62,6 +62,15 @@
 .photo-tile-badge svg {
     display: none;
 }
+/* MỚI (29/08/2026) — số thứ tự chọn (multi-select), thay icon dấu tick khi đã có số — ẩn mặc định
+   giống svg, chỉ hiện khi tile đã .photo-tile-marked (xem quy tắc ngay dưới). */
+.photo-tile-badge-num {
+    display: none;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+}
 .photo-tile-marked .photo-tile-badge-select {
     background: #0ea5e9;
     border-color: #38bdf8;
@@ -70,7 +79,8 @@
     background: #f43f5e;
     border-color: #fb7185;
 }
-.photo-tile-marked .photo-tile-badge svg {
+.photo-tile-marked .photo-tile-badge svg,
+.photo-tile-marked .photo-tile-badge-num {
     display: block;
 }
 .photo-tile-marked img {

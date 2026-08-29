@@ -56,7 +56,9 @@
     z-index: 1;
 }
 
-/* Badge xoá nhanh — Video chỉ có đúng 1 mode (quickDelete), không cần biến thể -select như Photo. */
+/* Badge — MỞ RỘNG (29/08/2026) — thêm biến thể `-select` (xanh, multi-select picker Visual
+   Background) CÙNG khuôn `.photo-tile-badge-select/-delete` (photo-gallery.css); `-delete` giữ đỏ
+   như cũ (quickDelete, File Manager -> Video). */
 .video-tile-badge {
     position: absolute;
     top: 6px;
@@ -75,11 +77,23 @@
 .video-tile-badge svg {
     display: none;
 }
-.video-tile-marked .video-tile-badge {
+.video-tile-badge-num {
+    display: none;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+}
+.video-tile-marked .video-tile-badge-select {
+    background: #0ea5e9;
+    border-color: #38bdf8;
+}
+.video-tile-marked .video-tile-badge-delete {
     background: #f43f5e;
     border-color: #fb7185;
 }
-.video-tile-marked .video-tile-badge svg {
+.video-tile-marked .video-tile-badge svg,
+.video-tile-marked .video-tile-badge-num {
     display: block;
 }
 .video-tile-marked img {
