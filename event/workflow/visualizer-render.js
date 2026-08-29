@@ -99,10 +99,8 @@ const SPACE_CLUSTER_DISSOLVE_CHANCE_PER_BEAT = 0.08; // xác suất cho 1 cụm 
 // của game mode Circle (core/audio-analysis.js). Số liệu tham khảo
 // trực tiếp từ GAMEPLAY_CIRCLE_CONFIG (service/state/gameplay-runtime.js) mức "medium", chỉnh
 // sectionWindow/phraseRefresh DÀI hơn 1 chút — Space cần cảm giác chuyển cảnh CHẬM/điện ảnh hơn
-// nhịp game, không cần phản ứng gấp như gameplay. -----
-const SPACE_ENERGY_WINDOW_BEATS = 4;
-const SPACE_SECTION_WINDOW_BEATS = 12;
-const SPACE_FLUX_TRANSITION_THRESHOLD = 0.5;
+// nhịp game, không cần phản ứng gấp như gameplay. energyWindowBeats/sectionWindowBeats/
+// fluxThreshold giờ là field THẬT (customEffect.space, core/config.js) — không còn hardcode ở đây.
 const SPACE_PHRASE_REFRESH_BEATS = 24;
 
 // ----- Tốc độ di chuyển (dùng CHUNG clusterTravel/galaxyTravel, mục 2a(3)/2b(4)) -----
@@ -149,9 +147,8 @@ let _fwBeatsSincePhraseRefresh = 0;
 let _fwNextBinIndex = 0;
 const FIREWORKS_SIZE_BIN_MIN = 2;
 const FIREWORKS_SIZE_BIN_MAX = 40;
-const FIREWORKS_ENERGY_WINDOW_BEATS = 4;
-const FIREWORKS_SECTION_WINDOW_BEATS = 12;
-const FIREWORKS_FLUX_TRANSITION_THRESHOLD = 0.5;
+// energyWindowBeats/sectionWindowBeats/fluxThreshold giờ là field THẬT (customEffect.lighting,
+// core/config.js, chỉ nghĩa lý ở style "fireworks") — không còn hardcode ở đây.
 const FIREWORKS_FINALE_ROCKET_COUNT = 10;
 
 // ===== Vortex — biến NỘI BỘ (KHÔNG thuộc STATE), mirror _fw*/_sp* =====
@@ -159,6 +156,7 @@ let _vxLastConsumedBeatTime = 0;
 let _vxPendingBeatFluxSum = 0;
 let _vxPendingBeatFluxCount = 0;
 let _vxBeatFluxHistory = [];
+let _vxBeatsSinceLastTurn = 999; // lớn sẵn — cho phép rẽ ngay từ lần đầu, không phải đợi
 
 // Tích luỹ flux/beat RIÊNG cho Space — mirror _beatFluxHistory/_beatsSincePhraseRefresh của
 // event/workflow/gameplay.js (KHÔNG dùng chung, 2 domain độc lập — xem docstring đầu file).
@@ -249,11 +247,13 @@ const workflowVisualizerRender = {
     _fwFlashAlpha: 0,
 
     /** Hướng rẽ ống Vortex theo nhạc — mirror _fwUpdateFinaleTrigger()/_updateClusterSwitchTrigger()
-     * (tích luỹ beat flux RIÊNG, không dùng chung mảng với Fireworks/Space/Circle). Đủ điều kiện
-     * "nhạc vừa biến động" (detectMusicTransition(), core/audio-analysis.js) -> chọn hướng rẽ theo
-     * nốt MIDI TỨC THỜI (lastValidMidiNote, null thì Core tự fallback random) + z hiện tại của
-     * camera, ghi thẳng target mới vào tPathTarget — phần vẽ/nội suy còn lại vẫn ở drawVortex()
-     * (legacy, không đụng). */
+     * (tích luỹ beat flux RIÊNG, không dùng chung mảng với Fireworks/Space/Circle). Debounce bằng
+     * `_vxBeatsSinceLastTurn >= cfg.energyWindowBeats` (mirror spClusterSwitchPending của Space) —
+     * chặn dội liên tiếp mỗi beat suốt 1 đoạn nhạc biến động kéo dài. Đủ điều kiện "nhạc vừa biến
+     * động" (detectMusicTransition(), core/audio-analysis.js) -> chọn hướng rẽ theo nốt MIDI TỨC
+     * THỜI (lastValidMidiNote, null thì Core tự fallback random) + z hiện tại của camera, ghi
+     * thẳng target mới vào tPathTarget — phần vẽ/nội suy còn lại vẫn ở drawVortex() (legacy,
+     * không đụng). */
     _tickVortexCurve(isPlaying) {
         const fluxHistory = appState.get('fluxHistory');
         if (fluxHistory.length > 0) {
@@ -270,11 +270,21 @@ const workflowVisualizerRender = {
         }
         _vxPendingBeatFluxSum = 0;
         _vxPendingBeatFluxCount = 0;
+        _vxBeatsSinceLastTurn++;
         if (!isPlaying) return;
 
         const cfg = getActiveEffectConfig(); // core/custom-effect.js
+        // Debounce — chỉ xét rẽ tiếp khi đã tích đủ 1 CỬA SỔ MỚI (energyWindowBeats) kể từ lần rẽ
+        // trước, tránh dội liên tiếp mỗi beat suốt 1 đoạn build-up/drop kéo dài nhiều beat (mục 1,
+        // phản hồi Giang — "dao động liên tục theo trục x,y" + "văng ra nhìn thấy ống từ ngoài"):
+        // không debounce thì target bị ghi đè liên tục, params không bao giờ kịp hội tụ, trong khi
+        // ring/bar/wave (không có damping) bám sát target MỚI ngay lập tức -> camera (có damping
+        // 0.045) lệch hẳn ra khỏi hình học ống thật.
+        if (_vxBeatsSinceLastTurn < cfg.energyWindowBeats) return;
+
         const musicTransition = detectMusicTransition(_vxBeatFluxHistory, cfg.energyWindowBeats, cfg.sectionWindowBeats, cfg.fluxThreshold); // core (audio-analysis.js)
         if (!musicTransition) return;
+        _vxBeatsSinceLastTurn = 0;
 
         const { tPathTarget, tCurrentWarpZ, lastValidMidiNote } = appState.get(['tPathTarget', 'tCurrentWarpZ', 'lastValidMidiNote']);
         const direction = pickVortexDirectionFromNote(lastValidMidiNote); // core (three-vortex.js)
@@ -427,7 +437,7 @@ const workflowVisualizerRender = {
         _fwBeatsSincePhraseRefresh++;
         if (!isPlaying) return;
 
-        const musicTransition = detectMusicTransition(_fwBeatFluxHistory, FIREWORKS_ENERGY_WINDOW_BEATS, FIREWORKS_SECTION_WINDOW_BEATS, FIREWORKS_FLUX_TRANSITION_THRESHOLD); // core (audio-analysis.js)
+        const musicTransition = detectMusicTransition(_fwBeatFluxHistory, cfg.energyWindowBeats, cfg.sectionWindowBeats, cfg.fluxThreshold); // core (audio-analysis.js)
         const phraseBoundary = isPhraseBoundary(_fwBeatsSincePhraseRefresh, cfg.finaleIntervalBeats); // core (audio-analysis.js)
         if (musicTransition || phraseBoundary) {
             _fwBeatsSincePhraseRefresh = 0;
@@ -636,7 +646,8 @@ const workflowVisualizerRender = {
         _spBeatsSincePhraseRefresh++;
 
         if (!appState.get('spClusterSwitchPending')) {
-            const musicTransition = detectMusicTransition(_spBeatFluxHistory, SPACE_ENERGY_WINDOW_BEATS, SPACE_SECTION_WINDOW_BEATS, SPACE_FLUX_TRANSITION_THRESHOLD); // core (audio-analysis.js)
+            const cfg = getActiveEffectConfig(); // core/custom-effect.js
+            const musicTransition = detectMusicTransition(_spBeatFluxHistory, cfg.energyWindowBeats, cfg.sectionWindowBeats, cfg.fluxThreshold); // core (audio-analysis.js)
             const phraseBoundary = isPhraseBoundary(_spBeatsSincePhraseRefresh, SPACE_PHRASE_REFRESH_BEATS); // core (audio-analysis.js)
             if (musicTransition || phraseBoundary) {
                 appState.set('spClusterSwitchPending', true, { skipCheck: true });
