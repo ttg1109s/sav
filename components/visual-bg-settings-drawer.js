@@ -54,6 +54,22 @@ function renderVisualBgPanelBody() {
                             </select>
                         </div>
 
+                        <!-- MỚI (29/08/2026) — 2 hàng dời từ Slideshow ("Seconds per photo") sang
+                             đây, dùng CHUNG video/ảnh (Giang chốt) — CÙNG điều kiện hiện isList với
+                             2 hàng Playback/Next order ngay trên (workflowVisualBg.refreshPanelUI()). -->
+                        <div id="visual-bg-duration-mode-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors hidden">
+                            <span class="text-sm font-medium" data-i18n="visualBgSettingsDrawer.durationMode.label">${t('visualBgSettingsDrawer.durationMode.label')}</span>
+                            <select id="setting-visual-bg-duration-mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-36 text-right">
+                                <option value="duration" data-i18n="visualBgSettingsDrawer.durationMode.duration">${t('visualBgSettingsDrawer.durationMode.duration')}</option>
+                                <option value="fixtime" data-i18n="visualBgSettingsDrawer.durationMode.fixtime">${t('visualBgSettingsDrawer.durationMode.fixtime')}</option>
+                            </select>
+                        </div>
+
+                        <div id="visual-bg-duration-seconds-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors hidden">
+                            <span id="visual-bg-duration-seconds-label" class="text-sm font-medium"></span>
+                            <button type="button" id="setting-visual-bg-duration-seconds" class="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none w-20 text-right shrink-0 hover:bg-white/10 transition-colors">5s</button>
+                        </div>
+
                         <button id="setting-visual-bg-open-slideshow" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left hidden">
                             <div class="flex items-center gap-3 min-w-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-sky-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4h10a2 2 0 012 2v10M4 8v10a2 2 0 002 2h10a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2z" /></svg>

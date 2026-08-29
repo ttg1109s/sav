@@ -22,8 +22,13 @@
  * === v13 Batch C (plan-v13-visual-background-unification.md mục 2c) — THU GỌN ===
  * "NHÓM 1: ALBUM" (enable/mode/photoPerSong/interval) XOÁ HẲN — 4 input đó không còn ý nghĩa ở đây:
  * `enable` + chọn Album gộp vào panel cha "Visual Background", `mode`/`photoPerSong` thay bằng
- * `nextOrder`/`listPlaybackMode` cũng ở panel cha, riêng `intervalSeconds` DỜI xuống đứng ĐẦU nhóm
- * "Chuyển cảnh". Panel này giờ CHỈ còn 2 nhóm — thuần "chiếu ra sao", không còn "chiếu cái gì".
+ * `nextOrder`/`listPlaybackMode` cũng ở panel cha. Panel này giờ CHỈ còn 2 nhóm — thuần "chiếu ra
+ * sao", không còn "chiếu cái gì".
+ *
+ * XOÁ (29/08/2026, phản hồi Giang — dùng chung video/ảnh) — "Seconds per photo"/`intervalSeconds`
+ * (từng đứng đầu nhóm "Chuyển cảnh", DỜI TỚI đây ở batch C) bỏ hẳn KHỎI panel này, dời hẳn sang panel
+ * cha "Visual Background" (đổi tên "Seconds per video/photo", đổi `durationMode` dropdown — xem
+ * components/visual-bg-settings-drawer.js, event/workflow/visual-bg.js).
  *
  * (LỊCH SỬ) TÁI CẤU TRÚC THEO NHÓM (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh" +
  * "tái cấu trúc lại panel theo nhóm mục") — 10 input trước đây nằm CHUNG 1 danh sách dài, giờ chia
@@ -45,18 +50,9 @@ function renderSlideshowPanelBody() {
                     <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="slideshowSettingsDrawer.groupTransition.title">${t('slideshowSettingsDrawer.groupTransition.title')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
 
-                        <!-- DỜI VÀO ĐÂY (v13 Batch C, yêu cầu Giang "đem Seconds per photo vào mục
-                             transition") — đứng ĐẦU nhóm, TRƯỚC transitionType: "ảnh hiện bao lâu"
-                             là mốc mà mọi thời lượng chuyển cảnh bên dưới bị kẹp theo. Hàng này
-                             LUÔN hiện (không còn ẩn theo photoPerSong — panel này chỉ mở được khi
-                             đang ở chế độ Trình chiếu). -->
-                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <div>
-                                <div class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.interval.label">${t('slideshowSettingsDrawer.interval.label')}</div>
-                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="slideshowSettingsDrawer.interval.hint">${t('slideshowSettingsDrawer.interval.hint')}</div>
-                            </div>
-                            <button type="button" id="setting-slideshow-interval" class="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none w-20 text-right shrink-0 hover:bg-white/10 transition-colors">5s</button>
-                        </div>
+                        <!-- XOÁ (29/08/2026, dời sang panel VBG cha, dùng chung video/ảnh) — hàng
+                             "Seconds per photo" (id="setting-slideshow-interval") bỏ hẳn khỏi đây,
+                             xem components/visual-bg-settings-drawer.js. -->
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <span class="text-sm font-medium" data-i18n="slideshowSettingsDrawer.transition.label">${t('slideshowSettingsDrawer.transition.label')}</span>
                             <select id="setting-slideshow-transition" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-40 text-right">
