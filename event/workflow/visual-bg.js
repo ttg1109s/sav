@@ -10,6 +10,10 @@
 let visualBgSettingsPanelEl = null; // SỬA (đợt migrate Visualizer Screen) — giờ luôn trỏ genericDrawerBody (core/generic-drawer.js) SAU lần openPanel() đầu, dùng genericDrawerPanel.classList.contains('hidden') để biết đang mở/đóng thay vì so null (xem refreshPanelUI())
 let visualBgGradientPanelEl = null; // SỬA (đợt migrate Visualizer Screen) — giờ luôn trỏ genericDrawerBody SAU lần openGradientPanel() đầu, dùng genericDrawerPanel.classList.contains('hidden') thay so null
 let visualBgVideoAudioPanelEl = null; // SỬA (đợt migrate Visualizer Screen) — giờ luôn trỏ genericDrawerBody SAU lần openVideoAudioPanel() đầu, dùng genericDrawerPanel.classList.contains('hidden') thay so null
+// MỚI (29/08/2026, phản hồi Giang — "Fix time" video: cưỡng chế chuyển video kế sau đúng
+// `durationSeconds` giây, KHÔNG chờ video tự phát hết) — tên task taskManager DUY NHẤT cho hẹn giờ
+// này, xem `_maybeScheduleVideoFixTime()`/`_killVideoFixTimeTimer()`.
+const VISUAL_BG_VIDEO_FIXTIME_TASK = 'visualBgVideoFixTime';
 
 const workflowVisualBg = {
     _listIndex: -1,            // vị trí hiện tại trong `source.list` — CHỈ dùng cho nhánh video ở đây
@@ -75,6 +79,17 @@ const workflowVisualBg = {
                 }
                 if (VISUAL_BG_LIST_PLAYBACK_MODES.includes(saved.listPlaybackMode)) cfg.listPlaybackMode = saved.listPlaybackMode;
                 if (VISUAL_BG_NEXT_ORDERS.includes(saved.nextOrder)) cfg.nextOrder = saved.nextOrder;
+                // MỚI (29/08/2026) — 2 field thay `slideshow.intervalSeconds` cũ (xem docstring
+                // `durationMode`, core/config.js). MIGRATE ngược: config CŨ (trước 29/08/2026) chỉ có
+                // `saved.slideshow.intervalSeconds`, không có 2 field này — đọc field CŨ đó làm giá
+                // trị khởi tạo `durationSeconds` nếu 2 field mới CHƯA từng tồn tại (tránh mất giá trị
+                // Giang đã set trước đây, tự nhiên về lại mặc định 5s).
+                if (VISUAL_BG_DURATION_MODES.includes(saved.durationMode)) cfg.durationMode = saved.durationMode;
+                if (typeof saved.durationSeconds === 'number' && saved.durationSeconds >= 1 && saved.durationSeconds <= 60) {
+                    cfg.durationSeconds = saved.durationSeconds;
+                } else if (saved.slideshow && typeof saved.slideshow.intervalSeconds === 'number' && saved.slideshow.intervalSeconds >= 5) {
+                    cfg.durationSeconds = saved.slideshow.intervalSeconds; // MIGRATE — xem comment trên
+                }
                 if (VISUAL_BG_COLOR_MODES.includes(saved.colorMode)) cfg.colorMode = saved.colorMode;
                 if (typeof saved.solidColor === 'string') cfg.solidColor = saved.solidColor;
                 if (typeof saved.gradientAngleDeg === 'number') cfg.gradientAngleDeg = saved.gradientAngleDeg;
@@ -97,7 +112,8 @@ const workflowVisualBg = {
                 }
                 if (saved.slideshow && typeof saved.slideshow === 'object') {
                     const ss = saved.slideshow;
-                    if (typeof ss.intervalSeconds === 'number' && ss.intervalSeconds >= 5) cfg.slideshow.intervalSeconds = ss.intervalSeconds;
+                    // XOÁ (29/08/2026) — ss.intervalSeconds không còn validate ở đây (dời lên
+                    // `durationSeconds` top-level, MIGRATE ở khối ngay trên).
                     if (SLIDESHOW_TRANSITION_TYPES.includes(ss.transitionType)) cfg.slideshow.transitionType = ss.transitionType;
                     if (typeof ss.transitionDurationMs === 'number' && ss.transitionDurationMs >= SLIDESHOW_TRANSITION_MIN_TIME_MS && ss.transitionDurationMs <= SLIDESHOW_TRANSITION_MAX_TIME_MS) cfg.slideshow.transitionDurationMs = ss.transitionDurationMs;
                     if (typeof ss.transitionInOutRatio === 'number' && ss.transitionInOutRatio >= 0 && ss.transitionInOutRatio <= 100) cfg.slideshow.transitionInOutRatio = ss.transitionInOutRatio;
@@ -262,6 +278,7 @@ const workflowVisualBg = {
         this._listIndex = -1;
         this._currentVideoKey = null; // MỚI — dọn theo, xem docstring khai báo field ở đầu object
         this._killStuckRecoveryTimer(); // MỚI (09/08/2026, mục 3) — VBG đang bị dọn hẳn, huỷ fallback đang chờ (nếu có)
+        this._killVideoFixTimeTimer(); // MỚI (29/08/2026) — dọn hẳn/nhường bgVideoElement (Video Player mode) -> hẹn giờ "Fix time" của video VBG cũ hết ý nghĩa
         // SỬA (Giang chốt — bỏ hẳn logic video tự viết ở VBG, dùng THẲNG cơ chế dùng chung của
         // workflowVideoPlayer) — thay `hideVisualBgVideoElement()` (core/visual-bg.js, ĐÃ XOÁ) bằng
         // `clearBgVideoSource()`: cùng 1 nơi sở hữu vòng đời `bgVideoElement`/object URL của nó,
@@ -353,6 +370,12 @@ const workflowVisualBg = {
     async _onVideoEnded() {
         const cfg = appConfigVisualBg.getAll();
         if (cfg.type !== 'video') return;
+        // MỚI (29/08/2026) — dù đến từ 'ended' thật hay bị cưỡng chế bởi hẹn giờ "Fix time"
+        // (`_maybeScheduleVideoFixTime()`), video này COI NHƯ ĐÃ XONG — huỷ hẹn giờ (nếu còn, hiếm
+        // khi tự nó gọi hàm này thì task đã tự kill qua taskManager.once(), nhưng nhánh 'ended' THẬT
+        // gọi tới đây thì hẹn giờ của video NÀY vẫn còn treo, phải huỷ để không cưỡng chế nhầm video
+        // KẾ TIẾP sắp phát).
+        this._killVideoFixTimeTimer();
         // SỬA (09/08/2026, mục 1 vòng 2, tự soát lại) — DÙNG `_effectiveCount()` (loại null) THAY
         // vì `cfg.source.list.length` thô (tính cả null): `_playVideoKey()` tính `isCyclingSlideshow`
         // bằng `_effectiveCount()` — nếu 1 trong N item bị đánh dấu null (record mất, xem
@@ -415,7 +438,7 @@ const workflowVisualBg = {
         const key = list[index];
         // null -> ẩn, chờ advance() lần sau; MỚI (09/08/2026, mục 3) — mode 'slideshow' advance CHỈ
         // qua 'ended' thật, không video nào đang phát thì KHÔNG bao giờ tự bắn -> đặt fallback timer.
-        if (!key) { this._hideVideoOnly(); this._scheduleStuckRecoveryTimer(cfg.listPlaybackMode, list); return; }
+        if (!key) { this._killVideoFixTimeTimer(); this._hideVideoOnly(); this._scheduleStuckRecoveryTimer(cfg.listPlaybackMode, list); return; }
         await this._playVideoKey(key);
     },
 
@@ -446,6 +469,50 @@ const workflowVisualBg = {
     /** Huỷ fallback timer đang chờ (nếu có) — gọi mỗi khi hết "treo" (video mới đã nạp) hoặc VBG bị dọn hẳn. */
     _killStuckRecoveryTimer() {
         if (this._stuckRecoveryTimer) { this._stuckRecoveryTimer.kill(); this._stuckRecoveryTimer = null; }
+    },
+
+    /** MỚI (29/08/2026, phản hồi Giang — "Fix time" video) — huỷ hẹn giờ cưỡng chế đang chờ (nếu
+     * có). Gọi ở MỌI điểm 1 video THÔI không còn là "video đang phát nền cần theo dõi" nữa: đầu
+     * `_playVideoKey()` (video KHÁC sắp nạp đè lên), đầu `_onVideoEnded()` (video ĐÃ hết/vừa bị cưỡng
+     * chế hết — hẹn giờ của NÓ hết ý nghĩa dù đến từ nhánh nào), và nhánh "không còn key nào" của
+     * `_advanceVideo()` (không video nào đang phát để mà hẹn giờ theo). Dùng thẳng
+     * `taskManager.kill(name)` (an toàn, tự no-op nếu task không tồn tại) thay vì tự giữ handle
+     * riêng — CHỈ 1 task cố định tên `VISUAL_BG_VIDEO_FIXTIME_TASK` tại bất kỳ thời điểm nào (đúng
+     * tinh thần "chỉ 1 video nền đang phát tại 1 thời điểm"), không cần debounce theo tên như
+     * `_stuckRecoveryTimer` (task KHÁC tên mỗi `taskManager.once()` không truyền `name` — timer NÀY
+     * LUÔN truyền `name` cố định nên không cần giữ handle). */
+    _killVideoFixTimeTimer() {
+        taskManager.kill(VISUAL_BG_VIDEO_FIXTIME_TASK); // service/task-manager.js
+    },
+
+    /** MỚI (29/08/2026, phản hồi Giang mục "Fix time" video) — đặt hẹn giờ cưỡng chế chuyển sang
+     * video kế đúng `cfg.durationSeconds` giây, THAY vì đợi video này tự phát hết — CHỈ khi:
+     * (1) `durationMode==='fixtime'` (mode 'duration' — mặc định — video LUÔN phát hết tự nhiên,
+     *     không hẹn giờ nào cả, giữ NGUYÊN hành vi gốc trước khi có tính năng này);
+     * (2) `isCyclingSlideshow` (đang cycle NHIỀU video — 1 video/perSong không có "video kế" nào để
+     *     cưỡng chế chuyển sang, UI cũng ẩn hẳn 2 field này khi không cycle, xem `refreshPanelUI()`);
+     * (3) video THẬT SỰ dài hơn `durationSeconds` (Giang chốt — "video đấy duration <= fix time cài
+     *     đặt thì tự động CHẶN hẹn giờ, để nó end tự nhiên": video ngắn hơn/bằng thì `ended` thật đã
+     *     tự bắn ĐÚNG lúc hoặc SỚM hơn mốc fixtime rồi, đặt thêm 1 hẹn giờ song song là thừa, có thể
+     *     đua nhau/kích hoạt lặp — không phải "kẹp giá trị hẹn giờ xuống bằng duration video" như
+     *     bản nháp trước, mà là BỎ HẲN việc đặt hẹn giờ trong ca này).
+     * Hẹn giờ bắn -> gọi THẲNG `_onVideoEnded()` (Giang chốt — "tương đương kích hoạt sự kiện end",
+     * chạy lại ĐÚNG 1 đường xử lý advance/pending có sẵn, không viết logic advance riêng ở đây) —
+     * `_onVideoEnded()` sau khi advance thành công sẽ gọi lại `_playVideoKey()` cho video KẾ, hàm đó
+     * tự gọi LẠI hàm này cho video mới (đặt hẹn giờ MỚI theo đúng độ dài video mới), không cần tự
+     * "lặp" gì thêm ở đây.
+     * @param {object} cfg
+     * @param {boolean} isCyclingSlideshow
+     */
+    _maybeScheduleVideoFixTime(cfg, isCyclingSlideshow) {
+        if (cfg.durationMode !== 'fixtime' || !isCyclingSlideshow) return;
+        const videoKey = this._currentVideoKey;
+        const durationSec = bgVideoElement.duration; // giây, số thực — sẵn có sau waitBgVideoReady() (metadata đã nạp)
+        if (!isFinite(durationSec) || durationSec <= cfg.durationSeconds) return; // video ngắn hơn/bằng fixtime -> để `ended` thật tự lo, xem docstring trên
+        taskManager.once(() => { // service/task-manager.js
+            if (this._currentVideoKey !== videoKey) return; // guard: video ĐÃ đổi bởi lý do khác trong lúc chờ (advance nhanh liên tiếp/đổi nguồn) — bỏ qua, không cưỡng chế nhầm video mới
+            this._onVideoEnded();
+        }, cfg.durationSeconds * 1000, VISUAL_BG_VIDEO_FIXTIME_TASK);
     },
 
     /**
@@ -499,6 +566,7 @@ const workflowVisualBg = {
             || this._isSwappingVideo
         ) return;
         this._killStuckRecoveryTimer(); // MỚI (09/08/2026, mục 3) — video mới thật sự bắt đầu nạp, không còn "treo" nữa
+        this._killVideoFixTimeTimer(); // MỚI (29/08/2026) — huỷ hẹn giờ "Fix time" của video CŨ (nếu còn) — video MỚI cần hẹn giờ CỦA RIÊNG NÓ (đặt lại bên dưới, sau khi sẵn sàng)
         // SỬA (09/08/2026, mục 1+2 vòng 2) — ép câm CỨNG, KHÔNG đọc setting của videoKey ở đây nữa
         // (xem docstring trên). `setVideoBgGain(0)` an toàn no-op nếu graph Web Audio chưa từng nối.
         bgVideoElement.muted = true;
@@ -533,6 +601,7 @@ const workflowVisualBg = {
             if (this._currentVideoKey !== videoKey) return;
             syncVisualBgVideoPlayback(audioPlayer.paused); // core/visual-bg.js — ĐÚNG mốc .hidden đã gỡ, guard không còn nuốt lệnh pause() nữa
             this._applyVideoAudioSettingToElement(videoKey); // core/visual-bg.js lookup + gán muted/volume
+            this._maybeScheduleVideoFixTime(cfg, isCyclingSlideshow); // MỚI (29/08/2026) — "Fix time": đặt hẹn giờ cưỡng chế chuyển video kế NẾU đủ điều kiện, xem docstring hàm đó
         });
     },
 
@@ -924,6 +993,43 @@ const workflowVisualBg = {
         console.log(`writer: "workflowVisualBg.changeListPlaybackMode", page: "visualBgConfig", content: "listPlaybackMode=${value}"`);
         await this._persist();
         await this.applyCurrentVisualBg();
+    },
+
+    /** Ứng select "Duration mode" — MỚI (29/08/2026, dời từ slideshow, dùng CHUNG video/ảnh, xem
+     * docstring `durationMode`, core/config.js). Đổi mode KHÔNG retroactive lên item ĐANG hiện (cùng
+     * quy ước mọi field slideshow khác — `changeTransitionType()` etc., "áp dụng từ item KẾ TIẾP") —
+     * video: hẹn giờ "Fix time" (nếu có) của video ĐANG PHÁT giữ nguyên, chỉ video KẾ mới theo mode
+     * mới (`_maybeScheduleVideoFixTime()` tự đọc `cfg.durationMode` MỚI lúc đó); ảnh: tick kế tiếp
+     * (`workflowSlideshow._tick()`) tự đọc `_computeAdvanceMs()` MỚI khi tự rearm. */
+    async changeDurationMode(value) {
+        if (!VISUAL_BG_DURATION_MODES.includes(value)) return;
+        appConfigVisualBg.mutateAll((cfg) => { cfg.durationMode = value; });
+        console.log(`writer: "workflowVisualBg.changeDurationMode", page: "visualBgConfig", content: "durationMode=${value}"`);
+        await this._persist();
+    },
+
+    /** Ứng nút "Seconds per video/photo" — MỚI (29/08/2026, dời từ slideshow's "Seconds per photo"
+     * cũ — `openIntervalPicker()`, event/workflow/slideshow.js, ĐÃ XOÁ). Cùng bounds picker cũ
+     * (5-60s) — field này giờ CŨNG áp cho video (`durationMode='fixtime'`), không riêng ảnh nữa. */
+    openDurationSecondsPicker() {
+        if (genericDrawerPanel.classList.contains('hidden')) return;
+        const cfg = appConfigVisualBg.getAll();
+        openTimePickerModal({ // core/time-picker-modal.js
+            title: t('visualBgSettingsDrawer.durationSeconds.pickerTitle'),
+            format: 's',
+            valueMs: cfg.durationSeconds * 1000,
+            minMs: 5000,
+            maxMs: 60000,
+            onConfirm: async (resultMs) => {
+                const v = Math.max(5, Math.round(resultMs / 1000));
+                appConfigVisualBg.mutateAll((c) => { c.durationSeconds = v; });
+                console.log(`writer: "workflowVisualBg.openDurationSecondsPicker", page: "visualBgConfig", content: "durationSeconds=${v}"`);
+                await this._persist();
+                if (genericDrawerPanel.classList.contains('hidden')) return;
+                const btn = visualBgSettingsPanelEl.querySelector('#setting-visual-bg-duration-seconds');
+                if (btn) btn.textContent = `${v}s`;
+            },
+        });
     },
 
     /** Ứng select "Thứ tự kế tiếp" — origin là group thì dựng lại `source.list` theo thứ tự mới
@@ -1453,6 +1559,22 @@ const workflowVisualBg = {
         if (listPlaybackRow) listPlaybackRow.classList.toggle('hidden', !isList);
         if (nextOrderRow) nextOrderRow.classList.toggle('hidden', !isList);
         if (slideshowRow) slideshowRow.classList.toggle('hidden', !(isListPhoto && cfg.listPlaybackMode === 'slideshow'));
+
+        // MỚI (29/08/2026) — hàng "Duration mode" + "Seconds per video/photo" (dời từ slideshow,
+        // dùng CHUNG video/ảnh) — CÙNG điều kiện hiện `isList` với Playback/Next order ngay trên
+        // (chỉ có ý nghĩa khi thật sự cycle nhiều item — 1 item thì không có "item kế" nào để mà
+        // định thời gian chuyển sang). Nhãn nút giây đổi theo `cfg.type` ("Seconds per video"/"Seconds
+        // per photo") — Giang chốt field áp dụng CẢ 2 loại, không còn riêng ảnh.
+        const durationModeRow = q('#visual-bg-duration-mode-row');
+        const durationModeSelect = q('#setting-visual-bg-duration-mode');
+        const durationSecondsRow = q('#visual-bg-duration-seconds-row');
+        const durationSecondsLabel = q('#visual-bg-duration-seconds-label');
+        const durationSecondsBtn = q('#setting-visual-bg-duration-seconds');
+        if (durationModeSelect) durationModeSelect.value = cfg.durationMode;
+        if (durationModeRow) durationModeRow.classList.toggle('hidden', !isList);
+        if (durationSecondsRow) durationSecondsRow.classList.toggle('hidden', !isList);
+        if (durationSecondsLabel) durationSecondsLabel.textContent = t(cfg.type === 'video' ? 'visualBgSettingsDrawer.durationSeconds.labelVideo' : 'visualBgSettingsDrawer.durationSeconds.labelPhoto');
+        if (durationSecondsBtn) durationSecondsBtn.textContent = `${cfg.durationSeconds}s`;
 
         // MỚI (08/08/2026) — hàng mở panel "Âm thanh Video": hiện khi type='video' VÀ còn ≥1 item
         // sống (Giang chốt — áp dụng CẢ single lẫn list, khác `slideshowRow` chỉ dành cho list ảnh).

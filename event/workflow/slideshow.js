@@ -51,8 +51,22 @@ const workflowSlideshow = {
         if (panEl === slideshowLayer1Pan) this._kenBurnsAnim1 = anim; else this._kenBurnsAnim2 = anim;
     },
 
-    _computeIntervalMs() {
-        return Math.max(5, appConfigVisualBg.getAll().slideshow.intervalSeconds) * 1000;
+    /** MỞ RỘNG (29/08/2026, phản hồi Giang — dời "Seconds per photo" sang panel VBG, dùng chung
+     * video/ảnh, đổi tên khỏi "interval" theo đúng yêu cầu) — 2 nhánh theo `durationMode`
+     * (`appConfigVisualBg`, top-level, xem docstring core/config.js):
+     *   'fixtime'  — DÙNG CHUNG 1 số `durationSeconds` cho MỌI ảnh (bỏ qua field `duration` riêng
+     *               của từng ảnh).
+     *   'duration' (mặc định) — ảnh CŨNG có "duration" RIÊNG (record.duration, giây, số thực —
+     *               Photo đã tích hợp như Song/Video, xem core/file-manager/image.js) — dùng ĐÚNG
+     *               ảnh ĐANG hiện (`_currentRecord` đã cache sẵn, không đọc lại DB), fallback 5s cho
+     *               record cũ thiếu field (CÙNG fallback event/workflow/photo-player.js:151).
+     * Đổi TÊN (KHÔNG còn "interval" — field/hàm này giờ có thể trả giá trị KHÁC NHAU mỗi ảnh, không
+     * còn là 1 "khoảng lặp cố định" nữa). */
+    _computeAdvanceMs() {
+        const cfg = appConfigVisualBg.getAll();
+        if (cfg.durationMode === 'fixtime') return Math.max(5, cfg.durationSeconds) * 1000;
+        const durationSec = (this._currentRecord && this._currentRecord.duration) || 5;
+        return Math.max(1000, durationSec * 1000); // sàn 1s — phòng record.duration hỏng/âm
     },
 
     /** Ứng với bài hát đổi thật — gọi TRỰC TIẾP từ router ('visualBg.songChanged', event/router/
@@ -134,10 +148,14 @@ const workflowSlideshow = {
         this._isActive = true;
         const cfg = appConfigVisualBg.getAll().slideshow;
         if (cfg.kenBurnsEnabled && this._currentRecord) this._activateKenBurns(this._currentPanLayer(), cfg.kenBurnsMode, this._currentRecord);
+        // SỬA (29/08/2026) — `taskManager.once()` (tự kill sau khi bắn, KHÔNG count:0 lặp vô hạn với
+        // 1 `time` cố định như trước) — mode 'duration' giờ có thể ra giá trị KHÁC NHAU mỗi ảnh
+        // (field `duration` riêng của từng ảnh, xem `_computeAdvanceMs()`), phải TÍNH LẠI mỗi vòng —
+        // `_tick()` tự rearm lại chính task NÀY (CÙNG tên `SLIDESHOW_TASK`) ở cuối, nối tiếp vòng
+        // đời — pause()/resume() không đổi gì (vẫn thao tác trên CÙNG tên task, xem service/task-
+        // manager.js::once() — bên trong CŨNG chỉ là `addNew()` với count:1, không phải cơ chế khác).
         if (appConfigVisualBg.getAll().listPlaybackMode !== 'perSong') {
-            taskManager.kill(SLIDESHOW_TASK);
-            taskManager.addNew(SLIDESHOW_TASK, { time: this._computeIntervalMs(), exe: () => this._tick(), mode: 'timeout', count: 0 });
-            taskManager.operator(SLIDESHOW_TASK, 'enabled');
+            taskManager.once(() => this._tick(), this._computeAdvanceMs(), SLIDESHOW_TASK);
         }
     },
 
@@ -215,7 +233,7 @@ const workflowSlideshow = {
         const direction = resolveSlideshowKenBurnsDirection(mode, this._lastKenBurnsDirection); // core
         this._lastKenBurnsDirection = direction;
         const bounds = computeSlideshowKenBurnsSafeBounds(image ? image.width : 0, image ? image.height : 0, window.innerWidth, window.innerHeight); // core
-        const durationMs = capSlideshowKenBurnsDurationMs(this._computeIntervalMs()); // core
+        const durationMs = capSlideshowKenBurnsDurationMs(this._computeAdvanceMs()); // core
         const keyframes = pickSlideshowKenBurnsKeyframes(direction, bounds, durationMs); // core
         const anim = startSlideshowKenBurnsAnimation(panEl, keyframes, durationMs); // core
         this._setKenBurnsAnim(panEl, anim);
@@ -255,6 +273,12 @@ const workflowSlideshow = {
 
         const cfg = appConfigVisualBg.getAll().slideshow;
         const image = record;
+        // SỬA (29/08/2026) — gán `_currentRecord = image` NGAY TẠI ĐÂY (trước là dưới cuối hàm) —
+        // `_computeAdvanceMs()` (mode 'duration') đọc `this._currentRecord.duration`, và dòng
+        // `totalMs` ngay dưới gọi hàm đó để KẸP trần transition-duration theo đúng thời gian ảnh SẮP
+        // hiện (`image`, ảnh INCOMING) — gán TRỄ (như code cũ) khiến lúc đó `_currentRecord` vẫn
+        // trỏ ảnh CŨ (outgoing), kẹp sai theo duration ảnh vừa rời đi thay vì ảnh sắp hiện.
+        this._currentRecord = image;
         const objectUrl = URL.createObjectURL(image.blob);
         const outgoingLayer = this._currentLayer();
         const incomingLayer = this._idleLayer();
@@ -265,7 +289,7 @@ const workflowSlideshow = {
         setSlideshowLayerImage(incomingPan, objectUrl); // core
         if (cfg.kenBurnsEnabled) this._activateKenBurns(incomingPan, cfg.kenBurnsMode, image);
 
-        const totalMs = capSlideshowTransitionDurationMs(cfg.transitionDurationMs, this._computeIntervalMs()); // core
+        const totalMs = capSlideshowTransitionDurationMs(cfg.transitionDurationMs, this._computeAdvanceMs()); // core
         const { inMs, outMs } = transitionSupportsInOutRatio(cfg.transitionType) // core
             ? computeSlideshowTransitionInOutMs(totalMs, cfg.transitionInOutRatio) // core
             : { inMs: totalMs, outMs: totalMs };
@@ -286,11 +310,18 @@ const workflowSlideshow = {
             taskManager.once(() => { try { URL.revokeObjectURL(staleUrl); } catch (e) {} }, cleanupDelayMs + 100, 'slideshowRevokeStale');
         }
         this._currentObjectUrl = objectUrl;
-        this._currentRecord = image; // MỚI (14/08/2026) — giữ invariant "_currentRecord = ảnh đang hiện", đồng bộ với _showFirstImage()
         this._layerToggle = !this._layerToggle;
 
-        if (this._sourceKeys.length === 1) taskManager.kill(SLIDESHOW_TASK); // sweep vừa đưa về 1 -> dừng cycle
-
+        // SỬA (29/08/2026) — thay dòng `if (length===1) kill` cũ bằng rearm/kill tường minh: còn >1
+        // item sống -> tự đặt lại `taskManager.once()` cho vòng KẾ (tính LẠI `_computeAdvanceMs()`
+        // NGAY BÂY GIỜ — sau khi `_currentRecord` đã là ảnh MỚI ở trên — mode 'duration' cần giá trị
+        // ĐÚNG ảnh này, không phải ảnh cũ); length===1 (sweep vừa đưa về 1) -> dừng hẳn cycle, giữ
+        // NGUYÊN điều kiện gốc (raw `.length`, KHÔNG đổi ngữ nghĩa so với bản cũ).
+        if (this._sourceKeys.length === 1) {
+            taskManager.kill(SLIDESHOW_TASK); // sweep vừa đưa về 1 -> dừng cycle
+        } else {
+            taskManager.once(() => this._tick(), this._computeAdvanceMs(), SLIDESHOW_TASK);
+        }
     },
 
     // ===================== Settings Drawer (cụm router "slideshowSettings") =====================
@@ -304,7 +335,8 @@ const workflowSlideshow = {
         if (genericDrawerPanel.classList.contains('hidden')) return;
         const cfg = appConfigVisualBg.getAll().slideshow;
 
-        const intervalBtn = slideshowSettingsPanelEl.querySelector('#setting-slideshow-interval');
+        // XOÁ (29/08/2026) — intervalBtn ("Seconds per photo") dời hẳn sang panel VBG, xem
+        // event/workflow/visual-bg.js::openDurationSecondsPicker()/refreshPanelUI().
         const transitionSelect = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition');
         const kenBurnsToggle = slideshowSettingsPanelEl.querySelector('#setting-slideshow-kenburns');
         const kenBurnsModeRow = slideshowSettingsPanelEl.querySelector('#slideshow-kenburns-mode-row');
@@ -314,7 +346,6 @@ const workflowSlideshow = {
         const transitionRatioSlider = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-ratio');
         const transitionEasingSelect = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-easing');
 
-        if (intervalBtn) intervalBtn.textContent = `${cfg.intervalSeconds}s`;
         if (transitionSelect) transitionSelect.value = cfg.transitionType;
         if (kenBurnsToggle) kenBurnsToggle.checked = !!cfg.kenBurnsEnabled;
         if (kenBurnsModeRow) kenBurnsModeRow.classList.toggle('hidden', !cfg.kenBurnsEnabled);
@@ -326,47 +357,9 @@ const workflowSlideshow = {
         if (transitionEasingSelect) transitionEasingSelect.value = cfg.transitionEasing;
     },
 
-    openIntervalPicker() {
-        if (genericDrawerPanel.classList.contains('hidden')) return;
-        const cfg = appConfigVisualBg.getAll().slideshow;
-        openTimePickerModal({ // core/time-picker-modal.js
-            title: t('slideshowSettingsDrawer.interval.pickerTitle'),
-            format: 's',
-            valueMs: cfg.intervalSeconds * 1000,
-            minMs: 5000,
-            maxMs: 60000,
-            onConfirm: async (resultMs) => {
-                const v = Math.max(5, Math.round(resultMs / 1000));
-                const newIntervalMs = v * 1000;
-                let correctedTransitionMs = null; // MỚI — null = không cần sửa gì, có giá trị = ĐÃ bị kẹp xuống
-                await workflowVisualBg.mutateSlideshowSetting((ss) => {
-                    ss.intervalSeconds = v;
-                    const cappedMs = capSlideshowTransitionDurationMs(ss.transitionDurationMs, newIntervalMs); // core — tái dùng NGUYÊN hàm đã có
-                    if (cappedMs !== ss.transitionDurationMs) { ss.transitionDurationMs = cappedMs; correctedTransitionMs = cappedMs; }
-                }, `intervalSeconds=${v}`);
-                if (genericDrawerPanel.classList.contains('hidden')) return;
-                const intervalBtn = slideshowSettingsPanelEl.querySelector('#setting-slideshow-interval');
-                if (intervalBtn) intervalBtn.textContent = `${v}s`; // đồng bộ lại chữ trên nút
-                // MỚI — nếu transitionDurationMs vừa bị kẹp xuống, đồng bộ LẠI nút + nhãn tỉ lệ
-                // (phụ thuộc transitionDurationMs) — KHÔNG thì 2 chỗ này hiện SAI (giá trị cũ đã
-                // không còn đúng nữa, đúng bug Giang phát hiện).
-                if (correctedTransitionMs !== null) {
-                    const transitionBtn = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-duration');
-                    if (transitionBtn) transitionBtn.textContent = `${(correctedTransitionMs / 1000).toFixed(1)}s`;
-                    const ratioSlider = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-ratio');
-                    this._updateTransitionRatioLabel(slideshowSettingsPanelEl, ratioSlider ? Number(ratioSlider.value) : appConfigVisualBg.getAll().slideshow.transitionInOutRatio);
-                }
-                // Loop (task-manager.js) KHÔNG hỗ trợ đổi `time` giữa chừng của task count vô hạn —
-                // tự kill + addNew lại với time mới, CÙNG lý do scheduleNextAutoSwitchVisualTimer()
-                // làm ở core/auto-switch-visual.js.
-                if (this._sourceKeys.length > 1 && taskManager.plan[SLIDESHOW_TASK]) {
-                    taskManager.kill(SLIDESHOW_TASK);
-                    taskManager.addNew(SLIDESHOW_TASK, { time: this._computeIntervalMs(), exe: () => this._tick(), mode: 'timeout', count: 0 });
-                    taskManager.operator(SLIDESHOW_TASK, 'enabled');
-                }
-            },
-        });
-    },
+    // XOÁ (29/08/2026) — openIntervalPicker() ("Seconds per photo") bỏ hẳn cùng hàng UI đã dời sang
+    // panel VBG — xem event/workflow/visual-bg.js::openDurationSecondsPicker() (bounds 5-60s y hệt,
+    // dùng chung `durationSeconds` cho CẢ video lẫn ảnh, không riêng ảnh nữa).
 
     /** Ứng với select "Hiệu ứng chuyển cảnh" (12 kiểu — Ken Burns ĐÃ TÁCH khỏi danh sách này, xem
      * changeKenBurnsEnabled() ngay dưới).
@@ -400,10 +393,10 @@ const workflowSlideshow = {
      * bị cắt ngang lượt kế tiếp" đã lường trước — capSlideshowTransitionDurationMs() ở `_tick()`
      * VẪN giữ làm lưới an toàn RUNTIME, nhưng để tránh cho phép CHỌN 1 giá trị vô nghĩa ngay từ đầu,
      * modal picker giờ tự kẹp Max = MIN(60s, thời gian ảnh hiển thị hiện tại —
-     * `_computeIntervalMs()`).
+     * `_computeAdvanceMs()`).
      * SỬA LẦN 2 (21/07/2026, Giang chốt: "max input transition phải LUÔN nhỏ hơn seconds per photo
      * tối thiểu 1 đơn vị giây" — vd interval=5s thì max=4s, KHÔNG được bằng nhau) — trừ thêm 1000ms
-     * khỏi `_computeIntervalMs()` TRƯỚC khi kẹp [MIN,MAX] — CÙNG công thức
+     * khỏi `_computeAdvanceMs()` TRƯỚC khi kẹp [MIN,MAX] — CÙNG công thức
      * `capSlideshowTransitionDurationMs()` (core, dùng lại y hệt logic, không viết trùng — Rule 3c).
      * Kẹp thêm 1 lớp an toàn `Math.max(MIN_TIME_MS, ...)` phòng trường hợp hiếm ảnh hiển thị CÒN LẠI
      * dưới 2s (photoPerSong, bài hát sắp hết) khiến max tính ra nhỏ hơn cả min — tránh modal nhận
@@ -413,7 +406,7 @@ const workflowSlideshow = {
     openTransitionDurationPicker() {
         if (genericDrawerPanel.classList.contains('hidden')) return;
         const cfg = appConfigVisualBg.getAll().slideshow;
-        const maxMs = Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, Math.min(SLIDESHOW_TRANSITION_MAX_TIME_MS, this._computeIntervalMs() - 1000));
+        const maxMs = Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, Math.min(SLIDESHOW_TRANSITION_MAX_TIME_MS, this._computeAdvanceMs() - 1000));
         openTimePickerModal({ // core/time-picker-modal.js
             title: t('slideshowSettingsDrawer.transitionDuration.pickerTitle'),
             format: 's-ms',
