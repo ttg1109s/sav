@@ -328,16 +328,12 @@
                 colorSwapTransitionMs: 1000,        // 500-3000 (picker 500ms-3s)
             },
 
-            slideshow: {
-                // XOÁ (29/08/2026) — intervalSeconds dời lên top-level thành `durationSeconds` +
-                // `durationMode` ngay trên (dùng chung video/ảnh, xem docstring ở đó).
-                transitionType: 'fade',
-                transitionDurationMs: 1000,
-                transitionInOutRatio: 50,
-                transitionEasing: 'ease',
-                kenBurnsEnabled: false,
-                kenBurnsMode: 'zoomPanRandom',
-            },
+            // XOÁ (29/08/2026, phản hồi Giang — "Settings > Slideshow" đổi thành danh sách preset
+            // đặt tên được) — object `slideshow` nhúng thẳng bỏ hẳn, thay bằng 1 tham chiếu duy nhất
+            // tới danh sách preset SỐNG RIÊNG (`appState.slideshowPresets`/`meta.slideshowPresets`) —
+            // xem core/slideshow-presets.js, event/workflow/slideshow-presets.js. `null` = CHƯA gắn
+            // preset nào — Photo hiện KHÔNG transition/Ken Burns gì cả (chuyển cứng giữa các ảnh).
+            slideshowPresetId: null,
         };
 
         const DEFAULT_READER_CONFIG = {
