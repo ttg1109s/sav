@@ -1003,6 +1003,11 @@ const workflowVisualBg = {
         appConfigVisualBg.mutateAll((cfg) => { cfg.durationMode = value; });
         console.log(`writer: "workflowVisualBg.changeDurationMode", page: "visualBgConfig", content: "durationMode=${value}"`);
         await this._persist();
+        // MỚI (29/08/2026, phản hồi Giang — "input fixtime chỉ hiện khi chọn mode fix time") — hàng
+        // "Seconds per video/photo" ẩn/hiện phụ thuộc TRỰC TIẾP giá trị vừa đổi (xem
+        // `refreshPanelUI()`) — thiếu dòng này thì đổi dropdown xong hàng đó vẫn đứng yên tới lần mở
+        // lại panel sau, không cập nhật ngay.
+        await this.refreshPanelUI();
     },
 
     /** Ứng nút "Seconds per video/photo" — MỚI (29/08/2026, dời từ slideshow's "Seconds per photo"
@@ -1557,10 +1562,12 @@ const workflowVisualBg = {
         if (nextOrderRow) nextOrderRow.classList.toggle('hidden', !isList);
 
         // MỚI (29/08/2026) — hàng "Duration mode" + "Seconds per video/photo" (dời từ slideshow,
-        // dùng CHUNG video/ảnh) — CÙNG điều kiện hiện `isList` với Playback/Next order ngay trên
-        // (chỉ có ý nghĩa khi thật sự cycle nhiều item — 1 item thì không có "item kế" nào để mà
-        // định thời gian chuyển sang). Nhãn nút giây đổi theo `cfg.type` ("Seconds per video"/"Seconds
-        // per photo") — Giang chốt field áp dụng CẢ 2 loại, không còn riêng ảnh.
+        // dùng CHUNG video/ảnh) — "Duration mode" hiện cùng điều kiện `isList` với Playback/Next
+        // order ngay trên (chỉ có ý nghĩa khi thật sự cycle nhiều item). "Seconds per video/photo"
+        // CHỈ hiện thêm khi `durationMode==='fixtime'` (Giang chốt) — ở mode 'duration' (mặc định),
+        // giá trị này KHÔNG có tác dụng gì cho CẢ 2 loại: video phát hết tự nhiên, ảnh dùng field
+        // `duration` RIÊNG của chính nó (không phải số giây global này) — bày ra chỉ gây hiểu nhầm
+        // "sao đổi số này không thấy đổi gì".
         const durationModeRow = q('#visual-bg-duration-mode-row');
         const durationModeSelect = q('#setting-visual-bg-duration-mode');
         const durationSecondsRow = q('#visual-bg-duration-seconds-row');
@@ -1568,7 +1575,7 @@ const workflowVisualBg = {
         const durationSecondsBtn = q('#setting-visual-bg-duration-seconds');
         if (durationModeSelect) durationModeSelect.value = cfg.durationMode;
         if (durationModeRow) durationModeRow.classList.toggle('hidden', !isList);
-        if (durationSecondsRow) durationSecondsRow.classList.toggle('hidden', !isList);
+        if (durationSecondsRow) durationSecondsRow.classList.toggle('hidden', !(isList && cfg.durationMode === 'fixtime'));
         if (durationSecondsLabel) durationSecondsLabel.textContent = t(cfg.type === 'video' ? 'visualBgSettingsDrawer.durationSeconds.labelVideo' : 'visualBgSettingsDrawer.durationSeconds.labelPhoto');
         if (durationSecondsBtn) durationSecondsBtn.textContent = `${cfg.durationSeconds}s`;
 
