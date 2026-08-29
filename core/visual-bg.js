@@ -5,6 +5,11 @@
  */
 
 const VISUAL_BG_TYPES = ['photo', 'video'];
+// MỚI (29/08/2026) — 'multi' (nhiều ảnh/video chọn tay qua picker multi-select, originId = JSON
+// mảng key theo ĐÚNG thứ tự chọn) và 'groupMulti' (nhiều Thư mục gộp lại, originId = JSON mảng
+// folderId theo thứ tự chọn) — xem `_readOriginKeys()`/`_encodeMultiOriginId()`,
+// event/workflow/visual-bg.js.
+const VISUAL_BG_ORIGIN_KINDS = ['single', 'group', 'multi', 'groupMulti'];
 const VISUAL_BG_COLOR_MODES = ['solid', 'gradient'];
 const VISUAL_BG_GRADIENT_MIN_STOPS = 2;
 const VISUAL_BG_GRADIENT_MAX_STOPS = 7;
@@ -19,9 +24,10 @@ const VISUAL_BG_GRADIENT_MOVEMENT_TICK_MS = 100; // nhịp tick animation — 10
 const VISUAL_BG_GRADIENT_MOVEMENT_TASK = 'visualBgGradientMovement'; // tên task taskManager (Workflow dùng, xem event/workflow/visual-bg.js)
 const VISUAL_BG_LIST_PLAYBACK_MODES = ['perSong', 'slideshow'];
 const VISUAL_BG_NEXT_ORDERS = ['random', 'sequential', 'playlist'];
-/** Số item tối thiểu để 1 Album/Folder đủ điều kiện làm nguồn "group" trong picker (Giang chốt: 2 —
- * đúng 1 item thì không có gì để chuyển sang, để chọn cũng chỉ thành `list.length===1` = phát tĩnh). */
-const VISUAL_BG_MIN_LIST_ITEMS = 2;
+// XOÁ (29/08/2026) — VISUAL_BG_MIN_LIST_ITEMS (ngưỡng ≥2 item của "group" đơn cũ) bỏ hẳn cùng
+// picker Thư mục cũ (single-folder) — Thư mục giờ multi-select GỘP nhiều folder lại
+// (originKind='groupMulti'), 1 folder ít item vẫn có ích khi gộp, không cần tự nó đủ ngưỡng nữa —
+// xem event/workflow/visual-bg.js::_openFolderPickerForType().
 
 // MỚI (13/08/2026, Giang yêu cầu — xoay gradient mượt theo PHA, không giật) — 1 pha = 1 lần xoay/
 // giãn mượt từ giá trị hiện tại -> giá trị đích, chạy trọn `duration` rồi mới lấy mẫu nhạc CHỐT

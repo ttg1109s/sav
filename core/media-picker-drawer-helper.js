@@ -25,15 +25,21 @@
  * KHÔNG gộp picker FOLDER vào đây: tile folder khác loại và đã có `wireFolderPickerDrawerEvents()`
  * + `_openFolderPickerDrawer()` riêng.
  * Truyền tên router/selector là truyền GIÁ TRỊ, không rẽ nhánh tiến trình -> Rule 1 không bị đụng.
+ * MỚI (29/08/2026, phản hồi Giang — "đang ở generic rồi thì chuyển sang update") — thêm tham số
+ * `updateInPlace` (mặc định false = hành vi CŨ, `openGenericDrawer()`): picker nào được mở TỪ BÊN
+ * TRONG 1 Generic Drawer ĐANG MỞ SẴN (vd Visual Background sống trong Settings) truyền `true` ->
+ * dùng `updateGenericDrawer()` thay vì mở chồng lần nữa — tránh đúng lớp bug "isGenericDrawerOpen
+ * luôn true vì đang đứng trong chính Generic Drawer" (xem event/block.js, lịch sử sửa 29/08/2026).
  * @param {string} routerName @param {string} msgPrefix
  * @param {string} title @param {string} bodyHtml
  * @param {string} tileSelector - '[data-image-key]' | '.video-tile'
  * @param {string} tileDataKey - 'imageKey' | 'videoKey'
  * @param {boolean} showConfirmButton
+ * @param {boolean} [updateInPlace]
  * @returns {() => void} hàm GỠ listener delegated trên `genericDrawerBody` (DOM TĨNH dùng chung).
  */
-function openMediaPickerDrawerUi(routerName, msgPrefix, title, bodyHtml, tileSelector, tileDataKey, showConfirmButton) {
-    openGenericDrawer({ // core/generic-drawer.js
+function openMediaPickerDrawerUi(routerName, msgPrefix, title, bodyHtml, tileSelector, tileDataKey, showConfirmButton, updateInPlace) {
+    const config = { // core/generic-drawer.js
         height: '90vh',
         // SỬA (khôi phục — thiếu `maxHeight`, Giang báo "picker photo không bị kẹp max height") —
         // openGenericDrawer() KHÔNG có khái niệm "height cố định" thật sự (chỉ set `min-height`,
@@ -56,7 +62,8 @@ function openMediaPickerDrawerUi(routerName, msgPrefix, title, bodyHtml, tileSel
         `,
         bodyHtml,
         bodyClass: 'flex flex-col',
-    });
+    };
+    if (updateInPlace) updateGenericDrawer(config); else openGenericDrawer(config); // core/generic-drawer.js
     const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
     if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: routerName, type: `${msgPrefix}.close.click`, payload: {} }));
     if (showConfirmButton) {
