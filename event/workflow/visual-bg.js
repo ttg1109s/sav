@@ -47,7 +47,10 @@ const workflowVisualBg = {
             appConfigVisualBg.mutateAll((cfg) => {
                 if (VISUAL_BG_TYPES.includes(saved.type)) cfg.type = saved.type;
                 if (saved.source && typeof saved.source === 'object') {
-                    if (saved.source.originKind === null || ['single', 'group'].includes(saved.source.originKind)) cfg.source.originKind = saved.source.originKind;
+                    // MỞ RỘNG (29/08/2026) — thêm 'multi' (nhiều ảnh/video chọn tay) và 'groupMulti'
+                    // (nhiều Thư mục gộp lại) vào whitelist originKind — xem docstring
+                    // `_readOriginKeys()` ngay dưới.
+                    if (saved.source.originKind === null || VISUAL_BG_ORIGIN_KINDS.includes(saved.source.originKind)) cfg.source.originKind = saved.source.originKind;
                     if (saved.source.originId === null || typeof saved.source.originId === 'string') cfg.source.originId = saved.source.originId;
                     if (Array.isArray(saved.source.list)) cfg.source.list = saved.source.list.filter((k) => k === null || typeof k === 'string');
                     if (saved.source.videoAudio && typeof saved.source.videoAudio === 'object') {
@@ -64,7 +67,7 @@ const workflowVisualBg = {
                 }
                 // MỚI (09/08/2026, cơ chế pending) — validate CÙNG khuôn `saved.source` ở trên.
                 if (saved.pending && typeof saved.pending === 'object') {
-                    if ((saved.pending.originKind === null || ['single', 'group'].includes(saved.pending.originKind)) && Array.isArray(saved.pending.list)) {
+                    if ((saved.pending.originKind === null || VISUAL_BG_ORIGIN_KINDS.includes(saved.pending.originKind)) && Array.isArray(saved.pending.list)) {
                         cfg.pending.originKind = saved.pending.originKind;
                         cfg.pending.originId = typeof saved.pending.originId === 'string' ? saved.pending.originId : null;
                         cfg.pending.list = saved.pending.list.filter((k) => k === null || typeof k === 'string');
@@ -653,21 +656,60 @@ const workflowVisualBg = {
 
     /** Đọc key THẬT của 1 origin tại thời điểm gọi — 1 key (single) hay N key (group), đã sắp theo
      * `nextOrder`. Không cache.
+     * MỞ RỘNG (29/08/2026) — thêm 2 originKind: 'multi' (nhiều ảnh/video chọn tay qua picker
+     * multi-select) và 'groupMulti' (nhiều Thư mục gộp lại) — CẢ 2 dùng chung `originId` = JSON
+     * mảng (key thật/folderId) theo ĐÚNG thứ tự chọn, xem `_encodeMultiOriginId()`/
+     * `_decodeMultiOriginId()` ngay dưới. Cùng dịp SỬA — 'group' giờ dùng được CẢ `type==='photo'`
+     * (Thư mục Photo, KHÁC Album đã xoá — Photo giờ có Folder qua File Manager Folder Browser
+     * chung với Song/Video, xem core/file-manager/folder.js::listFolders()).
      * @param {'photo'|'video'} type
-     * @param {'single'|'group'} originKind
+     * @param {'single'|'group'|'multi'|'groupMulti'} originKind
      * @param {string} originId
      * @returns {Promise<string[]>}
      */
     async _readOriginKeys(type, originKind, originId) {
         if (originKind === 'single') return originId ? [originId] : [];
-        if (type === 'video') {
-            const map = await getFolderSongMap(originId); // service/db.js
-            return this._applyNextOrderToKeys(type, map ? getFolderSongKeys(map) : []); // core/file-manager/folder.js
+        if (originKind === 'multi') {
+            const keys = this._decodeMultiOriginId(originId);
+            // Self-heal: key nào không còn tồn tại (đã bị xoá sau lúc chọn) thì loại khỏi list,
+            // GIỮ NGUYÊN thứ tự chọn của các key còn lại (KHÔNG sort lại theo `nextOrder` — đây là
+            // danh sách người dùng TỰ TAY xếp bằng thứ tự chọn, khác `group` đọc nguyên khối 1
+            // folder không có thứ tự "chọn tay" nào để giữ).
+            const records = await Promise.all(keys.map((k) => (type === 'video' ? getVideoRecord(k) : getImageRecord(k)))); // service/db.js
+            return keys.filter((_, i) => records[i]);
         }
-        // XOÁ (loại bỏ Album khỏi Photo Panel) — Photo không còn hỗ trợ originKind='group' (Album).
-        // Trả rỗng — cấu hình cũ (nếu có, từ trước khi Album bị gỡ) tự self-heal qua cơ chế "origin
-        // đọc ra rỗng -> gỡ hẳn" đã có sẵn (xem `_resolveAndCommitSource()`).
-        return [];
+        if (originKind === 'groupMulti') {
+            const folderIds = this._decodeMultiOriginId(originId);
+            const merged = [];
+            for (const folderId of folderIds) { // tuần tự, giữ ĐÚNG thứ tự Thư mục đã chọn — mỗi Thư mục nối tiếp Thư mục trước
+                const map = await getFolderSongMap(folderId); // service/db.js
+                merged.push(...(await this._applyNextOrderToKeys(type, map ? getFolderSongKeys(map) : []))); // core/file-manager/folder.js
+            }
+            return merged;
+        }
+        // 'group' — 1 Thư mục duy nhất. SỬA (29/08/2026) — bỏ hẳn nhánh riêng theo `type`: Photo giờ
+        // CŨNG có Folder (khác Album đã xoá), đọc y hệt Video, không còn cần loại trừ.
+        const map = await getFolderSongMap(originId); // service/db.js
+        return this._applyNextOrderToKeys(type, map ? getFolderSongKeys(map) : []); // core/file-manager/folder.js
+    },
+
+    /** MỚI (29/08/2026) — mã hoá 1 mảng key (originKind='multi') hoặc folderId (originKind=
+     * 'groupMulti') thành `originId` (string) để lưu vào `source.originId`/`pending.originId` —
+     * CẢ 2 field đó vốn chỉ nhận 1 string, không sửa schema DB, tận dụng JSON string sẵn có. */
+    _encodeMultiOriginId(keys) {
+        return JSON.stringify(keys);
+    },
+
+    /** MỚI (29/08/2026) — chiều ngược lại `_encodeMultiOriginId()`. JSON hỏng/không phải mảng (dữ
+     * liệu cũ trước khi có originKind này, hoặc DB hỏng) -> mảng rỗng, tự self-heal qua đường "origin
+     * đọc ra rỗng -> gỡ hẳn" đã có sẵn ở `_resolveAndCommitSource()`, KHÔNG throw. */
+    _decodeMultiOriginId(originId) {
+        try {
+            const parsed = JSON.parse(originId);
+            return Array.isArray(parsed) ? parsed.filter((k) => typeof k === 'string') : [];
+        } catch (e) {
+            return [];
+        }
     },
 
     /** Sắp `keys` theo `nextOrder` hiện tại — 'sequential'/'random' giữ nguyên thứ tự gốc (random tự
@@ -690,6 +732,44 @@ const workflowVisualBg = {
     // Slideshow" từ thanh quản lý Album) bỏ hẳn cùng tính năng — caller (event/workflow/file-
     // manager-photo.js) đã xoá.
 
+    /** So sánh 2 mảng key — THUẬT TOÁN DUY NHẤT cho "list mới có khác list cũ không, khác bao
+     * nhiêu" — dùng CHUNG cho MỌI nơi cần biết diff: `_resolveAndCommitSource()` (quyết định có bỏ
+     * qua/pending hay không) và `_commitSourceNow()` (số liệu hiện modal). Giang chốt (29/08/2026)
+     * — trước đây có 2 phép tính lệch nhau (1 chỗ so ĐÚNG THỨ TỰ để quyết định "có coi là đổi
+     * không", 1 chỗ so THEO TẬP HỢP để đếm added/removed) — nay gộp làm 1 hàm, trả CẢ HAI cùng lúc,
+     * KHÔNG tính rời rạc ở 2 nơi nữa.
+     * `unchanged` NGHIÊM NGẶT hơn `added===0 && removed===0` — 1 danh sách ĐỔI CHỖ (cùng thành
+     * viên, khác thứ tự) vẫn tính là "CÓ thay đổi" (`unchanged:false`) vì thứ tự có ý nghĩa thật với
+     * playback khi `nextOrder` là 'sequential'/'playlist' — nhưng added/removed lúc đó vẫn ra 0/0
+     * (đúng bản chất: không thêm/bớt THÀNH VIÊN nào, chỉ đổi thứ tự).
+     * @param {string[]} oldList - có thể chứa `null` (slot đã gỡ) — bị lọc bỏ trước khi so.
+     * @param {string[]} newList
+     * @returns {{unchanged: boolean, added: number, removed: number, total: number}}
+     */
+    _diffKeyLists(oldList, newList) {
+        const oldKeys = oldList.filter((k) => k !== null);
+        const unchanged = newList.length === oldList.length && newList.every((k, i) => k === oldList[i]);
+        const oldSet = new Set(oldKeys);
+        const newSet = new Set(newList);
+        const added = newList.filter((k) => !oldSet.has(k)).length;
+        const removed = oldKeys.filter((k) => !newSet.has(k)).length;
+        return { unchanged, added, removed, total: newList.length };
+    },
+
+    /** Hiện modal phản ánh kết quả `_resolveAndCommitSource()` — DÙNG CHUNG cho nút "Làm tươi" VÀ 3
+     * nút Chọn nguồn mới (Video/Ảnh/Thư mục, `_commitPickedKeys()`/`_commitFolderMultiSelection()`)
+     * — Giang chốt (29/08/2026) "so sánh thay đổi phải nhất quán mọi nơi", không riêng gì "Làm tươi".
+     * `queued:true` đã tự hiện modal "sẽ áp ở lượt kế" BÊN TRONG `_resolveAndCommitSource()` rồi —
+     * gọi hàm này với case đó vẫn AN TOÀN, chỉ no-op (không hiện chồng thêm modal nào nữa).
+     * @param {{queued: false, added: number, removed: number, total: number}|{queued: true, total: number}|null} result
+     */
+    async _showCommitResultModal(result) {
+        if (!result) { await alertModal(t('visualBgSettingsDrawer.commitResult.cleared')); return; } // core/modal-choice-ui.js
+        if (result.queued) return;
+        if (result.added === 0 && result.removed === 0) { await alertModal(tFormat('visualBgSettingsDrawer.commitResult.unchanged', { total: result.total })); return; }
+        await alertModal(tFormat('visualBgSettingsDrawer.commitResult.changed', { added: result.added, removed: result.removed, total: result.total }));
+    },
+
     /** Đọc lại origin + ghi đè `source.list` — dùng CHUNG cho lúc CHỌN nguồn lẫn bấm "Làm tươi".
      * Origin đọc ra rỗng (folder/ảnh/video không còn tồn tại) -> gỡ hẳn (Giang chốt mục 2).
      * SỬA (08/08/2026, phản hồi Giang — "video key không còn tồn tại nữa là lưu trữ không cần
@@ -699,13 +779,15 @@ const workflowVisualBg = {
      * xoá lúc đổi `type`/`clearSource()`) — Giang chốt: KHÔNG còn "nhớ mãi theo video" nữa, ghi đè
      * lại từ đầu theo ĐÚNG source hiện tại mỗi lần origin được đọc lại, tránh tích luỹ rác của
      * video key không còn dùng.
-     * @param {'single'|'group'} originKind
+     * SỬA (29/08/2026) — check "có đổi gì không" tách hẳn ra `_diffKeyLists()` (dùng CHUNG, xem
+     * docstring hàm đó) thay vì tự so sánh riêng ở đây.
+     * @param {'single'|'group'|'multi'|'groupMulti'} originKind
      * @param {string} originId
      * @returns {Promise<{queued: false, added: number, removed: number, total: number}|{queued: true, total: number}|null>}
-     *   `queued:false` = đã áp NGAY, `added/removed` là diff so với `source.list` TRƯỚC lúc gọi (CHỈ
-     *   có ý nghĩa khi origin GIỮ NGUYÊN — nút "Làm tươi"; chọn nguồn MỚI thì diff không mang nghĩa
-     *   gì, caller tự bỏ qua). `queued:true` = đã xếp vào `pending`, CHƯA áp — modal thông báo đã tự
-     *   hiện BÊN TRONG hàm này (xem đoạn dưới), caller KHÔNG cần tự hiện modal nào thêm.
+     *   `queued:false` = đã áp NGAY, `added/removed` là diff so với `source.list` TRƯỚC lúc gọi.
+     *   `queued:true` = đã xếp vào `pending`, CHƯA áp — modal "sẽ áp ở lượt kế" đã tự hiện BÊN TRONG
+     *   hàm này (xem đoạn dưới), caller KHÔNG cần tự hiện modal nào thêm cho case này (vẫn nên gọi
+     *   `_showCommitResultModal()` — hàm đó tự biết bỏ qua case `queued:true`, xem docstring nó).
      *   `null` nếu bị gỡ hẳn (origin rỗng).
      */
     async _resolveAndCommitSource(originKind, originId) {
@@ -719,12 +801,13 @@ const workflowVisualBg = {
         // MỚI (09/08/2026, mục 3, phản hồi Giang — "refresh làm mất modal thêm/bớt") — nguồn đọc ra
         // GIỐNG HỆT `source.list` hiện tại (cùng thứ tự, cùng key) -> KHÔNG có gì thay đổi thật ->
         // KHÔNG cần chế độ pending/modal "sẽ áp ở lượt kế" nào cả (không có gì để mà chờ áp) — trả
-        // thẳng "0 thay đổi", để `refreshSource()` tự hiện đúng modal "không có gì đổi" như cũ. Bug
-        // trước: dù danh sách y hệt vẫn bị coi là "có pending đang chờ" (vì `_effectiveCount>0`),
-        // nuốt mất modal diff thật — chỉ còn hiện modal pending chung chung, sai ngữ cảnh.
-        const oldList = cfg.source.list;
-        const isIdentical = keys.length === oldList.length && keys.every((k, i) => k === oldList[i]);
-        if (isIdentical) return { queued: false, added: 0, removed: 0, total: keys.length };
+        // thẳng "0 thay đổi", để caller (refreshSource()/_commitPickedKeys()/
+        // _commitFolderMultiSelection()) tự hiện đúng modal "không có gì đổi" qua
+        // `_showCommitResultModal()`. Bug trước: dù danh sách y hệt vẫn bị coi là "có pending đang
+        // chờ" (vì `_effectiveCount>0`), nuốt mất modal diff thật — chỉ còn hiện modal pending chung
+        // chung, sai ngữ cảnh.
+        const diff = this._diffKeyLists(cfg.source.list, keys);
+        if (diff.unchanged) return { queued: false, added: 0, removed: 0, total: diff.total };
         // MỚI (09/08/2026, cơ chế pending, phản hồi Giang — "đổi nguồn giữa lúc đang cycle làm giật/
         // mất khung đang phát") — CÒN media đang active (photo lẫn video, Giang chốt áp dụng CẢ 2,
         // không tách riêng theo type) -> KHÔNG ghi đè `source` ngay, xếp vào `pending`, đợi đúng
@@ -743,24 +826,21 @@ const workflowVisualBg = {
             await alertModal(t(cfg.type === 'video' ? 'visualBgSettingsDrawer.pendingSource.video' : 'visualBgSettingsDrawer.pendingSource.photo')); // core/modal-choice-ui.js
             return { queued: true, total: keys.length };
         }
-        return await this._commitSourceNow(originKind, originId, keys, cfg);
+        return await this._commitSourceNow(originKind, originId, keys, diff);
     },
 
     /** Ghi đè `source` NGAY (không qua pending) — tách khỏi `_resolveAndCommitSource()` (09/08/2026,
      * cơ chế pending) vì `_checkAndApplyPendingSource()` KHÔNG dùng nhánh này (áp thẳng, không cần
-     * tính lại diff added/removed — không có UI nào cần hiện diff lúc áp pending). Rule 3b: nhận
-     * `prevCfg` qua tham số, không tự đọc lại.
-     * @param {'single'|'group'} originKind
+     * diff added/removed — không có UI nào cần hiện diff lúc áp pending).
+     * SỬA (29/08/2026) — nhận thẳng `diff` (đã tính SẴN ở `_resolveAndCommitSource()` qua
+     * `_diffKeyLists()`) thay vì tự tính lại added/removed ở đây — 1 phép tính, không lặp 2 nơi.
+     * @param {'single'|'group'|'multi'|'groupMulti'} originKind
      * @param {string} originId
      * @param {string[]} keys
-     * @param {object} prevCfg - `appConfigVisualBg.getAll()` đọc TRƯỚC lúc gọi (Rule 3b).
+     * @param {{unchanged: boolean, added: number, removed: number, total: number}} diff - từ `_diffKeyLists()`.
      * @returns {Promise<{queued: false, added: number, removed: number, total: number}>}
      */
-    async _commitSourceNow(originKind, originId, keys, prevCfg) {
-        const previousKeys = new Set(prevCfg.source.list.filter((k) => k !== null));
-        const newKeysSet = new Set(keys);
-        const added = keys.filter((k) => !previousKeys.has(k)).length;
-        const removed = [...previousKeys].filter((k) => !newKeysSet.has(k)).length;
+    async _commitSourceNow(originKind, originId, keys, diff) {
         appConfigVisualBg.mutateAll((c) => {
             c.source.originKind = originKind;
             c.source.originId = originId;
@@ -768,17 +848,18 @@ const workflowVisualBg = {
             c.source.videoAudio = {}; // xem docstring _resolveAndCommitSource() cũ — Giang chốt, xoá sạch mỗi lần đọc lại origin
             c.pending = { originKind: null, originId: null, list: [] }; // huỷ pending cũ (nếu có) — cái mới đã áp thẳng, không còn gì chờ
         });
-        console.log(`writer: "workflowVisualBg._commitSourceNow", page: "visualBgConfig", content: "source=${originKind}:${originId}, count=${keys.length}, +${added}/-${removed}, videoAudio=cleared"`);
+        console.log(`writer: "workflowVisualBg._commitSourceNow", page: "visualBgConfig", content: "source=${originKind}:${originId}, count=${keys.length}, +${diff.added}/-${diff.removed}, videoAudio=cleared"`);
         await this._persist();
         await this.refreshPanelUI();
         await this.applyCurrentVisualBg();
-        return { queued: false, added, removed, total: keys.length };
+        return { queued: false, added: diff.added, removed: diff.removed, total: keys.length };
     },
 
     /** Ứng nút "Làm tươi" — đọc lại ĐÚNG origin ĐANG HIỂN THỊ (`_effectiveDisplayedOrigin()` — ưu
      * tiên pending nếu có, xem docstring hàm đó), ghi đè `source.list` (hoặc xếp/đè pending nếu
      * đang active — xem `_resolveAndCommitSource()`). Có hiệu ứng xoay trên nút trong lúc đọc DB +
-     * modal báo THAY ĐỔI GÌ sau khi xong (Giang chốt mục 2 cũ). */
+     * modal báo THAY ĐỔI GÌ sau khi xong (Giang chốt mục 2 cũ) — SỬA (29/08/2026) modal giờ qua
+     * `_showCommitResultModal()` dùng chung, xem docstring hàm đó. */
     async refreshSource() {
         const { originKind, originId } = this._effectiveDisplayedOrigin(appConfigVisualBg.getAll());
         if (!originKind || !originId) return; // guard: chưa có nguồn
@@ -786,10 +867,7 @@ const workflowVisualBg = {
         if (btn) { btn.disabled = true; btn.classList.add('animate-spin'); }
         try {
             const result = await this._resolveAndCommitSource(originKind, originId);
-            if (!result) { await alertModal(t('visualBgSettingsDrawer.refreshSource.resultCleared')); return; }
-            if (result.queued) return; // MỚI — modal "sẽ áp ở lượt kế" đã tự hiện bên trong _resolveAndCommitSource(), khỏi hiện thêm modal diff nào nữa
-            if (result.added === 0 && result.removed === 0) { await alertModal(tFormat('visualBgSettingsDrawer.refreshSource.resultUnchanged', { total: result.total })); return; }
-            await alertModal(tFormat('visualBgSettingsDrawer.refreshSource.result', { added: result.added, removed: result.removed, total: result.total }));
+            await this._showCommitResultModal(result);
         } finally {
             if (btn) { btn.disabled = false; btn.classList.remove('animate-spin'); }
         }
@@ -807,18 +885,10 @@ const workflowVisualBg = {
         await this.applyCurrentVisualBg();
     },
 
-    /** Ứng select "Kiểu: Ảnh/Video" — chỉ 1 đường source (Giang chốt), đổi type = gỡ hẳn source cũ
-     * (key khác kiểu vô nghĩa ở type mới), chọn lại từ đầu. */
-    async changeType(value) {
-        if (!VISUAL_BG_TYPES.includes(value)) return;
-        // MỚI (09/08/2026, cơ chế pending, phản hồi Giang mục 2) — huỷ luôn pending dở dang (nếu
-        // có, thuộc type CŨ, vô nghĩa ở type mới) — cùng lý do `clearSource()`.
-        appConfigVisualBg.mutateAll((cfg) => { cfg.type = value; cfg.source = { originKind: null, originId: null, list: [], videoAudio: {} }; cfg.pending = { originKind: null, originId: null, list: [] }; });
-        console.log(`writer: "workflowVisualBg.changeType", page: "visualBgConfig", content: "type=${value} (gỡ source cũ, pending cũ)"`);
-        await this._persist();
-        await this.refreshPanelUI();
-        await this.applyCurrentVisualBg();
-    },
+    // XOÁ (29/08/2026) — changeType() (ứng dropdown "Kiểu" cũ) bỏ hẳn cùng dropdown đó (0 lời gọi
+    // còn lại) — `type` giờ là HỆ QUẢ của nút chọn nguồn vừa bấm (Video/Ảnh/Thư mục), gán NGAY
+    // trong `_commitPickedKeys()`/`_commitFolderMultiSelection()` (đọc thẳng khi cần đổi, không
+    // qua hàm trung gian riêng nữa — chỉ 1 chỗ gọi thì không cần tách hàm, Rule 3c).
 
     /** Ứng select "Cách phát" (chỉ có ý nghĩa khi list.length > 1). */
     async changeListPlaybackMode(value) {
@@ -1324,7 +1394,7 @@ const workflowVisualBg = {
      * `_checkAndApplyPendingSource()` (CHẠY LÚC BOOT, `loadPersistedSettingsOnBoot()`, KHÔNG liên
      * quan gì tới Settings/picker) — khiến app TỰ Ý bật Setting lên giữa chừng boot, treo cả chuỗi.
      * QUAY LẠI guard đơn thuần — việc "quay lại đúng Visual Background sau khi picker con đóng" đã
-     * xử lý RIÊNG, ĐÚNG chỗ ở `_closePickerDrawer()`/`openSingleImagePicker()` (gọi
+     * xử lý RIÊNG, ĐÚNG chỗ ở `_closePickerDrawer()`/`openPickPhoto()` (gọi
      * `workflowAppSettings._renderVisualBg()` tường minh ngay tại điểm đóng picker, không mượn qua
      * đây) — hàm này KHÔNG được tự ý mở màn nào cả, chỉ đồng bộ NẾU đang mở sẵn. */
     async refreshPanelUI() {
@@ -1332,20 +1402,10 @@ const workflowVisualBg = {
         const cfg = appConfigVisualBg.getAll();
         const q = (sel) => visualBgSettingsPanelEl.querySelector(sel);
 
-        const typeSelect = q('#setting-visual-bg-type');
-        if (typeSelect) typeSelect.value = cfg.type;
-
-        // Nhãn 2 nút Chọn phải đúng ngữ cảnh Ảnh/Video (Giang chốt) — gán qua DOM API (Rule 5d),
-        // không phải data-i18n tĩnh vì phụ thuộc `cfg.type`.
-        // XOÁ (loại bỏ Album khỏi Photo Panel) — Photo không còn "nhóm" (Album) để chọn, ẩn hẳn nút
-        // pickGroupBtn khi type='photo' (chỉ còn video/Thư mục dùng được nút này).
-        const pickSingleBtn = q('#setting-visual-bg-pick-single');
-        const pickGroupBtn = q('#setting-visual-bg-pick-group');
-        if (pickSingleBtn) pickSingleBtn.textContent = t(cfg.type === 'video' ? 'visualBgSettingsDrawer.pickSingle.video' : 'visualBgSettingsDrawer.pickSingle.photo');
-        if (pickGroupBtn) {
-            pickGroupBtn.classList.toggle('hidden', cfg.type !== 'video');
-            pickGroupBtn.textContent = t('visualBgSettingsDrawer.pickGroup.video');
-        }
+        // XOÁ (29/08/2026) — dropdown "Kiểu" + đồng bộ nhãn 2 nút "Chọn 1"/"Chọn nhóm" bỏ hẳn cùng
+        // UI cũ (components/visual-bg-settings-drawer.js) — 3 nút Video/Ảnh/Thư mục mới dùng nhãn
+        // TĨNH (data-i18n, không phụ thuộc `cfg.type` nữa — type giờ là HỆ QUẢ của nút vừa bấm,
+        // không phải điều kiện hiển thị của nút).
 
         const listPlaybackSelect = q('#setting-visual-bg-list-playback-mode');
         const listPlaybackRow = q('#visual-bg-list-playback-row');
@@ -1415,13 +1475,22 @@ const workflowVisualBg = {
         return cfg.pending.originKind ? { originKind: cfg.pending.originKind, originId: cfg.pending.originId } : { originKind: cfg.source.originKind, originId: cfg.source.originId };
     },
 
-    /** Đọc tên hiển thị thật của 1 origin (imageKey/videoKey/folderId).
-     * XOÁ (loại bỏ Album khỏi Photo Panel) — nhánh `originKind==='group' && type==='photo'` (đọc
-     * tên Album) bỏ hẳn — Photo không còn originKind='group' nữa (xem `_readOriginKeys()`).
+    /** Đọc tên hiển thị thật của 1 origin (imageKey/videoKey/folderId, hoặc đếm số lượng cho 2
+     * originKind gộp nhiều — 'multi'/'groupMulti', KHÔNG có 1 cái tên đơn lẻ nào để đọc).
+     * MỞ RỘNG (29/08/2026) — 'group' giờ đọc được CẢ `type==='photo'` (Thư mục Photo, khác Album đã
+     * xoá — xem `_readOriginKeys()`).
      */
     async _readSourceDisplayName(type, originKind, originId) {
         const none = t('visualBgSettingsDrawer.pickSource.none');
-        if (originKind === 'group' && type === 'video') {
+        if (originKind === 'multi') {
+            const count = this._decodeMultiOriginId(originId).length;
+            return tFormat(type === 'video' ? 'visualBgSettingsDrawer.sourceLabel.multiVideo' : 'visualBgSettingsDrawer.sourceLabel.multiPhoto', { count });
+        }
+        if (originKind === 'groupMulti') {
+            const count = this._decodeMultiOriginId(originId).length;
+            return tFormat('visualBgSettingsDrawer.sourceLabel.groupMulti', { count });
+        }
+        if (originKind === 'group') {
             const folder = await getFolderRecord(originId); // service/db.js
             return folder ? folder.name : none;
         }
@@ -1433,11 +1502,21 @@ const workflowVisualBg = {
         return record ? record.filename : none;
     },
 
-    // ===================== "Chọn nguồn" — 4 tổ hợp, picker CÓ SẴN =====================
-    // Giữ NGUYÊN 4 picker đã có (Batch 2 sẽ nối lại router/msg.type gọi vào) — chỉ đổi hàm COMMIT
-    // cuối cùng sang `_resolveAndCommitSource(originKind, originId)`.
+    // ===================== "Chọn nguồn" — 3 nút Video/Ảnh/Thư mục, MỚI (29/08/2026) =====================
+    // Thay hẳn 4 tổ hợp single/group cũ. Video + Ảnh giờ CÙNG 1 khuôn: picker Generic Drawer
+    // multi-select (đánh số theo thứ tự chọn, xem event/workflow/photo-gallery-window.js
+    // /video-gallery-window.js::badgeMode='multiSelect') + nút "Chọn (N)" trong body xác nhận —
+    // commit qua `_commitPickedKeys()`, originKind='multi' (1 item chọn = hệt "chọn 1" cũ, mảng độ
+    // dài 1). Thư mục giờ multi-select GỘP nhiều folder (originKind='groupMulti'), dropdown
+    // Video/Ảnh ngay trong header picker (workflowPlaylist._openFolderPickerDrawer(), phần mở rộng
+    // 'typeOptions'/'onTypeChange').
+    // CẢ 2 picker Video/Ảnh giờ dùng `updateGenericDrawer()` (updateInPlace=true, xem
+    // core/media-picker-drawer-helper.js) — panel VBG ĐÃ SỐNG SẴN trong Generic Drawer (Settings),
+    // không cần mở chồng lần nữa (đúng nguồn cơn bug isGenericDrawerOpen cũ, xem event/block.js).
 
     _pickerCleanup: null,
+    _pickerSelectedKeys: [], // ordered — thứ tự CHỌN, dùng chung cho picker Video LẪN Ảnh (không bao giờ mở đồng thời)
+    _photoPickerRowHeightPx: 120, // CÙNG giá trị PHOTO_ROW_HEIGHT_PX (event/workflow/file-manager-photo.js) — tách hằng số riêng, không phụ thuộc thứ tự nạp file
 
     /** SỬA (đợt migrate Visualizer Screen) — TRƯỚC ĐÂY `closeFully()` (Visual BG là khung riêng
      * biệt bên dưới picker, đóng picker xong picker biến mất, Visual BG hiện lại tự nhiên). Nay
@@ -1449,31 +1528,56 @@ const workflowVisualBg = {
         workflowAppSettings._renderVisualBg();
     },
 
-    /** photo + single — tái dùng picker "chọn ảnh bìa bài hát" đã có sẵn. SỬA (đợt migrate
-     * Visualizer Screen) — `onCancel` trước là no-op (Visual BG là khung riêng, picker đóng thì tự
-     * hiện lại) — nay picker con dùng CHUNG Generic Drawer với Visual BG, đóng picker con đóng LUÔN
-     * Visual BG — phải tự mở lại. */
-    openSingleImagePicker() {
-        workflowFileManagerPhoto.openCoverImagePicker(
-            (imageKey) => this._resolveAndCommitSource('single', imageKey),
-            () => workflowAppSettings._renderVisualBg(),
-        );
+    /** HTML khung picker Video/Ảnh: scroll container (grid windowing chèn vào TRONG) + nút "Chọn"
+     * xác nhận cố định phía dưới (id khớp `openMediaPickerDrawerUi()`'s `showConfirmButton`, core/
+     * media-picker-drawer-helper.js — tự wire click -> `${msgPrefix}.confirm.click`). */
+    _buildMultiPickerBodyHtml(scrollId, emptyId, emptyText) {
+        return `
+            <div class="flex-1 min-h-0 overflow-y-auto relative" id="${scrollId}">
+                <p id="${emptyId}" class="hidden text-sm text-slate-400 text-center py-10 px-6">${emptyText}</p>
+            </div>
+            <div class="px-5 py-3 border-t border-slate-200 shrink-0">
+                <button type="button" id="btn-file-manager-image-picker-confirm" class="w-full py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed" disabled>${t('visualBgSettingsDrawer.picker.confirmEmpty')}</button>
+            </div>
+        `;
     },
 
-    /** video + single. */
-    async openSingleVideoPicker() {
-        this._pickerCleanup = openMediaPickerDrawerUi('visualBg', 'visualBg.videoPicker', t('fileManager.video.pickerTitle'), `
-            <div class="flex-1 min-h-0 overflow-y-auto relative" id="file-manager-video-picker-scroll">
-                <p id="file-manager-video-picker-empty" class="hidden text-sm text-slate-400 text-center py-10 px-6">${t('fileManager.video.empty')}</p>
-            </div>
-        `, '.video-tile', 'videoKey', false); // core/file-manager/photo-ui.js
+    /** Cập nhật nhãn/trạng thái nút "Chọn" theo SỐ LƯỢNG đang chọn — gọi lại SAU mỗi lần toggle 1
+     * tile (KHÔNG dựng lại cả header/nút, chỉ patch text/disabled — nút đã được wire click 1 LẦN lúc
+     * mở picker). */
+    _syncPickerConfirmButton() {
+        const btn = genericDrawerBody.querySelector('#btn-file-manager-image-picker-confirm');
+        if (!btn) return;
+        const count = this._pickerSelectedKeys.length;
+        btn.disabled = count === 0;
+        btn.textContent = count === 0 ? t('visualBgSettingsDrawer.picker.confirmEmpty') : tFormat('visualBgSettingsDrawer.picker.confirm', { count });
+    },
 
-        await new Promise((resolve) => {
-            genericDrawerPanel.addEventListener('transitionend', function onOpenTransitionEnd() {
-                genericDrawerPanel.removeEventListener('transitionend', onOpenTransitionEnd);
-                resolve();
-            }, { once: true });
-        });
+    /** Thêm/bớt 1 key khỏi `_pickerSelectedKeys` — ĐANG chọn thì bỏ (đúng ý "bấm lại để huỷ chọn"),
+     * chưa có thì thêm vào CUỐI mảng (thứ tự mảng = thứ tự chọn, Giang chốt mục 5 "đánh số theo thứ
+     * tự"). */
+    _togglePickerKey(key) {
+        const idx = this._pickerSelectedKeys.indexOf(key);
+        if (idx >= 0) this._pickerSelectedKeys.splice(idx, 1); else this._pickerSelectedKeys.push(key);
+    },
+
+    /** `Map<key, order>` từ `_pickerSelectedKeys` — truyền vào `setBadgeMode()` để vẽ LẠI số thứ tự
+     * của MỌI tile đang chọn (không chỉ tile vừa bấm — bỏ chọn 1 item ở giữa làm lệch số các item
+     * sau nó, phải vẽ lại đồng loạt mới đúng, xem docstring `setBadgeMode()`). */
+    _pickerKeyOrderMap() {
+        const map = new Map();
+        this._pickerSelectedKeys.forEach((k, i) => map.set(k, i + 1));
+        return map;
+    },
+
+    /** Video — mở picker multi-select (thay `openSingleVideoPicker()` cũ). */
+    async openPickVideo() {
+        this._pickerSelectedKeys = [];
+        this._pickerCleanup = openMediaPickerDrawerUi(
+            'visualBg', 'visualBg.videoPicker', t('fileManager.video.pickerTitle'),
+            this._buildMultiPickerBodyHtml('file-manager-video-picker-scroll', 'file-manager-video-picker-empty', t('fileManager.video.empty')),
+            '.video-tile', 'videoKey', true, true, // showConfirmButton=true, updateInPlace=true
+        ); // core/media-picker-drawer-helper.js
 
         const videos = await listVideos(); // core/file-manager/video.js
         if (!this._pickerCleanup) return; // guard: đóng picker rất nhanh trong lúc đang đọc DB
@@ -1481,13 +1585,23 @@ const workflowVisualBg = {
         const scrollEl = genericDrawerBody.querySelector('#file-manager-video-picker-scroll');
         const emptyEl = genericDrawerBody.querySelector('#file-manager-video-picker-empty');
         if (emptyEl) emptyEl.classList.toggle('hidden', videos.length > 0);
-        workflowVideoGalleryWindow.mount('genericDrawer', { scrollEl, videos, badgeMode: null, selectedKeys: new Set() }); // event/workflow/video-gallery-window.js
+        workflowVideoGalleryWindow.mount('genericDrawer', { scrollEl, videos, badgeMode: 'multiSelect', selectedKeys: new Map() }); // event/workflow/video-gallery-window.js
     },
 
-    async selectVideoFromPicker(videoKey) {
+    /** Ứng 'visualBg.videoPicker.tile.click' — toggle chọn (KHÔNG commit/đóng ngay như "chọn 1" cũ). */
+    toggleVideoPickerTile(videoKey) {
+        this._togglePickerKey(videoKey);
+        workflowVideoGalleryWindow.setBadgeMode('genericDrawer', 'multiSelect', this._pickerKeyOrderMap());
+        this._syncPickerConfirmButton();
+    },
+
+    /** Ứng 'visualBg.videoPicker.confirm.click' — commit toàn bộ `_pickerSelectedKeys`. */
+    async confirmVideoPickerSelection() {
+        if (this._pickerSelectedKeys.length === 0) return; // guard — nút đã disabled, phòng thủ kép
+        const keys = this._pickerSelectedKeys.slice();
         workflowVideoGalleryWindow.unmount('genericDrawer');
         this._closePickerDrawer();
-        await this._resolveAndCommitSource('single', videoKey);
+        await this._commitPickedKeys('video', keys);
     },
 
     cancelVideoPicker() {
@@ -1495,46 +1609,130 @@ const workflowVisualBg = {
         this._closePickerDrawer();
     },
 
-    // XOÁ (loại bỏ Album khỏi Photo Panel) — openListAlbumPicker()/selectAlbumFromPicker()/
-    // cancelAlbumPicker() (photo + group = Album) bỏ hẳn cùng tính năng — Photo giờ CHỈ còn "chọn 1
-    // ảnh" (single), không còn "chọn nhóm". Router (event/router/visual-bg.js) đã bỏ nhánh photo
-    // khỏi case 'visualBg.pickGroupSource.click', UI (refreshPanelUI()) đã ẩn hẳn nút "Chọn nhóm"
-    // khi type='photo'.
+    /** Ảnh — mở picker multi-select RIÊNG (thay `openSingleImagePicker()` cũ, TRƯỚC ĐÂY tái dùng
+     * `workflowFileManagerPhoto.openCoverImagePicker()` — picker ĐÓ vẫn single-select, dùng CHUNG
+     * bởi bìa bài hát/Theme Background, KHÔNG được đụng — Visual Background giờ có picker riêng,
+     * cùng khuôn `openPickVideo()` ngay trên). */
+    async openPickPhoto() {
+        this._pickerSelectedKeys = [];
+        this._pickerCleanup = openMediaPickerDrawerUi(
+            'visualBg', 'visualBg.photoPicker', t('visualBgSettingsDrawer.pickPhoto.label'),
+            this._buildMultiPickerBodyHtml('visual-bg-photo-picker-scroll', 'visual-bg-photo-picker-empty', t('fileManager.photo.image.empty')),
+            '[data-image-key]', 'imageKey', true, true, // showConfirmButton=true, updateInPlace=true
+        ); // core/media-picker-drawer-helper.js
 
-    /** video + group (Folder type='video'). */
-    async openListFolderPicker() {
-        const videoFolders = await listFolders('video'); // core/file-manager/folder.js — lọc sẵn tại nguồn, xem MỞ RỘNG hợp nhất Photo
-        const counts = await Promise.all(videoFolders.map(async (f) => {
+        const images = await listImages(); // core/file-manager/image.js
+        if (!this._pickerCleanup) return; // guard: đóng picker rất nhanh trong lúc đang đọc DB
+
+        const scrollEl = genericDrawerBody.querySelector('#visual-bg-photo-picker-scroll');
+        const emptyEl = genericDrawerBody.querySelector('#visual-bg-photo-picker-empty');
+        if (emptyEl) emptyEl.classList.toggle('hidden', images.length > 0);
+        workflowPhotoGalleryWindow.mount('genericDrawer', { scrollEl, images, rowHeightPx: this._photoPickerRowHeightPx, badgeMode: 'multiSelect', selectedKeys: new Map() }); // event/workflow/photo-gallery-window.js
+    },
+
+    /** Ứng 'visualBg.photoPicker.tile.click' — cùng khuôn `toggleVideoPickerTile()`. */
+    togglePhotoPickerTile(imageKey) {
+        this._togglePickerKey(imageKey);
+        workflowPhotoGalleryWindow.setBadgeMode('genericDrawer', 'multiSelect', this._pickerKeyOrderMap());
+        this._syncPickerConfirmButton();
+    },
+
+    /** Ứng 'visualBg.photoPicker.confirm.click'. */
+    async confirmPhotoPickerSelection() {
+        if (this._pickerSelectedKeys.length === 0) return; // guard — nút đã disabled, phòng thủ kép
+        const keys = this._pickerSelectedKeys.slice();
+        workflowPhotoGalleryWindow.unmount('genericDrawer');
+        this._closePickerDrawer();
+        await this._commitPickedKeys('photo', keys);
+    },
+
+    cancelPhotoPicker() {
+        workflowPhotoGalleryWindow.unmount('genericDrawer');
+        this._closePickerDrawer();
+    },
+
+    /** Commit chung cho picker Video/Ảnh — đổi `type` NẾU khác (gỡ hẳn source/pending cũ, cùng lý
+     * do `changeType()` cũ), rồi giao `_resolveAndCommitSource('multi', ...)` xử lý tiếp (pending/
+     * áp ngay, persist, refreshPanelUI, applyCurrentVisualBg — ĐÃ có sẵn), rồi hiện modal kết quả
+     * qua `_showCommitResultModal()` — MỚI (29/08/2026, Giang chốt "so sánh thay đổi phải nhất quán
+     * mọi nơi, không riêng Làm tươi") — trước đó bấm chọn lại y hệt list cũ thì im lặng, không rõ có
+     * nhận hay không.
+     * @param {'video'|'photo'} type
+     * @param {string[]} keys - thứ tự CHỌN, giữ nguyên khi lưu (xem `_readOriginKeys()`).
+     */
+    async _commitPickedKeys(type, keys) {
+        if (keys.length === 0) return;
+        appConfigVisualBg.mutateAll((c) => {
+            if (c.type !== type) { c.type = type; c.source = { originKind: null, originId: null, list: [], videoAudio: {} }; c.pending = { originKind: null, originId: null, list: [] }; }
+        });
+        const result = await this._resolveAndCommitSource('multi', this._encodeMultiOriginId(keys));
+        await this._showCommitResultModal(result);
+    },
+
+    /** Thư mục — multi-select GỘP nhiều folder (originKind='groupMulti'), dropdown Video/Ảnh ngay
+     * trong header picker (đổi loại đang duyệt, tự re-fetch danh sách folder + re-render tại chỗ,
+     * KHÔNG đóng/mở lại picker). Mặc định mở đúng `cfg.type` hiện tại (photo/video), rơi về 'video'
+     * nếu chưa từng chọn gì. */
+    async openPickFolder() {
+        const currentType = appConfigVisualBg.getAll().type;
+        await this._openFolderPickerForType(VISUAL_BG_TYPES.includes(currentType) ? currentType : 'video');
+    },
+
+    /** Đọc danh sách folder ĐÚNG `type`, lọc bỏ folder RỖNG (0 item — không đóng góp gì khi gộp,
+     * KHÁC ngưỡng `VISUAL_BG_MIN_LIST_ITEMS` cũ của "group" đơn: nhiều folder giờ GỘP lại với nhau
+     * nên 1 folder có ít item vẫn có ích, không cần tự nó đủ ≥2), rồi mở/vẽ lại picker Thư mục dùng
+     * chung với Playlist (`workflowPlaylist._openFolderPickerDrawer()`, phần mở rộng multi-select +
+     * typeOptions/onTypeChange — xem docstring hàm đó).
+     * @param {'photo'|'video'} type
+     * @param {boolean} [isUpdate] - true khi gọi LẠI từ `onTypeChange` (picker ĐANG mở, chỉ đổi
+     *        loại) -> vẽ lại TẠI CHỖ (`updateGenericDrawer()`); bỏ trống = mở MỚI (lần đầu, từ
+     *        `openPickFolder()`) -> `openGenericDrawer()`. THIẾU tham số này ở lần viết đầu
+     *        (29/08/2026) khiến đổi dropdown lại mở Drawer từ đầu (giật/trượt lại) thay vì cập nhật
+     *        mượt — sửa cùng ngày, xem `_openFolderPickerDrawer()` (event/workflow/playlist.js).
+     */
+    async _openFolderPickerForType(type, isUpdate) {
+        const folders = await listFolders(type); // core/file-manager/folder.js
+        const counts = await Promise.all(folders.map(async (f) => {
             const map = await getFolderSongMap(f.id); // service/db.js
             return map ? getFolderSongKeys(map).length : 0; // core/file-manager/folder.js
         }));
-        const eligible = videoFolders.filter((_, i) => counts[i] >= VISUAL_BG_MIN_LIST_ITEMS);
+        const eligible = folders.filter((_, i) => counts[i] > 0);
 
         await workflowPlaylist._openFolderPickerDrawer(
-            (folderId) => this._resolveAndCommitSource('group', folderId),
+            (folderIds, pickedType) => this._commitFolderMultiSelection(folderIds, pickedType),
             {
                 folders: eligible,
                 showAddTile: false,
-                emptyMsg: videoFolders.length === 0
-                    ? t('visualBgSettingsDrawer.folderPicker.emptyNoFolder')
-                    : tFormat('visualBgSettingsDrawer.folderPicker.emptyTooFew', { count: VISUAL_BG_MIN_LIST_ITEMS }),
+                emptyMsg: eligible.length === 0
+                    ? t(type === 'video' ? 'visualBgSettingsDrawer.folderPicker.emptyNoFolder.video' : 'visualBgSettingsDrawer.folderPicker.emptyNoFolder.photo')
+                    : '',
                 // SỬA (phản hồi Giang — sửa lỗ hổng "Cancel picker thư mục không tự quay lại") —
-                // dù bấm X hay vừa chọn xong 1 folder, luôn tự mở lại Visual Background (thay vì
-                // đóng trắng cả Setting) — xem docstring _openFolderPickerDrawer() (event/workflow/
-                // playlist.js).
+                // dù bấm X hay vừa Chọn xong, luôn tự mở lại Visual Background (thay vì đóng trắng
+                // cả Setting) — xem docstring _openFolderPickerDrawer() (event/workflow/playlist.js).
                 onClose: () => workflowAppSettings._renderVisualBg(),
+                multiSelect: true,
+                typeOptions: { current: type },
+                // MỚI (29/08/2026) — dropdown đổi loại (header picker) gọi LẠI CHÍNH hàm này với
+                // type mới, `isUpdate=true` — tự re-fetch + lọc lại + vẽ lại TẠI CHỖ, không đóng/mở
+                // picker (xem docstring tham số `isUpdate` ở trên).
+                onTypeChange: (newType) => this._openFolderPickerForType(newType, true),
             },
+            isUpdate,
         );
     },
 
-    _buildPickerHeaderHtml(title) {
-        return `
-            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
-                <h3 class="text-base font-bold text-slate-900">${title}</h3>
-                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-        `;
+    /** Commit picker Thư mục — gộp `folderIds` (đã theo ĐÚNG thứ tự chọn) thành 1 nguồn
+     * 'groupMulti'. Cùng lý do đổi `type` như `_commitPickedKeys()`, cùng modal kết quả qua
+     * `_showCommitResultModal()`.
+     * @param {string[]} folderIds
+     * @param {'photo'|'video'} type
+     */
+    async _commitFolderMultiSelection(folderIds, type) {
+        if (!folderIds || folderIds.length === 0) return;
+        appConfigVisualBg.mutateAll((c) => {
+            if (c.type !== type) { c.type = type; c.source = { originKind: null, originId: null, list: [], videoAudio: {} }; c.pending = { originKind: null, originId: null, list: [] }; }
+        });
+        const result = await this._resolveAndCommitSource('groupMulti', this._encodeMultiOriginId(folderIds));
+        await this._showCommitResultModal(result);
     },
 };

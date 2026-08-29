@@ -21,7 +21,7 @@ const workflowVideoGalleryWindow = {
      * Dựng (hoặc dựng LẠI TỪ ĐẦU nếu đã tồn tại) toàn bộ khối nhóm-ngày + IntersectionObserver cho
      * 1 khung cuộn.
      * @param {string} mountKey - 'videoGrid' (lưới chính) hoặc 'genericDrawer' (picker video, Batch 2).
-     * @param {{scrollEl: HTMLElement, videos: Array, badgeMode?: 'quickDelete'|null, selectedKeys?: Set<string>}} config
+     * @param {{scrollEl: HTMLElement, videos: Array, badgeMode?: 'quickDelete'|'multiSelect'|null, selectedKeys?: Set<string>|Map<string,number>}} config
      */
     mount(mountKey, { scrollEl, videos, badgeMode, selectedKeys }) {
         this.unmount(mountKey);
@@ -69,13 +69,29 @@ const workflowVideoGalleryWindow = {
         this._mounts.delete(mountKey);
     },
 
-    /** Dựng 1 phần tử badge (xoá nhanh) — CHỈ mode 'quickDelete' (Video không có multi-select album
-     * như Photo) — dùng CHUNG cho `_loadGroup()` và `setBadgeMode()`. */
-    _createBadgeElement() {
+    /** Dựng 1 phần tử badge — MỞ RỘNG (29/08/2026, Visual Background picker multi-select) — TRƯỚC
+     * ĐÂY chỉ mode 'quickDelete' (icon xoá cố định, "Video không có multi-select album như Photo").
+     * Giờ thêm mode 'multiSelect' — CÙNG khuôn `photo-gallery-window.js::_createBadgeElement()`:
+     * icon dấu tick khi chưa có số, SỐ thứ tự chọn khi có (`orderNumber`).
+     * @param {'quickDelete'|'multiSelect'} badgeMode
+     * @param {number|null} [orderNumber]
+     */
+    _createBadgeElement(badgeMode, orderNumber) {
         const badge = document.createElement('span');
-        badge.className = 'video-tile-badge';
-        badge.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>';
+        badge.className = `video-tile-badge video-tile-badge-${badgeMode === 'quickDelete' ? 'delete' : 'select'}`;
+        if (badgeMode !== 'quickDelete' && orderNumber) {
+            badge.innerHTML = `<span class="video-tile-badge-num">${orderNumber}</span>`;
+        } else {
+            badge.innerHTML = badgeMode === 'quickDelete'
+                ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>'
+                : '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
+        }
         return badge;
+    },
+
+    /** MỚI (29/08/2026) — cùng `_readOrderNumber()` bên photo-gallery-window.js. */
+    _readOrderNumber(selectedKeys, key) {
+        return selectedKeys instanceof Map ? (selectedKeys.get(key) || null) : null;
     },
 
     /** Dựng DOM thật (header ngày + grid tile CSS) cho 1 nhóm ngày — CHỈ khi nhóm đó CHƯA đang tải
@@ -115,7 +131,7 @@ const workflowVideoGalleryWindow = {
             tileEl.appendChild(durationEl);
 
             if (m.badgeMode) {
-                const badge = this._createBadgeElement();
+                const badge = this._createBadgeElement(m.badgeMode, this._readOrderNumber(m.selectedKeys, video.key));
                 tileEl.appendChild(badge);
                 if (m.selectedKeys.has(video.key)) tileEl.classList.add('video-tile-marked');
             }
@@ -137,11 +153,11 @@ const workflowVideoGalleryWindow = {
         record.el.classList.add('video-day-group-placeholder');
     },
 
-    /** Bật/tắt chế độ xoá nhanh trên mount ĐANG có — KHÔNG revoke/tạo lại object URL nào, KHÔNG
+    /** Bật/tắt chế độ badge trên mount ĐANG có — KHÔNG revoke/tạo lại object URL nào, KHÔNG
      * dựng lại nhóm (chỉ thêm/bớt badge phủ lên) — cùng khuôn `setBadgeMode()` Photo.
      * @param {string} mountKey
-     * @param {'quickDelete'|null} badgeMode
-     * @param {Set<string>} [selectedKeys]
+     * @param {'quickDelete'|'multiSelect'|null} badgeMode
+     * @param {Set<string>|Map<string,number>} [selectedKeys]
      */
     setBadgeMode(mountKey, badgeMode, selectedKeys) {
         const m = this._mounts.get(mountKey);
@@ -155,22 +171,29 @@ const workflowVideoGalleryWindow = {
                 if (oldBadge) oldBadge.remove();
                 tileEl.classList.remove('video-tile-marked');
                 if (!m.badgeMode) return;
-                tileEl.appendChild(this._createBadgeElement());
+                tileEl.appendChild(this._createBadgeElement(m.badgeMode, this._readOrderNumber(m.selectedKeys, tileEl.dataset.videoKey)));
                 if (m.selectedKeys.has(tileEl.dataset.videoKey)) tileEl.classList.add('video-tile-marked');
             });
         });
     },
 
-    /** Toggle badge 1 tile CỤ THỂ đã biết `videoKey` — patch DOM TRỰC TIẾP, KHÔNG dựng lại cả nhóm.
+    /** Toggle badge 1 tile CỤ THỂ đã biết `videoKey`, kèm SỐ thứ tự MỚI (nếu multi-select) — patch
+     * DOM TRỰC TIẾP, KHÔNG dựng lại cả nhóm.
      * @param {string} mountKey
      * @param {string} videoKey
      * @param {boolean} isMarked
+     * @param {number|null} [orderNumber]
      */
-    setTileBadge(mountKey, videoKey, isMarked) {
+    setTileBadge(mountKey, videoKey, isMarked, orderNumber) {
         const m = this._mounts.get(mountKey);
         if (!m) return;
         const tileEl = m.containerEl.querySelector(`[data-video-key="${CSS.escape(videoKey)}"]`);
         if (!tileEl) return; // nhóm chứa video này hiện đang là placeholder — bỏ qua
         tileEl.classList.toggle('video-tile-marked', isMarked);
+        if (m.badgeMode) {
+            const oldBadge = tileEl.querySelector('.video-tile-badge');
+            if (oldBadge) oldBadge.remove();
+            tileEl.appendChild(this._createBadgeElement(m.badgeMode, orderNumber || null));
+        }
     },
 };

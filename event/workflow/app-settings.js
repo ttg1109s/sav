@@ -32,7 +32,7 @@
  * picker chọn THƯ MỤC video (1 trong 4 nguồn Visual Background) chưa tự quay lại Visual Background
  * — hạ tầng `workflowPlaylist._openFolderPickerDrawer()` dùng CHUNG với Playlist, chưa sửa vì rủi ro
  * ảnh hưởng nơi khác. 3 picker còn lại (ảnh đơn/video đơn/album) đã tự quay lại đúng (xem
- * `_closePickerDrawer()`/`openSingleImagePicker()`, event/workflow/visual-bg.js).
+ * `_closePickerDrawer()`/`openPickPhoto()`, event/workflow/visual-bg.js).
  *
  * NẠP SAU: core/generic-drawer.js, core/app-panel-nav.js, components/settings/app-settings-main.js,
  * components/settings/playlist-view.js, components/settings/language.js, components/gesture-

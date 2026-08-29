@@ -36,7 +36,7 @@ const workflowPhotoGalleryWindow = {
      * danh sách ảnh có thể đổi hoàn toàn giữa 2 lần gọi) toàn bộ khối nhóm-ngày + IntersectionObserver
      * cho 1 khung cuộn.
      * @param {string} mountKey - 'photoGrid' (lưới chính) hoặc 'genericDrawer' (picker ảnh).
-     * @param {{scrollEl: HTMLElement, images: Array, rowHeightPx: number, badgeMode?: 'quickDelete'|'multiSelect'|null, selectedKeys?: Set<string>}} config
+     * @param {{scrollEl: HTMLElement, images: Array, rowHeightPx: number, badgeMode?: 'quickDelete'|'multiSelect'|null, selectedKeys?: Set<string>|Map<string,number>}} config
      */
     mount(mountKey, { scrollEl, images, rowHeightPx, badgeMode, selectedKeys }) {
         this.unmount(mountKey);
@@ -86,14 +86,31 @@ const workflowPhotoGalleryWindow = {
     },
 
     /** Dựng 1 phần tử badge (chọn/xoá) — dùng CHUNG cho `_loadGroup()` (dựng tile mới) và
-     * `setBadgeMode()` (đổi badge trên tile đã có) — tránh lặp SVG icon 2 nơi. */
-    _createBadgeElement(badgeMode) {
+     * `setBadgeMode()` (đổi badge trên tile đã có) — tránh lặp SVG icon 2 nơi.
+     * MỞ RỘNG (29/08/2026, phản hồi Giang mục 5 — "multi selection phải đánh số theo thứ tự") —
+     * thêm tham số `orderNumber`: có giá trị (multi-select, tile ĐÃ chọn) -> hiện SỐ thứ tự chọn
+     * thay icon dấu tick; không có (chưa chọn, hoặc mode 'quickDelete') -> icon cũ như trước.
+     * @param {'quickDelete'|'multiSelect'} badgeMode
+     * @param {number|null} [orderNumber]
+     */
+    _createBadgeElement(badgeMode, orderNumber) {
         const badge = document.createElement('span');
         badge.className = `photo-tile-badge photo-tile-badge-${badgeMode === 'quickDelete' ? 'delete' : 'select'}`;
-        badge.innerHTML = badgeMode === 'quickDelete'
-            ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>'
-            : '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
+        if (badgeMode !== 'quickDelete' && orderNumber) {
+            badge.innerHTML = `<span class="photo-tile-badge-num">${orderNumber}</span>`;
+        } else {
+            badge.innerHTML = badgeMode === 'quickDelete'
+                ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>'
+                : '<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>';
+        }
         return badge;
+    },
+
+    /** MỚI (29/08/2026) — đọc số thứ tự chọn của 1 key từ `selectedKeys`, nếu nó là `Map` (multi-
+     * select có đánh số — xem docstring `mount()`). `Set` (mode 'quickDelete' cũ) không có thứ tự
+     * -> luôn `null`, `_createBadgeElement()` tự rơi về icon cũ. */
+    _readOrderNumber(selectedKeys, key) {
+        return selectedKeys instanceof Map ? (selectedKeys.get(key) || null) : null;
     },
 
     /** Dựng DOM thật (header + tile) cho 1 nhóm ngày + gọi fjGallery() layout — CHỈ khi nhóm đó
@@ -136,7 +153,7 @@ const workflowPhotoGalleryWindow = {
             itemEl.appendChild(img);
 
             if (m.badgeMode) {
-                const badge = this._createBadgeElement(m.badgeMode);
+                const badge = this._createBadgeElement(m.badgeMode, this._readOrderNumber(m.selectedKeys, image.key));
                 itemEl.appendChild(badge);
                 if (m.selectedKeys.has(image.key)) itemEl.classList.add('photo-tile-marked');
             }
@@ -177,7 +194,7 @@ const workflowPhotoGalleryWindow = {
      * badge phủ lên).
      * @param {string} mountKey
      * @param {'quickDelete'|'multiSelect'|null} badgeMode
-     * @param {Set<string>} [selectedKeys]
+     * @param {Set<string>|Map<string,number>} [selectedKeys]
      */
     setBadgeMode(mountKey, badgeMode, selectedKeys) {
         const m = this._mounts.get(mountKey);
@@ -191,25 +208,33 @@ const workflowPhotoGalleryWindow = {
                 if (oldBadge) oldBadge.remove();
                 itemEl.classList.remove('photo-tile-marked');
                 if (!m.badgeMode) return;
-                itemEl.appendChild(this._createBadgeElement(m.badgeMode));
+                itemEl.appendChild(this._createBadgeElement(m.badgeMode, this._readOrderNumber(m.selectedKeys, itemEl.dataset.imageKey)));
                 if (m.selectedKeys.has(itemEl.dataset.imageKey)) itemEl.classList.add('photo-tile-marked');
             });
         });
     },
 
-    /** MỚI — toggle badge 1 tile CỤ THỂ đã biết `imageKey` (gọi SAU khi Workflow đã mutate Set lựa
-     * chọn) — patch DOM TRỰC TIẾP, KHÔNG cần dựng lại cả nhóm. Nếu tile đó hiện KHÔNG nằm trong vùng
-     * đang tải (đã bị gỡ thành placeholder) thì bỏ qua im lặng — lần nhóm đó tải lại, `mount()` mới
-     * (đọc lại `selectedKeys` từ Router/Workflow) sẽ tự vẽ ĐÚNG trạng thái, không cần đồng bộ ngay.
+    /** MỚI (29/08/2026) — toggle badge 1 tile CỤ THỂ đã biết `imageKey`, kèm SỐ thứ tự MỚI (nếu
+     * multi-select) — mở rộng chữ ký cũ (thêm `orderNumber`, optional, không phá caller cũ chỉ
+     * truyền 2 tham số đầu — quickDelete không cần số) — patch DOM TRỰC TIẾP, KHÔNG cần dựng lại cả
+     * nhóm. Nếu tile đó hiện KHÔNG nằm trong vùng đang tải (đã bị gỡ thành placeholder) thì bỏ qua
+     * im lặng — lần nhóm đó tải lại, `mount()` mới (đọc lại `selectedKeys` từ Router/Workflow) sẽ tự
+     * vẽ ĐÚNG trạng thái, không cần đồng bộ ngay.
      * @param {string} mountKey
      * @param {string} imageKey
      * @param {boolean} isMarked
+     * @param {number|null} [orderNumber]
      */
-    setTileBadge(mountKey, imageKey, isMarked) {
+    setTileBadge(mountKey, imageKey, isMarked, orderNumber) {
         const m = this._mounts.get(mountKey);
         if (!m) return;
         const tileEl = m.containerEl.querySelector(`[data-image-key="${CSS.escape(imageKey)}"]`);
         if (!tileEl) return; // nhóm chứa ảnh này hiện đang là placeholder — bỏ qua, xem docstring trên
         tileEl.classList.toggle('photo-tile-marked', isMarked);
+        if (m.badgeMode) {
+            const oldBadge = tileEl.querySelector('.photo-tile-badge');
+            if (oldBadge) oldBadge.remove();
+            tileEl.appendChild(this._createBadgeElement(m.badgeMode, orderNumber || null));
+        }
     },
 };

@@ -794,10 +794,18 @@ const workflowPlaylist = {
     _folderPickerEmptyMsg: '',      // v13 — câu hiển thị khi danh sách rỗng (rỗng = dùng grid trống như cũ)
     _folderPickerFolders: [], // danh sách folder ĐANG hiển thị trong grid — cache RAM, chỉ dùng lúc Drawer đang mở
     _folderPickerEditingId: null, // folderId đang ở chế độ sửa tên (null = không có)
-    _folderPickerOnPick: null, // callback(folderId) — set bởi entry method (openAddToFolderPickerForSongMenu/openAddToFolderPicker), gọi khi user CHỌN xong 1 folder
+    _folderPickerOnPick: null, // callback(folderId) HOẶC callback(folderIds[], type) nếu multiSelect — set bởi entry method, gọi khi user CHỌN xong
+    // MỚI (29/08/2026) — 3 field cho chế độ multi-select (Visual Background "Thư mục" — gộp nhiều
+    // folder). false/rỗng/null = hành vi CŨ y nguyên (2 luồng "Thêm vào thư mục" của Playlist tự
+    // thân, tap 1 tile là chọn NGAY + đóng, không đổi gì).
+    _folderPickerMultiSelect: false,
+    _folderPickerSelectedIds: [], // ordered — thứ tự CHỌN, chỉ dùng khi multiSelect
+    _folderPickerTypeOptions: null, // { current: 'video'|'photo' } | null — có giá trị -> hiện dropdown đổi loại trong header
+    _folderPickerOnTypeChange: null, // callback(newType) — nơi gọi (Visual Background) tự lo re-fetch + gọi lại _openFolderPickerDrawer(isUpdate=true)
 
-    /** Mở Drawer lần đầu — đọc danh sách folder, vẽ grid, wire sự kiện. */
-    async _openFolderPickerDrawer(onPick, options) {
+    /** Mở Drawer lần đầu (hoặc vẽ lại TẠI CHỖ nếu `isUpdate`) — đọc danh sách folder, vẽ grid, wire
+     * sự kiện. */
+    async _openFolderPickerDrawer(onPick, options, isUpdate) {
         // SỬA (v13) — thêm `options` TUỲ CHỌN (không truyền -> hành vi CŨ y nguyên cho 2 luồng
         // "Thêm vào thư mục" của Playlist):
         //   `folders`     — danh sách ĐÃ LỌC SẴN do nơi gọi chuẩn bị (Rule 3b: lọc là chuẩn bị dữ
@@ -807,12 +815,26 @@ const workflowPlaylist = {
         //   `emptyMsg`    — câu hiển thị khi danh sách rỗng, thay vì grid trống trơn.
         //   `onClose`     — MỚI (phản hồi Giang — sửa lỗ hổng "Cancel picker thư mục Visual
         //                   Background không tự quay lại") — hàm gọi THAY VÌ `closeFully()` khi
-        //                   đóng picker (dù bấm X HAY vừa CHỌN xong 1 tile — cả 2 đường đều đi qua
+        //                   đóng picker (dù bấm X HAY vừa CHỌN xong — cả 2 đường đều đi qua
         //                   `closeFolderPicker()` bên dưới) — dùng bởi nơi gọi ĐANG SỐNG CHUNG
         //                   Generic Drawer với picker này (Visual Background, xem
-        //                   event/workflow/visual-bg.js::openListFolderPicker()) để tự mở lại
+        //                   event/workflow/visual-bg.js::_openFolderPickerForType()) để tự mở lại
         //                   đúng màn của mình thay vì đóng trắng cả Setting. KHÔNG truyền -> giữ
         //                   NGUYÊN hành vi cũ (đóng hẳn) cho 2 luồng Playlist tự thân.
+        //   `multiSelect` — MỚI (29/08/2026) — true: tap tile TOGGLE chọn (không đóng ngay), header
+        //                   thêm nút "Chọn (N)" xác nhận — `onPick` nhận `(folderIds[], type)` thay
+        //                   vì `(folderId)`. false/không truyền -> hành vi CŨ (tap = chọn NGAY).
+        //   `typeOptions` — MỚI (29/08/2026) — `{ current: 'video'|'photo' }`, có giá trị -> header
+        //                   thêm dropdown đổi loại folder đang duyệt.
+        //   `onTypeChange`— MỚI (29/08/2026) — callback(newType), bắt buộc nếu có `typeOptions` —
+        //                   nơi gọi tự re-fetch folder đúng loại mới + gọi lại hàm NÀY (isUpdate=true).
+        //   `selectedIds` — MỚI (29/08/2026) — khôi phục lựa chọn đang dở khi vẽ lại TẠI CHỖ (đổi
+        //                   loại folder KHÔNG xoá lựa chọn cũ nếu id đó vẫn còn trong danh sách mới
+        //                   — hiếm khi trùng giữa 2 loại khác nhau nên thực tế luôn rỗng, giữ tham số
+        //                   để đúng nguyên tắc "Workflow chuẩn bị dữ liệu", không hardcode ở đây).
+        // @param {boolean} [isUpdate] - true: vẽ lại TẠI CHỖ (`updateGenericDrawer()`, không đóng/mở
+        //        lại) — dùng khi gọi lại từ chính picker đang mở (đổi loại/toggle chọn). Bỏ trống/
+        //        false: mở MỚI (`openGenericDrawer()`, hành vi CŨ).
         const opts = options || {};
         this._folderPickerFolders = opts.folders || await listFolders(); // core có sẵn, CÓ return, DÙNG ngay dưới
         this._folderPickerShowAddTile = opts.showAddTile !== false;
@@ -820,14 +842,22 @@ const workflowPlaylist = {
         this._folderPickerEditingId = null;
         this._folderPickerOnPick = onPick;
         this._folderPickerOnClose = opts.onClose || null;
-        this._renderFolderPickerGrid(true);
+        this._folderPickerMultiSelect = !!opts.multiSelect;
+        this._folderPickerSelectedIds = opts.multiSelect ? (opts.selectedIds || []) : [];
+        this._folderPickerTypeOptions = opts.typeOptions || null;
+        this._folderPickerOnTypeChange = opts.onTypeChange || null;
+        this._renderFolderPickerGrid(!isUpdate);
     },
 
-    /** Vẽ lại grid (mở lần đầu HOẶC sau khi thêm/sửa tên 1 folder) — `isFirstOpen` quyết định
-     * open vs update Generic Drawer (core/generic-drawer.js — 2 hàm khác nhau tuỳ Drawer đang đóng
-     * hay đã mở sẵn, xem docstring ở đó). */
+    /** Vẽ lại grid (mở lần đầu HOẶC sau khi thêm/sửa tên 1 folder, toggle chọn, đổi loại) —
+     * `isFirstOpen` quyết định open vs update Generic Drawer (core/generic-drawer.js — 2 hàm khác
+     * nhau tuỳ Drawer đang đóng hay đã mở sẵn, xem docstring ở đó). */
     _renderFolderPickerGrid(isFirstOpen) {
-        const itemsHtml = renderItemList(null, this._folderPickerFolders, itemTemplateFolderTile, { editingFolderId: this._folderPickerEditingId }); // components/items.js
+        // MỚI (29/08/2026) — `selectedOrder`: Map<folderId, order> cho multiSelect, đọc bởi
+        // `itemTemplateFolderTile()` (components/items.js) để vẽ badge số thứ tự — null khi không
+        // multiSelect (hành vi CŨ, không badge nào).
+        const selectedOrder = this._folderPickerMultiSelect ? new Map(this._folderPickerSelectedIds.map((id, i) => [id, i + 1])) : null;
+        const itemsHtml = renderItemList(null, this._folderPickerFolders, itemTemplateFolderTile, { editingFolderId: this._folderPickerEditingId, selectedOrder }); // components/items.js
         // SỬA (14/07/2026, Giang yêu cầu) — justify-center -> justify-start (căn trái thay vì căn
         // giữa cả cụm khi hàng cuối chưa đầy).
         const addTileHtml = this._folderPickerShowAddTile ? buildAddFolderTileHtml() : ''; // components/items.js
@@ -855,23 +885,65 @@ const workflowPlaylist = {
         wireFolderPickerDrawerEvents('playlist', 'playlist.folderPicker'); // core/file-manager/folder-picker-ui.js — hàm GỘP (v13 Batch B), msg.type KHÔNG đổi
     },
 
+    /** MỚI (29/08/2026) — thêm dropdown đổi loại (`typeOptions`) + nút "Chọn (N)" xác nhận
+     * (`multiSelect`) vào header CŨ — CẢ 2 đều tuỳ chọn, không truyền gì -> header y hệt trước
+     * (2 luồng "Thêm vào thư mục" của Playlist không đụng gì). */
     _buildFolderPickerHeaderHtml() {
+        const typeDropdownHtml = this._folderPickerTypeOptions ? `
+            <select id="playlist-folder-picker-type" class="bg-slate-100 border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800 outline-none">
+                <option value="video" ${this._folderPickerTypeOptions.current === 'video' ? 'selected' : ''}>${t('visualBgSettingsDrawer.folderPicker.typeVideo')}</option>
+                <option value="photo" ${this._folderPickerTypeOptions.current === 'photo' ? 'selected' : ''}>${t('visualBgSettingsDrawer.folderPicker.typePhoto')}</option>
+            </select>` : '';
+        const confirmCount = this._folderPickerSelectedIds.length;
+        const confirmBtnHtml = this._folderPickerMultiSelect ? `
+            <button type="button" id="playlist-folder-picker-confirm" class="text-xs font-semibold text-sky-600 px-1 disabled:opacity-40 disabled:cursor-not-allowed" ${confirmCount === 0 ? 'disabled' : ''}>${confirmCount === 0 ? t('visualBgSettingsDrawer.picker.confirmEmpty') : tFormat('visualBgSettingsDrawer.picker.confirm', { count: confirmCount })}</button>` : '';
         return `
-            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200">
-                <h3 class="text-base font-bold text-slate-900">${t('fileManager.folderPicker.title')}</h3>
-                <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
+            <div class="flex justify-between items-center px-5 pb-3 border-b border-slate-200 gap-2">
+                <h3 class="text-base font-bold text-slate-900 shrink-0">${t('fileManager.folderPicker.title')}</h3>
+                <div class="flex items-center gap-2 shrink-0">
+                    ${typeDropdownHtml}
+                    ${confirmBtnHtml}
+                    <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500" title="${t('common.close')}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
             </div>
         `;
     },
 
-    /** msg.type = 'playlist.folderPicker.tile.click' — user CHỌN xong 1 folder (có sẵn hoặc vừa
-     * tạo, không quan trọng — mọi tile đều "chọn được" như nhau). */
+    /** msg.type = 'playlist.folderPicker.tile.click'. SỬA (29/08/2026) — nhánh multiSelect: TOGGLE
+     * chọn + vẽ lại grid TẠI CHỖ (số thứ tự/nút "Chọn" cập nhật theo), KHÔNG đóng picker. Nhánh
+     * mặc định (2 luồng Playlist) giữ NGUYÊN — tap = chọn NGAY + đóng. */
     async pickFolderInPicker(folderId) {
+        if (this._folderPickerMultiSelect) {
+            const idx = this._folderPickerSelectedIds.indexOf(folderId);
+            if (idx >= 0) this._folderPickerSelectedIds.splice(idx, 1); else this._folderPickerSelectedIds.push(folderId);
+            this._renderFolderPickerGrid(false);
+            return;
+        }
         const onPick = this._folderPickerOnPick;
         this.closeFolderPicker();
         if (onPick) await onPick(folderId);
+    },
+
+    /** MỚI (29/08/2026) — msg.type = 'playlist.folderPicker.confirm.click' (chỉ hiện khi
+     * multiSelect). Commit `_folderPickerSelectedIds` (đúng thứ tự chọn) + `type` đang duyệt. */
+    async confirmFolderPickerSelection() {
+        if (!this._folderPickerMultiSelect || this._folderPickerSelectedIds.length === 0) return; // guard — nút đã disabled, phòng thủ kép
+        const onPick = this._folderPickerOnPick;
+        const ids = this._folderPickerSelectedIds.slice();
+        const type = this._folderPickerTypeOptions ? this._folderPickerTypeOptions.current : null;
+        this.closeFolderPicker();
+        if (onPick) await onPick(ids, type);
+    },
+
+    /** MỚI (29/08/2026) — msg.type = 'playlist.folderPicker.typeChange' (dropdown header, chỉ hiện
+     * khi có `typeOptions`). KHÔNG tự re-fetch ở đây — giao lại cho `onTypeChange` (nơi gọi biết
+     * đúng tiêu chí lọc của miền mình, Rule 3b) — hàm này chỉ relay. */
+    async changeFolderPickerType(value) {
+        const cb = this._folderPickerOnTypeChange;
+        if (!cb) return;
+        await cb(value);
     },
 
     /** msg.type = 'playlist.folderPicker.close.click'. SỬA (phản hồi Giang — sửa lỗ hổng picker
@@ -881,6 +953,10 @@ const workflowPlaylist = {
         this._folderPickerOnPick = null;
         const onClose = this._folderPickerOnClose;
         this._folderPickerOnClose = null;
+        this._folderPickerMultiSelect = false;
+        this._folderPickerSelectedIds = [];
+        this._folderPickerTypeOptions = null;
+        this._folderPickerOnTypeChange = null;
         if (onClose) onClose(); else workflowGenericDrawerHelpers.closeFully(); // event/workflow/generic-drawer-helpers.js
     },
 
@@ -894,7 +970,7 @@ const workflowPlaylist = {
      * type cho nó": type gán NGAY = `activeMediaSource` hiện tại (đọc thẳng, không cần biết context
      * nào gọi tới — hàm này CHỈ reachable từ 2 luồng Add-to-Folder gốc của Playlist, picker Visual
      * Background dùng `showAddTile: false` nên tile "+" không hề xuất hiện ở đó, xem
-     * event/workflow/visual-bg.js::openListFolderPicker()).
+     * event/workflow/visual-bg.js::_openFolderPickerForType()).
      */
     async createFolderInPicker() {
         const mediaType = appState.get('activeMediaSource');
