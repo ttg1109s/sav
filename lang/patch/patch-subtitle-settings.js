@@ -43,9 +43,6 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'visualBgSettingsDrawer.title': 'Visual Background',
     'visualBgSettingsDrawer.groupSource.title': 'Source',
     'visualBgSettingsDrawer.groupColor.title': 'Background colour',
-    'visualBgSettingsDrawer.type.label': 'Type',
-    'visualBgSettingsDrawer.type.photo': 'Photo',
-    'visualBgSettingsDrawer.type.video': 'Video',
     'visualBgSettingsDrawer.colorMode.label': 'Colour style',
     'visualBgSettingsDrawer.colorMode.solid': 'Solid',
     'visualBgSettingsDrawer.colorMode.gradient': 'Gradient',
@@ -75,14 +72,28 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'visualBgSettingsDrawer.gradientMovement.colorSwapInterval.pickerTitle': 'Color swap interval',
     'visualBgSettingsDrawer.gradientMovement.colorSwapTransition.label': 'Crossfade duration',
     'visualBgSettingsDrawer.gradientMovement.colorSwapTransition.pickerTitle': 'Crossfade duration',
-    'visualBgSettingsDrawer.pickSingle.photo': 'Choose one photo...',
-    'visualBgSettingsDrawer.pickSingle.video': 'Choose one video...',
-    'visualBgSettingsDrawer.pickGroup.photo': 'Choose an album...',
-    'visualBgSettingsDrawer.pickGroup.video': 'Choose a folder...',
+    // MỚI (29/08/2026) — 3 nút chọn nguồn trực tiếp (thay "Chọn 1"/"Chọn nhóm" + dropdown Kiểu cũ,
+    // xem components/visual-bg-settings-drawer.js). Cả 2 picker Video/Ảnh multi-select — nút xác
+    // nhận trong header đếm số lượng đã chọn, dùng chung 1 key với {count}.
+    'visualBgSettingsDrawer.pickVideo.label': 'Choose video...',
+    'visualBgSettingsDrawer.pickPhoto.label': 'Choose photo...',
+    'visualBgSettingsDrawer.pickFolder.label': 'Choose folder...',
+    'visualBgSettingsDrawer.picker.confirm': 'Select ({count})',
+    'visualBgSettingsDrawer.picker.confirmEmpty': 'Select',
+    // MỚI (29/08/2026) — tên nguồn hiển thị ở Settings cho 2 originKind gộp nhiều (multi/
+    // groupMulti, xem event/workflow/visual-bg.js::_readSourceDisplayName()) — KHÔNG có 1 cái tên
+    // đơn lẻ nào để hiện, chỉ đếm số lượng.
+    'visualBgSettingsDrawer.sourceLabel.multiVideo': '{count} video selected',
+    'visualBgSettingsDrawer.sourceLabel.multiPhoto': '{count} photo selected',
+    'visualBgSettingsDrawer.sourceLabel.groupMulti': '{count} folder(s) merged',
     'visualBgSettingsDrawer.refreshSource.title': 'Refresh from source',
-    'visualBgSettingsDrawer.refreshSource.result': 'Refreshed: +{added} added, -{removed} removed. {total} item(s) total now.',
-    'visualBgSettingsDrawer.refreshSource.resultUnchanged': 'Refreshed: no changes. {total} item(s) total.',
-    'visualBgSettingsDrawer.refreshSource.resultCleared': 'The source no longer exists — Visual Background has been cleared.',
+    // SỬA (29/08/2026, Giang chốt "so sánh thay đổi phải nhất quán mọi nơi") — 3 key
+    // 'refreshSource.result*' cũ đổi tên trung lập 'commitResult.*' — giờ DÙNG CHUNG cho cả nút
+    // "Làm tươi" LẪN 3 nút Chọn nguồn mới (Video/Ảnh/Thư mục), không riêng "Làm tươi" nữa (xem
+    // `_showCommitResultModal()`, event/workflow/visual-bg.js).
+    'visualBgSettingsDrawer.commitResult.changed': '+{added} added, -{removed} removed. {total} item(s) total now.',
+    'visualBgSettingsDrawer.commitResult.unchanged': 'No changes — {total} item(s) total.',
+    'visualBgSettingsDrawer.commitResult.cleared': 'The source no longer exists — Visual Background has been cleared.',
     // MỚI (09/08/2026, cơ chế pending) — modal thông báo khi chọn nguồn mới/Làm tươi TRONG LÚC
     // đang có photo/video active: nguồn mới KHÔNG áp ngay, xếp hàng chờ đúng "lượt kế tiếp" (video
     // hiện tại phát hết, hoặc ảnh chuyển cảnh kế) mới thay hẳn — 2 bản riêng theo ngữ cảnh type.
@@ -96,11 +107,17 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'visualBgSettingsDrawer.nextOrder.random': 'Random',
     'visualBgSettingsDrawer.nextOrder.sequential': 'Sequential',
     'visualBgSettingsDrawer.nextOrder.playlist': 'Follow Playlist',
-    'visualBgSettingsDrawer.albumPicker.title': 'Choose an album',
-    'visualBgSettingsDrawer.albumPicker.empty': 'No album has more than one photo yet. Add photos in Photo & Album first.',
-    'visualBgSettingsDrawer.folderPicker.title': 'Choose a video folder',
-    'visualBgSettingsDrawer.folderPicker.emptyNoFolder': 'You have no video folders yet. Create one in File Manager > Folders and add videos to it first.',
-    'visualBgSettingsDrawer.folderPicker.emptyTooFew': 'You have video folders, but none holds at least {count} videos yet. A list needs more than one video to rotate through — add more, or pick a single video instead.',
+    // XOÁ (29/08/2026) — Album đã bỏ trước đó rồi (albumPicker.* chết từ lâu, dọn luôn nhân dịp sửa
+    // khối này) — Photo giờ có Folder thật (chung hạ tầng Song/Video), không còn Album.
+    // MỚI (29/08/2026) — nút "Thư mục" giờ multi-select + dropdown đổi loại (Video/Ảnh) ngay trong
+    // header picker (xem event/workflow/playlist.js::_buildFolderPickerHeaderHtml()).
+    'visualBgSettingsDrawer.folderPicker.title': 'Choose a folder',
+    'visualBgSettingsDrawer.folderPicker.typeVideo': 'Video',
+    'visualBgSettingsDrawer.folderPicker.typePhoto': 'Photo',
+    'visualBgSettingsDrawer.folderPicker.emptyNoFolder.video': 'You have no video folders yet. Create one in File Manager > Folders and add videos to it first.',
+    'visualBgSettingsDrawer.folderPicker.emptyNoFolder.photo': 'You have no photo folders yet. Create one in File Manager > Folders and add photos to it first.',
+    'visualBgSettingsDrawer.folderPicker.emptyTooFew.video': 'You have video folders, but none holds at least {count} videos yet. A list needs more than one video to rotate through — add more, or pick a video directly instead.',
+    'visualBgSettingsDrawer.folderPicker.emptyTooFew.photo': 'You have photo folders, but none holds at least {count} photos yet. A list needs more than one photo to rotate through — add more, or pick a photo directly instead.',
     'visualBgSettingsDrawer.openSlideshow.label': 'Slideshow options...',
     'visualBgSettingsDrawer.openSlideshow.hint': 'Transition + Photo Movement',
     // MỚI (08/08/2026) — sub-panel "Âm thanh Video" (bật/tắt + volume% audio riêng từng video).
@@ -220,7 +237,12 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // CHUNG cho CẢ 2 lý do chặn (event/block.js không hỗ trợ notify riêng theo từng điều kiện) —
     // bỏ luôn tham chiếu "(File Manager -> Video)" đã lỗi thời (panel đó xoá hẳn từ Batch 6).
     'visualBgSettingsDrawer.blockedDeleteInUse': 'This item is currently used as your Visual Background. Open Settings > Visualizer > Visual Background and tap Release source first.',
-    'visualBgSettingsDrawer.blockedBySourceVideo': 'Your Playlist is set to Video. While playing videos they fill the whole screen, so Visual Background cannot show. Switch the Playlist source back to Songs first.',
+    // SỬA (29/08/2026) — 1 message chung 'blockedBySourceVideo' cũ tách thành 2, ĐÚNG lý do chặn
+    // thật (event/block.js dùng `groupNotify`, xem docstring registerBlock() — event/bus.js) — bug
+    // gốc: message cũ luôn nói "đổi Playlist về Song" dù đôi khi Playlist ĐÃ ở Song (lý do chặn thật
+    // là video nền vẫn đang phát, không phải sai Nguồn).
+    'visualBgSettingsDrawer.blockedByNotSongSource': 'Visual Background only works while your Playlist source is set to Songs. Switch the Playlist source to Songs first.',
+    'visualBgSettingsDrawer.blockedByVideoPlaying': 'A background video is still playing. Wait for it to finish, or change song, before picking a new source.',
     'visualBgSettingsDrawer.blockedByVisualBgOn': 'Visual Background is on. Videos play full screen, so they would cover it. Turn Visual Background off first.',
     'visualBgSettingsDrawer.keptDeleteInUse': 'One item was kept because it is currently used as your Visual Background. Release it in Settings > Visualizer > Visual Background to delete it.',
     'visualBgSettingsDrawer.clearSource.title': 'Release source',
