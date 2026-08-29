@@ -277,6 +277,22 @@
             listPlaybackMode: 'perSong',    // 'perSong' | 'slideshow' — chỉ có ý nghĩa khi list.length > 1
             nextOrder: 'random',            // 'random' | 'sequential' | 'playlist' — thứ tự dựng list lúc chọn/Làm tươi + bước cycle
 
+            // MỚI (29/08/2026, phản hồi Giang — dời "Seconds per photo" từ slideshow sang panel VBG,
+            // dùng CHUNG cho cả video lẫn ảnh) — 2 field này thay hẳn `slideshow.intervalSeconds` cũ
+            // (đã xoá khỏi object `slideshow` bên dưới). Ý nghĩa của `durationMode` LỆCH nhau theo
+            // `type`, xem docstring `_computeAdvanceMs()` (event/workflow/slideshow.js) +
+            // `_maybeScheduleVideoFixTime()` (event/workflow/visual-bg.js):
+            //   'duration' (mặc định) — dùng ĐỘ DÀI TỰ NHIÊN của CHÍNH item đang hiện: video = phát
+            //             hết thật (sự kiện `ended`, KHÔNG hẹn giờ nào); ảnh = field `duration` RIÊNG
+            //             của ảnh đó (core/file-manager/image.js — Photo đã tích hợp `duration` như
+            //             Song/Video từ trước, KHÔNG phải mọi ảnh đều giống nhau).
+            //   'fixtime' — CƯỠNG CHẾ mọi item hiện đúng `durationSeconds` giây (DÙNG CHUNG 1 số cho
+            //             MỌI ảnh/video, bỏ qua độ dài/field `duration` riêng của từng item) — video
+            //             CHỈ bị cắt ngắn nếu THẬT SỰ dài hơn `durationSeconds` (video đã ngắn hơn/
+            //             bằng thì cứ để phát hết tự nhiên, không hẹn giờ thừa).
+            durationMode: 'duration',        // 'duration' | 'fixtime'
+            durationSeconds: 5,              // 1-60s (picker) — CHỈ có ý nghĩa khi durationMode='fixtime' (video) hoặc LUÔN áp cho ảnh (2 nhánh trên)
+
             // ---- Nền MÀU — độc lập, luôn active ----
             colorMode: 'solid',             // 'solid' | 'gradient'
             solidColor: '#000000',
@@ -313,7 +329,8 @@
             },
 
             slideshow: {
-                intervalSeconds: 5,
+                // XOÁ (29/08/2026) — intervalSeconds dời lên top-level thành `durationSeconds` +
+                // `durationMode` ngay trên (dùng chung video/ảnh, xem docstring ở đó).
                 transitionType: 'fade',
                 transitionDurationMs: 1000,
                 transitionInOutRatio: 50,

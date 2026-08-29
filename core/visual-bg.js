@@ -24,6 +24,9 @@ const VISUAL_BG_GRADIENT_MOVEMENT_TICK_MS = 100; // nhịp tick animation — 10
 const VISUAL_BG_GRADIENT_MOVEMENT_TASK = 'visualBgGradientMovement'; // tên task taskManager (Workflow dùng, xem event/workflow/visual-bg.js)
 const VISUAL_BG_LIST_PLAYBACK_MODES = ['perSong', 'slideshow'];
 const VISUAL_BG_NEXT_ORDERS = ['random', 'sequential', 'playlist'];
+// MỚI (29/08/2026) — 2 chế độ "Seconds per video/photo" (dời từ slideshow sang panel VBG, dùng
+// chung video/ảnh) — xem docstring `durationMode` (core/config.js::DEFAULT_VISUAL_BG_CONFIG).
+const VISUAL_BG_DURATION_MODES = ['duration', 'fixtime'];
 // XOÁ (29/08/2026) — VISUAL_BG_MIN_LIST_ITEMS (ngưỡng ≥2 item của "group" đơn cũ) bỏ hẳn cùng
 // picker Thư mục cũ (single-folder) — Thư mục giờ multi-select GỘP nhiều folder lại
 // (originKind='groupMulti'), 1 folder ít item vẫn có ích khi gộp, không cần tự nó đủ ngưỡng nữa —
