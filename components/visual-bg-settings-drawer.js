@@ -70,16 +70,10 @@ function renderVisualBgPanelBody() {
                             <button type="button" id="setting-visual-bg-duration-seconds" class="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none w-20 text-right shrink-0 hover:bg-white/10 transition-colors">5s</button>
                         </div>
 
-                        <button id="setting-visual-bg-open-slideshow" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left hidden">
-                            <div class="flex items-center gap-3 min-w-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-sky-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4h10a2 2 0 012 2v10M4 8v10a2 2 0 002 2h10a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2z" /></svg>
-                                <div class="min-w-0">
-                                    <div class="text-sm font-medium truncate" data-i18n="visualBgSettingsDrawer.openSlideshow.label">${t('visualBgSettingsDrawer.openSlideshow.label')}</div>
-                                    <div class="text-xs text-slate-400 mt-0.5 truncate" data-i18n="visualBgSettingsDrawer.openSlideshow.hint">${t('visualBgSettingsDrawer.openSlideshow.hint')}</div>
-                                </div>
-                            </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                        </button>
+                        <!-- XOÁ (29/08/2026, phản hồi Giang — Slideshow tách hẳn khỏi VBG, thành hệ
+                             preset độc lập, lối vào DUY NHẤT System > Slideshow > "Áp dụng cấu hình")
+                             — hàng "Slideshow options..." (setting-visual-bg-open-slideshow) bỏ hẳn,
+                             panel VBG không còn liên kết trực tiếp nào tới Slideshow nữa. -->
 
                         <!-- MỚI (08/08/2026) — hiện khi type='video' VÀ ≥1 item sống (CẢ single lẫn
                              list, khác hàng Slideshow ở trên chỉ dành cho list ảnh) — Workflow tự

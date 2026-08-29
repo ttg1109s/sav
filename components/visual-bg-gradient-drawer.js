@@ -5,8 +5,7 @@
  *
  * TRƯỚC ĐÂY toàn bộ cụm gradient nhét thẳng vào panel "Visual Background" cha, làm panel đó dài và
  * ô xem trước bị kẹp thành 1 dải mỏng. Giờ tách hẳn, push/pop qua Settings Stack (core/settings-
- * panel-stack-ui.js) — CÙNG khuôn `renderSlideshowPanelBody()`/`renderVisualBgPanelBody()`, không
- * phát minh cơ chế mới.
+ * panel-stack-ui.js) — CÙNG khuôn `renderVisualBgPanelBody()`, không phát minh cơ chế mới.
  *
  * Bố cục (tham khảo card Gradient của Settings -> Giao diện, components/settings/theme.js):
  *   [ô VUÔNG xem trước, aspect-square, vẽ chính linear-gradient đang cấu hình ]
