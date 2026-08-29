@@ -107,6 +107,16 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'visualBgSettingsDrawer.nextOrder.random': 'Random',
     'visualBgSettingsDrawer.nextOrder.sequential': 'Sequential',
     'visualBgSettingsDrawer.nextOrder.playlist': 'Follow Playlist',
+    // MỚI (29/08/2026, dời "Seconds per photo" từ slideshow sang đây, dùng chung video/ảnh) —
+    // `durationMode`: 'duration' (mặc định, độ dài TỰ NHIÊN của item — video phát hết thật, ảnh
+    // dùng field `duration` RIÊNG của chính nó) hay 'fixtime' (CƯỠNG CHẾ mọi item hiện đúng
+    // `durationSeconds` giây, dùng chung 1 số cho mọi item — video chỉ bị cắt nếu THẬT SỰ dài hơn).
+    'visualBgSettingsDrawer.durationMode.label': 'Duration mode',
+    'visualBgSettingsDrawer.durationMode.duration': 'Natural duration',
+    'visualBgSettingsDrawer.durationMode.fixtime': 'Fixed time',
+    'visualBgSettingsDrawer.durationSeconds.labelVideo': 'Seconds per video',
+    'visualBgSettingsDrawer.durationSeconds.labelPhoto': 'Seconds per photo',
+    'visualBgSettingsDrawer.durationSeconds.pickerTitle': 'Seconds per video/photo',
     // XOÁ (29/08/2026) — Album đã bỏ trước đó rồi (albumPicker.* chết từ lâu, dọn luôn nhân dịp sửa
     // khối này) — Photo giờ có Folder thật (chung hạ tầng Song/Video), không còn Album.
     // MỚI (29/08/2026) — nút "Thư mục" giờ multi-select + dropdown đổi loại (Video/Ảnh) ngay trong
@@ -135,11 +145,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // tiêu đề DUY NHẤT cho cả panel) ĐÃ XOÁ, thay bằng 3 tiêu đề nhóm riêng.
     'slideshowSettingsDrawer.groupTransition.title': 'Transition',
     'slideshowSettingsDrawer.groupKenBurns.title': 'Photo Movement',
-    // MỚI (04/07/2026, mục 5 phản hồi Giang).
-    'slideshowSettingsDrawer.interval.label': 'Seconds per photo',
-    'slideshowSettingsDrawer.interval.hint': 'Minimum 5 seconds — transition below is always kept shorter than this',
-    // MỚI (18/07/2026, phản hồi Giang) — tiêu đề modal picker (core/time-picker-modal.js).
-    'slideshowSettingsDrawer.interval.pickerTitle': 'Seconds per photo',
+    // XOÁ (29/08/2026) — 3 key 'interval.*' ("Seconds per photo") bỏ hẳn cùng hàng UI đã dời sang
+    // panel VBG cha — xem visualBgSettingsDrawer.durationSeconds.*/durationMode.* ngay dưới.
     'slideshowSettingsDrawer.transition.label': 'Transition effect',
     'slideshowSettingsDrawer.transition.fade': 'Fade',
     'slideshowSettingsDrawer.transition.slideLeft': 'Slide left',
