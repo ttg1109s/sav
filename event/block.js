@@ -71,29 +71,28 @@ eventBus.registerBlock('playlist.actionMenu.addToFolder', [
     ],
 ]);
 
-// MỚI (v13 Batch B) — nút "Chọn nguồn" của Visual Background mở Generic Drawer ở 3/4 tổ hợp
-// (video+single, image+list, video+list). Tổ hợp còn lại (image+single) mở modal RIÊNG
-// (`openImageLibraryPickerModal()`), không đụng Generic Drawer — nhưng chỉ có ĐÚNG 1 msg.type cho
-// cả 4 nhánh (Router mới rẽ bằng VirtualMachineState) nên đăng ký 1 dòng là đủ, và chặn nhánh
-// image+single lúc Drawer đang mở cũng đúng ý (không mở chồng 2 picker).
-// SỬA (v14) — 1 msg.type 'visualBg.pickSource.click' cũ tách thành 2 ('pickSingleSource'/
-// 'pickGroupSource', không còn tổ hợp sourceMode) — đăng ký lại cho CẢ HAI. Gộp LUÔN điều kiện
-// "xung đột Video Player mode" (trước ở 'visualBg.enable.on.click', msg.type đó không còn tồn tại
-// vì không còn toggle bật/tắt riêng — chọn nguồn giờ CHÍNH LÀ hành động "bật") vào CÙNG 2 dòng này
-// — `options.notify` chỉ nhận 1 chuỗi dùng chung mọi nhóm khớp, chọn thông báo của nhóm PHỔ BIẾN
-// hơn (xung đột Video Player), nhóm `isGenericDrawerOpen` vốn hiếm khi tự người dùng bấm trúng lúc
-// picker đã mở nên chấp nhận đánh đổi nhỏ này (cùng đánh đổi đã có sẵn ở dòng cũ).
-eventBus.registerBlock('visualBg.pickSingleSource.click', [
-    [{ field: 'isGenericDrawerOpen', operator: '===', value: true }],
+// MỚI (29/08/2026, thay hẳn 'pickSingleSource'/'pickGroupSource' cũ — 3 nút "Chọn nguồn" mới:
+// Video/Ảnh/Thư mục, xem components/visual-bg-settings-drawer.js) — CHỐT Giang: "VBG chỉ áp dụng
+// và được thao tác khi Playlist đang ở Nguồn Song" — KHÔNG phải "khác Video" như bản nháp trước
+// (đó vẫn cho qua lúc Playlist ở Photo, sai với chốt này) — điều kiện ĐÚNG là
+// `activeMediaSource !== 'song'`, chặn CẢ Video LẪN Photo.
+// Nhóm THỨ 2 (`isVideoPlayerMode`) là xung đột TÀI NGUYÊN thật (video nền đang chiếm
+// `bgVideoElement`) — HOÀN TOÀN khác lý do "sai ngữ cảnh nguồn" ở nhóm 1 (đổi tab Playlist về Song
+// KHÔNG tự dừng video đang phát, xem event/workflow/playlist.js::switchToSongSource() — 2 nhóm này
+// độc lập, có thể khớp riêng lẻ). Dùng `groupNotify` (event/bus.js) để mỗi nhóm hiện ĐÚNG message
+// của nó — bug gốc (message chung "đổi Playlist về Song" hiện ra dù Playlist ĐÃ ở Song, vì nhóm
+// khớp thật là isVideoPlayerMode) không lặp lại.
+const VISUAL_BG_PICK_BLOCK_GROUPS = [
     [{ field: 'isVideoPlayerMode', operator: '===', value: true }],
-    [{ field: 'activeMediaSource', operator: '===', value: 'video' }],
-], { notify: t('visualBgSettingsDrawer.blockedBySourceVideo') });
-
-eventBus.registerBlock('visualBg.pickGroupSource.click', [
-    [{ field: 'isGenericDrawerOpen', operator: '===', value: true }],
-    [{ field: 'isVideoPlayerMode', operator: '===', value: true }],
-    [{ field: 'activeMediaSource', operator: '===', value: 'video' }],
-], { notify: t('visualBgSettingsDrawer.blockedBySourceVideo') });
+    [{ field: 'activeMediaSource', operator: '!==', value: 'song' }],
+];
+const VISUAL_BG_PICK_BLOCK_MESSAGES = [
+    t('visualBgSettingsDrawer.blockedByVideoPlaying'),
+    t('visualBgSettingsDrawer.blockedByNotSongSource'),
+];
+eventBus.registerBlock('visualBg.pickVideo.click', VISUAL_BG_PICK_BLOCK_GROUPS, { groupNotify: VISUAL_BG_PICK_BLOCK_MESSAGES });
+eventBus.registerBlock('visualBg.pickPhoto.click', VISUAL_BG_PICK_BLOCK_GROUPS, { groupNotify: VISUAL_BG_PICK_BLOCK_MESSAGES });
+eventBus.registerBlock('visualBg.pickFolder.click', VISUAL_BG_PICK_BLOCK_GROUPS, { groupNotify: VISUAL_BG_PICK_BLOCK_MESSAGES });
 
 // ===================== Visual Background — chặn XOÁ nguồn đang tham chiếu =====================
 // XOÁ HẲN (v14, Giang chốt mục 2) — 4 block cũ ('playlist.actionMenu.delete.click'/
@@ -120,20 +119,16 @@ eventBus.registerBlock('visualBg.pickGroupSource.click', [
 // `startFromPlaylist()` tự gọi `workflowVisualBg.clearMediaLayers()` để nhường `bgVideoElement`
 // (không đợi Block gate chặn trước nữa).
 //
-// Chiều CÒN LẠI (chặn MỞ panel/chọn nguồn Visual Background khi Playlist đang browse Video) — GIỮ,
-// đổi msg.type theo router mới `visualBg` (không còn toggle bật/tắt riêng, chọn nguồn CHÍNH LÀ hành
-// động cần chặn) + thêm chặn NGAY TỪ LÚC MỞ PANEL (Giang chốt mục 2 — "khoá vào sub setting visual
-// background"), không chỉ chặn lúc bấm nút chọn nguồn bên trong.
-// SỬA (08/08/2026, phản hồi Giang — "đổi tab Playlist chỉ mở khoá panel, không có nghĩa video đang
-// phát bị VBG chèn ngay") — TÁCH riêng 2 việc: XEM panel (case này) chỉ còn phụ thuộc
-// `activeMediaSource` (đang browse tab nào), KHÔNG còn phụ thuộc `isVideoPlayerMode` — đổi tab
-// Playlist sang Song là mở khoá được panel ngay dù video vẫn đang phát nền thật. Việc ÁP DỤNG THẬT
-// (chiếm bgVideoElement) vẫn bị chặn riêng ở 2 block 'visualBg.pickSingleSource.click'/
-// 'pickGroupSource.click' ngay trên — 2 block ĐÓ mới là nơi cần giữ `isVideoPlayerMode`, xem
-// `_resolveAndCommitSource()` (event/workflow/visual-bg.js) gọi thẳng `applyCurrentVisualBg()`.
+// Chiều CÒN LẠI (chặn MỞ panel Visual Background khi Playlist KHÔNG ở Nguồn Song) — GIỮ, đổi
+// msg.type theo router mới `visualBg`.
+// SỬA (29/08/2026, CHỐT Giang — "VBG chỉ áp dụng và được thao tác khi Playlist đang ở Nguồn Song")
+// — điều kiện cũ `activeMediaSource === 'video'` (chỉ chặn Video, vẫn cho mở lúc Playlist ở Photo)
+// đổi thành `activeMediaSource !== 'song'` (chặn CẢ Video LẪN Photo) — khớp ĐÚNG chốt trên, dùng
+// CHUNG message với 2 block "Chọn nguồn" (VISUAL_BG_PICK_BLOCK_MESSAGES[1], ngay trên) vì CÙNG 1 lý
+// do chặn thật.
 eventBus.registerBlock('visualBg.openPanel.click', [
-    [{ field: 'activeMediaSource', operator: '===', value: 'video' }],
-], { notify: t('visualBgSettingsDrawer.blockedBySourceVideo') });
+    [{ field: 'activeMediaSource', operator: '!==', value: 'song' }],
+], { notify: VISUAL_BG_PICK_BLOCK_MESSAGES[1] });
 
 
 // ===================== Modal xem ảnh Photo — KHÔNG còn Block gate nào =====================

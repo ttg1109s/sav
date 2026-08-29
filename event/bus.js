@@ -135,26 +135,37 @@ const eventBus = (() => {
      * CHẶN THẬT (isBlocked() trả true) tự bật `alertModal(options.notify)` báo cho người dùng biết
      * VÌ SAO hành động vừa bấm không xảy ra, thay vì im lặng không phản hồi gì. Không truyền
      * `options`/`notify` -> giữ nguyên hành vi cũ (chặn im lặng).
+     * MỚI (29/08/2026, phản hồi Giang — 1 message chung cho nhiều LÝ DO chặn khác nhau từng khiến
+     * người dùng đọc sai nguyên nhân thật đang chặn, vd "đổi Playlist về Song" hiện ra dù Playlist
+     * ĐÃ ở Song, lý do chặn thật là nhóm khác) — `options.groupNotify` (mảng string, tuỳ chọn,
+     * SONG SONG chỉ số với `groups`): nhóm thứ mấy KHỚP thật (đầu tiên khớp — OR giữa nhóm dừng ở
+     * đó) thì dùng ĐÚNG message của nhóm đó (`groupNotify[i]`) nếu có, KHÔNG có thì fallback về
+     * `options.notify` chung. Không truyền `groupNotify` -> hành vi CŨ y nguyên (1 message chung).
      * @param {string} msgType
      * @param {Array<Array<{field: string, operator: string, value: *}>>} groups - mảng nhóm,
      *        OR giữa nhóm, AND trong 1 nhóm (xem BLOCK GATE ở JSDoc đầu file).
-     * @param {{notify?: string}} [options]
+     * @param {{notify?: string, groupNotify?: string[]}} [options]
      */
     function registerBlock(msgType, groups, options) {
         if (blocks.has(msgType)) {
             console.warn(`[eventBus] registerBlock("${msgType}") ghi đè block đã đăng ký trước đó — kiểm tra lại có bị nạp trùng file không.`);
         }
-        blocks.set(msgType, { groups, notify: options?.notify ?? null });
+        blocks.set(msgType, { groups, notify: options?.notify ?? null, groupNotify: options?.groupNotify ?? null });
     }
 
     /** @param {string} msgType @param {object} [payload] @returns {boolean} true nếu đang bị chặn.
-     * MỚI: tự bật notify (nếu đăng ký có) đúng lúc chặn thật xảy ra — xem registerBlock() ở trên. */
+     * MỚI: tự bật notify (nếu đăng ký có) đúng lúc chặn thật xảy ra — xem registerBlock() ở trên.
+     * SỬA (29/08/2026) — `.some()` (chỉ biết CÓ khớp hay không) đổi sang `.findIndex()` (biết ĐÚNG
+     * nhóm nào khớp ĐẦU TIÊN — cùng ngữ nghĩa OR-dừng-sớm, không đổi hành vi CHẶN/KHÔNG CHẶN) để
+     * chọn ĐÚNG `groupNotify[i]` của nhóm đó, xem docstring `registerBlock()`. */
     function isBlocked(msgType, payload) {
         const entry = blocks.get(msgType);
         if (!entry) return false;
-        const blocked = entry.groups.some(group => group.every((cond) => evalCondition(cond, payload))); // OR giữa nhóm, AND trong nhóm
-        if (blocked && entry.notify) {
-            alertModal(entry.notify); // KHÔNG await — isBlocked() phải trả boolean NGAY, không chờ modal đóng
+        const matchedIndex = entry.groups.findIndex((group) => group.every((cond) => evalCondition(cond, payload))); // OR giữa nhóm (dừng ở nhóm khớp ĐẦU TIÊN), AND trong nhóm
+        const blocked = matchedIndex !== -1;
+        if (blocked) {
+            const msg = (entry.groupNotify && entry.groupNotify[matchedIndex]) || entry.notify;
+            if (msg) alertModal(msg); // KHÔNG await — isBlocked() phải trả boolean NGAY, không chờ modal đóng
         }
         return blocked;
     }
