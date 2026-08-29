@@ -27,6 +27,10 @@ const routerAppSettings = (() => {
         display: () => workflowAppSettings._renderDisplay(),
         autoSwitch: () => workflowAppSettings._renderAutoSwitch(),
         visualBg: () => workflowAppSettings._renderVisualBg(),
+        // MỚI (29/08/2026) — hệ Cấu hình Slideshow, xem event/workflow/slideshow-presets.js.
+        slideshowManage: () => workflowAppSettings._renderSlideshowManage(),
+        slideshowApply: () => workflowAppSettings._renderSlideshowApply(),
+        slideshowApplyPhotoVisualBg: () => workflowAppSettings._renderSlideshowApplyPhotoVisualBg(),
     };
 
     function handle(msg) {

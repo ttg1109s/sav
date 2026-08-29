@@ -185,14 +185,9 @@ const routerVisualBg = (() => {
                 workflowVisualBg._onVideoEnded();
                 break;
 
-            case 'visualBg.openSlideshowPanel.click':
-                // SỬA (đợt migrate Visualizer Screen) — TRƯỚC ĐÂY gọi thẳng workflowSlideshow.
-                // openPanel() (tự pushSettingsPanel() TRÊN panel Visual BG, 2 khung riêng biệt).
-                // Nay CẢ 2 sống chung 1 Generic Drawer — phải điều hướng qua ngăn xếp của
-                // event/workflow/app-settings.js (liên tuyến domain, TH2) để Back quay lại ĐÚNG
-                // Visual Background thay vì mất dấu.
-                workflowAppSettings.navigateTo(() => workflowAppSettings._renderSlideshow());
-                break;
+            // XOÁ (29/08/2026) — 'visualBg.openSlideshowPanel.click' bỏ hẳn cùng hàng UI, Slideshow
+            // giờ chỉ mở được từ System > Slideshow (event/router/app-settings.js), không còn liên
+            // kết từ Visual Background.
 
             // MỚI (08/08/2026) — sub-panel "Âm thanh Video".
             case 'visualBg.openVideoAudioPanel.click':
