@@ -31,7 +31,8 @@ const VISUAL_BG_SETTINGS_INPUT_MAP = {
     'setting-visual-bg-gradient-angle:input': { type: 'visualBg.gradientAngle.input' },
     'setting-visual-bg-gradient-add:click': { type: 'visualBg.gradientStop.add.click', bare: true },
     'setting-visual-bg-open-gradient:click': { type: 'visualBg.openGradientPanel.click', bare: true },
-    'setting-visual-bg-open-slideshow:click': { type: 'visualBg.openSlideshowPanel.click', bare: true },
+    // XOÁ (29/08/2026) — 'setting-visual-bg-open-slideshow:click' bỏ hẳn cùng hàng UI, xem
+    // components/visual-bg-settings-drawer.js.
     'setting-visual-bg-open-video-audio:click': { type: 'visualBg.openVideoAudioPanel.click', bare: true },
     // MỚI (12/08/2026, Giang yêu cầu mục 6 — "Movement" + "Color swap") — 4 input number dùng
     // 'change' (KHÔNG 'input' như 2 slider gradient ở trên) — đây là ô GÕ số, không phải kéo trượt,
