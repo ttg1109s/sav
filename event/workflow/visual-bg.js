@@ -748,7 +748,13 @@ const workflowVisualBg = {
      */
     _diffKeyLists(oldList, newList) {
         const oldKeys = oldList.filter((k) => k !== null);
-        const unchanged = newList.length === oldList.length && newList.every((k, i) => k === oldList[i]);
+        // SỬA (29/08/2026, Giang báo — "Làm tươi list không đổi vẫn hiện modal chờ lượt mới, FAIL")
+        // — so `newList` với `oldList` GỐC (có thể chứa `null` — slot bị quét rỗng lúc 1 ảnh/video
+        // ĐANG cycle bị xoá giữa chừng, xem `persistSourceListMutation()`) khiến 2 danh sách CÙNG
+        // nội dung sống vẫn bị coi "có đổi" chỉ vì lệch SỐ LƯỢNG slot (null có tính, key thật thì
+        // không) — `_readOriginKeys()` không bao giờ trả `null`. Phải so với `oldKeys` (ĐÃ lọc bỏ
+        // null) mới đúng "nội dung sống có đổi hay không".
+        const unchanged = newList.length === oldKeys.length && newList.every((k, i) => k === oldKeys[i]);
         const oldSet = new Set(oldKeys);
         const newSet = new Set(newList);
         const added = newList.filter((k) => !oldSet.has(k)).length;
