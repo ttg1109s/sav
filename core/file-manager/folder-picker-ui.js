@@ -116,6 +116,16 @@ function wireFolderPickerDrawerEvents(routerName, msgPrefix) {
     const closeBtn = genericDrawerHeader.querySelector('#btn-generic-drawer-close');
     if (closeBtn) closeBtn.addEventListener('click', () => eventBus.send({ router: routerName, type: `${msgPrefix}.close.click`, payload: {} }));
 
+    // MỚI (29/08/2026) — nút "Chọn (N)" xác nhận (multiSelect) + dropdown đổi loại folder đang
+    // duyệt (typeOptions) — CẢ 2 tuỳ chọn, chỉ xuất hiện trong headerHtml khi nơi gọi truyền
+    // tương ứng (xem event/workflow/playlist.js::_buildFolderPickerHeaderHtml()); querySelector trả
+    // null thì bỏ qua im lặng, không đụng gì tới 2 luồng "Thêm vào thư mục" của Playlist tự thân.
+    const confirmBtn = genericDrawerHeader.querySelector('#playlist-folder-picker-confirm');
+    if (confirmBtn) confirmBtn.addEventListener('click', () => eventBus.send({ router: routerName, type: `${msgPrefix}.confirm.click`, payload: {} }));
+
+    const typeSelect = genericDrawerHeader.querySelector('#playlist-folder-picker-type');
+    if (typeSelect) typeSelect.addEventListener('change', (e) => eventBus.send({ router: routerName, type: `${msgPrefix}.typeChange`, payload: { value: e.target.value } }));
+
     genericDrawerBody.querySelectorAll('.generic-item-folder-tile').forEach((tileEl) => {
         tileEl.addEventListener('click', () => eventBus.send({ router: routerName, type: `${msgPrefix}.tile.click`, payload: { folderId: tileEl.dataset.folderId } }));
     });
