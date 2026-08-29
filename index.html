@@ -470,6 +470,12 @@
          TRƯỚC service/state/record/index.js (registry('player','all') cần package này đã
          definePackage() xong, xem docstring file đó). -->
     <script src="service/state/gameplay-runtime.js?v=20260819v8"></script>
+    <!-- MỚI (29/08/2026) — service/state/slideshow-presets.js — hệ "Cấu hình Slideshow" độc lập.
+         PHẢI nạp TRƯỚC service/state/record/index.js (registry('player','all') cần package này đã
+         đăng ký) — BUG đã sửa: thiếu dòng nạp này khiến appState.get('slideshowPresets') luôn
+         undefined, làm 2 màn "Quản lý cấu hình"/"Áp dụng cấu hình" crash ngang giữa chừng lúc mở
+         (Back vẫn đúng vì ngăn xếp đã push TRƯỚC lúc crash, xem docstring file đó). -->
+    <script src="service/state/slideshow-presets.js?v=20260829v1"></script>
     <script src="service/state/record/index.js?v=20260725v1"></script>
     <!-- core/config.js — TÁI CẤU TRÚC 25/07/2026: giờ CHỈ giữ 3 bản default (viz/slideshow/
          reader, đã GỘP CHUẨN — xem comment đầu file) + hàm nghiệp vụ thuần (seedConfig/
