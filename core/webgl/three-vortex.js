@@ -11,6 +11,23 @@
         let tWarpSpeed = 0; // biến NỘI BỘ (không thuộc STATE) — chỉ dùng trong drawVortex()
         const TUNNEL_DEPTH = 3000;
 
+        // Bán kính an toàn CỨNG cho camera — nhỏ hơn mép trong của style hẹp nhất (wave: 300−40=260,
+        // rings/bars: 350) — đảm bảo camera KHÔNG BAO GIỜ văng ra ngoài thành ống dù damping có lag
+        // tới đâu (mục "loại bỏ hoàn toàn va đập thành ống", phản hồi Giang).
+        const VORTEX_CAMERA_SAFE_RADIUS = 200;
+
+        /** Kẹp cứng offset camera khỏi tâm ống về trong `safeRadius` — khác `updateVortexCurveLerp()`
+         * (làm camera đuổi theo tâm MƯỢT nhưng không có gì chặn khi tâm di chuyển nhanh hơn tốc độ
+         * đuổi), hàm này là LƯỚI AN TOÀN CUỐI — luôn đảm bảo camera nằm trong ống bất kể mọi lag. */
+        function clampVortexCameraOffset(cameraX, cameraY, centerX, centerY, safeRadius) {
+            const dx = cameraX - centerX;
+            const dy = cameraY - centerY;
+            const dist = Math.hypot(dx, dy);
+            if (dist <= safeRadius) return { x: cameraX, y: cameraY };
+            const scale = safeRadius / dist;
+            return { x: centerX + dx * scale, y: centerY + dy * scale };
+        }
+
         // Tính toán tọa độ tâm của ống hầm tại một điểm Z bất kỳ
         function getVortexCenterAt(z) {
             const params = appState.get('tPathParams');
