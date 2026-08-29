@@ -11,8 +11,7 @@
  * biết quay lại ĐÚNG màn trước, KHÔNG phải DOM push/pop.
  *
  * TÁI DÙNG NGUYÊN VẸN mọi hàm render/hàm đồng bộ giá trị đã có (renderGestureSettingsPanelBody(),
- * workflowGestureSettings.openPanel(), renderSlideshowPanelBody(), workflowSlideshow.openPanel(),
- * TPL_SETTINGS_LANGUAGE, renderLanguageOptions(), renderDebugConsolePanelBody(),
+ * workflowGestureSettings.openPanel(), TPL_SETTINGS_LANGUAGE, renderLanguageOptions(), renderDebugConsolePanelBody(),
  * workflowSettingsMisc.openDebugConsole(), TPL_SETTINGS_PLAYLIST_VIEW, workflowPlaylist.
  * openSortPanel()/openFilterPanel(), 3 hàm askRestartApp/askRestoreDefaults/askClearCache) — các
  * hàm đó ĐÃ được sửa (đợt này) để đọc/ghi qua `genericDrawerBody` thay vì panel push động cũ
@@ -81,8 +80,14 @@ const workflowAppSettings = {
 
     /** Dựng header (Back nếu không phải Main + Close X luôn có) + bodyHtml bọc `.app-settings-scope`
      * rồi mở/swap Generic Drawer + gọi `onMount(genericDrawerBody)` để màn tự đồng bộ giá trị/wire.
-     * @param {string} title @param {string} bodyHtml @param {(body: HTMLElement) => void} [onMount] */
-    _render(title, bodyHtml, onMount) {
+     * MỞ RỘNG (29/08/2026, hệ "Cấu hình Slideshow") — tham số thứ 4 `extraHeaderHtml` (tuỳ chọn,
+     * KHÔNG đổi gì cho mọi màn cũ không truyền) — chèn THÊM 1 nút hành động vào header (vd "+" ở màn
+     * danh sách preset, "Xoá"/"Reset" ở màn sửa 1 preset) — đặt TRƯỚC nút Close, căn phải cùng cụm.
+     * @param {string} title @param {string} bodyHtml @param {(body: HTMLElement) => void} [onMount]
+     * @param {string} [extraHeaderHtml] - HTML 1 (hoặc vài) nút, tự wire ở `onMount` (Rule 5a — nút
+     *        RIÊNG của từng màn, không thuộc `wireAppSettingsHeader()` dùng chung).
+     */
+    _render(title, bodyHtml, onMount, extraHeaderHtml) {
         const hasBack = this._screenStack.length > 0;
         const config = {
             height: 'auto', // MỚI (phản hồi Giang mục 2) — tự co theo nội dung, xem core/generic-drawer.js
@@ -94,9 +99,12 @@ const workflowAppSettings = {
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
                     </button>` : ''}
                     <h3 class="text-base font-bold text-slate-900 truncate text-center">${title}</h3>
-                    <button id="btn-generic-drawer-close" class="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+                    <div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        ${extraHeaderHtml || ''}
+                        <button id="btn-generic-drawer-close" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
                 </div>
             `,
             bodyHtml: `<div class="app-settings-scope p-4">${bodyHtml}</div>`,
@@ -261,19 +269,98 @@ const workflowAppSettings = {
         });
     },
 
-    // ===================== Slideshow (TÁI DÙNG NGUYÊN renderSlideshowPanelBody() +
-    // workflowSlideshow — ĐÃ migrate sang genericDrawerBody) =====================
-    //
-    // CHƯA làm (đợt sau, cần thiết kế thêm — không đoán bừa): toggle bật/tắt riêng cho màn này +
-    // dropdown "áp dụng cho" [Ảnh nền/Video nền] + nút Apply, cấu hình khác nhau theo từng chế độ
-    // Visual Background (Giang yêu cầu mục System > Slideshow) — hiện `enable` vẫn nằm ở panel
-    // Visual Background (cha), CHƯA tách ra đây được vì Visual Background chính nó CHƯA migrate
-    // (xem _renderVisualizerScreen()). Nội dung Transition + Ken Burns bên dưới ĐÃ hoạt động đầy đủ.
+    // ===================== Slideshow — hệ Cấu hình độc lập (MỚI 29/08/2026, phản hồi Giang) =====
+    // Lối vào DUY NHẤT: System > Slideshow. 2 mục con: "Quản lý cấu hình" (danh sách preset, CRUD)
+    // và "Áp dụng cấu hình" (danh sách "nơi tiêu thụ" — hiện chỉ "Photo visual background"). Logic:
+    // event/workflow/slideshow-presets.js (workflowSlideshowPresets).
 
     _renderSlideshow() {
         this._currentRenderFn = () => this._renderSlideshow();
-        this._render(t('slideshowSettingsDrawer.title'), renderSlideshowPanelBody(), () => {
-            workflowSlideshow.openPanel(); // event/workflow/slideshow.js
+        const rows = [
+            { key: 'slideshowManage', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', labelKey: 'slideshowPresetsDrawer.menu.manage.label', hintKey: 'slideshowPresetsDrawer.menu.manage.hint' },
+            { key: 'slideshowApply', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', labelKey: 'slideshowPresetsDrawer.menu.apply.label', hintKey: 'slideshowPresetsDrawer.menu.apply.hint' },
+        ];
+        this._render(t('slideshowPresetsDrawer.menu.title'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // components/settings/app-settings-main.js, core/app-settings-ui.js
+    },
+
+    /** Danh sách preset — DÙNG CHUNG "Quản lý" (`workflowSlideshowPresets._pickMode===false`, có nút
+     * "+" header + xoá nhanh mỗi dòng) và "Áp dụng > Chọn" (`_pickMode===true`, KHÔNG có 2 nút đó,
+     * tap dòng = gắn NGAY thay vì mở Edit — xem `workflowSlideshowPresets.tileClick()`). */
+    _renderSlideshowManage() {
+        this._currentRenderFn = () => this._renderSlideshowManage();
+        const pickMode = workflowSlideshowPresets._pickMode; // event/workflow/slideshow-presets.js
+        const presets = appState.get('slideshowPresets');
+        this._render(
+            t(pickMode ? 'slideshowPresetsDrawer.list.pickTitle' : 'slideshowPresetsDrawer.menu.manage.label'),
+            renderSlideshowListBody(presets, pickMode), // components/slideshow-settings-drawer.js
+            (body) => {
+                body.querySelectorAll('[data-slideshow-preset-tile]').forEach((el) => {
+                    el.addEventListener('click', () => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.tile.click', payload: { id: el.dataset.slideshowPresetTile } }));
+                });
+                body.querySelectorAll('[data-slideshow-preset-quickdelete]').forEach((el) => {
+                    el.addEventListener('click', (e) => { e.stopPropagation(); eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.quickDelete.click', payload: { id: el.dataset.slideshowPresetQuickdelete } }); });
+                });
+                const addBtn = body.querySelector('#btn-slideshow-list-add'); // SỬA (29/08/2026) — dời từ header xuống hàng trong body, xem renderSlideshowListBody()
+                if (addBtn) addBtn.addEventListener('click', () => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.add.click', payload: {} }));
+            },
+        );
+    },
+
+    /** Sửa 1 preset (`workflowSlideshowPresets._editingId`). */
+    _renderSlideshowEdit() {
+        this._currentRenderFn = () => this._renderSlideshowEdit();
+        const preset = findSlideshowPresetById(appState.get('slideshowPresets'), workflowSlideshowPresets._editingId); // core/slideshow-presets.js
+        if (!preset) { this.back(); return; } // guard: preset vừa bị xoá ở nơi khác giữa lúc đang sửa — quay lại danh sách an toàn
+        this._render(
+            t('slideshowPresetsDrawer.edit.title'),
+            renderSlideshowEditBody(preset), // components/slideshow-settings-drawer.js
+            (body) => {
+                const nameInput = body.querySelector('#setting-slideshow-name');
+                if (nameInput) nameInput.addEventListener('blur', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.name.change', payload: { value: e.target.value } }));
+                const transitionEnabled = body.querySelector('#setting-slideshow-transition-enabled');
+                if (transitionEnabled) transitionEnabled.addEventListener('change', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.transitionEnabled.change', payload: { checked: e.target.checked } }));
+                const transitionType = body.querySelector('#setting-slideshow-transition');
+                if (transitionType) transitionType.addEventListener('change', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.transitionType.change', payload: { value: e.target.value } }));
+                const transitionDurationBtn = body.querySelector('#setting-slideshow-transition-duration');
+                if (transitionDurationBtn) transitionDurationBtn.addEventListener('click', () => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.openTransitionDurationPicker.click', payload: {} }));
+                const ratioSlider = body.querySelector('#setting-slideshow-transition-ratio');
+                if (ratioSlider) {
+                    ratioSlider.addEventListener('input', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.transitionRatio.preview', payload: { value: Number(e.target.value) } }));
+                    ratioSlider.addEventListener('change', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.transitionRatio.change', payload: { value: Number(e.target.value) } }));
+                }
+                workflowSlideshowPresets._updateTransitionRatioLabel(preset.transitionDurationMs, preset.transitionInOutRatio); // event/workflow/slideshow-presets.js
+                const easingSelect = body.querySelector('#setting-slideshow-transition-easing');
+                if (easingSelect) easingSelect.addEventListener('change', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.transitionEasing.change', payload: { value: e.target.value } }));
+                const kenBurnsToggle = body.querySelector('#setting-slideshow-kenburns');
+                if (kenBurnsToggle) kenBurnsToggle.addEventListener('change', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.kenBurnsEnabled.change', payload: { checked: e.target.checked } }));
+                const kenBurnsMode = body.querySelector('#setting-slideshow-kenburns-mode');
+                if (kenBurnsMode) kenBurnsMode.addEventListener('change', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.kenBurnsMode.change', payload: { value: e.target.value } }));
+
+                const resetBtn = body.querySelector('#btn-slideshow-edit-reset'); // SỬA (29/08/2026) — dời từ header xuống hàng cuối trong body, xem renderSlideshowEditBody() nhóm "Quản lý"
+                if (resetBtn) resetBtn.addEventListener('click', () => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.reset.click', payload: {} }));
+                const deleteBtn = body.querySelector('#btn-slideshow-edit-delete'); // SỬA (29/08/2026) — cùng lý do resetBtn ngay trên
+                if (deleteBtn) deleteBtn.addEventListener('click', () => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.delete.click', payload: {} }));
+            },
+        );
+    },
+
+    /** "Áp dụng cấu hình" — danh sách "nơi tiêu thụ" (tạm thời 1 dòng, DÙNG THẲNG
+     * `data-app-settings-nav`/NAV_TARGETS, không cần wiring riêng). */
+    _renderSlideshowApply() {
+        this._currentRenderFn = () => this._renderSlideshowApply();
+        const preset = findSlideshowPresetById(appState.get('slideshowPresets'), appConfigVisualBg.getAll().slideshowPresetId); // core/slideshow-presets.js, liên tuyến domain
+        this._render(t('slideshowPresetsDrawer.menu.apply.label'), renderSlideshowApplyListBody(preset ? preset.name : ''), wireAppSettingsSystem); // components/slideshow-settings-drawer.js, core/app-settings-ui.js
+    },
+
+    /** Chi tiết "Photo visual background". */
+    _renderSlideshowApplyPhotoVisualBg() {
+        this._currentRenderFn = () => this._renderSlideshowApplyPhotoVisualBg();
+        const preset = findSlideshowPresetById(appState.get('slideshowPresets'), appConfigVisualBg.getAll().slideshowPresetId); // core/slideshow-presets.js, liên tuyến domain
+        this._render(t('slideshowPresetsDrawer.apply.photoVisualBg.label'), renderSlideshowApplyDetailBody(preset ? preset.name : ''), (body) => { // components/slideshow-settings-drawer.js
+            const pickBtn = body.querySelector('#btn-slideshow-apply-pick');
+            if (pickBtn) pickBtn.addEventListener('click', () => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.openPickForPhotoVisualBg.click', payload: {} }));
+            const detachBtn = body.querySelector('#btn-slideshow-apply-detach');
+            if (detachBtn) detachBtn.addEventListener('click', () => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.detachFromPhotoVisualBg.click', payload: {} }));
         });
     },
 

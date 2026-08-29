@@ -110,17 +110,18 @@ const workflowVisualBg = {
                     if (typeof gm.colorSwapIntervalMs === 'number' && gm.colorSwapIntervalMs >= VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MIN_MS && gm.colorSwapIntervalMs <= VISUAL_BG_GRADIENT_MOVEMENT_ROTATE_MAX_MS) cfg.gradientMovement.colorSwapIntervalMs = gm.colorSwapIntervalMs;
                     if (typeof gm.colorSwapTransitionMs === 'number' && gm.colorSwapTransitionMs >= VISUAL_BG_GRADIENT_MOVEMENT_TRANSITION_MIN_MS && gm.colorSwapTransitionMs <= VISUAL_BG_GRADIENT_MOVEMENT_TRANSITION_MAX_MS) cfg.gradientMovement.colorSwapTransitionMs = gm.colorSwapTransitionMs;
                 }
-                if (saved.slideshow && typeof saved.slideshow === 'object') {
-                    const ss = saved.slideshow;
-                    // XOÁ (29/08/2026) — ss.intervalSeconds không còn validate ở đây (dời lên
-                    // `durationSeconds` top-level, MIGRATE ở khối ngay trên).
-                    if (SLIDESHOW_TRANSITION_TYPES.includes(ss.transitionType)) cfg.slideshow.transitionType = ss.transitionType;
-                    if (typeof ss.transitionDurationMs === 'number' && ss.transitionDurationMs >= SLIDESHOW_TRANSITION_MIN_TIME_MS && ss.transitionDurationMs <= SLIDESHOW_TRANSITION_MAX_TIME_MS) cfg.slideshow.transitionDurationMs = ss.transitionDurationMs;
-                    if (typeof ss.transitionInOutRatio === 'number' && ss.transitionInOutRatio >= 0 && ss.transitionInOutRatio <= 100) cfg.slideshow.transitionInOutRatio = ss.transitionInOutRatio;
-                    if (SLIDESHOW_TRANSITION_EASINGS.includes(ss.transitionEasing)) cfg.slideshow.transitionEasing = ss.transitionEasing;
-                    if (typeof ss.kenBurnsEnabled === 'boolean') cfg.slideshow.kenBurnsEnabled = ss.kenBurnsEnabled;
-                    if (SLIDESHOW_KENBURNS_MODES.includes(ss.kenBurnsMode)) cfg.slideshow.kenBurnsMode = ss.kenBurnsMode;
-                }
+                // XOÁ (29/08/2026, phản hồi Giang — Slideshow tách hệ preset độc lập) — khối validate
+                // `saved.slideshow.*` (transitionType/transitionDurationMs/.../kenBurnsMode) bỏ hẳn:
+                // `cfg.slideshow` không còn tồn tại trong schema (core/config.js) — BUG đã sửa: khối
+                // cũ vẫn ghi `cfg.slideshow.xxx = ...` sẽ throw TypeError lúc boot (cfg.slideshow là
+                // undefined). Cấu hình Transition/Ken Burns CŨ (nếu Giang từng chỉnh) đã tự động
+                // MIGRATE thành preset đầu tiên bởi `workflowSlideshowPresets.loadPresetsOnBoot()`
+                // (chạy TRƯỚC hàm này, xem event/workflow/app-boot.js) — không cần xử lý gì thêm ở
+                // đây, chỉ cần khôi phục ĐÚNG tham chiếu `slideshowPresetId` ngay dưới.
+                // MỚI (29/08/2026) — khôi phục `slideshowPresetId` đã lưu (hoặc vừa migrate) — THIẾU
+                // dòng này thì tham chiếu preset đang gắn sẽ mất, về lại `null` mặc định MỖI LẦN
+                // reload app, dù `meta.visualBgConfig.slideshowPresetId` đã lưu đúng.
+                if (typeof saved.slideshowPresetId === 'string' || saved.slideshowPresetId === null) cfg.slideshowPresetId = saved.slideshowPresetId;
             });
             console.log(`writer: "workflowVisualBg.loadPersistedSettingsOnBoot", page: "visualBgConfig", content: "nạp lại từ meta"`);
         }
@@ -140,13 +141,9 @@ const workflowVisualBg = {
         await setMeta('visualBgConfig', appConfigVisualBg.getAll()); // service/db.js
     },
 
-    /** Sửa 1 field con `slideshow` + persist — dùng bởi workflowSlideshow (panel "Tuỳ chỉnh Trình
-     * chiếu", config sống ở domain này, liên tuyến domain Workflow->Workflow). */
-    async mutateSlideshowSetting(mutatorFn, logContent) {
-        appConfigVisualBg.mutateAll((cfg) => { mutatorFn(cfg.slideshow); });
-        console.log(`writer: "workflowVisualBg.mutateSlideshowSetting", page: "visualBgConfig", content: "slideshow.${logContent}"`);
-        await this._persist();
-    },
+    // XOÁ (29/08/2026, phản hồi Giang — Slideshow tách hệ preset độc lập) — mutateSlideshowSetting()
+    // bỏ hẳn: `cfg.slideshow` không còn tồn tại (xem core/config.js), sửa cấu hình Transition/Ken
+    // Burns giờ thuộc workflowSlideshowPresets._mutateEditing() (event/workflow/slideshow-presets.js).
 
     // ===================== Áp dụng nền =====================
 
@@ -1544,7 +1541,6 @@ const workflowVisualBg = {
         const listPlaybackRow = q('#visual-bg-list-playback-row');
         const nextOrderRow = q('#visual-bg-next-order-row');
         const nextOrderSelect = q('#setting-visual-bg-next-order');
-        const slideshowRow = q('#setting-visual-bg-open-slideshow');
         if (listPlaybackSelect) listPlaybackSelect.value = cfg.listPlaybackMode;
         if (nextOrderSelect) nextOrderSelect.value = cfg.nextOrder;
 
@@ -1555,10 +1551,10 @@ const workflowVisualBg = {
         // hàng dưới đây vẫn hiện theo count CŨ (source.list còn đang phát, có thể >1).
         const count = this._effectiveCount(this._effectiveDisplayedList(cfg));
         const isList = count > 1;
-        const isListPhoto = isList && cfg.type === 'photo';
+        // XOÁ (29/08/2026) — `isListPhoto` chỉ từng phục vụ `slideshowRow` (hàng "Slideshow
+        // options..." đã bỏ hẳn, xem components/visual-bg-settings-drawer.js) — bỏ luôn biến này.
         if (listPlaybackRow) listPlaybackRow.classList.toggle('hidden', !isList);
         if (nextOrderRow) nextOrderRow.classList.toggle('hidden', !isList);
-        if (slideshowRow) slideshowRow.classList.toggle('hidden', !(isListPhoto && cfg.listPlaybackMode === 'slideshow'));
 
         // MỚI (29/08/2026) — hàng "Duration mode" + "Seconds per video/photo" (dời từ slideshow,
         // dùng CHUNG video/ảnh) — CÙNG điều kiện hiện `isList` với Playback/Next order ngay trên

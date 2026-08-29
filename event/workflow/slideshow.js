@@ -7,17 +7,24 @@
  * 08/08/2026 — bước index giờ tính CHUNG bên `workflowVisualBg`, file này không tự gọi
  * `pickNextSlideshowIndexRandom/Sequential`/`advanceVisualBgList` nữa, xem comment 2 hàm đó).
  *
- * 2 vai trò: (1) Workflow bình thường cho router "slideshowSettings" (panel "Tuỳ chỉnh Trình
- * chiếu"); (2) "Router" cho task lặp tự sinh (`_tick()`, taskManager, ngoài eventBus — cùng khuôn
- * core/auto-switch-visual.js).
+ * XOÁ (29/08/2026, phản hồi Giang — Slideshow tách hệ preset độc lập) — cụm "Settings Drawer" +
+ * router "slideshowSettings" (2 file event/router,listener/slideshow.js) bỏ hẳn — panel sửa cấu
+ * hình Transition/Ken Burns giờ thuộc `workflowSlideshowPresets` (System > Slideshow), file NÀY chỉ
+ * còn ĐÚNG 1 vai trò: engine cycle ảnh thật (`_tick()`, taskManager, ngoài eventBus — cùng khuôn
+ * core/auto-switch-visual.js), đọc field cấu hình qua `_currentPreset()` (preset ĐANG GẮN cho Photo
+ * VBG, `appConfigVisualBg.slideshowPresetId` — KHÔNG còn `appConfigVisualBg.getAll().slideshow`
+ * nhúng thẳng nữa).
  *
- * NẠP SAU: core/file-manager/slideshow.js, core/visual-bg.js (markVisualBgListItemMissing),
- * core/file-manager/image.js, service/db.js, core/dom-refs.js (slideshowContainer/
- * slideshowLayer1,2/slideshowLayer1,2Pan), core/settings-panel-stack.js, service/task-manager.js,
- * event/workflow/visual-bg.js (workflowVisualBg).
- * NẠP TRƯỚC: event/router/slideshow.js.
+ * NẠP SAU: core/file-manager/slideshow.js, core/slideshow-presets.js (findSlideshowPresetById),
+ * core/visual-bg.js (markVisualBgListItemMissing), core/file-manager/image.js, service/db.js,
+ * core/dom-refs.js (slideshowContainer/slideshowLayer1,2/slideshowLayer1,2Pan), service/task-
+ * manager.js, event/workflow/visual-bg.js (workflowVisualBg).
  */
-let slideshowSettingsPanelEl = null; // SỬA (đợt tái cấu trúc bottom nav + phân phối lại Settings) — giờ luôn trỏ genericDrawerBody (core/generic-drawer.js) SAU lần openPanel() đầu, dùng genericDrawerPanel.classList.contains('hidden') để biết đang mở/đóng thay vì so null (xem event/workflow/app-settings.js)
+
+/** Preset "tắt hết" — dùng khi `slideshowPresetId` là null (chưa gắn) HOẶC trỏ tới preset không còn
+ * tồn tại (bị xoá ở nơi khác giữa chừng) — Giang chốt "2 công tắc cùng false thì không chạy hiệu ứng
+ * gì cả", KHÔNG fallback về bất kỳ hiệu ứng mặc định nào. */
+const SLIDESHOW_NO_OP_PRESET = { transitionEnabled: false, transitionType: 'fade', transitionDurationMs: 1000, transitionInOutRatio: 50, transitionEasing: 'linear', kenBurnsEnabled: false, kenBurnsMode: 'zoomPanRandom' };
 
 const SLIDESHOW_TASK = 'slideshowTimer';
 
@@ -49,6 +56,16 @@ const workflowSlideshow = {
     _getKenBurnsAnim(panEl) { return panEl === slideshowLayer1Pan ? this._kenBurnsAnim1 : this._kenBurnsAnim2; },
     _setKenBurnsAnim(panEl, anim) {
         if (panEl === slideshowLayer1Pan) this._kenBurnsAnim1 = anim; else this._kenBurnsAnim2 = anim;
+    },
+
+    /** MỚI (29/08/2026, phản hồi Giang — Slideshow tách hệ preset độc lập) — đọc preset ĐANG GẮN
+     * cho Photo VBG (`appConfigVisualBg.slideshowPresetId` -> tra `appState.slideshowPresets`, xem
+     * core/slideshow-presets.js). Chưa gắn/preset không còn tồn tại -> `SLIDESHOW_NO_OP_PRESET`
+     * (xem docstring hằng số đó) — KHÔNG throw, KHÔNG tự chọn preset khác thay thế. */
+    _currentPreset() {
+        const presetId = appConfigVisualBg.getAll().slideshowPresetId; // liên tuyến domain
+        const preset = presetId ? findSlideshowPresetById(appState.get('slideshowPresets'), presetId) : null; // core/slideshow-presets.js
+        return preset || SLIDESHOW_NO_OP_PRESET;
     },
 
     /** MỞ RỘNG (29/08/2026, phản hồi Giang — dời "Seconds per photo" sang panel VBG, dùng chung
@@ -146,8 +163,8 @@ const workflowSlideshow = {
     _activate() {
         if (this._isActive) return;
         this._isActive = true;
-        const cfg = appConfigVisualBg.getAll().slideshow;
-        if (cfg.kenBurnsEnabled && this._currentRecord) this._activateKenBurns(this._currentPanLayer(), cfg.kenBurnsMode, this._currentRecord);
+        const preset = this._currentPreset(); // MỚI (29/08/2026) — thay `appConfigVisualBg.getAll().slideshow` đã xoá
+        if (preset.kenBurnsEnabled && this._currentRecord) this._activateKenBurns(this._currentPanLayer(), preset.kenBurnsMode, this._currentRecord);
         // SỬA (29/08/2026) — `taskManager.once()` (tự kill sau khi bắn, KHÔNG count:0 lặp vô hạn với
         // 1 `time` cố định như trước) — mode 'duration' giờ có thể ra giá trị KHÁC NHAU mỗi ảnh
         // (field `duration` riêng của từng ảnh, xem `_computeAdvanceMs()`), phải TÍNH LẠI mỗi vòng —
@@ -224,8 +241,7 @@ const workflowSlideshow = {
         const panEl = this._currentPanLayer();
         setSlideshowLayerImage(panEl, objectUrl); // core
         if (layerEl) layerEl.classList.add('ss-current');
-        const cfg = appConfigVisualBg.getAll().slideshow;
-        setSlideshowTransitionType(slideshowContainer, cfg.transitionType); // core
+        setSlideshowTransitionType(slideshowContainer, this._currentPreset().transitionType); // core — MỚI (29/08/2026), thay `appConfigVisualBg.getAll().slideshow` đã xoá
         // Ken Burns KHÔNG tự bật ở đây nữa — xem _activate().
     },
 
@@ -271,7 +287,7 @@ const workflowSlideshow = {
             return; // giữ nguyên ảnh đang hiện
         }
 
-        const cfg = appConfigVisualBg.getAll().slideshow;
+        const preset = this._currentPreset(); // MỚI (29/08/2026) — thay `appConfigVisualBg.getAll().slideshow` đã xoá
         const image = record;
         // SỬA (29/08/2026) — gán `_currentRecord = image` NGAY TẠI ĐÂY (trước là dưới cuối hàm) —
         // `_computeAdvanceMs()` (mode 'duration') đọc `this._currentRecord.duration`, và dòng
@@ -285,30 +301,44 @@ const workflowSlideshow = {
         const outgoingPan = this._currentPanLayer();
         const incomingPan = this._idlePanLayer();
 
-        setSlideshowTransitionType(slideshowContainer, cfg.transitionType); // core
-        setSlideshowLayerImage(incomingPan, objectUrl); // core
-        if (cfg.kenBurnsEnabled) this._activateKenBurns(incomingPan, cfg.kenBurnsMode, image);
+        setSlideshowLayerImage(incomingPan, objectUrl); // core — LUÔN cần (pan layer giữ ảnh thật), bất kể có chạy Transition hay không
+        if (preset.kenBurnsEnabled) this._activateKenBurns(incomingPan, preset.kenBurnsMode, image);
 
-        const totalMs = capSlideshowTransitionDurationMs(cfg.transitionDurationMs, this._computeAdvanceMs()); // core
-        const { inMs, outMs } = transitionSupportsInOutRatio(cfg.transitionType) // core
-            ? computeSlideshowTransitionInOutMs(totalMs, cfg.transitionInOutRatio) // core
-            : { inMs: totalMs, outMs: totalMs };
-        setSlideshowTransitionTiming(incomingLayer, inMs, cfg.transitionEasing); // core
-        setSlideshowTransitionTiming(outgoingLayer, outMs, cfg.transitionEasing); // core
+        // MỚI (29/08/2026, Giang chốt "2 công tắc cùng false thì không chạy hiệu ứng gì cả") —
+        // `transitionEnabled=false` -> CẮT CỨNG, đi THẲNG tới đúng trạng thái nghỉ mà 1 lượt
+        // Transition bình thường sẽ kết thúc ở đó (xem finishSlideshowTransitionVisuals(), core/
+        // file-manager/slideshow.js) — KHÔNG qua bước enter/exit trung gian nào, KHÔNG animation.
+        if (preset.transitionEnabled) {
+            setSlideshowTransitionType(slideshowContainer, preset.transitionType); // core
+            const totalMs = capSlideshowTransitionDurationMs(preset.transitionDurationMs, this._computeAdvanceMs()); // core
+            const { inMs, outMs } = transitionSupportsInOutRatio(preset.transitionType) // core
+                ? computeSlideshowTransitionInOutMs(totalMs, preset.transitionInOutRatio) // core
+                : { inMs: totalMs, outMs: totalMs };
+            setSlideshowTransitionTiming(incomingLayer, inMs, preset.transitionEasing); // core
+            setSlideshowTransitionTiming(outgoingLayer, outMs, preset.transitionEasing); // core
 
-        startSlideshowTransitionVisuals(outgoingLayer, incomingLayer); // core
-        const cleanupDelayMs = Math.max(inMs, outMs);
-        taskManager.once(() => {
-            setSlideshowLayerImage(outgoingPan, ''); // core
+            startSlideshowTransitionVisuals(outgoingLayer, incomingLayer); // core
+            const cleanupDelayMs = Math.max(inMs, outMs);
+            taskManager.once(() => {
+                setSlideshowLayerImage(outgoingPan, ''); // core
+                stopSlideshowKenBurnsAnimation(outgoingPan, this._getKenBurnsAnim(outgoingPan)); // core
+                this._setKenBurnsAnim(outgoingPan, null);
+                finishSlideshowTransitionVisuals(outgoingLayer, incomingLayer); // core
+            }, cleanupDelayMs, 'slideshowTransitionCleanup');
+
+            if (this._currentObjectUrl) {
+                const staleUrl = this._currentObjectUrl;
+                taskManager.once(() => { try { URL.revokeObjectURL(staleUrl); } catch (e) {} }, cleanupDelayMs + 100, 'slideshowRevokeStale');
+            }
+        } else {
+            outgoingLayer.classList.remove('ss-current');
+            incomingLayer.classList.add('ss-current');
+            setSlideshowLayerImage(outgoingPan, ''); // core — dọn ảnh cũ khỏi pan layer NGAY (không có animation nào đang chạy chồng lên cần chờ)
             stopSlideshowKenBurnsAnimation(outgoingPan, this._getKenBurnsAnim(outgoingPan)); // core
             this._setKenBurnsAnim(outgoingPan, null);
-            finishSlideshowTransitionVisuals(outgoingLayer, incomingLayer); // core
-        }, cleanupDelayMs, 'slideshowTransitionCleanup');
-
-        if (this._currentObjectUrl) {
-            const staleUrl = this._currentObjectUrl;
-            taskManager.once(() => { try { URL.revokeObjectURL(staleUrl); } catch (e) {} }, cleanupDelayMs + 100, 'slideshowRevokeStale');
+            if (this._currentObjectUrl) { try { URL.revokeObjectURL(this._currentObjectUrl); } catch (e) {} } // dọn NGAY (không cần trễ 100ms như nhánh có Transition — không animation nào còn tham chiếu)
         }
+
         this._currentObjectUrl = objectUrl;
         this._layerToggle = !this._layerToggle;
 
@@ -324,180 +354,4 @@ const workflowSlideshow = {
         }
     },
 
-    // ===================== Settings Drawer (cụm router "slideshowSettings") =====================
-
-    async openPanel() {
-        slideshowSettingsPanelEl = genericDrawerBody; // core/generic-drawer.js — SỬA, xem docstring khai báo biến ở trên
-        await this.refreshDrawerUI();
-    },
-
-    async refreshDrawerUI() {
-        if (genericDrawerPanel.classList.contains('hidden')) return;
-        const cfg = appConfigVisualBg.getAll().slideshow;
-
-        // XOÁ (29/08/2026) — intervalBtn ("Seconds per photo") dời hẳn sang panel VBG, xem
-        // event/workflow/visual-bg.js::openDurationSecondsPicker()/refreshPanelUI().
-        const transitionSelect = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition');
-        const kenBurnsToggle = slideshowSettingsPanelEl.querySelector('#setting-slideshow-kenburns');
-        const kenBurnsModeRow = slideshowSettingsPanelEl.querySelector('#slideshow-kenburns-mode-row');
-        const kenBurnsModeSelect = slideshowSettingsPanelEl.querySelector('#setting-slideshow-kenburns-mode');
-        const transitionDurationBtn = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-duration');
-        const transitionRatioRow = slideshowSettingsPanelEl.querySelector('#slideshow-transition-ratio-row');
-        const transitionRatioSlider = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-ratio');
-        const transitionEasingSelect = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-easing');
-
-        if (transitionSelect) transitionSelect.value = cfg.transitionType;
-        if (kenBurnsToggle) kenBurnsToggle.checked = !!cfg.kenBurnsEnabled;
-        if (kenBurnsModeRow) kenBurnsModeRow.classList.toggle('hidden', !cfg.kenBurnsEnabled);
-        if (kenBurnsModeSelect) kenBurnsModeSelect.value = cfg.kenBurnsMode;
-        if (transitionDurationBtn) transitionDurationBtn.textContent = `${(cfg.transitionDurationMs / 1000).toFixed(1)}s`;
-        if (transitionRatioRow) transitionRatioRow.classList.toggle('hidden', !transitionSupportsInOutRatio(cfg.transitionType)); // core
-        if (transitionRatioSlider) transitionRatioSlider.value = cfg.transitionInOutRatio;
-        this._updateTransitionRatioLabel(slideshowSettingsPanelEl, cfg.transitionInOutRatio);
-        if (transitionEasingSelect) transitionEasingSelect.value = cfg.transitionEasing;
-    },
-
-    // XOÁ (29/08/2026) — openIntervalPicker() ("Seconds per photo") bỏ hẳn cùng hàng UI đã dời sang
-    // panel VBG — xem event/workflow/visual-bg.js::openDurationSecondsPicker() (bounds 5-60s y hệt,
-    // dùng chung `durationSeconds` cho CẢ video lẫn ảnh, không riêng ảnh nữa).
-
-    /** Ứng với select "Hiệu ứng chuyển cảnh" (12 kiểu — Ken Burns ĐÃ TÁCH khỏi danh sách này, xem
-     * changeKenBurnsEnabled() ngay dưới).
-     * @param {string} type
-     */
-    /** Ứng với select "Hiệu ứng chuyển cảnh" (12 kiểu — Ken Burns ĐÃ TÁCH khỏi danh sách này, xem
-     * changeKenBurnsEnabled() ngay dưới).
-     * SỬA (18/07/2026, phản hồi Giang — mục "thêm thời gian transition") — thêm ẩn/hiện hàng
-     * "Tỉ lệ In/Out" NGAY khi đổi kiểu (KHÔNG chờ mở lại panel) — CÙNG KHUÔN
-     * `changeKenBurnsEnabled()` tự toggle `#slideshow-kenburns-mode-row` ngay trong hàm, không gọi
-     * cả `refreshDrawerUI()` cho 1 thay đổi nhỏ.
-     * @param {string} type
-     */
-    async changeTransitionType(type) {
-        if (!SLIDESHOW_TRANSITION_TYPES.includes(type)) return; // guard: giá trị lạ -> bỏ qua
-        await workflowVisualBg.mutateSlideshowSetting((ss) => { ss.transitionType = type; }, `transitionType=${type}`); // event/workflow/visual-bg.js
-        setSlideshowTransitionType(slideshowContainer, type); // core — áp ngay cho lần chuyển cảnh kế tiếp
-        if (!genericDrawerPanel.classList.contains('hidden')) {
-            const ratioRow = slideshowSettingsPanelEl.querySelector('#slideshow-transition-ratio-row');
-            if (ratioRow) ratioRow.classList.toggle('hidden', !transitionSupportsInOutRatio(type)); // core
-        }
-    },
-
-    /** MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh") — ứng với nút
-     * "Thời gian chuyển cảnh" — mở modal chọn thời gian DÙNG CHUNG (core/time-picker-modal.js).
-     * `format: 's-ms'` (giây + phần mười giây — giữ độ chính xác dưới giây). Min 1s (Giang chốt,
-     * SLIDESHOW_TRANSITION_MIN_TIME_MS, core).
-     * SỬA (18/07/2026, phản hồi Giang — phát hiện bug: "phải bị max theo seconds chứ, không thể
-     * quay hơn, nhưng hiện tại có thể chọn lớn hơn") — Max KHÔNG còn cố định 60s nữa: transition
-     * KHÔNG BAO GIỜ nên dài hơn chính thời gian ảnh sẽ hiển thị (nếu không, y hệt bug "chuyển cảnh
-     * bị cắt ngang lượt kế tiếp" đã lường trước — capSlideshowTransitionDurationMs() ở `_tick()`
-     * VẪN giữ làm lưới an toàn RUNTIME, nhưng để tránh cho phép CHỌN 1 giá trị vô nghĩa ngay từ đầu,
-     * modal picker giờ tự kẹp Max = MIN(60s, thời gian ảnh hiển thị hiện tại —
-     * `_computeAdvanceMs()`).
-     * SỬA LẦN 2 (21/07/2026, Giang chốt: "max input transition phải LUÔN nhỏ hơn seconds per photo
-     * tối thiểu 1 đơn vị giây" — vd interval=5s thì max=4s, KHÔNG được bằng nhau) — trừ thêm 1000ms
-     * khỏi `_computeAdvanceMs()` TRƯỚC khi kẹp [MIN,MAX] — CÙNG công thức
-     * `capSlideshowTransitionDurationMs()` (core, dùng lại y hệt logic, không viết trùng — Rule 3c).
-     * Kẹp thêm 1 lớp an toàn `Math.max(MIN_TIME_MS, ...)` phòng trường hợp hiếm ảnh hiển thị CÒN LẠI
-     * dưới 2s (photoPerSong, bài hát sắp hết) khiến max tính ra nhỏ hơn cả min — tránh modal nhận
-     * biên [min,max] đảo ngược.
-     * Xác nhận -> persist + đồng bộ nhãn nút + đồng bộ LẠI nhãn "Tỉ lệ In/Out" (phụ thuộc TỔNG
-     * thời gian vừa đổi, xem `_updateTransitionRatioLabel()`). */
-    openTransitionDurationPicker() {
-        if (genericDrawerPanel.classList.contains('hidden')) return;
-        const cfg = appConfigVisualBg.getAll().slideshow;
-        const maxMs = Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, Math.min(SLIDESHOW_TRANSITION_MAX_TIME_MS, this._computeAdvanceMs() - 1000));
-        openTimePickerModal({ // core/time-picker-modal.js
-            title: t('slideshowSettingsDrawer.transitionDuration.pickerTitle'),
-            format: 's-ms',
-            valueMs: Math.min(cfg.transitionDurationMs, maxMs), // kẹp vị trí cuộn ban đầu luôn, tránh mở lên vượt max mới
-            minMs: SLIDESHOW_TRANSITION_MIN_TIME_MS, // core
-            maxMs, // ĐỘNG theo thời gian ảnh hiển thị hiện tại — KHÔNG còn cố định 60s
-            onConfirm: async (resultMs) => {
-                const v = Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, Math.min(maxMs, resultMs));
-                await workflowVisualBg.mutateSlideshowSetting((ss) => { ss.transitionDurationMs = v; }, `transitionDurationMs=${v}`);
-                if (genericDrawerPanel.classList.contains('hidden')) return;
-                const btn = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-duration');
-                if (btn) btn.textContent = `${(v / 1000).toFixed(1)}s`;
-                const ratioSlider = slideshowSettingsPanelEl.querySelector('#setting-slideshow-transition-ratio');
-                this._updateTransitionRatioLabel(slideshowSettingsPanelEl, ratioSlider ? Number(ratioSlider.value) : v);
-            },
-        });
-    },
-
-    /** Cập nhật nhãn "In Xs / Out Ys" hiển thị cạnh slider Tỉ lệ In/Out — đọc `transitionDurationMs`
-     * hiện tại từ appState + `ratioPercent` truyền vào (KHÔNG đọc lại từ DOM slider — nơi gọi tự
-     * quyết định dùng giá trị nào, xem 2 nơi gọi hàm này).
-     * @param {HTMLElement} panelEl
-     * @param {number} ratioPercent
-     */
-    _updateTransitionRatioLabel(panelEl, ratioPercent) {
-        const labelEl = panelEl ? panelEl.querySelector('#slideshow-transition-ratio-label') : null;
-        if (!labelEl) return;
-        const cfg = appConfigVisualBg.getAll().slideshow;
-        const { inMs, outMs } = computeSlideshowTransitionInOutMs(cfg.transitionDurationMs, ratioPercent); // core
-        labelEl.textContent = tFormat('slideshowSettingsDrawer.transitionRatio.previewFormat', { in: (inMs / 1000).toFixed(1), out: (outMs / 1000).toFixed(1) });
-    },
-
-    /** Ứng với sự kiện 'input' (LIVE, đang kéo thả) trên slider Tỉ lệ In/Out — CHỈ cập nhật nhãn
-     * hiển thị ngay lúc kéo, KHÔNG persist (persist thật ở `changeTransitionRatio()`, bắn lúc
-     * 'change' — thả tay ra mới lưu, tránh ghi IndexedDB liên tục mỗi pixel kéo).
-     * @param {number} ratioPercent
-     */
-    previewTransitionRatio(ratioPercent) {
-        if (genericDrawerPanel.classList.contains('hidden')) return;
-        this._updateTransitionRatioLabel(slideshowSettingsPanelEl, ratioPercent);
-    },
-
-    /** Ứng với sự kiện 'change' (thả tay) trên slider Tỉ lệ In/Out — persist + đồng bộ nhãn (khớp
-     * giá trị đã kẹp, nếu có).
-     * @param {number} ratioPercent
-     */
-    async changeTransitionRatio(ratioPercent) {
-        const v = Math.max(0, Math.min(100, ratioPercent));
-        await workflowVisualBg.mutateSlideshowSetting((ss) => { ss.transitionInOutRatio = v; }, `transitionInOutRatio=${v}`);
-        if (slideshowSettingsPanelEl) this._updateTransitionRatioLabel(slideshowSettingsPanelEl, v);
-    },
-
-    /** Ứng với select "Easing" — 5 giá trị hợp lệ (SLIDESHOW_TRANSITION_EASINGS, core) — 'linear'
-     * = Giang gọi "không easing" (tốc độ đều tăm tắp).
-     * @param {string} easing
-     */
-    async changeTransitionEasing(easing) {
-        if (!SLIDESHOW_TRANSITION_EASINGS.includes(easing)) return; // guard: giá trị lạ -> bỏ qua
-        await workflowVisualBg.mutateSlideshowSetting((ss) => { ss.transitionEasing = easing; }, `transitionEasing=${easing}`);
-    },
-
-    /** MỚI (Ken Burns, 18/07/2026, phản hồi Giang) — ứng với toggle "Ken Burns" (ĐỘC LẬP với
-     * transitionType, dùng ĐƯỢC cùng lúc với BẤT KỲ kiểu transition nào). CHỈ persist + đồng bộ
-     * state — KHÔNG ép reset/dừng ảnh đang hiện hoạt (Giang chốt: bật/tắt áp dụng từ ẢNH KẾ TIẾP,
-     * đúng tiền lệ `changeMode()`/`changeTransitionType()` — không đặc cách riêng cho Ken Burns).
-     * Cơ chế tick tự nhiên (`_showFirstImage()`/`_tick()`) tự đọc lại field này mỗi lượt đổi ảnh —
-     * TẮT giữa chừng: ảnh đang chạy cứ hiện hết BÌNH THƯỜNG (WAAPI tự giữ trạng thái cuối qua
-     * `fill:'forwards'`, không cần task freeze nào cả — xem docstring core), layer outgoing ở lượt
-     * `_tick()` kế tiếp tự gọi `stopSlideshowKenBurnsAnimation(outgoingPan, ...)` (code cleanup có
-     * sẵn) → tự về gốc, không cần xử lý gì thêm ở đây.
-     * SỬA ("Nhóm 2", 18/07/2026) — thêm ẩn/hiện hàng <select> chế độ, CÙNG KHUÔN
-     * `changePhotoPerSong()` tự toggle `#slideshow-interval-row` ngay trong hàm (không gọi cả
-     * `refreshDrawerUI()` cho 1 thay đổi nhỏ).
-     * @param {boolean} checked
-     */
-    async changeKenBurnsEnabled(checked) {
-        await workflowVisualBg.mutateSlideshowSetting((ss) => { ss.kenBurnsEnabled = checked; }, `kenBurnsEnabled=${checked}`);
-        if (!genericDrawerPanel.classList.contains('hidden')) {
-            const kenBurnsModeRow = slideshowSettingsPanelEl.querySelector('#slideshow-kenburns-mode-row');
-            if (kenBurnsModeRow) kenBurnsModeRow.classList.toggle('hidden', !checked);
-        }
-    },
-
-    /** MỚI ("Nhóm 2", 18/07/2026, phản hồi Giang) — ứng với <select> "Kiểu Ken Burns" (13 chế độ,
-     * THAY HẲN "Nhóm 1" — 8 biến thể random tự động, không chọn được). CHỈ persist — cơ chế tick
-     * tự nhiên tự đọc lại field này mỗi lượt kích hoạt Ken Burns (`_activateKenBurns()`), áp dụng
-     * từ ẢNH KẾ TIẾP như mọi field khác trong slideshowConfig.
-     * @param {string} mode - 1 trong SLIDESHOW_KENBURNS_MODES.
-     */
-    async changeKenBurnsMode(mode) {
-        if (!SLIDESHOW_KENBURNS_MODES.includes(mode)) return; // guard: giá trị lạ -> bỏ qua
-        await workflowVisualBg.mutateSlideshowSetting((ss) => { ss.kenBurnsMode = mode; }, `kenBurnsMode=${mode}`);
-    },
 };
