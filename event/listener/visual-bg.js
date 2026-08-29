@@ -13,11 +13,13 @@ if (btnOpenVisualBgSettings) {
 }
 
 const VISUAL_BG_SETTINGS_INPUT_MAP = {
-    'setting-visual-bg-type:change': { type: 'visualBg.type.change' },
     'setting-visual-bg-list-playback-mode:change': { type: 'visualBg.listPlaybackMode.change' },
     'setting-visual-bg-next-order:change': { type: 'visualBg.nextOrder.change' },
-    'setting-visual-bg-pick-single:click': { type: 'visualBg.pickSingleSource.click', bare: true },
-    'setting-visual-bg-pick-group:click': { type: 'visualBg.pickGroupSource.click', bare: true },
+    // MỚI (29/08/2026) — 3 nút chọn nguồn trực tiếp, thay dropdown Kiểu + 2 nút "Chọn 1"/"Chọn
+    // nhóm" cũ (xem components/visual-bg-settings-drawer.js).
+    'setting-visual-bg-pick-video:click': { type: 'visualBg.pickVideo.click', bare: true },
+    'setting-visual-bg-pick-photo:click': { type: 'visualBg.pickPhoto.click', bare: true },
+    'setting-visual-bg-pick-folder:click': { type: 'visualBg.pickFolder.click', bare: true },
     'setting-visual-bg-refresh-source:click': { type: 'visualBg.refreshSource.click', bare: true },
     'setting-visual-bg-clear-source:click': { type: 'visualBg.clearSource.click', bare: true },
     'setting-visual-bg-color-mode:change': { type: 'visualBg.colorMode.change' },
