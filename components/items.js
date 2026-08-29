@@ -101,9 +101,16 @@ function itemTemplateFolderTile(folder, ctx) {
             </div>
         `;
     }
+    // MỚI (29/08/2026, phản hồi Giang mục 5 — "multi selection phải đánh số theo thứ tự") —
+    // `ctx.selectedOrder` là Map<folderId, order> (Visual Background picker Thư mục multi-select,
+    // xem event/workflow/playlist.js::_renderFolderPickerGrid()) — có giá trị -> viền xanh + badge
+    // số ở góc; không có (null, hoặc id chưa được chọn) -> tile bình thường như trước.
+    const order = ctx && ctx.selectedOrder ? ctx.selectedOrder.get(folder.id) : null;
+    const selectedRingClass = order ? ' generic-item-folder-tile-selected' : '';
+    const selectedBadgeHtml = order ? `<span class="generic-folder-tile-badge">${order}</span>` : '';
     return `
-        <button type="button" class="generic-item-folder-tile flex flex-col items-center gap-1.5 w-20" data-folder-id="${escapeHtml(folder.id)}">
-            ${iconBoxHtml}
+        <button type="button" class="generic-item-folder-tile flex flex-col items-center gap-1.5 w-20${selectedRingClass}" data-folder-id="${escapeHtml(folder.id)}">
+            <div class="generic-folder-tile-icon-wrap relative">${iconBoxHtml}${selectedBadgeHtml}</div>
             <span class="text-xs font-medium text-slate-700 text-center leading-tight break-words" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escapeHtml(folder.name)}</span>
         </button>
     `;
