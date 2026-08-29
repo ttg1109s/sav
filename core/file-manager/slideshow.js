@@ -210,8 +210,9 @@ const SLIDESHOW_KENBURNS_RANDOM_GROUPS = {
 /** Dưới ngưỡng này (%) coi như ảnh KHÔNG có "dư" thật đáng kể ở trục đó -> dùng phương án dự
  * phòng (overscan cố định qua transform) thay vì background-position. */
 /** Biên thời gian [5s, 60s] dùng làm 2 mốc nội suy "Scl" (computeSlideshowKenBurnsTargetMagnitude())
- * — KHỚP ĐÚNG min/max của `slideshowConfig.intervalSeconds` (components/slideshow-settings-drawer.js,
- * cũng sẽ là min/max của modal chọn thời gian mới — xem core/time-picker-modal.js). */
+ * — KHỚP ĐÚNG min/max của `durationSeconds` (top-level VBG config, dời từ `slideshowConfig.
+ * intervalSeconds` cũ — components/visual-bg-settings-drawer.js, event/workflow/visual-bg.js), cũng
+ * là min/max của modal chọn thời gian (core/time-picker-modal.js). */
 const SLIDESHOW_KENBURNS_MIN_TIME_MS = 5000;
 const SLIDESHOW_KENBURNS_MAX_TIME_MS = 60000;
 
