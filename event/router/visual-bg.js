@@ -1,7 +1,7 @@
 /**
  * event/router/visual-bg.js — Router "visualBg". Mọi case ≥2 bước phụ thuộc thứ tự -> giao hết cho
  * `workflowVisualBg`/`workflowSlideshow`, không case nào gọi thẳng Core.
- * NGOẠI LỆ: 'visualBg.pickSingleSource.click'/'visualBg.pickGroupSource.click'/'visualBg.songChanged'
+ * NGOẠI LỆ: 'visualBg.pickVideo.click'/'visualBg.pickPhoto.click'/'visualBg.songChanged'
  * — rẽ theo `type`/`listPlaybackMode` qua VirtualMachineState (rẽ nhánh theo state đi qua đây,
  * không viết switch/if tay trong case).
  * NẠP SAU: event/bus.js, event/virtual-machine-state.js, event/workflow/visual-bg.js.
@@ -13,10 +13,6 @@ const routerVisualBg = (() => {
         switch (msg.type) {
             case 'visualBg.openPanel.click':
                 workflowVisualBg.openPanel();
-                break;
-
-            case 'visualBg.type.change':
-                workflowVisualBg.changeType(msg.payload.value);
                 break;
 
             case 'visualBg.listPlaybackMode.change':
@@ -100,22 +96,22 @@ const routerVisualBg = (() => {
                 workflowVisualBg.openGradientColorSwapTransitionPicker();
                 break;
 
-            // "Chọn 1 ảnh/video" — 2 nhánh loại trừ theo `type` (KHÔNG còn tổ hợp sourceMode).
-            case 'visualBg.pickSingleSource.click': {
-                const type = appConfigVisualBg.getAll().type;
-                VirtualMachineState.run([
-                    { state: type, operation: '===', value: 'photo', callback: () => workflowVisualBg.openSingleImagePicker() },
-                    { state: type, operation: '===', value: 'video', callback: () => workflowVisualBg.openSingleVideoPicker() },
-                ]);
+            // MỚI (29/08/2026) — 3 nút chọn nguồn trực tiếp (thay "Chọn 1"/"Chọn nhóm" +
+            // dropdown Kiểu cũ). Cả 2 picker Video/Ảnh đều multi-select (đánh số theo thứ tự
+            // chọn), commit qua nút "Chọn" trong header — xem event/workflow/visual-bg.js.
+            case 'visualBg.pickVideo.click':
+                workflowVisualBg.openPickVideo();
                 break;
-            }
 
-            // "Chọn Thư mục" — video-only (Photo không còn "nhóm" — Album đã xoá, xem
-            // event/workflow/visual-bg.js). UI (refreshPanelUI()) đã ẩn hẳn nút này khi type='photo'.
-            case 'visualBg.pickGroupSource.click': {
-                workflowVisualBg.openListFolderPicker();
+            case 'visualBg.pickPhoto.click':
+                workflowVisualBg.openPickPhoto();
                 break;
-            }
+
+            // "Thư mục" — dropdown Video/Ảnh ngay trong header picker (đổi loại folder đang duyệt),
+            // multi-select + gộp item của mọi folder đã chọn (originKind='groupMulti').
+            case 'visualBg.pickFolder.click':
+                workflowVisualBg.openPickFolder();
+                break;
 
             case 'visualBg.refreshSource.click':
                 workflowVisualBg.refreshSource();
@@ -125,14 +121,33 @@ const routerVisualBg = (() => {
                 workflowVisualBg.clearSource();
                 break;
 
-            // Kết quả 3 picker Generic Drawer (picker ảnh đơn là modal callback-based có sẵn, KHÔNG
-            // đi qua bus — xem workflowVisualBg.openSingleImagePicker()).
+            // Kết quả picker Video (Generic Drawer, multi-select — xem openPickVideo()).
             case 'visualBg.videoPicker.tile.click':
-                workflowVisualBg.selectVideoFromPicker(msg.payload.videoKey);
+                workflowVisualBg.toggleVideoPickerTile(msg.payload.videoKey);
+                break;
+
+            case 'visualBg.videoPicker.confirm.click':
+                workflowVisualBg.confirmVideoPickerSelection();
                 break;
 
             case 'visualBg.videoPicker.close.click':
                 workflowVisualBg.cancelVideoPicker();
+                break;
+
+            // Kết quả picker Ảnh (Generic Drawer, multi-select — xem openPickPhoto()). MỚI
+            // (29/08/2026) — trước đây picker ảnh đơn dùng CHUNG `workflowFileManagerPhoto.
+            // openCoverImagePicker()` (single-select, còn dùng bởi bìa bài hát/Theme, KHÔNG được
+            // đụng) — Visual Background giờ có picker RIÊNG (multi-select), tách hẳn.
+            case 'visualBg.photoPicker.tile.click':
+                workflowVisualBg.togglePhotoPickerTile(msg.payload.imageKey);
+                break;
+
+            case 'visualBg.photoPicker.confirm.click':
+                workflowVisualBg.confirmPhotoPickerSelection();
+                break;
+
+            case 'visualBg.photoPicker.close.click':
+                workflowVisualBg.cancelPhotoPicker();
                 break;
 
             // Bài hát vừa ĐỔI THẬT — gửi từ event/workflow/player.js::playMedia() (CHỈ Song — VBG

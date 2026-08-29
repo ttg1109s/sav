@@ -89,6 +89,19 @@ const routerPlaylist = (() => {
                 break;
             }
 
+            // MỚI (29/08/2026) — nút "Chọn (N)" xác nhận + dropdown đổi loại, chỉ xuất hiện khi
+            // picker đang ở chế độ multiSelect (Visual Background "Thư mục") — xem docstring
+            // _openFolderPickerDrawer() (event/workflow/playlist.js).
+            case 'playlist.folderPicker.confirm.click': {
+                workflowPlaylist.confirmFolderPickerSelection();
+                break;
+            }
+
+            case 'playlist.folderPicker.typeChange': {
+                workflowPlaylist.changeFolderPickerType(msg.payload.value);
+                break;
+            }
+
             case 'playlist.folderPicker.addTile.click': {
                 workflowPlaylist.createFolderInPicker();
                 break;
