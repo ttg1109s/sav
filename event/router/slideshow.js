@@ -41,11 +41,9 @@ const routerSlideshowSettings = (() => {
             // XOÁ (v13 Batch C) — 2 case 'mode.change'/'photoPerSong.change' ĐÃ BỎ: thay bằng
             // `nextOrder`/`listPlaybackMode` ở cụm router `visualBg` (panel cha).
 
-            // SỬA (18/07/2026, phản hồi Giang) — input số cũ ĐỔI thành nút bấm mở modal picker
-            // (core/time-picker-modal.js) — workflow tự mở modal + tự xử lý kết quả trong 1 hàm.
-            case 'slideshowSettings.interval.openPicker':
-                workflowSlideshow.openIntervalPicker(); // >1 bước (mở modal + xử lý callback) -> workflow
-                break;
+            // XOÁ (29/08/2026) — 'slideshowSettings.interval.openPicker' bỏ hẳn cùng
+            // `openIntervalPicker()` — "Seconds per photo" dời sang cụm router `visualBg` (panel
+            // cha), đổi tên `visualBg.durationSeconds.openPicker` (dùng chung video/ảnh).
 
             case 'slideshowSettings.transitionType.change':
                 workflowSlideshow.changeTransitionType(msg.payload.value); // >1 bước (set + persist + áp DOM + ẩn/hiện hàng tỉ lệ) -> workflow

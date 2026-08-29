@@ -23,6 +23,15 @@ const routerVisualBg = (() => {
                 workflowVisualBg.changeNextOrder(msg.payload.value);
                 break;
 
+            // MỚI (29/08/2026) — "Duration mode"/"Seconds per video/photo", dời từ slideshow.
+            case 'visualBg.durationMode.change':
+                workflowVisualBg.changeDurationMode(msg.payload.value);
+                break;
+
+            case 'visualBg.durationSeconds.openPicker':
+                workflowVisualBg.openDurationSecondsPicker();
+                break;
+
             case 'visualBg.openGradientPanel.click':
                 // SỬA (đợt migrate Visualizer Screen) — điều hướng qua ngăn xếp app-settings.js
                 // (liên tuyến domain, TH2) thay vì gọi thẳng — workflowVisualBg.openGradientPanel()
