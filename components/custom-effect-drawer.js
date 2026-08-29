@@ -61,6 +61,26 @@ function _renderCeColorSection(cfg) {
     `;
 }
 
+/** Card "Music Transition" — CHỈ field nào là tham số THẬT của detectMusicTransition() (core/
+ * audio-analysis.js: energyWindowBeats/sectionWindowBeats/fluxThreshold) mới đánh `group: 'music'`
+ * — KHÔNG gồm mọi field "đọc audio" nói chung (vd flashThreshold/boltThreshold chỉ so 1 giá trị
+ * TỨC THỜI với ngưỡng, finaleIntervalBeats là tham số isPhraseBoundary() — cơ chế đếm beat cố
+ * định, khác hẳn detectMusicTransition()). Xếp NGAY DƯỚI Color (phản hồi Giang). Vẫn tôn trọng
+ * showIf riêng từng field — Lighting chỉ hiện ở style "fireworks" (thunder không dùng
+ * detectMusicTransition()); card CHỈ hiện khi có ít nhất 1 field đang hiển thị. */
+function _renderCeMusicSection(musicFields, cfg) {
+    const rows = musicFields.map((f) => _renderCeFieldRow(f, cfg)).join('');
+    if (!rows.trim()) return '';
+    return `
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-slate-200">
+                <span class="text-sm text-slate-700" data-i18n="customEffectDrawer.musicSection.title">${t('customEffectDrawer.musicSection.title')}</span>
+            </div>
+            ${rows}
+        </div>
+    `;
+}
+
 function _renderCeBlurSection(cfg) {
     return `
         <div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
@@ -197,7 +217,10 @@ function _renderCeFireworksTextsSection(cfg) {
 
 /** @param {string} type @param {object} cfg - getEffectConfig(type), core/custom-effect.js */
 function renderCustomEffectBody(type, cfg) {
-    const fields = (CUSTOM_EFFECT_FIELDS[type] || []).map((f) => _renderCeFieldRow(f, cfg)).join('');
+    const allFields = CUSTOM_EFFECT_FIELDS[type] || [];
+    const musicFields = allFields.filter((f) => f.group === 'music');
+    const otherFields = allFields.filter((f) => f.group !== 'music');
+    const fields = otherFields.map((f) => _renderCeFieldRow(f, cfg)).join('');
     const lampsSection = (type === 'rain' && cfg.rainStyle === 'street') ? _renderCeLampsSection(cfg) : '';
     const fireworksStylesSection = (type === 'lighting' && cfg.lightingStyle === 'fireworks') ? _renderCeFireworksStylesSection(cfg) : '';
     const fireworksTextsSection = (type === 'lighting' && cfg.lightingStyle === 'fireworks') ? _renderCeFireworksTextsSection(cfg) : '';
@@ -206,6 +229,7 @@ function renderCustomEffectBody(type, cfg) {
         <div class="flex flex-col gap-4 px-4 py-3">
             ${_renderCeStyleRow(type, cfg)}
             ${_renderCeColorSection(cfg)}
+            ${_renderCeMusicSection(musicFields, cfg)}
             ${showBlur ? _renderCeBlurSection(cfg) : ''}
             ${fields ? `<div class="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">${fields}</div>` : ''}
             ${lampsSection}
