@@ -41,7 +41,8 @@ const SLIDESHOW_SETTINGS_INPUT_MAP = {
     // (<input type="number">, event 'change') ĐỔI thành nút bấm (<button>, event 'click') mở modal
     // "bánh xe cuộn số" dùng chung (core/time-picker-modal.js) — KHÔNG còn đọc .value trực tiếp từ
     // input nữa, xem `openModal: true` bên dưới.
-    'setting-slideshow-interval:click': { type: 'slideshowSettings.interval.openPicker', openModal: true },
+    // XOÁ (29/08/2026) — 'setting-slideshow-interval:click' bỏ hẳn cùng hàng UI đã dời sang panel
+    // VBG cha (xem event/listener/visual-bg.js).
     'setting-slideshow-transition:change': { type: 'slideshowSettings.transitionType.change' },
     'setting-slideshow-kenburns:change': { type: 'slideshowSettings.kenBurns.change', checkbox: true },
     'setting-slideshow-kenburns-mode:change': { type: 'slideshowSettings.kenBurnsMode.change' },
