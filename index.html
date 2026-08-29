@@ -616,6 +616,10 @@
          giờ CẤM trong core, chỉ Workflow dùng) — không phụ thuộc gì trong nhóm này (mọi phần tử DOM
          nhận qua tham số, không tự getElementById). -->
     <script src="core/file-manager/slideshow.js?v=20260704v1"></script>
+    <!-- MỚI (29/08/2026) — core THUẦN cho hệ "Cấu hình Slideshow" (preset đặt tên được, độc lập
+         khỏi Visual Background) — xem core/slideshow-presets.js. NẠP SAU core/file-manager/
+         slideshow.js (dùng lại SLIDESHOW_TRANSITION_TYPES/EASINGS/KENBURNS_MODES). -->
+    <script src="core/slideshow-presets.js?v=20260829v1"></script>
     <!-- Resume State Storage (ver 10 refine #3) — lưu/đọc trạng thái phát qua localStorage khi tab
          bị ẩn, dùng để "reload trang thật" lúc quay lại tab thay cho cố giữ runtime cũ sống sót
          qua việc ẩn tab (xem comment đầu file). PHẢI nạp TRƯỚC wakelock.js (file đó gọi
@@ -850,18 +854,19 @@
     <script src="event/workflow/file-manager-folder-browser.js?v=20260731v2"></script>
     <script src="event/router/file-manager-folder-browser.js?v=20260731v1"></script>
     <script src="event/listener/file-manager-storage.js?v=20260729v2"></script>
-    <!-- Batch 8, ver 12 "Multi Media" — cụm "slideshowSettings" (Slideshow nền Visual). PHẢI nạp
-         TRƯỚC event/workflow/file-manager-photo.js (gọi workflowSlideshow.clearActiveAlbum() +
-         setAsSlideshowBackground() trong cascade/nút "Dùng làm nền Slideshow"). Batch D4 (Settings
-         restructure, 06/07/2026): panel Settings (6 input) nay push/pop động — CẦN core/settings-
-         panel-stack.js (đã nạp ở nhóm CORE). Panel chọn Album ("notify center") KHÔNG đổi, vẫn
-         tĩnh, độc lập Settings Stack. -->
-    <script src="event/workflow/slideshow.js?v=20260808v1"></script>
-    <script src="event/router/slideshow.js?v=20260731v1"></script>
-    <script src="event/listener/slideshow.js?v=20260806v1"></script>
+    <!-- Batch 8, ver 12 "Multi Media" — engine cycle ảnh Slideshow nền Visual (transition/Ken
+         Burns), CHỈ còn đúng 1 vai trò: `_tick()` (taskManager) — cụm router "slideshowSettings"
+         (từng ở đây) ĐÃ BỎ HẲN (29/08/2026), xem event/workflow/slideshow-presets.js ngay dưới. -->
+    <script src="event/workflow/slideshow.js?v=20260829v2"></script>
+    <!-- MỚI (29/08/2026) — hệ "Cấu hình Slideshow" độc lập (Settings > System > Slideshow), thay
+         hẳn router/listener "slideshowSettings" cũ (2 file event/router,listener/slideshow.js ĐÃ
+         XOÁ) — xem event/workflow/slideshow-presets.js, event/router/slideshow-presets.js. Không
+         cần listener riêng — mọi wiring DOM động nằm trong event/workflow/app-settings.js
+         (_render*() onMount, liên tuyến domain, xem docstring file đó). -->
+    <script src="event/workflow/slideshow-presets.js?v=20260829v1"></script>
+    <script src="event/router/slideshow-presets.js?v=20260829v1"></script>
 
-    <!-- MỚI (v13 Batch A) — cụm "visualBg". NẠP SAU cụm slideshow (router gọi chéo
-         workflowSlideshow.openPanel() cho sub-panel Trình chiếu). -->
+    <!-- MỚI (v13 Batch A) — cụm "visualBg". -->
     <script src="event/workflow/visual-bg.js?v=20260808v6"></script>
     <script src="event/router/visual-bg.js?v=20260819v1"></script>
     <script src="event/listener/visual-bg.js?v=20260808v5"></script>
