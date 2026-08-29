@@ -138,15 +138,21 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // MỚI (08/08/2026, phản hồi Giang mục 2) — tiêu đề modal chọn volume dùng chung (core/slider-input-modal.js).
     'visualBgSettingsDrawer.videoAudio.volumeModal.title': 'Video volume',
 
-    'slideshowSettingsDrawer.title': 'Slideshow Background',
+    // XOÁ (29/08/2026) — 'slideshowSettingsDrawer.title' bỏ hẳn (không còn hàm nào gọi — màn Menu
+    // dùng 'slideshowPresetsDrawer.menu.title' ngay dưới thay thế).
     // VIẾT LẠI (Batch 9, 04/07/2026, mục 4) — gộp 2 section cũ ("Album"/"Playback") thành 1; 2 nút
     // "Choose album"/"Turn off" thay bằng 1 toggle "enable" duy nhất + hàng "album đang chạy".
     // SỬA (18/07/2026, phản hồi Giang — "tái cấu trúc panel theo nhóm mục") — 'sectionTitle' (1
     // tiêu đề DUY NHẤT cho cả panel) ĐÃ XOÁ, thay bằng 3 tiêu đề nhóm riêng.
     'slideshowSettingsDrawer.groupTransition.title': 'Transition',
-    'slideshowSettingsDrawer.groupKenBurns.title': 'Photo Movement',
+    // SỬA (29/08/2026, phản hồi Giang — "chuyển về lại thành Ken Burns") — 'Photo Movement' đổi lại
+    // 'Ken Burns' (cả tên nhóm LẪN nhãn toggle ngay dưới).
+    'slideshowSettingsDrawer.groupKenBurns.title': 'Ken Burns',
     // XOÁ (29/08/2026) — 3 key 'interval.*' ("Seconds per photo") bỏ hẳn cùng hàng UI đã dời sang
     // panel VBG cha — xem visualBgSettingsDrawer.durationSeconds.*/durationMode.* ngay dưới.
+    // MỚI (29/08/2026, phản hồi Giang) — toggle "Có áp dụng Transition hay không", ĐỘC LẬP với việc
+    // chọn hiệu ứng (select ngay dưới LUÔN hiện, kể cả tắt) — mirror `kenBurns.label` ngay dưới.
+    'slideshowSettingsDrawer.transitionEnabled.label': 'Apply transition',
     'slideshowSettingsDrawer.transition.label': 'Transition effect',
     'slideshowSettingsDrawer.transition.fade': 'Fade',
     'slideshowSettingsDrawer.transition.slideLeft': 'Slide left',
@@ -160,9 +166,9 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'slideshowSettingsDrawer.transition.curtain': 'Curtain',
     'slideshowSettingsDrawer.transition.circleReveal': 'Circle reveal',
     'slideshowSettingsDrawer.transition.glitch': 'Glitch',
-    // MỚI (Ken Burns, 18/07/2026, phản hồi Giang) — toggle ĐỘC LẬP, tách khỏi transition select.
-    'slideshowSettingsDrawer.kenBurns.label': 'Photo Movement',
-    'slideshowSettingsDrawer.kenBurns.hint': 'Slow pan/zoom on each photo — works together with any transition above',
+    // SỬA (29/08/2026) — 'Photo Movement' đổi lại 'Ken Burns' (cùng lý do groupKenBurns.title trên).
+    // XOÁ 'kenBurns.hint' — dòng phụ dưới nhãn đã bỏ khỏi template (renderSlideshowEditBody()).
+    'slideshowSettingsDrawer.kenBurns.label': 'Ken Burns',
     // MỚI ("Nhóm 2", 18/07/2026, phản hồi Giang) — 13 chế độ Ken Burns, THAY HẲN "Nhóm 1" (8 biến
     // thể random tự động, không chọn được).
     'slideshowSettingsDrawer.kenBurnsMode.label': 'Movement style',
@@ -183,13 +189,14 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'slideshowSettingsDrawer.kenBurnsMode.zoomPanBottom': 'Zoom + pan down',
     'slideshowSettingsDrawer.kenBurnsMode.zoomPanRandom': 'Zoom + pan (random direction)',
 
-    // MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh").
+    // MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh"). XOÁ
+    // 'transitionDuration.hint' — dòng phụ dưới nhãn đã bỏ khỏi template.
     'slideshowSettingsDrawer.transitionDuration.label': 'Transition duration',
-    'slideshowSettingsDrawer.transitionDuration.hint': 'How long the crossfade itself takes (0:01–1:00)',
     'slideshowSettingsDrawer.transitionDuration.pickerTitle': 'Transition duration',
     'slideshowSettingsDrawer.transitionRatio.label': 'In/Out ratio',
     // Nhãn xem trước SỐNG — {in}/{out} tính lại mỗi lần kéo slider (xem
-    // event/workflow/slideshow.js::_updateTransitionRatioLabel()), KHÁC key .label tĩnh ngay trên.
+    // event/workflow/slideshow-presets.js::_updateTransitionRatioLabel()), KHÁC key .label tĩnh
+    // ngay trên.
     'slideshowSettingsDrawer.transitionRatio.previewFormat': 'In {in}s / Out {out}s',
     'slideshowSettingsDrawer.transitionEasing.label': 'Easing',
     'slideshowSettingsDrawer.transitionEasing.linear': 'Linear (no easing)',
@@ -197,6 +204,33 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'slideshowSettingsDrawer.transitionEasing.easeIn': 'Ease in',
     'slideshowSettingsDrawer.transitionEasing.easeOut': 'Ease out',
     'slideshowSettingsDrawer.transitionEasing.easeInOut': 'Ease in-out',
+
+    // MỚI (29/08/2026, phản hồi Giang — hệ "Cấu hình Slideshow" độc lập, xem event/workflow/
+    // slideshow-presets.js/components/slideshow-settings-drawer.js). Lối vào DUY NHẤT: System >
+    // Slideshow — 2 mục con "Quản lý cấu hình"/"Áp dụng cấu hình".
+    'slideshowPresetsDrawer.menu.title': 'Slideshow',
+    'slideshowPresetsDrawer.menu.manage.label': 'Manage configurations',
+    'slideshowPresetsDrawer.menu.manage.hint': 'Create, edit, or delete slideshow configurations',
+    'slideshowPresetsDrawer.menu.apply.label': 'Apply configuration',
+    'slideshowPresetsDrawer.menu.apply.hint': 'Choose which configuration each place uses',
+    'slideshowPresetsDrawer.defaultName': 'Slideshow {n}',
+    'slideshowPresetsDrawer.migratedName': 'Default',
+    'slideshowPresetsDrawer.list.pickTitle': 'Choose a configuration',
+    'slideshowPresetsDrawer.list.add.label': 'Add new configuration',
+    'slideshowPresetsDrawer.list.delete.title': 'Delete',
+    'slideshowPresetsDrawer.list.emptyManage': 'No configurations yet — add one to get started.',
+    'slideshowPresetsDrawer.list.emptyPick': 'No configurations yet — create one under "Manage configurations" first.',
+    'slideshowPresetsDrawer.edit.title': 'Edit configuration',
+    'slideshowPresetsDrawer.edit.groupManage.title': 'Manage',
+    'slideshowPresetsDrawer.edit.nameLabel': 'Name',
+    'slideshowPresetsDrawer.edit.namePlaceholder': 'Configuration name',
+    'slideshowPresetsDrawer.edit.reset.label': 'Reset to defaults',
+    'slideshowPresetsDrawer.edit.delete.label': 'Delete this configuration',
+    'slideshowPresetsDrawer.apply.photoVisualBg.label': 'Photo visual background',
+    'slideshowPresetsDrawer.apply.notAttached': 'Not attached',
+    'slideshowPresetsDrawer.apply.currentLabel': 'Current configuration',
+    'slideshowPresetsDrawer.apply.detach.label': 'Detach',
+    'slideshowPresetsDrawer.apply.pickButton': 'Choose configuration',
 
     // Tái tổ chức (07/07/2026, phản hồi Giang mục 4) — section cũ "Playlist & Background" TÁCH
     // làm 2: "Playlist" (file này, chỉ còn view/sort) + "Background" (KEY MỚI, xem
