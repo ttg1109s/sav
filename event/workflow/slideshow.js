@@ -27,6 +27,11 @@
 const SLIDESHOW_NO_OP_PRESET = { transitionEnabled: false, transitionType: 'fade', transitionDurationMs: 1000, transitionInOutRatio: 50, transitionEasing: 'linear', kenBurnsEnabled: false, kenBurnsMode: 'zoomPanRandom' };
 
 const SLIDESHOW_TASK = 'slideshowTimer';
+// MỚI (29/08/2026, "React Beat Audio") — task RAF RIÊNG, per-frame, CHỈ chạy khi preset đang gắn có
+// `reactBeatAudio.enabled` + ít nhất 1 hiệu ứng con bật (xem `_syncBeatReactLoop()`) — TÁCH khỏi
+// SLIDESHOW_TASK (task đó chỉ bắn 1 lần MỖI ảnh, không đủ tần suất theo dõi beat liên tục).
+const SLIDESHOW_BEATREACT_TASK = 'slideshowBeatReactTick';
+const SLIDESHOW_BEATREACT_PULSE_MS = 500; // thời lượng 1 lượt pulse "bắn rồi trở về" — CỐ ĐỊNH, không phụ thuộc BPM (đơn giản, dễ đoán — không cần ước lượng ms/beat từ beatTimes)
 
 const workflowSlideshow = {
     // Bookkeeping riêng của engine — mirror `visualBgConfig.source.list` (KHÔNG phải nguồn sự thật,
@@ -45,6 +50,12 @@ const workflowSlideshow = {
     _isRevealed: false,     // container + ảnh ĐẦU đã hiện tĩnh (luôn true ngay sau startFromList() nếu có nguồn hợp lệ)
     _isActive: false,       // Ken Burns/timer đang chạy — chỉ true khi Song đang thật sự phát
     _lastKenBurnsDirection: null,
+    // MỚI (29/08/2026, "React Beat Audio") — 3 hiệu ứng ĐỘC LẬP, mỗi cái tự nhớ `beatCount` lúc
+    // lần cuối BẮN (so lệch >= everyNBeats mới bắn tiếp) + mốc thời gian VỪA bắn (null = đang nghỉ ở
+    // baseline, không có pulse nào đang chạy) — xem `_tickBeatReact()`.
+    _beatReactActive: false, // task RAF đang chạy hay không (tránh addNew() trùng tên nhiều lần)
+    _beatReactLastSeenBeatCount: { zoom: 0, pan: 0, rotate: 0 },
+    _beatReactTriggeredAtMs: { zoom: null, pan: null, rotate: null },
 
     _currentLayer() { return this._layerToggle ? slideshowLayer2 : slideshowLayer1; },
     _idleLayer() { return this._layerToggle ? slideshowLayer1 : slideshowLayer2; },
@@ -164,7 +175,12 @@ const workflowSlideshow = {
         if (this._isActive) return;
         this._isActive = true;
         const preset = this._currentPreset(); // MỚI (29/08/2026) — thay `appConfigVisualBg.getAll().slideshow` đã xoá
-        if (preset.kenBurnsEnabled && this._currentRecord) this._activateKenBurns(this._currentPanLayer(), preset.kenBurnsMode, this._currentRecord);
+        // SỬA (29/08/2026, "React Beat Audio") — `replaceMovement=true` -> KHÔNG chạy Ken Burns
+        // thường nữa (layer react MỘT MÌNH điều khiển chuyển động, xem `_tickBeatReact()`); `false`
+        // (hoặc cả cụm reactBeatAudio tắt hẳn) -> giữ NGUYÊN hành vi cũ.
+        const skipNormalKenBurns = preset.reactBeatAudio.enabled && preset.reactBeatAudio.replaceMovement;
+        if (preset.kenBurnsEnabled && this._currentRecord && !skipNormalKenBurns) this._activateKenBurns(this._currentPanLayer(), preset.kenBurnsMode, this._currentRecord);
+        this._syncBeatReactLoop(); // MỚI (29/08/2026) — bật/tắt vòng lặp per-frame theo dõi beat nếu preset yêu cầu
         // SỬA (29/08/2026) — `taskManager.once()` (tự kill sau khi bắn, KHÔNG count:0 lặp vô hạn với
         // 1 `time` cố định như trước) — mode 'duration' giờ có thể ra giá trị KHÁC NHAU mỗi ảnh
         // (field `duration` riêng của từng ảnh, xem `_computeAdvanceMs()`), phải TÍNH LẠI mỗi vòng —
@@ -191,12 +207,16 @@ const workflowSlideshow = {
 
     _pauseTicking() {
         taskManager.pause(SLIDESHOW_TASK);
+        // MỚI (29/08/2026, "React Beat Audio") — cùng lý do Ken Burns ngay dưới: đóng băng TẠI ĐÚNG
+        // VỊ TRÍ đang pulse dở, không tiếp tục chạy trong lúc nhạc dừng.
+        if (taskManager.plan[SLIDESHOW_BEATREACT_TASK]) taskManager.pause(SLIDESHOW_BEATREACT_TASK);
         pauseSlideshowKenBurnsAnimation(this._kenBurnsAnim1); // core
         pauseSlideshowKenBurnsAnimation(this._kenBurnsAnim2); // core
     },
 
     _resumeTicking() {
         if (taskManager.plan[SLIDESHOW_TASK]) taskManager.resume(SLIDESHOW_TASK);
+        if (taskManager.plan[SLIDESHOW_BEATREACT_TASK]) taskManager.resume(SLIDESHOW_BEATREACT_TASK); // MỚI (29/08/2026)
         resumeSlideshowKenBurnsAnimation(this._kenBurnsAnim1); // core
         resumeSlideshowKenBurnsAnimation(this._kenBurnsAnim2); // core
     },
@@ -204,6 +224,11 @@ const workflowSlideshow = {
     /** Dừng hẳn engine — dọn task + layer + object URL + reset bookkeeping. */
     stop() {
         taskManager.kill(SLIDESHOW_TASK);
+        // MỚI (29/08/2026, "React Beat Audio") — dọn hẳn task riêng + reset transform, cùng lý do
+        // dọn SLIDESHOW_TASK ngay trên (Slideshow dừng hẳn thì không còn gì để mà theo dõi beat).
+        taskManager.kill(SLIDESHOW_BEATREACT_TASK);
+        this._beatReactActive = false;
+        this._resetBeatReactTransform();
         setSlideshowContainerVisible(slideshowContainer, false); // core
         [[slideshowLayer1, slideshowLayer1Pan], [slideshowLayer2, slideshowLayer2Pan]].forEach(([layerEl, panEl]) => {
             setSlideshowLayerImage(panEl, ''); // core
@@ -255,6 +280,81 @@ const workflowSlideshow = {
         this._setKenBurnsAnim(panEl, anim);
     },
 
+    _currentReactLayer() { return this._layerToggle ? slideshowLayer2React : slideshowLayer1React; },
+    _idleReactLayer() { return this._layerToggle ? slideshowLayer1React : slideshowLayer2React; },
+
+    /** Bật/tắt vòng lặp per-frame theo dõi beat — MỚI (29/08/2026, "React Beat Audio"). Gọi ở MỌI
+     * điểm preset đang gắn (hoặc field `reactBeatAudio` của nó) CÓ THỂ vừa đổi trạng thái cần chạy:
+     * `_activate()` (bắt đầu cycle) và mỗi vòng `_tick()` (đổi ảnh — preset có thể đã bị gỡ/đổi từ
+     * lúc tick trước, cùng quy ước "field mới áp dụng từ tick kế" đã dùng cho mọi field slideshow
+     * khác). KHÔNG addNew() trùng tên nếu đã chạy sẵn (`_beatReactActive` guard).
+     */
+    _syncBeatReactLoop() {
+        const rb = this._currentPreset().reactBeatAudio;
+        const shouldRun = this._isActive && rb.enabled && (rb.zoom.enabled || rb.pan.enabled || rb.rotate.enabled);
+        if (shouldRun && !this._beatReactActive) {
+            this._beatReactActive = true;
+            const beatCount = appState.get('beatCount');
+            this._beatReactLastSeenBeatCount = { zoom: beatCount, pan: beatCount, rotate: beatCount }; // bắt đầu đếm từ NGAY BÂY GIỜ — không bắn dồn cho số beat đã trôi qua TRƯỚC lúc bật
+            this._beatReactTriggeredAtMs = { zoom: null, pan: null, rotate: null };
+            taskManager.addNew(SLIDESHOW_BEATREACT_TASK, { time: 0, exe: () => this._tickBeatReact(), mode: 'raf', count: 0 }); // service/task-manager.js
+            taskManager.operator(SLIDESHOW_BEATREACT_TASK, 'enabled');
+        } else if (!shouldRun && this._beatReactActive) {
+            this._beatReactActive = false;
+            taskManager.kill(SLIDESHOW_BEATREACT_TASK);
+            this._resetBeatReactTransform(); // về identity — không để kẹt giữa chừng 1 pulse dở lúc tắt
+        }
+    },
+
+    /** Xoá `transform` khỏi CẢ 2 layer react (identity, vô hình) — gọi lúc tắt hẳn beat-react VÀ lúc
+     * `stop()` dọn toàn bộ Slideshow. */
+    _resetBeatReactTransform() {
+        if (slideshowLayer1React) slideshowLayer1React.style.transform = '';
+        if (slideshowLayer2React) slideshowLayer2React.style.transform = '';
+    },
+
+    /** Tick per-frame (RAF) — kiểm tra beat MỚI cho TỪNG hiệu ứng ĐỘC LẬP (N khác nhau -> bắn lệch
+     * nhịp nhau, KHÔNG đồng bộ), rồi nội suy giá trị HIỆN TẠI của cả 3 (đang nghỉ = 0, đang giữa 1
+     * lượt pulse = nội suy theo thời gian đã trôi) và CỘNG DỒN thành 1 chuỗi `transform` áp đúng 1
+     * LẦN vào layer react ĐANG "current" (layer kia đang ẩn/chờ swap ảnh kế, không ai nhìn thấy —
+     * không cần animate). Lý do KHÔNG dùng Web Animations API cho pulse này, xem docstring
+     * `evaluateSlideshowPulseStops()` (core/file-manager/slideshow.js). */
+    _tickBeatReact() {
+        const rb = this._currentPreset().reactBeatAudio;
+        if (!rb.enabled) { this._syncBeatReactLoop(); return; } // preset vừa bị gỡ/tắt beat-react giữa chừng -> tự dừng vòng lặp ĐÚNG NGAY frame này, không đợi tick ảnh kế
+        const beatCount = appState.get('beatCount'); // service/state/visualizer-runtime.js
+        const now = performance.now();
+
+        const checkTrigger = (key, effect) => {
+            if (!effect.enabled) return;
+            if (beatCount - this._beatReactLastSeenBeatCount[key] >= effect.everyNBeats) {
+                this._beatReactLastSeenBeatCount[key] = beatCount;
+                this._beatReactTriggeredAtMs[key] = now;
+            }
+        };
+        checkTrigger('zoom', rb.zoom);
+        checkTrigger('pan', rb.pan);
+        checkTrigger('rotate', rb.rotate);
+
+        const readProgress = (key) => {
+            const triggeredAt = this._beatReactTriggeredAtMs[key];
+            if (triggeredAt === null) return null; // chưa từng bắn/đã nghỉ hẳn -> baseline, không nội suy
+            const elapsed = now - triggeredAt;
+            if (elapsed >= SLIDESHOW_BEATREACT_PULSE_MS) { this._beatReactTriggeredAtMs[key] = null; return null; }
+            return elapsed / SLIDESHOW_BEATREACT_PULSE_MS;
+        };
+
+        const zoomT = readProgress('zoom');
+        const zoomScale = (rb.zoom.enabled && zoomT !== null) ? 1 + evaluateSlideshowPulseStops([0, (rb.zoom.amountPct - 100) / 100, 0], zoomT) : 1; // core
+        const panT = readProgress('pan');
+        const panPct = (rb.pan.enabled && panT !== null) ? evaluateSlideshowPulseStops(buildSlideshowPulseStops(rb.pan.direction, rb.pan.amountPct - 100), panT) : 0; // core
+        const rotateT = readProgress('rotate');
+        const rotateDeg = (rb.rotate.enabled && rotateT !== null) ? evaluateSlideshowPulseStops(buildSlideshowPulseStops(rb.rotate.direction, rb.rotate.amountDeg), rotateT) : 0; // core
+
+        const reactLayer = this._currentReactLayer();
+        if (reactLayer) reactLayer.style.transform = `scale(${zoomScale}) translateX(${panPct}%) rotate(${rotateDeg}deg)`;
+    },
+
     /** 1 nhịp cycle: bước index qua `workflowVisualBg.advanceList()` (dọn null nếu vừa hết 1 vòng;
      * riêng random, xáo lại mảng nếu vừa chạm vị trí cuối — xem comment hàm đó), rồi đọc DB cho vị
      * trí đó. Null hoặc record mất -> đánh dấu/giữ nguyên ảnh cũ, KHÔNG tự thử tiếp — chờ tick/
@@ -300,9 +400,13 @@ const workflowSlideshow = {
         const incomingLayer = this._idleLayer();
         const outgoingPan = this._currentPanLayer();
         const incomingPan = this._idlePanLayer();
+        const outgoingReact = this._currentReactLayer(); // MỚI (29/08/2026, "React Beat Audio")
 
         setSlideshowLayerImage(incomingPan, objectUrl); // core — LUÔN cần (pan layer giữ ảnh thật), bất kể có chạy Transition hay không
-        if (preset.kenBurnsEnabled) this._activateKenBurns(incomingPan, preset.kenBurnsMode, image);
+        // SỬA (29/08/2026, "React Beat Audio") — `replaceMovement=true` -> KHÔNG chạy Ken Burns
+        // thường nữa, cùng lý do/điều kiện `_activate()` ngay trên.
+        const skipNormalKenBurns = preset.reactBeatAudio.enabled && preset.reactBeatAudio.replaceMovement;
+        if (preset.kenBurnsEnabled && !skipNormalKenBurns) this._activateKenBurns(incomingPan, preset.kenBurnsMode, image);
 
         // MỚI (29/08/2026, Giang chốt "2 công tắc cùng false thì không chạy hiệu ứng gì cả") —
         // `transitionEnabled=false` -> CẮT CỨNG, đi THẲNG tới đúng trạng thái nghỉ mà 1 lượt
@@ -341,6 +445,13 @@ const workflowSlideshow = {
 
         this._currentObjectUrl = objectUrl;
         this._layerToggle = !this._layerToggle;
+        // MỚI (29/08/2026, "React Beat Audio") — layer VỪA thành "outgoing" (idle) reset transform
+        // về identity NGAY — tránh giữ lại giá trị pulse dở dang từ lượt trước, lộ ra SAI lúc layer
+        // này được tái sử dụng làm "current" ở 1-2 vòng cycle sau. Đồng bộ lại vòng lặp beat-react
+        // theo preset MỚI (có thể đã đổi/gỡ từ lúc tick trước — cùng quy ước "áp dụng từ tick kế"
+        // đã dùng cho mọi field slideshow khác).
+        if (outgoingReact) outgoingReact.style.transform = '';
+        this._syncBeatReactLoop();
 
         // SỬA (29/08/2026) — thay dòng `if (length===1) kill` cũ bằng rearm/kill tường minh: còn >1
         // item sống -> tự đặt lại `taskManager.once()` cho vòng KẾ (tính LẠI `_computeAdvanceMs()`
