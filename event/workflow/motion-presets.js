@@ -10,9 +10,9 @@
  * Photo Visual Background) chỉ giữ 1 tham chiếu `appConfigVisualBg.motionPresetId` — Motion
  * KHÔNG biết/không cần biết ai đang dùng mình, chỉ cung cấp danh sách + CRUD.
  *
- * NẠP SAU: core/motion-presets.js, core/file-manager/motion.js (MOTION_TRANSITION_TYPES/
- * MOTION_TRANSITION_EASINGS/MOTION_KENBURNS_MODES/transitionSupportsInOutRatio()/
- * capMotionTransitionDurationMs()), components/motion-settings-drawer.js, service/db.js
+ * NẠP SAU: core/motion-presets.js, core/motion-engine.js (MOTION_ENGINE_TRANSITION_TYPES/
+ * MOTION_ENGINE_TRANSITION_EASINGS/MOTION_ENGINE_KENBURNS_MODES/transitionSupportsInOutRatio()/
+ * capMotionEngineTransitionDurationMs()), components/motion-settings-drawer.js, service/db.js
  * (getMeta/setMeta), event/workflow/app-settings.js (workflowAppSettings — liên tuyến domain, đọc/
  * gọi `navigateTo()`/`_render*()`), event/workflow/visual-bg.js (workflowVisualBg — liên tuyến domain,
  * đọc/ghi `motionPresetId`), core/time-picker-modal.js (openTimePickerModal — nút chọn thời gian
@@ -103,7 +103,7 @@ const workflowMotionPresets = {
         if (!preset) return;
         const q = (sel) => genericDrawerBody.querySelector(sel); // core/dom-refs.js
         const ratioRow = q('#motion-transition-ratio-row');
-        if (ratioRow) ratioRow.classList.toggle('hidden', !transitionSupportsInOutRatio(preset.transitionType)); // core/file-manager/motion.js
+        if (ratioRow) ratioRow.classList.toggle('hidden', !transitionSupportsInOutRatio(preset.transitionType)); // core/motion-engine.js
         const durationBtn = q('#setting-motion-transition-duration');
         if (durationBtn) durationBtn.textContent = `${(preset.transitionDurationMs / 1000).toFixed(1)}s`;
         const ratioSlider = q('#setting-motion-transition-ratio');
@@ -114,7 +114,7 @@ const workflowMotionPresets = {
     _updateTransitionRatioLabel(transitionDurationMs, ratioPercent) {
         const labelEl = genericDrawerBody ? genericDrawerBody.querySelector('#motion-transition-ratio-label') : null; // core/dom-refs.js
         if (!labelEl) return;
-        const { inMs, outMs } = computeMotionTransitionInOutMs(transitionDurationMs, ratioPercent); // core/file-manager/motion.js
+        const { inMs, outMs } = computeMotionEngineTransitionInOutMs(transitionDurationMs, ratioPercent); // core/motion-engine.js
         labelEl.textContent = tFormat('motionSettingsDrawer.transitionRatio.previewFormat', { in: (inMs / 1000).toFixed(1), out: (outMs / 1000).toFixed(1) });
     },
 
@@ -143,7 +143,7 @@ const workflowMotionPresets = {
     },
 
     async changeTransitionType(value) {
-        if (!MOTION_TRANSITION_TYPES.includes(value)) return; // core/file-manager/motion.js
+        if (!MOTION_ENGINE_TRANSITION_TYPES.includes(value)) return; // core/motion-engine.js
         await this._mutateEditing((p) => { p.transitionType = value; });
         this._syncEditUI();
     },
@@ -158,23 +158,23 @@ const workflowMotionPresets = {
      * nhau, không có gì để đối chiếu), hay 1 nơi tiêu thụ TƯƠNG LAI hoàn toàn khác. Đọc
      * `appConfigVisualBg` (dù có điều kiện `durationMode==='fixtime'` hay không) TRONG picker này
      * đều là ĐOÁN — sai bản chất "cấu hình độc lập, KHÔNG sở hữu bởi bất kỳ nơi tiêu thụ nào".
-     * BỎ HẲN mọi tham chiếu động — picker CHỈ còn trần cứng `MOTION_TRANSITION_MAX_TIME_MS`
+     * BỎ HẲN mọi tham chiếu động — picker CHỈ còn trần cứng `MOTION_ENGINE_TRANSITION_MAX_TIME_MS`
      * (60s). Kẹp THẬT (< thời lượng hiển thị thật, ít nhất 1s) chỉ xảy ra ở RUNTIME — nơi DUY NHẤT
-     * biết CHẮC CHẮN con số đúng tại đúng thời điểm đó — qua CHÍNH `capMotionTransitionDurationMs()`
+     * biết CHẮC CHẮN con số đúng tại đúng thời điểm đó — qua CHÍNH `capMotionEngineTransitionDurationMs()`
      * đã có sẵn trong `_tick()` (event/workflow/motion.js), không đổi gì thêm ở đó. */
     openTransitionDurationPicker() {
         if (genericDrawerPanel.classList.contains('hidden')) return;
         const preset = findMotionPresetById(appState.get('motionPresets'), this._editingId); // core/motion-presets.js
         if (!preset) return;
-        const maxMs = MOTION_TRANSITION_MAX_TIME_MS; // core/file-manager/motion.js — trần cứng DUY NHẤT, xem docstring trên
+        const maxMs = MOTION_ENGINE_TRANSITION_MAX_TIME_MS; // core/motion-engine.js — trần cứng DUY NHẤT, xem docstring trên
         openTimePickerModal({ // core/time-picker-modal.js
             title: t('motionSettingsDrawer.transitionDuration.pickerTitle'),
             format: 's-ms',
             valueMs: Math.min(preset.transitionDurationMs, maxMs), // kẹp vị trí cuộn ban đầu, tránh mở lên vượt max mới
-            minMs: MOTION_TRANSITION_MIN_TIME_MS, // core/file-manager/motion.js
+            minMs: MOTION_ENGINE_TRANSITION_MIN_TIME_MS, // core/motion-engine.js
             maxMs,
             onConfirm: async (resultMs) => {
-                const v = Math.max(MOTION_TRANSITION_MIN_TIME_MS, Math.min(maxMs, resultMs));
+                const v = Math.max(MOTION_ENGINE_TRANSITION_MIN_TIME_MS, Math.min(maxMs, resultMs));
                 await this._mutateEditing((p) => { p.transitionDurationMs = v; });
                 if (genericDrawerPanel.classList.contains('hidden')) return;
                 const btn = genericDrawerBody.querySelector('#setting-motion-transition-duration');
@@ -198,7 +198,7 @@ const workflowMotionPresets = {
     },
 
     async changeTransitionEasing(easing) {
-        if (!MOTION_TRANSITION_EASINGS.includes(easing)) return; // core/file-manager/motion.js
+        if (!MOTION_ENGINE_TRANSITION_EASINGS.includes(easing)) return; // core/motion-engine.js
         await this._mutateEditing((p) => { p.transitionEasing = easing; });
     },
 
@@ -207,7 +207,7 @@ const workflowMotionPresets = {
     },
 
     async changeKenBurnsMode(mode) {
-        if (!MOTION_KENBURNS_MODES.includes(mode)) return; // core/file-manager/motion.js
+        if (!MOTION_ENGINE_KENBURNS_MODES.includes(mode)) return; // core/motion-engine.js
         await this._mutateEditing((p) => { p.kenBurnsMode = mode; });
     },
 

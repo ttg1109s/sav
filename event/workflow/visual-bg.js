@@ -169,24 +169,24 @@ const workflowVisualBg = {
 
     // ===================== Bước index trong source.list — DÙNG CHUNG ảnh + video =====================
     // 2 hàm dưới đây là ĐIỂM TÍNH TOÁN DUY NHẤT cho "bước tiếp theo/lượt đầu" trong `source.list` —
-    // nhánh video (_applyVideo/_advanceVideo ngay dưới) gọi NỘI BỘ, nhánh ảnh (workflowSlideshow,
-    // event/workflow/slideshow.js) gọi LIÊN TUYẾN DOMAIN sang đây thay vì tự viết lại (nguồn sự thật
+    // nhánh video (_applyVideo/_advanceVideo ngay dưới) gọi NỘI BỘ, nhánh ảnh (workflowMotionEngine,
+    // event/workflow/motion-engine.js) gọi LIÊN TUYẾN DOMAIN sang đây thay vì tự viết lại (nguồn sự thật
     // `source.list` vẫn thuộc domain này — cùng nguyên tắc ownership đã áp cho
     // persistSourceListMutation()/selfHealEmptySource() ở dưới).
     //
     // VIẾT LẠI HẲN (08/08/2026, phản hồi Giang — "list không hề random, lặp lại liên tục", verify
     // bằng cách chạy thử: N=2/3 item, random-loại-trừ-liền-kề cũ suy biến gần hệt tuần tự thuần) —
-    // BỎ `pickNextSlideshowIndexRandom()` (đã xoá, core/file-manager/slideshow.js) + block
+    // BỎ `pickNextMotionEngineIndexRandom()` (đã xoá, core/motion-engine.js) + block
     // `shuffleVisualBgListKeepingIndex()` cũ (xáo VỊ TRÍ LƯU TRỮ không đổi được PHÂN PHỐI của
     // `Math.random()*length` — code chết, không có tác dụng thật). Đổi hẳn sang shuffle-bag ĐÚNG
-    // NGHĨA: `nextOrder==='random'` giờ CŨNG bước TUẦN TỰ (`pickNextSlideshowIndexSequential()`,
+    // NGHĨA: `nextOrder==='random'` giờ CŨNG bước TUẦN TỰ (`pickNextMotionEngineIndexSequential()`,
     // DÙNG CHUNG với `sequential`) qua mảng — chỉ khác `sequential` ở chỗ mảng được XÁO LẠI
     // (`shuffleVisualBgList()`, core/visual-bg.js — Fisher-Yates TOÀN mảng) mỗi khi vừa đi hết 1
     // vòng (`nextIndex===0`), đảm bảo mọi item được phát ĐỦ 1 lượt trước khi có item nào lặp lại —
     // đúng tinh thần "mô hình shuffle-bag như Space visualizer" đã định làm từ đầu nhưng bản cũ chưa
     // đạt được. Item VỪA phát (cuối vòng cũ) được loại trừ khỏi vị trí ĐẦU mảng mới xáo (nếu random
     // rơi trúng) — tránh lặp liền kề ngay điểm nối 2 vòng, cùng convention đã dùng cho
-    // `resolveSlideshowKenBurnsDirection()` (core/file-manager/slideshow.js).
+    // `resolveMotionEngineKenBurnsDirection()` (core/motion-engine.js).
 
     /** Chọn index LƯỢT ĐẦU (`currentIndex=-1`). `sequential`: index 0, mảng giữ nguyên thứ tự gốc.
      * `random`: xáo cả mảng 1 lần rồi bắt đầu từ index 0 của mảng đã xáo.
@@ -195,7 +195,7 @@ const workflowVisualBg = {
      * @returns {{ list: Array<string|null>, index: number }}
      */
     firstIndex(list, isRandom) {
-        if (!isRandom) return { list, index: pickNextSlideshowIndexSequential(-1, list.length) }; // core/file-manager/slideshow.js
+        if (!isRandom) return { list, index: pickNextMotionEngineIndexSequential(-1, list.length) }; // core/motion-engine.js
         return { list: shuffleVisualBgList(list), index: 0 }; // core/visual-bg.js — lượt đầu, chưa có gì để loại trừ
     },
 
@@ -208,7 +208,7 @@ const workflowVisualBg = {
      * @returns {{ list: Array<string|null>, index: number }} `index=-1` nếu mảng rỗng sau dọn.
      */
     advanceList(list, currentIndex, isRandom) {
-        const nextIndex = pickNextSlideshowIndexSequential(currentIndex, list.length); // core/file-manager/slideshow.js — DÙNG CHUNG cho cả 2 nextOrder, khác nhau ở việc random có xáo lại mảng hay không
+        const nextIndex = pickNextMotionEngineIndexSequential(currentIndex, list.length); // core/motion-engine.js — DÙNG CHUNG cho cả 2 nextOrder, khác nhau ở việc random có xáo lại mảng hay không
         if (isRandom && nextIndex === 0 && list.length > 1) {
             const justPlayedKey = currentIndex >= 0 ? list[currentIndex] : null;
             let reshuffled = shuffleVisualBgList(list); // core/visual-bg.js
@@ -236,9 +236,9 @@ const workflowVisualBg = {
      * MỚI (09/08/2026, cơ chế pending, phản hồi Giang) — kiểm tra + áp `cfg.pending` nếu có. Dùng
      * CHUNG cho MỌI điểm "lượt kế tiếp" của CẢ 2 type (photo lẫn video) — video hết/đổi bài hát
      * (`advanceForSongChange()`/`_onVideoEnded()` ở dưới), ảnh hết tick/đổi bài hát
-     * (`workflowSlideshow._tick()`/`advanceForSongChange()`, liên tuyến domain gọi NGAY hàm này),
+     * (`workflowMotionEngine._tick()`/`advanceForSongChange()`, liên tuyến domain gọi NGAY hàm này),
      * và boot (`loadPersistedSettingsOnBoot()` ở trên) — Giang chốt "1 cơ chế, không tách riêng
-     * theo listPlaybackMode/type". PUBLIC (không dấu `_`) vì `workflowSlideshow` cần gọi liên tuyến
+     * theo listPlaybackMode/type". PUBLIC (không dấu `_`) vì `workflowMotionEngine` cần gọi liên tuyến
      * domain (nguồn sự thật `pending`/`source` vẫn thuộc domain này, cùng nguyên tắc ownership đã
      * áp cho `persistSourceListMutation()`/`selfHealEmptySource()`).
      * KHÔNG tự tính lại `firstIndex()`/mảng — giao thẳng cho `applyCurrentVisualBg()` (CHÍNH XÁC
@@ -273,7 +273,7 @@ const workflowVisualBg = {
      * `applyCurrentVisualBg()`). */
     clearMediaLayers() {
         const { visualBgImageObjectUrl } = appState.get(['visualBgImageObjectUrl']);
-        if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.stop();
+        if (typeof workflowMotionEngine !== 'undefined') workflowMotionEngine.stop();
         this._listIndex = -1;
         this._currentVideoKey = null; // MỚI — dọn theo, xem docstring khai báo field ở đầu object
         this._killStuckRecoveryTimer(); // MỚI (09/08/2026, mục 3) — VBG đang bị dọn hẳn, huỷ fallback đang chờ (nếu có)
@@ -289,14 +289,14 @@ const workflowVisualBg = {
     },
 
     /** list.length<=1 -> áp tĩnh trực tiếp (không qua engine ảnh); >1 -> giao cho
-     * `workflowSlideshow` (transition/Ken Burns, đọc DB theo key khi cần). */
+     * `workflowMotionEngine` (transition/Ken Burns, đọc DB theo key khi cần). */
     async _applyPhoto(cfg) {
         const list = cfg.source.list;
         if (list.length <= 1) {
             if (list[0]) await this._playSinglePhotoKey(list[0]);
             return;
         }
-        if (typeof workflowSlideshow !== 'undefined') await workflowSlideshow.startFromList(list, cfg.nextOrder);
+        if (typeof workflowMotionEngine !== 'undefined') await workflowMotionEngine.startFromList(list, cfg.nextOrder);
     },
 
     /** Nguồn duy nhất mất (record không đọc được) -> không có gì để chờ advance() tiếp, tự chữa
@@ -657,14 +657,14 @@ const workflowVisualBg = {
     },
 
     /** `source.list` rỗng sau sweep -> tự gỡ hẳn nguồn (cùng hành vi nút "Gỡ nguồn" thủ công). PUBLIC
-     * (không dấu `_`) — `workflowSlideshow` cũng gọi được (liên tuyến domain, nguồn sự thật vẫn ở
+     * (không dấu `_`) — `workflowMotionEngine` cũng gọi được (liên tuyến domain, nguồn sự thật vẫn ở
      * domain này). */
     async selfHealEmptySource() {
         console.log(`writer: "workflowVisualBg.selfHealEmptySource", page: "visualBgConfig", content: "source rỗng sau sweep -> tự gỡ"`);
         await this.clearSource();
     },
 
-    /** `workflowSlideshow` gọi khi tự sweep/mark-null mảng ảnh lúc cycle — nguồn sự thật `source.list`
+    /** `workflowMotionEngine` gọi khi tự sweep/mark-null mảng ảnh lúc cycle — nguồn sự thật `source.list`
      * vẫn thuộc domain này (Rule ownership), nơi kia chỉ BÁO thay đổi lại. */
     async persistSourceListMutation(list) {
         appConfigVisualBg.mutateAll((cfg) => { cfg.source.list = list; });
@@ -998,12 +998,13 @@ const workflowVisualBg = {
         await this.applyCurrentVisualBg();
     },
 
-    /** Ứng select "Duration mode" — MỚI (29/08/2026, dời từ slideshow, dùng CHUNG video/ảnh, xem
-     * docstring `durationMode`, core/config.js). Đổi mode KHÔNG retroactive lên item ĐANG hiện (cùng
-     * quy ước mọi field slideshow khác — `changeTransitionType()` etc., "áp dụng từ item KẾ TIẾP") —
+    /** Ứng select "Duration mode" — MỚI (29/08/2026, dời từ Motion — panel Settings cũ, trước khi
+     * tách hệ preset độc lập, dùng CHUNG video/ảnh, xem docstring `durationMode`, core/config.js).
+     * Đổi mode KHÔNG retroactive lên item ĐANG hiện (cùng quy ước mọi field preset Motion khác —
+     * `changeTransitionType()` etc., "áp dụng từ item KẾ TIẾP") —
      * video: hẹn giờ "Fix time" (nếu có) của video ĐANG PHÁT giữ nguyên, chỉ video KẾ mới theo mode
      * mới (`_maybeScheduleVideoFixTime()` tự đọc `cfg.durationMode` MỚI lúc đó); ảnh: tick kế tiếp
-     * (`workflowSlideshow._tick()`) tự đọc `_computeAdvanceMs()` MỚI khi tự rearm. */
+     * (`workflowMotionEngine._tick()`) tự đọc `_computeAdvanceMs()` MỚI khi tự rearm. */
     async changeDurationMode(value) {
         if (!VISUAL_BG_DURATION_MODES.includes(value)) return;
         appConfigVisualBg.mutateAll((cfg) => { cfg.durationMode = value; });
@@ -1016,8 +1017,9 @@ const workflowVisualBg = {
         await this.refreshPanelUI();
     },
 
-    /** Ứng nút "Seconds per video/photo" — MỚI (29/08/2026, dời từ slideshow's "Seconds per photo"
-     * cũ — `openIntervalPicker()`, event/workflow/slideshow.js, ĐÃ XOÁ). Cùng bounds picker cũ
+    /** Ứng nút "Seconds per video/photo" — MỚI (29/08/2026, dời từ "Seconds per photo" cũ của
+     * Motion (panel Settings cũ, trước khi tách hệ preset độc lập) — `openIntervalPicker()`,
+     * event/workflow/motion-engine.js, ĐÃ XOÁ). Cùng bounds picker cũ
      * (5-60s) — field này giờ CŨNG áp cho video (`durationMode='fixtime'`), không riêng ảnh nữa. */
     openDurationSecondsPicker() {
         if (genericDrawerPanel.classList.contains('hidden')) return;
@@ -1581,7 +1583,7 @@ const workflowVisualBg = {
         const durationSecondsBtn = q('#setting-visual-bg-duration-seconds');
         if (durationModeSelect) durationModeSelect.value = cfg.durationMode;
         // SỬA (29/08/2026, Giang chỉ ra — "perSong thì 2 hàng này vô nghĩa") — CHỈ hẹn giờ tự
-        // chuyển ảnh khi `listPlaybackMode==='slideshow'` (xem `workflowSlideshow._activate()` —
+        // chuyển ảnh khi `listPlaybackMode==='slideshow'` (xem `workflowMotionEngine._activate()` —
         // guard `!== 'perSong'` mới đặt hẹn giờ) — `perSong` chuyển ảnh do ĐỔI BÀI quyết định,
         // Duration mode/Seconds per video/photo không điều khiển gì việc chuyển ảnh trong mode đó.
         // "Next item order" KHÔNG đổi — vẫn cần dù `perSong` (đổi bài vẫn gọi advanceForSongChange()
