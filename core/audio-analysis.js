@@ -122,6 +122,10 @@
                 if (currentFlux > fluxThreshold && currentFlux > 150 && (now - lastBeatTime > APP_CONFIG.bpmMinWaitTime)) {
                     if (lastBeatTime > 0) { appState.mutate('beatTimes', arr => { arr.push(now - lastBeatTime); if (arr.length > 5) arr.shift(); }, { skipCheck: true }); }
                     lastBeatTime = now;
+                    // MỚI (29/08/2026) — tăng bộ đếm beat RỜI RẠC (xem docstring field `beatCount`,
+                    // service/state/visualizer-runtime.js) — CÙNG đúng điều kiện phát hiện beat vừa
+                    // dùng để đẩy `beatTimes` ở dòng trên, không tự dò ngưỡng riêng.
+                    appState.set('beatCount', appState.get('beatCount') + 1, { skipCheck: true });
                     const beatTimes = appState.get('beatTimes');
                     if (beatTimes.length >= 2) {
                         let avgInterval = beatTimes.reduce((a, b) => a + b) / beatTimes.length;
