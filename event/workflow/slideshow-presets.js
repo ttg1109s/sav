@@ -150,16 +150,28 @@ const workflowSlideshowPresets = {
 
     /** Ứng nút mở modal chọn "Thời gian chuyển cảnh" — CÙNG khuôn `openTransitionDurationPicker()`
      * cũ (event/workflow/slideshow.js, nay chỉ còn dùng cho video/preview cycle — hàm NÀY là bản cho
-     * riêng preset đang sửa, không đọc/ghi `appConfigVisualBg` nữa). */
+     * riêng preset đang sửa, không đọc/ghi `appConfigVisualBg` nữa).
+     * SỬA (29/08/2026, phản hồi Giang mục 1) — bản trước bọc riêng 1 hàm `_referenceDisplayDurationMs()`
+     * làm "chỗ sửa khi thêm nơi tiêu thụ mới" — Giang chỉ ra ĐÚNG: bọc thêm 1 hàm không làm nó
+     * generic hơn, chỉ hoãn phần cứng hoá lại 1 chỗ, mỗi nơi tiêu thụ mới vẫn phải quay lại SỬA
+     * ĐÚNG hàm đó. Bỏ hẳn — `capSlideshowTransitionDurationMs(transitionMs, durationMs)` (core/
+     * file-manager/slideshow.js) ĐÃ generic sẵn (chỉ nhận 2 SỐ, không biết/không cần biết số đó từ
+     * đâu ra — ảnh 'duration' tự nhiên, video phát thật, hay "Seconds per video/photo" fixtime đều
+     * ĐƯỢC, hàm không phân biệt) — dùng THẲNG hàm đó, không cần lớp bọc nào thêm. `durationMs` đọc
+     * TRỰC TIẾP ngay tại đây (Giang chốt: đọc thẳng, không dựng riêng 1 "điểm mở rộng" giả) —
+     * `durationSeconds` là ước lượng tốt nhất hiện có lúc SỬA (không có ảnh nào đang phát để biết
+     * `record.duration` thật) — runtime vẫn có CÙNG hàm này trong `_tick()` làm lưới an toàn CUỐI
+     * theo ĐÚNG ảnh thật đang hiện, không phụ thuộc ước lượng ở đây. */
     openTransitionDurationPicker() {
         if (genericDrawerPanel.classList.contains('hidden')) return;
         const preset = findSlideshowPresetById(appState.get('slideshowPresets'), this._editingId); // core/slideshow-presets.js
         if (!preset) return;
-        const maxMs = SLIDESHOW_TRANSITION_MAX_TIME_MS; // core/file-manager/slideshow.js — KHÔNG còn kẹp theo "seconds per photo" (field đó đã tách khỏi Slideshow, xem event/workflow/visual-bg.js)
+        const durationMs = appConfigVisualBg.getAll().durationSeconds * 1000; // liên tuyến domain — đọc thẳng, xem docstring trên
+        const maxMs = capSlideshowTransitionDurationMs(SLIDESHOW_TRANSITION_MAX_TIME_MS, durationMs); // core/file-manager/slideshow.js
         openTimePickerModal({ // core/time-picker-modal.js
             title: t('slideshowSettingsDrawer.transitionDuration.pickerTitle'),
             format: 's-ms',
-            valueMs: preset.transitionDurationMs,
+            valueMs: Math.min(preset.transitionDurationMs, maxMs), // kẹp vị trí cuộn ban đầu, tránh mở lên vượt max mới
             minMs: SLIDESHOW_TRANSITION_MIN_TIME_MS, // core/file-manager/slideshow.js
             maxMs,
             onConfirm: async (resultMs) => {
