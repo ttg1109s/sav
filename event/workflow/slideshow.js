@@ -7,21 +7,21 @@
  * 08/08/2026 — bước index giờ tính CHUNG bên `workflowVisualBg`, file này không tự gọi
  * `pickNextSlideshowIndexRandom/Sequential`/`advanceVisualBgList` nữa, xem comment 2 hàm đó).
  *
- * XOÁ (29/08/2026, phản hồi Giang — Slideshow tách hệ preset độc lập) — cụm "Settings Drawer" +
+ * XOÁ (29/08/2026, phản hồi Giang — Motion tách hệ preset độc lập) — cụm "Settings Drawer" +
  * router "slideshowSettings" (2 file event/router,listener/slideshow.js) bỏ hẳn — panel sửa cấu
- * hình Transition/Ken Burns giờ thuộc `workflowSlideshowPresets` (System > Slideshow), file NÀY chỉ
+ * hình Transition/Ken Burns giờ thuộc `workflowMotionPresets` (System > Motion), file NÀY chỉ
  * còn ĐÚNG 1 vai trò: engine cycle ảnh thật (`_tick()`, taskManager, ngoài eventBus — cùng khuôn
  * core/auto-switch-visual.js), đọc field cấu hình qua `_currentPreset()` (preset ĐANG GẮN cho Photo
- * VBG, `appConfigVisualBg.slideshowPresetId` — KHÔNG còn `appConfigVisualBg.getAll().slideshow`
+ * VBG, `appConfigVisualBg.motionPresetId` — KHÔNG còn `appConfigVisualBg.getAll().slideshow`
  * nhúng thẳng nữa).
  *
- * NẠP SAU: core/file-manager/slideshow.js, core/slideshow-presets.js (findSlideshowPresetById),
+ * NẠP SAU: core/file-manager/slideshow.js, core/motion-presets.js (findMotionPresetById),
  * core/visual-bg.js (markVisualBgListItemMissing), core/file-manager/image.js, service/db.js,
  * core/dom-refs.js (slideshowContainer/slideshowLayer1,2/slideshowLayer1,2Pan), service/task-
  * manager.js, event/workflow/visual-bg.js (workflowVisualBg).
  */
 
-/** Preset "tắt hết" — dùng khi `slideshowPresetId` là null (chưa gắn) HOẶC trỏ tới preset không còn
+/** Preset "tắt hết" — dùng khi `motionPresetId` là null (chưa gắn) HOẶC trỏ tới preset không còn
  * tồn tại (bị xoá ở nơi khác giữa chừng) — Giang chốt "2 công tắc cùng false thì không chạy hiệu ứng
  * gì cả", KHÔNG fallback về bất kỳ hiệu ứng mặc định nào. */
 const SLIDESHOW_NO_OP_PRESET = { transitionEnabled: false, transitionType: 'fade', transitionDurationMs: 1000, transitionInOutRatio: 50, transitionEasing: 'linear', kenBurnsEnabled: false, kenBurnsMode: 'zoomPanRandom' };
@@ -69,13 +69,13 @@ const workflowSlideshow = {
         if (panEl === slideshowLayer1Pan) this._kenBurnsAnim1 = anim; else this._kenBurnsAnim2 = anim;
     },
 
-    /** MỚI (29/08/2026, phản hồi Giang — Slideshow tách hệ preset độc lập) — đọc preset ĐANG GẮN
-     * cho Photo VBG (`appConfigVisualBg.slideshowPresetId` -> tra `appState.slideshowPresets`, xem
-     * core/slideshow-presets.js). Chưa gắn/preset không còn tồn tại -> `SLIDESHOW_NO_OP_PRESET`
+    /** MỚI (29/08/2026, phản hồi Giang — Motion tách hệ preset độc lập) — đọc preset ĐANG GẮN
+     * cho Photo VBG (`appConfigVisualBg.motionPresetId` -> tra `appState.motionPresets`, xem
+     * core/motion-presets.js). Chưa gắn/preset không còn tồn tại -> `SLIDESHOW_NO_OP_PRESET`
      * (xem docstring hằng số đó) — KHÔNG throw, KHÔNG tự chọn preset khác thay thế. */
     _currentPreset() {
-        const presetId = appConfigVisualBg.getAll().slideshowPresetId; // liên tuyến domain
-        const preset = presetId ? findSlideshowPresetById(appState.get('slideshowPresets'), presetId) : null; // core/slideshow-presets.js
+        const presetId = appConfigVisualBg.getAll().motionPresetId; // liên tuyến domain
+        const preset = presetId ? findMotionPresetById(appState.get('motionPresets'), presetId) : null; // core/motion-presets.js
         return preset || SLIDESHOW_NO_OP_PRESET;
     },
 

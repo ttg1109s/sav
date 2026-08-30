@@ -17,13 +17,13 @@
 const workflowAppBoot = {
     async boot() {
         await loadConfig();
-        // MỚI (29/08/2026, hệ Cấu hình Slideshow) — PHẢI chạy TRƯỚC dòng
+        // MỚI (29/08/2026, hệ Cấu hình Motion) — PHẢI chạy TRƯỚC dòng
         // `workflowVisualBg.loadPersistedSettingsOnBoot()` ngay dưới: hàm này tự migrate cấu hình
-        // Slideshow CŨ (từng nhúng thẳng trong `meta.visualBgConfig.slideshow`) thành preset đầu
-        // tiên + ghi thẳng `slideshowPresetId` vào CHÍNH `meta.visualBgConfig` — VBG đọc lại meta đó
+        // Motion CŨ (từng nhúng thẳng trong `meta.visualBgConfig.slideshow`) thành preset đầu
+        // tiên + ghi thẳng `motionPresetId` vào CHÍNH `meta.visualBgConfig` — VBG đọc lại meta đó
         // NGAY SAU sẽ thấy đúng giá trị đã migrate, xem docstring loadPresetsOnBoot()
-        // (event/workflow/slideshow-presets.js).
-        if (typeof workflowSlideshowPresets !== 'undefined') await workflowSlideshowPresets.loadPresetsOnBoot();
+        // (event/workflow/motion-presets.js).
+        if (typeof workflowMotionPresets !== 'undefined') await workflowMotionPresets.loadPresetsOnBoot();
         // SỬA (fix bug "bật vbg nguồn video -> playlist mãi mới render") — KHÔNG await ở đây nữa.
         // `loadPersistedSettingsOnBoot()` tự áp nền ngầm (video không còn chặn chờ 'playing' lúc
         // boot — xem event/workflow/visual-bg.js::_playVideoKey()); boot() chạy thẳng xuống playlist
@@ -41,8 +41,8 @@ const workflowAppBoot = {
         // tạm thời trong lúc đang build" khiến folder cũ hiện biến mất 1 nhịp.
         await migrateFolderIndexIfNeeded(); // core/file-manager/folder.js
         // XOÁ (29/08/2026) — comment cũ "Domain slideshow đã gộp vào visualBgConfig.slideshow (v13
-        // Batch C)" không còn đúng — Slideshow tách hẳn thành hệ preset độc lập (migrate ở dòng
-        // `workflowSlideshowPresets.loadPresetsOnBoot()` phía trên), không còn nhúng trong VBG.
+        // Batch C)" không còn đúng — Motion tách hẳn thành hệ preset độc lập (migrate ở dòng
+        // `workflowMotionPresets.loadPresetsOnBoot()` phía trên), không còn nhúng trong VBG.
         if (typeof checkPendingResumeStateOnBoot === 'function') checkPendingResumeStateOnBoot();
         if (typeof loadSongStats === 'function') await loadSongStats();
 

@@ -3,7 +3,7 @@
  * "tận dụng UI cũ, không đổi logic code, chỉ phân phối lại section + styling theo generic drawer").
  *
  * KIẾN TRÚC: Setting dùng THẲNG `core/generic-drawer.js` (singleton chung, Giang chỉ định rõ), 90vh.
- * Điều hướng nhiều cấp (Main -> System -> Theme/Gesture/Slideshow/Language, Main -> Playlist ->
+ * Điều hướng nhiều cấp (Main -> System -> Theme/Gesture/Motion/Language, Main -> Playlist ->
  * Sắp xếp/Lọc...) KHÔNG dùng lại `core/settings-panel-stack-ui.js` (cơ chế push/pop CŨ, DOM đó giờ
  * thuộc về Photo, xem components/photo-panel.js) — mà dùng đúng "cơ chế swap nội dung của Generic
  * Drawer đã có" (Giang chỉ định): `updateGenericDrawer()` (đã dùng bởi eq-presets.js/custom-
@@ -22,10 +22,10 @@
  * Generic Drawer (assets/css/layout-nav.css), KHÔNG sửa màu trực tiếp trong từng template cũ.
  *
  * Visualizer Screen (Display/Auto-Switch/Visual Background, kể cả 2 sub-panel Gradient/Video Audio
- * + picker con video/ảnh/album của Visual Background) ĐÃ migrate xong (đợt "làm nốt visualizer") —
- * cùng khuôn Gesture/Slideshow/Language/Troubleshooting. Slideshow mở được từ CẢ 2 nơi (System VÀ
- * bên trong Visual Background — "Tuỳ chỉnh Trình chiếu...") đều qua `navigateTo()`, Back luôn quay
- * đúng chỗ vừa đến.
+ * + picker con video/ảnh/thư mục của Visual Background) ĐÃ migrate xong (đợt "làm nốt visualizer") —
+ * cùng khuôn Gesture/Motion/Language/Troubleshooting. Motion (Cấu hình Transition/Ken Burns/React
+ * Beat Audio, hệ preset độc lập) giờ CHỈ mở được từ System — Visual Background không còn liên kết
+ * trực tiếp nào tới Motion nữa (xem event/workflow/motion-presets.js, mục "Áp dụng cấu hình").
  *
  * CÒN NỢ (đã biết, chưa sửa — dời lại theo yêu cầu Giang "logic bổ sung tính sau"): nút Cancel của
  * picker chọn THƯ MỤC video (1 trong 4 nguồn Visual Background) chưa tự quay lại Visual Background
@@ -35,7 +35,7 @@
  *
  * NẠP SAU: core/generic-drawer.js, core/app-panel-nav.js, components/settings/app-settings-main.js,
  * components/settings/playlist-view.js, components/settings/language.js, components/gesture-
- * settings-drawer.js, components/slideshow-settings-drawer.js, components/debug-console-drawer.js,
+ * settings-drawer.js, components/motion-settings-drawer.js, components/debug-console-drawer.js,
  * components/playlist-sort-drawer.js, components/playlist-filter-drawer.js, components/settings/
  * visualizer-display-panel.js, components/settings/visualizer-auto-switch-drawer.js, components/
  * visual-bg-settings-drawer.js, components/visual-bg-gradient-drawer.js, components/visual-bg-
@@ -80,7 +80,7 @@ const workflowAppSettings = {
 
     /** Dựng header (Back nếu không phải Main + Close X luôn có) + bodyHtml bọc `.app-settings-scope`
      * rồi mở/swap Generic Drawer + gọi `onMount(genericDrawerBody)` để màn tự đồng bộ giá trị/wire.
-     * MỞ RỘNG (29/08/2026, hệ "Cấu hình Slideshow") — tham số thứ 4 `extraHeaderHtml` (tuỳ chọn,
+     * MỞ RỘNG (29/08/2026, hệ "Cấu hình Motion") — tham số thứ 4 `extraHeaderHtml` (tuỳ chọn,
      * KHÔNG đổi gì cho mọi màn cũ không truyền) — chèn THÊM 1 nút hành động vào header (vd "+" ở màn
      * danh sách preset, "Xoá"/"Reset" ở màn sửa 1 preset) — đặt TRƯỚC nút Close, căn phải cùng cụm.
      * @param {string} title @param {string} bodyHtml @param {(body: HTMLElement) => void} [onMount]
@@ -152,14 +152,14 @@ const workflowAppSettings = {
         });
     },
 
-    // ===================== System (Theme/Gesture/Slideshow/Language) =====================
+    // ===================== System (Theme/Gesture/Motion/Language) =====================
 
     _renderSystem() {
         this._currentRenderFn = () => this._renderSystem();
         const rows = [
             { key: 'theme', icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h9a2 2 0 012 2v12a4 4 0 01-4 4H7zm0 0h10a2 2 0 002-2v-9', labelKey: 'appSettings.system.theme.label', hintKey: 'appSettings.system.theme.hint' },
             { key: 'gesture', icon: 'M7 11.5V9a2 2 0 114 0v1.5M11 9.5V6a2 2 0 114 0v5m0-3.5V8a2 2 0 114 0v4c0 4-2 6-6 6s-5.5-1-7-4l-1.5-3a1.7 1.7 0 012.6-2.1L8 10', labelKey: 'appSettings.system.gesture.label', hintKey: 'appSettings.system.gesture.hint' },
-            { key: 'slideshow', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', labelKey: 'appSettings.system.slideshow.label', hintKey: 'appSettings.system.slideshow.hint' },
+            { key: 'motion', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', labelKey: 'appSettings.system.motion.label', hintKey: 'appSettings.system.motion.hint' },
             { key: 'language', icon: 'M3.6 9h16.8M3.6 15h16.8M11.5 3a17 17 0 000 18M12.5 3a17 17 0 010 18M21 12a9 9 0 11-18 0 9 9 0 0118 0z', labelKey: 'appSettings.system.language.label', hintKey: 'appSettings.system.language.hint' },
         ];
         this._render(t('appSettings.row.system'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // core/app-settings-ui.js
@@ -269,77 +269,77 @@ const workflowAppSettings = {
         });
     },
 
-    // ===================== Slideshow — hệ Cấu hình độc lập (MỚI 29/08/2026, phản hồi Giang) =====
-    // Lối vào DUY NHẤT: System > Slideshow. 2 mục con: "Quản lý cấu hình" (danh sách preset, CRUD)
+    // ===================== Motion — hệ Cấu hình độc lập (MỚI 29/08/2026, phản hồi Giang) =====
+    // Lối vào DUY NHẤT: System > Motion. 2 mục con: "Quản lý cấu hình" (danh sách preset, CRUD)
     // và "Áp dụng cấu hình" (danh sách "nơi tiêu thụ" — hiện chỉ "Photo visual background"). Logic:
-    // event/workflow/slideshow-presets.js (workflowSlideshowPresets).
+    // event/workflow/motion-presets.js (workflowMotionPresets).
 
-    _renderSlideshow() {
-        this._currentRenderFn = () => this._renderSlideshow();
+    _renderMotion() {
+        this._currentRenderFn = () => this._renderMotion();
         const rows = [
-            { key: 'slideshowManage', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', labelKey: 'slideshowPresetsDrawer.menu.manage.label', hintKey: 'slideshowPresetsDrawer.menu.manage.hint' },
-            { key: 'slideshowApply', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', labelKey: 'slideshowPresetsDrawer.menu.apply.label', hintKey: 'slideshowPresetsDrawer.menu.apply.hint' },
+            { key: 'motionManage', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', labelKey: 'motionPresetsDrawer.menu.manage.label', hintKey: 'motionPresetsDrawer.menu.manage.hint' },
+            { key: 'motionApply', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', labelKey: 'motionPresetsDrawer.menu.apply.label', hintKey: 'motionPresetsDrawer.menu.apply.hint' },
         ];
-        this._render(t('slideshowPresetsDrawer.menu.title'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // components/settings/app-settings-main.js, core/app-settings-ui.js
+        this._render(t('motionPresetsDrawer.menu.title'), renderAppSettingsRowList(rows), wireAppSettingsSystem); // components/settings/app-settings-main.js, core/app-settings-ui.js
     },
 
-    /** Danh sách preset — DÙNG CHUNG "Quản lý" (`workflowSlideshowPresets._pickMode===false`, có nút
+    /** Danh sách preset — DÙNG CHUNG "Quản lý" (`workflowMotionPresets._pickMode===false`, có nút
      * "+" header + xoá nhanh mỗi dòng) và "Áp dụng > Chọn" (`_pickMode===true`, KHÔNG có 2 nút đó,
-     * tap dòng = gắn NGAY thay vì mở Edit — xem `workflowSlideshowPresets.tileClick()`). */
-    _renderSlideshowManage() {
-        this._currentRenderFn = () => this._renderSlideshowManage();
-        const pickMode = workflowSlideshowPresets._pickMode; // event/workflow/slideshow-presets.js
-        const presets = appState.get('slideshowPresets');
+     * tap dòng = gắn NGAY thay vì mở Edit — xem `workflowMotionPresets.tileClick()`). */
+    _renderMotionManage() {
+        this._currentRenderFn = () => this._renderMotionManage();
+        const pickMode = workflowMotionPresets._pickMode; // event/workflow/motion-presets.js
+        const presets = appState.get('motionPresets');
         this._render(
-            t(pickMode ? 'slideshowPresetsDrawer.list.pickTitle' : 'slideshowPresetsDrawer.menu.manage.label'),
-            renderSlideshowListBody(presets, pickMode), // components/slideshow-settings-drawer.js
+            t(pickMode ? 'motionPresetsDrawer.list.pickTitle' : 'motionPresetsDrawer.menu.manage.label'),
+            renderMotionListBody(presets, pickMode), // components/motion-settings-drawer.js
             (body) => {
-                body.querySelectorAll('[data-slideshow-preset-tile]').forEach((el) => {
-                    el.addEventListener('click', () => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.tile.click', payload: { id: el.dataset.slideshowPresetTile } }));
+                body.querySelectorAll('[data-motion-preset-tile]').forEach((el) => {
+                    el.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.tile.click', payload: { id: el.dataset.motionPresetTile } }));
                 });
-                body.querySelectorAll('[data-slideshow-preset-quickdelete]').forEach((el) => {
-                    el.addEventListener('click', (e) => { e.stopPropagation(); eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.quickDelete.click', payload: { id: el.dataset.slideshowPresetQuickdelete } }); });
+                body.querySelectorAll('[data-motion-preset-quickdelete]').forEach((el) => {
+                    el.addEventListener('click', (e) => { e.stopPropagation(); eventBus.send({ router: 'motionPresets', type: 'motionPresets.quickDelete.click', payload: { id: el.dataset.motionPresetQuickdelete } }); });
                 });
-                const addBtn = body.querySelector('#btn-slideshow-list-add'); // SỬA (29/08/2026) — dời từ header xuống hàng trong body, xem renderSlideshowListBody()
-                if (addBtn) addBtn.addEventListener('click', () => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.add.click', payload: {} }));
+                const addBtn = body.querySelector('#btn-motion-list-add'); // SỬA (29/08/2026) — dời từ header xuống hàng trong body, xem renderMotionListBody()
+                if (addBtn) addBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.add.click', payload: {} }));
             },
         );
     },
 
-    /** Sửa 1 preset (`workflowSlideshowPresets._editingId`). */
-    _renderSlideshowEdit() {
-        this._currentRenderFn = () => this._renderSlideshowEdit();
-        const preset = findSlideshowPresetById(appState.get('slideshowPresets'), workflowSlideshowPresets._editingId); // core/slideshow-presets.js
+    /** Sửa 1 preset (`workflowMotionPresets._editingId`). */
+    _renderMotionEdit() {
+        this._currentRenderFn = () => this._renderMotionEdit();
+        const preset = findMotionPresetById(appState.get('motionPresets'), workflowMotionPresets._editingId); // core/motion-presets.js
         if (!preset) { this.back(); return; } // guard: preset vừa bị xoá ở nơi khác giữa lúc đang sửa — quay lại danh sách an toàn
         this._render(
-            t('slideshowPresetsDrawer.edit.title'),
-            renderSlideshowEditBody(preset), // components/slideshow-settings-drawer.js
+            t('motionPresetsDrawer.edit.title'),
+            renderMotionEditBody(preset), // components/motion-settings-drawer.js
             (body) => {
-                const nameInput = body.querySelector('#setting-slideshow-name');
-                if (nameInput) nameInput.addEventListener('blur', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.name.change', payload: { value: e.target.value } }));
-                const transitionEnabled = body.querySelector('#setting-slideshow-transition-enabled');
-                if (transitionEnabled) transitionEnabled.addEventListener('change', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.transitionEnabled.change', payload: { checked: e.target.checked } }));
-                const transitionType = body.querySelector('#setting-slideshow-transition');
-                if (transitionType) transitionType.addEventListener('change', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.transitionType.change', payload: { value: e.target.value } }));
-                const transitionDurationBtn = body.querySelector('#setting-slideshow-transition-duration');
-                if (transitionDurationBtn) transitionDurationBtn.addEventListener('click', () => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.openTransitionDurationPicker.click', payload: {} }));
-                const ratioSlider = body.querySelector('#setting-slideshow-transition-ratio');
+                const nameInput = body.querySelector('#setting-motion-name');
+                if (nameInput) nameInput.addEventListener('blur', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.name.change', payload: { value: e.target.value } }));
+                const transitionEnabled = body.querySelector('#setting-motion-transition-enabled');
+                if (transitionEnabled) transitionEnabled.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionEnabled.change', payload: { checked: e.target.checked } }));
+                const transitionType = body.querySelector('#setting-motion-transition');
+                if (transitionType) transitionType.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionType.change', payload: { value: e.target.value } }));
+                const transitionDurationBtn = body.querySelector('#setting-motion-transition-duration');
+                if (transitionDurationBtn) transitionDurationBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.openTransitionDurationPicker.click', payload: {} }));
+                const ratioSlider = body.querySelector('#setting-motion-transition-ratio');
                 if (ratioSlider) {
-                    ratioSlider.addEventListener('input', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.transitionRatio.preview', payload: { value: Number(e.target.value) } }));
-                    ratioSlider.addEventListener('change', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.transitionRatio.change', payload: { value: Number(e.target.value) } }));
+                    ratioSlider.addEventListener('input', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionRatio.preview', payload: { value: Number(e.target.value) } }));
+                    ratioSlider.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionRatio.change', payload: { value: Number(e.target.value) } }));
                 }
-                workflowSlideshowPresets._updateTransitionRatioLabel(preset.transitionDurationMs, preset.transitionInOutRatio); // event/workflow/slideshow-presets.js
-                const easingSelect = body.querySelector('#setting-slideshow-transition-easing');
-                if (easingSelect) easingSelect.addEventListener('change', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.transitionEasing.change', payload: { value: e.target.value } }));
-                const kenBurnsToggle = body.querySelector('#setting-slideshow-kenburns');
-                if (kenBurnsToggle) kenBurnsToggle.addEventListener('change', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.kenBurnsEnabled.change', payload: { checked: e.target.checked } }));
-                const kenBurnsMode = body.querySelector('#setting-slideshow-kenburns-mode');
-                if (kenBurnsMode) kenBurnsMode.addEventListener('change', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.kenBurnsMode.change', payload: { value: e.target.value } }));
+                workflowMotionPresets._updateTransitionRatioLabel(preset.transitionDurationMs, preset.transitionInOutRatio); // event/workflow/motion-presets.js
+                const easingSelect = body.querySelector('#setting-motion-transition-easing');
+                if (easingSelect) easingSelect.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionEasing.change', payload: { value: e.target.value } }));
+                const kenBurnsToggle = body.querySelector('#setting-motion-kenburns');
+                if (kenBurnsToggle) kenBurnsToggle.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.kenBurnsEnabled.change', payload: { checked: e.target.checked } }));
+                const kenBurnsMode = body.querySelector('#setting-motion-kenburns-mode');
+                if (kenBurnsMode) kenBurnsMode.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.kenBurnsMode.change', payload: { value: e.target.value } }));
 
                 // MỚI (29/08/2026) — "React Beat Audio" — mọi control (checkbox/slider/select) gửi
                 // CÙNG 1 msg.type, chỉ khác payload {effectKey, fieldKey, value} — GENERIC, khớp
-                // đúng `workflowSlideshowPresets.changeBeatReactField()` (1 hàm xử lý mọi field).
-                const sendBeatReact = (effectKey, fieldKey, value) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.beatReact.field.change', payload: { effectKey, fieldKey, value } });
+                // đúng `workflowMotionPresets.changeBeatReactField()` (1 hàm xử lý mọi field).
+                const sendBeatReact = (effectKey, fieldKey, value) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.beatReact.field.change', payload: { effectKey, fieldKey, value } });
                 const wireBeatReactCheckbox = (id, effectKey, fieldKey) => {
                     const el = body.querySelector(`#${id}`);
                     if (el) el.addEventListener('change', (e) => sendBeatReact(effectKey, fieldKey, e.target.checked));
@@ -352,41 +352,41 @@ const workflowAppSettings = {
                     const el = body.querySelector(`#${id}`);
                     if (el) el.addEventListener('change', (e) => sendBeatReact(effectKey, fieldKey, e.target.value));
                 };
-                wireBeatReactCheckbox('setting-slideshow-beatreact-enabled', null, 'enabled');
-                wireBeatReactCheckbox('setting-slideshow-beatreact-replace', null, 'replaceMovement');
+                wireBeatReactCheckbox('setting-motion-beatreact-enabled', null, 'enabled');
+                wireBeatReactCheckbox('setting-motion-beatreact-replace', null, 'replaceMovement');
                 ['zoom', 'pan', 'rotate'].forEach((key) => {
-                    wireBeatReactCheckbox(`setting-slideshow-beatreact-${key}-enabled`, key, 'enabled');
-                    wireBeatReactRange(`setting-slideshow-beatreact-${key}-beats`, key, 'everyNBeats');
-                    wireBeatReactRange(`setting-slideshow-beatreact-${key}-amount`, key, key === 'rotate' ? 'amountDeg' : 'amountPct');
+                    wireBeatReactCheckbox(`setting-motion-beatreact-${key}-enabled`, key, 'enabled');
+                    wireBeatReactRange(`setting-motion-beatreact-${key}-beats`, key, 'everyNBeats');
+                    wireBeatReactRange(`setting-motion-beatreact-${key}-amount`, key, key === 'rotate' ? 'amountDeg' : 'amountPct');
                 });
-                wireBeatReactSelect('setting-slideshow-beatreact-pan-direction', 'pan', 'direction');
-                wireBeatReactSelect('setting-slideshow-beatreact-rotate-direction', 'rotate', 'direction');
+                wireBeatReactSelect('setting-motion-beatreact-pan-direction', 'pan', 'direction');
+                wireBeatReactSelect('setting-motion-beatreact-rotate-direction', 'rotate', 'direction');
 
-                const resetBtn = body.querySelector('#btn-slideshow-edit-reset'); // SỬA (29/08/2026) — dời từ header xuống hàng cuối trong body, xem renderSlideshowEditBody() nhóm "Quản lý"
-                if (resetBtn) resetBtn.addEventListener('click', () => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.reset.click', payload: {} }));
-                const deleteBtn = body.querySelector('#btn-slideshow-edit-delete'); // SỬA (29/08/2026) — cùng lý do resetBtn ngay trên
-                if (deleteBtn) deleteBtn.addEventListener('click', () => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.delete.click', payload: {} }));
+                const resetBtn = body.querySelector('#btn-motion-edit-reset'); // SỬA (29/08/2026) — dời từ header xuống hàng cuối trong body, xem renderMotionEditBody() nhóm "Quản lý"
+                if (resetBtn) resetBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.reset.click', payload: {} }));
+                const deleteBtn = body.querySelector('#btn-motion-edit-delete'); // SỬA (29/08/2026) — cùng lý do resetBtn ngay trên
+                if (deleteBtn) deleteBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.delete.click', payload: {} }));
             },
         );
     },
 
     /** "Áp dụng cấu hình" — danh sách "nơi tiêu thụ" (tạm thời 1 dòng, DÙNG THẲNG
      * `data-app-settings-nav`/NAV_TARGETS, không cần wiring riêng). */
-    _renderSlideshowApply() {
-        this._currentRenderFn = () => this._renderSlideshowApply();
-        const preset = findSlideshowPresetById(appState.get('slideshowPresets'), appConfigVisualBg.getAll().slideshowPresetId); // core/slideshow-presets.js, liên tuyến domain
-        this._render(t('slideshowPresetsDrawer.menu.apply.label'), renderSlideshowApplyListBody(preset ? preset.name : ''), wireAppSettingsSystem); // components/slideshow-settings-drawer.js, core/app-settings-ui.js
+    _renderMotionApply() {
+        this._currentRenderFn = () => this._renderMotionApply();
+        const preset = findMotionPresetById(appState.get('motionPresets'), appConfigVisualBg.getAll().motionPresetId); // core/motion-presets.js, liên tuyến domain
+        this._render(t('motionPresetsDrawer.menu.apply.label'), renderMotionApplyListBody(preset ? preset.name : ''), wireAppSettingsSystem); // components/motion-settings-drawer.js, core/app-settings-ui.js
     },
 
     /** Chi tiết "Photo visual background". */
-    _renderSlideshowApplyPhotoVisualBg() {
-        this._currentRenderFn = () => this._renderSlideshowApplyPhotoVisualBg();
-        const preset = findSlideshowPresetById(appState.get('slideshowPresets'), appConfigVisualBg.getAll().slideshowPresetId); // core/slideshow-presets.js, liên tuyến domain
-        this._render(t('slideshowPresetsDrawer.apply.photoVisualBg.label'), renderSlideshowApplyDetailBody(preset ? preset.name : ''), (body) => { // components/slideshow-settings-drawer.js
-            const pickBtn = body.querySelector('#btn-slideshow-apply-pick');
-            if (pickBtn) pickBtn.addEventListener('click', () => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.openPickForPhotoVisualBg.click', payload: {} }));
-            const detachBtn = body.querySelector('#btn-slideshow-apply-detach');
-            if (detachBtn) detachBtn.addEventListener('click', () => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.detachFromPhotoVisualBg.click', payload: {} }));
+    _renderMotionApplyPhotoVisualBg() {
+        this._currentRenderFn = () => this._renderMotionApplyPhotoVisualBg();
+        const preset = findMotionPresetById(appState.get('motionPresets'), appConfigVisualBg.getAll().motionPresetId); // core/motion-presets.js, liên tuyến domain
+        this._render(t('motionPresetsDrawer.apply.photoVisualBg.label'), renderMotionApplyDetailBody(preset ? preset.name : ''), (body) => { // components/motion-settings-drawer.js
+            const pickBtn = body.querySelector('#btn-motion-apply-pick');
+            if (pickBtn) pickBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.openPickForPhotoVisualBg.click', payload: {} }));
+            const detachBtn = body.querySelector('#btn-motion-apply-detach');
+            if (detachBtn) detachBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.detachFromPhotoVisualBg.click', payload: {} }));
         });
     },
 

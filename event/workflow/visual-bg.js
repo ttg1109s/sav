@@ -115,13 +115,15 @@ const workflowVisualBg = {
                 // `cfg.slideshow` không còn tồn tại trong schema (core/config.js) — BUG đã sửa: khối
                 // cũ vẫn ghi `cfg.slideshow.xxx = ...` sẽ throw TypeError lúc boot (cfg.slideshow là
                 // undefined). Cấu hình Transition/Ken Burns CŨ (nếu Giang từng chỉnh) đã tự động
-                // MIGRATE thành preset đầu tiên bởi `workflowSlideshowPresets.loadPresetsOnBoot()`
+                // MIGRATE thành preset đầu tiên bởi `workflowMotionPresets.loadPresetsOnBoot()`
                 // (chạy TRƯỚC hàm này, xem event/workflow/app-boot.js) — không cần xử lý gì thêm ở
-                // đây, chỉ cần khôi phục ĐÚNG tham chiếu `slideshowPresetId` ngay dưới.
-                // MỚI (29/08/2026) — khôi phục `slideshowPresetId` đã lưu (hoặc vừa migrate) — THIẾU
+                // đây, chỉ cần khôi phục ĐÚNG tham chiếu `motionPresetId` ngay dưới.
+                // MỚI (29/08/2026) — khôi phục `motionPresetId` đã lưu (hoặc vừa migrate) — THIẾU
                 // dòng này thì tham chiếu preset đang gắn sẽ mất, về lại `null` mặc định MỖI LẦN
-                // reload app, dù `meta.visualBgConfig.slideshowPresetId` đã lưu đúng.
-                if (typeof saved.slideshowPresetId === 'string' || saved.slideshowPresetId === null) cfg.slideshowPresetId = saved.slideshowPresetId;
+                // reload app, dù `meta.visualBgConfig.motionPresetId` đã lưu đúng. SỬA (29/08/2026,
+                // đổi tên hệ preset "Slideshow" -> "Motion", tránh nhầm với chế độ Playback
+                // 'slideshow' của VBG) — field `slideshowPresetId` cũ đổi thành `motionPresetId`.
+                if (typeof saved.motionPresetId === 'string' || saved.motionPresetId === null) cfg.motionPresetId = saved.motionPresetId;
             });
             console.log(`writer: "workflowVisualBg.loadPersistedSettingsOnBoot", page: "visualBgConfig", content: "nạp lại từ meta"`);
         }
@@ -141,9 +143,9 @@ const workflowVisualBg = {
         await setMeta('visualBgConfig', appConfigVisualBg.getAll()); // service/db.js
     },
 
-    // XOÁ (29/08/2026, phản hồi Giang — Slideshow tách hệ preset độc lập) — mutateSlideshowSetting()
+    // XOÁ (29/08/2026, phản hồi Giang — Motion tách hệ preset độc lập) — mutateSlideshowSetting()
     // bỏ hẳn: `cfg.slideshow` không còn tồn tại (xem core/config.js), sửa cấu hình Transition/Ken
-    // Burns giờ thuộc workflowSlideshowPresets._mutateEditing() (event/workflow/slideshow-presets.js).
+    // Burns giờ thuộc workflowMotionPresets._mutateEditing() (event/workflow/motion-presets.js).
 
     // ===================== Áp dụng nền =====================
 
