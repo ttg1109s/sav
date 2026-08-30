@@ -1,6 +1,6 @@
 /**
  * event/router/app-settings.js — Router tên "appSettings", tự đăng ký với eventBus lúc nạp.
- * Điều phối toàn bộ điều hướng Setting (Main/System/Playlist/Theme/Gesture/Slideshow/Language/
+ * Điều phối toàn bộ điều hướng Setting (Main/System/Playlist/Theme/Gesture/Motion/Language/
  * Visualizer Screen/Troubleshooting) — mọi nút động (Rule 5a) chỉ gửi message tới đây, KHÔNG gọi
  * thẳng workflowAppSettings (xem core/app-settings-ui.js).
  *
@@ -20,17 +20,17 @@ const routerAppSettings = (() => {
         troubleshooting: () => workflowAppSettings._renderTroubleshooting(),
         theme: () => workflowAppSettings._renderTheme(),
         gesture: () => workflowAppSettings._renderGesture(),
-        slideshow: () => workflowAppSettings._renderSlideshow(),
+        motion: () => workflowAppSettings._renderMotion(),
         language: () => workflowAppSettings._renderLanguage(),
         playlistSort: () => workflowAppSettings._renderPlaylistSort(),
         playlistFilter: () => workflowAppSettings._renderPlaylistFilter(),
         display: () => workflowAppSettings._renderDisplay(),
         autoSwitch: () => workflowAppSettings._renderAutoSwitch(),
         visualBg: () => workflowAppSettings._renderVisualBg(),
-        // MỚI (29/08/2026) — hệ Cấu hình Slideshow, xem event/workflow/slideshow-presets.js.
-        slideshowManage: () => workflowAppSettings._renderSlideshowManage(),
-        slideshowApply: () => workflowAppSettings._renderSlideshowApply(),
-        slideshowApplyPhotoVisualBg: () => workflowAppSettings._renderSlideshowApplyPhotoVisualBg(),
+        // MỚI (29/08/2026) — hệ Cấu hình Motion, xem event/workflow/motion-presets.js.
+        motionManage: () => workflowAppSettings._renderMotionManage(),
+        motionApply: () => workflowAppSettings._renderMotionApply(),
+        motionApplyPhotoVisualBg: () => workflowAppSettings._renderMotionApplyPhotoVisualBg(),
     };
 
     function handle(msg) {
