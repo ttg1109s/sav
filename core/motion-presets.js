@@ -23,7 +23,7 @@
  * `reactBeatAudio` — MỚI (29/08/2026, phản hồi Giang) — pulse zoom/pan/rotate BẮN THEO BEAT nhạc
  * (đọc `appState.beatScale`/`beatTimes`, tính mỗi frame trong event/workflow/visualizer-render.js —
  * xem event/workflow/motion.js::_tickBeatReact()). `enabled` bật cả cụm; `replaceMovement` quyết
- * định layer `.ss-beat-react` (MỚI, xem index.html/assets/css/motion.css) THAY THẾ hẳn chuyển
+ * định layer `.me-beat-react` (MỚI, xem index.html/assets/css/motion-engine.css) THAY THẾ hẳn chuyển
  * động Ken Burns thường (`true`) hay chạy SONG SONG, transform 2 layer nhân dồn (`false`). 3 hiệu
  * ứng con (zoom/pan/rotate) ĐỘC LẬP nhau — bật được 1, vài, hay cả 3 cùng lúc (checkbox riêng từng
  * cái), mỗi cái tự đếm `everyNBeats` RIÊNG (khác N thì bắn lệch nhịp nhau, không đồng bộ):

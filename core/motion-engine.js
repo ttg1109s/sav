@@ -74,8 +74,8 @@ function transitionSupportsInOutRatio(transitionType) {
 
 /**
  * Core thuần: từ TỔNG thời gian transition + tỉ lệ % (Giang gọi "in/out ratio" — % dành cho "in",
- * phần còn lại là "out"), TÍNH RA 2 thời lượng riêng cho pha "in" (layer MỚI, `.ss-layer-enter`) và
- * pha "out" (layer CŨ, `.ss-layer-exit`). Đúng ví dụ Giang đưa: totalMs=10000, ratioPercent=60 ->
+ * phần còn lại là "out"), TÍNH RA 2 thời lượng riêng cho pha "in" (layer MỚI, `.me-layer-enter`) và
+ * pha "out" (layer CŨ, `.me-layer-exit`). Đúng ví dụ Giang đưa: totalMs=10000, ratioPercent=60 ->
  * {inMs:6000, outMs:4000}; ratioPercent=30 -> {inMs:3000, outMs:7000}.
  * @param {number} totalMs
  * @param {number} ratioPercent - 0-100, % dành cho "in".
@@ -174,7 +174,7 @@ function setMotionEngineLayerImage(layerEl, objectUrl) {
  * độ CÓ TÊN nhưng vẫn CSS @keyframes tĩnh) CHỈ đúng phần "chia tuỳ chọn", CHƯA đúng phần "dùng kỹ
  * thuật Nhóm 2" (Web Animations API + biên tính theo TỈ LỆ ẢNH THẬT) — Giang chỉ ra rõ, sửa lại
  * ĐÚNG cả 2 vế cùng lúc. XOÁ SẠCH toàn bộ hạ tầng CSS keyframe/classList của bản trước
- * (MOTION_ENGINE_KENBURNS_CLASS_BY_MODE/ALL_CLASSES/END_TRANSFORMS + 10 class .ss-kenburns-* +
+ * (MOTION_ENGINE_KENBURNS_CLASS_BY_MODE/ALL_CLASSES/END_TRANSFORMS + 10 class .me-kenburns-* +
  * @keyframes tương ứng ở assets/css/motion-engine.css) — THAY bằng `panEl.animate()` (Web Animations
  * API), vì lý do CĂN BẢN: CSS @keyframes là TĨNH (viết cứng % cố định), trong khi biên pan AN TOÀN
  * giờ PHỤ THUỘC tỉ lệ ẢNH THẬT (record.width/height, core/file-manager/image.js) so với tỉ lệ
@@ -416,14 +416,14 @@ function pickMotionEngineKenBurnsKeyframes(direction, bounds, durationMs) {
 }
 
 /**
- * Core thuần: BẮT ĐẦU Ken Burns bằng Web Animations API trên layer CON `.ss-kenburns-pan` (KHÔNG
+ * Core thuần: BẮT ĐẦU Ken Burns bằng Web Animations API trên layer CON `.me-kenburns-pan` (KHÔNG
  * phải layer ngoài — tách 2 phần tử từ trước, xem docstring đầu assets/css/motion-engine.css). Nơi gọi
  * (event/workflow/motion-engine.js) tự giữ tham chiếu layer con + tự giữ luôn `Animation` object trả
  * về (để `.cancel()` lúc cần — đổi ảnh mới/tắt Ken Burns, xem `stopMotionEngineKenBurnsAnimation()`
  * ngay dưới) — Rule 2, hàm này KHÔNG tự quản lý vòng đời Animation, chỉ tạo ra rồi trả lại.
  * `fill: 'forwards'` tự giữ trạng thái CUỐI khi animation chạy hết tự nhiên (xem docstring đầu
  * file — bỏ hẳn được cơ chế "đóng băng" thủ công của bản CSS cũ).
- * @param {HTMLElement} panEl - layer CON `.ss-kenburns-pan`.
+ * @param {HTMLElement} panEl - layer CON `.me-kenburns-pan`.
  * @param {[Object, Object]} keyframes - từ pickMotionEngineKenBurnsKeyframes().
  * @param {number} durationMs - PHẢI là giá trị ĐÃ KẸP bởi `capMotionEngineKenBurnsDurationMs()` — nơi
  *   gọi (event/workflow/motion-engine.js) tự cap 1 LẦN rồi dùng CHUNG kết quả đó cho cả
@@ -442,7 +442,7 @@ function startMotionEngineKenBurnsAnimation(panEl, keyframes, durationMs) {
  * Animation đang giữ (nếu có) TRƯỚC khi reset inline style — `cancel()` tự gỡ hiệu lực
  * `fill:'forwards'` đang áp, không làm vậy trước thì set lại style ngay sau có thể bị animation
  * "forwards" ghi đè lại (animation đã cancel không còn ảnh hưởng gì tới style nữa).
- * @param {HTMLElement} panEl - layer CON `.ss-kenburns-pan`.
+ * @param {HTMLElement} panEl - layer CON `.me-kenburns-pan`.
  * @param {Animation|null} animation - Animation Workflow đang giữ cho layer này (null nếu chưa
  *   từng kích hoạt hoặc đã dừng trước đó).
  */
@@ -488,15 +488,15 @@ function resumeMotionEngineKenBurnsAnimation(animation) {
  * (event/workflow/motion-engine.js::_tick()) tự `taskManager.once()` + tự gọi TỪNG hàm core cần thiết
  * (kể cả `setMotionEngineLayerImage()`/`stopMotionEngineKenBurnsAnimation()` cho outgoing layer) theo đúng thứ
  * tự, xem ví dụ ở core-function-conventions.md Rule 3.
- * @param {HTMLElement} outgoingLayerEl - layer đang có class 'ss-current'.
+ * @param {HTMLElement} outgoingLayerEl - layer đang có class 'me-current'.
  * @param {HTMLElement} incomingLayerEl - layer đang ẩn, ĐÃ được set ảnh mới (Workflow tự gọi
  *   `setMotionEngineLayerImage()` TRƯỚC khi gọi hàm này).
  */
 function startMotionEngineTransitionVisuals(outgoingLayerEl, incomingLayerEl) {
     if (!outgoingLayerEl || !incomingLayerEl) return;
-    incomingLayerEl.classList.add('ss-layer-enter');
-    outgoingLayerEl.classList.remove('ss-current');
-    outgoingLayerEl.classList.add('ss-layer-exit');
+    incomingLayerEl.classList.add('me-layer-enter');
+    outgoingLayerEl.classList.remove('me-current');
+    outgoingLayerEl.classList.add('me-layer-exit');
 }
 
 /**
@@ -509,9 +509,9 @@ function startMotionEngineTransitionVisuals(outgoingLayerEl, incomingLayerEl) {
  */
 function finishMotionEngineTransitionVisuals(outgoingLayerEl, incomingLayerEl) {
     if (!outgoingLayerEl || !incomingLayerEl) return;
-    outgoingLayerEl.classList.remove('ss-layer-exit');
-    incomingLayerEl.classList.remove('ss-layer-enter');
-    incomingLayerEl.classList.add('ss-current');
+    outgoingLayerEl.classList.remove('me-layer-exit');
+    incomingLayerEl.classList.remove('me-layer-enter');
+    incomingLayerEl.classList.add('me-current');
 }
 
 // ===================== ĐÃ GỠ (Giai đoạn 4, rewrite Photo/Album, mục 1) — hiện/ẩn panel chọn nguồn
@@ -528,7 +528,7 @@ function finishMotionEngineTransitionVisuals(outgoingLayerEl, incomingLayerEl) {
  */
 function resetMotionEngineLayerClasses(layerEl) {
     if (!layerEl) return;
-    layerEl.classList.remove('ss-current', 'ss-layer-enter', 'ss-layer-exit');
+    layerEl.classList.remove('me-current', 'me-layer-enter', 'me-layer-exit');
 }
 
 /**
@@ -538,7 +538,7 @@ function resetMotionEngineLayerClasses(layerEl) {
  * pan/rotate; zoom tự dựng `[0, peak, 0]` thẳng ở nơi gọi, không có "hướng" nên không cần hàm riêng)
  * rồi gọi hàm NÀY, không viết công thức nội suy riêng từng chỗ.
  * KHÔNG dùng Web Animations API cho pulse này (khác Ken Burns thường) — 3 hiệu ứng zoom/pan/rotate
- * CÙNG sửa 1 thuộc tính CSS `transform` trên CÙNG 1 phần tử (`.ss-beat-react`), `animate()` độc lập
+ * CÙNG sửa 1 thuộc tính CSS `transform` trên CÙNG 1 phần tử (`.me-beat-react`), `animate()` độc lập
  * cho từng cái sẽ ĐÈ LẪN NHAU (Web Animations API không tự cộng dồn nhiều animation cùng thuộc tính
  * trên cùng phần tử) — Workflow tự gọi hàm này mỗi khung hình cho CẢ 3, cộng dồn kết quả thành 1
  * chuỗi `transform` áp 1 lần, xem event/workflow/motion-engine.js::_tickBeatReact().
