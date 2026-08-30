@@ -330,10 +330,14 @@
 
             // XOÁ (29/08/2026, phản hồi Giang — "Settings > Slideshow" đổi thành danh sách preset
             // đặt tên được) — object `slideshow` nhúng thẳng bỏ hẳn, thay bằng 1 tham chiếu duy nhất
-            // tới danh sách preset SỐNG RIÊNG (`appState.slideshowPresets`/`meta.slideshowPresets`) —
-            // xem core/slideshow-presets.js, event/workflow/slideshow-presets.js. `null` = CHƯA gắn
+            // tới danh sách preset SỐNG RIÊNG (`appState.motionPresets`/`meta.motionPresets`) —
+            // xem core/motion-presets.js, event/workflow/motion-presets.js. `null` = CHƯA gắn
             // preset nào — Photo hiện KHÔNG transition/Ken Burns gì cả (chuyển cứng giữa các ảnh).
-            slideshowPresetId: null,
+            // SỬA (29/08/2026, phản hồi Giang — "tránh nhầm giữa tên mục Settings với chế độ
+            // Playback 'Slideshow' của VBG") — field đổi tên `slideshowPresetId` -> `motionPresetId`,
+            // cùng đợt đổi tên toàn bộ hệ preset này thành "Motion" (KHÔNG đụng
+            // `listPlaybackMode`/giá trị 'slideshow' của nó — 2 khái niệm khác nhau).
+            motionPresetId: null,
         };
 
         const DEFAULT_READER_CONFIG = {
@@ -416,7 +420,13 @@
                 colorMode: 'string', solidColor: 'string', gradientAngleDeg: 'number',
                 gradientStops: 'object',
                 gradientMovement: 'object',
-                slideshow: 'object',
+                // SỬA (29/08/2026) — schema lạc hậu: field `slideshow` (object) đã bỏ hẳn từ lúc
+                // Motion tách thành hệ preset độc lập, thay bằng 3 field dưới đây — CHƯA từng cập
+                // nhật vào schema này (không gây lỗi thật vì `getAll()`/`mutateAll()` bỏ qua hẳn
+                // schema, chỉ đọc/ghi thẳng object — nhưng để lạc hậu vẫn sai/gây hiểu nhầm nếu sau
+                // này có chỗ chuyển sang dùng `access('visualBg').get()/.set()` — 2 hàm CÓ check).
+                durationMode: 'string', durationSeconds: 'number',
+                motionPresetId: 'nullable-string',
             },
             defaults: DEFAULT_VISUAL_BG_CONFIG,
         });
