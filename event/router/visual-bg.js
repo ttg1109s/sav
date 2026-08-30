@@ -1,6 +1,6 @@
 /**
  * event/router/visual-bg.js — Router "visualBg". Mọi case ≥2 bước phụ thuộc thứ tự -> giao hết cho
- * `workflowVisualBg`/`workflowSlideshow`, không case nào gọi thẳng Core.
+ * `workflowVisualBg`/`workflowMotionEngine`, không case nào gọi thẳng Core.
  * NGOẠI LỆ: 'visualBg.pickVideo.click'/'visualBg.pickPhoto.click'/'visualBg.songChanged'
  * — rẽ theo `type`/`listPlaybackMode` qua VirtualMachineState (rẽ nhánh theo state đi qua đây,
  * không viết switch/if tay trong case).
@@ -23,7 +23,8 @@ const routerVisualBg = (() => {
                 workflowVisualBg.changeNextOrder(msg.payload.value);
                 break;
 
-            // MỚI (29/08/2026) — "Duration mode"/"Seconds per video/photo", dời từ slideshow.
+            // MỚI (29/08/2026) — "Duration mode"/"Seconds per video/photo", dời từ Motion (panel
+            // Settings cũ, trước khi tách hệ preset độc lập).
             case 'visualBg.durationMode.change':
                 workflowVisualBg.changeDurationMode(msg.payload.value);
                 break;
@@ -173,7 +174,7 @@ const routerVisualBg = (() => {
             case 'visualBg.songChanged': {
                 const type = appConfigVisualBg.getAll().type;
                 VirtualMachineState.run([
-                    { state: type, operation: '===', value: 'photo', callback: () => workflowSlideshow.advanceForSongChange() },
+                    { state: type, operation: '===', value: 'photo', callback: () => workflowMotionEngine.advanceForSongChange() },
                     { state: type, operation: '===', value: 'video', callback: () => workflowVisualBg.advanceForSongChange() },
                 ]);
                 break;
