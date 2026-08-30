@@ -232,6 +232,24 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'slideshowPresetsDrawer.apply.detach.label': 'Detach',
     'slideshowPresetsDrawer.apply.pickButton': 'Choose configuration',
 
+    // MỚI (29/08/2026, phản hồi Giang) — "React Beat Audio": pulse zoom/pan/rotate bắn theo beat nhạc.
+    'slideshowPresetsDrawer.beatReact.groupTitle': 'React Beat Audio',
+    'slideshowPresetsDrawer.beatReact.enabled.label': 'React to beat',
+    'slideshowPresetsDrawer.beatReact.replaceMovement.label': 'Replace movement',
+    'slideshowPresetsDrawer.beatReact.replaceMovement.hint': 'On: replaces normal Ken Burns movement. Off: both run together.',
+    'slideshowPresetsDrawer.beatReact.zoom.title': 'Zoom',
+    'slideshowPresetsDrawer.beatReact.zoom.amountLabel': 'Zoom amount',
+    'slideshowPresetsDrawer.beatReact.pan.title': 'Pan',
+    'slideshowPresetsDrawer.beatReact.pan.amountLabel': 'Pan amount',
+    'slideshowPresetsDrawer.beatReact.rotate.title': 'Rotate',
+    'slideshowPresetsDrawer.beatReact.rotate.amountLabel': 'Rotate amount',
+    'slideshowPresetsDrawer.beatReact.everyNBeats.label': 'Trigger every N beats',
+    'slideshowPresetsDrawer.beatReact.direction.label': 'Direction',
+    'slideshowPresetsDrawer.beatReact.direction.left': 'Left only',
+    'slideshowPresetsDrawer.beatReact.direction.right': 'Right only',
+    'slideshowPresetsDrawer.beatReact.direction.leftToRight': 'Left \u2192 Right',
+    'slideshowPresetsDrawer.beatReact.direction.rightToLeft': 'Right \u2192 Left',
+
     // Tái tổ chức (07/07/2026, phản hồi Giang mục 4) — section cũ "Playlist & Background" TÁCH
     // làm 2: "Playlist" (file này, chỉ còn view/sort) + "Background" (KEY MỚI, xem
     // components/settings/playlist-background.js — nay CHỈ chứa phần Nền).
