@@ -148,48 +148,25 @@ const workflowSlideshowPresets = {
         this._syncEditUI();
     },
 
-    /** MỚI (29/08/2026, phản hồi Giang mục 1) — thời lượng "hiển thị" THAM CHIẾU dùng để kẹp trần
-     * `transitionDurationMs` lúc CHỌN (picker) — TÁCH HẲN khỏi công thức toán học
-     * `capSlideshowTransitionDurationMs()` (core/file-manager/slideshow.js — hàm đó CHỈ nhận 2 SỐ,
-     * hoàn toàn generic, không tự đọc bất kỳ consumer nào cả, xem docstring nó). Hàm NÀY mới là nơi
-     * DUY NHẤT "biết" nơi tiêu thụ hiện có là Photo Visual Background — sau này thêm nơi tiêu thụ
-     * khác, chỉ cần sửa ĐÚNG hàm này (vd chọn min/max giữa nhiều nơi đang gắn preset đang sửa),
-     * KHÔNG đụng gì tới công thức kẹp hay UI picker gọi nó.
-     * `durationSeconds` (field global "Seconds per video/photo") dùng làm tham chiếu BẤT KỂ
-     * `durationMode` đang là gì — ảnh mode 'duration' vốn không có 1 con số CỐ ĐỊNH nào để so (mỗi
-     * ảnh 1 giá trị riêng, chỉ biết lúc phát THẬT — xem `_computeAdvanceMs()`,
-     * event/workflow/slideshow.js), nên số này là ước lượng hợp lý nhất hiện có tại thời điểm SỬA
-     * (không có ảnh nào đang phát để mà đọc `record.duration` thật) — runtime vẫn có
-     * `capSlideshowTransitionDurationMs()` trong `_tick()` làm lưới an toàn CUỐI CÙNG theo ĐÚNG ảnh
-     * thật đang hiện, không phụ thuộc vào ước lượng ở đây.
-     * @returns {number|null} null nếu không có tham chiếu nào (nơi gọi tự fallback về
-     *   SLIDESHOW_TRANSITION_MAX_TIME_MS, không kẹp thêm gì).
-     */
-    _referenceDisplayDurationMs() {
-        if (typeof appConfigVisualBg === 'undefined') return null; // liên tuyến domain — phòng thứ tự nạp file lỡ đảo
-        return appConfigVisualBg.getAll().durationSeconds * 1000;
-    },
-
     /** Ứng nút mở modal chọn "Thời gian chuyển cảnh" — CÙNG khuôn `openTransitionDurationPicker()`
      * cũ (event/workflow/slideshow.js, nay chỉ còn dùng cho video/preview cycle — hàm NÀY là bản cho
      * riêng preset đang sửa, không đọc/ghi `appConfigVisualBg` nữa).
-     * SỬA (29/08/2026, phản hồi Giang mục 1 — "vẫn phải kẹp transition < thời lượng hiển thị ít nhất
-     * 1s") — bản trước bỏ hẳn kẹp trần động (chỉ còn trần cứng 60s) vì nghĩ preset độc lập không có
-     * 1 "thời lượng" cụ thể nào để so — ĐÚNG NHƯNG THIẾU: vẫn cần 1 ước lượng THAM CHIẾU (xem
-     * `_referenceDisplayDurationMs()` ngay trên) để kẹp NGAY lúc chọn, không đợi tới lúc phát thật
-     * mới bị runtime âm thầm cắt bớt (`capSlideshowTransitionDurationMs()` trong `_tick()` vẫn là
-     * lưới an toàn CUỐI, không đổi). */
+     * SỬA (29/08/2026, phản hồi Giang — "config generic thì đâu biết trước sẽ dùng bởi ai mà đòi
+     * kẹp UI") — 2 bản trước đều SAI cách tiếp cận (dù bản sau có sửa lại điều kiện `durationMode`,
+     * vẫn sai TỪ GỐC): lúc SỬA 1 preset ở đây, KHÔNG có cách nào biết chắc ai sẽ dùng nó — có thể
+     * CHƯA gắn cho nơi tiêu thụ nào cả, có thể gắn cho VBG đang ở mode 'duration' (mỗi ảnh 1 số khác
+     * nhau, không có gì để đối chiếu), hay 1 nơi tiêu thụ TƯƠNG LAI hoàn toàn khác. Đọc
+     * `appConfigVisualBg` (dù có điều kiện `durationMode==='fixtime'` hay không) TRONG picker này
+     * đều là ĐOÁN — sai bản chất "cấu hình độc lập, KHÔNG sở hữu bởi bất kỳ nơi tiêu thụ nào".
+     * BỎ HẲN mọi tham chiếu động — picker CHỈ còn trần cứng `SLIDESHOW_TRANSITION_MAX_TIME_MS`
+     * (60s). Kẹp THẬT (< thời lượng hiển thị thật, ít nhất 1s) chỉ xảy ra ở RUNTIME — nơi DUY NHẤT
+     * biết CHẮC CHẮN con số đúng tại đúng thời điểm đó — qua CHÍNH `capSlideshowTransitionDurationMs()`
+     * đã có sẵn trong `_tick()` (event/workflow/slideshow.js), không đổi gì thêm ở đó. */
     openTransitionDurationPicker() {
         if (genericDrawerPanel.classList.contains('hidden')) return;
         const preset = findSlideshowPresetById(appState.get('slideshowPresets'), this._editingId); // core/slideshow-presets.js
-        const referenceMs = this._referenceDisplayDurationMs();
-        // Dùng CHUNG hàm GENERIC `capSlideshowTransitionDurationMs(configuredMs, intervalMs)` (core/
-        // file-manager/slideshow.js) — coi SLIDESHOW_TRANSITION_MAX_TIME_MS như "giá trị cấu hình"
-        // đưa vào kẹp, ĐÚNG cách `_tick()` dùng hàm này lúc runtime (không viết công thức riêng ở đây).
-        const maxMs = referenceMs != null
-            ? capSlideshowTransitionDurationMs(SLIDESHOW_TRANSITION_MAX_TIME_MS, referenceMs) // core
-            : SLIDESHOW_TRANSITION_MAX_TIME_MS; // không có tham chiếu nào -> chỉ còn trần cứng 60s như cũ
         if (!preset) return;
+        const maxMs = SLIDESHOW_TRANSITION_MAX_TIME_MS; // core/file-manager/slideshow.js — trần cứng DUY NHẤT, xem docstring trên
         openTimePickerModal({ // core/time-picker-modal.js
             title: t('slideshowSettingsDrawer.transitionDuration.pickerTitle'),
             format: 's-ms',
