@@ -265,7 +265,7 @@ const workflowMotionEngine = {
         const layerEl = this._currentLayer();
         const panEl = this._currentPanLayer();
         setMotionEngineLayerImage(panEl, objectUrl); // core
-        if (layerEl) layerEl.classList.add('ss-current');
+        if (layerEl) layerEl.classList.add('me-current');
         setMotionEngineTransitionType(motionEngineContainer, this._currentPreset().transitionType); // core — MỚI (29/08/2026), thay `appConfigVisualBg.getAll().motionEngine` đã xoá
         // Ken Burns KHÔNG tự bật ở đây nữa — xem _activate().
     },
@@ -435,8 +435,8 @@ const workflowMotionEngine = {
                 taskManager.once(() => { try { URL.revokeObjectURL(staleUrl); } catch (e) {} }, cleanupDelayMs + 100, 'motionEngineRevokeStale');
             }
         } else {
-            outgoingLayer.classList.remove('ss-current');
-            incomingLayer.classList.add('ss-current');
+            outgoingLayer.classList.remove('me-current');
+            incomingLayer.classList.add('me-current');
             setMotionEngineLayerImage(outgoingPan, ''); // core — dọn ảnh cũ khỏi pan layer NGAY (không có animation nào đang chạy chồng lên cần chờ)
             stopMotionEngineKenBurnsAnimation(outgoingPan, this._getKenBurnsAnim(outgoingPan)); // core
             this._setKenBurnsAnim(outgoingPan, null);
