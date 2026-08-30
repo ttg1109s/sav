@@ -1,6 +1,6 @@
 /**
  * core/visual-bg.js — Core thuần domain "Visual Background". Phần điều phối ở event/workflow/
- * visual-bg.js (+ event/workflow/slideshow.js cho riêng render ảnh).
+ * visual-bg.js (+ event/workflow/motion-engine.js cho riêng render ảnh).
  * NẠP SAU: service/state.js, core/dom-refs.js. NẠP TRƯỚC: event/workflow/visual-bg.js.
  */
 
@@ -42,7 +42,7 @@ const VISUAL_BG_GRADIENT_MUSIC_FACTOR_MIN = 0.5; // nhạc chậm/yên tĩnh —
 const VISUAL_BG_GRADIENT_MUSIC_FACTOR_MAX = 2.2; // nhạc nhanh/năng lượng cao — pha chạy nhanh hơn tối đa 2.2x
 
 /**
- * Core thuần — áp `nextIndex` ĐÃ TÍNH SẴN (Workflow tự gọi `pickNextSlideshowIndexSequential()` —
+ * Core thuần — áp `nextIndex` ĐÃ TÍNH SẴN (Workflow tự gọi `pickNextMotionEngineIndexSequential()` —
  * DÙNG CHUNG cho CẢ 2 nextOrder từ 08/08/2026, xem docstring `shuffleVisualBgList()` ngay dưới —
  * rồi truyền vào đây. SỬA 08/08/2026, phản hồi Giang: trước đây hàm này TỰ gọi thuật toán chọn
  * index, core-gọi-core vi phạm Rule 3, dời việc chọn thuật toán ra
@@ -68,13 +68,13 @@ function advanceVisualBgList(list, nextIndex) {
  * Core thuần — xáo ngẫu nhiên (Fisher-Yates) TOÀN BỘ `list`. VIẾT LẠI (08/08/2026, phản hồi Giang —
  * phát hiện bản `shuffleVisualBgListKeepingIndex()` cũ ("giữ nguyên vị trí đang phát rồi xáo phần
  * còn lại") KHÔNG có tác dụng thật: nơi gọi vẫn chọn item KẾ TIẾP bằng random ĐỀU trên TOÀN mảng mỗi
- * bước (`pickNextSlideshowIndexRandom()`, ĐÃ XOÁ cùng đợt — xem `workflowVisualBg.advanceList()`) —
+ * bước (`pickNextMotionEngineIndexRandom()`, ĐÃ XOÁ cùng đợt — xem `workflowVisualBg.advanceList()`) —
  * xáo lại VỊ TRÍ LƯU TRỮ không đổi được phân phối của `Math.random()*length`, item nằm ở đâu trong
  * mảng không ảnh hưởng gì tới việc nó có được RÚT hay không. Với mảng nhỏ (2-3 item, trường hợp phổ
  * biến nhất của "Chọn nguồn") kiểu random-loại-trừ-liền-kề đó suy biến gần như tuần tự thuần (N=2:
  * BẮT BUỘC luân phiên, không có lựa chọn nào khác về mặt toán học) — đúng hiện tượng Giang báo "list
  * không hề random, lặp lại liên tục". Thay hẳn bằng shuffle-bag ĐÚNG NGHĨA: xáo cả mảng 1 lần, bước
- * TUẦN TỰ qua mảng đã xáo (dùng chung `pickNextSlideshowIndexSequential()`), hết 1 vòng mới xáo lại
+ * TUẦN TỰ qua mảng đã xáo (dùng chung `pickNextMotionEngineIndexSequential()`), hết 1 vòng mới xáo lại
  * — đảm bảo mọi item được phát ĐỦ 1 lượt trước khi lặp, xem `workflowVisualBg.advanceList()`.
  * @param {Array<string|null>} list
  * @returns {Array<string|null>} mảng MỚI.
@@ -212,8 +212,8 @@ function syncVisualBgVideoPlayback(isAudioPaused) {
 // gọi hàm nào — KHÔNG lưu 1 bản sao riêng của lựa chọn đó.
 //
 // TÁCH 2 hàm (KHÔNG gộp 1 hàm rồi if/else theo `mode`) — "sắp theo TÊN" và "sắp theo NGÀY THÊM" là
-// 2 tiến trình nghiệp vụ khác nhau (Rule 1, đúng khuôn pickNextSlideshowIndexSequential/Random đã
-// tách sẵn ở core/file-manager/slideshow.js). Tham số `descending` KHÔNG phải rẽ nhánh tiến trình —
+// 2 tiến trình nghiệp vụ khác nhau (Rule 1, đúng khuôn pickNextMotionEngineIndexSequential/Random đã
+// tách sẵn ở core/motion-engine.js). Tham số `descending` KHÔNG phải rẽ nhánh tiến trình —
 // cùng 1 phép so sánh, chỉ đổi dấu.
 
 /**

@@ -280,7 +280,7 @@
             // MỚI (29/08/2026, phản hồi Giang — dời "Seconds per photo" từ slideshow sang panel VBG,
             // dùng CHUNG cho cả video lẫn ảnh) — 2 field này thay hẳn `slideshow.intervalSeconds` cũ
             // (đã xoá khỏi object `slideshow` bên dưới). Ý nghĩa của `durationMode` LỆCH nhau theo
-            // `type`, xem docstring `_computeAdvanceMs()` (event/workflow/slideshow.js) +
+            // `type`, xem docstring `_computeAdvanceMs()` (event/workflow/motion-engine.js) +
             // `_maybeScheduleVideoFixTime()` (event/workflow/visual-bg.js):
             //   'duration' (mặc định) — dùng ĐỘ DÀI TỰ NHIÊN của CHÍNH item đang hiện: video = phát
             //             hết thật (sự kiện `ended`, KHÔNG hẹn giờ nào); ảnh = field `duration` RIÊNG
@@ -360,8 +360,8 @@
          * lần mở trước") — đây là quyết định AN TOÀN đã có chủ đích cho 1 hành động PHÁ HUỶ DỮ LIỆU
          * (xoá/tải rồi xoá), lưu bền lại sẽ VÔ HIỆU HOÁ đúng lớp bảo vệ đó. Persist qua IndexedDB
          * trực tiếp (`meta.playlistConfig`), KHÔNG qua localStorage debounce như domain 'viz' — tần
-         * suất đổi 3 field này thấp (thao tác Settings thủ công), cùng khuôn domain 'slideshow'
-         * (event/workflow/slideshow.js::loadPersistedSettingsOnBoot()).
+         * suất đổi 3 field này thấp (thao tác Settings thủ công), cùng khuôn domain 'visualBg'
+         * (event/workflow/visual-bg.js::loadPersistedSettingsOnBoot()).
          */
         const DEFAULT_PLAYLIST_CONFIG = {
             activeMediaSource: 'song',

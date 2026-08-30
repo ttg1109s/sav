@@ -506,7 +506,7 @@
          * video nền. Ứng với msg.type 'playerControls.audio.play'.
          * MỚI (18/07/2026, mục 1 phản hồi Giang — "chưa phát nhạc slideshow đã tự chạy") — báo
          * TRỰC TIẾP cho Slideshow biết nhạc vừa phát, để nó tự hiện lần đầu (nếu đang chờ) hoặc
-         * chạy tiếp từ vị trí đã đóng băng (nếu đang pause) — xem workflowSlideshow.syncPlaybackGate().
+         * chạy tiếp từ vị trí đã đóng băng (nếu đang pause) — xem workflowMotionEngine.syncPlaybackGate().
          */
         function handleAudioPlay() {
             // MỚI (09/08/2026) — bất kỳ lúc nào audio THẬT SỰ phát lại, trạng thái "hết hẳn
@@ -528,7 +528,7 @@
             // CÙNG hình dạng lời gọi core->workflow đã có sẵn ở dòng ngay dưới (nợ kỹ thuật di sản
             // của chính hàm này, KHÔNG phát sinh mới — file này không thuộc phạm vi viết lại đợt v13).
             if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.syncPlaybackToAudio();
-            if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.syncPlaybackGate();
+            if (typeof workflowMotionEngine !== 'undefined') workflowMotionEngine.syncPlaybackGate();
         }
 
         /**
@@ -545,7 +545,7 @@
             stopListenClock();
             if (typeof syncAutoSwitchVisualPlayState === 'function') syncAutoSwitchVisualPlayState(); // ver 10: xem auto-switch-visual.js
             if (typeof workflowVisualBg !== 'undefined') workflowVisualBg.syncPlaybackToAudio(); // v13 Batch A — xem handleAudioPlay() ngay trên
-            if (typeof workflowSlideshow !== 'undefined') workflowSlideshow.syncPlaybackGate();
+            if (typeof workflowMotionEngine !== 'undefined') workflowMotionEngine.syncPlaybackGate();
         }
 
         // [SỬA — plan-playmedia-reorg.md, xử lý triệt để] `handleAudioEnded()` ĐÃ XOÁ khỏi đây —
