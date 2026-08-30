@@ -1,6 +1,6 @@
 /* base.css — reset gốc, khung #app-root (safe-area), 4 lớp nền toàn màn hình (màu/ảnh/video/canvas,
-   thứ tự z-index thấp -> cao: #visualizer-solid-bg -3 < #visual-bg-image -2 < slideshow -1 (assets/
-   css/slideshow.css) < #bg-video 0 < #webgl-canvas 1 < #visualizer 10), scrollbar mảnh dùng chung. */
+   thứ tự z-index thấp -> cao: #visualizer-solid-bg -3 < #visual-bg-image -2 < Motion Engine -1
+   (assets/css/motion-engine.css) < #bg-video 0 < #webgl-canvas 1 < #visualizer 10), scrollbar mảnh dùng chung. */
 
 :root { --item-bg-opacity: 0.1; }
 body { margin: 0; overflow: hidden; background-color: #000000; transition: background-color 0.3s ease; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; touch-action: manipulation; }

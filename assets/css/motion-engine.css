@@ -1,0 +1,165 @@
+/**
+ * assets/css/motion-engine.css — Motion Engine nền Visual (nguồn nền thứ 3, Batch 8, ver 12 "Multi Media").
+ *
+ * FILE CSS TÁCH RIÊNG THEO DOMAIN ĐẦU TIÊN của project (plan-v12-multimedia.md mục 2, "CSS: tách
+ * file mới theo domain, không gộp style.css nữa — bắt đầu assets/css/motion-engine.css") — phá quy
+ * ước "1 file CSS duy nhất" giữ từ ver 5, CHỦ ĐỘNG, không phải sơ suất (xem
+ * readme/why-no-es6-module.md/readme/folder-structure.md, cập nhật theo khi domain tiếp theo tách
+ * ra). Nạp qua <link> RIÊNG trong index.html, SAU style.css.
+ *
+ * Mốc z-index -1 đã CHỪA SẴN ở style.css (giữa #visual-bg-image -2 và #bg-video 0, xem comment ở
+ * đó) — thực thi THẬT tại đây.
+ *
+ * DOM (index.html): #visual-motion-container > (#visual-motion-layer-1 + -layer-2) — mỗi
+ * layer lại bọc 1 layer CON (#visual-motion-layer-N-pan, class `.me-kenburns-pan`). JS điều
+ * khiển ở core/motion-engine.js (hàm thuần, đổi class/style) + event/workflow/motion-engine.js
+ * (orchestration — chọn ảnh kế tiếp, quản lý task lặp).
+ *
+ * VIẾT LẠI (Ken Burns, 18/07/2026, phản hồi Giang) — TÁCH layer ngoài/layer con vì CSS chỉ giữ
+ * ĐÚNG 1 `animation-name` hiệu lực trên 1 phần tử tại 1 thời điểm (rule sau/specificity cao hơn
+ * THẮNG, không cộng dồn). Bản CŨ gộp CẢ transition chuyển cảnh (.me-layer-enter/exit) LẪN pan/zoom
+ * Ken Burns (.me-kenburns-pan) lên CHUNG `.motion-layer` — 7/12 kiểu transition CŨNG animate
+ * `transform` (zoomIn/zoomOut/flip/rotateFade/slideLeft/slideRight/glitch), đụng thẳng property Ken
+ * Burns đang dùng — kết hợp 2 cái này SẼ bị nuốt/giật. Giờ:
+ *   - `.motion-layer` (NGOÀI) — CHỈ animation chuyển cảnh (opacity/transform/clip-path/filter
+ *     tuỳ kiểu, class me-current/me-layer-enter/me-layer-exit) + `overflow: hidden` (clip layer
+ *     con lúc nó scale to hơn khung, xem Ken Burns dưới).
+ *   - `.me-kenburns-pan` (CON, MỚI) — nhận `background-image` (setMotion EngineLayerImage() giờ set
+ *     lên layer CON, không phải layer ngoài — xem event/workflow/motion-engine.js) + toàn bộ animation
+ *     pan/zoom Ken Burns. 2 phần tử khác nhau -> 2 animation-name độc lập, không đè nhau -> Ken
+ *     Burns dùng ĐƯỢC cùng lúc với CẢ 12 kiểu transition, không riêng gì fade.
+ * `transitionType === 'kenburns'` (lựa chọn cũ, gộp chung vào danh sách transition) ĐÃ XOÁ HẲN —
+ * Ken Burns giờ là toggle ĐỘC LẬP `motion engineConfig.kenBurnsEnabled` (event/workflow/motion-engine.js),
+ * không migrate config cũ (Giang yêu cầu xoá sạch, không giữ tương thích ngược).
+ *
+ * THỜI LƯỢNG 900ms — PHẢI khớp MOTION ENGINE_TRANSITION_DURATION_MS (core/motion-engine.js).
+ * Đổi 1 chỗ phải đổi luôn chỗ kia.
+ */
+
+#visual-motion-container {
+    position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+    z-index: -1; pointer-events: none; overflow: hidden;
+    perspective: 1600px; /* dùng cho transition 'flip' (rotateY 3D) */
+}
+
+.motion-layer {
+    position: absolute; inset: 0;
+    opacity: 0; z-index: 1;
+    backface-visibility: hidden;
+    overflow: hidden; /* MỚI (Ken Burns) — clip layer con .me-kenburns-pan lúc nó scale to hơn khung */
+}
+.motion-layer.me-current { opacity: 1; z-index: 2; }
+/* SỬA (18/07/2026, phản hồi Giang — tuỳ chỉnh thời gian + tỉ lệ In/Out + easing cho transition) —
+   `animation-duration`/`animation-timing-function` ở 2 rule dưới CHỈ còn là giá trị DỰ PHÒNG —
+   giá trị THẬT set ĐỘNG qua inline style ngay TRƯỚC lúc class enter/exit được thêm (Workflow gọi
+   `setMotion EngineTransitionTiming()`, core/motion-engine.js — inline style LUÔN thắng CSS
+   stylesheet, 2 con số 900ms/ease dưới đây không còn ý nghĩa thực tế trừ phi JS lỡ chưa kịp set). */
+.motion-layer.me-layer-enter { z-index: 3; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
+.motion-layer.me-layer-exit  { z-index: 2; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
+
+/* Layer GIỮA (MỚI, "React Beat Audio" 29/08/2026) — XEN GIỮA `.motion-layer` (transition) và
+   `.me-kenburns-pan` (Ken Burns) — giữ NGUYÊN vùng chứa (position/inset y hệt `.motion-layer`)
+   để `.me-kenburns-pan` con bên trong vẫn định vị/co giãn đúng như trước, KHÔNG đổi layout gì cả
+   khi tính năng này tắt (transform mặc định identity, vô hình). Animation pulse (zoom/pan/rotate
+   theo beat) chạy bằng Web Animations API (panEl.animate()), CÙNG cách Ken Burns đã làm — xem
+   event/workflow/motion-engine.js::_triggerBeatReactPulse(). */
+.me-beat-react {
+    position: absolute; inset: 0;
+    overflow: hidden;
+}
+
+/* Layer CON (MỚI, Ken Burns 18/07/2026) — mang background-image THẬT (setMotion EngineLayerImage() giờ
+   set lên đây, xem event/workflow/motion-engine.js). Animation pan/zoom Ken Burns chạy bằng Web
+   Animations API (panEl.animate(), xem core/motion-engine.js) — KHÔNG có CSS
+   @keyframes/class nào cho nó ở file này (xem comment ngay dưới các rule transition).
+   `inset: -1px` (thay vì 0) — che hết viền subpixel có thể lộ ra lúc scale animation chạy gần biên. */
+.me-kenburns-pan {
+    position: absolute; inset: -1px;
+    background-size: cover; background-position: center;
+}
+
+/* Ken Burns — VIẾT LẠI LẦN 2 (18/07/2026, phản hồi Giang) — KHÔNG còn CSS `@keyframes`/classList
+   nào ở đây nữa. `.me-kenburns-pan` (khai ngay trên) chỉ còn lo layout/background-size/position —
+   toàn bộ animation pan/zoom giờ chạy bằng Web Animations API (`panEl.animate()`), viết trực tiếp
+   trong JS (core/motion-engine.js::startMotion EngineKenBurnsAnimation()), KHÔNG cần class
+   hay @keyframes tĩnh nào — lý do: biên pan AN TOÀN phụ thuộc tỉ lệ ẢNH THẬT (khác nhau mỗi ảnh),
+   CSS tĩnh không thể biểu diễn được, chỉ JS tính runtime mới làm được (xem docstring đầy đủ ở file
+   JS trên). */
+
+/* ==================== 1. fade — mờ chồng ==================== */
+#visual-motion-container[data-transition="fade"] .me-layer-enter { animation-name: me-fade-in; }
+#visual-motion-container[data-transition="fade"] .me-layer-exit  { animation-name: me-fade-out; }
+@keyframes me-fade-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes me-fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+/* ==================== 2/3. slideLeft / slideRight ==================== */
+#visual-motion-container[data-transition="slideLeft"] .me-layer-enter  { animation-name: me-slide-in-from-right; }
+#visual-motion-container[data-transition="slideLeft"] .me-layer-exit   { animation-name: me-slide-out-to-left; }
+#visual-motion-container[data-transition="slideRight"] .me-layer-enter { animation-name: me-slide-in-from-left; }
+#visual-motion-container[data-transition="slideRight"] .me-layer-exit  { animation-name: me-slide-out-to-right; }
+@keyframes me-slide-in-from-right { from { transform: translateX(100%); opacity: 1; } to { transform: translateX(0); opacity: 1; } }
+@keyframes me-slide-out-to-left   { from { transform: translateX(0); opacity: 1; } to { transform: translateX(-100%); opacity: 1; } }
+@keyframes me-slide-in-from-left  { from { transform: translateX(-100%); opacity: 1; } to { transform: translateX(0); opacity: 1; } }
+@keyframes me-slide-out-to-right  { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 1; } }
+
+/* ==================== 4/5. zoomIn / zoomOut ==================== */
+#visual-motion-container[data-transition="zoomIn"] .me-layer-enter  { animation-name: me-zoom-in-enter; }
+#visual-motion-container[data-transition="zoomIn"] .me-layer-exit   { animation-name: me-fade-out; }
+#visual-motion-container[data-transition="zoomOut"] .me-layer-enter { animation-name: me-zoom-out-enter; }
+#visual-motion-container[data-transition="zoomOut"] .me-layer-exit  { animation-name: me-fade-out; }
+@keyframes me-zoom-in-enter  { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+@keyframes me-zoom-out-enter { from { opacity: 0; transform: scale(1.6); } to { opacity: 1; transform: scale(1); } }
+
+/* ==================== 6. wipe — ảnh mới "kéo màn" che dần theo 1 hướng ngang ====================
+   Lớp mới LUÔN ở trên (z-index cao hơn) trong suốt hệ thống này — thay vì "ảnh cũ tách ra lộ ảnh
+   mới" (đòi hỏi đảo z-index riêng cho từng kiểu), mô phỏng cùng hiệu quả thị giác bằng clip-path
+   LỘ DẦN của chính lớp mới, phủ dần lên lớp cũ đang đứng yên bên dưới. */
+#visual-motion-container[data-transition="wipe"] .me-layer-enter { animation-name: me-wipe-enter; }
+#visual-motion-container[data-transition="wipe"] .me-layer-exit  { animation: none; opacity: 1; }
+@keyframes me-wipe-enter { from { clip-path: inset(0 100% 0 0); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+
+/* ==================== 7. flip — 3D quanh trục Y ==================== */
+#visual-motion-container[data-transition="flip"] .me-layer-enter { animation-name: me-flip-in; }
+#visual-motion-container[data-transition="flip"] .me-layer-exit  { animation-name: me-flip-out; }
+@keyframes me-flip-in  { from { opacity: 0; transform: rotateY(-90deg); } 50% { opacity: 1; } to { opacity: 1; transform: rotateY(0deg); } }
+@keyframes me-flip-out { from { opacity: 1; transform: rotateY(0deg); } 50% { opacity: 0; } to { opacity: 0; transform: rotateY(90deg); } }
+
+/* ==================== 8. blur — ảnh cũ mờ dần, ảnh mới nét dần ==================== */
+#visual-motion-container[data-transition="blur"] .me-layer-enter { animation-name: me-blur-in; }
+#visual-motion-container[data-transition="blur"] .me-layer-exit  { animation-name: me-blur-out; }
+@keyframes me-blur-in  { from { opacity: 0; filter: blur(24px); } to { opacity: 1; filter: blur(0); } }
+@keyframes me-blur-out { from { opacity: 1; filter: blur(0); } to { opacity: 0; filter: blur(24px); } }
+
+/* ==================== 9. rotateFade — ảnh mới xoay nhẹ vài độ + fade in cùng lúc ==================== */
+#visual-motion-container[data-transition="rotateFade"] .me-layer-enter { animation-name: me-rotate-fade-in; }
+#visual-motion-container[data-transition="rotateFade"] .me-layer-exit  { animation-name: me-fade-out; }
+@keyframes me-rotate-fade-in { from { opacity: 0; transform: rotate(-4deg) scale(1.03); } to { opacity: 1; transform: rotate(0deg) scale(1); } }
+
+/* ==================== 10. curtain — lộ dần từ GIỮA ra 2 bên (khác wipe: wipe kéo 1 hướng,
+   curtain kéo 2 hướng đối xứng ra 2 mép) ==================== */
+#visual-motion-container[data-transition="curtain"] .me-layer-enter { animation-name: me-curtain-enter; }
+#visual-motion-container[data-transition="curtain"] .me-layer-exit  { animation: none; opacity: 1; }
+@keyframes me-curtain-enter { from { clip-path: inset(0 50% 0 50%); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+
+/* ==================== 11. circleReveal — ảnh mới lộ ra từ 1 vòng tròn phóng to dần từ tâm ==================== */
+#visual-motion-container[data-transition="circleReveal"] .me-layer-enter { animation-name: me-circle-reveal-enter; }
+#visual-motion-container[data-transition="circleReveal"] .me-layer-exit  { animation: none; opacity: 1; }
+@keyframes me-circle-reveal-enter { from { clip-path: circle(0% at 50% 50%); opacity: 1; } to { clip-path: circle(75% at 50% 50%); opacity: 1; } }
+
+/* ==================== 12. glitch — 1-2 khung hình dịch ngang ngẫu nhiên nhỏ + đổi màu nhẹ ngay
+   lúc chuyển, hợp nhạc điện tử/mạnh. Tần suất/độ mạnh giữ THẤP (chỉ 900ms lúc chuyển, không lặp
+   lại giữa chừng) — tránh gây rối mắt nếu lạm dụng, đúng lưu ý ở plan-v12-multimedia.md mục 4.b3. */
+#visual-motion-container[data-transition="glitch"] .me-layer-enter { animation-name: me-glitch-enter; }
+#visual-motion-container[data-transition="glitch"] .me-layer-exit  { animation-name: me-glitch-exit; }
+@keyframes me-glitch-enter {
+    0%   { opacity: 0; transform: translateX(-3%); filter: hue-rotate(0deg); }
+    20%  { opacity: 1; transform: translateX(2%); filter: hue-rotate(60deg); }
+    40%  { transform: translateX(-1.5%); filter: hue-rotate(-40deg); }
+    60%  { transform: translateX(1%); filter: hue-rotate(20deg); }
+    100% { opacity: 1; transform: translateX(0); filter: hue-rotate(0deg); }
+}
+@keyframes me-glitch-exit {
+    0%   { opacity: 1; filter: hue-rotate(0deg); }
+    100% { opacity: 0; filter: hue-rotate(0deg); }
+}
+
