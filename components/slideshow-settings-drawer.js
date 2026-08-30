@@ -63,6 +63,47 @@ function renderSlideshowListBody(presets, pickMode) {
     return addRowHtml + itemsHtml;
 }
 
+/** Dựng 3 hàng (checkbox bật + slider "mỗi N beat" + [select hướng] + slider biên độ) cho 1 hiệu
+ * ứng con (zoom/pan/rotate) trong nhóm "React Beat Audio" — DÙNG CHUNG cả 3, tránh lặp HTML gần
+ * giống nhau 3 lần (chỉ khác: có/không select hướng, biên độ min/max/step/hậu tố, tên field).
+ * @param {'zoom'|'pan'|'rotate'} key - dùng làm phần ID (`setting-slideshow-beatreact-${key}-*`).
+ * @param {object} effect - `preset.reactBeatAudio[key]` — {enabled, everyNBeats, amountPct|amountDeg, direction?}.
+ * @param {{titleKey:string, amountLabelKey:string, amountMin:number, amountMax:number, amountStep:number, amountSuffix:string, hasDirection:boolean, isLast?:boolean}} cfg
+ */
+function renderSlideshowBeatReactEffectRows(key, effect, cfg) {
+    const amount = key === 'rotate' ? effect.amountDeg : effect.amountPct;
+    const borderClass = cfg.isLast ? '' : ' border-b border-white/5';
+    const directionHtml = cfg.hasDirection ? `
+                        <div class="flex justify-between items-center px-4 pb-3">
+                            <span class="text-xs text-slate-400" data-i18n="slideshowPresetsDrawer.beatReact.direction.label">${t('slideshowPresetsDrawer.beatReact.direction.label')}</span>
+                            <select id="setting-slideshow-beatreact-${key}-direction" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1 text-xs text-white outline-none w-36 text-right">
+                                <option value="left" ${effect.direction === 'left' ? 'selected' : ''} data-i18n="slideshowPresetsDrawer.beatReact.direction.left">${t('slideshowPresetsDrawer.beatReact.direction.left')}</option>
+                                <option value="right" ${effect.direction === 'right' ? 'selected' : ''} data-i18n="slideshowPresetsDrawer.beatReact.direction.right">${t('slideshowPresetsDrawer.beatReact.direction.right')}</option>
+                                <option value="leftToRight" ${effect.direction === 'leftToRight' ? 'selected' : ''} data-i18n="slideshowPresetsDrawer.beatReact.direction.leftToRight">${t('slideshowPresetsDrawer.beatReact.direction.leftToRight')}</option>
+                                <option value="rightToLeft" ${effect.direction === 'rightToLeft' ? 'selected' : ''} data-i18n="slideshowPresetsDrawer.beatReact.direction.rightToLeft">${t('slideshowPresetsDrawer.beatReact.direction.rightToLeft')}</option>
+                            </select>
+                        </div>` : '';
+    return `
+                        <div class="p-4${borderClass}">
+                            <label class="flex items-center gap-2.5 mb-3 cursor-pointer">
+                                <input type="checkbox" id="setting-slideshow-beatreact-${key}-enabled" class="w-4 h-4 rounded accent-sky-500 shrink-0" ${effect.enabled ? 'checked' : ''}>
+                                <span class="text-sm font-medium" data-i18n="${cfg.titleKey}">${t(cfg.titleKey)}</span>
+                            </label>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-xs text-slate-400" data-i18n="slideshowPresetsDrawer.beatReact.everyNBeats.label">${t('slideshowPresetsDrawer.beatReact.everyNBeats.label')}</span>
+                                <span id="slideshow-beatreact-${key}-beats-label" class="text-xs text-slate-300 font-mono">${effect.everyNBeats}</span>
+                            </div>
+                            <input type="range" id="setting-slideshow-beatreact-${key}-beats" min="${SLIDESHOW_BEAT_REACT_EVERY_N_BEATS_MIN}" max="${SLIDESHOW_BEAT_REACT_EVERY_N_BEATS_MAX}" step="1" value="${effect.everyNBeats}" class="w-full accent-sky-500 mb-3">
+                            ${directionHtml}
+                            <div class="flex justify-between items-center mb-1.5">
+                                <span class="text-xs text-slate-400" data-i18n="${cfg.amountLabelKey}">${t(cfg.amountLabelKey)}</span>
+                                <span id="slideshow-beatreact-${key}-amount-label" class="text-xs text-slate-300 font-mono">${amount}${cfg.amountSuffix}</span>
+                            </div>
+                            <input type="range" id="setting-slideshow-beatreact-${key}-amount" min="${cfg.amountMin}" max="${cfg.amountMax}" step="${cfg.amountStep}" value="${amount}" class="w-full accent-sky-500">
+                        </div>
+    `;
+}
+
 /** @param {object} preset - 1 phần tử `appState.slideshowPresets` (core/slideshow-presets.js). */
 function renderSlideshowEditBody(preset) {
     return `
@@ -163,7 +204,58 @@ function renderSlideshowEditBody(preset) {
                     </div>
                 </div>
 
-                <!-- ===================== NHÓM 3: QUẢN LÝ ===================== -->
+                <!-- ===================== NHÓM 3: REACT BEAT AUDIO ===================== -->
+                <!-- MỚI (29/08/2026, phản hồi Giang) — pulse zoom/pan/rotate bắn theo beat nhạc.
+                     2 toggle ĐẦU (enabled/replaceMovement) LUÔN hiện — cùng quy ước Transition/Ken
+                     Burns (không ẩn field theo toggle). 3 cụm con (Zoom/Pan/Rotate) mỗi cụm 1
+                     checkbox VUÔNG (khác pill-toggle 2 cái trên — đúng chữ "checkbox" Giang dùng,
+                     phân biệt 3 cái ĐỘC LẬP có thể tick 1/vài/cả 3 cùng lúc) + slider cho từng field
+                     số (N beat/biên độ) thay vì mở modal riêng — đỡ phải dựng thêm picker mới, cùng
+                     khuôn slider "In/Out ratio" đã có (Transition). -->
+                <div>
+                    <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="slideshowPresetsDrawer.beatReact.groupTitle">${t('slideshowPresetsDrawer.beatReact.groupTitle')}</h3>
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
+                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
+                            <span class="text-sm font-medium" data-i18n="slideshowPresetsDrawer.beatReact.enabled.label">${t('slideshowPresetsDrawer.beatReact.enabled.label')}</span>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="setting-slideshow-beatreact-enabled" class="sr-only peer" ${preset.reactBeatAudio.enabled ? 'checked' : ''}>
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                            </label>
+                        </div>
+                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
+                            <div class="pr-3">
+                                <div class="text-sm font-medium" data-i18n="slideshowPresetsDrawer.beatReact.replaceMovement.label">${t('slideshowPresetsDrawer.beatReact.replaceMovement.label')}</div>
+                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="slideshowPresetsDrawer.beatReact.replaceMovement.hint">${t('slideshowPresetsDrawer.beatReact.replaceMovement.hint')}</div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="setting-slideshow-beatreact-replace" class="sr-only peer" ${preset.reactBeatAudio.replaceMovement ? 'checked' : ''}>
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                            </label>
+                        </div>
+
+                        ${renderSlideshowBeatReactEffectRows('zoom', preset.reactBeatAudio.zoom, {
+                            titleKey: 'slideshowPresetsDrawer.beatReact.zoom.title',
+                            amountLabelKey: 'slideshowPresetsDrawer.beatReact.zoom.amountLabel',
+                            amountMin: 100, amountMax: 200, amountStep: 5, amountSuffix: '%',
+                            hasDirection: false,
+                        })}
+                        ${renderSlideshowBeatReactEffectRows('pan', preset.reactBeatAudio.pan, {
+                            titleKey: 'slideshowPresetsDrawer.beatReact.pan.title',
+                            amountLabelKey: 'slideshowPresetsDrawer.beatReact.pan.amountLabel',
+                            amountMin: 100, amountMax: 150, amountStep: 5, amountSuffix: '%',
+                            hasDirection: true,
+                        })}
+                        ${renderSlideshowBeatReactEffectRows('rotate', preset.reactBeatAudio.rotate, {
+                            titleKey: 'slideshowPresetsDrawer.beatReact.rotate.title',
+                            amountLabelKey: 'slideshowPresetsDrawer.beatReact.rotate.amountLabel',
+                            amountMin: 0, amountMax: 360, amountStep: 15, amountSuffix: '°',
+                            hasDirection: true,
+                            isLast: true,
+                        })}
+                    </div>
+                </div>
+
+                <!-- ===================== NHÓM 4: QUẢN LÝ ===================== -->
                 <!-- MỚI (29/08/2026, phản hồi Giang — dời Reset/Xoá xuống dưới cùng, chung nhóm với
                      đổi tên, khỏi 2 nút nhỏ ở header) — "Cập nhật" (đổi tên, input auto-lưu lúc
                      blur) + "Reset"/"Xoá" giờ là 3 hàng CUỐI, CÙNG khuôn hàng "Slideshow options..."
