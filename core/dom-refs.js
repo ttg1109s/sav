@@ -235,6 +235,12 @@
         // MỚI (Ken Burns, 18/07/2026) — layer CON bên trong mỗi slideshow-layer, mang
         // background-image + animation pan/zoom Ken Burns (TÁCH khỏi layer ngoài — layer ngoài chỉ
         // còn lo animation chuyển cảnh, xem docstring index.html/assets/css/slideshow.css).
+        // MỚI ("React Beat Audio", 29/08/2026) — layer GIỮA xen giữa slideshow-layer (transition) và
+        // *-pan (Ken Burns) — mang animation pulse zoom/pan/rotate theo beat, TÁCH riêng vì CSS chỉ
+        // giữ 1 animation-name hiệu lực/phần tử, cùng lý do slideshow-layer/ss-kenburns-pan đã tách
+        // từ trước — xem event/workflow/slideshow.js.
+        const slideshowLayer1React = document.getElementById('visual-slideshow-layer-1-react');
+        const slideshowLayer2React = document.getElementById('visual-slideshow-layer-2-react');
         const slideshowLayer1Pan = document.getElementById('visual-slideshow-layer-1-pan');
         const slideshowLayer2Pan = document.getElementById('visual-slideshow-layer-2-pan');
         // MỚI (v13 Batch A) — nút điều hướng DUY NHẤT mở panel "Visual Background", THAY 3 entry
