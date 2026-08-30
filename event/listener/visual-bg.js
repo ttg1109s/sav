@@ -15,7 +15,8 @@ if (btnOpenVisualBgSettings) {
 const VISUAL_BG_SETTINGS_INPUT_MAP = {
     'setting-visual-bg-list-playback-mode:change': { type: 'visualBg.listPlaybackMode.change' },
     'setting-visual-bg-next-order:change': { type: 'visualBg.nextOrder.change' },
-    // MỚI (29/08/2026) — "Duration mode"/"Seconds per video/photo", dời từ slideshow, dùng chung
+    // MỚI (29/08/2026) — "Duration mode"/"Seconds per video/photo", dời từ Motion (panel Settings
+    // cũ, trước khi tách hệ preset độc lập), dùng chung
     // video/ảnh (xem components/visual-bg-settings-drawer.js).
     'setting-visual-bg-duration-mode:change': { type: 'visualBg.durationMode.change' },
     'setting-visual-bg-duration-seconds:click': { type: 'visualBg.durationSeconds.openPicker', bare: true },
