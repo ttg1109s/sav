@@ -256,12 +256,24 @@
          giữa #visual-bg-image và #bg-video). Mỗi layer ngoài (.slideshow-layer, lo animation
          chuyển cảnh) bọc 1 layer con .ss-kenburns-pan (lo riêng pan/zoom Ken Burns) — tách 2 phần
          tử vì CSS chỉ giữ 1 animation-name hiệu lực/phần tử, gộp chung sẽ đè lẫn nhau. -->
+    <!-- MỚI (29/08/2026, phản hồi Giang — "React Beat Audio") — thêm 1 layer con `.ss-beat-react`
+         XEN GIỮA `.slideshow-layer` (transition) và `.ss-kenburns-pan` (Ken Burns) — 3 hiệu ứng
+         CHỒNG NHAU (transition/Ken Burns/react-beat) cần 3 phần tử riêng, CÙNG lý do tách
+         .slideshow-layer/.ss-kenburns-pan sẵn có ở comment trên (CSS chỉ giữ 1 animation-name hiệu
+         lực/phần tử). `replaceMovement=true` (preset) -> `.ss-kenburns-pan` KHÔNG chạy animation Ken
+         Burns thường nữa (event/workflow/slideshow.js tự bỏ qua `_activateKenBurns()`), CHỈ còn
+         `.ss-beat-react` điều khiển; `false` -> CẢ HAI cùng chạy, transform NHÂN với nhau (2 phần tử
+         lồng nhau, mỗi phần tử 1 transform riêng, trình duyệt tự cộng dồn theo cây DOM). -->
     <div id="visual-slideshow-container" class="hidden">
         <div id="visual-slideshow-layer-1" class="slideshow-layer">
-            <div id="visual-slideshow-layer-1-pan" class="ss-kenburns-pan"></div>
+            <div id="visual-slideshow-layer-1-react" class="ss-beat-react">
+                <div id="visual-slideshow-layer-1-pan" class="ss-kenburns-pan"></div>
+            </div>
         </div>
         <div id="visual-slideshow-layer-2" class="slideshow-layer">
-            <div id="visual-slideshow-layer-2-pan" class="ss-kenburns-pan"></div>
+            <div id="visual-slideshow-layer-2-react" class="ss-beat-react">
+                <div id="visual-slideshow-layer-2-pan" class="ss-kenburns-pan"></div>
+            </div>
         </div>
     </div>
 
