@@ -398,8 +398,9 @@
     <script src="components/settings/visualizer-display-panel.js?v=20260815v2"></script>
     <script src="components/settings/visualizer-auto-switch-drawer.js?v=20260812v1"></script>
     <script src="components/subtitle-settings-drawer.js?v=20260816v2"></script>
-    <!-- Batch 8, ver 12 "Multi Media" — Slideshow Settings Drawer (nền Visual, nguồn thứ 3). -->
-    <script src="components/slideshow-settings-drawer.js?v=20260829v1"></script>
+    <!-- Batch 8, ver 12 "Multi Media" — Motion Settings Drawer (Cấu hình Transition/Ken Burns/
+         React Beat Audio, hệ preset độc lập — xem components/motion-settings-drawer.js). -->
+    <script src="components/motion-settings-drawer.js?v=20260829v1"></script>
     <script src="components/visual-bg-settings-drawer.js?v=20260808v1"></script>
     <script src="components/visual-bg-gradient-drawer.js?v=20260807v1"></script>
     <script src="components/visual-bg-video-audio-drawer.js?v=20260808v1"></script>
@@ -425,8 +426,8 @@
     <!-- Undo/Redo phổ quát, zero-dependency (chỉ thao tác mảng/object thuần) — nơi dùng đầu tiên là
          Video Preview, nhưng đúng bản chất "core dùng chung". -->
     <script src="core/edit-history.js?v=20260803v1"></script>
-    <!-- openTimePickerModal() dùng chung (Subtitle Editor + Slideshow interval picker) — chỉ phụ
-         thuộc t(). -->
+    <!-- openTimePickerModal() dùng chung (Subtitle Editor + Motion transition-duration picker) —
+         chỉ phụ thuộc t(). -->
     <script src="core/time-picker-modal.js?v=20260718v1"></script>
     <!-- openSliderInputModal() dùng chung (VBG "Âm thanh Video" dùng đầu tiên) — cùng khuôn
          time-picker-modal.js. -->
@@ -482,12 +483,12 @@
          TRƯỚC service/state/record/index.js (registry('player','all') cần package này đã
          definePackage() xong, xem docstring file đó). -->
     <script src="service/state/gameplay-runtime.js?v=20260819v8"></script>
-    <!-- MỚI (29/08/2026) — service/state/slideshow-presets.js — hệ "Cấu hình Slideshow" độc lập.
+    <!-- MỚI (29/08/2026) — service/state/motion-presets.js — hệ "Cấu hình Motion" độc lập.
          PHẢI nạp TRƯỚC service/state/record/index.js (registry('player','all') cần package này đã
-         đăng ký) — BUG đã sửa: thiếu dòng nạp này khiến appState.get('slideshowPresets') luôn
+         đăng ký) — BUG đã sửa: thiếu dòng nạp này khiến appState.get('motionPresets') luôn
          undefined, làm 2 màn "Quản lý cấu hình"/"Áp dụng cấu hình" crash ngang giữa chừng lúc mở
          (Back vẫn đúng vì ngăn xếp đã push TRƯỚC lúc crash, xem docstring file đó). -->
-    <script src="service/state/slideshow-presets.js?v=20260829v1"></script>
+    <script src="service/state/motion-presets.js?v=20260829v1"></script>
     <script src="service/state/record/index.js?v=20260725v1"></script>
     <!-- core/config.js — TÁI CẤU TRÚC 25/07/2026: giờ CHỈ giữ 3 bản default (viz/slideshow/
          reader, đã GỘP CHUẨN — xem comment đầu file) + hàm nghiệp vụ thuần (seedConfig/
@@ -634,10 +635,10 @@
          giờ CẤM trong core, chỉ Workflow dùng) — không phụ thuộc gì trong nhóm này (mọi phần tử DOM
          nhận qua tham số, không tự getElementById). -->
     <script src="core/file-manager/slideshow.js?v=20260829v2"></script>
-    <!-- MỚI (29/08/2026) — core THUẦN cho hệ "Cấu hình Slideshow" (preset đặt tên được, độc lập
-         khỏi Visual Background) — xem core/slideshow-presets.js. NẠP SAU core/file-manager/
+    <!-- MỚI (29/08/2026) — core THUẦN cho hệ "Cấu hình Motion" (preset đặt tên được, độc lập
+         khỏi Visual Background) — xem core/motion-presets.js. NẠP SAU core/file-manager/
          slideshow.js (dùng lại SLIDESHOW_TRANSITION_TYPES/EASINGS/KENBURNS_MODES). -->
-    <script src="core/slideshow-presets.js?v=20260829v2"></script>
+    <script src="core/motion-presets.js?v=20260829v2"></script>
     <!-- Resume State Storage (ver 10 refine #3) — lưu/đọc trạng thái phát qua localStorage khi tab
          bị ẩn, dùng để "reload trang thật" lúc quay lại tab thay cho cố giữ runtime cũ sống sót
          qua việc ẩn tab (xem comment đầu file). PHẢI nạp TRƯỚC wakelock.js (file đó gọi
@@ -874,15 +875,15 @@
     <script src="event/listener/file-manager-storage.js?v=20260729v2"></script>
     <!-- Batch 8, ver 12 "Multi Media" — engine cycle ảnh Slideshow nền Visual (transition/Ken
          Burns), CHỈ còn đúng 1 vai trò: `_tick()` (taskManager) — cụm router "slideshowSettings"
-         (từng ở đây) ĐÃ BỎ HẲN (29/08/2026), xem event/workflow/slideshow-presets.js ngay dưới. -->
+         (từng ở đây) ĐÃ BỎ HẲN (29/08/2026), xem event/workflow/motion-presets.js ngay dưới. -->
     <script src="event/workflow/slideshow.js?v=20260829v3"></script>
-    <!-- MỚI (29/08/2026) — hệ "Cấu hình Slideshow" độc lập (Settings > System > Slideshow), thay
+    <!-- MỚI (29/08/2026) — hệ "Cấu hình Motion" độc lập (Settings > System > Motion), thay
          hẳn router/listener "slideshowSettings" cũ (2 file event/router,listener/slideshow.js ĐÃ
-         XOÁ) — xem event/workflow/slideshow-presets.js, event/router/slideshow-presets.js. Không
+         XOÁ) — xem event/workflow/motion-presets.js, event/router/motion-presets.js. Không
          cần listener riêng — mọi wiring DOM động nằm trong event/workflow/app-settings.js
          (_render*() onMount, liên tuyến domain, xem docstring file đó). -->
-    <script src="event/workflow/slideshow-presets.js?v=20260829v2"></script>
-    <script src="event/router/slideshow-presets.js?v=20260829v1"></script>
+    <script src="event/workflow/motion-presets.js?v=20260829v2"></script>
+    <script src="event/router/motion-presets.js?v=20260829v1"></script>
 
     <!-- MỚI (v13 Batch A) — cụm "visualBg". -->
     <script src="event/workflow/visual-bg.js?v=20260808v6"></script>
