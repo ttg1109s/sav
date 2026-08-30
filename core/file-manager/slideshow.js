@@ -99,7 +99,7 @@ function computeSlideshowTransitionInOutMs(totalMs, ratioPercent) {
  * lớp phòng thủ độc lập, không giả định gì về nguồn gốc `intervalMs` truyền vào).
  * GENERIC — chỉ nhận 2 SỐ THUẦN, không tự đọc/biết bất kỳ consumer/domain nào (VBG, ảnh, video hay
  * nơi khác) — nơi gọi tự tính `intervalMs` theo đúng ngữ cảnh của mình rồi truyền vào (xem
- * event/workflow/slideshow.js::_tick(), event/workflow/slideshow-presets.js::
+ * event/workflow/slideshow.js::_tick(), event/workflow/motion-presets.js::
  * openTransitionDurationPicker()).
  * @param {number} configuredMs
  * @param {number} intervalMs
@@ -559,7 +559,7 @@ function evaluateSlideshowPulseStops(stops, t) {
 /**
  * Core thuần: dựng chuỗi "chặng" (stops) cho 1 pulse pan/rotate theo `direction` — DÙNG CHUNG pan
  * LẪN rotate (cùng 4 lựa chọn hướng, chỉ khác đơn vị %/độ ở nơi gọi, xem docstring `direction`
- * core/slideshow-presets.js). "left"/"right" = pulse 1 chiều RỒI TỰ VỀ gốc (Giang chốt mục 3);
+ * core/motion-presets.js). "left"/"right" = pulse 1 chiều RỒI TỰ VỀ gốc (Giang chốt mục 3);
  * "leftToRight"/"rightToLeft" = pulse 2 chiều (đi biên NÀY trước, biên KIA sau) RỒI MỚI VỀ gốc. Zoom
  * KHÔNG dùng hàm này (không có field `direction` trong preset — luôn đối xứng 1 chiều dương, nơi gọi
  * tự dựng `[0, peak, 0]` thẳng).
