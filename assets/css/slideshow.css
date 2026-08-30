@@ -57,6 +57,17 @@
 .slideshow-layer.ss-layer-enter { z-index: 3; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
 .slideshow-layer.ss-layer-exit  { z-index: 2; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
 
+/* Layer GIỮA (MỚI, "React Beat Audio" 29/08/2026) — XEN GIỮA `.slideshow-layer` (transition) và
+   `.ss-kenburns-pan` (Ken Burns) — giữ NGUYÊN vùng chứa (position/inset y hệt `.slideshow-layer`)
+   để `.ss-kenburns-pan` con bên trong vẫn định vị/co giãn đúng như trước, KHÔNG đổi layout gì cả
+   khi tính năng này tắt (transform mặc định identity, vô hình). Animation pulse (zoom/pan/rotate
+   theo beat) chạy bằng Web Animations API (panEl.animate()), CÙNG cách Ken Burns đã làm — xem
+   event/workflow/slideshow.js::_triggerBeatReactPulse(). */
+.ss-beat-react {
+    position: absolute; inset: 0;
+    overflow: hidden;
+}
+
 /* Layer CON (MỚI, Ken Burns 18/07/2026) — mang background-image THẬT (setSlideshowLayerImage() giờ
    set lên đây, xem event/workflow/slideshow.js). Animation pan/zoom Ken Burns chạy bằng Web
    Animations API (panEl.animate(), xem core/file-manager/slideshow.js) — KHÔNG có CSS
