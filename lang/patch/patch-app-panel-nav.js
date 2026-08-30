@@ -29,8 +29,10 @@ const LANG_PATCH_APP_PANEL_NAV = {
     'appSettings.system.theme.hint': 'Light, dark, or transparent glass',
     'appSettings.system.gesture.label': 'Gestures',
     'appSettings.system.gesture.hint': 'Swipe, tap, and Control Center shortcuts',
-    'appSettings.system.slideshow.label': 'Slideshow',
-    'appSettings.system.slideshow.hint': 'Transition and Ken Burns movement',
+    // SỬA (29/08/2026, phản hồi Giang — "tránh nhầm giữa tên mục Settings với chế độ Playback
+    // 'Slideshow' của VBG") — 'appSettings.system.slideshow.*' đổi thành 'appSettings.system.motion.*'.
+    'appSettings.system.motion.label': 'Motion',
+    'appSettings.system.motion.hint': 'Transition, Ken Burns, and beat-reactive movement',
     'appSettings.system.language.label': 'Language',
     'appSettings.system.language.hint': 'App display language',
 

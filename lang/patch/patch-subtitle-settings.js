@@ -1,6 +1,6 @@
 /**
  * patch-subtitle-settings.js — patch default-language keys (tiếng Anh), phần subtitleModal + subtitleSettingsDrawer + slideshowSettingsDrawer + settingsPlaylistBg + settingsVisualizer + settingsAudioEq + settingsSubtitleStyle.
- * MỚI (Batch 8, 03/07/2026): namespace `slideshowSettingsDrawer.*` (Slideshow Settings Drawer,
+ * MỚI (Batch 8, 03/07/2026): namespace `motionSettingsDrawer.*` (Motion Settings Drawer,
  * ver 12 "Multi Media") + key `settingsVisualizer.slideshowSetting.*` (nút mở drawer đó).
  *
  * Đây KHÔNG phải file JSON: project chạy qua file://, không thể fetch() file tĩnh, nên các
@@ -27,9 +27,9 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // NGUYÊN (panel con vẫn cần tên hiển thị trên header).
     'subtitleSettingsDrawer.title': 'Subtitles',
 
-    // MỚI (Batch 8, 03/07/2026, slideshow nền Visual) — Slideshow Settings Drawer, xem
-    // components/slideshow-settings-drawer.js.
-    // Batch D4 (06/07/2026) — 'slideshowSettingsDrawer.backToSettings.title' XOÁ, dùng CHUNG
+    // MỚI (Batch 8, 03/07/2026, slideshow nền Visual) — Slideshow Settings Drawer, SAU ĐÓ đổi hẳn
+    // thành hệ "Cấu hình Motion" độc lập (29/08/2026) — xem components/motion-settings-drawer.js.
+    // Batch D4 (06/07/2026) — 'motionSettingsDrawer.backToSettings.title' XOÁ, dùng CHUNG
     // 'settingsDrawer.back.title' (Batch D1) cho mọi panel.
     // ===================== MỚI (v13 Batch A) — namespace `visualBgSettingsDrawer.*` =========
     // Panel "Visual Background" — GỘP 3 tính năng nền màn Visualizer (video nền loop / ảnh nền
@@ -128,8 +128,8 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'visualBgSettingsDrawer.folderPicker.emptyNoFolder.photo': 'You have no photo folders yet. Create one in File Manager > Folders and add photos to it first.',
     'visualBgSettingsDrawer.folderPicker.emptyTooFew.video': 'You have video folders, but none holds at least {count} videos yet. A list needs more than one video to rotate through — add more, or pick a video directly instead.',
     'visualBgSettingsDrawer.folderPicker.emptyTooFew.photo': 'You have photo folders, but none holds at least {count} photos yet. A list needs more than one photo to rotate through — add more, or pick a photo directly instead.',
-    'visualBgSettingsDrawer.openSlideshow.label': 'Slideshow options...',
-    'visualBgSettingsDrawer.openSlideshow.hint': 'Transition + Photo Movement',
+    // XOÁ (29/08/2026) — 'openSlideshow.label'/'openSlideshow.hint' bỏ hẳn cùng hàng UI "Slideshow
+    // options..." đã gỡ khỏi panel VBG (Slideshow tách hệ Motion độc lập, System > Slideshow).
     // MỚI (08/08/2026) — sub-panel "Âm thanh Video" (bật/tắt + volume% audio riêng từng video).
     'visualBgSettingsDrawer.openVideoAudio.label': 'Video audio...',
     'visualBgSettingsDrawer.openVideoAudio.hint': 'Per-video sound, mixed under the main audio',
@@ -138,117 +138,122 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // MỚI (08/08/2026, phản hồi Giang mục 2) — tiêu đề modal chọn volume dùng chung (core/slider-input-modal.js).
     'visualBgSettingsDrawer.videoAudio.volumeModal.title': 'Video volume',
 
-    // XOÁ (29/08/2026) — 'slideshowSettingsDrawer.title' bỏ hẳn (không còn hàm nào gọi — màn Menu
-    // dùng 'slideshowPresetsDrawer.menu.title' ngay dưới thay thế).
+    // XOÁ (29/08/2026) — 'motionSettingsDrawer.title' bỏ hẳn (không còn hàm nào gọi — màn Menu
+    // dùng 'motionPresetsDrawer.menu.title' ngay dưới thay thế).
     // VIẾT LẠI (Batch 9, 04/07/2026, mục 4) — gộp 2 section cũ ("Album"/"Playback") thành 1; 2 nút
     // "Choose album"/"Turn off" thay bằng 1 toggle "enable" duy nhất + hàng "album đang chạy".
     // SỬA (18/07/2026, phản hồi Giang — "tái cấu trúc panel theo nhóm mục") — 'sectionTitle' (1
     // tiêu đề DUY NHẤT cho cả panel) ĐÃ XOÁ, thay bằng 3 tiêu đề nhóm riêng.
-    'slideshowSettingsDrawer.groupTransition.title': 'Transition',
+    'motionSettingsDrawer.groupTransition.title': 'Transition',
     // SỬA (29/08/2026, phản hồi Giang — "chuyển về lại thành Ken Burns") — 'Photo Movement' đổi lại
     // 'Ken Burns' (cả tên nhóm LẪN nhãn toggle ngay dưới).
-    'slideshowSettingsDrawer.groupKenBurns.title': 'Ken Burns',
+    'motionSettingsDrawer.groupKenBurns.title': 'Ken Burns',
     // XOÁ (29/08/2026) — 3 key 'interval.*' ("Seconds per photo") bỏ hẳn cùng hàng UI đã dời sang
     // panel VBG cha — xem visualBgSettingsDrawer.durationSeconds.*/durationMode.* ngay dưới.
     // MỚI (29/08/2026, phản hồi Giang) — toggle "Có áp dụng Transition hay không", ĐỘC LẬP với việc
     // chọn hiệu ứng (select ngay dưới LUÔN hiện, kể cả tắt) — mirror `kenBurns.label` ngay dưới.
-    'slideshowSettingsDrawer.transitionEnabled.label': 'Apply transition',
-    'slideshowSettingsDrawer.transition.label': 'Transition effect',
-    'slideshowSettingsDrawer.transition.fade': 'Fade',
-    'slideshowSettingsDrawer.transition.slideLeft': 'Slide left',
-    'slideshowSettingsDrawer.transition.slideRight': 'Slide right',
-    'slideshowSettingsDrawer.transition.zoomIn': 'Zoom in',
-    'slideshowSettingsDrawer.transition.zoomOut': 'Zoom out',
-    'slideshowSettingsDrawer.transition.wipe': 'Wipe',
-    'slideshowSettingsDrawer.transition.flip': 'Flip (3D)',
-    'slideshowSettingsDrawer.transition.blur': 'Blur cross-fade',
-    'slideshowSettingsDrawer.transition.rotateFade': 'Rotate + fade',
-    'slideshowSettingsDrawer.transition.curtain': 'Curtain',
-    'slideshowSettingsDrawer.transition.circleReveal': 'Circle reveal',
-    'slideshowSettingsDrawer.transition.glitch': 'Glitch',
+    'motionSettingsDrawer.transitionEnabled.label': 'Apply transition',
+    'motionSettingsDrawer.transition.label': 'Transition effect',
+    'motionSettingsDrawer.transition.fade': 'Fade',
+    'motionSettingsDrawer.transition.slideLeft': 'Slide left',
+    'motionSettingsDrawer.transition.slideRight': 'Slide right',
+    'motionSettingsDrawer.transition.zoomIn': 'Zoom in',
+    'motionSettingsDrawer.transition.zoomOut': 'Zoom out',
+    'motionSettingsDrawer.transition.wipe': 'Wipe',
+    'motionSettingsDrawer.transition.flip': 'Flip (3D)',
+    'motionSettingsDrawer.transition.blur': 'Blur cross-fade',
+    'motionSettingsDrawer.transition.rotateFade': 'Rotate + fade',
+    'motionSettingsDrawer.transition.curtain': 'Curtain',
+    'motionSettingsDrawer.transition.circleReveal': 'Circle reveal',
+    'motionSettingsDrawer.transition.glitch': 'Glitch',
     // SỬA (29/08/2026) — 'Photo Movement' đổi lại 'Ken Burns' (cùng lý do groupKenBurns.title trên).
-    // XOÁ 'kenBurns.hint' — dòng phụ dưới nhãn đã bỏ khỏi template (renderSlideshowEditBody()).
-    'slideshowSettingsDrawer.kenBurns.label': 'Ken Burns',
+    // XOÁ 'kenBurns.hint' — dòng phụ dưới nhãn đã bỏ khỏi template (renderMotionEditBody()).
+    'motionSettingsDrawer.kenBurns.label': 'Ken Burns',
     // MỚI ("Nhóm 2", 18/07/2026, phản hồi Giang) — 13 chế độ Ken Burns, THAY HẲN "Nhóm 1" (8 biến
     // thể random tự động, không chọn được).
-    'slideshowSettingsDrawer.kenBurnsMode.label': 'Movement style',
-    'slideshowSettingsDrawer.kenBurnsMode.groupPan': 'Pan only',
-    'slideshowSettingsDrawer.kenBurnsMode.panLeft': 'Pan left',
-    'slideshowSettingsDrawer.kenBurnsMode.panRight': 'Pan right',
-    'slideshowSettingsDrawer.kenBurnsMode.panTop': 'Pan up',
-    'slideshowSettingsDrawer.kenBurnsMode.panBottom': 'Pan down',
-    'slideshowSettingsDrawer.kenBurnsMode.panRandom': 'Pan (random direction)',
-    'slideshowSettingsDrawer.kenBurnsMode.groupZoom': 'Zoom only (center)',
-    'slideshowSettingsDrawer.kenBurnsMode.zoomIn': 'Zoom in',
-    'slideshowSettingsDrawer.kenBurnsMode.zoomOut': 'Zoom out',
-    'slideshowSettingsDrawer.kenBurnsMode.zoomRandom': 'Zoom (random in/out)',
-    'slideshowSettingsDrawer.kenBurnsMode.groupZoomPan': 'Zoom + pan',
-    'slideshowSettingsDrawer.kenBurnsMode.zoomPanLeft': 'Zoom + pan left',
-    'slideshowSettingsDrawer.kenBurnsMode.zoomPanRight': 'Zoom + pan right',
-    'slideshowSettingsDrawer.kenBurnsMode.zoomPanTop': 'Zoom + pan up',
-    'slideshowSettingsDrawer.kenBurnsMode.zoomPanBottom': 'Zoom + pan down',
-    'slideshowSettingsDrawer.kenBurnsMode.zoomPanRandom': 'Zoom + pan (random direction)',
+    'motionSettingsDrawer.kenBurnsMode.label': 'Movement style',
+    'motionSettingsDrawer.kenBurnsMode.groupPan': 'Pan only',
+    'motionSettingsDrawer.kenBurnsMode.panLeft': 'Pan left',
+    'motionSettingsDrawer.kenBurnsMode.panRight': 'Pan right',
+    'motionSettingsDrawer.kenBurnsMode.panTop': 'Pan up',
+    'motionSettingsDrawer.kenBurnsMode.panBottom': 'Pan down',
+    'motionSettingsDrawer.kenBurnsMode.panRandom': 'Pan (random direction)',
+    'motionSettingsDrawer.kenBurnsMode.groupZoom': 'Zoom only (center)',
+    'motionSettingsDrawer.kenBurnsMode.zoomIn': 'Zoom in',
+    'motionSettingsDrawer.kenBurnsMode.zoomOut': 'Zoom out',
+    'motionSettingsDrawer.kenBurnsMode.zoomRandom': 'Zoom (random in/out)',
+    'motionSettingsDrawer.kenBurnsMode.groupZoomPan': 'Zoom + pan',
+    'motionSettingsDrawer.kenBurnsMode.zoomPanLeft': 'Zoom + pan left',
+    'motionSettingsDrawer.kenBurnsMode.zoomPanRight': 'Zoom + pan right',
+    'motionSettingsDrawer.kenBurnsMode.zoomPanTop': 'Zoom + pan up',
+    'motionSettingsDrawer.kenBurnsMode.zoomPanBottom': 'Zoom + pan down',
+    'motionSettingsDrawer.kenBurnsMode.zoomPanRandom': 'Zoom + pan (random direction)',
 
     // MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh"). XOÁ
     // 'transitionDuration.hint' — dòng phụ dưới nhãn đã bỏ khỏi template.
-    'slideshowSettingsDrawer.transitionDuration.label': 'Transition duration',
-    'slideshowSettingsDrawer.transitionDuration.pickerTitle': 'Transition duration',
-    'slideshowSettingsDrawer.transitionRatio.label': 'In/Out ratio',
+    'motionSettingsDrawer.transitionDuration.label': 'Transition duration',
+    'motionSettingsDrawer.transitionDuration.pickerTitle': 'Transition duration',
+    'motionSettingsDrawer.transitionRatio.label': 'In/Out ratio',
     // Nhãn xem trước SỐNG — {in}/{out} tính lại mỗi lần kéo slider (xem
-    // event/workflow/slideshow-presets.js::_updateTransitionRatioLabel()), KHÁC key .label tĩnh
+    // event/workflow/motion-presets.js::_updateTransitionRatioLabel()), KHÁC key .label tĩnh
     // ngay trên.
-    'slideshowSettingsDrawer.transitionRatio.previewFormat': 'In {in}s / Out {out}s',
-    'slideshowSettingsDrawer.transitionEasing.label': 'Easing',
-    'slideshowSettingsDrawer.transitionEasing.linear': 'Linear (no easing)',
-    'slideshowSettingsDrawer.transitionEasing.ease': 'Ease',
-    'slideshowSettingsDrawer.transitionEasing.easeIn': 'Ease in',
-    'slideshowSettingsDrawer.transitionEasing.easeOut': 'Ease out',
-    'slideshowSettingsDrawer.transitionEasing.easeInOut': 'Ease in-out',
+    'motionSettingsDrawer.transitionRatio.previewFormat': 'In {in}s / Out {out}s',
+    'motionSettingsDrawer.transitionEasing.label': 'Easing',
+    'motionSettingsDrawer.transitionEasing.linear': 'Linear (no easing)',
+    'motionSettingsDrawer.transitionEasing.ease': 'Ease',
+    'motionSettingsDrawer.transitionEasing.easeIn': 'Ease in',
+    'motionSettingsDrawer.transitionEasing.easeOut': 'Ease out',
+    'motionSettingsDrawer.transitionEasing.easeInOut': 'Ease in-out',
 
-    // MỚI (29/08/2026, phản hồi Giang — hệ "Cấu hình Slideshow" độc lập, xem event/workflow/
-    // slideshow-presets.js/components/slideshow-settings-drawer.js). Lối vào DUY NHẤT: System >
-    // Slideshow — 2 mục con "Quản lý cấu hình"/"Áp dụng cấu hình".
-    'slideshowPresetsDrawer.menu.title': 'Slideshow',
-    'slideshowPresetsDrawer.menu.manage.label': 'Manage configurations',
-    'slideshowPresetsDrawer.menu.manage.hint': 'Create, edit, or delete slideshow configurations',
-    'slideshowPresetsDrawer.menu.apply.label': 'Apply configuration',
-    'slideshowPresetsDrawer.menu.apply.hint': 'Choose which configuration each place uses',
-    'slideshowPresetsDrawer.defaultName': 'Slideshow {n}',
-    'slideshowPresetsDrawer.migratedName': 'Default',
-    'slideshowPresetsDrawer.list.pickTitle': 'Choose a configuration',
-    'slideshowPresetsDrawer.list.add.label': 'Add new configuration',
-    'slideshowPresetsDrawer.list.delete.title': 'Delete',
-    'slideshowPresetsDrawer.list.emptyManage': 'No configurations yet — add one to get started.',
-    'slideshowPresetsDrawer.list.emptyPick': 'No configurations yet — create one under "Manage configurations" first.',
-    'slideshowPresetsDrawer.edit.title': 'Edit configuration',
-    'slideshowPresetsDrawer.edit.groupManage.title': 'Manage',
-    'slideshowPresetsDrawer.edit.nameLabel': 'Name',
-    'slideshowPresetsDrawer.edit.namePlaceholder': 'Configuration name',
-    'slideshowPresetsDrawer.edit.reset.label': 'Reset to defaults',
-    'slideshowPresetsDrawer.edit.delete.label': 'Delete this configuration',
-    'slideshowPresetsDrawer.apply.photoVisualBg.label': 'Photo visual background',
-    'slideshowPresetsDrawer.apply.notAttached': 'Not attached',
-    'slideshowPresetsDrawer.apply.currentLabel': 'Current configuration',
-    'slideshowPresetsDrawer.apply.detach.label': 'Detach',
-    'slideshowPresetsDrawer.apply.pickButton': 'Choose configuration',
+    // MỚI (29/08/2026, phản hồi Giang — hệ "Cấu hình Motion" độc lập, xem event/workflow/
+    // motion-presets.js/components/motion-settings-drawer.js). Lối vào DUY NHẤT: System >
+    // Motion — 2 mục con "Quản lý cấu hình"/"Áp dụng cấu hình". SỬA (29/08/2026, phản hồi Giang —
+    // "tránh nhầm giữa tên mục Settings với chế độ Playback 'Slideshow' của VBG") — namespace
+    // 'slideshowSettingsDrawer'/'slideshowPresetsDrawer' cũ đổi hẳn thành 'motionSettingsDrawer'/
+    // 'motionPresetsDrawer' — Slideshow (chế độ Playback: perSong/slideshow, xem
+    // visualBgSettingsDrawer.listPlaybackMode.slideshow ngay trên) KHÔNG đổi, vẫn "Slideshow" —
+    // 2 khái niệm khác nhau, giờ khác tên hẳn, không còn trùng chữ.
+    'motionPresetsDrawer.menu.title': 'Motion',
+    'motionPresetsDrawer.menu.manage.label': 'Manage configurations',
+    'motionPresetsDrawer.menu.manage.hint': 'Create, edit, or delete motion configurations',
+    'motionPresetsDrawer.menu.apply.label': 'Apply configuration',
+    'motionPresetsDrawer.menu.apply.hint': 'Choose which configuration each place uses',
+    'motionPresetsDrawer.defaultName': 'Motion {n}',
+    'motionPresetsDrawer.migratedName': 'Default',
+    'motionPresetsDrawer.list.pickTitle': 'Choose a configuration',
+    'motionPresetsDrawer.list.add.label': 'Add new configuration',
+    'motionPresetsDrawer.list.delete.title': 'Delete',
+    'motionPresetsDrawer.list.emptyManage': 'No configurations yet — add one to get started.',
+    'motionPresetsDrawer.list.emptyPick': 'No configurations yet — create one under "Manage configurations" first.',
+    'motionPresetsDrawer.edit.title': 'Edit configuration',
+    'motionPresetsDrawer.edit.groupManage.title': 'Manage',
+    'motionPresetsDrawer.edit.nameLabel': 'Name',
+    'motionPresetsDrawer.edit.namePlaceholder': 'Configuration name',
+    'motionPresetsDrawer.edit.reset.label': 'Reset to defaults',
+    'motionPresetsDrawer.edit.delete.label': 'Delete this configuration',
+    'motionPresetsDrawer.apply.photoVisualBg.label': 'Photo visual background',
+    'motionPresetsDrawer.apply.notAttached': 'Not attached',
+    'motionPresetsDrawer.apply.currentLabel': 'Current configuration',
+    'motionPresetsDrawer.apply.detach.label': 'Detach',
+    'motionPresetsDrawer.apply.pickButton': 'Choose configuration',
 
     // MỚI (29/08/2026, phản hồi Giang) — "React Beat Audio": pulse zoom/pan/rotate bắn theo beat nhạc.
-    'slideshowPresetsDrawer.beatReact.groupTitle': 'React Beat Audio',
-    'slideshowPresetsDrawer.beatReact.enabled.label': 'React to beat',
-    'slideshowPresetsDrawer.beatReact.replaceMovement.label': 'Replace movement',
-    'slideshowPresetsDrawer.beatReact.replaceMovement.hint': 'On: replaces normal Ken Burns movement. Off: both run together.',
-    'slideshowPresetsDrawer.beatReact.zoom.title': 'Zoom',
-    'slideshowPresetsDrawer.beatReact.zoom.amountLabel': 'Zoom amount',
-    'slideshowPresetsDrawer.beatReact.pan.title': 'Pan',
-    'slideshowPresetsDrawer.beatReact.pan.amountLabel': 'Pan amount',
-    'slideshowPresetsDrawer.beatReact.rotate.title': 'Rotate',
-    'slideshowPresetsDrawer.beatReact.rotate.amountLabel': 'Rotate amount',
-    'slideshowPresetsDrawer.beatReact.everyNBeats.label': 'Trigger every N beats',
-    'slideshowPresetsDrawer.beatReact.direction.label': 'Direction',
-    'slideshowPresetsDrawer.beatReact.direction.left': 'Left only',
-    'slideshowPresetsDrawer.beatReact.direction.right': 'Right only',
-    'slideshowPresetsDrawer.beatReact.direction.leftToRight': 'Left \u2192 Right',
-    'slideshowPresetsDrawer.beatReact.direction.rightToLeft': 'Right \u2192 Left',
+    'motionPresetsDrawer.beatReact.groupTitle': 'React Beat Audio',
+    'motionPresetsDrawer.beatReact.enabled.label': 'React to beat',
+    'motionPresetsDrawer.beatReact.replaceMovement.label': 'Replace movement',
+    'motionPresetsDrawer.beatReact.replaceMovement.hint': 'On: replaces normal Ken Burns movement. Off: both run together.',
+    'motionPresetsDrawer.beatReact.zoom.title': 'Zoom',
+    'motionPresetsDrawer.beatReact.zoom.amountLabel': 'Zoom amount',
+    'motionPresetsDrawer.beatReact.pan.title': 'Pan',
+    'motionPresetsDrawer.beatReact.pan.amountLabel': 'Pan amount',
+    'motionPresetsDrawer.beatReact.rotate.title': 'Rotate',
+    'motionPresetsDrawer.beatReact.rotate.amountLabel': 'Rotate amount',
+    'motionPresetsDrawer.beatReact.everyNBeats.label': 'Trigger every N beats',
+    'motionPresetsDrawer.beatReact.direction.label': 'Direction',
+    'motionPresetsDrawer.beatReact.direction.left': 'Left only',
+    'motionPresetsDrawer.beatReact.direction.right': 'Right only',
+    'motionPresetsDrawer.beatReact.direction.leftToRight': 'Left \u2192 Right',
+    'motionPresetsDrawer.beatReact.direction.rightToLeft': 'Right \u2192 Left',
 
     // Tái tổ chức (07/07/2026, phản hồi Giang mục 4) — section cũ "Playlist & Background" TÁCH
     // làm 2: "Playlist" (file này, chỉ còn view/sort) + "Background" (KEY MỚI, xem
