@@ -307,7 +307,7 @@
     <script src="lang/patch/patch-common.js?v=20260818v1"></script>
     <script src="lang/patch/patch-playlist.js?v=20260823v2"></script>
     <script src="lang/patch/patch-visualizer.js?v=20260819v4"></script>
-    <script src="lang/patch/patch-subtitle-settings.js?v=20260816v1"></script>
+    <script src="lang/patch/patch-subtitle-settings.js?v=20260829v1"></script>
     <script src="lang/patch/patch-settings-misc.js?v=20260816v1"></script>
     <!-- Ver 12 "Multi Media" — namespace fileManager.* (CHỐT 03/07/2026: section trong Settings
          + 2 drawer con Song/Photo & Album, xem plan-v12-multimedia-decisions.md). -->
@@ -399,7 +399,7 @@
     <script src="components/settings/visualizer-auto-switch-drawer.js?v=20260812v1"></script>
     <script src="components/subtitle-settings-drawer.js?v=20260816v2"></script>
     <!-- Batch 8, ver 12 "Multi Media" — Slideshow Settings Drawer (nền Visual, nguồn thứ 3). -->
-    <script src="components/slideshow-settings-drawer.js?v=20260806v1"></script>
+    <script src="components/slideshow-settings-drawer.js?v=20260829v1"></script>
     <script src="components/visual-bg-settings-drawer.js?v=20260808v1"></script>
     <script src="components/visual-bg-gradient-drawer.js?v=20260807v1"></script>
     <script src="components/visual-bg-video-audio-drawer.js?v=20260808v1"></script>
@@ -451,7 +451,7 @@
          nạp TRƯỚC service/state/record/index.js (dòng registry() cần mọi package đã đăng ký). -->
     <script src="service/state/playlist.js?v=20260725v1"></script>
     <script src="service/state/player.js?v=20260725v1"></script>
-    <script src="service/state/visualizer-runtime.js?v=20260725v1"></script>
+    <script src="service/state/visualizer-runtime.js?v=20260829v2"></script>
     <script src="service/state/visualizer-scenes.js?v=20260725v1"></script>
     <script src="service/state/three-vortex.js?v=20260725v1"></script>
     <script src="service/state/three-space.js?v=20260725v1"></script>
@@ -507,7 +507,7 @@
          actions.js (core, dòng dưới) cần `new EventStore(...)` ngay lúc nạp. Tự đứng độc lập
          (không phụ thuộc eventBus), nên tách riêng lên đây an toàn. -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260823v1"></script>
+    <script src="core/dom-refs.js?v=20260829v1"></script>
     <!-- core/slider-panel-scroll.js — 2 hàm dùng chung (getPositionStart/scrollSliderTo) cho mọi
          khung cuộn ngang kiểu "slider panel" (settings-panel-stack-ui.js, player-controls.js). -->
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
@@ -633,11 +633,11 @@
          FIX (04/07/2026, Rule 3 siết chặt) — KHÔNG còn dùng service/task-manager.js nữa (taskManager
          giờ CẤM trong core, chỉ Workflow dùng) — không phụ thuộc gì trong nhóm này (mọi phần tử DOM
          nhận qua tham số, không tự getElementById). -->
-    <script src="core/file-manager/slideshow.js?v=20260704v1"></script>
+    <script src="core/file-manager/slideshow.js?v=20260829v2"></script>
     <!-- MỚI (29/08/2026) — core THUẦN cho hệ "Cấu hình Slideshow" (preset đặt tên được, độc lập
          khỏi Visual Background) — xem core/slideshow-presets.js. NẠP SAU core/file-manager/
          slideshow.js (dùng lại SLIDESHOW_TRANSITION_TYPES/EASINGS/KENBURNS_MODES). -->
-    <script src="core/slideshow-presets.js?v=20260829v1"></script>
+    <script src="core/slideshow-presets.js?v=20260829v2"></script>
     <!-- Resume State Storage (ver 10 refine #3) — lưu/đọc trạng thái phát qua localStorage khi tab
          bị ẩn, dùng để "reload trang thật" lúc quay lại tab thay cho cố giữ runtime cũ sống sót
          qua việc ẩn tab (xem comment đầu file). PHẢI nạp TRƯỚC wakelock.js (file đó gọi
@@ -752,7 +752,7 @@
          "full mode" gộp chung) vào 1 file — PHẢI nạp TRƯỚC audio-analysis.js (đọc biến
          isStatsPanelVisible qua appState, không đụng file này trực tiếp, nhưng giữ thứ tự cũ). -->
     <script src="core/visualizer-ui-visibility.js?v=20260810v2"></script>
-    <script src="core/audio-analysis.js?v=20260721v2"></script>
+    <script src="core/audio-analysis.js?v=20260829v1"></script>
     <script src="core/rubik-math.js?v=20260625v8e"></script>
     <script src="core/about-stats.js?v=20260706v1"></script>
     <!-- Khắc phục sự cố (ver 10 refine, bổ sung) — "Khởi động lại app"/"Khôi phục cài đặt mặc
@@ -875,13 +875,13 @@
     <!-- Batch 8, ver 12 "Multi Media" — engine cycle ảnh Slideshow nền Visual (transition/Ken
          Burns), CHỈ còn đúng 1 vai trò: `_tick()` (taskManager) — cụm router "slideshowSettings"
          (từng ở đây) ĐÃ BỎ HẲN (29/08/2026), xem event/workflow/slideshow-presets.js ngay dưới. -->
-    <script src="event/workflow/slideshow.js?v=20260829v2"></script>
+    <script src="event/workflow/slideshow.js?v=20260829v3"></script>
     <!-- MỚI (29/08/2026) — hệ "Cấu hình Slideshow" độc lập (Settings > System > Slideshow), thay
          hẳn router/listener "slideshowSettings" cũ (2 file event/router,listener/slideshow.js ĐÃ
          XOÁ) — xem event/workflow/slideshow-presets.js, event/router/slideshow-presets.js. Không
          cần listener riêng — mọi wiring DOM động nằm trong event/workflow/app-settings.js
          (_render*() onMount, liên tuyến domain, xem docstring file đó). -->
-    <script src="event/workflow/slideshow-presets.js?v=20260829v1"></script>
+    <script src="event/workflow/slideshow-presets.js?v=20260829v2"></script>
     <script src="event/router/slideshow-presets.js?v=20260829v1"></script>
 
     <!-- MỚI (v13 Batch A) — cụm "visualBg". -->
@@ -962,7 +962,7 @@
          workflowFileManagerFolderBrowser/workflowFileManagerStorage đã nạp ở trên — KHÔNG bắt
          buộc thứ tự nạp CHẶT với các file đó, vì mọi tham chiếu đều nằm TRONG thân hàm, chỉ chạy
          SAU khi cả trang đã nạp xong, không chạy ngay lúc parse). -->
-    <script src="event/workflow/app-settings.js?v=20260819v1"></script>
+    <script src="event/workflow/app-settings.js?v=20260829v1"></script>
     <script src="event/router/app-settings.js?v=20260819v1"></script>
     <!-- Cụm "placeholderPanels" (đóng Game/Statis). Photo đã hợp nhất vào Playlist, không còn cụm
          "photoPanel" riêng. -->
