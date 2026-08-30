@@ -228,7 +228,7 @@
     <link rel="stylesheet" href="assets/css/video-gallery.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/video-preview.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/misc.css?v=20260813v1">
-    <link rel="stylesheet" href="assets/css/slideshow.css?v=20260703v2">
+    <link rel="stylesheet" href="assets/css/motion-engine.css?v=20260829v1">
     <!-- Game Mode (Circle mode v1, MỚI 16/08/2026) — xem components/gameplay-overlay.js. -->
     <link rel="stylesheet" href="assets/css/gameplay.css?v=20260819v2">
 
@@ -251,28 +251,28 @@
     <!-- Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). Xem
          assets/css/base.css (#visual-bg-image) + core/visual-bg.js (applyVisualBgImageToDOM). -->
     <div id="visual-bg-image" class="hidden"></div>
-    <!-- Slideshow nền Visual (nguồn nền thứ 3) — 2 lớp ảnh xen kẽ, JS ở core/file-manager/
-         slideshow.js + event/workflow/slideshow.js. CSS: assets/css/slideshow.css (z-index -1,
-         giữa #visual-bg-image và #bg-video). Mỗi layer ngoài (.slideshow-layer, lo animation
-         chuyển cảnh) bọc 1 layer con .ss-kenburns-pan (lo riêng pan/zoom Ken Burns) — tách 2 phần
+    <!-- Motion Engine nền Visual (nguồn nền thứ 3) — 2 lớp ảnh xen kẽ, JS ở core/motion-engine.js
+         + event/workflow/motion-engine.js. CSS: assets/css/motion-engine.css (z-index -1,
+         giữa #visual-bg-image và #bg-video). Mỗi layer ngoài (.motion-layer, lo animation
+         chuyển cảnh) bọc 1 layer con .me-kenburns-pan (lo riêng pan/zoom Ken Burns) — tách 2 phần
          tử vì CSS chỉ giữ 1 animation-name hiệu lực/phần tử, gộp chung sẽ đè lẫn nhau. -->
-    <!-- MỚI (29/08/2026, phản hồi Giang — "React Beat Audio") — thêm 1 layer con `.ss-beat-react`
-         XEN GIỮA `.slideshow-layer` (transition) và `.ss-kenburns-pan` (Ken Burns) — 3 hiệu ứng
+    <!-- MỚI (29/08/2026, phản hồi Giang — "React Beat Audio") — thêm 1 layer con `.me-beat-react`
+         XEN GIỮA `.motion-layer` (transition) và `.me-kenburns-pan` (Ken Burns) — 3 hiệu ứng
          CHỒNG NHAU (transition/Ken Burns/react-beat) cần 3 phần tử riêng, CÙNG lý do tách
-         .slideshow-layer/.ss-kenburns-pan sẵn có ở comment trên (CSS chỉ giữ 1 animation-name hiệu
-         lực/phần tử). `replaceMovement=true` (preset) -> `.ss-kenburns-pan` KHÔNG chạy animation Ken
-         Burns thường nữa (event/workflow/slideshow.js tự bỏ qua `_activateKenBurns()`), CHỈ còn
-         `.ss-beat-react` điều khiển; `false` -> CẢ HAI cùng chạy, transform NHÂN với nhau (2 phần tử
+         .motion-layer/.me-kenburns-pan sẵn có ở comment trên (CSS chỉ giữ 1 animation-name hiệu
+         lực/phần tử). `replaceMovement=true` (preset) -> `.me-kenburns-pan` KHÔNG chạy animation Ken
+         Burns thường nữa (event/workflow/motion-engine.js tự bỏ qua `_activateKenBurns()`), CHỈ còn
+         `.me-beat-react` điều khiển; `false` -> CẢ HAI cùng chạy, transform NHÂN với nhau (2 phần tử
          lồng nhau, mỗi phần tử 1 transform riêng, trình duyệt tự cộng dồn theo cây DOM). -->
-    <div id="visual-slideshow-container" class="hidden">
-        <div id="visual-slideshow-layer-1" class="slideshow-layer">
-            <div id="visual-slideshow-layer-1-react" class="ss-beat-react">
-                <div id="visual-slideshow-layer-1-pan" class="ss-kenburns-pan"></div>
+    <div id="visual-motion-container" class="hidden">
+        <div id="visual-motion-layer-1" class="motion-layer">
+            <div id="visual-motion-layer-1-react" class="me-beat-react">
+                <div id="visual-motion-layer-1-pan" class="me-kenburns-pan"></div>
             </div>
         </div>
-        <div id="visual-slideshow-layer-2" class="slideshow-layer">
-            <div id="visual-slideshow-layer-2-react" class="ss-beat-react">
-                <div id="visual-slideshow-layer-2-pan" class="ss-kenburns-pan"></div>
+        <div id="visual-motion-layer-2" class="motion-layer">
+            <div id="visual-motion-layer-2-react" class="me-beat-react">
+                <div id="visual-motion-layer-2-pan" class="me-kenburns-pan"></div>
             </div>
         </div>
     </div>
@@ -634,7 +634,7 @@
          FIX (04/07/2026, Rule 3 siết chặt) — KHÔNG còn dùng service/task-manager.js nữa (taskManager
          giờ CẤM trong core, chỉ Workflow dùng) — không phụ thuộc gì trong nhóm này (mọi phần tử DOM
          nhận qua tham số, không tự getElementById). -->
-    <script src="core/file-manager/slideshow.js?v=20260829v2"></script>
+    <script src="core/motion-engine.js?v=20260829v2"></script>
     <!-- MỚI (29/08/2026) — core THUẦN cho hệ "Cấu hình Motion" (preset đặt tên được, độc lập
          khỏi Visual Background) — xem core/motion-presets.js. NẠP SAU core/file-manager/
          slideshow.js (dùng lại SLIDESHOW_TRANSITION_TYPES/EASINGS/KENBURNS_MODES). -->
@@ -876,7 +876,7 @@
     <!-- Batch 8, ver 12 "Multi Media" — engine cycle ảnh Slideshow nền Visual (transition/Ken
          Burns), CHỈ còn đúng 1 vai trò: `_tick()` (taskManager) — cụm router "slideshowSettings"
          (từng ở đây) ĐÃ BỎ HẲN (29/08/2026), xem event/workflow/motion-presets.js ngay dưới. -->
-    <script src="event/workflow/slideshow.js?v=20260829v3"></script>
+    <script src="event/workflow/motion-engine.js?v=20260829v3"></script>
     <!-- MỚI (29/08/2026) — hệ "Cấu hình Motion" độc lập (Settings > System > Motion), thay
          hẳn router/listener "slideshowSettings" cũ (2 file event/router,listener/slideshow.js ĐÃ
          XOÁ) — xem event/workflow/motion-presets.js, event/router/motion-presets.js. Không
