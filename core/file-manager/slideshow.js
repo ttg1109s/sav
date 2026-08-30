@@ -94,8 +94,13 @@ function computeSlideshowTransitionInOutMs(totalMs, ratioPercent) {
  * (hoặc bằng) khoảng cách tới lượt đổi ảnh KẾ TIẾP sẽ bị `_tick()` mới cắt ngang giữa chừng (dùng
  * lại ĐÚNG 2 layer đó cho lượt mới trong khi animation cũ chưa xong) — giật/lỗi hình, ĐÚNG vấn đề đã
  * lường trước với Giang trước khi code. `Math.max(SLIDESHOW_TRANSITION_MIN_TIME_MS, ...)` — sàn an
- * toàn (1s) phòng `intervalMs` cực nhỏ (không xảy ra trong thực tế — interval tối thiểu toàn hệ
- * thống đã là 5s, xem `_computeIntervalMs()`, luôn còn dư ≥4s sau khi trừ 1s).
+ * toàn (1s) phòng `intervalMs` cực nhỏ (interval tối thiểu qua `durationSeconds`/`record.duration`
+ * đã có sàn riêng ≥1s, xem `_computeAdvanceMs()`, event/workflow/slideshow.js — hàm này chỉ thêm 1
+ * lớp phòng thủ độc lập, không giả định gì về nguồn gốc `intervalMs` truyền vào).
+ * GENERIC — chỉ nhận 2 SỐ THUẦN, không tự đọc/biết bất kỳ consumer/domain nào (VBG, ảnh, video hay
+ * nơi khác) — nơi gọi tự tính `intervalMs` theo đúng ngữ cảnh của mình rồi truyền vào (xem
+ * event/workflow/slideshow.js::_tick(), event/workflow/slideshow-presets.js::
+ * openTransitionDurationPicker()).
  * @param {number} configuredMs
  * @param {number} intervalMs
  * @returns {number}
