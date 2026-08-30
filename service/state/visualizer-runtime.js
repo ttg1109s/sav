@@ -19,7 +19,7 @@
                 // audio-analysis.js — CÙNG điều kiện đã dùng để đẩy vào `beatTimes`). `beatScale`
                 // (field ngay trên) là NĂNG LƯỢNG LIÊN TỤC mỗi khung hình, không phải "đã có 1 beat
                 // hay chưa" — mọi nơi cần biết "N beat đã trôi qua kể từ lần trước tôi xem" (như
-                // event/workflow/slideshow.js — pulse zoom/pan/rotate "mỗi N beat") chỉ cần lưu lại
+                // event/workflow/motion-engine.js — pulse zoom/pan/rotate "mỗi N beat") chỉ cần lưu lại
                 // `beatCount` LÚC TRƯỚC rồi so `beatCount - lastSeen >= N`, KHÔNG cần tự dò
                 // ngưỡng flux riêng — dùng CHUNG đúng 1 nơi phát hiện beat DUY NHẤT của toàn app.
                 beatCount: 'number',
