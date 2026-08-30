@@ -989,6 +989,10 @@ const workflowVisualBg = {
         appConfigVisualBg.mutateAll((cfg) => { cfg.listPlaybackMode = value; });
         console.log(`writer: "workflowVisualBg.changeListPlaybackMode", page: "visualBgConfig", content: "listPlaybackMode=${value}"`);
         await this._persist();
+        // MỚI (29/08/2026) — Duration mode/Seconds per video/photo ẩn/hiện phụ thuộc TRỰC TIẾP
+        // listPlaybackMode (xem refreshPanelUI()) — thiếu dòng này thì đổi dropdown xong 2 hàng đó
+        // không cập nhật ngay, phải mở lại panel mới thấy đúng (CÙNG bug đã sửa ở changeDurationMode()).
+        await this.refreshPanelUI();
         await this.applyCurrentVisualBg();
     },
 
@@ -1574,8 +1578,15 @@ const workflowVisualBg = {
         const durationSecondsLabel = q('#visual-bg-duration-seconds-label');
         const durationSecondsBtn = q('#setting-visual-bg-duration-seconds');
         if (durationModeSelect) durationModeSelect.value = cfg.durationMode;
-        if (durationModeRow) durationModeRow.classList.toggle('hidden', !isList);
-        if (durationSecondsRow) durationSecondsRow.classList.toggle('hidden', !(isList && cfg.durationMode === 'fixtime'));
+        // SỬA (29/08/2026, Giang chỉ ra — "perSong thì 2 hàng này vô nghĩa") — CHỈ hẹn giờ tự
+        // chuyển ảnh khi `listPlaybackMode==='slideshow'` (xem `workflowSlideshow._activate()` —
+        // guard `!== 'perSong'` mới đặt hẹn giờ) — `perSong` chuyển ảnh do ĐỔI BÀI quyết định,
+        // Duration mode/Seconds per video/photo không điều khiển gì việc chuyển ảnh trong mode đó.
+        // "Next item order" KHÔNG đổi — vẫn cần dù `perSong` (đổi bài vẫn gọi advanceForSongChange()
+        // -> _tick() -> workflowVisualBg.advanceList() đọc nextOrder để chọn item kế).
+        const isSlideshowCycling = isList && cfg.listPlaybackMode === 'slideshow';
+        if (durationModeRow) durationModeRow.classList.toggle('hidden', !isSlideshowCycling);
+        if (durationSecondsRow) durationSecondsRow.classList.toggle('hidden', !(isSlideshowCycling && cfg.durationMode === 'fixtime'));
         if (durationSecondsLabel) durationSecondsLabel.textContent = t(cfg.type === 'video' ? 'visualBgSettingsDrawer.durationSeconds.labelVideo' : 'visualBgSettingsDrawer.durationSeconds.labelPhoto');
         if (durationSecondsBtn) durationSecondsBtn.textContent = `${cfg.durationSeconds}s`;
 
