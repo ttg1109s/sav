@@ -530,3 +530,46 @@ function resetSlideshowLayerClasses(layerEl) {
     if (!layerEl) return;
     layerEl.classList.remove('ss-current', 'ss-layer-enter', 'ss-layer-exit');
 }
+
+/**
+ * Core thuần: nội suy smoothstep qua 1 chuỗi "chặng" (stops, giá trị tại các mốc thời gian chia đều
+ * [0,...,1]) — MỚI (29/08/2026, "React Beat Audio", phản hồi Giang). DÙNG CHUNG cho pulse zoom/pan/
+ * rotate — mỗi hiệu ứng tự dựng mảng `stops` phù hợp (xem `buildSlideshowPulseStops()` ngay dưới cho
+ * pan/rotate; zoom tự dựng `[0, peak, 0]` thẳng ở nơi gọi, không có "hướng" nên không cần hàm riêng)
+ * rồi gọi hàm NÀY, không viết công thức nội suy riêng từng chỗ.
+ * KHÔNG dùng Web Animations API cho pulse này (khác Ken Burns thường) — 3 hiệu ứng zoom/pan/rotate
+ * CÙNG sửa 1 thuộc tính CSS `transform` trên CÙNG 1 phần tử (`.ss-beat-react`), `animate()` độc lập
+ * cho từng cái sẽ ĐÈ LẪN NHAU (Web Animations API không tự cộng dồn nhiều animation cùng thuộc tính
+ * trên cùng phần tử) — Workflow tự gọi hàm này mỗi khung hình cho CẢ 3, cộng dồn kết quả thành 1
+ * chuỗi `transform` áp 1 lần, xem event/workflow/slideshow.js::_tickBeatReact().
+ * @param {number[]} stops
+ * @param {number} t - 0-1 (tỉ lệ thời gian đã trôi qua trong 1 lượt pulse).
+ * @returns {number}
+ */
+function evaluateSlideshowPulseStops(stops, t) {
+    const clampedT = Math.max(0, Math.min(1, t));
+    const n = stops.length - 1;
+    const segT = clampedT * n;
+    const i = Math.min(Math.floor(segT), n - 1);
+    const localT = segT - i;
+    const smooth = localT * localT * (3 - 2 * localT); // smoothstep — êm 2 đầu đoạn, tránh giật lúc chuyển chặng
+    return stops[i] + (stops[i + 1] - stops[i]) * smooth;
+}
+
+/**
+ * Core thuần: dựng chuỗi "chặng" (stops) cho 1 pulse pan/rotate theo `direction` — DÙNG CHUNG pan
+ * LẪN rotate (cùng 4 lựa chọn hướng, chỉ khác đơn vị %/độ ở nơi gọi, xem docstring `direction`
+ * core/slideshow-presets.js). "left"/"right" = pulse 1 chiều RỒI TỰ VỀ gốc (Giang chốt mục 3);
+ * "leftToRight"/"rightToLeft" = pulse 2 chiều (đi biên NÀY trước, biên KIA sau) RỒI MỚI VỀ gốc. Zoom
+ * KHÔNG dùng hàm này (không có field `direction` trong preset — luôn đối xứng 1 chiều dương, nơi gọi
+ * tự dựng `[0, peak, 0]` thẳng).
+ * @param {'left'|'right'|'leftToRight'|'rightToLeft'} direction
+ * @param {number} peak - biên độ đỉnh (offset %, hoặc độ — ĐÃ trừ baseline 100%/0°, xem nơi gọi).
+ * @returns {number[]}
+ */
+function buildSlideshowPulseStops(direction, peak) {
+    if (direction === 'left') return [0, -peak, 0];
+    if (direction === 'right') return [0, peak, 0];
+    if (direction === 'leftToRight') return [0, -peak, peak, 0];
+    return [0, peak, -peak, 0]; // 'rightToLeft'
+}
