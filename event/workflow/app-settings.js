@@ -336,6 +336,32 @@ const workflowAppSettings = {
                 const kenBurnsMode = body.querySelector('#setting-slideshow-kenburns-mode');
                 if (kenBurnsMode) kenBurnsMode.addEventListener('change', (e) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.kenBurnsMode.change', payload: { value: e.target.value } }));
 
+                // MỚI (29/08/2026) — "React Beat Audio" — mọi control (checkbox/slider/select) gửi
+                // CÙNG 1 msg.type, chỉ khác payload {effectKey, fieldKey, value} — GENERIC, khớp
+                // đúng `workflowSlideshowPresets.changeBeatReactField()` (1 hàm xử lý mọi field).
+                const sendBeatReact = (effectKey, fieldKey, value) => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.beatReact.field.change', payload: { effectKey, fieldKey, value } });
+                const wireBeatReactCheckbox = (id, effectKey, fieldKey) => {
+                    const el = body.querySelector(`#${id}`);
+                    if (el) el.addEventListener('change', (e) => sendBeatReact(effectKey, fieldKey, e.target.checked));
+                };
+                const wireBeatReactRange = (id, effectKey, fieldKey) => {
+                    const el = body.querySelector(`#${id}`);
+                    if (el) el.addEventListener('change', (e) => sendBeatReact(effectKey, fieldKey, Number(e.target.value)));
+                };
+                const wireBeatReactSelect = (id, effectKey, fieldKey) => {
+                    const el = body.querySelector(`#${id}`);
+                    if (el) el.addEventListener('change', (e) => sendBeatReact(effectKey, fieldKey, e.target.value));
+                };
+                wireBeatReactCheckbox('setting-slideshow-beatreact-enabled', null, 'enabled');
+                wireBeatReactCheckbox('setting-slideshow-beatreact-replace', null, 'replaceMovement');
+                ['zoom', 'pan', 'rotate'].forEach((key) => {
+                    wireBeatReactCheckbox(`setting-slideshow-beatreact-${key}-enabled`, key, 'enabled');
+                    wireBeatReactRange(`setting-slideshow-beatreact-${key}-beats`, key, 'everyNBeats');
+                    wireBeatReactRange(`setting-slideshow-beatreact-${key}-amount`, key, key === 'rotate' ? 'amountDeg' : 'amountPct');
+                });
+                wireBeatReactSelect('setting-slideshow-beatreact-pan-direction', 'pan', 'direction');
+                wireBeatReactSelect('setting-slideshow-beatreact-rotate-direction', 'rotate', 'direction');
+
                 const resetBtn = body.querySelector('#btn-slideshow-edit-reset'); // SỬA (29/08/2026) — dời từ header xuống hàng cuối trong body, xem renderSlideshowEditBody() nhóm "Quản lý"
                 if (resetBtn) resetBtn.addEventListener('click', () => eventBus.send({ router: 'slideshowPresets', type: 'slideshowPresets.reset.click', payload: {} }));
                 const deleteBtn = body.querySelector('#btn-slideshow-edit-delete'); // SỬA (29/08/2026) — cùng lý do resetBtn ngay trên

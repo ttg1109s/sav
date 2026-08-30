@@ -211,6 +211,47 @@ const workflowSlideshowPresets = {
         await this._mutateEditing((p) => { p.kenBurnsMode = mode; });
     },
 
+    /** Ứng MỌI thay đổi field trong nhóm "React Beat Audio" — GENERIC 1 hàm DUY NHẤT cho cả field
+     * top-level (`enabled`/`replaceMovement`, `effectKey=null`) LẪN 3 cụm con zoom/pan/rotate
+     * (`effectKey` tương ứng) — tránh lặp ~13 hàm gần giống nhau (mỗi hàm chỉ khác đúng 1 field
+     * path). Validate theo TỪNG loại field (checkbox/slider/select) trước khi ghi, KHÔNG tin payload
+     * mù — vẫn 1 hàm, chỉ rẽ nhánh validate ngắn.
+     * @param {'zoom'|'pan'|'rotate'|null} effectKey - null = field top-level.
+     * @param {string} fieldKey - 'enabled' | 'replaceMovement' | 'everyNBeats' | 'amountPct' | 'amountDeg' | 'direction'.
+     * @param {boolean|number|string} value
+     */
+    async changeBeatReactField(effectKey, fieldKey, value) {
+        if (fieldKey === 'enabled' || fieldKey === 'replaceMovement') {
+            if (typeof value !== 'boolean') return;
+        } else if (fieldKey === 'everyNBeats') {
+            if (typeof value !== 'number' || value < SLIDESHOW_BEAT_REACT_EVERY_N_BEATS_MIN || value > SLIDESHOW_BEAT_REACT_EVERY_N_BEATS_MAX) return; // core/slideshow-presets.js
+        } else if (fieldKey === 'amountPct') {
+            const [min, max] = effectKey === 'pan' ? [100, 150] : [100, 200]; // zoom
+            if (typeof value !== 'number' || value < min || value > max) return;
+        } else if (fieldKey === 'amountDeg') {
+            if (typeof value !== 'number' || value < 0 || value > 360) return;
+        } else if (fieldKey === 'direction') {
+            if (!SLIDESHOW_BEAT_REACT_DIRECTIONS.includes(value)) return; // core/slideshow-presets.js
+        } else {
+            return; // fieldKey lạ -> bỏ qua, không ghi mù
+        }
+        await this._mutateEditing((p) => {
+            const target = effectKey ? p.reactBeatAudio[effectKey] : p.reactBeatAudio;
+            target[fieldKey] = value;
+        });
+        // Đồng bộ nhãn SỐNG bên cạnh slider (Rule 5d — field phụ thuộc field khác, workflow tự ghi
+        // DOM) — chỉ 2 field có label riêng (everyNBeats/amountPct/amountDeg), enabled/direction/
+        // replaceMovement không cần (checkbox/select tự phản ánh giá trị qua chính nó).
+        if (genericDrawerPanel.classList.contains('hidden') || !effectKey) return;
+        if (fieldKey === 'everyNBeats') {
+            const el = genericDrawerBody.querySelector(`#slideshow-beatreact-${effectKey}-beats-label`);
+            if (el) el.textContent = String(value);
+        } else if (fieldKey === 'amountPct' || fieldKey === 'amountDeg') {
+            const el = genericDrawerBody.querySelector(`#slideshow-beatreact-${effectKey}-amount-label`);
+            if (el) el.textContent = `${value}${fieldKey === 'amountDeg' ? '°' : '%'}`;
+        }
+    },
+
     /** Header "Reset" — về ĐÚNG mặc định `buildBlankSlideshowPreset()` (GIỮ id/name, chỉ reset các
      * field cấu hình — khác "Xoá" hẳn preset). Vẽ lại TẠI CHỖ (update, không navigateTo mới). */
     async resetEditing() {
@@ -226,6 +267,7 @@ const workflowSlideshowPresets = {
             p.transitionEasing = blank.transitionEasing;
             p.kenBurnsEnabled = blank.kenBurnsEnabled;
             p.kenBurnsMode = blank.kenBurnsMode;
+            p.reactBeatAudio = blank.reactBeatAudio;
         });
         workflowAppSettings._renderSlideshowEdit(); // liên tuyến domain — vẽ lại TẠI CHỖ, đúng field mới
     },
