@@ -57,6 +57,13 @@ const routerSlideshowPresets = (() => {
                 workflowSlideshowPresets.changeKenBurnsMode(msg.payload.value);
                 break;
 
+            // MỚI (29/08/2026) — "React Beat Audio" — GENERIC 1 case DUY NHẤT cho mọi field (13
+            // control khác nhau ở UI đều gửi CÙNG msg.type này, chỉ khác payload) — xem docstring
+            // workflowSlideshowPresets.changeBeatReactField().
+            case 'slideshowPresets.beatReact.field.change':
+                workflowSlideshowPresets.changeBeatReactField(msg.payload.effectKey, msg.payload.fieldKey, msg.payload.value);
+                break;
+
             case 'slideshowPresets.reset.click':
                 workflowSlideshowPresets.resetEditing();
                 break;
