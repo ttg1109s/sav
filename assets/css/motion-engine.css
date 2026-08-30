@@ -24,7 +24,7 @@
  *   - `.motion-layer` (NGOÀI) — CHỈ animation chuyển cảnh (opacity/transform/clip-path/filter
  *     tuỳ kiểu, class me-current/me-layer-enter/me-layer-exit) + `overflow: hidden` (clip layer
  *     con lúc nó scale to hơn khung, xem Ken Burns dưới).
- *   - `.me-kenburns-pan` (CON, MỚI) — nhận `background-image` (setMotion EngineLayerImage() giờ set
+ *   - `.me-kenburns-pan` (CON, MỚI) — nhận `background-image` (setMotionEngineLayerImage() giờ set
  *     lên layer CON, không phải layer ngoài — xem event/workflow/motion-engine.js) + toàn bộ animation
  *     pan/zoom Ken Burns. 2 phần tử khác nhau -> 2 animation-name độc lập, không đè nhau -> Ken
  *     Burns dùng ĐƯỢC cùng lúc với CẢ 12 kiểu transition, không riêng gì fade.
@@ -52,7 +52,7 @@
 /* SỬA (18/07/2026, phản hồi Giang — tuỳ chỉnh thời gian + tỉ lệ In/Out + easing cho transition) —
    `animation-duration`/`animation-timing-function` ở 2 rule dưới CHỈ còn là giá trị DỰ PHÒNG —
    giá trị THẬT set ĐỘNG qua inline style ngay TRƯỚC lúc class enter/exit được thêm (Workflow gọi
-   `setMotion EngineTransitionTiming()`, core/motion-engine.js — inline style LUÔN thắng CSS
+   `setMotionEngineTransitionTiming()`, core/motion-engine.js — inline style LUÔN thắng CSS
    stylesheet, 2 con số 900ms/ease dưới đây không còn ý nghĩa thực tế trừ phi JS lỡ chưa kịp set). */
 .motion-layer.me-layer-enter { z-index: 3; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
 .motion-layer.me-layer-exit  { z-index: 2; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
@@ -68,7 +68,7 @@
     overflow: hidden;
 }
 
-/* Layer CON (MỚI, Ken Burns 18/07/2026) — mang background-image THẬT (setMotion EngineLayerImage() giờ
+/* Layer CON (MỚI, Ken Burns 18/07/2026) — mang background-image THẬT (setMotionEngineLayerImage() giờ
    set lên đây, xem event/workflow/motion-engine.js). Animation pan/zoom Ken Burns chạy bằng Web
    Animations API (panEl.animate(), xem core/motion-engine.js) — KHÔNG có CSS
    @keyframes/class nào cho nó ở file này (xem comment ngay dưới các rule transition).
@@ -81,7 +81,7 @@
 /* Ken Burns — VIẾT LẠI LẦN 2 (18/07/2026, phản hồi Giang) — KHÔNG còn CSS `@keyframes`/classList
    nào ở đây nữa. `.me-kenburns-pan` (khai ngay trên) chỉ còn lo layout/background-size/position —
    toàn bộ animation pan/zoom giờ chạy bằng Web Animations API (`panEl.animate()`), viết trực tiếp
-   trong JS (core/motion-engine.js::startMotion EngineKenBurnsAnimation()), KHÔNG cần class
+   trong JS (core/motion-engine.js::startMotionEngineKenBurnsAnimation()), KHÔNG cần class
    hay @keyframes tĩnh nào — lý do: biên pan AN TOÀN phụ thuộc tỉ lệ ẢNH THẬT (khác nhau mỗi ảnh),
    CSS tĩnh không thể biểu diễn được, chỉ JS tính runtime mới làm được (xem docstring đầy đủ ở file
    JS trên). */
