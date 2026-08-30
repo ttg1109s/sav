@@ -3,8 +3,10 @@
  * "Kiểu" thủ công, thay bằng 3 nút chọn nguồn TRỰC TIẾP: Video/Ảnh/Thư mục — `type` giờ là HỆ QUẢ
  * của nút vừa bấm (không còn field UI riêng để chọn trước). Cả 3 picker giờ hỗ trợ CHỌN NHIỀU
  * (multi-select, đánh số theo thứ tự chọn) — 1 item vẫn hoạt động y hệt "chọn 1" cũ (mảng độ dài 1).
- * Logic: event/workflow/visual-bg.js (workflowVisualBg) + event/workflow/slideshow.js
- * (workflowSlideshow, panel "Tuỳ chỉnh Trình chiếu"). Listener/router: cụm "visualBg".
+ * Logic: event/workflow/visual-bg.js (workflowVisualBg) + event/workflow/motion-engine.js
+ * (workflowMotionEngine — engine cycle ảnh thật, đọc cấu hình từ preset Motion đang gắn qua
+ * `appConfigVisualBg.motionPresetId`, xem event/workflow/motion-presets.js). Listener/router: cụm
+ * "visualBg".
  */
 function renderVisualBgPanelBody() {
     return `

@@ -113,7 +113,7 @@ function _renderSubtitleTransitionSection() {
     // SỬA (16/08/2026, mục 3 — Giang hỏi "sao ô nhập s không dùng timer picker modal với đơn vị
     // s:ms?") — `<input type="number" step="0.001">` cũ ĐỔI thành `<button>` mở modal "bánh xe cuộn
     // số" DÙNG CHUNG (core/time-picker-modal.js::openTimePickerModal(), format 's-ms' — CÙNG hệ
-    // token 's:ms' đã dùng cho Slideshow transitionDuration, xem event/workflow/slideshow.js::
+    // token 's:ms' đã dùng cho Motion transitionDuration, xem event/workflow/motion-presets.js::
     // openTransitionDurationPicker()) — id GIỮ NGUYÊN (setting-subtitle-${prefix}-magnitude) để
     // event/listener/subtitle-style-settings.js tra cứu không đổi, chỉ đổi Ý NGHĨA sự kiện wire
     // ('click' mở modal, KHÔNG còn 'change' đọc .value trực tiếp) — xem
