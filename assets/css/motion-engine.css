@@ -66,11 +66,20 @@
    tắt, KHÔNG đổi layout gì cả. VIẾT LẠI (30/08/2026, phản hồi Giang mục 1 — bỏ cơ chế đếm beat) —
    không còn animate() theo pulse rời rạc, giờ set `style.transform` TRỰC TIẾP mỗi frame, nội suy
    LIÊN TỤC theo `beatScale` (CÙNG tín hiệu các hiệu ứng "beatscale" khác trong app) — xem
-   event/workflow/motion-engine.js::_tickBeatReact(). */
+   event/workflow/motion-engine.js::_tickBeatReact().
+   SỬA (30/08/2026, phản hồi Giang báo bug — "đang 100% bị hard move tới react beat luôn dù chưa vào
+   bài nhạc, phải luôn hồi về 100 bất kể beat nhạc lúc đó") — `_tickBeatReact()` gán `style.transform`
+   THẲNG mỗi frame KHÔNG hề có easing gì ở tầng JS (đúng ý đồ "liên tục theo audio, không pulse"), nên
+   1 giá trị `beatScale` đột biến (kể cả lúc audio chưa thật sự vào nhạc) sẽ làm transform NHẢY CỨNG
+   ngay lập tức, KHÔNG mượt. `transition` CSS ở đây bù đúng chỗ thiếu đó — trình duyệt tự làm mượt MỌI
+   thay đổi `transform` (kể cả lúc mới bắt đầu HAY lúc năng lượng tụt về 0), nên LUÔN êm về baseline
+   100%/0 khi nhạc nhẹ/im lặng, không bao giờ "nhảy cứng" — mà vẫn đủ ngắn để còn CẢM ĐƯỢC nhịp đập
+   theo audio (không lừ đừ như Ken Burns thường, ~900ms). */
 .me-beat-react {
     position: absolute; inset: 0;
     z-index: -1; pointer-events: none;
     overflow: hidden;
+    transition: transform 120ms ease-out;
 }
 
 /* Layer CON (MỚI, Ken Burns 18/07/2026) — mang background-image THẬT (setMotionEngineLayerImage() giờ
