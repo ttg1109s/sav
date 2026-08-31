@@ -24,7 +24,8 @@
  * (workflow được phép đọc appState/dùng taskManager, core thì không — xem comment đầu file đó).
  *
  * DOM: 2 lớp ảnh xen kẽ #visual-motionEngine-layer-1/2 (index.html) trong #visual-motionEngine-container
- * (z-index -1, mốc đã chừa sẵn ở assets/css/style.css) — animation 13 kiểu transition ở
+ * (z-index -1, mốc đã chừa sẵn ở assets/css/style.css) — animation nhiều kiểu transition (xem
+ * MOTION_ENGINE_TRANSITION_TYPES) ở
  * assets/css/motion-engine.css, chọn qua thuộc tính [data-transition] gán trên container.
  *
  * NẠP SAU: không phụ thuộc gì (không còn dùng taskManager kể từ 04/07/2026) — mọi phần tử DOM
@@ -38,12 +39,20 @@
 // (900 vs 1000), gây hiểu lầm khi đọc code. Xoá hẳn thay vì để "chết" không đồng bộ.
 
 
-/** 12 kiểu transition hợp lệ (plan-v12-multimedia.md mục 4.b3: 7 cơ bản + 5 mở rộng — Ken Burns
+/** Kiểu transition hợp lệ (plan-v12-multimedia.md mục 4.b3: 7 cơ bản + 5 mở rộng — Ken Burns
  * ĐÃ TÁCH khỏi danh sách này, xem MOTION_ENGINE_KENBURNS_MODES) — dùng để validate config đã lưu
- * (phòng giá trị hỏng/cũ) và đổ vào <select> Settings Drawer. */
+ * (phòng giá trị hỏng/cũ) và đổ vào <select> Settings Drawer.
+ * BỔ SUNG (30/08/2026, phản hồi Giang — thêm slide dọc, "Wide" (mới, lấy cảm hứng CapCut — layer
+ * "cuốn mở" từ 1 cạnh ra full khung bằng scaleX/scaleY, KHÔNG dùng clip-path như curtain), Flip mở
+ * rộng pivot (center có sẵn = 'flip'; + left/right-edge cho trục ngang — rotateY; + center/top/
+ * bottom-edge cho trục dọc — rotateX, Giang gọi "dọc"), whipPan/spinIn (thêm, lấy cảm hứng CapCut,
+ * CSS thuần khả thi — filter blur/transform rotate, không cần WebGL/canvas)) — 13 kiểu MỚI, xem
+ * @keyframes tương ứng ở assets/css/motion-engine.css để biết chi tiết từng kiểu. */
 const MOTION_ENGINE_TRANSITION_TYPES = [
-    'fade', 'slideLeft', 'slideRight', 'zoomIn', 'zoomOut', 'wipe', 'flip',
-    'blur', 'rotateFade', 'curtain', 'circleReveal', 'glitch',
+    'fade', 'slideLeft', 'slideRight', 'slideUp', 'slideDown', 'zoomIn', 'zoomOut', 'wipe',
+    'flip', 'flipLeftEdge', 'flipRightEdge', 'flipVertical', 'flipTopEdge', 'flipBottomEdge',
+    'wideLeft', 'wideRight', 'wideUp', 'wideDown',
+    'blur', 'rotateFade', 'curtain', 'circleReveal', 'glitch', 'whipPan', 'spinIn',
 ];
 
 /** MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh") — 3 kiểu KHÔNG có
@@ -556,22 +565,45 @@ function computeMotionEngineBeatReactZoomScale(maxPct, energy) {
  * ĐỊNH CỨNG, Giang chốt — "min không phải tuỳ chọn", KHÔNG phải field trong preset) lên `maxVal`
  * theo `energy`.
  * "left"/"right" — biên độ (luôn không âm) nội suy tuyến tính [0,maxVal] theo `energy`, DẤU CỐ ĐỊNH
- * theo hướng. "leftToRight"/"rightToLeft" — CÙNG phép nội suy biên độ nhưng áp trực tiếp `energy`
- * làm hệ số lệch trái/phải (`magnitude * (2*energy-1)`): tại energy=0 biên độ gần 0 (~giữa), tại
- * energy=1 lệch hết về phía ĐỐI DIỆN (biên độ = `maxVal`) — 1 phép nội suy DUY NHẤT, liên tục, không
- * giật (khác "left"/"right" chỉ 1 dấu cố định).
+ * theo hướng. VIẾT LẠI (30/08/2026, phản hồi Giang — "reverse" checkbox) — "leftToRight"/
+ * "rightToLeft" KHÔNG còn quét liên tục theo `energy` nữa (bản cũ `magnitude*(2*energy-1)` đã bỏ) —
+ * giờ CÙNG công thức biên độ với "left"/"right" (`maxVal * energy`), CHỈ khác ở dấu: dấu (`polarity`,
+ * 1 hoặc -1) do NƠI GỌI tự tính + ĐẢO mỗi lần có "beat mới" (xem
+ * `computeMotionEngineBeatReactNextPolarity()` + event/workflow/motion-engine.js::_tickBeatReact())
+ * — lượt beat NÀY lệch 1 bên, lượt KẾ TIẾP tự đảo sang bên kia, cứ thế xen kẽ.
  * @param {'left'|'right'|'leftToRight'|'rightToLeft'} direction
  * @param {number} maxVal - biên độ tại energy=1 (ĐÃ trừ baseline, luôn >=0).
  * @param {number} energy - 0-1 (nơi gọi tự đọc `appState.beatScale`, hàm này tự kẹp phòng hờ).
+ * @param {number} polarity - 1 hoặc -1 — CHỈ dùng khi `direction` là "leftToRight"/"rightToLeft"
+ *   (nơi gọi tự tính/đảo, xem `computeMotionEngineBeatReactNextPolarity()`); "left"/"right" bỏ qua
+ *   tham số này (dấu đã cố định theo hướng).
  * @returns {number}
  */
-function computeMotionEngineBeatReactOffset(direction, maxVal, energy) {
+function computeMotionEngineBeatReactOffset(direction, maxVal, energy, polarity) {
     const e = Math.max(0, Math.min(1, energy));
     const magnitude = maxVal * e; // baseline 0 cố định -> nội suy [0,maxVal]
     if (direction === 'left') return -magnitude;
     if (direction === 'right') return magnitude;
-    if (direction === 'leftToRight') return magnitude * (2 * e - 1);
-    return -magnitude * (2 * e - 1); // 'rightToLeft'
+    return polarity * magnitude; // 'leftToRight'/'rightToLeft' — dấu do nơi gọi tự đảo mỗi beat mới
+}
+
+/**
+ * Core thuần: cực (polarity, 1 hoặc -1) cho lượt beat MỚI của "leftToRight"/"rightToLeft" — MỚI
+ * (30/08/2026, phản hồi Giang — checkbox "reverse"). Lượt ĐẦU (`prevPolarity===0`, chưa từng có
+ * lượt nào) — cực khởi đầu theo `direction` + `reverse`: 'leftToRight' mặc định bắt đầu DƯƠNG
+ * (phải), 'rightToLeft' mặc định bắt đầu ÂM (trái) — `reverse=true` ĐẢO lại cực khởi đầu đó (XOR).
+ * Lượt SAU (`prevPolarity` đã là 1/-1) — LUÔN đảo ngược lượt trước, bất kể `direction`/`reverse` —
+ * đây chính là hành vi "xen kẽ" Giang mô tả (vd left-right 120: lượt 1 dương, lượt 2 ép âm, lượt 3
+ * lại dương...; right-left thì khởi đầu âm, xen kẽ ngược lại).
+ * @param {number} prevPolarity - 1 hoặc -1 (lượt trước); 0 = CHƯA từng có lượt nào (lượt đầu).
+ * @param {'leftToRight'|'rightToLeft'} direction
+ * @param {boolean} reverse
+ * @returns {number} 1 hoặc -1.
+ */
+function computeMotionEngineBeatReactNextPolarity(prevPolarity, direction, reverse) {
+    if (prevPolarity !== 0) return -prevPolarity; // đã có lượt trước -> luôn đảo, không quan tâm direction/reverse nữa
+    const startsPositive = (direction === 'leftToRight') !== reverse; // XOR — reverse lật cực khởi đầu
+    return startsPositive ? 1 : -1;
 }
 
 /**

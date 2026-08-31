@@ -34,15 +34,24 @@
  * trong preset/KHÔNG có slider riêng (Giang chốt — "min là cố định cứng, không phải tuỳ chọn"),
  * hardcode ngay trong công thức nội suy (core/motion-engine.js::computeMotionEngineBeatReactZoomScale()/
  * computeMotionEngineBeatReactOffset()):
- *   zoom.maxPct     — % zoom (100 = không zoom, baseline CỐ ĐỊNH), nội suy liên tục [100,maxPct].
- *   pan.maxPct      — % dịch chuyển theo `direction` (left/right/leftToRight/rightToLeft — 2 cái sau
- *                     LỆCH LIÊN TỤC giữa 2 biên theo năng lượng, 2 cái đầu chỉ lệch 1 hướng cố định),
- *                     100 = không dịch (baseline CỐ ĐỊNH), nội suy liên tục [100,maxPct].
- *   rotate.maxDeg   — độ xoay theo `direction` (CÙNG 4 lựa chọn pan, "left"=ngược chiều kim đồng hồ/
- *                     "right"=thuận), 0 = không xoay (baseline CỐ ĐỊNH), nội suy liên tục [0,maxDeg].
+  *   zoom.maxPct     — % zoom (100 = không zoom, baseline CỐ ĐỊNH), nội suy liên tục [100,maxPct].
+ *   pan.maxPct      — % dịch chuyển theo `direction`, 100 = không dịch (baseline CỐ ĐỊNH), nội suy
+ *                     liên tục [100,maxPct] (biên độ — LUÔN không âm, xem `direction` dưới).
+ *   rotate.maxDeg   — độ xoay theo `direction`, 0 = không xoay (baseline CỐ ĐỊNH), nội suy liên tục
+ *                     [0,maxDeg] (biên độ).
  * `maxPct`/`maxDeg` (trần 200/150/360) vốn là mốc DUY NHẤT trước đây người dùng chỉnh được — vẫn
  * NGUYÊN như cũ, chỉ khác chỗ trước đây LÀ giá trị đích cố định (bắn tới rồi về), giờ là biên TRÊN
  * của phép nội suy liên tục.
+ * `pan.direction`/`rotate.direction` — 4 lựa chọn (`MOTION_BEAT_REACT_DIRECTIONS`): "left"/"right" —
+ * dấu CỐ ĐỊNH, biên độ luôn lệch 1 bên. "leftToRight"/"rightToLeft" — VIẾT LẠI (30/08/2026, phản hồi
+ * Giang — checkbox "reverse") — KHÔNG còn quét liên tục theo năng lượng nữa, mà XEN KẼ dấu MỖI LƯỢT
+ * "beat mới" (envelope attack lại sau 1 đợt decay, xem event/workflow/motion-engine.js::
+ * _tickBeatReact()): lượt 1 lệch 1 bên, lượt 2 tự đảo sang bên kia, lượt 3 lại đảo về bên đầu, cứ
+ * thế — "leftToRight" mặc định lượt 1 lệch PHẢI (dương), "rightToLeft" mặc định lượt 1 lệch TRÁI
+ * (âm), xem `pan.reverse`/`rotate.reverse` MỚI ngay dưới.
+ *   pan.reverse/rotate.reverse (boolean, MỚI) — CHỈ có tác dụng khi `direction` là "leftToRight"/
+ *   "rightToLeft" — `true` ĐẢO cực lượt ĐẦU TIÊN (không đổi gì việc "cứ mỗi lượt lại xen kẽ" ở các
+ *   lượt sau) — xem core/motion-engine.js::computeMotionEngineBeatReactNextPolarity().
  */
 const MOTION_BEAT_REACT_DIRECTIONS = ['left', 'right', 'leftToRight', 'rightToLeft'];
 
@@ -66,8 +75,8 @@ function buildBlankMotionPreset(name) {
             enabled: false,
             replaceMovement: false,
             zoom: { enabled: false, maxPct: 150 },
-            pan: { enabled: false, direction: 'leftToRight', maxPct: 120 },
-            rotate: { enabled: false, direction: 'leftToRight', maxDeg: 90 },
+            pan: { enabled: false, direction: 'leftToRight', maxPct: 120, reverse: false },
+            rotate: { enabled: false, direction: 'leftToRight', maxDeg: 90, reverse: false },
         },
     };
 }
@@ -136,11 +145,13 @@ function sanitizeMotionBeatReact(raw, blank) {
             enabled: typeof pan.enabled === 'boolean' ? pan.enabled : blank.pan.enabled,
             direction: MOTION_BEAT_REACT_DIRECTIONS.includes(pan.direction) ? pan.direction : blank.pan.direction,
             maxPct: inRange(pan.maxPct, 100, 150, blank.pan.maxPct),
+            reverse: typeof pan.reverse === 'boolean' ? pan.reverse : blank.pan.reverse,
         },
         rotate: {
             enabled: typeof rotate.enabled === 'boolean' ? rotate.enabled : blank.rotate.enabled,
             direction: MOTION_BEAT_REACT_DIRECTIONS.includes(rotate.direction) ? rotate.direction : blank.rotate.direction,
             maxDeg: inRange(rotate.maxDeg, 0, 360, blank.rotate.maxDeg),
+            reverse: typeof rotate.reverse === 'boolean' ? rotate.reverse : blank.rotate.reverse,
         },
     };
 }
