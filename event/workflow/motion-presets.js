@@ -215,20 +215,20 @@ const workflowMotionPresets = {
      * top-level (`enabled`/`replaceMovement`, `effectKey=null`) LẪN 3 cụm con zoom/pan/rotate
      * (`effectKey` tương ứng) — tránh lặp ~13 hàm gần giống nhau (mỗi hàm chỉ khác đúng 1 field
      * path). Validate theo TỪNG loại field (checkbox/slider/select) trước khi ghi, KHÔNG tin payload
-     * mù — vẫn 1 hàm, chỉ rẽ nhánh validate ngắn.
+     * mù — vẫn 1 hàm, chỉ rẽ nhánh validate ngắn. VIẾT LẠI (30/08/2026, phản hồi Giang — bỏ hẳn
+     * `everyNBeats`/mốc `amountPct`/`amountDeg` DUY NHẤT, thay bằng cặp `min`/`max` nội suy liên
+     * tục theo năng lượng nhạc, xem core/motion-presets.js).
      * @param {'zoom'|'pan'|'rotate'|null} effectKey - null = field top-level.
-     * @param {string} fieldKey - 'enabled' | 'replaceMovement' | 'everyNBeats' | 'amountPct' | 'amountDeg' | 'direction'.
+     * @param {string} fieldKey - 'enabled' | 'replaceMovement' | 'minPct' | 'maxPct' | 'minDeg' | 'maxDeg' | 'direction'.
      * @param {boolean|number|string} value
      */
     async changeBeatReactField(effectKey, fieldKey, value) {
         if (fieldKey === 'enabled' || fieldKey === 'replaceMovement') {
             if (typeof value !== 'boolean') return;
-        } else if (fieldKey === 'everyNBeats') {
-            if (typeof value !== 'number' || value < MOTION_BEAT_REACT_EVERY_N_BEATS_MIN || value > MOTION_BEAT_REACT_EVERY_N_BEATS_MAX) return; // core/motion-presets.js
-        } else if (fieldKey === 'amountPct') {
+        } else if (fieldKey === 'minPct' || fieldKey === 'maxPct') {
             const [min, max] = effectKey === 'pan' ? [100, 150] : [100, 200]; // zoom
             if (typeof value !== 'number' || value < min || value > max) return;
-        } else if (fieldKey === 'amountDeg') {
+        } else if (fieldKey === 'minDeg' || fieldKey === 'maxDeg') {
             if (typeof value !== 'number' || value < 0 || value > 360) return;
         } else if (fieldKey === 'direction') {
             if (!MOTION_BEAT_REACT_DIRECTIONS.includes(value)) return; // core/motion-presets.js
@@ -240,15 +240,13 @@ const workflowMotionPresets = {
             target[fieldKey] = value;
         });
         // Đồng bộ nhãn SỐNG bên cạnh slider (Rule 5d — field phụ thuộc field khác, workflow tự ghi
-        // DOM) — chỉ 2 field có label riêng (everyNBeats/amountPct/amountDeg), enabled/direction/
+        // DOM) — chỉ 4 field có label riêng (minPct/maxPct/minDeg/maxDeg), enabled/direction/
         // replaceMovement không cần (checkbox/select tự phản ánh giá trị qua chính nó).
         if (genericDrawerPanel.classList.contains('hidden') || !effectKey) return;
-        if (fieldKey === 'everyNBeats') {
-            const el = genericDrawerBody.querySelector(`#motion-beatreact-${effectKey}-beats-label`);
-            if (el) el.textContent = String(value);
-        } else if (fieldKey === 'amountPct' || fieldKey === 'amountDeg') {
-            const el = genericDrawerBody.querySelector(`#motion-beatreact-${effectKey}-amount-label`);
-            if (el) el.textContent = `${value}${fieldKey === 'amountDeg' ? '°' : '%'}`;
+        if (fieldKey === 'minPct' || fieldKey === 'minDeg' || fieldKey === 'maxPct' || fieldKey === 'maxDeg') {
+            const which = (fieldKey === 'minPct' || fieldKey === 'minDeg') ? 'min' : 'max';
+            const el = genericDrawerBody.querySelector(`#motion-beatreact-${effectKey}-${which}-label`);
+            if (el) el.textContent = `${value}${(fieldKey === 'minDeg' || fieldKey === 'maxDeg') ? '°' : '%'}`;
         }
     },
 

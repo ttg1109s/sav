@@ -356,8 +356,8 @@ const workflowAppSettings = {
                 wireBeatReactCheckbox('setting-motion-beatreact-replace', null, 'replaceMovement');
                 ['zoom', 'pan', 'rotate'].forEach((key) => {
                     wireBeatReactCheckbox(`setting-motion-beatreact-${key}-enabled`, key, 'enabled');
-                    wireBeatReactRange(`setting-motion-beatreact-${key}-beats`, key, 'everyNBeats');
-                    wireBeatReactRange(`setting-motion-beatreact-${key}-amount`, key, key === 'rotate' ? 'amountDeg' : 'amountPct');
+                    wireBeatReactRange(`setting-motion-beatreact-${key}-min`, key, key === 'rotate' ? 'minDeg' : 'minPct');
+                    wireBeatReactRange(`setting-motion-beatreact-${key}-max`, key, key === 'rotate' ? 'maxDeg' : 'maxPct');
                 });
                 wireBeatReactSelect('setting-motion-beatreact-pan-direction', 'pan', 'direction');
                 wireBeatReactSelect('setting-motion-beatreact-rotate-direction', 'rotate', 'direction');

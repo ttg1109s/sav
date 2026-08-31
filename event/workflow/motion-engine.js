@@ -22,7 +22,7 @@
  * `record.duration` của MÌNH (Engine không đọc field nào trong số đó nữa).
  *
  * NẠP SAU: core/motion-engine.js, core/dom-refs.js (motionEngineContainer/motionEngineLayer1,2/
- * motionEngineLayer1,2Pan/motionEngineLayer1,2React), service/task-manager.js (chỉ còn dùng cho
+ * motionEngineLayer1,2Pan/motionEngineReactLayer), service/task-manager.js (chỉ còn dùng cho
  * MOTION_ENGINE_BEATREACT_TASK — animation per-frame CỦA ẢNH ĐANG HIỆN, KHÔNG phải hẹn giờ chuyển
  * ảnh — cái đó đã dời sang workflowVisualBg).
  */
@@ -37,8 +37,12 @@ const MOTION_ENGINE_NO_OP_PRESET = { transitionEnabled: false, transitionType: '
 // THỊ (truyền vào lúc reveal()/transitionTo() gần nhất) có `reactBeatAudio.enabled` + ít nhất 1 hiệu
 // ứng con bật (xem `_syncBeatReactLoop()`). ĐÂY LÀ TASK DUY NHẤT còn lại trong file — animation của
 // ẢNH ĐANG HIỆN, không phải hẹn giờ "khi nào chuyển ảnh" (đã dời sang workflowVisualBg).
+// VIẾT LẠI (30/08/2026, phản hồi Giang mục 1 — "loại bỏ cơ chế beat trong motion, tự động theo nhạc
+// giống beatscale visualizer effect") — bỏ hẳn cơ chế đếm `beatCount`/bắn pulse rời rạc mỗi N beat,
+// giờ đọc THẲNG `appState.beatScale` (tín hiệu năng lượng LIÊN TỤC, tính mỗi frame ở
+// event/workflow/visualizer-render.js — CÙNG nguồn mọi hiệu ứng "beatscale" khác trong app đang
+// dùng, vd core/visualizer/types/bar.js) mỗi tick, nội suy tuyến tính — xem `_tickBeatReact()` dưới.
 const MOTION_ENGINE_BEATREACT_TASK = 'motionEngineBeatReactTick';
-const MOTION_ENGINE_BEATREACT_PULSE_MS = 500; // thời lượng 1 lượt pulse "bắn rồi trở về" — CỐ ĐỊNH, không phụ thuộc BPM
 
 const workflowMotionEngine = {
     _currentObjectUrl: null,
@@ -50,15 +54,11 @@ const workflowMotionEngine = {
     _lastAdvanceMs: 5000, // advanceMs của LƯỢT HIỂN THỊ GẦN NHẤT (gán ở reveal()/transitionTo()) — _activateKenBurns() dùng kẹp trần, KHÔNG tự tính nữa
 
     _beatReactActive: false,
-    _beatReactLastSeenBeatCount: { zoom: 0, pan: 0, rotate: 0 },
-    _beatReactTriggeredAtMs: { zoom: null, pan: null, rotate: null },
 
     _currentLayer() { return this._layerToggle ? motionEngineLayer2 : motionEngineLayer1; },
     _idleLayer() { return this._layerToggle ? motionEngineLayer1 : motionEngineLayer2; },
     _currentPanLayer() { return this._layerToggle ? motionEngineLayer2Pan : motionEngineLayer1Pan; },
     _idlePanLayer() { return this._layerToggle ? motionEngineLayer1Pan : motionEngineLayer2Pan; },
-    _currentReactLayer() { return this._layerToggle ? motionEngineLayer2React : motionEngineLayer1React; },
-    _idleReactLayer() { return this._layerToggle ? motionEngineLayer1React : motionEngineLayer2React; },
 
     _kenBurnsAnim1: null,
     _kenBurnsAnim2: null,
@@ -113,7 +113,6 @@ const workflowMotionEngine = {
         const incomingLayer = this._idleLayer();
         const outgoingPan = this._currentPanLayer();
         const incomingPan = this._idlePanLayer();
-        const outgoingReact = this._currentReactLayer();
 
         setMotionEngineLayerImage(incomingPan, objectUrl); // core — LUÔN cần, bất kể có Transition hay không
         const skipNormalKenBurns = preset.reactBeatAudio.enabled && preset.reactBeatAudio.replaceMovement;
@@ -222,74 +221,54 @@ const workflowMotionEngine = {
         this._activePreset = MOTION_ENGINE_NO_OP_PRESET;
     },
 
-    /** Bật/tắt vòng lặp per-frame theo dõi beat — MỚI (29/08/2026, "React Beat Audio"). Gọi ở MỌI
+    /** Bật/tắt vòng lặp per-frame react-beat — MỚI (29/08/2026, "React Beat Audio"). Gọi ở MỌI
      * điểm `_activePreset` CÓ THỂ vừa đổi (`reveal()`/`transitionTo()` — mỗi lượt hiện/chuyển ảnh
      * tự gán `_activePreset` MỚI rồi gọi hàm này). KHÔNG addNew() trùng tên nếu đã chạy sẵn
-     * (`_beatReactActive` guard).
+     * (`_beatReactActive` guard). VIẾT LẠI (30/08/2026, phản hồi Giang — bỏ cơ chế đếm beat) — không
+     * còn bookkeeping "beat cuối đã thấy"/"thời điểm vừa bắn" nào để khởi tạo lúc bật nữa, vòng lặp
+     * CHỈ còn việc bật/tắt task RAF theo đúng điều kiện.
      */
     _syncBeatReactLoop() {
         const rb = this._activePreset.reactBeatAudio;
         const shouldRun = this._isActive && rb.enabled && (rb.zoom.enabled || rb.pan.enabled || rb.rotate.enabled);
         if (shouldRun && !this._beatReactActive) {
             this._beatReactActive = true;
-            const beatCount = appState.get('beatCount');
-            this._beatReactLastSeenBeatCount = { zoom: beatCount, pan: beatCount, rotate: beatCount }; // bắt đầu đếm từ NGAY BÂY GIỜ — không bắn dồn cho số beat đã trôi qua TRƯỚC lúc bật
-            this._beatReactTriggeredAtMs = { zoom: null, pan: null, rotate: null };
             taskManager.addNew(MOTION_ENGINE_BEATREACT_TASK, { time: 0, exe: () => this._tickBeatReact(), mode: 'raf', count: 0 }); // service/task-manager.js
             taskManager.operator(MOTION_ENGINE_BEATREACT_TASK, 'enabled');
         } else if (!shouldRun && this._beatReactActive) {
             this._beatReactActive = false;
             taskManager.kill(MOTION_ENGINE_BEATREACT_TASK);
-            this._resetBeatReactTransform(); // về identity — không để kẹt giữa chừng 1 pulse dở lúc tắt
+            this._resetBeatReactTransform(); // về identity — tắt là về ngay baseline, không có gì để "kẹt giữa chừng" nữa (không còn pulse rời rạc)
         }
     },
 
-    /** Xoá `transform` khỏi CẢ 2 layer react (identity, vô hình) — gọi lúc tắt hẳn beat-react VÀ lúc
-     * `stop()` dọn toàn bộ MotionEngine. */
+    /** Xoá `transform` khỏi lớp react DUY NHẤT (identity, vô hình) — gọi lúc tắt hẳn beat-react VÀ
+     * lúc `stop()` dọn toàn bộ MotionEngine. SỬA (30/08/2026, phản hồi Giang mục 3 — lớp react giờ
+     * BAO NGOÀI cả 2 player A/B thay vì 1 lớp riêng lồng bên trong từng layer) — chỉ còn 1 phần tử
+     * DUY NHẤT (`motionEngineReactLayer`, core/dom-refs.js), không còn "layer1React/layer2React". */
     _resetBeatReactTransform() {
-        if (motionEngineLayer1React) motionEngineLayer1React.style.transform = '';
-        if (motionEngineLayer2React) motionEngineLayer2React.style.transform = '';
+        if (motionEngineReactLayer) motionEngineReactLayer.style.transform = '';
     },
 
-    /** Tick per-frame (RAF) — kiểm tra beat MỚI cho TỪNG hiệu ứng ĐỘC LẬP (N khác nhau -> bắn lệch
-     * nhịp nhau, KHÔNG đồng bộ), rồi nội suy giá trị HIỆN TẠI của cả 3 (đang nghỉ = 0, đang giữa 1
-     * lượt pulse = nội suy theo thời gian đã trôi) và CỘNG DỒN thành 1 chuỗi `transform` áp đúng 1
-     * LẦN vào layer react ĐANG "current" (layer kia đang ẩn/chờ swap ảnh kế, không ai nhìn thấy —
-     * không cần animate). Lý do KHÔNG dùng Web Animations API cho pulse này, xem docstring
-     * `evaluateMotionEnginePulseStops()` (core/motion-engine.js). */
+    /** Tick per-frame (RAF) — VIẾT LẠI HOÀN TOÀN (30/08/2026, phản hồi Giang mục 1 — "loại bỏ cơ chế
+     * beat trong motion, tự động theo nhạc giống beatscale visualizer effect"). KHÔNG còn đếm beat/
+     * bắn pulse rồi tự về gốc — đọc THẲNG `beatScale` (năng lượng LIÊN TỤC, 0-1, CÙNG tín hiệu mọi
+     * hiệu ứng "beatscale" khác trong app đang dùng, xem event/workflow/visualizer-render.js) MỖI
+     * FRAME, nội suy tuyến tính (`computeMotionEngineBeatReactZoomScale()`/
+     * `computeMotionEngineBeatReactOffset()`, core/motion-engine.js) rồi CỘNG DỒN cả 3 hiệu ứng
+     * thành 1 chuỗi `transform` áp lên lớp react DUY NHẤT (bao cả 2 player A/B — mục 3 phản hồi
+     * Giang, xem `_resetBeatReactTransform()`) — nhạc càng mạnh, transform càng tiến về `max`; nhạc
+     * nhẹ/im lặng, transform lui về gần `min`, KHÔNG có khái niệm "trigger"/"thời lượng pulse" nào
+     * nữa. */
     _tickBeatReact() {
         const rb = this._activePreset.reactBeatAudio;
         if (!rb.enabled) { this._syncBeatReactLoop(); return; } // preset vừa bị gỡ/tắt beat-react giữa chừng -> tự dừng vòng lặp ĐÚNG NGAY frame này
-        const beatCount = appState.get('beatCount'); // service/state/visualizer-runtime.js
-        const now = performance.now();
+        const energy = appState.get('beatScale'); // service/state/visualizer-runtime.js — năng lượng LIÊN TỤC, tính mỗi frame ở event/workflow/visualizer-render.js
 
-        const checkTrigger = (key, effect) => {
-            if (!effect.enabled) return;
-            if (beatCount - this._beatReactLastSeenBeatCount[key] >= effect.everyNBeats) {
-                this._beatReactLastSeenBeatCount[key] = beatCount;
-                this._beatReactTriggeredAtMs[key] = now;
-            }
-        };
-        checkTrigger('zoom', rb.zoom);
-        checkTrigger('pan', rb.pan);
-        checkTrigger('rotate', rb.rotate);
+        const zoomScale = rb.zoom.enabled ? computeMotionEngineBeatReactZoomScale(rb.zoom.minPct, rb.zoom.maxPct, energy) : 1; // core
+        const panPct = rb.pan.enabled ? computeMotionEngineBeatReactOffset(rb.pan.direction, rb.pan.minPct - 100, rb.pan.maxPct - 100, energy) : 0; // core — trừ baseline 100% trước khi truyền (xem docstring hàm)
+        const rotateDeg = rb.rotate.enabled ? computeMotionEngineBeatReactOffset(rb.rotate.direction, rb.rotate.minDeg, rb.rotate.maxDeg, energy) : 0; // core — baseline 0°, không cần trừ
 
-        const readProgress = (key) => {
-            const triggeredAt = this._beatReactTriggeredAtMs[key];
-            if (triggeredAt === null) return null; // chưa từng bắn/đã nghỉ hẳn -> baseline, không nội suy
-            const elapsed = now - triggeredAt;
-            if (elapsed >= MOTION_ENGINE_BEATREACT_PULSE_MS) { this._beatReactTriggeredAtMs[key] = null; return null; }
-            return elapsed / MOTION_ENGINE_BEATREACT_PULSE_MS;
-        };
-
-        const zoomT = readProgress('zoom');
-        const zoomScale = (rb.zoom.enabled && zoomT !== null) ? 1 + evaluateMotionEnginePulseStops([0, (rb.zoom.amountPct - 100) / 100, 0], zoomT) : 1; // core
-        const panT = readProgress('pan');
-        const panPct = (rb.pan.enabled && panT !== null) ? evaluateMotionEnginePulseStops(buildMotionEnginePulseStops(rb.pan.direction, rb.pan.amountPct - 100), panT) : 0; // core
-        const rotateT = readProgress('rotate');
-        const rotateDeg = (rb.rotate.enabled && rotateT !== null) ? evaluateMotionEnginePulseStops(buildMotionEnginePulseStops(rb.rotate.direction, rb.rotate.amountDeg), rotateT) : 0; // core
-
-        const reactLayer = this._currentReactLayer();
-        if (reactLayer) reactLayer.style.transform = `scale(${zoomScale}) translateX(${panPct}%) rotate(${rotateDeg}deg)`;
+        if (motionEngineReactLayer) motionEngineReactLayer.style.transform = `scale(${zoomScale}) translateX(${panPct}%) rotate(${rotateDeg}deg)`;
     },
 };
