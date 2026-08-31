@@ -171,14 +171,15 @@ const routerVisualBg = (() => {
             // phát hiện "bài đổi thật" đã có sẵn. Giờ Game Mode có tín hiệu RIÊNG, trung lập, KHÔNG
             // thuộc domain "visualBg" nữa — xem 'gameplay.mediaChanged' (event/router/gameplay.js),
             // gửi từ CẢ Song (playMedia()) LẪN Video (workflowVideoPlayer.playVideoByKey()).
-            case 'visualBg.songChanged': {
-                const type = appConfigVisualBg.getAll().type;
-                VirtualMachineState.run([
-                    { state: type, operation: '===', value: 'photo', callback: () => workflowMotionEngine.advanceForSongChange() },
-                    { state: type, operation: '===', value: 'video', callback: () => workflowVisualBg.advanceForSongChange() },
-                ]);
+            // SỬA (29/08/2026, phản hồi Giang — "Motion cung cấp cơ chế, VBG quyết định khi nào") —
+            // KHÔNG còn rẽ theo `type` nữa — `workflowVisualBg.advanceForSongChange()` giờ tự xử lý
+            // CẢ 2 nhánh bên trong (video/ảnh DÙNG CHUNG check pending + guard `perSong`, chỉ khác
+            // hàm advance cụ thể được gọi) — `workflowMotionEngine.advanceForSongChange()` đã BỎ HẲN
+            // (Motion Engine không còn biết `source.list`/`nextOrder`/Song đổi bài gì cả, chỉ còn
+            // render THUẦN — xem event/workflow/motion-engine.js).
+            case 'visualBg.songChanged':
+                workflowVisualBg.advanceForSongChange();
                 break;
-            }
 
             // MỚI (08/08/2026, phản hồi Giang — mục "video chạy/dừng/lặp/đen màn thất thường") — THAY
             // cho taskManager hẹn giờ cố định đã bỏ, xem event/listener/visual-bg.js + _onVideoEnded().
