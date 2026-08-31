@@ -19,16 +19,18 @@
  * VIẾT LẠI (Ken Burns, 18/07/2026, phản hồi Giang) — TÁCH layer ngoài/layer con vì CSS chỉ giữ
  * ĐÚNG 1 `animation-name` hiệu lực trên 1 phần tử tại 1 thời điểm (rule sau/specificity cao hơn
  * THẮNG, không cộng dồn). Bản CŨ gộp CẢ transition chuyển cảnh (.me-layer-enter/exit) LẪN pan/zoom
- * Ken Burns (.me-kenburns-pan) lên CHUNG `.motion-layer` — 7/12 kiểu transition CŨNG animate
- * `transform` (zoomIn/zoomOut/flip/rotateFade/slideLeft/slideRight/glitch), đụng thẳng property Ken
- * Burns đang dùng — kết hợp 2 cái này SẼ bị nuốt/giật. Giờ:
+ * Ken Burns (.me-kenburns-pan) lên CHUNG `.motion-layer` — nhiều kiểu transition (lúc đó 7/12: zoomIn/
+ * zoomOut/flip/rotateFade/slideLeft/slideRight/glitch) CŨNG animate `transform`, đụng thẳng property
+ * Ken Burns đang dùng — kết hợp 2 cái này SẼ bị nuốt/giật. Giờ:
  *   - `.motion-layer` (NGOÀI) — CHỈ animation chuyển cảnh (opacity/transform/clip-path/filter
  *     tuỳ kiểu, class me-current/me-layer-enter/me-layer-exit) + `overflow: hidden` (clip layer
  *     con lúc nó scale to hơn khung, xem Ken Burns dưới).
  *   - `.me-kenburns-pan` (CON, MỚI) — nhận `background-image` (setMotionEngineLayerImage() giờ set
  *     lên layer CON, không phải layer ngoài — xem event/workflow/motion-engine.js) + toàn bộ animation
  *     pan/zoom Ken Burns. 2 phần tử khác nhau -> 2 animation-name độc lập, không đè nhau -> Ken
- *     Burns dùng ĐƯỢC cùng lúc với CẢ 12 kiểu transition, không riêng gì fade.
+ *     Burns dùng ĐƯỢC cùng lúc với BẤT KỲ kiểu transition nào (xem MOTION_ENGINE_TRANSITION_TYPES,
+ *     core/motion-engine.js, cho danh sách ĐẦY ĐỦ hiện tại — số lượng đã tăng nhiều lần từ 18/07,
+ *     kiến trúc tách layer này không đổi theo).
  * `transitionType === 'kenburns'` (lựa chọn cũ, gộp chung vào danh sách transition) ĐÃ XOÁ HẲN —
  * Ken Burns giờ là toggle ĐỘC LẬP `motion engineConfig.kenBurnsEnabled` (event/workflow/motion-engine.js),
  * không migrate config cũ (Giang yêu cầu xoá sạch, không giữ tương thích ngược).
@@ -267,4 +269,43 @@
 #visual-motion-container[data-transition="spinIn"] .me-layer-enter { animation-name: me-spin-in; }
 #visual-motion-container[data-transition="spinIn"] .me-layer-exit  { animation-name: me-fade-out; }
 @keyframes me-spin-in { from { opacity: 0; transform: rotate(-25deg) scale(0.7); } to { opacity: 1; transform: rotate(0deg) scale(1); } }
+
+/* ==================== BỔ SUNG TIẾP (30/08/2026, phản hồi Giang làm rõ) — 24-28. 5 kiểu MỚI:
+   flipRight/flipDown (center — Giang chốt "center sẽ có 4 hướng up/down/left/right", 'flip'/
+   'flipVertical' đã có sẵn 2/4, đây là 2 hướng còn thiếu) + wipeRight/wipeUp/wipeDown (Giang chốt
+   'wipe' vốn chỉ có hướng "left", thêm 3 hướng còn lại) — Pivot edge (flipLeftEdge/RightEdge/
+   TopEdge/BottomEdge, bản trước) KHÔNG thêm gì — enter=mở/exit=đóng NGAY TRONG 1 type đã đúng ẩn dụ
+   gập trang sách Giang mô tả, không cần tách riêng "đóng"/"mở" thành 2 type. ==================== */
+
+/* ---- 24. flipRight — gương của "flip" (7), CÙNG trục ngang/rotateY/pivot center, đảo dấu góc quay
+   (flip: vào từ -90°→0°/ra 0°→90°; flipRight: vào từ 90°→0°/ra 0°→-90°) — cảm giác xoay NGƯỢC
+   hướng. ---- */
+#visual-motion-container[data-transition="flipRight"] .me-layer-enter { animation-name: me-flip-in-mirror; }
+#visual-motion-container[data-transition="flipRight"] .me-layer-exit  { animation-name: me-flip-out-mirror; }
+@keyframes me-flip-in-mirror  { from { opacity: 0; transform: rotateY(90deg); } 50% { opacity: 1; } to { opacity: 1; transform: rotateY(0deg); } }
+@keyframes me-flip-out-mirror { from { opacity: 1; transform: rotateY(0deg); } 50% { opacity: 0; } to { opacity: 0; transform: rotateY(-90deg); } }
+
+/* ---- 25. flipDown — gương của "flipVertical" (15-17), CÙNG trục dọc/rotateX/pivot center, đảo dấu
+   góc quay. ---- */
+#visual-motion-container[data-transition="flipDown"] .me-layer-enter { animation-name: me-flip-in-vertical-mirror; }
+#visual-motion-container[data-transition="flipDown"] .me-layer-exit  { animation-name: me-flip-out-vertical-mirror; }
+@keyframes me-flip-in-vertical-mirror  { from { opacity: 0; transform: rotateX(90deg); } 50% { opacity: 1; } to { opacity: 1; transform: rotateX(0deg); } }
+@keyframes me-flip-out-vertical-mirror { from { opacity: 1; transform: rotateX(0deg); } 50% { opacity: 0; } to { opacity: 0; transform: rotateX(-90deg); } }
+
+/* ---- 26-28. wipeRight/wipeUp/wipeDown — gương/xoay trục của "wipe" (6, NEO cạnh trái, lộ dần sang
+   phải) — CÙNG cơ chế clip-path `inset(top right bottom left)`, chỉ đổi cạnh NEO: wipeRight neo
+   phải (lộ dần sang trái), wipeUp neo dưới (lộ dần lên trên — cùng quy ước "Up" = lớn dần hướng LÊN
+   đã dùng cho wideUp), wipeDown neo trên (lộ dần xuống dưới). Lớp CŨ giữ nguyên hành vi 'wipe' gốc —
+   KHÔNG có pha "out" độc lập (`animation: none`, xem MOTION_ENGINE_TRANSITION_TYPES_NO_OUT — 3 kiểu
+   CŨ đã liệt kê, wipeRight/Up/Down CÙNG bản chất NÊN CŨNG cần thêm vào danh sách đó, xem
+   core/motion-engine.js). ---- */
+#visual-motion-container[data-transition="wipeRight"] .me-layer-enter { animation-name: me-wipe-enter-right; }
+#visual-motion-container[data-transition="wipeRight"] .me-layer-exit  { animation: none; opacity: 1; }
+#visual-motion-container[data-transition="wipeUp"] .me-layer-enter { animation-name: me-wipe-enter-up; }
+#visual-motion-container[data-transition="wipeUp"] .me-layer-exit  { animation: none; opacity: 1; }
+#visual-motion-container[data-transition="wipeDown"] .me-layer-enter { animation-name: me-wipe-enter-down; }
+#visual-motion-container[data-transition="wipeDown"] .me-layer-exit  { animation: none; opacity: 1; }
+@keyframes me-wipe-enter-right { from { clip-path: inset(0 0 0 100%); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+@keyframes me-wipe-enter-up    { from { clip-path: inset(100% 0 0 0); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+@keyframes me-wipe-enter-down  { from { clip-path: inset(0 0 100% 0); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
 
