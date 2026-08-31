@@ -10,7 +10,8 @@
  * Mốc z-index -1 đã CHỪA SẴN ở style.css (giữa #visual-bg-image -2 và #bg-video 0, xem comment ở
  * đó) — thực thi THẬT tại đây.
  *
- * DOM (index.html): #visual-motion-container > (#visual-motion-layer-1 + -layer-2) — mỗi
+ * DOM (index.html): #visual-motion-react (`.me-beat-react`, MỚI 30/08/2026 — bao NGOÀI, xem đoạn
+ * dưới) > #visual-motion-container > (#visual-motion-layer-1 + -layer-2, "player" A/B) — mỗi
  * layer lại bọc 1 layer CON (#visual-motion-layer-N-pan, class `.me-kenburns-pan`). JS điều
  * khiển ở core/motion-engine.js (hàm thuần, đổi class/style) + event/workflow/motion-engine.js
  * (orchestration — chọn ảnh kế tiếp, quản lý task lặp).
@@ -37,8 +38,8 @@
  */
 
 #visual-motion-container {
-    position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
-    z-index: -1; pointer-events: none; overflow: hidden;
+    position: absolute; inset: 0;
+    overflow: hidden;
     perspective: 1600px; /* dùng cho transition 'flip' (rotateY 3D) */
 }
 
@@ -57,14 +58,18 @@
 .motion-layer.me-layer-enter { z-index: 3; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
 .motion-layer.me-layer-exit  { z-index: 2; animation-duration: 900ms; animation-timing-function: ease; animation-fill-mode: forwards; }
 
-/* Layer GIỮA (MỚI, "React Beat Audio" 29/08/2026) — XEN GIỮA `.motion-layer` (transition) và
-   `.me-kenburns-pan` (Ken Burns) — giữ NGUYÊN vùng chứa (position/inset y hệt `.motion-layer`)
-   để `.me-kenburns-pan` con bên trong vẫn định vị/co giãn đúng như trước, KHÔNG đổi layout gì cả
-   khi tính năng này tắt (transform mặc định identity, vô hình). Animation pulse (zoom/pan/rotate
-   theo beat) chạy bằng Web Animations API (panEl.animate()), CÙNG cách Ken Burns đã làm — xem
-   event/workflow/motion-engine.js::_triggerBeatReactPulse(). */
+/* Layer NGOÀI CÙNG (MỚI, "React Beat Audio" 29/08/2026; VIẾT LẠI 30/08/2026, phản hồi Giang mục 3 —
+   chuyển ra bao TRỌN #visual-motion-container, tức CẢ 2 player A/B, THAY vì 1 layer riêng lồng bên
+   trong từng player như bản trước) — nhận trọn mốc z-index -1 (CHỪA SẴN ở style.css, giữa
+   #visual-bg-image và #bg-video) + `pointer-events: none` (dời từ #visual-motion-container lên đây,
+   giờ đây mới là phần tử NGOÀI CÙNG thật sự). transform mặc định identity (vô hình) khi tính năng
+   tắt, KHÔNG đổi layout gì cả. VIẾT LẠI (30/08/2026, phản hồi Giang mục 1 — bỏ cơ chế đếm beat) —
+   không còn animate() theo pulse rời rạc, giờ set `style.transform` TRỰC TIẾP mỗi frame, nội suy
+   LIÊN TỤC theo `beatScale` (CÙNG tín hiệu các hiệu ứng "beatscale" khác trong app) — xem
+   event/workflow/motion-engine.js::_tickBeatReact(). */
 .me-beat-react {
     position: absolute; inset: 0;
+    z-index: -1; pointer-events: none;
     overflow: hidden;
 }
 
