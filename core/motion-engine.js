@@ -573,3 +573,28 @@ function computeMotionEngineBeatReactOffset(direction, maxVal, energy) {
     if (direction === 'leftToRight') return magnitude * (2 * e - 1);
     return -magnitude * (2 * e - 1); // 'rightToLeft'
 }
+
+/**
+ * Core thuần: tiến 1 bước ENVELOPE react-beat — MỚI (30/08/2026, phản hồi Giang báo bug — dùng
+ * THẲNG `beatScale` liên tục khiến hiệu ứng "mắc kẹt" ở mức cao suốt đoạn nhạc bass kéo dài, KHÔNG
+ * có cảm giác "đập rồi nghỉ" — "phải chuyển về 100% TRƯỚC KHI nhận beat mới"). `beatScale`
+ * (core/audio-analysis.js::computeBeatScale()) là NĂNG LƯỢNG bass tức thời, KHÔNG phải "vừa có 1
+ * beat" — bass kéo dài liên tục thì nó CŨNG cao liên tục, không tự hạ giữa các nhịp.
+ * Cơ chế: "attack" TỨC THỜI lên đúng `beatScale` hiện tại NHƯNG CHỈ khi envelope đã decay hẳn về
+ * `rearmThreshold` (~baseline) từ lượt trước — ĐANG decay dở thì KHÔNG attack lại dù `beatScale`
+ * đang cao bao nhiêu, PHẢI decay hết đã. "decay" tuyến tính theo THỜI GIAN THẬT (`deltaMs`, không
+ * phụ thuộc framerate) về 0 trong đúng `decayMs`. KHÔNG dùng lại bộ đếm/máy trạng thái beat rời rạc
+ * đã bỏ (`beatCount`) — chỉ 1 điều kiện ngưỡng đơn giản trên CHÍNH `beatScale`, tự chứa trong hàm
+ * này, không phụ thuộc beat-detector nào khác của app.
+ * @param {number} prevEnvelope - 0-1, giá trị envelope frame TRƯỚC.
+ * @param {number} beatScale - 0-1, năng lượng bass tức thời frame NÀY.
+ * @param {number} deltaMs - thời gian trôi qua kể từ frame trước (ms).
+ * @param {number} decayMs - thời gian để envelope decay hết 1→0 (ms).
+ * @param {number} rearmThreshold - 0-1, envelope phải <= mốc này mới được attack lại từ đầu.
+ * @returns {number}
+ */
+function computeMotionEngineBeatReactEnvelope(prevEnvelope, beatScale, deltaMs, decayMs, rearmThreshold) {
+    const canTrigger = prevEnvelope <= rearmThreshold;
+    if (canTrigger && beatScale > rearmThreshold) return Math.min(1, beatScale);
+    return Math.max(0, prevEnvelope - (deltaMs / decayMs));
+}
