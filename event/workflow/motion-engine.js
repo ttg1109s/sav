@@ -258,16 +258,17 @@ const workflowMotionEngine = {
      * `computeMotionEngineBeatReactOffset()`, core/motion-engine.js) rồi CỘNG DỒN cả 3 hiệu ứng
      * thành 1 chuỗi `transform` áp lên lớp react DUY NHẤT (bao cả 2 player A/B — mục 3 phản hồi
      * Giang, xem `_resetBeatReactTransform()`) — nhạc càng mạnh, transform càng tiến về `max`; nhạc
-     * nhẹ/im lặng, transform lui về gần `min`, KHÔNG có khái niệm "trigger"/"thời lượng pulse" nào
+     * nhẹ/im lặng, transform lui về baseline CỐ ĐỊNH (100%/100%/0°, KHÔNG phải field trong preset —
+     * Giang chốt "min không phải tuỳ chọn"), KHÔNG có khái niệm "trigger"/"thời lượng pulse" nào
      * nữa. */
     _tickBeatReact() {
         const rb = this._activePreset.reactBeatAudio;
         if (!rb.enabled) { this._syncBeatReactLoop(); return; } // preset vừa bị gỡ/tắt beat-react giữa chừng -> tự dừng vòng lặp ĐÚNG NGAY frame này
         const energy = appState.get('beatScale'); // service/state/visualizer-runtime.js — năng lượng LIÊN TỤC, tính mỗi frame ở event/workflow/visualizer-render.js
 
-        const zoomScale = rb.zoom.enabled ? computeMotionEngineBeatReactZoomScale(rb.zoom.minPct, rb.zoom.maxPct, energy) : 1; // core
-        const panPct = rb.pan.enabled ? computeMotionEngineBeatReactOffset(rb.pan.direction, rb.pan.minPct - 100, rb.pan.maxPct - 100, energy) : 0; // core — trừ baseline 100% trước khi truyền (xem docstring hàm)
-        const rotateDeg = rb.rotate.enabled ? computeMotionEngineBeatReactOffset(rb.rotate.direction, rb.rotate.minDeg, rb.rotate.maxDeg, energy) : 0; // core — baseline 0°, không cần trừ
+        const zoomScale = rb.zoom.enabled ? computeMotionEngineBeatReactZoomScale(rb.zoom.maxPct, energy) : 1; // core
+        const panPct = rb.pan.enabled ? computeMotionEngineBeatReactOffset(rb.pan.direction, rb.pan.maxPct - 100, energy) : 0; // core — trừ baseline 100% (cố định) trước khi truyền
+        const rotateDeg = rb.rotate.enabled ? computeMotionEngineBeatReactOffset(rb.rotate.direction, rb.rotate.maxDeg, energy) : 0; // core — baseline 0° (cố định), không cần trừ
 
         if (motionEngineReactLayer) motionEngineReactLayer.style.transform = `scale(${zoomScale}) translateX(${panPct}%) rotate(${rotateDeg}deg)`;
     },
