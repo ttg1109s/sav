@@ -533,42 +533,41 @@ function resetMotionEngineLayerClasses(layerEl) {
 
 /**
  * Core thuần: tỉ lệ ZOOM react-beat LIÊN TỤC — VIẾT LẠI (30/08/2026, phản hồi Giang, bỏ hẳn cơ chế
- * "bắn theo N beat rồi tự về gốc") — không còn pulse rời rạc, giờ nội suy TUYẾN TÍNH giữa
- * `minPct`/`maxPct` (2 giới hạn NGƯỜI DÙNG tự chỉnh, KHÔNG còn là 1 mốc "phóng cứng" duy nhất) theo
- * `energy` (0-1, đọc `beatScale` mỗi frame — cùng tín hiệu năng lượng liên tục các hiệu ứng
- * "beatscale" khác trong app đang dùng, vd core/visualizer/types/bar.js) — nhạc CÀNG mạnh, zoom
- * CÀNG gần `maxPct`; nhạc nhẹ/im lặng, zoom về gần `minPct`. `minPct`/`maxPct` đơn vị % (100 =
- * không zoom), 100-200 (nơi gọi validate — core/motion-presets.js).
- * @param {number} minPct
+ * "bắn theo N beat rồi tự về gốc") — không còn pulse rời rạc, giờ nội suy TUYẾN TÍNH từ baseline
+ * 100% (không zoom) CỐ ĐỊNH CỨNG (Giang chốt — "min không phải tuỳ chọn", KHÔNG phải field trong
+ * preset/không có slider riêng) lên `maxPct` (NGƯỜI DÙNG tự chỉnh, trần 200 — nơi gọi validate, xem
+ * core/motion-presets.js) theo `energy` (0-1, đọc `beatScale` mỗi frame — cùng tín hiệu năng lượng
+ * liên tục các hiệu ứng "beatscale" khác trong app đang dùng, vd core/visualizer/types/bar.js) —
+ * nhạc CÀNG mạnh, zoom CÀNG gần `maxPct`; nhạc nhẹ/im lặng, zoom về gần 100% (không zoom).
  * @param {number} maxPct
  * @param {number} energy - 0-1 (nơi gọi tự đọc `appState.beatScale`, hàm này tự kẹp phòng hờ).
  * @returns {number} hệ số scale (vd 1.5 = phóng 150%).
  */
-function computeMotionEngineBeatReactZoomScale(minPct, maxPct, energy) {
+function computeMotionEngineBeatReactZoomScale(maxPct, energy) {
     const e = Math.max(0, Math.min(1, energy));
-    return (minPct + (maxPct - minPct) * e) / 100;
+    return (100 + (maxPct - 100) * e) / 100;
 }
 
 /**
  * Core thuần: offset pan/rotate react-beat LIÊN TỤC theo `direction` + `energy` — DÙNG CHUNG pan
- * (đơn vị %) LẪN rotate (đơn vị độ), nơi gọi tự trừ baseline trước khi truyền vào (pan: baseline
- * 100%, `minVal`/`maxVal` = `minPct-100`/`maxPct-100`; rotate: baseline 0°, `minVal`/`maxVal` =
- * `minDeg`/`maxDeg` thẳng — xem event/workflow/motion-engine.js::_tickBeatReact()).
- * "left"/"right" — biên độ (luôn không âm) nội suy tuyến tính [minVal,maxVal] theo `energy`, DẤU
- * CỐ ĐỊNH theo hướng. "leftToRight"/"rightToLeft" — CÙNG phép nội suy biên độ nhưng áp trực tiếp
- * `energy` làm hệ số lệch trái/phải (`magnitude * (2*energy-1)`): tại energy=0 lệch hết về 1 phía
- * (biên độ đang ở mức `minVal`), tại energy=1 lệch hết về phía ĐỐI DIỆN (biên độ ở mức `maxVal`) —
- * 1 phép nội suy DUY NHẤT, liên tục, không giật, dùng CẢ `minVal` LẪN `maxVal` (khác "left"/"right"
- * chỉ 1 dấu cố định).
+ * (đơn vị %, `maxVal` = `maxPct-100` ĐÃ trừ baseline, nơi gọi tự trừ trước khi truyền) LẪN rotate
+ * (đơn vị độ, `maxVal` = `maxDeg` thẳng, baseline vốn đã là 0 — xem
+ * event/workflow/motion-engine.js::_tickBeatReact()). Biên độ nội suy tuyến tính từ 0 (baseline CỐ
+ * ĐỊNH CỨNG, Giang chốt — "min không phải tuỳ chọn", KHÔNG phải field trong preset) lên `maxVal`
+ * theo `energy`.
+ * "left"/"right" — biên độ (luôn không âm) nội suy tuyến tính [0,maxVal] theo `energy`, DẤU CỐ ĐỊNH
+ * theo hướng. "leftToRight"/"rightToLeft" — CÙNG phép nội suy biên độ nhưng áp trực tiếp `energy`
+ * làm hệ số lệch trái/phải (`magnitude * (2*energy-1)`): tại energy=0 biên độ gần 0 (~giữa), tại
+ * energy=1 lệch hết về phía ĐỐI DIỆN (biên độ = `maxVal`) — 1 phép nội suy DUY NHẤT, liên tục, không
+ * giật (khác "left"/"right" chỉ 1 dấu cố định).
  * @param {'left'|'right'|'leftToRight'|'rightToLeft'} direction
- * @param {number} minVal - biên độ tại energy=0 (ĐÃ trừ baseline, luôn >=0).
  * @param {number} maxVal - biên độ tại energy=1 (ĐÃ trừ baseline, luôn >=0).
  * @param {number} energy - 0-1 (nơi gọi tự đọc `appState.beatScale`, hàm này tự kẹp phòng hờ).
  * @returns {number}
  */
-function computeMotionEngineBeatReactOffset(direction, minVal, maxVal, energy) {
+function computeMotionEngineBeatReactOffset(direction, maxVal, energy) {
     const e = Math.max(0, Math.min(1, energy));
-    const magnitude = minVal + (maxVal - minVal) * e;
+    const magnitude = maxVal * e; // baseline 0 cố định -> nội suy [0,maxVal]
     if (direction === 'left') return -magnitude;
     if (direction === 'right') return magnitude;
     if (direction === 'leftToRight') return magnitude * (2 * e - 1);

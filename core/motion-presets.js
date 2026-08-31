@@ -29,18 +29,20 @@
  * `replaceMovement` quyết định layer `.me-beat-react` (MỚI, bao TRỌN cả 2 player A/B — xem
  * index.html/assets/css/motion-engine.css) THAY THẾ hẳn chuyển động Ken Burns thường (`true`) hay
  * chạy SONG SONG, transform cộng dồn theo cây DOM (`false`). 3 hiệu ứng con (zoom/pan/rotate) ĐỘC
- * LẬP nhau — bật được 1, vài, hay cả 3 cùng lúc (checkbox riêng từng cái), mỗi cái tự có 1 cặp
- * `min`/`max` RIÊNG — KHÔNG còn là 1 mốc "phóng cứng" duy nhất, mà là 2 biên NGƯỜI DÙNG tự chỉnh để
- * nội suy tuyến tính theo năng lượng nhạc (nhạc càng mạnh càng gần `max`, càng nhẹ/im lặng càng gần
- * `min`):
- *   zoom.minPct/maxPct     — % zoom (100 = không zoom), nội suy liên tục trong [100,200].
- *   pan.minPct/maxPct      — % dịch chuyển theo `direction` (left/right/leftToRight/rightToLeft —
- *                            2 cái sau LỆCH LIÊN TỤC giữa 2 biên theo năng lượng, 2 cái đầu chỉ lệch
- *                            1 hướng cố định), 100 = không dịch, nội suy liên tục trong [100,150].
- *   rotate.minDeg/maxDeg   — độ xoay theo `direction` (CÙNG 4 lựa chọn pan, "left"=ngược chiều kim
- *                            đồng hồ/"right"=thuận), 0 = không xoay, nội suy liên tục trong [0,360].
- * `max` (200/150/360 là trần) vốn là mốc DUY NHẤT trước đây người dùng chỉnh được — giờ vẫn là mốc
- * đó, chỉ thêm `min` làm biên dưới của phép nội suy.
+ * LẬP nhau — bật được 1, vài, hay cả 3 cùng lúc (checkbox riêng từng cái), mỗi cái CHỈ còn 1 field
+ * `max` NGƯỜI DÙNG tự chỉnh — biên DƯỚI (baseline lúc nhạc im lặng) CỐ ĐỊNH CỨNG, KHÔNG phải field
+ * trong preset/KHÔNG có slider riêng (Giang chốt — "min là cố định cứng, không phải tuỳ chọn"),
+ * hardcode ngay trong công thức nội suy (core/motion-engine.js::computeMotionEngineBeatReactZoomScale()/
+ * computeMotionEngineBeatReactOffset()):
+ *   zoom.maxPct     — % zoom (100 = không zoom, baseline CỐ ĐỊNH), nội suy liên tục [100,maxPct].
+ *   pan.maxPct      — % dịch chuyển theo `direction` (left/right/leftToRight/rightToLeft — 2 cái sau
+ *                     LỆCH LIÊN TỤC giữa 2 biên theo năng lượng, 2 cái đầu chỉ lệch 1 hướng cố định),
+ *                     100 = không dịch (baseline CỐ ĐỊNH), nội suy liên tục [100,maxPct].
+ *   rotate.maxDeg   — độ xoay theo `direction` (CÙNG 4 lựa chọn pan, "left"=ngược chiều kim đồng hồ/
+ *                     "right"=thuận), 0 = không xoay (baseline CỐ ĐỊNH), nội suy liên tục [0,maxDeg].
+ * `maxPct`/`maxDeg` (trần 200/150/360) vốn là mốc DUY NHẤT trước đây người dùng chỉnh được — vẫn
+ * NGUYÊN như cũ, chỉ khác chỗ trước đây LÀ giá trị đích cố định (bắn tới rồi về), giờ là biên TRÊN
+ * của phép nội suy liên tục.
  */
 const MOTION_BEAT_REACT_DIRECTIONS = ['left', 'right', 'leftToRight', 'rightToLeft'];
 
@@ -63,9 +65,9 @@ function buildBlankMotionPreset(name) {
         reactBeatAudio: {
             enabled: false,
             replaceMovement: false,
-            zoom: { enabled: false, minPct: 100, maxPct: 150 },
-            pan: { enabled: false, direction: 'leftToRight', minPct: 100, maxPct: 120 },
-            rotate: { enabled: false, direction: 'leftToRight', minDeg: 0, maxDeg: 90 },
+            zoom: { enabled: false, maxPct: 150 },
+            pan: { enabled: false, direction: 'leftToRight', maxPct: 120 },
+            rotate: { enabled: false, direction: 'leftToRight', maxDeg: 90 },
         },
     };
 }
@@ -106,12 +108,12 @@ function sanitizeMotionPreset(raw) {
 }
 
 /** Validate riêng cụm `reactBeatAudio` — tách khỏi `sanitizeMotionPreset()` chính vì lồng nhau
- * (object trong object, 3 cụm con zoom/pan/rotate CÙNG hình dạng {enabled, min.../max...}) — gộp
- * chung sẽ rất khó đọc. `raw` không phải object hợp lệ -> trả nguyên `blank` (mặc định tắt hết,
- * không throw). VIẾT LẠI (30/08/2026, phản hồi Giang — bỏ hẳn `everyNBeats`, thêm cặp `min`/`max`
- * nội suy liên tục) — mỗi cặp validate ĐỘC LẬP trong đúng biên hợp lệ của field đó rồi kẹp `max` về
- * tối thiểu bằng `min` (`Math.max`) — phòng dữ liệu hỏng/cũ đảo ngược (min>max sẽ khiến phép nội suy
- * ở core/motion-engine.js chạy NGƯỢC, không sai về mặt kỹ thuật nhưng không phải ý người dùng).
+ * (object trong object, 3 cụm con zoom/pan/rotate CÙNG hình dạng {enabled, max..., [direction]}) —
+ * gộp chung sẽ rất khó đọc. `raw` không phải object hợp lệ -> trả nguyên `blank` (mặc định tắt hết,
+ * không throw). VIẾT LẠI (30/08/2026, phản hồi Giang — bỏ hẳn `everyNBeats`; SỬA LẠI NGAY sau đó,
+ * phản hồi Giang — "min là cố định cứng, không phải tuỳ chọn") — CHỈ còn `max` là field NGƯỜI DÙNG
+ * chỉnh, biên dưới (baseline) CỐ ĐỊNH CỨNG trong công thức nội suy (core/motion-engine.js), KHÔNG
+ * còn validate/lưu field `min` nào trong preset nữa.
  * @param {*} raw
  * @param {object} blank - `buildBlankMotionPreset(...).reactBeatAudio`, dùng làm fallback từng field.
  * @returns {object}
@@ -123,29 +125,22 @@ function sanitizeMotionBeatReact(raw, blank) {
     const pan = raw.pan && typeof raw.pan === 'object' ? raw.pan : {};
     const rotate = raw.rotate && typeof raw.rotate === 'object' ? raw.rotate : {};
 
-    const zoomMinPct = inRange(zoom.minPct, 100, 200, blank.zoom.minPct);
-    const panMinPct = inRange(pan.minPct, 100, 150, blank.pan.minPct);
-    const rotateMinDeg = inRange(rotate.minDeg, 0, 360, blank.rotate.minDeg);
-
     return {
         enabled: typeof raw.enabled === 'boolean' ? raw.enabled : blank.enabled,
         replaceMovement: typeof raw.replaceMovement === 'boolean' ? raw.replaceMovement : blank.replaceMovement,
         zoom: {
             enabled: typeof zoom.enabled === 'boolean' ? zoom.enabled : blank.zoom.enabled,
-            minPct: zoomMinPct,
-            maxPct: Math.max(zoomMinPct, inRange(zoom.maxPct, 100, 200, blank.zoom.maxPct)),
+            maxPct: inRange(zoom.maxPct, 100, 200, blank.zoom.maxPct),
         },
         pan: {
             enabled: typeof pan.enabled === 'boolean' ? pan.enabled : blank.pan.enabled,
             direction: MOTION_BEAT_REACT_DIRECTIONS.includes(pan.direction) ? pan.direction : blank.pan.direction,
-            minPct: panMinPct,
-            maxPct: Math.max(panMinPct, inRange(pan.maxPct, 100, 150, blank.pan.maxPct)),
+            maxPct: inRange(pan.maxPct, 100, 150, blank.pan.maxPct),
         },
         rotate: {
             enabled: typeof rotate.enabled === 'boolean' ? rotate.enabled : blank.rotate.enabled,
             direction: MOTION_BEAT_REACT_DIRECTIONS.includes(rotate.direction) ? rotate.direction : blank.rotate.direction,
-            minDeg: rotateMinDeg,
-            maxDeg: Math.max(rotateMinDeg, inRange(rotate.maxDeg, 0, 360, blank.rotate.maxDeg)),
+            maxDeg: inRange(rotate.maxDeg, 0, 360, blank.rotate.maxDeg),
         },
     };
 }
