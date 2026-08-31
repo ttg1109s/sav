@@ -177,3 +177,94 @@
     100% { opacity: 0; filter: hue-rotate(0deg); }
 }
 
+/* ==================== BỔ SUNG (30/08/2026, phản hồi Giang) — 13 kiểu MỚI, đánh số TIẾP 13-25 thay
+   vì chen/đánh lại số 1-12 cũ (giữ nguyên mọi rule cũ, đỡ diff lan rộng không cần thiết). ==================== */
+
+/* ==================== 13/14. slideUp / slideDown — CÙNG khuôn slideLeft/slideRight (2/3), đổi trục
+   X sang Y ==================== */
+#visual-motion-container[data-transition="slideUp"] .me-layer-enter   { animation-name: me-slide-in-from-bottom; }
+#visual-motion-container[data-transition="slideUp"] .me-layer-exit    { animation-name: me-slide-out-to-top; }
+#visual-motion-container[data-transition="slideDown"] .me-layer-enter { animation-name: me-slide-in-from-top; }
+#visual-motion-container[data-transition="slideDown"] .me-layer-exit  { animation-name: me-slide-out-to-bottom; }
+@keyframes me-slide-in-from-bottom { from { transform: translateY(100%); opacity: 1; } to { transform: translateY(0); opacity: 1; } }
+@keyframes me-slide-out-to-top     { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-100%); opacity: 1; } }
+@keyframes me-slide-in-from-top    { from { transform: translateY(-100%); opacity: 1; } to { transform: translateY(0); opacity: 1; } }
+@keyframes me-slide-out-to-bottom  { from { transform: translateY(0); opacity: 1; } to { transform: translateY(100%); opacity: 1; } }
+
+/* ==================== 15-17. flipLeftEdge / flipRightEdge / flipVertical / flipTopEdge /
+   flipBottomEdge — mở rộng "7. flip" (trục ngang/rotateY, pivot GIỮA mặc định) thêm pivot LỆCH MÉP
+   + trục dọc (rotateX). DÙNG LẠI đúng 2 cặp @keyframes rotateY/rotateX hiện có (me-flip-in/out +
+   me-flip-in-vertical/out MỚI) — pivot mép chỉ cần đổi `transform-origin` tĩnh qua selector, KHÔNG
+   cần @keyframes riêng cho từng mép (CSS transform-origin tự đổi tâm xoay, animation-name giữ
+   nguyên). "left edge"/"right edge" CHỈ có nghĩa hình học cho trục NGANG (cạnh trái/phải); trục DỌC
+   dùng cặp mép tương ứng là TRÊN/DƯỚI (top/bottom) — Giang xem lại nếu ý muốn khác. ==================== */
+#visual-motion-container[data-transition="flipLeftEdge"] .me-layer-enter,
+#visual-motion-container[data-transition="flipLeftEdge"] .me-layer-exit  { transform-origin: left; }
+#visual-motion-container[data-transition="flipLeftEdge"] .me-layer-enter { animation-name: me-flip-in; }
+#visual-motion-container[data-transition="flipLeftEdge"] .me-layer-exit  { animation-name: me-flip-out; }
+
+#visual-motion-container[data-transition="flipRightEdge"] .me-layer-enter,
+#visual-motion-container[data-transition="flipRightEdge"] .me-layer-exit  { transform-origin: right; }
+#visual-motion-container[data-transition="flipRightEdge"] .me-layer-enter { animation-name: me-flip-in; }
+#visual-motion-container[data-transition="flipRightEdge"] .me-layer-exit  { animation-name: me-flip-out; }
+
+#visual-motion-container[data-transition="flipVertical"] .me-layer-enter { animation-name: me-flip-in-vertical; }
+#visual-motion-container[data-transition="flipVertical"] .me-layer-exit  { animation-name: me-flip-out-vertical; }
+
+#visual-motion-container[data-transition="flipTopEdge"] .me-layer-enter,
+#visual-motion-container[data-transition="flipTopEdge"] .me-layer-exit  { transform-origin: top; }
+#visual-motion-container[data-transition="flipTopEdge"] .me-layer-enter { animation-name: me-flip-in-vertical; }
+#visual-motion-container[data-transition="flipTopEdge"] .me-layer-exit  { animation-name: me-flip-out-vertical; }
+
+#visual-motion-container[data-transition="flipBottomEdge"] .me-layer-enter,
+#visual-motion-container[data-transition="flipBottomEdge"] .me-layer-exit  { transform-origin: bottom; }
+#visual-motion-container[data-transition="flipBottomEdge"] .me-layer-enter { animation-name: me-flip-in-vertical; }
+#visual-motion-container[data-transition="flipBottomEdge"] .me-layer-exit  { animation-name: me-flip-out-vertical; }
+
+@keyframes me-flip-in-vertical  { from { opacity: 0; transform: rotateX(-90deg); } 50% { opacity: 1; } to { opacity: 1; transform: rotateX(0deg); } }
+@keyframes me-flip-out-vertical { from { opacity: 1; transform: rotateX(0deg); } 50% { opacity: 0; } to { opacity: 0; transform: rotateX(90deg); } }
+
+/* ==================== 18-21. wideLeft / wideRight / wideUp / wideDown — MỚI, lấy cảm hứng hiệu
+   ứng "Wide" CapCut: lớp MỚI bắt đầu "cuộn" phẳng dẹt (scaleX/scaleY gần 0) NEO tại 1 cạnh
+   (`transform-origin`), rồi "mở rộng" ra full khung — khác "curtain"/"wipe" (dùng clip-path CHE
+   DẦN, ảnh giữ nguyên tỉ lệ) — "wide" DÙNG `transform: scale` nên ảnh THẬT SỰ bị kéo giãn/co lúc
+   đang chạy, tạo cảm giác "đàn hồi" đặc trưng CapCut. Lớp CŨ chỉ fade ra (`me-fade-out` có sẵn) —
+   CÙNG khuôn zoomIn/zoomOut/rotateFade (enter riêng, exit dùng chung fade), đỡ thêm @keyframes. */
+#visual-motion-container[data-transition="wideLeft"] .me-layer-enter,
+#visual-motion-container[data-transition="wideLeft"] .me-layer-exit  { transform-origin: left; }
+#visual-motion-container[data-transition="wideLeft"] .me-layer-enter { animation-name: me-wide-scale-in; }
+#visual-motion-container[data-transition="wideLeft"] .me-layer-exit  { animation-name: me-fade-out; }
+
+#visual-motion-container[data-transition="wideRight"] .me-layer-enter,
+#visual-motion-container[data-transition="wideRight"] .me-layer-exit  { transform-origin: right; }
+#visual-motion-container[data-transition="wideRight"] .me-layer-enter { animation-name: me-wide-scale-in; }
+#visual-motion-container[data-transition="wideRight"] .me-layer-exit  { animation-name: me-fade-out; }
+
+#visual-motion-container[data-transition="wideUp"] .me-layer-enter,
+#visual-motion-container[data-transition="wideUp"] .me-layer-exit  { transform-origin: bottom; }
+#visual-motion-container[data-transition="wideUp"] .me-layer-enter { animation-name: me-wide-scale-in-v; }
+#visual-motion-container[data-transition="wideUp"] .me-layer-exit  { animation-name: me-fade-out; }
+
+#visual-motion-container[data-transition="wideDown"] .me-layer-enter,
+#visual-motion-container[data-transition="wideDown"] .me-layer-exit  { transform-origin: top; }
+#visual-motion-container[data-transition="wideDown"] .me-layer-enter { animation-name: me-wide-scale-in-v; }
+#visual-motion-container[data-transition="wideDown"] .me-layer-exit  { animation-name: me-fade-out; }
+
+@keyframes me-wide-scale-in   { from { transform: scaleX(0.05); opacity: 1; } to { transform: scaleX(1); opacity: 1; } }
+@keyframes me-wide-scale-in-v { from { transform: scaleY(0.05); opacity: 1; } to { transform: scaleY(1); opacity: 1; } }
+
+/* ==================== 22. whipPan — MỚI, lấy cảm hứng "whip pan" CapCut: ảnh mới VỤT vào cực
+   nhanh kèm motion-blur nặng rồi nét dần lúc dừng hẳn, ảnh cũ vụt ra theo hướng ngược lại kèm blur
+   tăng dần — mô phỏng máy quay "quét" cực nhanh. ==================== */
+#visual-motion-container[data-transition="whipPan"] .me-layer-enter { animation-name: me-whip-pan-in; }
+#visual-motion-container[data-transition="whipPan"] .me-layer-exit  { animation-name: me-whip-pan-out; }
+@keyframes me-whip-pan-in  { from { transform: translateX(100%); filter: blur(24px); opacity: 1; } to { transform: translateX(0); filter: blur(0); opacity: 1; } }
+@keyframes me-whip-pan-out { from { transform: translateX(0); filter: blur(0); opacity: 1; } to { transform: translateX(-100%); filter: blur(24px); opacity: 1; } }
+
+/* ==================== 23. spinIn — MỚI, lấy cảm hứng hiệu ứng "spin"/"whirl" CapCut: ảnh mới xoay
+   nhẹ (2D, KHÔNG phải 3D như flip) + phóng to dần vào đúng khung, ảnh cũ chỉ fade ra
+   (`me-fade-out`). ==================== */
+#visual-motion-container[data-transition="spinIn"] .me-layer-enter { animation-name: me-spin-in; }
+#visual-motion-container[data-transition="spinIn"] .me-layer-exit  { animation-name: me-fade-out; }
+@keyframes me-spin-in { from { opacity: 0; transform: rotate(-25deg) scale(0.7); } to { opacity: 1; transform: rotate(0deg) scale(1); } }
+
