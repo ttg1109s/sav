@@ -155,7 +155,6 @@ const workflowMotionEngine = {
 
         this._currentObjectUrl = objectUrl;
         this._layerToggle = !this._layerToggle;
-        if (outgoingReact) outgoingReact.style.transform = '';
         this._syncBeatReactLoop();
         return true;
     },
