@@ -44,23 +44,27 @@
  * (phòng giá trị hỏng/cũ) và đổ vào <select> Settings Drawer.
  * BỔ SUNG (30/08/2026, phản hồi Giang — thêm slide dọc, "Wide" (mới, lấy cảm hứng CapCut — layer
  * "cuốn mở" từ 1 cạnh ra full khung bằng scaleX/scaleY, KHÔNG dùng clip-path như curtain), Flip mở
- * rộng pivot (center có sẵn = 'flip'; + left/right-edge cho trục ngang — rotateY; + center/top/
- * bottom-edge cho trục dọc — rotateX, Giang gọi "dọc"), whipPan/spinIn (thêm, lấy cảm hứng CapCut,
- * CSS thuần khả thi — filter blur/transform rotate, không cần WebGL/canvas)) — 13 kiểu MỚI, xem
- * @keyframes tương ứng ở assets/css/motion-engine.css để biết chi tiết từng kiểu.
- * BỔ SUNG TIẾP (30/08/2026, phản hồi Giang làm rõ) — 'flip' (pivot center, trục ngang) VỐN chỉ có 1
- * hướng (Giang gọi "trái"), 'flipVertical' (pivot center, trục dọc) cũng chỉ 1 hướng ("lên") — Giang
- * chốt "center sẽ có 4 hướng up/down/left/right" -> thêm 'flipRight' (gương của 'flip')/'flipDown'
- * (gương của 'flipVertical') cho ĐỦ 4. Pivot edge (left/right/top/bottom-Edge, đã có từ bản trước)
- * VỐN ĐÃ có đủ "2 chiều đóng lại/mở ra" NGAY TRONG 1 type (enter=mở, exit=đóng — đúng ẩn dụ gập
- * trang sách Giang mô tả) nên KHÔNG thêm type edge nào nữa. 'wipe' VỐN chỉ có 1 hướng (Giang gọi
- * "left") -> thêm 'wipeRight'/'wipeUp'/'wipeDown'. */
+ * rộng pivot, whipPan/spinIn (thêm, lấy cảm hứng CapCut, CSS thuần khả thi — filter blur/transform
+ * rotate, không cần WebGL/canvas)); rồi làm rõ THÊM 2 lượt (phản hồi Giang) — center đủ 4 hướng
+ * (`flip`/`flipRight`/`flipVertical`/`flipDown`); 'wipe' đủ 4 hướng (`wipe`/`wipeRight`/`wipeUp`/
+ * `wipeDown`); VÀ SỬA LẠI edge pivot — bản trước gộp "đóng"/"mở" chung 1 type (enter=mở/exit=đóng) —
+ * Giang chốt "phải tách ra riêng, đóng mở là 2 chiều khác nhau" -> XOÁ 4 type gộp cũ
+ * (flipLeftEdge/flipRightEdge/flipTopEdge/flipBottomEdge), THAY bằng 8 type TÁCH RIÊNG
+ * ...EdgeOpen/...EdgeClose (mỗi edge 2 type ĐỘC LẬP, tự chọn được riêng, KHÔNG còn gộp chung 1 lượt
+ * enter+exit nữa — "Open" quay theo 1 chiều, "Close" quay theo chiều NGƯỢC LẠI, CẢ enter LẪN exit
+ * của type đó CÙNG dùng 1 chiều xuyên suốt). ĐỒNG THỜI bỏ hẳn fade khỏi MỌI keyframe flip (center
+ * lẫn edge, Giang chốt "flip page không liên quan gì fade") — layer "biến mất" lúc quay qua 90° là
+ * nhờ hình học 3D thật (backface-visibility:hidden + perspective, xem #visual-motion-container),
+ * KHÔNG cần opacity animate gì cả, opacity giữ NGUYÊN 1 xuyên suốt. XOÁ HẲN "Wide" (Giang chốt "xoá
+ * hết transition wide đi", ngay sau khi vừa thêm ở bản trước) — bỏ 4 type wideLeft/wideRight/wideUp/
+ * wideDown + 2 @keyframes `me-wide-scale-in`/`me-wide-scale-in-v` liên quan. Xem @keyframes tương
+ * ứng ở assets/css/motion-engine.css để biết chi tiết từng kiểu còn lại. */
 const MOTION_ENGINE_TRANSITION_TYPES = [
     'fade', 'slideLeft', 'slideRight', 'slideUp', 'slideDown', 'zoomIn', 'zoomOut',
     'wipe', 'wipeRight', 'wipeUp', 'wipeDown',
     'flip', 'flipRight', 'flipVertical', 'flipDown',
-    'flipLeftEdge', 'flipRightEdge', 'flipTopEdge', 'flipBottomEdge',
-    'wideLeft', 'wideRight', 'wideUp', 'wideDown',
+    'flipLeftEdgeOpen', 'flipLeftEdgeClose', 'flipRightEdgeOpen', 'flipRightEdgeClose',
+    'flipTopEdgeOpen', 'flipTopEdgeClose', 'flipBottomEdgeOpen', 'flipBottomEdgeClose',
     'blur', 'rotateFade', 'curtain', 'circleReveal', 'glitch', 'whipPan', 'spinIn',
 ];
 
