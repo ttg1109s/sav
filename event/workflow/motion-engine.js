@@ -43,6 +43,14 @@ const MOTION_ENGINE_NO_OP_PRESET = { transitionEnabled: false, transitionType: '
 // event/workflow/visualizer-render.js — CÙNG nguồn mọi hiệu ứng "beatscale" khác trong app đang
 // dùng, vd core/visualizer/types/bar.js) mỗi tick, nội suy tuyến tính — xem `_tickBeatReact()` dưới.
 const MOTION_ENGINE_BEATREACT_TASK = 'motionEngineBeatReactTick';
+// SỬA (30/08/2026, phản hồi Giang báo bug — "phải chuyển về 100% TRƯỚC KHI nhận beat mới") — 2 hằng
+// số cho envelope attack/decay (xem core/motion-engine.js::computeMotionEngineBeatReactEnvelope()).
+// DECAY_MS 350 — đủ nhanh để về hẳn baseline trước nhịp kế ở hầu hết BPM phổ biến (90-140 BPM ~
+// 430-666ms/nhịp), vẫn đủ dài để còn THẤY được chuyển động (không tắt phụt). REARM_THRESHOLD một
+// epsilon nhỏ (không phải 0 tuyệt đối) — decay tuyến tính nên VỀ ĐÚNG 0 được, nhưng dùng epsilon để
+// khỏi kẹt bởi sai số dấu phẩy động.
+const MOTION_ENGINE_BEATREACT_DECAY_MS = 350;
+const MOTION_ENGINE_BEATREACT_REARM_THRESHOLD = 0.02;
 
 const workflowMotionEngine = {
     _currentObjectUrl: null,
@@ -54,6 +62,8 @@ const workflowMotionEngine = {
     _lastAdvanceMs: 5000, // advanceMs của LƯỢT HIỂN THỊ GẦN NHẤT (gán ở reveal()/transitionTo()) — _activateKenBurns() dùng kẹp trần, KHÔNG tự tính nữa
 
     _beatReactActive: false,
+    _beatReactEnvelope: 0,       // 0-1 — giá trị THẬT dùng tính transform (không phải beatScale thô), xem computeMotionEngineBeatReactEnvelope()
+    _beatReactLastTickMs: 0,     // dùng tính deltaMs cho decay không phụ thuộc framerate — 0 = "lượt tick đầu, chưa có gì để trừ"
 
     _currentLayer() { return this._layerToggle ? motionEngineLayer2 : motionEngineLayer1; },
     _idleLayer() { return this._layerToggle ? motionEngineLayer1 : motionEngineLayer2; },
@@ -232,6 +242,8 @@ const workflowMotionEngine = {
         const shouldRun = this._isActive && rb.enabled && (rb.zoom.enabled || rb.pan.enabled || rb.rotate.enabled);
         if (shouldRun && !this._beatReactActive) {
             this._beatReactActive = true;
+            this._beatReactEnvelope = 0; // bắt đầu vòng MỚI luôn từ baseline — không kế thừa envelope dở từ lượt trước
+            this._beatReactLastTickMs = 0;
             taskManager.addNew(MOTION_ENGINE_BEATREACT_TASK, { time: 0, exe: () => this._tickBeatReact(), mode: 'raf', count: 0 }); // service/task-manager.js
             taskManager.operator(MOTION_ENGINE_BEATREACT_TASK, 'enabled');
         } else if (!shouldRun && this._beatReactActive) {
@@ -251,19 +263,27 @@ const workflowMotionEngine = {
 
     /** Tick per-frame (RAF) — VIẾT LẠI HOÀN TOÀN (30/08/2026, phản hồi Giang mục 1 — "loại bỏ cơ chế
      * beat trong motion, tự động theo nhạc giống beatscale visualizer effect"). KHÔNG còn đếm beat/
-     * bắn pulse rồi tự về gốc — đọc THẲNG `beatScale` (năng lượng LIÊN TỤC, 0-1, CÙNG tín hiệu mọi
+     * bắn pulse rồi tự về gốc — đọc `beatScale` (năng lượng bass tức thời, 0-1, CÙNG tín hiệu mọi
      * hiệu ứng "beatscale" khác trong app đang dùng, xem event/workflow/visualizer-render.js) MỖI
-     * FRAME, nội suy tuyến tính (`computeMotionEngineBeatReactZoomScale()`/
-     * `computeMotionEngineBeatReactOffset()`, core/motion-engine.js) rồi CỘNG DỒN cả 3 hiệu ứng
-     * thành 1 chuỗi `transform` áp lên lớp react DUY NHẤT (bao cả 2 player A/B — mục 3 phản hồi
-     * Giang, xem `_resetBeatReactTransform()`) — nhạc càng mạnh, transform càng tiến về `max`; nhạc
-     * nhẹ/im lặng, transform lui về baseline CỐ ĐỊNH (100%/100%/0°, KHÔNG phải field trong preset —
-     * Giang chốt "min không phải tuỳ chọn"), KHÔNG có khái niệm "trigger"/"thời lượng pulse" nào
-     * nữa. */
+     * FRAME. SỬA (30/08/2026, phản hồi Giang báo bug — "phải chuyển về 100% TRƯỚC KHI nhận beat
+     * mới") — KHÔNG dùng THẲNG `beatScale` làm `energy` nữa (bass kéo dài liên tục sẽ khiến hiệu
+     * ứng mắc kẹt ở mức cao mãi) — đi qua 1 bước ENVELOPE trước
+     * (`computeMotionEngineBeatReactEnvelope()`, core/motion-engine.js): attack tức thời lên
+     * `beatScale` hiện tại, rồi BẮT BUỘC decay tuyến tính hết về baseline trong
+     * `MOTION_ENGINE_BEATREACT_DECAY_MS` mới cho phép attack lần kế — LUÔN có pha "về hẳn 100%"
+     * giữa 2 lần phản ứng, kể cả nhạc bass kéo dài không dứt. Nội suy tuyến tính
+     * (`computeMotionEngineBeatReactZoomScale()`/`computeMotionEngineBeatReactOffset()`,
+     * core/motion-engine.js) rồi CỘNG DỒN cả 3 hiệu ứng thành 1 chuỗi `transform` áp lên lớp react
+     * DUY NHẤT (bao cả 2 player A/B — mục 3 phản hồi Giang, xem `_resetBeatReactTransform()`). */
     _tickBeatReact() {
         const rb = this._activePreset.reactBeatAudio;
         if (!rb.enabled) { this._syncBeatReactLoop(); return; } // preset vừa bị gỡ/tắt beat-react giữa chừng -> tự dừng vòng lặp ĐÚNG NGAY frame này
-        const energy = appState.get('beatScale'); // service/state/visualizer-runtime.js — năng lượng LIÊN TỤC, tính mỗi frame ở event/workflow/visualizer-render.js
+        const now = performance.now();
+        const deltaMs = this._beatReactLastTickMs ? (now - this._beatReactLastTickMs) : 16; // lượt tick đầu (chưa có mốc trước) -> giả định 1 frame ~16ms
+        this._beatReactLastTickMs = now;
+        const beatScale = appState.get('beatScale'); // service/state/visualizer-runtime.js — năng lượng bass tức thời, tính mỗi frame ở event/workflow/visualizer-render.js
+        this._beatReactEnvelope = computeMotionEngineBeatReactEnvelope(this._beatReactEnvelope, beatScale, deltaMs, MOTION_ENGINE_BEATREACT_DECAY_MS, MOTION_ENGINE_BEATREACT_REARM_THRESHOLD); // core
+        const energy = this._beatReactEnvelope;
 
         const zoomScale = rb.zoom.enabled ? computeMotionEngineBeatReactZoomScale(rb.zoom.maxPct, energy) : 1; // core
         const panPct = rb.pan.enabled ? computeMotionEngineBeatReactOffset(rb.pan.direction, rb.pan.maxPct - 100, energy) : 0; // core — trừ baseline 100% (cố định) trước khi truyền
