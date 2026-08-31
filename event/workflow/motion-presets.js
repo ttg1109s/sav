@@ -218,13 +218,14 @@ const workflowMotionPresets = {
      * mù — vẫn 1 hàm, chỉ rẽ nhánh validate ngắn. VIẾT LẠI (30/08/2026, phản hồi Giang — bỏ hẳn
      * `everyNBeats`); SỬA LẠI NGAY sau đó (phản hồi Giang — "min là cố định cứng, không phải tuỳ
      * chọn") — CHỈ còn field `maxPct`/`maxDeg`, KHÔNG có `minPct`/`minDeg` nào để ghi nữa (biên dưới
-     * hardcode trong core/motion-engine.js).
+     * hardcode trong core/motion-engine.js). BỔ SUNG (30/08/2026, phản hồi Giang — checkbox
+     * "reverse") — field boolean CÙNG hình dạng `enabled`/`replaceMovement`, gộp chung nhánh validate.
      * @param {'zoom'|'pan'|'rotate'|null} effectKey - null = field top-level.
-     * @param {string} fieldKey - 'enabled' | 'replaceMovement' | 'maxPct' | 'maxDeg' | 'direction'.
+     * @param {string} fieldKey - 'enabled' | 'replaceMovement' | 'maxPct' | 'maxDeg' | 'direction' | 'reverse'.
      * @param {boolean|number|string} value
      */
     async changeBeatReactField(effectKey, fieldKey, value) {
-        if (fieldKey === 'enabled' || fieldKey === 'replaceMovement') {
+        if (fieldKey === 'enabled' || fieldKey === 'replaceMovement' || fieldKey === 'reverse') {
             if (typeof value !== 'boolean') return;
         } else if (fieldKey === 'maxPct') {
             const [min, max] = effectKey === 'pan' ? [100, 150] : [100, 200]; // zoom

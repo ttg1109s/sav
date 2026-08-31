@@ -62,6 +62,9 @@ const workflowMotionEngine = {
     _beatReactActive: false,
     _beatReactEnvelope: 0,       // 0-1 — giá trị THẬT dùng tính transform (không phải beatScale thô), xem computeMotionEngineBeatReactEnvelope()
     _beatReactLastTickMs: 0,     // dùng tính deltaMs cho decay không phụ thuộc framerate — 0 = "lượt tick đầu, chưa có gì để trừ"
+    _beatReactWasAttacking: false, // frame TRƯỚC: envelope đang ở pha "attack" (bắt theo beatScale) hay "decay" — dùng phát hiện rising-edge "beat mới" cho polarity pan/rotate leftToRight/rightToLeft
+    _beatReactPanPolarity: 0,      // 1/-1 — cực HIỆN TẠI cho pan khi direction leftToRight/rightToLeft; 0 = CHƯA có lượt nào (xem computeMotionEngineBeatReactNextPolarity())
+    _beatReactRotatePolarity: 0,   // tương tự, riêng cho rotate — pan/rotate có thể khác direction/reverse nên tách state riêng
 
     _currentLayer() { return this._layerToggle ? motionEngineLayer2 : motionEngineLayer1; },
     _idleLayer() { return this._layerToggle ? motionEngineLayer1 : motionEngineLayer2; },
@@ -242,6 +245,9 @@ const workflowMotionEngine = {
             this._beatReactActive = true;
             this._beatReactEnvelope = 0; // bắt đầu vòng MỚI luôn từ baseline — không kế thừa envelope dở từ lượt trước
             this._beatReactLastTickMs = 0;
+            this._beatReactWasAttacking = false;
+            this._beatReactPanPolarity = 0;    // reset về "chưa có lượt nào" — lượt beat ĐẦU của ảnh/preset MỚI tự tính lại cực khởi đầu theo direction/reverse
+            this._beatReactRotatePolarity = 0;
             taskManager.addNew(MOTION_ENGINE_BEATREACT_TASK, { time: 0, exe: () => this._tickBeatReact(), mode: 'raf', count: 0 }); // service/task-manager.js
             taskManager.operator(MOTION_ENGINE_BEATREACT_TASK, 'enabled');
         } else if (!shouldRun && this._beatReactActive) {
@@ -267,7 +273,11 @@ const workflowMotionEngine = {
      * bước ENVELOPE (`computeMotionEngineBeatReactEnvelope()`, core/motion-engine.js) — attack tức
      * thời theo đỉnh, decay êm về nhưng KHÔNG khoá/gate gì cả (bản gate cũ ép "phải về hẳn baseline
      * mới attack lại" gây cục giật, cắt đứt khỏi diễn biến thật của nhạc — Giang chốt "vẫn phải có
-     * react liên tục"). Nội suy tuyến tính (`computeMotionEngineBeatReactZoomScale()`/
+     * react liên tục"). SỬA TIẾP (30/08/2026, phản hồi Giang — checkbox "reverse" pan/rotate) — mỗi
+     * lần envelope CHUYỂN từ pha decay sang pha attack (rising edge — "beat mới", xem
+     * `_beatReactWasAttacking`) thì ĐẢO cực (`computeMotionEngineBeatReactNextPolarity()`, core) cho
+     * pan/rotate ĐANG dùng direction "leftToRight"/"rightToLeft" — 2 cực TÁCH RIÊNG (pan/rotate có
+     * thể khác direction/reverse). Nội suy tuyến tính (`computeMotionEngineBeatReactZoomScale()`/
      * `computeMotionEngineBeatReactOffset()`, core/motion-engine.js) rồi CỘNG DỒN cả 3 hiệu ứng
      * thành 1 chuỗi `transform` áp lên lớp react DUY NHẤT (bao cả 2 player A/B — mục 3 phản hồi
      * Giang, xem `_resetBeatReactTransform()`). */
@@ -278,12 +288,25 @@ const workflowMotionEngine = {
         const deltaMs = this._beatReactLastTickMs ? (now - this._beatReactLastTickMs) : 16; // lượt tick đầu (chưa có mốc trước) -> giả định 1 frame ~16ms
         this._beatReactLastTickMs = now;
         const beatScale = appState.get('beatScale'); // service/state/visualizer-runtime.js — năng lượng bass tức thời, tính mỗi frame ở event/workflow/visualizer-render.js
+
+        const isAttacking = beatScale >= this._beatReactEnvelope; // SO với envelope CŨ (trước khi update) — đúng điều kiện "attack" bên trong computeMotionEngineBeatReactEnvelope()
+        const isNewBeat = isAttacking && !this._beatReactWasAttacking; // rising edge — vừa hết 1 đợt decay, bắt đầu attack MỚI = "beat mới"
+        this._beatReactWasAttacking = isAttacking;
+        if (isNewBeat) {
+            if (rb.pan.direction === 'leftToRight' || rb.pan.direction === 'rightToLeft') {
+                this._beatReactPanPolarity = computeMotionEngineBeatReactNextPolarity(this._beatReactPanPolarity, rb.pan.direction, rb.pan.reverse); // core
+            }
+            if (rb.rotate.direction === 'leftToRight' || rb.rotate.direction === 'rightToLeft') {
+                this._beatReactRotatePolarity = computeMotionEngineBeatReactNextPolarity(this._beatReactRotatePolarity, rb.rotate.direction, rb.rotate.reverse); // core
+            }
+        }
+
         this._beatReactEnvelope = computeMotionEngineBeatReactEnvelope(this._beatReactEnvelope, beatScale, deltaMs, MOTION_ENGINE_BEATREACT_DECAY_MS); // core
         const energy = this._beatReactEnvelope;
 
         const zoomScale = rb.zoom.enabled ? computeMotionEngineBeatReactZoomScale(rb.zoom.maxPct, energy) : 1; // core
-        const panPct = rb.pan.enabled ? computeMotionEngineBeatReactOffset(rb.pan.direction, rb.pan.maxPct - 100, energy) : 0; // core — trừ baseline 100% (cố định) trước khi truyền
-        const rotateDeg = rb.rotate.enabled ? computeMotionEngineBeatReactOffset(rb.rotate.direction, rb.rotate.maxDeg, energy) : 0; // core — baseline 0° (cố định), không cần trừ
+        const panPct = rb.pan.enabled ? computeMotionEngineBeatReactOffset(rb.pan.direction, rb.pan.maxPct - 100, energy, this._beatReactPanPolarity || 1) : 0; // core — trừ baseline 100% (cố định) trước khi truyền; polarity||1 phòng lượt ĐẦU (0) chưa kịp tính khi left/right (bỏ qua tham số này)
+        const rotateDeg = rb.rotate.enabled ? computeMotionEngineBeatReactOffset(rb.rotate.direction, rb.rotate.maxDeg, energy, this._beatReactRotatePolarity || 1) : 0; // core — baseline 0° (cố định), không cần trừ
 
         if (motionEngineReactLayer) motionEngineReactLayer.style.transform = `scale(${zoomScale}) translateX(${panPct}%) rotate(${rotateDeg}deg)`;
     },

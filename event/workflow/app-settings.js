@@ -360,6 +360,8 @@ const workflowAppSettings = {
                 });
                 wireBeatReactSelect('setting-motion-beatreact-pan-direction', 'pan', 'direction');
                 wireBeatReactSelect('setting-motion-beatreact-rotate-direction', 'rotate', 'direction');
+                wireBeatReactCheckbox('setting-motion-beatreact-pan-reverse', 'pan', 'reverse');
+                wireBeatReactCheckbox('setting-motion-beatreact-rotate-reverse', 'rotate', 'reverse');
 
                 const resetBtn = body.querySelector('#btn-motion-edit-reset'); // SỬA (29/08/2026) — dời từ header xuống hàng cuối trong body, xem renderMotionEditBody() nhóm "Quản lý"
                 if (resetBtn) resetBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.reset.click', payload: {} }));
