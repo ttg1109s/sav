@@ -63,19 +63,19 @@ function renderMotionListBody(presets, pickMode) {
     return addRowHtml + itemsHtml;
 }
 
-/** Dựng 3 hàng (checkbox bật + [select hướng] + 2 slider min/max biên độ) cho 1 hiệu ứng con
+/** Dựng 3 hàng (checkbox bật + [select hướng] + 1 slider max biên độ) cho 1 hiệu ứng con
  * (zoom/pan/rotate) trong nhóm "React Beat Audio" — DÙNG CHUNG cả 3, tránh lặp HTML gần giống
- * nhau 3 lần (chỉ khác: có/không select hướng, biên min/max/step/hậu tố, tên field). VIẾT LẠI
- * (30/08/2026, phản hồi Giang mục 1/2 — bỏ hẳn slider "mỗi N beat", biên độ KHÔNG còn 1 mốc "phóng
- * cứng" mà là 2 slider min/max nội suy TUYẾN TÍNH theo năng lượng nhạc liên tục, xem
- * core/motion-engine.js::computeMotionEngineBeatReactZoomScale()/computeMotionEngineBeatReactOffset()).
+ * nhau 3 lần (chỉ khác: có/không select hướng, biên/step/hậu tố, tên field). VIẾT LẠI (30/08/2026,
+ * phản hồi Giang mục 1/2 — bỏ hẳn slider "mỗi N beat"); SỬA LẠI NGAY sau đó (phản hồi Giang — "min
+ * là cố định cứng, không phải tuỳ chọn") — CHỈ 1 slider `max` DUY NHẤT (100-200/100-150/0-360), biên
+ * dưới (baseline) CỐ ĐỊNH CỨNG trong công thức nội suy, KHÔNG phải field/slider nào ở đây, xem
+ * core/motion-engine.js::computeMotionEngineBeatReactZoomScale()/computeMotionEngineBeatReactOffset().
  * @param {'zoom'|'pan'|'rotate'} key - dùng làm phần ID (`setting-motion-beatreact-${key}-*`).
- * @param {object} effect - `preset.reactBeatAudio[key]` — {enabled, minPct|minDeg, maxPct|maxDeg, direction?}.
- * @param {{titleKey:string, minLabelKey:string, maxLabelKey:string, boundMin:number, boundMax:number, step:number, suffix:string, hasDirection:boolean, isLast?:boolean}} cfg
+ * @param {object} effect - `preset.reactBeatAudio[key]` — {enabled, maxPct|maxDeg, direction?}.
+ * @param {{titleKey:string, maxLabelKey:string, boundMin:number, boundMax:number, step:number, suffix:string, hasDirection:boolean, isLast?:boolean}} cfg
  */
 function renderMotionBeatReactEffectRows(key, effect, cfg) {
     const isDeg = key === 'rotate';
-    const minVal = isDeg ? effect.minDeg : effect.minPct;
     const maxVal = isDeg ? effect.maxDeg : effect.maxPct;
     const borderClass = cfg.isLast ? '' : ' border-b border-white/5';
     const directionHtml = cfg.hasDirection ? `
@@ -95,11 +95,6 @@ function renderMotionBeatReactEffectRows(key, effect, cfg) {
                                 <span class="text-sm font-medium" data-i18n="${cfg.titleKey}">${t(cfg.titleKey)}</span>
                             </label>
                             ${directionHtml}
-                            <div class="flex justify-between items-center mb-1.5">
-                                <span class="text-xs text-slate-400" data-i18n="${cfg.minLabelKey}">${t(cfg.minLabelKey)}</span>
-                                <span id="motion-beatreact-${key}-min-label" class="text-xs text-slate-300 font-mono">${minVal}${cfg.suffix}</span>
-                            </div>
-                            <input type="range" id="setting-motion-beatreact-${key}-min" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${minVal}" class="w-full accent-sky-500 mb-3">
                             <div class="flex justify-between items-center mb-1.5">
                                 <span class="text-xs text-slate-400" data-i18n="${cfg.maxLabelKey}">${t(cfg.maxLabelKey)}</span>
                                 <span id="motion-beatreact-${key}-max-label" class="text-xs text-slate-300 font-mono">${maxVal}${cfg.suffix}</span>
@@ -212,15 +207,17 @@ function renderMotionEditBody(preset) {
                 <!-- ===================== NHÓM 3: REACT BEAT AUDIO ===================== -->
                 <!-- MỚI (29/08/2026, phản hồi Giang); VIẾT LẠI (30/08/2026, phản hồi Giang mục 1/2 —
                      bỏ hẳn cơ chế "bắn theo beat", giờ zoom/pan/rotate LIÊN TỤC tự động theo năng
-                     lượng nhạc, cùng cách các beatscale visualizer effect khác trong app đang dùng).
-                     2 toggle ĐẦU (enabled/replaceMovement) LUÔN hiện — cùng quy ước Transition/Ken
-                     Burns (không ẩn field theo toggle). 3 cụm con (Zoom/Pan/Rotate) mỗi cụm 1
-                     checkbox VUÔNG (khác pill-toggle 2 cái trên — đúng chữ "checkbox" Giang dùng,
-                     phân biệt 3 cái ĐỘC LẬP có thể tick 1/vài/cả 3 cùng lúc) + 2 slider min/max biên
-                     độ (nội suy tuyến tính theo năng lượng, KHÔNG còn slider "N beat") thay vì mở
-                     modal riêng — đỡ phải dựng thêm picker mới, cùng khuôn slider "In/Out ratio" đã
-                     có (Transition). -->
+                     lượng nhạc, cùng cách các beatscale visualizer effect khác trong app đang dùng);
+                     SỬA LẠI NGAY sau đó (phản hồi Giang — "min là cố định cứng, không phải tuỳ
+                     chọn"). 2 toggle ĐẦU (enabled/replaceMovement) LUÔN hiện — cùng quy ước
+                     Transition/Ken Burns (không ẩn field theo toggle). 3 cụm con (Zoom/Pan/Rotate)
+                     mỗi cụm 1 checkbox VUÔNG (khác pill-toggle 2 cái trên — đúng chữ "checkbox"
+                     Giang dùng, phân biệt 3 cái ĐỘC LẬP có thể tick 1/vài/cả 3 cùng lúc) + ĐÚNG 1
+                     slider "max" biên độ (nội suy tuyến tính từ baseline CỐ ĐỊNH theo năng lượng,
+                     KHÔNG có slider "min"/"N beat" nào) thay vì mở modal riêng — đỡ phải dựng thêm
+                     picker mới, cùng khuôn slider "In/Out ratio" đã có (Transition). -->
                 <div>
+
                     <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="motionPresetsDrawer.beatReact.groupTitle">${t('motionPresetsDrawer.beatReact.groupTitle')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
@@ -243,21 +240,18 @@ function renderMotionEditBody(preset) {
 
                         ${renderMotionBeatReactEffectRows('zoom', preset.reactBeatAudio.zoom, {
                             titleKey: 'motionPresetsDrawer.beatReact.zoom.title',
-                            minLabelKey: 'motionPresetsDrawer.beatReact.zoom.minLabel',
                             maxLabelKey: 'motionPresetsDrawer.beatReact.zoom.maxLabel',
                             boundMin: 100, boundMax: 200, step: 5, suffix: '%',
                             hasDirection: false,
                         })}
                         ${renderMotionBeatReactEffectRows('pan', preset.reactBeatAudio.pan, {
                             titleKey: 'motionPresetsDrawer.beatReact.pan.title',
-                            minLabelKey: 'motionPresetsDrawer.beatReact.pan.minLabel',
                             maxLabelKey: 'motionPresetsDrawer.beatReact.pan.maxLabel',
                             boundMin: 100, boundMax: 150, step: 5, suffix: '%',
                             hasDirection: true,
                         })}
                         ${renderMotionBeatReactEffectRows('rotate', preset.reactBeatAudio.rotate, {
                             titleKey: 'motionPresetsDrawer.beatReact.rotate.title',
-                            minLabelKey: 'motionPresetsDrawer.beatReact.rotate.minLabel',
                             maxLabelKey: 'motionPresetsDrawer.beatReact.rotate.maxLabel',
                             boundMin: 0, boundMax: 360, step: 15, suffix: '°',
                             hasDirection: true,
