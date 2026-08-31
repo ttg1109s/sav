@@ -63,15 +63,21 @@ function renderMotionListBody(presets, pickMode) {
     return addRowHtml + itemsHtml;
 }
 
-/** Dựng 3 hàng (checkbox bật + [select hướng] + 1 slider max biên độ) cho 1 hiệu ứng con
- * (zoom/pan/rotate) trong nhóm "React Beat Audio" — DÙNG CHUNG cả 3, tránh lặp HTML gần giống
- * nhau 3 lần (chỉ khác: có/không select hướng, biên/step/hậu tố, tên field). VIẾT LẠI (30/08/2026,
- * phản hồi Giang mục 1/2 — bỏ hẳn slider "mỗi N beat"); SỬA LẠI NGAY sau đó (phản hồi Giang — "min
- * là cố định cứng, không phải tuỳ chọn") — CHỈ 1 slider `max` DUY NHẤT (100-200/100-150/0-360), biên
- * dưới (baseline) CỐ ĐỊNH CỨNG trong công thức nội suy, KHÔNG phải field/slider nào ở đây, xem
- * core/motion-engine.js::computeMotionEngineBeatReactZoomScale()/computeMotionEngineBeatReactOffset().
+/** Dựng 3 hàng (checkbox bật + [select hướng [+ checkbox reverse]] + 1 slider max biên độ) cho 1
+ * hiệu ứng con (zoom/pan/rotate) trong nhóm "React Beat Audio" — DÙNG CHUNG cả 3, tránh lặp HTML
+ * gần giống nhau 3 lần (chỉ khác: có/không select hướng, biên/step/hậu tố, tên field). VIẾT LẠI
+ * (30/08/2026, phản hồi Giang mục 1/2 — bỏ hẳn slider "mỗi N beat"); SỬA LẠI NGAY sau đó (phản hồi
+ * Giang — "min là cố định cứng, không phải tuỳ chọn") — CHỈ 1 slider `max` DUY NHẤT (100-200/100-150/
+ * 0-360), biên dưới (baseline) CỐ ĐỊNH CỨNG trong công thức nội suy, KHÔNG phải field/slider nào ở
+ * đây, xem core/motion-engine.js::computeMotionEngineBeatReactZoomScale()/computeMotionEngineBeatReactOffset().
+ * BỔ SUNG (30/08/2026, phản hồi Giang — checkbox "reverse") — thêm 1 checkbox NGAY dưới select hướng
+ * (CHỈ hiện khi `hasDirection`, tức pan/rotate — zoom không có direction nên không có reverse) — chỉ
+ * thật sự có tác dụng khi hướng đang chọn là "leftToRight"/"rightToLeft" (đảo cực lượt beat ĐẦU TIÊN,
+ * xem core/motion-engine.js::computeMotionEngineBeatReactNextPolarity()), nhưng vẫn LUÔN hiện (KHÔNG
+ * ẩn/hiện động theo select hướng đang chọn) — cùng quy ước "field chi tiết luôn hiện, không ẩn theo
+ * điều kiện khác" đã áp cho cả nhóm React Beat Audio từ đầu.
  * @param {'zoom'|'pan'|'rotate'} key - dùng làm phần ID (`setting-motion-beatreact-${key}-*`).
- * @param {object} effect - `preset.reactBeatAudio[key]` — {enabled, maxPct|maxDeg, direction?}.
+ * @param {object} effect - `preset.reactBeatAudio[key]` — {enabled, maxPct|maxDeg, direction?, reverse?}.
  * @param {{titleKey:string, maxLabelKey:string, boundMin:number, boundMax:number, step:number, suffix:string, hasDirection:boolean, isLast?:boolean}} cfg
  */
 function renderMotionBeatReactEffectRows(key, effect, cfg) {
@@ -87,7 +93,11 @@ function renderMotionBeatReactEffectRows(key, effect, cfg) {
                                 <option value="leftToRight" ${effect.direction === 'leftToRight' ? 'selected' : ''} data-i18n="motionPresetsDrawer.beatReact.direction.leftToRight">${t('motionPresetsDrawer.beatReact.direction.leftToRight')}</option>
                                 <option value="rightToLeft" ${effect.direction === 'rightToLeft' ? 'selected' : ''} data-i18n="motionPresetsDrawer.beatReact.direction.rightToLeft">${t('motionPresetsDrawer.beatReact.direction.rightToLeft')}</option>
                             </select>
-                        </div>` : '';
+                        </div>
+                        <label class="flex items-center gap-2.5 px-4 pb-3 cursor-pointer">
+                            <input type="checkbox" id="setting-motion-beatreact-${key}-reverse" class="w-4 h-4 rounded accent-sky-500 shrink-0" ${effect.reverse ? 'checked' : ''}>
+                            <span class="text-xs text-slate-400" data-i18n="motionPresetsDrawer.beatReact.reverse.label">${t('motionPresetsDrawer.beatReact.reverse.label')}</span>
+                        </label>` : '';
     return `
                         <div class="p-4${borderClass}">
                             <label class="flex items-center gap-2.5 mb-3 cursor-pointer">
@@ -126,15 +136,28 @@ function renderMotionEditBody(preset) {
                                 <option value="fade" ${preset.transitionType === 'fade' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.fade">${t('motionSettingsDrawer.transition.fade')}</option>
                                 <option value="slideLeft" ${preset.transitionType === 'slideLeft' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.slideLeft">${t('motionSettingsDrawer.transition.slideLeft')}</option>
                                 <option value="slideRight" ${preset.transitionType === 'slideRight' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.slideRight">${t('motionSettingsDrawer.transition.slideRight')}</option>
+                                <option value="slideUp" ${preset.transitionType === 'slideUp' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.slideUp">${t('motionSettingsDrawer.transition.slideUp')}</option>
+                                <option value="slideDown" ${preset.transitionType === 'slideDown' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.slideDown">${t('motionSettingsDrawer.transition.slideDown')}</option>
                                 <option value="zoomIn" ${preset.transitionType === 'zoomIn' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.zoomIn">${t('motionSettingsDrawer.transition.zoomIn')}</option>
                                 <option value="zoomOut" ${preset.transitionType === 'zoomOut' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.zoomOut">${t('motionSettingsDrawer.transition.zoomOut')}</option>
                                 <option value="wipe" ${preset.transitionType === 'wipe' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.wipe">${t('motionSettingsDrawer.transition.wipe')}</option>
                                 <option value="flip" ${preset.transitionType === 'flip' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flip">${t('motionSettingsDrawer.transition.flip')}</option>
+                                <option value="flipLeftEdge" ${preset.transitionType === 'flipLeftEdge' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipLeftEdge">${t('motionSettingsDrawer.transition.flipLeftEdge')}</option>
+                                <option value="flipRightEdge" ${preset.transitionType === 'flipRightEdge' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipRightEdge">${t('motionSettingsDrawer.transition.flipRightEdge')}</option>
+                                <option value="flipVertical" ${preset.transitionType === 'flipVertical' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipVertical">${t('motionSettingsDrawer.transition.flipVertical')}</option>
+                                <option value="flipTopEdge" ${preset.transitionType === 'flipTopEdge' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipTopEdge">${t('motionSettingsDrawer.transition.flipTopEdge')}</option>
+                                <option value="flipBottomEdge" ${preset.transitionType === 'flipBottomEdge' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipBottomEdge">${t('motionSettingsDrawer.transition.flipBottomEdge')}</option>
+                                <option value="wideLeft" ${preset.transitionType === 'wideLeft' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.wideLeft">${t('motionSettingsDrawer.transition.wideLeft')}</option>
+                                <option value="wideRight" ${preset.transitionType === 'wideRight' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.wideRight">${t('motionSettingsDrawer.transition.wideRight')}</option>
+                                <option value="wideUp" ${preset.transitionType === 'wideUp' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.wideUp">${t('motionSettingsDrawer.transition.wideUp')}</option>
+                                <option value="wideDown" ${preset.transitionType === 'wideDown' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.wideDown">${t('motionSettingsDrawer.transition.wideDown')}</option>
                                 <option value="blur" ${preset.transitionType === 'blur' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.blur">${t('motionSettingsDrawer.transition.blur')}</option>
                                 <option value="rotateFade" ${preset.transitionType === 'rotateFade' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.rotateFade">${t('motionSettingsDrawer.transition.rotateFade')}</option>
                                 <option value="curtain" ${preset.transitionType === 'curtain' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.curtain">${t('motionSettingsDrawer.transition.curtain')}</option>
                                 <option value="circleReveal" ${preset.transitionType === 'circleReveal' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.circleReveal">${t('motionSettingsDrawer.transition.circleReveal')}</option>
                                 <option value="glitch" ${preset.transitionType === 'glitch' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.glitch">${t('motionSettingsDrawer.transition.glitch')}</option>
+                                <option value="whipPan" ${preset.transitionType === 'whipPan' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.whipPan">${t('motionSettingsDrawer.transition.whipPan')}</option>
+                                <option value="spinIn" ${preset.transitionType === 'spinIn' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.spinIn">${t('motionSettingsDrawer.transition.spinIn')}</option>
                             </select>
                         </div>
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
