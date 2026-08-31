@@ -47,20 +47,31 @@
  * rộng pivot (center có sẵn = 'flip'; + left/right-edge cho trục ngang — rotateY; + center/top/
  * bottom-edge cho trục dọc — rotateX, Giang gọi "dọc"), whipPan/spinIn (thêm, lấy cảm hứng CapCut,
  * CSS thuần khả thi — filter blur/transform rotate, không cần WebGL/canvas)) — 13 kiểu MỚI, xem
- * @keyframes tương ứng ở assets/css/motion-engine.css để biết chi tiết từng kiểu. */
+ * @keyframes tương ứng ở assets/css/motion-engine.css để biết chi tiết từng kiểu.
+ * BỔ SUNG TIẾP (30/08/2026, phản hồi Giang làm rõ) — 'flip' (pivot center, trục ngang) VỐN chỉ có 1
+ * hướng (Giang gọi "trái"), 'flipVertical' (pivot center, trục dọc) cũng chỉ 1 hướng ("lên") — Giang
+ * chốt "center sẽ có 4 hướng up/down/left/right" -> thêm 'flipRight' (gương của 'flip')/'flipDown'
+ * (gương của 'flipVertical') cho ĐỦ 4. Pivot edge (left/right/top/bottom-Edge, đã có từ bản trước)
+ * VỐN ĐÃ có đủ "2 chiều đóng lại/mở ra" NGAY TRONG 1 type (enter=mở, exit=đóng — đúng ẩn dụ gập
+ * trang sách Giang mô tả) nên KHÔNG thêm type edge nào nữa. 'wipe' VỐN chỉ có 1 hướng (Giang gọi
+ * "left") -> thêm 'wipeRight'/'wipeUp'/'wipeDown'. */
 const MOTION_ENGINE_TRANSITION_TYPES = [
-    'fade', 'slideLeft', 'slideRight', 'slideUp', 'slideDown', 'zoomIn', 'zoomOut', 'wipe',
-    'flip', 'flipLeftEdge', 'flipRightEdge', 'flipVertical', 'flipTopEdge', 'flipBottomEdge',
+    'fade', 'slideLeft', 'slideRight', 'slideUp', 'slideDown', 'zoomIn', 'zoomOut',
+    'wipe', 'wipeRight', 'wipeUp', 'wipeDown',
+    'flip', 'flipRight', 'flipVertical', 'flipDown',
+    'flipLeftEdge', 'flipRightEdge', 'flipTopEdge', 'flipBottomEdge',
     'wideLeft', 'wideRight', 'wideUp', 'wideDown',
     'blur', 'rotateFade', 'curtain', 'circleReveal', 'glitch', 'whipPan', 'spinIn',
 ];
 
-/** MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh") — 3 kiểu KHÔNG có
+/** MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh") — kiểu KHÔNG có
  * pha "out" độc lập: layer CŨ đứng yên bất động (`animation: none; opacity: 1;`, xem assets/css/
  * motion-engine.css mục 6/10/11), hiệu ứng CHỈ đến từ layer MỚI phủ dần lên bằng clip-path. Khái niệm
- * "tỉ lệ In/Out" KHÔNG áp dụng được cho 3 kiểu này — Settings Drawer tự ẨN mục đó khi 1 trong 3
- * đang được chọn (xem `transitionSupportsInOutRatio()` ngay dưới + event/workflow/motion-engine.js). */
-const MOTION_ENGINE_TRANSITION_TYPES_NO_OUT = ['wipe', 'curtain', 'circleReveal'];
+ * "tỉ lệ In/Out" KHÔNG áp dụng được cho các kiểu này — Settings Drawer tự ẨN mục đó khi 1 trong số
+ * đang được chọn (xem `transitionSupportsInOutRatio()` ngay dưới + event/workflow/motion-engine.js).
+ * BỔ SUNG (30/08/2026, phản hồi Giang — thêm 3 hướng wipe) — 'wipeRight'/'wipeUp'/'wipeDown' CÙNG
+ * cơ chế clip-path phủ dần như 'wipe' gốc (không phải pha "out" riêng), PHẢI liệt kê chung ở đây. */
+const MOTION_ENGINE_TRANSITION_TYPES_NO_OUT = ['wipe', 'wipeRight', 'wipeUp', 'wipeDown', 'curtain', 'circleReveal'];
 
 /** Biên thời gian transition [1s, 60s] — Giang chốt: min 1s (tránh transition "0 giây" vô nghĩa),
  * max 60s (khớp modal picker mới, format 's-ms'). Cũng dùng làm 2 mốc validate config đã lưu. */
@@ -73,7 +84,7 @@ const MOTION_ENGINE_TRANSITION_EASINGS = ['linear', 'ease', 'ease-in', 'ease-out
 
 /**
  * Core thuần: kiểm tra 1 kiểu transition CÓ pha "out" độc lập hay không (xem
- * MOTION_ENGINE_TRANSITION_TYPES_NO_OUT ngay trên để biết lý do 3 kiểu không có).
+ * MOTION_ENGINE_TRANSITION_TYPES_NO_OUT ngay trên để biết lý do các kiểu đó không có).
  * @param {string} transitionType
  * @returns {boolean}
  */
