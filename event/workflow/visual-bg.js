@@ -14,11 +14,17 @@ let visualBgVideoAudioPanelEl = null; // SỬA (đợt migrate Visualizer Screen
 // `durationSeconds` giây, KHÔNG chờ video tự phát hết) — tên task taskManager DUY NHẤT cho hẹn giờ
 // này, xem `_maybeScheduleVideoFixTime()`/`_killVideoFixTimeTimer()`.
 const VISUAL_BG_VIDEO_FIXTIME_TASK = 'visualBgVideoFixTime';
+// MỚI (29/08/2026, phản hồi Giang — "Motion cung cấp cơ chế, VBG quyết định khi nào/có dùng hay
+// không") — hẹn giờ tự chuyển ẢNH kế, giờ sống Ở ĐÂY (KHÔNG còn trong workflowMotionEngine) — CÙNG
+// nguyên tắc VISUAL_BG_VIDEO_FIXTIME_TASK ngay trên: VBG tự sở hữu MỌI quyết định "khi nào chuyển
+// item kế" cho CẢ 2 type, Motion Engine chỉ còn là hàm render THUẦN được gọi TỚI, không tự quyết gì.
+const VISUAL_BG_PHOTO_ADVANCE_TASK = 'visualBgPhotoAdvance';
 
 const workflowVisualBg = {
-    _listIndex: -1,            // vị trí hiện tại trong `source.list` — CHỈ dùng cho nhánh video ở đây
+    _listIndex: -1,            // vị trí hiện tại trong `source.list` — DÙNG CHUNG video LẪN ảnh (SỬA 29/08/2026 — trước chỉ video, giờ ảnh cũng dùng field NÀY, vì VBG chỉ chạy 1 type tại 1 thời điểm, không xung đột)
     _isSwappingVideo: false,   // MỚI (08/08/2026, fix race "video chạy/lặp/đen màn thất thường") — xem docstring _playVideoKey()/syncPlaybackToAudio()
     _currentVideoKey: null,    // MỚI (08/08/2026, viết lại theo đúng khuôn Play mode) — key video ĐANG THẬT SỰ nạp trong bgVideoElement, RIÊNG của domain này (KHÔNG dùng appState.currentKey — khoá đó thuộc bài hát/video ĐANG PHÁT THẬT, video nền trang trí không được đụng, xem ver12 Song/Video Unification). Dùng làm nguồn so sánh cho guard "đã đúng video này rồi" ở _playVideoKey(), y hệt cách playVideoByKey() so appState.currentKey.
+    _photoRecord: null,        // MỚI (29/08/2026) — record ảnh ĐANG hiện (nhánh photo) — dùng tính `_computePhotoAdvanceMs()` mode 'duration' (record.duration riêng từng ảnh) mà không phải đọc DB lại mỗi lần
     _colorPersistTimer: null,
     _videoAudioRows: null,     // MỚI (08/08/2026) — cache {key,name}[] đọc lúc mở panel "Âm thanh Video", xem openVideoAudioPanel()/openVideoAudioVolumeModal()
     _stuckRecoveryTimer: null, // MỚI (09/08/2026, mục 3) — fallback taskManager.once() khi key hiện tại !record/null giữa lúc cycle mode 'slideshow' (không video nào phát -> 'ended' không bao giờ bắn -> treo), xem _scheduleStuckRecoveryTimer()/_killStuckRecoveryTimer()
@@ -236,10 +242,12 @@ const workflowVisualBg = {
      * MỚI (09/08/2026, cơ chế pending, phản hồi Giang) — kiểm tra + áp `cfg.pending` nếu có. Dùng
      * CHUNG cho MỌI điểm "lượt kế tiếp" của CẢ 2 type (photo lẫn video) — video hết/đổi bài hát
      * (`advanceForSongChange()`/`_onVideoEnded()` ở dưới), ảnh hết tick/đổi bài hát
-     * (`workflowMotionEngine._tick()`/`advanceForSongChange()`, liên tuyến domain gọi NGAY hàm này),
+     * (`_photoTick()`/`advanceForSongChange()`, SỬA 29/08/2026 — giờ đều NỘI BỘ domain này, không
+     * còn liên tuyến domain từ Motion Engine nữa — xem docstring đầu file),
      * và boot (`loadPersistedSettingsOnBoot()` ở trên) — Giang chốt "1 cơ chế, không tách riêng
-     * theo listPlaybackMode/type". PUBLIC (không dấu `_`) vì `workflowMotionEngine` cần gọi liên tuyến
-     * domain (nguồn sự thật `pending`/`source` vẫn thuộc domain này, cùng nguyên tắc ownership đã
+     * theo listPlaybackMode/type". PUBLIC (không dấu `_`) — vẫn giữ public vì
+     * `workflowVideoPlayer`/router cũng gọi được (liên tuyến domain khác, không phải Motion Engine
+     * nữa) — nguồn sự thật `pending`/`source` vẫn thuộc domain này, cùng nguyên tắc ownership đã
      * áp cho `persistSourceListMutation()`/`selfHealEmptySource()`).
      * KHÔNG tự tính lại `firstIndex()`/mảng — giao thẳng cho `applyCurrentVisualBg()` (CHÍNH XÁC
      * quy trình "chọn nguồn mới" đã có sẵn, tự `clearMediaLayers()` reset `_listIndex=-1`/
@@ -274,7 +282,9 @@ const workflowVisualBg = {
     clearMediaLayers() {
         const { visualBgImageObjectUrl } = appState.get(['visualBgImageObjectUrl']);
         if (typeof workflowMotionEngine !== 'undefined') workflowMotionEngine.stop();
+        taskManager.kill(VISUAL_BG_PHOTO_ADVANCE_TASK); // MỚI (29/08/2026) — hẹn giờ chuyển ảnh giờ sống Ở ĐÂY, phải tự dọn (Motion Engine.stop() ở dòng trên không còn biết gì về hẹn giờ này nữa)
         this._listIndex = -1;
+        this._photoRecord = null; // MỚI (29/08/2026)
         this._currentVideoKey = null; // MỚI — dọn theo, xem docstring khai báo field ở đầu object
         this._killStuckRecoveryTimer(); // MỚI (09/08/2026, mục 3) — VBG đang bị dọn hẳn, huỷ fallback đang chờ (nếu có)
         this._killVideoFixTimeTimer(); // MỚI (29/08/2026) — dọn hẳn/nhường bgVideoElement (Video Player mode) -> hẹn giờ "Fix time" của video VBG cũ hết ý nghĩa
@@ -288,15 +298,112 @@ const workflowVisualBg = {
         appState.set('visualBgImageObjectUrl', '');
     },
 
-    /** list.length<=1 -> áp tĩnh trực tiếp (không qua engine ảnh); >1 -> giao cho
-     * `workflowMotionEngine` (transition/Ken Burns, đọc DB theo key khi cần). */
+    /** MỚI (29/08/2026, phản hồi Giang — "Motion cung cấp cơ chế, VBG quyết định khi nào/có dùng hay
+     * không") — đọc preset Motion ĐANG GẮN cho Photo VBG. Nơi DUY NHẤT trong toàn app đọc
+     * `motionPresetId`/tra `appState.motionPresets` — `workflowMotionEngine` KHÔNG tự đọc nữa (nhận
+     * preset ĐÃ resolve qua tham số mỗi lần gọi `reveal()`/`transitionTo()`). Chưa gắn/preset không
+     * còn tồn tại -> `MOTION_ENGINE_NO_OP_PRESET` (core/motion-engine.js) — KHÔNG throw, KHÔNG tự
+     * chọn preset khác thay thế.
+     * @returns {object}
+     */
+    _currentMotionPreset() {
+        const presetId = appConfigVisualBg.getAll().motionPresetId;
+        const preset = presetId ? findMotionPresetById(appState.get('motionPresets'), presetId) : null; // core/motion-presets.js
+        return preset || (typeof MOTION_ENGINE_NO_OP_PRESET !== 'undefined' ? MOTION_ENGINE_NO_OP_PRESET : null); // event/workflow/motion-engine.js
+    },
+
+    /** Thời lượng hiển thị 1 ảnh (ms) — MỚI (29/08/2026, dời từ workflowMotionEngine — field
+     * `durationMode`/`durationSeconds` LUÔN thuộc VBG, kể cả lúc CHƯA có khái niệm Motion). DÙNG
+     * CHUNG cho: (1) hẹn giờ tự chuyển ảnh kế (`_syncPhotoTicking()`), (2) tham số kẹp trần
+     * Transition/Ken Burns truyền cho `workflowMotionEngine` (vẫn kẹp ĐÚNG dù không gắn Motion nào —
+     * chỉ là kẹp 1 preset "tắt hết", không có gì để kẹp, vô hại).
+     * @param {object|null} record - record ảnh ĐANG/SẮP hiện (mode 'duration' cần `record.duration`).
+     * @returns {number}
+     */
+    _computePhotoAdvanceMs(record) {
+        const cfg = appConfigVisualBg.getAll();
+        if (cfg.durationMode === 'fixtime') return Math.max(5, cfg.durationSeconds) * 1000;
+        const durationSec = (record && record.duration) || 5;
+        return Math.max(1000, durationSec * 1000); // sàn 1s — phòng record.duration hỏng/âm
+    },
+
+    /** list.length<=1 -> áp tĩnh trực tiếp (không qua Motion Engine, không hẹn giờ chuyển ảnh — chỉ
+     * 1 ảnh thì không có gì để chuyển sang); >1 -> bắt đầu cycle (VBG tự sở hữu hẹn giờ, xem
+     * `_startPhotoCycle()`). */
     async _applyPhoto(cfg) {
         const list = cfg.source.list;
         if (list.length <= 1) {
             if (list[0]) await this._playSinglePhotoKey(list[0]);
             return;
         }
-        if (typeof workflowMotionEngine !== 'undefined') await workflowMotionEngine.startFromList(list, cfg.nextOrder);
+        await this._startPhotoCycle(cfg);
+    },
+
+    /** Bắt đầu 1 vòng cycle ảnh MỚI — chọn item đầu (`firstIndex()`, DÙNG CHUNG với video), hiện nó
+     * TĨNH qua `workflowMotionEngine.reveal()` (đã resolve preset + advanceMs sẵn), rồi tự đặt/không
+     * đặt hẹn giờ tuỳ điều kiện HIỆN TẠI (`_syncPhotoTicking()`). */
+    async _startPhotoCycle(cfg) {
+        const { list: startList, index } = this.firstIndex(cfg.source.list, cfg.nextOrder === 'random');
+        if (startList !== cfg.source.list) await this.persistSourceListMutation(startList); // random bốc trúng vị trí cuối ngay lượt đầu -> đã xáo lại, ghi lại mảng mới
+        this._listIndex = index;
+        const key = startList[index];
+        if (!key) { this._syncPhotoTicking(); return; } // null ngay từ đầu (hiếm — mảng vừa sweep) -> đứng yên, hẹn giờ tự thử advance qua chỗ khác ở tick sau
+        const record = await getImageRecord(key); // service/db.js
+        if (!record || !record.blob) {
+            const newList = markVisualBgListItemMissing(startList, index); // core/visual-bg.js — CÙNG xử lý record mất như mọi điểm khác (_photoTick())
+            await this.persistSourceListMutation(newList);
+            this._syncPhotoTicking(); // vẫn hẹn giờ thử advance qua chỗ khác, dù ảnh ĐẦU chưa hiện được gì
+            return;
+        }
+        this._photoRecord = record;
+        const advanceMs = this._computePhotoAdvanceMs(record);
+        if (typeof workflowMotionEngine !== 'undefined') await workflowMotionEngine.reveal(key, this._currentMotionPreset(), advanceMs);
+        this._syncPhotoTicking();
+    },
+
+    /** Bật/tắt hẹn giờ tự chuyển ảnh kế theo đúng điều kiện HIỆN TẠI — gọi lại MỖI LẦN điều kiện CÓ
+     * THỂ vừa đổi: bắt đầu cycle, mỗi tick xong (rearm cho vòng kế), Song play/pause
+     * (`syncPlaybackToAudio()`). Điều kiện CHẠY: type='photo' + Song đang phát thật + KHÔNG phải
+     * `perSong` (mode đó chuyển ảnh do ĐỔI BÀI quyết định, không phải hẹn giờ) + còn >1 item sống. */
+    _syncPhotoTicking() {
+        const cfg = appConfigVisualBg.getAll();
+        const shouldRun = cfg.type === 'photo' && !audioPlayer.paused && cfg.listPlaybackMode !== 'perSong' && this._effectiveCount(cfg.source.list) > 1;
+        if (shouldRun) {
+            taskManager.once(() => this._photoTick(), this._computePhotoAdvanceMs(this._photoRecord), VISUAL_BG_PHOTO_ADVANCE_TASK); // service/task-manager.js
+        } else {
+            taskManager.kill(VISUAL_BG_PHOTO_ADVANCE_TASK);
+        }
+    },
+
+    /** 1 nhịp cycle: check pending TRƯỚC (cùng nguyên tắc `_checkAndApplyPendingSource()` dùng
+     * chung mọi điểm "lượt kế tiếp"), rồi bước index qua `advanceList()` (DÙNG CHUNG video, dọn null
+     * nếu vừa hết 1 vòng, random tự xáo lại nếu vừa chạm vị trí cuối), đọc DB, gọi
+     * `workflowMotionEngine.transitionTo()`. Null/record mất -> đánh dấu/giữ nguyên ảnh cũ (KHÔNG tự
+     * thử tiếp), vẫn rearm hẹn giờ cho vòng SAU (khác bug cũ — hẹn giờ giờ KHÔNG BAO GIỜ đứng hình,
+     * kể cả gặp item hỏng liên tiếp, vì rearm nằm ở `_syncPhotoTicking()` gọi CUỐI MỌI nhánh). */
+    async _photoTick() {
+        if (await this._checkAndApplyPendingSource()) return; // đã tự applyCurrentVisualBg() lại từ đầu — KHÔNG chạy tiếp gì ở đây
+        const cfg = appConfigVisualBg.getAll();
+        if (cfg.type !== 'photo') return; // đổi type giữa chừng (hiếm, race) -> bỏ qua, nhánh mới đã tự lo qua applyCurrentVisualBg()
+        const isRandom = cfg.nextOrder === 'random';
+        const { list, index } = this.advanceList(cfg.source.list, this._listIndex, isRandom);
+        if (index === -1) { await this.selfHealEmptySource(); return; } // tự gỡ hẳn nguồn — không còn gì để mà rearm hẹn giờ nữa
+        if (list !== cfg.source.list) await this.persistSourceListMutation(list);
+        this._listIndex = index;
+        const key = list[index];
+        if (!key) { this._syncPhotoTicking(); return; } // null (đang chờ dọn) -> giữ ảnh đang hiện, vẫn rearm cho vòng sau
+
+        const record = await getImageRecord(key); // service/db.js
+        if (!record || !record.blob) {
+            const newList = markVisualBgListItemMissing(list, index); // core/visual-bg.js
+            await this.persistSourceListMutation(newList);
+            this._syncPhotoTicking(); // giữ ảnh đang hiện, vẫn rearm cho vòng sau
+            return;
+        }
+        this._photoRecord = record;
+        const advanceMs = this._computePhotoAdvanceMs(record);
+        if (typeof workflowMotionEngine !== 'undefined') await workflowMotionEngine.transitionTo(key, this._currentMotionPreset(), advanceMs);
+        this._syncPhotoTicking(); // rearm cho vòng KẾ — LUÔN gọi, bất kể transitionTo() có gắn Motion hay không
     },
 
     /** Nguồn duy nhất mất (record không đọc được) -> không có gì để chờ advance() tiếp, tự chữa
@@ -343,17 +450,21 @@ const workflowVisualBg = {
         // `visualBg.video.ended` -> `_onVideoEnded()` dưới) — KHÔNG còn hẹn giờ nào ở đây nữa.
     },
 
-    /** Ứng với bài hát đổi thật ('visualBg.songChanged', router) khi type='video'. Check pending
-     * TRƯỚC guard `listPlaybackMode==='perSong'` — MỚI (09/08/2026, cơ chế pending) — đây là điểm
-     * "lượt kế tiếp" DUY NHẤT còn lại cho ca `source.list.length<=1` (phát tĩnh, không cycle gì cả
-     * -> `_advanceVideo()` luôn no-op cho ca đó, xem guard đầu hàm), nên phải check ở ĐÂY, KHÔNG
-     * được gộp chung điều kiện `perSong` phía dưới. */
+    /** Ứng với bài hát đổi thật ('visualBg.songChanged', router). Check pending TRƯỚC guard
+     * `listPlaybackMode==='perSong'` — MỚI (09/08/2026, cơ chế pending) — đây là điểm "lượt kế
+     * tiếp" DUY NHẤT còn lại cho ca `source.list.length<=1` (phát tĩnh, không cycle gì cả -> tick
+     * riêng từng type luôn no-op cho ca đó), nên phải check ở ĐÂY, KHÔNG được gộp chung điều kiện
+     * `perSong` phía dưới.
+     * SỬA (29/08/2026, phản hồi Giang — "Motion cung cấp cơ chế, VBG quyết định khi nào") — MỞ RỘNG
+     * cho CẢ ảnh (trước chỉ video, nhánh ảnh gọi thẳng `workflowMotionEngine.advanceForSongChange()`
+     * — hàm đó đã bỏ hẳn, giờ mọi quyết định "khi nào chuyển ảnh" đều qua ĐÚNG 1 điểm này, DÙNG
+     * CHUNG y hệt video). */
     async advanceForSongChange() {
         const cfg = appConfigVisualBg.getAll();
-        if (cfg.type !== 'video') return;
         if (await this._checkAndApplyPendingSource()) return;
         if (cfg.listPlaybackMode !== 'perSong') return;
-        await this._advanceVideo();
+        if (cfg.type === 'video') { await this._advanceVideo(); return; }
+        await this._photoTick(); // DÙNG CHUNG logic advance với hẹn giờ tự động — chỉ khác nguồn gốc gọi (đổi bài vs hẹn giờ)
     },
 
     /** Ứng với `bgVideoElement` tự bắn 'ended' khi KHÔNG ở Video Player mode (guard đã lọc ở
@@ -694,7 +805,17 @@ const workflowVisualBg = {
     syncPlaybackToAudio() {
         if (this._isSwappingVideo) return;
         const cfg = appConfigVisualBg.getAll();
-        if (cfg.type !== 'video') { syncVisualBgVideoPlayback(audioPlayer.paused); return; } // core/visual-bg.js — ảnh: giữ nguyên hành vi cũ
+        if (cfg.type !== 'video') {
+            syncVisualBgVideoPlayback(audioPlayer.paused); // core/visual-bg.js — ảnh: giữ nguyên hành vi cũ
+            // MỚI (29/08/2026, phản hồi Giang — "Motion cung cấp cơ chế, VBG quyết định khi nào") —
+            // đóng băng/tiếp tục animation Ken Burns/BeatReact ĐANG chạy trên Motion Engine + bật/tắt
+            // lại hẹn giờ tự chuyển ảnh (`_syncPhotoTicking()` tự đọc `audioPlayer.paused` MỚI NHẤT).
+            // Trước đây 2 việc này do `workflowMotionEngine.syncPlaybackGate()` tự lo (đã bỏ hẳn —
+            // Motion Engine không tự quyết "khi nào" nữa, chỉ còn render THUẦN).
+            if (typeof workflowMotionEngine !== 'undefined') { if (audioPlayer.paused) workflowMotionEngine.pause(); else workflowMotionEngine.resume(); }
+            this._syncPhotoTicking();
+            return;
+        }
         if (!audioPlayer.paused) {
             if (this._currentVideoKey === null) { this._playVideoKey(cfg.source.list[this._listIndex]); return; } // (1)
             this._resumeVideoWithDelayedAudio(this._currentVideoKey); // (2)
@@ -1004,7 +1125,8 @@ const workflowVisualBg = {
      * `changeTransitionType()` etc., "áp dụng từ item KẾ TIẾP") —
      * video: hẹn giờ "Fix time" (nếu có) của video ĐANG PHÁT giữ nguyên, chỉ video KẾ mới theo mode
      * mới (`_maybeScheduleVideoFixTime()` tự đọc `cfg.durationMode` MỚI lúc đó); ảnh: tick kế tiếp
-     * (`workflowMotionEngine._tick()`) tự đọc `_computeAdvanceMs()` MỚI khi tự rearm. */
+     * (`_photoTick()`) tự đọc `_computePhotoAdvanceMs()` MỚI khi tự rearm (SỬA 29/08/2026 — dời từ
+     * Motion Engine sang chính domain này). */
     async changeDurationMode(value) {
         if (!VISUAL_BG_DURATION_MODES.includes(value)) return;
         appConfigVisualBg.mutateAll((cfg) => { cfg.durationMode = value; });
@@ -1583,11 +1705,12 @@ const workflowVisualBg = {
         const durationSecondsBtn = q('#setting-visual-bg-duration-seconds');
         if (durationModeSelect) durationModeSelect.value = cfg.durationMode;
         // SỬA (29/08/2026, Giang chỉ ra — "perSong thì 2 hàng này vô nghĩa") — CHỈ hẹn giờ tự
-        // chuyển ảnh khi `listPlaybackMode==='slideshow'` (xem `workflowMotionEngine._activate()` —
-        // guard `!== 'perSong'` mới đặt hẹn giờ) — `perSong` chuyển ảnh do ĐỔI BÀI quyết định,
-        // Duration mode/Seconds per video/photo không điều khiển gì việc chuyển ảnh trong mode đó.
+        // chuyển ảnh khi `listPlaybackMode==='slideshow'` (xem `_syncPhotoTicking()` — SỬA
+        // 29/08/2026, dời từ Motion Engine sang chính domain này, guard `!== 'perSong'` mới đặt hẹn
+        // giờ) — `perSong` chuyển ảnh do ĐỔI BÀI quyết định, Duration mode/Seconds per video/photo
+        // không điều khiển gì việc chuyển ảnh trong mode đó.
         // "Next item order" KHÔNG đổi — vẫn cần dù `perSong` (đổi bài vẫn gọi advanceForSongChange()
-        // -> _tick() -> workflowVisualBg.advanceList() đọc nextOrder để chọn item kế).
+        // -> _photoTick() -> workflowVisualBg.advanceList() đọc nextOrder để chọn item kế).
         const isSlideshowCycling = isList && cfg.listPlaybackMode === 'slideshow';
         if (durationModeRow) durationModeRow.classList.toggle('hidden', !isSlideshowCycling);
         if (durationSecondsRow) durationSecondsRow.classList.toggle('hidden', !(isSlideshowCycling && cfg.durationMode === 'fixtime'));
