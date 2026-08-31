@@ -229,18 +229,17 @@
         const visualBgImageElement = document.getElementById('visual-bg-image');
         // Motion Engine nền Visual (nguồn nền thứ 3, Batch 8, ver 12 "Multi Media") — xem
         // core/motion-engine.js / event/workflow/motion-engine.js.
+        // MỚI ("React Beat Audio", 29/08/2026, VIẾT LẠI 30/08/2026 phản hồi Giang mục 3) — layer
+        // NGOÀI CÙNG `motionEngineReactLayer` bao TRỌN container (CẢ 2 player A/B), mang transform
+        // zoom/pan/rotate LIÊN TỤC theo nhạc (đọc `beatScale` mỗi frame, KHÔNG còn pulse theo beat
+        // rời rạc) — CHỈ 1 phần tử DUY NHẤT, KHÔNG còn 2 layer riêng cho từng player như bản trước.
+        const motionEngineReactLayer = document.getElementById('visual-motion-react');
         const motionEngineContainer = document.getElementById('visual-motion-container');
         const motionEngineLayer1 = document.getElementById('visual-motion-layer-1');
         const motionEngineLayer2 = document.getElementById('visual-motion-layer-2');
         // MỚI (Ken Burns, 18/07/2026) — layer CON bên trong mỗi motion-layer, mang
         // background-image + animation pan/zoom Ken Burns (TÁCH khỏi layer ngoài — layer ngoài chỉ
         // còn lo animation chuyển cảnh, xem docstring index.html/assets/css/motion-engine.css).
-        // MỚI ("React Beat Audio", 29/08/2026) — layer GIỮA xen giữa motion-layer (transition) và
-        // *-pan (Ken Burns) — mang animation pulse zoom/pan/rotate theo beat, TÁCH riêng vì CSS chỉ
-        // giữ 1 animation-name hiệu lực/phần tử, cùng lý do motion-layer/me-kenburns-pan đã tách
-        // từ trước — xem event/workflow/motion-engine.js.
-        const motionEngineLayer1React = document.getElementById('visual-motion-layer-1-react');
-        const motionEngineLayer2React = document.getElementById('visual-motion-layer-2-react');
         const motionEngineLayer1Pan = document.getElementById('visual-motion-layer-1-pan');
         const motionEngineLayer2Pan = document.getElementById('visual-motion-layer-2-pan');
         // MỚI (v13 Batch A) — nút điều hướng DUY NHẤT mở panel "Visual Background", THAY 3 entry

@@ -532,44 +532,45 @@ function resetMotionEngineLayerClasses(layerEl) {
 }
 
 /**
- * Core thuần: nội suy smoothstep qua 1 chuỗi "chặng" (stops, giá trị tại các mốc thời gian chia đều
- * [0,...,1]) — MỚI (29/08/2026, "React Beat Audio", phản hồi Giang). DÙNG CHUNG cho pulse zoom/pan/
- * rotate — mỗi hiệu ứng tự dựng mảng `stops` phù hợp (xem `buildMotionEnginePulseStops()` ngay dưới cho
- * pan/rotate; zoom tự dựng `[0, peak, 0]` thẳng ở nơi gọi, không có "hướng" nên không cần hàm riêng)
- * rồi gọi hàm NÀY, không viết công thức nội suy riêng từng chỗ.
- * KHÔNG dùng Web Animations API cho pulse này (khác Ken Burns thường) — 3 hiệu ứng zoom/pan/rotate
- * CÙNG sửa 1 thuộc tính CSS `transform` trên CÙNG 1 phần tử (`.me-beat-react`), `animate()` độc lập
- * cho từng cái sẽ ĐÈ LẪN NHAU (Web Animations API không tự cộng dồn nhiều animation cùng thuộc tính
- * trên cùng phần tử) — Workflow tự gọi hàm này mỗi khung hình cho CẢ 3, cộng dồn kết quả thành 1
- * chuỗi `transform` áp 1 lần, xem event/workflow/motion-engine.js::_tickBeatReact().
- * @param {number[]} stops
- * @param {number} t - 0-1 (tỉ lệ thời gian đã trôi qua trong 1 lượt pulse).
- * @returns {number}
+ * Core thuần: tỉ lệ ZOOM react-beat LIÊN TỤC — VIẾT LẠI (30/08/2026, phản hồi Giang, bỏ hẳn cơ chế
+ * "bắn theo N beat rồi tự về gốc") — không còn pulse rời rạc, giờ nội suy TUYẾN TÍNH giữa
+ * `minPct`/`maxPct` (2 giới hạn NGƯỜI DÙNG tự chỉnh, KHÔNG còn là 1 mốc "phóng cứng" duy nhất) theo
+ * `energy` (0-1, đọc `beatScale` mỗi frame — cùng tín hiệu năng lượng liên tục các hiệu ứng
+ * "beatscale" khác trong app đang dùng, vd core/visualizer/types/bar.js) — nhạc CÀNG mạnh, zoom
+ * CÀNG gần `maxPct`; nhạc nhẹ/im lặng, zoom về gần `minPct`. `minPct`/`maxPct` đơn vị % (100 =
+ * không zoom), 100-200 (nơi gọi validate — core/motion-presets.js).
+ * @param {number} minPct
+ * @param {number} maxPct
+ * @param {number} energy - 0-1 (nơi gọi tự đọc `appState.beatScale`, hàm này tự kẹp phòng hờ).
+ * @returns {number} hệ số scale (vd 1.5 = phóng 150%).
  */
-function evaluateMotionEnginePulseStops(stops, t) {
-    const clampedT = Math.max(0, Math.min(1, t));
-    const n = stops.length - 1;
-    const segT = clampedT * n;
-    const i = Math.min(Math.floor(segT), n - 1);
-    const localT = segT - i;
-    const smooth = localT * localT * (3 - 2 * localT); // smoothstep — êm 2 đầu đoạn, tránh giật lúc chuyển chặng
-    return stops[i] + (stops[i + 1] - stops[i]) * smooth;
+function computeMotionEngineBeatReactZoomScale(minPct, maxPct, energy) {
+    const e = Math.max(0, Math.min(1, energy));
+    return (minPct + (maxPct - minPct) * e) / 100;
 }
 
 /**
- * Core thuần: dựng chuỗi "chặng" (stops) cho 1 pulse pan/rotate theo `direction` — DÙNG CHUNG pan
- * LẪN rotate (cùng 4 lựa chọn hướng, chỉ khác đơn vị %/độ ở nơi gọi, xem docstring `direction`
- * core/motion-presets.js). "left"/"right" = pulse 1 chiều RỒI TỰ VỀ gốc (Giang chốt mục 3);
- * "leftToRight"/"rightToLeft" = pulse 2 chiều (đi biên NÀY trước, biên KIA sau) RỒI MỚI VỀ gốc. Zoom
- * KHÔNG dùng hàm này (không có field `direction` trong preset — luôn đối xứng 1 chiều dương, nơi gọi
- * tự dựng `[0, peak, 0]` thẳng).
+ * Core thuần: offset pan/rotate react-beat LIÊN TỤC theo `direction` + `energy` — DÙNG CHUNG pan
+ * (đơn vị %) LẪN rotate (đơn vị độ), nơi gọi tự trừ baseline trước khi truyền vào (pan: baseline
+ * 100%, `minVal`/`maxVal` = `minPct-100`/`maxPct-100`; rotate: baseline 0°, `minVal`/`maxVal` =
+ * `minDeg`/`maxDeg` thẳng — xem event/workflow/motion-engine.js::_tickBeatReact()).
+ * "left"/"right" — biên độ (luôn không âm) nội suy tuyến tính [minVal,maxVal] theo `energy`, DẤU
+ * CỐ ĐỊNH theo hướng. "leftToRight"/"rightToLeft" — CÙNG phép nội suy biên độ nhưng áp trực tiếp
+ * `energy` làm hệ số lệch trái/phải (`magnitude * (2*energy-1)`): tại energy=0 lệch hết về 1 phía
+ * (biên độ đang ở mức `minVal`), tại energy=1 lệch hết về phía ĐỐI DIỆN (biên độ ở mức `maxVal`) —
+ * 1 phép nội suy DUY NHẤT, liên tục, không giật, dùng CẢ `minVal` LẪN `maxVal` (khác "left"/"right"
+ * chỉ 1 dấu cố định).
  * @param {'left'|'right'|'leftToRight'|'rightToLeft'} direction
- * @param {number} peak - biên độ đỉnh (offset %, hoặc độ — ĐÃ trừ baseline 100%/0°, xem nơi gọi).
- * @returns {number[]}
+ * @param {number} minVal - biên độ tại energy=0 (ĐÃ trừ baseline, luôn >=0).
+ * @param {number} maxVal - biên độ tại energy=1 (ĐÃ trừ baseline, luôn >=0).
+ * @param {number} energy - 0-1 (nơi gọi tự đọc `appState.beatScale`, hàm này tự kẹp phòng hờ).
+ * @returns {number}
  */
-function buildMotionEnginePulseStops(direction, peak) {
-    if (direction === 'left') return [0, -peak, 0];
-    if (direction === 'right') return [0, peak, 0];
-    if (direction === 'leftToRight') return [0, -peak, peak, 0];
-    return [0, peak, -peak, 0]; // 'rightToLeft'
+function computeMotionEngineBeatReactOffset(direction, minVal, maxVal, energy) {
+    const e = Math.max(0, Math.min(1, energy));
+    const magnitude = minVal + (maxVal - minVal) * e;
+    if (direction === 'left') return -magnitude;
+    if (direction === 'right') return magnitude;
+    if (direction === 'leftToRight') return magnitude * (2 * e - 1);
+    return -magnitude * (2 * e - 1); // 'rightToLeft'
 }
