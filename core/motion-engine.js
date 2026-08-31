@@ -577,24 +577,27 @@ function computeMotionEngineBeatReactOffset(direction, maxVal, energy) {
 /**
  * Core thuần: tiến 1 bước ENVELOPE react-beat — MỚI (30/08/2026, phản hồi Giang báo bug — dùng
  * THẲNG `beatScale` liên tục khiến hiệu ứng "mắc kẹt" ở mức cao suốt đoạn nhạc bass kéo dài, KHÔNG
- * có cảm giác "đập rồi nghỉ" — "phải chuyển về 100% TRƯỚC KHI nhận beat mới"). `beatScale`
- * (core/audio-analysis.js::computeBeatScale()) là NĂNG LƯỢNG bass tức thời, KHÔNG phải "vừa có 1
- * beat" — bass kéo dài liên tục thì nó CŨNG cao liên tục, không tự hạ giữa các nhịp.
- * Cơ chế: "attack" TỨC THỜI lên đúng `beatScale` hiện tại NHƯNG CHỈ khi envelope đã decay hẳn về
- * `rearmThreshold` (~baseline) từ lượt trước — ĐANG decay dở thì KHÔNG attack lại dù `beatScale`
- * đang cao bao nhiêu, PHẢI decay hết đã. "decay" tuyến tính theo THỜI GIAN THẬT (`deltaMs`, không
- * phụ thuộc framerate) về 0 trong đúng `decayMs`. KHÔNG dùng lại bộ đếm/máy trạng thái beat rời rạc
- * đã bỏ (`beatCount`) — chỉ 1 điều kiện ngưỡng đơn giản trên CHÍNH `beatScale`, tự chứa trong hàm
- * này, không phụ thuộc beat-detector nào khác của app.
+ * có cảm giác "đập rồi nghỉ"). VIẾT LẠI NGAY sau đó (30/08/2026, phản hồi Giang — bản gate "phải
+ * decay HẾT về baseline mới cho attack lại" gây "cục giật": suốt đoạn nhạc bass kéo dài, envelope
+ * bị ép chạy 1 chu kỳ sawtooth CỐ ĐỊNH theo `decayMs`, cắt đứt khỏi diễn biến THẬT của nhạc — "vẫn
+ * phải có react liên tục chứ không nhất định phải về 100%"). Đổi sang envelope follower CHUẨN
+ * (kiểu VU meter, KHÔNG gate/khoá gì cả):
+ *   - `beatScale` >= envelope hiện tại -> "attack" TỨC THỜI lên thẳng `beatScale` (nhạc mạnh lên
+ *     lúc nào, bắt theo NGAY lúc đó, kể cả đang giữa chừng 1 lượt decay — KHÔNG chờ về baseline).
+ *   - `beatScale` < envelope -> "decay" tuyến tính theo THỜI GIAN THẬT (`deltaMs`, không phụ thuộc
+ *     framerate) với tốc độ sao cho hết `decayMs` thì đi hết quãng đường 1→0, NHƯNG kẹp SÀN ở đúng
+ *     `beatScale` hiện tại (`Math.max`) — không bao giờ rơi THẤP HƠN mức nhạc đang có, nên khi nhạc
+ *     bass kéo dài đều đều, envelope tự ổn định BÁM theo `beatScale` (không còn bị ép rơi xuống rồi
+ *     bật lên lặp lại giả tạo); khi nhạc THẬT SỰ nhẹ/im lặng (`beatScale` gần 0), sàn cũng gần 0 nên
+ *     envelope vẫn tự êm về gần baseline như cũ — chỉ khác là KHÔNG còn bị khoá/ép buộc.
  * @param {number} prevEnvelope - 0-1, giá trị envelope frame TRƯỚC.
  * @param {number} beatScale - 0-1, năng lượng bass tức thời frame NÀY.
  * @param {number} deltaMs - thời gian trôi qua kể từ frame trước (ms).
- * @param {number} decayMs - thời gian để envelope decay hết 1→0 (ms).
- * @param {number} rearmThreshold - 0-1, envelope phải <= mốc này mới được attack lại từ đầu.
+ * @param {number} decayMs - thời gian để envelope decay hết quãng đường 1→0 (ms) — dùng làm TỐC ĐỘ,
+ *   không phải "khoá cứng phải chờ hết mới thôi" như bản trước.
  * @returns {number}
  */
-function computeMotionEngineBeatReactEnvelope(prevEnvelope, beatScale, deltaMs, decayMs, rearmThreshold) {
-    const canTrigger = prevEnvelope <= rearmThreshold;
-    if (canTrigger && beatScale > rearmThreshold) return Math.min(1, beatScale);
-    return Math.max(0, prevEnvelope - (deltaMs / decayMs));
+function computeMotionEngineBeatReactEnvelope(prevEnvelope, beatScale, deltaMs, decayMs) {
+    if (beatScale >= prevEnvelope) return beatScale; // attack tức thời — nhạc mạnh lên là bắt theo ngay, không cần chờ gì cả
+    return Math.max(beatScale, prevEnvelope - (deltaMs / decayMs)); // decay êm, kẹp sàn ở beatScale hiện tại — không rơi thấp hơn mức nhạc đang có
 }
