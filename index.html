@@ -251,27 +251,25 @@
     <!-- Nền tĩnh Visual (ảnh) — MỚI (batch 03/07/2026, hạ tầng z-index nền Visual). Xem
          assets/css/base.css (#visual-bg-image) + core/visual-bg.js (applyVisualBgImageToDOM). -->
     <div id="visual-bg-image" class="hidden"></div>
-    <!-- Motion Engine nền Visual (nguồn nền thứ 3) — 2 lớp ảnh xen kẽ, JS ở core/motion-engine.js
-         + event/workflow/motion-engine.js. CSS: assets/css/motion-engine.css (z-index -1,
-         giữa #visual-bg-image và #bg-video). Mỗi layer ngoài (.motion-layer, lo animation
-         chuyển cảnh) bọc 1 layer con .me-kenburns-pan (lo riêng pan/zoom Ken Burns) — tách 2 phần
-         tử vì CSS chỉ giữ 1 animation-name hiệu lực/phần tử, gộp chung sẽ đè lẫn nhau. -->
-    <!-- MỚI (29/08/2026, phản hồi Giang — "React Beat Audio") — thêm 1 layer con `.me-beat-react`
-         XEN GIỮA `.motion-layer` (transition) và `.me-kenburns-pan` (Ken Burns) — 3 hiệu ứng
-         CHỒNG NHAU (transition/Ken Burns/react-beat) cần 3 phần tử riêng, CÙNG lý do tách
-         .motion-layer/.me-kenburns-pan sẵn có ở comment trên (CSS chỉ giữ 1 animation-name hiệu
-         lực/phần tử). `replaceMovement=true` (preset) -> `.me-kenburns-pan` KHÔNG chạy animation Ken
-         Burns thường nữa (event/workflow/motion-engine.js tự bỏ qua `_activateKenBurns()`), CHỈ còn
-         `.me-beat-react` điều khiển; `false` -> CẢ HAI cùng chạy, transform NHÂN với nhau (2 phần tử
-         lồng nhau, mỗi phần tử 1 transform riêng, trình duyệt tự cộng dồn theo cây DOM). -->
-    <div id="visual-motion-container" class="hidden">
-        <div id="visual-motion-layer-1" class="motion-layer">
-            <div id="visual-motion-layer-1-react" class="me-beat-react">
+    <!-- Motion Engine nền Visual (nguồn nền thứ 3) — 2 lớp ảnh xen kẽ ("player" A/B), JS ở
+         core/motion-engine.js + event/workflow/motion-engine.js. CSS: assets/css/motion-engine.css
+         (z-index -1, giữa #visual-bg-image và #bg-video). Mỗi layer ngoài (.motion-layer, lo
+         animation chuyển cảnh) bọc 1 layer con .me-kenburns-pan (lo riêng pan/zoom Ken Burns) —
+         tách 2 phần tử vì CSS chỉ giữ 1 animation-name hiệu lực/phần tử, gộp chung sẽ đè lẫn nhau.
+         VIẾT LẠI (30/08/2026, phản hồi Giang mục 3 — "React Beat Audio") — `.me-beat-react` (bọc
+         zoom/pan/rotate LIÊN TỤC theo nhạc, xem event/workflow/motion-engine.js::_tickBeatReact())
+         CHUYỂN RA NGOÀI, bao TRỌN `#visual-motion-container` (CẢ 2 player A/B cùng lúc), THAY vì 2
+         phần tử riêng lồng bên trong từng player như bản trước — hiệu ứng react-beat giờ là 1 chuyển
+         động DUY NHẤT áp lên toàn cảnh (transform vẫn tự CỘNG DỒN theo cây DOM với `.me-kenburns-pan`
+         bên trong — `replaceMovement=true` (preset) -> `.me-kenburns-pan` KHÔNG chạy animation Ken
+         Burns thường nữa (workflow tự bỏ qua `_activateKenBurns()`), CHỈ còn `.me-beat-react` điều
+         khiển; `false` -> CẢ HAI cùng chạy). -->
+    <div id="visual-motion-react" class="me-beat-react">
+        <div id="visual-motion-container" class="hidden">
+            <div id="visual-motion-layer-1" class="motion-layer">
                 <div id="visual-motion-layer-1-pan" class="me-kenburns-pan"></div>
             </div>
-        </div>
-        <div id="visual-motion-layer-2" class="motion-layer">
-            <div id="visual-motion-layer-2-react" class="me-beat-react">
+            <div id="visual-motion-layer-2" class="motion-layer">
                 <div id="visual-motion-layer-2-pan" class="me-kenburns-pan"></div>
             </div>
         </div>
