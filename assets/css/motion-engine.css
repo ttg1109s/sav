@@ -143,33 +143,49 @@
    slide/flipCard/flipEdge không có, xem transitionSupportsWipeDirection(), core/motion-engine.js).
    4 hướng CẠNH (cạnh NEO lộ dần — "left" neo trái lộ sang phải, "up" neo dưới lộ lên trên...) GIỮ
    NGUYÊN như cũ, dùng `inset()` co dần ĐÚNG 1 cạnh.
-   VIẾT LẠI (30/08/2026, phản hồi Giang — "wipe chéo là cắt đôi hình ảnh giống curtain rồi, không
-   phải wipe... hãy xem cơ chế left/right/up/down rồi áp cho vị trí bắt đầu wipe VD top-left (góc)
-   rồi wipe đến cạnh đối bottom-right, không phải từ góc chia ảnh ra 2 mảnh như curtain") — 4 hướng
-   GÓC (cornerTopLeft/cornerTopRight/cornerBottomLeft/cornerBottomRight) dùng ĐÚNG CƠ CHẾ `inset()`
-   như 4 hướng cạnh — CHỈ khác: co dần ĐỒNG THỜI 2 cạnh KỀ NHAU (thay vì 1 cạnh) — "cornerTopLeft"
-   co dần cạnh PHẢI và cạnh DƯỚI
-   (từ 100%→0%), neo cố định 2 cạnh trên/trái (0% xuyên suốt) — vùng hiện bắt đầu là 1 ĐIỂM ở góc
-   trên-trái, LỚN DẦN thành hình chữ nhật (KHÔNG phải đường chéo cắt đôi) tới khi phủ kín khung, góc
-   đối diện (dưới-phải) là nơi phủ kín SAU CÙNG. Lớp cũ LUÔN đứng yên (KHÔNG có pha "out" độc lập,
+   VIẾT LẠI LẦN 2 (30/08/2026, phản hồi Giang — "tại các corner của wipe lại thành 2 đường thẳng
+   vuông góc thế? Nó phải dạng thanh chéo góc độ chứ?") — bản `inset()` co ĐỒNG THỜI 2 cạnh kề nhau
+   (lượt sửa TRƯỚC) tạo biên hình CHỮ L (2 đoạn thẳng VUÔNG GÓC nhau), KHÔNG phải 1 đường CHÉO thật —
+   SAI Ý Giang. SỬA ĐÚNG: dùng `clip-path polygon()` với 1 HÌNH THOI (diamond, 4 điểm, cạnh luôn là
+   ĐƯỜNG CHÉO 45° thật) đủ LỚN (bán kính 150%, > đường chéo khung 100x100 để LUÔN phủ kín khi cần) —
+   hình dạng KHÔNG đổi xuyên suốt animation, CHỈ tịnh tiến (translate) tâm dọc theo trục chéo tương
+   ứng — cạnh "đầu tàu" (2 điểm kề theo hướng di chuyển) chính là đường CHÉO quét ngang khung, từ vừa
+   chạm góc XUẤT PHÁT (diện tích 0) tới khi hình thoi trôi qua hẳn góc ĐỐI DIỆN (phủ kín 100%). Toạ
+   độ VƯỢT NGOÀI 0-100% (âm hoặc >100%) là CỐ Ý — clip-path tự cắt theo đúng khung phần tử, phần thừa
+   ngoài khung không ảnh hưởng gì. 4 hướng suy ra từ NHAU bằng phép đối xứng (lật trục x/y) của 1
+   công thức GỐC (cornerTopLeft) — GIỮ nguyên tỉ lệ khung vuông (100x100) khi tính, khung thật KHÔNG
+   vuông (tỉ lệ khác 1:1) sẽ khiến góc chéo lệch khỏi đúng 45° — chấp nhận được, vẫn đọc rõ là hiệu
+   ứng "quét chéo", không cần chính xác tuyệt đối. Lớp cũ LUÔN đứng yên (KHÔNG có pha "out" độc lập,
    mọi hướng — xem MOTION_ENGINE_TRANSITION_TYPES_NO_OUT, core/motion-engine.js). ==================== */
 #visual-motion-container[data-transition="wipe"][data-wipe-direction="left"] .me-layer-enter  { animation-name: me-wipe-enter-left; }
 #visual-motion-container[data-transition="wipe"][data-wipe-direction="right"] .me-layer-enter { animation-name: me-wipe-enter-right; }
 #visual-motion-container[data-transition="wipe"][data-wipe-direction="up"] .me-layer-enter    { animation-name: me-wipe-enter-up; }
 #visual-motion-container[data-transition="wipe"][data-wipe-direction="down"] .me-layer-enter  { animation-name: me-wipe-enter-down; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="cornerTopLeft"] .me-layer-enter     { animation-name: me-wipe-enter-top-left; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="cornerTopRight"] .me-layer-enter    { animation-name: me-wipe-enter-top-right; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="cornerBottomLeft"] .me-layer-enter  { animation-name: me-wipe-enter-bottom-left; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="cornerBottomRight"] .me-layer-enter { animation-name: me-wipe-enter-bottom-right; }
+#visual-motion-container[data-transition="wipe"][data-wipe-direction="cornerTopLeft"] .me-layer-enter     { animation-name: me-wipe-enter-corner-top-left; }
+#visual-motion-container[data-transition="wipe"][data-wipe-direction="cornerTopRight"] .me-layer-enter    { animation-name: me-wipe-enter-corner-top-right; }
+#visual-motion-container[data-transition="wipe"][data-wipe-direction="cornerBottomLeft"] .me-layer-enter  { animation-name: me-wipe-enter-corner-bottom-left; }
+#visual-motion-container[data-transition="wipe"][data-wipe-direction="cornerBottomRight"] .me-layer-enter { animation-name: me-wipe-enter-corner-bottom-right; }
 #visual-motion-container[data-transition="wipe"] .me-layer-exit { animation: none; opacity: 1; }
 @keyframes me-wipe-enter-left  { from { clip-path: inset(0 100% 0 0); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
 @keyframes me-wipe-enter-right { from { clip-path: inset(0 0 0 100%); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
 @keyframes me-wipe-enter-up    { from { clip-path: inset(100% 0 0 0); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
 @keyframes me-wipe-enter-down  { from { clip-path: inset(0 0 100% 0); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
-@keyframes me-wipe-enter-top-left     { from { clip-path: inset(0% 100% 100% 0%); opacity: 1; } to { clip-path: inset(0% 0% 0% 0%); opacity: 1; } }
-@keyframes me-wipe-enter-top-right    { from { clip-path: inset(0% 0% 100% 100%); opacity: 1; } to { clip-path: inset(0% 0% 0% 0%); opacity: 1; } }
-@keyframes me-wipe-enter-bottom-left  { from { clip-path: inset(100% 100% 0% 0%); opacity: 1; } to { clip-path: inset(0% 0% 0% 0%); opacity: 1; } }
-@keyframes me-wipe-enter-bottom-right { from { clip-path: inset(100% 0% 0% 100%); opacity: 1; } to { clip-path: inset(0% 0% 0% 0%); opacity: 1; } }
+@keyframes me-wipe-enter-corner-top-left {
+    from { clip-path: polygon(75% -75%, -75% 75%, -225% -75%, -75% -225%); opacity: 1; }
+    to   { clip-path: polygon(175% 25%, 25% 175%, -125% 25%, 25% -125%); opacity: 1; }
+}
+@keyframes me-wipe-enter-corner-top-right {
+    from { clip-path: polygon(25% -75%, 175% 75%, 325% -75%, 175% -225%); opacity: 1; }
+    to   { clip-path: polygon(-75% 25%, 75% 175%, 225% 25%, 75% -125%); opacity: 1; }
+}
+@keyframes me-wipe-enter-corner-bottom-left {
+    from { clip-path: polygon(75% 175%, -75% 25%, -225% 175%, -75% 325%); opacity: 1; }
+    to   { clip-path: polygon(175% 75%, 25% -75%, -125% 75%, 25% 225%); opacity: 1; }
+}
+@keyframes me-wipe-enter-corner-bottom-right {
+    from { clip-path: polygon(25% 175%, 175% 25%, 325% 175%, 175% 325%); opacity: 1; }
+    to   { clip-path: polygon(-75% 75%, 75% -75%, 225% 75%, 75% 225%); opacity: 1; }
+}
 
 /* ==================== flipCard — pivot GIỮA (center), mô hình front/back 180° thật (Giang chốt
    "flip center cần front/back thay vì cả hai cái đều xoay") — layer CŨ (exit, "mặt trước") quay
