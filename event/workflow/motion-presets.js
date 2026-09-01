@@ -166,23 +166,27 @@ const workflowMotionPresets = {
         this._syncEditUI();
     },
 
-    /** MỚI (30/08/2026, phản hồi Giang — gộp các type có hướng) — 3 field phụ, mỗi field CHỈ có ý
-     * nghĩa khi transitionType hỗ trợ (transitionSupportsDirection()/transitionSupportsZoomDirection()/
-     * transitionSupportsSpinDirection(), core/motion-engine.js) — Settings Drawer tự ẨN/HIỆN dòng UI
-     * tương ứng qua `_syncEditUI()`, KHÔNG chặn ghi ở đây (đơn giản, giống cách `transitionInOutRatio`
-     * vẫn ghi được dù type hiện tại không hỗ trợ). */
+    /** MỚI (30/08/2026, phản hồi Giang — gộp các type có hướng); BỔ SUNG (30/08/2026, phản hồi Giang
+     * — "thêm tuỳ chọn random cho mỗi transition có direction/in out") — 3 field phụ, mỗi field CHỈ
+     * có ý nghĩa khi transitionType hỗ trợ (transitionSupportsDirection()/
+     * transitionSupportsZoomDirection()/transitionSupportsSpinDirection(), core/motion-engine.js) —
+     * Settings Drawer tự ẨN/HIỆN dòng UI tương ứng qua `_syncEditUI()`, KHÔNG chặn ghi ở đây (đơn
+     * giản, giống cách `transitionInOutRatio` vẫn ghi được dù type hiện tại không hỗ trợ). Validate
+     * theo mảng `_WITH_RANDOM` (core/motion-presets.js) — CHO PHÉP lưu 'random', resolve về giá trị
+     * CỤ THỂ diễn ra ở event/workflow/motion-engine.js MỖI LƯỢT transition kích hoạt (KHÔNG resolve
+     * ở đây — lưu 'random' NGUYÊN VĂN vào preset để nhớ đúng Ý người dùng chọn). */
     async changeTransitionDirection(value) {
-        if (!MOTION_ENGINE_TRANSITION_DIRECTIONS.includes(value)) return; // core/motion-presets.js
+        if (!MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM.includes(value)) return; // core/motion-presets.js
         await this._mutateEditing((p) => { p.transitionDirection = value; });
     },
 
     async changeTransitionZoomDirection(value) {
-        if (!MOTION_ENGINE_ZOOM_DIRECTIONS.includes(value)) return; // core/motion-presets.js
+        if (!MOTION_ENGINE_ZOOM_DIRECTIONS_WITH_RANDOM.includes(value)) return; // core/motion-presets.js
         await this._mutateEditing((p) => { p.transitionZoomDirection = value; });
     },
 
     async changeTransitionSpinDirection(value) {
-        if (!MOTION_ENGINE_SPIN_DIRECTIONS.includes(value)) return; // core/motion-presets.js
+        if (!MOTION_ENGINE_SPIN_DIRECTIONS_WITH_RANDOM.includes(value)) return; // core/motion-presets.js
         await this._mutateEditing((p) => { p.transitionSpinDirection = value; });
     },
 

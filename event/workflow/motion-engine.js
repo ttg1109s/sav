@@ -56,6 +56,11 @@ const workflowMotionEngine = {
     _layerToggle: false,    // false = layer1 đang 'current', true = layer2
     _isActive: false,       // Ken Burns/BeatReact animation ĐANG chạy (khác "đứng yên chờ") — pause()/resume() thao tác trên cờ này
     _lastKenBurnsDirection: null,
+    // MỚI (30/08/2026, phản hồi Giang — random cho transition) — CÙNG convention `_lastKenBurnsDirection`
+    // trên, riêng cho 3 field "hướng" của transition (xem resolveMotionEngineTransitionOption(), core).
+    _lastTransitionDirection: null,
+    _lastTransitionZoomDirection: null,
+    _lastTransitionSpinDirection: null,
     _activePreset: MOTION_ENGINE_NO_OP_PRESET, // preset của LƯỢT HIỂN THỊ GẦN NHẤT — _tickBeatReact() (chạy mỗi frame, không có tham số) đọc lại từ đây
     _lastAdvanceMs: 5000, // advanceMs của LƯỢT HIỂN THỊ GẦN NHẤT (gán ở reveal()/transitionTo()) — _activateKenBurns() dùng kẹp trần, KHÔNG tự tính nữa
 
@@ -136,7 +141,8 @@ const workflowMotionEngine = {
         if (preset.transitionEnabled) {
             setMotionEngineTransitionType(motionEngineContainer, preset.transitionType); // core
             setMotionEngineEdgeFlipOptions(motionEngineContainer, preset.edgeFlipVariant, preset.edgeFlipStaticOld); // core
-            setMotionEngineTransitionDirections(motionEngineContainer, preset.transitionDirection, preset.transitionZoomDirection, preset.transitionSpinDirection); // core
+            const dirs = this._resolveTransitionDirections(preset);
+            setMotionEngineTransitionDirections(motionEngineContainer, dirs.direction, dirs.zoomDirection, dirs.spinDirection); // core
             const totalMs = capMotionEngineTransitionDurationMs(preset.transitionDurationMs, advanceMs); // core
             const { inMs, outMs } = transitionSupportsInOutRatio(preset.transitionType) // core
                 ? computeMotionEngineTransitionInOutMs(totalMs, preset.transitionInOutRatio) // core
@@ -184,8 +190,31 @@ const workflowMotionEngine = {
         if (layerEl) layerEl.classList.add('me-current');
         setMotionEngineTransitionType(motionEngineContainer, this._activePreset.transitionType); // core — chỉ set thuộc tính, KHÔNG chạy animation nào ở đây
         setMotionEngineEdgeFlipOptions(motionEngineContainer, this._activePreset.edgeFlipVariant, this._activePreset.edgeFlipStaticOld); // core
-        setMotionEngineTransitionDirections(motionEngineContainer, this._activePreset.transitionDirection, this._activePreset.transitionZoomDirection, this._activePreset.transitionSpinDirection); // core
+        const revealDirs = this._resolveTransitionDirections(this._activePreset);
+        setMotionEngineTransitionDirections(motionEngineContainer, revealDirs.direction, revealDirs.zoomDirection, revealDirs.spinDirection); // core
         return true;
+    },
+
+    /** Resolve 3 field "hướng" transition (`transitionDirection`/`transitionZoomDirection`/
+     * `transitionSpinDirection`) của `preset` — MỚI (30/08/2026, phản hồi Giang — random). Field nào
+     * ĐANG là 'random' thì chọn 1 giá trị CỤ THỂ (loại trừ giá trị dùng lượt liền trước, tự nhớ ở
+     * `_lastTransitionDirection`/`_lastTransitionZoomDirection`/`_lastTransitionSpinDirection` —
+     * `resolveMotionEngineTransitionOption()`, core) rồi CẬP NHẬT LUÔN "lượt vừa dùng" cho lần gọi
+     * kế tiếp; field CỤ THỂ (không phải 'random') giữ nguyên, KHÔNG đụng tới state nhớ (đúng ý
+     * "chọn cố định 1 hướng thì luôn là hướng đó", cùng convention Ken Burns). Gọi ở CẢ 2 nơi set
+     * data-attribute xuống DOM (`_loadImageIntoLayer()` — reveal ảnh đầu, VÀ `transitionTo()`).
+     * @param {object} preset
+     * @returns {{direction: string, zoomDirection: string, spinDirection: string}} - 3 giá trị CỤ
+     *   THỂ, sẵn sàng truyền thẳng vào `setMotionEngineTransitionDirections()`.
+     */
+    _resolveTransitionDirections(preset) {
+        const direction = resolveMotionEngineTransitionOption(preset.transitionDirection, MOTION_ENGINE_TRANSITION_DIRECTIONS, this._lastTransitionDirection); // core/core
+        const zoomDirection = resolveMotionEngineTransitionOption(preset.transitionZoomDirection, MOTION_ENGINE_ZOOM_DIRECTIONS, this._lastTransitionZoomDirection); // core/core
+        const spinDirection = resolveMotionEngineTransitionOption(preset.transitionSpinDirection, MOTION_ENGINE_SPIN_DIRECTIONS, this._lastTransitionSpinDirection); // core/core
+        this._lastTransitionDirection = direction;
+        this._lastTransitionZoomDirection = zoomDirection;
+        this._lastTransitionSpinDirection = spinDirection;
+        return { direction, zoomDirection, spinDirection };
     },
 
     _activateKenBurns(panEl, mode, image) {
@@ -232,6 +261,9 @@ const workflowMotionEngine = {
         this._currentRecord = null;
         this._isActive = false;
         this._lastKenBurnsDirection = null;
+        this._lastTransitionDirection = null;
+        this._lastTransitionZoomDirection = null;
+        this._lastTransitionSpinDirection = null;
         this._activePreset = MOTION_ENGINE_NO_OP_PRESET;
     },
 
