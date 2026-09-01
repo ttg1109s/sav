@@ -85,19 +85,23 @@ const MOTION_ENGINE_TRANSITION_DIRECTIONS = ['left', 'right', 'up', 'down'];
  * `_lastTransitionDirection`). */
 const MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_TRANSITION_DIRECTIONS, 'random'];
 
-/** MỚI (30/08/2026, phản hồi Giang — "thêm direction cho wipe... chéo trên trái đến chéo dưới phải
- * và ngược lại, chéo trên phải đến chéo dưới trái và ngược lại") — field RIÊNG cho 'wipe'
+/** MỚI (30/08/2026, phản hồi Giang — "thêm direction cho wipe") — field RIÊNG cho 'wipe'
  * (`transitionSupportsWipeDirection()`, core/motion-engine.js) — TÁCH khỏi `transitionDirection`
- * dùng chung ở trên vì wipe có THÊM 4 hướng CHÉO mà slide/flipCard/flipEdge không có (dùng field
- * chung sẽ để lọt giá trị "chéo" vô nghĩa cho 3 type kia). 8 giá trị: 4 thẳng CŨ (left/right/up/
- * down — GIỮ NGUYÊN ý nghĩa "cạnh neo" như trước) + 4 CHÉO MỚI, mỗi cặp là 2 CHIỀU NGƯỢC NHAU của
- * CÙNG 1 đường chéo (neo ở góc XUẤT PHÁT, lộ dần TỚI góc đối diện):
- *   topLeftToBottomRight / bottomRightToTopLeft — đường chéo "\" (trên-trái ↔ dưới-phải).
- *   topRightToBottomLeft / bottomLeftToTopRight — đường chéo "/" (trên-phải ↔ dưới-trái).
+ * dùng chung ở trên vì wipe có THÊM 4 hướng GÓC mà slide/flipCard/flipEdge không có (dùng field
+ * chung sẽ để lọt giá trị "góc" vô nghĩa cho 3 type kia).
+ * VIẾT LẠI (30/08/2026, phản hồi Giang — "đang nhầm lẫn hết rồi... wipe chéo là cắt đôi hình ảnh
+ * giống curtain rồi, không phải wipe") — bản polygon "kite" (giữ cố định góc ĐỐI DIỆN) tạo ra hiệu
+ * ứng CẮT ĐÔI ảnh giống hệt curtain-chéo, SAI bản chất "wipe". SỬA ĐÚNG theo Giang chỉ: dùng LẠI
+ * ĐÚNG cơ chế `inset()` của left/right/up/down (co dần 1 cạnh) — GÓC chỉ là co dần ĐỒNG THỜI 2 cạnh
+ * kề nhau thay vì 1 (vd "topLeft" = co dần cạnh phải VÀ cạnh dưới từ 100%→0%, neo cố định 2 cạnh
+ * trên/trái ở 0% — vùng hiện bắt đầu là 1 điểm ở góc trên-trái, lớn dần theo HÌNH CHỮ NHẬT tới khi
+ * phủ hết khung, KHÔNG cắt ảnh làm đôi). 8 giá trị: 4 cạnh CŨ (left/right/up/down) + 4 GÓC MỚI, đặt
+ * tên THEO GÓC XUẤT PHÁT (KHÔNG còn kiểu "A đến B" — 1 tên đã đủ diễn tả trọn animation, góc ĐỐI
+ * DIỆN với góc xuất phát mặc nhiên là nơi phủ kín SAU CÙNG): topLeft/topRight/bottomLeft/bottomRight.
  * Dùng làm "nguồn random" khi field = 'random' (MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM dưới). */
 const MOTION_ENGINE_WIPE_DIRECTIONS = [
     'left', 'right', 'up', 'down',
-    'topLeftToBottomRight', 'bottomRightToTopLeft', 'topRightToBottomLeft', 'bottomLeftToTopRight',
+    'topLeft', 'topRight', 'bottomLeft', 'bottomRight',
 ];
 const MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_WIPE_DIRECTIONS, 'random'];
 
