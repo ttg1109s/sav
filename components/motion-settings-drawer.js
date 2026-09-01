@@ -155,6 +155,7 @@ function renderMotionEditBody(preset) {
                                 <option value="right" ${preset.transitionDirection === 'right' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionDirection.right">${t('motionSettingsDrawer.transitionDirection.right')}</option>
                                 <option value="up" ${preset.transitionDirection === 'up' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionDirection.up">${t('motionSettingsDrawer.transitionDirection.up')}</option>
                                 <option value="down" ${preset.transitionDirection === 'down' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionDirection.down">${t('motionSettingsDrawer.transitionDirection.down')}</option>
+                                <option value="random" ${preset.transitionDirection === 'random' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionDirection.random">${t('motionSettingsDrawer.transitionDirection.random')}</option>
                             </select>
                         </div>
                         <div id="motion-transition-zoom-direction-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors${transitionSupportsZoomDirection(preset.transitionType) ? '' : ' hidden'}">
@@ -162,6 +163,7 @@ function renderMotionEditBody(preset) {
                             <select id="setting-motion-transition-zoom-direction" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
                                 <option value="in" ${preset.transitionZoomDirection === 'in' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionZoomDirection.in">${t('motionSettingsDrawer.transitionZoomDirection.in')}</option>
                                 <option value="out" ${preset.transitionZoomDirection === 'out' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionZoomDirection.out">${t('motionSettingsDrawer.transitionZoomDirection.out')}</option>
+                                <option value="random" ${preset.transitionZoomDirection === 'random' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionZoomDirection.random">${t('motionSettingsDrawer.transitionZoomDirection.random')}</option>
                             </select>
                         </div>
                         <div id="motion-transition-spin-direction-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors${transitionSupportsSpinDirection(preset.transitionType) ? '' : ' hidden'}">
@@ -169,6 +171,7 @@ function renderMotionEditBody(preset) {
                             <select id="setting-motion-transition-spin-direction" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
                                 <option value="clockwise" ${preset.transitionSpinDirection === 'clockwise' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionSpinDirection.clockwise">${t('motionSettingsDrawer.transitionSpinDirection.clockwise')}</option>
                                 <option value="counterclockwise" ${preset.transitionSpinDirection === 'counterclockwise' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionSpinDirection.counterclockwise">${t('motionSettingsDrawer.transitionSpinDirection.counterclockwise')}</option>
+                                <option value="random" ${preset.transitionSpinDirection === 'random' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionSpinDirection.random">${t('motionSettingsDrawer.transitionSpinDirection.random')}</option>
                             </select>
                         </div>
                         <div id="motion-edge-flip-variant-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors${transitionIsEdgeFlip(preset.transitionType) ? '' : ' hidden'}">
