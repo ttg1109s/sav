@@ -136,6 +136,7 @@ const workflowMotionEngine = {
         if (preset.transitionEnabled) {
             setMotionEngineTransitionType(motionEngineContainer, preset.transitionType); // core
             setMotionEngineEdgeFlipOptions(motionEngineContainer, preset.edgeFlipVariant, preset.edgeFlipStaticOld); // core
+            setMotionEngineTransitionDirections(motionEngineContainer, preset.transitionDirection, preset.transitionZoomDirection, preset.transitionSpinDirection); // core
             const totalMs = capMotionEngineTransitionDurationMs(preset.transitionDurationMs, advanceMs); // core
             const { inMs, outMs } = transitionSupportsInOutRatio(preset.transitionType) // core
                 ? computeMotionEngineTransitionInOutMs(totalMs, preset.transitionInOutRatio) // core
@@ -183,6 +184,7 @@ const workflowMotionEngine = {
         if (layerEl) layerEl.classList.add('me-current');
         setMotionEngineTransitionType(motionEngineContainer, this._activePreset.transitionType); // core — chỉ set thuộc tính, KHÔNG chạy animation nào ở đây
         setMotionEngineEdgeFlipOptions(motionEngineContainer, this._activePreset.edgeFlipVariant, this._activePreset.edgeFlipStaticOld); // core
+        setMotionEngineTransitionDirections(motionEngineContainer, this._activePreset.transitionDirection, this._activePreset.transitionZoomDirection, this._activePreset.transitionSpinDirection); // core
         return true;
     },
 

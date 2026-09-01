@@ -104,10 +104,19 @@ const workflowMotionPresets = {
         const q = (sel) => genericDrawerBody.querySelector(sel); // core/dom-refs.js
         const ratioRow = q('#motion-transition-ratio-row');
         if (ratioRow) ratioRow.classList.toggle('hidden', !transitionSupportsInOutRatio(preset.transitionType)); // core/motion-engine.js
-        // MỚI (30/08/2026, phản hồi Giang) — 2 dòng phụ CHỈ hiện khi transitionType là flip-mép; dòng
-        // checkbox "ảnh cũ đứng yên" hiện HẸP HƠN NỮA — CHỈ khi ĐỒNG THỜI edgeFlipVariant==='close'
-        // (Giang chốt "chỉ hiển thị nếu flip page và kiểu đóng lại" — "open" luôn cố định hành vi,
-        // không có tuỳ chọn nào để ẩn/hiện checkbox theo).
+        // MỚI (30/08/2026, phản hồi Giang — gộp type có hướng) — 3 dòng select "hướng" tự ẨN/HIỆN
+        // theo transitionType — xem transitionSupportsDirection()/transitionSupportsZoomDirection()/
+        // transitionSupportsSpinDirection() (core/motion-engine.js).
+        const directionRow = q('#motion-transition-direction-row');
+        if (directionRow) directionRow.classList.toggle('hidden', !transitionSupportsDirection(preset.transitionType));
+        const zoomDirectionRow = q('#motion-transition-zoom-direction-row');
+        if (zoomDirectionRow) zoomDirectionRow.classList.toggle('hidden', !transitionSupportsZoomDirection(preset.transitionType));
+        const spinDirectionRow = q('#motion-transition-spin-direction-row');
+        if (spinDirectionRow) spinDirectionRow.classList.toggle('hidden', !transitionSupportsSpinDirection(preset.transitionType));
+        // 2 dòng phụ CHỈ hiện khi transitionType là 'flipEdge'; dòng checkbox "ảnh trước đứng yên"
+        // hiện HẸP HƠN NỮA — CHỈ khi ĐỒNG THỜI edgeFlipVariant==='close' (Giang chốt "chỉ hiển thị
+        // nếu flip page và kiểu đóng lại" — "open" luôn cố định hành vi, không có tuỳ chọn nào để
+        // ẩn/hiện checkbox theo).
         const isEdgeFlip = transitionIsEdgeFlip(preset.transitionType); // core/motion-engine.js
         const variantRow = q('#motion-edge-flip-variant-row');
         if (variantRow) variantRow.classList.toggle('hidden', !isEdgeFlip);
@@ -155,6 +164,26 @@ const workflowMotionPresets = {
         if (!MOTION_ENGINE_TRANSITION_TYPES.includes(value)) return; // core/motion-engine.js
         await this._mutateEditing((p) => { p.transitionType = value; });
         this._syncEditUI();
+    },
+
+    /** MỚI (30/08/2026, phản hồi Giang — gộp các type có hướng) — 3 field phụ, mỗi field CHỈ có ý
+     * nghĩa khi transitionType hỗ trợ (transitionSupportsDirection()/transitionSupportsZoomDirection()/
+     * transitionSupportsSpinDirection(), core/motion-engine.js) — Settings Drawer tự ẨN/HIỆN dòng UI
+     * tương ứng qua `_syncEditUI()`, KHÔNG chặn ghi ở đây (đơn giản, giống cách `transitionInOutRatio`
+     * vẫn ghi được dù type hiện tại không hỗ trợ). */
+    async changeTransitionDirection(value) {
+        if (!MOTION_ENGINE_TRANSITION_DIRECTIONS.includes(value)) return; // core/motion-presets.js
+        await this._mutateEditing((p) => { p.transitionDirection = value; });
+    },
+
+    async changeTransitionZoomDirection(value) {
+        if (!MOTION_ENGINE_ZOOM_DIRECTIONS.includes(value)) return; // core/motion-presets.js
+        await this._mutateEditing((p) => { p.transitionZoomDirection = value; });
+    },
+
+    async changeTransitionSpinDirection(value) {
+        if (!MOTION_ENGINE_SPIN_DIRECTIONS.includes(value)) return; // core/motion-presets.js
+        await this._mutateEditing((p) => { p.transitionSpinDirection = value; });
     },
 
     /** MỚI (30/08/2026, phản hồi Giang) — 2 field phụ CHỈ có ý nghĩa khi `transitionType` đang là
@@ -287,6 +316,9 @@ const workflowMotionPresets = {
             p.transitionDurationMs = blank.transitionDurationMs;
             p.transitionInOutRatio = blank.transitionInOutRatio;
             p.transitionEasing = blank.transitionEasing;
+            p.transitionDirection = blank.transitionDirection;
+            p.transitionZoomDirection = blank.transitionZoomDirection;
+            p.transitionSpinDirection = blank.transitionSpinDirection;
             p.edgeFlipVariant = blank.edgeFlipVariant;
             p.edgeFlipStaticOld = blank.edgeFlipStaticOld;
             p.kenBurnsEnabled = blank.kenBurnsEnabled;
