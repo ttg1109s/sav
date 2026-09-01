@@ -33,6 +33,20 @@ const routerMotionPresets = (() => {
                 workflowMotionPresets.changeTransitionType(msg.payload.value);
                 break;
 
+            // MỚI (30/08/2026, phản hồi Giang — gộp type có hướng) — 3 field phụ, xem docstring
+            // workflowMotionPresets.changeTransitionDirection().
+            case 'motionPresets.transitionDirection.change':
+                workflowMotionPresets.changeTransitionDirection(msg.payload.value);
+                break;
+
+            case 'motionPresets.transitionZoomDirection.change':
+                workflowMotionPresets.changeTransitionZoomDirection(msg.payload.value);
+                break;
+
+            case 'motionPresets.transitionSpinDirection.change':
+                workflowMotionPresets.changeTransitionSpinDirection(msg.payload.value);
+                break;
+
             // MỚI (30/08/2026, phản hồi Giang) — 2 field phụ CHỈ có ý nghĩa khi transitionType là
             // flip-mép, xem docstring workflowMotionPresets.changeEdgeFlipVariant().
             case 'motionPresets.edgeFlipVariant.change':
