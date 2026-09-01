@@ -195,6 +195,7 @@ function renderMotionEditBody(preset) {
                                 <option value="vertical" ${preset.transitionCurtainDirection === 'vertical' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionCurtainDirection.vertical">${t('motionSettingsDrawer.transitionCurtainDirection.vertical')}</option>
                                 <option value="diagonalRight" ${preset.transitionCurtainDirection === 'diagonalRight' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionCurtainDirection.diagonalRight">${t('motionSettingsDrawer.transitionCurtainDirection.diagonalRight')}</option>
                                 <option value="diagonalLeft" ${preset.transitionCurtainDirection === 'diagonalLeft' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionCurtainDirection.diagonalLeft">${t('motionSettingsDrawer.transitionCurtainDirection.diagonalLeft')}</option>
+                                <option value="random" ${preset.transitionCurtainDirection === 'random' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionDirection.random">${t('motionSettingsDrawer.transitionDirection.random')}</option>
                             </select>
                         </div>
                         <div id="motion-edge-flip-variant-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors${transitionIsEdgeFlip(preset.transitionType) ? '' : ' hidden'}">
