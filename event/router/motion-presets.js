@@ -47,6 +47,16 @@ const routerMotionPresets = (() => {
                 workflowMotionPresets.changeTransitionSpinDirection(msg.payload.value);
                 break;
 
+            // BỔ SUNG (30/08/2026, phản hồi Giang — field riêng cho wipe/curtain), xem docstring
+            // workflowMotionPresets.changeTransitionWipeDirection().
+            case 'motionPresets.transitionWipeDirection.change':
+                workflowMotionPresets.changeTransitionWipeDirection(msg.payload.value);
+                break;
+
+            case 'motionPresets.transitionCurtainDirection.change':
+                workflowMotionPresets.changeTransitionCurtainDirection(msg.payload.value);
+                break;
+
             // MỚI (30/08/2026, phản hồi Giang) — 2 field phụ CHỈ có ý nghĩa khi transitionType là
             // flip-mép, xem docstring workflowMotionPresets.changeEdgeFlipVariant().
             case 'motionPresets.edgeFlipVariant.change':
