@@ -134,31 +134,41 @@ function renderMotionEditBody(preset) {
                             <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.transition.label">${t('motionSettingsDrawer.transition.label')}</span>
                             <select id="setting-motion-transition" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-40 text-right">
                                 <option value="fade" ${preset.transitionType === 'fade' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.fade">${t('motionSettingsDrawer.transition.fade')}</option>
-                                <option value="slideLeft" ${preset.transitionType === 'slideLeft' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.slideLeft">${t('motionSettingsDrawer.transition.slideLeft')}</option>
-                                <option value="slideRight" ${preset.transitionType === 'slideRight' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.slideRight">${t('motionSettingsDrawer.transition.slideRight')}</option>
-                                <option value="slideUp" ${preset.transitionType === 'slideUp' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.slideUp">${t('motionSettingsDrawer.transition.slideUp')}</option>
-                                <option value="slideDown" ${preset.transitionType === 'slideDown' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.slideDown">${t('motionSettingsDrawer.transition.slideDown')}</option>
-                                <option value="zoomIn" ${preset.transitionType === 'zoomIn' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.zoomIn">${t('motionSettingsDrawer.transition.zoomIn')}</option>
-                                <option value="zoomOut" ${preset.transitionType === 'zoomOut' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.zoomOut">${t('motionSettingsDrawer.transition.zoomOut')}</option>
+                                <option value="slide" ${preset.transitionType === 'slide' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.slide">${t('motionSettingsDrawer.transition.slide')}</option>
                                 <option value="wipe" ${preset.transitionType === 'wipe' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.wipe">${t('motionSettingsDrawer.transition.wipe')}</option>
-                                <option value="wipeRight" ${preset.transitionType === 'wipeRight' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.wipeRight">${t('motionSettingsDrawer.transition.wipeRight')}</option>
-                                <option value="wipeUp" ${preset.transitionType === 'wipeUp' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.wipeUp">${t('motionSettingsDrawer.transition.wipeUp')}</option>
-                                <option value="wipeDown" ${preset.transitionType === 'wipeDown' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.wipeDown">${t('motionSettingsDrawer.transition.wipeDown')}</option>
-                                <option value="flip" ${preset.transitionType === 'flip' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flip">${t('motionSettingsDrawer.transition.flip')}</option>
-                                <option value="flipRight" ${preset.transitionType === 'flipRight' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipRight">${t('motionSettingsDrawer.transition.flipRight')}</option>
-                                <option value="flipVertical" ${preset.transitionType === 'flipVertical' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipVertical">${t('motionSettingsDrawer.transition.flipVertical')}</option>
-                                <option value="flipDown" ${preset.transitionType === 'flipDown' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipDown">${t('motionSettingsDrawer.transition.flipDown')}</option>
-                                <option value="flipLeftEdge" ${preset.transitionType === 'flipLeftEdge' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipLeftEdge">${t('motionSettingsDrawer.transition.flipLeftEdge')}</option>
-                                <option value="flipRightEdge" ${preset.transitionType === 'flipRightEdge' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipRightEdge">${t('motionSettingsDrawer.transition.flipRightEdge')}</option>
-                                <option value="flipTopEdge" ${preset.transitionType === 'flipTopEdge' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipTopEdge">${t('motionSettingsDrawer.transition.flipTopEdge')}</option>
-                                <option value="flipBottomEdge" ${preset.transitionType === 'flipBottomEdge' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipBottomEdge">${t('motionSettingsDrawer.transition.flipBottomEdge')}</option>
+                                <option value="flipCard" ${preset.transitionType === 'flipCard' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipCard">${t('motionSettingsDrawer.transition.flipCard')}</option>
+                                <option value="flipEdge" ${preset.transitionType === 'flipEdge' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipEdge">${t('motionSettingsDrawer.transition.flipEdge')}</option>
+                                <option value="zoom" ${preset.transitionType === 'zoom' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.zoom">${t('motionSettingsDrawer.transition.zoom')}</option>
                                 <option value="blur" ${preset.transitionType === 'blur' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.blur">${t('motionSettingsDrawer.transition.blur')}</option>
                                 <option value="rotateFade" ${preset.transitionType === 'rotateFade' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.rotateFade">${t('motionSettingsDrawer.transition.rotateFade')}</option>
                                 <option value="curtain" ${preset.transitionType === 'curtain' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.curtain">${t('motionSettingsDrawer.transition.curtain')}</option>
                                 <option value="circleReveal" ${preset.transitionType === 'circleReveal' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.circleReveal">${t('motionSettingsDrawer.transition.circleReveal')}</option>
                                 <option value="glitch" ${preset.transitionType === 'glitch' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.glitch">${t('motionSettingsDrawer.transition.glitch')}</option>
                                 <option value="whipPan" ${preset.transitionType === 'whipPan' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.whipPan">${t('motionSettingsDrawer.transition.whipPan')}</option>
-                                <option value="spinIn" ${preset.transitionType === 'spinIn' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.spinIn">${t('motionSettingsDrawer.transition.spinIn')}</option>
+                                <option value="spin" ${preset.transitionType === 'spin' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.spin">${t('motionSettingsDrawer.transition.spin')}</option>
+                            </select>
+                        </div>
+                        <div id="motion-transition-direction-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors${transitionSupportsDirection(preset.transitionType) ? '' : ' hidden'}">
+                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.transitionDirection.label">${t('motionSettingsDrawer.transitionDirection.label')}</span>
+                            <select id="setting-motion-transition-direction" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
+                                <option value="left" ${preset.transitionDirection === 'left' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionDirection.left">${t('motionSettingsDrawer.transitionDirection.left')}</option>
+                                <option value="right" ${preset.transitionDirection === 'right' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionDirection.right">${t('motionSettingsDrawer.transitionDirection.right')}</option>
+                                <option value="up" ${preset.transitionDirection === 'up' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionDirection.up">${t('motionSettingsDrawer.transitionDirection.up')}</option>
+                                <option value="down" ${preset.transitionDirection === 'down' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionDirection.down">${t('motionSettingsDrawer.transitionDirection.down')}</option>
+                            </select>
+                        </div>
+                        <div id="motion-transition-zoom-direction-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors${transitionSupportsZoomDirection(preset.transitionType) ? '' : ' hidden'}">
+                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.transitionZoomDirection.label">${t('motionSettingsDrawer.transitionZoomDirection.label')}</span>
+                            <select id="setting-motion-transition-zoom-direction" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
+                                <option value="in" ${preset.transitionZoomDirection === 'in' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionZoomDirection.in">${t('motionSettingsDrawer.transitionZoomDirection.in')}</option>
+                                <option value="out" ${preset.transitionZoomDirection === 'out' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionZoomDirection.out">${t('motionSettingsDrawer.transitionZoomDirection.out')}</option>
+                            </select>
+                        </div>
+                        <div id="motion-transition-spin-direction-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors${transitionSupportsSpinDirection(preset.transitionType) ? '' : ' hidden'}">
+                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.transitionSpinDirection.label">${t('motionSettingsDrawer.transitionSpinDirection.label')}</span>
+                            <select id="setting-motion-transition-spin-direction" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
+                                <option value="clockwise" ${preset.transitionSpinDirection === 'clockwise' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionSpinDirection.clockwise">${t('motionSettingsDrawer.transitionSpinDirection.clockwise')}</option>
+                                <option value="counterclockwise" ${preset.transitionSpinDirection === 'counterclockwise' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionSpinDirection.counterclockwise">${t('motionSettingsDrawer.transitionSpinDirection.counterclockwise')}</option>
                             </select>
                         </div>
                         <div id="motion-edge-flip-variant-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors${transitionIsEdgeFlip(preset.transitionType) ? '' : ' hidden'}">
