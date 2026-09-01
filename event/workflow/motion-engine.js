@@ -135,6 +135,7 @@ const workflowMotionEngine = {
         // bước enter/exit trung gian nào, KHÔNG animation.
         if (preset.transitionEnabled) {
             setMotionEngineTransitionType(motionEngineContainer, preset.transitionType); // core
+            setMotionEngineEdgeFlipOptions(motionEngineContainer, preset.edgeFlipVariant, preset.edgeFlipStaticOld); // core
             const totalMs = capMotionEngineTransitionDurationMs(preset.transitionDurationMs, advanceMs); // core
             const { inMs, outMs } = transitionSupportsInOutRatio(preset.transitionType) // core
                 ? computeMotionEngineTransitionInOutMs(totalMs, preset.transitionInOutRatio) // core
@@ -181,6 +182,7 @@ const workflowMotionEngine = {
         setMotionEngineLayerImage(panEl, objectUrl); // core
         if (layerEl) layerEl.classList.add('me-current');
         setMotionEngineTransitionType(motionEngineContainer, this._activePreset.transitionType); // core — chỉ set thuộc tính, KHÔNG chạy animation nào ở đây
+        setMotionEngineEdgeFlipOptions(motionEngineContainer, this._activePreset.edgeFlipVariant, this._activePreset.edgeFlipStaticOld); // core
         return true;
     },
 

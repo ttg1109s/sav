@@ -10,13 +10,13 @@
  * Photo Visual Background) chỉ giữ 1 tham chiếu `appConfigVisualBg.motionPresetId` — Motion
  * KHÔNG biết/không cần biết ai đang dùng mình, chỉ cung cấp danh sách + CRUD.
  *
- * NẠP SAU: core/motion-presets.js, core/motion-engine.js (MOTION_ENGINE_TRANSITION_TYPES/
- * MOTION_ENGINE_TRANSITION_EASINGS/MOTION_ENGINE_KENBURNS_MODES/transitionSupportsInOutRatio()/
- * capMotionEngineTransitionDurationMs()), components/motion-settings-drawer.js, service/db.js
- * (getMeta/setMeta), event/workflow/app-settings.js (workflowAppSettings — liên tuyến domain, đọc/
- * gọi `navigateTo()`/`_render*()`), event/workflow/visual-bg.js (workflowVisualBg — liên tuyến domain,
- * đọc/ghi `motionPresetId`), core/time-picker-modal.js (openTimePickerModal — nút chọn thời gian
- * transition).
+ * NẠP SAU: core/motion-presets.js (MOTION_ENGINE_EDGE_FLIP_VARIANTS), core/motion-engine.js
+ * (MOTION_ENGINE_TRANSITION_TYPES/MOTION_ENGINE_TRANSITION_EASINGS/MOTION_ENGINE_KENBURNS_MODES/
+ * transitionSupportsInOutRatio()/transitionIsEdgeFlip()/capMotionEngineTransitionDurationMs()),
+ * components/motion-settings-drawer.js, service/db.js (getMeta/setMeta), event/workflow/
+ * app-settings.js (workflowAppSettings — liên tuyến domain, đọc/gọi `navigateTo()`/`_render*()`),
+ * event/workflow/visual-bg.js (workflowVisualBg — liên tuyến domain, đọc/ghi `motionPresetId`),
+ * core/time-picker-modal.js (openTimePickerModal — nút chọn thời gian transition).
  */
 
 const workflowMotionPresets = {
@@ -104,6 +104,15 @@ const workflowMotionPresets = {
         const q = (sel) => genericDrawerBody.querySelector(sel); // core/dom-refs.js
         const ratioRow = q('#motion-transition-ratio-row');
         if (ratioRow) ratioRow.classList.toggle('hidden', !transitionSupportsInOutRatio(preset.transitionType)); // core/motion-engine.js
+        // MỚI (30/08/2026, phản hồi Giang) — 2 dòng phụ CHỈ hiện khi transitionType là flip-mép; dòng
+        // checkbox "ảnh cũ đứng yên" hiện HẸP HƠN NỮA — CHỈ khi ĐỒNG THỜI edgeFlipVariant==='close'
+        // (Giang chốt "chỉ hiển thị nếu flip page và kiểu đóng lại" — "open" luôn cố định hành vi,
+        // không có tuỳ chọn nào để ẩn/hiện checkbox theo).
+        const isEdgeFlip = transitionIsEdgeFlip(preset.transitionType); // core/motion-engine.js
+        const variantRow = q('#motion-edge-flip-variant-row');
+        if (variantRow) variantRow.classList.toggle('hidden', !isEdgeFlip);
+        const staticOldRow = q('#motion-edge-flip-static-old-row');
+        if (staticOldRow) staticOldRow.classList.toggle('hidden', !(isEdgeFlip && preset.edgeFlipVariant === 'close'));
         const durationBtn = q('#setting-motion-transition-duration');
         if (durationBtn) durationBtn.textContent = `${(preset.transitionDurationMs / 1000).toFixed(1)}s`;
         const ratioSlider = q('#setting-motion-transition-ratio');
@@ -146,6 +155,20 @@ const workflowMotionPresets = {
         if (!MOTION_ENGINE_TRANSITION_TYPES.includes(value)) return; // core/motion-engine.js
         await this._mutateEditing((p) => { p.transitionType = value; });
         this._syncEditUI();
+    },
+
+    /** MỚI (30/08/2026, phản hồi Giang) — 2 field phụ CHỈ có ý nghĩa khi `transitionType` đang là
+     * flip-mép (`transitionIsEdgeFlip()`, core/motion-engine.js) — Settings Drawer tự ẨN/HIỆN dòng
+     * UI tương ứng qua `_syncEditUI()`, KHÔNG chặn ghi ở đây (đơn giản, giống cách
+     * `transitionInOutRatio` vẫn ghi được dù type hiện tại không hỗ trợ). */
+    async changeEdgeFlipVariant(value) {
+        if (!MOTION_ENGINE_EDGE_FLIP_VARIANTS.includes(value)) return; // core/motion-presets.js
+        await this._mutateEditing((p) => { p.edgeFlipVariant = value; });
+        this._syncEditUI(); // "close"/"open" đổi -> hàng checkbox edgeFlipStaticOld có thể cần ẩn/hiện lại
+    },
+
+    async changeEdgeFlipStaticOld(checked) {
+        await this._mutateEditing((p) => { p.edgeFlipStaticOld = checked; });
     },
 
     /** Ứng nút mở modal chọn "Thời gian chuyển cảnh" — CÙNG khuôn `openTransitionDurationPicker()`
@@ -264,6 +287,8 @@ const workflowMotionPresets = {
             p.transitionDurationMs = blank.transitionDurationMs;
             p.transitionInOutRatio = blank.transitionInOutRatio;
             p.transitionEasing = blank.transitionEasing;
+            p.edgeFlipVariant = blank.edgeFlipVariant;
+            p.edgeFlipStaticOld = blank.edgeFlipStaticOld;
             p.kenBurnsEnabled = blank.kenBurnsEnabled;
             p.kenBurnsMode = blank.kenBurnsMode;
             p.reactBeatAudio = blank.reactBeatAudio;
