@@ -187,10 +187,10 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // BỔ SUNG (30/08/2026, phản hồi Giang — "thêm direction cho wipe"/"thêm cho Curtain direction")
     // — 2 field RIÊNG (left/right/up/down/random của wipe DÙNG LẠI key transitionDirection.* có
     // sẵn ngay trên — KHÔNG lặp lại nhãn, chỉ 4 hướng CHÉO mới cần key riêng).
-    'motionSettingsDrawer.transitionWipeDirection.topLeft': 'Top-left corner',
-    'motionSettingsDrawer.transitionWipeDirection.topRight': 'Top-right corner',
-    'motionSettingsDrawer.transitionWipeDirection.bottomLeft': 'Bottom-left corner',
-    'motionSettingsDrawer.transitionWipeDirection.bottomRight': 'Bottom-right corner',
+    'motionSettingsDrawer.transitionWipeDirection.cornerTopLeft': 'Top-left corner',
+    'motionSettingsDrawer.transitionWipeDirection.cornerTopRight': 'Top-right corner',
+    'motionSettingsDrawer.transitionWipeDirection.cornerBottomLeft': 'Bottom-left corner',
+    'motionSettingsDrawer.transitionWipeDirection.cornerBottomRight': 'Bottom-right corner',
     'motionSettingsDrawer.transitionCurtainDirection.horizontal': 'Horizontal',
     'motionSettingsDrawer.transitionCurtainDirection.vertical': 'Vertical',
     'motionSettingsDrawer.transitionCurtainDirection.diagonalRight': 'Diagonal right',
