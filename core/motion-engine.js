@@ -42,47 +42,57 @@
 /** Kiểu transition hợp lệ (plan-v12-multimedia.md mục 4.b3: 7 cơ bản + 5 mở rộng — Ken Burns
  * ĐÃ TÁCH khỏi danh sách này, xem MOTION_ENGINE_KENBURNS_MODES) — dùng để validate config đã lưu
  * (phòng giá trị hỏng/cũ) và đổ vào <select> Settings Drawer.
- * BỔ SUNG (30/08/2026, phản hồi Giang — thêm slide dọc, Flip mở rộng pivot, whipPan/spinIn — CSS
- * thuần khả thi — filter blur/transform rotate, không cần WebGL/canvas)); rồi làm rõ THÊM nhiều lượt
- * (phản hồi Giang) — center đủ 4 hướng (`flip`/`flipRight`/`flipVertical`/`flipDown`); 'wipe' đủ 4
- * hướng; XOÁ hẳn "Wide" (thêm rồi bỏ lại ngay sau). VIẾT LẠI HOÀN TOÀN phần edge (30/08/2026, phản
- * hồi Giang — "đóng/mở tạo ra 2 chiều RIÊNG khác nhau, phải tách ra" rồi NGAY SAU ĐÓ "gộp lại thành
- * 1 type/edge, đóng/mở chuyển thành DROPDOWN CON") — 4 type edge (flipLeftEdge/flipRightEdge/
- * flipTopEdge/flipBottomEdge) là TRANSITION TYPE, còn "Open"/"Close" giờ là 1 field RIÊNG
- * `edgeFlipVariant` (core/motion-presets.js) — KHÔNG còn là 8 type tách rời như bản trước nữa. Xem
- * MOTION_ENGINE_EDGE_FLIP_TYPES/`transitionIsEdgeFlip()` ngay dưới. */
+ * VIẾT LẠI HOÀN TOÀN (30/08/2026, phản hồi Giang — "gộp các type có hướng lại, thêm field
+ * direction") — nhiều lượt trước đã tách slide/wipe/flip/zoom thành TỪNG type riêng theo hướng (vd
+ * slideLeft/slideRight/slideUp/slideDown) — giờ GỘP LẠI, hướng chuyển thành field `direction`/
+ * `transitionZoomDirection`/`transitionSpinDirection` RIÊNG (core/motion-presets.js), CSS đọc qua
+ * `data-direction`/`data-zoom-direction`/`data-spin-direction` (setMotionEngineTransitionType() ngay
+ * dưới) kết hợp `[data-transition]` — xem MOTION_ENGINE_TYPES_WITH_DIRECTION/
+ * MOTION_ENGINE_TYPES_WITH_ZOOM_DIRECTION/`transitionSupportsDirection()`/
+ * `transitionSupportsZoomDirection()`/`transitionSupportsSpinDirection()` ngay dưới. 'flip' (center)
+ * đổi tên 'flipCard'; 'spinIn' đổi tên 'spin'. Còn lại 13 type. */
 const MOTION_ENGINE_TRANSITION_TYPES = [
-    'fade', 'slideLeft', 'slideRight', 'slideUp', 'slideDown', 'zoomIn', 'zoomOut',
-    'wipe', 'wipeRight', 'wipeUp', 'wipeDown',
-    'flip', 'flipRight', 'flipVertical', 'flipDown',
-    'flipLeftEdge', 'flipRightEdge', 'flipTopEdge', 'flipBottomEdge',
-    'blur', 'rotateFade', 'curtain', 'circleReveal', 'glitch', 'whipPan', 'spinIn',
+    'fade', 'slide', 'wipe', 'flipCard', 'flipEdge', 'zoom',
+    'blur', 'rotateFade', 'curtain', 'circleReveal', 'glitch', 'whipPan', 'spin',
 ];
 
-/** MỚI (30/08/2026, phản hồi Giang — "chỉ giữ lại flip page ở các edge") — 4 type transition có
- * thêm 2 field phụ RIÊNG (`edgeFlipVariant`/`edgeFlipStaticOld`, core/motion-presets.js), CHỈ áp
- * dụng cho pivot MÉP (center flip KHÔNG có khái niệm open/close/static-old). Dùng để Settings
- * Drawer tự ẨN/HIỆN 2 field phụ đó khi type ĐANG chọn không phải edge flip — xem
- * `transitionIsEdgeFlip()` ngay dưới + event/workflow/motion-presets.js::_syncEditUI(). */
-const MOTION_ENGINE_EDGE_FLIP_TYPES = ['flipLeftEdge', 'flipRightEdge', 'flipTopEdge', 'flipBottomEdge'];
-
-/** Core thuần: kiểm tra 1 kiểu transition CÓ phải flip-mép (nên hiện 2 field phụ edgeFlipVariant/
- * edgeFlipStaticOld) hay không — xem MOTION_ENGINE_EDGE_FLIP_TYPES ngay trên.
- * @param {string} transitionType
- * @returns {boolean}
- */
+/** MỚI (30/08/2026, phản hồi Giang) — CHỈ 'flipEdge' có 2 field phụ RIÊNG (`edgeFlipVariant`/
+ * `edgeFlipStaticOld`, core/motion-presets.js) — pivot MÉP mới có khái niệm open/close/static-old,
+ * pivot GIỮA ('flipCard') thì không. Dùng để Settings Drawer tự ẨN/HIỆN 2 field phụ đó — xem
+ * event/workflow/motion-presets.js::_syncEditUI(). */
 function transitionIsEdgeFlip(transitionType) {
-    return MOTION_ENGINE_EDGE_FLIP_TYPES.includes(transitionType);
+    return transitionType === 'flipEdge';
+}
+
+/** MỚI (30/08/2026, phản hồi Giang) — 4 type CÓ field phụ `transitionDirection` (left/right/up/
+ * down) — slide (hướng cả cặp layer di chuyển), wipe (cạnh neo lộ dần), flipCard/flipEdge (trục +
+ * chiều xoay). Dùng để Settings Drawer tự ẨN/HIỆN dòng select "Direction". */
+const MOTION_ENGINE_TYPES_WITH_DIRECTION = ['slide', 'wipe', 'flipCard', 'flipEdge'];
+function transitionSupportsDirection(transitionType) {
+    return MOTION_ENGINE_TYPES_WITH_DIRECTION.includes(transitionType);
+}
+
+/** MỚI (30/08/2026, phản hồi Giang — "fade, zoom sẽ hiện select in/out"; 'spin' cũng dùng field
+ * này làm "hướng zoom", field thứ 2) — 3 type CÓ field phụ `transitionZoomDirection` (in/out).
+ * Dùng để Settings Drawer tự ẨN/HIỆN dòng select "In/Out". */
+const MOTION_ENGINE_TYPES_WITH_ZOOM_DIRECTION = ['fade', 'zoom', 'spin'];
+function transitionSupportsZoomDirection(transitionType) {
+    return MOTION_ENGINE_TYPES_WITH_ZOOM_DIRECTION.includes(transitionType);
+}
+
+/** MỚI (30/08/2026, phản hồi Giang) — CHỈ 'spin' có field phụ `transitionSpinDirection`
+ * (clockwise/counterclockwise) — chiều XOAY 2D, KHÁC hẳn `transitionDirection` (trục/hướng của
+ * slide/wipe/flip). Dùng để Settings Drawer tự ẨN/HIỆN dòng select "Spin direction". */
+function transitionSupportsSpinDirection(transitionType) {
+    return transitionType === 'spin';
 }
 
 /** MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh") — kiểu KHÔNG có
  * pha "out" độc lập: layer CŨ đứng yên bất động (`animation: none; opacity: 1;`, xem assets/css/
- * motion-engine.css mục 6/10/11), hiệu ứng CHỈ đến từ layer MỚI phủ dần lên bằng clip-path. Khái niệm
- * "tỉ lệ In/Out" KHÔNG áp dụng được cho các kiểu này — Settings Drawer tự ẨN mục đó khi 1 trong số
- * đang được chọn (xem `transitionSupportsInOutRatio()` ngay dưới + event/workflow/motion-engine.js).
- * BỔ SUNG (30/08/2026, phản hồi Giang — thêm 3 hướng wipe) — 'wipeRight'/'wipeUp'/'wipeDown' CÙNG
- * cơ chế clip-path phủ dần như 'wipe' gốc (không phải pha "out" riêng), PHẢI liệt kê chung ở đây. */
-const MOTION_ENGINE_TRANSITION_TYPES_NO_OUT = ['wipe', 'wipeRight', 'wipeUp', 'wipeDown', 'curtain', 'circleReveal'];
+ * motion-engine.css), hiệu ứng CHỈ đến từ layer MỚI phủ dần lên bằng clip-path. Khái niệm "tỉ lệ
+ * In/Out" KHÔNG áp dụng được cho các kiểu này — Settings Drawer tự ẨN mục đó khi 1 trong số đang
+ * được chọn (xem `transitionSupportsInOutRatio()` ngay dưới + event/workflow/motion-engine.js). */
+const MOTION_ENGINE_TRANSITION_TYPES_NO_OUT = ['wipe', 'curtain', 'circleReveal'];
 
 /** Biên thời gian transition [1s, 60s] — Giang chốt: min 1s (tránh transition "0 giây" vô nghĩa),
  * max 60s (khớp modal picker mới, format 's-ms'). Cũng dùng làm 2 mốc validate config đã lưu. */
@@ -205,6 +215,19 @@ function setMotionEngineEdgeFlipOptions(containerEl, variant, staticOld) {
     if (!containerEl) return;
     containerEl.dataset.flipVariant = variant;
     containerEl.dataset.flipStaticOld = staticOld ? 'true' : 'false';
+}
+
+/** Core thuần: set 3 field phụ "hướng" (`transitionDirection`/`transitionZoomDirection`/
+ * `transitionSpinDirection`, core/motion-presets.js) lên container (CSS đọc qua [data-direction]/
+ * [data-zoom-direction]/[data-spin-direction]) — MỚI (30/08/2026, phản hồi Giang — gộp các type có
+ * hướng). LUÔN set cả 3 (kể cả type ĐANG chọn không dùng tới field nào — vô hại, selector CSS tương
+ * ứng chỉ khớp khi `[data-transition]` cũng khớp type cần).
+ */
+function setMotionEngineTransitionDirections(containerEl, direction, zoomDirection, spinDirection) {
+    if (!containerEl) return;
+    containerEl.dataset.direction = direction;
+    containerEl.dataset.zoomDirection = zoomDirection;
+    containerEl.dataset.spinDirection = spinDirection;
 }
 
 /** Core thuần: gán ảnh cho 1 layer (KHÔNG tự tạo objectUrl — nhận sẵn qua tham số, Rule 2). */
