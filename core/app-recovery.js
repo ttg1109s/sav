@@ -5,8 +5,7 @@
  * lối thoát rõ ràng, có xác nhận trước khi thực hiện (modal ở tầng workflow, xem
  * event/workflow/settings-misc.js).
  *
- * executeRestartApp(): xoá hết state RAM TẠM (resume snapshot + cờ trong localStorage — xem
- * resume-state-storage.js) rồi reload — KHÔNG đụng tới nhạc/playlist (IndexedDB) hay vizConfig.
+ * executeRestartApp(): reload trang — KHÔNG đụng tới nhạc/playlist (IndexedDB) hay vizConfig.
  *
  * XOÁ (12/08/2026, Giang chỉ ra 2a/2b "Reset app default" THỰC RA là yêu cầu RESET — không phải
  * loại trừ, bản trước mình hiểu ngược) — executeRestoreDefaults() cũ (CHỈ reset vizConfig) đã
@@ -23,13 +22,9 @@
  * event/workflow/settings-misc.js (modal xác nhận đặt ở workflow, đúng quy tắc — core không biết
  * modalChoice tồn tại) + event/listener/settings-misc.js. Hàm dưới đây là core THUẦN: chỉ làm
  * đúng hành động (dọn state / xoá cache) + reload/điều hướng, không tự hỏi xác nhận gì cả.
- *
- * PHẢI nạp SAU: resume-state-storage.js (cần clearResumeFlag/clearResumeStateFromLocalStorage).
  */
-        /** Core thuần: dọn state RAM tạm (resume) rồi reload. Không hỏi xác nhận gì ở đây. */
+        /** Core thuần: reload trang. Không hỏi xác nhận gì ở đây. */
         function executeRestartApp() {
-            if (typeof clearResumeFlag === 'function') clearResumeFlag();
-            if (typeof clearResumeStateFromLocalStorage === 'function') clearResumeStateFromLocalStorage();
             location.reload();
         }
 

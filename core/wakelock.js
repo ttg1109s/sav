@@ -2,8 +2,7 @@
  * wakelock.js — Quản lý Wake Lock (giữ màn hình sáng) qua API gốc hoặc NoSleep.js fallback.
  *
  * Tách khỏi file này (đã chuyển sang):
- *   - triggerHideAndReload() + 2 cờ debounce → core/tab-lifecycle.js
- *   - 3 lifecycle listener (visibilitychange/pagehide/beforeunload) → event/tab.js
+ *   - lifecycle listener (beforeunload) → event/tab.js
  *   - executeAppCleanup() → core/app-cleanup.js
  *
  * Giữ lại ở đây:

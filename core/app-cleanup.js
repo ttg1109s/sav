@@ -2,8 +2,7 @@
  * app-cleanup.js — Dọn dẹp tài nguyên toàn app khi tab thật sự bị đóng/unload
  * (F5, đóng tab, điều hướng sang trang khác).
  *
- * Được gọi từ event/tab.js trong handler 'beforeunload', SAU KHI cờ
- * _isRealUnloadHappening đã được set bởi tab-hide-reload.js.
+ * Được gọi từ event/tab.js trong handler 'beforeunload'.
  *
  * Mỗi nhóm cleanup thuộc đúng module sở hữu — thêm cleanup mới vào đây,
  * không rải vào từng file core riêng lẻ.

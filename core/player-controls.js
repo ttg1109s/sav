@@ -1,7 +1,7 @@
 /**
  * Điều khiển phát nhạc: toggle play/pause của track đã tải, chuyển sang màn hình visualizer, nút
  * shuffle/repeat, Media Session API, thanh tiến trình, sự kiện audio (play/pause/loadedmetadata/
- * error/timeupdate/seeked), bộ đếm thời gian nghe thật, modal "Tiếp tục nghe?".
+ * error/timeupdate/seeked), bộ đếm thời gian nghe thật.
  *
  * [SỬA — plan-playmedia-reorg.md] `playNext()`/`playPrev()`/`handleAudioEnded()` ĐÃ XOÁ khỏi file
  * này — 3 hàm đó thật ra luôn là ĐIỀU PHỐI (đọc appState nhiều lần, gọi Core khác nối tiếp), sai
@@ -34,15 +34,6 @@
  */
 
         /**
-         * Cache "bài vừa bị dừng" lúc tab/app bị ẩn (xem wakelock.js, saveResumeStateToLocalStorage())
-         * — dùng cho modalChoice() hỏi người dùng lúc khởi động lại trang sau reload (xem
-         * resume-state-storage.js, checkPendingResumeStateOnBoot() gán lại 2 biến này từ snapshot đã
-         * lưu trước khi gọi showResumeChoiceModal()). `lastStoppedTime` là đúng `audioPlayer.currentTime`
-         * tại thời điểm bị dừng — để "Tiếp tục phát" phát đúng từ chỗ cũ, "Nghe lại" phát lại từ đầu.
-         * STATE — xem service/state.js.
-         */
-
-        /**
          * Đưa UI về màn Playlist, ẩn Visualizer/player-container — dùng bởi clearAllStoredData()
          * (Clear All trong Quản lý dung lượng, xem storage-manager.js): sau khi xoá hết nhạc, UI
          * phải bị ép về đúng màn Playlist NGAY, không chờ người dùng tự bấm Back — tránh bug "Clear
@@ -52,10 +43,6 @@
          * KHÔNG đụng tới currentKey/audioPlayer/RAM khác — chỉ lo phần hiển thị (class CSS, panel
          * Control Center). Nơi gọi PHẢI tự reset RAM (currentKey=null, audioPlayer.pause()...)
          * TRƯỚC khi gọi hàm này.
-         *
-         * FIX (ver 10 refine #3, bổ sung): KHÔNG còn được gọi lúc tab/app bị ẩn nữa (xem wakelock.js
-         * — giờ ẩn tab chỉ lưu state + reload thật NGAY, không tự làm gì khác vì reload sẽ tự dọn
-         * sạch UI/RAM).
          *
          * HOTFIX 10 (08/07/2026, Giang chỉ ra — "sao cứ nghĩ hàm này BẮT BUỘC phải set state, bỏ
          * dòng đó ra rồi tái dùng") — ĐÃ BỎ `appState.set('isVisualizerActive', false)` VÀ dòng
@@ -110,139 +97,6 @@
         function setVisualizerActiveFalse() {
             appState.set('isVisualizerActive', false);
             console.log(`writer: "setVisualizerActiveFalse", page: "isVisualizerActive", content: "false"`);
-        }
-
-        /**
-         * Modal "Bạn có muốn tiếp tục nghe bài XXX không?" — hiện ra NGAY LÚC KHỞI ĐỘNG trang (sau
-         * reload do tab/app bị ẩn — xem resume-state-storage.js, checkPendingResumeStateOnBoot(),
-         * gọi hàm này NGAY SAU loadConfig(), KHÔNG đợi initPlaylistFromDB()). Dùng modalChoice()
-         * (file riêng, js/core/modal-choice-ui.js).
-         *
-         * FIX (ver 10 refine #3, bổ sung — modal phải hiện NGAY từ đầu, không đợi load playlist
-         * xong): vì gọi trước initPlaylistFromDB(), playlistCache có thể CHƯA có dữ liệu lúc modal
-         * mở — hiện tạm tiêu đề là chính currentKey (id bài) thay vì tên thật, rồi
-         * updateResumeModalTitleIfPending() (gọi từ draw-visualizer.js sau khi playlist load xong)
-         * tự cập nhật lại đúng tên một khi có. ĐỒNG THỜI 2 nút "Tiếp tục phát"/"Nghe lại" bị khoá
-         * (disabled, đánh dấu data-resume-needs-playlist để enableResumeModalButtonsWhenPlaylistReady()
-         * — resume-state-storage.js — tìm đúng nút cần mở khoá) cho tới khi playlist load xong, vì
-         * playSong(key) cần playlistCache/getSongRecord() sẵn sàng mới chạy đúng được. Nút "Không"
-         * KHÔNG bị khoá — luôn bấm được ngay, không cần biết playlist đã load xong hay chưa.
-         *
-         * 3 lựa chọn:
-         *   - "Không"          -> KHÔNG áp gì vào RAM, chỉ tắt cờ + dọn snapshot (discardPendingResumeState()).
-         *   - "Tiếp tục phát"  -> applyResumeStateToRam() (shuffle/repeat/displayOrder/video/auto-switch-marks)
-         *                         RỒI playSong(key), seek về đúng lastStoppedTime lúc bị dừng.
-         *   - "Nghe lại"       -> applyResumeStateToRam() RỒI playSong(key) phát lại TỪ ĐẦU (currentTime = 0,
-         *                         playSong() tự đặt khi gán src mới — không cần seek thêm).
-         */
-        /**
-         * Cờ chống MỞ CHỒNG modal "Tiếp tục nghe?" — phòng trường hợp showResumeChoiceModal() bị
-         * gọi 2 lần (hiếm, ví dụ race điều kiện nào đó gọi checkPendingResumeStateOnBoot() lần 2).
-         * true  = modal đang mở, đang chờ người dùng chọn -> gọi lại lúc này KHÔNG làm gì cả.
-         * false = không có modal nào đang mở. Đặt lại false ngay khi 1 trong 3 nút được bấm.
-         * STATE — xem service/state.js.
-         */
-
-        /** true khi initPlaylistFromDB() đã chạy xong (xem draw-visualizer.js) — dùng để biết
-         * lúc showResumeChoiceModal() mở, có nên disable 2 nút "Tiếp tục phát"/"Nghe lại" hay
-         * không (chỉ disable nếu playlist CHƯA load xong tại đúng thời điểm modal mở). STATE —
-         * xem service/state.js. */
-
-        function showResumeChoiceModal() {
-            if (appState.get('isResumeModalOpen')) return; // modal cũ vẫn đang mở chờ chọn -> không mở chồng/thay thế
-            if (!appState.get('lastStoppedKey')) return; // chưa từng nghe gì trước đó -> không có gì để hỏi
-            const key = appState.get('lastStoppedKey');
-            const resumeTime = appState.get('lastStoppedTime');
-            appState.set('lastStoppedKey', null); appState.set('lastStoppedTime', 0); // tránh gọi lại nhầm key cũ nếu hàm bị gọi lần 2
-            appState.set('isResumeModalOpen', true);
-
-            // FIX (ver 10 refine #3, bổ sung — modal phải hiện NGAY từ đầu, không đợi load playlist
-            // xong): gọi hàm này ngay sau loadConfig(), playlistCache rất có thể CHƯA có dữ liệu —
-            // hiện tạm chính key (id bài) làm tiêu đề, updateResumeModalTitleIfPending() (gọi từ
-            // draw-visualizer.js sau initPlaylistFromDB()) tự sửa lại đúng tên khi có.
-            const cached = (typeof appState !== 'undefined') ? appState.get('playlistCache').get(key) : null;
-            const title = cached && cached.tag && cached.tag.title ? cached.tag.title : key;
-            const needsPlaylist = !appState.get('_isPlaylistReadyForResumeModal'); // playlist chưa load xong -> khoá tạm 2 nút cần playSong()
-
-            modalChoice(
-                tFormat('common.resumeModal.question', { title }),
-                [
-                    {
-                        label: t('common.resumeModal.btnNo'),
-                        className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors',
-                        // "Không" KHÔNG cần playlist load xong — chỉ tắt cờ/dọn snapshot, không gọi
-                        // playSong() nào cả — luôn bấm được ngay từ lúc modal vừa mở.
-                        onClick: () => {
-                            appState.set('isResumeModalOpen', false);
-                            if (typeof discardPendingResumeState === 'function') discardPendingResumeState();
-                        }
-                    },
-                    {
-                        label: t('common.resumeModal.btnResume'),
-                        className: 'flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold transition-colors',
-                        disabled: needsPlaylist,
-                        dataset: { resumeNeedsPlaylist: '1' }, // querySelector bởi enableResumeModalButtonsWhenPlaylistReady() (resume-state-storage.js)
-                        // applyResumeStateToRam() PHẢI gọi TRƯỚC workflowPlayer.playMedia(key) —
-                        // hàm đó set window._resumeAutoSwitchVisualMarks (đọc bởi
-                        // startAutoSwitchVisualBranch() trong auto-switch-visual.js, tự kích hoạt
-                        // qua sự kiện 'play' bên trong playMedia()) và phục hồi shuffle/repeat/
-                        // displayOrder cần có TRƯỚC khi người dùng bấm Next/Prev ngay sau đó.
-                        // [SỬA — plan-playmedia-reorg.md] `window.playSong()` -> `workflowPlayer.
-                        // playMedia()` (event/workflow/player.js), CHỈ đổi tên gọi — vẫn nằm trong
-                        // diện ngoại lệ Rule 5a đã audit (onClick bên trong modalChoice()), Core
-                        // gọi thẳng Workflow tại 2 điểm này KHÔNG phải kiến trúc mới, CÙNG KHUÔN
-                        // đã có sẵn ở handleAudioPlay()/handleAudioPause() (gọi thẳng
-                        // workflowVisualBg) trong CHÍNH file này.
-                        onClick: async () => {
-                            appState.set('isResumeModalOpen', false);
-                            if (typeof applyResumeStateToRam === 'function') applyResumeStateToRam();
-                            await workflowPlayer.playMedia(key);
-                            if (appState.get('currentKey') === key) audioPlayer.currentTime = resumeTime;
-                        }
-                    },
-                    {
-                        label: t('common.resumeModal.btnRestart'),
-                        className: 'flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-sm font-semibold transition-colors',
-                        disabled: needsPlaylist,
-                        dataset: { resumeNeedsPlaylist: '1' },
-                        // CŨNG áp dụng applyResumeStateToRam() (shuffle/repeat/displayOrder/video/
-                        // auto-switch-marks) — chỉ riêng VỊ TRÍ ĐANG NGHE của bài là phát lại từ đầu
-                        // (playMedia() đã tự đặt currentTime = 0 khi gán src mới — không cần seek
-                        // thêm), mọi state khác vẫn nên khôi phục đúng như đã lưu.
-                        onClick: () => {
-                            appState.set('isResumeModalOpen', false);
-                            if (typeof applyResumeStateToRam === 'function') applyResumeStateToRam();
-                            workflowPlayer.playMedia(key);
-                        }
-                    }
-                ],
-                { title: t('common.resumeModal.title') }
-            );
-
-            // Cache lại key/title hiện tại để updateResumeModalTitleIfPending() (gọi sau khi
-            // playlist load xong) biết cần thay tiêu đề tạm bằng tên thật của ĐÚNG bài nào.
-            appState.set('_resumeModalPendingKey', needsPlaylist ? key : null);
-        }
-
-        /** Key đang chờ cập nhật lại tiêu đề modal (chỉ có giá trị nếu modal đang mở với tiêu đề
-         * TẠM — xem showResumeChoiceModal()). null nếu không cần cập nhật gì (đã có tên thật ngay
-         * từ đầu, hoặc modal đã đóng). STATE — xem service/state.js. */
-
-        /**
-         * Gọi từ enableResumeModalButtonsWhenPlaylistReady() (resume-state-storage.js, sau khi
-         * initPlaylistFromDB() xong) — nếu modal đang mở VỚI tiêu đề tạm (_resumeModalPendingKey
-         * còn giá trị), sửa lại đúng tên bài thật từ playlistCache. No-op an toàn nếu modal đã đóng
-         * hoặc tiêu đề đã đúng từ đầu.
-         */
-        function updateResumeModalTitleIfPending() {
-            if (!appState.get('_resumeModalPendingKey')) return;
-            const key = appState.get('_resumeModalPendingKey');
-            appState.set('_resumeModalPendingKey', null);
-            const textEl = document.getElementById('modal-choice-text');
-            if (!textEl) return; // modal đã đóng (người dùng bấm trước khi load xong) -> không có gì để sửa
-            const cached = (typeof appState !== 'undefined') ? appState.get('playlistCache').get(key) : null;
-            const title = cached && cached.tag && cached.tag.title ? cached.tag.title : key;
-            textEl.innerHTML = tFormat('common.resumeModal.question', { title });
         }
 
         function switchToVisualizer() {

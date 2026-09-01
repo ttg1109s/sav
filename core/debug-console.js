@@ -19,8 +19,7 @@
  * thể trì hoãn vào trong 1 hàm rồi chờ ai đó gọi — nếu vậy sẽ lại bỏ lỡ mọi log xảy ra TRƯỚC lúc
  * hàm đó được gọi, đúng vấn đề cần giải quyết). Bản thân việc bọc console KHÔNG đọc appState/DOM,
  * không phải "core nghiệp vụ" theo nghĩa Rule 1-5 (không ai gọi core khác, không core-gọi-core) —
- * chỉ là 1 utility toàn cục độc lập, tương tự cách `core/tab-hide-reload.js` từng làm (dù file đó
- * là di sản cũ, khác lý do).
+ * chỉ là 1 utility toàn cục độc lập.
  */
 const DEBUG_CONSOLE_MAX_ENTRIES = 500;
 const _debugConsoleBuffer = [];
