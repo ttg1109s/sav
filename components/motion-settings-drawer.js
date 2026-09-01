@@ -148,14 +148,10 @@ function renderMotionEditBody(preset) {
                                 <option value="flipRight" ${preset.transitionType === 'flipRight' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipRight">${t('motionSettingsDrawer.transition.flipRight')}</option>
                                 <option value="flipVertical" ${preset.transitionType === 'flipVertical' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipVertical">${t('motionSettingsDrawer.transition.flipVertical')}</option>
                                 <option value="flipDown" ${preset.transitionType === 'flipDown' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipDown">${t('motionSettingsDrawer.transition.flipDown')}</option>
-                                <option value="flipLeftEdgeOpen" ${preset.transitionType === 'flipLeftEdgeOpen' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipLeftEdgeOpen">${t('motionSettingsDrawer.transition.flipLeftEdgeOpen')}</option>
-                                <option value="flipLeftEdgeClose" ${preset.transitionType === 'flipLeftEdgeClose' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipLeftEdgeClose">${t('motionSettingsDrawer.transition.flipLeftEdgeClose')}</option>
-                                <option value="flipRightEdgeOpen" ${preset.transitionType === 'flipRightEdgeOpen' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipRightEdgeOpen">${t('motionSettingsDrawer.transition.flipRightEdgeOpen')}</option>
-                                <option value="flipRightEdgeClose" ${preset.transitionType === 'flipRightEdgeClose' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipRightEdgeClose">${t('motionSettingsDrawer.transition.flipRightEdgeClose')}</option>
-                                <option value="flipTopEdgeOpen" ${preset.transitionType === 'flipTopEdgeOpen' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipTopEdgeOpen">${t('motionSettingsDrawer.transition.flipTopEdgeOpen')}</option>
-                                <option value="flipTopEdgeClose" ${preset.transitionType === 'flipTopEdgeClose' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipTopEdgeClose">${t('motionSettingsDrawer.transition.flipTopEdgeClose')}</option>
-                                <option value="flipBottomEdgeOpen" ${preset.transitionType === 'flipBottomEdgeOpen' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipBottomEdgeOpen">${t('motionSettingsDrawer.transition.flipBottomEdgeOpen')}</option>
-                                <option value="flipBottomEdgeClose" ${preset.transitionType === 'flipBottomEdgeClose' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipBottomEdgeClose">${t('motionSettingsDrawer.transition.flipBottomEdgeClose')}</option>
+                                <option value="flipLeftEdge" ${preset.transitionType === 'flipLeftEdge' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipLeftEdge">${t('motionSettingsDrawer.transition.flipLeftEdge')}</option>
+                                <option value="flipRightEdge" ${preset.transitionType === 'flipRightEdge' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipRightEdge">${t('motionSettingsDrawer.transition.flipRightEdge')}</option>
+                                <option value="flipTopEdge" ${preset.transitionType === 'flipTopEdge' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipTopEdge">${t('motionSettingsDrawer.transition.flipTopEdge')}</option>
+                                <option value="flipBottomEdge" ${preset.transitionType === 'flipBottomEdge' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.flipBottomEdge">${t('motionSettingsDrawer.transition.flipBottomEdge')}</option>
                                 <option value="blur" ${preset.transitionType === 'blur' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.blur">${t('motionSettingsDrawer.transition.blur')}</option>
                                 <option value="rotateFade" ${preset.transitionType === 'rotateFade' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.rotateFade">${t('motionSettingsDrawer.transition.rotateFade')}</option>
                                 <option value="curtain" ${preset.transitionType === 'curtain' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.curtain">${t('motionSettingsDrawer.transition.curtain')}</option>
@@ -164,6 +160,20 @@ function renderMotionEditBody(preset) {
                                 <option value="whipPan" ${preset.transitionType === 'whipPan' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.whipPan">${t('motionSettingsDrawer.transition.whipPan')}</option>
                                 <option value="spinIn" ${preset.transitionType === 'spinIn' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transition.spinIn">${t('motionSettingsDrawer.transition.spinIn')}</option>
                             </select>
+                        </div>
+                        <div id="motion-edge-flip-variant-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors${transitionIsEdgeFlip(preset.transitionType) ? '' : ' hidden'}">
+                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.edgeFlipVariant.label">${t('motionSettingsDrawer.edgeFlipVariant.label')}</span>
+                            <select id="setting-motion-edge-flip-variant" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
+                                <option value="open" ${preset.edgeFlipVariant === 'open' ? 'selected' : ''} data-i18n="motionSettingsDrawer.edgeFlipVariant.open">${t('motionSettingsDrawer.edgeFlipVariant.open')}</option>
+                                <option value="close" ${preset.edgeFlipVariant === 'close' ? 'selected' : ''} data-i18n="motionSettingsDrawer.edgeFlipVariant.close">${t('motionSettingsDrawer.edgeFlipVariant.close')}</option>
+                            </select>
+                        </div>
+                        <div id="motion-edge-flip-static-old-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors${(transitionIsEdgeFlip(preset.transitionType) && preset.edgeFlipVariant === 'close') ? '' : ' hidden'}">
+                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.edgeFlipStaticOld.label">${t('motionSettingsDrawer.edgeFlipStaticOld.label')}</span>
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="setting-motion-edge-flip-static-old" class="sr-only peer" ${preset.edgeFlipStaticOld ? 'checked' : ''}>
+                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                            </label>
                         </div>
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <div class="pr-3">
