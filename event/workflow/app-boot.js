@@ -43,7 +43,6 @@ const workflowAppBoot = {
         // XOÁ (29/08/2026) — comment cũ "Domain slideshow đã gộp vào visualBgConfig.slideshow (v13
         // Batch C)" không còn đúng — Motion tách hẳn thành hệ preset độc lập (migrate ở dòng
         // `workflowMotionPresets.loadPresetsOnBoot()` phía trên), không còn nhúng trong VBG.
-        if (typeof checkPendingResumeStateOnBoot === 'function') checkPendingResumeStateOnBoot();
         if (typeof loadSongStats === 'function') await loadSongStats();
 
         // MỚI (phản hồi Giang, mục 5 "Đồng bộ lại config Playlist Settings") — khôi phục
@@ -145,8 +144,6 @@ const workflowAppBoot = {
         // `runAsync()`, xem event/virtual-machine-state.js), để phản ánh đúng giá trị thật đã khôi
         // phục.
         if (typeof PlaylistMain !== 'undefined') await PlaylistMain.updateActiveFolderUI();
-        if (typeof appState !== 'undefined') appState.set('_isPlaylistReadyForResumeModal', true);
-        if (typeof enableResumeModalButtonsWhenPlaylistReady === 'function') enableResumeModalButtonsWhenPlaylistReady();
         // Cuộn tới bài vừa sửa phụ đề xong (quay lại từ subtitle-editor.html qua nút "←") — đặt
         // SAU CÙNG (đã initPlaylistFromDB() + khôi phục activePlayListFolder xong).
         if (typeof scrollToSongIfPending === 'function') scrollToSongIfPending();

@@ -20,9 +20,8 @@
  *     `selectionMode=false`
  *   - `playlistEmptyState` — 2 nút to "Phát"/"Trộn bài" (event/router/playlist-empty-state.js +
  *     event/workflow/playlist-empty-state.js)
- * và từ 3 chỗ Core gọi THẲNG (core/player-controls.js — `togglePlayPause()` lúc `currentKey===null`,
- * `handleAudioEnded()` cho case tương đương "hết bài -> next", 2 nhánh `onClick` trong
- * `showResumeChoiceModal()`/modal "Tiếp tục nghe?") — Core gọi Workflow trực tiếp ở các điểm này là
+ * và từ 2 chỗ Core gọi THẲNG (core/player-controls.js — `togglePlayPause()` lúc `currentKey===null`,
+ * `handleAudioEnded()` cho case tương đương "hết bài -> next") — Core gọi Workflow trực tiếp ở các điểm này là
  * nợ kỹ thuật ĐÃ CÓ SẴN, CÙNG KHUÔN với `handleAudioPlay()`/`handleAudioPause()` (chính file đó, gọi
  * thẳng `workflowVisualBg.syncPlaybackToAudio()`) — KHÔNG phát sinh mới do đợt reorg này, xem
  * docstring từng hàm ở core/player-controls.js.
