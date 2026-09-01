@@ -146,8 +146,9 @@
    VIẾT LẠI (30/08/2026, phản hồi Giang — "wipe chéo là cắt đôi hình ảnh giống curtain rồi, không
    phải wipe... hãy xem cơ chế left/right/up/down rồi áp cho vị trí bắt đầu wipe VD top-left (góc)
    rồi wipe đến cạnh đối bottom-right, không phải từ góc chia ảnh ra 2 mảnh như curtain") — 4 hướng
-   GÓC (topLeft/topRight/bottomLeft/bottomRight) dùng ĐÚNG CƠ CHẾ `inset()` như 4 hướng cạnh — CHỈ
-   khác: co dần ĐỒNG THỜI 2 cạnh KỀ NHAU (thay vì 1 cạnh) — "topLeft" co dần cạnh PHẢI và cạnh DƯỚI
+   GÓC (cornerTopLeft/cornerTopRight/cornerBottomLeft/cornerBottomRight) dùng ĐÚNG CƠ CHẾ `inset()`
+   như 4 hướng cạnh — CHỈ khác: co dần ĐỒNG THỜI 2 cạnh KỀ NHAU (thay vì 1 cạnh) — "cornerTopLeft"
+   co dần cạnh PHẢI và cạnh DƯỚI
    (từ 100%→0%), neo cố định 2 cạnh trên/trái (0% xuyên suốt) — vùng hiện bắt đầu là 1 ĐIỂM ở góc
    trên-trái, LỚN DẦN thành hình chữ nhật (KHÔNG phải đường chéo cắt đôi) tới khi phủ kín khung, góc
    đối diện (dưới-phải) là nơi phủ kín SAU CÙNG. Lớp cũ LUÔN đứng yên (KHÔNG có pha "out" độc lập,
@@ -156,10 +157,10 @@
 #visual-motion-container[data-transition="wipe"][data-wipe-direction="right"] .me-layer-enter { animation-name: me-wipe-enter-right; }
 #visual-motion-container[data-transition="wipe"][data-wipe-direction="up"] .me-layer-enter    { animation-name: me-wipe-enter-up; }
 #visual-motion-container[data-transition="wipe"][data-wipe-direction="down"] .me-layer-enter  { animation-name: me-wipe-enter-down; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="topLeft"] .me-layer-enter     { animation-name: me-wipe-enter-top-left; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="topRight"] .me-layer-enter    { animation-name: me-wipe-enter-top-right; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="bottomLeft"] .me-layer-enter  { animation-name: me-wipe-enter-bottom-left; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="bottomRight"] .me-layer-enter { animation-name: me-wipe-enter-bottom-right; }
+#visual-motion-container[data-transition="wipe"][data-wipe-direction="cornerTopLeft"] .me-layer-enter     { animation-name: me-wipe-enter-top-left; }
+#visual-motion-container[data-transition="wipe"][data-wipe-direction="cornerTopRight"] .me-layer-enter    { animation-name: me-wipe-enter-top-right; }
+#visual-motion-container[data-transition="wipe"][data-wipe-direction="cornerBottomLeft"] .me-layer-enter  { animation-name: me-wipe-enter-bottom-left; }
+#visual-motion-container[data-transition="wipe"][data-wipe-direction="cornerBottomRight"] .me-layer-enter { animation-name: me-wipe-enter-bottom-right; }
 #visual-motion-container[data-transition="wipe"] .me-layer-exit { animation: none; opacity: 1; }
 @keyframes me-wipe-enter-left  { from { clip-path: inset(0 100% 0 0); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
 @keyframes me-wipe-enter-right { from { clip-path: inset(0 0 0 100%); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
@@ -288,7 +289,8 @@
    — 2 góc NẰM TRÊN đường chéo (LUÔN cố định trong polygon, vì luôn thuộc dải) + 4 điểm trượt dọc 4
    cạnh khung từ vị trí SÁT đường chéo (diện tích ~0, vô hình) ra TỚI đúng góc kề (khi đủ 100%, dải
    phủ hết cả 4 góc = hình chữ nhật đầy đủ).
-   "topLeft"/"topRight"/"bottomLeft"/"bottomRight" — MỚI (30/08/2026, phản hồi Giang — chuyển từ
+   "cornerTopLeft"/"cornerTopRight"/"cornerBottomLeft"/"cornerBottomRight" — MỚI (30/08/2026, phản
+   hồi Giang — chuyển từ
    wipe qua, xem docstring MOTION_ENGINE_CURTAIN_DIRECTIONS, core/motion-presets.js) — tách theo
    đường CHÉO nối 1 GÓC (vd top-left) với góc ĐỐI DIỆN (bottom-right), nhưng KHÁC diagonalRight/Left
    ở chỗ dải KHÔNG đối xứng quanh đường chéo — polygon() 4 điểm KIỂU "diều" (kite): 1 góc NEO (3/4
@@ -300,10 +302,10 @@
 #visual-motion-container[data-transition="curtain"][data-curtain-direction="vertical"] .me-layer-enter   { animation-name: me-curtain-enter-vertical; }
 #visual-motion-container[data-transition="curtain"][data-curtain-direction="diagonalRight"] .me-layer-enter { animation-name: me-curtain-enter-diagonal-right; }
 #visual-motion-container[data-transition="curtain"][data-curtain-direction="diagonalLeft"] .me-layer-enter   { animation-name: me-curtain-enter-diagonal-left; }
-#visual-motion-container[data-transition="curtain"][data-curtain-direction="topLeft"] .me-layer-enter     { animation-name: me-curtain-enter-top-left; }
-#visual-motion-container[data-transition="curtain"][data-curtain-direction="topRight"] .me-layer-enter    { animation-name: me-curtain-enter-top-right; }
-#visual-motion-container[data-transition="curtain"][data-curtain-direction="bottomLeft"] .me-layer-enter  { animation-name: me-curtain-enter-bottom-left; }
-#visual-motion-container[data-transition="curtain"][data-curtain-direction="bottomRight"] .me-layer-enter { animation-name: me-curtain-enter-bottom-right; }
+#visual-motion-container[data-transition="curtain"][data-curtain-direction="cornerTopLeft"] .me-layer-enter     { animation-name: me-curtain-enter-top-left; }
+#visual-motion-container[data-transition="curtain"][data-curtain-direction="cornerTopRight"] .me-layer-enter    { animation-name: me-curtain-enter-top-right; }
+#visual-motion-container[data-transition="curtain"][data-curtain-direction="cornerBottomLeft"] .me-layer-enter  { animation-name: me-curtain-enter-bottom-left; }
+#visual-motion-container[data-transition="curtain"][data-curtain-direction="cornerBottomRight"] .me-layer-enter { animation-name: me-curtain-enter-bottom-right; }
 #visual-motion-container[data-transition="curtain"] .me-layer-exit { animation: none; opacity: 1; }
 @keyframes me-curtain-enter-horizontal { from { clip-path: inset(0% 50% 0% 50%); opacity: 1; } to { clip-path: inset(0% 0% 0% 0%); opacity: 1; } }
 @keyframes me-curtain-enter-vertical   { from { clip-path: inset(50% 0% 50% 0%); opacity: 1; } to { clip-path: inset(0% 0% 0% 0%); opacity: 1; } }
