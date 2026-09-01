@@ -115,12 +115,6 @@ const LANG_PATCH_COMMON = {
     'common.close': 'Close',
     'common.btn.upload': 'Upload',
 
-    'common.resumeModal.title': 'Resume playback?',
-    'common.resumeModal.question': 'Do you want to resume playing <b>{title}</b>?',
-    'common.resumeModal.btnNo': 'No',
-    'common.resumeModal.btnResume': 'Resume',
-    'common.resumeModal.btnRestart': 'Restart',
-
     // MỚI (03/08/2026) — dải tỉ lệ Crop dùng CHUNG (event/workflow/crop-ratio-helpers.js) — hiện
     // Video Preview dùng, Photo Edit chưa có dải tỉ lệ nào (Crop Photo luôn Tự do).
     'cropRatio.free': 'Free',
