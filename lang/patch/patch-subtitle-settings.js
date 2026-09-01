@@ -167,16 +167,12 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'motionSettingsDrawer.transition.wipeDown': 'Wipe — from top',
     'motionSettingsDrawer.transition.flip': 'Flip left (3D)',
     'motionSettingsDrawer.transition.flipRight': 'Flip right (3D)',
-    'motionSettingsDrawer.transition.flipLeftEdgeOpen': 'Flip — left edge, open',
-    'motionSettingsDrawer.transition.flipLeftEdgeClose': 'Flip — left edge, close',
-    'motionSettingsDrawer.transition.flipRightEdgeOpen': 'Flip — right edge, open',
-    'motionSettingsDrawer.transition.flipRightEdgeClose': 'Flip — right edge, close',
+    'motionSettingsDrawer.transition.flipLeftEdge': 'Flip — left edge',
+    'motionSettingsDrawer.transition.flipRightEdge': 'Flip — right edge',
     'motionSettingsDrawer.transition.flipVertical': 'Flip up (3D)',
     'motionSettingsDrawer.transition.flipDown': 'Flip down (3D)',
-    'motionSettingsDrawer.transition.flipTopEdgeOpen': 'Flip vertical — top edge, open',
-    'motionSettingsDrawer.transition.flipTopEdgeClose': 'Flip vertical — top edge, close',
-    'motionSettingsDrawer.transition.flipBottomEdgeOpen': 'Flip vertical — bottom edge, open',
-    'motionSettingsDrawer.transition.flipBottomEdgeClose': 'Flip vertical — bottom edge, close',
+    'motionSettingsDrawer.transition.flipTopEdge': 'Flip vertical — top edge',
+    'motionSettingsDrawer.transition.flipBottomEdge': 'Flip vertical — bottom edge',
     'motionSettingsDrawer.transition.blur': 'Blur cross-fade',
     'motionSettingsDrawer.transition.rotateFade': 'Rotate + fade',
     'motionSettingsDrawer.transition.curtain': 'Curtain',
@@ -184,6 +180,12 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'motionSettingsDrawer.transition.glitch': 'Glitch',
     'motionSettingsDrawer.transition.whipPan': 'Whip pan',
     'motionSettingsDrawer.transition.spinIn': 'Spin in',
+    // MỚI (30/08/2026, phản hồi Giang) — 2 field phụ CHỈ hiện khi transitionType là flip-mép, xem
+    // event/workflow/motion-presets.js::_syncEditUI().
+    'motionSettingsDrawer.edgeFlipVariant.label': 'Flip page style',
+    'motionSettingsDrawer.edgeFlipVariant.open': 'Open',
+    'motionSettingsDrawer.edgeFlipVariant.close': 'Close',
+    'motionSettingsDrawer.edgeFlipStaticOld.label': 'Keep old image still',
     // SỬA (29/08/2026) — 'Photo Movement' đổi lại 'Ken Burns' (cùng lý do groupKenBurns.title trên).
     // XOÁ 'kenBurns.hint' — dòng phụ dưới nhãn đã bỏ khỏi template (renderMotionEditBody()).
     'motionSettingsDrawer.kenBurns.label': 'Ken Burns',
