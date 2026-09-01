@@ -174,6 +174,29 @@ function renderMotionEditBody(preset) {
                                 <option value="random" ${preset.transitionSpinDirection === 'random' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionSpinDirection.random">${t('motionSettingsDrawer.transitionSpinDirection.random')}</option>
                             </select>
                         </div>
+                        <div id="motion-transition-wipe-direction-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors${transitionSupportsWipeDirection(preset.transitionType) ? '' : ' hidden'}">
+                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.transitionDirection.label">${t('motionSettingsDrawer.transitionDirection.label')}</span>
+                            <select id="setting-motion-transition-wipe-direction" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-40 text-right">
+                                <option value="left" ${preset.transitionWipeDirection === 'left' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionDirection.left">${t('motionSettingsDrawer.transitionDirection.left')}</option>
+                                <option value="right" ${preset.transitionWipeDirection === 'right' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionDirection.right">${t('motionSettingsDrawer.transitionDirection.right')}</option>
+                                <option value="up" ${preset.transitionWipeDirection === 'up' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionDirection.up">${t('motionSettingsDrawer.transitionDirection.up')}</option>
+                                <option value="down" ${preset.transitionWipeDirection === 'down' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionDirection.down">${t('motionSettingsDrawer.transitionDirection.down')}</option>
+                                <option value="topLeftToBottomRight" ${preset.transitionWipeDirection === 'topLeftToBottomRight' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionWipeDirection.topLeftToBottomRight">${t('motionSettingsDrawer.transitionWipeDirection.topLeftToBottomRight')}</option>
+                                <option value="bottomRightToTopLeft" ${preset.transitionWipeDirection === 'bottomRightToTopLeft' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionWipeDirection.bottomRightToTopLeft">${t('motionSettingsDrawer.transitionWipeDirection.bottomRightToTopLeft')}</option>
+                                <option value="topRightToBottomLeft" ${preset.transitionWipeDirection === 'topRightToBottomLeft' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionWipeDirection.topRightToBottomLeft">${t('motionSettingsDrawer.transitionWipeDirection.topRightToBottomLeft')}</option>
+                                <option value="bottomLeftToTopRight" ${preset.transitionWipeDirection === 'bottomLeftToTopRight' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionWipeDirection.bottomLeftToTopRight">${t('motionSettingsDrawer.transitionWipeDirection.bottomLeftToTopRight')}</option>
+                                <option value="random" ${preset.transitionWipeDirection === 'random' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionDirection.random">${t('motionSettingsDrawer.transitionDirection.random')}</option>
+                            </select>
+                        </div>
+                        <div id="motion-transition-curtain-direction-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors${transitionSupportsCurtainDirection(preset.transitionType) ? '' : ' hidden'}">
+                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.transitionDirection.label">${t('motionSettingsDrawer.transitionDirection.label')}</span>
+                            <select id="setting-motion-transition-curtain-direction" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
+                                <option value="horizontal" ${preset.transitionCurtainDirection === 'horizontal' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionCurtainDirection.horizontal">${t('motionSettingsDrawer.transitionCurtainDirection.horizontal')}</option>
+                                <option value="vertical" ${preset.transitionCurtainDirection === 'vertical' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionCurtainDirection.vertical">${t('motionSettingsDrawer.transitionCurtainDirection.vertical')}</option>
+                                <option value="diagonalRight" ${preset.transitionCurtainDirection === 'diagonalRight' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionCurtainDirection.diagonalRight">${t('motionSettingsDrawer.transitionCurtainDirection.diagonalRight')}</option>
+                                <option value="diagonalLeft" ${preset.transitionCurtainDirection === 'diagonalLeft' ? 'selected' : ''} data-i18n="motionSettingsDrawer.transitionCurtainDirection.diagonalLeft">${t('motionSettingsDrawer.transitionCurtainDirection.diagonalLeft')}</option>
+                            </select>
+                        </div>
                         <div id="motion-edge-flip-variant-row" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors${transitionIsEdgeFlip(preset.transitionType) ? '' : ' hidden'}">
                             <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.edgeFlipVariant.label">${t('motionSettingsDrawer.edgeFlipVariant.label')}</span>
                             <select id="setting-motion-edge-flip-variant" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
