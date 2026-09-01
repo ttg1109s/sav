@@ -184,6 +184,17 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'motionSettingsDrawer.transitionSpinDirection.clockwise': 'Clockwise',
     'motionSettingsDrawer.transitionSpinDirection.counterclockwise': 'Counterclockwise',
     'motionSettingsDrawer.transitionSpinDirection.random': 'Random',
+    // BỔ SUNG (30/08/2026, phản hồi Giang — "thêm direction cho wipe"/"thêm cho Curtain direction")
+    // — 2 field RIÊNG (left/right/up/down/random của wipe DÙNG LẠI key transitionDirection.* có
+    // sẵn ngay trên — KHÔNG lặp lại nhãn, chỉ 4 hướng CHÉO mới cần key riêng).
+    'motionSettingsDrawer.transitionWipeDirection.topLeftToBottomRight': 'Diagonal: top-left → bottom-right',
+    'motionSettingsDrawer.transitionWipeDirection.bottomRightToTopLeft': 'Diagonal: bottom-right → top-left',
+    'motionSettingsDrawer.transitionWipeDirection.topRightToBottomLeft': 'Diagonal: top-right → bottom-left',
+    'motionSettingsDrawer.transitionWipeDirection.bottomLeftToTopRight': 'Diagonal: bottom-left → top-right',
+    'motionSettingsDrawer.transitionCurtainDirection.horizontal': 'Horizontal',
+    'motionSettingsDrawer.transitionCurtainDirection.vertical': 'Vertical',
+    'motionSettingsDrawer.transitionCurtainDirection.diagonalRight': 'Diagonal right',
+    'motionSettingsDrawer.transitionCurtainDirection.diagonalLeft': 'Diagonal left',
     // MỚI (30/08/2026, phản hồi Giang) — 2 field phụ CHỈ hiện khi transitionType là 'flipEdge', xem
     // event/workflow/motion-presets.js::_syncEditUI().
     'motionSettingsDrawer.edgeFlipVariant.label': 'Flip page style',
