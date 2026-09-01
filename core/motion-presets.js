@@ -113,8 +113,17 @@ const MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_WIPE_DIRECTI
  * "/"), dải mở rộng đối xứng quanh đường chéo đó ra tới đủ 4 góc khung.
  * SỬA (30/08/2026, phản hồi Giang — "thêm random vào cho curtain nữa chứ") — bỏ hẳn quyết định
  * trước đó ("KHÔNG có random"), giờ ĐỒNG BỘ với wipe/direction/zoomDirection/spinDirection — xem
- * `MOTION_ENGINE_CURTAIN_DIRECTIONS_WITH_RANDOM` ngay dưới. */
-const MOTION_ENGINE_CURTAIN_DIRECTIONS = ['horizontal', 'vertical', 'diagonalRight', 'diagonalLeft'];
+ * `MOTION_ENGINE_CURTAIN_DIRECTIONS_WITH_RANDOM` ngay dưới.
+ * BỔ SUNG (30/08/2026, phản hồi Giang — "các transition góc cũ của wipe đã chuyển vào curtain
+ * chưa?") — 4 hướng GÓC MỚI (topLeft/topRight/bottomLeft/bottomRight) — CHÍNH LÀ cơ chế polygon
+ * "kite" (neo 1 góc, giữ CỐ ĐỊNH góc đối diện xuyên suốt) LÚC ĐẦU định dùng cho wipe rồi phát hiện
+ * SAI bản chất wipe (Giang chỉ ra "cắt đôi ảnh giống curtain") — giờ CHUYỂN HẲN về đây, nơi nó THẬT
+ * SỰ thuộc về (cùng họ "cắt ảnh theo đường chéo/góc" với diagonalRight/diagonalLeft, chỉ khác hình
+ * dạng dải cắt — xem @keyframes tương ứng, assets/css/motion-engine.css). */
+const MOTION_ENGINE_CURTAIN_DIRECTIONS = [
+    'horizontal', 'vertical', 'diagonalRight', 'diagonalLeft',
+    'topLeft', 'topRight', 'bottomLeft', 'bottomRight',
+];
 
 /** MỚI (30/08/2026, phản hồi Giang — random cho curtain) — giá trị HỢP LỆ cho field
  * `transitionCurtainDirection` (thêm 'random' — CÙNG lý do MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM). */
