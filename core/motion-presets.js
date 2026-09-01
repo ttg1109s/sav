@@ -67,8 +67,20 @@ const MOTION_ENGINE_EDGE_FLIP_VARIANTS = ['open', 'close'];
  * DÙNG CHUNG) — CHỈ áp dụng khi `transitionType` là 'slide'/'wipe'/'flipCard'/'flipEdge'
  * (`transitionSupportsDirection()`, core/motion-engine.js) — 4 type NÀY đều có khái niệm "hướng"
  * (slide: hướng cả cặp layer di chuyển; wipe: cạnh neo lộ dần; flipCard/flipEdge: trục+chiều xoay),
- * gộp lại field DUY NHẤT thay vì mỗi type 1 field/mỗi hướng 1 type riêng như trước. */
+ * gộp lại field DUY NHẤT thay vì mỗi type 1 field/mỗi hướng 1 type riêng như trước.
+ * 4 giá trị CỤ THỂ — dùng làm "nguồn random" khi field = 'random' (xem
+ * `MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM` ngay dưới +
+ * core/motion-engine.js::resolveMotionEngineTransitionOption()). */
 const MOTION_ENGINE_TRANSITION_DIRECTIONS = ['left', 'right', 'up', 'down'];
+
+/** MỚI (30/08/2026, phản hồi Giang — "bổ sung tuỳ chọn random cho mỗi transition có direction/in
+ * out") — giá trị HỢP LỆ cho field `transitionDirection` (khác `MOTION_ENGINE_TRANSITION_DIRECTIONS`
+ * ngay trên — mảng đó CHỈ 4 giá trị CỤ THỂ dùng làm nguồn random, mảng NÀY thêm 'random' để validate
+ * chính field). 'random' — MỖI LƯỢT transition kích hoạt, tự chọn NGẪU NHIÊN 1 trong 4 hướng cụ
+ * thể, LOẠI TRỪ hướng vừa dùng lượt liền trước (CÙNG convention `resolveMotionEngineKenBurnsDirection()`
+ * đã có cho Ken Burns — xem event/workflow/motion-engine.js::_tickTransitionRandom()/
+ * `_lastTransitionDirection`). */
+const MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_TRANSITION_DIRECTIONS, 'random'];
 
 /** MỚI (30/08/2026, phản hồi Giang — "fade, zoom sẽ hiện select in/out") — CHỈ áp dụng khi
  * `transitionType` là 'fade'/'zoom'/'spin' (`transitionSupportsZoomDirection()`,
@@ -77,10 +89,18 @@ const MOTION_ENGINE_TRANSITION_DIRECTIONS = ['left', 'right', 'up', 'down'];
  * YÊN bên dưới — z-index đảo ngược quy ước chung (CÙNG cơ chế "open" của flip-mép). */
 const MOTION_ENGINE_ZOOM_DIRECTIONS = ['in', 'out'];
 
+/** MỚI (30/08/2026, phản hồi Giang — random) — giá trị HỢP LỆ cho field `transitionZoomDirection`
+ * (thêm 'random' — CÙNG lý do MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM ngay trên). */
+const MOTION_ENGINE_ZOOM_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_ZOOM_DIRECTIONS, 'random'];
+
 /** MỚI (30/08/2026, phản hồi Giang — field phụ THỨ 2 riêng cho 'spin', "chiều spin") — CHỈ áp dụng
  * khi `transitionType` là 'spin' (`transitionSupportsSpinDirection()`, core/motion-engine.js) —
  * chiều XOAY (2D, khác hẳn `transitionDirection` — trục/hướng của slide/wipe/flip). */
 const MOTION_ENGINE_SPIN_DIRECTIONS = ['clockwise', 'counterclockwise'];
+
+/** MỚI (30/08/2026, phản hồi Giang — random) — giá trị HỢP LỆ cho field `transitionSpinDirection`
+ * (thêm 'random' — CÙNG lý do MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM ngay trên). */
+const MOTION_ENGINE_SPIN_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_SPIN_DIRECTIONS, 'random'];
 
 /** 1 preset "trắng" — dùng làm giá trị khởi tạo lúc "Thêm cấu hình" (nút + ở header danh sách) —
  * CÙNG mặc định với `DEFAULT_VISUAL_BG_CONFIG.motion` cũ (trước khi tách preset), giữ trải
@@ -147,9 +167,9 @@ function sanitizeMotionPreset(raw) {
         transitionDurationMs: (typeof raw.transitionDurationMs === 'number' && raw.transitionDurationMs >= MOTION_ENGINE_TRANSITION_MIN_TIME_MS && raw.transitionDurationMs <= MOTION_ENGINE_TRANSITION_MAX_TIME_MS) ? raw.transitionDurationMs : blank.transitionDurationMs, // core/motion-engine.js
         transitionInOutRatio: (typeof raw.transitionInOutRatio === 'number' && raw.transitionInOutRatio >= 0 && raw.transitionInOutRatio <= 100) ? raw.transitionInOutRatio : blank.transitionInOutRatio,
         transitionEasing: MOTION_ENGINE_TRANSITION_EASINGS.includes(raw.transitionEasing) ? raw.transitionEasing : blank.transitionEasing, // core/motion-engine.js
-        transitionDirection: MOTION_ENGINE_TRANSITION_DIRECTIONS.includes(raw.transitionDirection) ? raw.transitionDirection : blank.transitionDirection,
-        transitionZoomDirection: MOTION_ENGINE_ZOOM_DIRECTIONS.includes(raw.transitionZoomDirection) ? raw.transitionZoomDirection : blank.transitionZoomDirection,
-        transitionSpinDirection: MOTION_ENGINE_SPIN_DIRECTIONS.includes(raw.transitionSpinDirection) ? raw.transitionSpinDirection : blank.transitionSpinDirection,
+        transitionDirection: MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM.includes(raw.transitionDirection) ? raw.transitionDirection : blank.transitionDirection,
+        transitionZoomDirection: MOTION_ENGINE_ZOOM_DIRECTIONS_WITH_RANDOM.includes(raw.transitionZoomDirection) ? raw.transitionZoomDirection : blank.transitionZoomDirection,
+        transitionSpinDirection: MOTION_ENGINE_SPIN_DIRECTIONS_WITH_RANDOM.includes(raw.transitionSpinDirection) ? raw.transitionSpinDirection : blank.transitionSpinDirection,
         edgeFlipVariant: MOTION_ENGINE_EDGE_FLIP_VARIANTS.includes(raw.edgeFlipVariant) ? raw.edgeFlipVariant : blank.edgeFlipVariant,
         edgeFlipStaticOld: typeof raw.edgeFlipStaticOld === 'boolean' ? raw.edgeFlipStaticOld : blank.edgeFlipStaticOld,
         kenBurnsEnabled: typeof raw.kenBurnsEnabled === 'boolean' ? raw.kenBurnsEnabled : blank.kenBurnsEnabled,

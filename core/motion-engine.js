@@ -362,6 +362,30 @@ function resolveMotionEngineKenBurnsDirection(mode, excludeDirection) {
 }
 
 /**
+ * Core thuần: resolve 1 field "hướng" transition (`transitionDirection`/`transitionZoomDirection`/
+ * `transitionSpinDirection`, core/motion-presets.js) — MỚI (30/08/2026, phản hồi Giang — "bổ sung
+ * tuỳ chọn random cho mỗi transition có direction/in out"). `value !== 'random'` -> trả thẳng
+ * (chế độ CỤ THỂ, người dùng chọn cố định 1 hướng, KHÔNG random/loại trừ gì). `value === 'random'`
+ * -> chọn NGẪU NHIÊN 1 phần tử trong `candidates`, LOẠI TRỪ `excludeValue` (giá trị dùng ở lượt
+ * transition kích hoạt LIỀN TRƯỚC — nơi gọi tự nhớ, xem event/workflow/motion-engine.js) — CÙNG
+ * convention `resolveMotionEngineKenBurnsDirection()` ngay trên (đảm bảo 'random' KHÔNG BAO GIỜ lặp
+ * lại y hệt lượt liền trước, kể cả khi random tự nhiên "trúng" lại). DÙNG CHUNG cho cả 3 field (khác
+ * Ken Burns — 1 hàm/3 nhóm meta-mode) vì cơ chế giống hệt nhau, chỉ khác `candidates` truyền vào.
+ * @param {string} value - giá trị field hiện tại — 'random' hoặc 1 giá trị CỤ THỂ.
+ * @param {string[]} candidates - toàn bộ giá trị CỤ THỂ hợp lệ (core/motion-presets.js, vd
+ *   MOTION_ENGINE_TRANSITION_DIRECTIONS) — KHÔNG bao gồm 'random'.
+ * @param {string|null} excludeValue - giá trị dùng ở lượt liền trước (null nếu chưa có).
+ * @returns {string} 1 giá trị CỤ THỂ trong `candidates`.
+ */
+function resolveMotionEngineTransitionOption(value, candidates, excludeValue) {
+    if (value !== 'random') return value;
+    if (candidates.length <= 1) return candidates[0]; // guard: phòng hờ, không xảy ra thực tế (3 field hiện tại đều >=2 lựa chọn)
+    let picked = candidates[Math.floor(Math.random() * candidates.length)];
+    while (picked === excludeValue) picked = candidates[Math.floor(Math.random() * candidates.length)];
+    return picked;
+}
+
+/**
  * Core thuần: "KẸP" thời gian hiệu ứng Ken Burns về [5s, 60s] — dùng CẢ lúc tính biên độ
  * (magnitude, xem computeMotionEngineKenBurnsTargetMagnitude()) LẪN lúc set duration animation THẬT
  * (startMotionEngineKenBurnsAnimation()) — 2 nơi PHẢI dùng CÙNG 1 giá trị đã kẹp, không thì biên độ
