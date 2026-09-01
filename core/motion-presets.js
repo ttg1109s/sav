@@ -106,9 +106,15 @@ const MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_WIPE_DIRECTI
  * "horizontal" (mặc định, hành vi CŨ của curtain — GIỮ NGUYÊN) — tách theo đường DỌC giữa khung,
  * 2 nửa trượt ra 2 bên TRÁI/PHẢI. "vertical" — tách theo đường NGANG giữa khung, 2 nửa trượt lên/
  * xuống. "diagonalRight"/"diagonalLeft" — tách theo 1 trong 2 đường CHÉO qua tâm (tương ứng "\"/
- * "/"), dải mở rộng đối xứng quanh đường chéo đó ra tới đủ 4 góc khung. KHÔNG có 'random' (Giang
- * không yêu cầu, khác wipe/direction/zoomDirection/spinDirection). */
+ * "/"), dải mở rộng đối xứng quanh đường chéo đó ra tới đủ 4 góc khung.
+ * SỬA (30/08/2026, phản hồi Giang — "thêm random vào cho curtain nữa chứ") — bỏ hẳn quyết định
+ * trước đó ("KHÔNG có random"), giờ ĐỒNG BỘ với wipe/direction/zoomDirection/spinDirection — xem
+ * `MOTION_ENGINE_CURTAIN_DIRECTIONS_WITH_RANDOM` ngay dưới. */
 const MOTION_ENGINE_CURTAIN_DIRECTIONS = ['horizontal', 'vertical', 'diagonalRight', 'diagonalLeft'];
+
+/** MỚI (30/08/2026, phản hồi Giang — random cho curtain) — giá trị HỢP LỆ cho field
+ * `transitionCurtainDirection` (thêm 'random' — CÙNG lý do MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM). */
+const MOTION_ENGINE_CURTAIN_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_CURTAIN_DIRECTIONS, 'random'];
 
 /** MỚI (30/08/2026, phản hồi Giang — "fade, zoom sẽ hiện select in/out") — CHỈ áp dụng khi
  * `transitionType` là 'fade'/'zoom'/'spin' (`transitionSupportsZoomDirection()`,
@@ -201,7 +207,7 @@ function sanitizeMotionPreset(raw) {
         transitionZoomDirection: MOTION_ENGINE_ZOOM_DIRECTIONS_WITH_RANDOM.includes(raw.transitionZoomDirection) ? raw.transitionZoomDirection : blank.transitionZoomDirection,
         transitionSpinDirection: MOTION_ENGINE_SPIN_DIRECTIONS_WITH_RANDOM.includes(raw.transitionSpinDirection) ? raw.transitionSpinDirection : blank.transitionSpinDirection,
         transitionWipeDirection: MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM.includes(raw.transitionWipeDirection) ? raw.transitionWipeDirection : blank.transitionWipeDirection,
-        transitionCurtainDirection: MOTION_ENGINE_CURTAIN_DIRECTIONS.includes(raw.transitionCurtainDirection) ? raw.transitionCurtainDirection : blank.transitionCurtainDirection,
+        transitionCurtainDirection: MOTION_ENGINE_CURTAIN_DIRECTIONS_WITH_RANDOM.includes(raw.transitionCurtainDirection) ? raw.transitionCurtainDirection : blank.transitionCurtainDirection,
         edgeFlipVariant: MOTION_ENGINE_EDGE_FLIP_VARIANTS.includes(raw.edgeFlipVariant) ? raw.edgeFlipVariant : blank.edgeFlipVariant,
         edgeFlipStaticOld: typeof raw.edgeFlipStaticOld === 'boolean' ? raw.edgeFlipStaticOld : blank.edgeFlipStaticOld,
         kenBurnsEnabled: typeof raw.kenBurnsEnabled === 'boolean' ? raw.kenBurnsEnabled : blank.kenBurnsEnabled,
