@@ -62,6 +62,7 @@ const workflowMotionEngine = {
     _lastTransitionZoomDirection: null,
     _lastTransitionSpinDirection: null,
     _lastTransitionWipeDirection: null, // MỚI (30/08/2026, phản hồi Giang — random riêng cho wipe, xem _resolveTransitionDirections()) — 'curtain' KHÔNG cần (không có 'random')
+    _lastTransitionCurtainDirection: null, // SỬA (30/08/2026, phản hồi Giang — "thêm random vào cho curtain nữa chứ") — ban đầu curtain không cần state này (không có random), giờ có
     _activePreset: MOTION_ENGINE_NO_OP_PRESET, // preset của LƯỢT HIỂN THỊ GẦN NHẤT — _tickBeatReact() (chạy mỗi frame, không có tham số) đọc lại từ đây
     _lastAdvanceMs: 5000, // advanceMs của LƯỢT HIỂN THỊ GẦN NHẤT (gán ở reveal()/transitionTo()) — _activateKenBurns() dùng kẹp trần, KHÔNG tự tính nữa
 
@@ -196,18 +197,18 @@ const workflowMotionEngine = {
         return true;
     },
 
-    /** Resolve 3 field "hướng" transition (`transitionDirection`/`transitionZoomDirection`/
-     * `transitionSpinDirection`) của `preset` — MỚI (30/08/2026, phản hồi Giang — random). Field nào
-     * ĐANG là 'random' thì chọn 1 giá trị CỤ THỂ (loại trừ giá trị dùng lượt liền trước, tự nhớ ở
-     * `_lastTransitionDirection`/`_lastTransitionZoomDirection`/`_lastTransitionSpinDirection` —
+    /** Resolve 5 field "hướng" transition (`transitionDirection`/`transitionZoomDirection`/
+     * `transitionSpinDirection`/`transitionWipeDirection`/`transitionCurtainDirection`) của
+     * `preset` — MỚI (30/08/2026, phản hồi Giang — random). Field nào ĐANG là 'random' thì chọn 1
+     * giá trị CỤ THỂ (loại trừ giá trị dùng lượt liền trước, tự nhớ ở
+     * `_lastTransitionDirection`/`_lastTransitionZoomDirection`/`_lastTransitionSpinDirection`/
+     * `_lastTransitionWipeDirection`/`_lastTransitionCurtainDirection` —
      * `resolveMotionEngineTransitionOption()`, core) rồi CẬP NHẬT LUÔN "lượt vừa dùng" cho lần gọi
      * kế tiếp; field CỤ THỂ (không phải 'random') giữ nguyên, KHÔNG đụng tới state nhớ (đúng ý
      * "chọn cố định 1 hướng thì luôn là hướng đó", cùng convention Ken Burns). Gọi ở CẢ 2 nơi set
      * data-attribute xuống DOM (`_loadImageIntoLayer()` — reveal ảnh đầu, VÀ `transitionTo()`).
-     * BỔ SUNG (30/08/2026, phản hồi Giang — field riêng cho wipe/curtain) — `wipeDirection` CÙNG cơ
-     * chế random/loại trừ (field riêng `_lastTransitionWipeDirection`, 8 giá trị CỤ THỂ);
-     * `curtainDirection` KHÔNG có 'random' (Giang không yêu cầu) nên trả THẲNG, không resolve/nhớ
-     * gì cả.
+     * SỬA (30/08/2026, phản hồi Giang — "thêm random vào cho curtain nữa chứ") — `curtainDirection`
+     * giờ CÙNG cơ chế random/loại trừ như 4 field kia (trước đó trả THẲNG, không resolve).
      * @param {object} preset
      * @returns {{direction: string, zoomDirection: string, spinDirection: string, wipeDirection: string, curtainDirection: string}} - 5 giá trị CỤ
      *   THỂ, sẵn sàng truyền thẳng vào `setMotionEngineTransitionDirections()`.
@@ -217,11 +218,13 @@ const workflowMotionEngine = {
         const zoomDirection = resolveMotionEngineTransitionOption(preset.transitionZoomDirection, MOTION_ENGINE_ZOOM_DIRECTIONS, this._lastTransitionZoomDirection); // core/core
         const spinDirection = resolveMotionEngineTransitionOption(preset.transitionSpinDirection, MOTION_ENGINE_SPIN_DIRECTIONS, this._lastTransitionSpinDirection); // core/core
         const wipeDirection = resolveMotionEngineTransitionOption(preset.transitionWipeDirection, MOTION_ENGINE_WIPE_DIRECTIONS, this._lastTransitionWipeDirection); // core/core
+        const curtainDirection = resolveMotionEngineTransitionOption(preset.transitionCurtainDirection, MOTION_ENGINE_CURTAIN_DIRECTIONS, this._lastTransitionCurtainDirection); // core/core
         this._lastTransitionDirection = direction;
         this._lastTransitionZoomDirection = zoomDirection;
         this._lastTransitionSpinDirection = spinDirection;
         this._lastTransitionWipeDirection = wipeDirection;
-        return { direction, zoomDirection, spinDirection, wipeDirection, curtainDirection: preset.transitionCurtainDirection };
+        this._lastTransitionCurtainDirection = curtainDirection;
+        return { direction, zoomDirection, spinDirection, wipeDirection, curtainDirection };
     },
 
     _activateKenBurns(panEl, mode, image) {
@@ -272,6 +275,7 @@ const workflowMotionEngine = {
         this._lastTransitionZoomDirection = null;
         this._lastTransitionSpinDirection = null;
         this._lastTransitionWipeDirection = null;
+        this._lastTransitionCurtainDirection = null;
         this._activePreset = MOTION_ENGINE_NO_OP_PRESET;
     },
 

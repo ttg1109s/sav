@@ -197,16 +197,16 @@ const workflowMotionPresets = {
 
     /** BỔ SUNG (30/08/2026, phản hồi Giang — "thêm direction cho wipe"/"thêm cho Curtain direction")
      * — 2 field RIÊNG (tách khỏi `transitionDirection` dùng chung — wipe có 4 hướng chéo, curtain
-     * có 4 hướng ngang/dọc/chéo, không type nào khác cần tới). `transitionWipeDirection` CHO PHÉP
-     * 'random' (validate mảng `_WITH_RANDOM`); `transitionCurtainDirection` KHÔNG (Giang không yêu
-     * cầu — validate thẳng mảng CỤ THỂ). */
+     * có 4 hướng ngang/dọc/chéo, không type nào khác cần tới). CẢ HAI ĐỀU CHO PHÉP 'random' (SỬA
+     * 30/08/2026, phản hồi Giang — "thêm random vào cho curtain nữa chứ" — ban đầu curtain KHÔNG có,
+     * giờ đồng bộ luôn) — validate mảng `_WITH_RANDOM` (core/motion-presets.js). */
     async changeTransitionWipeDirection(value) {
         if (!MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM.includes(value)) return; // core/motion-presets.js
         await this._mutateEditing((p) => { p.transitionWipeDirection = value; });
     },
 
     async changeTransitionCurtainDirection(value) {
-        if (!MOTION_ENGINE_CURTAIN_DIRECTIONS.includes(value)) return; // core/motion-presets.js
+        if (!MOTION_ENGINE_CURTAIN_DIRECTIONS_WITH_RANDOM.includes(value)) return; // core/motion-presets.js
         await this._mutateEditing((p) => { p.transitionCurtainDirection = value; });
     },
 
