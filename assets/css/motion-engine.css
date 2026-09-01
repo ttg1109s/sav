@@ -139,33 +139,36 @@
 @keyframes me-slide-out-to-bottom  { from { transform: translateY(0); opacity: 1; } to { transform: translateY(100%); opacity: 1; } }
 
 /* ==================== wipe — ảnh MỚI "kéo màn" che dần theo field RIÊNG `transitionWipeDirection`
-   (data-wipe-direction — TÁCH khỏi field `direction` dùng chung, wipe có THÊM 4 hướng CHÉO mà
+   (data-wipe-direction — TÁCH khỏi field `direction` dùng chung, wipe có THÊM 4 hướng GÓC mà
    slide/flipCard/flipEdge không có, xem transitionSupportsWipeDirection(), core/motion-engine.js).
-   4 hướng THẲNG (cạnh NEO lộ dần — "left" neo trái lộ sang phải, "up" neo dưới lộ lên trên...) GIỮ
-   NGUYÊN như cũ. 4 hướng CHÉO MỚI (Giang chốt "chéo trên trái đến chéo dưới phải và ngược lại, chéo
-   trên phải đến chéo dưới trái và ngược lại") — NEO ở 1 GÓC, lộ dần TỚI góc ĐỐI DIỆN, dùng
-   clip-path polygon() 4 điểm KIỂU "diều" (kite): 1 góc NEO (3/4 điểm trùng nhau lúc bắt đầu — vô
-   hình, diện tích 0) + 1 góc ĐỐI DIỆN CỐ ĐỊNH xuyên suốt + 2 điểm trượt dọc 2 cạnh kề góc neo từ 0%
-   → 100% — khi 2 điểm trượt chạm 100%, polygon TRÙNG khít hình chữ nhật đầy đủ. Lớp cũ LUÔN đứng
-   yên (KHÔNG có pha "out" độc lập, mọi hướng — xem MOTION_ENGINE_TRANSITION_TYPES_NO_OUT,
-   core/motion-engine.js). ==================== */
+   4 hướng CẠNH (cạnh NEO lộ dần — "left" neo trái lộ sang phải, "up" neo dưới lộ lên trên...) GIỮ
+   NGUYÊN như cũ, dùng `inset()` co dần ĐÚNG 1 cạnh.
+   VIẾT LẠI (30/08/2026, phản hồi Giang — "wipe chéo là cắt đôi hình ảnh giống curtain rồi, không
+   phải wipe... hãy xem cơ chế left/right/up/down rồi áp cho vị trí bắt đầu wipe VD top-left (góc)
+   rồi wipe đến cạnh đối bottom-right, không phải từ góc chia ảnh ra 2 mảnh như curtain") — 4 hướng
+   GÓC (topLeft/topRight/bottomLeft/bottomRight) dùng ĐÚNG CƠ CHẾ `inset()` như 4 hướng cạnh — CHỈ
+   khác: co dần ĐỒNG THỜI 2 cạnh KỀ NHAU (thay vì 1 cạnh) — "topLeft" co dần cạnh PHẢI và cạnh DƯỚI
+   (từ 100%→0%), neo cố định 2 cạnh trên/trái (0% xuyên suốt) — vùng hiện bắt đầu là 1 ĐIỂM ở góc
+   trên-trái, LỚN DẦN thành hình chữ nhật (KHÔNG phải đường chéo cắt đôi) tới khi phủ kín khung, góc
+   đối diện (dưới-phải) là nơi phủ kín SAU CÙNG. Lớp cũ LUÔN đứng yên (KHÔNG có pha "out" độc lập,
+   mọi hướng — xem MOTION_ENGINE_TRANSITION_TYPES_NO_OUT, core/motion-engine.js). ==================== */
 #visual-motion-container[data-transition="wipe"][data-wipe-direction="left"] .me-layer-enter  { animation-name: me-wipe-enter-left; }
 #visual-motion-container[data-transition="wipe"][data-wipe-direction="right"] .me-layer-enter { animation-name: me-wipe-enter-right; }
 #visual-motion-container[data-transition="wipe"][data-wipe-direction="up"] .me-layer-enter    { animation-name: me-wipe-enter-up; }
 #visual-motion-container[data-transition="wipe"][data-wipe-direction="down"] .me-layer-enter  { animation-name: me-wipe-enter-down; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="topLeftToBottomRight"] .me-layer-enter { animation-name: me-wipe-enter-tl-br; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="bottomRightToTopLeft"] .me-layer-enter { animation-name: me-wipe-enter-br-tl; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="topRightToBottomLeft"] .me-layer-enter { animation-name: me-wipe-enter-tr-bl; }
-#visual-motion-container[data-transition="wipe"][data-wipe-direction="bottomLeftToTopRight"] .me-layer-enter { animation-name: me-wipe-enter-bl-tr; }
+#visual-motion-container[data-transition="wipe"][data-wipe-direction="topLeft"] .me-layer-enter     { animation-name: me-wipe-enter-top-left; }
+#visual-motion-container[data-transition="wipe"][data-wipe-direction="topRight"] .me-layer-enter    { animation-name: me-wipe-enter-top-right; }
+#visual-motion-container[data-transition="wipe"][data-wipe-direction="bottomLeft"] .me-layer-enter  { animation-name: me-wipe-enter-bottom-left; }
+#visual-motion-container[data-transition="wipe"][data-wipe-direction="bottomRight"] .me-layer-enter { animation-name: me-wipe-enter-bottom-right; }
 #visual-motion-container[data-transition="wipe"] .me-layer-exit { animation: none; opacity: 1; }
 @keyframes me-wipe-enter-left  { from { clip-path: inset(0 100% 0 0); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
 @keyframes me-wipe-enter-right { from { clip-path: inset(0 0 0 100%); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
 @keyframes me-wipe-enter-up    { from { clip-path: inset(100% 0 0 0); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
 @keyframes me-wipe-enter-down  { from { clip-path: inset(0 0 100% 0); opacity: 1; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
-@keyframes me-wipe-enter-tl-br { from { clip-path: polygon(0% 0%, 0% 0%, 100% 100%, 0% 0%); opacity: 1; } to { clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%); opacity: 1; } }
-@keyframes me-wipe-enter-br-tl { from { clip-path: polygon(100% 100%, 100% 100%, 0% 0%, 100% 100%); opacity: 1; } to { clip-path: polygon(100% 100%, 0% 100%, 0% 0%, 100% 0%); opacity: 1; } }
-@keyframes me-wipe-enter-tr-bl { from { clip-path: polygon(100% 0%, 100% 0%, 0% 100%, 100% 0%); opacity: 1; } to { clip-path: polygon(100% 0%, 0% 0%, 0% 100%, 100% 100%); opacity: 1; } }
-@keyframes me-wipe-enter-bl-tr { from { clip-path: polygon(0% 100%, 0% 100%, 100% 0%, 0% 100%); opacity: 1; } to { clip-path: polygon(0% 100%, 100% 100%, 100% 0%, 0% 0%); opacity: 1; } }
+@keyframes me-wipe-enter-top-left     { from { clip-path: inset(0% 100% 100% 0%); opacity: 1; } to { clip-path: inset(0% 0% 0% 0%); opacity: 1; } }
+@keyframes me-wipe-enter-top-right    { from { clip-path: inset(0% 0% 100% 100%); opacity: 1; } to { clip-path: inset(0% 0% 0% 0%); opacity: 1; } }
+@keyframes me-wipe-enter-bottom-left  { from { clip-path: inset(100% 100% 0% 0%); opacity: 1; } to { clip-path: inset(0% 0% 0% 0%); opacity: 1; } }
+@keyframes me-wipe-enter-bottom-right { from { clip-path: inset(100% 0% 0% 100%); opacity: 1; } to { clip-path: inset(0% 0% 0% 0%); opacity: 1; } }
 
 /* ==================== flipCard — pivot GIỮA (center), mô hình front/back 180° thật (Giang chốt
    "flip center cần front/back thay vì cả hai cái đều xoay") — layer CŨ (exit, "mặt trước") quay
