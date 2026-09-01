@@ -104,15 +104,20 @@ const workflowMotionPresets = {
         const q = (sel) => genericDrawerBody.querySelector(sel); // core/dom-refs.js
         const ratioRow = q('#motion-transition-ratio-row');
         if (ratioRow) ratioRow.classList.toggle('hidden', !transitionSupportsInOutRatio(preset.transitionType)); // core/motion-engine.js
-        // MỚI (30/08/2026, phản hồi Giang — gộp type có hướng) — 3 dòng select "hướng" tự ẨN/HIỆN
+        // MỚI (30/08/2026, phản hồi Giang — gộp type có hướng) — 5 dòng select "hướng" tự ẨN/HIỆN
         // theo transitionType — xem transitionSupportsDirection()/transitionSupportsZoomDirection()/
-        // transitionSupportsSpinDirection() (core/motion-engine.js).
+        // transitionSupportsSpinDirection()/transitionSupportsWipeDirection()/
+        // transitionSupportsCurtainDirection() (core/motion-engine.js).
         const directionRow = q('#motion-transition-direction-row');
         if (directionRow) directionRow.classList.toggle('hidden', !transitionSupportsDirection(preset.transitionType));
         const zoomDirectionRow = q('#motion-transition-zoom-direction-row');
         if (zoomDirectionRow) zoomDirectionRow.classList.toggle('hidden', !transitionSupportsZoomDirection(preset.transitionType));
         const spinDirectionRow = q('#motion-transition-spin-direction-row');
         if (spinDirectionRow) spinDirectionRow.classList.toggle('hidden', !transitionSupportsSpinDirection(preset.transitionType));
+        const wipeDirectionRow = q('#motion-transition-wipe-direction-row');
+        if (wipeDirectionRow) wipeDirectionRow.classList.toggle('hidden', !transitionSupportsWipeDirection(preset.transitionType));
+        const curtainDirectionRow = q('#motion-transition-curtain-direction-row');
+        if (curtainDirectionRow) curtainDirectionRow.classList.toggle('hidden', !transitionSupportsCurtainDirection(preset.transitionType));
         // 2 dòng phụ CHỈ hiện khi transitionType là 'flipEdge'; dòng checkbox "ảnh trước đứng yên"
         // hiện HẸP HƠN NỮA — CHỈ khi ĐỒNG THỜI edgeFlipVariant==='close' (Giang chốt "chỉ hiển thị
         // nếu flip page và kiểu đóng lại" — "open" luôn cố định hành vi, không có tuỳ chọn nào để
@@ -188,6 +193,21 @@ const workflowMotionPresets = {
     async changeTransitionSpinDirection(value) {
         if (!MOTION_ENGINE_SPIN_DIRECTIONS_WITH_RANDOM.includes(value)) return; // core/motion-presets.js
         await this._mutateEditing((p) => { p.transitionSpinDirection = value; });
+    },
+
+    /** BỔ SUNG (30/08/2026, phản hồi Giang — "thêm direction cho wipe"/"thêm cho Curtain direction")
+     * — 2 field RIÊNG (tách khỏi `transitionDirection` dùng chung — wipe có 4 hướng chéo, curtain
+     * có 4 hướng ngang/dọc/chéo, không type nào khác cần tới). `transitionWipeDirection` CHO PHÉP
+     * 'random' (validate mảng `_WITH_RANDOM`); `transitionCurtainDirection` KHÔNG (Giang không yêu
+     * cầu — validate thẳng mảng CỤ THỂ). */
+    async changeTransitionWipeDirection(value) {
+        if (!MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM.includes(value)) return; // core/motion-presets.js
+        await this._mutateEditing((p) => { p.transitionWipeDirection = value; });
+    },
+
+    async changeTransitionCurtainDirection(value) {
+        if (!MOTION_ENGINE_CURTAIN_DIRECTIONS.includes(value)) return; // core/motion-presets.js
+        await this._mutateEditing((p) => { p.transitionCurtainDirection = value; });
     },
 
     /** MỚI (30/08/2026, phản hồi Giang) — 2 field phụ CHỈ có ý nghĩa khi `transitionType` đang là
@@ -323,6 +343,8 @@ const workflowMotionPresets = {
             p.transitionDirection = blank.transitionDirection;
             p.transitionZoomDirection = blank.transitionZoomDirection;
             p.transitionSpinDirection = blank.transitionSpinDirection;
+            p.transitionWipeDirection = blank.transitionWipeDirection;
+            p.transitionCurtainDirection = blank.transitionCurtainDirection;
             p.edgeFlipVariant = blank.edgeFlipVariant;
             p.edgeFlipStaticOld = blank.edgeFlipStaticOld;
             p.kenBurnsEnabled = blank.kenBurnsEnabled;
