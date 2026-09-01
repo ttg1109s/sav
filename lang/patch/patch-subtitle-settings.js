@@ -175,12 +175,15 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'motionSettingsDrawer.transitionDirection.right': 'Right',
     'motionSettingsDrawer.transitionDirection.up': 'Up',
     'motionSettingsDrawer.transitionDirection.down': 'Down',
+    'motionSettingsDrawer.transitionDirection.random': 'Random',
     'motionSettingsDrawer.transitionZoomDirection.label': 'In/Out',
     'motionSettingsDrawer.transitionZoomDirection.in': 'In',
     'motionSettingsDrawer.transitionZoomDirection.out': 'Out',
+    'motionSettingsDrawer.transitionZoomDirection.random': 'Random',
     'motionSettingsDrawer.transitionSpinDirection.label': 'Spin direction',
     'motionSettingsDrawer.transitionSpinDirection.clockwise': 'Clockwise',
     'motionSettingsDrawer.transitionSpinDirection.counterclockwise': 'Counterclockwise',
+    'motionSettingsDrawer.transitionSpinDirection.random': 'Random',
     // MỚI (30/08/2026, phản hồi Giang) — 2 field phụ CHỈ hiện khi transitionType là 'flipEdge', xem
     // event/workflow/motion-presets.js::_syncEditUI().
     'motionSettingsDrawer.edgeFlipVariant.label': 'Flip page style',
