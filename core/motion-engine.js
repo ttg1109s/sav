@@ -64,10 +64,13 @@ function transitionIsEdgeFlip(transitionType) {
     return transitionType === 'flipEdge';
 }
 
-/** MỚI (30/08/2026, phản hồi Giang) — 4 type CÓ field phụ `transitionDirection` (left/right/up/
- * down) — slide (hướng cả cặp layer di chuyển), wipe (cạnh neo lộ dần), flipCard/flipEdge (trục +
- * chiều xoay). Dùng để Settings Drawer tự ẨN/HIỆN dòng select "Direction". */
-const MOTION_ENGINE_TYPES_WITH_DIRECTION = ['slide', 'wipe', 'flipCard', 'flipEdge'];
+/** MỚI (30/08/2026, phản hồi Giang); SỬA (30/08/2026, phản hồi Giang — "thêm direction cho wipe"
+ * với 4 hướng CHÉO riêng) — BỎ 'wipe' khỏi nhóm này (giờ dùng field RIÊNG `transitionWipeDirection`,
+ * xem `transitionSupportsWipeDirection()` ngay dưới — field chung này chỉ có 4 hướng thẳng, không
+ * hợp lệ cho 4 hướng chéo wipe cần). CHỈ còn 3 type CÓ field phụ `transitionDirection` (left/right/
+ * up/down) — slide (hướng cả cặp layer di chuyển), flipCard/flipEdge (trục + chiều xoay). Dùng để
+ * Settings Drawer tự ẨN/HIỆN dòng select "Direction". */
+const MOTION_ENGINE_TYPES_WITH_DIRECTION = ['slide', 'flipCard', 'flipEdge'];
 function transitionSupportsDirection(transitionType) {
     return MOTION_ENGINE_TYPES_WITH_DIRECTION.includes(transitionType);
 }
@@ -82,9 +85,24 @@ function transitionSupportsZoomDirection(transitionType) {
 
 /** MỚI (30/08/2026, phản hồi Giang) — CHỈ 'spin' có field phụ `transitionSpinDirection`
  * (clockwise/counterclockwise) — chiều XOAY 2D, KHÁC hẳn `transitionDirection` (trục/hướng của
- * slide/wipe/flip). Dùng để Settings Drawer tự ẨN/HIỆN dòng select "Spin direction". */
+ * slide/flip). Dùng để Settings Drawer tự ẨN/HIỆN dòng select "Spin direction". */
 function transitionSupportsSpinDirection(transitionType) {
     return transitionType === 'spin';
+}
+
+/** MỚI (30/08/2026, phản hồi Giang — "thêm direction cho wipe") — CHỈ 'wipe' có field phụ RIÊNG
+ * `transitionWipeDirection` (8 hướng: 4 thẳng + 4 chéo — core/motion-presets.js), TÁCH khỏi
+ * `transitionSupportsDirection()` (dùng chung, chỉ 4 hướng thẳng). Dùng để Settings Drawer tự
+ * ẨN/HIỆN dòng select "Direction" RIÊNG cho wipe. */
+function transitionSupportsWipeDirection(transitionType) {
+    return transitionType === 'wipe';
+}
+
+/** MỚI (30/08/2026, phản hồi Giang — "thêm cho Curtain direction ngang/dọc/chéo phải/chéo trái") —
+ * CHỈ 'curtain' có field phụ RIÊNG `transitionCurtainDirection` (4 hướng — core/motion-presets.js).
+ * Dùng để Settings Drawer tự ẨN/HIỆN dòng select "Direction" RIÊNG cho curtain. */
+function transitionSupportsCurtainDirection(transitionType) {
+    return transitionType === 'curtain';
 }
 
 /** MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh") — kiểu KHÔNG có
@@ -217,17 +235,21 @@ function setMotionEngineEdgeFlipOptions(containerEl, variant, staticOld) {
     containerEl.dataset.flipStaticOld = staticOld ? 'true' : 'false';
 }
 
-/** Core thuần: set 3 field phụ "hướng" (`transitionDirection`/`transitionZoomDirection`/
- * `transitionSpinDirection`, core/motion-presets.js) lên container (CSS đọc qua [data-direction]/
- * [data-zoom-direction]/[data-spin-direction]) — MỚI (30/08/2026, phản hồi Giang — gộp các type có
- * hướng). LUÔN set cả 3 (kể cả type ĐANG chọn không dùng tới field nào — vô hại, selector CSS tương
- * ứng chỉ khớp khi `[data-transition]` cũng khớp type cần).
+/** Core thuần: set 5 field phụ "hướng" (`transitionDirection`/`transitionZoomDirection`/
+ * `transitionSpinDirection`/`transitionWipeDirection`/`transitionCurtainDirection`,
+ * core/motion-presets.js) lên container (CSS đọc qua [data-direction]/[data-zoom-direction]/
+ * [data-spin-direction]/[data-wipe-direction]/[data-curtain-direction]) — MỚI (30/08/2026, phản hồi
+ * Giang — gộp các type có hướng); BỔ SUNG (30/08/2026, phản hồi Giang — field riêng cho wipe/
+ * curtain). LUÔN set cả 5 (kể cả type ĐANG chọn không dùng tới field nào — vô hại, selector CSS
+ * tương ứng chỉ khớp khi `[data-transition]` cũng khớp type cần).
  */
-function setMotionEngineTransitionDirections(containerEl, direction, zoomDirection, spinDirection) {
+function setMotionEngineTransitionDirections(containerEl, direction, zoomDirection, spinDirection, wipeDirection, curtainDirection) {
     if (!containerEl) return;
     containerEl.dataset.direction = direction;
     containerEl.dataset.zoomDirection = zoomDirection;
     containerEl.dataset.spinDirection = spinDirection;
+    containerEl.dataset.wipeDirection = wipeDirection;
+    containerEl.dataset.curtainDirection = curtainDirection;
 }
 
 /** Core thuần: gán ảnh cho 1 layer (KHÔNG tự tạo objectUrl — nhận sẵn qua tham số, Rule 2). */

@@ -6,11 +6,12 @@
  *
  * Preset = {id, name, transitionEnabled, transitionType, transitionDurationMs, transitionInOutRatio,
  * transitionEasing, transitionDirection, transitionZoomDirection, transitionSpinDirection,
- * edgeFlipVariant, edgeFlipStaticOld, kenBurnsEnabled, kenBurnsMode}. Danh sách preset SỐNG ở
- * `appState.motionPresets` (nạp lúc boot từ `meta.motionPresets`), xem event/workflow/
- * motion-presets.js:: loadPresetsOnBoot(). Preset ĐANG GẮN vào Visual Background (Photo) là 1 field
- * tham chiếu đơn giản `appConfigVisualBg.motionPresetId` (null = chưa gắn preset nào — Photo hiện
- * KHÔNG transition/Ken Burns gì cả, chuyển cứng).
+ * transitionWipeDirection, transitionCurtainDirection, edgeFlipVariant, edgeFlipStaticOld,
+ * kenBurnsEnabled, kenBurnsMode}. Danh sách preset SỐNG ở `appState.motionPresets` (nạp lúc boot từ
+ * `meta.motionPresets`), xem event/workflow/motion-presets.js:: loadPresetsOnBoot(). Preset ĐANG
+ * GẮN vào Visual Background (Photo) là 1 field tham chiếu đơn giản
+ * `appConfigVisualBg.motionPresetId` (null = chưa gắn preset nào — Photo hiện KHÔNG transition/
+ * Ken Burns gì cả, chuyển cứng).
  *
  * KHÁC EQ (luôn có `flat` khoá sửa/xoá làm lưới an toàn) — Motion KHÔNG cần preset khoá nào: danh
  * sách rỗng vẫn hợp lệ (Photo VBG không gắn gì thì đơn giản không animate, không phải fallback lỗi).
@@ -63,11 +64,13 @@ const MOTION_BEAT_REACT_DIRECTIONS = ['left', 'right', 'leftToRight', 'rightToLe
  * `edgeFlipStaticOld` quyết định ảnh CŨ có đứng yên hay cùng xoay — xem docstring `sanitizeMotionPreset()`. */
 const MOTION_ENGINE_EDGE_FLIP_VARIANTS = ['open', 'close'];
 
-/** MỚI (30/08/2026, phản hồi Giang — gộp 21 type cũ có "hướng" thành 5 type + field `direction`
- * DÙNG CHUNG) — CHỈ áp dụng khi `transitionType` là 'slide'/'wipe'/'flipCard'/'flipEdge'
- * (`transitionSupportsDirection()`, core/motion-engine.js) — 4 type NÀY đều có khái niệm "hướng"
- * (slide: hướng cả cặp layer di chuyển; wipe: cạnh neo lộ dần; flipCard/flipEdge: trục+chiều xoay),
- * gộp lại field DUY NHẤT thay vì mỗi type 1 field/mỗi hướng 1 type riêng như trước.
+/** MỚI (30/08/2026, phản hồi Giang — gộp 21 type cũ có "hướng" thành field `direction` DÙNG CHUNG);
+ * SỬA (30/08/2026, phản hồi Giang — "thêm direction cho wipe" với 4 hướng CHÉO riêng, wipe/curtain
+ * không dùng field này nữa, xem MOTION_ENGINE_WIPE_DIRECTIONS/MOTION_ENGINE_CURTAIN_DIRECTIONS ngay
+ * dưới) — CHỈ áp dụng khi `transitionType` là 'slide'/'flipCard'/'flipEdge'
+ * (`transitionSupportsDirection()`, core/motion-engine.js) — 3 type NÀY đều CHỈ có 4 hướng thẳng
+ * (slide: hướng cả cặp layer di chuyển; flipCard/flipEdge: trục+chiều xoay), gộp lại field DUY NHẤT
+ * thay vì mỗi type 1 field/mỗi hướng 1 type riêng như trước.
  * 4 giá trị CỤ THỂ — dùng làm "nguồn random" khi field = 'random' (xem
  * `MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM` ngay dưới +
  * core/motion-engine.js::resolveMotionEngineTransitionOption()). */
@@ -81,6 +84,31 @@ const MOTION_ENGINE_TRANSITION_DIRECTIONS = ['left', 'right', 'up', 'down'];
  * đã có cho Ken Burns — xem event/workflow/motion-engine.js::_tickTransitionRandom()/
  * `_lastTransitionDirection`). */
 const MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_TRANSITION_DIRECTIONS, 'random'];
+
+/** MỚI (30/08/2026, phản hồi Giang — "thêm direction cho wipe... chéo trên trái đến chéo dưới phải
+ * và ngược lại, chéo trên phải đến chéo dưới trái và ngược lại") — field RIÊNG cho 'wipe'
+ * (`transitionSupportsWipeDirection()`, core/motion-engine.js) — TÁCH khỏi `transitionDirection`
+ * dùng chung ở trên vì wipe có THÊM 4 hướng CHÉO mà slide/flipCard/flipEdge không có (dùng field
+ * chung sẽ để lọt giá trị "chéo" vô nghĩa cho 3 type kia). 8 giá trị: 4 thẳng CŨ (left/right/up/
+ * down — GIỮ NGUYÊN ý nghĩa "cạnh neo" như trước) + 4 CHÉO MỚI, mỗi cặp là 2 CHIỀU NGƯỢC NHAU của
+ * CÙNG 1 đường chéo (neo ở góc XUẤT PHÁT, lộ dần TỚI góc đối diện):
+ *   topLeftToBottomRight / bottomRightToTopLeft — đường chéo "\" (trên-trái ↔ dưới-phải).
+ *   topRightToBottomLeft / bottomLeftToTopRight — đường chéo "/" (trên-phải ↔ dưới-trái).
+ * Dùng làm "nguồn random" khi field = 'random' (MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM dưới). */
+const MOTION_ENGINE_WIPE_DIRECTIONS = [
+    'left', 'right', 'up', 'down',
+    'topLeftToBottomRight', 'bottomRightToTopLeft', 'topRightToBottomLeft', 'bottomLeftToTopRight',
+];
+const MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_WIPE_DIRECTIONS, 'random'];
+
+/** MỚI (30/08/2026, phản hồi Giang — "thêm cho Curtain direction ngang/dọc/chéo phải/chéo trái") —
+ * field RIÊNG cho 'curtain' (`transitionSupportsCurtainDirection()`, core/motion-engine.js).
+ * "horizontal" (mặc định, hành vi CŨ của curtain — GIỮ NGUYÊN) — tách theo đường DỌC giữa khung,
+ * 2 nửa trượt ra 2 bên TRÁI/PHẢI. "vertical" — tách theo đường NGANG giữa khung, 2 nửa trượt lên/
+ * xuống. "diagonalRight"/"diagonalLeft" — tách theo 1 trong 2 đường CHÉO qua tâm (tương ứng "\"/
+ * "/"), dải mở rộng đối xứng quanh đường chéo đó ra tới đủ 4 góc khung. KHÔNG có 'random' (Giang
+ * không yêu cầu, khác wipe/direction/zoomDirection/spinDirection). */
+const MOTION_ENGINE_CURTAIN_DIRECTIONS = ['horizontal', 'vertical', 'diagonalRight', 'diagonalLeft'];
 
 /** MỚI (30/08/2026, phản hồi Giang — "fade, zoom sẽ hiện select in/out") — CHỈ áp dụng khi
  * `transitionType` là 'fade'/'zoom'/'spin' (`transitionSupportsZoomDirection()`,
@@ -119,6 +147,8 @@ function buildBlankMotionPreset(name) {
         transitionDirection: 'left',        // MỚI (30/08/2026) — dùng bởi slide/wipe/flipCard/flipEdge
         transitionZoomDirection: 'in',       // MỚI (30/08/2026) — dùng bởi fade/zoom/spin
         transitionSpinDirection: 'counterclockwise', // MỚI (30/08/2026) — dùng bởi spin
+        transitionWipeDirection: 'left',       // MỚI (30/08/2026) — RIÊNG cho wipe (8 hướng, gồm 4 chéo)
+        transitionCurtainDirection: 'horizontal', // MỚI (30/08/2026) — RIÊNG cho curtain (ngang/dọc/2 chéo)
         edgeFlipVariant: 'open',       // CHỈ có ý nghĩa khi transitionType === 'flipEdge'
         edgeFlipStaticOld: false,      // CHỈ có ý nghĩa khi edgeFlipVariant === 'close'
         kenBurnsEnabled: false,
@@ -170,6 +200,8 @@ function sanitizeMotionPreset(raw) {
         transitionDirection: MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM.includes(raw.transitionDirection) ? raw.transitionDirection : blank.transitionDirection,
         transitionZoomDirection: MOTION_ENGINE_ZOOM_DIRECTIONS_WITH_RANDOM.includes(raw.transitionZoomDirection) ? raw.transitionZoomDirection : blank.transitionZoomDirection,
         transitionSpinDirection: MOTION_ENGINE_SPIN_DIRECTIONS_WITH_RANDOM.includes(raw.transitionSpinDirection) ? raw.transitionSpinDirection : blank.transitionSpinDirection,
+        transitionWipeDirection: MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM.includes(raw.transitionWipeDirection) ? raw.transitionWipeDirection : blank.transitionWipeDirection,
+        transitionCurtainDirection: MOTION_ENGINE_CURTAIN_DIRECTIONS.includes(raw.transitionCurtainDirection) ? raw.transitionCurtainDirection : blank.transitionCurtainDirection,
         edgeFlipVariant: MOTION_ENGINE_EDGE_FLIP_VARIANTS.includes(raw.edgeFlipVariant) ? raw.edgeFlipVariant : blank.edgeFlipVariant,
         edgeFlipStaticOld: typeof raw.edgeFlipStaticOld === 'boolean' ? raw.edgeFlipStaticOld : blank.edgeFlipStaticOld,
         kenBurnsEnabled: typeof raw.kenBurnsEnabled === 'boolean' ? raw.kenBurnsEnabled : blank.kenBurnsEnabled,
