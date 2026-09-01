@@ -42,31 +42,38 @@
 /** Kiểu transition hợp lệ (plan-v12-multimedia.md mục 4.b3: 7 cơ bản + 5 mở rộng — Ken Burns
  * ĐÃ TÁCH khỏi danh sách này, xem MOTION_ENGINE_KENBURNS_MODES) — dùng để validate config đã lưu
  * (phòng giá trị hỏng/cũ) và đổ vào <select> Settings Drawer.
- * BỔ SUNG (30/08/2026, phản hồi Giang — thêm slide dọc, "Wide" (mới, lấy cảm hứng CapCut — layer
- * "cuốn mở" từ 1 cạnh ra full khung bằng scaleX/scaleY, KHÔNG dùng clip-path như curtain), Flip mở
- * rộng pivot, whipPan/spinIn (thêm, lấy cảm hứng CapCut, CSS thuần khả thi — filter blur/transform
- * rotate, không cần WebGL/canvas)); rồi làm rõ THÊM 2 lượt (phản hồi Giang) — center đủ 4 hướng
- * (`flip`/`flipRight`/`flipVertical`/`flipDown`); 'wipe' đủ 4 hướng (`wipe`/`wipeRight`/`wipeUp`/
- * `wipeDown`); VÀ SỬA LẠI edge pivot — bản trước gộp "đóng"/"mở" chung 1 type (enter=mở/exit=đóng) —
- * Giang chốt "phải tách ra riêng, đóng mở là 2 chiều khác nhau" -> XOÁ 4 type gộp cũ
- * (flipLeftEdge/flipRightEdge/flipTopEdge/flipBottomEdge), THAY bằng 8 type TÁCH RIÊNG
- * ...EdgeOpen/...EdgeClose (mỗi edge 2 type ĐỘC LẬP, tự chọn được riêng, KHÔNG còn gộp chung 1 lượt
- * enter+exit nữa — "Open" quay theo 1 chiều, "Close" quay theo chiều NGƯỢC LẠI, CẢ enter LẪN exit
- * của type đó CÙNG dùng 1 chiều xuyên suốt). ĐỒNG THỜI bỏ hẳn fade khỏi MỌI keyframe flip (center
- * lẫn edge, Giang chốt "flip page không liên quan gì fade") — layer "biến mất" lúc quay qua 90° là
- * nhờ hình học 3D thật (backface-visibility:hidden + perspective, xem #visual-motion-container),
- * KHÔNG cần opacity animate gì cả, opacity giữ NGUYÊN 1 xuyên suốt. XOÁ HẲN "Wide" (Giang chốt "xoá
- * hết transition wide đi", ngay sau khi vừa thêm ở bản trước) — bỏ 4 type wideLeft/wideRight/wideUp/
- * wideDown + 2 @keyframes `me-wide-scale-in`/`me-wide-scale-in-v` liên quan. Xem @keyframes tương
- * ứng ở assets/css/motion-engine.css để biết chi tiết từng kiểu còn lại. */
+ * BỔ SUNG (30/08/2026, phản hồi Giang — thêm slide dọc, Flip mở rộng pivot, whipPan/spinIn — CSS
+ * thuần khả thi — filter blur/transform rotate, không cần WebGL/canvas)); rồi làm rõ THÊM nhiều lượt
+ * (phản hồi Giang) — center đủ 4 hướng (`flip`/`flipRight`/`flipVertical`/`flipDown`); 'wipe' đủ 4
+ * hướng; XOÁ hẳn "Wide" (thêm rồi bỏ lại ngay sau). VIẾT LẠI HOÀN TOÀN phần edge (30/08/2026, phản
+ * hồi Giang — "đóng/mở tạo ra 2 chiều RIÊNG khác nhau, phải tách ra" rồi NGAY SAU ĐÓ "gộp lại thành
+ * 1 type/edge, đóng/mở chuyển thành DROPDOWN CON") — 4 type edge (flipLeftEdge/flipRightEdge/
+ * flipTopEdge/flipBottomEdge) là TRANSITION TYPE, còn "Open"/"Close" giờ là 1 field RIÊNG
+ * `edgeFlipVariant` (core/motion-presets.js) — KHÔNG còn là 8 type tách rời như bản trước nữa. Xem
+ * MOTION_ENGINE_EDGE_FLIP_TYPES/`transitionIsEdgeFlip()` ngay dưới. */
 const MOTION_ENGINE_TRANSITION_TYPES = [
     'fade', 'slideLeft', 'slideRight', 'slideUp', 'slideDown', 'zoomIn', 'zoomOut',
     'wipe', 'wipeRight', 'wipeUp', 'wipeDown',
     'flip', 'flipRight', 'flipVertical', 'flipDown',
-    'flipLeftEdgeOpen', 'flipLeftEdgeClose', 'flipRightEdgeOpen', 'flipRightEdgeClose',
-    'flipTopEdgeOpen', 'flipTopEdgeClose', 'flipBottomEdgeOpen', 'flipBottomEdgeClose',
+    'flipLeftEdge', 'flipRightEdge', 'flipTopEdge', 'flipBottomEdge',
     'blur', 'rotateFade', 'curtain', 'circleReveal', 'glitch', 'whipPan', 'spinIn',
 ];
+
+/** MỚI (30/08/2026, phản hồi Giang — "chỉ giữ lại flip page ở các edge") — 4 type transition có
+ * thêm 2 field phụ RIÊNG (`edgeFlipVariant`/`edgeFlipStaticOld`, core/motion-presets.js), CHỈ áp
+ * dụng cho pivot MÉP (center flip KHÔNG có khái niệm open/close/static-old). Dùng để Settings
+ * Drawer tự ẨN/HIỆN 2 field phụ đó khi type ĐANG chọn không phải edge flip — xem
+ * `transitionIsEdgeFlip()` ngay dưới + event/workflow/motion-presets.js::_syncEditUI(). */
+const MOTION_ENGINE_EDGE_FLIP_TYPES = ['flipLeftEdge', 'flipRightEdge', 'flipTopEdge', 'flipBottomEdge'];
+
+/** Core thuần: kiểm tra 1 kiểu transition CÓ phải flip-mép (nên hiện 2 field phụ edgeFlipVariant/
+ * edgeFlipStaticOld) hay không — xem MOTION_ENGINE_EDGE_FLIP_TYPES ngay trên.
+ * @param {string} transitionType
+ * @returns {boolean}
+ */
+function transitionIsEdgeFlip(transitionType) {
+    return MOTION_ENGINE_EDGE_FLIP_TYPES.includes(transitionType);
+}
 
 /** MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh") — kiểu KHÔNG có
  * pha "out" độc lập: layer CŨ đứng yên bất động (`animation: none; opacity: 1;`, xem assets/css/
@@ -185,6 +192,19 @@ function setMotionEngineContainerVisible(containerEl, visible) {
 function setMotionEngineTransitionType(containerEl, transitionType) {
     if (!containerEl || !MOTION_ENGINE_TRANSITION_TYPES.includes(transitionType)) return;
     containerEl.dataset.transition = transitionType;
+}
+
+/** Core thuần: set 2 field phụ của flip-mép lên container (CSS đọc qua [data-flip-variant]/
+ * [data-flip-static-old], xem assets/css/motion-engine.css) — MỚI (30/08/2026, phản hồi Giang —
+ * "chỉ giữ lại flip page ở các edge... đóng/mở chuyển thành dropdown"). LUÔN set (kể cả type ĐANG
+ * chọn không phải edge flip — 2 attribute này vô hại/không ai đọc tới khi selector `[data-transition
+ * ="flipXEdge"]` không khớp, đỡ phải thêm guard `transitionIsEdgeFlip()` ở ĐÂY — nơi gọi
+ * (event/workflow/motion-engine.js) tự lo validate range/kiểu dữ liệu của 2 field trước khi gọi).
+ */
+function setMotionEngineEdgeFlipOptions(containerEl, variant, staticOld) {
+    if (!containerEl) return;
+    containerEl.dataset.flipVariant = variant;
+    containerEl.dataset.flipStaticOld = staticOld ? 'true' : 'false';
 }
 
 /** Core thuần: gán ảnh cho 1 layer (KHÔNG tự tạo objectUrl — nhận sẵn qua tham số, Rule 2). */

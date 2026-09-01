@@ -5,11 +5,11 @@
  * đã có (core/eq-presets.js) — mirror 1-1 cấu trúc, chỉ đổi field cho khớp Motion).
  *
  * Preset = {id, name, transitionEnabled, transitionType, transitionDurationMs, transitionInOutRatio,
- * transitionEasing, kenBurnsEnabled, kenBurnsMode}. Danh sách preset SỐNG ở `appState.motionPresets`
- * (nạp lúc boot từ `meta.motionPresets`), xem event/workflow/motion-presets.js::
- * loadPresetsOnBoot(). Preset ĐANG GẮN vào Visual Background (Photo) là 1 field tham chiếu đơn giản
- * `appConfigVisualBg.motionPresetId` (null = chưa gắn preset nào — Photo hiện KHÔNG transition/
- * Ken Burns gì cả, chuyển cứng).
+ * transitionEasing, edgeFlipVariant, edgeFlipStaticOld, kenBurnsEnabled, kenBurnsMode}. Danh sách
+ * preset SỐNG ở `appState.motionPresets` (nạp lúc boot từ `meta.motionPresets`), xem
+ * event/workflow/motion-presets.js:: loadPresetsOnBoot(). Preset ĐANG GẮN vào Visual Background
+ * (Photo) là 1 field tham chiếu đơn giản `appConfigVisualBg.motionPresetId` (null = chưa gắn preset
+ * nào — Photo hiện KHÔNG transition/Ken Burns gì cả, chuyển cứng).
  *
  * KHÁC EQ (luôn có `flat` khoá sửa/xoá làm lưới an toàn) — Motion KHÔNG cần preset khoá nào: danh
  * sách rỗng vẫn hợp lệ (Photo VBG không gắn gì thì đơn giản không animate, không phải fallback lỗi).
@@ -55,6 +55,13 @@
  */
 const MOTION_BEAT_REACT_DIRECTIONS = ['left', 'right', 'leftToRight', 'rightToLeft'];
 
+/** MỚI (30/08/2026, phản hồi Giang) — 2 lựa chọn hợp lệ cho field `edgeFlipVariant` (CHỈ áp dụng khi
+ * `transitionType` là 1 trong 4 type flip-mép — `transitionIsEdgeFlip()`, core/motion-engine.js).
+ * "open" — ảnh CŨ (đang hiện, "trên") lật RA để lộ ảnh MỚI đứng YÊN bên dưới (KHÔNG có field phụ
+ * nào khác — luôn đúng 1 kiểu này). "close" — ảnh MỚI lật VÀO (như gập trang sách xuống); có thêm
+ * `edgeFlipStaticOld` quyết định ảnh CŨ có đứng yên hay cùng xoay — xem docstring `sanitizeMotionPreset()`. */
+const MOTION_ENGINE_EDGE_FLIP_VARIANTS = ['open', 'close'];
+
 /** 1 preset "trắng" — dùng làm giá trị khởi tạo lúc "Thêm cấu hình" (nút + ở header danh sách) —
  * CÙNG mặc định với `DEFAULT_VISUAL_BG_CONFIG.motion` cũ (trước khi tách preset), giữ trải
  * nghiệm "cấu hình mới" quen thuộc thay vì mọi field về 0/rỗng.
@@ -69,6 +76,8 @@ function buildBlankMotionPreset(name) {
         transitionDurationMs: 1000,
         transitionInOutRatio: 50,
         transitionEasing: 'ease',
+        edgeFlipVariant: 'open',       // MỚI (30/08/2026, phản hồi Giang) — CHỈ có ý nghĩa khi transitionType là 1 trong 4 type flip-mép (transitionIsEdgeFlip(), core/motion-engine.js)
+        edgeFlipStaticOld: false,      // MỚI (30/08/2026, phản hồi Giang) — CHỈ có ý nghĩa khi edgeFlipVariant === 'close' (xem docstring sanitizeMotionPreset())
         kenBurnsEnabled: false,
         kenBurnsMode: 'zoomPanRandom',
         reactBeatAudio: {
@@ -97,6 +106,10 @@ function generateMotionPresetId() {
  * motion-presets.js) cho TỪNG preset trong mảng đọc lên, và bởi migration (xem
  * event/workflow/visual-bg.js::loadPersistedSettingsOnBoot()) khi dựng preset ĐẦU TIÊN từ
  * `motion` nhúng cũ.
+ * `edgeFlipVariant`/`edgeFlipStaticOld` (MỚI, 30/08/2026, phản hồi Giang) — LUÔN validate/lưu 2
+ * field này BẤT KỂ `transitionType` đang là gì (đơn giản, KHÔNG cần biết trước type nào sẽ dùng tới
+ * — giống cách `transitionInOutRatio` vẫn lưu dù type hiện tại không hỗ trợ) — chỉ Settings Drawer
+ * mới cần biết type có phải flip-mép hay không để ẨN/HIỆN field, KHÔNG phải việc của sanitize.
  * @param {object} raw
  * @returns {object}
  */
@@ -110,6 +123,8 @@ function sanitizeMotionPreset(raw) {
         transitionDurationMs: (typeof raw.transitionDurationMs === 'number' && raw.transitionDurationMs >= MOTION_ENGINE_TRANSITION_MIN_TIME_MS && raw.transitionDurationMs <= MOTION_ENGINE_TRANSITION_MAX_TIME_MS) ? raw.transitionDurationMs : blank.transitionDurationMs, // core/motion-engine.js
         transitionInOutRatio: (typeof raw.transitionInOutRatio === 'number' && raw.transitionInOutRatio >= 0 && raw.transitionInOutRatio <= 100) ? raw.transitionInOutRatio : blank.transitionInOutRatio,
         transitionEasing: MOTION_ENGINE_TRANSITION_EASINGS.includes(raw.transitionEasing) ? raw.transitionEasing : blank.transitionEasing, // core/motion-engine.js
+        edgeFlipVariant: MOTION_ENGINE_EDGE_FLIP_VARIANTS.includes(raw.edgeFlipVariant) ? raw.edgeFlipVariant : blank.edgeFlipVariant,
+        edgeFlipStaticOld: typeof raw.edgeFlipStaticOld === 'boolean' ? raw.edgeFlipStaticOld : blank.edgeFlipStaticOld,
         kenBurnsEnabled: typeof raw.kenBurnsEnabled === 'boolean' ? raw.kenBurnsEnabled : blank.kenBurnsEnabled,
         kenBurnsMode: MOTION_ENGINE_KENBURNS_MODES.includes(raw.kenBurnsMode) ? raw.kenBurnsMode : blank.kenBurnsMode, // core/motion-engine.js
         reactBeatAudio: sanitizeMotionBeatReact(raw.reactBeatAudio, blank.reactBeatAudio),
