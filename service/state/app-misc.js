@@ -14,7 +14,6 @@
                 savLogoExpanded: 'boolean',
                 isShieldBusy: 'boolean',
                 isDestructiveTaskInProgress: 'boolean',
-                _pendingResumeSnapshot: 'any',  // object | null
                 dbReadyPromise: 'any',          // Promise — gán thật ở db.js bằng appState.set('dbReadyPromise', openDatabase())
             },
             buildDefaults() {
@@ -25,7 +24,6 @@
                     savLogoExpanded: false,
                     isShieldBusy: false,
                     isDestructiveTaskInProgress: false,
-                    _pendingResumeSnapshot: null,
                     dbReadyPromise: null,
                 };
             },

@@ -5,12 +5,10 @@
         AppState.definePackage('wakelock-tab', {
             schema: {
                 nativeWakeLock: 'any',         // WakeLockSentinel | null
-                _isRealUnloadHappening: 'boolean',
             },
             buildDefaults() {
                 return {
                     nativeWakeLock: null,
-                    _isRealUnloadHappening: false,
                 };
             },
         });
