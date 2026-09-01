@@ -93,15 +93,18 @@ const MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_TRANSI
  * giống curtain rồi, không phải wipe") — bản polygon "kite" (giữ cố định góc ĐỐI DIỆN) tạo ra hiệu
  * ứng CẮT ĐÔI ảnh giống hệt curtain-chéo, SAI bản chất "wipe". SỬA ĐÚNG theo Giang chỉ: dùng LẠI
  * ĐÚNG cơ chế `inset()` của left/right/up/down (co dần 1 cạnh) — GÓC chỉ là co dần ĐỒNG THỜI 2 cạnh
- * kề nhau thay vì 1 (vd "topLeft" = co dần cạnh phải VÀ cạnh dưới từ 100%→0%, neo cố định 2 cạnh
+ * kề nhau thay vì 1 (vd "cornerTopLeft" = co dần cạnh phải VÀ cạnh dưới từ 100%→0%, neo cố định 2 cạnh
  * trên/trái ở 0% — vùng hiện bắt đầu là 1 điểm ở góc trên-trái, lớn dần theo HÌNH CHỮ NHẬT tới khi
  * phủ hết khung, KHÔNG cắt ảnh làm đôi). 8 giá trị: 4 cạnh CŨ (left/right/up/down) + 4 GÓC MỚI, đặt
  * tên THEO GÓC XUẤT PHÁT (KHÔNG còn kiểu "A đến B" — 1 tên đã đủ diễn tả trọn animation, góc ĐỐI
- * DIỆN với góc xuất phát mặc nhiên là nơi phủ kín SAU CÙNG): topLeft/topRight/bottomLeft/bottomRight.
+ * ĐỐI DIỆN với góc xuất phát mặc nhiên là nơi phủ kín SAU CÙNG): cornerTopLeft/cornerTopRight/
+ * cornerBottomLeft/cornerBottomRight (SỬA 30/08/2026, phản hồi Giang — đổi tên chuẩn hoá thêm tiền
+ * tố "corner", tránh lẫn với field `transitionDirection` dùng chung — vốn CŨNG có value "left"/
+ * "right" nhưng nghĩa khác hẳn — CẠNH chứ không phải GÓC).
  * Dùng làm "nguồn random" khi field = 'random' (MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM dưới). */
 const MOTION_ENGINE_WIPE_DIRECTIONS = [
     'left', 'right', 'up', 'down',
-    'topLeft', 'topRight', 'bottomLeft', 'bottomRight',
+    'cornerTopLeft', 'cornerTopRight', 'cornerBottomLeft', 'cornerBottomRight',
 ];
 const MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_WIPE_DIRECTIONS, 'random'];
 
@@ -115,14 +118,14 @@ const MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_WIPE_DIRECTI
  * trước đó ("KHÔNG có random"), giờ ĐỒNG BỘ với wipe/direction/zoomDirection/spinDirection — xem
  * `MOTION_ENGINE_CURTAIN_DIRECTIONS_WITH_RANDOM` ngay dưới.
  * BỔ SUNG (30/08/2026, phản hồi Giang — "các transition góc cũ của wipe đã chuyển vào curtain
- * chưa?") — 4 hướng GÓC MỚI (topLeft/topRight/bottomLeft/bottomRight) — CHÍNH LÀ cơ chế polygon
+ * chưa?") — 4 hướng GÓC MỚI (cornerTopLeft/cornerTopRight/cornerBottomLeft/cornerBottomRight) — CHÍNH LÀ cơ chế polygon
  * "kite" (neo 1 góc, giữ CỐ ĐỊNH góc đối diện xuyên suốt) LÚC ĐẦU định dùng cho wipe rồi phát hiện
  * SAI bản chất wipe (Giang chỉ ra "cắt đôi ảnh giống curtain") — giờ CHUYỂN HẲN về đây, nơi nó THẬT
  * SỰ thuộc về (cùng họ "cắt ảnh theo đường chéo/góc" với diagonalRight/diagonalLeft, chỉ khác hình
  * dạng dải cắt — xem @keyframes tương ứng, assets/css/motion-engine.css). */
 const MOTION_ENGINE_CURTAIN_DIRECTIONS = [
     'horizontal', 'vertical', 'diagonalRight', 'diagonalLeft',
-    'topLeft', 'topRight', 'bottomLeft', 'bottomRight',
+    'cornerTopLeft', 'cornerTopRight', 'cornerBottomLeft', 'cornerBottomRight',
 ];
 
 /** MỚI (30/08/2026, phản hồi Giang — random cho curtain) — giá trị HỢP LỆ cho field
