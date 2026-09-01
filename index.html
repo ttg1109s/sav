@@ -637,12 +637,6 @@
          khỏi Visual Background) — xem core/motion-presets.js. NẠP SAU core/file-manager/
          slideshow.js (dùng lại SLIDESHOW_TRANSITION_TYPES/EASINGS/KENBURNS_MODES). -->
     <script src="core/motion-presets.js?v=20260829v2"></script>
-    <!-- Resume State Storage (ver 10 refine #3) — lưu/đọc trạng thái phát qua localStorage khi tab
-         bị ẩn, dùng để "reload trang thật" lúc quay lại tab thay cho cố giữ runtime cũ sống sót
-         qua việc ẩn tab (xem comment đầu file). PHẢI nạp TRƯỚC wakelock.js (file đó gọi
-         saveResumeStateToLocalStorage()/readResumeStateFromLocalStorage() ngay trong listener
-         visibilitychange/pagehide/pageshow). -->
-    <script src="core/resume-state-storage.js?v=20260625v10"></script>
     <script src="core/upload-validation.js?v=20260823v1"></script>
     <script src="core/listen-stats.js?v=20260625v10"></script>
     <script src="core/loading-shield-util.js?v=20260625v10"></script>
@@ -683,7 +677,6 @@
     <script src="core/subtitle/subtitle-style-settings.js?v=20260816v1"></script>
     <script src="core/visualizer/visualizer-misc-settings.js?v=20260816v1"></script>
     <script src="core/subtitle/subtitle-display.js?v=20260816v1"></script>
-    <script src="core/tab-hide-reload.js?v=20260818v1"></script>
     <script src="core/wakelock.js?v=20260630v1"></script>
     <script src="core/color-utils.js?v=20260813v1"></script>
     <script src="core/canvas-scene-setup.js?v=20260625v8e"></script>
@@ -756,8 +749,8 @@
     <script src="core/about-stats.js?v=20260706v1"></script>
     <!-- Khắc phục sự cố (ver 10 refine, bổ sung) — "Khởi động lại app"/"Khôi phục cài đặt mặc
          định" trong Settings. PHẢI nạp SAU dom-refs.js/main.js (cần btnRestartApp/btnRestoreDefaults
-         đã có ref + HTML thật đã chèn), resume-state-storage.js, config.js (saveConfig/loadConfig
-         giờ ở đây), modal-choice-ui.js. Xem comment đầu file app-recovery.js. -->
+         đã có ref + HTML thật đã chèn), config.js (saveConfig/loadConfig giờ ở đây),
+         modal-choice-ui.js. Xem comment đầu file app-recovery.js. -->
     <script src="core/app-recovery.js?v=20260714v1"></script>
     <!-- Settings "Ngôn ngữ" (batch i18n; tái cấu trúc /lang/ — đã dời từ js/core/language-settings.js
          sang lang/language-settings.js, nội dung KHÔNG đổi, chỉ đổi đường dẫn) — xử lý
@@ -1106,9 +1099,8 @@
     <script src="event/workflow/eq-presets.js?v=20260823v1"></script>
     <script src="event/router/eq-presets.js?v=20260813v1"></script>
     <script src="event/listener/eq-presets.js?v=20260813v1"></script>
-    <!-- event/tab.js — 3 lifecycle listener đặc thù của tab (visibilitychange/pagehide/
-         beforeunload). Gọi thẳng hàm, không qua bus. Nạp CUỐI CÙNG trong toàn bộ /event/
-         vì phụ thuộc core/tab-hide-reload.js + core/app-cleanup.js đã nạp từ trên. -->
+    <!-- event/tab.js — lifecycle listener của tab (beforeunload). Gọi thẳng hàm, không qua bus.
+         Nạp CUỐI CÙNG trong toàn bộ /event/ vì phụ thuộc core/app-cleanup.js đã nạp từ trên. -->
     <script src="event/tab.js?v=20260818v1"></script>
     <!-- event/workflow/app-boot.js + event/router/app-boot.js (SỬA 25/07/2026, đợt tái cấu trúc
          state) — router giờ CHỈ eventBus.register('appBoot', ...) (KHÔNG còn tự đăng ký
