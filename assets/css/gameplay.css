@@ -5,12 +5,11 @@
 
 /* MỚI (02/09/2026, Giang yêu cầu "game mode chặn luôn toàn bộ thao tác ở player control bottom") —
  * gắn/gỡ qua core/player-controls.js::setPlayerControlsBlocked(), xem docstring đầy đủ ở đó (lý do
- * CẦN chặn — z-index #player-container thật ra vẫn nổi trên overlay Game Mode). `opacity` giảm nhẹ
- * kèm theo — báo mắt "khu vực này tạm khoá", không chỉ khoá âm thầm khiến Giang tưởng nút bị liệt/
- * bug. */
+ * CẦN chặn — z-index #player-container thật ra vẫn nổi trên overlay Game Mode). [SỬA cùng ngày —
+ * Giang chỉnh "chỉ cần chặn thao tác, không cần làm mờ"] CHỈ `pointer-events: none` — `opacity` ĐÃ
+ * BỎ. */
 .gameplay-controls-blocked {
     pointer-events: none;
-    opacity: 0.35;
 }
 
 /* Khung neo cho tier popup (PERFECT/EXCELLENT/...) — đặt NGAY TẠI vị trí note vừa tap/miss (x,y px
