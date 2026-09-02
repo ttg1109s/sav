@@ -19,6 +19,14 @@
  * `data-tab` trên mỗi nút — DUY NHẤT nguồn để Listener (event/listener/app-panel-nav.js) biết gửi
  * đúng msg.type nào, KHÔNG hardcode id riêng biệt.
  *
+ * `#app-bottom-nav-game-dot` — MỚI (02/09/2026, Giang yêu cầu "icon game ở nav phải biểu thị đang ở
+ * game mode"). Chấm đỏ TĨNH (mount sẵn, `hidden` mặc định) đè góc icon nút Game — hiện/ẩn qua
+ * `classList.toggle('hidden', ...)` (core/app-panel-nav.js::setAppBottomNavGameIndicator(), gọi từ
+ * event/workflow/game-catalog.js::renderList() mỗi lần armed/disarm) — KHÔNG phải template render
+ * lại, chỉ 1 class toggle trên phần tử có sẵn, đúng khuôn `.hidden` dùng xuyên suốt project. Icon
+ * SVG bọc trong `<span class="relative inline-flex">` để chấm định vị `absolute` đúng góc icon (CSS
+ * `.app-bottom-nav-btn svg` vẫn khớp bình thường — selector là descendant, không quan tâm độ sâu).
+ *
  * NẠP TRƯỚC: main.js (mount vào #app-root, NGAY SAU #side-left-container, xem components/
  * app-view-stack.js).
  */
@@ -37,7 +45,10 @@ const TPL_APP_BOTTOM_NAV = `
             <span class="app-bottom-nav-label" data-i18n="appPanelNav.tab.storage">${t('appPanelNav.tab.storage')}</span>
         </button>
         <button class="app-bottom-nav-btn" data-tab="game">
-            <svg xmlns="http://www.w3.org/2000/svg" class="" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9h.01M15 9h.01M9 15c1 1 5 1 6 0M7 5h10a5 5 0 015 5v4a5 5 0 01-5 5H7a5 5 0 01-5-5v-4a5 5 0 015-5z" /></svg>
+            <span class="relative inline-flex">
+                <svg xmlns="http://www.w3.org/2000/svg" class="" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9h.01M15 9h.01M9 15c1 1 5 1 6 0M7 5h10a5 5 0 015 5v4a5 5 0 01-5 5H7a5 5 0 01-5-5v-4a5 5 0 015-5z" /></svg>
+                <span id="app-bottom-nav-game-dot" class="hidden app-bottom-nav-game-dot"></span>
+            </span>
             <span class="app-bottom-nav-label" data-i18n="appPanelNav.tab.game">${t('appPanelNav.tab.game')}</span>
         </button>
         <button class="app-bottom-nav-btn" data-tab="statis">
