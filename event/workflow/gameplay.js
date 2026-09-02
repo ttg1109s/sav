@@ -10,7 +10,14 @@
  * (`workflowVideoPlayer.playVideoByKey()`), KHÔNG phụ thuộc domain "visualBg"). `gameplayPhase`
  * (idle->ready->countdown->playing->ended, xem service/state/gameplay-runtime.js) RIÊNG BIỆT với
  * `gameplayArmedGameId`. Armed/disarm (nút Play/Exit trên card Game Panel) do
- * event/workflow/game-catalog.js sở hữu, KHÔNG phải file này.
+ * event/workflow/game-catalog.js sở hữu, KHÔNG phải file này. [MỚI — 02/09/2026, Giang yêu cầu
+ * "khi playgame cần chuyển icon + chấm xanh"] File này GỌI NGƯỢC LẠI
+ * `workflowGameCatalog.renderList()` (liên tuyến domain, TH2) ở MỌI mốc đổi `gameplayPhase`
+ * (startCountdown()/_beginPlaying()/onSongEnded()/exitToPlaylist()) — cụm Game Panel không tự theo
+ * dõi được lúc nào phase đổi, cần file này chủ động báo. `event/workflow/game-catalog.js` được KHAI
+ * BÁO SAU file này trong index.html — an toàn vì đây là lời gọi lúc RUNTIME (sau khi mọi script đã
+ * nạp xong), không phải lúc parse (cùng lý do đã giải thích ở event/workflow/app-panel-nav.js::
+ * openGame()).
  *
  * `tick()` KHÔNG tự có RAF riêng — gọi TỪ BÊN TRONG event/workflow/visualizer-render.js::_tick()
  * (dùng chung vòng lặp, tránh 2 RAF song song). Mọi thao tác play/pause/currentTime đều qua
@@ -93,6 +100,18 @@ const workflowGameplay = {
             hidePlaceholderPanel(gamePanel); // core/placeholder-panel.js
             workflowAppPanelNav.activateMedia(); // event/workflow/app-panel-nav.js
         }
+        // [SỬA — 02/09/2026, Giang chỉ ra "khi play game vẫn chưa tự ẩn overlay của game catalog"]
+        // `hidePlaceholderPanel(gamePanel)` ở trên CHỈ ẩn lớp full-screen #game-panel (z-128) —
+        // KHÔNG đủ để lộ ra overlay Game Mode thật (`gameplayLayer`, sống trong Visualizer). Màn
+        // Visualizer/Playlist là 2 TRẠNG THÁI RIÊNG của #app-stack (class 'playlist-hidden',
+        // core/player-controls.js::switchToVisualizer()) — độc lập với việc ẩn/hiện #game-panel. Ở
+        // đường vào TRỰC TIẾP (workflowGameCatalog.armGame() gọi start() thẳng khi bài đã load sẵn,
+        // KHÔNG đi qua playMedia()) switchToVisualizer() CHƯA TỪNG được gọi -> panel Game biến mất
+        // nhưng lộ ra Playlist phía sau (KHÔNG phải overlay Game Mode) — trông như "chưa tắt overlay
+        // game catalog". Gọi VÔ ĐIỀU KIỆN tại đây (idempotent — thêm class/scroll đã có sẵn thì
+        // vô hại) đảm bảo LUÔN đúng màn dù vào từ đường nào (armGame() trực tiếp HAY
+        // 'gameplay.mediaChanged' — đường đó playMedia() cũng tự gọi rồi, gọi thêm lần nữa không hại).
+        switchToVisualizer(); // core/player-controls.js
 
         // [SỬA — 02/09/2026, Giang yêu cầu "kể cả nhạc đang phát/tạm dừng/seek ở đâu đều phải reset
         // toàn bộ trạng thái nhạc, pause -> seek 0"] PAUSE TRƯỚC rồi mới seek — ngược thứ tự bản cũ
@@ -113,6 +132,11 @@ const workflowGameplay = {
     startCountdown() {
         appState.set('gameplayPhase', 'countdown', { skipCheck: true });
         console.log(`writer: "workflowGameplay.startCountdown", page: "gameplayPhase", content: "countdown"`);
+        // [MỚI — 02/09/2026, Giang yêu cầu "khi playgame cần chuyển icon + chấm xanh"] Liên tuyến
+        // domain (TH2) — chỉ CHỖ NÀY (và _beginPlaying()/onSongEnded()/exitToPlaylist() ngay dưới)
+        // biết chính xác lúc `gameplayPhase` vừa đổi, nên tự gọi thẳng thay vì bắt
+        // workflowGameCatalog tự poll. Dùng CHUNG bởi CẢ start() lẫn replay() (2 caller của hàm này).
+        workflowGameCatalog.renderList(); // event/workflow/game-catalog.js
         workflowGameplayEngine.startCountdown(() => this._beginPlaying());
     },
 
@@ -120,6 +144,7 @@ const workflowGameplay = {
     _beginPlaying() {
         appState.set('gameplayPhase', 'playing', { skipCheck: true });
         console.log(`writer: "workflowGameplay._beginPlaying", page: "gameplayPhase", content: "playing"`);
+        workflowGameCatalog.renderList(); // event/workflow/game-catalog.js — MỚI, cùng lý do startCountdown()
         // Snapshot lastBeatTime NGAY LÚC NÀY — tránh 1 beat CŨ (detect trước khi countdown bắt đầu)
         // bị hiểu nhầm là "vừa mới có" rồi spawn ngay lập tức.
         this._lastConsumedBeatTime = lastBeatTime;
@@ -462,6 +487,7 @@ const workflowGameplay = {
         console.log(`writer: "workflowGameplay.onSongEnded", page: "gameplayWaves", content: "cleared"`);
         appState.set('gameplayPhase', 'ended', { skipCheck: true });
         console.log(`writer: "workflowGameplay.onSongEnded", page: "gameplayPhase", content: "ended"`);
+        workflowGameCatalog.renderList(); // event/workflow/game-catalog.js — MỚI, cùng lý do startCountdown()
 
         const ctx = gameplayCanvas.getContext('2d');
         clearGameplayCanvas(ctx, this._canvasWidthPx, this._canvasHeightPx); // core-ui
@@ -502,12 +528,14 @@ const workflowGameplay = {
 
     /** Nút "Bài tiếp theo" — `workflowPlayerControls.goToNextTrack(true)` TỰ wrap về đầu playlist
      * nếu đang ở bài cuối. KHÔNG tự mở lại modal ready: hook TỰ ĐỘNG ở 'gameplay.mediaChanged' (xem
-     * docstring đầu file) đã lo việc đó. CHỈ fallback gọi start() thủ công cho ĐÚNG 1 trường hợp:
-     * playlist chỉ có 1 bài -> goToNextTrack(true) trả về NGUYÊN key cũ -> không bắn tín hiệu đổi. */
+     * docstring đầu file) lo việc đó — [SỬA — 02/09/2026, cùng đợt sửa bug "vào lại ĐÚNG bài vừa
+     * phát không kích hoạt start"] hook đó giờ gửi VÔ ĐIỀU KIỆN mỗi lần `playMedia()`/
+     * `playVideoByKey()` chạy (event/workflow/player.js/video-player.js), KỂ CẢ playlist chỉ có 1
+     * bài (`goToNextTrack(true)` vẫn đi qua `playMedia()` với ĐÚNG key cũ ở trường hợp đó — xem
+     * event/workflow/player-controls.js::goToNextTrack()) — fallback gọi `start()` thủ công riêng
+     * cho trường hợp này ĐÃ XOÁ (dead code, trùng với tín hiệu tự động, gọi 2 lần thừa). */
     nextSong() {
-        const previousKey = appState.get('currentKey');
         workflowPlayerControls.goToNextTrack(true); // event/workflow/player-controls.js
-        if (appState.get('currentKey') === previousKey) this.start('circle');
     },
 
     /** Ứng với 'gameplay.exit.click' HOẶC nút Cancel/"Về Playlist" trong modal — thoát hẳn Game
@@ -521,6 +549,7 @@ const workflowGameplay = {
     exitToPlaylist() {
         appState.set('gameplayPhase', 'idle', { skipCheck: true });
         console.log(`writer: "workflowGameplay.exitToPlaylist", page: "gameplayPhase", content: "idle"`);
+        workflowGameCatalog.renderList(); // event/workflow/game-catalog.js — MỚI, cùng lý do startCountdown()
         taskManager.kill(GAMEPLAY_COUNTDOWN_TASK);
         taskManager.kill(GAMEPLAY_SCORE_COUNTUP_TASK);
 

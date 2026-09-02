@@ -137,7 +137,19 @@ const workflowPlayer = {
             return;
         }
         const switchScreen = !options || options.switchScreen !== false;
-        if (key === appState.get('currentKey')) { if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated(); if (audioPlayer.paused) audioPlayer.play(); return; }
+        // [SỬA — 02/09/2026, Giang chỉ ra bug "exit game mode rồi vào lại ĐÚNG song vừa phát thì
+        // không kích hoạt start game, nhạc vẫn chạy tiếp bình thường"] Nhánh NÀY (bấm lại ĐÚNG bài
+        // đang load sẵn, `key === currentKey`) `return` NGAY — dòng gửi 'gameplay.mediaChanged'
+        // TRƯỚC ĐÂY đứng SAU trong thân hàm (đợt sửa gate `previousKey !== key` hôm trước) KHÔNG
+        // BAO GIỜ chạy tới được ở nhánh này, nên bug vẫn còn dù đã bỏ gate đó. Gửi NGAY TẠI ĐÂY —
+        // cùng lý do đã giải thích ở dòng gửi phía dưới (playMedia() CHỈ gọi từ hành động "muốn
+        // phát" thật, an toàn gửi vô điều kiện).
+        if (key === appState.get('currentKey')) {
+            if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated();
+            if (audioPlayer.paused) audioPlayer.play();
+            eventBus.send({ router: 'gameplay', type: 'gameplay.mediaChanged', payload: {} });
+            return;
+        }
         requestWakeLock();
 
         // display=false: chuyển bài chạy logic trong shield (khoá chồng lệnh) nhưng KHÔNG hiện
@@ -270,11 +282,21 @@ const workflowPlayer = {
             if (previousKey !== key) eventBus.send({ router: 'visualBg', type: 'visualBg.songChanged', payload: {} });
             // [SỬA — phản hồi Giang "visualBg.songChanged liên quan gì tới video play mode?"] Tín
             // hiệu "media đổi thật" cho Game Mode giờ TÁCH RIÊNG khỏi 'visualBg.songChanged' ở trên
-            // (2 domain không liên quan nhau) — gửi CÙNG lúc, CÙNG điều kiện `previousKey !== key`,
-            // qua router "gameplay" (event/router/gameplay.js). Video (workflowVideoPlayer.
-            // playVideoByKey(), event/workflow/video-player.js) cũng dispatch CÙNG msg.type này ở
-            // đúng điểm tương đương — Game Mode tự mở khi bài đổi giờ hoạt động ĐÚNG cho cả 2 nguồn.
-            if (previousKey !== key) eventBus.send({ router: 'gameplay', type: 'gameplay.mediaChanged', payload: {} });
+            // (2 domain không liên quan nhau) — gửi qua router "gameplay" (event/router/gameplay.js).
+            // Video (workflowVideoPlayer.playVideoByKey(), event/workflow/video-player.js) cũng
+            // dispatch CÙNG msg.type này ở đúng điểm tương đương — Game Mode tự mở khi bài đổi giờ
+            // hoạt động ĐÚNG cho cả 2 nguồn.
+            //
+            // [SỬA — 02/09/2026, Giang chỉ ra bug "exit game mode rồi vào lại ĐÚNG video/song vừa
+            // phát thì không kích hoạt start game, nhạc vẫn chạy tiếp bình thường"] TRƯỚC ĐÂY gate
+            // `previousKey !== key` (GIỐNG dòng visualBg trên) — bấm Play lại ĐÚNG bài đang load sẵn
+            // (key KHÔNG đổi) thì KHÔNG gửi tín hiệu này, nên `workflowGameplay.start()` không có cơ
+            // hội chạy dù đang armed. Bỏ hẳn gate cho DÒNG NÀY — `playMedia()` CHỈ được gọi từ hành
+            // động "muốn phát" thật của người dùng (click Playlist/Next/Prev/hết bài tự next, KHÔNG
+            // có nơi nào poll/gọi lặp), nên gửi VÔ ĐIỀU KIỆN ở đây an toàn, không spam. GIỮ NGUYÊN
+            // gate cho 'visualBg.songChanged' phía trên — đó là domain KHÁC (đổi ảnh/video nền), đúng
+            // ý ban đầu "seek/phát lại CÙNG bài không tính là đổi nền".
+            eventBus.send({ router: 'gameplay', type: 'gameplay.mediaChanged', payload: {} });
         }, false).then(async () => {
             // Shield đã đóng HẲN (isShieldBusy = false) tới đây — an toàn để hiện modal, không
             // còn lớp che z-[200] nào đè lên modalChoice() (z-[130]) nữa.

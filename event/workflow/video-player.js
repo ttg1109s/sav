@@ -284,6 +284,10 @@ const workflowVideoPlayer = {
         if (videoKey === appState.get('currentKey') && this._objectUrl && bgVideoElement.getAttribute('src') === this._objectUrl) {
             if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated();
             if (bgVideoElement.paused) bgVideoElement.play().catch((err) => console.error('[video-player] bgVideoElement.play() lỗi:', err));
+            // [SỬA — 02/09/2026, cùng lý do event/workflow/player.js] Nhánh "bấm lại đúng video đang
+            // phát" `return` NGAY — dòng gửi 'gameplay.mediaChanged' ở cuối hàm (đợt sửa gate
+            // `previousKey !== videoKey` hôm trước) KHÔNG BAO GIỜ chạy tới được ở nhánh này.
+            eventBus.send({ router: 'gameplay', type: 'gameplay.mediaChanged', payload: {} });
             return;
         }
         return withLoadingShield(t('common.loading.switchingSong'), async () => {
@@ -373,12 +377,17 @@ const workflowVideoPlayer = {
             if (switchScreen) switchToVisualizer(); else scrollToCurrentKeyAnimated(); // core/player-controls.js / core/playlist/render.js
 
             // MỚI (phản hồi Giang "visualBg.songChanged liên quan gì tới video play mode?") — tín
-            // hiệu "media đổi thật" cho Game Mode, CÙNG điều kiện + CÙNG msg.type
-            // `workflowPlayer.playMedia()` dispatch cho Song (event/workflow/player.js) — Game Mode
-            // tự mở khi bài đổi (nếu đang bật) giờ hoạt động ĐÚNG cho Video, KHÔNG đi qua router
-            // "visualBg" (video KHÔNG dispatch 'visualBg.songChanged' — VBG không hiển thị lúc Video
-            // Player mode, xem event/router/visual-bg.js).
-            if (previousKey !== videoKey) eventBus.send({ router: 'gameplay', type: 'gameplay.mediaChanged', payload: {} });
+            // hiệu "media đổi thật" cho Game Mode, CÙNG msg.type `workflowPlayer.playMedia()`
+            // dispatch cho Song (event/workflow/player.js) — Game Mode tự mở khi bài đổi (nếu đang
+            // bật) giờ hoạt động ĐÚNG cho Video, KHÔNG đi qua router "visualBg" (video KHÔNG dispatch
+            // 'visualBg.songChanged' — VBG không hiển thị lúc Video Player mode, xem event/router/
+            // visual-bg.js).
+            //
+            // [SỬA — 02/09/2026, cùng lý do event/workflow/player.js — bug "exit game mode rồi vào
+            // lại ĐÚNG video vừa phát thì không kích hoạt start game"] Bỏ gate `previousKey !==
+            // videoKey` — gửi VÔ ĐIỀU KIỆN, cùng lý do đã giải thích ở player.js (playVideoByKey()
+            // cũng CHỈ gọi từ hành động "muốn phát" thật của người dùng).
+            eventBus.send({ router: 'gameplay', type: 'gameplay.mediaChanged', payload: {} });
         }, false).then(() => {
             if (this._skipToNextAfterShield) {
                 this._skipToNextAfterShield = false;
