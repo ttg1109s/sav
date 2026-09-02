@@ -1,53 +1,16 @@
 /**
- * core/gameplay/engine-ui.js — Core-ui (Rule 5c, hậu tố `-ui`) DÙNG CHUNG mọi mode Game: bộ chọn
- * độ khó, sao kết quả, vòng tròn % điểm (nhiều lap màu khác nhau khi >100%), khung body modal kết
- * thúc. TOÀN BỘ hàm CHỈ dựng chuỗi HTML/SVG hoặc ghi text thuần vào element có sẵn — KHÔNG
- * `addEventListener` (việc gắn tương tác + đọc/ghi `appState` là của Workflow, xem
- * event/workflow/gameplay-engine.js), KHÔNG `appState.get()` (Rule 2).
+ * core/gameplay/engine-ui.js — Core-ui (Rule 5c, hậu tố `-ui`) DÙNG CHUNG mọi mode Game: sao kết
+ * quả, vòng tròn % điểm (nhiều lap màu khác nhau khi >100%), khung body modal kết thúc. TOÀN BỘ hàm
+ * CHỈ dựng chuỗi HTML/SVG hoặc ghi text thuần vào element có sẵn — KHÔNG `addEventListener` (việc
+ * gắn tương tác + đọc/ghi `appState` là của Workflow, xem event/workflow/gameplay-engine.js),
+ * KHÔNG `appState.get()` (Rule 2).
  */
 
-/** Bộ chọn độ khó (3 nút easy/medium/hard) — icon minh hoạ ĐÚNG cơ chế thật (số vòng tròn ứng với
- * maxConcurrentWaves: Easy 1 vòng, Medium 2 vòng chồng, Hard ∞ — GAMEPLAY_CIRCLE_CONFIG.difficulty,
- * service/state/gameplay-runtime.js), màu accent riêng từng độ khó (xanh lá/cam/đỏ — quy ước màu độ
- * khó phổ biến), khối mô tả RIÊNG bên dưới (box nền + viền, không còn 1 dòng chữ trần) — cập nhật
- * khi đổi lựa chọn (Workflow tự wire, xem event/workflow/gameplay-engine.js::
- * _wireDifficultySelector()). [SỬA — cải tiến UI, phản hồi Giang] nút cũ chỉ có chữ, không icon,
- * không màu riêng, spacing hẹp — giờ mỗi nút là 1 khối vuông icon+nhãn, gap/padding rộng rãi hơn.
- *
- * Class Tailwind viết TƯỜNG MINH cho từng độ khó (KHÔNG nội suy `${accent}` vào giữa tên class) —
- * dù CDN Play (index.html) quét lại DOM sau khi chèn nên nội suy động nhiều khả năng vẫn ăn màu,
- * đây là hành vi KHÔNG có tiền lệ nào khác trong toàn project dùng, tránh rủi ro im lặng render sai
- * màu mà không cách nào phát hiện ngoài trình duyệt thật. */
-function buildDifficultySelectorHtml(currentDifficulty, t) {
-    const levels = Object.freeze([
-        Object.freeze({
-            level: 'easy', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="7"/></svg>',
-            active: 'border-emerald-400 bg-emerald-500/15 text-emerald-300',
-        }),
-        Object.freeze({
-            level: 'medium', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="6.5"/><circle cx="15" cy="12" r="6.5"/></svg>',
-            active: 'border-amber-400 bg-amber-500/15 text-amber-300',
-        }),
-        Object.freeze({
-            level: 'hard', icon: '<span class="text-xl leading-none">∞</span>',
-            active: 'border-rose-400 bg-rose-500/15 text-rose-300',
-        }),
-    ]);
-    const inactive = 'border-white/10 bg-slate-800/80 text-slate-400 hover:border-white/20 hover:bg-slate-800';
-    const buttons = levels.map(({ level, icon, active }) => {
-        const stateClass = level === currentDifficulty ? active : inactive;
-        return `<button type="button" data-difficulty="${level}" class="gameplay-difficulty-btn flex flex-col items-center justify-center gap-1.5 px-3 py-3.5 rounded-xl border-2 transition-colors ${stateClass}">` +
-            `<span class="w-6 h-6">${icon}</span>` +
-            `<span class="text-xs font-semibold">${t('gameplayCircle.difficulty.' + level)}</span>` +
-            `</button>`;
-    }).join('');
-    return `<div id="gameplay-difficulty-selector">` +
-        `<div class="grid grid-cols-3 gap-3">${buttons}</div>` +
-        `<div class="mt-3 px-3.5 py-2.5 rounded-lg bg-slate-800/60 border border-white/5">` +
-        `<p class="text-xs text-slate-300 text-center leading-relaxed" id="gameplay-difficulty-hint">${t('gameplayCircle.difficulty.hint.' + currentDifficulty)}</p>` +
-        `</div>` +
-        `</div>`;
-}
+/** [XOÁ — 02/09/2026, Game Panel app-store list] `buildDifficultySelectorHtml()` (bộ chọn độ khó
+ * 3 nút cho modal "sẵn sàng") ĐÃ XOÁ — modal đó không còn tồn tại (xem docstring đầu
+ * event/workflow/gameplay-engine.js), độ khó giờ chọn qua 1 nút cycle NGAY TRÊN card Game Panel
+ * (core/gameplay/game-panel-ui.js::buildGamePanelListHtml(), KHÔNG dùng lại hàm này — thiết kế
+ * compact 1 nút thay vì grid 3 nút, hợp không gian hẹp của card). */
 
 /** Vòng tròn % điểm — mỗi lap (core/gameplay/engine.js::computeScoreRingLaps()) 1 `<circle>` bán
  * kính giảm dần, màu riêng theo `palette` (cycle nếu nhiều lap hơn palette). `--ring-circumference`
