@@ -349,7 +349,7 @@
     <script src="components/playlist-filter-drawer.js?v=20260815v2"></script>
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel, phản hồi Giang) — bottom nav 7 mục Media/
          Folder/Photo/Storage/Game/Statis/Setting. -->
-    <script src="components/app-bottom-nav.js?v=20260819v1"></script>
+    <script src="components/app-bottom-nav.js?v=20260902v2"></script>
     <!-- SỬA (phân phối lại section Settings, phản hồi Giang — "tận dụng UI cũ") — Settings không
          còn là "trang" trong #side-left-container (mở qua core/generic-drawer.js), nhưng 2 template
          sau VẪN ĐƯỢC TÁI DÙNG NGUYÊN VẸN bởi màn Playlist/Language mới (event/workflow/
@@ -483,7 +483,7 @@
     <!-- service/state/gameplay-runtime.js — Game Mode (Circle mode v1, MỚI 16/08/2026). PHẢI nạp
          TRƯỚC service/state/record/index.js (registry('player','all') cần package này đã
          definePackage() xong, xem docstring file đó). -->
-    <script src="service/state/gameplay-runtime.js?v=20260819v8"></script>
+    <script src="service/state/gameplay-runtime.js?v=20260902v9"></script>
     <!-- MỚI (29/08/2026) — service/state/motion-presets.js — hệ "Cấu hình Motion" độc lập.
          PHẢI nạp TRƯỚC service/state/record/index.js (registry('player','all') cần package này đã
          đăng ký) — BUG đã sửa: thiếu dòng nạp này khiến appState.get('motionPresets') luôn
@@ -496,7 +496,7 @@
          restoreDefaultVizConfig/saveConfig/loadConfig) — KHÔNG còn giữ Z_INDEX/global
          error-handler (dời ở trên) hay CONST dùng chéo domain khác (nay sống trong đúng package
          service/state/*.js). PHẢI nạp SAU service/state.js (cần class AppConfig). -->
-    <script src="core/config.js?v=20260816v2"></script>
+    <script src="core/config.js?v=20260902v3"></script>
     <!-- core/custom-effect.js — Core thuần hệ Custom Effect (getEffectConfig/setCustomEffectField),
          NẠP NGAY SAU core/config.js (cần DEFAULT_CUSTOM_EFFECT/appConfigViz) — mọi hàm vẽ/scene-setup
          phía dưới đều cần file này. -->
@@ -509,7 +509,7 @@
          actions.js (core, dòng dưới) cần `new EventStore(...)` ngay lúc nạp. Tự đứng độc lập
          (không phụ thuộc eventBus), nên tách riêng lên đây an toàn. -->
     <script src="event/store.js?v=20260627v1"></script>
-    <script src="core/dom-refs.js?v=20260829v1"></script>
+    <script src="core/dom-refs.js?v=20260902v2"></script>
     <!-- core/slider-panel-scroll.js — 2 hàm dùng chung (getPositionStart/scrollSliderTo) cho mọi
          khung cuộn ngang kiểu "slider panel" (settings-panel-stack-ui.js, player-controls.js). -->
     <script src="core/slider-panel-scroll.js?v=20260712v1"></script>
@@ -609,7 +609,7 @@
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — core UI thuần cho bottom nav + Game/Statis
          panel + wire nút động Setting (core/app-settings-ui.js, Rule 5a) — CẦN core/dom-refs.js
          (đã nạp) + core/generic-drawer.js (đã nạp ngay trên). -->
-    <script src="core/app-panel-nav.js?v=20260819v1"></script>
+    <script src="core/app-panel-nav.js?v=20260902v2"></script>
     <script src="core/placeholder-panel.js?v=20260819v1"></script>
     <script src="core/app-settings-ui.js?v=20260819v1"></script>
     <!-- ĐỔI TÊN (04/08/2026) từ event/workflow/crop-ratio-helpers.js, khớp core/media-transform.js
@@ -656,7 +656,7 @@
          "Circle" (spawn lưới pitch/vật lý wave/canvas). KHÔNG phụ thuộc file nào khác trong khối
          core/ (mọi tham số do event/workflow/gameplay*.js truyền vào), đặt cạnh visualizer-
          gesture.js cho cùng nhóm "tính năng overlay màn Visualizer". -->
-    <script src="core/gameplay/engine.js?v=20260902v4"></script>
+    <script src="core/gameplay/engine.js?v=20260902v5"></script>
     <script src="core/gameplay/engine-ui.js?v=20260902v6"></script>
     <script src="core/gameplay/circle-mode.js?v=20260819v8"></script>
     <script src="core/gameplay/circle-mode-ui.js?v=20260819v1"></script>
@@ -664,7 +664,7 @@
          (catalog.js) không phụ thuộc gì; game-panel-ui.js chỉ dựng chuỗi HTML (không phụ thuộc
          DOM/appState tại thời điểm nạp) — đặt cạnh 2 file gameplay/*-ui.js trên cho cùng nhóm. -->
     <script src="core/gameplay/catalog.js?v=20260902v1"></script>
-    <script src="core/gameplay/game-panel-ui.js?v=20260902v1"></script>
+    <script src="core/gameplay/game-panel-ui.js?v=20260902v2"></script>
     <!-- Icon loa Volume HUD, 5 mốc 0-100% (event/workflow/volume-hud.js). -->
     <script src="core/volume-hud.js?v=20260811v1"></script>
     <!-- MỚI (v13 Batch A) — Core THUẦN domain "Visual Background" (gộp video nền/ảnh nền tĩnh/
@@ -683,7 +683,7 @@
          nhưng vẫn đặt gần nhóm subtitle này cho rõ ràng). -->
     <script src="core/subtitle/subtitle-transition.js?v=20260815v1"></script>
     <script src="core/subtitle/subtitle-style-settings.js?v=20260816v1"></script>
-    <script src="core/visualizer/visualizer-misc-settings.js?v=20260816v1"></script>
+    <script src="core/visualizer/visualizer-misc-settings.js?v=20260902v2"></script>
     <script src="core/subtitle/subtitle-display.js?v=20260816v1"></script>
     <script src="core/wakelock.js?v=20260630v1"></script>
     <script src="core/color-utils.js?v=20260813v1"></script>
@@ -1013,8 +1013,8 @@
          ĐÂY — case 'playerControls.audio/video.ended' gọi workflowGameplay.onSongEnded() khi đang
          ở Game Mode. -->
     <script src="event/workflow/gameplay-engine.js?v=20260902v7"></script>
-    <script src="event/workflow/gameplay.js?v=20260902v12"></script>
-    <script src="event/router/gameplay.js?v=20260902v2"></script>
+    <script src="event/workflow/gameplay.js?v=20260902v13"></script>
+    <script src="event/router/gameplay.js?v=20260902v3"></script>
     <script src="event/listener/gameplay.js?v=20260818v1"></script>
     <!-- Cụm "gameCatalog" — Game Panel (App Panel tab "Game", danh sách card kiểu appstore, MỚI
          02/09/2026, nối catalog game vào overlay Game Mode thật, xem event/workflow/
@@ -1024,7 +1024,7 @@
          app-panel-nav.js::openGame() gọi workflowGameCatalog.openPanel() dù file đó KHAI BÁO SỚM
          HƠN (dòng ~969) — an toàn vì đây là lời gọi lúc RUNTIME (bấm tab Game), không phải lúc
          parse, xem comment ngay tại openGame(). -->
-    <script src="event/workflow/game-catalog.js?v=20260902v1"></script>
+    <script src="event/workflow/game-catalog.js?v=20260902v2"></script>
     <script src="event/router/game-catalog.js?v=20260902v1"></script>
     <script src="event/listener/game-catalog.js?v=20260902v1"></script>
     <script src="event/workflow/player-controls.js?v=20260819v1"></script>
