@@ -230,7 +230,7 @@
     <link rel="stylesheet" href="assets/css/misc.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/motion-engine.css?v=20260829v1">
     <!-- Game Mode (Circle mode v1, MỚI 16/08/2026) — xem components/gameplay-overlay.js. -->
-    <link rel="stylesheet" href="assets/css/gameplay.css?v=20260819v2">
+    <link rel="stylesheet" href="assets/css/gameplay.css?v=20260902v3">
     <!-- Game Panel (App Panel tab "Game", danh sách card kiểu appstore, MỚI 02/09/2026) — xem
          core/gameplay/game-panel-ui.js. -->
     <link rel="stylesheet" href="assets/css/game-panel.css?v=20260902v1">
@@ -656,10 +656,10 @@
          "Circle" (spawn lưới pitch/vật lý wave/canvas). KHÔNG phụ thuộc file nào khác trong khối
          core/ (mọi tham số do event/workflow/gameplay*.js truyền vào), đặt cạnh visualizer-
          gesture.js cho cùng nhóm "tính năng overlay màn Visualizer". -->
-    <script src="core/gameplay/engine.js?v=20260902v5"></script>
+    <script src="core/gameplay/engine.js?v=20260902v6"></script>
     <script src="core/gameplay/engine-ui.js?v=20260902v6"></script>
-    <script src="core/gameplay/circle-mode.js?v=20260819v8"></script>
-    <script src="core/gameplay/circle-mode-ui.js?v=20260819v1"></script>
+    <script src="core/gameplay/circle-mode.js?v=20260902v9"></script>
+    <script src="core/gameplay/circle-mode-ui.js?v=20260902v2"></script>
     <!-- Game Panel (App Panel tab "Game", danh sách card kiểu appstore, MỚI 02/09/2026) — data TĨNH
          (catalog.js) không phụ thuộc gì; game-panel-ui.js chỉ dựng chuỗi HTML (không phụ thuộc
          DOM/appState tại thời điểm nạp) — đặt cạnh 2 file gameplay/*-ui.js trên cho cùng nhóm. -->
@@ -725,7 +725,7 @@
          EQ/volume" — giờ ở visualizers/visualizer-display.js (khu VISUALIZERS dưới), vì đúng
          ranh giới nghiệp vụ là cấu hình Visualizer, không phải điều khiển phát nhạc. Xem comment
          đầu core/player-controls.js để biết đầy đủ lý do tách + đảm bảo thứ tự nạp an toàn. -->
-    <script src="core/player-controls.js?v=20260819v1"></script>
+    <script src="core/player-controls.js?v=20260902v2"></script>
     <!-- MỚI (21/07/2026, mục 4 — Video Player mode) — core/video-player.js: tính next/prev key,
          mutate state, toggle UI nút. Đặt CẠNH core/player-controls.js cho dễ đọc (2 tính năng liên
          quan chặt, dù KHÔNG đụng chung file nào). NẠP SAU service/state.js (đã nạp từ đầu). -->
@@ -1013,7 +1013,7 @@
          ĐÂY — case 'playerControls.audio/video.ended' gọi workflowGameplay.onSongEnded() khi đang
          ở Game Mode. -->
     <script src="event/workflow/gameplay-engine.js?v=20260902v7"></script>
-    <script src="event/workflow/gameplay.js?v=20260902v15"></script>
+    <script src="event/workflow/gameplay.js?v=20260902v16"></script>
     <script src="event/router/gameplay.js?v=20260902v3"></script>
     <script src="event/listener/gameplay.js?v=20260818v1"></script>
     <!-- Cụm "gameCatalog" — Game Panel (App Panel tab "Game", danh sách card kiểu appstore, MỚI
