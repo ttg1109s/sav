@@ -94,9 +94,15 @@ const workflowGameplay = {
             workflowAppPanelNav.activateMedia(); // event/workflow/app-panel-nav.js
         }
 
+        // [SỬA — 02/09/2026, Giang yêu cầu "kể cả nhạc đang phát/tạm dừng/seek ở đâu đều phải reset
+        // toàn bộ trạng thái nhạc, pause -> seek 0"] PAUSE TRƯỚC rồi mới seek — ngược thứ tự bản cũ
+        // (seek rồi mới pause, có thể thấy giật hình 1 khung lúc còn đang phát). Luôn chạy VÔ ĐIỀU
+        // KIỆN, không branch theo trạng thái hiện tại (đang phát/đang dừng/đang seek dở) — .pause()
+        // trên phần tử đã pause sẵn hay .currentTime=0 trên phần tử đã ở 0 đều vô hại (no-op thật
+        // sự), nên không cần if nào phân biệt "đang ở đâu" trước khi reset.
         const activeEl = getActiveMediaElement(appState.get('isVideoPlayerMode'), appState.get('isPhotoPlayerMode')); // core/player-controls.js
-        activeEl.currentTime = 0;
         activeEl.pause();
+        activeEl.currentTime = 0;
 
         showGameplayLayer(gameplayLayer); // core-ui (engine-ui.js)
         this._recomputeGridGeometry();
@@ -480,12 +486,14 @@ const workflowGameplay = {
     },
 
     /** Nút "Chơi lại" — phát lại ĐÚNG bài/video hiện tại từ đầu. [SỬA — 02/09/2026, cùng lý do
-     * start()] KHÔNG còn hiện lại modal Start — nhảy thẳng countdown, cùng khuôn start(). Reset về
-     * 0 + PAUSE (không `.play()` ngay — chỉ phát thật ở _beginPlaying()). */
+     * start()] KHÔNG còn hiện lại modal Start — nhảy thẳng countdown, cùng khuôn start(). PAUSE
+     * TRƯỚC rồi mới seek 0 (KHÔNG phải ngược lại — xem comment trong start()), chạy VÔ ĐIỀU KIỆN
+     * bất kể đang phát/đang dừng/đang seek dở (không `.play()` ngay — chỉ phát thật ở
+     * _beginPlaying()). */
     replay() {
         const activeEl = getActiveMediaElement(appState.get('isVideoPlayerMode'), appState.get('isPhotoPlayerMode')); // core/player-controls.js
-        activeEl.currentTime = 0;
         activeEl.pause();
+        activeEl.currentTime = 0;
         this._resetSessionCounters();
         appState.set('gameplayPhase', 'ready', { skipCheck: true });
         console.log(`writer: "workflowGameplay.replay", page: "gameplayPhase", content: "ready"`);
@@ -503,14 +511,22 @@ const workflowGameplay = {
     },
 
     /** Ứng với 'gameplay.exit.click' HOẶC nút Cancel/"Về Playlist" trong modal — thoát hẳn Game
-     * Mode, tự pause nhạc/video, tái dùng luồng "Back to Playlist" có sẵn. */
+     * Mode, tự pause nhạc/video, tái dùng luồng "Back to Playlist" có sẵn.
+     *
+     * [SỬA — 02/09/2026, Giang yêu cầu "khi game mode bắt đầu/exit/thoát playing, kể cả nhạc đang
+     * phát/tạm dừng/seek ở đâu đều phải reset toàn bộ trạng thái nhạc, pause -> seek 0"] TRƯỚC ĐÂY
+     * hàm này CHỈ `.pause()`, KHÔNG reset `currentTime` — người chơi thoát Game Mode xong nhạc vẫn
+     * kẹt ở giữa bài. Giờ PAUSE TRƯỚC rồi seek 0 NGAY SAU (cùng thứ tự start()/replay()), chạy VÔ
+     * ĐIỀU KIỆN bất kể đang phát/đang dừng/đang seek dở lúc bấm Exit. */
     exitToPlaylist() {
         appState.set('gameplayPhase', 'idle', { skipCheck: true });
         console.log(`writer: "workflowGameplay.exitToPlaylist", page: "gameplayPhase", content: "idle"`);
         taskManager.kill(GAMEPLAY_COUNTDOWN_TASK);
         taskManager.kill(GAMEPLAY_SCORE_COUNTUP_TASK);
 
-        getActiveMediaElement(appState.get('isVideoPlayerMode'), appState.get('isPhotoPlayerMode')).pause(); // core/player-controls.js
+        const activeEl = getActiveMediaElement(appState.get('isVideoPlayerMode'), appState.get('isPhotoPlayerMode')); // core/player-controls.js
+        activeEl.pause();
+        activeEl.currentTime = 0;
 
         hideGameplayCountdown(gameplayCountdownScreen); // core-ui
         hideGameplayLayer(gameplayLayer); // core-ui
