@@ -134,9 +134,13 @@
         // bên trong mỗi nút bottom nav KHÔNG có id riêng (5 nút, phân biệt qua data-tab) —
         // event/listener/app-panel-nav.js delegate trên appBottomNav, KHÔNG cần 5 dom-ref riêng.
         const appBottomNav = document.getElementById('app-bottom-nav');
-        // appBottomNavGameDot: MỚI (02/09/2026) — chấm đỏ báo "đang trong Game Mode" trên icon nút
-        // Game (core/app-panel-nav.js::setAppBottomNavGameIndicator()).
+        // appBottomNavGameDot: MỚI (02/09/2026) — chấm đỏ/xanh báo "đang trong Game Mode" trên icon
+        // nút Game (core/app-panel-nav.js::setAppBottomNavGameIndicator()).
         const appBottomNavGameDot = document.getElementById('app-bottom-nav-game-dot');
+        // appBottomNavGameIconIdle/Playing: [SỬA cùng ngày] 2 icon xếp chồng, toggle qua ĐÚNG hàm
+        // trên — icon thường vs icon máy chơi game cầm tay (lúc đang chơi thật).
+        const appBottomNavGameIconIdle = document.getElementById('app-bottom-nav-game-icon-idle');
+        const appBottomNavGameIconPlaying = document.getElementById('app-bottom-nav-game-icon-playing');
         const gamePanel = document.getElementById('game-panel'), btnGamePanelClose = document.getElementById('btn-game-panel-close');
         // gamePanelList: MỚI (02/09/2026, Game Panel app-store list) — container RỖNG trong
         // TPL_GAME_PANEL, đổ HTML danh sách card qua .innerHTML (event/workflow/game-catalog.js::
