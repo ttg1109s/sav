@@ -38,9 +38,14 @@ const routerGameplay = (() => {
                 break;
 
             case 'gameplay.mediaChanged': {
-                const gameplayModeEnabled = appConfigViz.getAll().gameplayModeEnabled;
+                // [SỬA — 02/09/2026, Game Panel app-store list] `gameplayModeEnabled` (boolean, chỉ
+                // biết bật/tắt) ĐÃ THAY bằng `gameplayArmedGameId` (nullable-string, biết ĐÚNG game
+                // nào đang armed) — armed(id) khác null -> vào ĐÚNG mode id đó, KHÔNG còn hard-code
+                // 'circle' ở đây nữa (tổng quát cho catalog nhiều game sau này, xem
+                // core/gameplay/catalog.js).
+                const armedGameId = appConfigViz.getAll().gameplayArmedGameId;
                 VirtualMachineState.run([
-                    { state: gameplayModeEnabled, operation: '===', value: true, callback: () => workflowGameplay.start('circle') },
+                    { state: armedGameId, operation: '!==', value: null, callback: () => workflowGameplay.start(armedGameId) },
                 ]);
                 break;
             }
