@@ -1,40 +1,48 @@
 /**
- * modal-choice-ui.js — Hàm dùng CHUNG để hiện 1 modal hỏi quyết định (text/HTML + N nút tuỳ biến),
- * dùng được cho NHIỀU tình huống khác nhau trong app (không riêng 1 case cụ thể nào).
+ * modal-choice-ui.js — Hàm dùng CHUNG để hiện 1 modal hỏi quyết định (text/HTML + N lựa chọn tuỳ
+ * biến + 1 nút Huỷ TỰ ĐỘNG), dùng được cho NHIỀU tình huống khác nhau trong app (không riêng 1
+ * case cụ thể nào).
  *
  * Ý TƯỞNG: KHÔNG dựng sẵn HTML cố định trong template tĩnh — modal loại này không phải lúc nào
  * cũng xuất hiện, không cần giữ DOM tồn tại sẵn suốt đời app. `modalChoice()` tự DỰNG DOM động
  * ngay lúc gọi, gắn vào `document.body` (NGOÀI #app-root, không phụ thuộc timing mount của
- * main.js), và TỰ XOÁ HẲN khỏi DOM ngay sau khi người dùng chọn 1 nút.
+ * main.js), và TỰ XOÁ HẲN khỏi DOM ngay sau khi người dùng chọn 1 lựa chọn hoặc bấm Huỷ.
  *
  * CÁCH DÙNG:
- *   modalChoice(text, buttons)
+ *   modalChoice(text, choices, options?)
  *     - text: chuỗi nội dung hỏi (hỗ trợ HTML đơn giản, ví dụ in đậm tên bài hát bằng <b>).
- *     - buttons: mảng các nút, mỗi nút { label, className, onClick }.
+ *     - choices: mảng các lựa chọn HÀNH ĐỘNG THẬT — KHÔNG cần tự thêm 1 lựa chọn "Huỷ"/"Không" nào
+ *       cả, modalChoice() TỰ ĐỘNG thêm nút Huỷ riêng (xem options.showCancel/onCancel dưới). Mỗi
+ *       phần tử { label, className, onClick, disabled?, dataset? }:
  *         - label:     chữ hiện trên nút (dùng cả cho <option> nếu rơi vào diện dropdown, xem dưới).
- *         - className: class Tailwind cho riêng nút đó — CHỈ áp dụng khi render dạng hàng nút
- *                      thường (≤2 nút); diện dropdown (>2 nút) dùng style cố định cho <select> +
- *                      nút "Chọn", không đọc className.
- *         - onClick:   hàm chạy khi bấm nút đó (hoặc khi bấm nút "Chọn" với option này đang chọn
- *                      trong dropdown). Modal LUÔN tự đóng + xoá DOM TRƯỚC khi gọi onClick.
- *   modalChoice(text, buttons, options?)
+ *         - className: class Tailwind cho riêng lựa chọn đó — CHỈ áp dụng khi render dạng hàng nút
+ *                      thường (≤1 lựa chọn thật); diện dropdown (≥2 lựa chọn thật) dùng style cố
+ *                      định cho <select> + nút "Chọn", không đọc className.
+ *         - onClick:   hàm chạy khi bấm lựa chọn đó (hoặc khi bấm nút "Chọn" với option này đang
+ *                      chọn trong dropdown). Modal LUÔN tự đóng + xoá DOM TRƯỚC khi gọi onClick.
+ *         - disabled:  true để lựa chọn này (hoặc option này, diện dropdown) bắt đầu ở trạng thái khoá.
+ *         - dataset:   object {key: value} gán thẳng vào phần tử (button hoặc option) — dùng để
+ *                      code BÊN NGOÀI modalChoice() querySelector lại sau khi mở.
  *     - options.title: tiêu đề ngắn phía trên (tuỳ chọn).
- *     - options.bodyHtml: chuỗi HTML dạng KHỐI, chèn giữa `text` và hàng nút — dùng cho nội dung
- *       không hợp trong 1 dòng `<p>` đơn giản (stat-grid, breakdown điểm, bộ chọn độ khó...). Nội
- *       dung gán qua `innerHTML` — PHẢI tự escapeHtml() phần dữ liệu không đáng tin cậy TRƯỚC khi
- *       ghép vào chuỗi, cùng nguyên tắc với `text`.
- *     - options.dismissOnOverlayClick: true (mặc định false) cho phép bấm ra ngoài để đóng — gọi
- *       nút cuối cùng trong `buttons`.
+ *     - options.bodyHtml: chuỗi HTML dạng KHỐI, chèn giữa `text` và khu vực Huỷ/lựa chọn — dùng
+ *       cho nội dung không hợp trong 1 dòng `<p>` đơn giản (stat-grid, breakdown điểm, bộ chọn độ
+ *       khó, ô nhập liệu tự do...). Nội dung gán qua `innerHTML` — PHẢI tự escapeHtml() phần dữ
+ *       liệu không đáng tin cậy TRƯỚC khi ghép vào chuỗi, cùng nguyên tắc với `text`.
+ *     - options.showCancel: true (MẶC ĐỊNH) — hiện nút Huỷ. Đặt `false` để ẨN HẲN nút Huỷ, dùng
+ *       cho modal không có khái niệm "huỷ" nào cả (vd alertModal() chỉ 1 nút "OK" xác nhận đã đọc,
+ *       hoặc màn Kết quả Game — bắt buộc chọn 1 trong các lựa chọn, không có đường lùi).
+ *     - options.onCancel: hàm chạy khi bấm Huỷ (hoặc bấm ra ngoài overlay, nếu
+ *       dismissOnOverlayClick bật). Modal LUÔN tự đóng TRƯỚC khi gọi. Không truyền = Huỷ chỉ đóng
+ *       modal, không làm gì thêm (đa số trường hợp — "huỷ" nghĩa là giữ nguyên trạng thái cũ).
+ *     - options.dismissOnOverlayClick: true (mặc định false) cho phép bấm ra ngoài để Huỷ (CÙNG
+ *       hành vi với nút Huỷ — gọi options.onCancel) — CHỈ có tác dụng nếu showCancel !== false
+ *       (modal không có nút Huỷ thì bấm ra ngoài cũng không làm gì).
  *
- *   **>2 nút tự đổi layout**: hàng nút ngang chỉ hợp lý với ≤2 lựa chọn — từ 3 nút trở lên,
- *   `modalChoice()` tự render 1 `<select>` (liệt kê `label` từng nút làm option) + 1 nút "Chọn" duy
- *   nhất đứng cạnh. Bấm nút "Chọn" mới thực thi đúng `onClick` của option đang chọn trong dropdown.
- *
- *   Mỗi phần tử trong `buttons` còn hỗ trợ thêm (tuỳ chọn, dùng khi cần khoá tạm 1 nút lúc mới mở
- *   modal — ví dụ chờ dữ liệu nào đó load xong mới cho bấm):
- *     - disabled:  true để nút này (hoặc option này, diện dropdown) bắt đầu ở trạng thái khoá.
- *     - dataset:   object {key: value} gán thẳng vào phần tử (button hoặc option) — dùng để code
- *                  BÊN NGOÀI modalChoice() querySelector lại sau khi mở.
+ *   **≥2 lựa chọn thật tự đổi layout**: hàng nút ngang chỉ hợp lý với ĐÚNG 1 lựa chọn thật (cộng
+ *   nút Huỷ tự động = 2 nút hiện ra, [Huỷ][lựa chọn]) — từ 2 lựa chọn thật trở lên, modalChoice()
+ *   tự render 1 `<select>` RIÊNG 1 hàng phía trên (liệt kê `label` từng lựa chọn làm option), NGAY
+ *   DƯỚI là hàng [Huỷ][Chọn]. Bấm "Chọn" mới thực thi đúng `onClick` của option đang chọn trong
+ *   dropdown.
  *
  * KHÔNG dùng chung cơ chế với loading-shield (`withLoadingShield`, `js/core/loading-shield-util.js`)
  * — đã kiểm tra: loading-shield chỉ là spinner + 1 dòng text, không có chỗ cho nút bấm nào, sửa nó
@@ -42,16 +50,17 @@
  * lâu", không phải hỏi quyết định). modalChoice() vì vậy là 1 component HOÀN TOÀN riêng, độc lập,
  * không đụng gì tới loading-shield.js/loading-shield-util.js.
  *
- * alertModal(text, options?) (THÊM, xem định nghĩa dưới) — wrapper 1-nút "OK" dựng trên CHÍNH
- * modalChoice() này, dùng để THAY THẾ TOÀN BỘ alert() rải rác khắp app (core/playlist/actions.js,
- * core/playlist/loader.js, core/id3-export.js, core/state-and-video-bg.js, core/storage-manager.js,
- * core/player-controls.js, core/language-settings.js, core/subtitles.js). LÝ DO: alert() là API
- * đồng bộ-chặn của trình duyệt — có thể bị 1 số WebView mobile chặn hẳn (không hiện gì, coi như
- * mất luôn thông báo lỗi), hoặc gây "đứng" cảm giác crash khi rơi đúng lúc 1 #loading-shield khác
- * đang chạy. alertModal() không chặn gì cả, là 1 lớp DOM thật giống modalChoice(), an toàn 100%
- * trên mọi trình duyệt/WebView. escapeHtml(str) (THÊM, xem định nghĩa dưới) đi kèm — dùng để
- * escape phần dữ liệu KHÔNG đáng tin cậy (tên file người dùng chọn, err.message gốc) trước khi
- * truyền vào alertModal()/modalChoice(), vì cả 2 đều gán trực tiếp qua `innerHTML`.
+ * alertModal(text, options?) (xem định nghĩa dưới) — wrapper 1-nút "OK" dựng trên CHÍNH
+ * modalChoice() này (showCancel: false — thông báo thuần, không có khái niệm huỷ), dùng để THAY
+ * THẾ TOÀN BỘ alert() rải rác khắp app (core/playlist/actions.js, core/playlist/loader.js,
+ * core/id3-export.js, core/state-and-video-bg.js, core/storage-manager.js, core/player-controls.js,
+ * core/language-settings.js, core/subtitles.js). LÝ DO: alert() là API đồng bộ-chặn của trình
+ * duyệt — có thể bị 1 số WebView mobile chặn hẳn (không hiện gì, coi như mất luôn thông báo lỗi),
+ * hoặc gây "đứng" cảm giác crash khi rơi đúng lúc 1 #loading-shield khác đang chạy. alertModal()
+ * không chặn gì cả, là 1 lớp DOM thật giống modalChoice(), an toàn 100% trên mọi trình duyệt/
+ * WebView. escapeHtml(str) (xem định nghĩa dưới) đi kèm — dùng để escape phần dữ liệu KHÔNG đáng
+ * tin cậy (tên file người dùng chọn, err.message gốc) trước khi truyền vào alertModal()/
+ * modalChoice(), vì cả 2 đều gán trực tiếp qua `innerHTML`.
  *
  * z-[130]: đứng trên mọi modal tĩnh hiện có (song-edit-modal/song-info-modal/playback-error-modal
  * đều z-[120]/z-[125]) — modal loại "quyết định" này cần luôn nổi trên cùng nếu cả 2 cùng xuất
@@ -80,7 +89,8 @@
          * là API đồng bộ-CHẶN của trình duyệt, có thể bị 1 số WebView/trình duyệt mobile chặn hẳn
          * hoặc gây cảm giác "đứng app"/treo khung hình đang dở dang — đặc biệt nguy hiểm nếu gọi
          * trong lúc 1 #loading-shield khác đang hiển thị, vì alert() chặn cả luồng render của
-         * shield đó luôn). Tận dụng LẠI modalChoice() đã có sẵn (xem file này) — KHÔNG dùng
+         * shield đó luôn). Tận dụng LẠI modalChoice() đã có sẵn (xem file này, showCancel: false —
+         * đây là thông báo thuần, không có khái niệm "huỷ" khác gì "OK") — KHÔNG dùng
          * withLoadingShield(): đã xác nhận loading-shield chỉ là spinner + 1 dòng text, không có
          * chỗ cho nút bấm, không phù hợp để hiện thông báo cần người dùng đọc + xác nhận đã đọc.
          *
@@ -110,16 +120,30 @@
                             onClick: () => resolve()
                         }
                     ],
-                    { title: options.title }
+                    { title: options.title, showCancel: false }
                 );
             });
         }
 
-        /** Hàng nút ngang thường (≤2 nút) — mỗi nút gọi thẳng onClick của chính nó. */
-        function _appendButtonRow(card, buttons, closeModal) {
+        /** Nút Huỷ DÙNG CHUNG (style cố định, KHÔNG đọc className tuỳ biến — đúng tinh thần "tự
+         * động, không cần tự dựng tay") — tự đóng modal rồi gọi options.onCancel (nếu có). */
+        function _buildCancelButton(closeModal, options) {
+            const btnEl = document.createElement('button');
+            btnEl.className = 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors';
+            btnEl.textContent = typeof t === 'function' ? t('common.cancel') : 'Cancel';
+            btnEl.addEventListener('click', () => {
+                closeModal();
+                if (typeof options.onCancel === 'function') options.onCancel();
+            });
+            return btnEl;
+        }
+
+        /** ≤1 lựa chọn thật — hàng ngang [Huỷ (nếu showCancel !== false)][lựa chọn duy nhất, nếu có]. */
+        function _appendButtonRow(card, choices, closeModal, options) {
             const buttonRow = document.createElement('div');
             buttonRow.className = 'flex gap-3 mt-1';
-            buttons.forEach((btnDef) => {
+            if (options.showCancel !== false) buttonRow.appendChild(_buildCancelButton(closeModal, options));
+            choices.forEach((btnDef) => {
                 const btnEl = document.createElement('button');
                 btnEl.className = btnDef.className || 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors';
                 btnEl.textContent = btnDef.label;
@@ -134,15 +158,13 @@
             card.appendChild(buttonRow);
         }
 
-        /** >2 nút — 1 <select> liệt kê label từng nút + 1 nút "Chọn" duy nhất thực thi onClick của
-         * option đang chọn. */
-        function _appendDropdownRow(card, buttons, closeModal) {
-            const row = document.createElement('div');
-            row.className = 'flex gap-3 mt-1';
-
+        /** ≥2 lựa chọn thật — 1 hàng <select> RIÊNG phía trên (liệt kê label từng lựa chọn), NGAY
+         * DƯỚI là hàng [Huỷ (nếu showCancel !== false)][Chọn] — bấm "Chọn" thực thi onClick của
+         * option đang chọn trong dropdown. */
+        function _appendDropdownRow(card, choices, closeModal, options) {
             const selectEl = document.createElement('select');
-            selectEl.className = 'flex-1 py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-600 text-sm text-white';
-            buttons.forEach((btnDef, i) => {
+            selectEl.className = 'w-full py-2.5 px-3 rounded-xl bg-slate-800 border border-slate-600 text-sm text-white mt-1';
+            choices.forEach((btnDef, i) => {
                 const optionEl = document.createElement('option');
                 optionEl.value = String(i);
                 optionEl.textContent = btnDef.label;
@@ -150,25 +172,27 @@
                 if (btnDef.disabled) optionEl.disabled = true;
                 selectEl.appendChild(optionEl);
             });
+            card.appendChild(selectEl);
+
+            const row = document.createElement('div');
+            row.className = 'flex gap-3';
+            if (options.showCancel !== false) row.appendChild(_buildCancelButton(closeModal, options));
 
             const confirmBtn = document.createElement('button');
-            confirmBtn.className = 'py-2.5 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold transition-colors';
+            confirmBtn.className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold transition-colors';
             confirmBtn.textContent = typeof t === 'function' ? t('common.select') : 'Chọn';
-
-            row.appendChild(selectEl);
-            row.appendChild(confirmBtn);
-            card.appendChild(row);
-
             confirmBtn.addEventListener('click', () => {
-                const chosen = buttons[Number(selectEl.value)];
+                const chosen = choices[Number(selectEl.value)];
                 closeModal();
                 if (chosen && typeof chosen.onClick === 'function') chosen.onClick();
             });
+            row.appendChild(confirmBtn);
+            card.appendChild(row);
         }
 
-        function modalChoice(text, buttons, options) {
+        function modalChoice(text, choices, options) {
             options = options || {};
-            buttons = buttons || [];
+            choices = choices || [];
             // Tự đóng modalChoice cũ (nếu lỡ có, hiếm khi xảy ra vì mỗi lần đều xoá hẳn DOM ngay
             // sau khi chọn) — phòng trường hợp gọi modalChoice() chồng lệnh trước khi cái cũ đóng.
             const stale = document.getElementById('modal-choice-overlay');
@@ -206,17 +230,16 @@
                 overlay.remove(); // xoá hẳn khỏi DOM ngay khi đóng — không giữ lại để tiết kiệm RAM
             }
 
-            if (buttons.length > 2) _appendDropdownRow(card, buttons, closeModal);
-            else _appendButtonRow(card, buttons, closeModal);
+            if (choices.length > 1) _appendDropdownRow(card, choices, closeModal, options);
+            else _appendButtonRow(card, choices, closeModal, options);
 
             overlay.appendChild(card);
 
-            if (options.dismissOnOverlayClick) {
+            if (options.dismissOnOverlayClick && options.showCancel !== false) {
                 overlay.addEventListener('click', (e) => {
                     if (e.target !== overlay) return; // chỉ tính click ĐÚNG lên overlay, không phải lên card/nút bên trong
-                    const fallbackBtn = buttons[buttons.length - 1];
                     closeModal();
-                    if (fallbackBtn && typeof fallbackBtn.onClick === 'function') fallbackBtn.onClick();
+                    if (typeof options.onCancel === 'function') options.onCancel();
                 });
             }
 
