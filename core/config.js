@@ -125,9 +125,14 @@
             visualEnabled: true,
             // MỚI (16/08/2026, Game Mode Circle v1) — bật/tắt PERSISTENT (khác `gameplayPhase` ở
             // service/state/gameplay-runtime.js, đó là trạng thái 1 PHIÊN chơi, KHÔNG lưu qua
-            // reload). Bật field này -> mọi lần bài hát đổi thật (event/router/visual-bg.js case
-            // 'visualBg.songChanged') tự mở overlay Game Mode, KHÔNG cần bấm nút "Game" mỗi lần.
-            gameplayModeEnabled: false,
+            // reload). Bật field này -> mọi lần bài hát đổi thật (event/router/gameplay.js case
+            // 'gameplay.mediaChanged') tự mở overlay Game Mode, KHÔNG cần bấm nút "Game" mỗi lần.
+            // [SỬA — 02/09/2026, Game Panel app-store list, Giang yêu cầu "nối game mode vào game
+            // overlay"] `gameplayModeEnabled` (boolean) ĐÃ THAY bằng `gameplayArmedGameId`
+            // (nullable-string) — nút Play trên card Game Panel (core/gameplay/catalog.js) đổi
+            // thành Exit CHO ĐÚNG game vừa bấm, null = không game nào đang armed. Chỉ 1 game armed
+            // tại 1 thời điểm (xem event/workflow/game-catalog.js::armGame()).
+            gameplayArmedGameId: null,
             keepScreenOn: true,
             // Tự động đổi hiệu ứng Visualizer theo thời gian (ver 10) — xem core/auto-switch-visual.js.
             //   - autoSwitchVisualMode: 'sequential' (tuần tự/cố định theo MODES) | 'random'.
@@ -389,7 +394,7 @@
                 themeMode: 'string', gradientFrom: 'string', gradientTo: 'string',
                 volume: 'number', eqPresetId: 'string',
                 visualEnabled: 'boolean',
-                gameplayModeEnabled: 'boolean',
+                gameplayArmedGameId: 'nullable-string',
                 keepScreenOn: 'boolean',
                 autoSwitchVisualEnabled: 'boolean', autoSwitchVisualMode: 'string', autoSwitchVisualTimeMode: 'string',
                 autoSwitchVisualSecondsFixed: 'number', autoSwitchVisualSecondsRandom: 'number', autoSwitchVisualSecondsDuration: 'number',
@@ -603,7 +608,14 @@
                 if (cfg.keepScreenOn == null) cfg.keepScreenOn = true;
                 if (cfg.subtitlesEnabled == null) cfg.subtitlesEnabled = true;
                 if (cfg.visualEnabled == null) cfg.visualEnabled = true;
-                if (cfg.gameplayModeEnabled == null) cfg.gameplayModeEnabled = false;
+                // [SỬA — 02/09/2026, Game Panel app-store list] `gameplayModeEnabled` (boolean) ĐÃ
+                // THAY bằng `gameplayArmedGameId` (nullable-string, xem DEFAULT_VIZ_CONFIG phía
+                // trên) — người dùng CŨ đã bật cờ chung -> suy ra đang armed game 'circle' (game
+                // DUY NHẤT tồn tại lúc field cũ còn dùng).
+                if (cfg.gameplayArmedGameId === undefined) {
+                    cfg.gameplayArmedGameId = cfg.gameplayModeEnabled === true ? 'circle' : null;
+                }
+                delete cfg.gameplayModeEnabled;
                 // Auto-switch-visual (ver 10) — migrate field mới + validate lại ngưỡng tối thiểu.
                 if (cfg.autoSwitchVisualEnabled == null) cfg.autoSwitchVisualEnabled = false;
                 if (cfg.autoSwitchVisualMode !== 'sequential' && cfg.autoSwitchVisualMode !== 'random') cfg.autoSwitchVisualMode = 'sequential';

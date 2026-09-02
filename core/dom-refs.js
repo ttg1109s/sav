@@ -135,6 +135,11 @@
         // event/listener/app-panel-nav.js delegate trên appBottomNav, KHÔNG cần 5 dom-ref riêng.
         const appBottomNav = document.getElementById('app-bottom-nav');
         const gamePanel = document.getElementById('game-panel'), btnGamePanelClose = document.getElementById('btn-game-panel-close');
+        // gamePanelList: MỚI (02/09/2026, Game Panel app-store list) — container RỖNG trong
+        // TPL_GAME_PANEL, đổ HTML danh sách card qua .innerHTML (event/workflow/game-catalog.js::
+        // renderList(), core/gameplay/game-panel-ui.js dựng chuỗi) + là gốc delegation click cho cả
+        // cụm (event/listener/game-catalog.js), cùng khuôn genericDrawerBody.
+        const gamePanelList = document.getElementById('game-panel-list');
         const statisPanel = document.getElementById('statis-panel'), btnStatisPanelClose = document.getElementById('btn-statis-panel-close');
         // Card "Visualizer Screen" (Main) — 4 nút điều hướng: Display (panel mới, thay hẳn
         // "Customize Visualizer"/Custom Effect cũ), Auto-Switch Effect, Visual Background. "Cử
