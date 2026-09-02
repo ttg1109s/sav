@@ -88,9 +88,16 @@
     width: 9px;
     height: 9px;
     border-radius: 9999px;
-    background: #f43f5e; /* rose-500 */
+    background: #f43f5e; /* rose-500 — mặc định: đã armed, CHƯA chơi thật */
     border: 2px solid rgba(0, 0, 0, 0.55); /* tách chấm khỏi icon phía sau, khớp nền tối #app-bottom-nav */
     animation: appBottomNavGameDotPulse 1.4s ease-in-out infinite;
+}
+/* [SỬA — 02/09/2026, Giang yêu cầu "khi playgame cần chuyển sang icon máy chơi game cầm tay + nút
+   chấm xanh"] Đè màu XANH khi đang chơi THẬT (core/app-panel-nav.js::
+   setAppBottomNavGameIndicator(), state 'playing') — animation nhấp nháy DÙNG CHUNG ở trên,
+   KHÔNG viết lại riêng. */
+.app-bottom-nav-game-dot--playing {
+    background: #22c55e; /* green-500 */
 }
 @keyframes appBottomNavGameDotPulse {
     0%, 100% { transform: scale(1); opacity: 1; }
