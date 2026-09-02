@@ -3,8 +3,8 @@
  * đang coming soon"). Core-ui (Rule 5c, hậu tố `-ui`) DÙNG CHUNG cho Game Panel (App Panel tab
  * "Game" — THAY hẳn placeholder "coming soon" cũ, xem components/game-panel.js). Hàm CHỈ dựng
  * chuỗi HTML — KHÔNG `addEventListener` (gắn tương tác là việc của Workflow, xem
- * event/workflow/game-catalog.js), KHÔNG `appState.get()`/`appConfigViz.getAll()` (Rule 2) — mọi
- * state cần đọc do Workflow tự đọc rồi truyền vào tham số.
+ * event/workflow/game-catalog.js), KHÔNG `appState.get()` (Rule 2) — mọi state cần đọc do Workflow
+ * tự đọc rồi truyền vào tham số.
  *
  * ĐÚNG 1 hàm (`buildGamePanelListHtml`) dựng TOÀN BỘ list — mỗi card render INLINE ngay trong
  * `.map()` (cùng khuôn `buildResultBodyHtml()::hitGrid` / `buildDifficultySelectorHtml()::buttons`,
@@ -25,6 +25,11 @@
  * `gameplayDifficulty` (service/state/gameplay-runtime.js, vì Rule 4 "không chơi 2 game cùng lúc"
  * nên tại 1 thời điểm chỉ có ĐÚNG 1 độ khó đang có ý nghĩa) — khoá nút lại khi đã armed để tránh
  * sửa ngầm giá trị đang dùng cho phiên đang chờ/đang chơi thật.
+ *
+ * Nút Play/Exit (44px, circle) và badge độ khó CÙNG CHIỀU CAO `h-11` (44px) — [SỬA — 02/09/2026,
+ * Giang chỉ ra "badge độ khó phải bằng nút exit/play, một cái to một cái nhỏ trên cùng 1 row UX
+ * tệ"] trước đó badge độ khó thấp hơn hẳn (chỉ dùng padding dọc `py-1.5`, không có chiều cao cố
+ * định) — giờ CẢ HAI đều `h-11`, đứng cùng hàng trông cân đối, KHÔNG còn lệch kích thước.
  *
  * Cover — `coverImageUrl` (catalog.js) hiện LUÔN `null` (chưa có ảnh thật) -> luôn rơi vào nhánh
  * gradient + icon trang trí (`coverGradientClass`/`coverIconSvg`). Nhánh `<img>` viết SẴN cho lúc
@@ -58,8 +63,8 @@ function buildGamePanelListHtml(games, armedGameId, gameplayPhase, difficulty, t
                 `<svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 ml-0.5"><path d="M8 5v14l11-7z"/></svg>` +
                 `</button>`;
 
-        const difficultyBtn = `<button type="button" class="game-card-difficulty-btn shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11px] font-bold tracking-wide transition-colors ${difficultyAccent[difficulty]} ${difficultyLocked ? 'opacity-40 cursor-not-allowed' : 'hover:brightness-125'}" data-game-id="${game.id}" ${difficultyLocked ? 'disabled' : ''}>` +
-            `<span class="font-mono leading-none">${difficultyGlyph[difficulty]}</span>` +
+        const difficultyBtn = `<button type="button" class="game-card-difficulty-btn shrink-0 h-11 flex items-center gap-1.5 px-3.5 rounded-full border text-xs font-bold tracking-wide transition-colors ${difficultyAccent[difficulty]} ${difficultyLocked ? 'opacity-40 cursor-not-allowed' : 'hover:brightness-125'}" data-game-id="${game.id}" ${difficultyLocked ? 'disabled' : ''}>` +
+            `<span class="font-mono leading-none text-sm">${difficultyGlyph[difficulty]}</span>` +
             `<span data-i18n="gameplayCircle.difficulty.${difficulty}">${t('gameplayCircle.difficulty.' + difficulty)}</span>` +
             `</button>`;
 

@@ -100,12 +100,14 @@ function computeScoreRingLaps(totalPercent, maxExtraLaps) {
     return laps;
 }
 
-/** Ghi ĐÚNG game đang "armed" PERSISTENT (nullable — null = không game nào armed), khác
- * `gameplayPhase` (đó là trạng thái 1 PHIÊN chơi, không lưu qua reload). [SỬA — 02/09/2026, Game
- * Panel app-store list] THAY `setGameplayModeEnabled(checked)` (1 boolean DUY NHẤT) — giờ catalog
- * (core/gameplay/catalog.js) có thể có ≥2 game, cần biết ARM ĐÚNG game nào chứ không còn 1 cờ
- * chung. Không tự gọi saveConfig() (Rule 3a) — Workflow tự gọi ngay sau. */
+/** Ghi ĐÚNG game đang "armed" — nullable (null = không game nào armed), khác `gameplayPhase` (đó
+ * là trạng thái 1 PHIÊN chơi). [SỬA — 02/09/2026, Giang yêu cầu "game mode không lưu, trạng thái
+ * tạm thời RAM"] Field này SỐNG Ở APPSTATE (service/state/gameplay-runtime.js, session-only, mất
+ * khi reload) — KHÔNG còn ở AppConfig/vizConfig (PERSISTENT) như bản 1 boolean trước đó nữa, nên
+ * KHÔNG còn gọi `saveConfig()` sau hàm này (xem nơi gọi, event/workflow/game-catalog.js). `set()`
+ * ở Core VẪN hợp lệ (Rule 2 chỉ cấm `get()`), `skipCheck: true` khớp mọi field khác cùng domain
+ * `gameplay-runtime` (gameplayPhase/gameplayMode…, xem event/workflow/gameplay.js). */
 function setGameplayArmedGameId(gameId) {
-    appConfigViz.mutateAll(cfg => { cfg.gameplayArmedGameId = gameId; });
+    appState.set('gameplayArmedGameId', gameId, { skipCheck: true });
     console.log(`writer: "setGameplayArmedGameId", page: "gameplayArmedGameId", content: "${gameId}"`);
 }
