@@ -149,6 +149,29 @@
         }
 
         /**
+         * MỚI (02/09/2026, Giang yêu cầu "game mode chặn luôn toàn bộ thao tác ở player control
+         * bottom") — CSS `pointer-events` thuần (Giang chốt "css hay js cũng được, cái nào đơn giản
+         * thì làm" — đây là cách ít code nhất, KHÔNG cần disable từng nút/progress-bar riêng lẻ).
+         *
+         * LÝ DO CẦN — KHÔNG chỉ "phòng hờ": `#player-container` (z-40, position:fixed) và
+         * `#gameplay-layer` (z-[65]) TƯỞNG như gameplay-layer luôn nổi trên do z-index cao hơn,
+         * nhưng z-65 đó CHỈ LÀ z-index NỘI BỘ trong stacking context riêng của `#visualizer-ui`
+         * (chính #visualizer-ui lại chỉ z-30 — xem comment forceBackToPlaylistUI() phía trên) —
+         * #player-container đứng NGANG HÀNG #visualizer-ui (không lồng trong nhau), nên stacking
+         * thật sự so z-30 (#visualizer-ui) với z-40 (#player-container): thanh điều khiển phát nhạc
+         * VẪN nổi trên toàn bộ overlay Game Mode kể cả full-screen tap-surface bên trong — bấm được
+         * Prev/Play-Pause/Next/kéo progress-bar ngay giữa lúc đang chơi, phá timing wave. Sửa TẬN
+         * GỐC stacking context là việc lớn hơn nhiều (đụng cấu trúc DOM nhiều file) — chặn tương tác
+         * bằng `pointer-events: none` giải quyết ĐÚNG vấn đề Giang nêu (chặn thao tác) mà không cần
+         * động tới cấu trúc z-index hiện có.
+         *
+         * @param {boolean} blocked - true: gắn `pointer-events: none` (CSS, assets/css/gameplay.css)
+         *   lên #player-container. false: gỡ lại. */
+        function setPlayerControlsBlocked(blocked) {
+            playerContainer.classList.toggle('gameplay-controls-blocked', blocked);
+        }
+
+        /**
          * Quay về màn Playlist (nút Back ở Visualizer). Dùng chung với resetPlayerToIdle()/
          * clearAllStoredData() — xem định nghĩa forceBackToPlaylistUI() ở trên.
          * Ứng với msg.type 'playerControls.backToPlaylist.click'.
