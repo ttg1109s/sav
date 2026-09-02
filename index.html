@@ -231,6 +231,9 @@
     <link rel="stylesheet" href="assets/css/motion-engine.css?v=20260829v1">
     <!-- Game Mode (Circle mode v1, MỚI 16/08/2026) — xem components/gameplay-overlay.js. -->
     <link rel="stylesheet" href="assets/css/gameplay.css?v=20260819v2">
+    <!-- Game Panel (App Panel tab "Game", danh sách card kiểu appstore, MỚI 02/09/2026) — xem
+         core/gameplay/game-panel-ui.js. -->
+    <link rel="stylesheet" href="assets/css/game-panel.css?v=20260902v1">
 
     <video id="bg-video" loop muted playsinline class="hidden"></video>
     <!-- Từng thử 1 #video-player-thumb-overlay riêng ở đây (đè LÊN video) — BỎ, <video> hardware-
@@ -653,10 +656,15 @@
          "Circle" (spawn lưới pitch/vật lý wave/canvas). KHÔNG phụ thuộc file nào khác trong khối
          core/ (mọi tham số do event/workflow/gameplay*.js truyền vào), đặt cạnh visualizer-
          gesture.js cho cùng nhóm "tính năng overlay màn Visualizer". -->
-    <script src="core/gameplay/engine.js?v=20260819v3"></script>
-    <script src="core/gameplay/engine-ui.js?v=20260819v5"></script>
+    <script src="core/gameplay/engine.js?v=20260902v4"></script>
+    <script src="core/gameplay/engine-ui.js?v=20260902v6"></script>
     <script src="core/gameplay/circle-mode.js?v=20260819v8"></script>
     <script src="core/gameplay/circle-mode-ui.js?v=20260819v1"></script>
+    <!-- Game Panel (App Panel tab "Game", danh sách card kiểu appstore, MỚI 02/09/2026) — data TĨNH
+         (catalog.js) không phụ thuộc gì; game-panel-ui.js chỉ dựng chuỗi HTML (không phụ thuộc
+         DOM/appState tại thời điểm nạp) — đặt cạnh 2 file gameplay/*-ui.js trên cho cùng nhóm. -->
+    <script src="core/gameplay/catalog.js?v=20260902v1"></script>
+    <script src="core/gameplay/game-panel-ui.js?v=20260902v1"></script>
     <!-- Icon loa Volume HUD, 5 mốc 0-100% (event/workflow/volume-hud.js). -->
     <script src="core/volume-hud.js?v=20260811v1"></script>
     <!-- MỚI (v13 Batch A) — Core THUẦN domain "Visual Background" (gộp video nền/ảnh nền tĩnh/
@@ -1004,10 +1012,21 @@
          mọi phần không đặc thù). Cả cụm PHẢI nạp TRƯỚC event/router/player-controls.js NGAY DƯỚI
          ĐÂY — case 'playerControls.audio/video.ended' gọi workflowGameplay.onSongEnded() khi đang
          ở Game Mode. -->
-    <script src="event/workflow/gameplay-engine.js?v=20260819v6"></script>
-    <script src="event/workflow/gameplay.js?v=20260819v11"></script>
-    <script src="event/router/gameplay.js?v=20260819v1"></script>
+    <script src="event/workflow/gameplay-engine.js?v=20260902v7"></script>
+    <script src="event/workflow/gameplay.js?v=20260902v12"></script>
+    <script src="event/router/gameplay.js?v=20260902v2"></script>
     <script src="event/listener/gameplay.js?v=20260818v1"></script>
+    <!-- Cụm "gameCatalog" — Game Panel (App Panel tab "Game", danh sách card kiểu appstore, MỚI
+         02/09/2026, nối catalog game vào overlay Game Mode thật, xem event/workflow/
+         game-catalog.js). PHẢI nạp SAU cụm "gameplay" ngay trên (armGame()/disarmGame() gọi
+         workflowGameplay.start()/exitToPlaylist()) VÀ SAU core/gameplay/catalog.js +
+         core/gameplay/game-panel-ui.js (đã nạp ở nhóm CORE, dòng ~657). event/workflow/
+         app-panel-nav.js::openGame() gọi workflowGameCatalog.openPanel() dù file đó KHAI BÁO SỚM
+         HƠN (dòng ~969) — an toàn vì đây là lời gọi lúc RUNTIME (bấm tab Game), không phải lúc
+         parse, xem comment ngay tại openGame(). -->
+    <script src="event/workflow/game-catalog.js?v=20260902v1"></script>
+    <script src="event/router/game-catalog.js?v=20260902v1"></script>
+    <script src="event/listener/game-catalog.js?v=20260902v1"></script>
     <script src="event/workflow/player-controls.js?v=20260819v1"></script>
     <script src="event/router/player-controls.js?v=20260819v1"></script>
     <script src="event/listener/player-controls.js?v=20260708v1"></script>
