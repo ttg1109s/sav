@@ -375,9 +375,8 @@ const workflowVideoPreview = {
         modalChoice( // core/modal-choice-ui.js
             t('videoPreview.cropExit.desc'),
             [
-                { label: t('videoPreview.cropExit.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
-                { label: t('videoPreview.cropExit.discard'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: () => this._exitCropVisible(false) },
-                { label: t('videoPreview.cropExit.apply'), className: 'flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-semibold transition-colors', onClick: () => this._exitCropVisible(true) },
+                { label: t('videoPreview.cropExit.discard'), onClick: () => this._exitCropVisible(false) },
+                { label: t('videoPreview.cropExit.apply'), onClick: () => this._exitCropVisible(true) },
             ],
             { title: t('videoPreview.cropExit.title') }
         );
@@ -538,7 +537,6 @@ const workflowVideoPreview = {
         modalChoice( // core/modal-choice-ui.js
             t('videoPreview.resetConfirm.desc'),
             [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('videoPreview.resetConfirm.confirm'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: () => this._reallyReset() },
             ],
             { title: t('videoPreview.resetConfirm.title') }
@@ -695,7 +693,6 @@ const workflowVideoPreview = {
         modalChoice( // core/modal-choice-ui.js
             t('videoPreview.discardConfirm.desc'),
             [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('videoPreview.discardConfirm.title'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: () => this._reallyClose() },
             ],
             { title: t('videoPreview.discardConfirm.title') }

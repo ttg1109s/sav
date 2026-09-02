@@ -920,7 +920,6 @@ const workflowImageEdit = {
         modalChoice( // core/modal-choice-ui.js
             t('fileManager.photo.image.layerEditContentTitle'),
             [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-sm font-semibold transition-colors text-slate-900', onClick: () => {} },
                 {
                     label: t('common.save'), className: 'flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-semibold transition-colors text-white',
                     onClick: () => {

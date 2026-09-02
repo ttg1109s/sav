@@ -106,7 +106,6 @@ const workflowSettingsMisc = {
         modalChoice(
             t('common.appRecovery.restartBody'),
             [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('common.appRecovery.restartConfirmBtn'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: onConfirmSend }
             ],
             { title: t('common.appRecovery.restartTitle') }
@@ -119,7 +118,6 @@ const workflowSettingsMisc = {
         modalChoice(
             t('common.appRecovery.restoreDefaultsBody'),
             [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('common.appRecovery.restoreDefaultsConfirmBtn'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: onConfirmSend }
             ],
             { title: t('common.appRecovery.restoreDefaultsTitle') }
@@ -166,7 +164,6 @@ const workflowSettingsMisc = {
         modalChoice(
             t('common.appRecovery.clearCacheBody'),
             [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('common.appRecovery.clearCacheConfirmBtn'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: onConfirmSend }
             ],
             { title: t('common.appRecovery.clearCacheTitle') }

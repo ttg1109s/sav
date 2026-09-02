@@ -356,7 +356,6 @@ const workflowFileManagerFolderBrowser = {
         modalChoice( // core/modal-choice-ui.js
             this._folderText('fileManager.song.folderDetail.removeAllConfirm'),
             [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: this._folderText('fileManager.song.folderDetail.btnRemoveAll'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
                     const mediaType = this._readFolderRecord && this._readFolderRecord.type; // xem SỬA 28/07/2026 ở core/file-manager/folder.js
                     await removeAllSongsFromFolder(folderId, mediaType); // core/file-manager/folder.js
@@ -403,7 +402,6 @@ const workflowFileManagerFolderBrowser = {
         modalChoice( // core/modal-choice-ui.js
             confirmBody,
             [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('fileManager.song.btnDeleteFolder'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: async () => {
                     await deleteFolder(folderId, folderType); // core/file-manager/folder.js
                     if (isActiveFolder) await workflowPlaylistScope.persistScopeChoice(null);

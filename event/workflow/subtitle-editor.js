@@ -921,9 +921,8 @@ const workflowSubtitleEditor = {
         modalChoice( // core/modal-choice-ui.js
             tFormat('subtitleEditor.cutMp3.resultDesc', { start: startStr, end: endStr }),
             [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors' },
-                { label: t('subtitleEditor.cutMp3.download'), className: 'flex-1 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-sm font-bold transition-colors', onClick: () => this._downloadCutBlob(blob, fileName) },
-                { label: t('subtitleEditor.cutMp3.insert'), className: 'flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-sm font-bold transition-colors', onClick: () => this._insertCutBlobAsNewSong(blob, fileName) },
+                { label: t('subtitleEditor.cutMp3.download'), onClick: () => this._downloadCutBlob(blob, fileName) },
+                { label: t('subtitleEditor.cutMp3.insert'), onClick: () => this._insertCutBlobAsNewSong(blob, fileName) },
             ],
             { title: t('subtitleEditor.cutMp3.resultTitle') }
         );
@@ -1149,7 +1148,6 @@ const workflowSubtitleEditor = {
         modalChoice( // core/modal-choice-ui.js
             t('subtitleEditor.reloadConfirm.desc'),
             [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors' },
                 { label: t('subtitleEditor.reloadConfirm.confirmBtn'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-bold transition-colors', onClick: () => this._doReloadWithoutCache() },
             ],
             { title: t('subtitleEditor.reloadConfirm.title') }

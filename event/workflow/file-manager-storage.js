@@ -188,7 +188,6 @@ const workflowFileManagerStorage = {
         modalChoice(
             tFormat(bodyKey, { scope: scopeLabel }),
             [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t(deleteEnabled ? 'fileManager.song.storageAction.confirmBtnDelete' : 'fileManager.song.storageAction.confirmBtnDownload'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: onConfirmSend }
             ],
             { title: t('fileManager.song.storageAction.confirmTitle') }
@@ -353,7 +352,6 @@ const workflowFileManagerStorage = {
         modalChoice(
             bodyHtml,
             [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('fileManager.song.storageAction.btnExecute'), className: 'flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-sm font-semibold transition-colors', onClick: () => onConfirmSend(selectEl.value) }
             ],
             { title: t('storageDrawer.scanBroken.label') }
@@ -385,7 +383,6 @@ const workflowFileManagerStorage = {
         modalChoice(
             tFormat('common.storage.deleteBrokenConfirm', { n: scanResults.length }),
             [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => {} },
                 { label: t('common.storage.deleteBrokenConfirmBtn'), className: 'flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-sm font-semibold transition-colors', onClick: onConfirmSend }
             ],
             { title: t('common.storage.deleteBrokenTitle') }

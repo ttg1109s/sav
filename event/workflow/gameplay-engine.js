@@ -24,11 +24,10 @@ const workflowGameplayEngine = {
         modalChoice(
             t(bodyTextKey),
             [
-                { label: t('common.cancel'), className: 'flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: onCancel },
                 { label: t('gameplayCircle.ready.startLabel'), className: 'flex-1 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-sm font-semibold transition-colors', onClick: onStart },
             ],
-            { bodyHtml: buildDifficultySelectorHtml(appState.get('gameplayDifficulty'), t) }
-        ); // core (core/modal-choice-ui.js)
+            { bodyHtml: buildDifficultySelectorHtml(appState.get('gameplayDifficulty'), t), onCancel }
+        ); // core (core/modal-choice-ui.js) — nút Huỷ tự động gọi onCancel
         this._wireDifficultySelector();
     },
 
@@ -113,8 +112,8 @@ const workflowGameplayEngine = {
                 { label: t('gameplayCircle.ended.nextLabel'), onClick: onNext },
                 { label: t('gameplayCircle.ended.endLabel'), onClick: onEnd },
             ],
-            { bodyHtml: buildResultBodyHtml({ ringSvg, starMax, starRating, hitCounts, tierOrder, tierLabels, title, durationLabel, difficultyLabel, playCountLabel }) }
-        ); // core (core/modal-choice-ui.js) — 3 nút -> TỰ ĐỘNG render dropdown+"Chọn"
+            { bodyHtml: buildResultBodyHtml({ ringSvg, starMax, starRating, hitCounts, tierOrder, tierLabels, title, durationLabel, difficultyLabel, playCountLabel }), showCancel: false }
+        ); // core (core/modal-choice-ui.js) — 3 lựa chọn -> TỰ ĐỘNG render dropdown+"Chọn"; showCancel:false vì màn Kết quả không có khái niệm "huỷ" (bắt buộc chọn 1 trong 3)
         renderHitBreakdown(tierOrder, hitCounts); // core-ui — 1 lần, không animate (số nguyên nhỏ)
         this._startScoreCountUpAnimation(finalScore, totalScore, maxScore, deltaPercent);
     },

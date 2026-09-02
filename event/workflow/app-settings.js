@@ -498,10 +498,9 @@ const workflowAppSettings = {
         modalChoice(
             '',
             [
-                { label: t('appSettings.resetApp.restartApp.label'), className: 'w-full py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => workflowSettingsMisc.askRestartApp({ onConfirmSend: () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.restartApp.confirm', payload: {} }) }) },
-                { label: t('appSettings.resetApp.restoreDefaults.label'), className: 'w-full py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => workflowSettingsMisc.askRestoreDefaults({ onConfirmSend: () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.restoreDefaults.confirm', payload: {} }) }) },
-                { label: t('appSettings.resetApp.clearCache.label'), className: 'w-full py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-sm font-semibold transition-colors', onClick: () => workflowSettingsMisc.askClearCache({ onConfirmSend: () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.clearCache.confirm', payload: {} }) }) },
-                { label: t('common.cancel'), className: 'w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-semibold transition-colors mt-1', onClick: () => {} },
+                { label: t('appSettings.resetApp.restartApp.label'), onClick: () => workflowSettingsMisc.askRestartApp({ onConfirmSend: () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.restartApp.confirm', payload: {} }) }) },
+                { label: t('appSettings.resetApp.restoreDefaults.label'), onClick: () => workflowSettingsMisc.askRestoreDefaults({ onConfirmSend: () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.restoreDefaults.confirm', payload: {} }) }) },
+                { label: t('appSettings.resetApp.clearCache.label'), onClick: () => workflowSettingsMisc.askClearCache({ onConfirmSend: () => eventBus.send({ router: 'settingsMisc', type: 'settingsMisc.clearCache.confirm', payload: {} }) }) },
             ],
             { title: t('appSettings.resetApp.title') }
         );
