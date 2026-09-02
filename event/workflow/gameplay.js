@@ -9,15 +9,11 @@
  * gameplay.js — tín hiệu trung lập, gửi từ CẢ Song (`workflowPlayer.playMedia()`) LẪN Video
  * (`workflowVideoPlayer.playVideoByKey()`), KHÔNG phụ thuộc domain "visualBg"). `gameplayPhase`
  * (idle->ready->countdown->playing->ended, xem service/state/gameplay-runtime.js) RIÊNG BIỆT với
- * `gameplayArmedGameId`. Armed/disarm (nút Play/Exit trên card Game Panel) do
- * event/workflow/game-catalog.js sở hữu, KHÔNG phải file này. [MỚI — 02/09/2026, Giang yêu cầu
- * "khi playgame cần chuyển icon + chấm xanh"] File này GỌI NGƯỢC LẠI
- * `workflowGameCatalog.renderList()` (liên tuyến domain, TH2) ở MỌI mốc đổi `gameplayPhase`
- * (startCountdown()/_beginPlaying()/onSongEnded()/exitToPlaylist()) — cụm Game Panel không tự theo
- * dõi được lúc nào phase đổi, cần file này chủ động báo. `event/workflow/game-catalog.js` được KHAI
- * BÁO SAU file này trong index.html — an toàn vì đây là lời gọi lúc RUNTIME (sau khi mọi script đã
- * nạp xong), không phải lúc parse (cùng lý do đã giải thích ở event/workflow/app-panel-nav.js::
- * openGame()).
+ * `gameplayArmedGameId`. Armed/disarm (nút Play/Exit trên card Game Panel, ĐỒNG THỜI đóng Game
+ * Panel + icon/chấm nav — xem docstring event/workflow/game-catalog.js) do file đó sở hữu HOÀN
+ * TOÀN, KHÔNG phải file này — [SỬA 02/09/2026] file này KHÔNG còn gọi ngược lại
+ * `workflowGameCatalog.renderList()` ở đâu cả (bản trước gọi ở MỌI mốc đổi `gameplayPhase`, nhưng
+ * icon/chấm nav giờ CHỈ bám `gameplayArmedGameId` — field đó không đổi ở file này, không cần báo).
  *
  * `tick()` KHÔNG tự có RAF riêng — gọi TỪ BÊN TRONG event/workflow/visualizer-render.js::_tick()
  * (dùng chung vòng lặp, tránh 2 RAF song song). Mọi thao tác play/pause/currentTime đều qua
@@ -85,7 +81,10 @@ const workflowGameplay = {
      * bắt đầu -> đóng Game Panel bằng ĐÚNG hành động nút X của panel đó (`workflowPlaceholderPanels.
      * close(gamePanel)`, event/workflow/placeholder-panels.js) — KHÔNG tự viết lại logic đóng
      * riêng. Gọi VÔ ĐIỀU KIỆN (panel đã đóng sẵn thì lệnh này vô hại, cùng cách nút X tự nó cũng
-     * không kiểm tra "đã đóng chưa" trước khi chạy). */
+     * không kiểm tra "đã đóng chưa" trước khi chạy) — [SỬA cùng ngày] `workflowGameCatalog.
+     * armGame()` giờ CŨNG tự đóng panel NGAY lúc armed (không chờ start() nữa, xem docstring file
+     * đó) — dòng NÀY vẫn giữ làm lớp phòng thủ thứ 2 cho lối vào 'gameplay.mediaChanged' (bài mới
+     * đổi lúc đã armed từ trước), gọi trùng 2 lần không hại gì (idempotent). */
     start(mode) {
         this._resetSessionCounters();
         appState.set('gameplayMode', mode, { skipCheck: true });
@@ -118,11 +117,6 @@ const workflowGameplay = {
     startCountdown() {
         appState.set('gameplayPhase', 'countdown', { skipCheck: true });
         console.log(`writer: "workflowGameplay.startCountdown", page: "gameplayPhase", content: "countdown"`);
-        // [MỚI — 02/09/2026, Giang yêu cầu "khi playgame cần chuyển icon + chấm xanh"] Liên tuyến
-        // domain (TH2) — chỉ CHỖ NÀY (và _beginPlaying()/onSongEnded()/exitToPlaylist() ngay dưới)
-        // biết chính xác lúc `gameplayPhase` vừa đổi, nên tự gọi thẳng thay vì bắt
-        // workflowGameCatalog tự poll. Dùng CHUNG bởi CẢ start() lẫn replay() (2 caller của hàm này).
-        workflowGameCatalog.renderList(); // event/workflow/game-catalog.js
         workflowGameplayEngine.startCountdown(() => this._beginPlaying());
     },
 
@@ -130,7 +124,6 @@ const workflowGameplay = {
     _beginPlaying() {
         appState.set('gameplayPhase', 'playing', { skipCheck: true });
         console.log(`writer: "workflowGameplay._beginPlaying", page: "gameplayPhase", content: "playing"`);
-        workflowGameCatalog.renderList(); // event/workflow/game-catalog.js — MỚI, cùng lý do startCountdown()
         // Snapshot lastBeatTime NGAY LÚC NÀY — tránh 1 beat CŨ (detect trước khi countdown bắt đầu)
         // bị hiểu nhầm là "vừa mới có" rồi spawn ngay lập tức.
         this._lastConsumedBeatTime = lastBeatTime;
@@ -483,7 +476,6 @@ const workflowGameplay = {
         console.log(`writer: "workflowGameplay.onSongEnded", page: "gameplayWaves", content: "cleared"`);
         appState.set('gameplayPhase', 'ended', { skipCheck: true });
         console.log(`writer: "workflowGameplay.onSongEnded", page: "gameplayPhase", content: "ended"`);
-        workflowGameCatalog.renderList(); // event/workflow/game-catalog.js — MỚI, cùng lý do startCountdown()
 
         const ctx = gameplayCanvas.getContext('2d');
         clearGameplayCanvas(ctx, this._canvasWidthPx, this._canvasHeightPx); // core-ui
@@ -545,7 +537,6 @@ const workflowGameplay = {
     exitToPlaylist() {
         appState.set('gameplayPhase', 'idle', { skipCheck: true });
         console.log(`writer: "workflowGameplay.exitToPlaylist", page: "gameplayPhase", content: "idle"`);
-        workflowGameCatalog.renderList(); // event/workflow/game-catalog.js — MỚI, cùng lý do startCountdown()
         taskManager.kill(GAMEPLAY_COUNTDOWN_TASK);
         taskManager.kill(GAMEPLAY_SCORE_COUNTUP_TASK);
 
