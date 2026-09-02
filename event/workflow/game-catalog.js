@@ -4,24 +4,32 @@
  * Panel tab "Game", danh sách card kiểu appstore, xem components/game-panel.js +
  * core/gameplay/game-panel-ui.js).
  *
- * Sở hữu: mở panel + render list, arm/disarm 1 game (nút Play/Exit trên card — PERSISTENT qua
- * `gameplayArmedGameId`, core/config.js), cycle độ khó (nút độ khó trên card — dùng CHUNG field
- * `gameplayDifficulty` sẵn có, service/state/gameplay-runtime.js). KHÔNG sở hữu logic 1 PHIÊN chơi
- * thật (spawn wave/countdown/tick...) — đó vẫn là `workflowGameplay` (event/workflow/gameplay.js),
- * file này chỉ gọi VÀO đó lúc cần (liên tuyến domain, Workflow gọi Workflow miền khác, TH2
- * event-bus-flow.md mục 3a — Game Panel và phiên chơi thật là 2 miền khác nhau dù cùng phục vụ
- * chung 1 tính năng Game Mode).
+ * Sở hữu: mở panel + render list, arm/disarm 1 game (nút Play/Exit trên card), cycle độ khó (nút
+ * độ khó trên card — dùng CHUNG field `gameplayDifficulty` sẵn có, service/state/
+ * gameplay-runtime.js). KHÔNG sở hữu logic 1 PHIÊN chơi thật (spawn wave/countdown/tick...) — đó
+ * vẫn là `workflowGameplay` (event/workflow/gameplay.js), file này chỉ gọi VÀO đó lúc cần (liên
+ * tuyến domain, Workflow gọi Workflow miền khác, TH2 event-bus-flow.md mục 3a — Game Panel và
+ * phiên chơi thật là 2 miền khác nhau dù cùng phục vụ chung 1 tính năng Game Mode).
+ *
+ * [SỬA — 02/09/2026, Giang yêu cầu "game mode không lưu, trạng thái tạm thời RAM"] `gameplayArmedGameId`
+ * SỐNG Ở APPSTATE (service/state/gameplay-runtime.js, session-only, mất khi reload) — KHÔNG còn ở
+ * AppConfig/vizConfig như bản đổi tên hồi sáng cùng ngày nữa, nên file này KHÔNG còn gọi
+ * `saveConfig()` ở đâu cả (không có gì thuộc vizConfig để lưu trong cụm này).
  *
  * Mỗi thao tác (arm/disarm/cycle độ khó) RE-RENDER TOÀN BỘ list ngay sau khi ghi state xong (cùng
- * khuôn `workflowGameplayEngine._wireDifficultySelector()` — outerHTML/innerHTML thay TOÀN BỘ mỗi
- * lần đổi, không patch riêng lẻ từng card) — đơn giản, luôn đồng bộ ĐÚNG appState/config hiện hành,
+ * khuôn `workflowGameplayEngine._wireDifficultySelector()` cũ — outerHTML/innerHTML thay TOÀN BỘ
+ * mỗi lần đổi, không patch riêng lẻ từng card) — đơn giản, luôn đồng bộ ĐÚNG appState hiện hành,
  * chấp nhận đánh đổi hiệu năng nhỏ (catalog hiện chỉ 1-vài game, re-render toàn bộ không đáng kể).
+ * `renderList()` CÙNG LÚC đồng bộ luôn chấm báo hiệu "đang trong Game Mode" trên icon nút Game ở
+ * bottom nav (`setAppBottomNavGameIndicator()`, core/app-panel-nav.js, MỚI — Giang yêu cầu "icon
+ * game ở nav phải biểu thị đang ở game mode") — 1 nguồn `armedGameId` DUY NHẤT nuôi CẢ list lẫn
+ * chấm báo hiệu, không đọc lại appState 2 lần cho 2 việc.
  *
  * NẠP SAU: core/gameplay/catalog.js (GAMEPLAY_GAMES_CATALOG), core/gameplay/game-panel-ui.js
- * (buildGamePanelListHtml), core/gameplay/engine.js (setGameplayArmedGameId), core/config.js
- * (saveConfig/appConfigViz), event/workflow/gameplay.js (workflowGameplay.start/exitToPlaylist —
- * gọi lúc arm có bài load sẵn / disarm đang chơi đúng game đó), core/dom-refs.js (gamePanelList),
- * event/workflow/app-panel-nav.js (workflowAppPanelNav.setActiveTab — liên tuyến domain).
+ * (buildGamePanelListHtml), core/gameplay/engine.js (setGameplayArmedGameId), core/app-panel-nav.js
+ * (setAppBottomNavGameIndicator), event/workflow/gameplay.js (workflowGameplay.start/
+ * exitToPlaylist — gọi lúc arm có bài load sẵn / disarm đang chơi đúng game đó), core/dom-refs.js
+ * (gamePanelList).
  * NẠP TRƯỚC: event/router/game-catalog.js.
  */
 const workflowGameCatalog = {
@@ -37,36 +45,36 @@ const workflowGameCatalog = {
 
     /** Đọc ĐỦ state ảnh hưởng tới cách vẽ list (armed game/phase phiên/độ khó) RỒI gọi Core-ui —
      * đúng vai trò Workflow (Rule 3b: Core là tầng thi hành, Workflow là tầng chuẩn bị). Gọi lại sau
-     * MỌI thao tác đổi state của cụm này (arm/disarm/cycle độ khó) để list luôn khớp thực tế. */
+     * MỌI thao tác đổi state của cụm này (arm/disarm/cycle độ khó) để list + chấm báo hiệu nav luôn
+     * khớp thực tế. */
     renderList() {
-        const { gameplayPhase, gameplayDifficulty } = appState.get(['gameplayPhase', 'gameplayDifficulty']);
-        const armedGameId = appConfigViz.getAll().gameplayArmedGameId;
-        gamePanelList.innerHTML = buildGamePanelListHtml(GAMEPLAY_GAMES_CATALOG, armedGameId, gameplayPhase, gameplayDifficulty, t); // core-ui (game-panel-ui.js)
+        const { gameplayPhase, gameplayDifficulty, gameplayArmedGameId } = appState.get(['gameplayPhase', 'gameplayDifficulty', 'gameplayArmedGameId']);
+        gamePanelList.innerHTML = buildGamePanelListHtml(GAMEPLAY_GAMES_CATALOG, gameplayArmedGameId, gameplayPhase, gameplayDifficulty, t); // core-ui (game-panel-ui.js)
+        setAppBottomNavGameIndicator(gameplayArmedGameId != null); // core (app-panel-nav.js)
     },
 
-    /** Ứng với 'gameCatalog.card.play.click' — armed ĐÚNG game vừa bấm (PERSISTENT). Guard: đã có
-     * game KHÁC đang armed thì bỏ qua (phòng hờ — nút Play trên card đó vốn đã bị disabled ở
-     * game-panel-ui.js, nhưng Workflow không tin tưởng mù DOM disabled, tự kiểm lại state thật).
-     * Có bài/video load sẵn (`currentKey`) -> vào game LUÔN (KHÔNG còn modal chọn độ khó/Start, xem
-     * event/workflow/gameplay.js::start() — độ khó đã chọn SẴN trên card trước khi bấm Play rồi). */
+    /** Ứng với 'gameCatalog.card.play.click' — armed ĐÚNG game vừa bấm (session-only, KHÔNG lưu).
+     * Guard: đã có game KHÁC đang armed thì bỏ qua (phòng hờ — nút Play trên card đó vốn đã bị
+     * disabled ở game-panel-ui.js, nhưng Workflow không tin tưởng mù DOM disabled, tự kiểm lại
+     * state thật). Có bài/video load sẵn (`currentKey`) -> vào game LUÔN (KHÔNG còn modal chọn độ
+     * khó/Start, xem event/workflow/gameplay.js::start() — độ khó đã chọn SẴN trên card trước khi
+     * bấm Play rồi; start() TỰ đóng Game Panel nếu đang mở, xem docstring hàm đó). */
     armGame(gameId) {
-        const armedGameId = appConfigViz.getAll().gameplayArmedGameId;
+        const armedGameId = appState.get('gameplayArmedGameId');
         if (armedGameId && armedGameId !== gameId) return;
 
         setGameplayArmedGameId(gameId); // core (engine.js)
-        saveConfig(); // core (config.js)
         this.renderList();
 
         if (appState.get('currentKey')) workflowGameplay.start(gameId); // event/workflow/gameplay.js — liên tuyến domain
     },
 
-    /** Ứng với 'gameCatalog.card.exit.click' — disarm (PERSISTENT). [Yêu cầu Giang mục 4 "phải
-     * thoát game đó ra trước, đồng thời thoát game mode"] Đang chơi THẬT đúng game này (phase khác
-     * 'idle') -> thoát hẳn phiên đang chạy LUÔN trong cùng 1 thao tác, không bắt bấm thêm nút exit
-     * trong overlay nữa. */
+    /** Ứng với 'gameCatalog.card.exit.click' — disarm. [Yêu cầu Giang mục 4 "phải thoát game đó ra
+     * trước, đồng thời thoát game mode"] Đang chơi THẬT đúng game này (phase khác 'idle') -> thoát
+     * hẳn phiên đang chạy LUÔN trong cùng 1 thao tác, không bắt bấm thêm nút exit trong overlay
+     * nữa. */
     disarmGame(gameId) {
         setGameplayArmedGameId(null); // core (engine.js)
-        saveConfig(); // core (config.js)
 
         const gameplayMode = appState.get('gameplayMode');
         if (gameplayMode === gameId) workflowGameplay.exitToPlaylist(); // event/workflow/gameplay.js — liên tuyến domain, tự set gameplayPhase='idle' + ẩn overlay
@@ -78,7 +86,7 @@ const workflowGameCatalog = {
      * đã có game armed (bất kỳ game nào) thì bỏ qua — độ khó khoá lại lúc đã armed (xem docstring
      * game-panel-ui.js mục "Độ khó"), tự kiểm lại state thật cùng lý do như armGame() ở trên. */
     cycleDifficulty() {
-        if (appConfigViz.getAll().gameplayArmedGameId != null) return;
+        if (appState.get('gameplayArmedGameId') != null) return;
 
         const order = ['easy', 'medium', 'hard'];
         const current = appState.get('gameplayDifficulty');

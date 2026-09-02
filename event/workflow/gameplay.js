@@ -3,13 +3,14 @@
  * wave, vẽ canvas, tick() mỗi frame. Cooldown/modal Start-End/lưu điểm DÙNG CHUNG mọi mode đã tách
  * sang event/workflow/gameplay-engine.js — gọi vào đó cho mọi phần không đặc thù Circle.
  *
- * `vizConfig.gameplayArmedGameId` (PERSISTENT, nullable-string — [SỬA 02/09/2026] THAY boolean
- * `gameplayModeEnabled` cũ, xem core/config.js) khớp ĐÚNG mode này -> mọi lần media đổi thật tự mở
- * overlay (hook `'gameplay.mediaChanged'`, event/router/gameplay.js — tín hiệu trung lập, gửi từ CẢ
- * Song (`workflowPlayer.playMedia()`) LẪN Video (`workflowVideoPlayer.playVideoByKey()`), KHÔNG phụ
- * thuộc domain "visualBg"). `gameplayPhase` (idle->ready->countdown->playing->ended, xem
- * service/state/gameplay-runtime.js) RIÊNG BIỆT với `gameplayArmedGameId`. Armed/disarm (nút Play/
- * Exit trên card Game Panel) do event/workflow/game-catalog.js sở hữu, KHÔNG phải file này.
+ * `gameplayArmedGameId` (AppState, session-only — [SỬA 02/09/2026] KHÔNG còn ở vizConfig/
+ * PERSISTENT như bản đổi tên hồi sáng cùng ngày, xem service/state/gameplay-runtime.js) khớp ĐÚNG
+ * mode này -> mọi lần media đổi thật tự mở overlay (hook `'gameplay.mediaChanged'`, event/router/
+ * gameplay.js — tín hiệu trung lập, gửi từ CẢ Song (`workflowPlayer.playMedia()`) LẪN Video
+ * (`workflowVideoPlayer.playVideoByKey()`), KHÔNG phụ thuộc domain "visualBg"). `gameplayPhase`
+ * (idle->ready->countdown->playing->ended, xem service/state/gameplay-runtime.js) RIÊNG BIỆT với
+ * `gameplayArmedGameId`. Armed/disarm (nút Play/Exit trên card Game Panel) do
+ * event/workflow/game-catalog.js sở hữu, KHÔNG phải file này.
  *
  * `tick()` KHÔNG tự có RAF riêng — gọi TỪ BÊN TRONG event/workflow/visualizer-render.js::_tick()
  * (dùng chung vòng lặp, tránh 2 RAF song song). Mọi thao tác play/pause/currentTime đều qua
@@ -71,13 +72,27 @@ const workflowGameplay = {
      * bấm nút Start trong modal nữa — độ khó giờ chọn SẴN trên card Game Panel TRƯỚC khi armed (xem
      * core/gameplay/game-panel-ui.js), modal hỏi lại là thừa. Phase 'ready' vẫn set (mốc chuyển
      * tiếp hợp lệ, đúng enum gameplayPhase — service/state/gameplay-runtime.js) nhưng chỉ tồn tại
-     * trong đúng 1 lần gọi hàm này, KHÔNG có UI nào hiện ra cho phase đó nữa. */
+     * trong đúng 1 lần gọi hàm này, KHÔNG có UI nào hiện ra cho phase đó nữa.
+     *
+     * [MỚI — 02/09/2026, Giang yêu cầu "khi play thì tự động tắt tab game"] 1 phiên chơi THẬT vừa
+     * bắt đầu -> nếu Game Panel đang mở (bấm Play xong ở đó, panel vẫn còn hiện) thì tự đóng lại,
+     * về Media — người chơi cần thấy overlay Game Mode thật (sống trong Visualizer/Media), không
+     * phải danh sách card nữa. Liên tuyến domain (TH2, event-bus-flow.md mục 3a), tái dùng THẲNG
+     * `hidePlaceholderPanel()`/`workflowAppPanelNav.activateMedia()` — cùng khuôn
+     * `workflowPlaceholderPanels.close()`. Guard bằng `classList.contains('hidden')` — panel đã
+     * đóng sẵn (trigger từ 'gameplay.mediaChanged' lúc đang ở Media) thì bỏ qua, tránh
+     * setActiveTab('media') thừa. */
     start(mode) {
         this._resetSessionCounters();
         appState.set('gameplayMode', mode, { skipCheck: true });
         console.log(`writer: "workflowGameplay.start", page: "gameplayMode", content: "${mode}"`);
         appState.set('gameplayPhase', 'ready', { skipCheck: true });
         console.log(`writer: "workflowGameplay.start", page: "gameplayPhase", content: "ready"`);
+
+        if (!gamePanel.classList.contains('hidden')) {
+            hidePlaceholderPanel(gamePanel); // core/placeholder-panel.js
+            workflowAppPanelNav.activateMedia(); // event/workflow/app-panel-nav.js
+        }
 
         const activeEl = getActiveMediaElement(appState.get('isVideoPlayerMode'), appState.get('isPhotoPlayerMode')); // core/player-controls.js
         activeEl.currentTime = 0;
