@@ -28,10 +28,22 @@
          * bảng gán pitch→ô (`gameplayPitchCellMap`) và tắt cờ này — KHÔNG ép các wave đang sống đổi
          * vị trí giữa chừng.
          */
+        /**
+         * `gameplayArmedGameId` (nullable-string) — MỚI (02/09/2026, Game Panel app-store list,
+         * [SỬA cùng ngày] Giang yêu cầu "game mode không lưu, trạng thái tạm thời RAM"). ĐÚNG game
+         * đang armed (nút Play trên card Game Panel đã đổi Exit) — null = không game nào armed.
+         * SESSION-ONLY (mất khi reload trang, KHÔNG PERSISTENT — KHÁC mọi field khác cùng file này
+         * chỉ ở điểm KHÔNG có bản sao nào trong AppConfig/vizConfig, đây LÀ field duy nhất của cụm
+         * "Game Mode" từng cân nhắc lưu persistent (core/config.js, bản cũ boolean
+         * `gameplayModeEnabled`) rồi bỏ hẳn ý định đó). Ghi/đọc qua
+         * setGameplayArmedGameId()/appState.get() như mọi field khác — KHÔNG có cơ chế đặc biệt
+         * nào, chỉ đơn giản là schema này KHÔNG có mặt trong core/config.js.
+         */
         AppState.definePackage('gameplay-runtime', {
             schema: {
                 gameplayPhase: 'string',
                 gameplayMode: 'nullable-string',            // 'circle' | null — v1 chỉ có 'circle'
+                gameplayArmedGameId: 'nullable-string',
                 gameplayDifficulty: 'string',                // 'easy' | 'medium' | 'hard'
                 gameplayWaves: 'array',
                 gameplayComboByTier: 'any',                   // {perfect,excellent} — streak RIÊNG từng tier, xem computeComboScoreGain()
@@ -53,6 +65,7 @@
                 return {
                     gameplayPhase: 'idle',
                     gameplayMode: null,
+                    gameplayArmedGameId: null,
                     gameplayDifficulty: 'hard',
                     gameplayWaves: [],
                     gameplayComboByTier: { perfect: 0, excellent: 0 },
