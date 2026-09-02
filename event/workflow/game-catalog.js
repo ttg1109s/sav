@@ -20,14 +20,14 @@
  * khuôn `workflowGameplayEngine._wireDifficultySelector()` cũ — outerHTML/innerHTML thay TOÀN BỘ
  * mỗi lần đổi, không patch riêng lẻ từng card) — đơn giản, luôn đồng bộ ĐÚNG appState hiện hành,
  * chấp nhận đánh đổi hiệu năng nhỏ (catalog hiện chỉ 1-vài game, re-render toàn bộ không đáng kể).
- * `renderList()` CÙNG LÚC đồng bộ luôn icon/chấm báo hiệu "Game Mode" trên icon nút Game ở bottom
- * nav (`setAppBottomNavGameIndicator()`, core/app-panel-nav.js, MỚI — Giang yêu cầu "icon game ở
- * nav phải biểu thị đang ở game mode", [SỬA cùng ngày] "khi playgame cần chuyển icon + chấm xanh")
- * — 1 nguồn `armedGameId`/`gameplayPhase` DUY NHẤT nuôi CẢ list lẫn icon/chấm báo hiệu, không đọc
+ * `renderList()` CÙNG LÚC đồng bộ luôn icon/chấm xanh báo hiệu "đang chơi Game Mode" trên icon nút
+ * Game ở bottom nav (`setAppBottomNavGameIndicator()`, core/app-panel-nav.js, MỚI — Giang yêu cầu
+ * "icon game ở nav phải biểu thị đang ở game mode", [SỬA cùng ngày] "chỉ 1 boolean true/false, không
+ * chia phase") — 1 nguồn `gameplayPhase` DUY NHẤT nuôi CẢ list lẫn icon/chấm báo hiệu, không đọc
  * lại appState 2 lần cho 2 việc. [MỚI] `event/workflow/gameplay.js` (miền KHÁC, liên tuyến domain)
  * cũng gọi THẲNG `workflowGameCatalog.renderList()` ở MỌI mốc đổi `gameplayPhase` (start()/
- * _beginPlaying()/onSongEnded()/exitToPlaylist()) — icon/chấm nav đổi state 'playing' (đang chơi
- * thật) chỉ có Ở ĐÓ mới biết chính xác lúc nào phase đổi, cụm này không tự theo dõi được.
+ * _beginPlaying()/onSongEnded()/exitToPlaylist()) — icon/chấm nav đổi true/false chỉ có Ở ĐÓ mới
+ * biết chính xác lúc nào phase đổi, cụm này không tự theo dõi được.
  *
  * NẠP SAU: core/gameplay/catalog.js (GAMEPLAY_GAMES_CATALOG), core/gameplay/game-panel-ui.js
  * (buildGamePanelListHtml), core/gameplay/engine.js (setGameplayArmedGameId), core/app-panel-nav.js
@@ -51,16 +51,15 @@ const workflowGameCatalog = {
      * đúng vai trò Workflow (Rule 3b: Core là tầng thi hành, Workflow là tầng chuẩn bị). Gọi lại sau
      * MỌI thao tác đổi state của cụm này (arm/disarm/cycle độ khó) VÀ từ MỌI mốc đổi `gameplayPhase`
      * bên event/workflow/gameplay.js (start()/_beginPlaying()/onSongEnded()/exitToPlaylist()) để
-     * list + chấm/icon báo hiệu nav luôn khớp thực tế. */
+     * list + icon/chấm báo hiệu nav luôn khớp thực tế. */
     renderList() {
         const { gameplayPhase, gameplayDifficulty, gameplayArmedGameId } = appState.get(['gameplayPhase', 'gameplayDifficulty', 'gameplayArmedGameId']);
         gamePanelList.innerHTML = buildGamePanelListHtml(GAMEPLAY_GAMES_CATALOG, gameplayArmedGameId, gameplayPhase, gameplayDifficulty, t); // core-ui (game-panel-ui.js)
-        // [SỬA — 02/09/2026, Giang yêu cầu "khi playgame cần chuyển icon + chấm xanh"] 3 trạng thái
-        // — xem docstring đầy đủ ở setAppBottomNavGameIndicator() (core/app-panel-nav.js): 'ended'
-        // CỐ Ý tính là 'playing' (còn trong phiên, chưa bấm Exit/End) — CHỈ phase 'idle' mới lùi về
-        // 'armed' (hoặc 'idle' nếu không còn armed game nào).
-        const gameNavState = gameplayArmedGameId == null ? 'idle' : (gameplayPhase === 'idle' ? 'armed' : 'playing');
-        setAppBottomNavGameIndicator(gameNavState); // core (app-panel-nav.js)
+        // [SỬA — 02/09/2026, Giang chỉnh "chỉ quan tâm khi play -> true/false, không chia phase"] 1
+        // boolean DUY NHẤT — true khi ĐANG CHƠI THẬT (`gameplayPhase !== 'idle'`), false mọi trường
+        // hợp còn lại (kể cả đã armed nhưng chưa/không còn phát thật) — xem docstring đầy đủ ở
+        // setAppBottomNavGameIndicator() (core/app-panel-nav.js).
+        setAppBottomNavGameIndicator(gameplayPhase !== 'idle'); // core (app-panel-nav.js)
     },
 
     /** Ứng với 'gameCatalog.card.play.click' — armed ĐÚNG game vừa bấm (session-only, KHÔNG lưu).

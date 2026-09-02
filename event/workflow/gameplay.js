@@ -82,13 +82,10 @@ const workflowGameplay = {
      * trong đúng 1 lần gọi hàm này, KHÔNG có UI nào hiện ra cho phase đó nữa.
      *
      * [MỚI — 02/09/2026, Giang yêu cầu "khi play thì tự động tắt tab game"] 1 phiên chơi THẬT vừa
-     * bắt đầu -> nếu Game Panel đang mở (bấm Play xong ở đó, panel vẫn còn hiện) thì tự đóng lại,
-     * về Media — người chơi cần thấy overlay Game Mode thật (sống trong Visualizer/Media), không
-     * phải danh sách card nữa. Liên tuyến domain (TH2, event-bus-flow.md mục 3a), tái dùng THẲNG
-     * `hidePlaceholderPanel()`/`workflowAppPanelNav.activateMedia()` — cùng khuôn
-     * `workflowPlaceholderPanels.close()`. Guard bằng `classList.contains('hidden')` — panel đã
-     * đóng sẵn (trigger từ 'gameplay.mediaChanged' lúc đang ở Media) thì bỏ qua, tránh
-     * setActiveTab('media') thừa. */
+     * bắt đầu -> đóng Game Panel bằng ĐÚNG hành động nút X của panel đó (`workflowPlaceholderPanels.
+     * close(gamePanel)`, event/workflow/placeholder-panels.js) — KHÔNG tự viết lại logic đóng
+     * riêng. Gọi VÔ ĐIỀU KIỆN (panel đã đóng sẵn thì lệnh này vô hại, cùng cách nút X tự nó cũng
+     * không kiểm tra "đã đóng chưa" trước khi chạy). */
     start(mode) {
         this._resetSessionCounters();
         appState.set('gameplayMode', mode, { skipCheck: true });
@@ -96,22 +93,7 @@ const workflowGameplay = {
         appState.set('gameplayPhase', 'ready', { skipCheck: true });
         console.log(`writer: "workflowGameplay.start", page: "gameplayPhase", content: "ready"`);
 
-        if (!gamePanel.classList.contains('hidden')) {
-            hidePlaceholderPanel(gamePanel); // core/placeholder-panel.js
-            workflowAppPanelNav.activateMedia(); // event/workflow/app-panel-nav.js
-        }
-        // [SỬA — 02/09/2026, Giang chỉ ra "khi play game vẫn chưa tự ẩn overlay của game catalog"]
-        // `hidePlaceholderPanel(gamePanel)` ở trên CHỈ ẩn lớp full-screen #game-panel (z-128) —
-        // KHÔNG đủ để lộ ra overlay Game Mode thật (`gameplayLayer`, sống trong Visualizer). Màn
-        // Visualizer/Playlist là 2 TRẠNG THÁI RIÊNG của #app-stack (class 'playlist-hidden',
-        // core/player-controls.js::switchToVisualizer()) — độc lập với việc ẩn/hiện #game-panel. Ở
-        // đường vào TRỰC TIẾP (workflowGameCatalog.armGame() gọi start() thẳng khi bài đã load sẵn,
-        // KHÔNG đi qua playMedia()) switchToVisualizer() CHƯA TỪNG được gọi -> panel Game biến mất
-        // nhưng lộ ra Playlist phía sau (KHÔNG phải overlay Game Mode) — trông như "chưa tắt overlay
-        // game catalog". Gọi VÔ ĐIỀU KIỆN tại đây (idempotent — thêm class/scroll đã có sẵn thì
-        // vô hại) đảm bảo LUÔN đúng màn dù vào từ đường nào (armGame() trực tiếp HAY
-        // 'gameplay.mediaChanged' — đường đó playMedia() cũng tự gọi rồi, gọi thêm lần nữa không hại).
-        switchToVisualizer(); // core/player-controls.js
+        workflowPlaceholderPanels.close(gamePanel); // event/workflow/placeholder-panels.js — liên tuyến domain, ĐÚNG hành động nút X
 
         // [SỬA — 02/09/2026, Giang yêu cầu "kể cả nhạc đang phát/tạm dừng/seek ở đâu đều phải reset
         // toàn bộ trạng thái nhạc, pause -> seek 0"] PAUSE TRƯỚC rồi mới seek — ngược thứ tự bản cũ
