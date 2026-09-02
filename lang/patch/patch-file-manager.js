@@ -215,7 +215,6 @@ const LANG_PATCH_FILE_MANAGER = {
     'fileManager.song.folderDetail.removeAllConfirmVideo': 'Remove all videos from this folder? The folder itself stays — only its contents are cleared. Videos remain in your library.',
     'fileManager.song.folderDetail.removeAllConfirmPhoto': 'Remove all photos from this folder? The folder itself stays — only its contents are cleared. Photos remain in your library.',
     'fileManager.song.folderDetail.reloadTitle': 'Apply now?',
-    'fileManager.song.folderDetail.reloadBtnNo': 'Not now',
     'fileManager.song.folderDetail.reloadBtnNow': 'Reload now',
     'fileManager.song.folderDetail.applyReloadBody': 'Saved — the Playlist will show songs from "{name}" after reloading. Reload now?',
     'fileManager.song.folderDetail.applyReloadBodyVideo': 'Saved — the Playlist will show videos from "{name}" after reloading. Reload now?',

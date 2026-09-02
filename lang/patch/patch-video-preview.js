@@ -22,7 +22,6 @@ const LANG_PATCH_VIDEO_PREVIEW = {
     'videoPreview.cropExit.desc': 'Apply this crop, discard it, or keep editing?',
     'videoPreview.cropExit.apply': 'Apply',
     'videoPreview.cropExit.discard': 'Discard',
-    'videoPreview.cropExit.cancel': 'Keep editing',
 
     // Reset — MỚI (05/08/2026, phản hồi Giang mục 1: "loại bỏ toàn bộ undo/redo, giữ nút reset và
     // cảnh báo modal") — Reset không còn Undo cứu lại nên bắt buộc hỏi trước khi chạy.
