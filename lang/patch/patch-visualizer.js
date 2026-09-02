@@ -11,16 +11,14 @@
 const LANG_PATCH_VISUALIZER = {
     'visualizerOverlay.btnBackPlaylist.title': 'Back to list',
     'visualizerOverlay.btnControlCenter.title': 'Quick controls',
-    // Game Mode Circle v1 (MỚI 16/08/2026) — modalChoice() cho màn "Start"/"Kết quả" (KHÔNG dựng
-    // overlay riêng nữa, xem event/workflow/gameplay.js).
-    'gameplayCircle.ready.text': 'Tap right as the wave matches the center circle — the closer to the edge, the more points.',
-    'gameplayCircle.ready.startLabel': 'Start',
+    // Game Mode Circle v1 (MỚI 16/08/2026) — modalChoice() cho màn "Kết quả" (KHÔNG dựng overlay
+    // riêng nữa, xem event/workflow/gameplay.js). [XOÁ — 02/09/2026, Game Panel app-store list]
+    // 'gameplayCircle.ready.text'/'ready.startLabel'/'difficulty.hint.*' — modal "sẵn sàng" (chọn
+    // độ khó + Start) ĐÃ XOÁ, xem docstring event/workflow/gameplay-engine.js. `difficulty.easy/
+    // medium/hard` VẪN dùng (nút cycle độ khó trên card Game Panel + nhãn ở modal Kết quả).
     'gameplayCircle.difficulty.easy': 'Easy',
     'gameplayCircle.difficulty.medium': 'Medium',
     'gameplayCircle.difficulty.hard': 'Hard',
-    'gameplayCircle.difficulty.hint.easy': 'One note at a time',
-    'gameplayCircle.difficulty.hint.medium': 'Up to 2 notes can overlap',
-    'gameplayCircle.difficulty.hint.hard': 'Notes overlap frequently',
     'gameplayCircle.ended.hitTier.perfect': 'Perfect',
     'gameplayCircle.ended.hitTier.excellent': 'Excellent',
     'gameplayCircle.ended.hitTier.good': 'Good',

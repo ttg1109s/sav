@@ -12,8 +12,11 @@ const LANG_PATCH_SETTINGS_MISC = {
     'settingsMisc.sectionTitle': 'Other',
     'settingsMisc.keepScreenOn.label': 'Keep screen on',
     'settingsMisc.keepScreenOn.hint': 'Prevents the screen from turning off during playback. Turn off to save battery (music still tries to keep playing in the background).',
-    // MỚI (16/08/2026, Game Mode Circle v1) — checkbox toggle vizConfig.gameplayModeEnabled, KHÔNG
-    // có hint (Giang yêu cầu bỏ mô tả, chỉ giữ label — components/settings/misc.js).
+    // MỚI (16/08/2026, Game Mode Circle v1) — checkbox toggle vizConfig.gameplayArmedGameId
+    // (nullable-string, [SỬA 02/09/2026] trước là boolean gameplayModeEnabled — xem core/config.js),
+    // KHÔNG có hint (Giang yêu cầu bỏ mô tả, chỉ giữ label — components/settings/misc.js). Checkbox
+    // này giờ chỉ là lối tắt legacy cho ĐÚNG game 'circle' — danh sách đầy đủ + nhiều game sau này
+    // xem Game Panel (App Panel tab "Game", core/gameplay/game-panel-ui.js).
     'settingsMisc.gameMode.label': 'Game Mode',
     'settingsMisc.openAbout.label': 'About the player',
     'settingsMisc.troubleshootTitle': 'Troubleshooting',
