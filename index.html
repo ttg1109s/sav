@@ -223,7 +223,7 @@
     <link rel="stylesheet" href="assets/css/sliders.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/glass.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/animations.css?v=20260813v1">
-    <link rel="stylesheet" href="assets/css/layout-nav.css?v=20260902v2">
+    <link rel="stylesheet" href="assets/css/layout-nav.css?v=20260902v3">
     <link rel="stylesheet" href="assets/css/photo-gallery.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/video-gallery.css?v=20260813v1">
     <link rel="stylesheet" href="assets/css/video-preview.css?v=20260813v1">
@@ -609,7 +609,7 @@
     <!-- MỚI (đợt tái cấu trúc bottom nav App Panel) — core UI thuần cho bottom nav + Game/Statis
          panel + wire nút động Setting (core/app-settings-ui.js, Rule 5a) — CẦN core/dom-refs.js
          (đã nạp) + core/generic-drawer.js (đã nạp ngay trên). -->
-    <script src="core/app-panel-nav.js?v=20260902v3"></script>
+    <script src="core/app-panel-nav.js?v=20260902v4"></script>
     <script src="core/placeholder-panel.js?v=20260819v1"></script>
     <script src="core/app-settings-ui.js?v=20260819v1"></script>
     <!-- ĐỔI TÊN (04/08/2026) từ event/workflow/crop-ratio-helpers.js, khớp core/media-transform.js
@@ -1013,7 +1013,7 @@
          ĐÂY — case 'playerControls.audio/video.ended' gọi workflowGameplay.onSongEnded() khi đang
          ở Game Mode. -->
     <script src="event/workflow/gameplay-engine.js?v=20260902v7"></script>
-    <script src="event/workflow/gameplay.js?v=20260902v16"></script>
+    <script src="event/workflow/gameplay.js?v=20260902v17"></script>
     <script src="event/router/gameplay.js?v=20260902v3"></script>
     <script src="event/listener/gameplay.js?v=20260818v1"></script>
     <!-- Cụm "gameCatalog" — Game Panel (App Panel tab "Game", danh sách card kiểu appstore, MỚI
@@ -1024,7 +1024,7 @@
          app-panel-nav.js::openGame() gọi workflowGameCatalog.openPanel() dù file đó KHAI BÁO SỚM
          HƠN (dòng ~969) — an toàn vì đây là lời gọi lúc RUNTIME (bấm tab Game), không phải lúc
          parse, xem comment ngay tại openGame(). -->
-    <script src="event/workflow/game-catalog.js?v=20260902v3"></script>
+    <script src="event/workflow/game-catalog.js?v=20260902v4"></script>
     <script src="event/router/game-catalog.js?v=20260902v1"></script>
     <script src="event/listener/game-catalog.js?v=20260902v1"></script>
     <script src="event/workflow/player-controls.js?v=20260819v1"></script>
