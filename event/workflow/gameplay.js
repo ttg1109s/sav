@@ -124,6 +124,10 @@ const workflowGameplay = {
         activeEl.currentTime = 0;
 
         showGameplayLayer(gameplayLayer); // core-ui (engine-ui.js)
+        // [MỚI — 02/09/2026, Giang yêu cầu "game mode chặn luôn toàn bộ thao tác ở player control
+        // bottom"] Chặn NGAY lúc mở overlay, gỡ lại Ở ĐÚNG 1 nơi — exitToPlaylist() (lúc đóng hẳn
+        // Game Mode) — xem docstring đầy đủ ở setPlayerControlsBlocked() (core/player-controls.js).
+        setPlayerControlsBlocked(true); // core (player-controls.js)
         this._recomputeGridGeometry();
 
         this.startCountdown(); // THẲNG vào countdown — KHÔNG còn workflowGameplayEngine.showStartModal()
@@ -170,8 +174,8 @@ const workflowGameplay = {
         ]);
         if (gameplayWaves.length === 0) return;
 
-        const entries = gameplayWaves.map(w => ({ id: w.id, x: w.x, y: w.y, radius: computeWaveRadius(w, now) })); // core (circle-mode.js)
-        const nearest = findNearestNoteByPosition(entries, tapX, tapY, cfg.tapHitTolerancePx); // core (engine.js)
+        const entries = gameplayWaves.map(w => ({ id: w.id, x: w.x, y: w.y, radius: computeWaveRadius(w, now) })); // core (circle-mode.js) — ĐÚNG thứ tự gameplayWaves gốc (xuất hiện sớm hơn đứng trước) = z-order topmost-trước, xem docstring findTopmostNoteInTolerance()
+        const nearest = findTopmostNoteInTolerance(entries, tapX, tapY, cfg.tapHitTolerancePx); // core (engine.js) — [SỬA] KHÔNG còn nearest-by-distance, xem docstring hàm đó
         if (!nearest) return;
 
         const tier = classifyTapTier(nearest.radius, cfg); // core (engine.js)
@@ -325,10 +329,20 @@ const workflowGameplay = {
         }
 
         const remainingEntries = radiusEntries.filter(e => !missedEntries.includes(e));
+        // [MỚI — Giang yêu cầu "vòng tròn xuất hiện trước có z-index lớn hơn, tránh trường hợp vòng
+        // tròn sát nhau"] `waves`/`radiusEntries`/`remainingEntries` ĐANG giữ ĐÚNG thứ tự spawn gốc
+        // (push() nối cuối mảng — index 0 = wave xuất hiện SỚM NHẤT). Canvas 2D vẽ theo kiểu "vẽ sau
+        // đè lên trên" — giữ NGUYÊN thứ tự này thì wave MỚI (index cuối) lại đè lên wave CŨ, ngược ý
+        // muốn. Đảo ngược NGAY TRƯỚC 2 lệnh vẽ dưới đây — CHỈ ảnh hưởng thứ tự vẽ, KHÔNG đụng
+        // `remainingEntries` gốc (drawOrderEntries là mảng MỚI, appState/radiusEntries không đổi).
+        // `findTopmostNoteInTolerance()` (engine.js, hit-test) dùng `entries` xây TRỰC TIẾP từ
+        // `gameplayWaves` (KHÔNG qua biến này) nên vẫn đúng thứ tự spawn gốc (topmost-trước) —
+        // KHÔNG cần đảo ở đó, xem docstring hàm đó.
+        const drawOrderEntries = [...remainingEntries].reverse();
         const ctx = gameplayCanvas.getContext('2d');
         clearGameplayCanvas(ctx, this._canvasWidthPx, this._canvasHeightPx); // core-ui
-        drawApproachRings(ctx, remainingEntries); // core-ui
-        drawTargetCircles(ctx, remainingEntries.map(e => ({ x: e.x, y: e.y, centerRadius: cfg.centerRadius, colorMain: e.colorMain }))); // core-ui
+        drawApproachRings(ctx, drawOrderEntries); // core-ui
+        drawTargetCircles(ctx, drawOrderEntries.map(e => ({ x: e.x, y: e.y, centerRadius: cfg.centerRadius, colorMain: e.colorMain }))); // core-ui
     },
 
     /** Spawn ĐÚNG 1 wave tại 1 pitch — DÙNG CHUNG bởi cả cú spawn trigger đầu tiên (_trySpawnWave())
@@ -559,6 +573,7 @@ const workflowGameplay = {
 
         hideGameplayCountdown(gameplayCountdownScreen); // core-ui
         hideGameplayLayer(gameplayLayer); // core-ui
+        setPlayerControlsBlocked(false); // core (player-controls.js) — MỚI, gỡ lại ĐÚNG cặp với start()
         const ctx = gameplayCanvas.getContext('2d');
         clearGameplayCanvas(ctx, this._canvasWidthPx || gameplayCanvas.clientWidth, this._canvasHeightPx || gameplayCanvas.clientHeight); // core-ui
 
