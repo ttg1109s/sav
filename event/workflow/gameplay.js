@@ -3,11 +3,13 @@
  * wave, vẽ canvas, tick() mỗi frame. Cooldown/modal Start-End/lưu điểm DÙNG CHUNG mọi mode đã tách
  * sang event/workflow/gameplay-engine.js — gọi vào đó cho mọi phần không đặc thù Circle.
  *
- * `vizConfig.gameplayModeEnabled` (PERSISTENT) bật ON -> mọi lần media đổi thật tự mở overlay (hook
- * `'gameplay.mediaChanged'`, event/router/gameplay.js — tín hiệu trung lập, gửi từ CẢ Song
- * (`workflowPlayer.playMedia()`) LẪN Video (`workflowVideoPlayer.playVideoByKey()`), KHÔNG phụ
+ * `vizConfig.gameplayArmedGameId` (PERSISTENT, nullable-string — [SỬA 02/09/2026] THAY boolean
+ * `gameplayModeEnabled` cũ, xem core/config.js) khớp ĐÚNG mode này -> mọi lần media đổi thật tự mở
+ * overlay (hook `'gameplay.mediaChanged'`, event/router/gameplay.js — tín hiệu trung lập, gửi từ CẢ
+ * Song (`workflowPlayer.playMedia()`) LẪN Video (`workflowVideoPlayer.playVideoByKey()`), KHÔNG phụ
  * thuộc domain "visualBg"). `gameplayPhase` (idle->ready->countdown->playing->ended, xem
- * service/state/gameplay-runtime.js) RIÊNG BIỆT với `gameplayModeEnabled`.
+ * service/state/gameplay-runtime.js) RIÊNG BIỆT với `gameplayArmedGameId`. Armed/disarm (nút Play/
+ * Exit trên card Game Panel) do event/workflow/game-catalog.js sở hữu, KHÔNG phải file này.
  *
  * `tick()` KHÔNG tự có RAF riêng — gọi TỪ BÊN TRONG event/workflow/visualizer-render.js::_tick()
  * (dùng chung vòng lặp, tránh 2 RAF song song). Mọi thao tác play/pause/currentTime đều qua
@@ -51,16 +53,25 @@ const workflowGameplay = {
     _zoneOriginX: 0, _zoneOriginY: 0,  // góc trên-trái spawnZone, px thật
     _canvasWidthPx: 0, _canvasHeightPx: 0,
 
-    /** Ứng với 'gameplay.modeEnabled.change'. Bật ON kèm đang có bài load sẵn -> mở LUÔN. */
+    /** Ứng với 'gameplay.modeEnabled.change' — công tắc "GAME MODE" CŨ ở Settings (checkbox 1
+     * boolean DUY NHẤT, components/settings/misc.js, KHÔNG có trong đợt zip này). [SỬA — 02/09/2026,
+     * Game Panel app-store list] Giữ tương thích ngược: ánh xạ sang armed/disarm ĐÚNG game 'circle'
+     * (game DUY NHẤT từng tồn tại lúc checkbox này còn là cách duy nhất bật Game Mode) — liên tuyến
+     * domain, tái dùng THẲNG `workflowGameCatalog` (event/workflow/game-catalog.js, tự lo cả
+     * render list lẫn start()/exitToPlaylist() nếu cần), KHÔNG viết lại logic arm/disarm ở đây. */
     setModeEnabled(checked) {
-        setGameplayModeEnabled(checked); // core (engine.js)
-        saveConfig(); // core
-        if (checked && appState.get('currentKey')) this.start('circle');
+        if (checked) workflowGameCatalog.armGame('circle');
+        else workflowGameCatalog.disarmGame('circle');
     },
 
-    /** Ứng với 'gameplay.start.click' — mở layer, vào phase 'ready', hiện modal Start (engine).
-     * CHƯA spawn wave (chờ bấm Start). Reset audio/video về 0 + pause — chỉ phát thật ở
-     * _beginPlaying() sau countdown. */
+    /** Ứng với tín hiệu 'gameplay.mediaChanged' (game đang armed, xem event/router/gameplay.js)
+     * HOẶC được `workflowGameCatalog.armGame()` gọi thẳng khi armed lúc đã có bài load sẵn — mở
+     * layer rồi NHẢY THẲNG vào countdown. [SỬA — 02/09/2026, Game Panel app-store list, Giang yêu
+     * cầu "bỏ modal chọn độ khó, tự động vào cooldown/playing"] KHÔNG còn dừng ở phase 'ready' chờ
+     * bấm nút Start trong modal nữa — độ khó giờ chọn SẴN trên card Game Panel TRƯỚC khi armed (xem
+     * core/gameplay/game-panel-ui.js), modal hỏi lại là thừa. Phase 'ready' vẫn set (mốc chuyển
+     * tiếp hợp lệ, đúng enum gameplayPhase — service/state/gameplay-runtime.js) nhưng chỉ tồn tại
+     * trong đúng 1 lần gọi hàm này, KHÔNG có UI nào hiện ra cho phase đó nữa. */
     start(mode) {
         this._resetSessionCounters();
         appState.set('gameplayMode', mode, { skipCheck: true });
@@ -75,11 +86,7 @@ const workflowGameplay = {
         showGameplayLayer(gameplayLayer); // core-ui (engine-ui.js)
         this._recomputeGridGeometry();
 
-        workflowGameplayEngine.showStartModal({
-            bodyTextKey: 'gameplayCircle.ready.text',
-            onStart: () => this.startCountdown(),
-            onCancel: () => this.exitToPlaylist(),
-        });
+        this.startCountdown(); // THẲNG vào countdown — KHÔNG còn workflowGameplayEngine.showStartModal()
     },
 
     startCountdown() {
@@ -457,8 +464,9 @@ const workflowGameplay = {
         });
     },
 
-    /** Nút "Chơi lại" — phát lại ĐÚNG bài/video hiện tại từ đầu, quay về phase 'ready' + hiện lại
-     * modal Start. Reset về 0 + PAUSE (không `.play()` ngay — chỉ phát thật ở _beginPlaying()). */
+    /** Nút "Chơi lại" — phát lại ĐÚNG bài/video hiện tại từ đầu. [SỬA — 02/09/2026, cùng lý do
+     * start()] KHÔNG còn hiện lại modal Start — nhảy thẳng countdown, cùng khuôn start(). Reset về
+     * 0 + PAUSE (không `.play()` ngay — chỉ phát thật ở _beginPlaying()). */
     replay() {
         const activeEl = getActiveMediaElement(appState.get('isVideoPlayerMode'), appState.get('isPhotoPlayerMode')); // core/player-controls.js
         activeEl.currentTime = 0;
@@ -466,11 +474,7 @@ const workflowGameplay = {
         this._resetSessionCounters();
         appState.set('gameplayPhase', 'ready', { skipCheck: true });
         console.log(`writer: "workflowGameplay.replay", page: "gameplayPhase", content: "ready"`);
-        workflowGameplayEngine.showStartModal({
-            bodyTextKey: 'gameplayCircle.ready.text',
-            onStart: () => this.startCountdown(),
-            onCancel: () => this.exitToPlaylist(),
-        });
+        this.startCountdown(); // THẲNG vào countdown — KHÔNG còn workflowGameplayEngine.showStartModal()
     },
 
     /** Nút "Bài tiếp theo" — `workflowPlayerControls.goToNextTrack(true)` TỰ wrap về đầu playlist

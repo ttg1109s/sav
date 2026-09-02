@@ -910,8 +910,7 @@ const workflowImageEdit = {
      * công cụ CHUNG có sẵn, KHÔNG tự chế UI mới) với 1 `<textarea>` qua `bodyHtml`.
      * `modalChoice()` tự xoá DOM TRƯỚC khi gọi `onClick` của nút được bấm (xem docstring hàm đó) —
      * KHÔNG thể đọc textarea BÊN TRONG onClick — phải tự bám giá trị đang gõ dở vào biến closure
-     * `draftText` qua listener 'input' ngay sau khi mở, CÙNG pattern
-     * `workflowGameplayEngine._wireDifficultySelector()` (event/workflow/gameplay-engine.js).
+     * `draftText` qua listener 'input' ngay sau khi mở.
      * @param {number} index */
     editLayerTextContent(index) {
         const layer = this._layers[index];

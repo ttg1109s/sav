@@ -11,6 +11,9 @@
  * (workflowAppSettings, workflowPlaceholderPanels, file-manager-folder-browser.js,
  * file-manager-storage.js) — không phải state nghiệp vụ riêng của appPanelNav.
  *
+ * `openGame()` [SỬA 02/09/2026] gọi `workflowGameCatalog.openPanel()` (event/workflow/
+ * game-catalog.js) — panel Game giờ có nghiệp vụ thật (danh sách card, xem docstring file đó).
+ *
  * NẠP SAU: core/app-panel-nav.js (setAppPanelNavActiveTab), core/placeholder-panel.js
  * (showPlaceholderPanel/hidePlaceholderPanel), core/generic-drawer.js,
  * event/workflow/generic-drawer-helpers.js (closeFully), event/workflow/
@@ -62,10 +65,15 @@ const workflowAppPanelNav = {
         workflowFileManagerStorage.openPanel(); // event/workflow/file-manager-storage.js
     },
 
-    /** Ứng với 'appPanelNav.game.click' — placeholder, chưa có nghiệp vụ. */
+    /** Ứng với 'appPanelNav.game.click' — [SỬA — 02/09/2026, Game Panel app-store list] KHÔNG còn
+     * placeholder — liên tuyến domain, tái dùng THẲNG `workflowGameCatalog.openPanel()`
+     * (event/workflow/game-catalog.js, tự lo render list + hiện panel). LƯU Ý nạp: file đó khai báo
+     * SAU file này trong index.html (đặt cạnh cụm "gameplay" nó phụ thuộc) — vẫn AN TOÀN vì đây là
+     * lời gọi lúc RUNTIME (bấm tab Game, sau khi toàn bộ script đã nạp xong), không phải lúc parse
+     * file, nên không cần đúng thứ tự khai báo giữa 2 file này. */
     openGame() {
         this.setActiveTab('game');
-        showPlaceholderPanel(gamePanel); // core/placeholder-panel.js
+        workflowGameCatalog.openPanel(); // event/workflow/game-catalog.js
     },
 
     /** Ứng với 'appPanelNav.statis.click' — placeholder, chưa có nghiệp vụ. */

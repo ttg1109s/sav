@@ -1,11 +1,17 @@
 /**
  * event/workflow/gameplay-engine.js — Workflow DÙNG CHUNG mọi mode Game (Rule 3b: Workflow tự
  * appState.get() rồi gọi core/gameplay/engine.js + engine-ui.js theo thứ tự). Sở hữu: cooldown
- * đếm ngược trước khi chơi, modal Start (chọn độ khó) + modal End (kết quả, ring % + sao + count-up
- * + breakdown tier), lưu điểm vào DB. `workflowGameplay` (event/workflow/gameplay.js, RIÊNG mode
- * "Circle": spawn/lưới/vật lý wave) gọi vào đây cho mọi phần KHÔNG đặc thù mode.
+ * đếm ngược trước khi chơi, modal End (kết quả, ring % + sao + count-up + breakdown tier), lưu điểm
+ * vào DB. `workflowGameplay` (event/workflow/gameplay.js, RIÊNG mode "Circle": spawn/lưới/vật lý
+ * wave) gọi vào đây cho mọi phần KHÔNG đặc thù mode.
  *
- * KHÔNG có tiêu đề ở modal Start/End (phản hồi Giang — nội dung tự thân đã rõ ngữ nghĩa).
+ * [SỬA — 02/09/2026, Game Panel app-store list, Giang yêu cầu "bỏ modal chọn độ khó"] Modal "sẵn
+ * sàng" (chọn độ khó + nút Start, `showStartModal()`/`_wireDifficultySelector()`) ĐÃ XOÁ HẲN — độ
+ * khó giờ chọn SẴN trên card Game Panel TRƯỚC khi armed (nút cycle độ khó, core/gameplay/
+ * game-panel-ui.js + event/workflow/game-catalog.js), `workflowGameplay.start()`/`replay()` giờ
+ * nhảy thẳng `startCountdown()` (hàm NGAY DƯỚI ĐÂY, KHÔNG đổi gì) — chỉ modal End còn giữ lại.
+ *
+ * KHÔNG có tiêu đề ở modal End (phản hồi Giang — nội dung tự thân đã rõ ngữ nghĩa).
  *
  * NẠP SAU: core/gameplay/engine.js, core/gameplay/engine-ui.js, core/modal-choice-ui.js,
  * service/task-manager.js, service/db.js, lang/lang.js.
@@ -17,42 +23,6 @@ const GAMEPLAY_SCORE_RING_MAX_EXTRA_LAPS = 3;
 const GAMEPLAY_SCORE_RING_PALETTE = ['#38bdf8', '#4ade80', '#fbbf24', '#f472b6']; // sky/emerald/amber/pink-400
 
 const workflowGameplayEngine = {
-
-    /** Modal "sẵn sàng" — chọn độ khó + nút Start/Cancel. `onStart()`/`onCancel()` do mode tự
-     * truyền vào (Circle: startCountdown()/exitToPlaylist()). */
-    showStartModal({ bodyTextKey, onStart, onCancel }) {
-        modalChoice(
-            t(bodyTextKey),
-            [
-                { label: t('gameplayCircle.ready.startLabel'), className: 'flex-1 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-sm font-semibold transition-colors', onClick: onStart },
-            ],
-            { bodyHtml: buildDifficultySelectorHtml(appState.get('gameplayDifficulty'), t), onCancel }
-        ); // core (core/modal-choice-ui.js) — nút Huỷ tự động gọi onCancel
-        this._wireDifficultySelector();
-    },
-
-    /** Gắn click 3 nút độ khó vừa render qua bodyHtml — modalChoice() không biết ngữ nghĩa "độ
-     * khó", Workflow tự đọc lại DOM qua #modal-choice-body (id cố định do modal-choice-ui.js gán).
-     * Rule 5a áp cho Core, KHÔNG áp cho Workflow — appState.set() thẳng trong callback hợp lệ.
-     *
-     * [SỬA — cải tiến UI, phản hồi Giang] Mỗi độ khó giờ có màu accent RIÊNG (không còn 1 kiểu
-     * active dùng chung) — thay vì Workflow tự toggle tay từng class (dễ lệch nếu Core-ui đổi màu
-     * sau này), RENDER LẠI TOÀN BỘ `#gameplay-difficulty-selector` qua ĐÚNG 1 nguồn
-     * (buildDifficultySelectorHtml(), engine-ui.js) mỗi lần đổi lựa chọn — Core-ui vẫn là nơi DUY
-     * NHẤT biết màu/class nào ứng với độ khó nào, Workflow chỉ gọi lại + wire tiếp (đệ quy). */
-    _wireDifficultySelector() {
-        const container = document.getElementById('gameplay-difficulty-selector');
-        if (!container) return;
-        container.querySelectorAll('.gameplay-difficulty-btn').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const difficulty = btn.dataset.difficulty;
-                appState.set('gameplayDifficulty', difficulty, { skipCheck: true });
-                console.log(`writer: "workflowGameplayEngine._wireDifficultySelector", page: "gameplayDifficulty", content: "${difficulty}"`);
-                container.outerHTML = buildDifficultySelectorHtml(difficulty, t); // core-ui (engine-ui.js)
-                this._wireDifficultySelector();
-            });
-        });
-    },
 
     /** Đếm ngược GAMEPLAY_COUNTDOWN_SECONDS giây rồi gọi `onComplete()` — taskManager mode
      * 'timeout' (CẤM setTimeout thô, readme/task-manager-conventions.md). */
