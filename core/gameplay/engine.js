@@ -46,15 +46,24 @@ function computeComboScoreGain(tierName, tierScore, comboByTierBefore, cfg) {
     return { pointsGained: Math.floor(tierScore * multiplier), newComboByTier };
 }
 
-/** Note gần vị trí tap nhất trong dung sai `tolerancePercent` — null nếu ngoài dung sai. */
-function findNearestNoteByPosition(entries, tapX, tapY, tolerancePercent) {
-    let best = null, bestDist = Infinity;
+/** Tìm target theo Z-ORDER (`entries` PHẢI đã xếp topmost -> bottom TRƯỚC khi truyền vào — ĐÚNG
+ * thứ tự `gameplayWaves` gốc, wave xuất hiện SỚM HƠN đứng trước, xem nơi gọi + docstring tick(),
+ * event/workflow/gameplay.js) — trả về phần tử ĐẦU TIÊN nằm trong `tolerancePercent`.
+ *
+ * [SỬA — Giang yêu cầu "bỏ kiểu bấm xuyên qua lớp, tránh bấm vòng tròn này lại thành bấm vòng tròn
+ * khác"] TRƯỚC ĐÂY chọn nearest-by-distance trong số các candidate nằm trong tolerance — 2 vòng
+ * tròn chồng gần nhau, tap có thể "xuyên" qua vòng đang hiển thị TRÊN để tính trúng vòng NẰM DƯỚI
+ * nếu vòng dưới tình cờ có tâm gần điểm tap hơn (dù mắt thường thấy đang tap đúng vòng trên). Giờ
+ * TÔN TRỌNG thứ tự z (wave xuất hiện sớm hơn -> hiển thị trên cùng, xem tick()) — quét từ trên
+ * xuống, phần tử ĐẦU TIÊN khớp tolerance được chọn NGAY, KHÔNG so khoảng cách với các candidate còn
+ * lại nữa (khớp đúng cảm giác "tap vào cái đang thấy", không phải "tap vào cái GẦN NHẤT"). */
+function findTopmostNoteInTolerance(entries, tapX, tapY, tolerancePercent) {
     for (const entry of entries) {
         const dx = entry.x - tapX, dy = entry.y - tapY;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist <= tolerancePercent && dist < bestDist) { bestDist = dist; best = entry; }
+        if (dist <= tolerancePercent) return entry;
     }
-    return best;
+    return null;
 }
 
 /** Điểm trung bình cuối phiên = tổng điểm / số vòng đã xuất hiện. */

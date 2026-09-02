@@ -6,7 +6,8 @@
  *
  * Mỗi note là 1 CẶP circle (đích, x/y px thật) + wave (co từ waveStartRadius về 0 tại đúng x/y đó).
  * Vùng hợp lệ TÍNH ĐIỂM (classifyTapTier(), engine.js) khác vùng hợp lệ VỊ TRÍ tap
- * (findNearestNoteByPosition(), engine.js).
+ * (findTopmostNoteInTolerance(), engine.js — [SỬA] đổi tên + đổi hẳn tiêu chí chọn, KHÔNG còn
+ * "gần nhất" mà theo z-order, xem docstring hàm đó).
  */
 
         // ── Spawn timing/mật độ ──────────────────────────────────────────────────────────────

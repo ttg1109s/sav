@@ -4,9 +4,13 @@
  * sang core/gameplay/engine-ui.js. KHÔNG appState.get() (Rule 2), KHÔNG gọi core khác (Rule 3a).
  *
  * Vẽ 2 PASS mỗi frame: pass 1 (drawApproachRings) LUÔN trước pass 2 (drawTargetCircles) — target
- * circle mọi note vì vậy luôn nổi trên approach ring mọi note. Hit-test tap KHÔNG phụ thuộc canvas
- * (thuần toạ độ, xem findNearestNoteByPosition() core/gameplay/engine.js) nên thứ tự vẽ chỉ ảnh
- * hưởng thị giác.
+ * circle mọi note vì vậy luôn nổi trên approach ring mọi note. [SỬA — Giang yêu cầu "vòng tròn xuất
+ * hiện trước có z-index lớn hơn, bỏ kiểu bấm xuyên qua lớp"] TRONG mỗi pass, thứ tự `entries` do
+ * Workflow tự đảo NGƯỢC thứ tự spawn TRƯỚC khi truyền vào đây (event/workflow/gameplay.js::tick())
+ * — wave xuất hiện SỚM HƠN giờ vẽ SAU CÙNG (đè lên trên) trong CẢ 2 pass. Hit-test tap giờ CŨNG tôn
+ * trọng đúng thứ tự z này (KHÔNG còn "thuần toạ độ, không phụ thuộc thứ tự" như trước — xem
+ * findTopmostNoteInTolerance() core/gameplay/engine.js) dù tự nó vẫn không đọc gì từ canvas, chỉ
+ * ăn ĐÚNG quy ước thứ tự entries giống hệt file này.
  */
 
 /** Set kích thước canvas khớp devicePixelRatio — PHẢI gọi lại mỗi khi layer resize. Trả kích thước
