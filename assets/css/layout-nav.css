@@ -77,6 +77,26 @@
 .app-bottom-nav-btn.active { color: #2dd4bf; } /* teal-400, đồng bộ màu nhấn đang dùng toàn app */
 .app-bottom-nav-btn .app-bottom-nav-label { font-size: 12px; font-weight: 600; white-space: nowrap; }
 
+/* Chấm đỏ báo "đang trong Game Mode" trên icon nút Game — MỚI (02/09/2026), xem
+   components/app-bottom-nav.js + core/app-panel-nav.js::setAppBottomNavGameIndicator(). Nhấp nháy
+   nhẹ để bắt mắt hơn màu tô sáng `.active` thường (chỉ đổi màu icon, không đủ nổi bật cho 1 trạng
+   thái "đang chạy nền" người dùng cần để ý dù không ở tab Game). */
+.app-bottom-nav-game-dot {
+    position: absolute;
+    top: -2px;
+    right: -5px;
+    width: 9px;
+    height: 9px;
+    border-radius: 9999px;
+    background: #f43f5e; /* rose-500 */
+    border: 2px solid rgba(0, 0, 0, 0.55); /* tách chấm khỏi icon phía sau, khớp nền tối #app-bottom-nav */
+    animation: appBottomNavGameDotPulse 1.4s ease-in-out infinite;
+}
+@keyframes appBottomNavGameDotPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.25); opacity: 0.7; }
+}
+
 /* ===================== Panel full-screen ngang cấp Setting (Photo/Game/Statis) =====================
    Mỗi panel là 1 khung fixed inset-0 riêng, NGANG CẤP #app-stack (không lồng bên trong), ẩn mặc định
    qua .hidden — core/{photo,game,statis}-panel.js toggle. z-index: Z_INDEX.GENERIC_DRAWER (128,
