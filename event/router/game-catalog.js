@@ -20,7 +20,10 @@ const routerGameCatalog = (() => {
                 break;
 
             case 'gameCatalog.card.difficulty.click':
-                workflowGameCatalog.cycleDifficulty();
+                // [SỬA — 02/09/2026, Giang yêu cầu "phải lưu độ khó cho từng game"] Giờ truyền
+                // `gameId` — cycleDifficulty() cần biết ĐÚNG card nào vừa bấm để ghi persistent
+                // riêng cho game đó (trước đây bỏ qua payload này vì chỉ có 1 field dùng chung).
+                workflowGameCatalog.cycleDifficulty(msg.payload.gameId);
                 break;
 
             default:
