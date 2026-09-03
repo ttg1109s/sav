@@ -295,7 +295,7 @@
             //             CHỈ bị cắt ngắn nếu THẬT SỰ dài hơn `durationSeconds` (video đã ngắn hơn/
             //             bằng thì cứ để phát hết tự nhiên, không hẹn giờ thừa).
             durationMode: 'duration',        // 'duration' | 'fixtime'
-            durationSeconds: 5,              // 1-60s (picker) — CHỈ có ý nghĩa khi durationMode='fixtime' (video) hoặc LUÔN áp cho ảnh (2 nhánh trên)
+            durationSeconds: 5,              // 0.5-60s (picker, granularity 0.1s) — CHỈ có ý nghĩa khi durationMode='fixtime' (video) hoặc LUÔN áp cho ảnh (2 nhánh trên)
 
             // ---- Nền MÀU — độc lập, luôn active ----
             colorMode: 'solid',             // 'solid' | 'gradient'

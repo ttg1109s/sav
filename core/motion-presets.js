@@ -1,162 +1,156 @@
 /**
- * core/motion-presets.js — Core THUẦN (Rule 1-5) cho hệ thống "Cấu hình Motion" lưu DB, MỚI
- * (29/08/2026, phản hồi Giang — "Settings > Motion" đổi từ 1 cấu hình DUY NHẤT nhúng thẳng trong
- * Visual Background config sang danh sách preset có thể đặt tên/thêm/xoá, CÙNG KHUÔN hệ preset EQ
- * đã có (core/eq-presets.js) — mirror 1-1 cấu trúc, chỉ đổi field cho khớp Motion).
+ * core/motion-presets.js — Core THUẦN (Rule 1-5) cho hệ thống "Cấu hình Motion" lưu DB — preset
+ * đặt tên/thêm/xoá được, mirror hệ preset EQ (core/eq-presets.js).
  *
  * Preset = {id, name, transitionEnabled, transitionType, transitionDurationMs, transitionInOutRatio,
  * transitionEasing, transitionDirection, transitionZoomDirection, transitionSpinDirection,
  * transitionWipeDirection, transitionCurtainDirection, edgeFlipVariant, edgeFlipStaticOld,
- * kenBurnsEnabled, kenBurnsMode}. Danh sách preset SỐNG ở `appState.motionPresets` (nạp lúc boot từ
- * `meta.motionPresets`), xem event/workflow/motion-presets.js:: loadPresetsOnBoot(). Preset ĐANG
- * GẮN vào Visual Background (Photo) là 1 field tham chiếu đơn giản
- * `appConfigVisualBg.motionPresetId` (null = chưa gắn preset nào — Photo hiện KHÔNG transition/
- * Ken Burns gì cả, chuyển cứng).
+ * pointMoves, pointMoveRunMode, pointMoveOneOrder, reactBeatAudio}. Danh sách preset SỐNG ở
+ * `appState.motionPresets` (nạp lúc boot từ `meta.motionPresets`), xem event/workflow/
+ * motion-presets.js::loadPresetsOnBoot(). Preset ĐANG GẮN vào Visual Background (Photo) là 1 field
+ * tham chiếu đơn giản `appConfigVisualBg.motionPresetId` (null = chưa gắn preset nào).
  *
- * KHÁC EQ (luôn có `flat` khoá sửa/xoá làm lưới an toàn) — Motion KHÔNG cần preset khoá nào: danh
- * sách rỗng vẫn hợp lệ (Photo VBG không gắn gì thì đơn giản không animate, không phải fallback lỗi).
+ * Danh sách rỗng vẫn hợp lệ (Photo VBG không gắn gì thì đơn giản không animate).
  *
- * `transitionEnabled`/`kenBurnsEnabled` — MỚI, THAY cho việc suy luận gián tiếp qua ẩn/hiện DOM cũ:
- * đây là 2 CÔNG TẮC ĐỘC LẬP quyết định 1 preset có áp dụng Transition/Ken Burns hay không — các field
- * chi tiết (`transitionType`/`kenBurnsMode`...) LUÔN hiển thị/chỉnh được trong UI bất kể công tắc
- * đang bật hay tắt (Giang chốt — "bỏ ẩn/hiện DOM theo toggle"), chỉ CÓ ÁP DỤNG LÚC PHÁT hay không mới
- * phụ thuộc 2 công tắc này. Cả 2 `false` -> preset đó không tạo hiệu ứng gì (ảnh chuyển cứng).
+ * `transitionEnabled` — công tắc ĐỘC LẬP quyết định preset có áp dụng Transition hay không — các
+ * field chi tiết (`transitionType`...) LUÔN hiển thị/chỉnh được trong UI bất kể công tắc đang bật
+ * hay tắt, chỉ CÓ ÁP DỤNG LÚC PHÁT hay không mới phụ thuộc công tắc này.
  *
- * `reactBeatAudio` — MỚI (29/08/2026, phản hồi Giang); VIẾT LẠI HOÀN TOÀN (30/08/2026, phản hồi
- * Giang — "loại bỏ cơ chế beat trong motion, tự động theo nhạc giống beatscale visualizer effect")
- * — KHÔNG còn "bắn theo N beat rồi tự về gốc" (đã bỏ hẳn field `everyNBeats`) — giờ zoom/pan/rotate
- * LIÊN TỤC nội suy tuyến tính theo `appState.beatScale` (năng lượng tức thời, tính mỗi frame ở
- * event/workflow/visualizer-render.js — CÙNG tín hiệu mọi hiệu ứng "beatscale" khác trong app đang
- * dùng, xem event/workflow/motion-engine.js::_tickBeatReact()). `enabled` bật cả cụm;
- * `replaceMovement` quyết định layer `.me-beat-react` (MỚI, bao TRỌN cả 2 player A/B — xem
- * index.html/assets/css/motion-engine.css) THAY THẾ hẳn chuyển động Ken Burns thường (`true`) hay
- * chạy SONG SONG, transform cộng dồn theo cây DOM (`false`). 3 hiệu ứng con (zoom/pan/rotate) ĐỘC
- * LẬP nhau — bật được 1, vài, hay cả 3 cùng lúc (checkbox riêng từng cái), mỗi cái CHỈ còn 1 field
- * `max` NGƯỜI DÙNG tự chỉnh — biên DƯỚI (baseline lúc nhạc im lặng) CỐ ĐỊNH CỨNG, KHÔNG phải field
- * trong preset/KHÔNG có slider riêng (Giang chốt — "min là cố định cứng, không phải tuỳ chọn"),
- * hardcode ngay trong công thức nội suy (core/motion-engine.js::computeMotionEngineBeatReactZoomScale()/
- * computeMotionEngineBeatReactOffset()):
-  *   zoom.maxPct     — % zoom (100 = không zoom, baseline CỐ ĐỊNH), nội suy liên tục [100,maxPct].
- *   pan.maxPct      — % dịch chuyển theo `direction`, 100 = không dịch (baseline CỐ ĐỊNH), nội suy
- *                     liên tục [100,maxPct] (biên độ — LUÔN không âm, xem `direction` dưới).
- *   rotate.maxDeg   — độ xoay theo `direction`, 0 = không xoay (baseline CỐ ĐỊNH), nội suy liên tục
- *                     [0,maxDeg] (biên độ).
- * `maxPct`/`maxDeg` (trần 200/150/360) vốn là mốc DUY NHẤT trước đây người dùng chỉnh được — vẫn
- * NGUYÊN như cũ, chỉ khác chỗ trước đây LÀ giá trị đích cố định (bắn tới rồi về), giờ là biên TRÊN
- * của phép nội suy liên tục.
- * `pan.direction`/`rotate.direction` — 4 lựa chọn (`MOTION_BEAT_REACT_DIRECTIONS`): "left"/"right" —
- * dấu CỐ ĐỊNH, biên độ luôn lệch 1 bên. "leftToRight"/"rightToLeft" — VIẾT LẠI (30/08/2026, phản hồi
- * Giang — checkbox "reverse") — KHÔNG còn quét liên tục theo năng lượng nữa, mà XEN KẼ dấu MỖI LƯỢT
- * "beat mới" (envelope attack lại sau 1 đợt decay, xem event/workflow/motion-engine.js::
- * _tickBeatReact()): lượt 1 lệch 1 bên, lượt 2 tự đảo sang bên kia, lượt 3 lại đảo về bên đầu, cứ
- * thế — "leftToRight" mặc định lượt 1 lệch PHẢI (dương), "rightToLeft" mặc định lượt 1 lệch TRÁI
- * (âm), xem `pan.reverse`/`rotate.reverse` MỚI ngay dưới.
- *   pan.reverse/rotate.reverse (boolean, MỚI) — CHỈ có tác dụng khi `direction` là "leftToRight"/
- *   "rightToLeft" — `true` ĐẢO cực lượt ĐẦU TIÊN (không đổi gì việc "cứ mỗi lượt lại xen kẽ" ở các
- *   lượt sau) — xem core/motion-engine.js::computeMotionEngineBeatReactNextPolarity().
+ * VIẾT LẠI (phản hồi Giang — "xoá toàn bộ Ken Burns, thay bằng Point Move") — Ken Burns (1 chế độ
+ * pan/zoom TỰ ĐỘNG chọn sẵn, không kiểm soát được biên độ/hướng cụ thể) XOÁ HẲN. Thay bằng
+ * "Point Move" — danh sách điểm chuyển động NGƯỜI DÙNG tự định nghĩa, mỗi điểm có 6 thông số
+ * (Linear X/Y, Rotate, Zoom, Flip X/Y) + 2 chế độ chạy:
+ *   `pointMoveRunMode: 'all'` — chạy TẤT CẢ point move đã tick, theo đúng vị trí thời gian
+ *      (`pointMove.timingX`, % trên trục 0-100 của `advanceMs`) + cường độ (`pointMove.timingY`) đã
+ *      xếp trên đường cong Timing (xem components/motion-settings-drawer.js, core/
+ *      point-move-timing-ui.js). Cường độ và toạ độ THỜI GIAN là 2 trục ĐỘC LẬP (progress-domain
+ *      thuần, KHÔNG biết gì về đơn vị thật của 6 field) — công thức áp dụng cuối cùng ở event/
+ *      workflow/motion-engine.js::_buildPointMoveAllKeyframes().
+ *   `pointMoveRunMode: 'one'` — mỗi lượt kích hoạt Motion, CHỈ 1 point move (trong số đã tick)
+ *      được chọn để tween từ baseline -> target trong suốt `advanceMs`, chọn theo
+ *      `pointMoveOneOrder` ('sequential' — tăng dần theo vị trí trong mảng; 'random' — loại trừ
+ *      lượt liền trước, cùng convention resolveMotionEngineTransitionOption()).
+ * Point move VỊ TRÍ ĐẦU (index 0) LUÔN checked=true + timingX=0 (điểm mốc/baseline mặc định, không
+ * bỏ tick/di chuyển được) — ràng buộc theo VỊ TRÍ, không theo id (xem sanitizeMotionPointMoves()).
+ *
+ * 6 field/point move — mỗi field {mode:'single'|'randomRange', unit, single, rangeMin, rangeMax}:
+ * `mode==='single'` dùng thẳng `single`; `mode==='randomRange'` mỗi lượt resolve random đều trong
+ * [rangeMin,rangeMax] (xem resolvePointMoveFieldValue(), core/motion-engine.js). Baseline (0) LUÔN
+ * là "không đổi" cho MỌI field — 0 = không dịch/không xoay/không zoom/không lật.
+ *   linearX/linearY — dịch chuyển, đơn vị `unit` ('%' hoặc 'px'), biên [-200,200] (%) / [-1000,1000] (px).
+ *   rotate          — xoay 2D quanh tâm, độ, biên [-360,360].
+ *   zoom            — scale cộng thêm vào 1 (0 = scale 1, không zoom), biên [-2,2].
+ *   flipX/flipY     — lật 3D (rotateY/rotateX tương ứng, phối cảnh CSS `.motion-layer` có sẵn),
+ *                     độ, biên [-360,360] (CÙNG Rotate — Giang chốt "flip theo rotate").
+ *
+ * `reactBeatAudio` — pulse zoom/pan/rotate LIÊN TỤC theo `appState.beatScale` (năng lượng bass tức
+ * thời, cùng tín hiệu mọi hiệu ứng "beatscale" khác). `replaceMovement` ĐÃ XOÁ (phản hồi Giang —
+ * hết ý nghĩa từ khi Ken Burns không còn tồn tại để "thay thế") — giờ LUÔN chạy song song với
+ * Point Move, transform cộng dồn theo cây DOM. 3 hiệu ứng con (zoom/pan/rotate) ĐỘC LẬP nhau, mỗi
+ * cái CHỈ có field `max` NGƯỜI DÙNG chỉnh — biên DƯỚI (baseline) CỐ ĐỊNH CỨNG trong công thức nội
+ * suy (core/motion-engine.js::computeMotionEngineBeatReactZoomScale()/...Offset()):
+ *   zoom.maxPct  — % zoom (100 = không zoom), nội suy liên tục [100,maxPct].
+ *   pan.maxPct   — % dịch chuyển theo `direction`, nội suy liên tục [100,maxPct].
+ *   rotate.maxDeg — độ xoay theo `direction`, nội suy liên tục [0,maxDeg].
+ * `pan.direction`/`rotate.direction` (MOTION_BEAT_REACT_DIRECTIONS) — "left"/"right": dấu CỐ ĐỊNH.
+ * "leftToRight"/"rightToLeft": XEN KẼ dấu mỗi lượt "beat mới" (envelope attack lại sau decay, xem
+ * event/workflow/motion-engine.js::_tickBeatReact()); "leftToRight" mặc định lượt 1 lệch PHẢI,
+ * "rightToLeft" mặc định lệch TRÁI — `reverse` (boolean) đảo cực lượt ĐẦU TIÊN.
  */
 const MOTION_BEAT_REACT_DIRECTIONS = ['left', 'right', 'leftToRight', 'rightToLeft'];
 
-/** MỚI (30/08/2026, phản hồi Giang) — 2 lựa chọn hợp lệ cho field `edgeFlipVariant` (CHỈ áp dụng khi
- * `transitionType` là 'flipEdge' — `transitionIsEdgeFlip()`, core/motion-engine.js).
- * "open" — ảnh CŨ (đang hiện, "trên") lật RA để lộ ảnh MỚI đứng YÊN bên dưới (KHÔNG có field phụ
- * nào khác — luôn đúng 1 kiểu này). "close" — ảnh MỚI lật VÀO (như gập trang sách xuống); có thêm
- * `edgeFlipStaticOld` quyết định ảnh CŨ có đứng yên hay cùng xoay — xem docstring `sanitizeMotionPreset()`. */
+/** CHỈ áp dụng khi `transitionType` là 'flipEdge' (`transitionIsEdgeFlip()`, core/motion-engine.js).
+ * "open" — ảnh CŨ lật RA để lộ ảnh MỚI đứng YÊN bên dưới. "close" — ảnh MỚI lật VÀO; có thêm
+ * `edgeFlipStaticOld` quyết định ảnh CŨ đứng yên hay cùng xoay. */
 const MOTION_ENGINE_EDGE_FLIP_VARIANTS = ['open', 'close'];
 
-/** MỚI (30/08/2026, phản hồi Giang — gộp 21 type cũ có "hướng" thành field `direction` DÙNG CHUNG);
- * SỬA (30/08/2026, phản hồi Giang — "thêm direction cho wipe" với 4 hướng CHÉO riêng, wipe/curtain
- * không dùng field này nữa, xem MOTION_ENGINE_WIPE_DIRECTIONS/MOTION_ENGINE_CURTAIN_DIRECTIONS ngay
- * dưới) — CHỈ áp dụng khi `transitionType` là 'slide'/'flipCard'/'flipEdge'
- * (`transitionSupportsDirection()`, core/motion-engine.js) — 3 type NÀY đều CHỈ có 4 hướng thẳng
- * (slide: hướng cả cặp layer di chuyển; flipCard/flipEdge: trục+chiều xoay), gộp lại field DUY NHẤT
- * thay vì mỗi type 1 field/mỗi hướng 1 type riêng như trước.
- * 4 giá trị CỤ THỂ — dùng làm "nguồn random" khi field = 'random' (xem
- * `MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM` ngay dưới +
- * core/motion-engine.js::resolveMotionEngineTransitionOption()). */
+/** CHỈ áp dụng khi `transitionType` là 'slide'/'flipCard'/'flipEdge' (`transitionSupportsDirection()`,
+ * core/motion-engine.js) — 4 hướng thẳng, dùng làm "nguồn random" khi field = 'random'. */
 const MOTION_ENGINE_TRANSITION_DIRECTIONS = ['left', 'right', 'up', 'down'];
-
-/** MỚI (30/08/2026, phản hồi Giang — "bổ sung tuỳ chọn random cho mỗi transition có direction/in
- * out") — giá trị HỢP LỆ cho field `transitionDirection` (khác `MOTION_ENGINE_TRANSITION_DIRECTIONS`
- * ngay trên — mảng đó CHỈ 4 giá trị CỤ THỂ dùng làm nguồn random, mảng NÀY thêm 'random' để validate
- * chính field). 'random' — MỖI LƯỢT transition kích hoạt, tự chọn NGẪU NHIÊN 1 trong 4 hướng cụ
- * thể, LOẠI TRỪ hướng vừa dùng lượt liền trước (CÙNG convention `resolveMotionEngineKenBurnsDirection()`
- * đã có cho Ken Burns — xem event/workflow/motion-engine.js::_tickTransitionRandom()/
- * `_lastTransitionDirection`). */
 const MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_TRANSITION_DIRECTIONS, 'random'];
 
-/** MỚI (30/08/2026, phản hồi Giang — "thêm direction cho wipe") — field RIÊNG cho 'wipe'
- * (`transitionSupportsWipeDirection()`, core/motion-engine.js) — TÁCH khỏi `transitionDirection`
- * dùng chung ở trên vì wipe có THÊM 4 hướng GÓC mà slide/flipCard/flipEdge không có (dùng field
- * chung sẽ để lọt giá trị "góc" vô nghĩa cho 3 type kia).
- * VIẾT LẠI (30/08/2026, phản hồi Giang — "đang nhầm lẫn hết rồi... wipe chéo là cắt đôi hình ảnh
- * giống curtain rồi, không phải wipe") — bản polygon "kite" (giữ cố định góc ĐỐI DIỆN) tạo ra hiệu
- * ứng CẮT ĐÔI ảnh giống hệt curtain-chéo, SAI bản chất "wipe". SỬA ĐÚNG theo Giang chỉ: dùng LẠI
- * ĐÚNG cơ chế `inset()` của left/right/up/down (co dần 1 cạnh) — GÓC chỉ là co dần ĐỒNG THỜI 2 cạnh
- * kề nhau thay vì 1 (vd "cornerTopLeft" = co dần cạnh phải VÀ cạnh dưới từ 100%→0%, neo cố định 2 cạnh
- * trên/trái ở 0% — vùng hiện bắt đầu là 1 điểm ở góc trên-trái, lớn dần theo HÌNH CHỮ NHẬT tới khi
- * phủ hết khung, KHÔNG cắt ảnh làm đôi). 8 giá trị: 4 cạnh CŨ (left/right/up/down) + 4 GÓC MỚI, đặt
- * tên THEO GÓC XUẤT PHÁT (KHÔNG còn kiểu "A đến B" — 1 tên đã đủ diễn tả trọn animation, góc ĐỐI
- * ĐỐI DIỆN với góc xuất phát mặc nhiên là nơi phủ kín SAU CÙNG): cornerTopLeft/cornerTopRight/
- * cornerBottomLeft/cornerBottomRight (SỬA 30/08/2026, phản hồi Giang — đổi tên chuẩn hoá thêm tiền
- * tố "corner", tránh lẫn với field `transitionDirection` dùng chung — vốn CŨNG có value "left"/
- * "right" nhưng nghĩa khác hẳn — CẠNH chứ không phải GÓC).
- * Dùng làm "nguồn random" khi field = 'random' (MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM dưới). */
+/** Field RIÊNG cho 'wipe' (`transitionSupportsWipeDirection()`, core/motion-engine.js) — 4 cạnh +
+ * 4 góc (co dần ĐỒNG THỜI 2 cạnh kề, neo cố định 2 cạnh còn lại). */
 const MOTION_ENGINE_WIPE_DIRECTIONS = [
     'left', 'right', 'up', 'down',
     'cornerTopLeft', 'cornerTopRight', 'cornerBottomLeft', 'cornerBottomRight',
 ];
 const MOTION_ENGINE_WIPE_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_WIPE_DIRECTIONS, 'random'];
 
-/** MỚI (30/08/2026, phản hồi Giang — "thêm cho Curtain direction ngang/dọc/chéo phải/chéo trái") —
- * field RIÊNG cho 'curtain' (`transitionSupportsCurtainDirection()`, core/motion-engine.js).
- * "horizontal" (mặc định, hành vi CŨ của curtain — GIỮ NGUYÊN) — tách theo đường DỌC giữa khung,
- * 2 nửa trượt ra 2 bên TRÁI/PHẢI. "vertical" — tách theo đường NGANG giữa khung, 2 nửa trượt lên/
- * xuống. "diagonalRight"/"diagonalLeft" — tách theo 1 trong 2 đường CHÉO qua tâm (tương ứng "\"/
- * "/"), dải mở rộng đối xứng quanh đường chéo đó ra tới đủ 4 góc khung.
- * SỬA (30/08/2026, phản hồi Giang — "thêm random vào cho curtain nữa chứ") — bỏ hẳn quyết định
- * trước đó ("KHÔNG có random"), giờ ĐỒNG BỘ với wipe/direction/zoomDirection/spinDirection — xem
- * `MOTION_ENGINE_CURTAIN_DIRECTIONS_WITH_RANDOM` ngay dưới.
- * BỔ SUNG (30/08/2026, phản hồi Giang — "các transition góc cũ của wipe đã chuyển vào curtain
- * chưa?") — 4 hướng GÓC MỚI (cornerTopLeft/cornerTopRight/cornerBottomLeft/cornerBottomRight) — CHÍNH LÀ cơ chế polygon
- * "kite" (neo 1 góc, giữ CỐ ĐỊNH góc đối diện xuyên suốt) LÚC ĐẦU định dùng cho wipe rồi phát hiện
- * SAI bản chất wipe (Giang chỉ ra "cắt đôi ảnh giống curtain") — giờ CHUYỂN HẲN về đây, nơi nó THẬT
- * SỰ thuộc về (cùng họ "cắt ảnh theo đường chéo/góc" với diagonalRight/diagonalLeft, chỉ khác hình
- * dạng dải cắt — xem @keyframes tương ứng, assets/css/motion-engine.css). */
+/** Field RIÊNG cho 'curtain' (`transitionSupportsCurtainDirection()`, core/motion-engine.js) —
+ * ngang/dọc/2 chéo qua tâm + 4 góc (cùng cơ chế polygon "kite" như wipe). */
 const MOTION_ENGINE_CURTAIN_DIRECTIONS = [
     'horizontal', 'vertical', 'diagonalRight', 'diagonalLeft',
     'cornerTopLeft', 'cornerTopRight', 'cornerBottomLeft', 'cornerBottomRight',
 ];
-
-/** MỚI (30/08/2026, phản hồi Giang — random cho curtain) — giá trị HỢP LỆ cho field
- * `transitionCurtainDirection` (thêm 'random' — CÙNG lý do MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM). */
 const MOTION_ENGINE_CURTAIN_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_CURTAIN_DIRECTIONS, 'random'];
 
-/** MỚI (30/08/2026, phản hồi Giang — "fade, zoom sẽ hiện select in/out") — CHỈ áp dụng khi
- * `transitionType` là 'fade'/'zoom'/'spin' (`transitionSupportsZoomDirection()`,
- * core/motion-engine.js). "in" — ảnh MỚI (enter) animate lớn dần/hiện dần TRÊN 1 ảnh CŨ (exit) ĐỨNG
- * YÊN bên dưới. "out" — NGƯỢC LẠI, ảnh CŨ (exit) animate nhỏ dần/mờ dần ĐỂ LỘ 1 ảnh MỚI (enter) ĐỨNG
- * YÊN bên dưới — z-index đảo ngược quy ước chung (CÙNG cơ chế "open" của flip-mép). */
+/** CHỈ áp dụng khi `transitionType` là 'fade'/'zoom'/'spin' (`transitionSupportsZoomDirection()`,
+ * core/motion-engine.js). "in" — ảnh MỚI animate lớn/hiện dần TRÊN ảnh CŨ đứng yên. "out" — NGƯỢC
+ * LẠI, ảnh CŨ animate nhỏ/mờ dần để lộ ảnh MỚI đứng yên (z-index đảo ngược quy ước chung). */
 const MOTION_ENGINE_ZOOM_DIRECTIONS = ['in', 'out'];
-
-/** MỚI (30/08/2026, phản hồi Giang — random) — giá trị HỢP LỆ cho field `transitionZoomDirection`
- * (thêm 'random' — CÙNG lý do MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM ngay trên). */
 const MOTION_ENGINE_ZOOM_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_ZOOM_DIRECTIONS, 'random'];
 
-/** MỚI (30/08/2026, phản hồi Giang — field phụ THỨ 2 riêng cho 'spin', "chiều spin") — CHỈ áp dụng
- * khi `transitionType` là 'spin' (`transitionSupportsSpinDirection()`, core/motion-engine.js) —
- * chiều XOAY (2D, khác hẳn `transitionDirection` — trục/hướng của slide/wipe/flip). */
+/** CHỈ áp dụng khi `transitionType` là 'spin' (`transitionSupportsSpinDirection()`, core/motion-engine.js). */
 const MOTION_ENGINE_SPIN_DIRECTIONS = ['clockwise', 'counterclockwise'];
-
-/** MỚI (30/08/2026, phản hồi Giang — random) — giá trị HỢP LỆ cho field `transitionSpinDirection`
- * (thêm 'random' — CÙNG lý do MOTION_ENGINE_TRANSITION_DIRECTIONS_WITH_RANDOM ngay trên). */
 const MOTION_ENGINE_SPIN_DIRECTIONS_WITH_RANDOM = [...MOTION_ENGINE_SPIN_DIRECTIONS, 'random'];
 
-/** 1 preset "trắng" — dùng làm giá trị khởi tạo lúc "Thêm cấu hình" (nút + ở header danh sách) —
- * CÙNG mặc định với `DEFAULT_VISUAL_BG_CONFIG.motion` cũ (trước khi tách preset), giữ trải
- * nghiệm "cấu hình mới" quen thuộc thay vì mọi field về 0/rỗng.
- * @param {string} name
+/** Đơn vị hợp lệ cho `linearX`/`linearY`. */
+const MOTION_POINT_MOVE_LINEAR_UNITS = ['%', 'px'];
+/** Chế độ giá trị hợp lệ cho MỌI field/point move. */
+const MOTION_POINT_MOVE_FIELD_MODES = ['single', 'randomRange'];
+/** Chế độ chạy hợp lệ cho `pointMoveRunMode`. */
+const MOTION_POINT_MOVE_RUN_MODES = ['all', 'one'];
+/** Thứ tự chọn hợp lệ cho `pointMoveOneOrder` (CHỈ có ý nghĩa khi `pointMoveRunMode==='one'`). */
+const MOTION_POINT_MOVE_ONE_ORDERS = ['sequential', 'random'];
+
+/** Biên số học từng field/point move — đơn vị THẬT tương ứng ghi ở docstring đầu file. */
+const MOTION_POINT_MOVE_BOUNDS = {
+    linearPct: { min: -200, max: 200 },
+    linearPx: { min: -1000, max: 1000 },
+    rotate: { min: -360, max: 360 },
+    zoom: { min: -2, max: 2 },
+    flip: { min: -360, max: 360 },
+};
+/** Biên toạ độ Timing (chỉ dùng khi `pointMoveRunMode==='all'`) — `timingX` % trên trục thời gian,
+ * `timingY` cường độ (100 = đạt ĐỦ giá trị 6 field đã cấu hình của point move đó; 0 = baseline,
+ * cho phép âm/vượt 100 để undershoot/overshoot — xem event/workflow/motion-engine.js). */
+const MOTION_POINT_MOVE_TIMING_X_BOUNDS = { min: 0, max: 100 };
+const MOTION_POINT_MOVE_TIMING_Y_BOUNDS = { min: -150, max: 150 };
+
+/** 1 field trắng ({mode, unit, single, rangeMin, rangeMax}) — dùng cho cả 6 thông số/point move,
+ * `unit` chỉ có ý nghĩa với linearX/linearY (null cho 4 field còn lại).
+ * @param {string|null} unit @returns {object} */
+function buildBlankPointMoveField(unit) {
+    return { mode: 'single', unit: unit || null, single: 0, rangeMin: 0, rangeMax: 0 };
+}
+
+/** 1 point move trắng — `checked:true` mặc định (point move ĐẦU danh sách khoá true vĩnh viễn theo
+ * VỊ TRÍ, xem sanitizeMotionPointMoves()); `timingY:100` mặc định = "đạt đủ giá trị đã cấu hình"
+ * khi vừa thêm (chưa tuỳ chỉnh đường cong Timing thì hành vi vẫn đúng như mong đợi).
  * @returns {object} */
+function buildBlankPointMove() {
+    return {
+        id: generatePointMoveId(),
+        checked: true,
+        timingX: 0,
+        timingY: 100,
+        linearX: buildBlankPointMoveField('%'),
+        linearY: buildBlankPointMoveField('%'),
+        rotate: buildBlankPointMoveField(null),
+        zoom: buildBlankPointMoveField(null),
+        flipX: buildBlankPointMoveField(null),
+        flipY: buildBlankPointMoveField(null),
+    };
+}
+
+/** @returns {string} */
+function generatePointMoveId() {
+    return `ptmove_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** 1 preset "trắng" — dùng làm giá trị khởi tạo lúc "Thêm cấu hình".
+ * @param {string} name @returns {object} */
 function buildBlankMotionPreset(name) {
     return {
         id: generateMotionPresetId(),
@@ -166,18 +160,18 @@ function buildBlankMotionPreset(name) {
         transitionDurationMs: 1000,
         transitionInOutRatio: 50,
         transitionEasing: 'ease',
-        transitionDirection: 'left',        // MỚI (30/08/2026) — dùng bởi slide/wipe/flipCard/flipEdge
-        transitionZoomDirection: 'in',       // MỚI (30/08/2026) — dùng bởi fade/zoom/spin
-        transitionSpinDirection: 'counterclockwise', // MỚI (30/08/2026) — dùng bởi spin
-        transitionWipeDirection: 'left',       // MỚI (30/08/2026) — RIÊNG cho wipe (8 hướng, gồm 4 chéo)
-        transitionCurtainDirection: 'horizontal', // MỚI (30/08/2026) — RIÊNG cho curtain (ngang/dọc/2 chéo)
-        edgeFlipVariant: 'open',       // CHỈ có ý nghĩa khi transitionType === 'flipEdge'
-        edgeFlipStaticOld: false,      // CHỈ có ý nghĩa khi edgeFlipVariant === 'close'
-        kenBurnsEnabled: false,
-        kenBurnsMode: 'zoomPanRandom',
+        transitionDirection: 'left',
+        transitionZoomDirection: 'in',
+        transitionSpinDirection: 'counterclockwise',
+        transitionWipeDirection: 'left',
+        transitionCurtainDirection: 'horizontal',
+        edgeFlipVariant: 'open',
+        edgeFlipStaticOld: false,
+        pointMoves: [buildBlankPointMove()],
+        pointMoveRunMode: 'all',
+        pointMoveOneOrder: 'sequential',
         reactBeatAudio: {
             enabled: false,
-            replaceMovement: false,
             zoom: { enabled: false, maxPct: 150 },
             pan: { enabled: false, direction: 'leftToRight', maxPct: 120, reverse: false },
             rotate: { enabled: false, direction: 'leftToRight', maxDeg: 90, reverse: false },
@@ -190,25 +184,19 @@ function findMotionPresetById(presets, id) {
     return presets.find((p) => p.id === id) || null;
 }
 
-/** Id RIÊNG cho preset mới — cùng khuôn generateEqPresetId() (core/eq-presets.js).
- * @returns {string} */
+/** @param {object[]} pointMoves @param {string} id @returns {object|null} */
+function findPointMoveById(pointMoves, id) {
+    return pointMoves.find((p) => p.id === id) || null;
+}
+
+/** @returns {string} */
 function generateMotionPresetId() {
     return `motion_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** Validate 1 preset đọc từ DB (phòng dữ liệu hỏng/thiếu field — record cũ trước khi có field nào
- * đó) — trả bản đã làm sạch, KHÔNG throw. Dùng bởi `loadPresetsOnBoot()` (event/workflow/
- * motion-presets.js) cho TỪNG preset trong mảng đọc lên, và bởi migration (xem
- * event/workflow/visual-bg.js::loadPersistedSettingsOnBoot()) khi dựng preset ĐẦU TIÊN từ
- * `motion` nhúng cũ.
- * `transitionDirection`/`transitionZoomDirection`/`transitionSpinDirection`/`edgeFlipVariant`/
- * `edgeFlipStaticOld` — LUÔN validate/lưu BẤT KỂ `transitionType` đang là gì (đơn giản, KHÔNG cần
- * biết trước type nào sẽ dùng tới — giống cách `transitionInOutRatio` vẫn lưu dù type hiện tại
- * không hỗ trợ) — chỉ Settings Drawer mới cần biết type có hỗ trợ field nào để ẨN/HIỆN, KHÔNG phải
- * việc của sanitize.
- * @param {object} raw
- * @returns {object}
- */
+/** Validate 1 preset đọc từ DB (phòng dữ liệu hỏng/thiếu field) — trả bản đã làm sạch, KHÔNG throw.
+ * Dùng bởi `loadPresetsOnBoot()` cho TỪNG preset đọc lên.
+ * @param {object} raw @returns {object} */
 function sanitizeMotionPreset(raw) {
     const blank = buildBlankMotionPreset(typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : 'Motion');
     return {
@@ -226,23 +214,79 @@ function sanitizeMotionPreset(raw) {
         transitionCurtainDirection: MOTION_ENGINE_CURTAIN_DIRECTIONS_WITH_RANDOM.includes(raw.transitionCurtainDirection) ? raw.transitionCurtainDirection : blank.transitionCurtainDirection,
         edgeFlipVariant: MOTION_ENGINE_EDGE_FLIP_VARIANTS.includes(raw.edgeFlipVariant) ? raw.edgeFlipVariant : blank.edgeFlipVariant,
         edgeFlipStaticOld: typeof raw.edgeFlipStaticOld === 'boolean' ? raw.edgeFlipStaticOld : blank.edgeFlipStaticOld,
-        kenBurnsEnabled: typeof raw.kenBurnsEnabled === 'boolean' ? raw.kenBurnsEnabled : blank.kenBurnsEnabled,
-        kenBurnsMode: MOTION_ENGINE_KENBURNS_MODES.includes(raw.kenBurnsMode) ? raw.kenBurnsMode : blank.kenBurnsMode, // core/motion-engine.js
+        pointMoves: sanitizeMotionPointMoves(raw.pointMoves),
+        pointMoveRunMode: MOTION_POINT_MOVE_RUN_MODES.includes(raw.pointMoveRunMode) ? raw.pointMoveRunMode : blank.pointMoveRunMode,
+        pointMoveOneOrder: MOTION_POINT_MOVE_ONE_ORDERS.includes(raw.pointMoveOneOrder) ? raw.pointMoveOneOrder : blank.pointMoveOneOrder,
         reactBeatAudio: sanitizeMotionBeatReact(raw.reactBeatAudio, blank.reactBeatAudio),
     };
 }
 
-/** Validate riêng cụm `reactBeatAudio` — tách khỏi `sanitizeMotionPreset()` chính vì lồng nhau
- * (object trong object, 3 cụm con zoom/pan/rotate CÙNG hình dạng {enabled, max..., [direction]}) —
- * gộp chung sẽ rất khó đọc. `raw` không phải object hợp lệ -> trả nguyên `blank` (mặc định tắt hết,
- * không throw). VIẾT LẠI (30/08/2026, phản hồi Giang — bỏ hẳn `everyNBeats`; SỬA LẠI NGAY sau đó,
- * phản hồi Giang — "min là cố định cứng, không phải tuỳ chọn") — CHỈ còn `max` là field NGƯỜI DÙNG
- * chỉnh, biên dưới (baseline) CỐ ĐỊNH CỨNG trong công thức nội suy (core/motion-engine.js), KHÔNG
- * còn validate/lưu field `min` nào trong preset nữa.
- * @param {*} raw
- * @param {object} blank - `buildBlankMotionPreset(...).reactBeatAudio`, dùng làm fallback từng field.
- * @returns {object}
- */
+/** Validate danh sách `pointMoves` — LUÔN trả về ÍT NHẤT 1 phần tử ("luôn có point move = 0",
+ * phản hồi Giang), và ÉP CỨNG phần tử VỊ TRÍ ĐẦU (index 0) `checked:true`/`timingX:0` — ràng buộc
+ * theo VỊ TRÍ trong mảng (không theo `id`), nên vẫn đúng kể cả sau khi thêm/xoá làm đổi thứ tự.
+ * @param {*} raw @returns {object[]} */
+function sanitizeMotionPointMoves(raw) {
+    const list = Array.isArray(raw) && raw.length > 0 ? raw.map((p) => sanitizePointMove(p)) : [buildBlankPointMove()];
+    list[0].checked = true;
+    list[0].timingX = 0;
+    return list;
+}
+
+/** Validate 1 point move — trả bản đã làm sạch, KHÔNG throw.
+ * @param {*} raw @returns {object} */
+function sanitizePointMove(raw) {
+    const blank = buildBlankPointMove();
+    if (!raw || typeof raw !== 'object') return blank;
+    const inRange = (v, bounds, fallback) => (typeof v === 'number' && v >= bounds.min && v <= bounds.max) ? v : fallback;
+    return {
+        id: typeof raw.id === 'string' && raw.id ? raw.id : blank.id,
+        checked: typeof raw.checked === 'boolean' ? raw.checked : blank.checked,
+        timingX: inRange(raw.timingX, MOTION_POINT_MOVE_TIMING_X_BOUNDS, blank.timingX),
+        timingY: inRange(raw.timingY, MOTION_POINT_MOVE_TIMING_Y_BOUNDS, blank.timingY),
+        linearX: sanitizePointMoveLinearField(raw.linearX, blank.linearX),
+        linearY: sanitizePointMoveLinearField(raw.linearY, blank.linearY),
+        rotate: sanitizePointMoveField(raw.rotate, blank.rotate, MOTION_POINT_MOVE_BOUNDS.rotate),
+        zoom: sanitizePointMoveField(raw.zoom, blank.zoom, MOTION_POINT_MOVE_BOUNDS.zoom),
+        flipX: sanitizePointMoveField(raw.flipX, blank.flipX, MOTION_POINT_MOVE_BOUNDS.flip),
+        flipY: sanitizePointMoveField(raw.flipY, blank.flipY, MOTION_POINT_MOVE_BOUNDS.flip),
+    };
+}
+
+/** Validate 1 field {mode,unit,single,rangeMin,rangeMax} KHÔNG có unit (rotate/zoom/flipX/flipY) —
+ * biên số học CỐ ĐỊNH truyền thẳng qua `bounds` (mỗi field 1 loại biên riêng, tra ở nơi gọi).
+ * @param {*} raw @param {object} blank @param {{min:number,max:number}} bounds @returns {object} */
+function sanitizePointMoveField(raw, blank, bounds) {
+    if (!raw || typeof raw !== 'object') return blank;
+    const inRange = (v, fallback) => (typeof v === 'number' && v >= bounds.min && v <= bounds.max) ? v : fallback;
+    return {
+        mode: MOTION_POINT_MOVE_FIELD_MODES.includes(raw.mode) ? raw.mode : blank.mode,
+        unit: null,
+        single: inRange(raw.single, blank.single),
+        rangeMin: inRange(raw.rangeMin, blank.rangeMin),
+        rangeMax: inRange(raw.rangeMax, blank.rangeMax),
+    };
+}
+
+/** Validate riêng field linearX/linearY — CÓ unit ('%'/'px'), biên số học ĐỔI theo unit đang lưu
+ * (tách khỏi `sanitizePointMoveField()` — 2 TIẾN TRÌNH khác nhau thật sự, không phải guard clause).
+ * @param {*} raw @param {object} blank @returns {object} */
+function sanitizePointMoveLinearField(raw, blank) {
+    if (!raw || typeof raw !== 'object') return blank;
+    const unit = MOTION_POINT_MOVE_LINEAR_UNITS.includes(raw.unit) ? raw.unit : blank.unit;
+    const bounds = unit === 'px' ? MOTION_POINT_MOVE_BOUNDS.linearPx : MOTION_POINT_MOVE_BOUNDS.linearPct;
+    const inRange = (v, fallback) => (typeof v === 'number' && v >= bounds.min && v <= bounds.max) ? v : fallback;
+    return {
+        mode: MOTION_POINT_MOVE_FIELD_MODES.includes(raw.mode) ? raw.mode : blank.mode,
+        unit,
+        single: inRange(raw.single, blank.single),
+        rangeMin: inRange(raw.rangeMin, blank.rangeMin),
+        rangeMax: inRange(raw.rangeMax, blank.rangeMax),
+    };
+}
+
+/** Validate riêng cụm `reactBeatAudio` — `raw` không hợp lệ -> trả nguyên `blank`. `replaceMovement`
+ * ĐÃ XOÁ (xem docstring đầu file) — KHÔNG còn field này trong shape trả về.
+ * @param {*} raw @param {object} blank @returns {object} */
 function sanitizeMotionBeatReact(raw, blank) {
     if (!raw || typeof raw !== 'object') return blank;
     const inRange = (v, lo, hi, fallback) => (typeof v === 'number' && v >= lo && v <= hi) ? v : fallback;
@@ -252,7 +296,6 @@ function sanitizeMotionBeatReact(raw, blank) {
 
     return {
         enabled: typeof raw.enabled === 'boolean' ? raw.enabled : blank.enabled,
-        replaceMovement: typeof raw.replaceMovement === 'boolean' ? raw.replaceMovement : blank.replaceMovement,
         zoom: {
             enabled: typeof zoom.enabled === 'boolean' ? zoom.enabled : blank.zoom.enabled,
             maxPct: inRange(zoom.maxPct, 100, 200, blank.zoom.maxPct),
