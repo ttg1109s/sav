@@ -123,6 +123,15 @@
             // (DEFAULT_VISUAL_BG_CONFIG bên dưới) — 3 tính năng nền màn Visualizer (video nền/ảnh
             // nền tĩnh/slideshow album) gộp thành 1. KHÔNG giữ lại field cũ song song.
             visualEnabled: true,
+            // MỚI (02/09/2026, Giang yêu cầu "không lưu game mode on/off nhưng phải lưu độ khó đã
+            // chọn cho từng game"). PERSISTENT — object map `{ [gameId]: 'easy'|'medium'|'hard' }`,
+            // xem core/gameplay/catalog.js cho danh sách gameId hợp lệ. Game chưa từng chọn độ khó
+            // (key vắng mặt) coi như 'hard' — KHỚP default của field phiên `gameplayDifficulty`
+            // (service/state/gameplay-runtime.js). KHÁC field đó ở chỗ: đây lưu ĐỘC LẬP cho TỪNG
+            // game và PERSISTENT qua reload; `gameplayDifficulty` (AppState) chỉ là bản sao "đang áp
+            // dụng" cho phiên/game hiện đang armed, đồng bộ từ map này ngay lúc armed (xem
+            // event/workflow/game-catalog.js::armGame()).
+            gameplayDifficultyByGame: {},
             keepScreenOn: true,
             // Tự động đổi hiệu ứng Visualizer theo thời gian (ver 10) — xem core/auto-switch-visual.js.
             //   - autoSwitchVisualMode: 'sequential' (tuần tự/cố định theo MODES) | 'random'.
@@ -384,6 +393,7 @@
                 themeMode: 'string', gradientFrom: 'string', gradientTo: 'string',
                 volume: 'number', eqPresetId: 'string',
                 visualEnabled: 'boolean',
+                gameplayDifficultyByGame: 'object',
                 keepScreenOn: 'boolean',
                 autoSwitchVisualEnabled: 'boolean', autoSwitchVisualMode: 'string', autoSwitchVisualTimeMode: 'string',
                 autoSwitchVisualSecondsFixed: 'number', autoSwitchVisualSecondsRandom: 'number', autoSwitchVisualSecondsDuration: 'number',
@@ -597,6 +607,9 @@
                 if (cfg.keepScreenOn == null) cfg.keepScreenOn = true;
                 if (cfg.subtitlesEnabled == null) cfg.subtitlesEnabled = true;
                 if (cfg.visualEnabled == null) cfg.visualEnabled = true;
+                // MỚI (02/09/2026, Giang yêu cầu "phải lưu độ khó đã chọn cho từng game") — xem
+                // docstring đầy đủ ở DEFAULT_VIZ_CONFIG phía trên.
+                if (cfg.gameplayDifficultyByGame == null || typeof cfg.gameplayDifficultyByGame !== 'object') cfg.gameplayDifficultyByGame = {};
                 // [SỬA — 02/09/2026, Giang yêu cầu "game mode không lưu, trạng thái tạm thời RAM"]
                 // Armed game KHÔNG còn PERSISTENT (bản trước đó, cùng ngày, từng đổi boolean
                 // `gameplayModeEnabled` -> `gameplayArmedGameId` nullable-string VẪN ở AppConfig —
