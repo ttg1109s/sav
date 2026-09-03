@@ -1,6 +1,6 @@
 /**
- * event/router/motion-presets.js — Router tên "motionPresets", tự đăng ký với eventBus lúc
- * nạp. MỚI (29/08/2026) — mọi msg.type của hệ "Cấu hình Motion" (danh sách/sửa/Áp dụng), xem
+ * event/router/motion-presets.js — Router tên "motionPresets", tự đăng ký với eventBus lúc nạp.
+ * Mọi msg.type của hệ "Cấu hình Motion" (danh sách/sửa/Point Move/Timing/Áp dụng), xem
  * event/workflow/motion-presets.js (workflowMotionPresets).
  *
  * NẠP SAU: event/bus.js, event/workflow/motion-presets.js.
@@ -33,8 +33,6 @@ const routerMotionPresets = (() => {
                 workflowMotionPresets.changeTransitionType(msg.payload.value);
                 break;
 
-            // MỚI (30/08/2026, phản hồi Giang — gộp type có hướng) — 3 field phụ, xem docstring
-            // workflowMotionPresets.changeTransitionDirection().
             case 'motionPresets.transitionDirection.change':
                 workflowMotionPresets.changeTransitionDirection(msg.payload.value);
                 break;
@@ -47,8 +45,6 @@ const routerMotionPresets = (() => {
                 workflowMotionPresets.changeTransitionSpinDirection(msg.payload.value);
                 break;
 
-            // BỔ SUNG (30/08/2026, phản hồi Giang — field riêng cho wipe/curtain), xem docstring
-            // workflowMotionPresets.changeTransitionWipeDirection().
             case 'motionPresets.transitionWipeDirection.change':
                 workflowMotionPresets.changeTransitionWipeDirection(msg.payload.value);
                 break;
@@ -57,8 +53,6 @@ const routerMotionPresets = (() => {
                 workflowMotionPresets.changeTransitionCurtainDirection(msg.payload.value);
                 break;
 
-            // MỚI (30/08/2026, phản hồi Giang) — 2 field phụ CHỈ có ý nghĩa khi transitionType là
-            // flip-mép, xem docstring workflowMotionPresets.changeEdgeFlipVariant().
             case 'motionPresets.edgeFlipVariant.change':
                 workflowMotionPresets.changeEdgeFlipVariant(msg.payload.value);
                 break;
@@ -83,17 +77,70 @@ const routerMotionPresets = (() => {
                 workflowMotionPresets.changeTransitionEasing(msg.payload.value);
                 break;
 
-            case 'motionPresets.kenBurnsEnabled.change':
-                workflowMotionPresets.changeKenBurnsEnabled(msg.payload.checked);
+            // ===================== Point Move (thay Ken Burns) =====================
+
+            case 'motionPresets.pointMove.openList.click':
+                workflowMotionPresets.openPointMoveList();
                 break;
 
-            case 'motionPresets.kenBurnsMode.change':
-                workflowMotionPresets.changeKenBurnsMode(msg.payload.value);
+            case 'motionPresets.pointMove.runMode.change':
+                workflowMotionPresets.changePointMoveRunMode(msg.payload.value);
                 break;
 
-            // MỚI (29/08/2026) — "React Beat Audio" — GENERIC 1 case DUY NHẤT cho mọi field (13
-            // control khác nhau ở UI đều gửi CÙNG msg.type này, chỉ khác payload) — xem docstring
-            // workflowMotionPresets.changeBeatReactField().
+            case 'motionPresets.pointMove.oneOrder.change':
+                workflowMotionPresets.changePointMoveOneOrder(msg.payload.value);
+                break;
+
+            case 'motionPresets.pointMove.toggleChecked.change':
+                workflowMotionPresets.togglePointMoveChecked(msg.payload.id, msg.payload.checked);
+                break;
+
+            case 'motionPresets.pointMove.add.click':
+                workflowMotionPresets.addPointMove();
+                break;
+
+            case 'motionPresets.pointMove.delete.click':
+                workflowMotionPresets.deletePointMove(msg.payload.id);
+                break;
+
+            case 'motionPresets.pointMove.openEdit.click':
+                workflowMotionPresets.openPointMoveEdit(msg.payload.id);
+                break;
+
+            case 'motionPresets.pointMove.unit.change':
+                workflowMotionPresets.changePointMoveUnit(msg.payload.fieldKey, msg.payload.unit);
+                break;
+
+            case 'motionPresets.pointMove.fieldMode.change':
+                workflowMotionPresets.changePointMoveFieldMode(msg.payload.fieldKey, msg.payload.mode);
+                break;
+
+            case 'motionPresets.pointMove.fieldSingle.preview':
+                workflowMotionPresets.previewPointMoveFieldSingle(msg.payload.fieldKey, msg.payload.value);
+                break;
+
+            case 'motionPresets.pointMove.fieldSingle.change':
+                workflowMotionPresets.changePointMoveFieldSingle(msg.payload.fieldKey, msg.payload.value);
+                break;
+
+            case 'motionPresets.pointMove.fieldRange.change':
+                workflowMotionPresets.changePointMoveFieldRange(msg.payload.fieldKey, msg.payload.which, msg.payload.value);
+                break;
+
+            case 'motionPresets.pointMove.openTiming.click':
+                workflowMotionPresets.openPointMoveTiming();
+                break;
+
+            case 'motionPresets.pointMoveTiming.nodeDrag.preview':
+                workflowMotionPresets.previewPointMoveTimingDrag(msg.payload.id, msg.payload.timingX, msg.payload.timingY);
+                break;
+
+            case 'motionPresets.pointMoveTiming.nodeDrag.end':
+                workflowMotionPresets.commitPointMoveTimingDrag();
+                break;
+
+            // ===================== React Beat Audio =====================
+
             case 'motionPresets.beatReact.field.change':
                 workflowMotionPresets.changeBeatReactField(msg.payload.effectKey, msg.payload.fieldKey, msg.payload.value);
                 break;
