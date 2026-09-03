@@ -145,13 +145,12 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // SỬA (18/07/2026, phản hồi Giang — "tái cấu trúc panel theo nhóm mục") — 'sectionTitle' (1
     // tiêu đề DUY NHẤT cho cả panel) ĐÃ XOÁ, thay bằng 3 tiêu đề nhóm riêng.
     'motionSettingsDrawer.groupTransition.title': 'Transition',
-    // SỬA (29/08/2026, phản hồi Giang — "chuyển về lại thành Ken Burns") — 'Photo Movement' đổi lại
-    // 'Ken Burns' (cả tên nhóm LẪN nhãn toggle ngay dưới).
-    'motionSettingsDrawer.groupKenBurns.title': 'Ken Burns',
+    // Point Move (thay Ken Burns, phản hồi Giang) — danh sách điểm chuyển động tự định nghĩa.
+    'motionSettingsDrawer.groupPointMove.title': 'Point Move',
     // XOÁ (29/08/2026) — 3 key 'interval.*' ("Seconds per photo") bỏ hẳn cùng hàng UI đã dời sang
     // panel VBG cha — xem visualBgSettingsDrawer.durationSeconds.*/durationMode.* ngay dưới.
     // MỚI (29/08/2026, phản hồi Giang) — toggle "Có áp dụng Transition hay không", ĐỘC LẬP với việc
-    // chọn hiệu ứng (select ngay dưới LUÔN hiện, kể cả tắt) — mirror `kenBurns.label` ngay dưới.
+    // chọn hiệu ứng (select ngay dưới LUÔN hiện, kể cả tắt).
     'motionSettingsDrawer.transitionEnabled.label': 'Apply transition',
     'motionSettingsDrawer.transition.label': 'Transition effect',
     'motionSettingsDrawer.transition.fade': 'Fade',
@@ -203,28 +202,29 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // SỬA (30/08/2026, phản hồi Giang — đổi chữ "old" thành "before") — CHỈ đổi CHỮ hiển thị,
     // field JS vẫn tên `edgeFlipStaticOld` (không đổi, tránh xáo trộn không cần thiết).
     'motionSettingsDrawer.edgeFlipStaticOld.label': 'Keep before image still',
-    // SỬA (29/08/2026) — 'Photo Movement' đổi lại 'Ken Burns' (cùng lý do groupKenBurns.title trên).
-    // XOÁ 'kenBurns.hint' — dòng phụ dưới nhãn đã bỏ khỏi template (renderMotionEditBody()).
-    'motionSettingsDrawer.kenBurns.label': 'Ken Burns',
-    // MỚI ("Nhóm 2", 18/07/2026, phản hồi Giang) — 13 chế độ Ken Burns, THAY HẲN "Nhóm 1" (8 biến
-    // thể random tự động, không chọn được).
-    'motionSettingsDrawer.kenBurnsMode.label': 'Movement style',
-    'motionSettingsDrawer.kenBurnsMode.groupPan': 'Pan only',
-    'motionSettingsDrawer.kenBurnsMode.panLeft': 'Pan left',
-    'motionSettingsDrawer.kenBurnsMode.panRight': 'Pan right',
-    'motionSettingsDrawer.kenBurnsMode.panTop': 'Pan up',
-    'motionSettingsDrawer.kenBurnsMode.panBottom': 'Pan down',
-    'motionSettingsDrawer.kenBurnsMode.panRandom': 'Pan (random direction)',
-    'motionSettingsDrawer.kenBurnsMode.groupZoom': 'Zoom only (center)',
-    'motionSettingsDrawer.kenBurnsMode.zoomIn': 'Zoom in',
-    'motionSettingsDrawer.kenBurnsMode.zoomOut': 'Zoom out',
-    'motionSettingsDrawer.kenBurnsMode.zoomRandom': 'Zoom (random in/out)',
-    'motionSettingsDrawer.kenBurnsMode.groupZoomPan': 'Zoom + pan',
-    'motionSettingsDrawer.kenBurnsMode.zoomPanLeft': 'Zoom + pan left',
-    'motionSettingsDrawer.kenBurnsMode.zoomPanRight': 'Zoom + pan right',
-    'motionSettingsDrawer.kenBurnsMode.zoomPanTop': 'Zoom + pan up',
-    'motionSettingsDrawer.kenBurnsMode.zoomPanBottom': 'Zoom + pan down',
-    'motionSettingsDrawer.kenBurnsMode.zoomPanRandom': 'Zoom + pan (random direction)',
+    // Point Move (thay Ken Burns, phản hồi Giang) — danh sách điểm chuyển động NGƯỜI DÙNG tự định
+    // nghĩa (Linear X/Y, Rotate, Zoom, Flip X/Y), thay cho 13 chế độ Ken Burns cố định.
+    'motionSettingsDrawer.pointMove.list.label': 'Point moves',
+    'motionSettingsDrawer.pointMove.list.count': '{n} point move',
+    'motionSettingsDrawer.pointMove.runMode.label': 'Run mode',
+    'motionSettingsDrawer.pointMove.runMode.all': 'All move',
+    'motionSettingsDrawer.pointMove.runMode.one': 'One move',
+    'motionSettingsDrawer.pointMove.oneOrder.label': 'Pick order',
+    'motionSettingsDrawer.pointMove.oneOrder.sequential': 'Sequential',
+    'motionSettingsDrawer.pointMove.oneOrder.random': 'Random',
+    'motionSettingsDrawer.pointMove.timing.label': 'Timing',
+    'motionSettingsDrawer.pointMove.timing.hint': 'Drag each point to set when (left-right) and how strongly (up-down) it applies.',
+    'motionSettingsDrawer.pointMove.add.label': 'Add point move',
+    'motionSettingsDrawer.pointMove.itemName': 'Point move {n}',
+    'motionSettingsDrawer.pointMove.edit.title': 'Edit point move',
+    'motionSettingsDrawer.pointMove.field.mode.single': 'Single',
+    'motionSettingsDrawer.pointMove.field.mode.randomRange': 'Random range',
+    'motionSettingsDrawer.pointMove.field.linearX': 'Linear X',
+    'motionSettingsDrawer.pointMove.field.linearY': 'Linear Y',
+    'motionSettingsDrawer.pointMove.field.rotate': 'Rotate',
+    'motionSettingsDrawer.pointMove.field.zoom': 'Zoom',
+    'motionSettingsDrawer.pointMove.field.flipX': 'Flip X',
+    'motionSettingsDrawer.pointMove.field.flipY': 'Flip Y',
 
     // MỚI (18/07/2026, phản hồi Giang — "thêm thời gian transition giữa 2 ảnh"). XOÁ
     // 'transitionDuration.hint' — dòng phụ dưới nhãn đã bỏ khỏi template.
@@ -277,8 +277,6 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     // MỚI (29/08/2026, phản hồi Giang) — "React Beat Audio": pulse zoom/pan/rotate bắn theo beat nhạc.
     'motionPresetsDrawer.beatReact.groupTitle': 'React Beat Audio',
     'motionPresetsDrawer.beatReact.enabled.label': 'React to beat',
-    'motionPresetsDrawer.beatReact.replaceMovement.label': 'Replace movement',
-    'motionPresetsDrawer.beatReact.replaceMovement.hint': 'On: replaces normal Ken Burns movement. Off: both run together.',
     'motionPresetsDrawer.beatReact.zoom.title': 'Zoom',
     'motionPresetsDrawer.beatReact.zoom.maxLabel': 'Zoom max',
     'motionPresetsDrawer.beatReact.pan.title': 'Pan',
