@@ -338,7 +338,7 @@ function renderPointMoveListBody(pointMoves) {
 
 /** Dựng 1 field/point move ("-n 0 n" slider hoặc dual-range) — DÙNG CHUNG cho 6 field.
  * @param {string} key - 'linearX'|'linearY'|'rotate'|'zoom'|'flipX'|'flipY' (dùng làm phần ID).
- * @param {object} field - `pointMove[key]` — {mode, unit, single, rangeMin, rangeMax}.
+ * @param {object} field - `pointMove[key]` — {mode, unit, single, rangeMin, rangeMax, applyTimingIntensity}.
  * @param {{titleKey:string, hasUnit:boolean, boundMin:number, boundMax:number, step:number, suffix:string, isLast?:boolean}} cfg
  */
 function renderPointMoveFieldRows(key, field, cfg) {
@@ -372,6 +372,10 @@ function renderPointMoveFieldRows(key, field, cfg) {
                                     </select>
                                 </div>
                             </div>
+                            <label class="flex items-center gap-2 mb-3 cursor-pointer">
+                                <input type="checkbox" data-ptmove-applyintensity="${key}" class="w-3.5 h-3.5 rounded accent-sky-500 shrink-0" ${field.applyTimingIntensity ? 'checked' : ''}>
+                                <span class="text-[11px] text-slate-400" data-i18n="motionSettingsDrawer.pointMove.field.applyTimingIntensity.label">${t('motionSettingsDrawer.pointMove.field.applyTimingIntensity.label')}</span>
+                            </label>
                             <div class="flex justify-end mb-1.5">
                                 <span id="ptmove-${key}-value-label" class="text-xs text-slate-300 font-mono">${isSingle ? `${field.single}${cfg.suffix}` : `${field.rangeMin}${cfg.suffix} ~ ${field.rangeMax}${cfg.suffix}`}</span>
                             </div>
@@ -402,40 +406,39 @@ function renderPointMoveEditBody(pointMove) {
 }
 
 /** Khung chứa đường cong Timing — SVG THẬT dựng bởi core/point-move-timing-ui.js, workflow tự
- * append vào `#ptmove-timing-container` sau khi `_render()` xong. Kèm danh sách ô nhập số
- * timingX/timingY cho TỪNG point move ĐÃ TICK (bật/tắt point move không xử lý ở màn này — dùng
- * công tắc tổng `pointMoveEnabled` ở màn Edit, hoặc checkbox từng điểm ở màn Danh sách) — kéo trên
- * SVG và gõ số ở đây ĐỒNG BỘ 2 CHIỀU (xem event/workflow/motion-presets.js::_patchTimingPreview()).
- * KHÔNG còn field nào bị khoá X — point move #0 kéo/nhập tự do như mọi điểm khác (phản hồi Giang).
- * @param {object[]} pointMoves - MẢNG ĐẦY ĐỦ (không lọc trước) — cần index gốc để đặt tên "Point
- *   move N" khớp với màn Danh sách; phần tử chưa tick tự bị bỏ qua khi render. */
+ * append vào `#ptmove-timing-container` sau khi `_render()` xong. Kéo trực tiếp trên đồ thị để
+ * chỉnh gần đúng; TAP (không kéo) vào 1 node mở modal nhập số chính xác (phản hồi Giang — thay cho
+ * list ô nhập số cũ, xem event/workflow/motion-presets.js::openPointMoveTimingNodeModal()).
+ * 2 radio "Điều khiển X"/"Điều khiển Y" (mặc định X) — core-ui tự đọc trực tiếp lúc kéo để biết
+ * trục nào ĐANG BỊ KHOÁ (tránh chỉnh nhầm trục lúc tay lệch nhẹ, phản hồi Giang) — KHÔNG cần JS
+ * wiring gì thêm (browser tự quản lý :checked, core-ui tự querySelector đọc). 2 nút zoom +/- CHỈ
+ * đổi CSS `transform:scaleX()` cục bộ theo trục thời gian (KHÔNG lưu, KHÔNG qua eventBus — thuần
+ * view, giãn khoảng cách giữa các node để đỡ bấm/kéo nhầm, KHÔNG phóng to toàn bộ hình, xem
+ * event/workflow/app-settings.js::_renderPointMoveTiming()).
+ * @param {object[]} pointMoves - CHƯA dùng trực tiếp trong hàm này nữa (danh sách ô nhập số ĐÃ bỏ)
+ *   — giữ tham số để chữ ký hàm ổn định, phòng cần lại sau này. */
 function renderPointMoveTimingBody(pointMoves) {
-    const rowsHtml = pointMoves.map((p, i) => {
-        if (!p.checked) return '';
-        return `
-            <div class="flex items-center gap-2 py-2.5 border-b border-white/5 last:border-0" data-ptmove-timing-row="${escapeHtml(p.id)}">
-                <span class="text-xs text-slate-400 w-24 shrink-0 truncate">${tFormat('motionSettingsDrawer.pointMove.itemName', { n: i })}</span>
-                <div class="flex items-center gap-1">
-                    <input type="number" data-ptmove-timing-field="timingX" min="0" max="100" step="1" value="${p.timingX}" class="w-14 bg-black/50 border border-white/10 rounded-lg px-1.5 py-1 text-xs text-white outline-none text-right">
-                    <span class="text-[10px] text-slate-500">%</span>
-                </div>
-                <div class="flex items-center gap-1">
-                    <input type="number" data-ptmove-timing-field="timingY" min="-150" max="150" step="1" value="${p.timingY}" class="w-14 bg-black/50 border border-white/10 rounded-lg px-1.5 py-1 text-xs text-white outline-none text-right">
-                </div>
-            </div>`;
-    }).join('');
     return `
         <p class="text-xs text-slate-400 mb-3 px-1">${t('motionSettingsDrawer.pointMove.timing.hint')}</p>
-        <div class="glass-modal rounded-2xl p-4 mb-4">
-            <div id="ptmove-timing-container"></div>
-        </div>
-        <div class="glass-modal rounded-2xl px-4">
-            <div class="flex items-center gap-2 py-2 text-[10px] uppercase tracking-wide text-slate-500 border-b border-white/5">
-                <span class="w-24 shrink-0"></span>
-                <span class="w-[52px]">${t('motionSettingsDrawer.pointMove.timing.xLabel')}</span>
-                <span>${t('motionSettingsDrawer.pointMove.timing.yLabel')}</span>
+        <div class="glass-modal rounded-2xl p-4 mb-3">
+            <div id="ptmove-timing-scroll" class="ptmove-timing-scroll">
+                <div id="ptmove-timing-container" class="ptmove-timing-zoomable"></div>
             </div>
-            ${rowsHtml}
+            <div class="flex items-center justify-end gap-2 mt-2">
+                <button type="button" id="btn-ptmove-timing-zoom-out" class="w-7 h-7 rounded-lg bg-black/40 hover:bg-black/60 text-slate-300 text-base font-bold transition-colors">−</button>
+                <span id="ptmove-timing-zoom-label" class="text-[11px] text-slate-400 w-10 text-center">0%</span>
+                <button type="button" id="btn-ptmove-timing-zoom-in" class="w-7 h-7 rounded-lg bg-black/40 hover:bg-black/60 text-slate-300 text-base font-bold transition-colors">+</button>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <label class="flex-1 cursor-pointer">
+                <input type="radio" name="ptmove-timing-axis-mode" value="x" class="peer sr-only" checked>
+                <span class="block text-center py-2 rounded-xl text-xs font-semibold bg-black/40 text-slate-400 peer-checked:bg-sky-500 peer-checked:text-white transition-colors">${t('motionSettingsDrawer.pointMove.timing.axisX')}</span>
+            </label>
+            <label class="flex-1 cursor-pointer">
+                <input type="radio" name="ptmove-timing-axis-mode" value="y" class="peer sr-only">
+                <span class="block text-center py-2 rounded-xl text-xs font-semibold bg-black/40 text-slate-400 peer-checked:bg-sky-500 peer-checked:text-white transition-colors">${t('motionSettingsDrawer.pointMove.timing.axisY')}</span>
+            </label>
         </div>
     `;
 }
