@@ -409,8 +409,9 @@ function renderPointMoveEditBody(pointMove) {
  * append vào `#ptmove-timing-container` sau khi `_render()` xong. Kéo trực tiếp trên đồ thị để
  * chỉnh gần đúng; TAP (không kéo) vào 1 node mở modal nhập số chính xác (phản hồi Giang — thay cho
  * list ô nhập số cũ, xem event/workflow/motion-presets.js::openPointMoveTimingNodeModal()).
- * 2 radio "Điều khiển X"/"Điều khiển Y" (mặc định X) — core-ui tự đọc trực tiếp lúc kéo để biết
- * trục nào ĐANG BỊ KHOÁ (tránh chỉnh nhầm trục lúc tay lệch nhẹ, phản hồi Giang) — KHÔNG cần JS
+ * 2 checkbox ĐỘC LẬP "Điều khiển X"/"Điều khiển Y" (mặc định CHỈ X — phản hồi Giang: KHÔNG loại trừ
+ * nhau, có thể tick CẢ HAI để kéo tự do cả 2 trục cùng lúc) — core-ui tự đọc trực tiếp lúc kéo để
+ * biết trục nào ĐANG BỊ KHOÁ (tránh chỉnh nhầm trục lúc tay lệch nhẹ, phản hồi Giang) — KHÔNG cần JS
  * wiring gì thêm (browser tự quản lý :checked, core-ui tự querySelector đọc). 2 nút zoom +/- CHỈ
  * đổi CSS `transform:scaleX()` cục bộ theo trục thời gian (KHÔNG lưu, KHÔNG qua eventBus — thuần
  * view, giãn khoảng cách giữa các node để đỡ bấm/kéo nhầm, KHÔNG phóng to toàn bộ hình, xem
@@ -432,11 +433,11 @@ function renderPointMoveTimingBody(pointMoves) {
         </div>
         <div class="flex gap-2">
             <label class="flex-1 cursor-pointer">
-                <input type="radio" name="ptmove-timing-axis-mode" value="x" class="peer sr-only" checked>
+                <input type="checkbox" id="ptmove-timing-axis-x" class="peer sr-only" checked>
                 <span class="block text-center py-2 rounded-xl text-xs font-semibold bg-black/40 text-slate-400 peer-checked:bg-sky-500 peer-checked:text-white transition-colors">${t('motionSettingsDrawer.pointMove.timing.axisX')}</span>
             </label>
             <label class="flex-1 cursor-pointer">
-                <input type="radio" name="ptmove-timing-axis-mode" value="y" class="peer sr-only">
+                <input type="checkbox" id="ptmove-timing-axis-y" class="peer sr-only">
                 <span class="block text-center py-2 rounded-xl text-xs font-semibold bg-black/40 text-slate-400 peer-checked:bg-sky-500 peer-checked:text-white transition-colors">${t('motionSettingsDrawer.pointMove.timing.axisY')}</span>
             </label>
         </div>
