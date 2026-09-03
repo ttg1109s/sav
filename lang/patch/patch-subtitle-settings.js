@@ -219,8 +219,6 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'motionSettingsDrawer.pointMove.timing.yLabel': 'Intensity',
     'motionSettingsDrawer.pointMove.timing.axisX': 'Control X',
     'motionSettingsDrawer.pointMove.timing.axisY': 'Control Y',
-    'motionSettingsDrawer.pointMove.timing.modal.startTitle': 'Start position',
-    'motionSettingsDrawer.pointMove.timing.modal.endTitle': 'End position',
     'motionSettingsDrawer.pointMove.add.label': 'Add point move',
     'motionSettingsDrawer.pointMove.itemName': 'Point move {n}',
     'motionSettingsDrawer.pointMove.edit.title': 'Edit point move',
