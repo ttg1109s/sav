@@ -315,10 +315,10 @@ function renderMotionEditBody(preset) {
 
 /** Danh sách point move — [kéo] | checkbox | tên | icon nhân bản | icon xoá | icon sửa. Point move
  * VỊ TRÍ ĐẦU (index 0) checkbox khoá (disabled, luôn checked) — xem core/motion-presets.js::
- * sanitizeMotionPointMoves(); vẫn KÉO-THẢ hoán đổi timingX được bình thường như mọi hàng khác. Nút
+ * sanitizeMotionPointMoves(); vẫn KÉO-THẢ hoán đổi được bình thường như mọi hàng khác. Nút
  * xoá disabled khi CHỈ CÒN 1 point move (luôn phải giữ ít nhất 1). Kéo trên tay cầm (⠿) để HOÁN ĐỔI
  * timingX với hàng thả vào (phản hồi Giang) — xem event/workflow/app-settings.js wiring +
- * event/workflow/motion-presets.js::swapPointMoveTimingX().
+ * event/workflow/motion-presets.js::swapPointMoveOrder().
  * @param {object[]} pointMoves */
 function renderPointMoveListBody(pointMoves) {
     const canDelete = pointMoves.length > 1;
@@ -440,14 +440,14 @@ function renderPointMoveTimingBody(pointMoves) {
                 <button type="button" id="btn-ptmove-timing-zoom-in" class="w-7 h-7 rounded-lg bg-black/40 hover:bg-black/60 text-slate-300 text-base font-bold transition-colors">+</button>
             </div>
         </div>
-        <div class="flex gap-2">
-            <label class="flex-1 cursor-pointer">
-                <input type="checkbox" id="ptmove-timing-axis-x" class="peer sr-only" checked>
-                <span class="block text-center py-2 rounded-xl text-xs font-semibold bg-black/40 text-slate-400 peer-checked:bg-sky-500 peer-checked:text-white transition-colors">${t('motionSettingsDrawer.pointMove.timing.axisX')}</span>
+        <div class="flex gap-4 px-1">
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="ptmove-timing-axis-x" class="w-4 h-4 rounded accent-sky-500" checked>
+                <span class="text-xs text-slate-300">${t('motionSettingsDrawer.pointMove.timing.axisX')}</span>
             </label>
-            <label class="flex-1 cursor-pointer">
-                <input type="checkbox" id="ptmove-timing-axis-y" class="peer sr-only">
-                <span class="block text-center py-2 rounded-xl text-xs font-semibold bg-black/40 text-slate-400 peer-checked:bg-sky-500 peer-checked:text-white transition-colors">${t('motionSettingsDrawer.pointMove.timing.axisY')}</span>
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="ptmove-timing-axis-y" class="w-4 h-4 rounded accent-sky-500">
+                <span class="text-xs text-slate-300">${t('motionSettingsDrawer.pointMove.timing.axisY')}</span>
             </label>
         </div>
     `;
