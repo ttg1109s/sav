@@ -392,7 +392,9 @@ const workflowAppSettings = {
         );
     },
 
-    /** Danh sách point move của preset đang sửa — checkbox | tên | xoá | sửa. */
+    /** Danh sách point move của preset đang sửa — [kéo] | checkbox | tên | nhân bản | xoá | sửa.
+     * Kéo trên tay cầm (⠿) HOÁN ĐỔI timingX với hàng thả vào (phản hồi Giang, pointer-events THUẦN —
+     * touch-compatible, không dùng HTML5 Drag-and-Drop API vì hỗ trợ cảm ứng/mobile kém). */
     _renderPointMoveList() {
         this._currentRenderFn = () => this._renderPointMoveList();
         const preset = findMotionPresetById(appState.get('motionPresets'), workflowMotionPresets._editingId); // core/motion-presets.js
@@ -404,6 +406,9 @@ const workflowAppSettings = {
                 body.querySelectorAll('[data-ptmove-checkbox]').forEach((el) => {
                     el.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.toggleChecked.change', payload: { id: el.dataset.ptmoveCheckbox, checked: e.target.checked } }));
                 });
+                body.querySelectorAll('[data-ptmove-duplicate]').forEach((el) => {
+                    el.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.duplicate.click', payload: { id: el.dataset.ptmoveDuplicate } }));
+                });
                 body.querySelectorAll('[data-ptmove-delete]').forEach((el) => {
                     el.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.delete.click', payload: { id: el.dataset.ptmoveDelete } }));
                 });
@@ -412,6 +417,36 @@ const workflowAppSettings = {
                 });
                 const addBtn = body.querySelector('#btn-ptmove-add');
                 if (addBtn) addBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.add.click', payload: {} }));
+
+                // Kéo-thả hoán đổi timingX — pointer-events thuần (touch OK), gom addEventListener tại đây (Workflow, không bị Rule 5a giới hạn).
+                const rows = Array.from(body.querySelectorAll('[data-ptmove-row]'));
+                let draggingId = null;
+                let hoverRowEl = null;
+                body.querySelectorAll('[data-ptmove-drag-handle]').forEach((handle) => {
+                    handle.addEventListener('pointerdown', (e) => {
+                        e.preventDefault();
+                        draggingId = handle.dataset.ptmoveDragHandle;
+                    });
+                });
+                document.addEventListener('pointermove', (e) => {
+                    if (!draggingId) return;
+                    if (hoverRowEl) hoverRowEl.classList.remove('ring-2', 'ring-sky-400');
+                    hoverRowEl = rows.find((row) => {
+                        const rect = row.getBoundingClientRect();
+                        return e.clientY >= rect.top && e.clientY <= rect.bottom;
+                    }) || null;
+                    if (hoverRowEl) hoverRowEl.classList.add('ring-2', 'ring-sky-400');
+                });
+                document.addEventListener('pointerup', () => {
+                    if (!draggingId) return;
+                    if (hoverRowEl) hoverRowEl.classList.remove('ring-2', 'ring-sky-400');
+                    const targetId = hoverRowEl ? hoverRowEl.dataset.ptmoveRow : null;
+                    if (targetId && targetId !== draggingId) {
+                        eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.swapTimingX.change', payload: { idA: draggingId, idB: targetId } });
+                    }
+                    draggingId = null;
+                    hoverRowEl = null;
+                });
             },
         );
     },

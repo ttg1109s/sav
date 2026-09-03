@@ -281,22 +281,72 @@ const workflowMotionPresets = {
         workflowAppSettings._renderPointMoveList(); // liên tuyến domain — vẽ lại TẠI CHỖ
     },
 
-    /** Thêm 1 point move trắng vào CUỐI danh sách, vẽ lại TẠI CHỖ. */
+    /** Thêm 1 point move trắng vào CUỐI danh sách — `timingX` tự tịnh tiến +0.2% so với point move
+     * CUỐI hiện có (kẹp tối đa 100%, phản hồi Giang — tránh chồng khít lên nhau tại 0% mỗi lần thêm,
+     * dễ thấy/dễ kéo tách ra hơn ngay khi vừa tạo), vẽ lại TẠI CHỖ. */
     async addPointMove() {
-        await this._mutateEditing((p) => { p.pointMoves = [...p.pointMoves, buildBlankPointMove()]; }); // core/motion-presets.js
+        await this._mutateEditing((p) => {
+            const blank = buildBlankPointMove(); // core/motion-presets.js
+            const lastTimingX = p.pointMoves.length > 0 ? p.pointMoves[p.pointMoves.length - 1].timingX : 0;
+            blank.timingX = Math.min(100, lastTimingX + 0.2);
+            p.pointMoves = [...p.pointMoves, blank];
+        });
+        workflowAppSettings._renderPointMoveList(); // liên tuyến domain
+    },
+
+    /** Nhân bản 1 point move — bản sao GIỮ NGUYÊN mọi thông số (deep-copy 6 field con, tránh 2 point
+     * move cùng trỏ chung 1 object field gây sửa 1 bên ảnh hưởng bên kia), `id` MỚI, LUÔN `checked:
+     * true` mặc định, `timingX` tự tịnh tiến +0.2% (CÙNG quy tắc `addPointMove()` — tránh chồng khít
+     * lên bản gốc), chèn vào CUỐI danh sách. Vẽ lại TẠI CHỖ.
+     * @param {string} id */
+    async duplicatePointMove(id) {
+        await this._mutateEditing((p) => {
+            const original = p.pointMoves.find((pm) => pm.id === id);
+            if (!original) return;
+            const lastTimingX = p.pointMoves[p.pointMoves.length - 1].timingX;
+            const clone = {
+                ...original,
+                id: generatePointMoveId(), // core/motion-presets.js
+                checked: true,
+                timingX: Math.min(100, lastTimingX + 0.2),
+                linearX: { ...original.linearX }, linearY: { ...original.linearY },
+                rotate: { ...original.rotate }, zoom: { ...original.zoom },
+                flipX: { ...original.flipX }, flipY: { ...original.flipY },
+            };
+            p.pointMoves = [...p.pointMoves, clone];
+        });
+        workflowAppSettings._renderPointMoveList(); // liên tuyến domain
+    },
+
+    /** Ứng kéo-thả đổi vị trí TRONG màn Danh sách — HOÁN ĐỔI `timingX` giữa 2 point move (phản hồi
+     * Giang), KHÔNG đụng tới thứ tự MẢNG/danh tính (id, tên "Point move N", khoá checked của vị trí
+     * đầu) — chỉ 2 con số timingX trao đổi cho nhau. Vị trí đầu (index 0) VẪN kéo-thả hoán đổi được
+     * bình thường (chỉ checked của nó bị khoá, timingX thì tự do — xem core/motion-presets.js).
+     * @param {string} idA @param {string} idB */
+    async swapPointMoveTimingX(idA, idB) {
+        if (idA === idB) return;
+        await this._mutateEditing((p) => {
+            const idxA = p.pointMoves.findIndex((pm) => pm.id === idA);
+            const idxB = p.pointMoves.findIndex((pm) => pm.id === idB);
+            if (idxA === -1 || idxB === -1) return;
+            const timingXA = p.pointMoves[idxA].timingX;
+            const timingXB = p.pointMoves[idxB].timingX;
+            p.pointMoves[idxA] = { ...p.pointMoves[idxA], timingX: timingXB };
+            p.pointMoves[idxB] = { ...p.pointMoves[idxB], timingX: timingXA };
+        });
         workflowAppSettings._renderPointMoveList(); // liên tuyến domain
     },
 
     /** Xoá 1 point move — LUÔN giữ ít nhất 1 phần tử (guard, UI đã disable nút xoá khi chỉ còn 1,
      * phòng hờ vẫn chặn lại ở đây). Nếu phần tử VỊ TRÍ ĐẦU bị xoá, phần tử KẾ TIẾP tự trở thành vị
-     * trí đầu MỚI và tự bị khoá checked/timingX qua `sanitizeMotionPointMoves()` lúc `_mutateEditing`
-     * ghi lại — KHÔNG cần xử lý riêng ở đây.
+     * trí đầu MỚI và tự bị khoá `checked` qua `sanitizeMotionPointMoves()` lúc `_mutateEditing` ghi
+     * lại — KHÔNG cần xử lý riêng ở đây.
      * @param {string} id */
     async deletePointMove(id) {
         await this._mutateEditing((p) => {
             if (p.pointMoves.length <= 1) return; // guard: không xoá xuống dưới 1
             const filtered = p.pointMoves.filter((pm) => pm.id !== id);
-            p.pointMoves = sanitizeMotionPointMoves(filtered); // core/motion-presets.js — ép lại khoá vị trí đầu ngay (không đợi lượt sanitize kế tiếp)
+            p.pointMoves = sanitizeMotionPointMoves(filtered); // core/motion-presets.js — ép lại khoá checked vị trí đầu ngay (không đợi lượt sanitize kế tiếp)
         });
         workflowAppSettings._renderPointMoveList(); // liên tuyến domain
     },
