@@ -103,6 +103,14 @@ const routerMotionPresets = (() => {
                 workflowMotionPresets.addPointMove();
                 break;
 
+            case 'motionPresets.pointMove.duplicate.click':
+                workflowMotionPresets.duplicatePointMove(msg.payload.id);
+                break;
+
+            case 'motionPresets.pointMove.swapTimingX.change':
+                workflowMotionPresets.swapPointMoveTimingX(msg.payload.idA, msg.payload.idB);
+                break;
+
             case 'motionPresets.pointMove.delete.click':
                 workflowMotionPresets.deletePointMove(msg.payload.id);
                 break;
