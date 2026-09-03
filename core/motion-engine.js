@@ -359,15 +359,17 @@ function resolveMotionEngineTransitionOption(value, candidates, excludeValue) {
 }
 
 /**
- * Core thuần: BẮT ĐẦU Point Move bằng Web Animations API trên layer CON `.me-pointmove-pan` (KHÔNG
- * phải layer ngoài — tách 2 phần tử từ trước, xem docstring đầu assets/css/motion-engine.css). Nơi
- * gọi (event/workflow/motion-engine.js) tự giữ tham chiếu layer con + tự giữ luôn `Animation` object
- * trả về (để `.cancel()` lúc cần) — Rule 2, hàm này KHÔNG tự quản lý vòng đời Animation.
+ * Core thuần: BẮT ĐẦU Point Move bằng Web Animations API trên phần tử NHẬN transform Point Move
+ * (`motionEnginePointMoveWrapper`, bọc CHUNG cả 2 layer A/B — SỬA, phản hồi Giang: "point move phải
+ * là 1 div cha bao quanh layer A, B", xem docstring đầu assets/css/motion-engine.css). Nơi gọi
+ * (event/workflow/motion-engine.js) tự giữ tham chiếu phần tử đó + tự giữ luôn `Animation` object
+ * trả về (để `.cancel()` lúc cần) — Rule 2, hàm này KHÔNG tự quản lý vòng đời Animation, cũng KHÔNG
+ * tự biết/quan tâm phần tử truyền vào là gì (generic, nhận bất kỳ `panEl` nào).
  * `easing`/`durationMs` do nơi gọi quyết định — 'one' mode tween thẳng baseline->target 2 keyframe
  * (dùng `ease-in-out`); 'all' mode PHẢI dùng `'linear'` (nhiều keyframe ĐÃ sample sẵn theo đường
  * cong Timing — easing khác 'linear' ở tầng WAAPI sẽ làm méo lại đường cong đã tính, xem
  * event/workflow/motion-engine.js::_buildPointMoveAllKeyframes()).
- * @param {HTMLElement} panEl - layer CON `.me-pointmove-pan`.
+ * @param {HTMLElement} panEl - phần tử NHẬN transform (thực tế: `motionEnginePointMoveWrapper`).
  * @param {object[]} keyframes - mảng {transform} cho `panEl.animate()`.
  * @param {number} durationMs
  * @param {string} easing - 1 trong MOTION_ENGINE_TRANSITION_EASINGS, hoặc 'linear' cho 'all' mode.
@@ -380,12 +382,14 @@ function startPointMoveAnimation(panEl, keyframes, durationMs, easing) {
 
 /**
  * Core thuần: DỪNG + RESET HẲN Point Move về trạng thái gốc (transform trung lập) — dùng khi đổi
- * ảnh mới hoặc layer chuyển sang "outgoing". `.cancel()` Animation đang giữ (nếu có) TRƯỚC khi reset
+ * ảnh mới (SỬA, phản hồi Giang — Point Move giờ CHUNG 1 phần tử cho cả 2 layer A/B, nơi gọi tự dừng
+ * animation LƯỢT TRƯỚC trên chính phần tử đó trước khi bắt animation MỚI, xem event/workflow/
+ * motion-engine.js::_activatePointMove()). `.cancel()` Animation đang giữ (nếu có) TRƯỚC khi reset
  * inline style — `cancel()` tự gỡ hiệu lực `fill:'forwards'` đang áp, không làm vậy trước thì set
  * lại style ngay sau có thể bị animation "forwards" ghi đè lại.
- * @param {HTMLElement} panEl - layer CON `.me-pointmove-pan`.
- * @param {Animation|null} animation - Animation Workflow đang giữ cho layer này (null nếu chưa
- *   từng kích hoạt hoặc đã dừng trước đó).
+ * @param {HTMLElement} panEl - phần tử NHẬN transform (thực tế: `motionEnginePointMoveWrapper`).
+ * @param {Animation|null} animation - Animation Workflow đang giữ (null nếu chưa từng kích hoạt
+ *   hoặc đã dừng trước đó).
  */
 function stopPointMoveAnimation(panEl, animation) {
     if (animation) { try { animation.cancel(); } catch (e) {} }
@@ -456,8 +460,9 @@ function finishMotionEngineTransitionVisuals(outgoingLayerEl, incomingLayerEl) {
 // xem event/workflow/motion-engine.js.
 
 /**
- * Core thuần: dọn class DOM của 1 layer về trạng thái nghỉ (KHÔNG đụng ảnh/Point Move — Workflow
- * tự gọi riêng `setMotionEngineLayerImage()`/`stopPointMoveAnimation()` cho từng layer, xem
+ * Core thuần: dọn class DOM của 1 layer về trạng thái nghỉ (KHÔNG đụng ảnh — Workflow tự gọi riêng
+ * `setMotionEngineLayerImage()` cho TỪNG layer + `stopPointMoveAnimation()` MỘT LẦN cho
+ * `motionEnginePointMoveWrapper` (bọc chung cả 2 layer, không phải theo từng layer nữa — xem
  * event/workflow/motion-engine.js::stop() — Rule 3 CẤM hàm này tự gọi 2 hàm đó nội bộ).
  * @param {HTMLElement} layerEl
  */

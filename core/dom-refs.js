@@ -247,11 +247,15 @@
         // rời rạc) — CHỈ 1 phần tử DUY NHẤT, KHÔNG còn 2 layer riêng cho từng player như bản trước.
         const motionEngineReactLayer = document.getElementById('visual-motion-react');
         const motionEngineContainer = document.getElementById('visual-motion-container');
+        // SỬA (phản hồi Giang — "point move phải là 1 div cha bao quanh layer A, B") — Point Move
+        // transform giờ áp DUY NHẤT lên `motionEnginePointMoveWrapper` (`#visual-motion-players`,
+        // bọc CHUNG cả 2 layer A/B), KHÔNG còn ở từng `motionEngineLayer1Pan`/`...2Pan` riêng nữa —
+        // xem event/workflow/motion-engine.js.
+        const motionEnginePointMoveWrapper = document.getElementById('visual-motion-players');
         const motionEngineLayer1 = document.getElementById('visual-motion-layer-1');
         const motionEngineLayer2 = document.getElementById('visual-motion-layer-2');
-        // MỚI (Ken Burns, 18/07/2026) — layer CON bên trong mỗi motion-layer, mang
-        // background-image + animation pan/zoom Ken Burns (TÁCH khỏi layer ngoài — layer ngoài chỉ
-        // còn lo animation chuyển cảnh, xem docstring index.html/assets/css/motion-engine.css).
+        // Layer CON bên trong mỗi motion-layer — CHỈ còn mang `background-image` (KHÔNG còn nhận
+        // transform Point Move — đã dời lên `motionEnginePointMoveWrapper`, xem trên).
         const motionEngineLayer1Pan = document.getElementById('visual-motion-layer-1-pan');
         const motionEngineLayer2Pan = document.getElementById('visual-motion-layer-2-pan');
         // MỚI (v13 Batch A) — nút điều hướng DUY NHẤT mở panel "Visual Background", THAY 3 entry
