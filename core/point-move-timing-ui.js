@@ -9,9 +9,9 @@
  *   - Node ẢO 2 đầu (`id` = `POINT_MOVE_TIMING_START_ID`/`POINT_MOVE_TIMING_END_ID`) — LUÔN có mặt
  *     bất kể bao nhiêu point move đã tick (phản hồi Giang — "dù có 1 point duy nhất đều tạo được
  *     đường cong"), THUẦN HIỂN THỊ (phản hồi Giang — "không được kéo X/Y gì hết") — KHÔNG gắn
- *     listener nào (`dataset.interactive='false'`), cố định tại `preset.pointMoveTimingStartY`/
- *     `pointMoveTimingEndY` (core/motion-presets.js, mặc định 100, hiện KHÔNG có đường nào đổi
- *     được từ UI).
+ *     listener nào (`dataset.interactive='false'`), CỐ ĐỊNH CỨNG tại (0%, 0) và (100%, 0) — hằng
+ *     số thuần (phản hồi Giang — "phải ở vị trí 0-0 và 100-0"), KHÔNG lưu trong preset, KHÔNG có
+ *     đường nào đổi được từ UI.
  *   - Node "khoá" (`locked:true`, ứng point move index 0) — CHỈ khác biệt MÀU (viền xanh, đánh dấu
  *     "không bỏ tick được") — kéo tự do CẢ X LẪN Y như node thường.
  *   - Node thường — mọi point move khác đã tick.
@@ -21,12 +21,18 @@
  * là TAP (mở modal nhập số chính xác, xem event/workflow/motion-presets.js::
  * openPointMoveTimingNodeModal()) THAY VÌ kéo — tránh tap nhẹ bị hiểu nhầm thành kéo lệch 1-2 đơn vị.
  *
- * KHOÁ TRỤC — 2 radio "Điều khiển X"/"Điều khiển Y" (`name="ptmove-timing-axis-mode"`) nằm NGOÀI
- * cụm DOM này (component tĩnh, xem components/motion-settings-drawer.js) — callback kéo tự
- * `document.querySelector(...:checked)` đọc TRỰC TIẾP lúc kéo (KHÔNG cần truyền qua tham số hàm
- * hay eventBus, đơn giản là đọc state DOM hiện có — không phải gọi hàm khác, không vi phạm Rule 5a)
- * để biết trục nào ĐANG BỊ KHOÁ, giữ nguyên giá trị trục đó THEO ĐÚNG lúc `pointerdown` (tránh giật
- * nhẹ trên trục không mong muốn).
+ * KHOÁ TRỤC — 2 checkbox ĐỘC LẬP "Điều khiển X"/"Điều khiển Y" (`id="ptmove-timing-axis-x"`/
+ * `"ptmove-timing-axis-y"`, KHÔNG loại trừ nhau — phản hồi Giang) nằm NGOÀI cụm DOM này (component
+ * tĩnh, xem components/motion-settings-drawer.js) — callback kéo tự `document.getElementById(...)
+ * .checked` đọc TRỰC TIẾP lúc kéo (KHÔNG cần truyền qua tham số hàm hay eventBus, đơn giản là đọc
+ * state DOM hiện có — không phải gọi hàm khác, không vi phạm Rule 5a): CẢ HAI tick = kéo tự do cả 2
+ * trục; chỉ 1 tick = khoá trục còn lại (giữ nguyên giá trị TỪ LÚC `pointerdown`, tránh giật nhẹ trên
+ * trục không mong muốn); KHÔNG tick nào = không di chuyển (giữ nguyên cả 2).
+ *
+ * VỊ TRÍ TRỰC QUAN của node ĐANG KÉO được cập nhật NGAY trong callback `pointermove` (set thẳng
+ * `cx`/`cy` lên CHÍNH phần tử đang kéo) — KHÔNG đợi vòng qua eventBus/Workflow mới thấy di chuyển,
+ * đảm bảo bám ngón tay/con trỏ tức thời (phản hồi Giang). Đường CONG (polyline) vẫn phải qua
+ * Workflow vì cần gọi `computePointMoveCurveIntensityAt()` (core, cấm core gọi core).
  *
  * Rule 3 (core cấm gọi core khác) — file NÀY KHÔNG tự tính đường cong mượt (Catmull-Rom sống ở
  * core/motion-engine.js::computePointMoveCurveIntensityAt(), 1 file core KHÁC — cấm gọi). Nơi gọi
@@ -188,12 +194,19 @@ function buildPointMoveTimingCurveEl(points, curvePolylinePoints) {
         const yRatio = Math.max(0, Math.min(1, (POINT_MOVE_TIMING_PAD_Y + usableH - svgY) / usableH));
         const rawYValue = POINT_MOVE_TIMING_Y_MIN + yRatio * (POINT_MOVE_TIMING_Y_MAX - POINT_MOVE_TIMING_Y_MIN);
 
-        const axisRadio = document.querySelector('input[name="ptmove-timing-axis-mode"]:checked');
-        const axisMode = axisRadio ? axisRadio.value : 'x'; // mặc định 'x' nếu không tìm thấy radio (phòng hờ)
+        // 2 checkbox ĐỘC LẬP (KHÔNG loại trừ nhau, phản hồi Giang) — cả 2 tick = kéo tự do CẢ 2 trục;
+        // chỉ 1 tick = khoá trục còn lại; KHÔNG tick nào = giữ nguyên cả 2 (không di chuyển).
+        const xEnabled = document.getElementById('ptmove-timing-axis-x') ? document.getElementById('ptmove-timing-axis-x').checked : true; // mặc định X nếu không tìm thấy checkbox (phòng hờ)
+        const yEnabled = document.getElementById('ptmove-timing-axis-y') ? document.getElementById('ptmove-timing-axis-y').checked : false;
+        const xPercent = xEnabled ? rawXPercent : dragStartTimingX;
+        const yValue = yEnabled ? rawYValue : dragStartTimingY;
 
-        let xPercent, yValue;
-        if (axisMode === 'y') { xPercent = dragStartTimingX; yValue = rawYValue; }
-        else { xPercent = rawXPercent; yValue = dragStartTimingY; } // axisMode 'x' (mặc định)
+        // Cập nhật NGAY vị trí trực quan của CHÍNH node đang kéo (không đợi vòng qua eventBus/Workflow)
+        // — đảm bảo node LUÔN bám theo ngón tay/con trỏ tức thời, không phụ thuộc round-trip nào khác.
+        const cx = POINT_MOVE_TIMING_PAD_X + (xPercent / 100) * usableW;
+        const cy = POINT_MOVE_TIMING_PAD_Y + (1 - (yValue - POINT_MOVE_TIMING_Y_MIN) / (POINT_MOVE_TIMING_Y_MAX - POINT_MOVE_TIMING_Y_MIN)) * usableH;
+        draggingEl.setAttribute('cx', cx);
+        draggingEl.setAttribute('cy', cy);
 
         eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMoveTiming.nodeDrag.preview', payload: { id: draggingEl.dataset.pointMoveId, timingX: xPercent, timingY: yValue } });
     });

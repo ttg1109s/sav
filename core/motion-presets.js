@@ -27,15 +27,16 @@
  *      xếp trên đường cong Timing (xem components/motion-settings-drawer.js, core/
  *      point-move-timing-ui.js). Cường độ và toạ độ THỜI GIAN là 2 trục ĐỘC LẬP (progress-domain
  *      thuần, KHÔNG biết gì về đơn vị thật của 6 field) — công thức áp dụng cuối cùng ở event/
- *      workflow/motion-engine.js::_buildPointMoveAllKeyframes(). Đường cong LUÔN có ÍT NHẤT 2 node
- *      "ẢO" cố định ở 2 đầu (`pointMoveTimingStartY` tại 0%, `pointMoveTimingEndY` tại 100% — trục
- *      X khoá cứng, CHỈ chỉnh được Y, phản hồi Giang — "dù có 1 point duy nhất đều tạo được đường
- *      cong") NGOÀI các point move thật đã tick — đảm bảo đường cong LUÔN có hình dạng, kể cả 0/1
- *      point move được tick. Riêng việc NỘI SUY GIÁ TRỊ TARGET (6 field) chỉ dùng node ẢO ĐẦU (x=0,
- *      target trung tính) làm điểm xuất phát — node ẢO CUỐI (x=100) CHỈ ảnh hưởng hình dạng đường
- *      cong cường độ, KHÔNG có "target" nào (point move gần 100% nhất giữ nguyên giá trị của nó tới
- *      hết `advanceMs`) — point move #0 KHÔNG bắt buộc đứng ở 0% (phản hồi Giang — có thể ở n% bất
- *      kỳ, tự do kéo/nhập số như mọi point move khác).
+ *      workflow/motion-engine.js::_buildPointMoveAllKeyframes(). Đường cong LUÔN có 2 node "ẢO" CỐ
+ *      ĐỊNH CỨNG ở 2 đầu — (0%, 0) và (100%, 0), KHÔNG thuộc `pointMoves`, KHÔNG lưu trong preset
+ *      (hằng số thuần, xem event/workflow/motion-engine.js/motion-presets.js), THUẦN HIỂN THỊ —
+ *      KHÔNG kéo/sửa được (phản hồi Giang — "không được kéo X/Y gì hết") — chỉ đảm bảo đường cong
+ *      LUÔN có hình dạng, kể cả 0/1 point move được tick (phản hồi Giang — "dù có 1 point duy nhất
+ *      đều tạo được đường cong"), KHÔNG dùng để chỉnh cường độ đầu/cuối. Riêng việc NỘI SUY GIÁ TRỊ
+ *      TARGET (6 field) chỉ dùng node ẢO ĐẦU (x=0, target trung tính) làm điểm xuất phát — node ẢO
+ *      CUỐI (x=100) CHỈ ảnh hưởng hình dạng đường cong cường độ, KHÔNG có "target" nào (point move
+ *      gần 100% nhất giữ nguyên giá trị của nó tới hết `advanceMs`) — point move #0 KHÔNG bắt buộc
+ *      đứng ở 0% (phản hồi Giang — có thể ở n% bất kỳ, tự do kéo/nhập số như mọi point move khác).
  *   `pointMoveRunMode: 'one'` — mỗi lượt kích hoạt Motion, CHỈ 1 point move (trong số đã tick)
  *      được chọn để tween từ baseline -> target trong suốt `advanceMs`, chọn theo
  *      `pointMoveOneOrder` ('sequential' — tăng dần theo vị trí trong mảng; 'random' — loại trừ
@@ -183,8 +184,6 @@ function buildBlankMotionPreset(name) {
         edgeFlipStaticOld: false,
         pointMoves: [buildBlankPointMove()],
         pointMoveEnabled: true,
-        pointMoveTimingStartY: 100,
-        pointMoveTimingEndY: 100,
         pointMoveRunMode: 'all',
         pointMoveOneOrder: 'sequential',
         reactBeatAudio: {
@@ -233,8 +232,6 @@ function sanitizeMotionPreset(raw) {
         edgeFlipStaticOld: typeof raw.edgeFlipStaticOld === 'boolean' ? raw.edgeFlipStaticOld : blank.edgeFlipStaticOld,
         pointMoves: sanitizeMotionPointMoves(raw.pointMoves),
         pointMoveEnabled: typeof raw.pointMoveEnabled === 'boolean' ? raw.pointMoveEnabled : blank.pointMoveEnabled,
-        pointMoveTimingStartY: (typeof raw.pointMoveTimingStartY === 'number' && raw.pointMoveTimingStartY >= MOTION_POINT_MOVE_TIMING_Y_BOUNDS.min && raw.pointMoveTimingStartY <= MOTION_POINT_MOVE_TIMING_Y_BOUNDS.max) ? raw.pointMoveTimingStartY : blank.pointMoveTimingStartY,
-        pointMoveTimingEndY: (typeof raw.pointMoveTimingEndY === 'number' && raw.pointMoveTimingEndY >= MOTION_POINT_MOVE_TIMING_Y_BOUNDS.min && raw.pointMoveTimingEndY <= MOTION_POINT_MOVE_TIMING_Y_BOUNDS.max) ? raw.pointMoveTimingEndY : blank.pointMoveTimingEndY,
         pointMoveRunMode: MOTION_POINT_MOVE_RUN_MODES.includes(raw.pointMoveRunMode) ? raw.pointMoveRunMode : blank.pointMoveRunMode,
         pointMoveOneOrder: MOTION_POINT_MOVE_ONE_ORDERS.includes(raw.pointMoveOneOrder) ? raw.pointMoveOneOrder : blank.pointMoveOneOrder,
         reactBeatAudio: sanitizeMotionBeatReact(raw.reactBeatAudio, blank.reactBeatAudio),
