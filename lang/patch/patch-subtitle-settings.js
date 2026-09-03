@@ -204,6 +204,7 @@ const LANG_PATCH_SUBTITLE_SETTINGS = {
     'motionSettingsDrawer.edgeFlipStaticOld.label': 'Keep before image still',
     // Point Move (thay Ken Burns, phản hồi Giang) — danh sách điểm chuyển động NGƯỜI DÙNG tự định
     // nghĩa (Linear X/Y, Rotate, Zoom, Flip X/Y), thay cho 13 chế độ Ken Burns cố định.
+    'motionSettingsDrawer.pointMove.enabled.label': 'Apply point move',
     'motionSettingsDrawer.pointMove.list.label': 'Point moves',
     'motionSettingsDrawer.pointMove.list.count': '{n} point move',
     'motionSettingsDrawer.pointMove.runMode.label': 'Run mode',
