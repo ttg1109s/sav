@@ -10,21 +10,32 @@
  * Mốc z-index -1 đã CHỪA SẴN ở style.css (giữa #visual-bg-image -2 và #bg-video 0, xem comment ở
  * đó) — thực thi THẬT tại đây.
  *
- * DOM (index.html): #visual-motion-react (`.me-beat-react`, MỚI 30/08/2026 — bao NGOÀI, xem đoạn
- * dưới) > #visual-motion-container > (#visual-motion-layer-1 + -layer-2, "player" A/B) — mỗi
- * layer lại bọc 1 layer CON (#visual-motion-layer-N-pan, class `.me-pointmove-pan`). JS điều
- * khiển ở core/motion-engine.js (hàm thuần, đổi class/style) + event/workflow/motion-engine.js
- * (orchestration — chọn ảnh kế tiếp, quản lý task lặp).
+ * DOM (index.html): #visual-motion-react (`.me-beat-react`, bao NGOÀI, xem đoạn dưới) >
+ * #visual-motion-container > #visual-motion-players (`.me-pointmove-players`) >
+ * (#visual-motion-layer-1 + -layer-2, "player" A/B) — mỗi layer lại bọc 1 layer CON
+ * (#visual-motion-layer-N-pan, class `.me-pointmove-pan`). JS điều khiển ở core/motion-engine.js
+ * (hàm thuần, đổi class/style) + event/workflow/motion-engine.js (orchestration — chọn ảnh kế
+ * tiếp, quản lý task lặp).
  *
- * TÁCH layer ngoài/layer con vì CSS chỉ giữ ĐÚNG 1 `animation-name` hiệu lực trên 1 phần tử tại 1
- * thời điểm (rule sau/specificity cao hơn THẮNG, không cộng dồn):
- *   - `.motion-layer` (NGOÀI) — CHỈ animation chuyển cảnh (opacity/transform/clip-path/filter
- *     tuỳ kiểu, class me-current/me-layer-enter/me-layer-exit) + `overflow: hidden` (clip layer con
- *     lúc nó scale to hơn khung, xem Point Move dưới).
- *   - `.me-pointmove-pan` (CON) — nhận `background-image` (setMotionEngineLayerImage(), xem event/
- *     workflow/motion-engine.js) + toàn bộ animation Point Move (translate/rotate/scale/flip). 2
- *     phần tử khác nhau -> 2 animation-name độc lập, không đè nhau -> Point Move dùng ĐƯỢC cùng lúc
- *     với BẤT KỲ kiểu transition nào (xem MOTION_ENGINE_TRANSITION_TYPES, core/motion-engine.js).
+ * SỬA (phản hồi Giang — "point move phải là 1 div cha bao quanh layer A, B chứ không phải chỉ 1
+ * layer A hoặc B, tránh việc move A rồi lộ B") — Point Move transform (translate/rotate/scale/
+ * flip) DỜI lên `.me-pointmove-players` (bọc CHUNG cả 2 player A/B), ÁP DUY NHẤT 1 LẦN cho TOÀN BỘ
+ * khung hình — KHÔNG còn tách riêng per-layer như bản trước (từng layer A/B tự chạy Point Move
+ * riêng, có thể lệch nhau lúc chuyển cảnh, dẫn tới bug "move A lộ B"). 3 tầng, 3 vai trò RÕ RỆT:
+ *   - `.me-pointmove-players` (BỌC CHUNG A+B) — NHẬN transform Point Move DUY NHẤT (WAAPI, xem
+ *     core/motion-engine.js::startPointMoveAnimation()) — CẢ 2 layer bên trong LUÔN di chuyển CÙNG
+ *     NHAU như 1 khối cứng, KHÔNG BAO GIỜ lệch nhau dù đang giữa chừng 1 lượt Transition.
+ *   - `.motion-layer` (A/B, GIỮA) — CHỈ animation chuyển cảnh (opacity/transform/clip-path/filter
+ *     tuỳ kiểu, class me-current/me-layer-enter/me-layer-exit) + `overflow: hidden` (dự phòng,
+ *     không còn ý nghĩa "clip lúc Point Move scale to hơn khung" như trước — Point Move không còn
+ *     chạy ở tầng này nữa).
+ *   - `.me-pointmove-pan` (CON, TRONG CÙNG) — CHỈ còn mang `background-image`
+ *     (setMotionEngineLayerImage(), xem event/workflow/motion-engine.js) — KHÔNG còn animation gì
+ *     của riêng nó nữa.
+ * 3 tầng animation-name độc lập hoàn toàn (Point Move ở tầng NGOÀI CÙNG, Transition ở tầng GIỮA) —
+ * dùng ĐƯỢC cùng lúc với BẤT KỲ kiểu Transition nào (xem MOTION_ENGINE_TRANSITION_TYPES,
+ * core/motion-engine.js), không cần tách theo per-element animation-name như lý do TÁCH LAYER ban
+ * đầu (đã lỗi thời — giữ nguyên cấu trúc 3 tầng vì lý do MỚI: cô lập rõ ràng theo TRÁCH NHIỆM).
  */
 
 #visual-motion-container {
@@ -32,14 +43,16 @@
     overflow: hidden;
 }
 
-/* MỚI (phản hồi Giang — "point move phải là 1 div cha bao quanh layer A, B") — bọc RIÊNG cả 2
-   `.motion-layer`, thêm 1 lớp `overflow:hidden` NGAY SÁT chúng (khác `#visual-motion-container` ở
-   trên — clip TỪ XA hơn 1 cấp qua `.me-beat-react`, nơi tự có transform riêng của React Beat Audio
-   cộng dồn vào) — chặn triệt để mọi rò rỉ nội dung ra ngoài khung dù Point Move của layer nào đó kết
-   hợp với transform các lớp cha bên ngoài. `perspective` LẶP LẠI ở đây (không chỉ ở container) — giữ
-   đúng hiệu ứng 3D cho 'flipCard'/'flipEdge' dù thêm 1 tầng bọc mới. */
+/* NHẬN transform Point Move DUY NHẤT cho CẢ 2 layer A/B (xem docstring đầu file) — `inset: -2px`
+   (thay vì 0) che viền subpixel có thể lộ ra lúc scale/pan animation chạy gần biên (dời từ
+   `.me-pointmove-pan` — nơi ĐÓ không còn nhận transform nữa, không cần overscan riêng ở đó). Vẫn
+   giữ `overflow:hidden` NGAY SÁT 2 layer (khác `#visual-motion-container` — clip TỪ XA hơn 1 cấp
+   qua `.me-beat-react`, nơi tự có transform riêng của React Beat Audio cộng dồn vào) — chặn triệt
+   để mọi rò rỉ nội dung ra ngoài khung dù Point Move kết hợp với transform các lớp cha bên ngoài.
+   `perspective` LẶP LẠI ở đây (không chỉ ở container) — giữ đúng hiệu ứng 3D cho
+   'flipCard'/'flipEdge' của Transition (`.motion-layer` bên trong). */
 .me-pointmove-players {
-    position: absolute; inset: 0;
+    position: absolute; inset: -2px;
     overflow: hidden;
     perspective: 1600px;
 }
@@ -48,7 +61,7 @@
     position: absolute; inset: 0;
     opacity: 0; z-index: 1;
     backface-visibility: hidden;
-    overflow: hidden; /* clip layer con .me-pointmove-pan lúc nó scale to hơn khung (Point Move) */
+    overflow: hidden;
 }
 .motion-layer.me-current { opacity: 1; z-index: 2; }
 /* SỬA (18/07/2026, phản hồi Giang — tuỳ chỉnh thời gian + tỉ lệ In/Out + easing cho transition) —
@@ -83,14 +96,12 @@
     transition: transform 120ms ease-out;
 }
 
-/* Layer CON — mang background-image THẬT (setMotionEngineLayerImage(), xem event/workflow/
-   motion-engine.js). Animation Point Move chạy bằng Web Animations API (panEl.animate(), xem
-   core/motion-engine.js::startPointMoveAnimation()) — KHÔNG CSS @keyframes/class nào cho nó ở file
-   này, mọi giá trị (translate/rotate/scale/rotateX/rotateY) tính runtime từ preset (core/
-   motion-presets.js), không thể viết cố định sẵn bằng CSS tĩnh.
-   `inset: -1px` (thay vì 0) — che hết viền subpixel có thể lộ ra lúc scale animation chạy gần biên. */
+/* Layer CON TRONG CÙNG — CHỈ còn mang background-image THẬT (setMotionEngineLayerImage(), xem
+   event/workflow/motion-engine.js) — KHÔNG còn animation/transform gì của riêng nó (Point Move đã
+   dời lên `.me-pointmove-players`, xem docstring đầu file) — `inset: 0` đơn giản, KHÔNG cần overscan
+   riêng ở tầng này nữa (overscan giờ nằm ở `.me-pointmove-players`, nơi THẬT SỰ nhận transform). */
 .me-pointmove-pan {
-    position: absolute; inset: -1px;
+    position: absolute; inset: 0;
     background-size: cover; background-position: center;
 }
 
