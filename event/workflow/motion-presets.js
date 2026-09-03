@@ -245,6 +245,13 @@ const workflowMotionPresets = {
 
     // ===================== Point Move (thay Ken Burns) =====================
 
+    /** Công tắc TỔNG (CÙNG khuôn `transitionEnabled`/`reactBeatAudio.enabled`) — Point Move có được
+     * ÁP DỤNG lúc phát hay không, ĐỘC LẬP với việc list/run mode/timing đã cấu hình gì (LUÔN hiển
+     * thị/chỉnh được bất kể bật/tắt — xem event/workflow/motion-engine.js::_activatePointMove()). */
+    async changePointMoveEnabled(checked) {
+        await this._mutateEditing((p) => { p.pointMoveEnabled = checked; });
+    },
+
     /** Ứng dòng "Point move" trong màn Edit — mở danh sách point move. */
     openPointMoveList() {
         workflowAppSettings.navigateTo(() => workflowAppSettings._renderPointMoveList()); // liên tuyến domain
@@ -425,7 +432,7 @@ const workflowMotionPresets = {
         const points = preset.pointMoves
             .filter((p) => p.checked)
             .map((p) => (p.id === overrideId ? { ...p, timingX: overrideTimingX, timingY: overrideTimingY } : p))
-            .map((p) => ({ id: p.id, timingX: p.timingX, timingY: p.timingY, locked: p.timingX === 0 && preset.pointMoves[0].id === p.id }))
+            .map((p) => ({ id: p.id, timingX: p.timingX, timingY: p.timingY, locked: preset.pointMoves[0].id === p.id }))
             .sort((a, b) => a.timingX - b.timingX);
         const nodesForCurve = points.map((p) => ({ x: p.timingX, y: p.timingY }));
         const SAMPLES = 60;
@@ -515,7 +522,7 @@ const workflowMotionPresets = {
         await this._mutateEditing((p) => {
             const idx = p.pointMoves.findIndex((pm) => pm.id === id);
             if (idx === -1) return;
-            p.pointMoves[idx] = { ...p.pointMoves[idx], timingX: idx === 0 ? 0 : timingX, timingY };
+            p.pointMoves[idx] = { ...p.pointMoves[idx], timingX, timingY };
         });
         if (genericDrawerPanel.classList.contains('hidden')) return; // core/dom-refs.js
         workflowAppSettings._renderPointMoveTiming(); // liên tuyến domain — dựng lại TOÀN màn (an toàn, commit chỉ xảy ra 1 lần lúc thả tay, không phải mỗi pixel)
@@ -523,7 +530,7 @@ const workflowMotionPresets = {
 
     /** Ứng ô nhập số timingX/timingY — LIVE preview lúc gõ (`input`, KHÔNG persist, vá tại chỗ +
      * KHÔNG ghi đè lại chính ô đang gõ — `skipField`), giống hệt cơ chế preview/commit của kéo tay.
-     * Point move VỊ TRÍ ĐẦU (index 0) khoá X=0 — UI đã disable input đó, vẫn guard lại ở đây.
+     * `timingX` KHÔNG còn field nào bị khoá (phản hồi Giang — point move #0 kéo/nhập tự do).
      * @param {string} id @param {'timingX'|'timingY'} field @param {number} value */
     previewPointMoveTimingNumber(id, field, value) {
         if (typeof value !== 'number' || Number.isNaN(value)) return;
@@ -532,7 +539,7 @@ const workflowMotionPresets = {
         const idx = preset.pointMoves.findIndex((p) => p.id === id);
         if (idx === -1) return;
         const pm = preset.pointMoves[idx];
-        const timingX = field === 'timingX' ? (idx === 0 ? 0 : Math.max(0, Math.min(100, value))) : pm.timingX;
+        const timingX = field === 'timingX' ? Math.max(0, Math.min(100, value)) : pm.timingX;
         const timingY = field === 'timingY' ? Math.max(-150, Math.min(150, value)) : pm.timingY;
         this._patchTimingPreview(id, timingX, timingY, field);
     },
@@ -544,7 +551,7 @@ const workflowMotionPresets = {
             const idx = p.pointMoves.findIndex((pm) => pm.id === id);
             if (idx === -1) return;
             const pm = { ...p.pointMoves[idx] };
-            if (field === 'timingX') pm.timingX = idx === 0 ? 0 : Math.max(0, Math.min(100, value));
+            if (field === 'timingX') pm.timingX = Math.max(0, Math.min(100, value));
             if (field === 'timingY') pm.timingY = Math.max(-150, Math.min(150, value));
             p.pointMoves[idx] = pm;
         });
@@ -609,6 +616,7 @@ const workflowMotionPresets = {
             p.edgeFlipVariant = blank.edgeFlipVariant;
             p.edgeFlipStaticOld = blank.edgeFlipStaticOld;
             p.pointMoves = blank.pointMoves;
+            p.pointMoveEnabled = blank.pointMoveEnabled;
             p.pointMoveRunMode = blank.pointMoveRunMode;
             p.pointMoveOneOrder = blank.pointMoveOneOrder;
             p.reactBeatAudio = blank.reactBeatAudio;

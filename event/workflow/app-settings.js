@@ -347,6 +347,8 @@ const workflowAppSettings = {
                 if (easingSelect) easingSelect.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionEasing.change', payload: { value: e.target.value } }));
 
                 // Point Move (thay Ken Burns) — nav "danh sách"/"Timing" + 2 select (chế độ chạy/thứ tự).
+                const pointMoveEnabled = body.querySelector('#setting-motion-pointmove-enabled');
+                if (pointMoveEnabled) pointMoveEnabled.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.enabled.change', payload: { checked: e.target.checked } }));
                 const pointMoveListBtn = body.querySelector('#btn-motion-pointmove-list');
                 if (pointMoveListBtn) pointMoveListBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.openList.click', payload: {} }));
                 const pointMoveRunMode = body.querySelector('#setting-motion-pointmove-runmode');

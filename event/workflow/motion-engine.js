@@ -32,7 +32,7 @@
 /** Preset "tắt hết" — dùng khi nơi gọi truyền `null`/`undefined` (chưa gắn Motion) — KHÔNG fallback
  * về bất kỳ hiệu ứng mặc định nào. Vẫn export ở đây (không phải nơi gọi) vì đây là "hình dạng
  * preset hợp lệ tối thiểu", thuộc kiến thức của Engine. */
-const MOTION_ENGINE_NO_OP_PRESET = { transitionEnabled: false, transitionType: 'fade', transitionDurationMs: 1000, transitionInOutRatio: 50, transitionEasing: 'linear', pointMoves: [], pointMoveRunMode: 'all', pointMoveOneOrder: 'sequential', reactBeatAudio: { enabled: false, zoom: { enabled: false }, pan: { enabled: false }, rotate: { enabled: false } } };
+const MOTION_ENGINE_NO_OP_PRESET = { transitionEnabled: false, transitionType: 'fade', transitionDurationMs: 1000, transitionInOutRatio: 50, transitionEasing: 'linear', pointMoves: [], pointMoveEnabled: false, pointMoveRunMode: 'all', pointMoveOneOrder: 'sequential', reactBeatAudio: { enabled: false, zoom: { enabled: false }, pan: { enabled: false }, rotate: { enabled: false } } };
 
 /** Baseline "không đổi" — dùng làm điểm XUẤT PHÁT khi tween 'one' mode (baseline -> target). */
 const POINT_MOVE_BASELINE_TARGET = { linearX: 0, linearXUnit: '%', linearY: 0, linearYUnit: '%', rotate: 0, zoom: 0, flipX: 0, flipY: 0 };
@@ -209,13 +209,15 @@ const workflowMotionEngine = {
         return { direction, zoomDirection, spinDirection, wipeDirection, curtainDirection };
     },
 
-    /** Dispatcher — chọn `_activatePointMoveOne()`/`_activatePointMoveAll()` theo
+    /** Dispatcher — `pointMoveEnabled=false` -> bỏ qua HẲN (công tắc tổng, cùng khuôn
+     * `transitionEnabled`). Nếu bật, chọn `_activatePointMoveOne()`/`_activatePointMoveAll()` theo
      * `preset.pointMoveRunMode`. Đây là Workflow (được phép rẽ nhánh chọn Core/logic nào chạy),
      * KHÔNG phải Core — Rule 1 (đơn tuyến) chỉ áp cho `core/`.
      * @param {HTMLElement} panEl - layer CON `.me-pointmove-pan` SẮP/ĐANG hiện.
      * @param {object} preset
      */
     _activatePointMove(panEl, preset) {
+        if (!preset.pointMoveEnabled) return;
         if (preset.pointMoveRunMode === 'one') { this._activatePointMoveOne(panEl, preset); return; }
         this._activatePointMoveAll(panEl, preset);
     },
@@ -265,21 +267,26 @@ const workflowMotionEngine = {
     },
 
     /** Sample `points` (đã sort theo `x`, mỗi phần tử {x,y,target}) thành mảng keyframe {transform}
-     * — mỗi mẫu: (1) tìm đoạn [A,B] chứa `xPercent` (`_findPointMoveSegment()`), lerp 6 field giữa
-     * `A.target`/`B.target` theo tiến độ THỜI GIAN cục bộ trong đoạn đó; (2) nhân thêm cường độ
-     * `Y(xPercent)` đọc từ TOÀN BỘ đường cong (`computePointMoveCurveIntensityAt()`, core — nội suy
-     * Catmull-Rom qua mọi node, ĐỘC LẬP khỏi (1), % thuần không đơn vị) — 2 trục X (thời gian/vị
-     * trí target) và Y (cường độ) tách biệt hoàn toàn, không giẫm chân nhau dù field nào đang
-     * randomRange (đã resolve xong 1 lần trước khi vào đây).
+     * — mỗi mẫu: (1) tìm đoạn [A,B] chứa `xPercent` (`_findPointMoveSegment()`) trong
+     * `targetPoints` (= `points` + 1 node "vị trí ban đầu" ẢO chèn đầu, x=0/target trung tính —
+     * phản hồi Giang: animation LUÔN xuất phát từ mốc trung tính CỐ ĐỊNH này trước khi tới point
+     * move gần nhất, point move #0 KHÔNG còn bị ép đứng ở 0% nữa), lerp 6 field giữa `A.target`/
+     * `B.target` theo tiến độ THỜI GIAN cục bộ trong đoạn đó; (2) nhân thêm cường độ `Y(xPercent)`
+     * đọc từ `points` GỐC (`computePointMoveCurveIntensityAt()`, core — nội suy Catmull-Rom qua
+     * ĐÚNG các node đã tick, KHÔNG tính node ảo — khớp nguyên trạng đường cong hiển thị trên SVG,
+     * xem core/point-move-timing-ui.js) — 2 trục X (thời gian/vị trí target) và Y (cường độ) tách
+     * biệt hoàn toàn, không giẫm chân nhau dù field nào đang randomRange (đã resolve xong 1 lần
+     * trước khi vào đây).
      * @param {{x:number,y:number,target:object}[]} points
      * @returns {object[]}
      */
     _buildPointMoveAllKeyframes(points) {
+        const targetPoints = [{ x: 0, y: 100, target: POINT_MOVE_BASELINE_TARGET }, ...points]; // node ảo "vị trí ban đầu" — CHỈ dùng nội suy target, không thuộc đường cong cường độ hiển thị
         const keyframes = [];
         for (let i = 0; i <= MOTION_ENGINE_POINT_MOVE_ALL_STEPS; i++) {
             const xPercent = (i / MOTION_ENGINE_POINT_MOVE_ALL_STEPS) * 100;
-            const seg = this._findPointMoveSegment(points, xPercent);
-            const intensity = computePointMoveCurveIntensityAt(points, xPercent) / 100; // core
+            const seg = this._findPointMoveSegment(targetPoints, xPercent);
+            const intensity = computePointMoveCurveIntensityAt(points, xPercent) / 100; // core — dùng `points` GỐC, không phải `targetPoints`
             const v = {
                 linearX: lerpPointMoveNumber(seg.a.target.linearX, seg.b.target.linearX, seg.progress) * intensity, // core
                 linearXUnit: seg.a.target.linearXUnit,
