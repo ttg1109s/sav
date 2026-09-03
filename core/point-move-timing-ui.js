@@ -49,8 +49,8 @@
 
 const POINT_MOVE_TIMING_SVG_W = 700;
 const POINT_MOVE_TIMING_SVG_H = 260;
-const POINT_MOVE_TIMING_PAD_X = 30;
-const POINT_MOVE_TIMING_PAD_Y = 24;
+const POINT_MOVE_TIMING_PAD_X = 16; // SỬA (phản hồi Giang — "thu hẹp gap") — 30 -> 16, nhường thêm không gian vẽ thật
+const POINT_MOVE_TIMING_PAD_Y = 14; // 24 -> 14
 const POINT_MOVE_TIMING_Y_MIN = -150;
 const POINT_MOVE_TIMING_Y_MAX = 150;
 const POINT_MOVE_TIMING_NODE_RADIUS = 11;
@@ -99,7 +99,7 @@ function buildPointMoveTimingCurveEl(points, curvePolylinePoints) {
         svg.appendChild(gridV);
         if (gx % 25 === 0) {
             const labelX = document.createElementNS(svgNs, 'text');
-            labelX.setAttribute('x', x); labelX.setAttribute('y', minY + 14);
+            labelX.setAttribute('x', x); labelX.setAttribute('y', minY + 10); // SỬA — offset giảm theo PAD_Y mới (14, trước 24) để nhãn không tràn ra ngoài viewBox
             labelX.setAttribute('class', 'ptmove-timing-grid-label');
             labelX.setAttribute('text-anchor', gx === 0 ? 'start' : (gx === 100 ? 'end' : 'middle'));
             labelX.textContent = `${gx}%`;
