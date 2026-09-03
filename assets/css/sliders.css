@@ -51,17 +51,19 @@ input[type=range].ptmove-range-input::-moz-range-thumb { pointer-events: auto; w
 
 /* Đường cong Timing (Point Move 'all' mode) — SVG kéo-thả, xem core/point-move-timing-ui.js. */
 .ptmove-timing-wrapper { width: 100%; }
-.ptmove-timing-svg { width: 100%; height: auto; aspect-ratio: 700 / 260; display: block; touch-action: none; } /* SỬA — thiếu aspect-ratio thì SVG chỉ có viewBox (không width/height thật) sẽ co chiều cao về 0, "height:auto" không tự suy ra được như <img>. 700/260 PHẢI khớp POINT_MOVE_TIMING_SVG_W/H (core/point-move-timing-ui.js) — đổi 1 chỗ phải đổi luôn chỗ kia. */
-.ptmove-timing-grid { stroke: rgba(255, 255, 255, 0.06); stroke-width: 1; }
+.ptmove-timing-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; border-radius: 0.75rem; } /* SỬA — chỉ cuộn NGANG, scaleX không đụng chiều cao nên không cần cuộn dọc */
+.ptmove-timing-zoomable { transform-origin: 0 0; transition: transform 0.15s ease; }
+.ptmove-timing-svg { width: 100%; height: auto; aspect-ratio: 700 / 260; display: block; touch-action: none; } /* 700/260 PHẢI khớp POINT_MOVE_TIMING_SVG_W/H (core/point-move-timing-ui.js) — đổi 1 chỗ phải đổi luôn chỗ kia. */
+.ptmove-timing-grid { stroke: rgba(255, 255, 255, 0.14); stroke-width: 1; } /* SỬA — 0.06 gần như vô hình trên nền tối, tăng lên 0.14 mới thấy rõ là lưới */
 .ptmove-timing-grid-label { fill: rgba(255, 255, 255, 0.3); font-size: 9px; font-family: inherit; }
 .ptmove-timing-axis { stroke: rgba(255, 255, 255, 0.25); stroke-width: 1; }
 .ptmove-timing-bound { stroke: rgba(255, 255, 255, 0.15); stroke-width: 1; stroke-dasharray: 4 4; }
 .ptmove-timing-vaxis { stroke: rgba(255, 255, 255, 0.25); stroke-width: 1; }
-.ptmove-timing-start-marker { fill: #ffffff; stroke: rgba(255, 255, 255, 0.4); stroke-width: 2; }
 .ptmove-timing-curve { fill: none; stroke: #f5c542; stroke-width: 2.5; }
 .ptmove-timing-node { fill: #0f172a; stroke: #ffffff; stroke-width: 3; cursor: grab; touch-action: none; }
 .ptmove-timing-node:active { cursor: grabbing; }
 .ptmove-timing-node[data-locked="true"] { stroke: #38bdf8; }
+.ptmove-timing-node-phantom { fill: rgba(15, 23, 42, 0.5); stroke: #f5c542; stroke-dasharray: 3 2; cursor: default; } /* node ảo 2 đầu — THUẦN hiển thị (không kéo được), khác hẳn node thật (viền vàng nét đứt, cùng tông với đường cong, cursor mặc định thay vì grab) */
 
 /* Thanh tiến trình nhạc — thumb luôn NHỎ HƠN HOẶC BẰNG track ở mọi trạng thái (không cần
    div bọc + overflow:hidden để cắt phần nhô ra như bản cũ). */
