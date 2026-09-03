@@ -313,16 +313,25 @@ function renderMotionEditBody(preset) {
     `;
 }
 
-/** Danh sách point move — checkbox | tên | icon xoá | icon sửa. Point move VỊ TRÍ ĐẦU (index 0)
- * checkbox khoá (disabled, luôn checked) — xem core/motion-presets.js::sanitizeMotionPointMoves().
- * Nút xoá disabled khi CHỈ CÒN 1 point move (luôn phải giữ ít nhất 1).
+/** Danh sách point move — [kéo] | checkbox | tên | icon nhân bản | icon xoá | icon sửa. Point move
+ * VỊ TRÍ ĐẦU (index 0) checkbox khoá (disabled, luôn checked) — xem core/motion-presets.js::
+ * sanitizeMotionPointMoves(); vẫn KÉO-THẢ hoán đổi timingX được bình thường như mọi hàng khác. Nút
+ * xoá disabled khi CHỈ CÒN 1 point move (luôn phải giữ ít nhất 1). Kéo trên tay cầm (⠿) để HOÁN ĐỔI
+ * timingX với hàng thả vào (phản hồi Giang) — xem event/workflow/app-settings.js wiring +
+ * event/workflow/motion-presets.js::swapPointMoveTimingX().
  * @param {object[]} pointMoves */
 function renderPointMoveListBody(pointMoves) {
     const canDelete = pointMoves.length > 1;
     const itemsHtml = pointMoves.map((p, i) => `
-        <div class="w-full px-3 py-2.5 rounded-2xl mb-2 flex items-center gap-2 bg-slate-50 border border-slate-200">
+        <div class="w-full px-2 py-2.5 rounded-2xl mb-2 flex items-center gap-1.5 bg-slate-50 border border-slate-200" data-ptmove-row="${escapeHtml(p.id)}">
+            <span class="w-5 h-8 flex items-center justify-center text-slate-300 shrink-0 cursor-grab touch-none" data-ptmove-drag-handle="${escapeHtml(p.id)}" title="${t('motionSettingsDrawer.pointMove.dragHandle.title')}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><circle cx="6" cy="5" r="1.4"/><circle cx="14" cy="5" r="1.4"/><circle cx="6" cy="10" r="1.4"/><circle cx="14" cy="10" r="1.4"/><circle cx="6" cy="15" r="1.4"/><circle cx="14" cy="15" r="1.4"/></svg>
+            </span>
             <input type="checkbox" data-ptmove-checkbox="${escapeHtml(p.id)}" class="w-4 h-4 rounded accent-sky-500 shrink-0" ${p.checked ? 'checked' : ''} ${i === 0 ? 'disabled' : ''}>
             <span class="flex-1 text-sm font-semibold text-slate-700 truncate">${tFormat('motionSettingsDrawer.pointMove.itemName', { n: i })}</span>
+            <button type="button" data-ptmove-duplicate="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-sky-500 hover:bg-sky-50 transition-colors shrink-0" title="${t('motionSettingsDrawer.pointMove.duplicate.title')}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+            </button>
             <button type="button" data-ptmove-delete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors shrink-0 disabled:opacity-30 disabled:pointer-events-none" ${canDelete ? '' : 'disabled'} title="${t('motionPresetsDrawer.list.delete.title')}">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             </button>
@@ -331,7 +340,7 @@ function renderPointMoveListBody(pointMoves) {
             </button>
         </div>
     `).join('');
-    return itemsHtml + `
+    return `<p class="text-xs text-slate-400 mb-3 px-1">${t('motionSettingsDrawer.pointMove.dragHint')}</p>` + itemsHtml + `
         <button type="button" id="btn-ptmove-add" class="w-full text-center px-4 py-3.5 rounded-2xl bg-sky-50 border border-sky-200 hover:bg-sky-100 transition-colors text-sm font-semibold text-sky-600">${t('motionSettingsDrawer.pointMove.add.label')}</button>
     `;
 }
@@ -420,12 +429,12 @@ function renderPointMoveEditBody(pointMove) {
  *   — giữ tham số để chữ ký hàm ổn định, phòng cần lại sau này. */
 function renderPointMoveTimingBody(pointMoves) {
     return `
-        <p class="text-xs text-slate-400 mb-3 px-1">${t('motionSettingsDrawer.pointMove.timing.hint')}</p>
-        <div class="glass-modal rounded-2xl p-4 mb-3">
+        <p class="text-xs text-slate-400 mb-2 px-1">${t('motionSettingsDrawer.pointMove.timing.hint')}</p>
+        <div class="glass-modal rounded-2xl p-2 mb-2">
             <div id="ptmove-timing-scroll" class="ptmove-timing-scroll">
                 <div id="ptmove-timing-container" class="ptmove-timing-zoomable"></div>
             </div>
-            <div class="flex items-center justify-end gap-2 mt-2">
+            <div class="flex items-center justify-end gap-2 mt-1.5">
                 <button type="button" id="btn-ptmove-timing-zoom-out" class="w-7 h-7 rounded-lg bg-black/40 hover:bg-black/60 text-slate-300 text-base font-bold transition-colors">−</button>
                 <span id="ptmove-timing-zoom-label" class="text-[11px] text-slate-400 w-10 text-center">0%</span>
                 <button type="button" id="btn-ptmove-timing-zoom-in" class="w-7 h-7 rounded-lg bg-black/40 hover:bg-black/60 text-slate-300 text-base font-bold transition-colors">+</button>
