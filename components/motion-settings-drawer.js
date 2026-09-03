@@ -395,13 +395,40 @@ function renderPointMoveEditBody(pointMove) {
 }
 
 /** Khung chứa đường cong Timing — SVG THẬT dựng bởi core/point-move-timing-ui.js, workflow tự
- * append vào `#ptmove-timing-container` sau khi `_render()` xong (Rule 5d — component chỉ định
- * khung rỗng, không tự dựng SVG ở đây vì cần dữ liệu ĐÃ sample đường cong từ Workflow). */
-function renderPointMoveTimingBody() {
+ * append vào `#ptmove-timing-container` sau khi `_render()` xong. Kèm danh sách ô nhập số
+ * timingX/timingY cho TỪNG point move đã tick — kéo trên SVG và gõ số ở đây ĐỒNG BỘ 2 CHIỀU (xem
+ * event/workflow/motion-presets.js::_patchTimingPreview()). Point move VỊ TRÍ ĐẦU (index 0) khoá ô
+ * X (disabled, luôn 0) — cùng khoá với node trên SVG.
+ * @param {object[]} pointMoves - MẢNG ĐẦY ĐỦ (không lọc trước) — cần index gốc để đặt tên "Point
+ *   move N" khớp với màn Danh sách; phần tử chưa tick tự bị bỏ qua khi render. */
+function renderPointMoveTimingBody(pointMoves) {
+    const rowsHtml = pointMoves.map((p, i) => {
+        if (!p.checked) return '';
+        const isLocked = i === 0;
+        return `
+            <div class="flex items-center gap-2 py-2.5 border-b border-white/5 last:border-0" data-ptmove-timing-row="${escapeHtml(p.id)}">
+                <span class="text-xs text-slate-400 w-24 shrink-0 truncate">${tFormat('motionSettingsDrawer.pointMove.itemName', { n: i })}</span>
+                <div class="flex items-center gap-1">
+                    <input type="number" data-ptmove-timing-field="timingX" min="0" max="100" step="1" value="${p.timingX}" class="w-14 bg-black/50 border border-white/10 rounded-lg px-1.5 py-1 text-xs text-white outline-none text-right disabled:opacity-40" ${isLocked ? 'disabled' : ''}>
+                    <span class="text-[10px] text-slate-500">%</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <input type="number" data-ptmove-timing-field="timingY" min="-150" max="150" step="1" value="${p.timingY}" class="w-14 bg-black/50 border border-white/10 rounded-lg px-1.5 py-1 text-xs text-white outline-none text-right">
+                </div>
+            </div>`;
+    }).join('');
     return `
         <p class="text-xs text-slate-400 mb-3 px-1">${t('motionSettingsDrawer.pointMove.timing.hint')}</p>
-        <div class="glass-modal rounded-2xl p-4">
+        <div class="glass-modal rounded-2xl p-4 mb-4">
             <div id="ptmove-timing-container"></div>
+        </div>
+        <div class="glass-modal rounded-2xl px-4">
+            <div class="flex items-center gap-2 py-2 text-[10px] uppercase tracking-wide text-slate-500 border-b border-white/5">
+                <span class="w-24 shrink-0"></span>
+                <span class="w-[52px]">${t('motionSettingsDrawer.pointMove.timing.xLabel')}</span>
+                <span>${t('motionSettingsDrawer.pointMove.timing.yLabel')}</span>
+            </div>
+            ${rowsHtml}
         </div>
     `;
 }
