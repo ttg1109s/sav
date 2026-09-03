@@ -19,19 +19,24 @@
  * VIẾT LẠI (phản hồi Giang — "xoá toàn bộ Ken Burns, thay bằng Point Move") — Ken Burns (1 chế độ
  * pan/zoom TỰ ĐỘNG chọn sẵn, không kiểm soát được biên độ/hướng cụ thể) XOÁ HẲN. Thay bằng
  * "Point Move" — danh sách điểm chuyển động NGƯỜI DÙNG tự định nghĩa, mỗi điểm có 6 thông số
- * (Linear X/Y, Rotate, Zoom, Flip X/Y) + 2 chế độ chạy:
+ * (Linear X/Y, Rotate, Zoom, Flip X/Y) + `pointMoveEnabled` (công tắc tổng, CÙNG khuôn
+ * `transitionEnabled` — chi tiết LUÔN hiển thị/chỉnh được bất kể bật/tắt, chỉ ẢNH HƯỞNG lúc phát)
+ * + 2 chế độ chạy:
  *   `pointMoveRunMode: 'all'` — chạy TẤT CẢ point move đã tick, theo đúng vị trí thời gian
  *      (`pointMove.timingX`, % trên trục 0-100 của `advanceMs`) + cường độ (`pointMove.timingY`) đã
  *      xếp trên đường cong Timing (xem components/motion-settings-drawer.js, core/
  *      point-move-timing-ui.js). Cường độ và toạ độ THỜI GIAN là 2 trục ĐỘC LẬP (progress-domain
  *      thuần, KHÔNG biết gì về đơn vị thật của 6 field) — công thức áp dụng cuối cùng ở event/
- *      workflow/motion-engine.js::_buildPointMoveAllKeyframes().
+ *      workflow/motion-engine.js::_buildPointMoveAllKeyframes(). Animation LUÔN xuất phát từ 1
+ *      "vị trí ban đầu" ẩn (mốc trung tính CỐ ĐỊNH ở 0%, KHÔNG thuộc `pointMoves`, không chỉnh
+ *      được) rồi mới tới point move gần nhất theo thời gian — point move #0 KHÔNG bắt buộc đứng ở
+ *      0% (phản hồi Giang — có thể ở n% bất kỳ, tự do kéo/nhập số như mọi point move khác).
  *   `pointMoveRunMode: 'one'` — mỗi lượt kích hoạt Motion, CHỈ 1 point move (trong số đã tick)
  *      được chọn để tween từ baseline -> target trong suốt `advanceMs`, chọn theo
  *      `pointMoveOneOrder` ('sequential' — tăng dần theo vị trí trong mảng; 'random' — loại trừ
  *      lượt liền trước, cùng convention resolveMotionEngineTransitionOption()).
- * Point move VỊ TRÍ ĐẦU (index 0) LUÔN checked=true + timingX=0 (điểm mốc/baseline mặc định, không
- * bỏ tick/di chuyển được) — ràng buộc theo VỊ TRÍ, không theo id (xem sanitizeMotionPointMoves()).
+ * Point move VỊ TRÍ ĐẦU (index 0) LUÔN checked=true, KHÔNG bỏ tick được — ràng buộc theo VỊ TRÍ,
+ * không theo id (xem sanitizeMotionPointMoves()). `timingX` của nó KHÔNG bị khoá.
  *
  * 6 field/point move — mỗi field {mode:'single'|'randomRange', unit, single, rangeMin, rangeMax}:
  * `mode==='single'` dùng thẳng `single`; `mode==='randomRange'` mỗi lượt resolve random đều trong
@@ -168,6 +173,7 @@ function buildBlankMotionPreset(name) {
         edgeFlipVariant: 'open',
         edgeFlipStaticOld: false,
         pointMoves: [buildBlankPointMove()],
+        pointMoveEnabled: true,
         pointMoveRunMode: 'all',
         pointMoveOneOrder: 'sequential',
         reactBeatAudio: {
@@ -215,6 +221,7 @@ function sanitizeMotionPreset(raw) {
         edgeFlipVariant: MOTION_ENGINE_EDGE_FLIP_VARIANTS.includes(raw.edgeFlipVariant) ? raw.edgeFlipVariant : blank.edgeFlipVariant,
         edgeFlipStaticOld: typeof raw.edgeFlipStaticOld === 'boolean' ? raw.edgeFlipStaticOld : blank.edgeFlipStaticOld,
         pointMoves: sanitizeMotionPointMoves(raw.pointMoves),
+        pointMoveEnabled: typeof raw.pointMoveEnabled === 'boolean' ? raw.pointMoveEnabled : blank.pointMoveEnabled,
         pointMoveRunMode: MOTION_POINT_MOVE_RUN_MODES.includes(raw.pointMoveRunMode) ? raw.pointMoveRunMode : blank.pointMoveRunMode,
         pointMoveOneOrder: MOTION_POINT_MOVE_ONE_ORDERS.includes(raw.pointMoveOneOrder) ? raw.pointMoveOneOrder : blank.pointMoveOneOrder,
         reactBeatAudio: sanitizeMotionBeatReact(raw.reactBeatAudio, blank.reactBeatAudio),
@@ -222,13 +229,16 @@ function sanitizeMotionPreset(raw) {
 }
 
 /** Validate danh sách `pointMoves` — LUÔN trả về ÍT NHẤT 1 phần tử ("luôn có point move = 0",
- * phản hồi Giang), và ÉP CỨNG phần tử VỊ TRÍ ĐẦU (index 0) `checked:true`/`timingX:0` — ràng buộc
- * theo VỊ TRÍ trong mảng (không theo `id`), nên vẫn đúng kể cả sau khi thêm/xoá làm đổi thứ tự.
+ * phản hồi Giang), và ÉP CỨNG phần tử VỊ TRÍ ĐẦU (index 0) `checked:true` — ràng buộc theo VỊ TRÍ
+ * trong mảng (không theo `id`), nên vẫn đúng kể cả sau khi thêm/xoá làm đổi thứ tự. `timingX` của
+ * điểm này KHÔNG bị khoá (phản hồi Giang — "không nhất định phải ở gốc 0%") — nó là 1 node kéo tự
+ * do như mọi point move khác; "vị trí ban đầu" (mốc trung tính LUÔN cố định ở 0%, animation xuất
+ * phát từ đó) là 1 khái niệm TÁCH RIÊNG khỏi point move #0, xem event/workflow/motion-engine.js::
+ * _buildPointMoveAllKeyframes() (implicit baseline node, không thuộc `pointMoves`).
  * @param {*} raw @returns {object[]} */
 function sanitizeMotionPointMoves(raw) {
     const list = Array.isArray(raw) && raw.length > 0 ? raw.map((p) => sanitizePointMove(p)) : [buildBlankPointMove()];
     list[0].checked = true;
-    list[0].timingX = 0;
     return list;
 }
 
