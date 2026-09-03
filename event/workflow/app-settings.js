@@ -474,16 +474,25 @@ const workflowAppSettings = {
     },
 
     /** Đường cong Timing (chỉ dùng khi `pointMoveRunMode==='all'`) — SVG THẬT dựng bởi
-     * `workflowMotionPresets._renderTimingCurve()` (gọi core-ui, xem core/point-move-timing-ui.js). */
+     * `workflowMotionPresets._renderTimingCurve()` (gọi core-ui, xem core/point-move-timing-ui.js),
+     * kèm danh sách ô nhập số timingX/timingY đồng bộ 2 chiều với việc kéo trên SVG. */
     _renderPointMoveTiming() {
         this._currentRenderFn = () => this._renderPointMoveTiming();
         const preset = findMotionPresetById(appState.get('motionPresets'), workflowMotionPresets._editingId); // core/motion-presets.js
         if (!preset) { this.back(); return; }
         this._render(
             t('motionSettingsDrawer.pointMove.timing.label'),
-            renderPointMoveTimingBody(), // components/motion-settings-drawer.js
+            renderPointMoveTimingBody(preset.pointMoves), // components/motion-settings-drawer.js
             (body) => {
                 workflowMotionPresets._renderTimingCurve(body.querySelector('#ptmove-timing-container')); // event/workflow/motion-presets.js
+                body.querySelectorAll('[data-ptmove-timing-row]').forEach((row) => {
+                    const id = row.dataset.ptmoveTimingRow;
+                    row.querySelectorAll('[data-ptmove-timing-field]').forEach((input) => {
+                        const field = input.dataset.ptmoveTimingField;
+                        input.addEventListener('input', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMoveTiming.numberPreview', payload: { id, field, value: Number(e.target.value) } }));
+                        input.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMoveTiming.numberCommit', payload: { id, field, value: Number(e.target.value) } }));
+                    });
+                });
             },
         );
     },
