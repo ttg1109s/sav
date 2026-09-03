@@ -79,6 +79,10 @@ const routerMotionPresets = (() => {
 
             // ===================== Point Move (thay Ken Burns) =====================
 
+            case 'motionPresets.pointMove.enabled.change':
+                workflowMotionPresets.changePointMoveEnabled(msg.payload.checked);
+                break;
+
             case 'motionPresets.pointMove.openList.click':
                 workflowMotionPresets.openPointMoveList();
                 break;
@@ -137,6 +141,14 @@ const routerMotionPresets = (() => {
 
             case 'motionPresets.pointMoveTiming.nodeDrag.end':
                 workflowMotionPresets.commitPointMoveTimingDrag();
+                break;
+
+            case 'motionPresets.pointMoveTiming.numberPreview':
+                workflowMotionPresets.previewPointMoveTimingNumber(msg.payload.id, msg.payload.field, msg.payload.value);
+                break;
+
+            case 'motionPresets.pointMoveTiming.numberCommit':
+                workflowMotionPresets.commitPointMoveTimingNumber(msg.payload.id, msg.payload.field, msg.payload.value);
                 break;
 
             // ===================== React Beat Audio =====================
