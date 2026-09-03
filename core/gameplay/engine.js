@@ -1,8 +1,8 @@
 /**
  * core/gameplay/engine.js — Core thuần DÙNG CHUNG cho mọi mode Game (không riêng Circle): chấm
  * điểm tier/combo, tổng kết cuối phiên (final/star/delta%), hit-test vị trí, phát hiện chuyển đoạn
- * nhạc theo flux, bật/tắt Game Mode. Rule 1-3: mỗi hàm 1 việc, chỉ nhận tham số, không gọi hàm khác
- * trong cùng file.
+ * nhạc theo flux, bật/tắt Game Mode, lưu độ khó ưa thích từng game. Rule 1-3: mỗi hàm 1 việc, chỉ
+ * nhận tham số, không gọi hàm khác trong cùng file.
  */
 
 /** Tier theo khoảng cách chuẩn hoá tới centerRadius (gapOuter/gapInner 2 phía khác mẫu số). */
@@ -119,4 +119,15 @@ function computeScoreRingLaps(totalPercent, maxExtraLaps) {
 function setGameplayArmedGameId(gameId) {
     appState.set('gameplayArmedGameId', gameId, { skipCheck: true });
     console.log(`writer: "setGameplayArmedGameId", page: "gameplayArmedGameId", content: "${gameId}"`);
+}
+
+/** Ghi độ khó đã chọn CHO ĐÚNG 1 game — MỚI (02/09/2026, Giang yêu cầu "phải lưu độ khó đã chọn cho
+ * từng game" dù armed on/off không lưu). PERSISTENT (`gameplayDifficultyByGame`, core/config.js) —
+ * KHÁC `gameplayDifficulty` (AppState, session-only, xem setGameplayArmedGameId() ở trên) là field
+ * "đang áp dụng" cho phiên hiện tại. Không tự gọi saveConfig() (Rule 3a) — Workflow tự gọi ngay sau.
+ * @param {string} gameId
+ * @param {'easy'|'medium'|'hard'} difficulty */
+function setGameDifficultyPreference(gameId, difficulty) {
+    appConfigViz.mutateAll(cfg => { cfg.gameplayDifficultyByGame[gameId] = difficulty; });
+    console.log(`writer: "setGameDifficultyPreference", page: "gameplayDifficultyByGame.${gameId}", content: "${difficulty}"`);
 }

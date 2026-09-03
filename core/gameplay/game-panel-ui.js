@@ -21,10 +21,14 @@
  *   - `armedGameId` === id NÀY, phase khác ('idle'/'ready'/'ended') -> đã armed nhưng CHƯA/KHÔNG
  *     còn phát thật (chờ bài kế tiếp) -> badge "Armed" tĩnh, nút vẫn là Exit.
  *   - `armedGameId` null -> bình thường, nút Play + độ khó đều bấm được cho MỌI card.
- * Độ khó (`difficulty`) CHỈ sửa được khi `armedGameId` null — mọi card DÙNG CHUNG ĐÚNG 1 field
- * `gameplayDifficulty` (service/state/gameplay-runtime.js, vì Rule 4 "không chơi 2 game cùng lúc"
- * nên tại 1 thời điểm chỉ có ĐÚNG 1 độ khó đang có ý nghĩa) — khoá nút lại khi đã armed để tránh
- * sửa ngầm giá trị đang dùng cho phiên đang chờ/đang chơi thật.
+ * [SỬA — 02/09/2026, Giang yêu cầu "không lưu game mode on/off nhưng phải lưu độ khó đã chọn cho
+ * từng game"] Độ khó giờ nhận qua `difficultyByGameId` (object map `{ [gameId]: difficulty }`, ĐỌC
+ * TỪ PERSISTENT `gameplayDifficultyByGame`, core/config.js — KHÔNG còn 1 field `difficulty` DÙNG
+ * CHUNG cho MỌI card) — mỗi card tự tra ĐÚNG độ khó CỦA NÓ (`difficultyByGameId[game.id] || 'hard'`
+ * — thiếu key = CHƯA từng chọn, mặc định 'hard'). Nút vẫn KHOÁ chung khi `armedGameId` khác null
+ * (Rule 4 "không chơi 2 game cùng lúc" — tại 1 thời điểm chỉ 1 game đang armed nên chỉ độ khó của
+ * ĐÚNG game đó mới "đang dùng thật", khoá luôn card khác cho an toàn/nhất quán, không phải vì chúng
+ * DÙNG CHUNG 1 giá trị nữa).
  *
  * Nút Play/Exit (44px, circle) và badge độ khó CÙNG CHIỀU CAO `h-11` (44px) — [SỬA — 02/09/2026,
  * Giang chỉ ra "badge độ khó phải bằng nút exit/play, một cái to một cái nhỏ trên cùng 1 row UX
@@ -37,7 +41,7 @@
  * (KHÔNG phải người dùng upload), nên nội suy thẳng vào `src` KHÔNG cần `escapeHtml()` (khác
  * `title` bài hát ở buildResultBodyHtml(), đó là dữ liệu người dùng — xem docstring hàm đó).
  */
-function buildGamePanelListHtml(games, armedGameId, gameplayPhase, difficulty, t) {
+function buildGamePanelListHtml(games, armedGameId, gameplayPhase, difficultyByGameId, t) {
     if (games.length === 0) {
         return `<p class="text-sm text-slate-400 text-center py-14" data-i18n="gamePanel.comingSoon">${t('gamePanel.comingSoon')}</p>`;
     }
@@ -54,6 +58,7 @@ function buildGamePanelListHtml(games, armedGameId, gameplayPhase, difficulty, t
         const isArmed = armedGameId === game.id;
         const isLocked = armedGameId != null && !isArmed;
         const isLive = isArmed && (gameplayPhase === 'countdown' || gameplayPhase === 'playing');
+        const difficulty = difficultyByGameId[game.id] || 'hard';
 
         const actionBtn = isArmed
             ? `<button type="button" class="game-card-exit-btn shrink-0 w-11 h-11 rounded-full flex items-center justify-center bg-rose-500/90 hover:bg-rose-500 text-white shadow-lg shadow-rose-500/20 transition-colors" data-game-id="${game.id}" aria-label="${t('gamePanel.card.exit')}">` +
