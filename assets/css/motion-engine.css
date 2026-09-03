@@ -12,31 +12,19 @@
  *
  * DOM (index.html): #visual-motion-react (`.me-beat-react`, MỚI 30/08/2026 — bao NGOÀI, xem đoạn
  * dưới) > #visual-motion-container > (#visual-motion-layer-1 + -layer-2, "player" A/B) — mỗi
- * layer lại bọc 1 layer CON (#visual-motion-layer-N-pan, class `.me-kenburns-pan`). JS điều
+ * layer lại bọc 1 layer CON (#visual-motion-layer-N-pan, class `.me-pointmove-pan`). JS điều
  * khiển ở core/motion-engine.js (hàm thuần, đổi class/style) + event/workflow/motion-engine.js
  * (orchestration — chọn ảnh kế tiếp, quản lý task lặp).
  *
- * VIẾT LẠI (Ken Burns, 18/07/2026, phản hồi Giang) — TÁCH layer ngoài/layer con vì CSS chỉ giữ
- * ĐÚNG 1 `animation-name` hiệu lực trên 1 phần tử tại 1 thời điểm (rule sau/specificity cao hơn
- * THẮNG, không cộng dồn). Bản CŨ gộp CẢ transition chuyển cảnh (.me-layer-enter/exit) LẪN pan/zoom
- * Ken Burns (.me-kenburns-pan) lên CHUNG `.motion-layer` — nhiều kiểu transition (lúc đó 7/12: zoomIn/
- * zoomOut/flip/rotateFade/slideLeft/slideRight/glitch) CŨNG animate `transform`, đụng thẳng property
- * Ken Burns đang dùng — kết hợp 2 cái này SẼ bị nuốt/giật. Giờ:
+ * TÁCH layer ngoài/layer con vì CSS chỉ giữ ĐÚNG 1 `animation-name` hiệu lực trên 1 phần tử tại 1
+ * thời điểm (rule sau/specificity cao hơn THẮNG, không cộng dồn):
  *   - `.motion-layer` (NGOÀI) — CHỈ animation chuyển cảnh (opacity/transform/clip-path/filter
- *     tuỳ kiểu, class me-current/me-layer-enter/me-layer-exit) + `overflow: hidden` (clip layer
- *     con lúc nó scale to hơn khung, xem Ken Burns dưới).
- *   - `.me-kenburns-pan` (CON, MỚI) — nhận `background-image` (setMotionEngineLayerImage() giờ set
- *     lên layer CON, không phải layer ngoài — xem event/workflow/motion-engine.js) + toàn bộ animation
- *     pan/zoom Ken Burns. 2 phần tử khác nhau -> 2 animation-name độc lập, không đè nhau -> Ken
- *     Burns dùng ĐƯỢC cùng lúc với BẤT KỲ kiểu transition nào (xem MOTION_ENGINE_TRANSITION_TYPES,
- *     core/motion-engine.js, cho danh sách ĐẦY ĐỦ hiện tại — số lượng đã tăng nhiều lần từ 18/07,
- *     kiến trúc tách layer này không đổi theo).
- * `transitionType === 'kenburns'` (lựa chọn cũ, gộp chung vào danh sách transition) ĐÃ XOÁ HẲN —
- * Ken Burns giờ là toggle ĐỘC LẬP `motion engineConfig.kenBurnsEnabled` (event/workflow/motion-engine.js),
- * không migrate config cũ (Giang yêu cầu xoá sạch, không giữ tương thích ngược).
- *
- * THỜI LƯỢNG 900ms — PHẢI khớp MOTION ENGINE_TRANSITION_DURATION_MS (core/motion-engine.js).
- * Đổi 1 chỗ phải đổi luôn chỗ kia.
+ *     tuỳ kiểu, class me-current/me-layer-enter/me-layer-exit) + `overflow: hidden` (clip layer con
+ *     lúc nó scale to hơn khung, xem Point Move dưới).
+ *   - `.me-pointmove-pan` (CON) — nhận `background-image` (setMotionEngineLayerImage(), xem event/
+ *     workflow/motion-engine.js) + toàn bộ animation Point Move (translate/rotate/scale/flip). 2
+ *     phần tử khác nhau -> 2 animation-name độc lập, không đè nhau -> Point Move dùng ĐƯỢC cùng lúc
+ *     với BẤT KỲ kiểu transition nào (xem MOTION_ENGINE_TRANSITION_TYPES, core/motion-engine.js).
  */
 
 #visual-motion-container {
@@ -49,7 +37,7 @@
     position: absolute; inset: 0;
     opacity: 0; z-index: 1;
     backface-visibility: hidden;
-    overflow: hidden; /* MỚI (Ken Burns) — clip layer con .me-kenburns-pan lúc nó scale to hơn khung */
+    overflow: hidden; /* clip layer con .me-pointmove-pan lúc nó scale to hơn khung (Point Move) */
 }
 .motion-layer.me-current { opacity: 1; z-index: 2; }
 /* SỬA (18/07/2026, phản hồi Giang — tuỳ chỉnh thời gian + tỉ lệ In/Out + easing cho transition) —
@@ -76,7 +64,7 @@
    ngay lập tức, KHÔNG mượt. `transition` CSS ở đây bù đúng chỗ thiếu đó — trình duyệt tự làm mượt MỌI
    thay đổi `transform` (kể cả lúc mới bắt đầu HAY lúc năng lượng tụt về 0), nên LUÔN êm về baseline
    100%/0 khi nhạc nhẹ/im lặng, không bao giờ "nhảy cứng" — mà vẫn đủ ngắn để còn CẢM ĐƯỢC nhịp đập
-   theo audio (không lừ đừ như Ken Burns thường, ~900ms). */
+   theo audio (không lừ đừ như Point Move thường, ~900ms). */
 .me-beat-react {
     position: absolute; inset: 0;
     z-index: -1; pointer-events: none;
@@ -84,23 +72,16 @@
     transition: transform 120ms ease-out;
 }
 
-/* Layer CON (MỚI, Ken Burns 18/07/2026) — mang background-image THẬT (setMotionEngineLayerImage() giờ
-   set lên đây, xem event/workflow/motion-engine.js). Animation pan/zoom Ken Burns chạy bằng Web
-   Animations API (panEl.animate(), xem core/motion-engine.js) — KHÔNG có CSS
-   @keyframes/class nào cho nó ở file này (xem comment ngay dưới các rule transition).
+/* Layer CON — mang background-image THẬT (setMotionEngineLayerImage(), xem event/workflow/
+   motion-engine.js). Animation Point Move chạy bằng Web Animations API (panEl.animate(), xem
+   core/motion-engine.js::startPointMoveAnimation()) — KHÔNG CSS @keyframes/class nào cho nó ở file
+   này, mọi giá trị (translate/rotate/scale/rotateX/rotateY) tính runtime từ preset (core/
+   motion-presets.js), không thể viết cố định sẵn bằng CSS tĩnh.
    `inset: -1px` (thay vì 0) — che hết viền subpixel có thể lộ ra lúc scale animation chạy gần biên. */
-.me-kenburns-pan {
+.me-pointmove-pan {
     position: absolute; inset: -1px;
     background-size: cover; background-position: center;
 }
-
-/* Ken Burns — VIẾT LẠI LẦN 2 (18/07/2026, phản hồi Giang) — KHÔNG còn CSS `@keyframes`/classList
-   nào ở đây nữa. `.me-kenburns-pan` (khai ngay trên) chỉ còn lo layout/background-size/position —
-   toàn bộ animation pan/zoom giờ chạy bằng Web Animations API (`panEl.animate()`), viết trực tiếp
-   trong JS (core/motion-engine.js::startMotionEngineKenBurnsAnimation()), KHÔNG cần class
-   hay @keyframes tĩnh nào — lý do: biên pan AN TOÀN phụ thuộc tỉ lệ ẢNH THẬT (khác nhau mỗi ảnh),
-   CSS tĩnh không thể biểu diễn được, chỉ JS tính runtime mới làm được (xem docstring đầy đủ ở file
-   JS trên). */
 
 /* ==================== VIẾT LẠI HOÀN TOÀN (30/08/2026, phản hồi Giang — "gộp các type có hướng lại
    thành field direction") — nhiều lượt trước tách slide/wipe/flip/zoom thành TỪNG type riêng theo
