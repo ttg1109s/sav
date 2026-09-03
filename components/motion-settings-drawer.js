@@ -1,32 +1,28 @@
 /**
- * Component: màn hình "Cấu hình Motion" — VIẾT LẠI TOÀN BỘ (29/08/2026, phản hồi Giang — Motion
- * KHÔNG còn là 1 cấu hình DUY NHẤT nhúng trong Visual Background, mà là hệ PRESET độc lập, đặt tên/
- * thêm/xoá được (CÙNG KHUÔN hệ preset EQ — core/eq-presets.js/components/eq-presets-drawer.js, chỉ
- * đổi field). Visual Background (Photo) chỉ là 1 trong các "nơi tiêu thụ" CÓ THỂ gắn 1 preset vào
- * dùng — KHÔNG sở hữu/quản lý hệ preset này. Lối vào DUY NHẤT: Settings > System > Motion.
+ * Component: màn hình "Cấu hình Motion" — hệ PRESET độc lập, đặt tên/thêm/xoá được (CÙNG KHUÔN
+ * hệ preset EQ — core/eq-presets.js/components/eq-presets-drawer.js). Visual Background (Photo)
+ * chỉ là 1 trong các "nơi tiêu thụ" CÓ THỂ gắn 1 preset vào dùng — KHÔNG sở hữu/quản lý hệ preset
+ * này. Lối vào DUY NHẤT: Settings > System > Motion.
  *
- * 4 màn (mỗi màn 1 hàm render, tất cả điều hướng qua workflowAppSettings.navigateTo(), xem
+ * 7 màn (mỗi màn 1 hàm render, tất cả điều hướng qua workflowAppSettings.navigateTo(), xem
  * event/workflow/app-settings.js + event/workflow/motion-presets.js):
  *   1. `renderMotionMenuBody()` — 2 dòng: "Quản lý cấu hình" / "Áp dụng cấu hình".
  *   2. `renderMotionListBody(presets, pickMode)` — danh sách preset — DÙNG CHUNG cho CẢ "Quản lý"
  *      (tap = sửa, có nút xoá nhanh mỗi dòng) LẪN "Áp dụng > chọn" (tap = CHỌN gắn vào, không có nút
  *      xoá) — `pickMode` phân biệt 2 hành vi.
  *   3. `renderMotionEditBody(preset)` — sửa 1 preset: Transition (toggle riêng + type/duration/
- *      ratio/easing LUÔN hiện, KHÔNG ẩn theo toggle nữa — Giang chốt) + Ken Burns (toggle + mode
- *      LUÔN hiện, cùng lý do — tên nhóm về lại "Ken Burns", KHÔNG còn "Photo Movement") + nhóm CUỐI
- *      "Quản lý" (MỚI 29/08/2026, phản hồi Giang — dời Reset/Xoá xuống thành 2 hàng cuối, CÙNG nhóm
- *      với đổi tên — KHÔNG còn 2 nút text nhỏ ở header, KHÔNG còn nút "+" icon nào — "Thêm cấu hình
- *      mới" cũng đã dời xuống thành 1 hàng chữ thuần đầu danh sách, xem `renderMotionListBody()`).
- *      Tên preset là 1 input trong nhóm CUỐI đó, tự lưu lúc blur (KHÔNG cần nút "Cập nhật" riêng —
- *      mọi field khác trong app đều tự lưu ngay lúc đổi, tên cũng vậy cho nhất quán).
- *   4. `renderMotionApplyListBody()` — 1 dòng "Photo visual background" (tạm thời DUY NHẤT nơi
- *      tiêu thụ) + `renderMotionApplyDetailBody(presetName)` — tên preset đang gắn bên trái + nút
- *      "Gỡ", cùng nút "Chọn cấu hình khác" mở lại `renderMotionListBody(..., true)`.
+ *      ratio/easing LUÔN hiện) + Point Move (danh sách điểm chuyển động — thay Ken Burns, xem
+ *      core/motion-presets.js) + React Beat Audio + nhóm CUỐI "Quản lý" (đổi tên/Reset/Xoá).
+ *   4. `renderPointMoveListBody(pointMoves)` — danh sách point move: checkbox | tên | xoá | sửa.
+ *   5. `renderPointMoveEditBody(pointMove)` — sửa 6 thông số (Linear X/Y, Rotate, Zoom, Flip X/Y).
+ *   6. `renderPointMoveTimingBody()` — khung chứa đường cong Timing (SVG dựng bởi
+ *      core/point-move-timing-ui.js, workflow tự append vào #ptmove-timing-container).
+ *   7. `renderMotionApplyListBody()` — 1 dòng "Photo visual background" + `renderMotionApplyDetailBody()`.
  *
  * Logic: event/workflow/motion-presets.js (workflowMotionPresets). Router/Listener: cụm
- * "motionPresets" (event/router,listener/motion-presets.js).
- * NẠP SAU: core/modal-choice-ui.js (dùng chung escapeHtml()), core/file-manager/motion.js
- * (transitionSupportsInOutRatio()), components/settings/app-settings-main.js (renderAppSettingsRowList()).
+ * "motionPresets" (event/router/motion-presets.js).
+ * NẠP SAU: core/modal-choice-ui.js (escapeHtml()), core/motion-engine.js/motion-presets.js,
+ * components/settings/app-settings-main.js (renderAppSettingsRowList()).
  */
 
 function renderMotionMenuBody() {
@@ -39,9 +35,6 @@ function renderMotionMenuBody() {
 
 /** @param {{id:string, name:string}[]} presets @param {boolean} pickMode */
 function renderMotionListBody(presets, pickMode) {
-    // SỬA (29/08/2026, phản hồi Giang — "bỏ dấu +") — hàng "Thêm cấu hình mới" dời từ nút icon "+"
-    // ở header (đã bỏ hẳn) xuống thành 1 hàng CUỐI danh sách, chữ thuần, không icon — CHỈ hiện khi
-    // KHÔNG phải pickMode (Áp dụng > Chọn chỉ được CHỌN trong preset có sẵn, không tạo mới từ đó).
     const addRowHtml = pickMode ? '' : `
         <button type="button" id="btn-motion-list-add" class="w-full text-center px-4 py-3.5 rounded-2xl mb-2 bg-sky-50 border border-sky-200 hover:bg-sky-100 transition-colors text-sm font-semibold text-sky-600">${t('motionPresetsDrawer.list.add.label')}</button>
     `;
@@ -63,21 +56,9 @@ function renderMotionListBody(presets, pickMode) {
     return addRowHtml + itemsHtml;
 }
 
-/** Dựng 3 hàng (checkbox bật + [select hướng [+ checkbox reverse]] + 1 slider max biên độ) cho 1
- * hiệu ứng con (zoom/pan/rotate) trong nhóm "React Beat Audio" — DÙNG CHUNG cả 3, tránh lặp HTML
- * gần giống nhau 3 lần (chỉ khác: có/không select hướng, biên/step/hậu tố, tên field). VIẾT LẠI
- * (30/08/2026, phản hồi Giang mục 1/2 — bỏ hẳn slider "mỗi N beat"); SỬA LẠI NGAY sau đó (phản hồi
- * Giang — "min là cố định cứng, không phải tuỳ chọn") — CHỈ 1 slider `max` DUY NHẤT (100-200/100-150/
- * 0-360), biên dưới (baseline) CỐ ĐỊNH CỨNG trong công thức nội suy, KHÔNG phải field/slider nào ở
- * đây, xem core/motion-engine.js::computeMotionEngineBeatReactZoomScale()/computeMotionEngineBeatReactOffset().
- * BỔ SUNG (30/08/2026, phản hồi Giang — checkbox "reverse") — thêm 1 checkbox NGAY dưới select hướng
- * (CHỈ hiện khi `hasDirection`, tức pan/rotate — zoom không có direction nên không có reverse) — chỉ
- * thật sự có tác dụng khi hướng đang chọn là "leftToRight"/"rightToLeft" (đảo cực lượt beat ĐẦU TIÊN,
- * xem core/motion-engine.js::computeMotionEngineBeatReactNextPolarity()), nhưng vẫn LUÔN hiện (KHÔNG
- * ẩn/hiện động theo select hướng đang chọn) — cùng quy ước "field chi tiết luôn hiện, không ẩn theo
- * điều kiện khác" đã áp cho cả nhóm React Beat Audio từ đầu.
- * @param {'zoom'|'pan'|'rotate'} key - dùng làm phần ID (`setting-motion-beatreact-${key}-*`).
- * @param {object} effect - `preset.reactBeatAudio[key]` — {enabled, maxPct|maxDeg, direction?, reverse?}.
+/** Dựng 3 hàng (checkbox bật + [select hướng + checkbox reverse] + 1 slider max biên độ) cho 1
+ * hiệu ứng con (zoom/pan/rotate) trong nhóm "React Beat Audio" — DÙNG CHUNG cả 3.
+ * @param {'zoom'|'pan'|'rotate'} key @param {object} effect - `preset.reactBeatAudio[key]`.
  * @param {{titleKey:string, maxLabelKey:string, boundMin:number, boundMax:number, step:number, suffix:string, hasDirection:boolean, isLast?:boolean}} cfg
  */
 function renderMotionBeatReactEffectRows(key, effect, cfg) {
@@ -121,8 +102,6 @@ function renderMotionEditBody(preset) {
                 <div>
                     <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2" data-i18n="motionSettingsDrawer.groupTransition.title">${t('motionSettingsDrawer.groupTransition.title')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
-                        <!-- MỚI (29/08/2026, Giang chốt) — toggle "Có áp dụng Transition hay không",
-                             ĐỘC LẬP với việc chọn hiệu ứng (select ngay dưới LUÔN hiện, kể cả tắt). -->
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.transitionEnabled.label">${t('motionSettingsDrawer.transitionEnabled.label')}</span>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
@@ -242,77 +221,46 @@ function renderMotionEditBody(preset) {
                     </div>
                 </div>
 
-                <!-- ===================== NHÓM 2: KEN BURNS ===================== -->
-                <!-- SỬA (29/08/2026, Giang chốt "chuyển về lại thành Ken Burns") — tên nhóm về lại
-                     "Ken Burns" (thay "Photo Movement"), select mode LUÔN hiện — bỏ hẳn ẩn/hiện theo
-                     toggle (KHÁC bản cũ tự toggle class "hidden" trên #motion-kenburns-mode-row). -->
+                <!-- ===================== NHÓM 2: POINT MOVE (thay Ken Burns) ===================== -->
                 <div>
-                    <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="motionSettingsDrawer.groupKenBurns.title">${t('motionSettingsDrawer.groupKenBurns.title')}</h3>
+                    <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="motionSettingsDrawer.groupPointMove.title">${t('motionSettingsDrawer.groupPointMove.title')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
+                        <button type="button" id="btn-motion-pointmove-list" class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors w-full text-left">
+                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.list.label">${t('motionSettingsDrawer.pointMove.list.label')}</span>
+                            <span class="flex items-center gap-1.5 text-xs text-slate-400 shrink-0">
+                                ${tFormat('motionSettingsDrawer.pointMove.list.count', { n: preset.pointMoves.length })}
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                            </span>
+                        </button>
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.kenBurns.label">${t('motionSettingsDrawer.kenBurns.label')}</span>
-                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="setting-motion-kenburns" class="sr-only peer" ${preset.kenBurnsEnabled ? 'checked' : ''}>
-                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
-                            </label>
-                        </div>
-                        <div class="flex justify-between items-center p-4">
-                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.kenBurnsMode.label">${t('motionSettingsDrawer.kenBurnsMode.label')}</span>
-                            <select id="setting-motion-kenburns-mode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-40 text-right">
-                                <optgroup label="${t('motionSettingsDrawer.kenBurnsMode.groupPan')}">
-                                    <option value="panLeft" ${preset.kenBurnsMode === 'panLeft' ? 'selected' : ''} data-i18n="motionSettingsDrawer.kenBurnsMode.panLeft">${t('motionSettingsDrawer.kenBurnsMode.panLeft')}</option>
-                                    <option value="panRight" ${preset.kenBurnsMode === 'panRight' ? 'selected' : ''} data-i18n="motionSettingsDrawer.kenBurnsMode.panRight">${t('motionSettingsDrawer.kenBurnsMode.panRight')}</option>
-                                    <option value="panTop" ${preset.kenBurnsMode === 'panTop' ? 'selected' : ''} data-i18n="motionSettingsDrawer.kenBurnsMode.panTop">${t('motionSettingsDrawer.kenBurnsMode.panTop')}</option>
-                                    <option value="panBottom" ${preset.kenBurnsMode === 'panBottom' ? 'selected' : ''} data-i18n="motionSettingsDrawer.kenBurnsMode.panBottom">${t('motionSettingsDrawer.kenBurnsMode.panBottom')}</option>
-                                    <option value="panRandom" ${preset.kenBurnsMode === 'panRandom' ? 'selected' : ''} data-i18n="motionSettingsDrawer.kenBurnsMode.panRandom">${t('motionSettingsDrawer.kenBurnsMode.panRandom')}</option>
-                                </optgroup>
-                                <optgroup label="${t('motionSettingsDrawer.kenBurnsMode.groupZoom')}">
-                                    <option value="zoomIn" ${preset.kenBurnsMode === 'zoomIn' ? 'selected' : ''} data-i18n="motionSettingsDrawer.kenBurnsMode.zoomIn">${t('motionSettingsDrawer.kenBurnsMode.zoomIn')}</option>
-                                    <option value="zoomOut" ${preset.kenBurnsMode === 'zoomOut' ? 'selected' : ''} data-i18n="motionSettingsDrawer.kenBurnsMode.zoomOut">${t('motionSettingsDrawer.kenBurnsMode.zoomOut')}</option>
-                                    <option value="zoomRandom" ${preset.kenBurnsMode === 'zoomRandom' ? 'selected' : ''} data-i18n="motionSettingsDrawer.kenBurnsMode.zoomRandom">${t('motionSettingsDrawer.kenBurnsMode.zoomRandom')}</option>
-                                </optgroup>
-                                <optgroup label="${t('motionSettingsDrawer.kenBurnsMode.groupZoomPan')}">
-                                    <option value="zoomPanLeft" ${preset.kenBurnsMode === 'zoomPanLeft' ? 'selected' : ''} data-i18n="motionSettingsDrawer.kenBurnsMode.zoomPanLeft">${t('motionSettingsDrawer.kenBurnsMode.zoomPanLeft')}</option>
-                                    <option value="zoomPanRight" ${preset.kenBurnsMode === 'zoomPanRight' ? 'selected' : ''} data-i18n="motionSettingsDrawer.kenBurnsMode.zoomPanRight">${t('motionSettingsDrawer.kenBurnsMode.zoomPanRight')}</option>
-                                    <option value="zoomPanTop" ${preset.kenBurnsMode === 'zoomPanTop' ? 'selected' : ''} data-i18n="motionSettingsDrawer.kenBurnsMode.zoomPanTop">${t('motionSettingsDrawer.kenBurnsMode.zoomPanTop')}</option>
-                                    <option value="zoomPanBottom" ${preset.kenBurnsMode === 'zoomPanBottom' ? 'selected' : ''} data-i18n="motionSettingsDrawer.kenBurnsMode.zoomPanBottom">${t('motionSettingsDrawer.kenBurnsMode.zoomPanBottom')}</option>
-                                    <option value="zoomPanRandom" ${preset.kenBurnsMode === 'zoomPanRandom' ? 'selected' : ''} data-i18n="motionSettingsDrawer.kenBurnsMode.zoomPanRandom">${t('motionSettingsDrawer.kenBurnsMode.zoomPanRandom')}</option>
-                                </optgroup>
+                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.runMode.label">${t('motionSettingsDrawer.pointMove.runMode.label')}</span>
+                            <select id="setting-motion-pointmove-runmode" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
+                                <option value="all" ${preset.pointMoveRunMode === 'all' ? 'selected' : ''} data-i18n="motionSettingsDrawer.pointMove.runMode.all">${t('motionSettingsDrawer.pointMove.runMode.all')}</option>
+                                <option value="one" ${preset.pointMoveRunMode === 'one' ? 'selected' : ''} data-i18n="motionSettingsDrawer.pointMove.runMode.one">${t('motionSettingsDrawer.pointMove.runMode.one')}</option>
                             </select>
                         </div>
+                        <div id="motion-pointmove-order-row" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors${preset.pointMoveRunMode === 'one' ? '' : ' hidden'}">
+                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.oneOrder.label">${t('motionSettingsDrawer.pointMove.oneOrder.label')}</span>
+                            <select id="setting-motion-pointmove-order" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none w-32 text-right">
+                                <option value="sequential" ${preset.pointMoveOneOrder === 'sequential' ? 'selected' : ''} data-i18n="motionSettingsDrawer.pointMove.oneOrder.sequential">${t('motionSettingsDrawer.pointMove.oneOrder.sequential')}</option>
+                                <option value="random" ${preset.pointMoveOneOrder === 'random' ? 'selected' : ''} data-i18n="motionSettingsDrawer.pointMove.oneOrder.random">${t('motionSettingsDrawer.pointMove.oneOrder.random')}</option>
+                            </select>
+                        </div>
+                        <button type="button" id="btn-motion-pointmove-timing" class="flex justify-between items-center p-4 hover:bg-white/5 transition-colors w-full text-left${preset.pointMoveRunMode === 'all' ? '' : ' hidden'}">
+                            <span class="text-sm font-medium" data-i18n="motionSettingsDrawer.pointMove.timing.label">${t('motionSettingsDrawer.pointMove.timing.label')}</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        </button>
                     </div>
                 </div>
 
                 <!-- ===================== NHÓM 3: REACT BEAT AUDIO ===================== -->
-                <!-- MỚI (29/08/2026, phản hồi Giang); VIẾT LẠI (30/08/2026, phản hồi Giang mục 1/2 —
-                     bỏ hẳn cơ chế "bắn theo beat", giờ zoom/pan/rotate LIÊN TỤC tự động theo năng
-                     lượng nhạc, cùng cách các beatscale visualizer effect khác trong app đang dùng);
-                     SỬA LẠI NGAY sau đó (phản hồi Giang — "min là cố định cứng, không phải tuỳ
-                     chọn"). 2 toggle ĐẦU (enabled/replaceMovement) LUÔN hiện — cùng quy ước
-                     Transition/Ken Burns (không ẩn field theo toggle). 3 cụm con (Zoom/Pan/Rotate)
-                     mỗi cụm 1 checkbox VUÔNG (khác pill-toggle 2 cái trên — đúng chữ "checkbox"
-                     Giang dùng, phân biệt 3 cái ĐỘC LẬP có thể tick 1/vài/cả 3 cùng lúc) + ĐÚNG 1
-                     slider "max" biên độ (nội suy tuyến tính từ baseline CỐ ĐỊNH theo năng lượng,
-                     KHÔNG có slider "min"/"N beat" nào) thay vì mở modal riêng — đỡ phải dựng thêm
-                     picker mới, cùng khuôn slider "In/Out ratio" đã có (Transition). -->
                 <div>
-
                     <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="motionPresetsDrawer.beatReact.groupTitle">${t('motionPresetsDrawer.beatReact.groupTitle')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
                         <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
                             <span class="text-sm font-medium" data-i18n="motionPresetsDrawer.beatReact.enabled.label">${t('motionPresetsDrawer.beatReact.enabled.label')}</span>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                 <input type="checkbox" id="setting-motion-beatreact-enabled" class="sr-only peer" ${preset.reactBeatAudio.enabled ? 'checked' : ''}>
-                                <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
-                            </label>
-                        </div>
-                        <div class="flex justify-between items-center p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
-                            <div class="pr-3">
-                                <div class="text-sm font-medium" data-i18n="motionPresetsDrawer.beatReact.replaceMovement.label">${t('motionPresetsDrawer.beatReact.replaceMovement.label')}</div>
-                                <div class="text-xs text-slate-400 mt-0.5" data-i18n="motionPresetsDrawer.beatReact.replaceMovement.hint">${t('motionPresetsDrawer.beatReact.replaceMovement.hint')}</div>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="setting-motion-beatreact-replace" class="sr-only peer" ${preset.reactBeatAudio.replaceMovement ? 'checked' : ''}>
                                 <div class="w-9 h-5 bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
                             </label>
                         </div>
@@ -340,10 +288,6 @@ function renderMotionEditBody(preset) {
                 </div>
 
                 <!-- ===================== NHÓM 4: QUẢN LÝ ===================== -->
-                <!-- MỚI (29/08/2026, phản hồi Giang — dời Reset/Xoá xuống dưới cùng, chung nhóm với
-                     đổi tên, khỏi 2 nút nhỏ ở header) — "Cập nhật" (đổi tên, input auto-lưu lúc
-                     blur) + "Reset"/"Xoá" giờ là 3 hàng CUỐI, CÙNG khuôn hàng "Motion options..."
-                     (components/visual-bg-settings-drawer.js) — không còn 2 nút text nhỏ ở header. -->
                 <div>
                     <h3 class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2 ml-2 mt-4" data-i18n="motionPresetsDrawer.edit.groupManage.title">${t('motionPresetsDrawer.edit.groupManage.title')}</h3>
                     <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
@@ -362,10 +306,109 @@ function renderMotionEditBody(preset) {
     `;
 }
 
+/** Danh sách point move — checkbox | tên | icon xoá | icon sửa. Point move VỊ TRÍ ĐẦU (index 0)
+ * checkbox khoá (disabled, luôn checked) — xem core/motion-presets.js::sanitizeMotionPointMoves().
+ * Nút xoá disabled khi CHỈ CÒN 1 point move (luôn phải giữ ít nhất 1).
+ * @param {object[]} pointMoves */
+function renderPointMoveListBody(pointMoves) {
+    const canDelete = pointMoves.length > 1;
+    const itemsHtml = pointMoves.map((p, i) => `
+        <div class="w-full px-3 py-2.5 rounded-2xl mb-2 flex items-center gap-2 bg-slate-50 border border-slate-200">
+            <input type="checkbox" data-ptmove-checkbox="${escapeHtml(p.id)}" class="w-4 h-4 rounded accent-sky-500 shrink-0" ${p.checked ? 'checked' : ''} ${i === 0 ? 'disabled' : ''}>
+            <span class="flex-1 text-sm font-semibold text-slate-700 truncate">${tFormat('motionSettingsDrawer.pointMove.itemName', { n: i })}</span>
+            <button type="button" data-ptmove-delete="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors shrink-0 disabled:opacity-30 disabled:pointer-events-none" ${canDelete ? '' : 'disabled'} title="${t('motionPresetsDrawer.list.delete.title')}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            </button>
+            <button type="button" data-ptmove-edit="${escapeHtml(p.id)}" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-sky-500 hover:bg-sky-50 transition-colors shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+            </button>
+        </div>
+    `).join('');
+    return itemsHtml + `
+        <button type="button" id="btn-ptmove-add" class="w-full text-center px-4 py-3.5 rounded-2xl bg-sky-50 border border-sky-200 hover:bg-sky-100 transition-colors text-sm font-semibold text-sky-600">${t('motionSettingsDrawer.pointMove.add.label')}</button>
+    `;
+}
+
+/** Dựng 1 field/point move ("-n 0 n" slider hoặc dual-range) — DÙNG CHUNG cho 6 field.
+ * @param {string} key - 'linearX'|'linearY'|'rotate'|'zoom'|'flipX'|'flipY' (dùng làm phần ID).
+ * @param {object} field - `pointMove[key]` — {mode, unit, single, rangeMin, rangeMax}.
+ * @param {{titleKey:string, hasUnit:boolean, boundMin:number, boundMax:number, step:number, suffix:string, isLast?:boolean}} cfg
+ */
+function renderPointMoveFieldRows(key, field, cfg) {
+    const borderClass = cfg.isLast ? '' : ' border-b border-white/5';
+    const isSingle = field.mode === 'single';
+    const unitHtml = cfg.hasUnit ? `
+                    <div class="flex gap-1.5">
+                        <button type="button" data-ptmove-unit="${key}" data-value="%" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${field.unit === '%' ? 'bg-sky-500 text-white' : 'bg-black/40 text-slate-400'}">%</button>
+                        <button type="button" data-ptmove-unit="${key}" data-value="px" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${field.unit === 'px' ? 'bg-sky-500 text-white' : 'bg-black/40 text-slate-400'}">px</button>
+                    </div>` : '';
+    const singleHtml = `
+                    <div class="ptmove-single-slider-wrap" id="ptmove-${key}-single-wrap" style="--ptmove-zero-pct: ${((0 - cfg.boundMin) / (cfg.boundMax - cfg.boundMin) * 100).toFixed(2)}%;${isSingle ? '' : ' display:none;'}">
+                        <input type="range" id="setting-ptmove-${key}-single" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.single}" class="w-full accent-sky-500">
+                    </div>`;
+    const rangeHtml = `
+                    <div class="ptmove-range-wrap" id="ptmove-${key}-range-wrap"${isSingle ? ' style="display:none"' : ''}>
+                        <div class="ptmove-range-track"></div>
+                        <div class="ptmove-range-fill" id="ptmove-${key}-range-fill"></div>
+                        <input type="range" data-ptmove-range="min" data-suffix="${cfg.suffix}" id="setting-ptmove-${key}-rangemin" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMin}" class="ptmove-range-input">
+                        <input type="range" data-ptmove-range="max" data-suffix="${cfg.suffix}" id="setting-ptmove-${key}-rangemax" min="${cfg.boundMin}" max="${cfg.boundMax}" step="${cfg.step}" value="${field.rangeMax}" class="ptmove-range-input">
+                    </div>`;
+    return `
+                        <div class="p-4${borderClass}">
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="text-sm font-medium" data-i18n="${cfg.titleKey}">${t(cfg.titleKey)}</span>
+                                <div class="flex items-center gap-2.5">
+                                    ${unitHtml}
+                                    <select data-ptmove-mode="${key}" class="bg-black/50 border border-white/10 rounded-lg px-2 py-1 text-xs text-white outline-none">
+                                        <option value="single" ${isSingle ? 'selected' : ''} data-i18n="motionSettingsDrawer.pointMove.field.mode.single">${t('motionSettingsDrawer.pointMove.field.mode.single')}</option>
+                                        <option value="randomRange" ${isSingle ? '' : 'selected'} data-i18n="motionSettingsDrawer.pointMove.field.mode.randomRange">${t('motionSettingsDrawer.pointMove.field.mode.randomRange')}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="flex justify-end mb-1.5">
+                                <span id="ptmove-${key}-value-label" class="text-xs text-slate-300 font-mono">${isSingle ? `${field.single}${cfg.suffix}` : `${field.rangeMin}${cfg.suffix} ~ ${field.rangeMax}${cfg.suffix}`}</span>
+                            </div>
+                            ${singleHtml}
+                            ${rangeHtml}
+                        </div>
+    `;
+}
+
+/** Sửa 1 point move — 6 nhóm thông số. Linear X/Y CÓ toggle đơn vị %/px (biên đổi theo đơn vị,
+ * xem core/motion-presets.js::MOTION_POINT_MOVE_BOUNDS); Rotate/Zoom/Flip X/Y KHÔNG có unit.
+ * @param {object} pointMove */
+function renderPointMoveEditBody(pointMove) {
+    const linearBounds = pointMove.linearX.unit === 'px' ? { min: -1000, max: 1000, step: 10 } : { min: -200, max: 200, step: 5 };
+    const linearYBounds = pointMove.linearY.unit === 'px' ? { min: -1000, max: 1000, step: 10 } : { min: -200, max: 200, step: 5 };
+    return `
+                <div>
+                    <div class="glass-modal rounded-2xl flex flex-col overflow-hidden">
+                        ${renderPointMoveFieldRows('linearX', pointMove.linearX, { titleKey: 'motionSettingsDrawer.pointMove.field.linearX', hasUnit: true, boundMin: linearBounds.min, boundMax: linearBounds.max, step: linearBounds.step, suffix: pointMove.linearX.unit })}
+                        ${renderPointMoveFieldRows('linearY', pointMove.linearY, { titleKey: 'motionSettingsDrawer.pointMove.field.linearY', hasUnit: true, boundMin: linearYBounds.min, boundMax: linearYBounds.max, step: linearYBounds.step, suffix: pointMove.linearY.unit })}
+                        ${renderPointMoveFieldRows('rotate', pointMove.rotate, { titleKey: 'motionSettingsDrawer.pointMove.field.rotate', hasUnit: false, boundMin: -360, boundMax: 360, step: 5, suffix: '°' })}
+                        ${renderPointMoveFieldRows('zoom', pointMove.zoom, { titleKey: 'motionSettingsDrawer.pointMove.field.zoom', hasUnit: false, boundMin: -2, boundMax: 2, step: 0.05, suffix: '' })}
+                        ${renderPointMoveFieldRows('flipX', pointMove.flipX, { titleKey: 'motionSettingsDrawer.pointMove.field.flipX', hasUnit: false, boundMin: -360, boundMax: 360, step: 5, suffix: '°' })}
+                        ${renderPointMoveFieldRows('flipY', pointMove.flipY, { titleKey: 'motionSettingsDrawer.pointMove.field.flipY', hasUnit: false, boundMin: -360, boundMax: 360, step: 5, suffix: '°', isLast: true })}
+                    </div>
+                </div>
+    `;
+}
+
+/** Khung chứa đường cong Timing — SVG THẬT dựng bởi core/point-move-timing-ui.js, workflow tự
+ * append vào `#ptmove-timing-container` sau khi `_render()` xong (Rule 5d — component chỉ định
+ * khung rỗng, không tự dựng SVG ở đây vì cần dữ liệu ĐÃ sample đường cong từ Workflow). */
+function renderPointMoveTimingBody() {
+    return `
+        <p class="text-xs text-slate-400 mb-3 px-1">${t('motionSettingsDrawer.pointMove.timing.hint')}</p>
+        <div class="glass-modal rounded-2xl p-4">
+            <div id="ptmove-timing-container"></div>
+        </div>
+    `;
+}
+
 /** Màn "Áp dụng cấu hình" — danh sách "nơi tiêu thụ". Tạm thời DUY NHẤT 1 dòng "Photo visual
- * background" (Giang chốt — hệ preset dựng để dùng chung cho nhiều nơi về sau, chỉ mới có đúng 1
- * nơi tiêu thụ thật). Hint hiện tên preset đang gắn (hoặc "Chưa gắn").
- * @param {string} attachedName - tên preset đang gắn cho Photo VBG, hoặc '' nếu chưa gắn. */
+ * background". Hint hiện tên preset đang gắn (hoặc "Chưa gắn").
+ * @param {string} attachedName */
 function renderMotionApplyListBody(attachedName) {
     const hint = attachedName || t('motionPresetsDrawer.apply.notAttached');
     return `
