@@ -252,7 +252,7 @@ const workflowMotionEngine = {
         const points = checked
             .map((p) => ({ x: p.timingX, y: p.timingY, target: this._resolvePointMoveTarget(p) }))
             .sort((a, b) => a.x - b.x);
-        const keyframes = this._buildPointMoveAllKeyframes(points, preset.pointMoveTimingStartY, preset.pointMoveTimingEndY);
+        const keyframes = this._buildPointMoveAllKeyframes(points);
         const anim = startPointMoveAnimation(panEl, keyframes, this._lastAdvanceMs, 'linear'); // core
         this._setPointMoveAnim(panEl, anim);
     },
@@ -274,27 +274,27 @@ const workflowMotionEngine = {
 
     /** Sample `points` (đã sort theo `x`, mỗi phần tử {x,y,target}) thành mảng keyframe {transform}
      * — mỗi mẫu: (1) tìm đoạn [A,B] chứa `xPercent` (`_findPointMoveSegment()`) trong
-     * `targetPoints` (= `points` + 1 node "vị trí ban đầu" ẢO chèn đầu, x=0/target trung tính —
+     * `targetPoints` (= `points` + 1 node "vị trí ban đầu" ẢO chèn đầu, x=0/y=0/target trung tính —
      * phản hồi Giang: animation LUÔN xuất phát từ mốc trung tính CỐ ĐỊNH này trước khi tới point
      * move gần nhất, point move #0 KHÔNG còn bị ép đứng ở 0% nữa), lerp 6 field giữa `A.target`/
      * `B.target` theo tiến độ THỜI GIAN cục bộ trong đoạn đó; (2) NẾU field đó có
      * `applyTimingIntensity=true` (đọc từ `B.target`, điểm ĐANG hướng tới — phản hồi Giang, mặc
-     * định TẮT cho CẢ 6 field) thì nhân thêm cường độ `Y(xPercent)` đọc từ `curveNodes` (=
-     * `points` + 2 node ẢO 2 đầu tại x=0/x=100, y=`startY`/`endY` — phản hồi Giang: "dù có 1 point
-     * duy nhất đều tạo được đường cong", LUÔN có mặt bất kể bao nhiêu point move đã tick — KHỚP
-     * NGUYÊN TRẠNG đường cong hiển thị trên SVG lúc sửa, xem event/workflow/motion-presets.js::
-     * _computeTimingCurveData(), core/point-move-timing-ui.js) — `computePointMoveCurveIntensityAt()`,
-     * core, nội suy Catmull-Rom; field TẮT thì bỏ qua nhân, LUÔN đạt ĐỦ giá trị đã lerp theo thời
-     * gian — 2 trục X (thời gian/vị trí target) và Y (cường độ) tách biệt hoàn toàn, không giẫm
-     * chân nhau dù field nào đang randomRange (đã resolve xong 1 lần trước khi vào đây).
+     * định TẮT cho CẢ 6 field) thì nhân thêm cường độ `Y(xPercent)` đọc từ `curveNodes` (= `points`
+     * + 2 node ẢO 2 đầu CỐ ĐỊNH CỨNG tại (0%, 0) và (100%, 0) — phản hồi Giang: "dù có 1 point duy
+     * nhất đều tạo được đường cong", LUÔN có mặt bất kể bao nhiêu point move đã tick, KHÔNG chỉnh
+     * được (khác targetPoints ở x=0 — 2 điểm CÙNG toạ độ (0,0) nhưng phục vụ 2 việc khác nhau, một
+     * cho nội suy target, một cho đường cong cường độ) — KHỚP NGUYÊN TRẠNG đường cong hiển thị trên
+     * SVG lúc sửa, xem event/workflow/motion-presets.js::_computeTimingCurveData(), core/
+     * point-move-timing-ui.js) — `computePointMoveCurveIntensityAt()`, core, nội suy Catmull-Rom;
+     * field TẮT thì bỏ qua nhân, LUÔN đạt ĐỦ giá trị đã lerp theo thời gian — 2 trục X (thời gian/
+     * vị trí target) và Y (cường độ) tách biệt hoàn toàn, không giẫm chân nhau dù field nào đang
+     * randomRange (đã resolve xong 1 lần trước khi vào đây).
      * @param {{x:number,y:number,target:object}[]} points
-     * @param {number} startY - `preset.pointMoveTimingStartY`.
-     * @param {number} endY - `preset.pointMoveTimingEndY`.
      * @returns {object[]}
      */
-    _buildPointMoveAllKeyframes(points, startY, endY) {
-        const targetPoints = [{ x: 0, y: startY, target: POINT_MOVE_BASELINE_TARGET }, ...points]; // node ảo "vị trí ban đầu" — CHỈ dùng nội suy target
-        const curveNodes = [{ x: 0, y: startY }, ...points.map((p) => ({ x: p.x, y: p.y })), { x: 100, y: endY }]; // 2 node ảo 2 đầu — dùng cho đường cong CƯỜNG ĐỘ, KHÁC targetPoints (không node cuối, không .target)
+    _buildPointMoveAllKeyframes(points) {
+        const targetPoints = [{ x: 0, y: 0, target: POINT_MOVE_BASELINE_TARGET }, ...points]; // node ảo "vị trí ban đầu" — CHỈ dùng nội suy target
+        const curveNodes = [{ x: 0, y: 0 }, ...points.map((p) => ({ x: p.x, y: p.y })), { x: 100, y: 0 }]; // 2 node ảo 2 đầu, CỐ ĐỊNH (0,0)/(100,0) — dùng cho đường cong CƯỜNG ĐỘ, KHÁC targetPoints (không node cuối, không .target)
         const keyframes = [];
         for (let i = 0; i <= MOTION_ENGINE_POINT_MOVE_ALL_STEPS; i++) {
             const xPercent = (i / MOTION_ENGINE_POINT_MOVE_ALL_STEPS) * 100;
