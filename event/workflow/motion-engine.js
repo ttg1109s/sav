@@ -15,18 +15,22 @@
  * `advanceMs` LUÔN được TRUYỀN VÀO — nơi gọi tự tính theo `durationMode`/`durationSeconds`/
  * `record.duration` của MÌNH (Engine không đọc field nào trong số đó nữa).
  *
- * Point Move (thay Ken Burns, phản hồi Giang) — KHÔNG có công tắc "enabled" riêng: mặc định chỉ có
- * đúng point move #0 (mọi field = 0, tức "không đổi") nên tự nhiên vô hại nếu Giang chưa thêm point
- * move nào khác — xem core/motion-presets.js. 2 chế độ chạy (`pointMoveRunMode`):
+ * Point Move (thay Ken Burns, phản hồi Giang) — công tắc tổng `pointMoveEnabled` (cùng khuôn
+ * `transitionEnabled`, xem `_activatePointMove()`). SỬA (phản hồi Giang — "point move phải là 1
+ * div cha bao quanh layer A, B chứ không phải chỉ A hoặc B, tránh việc move A rồi lộ B") — transform
+ * áp lên `motionEnginePointMoveWrapper` DUY NHẤT (bọc CHUNG cả 2 layer A/B, xem core/dom-refs.js),
+ * KHÔNG còn tách riêng per-layer — mỗi lượt `reveal()`/`transitionTo()` tự DỪNG animation lượt
+ * TRƯỚC trên phần tử đó rồi mới bắt animation MỚI (`_activatePointMove()` tự lo, xem docstring hàm
+ * đó). 2 chế độ chạy (`pointMoveRunMode`):
  *   'one' — `_activatePointMoveOne()`: chọn 1 point move (trong số đã tick) tween thẳng baseline ->
  *      target suốt `advanceMs`.
  *   'all' — `_activatePointMoveAll()`: sample đường cong Timing (`computePointMoveCurveIntensityAt()`,
  *      core) thành N keyframe rồi feed WAAPI easing 'linear' — xem `_buildPointMoveAllKeyframes()`.
  *
- * NẠP SAU: core/motion-engine.js, core/dom-refs.js (motionEngineContainer/motionEngineLayer1,2/
- * motionEngineLayer1,2Pan/motionEngineReactLayer), service/task-manager.js (chỉ còn dùng cho
- * MOTION_ENGINE_BEATREACT_TASK — animation per-frame CỦA ẢNH ĐANG HIỆN, KHÔNG phải hẹn giờ chuyển
- * ảnh — cái đó sống ở workflowVisualBg).
+ * NẠP SAU: core/motion-engine.js, core/dom-refs.js (motionEngineContainer/motionEnginePointMoveWrapper/
+ * motionEngineLayer1,2/motionEngineLayer1,2Pan/motionEngineReactLayer), service/task-manager.js (chỉ
+ * còn dùng cho MOTION_ENGINE_BEATREACT_TASK — animation per-frame CỦA ẢNH ĐANG HIỆN, KHÔNG phải hẹn
+ * giờ chuyển ảnh — cái đó sống ở workflowVisualBg).
  */
 
 /** Preset "tắt hết" — dùng khi nơi gọi truyền `null`/`undefined` (chưa gắn Motion) — KHÔNG fallback
@@ -80,12 +84,7 @@ const workflowMotionEngine = {
     _currentPanLayer() { return this._layerToggle ? motionEngineLayer2Pan : motionEngineLayer1Pan; },
     _idlePanLayer() { return this._layerToggle ? motionEngineLayer1Pan : motionEngineLayer2Pan; },
 
-    _pointMoveAnim1: null,
-    _pointMoveAnim2: null,
-    _getPointMoveAnim(panEl) { return panEl === motionEngineLayer1Pan ? this._pointMoveAnim1 : this._pointMoveAnim2; },
-    _setPointMoveAnim(panEl, anim) {
-        if (panEl === motionEngineLayer1Pan) this._pointMoveAnim1 = anim; else this._pointMoveAnim2 = anim;
-    },
+    _pointMoveAnim: null, // Animation DUY NHẤT trên motionEnginePointMoveWrapper (bọc CHUNG cả 2 layer A/B, xem core/dom-refs.js) — SỬA, phản hồi Giang, không còn tách theo từng layer nữa
 
     /** Hiện ẢNH ĐẦU tĩnh (không transition — chỉ có 1 ảnh, chưa có ảnh "cũ" nào để chuyển từ đó) +
      * bật Point Move/BeatReact NGAY nếu `preset` có gì để chạy.
@@ -104,7 +103,7 @@ const workflowMotionEngine = {
         this._activePreset = preset;
         this._lastAdvanceMs = advanceMs;
         this._isActive = true;
-        this._activatePointMove(this._currentPanLayer(), preset);
+        this._activatePointMove(preset);
         this._syncBeatReactLoop();
     },
 
@@ -130,7 +129,7 @@ const workflowMotionEngine = {
         const incomingPan = this._idlePanLayer();
 
         setMotionEngineLayerImage(incomingPan, objectUrl); // core — LUÔN cần, bất kể có Transition hay không
-        this._activatePointMove(incomingPan, preset);
+        this._activatePointMove(preset); // SỬA (phản hồi Giang) — KHÔNG còn theo layer, activate CHUNG cho cả 2 (trên motionEnginePointMoveWrapper)
 
         // transitionEnabled=false -> CẮT CỨNG, đi THẲNG tới đúng trạng thái nghỉ mà 1 lượt
         // Transition bình thường sẽ kết thúc ở đó (xem finishMotionEngineTransitionVisuals(), core),
@@ -151,8 +150,6 @@ const workflowMotionEngine = {
             const cleanupDelayMs = Math.max(inMs, outMs);
             taskManager.once(() => { // service/task-manager.js
                 setMotionEngineLayerImage(outgoingPan, ''); // core
-                stopPointMoveAnimation(outgoingPan, this._getPointMoveAnim(outgoingPan)); // core
-                this._setPointMoveAnim(outgoingPan, null);
                 finishMotionEngineTransitionVisuals(outgoingLayer, incomingLayer); // core
             }, cleanupDelayMs, 'motionEngineTransitionCleanup');
 
@@ -164,8 +161,6 @@ const workflowMotionEngine = {
             outgoingLayer.classList.remove('me-current');
             incomingLayer.classList.add('me-current');
             setMotionEngineLayerImage(outgoingPan, ''); // core
-            stopPointMoveAnimation(outgoingPan, this._getPointMoveAnim(outgoingPan)); // core
-            this._setPointMoveAnim(outgoingPan, null);
             if (this._currentObjectUrl) { try { URL.revokeObjectURL(this._currentObjectUrl); } catch (e) {} }
         }
 
@@ -214,21 +209,26 @@ const workflowMotionEngine = {
     },
 
     /** Dispatcher — `pointMoveEnabled=false` -> bỏ qua HẲN (công tắc tổng, cùng khuôn
-     * `transitionEnabled`). Nếu bật, chọn `_activatePointMoveOne()`/`_activatePointMoveAll()` theo
+     * `transitionEnabled`). Nếu bật, DỪNG animation CŨ trên `motionEnginePointMoveWrapper` (nếu có
+     * — SỬA, phản hồi Giang: Point Move giờ là 1 transform DUY NHẤT cho CẢ 2 layer A/B, dùng LẶP
+     * LẠI đúng 1 phần tử mỗi lượt reveal/transition, PHẢI tự dọn animation lượt TRƯỚC trước khi bắt
+     * animation MỚI — khác bản cũ mỗi layer có phần tử riêng, animation cũ tự có chỗ dọn ở cleanup
+     * transition) rồi chọn `_activatePointMoveOne()`/`_activatePointMoveAll()` theo
      * `preset.pointMoveRunMode`. Đây là Workflow (được phép rẽ nhánh chọn Core/logic nào chạy),
      * KHÔNG phải Core — Rule 1 (đơn tuyến) chỉ áp cho `core/`.
-     * @param {HTMLElement} panEl - layer CON `.me-pointmove-pan` SẮP/ĐANG hiện.
      * @param {object} preset
      */
-    _activatePointMove(panEl, preset) {
+    _activatePointMove(preset) {
         if (!preset.pointMoveEnabled) return;
-        if (preset.pointMoveRunMode === 'one') { this._activatePointMoveOne(panEl, preset); return; }
-        this._activatePointMoveAll(panEl, preset);
+        stopPointMoveAnimation(motionEnginePointMoveWrapper, this._pointMoveAnim); // core/dom-refs.js, core/motion-engine.js
+        this._pointMoveAnim = null;
+        if (preset.pointMoveRunMode === 'one') { this._activatePointMoveOne(preset); return; }
+        this._activatePointMoveAll(preset);
     },
 
     /** 'one' mode — chọn ĐÚNG 1 point move (trong số đã tick) theo `pointMoveOneOrder`, tween
      * baseline -> target suốt `_lastAdvanceMs`. */
-    _activatePointMoveOne(panEl, preset) {
+    _activatePointMoveOne(preset) {
         const checkedIndices = [];
         preset.pointMoves.forEach((p, i) => { if (p.checked) checkedIndices.push(i); });
         const pickFn = preset.pointMoveOneOrder === 'random' ? pickPointMoveOneIndexRandom : pickPointMoveOneIndexSequential; // core
@@ -240,21 +240,19 @@ const workflowMotionEngine = {
             { transform: buildPointMoveTransformString(POINT_MOVE_BASELINE_TARGET) }, // core
             { transform: buildPointMoveTransformString(target) }, // core
         ];
-        const anim = startPointMoveAnimation(panEl, keyframes, this._lastAdvanceMs, 'ease-in-out'); // core
-        this._setPointMoveAnim(panEl, anim);
+        this._pointMoveAnim = startPointMoveAnimation(motionEnginePointMoveWrapper, keyframes, this._lastAdvanceMs, 'ease-in-out'); // core/dom-refs.js, core/motion-engine.js
     },
 
     /** 'all' mode — sample đường cong Timing của TẤT CẢ point move đã tick thành N keyframe, feed
      * WAAPI easing 'linear' (đường cong ĐÃ tự mượt qua sampling, easing khác sẽ làm méo lại). */
-    _activatePointMoveAll(panEl, preset) {
+    _activatePointMoveAll(preset) {
         const checked = preset.pointMoves.filter((p) => p.checked);
         if (checked.length === 0) return;
         const points = checked
             .map((p) => ({ x: p.timingX, y: p.timingY, target: this._resolvePointMoveTarget(p) }))
             .sort((a, b) => a.x - b.x);
         const keyframes = this._buildPointMoveAllKeyframes(points);
-        const anim = startPointMoveAnimation(panEl, keyframes, this._lastAdvanceMs, 'linear'); // core
-        this._setPointMoveAnim(panEl, anim);
+        this._pointMoveAnim = startPointMoveAnimation(motionEnginePointMoveWrapper, keyframes, this._lastAdvanceMs, 'linear'); // core/dom-refs.js, core/motion-engine.js
     },
 
     /** Resolve 6 field/point move thành giá trị SỐ THẬT (random range resolve 1 LẦN, giữ nguyên
@@ -337,14 +335,12 @@ const workflowMotionEngine = {
      * tiếp tục đúng chỗ. */
     pause() {
         if (taskManager.plan[MOTION_ENGINE_BEATREACT_TASK]) taskManager.pause(MOTION_ENGINE_BEATREACT_TASK); // service/task-manager.js
-        pausePointMoveAnimation(this._pointMoveAnim1); // core
-        pausePointMoveAnimation(this._pointMoveAnim2); // core
+        pausePointMoveAnimation(this._pointMoveAnim); // core
     },
 
     resume() {
         if (taskManager.plan[MOTION_ENGINE_BEATREACT_TASK]) taskManager.resume(MOTION_ENGINE_BEATREACT_TASK); // service/task-manager.js
-        resumePointMoveAnimation(this._pointMoveAnim1); // core
-        resumePointMoveAnimation(this._pointMoveAnim2); // core
+        resumePointMoveAnimation(this._pointMoveAnim); // core
     },
 
     /** Dừng hẳn — dọn layer + object URL + reset bookkeeping. */
@@ -353,10 +349,10 @@ const workflowMotionEngine = {
         this._beatReactActive = false;
         this._resetBeatReactTransform();
         setMotionEngineContainerVisible(motionEngineContainer, false); // core
+        stopPointMoveAnimation(motionEnginePointMoveWrapper, this._pointMoveAnim); // core/dom-refs.js, core/motion-engine.js
+        this._pointMoveAnim = null;
         [[motionEngineLayer1, motionEngineLayer1Pan], [motionEngineLayer2, motionEngineLayer2Pan]].forEach(([layerEl, panEl]) => {
             setMotionEngineLayerImage(panEl, ''); // core
-            stopPointMoveAnimation(panEl, this._getPointMoveAnim(panEl)); // core
-            this._setPointMoveAnim(panEl, null);
             resetMotionEngineLayerClasses(layerEl); // core
         });
         if (this._currentObjectUrl) { try { URL.revokeObjectURL(this._currentObjectUrl); } catch (e) {} this._currentObjectUrl = null; }
