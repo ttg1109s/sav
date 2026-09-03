@@ -91,7 +91,7 @@ const workflowVisualBg = {
                 // trị khởi tạo `durationSeconds` nếu 2 field mới CHƯA từng tồn tại (tránh mất giá trị
                 // Giang đã set trước đây, tự nhiên về lại mặc định 5s).
                 if (VISUAL_BG_DURATION_MODES.includes(saved.durationMode)) cfg.durationMode = saved.durationMode;
-                if (typeof saved.durationSeconds === 'number' && saved.durationSeconds >= 1 && saved.durationSeconds <= 60) {
+                if (typeof saved.durationSeconds === 'number' && saved.durationSeconds >= 0.5 && saved.durationSeconds <= 60) {
                     cfg.durationSeconds = saved.durationSeconds;
                 } else if (saved.slideshow && typeof saved.slideshow.intervalSeconds === 'number' && saved.slideshow.intervalSeconds >= 5) {
                     cfg.durationSeconds = saved.slideshow.intervalSeconds; // MIGRATE — xem comment trên
@@ -322,7 +322,7 @@ const workflowVisualBg = {
      */
     _computePhotoAdvanceMs(record) {
         const cfg = appConfigVisualBg.getAll();
-        if (cfg.durationMode === 'fixtime') return Math.max(5, cfg.durationSeconds) * 1000;
+        if (cfg.durationMode === 'fixtime') return Math.max(0.5, cfg.durationSeconds) * 1000; // SỬA (phản hồi Giang — min fixtime 1s -> 500ms)
         const durationSec = (record && record.duration) || 5;
         return Math.max(1000, durationSec * 1000); // sàn 1s — phòng record.duration hỏng/âm
     },
@@ -1139,27 +1139,26 @@ const workflowVisualBg = {
         await this.refreshPanelUI();
     },
 
-    /** Ứng nút "Seconds per video/photo" — MỚI (29/08/2026, dời từ "Seconds per photo" cũ của
-     * Motion (panel Settings cũ, trước khi tách hệ preset độc lập) — `openIntervalPicker()`,
-     * event/workflow/motion-engine.js, ĐÃ XOÁ). Cùng bounds picker cũ
-     * (5-60s) — field này giờ CŨNG áp cho video (`durationMode='fixtime'`), không riêng ảnh nữa. */
+    /** Ứng nút "Seconds per video/photo" — field này CŨNG áp cho video (`durationMode='fixtime'`),
+     * không riêng ảnh nữa. SỬA (phản hồi Giang — hạ min 1s xuống 500ms) — format đổi 's' -> 's-ms'
+     * (giống Transition Duration picker) để chọn được granularity dưới giây (x100ms). */
     openDurationSecondsPicker() {
         if (genericDrawerPanel.classList.contains('hidden')) return;
         const cfg = appConfigVisualBg.getAll();
         openTimePickerModal({ // core/time-picker-modal.js
             title: t('visualBgSettingsDrawer.durationSeconds.pickerTitle'),
-            format: 's',
+            format: 's-ms',
             valueMs: cfg.durationSeconds * 1000,
-            minMs: 5000,
+            minMs: 500,
             maxMs: 60000,
             onConfirm: async (resultMs) => {
-                const v = Math.max(5, Math.round(resultMs / 1000));
+                const v = Math.max(0.5, Math.round(resultMs / 100) / 10); // làm tròn x100ms (1 chữ số thập phân, khớp granularity picker format 's-ms')
                 appConfigVisualBg.mutateAll((c) => { c.durationSeconds = v; });
                 console.log(`writer: "workflowVisualBg.openDurationSecondsPicker", page: "visualBgConfig", content: "durationSeconds=${v}"`);
                 await this._persist();
                 if (genericDrawerPanel.classList.contains('hidden')) return;
                 const btn = visualBgSettingsPanelEl.querySelector('#setting-visual-bg-duration-seconds');
-                if (btn) btn.textContent = `${v}s`;
+                if (btn) btn.textContent = `${v.toFixed(1)}s`;
             },
         });
     },
@@ -1715,7 +1714,7 @@ const workflowVisualBg = {
         if (durationModeRow) durationModeRow.classList.toggle('hidden', !isSlideshowCycling);
         if (durationSecondsRow) durationSecondsRow.classList.toggle('hidden', !(isSlideshowCycling && cfg.durationMode === 'fixtime'));
         if (durationSecondsLabel) durationSecondsLabel.textContent = t(cfg.type === 'video' ? 'visualBgSettingsDrawer.durationSeconds.labelVideo' : 'visualBgSettingsDrawer.durationSeconds.labelPhoto');
-        if (durationSecondsBtn) durationSecondsBtn.textContent = `${cfg.durationSeconds}s`;
+        if (durationSecondsBtn) durationSecondsBtn.textContent = `${cfg.durationSeconds.toFixed(1)}s`;
 
         // MỚI (08/08/2026) — hàng mở panel "Âm thanh Video": hiện khi type='video' VÀ còn ≥1 item
         // sống (Giang chốt — áp dụng CẢ single lẫn list, khác `slideshowRow` chỉ dành cho list ảnh).

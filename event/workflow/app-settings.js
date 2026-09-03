@@ -345,14 +345,20 @@ const workflowAppSettings = {
                 workflowMotionPresets._updateTransitionRatioLabel(preset.transitionDurationMs, preset.transitionInOutRatio); // event/workflow/motion-presets.js
                 const easingSelect = body.querySelector('#setting-motion-transition-easing');
                 if (easingSelect) easingSelect.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.transitionEasing.change', payload: { value: e.target.value } }));
-                const kenBurnsToggle = body.querySelector('#setting-motion-kenburns');
-                if (kenBurnsToggle) kenBurnsToggle.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.kenBurnsEnabled.change', payload: { checked: e.target.checked } }));
-                const kenBurnsMode = body.querySelector('#setting-motion-kenburns-mode');
-                if (kenBurnsMode) kenBurnsMode.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.kenBurnsMode.change', payload: { value: e.target.value } }));
 
-                // MỚI (29/08/2026) — "React Beat Audio" — mọi control (checkbox/slider/select) gửi
-                // CÙNG 1 msg.type, chỉ khác payload {effectKey, fieldKey, value} — GENERIC, khớp
-                // đúng `workflowMotionPresets.changeBeatReactField()` (1 hàm xử lý mọi field).
+                // Point Move (thay Ken Burns) — nav "danh sách"/"Timing" + 2 select (chế độ chạy/thứ tự).
+                const pointMoveListBtn = body.querySelector('#btn-motion-pointmove-list');
+                if (pointMoveListBtn) pointMoveListBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.openList.click', payload: {} }));
+                const pointMoveRunMode = body.querySelector('#setting-motion-pointmove-runmode');
+                if (pointMoveRunMode) pointMoveRunMode.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.runMode.change', payload: { value: e.target.value } }));
+                const pointMoveOrder = body.querySelector('#setting-motion-pointmove-order');
+                if (pointMoveOrder) pointMoveOrder.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.oneOrder.change', payload: { value: e.target.value } }));
+                const pointMoveTimingBtn = body.querySelector('#btn-motion-pointmove-timing');
+                if (pointMoveTimingBtn) pointMoveTimingBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.openTiming.click', payload: {} }));
+
+                // "React Beat Audio" — mọi control (checkbox/slider/select) gửi CÙNG 1 msg.type, chỉ
+                // khác payload {effectKey, fieldKey, value} — GENERIC, khớp đúng
+                // `workflowMotionPresets.changeBeatReactField()` (1 hàm xử lý mọi field).
                 const sendBeatReact = (effectKey, fieldKey, value) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.beatReact.field.change', payload: { effectKey, fieldKey, value } });
                 const wireBeatReactCheckbox = (id, effectKey, fieldKey) => {
                     const el = body.querySelector(`#${id}`);
@@ -367,7 +373,6 @@ const workflowAppSettings = {
                     if (el) el.addEventListener('change', (e) => sendBeatReact(effectKey, fieldKey, e.target.value));
                 };
                 wireBeatReactCheckbox('setting-motion-beatreact-enabled', null, 'enabled');
-                wireBeatReactCheckbox('setting-motion-beatreact-replace', null, 'replaceMovement');
                 ['zoom', 'pan', 'rotate'].forEach((key) => {
                     wireBeatReactCheckbox(`setting-motion-beatreact-${key}-enabled`, key, 'enabled');
                     wireBeatReactRange(`setting-motion-beatreact-${key}-max`, key, key === 'rotate' ? 'maxDeg' : 'maxPct');
@@ -381,6 +386,104 @@ const workflowAppSettings = {
                 if (resetBtn) resetBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.reset.click', payload: {} }));
                 const deleteBtn = body.querySelector('#btn-motion-edit-delete'); // SỬA (29/08/2026) — cùng lý do resetBtn ngay trên
                 if (deleteBtn) deleteBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.delete.click', payload: {} }));
+            },
+        );
+    },
+
+    /** Danh sách point move của preset đang sửa — checkbox | tên | xoá | sửa. */
+    _renderPointMoveList() {
+        this._currentRenderFn = () => this._renderPointMoveList();
+        const preset = findMotionPresetById(appState.get('motionPresets'), workflowMotionPresets._editingId); // core/motion-presets.js
+        if (!preset) { this.back(); return; }
+        this._render(
+            t('motionSettingsDrawer.pointMove.list.label'),
+            renderPointMoveListBody(preset.pointMoves), // components/motion-settings-drawer.js
+            (body) => {
+                body.querySelectorAll('[data-ptmove-checkbox]').forEach((el) => {
+                    el.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.toggleChecked.change', payload: { id: el.dataset.ptmoveCheckbox, checked: e.target.checked } }));
+                });
+                body.querySelectorAll('[data-ptmove-delete]').forEach((el) => {
+                    el.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.delete.click', payload: { id: el.dataset.ptmoveDelete } }));
+                });
+                body.querySelectorAll('[data-ptmove-edit]').forEach((el) => {
+                    el.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.openEdit.click', payload: { id: el.dataset.ptmoveEdit } }));
+                });
+                const addBtn = body.querySelector('#btn-ptmove-add');
+                if (addBtn) addBtn.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.add.click', payload: {} }));
+            },
+        );
+    },
+
+    /** Sửa 1 point move (`workflowMotionPresets._editingPointMoveId`) — 6 nhóm thông số, mỗi nhóm
+     * DÙNG CHUNG 1 bộ wiring (`wirePointMoveField()`) vì hình dạng UI giống hệt nhau. */
+    _renderPointMoveEdit() {
+        this._currentRenderFn = () => this._renderPointMoveEdit();
+        const preset = findMotionPresetById(appState.get('motionPresets'), workflowMotionPresets._editingId); // core/motion-presets.js
+        const pointMove = preset ? findPointMoveById(preset.pointMoves, workflowMotionPresets._editingPointMoveId) : null; // core/motion-presets.js
+        if (!pointMove) { this.back(); return; }
+        this._render(
+            t('motionSettingsDrawer.pointMove.edit.title'),
+            renderPointMoveEditBody(pointMove), // components/motion-settings-drawer.js
+            (body) => {
+                const wirePointMoveField = (fieldKey, hasUnit) => {
+                    if (hasUnit) {
+                        body.querySelectorAll(`[data-ptmove-unit="${fieldKey}"]`).forEach((el) => {
+                            el.addEventListener('click', () => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.unit.change', payload: { fieldKey, unit: el.dataset.value } }));
+                        });
+                    }
+                    const modeSelect = body.querySelector(`[data-ptmove-mode="${fieldKey}"]`);
+                    if (modeSelect) modeSelect.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldMode.change', payload: { fieldKey, mode: e.target.value } }));
+                    const singleInput = body.querySelector(`#setting-ptmove-${fieldKey}-single`);
+                    if (singleInput) {
+                        singleInput.addEventListener('input', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldSingle.preview', payload: { fieldKey, value: Number(e.target.value) } }));
+                        singleInput.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldSingle.change', payload: { fieldKey, value: Number(e.target.value) } }));
+                    }
+                    const rangeMinInput = body.querySelector(`#setting-ptmove-${fieldKey}-rangemin`);
+                    const rangeMaxInput = body.querySelector(`#setting-ptmove-${fieldKey}-rangemax`);
+                    const fillEl = body.querySelector(`#ptmove-${fieldKey}-range-fill`);
+                    const labelEl = body.querySelector(`#ptmove-${fieldKey}-value-label`);
+                    const previewRangeFill = () => { // cập nhật dải tô màu + nhãn NGAY lúc kéo — thuần DOM cục bộ, KHÔNG qua eventBus (không phải state, không cần persist)
+                        if (!rangeMinInput || !rangeMaxInput) return;
+                        if (fillEl) {
+                            const lo = Number(rangeMinInput.min), hi = Number(rangeMinInput.max);
+                            const leftPct = ((Number(rangeMinInput.value) - lo) / (hi - lo)) * 100;
+                            const rightPct = ((Number(rangeMaxInput.value) - lo) / (hi - lo)) * 100;
+                            fillEl.style.left = `${leftPct}%`;
+                            fillEl.style.width = `${Math.max(0, rightPct - leftPct)}%`;
+                        }
+                        if (labelEl) labelEl.textContent = `${rangeMinInput.value}${rangeMinInput.dataset.suffix || ''} ~ ${rangeMaxInput.value}${rangeMaxInput.dataset.suffix || ''}`;
+                    };
+                    if (rangeMinInput) {
+                        rangeMinInput.addEventListener('input', previewRangeFill);
+                        rangeMinInput.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldRange.change', payload: { fieldKey, which: 'min', value: Number(e.target.value) } }));
+                    }
+                    if (rangeMaxInput) {
+                        rangeMaxInput.addEventListener('input', previewRangeFill);
+                        rangeMaxInput.addEventListener('change', (e) => eventBus.send({ router: 'motionPresets', type: 'motionPresets.pointMove.fieldRange.change', payload: { fieldKey, which: 'max', value: Number(e.target.value) } }));
+                    }
+                    workflowMotionPresets._updatePointMoveFieldLabel(fieldKey); // event/workflow/motion-presets.js — set dải tô màu dual-range lúc mở màn
+                };
+                wirePointMoveField('linearX', true);
+                wirePointMoveField('linearY', true);
+                wirePointMoveField('rotate', false);
+                wirePointMoveField('zoom', false);
+                wirePointMoveField('flipX', false);
+                wirePointMoveField('flipY', false);
+            },
+        );
+    },
+
+    /** Đường cong Timing (chỉ dùng khi `pointMoveRunMode==='all'`) — SVG THẬT dựng bởi
+     * `workflowMotionPresets._renderTimingCurve()` (gọi core-ui, xem core/point-move-timing-ui.js). */
+    _renderPointMoveTiming() {
+        this._currentRenderFn = () => this._renderPointMoveTiming();
+        const preset = findMotionPresetById(appState.get('motionPresets'), workflowMotionPresets._editingId); // core/motion-presets.js
+        if (!preset) { this.back(); return; }
+        this._render(
+            t('motionSettingsDrawer.pointMove.timing.label'),
+            renderPointMoveTimingBody(), // components/motion-settings-drawer.js
+            (body) => {
+                workflowMotionPresets._renderTimingCurve(body.querySelector('#ptmove-timing-container')); // event/workflow/motion-presets.js
             },
         );
     },
