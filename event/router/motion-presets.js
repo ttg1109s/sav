@@ -107,8 +107,8 @@ const routerMotionPresets = (() => {
                 workflowMotionPresets.duplicatePointMove(msg.payload.id);
                 break;
 
-            case 'motionPresets.pointMove.swapTimingX.change':
-                workflowMotionPresets.swapPointMoveTimingX(msg.payload.idA, msg.payload.idB);
+            case 'motionPresets.pointMove.swapOrder.change':
+                workflowMotionPresets.swapPointMoveOrder(msg.payload.idA, msg.payload.idB);
                 break;
 
             case 'motionPresets.pointMove.delete.click':
